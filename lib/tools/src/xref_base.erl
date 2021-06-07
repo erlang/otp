@@ -401,8 +401,8 @@ analysis(locals_not_used, functions) ->
     %% But then we only get locals that make some calls, so we add
     %% locals that are not used at all: "L * (UU + XU - LU)".
     %% We also need to exclude functions with the -on_load() attribute:
-    %% (L - OL) is used rather than just L.
-    "(L - OL) * ((UU + XU - LU) + domain EE + range EE)";
+    %% (L - (OL + range (closure LC | OL))) is used rather than just L.
+    "(L - (OL + range (closure LC | OL))) * ((UU + XU - LU) + domain EE + range EE)";
 analysis(exports_not_used, _) ->
     %% Local calls are not considered here. "X * UU" would do otherwise.
     "X - XU";
@@ -897,15 +897,20 @@ depr_fa(_F, _A, _X, _M, _I) ->
     undefined.
 
 %% deprecated_flag(Flag) -> integer() | undefined
-%% Maps symbolic flags for deprecated functions to integers.
+%%   Maps symbolic flags for deprecated functions to their category indexes
+%%   in the deprecation tuple.
+%%
+%%   {DF_1, DF_2, DF_3, DF}
 
-%deprecated_flag(1) -> 1;
-%deprecated_flag(2) -> 2;
-%deprecated_flag(3) -> 3;
 deprecated_flag(next_version) -> 1;
 deprecated_flag(next_major_release) -> 2;
 deprecated_flag(eventually) -> 3;
-deprecated_flag(_) -> undefined.
+deprecated_flag(String) -> depr_desc(String).
+
+%% Strings fall into the general category, index 4.
+depr_desc([Char | Str]) when is_integer(Char) -> depr_desc(Str);
+depr_desc([]) -> 4;
+depr_desc(_) -> undefined.
 
 %% -> {ok, Module, Bad, State} | throw(Error)
 %% Assumes:

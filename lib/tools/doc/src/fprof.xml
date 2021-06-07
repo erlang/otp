@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2018</year>
+      <year>2001</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -96,47 +96,39 @@
       </p>
     <p><c>fprof</c> can also skip the file step and trace to a tracer
       process that does the profiling in runtime.
-            <marker id="start"></marker>
 </p>
   </description>
   <funcs>
     <func>
-      <name since="">start() -> {ok, Pid} | {error, {already_started, Pid}}</name>
+      <name name="start" arity="0" since=""></name>
       <fsummary>Starts the <c>fprof</c>&nbsp;server.</fsummary>
-      <type>
-        <v>Pid = pid()</v>
-      </type>
       <desc>
         <p>Starts the <c>fprof</c>&nbsp;server. 
           </p>
         <p>Note that it seldom
           needs to be started explicitly since it is automatically
           started by the functions that need a running server.
-                    <marker id="stop"></marker>
-</p>
+          </p>
       </desc>
     </func>
     <func>
-      <name since="">stop() -> ok</name>
+      <name name="stop" arity="0" since=""></name>
       <fsummary>Same as <c>stop(normal)</c>.</fsummary>
       <desc>
         <p>Same as <c>stop(normal)</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">stop(Reason) -> ok</name>
+      <name name="stop" arity="1" since=""></name>
       <fsummary>Stops the <c>fprof</c>&nbsp;server.</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Stops the <c>fprof</c>&nbsp;server.
           </p>
-        <p>The supplied <c>Reason</c> becomes the exit reason for the
+        <p>The supplied <c><anno>Reason</anno></c> becomes the exit reason for the
           server process. Default Any
-          <c>Reason</c> other than <c>kill</c> sends a request to the
+          <c><anno>Reason</anno></c> other than <c>kill</c> sends a request to the
           server and waits for it to clean up, reply and exit. If
-          <c>Reason</c> is <c>kill</c>, the server is bluntly killed.
+          <c><anno>Reason</anno></c> is <c>kill</c>, the server is bluntly killed.
           </p>
         <p>If the <c>fprof</c>&nbsp;server is not running, this
           function returns immediately with the same return value.
@@ -145,63 +137,52 @@
           <p>When the <c>fprof</c>&nbsp;server is stopped the
             collected raw profile data is lost.</p>
         </note>
-        <marker id="apply"></marker>
       </desc>
     </func>
     <func>
-      <name since="">apply(Func, Args) -> term()</name>
-      <fsummary>Same as <c>apply(Func, Args, [])</c>.</fsummary>
-      <type>
-        <v>Func = function() | {Module, Function}</v>
-        <v>Args = [term()]</v>
-        <v>Module = atom()</v>
-        <v>Function = atom()</v>
-      </type>
+      <name name="apply" arity="2" since=""></name>
+      <fsummary>Same as <c>apply(<anno>Func</anno>, <anno>Args</anno>, [])</c>.
+      </fsummary>
       <desc>
-        <p>Same as <c>apply(Func, Args, [])</c>.</p>
+        <p>Same as <c>apply(<anno>Func</anno>, <anno>Args</anno>, [])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">apply(Module, Function, Args) -> term()</name>
-      <fsummary>Same as <c>apply({Module, Function}, Args, [])</c>.</fsummary>
-      <type>
-        <v>Args = [term()]</v>
-        <v>Module = atom()</v>
-        <v>Function = atom()</v>
-      </type>
+      <name name="apply" arity="3" clause_i="1" since=""></name>
+      <fsummary>Same as <c>apply({<anno>Module</anno>, <anno>Function</anno>},
+         <anno>Args</anno>, [])</c>.</fsummary>
       <desc>
-        <p>Same as <c>apply({Module, Function}, Args, [])</c>.</p>
+        <p>Same as <c>apply({<anno>Module</anno>, <anno>Function</anno>},
+          <anno>Args</anno>, [])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">apply(Func, Args, OptionList) -> term()</name>
-      <fsummary>Calls <c>erlang:apply(Func, Args)</c>surrounded by<c>trace([start | OptionList])</c>and<c>trace(stop)</c>.</fsummary>
-      <type>
-        <v>Func = function() | {Module, Function}</v>
-        <v>Args = [term()]</v>
-        <v>OptionList = [Option]</v>
-        <v>Module = atom()</v>
-        <v>Function = atom()</v>
-        <v>Option = continue | start | {procs, PidList} | TraceStartOption</v>
-      </type>
+      <name name="apply" arity="3" clause_i="2" since=""></name>
+      <fsummary>Calls <c>erlang:apply(<anno>Func</anno>, <anno>Args</anno>)</c>
+        surrounded by <c>trace([start | <anno>OptionList</anno>])</c>
+        and <c>trace(stop)</c>.</fsummary>
+      <type name="apply_option"/>
+      <type name="trace_option"/>
+      <type name="pid_spec"/>   
       <desc>
-        <p>Calls <c>erlang:apply(Func, Args)</c> surrounded by
-          <c>trace([start, ...])</c> and
-          <c>trace(stop)</c>.
+        <p>Calls <c>erlang:apply(<anno>Func</anno>, <anno>Args</anno>)</c>
+          surrounded by <c>trace([start, ...])</c> and <c>trace(stop)</c>.
           </p>
         <p>Some effort is made to keep the trace clean from unnecessary
           trace messages; tracing is started and stopped from a spawned
-          process while the <c>erlang:apply/2</c> call is made in the
+          process while the
+          <seemfa marker="erts:erlang#apply/2"><c>erlang:apply/2</c></seemfa>
+          call is made in the
           current process, only surrounded by <c>receive</c> and
           <c>send</c> statements towards the trace starting
           process. The trace starting process exits when not needed
           any more.
           </p>
-        <p>The <c>TraceStartOption</c> is any option allowed for 
-          <c>trace/1</c>. The options 
-          <c>[start, {procs, [self() | PidList]} | OptList]</c> 
+        <p>The <c><anno>TraceStartOption</anno></c> is any option allowed for 
+          <seemfa marker="#trace/1"><c>trace/1</c></seemfa>. The options 
+          <c>[start, {procs, [self() | <anno>PidList</anno>]} | OptList]</c> 
           are given to <c>trace/1</c>, where <c>OptList</c> is 
-          <c>OptionList</c> with <c>continue</c>, <c>start</c> 
+          <c><anno>OptionList</anno></c> with <c>continue</c>, <c>start</c> 
           and <c>{procs, _}</c> options removed.
           </p>
         <p>The <c>continue</c> option inhibits the call to
@@ -210,107 +191,88 @@
       </desc>
     </func>
     <func>
-      <name since="">apply(Module, Function, Args, OptionList) -> term()</name>
-      <fsummary>Same as <c>apply({Module, Function}, Args, OptionList)</c>.</fsummary>
-      <type>
-        <v>Module = atom()</v>
-        <v>Function = atom()</v>
-        <v>Args = [term()]</v>
-      </type>
+      <name name="apply" arity="4" since=""></name>
+      <fsummary>Same as <c>apply({<anno>Module</anno>, <anno>Function</anno>},
+        <anno>Args</anno>, <anno>OptionList</anno>)</c>.</fsummary>
+      <type name="apply_option"/>
+      <type name="trace_option"/>
+      <type name="pid_spec"/>   
       <desc>
         <p>Same as 
-          <c>apply({Module, Function}, Args, OptionList)</c>.
+        <c>apply({<anno>Module</anno>, <anno>Function</anno>},
+        <anno>Args</anno>, <anno>OptionList</anno>)</c>.
           </p>
-        <p><c>OptionList</c> is an option list allowed for 
-          <c>apply/3</c>.
-                    <marker id="trace"></marker>
-</p>
+        <p><c><anno>OptionList</anno></c> is an option list allowed for 
+          <seemfa marker="#apply/3"><c>apply/3</c></seemfa>.
+          </p>
       </desc>
     </func>
     <func>
-      <name since="">trace(start, Filename) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
-      <fsummary>Same as <c>trace([start, {file, Filename}])</c>.</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
+      <name name="trace" arity="2" clause_i="1" since=""></name>
+      <fsummary>Same as <c>trace([start, {file, <anno>Filename</anno>}])</c>.
+      </fsummary>
       <desc>
-        <p>Same as <c>trace([start, {file, Filename}])</c>.</p>
+        <p>Same as <c>trace([start, {file, <anno>Filename</anno>}])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">trace(verbose, Filename) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
-      <fsummary>Same as <c>trace([start, verbose, {file, Filename}])</c>.</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
+      <name name="trace" arity="2" clause_i="2" since=""></name>
+      <fsummary>Same as <c>trace([start, verbose,
+        {file, <anno>Filename</anno>}])</c>.</fsummary>
       <desc>
         <p>Same as 
-          <c>trace([start, verbose, {file, Filename}])</c>.</p>
+          <c>trace([start, verbose, {file, <anno>Filename</anno>}])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">trace(OptionName, OptionValue) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
-      <fsummary>Same as <c>trace([{OptionName, OptionValue}])</c>.</fsummary>
-      <type>
-        <v>OptionName = atom()</v>
-        <v>OptionValue = term()</v>
-        <v>Reason = term()</v>
-      </type>
+      <name name="trace" arity="2" clause_i="3" since=""></name>
+      <fsummary>Same as <c>trace([{<anno>OptionName</anno>,
+        <anno>OptionValue</anno>}])</c>.</fsummary>
       <desc>
         <p>Same as 
-          <c>trace([{OptionName, OptionValue}])</c>.</p>
+          <c>trace([{<anno>OptionName</anno>, <anno>OptionValue</anno>}])</c>.
+          </p>
       </desc>
     </func>
     <func>
-      <name since="">trace(verbose) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name name="trace" arity="1" clause_i="1" since=""></name>
       <fsummary>Same as <c>trace([start, verbose])</c>.</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Same as <c>trace([start, verbose])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">trace(OptionName) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
-      <fsummary>Same as <c>trace([OptionName])</c>.</fsummary>
-      <type>
-        <v>OptionName = atom()</v>
-        <v>Reason = term()</v>
-      </type>
+      <name name="trace" arity="1" clause_i="2" since=""></name>
+      <fsummary>Same as <c>trace([<anno>OptionName</anno>])</c>.</fsummary>
       <desc>
-        <p>Same as <c>trace([OptionName])</c>.</p>
+        <p>Same as <c>trace([<anno>OptionName</anno>])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">trace({OptionName, OptionValue}) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
-      <fsummary>Same as <c>trace([{OptionName, OptionValue}])</c>.</fsummary>
-      <type>
-        <v>OptionName = atom()</v>
-        <v>OptionValue = term()</v>
-        <v>Reason = term()</v>
-      </type>
+      <name name="trace" arity="1" clause_i="3" since=""></name>
+      <fsummary>Same as <c>trace([{<anno>OptionName</anno>,
+        <anno>OptionValue</anno>}])</c>.</fsummary>
       <desc>
         <p>Same as 
-          <c>trace([{OptionName, OptionValue}])</c>.</p>
+          <c>trace([{<anno>OptionName</anno>, <anno>OptionValue</anno>}])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">trace([Option]) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name name="trace" arity="1" clause_i="4" since=""></name>
       <fsummary>Starts or stops tracing.</fsummary>
-      <type>
-        <v>Option = start | stop | {procs, PidSpec} | {procs, [PidSpec]} | verbose | {verbose, bool()} |  file | {file, Filename} | {tracer, Tracer}</v>
-        <v>PidSpec = pid() | atom()</v>
-        <v>Tracer = pid() | port()</v>
-        <v>Reason = term()</v>
-      </type>
+      <type name="trace_option"/>
+      <type name="pid_spec"/>   
       <desc>
         <p>Starts or stops tracing.
           </p>
-        <p><c>PidSpec</c> and <c>Tracer</c> are used in calls to
-          <c>erlang:trace(PidSpec, true, [{tracer, Tracer} | Flags])</c>, and <c>Filename</c> is used to call 
-          <c>dbg:trace_port(file, Filename)</c>. Please see the
-          appropriate documentation.</p>
+        <p><c><anno>PidSpec</anno></c> and <c><anno>Tracer</anno></c>
+          are used in calls to
+          <c>erlang:trace(PidSpec, true, [{tracer, Tracer} | Flags])</c>,
+          and <c>Filename</c> is used to call 
+          <c>dbg:trace_port(file, Filename)</c>. Please see
+          <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa>
+          and
+          <seemfa marker="runtime_tools:dbg#trace_port/2"><c>dbg:trace_port/2</c></seemfa>.</p>
         <p>Option description:</p>
         <taglist>
           <tag><c>stop</c></tag>
@@ -321,13 +283,13 @@
           <item>Clears all tracing from the node and starts a new
           <c>fprof</c> trace. Either option <c>start</c> or
           <c>stop</c> must be specified, but not both.</item>
-          <tag><c>verbose</c>| <c>{verbose, bool()}</c></tag>
+          <tag><c>verbose</c> | <c>{verbose, boolean()}</c></tag>
           <item>The options <c>verbose</c> or <c>{verbose, true}</c>
            adds some trace flags that <c>fprof</c> does not need, but
            that may be interesting for general debugging
            purposes. This option is only
            allowed with the <c>start</c> option.</item>
-          <tag><c>cpu_time</c>| <c>{cpu_time, bool()}</c></tag>
+          <tag><c>cpu_time</c> | <c>{cpu_time, boolean()}</c></tag>
           <item>The options <c>cpu_time</c> or <c>{cpu_time, true}</c>
            makes the timestamps in the trace be in CPU time instead
            of wallclock time which is the default. This option is
@@ -338,95 +300,77 @@
            i.e. <c>erl +S 1 +sbt db</c>.</p>
            </warning>
           </item>
-          <tag><c>{procs, PidSpec}</c>| <c>{procs, [PidSpec]}</c></tag>
+          <tag><c>{procs, <anno>PidSpec</anno>}</c> |
+           <c>{procs, [<anno>PidSpec</anno>]}</c></tag>
           <item>Specifies which processes that shall be traced. If
            this option is not given, the calling process is
            traced. All processes spawned by the traced processes are
            also traced.
            This option is only allowed with the <c>start</c> option.</item>
-          <tag><c>file</c>| <c>{file, Filename}</c></tag>
+          <tag><c>file</c> | <c>{file, <anno>Filename</anno>}</c></tag>
           <item>Specifies the filename of the trace. 
            If the option <c>file</c> is given, or none of these
            options are given, the file <c>"fprof.trace"</c> is used.
            This option is only allowed with the <c>start</c> option,
-           but not with the <c>{tracer, Tracer}</c> option.</item>
-          <tag><c>{tracer, Tracer}</c></tag>
+           but not with the <c>{tracer, <anno>Tracer</anno>}</c> option.</item>
+          <tag><c>{tracer, <anno>Tracer</anno>}</c></tag>
           <item>Specifies that trace to process or port shall be done
            instead of trace to file.
            This option is only allowed with the <c>start</c> option,
-           but not with the <c>{file, Filename}</c> option.</item>
+           but not with the <c>{file, <anno>Filename</anno>}</c> option.</item>
         </taglist>
-        <marker id="profile"></marker>
       </desc>
     </func>
     <func>
-      <name since="">profile() -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name name="profile" arity="0" since=""></name>
       <fsummary>Same as <c>profile([])</c>.</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Same as <c>profile([])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">profile(OptionName, OptionValue) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
-      <fsummary>Same as <c>profile([{OptionName, OptionValue}])</c>.</fsummary>
-      <type>
-        <v>OptionName = atom()</v>
-        <v>OptionValue = term()</v>
-        <v>Reason = term()</v>
-      </type>
+      <name name="profile" arity="2" since=""></name>
+      <fsummary>Same as <c>profile([{<anno>OptionName</anno>,
+        <anno>OptionValue</anno>}])</c>.</fsummary>
       <desc>
         <p>Same as 
-          <c>profile([{OptionName, OptionValue}])</c>.</p>
+          <c>profile([{<anno>OptionName</anno>, <anno>OptionValue</anno>}])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">profile(OptionName) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
-      <fsummary>Same as <c>profile([OptionName])</c>.</fsummary>
-      <type>
-        <v>OptionName = atom()</v>
-        <v>Reason = term()</v>
-      </type>
+      <name name="profile" arity="1" clause_i="1" since=""></name>
+      <fsummary>Same as <c>profile([<anno>OptionName</anno>])</c>.</fsummary>
       <desc>
-        <p>Same as <c>profile([OptionName])</c>.</p>
+        <p>Same as <c>profile([<anno>OptionName</anno>])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">profile({OptionName, OptionValue}) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
-      <fsummary>Same as <c>profile([{OptionName, OptionValue}])</c>.</fsummary>
-      <type>
-        <v>OptionName = atom()</v>
-        <v>OptionValue = term()</v>
-        <v>Reason = term()</v>
-      </type>
+      <name name="profile" arity="1" clause_i="2" since=""></name>
+      <fsummary>Same as <c>profile([{<anno>OptionName</anno>,
+        <anno>OptionValue</anno>}])</c>.</fsummary>
       <desc>
         <p>Same as 
-          <c>profile([{OptionName, OptionValue}])</c>.</p>
+          <c>profile([{<anno>OptionName</anno>, <anno>OptionValue</anno>}])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">profile([Option]) -> ok | {ok, Tracer} | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name name="profile" arity="1" clause_i="3" since=""></name>
       <fsummary>Compiles a trace into raw profile data held by the <c>fprof</c>&nbsp;server.</fsummary>
-      <type>
-        <v>Option = file | {file, Filename} | dump | {dump, Dump} |  append | start | stop</v>
-        <v>Dump = pid() | Dumpfile | []</v>
-        <v>Tracer = pid()</v>
-        <v>Reason = term()</v>
-      </type>
+      <type name="profile_option"/>
       <desc>
         <p>Compiles a trace into raw profile data held by the 
           <c>fprof</c>&nbsp;server.
           </p>
-        <p><c>Dumpfile</c> is used to call <c>file:open/2</c>, 
-          and <c>Filename</c> is used to call 
-          <c>dbg:trace_port(file, Filename)</c>. Please see the
-          appropriate documentation.</p>
+        <p><c><anno>Dumpfile</anno></c> is used to call <c>file:open/2</c>, 
+          and <c><anno>Filename</anno></c> is used to call 
+          <c>dbg:trace_port(file, <anno>Filename</anno>)</c>. Please see
+          <seemfa marker="kernel:file#open/2"><c>file:open/2</c></seemfa>
+          and
+          <seemfa marker="runtime_tools:dbg#trace_port/2"><c>dbg:trace_port/2</c></seemfa>.</p>
         <p>Option description:</p>
         <taglist>
-          <tag><c>file</c>| <c>{file, Filename}</c></tag>
-          <item>Reads the file <c>Filename</c> and creates raw
+          <tag><c>file</c> | <c>{file, <anno>Filename</anno>}</c></tag>
+          <item>Reads the file <c><anno>Filename</anno></c> and creates raw
            profile data that is stored in RAM by the
           <c>fprof</c>&nbsp;server. If the option <c>file</c> is
            given, or none of these options are given, the file
@@ -435,12 +379,12 @@
            read with the return value <c>ok</c> if successful.
            This option is not allowed with the <c>start</c> or
           <c>stop</c> options.</item>
-          <tag><c>dump</c>| <c>{dump, Dump}</c></tag>
+          <tag><c>dump</c> | <c>{dump, <anno>Dump</anno>}</c></tag>
           <item>Specifies the destination for the trace text dump. If
            this option is not given, no dump is generated, if it is
           <c>dump</c> the destination will be the
            caller's group leader, otherwise the destination
-          <c>Dump</c> is either the pid of an I/O device or
+          <c><anno>Dump</anno></c> is either the pid of an I/O device or
            a filename. And, finally, if the filename is <c>[]</c> -
           <c>"fprof.dump"</c> is used instead.
            This option is not allowed with the <c>stop</c> option.</item>
@@ -448,94 +392,72 @@
           <item>Causes the trace text dump to be appended to the
            destination file.
            This option is only allowed with the  
-          <c>{dump, Dumpfile}</c> option.</item>
+          <c>{dump, <anno>Dumpfile</anno>}</c> option.</item>
           <tag><c>start</c></tag>
           <item>Starts a tracer process that profiles trace data in
            runtime. The call will return immediately with the return
-           value <c>{ok, Tracer}</c> if successful.
+           value <c>{ok, <anno>Tracer</anno>}</c> if successful.
            This option is not allowed with the <c>stop</c>,
-          <c>file</c> or  <c>{file, Filename}</c> options.</item>
+          <c>file</c> or  <c>{file, <anno>Filename</anno>}</c> options.</item>
           <tag><c>stop</c></tag>
           <item>Stops the tracer process that profiles trace data in
            runtime. The return value will be value <c>ok</c> if successful.
            This option is not allowed with the <c>start</c>,
-          <c>file</c> or <c>{file, Filename}</c> options.</item>
+          <c>file</c> or <c>{file, <anno>Filename</anno>}</c> options.</item>
         </taglist>
-        <marker id="analyse"></marker>
       </desc>
     </func>
     <func>
-      <name since="">analyse() -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name name="analyse" arity="0" since=""></name>
       <fsummary>Same as <c>analyse([])</c>.</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Same as <c>analyse([])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">analyse(OptionName, OptionValue) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
-      <fsummary>Same as <c>analyse([{OptionName, OptionValue}])</c>.</fsummary>
-      <type>
-        <v>OptionName = atom()</v>
-        <v>OptionValue = term()</v>
-        <v>Reason = term()</v>
-      </type>
+      <name name="analyse" arity="2" since=""></name>
+      <fsummary>Same as <c>analyse([{<anno>OptionName</anno>,
+        <anno>OptionValue</anno>}])</c>.</fsummary>
       <desc>
         <p>Same as 
-          <c>analyse([{OptionName, OptionValue}])</c>.</p>
+          <c>analyse([{<anno>OptionName</anno>, <anno>OptionValue</anno>}])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">analyse(OptionName) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
-      <fsummary>Same as <c>analyse([OptionName])</c>.</fsummary>
-      <type>
-        <v>OptionName = atom()</v>
-        <v>Reason = term()</v>
-      </type>
+      <name name="analyse" arity="1" clause_i="1" since=""></name>
+      <fsummary>Same as <c>analyse([<anno>OptionName</anno>])</c>.</fsummary>
       <desc>
-        <p>Same as <c>analyse([OptionName])</c>.</p>
+        <p>Same as <c>analyse([<anno>OptionName</anno>])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">analyse({OptionName, OptionValue}) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
-      <fsummary>Same as <c>analyse([{OptionName, OptionValue}])</c>.</fsummary>
-      <type>
-        <v>OptionName = atom()</v>
-        <v>OptionValue = term()</v>
-        <v>Reason = term()</v>
-      </type>
+      <name name="analyse" arity="1" clause_i="2" since=""></name>
+      <fsummary>Same as <c>analyse([{<anno>OptionName</anno>,
+        <anno>OptionValue</anno>}])</c>.</fsummary>
       <desc>
         <p>Same as 
-          <c>analyse([{OptionName, OptionValue}])</c>.</p>
+          <c>analyse([{<anno>OptionName</anno>, <anno>OptionValue</anno>}])</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">analyse([Option]) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name name="analyse" arity="1" clause_i="3" since=""></name>
       <fsummary>Analyses raw profile data in the <c>fprof</c>&nbsp;server.</fsummary>
-      <type>
-        <v>Option = dest | {dest, Dest} | append | {cols, Cols} |  callers | {callers, bool()} | no_callers | {sort, SortSpec} | totals | {totals, bool()} |  details | {details, bool()} | no_details</v>
-        <v>Dest = pid() | Destfile</v>
-        <v>Cols = integer() >= 80</v>
-        <v>SortSpec = acc | own</v>
-        <v>Reason = term()</v>
-      </type>
+      <type name="analyse_option"/>
       <desc>
         <p>Analyses raw profile data in the
           <c>fprof</c>&nbsp;server. If called while there is no raw
           profile data available, <c>{error, no_profile}</c> is
           returned. 
           </p>
-        <p><c>Destfile</c> is used to call <c>file:open/2</c>. 
-          Please see the appropriate documentation.</p>
+        <p><c><anno>Destfile</anno></c> is used to call
+          <seemfa marker="kernel:file#open/2"><c>file:open/2</c></seemfa>.</p>
         <p>Option description:</p>
         <taglist>
-          <tag><c>dest</c>| <c>{dest, Dest}</c></tag>
+          <tag><c>dest</c> | <c>{dest, <anno>Dest</anno>}</c></tag>
           <item>Specifies the destination for the analysis. If
            this option is not given or it is <c>dest</c>, 
            the destination will be the caller's group leader, 
-           otherwise the destination <c>Dest</c> is either 
+           otherwise the destination <c><anno>Dest</anno></c> is either 
            the <c>pid()</c> of an I/O device or a filename. 
            And, finally, if the filename is <c>[]</c> -
           <c>"fprof.analysis"</c> is used instead.</item>
@@ -543,32 +465,32 @@
           <item>Causes the analysis to be appended to the
            destination file.
            This option is only allowed with the  
-          <c>{dest, Destfile}</c> option.</item>
-          <tag><c>{cols, Cols}</c></tag>
+          <c>{dest, <anno>Destfile</anno>}</c> option.</item>
+          <tag><c>{cols, <anno>Cols</anno>}</c></tag>
           <item>Specifies the number of columns in the analysis text.
            If this option is not given the number of columns is set
            to 80.</item>
-          <tag><c>callers</c>| <c>{callers, true}</c></tag>
+          <tag><c>callers</c> | <c>{callers, true}</c></tag>
           <item>Prints callers and called information in the
            analysis. This is the default.</item>
-          <tag><c>{callers, false}</c>| <c>no_callers</c></tag>
+          <tag><c>{callers, false}</c> | <c>no_callers</c></tag>
           <item>Suppresses the printing of callers and called
            information in the analysis.</item>
-          <tag><c>{sort, SortSpec}</c></tag>
+          <tag><c>{sort, <anno>SortSpec</anno>}</c></tag>
           <item>Specifies if the analysis should be sorted according
            to the ACC column, which is the default, or the OWN
            column. See 
-          <seealso marker="#analysis">Analysis Format</seealso> below.</item>
-          <tag><c>totals</c>| <c>{totals, true}</c></tag>
+          <seeerl marker="#analysis">Analysis Format</seeerl> below.</item>
+          <tag><c>totals</c> | <c>{totals, true}</c></tag>
           <item>Includes a section containing call statistics
            for all calls regardless of process, in the analysis.</item>
           <tag><c>{totals, false}</c></tag>
           <item>Supresses the totals section in the analysis, which is
            the default.</item>
-          <tag><c>details</c>| <c>{details, true}</c></tag>
+          <tag><c>details</c> | <c>{details, true}</c></tag>
           <item>Prints call statistics for each process in the
            analysis. This is the default.</item>
-          <tag><c>{details, false}</c>| <c>no_details</c></tag>
+          <tag><c>{details, false}</c> | <c>no_details</c></tag>
           <item>Suppresses the call statistics for each process from
            the analysis.</item>
         </taglist>
@@ -580,7 +502,7 @@
     <marker id="analysis"></marker>
     <title>Analysis format</title>
     <p>This section describes the output format of the analyse
-      command. See <seealso marker="#analyse">analyse/0</seealso>.
+      command. See <seemfa marker="#analyse/0">analyse/0</seemfa>.
       </p>
     <p>The format is parsable with the standard Erlang parsing tools
       <c>erl_scan</c> and <c>erl_parse</c>, <c>file:consult/1</c> or
@@ -598,7 +520,7 @@
 -module(foo).
 -export([create_file_slow/2]).
 
-create_file_slow(Name, N) when integer(N), N >= 0 ->
+create_file_slow(Name, N) when is_integer(N), N >= 0 ->
     {ok, FD} = 
         file:open(Name, [raw, write, delayed_write, binary]),
     if N > 256 ->
@@ -900,7 +822,7 @@ create_file_slow(FD, M, N) ->
       </p>
     <p>Sometimes a function may unexpectedly waste a lot (some 10 ms
       or more depending on host machine OS) of OWN (and ACC) time, even
-      functions that does practically nothing at all. The problem may
+      functions that do practically nothing at all. The problem may
       be that the OS has chosen to schedule out the
       Erlang runtime system process for a while, and if the OS does
       not support high resolution cpu time measurements
@@ -910,9 +832,9 @@ create_file_slow(FD, M, N) ->
 
   <section>
     <title>See Also</title>
-    <p>dbg(3), <seealso marker="eprof">eprof</seealso>(3), erlang(3), 
+    <p>dbg(3), <seeerl marker="eprof">eprof</seeerl>(3), erlang(3), 
       io(3), 
-      <seealso marker="fprof_chapter">Tools User's Guide</seealso></p>
+      <seeguide marker="fprof_chapter">Tools User's Guide</seeguide></p>
   </section>
 </erlref>
 

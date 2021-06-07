@@ -1,0 +1,4 @@
+
+  [;1m-type nl_spec() :: cr | crlf | lf | anycrlf | any.[0m
+
+  There is no documentation for nl_spec/0

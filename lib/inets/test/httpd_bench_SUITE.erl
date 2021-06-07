@@ -37,7 +37,8 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 suite() -> 
-    [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
+    [{timetrap, {minutes, 1}},
+     {ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 all() -> 
     [
@@ -86,7 +87,8 @@ init_per_suite(Config) ->
 	{Node, Host} = setup(Config, node()),
 	init_ssl(Config),
 	[{iter, 10}, {server_node, Node}, {server_host, Host} | Config]
-    catch _:_ ->
+    catch E:R:ST ->
+            ct:pal("~p:~p:~p",[E,R,ST]),
 	    {skipped, "Benchmark machines only"}
     end.
 
@@ -278,9 +280,9 @@ cert_opts(Config) ->
 			     "server", "key.pem"]),
     ClientKeyFile = filename:join([?config(priv_dir, Config), 
 				   "client", "key.pem"]),
-    [{server_verification_opts, [{reuseaddr, true}, 
-				 {cacertfile, ServerCaCertFile},
-				 {ciphers, ["ECDHE-RSA-AES256-GCM-SHA384"]},
+    [{server_verification_opts, [{cacertfile, ServerCaCertFile},
+				 {ciphers, ["ECDHE-RSA-AES256-GCM-SHA384",
+                                            "TLS_AES_256_GCM_SHA384"]},
 				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
      {client_verification_opts, [
 				 %%{verify, verify_peer},
@@ -499,8 +501,8 @@ start_dummy("http"= Protocol, Config) ->
     Conf = [
 	    %%{big, filename:join(DataDir, "1M_file")},
 	    %%{small, filename:join(DataDir, "1k_file")},
-	    {big, {gen,  crypto:rand_bytes(1000000)}},
-	    {small, {gen,  crypto:rand_bytes(1000)}},
+	    {big, {gen,  crypto:strong_rand_bytes(1000000)}},
+	    {small, {gen,  crypto:strong_rand_bytes(1000)}},
 	    {http_version, HTTPVersion},
 	    {keep_alive,  ?config(keep_alive, Config)}
 	   ],
@@ -516,11 +518,11 @@ start_dummy("https" = Protocol, Config) ->
     %% DataDir= ?config(data_dir, Config),
     Host = ?config(server_host, Config),
     SSLOpts =  proplists:get_value(server_verification_opts, cert_opts(Config)),
-    Opts = [{active, true}, {nodelay, true}, {reuseaddr, true} | SSLOpts],
+    Opts = [{active, true}, {nodelay, true} | SSLOpts],
     Conf = [%%{big, filename:join(DataDir, "1M_file")},
 	    %%{small, filename:join(DataDir, "1k_file")},
-	    {big, {gen, crypto:rand_bytes(1000000)}},
-	    {small, {gen, crypto:rand_bytes(1000)}},
+	    {big, {gen, crypto:strong_rand_bytes(1000000)}},
+	    {small, {gen, crypto:strong_rand_bytes(1000)}},
 	    {http_version, HTTPVersion},
 	    {keep_alive, ?config(keep_alive, Config)}
 	   ],

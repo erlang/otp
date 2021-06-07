@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,8 +64,9 @@ end_per_testcase(_Case, Config) ->
     OrigPath = proplists:get_value(orig_path,Config),
     code:set_path(OrigPath),
     application:unset_env(stdlib, restricted_shell),
-    (catch code:purge(user_default)),
-    (catch code:delete(user_default)),
+    purge_and_delete(user_default),
+    %% used by `records' test case
+    purge_and_delete(test),
     ok.
 -endif.
 
@@ -298,8 +299,7 @@ restricted_local(Config) when is_list(Config) ->
 	comm_err(<<"begin shell:stop_restricted() end.">>),
     undefined =
 	application:get_env(stdlib, restricted_shell),
-    (catch code:purge(user_default)),
-    true = (catch code:delete(user_default)),
+    true = purge_and_delete(user_default),
     ok.
     
 
@@ -307,13 +307,13 @@ restricted_local(Config) when is_list(Config) ->
 forget(Config) when is_list(Config) ->
     %% f/0
     [ok] = scan(<<"begin f() end.">>),
-    "1: variable 'A' is unbound" =
+    "1:13: variable 'A' is unbound" =
         comm_err(<<"A = 3, f(), A.">>),
     [ok] = scan(<<"A = 3, A = f(), A.">>),
 
     %% f/1
     [ok] = scan(<<"begin f(A) end.">>),
-    "1: variable 'A' is unbound" =
+    "1:14: variable 'A' is unbound" =
         comm_err(<<"A = 3, f(A), A.">>),
     [ok] = scan(<<"A = 3, A = f(A), A.">>),
     "exception error: no function clause matching call to f/1" =
@@ -335,7 +335,7 @@ records(Config) when is_list(Config) ->
         comm_err(<<"rd({foo},{bar}).">>),
     "bad record declaration" = exit_string(<<"A = bar, rd(foo,A).">>),
     [foo] = scan(<<"begin rd(foo,{bar}) end.">>),
-    "1: record foo undefined" =
+    "1:22: record foo undefined" =
          comm_err(<<"begin rd(foo,{bar}), #foo{} end.">>),
     ['f o o'] = scan(<<"rd('f o o', {bar}).">>),
     [foo] = scan(<<"rd(foo,{bar}), rd(foo,{foo = #foo{}}).">>),
@@ -343,7 +343,7 @@ records(Config) when is_list(Config) ->
     %% rf/0,1
     [_, {attribute,_,record,{foo,_}},ok] =
          scan(<<"rf('_'). rd(foo,{bar}),rl().">>),
-    "1: record foo undefined" =
+    "1:33: record foo undefined" =
         comm_err(<<"rd(foo,{bar}), #foo{}, rf(foo), #foo{}.">>),
     [ok,{foo,undefined}] =
         scan(<<"rd(foo,{bar}), A = #foo{}, rf(foo). A.">>),
@@ -427,6 +427,30 @@ records(Config) when is_list(Config) ->
     [{error,nofile}] = scan(<<"rr(not_a_module).">>),
     [{error,invalid_filename}] = scan(<<"rr({foo}).">>),
     [[]] = scan(<<"rr(\"not_a_file\").">>),
+
+    %% load record from archive
+    true = purge_and_delete(test),
+
+    PrivDir = proplists:get_value(priv_dir, Config),
+    AppDir = filename:join(PrivDir, "test_app"),
+    ok = file:make_dir(AppDir),
+    AppEbinDir = filename:join(AppDir, "ebin"),
+    ok = file:make_dir(AppEbinDir),
+
+    ok = file:write_file(Test, Contents),
+    {ok, test} = compile:file(Test, [{outdir, AppEbinDir}]),
+
+    Ext = init:archive_extension(),
+    Archive = filename:join(PrivDir, "test_app" ++ Ext),
+    {ok, _} = zip:create(Archive, ["test_app"], [{compress, []}, {cwd, PrivDir}]),
+
+    ArchiveEbinDir = filename:join(Archive, "test_app/ebin"),
+    true = code:add_path(ArchiveEbinDir),
+    {module, test} = code:load_file(test),
+    BeamInArchive = filename:join(ArchiveEbinDir, "test.beam"),
+    BeamInArchive = code:which(test),
+
+    [[state]] = scan(<<"rr(test).">>),
 
     %% using records
     [2] = scan(<<"rd(foo,{bar}), record_info(size, foo).">>),
@@ -601,7 +625,7 @@ otp_5327(Config) when is_list(Config) ->
         comm_err(<<"<<103133:64/binary>> = <<103133:64/float>>.">>),
     "exception error: interpreted function with arity 1 called with two arguments" =
         comm_err(<<"(fun(X) -> X end)(a,b).">>),
-    {'EXIT', {{illegal_pattern,_}, _}} =
+    {'EXIT', {{badmatch,<<17:32>>}, _}} =
         (catch evaluate("<<A:a>> = <<17:32>>.", [])),
     C = <<"
          <<A:4,B:4,C:4,D:4,E:4,F:4>> = <<\"hej\">>,
@@ -614,6 +638,9 @@ otp_5327(Config) when is_list(Config) ->
     %% unbound_var would be nicer...
     {'EXIT',{{illegal_pattern,_},_}} =
         (catch evaluate(<<"<<A:B>> = <<17:32>>.">>, [])),
+    %% A badarith exception is turned into badmatch.
+    {'EXIT', {{badmatch,<<1777:32>>}, _}} =
+        (catch evaluate(<<"<<A:(1/0)>> = <<1777:32>>.">>, [])),
     %% undefined_bittype is turned into badmatch:
     {'EXIT',{{badmatch,<<17:32>>},_}} =
         (catch evaluate(<<"<<A/apa>> = <<17:32>>.">>, [])),
@@ -666,7 +693,7 @@ otp_5195(Config) when is_list(Config) ->
     %% "list expression\".\n" = 
     %%    t(<<"qlc:q([X || X <- [{a}], Y <- [X]]).">>),
     %% Same as last one (if the shell does not translate error tuples):
-    [{error,qlc,{1,qlc,{used_generator_variable,'X'}}}] =
+    [{error,qlc,{{1,31},qlc,{used_generator_variable,'X'}}}] =
         scan(<<"qlc:q([X || X <- [{a}], Y <- [X]]).">>),
     {error,qlc,{1,qlc,{used_generator_variable,'X'}}} =
         evaluate(<<"qlc:q([X || X <- [{a}], Y <- [X]]).">>, []),
@@ -2341,6 +2368,10 @@ otp_6554(Config) when is_list(Config) ->
         comm_err(<<"fun(X) -> not X end(a).">>),
     "exception error: bad argument: a" =
         comm_err(<<"fun(A, B) -> A orelse B end(a, b).">>),
+    "exception error: bad key: key" =
+        comm_err(<<"map_get(key, #{}).">>),
+    "exception error: bad map: not_a_map" =
+        comm_err(<<"map_get(key, not_a_map).">>),
     "exception error: an error occurred when evaluating an arithmetic expression" =
         comm_err(<<"math:sqrt(2)/round(math:sqrt(0)).">>),
     "exception error: interpreted function with arity 1 called with no arguments" =
@@ -2370,26 +2401,19 @@ otp_6554(Config) when is_list(Config) ->
         comm_err(<<"V = lists:seq(1, 20), case V of a -> ok end.">>),
     "exception error: no function clause matching" =
         comm_err(<<"fun(P) when is_pid(P) -> true end(a).">>),
-    case test_server:is_native(erl_eval) of
-	true ->
-	    %% Native code has different exit reason. Don't bother
-	    %% testing them.
-	    ok;
-	false ->
-	    "exception error: {function_clause," =
-		comm_err(<<"erlang:error(function_clause, "
-			  "[unproper | list]).">>),
-	    %% Cheating:
-	    "exception error: no function clause matching "
-		"shell:apply_fun(4)" ++ _ =
-		comm_err(<<"erlang:error(function_clause, [4]).">>),
-		"exception error: no function clause matching "
-		"lists:reverse(" ++ _ =
-		comm_err(<<"F=fun() -> hello end, lists:reverse(F).">>),
-		"exception error: no function clause matching "
-		"lists:reverse(34) (lists.erl, line " ++ _ =
-		comm_err(<<"lists:reverse(34).">>)
-    end,
+    "exception error: {function_clause," =
+        comm_err(<<"erlang:error(function_clause, "
+                   "[unproper | list]).">>),
+    %% Cheating:
+    "exception error: no function clause matching "
+        "shell:apply_fun(4)" ++ _ =
+        comm_err(<<"erlang:error(function_clause, [4]).">>),
+    "exception error: no function clause matching "
+        "lists:reverse(" ++ _ =
+        comm_err(<<"F=fun() -> hello end, lists:reverse(F).">>),
+    "exception error: no function clause matching "
+        "lists:reverse(34) (lists.erl, line " ++ _ =
+        comm_err(<<"lists:reverse(34).">>),
     "exception error: function_clause" =
         comm_err(<<"erlang:error(function_clause, 4).">>),
     "exception error: no function clause matching" ++ _ =
@@ -2483,7 +2507,7 @@ otp_6554(Config) when is_list(Config) ->
     application:unset_env(stdlib, shell_history_length),
     [true] = scan(<<"begin <<10:(1024*1024*10)>>,"
                           "<<10:(1024*1024*10)>>, garbage_collect() end.">>),
-    "1: syntax error before: '.'" = comm_err("1-."),
+    "1:3: syntax error before: '.'" = comm_err("1-."),
     %% comm_err(<<"exit().">>), % would hang
     "exception error: no function clause matching call to history/1" =
         comm_err(<<"history(foo).">>),
@@ -2591,7 +2615,7 @@ otp_7184(Config) when is_list(Config) ->
 otp_7232(Config) when is_list(Config) ->
     Info = <<"qlc:info(qlc:sort(qlc:q([X || X <- [55296,56296]]), "
              "{order, fun(A,B)-> A>B end})).">>,
-    "qlc:sort([55296,56296],\n"
+    "qlc:sort([55296, 56296],\n"
     "         [{order,\n"
     "           fun(A, B) ->\n"
     "                  A > B\n"
@@ -2752,7 +2776,7 @@ otp_10302(Config) when is_list(Config) ->
            h().">>,
 
     "ok.\n\"\x{400}\"\nA = \"\x{400}\".\nok.\n"
-    "1: io:setopts([{encoding,utf8}])\n-> ok.\n"
+    "1: io:setopts([{encoding, utf8}])\n-> ok.\n"
     "2: A = [1024] = \"\x{400}\"\n-> \"\x{400}\"\n"
     "3: b()\n-> ok.\nok.\n" = t({Node,Test4}),
 
@@ -2916,7 +2940,7 @@ otp_14296(Config) when is_list(Config) ->
             F = fun() -> a end,
             LocalFun = term_to_string(F),
             S = LocalFun ++ ".",
-            "1: syntax error before: Fun" = comm_err(S)
+            "1:2: syntax error before: Fun" = comm_err(S)
     end(),
 
     fun() ->
@@ -2930,7 +2954,7 @@ otp_14296(Config) when is_list(Config) ->
     fun() ->
             UnknownPid = "<100000.0.0>",
             S = UnknownPid ++ ".",
-            "1: syntax error before: '<'" = comm_err(S)
+            "1:1: syntax error before: '<'" = comm_err(S)
     end(),
 
     fun() ->
@@ -2941,7 +2965,7 @@ otp_14296(Config) when is_list(Config) ->
     end(),
 
     fun() ->
-            Port = open_port({spawn, "ls"}, [{line,1}]),
+            Port = open_port({spawn, "erl -s erlang halt"}, [{line,1}]),
             KnownPort = erlang:port_to_list(Port),
             S = KnownPort ++ ".",
             R = KnownPort ++ ".\n",
@@ -2951,13 +2975,13 @@ otp_14296(Config) when is_list(Config) ->
     fun() ->
             UnknownPort = "#Port<100000.0>",
             S = UnknownPort ++ ".",
-            "1: syntax error before: Port" = comm_err(S)
+            "1:2: syntax error before: Port" = comm_err(S)
     end(),
 
     fun() ->
             UnknownRef = "#Ref<100000.0.0.0>",
             S = UnknownRef ++ ".",
-            "1: syntax error before: Ref" = comm_err(S)
+            "1:2: syntax error before: Ref" = comm_err(S)
     end(),
 
     fun() ->
@@ -3141,25 +3165,16 @@ io_request({get_geometry,columns}, S) ->
     {ok,80,S};
 io_request({get_geometry,rows}, S) ->
     {ok,24,S};
-io_request({put_chars,Chars}, S) ->
-    {ok,ok,S#state{reply = [S#state.reply | Chars]}};
 io_request({put_chars,latin1,Chars}, S) ->
     {ok,ok,S#state{reply = [S#state.reply | Chars]}};
 io_request({put_chars,unicode,Chars0}, S) ->
     Chars = unicode:characters_to_list(Chars0),
     {ok,ok,S#state{reply = [S#state.reply | Chars]}};
-io_request({put_chars,Mod,Func,Args}, S) ->
-    case catch apply(Mod, Func, Args) of
-        Chars when is_list(Chars) -> 
-            io_request({put_chars,Chars}, S)
-    end;
 io_request({put_chars,Enc,Mod,Func,Args}, S) ->
     case catch apply(Mod, Func, Args) of
         Chars when is_list(Chars) -> 
             io_request({put_chars,Enc,Chars}, S)
     end;
-io_request({get_until,_Prompt,Mod,Func,ExtraArgs}, S) ->
-    get_until(Mod, Func, ExtraArgs, S, latin1);
 io_request({get_until,Enc,_Prompt,Mod,Func,ExtraArgs}, S) ->
     get_until(Mod, Func, ExtraArgs, S, Enc).
 
@@ -3224,3 +3239,6 @@ start_node(Name, Xargs) ->
     global:sync(),
     N.
 
+purge_and_delete(Module) ->
+    (catch code:purge(Module)),
+    (catch code:delete(Module)).

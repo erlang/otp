@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -156,7 +156,8 @@ loop(Fd, Res, Func, StartLine, File) ->
 %% io:read modified to give us line numbers.
 %%-----------------------------------------------------------------
 read(Io, Prompt, StartLine) ->
-    case io:request(Io, {get_until, Prompt, erl_scan, tokens, [StartLine]}) of
+    Enc = latin1,
+    case io:request(Io, {get_until, Enc, Prompt, erl_scan, tokens, [StartLine]}) of
 	{ok, Toks, EndLine} ->
 	    case erl_parse:parse_term(Toks) of
 		{ok, Term} ->

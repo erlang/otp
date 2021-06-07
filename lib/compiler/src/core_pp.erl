@@ -101,6 +101,8 @@ format_anno_list([H], Ctxt) ->
 
 strip_line([A | As]) when is_integer(A) ->
     strip_line(As);
+strip_line([{A,C} | As]) when is_integer(A), is_integer(C) ->
+    strip_line(As);
 strip_line([{file,_File} | As]) ->
     strip_line(As);
 strip_line([A | As]) ->
@@ -109,6 +111,8 @@ strip_line([]) ->
     [].
 
 get_line([L | _As]) when is_integer(L) ->
+    L;
+get_line([{L, _Column} | _As]) when is_integer(L) ->
     L;
 get_line([_ | As]) ->
     get_line(As);
@@ -214,7 +218,7 @@ format_1(#c_let{anno=Anno0,vars=Vs0,arg=A0,body=B}, #ctxt{clean=Clean}=Ctxt) ->
 			  {Vs0,A0,Anno0};
 		      true ->
 			  {[cerl:set_ann(V, []) || V <- Vs0],
-			   cerl:set_ann(A0, []),
+			   clean_anno_carefully(A0),
 			   []}
 		  end,
     case is_simple_term(A) andalso Anno =:= [] of
@@ -546,3 +550,13 @@ segs_from_bitstring(Bitstring) ->
 	      unit=#c_literal{val=1},
 	      type=#c_literal{val=integer},
 	      flags=#c_literal{val=[unsigned,big]}}].
+
+clean_anno_carefully(Node) ->
+    Anno = clean_anno_carefully_1(cerl:get_ann(Node)),
+    cerl:set_ann(Node, Anno).
+
+clean_anno_carefully_1([letrec_goto=Keep|Annos]) ->
+    [Keep|clean_anno_carefully_1(Annos)];
+clean_anno_carefully_1([_|Annos]) ->
+    clean_anno_carefully_1(Annos);
+clean_anno_carefully_1([]) -> [].

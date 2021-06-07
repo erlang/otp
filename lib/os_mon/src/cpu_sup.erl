@@ -29,7 +29,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+	 terminate/2]).
 
 %% Internal protocol with the port program
 -define(nprocs,"n").
@@ -68,7 +68,7 @@
 
 -type util_cpus() :: 'all' | integer() | [integer()].
 -type util_state() :: 'user' | 'nice_user' | 'kernel' | 'wait' | 'idle'.
--type util_value() :: [{util_state(), float()}] | float().
+-type util_value() :: [{util_state(), number()}] | number().
 -type util_desc() :: {util_cpus(), util_value(), util_value(), []}.
 
 %%----------------------------------------------------------------------
@@ -122,7 +122,7 @@ util(Args) when is_list (Args) ->
 util(_) ->
     erlang:error(badarg).
 
--spec util() -> float() | {'error', any()}.
+-spec util() -> number() | {'error', any()}.
 
 util() ->
     case util([]) of
@@ -198,23 +198,6 @@ handle_info(_Info, State) ->
 
 terminate(_Reason, State) ->
     exit(State#state.server, normal).
-
-%% os_mon-2.0
-%% For live downgrade to/upgrade from os_mon-1.8[.1]
-code_change(Vsn, PrevState, "1.8") ->
-    case Vsn of
-
-	%% Downgrade from this version
-	{down, _Vsn} ->
-	    process_flag(trap_exit, false);
-
-	%% Upgrade to this version
-	_Vsn ->
-	    process_flag(trap_exit, true)
-    end,
-    {ok, PrevState};
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
 
 %%----------------------------------------------------------------------
 %% internal functions 

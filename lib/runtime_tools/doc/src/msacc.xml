@@ -37,8 +37,8 @@
     <p>This module implements some convenience functions for analyzing
     microstate accounting data. For details about how to use the basic api and
     what the different states represent see
-    <seealso marker="erts:erlang#statistics_microstate_accounting"><c>
-    erlang:statistics(microstate_accounting)</c></seealso>.</p>
+    <seeerl marker="erts:erlang#statistics_microstate_accounting"><c>
+    erlang:statistics(microstate_accounting)</c></seeerl>.</p>
     <marker id="msacc_print_example"></marker>
     <p><em>Basic Scenario</em></p>
     <pre>1> <input>msacc:start(1000).</input>
@@ -64,10 +64,10 @@ Stats per type:
 ok
 </pre>
     <p>This first command enables microstate accounting for 1000 milliseconds.
-    See <seealso marker="#start-0"><c>start/0</c></seealso>,
-    <seealso marker="#stop-0"><c>stop/0</c></seealso>,
-    <seealso marker="#reset-0"><c>reset/0</c></seealso> and
-    <seealso marker="#start-1"><c>start/1</c></seealso> for more details.
+    See <seemfa marker="#start/0"><c>start/0</c></seemfa>,
+    <seemfa marker="#stop/0"><c>stop/0</c></seemfa>,
+    <seemfa marker="#reset/0"><c>reset/0</c></seemfa> and
+    <seemfa marker="#start/1"><c>start/1</c></seemfa> for more details.
     The second command prints the statistics gathered during that time.
     First three general statistics are printed.</p>
     <taglist>
@@ -113,7 +113,7 @@ ok
       <desc><p>A map containing information about a specific thread. The
       percentages in the map can be either run-time or real-time depending
       on if <c>runtime</c> or <c>realtime</c> was requested from
-      <seealso marker="#stats-2">stats/2</seealso>. <c>system</c> is the
+      <seemfa marker="#stats/2">stats/2</seemfa>. <c>system</c> is the
       percentage of total system time for this specific thread.</p></desc>
     </datatype>
     <datatype>
@@ -133,14 +133,14 @@ ok
     <datatype>
       <name name="msacc_state"/>
       <desc><p>The different states that a thread can be in. See
-      <seealso marker="erts:erlang#statistics_microstate_accounting">
-        erlang:statistics(microstate_accounting)</seealso> for details.
+      <seeerl marker="erts:erlang#statistics_microstate_accounting">
+        erlang:statistics(microstate_accounting)</seeerl> for details.
       </p></desc>
     </datatype>
     <datatype>
       <name name="msacc_print_options"/>
       <desc><p>The different options that can be given to
-      <seealso marker="#print-2"><c>print/2</c></seealso>.
+      <seemfa marker="#print/2"><c>print/2</c></seemfa>.
       </p></desc>
     </datatype>
   </datatypes>
@@ -192,9 +192,9 @@ ok
         <p>
           Prints the current microstate accounting to standard out.
           Same as
-          <seealso marker="#print-1">
+          <seemfa marker="#print/1">
             <c>msacc:print(msacc:stats(),#{}).</c>
-          </seealso>
+          </seemfa>
         </p>
       </desc>
     </func>
@@ -204,9 +204,9 @@ ok
       <desc>
         <p>Print the given microstate statistics values to stdout.
         Same as
-        <seealso marker="#print-1">
+        <seemfa marker="#print/1">
           <c>msacc:print(DataOrStats,#{}).</c>
-        </seealso>
+        </seemfa>
         </p>
       </desc>
     </func>
@@ -219,7 +219,7 @@ ok
         reference manual for a brief description of what the fields mean.</p>
         <p>It is possible to print more specific types of statistics by
         first manipulating the <c>DataOrStats</c> using
-        <seealso marker="#stats-2"><c>stats/2</c></seealso>.
+        <seemfa marker="#stats/2"><c>stats/2</c></seemfa>.
         For instance if you want to print the percentage of run-time for each
         thread you can do:</p>
         <pre><input>msacc:print(msacc:stats(runtime,msacc:stats())).</input></pre>
@@ -239,7 +239,7 @@ ok
       <desc>
         <p>Print the given microstate statistics values to the given file
         or device. The other arguments behave the same way as for
-        <seealso marker="#print-2"><c>print/2</c></seealso>.</p>
+        <seemfa marker="#print/2"><c>print/2</c></seemfa>.</p>
       </desc>
     </func>
     <func>
@@ -248,8 +248,8 @@ ok
       <desc>
         <p>Returns a runtime system independent version of the microstate
         statistics data presented by
-        <seealso marker="erts:erlang#statistics_microstate_accounting">
-        <c>erlang:statistics(microstate_accounting)</c></seealso>.
+        <seeerl marker="erts:erlang#statistics_microstate_accounting">
+        <c>erlang:statistics(microstate_accounting)</c></seeerl>.
         All counters have been normalized to be in microsecond resolution.</p>
       </desc>
     </func>
@@ -289,16 +289,16 @@ ok
       <fsummary></fsummary>
       <desc>
         <p>Dumps the current microstate statistics counters to a file that can
-        be parsed with <seealso marker="kernel:file#consult/1">
-        file:consult/1</seealso>.</p>
+        be parsed with <seemfa marker="kernel:file#consult/1">
+        file:consult/1</seemfa>.</p>
       </desc>
     </func>
     <func>
       <name name="from_file" arity="1" since="OTP 19.0"/>
       <fsummary></fsummary>
       <desc>
-        <p>Read a file dump produced by <seealso marker="#to_file/1">
-        to_file(Filename)</seealso>.</p>
+        <p>Read a file dump produced by <seemfa marker="#to_file/1">
+        to_file(Filename)</seemfa>.</p>
       </desc>
     </func>
   </funcs>

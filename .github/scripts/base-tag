@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -x
+
+case "$1" in
+    *i386-debian-base)
+        BASE="i386/debian"
+        BASE_TYPE=debian-base
+        ;;
+    *debian-base)
+        BASE="debian"
+        BASE_TYPE=debian-base
+        ;;
+    *ubuntu-base)
+        BASE="ubuntu"
+        BASE_TYPE=ubuntu-base
+        ;;
+esac
+echo "::set-output name=BASE::${BASE}"
+echo "::set-output name=BASE_TYPE::${BASE_TYPE}"

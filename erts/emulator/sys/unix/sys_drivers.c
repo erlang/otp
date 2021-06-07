@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,6 +55,7 @@
 
 #define WANT_NONBLOCKING    /* must define this to pull in defs from sys.h */
 #include "sys.h"
+#include "erl_osenv.h"
 
 #include "erl_threads.h"
 
@@ -87,7 +88,7 @@ static Eterm forker_port;
 /* Used by the fd driver iff the fd could not be set to non-blocking */
 typedef struct ErtsSysBlocking_ {
     ErlDrvPDL pdl;
-    int res;
+    ErlDrvSSizeT res;
     int err;
     unsigned int pkey;
 } ErtsSysBlocking;
@@ -112,6 +113,9 @@ typedef struct driver_data {
     int status;
     int terminating;
     ErtsSysBlocking *blocking;
+    int busy;
+    ErlDrvSizeT high_watermark;
+    ErlDrvSizeT low_watermark;
 } ErtsSysDriverData;
 
 #define DIR_SEPARATOR_CHAR    '/'
@@ -124,12 +128,6 @@ typedef struct driver_data {
 
 #if defined(DEBUG)
 #define ERL_BUILD_TYPE_MARKER ".debug"
-#elif defined(PURIFY)
-#define ERL_BUILD_TYPE_MARKER ".purify"
-#elif defined(QUANTIFY)
-#define ERL_BUILD_TYPE_MARKER ".quantify"
-#elif defined(PURECOV)
-#define ERL_BUILD_TYPE_MARKER ".purecov"
 #elif defined(VALGRIND)
 #define ERL_BUILD_TYPE_MARKER ".valgrind"
 #else /* opt */
@@ -169,7 +167,7 @@ typedef struct driver_data {
 void
 erl_sys_late_init(void)
 {
-    SysDriverOpts opts;
+    SysDriverOpts opts = {0};
     Port *port;
 
     sys_signal(SIGPIPE, SIG_IGN); /* Ignore - we'll handle the write failure */
@@ -371,7 +369,8 @@ create_driver_data(ErlDrvPort port_num,
                    int read_write,
                    int exit_status,
                    int pid,
-                   int is_blocking)
+                   int is_blocking,
+                   SysDriverOpts* opts)
 {
     Port *prt;
     ErtsSysDriverData *driver_data;
@@ -430,6 +429,10 @@ create_driver_data(ErlDrvPort port_num,
         driver_data->ofd = NULL;
     }
 
+    driver_data->busy = 0;
+    driver_data->high_watermark = opts->high_watermark;
+    driver_data->low_watermark = opts->low_watermark;
+    
     return driver_data;
 }
 
@@ -703,7 +706,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
                 if (res >= io_vector[i].iov_len)
                     res -= io_vector[i].iov_len;
                 else {
-                    driver_enq(port_num, io_vector[i].iov_base + res,
+                    driver_enq(port_num, &((char*)io_vector[i].iov_base)[res],
                                io_vector[i].iov_len - res);
                     res = 0;
                 }
@@ -719,7 +722,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
 
     dd = create_driver_data(port_num, ifd[0], ofd[1], opts->packet_bytes,
                              DO_WRITE | DO_READ, opts->exit_status,
-                             0, 0);
+                            0, 0, opts);
 
     {
         /* send ofd[0] + ifd[1] + stderrfd to forker port */
@@ -785,15 +788,15 @@ static ErlDrvSSizeT spawn_control(ErlDrvData e, unsigned int cmd, char *buf,
 
 static int fd_get_window_size(int fd, Uint32 *width, Uint32 *height)
 {
-#ifdef TIOCGWINSZ 
+#ifdef TIOCGWINSZ
     struct winsize ws;
     if (ioctl(fd,TIOCGWINSZ,&ws) == 0) {
 	*width = (Uint32) ws.ws_col;
 	*height = (Uint32) ws.ws_row;
-	return 0;
+	return 1;
     }
 #endif
-    return -1;
+    return 0;
 }
 
 static ErlDrvSSizeT fd_control(ErlDrvData drv_data,
@@ -801,16 +804,28 @@ static ErlDrvSSizeT fd_control(ErlDrvData drv_data,
 			       char *buf, ErlDrvSizeT len,
 			       char **rbuf, ErlDrvSizeT rlen)
 {
-    int fd = (int)(long)drv_data;
     char resbuff[2*sizeof(Uint32)];
-
+    ErtsSysDriverData* dd = (ErtsSysDriverData*)drv_data;
     command -= ERTS_TTYSL_DRV_CONTROL_MAGIC_NUMBER;
     switch (command) {
     case FD_CTRL_OP_GET_WINSIZE:
 	{
 	    Uint32 w,h;
-	    if (fd_get_window_size(fd,&w,&h)) 
-		return 0;
+            int success = 0;
+            if (dd->ofd != NULL) {
+                /* Try with output file descriptor */
+                int out_fd = dd->ofd->fd;
+                success = fd_get_window_size(out_fd,&w,&h);
+            }
+            if (!success && dd->ifd != NULL) {
+                /* Try with input file descriptor */
+                int in_fd = dd->ifd->fd;
+                success = fd_get_window_size(in_fd,&w,&h);
+            }
+            if (!success) {
+                return -1;
+            }
+            /* Succeeded */
 	    memcpy(resbuff,&w,sizeof(Uint32));
 	    memcpy(resbuff+sizeof(Uint32),&h,sizeof(Uint32));
 	}
@@ -987,7 +1002,7 @@ static ErlDrvData fd_start(ErlDrvPort port_num, char* name,
     return (ErlDrvData)create_driver_data(port_num, opts->ifd, opts->ofd,
                                           opts->packet_bytes,
                                           opts->read_write, 0, -1,
-                                          !non_blocking);
+                                          !non_blocking, opts);
 }
 
 static void clear_fd_data(ErtsSysFdData *fdd)
@@ -1063,7 +1078,8 @@ static ErlDrvData vanilla_start(ErlDrvPort port_num, char* name,
 
     res = (ErlDrvData)(long)create_driver_data(port_num, fd, fd,
                                                opts->packet_bytes,
-                                               opts->read_write, 0, -1, 0);
+                                               opts->read_write, 0, -1, 0,
+                                               opts);
     return res;
 }
 
@@ -1096,10 +1112,10 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
     int pb = dd->packet_bytes;
     int ofd = dd->ofd ? dd->ofd->fd : -1;
     ssize_t n;
-    ErlDrvSizeT sz;
     char lb[4];
     char* lbp;
     ErlDrvSizeT len = ev->size;
+    ErlDrvSizeT qsz;
 
     /* (len > ((unsigned long)-1 >> (4-pb)*8)) */
     /*    if (pb >= 0 && (len & (((ErlDrvSizeT)1 << (pb*8))) - 1) != len) {*/
@@ -1118,14 +1134,20 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
     if (dd->blocking)
         driver_pdl_lock(dd->blocking->pdl);
 
-    if ((sz = driver_sizeq(ix)) > 0) {
-	driver_enqv(ix, ev, 0);
-
+    qsz = driver_sizeq(ix);
+    if (qsz) {
+        if (qsz == (ErlDrvSizeT) -1) {
+            if (dd->blocking)
+                driver_pdl_unlock(dd->blocking->pdl);
+            driver_failure_posix(ix, EINVAL);
+            return;
+        }
+        driver_enqv(ix, ev, 0);
+        qsz += ev->size;
+        if (!dd->busy && qsz >= dd->high_watermark)
+            set_busy_port(ix, (dd->busy = !0));
         if (dd->blocking)
             driver_pdl_unlock(dd->blocking->pdl);
-
-	if (sz + ev->size >= (1 << 13))
-	    set_busy_port(ix, 1);
     }
     else if (!dd->blocking) {
         /* We try to write directly if the fd in non-blocking */
@@ -1142,11 +1164,17 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
 	    n = 0;
 	}
 	driver_enqv(ix, ev, n);  /* n is the skip value */
+        qsz = ev->size - n;
+        if (!dd->busy && qsz >= dd->high_watermark)
+            set_busy_port(ix, (dd->busy = !0));
 	driver_select(ix, ofd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
     }
     else {
         if (ev->size != 0) {
             driver_enqv(ix, ev, 0);
+            qsz = ev->size;
+            if (!dd->busy && qsz >= dd->high_watermark)
+                set_busy_port(ix, (dd->busy = !0));
             driver_pdl_unlock(dd->blocking->pdl);
             driver_async(ix, &dd->blocking->pkey,
                          fd_async, dd, NULL);
@@ -1154,6 +1182,7 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
             driver_pdl_unlock(dd->blocking->pdl);
         }
     }
+
     /* return 0;*/
 }
 
@@ -1165,7 +1194,7 @@ static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
     int pb = dd->packet_bytes;
     int ofd = dd->ofd ? dd->ofd->fd : -1;
     ssize_t n;
-    ErlDrvSizeT sz;
+    ErlDrvSizeT qsz;
     char lb[4];
     char* lbp;
     struct iovec iv[2];
@@ -1180,11 +1209,15 @@ static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
     put_int32(len, lb);
     lbp = lb + (4-pb);
 
-    if ((sz = driver_sizeq(ix)) > 0) {
+    qsz = driver_sizeq(ix);
+    if (qsz) {
+        if (qsz == (ErlDrvSizeT) -1) {
+            driver_failure_posix(ix, EINVAL);
+            return;
+        }
 	driver_enq(ix, lbp, pb);
 	driver_enq(ix, buf, len);
-	if (sz + len + pb >= (1 << 13))
-	    set_busy_port(ix, 1);
+        qsz += len + pb;
     }
     else {
 	iv[0].iov_base = lbp;
@@ -1201,6 +1234,7 @@ static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	    }
 	    n = 0;
 	}
+        qsz = pb + len - n;
 	if (n < pb) {
 	    driver_enq(ix, lbp+n, pb-n);
 	    driver_enq(ix, buf, len);
@@ -1211,6 +1245,10 @@ static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	}
 	driver_select(ix, ofd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
     }
+
+    if (!dd->busy && qsz >= dd->high_watermark)
+        set_busy_port(ix, (dd->busy = !0));
+
     return; /* 0; */
 }
 
@@ -1421,7 +1459,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 		switch (packet_bytes) {
 		case 1: h = get_int8(dd->ifd->pbuf);  break;
 		case 2: h = get_int16(dd->ifd->pbuf); break;
-		case 4: h = get_int32(dd->ifd->pbuf); break;
+		case 4: h = get_uint32(dd->ifd->pbuf); break;
 		default: ASSERT(0); return; /* -1; */
 		}
 
@@ -1467,6 +1505,8 @@ static void ready_output(ErlDrvData e, ErlDrvEvent ready_fd)
     int vsize;
 
     if ((iv = (struct iovec*) driver_peekq(ix, &vsize)) == NULL) {
+        if (dd->busy)
+            set_busy_port(ix, (dd->busy = 0));
 	driver_select(ix, ready_fd, ERL_DRV_WRITE, 0);
         if (dd->pid > 0 && dd->ofd->fd < 0) {
             /* The port was opened with 'in' option, which means we
@@ -1482,8 +1522,13 @@ static void ready_output(ErlDrvData e, ErlDrvEvent ready_fd)
     }
     vsize = vsize > MAX_VSIZE ? MAX_VSIZE : vsize;
     if ((n = writev(ready_fd, iv, vsize)) > 0) {
-	if (driver_deq(ix, n) == 0)
-	    set_busy_port(ix, 0);
+        ErlDrvSizeT qsz = driver_deq(ix, n);
+        if (qsz == (ErlDrvSizeT) -1) {
+            driver_failure_posix(ix, EINVAL);
+            return;
+        }
+        if (dd->busy && qsz < dd->low_watermark)
+            set_busy_port(ix, (dd->busy = 0));
     }
     else if (n < 0) {
 	if (errno == ERRNO_BLOCK || errno == EINTR)
@@ -1507,7 +1552,7 @@ static void stop_select(ErlDrvEvent fd, void* _)
 static void
 fd_async(void *async_data)
 {
-    int res;
+    ErlDrvSSizeT res;
     ErtsSysDriverData *dd = (ErtsSysDriverData *)async_data;
     SysIOVec      *iov0;
     SysIOVec      *iov;
@@ -1532,7 +1577,6 @@ fd_async(void *async_data)
         } while (res < 0 && errno == EINTR);
         if (res < 0)
             err = errno;
-        err = errno;
 
         erts_free(ERTS_ALC_T_SYS_WRITE_BUF, iov);
     }
@@ -1548,10 +1592,18 @@ void fd_ready_async(ErlDrvData drv_data,
     ASSERT(dd->blocking);
 
     if (dd->blocking->res > 0) {
+        ErlDrvSizeT qsz;
         driver_pdl_lock(dd->blocking->pdl);
-        if (driver_deq(port_num, dd->blocking->res) == 0) {
+        qsz = driver_deq(port_num, dd->blocking->res);
+        if (qsz == (ErlDrvSizeT) -1) {
             driver_pdl_unlock(dd->blocking->pdl);
-            set_busy_port(port_num, 0);
+            driver_failure_posix(port_num, EINVAL);
+            return;
+        }
+        if (dd->busy && qsz < dd->low_watermark)
+            set_busy_port(port_num, (dd->busy = 0));
+        driver_pdl_unlock(dd->blocking->pdl);
+        if (qsz == 0) {
             if (dd->terminating) {
                 /* The port is has been ordered to terminate
                    from either fd_flush or port_inp_failure */
@@ -1564,14 +1616,12 @@ void fd_ready_async(ErlDrvData drv_data,
                 return; /* -1; */
             }
         } else {
-            driver_pdl_unlock(dd->blocking->pdl);
             /* still data left to write in queue */
             driver_async(port_num, &dd->blocking->pkey, fd_async, dd, NULL);
             return /* 0; */;
         }
     } else if (dd->blocking->res < 0) {
         if (dd->blocking->err == ERRNO_BLOCK) {
-            set_busy_port(port_num, 1);
             /* still data left to write in queue */
             driver_async(port_num, &dd->blocking->pkey, fd_async, dd, NULL);
         } else

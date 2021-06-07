@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,18 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalettechangedevent.html">wxPaletteChangedEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>palette_changed</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxPaletteChanged(). #wxPaletteChanged{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxPaletteChangedEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxPaletteChangedEvent).
 -include("wxe.hrl").
 -export([getChangedWindow/1,setChangedWindow/2]).
@@ -38,28 +26,29 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxPaletteChangedEvent/0]).
+-type wxPaletteChangedEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxPaletteChangedEventType() :: 'palette_changed'.
+-export_type([wxPaletteChangedEvent/0, wxPaletteChanged/0, wxPaletteChangedEventType/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxPaletteChangedEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalettechangedevent.html#wxpalettechangedeventsetchangedwindow">external documentation</a>.
 -spec setChangedWindow(This, Win) -> 'ok' when
 	This::wxPaletteChangedEvent(), Win::wxWindow:wxWindow().
-setChangedWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WinT,ref=WinRef}) ->
+setChangedWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=WinT}=Win) ->
   ?CLASS(ThisT,wxPaletteChangedEvent),
   ?CLASS(WinT,wxWindow),
-  wxe_util:cast(?wxPaletteChangedEvent_SetChangedWindow,
-  <<ThisRef:32/?UI,WinRef:32/?UI>>).
+  wxe_util:queue_cmd(This,Win,?get_env(),?wxPaletteChangedEvent_SetChangedWindow).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalettechangedevent.html#wxpalettechangedeventgetchangedwindow">external documentation</a>.
 -spec getChangedWindow(This) -> wxWindow:wxWindow() when
 	This::wxPaletteChangedEvent().
-getChangedWindow(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getChangedWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPaletteChangedEvent),
-  wxe_util:call(?wxPaletteChangedEvent_GetChangedWindow,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxPaletteChangedEvent_GetChangedWindow),
+  wxe_util:rec(?wxPaletteChangedEvent_GetChangedWindow).
 
  %% From wxEvent
 %% @hidden

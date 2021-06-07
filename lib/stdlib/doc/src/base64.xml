@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2007</year><year>2016</year>
+      <year>2007</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -39,12 +39,23 @@
 
   <datatypes>
     <datatype>
-      <name name="ascii_string"/>
+      <name name="base64_alphabet"/>
+      <desc><p>Base 64 Encoding alphabet, see <url href="https://www.ietf.org/rfc/rfc4648.txt">RFC 4648</url>.</p>
+      </desc>
     </datatype>
     <datatype>
-      <name name="ascii_binary"/>
-      <desc><p>A <c>binary()</c> with ASCII characters in the range 1 to
-        255.</p>
+      <name name="base64_string"/>
+      <desc><p>Base 64 encoded string.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="base64_binary"/>
+      <desc><p>Base 64 encoded binary.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="byte_string"/>
+      <desc><p>Arbitrary sequences of octets.</p>
       </desc>
     </datatype>
   </datatypes>

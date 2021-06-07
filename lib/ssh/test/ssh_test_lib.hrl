@@ -1,3 +1,11 @@
+
+%%-------------------------------------------------------------------------
+%% Default system port
+%%-------------------------------------------------------------------------
+-ifndef(SSH_DEFAULT_PORT).
+-define(SSH_DEFAULT_PORT, 22).
+-endif.
+
 %%-------------------------------------------------------------------------
 %% Timeout time in ms
 %%-------------------------------------------------------------------------
@@ -6,10 +14,16 @@
 %%-------------------------------------------------------------------------
 %% Check for usable crypt 
 %%-------------------------------------------------------------------------
--define(CHECK_CRYPTO(Available),
-	try crypto:start() 
-	of _ -> Available
-	catch _:_ -> {skip, "Can't start crypto"}
+-define(CHECK_CRYPTO(UsersInitCode),
+	try
+            crypto:start(),
+            ssh_test_lib:try_enable_fips_mode()
+	of
+            ok -> UsersInitCode;
+            {skip,_} -> UsersInitCode;
+            Other -> Other
+	catch
+            _:_ -> {skip, "Can't start crypto"}
 	end
        ).
 
@@ -23,7 +37,7 @@
 				 case FunctionCall of
 				     Pattern when Guard -> Bind;
 				     _ when N>0 ->
-					 ct:pal("Must sleep ~p ms at ~p:~p",[Timeout,?MODULE,?LINE]),
+					 ct:log("Must sleep ~p ms at ~p:~p",[Timeout,?MODULE,?LINE]),
 					 timer:sleep(Timeout),
 					 F1(N-1, F1);
 				     Other ->  
@@ -43,3 +57,13 @@
 
 -define(wait_match(Pattern, FunctionCall),  ?wait_match(Pattern, FunctionCall, ok) ).
 
+%%-------------------------------------------------------------------------
+%% Write file into log
+%%-------------------------------------------------------------------------
+
+-define(ct_log_show_file(File),
+        (fun(File__) ->
+                {ok,Contents__} = file:read_file(File__),
+                ct:log("~p:~p Show file~n~s =~n~s~n",
+                       [?MODULE,?LINE,File__, Contents__])
+        end)(File)).

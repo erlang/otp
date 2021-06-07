@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -71,6 +71,14 @@ init_per_group(_Group, Config) ->
 end_per_group(_Group, _Config) ->
     ok.
 
+init_per_testcase(reopen_changed_log=TC, Config) ->
+    case os:type() of
+        {win32,_} ->
+            {skip,"This test can only work with inodes, i.e. not on Windows"};
+        _ ->
+            ct:print("********** ~w **********", [TC]),
+            Config
+    end;
 init_per_testcase(TestHooksCase, Config) when
       TestHooksCase == write_failure;
       TestHooksCase == sync_failure ->
@@ -110,6 +118,7 @@ all() ->
     [add_remove_instance_tty,
      add_remove_instance_standard_io,
      add_remove_instance_standard_error,
+     add_remove_instance_custom_device,
      add_remove_instance_file1,
      add_remove_instance_file2,
      add_remove_instance_file3,
@@ -124,6 +133,7 @@ all() ->
      bad_input,
      reconfig,
      file_opts,
+     relative_file_path,
      sync,
      write_failure,
      sync_failure,
@@ -148,6 +158,7 @@ all() ->
      rotate_size,
      rotate_size_compressed,
      rotate_size_reopen,
+     rotate_on_start_compressed,
      rotation_opts,
      rotation_opts_restart_handler
     ].
@@ -163,6 +174,11 @@ add_remove_instance_tty(_Config) ->
 add_remove_instance_standard_io(_Config) ->
     add_remove_instance_nofile(standard_io).
 add_remove_instance_standard_io(cleanup,_Config) ->
+    logger_std_h_remove().
+
+add_remove_instance_custom_device(_Config) ->
+    add_remove_instance_nofile({device,user}).
+add_remove_instance_custom_device(cleanup,_Config) ->
     logger_std_h_remove().
 
 add_remove_instance_standard_error(_Config) ->
@@ -275,9 +291,16 @@ errors(Config) ->
         _ ->
             NoDir = lists:concat(["/",?MODULE,"_dir"]),
             {error,
-             {handler_not_added,{open_failed,NoDir,eacces}}} =
+             {handler_not_added,{open_failed,NoDir,Error}}} =
                 logger:add_handler(myh2,logger_std_h,
-                                   #{config=>#{type=>{file,NoDir}}})
+                                   #{config=>#{type=>{file,NoDir}}}),
+            case Error of
+                erofs ->
+                    %% Happens on OS X
+                    ok;
+                eacces ->
+                    ok
+            end
     end,
 
     {error,
@@ -294,6 +317,8 @@ errors(cleanup,_Config) ->
 formatter_fail(Config) ->
     Dir = ?config(priv_dir,Config),
     Log = filename:join(Dir,?FUNCTION_NAME),
+
+    logger:set_primary_config(level,notice),
 
     %% no formatter
     ok = logger:add_handler(?MODULE,
@@ -336,6 +361,7 @@ formatter_fail(Config) ->
     ok.
 
 formatter_fail(cleanup,_Config) ->
+    logger:set_primary_config(level,info),
     logger:remove_handler(?MODULE).
 
 config_fail(_Config) ->
@@ -685,6 +711,54 @@ file_opts(Config) ->
 file_opts(cleanup, _Config) ->
     logger:remove_handler(?MODULE).
 
+relative_file_path(_Config) ->
+    {ok,Dir} = file:get_cwd(),
+    AbsName1 = filename:join(Dir,?MODULE),
+    ok = logger:add_handler(?MODULE,
+                            logger_std_h,
+                            #{config => #{type=>file},
+                              filter_default=>log,
+                              filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
+                              formatter=>{?MODULE,self()}}),
+    #{cb_state := #{handler_state := #{file:=AbsName1}}} =
+        logger_olp:info(h_proc_name()),
+    {ok,#{config := #{file:=AbsName1}}} =
+        logger:get_handler_config(?MODULE),
+    ok = logger:remove_handler(?MODULE),
+
+    RelName2 = filename:join(atom_to_list(?FUNCTION_NAME),
+                             lists:concat([?FUNCTION_NAME,".log"])),
+    AbsName2 = filename:join(Dir,RelName2),
+    ok = logger:add_handler(?MODULE,
+                            logger_std_h,
+                            #{config => #{file => RelName2},
+                              filter_default=>log,
+                              filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
+                              formatter=>{?MODULE,self()}}),
+    #{cb_state := #{handler_state := #{file:=AbsName2}}} =
+        logger_olp:info(h_proc_name()),
+    {ok,#{config := #{file:=AbsName2}}} =
+        logger:get_handler_config(?MODULE),
+    logger:notice(M1=?msg,?domain),
+    ?check(M1),
+    B1 = ?bin(M1),
+    try_read_file(AbsName2, {ok,B1}, filesync_rep_int()),
+
+    ok = file:set_cwd(".."),
+    logger:notice(M2=?msg,?domain),
+    ?check(M2),
+    B20 = ?bin(M2),
+    B2 = <<B1/binary,B20/binary>>,
+    try_read_file(AbsName2, {ok,B2}, filesync_rep_int()),
+
+    {error,_} = logger:update_handler_config(?MODULE,config,#{file=>RelName2}),
+    ok = logger:update_handler_config(?MODULE,config,#{file=>AbsName2}),
+    ok = file:set_cwd(Dir),
+    ok = logger:update_handler_config(?MODULE,config,#{file=>RelName2}),
+    ok.
+relative_file_path(cleanup,_Config) ->
+    logger:remove_handler(?MODULE).
+
 
 sync(Config) ->
     Dir = ?config(priv_dir,Config),
@@ -760,7 +834,7 @@ sync(Config) ->
     check_tracer(100),
     ok.
 sync(cleanup, _Config) ->
-    dbg:stop_clear(),
+    stop_clear(),
     logger:remove_handler(?MODULE).
 
 write_failure(Config) ->
@@ -1461,6 +1535,65 @@ rotate_size_reopen(Config) ->
 rotate_size_reopen(cleanup,_Config) ->
     ok = stop_handler(?MODULE).
 
+%% Test that it is possible to start the handler when there
+%% exists a large file that needs rotating at startup.
+rotate_on_start_compressed() ->
+    [{timetrap,{minutes,5}}].
+rotate_on_start_compressed(Config) ->
+
+    application:ensure_all_started(os_mon),
+
+    case file_SUITE:disc_free(?config(priv_dir, Config)) of
+        N when N >= 5 * (1 bsl 30), is_integer(N) ->
+            ct:pal("Free disk: ~w KByte~n", [N]),
+            Log = get_handler_log_name(rotate_on_start_compressed, Config),
+
+            %% Write a 1 GB file to disk
+            {ok, D} = file:open(Log,[write]),
+            [file:write(D,<<0:(1024*1024*8)>>) || _I <- lists:seq(1,1024)],
+            file:close(D),
+
+            NumOfReqs = 500,
+
+            %% Start the handler that will compress and rotate the existing file
+            ok = logger:add_handler(?MODULE,
+                                    logger_std_h,
+                                    #{config => #{sync_mode_qlen => 2,
+                                                  drop_mode_qlen => NumOfReqs+1,
+                                                  flush_qlen => 2*NumOfReqs,
+                                                  burst_limit_enable => false,
+                                                  max_no_bytes=>1048576,
+                                                  max_no_files=>10,
+                                                  compress_on_rotate=>true,
+                                                  type => {file,Log}},
+                                      filter_default=>stop,
+                                      filters=>filter_only_this_domain(?MODULE),
+                                      formatter=>{?MODULE,op}}),
+
+            %% Wait for compression to start
+            timer:sleep(50),
+
+            %% We send a burst here in order to make sure that the
+            %% compression has time to take place. The burst will
+            %% trigger sync mode which means that there will be
+            %% calls made to the file controller process which
+            %% in turn means that when the burst is done the
+            %% compression is done.
+            send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
+            Lines = count_lines(Log),
+            NumOfReqs = Lines,
+            {ok,#file_info{size=1043656}} = file:read_file_info(Log++".0.gz"),
+            ok;
+        _ ->
+            {skip,"Disk not large enough"}
+    end.
+rotate_on_start_compressed(cleanup,Config) ->
+    application:stop(os_mon),
+    application:stop(sasl),
+    file:delete(get_handler_log_name(rotate_on_start_compressed, Config)),
+    file:delete(get_handler_log_name(rotate_on_start_compressed, Config)++".0.gz"),
+    ok = stop_handler(?MODULE).
+
 rotation_opts(Config) ->
     {Log,_HConfig,StdHConfig} =
         start_handler(?MODULE, ?FUNCTION_NAME, Config),
@@ -1642,7 +1775,7 @@ rotation_opts_restart_handler(Config) ->
            HConfig3#{config=>StdHConfig3#{max_no_bytes=>75,
                                           max_no_files=>1,
                                           compress_on_rotate=>true}}),
-    timer:sleep(100),
+    timer:sleep(500),
     {ok,#file_info{size=0}} = file:read_file_info(Log),
     {ok,#file_info{size=29}} = file:read_file_info(Log++".0.gz"),
     [_] = filelib:wildcard(Log++".*"),
@@ -1690,8 +1823,7 @@ start_handler(Name, TTY, _Config) when TTY == standard_io;
     {HConfig,StdHConfig};
 
 start_handler(Name, FuncName, Config) ->
-    Dir = ?config(priv_dir,Config),
-    Log = filename:join(Dir, lists:concat([FuncName,".log"])),
+    Log = get_handler_log_name(FuncName, Config),
     ct:pal("Logging to ~tp", [Log]),
     Type = {file,Log},
     _ = file_delete(Log),
@@ -1704,10 +1836,13 @@ start_handler(Name, FuncName, Config) ->
     {ok,HConfig = #{config := StdHConfig}} = logger:get_handler_config(Name),
     {Log,HConfig,StdHConfig}.
 
+get_handler_log_name(FuncName, Config) ->
+    Dir = ?config(priv_dir,Config),
+    filename:join(Dir, lists:concat([FuncName,".log"])).
+
 filter_only_this_domain(Name) ->
     [{remote_gl,{fun logger_filters:remote_gl/2,stop}},
      {domain,{fun logger_filters:domain/2,{log,super,[Name]}}}].
-    
 
 stop_handler(Name) ->
     R = logger:remove_handler(Name),
@@ -1721,6 +1856,8 @@ count_lines(File) ->
 wait_until_written(File, Sz) ->
     timer:sleep(2000),
     case file:read_file_info(File) of
+        {error,enoent} when Sz == -1 ->
+            wait_until_written(File, Sz);
         {ok,#file_info{size = Sz}} ->
             timer:sleep(1000),
             case file:read_file_info(File) of
@@ -1949,7 +2086,7 @@ start_op_trace() ->
     TRecvPid.
     
 stop_op_trace(TRecvPid) ->
-    dbg:stop_clear(),
+    stop_clear(),
     unlink(TRecvPid),
     exit(TRecvPid, kill),
     ok.
@@ -2016,7 +2153,7 @@ start_tracer(Trace,Expected) ->
                            maps:get(handler_state,
                                     maps:get(cb_state,
                                              logger_olp:info(h_proc_name())))),
-    dbg:tracer(process,{fun tracer/2,{Pid,Expected}}),
+    {ok,_} = dbg:tracer(process,{fun tracer/2,{Pid,Expected}}),
     dbg:p(whereis(h_proc_name()),[c]),
     dbg:p(FileCtrlPid,[c]),
     tpl(Trace),
@@ -2030,13 +2167,19 @@ tpl([{{M,F,A},MS}|Trace]) ->
         {_,_,1} ->
             ok;
         _ ->
-            dbg:stop_clear(),
+            stop_clear(),
             throw({skip,"Can't trace "++atom_to_list(M)++":"++
                        atom_to_list(F)++"/"++integer_to_list(A)})
     end,
     tpl(Trace);
 tpl([]) ->
     ok.
+
+stop_clear() ->
+    dbg:stop_clear(),
+    %% Remove tracer from all processes in order to eliminate
+    %% race conditions.
+    erlang:trace(all,false,[all]).
 
 tracer({trace,_,call,{logger_h_common,handle_cast,[Op|_]}},
        {Pid,[{Mod,Func,Op}|Expected]}) ->
@@ -2072,17 +2215,21 @@ check_tracer(T,TimeoutFun) ->
             %% traces are received
             check_tracer(Delay,fun() -> ok end);
         {tracer_got_unexpected,Got,Expected} ->
-            dbg:stop_clear(),
+            stop_clear(),
             ct:fail({tracer_got_unexpected,Got,Expected})
     after T ->
-            dbg:stop_clear(),
+            stop_clear(),
             TimeoutFun()
     end.
 
-escape([$+|Rest]) ->
-    [$\\,$+|escape(Rest)];
-escape([H|T]) ->
-    [H|escape(T)];
+escape([C|Rest]) ->
+    %% The characters that have to be escaped in a regex
+    case lists:member(C,"[-[\]{}()*+?.,\\^$|#\s]") of
+        true ->
+            [$\\,C|escape(Rest)];
+        false ->
+            [C|escape(Rest)]
+    end;
 escape([]) ->
     [].
 

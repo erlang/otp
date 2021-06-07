@@ -176,7 +176,7 @@ request(Method,
        (Method =:= delete) orelse 
        (Method =:= trace) andalso 
        (is_atom(Profile) orelse is_pid(Profile)) ->
-    case uri_string:parse(uri_string:normalize(Url)) of
+    case normalize_and_parse_url(Url) of
 	{error, Reason, _} ->
 	    {error, Reason};
 	ParsedUrl ->
@@ -190,7 +190,7 @@ request(Method,
     end.
 
 do_request(Method, {Url, Headers, ContentType, Body}, HTTPOptions, Options, Profile) ->
-    case uri_string:parse(uri_string:normalize(Url)) of
+    case normalize_and_parse_url(Url) of
 	{error, Reason, _} ->
 	    {error, Reason};
 	ParsedUrl ->
@@ -313,11 +313,11 @@ store_cookies(SetCookieHeaders, Url) ->
 
 store_cookies(SetCookieHeaders, Url, Profile) 
   when is_atom(Profile) orelse is_pid(Profile) ->
-    case uri_string:parse(uri_string:normalize(Url)) of
+    case normalize_and_parse_url(Url) of
         {error, Bad, _} ->
             {error, {parse_failed, Bad}};
         URI ->
-            Scheme = scheme_to_atom(maps:get(scheme, URI, '')),
+            Scheme = scheme_to_atom(maps:get(scheme, URI, undefined)),
             Host = maps:get(host, URI, ""),
             Port = maps:get(port, URI, default_port(Scheme)),
             Path = uri_string:recompose(#{path => maps:get(path, URI, "")}),
@@ -500,6 +500,9 @@ service_info(Pid) ->
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
+normalize_and_parse_url(Url) ->
+    uri_string:normalize(unicode:characters_to_list(Url), [return_map]).
+
 handle_request(Method, Url, 
                URI,
 	       Headers0, ContentType, Body0,
@@ -536,7 +539,7 @@ handle_request(Method, Url,
             BracketedHost = proplists:get_value(ipv6_host_with_brackets,
                                                 Options),
 
-            Scheme        = scheme_to_atom(maps:get(scheme, URI, '')),
+            Scheme        = scheme_to_atom(maps:get(scheme, URI, undefined)),
             Userinfo      = maps:get(userinfo, URI, ""),
             Host          = http_util:maybe_add_brackets(maps:get(host, URI, ""), BracketedHost),
             Port          = maps:get(port, URI, default_port(Scheme)),
@@ -591,8 +594,8 @@ scheme_to_atom("http") ->
     http;
 scheme_to_atom("https") ->
     https;
-scheme_to_atom('') ->
-    '';
+scheme_to_atom(undefined) ->
+    throw({error, {no_scheme}});
 scheme_to_atom(Scheme) ->
     throw({error, {bad_scheme, Scheme}}).
 
@@ -632,10 +635,6 @@ handle_answer(RequestId, true, Options) ->
 	    {error, Reason}
     end.
 
-return_answer(Options, {{"HTTP/0.9",_,_}, _, BinBody}) ->
-    Body = maybe_format_body(BinBody, Options),
-    {ok, Body};
-   
 return_answer(Options, {StatusLine, Headers, BinBody}) ->
     Body = maybe_format_body(BinBody, Options),
     case proplists:get_value(full_result, Options, true) of

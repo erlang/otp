@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -774,10 +774,12 @@ do_sticky_lock(Tid, Store, {Tab, Key} = Oid, Lock) ->
     N = node(),
     receive
 	{?MODULE, N, granted} ->
+            ?ets_insert(Store, {sticky, true}),
 	    ?ets_insert(Store, {{locks, Tab, Key}, write}),
 	    [?ets_insert(Store, {nodes, Node}) || Node <- WNodes],
 	    granted;
 	{?MODULE, N, {granted, Val}} -> %% for rwlocks
+            ?ets_insert(Store, {sticky, true}),
 	    case opt_lookup_in_client(Val, Oid, write) of
 		C = #cyclic{} ->
 		    exit({aborted, C});

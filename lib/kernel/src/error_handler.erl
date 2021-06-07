@@ -18,11 +18,10 @@
 %% %CopyrightEnd%
 %%
 -module(error_handler).
-%% FIXME: remove no_native directive after HiPE has been changed to make
-%% remote calls link to the target's Export* like BEAM does.
-%% For a detailed explanation see the commit titled
-%% "error_handler: add no_native compiler directive"
--compile(no_native).
+
+%% See the comment before the int/0 function for an explanation
+%% why this option is needed.
+-compile(no_module_opt).
 
 %% Callbacks called from the run-time system.
 -export([undefined_function/3,undefined_lambda/3,breakpoint/3]).
@@ -84,7 +83,10 @@ raise_undef_exception(Module, Func, Args) ->
     crash({Module,Func,Args,[]}).
 
 %% Used to make the call to the 'int' module a "weak" one, to avoid
-%% building strong components in xref or dialyzer.
+%% making Kernel a visible dependency to Debugger in xref. (To ensure
+%% that the call in breakpoint/3 is kept as an apply to an unknown
+%% module, this module must be compiled with the 'no_module_opt'
+%% option to turn off inter-function type analysis.)
 
 int() -> int.
 

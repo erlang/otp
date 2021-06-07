@@ -1,0 +1,26 @@
+
+  [;1m-spec erlang:resume_process(Suspendee) -> true when Suspendee :: pid().[0m
+
+  Decreases the suspend count on the process identified by [;;4m[0m
+  [;;4mSuspendee[0m. [;;4mSuspendee[0m is previously to have been suspended
+  through [;;4merlang:suspend_process/2[0m or [;;4merlang:suspend_process/1[0m
+  by the process calling [;;4merlang:resume_process(Suspendee)[0m. When
+  the suspend count on [;;4mSuspendee[0m reaches zero, [;;4mSuspendee[0m is
+  resumed, that is, its state is changed from suspended into the
+  state it had before it was suspended.
+
+  Warning:
+    This BIF is intended for debugging only.
+
+  Failures:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mSuspendee[0m is not a process identifier.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If the process calling [;;4merlang:resume_process/1[0m had not
+    previously increased the suspend count on the process
+    identified by [;;4mSuspendee[0m.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If the process identified by [;;4mSuspendee[0m is not alive.

@@ -1,0 +1,16 @@
+*.o
+*~
+bin/yielding_c_fun.bin
+core
+test/test_trap_out.c
+GPATH
+GRTAGS
+GTAGS
+test/tmp_dir
+compile_commands.json
+compile_commands_old.json
+CMakeLists.txt
+cmake_mkdir/
+.idea/
+cmake-build-debug/
+ycf_malloc_log.txt

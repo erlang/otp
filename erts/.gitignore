@@ -1,8 +1,6 @@
 /Makefile
-/configure
 /config.log
 /config.status
-/config.h.in
 
 /start_scripts/RELEASES.src
 /start_scripts/*.rel
@@ -21,3 +19,4 @@
 /emulator/test/*_no_opt_SUITE.erl
 
 /emulator/pcre/pcre_exec_loop_break_cases.inc
+/emulator/beam/erl_db_insert_list.ycf.h

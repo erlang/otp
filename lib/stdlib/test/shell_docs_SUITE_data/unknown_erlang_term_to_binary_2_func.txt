@@ -1,0 +1,64 @@
+
+  [;1m-spec term_to_binary(Term, Options) -> ext_binary()[0m
+  [;1m                        when[0m
+  [;1m                            Term :: term(),[0m
+  [;1m                            Options ::[0m
+  [;1m                                [compressed |[0m
+  [;1m                                 {compressed, Level :: 0..9} |[0m
+  [;1m                                 {minor_version, Version :: 0..2}].[0m
+
+  Returns a binary data object that is the result of encoding [;;4mTerm[0m
+  according to the Erlang external term format.
+
+  If option [;;4mcompressed[0m is provided, the external term format is
+  compressed. The compressed format is automatically recognized by [;;4m[0m
+  [;;4mbinary_to_term/1[0m as from Erlang/OTP R7B.
+
+  A compression level can be specified by giving option [;;4m[0m
+  [;;4m{compressed, Level}[0m. [;;4mLevel[0m is an integer with range 0..9,
+  where:
+
+   • [;;4m0[0m - No compression is done (it is the same as giving no [;;4m[0m
+     [;;4mcompressed[0m option).
+
+   • [;;4m1[0m - Takes least time but may not compress as well as the
+     higher levels.
+
+   • [;;4m6[0m - Default level when option [;;4mcompressed[0m is provided.
+
+   • [;;4m9[0m - Takes most time and tries to produce a smaller result.
+     Notice "tries" in the preceding sentence; depending on the
+     input term, level 9 compression either does or does not
+     produce a smaller result than level 1 compression.
+
+  Option [;;4m{minor_version, Version}[0m can be used to control some
+  encoding details. This option was introduced in Erlang/OTP R11B-4.
+  The valid values for [;;4mVersion[0m are:
+
+  [;;4m[;;4m0[0m[0m:
+    Floats are encoded using a textual representation. This option
+    is useful to ensure that releases before Erlang/OTP R11B-4 can
+    decode resulting binary.
+
+    This version encode atoms that can be represented by a latin1
+    string using latin1 encoding while only atoms that cannot be
+    represented by latin1 are encoded using utf8.
+
+  [;;4m[;;4m1[0m[0m:
+    This is as of Erlang/OTP 17.0 the default. It forces any
+    floats in the term to be encoded in a more space-efficient and
+    exact way (namely in the 64-bit IEEE format, rather than
+    converted to a textual representation). As from Erlang/OTP
+    R11B-4, [;;4mbinary_to_term/1[0m can decode this representation.
+
+    This version encode atoms that can be represented by a latin1
+    string using latin1 encoding while only atoms that cannot be
+    represented by latin1 are encoded using utf8.
+
+  [;;4m[;;4m2[0m[0m:
+    Drops usage of the latin1 atom encoding and unconditionally
+    use utf8 encoding for all atoms. This will be changed to the
+    default in a future major release of Erlang/OTP. Erlang/OTP
+    systems as of R16B can decode this representation.
+
+  See also [;;4mbinary_to_term/1[0m.

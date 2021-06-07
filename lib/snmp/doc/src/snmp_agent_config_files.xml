@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -40,45 +40,45 @@
   SNMP-MPD-MIB, SNMP-VIEW-BASED-ACM-MIB, SNMP-COMMUNITY-MIB,
   SNMP-USER-BASED-SM-MIB, SNMP-TARGET-MIB and SNMP-NOTIFICATION-MIB
   (refer to the 
-  <seealso marker="snmp_agent_funct_descr#management">Management of the Agent</seealso> 
+  <seeguide marker="snmp_agent_funct_descr#management">Management of the Agent</seeguide> 
   for a description of the MIBs). </p>
   <p>The files are: </p>
   <list type="bulleted">
     <item>
       <p><c>agent.conf</c>: see 
-        <seealso marker="#agent_information">Agent Information</seealso></p>
+        <seeguide marker="#agent_information">Agent Information</seeguide></p>
     </item>
     <item>
       <p><c>standard.conf</c>: see 
-        <seealso marker="#system_information">System Information</seealso></p>
+        <seeguide marker="#system_information">System Information</seeguide></p>
     </item>
     <item>
       <p><c>context.conf</c>: see 
-        <seealso marker="#context">Contexts</seealso></p>
+        <seeguide marker="#context">Contexts</seeguide></p>
     </item>
     <item>
       <p><c>community.conf</c>: see 
-        <seealso marker="#community">Communities</seealso></p>
+        <seeguide marker="#community">Communities</seeguide></p>
     </item>
     <item>
       <p><c>target_addr.conf</c>: see 
-        <seealso marker="#target_addr">Target Address Definitions</seealso></p>
+        <seeguide marker="#target_addr">Target Address Definitions</seeguide></p>
     </item>
     <item>
       <p><c>target_params.conf</c>: see 
-        <seealso marker="#target_params">Target Parameters Definitions</seealso></p>
+        <seeguide marker="#target_params">Target Parameters Definitions</seeguide></p>
     </item>
     <item>
       <p><c>vacm.conf</c>: see 
-        <seealso marker="#vacm">MIB Views for VACM</seealso></p>
+        <seeguide marker="#vacm">MIB Views for VACM</seeguide></p>
     </item>
     <item>
       <p><c>usm.conf</c>: see 
-        <seealso marker="#usm">Security data for USM</seealso></p>
+        <seeguide marker="#usm">Security data for USM</seeguide></p>
     </item>
     <item>
       <p><c>notify.conf</c>: see 
-        <seealso marker="#notify">Notify Definitions</seealso></p>
+        <seeguide marker="#notify">Notify Definitions</seeguide></p>
     </item>
   </list>
   <p>The directory where the configuration files are found is given as
@@ -100,7 +100,7 @@
     <p><c>{AgentVariable, Value}.</c></p>
     <list type="bulleted">
       <item>
-	<p><c>AgentVariable</c> is one of the variables is
+	<p><c>AgentVariable</c> is one of the variables in
 	SNMP-FRAMEWORK-MIB or one of the internal variables
 	<c>intAgentUDPPort</c>, which defines which UDP port the agent
 	listens to, or <c>intAgentTransports</c>, which defines the
@@ -119,28 +119,78 @@
 {snmpEngineID, "mbj's engine"}.
 {snmpEngineMaxPacketSize, 484}.
     </pre>
-    <p>The value of <c>intAgentTransports</c> is a list of
-    <c>{Domain, Addr}</c> tuples, where <c>Domain</c>
-    is either <c>transportDomainUdpIpv4</c> or <c>transportDomainUdpIpv6</c>,
-    and <c>Addr</c> is the address in the domain.
-    <c>Addr</c> can be specified either as an
-    <c>IpAddr</c> or as an <c>{IpAddr, IpPort}</c> tuple.
-    <c>IpAddr</c> is either a regular Erlang/OTP
-    <seealso marker="kernel:inet#type-ip_address"><c>ip_address()</c></seealso>
-    or a traditional SNMP integer list and <c>IpPort</c> is an integer.
-    </p>
 
-    <p>When the <c>Addr</c> value does not contain a port number,
+    <p>These are the supported entries and their value types: </p>
+
+    <pre>
+      {snmpEngine,               string()}.             % Mandatory
+      {snmpEngineMaxMessageSize, non_neg_integer()}.    % Mandatory
+      {intAgentUDPPort,          pos_integer()}.        % Optional
+      {intAgentTransports,       intAgentTransports()}. % Mandatory
+    </pre>
+
+    <p>And here are the transport value types: </p>
+
+    <pre>
+      intAgentTransports() :: [intAgentTransport()].
+      intAgentTransport()  :: {TDomain, Addr} |
+                              {TDomain, EAddr, Kind} |
+			      {TDomain, EAddr, Opts} |
+			      {TDomain, EAddr, Kind, Opts}
+      TDomain      :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
+      Addr         :: {IpAddr, IpPort} | IpAddr.
+      IpAddr       :: <seetype marker="kernel:inet#ip_address"><c>inet:ip_address()</c></seetype> | snmpIpAddr().
+      snmpIpAddr() :: [non_neg_integer()].
+      IpPort       :: pos_integer().
+      EAddr        :: {<seetype marker="kernel:inet#ip_address"><c>inet:ip_address()</c></seetype>, PortInfo}.
+      PortInfo     :: pos_integer() | system | range() | ranges().
+      range()      :: {Min :: pos_integer(), Max :: pos_integer()}, Min &lt; Max
+      ranges()     :: [pos_integer() | range()].
+      Kind         :: req_responder | trap_sender.
+      Opts         :: list().
+    </pre>
+
+    <p>If a "traditional" transport is specified (without explicit <c>Kind</c>,
+    handling both requests and traps) for a transport domain, its <em>not</em>
+    possible to also specify a transport (for that domain) with a specific
+    <c>Kind</c>. This is for example <em>not</em> allowed:</p>
+
+    <pre>
+ [{transportDomainUdpIpv4, {{141,213,11,24}, 4000}},
+  {transportDomainUdpIpv4, {{141,213,11,24}, 4001}, trap_sender}].
+    </pre>
+
+    <p>Note that only one transport per kind for each transport domain
+    can be configured. </p>
+    
+    <p><c>PortInfo</c> <c>system</c> is used to indicate that the 'system'
+    should choose (the way port number '0' (zero) is normally used).
+    Port info '0' (zero) cannot be used for this, since it is (internally) used
+    to represent the 'default' port number. </p>
+
+    <p>In the traditional transport entries, when the <c>Addr</c> value
+    does not contain a port number,
     the value of <c>intAgentUDPPort</c> is used.</p>
 
-    <p>The legacy and intermediate variables <c>intAgentIpAddress</c>
-    and <c>intAgentTransportDomain</c> are still supported so old
-    <c>agent.conf</c> files will work.
-    </p>
+    <p>Note that the (new) extended transport entries (including <c>Kind</c>
+    and <c>Opts</c>) <em>must</em> specify port-info as they ignore
+    any value specified by <c>intAgentUDPPort</c>.</p>
 
+    <p><c>Opts</c> is the same as for the
+    <seeguide marker="snmp_config#agent_ni_opts">net-if</seeguide>
+    process <em>and</em>
+    takes precedence (for that transport) if present.
+    The point is that each transport can have its own socket options. </p>
+    
     <p>The value of <c>snmpEngineID</c> is a string, which for a 
     deployed agent should have a very specific structure. See
     RFC 2271/2571 for details.</p>
+
+    <note><p>The legacy and intermediate variables <c>intAgentIpAddress</c>
+    and <c>intAgentTransportDomain</c> are still supported so old
+    <c>agent.conf</c> files will work.</p>
+    <p>But they <em>cannot</em> be combined with intAgentTransports.</p>
+    </note>
 
     <marker id="context"></marker>
   </section>
@@ -399,7 +449,7 @@
 	<p><c>Addr</c> is either an <c>IpAddr</c> or
 	an <c>{IpAddr, IpPort}</c> tuple. <c>IpAddr</c> is either
 	a regular Erlang/OTP
-	<seealso marker="kernel:inet#type-ip_address"><c>ip_address()</c></seealso>
+	<seetype marker="kernel:inet#ip_address"><c>ip_address()</c></seetype>
 	or a traditional SNMP integer list, and <c>IpPort</c> is an integer.</p>
 	<p>If <c>IpPort</c> is omitted <c>162</c> is used.</p>
       </item>

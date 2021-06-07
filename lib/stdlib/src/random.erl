@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(random).
--deprecated(module).
+-deprecated({'_','_',"use the 'rand' module instead"}).
 
 %% Reasonable random number generator.
 %%  The method is attributed to B. A. Wichmann and I. D. Hill

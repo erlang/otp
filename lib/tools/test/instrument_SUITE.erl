@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 -module(instrument_SUITE).
 
--export([all/0, suite/0]).
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
 
 -export([allocations_enabled/1, allocations_disabled/1, allocations_ramv/1,
          carriers_enabled/1, carriers_disabled/1]).
@@ -36,6 +36,19 @@ suite() ->
 all() -> 
     [allocations_enabled, allocations_disabled, allocations_ramv,
      carriers_enabled, carriers_disabled].
+
+init_per_suite(Config) ->
+    case test_server:is_asan() of
+	true ->
+	    %% No point testing own allocators under address sanitizer.
+	    {skip, "Address sanitizer"};
+	false ->
+	    Config
+    end.
+
+end_per_suite(_Config) ->
+    ok.
+
 
 -define(GENERATED_SBC_BLOCK_COUNT, 1000).
 -define(GENERATED_MBC_BLOCK_COUNT, ?GENERATED_SBC_BLOCK_COUNT).
@@ -77,12 +90,13 @@ allocations_ramv(Config) when is_list(Config) ->
 verify_allocations_disabled(_AllocType, Result) ->
     verify_allocations_disabled(Result).
 
+verify_allocations_disabled({ok, {_HistStart, _UnscannedBytes, Allocs}}) ->
+    true = Allocs =:= #{};
 verify_allocations_disabled({error, not_enabled}) ->
     ok.
 
 %% Skip types that have unstable results or are unaffected by +Muatags
 verify_allocations_enabled(literal_alloc, _Result) -> ok;
-verify_allocations_enabled(exec_alloc, _Result) -> ok;
 verify_allocations_enabled(temp_alloc, _Result) -> ok;
 verify_allocations_enabled(sl_alloc, _Result) -> ok;
 verify_allocations_enabled(_AllocType, Result) ->
@@ -91,6 +105,13 @@ verify_allocations_enabled(_AllocType, Result) ->
 verify_allocations_enabled({ok, {_HistStart, _UnscannedBytes, Allocs}}) ->
     true = Allocs =/= #{}.
 
+verify_allocations_output(#{}, {ok, {_, _, Allocs}}) when Allocs =:= #{} ->
+    %% This happens when the allocator is enabled but tagging is disabled. If
+    %% there's an error that causes Allocs to always be empty when enabled it
+    %% will be caught by verify_allocations_enabled.
+    ok;
+verify_allocations_output(#{}, {error, not_enabled}) ->
+    ok;
 verify_allocations_output(#{ histogram_start := HistStart,
                              histogram_width := HistWidth },
                     {ok, {HistStart, _UnscannedBytes, ByOrigin}}) ->
@@ -124,8 +145,6 @@ verify_allocations_output(#{ histogram_start := HistStart,
                     [BlockCount, GenTotalBlockCount])
     end,
 
-    ok;
-verify_allocations_output(#{}, {error, not_enabled}) ->
     ok.
 
 %% %% %% %% %% %%
@@ -165,19 +184,17 @@ verify_carriers_disabled({ok, {_HistStart, Carriers}}) ->
 
 verify_carriers_disabled_1([]) ->
     ok;
-%% literal_alloc, exec_alloc, and temp_alloc can't be disabled, so we have to
-%% accept their presence in carriers_disabled/test_all_alloc.
+%% literal_alloc and temp_alloc can't be disabled, so we have to accept their
+%% presence in carriers_disabled/test_all_alloc.
 verify_carriers_disabled_1([Carrier | Rest]) when
         element(1, Carrier) =:= literal_alloc;
-        element(1, Carrier) =:= exec_alloc;
         element(1, Carrier) =:= temp_alloc ->
     verify_carriers_disabled_1(Rest).
 
-%% exec_alloc only has a carrier if it's actually used.
-verify_carriers_enabled(exec_alloc, _Result) -> ok;
-verify_carriers_enabled(_AllocType, Result) -> verify_carriers_enabled(Result).
+verify_carriers_enabled(_AllocType, Result) ->
+    verify_carriers_enabled(Result).
 
-verify_carriers_enabled({ok, {_HistStart, Carriers}}) when Carriers =/= [] ->
+verify_carriers_enabled({ok, {_HistStart, [_|_]=_Carriers}}) ->
     ok.
 
 verify_carriers_output(#{ histogram_start := HistStart,
@@ -187,23 +204,19 @@ verify_carriers_output(#{ histogram_start := HistStart,
     %% Do the carriers look alright?
     CarrierSet = ordsets:from_list(AllCarriers),
     Verified = [C || {AllocType,
+                      InPool,
                       TotalSize,
                       UnscannedSize,
-                      AllocatedSize,
-                      AllocatedCount,
-                      InPool,
+                      Allocations,
                       FreeBlockHist} = C <- CarrierSet,
                 is_atom(AllocType),
+                is_boolean(InPool),
                 is_integer(TotalSize), TotalSize >= 1,
                 is_integer(UnscannedSize), UnscannedSize < TotalSize,
                                            UnscannedSize >= 0,
-                is_integer(AllocatedSize), AllocatedSize < TotalSize,
-                                           AllocatedSize >= 0,
-                is_integer(AllocatedCount), AllocatedCount =< AllocatedSize,
-                                            AllocatedCount >= 0,
-                is_boolean(InPool),
+                is_list(Allocations),
                 tuple_size(FreeBlockHist) =:= HistWidth,
-                carrier_block_check(AllocatedCount, FreeBlockHist)],
+                carrier_block_check(Allocations, FreeBlockHist)],
     [] = ordsets:subtract(CarrierSet, Verified),
 
     %% Do we have at least as many carriers as we've generated?
@@ -214,15 +227,20 @@ verify_carriers_output(#{ histogram_start := HistStart,
             ct:fail("Carrier count is ~p, expected at least ~p (SBC).",
                 [CarrierCount, GenSBCCount]);
         CarrierCount >= GenSBCCount ->
-            ok
+            ct:pal("Found ~p carriers, required at least ~p (SBC)." ,
+                [CarrierCount, GenSBCCount])
     end,
 
     ok;
 verify_carriers_output(#{}, {error, not_enabled}) ->
     ok.
 
-carrier_block_check(AllocCount, FreeHist) ->
-    %% A carrier must contain at least one block, and th. number of free blocks
+carrier_block_check(Allocations, FreeHist) ->
+    AllocCount = lists:foldl(fun({_Type, Count, _Size}, Acc) ->
+                                     Count + Acc
+                             end, 0, Allocations),
+
+    %% A carrier must contain at least one block, and the number of free blocks
     %% must not exceed the number of allocated blocks + 1.
     FreeCount = hist_sum(FreeHist),
 
@@ -252,13 +270,18 @@ test_format(Options0, Gather, Verify) ->
 test_abort(Gather) ->
     %% There's no way for us to tell whether this actually aborted or ran to
     %% completion, but it might catch a few segfaults.
+    %% This testcase is mostly useful when run in an debug emulator as it needs
+    %% the modified reduction count to trigger the odd trap scenarios
     Runner = self(),
     Ref = make_ref(),
     spawn_opt(fun() ->
-                  [Gather({Type, SchedId, 1, 1, Ref}) ||
-                   Type <- erlang:system_info(alloc_util_allocators),
-                   SchedId <- lists:seq(0, erlang:system_info(schedulers))],
-                  Runner ! Ref
+                      [begin
+                           Ref2 = make_ref(),
+                           [Gather({Type, SchedId, 1, 1, Ref2}) ||
+                               Type <- erlang:system_info(alloc_util_allocators),
+                               SchedId <- lists:seq(0, erlang:system_info(schedulers))]
+                       end || _ <- lists:seq(1,100)],
+                      Runner ! Ref
               end, [{priority, max}]),
     receive
         Ref -> ok
@@ -292,9 +315,19 @@ start_slave(Args) ->
     MicroSecs = erlang:monotonic_time(),
     Name = "instr" ++ integer_to_list(MicroSecs),
     Pa = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = test_server:start_node(list_to_atom(Name),
-                                        slave,
-                                        [{args, "-pa " ++ Pa ++ " " ++ Args}]),
+
+    %% We pass arguments through ZFLAGS as the nightly tests rotate
+    %% +Meamax/+Meamin which breaks the _enabled and _disabled tests unless
+    %% overridden.
+    ZFlags = os:getenv("ERL_ZFLAGS", ""),
+    {ok, Node} = try
+                     os:putenv("ERL_ZFLAGS", ZFlags ++ [" " | Args]),
+                     test_server:start_node(list_to_atom(Name),
+                                            slave,
+                                            [{args, "-pa " ++ Pa}])
+                 after
+                     os:putenv("ERL_ZFLAGS", ZFlags)
+                 end,
     Node.
 
 generate_test_blocks() ->
@@ -309,8 +342,9 @@ generate_test_blocks() ->
               MBCs = [<<I, 0:64/unit:8>> ||
                       I <- lists:seq(1, ?GENERATED_MBC_BLOCK_COUNT)],
               Runner ! Ref,
-              receive after infinity -> ok end,
-              unreachable ! {SBCs, MBCs}
+              receive
+                   gurka -> gaffel ! {SBCs, MBCs}
+              end
           end),
     receive
         Ref -> ok

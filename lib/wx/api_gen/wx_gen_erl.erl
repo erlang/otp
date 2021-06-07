@@ -31,8 +31,10 @@
 
 %%-compile(export_all).
 -export([gen/1]).
--export([parents/1, get_unique_names/0, get_unique_name/1,
-	 event_type_name/1, event_rec_name/1, filter_attrs/1]).
+-export([parents/1, get_unique_names/0, get_unique_name/1, erl_option_name/1,
+         const_name/1, enum_from/1,
+	 erl_func_name/1, erl_func_name/2, erl_args_count/2,
+         event_type_name/1, event_rec_name/1, filter_attrs/1]).
 
 
 -import(lists, [foldl/3,reverse/1, filter/2]).
@@ -46,11 +48,13 @@ gen(Defs) ->
     gen_event_recs(),
     gen_enums_ints(),
     Static = gen_static([C || C=#class{parent="static"} <- Defs]),
-    Replace = fun(C=#class{name=Name}, Dfs) ->
+    Replace = fun(#class{name=Name}=C, Dfs) ->
 		      lists:keyreplace(Name, #class.name, Dfs, C)
 	      end,
-    [gen_class(Class) || Class <- lists:foldl(Replace, Defs, Static)],
-    gen_funcnames().
+    All = lists:foldl(Replace, Defs, Static),
+    [gen_class(Class) || Class <- All],
+    gen_funcnames(),
+    gen_api_footprint(All).
 
 gen_class(Class) ->
     try
@@ -72,6 +76,8 @@ gen_static(Files) ->
     w("-include(\"wxe.hrl\").~n",[]),
     %% w("-compile(export_all).~n~n", []),            %% XXXX remove ???
     [gen_static_exports(C) || C <- Files],
+    {ok, MiscExtra} = file:read_file(filename:join([wx_extra, "wx_misc.erl"])),
+    w("~s", [MiscExtra]),
     Classes = [gen_static_methods(C) || C <- Files],
     close(),
     Classes.
@@ -93,10 +99,7 @@ gen_static_methods(C=#class{name=Name, parent="static",methods=Ms}) ->
 gen_class1(C=#class{parent="static"}) ->
     C;
 gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
-    case Opts of
-	["ignore"] -> throw(skipped);
-	_ -> ok
-    end,
+    lists:member("ignore", Opts) andalso throw(skipped),
     open_write("../src/gen/"++Name++".erl"),
     put(current_class, Name),
     erl_copyright(),
@@ -109,40 +112,12 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 	    w("~s~n", [binary_to_list(Bin)]),
 	    NewMs = Ms;
 	false ->
-	    w("%% @doc See external documentation: "
-	      "<a href=\"http://www.wxwidgets.org/manuals/2.8.12/wx_~s.html\">~s</a>.\n",
-	      [lowercase_all(Name), Name]),
-
 	    case C#class.doc of
 		undefined -> ignore;
 		Str -> w("%%~n%% ~s~n~n%%~n", [Str])
 	    end,
 
-	    case C#class.event of
-		false -> ignore;
-		Evs ->
-		    EvTypes = [event_type_name(Ev) || Ev <- Evs],
-		    EvStr = args(fun(Ev) -> "<em>"++Ev++"</em>" end, ", ", EvTypes),
-
-		    w("%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>~n",[]),
-		    w("%% <dd>~s</dd></dl>~n", [EvStr]),
-		    w("%% See also the message variant {@link wxEvtHandler:~s(). #~s{}} event record type.~n",
-		      [event_rec_name(Name),event_rec_name(Name)]),
-		    w("%%~n",[]),
-		    ok
-	    end,
-
 	    Parents = parents(Parent),
-	    case [P || P <- Parents, P =/= root, P =/= object] of
-		[] -> ignore;
-		Ps ->
-		    w("%% <p>This class is derived (and can use functions) from:~n", []),
-		    [w("%% <br />{@link ~s}~n", [P]) || P <- Ps],
-		    w("%% </p>~n",[])
-	    end,
-	    w("%% @type ~s().  An object reference, The representation is internal~n",[Name]),
-	    w("%% and can be changed without notice. It can't be used for comparsion~n", []),
-	    w("%% stored on disc or distributed for use on other nodes.~n~n", []),
 	    w("-module(~s).~n", [Name]),
 	    w("-include(\"wxe.hrl\").~n",[]),
 	    Exp = fun(M) -> gen_export(C,M) end,
@@ -156,10 +131,28 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 	    w("-export([~s]).~n~n", [args(fun({_M,{F,A},_Dep}) -> F ++ "/" ++ A end, ",",
 					  InExported,
 					  60)]),
-	    w("-export_type([~s/0]).~n", [Name]),
+            w("-type ~s() :: wx:wx_object().~n", [Name]),
+            case C#class.event of
+                false ->
+                    w("-export_type([~s/0]).~n", [Name]);
+                Evs ->
+                    w("-include(\"wx.hrl\").~n",[]),
+                    EvTypes = [event_type_name(Ev) || Ev <- Evs],
+                    EvStr  = args(fun(Ev) -> "'" ++ Ev ++ "'" end, " | ", EvTypes),
+                    w("-type ~sType() :: ~s.~n", [Name, EvStr]),
+                    w("-export_type([~s/0, ~s/0, ~sType/0]).~n",
+                      [Name, event_rec_name(Name), Name])
+            end,
+
 	    case lists:filter(fun({_F,Depr}) -> Depr end, ExportList) of
 		[] -> ok;
-		Depr -> w("-deprecated([~s]).~n~n", [args(fun({EF,_}) -> EF end, ",", Depr, 60)])
+		Depr ->
+                    DepStr = "not available in wxWidgets-2.9 and later",
+                    w("-deprecated([~s]).~n~n",
+                      [args(fun({EF,_}) ->
+                                    [DFun,DArgs] = string:split(EF, "/"),
+                                    io_lib:format("{~s,~s,\"~s\"}", [DFun,DArgs,DepStr])
+                            end, ",\n             ", Depr, 60)])
 	    end,
 	    case lists:filter(fun({_,_,Depr}) -> Depr end, InExported) of
 		[] -> ok;
@@ -174,7 +167,6 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 
 	    w("%% @hidden~n", []),
 	    parents_check(Parents),
-	    w("-type ~s() :: wx:wx_object().~n", [Name]),
 	    Gen = fun(M) -> gen_method(Name,M) end,
 	    NewMs = lists:map(Gen,reverse(Ms)),
 	    gen_dest(C, Ms),
@@ -210,10 +202,10 @@ check_class(#type{name="wxObject", base={class,"wx"}}) ->
     "wx:wx_object()";
 check_class(#type{name="wxIconLocation", base={class,"wx"}}) ->
     "wx:wx_object()";
-check_class(#type{name="wxToolBarToolBase", base={class,"wx"}, mod=Mod}) ->
+check_class(#type{name="wxToolBarToolBase", base={class,"wx"}, mod=_Mod}) ->
     %% Implement this some day
     "wx:wx_object()";
-check_class(#type{name="wxValidator", base={class,"wx"}, mod=Mod}) ->
+check_class(#type{name="wxValidator", base={class,"wx"}, mod=_Mod}) ->
     %% Implement this some day
     "wx:wx_object()";
 check_class(#type{name=Name, base={class,"wx"}}) ->
@@ -242,37 +234,22 @@ check_class(#type{base={class,Name},xml=Xml}) ->
     end.
 
 gen_export(#class{name=Class,abstract=Abs},Ms0) ->
-    RemoveC = fun(#method{where=merged_c}) -> false;(_Other) -> true end,
-    Res = filter(RemoveC, Ms0),
     GetF = fun(M=#method{method_type=constructor,where=W,params=Ps}) ->
-		   {Args,Opts} = split_optional(Ps),
-		   OptLen = case Opts of
-				[] -> 0;
-				_ when W =:= erl_no_opt -> 0;
-				_ -> 1
-			    end,
-		   deprecated(M, "new" ++ "/" ++ integer_to_list(length(Args)+OptLen));
-	      (M=#method{method_type=destructor}) ->
+		   deprecated(M, "new" ++ "/" ++ integer_to_list(erl_args_count(Ps, W)));
+              (M=#method{method_type=destructor}) ->
 		   case Abs of
 		       true -> [];
 		       _ -> deprecated(M, "destroy/1")
 		   end;
 	      (M=#method{name=N,alias=A,where=W, params=Ps}) ->
-		   {Args,Opts} = split_optional(Ps),
-		   OptLen = case Opts of
-				[] -> 0;
-				_ when W =:= erl_no_opt -> 0;
-				_ -> 1
-			    end,
-		   deprecated(M, erl_func_name(N,A) ++ "/" ++ integer_to_list(length(Args) + OptLen))
+                   deprecated(M, erl_func_name(N,A) ++ "/" ++ integer_to_list(erl_args_count(Ps,W)))
 	   end,
-    case Res of
+    case Ms0 of
 	[] -> [];
 	[M=#method{where=taylormade}|_] ->
-	    try
-		[deprecated(M, taylormade_export(Class, M))]
+	    try	[deprecated(M, taylormade_export(Class, M))]
 	    catch error:{badmatch, {error, enoent}} ->
-		    lists:map(GetF, Res)
+		    lists:map(GetF, Ms0)
 	    end;
 	Ms ->
 	    lists:map(GetF, Ms)
@@ -287,16 +264,14 @@ deprecated(#method{opts=FOpts}, FA) ->
     end.
 
 gen_method(Class,Ms0) ->
-    RemoveC = fun(#method{where=merged_c}) -> false;(_Other) -> true end,
-    Res = filter(RemoveC, Ms0),
-    case Res of
+    case Ms0 of
 	[] -> Ms0;
 	[#method{where=taylormade}|_] ->
 	    try
-		taylormade_func(Class, Res)
+		taylormade_func(Class, Ms0)
 	    catch error:{badmatch, {error, enoent}} ->
-		    gen_doc(Class,Res),
-		    gen_method1(Res)
+		    gen_doc(Class,Ms0),
+		    gen_method1(Ms0)
 	    end,
 	    Ms0;
 	Ms ->
@@ -324,38 +299,39 @@ gen_method2(M=#method{name=N,alias=A,params=Ps0,where=erl_no_opt,method_type=MT}
     w("  ", []),
     gen_function_clause(erl_func_name(N,A),MT,Ps,empty_list,[no_guards,name_only]),
     M;
+gen_method2(M=#method{name=N,alias=A,params=Ps0,where=erl_alias,method_type=MT}) ->
+    put(current_func, N),
+    {Ps1, Optional} = split_optional(Ps0),
+    Ps = [patch_param(P,classes) || P <- Ps1],
+    w("~n", []),
+    gen_function_clause(erl_func_name(N,A),MT,Ps,Optional,[name_type]),
+    w("  ", []),
+    gen_function_clause(erl_func_name(N,undefined),MT,Ps,Optional,[no_guards,name_only]),
+    M;
 gen_method2(M=#method{name=N,alias=A,params=Ps,type=T,method_type=MT,id=MethodId}) ->
     put(current_func, N),
     {Args, Optional} = split_optional(Ps),
     gen_function_clause(erl_func_name(N,A),MT, Args, Optional, []),
     MId = arg_type_tests(Args, "?" ++ get_unique_name(MethodId)),
-    {MArgs,Align} = marshal_args(Args),
-    MOpts = marshal_opts(Optional, Align, Args),
+    MArgs = marshal_args(Args),
+    MOpts = marshal_opts(Optional, Args),
     case gen_util:get_hook(erl, M#method.pre_hook) of
 	ignore -> skip;
 	Pre -> w("  ~s~n", [Pre])
     end,
 
+    case MArgs == [] andalso MOpts == [] of
+        true  -> w("  wxe_util:queue_cmd(?get_env(), ~s)", [MId]);
+        false -> w("  wxe_util:queue_cmd(~s~s,?get_env(),~s)", [MArgs,MOpts,MId])
+    end,
     case gen_util:get_hook(erl, M#method.post_hook) of
 	ignore -> skip;
-	_ -> w("  _Result =", [])
+	Post -> w(",~n  ~s~n", [Post])
     end,
-
     case have_return_vals(T, Ps) of
-	_ when MT =:= constructor ->
-	    w("  wxe_util:construct(~s,~n  <<~s~s>>)", [MId, MArgs,MOpts]);
-	true ->
-	    w("  wxe_util:call(~s,~n  <<~s~s>>)", [MId, MArgs,MOpts]);
-	false ->
-	    w("  wxe_util:cast(~s,~n  <<~s~s>>)", [MId, MArgs,MOpts])
+        true -> w(",~n  wxe_util:rec(~s)", [MId]);
+        false -> ignore
     end,
-    case gen_util:get_hook(erl, M#method.post_hook) of
-	ignore -> skip;
-	Post ->
-	    w(",~n  ~s~n", [Post]),
-	    w("  _Result", [])
-    end,
-
     erase(current_func),
     M.
 
@@ -384,9 +360,9 @@ gen_dest2(Class, Id) ->
     w("  ?CLASS(Type,~s),~n",[Class]),
     case Id of
 	object ->
-	    w("  wxe_util:destroy(?DESTROY_OBJECT,Obj),~n  ok.~n", []);
+	    w("  wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),~n  ok.~n", []);
 	_ ->
-	    w("  wxe_util:destroy(?~s,Obj),~n  ok.~n", [get_unique_name(Id)])
+	    w("  wxe_util:queue_cmd(Obj, ?get_env(), ?~s),~n  ok.~n", [get_unique_name(Id)])
     end,
     ok.
 
@@ -402,8 +378,7 @@ gen_inherited([Parent|Ps], Done0, Exported0) ->
     gen_inherited(Ps, gb_sets:union(Done,Done0), Exported).
 
 gen_inherited_ms([[M=#method{name=Name,alias=A,params=Ps0,where=W,method_type=MT}|_]|R],
-		 Class,Skip,Done, Exported)
-  when W =/= merged_c ->
+		 Class,Skip,Done, Exported) ->
     case gb_sets:is_member(Name,Skip) of
 	false when MT =:= member, Exported =:= true ->
 	    Ps = [patch_param(P,all) || P <- Ps0],
@@ -419,14 +394,8 @@ gen_inherited_ms([[M=#method{name=Name,alias=A,params=Ps0,where=W,method_type=MT
 	    w(".~n", []),
 	    gen_inherited_ms(R,Class, Skip, gb_sets:add(Name,Done), Exported);
 	false when MT =:= member, is_list(Exported) ->
-	    {Args,Opts} = split_optional(Ps0),
-	    OptLen = case Opts of
-			 [] -> 0;
-			 _ when W =:= erl_no_opt -> 0;
-			 _ -> 1
-		     end,
 	    {_, Depr} = deprecated(M,ignore),
-	    Export = {Class,{erl_func_name(Name,A),integer_to_list(length(Args) + OptLen)}, Depr},
+	    Export = {Class,{erl_func_name(Name,A),integer_to_list(erl_args_count(Ps0,W))}, Depr},
 	    gen_inherited_ms(R,Class,Skip, gb_sets:add(Name,Done),
 			     [Export|Exported]);
 	_ ->
@@ -444,6 +413,7 @@ gen_inherited_ms([], _, _Skip, Done,Exp) -> {Done,Exp}.
 taylormade_func(Class, [#method{name=Name, id=Id}|_]) ->
     {ok, Bin} = file:read_file(filename:join([wx_extra, Class ++".erl"])),
     Src = binary_to_list(Bin),
+    %% io:format("~p ~p ~p ~p~n",[Class, Name, Id, get_unique_name(Id)]),
     Str = case gen_util:get_taylor_made(Src, Name) of
 	      nomatch ->
 		  {match, [Str0]} = gen_util:get_taylor_made(Src, get_unique_name(Id)),
@@ -485,47 +455,48 @@ arg_type_test(#param{name=Name0,in=In,type=#type{base={class,T}}, def=none},EOS,
     w(" _ = [?CLASS(~sT,~s) || #wx_ref{type=~sT} <- ~s],~s", [Name,T,Name,Name,EOS]),
     Acc;
 arg_type_test(#param{name=Name0,def=none,in=In,
-		     type={merged,
-			   M1, #type{base={class,T1},single=true},Ps1,
-			   M2, #type{base={class,T2},single=true},Ps2}}, EOS, _Acc)
+		     type={merged,MTs}},
+              _EOS, Acc)
   when In =/= false ->
     Name = erl_arg_name(Name0),
-    Opname = Name++"OP",
-    w("  ~s = case ?CLASS_T(~sT,~s) of~n     true ->\n       ", [Opname,Name,T1]),
-    lists:foreach(fun(Param) -> arg_type_test(Param,"\n       ", ignore) end,
-		  element(1,split_optional(Ps1))),
-    w("?~s;~n",[get_unique_name(M1)]),
-    w("     _ -> ?CLASS(~sT,~s),\n       ",[Name,T2]),
-    {Ps21,_} = split_optional(patchArgName(Ps2,Ps1)),
-    lists:foreach(fun(Param) -> arg_type_test(Param,"\n       ", ignore) end,
-		  Ps21),
-    w("?~s\n     end,~s",[get_unique_name(M2),EOS]),
-    Opname;
-arg_type_test(#param{name=Name0, type=#type{base=eventType}}, EOS, Acc) ->
-    Name = erl_arg_name(Name0),
-    w("  ~sBin = list_to_binary([atom_to_list(~s)|[0]]),~s", [Name,Name,EOS]),
-    w("  ThisTypeBin = list_to_binary([atom_to_list(ThisT)|[0]]),~s", [EOS]),
+    [w("  Is~s = ?CLASS_T(~sT,~s),~n",[T,Name,T]) || {_, #type{base={class,T},single=true}, _} <- MTs],
+    w("  ~sType = if~n",[Name]),
+    Clause = fun({_,#type{base={class,T}},Ps}, Patch) ->
+                     w("    Is~s -> ", [T]),
+                     lists:foreach(fun(Param) -> arg_type_test(Param," ", ignore) end,
+                                   element(1,split_optional(patchArgName(Ps,Patch)))),
+                     w("  ~s;~n",[T])
+             end,
+    First = {_,_,Ps0} = hd(MTs),
+    Clause(First, ignore),
+    [Clause(MT, Ps0) || MT <- tl(MTs)],
+    w("    true -> error({badarg, ~sT})~n  end,~n", [Name]),
     Acc;
-arg_type_test(#param{name=Name0,def=none,type=#type{base={term,_}}}, EOS, Acc) ->
-    Name = erl_arg_name(Name0),
-    w("  wxe_util:send_bin(term_to_binary(~s)),~s", [Name,EOS]),
+arg_type_test(#param{name=_Name0, type=#type{base=eventType}}, _EOS, Acc) ->
+    %% Name = erl_arg_name(Name0),
+    %% w("  ~sBin = list_to_binary([atom_to_list(~s)|[0]]),~s", [Name,Name,EOS]),
+    %% w("  ThisTypeBin = list_to_binary([atom_to_list(ThisT)|[0]]),~s", [EOS]),
     Acc;
-arg_type_test(#param{name=Name0,type=#type{base=binary}},EOS,Acc) ->
-    Name = erl_arg_name(Name0),
-    w("  wxe_util:send_bin(~s),~s", [Name,EOS]),
+arg_type_test(#param{name=_Name0,def=none,type=#type{base={term,_}}}, _EOS, Acc) ->
+    %% Name = erl_arg_name(Name0),
+    %% w("  wxe_util:send_bin(term_to_binary(~s)),~s", [Name,EOS]),
+    Acc;
+arg_type_test(#param{name=_Name0,type=#type{base=binary}},_EOS,Acc) ->
+    %% Name = erl_arg_name(Name0),
+    %% w("  wxe_util:send_bin(~s),~s", [Name,EOS]),
     Acc;
 arg_type_test(#param{name=Name0,type=#type{name=Type,base=Base,single=Single}},EOS,Acc) ->
     if
 	Type =:= "wxArtClient", Single =:= true ->
 	    Name = erl_arg_name(Name0),
-	    w("  ~s_UC = unicode:characters_to_binary([~s, $_, $C,0]),~s",
+	    w("  ~s_UC = unicode:characters_to_binary([~s, $_, $C]),~s",
 	      [Name,Name, EOS]);
 	Base =:= string orelse (Type =:= "wxChar" andalso Single =/= true) ->
 	    Name = erl_arg_name(Name0),
-	    w("  ~s_UC = unicode:characters_to_binary([~s,0]),~s", [Name,Name,EOS]);
+	    w("  ~s_UC = unicode:characters_to_binary(~s),~s", [Name,Name,EOS]);
 	Type =:= "wxArrayString" ->
 	    Name = erl_arg_name(Name0),
-	    w("  ~s_UCA = [unicode:characters_to_binary([~sTemp,0]) || ~s",
+	    w("  ~s_UCA = [unicode:characters_to_binary(~sTemp) ||~s",
 	      [Name,Name, EOS]),
 	    w("              ~sTemp <- ~s],~s", [Name,Name,EOS]);
 	true -> %% Not a string
@@ -534,9 +505,11 @@ arg_type_test(#param{name=Name0,type=#type{name=Type,base=Base,single=Single}},E
     Acc;
 arg_type_test(_,_,Acc) -> Acc.
 
+
 patchArgName([Param|R1], [#param{name=Name}|R2]) ->
     [Param#param{name=Name}|patchArgName(R1,R2)];
-patchArgName([],[]) -> [].
+patchArgName([],[]) -> [];
+patchArgName(List, ignore) -> List.
 
 have_return_vals(void, Ps) ->
     lists:any(fun(#param{in=In}) -> In =/= true end, Ps);
@@ -546,17 +519,7 @@ gen_function_clause(Name0,MT,Ps,Optional,Variant) ->
     PArg = fun(Arg) ->
 		   case lists:member(name_only, Variant) of
 		       true -> func_arg_name(Arg);
-		       false ->
-			   case lists:member(name_type, Variant) of
-			       true ->
-				   Name = func_arg_name(Arg),
-				   case func_arg(Arg) of
-				       Name -> Name;
-				       Typed -> Name ++ "=" ++ Typed
-				   end;
-			       false ->
-				   func_arg(Arg)
-			   end
+		       false -> func_arg(Arg, true)
 		   end
 	   end,
     Args = args(PArg, ",", Ps),
@@ -595,9 +558,18 @@ split_optional([_|Ps], Standard, Opts) ->
 split_optional([], Standard, Opts) ->
     {reverse(Standard), reverse(Opts)}.
 
+erl_args_count(Ps, W) ->
+    {Args,Opts} = split_optional(Ps),
+    OptLen = case Opts of
+                 [] -> 0;
+                 _ when W =:= erl_no_opt -> 0;
+                 _ -> 1
+             end,
+    length(Args)+OptLen.
+
 patch_param(P=#param{type=#type{base=Tuple}}, all) when is_tuple(Tuple) ->
     P#param{type={class,ignore}};
-patch_param(P=#param{type={merged,_,_,_,_,_,_}}, _) ->
+patch_param(P=#param{type={merged,_}}, _) ->
     P#param{type={class,ignore}};
 patch_param(P=#param{type=#type{base={class,_}}},_) ->
     P#param{type={class,ignore}};
@@ -611,37 +583,51 @@ func_arg_name(#param{where=c}) -> skip;
 func_arg_name(#param{name=Name}) ->
     erl_arg_name(Name).
 
-func_arg(#param{def=Def}) when Def =/= none -> skip;
-func_arg(#param{in=false}) -> skip;
-func_arg(#param{where=c}) -> skip;
-func_arg(#param{name=Name,type=#type{base=string}}) ->
+func_arg(#param{def=Def}, _) when Def =/= none -> skip;
+func_arg(#param{in=false}, _) -> skip;
+func_arg(#param{where=c}, _) -> skip;
+func_arg(#param{name=Name,type=#type{base=string}}, _) ->
     erl_arg_name(Name);
-func_arg(#param{name=Name,type=#type{name="wxArrayString"}}) ->
+func_arg(#param{name=Name,type=#type{name="wxArrayString"}}, _) ->
     erl_arg_name(Name);
-func_arg(#param{name=Name0,type=#type{base={class,_CN}, single=true}}) ->
+func_arg(#param{name=Name0,type=#type{base={class,_CN}, single=true}}, Used) ->
     Name = erl_arg_name(Name0),
-    "#wx_ref{type=" ++ Name ++ "T,ref=" ++ Name++"Ref}";
-func_arg(#param{name=Name0,type=#type{base={ref,CN}, single=true}}) ->
+    case Used of
+        true -> "#wx_ref{type=" ++ Name ++ "T}=" ++ Name;
+        false -> "#wx_ref{type=" ++ Name ++ "T}"
+    end;
+func_arg(#param{name=Name0,type=#type{base={ref,CN}, single=true}}, Used) ->
     Name = erl_arg_name(Name0),
-    "#wx_ref{type=" ++ CN ++ ",ref=" ++ Name++"Ref}";
-func_arg(#param{name=Name0,type={merged,_,#type{base={class,_},single=true},_,
-				 _, #type{base={class,_},single=true},_}}) ->
+    case Used of
+        true -> "#wx_ref{type=" ++ CN ++ ", ref=" ++ Name++"Ref}=" ++ Name;
+        false -> "#wx_ref{type=" ++ CN ++ ", ref=" ++ Name++"Ref}"
+    end;
+func_arg(#param{name=Name0,type={merged,_}}, Used) ->
     Name = erl_arg_name(Name0),
-    "#wx_ref{type=" ++ Name ++ "T,ref=" ++ Name++"Ref}";
-func_arg(#param{name=Name,type=#type{base={enum,_}}}) ->
+    case Used of
+        true -> "#wx_ref{type=" ++ Name ++ "T}=" ++ Name;
+        false -> "#wx_ref{type=" ++ Name ++ "T}"
+    end;
+func_arg(#param{name=Name,type=#type{base={enum,_}}}, Used) ->
+    erl_arg_name(Name, Used);
+func_arg(#param{name=Name,type=#type{base={comp,"wxColour",_Tup}, single=true}}, _) ->
     erl_arg_name(Name);
-func_arg(#param{name=Name,type=#type{base={comp,"wxColour",_Tup}, single=true}}) ->
-    erl_arg_name(Name);
-func_arg(#param{name=Name,type=#type{base={comp,"wxDateTime",_Tup}, single=true}}) ->
-    erl_arg_name(Name);
-func_arg(#param{name=Name,type=#type{name="wxArtClient", single=true}}) ->
-    erl_arg_name(Name);
-func_arg(#param{name=Name,type=#type{base={comp,_,Tup}, single=true}}) ->
+func_arg(#param{name=Name,type=#type{base={comp,"wxDateTime",[D,Mo,Y|Tup]}, single=true}}, _) ->
     N = erl_arg_name(Name),
-    Doc = fun({_,V}) -> erl_arg_name(N)++V end,
-    "{" ++ args(Doc, ",", Tup) ++ "}";
-func_arg(#param{name=Name}) ->
-    erl_arg_name(Name).
+    Doc = fun({_,V}) -> N++V end,
+    "{{" ++ args(Doc, ",", [Y,Mo,D]) ++ "},{" ++ args(Doc, ",", Tup) ++ "}}";
+func_arg(#param{name=Name,type=#type{name="wxArtClient", single=true}}, _) ->
+    erl_arg_name(Name);
+func_arg(#param{name=Name,type=#type{base={comp,_,Tup}, single=true}}, Used) ->
+    N = erl_arg_name(Name, Used),
+    Doc = fun({_,V}) -> N++V end,
+    "{" ++ args(Doc, ",", Tup) ++ "}" ++
+        case Used of
+            true -> " = " ++ N;
+            false -> ""
+        end;
+func_arg(#param{name=Name}, Used) ->
+    erl_arg_name(Name, Used).
 
 
 guard_test(#param{type=#type{base={class,_},single=true}}) -> skip;
@@ -669,8 +655,8 @@ guard_test(#param{name=N,type=#type{base=double}}) ->
     "is_number(" ++ erl_arg_name(N) ++ ")";
 guard_test(#param{name=N,type=#type{base=bool}}) ->
     "is_boolean(" ++ erl_arg_name(N) ++ ")";
-guard_test(#param{name=N,type=#type{name="wxDateTime"}}) ->
-    "tuple_size(" ++ erl_arg_name(N) ++ ") =:= 2";
+%%guard_test(#param{name=_N,type=#type{name="wxDateTime"}}) ->
+    %%     "tuple_size(" ++ erl_arg_name(N) ++ ") =:= 2";
 guard_test(#param{name=N,type=#type{base=binary}}) ->
     "is_binary(" ++ erl_arg_name(N) ++ ")";
 guard_test(#param{name=Name,type=#type{base={enum,_}}}) ->
@@ -683,7 +669,7 @@ guard_test(#param{name=_N,type=#type{base={ref,_}}}) ->
     skip;
 guard_test(#param{name=_N,type=#type{base={class,_}}}) ->
     skip;
-guard_test(#param{name=_N,type={merged,_,#type{base={class,_}},_,_,#type{},_}}) ->
+guard_test(#param{name=_N,type={merged,_}}) ->
     skip;
 guard_test(#param{name=N,type=#type{base={comp,"wxColour",_Tup}}}) ->
     "tuple_size(" ++ erl_arg_name(N) ++ ") =:= 3; tuple_size(" ++ erl_arg_name(N) ++ ") =:= 4";
@@ -837,16 +823,16 @@ doc_arg_type3(T=#type{base={class,N}}, _) ->
     if N =:= Current -> N ++ "()";
        true -> ClassType
     end;
-doc_arg_type3({merged,_,T1=#type{base={class,N1}},_,_,T2=#type{base={class,N2}},_}, _) ->
-    CT1 = check_class(T1),
-    CT2 = check_class(T2),
-    Curr = get(current_class),
+doc_arg_type3({merged,Classes}, _) ->
+    CTs = [check_class(T) || {_, T=#type{base={class,_N1}},_} <- Classes],
+    %% Curr = get(current_class),
     if
-	N1 =:= Curr, N2 =:= Curr ->  N1++"()";
-	N1 =:= Curr -> N1++"() | "++ CT2;
-	N2 =:= Curr -> CT1 ++ " | "++ N2++"()";
+	%% N1 =:= Curr, N2 =:= Curr ->  N1++"()";
+	%% N1 =:= Curr -> N1++"() | "++ CT2;
+	%% N2 =:= Curr -> CT1 ++ " | "++ N2++"()";
 	true ->
-	    CT1 ++ " | " ++ CT2
+            lists:flatten(lists:join(" | ", CTs))
+            %% CT1 ++ " | " ++ CT2
     end;
 %% doc_arg_type3(#type{base={enum,{_,N}}}, _) ->    uppercase(N);
 %% doc_arg_type3(#type{base={enum,N}}, _) ->    uppercase(N);
@@ -855,6 +841,8 @@ doc_arg_type3(#type{base={comp,"wxColour",_Tup}}, in) ->
     "wx:wx_colour()";
 doc_arg_type3(#type{base={comp,"wxColour",_Tup}}, out) ->
     "wx:wx_colour4()";
+doc_arg_type3(#type{base={comp,"wxGraphicsGradientStop",_Tup}}, out) ->
+    "{wx:wx_colour4(), float()}";
 doc_arg_type3(#type{base={comp,_,{record,Name}}}, _) ->
     "wx:wx_" ++ atom_to_list(Name) ++ "()";
 doc_arg_type3(#type{base={comp,_,Tup}}, _) ->
@@ -905,11 +893,19 @@ doc_enum_desc([{_Enum,Name,Vs}|R]) ->
     doc_enum_desc(R).
 
 %% Misc functions prefixed with wx
+erl_func_name(#method{method_type=constructor}) ->
+    "new";
+erl_func_name(#method{name=N, alias=A}) ->
+    erl_func_name(N, A).
+
 erl_func_name("wx" ++ Name, undefined) ->   check_name(lowercase(Name));
 erl_func_name(Name, undefined) ->   check_name(lowercase(Name));
 erl_func_name(_, Alias) -> check_name(lowercase(Alias)).
 
 erl_option_name(Name) -> lowercase(Name).
+
+erl_arg_name(Name, false) -> "_" ++ Name;
+erl_arg_name(Name, true) -> erl_arg_name(Name).
 erl_arg_name(Name) ->    uppercase(Name).
 
 check_name("destroy") -> "'Destroy'";
@@ -917,158 +913,78 @@ check_name("xor") -> "'Xor'";
 check_name("~" ++ _Name) -> "destroy";
 check_name(Name) -> Name.
 
-marshal_opts([], _,_) -> "";     %% No opts skip this!
-marshal_opts(Opts, Align, Args) ->
+marshal_opts([],_) -> "";     %% No opts skip this!
+marshal_opts(Opts, []) ->
+    marshal_opts_0(Opts),
+    "Opts";
+marshal_opts(Opts, _) ->
+    marshal_opts_0(Opts),
+    ", Opts".
+
+marshal_opts_0(Opts) ->
     w("  MOpts = fun", []),
-    marshal_opts1(Opts,1),
-    w(";~n          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,~n", []),
-    w("  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),~n", []),
-    {Str, _} = align(64, Align, "BinOpt/binary"),
-    case Args of
-	[] -> Str;   % All Args are optional
-	_ ->    ", " ++ Str
-    end.
+    marshal_opts1(Opts),
+    w(";~n          (BadOpt) -> erlang:error({badoption, BadOpt}) end,~n", []),
+    w("  Opts = lists:map(MOpts, Options),~n",[]).
 
-marshal_opts1([P],N) ->
-    marshal_opt(P,N);
-marshal_opts1([P|R],N) ->
-    marshal_opt(P,N),
+marshal_opts1([P]) ->
+    marshal_opt(P);
+marshal_opts1([P|R]) ->
+    marshal_opt(P),
     w(";~n          ", []),
-    marshal_opts1(R,N+1).
+    marshal_opts1(R).
 
-marshal_opt(P0=#param{name=Name,type=Type},N) ->
+marshal_opt(P0=#param{name=Name,type=Type}) ->
     P = P0#param{def=none},
-    {Arg,Align} = marshal_arg(Type,erl_arg_name(Name),1),
-    AStr = if Align =:= 0 -> "";
-	      Align =:= 1 -> ",0:32"
-	   end,
-    w("({~s, ~s}, Acc) -> ", [erl_option_name(Name), func_arg(P)]),
-    arg_type_test(P,"",[]),
+    Opt = erl_option_name(Name),
+    N = erl_arg_name(Name),
+    Arg = marshal_arg(Type,N),
     case Arg of
-	skip ->
-	    w("[<<~p:32/?UI~s>>|Acc]", [N, AStr]);
+	N ->
+            w("({~s, ~s} = Arg) -> ", [Opt, func_arg(P, false)]),
+            arg_type_test(P,"",[]),
+	    w("Arg",[]);
 	_ ->
-	    w("[<<~p:32/?UI,~s~s>>|Acc]", [N, Arg,AStr])
+            w("({~s, ~s}) -> ", [Opt, func_arg(P, false)]),
+            arg_type_test(P,"",[]),
+	    w("{~s,~s}", [Opt, Arg])
     end.
+
 marshal_args(Ps) ->
-    marshal_args(Ps, [], 0).
+    marshal_args(Ps, []).
 
-marshal_args([#param{where=erl}|Ps], Margs, Align) ->
-    marshal_args(Ps, Margs, Align);
-marshal_args([#param{name=_N,where=c}|Ps], Margs, Align) ->
+marshal_args([#param{where=erl}|Ps], Margs) ->
+    marshal_args(Ps, Margs);
+marshal_args([#param{name=_N,where=c}|Ps], Margs) ->
     %% io:format("~p:~p: skip ~p~n",[get(current_class),get(current_func),_N]),
-    marshal_args(Ps, Margs, Align);
-marshal_args([#param{in=false}|Ps], Margs, Align) ->
-    marshal_args(Ps, Margs, Align);
-marshal_args([#param{def=Def}|Ps], Margs, Align) when Def =/= none ->
-    marshal_args(Ps, Margs, Align);
-marshal_args([#param{name=Name, type=Type}|Ps], Margs, Align0) ->
-    {Arg,Align} = marshal_arg(Type,erl_arg_name(Name),Align0),
-    marshal_args(Ps, [Arg|Margs], Align);
-marshal_args([],Margs, Align) ->
-    {args(fun(Str) -> Str end, ",", reverse(Margs)), Align}.
+    marshal_args(Ps, Margs);
+marshal_args([#param{in=false}|Ps], Margs) ->
+    marshal_args(Ps, Margs);
+marshal_args([#param{def=Def}|Ps], Margs) when Def =/= none ->
+    marshal_args(Ps, Margs);
+marshal_args([#param{name=Name, type=Type}|Ps], Margs) ->
+    Arg = marshal_arg(Type, erl_arg_name(Name)),
+    marshal_args(Ps, [Arg|Margs]);
+marshal_args([],Margs) ->
+    args(fun(Str) -> Str end, ",", reverse(Margs)).
 
-marshal_arg(#type{base={class,_}, single=true}, Name, Align) ->
-    align(32, Align, Name ++ "Ref:32/?UI");
-marshal_arg({merged,_,#type{base={class,_},single=true},_,_,_,_},Name,Align) ->
-    align(32, Align, Name ++ "Ref:32/?UI");
-marshal_arg(#type{base={ref,_}, single=true}, Name, Align) ->
-    align(32, Align, Name ++ "Ref:32/?UI");
-marshal_arg(#type{single=true,base=long}, Name, Align) ->
-    align(64, Align, Name ++ ":64/?UI");
-marshal_arg(#type{single=true,base=float}, Name, Align) ->
-    align(32, Align, Name ++ ":32/?F");
-marshal_arg(#type{single=true,base=double}, Name, Align) ->
-    align(64, Align, Name ++ ":64/?F");
-marshal_arg(#type{single=true,base=int64}, Name, Align) ->
-    align(64, Align, Name ++ ":64/?UI");
-marshal_arg(#type{single=true,base=int}, Name, Align) ->
-    align(32, Align, Name ++ ":32/?UI");
-marshal_arg(#type{single=true,base={enum,_Enum}}, Name, Align) ->
-    align(32, Align, Name ++ ":32/?UI");
-
-marshal_arg(#type{single=true,base=bool}, Name, Align) ->
-    align(32, Align, "(wxe_util:from_bool(" ++ Name ++ ")):32/?UI");
-marshal_arg(#type{name="wxChar", single=Single}, Name, Align0)
+marshal_arg(#type{name="wxChar", single=Single}, Name)
   when Single =/= true ->
-    {Str,Align} =
-	align(32,Align0, "(byte_size("++Name++"_UC)):32/?UI,(" ++ Name ++ "_UC)/binary"),
-    MsgSize = "(" ++ integer_to_list(Align*4)++"+byte_size("++Name++"_UC))",
-    {Str++", 0:(((8- (" ++ MsgSize ++" band 16#7)) band 16#7))/unit:8",0};
-marshal_arg(#type{base=string}, Name, Align0) ->
-    {Str,Align} =
-	align(32,Align0, "(byte_size("++Name++"_UC)):32/?UI,(" ++ Name ++ "_UC)/binary"),
-    MsgSize = "(" ++ integer_to_list(Align*4)++"+byte_size("++Name++"_UC))",
-    {Str++", 0:(((8- (" ++ MsgSize ++" band 16#7)) band 16#7))/unit:8",0};
-marshal_arg(#type{name="wxArrayString"}, Name, Align0) ->
-    InnerBin  = "<<(byte_size(UC_Str)):32/?UI, UC_Str/binary>>",
-    Outer =  "(<< " ++ InnerBin ++ "|| UC_Str <- "++ Name ++"_UCA>>)/binary",
-    Str0  =  "(length("++Name++"_UCA)):32/?UI, " ++ Outer,
-    {Str,Align} = align(32,Align0,Str0),
-    MsgSize = "("++integer_to_list(Align*4) ++
-	" + lists:sum([byte_size(S)+4||S<-" ++ Name ++"_UCA]))",
-    AStr = ", 0:(((8- (" ++ MsgSize ++" band 16#7)) band 16#7))/unit:8",
-    {Str ++ AStr, 0};
-marshal_arg(#type{single=true,base={comp,"wxColour",_Comp}}, Name, Align0) ->
-    Str = "(wxe_util:colour_bin(" ++ Name ++ ")):16/binary",
-    {Str,Align0};
-marshal_arg(#type{single=true,base={comp,"wxDateTime",_Comp}}, Name, Align) ->
-    {"(wxe_util:datetime_bin(" ++ Name ++ ")):24/binary", Align};
-marshal_arg(#type{single=true,base={comp,_,Comp}}, Name, Align0) ->
-    case hd(Comp) of
-	{int,_} ->
-	    A = [Name++Spec++":32/?UI" || {int,Spec} <- Comp],
-	    Str = args(fun(Str) -> Str end, ",", A),
-	    {Str,(Align0 + length(Comp)) rem 2};
-	{double,_} ->
-	    A = [Name++Spec++":64/?F" || {double,Spec} <- Comp],
-	    Str = args(fun(Str) -> Str end, ",", A),
-	    align(64,Align0,Str)
-    end;
-marshal_arg(#type{base={term,_}}, _Name, Align0) ->
-    {skip,Align0};
-marshal_arg(#type{base=binary}, _Name, Align0) ->
-    {skip,Align0};
-marshal_arg(#type{base=Base, single=Single}, Name, Align0)
-  when Single =/= true ->
-    case Base of
-	int ->
-	    Str0 = "(length("++Name++")):32/?UI,\n"
-		"        (<< <<C:32/?I>> || C <- "++Name++">>)/binary",
-	    {Str,Align} = align(32,Align0, Str0),
-	    {Str ++ ", 0:((("++integer_to_list(Align)++"+length("++Name++ ")) rem 2)*32)", 0};
-	{ObjRef,_} when ObjRef =:= class; ObjRef =:= ref ->
-	    Str0 = "(length("++Name++")):32/?UI,",
-	    Str1 = "\n     (<< <<(C#wx_ref.ref):32/?UI>> || C <- "++Name++">>)/binary",
-	    {Str2,Align} = align(32, Align0, Str1),
-	    AlignStr = ", 0:((("++integer_to_list(Align)++"+length("++Name++ ")) rem 2)*32)",
-	    {Str0 ++ Str2 ++ AlignStr, 0};
-	{comp, "wxPoint", _} ->
-	    Str0 = "(length("++Name++")):32/?UI,\n"
-		"        (<< <<X:32/?I,Y:32/?I>> || {X,Y} <- "++Name++">>)/binary",
-	    align(32,Align0, Str0);
-	{comp, "wxPoint2DDouble", _} ->
-	    Str0 = "(length("++Name++")):32/?UI,\n",
-	    Str1 = "    (<< <<X:64/?F,Y:64/?F>> || {X,Y} <- "++Name++">>)/binary",
-	    {Str,_Align} = align(64,Align0+1, Str1),
-	    {Str0 ++ Str, 0};
-	double ->
-	    Str0 = "(length("++Name++")):32/?UI,\n",
-	    Str1 = "  (<< <<C:64/?F>> || C <- "++Name++">>)/binary",
-	    {Str,_Align} = align(64,Align0+1, Str1),
-	    {Str0 ++ Str, 0};
-	_ ->
-	    ?error({unhandled_array_type, Base})
-    end;
-marshal_arg(T=#type{name=_wxString}, Name, _Align) ->
-    ?error({unhandled_type, {Name,T}}).
-
-
-align(32, 0, Str) -> {Str, 1};
-align(32, 1, Str) -> {Str, 0};
-align(64, 0, Str) -> {Str, 0};
-align(64, 1, Str) -> {"0:32," ++ Str,0};
-align(Sz, W, Str) -> align(Sz, W rem 2, Str).
+    Name ++ "_UC";
+marshal_arg(#type{base=string}, Name) ->
+    Name ++ "_UC";
+marshal_arg(#type{name="wxArrayString"}, Name) ->
+    Name ++ "_UCA";
+marshal_arg(#type{single=true,base={comp,"wxColour",_Comp}}, Name) ->
+    "wxe_util:color(" ++ Name ++ ")";
+marshal_arg(#type{single=true,base={comp,"wxDateTime",Comp}}, Name) ->
+    N = erl_arg_name(Name),
+    Doc = fun({_,V}) -> N++V end,
+    "{" ++ args(Doc, ",", Comp) ++ "}";
+marshal_arg({merged, _}, Name) ->
+    "wx:typeCast(" ++ Name ++ ", " ++ Name ++ "Type)";
+marshal_arg(_, Name) ->
+    Name.
 
 enum_name(Name) ->
     case enum_split(Name) of
@@ -1088,6 +1004,10 @@ enum_name(Enum, Name) -> Enum ++ "_" ++ Name.
 enum_name_c(undefined, Name) -> Name;
 enum_name_c(Enum, Name) -> Enum ++ "::" ++ Name.
 
+const_name("WXK" ++ Name) -> "wxk" ++ Name;
+const_name("WX" ++ Name) -> "wx" ++ Name;
+const_name(Name) -> enum_name(Name).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 gen_enums_ints() ->
@@ -1103,16 +1023,19 @@ gen_enums_ints() ->
       "        }).~n", []),
     w("~n%% Hardcoded Defines~n", []),
     Enums = [E || {{enum,_},E = #enum{as_atom=false}} <- get()],
+    w("-define(wxDefaultCoord, -1).~n", []),
     w("-define(wxDefaultSize, {-1,-1}).~n", []),
     w("-define(wxDefaultPosition, {-1,-1}).~n", []),
     w("~n%% Global Variables~n", []),
-    [w("-define(~s,  wxe_util:get_const(~s)).~n", [qoute_atom(Gvar), qoute_atom(Gvar)]) ||
-	{Gvar,_,_Id} <- get(gvars)],
+    Done = foldl(fun({Gvar,_}, Done) ->
+                         w("-define(~s,  wxe_util:get_const(~s)).~n", [qoute_atom(Gvar), qoute_atom(Gvar)]),
+                         gb_sets:add(Gvar, Done)
+                 end, gb_sets:empty(), get(gvars)),
     w("~n%% Enum and defines~n", []),
-    foldl(fun(Enum= #enum{vals=Vals}, Done) when Vals =/= [] ->
-		  build_enum_ints(Enum,Done);
-	     (_,Done) -> Done
-	  end, gb_sets:empty(), lists:sort(Enums)),
+    foldl(fun(Enum= #enum{vals=Vals}, Acc) when Vals =/= [] ->
+		  build_enum_ints(Enum,Acc);
+	     (_,Acc) -> Acc
+	  end, Done, lists:sort(Enums)),
     close().
 
 qoute_atom([Char|_]=Str) when Char < $a ->
@@ -1120,17 +1043,18 @@ qoute_atom([Char|_]=Str) when Char < $a ->
 qoute_atom(Str) ->
     Str.
 
+
+enum_from({File, undefined, [$@|_]}) ->
+    io_lib:format(" From \"~s.h\"",[File]);
+enum_from({File, undefined, Name}) ->
+    io_lib:format(" From \"~s.h\": ~s",[File, Name]);
+enum_from({_File, Class,[$@|_]}) ->
+    io_lib:format(" From class ~s",[Class]);
+enum_from({_File, Class, Name}) ->
+    io_lib:format(" From class ~s::~s",[Class, Name]).
+
 build_enum_ints(#enum{from=From, vals=Vals},Done) ->
-    case From of
-	{File, undefined, [$@|_]} ->
-	    w("% From \"~s.h\"~n",[File]);
-	{File, undefined, Name} ->
-	    w("% From \"~s.h\": ~s~n",[File, Name]);
-	{_File, Class,[$@|_]} ->
-	    w("% From class ~s~n",[Class]);
-	{_File, Class, Name} ->
-	    w("% From class ~s::~s~n",[Class, Name])
-    end,
+    w("%%% ~s~n", [enum_from(From)]),
 
     Consts = get(consts),
     Ignore = fun(Name) ->
@@ -1145,7 +1069,7 @@ build_enum_ints(#enum{from=From, vals=Vals},Done) ->
 		(#const{name=Name,val=Value,is_const=true}) when is_number(Value) ->
 		     w("-define(~s, ~p).~n", [enum_name(Name),Value]);
 		(#const{name=Name,val=Value,is_const=false}) when is_number(Value) ->
-		     w("-define(~s, wxe_util:get_const(~s)).~n", [enum_name(Name),enum_name(Name)]);
+		     w("-define(~s, wxe_util:get_const(~s)).~n", [enum_name(Name),const_name(Name)]);
 		(#const{name=Name,val={Str,0}}) ->
 		     {EnumClass, EnumName} = enum_split(Name),
 		     case string:tokens(Str, " |()") of
@@ -1155,11 +1079,14 @@ build_enum_ints(#enum{from=From, vals=Vals},Done) ->
 			     Def = args(fun(T) -> const_value(T, EnumClass, Ignore) end, " bor ", Tokens),
 			     w("-define(~s, (~s)).~n", [EnumName, Def])
 		     end;
-		(#const{name=Name,val={Str,N}}) ->
+		(#const{name=Name,val={Str,N}}=Const) ->
 		     {EnumClass, EnumName} = enum_split(Name),
 		     case string:tokens(Str, " |()") of
 			 [Token] ->
-			     w("-define(~s, (~s+~p)).~n", [EnumName,const_value(Token, EnumClass, Ignore),N])
+			     w("-define(~s, (~s+~p)).~n", [EnumName,const_value(Token, EnumClass, Ignore),N]);
+                         _Tokens ->
+                             io:format("~p ~p~n", [Str, N]),
+                             exit(Const)
 		     end
 	     end,
 
@@ -1169,7 +1096,7 @@ build_enum_ints(#enum{from=From, vals=Vals},Done) ->
 			Const ->
 			    try Format(Const)
 			    catch {unknown_value, _Error} ->
-				    %% io:format("Const ~s uses unknown define ~p ignoring~n", [Name, _Error]),
+				    io:format("Const ~s uses unknown define ~p ignoring~n", [Name, _Error]),
 				    ok
 			    end,
 			    gb_sets:add(Name,Skip)
@@ -1177,6 +1104,8 @@ build_enum_ints(#enum{from=From, vals=Vals},Done) ->
 	    end,
     lists:foldl(Write, Done, Vals).
 
+const_value("SHRT_MIN",_,_) -> "-16#8000";
+const_value("INT_MAX",_,_) -> "16#7FFFFFFF";
 const_value(V,_,_) when is_integer(V) -> integer_to_list(V);
 const_value(V = "16#" ++ IntList,_,_) ->
     _ = list_to_integer(IntList, 16), %% ASSERT
@@ -1220,7 +1149,7 @@ gen_event_recs() ->
     Events = [build_event_rec(C) || {_,C=#class{event=Evs}} <- lists:sort(get()), Evs =/= false],
     EventSubTypes = [Type || {_Rec, Type} <- Events],
     EventRecs = [Rec || {Rec, _Type} <- Events],
-    w("-type event() :: ~s.~n",
+    w("-type event() :: ~s.~n~n",
       [args(fun(Ev) -> Ev++"()" end, " | ", lists:sort(EventRecs))]),
 
     w("-type wxEventType() :: ~s.~n",
@@ -1229,33 +1158,24 @@ gen_event_recs() ->
     ok.
 
 build_event_rec(Class=#class{name=Name, event=Evs}) ->
-    EvTypes = [event_type_name(Ev) || Ev <- Evs],
-    Str  = args(fun(Ev) -> "'" ++ Ev ++ "'" end, " | ", EvTypes),
+    % io:format("~p ~p~n", [Name, Class]),
     Attr = filter_attrs(Class),
     Rec = event_rec_name(Name),
     %%GetName = fun(#param{name=N}) ->event_attr_name(N) end,
     GetType = fun(#param{name=N,type=T}) ->
 		      event_attr_name(N) ++ " :: " ++ doc_arg_type2(T)
 	      end,
-    EventType = Name ++ "Type",
+    EventType = Name ++ ":" ++ Name ++ "Type",
     case Attr =:= [] of
 	true ->
-	    %% w("%% <dl><dt>EventType:</dt> <dd>~s</dd></dl>~n",[Str]),
-	    %% w("%% Callback event: {@link ~s}~n", [Name]),
-	    w("-record(~s, {type :: ~s()}). %% Callback event: {@link ~s}~n",
-	      [Rec, EventType, Name]),
-	    w("-type ~s() :: ~s.~n", [EventType, Str]);
+	    w("-record(~s, {type :: ~s()}). %% Callback event: ~s~n",
+	      [Rec, EventType, Name]);
 	false ->
-	    %% w("%% @type ~s() = #~s{type=wxEventType(),~s}.~n",
-	    %%   [Rec,Rec,args(GetType,",",Attr)]),
-	    %% w("%% <dl><dt>EventType:</dt> <dd>~s</dd></dl>~n",[Str]),
-	    %% w("%% Callback event: {@link ~s}~n", [Name]),
-	    w("-record(~s,{type :: ~s(), %% Callback event: {@link ~s}~n\t~s}).~n",
-	      [Rec,EventType, Name, args(GetType,",\n\t",Attr)]),
-	    w("-type ~s() :: ~s.~n", [EventType, Str])
+	    w("-record(~s,{type :: ~s(), %% Callback event:  ~s~n\t~s}).~n",
+	      [Rec,EventType, Name, args(GetType,",\n\t",Attr)])
     end,
     w("-type ~s() :: #~s{}. %% Callback event: {@link ~s}~n~n", [Rec,Rec,Name]),
-    {Rec, EventType}.
+    {Name ++ ":" ++ Rec, EventType}.
 
 event_rec_name(Name0 = "wx" ++ _) ->
     "tnevE" ++ Name1 = reverse(Name0),
@@ -1273,12 +1193,16 @@ event_attr_name(Attr) ->
     lowercase(Attr).
 
 find_inherited_attr(Param = {PName,_}, Name) ->
-    #class{parent=Parent, attributes=Attrs} = get({class, Name}),
-    case lists:keysearch(atom_to_list(PName), #param.name, Attrs) of
-	{value, P=#param{}} ->
-	    P;
-	_ ->
-	    find_inherited_attr(Param, Parent)
+    case get({class, Name}) of
+        #class{parent=Parent, attributes=Attrs} ->
+            case lists:keysearch(atom_to_list(PName), #param.name, Attrs) of
+                {value, P=#param{}} -> P;
+                _ ->
+                    io:format("Missed ~p in ~p~n  ~p~n", [PName, Name, Attrs]),
+                    find_inherited_attr(Param, Parent)
+            end;
+        _ ->
+            exit({class_not_found, Name})
     end.
 
 filter_attrs(#class{name=Name, parent=Parent,attributes=Attrs}) ->
@@ -1299,23 +1223,54 @@ filter_attrs(#class{name=Name, parent=Parent,attributes=Attrs}) ->
     lists:reverse(Attr1).
 
 gen_funcnames() ->
-    open_write("../src/gen/wxe_debug.hrl"),
-    erl_copyright(),
-    w("%% This file is generated DO NOT EDIT~n~n", []),
-    w("wxdebug_table() ->~n[~n", []),
-    w(" {0, {wx, internal_batch_start, 0}},~n", []),
-    w(" {1, {wx, internal_batch_end, 0}},~n", []),
-    w(" {4, {wxObject, internal_destroy, 1}},~n", []),
     Ns = get_unique_names(),
-    [w(" {~p, {~s, ~s, ~p}},~n", [Id,Class,erl_func_name(Name,undefined),A]) || {Class,Name,A,Id} <- Ns],
-    w(" {-1, {mod, func, -1}}~n",[]),
-    w("].~n~n", []),
-    close(),
     open_write("../src/gen/wxe_funcs.hrl"),
     erl_copyright(),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     w("%% We define each id so we don't get huge diffs when adding new funcs/classes~n~n",[]),
     [w("-define(~s_~s, ~p).~n", [Class,Name,Id]) || {Class,Name,_,Id} <- Ns],
+    close().
+
+gen_api_footprint(All) ->
+    %% To be able to diff content between old and new generators.
+    open_write("wx_30_api.dump"),
+    TF = fun TF (Type) ->
+                 case Type of
+                     void -> ok;
+                     {merged, MTs} ->
+                         lists:sort([TF(MT) || {_, MT,_} <- MTs]);
+                     _ ->
+                         case wx_gen:type_foot_print(Type) of
+                             {class, C} -> list_to_atom(C);
+                             T -> T
+                         end
+                 end
+         end,
+    Out = fun(T, []) -> TF(T);
+             (void, [#param{type=T}]) -> TF(T);
+             (void, Ps) -> list_to_tuple([TF(T) || #param{type=T} <- Ps]);
+             (T, Ps) -> list_to_tuple([TF(T)|[TF(Tp) || #param{type=Tp} <- Ps]])
+          end,
+    Methods = fun(CName, Parent, #method{name=N, alias=Alias,where=W,type=Type0,params=Ps}) ->
+                      {Args0,Opts0} = split_optional(Ps),
+                      Type = Out(Type0, [P || P=#param{in=In} <- Ps,In =/= true]),
+                      Args = [TF(PT) || #param{type=PT} <- Args0],
+                      Opts = case W of
+                                 erl_no_opt -> [];
+                                 _ -> lists:sort([{list_to_atom(erl_option_name(ON)), TF(OT)} ||
+                                                     #param{name=ON,type=OT} <- Opts0])
+                             end,
+                      {CName, list_to_atom(erl_func_name(N,Alias)), Type, Args, Opts, W, Parent}
+              end,
+    Class = fun(#class{name=CName0,parent=Parent,methods=Ms0}) ->
+                    CName = case Parent of
+                                "static" -> "wx_misc";
+                                _ -> CName0
+                            end,
+                    [Methods(list_to_atom(CName), list_to_atom(Parent), M) || Ms <- Ms0, M <-Ms]
+            end,
+    Sorted = lists:sort(lists:append([Class(C) || C <- All])),
+    [w("~0p.~n", [E]) || E <- Sorted],
     close().
 
 get_unique_name(ID) when is_integer(ID) ->
@@ -1335,7 +1290,7 @@ gen_unique_names(Defs) ->
 
 unique_names(Ms0, Class) ->
     Ms1 = [M || M = #method{where = W} <- lists:append(Ms0),
-		W =/= erl_no_opt],
+		W =/= erl_no_opt, W =/= erl_alias],
     Ms2 = lists:keysort(#method.name, Ms1),
     Ms  = split_list(fun(#method{name=N}, M) -> {N =:= M, N} end, undefined, Ms2),
     unique_names2(Ms,Class).
@@ -1348,8 +1303,12 @@ unique_names2([Ms0|RMs], Class) ->
     unique_names3(Ms, Class) ++ unique_names2(RMs, Class);
 unique_names2([], _Class) -> [].
 %% by Arity
-unique_names3([[#method{id=Id, name=Method,alias=Alias, max_arity=A}]|Ms], Class) ->
-    [{Class,uname(alias(Method,Alias),Class) ++ "_" ++ integer_to_list(A),A,Id} | unique_names3(Ms,Class)];
+unique_names3([[#method{id=Id, name=Method, alias=Alias, method_type=MT, max_arity=A}]|Ms], Class) ->
+    ST = case MT of
+             static -> "_STAT";
+             _ -> ""
+         end,
+    [{Class,uname(alias(Method,Alias),Class) ++ ST ++ "_" ++ integer_to_list(A),A,Id} | unique_names3(Ms,Class)];
 unique_names3([Ms0|RMs], Class) ->
     unique_names4(Ms0, 0, Class) ++ unique_names3(RMs, Class);
 unique_names3([], _Class) -> [].

@@ -1,0 +1,18 @@
+
+  [;1m-spec extension(BinRel1, Set, AnySet) -> BinRel2[0m
+  [;1m                   when[0m
+  [;1m                       AnySet :: anyset(),[0m
+  [;1m                       BinRel1 :: binary_relation(),[0m
+  [;1m                       BinRel2 :: binary_relation(),[0m
+  [;1m                       Set :: a_set().[0m
+
+  Returns the extension of [;;4mBinRel1[0m such that for each element E
+  in [;;4mSet[0m that does not belong to the domain of [;;4mBinRel1[0m, [;;4m[0m
+  [;;4mBinRel2[0m contains the pair (E, [;;4mAnySet[0m).
+
+    1> S = sofs:set([b,c]),
+    A = sofs:empty_set(),
+    R = sofs:family([{a,[1,2]},{b,[3]}]),
+    X = sofs:extension(R, S, A),
+    sofs:to_external(X).
+    [{a,[1,2]},{b,[3]},{c,[]}]

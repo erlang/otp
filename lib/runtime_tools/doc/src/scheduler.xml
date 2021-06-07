@@ -37,10 +37,10 @@
   <description>
     <p>This module contains utility functions for easier measurement and
     calculation of scheduler utilization, otherwise obtained from calling the
-    more primitive <seealso marker="erts:erlang#statistics_scheduler_wall_time">
-    <c>statistics(scheduler_wall_time)</c></seealso>.</p>
-    <p>The simplest usage is to call <seealso marker="#utilization-1">
-    <c>scheduler:utilization(Seconds)</c></seealso>.</p>
+    more primitive <seeerl marker="erts:erlang#statistics_scheduler_wall_time">
+    <c>statistics(scheduler_wall_time)</c></seeerl>.</p>
+    <p>The simplest usage is to call <seemfa marker="#utilization/1">
+    <c>scheduler:utilization(Seconds)</c></seemfa>.</p>
   </description>
 
   <datatypes>
@@ -63,14 +63,17 @@
 	<taglist>
 	  <tag><c>{normal, SchedulerId, Util, Percent}</c></tag>
 	  <item>Scheduler utilization of a normal scheduler with number
-	    <c>SchedulerId</c>.</item>
+	    <c>SchedulerId</c>. Schedulers that are not online will also be
+	    included.
+	    <seeerl marker="erts:erlang#system_info_schedulers_online">Online
+	    schedulers</seeerl> have the lowest <c>SchedulerId</c>.</item>
 	  <tag><c>{cpu, SchedulerId, Util, Percent}</c></tag>
 	  <item>Scheduler utilization of a dirty-cpu scheduler with number
 	    <c>SchedulerId</c>.</item>
 	  <tag><c>{io, SchedulerId, Util, Percent}</c></tag>
 	  <item>Scheduler utilization of a dirty-io scheduler with number
 	    <c>SchedulerId</c>. This tuple will only exist if both samples were
-	    taken with <seealso marker="#sample_all-0"><c>sample_all/0</c></seealso>.</item>
+	    taken with <seemfa marker="#sample_all/0"><c>sample_all/0</c></seemfa>.</item>
 	  <tag><c>{total, Util, Percent}</c></tag>
 	  <item>Total utilization of all normal and dirty-cpu schedulers.</item>
 	  <tag><c>{weighted, Util, Percent}</c></tag>
@@ -117,6 +120,29 @@
         <p>Calculate scheduler utilizations for the time interval from when
 	<c><anno>Sample</anno></c> was taken and "now". The same as calling
 	<c>scheduler:utilization(Sample, scheduler:sample_all())</c>.</p>
+	<note>
+	  <p>
+	    Scheduler utilization is measured as an average value over a time
+	    interval, calculated as the difference between two samples. To get
+	    good useful utilization values at least a couple of seconds should
+	    have passed between the two samples. For this reason, you should not
+	    do
+	  </p>
+<pre>
+scheduler:utilization(scheduler:sample()). % DO NOT DO THIS!
+</pre>
+          <p>
+            The above example takes two samples in rapid succession and calculates
+	    the scheduler utilization between them. The resulting values will
+	    probably be more misleading than informative.
+	  </p>
+	  <p>
+	    Instead use <seemfa marker="#utilization/1">
+	    <c>scheduler:utilization(Seconds)</c></seemfa> or let some time pass
+	    between <c>Sample=scheduler:sample()</c> and
+	    <c>scheduler:utilization(Sample)</c>.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -126,8 +152,8 @@
       <desc>
 	<p>Calculates scheduler utilizations for the time interval between
 	the two samples obtained from calling
-	<seealso marker="#sample-0"><c>sample/0</c></seealso> or
-	<seealso marker="#sample_all-0"><c>sample_all/0</c></seealso>.</p>
+	<seemfa marker="#sample/0"><c>sample/0</c></seemfa> or
+	<seemfa marker="#sample_all/0"><c>sample_all/0</c></seemfa>.</p>
       </desc>
     </func>
 

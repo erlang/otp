@@ -1,0 +1,14 @@
+
+  [;1m-spec allocate(File, Offset, Length) -> ok | {error, posix()}[0m
+  [;1m                  when[0m
+  [;1m                      File :: io_device(),[0m
+  [;1m                      Offset :: non_neg_integer(),[0m
+  [;1m                      Length :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  [;;4mallocate/3[0m can be used to preallocate space for a file.
+
+  This function only succeeds in platforms that provide this
+  feature.

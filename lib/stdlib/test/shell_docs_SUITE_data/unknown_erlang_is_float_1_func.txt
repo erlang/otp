@@ -1,0 +1,7 @@
+
+  [;1m-spec is_float(Term) -> boolean() when Term :: term().[0m
+
+  Returns [;;4mtrue[0m if [;;4mTerm[0m is a floating point number, otherwise [;;4m[0m
+  [;;4mfalse[0m.
+
+  Allowed in guard tests.

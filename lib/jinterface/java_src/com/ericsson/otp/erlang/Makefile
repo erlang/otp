@@ -67,8 +67,11 @@ JARFILE= OtpErlang.jar
 # ----------------------------------------------------
 # Programs and Flags
 # ----------------------------------------------------
-
-JAR= jar
+ifeq ($(TARGET),win32)
+    JAR=jar.exe
+else
+    JAR=jar
+endif
 
 CLASSPATH = $(JAVA_SRC_ROOT)
 

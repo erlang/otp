@@ -23,11 +23,12 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2]).
 -export([space_in_cwd/1, quoting/1, cmd_unicode/1, 
+         env/1,
          null_in_command/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
          message_leak/1, close_stdin/0, close_stdin/1, max_size_command/1,
-         perf_counter_api/1]).
+         perf_counter_api/1, error_info/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -38,9 +39,11 @@ suite() ->
 all() ->
     [space_in_cwd, quoting, cmd_unicode, null_in_command,
      space_in_name, bad_command,
+     env,
      find_executable, unix_comment_in_command, deep_list_command,
      large_output_command, background_command, message_leak,
-     close_stdin, max_size_command, perf_counter_api].
+     close_stdin, max_size_command, perf_counter_api,
+     error_info].
 
 groups() ->
     [].
@@ -69,6 +72,19 @@ init_per_testcase(_TC,Config) ->
     Config.
 
 end_per_testcase(_,_Config) ->
+    ok.
+
+env(Config) when is_list(Config) ->
+    Env0 = os:env(),
+    GetEnv0 = os:getenv(),
+    lists:foldl(fun({K,V}, [KV | T]) ->
+                        KV = K ++ "=" ++ V,
+                        V = os:getenv(K),
+                        V = os:getenv(K, default),
+                        T
+                end,
+                GetEnv0,
+                Env0),
     ok.
 
 %% Test that executing a command in a current working directory
@@ -128,7 +144,7 @@ cmd_unicode(Config) when is_list(Config) ->
     [] = receive_all(),
     ok.
 
-null_in_command(Config) ->
+null_in_command(_Config) ->
     {Ok, Error} = case os:type() of
                       {win32,_} -> {"dir", "di\0r"};
                       _ -> {"ls", "l\0s"}
@@ -324,14 +340,18 @@ close_stdin(Config) ->
     "-1" = os:cmd(Fds).
 
 max_size_command(_Config) ->
+    WSL = case os:getenv("WSLENV") of
+              false -> "";
+              _ -> "wsl "
+          end,
 
-    Res20 = os:cmd("cat /dev/zero", #{ max_size => 20 }),
+    Res20 = os:cmd(WSL ++ "cat /dev/zero", #{ max_size => 20 }),
     20 = length(Res20),
 
-    Res0 = os:cmd("cat /dev/zero", #{ max_size => 0 }),
+    Res0 = os:cmd(WSL ++ "cat /dev/zero", #{ max_size => 0 }),
     0 = length(Res0),
 
-    Res32768 = os:cmd("cat /dev/zero", #{ max_size => 32768 }),
+    Res32768 = os:cmd(WSL ++ "cat /dev/zero", #{ max_size => 32768 }),
     32768 = length(Res32768),
 
     ResHello = string:trim(os:cmd("echo hello", #{ max_size => 20 })),
@@ -375,6 +395,41 @@ do_perf_counter_test(CntArgs, Conv, Upper, Lower, Iters) ->
         true ->
             do_perf_counter_test(CntArgs, Conv, Upper, Lower, Iters-1)
     end.
+
+error_info(_Config) ->
+    L = [{cmd, [{no,string}]},
+         {cmd, [{no, string}, #{}]},
+         {cmd, [{no, string}, no_map]},
+
+         {find_executable, 1},                  %Not a BIF.
+         {find_executable, 2},                  %Not a BIF.
+
+         {getenv, [a]},
+         {getenv, [[<<"bin">>]]},
+         {getenv, [[-1]]},
+         {getenv, [[999999999999999]]},
+         {getenv, [["abc"|improper_tail]]},
+         {getenv, ["abc="]},
+         {getenv, ["abc\0xyz"]},
+
+         {getenv,[a, default]},
+
+         {perf_counter,[bad_time_unit]},
+
+         {putenv, [<<"bad_key">>, <<"bad_value">>]},
+         {putenv, ["key", <<"bad_value">>]},
+         {putenv, [<<"bad_key">>, "value"]},
+         {putenv, ["abc=", "xyz"]},
+
+         {set_signal, [{bad,signal}, ignore]},
+         {set_signal, [{bad,signal}, ignore]},
+         {set_signal, [bad_signal, bad_handling]},
+         {set_signal, [{bad,signal}, bad_handling]},
+
+         {system_time, [bad_time_unit]},
+         {unsetenv, [{bad,key}]}
+        ],
+    error_info_lib:test_error_info(os, L).
 
 %% Util functions
 

@@ -127,15 +127,28 @@ get_sequence(M,Typename,Type) ->
     end.
 
 get_components(M,Typename,{Root,Ext}) ->
-    get_components(M,Typename,Root++Ext);
+    get_components2(M,Typename,filter_complist(Root++Ext));
+get_components(M,Typename,{Rl1,El,Rl2}) ->
+    get_components2(M,Typename,filter_complist(Rl1++El++Rl2));
+get_components(M,Typename,CompList) ->
+    get_components2(M,Typename,CompList).
 
 %% Should enhance this *** HERE *** with proper handling of extensions
 
-get_components(M, Typename, [H|T]) ->
+get_components2(M, Typename, [H|T]) ->
     #'ComponentType'{name=Name} = H,
     [{Name,from_type(M, Typename, H)}|get_components(M, Typename, T)];
-get_components(_,_,[]) ->
+get_components2(_,_,[]) ->
     [].
+
+filter_complist(CompList) when is_list(CompList) ->
+    lists:filter(fun(#'ExtensionAdditionGroup'{}) ->
+			 false;
+		    ('ExtensionAdditionGroupEnd') ->
+			 false;
+		    (_) ->
+			 true
+		 end, CompList).
 
 get_choice(M,Typename,Type) ->
     {'CHOICE',TCompList} = Type#type.def,

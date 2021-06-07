@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2020. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,17 +24,32 @@
 -behaviour(gen_server).
 
 -include("ssl_internal.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% API
--export([start_link/5, active_once/3, accept/2, sockname/1, close/1,
-         get_all_opts/1, get_sock_opts/2, set_sock_opts/2]).
+-export([start_link/5,
+         active_once/3,
+         accept/2,
+         sockname/1,
+         close/1,
+         new_owner/1,
+         get_all_opts/1,
+         set_all_opts/2,
+         get_sock_opts/2,
+         set_sock_opts/2,
+         getstat/2]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+-export([init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+	 terminate/2,
+         code_change/3]).
 
 -record(state, 
-	{port, 
+	{active_n,
+         port,
 	 listener,
          transport,
 	 dtls_options,
@@ -44,7 +59,8 @@
 	 dtls_processes = kv_new(),
 	 accepters  = queue:new(),
 	 first,
-         close
+         close,
+         session_id_tracker
 	}).
 
 %%%===================================================================
@@ -62,39 +78,51 @@ accept(PacketSocket, Accepter) ->
 
 sockname(PacketSocket) ->
     call(PacketSocket, sockname).
+
 close(PacketSocket) ->
     call(PacketSocket, close).
+
+new_owner(PacketSocket) ->
+    call(PacketSocket, new_owner).
+
 get_sock_opts(PacketSocket, SplitSockOpts) ->
     call(PacketSocket,  {get_sock_opts, SplitSockOpts}).
 get_all_opts(PacketSocket) ->
     call(PacketSocket, get_all_opts).
+
 set_sock_opts(PacketSocket, Opts) ->
-     call(PacketSocket, {set_sock_opts, Opts}).
+    call(PacketSocket, {set_sock_opts, Opts}).
+set_all_opts(PacketSocket, Opts) ->
+    call(PacketSocket, {set_all_opts, Opts}).
+
+getstat(PacketSocket, Opts) ->
+    call(PacketSocket, {getstat, Opts}).
 
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
 
-init([Port, {TransportModule, _,_,_} = TransportInfo, EmOpts, InetOptions, DTLSOptions]) ->
-    try 
-	{ok, Socket} = TransportModule:open(Port, InetOptions),
-	{ok, #state{port = Port,
-		    first = true,
-                    transport = TransportInfo,
-		    dtls_options = DTLSOptions,
-		    emulated_options = EmOpts,
-		    listener = Socket,
-                    close = false}}
-    catch _:_ ->
-	    {stop, {shutdown, {error, closed}}}
-    end.
+init([Port0, TransportInfo, EmOpts, DTLSOptions, Socket]) ->
+    InternalActiveN = get_internal_active_n(),
+    {ok, SessionIdHandle} = session_id_tracker(Socket, DTLSOptions),
+    {ok, #state{active_n = InternalActiveN,
+                port = Port0,
+                first = true,
+                transport = TransportInfo,
+                dtls_options = DTLSOptions,
+                emulated_options = EmOpts,
+                listener = Socket,
+                close = false,
+                session_id_tracker = SessionIdHandle}}.
+
 handle_call({accept, _}, _, #state{close = true} = State) ->
     {reply, {error, closed}, State};
 
-handle_call({accept, Accepter}, From, #state{first = true,
+handle_call({accept, Accepter}, From, #state{active_n = N,
+                                             first = true,
 					     accepters = Accepters,
 					     listener = Socket} = State0) ->
-    next_datagram(Socket),
+    next_datagram(Socket, N),
     State = State0#state{first = false,
 			 accepters = queue:in({Accepter, From}, Accepters)}, 		 
     {noreply, State};
@@ -116,6 +144,8 @@ handle_call(close, _, #state{dtls_processes = Processes,
                           end, queue:to_list(Accepters)),
             {reply, ok,  State#state{close = true, accepters = queue:new()}}
     end;
+handle_call(new_owner, _, State) ->
+    {reply, ok,  State#state{close = false, first = true}};
 handle_call({get_sock_opts, {SocketOptNames, EmOptNames}}, _, #state{listener = Socket,
                                                                emulated_options = EmOpts} = State) ->
     case get_socket_opts(Socket, SocketOptNames) of
@@ -130,27 +160,38 @@ handle_call(get_all_opts, _, #state{dtls_options = DTLSOptions,
 handle_call({set_sock_opts, {SocketOpts, NewEmOpts}}, _, #state{listener = Socket, emulated_options = EmOpts0} = State) ->
     set_socket_opts(Socket, SocketOpts),
     EmOpts = do_set_emulated_opts(NewEmOpts, EmOpts0),
-    {reply, ok, State#state{emulated_options = EmOpts}}.
+    {reply, ok, State#state{emulated_options = EmOpts}};
+handle_call({set_all_opts, {SocketOpts, NewEmOpts, SslOpts}}, _, #state{listener = Socket} = State) ->
+    set_socket_opts(Socket, SocketOpts),
+    {reply, ok, State#state{emulated_options = NewEmOpts, dtls_options = SslOpts}};
+handle_call({getstat, Options}, _,  #state{listener = Socket, transport =  {TransportCb, _,_,_,_}} = State) ->
+    Stats = dtls_socket:getstat(TransportCb, Socket, Options),
+    {reply, Stats, State}.
 
 handle_cast({active_once, Client, Pid}, State0) ->
     State = handle_active_once(Client, Pid, State0),
     {noreply, State}.
 
-handle_info({Transport, Socket, IP, InPortNo, _} = Msg, #state{listener = Socket, transport = {_,Transport,_,_}} = State0) ->
+handle_info({Transport, Socket, IP, InPortNo, _} = Msg, #state{listener = Socket, transport = {_,Transport,_,_,_}} = State0) ->
     State = handle_datagram({IP, InPortNo}, Msg, State0),
-    next_datagram(Socket),
     {noreply, State};
 
+handle_info({PassiveTag, Socket},
+            #state{active_n = N,
+                   listener = Socket,
+                   transport = {_, _, _, _, PassiveTag}} = State) ->
+    next_datagram(Socket, N),
+    {noreply, State}; 
 %% UDP socket does not have a connection and should not receive an econnreset
 %% This does however happens on some windows versions. Just ignoring it
 %% appears to make things work as expected! 
-handle_info({udp_error, Socket, econnreset = Error}, #state{listener = Socket, transport = {_,_,_, udp_error}} = State) ->
+handle_info({udp_error, Socket, econnreset = Error}, #state{listener = Socket, transport = {_,_,_, udp_error,_}} = State) ->
     Report = io_lib:format("Ignore SSL UDP Listener: Socket error: ~p ~n", [Error]),
-    error_logger:info_report(Report),
+    ?LOG_NOTICE(Report),
     {noreply, State};
-handle_info({ErrorTag, Socket, Error}, #state{listener = Socket, transport = {_,_,_, ErrorTag}} = State) ->
+handle_info({ErrorTag, Socket, Error}, #state{listener = Socket, transport = {_,_,_, ErrorTag,_}} = State) ->
     Report = io_lib:format("SSL Packet muliplxer shutdown: Socket error: ~p ~n", [Error]),
-    error_logger:info_report(Report),
+    ?LOG_NOTICE(Report),
     {noreply, State#state{close=true}};
 
 handle_info({'DOWN', _, process, Pid, _}, #state{clients = Clients,
@@ -202,16 +243,16 @@ dispatch(Client, Msg, #state{dtls_msq_queues = MsgQueues} = State) ->
 		    Pid ! Msg,
 		    State#state{dtls_msq_queues = 
 				    kv_update(Client, Queue, MsgQueues)};
-		{{value, _}, Queue} -> 
+		{{value, _UDP}, _Queue} ->
 		    State#state{dtls_msq_queues = 
-				    kv_update(Client, queue:in(Msg, Queue), MsgQueues)};
+				    kv_update(Client, queue:in(Msg, Queue0), MsgQueues)};
 		{empty, Queue} ->
 		    State#state{dtls_msq_queues = 
 				    kv_update(Client, queue:in(Msg, Queue), MsgQueues)}
 	    end
     end.
-next_datagram(Socket) ->
-    inet:setopts(Socket, [{active, once}]).
+next_datagram(Socket, N) ->
+    inet:setopts(Socket, [{active, N}]).
 
 handle_active_once(Client, Pid, #state{dtls_msq_queues = MsgQueues} = State0) ->
     Queue0 = kv_get(Client, MsgQueues),
@@ -231,9 +272,10 @@ setup_new_connection(User, From, Client, Msg, #state{dtls_processes = Processes,
 						     dtls_options = DTLSOpts,
 						     port = Port,
 						     listener = Socket,
+                                                     session_id_tracker = Tracker,
 						     emulated_options = EmOpts} = State) ->
     ConnArgs = [server, "localhost", Port, {self(), {Client, Socket}},
-		{DTLSOpts, EmOpts, dtls_listener}, User, dtls_socket:default_cb_info()],
+		{DTLSOpts, EmOpts, [{session_id_tracker, Tracker}]}, User, dtls_socket:default_cb_info()],
     case dtls_connection_sup:start_child(ConnArgs) of
 	{ok, Pid} ->
 	    erlang:monitor(process, Pid),
@@ -309,4 +351,18 @@ emulated_opts_list( Opts, [mode | Rest], Acc) ->
     emulated_opts_list(Opts, Rest, [{mode, Opts#socket_options.mode} | Acc]); 
 emulated_opts_list(Opts, [active | Rest], Acc) ->
     emulated_opts_list(Opts, Rest, [{active, Opts#socket_options.active} | Acc]).
+
+%% Regardless of the option reuse_sessions we need the session_id_tracker
+%% to generate session ids, but no sessions will be stored unless
+%% reuse_sessions = true.
+session_id_tracker(Listner,_) ->
+    dtls_server_session_cache_sup:start_child(Listner).
+
+get_internal_active_n() ->
+    case application:get_env(ssl, internal_active_n) of
+        {ok, N} when is_integer(N) ->
+            N;
+        _  ->
+            ?INTERNAL_ACTIVE_N
+    end.
 

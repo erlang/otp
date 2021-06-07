@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -542,7 +542,7 @@ tc_print(Category,Importance,Format,Args,Opts) ->
                     undefined -> atom_to_list(Category);
                     Hd        -> Hd
                 end,
-            Str = lists:concat([get_header(Heading),Format,"\n\n"]),
+            Str = lists:flatten([get_header(Heading),Format,"\n\n"]),
             try
                 io:format(?def_gl, Str, Args)
             catch
@@ -935,7 +935,7 @@ create_io_fun(FromPid, CtLogFd, EscChars) ->
 		    {_HdOrFt,S,A} -> {false,S,A};
 		    {S,A}         -> {true,S,A}
 		end,
-	    try io_lib:format(Str, Args) of
+	    try io_lib:format(lists:flatten(Str), Args) of
 		IoStr when Escapable, EscChars, IoList == [] ->
 		    escape_chars(IoStr);
 		IoStr when Escapable, EscChars ->
@@ -1138,10 +1138,10 @@ set_evmgr_gl(GL) ->
 
 open_ctlog(MiscIoName) ->
     {ok,Fd} = file:open(?ct_log_name,[write,{encoding,utf8}]),
-    io:format(Fd, header("Common Test Framework Log", {[],[1,2],[]}), []),
+    io:format(Fd, "~ts", [header("Common Test Framework Log", {[],[1,2],[]})]),
     case file:consult(ct_run:variables_file_name("../")) of
 	{ok,Vars} ->
-	    io:format(Fd, config_table(Vars), []);
+	    io:format(Fd, "~ts", [config_table(Vars)]);
 	{error,Reason} ->
 	    {ok,Cwd} = file:get_cwd(),
 	    Dir = filename:dirname(Cwd),
@@ -1213,7 +1213,7 @@ print_style_error(Fd, IoFormat, StyleSheet, Reason) ->
 
 close_ctlog(Fd) ->
     io:format(Fd, "\n</pre>\n", []),
-    io:format(Fd, [xhtml("<br><br>\n", "<br /><br />\n") | footer()], []),
+    io:format(Fd, "~ts", [[xhtml("<br><br>\n", "<br /><br />\n") | footer()]]),
     ok = file:close(Fd).
 
 %%%-----------------------------------------------------------------
@@ -2017,7 +2017,7 @@ update_all_runs_in_cache(AllRunsData) ->
 	    LogCache = #log_cache{version = cache_vsn(),
 				  all_runs = AllRunsData},
 	    case {self(),whereis(?MODULE)} of
-		{_Pid,_Pid} ->
+		{Pid,Pid} ->
 		    %% save the cache in RAM so it doesn't have to be
 		    %% read from file as long as this logger process is alive
 		    put(ct_log_cache,term_to_binary(LogCache));
@@ -2031,7 +2031,7 @@ update_all_runs_in_cache(AllRunsData) ->
 update_all_runs_in_cache(AllRunsData, LogCache) ->
     LogCache1 = LogCache#log_cache{all_runs = AllRunsData},    
     case {self(),whereis(?MODULE)} of
-	{_Pid,_Pid} ->
+	{Pid,Pid} ->
 	    %% save the cache in RAM so it doesn't have to be
 	    %% read from file as long as this logger process is alive
 	    put(ct_log_cache,term_to_binary(LogCache1));
@@ -2665,7 +2665,7 @@ update_tests_in_cache(TempData,LogCache=#log_cache{tests=Tests}) ->
     Tests1 = lists:keysort(1,TempData++Cached1),
     CacheBin = term_to_binary(LogCache#log_cache{tests = Tests1}),
     case {self(),whereis(?MODULE)} of
-	{_Pid,_Pid} ->
+	{Pid,Pid} ->
 	    put(ct_log_cache,CacheBin);
 	_ ->
 	    write_log_cache(CacheBin)

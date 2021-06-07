@@ -49,7 +49,7 @@
       <p>
       To understand what is discussed and examplified here, we recommended 
       you to first read section
-      <seealso marker="basics_chapter#basics">Common Test Basics</seealso>.
+      <seeguide marker="basics_chapter#basics">Common Test Basics</seeguide>.
       </p>
     </note>
     </section>
@@ -85,7 +85,7 @@
       a test case to generate a runtime error to indicate failure (for example,
       by causing a bad match error or by calling <c>exit/1</c>, preferably
       through the help function 
-      <seealso marker="ct#fail-1"><c>ct:fail/1,2</c></seealso>). A successful 
+      <seemfa marker="ct#fail/1"><c>ct:fail/1,2</c></seemfa>). A successful 
       execution is indicated by a normal return from the test case function.
     </p>
     </section>
@@ -93,9 +93,9 @@
     <section>
     <title>A Simple Test Suite</title>
     <p>As shown in section 
-    <seealso marker="basics_chapter#External_Interfaces">Common Test Basics</seealso>,
+    <seeguide marker="basics_chapter#External_Interfaces">Common Test Basics</seeguide>,
     the test suite module implements
-      <seealso marker="common_test">callback functions</seealso>
+      <seeerl marker="common_test">callback functions</seeerl>
       (mandatory or optional) for various purposes, for example:
     </p>
       <list type="bulleted">
@@ -219,52 +219,52 @@
 	be hard-coded in the test suites (such as hostnames, addresses, and
 	  user login data)?"</p>
 	  <p><em>Answer:</em> 
-	  See section <seealso marker="config_file_chapter#top">External Configuration Data</seealso>.</p>
+	  See section <seeguide marker="config_file_chapter#top">External Configuration Data</seeguide>.</p>
 	</item>
 
 	<item><p><em>Question:</em> "Is there a way to declare different tests and run them
 	  in one session without having to write my own scripts? Also, can such
 	  declarations be used for regression testing?"</p>
 	  <p><em>Answer:</em> See section
-	  <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>
+	  <seeguide marker="run_test_chapter#test_specifications">Test Specifications</seeguide>
 	  in section Running Tests and Analyzing Results.
 	  </p>
 	</item>
 
 	<item><p><em>Question:</em> "Can test cases and/or test runs be automatically repeated?"</p>
 	<p><em>Answer:</em> Learn more about
-	  <seealso marker="write_test_chapter#test_case_groups">Test Case Groups</seealso>
+	  <seeguide marker="write_test_chapter#test_case_groups">Test Case Groups</seeguide>
 	  and read about start flags/options in section
-	  <seealso marker="run_test_chapter#ct_run">Running Tests</seealso> and in
+	  <seeguide marker="run_test_chapter#ct_run">Running Tests</seeguide> and in
 	  the Reference Manual.</p>
 	</item>
 
 	<item><p><em>Question:</em> "Does <c>Common Test</c> execute my test cases in sequence or in parallel?"</p>
 	<p><em>Answer:</em> See
-	  <seealso marker="write_test_chapter#test_case_groups">Test Case Groups</seealso>
+	  <seeguide marker="write_test_chapter#test_case_groups">Test Case Groups</seeguide>
 	in section Writing Test Suites.</p>
 	</item>
 
 	<item><p><em>Question:</em> "What is the syntax for timetraps (mentioned earlier), and how do I set them?"</p>
 	  <p><em>Answer:</em> This is explained in the
-	  <seealso marker="write_test_chapter#timetraps">Timetrap Time-Outs</seealso>
+	  <seeguide marker="write_test_chapter#timetraps">Timetrap Time-Outs</seeguide>
 	  part of section Writing Test Suites.</p>
 	</item>
 
 	<item><p><em>Question:</em> "What functions are available for logging and printing?"</p>
 	<p><em>Answer:</em> See
-	  <seealso marker="write_test_chapter#logging">Logging</seealso>
+	  <seeguide marker="write_test_chapter#logging">Logging</seeguide>
 	in section Writing Test Suites.</p>
 	</item>
 
 	<item><p><em>Question:</em> "I need data files for my tests. Where do I store them preferably?"</p>
 	  <p><em>Answer:</em> See
-	  <seealso marker="write_test_chapter#data_priv_dir">Data and Private
-	  Directories</seealso>.</p>
+	  <seeguide marker="write_test_chapter#data_priv_dir">Data and Private
+	  Directories</seeguide>.</p>
 	</item>
 
 	<item><p><em>Question:</em> "Can I start with a test suite example, please?"</p>
-	  <p><em>Answer:</em> <seealso marker="example_chapter#top">Welcome!</seealso></p>
+	  <p><em>Answer:</em> <seeguide marker="example_chapter#top">Welcome!</seeguide></p>
 	</item>
       </list>
       <p>You probably want to get started on your own first test suites now, while

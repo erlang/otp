@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,12 +22,111 @@
 %%----------------------------------------------------------------------
 -module(ssh_test_lib).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+connect/2,
+connect/3,
+daemon/1,
+daemon/2,
+daemon/3,
+daemon_port/1,
+daemon_port/2,
+gen_tcp_connect/2,
+gen_tcp_connect/3,
+open_sshc/3,
+open_sshc/4,
+open_sshc_cmd/3,
+open_sshc_cmd/4,
+std_daemon/2,
+std_daemon1/2,
+std_connect/4,
+std_simple_sftp/3,
+std_simple_sftp/4,
+std_simple_exec/3,
+std_simple_exec/4,
+start_shell/2,
+start_shell/3,
+start_io_server/0,
+init_io_server/1,
+loop_io_server/2,
+io_request/5,
+io_reply/3,
+reply/2,
+rcv_expected/3,
+rcv_lingering/1,
+receive_exec_result/1,
+receive_exec_result_or_fail/1,
+receive_exec_end/2,
+receive_exec_end/3,
+receive_exec_result/3,
+failfun/2,
+hostname/0,
+del_dirs/1,
+del_dir_contents/1,
+do_del_files/2,
+openssh_sanity_check/1,
+default_algorithms/1,
+default_algorithms/3,
+default_algorithms/2,
+run_fake_ssh/1,
+extract_algos/1,
+get_atoms/1,
+intersection/2,
+intersect/2,
+intersect_bi_dir/1,
+some_empty/1,
+sort_spec/1,
+sshc/1,
+ssh_type/0,
+ssh_type1/0,
+installed_ssh_version/1,
+algo_intersection/2,
+to_atoms/1,
+ssh_supports/2,
+has_inet6_address/0,
+open_port/1,
+open_port/2,
+sleep_millisec/1,
+sleep_microsec/1,
+busy_wait/2,
+get_kex_init/1,
+get_kex_init/3,
+expected_state/1,
+random_chars/1,
+create_random_dir/1,
+match_ip/2,
+match_ip0/2,
+match_ip1/2,
+mangle_connect_address/1,
+mangle_connect_address/2,
+loopback/1,
+mangle_connect_address1/2,
+ntoa/1,
+try_enable_fips_mode/0,
+is_cryptolib_fips_capable/0,
+report/2,
+lc_name_in/1,
+ptty_supported/0,
+has_WSL/0,
+winpath_to_linuxpath/1,
+copy_recursive/2,
+mk_dir_path/1,
+setup_all_user_host_keys/1,
+setup_all_user_host_keys/2,
+setup_all_user_host_keys/3,
+setup_all_host_keys/1,
+setup_all_host_keys/2,
+setup_all_user_keys/2,
+setup_user_key/3,
+setup_host_key_create_dir/3,
+setup_host_key/3,
+setup_known_host/3,
+get_addr_str/0,
+file_base_name/2
+        ]).
 
--include_lib("public_key/include/public_key.hrl").
 -include_lib("common_test/include/ct.hrl").
--include_lib("ssh/src/ssh_transport.hrl").
+-include("ssh_transport.hrl").
+-include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
 
 %%%----------------------------------------------------------------
@@ -36,11 +135,42 @@ connect(Port, Options) when is_integer(Port) ->
 
 connect(any, Port, Options) ->
     connect(hostname(), Port, Options);
-connect(Host, Port, Options) ->
+
+connect(Host, ?SSH_DEFAULT_PORT, Options0) ->
+    Options =
+        set_opts_if_not_set([{silently_accept_hosts, true},
+                             {save_accepted_host, false},
+                             {user_interaction, false}
+                            ], Options0),
+    do_connect(Host, ?SSH_DEFAULT_PORT, Options);
+
+connect(Host, Port, Options0) ->
+    Options =
+        case proplists:get_value(user_dir,Options0) of
+            undefined ->
+                %% Avoid uppdating the known_hosts if it is the default one
+                set_opts_if_not_set([{save_accepted_host, false}], Options0);
+            _ ->
+                Options0
+        end,
+    do_connect(Host, Port, Options).
+
+
+do_connect(Host, Port, Options) ->
     R = ssh:connect(Host, Port, Options),
     ct:log("~p:~p ssh:connect(~p, ~p, ~p)~n -> ~p",[?MODULE,?LINE,Host, Port, Options, R]),
     {ok, ConnectionRef} = R,
     ConnectionRef.
+
+set_opts_if_not_set(OptsToSet, Options0) ->
+    lists:foldl(fun({K,V}, Opts) ->
+                        case proplists:get_value(K, Opts) of
+                            undefined ->
+                                [{K,V} | Opts];
+                            _ ->
+                                Opts
+                        end
+                end, Options0, OptsToSet).
 
 %%%----------------------------------------------------------------
 daemon(Options) ->
@@ -76,6 +206,9 @@ daemon_port(0, Pid) -> {ok,Dinf} = ssh:daemon_info(Pid),
 daemon_port(Port, _) -> Port.
 
 %%%----------------------------------------------------------------
+gen_tcp_connect(Port, Options) ->
+    gen_tcp_connect("localhost", Port, Options).
+
 gen_tcp_connect(Host0, Port, Options) ->
     Host = ssh_test_lib:ntoa(ssh_test_lib:mangle_connect_address(Host0)),
     ct:log("~p:~p gen_tcp:connect(~p, ~p, ~p)~nHost0 = ~p",
@@ -146,8 +279,7 @@ std_simple_sftp(Host, Port, Config, Opts) ->
     Data = crypto:strong_rand_bytes(proplists:get_value(std_simple_sftp_size,Config,10)),
     ok = ssh_sftp:write_file(ChannelRef, DataFile, Data),
     {ok,ReadData} = file:read_file(DataFile),
-    ok = ssh:close(ConnectionRef),
-    Data == ReadData.
+    {Data == ReadData, ConnectionRef}.
 
 %%%----------------------------------------------------------------
 std_simple_exec(Host, Port, Config) ->
@@ -163,7 +295,7 @@ std_simple_exec(Host, Port, Config, Opts) ->
     ct:log("~p:~p exec ~p",[?MODULE,?LINE,ExecResult]),
     case ExecResult of
 	success ->
-	    Expected = {ssh_cm, ConnectionRef, {data,ChannelId,0,<<"42\n">>}},
+	    Expected = {ssh_cm, ConnectionRef, {data,ChannelId,0,<<"42">>}},
 	    case receive_exec_result(Expected) of
 		expected ->
 		    ok;
@@ -183,11 +315,46 @@ start_shell(Port, IOServer) ->
 start_shell(Port, IOServer, ExtraOptions) ->
     spawn_link(
       fun() ->
-	      Host = hostname(),
+              ct:log("~p:~p:~p ssh_test_lib:start_shell(~p, ~p, ~p)",
+                     [?MODULE,?LINE,self(), Port, IOServer, ExtraOptions]),
 	      Options = [{user_interaction, false},
-			 {silently_accept_hosts,true} | ExtraOptions],
-	      group_leader(IOServer, self()),
-	      ssh:shell(Host, Port, Options)
+			 {silently_accept_hosts,true},
+                         {save_accepted_host,false}
+                         | ExtraOptions],
+              try
+                  group_leader(IOServer, self()),
+                  case Port of
+                      22 ->
+                          Host = hostname(),
+                          ct:log("Port==22 Call ssh:shell(~p, ~p)",
+                                 [Host, Options]),
+                          ssh:shell(Host, Options);
+                      _ when is_integer(Port) ->
+                          Host = hostname(),
+                          ct:log("is_integer(Port) Call ssh:shell(~p, ~p, ~p)",
+                                 [Host, Port, Options]),
+                          ssh:shell(Host, Port, Options);
+                      ConnRef when is_pid(ConnRef) ->
+                          ct:log("is_pid(ConnRef) Call ssh:shell(~p)",
+                                 [ConnRef]),
+                          ssh:shell(ConnRef); % Options were given in ssh:connect
+                      Socket ->
+                          receive
+                              start -> ok
+                          end,
+                          ct:log("Socket Call ssh:shell(~p, ~p)",
+                                 [Socket, Options]),
+                          ssh:shell(Socket, Options)
+                  end
+              of
+                  R ->
+                      ct:log("~p:~p ssh_test_lib:start_shell(~p, ~p, ~p) -> ~p",
+                             [?MODULE,?LINE,Port, IOServer, ExtraOptions, R])
+              catch
+                  C:E:S ->
+                      ct:log("Exception ~p:~p~n~p", [C,E,S]),
+                      ct:fail("Exception",[])
+              end
       end).
 
 
@@ -208,6 +375,7 @@ loop_io_server(TestCase, Buff0) ->
              %%ct:log("io_server ~p:~p ~p got ~p",[?MODULE,?LINE,self(),_REQ]),
 	     {ok, Reply, Buff} = io_request(Request, TestCase, From,
 					    ReplyAs, Buff0),
+             %%ct:log("io_server ~p:~p ~p going to reply ~p",[?MODULE,?LINE,self(),Reply]),
 	     io_reply(From, ReplyAs, Reply),
 	     loop_io_server(TestCase, Buff);
 	 {'EXIT',_, _} = _Exit ->
@@ -217,6 +385,12 @@ loop_io_server(TestCase, Buff0) ->
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
+io_request(getopts,_TestCase, _, _, Buff) ->
+    {ok, [], Buff};
+io_request({get_geometry,columns},_TestCase, _, _, Buff) ->
+    {ok, 80, Buff};
+io_request({get_geometry,rows},_TestCase, _, _, Buff) ->
+    {ok, 24, Buff};
 io_request({put_chars, Chars}, TestCase, _, _, Buff) ->
     reply(TestCase, Chars),
     {ok, ok, Buff};
@@ -224,7 +398,7 @@ io_request({put_chars, unicode, Chars}, TestCase, _, _, Buff) when is_binary(Cha
     reply(TestCase, Chars),
     {ok, ok, Buff};
 io_request({put_chars, unicode, io_lib, format, [Fmt,Args]}, TestCase, _, _, Buff) ->
-    reply(TestCase, io_lib:format(Fmt,Args)),
+    reply(TestCase,  unicode:characters_to_binary(io_lib:format(Fmt,Args))),
     {ok, ok, Buff};
 io_request({put_chars, Enc, Chars}, TestCase, _, _, Buff) ->
     reply(TestCase, unicode:characters_to_binary(Chars,Enc,latin1)),
@@ -239,6 +413,7 @@ io_request({get_line, _Enc, _Prompt} = Request, _, From, ReplyAs, [] = Buff) ->
 
 io_request({get_line, _Enc,_}, _, _, _, [Line | Buff]) ->
     {ok, Line, Buff}.
+
 
 io_reply(_, _, []) ->
     ok;
@@ -290,44 +465,60 @@ rcv_lingering(Timeout) ->
     end.
 
 
-receive_exec_result(Msg) ->
-    ct:log("Expect data! ~p", [Msg]),
+receive_exec_result([]) ->
+    expected;
+receive_exec_result(Msgs) when is_list(Msgs) ->
+    ct:log("~p:~p Expect data! ~p", [?MODULE,?FUNCTION_NAME,Msgs]),
     receive
-	{ssh_cm,_,{data,_,1, Data}} ->
-	    ct:log("StdErr: ~p~n", [Data]),
-	    receive_exec_result(Msg);
-	Msg ->
-	    ct:log("1: Collected data ~p", [Msg]),
-	    expected;
-	Other ->
-	    ct:log("Other ~p", [Other]),
-	    {unexpected_msg, Other}
+        Msg ->
+            case lists:member(Msg, Msgs)
+                orelse lists:member({optional,Msg}, Msgs)
+            of
+                true ->
+                    ct:log("~p:~p Collected data ~p", [?MODULE,?FUNCTION_NAME,Msg]),
+                    receive_exec_result(Msgs--[Msg,{optional,Msg}]);
+                false ->
+                    case Msg of
+                        {ssh_cm,_,{data,_,1, Data}} ->
+                            ct:log("~p:~p unexpected StdErr: ~p~n~p~n", [?MODULE,?FUNCTION_NAME,Data,Msg]),
+                            receive_exec_result(Msgs);
+                        Other ->
+                            ct:log("~p:~p unexpected Other ~p", [?MODULE,?FUNCTION_NAME,Other]),
+                            {unexpected_msg, Other}
+                    end
+            end
     after 
-	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.
+	30000 ->
+            case lists:all(fun(M) ->
+                                   is_tuple(M) andalso (element(1,M) == optional)
+                           end, Msgs)
+            of
+                false ->
+                    ct:fail("timeout ~p:~p",[?MODULE,?FUNCTION_NAME]);
+                true ->
+                    ct:log("~p:~p Only optional messages expected!~n ~p", [?MODULE,?FUNCTION_NAME,Msgs]),
+                    expected
+            end
+    end;
+receive_exec_result(Msg) ->
+    receive_exec_result([Msg]).
 
+
+receive_exec_result_or_fail(Msg) ->
+    case receive_exec_result(Msg) of
+        expected -> expected;
+        Other -> ct:fail(Other)
+    end.
 
 receive_exec_end(ConnectionRef, ChannelId) ->
-    Eof = {ssh_cm, ConnectionRef, {eof, ChannelId}},
-    ExitStatus = {ssh_cm, ConnectionRef, {exit_status, ChannelId, 0}},
-    Closed =  {ssh_cm, ConnectionRef,{closed, ChannelId}},
-    case receive_exec_result(ExitStatus) of
-	{unexpected_msg, Eof} -> %% Open ssh seems to not allways send these messages
-	    %% in the same order!
-	    ct:log("2: Collected data ~p", [Eof]),
-	    case receive_exec_result(ExitStatus) of
-		expected ->
-		    expected = receive_exec_result(Closed);
-		{unexpected_msg, Closed} ->
-		    ct:log("3: Collected data ~p", [Closed])
-	    end;
-	expected ->
-	    ct:log("4: Collected data ~p", [ExitStatus]),
-	    expected = receive_exec_result(Eof),
-	    expected = receive_exec_result(Closed);
-	Other ->
-	    ct:fail({unexpected_msg, Other})
-    end.
+    receive_exec_end(ConnectionRef, ChannelId, 0).
+
+receive_exec_end(ConnectionRef, ChannelId, ExitStatus) ->
+    receive_exec_result(
+      [{ssh_cm, ConnectionRef, {eof, ChannelId}},
+       {optional, {ssh_cm, ConnectionRef, {exit_status, ChannelId, ExitStatus}}},
+       {ssh_cm, ConnectionRef, {closed, ChannelId}}
+      ]).
 
 receive_exec_result(Data, ConnectionRef, ChannelId) ->
     Eof = {ssh_cm, ConnectionRef, {eof, ChannelId}},
@@ -337,27 +528,6 @@ receive_exec_result(Data, ConnectionRef, ChannelId) ->
     expected = receive_exec_result(Closed).
 
 
-inet_port()->
-    {ok, Socket} = gen_tcp:listen(0, [{reuseaddr, true}]),
-    {ok, Port} = inet:port(Socket),
-    gen_tcp:close(Socket),
-    Port.
-
-setup_ssh_auth_keys(RSAFile, DSAFile, Dir) ->
-    Entries = ssh_file_entry(RSAFile) ++ ssh_file_entry(DSAFile),
-    AuthKeys = public_key:ssh_encode(Entries , auth_keys),
-    AuthKeysFile = filename:join(Dir, "authorized_keys"),
-    file:write_file(AuthKeysFile, AuthKeys).
-
-ssh_file_entry(PubFile) ->
-    case file:read_file(PubFile) of
-	{ok, Ssh} ->
-	    [{Key, _}] = public_key:ssh_decode(Ssh, public_key), 
-	    [{Key, [{comment, "Test"}]}];
-	_ ->
-	    []
-    end. 
-	    
 failfun(_User, {authmethod,none}) ->
     ok;
 failfun(User, Reason) ->
@@ -367,235 +537,40 @@ hostname() ->
     {ok,Host} = inet:gethostname(),
     Host.
 
-known_hosts(BR) ->
-    KnownHosts = ssh_file:file_name(user, "known_hosts", []),
-    B = KnownHosts ++ "xxx",
-    case BR of
-	backup ->
-	    file:rename(KnownHosts, B);
-	restore ->
-	    file:delete(KnownHosts),
-	    file:rename(B, KnownHosts)
-    end.
-
-setup_dsa(DataDir, UserDir) ->
-    file:copy(filename:join(DataDir, "id_dsa"), filename:join(UserDir, "id_dsa")),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
-ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
-    setup_dsa_known_host(DataDir, UserDir),
-    setup_dsa_auth_keys(DataDir, UserDir).
-    
-setup_rsa(DataDir, UserDir) ->
-    file:copy(filename:join(DataDir, "id_rsa"), filename:join(UserDir, "id_rsa")),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
-ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
-    setup_rsa_known_host(DataDir, UserDir),
-    setup_rsa_auth_keys(DataDir, UserDir).
-
-setup_ecdsa(Size, DataDir, UserDir) ->
-    file:copy(filename:join(DataDir, "id_ecdsa"++Size), filename:join(UserDir, "id_ecdsa")),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size), filename:join(System, "ssh_host_ecdsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size++".pub"), filename:join(System, "ssh_host_ecdsa_key.pub")),
-ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
-    setup_ecdsa_known_host(Size, System, UserDir),
-    setup_ecdsa_auth_keys(Size, DataDir, UserDir).
-
-setup_eddsa(Alg, DataDir, UserDir) ->
-    {IdPriv, IdPub, HostPriv, HostPub} =
-        case Alg of
-            ed25519 -> {"id_ed25519", "id_ed25519.pub", "ssh_host_ed25519_key", "ssh_host_ed25519_key.pub"};
-            ed448   -> {"id_ed448",   "id_ed448.pub",   "ssh_host_ed448_key",   "ssh_host_ed448_key.pub"}
-        end,
-    file:copy(filename:join(DataDir, IdPriv), filename:join(UserDir, IdPriv)),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, HostPriv), filename:join(System, HostPriv)),
-    file:copy(filename:join(DataDir, HostPub), filename:join(System, HostPub)),
-ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
-    setup_eddsa_known_host(HostPub, DataDir, UserDir),
-    setup_eddsa_auth_keys(IdPriv, DataDir, UserDir).
-
-clean_dsa(UserDir) ->
-    del_dirs(filename:join(UserDir, "system")),
-    file:delete(filename:join(UserDir,"id_dsa")),
-    file:delete(filename:join(UserDir,"known_hosts")),
-    file:delete(filename:join(UserDir,"authorized_keys")).
-
-clean_rsa(UserDir) ->
-    del_dirs(filename:join(UserDir, "system")),
-    file:delete(filename:join(UserDir,"id_rsa")),
-    file:delete(filename:join(UserDir,"known_hosts")),
-    file:delete(filename:join(UserDir,"authorized_keys")).
-
-setup_dsa_pass_pharse(DataDir, UserDir, Phrase) ->
-    {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_dsa")),
-    setup_pass_pharse(KeyBin, filename:join(UserDir, "id_dsa"), Phrase),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
-    setup_dsa_known_host(DataDir, UserDir),
-    setup_dsa_auth_keys(DataDir, UserDir).
-
-setup_rsa_pass_pharse(DataDir, UserDir, Phrase) ->
-    {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_rsa")),
-    setup_pass_pharse(KeyBin, filename:join(UserDir, "id_rsa"), Phrase),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
-    setup_rsa_known_host(DataDir, UserDir),
-    setup_rsa_auth_keys(DataDir, UserDir).
-
-setup_ecdsa_pass_phrase(Size, DataDir, UserDir, Phrase) ->
-    try
-        {ok, KeyBin} = 
-            case file:read_file(F=filename:join(DataDir, "id_ecdsa"++Size)) of
-                {error,E} ->
-                    ct:log("Failed (~p) to read ~p~nFiles: ~p", [E,F,file:list_dir(DataDir)]),
-                    file:read_file(filename:join(DataDir, "id_ecdsa"));
-                Other ->
-                    Other
-            end,
-        setup_pass_pharse(KeyBin, filename:join(UserDir, "id_ecdsa"), Phrase),
-        System = filename:join(UserDir, "system"),
-        file:make_dir(System),
-        file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size), filename:join(System, "ssh_host_ecdsa_key")),
-        file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size++".pub"), filename:join(System, "ssh_host_ecdsa_key.pub")),
-        setup_ecdsa_known_host(Size, System, UserDir),
-        setup_ecdsa_auth_keys(Size, DataDir, UserDir)
-    of 
-        _ -> true
-    catch
-        _:_ -> false
-    end.
-
-setup_pass_pharse(KeyBin, OutFile, Phrase) ->
-    [{KeyType, _,_} = Entry0] = public_key:pem_decode(KeyBin),
-    Key =  public_key:pem_entry_decode(Entry0),
-    Salt = crypto:strong_rand_bytes(8),
-    Entry = public_key:pem_entry_encode(KeyType, Key,
-					{{"DES-CBC", Salt}, Phrase}),
-    Pem = public_key:pem_encode([Entry]),
-    file:write_file(OutFile, Pem).
-
-setup_dsa_known_host(SystemDir, UserDir) ->
-    {ok, SshBin} = file:read_file(filename:join(SystemDir, "ssh_host_dsa_key.pub")),
-    [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
-    setup_known_hosts(Key, UserDir).
-
-setup_rsa_known_host(SystemDir, UserDir) ->
-    {ok, SshBin} = file:read_file(filename:join(SystemDir, "ssh_host_rsa_key.pub")),
-    [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
-    setup_known_hosts(Key, UserDir).
-
-setup_ecdsa_known_host(_Size, SystemDir, UserDir) ->
-    {ok, SshBin} = file:read_file(filename:join(SystemDir, "ssh_host_ecdsa_key.pub")),
-    [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
-    setup_known_hosts(Key, UserDir).
-
-setup_eddsa_known_host(HostPub, SystemDir, UserDir) ->
-    {ok, SshBin} = file:read_file(filename:join(SystemDir, HostPub)),
-    [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
-    setup_known_hosts(Key, UserDir).
-
-setup_known_hosts(Key, UserDir) ->
-    {ok, Hostname} = inet:gethostname(),
-    {ok, {A, B, C, D}} = inet:getaddr(Hostname, inet),
-    IP = lists:concat([A, ".", B, ".", C, ".", D]),
-    HostNames = [{hostnames,[Hostname, IP]}],
-    KnownHosts = [{Key, HostNames}],
-    KnownHostsEnc = public_key:ssh_encode(KnownHosts, known_hosts),
-    KHFile = filename:join(UserDir, "known_hosts"),
-    file:write_file(KHFile, KnownHostsEnc).
-
-setup_dsa_auth_keys(Dir, UserDir) ->
-    {ok, Pem} = file:read_file(filename:join(Dir, "id_dsa")),
-    DSA = public_key:pem_entry_decode(hd(public_key:pem_decode(Pem))),
-    PKey = DSA#'DSAPrivateKey'.y,
-    P = DSA#'DSAPrivateKey'.p,
-    Q = DSA#'DSAPrivateKey'.q,
-    G = DSA#'DSAPrivateKey'.g,
-    Dss = #'Dss-Parms'{p=P, q=Q, g=G},
-    setup_auth_keys([{{PKey, Dss}, [{comment, "Test"}]}], UserDir).
-
-setup_rsa_auth_keys(Dir, UserDir) ->
-    {ok, Pem} = file:read_file(filename:join(Dir, "id_rsa")),
-    RSA = public_key:pem_entry_decode(hd(public_key:pem_decode(Pem))),
-    #'RSAPrivateKey'{publicExponent = E, modulus = N} = RSA,
-    PKey = #'RSAPublicKey'{publicExponent = E, modulus = N},
-    setup_auth_keys([{ PKey, [{comment, "Test"}]}], UserDir).
-
-setup_ecdsa_auth_keys(Size, Dir, UserDir) ->
-    {ok, Pem} =
-        case file:read_file(F=filename:join(Dir, "id_ecdsa"++Size)) of
-            {error,E} ->
-                ct:log("Failed (~p) to read ~p~nFiles: ~p", [E,F,file:list_dir(Dir)]),
-                file:read_file(filename:join(Dir, "id_ecdsa"));
-            Other ->
-                Other
-        end,
-    ECDSA = public_key:pem_entry_decode(hd(public_key:pem_decode(Pem))),
-    #'ECPrivateKey'{publicKey = Q,
-		    parameters = Param = {namedCurve,_Id0}} = ECDSA,
-    PKey = #'ECPoint'{point = Q},
-    setup_auth_keys([{ {PKey,Param}, [{comment, "Test"}]}], UserDir).
-
-setup_eddsa_auth_keys(IdPriv, Dir, UserDir) ->
-    {ok, Pem} = file:read_file(filename:join(Dir, IdPriv)),
-    {ed_pri, Alg, Pub, _} = public_key:pem_entry_decode(hd(public_key:pem_decode(Pem))),
-    setup_auth_keys([{{ed_pub,Alg,Pub}, [{comment, "Test"}]}], UserDir).
-
-setup_auth_keys(Keys, Dir) ->
-    AuthKeys = public_key:ssh_encode(Keys, auth_keys),
-    AuthKeysFile = filename:join(Dir, "authorized_keys"),
-    ok = file:write_file(AuthKeysFile, AuthKeys),
-    AuthKeys.
-
-write_auth_keys(Keys, Dir) ->
-    AuthKeysFile = filename:join(Dir, "authorized_keys"),
-    file:write_file(AuthKeysFile, Keys).
-
 del_dirs(Dir) ->
+    del_dir_contents(Dir),
+    file:del_dir(Dir),
+    ok.
+
+
+del_dir_contents(Dir) ->
     case file:list_dir(Dir) of
-	{ok, []} ->
-	    file:del_dir(Dir);
-	{ok, Files} ->
-	    lists:foreach(fun(File) ->
-				  FullPath = filename:join(Dir,File),
-				  case filelib:is_dir(FullPath) of
-				      true ->
-					  del_dirs(FullPath),
-					  file:del_dir(FullPath);
-				      false ->
-					  file:delete(FullPath)
-				  end
-			  end, Files);
-	_ ->
-	    ok
+        {ok, Files} ->
+            do_del_files(Dir, Files);
+        _ ->
+            ok
     end.
 
-inet_port(Node) ->
-    {Port, Socket} = do_inet_port(Node),
-     rpc:call(Node, gen_tcp, close, [Socket]),
-     Port.
+do_del_files(Dir, Files) ->
+    lists:foreach(fun(File) ->
+                          FullPath = filename:join(Dir,File),
+                          case filelib:is_dir(FullPath) of
+                              true ->
+                                  del_dirs(FullPath);
+                              false ->
+                                  file:delete(FullPath)
+                          end
+                  end, Files).
 
-do_inet_port(Node) ->
-    {ok, Socket} = rpc:call(Node, gen_tcp, listen, [0, [{reuseaddr, true}]]),
-    {ok, Port} = rpc:call(Node, inet, port, [Socket]),
-    {Port, Socket}.
 
 openssh_sanity_check(Config) ->
     ssh:start(),
-    case ssh:connect("localhost", 22, [{password,""}]) of
+    case ssh:connect("localhost", ?SSH_DEFAULT_PORT,
+                     [{password,""},
+                      {silently_accept_hosts, true},
+                      {save_accepted_host, false},
+                      {user_interaction, false}
+                     ]) of
 	{ok, Pid} ->
 	    ssh:close(Pid),
 	    ssh:stop(),
@@ -604,34 +579,6 @@ openssh_sanity_check(Config) ->
 	    Str = lists:append(io_lib:format("~p", [Err])),
 	    ssh:stop(),
 	    {skip, Str}
-    end.
-
-openssh_supports(ClientOrServer, Tag, Alg) when ClientOrServer == sshc ;
-						ClientOrServer == sshd ->
-    SSH_algos = ssh_test_lib:default_algorithms(ClientOrServer),
-    L = proplists:get_value(Tag, SSH_algos, []),
-    lists:member(Alg, L) orelse 
-	lists:member(Alg, proplists:get_value(client2server, L, [])) orelse
-	lists:member(Alg, proplists:get_value(server2client, L, [])).
-
-%%--------------------------------------------------------------------
-%% Check if we have a "newer" ssh client that supports these test cases
-
-ssh_client_supports_Q() ->
-    0 == check_ssh_client_support2(
-	   ?MODULE:open_port({spawn, "ssh -Q cipher"})
-	  ).
-
-check_ssh_client_support2(P) ->
-    receive
-	{P, {data, _A}} ->
-	    check_ssh_client_support2(P);
-	{P, {exit_status, E}} ->
-            ct:log("~p:~p exit_status:~n~p",[?MODULE,?LINE,E]),
-	    E
-    after 5000 ->
-	    ct:log("Openssh command timed out ~n"),
-	    -1
     end.
 
 %%%--------------------------------------------------------------------
@@ -647,6 +594,7 @@ default_algorithms(sshd, Host, Port) ->
     try run_fake_ssh(
 	  ssh_trpt_test_lib:exec(
 	    [{connect,Host,Port, [{silently_accept_hosts, true},
+                                  {save_accepted_host, false},
 				  {user_interaction, false}]}]))
     catch
 	_C:_E ->
@@ -760,6 +708,15 @@ intersect_bi_dir([H={_,[A|_]}|T]) when is_atom(A) ->
 intersect_bi_dir([]) ->
     [].
     
+some_empty([]) ->
+    false;
+some_empty([{_,[]}|_]) ->
+    true;
+some_empty([{_,L}|T]) when is_atom(hd(L)) ->
+    some_empty(T);
+some_empty([{_,L}|T]) when is_tuple(hd(L)) ->
+    some_empty(L) orelse some_empty(T).
+
 
 sort_spec(L = [{_,_}|_] ) ->  [{Tag,sort_spec(Es)} || {Tag,Es} <- L];
 sort_spec(L) -> lists:usort(L).
@@ -951,12 +908,14 @@ get_kex_init(Conn, Ref, TRef) ->
 	    end;
 
 	false ->
-	    ct:log("~p:~p Not in 'connected' state: ~p",[?MODULE,?LINE,State]),
 	    receive
 		{reneg_timeout,Ref} -> 
+                    ct:log("~p:~p Not in 'connected' state: ~p but reneg_timeout received. Fail.",
+                           [?MODULE,?LINE,State]),
 		    ct:log("S = ~p", [S]),
 		    ct:fail(reneg_timeout)
 	    after 0 ->
+                    ct:log("~p:~p Not in 'connected' state: ~p, Will try again after 100ms",[?MODULE,?LINE,State]),
 		    timer:sleep(100), % If renegotiation is complete we do not
 				      % want to exit on the reneg_timeout
 		    get_kex_init(Conn, Ref, TRef)
@@ -970,7 +929,7 @@ expected_state(_) -> false.
 %%%----------------------------------------------------------------
 %%% Return a string with N random characters
 %%%
-random_chars(N) -> [crypto:rand_uniform($a,$z) || _<-lists:duplicate(N,x)].
+random_chars(N) -> [($a-1)+rand:uniform($z-$a) || _<-lists:duplicate(N,x)].
 
 
 create_random_dir(Config) ->
@@ -1054,3 +1013,257 @@ ntoa(A) ->
         _:_ when is_list(A) -> A
     end.
     
+%%%----------------------------------------------------------------
+try_enable_fips_mode() ->
+    case crypto:info_fips() of
+        enabled ->
+            report("FIPS mode already enabled", ?LINE),
+            ok;
+        not_enabled ->
+            %% Erlang/crypto configured with --enable-fips
+            case crypto:enable_fips_mode(true) of
+		true ->
+                    %% and also the cryptolib is fips enabled
+                    report("FIPS mode enabled", ?LINE),
+		    enabled = crypto:info_fips(),
+		    ok;
+		false ->
+                    case is_cryptolib_fips_capable() of
+                        false ->
+                            report("No FIPS mode in cryptolib", ?LINE),
+                            {skip, "FIPS mode not supported in cryptolib"};
+                        true ->
+                            ct:fail("Failed to enable FIPS mode", [])
+                    end
+	    end;
+        not_supported ->
+            report("FIPS mode not supported by Erlang/OTP", ?LINE),
+            {skip, "FIPS mode not supported"}
+    end.
+
+is_cryptolib_fips_capable() ->
+    [{_,_,Inf}] = crypto:info_lib(),
+    nomatch =/= re:run(Inf, "(F|f)(I|i)(P|p)(S|s)").
+
+report(Comment, Line) ->
+    ct:comment(Comment),
+    ct:log("~p:~p  try_enable_fips_mode~n"
+           "crypto:info_lib() = ~p~n"
+           "crypto:info_fips() = ~p~n"
+           "crypto:supports() =~n~p~n", 
+           [?MODULE, Line,
+            crypto:info_lib(),
+            crypto:info_fips(),
+            crypto:supports()]).
+
+%%%----------------------------------------------------------------
+lc_name_in(Names) ->
+    case inet:gethostname() of
+        {ok,Name} ->
+            lists:member(string:to_lower(Name), Names);
+        Other ->
+            ct:log("~p:~p  inet:gethostname() returned ~p", [?MODULE,?LINE,Other]),
+            false
+    end.
+
+ptty_supported() -> not lc_name_in([]). %%["fobi"]).
+
+%%%----------------------------------------------------------------
+has_WSL() ->
+    os:getenv("WSLENV") =/= false. % " =/= false" =/= "== true" :)
+
+winpath_to_linuxpath(Path) ->
+    case {has_WSL(), Path} of
+        {true, [_,$:|WithoutWinInit]} ->
+            "/mnt/c" ++ WithoutWinInit;
+        _ ->
+            Path
+    end.
+    
+%%%----------------------------------------------------------------
+copy_recursive(Src, Dst) ->
+    {ok,S} = file:read_file_info(Src),
+    case S#file_info.type of
+        directory ->
+            %%ct:log("~p:~p copy dir  ~ts -> ~ts", [?MODULE,?LINE,Src,Dst]),
+            {ok,Names} = file:list_dir(Src),
+            mk_dir_path(Dst),
+            %%ct:log("~p:~p Names = ~p", [?MODULE,?LINE,Names]),
+            lists:foreach(fun(Name) ->
+                                  copy_recursive(filename:join(Src, Name),
+                                                 filename:join(Dst, Name))
+                          end, Names);
+        _ ->
+            %%ct:log("~p:~p copy file ~ts -> ~ts", [?MODULE,?LINE,Src,Dst]),
+            {ok,_NumBytesCopied} = file:copy(Src, Dst)
+    end.
+
+%%%----------------------------------------------------------------
+%% Make a directory even if parts of the path does not exist
+
+mk_dir_path(DirPath) ->
+    case file:make_dir(DirPath) of
+        {error,eexist} ->
+            %%ct:log("~p:~p dir exists ~ts", [?MODULE,?LINE,DirPath]),
+            ok;
+        {error,enoent} ->
+            %%ct:log("~p:~p try make dirname of ~ts", [?MODULE,?LINE,DirPath]),
+            case mk_dir_path( filename:dirname(DirPath) ) of
+                ok ->
+                    %%ct:log("~p:~p redo ~ts", [?MODULE,?LINE,DirPath]),
+                    file:make_dir(DirPath);
+                Error ->
+                    %%ct:log("~p:~p return Error ~p ~ts", [?MODULE,?LINE,Error,DirPath]),
+                    Error
+            end;
+        Other ->
+            %%ct:log("~p:~p return Other ~p ~ts", [?MODULE,?LINE,Other,DirPath]),
+            Other
+    end.
+
+%%%----------------------------------------------------------------
+%%% New
+
+setup_all_user_host_keys(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    setup_all_user_host_keys(DataDir, PrivDir).
+
+setup_all_user_host_keys(DataDir, PrivDir) ->
+    setup_all_user_host_keys(DataDir, PrivDir, filename:join(PrivDir,"system")).
+
+setup_all_user_host_keys(DataDir, UserDir, SysDir) ->
+    lists:foldl(fun(Alg, OkAlgs) ->
+                        try
+                            ok = ssh_test_lib:setup_user_key(Alg, DataDir, UserDir),
+                            ok = ssh_test_lib:setup_host_key(Alg, DataDir, SysDir)
+                        of
+                            ok -> [Alg|OkAlgs]
+                        catch
+                            error:{badmatch, {error,enoent}} ->
+                                OkAlgs;
+                            C:E:S ->
+                                ct:log("Exception in ~p:~p for alg ~p:  ~p:~p~n~p",
+                                       [?MODULE,?FUNCTION_NAME,Alg,C,E,S]),
+                                OkAlgs
+                        end
+                end, [], ssh_transport:supported_algorithms(public_key)).
+
+
+setup_all_host_keys(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    setup_all_host_keys(DataDir, filename:join(PrivDir,"system")).
+
+setup_all_host_keys(DataDir, SysDir) ->
+    lists:foldl(fun(Alg, OkAlgs) ->
+                        try
+                            ok = ssh_test_lib:setup_host_key(Alg, DataDir, SysDir)
+                        of
+                            ok -> [Alg|OkAlgs]
+                        catch
+                            error:{badmatch, {error,enoent}} ->
+                                OkAlgs;
+                            C:E:S ->
+                                ct:log("Exception in ~p:~p for alg ~p:  ~p:~p~n~p",
+                                       [?MODULE,?FUNCTION_NAME,Alg,C,E,S]),
+                                OkAlgs
+                        end
+                end, [], ssh_transport:supported_algorithms(public_key)).
+
+
+setup_all_user_keys(DataDir, UserDir) ->
+    lists:foldl(fun(Alg, OkAlgs) ->
+                        try
+                            ok = ssh_test_lib:setup_user_key(Alg, DataDir, UserDir)
+                        of
+                            ok -> [Alg|OkAlgs]
+                        catch
+                            error:{badmatch, {error,enoent}} ->
+                                OkAlgs;
+                            C:E:S ->
+                                ct:log("Exception in ~p:~p for alg ~p:  ~p:~p~n~p",
+                                       [?MODULE,?FUNCTION_NAME,Alg,C,E,S]),
+                                OkAlgs
+                        end
+                end, [], ssh_transport:supported_algorithms(public_key)).
+
+
+setup_user_key(SshAlg, DataDir, UserDir) ->
+    file:make_dir(UserDir),
+    %% Copy private user key to user's dir
+    {ok,_} = file:copy(filename:join(DataDir, file_base_name(user_src,SshAlg)),
+                       filename:join(UserDir, file_base_name(user,SshAlg))),
+    %% Setup authorized_keys in user's dir
+    {ok,Pub} = file:read_file(filename:join(DataDir, file_base_name(user_src,SshAlg)++".pub")),
+    ok = file:write_file(filename:join(UserDir, "authorized_keys"),
+                         io_lib:format("~n~s~n",[Pub]),
+                         [append]),
+    ?ct_log_show_file( filename:join(DataDir, file_base_name(user_src,SshAlg)++".pub") ),
+    ?ct_log_show_file( filename:join(UserDir, "authorized_keys") ),
+    ok.
+
+setup_host_key_create_dir(SshAlg, DataDir, BaseDir) ->
+    SysDir = filename:join(BaseDir,"system"),
+    ct:log("~p:~p  SshAlg=~p~nDataDir = ~p~nBaseDir = ~p~nSysDir = ~p",[?MODULE,?LINE,SshAlg, DataDir, BaseDir,SysDir]),
+    file:make_dir(SysDir),
+    setup_host_key(SshAlg, DataDir, SysDir),
+    SysDir.
+
+setup_host_key(SshAlg, DataDir, SysDir) ->
+    mk_dir_path(SysDir),
+    %% Copy private host key to system's dir
+    {ok,_} = file:copy(filename:join(DataDir, file_base_name(system_src,SshAlg)),
+                       filename:join(SysDir,  file_base_name(system,SshAlg))),
+    ?ct_log_show_file( filename:join(SysDir,  file_base_name(system,SshAlg)) ),
+    ok.
+
+setup_known_host(SshAlg, DataDir, UserDir) ->
+    {ok,Pub} = file:read_file(filename:join(DataDir, file_base_name(system_src,SshAlg)++".pub")),
+    S = lists:join(" ", lists:reverse(tl(lists:reverse(string:tokens(binary_to_list(Pub), " "))))),
+    ok = file:write_file(filename:join(UserDir, "known_hosts"),
+                         io_lib:format("~p~n",[S])),
+    ?ct_log_show_file( filename:join(UserDir, "known_hosts") ),
+    ok.
+
+
+get_addr_str() ->
+    {ok, Hostname} = inet:gethostname(),
+    {ok, {A, B, C, D}} = inet:getaddr(Hostname, inet),
+    IP = lists:concat([A, ".", B, ".", C, ".", D]),
+    lists:concat([Hostname,",",IP]).
+
+
+file_base_name(user,   'ecdsa-sha2-nistp256') -> "id_ecdsa";
+file_base_name(user,   'ecdsa-sha2-nistp384') -> "id_ecdsa";
+file_base_name(user,   'ecdsa-sha2-nistp521') -> "id_ecdsa";
+file_base_name(user,   'rsa-sha2-256'       ) -> "id_rsa";
+file_base_name(user,   'rsa-sha2-384'       ) -> "id_rsa";
+file_base_name(user,   'rsa-sha2-512'       ) -> "id_rsa";
+file_base_name(user,   'ssh-dss'            ) -> "id_dsa";
+file_base_name(user,   'ssh-ed25519'        ) -> "id_ed25519";
+file_base_name(user,   'ssh-ed448'          ) -> "id_ed448";
+file_base_name(user,   'ssh-rsa'            ) -> "id_rsa";
+
+file_base_name(user_src, 'ecdsa-sha2-nistp256') -> "id_ecdsa256";
+file_base_name(user_src, 'ecdsa-sha2-nistp384') -> "id_ecdsa384";
+file_base_name(user_src, 'ecdsa-sha2-nistp521') -> "id_ecdsa521";
+file_base_name(user_src, Alg) -> file_base_name(user, Alg);
+
+file_base_name(system, 'ecdsa-sha2-nistp256') -> "ssh_host_ecdsa_key";
+file_base_name(system, 'ecdsa-sha2-nistp384') -> "ssh_host_ecdsa_key";
+file_base_name(system, 'ecdsa-sha2-nistp521') -> "ssh_host_ecdsa_key";
+file_base_name(system, 'rsa-sha2-256'       ) -> "ssh_host_rsa_key";
+file_base_name(system, 'rsa-sha2-384'       ) -> "ssh_host_rsa_key";
+file_base_name(system, 'rsa-sha2-512'       ) -> "ssh_host_rsa_key";
+file_base_name(system, 'ssh-dss'            ) -> "ssh_host_dsa_key";
+file_base_name(system, 'ssh-ed25519'        ) -> "ssh_host_ed25519_key";
+file_base_name(system, 'ssh-ed448'          ) -> "ssh_host_ed448_key";
+file_base_name(system, 'ssh-rsa'            ) -> "ssh_host_rsa_key";
+
+file_base_name(system_src, 'ecdsa-sha2-nistp256') -> "ssh_host_ecdsa_key256";
+file_base_name(system_src, 'ecdsa-sha2-nistp384') -> "ssh_host_ecdsa_key384";
+file_base_name(system_src, 'ecdsa-sha2-nistp521') -> "ssh_host_ecdsa_key521";
+file_base_name(system_src, Alg) -> file_base_name(system, Alg).
+
+%%%----------------------------------------------------------------

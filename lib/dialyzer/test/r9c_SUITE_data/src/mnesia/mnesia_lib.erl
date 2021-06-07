@@ -779,7 +779,7 @@ error_desc(no_transaction) -> "Operation not allowed outside transactions";
 error_desc(combine_error)  -> "Table options were ilegally combined";
 error_desc(bad_index)  -> "Index already exists or was out of bounds";
 error_desc(already_exists) -> "Some schema option we try to set is already on";
-error_desc(index_exists)-> "Some ops can not  be performed on tabs with index";
+error_desc(index_exists)-> "Some ops cannot  be performed on tabs with index";
 error_desc(no_exists)-> "Tried to perform op on non-existing (non alive) item";
 error_desc(system_limit) -> "Some system_limit was exhausted";
 error_desc(mnesia_down) -> "A transaction involving objects at some remote "

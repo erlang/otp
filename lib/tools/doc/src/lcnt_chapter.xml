@@ -70,7 +70,7 @@ Erlang/OTP 20 [erts-9.0] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe
 	<p>To retrieve lock statistics information, use <c>lcnt:collect/0,1</c>. The collect operation will start a <c>lcnt</c> server if it not already started. All collected data will be built into an Erlang term and uploaded to the server and a duration time will also be uploaded. This duration is the time between <c>lcnt:clear/0,1</c> and <c>lcnt:collect/0,1</c>.</p>
 
 	<p>Once the data is collected to the server it can be filtered, sorted and printed in many different ways.</p>
-	<p>See the <seealso marker="lcnt">reference manual</seealso> for a description of each function.</p>
+	<p>See the <seeerl marker="lcnt">reference manual</seeerl> for a description of each function.</p>
     </section>
     <section>
 	<title> Example of usage </title>
@@ -290,6 +290,6 @@ ok
 
     <section>
 	<title>See Also</title>
-	<p> <seealso marker="lcnt">LCNT Reference Manual</seealso></p>
+	<p> <seeerl marker="lcnt">LCNT Reference Manual</seeerl></p>
     </section>
 </chapter>

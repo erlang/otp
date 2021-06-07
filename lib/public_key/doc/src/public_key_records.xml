@@ -51,8 +51,8 @@
 
     <p>Common non-standard Erlang
     data types used to describe the record fields in the
-    following sections and which are not defined in the Public Key <seealso
-    marker="public_key">Reference Manual</seealso>
+    following sections and which are not defined in the Public Key <seeerl
+    marker="public_key">Reference Manual</seeerl>
     follows here:</p>
     
     <taglist>
@@ -138,7 +138,22 @@
 	prime,           % integer()
 	exponent,        % integer()
 	coefficient      % integer()
- 	 }.	 </code>
+ 	}.
+
+#'RSASSA-PSS-params'{hashAlgorithm,     % #'HashAlgorithm'{}},  
+	             maskGenAlgorithm,  % #'MaskGenAlgorithm'{}},
+		     saltLength,        % integer(),
+		     trailerField,      % integer()
+		     }.
+		     
+#'HashAlgorithm'{algorithm,  % oid()
+                 parameters  % defaults to asn1_NOVALUE
+                 }.
+		 
+#'MaskGenAlgorithm'{algorithm,  % oid()
+                    parameters, % defaults to asn1_NOVALUE
+                   }.
+    </code>
 
   </section>
 
@@ -164,8 +179,10 @@
   </section>
 
   <section>
-       <title>ECDSA </title>
-       <p>Erlang representation of  <url href="http://www.ietf.org/rfc/rfc6979.txt">Elliptic Curve Digital Signature Algorithm (ECDSA)</url> keys follows:</p> 
+    <title>ECDSA and EDDSA</title>
+    
+    <p>Erlang representation of  <url href="http://www.ietf.org/rfc/rfc6979.txt">Elliptic Curve Digital Signature Algorithm (ECDSA)</url> and <url href="https://tools.ietf.org/html/rfc8032">Edwards-Curve Digital Signature Algorithm (EDDSA)</url> where
+    parameters in the private key will be <c>{namedCurve, ?'id-Ed25519' | ?'id-Ed448'}</c>.</p> 
     
     <code>	 
 #'ECPrivateKey'{
@@ -424,10 +441,10 @@ are as follows:</p>
 	 }.</code>
 
 <p><c>id_extensions()</c>  
-  <seealso marker="#StdCertExt">Standard Certificate Extensions</seealso>, 
-  <seealso marker="#PrivIntExt">Private Internet Extensions</seealso>,  
-  <seealso marker="#CRLCertExt">CRL Extensions</seealso> and 
-  <seealso marker="#CRLEntryExt">CRL Entry Extensions</seealso>.
+  <seeguide marker="#StdCertExt">Standard Certificate Extensions</seeguide>, 
+  <seeguide marker="#PrivIntExt">Private Internet Extensions</seeguide>,  
+  <seeguide marker="#CRLCertExt">CRL Extensions</seeguide> and 
+  <seeguide marker="#CRLEntryExt">CRL Entry Extensions</seeguide>.
 </p>
     
 </section>

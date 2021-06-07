@@ -56,7 +56,9 @@ JS_FILES = \
 # ----------------------------------------------------
 debug opt: 
 
-docs:
+DOC_TARGETS?=html
+
+docs: $(DOC_TARGETS)
 
 clean:
 	$(RM) $(TARGET_FILES)
@@ -67,16 +69,16 @@ clean:
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-
 release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/js/flipmenu"
 	$(INSTALL_DATA) $(JS_FILES) $(GIF_FILES) "$(RELSYSDIR)/priv/js/flipmenu"
 
-
-release_docs_spec:
+release_html_spec: html
 	$(INSTALL_DIR) "$(RELEASE_PATH)/doc/js/flipmenu"
 	$(INSTALL_DATA) $(JS_FILES) $(GIF_FILES) "$(RELEASE_PATH)/doc/js/flipmenu"
 	$(INSTALL_DATA) ../highlight.js ../highlight.pack.js "$(RELEASE_PATH)/doc/js/"
+
+release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
 
 release_tests_spec:
 

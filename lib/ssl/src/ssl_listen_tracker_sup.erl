@@ -69,4 +69,4 @@ init(_O) ->
 tracker_name(normal) ->
     ?MODULE;
 tracker_name(dist) ->
-    list_to_atom(atom_to_list(?MODULE) ++ "dist").
+    list_to_atom(atom_to_list(?MODULE) ++ "_dist").

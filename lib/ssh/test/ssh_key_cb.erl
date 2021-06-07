@@ -25,7 +25,13 @@
 
 -module(ssh_key_cb).
 -behaviour(ssh_client_key_api).
--compile(export_all).
+
+-export([
+         add_host_key/3,
+         is_host_key/4,
+         user_key/2
+        ]).
+
 
 add_host_key(_, _, _) ->
     ok.

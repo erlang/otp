@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -141,6 +141,7 @@ encode_transaction(_EC, T, _AsnMod, _TransMod, _Type) ->
 			    TransMod :: atom(),
 			    Type :: atom()) ->
     {'ok', binary()} | {'error', any()}.
+-dialyzer({nowarn_function, do_encode_transaction/5}). % Future compat
 do_encode_transaction([native], _Trans, _AsnMod, _TransMod, binary) ->
     %% asn1rt:encode(AsnMod, element(1, T), T);
     {error, not_implemented};
@@ -173,6 +174,7 @@ do_encode_transaction(EC, _Trans, _AsnMod, _TransMod, _Type) ->
 			     TransMod :: atom(),
 			     Type :: atom()) ->
     {'ok', binary()} | {'error', any()}.
+-dialyzer({nowarn_function, encode_action_requests/5}). % Future compat
 encode_action_requests([native], _ARs, _AsnMod, _TransMod, binary) ->
     %% asn1rt:encode(AsnMod, element(1, T), T);
     {error, not_implemented};
@@ -203,6 +205,7 @@ encode_action_requests(EC, _ARs, _AsnMod, _TransMod, _Type) ->
 			    TransMod :: atom(),
 			    Type :: atom()) ->
     {'ok', binary()} | {'error', any()}.
+-dialyzer({nowarn_function, encode_action_request/5}). % Future compat
 encode_action_request([native], _AR, _AsnMod, _TransMod, binary) ->
     %% asn1rt:encode(AsnMod, element(1, T), T);
     {error, not_implemented};
@@ -226,6 +229,8 @@ encode_action_request(EC, _AR, _AsnMod, _TransMod, _Type) ->
 %% Convert a ActionReply record into a binary
 %% Return {ok, DeepIoList} | {error, Reason}
 %%----------------------------------------------------------------------
+
+-dialyzer({nowarn_function, encode_action_reply/5}). % Future compat
 encode_action_reply([native], _ARs, _AsnMod, _TransMod, binary) ->
     %% asn1rt:encode(AsnMod, element(1, T), T);
     {error, not_implemented};

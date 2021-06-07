@@ -66,7 +66,7 @@
           <p>Segmenting a reply failed (with a badmatch) if the message 
             did not actually need to be segmented (e.g. was within the
             size limit, 
-            <seealso marker="megaco#ui_max_pdu_size">max_pdu_size</seealso>). </p>
+            <seeerl marker="megaco#ui_max_pdu_size">max_pdu_size</seeerl>). </p>
           <p>Own Id: OTP-7733</p>
 	  <p>Aux Id: Seq 11168</p>
         </item>
@@ -457,7 +457,7 @@
       <list type="bulleted">
         <item>
           <p>Some minor documentation cleanup of the 
-            <seealso marker="megaco_run#transaction_sender">transaction sender</seealso> 
+            <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide> 
             chapter of the User's Guide. </p>
           <p>Own Id: OTP-7417</p>
 	  <p>Aux Id: Seq 10989</p>
@@ -523,7 +523,7 @@
       <list type="bulleted">
         <item>
           <p>Some minor documentation cleanup of the 
-            <seealso marker="megaco_run#transaction_sender">transaction sender</seealso> 
+            <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide> 
             chapter of the User's Guide. </p>
           <p>Own Id: OTP-7417</p>
 	  <p>Aux Id: Seq 10989</p>
@@ -617,7 +617,7 @@
           <p>Miscellaneous <em>text</em> codec(s) improvements. Both
             regarding code size and <em>decode</em> performance. </p>
           <p>See the 
-            <seealso marker="megaco_performance">performance</seealso> 
+            <seeguide marker="megaco_performance">performance</seeguide> 
             chapter of the Users Guide for details.</p>
           <p>Own Id: OTP-7228</p>
         </item>
@@ -625,7 +625,7 @@
         <item>
           <p>Added the value <c>flag</c> to the resend_indication config
             option. See
-            <seealso marker="megaco#ui_resend_indication">resend_indication</seealso> for more info. </p>
+            <seeerl marker="megaco#ui_resend_indication">resend_indication</seeerl> for more info. </p>
           <p>Own Id: OTP-7259</p>
           <p>Aux Id: Seq 10901</p>
         </item>
@@ -693,7 +693,7 @@
       <list type="bulleted">
         <item>
           <p>Documentation of function 
-            <seealso marker="megaco#conn_info">megaco:conn_info/2</seealso>
+            <seeerl marker="megaco#conn_info">megaco:conn_info/2</seeerl>
             has been updated to include known exit reasons. </p>
           <p>Own Id: OTP-7286</p>
 	  <p>Aux Id: Seq 10933</p>
@@ -759,13 +759,13 @@
         <item>
           <p>In order to better deal with codec's not implementing
             the entire 
-            <seealso marker="megaco_encoder">megaco_encoder</seealso> 
+            <seeerl marker="megaco_encoder">megaco_encoder</seeerl> 
             behaviour, translations of undefined (not implemented) functions 
             to the <c>{error, not_implemented}</c> return value has been 
             added for the functions 
-            <seealso marker="megaco_encoder#encode_transaction">encode_transaction/3</seealso>,
-            <seealso marker="megaco_encoder#encode_action_requests">encode_action_requests/3</seealso> and
-            <seealso marker="megaco_encoder#encode_action_reply">encode_action_reply/3</seealso>. </p>
+            <seeerl marker="megaco_encoder#encode_transaction">encode_transaction/3</seeerl>,
+            <seeerl marker="megaco_encoder#encode_action_requests">encode_action_requests/3</seeerl> and
+            <seeerl marker="megaco_encoder#encode_action_reply">encode_action_reply/3</seeerl>. </p>
           <p>Own Id: OTP-7251</p>
 	  <p>Aux Id: Seq 10879</p>
         </item>
@@ -848,9 +848,9 @@
           <p>The behaviour <c>megaco_encoder</c> was lacking three functions
             which was made mandatory as of version 3.7. </p>
           <p>See 
-            <seealso marker="megaco_encoder#encode_transaction">encode_transaction/3</seealso>,
-            <seealso marker="megaco_encoder#encode_action_requests">encode_action_requests/3</seealso> and
-            <seealso marker="megaco_encoder#encode_action_reply">encode_action_reply/3</seealso> 
+            <seeerl marker="megaco_encoder#encode_transaction">encode_transaction/3</seeerl>,
+            <seeerl marker="megaco_encoder#encode_action_requests">encode_action_requests/3</seeerl> and
+            <seeerl marker="megaco_encoder#encode_action_reply">encode_action_reply/3</seeerl> 
             for more info</p>
           <p>Own Id: OTP-7168</p>
 	  <p>Aux Id: Seq 10867</p>
@@ -864,9 +864,9 @@
             message but never actually sends the reply (or if
             it is lost), the created pending counter data would 
             never be deleted if the 
-            <seealso marker="megaco#ui_long_request_timer">long_request_timer</seealso> 
+            <seeerl marker="megaco#ui_long_request_timer">long_request_timer</seeerl> 
             was set to <c>infinity</c> (old default)  and the 
-            <seealso marker="megaco#ui_recv_pending_limit">recv_pending_limit</seealso> 
+            <seeerl marker="megaco#ui_recv_pending_limit">recv_pending_limit</seeerl> 
             was set to an integer value (default is <c>infinity</c>). </p>
           <p>Own Id: OTP-7189</p>
 	  <p>Aux Id: Seq 10879</p>
@@ -900,7 +900,7 @@
 
         <item>
           <p>The default value of the 
-            <seealso marker="megaco#ui_long_request_timer">long_request_timer</seealso> 
+            <seeerl marker="megaco#ui_long_request_timer">long_request_timer</seeerl> 
             has been changed from <c>infinity</c> to <em>60 seconds</em>. </p>
           <p>Own Id: OTP-7189</p>
 	  <p>Aux Id: Seq 10879</p>
@@ -947,7 +947,7 @@
             during a high load situations which could lead to
             spurious (megaco internal) messages beeing sent to
             user processes. When a request is issued using
-            <seealso marker="megaco#call">megaco:call</seealso>, 
+            <seeerl marker="megaco#call">megaco:call</seeerl>, 
             which returns only after a "reply" can
             be delivered, the request timer might expire
             during the cancelling of the request, which will cause
@@ -1105,9 +1105,9 @@
           <p>Added support for the full v3-standard 
             (including segmentation).</p>
           <p>See 
-            <seealso marker="megaco_run#segment_reply">segmentation of transaction replies</seealso>
+            <seeguide marker="megaco_run#segment_reply">segmentation of transaction replies</seeguide>
             and 
-            <seealso marker="megaco_encode#handling_versions">handling megaco versions</seealso>
+            <seeguide marker="megaco_encode#handling_versions">handling megaco versions</seeguide>
             for more info.</p>
           <p>Note that segmentation is currently not supported by the
             binary codec(s). </p>
@@ -1129,14 +1129,14 @@
         <item>
           <p>Added a way for the transport module to transfer
             extra information to the user callback functions 
-            <seealso marker="megaco_user">callback functions</seealso>
+            <seeerl marker="megaco_user">callback functions</seeerl>
             upon receipt of a message. This is done by adding an extra 
             argument when calling the (new) message delivery function(s) 
-            <seealso marker="megaco#process_received_message">process_received_message/5</seealso> 
+            <seeerl marker="megaco#process_received_message">process_received_message/5</seeerl> 
             or 
-            <seealso marker="megaco#receive_message">receive_message/5</seealso>. </p>
+            <seeerl marker="megaco#receive_message">receive_message/5</seeerl>. </p>
           <p>Similarly, the <c>UserReply</c> part of the return value for the 
-            <seealso marker="megaco#call">call</seealso> function can
+            <seeerl marker="megaco#call">call</seeerl> function can
             now also include such extra information. </p>
           <p>Own Id: OTP-6865</p>
 	  <p>Aux Id: Seq 10559</p>
@@ -1152,10 +1152,10 @@
 
         <item>
           <p>Improve the utility functions for information retrieval: 
-            <seealso marker="megaco#info">megaco:info</seealso>, 
-            <seealso marker="megaco#system_info">megaco:system_info</seealso>,
-            <seealso marker="megaco#conn_info">megaco:conn_info</seealso> and 
-            <seealso marker="megaco#user_info">megaco:user_info</seealso>.</p>
+            <seeerl marker="megaco#info">megaco:info</seeerl>, 
+            <seeerl marker="megaco#system_info">megaco:system_info</seeerl>,
+            <seeerl marker="megaco#conn_info">megaco:conn_info</seeerl> and 
+            <seeerl marker="megaco#user_info">megaco:user_info</seeerl>.</p>
           <p>Own Id: OTP-6976</p>
 	  <p>Aux Id: Seq 10804</p>
         </item>
@@ -1233,7 +1233,7 @@
             during a high load situations which could lead to
             spurious (megaco internal) messages being sent to
             user processes. When a request is issued using
-            <seealso marker="megaco#call">megaco:call</seealso>, 
+            <seeerl marker="megaco#call">megaco:call</seeerl>, 
             which returns only after a "reply" can
             be delivered, the request timer might expire
             during the cancelling of the request, which will cause
@@ -1270,7 +1270,7 @@
         <item>
           <p>The interface of the megaco_compressed callback module
             has been changed, see the 
-            <seealso marker="megaco_edist_compress">megaco_edist_compress</seealso> 
+            <seeerl marker="megaco_edist_compress">megaco_edist_compress</seeerl> 
             behaviour module for more details.
           <p>Own Id: OTP-6609</p>
         </item>
@@ -1329,7 +1329,7 @@
         <item>
           <p>The interface of the megaco_compressed callback module
             has been changed, see the 
-            <seealso marker="megaco_edist_compress">megaco_edist_compress</seealso> 
+            <seeerl marker="megaco_edist_compress">megaco_edist_compress</seeerl> 
             behaviour module for more details.
           <p>Own Id: OTP-6609</p>
         </item>
@@ -1359,7 +1359,7 @@
         <item>
           <p>An empty time-zone adjustment was incorrectly allowed 
             when decoding SDP using  
-            <seealso marker="megaco#decode_sdp">decode_sdp</seealso>. </p>
+            <seeerl marker="megaco#decode_sdp">decode_sdp</seeerl>. </p>
           <p>Also the parsing of attributes was to restrictive. </p>
           <p>Own Id: OTP-6803</p>
 	  <p>Aux Id: Seq 10710</p>
@@ -1411,22 +1411,22 @@
       <list type="bulleted">
         <item>
           <p>Improved erl_dist codec handling of 
-            <seealso marker="megaco_encode#erl_dist_config">megaco_compressed</seealso> 
+            <seeguide marker="megaco_encode#erl_dist_config">megaco_compressed</seeguide> 
             codec config. Introduced behaviour,
-            <seealso marker="megaco_edist_compress">megaco_edist_compress</seealso>, 
+            <seeerl marker="megaco_edist_compress">megaco_edist_compress</seeerl>, 
             for the megaco_compressed callback of module. </p>
           <p>Own Id: OTP-6609</p>
         </item>
         <item>
           <p>The behaviour 
-            <seealso marker="megaco_transport">megaco_transport</seealso> 
+            <seeerl marker="megaco_transport">megaco_transport</seeerl> 
             have been updated to include the <em>optional</em> 
             function 
-            <seealso marker="megaco_transport#resend_message">resend_message</seealso>. 
+            <seeerl marker="megaco_transport#resend_message">resend_message</seeerl>. 
             This function is called instead of the standard 
-            <seealso marker="megaco_transport#send_message">send_message</seealso> 
+            <seeerl marker="megaco_transport#send_message">send_message</seeerl> 
             if the new config option 
-            <seealso marker="megaco#ui_resend_indication">resend_indication</seealso> 
+            <seeerl marker="megaco#ui_resend_indication">resend_indication</seeerl> 
             was set to <c><![CDATA[true]]></c><em>and</em> it is a message resend. </p>
           <p>Own Id: OTP-6442</p>
           <p>Aux Id: Seq 10393</p>
@@ -1434,7 +1434,7 @@
         <item>
           <p>Add ability to decrement the timeout time for 
             incremental timers, see 
-            <seealso marker="megaco#">reference manual</seealso> 
+            <seeerl marker="megaco#">reference manual</seeerl> 
             for more info.</p>
           <p>Own Id: OTP-6441</p>
           <p>Aux Id: Seq 10349</p>
@@ -1452,7 +1452,7 @@
       <list type="bulleted">
         <item>
           <p>Missing documentation link in module 
-            <seealso marker="megaco_user">megaco_user</seealso>. </p>
+            <seeerl marker="megaco_user">megaco_user</seeerl>. </p>
           <p>Own Id: OTP-6578</p>
         </item>
       </list>
@@ -1464,7 +1464,7 @@
         <item>
           <p>The interface of the megaco_compressed callback module
             has been changed, see the 
-            <seealso marker="megaco_edist_compress">megaco_edist_compress</seealso> 
+            <seeerl marker="megaco_edist_compress">megaco_edist_compress</seeerl> 
             behaviour module for more details.</p>
           <p>Own Id: OTP-6609</p>
         </item>
@@ -1487,11 +1487,11 @@
       <title>Fixed bugs and malfunctions</title>
       <list type="bulleted">
         <item>
-          <p>Using the <seealso marker="megaco#call">call</seealso> 
+          <p>Using the <seeerl marker="megaco#call">call</seeerl> 
             function at high load could cause replies from other 
             transactions to be returned also. </p>
           <p>At high load, when a process calls the function 
-            <seealso marker="megaco#call">call</seealso>, 
+            <seeerl marker="megaco#call">call</seeerl>, 
             which times out, then makes another
             call, it is possible that the reply to the first
             request arrives while the process is waiting for
@@ -1500,7 +1500,7 @@
             this reply was also included in the result. </p>
           <p>This problem has been fixed by calling the megaco_user 
             callback function
-            <seealso marker="megaco_user#unexpected_trans">handle_unexpected_trans</seealso> 
+            <seeerl marker="megaco_user#unexpected_trans">handle_unexpected_trans</seeerl> 
             if unexpected transactions are received. </p>
           <p>Own Id: OTP-6549</p>
           <p>Aux Id: Seq 10598</p>
@@ -1586,7 +1586,7 @@
             service-change has not yet been received (505)
             (either because it's been lost or because the MGC is 
             erroneous). This will now result in a call to
-            <seealso marker="megaco_user#trans_reply">handle_trans_reply</seealso> 
+            <seeerl marker="megaco_user#trans_reply">handle_trans_reply</seeerl> 
             with the UserReply: <c><![CDATA[{error, timeout}]]></c>. </p>
           <p>Own Id: OTP-6275</p>
           <p>Aux Id: Seq 10458</p>
@@ -1621,10 +1621,10 @@
             of the megaco_transport callback module has been
             extended (to allow the transport module to cancel the message
             sending), see the functions 
-            <seealso marker="megaco#call">call</seealso>, 
-            <seealso marker="megaco_user#trans_reply">handle_trans_reply</seealso>, 
-            <seealso marker="megaco_user#trans_ack">handle_trans_ack</seealso> 
-            and <seealso marker="megaco_transport#send_message">send_message</seealso> 
+            <seeerl marker="megaco#call">call</seeerl>, 
+            <seeerl marker="megaco_user#trans_reply">handle_trans_reply</seeerl>, 
+            <seeerl marker="megaco_user#trans_ack">handle_trans_ack</seeerl> 
+            and <seeerl marker="megaco_transport#send_message">send_message</seeerl> 
             for more info.</p>
           <p>Own Id: OTP-6253</p>
           <p>Aux Id: Seq 10423</p>
@@ -1663,7 +1663,7 @@
       <list type="bulleted">
         <item>
           <p>Improved documentation of 
-            <seealso marker="megaco#call">call</seealso> return values.</p>
+            <seeerl marker="megaco#call">call</seeerl> return values.</p>
           <p>Own Id: OTP-6219</p>
         </item>
       </list>
@@ -1711,7 +1711,7 @@
         <item>
           <p>Added check for the illegal option reply_data in the Options 
             (third) argument to the 
-            <seealso marker="megaco#call">call</seealso> 
+            <seeerl marker="megaco#call">call</seeerl> 
             function.
             The valid options was documented but never checked.</p>
           <p>Own Id: OTP-6171</p>
@@ -1725,7 +1725,7 @@
       <list type="bulleted">
         <item>
           <p>A call to the function 
-            <seealso marker="megaco#call">call</seealso> 
+            <seeerl marker="megaco#call">call</seeerl> 
             with the illegal option, reply_data,  
             will now result in an <c><![CDATA[{error, term()}]]></c> result.</p>
           <p>Own Id: OTP-6171</p>
@@ -1819,11 +1819,11 @@
           <p>Handling failure to send reply. Previously, when megaco
             was unable to send a reply (built from the action list
             returned by 
-            <seealso marker="megaco_user#trans_request">handle_trans_request</seealso>), 
+            <seeerl marker="megaco_user#trans_request">handle_trans_request</seeerl>), 
             nothing was done, except for sending an error message. 
             This has now been changed so that the error will be returned 
             to the user via a call to the callback function, 
-            <seealso marker="megaco_user#trans_ack">handle_trans_ack</seealso>
+            <seeerl marker="megaco_user#trans_ack">handle_trans_ack</seeerl>
             (unless <c><![CDATA[ack_action() = discard_ack]]></c>). </p>
           <p>Own Id: OTP-6055</p>
         </item>
@@ -1831,9 +1831,9 @@
           <p>Add possibility to override send options when sending
             reply messages. This is done by adding another return
             alternative to the 
-            <seealso marker="megaco_user#trans_request">handle_trans_request</seealso> 
+            <seeerl marker="megaco_user#trans_request">handle_trans_request</seeerl> 
             and 
-            <seealso marker="megaco_user#trans_long_request">handle_trans_long_request</seealso> 
+            <seeerl marker="megaco_user#trans_long_request">handle_trans_long_request</seeerl> 
             callback function(s). </p>
           <p>Own Id: OTP-6052</p>
           <p>Aux Id: Seq 10284</p>
@@ -1845,8 +1845,8 @@
             having received a pending message, until it receives 
             the reply or it gives up (timeout). </p>
           <p>See  
-            <seealso marker="megaco#user_info">user_info</seealso> and 
-            <seealso marker="megaco#conn_info">conn_info</seealso>
+            <seeerl marker="megaco#user_info">user_info</seeerl> and 
+            <seeerl marker="megaco#conn_info">conn_info</seeerl>
             for more info. </p>
           <p>Own Id: OTP-6051</p>
           <p>Aux Id: Seq 10284</p>
@@ -1857,8 +1857,8 @@
             is an intermediate timeout, the timer is restarted
             (just as before) but the reply is also <em>resent</em>. </p>
           <p>See  
-            <seealso marker="megaco#user_info">user_info</seealso> and 
-            <seealso marker="megaco#conn_info">conn_info</seealso>
+            <seeerl marker="megaco#user_info">user_info</seeerl> and 
+            <seeerl marker="megaco#conn_info">conn_info</seeerl>
             for more info. </p>
           <p>Own Id: OTP-6048</p>
           <p>Aux Id: Seq 10284</p>
@@ -1868,7 +1868,7 @@
             immediate acknowledgement of a reply (when at least one
             pending message has been sent). </p>
           <p>This is done by adding another return value for the 
-            <seealso marker="megaco_user#trans_request">handle_trans_request</seealso>
+            <seeerl marker="megaco_user#trans_request">handle_trans_request</seeerl>
             callback function. </p>
           <p>Own Id: OTP-6030</p>
           <p>Aux Id: Seq 10270</p>
@@ -1876,8 +1876,8 @@
         <item>
           <p>The SDP support has received a major updated. Added two new 
             function's to 
-            <seealso marker="megaco#decode_sdp">decode</seealso> and 
-            <seealso marker="megaco#encode_sdp">encode</seealso> SDP. </p>
+            <seeerl marker="megaco#decode_sdp">decode</seeerl> and 
+            <seeerl marker="megaco#encode_sdp">encode</seeerl> SDP. </p>
           <p>Own Id: OTP-5980</p>
         </item>
         <item>
@@ -2056,7 +2056,7 @@
         <item>
           <p>Added a utility function to facilitate pretty-printing of
             messages, see 
-            <seealso marker="megaco#token_tag2string">token_tag2string</seealso>.</p>
+            <seeerl marker="megaco#token_tag2string">token_tag2string</seeerl>.</p>
           <p>Own Id: OTP-5973</p>
           <p>Aux Id: Seq 10224</p>
         </item>
@@ -2178,8 +2178,8 @@
       <list type="bulleted">
         <item>
           <p>Aligned the 
-            <seealso marker="megaco#user_info">user_info</seealso> and 
-            <seealso marker="megaco#conn_info">conn_info</seealso> functions 
+            <seeerl marker="megaco#user_info">user_info</seeerl> and 
+            <seeerl marker="megaco#conn_info">conn_info</seeerl> functions 
             regarding trans_id retrieval.</p>
           <p>Own Id: OTP-5887</p>
           <p>Aux Id: Seq 10184</p>
@@ -2192,7 +2192,7 @@
       <list type="bulleted">
         <item>
           <p>The 
-            <seealso marker="megaco#conn_info">conn_info</seealso> function
+            <seeerl marker="megaco#conn_info">conn_info</seeerl> function
             once again returns the <em>next</em> transaction id.</p>
           <p>Own Id: OTP-5887</p>
           <p>Aux Id: Seq 10184</p>
@@ -2217,19 +2217,19 @@
       <list type="bulleted">
         <item>
           <p>Documentation of 
-            <seealso marker="megaco_udp#upgrade_receive_handle">upgrade_receive_handle</seealso> missing one argument (<c><![CDATA[NewHandle]]></c>).</p>
+            <seeerl marker="megaco_udp#upgrade_receive_handle">upgrade_receive_handle</seeerl> missing one argument (<c><![CDATA[NewHandle]]></c>).</p>
           <p>Own Id: OTP-5867</p>
         </item>
         <item>
           <p>Documentation of 
-            <seealso marker="megaco#conn_info">conn_info</seealso> 
+            <seeerl marker="megaco#conn_info">conn_info</seeerl> 
             did not document legal <c><![CDATA[Item]]></c> value <c><![CDATA[local_mid]]></c>.</p>
           <p>Own Id: OTP-5879</p>
           <p>Aux Id: Seq 10176</p>
         </item>
         <item>
           <p>Documentation of 
-            <seealso marker="megaco#conn_info">conn_info</seealso> 
+            <seeerl marker="megaco#conn_info">conn_info</seeerl> 
             did not document legal <c><![CDATA[Item]]></c> value <c><![CDATA[remote_mid]]></c>.</p>
           <p>Own Id: OTP-5880</p>
           <p>Aux Id: Seq 10177</p>
@@ -2279,13 +2279,13 @@
         <item>
           <p>Assumed a more strict approach to the return values of
             the callback functions of the 
-            <seealso marker="megaco_user">megaco_user</seealso> behaviour.
+            <seeerl marker="megaco_user">megaco_user</seeerl> behaviour.
             Now, a return value other then what is described in 
             the behaviour documentation, will result in a warning
             message. </p>
           <p>Except for the 
-            <seealso marker="megaco_user#trans_request">handle_trans_request/3</seealso> and 
-            <seealso marker="megaco_user#trans_long_request">handle_trans_long_request/3</seealso>, 
+            <seeerl marker="megaco_user#trans_request">handle_trans_request/3</seeerl> and 
+            <seeerl marker="megaco_user#trans_long_request">handle_trans_long_request/3</seeerl>, 
             which still results in error messages.</p>
           <p>Own Id: OTP-5830</p>
           <p>Aux Id: Seq 10148</p>
@@ -2293,8 +2293,8 @@
         <item>
           <p>Introduced a <em>strict version control</em> (strict_version)
             connection info and user info option. See the 
-            <seealso marker="megaco#user_info">user_info</seealso> and
-            <seealso marker="megaco#conn_info">conn_info</seealso> functions
+            <seeerl marker="megaco#user_info">user_info</seeerl> and
+            <seeerl marker="megaco#conn_info">conn_info</seeerl> functions
             for more info.</p>
           <p>Own Id: OTP-5839</p>
         </item>
@@ -2306,16 +2306,16 @@
       <list type="bulleted">
         <item>
           <p>Digit Map: Improper handling of duration.
-            <seealso marker="megaco#eval_digit_map">eval_digit_map</seealso>
+            <seeerl marker="megaco#eval_digit_map">eval_digit_map</seeerl>
             and 
-            <seealso marker="megaco#test_digit_event">test_digit_event</seealso>.</p>
+            <seeerl marker="megaco#test_digit_event">test_digit_event</seeerl>.</p>
           <p>Own Id: OTP-5826</p>
           <p>Aux Id: Seq 10085</p>
         </item>
         <item>
           <p>The documentation of the 
-            <seealso marker="megaco#call">call</seealso> and 
-            <seealso marker="megaco#cast">cast</seealso> functions
+            <seeerl marker="megaco#call">call</seeerl> and 
+            <seeerl marker="megaco#cast">cast</seeerl> functions
             was unclear regarding pre-encoded actions.</p>
           <p>Own Id: OTP-5833</p>
           <p>Aux Id: Seq 10146</p>
@@ -2334,8 +2334,8 @@
       <list type="bulleted">
         <item>
           <p>The ok return value from  
-            <seealso marker="megaco#test_digit_event">test_digit_event</seealso> and 
-            <seealso marker="megaco#eval_digit_map">eval_digit_map</seealso> 
+            <seeerl marker="megaco#test_digit_event">test_digit_event</seeerl> and 
+            <seeerl marker="megaco#eval_digit_map">eval_digit_map</seeerl> 
             has been changed.</p>
           <p>Own Id: OTP-5826</p>
           <p>Aux Id: Seq 10085</p>
@@ -2361,9 +2361,9 @@
         <item>
           <p>Digit Map: Megaco does not handle "unexpected event" 
             according to chapter 7.1.14.5 point 5. See
-            <seealso marker="megaco#eval_digit_map">eval_digit_map</seealso>
+            <seeerl marker="megaco#eval_digit_map">eval_digit_map</seeerl>
             and 
-            <seealso marker="megaco#test_digit_event">test_digit_event</seealso>.</p>
+            <seeerl marker="megaco#test_digit_event">test_digit_event</seeerl>.</p>
           <p>Own Id: OTP-5799</p>
           <p>Aux Id: Seq 10085</p>
         </item>
@@ -2400,8 +2400,8 @@
       <list type="bulleted">
         <item>
           <p>The ok return value from  
-            <seealso marker="megaco#test_digit_event">test_digit_event</seealso> and 
-            <seealso marker="megaco#eval_digit_map">eval_digit_map</seealso> 
+            <seeerl marker="megaco#test_digit_event">test_digit_event</seeerl> and 
+            <seeerl marker="megaco#eval_digit_map">eval_digit_map</seeerl> 
             has been changed to accommodate for this problem.</p>
           <p>Own Id: OTP-5799</p>
           <p>Aux Id: Seq 10085</p>
@@ -2423,7 +2423,7 @@
           <p>In order to allow the user to drop (ignore) a transaction 
             request a new return value, <c><![CDATA[ignore_trans_request]]></c>, has 
             been added to the 
-            <seealso marker="megaco_user#trans_request">handle_trans_request/3</seealso> 
+            <seeerl marker="megaco_user#trans_request">handle_trans_request/3</seeerl> 
             callback function.</p>
           <p>Own Id: OTP-5725</p>
           <p>Aux Id: Seq 10084</p>
@@ -2474,8 +2474,8 @@
       <list type="bulleted">
         <item>
           <p>The (digit map) 
-            <seealso marker="megaco#test_digit_event">test</seealso> and 
-            <seealso marker="megaco#eval_digit_map">eval</seealso> function(s) 
+            <seeerl marker="megaco#test_digit_event">test</seeerl> and 
+            <seeerl marker="megaco#eval_digit_map">eval</seeerl> function(s) 
             was lacking result info on what kind of completion
             was done; <c><![CDATA[full]]></c> or <c><![CDATA[unambiguous]]></c>.</p>
           <p>Own Id: OTP-5750</p>
@@ -2489,8 +2489,8 @@
       <list type="bulleted">
         <item>
           <p>The (successfull) return value from the 
-            <seealso marker="megaco#test_digit_event">test_digit_event</seealso> and 
-            <seealso marker="megaco#eval_digit_map">eval_digit_map</seealso> 
+            <seeerl marker="megaco#test_digit_event">test_digit_event</seeerl> and 
+            <seeerl marker="megaco#eval_digit_map">eval_digit_map</seeerl> 
             has been changed.</p>
           <p>Own Id: OTP-5750</p>
           <p>Aux Id: Seq 10085</p>
@@ -2522,8 +2522,8 @@
         <item>
           <p>Added function format_versions/1 to print the extended version 
             info produced by the 
-            <seealso marker="megaco#versions1">versions1</seealso> and 
-            <seealso marker="megaco#versions2">versions2</seealso> 
+            <seeerl marker="megaco#versions1">versions1</seeerl> and 
+            <seeerl marker="megaco#versions2">versions2</seeerl> 
             functions.</p>
           <p>Own Id: OTP-5664</p>
         </item>
@@ -2585,13 +2585,13 @@
         <item>
           <p>Added utility functions to retrieve some system and application
             info, see 
-            <seealso marker="megaco#versions1">versions1</seealso> and
-            <seealso marker="megaco#versions2">versions2</seealso>.</p>
+            <seeerl marker="megaco#versions1">versions1</seeerl> and
+            <seeerl marker="megaco#versions2">versions2</seeerl>.</p>
           <p>Own Id: OTP-5446</p>
         </item>
         <item>
           <p>When the 
-            <seealso marker="megaco#enable_trace">enable_trace</seealso> 
+            <seeerl marker="megaco#enable_trace">enable_trace</seeerl> 
             function is called with the <c><![CDATA[File]]></c> argument, it sets 
             up <c><![CDATA[dbg]]></c> so that trace events are written as plain text 
             to the given file (using <c><![CDATA[io:format]]></c>).</p>
@@ -2605,11 +2605,11 @@
       <list type="bulleted">
         <item>
           <p>The <c><![CDATA[File]]></c> argument to the function 
-            <seealso marker="megaco#enable_trace">enable_trace</seealso> no 
+            <seeerl marker="megaco#enable_trace">enable_trace</seeerl> no 
             longer sets up <c><![CDATA[dbg]]></c> to write the trace events directly to 
             file but instead to be written to a plain text file using 
             <c><![CDATA[io:format]]></c>. </p>
-          <p>Also <seealso marker="megaco#enable_trace">enable_trace</seealso>
+          <p>Also <seeerl marker="megaco#enable_trace">enable_trace</seeerl>
             no longer accepts the argument 
             <c><![CDATA[{io, Verbosity}]]></c>.</p>
           <p>Own Id: OTP-5447</p>
@@ -2656,7 +2656,7 @@
         </item>
         <item>
           <p>Added support for preliminary version 3. Based on TD-33.</p>
-          <p>See chapter <seealso marker="megaco_encode#handling_versions">Handling megaco versions</seealso> on how to configure and 
+          <p>See chapter <seeguide marker="megaco_encode#handling_versions">Handling megaco versions</seeguide> on how to configure and 
             use the preliminary version 3 (prev3a).</p>
           <p>Own Id: OTP-5236</p>
         </item>
@@ -2744,7 +2744,7 @@
         </item>
         <item>
           <p>When the 
-            <seealso marker="megaco#cancel">megaco:cancel/2</seealso> 
+            <seeerl marker="megaco#cancel">megaco:cancel/2</seeerl> 
             function is called, the 
             megaco application is supposed to perform a cleanup. 
             E.g. remove aut-dated request and reply records. For 
@@ -3033,24 +3033,24 @@
             of those previously encoded action requests as binaries 
             (as well as lists of action requests). 
             <br></br>See 
-            <seealso marker="megaco#encode_actions">encode_actions</seealso>,
-            <seealso marker="megaco#call">call</seealso> and 
-            <seealso marker="megaco#cast">cast</seealso>.</p>
+            <seeerl marker="megaco#encode_actions">encode_actions</seeerl>,
+            <seeerl marker="megaco#call">call</seeerl> and 
+            <seeerl marker="megaco#cast">cast</seeerl>.</p>
         </item>
         <item>
           <p>Introduce a transaction sender process (one for each 
             connection) which will accumulate transactions and send 
             several in one message. 
-            <br></br>See <seealso marker="megaco_run#transaction_sender">transaction sender</seealso>, 
-            <seealso marker="megaco#user_info">user_info</seealso> and 
-            <seealso marker="megaco#conn_info">conn_info</seealso>.</p>
+            <br></br>See <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide>, 
+            <seeerl marker="megaco#user_info">user_info</seeerl> and 
+            <seeerl marker="megaco#conn_info">conn_info</seeerl>.</p>
         </item>
         <item>
           <p>New encoding-config options for the erl_dist encoder which
             makes it possible to compress the megaco messages. This makes
             the erl_dist encoded message much more compact (about 1/3 of
             the size). 
-            <br></br>See <seealso marker="megaco_encode#erl_dist_config">megaco_compressed</seealso>.</p>
+            <br></br>See <seeguide marker="megaco_encode#erl_dist_config">megaco_compressed</seeguide>.</p>
         </item>
       </list>
     </section>
@@ -3108,9 +3108,9 @@
             connection config items dealing with accumulating 
             transaction ack sending. These has all been renamed
             due to the introduction of the transaction sender.
-            <br></br>See <seealso marker="megaco_run#transaction_sender">transaction sender</seealso>, 
-            <seealso marker="megaco#user_info">user_info</seealso> and 
-            <seealso marker="megaco#conn_info">conn_info</seealso>.</p>
+            <br></br>See <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide>, 
+            <seeerl marker="megaco#user_info">user_info</seeerl> and 
+            <seeerl marker="megaco#conn_info">conn_info</seeerl>.</p>
         </item>
       </list>
     </section>
@@ -3154,20 +3154,20 @@
           <p>Support for both version 1 and 2 of the Megaco standard,
             updated according with IGv10-13.</p>
           <p>Version selection is described in chapter 
-            <seealso marker="megaco_encode#handling_versions">Handling megaco versions 1 &amp; 2</seealso>.</p>
+            <seeguide marker="megaco_encode#handling_versions">Handling megaco versions 1 &amp; 2</seeguide>.</p>
         </item>
         <item>
           <p>It is now possible to use the ASN.1 linked in driver
             for decode/encode of messages (encoding config <em>driver</em>).
             <br></br>See chapter  
-            <seealso marker="megaco_encode#binary_config">Configuration of binary encoding module(s)</seealso>.</p>
+            <seeguide marker="megaco_encode#binary_config">Configuration of binary encoding module(s)</seeguide>.</p>
         </item>
         <item>
           <p>Added a new configuration parameter, orig_pending_limit, to 
             support the xOriginatingPendingLimit (x = MG or MGC) 
             property in the root package.
             <br></br>See the 
-            <seealso marker="megaco#user_info">orig_pending_limit</seealso>
+            <seeerl marker="megaco#user_info">orig_pending_limit</seeerl>
             parameter of the user_info function (also conn_info).</p>
         </item>
         <item>
@@ -3176,18 +3176,18 @@
             transaction requests in a message should be executed
             in parallel (e.g. each in its own process).
             <br></br>See the 
-            <seealso marker="megaco#user_info">threaded</seealso> parameter
+            <seeerl marker="megaco#user_info">threaded</seeerl> parameter
             of the user_info function (also conn_info).</p>
         </item>
         <item>
           <p>Added behaviour modules 
-            <seealso marker="megaco_transport">megaco_transport</seealso> and
-            <seealso marker="megaco_encoder">megaco_encoder</seealso>.</p>
+            <seeerl marker="megaco_transport">megaco_transport</seeerl> and
+            <seeerl marker="megaco_encoder">megaco_encoder</seeerl>.</p>
         </item>
         <item>
           <p>Added new (message) test functions to the megaco module, see   
-            <seealso marker="megaco#test_request">test_request</seealso> and
-            <seealso marker="megaco#test_reply">test_reply</seealso>.</p>
+            <seeerl marker="megaco#test_request">test_request</seeerl> and
+            <seeerl marker="megaco#test_reply">test_reply</seeerl>.</p>
         </item>
         <item>
           <p>Minor improvements to the tracing.</p>
@@ -3354,8 +3354,8 @@
       <list type="bulleted">
         <item>
           <p>It is now possible to send more then one transaction (request) 
-            in a message. See <seealso marker="megaco#call">call</seealso> 
-            and <seealso marker="megaco#cast">cast</seealso>.</p>
+            in a message. See <seeerl marker="megaco#call">call</seeerl> 
+            and <seeerl marker="megaco#cast">cast</seeerl>.</p>
           <p>Req Id: M[4]-1</p>
           <p>Own Id: OTP-4589</p>
         </item>
@@ -3366,8 +3366,8 @@
             whether the acks should be sent immediately or accumulated (and sent
             later). Note that this has nothing to do with the 
             <c><![CDATA[immAckRequired]]></c>-flag in reply transactions.
-            See <seealso marker="megaco#user_info">user_info</seealso> 
-            and <seealso marker="megaco#conn_info">conn_info</seealso>.</p>
+            See <seeerl marker="megaco#user_info">user_info</seeerl> 
+            and <seeerl marker="megaco#conn_info">conn_info</seeerl>.</p>
           <p>Own Id: OTP-4669</p>
         </item>
       </list>
@@ -3632,7 +3632,7 @@
         <item>
           <p>The user arguments was not supplied to the callback function 
             <c><![CDATA[handle_unexpected_trans]]></c> as described by 
-            <seealso marker="megaco_user">megaco_user</seealso>.</p>
+            <seeerl marker="megaco_user">megaco_user</seeerl>.</p>
           <p>Own Id: OTP-4290</p>
         </item>
       </list>
@@ -3719,7 +3719,7 @@
         <item>
           <p>The megaco application now forward's unexpected replies.
             This is done with a call to 
-            <seealso marker="megaco_user#handle_unexpected_trans">handle_unexpected_trans/3</seealso>.</p>
+            <seeerl marker="megaco_user#handle_unexpected_trans">handle_unexpected_trans/3</seeerl>.</p>
           <p>Own Id: OTP-4212
             <br></br>Aux Id: Seq 7181
             </p>

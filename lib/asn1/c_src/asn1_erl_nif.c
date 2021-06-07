@@ -1280,17 +1280,20 @@ static ERL_NIF_TERM encode_ber_tlv(ErlNifEnv* env, int argc,
     ERL_NIF_TERM err_code;
 
     curr = ber_new_chunk(40);
+    if (!curr) {
+        err_code = enif_make_atom(env,"oom");
+        goto err;
+    }
 
-    if ((encode_err = ber_encode(env, argv[0], &curr, &length))
-	    <= ASN1_ERROR) {
-	ber_free_chunks(curr);
+    encode_err = ber_encode(env, argv[0], &curr, &length);
+    if (encode_err <= ASN1_ERROR) {
 	err_code = enif_make_int(env, encode_err);
-	return enif_make_tuple2(env, enif_make_atom(env, "error"), err_code);
+	goto err;
     }
 
     if (!enif_alloc_binary(length, &out_binary)) {
-	ber_free_chunks(curr);
-	return enif_make_tuple2(env, enif_make_atom(env, "error"), enif_make_atom(env,"oom"));
+        err_code = enif_make_atom(env,"oom");
+        goto err;
     }
 
     top = curr;
@@ -1306,6 +1309,10 @@ static ERL_NIF_TERM encode_ber_tlv(ErlNifEnv* env, int argc,
     ber_free_chunks(top);
 
     return enif_make_binary(env, &out_binary);
+
+ err:
+    ber_free_chunks(curr);
+    return enif_make_tuple2(env, enif_make_atom(env, "error"), err_code);
 }
 
 static int is_ok_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info) {

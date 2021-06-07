@@ -31,7 +31,7 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([opts/1, degree/1, path/1, cycle/1, vertices/1,
-	 edges/1, data/1, otp_3522/1, otp_3630/1, otp_8066/1]).
+	 edges/1, data/1, otp_3522/1, otp_3630/1, otp_8066/1, vertex_names/1]).
 
 -export([spawn_graph/2]).
 
@@ -41,10 +41,10 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [opts, degree, path, cycle, {group, misc},
-     {group, tickets}].
+     {group, tickets}, vertex_names].
 
 groups() -> 
-    [{misc, [], [vertices, edges, data]},
+    [{misc, [], [vertices, edges, data, vertex_names]},
      {tickets, [], [otp_3522, otp_3630, otp_8066]}].
 
 init_per_suite(Config) ->
@@ -334,6 +334,51 @@ otp_8066(Config) when is_list(Config) ->
     end(),
     ok.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+vertex_names(Config) when is_list(Config) ->
+    %% Check that a node named '_' does not lead to wildcard matches
+    %% in ets.
+
+    G = digraph:new([acyclic]),
+    A = digraph:add_vertex(G, 'A'),
+    B = digraph:add_vertex(G, '_'),
+    AB = digraph:add_edge(G, A, B),
+
+    %% Link A -> B
+    1 = digraph:out_degree(G, A),
+    1 = digraph:in_degree(G, B),
+    0 = digraph:out_degree(G, B),
+    0 = digraph:in_degree(G, A),
+    [B] = digraph:out_neighbours(G, A),
+    [A] = digraph:in_neighbours(G, B),
+    [] = digraph:out_neighbours(G, B),
+    [] = digraph:in_neighbours(G, A),
+    [AB] = digraph:out_edges(G, A),
+    [AB] = digraph:in_edges(G, B),
+    [] = digraph:out_edges(G, B),
+    [] = digraph:in_edges(G, A),
+
+    %% Reverse the edge
+    digraph:del_edge(G, AB),
+    BA = digraph:add_edge(G, B, A),
+
+    1 = digraph:out_degree(G, B),
+    1 = digraph:in_degree(G, A),
+    0 = digraph:out_degree(G, A),
+    0 = digraph:in_degree(G, B),
+    [A] = digraph:out_neighbours(G, B),
+    [B] = digraph:in_neighbours(G, A),
+    [] = digraph:out_neighbours(G, A),
+    [] = digraph:in_neighbours(G, B),
+    [BA] = digraph:out_edges(G, B),
+    [BA] = digraph:in_edges(G, A),
+    [] = digraph:out_edges(G, A),
+    [] = digraph:in_edges(G, B),
+
+    digraph:delete(G),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

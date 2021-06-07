@@ -57,8 +57,8 @@
       pipelining are used. That is, the client always waits for
       the previous response before sending the next request.</p>
     </note>
-    <p>Some examples are provided in the <seealso
-    marker="http_client">Inets User's Guide</seealso>.</p>
+    <p>Some examples are provided in the <seeguide
+    marker="http_client">Inets User's Guide</seeguide>.</p>
   </description>
   
   <section>
@@ -72,10 +72,10 @@
     <p><c>profile() = atom()</c></p>
     <p><c>path() = string()</c> representing a file path or directory path</p>
     <p><c>ip_address()</c> = See the
-    <seealso marker="kernel:inet">inet(3)</seealso> manual page in Kernel.</p>
+    <seeerl marker="kernel:inet">inet(3)</seeerl> manual page in Kernel.</p>
     <p><c>socket_opt()</c> = See the options used by
-    <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> <c>gen_tcp(3)</c> and 
-    <seealso marker="ssl:ssl">ssl(3)</seealso> connect(s)</p>
+    <seeerl marker="kernel:gen_tcp">gen_tcp(3)</seeerl> <c>gen_tcp(3)</c> and 
+    <seeerl marker="ssl:ssl">ssl(3)</seeerl> connect(s)</p>
   
   </section>
   
@@ -91,8 +91,16 @@
       </item>
     </taglist>
     <p><c>url() = string()</c> syntax according to the URI definition in
-    <url href="http://www.ietf.org/rfc/rfc2396.txt">RFC 2396</url>, 
+    <url href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>,
     for example <c>"http://www.erlang.org"</c></p>
+    <warning><p>Please note that httpc normalizes input URIs before internal processing
+    and special care shall be taken when the URI has percent ("%") characters. A percent
+    serves as the indicator for percent-encoded octets and it must be percent-encoded
+    as "%25" for that octet to be used as data within the URI.</p>
+    <p>For example, in order to send an HTTP GET request with the URI
+    <c>http://localhost/foo%25bar</c>, the percent character must be percent-encoded when
+    creating the request: <c>httpc:request("http://localhost/foo%2525bar").</c>
+    </p></warning>
     <p><c>status_line() = {http_version(), status_code(), reason_phrase()}</c></p>
     <p><c>http_version() = string()</c>, for example, <c>"HTTP/1.1"</c></p>
     <p><c>status_code() = integer()</c></p>
@@ -120,7 +128,7 @@
   
   <section>
     <title>SSL DATA TYPES</title>
-    <p>See <seealso marker="ssl:ssl">ssl(3)</seealso> for information
+    <p>See <seeerl marker="ssl:ssl">ssl(3)</seeerl> for information
     about <c>SSL</c> options (<c>ssloptions()</c>). </p>
   </section>
 
@@ -131,12 +139,12 @@
       application or started dynamically in runtime by calling the
       <c>Inets</c> application API <c>inets:start(httpc, ServiceConfig)</c>
       or <c>inets:start(httpc,  ServiceConfig, How)</c>,
-      see <seealso marker="inets">inets(3)</seealso>.
+      see <seeerl marker="inets">inets(3)</seeerl>.
       The configuration options are as follows:</p>
     <taglist>
       <tag>{profile, profile()}</tag>
       <item><p>Name of the profile, see
-	<seealso marker="#DATA_TYPES">DATA TYPES</seealso>.
+	<seeerl marker="#DATA_TYPES">DATA TYPES</seeerl>.
       This option is mandatory.</p></item>
       <tag>{data_dir, path()}</tag>
       <item><p>Directory where the profile
@@ -188,7 +196,7 @@
 	<p>Option <c>ipv6_host_with_bracket</c> deals with how to 
 	parse IPv6 addresses. For details,
 	see argument <c>Options</c> of
-	<seealso marker="#request-4">request/[4,5]</seealso>.</p>
+	<seemfa marker="#request/4">request/[4,5]</seemfa>.</p>
       </desc>
     </func>
 
@@ -343,7 +351,7 @@
           <tag><c><![CDATA[ssl]]></c></tag>
           <item>
             <p>This is the <c>SSL/TLS</c> connectin configuration option.</p>
-            <p>Defaults to <c>[]</c>. See <seealso marker="ssl:ssl">ssl:connect/[2,3,4]</seealso>  for available options.</p>
+            <p>Defaults to <c>[]</c>. See <seeerl marker="ssl:ssl">ssl:connect/[2,3,4]</seeerl>  for available options.</p>
 	  </item>
 
           <tag><c><![CDATA[autoredirect]]></c></tag>
@@ -365,11 +373,11 @@
 
           <tag><c><![CDATA[version]]></c></tag>
           <item>
-            <p>Can be used to make the client act as an <c>HTTP/1.0</c> or
-	    <c>HTTP/0.9</c> client. By default this is an <c>HTTP/1.1</c> 
-	    client. When using <c>HTTP/1.0</c> persistent connections are 
-	    not used.</p>
-	    <p>Default is the string <c>"HTTP/1.1"</c>.</p>
+            <p>Can be used to make the client act as an <c>HTTP/1.0</c>
+            client. By default this is an <c>HTTP/1.1</c>
+            client. When using <c>HTTP/1.0</c> persistent connections are
+            not used.</p>
+	          <p>Default is the string <c>"HTTP/1.1"</c>.</p>
 	  </item>
 
           <tag><c><![CDATA[relaxed]]></c></tag>
@@ -443,7 +451,7 @@
           <item>
             <p>Socket options to be used for this request.</p>
 	    <p>Overrides any value set by function
-	    <seealso marker="#set_options-1">set_options</seealso>.</p>
+	    <seemfa marker="#set_options/1">set_options</seemfa>.</p>
             <p>The validity of the options is <em>not</em> checked by
             the HTTP client they are assumed to be correct and passed
             on to ssl application and inet driver, which may reject
@@ -459,7 +467,7 @@
 	    </note>
 	    
             <p>By default the socket options set by function
-	    <seealso marker="#set_options-1">set_options/[1,2]</seealso> 
+	    <seemfa marker="#set_options/1">set_options/[1,2]</seemfa> 
 	     are used when establishing a connection.</p>
 	  </item>
 
@@ -587,11 +595,11 @@
 	<v>IpAddress = ip_address()</v>
 	<d>If the host has several network interfaces, this option specifies 
 	which one to use. 
-	See <seealso marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seealso> 
+	See <seeerl marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seeerl> 
 	for details.</d>
 	<v>Port = integer()</v>
 	<d>Local port number to use. 
-	See <seealso marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seealso> 
+	See <seeerl marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seeerl> 
 	for details.</d>
 	<v>socket_opts() = [socket_opt()]</v>
 	<d>The options are appended to the socket options used by the 
@@ -701,15 +709,17 @@
       <type>
 	<v>Profile = profile() | pid()</v>
 	<d>When started <c>stand_alone</c> only the pid can be used.</d>
-	<v>session_info() = {GoodSessions, BadSessions, NonSessions}</v>
-	<v>GoodSessions = session()</v>
-	<v>BadSessions = tuple()</v>
-	<v>NonSessions = term()</v>
+	<v>session_info() = {[session()], [term()],  [term()]}</v>
+	<v>session() = term() - Internal representation of a session</v>
       </type>
       <desc>
-        <p>Produces a slightly processed dump of the session 
-	database. It is intended for debugging. 
-	If no profile is specified, the default profile is used.</p>
+        <p> This function is intended for debugging only. It produces
+        a slightly processed dump of the session database. The first
+        list of the session information tuple will contain session
+        information on an internal format. The last two lists of the
+        session information tuple should always be empty if the code
+        is working as intended. If no profile is specified, the default
+        profile is used.</p>
       </desc>
     </func>
 
@@ -719,9 +729,9 @@
   <section>
     <title>SEE ALSO</title>
     <p><url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>, 
-    <seealso marker="inets">inets(3)</seealso>,
-    <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>, 
-    <seealso marker="ssl:ssl">ssl(3)</seealso>
+    <seeerl marker="inets">inets(3)</seeerl>,
+    <seeerl marker="kernel:gen_tcp">gen_tcp(3)</seeerl>, 
+    <seeerl marker="ssl:ssl">ssl(3)</seeerl>
     </p>
   </section>
   

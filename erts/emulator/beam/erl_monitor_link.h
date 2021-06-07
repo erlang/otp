@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2018. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -396,6 +396,12 @@
 #include "erl_proc_sig_queue.h"
 #undef ERTS_PROC_SIG_QUEUE_TYPE_ONLY
 
+#define ERL_THR_PROGRESS_TSD_TYPE_ONLY
+#include "erl_thr_progress.h"
+#undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
+
+#include "erl_alloc.h"
+
 #if defined(DEBUG) || 0
 #  define ERTS_ML_DEBUG
 #else
@@ -408,7 +414,18 @@
 #  define ERTS_ML_ASSERT(E) ((void) 1)
 #endif
 
-#define ERTS_MON_TYPE_MAX               ((Uint16) 7)
+#define ERTS_ML_STATE_ALIAS_BITS        2
+#define ERTS_ML_STATE_ALIAS_SHIFT       11
+#define ERTS_ML_STATE_ALIAS_MASK        \
+    ((((Uint16) 1 << ERTS_ML_STATE_ALIAS_BITS) - 1) \
+     << ERTS_ML_STATE_ALIAS_SHIFT)
+
+#define ERTS_ML_STATE_ALIAS_NONE        (((Uint16) 0) << ERTS_ML_STATE_ALIAS_SHIFT)
+#define ERTS_ML_STATE_ALIAS_UNALIAS     (((Uint16) 1) << ERTS_ML_STATE_ALIAS_SHIFT)
+#define ERTS_ML_STATE_ALIAS_DEMONITOR   (((Uint16) 2) << ERTS_ML_STATE_ALIAS_SHIFT)
+#define ERTS_ML_STATE_ALIAS_ONCE        (((Uint16) 3) << ERTS_ML_STATE_ALIAS_SHIFT)
+
+#define ERTS_MON_TYPE_MAX               ((Uint16) 8)
 
 #define ERTS_MON_TYPE_PROC              ((Uint16) 0)
 #define ERTS_MON_TYPE_PORT              ((Uint16) 1)
@@ -417,7 +434,8 @@
 #define ERTS_MON_TYPE_RESOURCE          ((Uint16) 4)
 #define ERTS_MON_TYPE_NODE              ((Uint16) 5)
 #define ERTS_MON_TYPE_NODES             ((Uint16) 6)
-#define ERTS_MON_TYPE_SUSPEND           ERTS_MON_TYPE_MAX
+#define ERTS_MON_TYPE_SUSPEND           ((Uint16) 7)
+#define ERTS_MON_TYPE_ALIAS             ERTS_MON_TYPE_MAX
 
 #define ERTS_MON_LNK_TYPE_MAX           (ERTS_MON_TYPE_MAX + ((Uint16) 3))
 #define ERTS_LNK_TYPE_MAX               ERTS_MON_LNK_TYPE_MAX
@@ -431,14 +449,31 @@
 #define ERTS_ML_FLG_IN_SUBTABLE         (((Uint16) 1) << 2)
 #define ERTS_ML_FLG_NAME                (((Uint16) 1) << 3)
 #define ERTS_ML_FLG_EXTENDED            (((Uint16) 1) << 4)
+#define ERTS_ML_FLG_SPAWN_PENDING       (((Uint16) 1) << 5)
+#define ERTS_ML_FLG_SPAWN_MONITOR       (((Uint16) 1) << 6)
+#define ERTS_ML_FLG_SPAWN_LINK          (((Uint16) 1) << 7)
+#define ERTS_ML_FLG_SPAWN_ABANDONED     (((Uint16) 1) << 8)
+#define ERTS_ML_FLG_SPAWN_NO_SMSG       (((Uint16) 1) << 9)
+#define ERTS_ML_FLG_SPAWN_NO_EMSG       (((Uint16) 1) << 10)
+#define ERTS_ML_FLG_ALIAS_BIT1          (((Uint16) 1) << 11)
+#define ERTS_ML_FLG_ALIAS_BIT2          (((Uint16) 1) << 12)
+#define ERTS_ML_FLG_TAG                 (((Uint16) 1) << 13)
 
 #define ERTS_ML_FLG_DBG_VISITED         (((Uint16) 1) << 15)
+
+#define ERTS_ML_FLGS_SPAWN              (ERTS_ML_FLG_SPAWN_PENDING      \
+                                         | ERTS_ML_FLG_SPAWN_MONITOR    \
+                                         | ERTS_ML_FLG_SPAWN_LINK       \
+                                         | ERTS_ML_FLG_SPAWN_ABANDONED  \
+                                         | ERTS_ML_FLG_SPAWN_NO_SMSG    \
+                                         | ERTS_ML_FLG_SPAWN_NO_EMSG)
 
 /* Flags that should be the same on both monitor/link halves */
 #define ERTS_ML_FLGS_SAME \
     (ERTS_ML_FLG_EXTENDED|ERTS_ML_FLG_NAME)
 
 typedef struct ErtsMonLnkNode__ ErtsMonLnkNode;
+typedef int (*ErtsMonLnkNodeFunc)(ErtsMonLnkNode *, void *, Sint);
 
 typedef struct {
     UWord parent; /* Parent ptr and flags... */
@@ -467,7 +502,7 @@ struct ErtsMonLnkNode__ {
     Uint16 type;
 };
 
-typedef struct {
+typedef struct ErtsMonLnkDist__ {
     Eterm nodename;
     Uint32 connection_id;
     erts_atomic_t refc;
@@ -477,6 +512,8 @@ typedef struct {
     ErtsMonLnkNode *monitors; /* Monitor double linked circular list */
     ErtsMonLnkNode *orig_name_monitors; /* Origin named monitors
                                            read-black tree */
+    ErtsMonLnkNode *dist_pend_spawn_exit;
+    ErtsThrPrgrLaterOp cleanup_lop;
 } ErtsMonLnkDist;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
@@ -529,7 +566,7 @@ ERTS_GLB_INLINE void erts_ml_dl_list_delete__(ErtsMonLnkNode **list,
                                               ErtsMonLnkNode *ml);
 ERTS_GLB_INLINE ErtsMonLnkNode *erts_ml_dl_list_first__(ErtsMonLnkNode *list);
 ERTS_GLB_INLINE ErtsMonLnkNode *erts_ml_dl_list_last__(ErtsMonLnkNode *list);
-void erts_mon_link_dist_destroy__(ErtsMonLnkDist *mld);
+void erts_schedule_mon_link_dist_destruction__(ErtsMonLnkDist *mld);
 ERTS_GLB_INLINE void *erts_ml_node_to_main_struct__(ErtsMonLnkNode *mln);
 
 /* implementations for globally inlined misc functions... */
@@ -547,7 +584,7 @@ erts_mon_link_dist_dec_refc(ErtsMonLnkDist *mld)
 {
     ERTS_ML_ASSERT(erts_atomic_read_nob(&mld->refc) > 0);
     if (erts_atomic_dec_read_nob(&mld->refc) == 0)
-        erts_mon_link_dist_destroy__(mld);
+        erts_schedule_mon_link_dist_destruction__(mld);
 }
 
 ERTS_GLB_INLINE void *
@@ -622,18 +659,27 @@ erts_ml_dl_list_last__(ErtsMonLnkNode *list)
 
 
 typedef struct ErtsMonLnkNode__ ErtsMonitor;
+typedef int (*ErtsMonitorFunc)(ErtsMonitor *, void *, Sint);
 
 typedef struct {
     ErtsMonitor origin;
-    ErtsMonitor target;
+    union {
+        ErtsMonitor target;
+        Eterm ref_heap[ERTS_MAX_INTERNAL_REF_SIZE];
+    } u;
     Eterm ref;
     erts_atomic32_t refc;
 } ErtsMonitorData;
 
 typedef struct {
     ErtsMonitorData md;
-    ErtsORefThing oref_thing;
+    Eterm ref_heap[ERTS_MAX_INTERNAL_REF_SIZE];
 } ErtsMonitorDataHeap;
+
+typedef struct {
+    ErtsMonitorData md;
+    Eterm heap[1 + ERTS_MAX_INTERNAL_REF_SIZE];
+} ErtsMonitorDataTagHeap;
 
 typedef struct ErtsMonitorDataExtended__ ErtsMonitorDataExtended;
 
@@ -652,6 +698,7 @@ struct ErtsMonitorDataExtended__ {
 };
 
 typedef struct ErtsMonitorSuspend__ ErtsMonitorSuspend;
+
 
 struct ErtsMonitorSuspend__ {
     ErtsMonitorData md; /* origin = suspender; target = suspendee */
@@ -685,7 +732,7 @@ ErtsMonitor *erts_monitor_tree_lookup(ErtsMonitor *root, Eterm key);
  *
  * @brief Lookup or insert a monitor in a monitor tree
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'mon' monitor is not part of any tree or list
  * If the above is not true, bad things will happen.
  *
@@ -697,7 +744,7 @@ ErtsMonitor *erts_monitor_tree_lookup(ErtsMonitor *root, Eterm key);
  * @returns                     Pointer to a monitor with the
  *                              key 'key'. If no monitor with the key
  *                              'key' was found and 'mon' was inserted
- *                              'mon' is returned.
+ *                              'NULL' is returned.
  *
  */
 ErtsMonitor *erts_monotor_tree_lookup_insert(ErtsMonitor **root,
@@ -711,7 +758,7 @@ ErtsMonitor *erts_monotor_tree_lookup_insert(ErtsMonitor **root,
  * If it is not found, creates a monitor and returns a pointer to the
  * origin monitor.
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - no target monitors with the key 'target' exists in the tree.
  * If the above is not true, bad things will happen.
  *
@@ -738,7 +785,7 @@ ErtsMonitor *erts_monitor_tree_lookup_create(ErtsMonitor **root, int *created,
  *
  * @brief Insert a monitor in a monitor tree
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - no monitors with the same key that 'mon' exist in the tree
  * - 'mon' is not part of any list of tree
  * If the above are not true, bad things will happen.
@@ -754,7 +801,7 @@ void erts_monitor_tree_insert(ErtsMonitor **root, ErtsMonitor *mon);
  *
  * @brief Replace a monitor in a monitor tree
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'old' monitor and 'new' monitor have exactly the same key
  * - 'old' monitor is part of the tree
  * - 'new' monitor is not part of any tree or list
@@ -764,17 +811,17 @@ void erts_monitor_tree_insert(ErtsMonitor **root, ErtsMonitor *mon);
  *
  * @param[in]     old           Monitor to remove from the tree
  *
- * @param[in]     new           Monitor to insert into the tree
+ * @param[in]     new_           Monitor to insert into the tree
  *
  */
 void erts_monitor_tree_replace(ErtsMonitor **root, ErtsMonitor *old,
-                               ErtsMonitor *new);
+                               ErtsMonitor *new_);
 
 /**
  *
  * @brief Delete a monitor from a monitor tree
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'mon' monitor is part of the tree
  * If the above is not true, bad things will happen.
  *
@@ -789,7 +836,7 @@ void erts_monitor_tree_delete(ErtsMonitor **root, ErtsMonitor *mon);
  *
  * @brief Call a function for each monitor in a monitor tree
  *
- * The funcion 'func' will be called with a pointer to a monitor
+ * The function 'func' will be called with a pointer to a monitor
  * as first argument and 'arg' as second argument for each monitor
  * in the tree referred to by 'root'.
  *
@@ -802,7 +849,7 @@ void erts_monitor_tree_delete(ErtsMonitor **root, ErtsMonitor *mon);
  *
  */
 void erts_monitor_tree_foreach(ErtsMonitor *root,
-                               void (*func)(ErtsMonitor *, void *),
+                               ErtsMonitorFunc func,
                                void *arg);
 
 /**
@@ -810,9 +857,10 @@ void erts_monitor_tree_foreach(ErtsMonitor *root,
  * @brief Call a function for each monitor in a monitor tree. Yield
  *        if lots of monitors exist.
  *
- * The funcion 'func' will be called with a pointer to a monitor
+ * The function 'func' will be called with a pointer to a monitor
  * as first argument and 'arg' as second argument for each monitor
- * in the tree referred to by 'root'.
+ * in the tree referred to by 'root'. It should return the number of
+ * reductions the operator took to perform.
  *
  * It is assumed that:
  * - *yspp equals NULL on first call
@@ -835,27 +883,28 @@ void erts_monitor_tree_foreach(ErtsMonitor *root,
  *                              *yspp should be NULL. When done *yspp
  *                              will be NULL.
  *
- * @param[in]     limit         Maximum amount of monitors to process
- *                              before yielding.
+ * @param[in]     reds          Reductions available to execute before yielding.
  *
- * @returns                     A non-zero value when all monitors has been
- *                              processed, and zero when more work is needed.
+ * @returns                     The unconsumed reductions when all monitors
+ *                              have been processed, and zero when more work
+ *                              is needed.
  *
  */
 int erts_monitor_tree_foreach_yielding(ErtsMonitor *root,
-                                       void (*func)(ErtsMonitor *, void *),
+                                       ErtsMonitorFunc func,
                                        void *arg,
                                        void **vyspp,
-                                       Sint limit);
+                                       Sint reds);
 
 /**
  *
  * @brief Delete all monitors from a monitor tree and call a function for
  *        each monitor
  *
- * The funcion 'func' will be called with a pointer to a monitor
+ * The function 'func' will be called with a pointer to a monitor
  * as first argument and 'arg' as second argument for each monitor
- * in the tree referred to by 'root'.
+ * in the tree referred to by 'root'. It should return the number of
+ * reductions the operator took to perform.
  *
  * @param[in,out] root          Pointer to pointer to root of monitor tree
  *
@@ -866,7 +915,7 @@ int erts_monitor_tree_foreach_yielding(ErtsMonitor *root,
  *
  */
 void erts_monitor_tree_foreach_delete(ErtsMonitor **root,
-                                      void (*func)(ErtsMonitor *, void *),
+                                      ErtsMonitorFunc func,
                                       void *arg);
 
 /**
@@ -874,9 +923,10 @@ void erts_monitor_tree_foreach_delete(ErtsMonitor **root,
  * @brief Delete all monitors from a monitor tree and call a function for
  *        each monitor
  *
- * The funcion 'func' will be called with a pointer to a monitor
+ * The function 'func' will be called with a pointer to a monitor
  * as first argument and 'arg' as second argument for each monitor
- * in the tree referred to by 'root'.
+ * in the tree referred to by 'root'. It should return the number of
+ * reductions the operator took to perform.
  *
  * It is assumed that:
  * - *yspp equals NULL on first call
@@ -899,18 +949,18 @@ void erts_monitor_tree_foreach_delete(ErtsMonitor **root,
  *                              *yspp should be NULL. When done *yspp
  *                              will be NULL.
  *
- * @param[in]     limit         Maximum amount of monitors to process
- *                              before yielding.
+ * @param[in]     reds          Reductions available to execute before yielding.
  *
- * @returns                     A non-zero value when all monitors has been
- *                              processed, and zero when more work is needed.
+ * @returns                     The unconsumed reductions when all monitors
+ *                              have been processed, and zero when more work
+ *                              is needed.
  *
  */
 int erts_monitor_tree_foreach_delete_yielding(ErtsMonitor **root,
-                                              void (*func)(ErtsMonitor *, void *),
+                                              ErtsMonitorFunc func,
                                               void *arg,
                                               void **vyspp,
-                                              Sint limit);
+                                              Sint reds);
 
 /*
  * --- Monitor list operations --
@@ -920,7 +970,7 @@ int erts_monitor_tree_foreach_delete_yielding(ErtsMonitor **root,
  *
  * @brief Insert a monitor in a monitor list
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'mon' monitor is not part of any list or tree
  * If the above is not true, bad things will happen.
  *
@@ -935,7 +985,7 @@ ERTS_GLB_INLINE void erts_monitor_list_insert(ErtsMonitor **list, ErtsMonitor *m
  *
  * @brief Delete a monitor from a monitor list
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'mon' monitor is part of the list
  * If the above is not true, bad things will happen.
  *
@@ -980,7 +1030,7 @@ ERTS_GLB_INLINE ErtsMonitor *erts_monitor_list_last(ErtsMonitor *list);
  *
  * @brief Call a function for each monitor in a monitor list
  *
- * The funcion 'func' will be called with a pointer to a monitor
+ * The function 'func' will be called with a pointer to a monitor
  * as first argument and 'arg' as second argument for each monitor
  * in the tree referred to by 'list'.
  *
@@ -993,7 +1043,7 @@ ERTS_GLB_INLINE ErtsMonitor *erts_monitor_list_last(ErtsMonitor *list);
  *
  */
 void erts_monitor_list_foreach(ErtsMonitor *list,
-                               void (*func)(ErtsMonitor *, void *),
+                               ErtsMonitorFunc func,
                                void *arg);
 
 /**
@@ -1001,9 +1051,10 @@ void erts_monitor_list_foreach(ErtsMonitor *list,
  * @brief Call a function for each monitor in a monitor list. Yield
  *        if lots of monitors exist.
  *
- * The funcion 'func' will be called with a pointer to a monitor
+ * The function 'func' will be called with a pointer to a monitor
  * as first argument and 'arg' as second argument for each monitor
- * in the tree referred to by 'root'.
+ * in the tree referred to by 'root'. It should return the number of
+ * reductions the operator took to perform.
  *
  * It is assumed that:
  * - *yspp equals NULL on first call
@@ -1026,25 +1077,25 @@ void erts_monitor_list_foreach(ErtsMonitor *list,
  *                              *yspp should be NULL. When done *yspp
  *                              will be NULL.
  *
- * @param[in]     limit         Maximum amount of monitors to process
- *                              before yielding.
+ * @param[in]     reds          Reductions available to execute before yielding.
  *
- * @returns                     A non-zero value when all monitors has been
- *                              processed, and zero when more work is needed.
+ * @returns                     The unconsumed reductions when all monitors
+ *                              have been processed, and zero when more work
+ *                              is needed.
  *
  */
 int erts_monitor_list_foreach_yielding(ErtsMonitor *list,
-                                       void (*func)(ErtsMonitor *, void *),
+                                       ErtsMonitorFunc func,
                                        void *arg,
                                        void **vyspp,
-                                       Sint limit);
+                                       Sint reds);
 
 /**
  *
  * @brief Delete all monitors from a monitor list and call a function for
  *        each monitor
  *
- * The funcion 'func' will be called with a pointer to a monitor
+ * The function 'func' will be called with a pointer to a monitor
  * as first argument and 'arg' as second argument for each monitor
  * in the tree referred to by 'root'.
  *
@@ -1057,7 +1108,7 @@ int erts_monitor_list_foreach_yielding(ErtsMonitor *list,
  *
  */
 void erts_monitor_list_foreach_delete(ErtsMonitor **list,
-                                      void (*func)(ErtsMonitor *, void *),
+                                      ErtsMonitorFunc func,
                                       void *arg);
 
 /**
@@ -1065,9 +1116,10 @@ void erts_monitor_list_foreach_delete(ErtsMonitor **list,
  * @brief Delete all monitors from a monitor list and call a function for
  *        each monitor
  *
- * The funcion 'func' will be called with a pointer to a monitor
+ * The function 'func' will be called with a pointer to a monitor
  * as first argument and 'arg' as second argument for each monitor
- * in the tree referred to by 'root'.
+ * in the tree referred to by 'root'. It should return the number of
+ * reductions the operator took to perform.
  *
  * It is assumed that:
  * - *yspp equals NULL on first call
@@ -1090,18 +1142,18 @@ void erts_monitor_list_foreach_delete(ErtsMonitor **list,
  *                              *yspp should be NULL. When done *yspp
  *                              will be NULL.
  *
- * @param[in]     limit         Maximum amount of monitors to process
- *                              before yielding.
+ * @param[in]     reds          Reductions available to execute before yielding.
  *
- * @returns                     A non-zero value when all monitors has been
- *                              processed, and zero when more work is needed.
+ * @returns                     The unconsumed reductions when all monitors
+ *                              have been processed, and zero when more work
+ *                              is needed.
  *
  */
 int erts_monitor_list_foreach_delete_yielding(ErtsMonitor **list,
-                                              void (*func)(ErtsMonitor *, void *),
+                                              ErtsMonitorFunc func,
                                               void *arg,
                                               void **vyspp,
-                                              Sint limit);
+                                              Sint reds);
 
 /*
  * --- Misc monitor operations ---
@@ -1113,7 +1165,7 @@ int erts_monitor_list_foreach_delete_yielding(ErtsMonitor **list,
  *
  * Can create all types of monitors
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'ref' is an internal ordinary reference if type is ERTS_MON_TYPE_PROC,
  *   ERTS_MON_TYPE_PORT, ERTS_MON_TYPE_TIME_OFFSET, or ERTS_MON_TYPE_RESOURCE
  * - 'ref' is NIL if type is ERTS_MON_TYPE_NODE, ERTS_MON_TYPE_NODES, or
@@ -1139,11 +1191,15 @@ int erts_monitor_list_foreach_delete_yielding(ErtsMonitor **list,
  *
  * @param[in]     name          An atom (the name) or NIL depending on type
  *
+ * @param[in]     tag           Tag to use in message when monitor is
+ *                              triggered or THE_NON_VALUE if default
+ *                              should be used.
+ *
  * @returns                     A pointer to monitor data structure
  *
  */
 ErtsMonitorData *erts_monitor_create(Uint16 type, Eterm ref, Eterm origin,
-                                     Eterm target, Eterm name);
+                                     Eterm target, Eterm name, Eterm tag);
 
 /**
  *
@@ -1199,7 +1255,7 @@ ERTS_GLB_INLINE int erts_monitor_is_in_table(ErtsMonitor *mon);
  * When both the origin and the target part of the monitor have
  * been released the monitor structure will be deallocated.
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'mon' monitor is not part of any list or tree
  * - 'mon' is not referred to by any other structures
  * If the above are not true, bad things will happen.
@@ -1216,7 +1272,7 @@ ERTS_GLB_INLINE void erts_monitor_release(ErtsMonitor *mon);
  * Release both the origin and target parts of the monitor
  * simultaneously and deallocate the structure.
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - Neither the origin part nor the target part of the monitor
  *   are not part of any list or tree
  * - Neither the origin part nor the target part of the monitor
@@ -1232,7 +1288,7 @@ ERTS_GLB_INLINE void erts_monitor_release_both(ErtsMonitorData *mdp);
  *
  * @brief Insert monitor in dist monitor tree or list
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'mon' monitor is not part of any list or tree
  * If the above is not true, bad things will happen.
  *
@@ -1253,7 +1309,7 @@ ERTS_GLB_INLINE int erts_monitor_dist_insert(ErtsMonitor *mon, ErtsMonLnkDist *d
  *
  * @brief Delete monitor from dist monitor tree or list
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'mon' monitor earler has been inserted into 'dist'
  * If the above is not true, bad things will happen.
  *
@@ -1291,7 +1347,7 @@ erts_monitor_set_dead_dist(ErtsMonitor *mon, Eterm nodename);
  * whole size of the monitor data structure is returned; otherwise,
  * half of the size is returned.
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'mon' has not been released
  * If the above is not true, bad things will happen.
  *
@@ -1362,21 +1418,24 @@ extern size_t erts_monitor_node_key_offset;
 ERTS_GLB_INLINE ErtsMonitorData *
 erts_monitor_to_data(ErtsMonitor *mon)
 {
-    ErtsMonitorData *mdp = erts_ml_node_to_main_struct__((ErtsMonLnkNode *) mon);
+    ErtsMonitorData *mdp = (ErtsMonitorData *)erts_ml_node_to_main_struct__((ErtsMonLnkNode *) mon);
 
 #ifdef ERTS_ML_DEBUG
     ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_TARGET));
     ERTS_ML_ASSERT(erts_monitor_origin_offset == (size_t) mdp->origin.offset);
-    ERTS_ML_ASSERT(!!(mdp->target.flags & ERTS_ML_FLG_TARGET));
-    ERTS_ML_ASSERT(erts_monitor_target_offset == (size_t) mdp->target.offset);
+    ERTS_ML_ASSERT(mon->type == ERTS_MON_TYPE_ALIAS
+                   || !!(mdp->u.target.flags & ERTS_ML_FLG_TARGET));
+    ERTS_ML_ASSERT(mon->type == ERTS_MON_TYPE_ALIAS
+                   || erts_monitor_target_offset == (size_t) mdp->u.target.offset);
     if (mon->type == ERTS_MON_TYPE_NODE || mon->type == ERTS_MON_TYPE_NODES
         || mon->type == ERTS_MON_TYPE_SUSPEND) {
         ERTS_ML_ASSERT(erts_monitor_node_key_offset == (size_t) mdp->origin.key_offset);
-        ERTS_ML_ASSERT(erts_monitor_node_key_offset == (size_t) mdp->target.key_offset);
+        ERTS_ML_ASSERT(erts_monitor_node_key_offset == (size_t) mdp->u.target.key_offset);
     }
     else {
         ERTS_ML_ASSERT(erts_monitor_origin_key_offset == (size_t) mdp->origin.key_offset);
-        ERTS_ML_ASSERT(erts_monitor_target_key_offset == (size_t) mdp->target.key_offset);
+        ERTS_ML_ASSERT(mon->type == ERTS_MON_TYPE_ALIAS
+                       || erts_monitor_target_key_offset == (size_t) mdp->u.target.key_offset);
     }
 #endif
 
@@ -1389,9 +1448,10 @@ erts_monitor_release(ErtsMonitor *mon)
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     ERTS_ML_ASSERT(erts_atomic32_read_nob(&mdp->refc) > 0);
 
-    if (erts_atomic32_dec_read_nob(&mdp->refc) == 0) {
+    if (erts_atomic32_dec_read_mb(&mdp->refc) == 0) {
         ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_IN_TABLE));
-        ERTS_ML_ASSERT(!(mdp->target.flags & ERTS_ML_FLG_IN_TABLE));
+        ERTS_ML_ASSERT(mon->type == ERTS_MON_TYPE_ALIAS
+                       || !(mdp->u.target.flags & ERTS_ML_FLG_IN_TABLE));
 
         erts_monitor_destroy__(mdp);
     }
@@ -1401,12 +1461,12 @@ ERTS_GLB_INLINE void
 erts_monitor_release_both(ErtsMonitorData *mdp)
 {
     ERTS_ML_ASSERT((mdp->origin.flags & ERTS_ML_FLGS_SAME)
-                   == (mdp->target.flags & ERTS_ML_FLGS_SAME));
+                   == (mdp->u.target.flags & ERTS_ML_FLGS_SAME));
     ERTS_ML_ASSERT(erts_atomic32_read_nob(&mdp->refc) >= 2);
 
-    if (erts_atomic32_add_read_nob(&mdp->refc, (erts_aint32_t) -2) == 0) {
+    if (erts_atomic32_add_read_mb(&mdp->refc, (erts_aint32_t) -2) == 0) {
         ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_IN_TABLE));
-        ERTS_ML_ASSERT(!(mdp->target.flags & ERTS_ML_FLG_IN_TABLE));
+        ERTS_ML_ASSERT(!(mdp->u.target.flags & ERTS_ML_FLG_IN_TABLE));
 
         erts_monitor_destroy__(mdp);
     }
@@ -1426,14 +1486,14 @@ erts_monitor_dist_insert(ErtsMonitor *mon, ErtsMonLnkDist *dist)
 
     ERTS_ML_ASSERT(!mdep->dist);
     ERTS_ML_ASSERT(dist);
-    mdep->dist = dist;
-
-    erts_mon_link_dist_inc_refc(dist);
 
     erts_mtx_lock(&dist->mtx);
 
     insert = dist->alive;
     if (insert) {
+        mdep->dist = dist;
+        erts_mon_link_dist_inc_refc(dist);
+
         if ((mon->flags & (ERTS_ML_FLG_NAME
                            | ERTS_ML_FLG_TARGET)) == ERTS_ML_FLG_NAME)
             erts_monitor_tree_insert(&dist->orig_name_monitors, mon);
@@ -1452,7 +1512,7 @@ erts_monitor_dist_delete(ErtsMonitor *mon)
     ErtsMonitorDataExtended *mdep;
     ErtsMonLnkDist *dist;
     Uint16 flags;
-    int delete;
+    int delete_;
 
     ERTS_ML_ASSERT(mon->flags & ERTS_ML_FLG_EXTENDED);
     ERTS_ML_ASSERT(mon->type == ERTS_MON_TYPE_DIST_PROC
@@ -1465,8 +1525,8 @@ erts_monitor_dist_delete(ErtsMonitor *mon)
     erts_mtx_lock(&dist->mtx);
 
     flags = mon->flags;
-    delete = !!dist->alive & !!(flags & ERTS_ML_FLG_IN_TABLE);
-    if (delete) {
+    delete_ = !!dist->alive & !!(flags & ERTS_ML_FLG_IN_TABLE);
+    if (delete_) {
         if ((flags & (ERTS_ML_FLG_NAME
                       | ERTS_ML_FLG_TARGET)) == ERTS_ML_FLG_NAME)
             erts_monitor_tree_delete(&dist->orig_name_monitors, mon);
@@ -1476,7 +1536,7 @@ erts_monitor_dist_delete(ErtsMonitor *mon)
 
     erts_mtx_unlock(&dist->mtx);
 
-    return delete;
+    return delete_;
 }
 
 
@@ -1501,24 +1561,45 @@ ERTS_GLB_INLINE ErtsMonitorSuspend *erts_monitor_suspend(ErtsMonitor *mon)
 
 #endif
 
+void
+erts_debug_monitor_tree_destroying_foreach(ErtsMonitor *root,
+                                           ErtsMonitorFunc func,
+                                           void *arg,
+                                           void *vysp);
+void
+erts_debug_monitor_list_destroying_foreach(ErtsMonitor *list,
+                                           ErtsMonitorFunc func,
+                                           void *arg,
+                                           void *vysp);
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Link Operations                                                           *
 \*                                                                           */
 
 typedef struct ErtsMonLnkNode__ ErtsLink;
 
+typedef int (*ErtsLinkFunc)(ErtsLink *, void *, Sint);
+
+/* Internal Link */
 typedef struct {
-    ErtsLink a;
-    ErtsLink b;
+    ErtsLink link;
+    Uint64 unlinking;
+} ErtsILink;
+
+typedef struct {
+    ErtsLink proc;
+    ErtsLink dist;
     erts_atomic32_t refc;
 } ErtsLinkData;
 
+/* External Link */
 typedef struct {
     ErtsLinkData ld;
     struct erl_off_heap_header *ohhp;
     ErtsMonLnkDist *dist;
+    Uint64 unlinking;
     Eterm heap[1]; /* heap start... */
-} ErtsLinkDataExtended;
+} ErtsELink;
 
 /*
  * --- Link tree operations ---
@@ -1544,7 +1625,7 @@ ErtsLink *erts_link_tree_lookup(ErtsLink *root, Eterm item);
  *
  * @brief Lookup or insert a link in a link tree
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'lnk' link is not part of any tree or list
  * If the above is not true, bad things will happen.
  *
@@ -1556,14 +1637,14 @@ ErtsLink *erts_link_tree_lookup(ErtsLink *root, Eterm item);
  * @returns                     Pointer to a link with the
  *                              key 'key'. If no link with the key
  *                              'key' was found and 'lnk' was inserted
- *                              'lnk' is returned.
+ *                              'NULL' is returned.
  *
  */
 ErtsLink *erts_link_tree_lookup_insert(ErtsLink **root, ErtsLink *lnk);
 
 /**
  *
- * @brief Lookup or create a link in a link tree.
+ * @brief Lookup or create an external link in a link tree.
  *
  * Looks up a link with the key 'other' in the link tree. If it is not
  * found, creates and insert a link with the key 'other'.
@@ -1582,15 +1663,46 @@ ErtsLink *erts_link_tree_lookup_insert(ErtsLink **root, ErtsLink *lnk);
  *
  * @param[in]     other         Id of other entity
  *
+ * @returns                     Pointer to either an already existing
+ *                              link in the tree or a newly created
+ *                              and inserted link.
+ *
  */
-ErtsLink *erts_link_tree_lookup_create(ErtsLink **root, int *created,
-                                       Uint16 type, Eterm this, Eterm other);
+ErtsLink *erts_link_external_tree_lookup_create(ErtsLink **root, int *created,
+                                                Uint16 type, Eterm this_, Eterm other);
+
+/**
+ *
+ * @brief Lookup or create an internal link in a link tree.
+ *
+ * Looks up a link with the key 'other' in the link tree. If it is not
+ * found, creates and insert a link with the key 'other'.
+ *
+ * @param[in,out] root          Pointer to pointer to root of link tree
+ *
+ * @param[out]    created       Pointer to integer. The integer is set to
+ *                              a non-zero value if no link with key
+ *                              'other' was found, and a new link
+ *                              was created. If a link was found, it
+ *                              is set to zero.
+ *
+ * @param[in]     type          Type of link
+ *
+ * @param[in]     other         Id of other entity
+ *
+ * @returns                     Pointer to either an already existing
+ *                              link in the tree or a newly created
+ *                              and inserted link.
+ *
+ */
+ErtsLink *erts_link_internal_tree_lookup_create(ErtsLink **root, int *created,
+                                                Uint16 type, Eterm other);
 
 /**
  *
  * @brief Insert a link in a link tree
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - no links with the same key that 'lnk' exist in the tree
  * - 'lnk' is not part of any list of tree
  * If the above are not true, bad things will happen.
@@ -1606,7 +1718,7 @@ void erts_link_tree_insert(ErtsLink **root, ErtsLink *lnk);
  *
  * @brief Replace a link in a link tree
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'old' link and 'new' link have exactly the same key
  * - 'old' link is part of the tree
  * - 'new' link is not part of any tree or list
@@ -1619,7 +1731,7 @@ void erts_link_tree_insert(ErtsLink **root, ErtsLink *lnk);
  * @param[in]     new           Link to insert into the tree
  *
  */
-void erts_link_tree_replace(ErtsLink **root, ErtsLink *old, ErtsLink *new);
+void erts_link_tree_replace(ErtsLink **root, ErtsLink *old, ErtsLink *new_);
 
 /**
  *
@@ -1630,7 +1742,7 @@ void erts_link_tree_replace(ErtsLink **root, ErtsLink *old, ErtsLink *new);
  * the tree and 'lnk' has a lower address than the link in the
  * tree, the existing link in the tree is replaced by 'lnk'.
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'lnk' link is not part of any tree or list
  * If the above are not true, bad things will happen.
  *
@@ -1649,7 +1761,7 @@ ERTS_GLB_INLINE ErtsLink *erts_link_tree_insert_addr_replace(ErtsLink **root,
  *
  * @brief Delete a link from a link tree
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'lnk' link is part of the tree
  * If the above is not true, bad things will happen.
  *
@@ -1668,7 +1780,7 @@ void erts_link_tree_delete(ErtsLink **root, ErtsLink *lnk);
  * If link 'lnk' is not in the tree, another link with the same
  * key as 'lnk' is deleted from the tree if such a link exist.
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - if 'lnk' link is part of a tree or list, it is part of this tree
  * If the above is not true, bad things will happen.
  *
@@ -1687,7 +1799,7 @@ ERTS_GLB_INLINE ErtsLink *erts_link_tree_key_delete(ErtsLink **root, ErtsLink *l
  *
  * @brief Call a function for each link in a link tree
  *
- * The funcion 'func' will be called with a pointer to a link
+ * The function 'func' will be called with a pointer to a link
  * as first argument and 'arg' as second argument for each link
  * in the tree referred to by 'root'.
  *
@@ -1700,7 +1812,7 @@ ERTS_GLB_INLINE ErtsLink *erts_link_tree_key_delete(ErtsLink **root, ErtsLink *l
  *
  */
 void erts_link_tree_foreach(ErtsLink *root,
-                            void (*func)(ErtsLink *, void *),
+                            ErtsLinkFunc,
                             void *arg);
 
 /**
@@ -1708,9 +1820,10 @@ void erts_link_tree_foreach(ErtsLink *root,
  * @brief Call a function for each link in a link tree. Yield if lots
  *        of links exist.
  *
- * The funcion 'func' will be called with a pointer to a link
+ * The function 'func' will be called with a pointer to a link
  * as first argument and 'arg' as second argument for each link
- * in the tree referred to by 'root'.
+ * in the tree referred to by 'root'. It should return the number of
+ * reductions the operator took to perform.
  *
  * It is assumed that:
  * - *yspp equals NULL on first call
@@ -1733,25 +1846,25 @@ void erts_link_tree_foreach(ErtsLink *root,
  *                              *yspp should be NULL. When done *yspp
  *                              will be NULL.
  *
- * @param[in]     limit         Maximum amount of links to process
- *                              before yielding.
+ * @param[in]     reds          Reductions available to execute before yielding.
  *
- * @returns                     A non-zero value when all links has been
- *                              processed, and zero when more work is needed.
+ * @returns                     The unconsumed reductions when all links
+ *                              have been processed, and zero when more work
+ *                              is needed.
  *
  */
 int erts_link_tree_foreach_yielding(ErtsLink *root,
-                                    void (*func)(ErtsLink *, void *),
+                                    ErtsLinkFunc func,
                                     void *arg,
                                     void **vyspp,
-                                    Sint limit);
+                                    Sint reds);
 
 /**
  *
  * @brief Delete all links from a link tree and call a function for
  *        each link
  *
- * The funcion 'func' will be called with a pointer to a link
+ * The function 'func' will be called with a pointer to a link
  * as first argument and 'arg' as second argument for each link
  * in the tree referred to by 'root'.
  *
@@ -1764,7 +1877,7 @@ int erts_link_tree_foreach_yielding(ErtsLink *root,
  *
  */
 void erts_link_tree_foreach_delete(ErtsLink **root,
-                                   void (*func)(ErtsLink *, void *),
+                                   ErtsLinkFunc func,
                                    void *arg);
 
 /**
@@ -1772,9 +1885,10 @@ void erts_link_tree_foreach_delete(ErtsLink **root,
  * @brief Delete all links from a link tree and call a function for
  *        each link
  *
- * The funcion 'func' will be called with a pointer to a link
+ * The function 'func' will be called with a pointer to a link
  * as first argument and 'arg' as second argument for each link
- * in the tree referred to by 'root'.
+ * in the tree referred to by 'root'. It should return the number of
+ * reductions the operator took to perform.
  *
  * It is assumed that:
  * - *yspp equals NULL on first call
@@ -1797,18 +1911,18 @@ void erts_link_tree_foreach_delete(ErtsLink **root,
  *                              *yspp should be NULL. When done *yspp
  *                              will be NULL.
  *
- * @param[in]     limit         Maximum amount of links to process
- *                              before yielding.
+ * @param[in]     reds          Reductions available to execute before yielding.
  *
- * @returns                     A non-zero value when all links has been
- *                              processed, and zero when more work is needed.
+ * @returns                     The unconsumed reductions when all links
+ *                              have been processed, and zero when more work
+ *                              is needed.
  *
  */
 int erts_link_tree_foreach_delete_yielding(ErtsLink **root,
-                                           void (*func)(ErtsLink *, void *),
+                                           ErtsLinkFunc func,
                                            void *arg,
                                            void **vyspp,
-                                           Sint limit);
+                                           Sint reds);
 
 /* 
  * --- Link list operations ---
@@ -1818,7 +1932,7 @@ int erts_link_tree_foreach_delete_yielding(ErtsLink **root,
  *
  * @brief Insert a link in a link list
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'lnk' link is not part of any list or tree
  * If the above is not true, bad things will happen.
  *
@@ -1833,7 +1947,7 @@ ERTS_GLB_INLINE void erts_link_list_insert(ErtsLink **list, ErtsLink *lnk);
  *
  * @brief Delete a link from a link list
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'lnk' link is part of the list
  * If the above is not true, bad things will happen.
  *
@@ -1878,7 +1992,7 @@ ERTS_GLB_INLINE ErtsLink *erts_link_list_last(ErtsLink *list);
  *
  * @brief Call a function for each link in a link list
  *
- * The funcion 'func' will be called with a pointer to a link
+ * The function 'func' will be called with a pointer to a link
  * as first argument and 'arg' as second argument for each link
  * in the tree referred to by 'list'.
  *
@@ -1891,7 +2005,7 @@ ERTS_GLB_INLINE ErtsLink *erts_link_list_last(ErtsLink *list);
  *
  */
 void erts_link_list_foreach(ErtsLink *list,
-                            void (*func)(ErtsLink *, void *),
+                            ErtsLinkFunc func,
                             void *arg);
 
 /**
@@ -1899,9 +2013,10 @@ void erts_link_list_foreach(ErtsLink *list,
  * @brief Call a function for each link in a link list. Yield
  *        if lots of links exist.
  *
- * The funcion 'func' will be called with a pointer to a link
+ * The function 'func' will be called with a pointer to a link
  * as first argument and 'arg' as second argument for each link
- * in the tree referred to by 'root'.
+ * in the tree referred to by 'root'. It should return the number of
+ * reductions the operator took to perform.
  *
  * It is assumed that:
  * - *yspp equals NULL on first call
@@ -1924,25 +2039,25 @@ void erts_link_list_foreach(ErtsLink *list,
  *                              *yspp should be NULL. When done *yspp
  *                              will be NULL.
  *
- * @param[in]     limit         Maximum amount of links to process
- *                              before yielding.
+ * @param[in]     reds          Reductions available to execute before yielding.
  *
- * @returns                     A non-zero value when all links has been
- *                              processed, and zero when more work is needed.
+ * @returns                     The unconsumed reductions when all links
+ *                              have been processed, and zero when more work
+ *                              is needed.
  *
  */
 int erts_link_list_foreach_yielding(ErtsLink *list,
-                                    void (*func)(ErtsLink *, void *),
+                                    ErtsLinkFunc func,
                                     void *arg,
                                     void **vyspp,
-                                    Sint limit);
+                                    Sint reds);
 
 /**
  *
  * @brief Delete all links from a link list and call a function for
  *        each link
  *
- * The funcion 'func' will be called with a pointer to a link
+ * The function 'func' will be called with a pointer to a link
  * as first argument and 'arg' as second argument for each link
  * in the tree referred to by 'root'.
  *
@@ -1955,7 +2070,7 @@ int erts_link_list_foreach_yielding(ErtsLink *list,
  *
  */
 void erts_link_list_foreach_delete(ErtsLink **list,
-                                   void (*func)(ErtsLink *, void *),
+                                   ErtsLinkFunc func,
                                    void *arg);
 
 /**
@@ -1963,9 +2078,10 @@ void erts_link_list_foreach_delete(ErtsLink **list,
  * @brief Delete all links from a link list and call a function for
  *        each link
  *
- * The funcion 'func' will be called with a pointer to a link
+ * The function 'func' will be called with a pointer to a link
  * as first argument and 'arg' as second argument for each link
- * in the tree referred to by 'root'.
+ * in the tree referred to by 'root'. It should return the number of
+ * reductions the operator took to perform.
  *
  * It is assumed that:
  * - *yspp equals NULL on first call
@@ -1988,18 +2104,18 @@ void erts_link_list_foreach_delete(ErtsLink **list,
  *                              *yspp should be NULL. When done *yspp
  *                              will be NULL.
  *
- * @param[in]     limit         Maximum amount of links to process
- *                              before yielding.
+ * @param[in]     reds          Reductions available to execute before yielding.
  *
- * @returns                     A non-zero value when all links has been
- *                              processed, and zero when more work is needed.
+ * @returns                     The unconsumed reductions when all links
+ *                              have been processed, and zero when more work
+ *                              is needed.
  *
  */
 int erts_link_list_foreach_delete_yielding(ErtsLink **list,
-                                           void (*func)(ErtsLink *, void *),
+                                           ErtsLinkFunc func,
                                            void *arg,
                                            void **vyspp,
-                                           Sint limit);
+                                           Sint reds);
 
 /*
  * --- Misc link operations ---
@@ -2007,60 +2123,74 @@ int erts_link_list_foreach_delete_yielding(ErtsLink **list,
 
 /**
  *
- * @brief Create a link
+ * @brief Create an external link
  *
- * Can create all types of links
+ * An external link structure contains two links, one for usage in
+ * the link tree of the process and one for usage in the dist entry.
  *
- * When the funcion is called it is assumed that:
- * - 'ref' is an internal ordinary reference if type is ERTS_MON_TYPE_PROC,
- *   ERTS_MON_TYPE_PORT, ERTS_MON_TYPE_TIME_OFFSET, or ERTS_MON_TYPE_RESOURCE
- * - 'ref' is NIL if type is ERTS_MON_TYPE_NODE or ERTS_MON_TYPE_NODES
- * - 'ref' is and ordinary internal reference or an external reference if
- *   type is ERTS_MON_TYPE_DIST_PROC
- * - 'name' is an atom or NIL if type is ERTS_MON_TYPE_PROC,
- *   ERTS_MON_TYPE_PORT, or ERTS_MON_TYPE_DIST_PROC
- * - 'name is NIL if type is ERTS_MON_TYPE_TIME_OFFSET, ERTS_MON_TYPE_RESOURCE,
- *   ERTS_MON_TYPE_NODE, or ERTS_MON_TYPE_NODES
- * If the above is not true, bad things will happen.
  *
- * @param[in]     type          ERTS_MON_TYPE_PROC, ERTS_MON_TYPE_PORT,
- *                              ERTS_MON_TYPE_TIME_OFFSET, ERTS_MON_TYPE_DIST_PROC,
- *                              ERTS_MON_TYPE_RESOURCE, ERTS_MON_TYPE_NODE,
- *                              or ERTS_MON_TYPE_NODES
+ * @param[in]     type          ERTS_MON_TYPE_DIST_PROC
  *
- * @param[in]     a             The key of entity a. Link structure a will
- *                              have field other.item set to 'b'.
+ * @param[in]     this          The process identifier of the local
+ *                              process. The link structure in the
+ *                              'dist' field a will have its
+ *                              'other.item' field set to 'this'.
+ *                              The 'dist' link structure is to be
+ *                              inserted on the distribution entry.
  *
- * @param[in]     b             The key of entity b. Link structure b will
- *                              have field other.item set to 'a'.
+ * @param[in]     other         The process identifier of the remote
+ *                              process. The link structure in the
+ *                              'proc' field a will have its
+ *                              'other.item' field set to 'other'.
+ *                              The 'proc' link structure is to be
+ *                              inserted on the local process.
+ *
+ * @returns                     A pointer to the link data structure
+ *                              containing the link structures. The
+ *                              link data structure is in turn part
+ *                              of the external link structure
+ *                              (ErtsELink).
  *
  */
-ErtsLinkData *erts_link_create(Uint16 type, Eterm a, Eterm b);
+ErtsLinkData *erts_link_external_create(Uint16 type, Eterm this_, Eterm other);
 
 /**
  *
- * @brief Get pointer to link data structure
+ * @brief Create an internal link
+ *
+ * @param[in]     type          ERTS_MON_TYPE_PROC, ERTS_MON_TYPE_PORT,
+ *
+ * @param[in]     id            Id of the entity linked.
+ *
+ * @returns                     A pointer to the link stucture.
+ */
+ErtsLink *erts_link_internal_create(Uint16 type, Eterm id);
+
+/**
+ *
+ * @brief Get pointer to external link data structure
  *
  * @param[in]    lnk            Pointer to link
  *
- * @returns                     Pointer to link data structure
+ * @returns                     Pointer to external link structure
  *
  */
-ERTS_GLB_INLINE ErtsLinkData *erts_link_to_data(ErtsLink *lnk);
+ERTS_GLB_INLINE ErtsELink *erts_link_to_elink(ErtsLink *lnk);
 
 /**
  *
  * @brief Get pointer to the other link structure part of the link
  *
- * @param[in]    lnk            Pointer to link
+ * @param[in]    lnk            Pointer to link structure
  *
- * @param[out]   ldpp           Pointer to pointer to link data structure,
- *                              if a non-NULL value is passed in the call
+ * @param[out]   elnkpp         Pointer to pointer to external link
+ *                              data structure, if a non-NULL value
+ *                              is passed in the call
  *
- * @returns                     Pointer to other link
+ * @returns                     Pointer to other link structure
  *
  */
-ERTS_GLB_INLINE ErtsLink *erts_link_to_other(ErtsLink *lnk, ErtsLinkData **ldpp);
+ERTS_GLB_INLINE ErtsLink *erts_link_to_other(ErtsLink *lnk, ErtsELink **elnkpp);
 
 /**
  *
@@ -2076,12 +2206,29 @@ ERTS_GLB_INLINE int erts_link_is_in_table(ErtsLink *lnk);
 
 /**
  *
+ * @brief Release an internal link
+ *
+ * When the function is called it is assumed that:
+ * - 'lnk' link is not part of any list or tree
+ * - 'lnk' is not referred to by any other structures
+ * If the above are not true, bad things will happen.
+ *
+ * @param[in]    lnk            Pointer to link
+ *
+ */
+ERTS_GLB_INLINE void erts_link_internal_release(ErtsLink *lnk);
+
+/**
+ *
  * @brief Release link
  *
- * When both link halves part of the link have been released the link
- * structure will be deallocated.
+ * Can be used to release a link half of an external
+ * link as well as an internal link. In the external
+ * case both link halves part of the external link have
+ * to been released before the link structure will be
+ * deallocated.
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'lnk' link is not part of any list or tree
  * - 'lnk' is not referred to by any other structures
  * If the above are not true, bad things will happen.
@@ -2093,12 +2240,13 @@ ERTS_GLB_INLINE void erts_link_release(ErtsLink *lnk);
 
 /**
  *
- * @brief Release both link halves of a link simultaneously
+ * @brief Release both link halves of an external link
+ *        simultaneously
  *
- * Release both halves of a link simultaneously and deallocate
- * the structure.
+ * Release both halves of an external link simultaneously and 
+ * deallocate the structure.
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - Neither of the parts of the link are part of any list or tree
  * - Neither of the parts of the link or the link data structure
  *   are referred to by any other structures
@@ -2113,7 +2261,7 @@ ERTS_GLB_INLINE void erts_link_release_both(ErtsLinkData *ldp);
  *
  * @brief Insert link in dist link list
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'lnk' link is not part of any list or tree
  * If the above is not true, bad things will happen.
  *
@@ -2134,7 +2282,7 @@ ERTS_GLB_INLINE int erts_link_dist_insert(ErtsLink *lnk, ErtsMonLnkDist *dist);
  *
  * @brief Delete link from dist link list
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'lnk' link earler has been inserted into 'dist'
  * If the above is not true, bad things will happen.
  *
@@ -2172,7 +2320,7 @@ erts_link_set_dead_dist(ErtsLink *lnk, Eterm nodename);
  * whole size of the link data structure is returned; otherwise,
  * half of the size is returned.
  *
- * When the funcion is called it is assumed that:
+ * When the function is called it is assumed that:
  * - 'lnk' has not been released
  * If the above is not true, bad things will happen.
  *
@@ -2184,39 +2332,43 @@ erts_link_set_dead_dist(ErtsLink *lnk, Eterm nodename);
 Uint erts_link_size(ErtsLink *lnk);
 
 /* internal function... */
-void erts_link_destroy__(ErtsLinkData *ldp);
+void erts_link_destroy_elink__(ErtsELink *elnk);
 
 /* implementations for globally inlined link functions... */
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 #ifdef ERTS_ML_DEBUG
-extern size_t erts_link_a_offset;
-extern size_t erts_link_b_offset;
+extern size_t erts_link_proc_offset;
+extern size_t erts_link_dist_offset;
 extern size_t erts_link_key_offset;
 #endif
 
-ERTS_GLB_INLINE ErtsLinkData *
-erts_link_to_data(ErtsLink *lnk)
+ERTS_GLB_INLINE ErtsELink *
+erts_link_to_elink(ErtsLink *lnk)
 {
-    ErtsLinkData *ldp = erts_ml_node_to_main_struct__((ErtsMonLnkNode *) lnk);
+    ErtsELink *elnk;
+
+    ERTS_ML_ASSERT(lnk->flags & ERTS_ML_FLG_EXTENDED);
+
+    elnk = (ErtsELink *) erts_ml_node_to_main_struct__((ErtsMonLnkNode *) lnk);
 
 #ifdef ERTS_ML_DEBUG
-    ERTS_ML_ASSERT(erts_link_a_offset == (size_t) ldp->a.offset);
-    ERTS_ML_ASSERT(erts_link_key_offset == (size_t) ldp->a.key_offset);
-    ERTS_ML_ASSERT(erts_link_b_offset == (size_t) ldp->b.offset);
-    ERTS_ML_ASSERT(erts_link_key_offset == (size_t) ldp->b.key_offset);
+    ERTS_ML_ASSERT(erts_link_proc_offset == (size_t) elnk->ld.proc.offset);
+    ERTS_ML_ASSERT(erts_link_key_offset == (size_t) elnk->ld.proc.key_offset);
+    ERTS_ML_ASSERT(erts_link_dist_offset == (size_t) elnk->ld.dist.offset);
+    ERTS_ML_ASSERT(erts_link_key_offset == (size_t) elnk->ld.dist.key_offset);
 #endif
 
-    return ldp;
+    return elnk;
 }
 
 ERTS_GLB_INLINE ErtsLink *
-erts_link_to_other(ErtsLink *lnk, ErtsLinkData **ldpp)
+erts_link_to_other(ErtsLink *lnk, ErtsELink **elnkpp)
 {
-    ErtsLinkData *ldp = erts_link_to_data(lnk);
-    if (ldpp)
-        *ldpp = ldp;
-    return lnk == &ldp->a ? &ldp->b : &ldp->a;
+    ErtsELink *elnk = erts_link_to_elink(lnk);
+    if (elnkpp)
+        *elnkpp = elnk;
+    return lnk == &elnk->ld.proc ? &elnk->ld.dist : &elnk->ld.proc;
 }
 
 ERTS_GLB_INLINE int
@@ -2250,23 +2402,38 @@ erts_link_list_last(ErtsLink *list)
 }
 
 ERTS_GLB_INLINE void
+erts_link_internal_release(ErtsLink *lnk)
+{
+    ERTS_ML_ASSERT(lnk->type == ERTS_LNK_TYPE_PROC
+                   || lnk->type == ERTS_LNK_TYPE_PORT);
+    ERTS_ML_ASSERT(!(lnk->flags & ERTS_ML_FLG_EXTENDED));
+    erts_free(ERTS_ALC_T_LINK, lnk);
+}
+
+ERTS_GLB_INLINE void
 erts_link_release(ErtsLink *lnk)
 {
-    ErtsLinkData *ldp = erts_link_to_data(lnk);
-    ERTS_ML_ASSERT(!(lnk->flags & ERTS_ML_FLG_IN_TABLE));
-    ERTS_ML_ASSERT(erts_atomic32_read_nob(&ldp->refc) > 0);
-    if (erts_atomic32_dec_read_nob(&ldp->refc) == 0)
-        erts_link_destroy__(ldp);
+    if (!(lnk->flags & ERTS_ML_FLG_EXTENDED))
+        erts_link_internal_release(lnk);
+    else {
+        ErtsELink *elnk = erts_link_to_elink(lnk);
+        ERTS_ML_ASSERT(!(lnk->flags & ERTS_ML_FLG_IN_TABLE));
+        ERTS_ML_ASSERT(erts_atomic32_read_nob(&elnk->ld.refc) > 0);
+        if (erts_atomic32_dec_read_nob(&elnk->ld.refc) == 0)
+            erts_link_destroy_elink__(elnk);
+    }
 }
 
 ERTS_GLB_INLINE void
 erts_link_release_both(ErtsLinkData *ldp)
 {
-    ERTS_ML_ASSERT(!(ldp->a.flags & ERTS_ML_FLG_IN_TABLE));
-    ERTS_ML_ASSERT(!(ldp->b.flags & ERTS_ML_FLG_IN_TABLE));
+    ERTS_ML_ASSERT(!(ldp->proc.flags & ERTS_ML_FLG_IN_TABLE));
+    ERTS_ML_ASSERT(!(ldp->dist.flags & ERTS_ML_FLG_IN_TABLE));
     ERTS_ML_ASSERT(erts_atomic32_read_nob(&ldp->refc) >= 2);
+    ERTS_ML_ASSERT(ldp->proc.flags & ERTS_ML_FLG_EXTENDED);
+    ERTS_ML_ASSERT(ldp->dist.flags & ERTS_ML_FLG_EXTENDED);
     if (erts_atomic32_add_read_nob(&ldp->refc, (erts_aint32_t) -2) == 0)
-        erts_link_destroy__(ldp);
+        erts_link_destroy_elink__((ErtsELink *) ldp);
 }
 
 ERTS_GLB_INLINE ErtsLink *
@@ -2297,25 +2464,25 @@ erts_link_tree_key_delete(ErtsLink **root, ErtsLink *lnk)
 ERTS_GLB_INLINE int
 erts_link_dist_insert(ErtsLink *lnk, ErtsMonLnkDist *dist)
 {
-    ErtsLinkDataExtended *ldep;
+    ErtsELink *elnk;
     int insert;
 
     ERTS_ML_ASSERT(lnk->flags & ERTS_ML_FLG_EXTENDED);
     ERTS_ML_ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
 
-    ldep = (ErtsLinkDataExtended *) erts_link_to_data(lnk);
+    elnk = erts_link_to_elink(lnk);
 
-    ERTS_ML_ASSERT(!ldep->dist);
+    ERTS_ML_ASSERT(!elnk->dist);
     ERTS_ML_ASSERT(dist);
-    ldep->dist = dist;
-
-    erts_mon_link_dist_inc_refc(dist);
 
     erts_mtx_lock(&dist->mtx);
 
     insert = dist->alive;
-    if (insert)
+    if (insert) {
+        elnk->dist = dist;
+        erts_mon_link_dist_inc_refc(dist);
         erts_link_list_insert(&dist->links, lnk);
+    }
 
     erts_mtx_unlock(&dist->mtx);
 
@@ -2325,30 +2492,36 @@ erts_link_dist_insert(ErtsLink *lnk, ErtsMonLnkDist *dist)
 ERTS_GLB_INLINE int
 erts_link_dist_delete(ErtsLink *lnk)
 {
-    ErtsLinkDataExtended *ldep;
+    ErtsELink *elnk;
     ErtsMonLnkDist *dist;
-    int delete;
+    int delete_;
 
     ERTS_ML_ASSERT(lnk->flags & ERTS_ML_FLG_EXTENDED);
     ERTS_ML_ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
 
-    ldep = (ErtsLinkDataExtended *) erts_link_to_data(lnk);
-    dist = ldep->dist;
+    elnk = erts_link_to_elink(lnk);
+    dist = elnk->dist;
     if (!dist)
         return -1;
 
     erts_mtx_lock(&dist->mtx);
 
-    delete = !!dist->alive & !!(lnk->flags & ERTS_ML_FLG_IN_TABLE);
-    if (delete)
+    delete_ = !!dist->alive & !!(lnk->flags & ERTS_ML_FLG_IN_TABLE);
+    if (delete_)
         erts_link_list_delete(&dist->links, lnk);
 
     erts_mtx_unlock(&dist->mtx);
 
-    return delete;
+    return delete_;
 }
 
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
+void
+erts_debug_link_tree_destroying_foreach(ErtsLink *root,
+                                        ErtsLinkFunc func,
+                                        void *arg,
+                                        void *vysp);
 
 #endif /* ERL_MONITOR_LINK_H__ */

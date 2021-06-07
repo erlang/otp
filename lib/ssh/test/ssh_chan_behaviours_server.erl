@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ handle_ssh_msg({ssh_cm, C, {eof, Ch}}=M, #state{ch=Ch,cm=C} = State) ->
     ?DBG(State, "eof",[]),
     {ok, State};
 
-handle_ssh_msg({ssh_cm, C, {signal, _Ch, _SigNameStr}=Sig} = M, #state{ch=Ch,cm=C} = State) ->
+handle_ssh_msg({ssh_cm, C, {signal, Ch, _SigNameStr}=Sig} = M, #state{ch=Ch,cm=C} = State) ->
     %% Ignore signals according to RFC 4254 section 6.9.
     tell_parent(M, State),
     ?DBG(State, "~p",[Sig]),

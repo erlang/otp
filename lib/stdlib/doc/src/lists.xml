@@ -281,7 +281,7 @@ flatmap(Fun, List1) ->
       <name name="foldr" arity="3" since=""/>
       <fsummary>Fold a function over a list.</fsummary>
       <desc>
-        <p>Like <seealso marker="#foldl/3"><c>foldl/3</c></seealso>, but the
+        <p>Like <seemfa marker="#foldl/3"><c>foldl/3</c></seemfa>, but the
           list is traversed from right to left.</p>
         <p><em>Example:</em></p>
         <pre>
@@ -418,7 +418,7 @@ flatmap(Fun, List1) ->
           otherwise <c>false</c>.</p>
       <note>
         <p>This function is retained for backward compatibility. Function
-          <seealso marker="#keyfind/3"><c>keyfind/3</c></seealso>
+          <seemfa marker="#keyfind/3"><c>keyfind/3</c></seemfa>
           is usually more convenient.</p>
       </note>
       </desc>
@@ -492,8 +492,8 @@ flatmap(Fun, List1) ->
       <fsummary>Map and fold in one pass.</fsummary>
       <desc>
         <p>Combines the operations of
-          <seealso marker="#map/2"><c>map/2</c></seealso> and 
-          <seealso marker="#foldl/3"><c>foldl/3</c></seealso> into one pass.</p>
+          <seemfa marker="#map/2"><c>map/2</c></seemfa> and 
+          <seemfa marker="#foldl/3"><c>foldl/3</c></seemfa> into one pass.</p>
         <p><em>Example:</em></p>
         <p>Summing the elements in a list and double them at the same time:</p>
         <pre>
@@ -508,8 +508,8 @@ flatmap(Fun, List1) ->
       <fsummary>Map and fold in one pass.</fsummary>
       <desc>
         <p>Combines the operations of
-          <seealso marker="#map/2"><c>map/2</c></seealso> and 
-          <seealso marker="#foldr/3"><c>foldr/3</c></seealso> into one pass.</p>
+          <seemfa marker="#map/2"><c>map/2</c></seemfa> and 
+          <seemfa marker="#foldr/3"><c>foldr/3</c></seemfa> into one pass.</p>
       </desc>
     </func>
 
@@ -564,8 +564,8 @@ flatmap(Fun, List1) ->
       <desc>
         <p>Returns the sorted list formed by merging <c><anno>List1</anno></c>
           and <c><anno>List2</anno></c>. Both <c><anno>List1</anno></c> and
-          <c><anno>List2</anno></c> must be sorted according to the <seealso
-          marker="#ordering_function">ordering function</seealso>
+          <c><anno>List2</anno></c> must be sorted according to the <seeerl
+          marker="#ordering_function">ordering function</seeerl>
           <c><anno>Fun</anno></c> before evaluating this function.
           <c><anno>Fun</anno>(<anno>A</anno>, <anno>B</anno>)</c> is to return
           <c>true</c> if <c><anno>A</anno></c> compares less
@@ -653,7 +653,7 @@ c</pre>
 > <input>lists:partition(fun(A) -> is_atom(A) end, [a,b,1,c,d,2,3,4,e]).</input>
 {[a,b,c,d,e],[1,2,3,4]}</pre>
         <p>For a different way to partition a list, see
-          <seealso marker="#splitwith/2"><c>splitwith/2</c></seealso>.</p>
+          <seemfa marker="#splitwith/2"><c>splitwith/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -761,8 +761,8 @@ length(lists:seq(From, To, Incr)) =:= (To - From + Incr) div Incr</code>
       <fsummary>Sort a list.</fsummary>
       <desc>
         <p>Returns a list containing the sorted elements of
-          <c><anno>List1</anno></c>, according to the <seealso
-          marker="#ordering_function">ordering function</seealso>
+          <c><anno>List1</anno></c>, according to the <seeerl
+          marker="#ordering_function">ordering function</seeerl>
           <c><anno>Fun</anno></c>. <c><anno>Fun</anno>(<anno>A</anno>,
           <anno>B</anno>)</c> is to return <c>true</c> if <c><anno>A</anno></c>
           compares less than or equal to <c><anno>B</anno></c> in the
@@ -799,7 +799,7 @@ splitwith(Pred, List) ->
 > <input>lists:splitwith(fun(A) -> is_atom(A) end, [a,b,1,c,d,2,3,4,e]).</input>
 {[a,b],[1,c,d,2,3,4,e]}</pre>
         <p>For a different way to partition a list, see 
-          <seealso marker="#partition/2"><c>partition/2</c></seealso>.</p>
+          <seemfa marker="#partition/2"><c>partition/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -946,8 +946,8 @@ splitwith(Pred, List) ->
       <desc>
         <p>Returns the sorted list formed by merging <c><anno>List1</anno></c>
           and <c><anno>List2</anno></c>. Both <c><anno>List1</anno></c> and
-          <c><anno>List2</anno></c> must be sorted according to the <seealso
-          marker="#ordering_function">ordering function</seealso>
+          <c><anno>List2</anno></c> must be sorted according to the <seeerl
+          marker="#ordering_function">ordering function</seeerl>
           <c>Fun</c> and contain no duplicates before evaluating this function.
           <c><anno>Fun</anno>(<anno>A</anno>, <anno>B</anno>)</c> is to return
           <c>true</c> if <c><anno>A</anno></c> compares less than or equal to
@@ -1009,8 +1009,8 @@ splitwith(Pred, List) ->
       <desc>
         <p>Returns a list containing the sorted elements of
           <c><anno>List1</anno></c> where all except the first element of the
-          elements comparing equal according to the <seealso
-          marker="#ordering_function">ordering function</seealso>
+          elements comparing equal according to the <seeerl
+          marker="#ordering_function">ordering function</seeerl>
           <c><anno>Fun</anno></c> have been deleted.
           <c><anno>Fun</anno>(A, B)</c> is to return
           <c>true</c> if <c>A</c> compares less than or equal to

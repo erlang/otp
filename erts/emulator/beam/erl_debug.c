@@ -144,7 +144,7 @@ pdisplay1(fmtfn_t to, void *to_arg, Process* p, Eterm obj)
 	break;
     case PORT_DEF:
     case EXTERNAL_PORT_DEF:
-	erts_print(to, to_arg, "#Port<%lu.%lu>",
+	erts_print(to, to_arg, "#Port<%lu.%b64u>",
 		   port_channel_no(obj),
 		   port_number(obj));
 	break;

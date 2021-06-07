@@ -27,6 +27,7 @@
 	 listen/4, listen/5,
 	 accept/2, accept/3, 
 	 close/2,
+         close_tag/1,
 	 send/3, 
 	 controlling_process/3, 
 	 setopts/3, getopts/2, getopts/3, 
@@ -459,6 +460,11 @@ ipv6_name({A, B, C, D, E, F, G, H}) ->
 	http_util:integer_to_hexlist(H).
 
 
+close_tag(ip_comm) ->
+    tcp_closed;
+close_tag(_) ->
+    ssl_closed.
+
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
@@ -487,4 +493,4 @@ negotiate({essl, _}, Socket, Timeout) ->
     negotiate_ssl(Socket, Timeout).
 
 negotiate_ssl(Socket, Timeout) ->
-    ssl:ssl_accept(Socket, Timeout). 
+    ssl:handshake(Socket, Timeout). 

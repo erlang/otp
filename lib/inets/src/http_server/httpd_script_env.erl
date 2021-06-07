@@ -166,9 +166,9 @@ create_script_elements(cgi, path_info, PathInfo, ModData) ->
     [{"PATH_INFO", PathInfo},
      {"PATH_TRANSLATED", PathTranslated}];
 create_script_elements(esi, entity_body, Body, _) ->
-    [{content_length, integer_to_list(httpd_util:flatlength(Body))}]; 
+    [{content_length, integer_to_list(erlang:iolist_size(Body))}];
 create_script_elements(cgi, entity_body, Body, _) ->
-    [{"CONTENT_LENGTH", integer_to_list(httpd_util:flatlength(Body))}]; 
+    [{"CONTENT_LENGTH", integer_to_list(erlang:iolist_size(Body))}];
 create_script_elements(_, _, _, _) ->
     [].
 

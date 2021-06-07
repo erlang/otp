@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2016</year>
+      <year>1999</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -90,7 +90,7 @@
           </p>
         <p>If an error is found in the configuration file, it is
           reported using the function 
-	  <seealso marker="snmpa_error#config_err">config_err/2</seealso> 
+	  <seeerl marker="snmpa_error#config_err">config_err/2</seeerl> 
 	  of the error report module, and the function fails with the reason 
           <c>configuration_error</c>.
           </p>

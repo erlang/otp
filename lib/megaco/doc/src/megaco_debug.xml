@@ -44,9 +44,9 @@
       our case tracing of calls to a given external function.</p>
     <p>Event traces can be viewed in a generic message sequence chart
       tool, <c>et</c>, or as standard output (events are written to stdio). </p>
-    <p>See <seealso marker="megaco#enable_trace">enable_trace</seealso>, 
-      <seealso marker="megaco#disable_trace">disable_trace</seealso> and
-      <seealso marker="megaco#set_trace">set_trace</seealso> for
+    <p>See <seeerl marker="megaco#enable_trace">enable_trace</seeerl>, 
+      <seeerl marker="megaco#disable_trace">disable_trace</seeerl> and
+      <seeerl marker="megaco#set_trace">set_trace</seeerl> for
       more info. </p>
   </section>
 
@@ -213,7 +213,7 @@ message() = binary()
           the <c>message_list()</c> has been encoded. </p>
 
         <p>This file can be <c>exported</c> to a file structure by calling the 
-          <seealso marker="megaco_codec_transform#export_messages">export_messages</seealso>
+          <seeerl marker="megaco_codec_transform#export_messages">export_messages</seeerl>
           function. This can be usefull if a measurement shall be done with
           an external tool. Exporting the messages creates a directory tree 
           with the following structure:

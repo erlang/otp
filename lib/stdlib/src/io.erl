@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,25 +49,63 @@
 -type location() :: erl_anno:location().
 
 %%-------------------------------------------------------------------------
+%% Needs to be inlined for error_info to be correct
+-compile({inline,[o_request/2]}).
+o_request(Function, OrigArgs) ->
+    {Io, Request} =
+        if
+            Function =:= format; Function =:= fwrite ->
+                case OrigArgs of
+                    [Format] ->
+                        {default_output(), {format, Format, []}};
+                    [Format, Args] ->
+                        {default_output(), {format, Format, Args}};
+                    [D, Format, Args] ->
+                        {D, {format, Format, Args}}
+                end;
+            Function =:= put_chars ->
+                case OrigArgs of
+                    [Chars] ->
+                        {default_output(), {put_chars, unicode, Chars}};
+                    [D, Chars] ->
+                        {D, {put_chars, unicode, Chars}};
+                    [D, Encoding, Chars] ->
+                        {D, {put_chars, Encoding, Chars}}
+                end;
+            Function =:= nl ->
+                case OrigArgs of
+                    [] ->
+                        {default_output(), nl};
+                    [D] ->
+                        {D, nl}
+                end;
+            Function =:= write ->
+                case OrigArgs of
+                    [Term] ->
+                        {default_output(), {write, Term}};
+                    [D, Term] ->
+                        {D, {write, Term}}
+                end
+        end,
+    ErrorRef = make_ref(),
+    case request(Io, Request, ErrorRef) of
+        {ErrorRef, Reason} ->
+            %% We differentiate between errors that are created by this module
+            erlang:error(conv_reason(Reason), OrigArgs,
+                         [{error_info,#{cause => {?MODULE, Reason},
+                                        module => erl_stdlib_errors}}]);
+        {error, Reason} ->
+            %% and the errors we get from the Device
+            erlang:error(conv_reason(Reason), OrigArgs,
+                         [{error_info,#{cause => {device, Reason},
+                                        module => erl_stdlib_errors}}]);
+        Other ->
+            Other
+    end.
 
 %%
 %% User interface.
 %%
-
-%% Writing and reading characters.
-
-to_tuple(T) when is_tuple(T) -> T;
-to_tuple(T) -> {T}.
-
-o_request(Io, Request, Func) ->
-    case request(Io, Request) of
-	{error, Reason} ->
-	    [_Name | Args] = tuple_to_list(to_tuple(Request)),
-	    {'EXIT',{get_stacktrace,[_Current|Mfas]}} = (catch erlang:error(get_stacktrace)),
-	    erlang:raise(error, conv_reason(Func, Reason), [{io, Func, [Io | Args]}|Mfas]);
-	Other ->
-	    Other
-    end.
 
 %% Request what the user considers printable characters
 -spec printable_range() -> 'unicode' | 'latin1'.
@@ -79,35 +117,25 @@ printable_range() ->
       CharData :: unicode:chardata().
 
 put_chars(Chars) ->
-    put_chars(default_output(), Chars).
+    o_request(?FUNCTION_NAME, [Chars]).
 
 -spec put_chars(IoDevice, CharData) -> 'ok' when
       IoDevice :: device(),
       CharData :: unicode:chardata().
 
 put_chars(Io, Chars) ->
-    put_chars(Io, unicode, Chars).
-
-%% This function is here to make the erlang:raise in o_request actually raise to
-%% a valid function.
--spec put_chars(IoDevice, Encoding, CharData) -> 'ok' when
-      IoDevice :: device(),
-      Encoding :: unicode,
-      CharData :: unicode:chardata().
-put_chars(Io, Encoding, Chars) ->
-    o_request(Io, {put_chars,Encoding,Chars}, put_chars).
+    o_request(?FUNCTION_NAME, [Io, Chars]).
 
 -spec nl() -> 'ok'.
 
 nl() ->
-    nl(default_output()).
+    o_request(?FUNCTION_NAME, []).
 
 -spec nl(IoDevice) -> 'ok' when
       IoDevice :: device().
 
 nl(Io) ->
-%    o_request(Io, {put_chars,io_lib:nl()}).
-    o_request(Io, nl, nl).
+    o_request(?FUNCTION_NAME, [Io]).
 
 -spec columns() -> {'ok', pos_integer()} | {'error', 'enotsup'}.
 
@@ -223,14 +251,14 @@ setopts(Io, Opts) ->
       Term :: term().
 
 write(Term) ->
-    write(default_output(), Term).
+    o_request(?FUNCTION_NAME, [Term]).
 
 -spec write(IoDevice, Term) -> 'ok' when
       IoDevice :: device(),
       Term :: term().
 
 write(Io, Term) ->
-    o_request(Io, {write,Term}, write).
+    o_request(?FUNCTION_NAME, [Io, Term]).
 
 
 -spec read(Prompt) -> Result when
@@ -255,8 +283,6 @@ read(Io, Prompt) ->
     case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[1]}) of
 	{ok,Toks,_EndLine} ->
 	    erl_parse:parse_term(Toks);
-%	{error, Reason} when atom(Reason) ->
-%	    erlang:error(conv_reason(read, Reason), [Io, Prompt]);
 	{error,E,_EndLine} ->
 	    {error,E};
 	{eof,_EndLine} ->
@@ -307,10 +333,10 @@ read(Io, Prompt, Pos0, Options) ->
 
 %% Formatted writing and reading.
 
-conv_reason(_, arguments) -> badarg;
-conv_reason(_, terminated) -> terminated;
-conv_reason(_, {no_translation,_,_}) -> no_translation;
-conv_reason(_, _Reason) -> badarg.
+conv_reason(arguments) -> badarg;
+conv_reason(terminated) -> terminated;
+conv_reason({no_translation,_,_}) -> no_translation;
+conv_reason(_Reason) -> badarg.
 
 -type format() :: atom() | string() | binary().
 
@@ -318,14 +344,14 @@ conv_reason(_, _Reason) -> badarg.
       Format :: format().
 
 fwrite(Format) ->
-    format(Format).
+    o_request(?FUNCTION_NAME, [Format]).
 
 -spec fwrite(Format, Data) -> 'ok' when
       Format :: format(),
       Data :: [term()].
 
 fwrite(Format, Args) ->
-    format(Format, Args).
+    o_request(?FUNCTION_NAME, [Format, Args]).
 
 -spec fwrite(IoDevice, Format, Data) -> 'ok' when
       IoDevice :: device(),
@@ -333,7 +359,7 @@ fwrite(Format, Args) ->
       Data :: [term()].
 
 fwrite(Io, Format, Args) ->
-    format(Io, Format, Args).
+    o_request(?FUNCTION_NAME, [Io, Format, Args]).
 
 -spec fread(Prompt, Format) -> Result when
       Prompt :: prompt(),
@@ -352,25 +378,19 @@ fread(Prompt, Format) ->
               | server_no_data().
 
 fread(Io, Prompt, Format) ->
-    case request(Io, {fread,Prompt,Format}) of
-%	{error, Reason} when atom(Reason) ->
-%	    erlang:error(conv_reason(fread, Reason), [Io, Prompt, Format]);
-	Other ->
-	    Other
-    end.
+    request(Io, {fread,Prompt,Format}).
 
 -spec format(Format) -> 'ok' when
       Format :: format().
-
 format(Format) ->
-    format(Format, []).
+    o_request(?FUNCTION_NAME, [Format]).
 
 -spec format(Format, Data) -> 'ok' when
       Format :: format(),
       Data :: [term()].
 
 format(Format, Args) ->
-    format(default_output(), Format, Args).
+    o_request(?FUNCTION_NAME, [Format, Args]).
 
 -spec format(IoDevice, Format, Data) -> 'ok' when
       IoDevice :: device(),
@@ -378,7 +398,7 @@ format(Format, Args) ->
       Data :: [term()].
 
 format(Io, Format, Args) ->
-    o_request(Io, {format,Format,Args}, format).
+    o_request(?FUNCTION_NAME, [Io, Format, Args]).
 
 %% Scanning Erlang code.
 
@@ -562,19 +582,21 @@ parse_erl_form(Io, Prompt, Pos0, Options) ->
 request(Request) ->
     request(default_output(), Request).
 
-request(standard_io, Request) ->
-    request(group_leader(), Request);
-request(Pid, Request) when is_pid(Pid) ->
-    execute_request(Pid, io_request(Pid, Request));
-request(Name, Request) when is_atom(Name) ->
+request(Name, Request) ->
+    request(Name, Request, error).
+request(standard_io, Request, ErrorTag) ->
+    request(group_leader(), Request, ErrorTag);
+request(Pid, Request, ErrorTag) when is_pid(Pid) ->
+    execute_request(Pid, io_request(Pid, Request), ErrorTag);
+request(Name, Request, ErrorTag) when is_atom(Name) ->
     case whereis(Name) of
 	undefined ->
-	    {error, arguments};
+	    {ErrorTag, arguments};
 	Pid ->
-	    request(Pid, Request)
+	    request(Pid, Request, ErrorTag)
     end.
 
-execute_request(Pid, {Convert,Converted}) ->
+execute_request(Pid, {Convert,Converted}, ErrorTag) ->
     Mref = erlang:monitor(process, Pid),
     Pid ! {io_request,self(),Mref,Converted},
 
@@ -592,7 +614,7 @@ execute_request(Pid, {Convert,Converted}) ->
 		{'EXIT', Pid, _What} -> true
 	    after 0 -> true
 	    end,
-	    {error,terminated}
+	    {ErrorTag,terminated}
     end.
 
 requests(Requests) ->				%Requests as atomic action
@@ -602,7 +624,7 @@ requests(standard_io, Requests) ->              %Requests as atomic action
     requests(group_leader(), Requests);
 requests(Pid, Requests) when is_pid(Pid) ->
     {Convert, Converted} = io_requests(Pid, Requests),
-    execute_request(Pid,{Convert,{requests,Converted}});
+    execute_request(Pid,{Convert,{requests,Converted}},error);
 requests(Name, Requests) when is_atom(Name) ->
     case whereis(Name) of
 	undefined ->

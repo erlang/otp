@@ -1,0 +1,39 @@
+
+  [;1m-spec unlink(Id) -> true when Id :: pid() | port().[0m
+
+  Removes the link, if there is one, between the calling process and
+  the process or port referred to by [;;4mId[0m.
+
+  Returns [;;4mtrue[0m and does not fail, even if there is no link to [;;4mId[0m,
+  or if [;;4mId[0m does not exist.
+
+  Once [;;4munlink(Id)[0m has returned, it is guaranteed that the link
+  between the caller and the entity referred to by [;;4mId[0m has no
+  effect on the caller in the future (unless the link is setup
+  again). If the caller is trapping exits, an [;;4m{'EXIT', Id, _}[0m
+  message from the link can have been placed in the caller's message
+  queue before the call.
+
+  Notice that the [;;4m{'EXIT', Id, _}[0m message can be the result of the
+  link, but can also be the result of [;;4mId[0m calling [;;4mexit/2[0m.
+  Therefore, it can be appropriate to clean up the message queue
+  when trapping exits after the call to [;;4munlink(Id)[0m, as follows:
+
+    unlink(Id),
+    receive
+        {'EXIT', Id, _} ->
+            true
+    after 0 ->
+            true
+    end
+
+  Note:
+    Before Erlang/OTP R11B (ERTS 5.5) [;;4munlink/1[0m behaved
+    completely asynchronously, that is, the link was active until
+    the "unlink signal" reached the linked entity. This had an
+    undesirable effect, as you could never know when you were
+    guaranteed not to be effected by the link.
+
+    The current behavior can be viewed as two combined operations:
+    asynchronously send an "unlink signal" to the linked entity
+    and ignore any future results of the link.

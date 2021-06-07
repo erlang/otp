@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,7 +47,9 @@ end_per_suite(_Config) ->
 init_per_testcase(major_fail_no_init, Config) ->
     Config;
 init_per_testcase(_Case, Config) ->
-    ct_release_test:init(Config).
+    Config1 = ct_release_test:init(Config),
+    ct:log("ct_release_test:init/1 returned:~n~p",[Config1]),
+    Config1.
 end_per_testcase(_Case, Config) ->
     ct_release_test:cleanup(Config).
 

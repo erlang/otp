@@ -85,9 +85,12 @@ prop_recompose() ->
 
 prop_normalize() ->
     ?FORALL(Map, map(),
-            uri_string:normalize(Map, [return_map]) =:=
-                uri_string:normalize(uri_string:parse(uri_string:recompose(Map)),
-                                     [return_map])).
+            uri_string:percent_decode(
+              uri_string:normalize(Map, [return_map])) =:=
+                uri_string:percent_decode(
+                  uri_string:normalize(
+                    uri_string:parse(uri_string:recompose(Map)),
+                                     [return_map]))).
 
 %% Stats
 prop_map_key_length_collect() ->

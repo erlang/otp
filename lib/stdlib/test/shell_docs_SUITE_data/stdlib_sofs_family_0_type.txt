@@ -1,0 +1,4 @@
+
+  [;1m-type family() :: a_function().[0m
+
+  A family (of subsets).

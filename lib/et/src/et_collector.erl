@@ -40,12 +40,10 @@
 
          start_trace_client/3, 
          start_trace_port/1, 
-         %% load_event_file/2, 
          save_event_file/3,
          clear_table/1,
 
          get_global_pid/0, 
-         %% get_table_handle/1,
 	 get_table_size/1,
          change_pattern/2,
          make_key/2,

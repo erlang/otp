@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,6 +35,8 @@ all() ->
     [test_ei_decode_encode].
 
 init_per_testcase(Case, Config) ->
+    rand:uniform(), % Make sure rand is initialized and seeded.
+    io:format("** rand seed = ~p\n", [rand:export_seed()]),
     runner:init_per_testcase(?MODULE, Case, Config).
 
 %% ---------------------------------------------------------------------------
@@ -48,7 +50,8 @@ init_per_testcase(Case, Config) ->
 test_ei_decode_encode(Config) when is_list(Config) ->
     P = runner:start(Config, ?test_ei_decode_encode),
 
-    Fun   = fun (X) -> {X,true} end,
+    Fun1  = fun (X) -> {X,true} end,
+    Fun2  = fun runner:init_per_testcase/3,
     Pid   = self(),
     Port  = case os:type() of
                 {win32,_} ->
@@ -70,7 +73,8 @@ test_ei_decode_encode(Config) when is_list(Config) ->
     BigLargeB = 1 bsl 11112 + BigSmallB,
     BigLargeC = BigSmallA * BigSmallB * BigSmallC * BigSmallA,
 
-    send_rec(P, Fun),
+    send_rec(P, Fun1),
+    send_rec(P, Fun2),
     send_rec(P, Pid),
     send_rec(P, Port),
     send_rec(P, Ref),
@@ -101,8 +105,20 @@ test_ei_decode_encode(Config) when is_list(Config) ->
 	   send_rec(P, mk_pid(OtherNode, 32767, 8191)),
 	   send_rec(P, mk_port(OtherNode, 268435455)),
 	   send_rec(P, mk_ref(OtherNode, [262143, 4294967295, 4294967295])),
+	   send_rec(P, mk_ref(OtherNode, [262143, 4294967295, 4294967295, 4294967294, 4294967293])),
 	   void
      end || Creation <- [1, 2, 3, 4, 16#adec0ded]],
+
+    %% Full 64-bit pids
+    [send_rec(P, mk_pid({gurka@sallad, 77},
+                        rand:uniform(1 bsl Bits)-1,
+                        rand:uniform(1 bsl Bits)-1))
+     || Bits <- lists:seq(16,32)],
+
+    %% Full 64-bit ports
+    [send_rec(P, mk_port({gurka@sallad, 4711},
+                         rand:uniform(1 bsl Bits)-1))
+     || Bits <- lists:seq(24,40)],
 
     %% Unicode atoms
     [begin send_rec(P, Atom),
@@ -115,13 +131,35 @@ test_ei_decode_encode(Config) when is_list(Config) ->
     send_rec(P, {}),
     send_rec(P, {atom, Pid, Port, Ref}),
     send_rec(P, [atom, Pid, Port, Ref]),
-    send_rec(P, [atom | Fun]),
+    send_rec(P, [atom | Fun1]),
     send_rec(P, #{}),
     send_rec(P, #{key => value}),
     send_rec(P, maps:put(Port, Ref, #{key => value, key2 => Pid})),
 
+    [send_rec(P, <<16#dec0deb175:B/little>>) || B <- lists:seq(0,48)],
+
+    % And last an ugly duckling to test ei_encode_bitstring with bitoffs != 0
+    encode_bitstring(P),
+
     runner:recv_eot(P),
     ok.
+
+encode_bitstring(P) ->
+    %% Send one bitstring to c-node
+    Bits = <<16#18f6d4b2907e5c3a1:66>>,
+    P ! {self(), {command, term_to_binary(Bits, [{minor_version, 2}])}},
+
+    %% and then receive and verify a number of different sub-bitstrings
+    receive_sub_bitstring(P, Bits, 0, bit_size(Bits)).
+
+receive_sub_bitstring(_, _, _, NBits) when NBits < 0 ->
+    ok;
+receive_sub_bitstring(P, Bits, BitOffs, NBits) ->
+    <<_:BitOffs, Sub:NBits/bits, _/bits>> = Bits,
+    %%io:format("expecting term_to_binary(~p) = ~p\n", [Sub, term_to_binary(Sub)]),
+    {_B,Sub} = get_buf_and_term(P),
+    receive_sub_bitstring(P, Bits, BitOffs+1, NBits - ((NBits div 20)+1)).
+
 
 
 %% ######################################################################## %%
@@ -181,6 +219,21 @@ get_binary(P) ->
 -define(NEW_PID_EXT,         $X).
 -define(NEW_PORT_EXT,        $Y).
 -define(NEWER_REFERENCE_EXT, $Z).
+-define(V4_PORT_EXT,         $x).
+
+-define(OLD_MAX_PIDS_PORTS, ((1 bsl 28) - 1)).
+
+uint64_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 64 ->
+    [(Uint bsr 56) band 16#ff,
+     (Uint bsr 48) band 16#ff,
+     (Uint bsr 40) band 16#ff,
+     (Uint bsr 32) band 16#ff,
+     (Uint bsr 24) band 16#ff,
+     (Uint bsr 16) band 16#ff,
+     (Uint bsr 8) band 16#ff,
+     Uint band 16#ff];
+uint64_be(Uint) ->
+    exit({badarg, uint64_be, [Uint]}).
 
 uint32_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 32 ->
     [(Uint bsr 24) band 16#ff,
@@ -226,17 +279,24 @@ mk_pid({NodeNameExt, Creation}, Number, Serial) ->
 	    exit({unexpected_binary_to_term_result, Other})
     end.
 
-port_tag(Creation) when Creation =< 3 -> ?PORT_EXT;
-port_tag(_Creation) -> ?NEW_PORT_EXT.
+port_tag(Num, Creation) when 0 =< Num, Num =< ?OLD_MAX_PIDS_PORTS, Creation =< 3 ->
+    ?PORT_EXT;
+port_tag(Num, _Creation) when 0 =< Num, Num =< ?OLD_MAX_PIDS_PORTS ->
+    ?NEW_PORT_EXT;
+port_tag(_Num, _Creation) ->
+    ?V4_PORT_EXT.
 
 mk_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
     <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
     mk_port({NodeNameExt, Creation}, Number);
 mk_port({NodeNameExt, Creation}, Number) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      port_tag(Creation),
+					      port_tag(Number, Creation),
 					      NodeNameExt,
-					      uint32_be(Number),
+					      case Number > ?OLD_MAX_PIDS_PORTS of
+						  true -> uint64_be(Number);
+						  false -> uint32_be(Number)
+					      end,
 					      enc_creation(Creation)])) of
 	Port when is_port(Port) ->
 	    Port;

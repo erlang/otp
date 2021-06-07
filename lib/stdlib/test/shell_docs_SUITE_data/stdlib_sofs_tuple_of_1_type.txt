@@ -1,0 +1,4 @@
+
+  [;1m-type tuple_of(_T) :: tuple().[0m
+
+  A tuple where the elements are of type [;;4mT[0m.

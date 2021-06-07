@@ -1,0 +1,73 @@
+origin	https://github.com/kjellwinblad/simple_c_gc.git (fetch)
+origin	https://github.com/kjellwinblad/simple_c_gc.git (push)
+commit 76577516b6e9bd8e8f647d869fb19361f42f9f9f
+Author: Kjell Winblad <kjellwinblad@gmail.com>
+Date:   Wed Sep 25 16:04:40 2019 +0200
+
+    Fix more Microsoft VS C/C++ compiler errors
+
+commit 4b2734f051ca1386bb970af6b0308e5f2d338403
+Author: Kjell Winblad <kjellwinblad@gmail.com>
+Date:   Tue Sep 24 16:36:48 2019 +0200
+
+    Make compatible with Microsoft VS C/C++ compiler and fix make test
+
+commit 41e6f3558756d9b6da44ca5247049c23bceadad9
+Author: Kjell Winblad <kjellwinblad@gmail.com>
+Date:   Mon Sep 23 16:25:55 2019 +0200
+
+    Small fix
+
+commit 8fbd03f880a1eb741462c395e689d844f8d58e06
+Author: Kjell Winblad <kjellwinblad@gmail.com>
+Date:   Mon Sep 23 16:13:56 2019 +0200
+
+    Fix compile warnings when compiling on a 32-bit system
+
+commit fc051d92bbef9ad1a22f855bc24b46d4efadda93
+Author: Kjell Winblad <kjellwinblad@gmail.com>
+Date:   Tue Sep 10 15:14:20 2019 +0200
+
+    Add clang-tidy Makefile target
+
+commit c6c3c1adc24f500472c22aad7f467d0a925108f0
+Author: Kjell Winblad <kjellwinblad@gmail.com>
+Date:   Tue Sep 10 15:07:39 2019 +0200
+
+    Add undefined behavior sanitizer and fix undefined behavior
+
+commit c734e684030a24ae694ed1fe7477c0eb5719bc12
+Author: Kjell Winblad <kjellwinblad@gmail.com>
+Date:   Mon Sep 9 09:06:19 2019 +0200
+
+    Improve Makefile and add info support
+
+commit 286c6ace1a71f2b021b76b602d5bfe4813f0b519
+Author: Kjell Winblad <kjellwinblad@gmail.com>
+Date:   Thu Sep 5 12:08:19 2019 +0200
+
+    Make clang_format target .PHONY
+
+commit eacdda4f9c71b5d917111bb9285671739d1cb671
+Author: Kjell Winblad <kjellwinblad@gmail.com>
+Date:   Thu Sep 5 11:33:03 2019 +0200
+
+    Add clang-format make target and reformat files
+
+commit c617afa556535620633117bdd6cc232ecc8c62f2
+Author: Kjell Winblad <kjellwinblad@gmail.com>
+Date:   Thu Sep 5 11:07:17 2019 +0200
+
+    Small fixes
+
+commit fb043e17d6e63100ca89ec41c34f667d35da7fb8
+Author: Kjell Winblad <kjellwinblad@gmail.com>
+Date:   Thu Sep 5 10:55:18 2019 +0200
+
+    Fix compiler warning and make c99 compatible
+
+commit d4b8333a49e62d8ffdbf60ab8382de39209891e2
+Author: Kjell Winblad <kjellwinblad@gmail.com>
+Date:   Sat Aug 17 05:59:27 2019 +0200
+
+    First version of Simple C GC

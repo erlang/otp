@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2018. All Rights Reserved.
+# Copyright Ericsson AB 1997-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,15 +37,15 @@ RELSYSDIR = $(RELEASE_PATH)/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
-XML_REF1_FILES = epmd.xml \
-	erl.xml \
-	erlc.xml \
-	escript.xml \
-	werl.xml \
-	erlsrv.xml \
-	start_erl.xml \
-	run_erl.xml \
-	start.xml
+XML_REF1_FILES = epmd_cmd.xml \
+	erl_cmd.xml \
+	erlc_cmd.xml \
+	escript_cmd.xml \
+	werl_cmd.xml \
+	erlsrv_cmd.xml \
+	start_erl_cmd.xml \
+	run_erl_cmd.xml \
+	start_cmd.xml
 
 XML_REF3_EFILES = \
 	erl_prim_loader.xml \
@@ -57,15 +57,33 @@ XML_REF3_EFILES = \
 	counters.xml \
 	zlib.xml
 
-XML_REF3_FILES = \
-	$(XML_REF3_EFILES) \
+XML_REF3_CREF = \
 	driver_entry.xml \
 	erl_nif.xml \
 	erl_driver.xml \
 	erts_alloc.xml
 
+XML_REF3_FILES = \
+	$(XML_REF3_EFILES) \
+	$(XML_REF3_CREF)
+
 XML_PART_FILES = \
-	part.xml
+	part.xml internal.xml
+
+XML_INTERNAL_FILES = \
+	CarrierMigration.xml	\
+	ThreadProgress.xml	\
+	CodeLoading.xml		\
+	Tracing.xml		\
+	DelayedDealloc.xml	\
+	beam_makeops.xml	\
+	GarbageCollection.xml	\
+	PTables.xml		\
+	PortSignals.xml		\
+	ProcessManagementOptimizations.xml \
+	SuperCarrier.xml        \
+	CountingInstructions.xml\
+	BeamAsm.xml
 
 XML_CHAPTER_FILES = \
 	introduction.xml \
@@ -87,97 +105,66 @@ TOPDOCDIR=../../../doc
 
 BOOK_FILES = book.xml
 
-GIF_FILES = \
+IMAGE_FILES = \
 	erl_ext_fig.gif
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
 	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_REF1_FILES) $(XML_APPLICATION_FILES)
 
+HTML_EXTRA_FILES = $(ERL_TOP)/erts/example/time_compat.erl \
+	$(ERL_TOP)/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl \
+	$(ERL_TOP)/lib/kernel/examples/erl_uds_dist/src/erl_uds_dist.erl
+
+XML_GEN_FILES = $(XML_INTERNAL_FILES:%=$(XMLDIR)/%)
+
+NO_CHUNKS = $(XML_REF3_CREF) erl_tracer.xml
+
 # ----------------------------------------------------
 
-HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
-
-INFO_FILE     = ../../info
 INFO_FILE_SRC = ../../info.src
-
-MAN1_FILES = $(XML_REF1_FILES:%.xml=$(MAN1DIR)/%.1)
-MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
-
-HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
-
-TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
-
-SPECS_FILES = $(XML_REF3_EFILES:%.xml=$(SPECDIR)/specs_%.xml)
 
 TOP_SPECS_FILE = specs.xml
 
-# ----------------------------------------------------
-# FLAGS
-# ----------------------------------------------------
-XML_FLAGS +=
+XML_FIGURE_DIR = $(XMLDIR)/figures
 
-KERNEL_SRC=$(ERL_TOP)/lib/kernel/src
-KERNEL_INCLUDE=$(ERL_TOP)/lib/kernel/include
-SPECS_FLAGS = -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
+INTERNAL_DOC_FIGURES = $(wildcard ../../emulator/internal_doc/figures/*.png) $(wildcard ../../emulator/internal_doc/figures/*.svg)
+FIGURES = $(notdir $(INTERNAL_DOC_FIGURES))
+XMLDIR_FIGURES = $(FIGURES:%=$(XML_FIGURE_DIR)/%)
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-$(HTMLDIR)/%.gif: %.gif
+include $(ERL_TOP)/make/doc.mk
+
+_create_dirs := $(shell mkdir -p $(XML_FIGURE_DIR))
+
+$(XML_FIGURE_DIR)/%: ../../emulator/internal_doc/figures/%
 	$(INSTALL_DATA) $< $@
 
-docs: man pdf html $(INFO_FILE)
-
-$(TOP_PDF_FILE): $(XML_FILES)
-
-pdf: $(TOP_PDF_FILE)
-
-html: gifs $(HTML_REF_MAN_FILE)
-
-man: $(MAN1_FILES) $(MAN3_FILES)
-
-gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
+html: figures
 
 $(INFO_FILE): $(INFO_FILE_SRC) $(ERL_TOP)/make/$(TARGET)/otp.mk
 	sed -e 's;%RELEASE%;$(SYSTEM_VSN);' $(INFO_FILE_SRC) > $(INFO_FILE)
 
+figures: $(XMLDIR_FIGURES)
 
-debug opt:
-
-clean:
-	rm -rf $(HTMLDIR)/*
-	rm -rf $(XMLDIR)
-	rm -f $(MAN1DIR)/*
-	rm -f $(MAN3DIR)/*
-	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f $(SPECDIR)/*
-	rm -f errs core *~
-
-$(SPECDIR)/specs_%.xml:
+## This rule generate dummy specs for all XML_REF3_CREF's
+$(XML_REF3_CREF:%.xml=$(SPECDIR)/specs_%.xml): $(@:%.xml=%.xml)
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
                 -o$(dir $@) -module $(patsubst $(SPECDIR)/specs_%.xml,%,$@)
+
+$(XMLDIR)/%.xml: ../../emulator/internal_doc/%.md $(ERL_TOP)/make/emd2exml
+	$(ERL_TOP)/make/emd2exml $< $@
+
 
 # ----------------------------------------------------
 # Release Target
 # ----------------------------------------------------
-include $(ERL_TOP)/make/otp_release_targets.mk
 
-release_docs_spec: docs
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(HTMLDIR)/* \
-		"$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(ERL_TOP)/erts/example/time_compat.erl \
-		"$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(ERL_TOP)/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl \
-		"$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man1"
-	$(INSTALL_DATA) $(MAN1_FILES) "$(RELEASE_PATH)/man/man1"
+release_html_spec: html release_figures
 
-release_spec:
+release_figures:
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html/figures"
+	$(INSTALL_DATA) $(XMLDIR)/figures/* \
+		"$(RELSYSDIR)/doc/html/figures"

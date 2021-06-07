@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2016</year>
+      <year>2010</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -148,7 +148,7 @@
 
     <p>SNMP traps, inform, and report messages are handled by the user
       callback module. For details, see the
-      <seealso marker="snmp:index"><c>SNMP</c></seealso> application.</p>
+      <seeapp marker="snmp:index"><c>SNMP</c></seeapp> application.</p>
 
     <p>It is recommended to use the <c>.hrl</c> files created by the
       Erlang/OTP MIB compiler to define the Object Identifiers (OIDs).
@@ -160,7 +160,7 @@
 
     <p>Furthermore, values can be set for <c>SNMP</c> application configuration
       parameters, <c>config</c>, <c>server</c>, <c>net_if</c>, and so on (for
-      a list of valid parameters and types, see the  <seealso marker="snmp:users_guide"><c>User's Guide for the SNMP application</c></seealso>). This is
+      a list of valid parameters and types, see the  <seeguide marker="snmp:index"><c>User's Guide for the SNMP application</c></seeguide>). This is
       done by defining a configuration data variable on the following form:</p>
 
     <pre>
@@ -170,7 +170,7 @@
     <p>A name for the data must be allocated in the suite using
       <c>require</c> (see the example above). Pass this name as argument
       <c>SnmpAppConfName</c> to
-      <seealso marker="#start-3"><c>ct_snmp:start/3</c></seealso>.
+      <seemfa marker="#start/3"><c>ct_snmp:start/3</c></seemfa>.
       <c>ct_snmp</c> specifies default values for some <c>SNMP</c> application
       configuration parameters (such as <c>{verbosity,trace}</c> for parameter
       <c>config</c>). This set of defaults is merged with the parameters
@@ -179,64 +179,39 @@
 
   </description>
 
-  <section>
-    <title>Data Types</title>
-    <marker id="types"/>
-    <taglist>
-      <tag><c>agent_config() = {Item, Value}</c></tag>
-      <item><marker id="type-agent_config"/> </item>
-      <tag><c>agent_ip() = ip()</c></tag>
-      <item><marker id="type-agent_ip"/> </item>
-      <tag><c>agent_name() = atom()</c></tag>
-      <item><marker id="type-agent_name"/> </item>
-      <tag><c>agent_port() = integer()</c></tag>
-      <item><marker id="type-agent_port"/> </item>
-      <tag><c>call_back_module() = atom()</c></tag>
-      <item><marker id="type-call_back_module"/> </item>
-      <tag><c>error_index() = integer()</c></tag>
-      <item><marker id="type-error_index"/> </item>
-      <tag><c>error_status() = noError | atom()</c></tag>
-      <item><marker id="type-error_status"/> </item>
-      <tag><c>ip() = string() | {integer(), integer(), integer(), integer()}</c></tag>
-      <item><marker id="type-ip"/> </item>
-      <tag><c>manager_ip() = ip()</c></tag>
-      <item><marker id="type-manager_ip"/> </item>
-      <tag><c>oid() = [byte()]</c></tag>
-      <item><marker id="type-oid"/> </item>
-      <tag><c>oids() = [oid()]</c></tag>
-      <item><marker id="type-oids"/> </item>
-      <tag><c>rel_path() = string()</c></tag>
-      <item><marker id="type-rel_path"/> </item>
-      <tag><c>sec_type() = none | minimum | semi</c></tag>
-      <item><marker id="type-sec_type"/> </item>
-      <tag><c>snmp_app_agent_params() = term()</c></tag>
-      <item><marker id="type-snmp_app_agent_params"/> </item>
-      <tag><c>snmp_app_manager_params() = term()</c></tag>
-      <item><marker id="type-snmp_app_manager_params"/> </item>
-      <tag><c>snmpreply() = {error_status(), error_index(), varbinds()}</c></tag>
-      <item><marker id="type-snmpreply"/> </item>
-      <tag><c>user_data() = term()</c></tag>
-      <item><marker id="type-user_data"/> </item>
-      <tag><c>user_name() = atom()</c></tag>
-      <item><marker id="type-user_name"/> </item>
-      <tag><c>usm_config() = {Item, Value}</c></tag>
-      <item><marker id="type-usm_config"/> </item>
-      <tag><c>usm_user_name() = string()</c></tag>
-      <item><marker id="type-usm_user_name"/> </item>
-      <tag><c>value_type() = o('OBJECT IDENTIFIER') | i('INTEGER') | u('Unsigned32') | g('Unsigned32') | s('OCTET STRING')</c></tag>
-      <item><marker id="type-value_type"/> </item>
-      <tag><c>var_and_val() = {oid(), value_type(), value()}</c></tag>
-      <item><marker id="type-var_and_val"/> </item>
-      <tag><c>varbind() = term()</c></tag>
-      <item><marker id="type-varbind"/> </item>
-      <tag><c>varbinds() = [varbind()]</c></tag>
-      <item><marker id="type-varbinds"/> </item>
-      <tag><c>varsandvals() = [var_and_val()]</c></tag>
-      <item><marker id="type-varsandvals"/> </item>
-    </taglist>
-    <p>These data types are described in the documentation for
-      the <seealso marker="snmp:index"><c>SNMP</c></seealso> application.</p>
-  </section>
+  <datatypes>
+    <datatype>
+      <name>agent_config() = {Item, Value}</name>
+      <name>agent_ip() = ip()</name>
+      <name>agent_name() = atom()</name>
+      <name>agent_port() = integer()</name>
+      <name>call_back_module() = atom()</name>
+      <name>error_index() = integer()</name>
+      <name>error_status() = noError | atom()</name>
+      <name>ip() = string() | {integer(), integer(), integer(), integer()}</name>
+      <name>manager_ip() = ip()</name>
+      <name>oid() = [byte()]</name>
+      <name>oids() = [oid()]</name>
+      <name>rel_path() = string()</name>
+      <name>sec_type() = none | minimum | semi</name>
+      <name>snmp_app_agent_params() = term()</name>
+      <name>snmp_app_manager_params() = term()</name>
+      <name>snmpreply() = {error_status(), error_index(), varbinds()}</name>
+      <name>user_data() = term()</name>
+      <name>user_name() = atom()</name>
+      <name>usm_config() = {Item, Value}</name>
+      <name>usm_user_name() = string()</name>
+      <name>value_type() = o('OBJECT IDENTIFIER') | i('INTEGER') | u('Unsigned32') | g('Unsigned32') | s('OCTET STRING')</name>
+      <name>var_and_val() = {oid(), value_type(), value()}</name>
+      <name>varbind() = term()</name>
+      <name>varbinds() = [varbind()]</name>
+      <name>varsandvals() = [var_and_val()]</name>
+      <desc>
+        <p>These data types are described in the documentation for
+        the <seeapp marker="snmp:index"><c>SNMP</c></seeapp> application.</p>
+      </desc>
+    </datatype>
+  </datatypes>
 
   <funcs>
     <func>
@@ -377,8 +352,8 @@
         undefined).</fsummary>
       <desc><marker id="start-2"/>
         <p>Equivalent to
-          <seealso marker="#start-3"><c>ct_snmp:start(Config, MgrAgentConfName,
-          undefined)</c></seealso>.</p>
+          <seemfa marker="#start/3"><c>ct_snmp:start(Config, MgrAgentConfName,
+          undefined)</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -398,13 +373,13 @@
           <c>MgrAgentConfName</c>, are performed. When using SNMPv3, called
           USM users are also registered. Users, <c>usm_users</c>, and
           managed agents can also be registered later using
-          <seealso marker="#register_users-2"><c>ct_snmp:register_users/2</c></seealso>,
-          <seealso marker="#register_agents-2"><c>ct_snmp:register_agents/2</c></seealso>,
+          <seemfa marker="#register_users/2"><c>ct_snmp:register_users/2</c></seemfa>,
+          <seemfa marker="#register_agents/2"><c>ct_snmp:register_agents/2</c></seemfa>,
           and
-          <seealso marker="#register_usm_users-2"><c>ct_snmp:register_usm_users/2</c></seealso>.</p>
+          <seemfa marker="#register_usm_users/2"><c>ct_snmp:register_usm_users/2</c></seemfa>.</p>
 
         <p>The agent started is called <c>snmp_master_agent</c>. Use
-          <seealso marker="#load_mibs-1"><c>ct_snmp:load_mibs/1</c></seealso>
+          <seemfa marker="#load_mibs/1"><c>ct_snmp:load_mibs/1</c></seemfa>
           to load MIBs into the agent.</p>
 
         <p>With <c>SnmpAppConfName</c> SNMP applications can be configured

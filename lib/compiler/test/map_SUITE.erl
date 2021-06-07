@@ -70,7 +70,14 @@
 	t_bad_update/1,
 
         %% new in OTP 21
-        t_reused_key_variable/1
+        t_reused_key_variable/1,
+
+        %% new in OTP 22
+        t_mixed_clause/1,cover_beam_trim/1,
+        t_duplicate_keys/1,
+
+        %% new in OTP 23
+        t_key_expressions/1
     ]).
 
 suite() -> [].
@@ -124,7 +131,14 @@ all() ->
         t_bad_update,
 
         %% new in OTP 21
-        t_reused_key_variable
+        t_reused_key_variable,
+
+        %% new in OTP 22
+        t_mixed_clause,cover_beam_trim,
+        t_duplicate_keys,
+
+        %% new in OTP 23
+        t_key_expressions
     ].
 
 groups() -> [].
@@ -965,6 +979,24 @@ t_update_assoc(Config) when is_list(Config) ->
     BadMap = id(badmap),
     {'EXIT',{{badmap,BadMap},_}} = (catch BadMap#{nonexisting=>val}),
     {'EXIT',{{badmap,<<>>},_}} = (catch <<>>#{nonexisting=>val}),
+    F1 = fun() ->
+                 0 #{part => V = false},
+                 V
+         end,
+    {'EXIT',{{badmap,0},_}} = (catch F1()),
+    F2 = fun() ->
+                 case 42 of
+                     V ->
+                         [];
+                     power ->
+                         []#{key =>
+                                 receive
+                                     V -> false
+                                 end}
+                 end,
+                 V
+         end,
+    42 = F2(),
 
     %% Evaluation order.
     {'EXIT',{blurf,_}} =
@@ -1231,6 +1263,10 @@ t_guard_bifs(Config) when is_list(Config) ->
     true   = map_is_key_head_not(#{}),
     false  = map_is_key_head_not(not_a_map),
 
+    b = map_get_head_badmap1(),
+    b = map_get_head_badmap2(),
+    b = map_get_head_badmap3(),
+
     true   = map_guard_body(#{a=>1}),
     false  = map_guard_body({}),
     true   = map_guard_pattern(#{a=>1, <<"hi">> => "hi" }),
@@ -1305,6 +1341,15 @@ map_get_head(_) -> false.
 map_get_head_not(M) when not map_get(a, M) -> true;
 map_get_head_not(_) -> false.
 
+map_get_head_badmap1() when map_get(key, not_a_map), false -> a;
+map_get_head_badmap1() -> b.
+
+map_get_head_badmap2() when map_get(key, not_a_map), true -> a;
+map_get_head_badmap2() -> b.
+
+map_get_head_badmap3() when map_get(key, not_a_map) -> a;
+map_get_head_badmap3() -> b.
+
 map_is_key_head(M) when is_map_key(a, M) -> true;
 map_is_key_head(_) -> false.
 
@@ -1373,22 +1418,22 @@ map_usage(Def, Used) ->
 
 
 t_guard_sequence(Config) when is_list(Config) ->
-	{1, "a"} = map_guard_sequence_1(#{seq=>1,val=>id("a")}),
-	{2, "b"} = map_guard_sequence_1(#{seq=>2,val=>id("b")}),
-	{3, "c"} = map_guard_sequence_1(#{seq=>3,val=>id("c")}),
-	{4, "d"} = map_guard_sequence_1(#{seq=>4,val=>id("d")}),
-	{5, "e"} = map_guard_sequence_1(#{seq=>5,val=>id("e")}),
+    {1, "a"} = map_guard_sequence_1(#{seq=>1,val=>id("a")}),
+    {2, "b"} = map_guard_sequence_1(#{seq=>2,val=>id("b")}),
+    {3, "c"} = map_guard_sequence_1(#{seq=>3,val=>id("c")}),
+    {4, "d"} = map_guard_sequence_1(#{seq=>4,val=>id("d")}),
+    {5, "e"} = map_guard_sequence_1(#{seq=>5,val=>id("e")}),
 
-	{1,M1}       = map_guard_sequence_2(M1 = id(#{a=>3})),
-	{2,M2}       = map_guard_sequence_2(M2 = id(#{a=>4, b=>4})),
-	{3,gg,M3}    = map_guard_sequence_2(M3 = id(#{a=>gg, b=>4})),
-	{4,sc,sc,M4} = map_guard_sequence_2(M4 = id(#{a=>sc, b=>3, c=>sc2})),
-	{5,kk,kk,M5} = map_guard_sequence_2(M5 = id(#{a=>kk, b=>other, c=>sc2})),
-	
-	%% error case
-	{'EXIT',{function_clause,_}} = (catch map_guard_sequence_1(#{seq=>6,val=>id("e")})),
-	{'EXIT',{function_clause,_}} = (catch map_guard_sequence_2(#{b=>5})),
-	ok.
+    {1,M1}       = map_guard_sequence_2(M1 = id(#{a=>3})),
+    {2,M2}       = map_guard_sequence_2(M2 = id(#{a=>4, b=>4})),
+    {3,gg,M3}    = map_guard_sequence_2(M3 = id(#{a=>gg, b=>4})),
+    {4,sc,sc,M4} = map_guard_sequence_2(M4 = id(#{a=>sc, b=>3, c=>sc2})),
+    {5,kk,kk,M5} = map_guard_sequence_2(M5 = id(#{a=>kk, b=>other, c=>sc2})),
+
+    %% error case
+    {'EXIT',{function_clause,_}} = (catch map_guard_sequence_1(#{seq=>6,val=>id("e")})),
+    {'EXIT',{function_clause,_}} = (catch map_guard_sequence_2(#{b=>5})),
+    ok.
 
 t_guard_sequence_large(Config) when is_list(Config) ->
     M0 = id(#{ 10=>a0,20=>b0,30=>"c0","40"=>"d0",<<"50">>=>"e0",{["00",03]}=>"10",
@@ -1443,21 +1488,21 @@ t_guard_sequence_large(Config) when is_list(Config) ->
                   18=>a8,28=>b8,38=>"c8","48"=>"d8",<<"58">>=>"e8",{["08"]}=>"18",
                   19=>a9,29=>b9,39=>"c9","49"=>"d9",<<"59">>=>"e9",{["09"]}=>"19" } => "large map key 2" }),
 
-	{1, "a"} = map_guard_sequence_1(M0#{seq=>1,val=>id("a")}),
-	{2, "b"} = map_guard_sequence_1(M0#{seq=>2,val=>id("b")}),
-	{3, "c"} = map_guard_sequence_1(M0#{seq=>3,val=>id("c")}),
-	{4, "d"} = map_guard_sequence_1(M0#{seq=>4,val=>id("d")}),
-	{5, "e"} = map_guard_sequence_1(M0#{seq=>5,val=>id("e")}),
+    {1, "a"} = map_guard_sequence_1(M0#{seq=>1,val=>id("a")}),
+    {2, "b"} = map_guard_sequence_1(M0#{seq=>2,val=>id("b")}),
+    {3, "c"} = map_guard_sequence_1(M0#{seq=>3,val=>id("c")}),
+    {4, "d"} = map_guard_sequence_1(M0#{seq=>4,val=>id("d")}),
+    {5, "e"} = map_guard_sequence_1(M0#{seq=>5,val=>id("e")}),
 
-	{1,M1}       = map_guard_sequence_2(M1 = id(M0#{a=>3})),
-	{2,M2}       = map_guard_sequence_2(M2 = id(M0#{a=>4, b=>4})),
-	{3,gg,M3}    = map_guard_sequence_2(M3 = id(M0#{a=>gg, b=>4})),
-	{4,sc,sc,M4} = map_guard_sequence_2(M4 = id(M0#{a=>sc, b=>3, c=>sc2})),
-	{5,kk,kk,M5} = map_guard_sequence_2(M5 = id(M0#{a=>kk, b=>other, c=>sc2})),
+    {1,M1}       = map_guard_sequence_2(M1 = id(M0#{a=>3})),
+    {2,M2}       = map_guard_sequence_2(M2 = id(M0#{a=>4, b=>4})),
+    {3,gg,M3}    = map_guard_sequence_2(M3 = id(M0#{a=>gg, b=>4})),
+    {4,sc,sc,M4} = map_guard_sequence_2(M4 = id(M0#{a=>sc, b=>3, c=>sc2})),
+    {5,kk,kk,M5} = map_guard_sequence_2(M5 = id(M0#{a=>kk, b=>other, c=>sc2})),
 
-	{'EXIT',{function_clause,_}} = (catch map_guard_sequence_1(M0#{seq=>6,val=>id("e")})),
-	{'EXIT',{function_clause,_}} = (catch map_guard_sequence_2(M0#{b=>5})),
-        ok.
+    {'EXIT',{function_clause,_}} = (catch map_guard_sequence_1(M0#{seq=>6,val=>id("e")})),
+    {'EXIT',{function_clause,_}} = (catch map_guard_sequence_2(M0#{b=>5})),
+    ok.
 
 map_guard_sequence_1(#{seq:=1=Seq, val:=Val}) -> {Seq,Val};
 map_guard_sequence_1(#{seq:=2=Seq, val:=Val}) -> {Seq,Val};
@@ -1963,6 +2008,15 @@ t_nested_pattern_expressions(Config) when is_list(Config) ->
     F1 = F0(wat),
     F2 = F1(watzor),
     {yep,ok} = F2(M0),
+
+    %% Test matching of nested maps. There used to be an unsafe optimization in beam_peep.
+    #{ <<"result">> := #{<<"foo">> := <<"6">> } } =
+        nested_map(),
+
+    InnerMap = #{a => id({a,value})},
+    OuterMap = #{inner_map => InnerMap},
+    #{inner_map := #{a := {a,value}}} = OuterMap,
+
     ok.
 
 map_nested_pattern_funs(M) ->
@@ -1981,6 +2035,10 @@ map_nested_pattern_funs(M) ->
 		    end
 	    end
     end.
+
+nested_map() ->
+    #{ <<"result">> := #{<<"foo">> := <<"6">> } } =
+        #{ <<"result">> => #{<<"foo">> => <<"6">> } }.
 
 t_guard_update_variables(Config) when is_list(Config) ->
     error  = map_guard_update_variables(n,#{},#{}),
@@ -2079,7 +2137,7 @@ t_register_corruption(Config) when is_list(Config) ->
     {3,wanted,<<"value">>} = register_corruption_foo(wanted,M),
     ok.
 
-register_corruption_foo(A,#{a := V1, b := V2}) ->
+register_corruption_foo(_,#{a := V1, b := V2}) ->
     register_corruption_dummy_call(1,V1,V2);
 register_corruption_foo(A,#{b := V}) ->
     register_corruption_dummy_call(2,A,V);
@@ -2159,6 +2217,137 @@ t_reused_key_variable(Config) when is_list(Config) ->
         %% and complained about the variable being duplicated.
         {#{Key:=Same},#{Key:=Same}} ->
             ok
+    end.
+
+t_mixed_clause(_Config) ->
+    put(fool_inliner, x),
+    K = get(fool_inliner),
+    {42,100} = case #{K=>42,y=>100} of
+                   #{x:=X,y:=Y} ->
+                       {X,Y}
+               end,
+    nomatch = case #{K=>42,y=>100} of
+                  #{x:=X,y:=0} ->
+                      {X,Y};
+                  #{} ->
+                      nomatch
+              end,
+    ok.
+
+cover_beam_trim(_Config) ->
+    val = do_cover_beam_trim(id, max, max, id, #{id=>val}),
+    ok.
+
+do_cover_beam_trim(Id, OldMax, Max, Id, M) ->
+    OldMax = id(Max),
+    #{Id:=Val} = id(M),
+    Val.
+
+t_key_expressions(_Config) ->
+    Int = id(42),
+    #{{tag,Int} := 42} = id(#{{tag,Int} => 42}),
+    #{{tag,Int+1} := 42} = id(#{{tag,Int+1} => 42}),
+    #{{a,b} := x, {tag,Int} := 42, Int := 0} =
+        id(#{{a,b} => x, {tag,Int} => 42, Int => 0}),
+
+    F1 = fun(#{Int + 1 := Val}) -> Val end,
+    val = F1(#{43 => val}),
+    {'EXIT',_} = (catch F1(a)),
+
+    F2 = fun(M, X, Y) ->
+                 case M of
+                     #{element(X, Y) := <<Sz:16,Bin:Sz/binary>>} ->
+                         Bin;
+                     #{} ->
+                         not_found;
+                     {A,B} ->
+                         A + B
+                 end
+         end,
+    <<"xyz">> = F2(#{b => <<3:16,"xyz">>}, 2, {a,b,c}),
+    not_found = F2(#{b => <<3:16,"xyz">>}, 999, {a,b,c}),
+    13 = F2({6,7}, 1, 2),
+
+    #{<<"Спутник"/utf8>> := 1} = id(#{<<"Спутник"/utf8>> => 1}),
+
+    F3 = fun(Arg) ->
+                 erase(once),
+                 RunOnce = fun(I) ->
+                                   undefined = put(once, twice),
+                                   id(I)
+                           end,
+                 case RunOnce(Arg) of
+                     #{{tag,<<Int:42>>} := Value} -> Value;
+                     {X,Y} -> X + Y
+                 end
+         end,
+    10 = F3({7,3}),
+    whatever = F3(#{{tag,<<Int:42>>} => whatever}),
+
+    F4 = fun(K1, K2, M) ->
+                 case M of
+                     #{K1 div K2 := V} -> V;
+                     #{} -> no_match
+                 end
+         end,
+    value = F4(42, 21, #{2 => value}),
+    no_match = F4(42, 21, #{}),
+    no_match = F4(42, 0, #{2 => value}),
+    no_match = F4(42, a, #{2 => value}),
+
+    F5 = fun(Term) ->
+                 self() ! Term,
+                 receive
+                     #{[<<(3 bsr 30 + 2):0,$k:[]/signed-integer>>] := _} ->
+                         ok;
+                     0.5 ->
+                         error
+                 end
+         end,
+    error = F5(0.5),
+
+    F6 = fun(Term) ->
+                 self() ! Term,
+                 receive
+                     #{<<a/utf8>> := {a,b,c}} -> ok;
+                     Other -> {error,Other}
+                 end
+         end,
+    {error,any} = F6(any),
+
+    F7 = fun(Term) ->
+                 self() ! Term,
+                 (?MODULE:all()):a(catch
+                                       receive
+                                           <<1.14:{<<"a":(tuple_size(1))>>}>> ->
+                                               4;
+                                           Other ->
+                                               Other
+                                       end)
+         end,
+    {'EXIT',{badarg,_}} = (catch F7(whatever)),
+
+    ok.
+
+t_duplicate_keys(Config) when is_list(Config) ->
+    Map = #{ gurka => gaffel },
+    Map = dup_keys_1(id(Map)),
+
+    ok = dup_keys_1(#{ '__struct__' => ok }),
+
+    ok.
+
+dup_keys_1(Map) ->
+    case Map of
+        #{'__struct__' := _} ->
+            case Map of
+                #{'__struct__' := _} ->
+                    ok;
+                O1 ->
+                    O1
+            end;
+        O2 ->
+            O2
     end.
 
 %% aux

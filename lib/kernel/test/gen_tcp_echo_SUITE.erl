@@ -212,6 +212,7 @@ echo_packet0(Echo, Type, EchoFun, SlowEcho, Opts) ->
 	    {value,{packet_size,_}} -> 10;
 	    false -> 0
 	end,
+    ct:log("echo_packet0[~w] ~p", [self(), PacketSize]),
     %% Echo small packets first.
     echo_packet1(Echo, Type, EchoFun, 0),
     echo_packet1(Echo, Type, EchoFun, 1),
@@ -245,7 +246,18 @@ echo_packet0(Echo, Type, EchoFun, SlowEcho, Opts) ->
 	    echo_packet1(Echo, Type, EchoFun, infinite);
        true -> ok
     end,
-    gen_tcp:close(Echo),
+    PacketSize =:= 0 andalso
+        begin
+            %% Switch to raw mode and echo one byte 
+            ok = inet:setopts(Echo, [{packet, raw}, {active, false}]),
+            ok = gen_tcp:send(Echo, <<"$">>),
+            case gen_tcp:recv(Echo, 1) of
+                {ok, <<"$">>} -> ok;
+                {ok, "$"} -> ok
+            end
+        end,
+    _CloseResult = gen_tcp:close(Echo),
+    ct:log("echo_packet0[~w] close: ~p", [self(), _CloseResult]),
     ok.
 
 echo_packet1(EchoSock, Type, EchoFun, Size) ->
@@ -294,11 +306,13 @@ active_recv(Sock, Type, [PacketEcho|Tail]) ->
 	{Tag, Sock, PacketEcho} ->
 	    active_recv(Sock, Type, Tail);
 	{Tag, Sock, Bad} ->
-	    ct:fail({wrong_data, Bad, expected, PacketEcho});
+            ct:log("Packet: ~p", [inet:getopts(Sock, [packet])]),
+	    ct:fail({wrong_data, Bad, PacketEcho});
 	{tcp_error, Sock, Reason} ->
 	    {error, Reason};
 	Other ->
-	    ct:fail({unexpected_message, Other, Tag})
+            ct:log("Packet: ~p", [inet:getopts(Sock, [packet])]),
+	    ct:fail({unexpected_message, Other, {Tag, Sock, PacketEcho}})
     end.
 
 passive_echo(Sock, _Type, Packet, PacketEchos) ->
@@ -315,7 +329,7 @@ passive_recv(Sock, [PacketEcho | Tail]) ->
 	    passive_recv(Sock, Tail);
 	{ok, Bad} ->
 	    io:format("Expected: ~p\nGot: ~p\n",[PacketEcho,Bad]),
-	    ct:fail({wrong_data, Bad});
+	    ct:fail({wrong_data, Bad, PacketEcho});
 	{error,PacketEcho} ->
 	    passive_recv(Sock, Tail); % expected error
 	{error, _}=Error ->
@@ -341,11 +355,13 @@ active_once_recv(Sock, Type, [PacketEcho | Tail]) ->
 	    inet:setopts(Sock, [{active, once}]),
 	    active_once_recv(Sock, Type, Tail);
 	{Tag, Sock, Bad} ->
-	    ct:fail({wrong_data, Bad});
+            ct:log("Packet: ~p", [inet:getopts(Sock, [packet])]),
+	    ct:fail({wrong_data, Bad, PacketEcho});
 	{tcp_error, Sock, Reason} ->
 	    {error, Reason};
 	Other ->
-	    ct:fail({unexpected_message, Other, expected, {Tag, Sock, PacketEcho}})
+            ct:log("Packet: ~p", [inet:getopts(Sock, [packet])]),
+	    ct:fail({unexpected_message, Other, {Tag, Sock, PacketEcho}})
     end.
 
 %%% Building of random packets.

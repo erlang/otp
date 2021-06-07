@@ -1,0 +1,1 @@
+{dialyzer_options, [{warnings, [no_unused, no_return, specdiffs]}]}.

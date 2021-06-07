@@ -29,23 +29,32 @@
 main(Rule) ->
     %% this test is added for OTP-4591, to test that elements in decoded
     %% value has terms in right order.
-    Val = {'Seq',12,13,2},
+    Val = case Rule of
+              %% table constraints are not JER visible
+              %% The binaries here are Open Types which in this case
+              %% are JSON encodings of INTEGER
+              jer -> {'Seq',<<"12">>,<<"13">>,2}; 
+              _ -> {'Seq',12,13,2}
+          end,
     roundtrip('Seq', Val),
-    
-    %% OTP-5783
-    {'Type not compatible with table constraint',
-     {component,'ArgumentType'},
-     {value,_},_} = enc_error('Seq', {'Seq',12,13,1}),
-    Bytes2 = case Rule of
-		 ber ->
-		     <<48,9,2,1,12,2,1,11,2,1,1>>;
-		 _ ->
-		     <<1,12,1,11,1,1>>
-	     end,
-    {'Type not compatible with table constraint',
-     {{component,_},
-      {value,_B},_}} = dec_error('Seq', Bytes2),
-    ok.
+    case Rule of
+        jer -> ok; % table constraints are not JER visible
+        _ ->
+            %% OTP-5783
+            {'Type not compatible with table constraint',
+             {component,'ArgumentType'},
+             {value,_},_} = enc_error('Seq', {'Seq',12,13,1}),
+            Bytes2 = case Rule of
+                         ber ->
+                             <<48,9,2,1,12,2,1,11,2,1,1>>;
+                         _ ->
+                             <<1,12,1,11,1,1>>
+                     end,
+            {'Type not compatible with table constraint',
+             {{component,_},
+              {value,_B},_}} = dec_error('Seq', Bytes2),
+            ok
+    end.
 
 roundtrip(T, V) ->
     asn1_test_lib:roundtrip('InfClass', T, V).

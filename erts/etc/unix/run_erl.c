@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@
      /* On OS X, BSD and Solaris, we must leave _XOPEN_SOURCE undefined in order
       * for the prototype of vsyslog() to be included.
       */
-#    if !(defined(__APPLE__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__sun))
+#    if !(defined(__APPLE__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__sun))
 #      define _XOPEN_SOURCE 600
 #    endif
 #  endif
@@ -89,6 +89,12 @@
 #endif
 #if defined(__sun) && defined(__SVR4)
 #  include <stropts.h>
+#endif
+
+#ifdef __clang_analyzer__
+   /* CodeChecker does not seem to understand inline asm in FD_ZERO */
+#  undef FD_ZERO
+#  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
 #endif
 
 #include "run_erl.h"
@@ -1201,7 +1207,19 @@ static void error_logf(int priority, int line, const char *format, ...)
 
 #ifdef HAVE_SYSLOG_H
     if (run_daemon) {
+#ifdef HAVE_VSYSLOG
 	vsyslog(priority,format,args);
+#else
+	/* Some OSes like AIX lack vsyslog. */
+	va_list ap;
+	char message[900]; /* AIX man page says truncation past this */
+
+	va_start (ap, format);
+	vsnprintf(message, 900, format, ap);
+	va_end(ap);
+
+	syslog(priority, message);
+#endif
     }
     else
 #endif

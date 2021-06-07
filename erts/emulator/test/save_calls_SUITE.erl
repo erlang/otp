@@ -33,22 +33,6 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [save_calls_1, dont_break_reductions].
 
-init_per_testcase(dont_break_reductions,Config) ->
-    %% Skip on --enable-native-libs as hipe rescedules after each
-    %% function call.
-    case erlang:system_info(hipe_architecture) of
-        undefined ->
-            Config;
-        Architecture ->
-            {lists, ListsBinary, _ListsFilename} = code:get_object_code(lists),
-            ChunkName = hipe_unified_loader:chunk_name(Architecture),
-            NativeChunk = beam_lib:chunks(ListsBinary, [ChunkName]),
-            case NativeChunk of
-                {ok,{_,[{_,Bin}]}} when is_binary(Bin) ->
-                    {skip,"Does not work for --enable-native-libs"};
-                {error, beam_lib, _} -> Config
-            end
-    end;
 init_per_testcase(_,Config) ->
     Config.
 
@@ -106,12 +90,6 @@ trace_handler(Acc,Parent,Client) ->
 
 %% Test call saving.
 save_calls_1(Config) when is_list(Config) ->
-    case test_server:is_native(?MODULE) of
-        true -> {skipped,"Native code"};
-        false -> save_calls_1()
-    end.
-
-save_calls_1() ->
     erlang:process_flag(self(), save_calls, 0),
     {last_calls, false} = process_info(self(), last_calls),
     

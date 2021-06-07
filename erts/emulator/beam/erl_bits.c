@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,29 @@
 #endif
 
 #define BIT_IS_MACHINE_ENDIAN(x) (((x)&BSF_LITTLE) == BIT_ENDIAN_MACHINE)
+
+#if (SIZEOF__FLOAT16 == 2)
+typedef _Float16 erlfp16;
+#define FP16_FROM_FP64(x) ((_Float16) x)
+#define FP16_TO_FP64(x) ((double) x)
+#else
+typedef Uint16 erlfp16;
+#define FP16_FROM_FP64(x) (fp16_ieee_from_fp32_value((float) x))
+#define FP16_TO_FP64(x) ((double) fp16_ieee_to_fp32_value(x))
+#include "erl_bits_f16.h"
+#endif
+
+/*
+ * Here is how many bits we can copy in each reduction.
+ *
+ * At the time of writing of this comment, CONTEXT_REDS was 4000 and
+ * BITS_PER_REDUCTION was 1 KiB (8192 bits). The time for copying an
+ * unaligned 4000 KiB binary on my computer (which has a 4,2 GHz Intel
+ * i7 CPU) was about 5 ms. The time was approximately 4 times lower if
+ * the source and destinations binaries were aligned.
+ */
+
+#define BITS_PER_REDUCTION (8*1024)
 
 /*
  * MAKE_MASK(n) constructs a mask with n bits.
@@ -124,10 +147,10 @@ erts_bs_start_match_2(Process *p, Eterm Binary, Uint Max)
     ProcBin* pb;
 
     ASSERT(is_binary(Binary));
+
     total_bin_size = binary_size(Binary);
-    if ((total_bin_size >> (8*sizeof(Uint)-3)) != 0) {
-	return THE_NON_VALUE;
-    }
+    ASSERT(total_bin_size <= ERTS_UWORD_MAX / CHAR_BIT);
+
     NeededSize = ERL_BIN_MATCHSTATE_SIZE(Max);
     hp = HeapOnlyAlloc(p, NeededSize);
     ms = (ErlBinMatchState *) hp;
@@ -142,6 +165,41 @@ erts_bs_start_match_2(Process *p, Eterm Binary, Uint Max)
     (ms->mb).offset = ms->save_offset[0] = 8 * offs + bitoffs;
     (ms->mb).size = total_bin_size * 8 + (ms->mb).offset + bitsize;
     return make_matchstate(ms);
+}
+
+ErlBinMatchState *erts_bs_start_match_3(Process *p, Eterm Binary)
+{
+    Eterm Orig;
+    Uint offs;
+    Uint* hp;
+    Uint NeededSize;
+    ErlBinMatchState *ms;
+    Uint bitoffs;
+    Uint bitsize;
+    Uint total_bin_size;
+    ProcBin* pb;
+
+    ASSERT(is_binary(Binary));
+
+    total_bin_size = binary_size(Binary);
+    ASSERT(total_bin_size <= ERTS_UWORD_MAX / CHAR_BIT);
+
+    NeededSize = ERL_BIN_MATCHSTATE_SIZE(0);
+    hp = HeapOnlyAlloc(p, NeededSize);
+    ms = (ErlBinMatchState *) hp;
+    ERTS_GET_REAL_BIN(Binary, Orig, offs, bitoffs, bitsize);
+    pb = (ProcBin *) boxed_val(Orig);
+    if (pb->thing_word == HEADER_PROC_BIN && pb->flags != 0) {
+        erts_emasculate_writable_binary(pb);
+    }
+
+    ms->thing_word = HEADER_BIN_MATCHSTATE(0);
+    (ms->mb).orig = Orig;
+    (ms->mb).base = binary_bytes(Orig);
+    (ms->mb).offset = 8 * offs + bitoffs;
+    (ms->mb).size = total_bin_size * 8 + (ms->mb).offset + bitsize;
+
+    return ms;
 }
 
 #ifdef DEBUG
@@ -423,35 +481,32 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
 Eterm
 erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb)
 {
-    ErlSubBin* sb;
+    Eterm result;
 
     CHECK_MATCH_BUFFER(mb);
-    if (mb->size - mb->offset < num_bits) {	/* Asked for too many bits.  */
-	return THE_NON_VALUE;
+    if (mb->size - mb->offset < num_bits) {
+        /* Asked for too many bits.  */
+        return THE_NON_VALUE;
     }
 
     /*
      * From now on, we can't fail.
      */
 
-    sb = (ErlSubBin *) HeapOnlyAlloc(p, ERL_SUB_BIN_SIZE);
-    
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->orig = mb->orig;
-    sb->size = BYTE_OFFSET(num_bits);
-    sb->bitsize = BIT_OFFSET(num_bits);
-    sb->offs = BYTE_OFFSET(mb->offset);
-    sb->bitoffs = BIT_OFFSET(mb->offset);
-    sb->is_writable = 0;
+    result = erts_extract_sub_binary(&HEAP_TOP(p),
+                                     mb->orig, mb->base,
+                                     mb->offset, num_bits);
+
     mb->offset += num_bits;
-    
-    return make_binary(sb);
+
+    return result;
 }
 
 Eterm
 erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb)
 {
     Eterm* hp;
+    erlfp16 f16;
     float f32;
     double f64;
     byte* fptr;
@@ -467,7 +522,9 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer
     if (mb->size - mb->offset < num_bits) {	/* Asked for too many bits.  */
 	return THE_NON_VALUE;
     }
-    if (num_bits == 32) {
+    if (num_bits == 16) {
+	fptr = (byte *) &f16;
+    } else if (num_bits == 32) {
 	fptr = (byte *) &f32;
     } else if (num_bits == 64) {
 	fptr = (byte *) &f64;
@@ -485,7 +542,10 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer
 		  num_bits);
     }
     ERTS_FP_CHECK_INIT(p);
-    if (num_bits == 32) {
+    if (num_bits == 16) {
+	f.fd = FP16_TO_FP64(f16);
+	ERTS_FP_ERROR_THOROUGH(p, f.fd, return THE_NON_VALUE);
+    } else if (num_bits == 32) {
 	ERTS_FP_ERROR_THOROUGH(p, f32, return THE_NON_VALUE);
 	f.fd = f32;
     } else {
@@ -509,21 +569,19 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer
 Eterm
 erts_bs_get_binary_all_2(Process *p, ErlBinMatchBuffer* mb)
 {
-    ErlSubBin* sb;
-    Uint size;
+    Uint bit_size;
+    Eterm result;
 
     CHECK_MATCH_BUFFER(mb);
-    size =  mb->size-mb->offset;
-    sb = (ErlSubBin *) HeapOnlyAlloc(p, ERL_SUB_BIN_SIZE);
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->size = BYTE_OFFSET(size);
-    sb->bitsize = BIT_OFFSET(size);
-    sb->offs = BYTE_OFFSET(mb->offset);
-    sb->bitoffs = BIT_OFFSET(mb->offset);
-    sb->is_writable = 0;
-    sb->orig = mb->orig;
-    mb->offset = mb->size;  
-    return make_binary(sb);
+    bit_size = mb->size - mb->offset;
+
+    result = erts_extract_sub_binary(&HEAP_TOP(p),
+                                     mb->orig, mb->base,
+                                     mb->offset, bit_size);
+
+    mb->offset = mb->size;
+
+    return result;
 }
 
 /****************************************************************
@@ -948,14 +1006,14 @@ erts_bs_put_utf16(ERL_BITS_PROTO_2(Eterm arg, Uint flags))
     erts_bin_offset += num_bits;
     return 1;
 }
-     
 
 int
-erts_new_bs_put_binary(ERL_BITS_PROTO_2(Eterm arg, Uint num_bits))
+erts_new_bs_put_binary(Process *c_p, Eterm arg, Uint num_bits)
 {
     byte *bptr;
     Uint bitoffs;
     Uint bitsize; 
+    ERL_BITS_DEFINE_STATEP(c_p);
 
     if (!is_binary(arg)) {
 	return 0;
@@ -966,16 +1024,18 @@ erts_new_bs_put_binary(ERL_BITS_PROTO_2(Eterm arg, Uint num_bits))
     }
     copy_binary_to_buffer(erts_current_bin, erts_bin_offset, bptr, bitoffs, num_bits);
     erts_bin_offset += num_bits;
+    BUMP_REDS(c_p, num_bits / BITS_PER_REDUCTION);
     return 1;
 }
 
 int
-erts_new_bs_put_binary_all(ERL_BITS_PROTO_2(Eterm arg, Uint unit))
+erts_new_bs_put_binary_all(Process *c_p, Eterm arg, Uint unit)
 {
    byte *bptr;
    Uint bitoffs;
    Uint bitsize;
    Uint num_bits;
+   ERL_BITS_DEFINE_STATEP(c_p);
 
    /*
     * This type test is not needed if the code was compiled with
@@ -1000,6 +1060,7 @@ erts_new_bs_put_binary_all(ERL_BITS_PROTO_2(Eterm arg, Uint unit))
    }
    copy_binary_to_buffer(erts_current_bin, erts_bin_offset, bptr, bitoffs, num_bits);
    erts_bin_offset += num_bits;
+   BUMP_REDS(c_p, num_bits / BITS_PER_REDUCTION);
    return 1;
 }
 
@@ -1079,6 +1140,35 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	    } else {
 		return 0;
 	    }
+	} else if (num_bits == 16) {
+	    union {
+		erlfp16 f16;
+		Uint16 i16;
+	    } u;
+
+	    b = 0;
+	    if (is_float(arg)) {
+		FloatDef f;
+		GET_DOUBLE(arg, f);
+		ERTS_FP_CHECK_INIT(c_p);
+		ERTS_FP_ERROR(c_p,f.fd,;);
+		u.f16 = FP16_FROM_FP64(f.fd);
+		a = u.i16;
+	    } else if (is_small(arg)) {
+		u.f16 = FP16_FROM_FP64(signed_val(arg));
+		a = u.i16;
+	    } else if (is_big(arg)) {
+		double f64;
+		if (big_to_double(arg, &f64) < 0) {
+		    return 0;
+		}
+		ERTS_FP_CHECK_INIT(c_p);
+		ERTS_FP_ERROR(c_p,f64,;);
+		u.f16 = FP16_FROM_FP64(f64);
+		a = u.i16;
+	    } else {
+		return 0;
+	    }
 	} else {
 	    return 0;
 	}
@@ -1086,19 +1176,27 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	if (BIT_IS_MACHINE_ENDIAN(flags)) {
 	    byte* t = erts_current_bin+BYTE_OFFSET(erts_bin_offset);
 #ifdef WORDS_BIGENDIAN
-	    t[0] = a >> 24;
-	    t[1] = a >> 16;
-	    t[2] = a >> 8;
-	    t[3] = a;
-	    if (num_bits == 64) {
-		t[4] = b >> 24;
-		t[5] = b >> 16;
-		t[6] = b >> 8;
-		t[7] = b;
+	    if (num_bits == 16) {
+		t[0] = a >> 8;
+		t[1] = a;
+	    } else if (num_bits >= 32) {
+		t[0] = a >> 24;
+		t[1] = a >> 16;
+		t[2] = a >> 8;
+		t[3] = a;
+
+		if (num_bits == 64) {
+		    t[4] = b >> 24;
+		    t[5] = b >> 16;
+		    t[6] = b >> 8;
+		    t[7] = b;
+		}
 	    }
 #else
-	    t[3] = a >> 24;
-	    t[2] = a >> 16;
+	    if (num_bits >= 32) {
+		t[3] = a >> 24;
+		t[2] = a >> 16;
+	    }
 	    t[1] = a >> 8;
 	    t[0] = a;
 	    if (num_bits == 64) {
@@ -1111,21 +1209,29 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	} else {
 	    byte* t = erts_current_bin+BYTE_OFFSET(erts_bin_offset) + NBYTES(num_bits);
 #ifdef WORDS_BIGENDIAN
-	    t[-1] = a >> 24;
-	    t[-2] = a >> 16;
-	    t[-3] = a >> 8;
-	    t[-4] = a;
-	    if (num_bits == 64) {
-		t[-5] = b >> 24;
-		t[-6] = b >> 16;
-		t[-7] = b >> 8;
-		t[-8] = b;
+	    if (num_bits == 16) {
+		t[-1] = a >> 8;
+		t[-2] = a;
+	    } else if (num_bits >= 32) {
+		t[-1] = a >> 24;
+		t[-2] = a >> 16;
+	        t[-3] = a >> 8;
+	        t[-4] = a;
+
+		if (num_bits == 64) {
+		    t[-5] = b >> 24;
+		    t[-6] = b >> 16;
+		    t[-7] = b >> 8;
+		    t[-8] = b;
+		}
 	    }
 #else
 	    t[-1] = a;
 	    t[-2] = a >> 8;
-	    t[-3] = a >> 16;
-	    t[-4] = a >> 24;
+	    if (num_bits >= 32) {
+	        t[-3] = a >> 16;
+	        t[-4] = a >> 24;
+	    }
 	    if (num_bits == 64) {
 		t[-5] = b;
 		t[-6] = b >> 8;
@@ -1138,6 +1244,7 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	byte *bptr;
 	double f64;
 	float f32;
+	erlfp16 f16;
 #ifdef DOUBLE_MIDDLE_ENDIAN
 	FloatDef fbuf, ftmp;
 #endif
@@ -1193,6 +1300,28 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 		f32 = (float) f64;
 		ERTS_FP_ERROR(c_p,f32,;);
 		bptr = (byte *) &f32;
+	    } else {
+		return 0;
+	    }
+	} else if (num_bits == 16) {
+	    if (is_float(arg)) {
+		FloatDef f;
+		GET_DOUBLE(arg, f);
+		ERTS_FP_CHECK_INIT(c_p);
+		ERTS_FP_ERROR(c_p,f.fd,;);
+		f16 = FP16_FROM_FP64(f.fd);
+		bptr = (byte *) &f16;
+	    } else if (is_small(arg)) {
+		f16 = FP16_FROM_FP64(signed_val(arg));
+		bptr = (byte *) &f16;
+	    } else if (is_big(arg)) {
+		if (big_to_double(arg, &f64) < 0) {
+		    return 0;
+		}
+		ERTS_FP_CHECK_INIT(c_p);
+		ERTS_FP_ERROR(c_p,f64,;);
+		f16 = FP16_FROM_FP64(f64);
+		bptr = (byte *) &f16;
 	    } else {
 		return 0;
 	    }
@@ -1295,6 +1424,14 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	}
     }
 
+    if (build_size_in_bits == 0) {
+        if (HeapWordsLeft(c_p) < extra_words) {
+            (void) erts_garbage_collect(c_p, extra_words, reg, live+1);
+            bin = reg[live];
+        }
+	return bin;
+    }
+
     if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
         c_p->freason = SYSTEM_LIMIT;
         return THE_NON_VALUE;
@@ -1315,6 +1452,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	binp = erts_bin_realloc(binp, new_size);
 	pb->val = binp;
 	pb->bytes = (byte *) binp->orig_bytes;
+        BUMP_REDS(c_p, pb->size / BITS_PER_REDUCTION);
     }
     erts_current_bin = pb->bytes;
 
@@ -1323,7 +1461,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
      */
     reg[live] = sb->orig;
     heap_need = ERL_SUB_BIN_SIZE + extra_words;
-    if (c_p->stop - c_p->htop < heap_need) {
+    if (HeapWordsLeft(c_p) < heap_need) {
 	(void) erts_garbage_collect(c_p, heap_need, reg, live+1);
     }
     sb = (ErlSubBin *) c_p->htop;
@@ -1352,13 +1490,13 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	Uint bitsize;
 	Eterm* hp;
 
-	/*
+        /*
 	 * Allocate heap space.
 	 */
 	heap_need = PROC_BIN_SIZE + ERL_SUB_BIN_SIZE + extra_words;
-	if (c_p->stop - c_p->htop < heap_need) {
+	if (HeapWordsLeft(c_p) < heap_need) {
 	    (void) erts_garbage_collect(c_p, heap_need, reg, live+1);
-	    bin = reg[live];
+            bin = reg[live];
 	}
 	hp = c_p->htop;
 
@@ -1374,6 +1512,10 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 		(erts_bin_offset % unit) != 0) {
 		goto badarg;
 	    }
+	}
+
+	if (build_size_in_bits == 0) {
+            return bin;
 	}
 
         if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
@@ -1432,6 +1574,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	 * Now copy the data into the binary.
 	 */
 	copy_binary_to_buffer(erts_current_bin, 0, src_bytes, bitoffs, erts_bin_offset);
+        BUMP_REDS(c_p, erts_bin_offset / BITS_PER_REDUCTION);
 
 	return make_binary(sb);
     }
@@ -1496,6 +1639,7 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
     if (binp->orig_size < pb->size) {
 	Uint new_size = 2*pb->size;
 
+        BUMP_REDS(p, pb->size / BITS_PER_REDUCTION);
 	if (pb->flags & PB_IS_WRITABLE) {
 	    /*
 	     * This is the normal case - the binary is writable.
@@ -1550,7 +1694,7 @@ erts_bs_init_writable(Process* p, Eterm sz)
      * Allocate heap space.
      */
     heap_need = PROC_BIN_SIZE + ERL_SUB_BIN_SIZE;
-    if (p->stop - p->htop < heap_need) {
+    if (HeapWordsLeft(p) < heap_need) {
 	(void) erts_garbage_collect(p, heap_need, NULL, 0);
     }
     hp = p->htop;
@@ -2049,3 +2193,38 @@ erts_copy_bits(byte* src,	/* Base pointer to source. */
     }
 }
 
+Eterm erts_extract_sub_binary(Eterm **hp, Eterm base_bin, byte *base_data,
+                              Uint bit_offset, Uint bit_size)
+{
+    Uint byte_offset, byte_size;
+
+    ERTS_CT_ASSERT(ERL_SUB_BIN_SIZE <= ERL_ONHEAP_BIN_LIMIT);
+
+    byte_offset = BYTE_OFFSET(bit_offset);
+    byte_size = BYTE_OFFSET(bit_size);
+
+    if (BIT_OFFSET(bit_size) == 0 && byte_size <= ERL_ONHEAP_BIN_LIMIT) {
+        ErlHeapBin *hb = (ErlHeapBin*)*hp;
+        *hp += heap_bin_size(byte_size);
+
+        hb->thing_word = header_heap_bin(byte_size);
+        hb->size = byte_size;
+
+        copy_binary_to_buffer(hb->data, 0, base_data, bit_offset, bit_size);
+
+        return make_binary(hb);
+    } else {
+        ErlSubBin *sb = (ErlSubBin*)*hp;
+        *hp += ERL_SUB_BIN_SIZE;
+
+        sb->thing_word = HEADER_SUB_BIN;
+        sb->size = byte_size;
+        sb->offs = byte_offset;
+        sb->orig = base_bin;
+        sb->bitoffs = BIT_OFFSET(bit_offset);
+        sb->bitsize = BIT_OFFSET(bit_size);
+        sb->is_writable = 0;
+
+        return make_binary(sb);
+    }
+}

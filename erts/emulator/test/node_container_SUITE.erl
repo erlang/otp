@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +51,9 @@
          unique_pid/1,
          iter_max_procs/1,
          magic_ref/1,
-         dist_entry_gc/1]).
+         dist_entry_gc/1,
+         persistent_term/1,
+         huge_ref/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -63,7 +65,8 @@ all() ->
      node_table_gc, dist_link_refc, dist_monitor_refc,
      node_controller_refc, ets_refc, match_spec_refc,
      timer_refc, pid_wrap, port_wrap, bad_nc,
-     unique_pid, iter_max_procs, magic_ref].
+     unique_pid, iter_max_procs,
+     magic_ref, persistent_term, huge_ref].
 
 init_per_suite(Config) ->
     Config.
@@ -71,25 +74,10 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
     erts_debug:set_internal_state(node_tab_delayed_delete, -1), %% restore original value
-    available_internal_state(false).
-
-available_internal_state(Bool) when Bool == true; Bool == false ->
-    case {Bool,
-          (catch erts_debug:get_internal_state(available_internal_state))} of
-        {true, true} ->
-            true;
-        {false, true} ->
-            erts_debug:set_internal_state(available_internal_state, false),
-            true;
-        {true, _} ->
-            erts_debug:set_internal_state(available_internal_state, true),
-            false;
-        {false, _} ->
-            false
-    end.
+    erts_test_utils:available_internal_state(false).
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
-    available_internal_state(true),
+    erts_test_utils:available_internal_state(true),
     Config.
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
@@ -136,6 +124,12 @@ ttbtteq_do_remote(RNode) ->
     RXPid = mk_pid(RNode, 32767, 8191),
     RPort = mk_port(RNode, 4711),
     RXPort = mk_port(RNode, 268435455),
+    RXPort2 = case RNode of
+		  {_, C} when C < 4 ->
+		      mk_port(RNode, 4711);
+		  _ ->
+		      mk_port(RNode, (1 bsl 51) + 4711)
+	      end,
     RLRef = mk_ref(RNode, [4711, 4711, 4711]),
     RHLRef = mk_ref(RNode, [4711, 4711]),
     RSRef = mk_ref(RNode, [4711]),
@@ -144,6 +138,7 @@ ttbtteq_do_remote(RNode) ->
     RXPid = binary_to_term(term_to_binary(RXPid)),
     RPort = binary_to_term(term_to_binary(RPort)),
     RXPort = binary_to_term(term_to_binary(RXPort)),
+    RXPort2 = binary_to_term(term_to_binary(RXPort2)),
     RLRef = binary_to_term(term_to_binary(RLRef)),
     RHLRef = binary_to_term(term_to_binary(RHLRef)),
     RSRef = binary_to_term(term_to_binary(RSRef)),
@@ -170,6 +165,7 @@ round_trip_eq(Config) when is_list(Config) ->
     SentXPid = mk_pid(ThisNode, 17471, 8190),
     SentPort = hd(erlang:ports()),
     SentXPort = mk_port(ThisNode, 268435451),
+    SentXPort2 = mk_port({Node, 4711}, (1 bsl 49) + 4711),
     SentLRef = make_ref(),
     SentHLRef = mk_ref(ThisNode, [4711, 17]),
     SentSRef = mk_ref(ThisNode, [4711]),
@@ -177,6 +173,7 @@ round_trip_eq(Config) when is_list(Config) ->
                    SentXPid,
                    SentPort,
                    SentXPort,
+                   SentXPort2,
                    SentLRef,
                    SentHLRef,
                    SentSRef}},
@@ -185,6 +182,7 @@ round_trip_eq(Config) when is_list(Config) ->
                 RecXPid,
                 RecPort,
                 RecXPort,
+                RecXPort2,
                 RecLRef,
                 RecHLRef,
                 RecSRef}} ->
@@ -193,6 +191,7 @@ round_trip_eq(Config) when is_list(Config) ->
             SentXPid = RecXPid,
             SentPort = RecPort,
             SentXPort = RecXPort,
+            SentXPort2 = RecXPort2,
             SentLRef = RecLRef,
             SentHLRef = RecHLRef,
             SentSRef = RecSRef,
@@ -327,6 +326,22 @@ cmp(Config) when is_list(Config) ->
     true = mk_pid({c@b, 1}, 4711, 1) > Pid,
     true = mk_pid({b@b, 3}, 4711, 1) > Pid,
     true = mk_pid({b@b, 2}, 4711, 1) =:= Pid,
+
+    %% Test big external pids (> OTP-24)
+    MaxPidNum = (1 bsl 15) - 1,
+    MaxPidSer = ?MAX_PIDS_PORTS bsr 15,
+    true = mk_pid({b@b, 2}, 4711, MaxPidSer) < mk_pid({a@b, 1}, 4710, MaxPidSer+1),
+    true = mk_pid({b@b, 2}, 4711, MaxPidSer) < mk_pid({a@b, 1}, 4710, (1 bsl 31)),
+    true = mk_pid({b@b, 2}, 4711, MaxPidSer) < mk_pid({a@b, 1}, 4710, (1 bsl 32)-1),
+
+    true = mk_pid({b@b, 2}, MaxPidNum, 17) < mk_pid({a@b, 1}, MaxPidNum+1, 17),
+    true = mk_pid({b@b, 2}, MaxPidNum, 17) < mk_pid({a@b, 1}, (1 bsl 31), 17),
+    true = mk_pid({b@b, 2}, MaxPidNum, 17) < mk_pid({a@b, 1}, (1 bsl 32)-1, 17),
+
+    true = mk_pid({b@b, 2}, 4711, 17) < mk_pid({b@b, 4}, 4711, 17),
+    true = mk_pid({b@b, 2}, 4711, 17) < mk_pid({b@b, (1 bsl 31)}, 4711, 17),
+    true = mk_pid({b@b, 2}, 4711, 17) < mk_pid({b@b, (1 bsl 32)-1}, 4711, 17),
+
 
     %% Test ports ---------------------------------------------------
     %%
@@ -585,7 +600,17 @@ node_controller_refc(Config) when is_list(Config) ->
     wait_until(fun () -> not is_process_alive(P) end),
     lists:foreach(fun (Proc) -> garbage_collect(Proc) end, processes()),
     false = get_node_references({Node,Creation}),
-    false = get_dist_references(Node),
+    wait_until(fun () ->
+                       case get_dist_references(Node) of
+                           false ->
+                               true;
+                           [{{system,thread_progress_delete_timer},
+                             [{system,1}]}] ->
+                               false;
+                           Other ->
+                               ct:fail(Other)
+                       end
+               end),
     false = lists:member(Node, nodes(known)),
     nc_refc_check(node()),
     erts_debug:set_internal_state(node_tab_delayed_delete, -1), %% restore original value
@@ -773,10 +798,6 @@ bad_nc(Config) when is_list(Config) ->
     {'EXIT', {badarg, mk_ref, _}}
     = (catch mk_ref(ThisNode, [4711, 4711, 4711, 4711, 4711, 4711, 4711])),
     RemNode = {x@y, 2},
-    {'EXIT', {badarg, mk_pid, _}}
-    = (catch mk_pid(RemNode, MaxPidNum + 1, MaxPidSer)),
-    {'EXIT', {badarg, mk_pid, _}}
-    = (catch mk_pid(RemNode, MaxPidNum, MaxPidSer + 1)),
     {'EXIT', {badarg, mk_port, _}}
     = (catch mk_port(RemNode, ?MAX_PIDS_PORTS + 1)),
     {'EXIT', {badarg, mk_ref, _}}
@@ -790,6 +811,15 @@ bad_nc(Config) when is_list(Config) ->
     = (catch mk_port(BadNode, 4711)),
     {'EXIT', {badarg, mk_ref, _}}
     = (catch mk_ref(BadNode, [4711, 4711, 17])),
+
+    %% OTP 24:
+    mk_port({x@y, 4}, ?MAX_PIDS_PORTS + 1),
+
+    %% OTP 24: External pids can use 32+32 bits
+    mk_pid(RemNode, MaxPidNum + 1, MaxPidSer),
+    mk_pid(RemNode, (1 bsl 32)-1, MaxPidSer),
+    mk_pid(RemNode, MaxPidNum, MaxPidSer + 1),
+    mk_pid(RemNode, MaxPidNum, (1 bsl 32)-1),
     ok.
 
 
@@ -815,9 +845,19 @@ mkpidlist(N, Ps) -> mkpidlist(N-1, [spawn(fun () -> ok end)|Ps]).
 iter_max_procs(Config) when is_list(Config) ->
     NoMoreTests = make_ref(),
     erlang:send_after(10000, self(), NoMoreTests),
-    Res = chk_max_proc_line(),
-    Res = chk_max_proc_line(),
-    done = chk_max_proc_line_until(NoMoreTests, Res),
+
+    %% Disable logging to avoid "Too many processes" log which can
+    %% cause ct_logs to crash when trying to spawn "async print job".
+    #{level := LoggerLevel} = logger:get_primary_config(),
+    ok = logger:set_primary_config(level, none),
+    Res = try
+              R = chk_max_proc_line(),
+              R = chk_max_proc_line(),
+              done = chk_max_proc_line_until(NoMoreTests, R),
+              R
+          after
+              logger:set_primary_config(level, LoggerLevel)
+          end,
     Cmt = io_lib:format("max processes = ~p; "
                         "process line length = ~p",
                         [element(2, Res), element(1, Res)]),
@@ -886,7 +926,22 @@ magic_ref(Config) when is_list(Config) ->
 	{'DOWN', Mon, process, Pid, _} ->
 	    ok
     end,
-    {Addr0, 2, true} = erts_debug:get_internal_state({magic_ref,MRef0}),
+    MaxTime = erlang:monotonic_time(millisecond) + 1000,
+    %% The DOWN signal is sent before heap is cleaned up,
+    %% so we might need to wait some time after the DOWN
+    %% signal has been received before the heap actually
+    %% has been cleaned up...
+    wait_until(fun () ->
+                       case erts_debug:get_internal_state({magic_ref,MRef0}) of
+                           {Addr0, 2, true} ->
+                               true;
+                           {Addr0, 3, true} ->
+                               true = MaxTime >= erlang:monotonic_time(millisecond),
+                               false;
+                           Error ->
+                               ct:fail(Error)
+                       end
+               end),
     id(MRef0),
     id(MRef1),
     MRefExt = term_to_binary(erts_debug:set_internal_state(make, magic_ref)),
@@ -894,6 +949,44 @@ magic_ref(Config) when is_list(Config) ->
     {MRef2, _Addr2} = binary_to_term(MRefExt),
     true = is_reference(MRef2),
     true = erts_debug:get_internal_state({magic_ref,MRef2}),
+    ok.
+
+persistent_term(Config) when is_list(Config) ->
+    {ok, Node} = start_node(get_nodefirstname()),
+    Self = self(),
+    NcData = make_ref(),
+    RPid = spawn_link(Node,
+                      fun () ->
+                              Self ! {NcData, self(), hd(erlang:ports()), erlang:make_ref()}
+                      end),
+    Data = receive
+               {NcData, RPid, RPort, RRef} ->
+                   {RPid, RPort, RRef}
+           end,
+    unlink(RPid),
+    stop_node(Node),
+    Stuff = lists:foldl(fun (N, Acc) ->
+                                persistent_term:put({?MODULE, N}, Data),
+                                persistent_term:erase({?MODULE, N-1}),
+                                node_container_refc_check(node()),
+                                Data = persistent_term:get({?MODULE, N}),
+                                try
+                                    persistent_term:get({?MODULE, N-1})
+                                catch
+                                    error:badarg ->
+                                        ok
+                                end,
+                                case N rem 4 of
+                                    0 -> [persistent_term:get({?MODULE, N})|Acc];
+                                    _ -> Acc
+                                end
+                        end,
+                        [],
+                        lists:seq(1, 100)),
+    persistent_term:erase({?MODULE, 100}),
+    receive after 2000 -> ok end, %% give literal gc some time to run...
+    node_container_refc_check(node()),
+    id(Stuff),
     ok.
 
 
@@ -918,6 +1011,14 @@ dist_entry_gc(Config) when is_list(Config) ->
     stop_node(Node),
     ok.
 
+huge_ref(Config) when is_list(Config) ->
+    {ok, Node} = start_node(get_nodefirstname()),
+    HRef = mk_ref({Node, 4711}, [4711, 705676, 3456, 1000000, 3456]),
+    io:format("HRef=~p~n", [HRef]),
+    HRef = binary_to_term(term_to_binary(HRef)),
+    HRef = erpc:call(Node, fun () -> HRef end),
+    ok.
+
 %%
 %% -- Internal utils ---------------------------------------------------------
 %%
@@ -928,9 +1029,9 @@ id(X) ->
 -define(ND_REFS, erts_debug:get_internal_state(node_and_dist_references)).
 
 node_container_refc_check(Node) when is_atom(Node) ->
-    AIS = available_internal_state(true),
+    AIS = erts_test_utils:available_internal_state(true),
     nc_refc_check(Node),
-    available_internal_state(AIS).
+    erts_test_utils:available_internal_state(AIS).
 
 nc_refc_check(Node) when is_atom(Node) ->
     Ref = make_ref(),
@@ -938,15 +1039,11 @@ nc_refc_check(Node) when is_atom(Node) ->
     io:format("Starting reference count check of node ~w~n", [Node]),
     spawn_link(Node,
                fun () ->
-                       {{node_references, NodeRefs},
-                        {dist_references, DistRefs}} = ?ND_REFS,
-                       check_nd_refc({node(), erlang:system_info(creation)},
-                                     NodeRefs,
-                                     DistRefs,
-                                     fun (ErrMsg) ->
-                                             Self ! {Ref, ErrMsg, failed},
-                                             exit(normal)
-                                     end),
+                       erts_test_utils:check_node_dist(
+                         fun (ErrMsg) ->
+                                 Self ! {Ref, ErrMsg, failed},
+                                 exit(normal)
+                         end),
                        Self ! {Ref, succeded}
                end),
     receive
@@ -958,98 +1055,26 @@ nc_refc_check(Node) when is_atom(Node) ->
             ok
     end.
 
-check_nd_refc({ThisNodeName, ThisCreation}, NodeRefs, DistRefs, Fail) ->
-    case catch begin
-                   check_refc(ThisNodeName,ThisCreation,"node table",NodeRefs),
-                   check_refc(ThisNodeName,ThisCreation,"dist table",DistRefs),
-                   ok
-               end of
-        ok ->
-            ok;
-        {'EXIT', Reason} ->
-            {Y,Mo,D} = date(),
-            {H,Mi,S} = time(),
-            ErrMsg = io_lib:format("~n"
-                                   "*** Reference count check of node ~w "
-                                   "failed (~p) at ~w~w~w ~w:~w:~w~n"
-                                   "*** Node table references:~n ~p~n"
-                                   "*** Dist table references:~n ~p~n",
-                                   [node(), Reason, Y, Mo, D, H, Mi, S,
-                                    NodeRefs, DistRefs]),
-            Fail(lists:flatten(ErrMsg))
-    end.
-
-
-check_refc(ThisNodeName,ThisCreation,Table,EntryList) when is_list(EntryList) ->
-    lists:foreach(
-      fun ({Entry, Refc, ReferrerList}) ->
-              {DelayedDeleteTimer,
-               FoundRefs} =
-              lists:foldl(
-                fun ({Referrer, ReferencesList}, {DDT, A1}) ->
-                        {case Referrer of
-                             {system,delayed_delete_timer} ->
-                                 true;
-                             {system,thread_progress_delete_timer} ->
-                                 true;
-                             _ ->
-                                 DDT
-                         end,
-                         A1 + lists:foldl(fun ({_T,Rs},A2) ->
-                                                  A2+Rs
-                                          end,
-                                          0,
-                                          ReferencesList)}
-                end,
-                {false, 0},
-                ReferrerList),
-
-              %% Reference count equals found references?
-              case {Refc, FoundRefs, DelayedDeleteTimer} of
-                  {X, X, _} ->
-                      ok;
-                  {0, 1, true} ->
-                      ok;
-                  _ ->
-                      exit({invalid_reference_count, Table, Entry})
-              end,
-
-              %% All entries in table referred to?
-              case {Entry, Refc} of
-                  {ThisNodeName, 0} -> ok;
-                  {{ThisNodeName, ThisCreation}, 0} -> ok;
-                  {_, 0} when DelayedDeleteTimer == false ->
-                      exit({not_referred_entry_in_table, Table, Entry});
-                  {_, _} -> ok 
-              end
-
-      end,
-      EntryList),
-    ok.
-
 get_node_references({NodeName, Creation} = Node) when is_atom(NodeName),
                                                       is_integer(Creation) ->
     {{node_references, NodeRefs},
      {dist_references, DistRefs}} = ?ND_REFS,
-    check_nd_refc({node(), erlang:system_info(creation)},
-                  NodeRefs,
-                  DistRefs,
-                  fun (ErrMsg) ->
-                          io:format("~s", [ErrMsg]),
-                          ct:fail(reference_count_check_failed)
-                  end),
+    erts_test_utils:check_node_dist(
+      fun (ErrMsg) ->
+              io:format("~s", [ErrMsg]),
+              ct:fail(reference_count_check_failed)
+      end,
+      NodeRefs, DistRefs),
     find_references(Node, NodeRefs).
 
 get_dist_references(NodeName) when is_atom(NodeName) ->
     {{node_references, NodeRefs},
      {dist_references, DistRefs}} = ?ND_REFS,
-    check_nd_refc({node(), erlang:system_info(creation)},
-                  NodeRefs,
-                  DistRefs,
-                  fun (ErrMsg) ->
-                          io:format("~s", [ErrMsg]),
-                          ct:fail(reference_count_check_failed)
-                  end),
+    erts_test_utils:check_node_dist(fun (ErrMsg) ->
+                                            io:format("~s", [ErrMsg]),
+                                            ct:fail(reference_count_check_failed)
+                                    end,
+                                    NodeRefs, DistRefs),
     find_references(NodeName, DistRefs).
 
 find_references(N, NRefList) ->
@@ -1138,133 +1163,15 @@ get_nodename() ->
                  ++ "@"
                  ++ hostname()).
 
-
-
--define(VERSION_MAGIC,       131).
-
--define(ATOM_EXT,            100).
--define(REFERENCE_EXT,       101).
--define(PORT_EXT,            102).
--define(PID_EXT,             103).
--define(NEW_REFERENCE_EXT,   114).
--define(NEW_PID_EXT,         $X).
--define(NEW_PORT_EXT,        $Y).
--define(NEWER_REFERENCE_EXT, $Z).
-
-uint32_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 32 ->
-    [(Uint bsr 24) band 16#ff,
-     (Uint bsr 16) band 16#ff,
-     (Uint bsr 8) band 16#ff,
-     Uint band 16#ff];
-uint32_be(Uint) ->
-    exit({badarg, uint32_be, [Uint]}).
-
-
-uint16_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 16 ->
-    [(Uint bsr 8) band 16#ff,
-     Uint band 16#ff];
-uint16_be(Uint) ->
-    exit({badarg, uint16_be, [Uint]}).
-
-uint8(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 8 ->
-    Uint band 16#ff;
-uint8(Uint) ->
-    exit({badarg, uint8, [Uint]}).
-
-
-pid_tag(bad_creation) -> ?PID_EXT;
-pid_tag(Creation) when Creation =< 3 -> ?PID_EXT;
-pid_tag(_Creation) -> ?NEW_PID_EXT.
-
-enc_creation(bad_creation) -> uint8(4);
-enc_creation(Creation) when Creation =< 3 -> uint8(Creation);
-enc_creation(Creation) -> uint32_be(Creation).
-
-mk_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
-    mk_pid({atom_to_list(NodeName), Creation}, Number, Serial);
 mk_pid({NodeName, Creation}, Number, Serial) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      pid_tag(Creation),
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
-					      uint32_be(Number),
-					      uint32_be(Serial),
-					      enc_creation(Creation)])) of
-	Pid when is_pid(Pid) ->
-	    Pid;
-	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_pid, [{NodeName, Creation}, Number, Serial]});
-	Other ->
-	    exit({unexpected_binary_to_term_result, Other})
-    end.
+    erts_test_utils:mk_ext_pid({NodeName, Creation}, Number, Serial).
 
-port_tag(bad_creation) -> ?PORT_EXT;
-port_tag(Creation) when Creation =< 3 -> ?PORT_EXT;
-port_tag(_Creation) -> ?NEW_PORT_EXT.
-
-mk_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
-    mk_port({atom_to_list(NodeName), Creation}, Number);
 mk_port({NodeName, Creation}, Number) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      port_tag(Creation),
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
-					      uint32_be(Number),
-					      enc_creation(Creation)])) of
-	Port when is_port(Port) ->
-	    Port;
-	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_port, [{NodeName, Creation}, Number]});
-	Other ->
-	    exit({unexpected_binary_to_term_result, Other})
-    end.
+    erts_test_utils:mk_ext_port({NodeName, Creation}, Number).
 
-ref_tag(bad_creation) -> ?NEW_REFERENCE_EXT;
-ref_tag(Creation) when Creation =< 3 -> ?NEW_REFERENCE_EXT;
-ref_tag(_Creation) -> ?NEWER_REFERENCE_EXT.
+mk_ref({NodeName, Creation}, Numbers) ->
+    erts_test_utils:mk_ext_ref({NodeName, Creation}, Numbers).
 
-mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
-					   is_list(Numbers) ->
-    mk_ref({atom_to_list(NodeName), Creation}, Numbers);
-mk_ref({NodeName, Creation}, [Number]) when is_list(NodeName),
-					    Creation =< 3,
-					    is_integer(Number) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-                                              ?REFERENCE_EXT,
-                                              ?ATOM_EXT,
-                                              uint16_be(length(NodeName)),
-                                              NodeName,
-                                              uint32_be(Number),
-                                              uint8(Creation)])) of
-        Ref when is_reference(Ref) ->
-            Ref;
-        {'EXIT', {badarg, _}} ->
-            exit({badarg, mk_ref, [{NodeName, Creation}, [Number]]});
-        Other ->
-            exit({unexpected_binary_to_term_result, Other})
-    end;
-mk_ref({NodeName, Creation}, Numbers) when is_list(NodeName),
-					   is_list(Numbers) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      ref_tag(Creation),
-					      uint16_be(length(Numbers)),
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
-					      enc_creation(Creation),
-					      lists:map(fun (N) ->
-								uint32_be(N)
-							end,
-							Numbers)])) of
-	Ref when is_reference(Ref) ->
-	    Ref;
-	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_ref, [{NodeName, Creation}, Numbers]});
-	Other ->
-	    exit({unexpected_binary_to_term_result, Other})
-    end.
 
 exec_loop() ->
     receive

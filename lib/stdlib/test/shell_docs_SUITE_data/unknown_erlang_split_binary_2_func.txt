@@ -1,0 +1,19 @@
+
+  [;1m-spec split_binary(Bin, Pos) -> {binary(), binary()}[0m
+  [;1m                      when Bin :: binary(), Pos :: non_neg_integer().[0m
+
+  Returns a tuple containing the binaries that are the result of
+  splitting [;;4mBin[0m into two parts at position [;;4mPos[0m. This is not a
+  destructive operation. After the operation, there are three
+  binaries altogether. Example:
+
+    > B = list_to_binary("0123456789").
+    <<"0123456789">>
+    > byte_size(B).
+    10
+    > {B1, B2} = split_binary(B,3).
+    {<<"012">>,<<"3456789">>}
+    > byte_size(B1).
+    3
+    > byte_size(B2).
+    7

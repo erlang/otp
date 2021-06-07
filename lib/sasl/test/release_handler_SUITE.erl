@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1043,14 +1043,14 @@ otp_9395_check_and_purge(Conf) when is_list(Conf) ->
 		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
 
     %% Do check_install_release, and check that old code still exists
-    {ok, _RelVsn1, []} =
+    {ok, _, []} =
 	rpc:call(Node, release_handler, check_install_release, [RelVsn2]),
     true = rpc:call(Node,erlang,check_old_code,[b_lib]),
     true = rpc:call(Node,erlang,check_old_code,[b_server]),
 
     %% Do check_install_release with option 'purge' and check that old
     %% code is gone
-    {ok, _RelVsn1, []} =
+    {ok, _, []} =
 	rpc:call(Node, release_handler, check_install_release, [RelVsn2,[purge]]),
     false = rpc:call(Node,erlang,check_old_code,[b_lib]),
     false = rpc:call(Node,erlang,check_old_code,[b_server]),
@@ -1130,7 +1130,7 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
     true = rpc:call(Node,erlang,check_old_code,[m10]),
 
     %% Run check_install_release with purge before install this time
-    {_TCheck,{ok, _RelVsn1, []}} =
+    {_TCheck,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, check_install_release,
 			   [RelVsn2,[purge]]]),
 %    ct:log("check_install_release with purge: ~.2f",[_TCheck/1000000]),
@@ -1140,7 +1140,7 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
     SWTFlag0 ! die,
     rpc:call(Node,?MODULE,garbage_collect,[]),
     _SWTFlag1 = spawn_link(Node, ?MODULE, scheduler_wall_time, []),
-    {TInst2,{ok, _RelVsn1, []}} =
+    {TInst2,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
     SWT2 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
 %    ct:log("install_release: ~.2f",[TInst2/1000000]),
@@ -1245,7 +1245,7 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
     true = rpc:call(Node,erlang,check_old_code,[m10]),
 
     %% Run check_install_release with purge before install this time
-    {_TCheck,{ok, _RelVsn1, []}} =
+    {_TCheck,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, check_install_release,
 			   [RelVsn2,[purge]]]),
 %    ct:log("check_install_release with purge: ~.2f",[_TCheck/1000000]),
@@ -1255,7 +1255,7 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
     SWTFlag0 ! die,
     rpc:call(Node,?MODULE,garbage_collect,[]),
     _SWTFlag1 = spawn_link(Node, ?MODULE, scheduler_wall_time, []),
-    {TInst2,{ok, _RelVsn1, []}} =
+    {TInst2,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
     SWT2 = rpc:call(Node,erlang,statistics,[scheduler_wall_time]),
 %    ct:log("install_release: ~.2f",[TInst2/1000000]),
@@ -1396,9 +1396,9 @@ upgrade_supervisor(Conf) when is_list(Conf) ->
     %% Check that the restart strategy and child spec is updated
     {status, _, {module, _}, [_, _, _, _, [_,_,{data,[{"State",State}]}|_]]} =
 	rpc:call(Node,sys,get_status,[a_sup]),
-    {state,_,RestartStrategy,{[a],Db},_,_,_,_,_,_,_} = State,
+    {state,_,RestartStrategy,{[a],Db},_,_,_,_,_,_,_,_} = State,
     one_for_all = RestartStrategy, % changed from one_for_one
-    {child,_,_,_,_,brutal_kill,_,_} = maps:get(a,Db), % changed from timeout 2000
+    {child,_,_,_,_,_,brutal_kill,_,_} = maps:get(a,Db), % changed from timeout 2000
 
     ok.
 
@@ -1847,14 +1847,19 @@ otp_10463_upgrade_script_regexp(cleanup,Config) ->
     code:del_path(filename:join([DataDir,regexp_appup,app1,ebin])),
     ok.
 
-no_dot_erlang(_Conf) ->
-    case init:get_argument(home) of
-        {ok,[[Home]]} when is_list(Home) ->
-            no_dot_erlang_1(Home);
-        _ -> ok
+no_dot_erlang(Conf) ->
+    case {os:type(),init:get_argument(home)} of
+        {{unix,_},_} ->
+            %% On unix we set HOME to priv_dir so that we
+            %% do not have to change the users ~/.erlang
+            Home = ?config(priv_dir, Conf),
+            no_dot_erlang_1("HOME=\""++ Home ++"\" ",Home);
+        {{win32,_},{ok,[[Home]]}} when is_list(Home) ->
+            no_dot_erlang_1("",Home);
+        _ -> {skip,"Could not find home directory"}
     end.
 
-no_dot_erlang_1(Home) ->
+no_dot_erlang_1(Prefix, Home) ->
     DotErlang = filename:join(Home, ".erlang"),
     BupErlang = filename:join(Home, ".erlang_testbup"),
     try
@@ -1869,7 +1874,7 @@ no_dot_erlang_1(Home) ->
 	Args = " -noinput -run c pwd -run erlang halt",
 	ok = file:write_file(DotErlang, <<"io:put_chars(\"DOT_ERLANG_READ\\n\").\n">>),
 
-	CMD1 = Quote ++ Erl ++ Quote ++ Args ,
+	CMD1 = Prefix ++ Quote ++ Erl ++ Quote ++ Args ,
 	case os:cmd(CMD1) of
 	    "DOT_ERLANG_READ" ++ _ ->
                 io:format("~p: Success~n", [?LINE]);
@@ -1880,7 +1885,7 @@ no_dot_erlang_1(Home) ->
 		exit({failed_to_start, test_error})
 	end,
 	NO_DOT_ERL = " -boot no_dot_erlang",
-	CMD2 = Quote ++ Erl ++ Quote ++ NO_DOT_ERL ++ Args,
+	CMD2 = Prefix ++ Quote ++ Erl ++ Quote ++ NO_DOT_ERL ++ Args,
 	case lists:prefix(Wd, Other2 = os:cmd(CMD2)) of
 	    true -> io:format("~p: Success~n", [?LINE]);
 	    false ->
@@ -2331,7 +2336,7 @@ reg_print_proc() ->
 rh_print() ->
     receive
 	{print, {Module,Line}, [H|T]} ->
-	    ?t:format("=== ~p:~p - ~p",[Module,Line,H]),
+	    ?t:format("=== ~p:~p - ~tp",[Module,Line,H]),
 	    lists:foreach(fun(Term) -> ?t:format("    ~tp",[Term]) end, T),
 	    ?t:format("",[]),
 	    rh_print();

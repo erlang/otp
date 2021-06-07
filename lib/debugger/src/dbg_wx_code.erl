@@ -73,7 +73,6 @@ code_area(Parent) ->
 	       {?wxSTC_ERLANG_CHARACTER,{236,155,172}},
 	       {?wxSTC_ERLANG_MACRO,    {40,144,170}},
 	       {?wxSTC_ERLANG_RECORD,   {40,100,20}},
-	       {?wxSTC_ERLANG_SEPARATOR,{0,0,0}},
 	       {?wxSTC_ERLANG_NODE_NAME,{0,0,0}},
 	       %% Optional 2.9 stuff
 	       {?wxSTC_ERLANG_COMMENT_FUNCTION, {160,53,35}},

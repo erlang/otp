@@ -66,7 +66,16 @@ functions(Fs, Opts) ->
     lists:flatmap(fun ({Name, E}) -> function(Name, E, Opts) end, Fs).
 
 function(Name, #xmlElement{content = Es}, Opts) ->
-    TS = get_content(typespec, Es),
+    TSs = get_elem(typespec, Es),
+    case TSs of
+	[] ->
+	    spec_clause(Name, [], Opts);
+	[_|_] ->
+	    lists:concat([ spec_clause(Name, TS, Opts)
+			   || #xmlElement{content = TS} <- TSs ])
+    end.
+
+spec_clause(Name, TS, Opts) ->
     Spec = typespec(TS, Opts),
     [{spec,(Name
             ++ [?IND(2),{contract,Spec}]
@@ -252,10 +261,10 @@ diaf(L, St, " "++O, R, Opts) ->
 diaf(L, St, "\n"++O, R, Opts) ->
     Ss = lists:takewhile(fun(C) -> C =:= $\s end, O),
     diaf(L, St, lists:nthtail(length(Ss), O), ["\n"++Ss | R], Opts);
-diaf([{seealso, HRef0, S0} | L], St, O0, R, Opts) ->
+diaf([{seetype, HRef0, S0} | L], St, O0, R, Opts) ->
     {S, O} = diaf(S0, app_fix(O0), Opts),
     HRef = fix_mod_ref(HRef0, Opts),
-    diaf(L, St, O, [{seealso, HRef, S} | R], Opts);
+    diaf(L, St, O, [{seetype, HRef, S} | R], Opts);
 diaf("="++L, St, "::"++O, R, Opts) ->
     %% EDoc uses "=" for record field types; Dialyzer uses "::". Maybe
     %% there should be an option for this, possibly affecting other
@@ -309,6 +318,14 @@ app_fix(L, I) -> % a bit slow
         _ -> app_fix(L, I+1)
     end.
 
+%% Translate edoc absolute links to local links
+fix_mod_ref([{marker, "specs://" ++ HRef}], Opts) ->
+    case string:split(HRef,"/",all) of
+        %% We don't need to prefix with "app:" on the link
+        %% it will be added later anyway
+        [_App, "doc", ModRef] ->
+            fix_mod_ref([{marker,ModRef}], Opts)
+    end;
 %% Remove the file suffix from module references.
 fix_mod_ref(HRef, #opts{file_suffix = ""}) ->
     HRef;
@@ -329,8 +346,8 @@ fix_mod_ref([{marker, S}]=HRef0, #opts{file_suffix = FS}) ->
 see(E, Es) ->
     case href(E) of
 	[] -> Es;
-	Ref ->
-	    [{seealso, Ref, Es}]
+        [{marker,Ref}] ->
+	    [{seetype, [{marker,lists:flatten(string:replace(Ref,"#type-","#"))}], Es}]
     end.
 
 href(E) ->

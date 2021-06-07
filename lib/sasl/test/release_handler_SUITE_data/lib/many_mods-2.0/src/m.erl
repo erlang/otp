@@ -8,4 +8,5 @@ start(NProcs) ->
 			       receive stop -> Cs end
 		       end) ||
 	       _ <- lists:seq(1,NProcs)],
+    [unlink(Pid) || Pid <- Pids],
     {Modules,Pids}.

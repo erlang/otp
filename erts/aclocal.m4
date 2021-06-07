@@ -1,7 +1,7 @@
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2018. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2020. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -116,44 +116,50 @@ dnl
 dnl LM_WINDOWS_ENVIRONMENT
 dnl
 dnl
-dnl Tries to determine thw windows build environment, i.e. 
-dnl MIXED_CYGWIN_VC or MIXED_MSYS_VC 
+dnl Tries to determine the windows build environment, i.e.
+dnl MIXED_VC or MIXED_MINGW
 dnl
 
 AC_DEFUN(LM_WINDOWS_ENVIRONMENT,
 [
+
+if test "X$windows_environment_" != "Xchecked"; then
+windows_environment_=checked
 MIXED_CYGWIN=no
 MIXED_MSYS=no
+MIXED_VSL=no
 
-AC_MSG_CHECKING(for mixed cygwin or msys and native VC++ environment)
+dnl MIXED_VC is Microsoft Visual C++ used as standard compiler
+MIXED_VC=no
+dnl MIXED_MINGW is mingw(32|64) used as standard compiler
+MIXED_MINGW=no
+
+AC_MSG_CHECKING(for mixed mingw-gcc and native VC++ environment)
 if test "X$host" = "Xwin32" -a "x$GCC" != "xyes"; then
 	if test -x /usr/bin/msys-?.0.dll; then
 	        CFLAGS="$CFLAGS -O2"
 		MIXED_MSYS=yes
 		AC_MSG_RESULT([MSYS and VC])
-		MIXED_MSYS_VC=yes
-		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_MSYS_VC"
+		MIXED_VC=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_VC"
 	elif test -x /usr/bin/cygpath; then
 		CFLAGS="$CFLAGS -O2"
 		MIXED_CYGWIN=yes
 		AC_MSG_RESULT([Cygwin and VC])
-		MIXED_CYGWIN_VC=yes
-		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_VC"
-	else		    
+		MIXED_VC=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_VC"
+        elif test -x /bin/wslpath; then
+		CFLAGS="$CFLAGS -O2"
+		MIXED_WSL=yes
+		AC_MSG_RESULT([WSL and VC])
+		MIXED_VC=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_VC"
+	else
 		AC_MSG_RESULT([undeterminable])
-		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
+		AC_MSG_ERROR(Seems to be mixed windows but not within any known env, cannot handle this!)
 	fi
 else
 	AC_MSG_RESULT([no])
-	MIXED_CYGWIN_VC=no
-	MIXED_MSYS_VC=no
-fi
-AC_SUBST(MIXED_CYGWIN_VC)
-AC_SUBST(MIXED_MSYS_VC)
-
-MIXED_VC=no
-if test "x$MIXED_MSYS_VC" = "xyes" -o  "x$MIXED_CYGWIN_VC" = "xyes" ; then
-   MIXED_VC=yes
 fi
 
 AC_SUBST(MIXED_VC)
@@ -163,42 +169,58 @@ if test "x$MIXED_MSYS" != "xyes"; then
    if test "X$host" = "Xwin32" -a "x$GCC" = x"yes"; then
 	if test -x /usr/bin/cygpath; then
 		CFLAGS="$CFLAGS -O2"
-		MIXED_CYGWIN=yes
 		AC_MSG_RESULT([yes])
-		MIXED_CYGWIN_MINGW=yes
-		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_MINGW"
+		MIXED_MINGW=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_MINGW"
 	else
 		AC_MSG_RESULT([undeterminable])
 		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
 	fi
     else
 	AC_MSG_RESULT([no])
-	MIXED_CYGWIN_MINGW=no
     fi
 else
-	MIXED_CYGWIN_MINGW=no
-fi	
-AC_SUBST(MIXED_CYGWIN_MINGW)
+   AC_MSG_CHECKING(for mixed MSYS and native MinGW environment)
+   if test "x$GCC" = x"yes"; then
+    	if test -x /usr/bin/msys-=.0.dll; then
+		CFLAGS="$CFLAGS -O2"
+		AC_MSG_RESULT([yes])
+		MIXED_MINGW=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_MINGW"
+	else
+		AC_MSG_RESULT([undeterminable])
+		AC_MSG_ERROR(Seems to be mixed windows but not with msys, cannot handle this!)
+	fi
+    else
+	AC_MSG_RESULT([no])
+    fi
+fi
+AC_SUBST(MIXED_MINGW)
 
 AC_MSG_CHECKING(if we mix cygwin with any native compiler)
 if test "X$MIXED_CYGWIN" = "Xyes"; then
-	AC_MSG_RESULT([yes])	
+	AC_MSG_RESULT([yes])
 else
 	AC_MSG_RESULT([no])
 fi
 
-AC_SUBST(MIXED_CYGWIN)
-	
 AC_MSG_CHECKING(if we mix msys with another native compiler)
 if test "X$MIXED_MSYS" = "Xyes" ; then
-	AC_MSG_RESULT([yes])	
+	AC_MSG_RESULT([yes])
 else
 	AC_MSG_RESULT([no])
 fi
 
-AC_SUBST(MIXED_MSYS)
-])		
-	
+AC_MSG_CHECKING(if we mix WSL with another native compiler)
+if test "X$MIXED_WSL" = "Xyes" ; then
+	AC_MSG_RESULT([yes])
+else
+	AC_MSG_RESULT([no])
+fi
+
+fi
+])
+
 dnl ----------------------------------------------------------------------
 dnl
 dnl LM_FIND_EMU_CC
@@ -221,6 +243,7 @@ AC_TRY_COMPILE([],[
 #endif
     __label__ lbl1;
     __label__ lbl2;
+    extern int magic(void);
     int x = magic();
     static void *jtab[2];
 
@@ -266,6 +289,7 @@ if test "$ac_cv_prog_emu_cc" != no; then
 #endif
     	__label__ lbl1;
     	__label__ lbl2;
+	extern int magic(void);
     	int x = magic();
     	static void *jtab[2];
 
@@ -340,19 +364,10 @@ dnl
 dnl Try to find perl version 5. If found set PERL to the absolute path
 dnl of the program, if not found set PERL to false.
 dnl
-dnl On some systems /usr/bin/perl is perl 4 and e.g.
-dnl /usr/local/bin/perl is perl 5. We try to handle this case by
-dnl putting a couple of 
-dnl Tries to handle the case that there are two programs called perl
-dnl in the path and one of them is perl 5 and the other isn't. 
-dnl
 AC_DEFUN(LM_PROG_PERL5,
 [AC_PATH_PROGS(PERL, perl5 perl, false,
    /usr/local/bin:/opt/local/bin:/usr/local/gnu/bin:${PATH})
-changequote(, )dnl
-dnl[ That bracket is needed to balance the right bracket below
-if test "$PERL" = "false" || $PERL -e 'exit ($] >= 5)'; then
-changequote([, ])dnl
+if test "$PERL" = "false"; then
   ac_cv_path_PERL=false
   PERL=false
 dnl  AC_MSG_WARN(perl version 5 not found)
@@ -449,28 +464,6 @@ case ${ac_cv_struct_sockaddr_sa_len} in
   *) ;;
 esac
 ])
-
-dnl ----------------------------------------------------------------------
-dnl
-dnl LM_STRUCT_EXCEPTION
-dnl
-dnl Check to see whether the system supports the matherr function
-dnl and its associated type "struct exception".
-dnl
-
-AC_DEFUN(LM_STRUCT_EXCEPTION,
-[AC_CACHE_CHECK([for struct exception (and matherr function)],
- ac_cv_struct_exception,
-AC_TRY_COMPILE([#include <math.h>],
-  [struct exception x; x.type = DOMAIN; x.type = SING;],
-  ac_cv_struct_exception=yes, ac_cv_struct_exception=no))
-
-case "${ac_cv_struct_exception}" in
-  "yes" ) AC_DEFINE(USE_MATHERR,[1],[Define if you have matherr() function and struct exception type]) ;;
-  *  ) ;;
-esac
-])
-
 
 dnl ----------------------------------------------------------------------
 dnl
@@ -788,12 +781,11 @@ $trust_test
   LIBS="$save_LIBS"
 
   if test "$LD_MAY_BE_WEAK" != "no"; then
-     check_for_clock_getres=
+    AC_CHECK_FUNCS([clock_get_attributes gethrtime])
   else
-     check_for_clock_getres=clock_getres
+    AC_CHECK_FUNCS([clock_getres clock_get_attributes gethrtime])
   fi
 
-  AC_CHECK_FUNCS([$check_for_clock_getres clock_get_attributes gethrtime])
   
   AC_CACHE_CHECK([for mach clock_get_time() with monotonic clock type], erl_cv_mach_clock_get_time_monotonic,
   [
@@ -1351,28 +1343,55 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
     ETHR_CHK_GCC_ATOMIC_OP__(__atomic_compare_exchange_n)
 
     ethr_have_gcc_native_atomics=no
-    ethr_arm_dbm_instr_val=0
+    ethr_arm_dbm_sy_instr_val=0
+    ethr_arm_dbm_st_instr_val=0
+    ethr_arm_dbm_ld_instr_val=0
     case "$GCC-$host_cpu" in
-	yes-arm*)
-	    AC_CACHE_CHECK([for ARM DMB instruction], ethr_cv_arm_dbm_instr,
+	yes-arm*|yes-aarch*)
+	    AC_CACHE_CHECK([for ARM 'dmb sy' instruction], ethr_cv_arm_dbm_sy_instr,
 			   [
-				ethr_cv_arm_dbm_instr=no
+				ethr_cv_arm_dbm_sy_instr=no
 				AC_TRY_LINK([],
 					    [
 						__asm__ __volatile__("dmb sy" : : : "memory");
-						__asm__ __volatile__("dmb st" : : : "memory");
 					    ],
-					    [ethr_cv_arm_dbm_instr=yes])
+					    [ethr_cv_arm_dbm_sy_instr=yes])
 			   ])
-	    if test $ethr_cv_arm_dbm_instr = yes; then
-		ethr_arm_dbm_instr_val=1
+	    if test $ethr_cv_arm_dbm_sy_instr = yes; then
+		ethr_arm_dbm_sy_instr_val=1
 		test $ethr_cv_64bit___atomic_compare_exchange_n = yes &&
 		    ethr_have_gcc_native_atomics=yes
+	    fi
+	    AC_CACHE_CHECK([for ARM 'dmb st' instruction], ethr_cv_arm_dbm_st_instr,
+			   [
+				ethr_cv_arm_dbm_st_instr=no
+				AC_TRY_LINK([],
+					    [
+						__asm__ __volatile__("dmb st" : : : "memory");
+					    ],
+					    [ethr_cv_arm_dbm_st_instr=yes])
+			   ])
+	    if test $ethr_cv_arm_dbm_st_instr = yes; then
+		ethr_arm_dbm_st_instr_val=1
+	    fi
+	    AC_CACHE_CHECK([for ARM 'dmb ld' instruction], ethr_cv_arm_dbm_ld_instr,
+			   [
+				ethr_cv_arm_dbm_ld_instr=no
+				AC_TRY_LINK([],
+					    [
+						__asm__ __volatile__("dmb ld" : : : "memory");
+					    ],
+					    [ethr_cv_arm_dbm_ld_instr=yes])
+			   ])
+	    if test $ethr_cv_arm_dbm_ld_instr = yes; then
+		ethr_arm_dbm_ld_instr_val=1
 	    fi;;
 	*)
 	    ;;
     esac
-    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION], [$ethr_arm_dbm_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM DMB instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION], [$ethr_arm_dbm_sy_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb sy' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_ST_INSTRUCTION], [$ethr_arm_dbm_st_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb st' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_LD_INSTRUCTION], [$ethr_arm_dbm_ld_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb ld' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
     test $ethr_cv_32bit___sync_val_compare_and_swap = yes &&
     	ethr_have_gcc_native_atomics=yes
     test $ethr_cv_64bit___sync_val_compare_and_swap = yes &&
@@ -1488,6 +1507,33 @@ AC_ARG_WITH(libatomic_ops,
 AC_ARG_WITH(with_sparc_memory_order,
 	    AS_HELP_STRING([--with-sparc-memory-order=TSO|PSO|RMO],
 			   [specify sparc memory order (defaults to RMO)]))
+
+AC_ARG_ENABLE(ppc-lwsync-instruction,
+AS_HELP_STRING([--enable-ppc-lwsync-instruction], [enable use of powerpc lwsync instruction])
+AS_HELP_STRING([--disable-ppc-lwsync-instruction], [disable use of powerpc lwsync instruction]),
+[ case "$enableval" in
+    no) enable_lwsync=no ;;
+    *)  enable_lwsync=yes ;;
+  esac ],
+[
+  AC_CHECK_SIZEOF(void *)
+  case $host_cpu-$ac_cv_sizeof_void_p in
+       macppc-8|powerpc-8|ppc-8|powerpc64-8|ppc64-8|powerpc64le-8|ppc64le-8|"Power Macintosh"-8)
+           enable_lwsync=yes;;
+       *)
+           enable_lwsync=undefined;;
+  esac ])
+
+case $enable_lwsync in
+     no)
+       AC_DEFINE(ETHR_PPC_HAVE_NO_LWSYNC, [1], [Define if you do not have the powerpc lwsync instruction])
+       ;;
+     yes)
+       AC_DEFINE(ETHR_PPC_HAVE_LWSYNC, [1], [Define if you have the powerpc lwsync instruction])
+       ;;
+     *)
+       ;;
+esac
 
 LM_CHECK_THR_LIB
 ERL_INTERNAL_LIBS
@@ -2741,6 +2787,28 @@ AC_DEFUN([LM_CHECK_ENABLE_CFLAG], [
     fi
 ])
 
+dnl
+dnl LM_CHECK_RUN_CFLAG
+dnl
+dnl As LM_CHECK_ENABLE_CFLAG but also runs the command. Required for testing
+dnl profile-guided optimization, for which the "use" step may require that the
+dnl binary created in the "generate" step runs.
+dnl
+AC_DEFUN([LM_CHECK_RUN_CFLAG], [
+    AC_MSG_CHECKING([whether $CC accepts $1...])
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="$1 $CFLAGS";
+    AC_TRY_RUN([],[return 0;],can_enable_flag=true,can_enable_flag=false)
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"; then
+        AS_VAR_SET($2, true)
+        AC_MSG_RESULT([yes])
+    else
+        AS_VAR_SET($2, false)
+        AC_MSG_RESULT([no])
+    fi
+])
+
 dnl ERL_TRY_LINK_JAVA(CLASSES, FUNCTION-BODY
 dnl                   [ACTION_IF_FOUND [, ACTION-IF-NOT-FOUND]])
 dnl Freely inspired by AC_TRY_LINK. (Maybe better to create a 
@@ -2800,7 +2868,10 @@ AC_DEFUN([LM_HARDWARE_ARCH], [
     ppc)	ARCH=ppc;;
     ppc64)	ARCH=ppc64;;
     ppc64le)	ARCH=ppc64le;;
+    powerpc64)	ARCH=ppc64;;
+    powerpc64le) ARCH=ppc64le;;
     "Power Macintosh")	ARCH=ppc;;
+    arm64)	ARCH=arm64;;
     armv5b)	ARCH=arm;;
     armv5teb)	ARCH=arm;;
     armv5tel)	ARCH=arm;;
@@ -2809,6 +2880,9 @@ AC_DEFUN([LM_HARDWARE_ARCH], [
     armv6hl)	ARCH=arm;;
     armv7l)	ARCH=arm;;
     armv7hl)	ARCH=arm;;
+    armv8*)	ARCH=arm;;
+    aarch64)	ARCH=arm64;;
+    aarch*)	ARCH=arm;;
     tile)	ARCH=tile;;
     e2k)        ARCH=e2k;;
     *)	 	ARCH=noarch;;
@@ -2846,8 +2920,8 @@ AC_DEFUN([LM_HARDWARE_ARCH], [
 	ARCH=ppc64
 	;;
     arm-8)
-	AC_MSG_RESULT(yes: adjusting ARCH=arm to ARCH=noarch)
-	ARCH=noarch
+	AC_MSG_RESULT(yes: adjusting ARCH=arm to ARCH=arm64)
+	ARCH=arm64
 	;;
     *)
 	AC_MSG_RESULT(no: ARCH is $ARCH)
@@ -2855,4 +2929,265 @@ AC_DEFUN([LM_HARDWARE_ARCH], [
     esac
 
     AC_SUBST(ARCH)
+])
+
+dnl
+dnl--------------------------------------------------------------------
+dnl Dynamic Erlang Drivers
+dnl
+dnl Linking to produce dynamic Erlang drivers to be loaded by Erlang's
+dnl Dynamic Driver Loader and Linker (DDLL). Below the prefix DED is an
+dnl abbreviation for `Dynamic Erlang Driver'.
+dnl
+dnl For DED we need something quite sloppy, which allows undefined references 
+dnl (notably driver functions) in the resulting shared library. 
+dnl Example of Makefile rule (and settings of macros):
+dnl
+dnl LIBS = @LIBS@
+dnl LD = @DED_LD@
+dnl LDFLAGS = @DED_LDFLAGS@
+dnl soname = @ldsoname@
+dnl
+dnl my_drv.so:   my_drv.o my_utils.o
+dnl              $(LD) $(LDFLAGS) $(soname) $@ -o $@ $^ -lc $(LIBS)
+dnl
+dnl--------------------------------------------------------------------
+dnl
+
+AC_DEFUN(ERL_DED,
+	[
+
+USER_LD=$LD
+USER_LDFLAGS="$LDFLAGS"
+
+LM_CHECK_THR_LIB
+
+DED_CC=$CC
+DED_GCC=$GCC
+
+DED_CFLAGS=
+DED_OSTYPE=unix
+case $host_os in
+     linux*)
+	DED_CFLAGS="-D_GNU_SOURCE" ;;
+     win32)
+	DED_CFLAGS="-D_WIN32_WINNT=0x0600 -DWINVER=0x0600"
+        DED_OSTYPE=win32 ;;
+     *)
+        ;;
+esac
+
+
+DED_WARN_FLAGS="-Wall -Wstrict-prototypes"
+case "$host_cpu" in
+  tile*)
+    # tile-gcc is a bit stricter with -Wmissing-prototypes than other gccs,
+    # and too strict for our taste.
+    ;;
+  *)
+    DED_WARN_FLAGS="$DED_WARN_FLAGS -Wmissing-prototypes";;
+esac
+  
+LM_TRY_ENABLE_CFLAG([-Wdeclaration-after-statement], [DED_WARN_FLAGS])
+
+LM_TRY_ENABLE_CFLAG([-Werror=return-type], [DED_WERRORFLAGS])
+LM_TRY_ENABLE_CFLAG([-Werror=implicit], [DED_WERRORFLAGS])
+LM_TRY_ENABLE_CFLAG([-Werror=undef], [DED_WERRORFLAGS])
+
+DED_SYS_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host -I${ERL_TOP}/erts/include/internal -I${ERL_TOP}/erts/include/internal/$host -I${ERL_TOP}/erts/emulator/sys/$DED_OSTYPE -I${ERL_TOP}/erts/emulator/sys/common"
+DED_INCLUDE=$DED_SYS_INCLUDE
+
+if test "$THR_DEFS" = ""; then
+    DED_THR_DEFS="-D_THREAD_SAFE -D_REENTRANT"
+else
+    DED_THR_DEFS="$THR_DEFS"
+fi
+# DED_EMU_THR_DEFS=$EMU_THR_DEFS
+DED_CFLAGS="$CFLAGS $CPPFLAGS $DED_CFLAGS"
+if test "x$GCC" = xyes; then
+    # Use -fno-common for gcc, that is link error if multiple definitions of
+    # global variables are encountered. This is ISO C compliant.
+    # Until version 10, gcc has had -fcommon as default, which allows and merges
+    # such dubious duplicates.
+    LM_TRY_ENABLE_CFLAG([-fno-common], [DED_CFLAGS])
+
+    DED_STATIC_CFLAGS="$DED_CFLAGS"
+    DED_CFLAGS="$DED_CFLAGS -fPIC"
+    # Remove -fPIE and -fno-PIE
+    DED_CFLAGS=`echo $DED_CFLAGS | sed 's/-f\(no-\)\?PIE//g'`
+fi
+
+DED_EXT=so
+case $host_os in
+    win32) DED_EXT=dll;;
+    darwin*)
+	DED_CFLAGS="$DED_CFLAGS -fno-common"
+	DED_STATIC_CFLAGS="$DED_STATIC_CFLAGS -fno-common";;
+    *)
+	;;
+esac
+
+DED_STATIC_CFLAGS="$DED_STATIC_CFLAGS -DSTATIC_ERLANG_NIF -DSTATIC_ERLANG_DRIVER"
+
+if test "$CFLAG_RUNTIME_LIBRARY_PATH" = ""; then
+
+  CFLAG_RUNTIME_LIBRARY_PATH="-Wl,-R"
+  case $host_os in
+    darwin*)
+	CFLAG_RUNTIME_LIBRARY_PATH=
+	;;
+    win32)
+	CFLAG_RUNTIME_LIBRARY_PATH=
+	;;
+    osf*)
+	CFLAG_RUNTIME_LIBRARY_PATH="-Wl,-rpath,"
+	;;
+    *)
+	;;
+  esac
+
+fi
+
+# If DED_LD is set in environment, we expect all DED_LD* variables
+# to be specified (cross compiling)
+if test "x$DED_LD" = "x"; then
+
+DED_LDFLAGS_CONFTEST=
+
+DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
+case $host_os in
+	win32)
+		DED_LD="ld.sh"
+		DED_LDFLAGS="-dll"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
+	;;
+	solaris2*|sysv4*)
+		DED_LDFLAGS="-G"
+		if test X${enable_m64_build} = Xyes; then
+			DED_LDFLAGS="-64 $DED_LDFLAGS"
+		fi
+	;;
+	aix*|os400*)
+		DED_LDFLAGS="-G -bnoentry -bexpall"
+	;;
+	freebsd2*)
+		# Non-ELF GNU linker
+		DED_LDFLAGS="-Bshareable"
+	;;
+	darwin*)
+		# Mach-O linker: a shared lib and a loadable
+		# object file is not the same thing.
+		DED_LDFLAGS="-bundle -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
+		# DED_LDFLAGS_CONFTEST is for use in configure tests only. We
+		# cannot use DED_LDFLAGS in configure tests since beam.smp has not
+		# been built yet...
+		DED_LDFLAGS_CONFTEST="-bundle"
+		if test X${enable_m64_build} = Xyes; then
+		  DED_LDFLAGS="-m64 $DED_LDFLAGS"
+		else
+		  if test X${enable_m32_build} = Xyes; then
+		    DED_LDFLAGS="-m32 $DED_LDFLAGS"
+		  else
+		    AC_CHECK_SIZEOF(void *)
+		    case "$ac_cv_sizeof_void_p" in
+		      8)
+			DED_LDFLAGS="-m64 $DED_LDFLAGS";;
+		      *)
+		        ;;
+		    esac
+		  fi
+		fi
+		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
+	;;
+	linux*)
+		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
+		DED_LDFLAGS="-shared -Wl,-Bsymbolic"
+		if test X${enable_m64_build} = Xyes; then
+			DED_LDFLAGS="-m64 $DED_LDFLAGS"
+		fi;
+		if test X${enable_m32_build} = Xyes; then
+			DED_LDFLAGS="-m32 $DED_LDFLAGS"
+		fi
+	;;	
+	freebsd*)
+		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
+		DED_LDFLAGS="-shared"
+		if test X${enable_m64_build} = Xyes; then
+			DED_LDFLAGS="-m64 $DED_LDFLAGS"
+		fi;
+		if test X${enable_m32_build} = Xyes; then
+			DED_LDFLAGS="-m32 $DED_LDFLAGS"
+		fi
+	;;	
+	openbsd*)
+		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
+		DED_LDFLAGS="-shared"
+	;;
+	osf*)
+		# NOTE! Whitespace after -rpath is important.
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-rpath "
+		DED_LDFLAGS="-shared -expect_unresolved '*'"
+	;;
+	*)
+		# assume GNU linker and ELF
+		DED_LDFLAGS="-shared"
+		# GNU linker has no option for 64bit build, should not propagate -m64
+	;;
+esac
+
+if test "$DED_LD" = "" && test "$USER_LD" != ""; then
+    DED_LD="$USER_LD"
+    DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
+fi
+
+DED_LIBS=$LIBS
+
+fi # "x$DED_LD" = "x"
+
+test "$DED_LDFLAGS_CONFTEST" != "" || DED_LDFLAGS_CONFTEST="$DED_LDFLAGS"
+
+AC_CHECK_TOOL(DED_LD, ld, false)
+test "$DED_LD" != "false" || AC_MSG_ERROR([No linker found])
+
+AC_MSG_CHECKING(for static compiler flags)
+DED_STATIC_CFLAGS="$DED_WERRORFLAGS $DED_WFLAGS $DED_THR_DEFS $DED_STATIC_CFLAGS"
+AC_MSG_RESULT([$DED_STATIC_CFLAGS])
+AC_MSG_CHECKING(for basic compiler flags for loadable drivers)
+DED_BASIC_CFLAGS=$DED_CFLAGS
+AC_MSG_RESULT([$DED_CFLAGS])
+AC_MSG_CHECKING(for compiler flags for loadable drivers)
+DED_CFLAGS="$DED_WERRORFLAGS $DED_WARN_FLAGS $DED_THR_DEFS $DED_CFLAGS"
+AC_MSG_RESULT([$DED_CFLAGS])
+AC_MSG_CHECKING(for linker for loadable drivers)
+AC_MSG_RESULT([$DED_LD])
+AC_MSG_CHECKING(for linker flags for loadable drivers)
+AC_MSG_RESULT([$DED_LDFLAGS])
+AC_MSG_CHECKING(for 'runtime library path' linker flag)
+if test "x$DED_LD_FLAG_RUNTIME_LIBRARY_PATH" != "x"; then
+	AC_MSG_RESULT([$DED_LD_FLAG_RUNTIME_LIBRARY_PATH])
+else
+	AC_MSG_RESULT([not found])
+fi
+
+AC_SUBST(DED_CC)
+AC_SUBST(DED_GCC)
+AC_SUBST(DED_EXT)
+AC_SUBST(DED_SYS_INCLUDE)
+AC_SUBST(DED_INCLUDE)
+AC_SUBST(DED_BASIC_CFLAGS)
+AC_SUBST(DED_CFLAGS)
+AC_SUBST(DED_STATIC_CFLAGS)
+AC_SUBST(DED_WARN_FLAGS)
+AC_SUBST(DED_WERRORFLAGS)
+AC_SUBST(DED_LD)
+AC_SUBST(DED_LDFLAGS)
+AC_SUBST(DED_LD_FLAG_RUNTIME_LIBRARY_PATH)
+AC_SUBST(DED_LIBS)
+AC_SUBST(DED_THR_DEFS)
+AC_SUBST(DED_OSTYPE)
+
 ])

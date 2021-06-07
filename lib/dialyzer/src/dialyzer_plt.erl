@@ -520,7 +520,7 @@ compute_new_md5_1([], NewList, Diff) ->
 -spec compute_implementation_md5() -> [file_md5()].
 
 compute_implementation_md5() ->
-  Dir = code:lib_dir(hipe),
+  Dir = code:lib_dir(dialyzer),
   Files1 = ["erl_bif_types.beam", "erl_types.beam"],
   Files2 = [filename:join([Dir, "ebin", F]) || F <- Files1],
   compute_md5_from_files(Files2).
@@ -539,7 +539,7 @@ compute_md5_from_file(File) ->
       Filtered = [[ID, Chunk] || {ID, Chunk} <- Chunks, ID =/= "CInf", ID =/= "Docs"],
       erlang:md5(lists:sort(Filtered));
     {error, beam_lib, {file_error, _, enoent}} ->
-      Msg = io_lib:format("Not a regular file: ~ts\n", [File]),
+      Msg = io_lib:format("File not found: ~ts\n", [File]),
       throw({dialyzer_error, Msg});
     {error, beam_lib, _} ->
       Msg = io_lib:format("Could not compute MD5 for .beam: ~ts\n", [File]),

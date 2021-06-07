@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2018. All Rights Reserved.
+# Copyright Ericsson AB 2010-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -96,6 +96,12 @@ APPUP_FILE   = diameter.appup
 APPUP_SRC    = $(APPUP_FILE).src
 APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 
+ifeq ($(TARGET),win32)
+  EXE_SUFFIX=.exe
+else
+  EXE_SUFFIX=
+endif
+
 # ----------------------------------------------------
 # Flags
 # ----------------------------------------------------
@@ -123,7 +129,7 @@ ERL_COMPILE_FLAGS += \
 # erl/hrl from dictionary file.
 gen/diameter_gen_%.erl gen/diameter_gen_%.hrl: dict/%.dia
 	$(dia_verbose) \
-	escript ../bin/diameterc -o gen -i $(EBIN) $<
+	escript$(EXE_SUFFIX) ../bin/diameterc -o gen -i $(EBIN) $<
 
 opt: $(TARGET_FILES)
 
@@ -210,24 +216,28 @@ realclean: clean
 
 PLT = ./otp.plt
 
-plt:
+plt: $(PLT)
+
+$(PLT):
 	dialyzer --build_plt \
 	         --apps erts stdlib kernel \
 	                xmerl ssl public_key crypto \
 	                compiler syntax_tools runtime_tools \
-	         --output_plt $(PLT) \
+	         --output_plt $@ \
+	         --get_warnings \
+	         --statistics \
 	         --verbose
 
 dialyze: opt $(PLT)
 	dialyzer --plt $(PLT) \
 	         --verbose \
-	         -Wno_improper_lists \
 	         $(EBIN)/diameter_gen_base_rfc3588.$(EMULATOR) \
 	         $(patsubst %, $(EBIN)/%.$(EMULATOR), \
-	                $(notdir $(RT_MODULES) $(CT_MODULES) $(INFO_MODULES)))
-# Omit all but the common dictionary module since these
-# (diameter_gen_relay in particular) generate warning depending on how
-# much of the included diameter_gen.hrl they use.
+	                $(notdir $(DICT_YRL) \
+	                         $(RT_MODULES) \
+	                         $(CT_MODULES) \
+	                         $(DICT_MODULES) \
+	                         $(INFO_MODULES)))
 
 # ----------------------------------------------------
 # Release targets

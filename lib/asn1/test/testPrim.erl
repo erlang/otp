@@ -36,9 +36,10 @@ bool(Rules) ->
     [roundtrip(T, V) || T <- Types, V <- [true,false]],
     Tag = case Rules of
               ber -> encode_boolean;
+              jer -> {encode,'BOOLEAN'};
               _ -> illegal_boolean
           end,
-    [{Tag,517} = enc_error(T, 517) || T <- Types],
+    [{ok,517} = enc_error(Tag,T, 517) || T <- Types],
     ok.
 
 
@@ -62,15 +63,16 @@ int(Rules) ->
     _ = [roundtrip(T, V) || T <- Types, V <- [1|Values]],
     Tag = case Rules of
               ber -> encode_integer;
+              jer -> '_';
               _ -> illegal_integer
           end,
-    _ = [{Tag,V} = enc_error(T, V) ||
+    _ = [{ok,V} = enc_error(Tag,T, V) ||
             T <- Types, V <- [atom,42.0,{a,b,c}]],
     case Rules of
         ber ->
             ok;
         _ ->
-            _ = [{Tag,V} = enc_error('IntConstrained', V) ||
+            _ = [{ok,V} = enc_error(Tag,'IntConstrained', V) ||
                     V <- [atom,-1,256,42.0]]
     end,
 
@@ -108,8 +110,10 @@ int(Rules) ->
 
     ok.
 
-encoding(Rules, Type) ->
-    asn1_test_lib:hex_to_bin(encoding_1(Rules, Type)).
+encoding(jer,oneMicrodegreeEast) -> <<"10">>;
+encoding(jer,oneMicrodegreeWest) -> <<"-10">>;
+encoding(Rule, Val) ->
+    asn1_test_lib:hex_to_bin(encoding_1(Rule, Val)).
 
 encoding_1(ber, oneMicrodegreeEast) -> "02010A";
 encoding_1(per, oneMicrodegreeEast) -> "C06B49D2 09";
@@ -130,16 +134,19 @@ enum(Rules) ->
     roundtrip('Enum', thursday),
     Tag = case Rules of
               ber -> enumerated_not_in_range;
+              jer -> '_';
               _ -> illegal_enumerated
           end,
-    {Tag,4} = enc_error('Enum', 4),
+    {ok,4} = enc_error(Tag,'Enum', 4),
 
     case Rules of
 	Per when Per =:= per; Per =:= uper ->
 	    <<0>> = roundtrip('SingleEnumVal', true),
 	    <<0>> = roundtrip('SingleEnumValExt', true);
 	ber ->
-	    ok
+	    ok;
+        jer ->
+            ok
     end,
 
     roundtrip('NegEnumVal', neg),
@@ -192,22 +199,29 @@ roundtrip(Type, Value, ExpectedValue) ->
 	    Enc
     end.
 
-enc_error(T, V) ->
-    case get(no_ok_wrapper) of
-	false ->
-	    {error,{asn1,{Reason,Stk}}} = 'Prim':encode(T, V),
-            [{_,_,_,_}|_] = Stk,
-            Reason;
-	true ->
-	    try 'Prim':encode(T, V) of
-		_ ->
-		    ?t:fail()
-	    catch
-		_:{error,{asn1,Reason}} ->
-		    Reason
-	    end
+enc_error(Tag,T, V) ->
+    {Rtag,Val} = case get(no_ok_wrapper) of
+                     false ->
+                         {error,{asn1,{Reason,Stk}}} = 'Prim':encode(T, V),
+                         [{_,_,_,_}|_] = Stk,
+                         Reason;
+                     true ->
+                         try 'Prim':encode(T, V) of
+                             _ ->
+                                 ?t:fail()
+                         catch
+                             _:{error,{asn1,Reason}} ->
+                                 Reason
+                         end
+                 end,
+    case Tag of
+        '_' -> % Any tag is accepted 
+            {ok,Val};
+        Rtag -> % A specific tag given as first argument is accepted
+            {ok,Val}
     end.
 
+real(jer) -> ok; % Temporary workaround
 real(_Rules) ->
     %%==========================================================
     %% AngleInRadians ::= REAL

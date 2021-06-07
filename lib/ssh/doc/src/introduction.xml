@@ -48,8 +48,8 @@
     <list type="bulleted">
       <item>API functions to write customized SSH clients and servers applications</item>
       <item>The Erlang shell available over SSH</item>
-      <item>An SFTP client (<seealso marker="ssh_sftp">ssh_sftp</seealso>)
-      and server (<seealso marker="ssh_sftp">ssh_sftpd</seealso>)</item>
+      <item>An SFTP client (<seeerl marker="ssh_sftp">ssh_sftp</seeerl>)
+      and server (<seeerl marker="ssh_sftp">ssh_sftpd</seeerl>)</item>
     </list>
   </section>
 
@@ -77,7 +77,7 @@
       authentication, and integrity protection. A minimum of
       Message Authentication Code (MAC) and encryption
       algorithms are supported. For details, see the
-      <seealso marker="ssh">ssh(3)</seealso> manual page in <c>ssh</c>.</p>
+      <seeerl marker="ssh">ssh(3)</seeerl> manual page in <c>ssh</c>.</p>
     </section>
 
     <section>
@@ -106,17 +106,17 @@
       </list>
       <p>Several configuration options for
       authentication handling are available in
-      <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso>
-      and <seealso marker="ssh#daemon-2">ssh:daemon/[2,3]</seealso>.</p>
+      <seemfa marker="ssh#connect/3">ssh:connect/[3,4]</seemfa>
+      and <seemfa marker="ssh#daemon/2">ssh:daemon/[2,3]</seemfa>.</p>
       <p>
       The public key handling can be customized by implementing
       the following behaviours from <c>ssh</c>:</p>
       <list type="bulleted">
 	<item>Module
-      <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso>.
+      <seeerl marker="ssh_client_key_api">ssh_client_key_api</seeerl>.
 	</item>
 	<item>Module
-      <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
+      <seeerl marker="ssh_server_key_api">ssh_server_key_api</seeerl>.
 	</item>
       </list>
     </section>
@@ -128,8 +128,8 @@
       services over the transport pipe, for example, channel multiplexing,
       flow control, remote program execution, signal propagation, and
       connection forwarding. Functions for handling the SSH
-      Connection Protocol can be found in the module <seealso
-      marker="ssh_connection">ssh_connection</seealso> in <c>ssh</c>.
+      Connection Protocol can be found in the module <seeerl
+      marker="ssh_connection">ssh_connection</seeerl> in <c>ssh</c>.
       </p>
     </section>
 
@@ -145,7 +145,7 @@
       data that can be sent to the channel peer without adjusting the
       window. Typically, an SSH client opens a channel, sends data (commands),
       receives data (control information), and then closes the channel.
-      The <seealso marker="ssh_client_channel">ssh_client_channel</seealso> behaviour
+      The <seeerl marker="ssh_client_channel">ssh_client_channel</seeerl> behaviour
       handles generic parts of SSH channel management. This makes it easy
       to write your own SSH client/server processes that use flow-control
       and thus opens for more focus on the application logic.
@@ -155,8 +155,8 @@
 
       <list type="bulleted">
 	<item><em>Subsystem</em> - Named services that can be run as
-	part of an SSH server, such as SFTP <seealso
-	marker="ssh_sftpd">(ssh_sftpd)</seealso>, that is built into the
+	part of an SSH server, such as SFTP <seeerl
+	marker="ssh_sftpd">(ssh_sftpd)</seeerl>, that is built into the
 	SSH daemon (server) by default, but it can be disabled. The Erlang <c>ssh</c>
 	daemon can be configured to run any Erlang-
 	implemented SSH subsystem.
@@ -168,7 +168,7 @@
 	but that is much more work.
 	</item>
 	<item><em>Exec</em> - One-time remote execution of commands. See function
-	<seealso marker="ssh_connection#exec-4">ssh_connection:exec/4</seealso>
+	<seemfa marker="ssh_connection#exec/4">ssh_connection:exec/4</seemfa>
 	for more information.</item>
       </list>
     </section>

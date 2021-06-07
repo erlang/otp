@@ -27,7 +27,6 @@ SPECIAL_TARGETS =
 
 include $(ERL_TOP)/make/otp_subdir.mk
 
-info:
-	@echo "APP_VSN = $(APP_VSN)"
+DIA_PLT_APPS=ssl runtime_tools syntax_tools
 
-.PHONY: info
+include $(ERL_TOP)/make/app_targets.mk

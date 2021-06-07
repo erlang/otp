@@ -24,7 +24,7 @@
 	 lookup_mime_default/3, reason_phrase/1, message/3, rfc1123_date/0,
 	 rfc1123_date/1, day/1, month/1,
 	 flatlength/1, split_path/1, split_script_path/1, 
-	 suffix/1, split/3, uniq/1,
+	 suffix/1, strip_extension_dot/1, split/3, uniq/1,
 	 make_name/2,make_name/3,make_name/4,strip/1,
 	 hexlist_to_integer/1,integer_to_hexlist/1,
 	 convert_request_date/1,create_etag/1,create_etag/2,
@@ -33,8 +33,17 @@
 	 dir_validate/2, file_validate/2, mime_type_validate/1, 
 	 mime_types_validate/1, custom_date/0, error_log/2]).
 
+-deprecated({flatlength, 1, "use erlang:iolist_size/1 instead"}).
+-deprecated({hexlist_to_integer, 1, "use erlang:list_to_integer/2 with base 16 instead"}).
+-deprecated({integer_to_hexlist, 1, "use erlang:integer_to_list/2 with base 16 instead"}).
+-deprecated({strip, 1, "use string:trim/1 instead"}).
+-deprecated({suffix, 1, "use filename:extension/1 and string:trim/2 instead"}).
+
+-compile({nowarn_deprecated_function, [{http_uri, encode, 1}]}).
+-compile({nowarn_deprecated_function, [{http_uri, decode, 1}]}).
 -export([encode_hex/1, decode_hex/1]).
 -include_lib("kernel/include/file.hrl").
+-include_lib("inets/include/httpd.hrl").
 
 ip_address({_,_,_,_} = Address, _IpFamily) ->
     {ok, Address};
@@ -166,7 +175,7 @@ reason_phrase(_) -> "Internal Server Error".
 %% message
 
 message(301,URL,_) ->
-    "The document has moved <A HREF=\""++ maybe_encode(URL) ++"\">here</A>.";
+    "The document has moved <A HREF=\""++ html_encode(URL) ++"\">here</A>.";
 message(304, _URL,_) ->
     "The document has not been changed.";
 message(400, none, _) ->
@@ -183,11 +192,11 @@ browser doesn't understand how to supply
 the credentials required.";
 message(403,RequestURI,_) ->
     "You don't have permission to access " ++ 
-	html_encode(RequestURI) ++ 
+	html_encode(RequestURI) ++
 	" on this server.";
 message(404,RequestURI,_) ->
     "The requested URL " ++ 
-	html_encode(RequestURI) ++ 
+	html_encode(RequestURI) ++
 	" was not found on this server.";
 message(408, Timeout, _) ->
     Timeout;
@@ -202,7 +211,7 @@ message(500,_,ConfigDB) ->
     "The server encountered an internal error or "
 	"misconfiguration and was unable to complete "
 	"your request.<P>Please contact the server administrator "
-	++ html_encode(ServerAdmin) ++ 
+	++ html_encode(ServerAdmin) ++
 	", and inform them of the time the error occurred "
 	"and anything you might have done that may have caused the error.";
 
@@ -211,12 +220,12 @@ message(501,{Method, RequestURI, HTTPVersion}, _ConfigDB) ->
 	is_atom(Method) ->
 	    atom_to_list(Method) ++
 		" to " ++ 
-		html_encode(RequestURI) ++ 
+		html_encode(RequestURI) ++
 		" (" ++ HTTPVersion ++ ") not supported.";
 	is_list(Method) ->
 	    Method ++
 		" to " ++ 
-		html_encode(RequestURI) ++ 
+		html_encode(RequestURI) ++
 		" (" ++ HTTPVersion ++ ") not supported."
     end;
 
@@ -224,23 +233,9 @@ message(503, String, _ConfigDB) ->
     "This service in unavailable due to: " ++ html_encode(String);
 message(_, ReasonPhrase, _) ->
     html_encode(ReasonPhrase).
-
-maybe_encode(URI) ->
-    Decoded = try http_uri:decode(URI) of
-	N -> N
-    catch
-	error:_ -> URI
-    end,
-    http_uri:encode(Decoded).
-
+                
 html_encode(String) ->
-    try http_uri:decode(String) of
-	Decoded when is_list(Decoded) ->
-	    http_util:html_encode(Decoded)
-    catch 
-	_:_ ->
-	    http_util:html_encode(String)
-    end.
+    http_util:html_encode(String).
 
 %%convert_rfc_date(Date)->{{YYYY,MM,DD},{HH,MIN,SEC}}
 
@@ -265,7 +260,7 @@ convert_rfc850_date(DateStr) ->
 
 convert_rfc850_date([D1,D2,_,
 		     M,O,N,_,
-		     Y1,Y2|_Rest],[H1,H2,_Col,M1,M2,_Col,S1,S2|_Rest2])->    
+		     Y1,Y2|_Rest],[H1,H2,Col,M1,M2,Col,S1,S2|_Rest2])->    
     Year=list_to_integer([50,48,Y1,Y2]),
     Day=list_to_integer([D1,D2]),
     Month = http_util:convert_month([M,O,N]),
@@ -274,12 +269,12 @@ convert_rfc850_date([D1,D2,_,
     Sec=list_to_integer([S1,S2]),
     {ok,{{Year,Month,Day},{Hour,Min,Sec}}}.
 
-convert_ascii_date([_D,_A,_Y,_SP,
-		    M,O,N,_SP,
-		    D1,D2,_SP,
-		    H1,H2,_Col,
-		    M1,M2,_Col,
-		    S1,S2,_SP,
+convert_ascii_date([_D,_A,_Y,SP,
+		    M,O,N,SP,
+		    D1,D2,SP,
+		    H1,H2,Col,
+		    M1,M2,Col,
+		    S1,S2,SP,
 		    Y1,Y2,Y3,Y4| _Rest])->
     Year=list_to_integer([Y1,Y2,Y3,Y4]),
     Day=case D1 of 
@@ -294,12 +289,12 @@ convert_ascii_date([_D,_A,_Y,_SP,
     Sec=list_to_integer([S1,S2]),
     {ok,{{Year,Month,Day},{Hour,Min,Sec}}}.
 
-convert_rfc1123_date([_D,_A,_Y,_C,_SP,
-		      D1,D2,_SP,
-		      M,O,N,_SP,
-		      Y1,Y2,Y3,Y4,_SP,
-		      H1,H2,_Col,
-		      M1,M2,_Col,
+convert_rfc1123_date([_D,_A,_Y,_C,SP,
+		      D1,D2,SP,
+		      M,O,N,SP,
+		      Y1,Y2,Y3,Y4,SP,
+		      H1,H2,Col,
+		      M1,M2,Col,
 		      S1,S2|_Rest]) -> 
     Year=list_to_integer([Y1,Y2,Y3,Y4]),
     Day=list_to_integer([D1,D2]),
@@ -419,23 +414,29 @@ flatlength([_H|T],L) ->
 flatlength([],L) ->
     L.
 
-%% split_path
+%% split_path, URI has been decoded once when validate
+%% and should only be decoded once(RFC3986, 2.4).
 
-split_path(Path) ->
-    case re:run(Path,"[\?].*\$", [{capture, first}]) of
-	%% A QUERY_STRING exists!
-	{match,[{Start,Length}]} ->
-	    {http_uri:decode(string:substr(Path,1,Start)),
-	     string:substr(Path,Start+1,Length)};
-	%% A possible PATH_INFO exists!
-	nomatch ->
-	    split_path(Path,[])
+split_path(URI) -> 
+    case uri_string:parse(URI) of
+       #{fragment := Fragment,
+         path := Path,
+         query := Query} ->
+            {Path, add_hashmark(Query, Fragment)};
+        #{path := Path,
+          query := Query} ->
+            {Path, Query};
+        #{path := Path} ->            
+            split_path(Path, [])
     end.
 
+add_hashmark(Query, Fragment) ->
+    Query ++ "#" ++ Fragment.
+   
 split_path([],SoFar) ->
-    {http_uri:decode(lists:reverse(SoFar)),[]};
+    {lists:reverse(SoFar),[]};
 split_path([$/|Rest],SoFar) ->
-    Path=http_uri:decode(lists:reverse(SoFar)),
+    Path=lists:reverse(SoFar),
     case file:read_file_info(Path) of
 	{ok,FileInfo} when FileInfo#file_info.type =:= regular ->
 	    {Path,[$/|Rest]};
@@ -447,58 +448,23 @@ split_path([$/|Rest],SoFar) ->
 split_path([C|Rest],SoFar) ->
     split_path(Rest,[C|SoFar]).
 
-%% split_script_path
+%% split_script_path, URI has been decoded once when validate
+%% and should only be decoded once(RFC3986, 2.4).
 
-split_script_path(Path) ->
-    case split_script_path(Path, []) of
-	{Script, AfterPath} ->
-	    {PathInfo, QueryString} = pathinfo_querystring(AfterPath),
-	    {Script, {PathInfo, QueryString}};
-	not_a_script ->
-	    not_a_script
+
+split_script_path(URI) -> 
+    case uri_string:parse(URI) of
+       #{fragment := _Fragment,
+         path := _Path,
+         query := _Query} ->
+            not_a_script;
+        #{path := Path,
+          query := Query} ->
+            {Script, PathInfo} = split_path(Path, []),
+            {Script, {PathInfo, Query}};
+        #{path := Path} ->            
+            split_path(Path, [])
     end.
-
-pathinfo_querystring(Str) ->
-    pathinfo_querystring(Str, []).
-pathinfo_querystring([], SoFar) ->
-    {lists:reverse(SoFar), []};
-pathinfo_querystring([$?|Rest], SoFar) ->
-    {lists:reverse(SoFar), Rest};
-pathinfo_querystring([C|Rest], SoFar) ->
-    pathinfo_querystring(Rest, [C|SoFar]).
-
-split_script_path([$?|QueryString], SoFar) ->
-    Path = http_uri:decode(lists:reverse(SoFar)),
-    case file:read_file_info(Path) of
-	{ok,FileInfo} when FileInfo#file_info.type =:= regular ->
-	    {Path, [$?|QueryString]};
-	{ok, _FileInfo} ->
-	    not_a_script;
-	{error, _Reason} ->
-	    not_a_script
-    end;
-split_script_path([], SoFar) ->
-    Path = http_uri:decode(lists:reverse(SoFar)),
-    case file:read_file_info(Path) of
-	{ok,FileInfo} when FileInfo#file_info.type =:= regular ->
-	    {Path, []};
-	{ok, _FileInfo} ->
-	    not_a_script;
-	{error, _Reason} ->
-	    not_a_script
-    end;
-split_script_path([$/|Rest], SoFar) ->
-    Path = http_uri:decode(lists:reverse(SoFar)),
-    case file:read_file_info(Path) of
-	{ok, FileInfo} when FileInfo#file_info.type =:= regular ->
-	    {Path, [$/|Rest]};
-	{ok, _FileInfo} ->
-	    split_script_path(Rest, [$/|SoFar]);
-	{error, _Reason} ->
-	    split_script_path(Rest, [$/|SoFar])
-    end;
-split_script_path([C|Rest], SoFar) ->
-    split_script_path(Rest,[C|SoFar]).
 
 %% suffix
 
@@ -510,6 +476,14 @@ suffix(Path) ->
 	    tl(Extension)
     end.
 
+%% strip_extension_dot
+strip_extension_dot(Path) ->
+    case filename:extension(Path) of
+	[] ->
+	    [];
+	Extension ->
+	    tl(Extension)
+    end.
 
 %% strip
 strip(Value)->
@@ -762,16 +736,33 @@ do_enable_debug([{Level,Modules}|Rest])
     end,
     do_enable_debug(Rest).
 
-error_log(ConfigDb, Error) ->
-    error_log(mod_log, ConfigDb, Error),
-    error_log(mod_disk_log, ConfigDb, Error).
-	
-error_log(Mod, ConfigDB, Error) ->
+
+error_log(ConfigDB, Report) ->
+    case lookup(ConfigDB, logger) of
+        undefined ->
+            mod_error_logging(mod_log, ConfigDB, Report),
+            mod_error_logging(mod_disk_log, ConfigDB, Report);
+        Logger  ->
+            Domain = proplists:get_value(error, Logger),
+            httpd_logger:log(error, Report, Domain),
+            %% Backwards compat
+            mod_error_logging(mod_log, ConfigDB, Report),
+            mod_error_logging(mod_disk_log, ConfigDB, Report)
+    end.
+
+mod_error_logging(Mod, ConfigDB, Report) ->
     Modules = httpd_util:lookup(ConfigDB, modules,
 				[mod_get, mod_head, mod_log]),
     case lists:member(Mod, Modules) of
 	true ->
-	    Mod:report_error(ConfigDB, Error);
+            %% Make it oneline string for backwards compatibility
+            Msg = httpd_logger:format(Report),
+            ErrorStr = lists:flatten(logger_formatter:format(#{level => error,
+                                                               msg => Msg,
+                                                               meta => #{}
+                                                              },
+                                                             #{template => [msg]})),
+            Mod:report_error(ConfigDB, ErrorStr);
 	_ ->
 	    ok
     end.

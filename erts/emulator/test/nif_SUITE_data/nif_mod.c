@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,13 @@
 
 #include "nif_mod.h"
 
+#if ERL_NIF_MAJOR_VERSION*100 + ERL_NIF_MINOR_VERSION >= 215
+# define HAVE_ENIF_MONITOR_PROCESS
+#endif
+#if ERL_NIF_MAJOR_VERSION*100 + ERL_NIF_MINOR_VERSION >= 216
+# define HAVE_ENIF_DYNAMIC_RESOURCE_CALL
+#endif
+
 #define CHECK(X) ((void)((X) || (check_abort(__LINE__),1)))
 #ifdef __GNUC__
 static void check_abort(unsigned line) __attribute__((noreturn));
@@ -42,6 +49,8 @@ static ERL_NIF_TERM am_null;
 static ERL_NIF_TERM am_resource_type;
 static ERL_NIF_TERM am_resource_dtor_A;
 static ERL_NIF_TERM am_resource_dtor_B;
+static ERL_NIF_TERM am_resource_down_D;
+static ERL_NIF_TERM am_resource_dyncall;
 static ERL_NIF_TERM am_return;
 
 static NifModPrivData* priv_data(ErlNifEnv* env)
@@ -56,6 +65,8 @@ static void init(ErlNifEnv* env)
     am_resource_type = enif_make_atom(env, "resource_type");
     am_resource_dtor_A = enif_make_atom(env, "resource_dtor_A");
     am_resource_dtor_B = enif_make_atom(env, "resource_dtor_B");
+    am_resource_down_D = enif_make_atom(env, "resource_down_D");
+    am_resource_dyncall = enif_make_atom(env, "resource_dyncall");
     am_return = enif_make_atom(env, "return");
 }
 
@@ -107,8 +118,35 @@ static void resource_dtor_B(ErlNifEnv* env, void* a)
 		      enif_sizeof_resource(a));
 }
 
-/* {resource_type, Ix|null, ErlNifResourceFlags in, "TypeName", dtor(A|B|null), ErlNifResourceFlags out}*/
-static void open_resource_type(ErlNifEnv* env, const ERL_NIF_TERM* arr)
+#ifdef HAVE_ENIF_MONITOR_PROCESS
+static void resource_down_D(ErlNifEnv* env, void* a, ErlNifPid* pid, ErlNifMonitor* mon)
+{
+    const char down_name[] = "resource_down_D_v"  STRINGIFY(NIF_LIB_VER);
+
+    add_call_with_arg(env, priv_data(env), down_name, (const char*)a,
+		      enif_sizeof_resource(a));
+}
+#endif
+
+#ifdef HAVE_ENIF_DYNAMIC_RESOURCE_CALL
+static void resource_dyncall(ErlNifEnv* env, void* obj, void* call_data)
+{
+    int* p = (int*)call_data;
+    *p += NIF_LIB_VER;
+}
+#endif
+
+
+
+/* {resource_type,
+    Ix|null,
+    ErlNifResourceFlags in,
+    "TypeName",
+    dtor(A|B|null),
+    ErlNifResourceFlags out
+    [, down(D|null)]}
+*/
+static void open_resource_type(ErlNifEnv* env, int arity, const ERL_NIF_TERM* arr)
 {
     NifModPrivData* data = priv_data(env);
     char rt_name[30];
@@ -132,10 +170,43 @@ static void open_resource_type(ErlNifEnv* env, const ERL_NIF_TERM* arr)
 	CHECK(enif_is_identical(arr[4], am_resource_dtor_B));
 	dtor = resource_dtor_B;
     }
+#ifdef HAVE_ENIF_MONITOR_PROCESS
+    if (arity == 7) {
+        ErlNifResourceTypeInit init;
+        init.dtor = dtor;
+        init.stop = NULL;
+	init.down = NULL;
 
-    got_ptr = enif_open_resource_type(env, NULL, rt_name, dtor,
-				      flags.e, &got_res.e);
+#  ifdef HAVE_ENIF_DYNAMIC_RESOURCE_CALL
+	init.members = 0xdead;
+	init.dyncall = (ErlNifResourceDynCall*) 0xdeadbeaf;
 
+	if (enif_is_identical(arr[6], am_resource_dyncall)) {
+            init.dyncall = resource_dyncall;
+	    init.members = 4;
+	    got_ptr = enif_init_resource_type(env, rt_name, &init,
+					      flags.e, &got_res.e);
+        }
+	else
+#  endif
+	{
+	    if (enif_is_identical(arr[6], am_resource_down_D)) {
+		init.down = resource_down_D;
+	    }
+	    else {
+		CHECK(enif_is_identical(arr[6], am_null));
+	    }
+	    got_ptr = enif_open_resource_type_x(env, rt_name, &init,
+						flags.e, &got_res.e);
+
+	}
+    }
+    else
+#endif
+    {
+        got_ptr = enif_open_resource_type(env, NULL, rt_name, dtor,
+                                          flags.e, &got_res.e);
+    }
     if (enif_get_uint(env, arr[1], &ix) && ix < RT_MAX && got_ptr != NULL) {
 	data->rt_arr[ix] = got_ptr;
     }
@@ -163,7 +234,8 @@ static void do_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info, int* retvalp)
 	CHECK(enif_get_tuple(env, head, &arity, &arr));
 	switch (arity) {
 	case 6:
-	    open_resource_type(env, arr);
+        case 7:
+	    open_resource_type(env, arity, arr);
 	    break;
 	case 2:
 	    CHECK(arr[0] == am_return);
@@ -290,13 +362,38 @@ static ERL_NIF_TERM get_resource(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     return enif_make_binary(env, &obin);
 }
 
+#ifdef HAVE_ENIF_MONITOR_PROCESS
+static ERL_NIF_TERM monitor_process(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    NifModPrivData* data = priv_data(env);
+    ErlNifPid pid;
+    unsigned ix;
+    void* obj;
+    int ret;
+
+    if (!enif_get_uint(env, argv[0], &ix) || ix >= RT_MAX
+	|| !enif_get_resource(env, argv[1], data->rt_arr[ix], &obj)
+        || !enif_get_local_pid(env, argv[2], &pid)) {
+	return enif_make_badarg(env);
+    }
+    ret = enif_monitor_process(env, obj, &pid, NULL);
+    return enif_make_int(env, ret);
+}
+#endif
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
     {"nif_api_version", 0, nif_api_version},
     {"get_priv_data_ptr", 0, get_priv_data_ptr},
     {"make_new_resource", 2, make_new_resource},
-    {"get_resource", 2, get_resource}
+    {"get_resource", 2, get_resource},
+#ifdef HAVE_ENIF_MONITOR_PROCESS
+    {"monitor_process", 3, monitor_process},
+#endif
+    /* Keep lib_version_check last to maximize the loading "patch distance"
+       between it and lib_version */
+    {"lib_version_check", 0, lib_version}
 };
 
 #if NIF_LIB_VER != 3

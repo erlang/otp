@@ -61,9 +61,13 @@ do_head(Info) ->
     Path = mod_alias:path(Info#mod.data,
 			  Info#mod.config_db,
 			  Info#mod.request_uri),
-    Suffix = httpd_util:suffix(Path),
+    Suffix = httpd_util:strip_extension_dot(Path),
     %% Does the file exists?
     case file:read_file_info(Path) of
+	{ok, #file_info{type = directory}} ->
+            Status = httpd_file:handle_error(eacces, "access", Info, Path),
+            {proceed,
+             [{status, Status} | Info#mod.data]};
 	{ok, FileInfo} ->
 	    MimeType = 
 		httpd_util:lookup_mime_default(Info#mod.config_db,

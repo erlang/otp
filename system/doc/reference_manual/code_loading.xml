@@ -43,7 +43,7 @@
       <c>.beam</c>. The compiler can also generate a binary which can
       be loaded directly.</p>
     <p>The compiler is located in the module <c>compile</c> (see the
-      <seealso marker="compiler:compile">compile(3)</seealso> manual page in
+      <seeerl marker="compiler:compile">compile(3)</seeerl> manual page in
       Compiler).</p>
     <pre>
 compile:file(Module)
@@ -52,16 +52,16 @@ compile:file(Module, Options)</pre>
       both compiles and loads <c>Module</c>.</p>
     <p>There is also a module <c>make</c>, which provides a set of
       functions similar to the UNIX type Make functions, see the
-      <seealso marker="tools:make">make(3)</seealso>
+      <seeerl marker="tools:make">make(3)</seeerl>
       manual page in Tools.</p>
     <p>The compiler can also be accessed from the OS prompt, see the
-      <seealso marker="erts:erl">erl(1)</seealso> manual page in ERTS.</p>
+      <seecom marker="erts:erl">erl(1)</seecom> manual page in ERTS.</p>
     <pre>
 % erl -compile <input>Module1</input>...<input>ModuleN</input>
 % erl -make</pre>
     <p>The <c>erlc</c> program provides an even better way to compile
       modules from the shell, see the
-      <seealso marker="erts:erlc">erlc(1)</seealso> manual page in ERTS.
+      <seecom marker="erts:erlc">erlc(1)</seecom> manual page in ERTS.
       It understands a
       number of flags that can be used to define macros, add search
       paths for include files, and more.</p>
@@ -74,7 +74,7 @@ compile:file(Module, Options)</pre>
     <title>Code Loading</title>
     <p>The object code must be <em>loaded</em> into the Erlang runtime
       system. This is handled by the <em>code server</em>, see the
-      <seealso marker="kernel:code">code(3)</seealso>
+      <seeerl marker="kernel:code">code(3)</seeerl>
       manual page in Kernel.</p>
     <p>The code server loads code according to a code loading strategy,
       which is either <em>interactive</em> (default) or
@@ -82,8 +82,8 @@ compile:file(Module, Options)</pre>
       a <em>code path</em> and loaded when first referenced. In
       embedded mode, code is loaded at start-up according to a
       <em>boot script</em>. This is described in
-      <seealso marker="doc/system_principles:system_principles#code_loading">
-      System Principles </seealso>.</p>
+      <seeguide marker="system/system_principles:system_principles#code_loading">
+      System Principles </seeguide>.</p>
   </section>
 
   <section>

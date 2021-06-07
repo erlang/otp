@@ -44,112 +44,138 @@
       parser generator, and the principle and problems of LALR parsing
       with finite look-ahead.</p>
   </description>
+
+  <datatypes>
+    <datatype>
+      <name name="error_info"></name>
+      <desc><p>The standard <c>error_info()</c> structure that is returned
+        from all I/O modules. <c><anno>ErrorDescriptor</anno></c> is formattable
+        by <seemfa marker="#format_error/1"><c>format_error/1</c></seemfa>.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
-      <name since="">file(Grammarfile [, Options]) -> YeccRet</name>
+      <name name="file" arity="1" since=""/>
+      <name name="file" arity="2" since=""/>
       <fsummary>Give information about resolved and unresolved parse action conflicts.</fsummary>
-      <type>
-        <v>Grammarfile = filename()</v>
-        <v>Options = Option | [Option]</v>
-        <v>Option =&nbsp;-&nbsp;see below&nbsp;-</v>
-        <v>YeccRet = {ok, Parserfile}  | {ok, Parserfile, Warnings}  | error  | {error, Errors, Warnings}</v>
-        <v>Parserfile = filename()</v>
-        <v>Warnings = Errors = [{filename(), [ErrorInfo]}]</v>
-        <v>ErrorInfo  = {ErrorLine, module(), Reason}</v>
-        <v>ErrorLine = integer()</v>
-        <v>Reason =&nbsp;-&nbsp;formatable by format_error/1&nbsp;-</v>
-      </type>
+      <type name="yecc_ret"/>
+      <type name="ok_ret"/>
+      <type name="error_ret"/>
+      <type name="errors"/>
+      <type name="warnings"/>
       <desc>
-        <p><c>Grammarfile</c> is the file of declarations and grammar
+        <p><c><anno>Grammarfile</anno></c> is the file of declarations and grammar
           rules. Returns <c>ok</c> upon success, or <c>error</c> if
           there are errors. An Erlang file containing the parser is
           created if there are no errors. The options are:
           </p>
         <taglist>
-          <tag><c>{parserfile, Parserfile}</c>.</tag>
-          <item><c>Parserfile</c> is the name of the file that will
-           contain the Erlang parser code that is generated. The
-           default (<c>""</c>) is to add the extension <c>.erl</c>
-           to <c>Grammarfile</c> stripped of the <c>.yrl</c>
-           extension.
-          </item>
-          <tag><c>{includefile, Includefile}</c>.</tag>
-          <item>Indicates a customized prologue file which the user
+          <tag><c>{includefile, <anno>Includefile</anno>}</c>.</tag>
+          <item><p>Indicates a customized prologue file which the user
            may want to use instead of the default file
           <c>lib/parsetools/include/yeccpre.hrl</c> which is
            otherwise included at the beginning of the resulting
-           parser file. <em>N.B.</em> The <c>Includefile</c> is
+           parser file. <em>N.B.</em> The <c><anno>Includefile</anno></c> is
            included 'as is' in the parser file, so it must not have a
            module declaration of its own, and it should not be
            compiled. It must, however, contain the necessary export
-           declarations. The default is indicated by <c>""</c>.
+           declarations. The default is indicated by <c>""</c>.</p>
           </item>
-          <tag><c>{report_errors, bool()}</c>.</tag>
-          <item>Causes errors to be printed as they occur. Default is
-          <c>true</c>.
+          <tag><c>{parserfile, <anno>Parserfile</anno>}</c>.</tag>
+          <item><p><c><anno>Parserfile</anno></c> is the name of the file that will
+           contain the Erlang parser code that is generated. The
+           default (<c>""</c>) is to add the extension <c>.erl</c>
+           to <c><anno>Grammarfile</anno></c> stripped of the <c>.yrl</c>
+           extension.</p>
           </item>
-          <tag><c>{report_warnings, bool()}</c>.</tag>
-          <item>Causes warnings to be printed as they occur. Default is
-          <c>true</c>.
+          <tag><c>{report_errors, boolean()}</c>.</tag>
+          <item><p>Causes errors to be printed as they occur. Default is
+          <c>true</c>.</p>
           </item>
-          <tag><c>{report, bool()}</c>.</tag>
-          <item>This is a short form for both <c>report_errors</c> and
-          <c>report_warnings</c>.
+          <tag><c>{report_warnings, boolean()}</c>.</tag>
+          <item><p>Causes warnings to be printed as they occur. Default is
+          <c>true</c>.</p>
           </item>
-          <tag><c>warnings_as_errors</c></tag>
-          <item>
-            <p>Causes warnings to be treated as errors.</p>
+          <tag><c>{report, boolean()}</c>.</tag>
+          <item><p>This is a short form for both <c>report_errors</c> and
+          <c>report_warnings</c>.</p>
           </item>
-          <tag><c>{return_errors, bool()}</c>.</tag>
-          <item>If this flag is set, <c>{error, Errors, Warnings}</c>
+          <tag><c>{return_errors, boolean()}</c>.</tag>
+          <item><p>If this flag is set,
+	   <c>{error, <anno>Errors</anno>, <anno>Warnings</anno>}</c>
            is returned when there are errors. Default is
-          <c>false</c>.
+          <c>false</c>.</p>
           </item>
-          <tag><c>{return_warnings, bool()}</c>.</tag>
-          <item>If this flag is set, an extra field containing
-          <c>Warnings</c> is added to the tuple returned upon
-           success. Default is <c>false</c>.
+          <tag><c>{return_warnings, boolean()}</c>.</tag>
+          <item><p>If this flag is set, an extra field containing
+          <c><anno>Warnings</anno></c> is added to the tuple returned upon
+           success. Default is <c>false</c>.</p>
           </item>
-          <tag><c>{return, bool()}</c>.</tag>
-          <item>This is a short form for both <c>return_errors</c> and
-          <c>return_warnings</c>.
+          <tag><c>{return, boolean()}</c>.</tag>
+          <item><p>This is a short form for both <c>return_errors</c> and
+          <c>return_warnings</c>.</p>
           </item>
-          <tag><c>{verbose, bool()}</c>. </tag>
-          <item>Determines whether the parser generator should give
+          <tag><c>{verbose, boolean()}</c>. </tag>
+          <item><p>Determines whether the parser generator should give
            full information about resolved and unresolved parse
            action conflicts (<c>true</c>), or only about those
            conflicts that prevent a parser from being generated from
-           the input grammar (<c>false</c>, the default).
+           the input grammar (<c>false</c>, the default).</p>
+          </item>
+          <tag><c>{warnings_as_errors, boolean()}</c></tag>
+          <item>
+            <p>Causes warnings to be treated as errors.</p>
+          </item>
+          <tag><c>{error_location, column | line}</c>.</tag>
+          <item>If the value of this flag is <c>line</c>, the location
+            of warnings and errors is a line number. If the value
+            is <c>column</c>, the location includes a line number and
+            a column number. Default is <c>column</c>.
           </item>
         </taglist>
         <p>Any of the Boolean options can be set to <c>true</c> by 
           stating the name of the option. For example, <c>verbose</c>
           is equivalent to <c>{verbose, true}</c>.
           </p>
-        <p>The value of the <c>Parserfile</c> option stripped of the
+        <p>The value of the <c><anno>Parserfile</anno></c> option stripped of the
           <c>.erl</c> extension is used by Yecc as the module name of
           the generated parser file.</p>
         <p>Yecc will add the extension <c>.yrl</c> to the
-          <c>Grammarfile</c> name, the extension <c>.hrl</c> to the
-          <c>Includefile</c> name, and the extension <c>.erl</c> to
-          the <c>Parserfile</c> name, unless the extension is already
+          <c><anno>Grammarfile</anno></c> name, the extension <c>.hrl</c> to the
+          <c><anno>Includefile</anno></c> name, and the extension <c>.erl</c> to
+          the <c><anno>Parserfile</anno></c> name, unless the extension is already
           there.</p>
       </desc>
     </func>
     <func>
-      <name since="">format_error(Reason) -> Chars</name>
-      <fsummary>Return an English description of a an error tuple.</fsummary>
-      <type>
-        <v>Reason =&nbsp;-&nbsp;as returned by yecc:file/1,2&nbsp;-</v>
-        <v>Chars = [char() | Chars]</v>
-      </type>
+      <name name="format_error" arity="1" since=""/>
+      <fsummary>Return an English description of an error reason.</fsummary>
       <desc>
-        <p>Returns a descriptive string in English of an error tuple
-          returned by <c>yecc:file/1,2</c>. This function is mainly
+        <p>Returns a descriptive string in English of an error reason
+          <c><anno>ErrorDescriptor</anno></c> returned by
+          <c>yecc:file/1,2</c>. This function is mainly
           used by the compiler invoking Yecc.</p>
       </desc>
     </func>
   </funcs>
+
+  <section>
+    <title>Default Yecc Options</title>
+    <p>The (host operating system) environment variable
+      <c>ERL_COMPILER_OPTIONS</c> can be used to give default Yecc
+      options. Its value must be a valid Erlang term. If the value is a
+      list, it is used as is. If it is not a list, it is put
+      into a list.</p>
+
+      <p>The list is appended to any options given to
+      <seemfa marker="#file/2">file/2</seemfa>.</p>
+
+      <p>The list can be retrieved with
+      <seemfa marker="compiler:compile#env_compiler_options/0">
+      compile:env_compiler_options/0</seemfa>.</p>
+  </section>
 
   <section>
     <title>Pre-Processing</title>

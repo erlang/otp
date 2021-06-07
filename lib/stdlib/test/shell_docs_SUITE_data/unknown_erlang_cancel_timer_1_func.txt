@@ -1,0 +1,9 @@
+
+  [;1m-spec erlang:cancel_timer(TimerRef) -> Result[0m
+  [;1m                             when[0m
+  [;1m                                 TimerRef :: reference(),[0m
+  [;1m                                 Time :: non_neg_integer(),[0m
+  [;1m                                 Result :: Time | false.[0m
+
+  Cancels a timer. The same as calling [;;4m[0m
+  [;;4merlang:cancel_timer(TimerRef, [])[0m.

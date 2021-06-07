@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 -module(guard_SUITE).
 
--include_lib("common_test/include/ct.hrl").
+-include_lib("syntax_tools/include/merl.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -31,17 +31,18 @@
 	 old_guard_tests/1,complex_guard/1,
 	 build_in_guard/1,gbif/1,
 	 t_is_boolean/1,is_function_2/1,
-	 tricky/1,rel_ops/1,rel_op_combinations/1,literal_type_tests/1,
+	 tricky/1,rel_ops/1,rel_op_combinations/1,
+         generated_combinations/1,literal_type_tests/1,
 	 basic_andalso_orelse/1,traverse_dcd/1,
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
 	 bad_constants/1,bad_guards/1,
          guard_in_catch/1,beam_bool_SUITE/1,
-         cover_beam_dead/1]).
+         repeated_type_tests/1,use_after_branch/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group,p}].
+    slow_group() ++ [{group,p}].
 
 groups() -> 
     [{p,[parallel],
@@ -52,10 +53,11 @@ groups() ->
        old_guard_tests,complex_guard,gbif,
        t_is_boolean,is_function_2,tricky,
        rel_ops,rel_op_combinations,
-       literal_type_tests,basic_andalso_orelse,traverse_dcd,
+       basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
        bad_constants,bad_guards,guard_in_catch,beam_bool_SUITE,
-       cover_beam_dead]}].
+       repeated_type_tests,use_after_branch]},
+     {slow,[],[literal_type_tests,generated_combinations]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -70,6 +72,15 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+slow_group() ->
+    case ?MODULE of
+	guard_SUITE ->
+            %% Canononical module name. Run slow cases.
+            [{group,slow}];
+        _ ->
+            %% Cloned module. Don't run.
+            []
+    end.
 
 misc(Config) when is_list(Config) ->
     42 = case id(42) of
@@ -1073,15 +1084,50 @@ on(V) when number(V) -> number;
 on(_) -> not_number.
 
 complex_guard(_Config) ->
-    _ = [true = do_complex_guard(X, Y, Z) ||
+    _ = [true = do_complex_guard_1(X, Y, Z) ||
 	    X <- [4,5], Y <- [4,5], Z <- [4,5]],
-    _ = [true = do_complex_guard(X, Y, Z) ||
+    _ = [true = do_complex_guard_1(X, Y, Z) ||
 	    X <- [1,2,3], Y <- [1,2,3], Z <- [1,2,3]],
-    _ = [catch do_complex_guard(X, Y, Z) ||
+    _ = [catch do_complex_guard_1(X, Y, Z) ||
 	    X <- [1,2,3,4,5], Y <- [0,6], Z <- [1,2,3,4,5]],
+
+    b = do_complex_guard_2(false, false, true),
+    c = do_complex_guard_2(false, false, false),
+    c = do_complex_guard_2(false, true,  true),
+    a = do_complex_guard_2(false, true,  false),
+
+    c = do_complex_guard_2(true,  false, true),
+    a = do_complex_guard_2(true,  false, false),
+    c = do_complex_guard_2(true,  true,  true),
+    a = do_complex_guard_2(true,  true,  false),
+
+    c = do_complex_guard_2(other, false, true),
+    c = do_complex_guard_2(other, false, false),
+    c = do_complex_guard_2(other, true,  true),
+    c = do_complex_guard_2(other, true,  false),
+
+    c = do_complex_guard_2(false, other, true),
+    c = do_complex_guard_2(false, other, false),
+    c = do_complex_guard_2(true,  other, true),
+    a = do_complex_guard_2(true,  other, false),
+
+    c = do_complex_guard_2(false, false, other),
+    c = do_complex_guard_2(false, true,  other),
+    c = do_complex_guard_2(true,  false, other),
+    c = do_complex_guard_2(true,  true,  other),
+
+    c = do_complex_guard_2(false, other, other),
+    c = do_complex_guard_2(true,  other, other),
+    c = do_complex_guard_2(other, other, true),
+    c = do_complex_guard_2(other, other, false),
+    c = do_complex_guard_2(other, false, other),
+    c = do_complex_guard_2(other, true,  other),
+
+    c = do_complex_guard_2(other, other, other),
+
     ok.
 
-do_complex_guard(X1, Y1, Z1) ->
+do_complex_guard_1(X1, Y1, Z1) ->
     if
 	((X1 =:= 4) or (X1 =:= 5)) and
 	((Y1 =:= 4) or (Y1 =:= 5)) and
@@ -1091,6 +1137,13 @@ do_complex_guard(X1, Y1, Z1) ->
 	((Z1 =:= 1) or (Z1 =:= 2) or (Z1 =:= 3)) ->
 	    true
     end.
+
+do_complex_guard_2(X, Y, Z) ->
+  if
+      (X orelse Y) andalso (not Z) -> a;
+      Z andalso (not (X orelse Y)) -> b;
+      true                         -> c
+  end.
 
 gbif(Config) when is_list(Config) ->
     error = gbif_1(1, {false,true}),
@@ -1154,6 +1207,11 @@ t_is_boolean(Config) when is_list(Config) ->
     false = my_is_bool([1,2,3,4]),
     false = my_is_bool({a,b,c}),
 
+    %% Cover code in beam_ssa_dead.
+    ok = bool_semi(true),
+    ok = bool_semi(false),
+    error = bool_semi(a),
+
     ok.
 
 bool(X) when is_boolean(X) -> ok;
@@ -1176,6 +1234,9 @@ my_is_bool_b(V) ->
 	true -> true;
 	_ -> false
     end.
+
+bool_semi(V) when is_boolean(V); is_atom(not V) -> ok;
+bool_semi(_) -> error.
 
 is_function_2(Config) when is_list(Config) ->
     true = is_function(id(fun ?MODULE:all/1), 1),
@@ -1212,6 +1273,10 @@ tricky(Config) when is_list(Config) ->
     error = tricky_3(#{}),
     error = tricky_3({a,b}),
 
+    {'EXIT',_} = (catch tricky_4(x)),
+    {'EXIT',_} = (catch tricky_4(42)),
+    {'EXIT',_} = (catch tricky_4(true)),
+
     ok.
 
 tricky_1(X, Y) when abs((X == 1) or (Y == 2)) -> ok;
@@ -1228,6 +1293,13 @@ tricky_3(X)
     ok;
 tricky_3(_) ->
     error.
+
+tricky_4(X) ->
+    B = (abs(X) or abs(X)) =:= true,
+    case B of
+        true -> ok;
+        false -> error
+    end.
 
 %% From dets_v9:read_buckets/11, simplified.
 
@@ -1297,6 +1369,32 @@ rel_ops(Config) when is_list(Config) ->
     Empty = id([]),
     ?T(==, [], Empty),
 
+    %% Cover beam_ssa_dead:turn_op('/=').
+    ok = (fun(A, B) when is_atom(A) ->
+                  X = id(A /= B),
+                  if
+                      X -> ok;
+                      true -> error
+                  end
+          end)(a, b),
+    ok = (fun(A, B) when is_atom(A) ->
+                  X = id(B /= A),
+                  if
+                        X -> ok;
+                        true -> error
+                    end
+            end)(a, b),
+
+    %% Cover beam_ssa_dead.
+    Arrow = fun([T1,T2]) when T1 == $>, T2 == $>;
+                              T1 == $<, T2 == $| ->  true;
+               (_) -> false
+            end,
+    true = Arrow(">>"),
+    true = Arrow("<|"),
+    false = Arrow("><"),
+    false = Arrow(""),
+
     ok.
 
 -undef(TestOp).
@@ -1316,7 +1414,9 @@ rel_op_combinations(Config) when is_list(Config) ->
     Red0 = [{I,2*I} || I <- lists:seq(0, 50)] ++
 	[{I,5*I} || I <- lists:seq(51, 80)],
     Red = gb_trees:from_orddict(Red0),
-    rel_op_combinations_3(100, Red).
+    rel_op_combinations_3(100, Red),
+
+    rel_op_combinations_4().
 
 rel_op_combinations_1(0, _) ->
     ok;
@@ -1330,6 +1430,9 @@ rel_op_combinations_1(N, Digits) ->
     Bool = is_digit_6(N),
     Bool = is_digit_7(N),
     Bool = is_digit_8(N),
+    Bool = is_digit_9(42, N),
+    Bool = is_digit_10(N, 0),
+    Bool = is_digit_11(N, 0),
     rel_op_combinations_1(N-1, Digits).
 
 is_digit_1(X) when 16#0660 =< X, X =< 16#0669 -> true;
@@ -1372,6 +1475,24 @@ is_digit_8(X) when X =< 16#06F9, X > (16#06F0-1) -> true;
 is_digit_8(X) when X =< 16#0669, X > (16#0660-1) -> true;
 is_digit_8(16#0670) -> false;
 is_digit_8(_) -> false.
+
+is_digit_9(A, 0) when A =:= 42 -> false;
+is_digit_9(_, X) when X > 16#065F, X < 16#066A -> true;
+is_digit_9(_, X) when 16#0030 =< X, X =< 16#0039 -> true;
+is_digit_9(_, X) when 16#06F0 =< X, X =< 16#06F9 -> true;
+is_digit_9(_, _) -> false.
+
+is_digit_10(0, 0) -> false;
+is_digit_10(X, _) when X < 16#066A, 16#0660 =< X -> true;
+is_digit_10(X, _) when 16#0030 =< X, X =< 16#0039 -> true;
+is_digit_10(X, _) when 16#06F0 =< X, X =< 16#06F9 -> true;
+is_digit_10(_, _) -> false.
+
+is_digit_11(0, 0) -> false;
+is_digit_11(X, _) when X =< 16#0669, 16#0660 =< X -> true;
+is_digit_11(X, _) when 16#0030 =< X, X =< 16#0039 -> true;
+is_digit_11(X, _) when 16#06F0 =< X, X =< 16#06F9 -> true;
+is_digit_11(_, _) -> false.
 
 rel_op_combinations_2(0, _) ->
     ok;
@@ -1473,6 +1594,7 @@ rel_op_combinations_3(N, Red) ->
     Val = redundant_9(N),
     Val = redundant_10(N),
     Val = redundant_11(N),
+    Val = redundant_12(N),
     rel_op_combinations_3(N-1, Red).
 
 redundant_1(X) when X >= 51, X =< 80 -> 5*X;
@@ -1527,14 +1649,138 @@ redundant_11(X) when X =:= 10 -> 2*X;
 redundant_11(X) when X >= 51, X =< 80 -> 5*X;
 redundant_11(_) -> none.
 
-%% Test type tests on literal values. (From emulator test suites.)
-literal_type_tests(Config) when is_list(Config) ->
-    case ?MODULE of
-	guard_SUITE -> literal_type_tests_1(Config);
-	_ -> {skip,"Enough to run this case once."}
+redundant_12(50) -> 100;
+redundant_12(X) when X >= 50, X =< 80 -> 5*X;
+redundant_12(X) when X < 51 -> 2*X;
+redundant_12(_) -> none.
+
+rel_op_combinations_4() ->
+    ne = rel_op_vars_1(id(a), id(b)),
+    le = rel_op_vars_1(id(x), id(x)),
+
+    ne = rel_op_vars_2(id(a), id(b)),
+    ge = rel_op_vars_2(id(x), id(x)),
+
+    ok.
+
+rel_op_vars_1(X, N) when X =/= N -> ne;
+rel_op_vars_1(X, N) when X =< N -> le.
+
+rel_op_vars_2(X, N) when X =/= N -> ne;
+rel_op_vars_2(X, N) when X >= N -> ge.
+
+%% Exhaustively test all combinations of relational operators
+%% to ensure the correctness of the optimizations in beam_ssa_dead.
+
+generated_combinations(_Config) ->
+    Mod = ?FUNCTION_NAME,
+    RelOps = ['=:=','=/=','==','/=','<','=<','>=','>'],
+    Combinations0 = [{Op1,Op2} || Op1 <- RelOps, Op2 <- RelOps],
+    Combinations1 = gen_lit_combs(Combinations0),
+    Combinations2 = [{neq,Comb} ||
+                        {_Op1,_Lit1,Op2,_Lit2}=Comb <- Combinations1,
+                        Op2 =:= '=/=' orelse Op2 =:= '/='] ++ Combinations1,
+    Combinations = gen_func_names(Combinations2, 0),
+    Fs = gen_rel_op_functions(Combinations),
+    Tree = ?Q(["-module('@Mod@').",
+               "-compile([export_all,nowarn_export_all])."]) ++ Fs,
+    %%merl:print(Tree),
+    Opts = test_lib:opt_opts(?MODULE),
+    {ok,_Bin} = merl:compile_and_load(Tree, Opts),
+    test_combinations(Combinations, Mod).
+
+gen_lit_combs([{Op1,Op2}|T]) ->
+    [{Op1,7,Op2,6},
+     {Op1,7.0,Op2,6},
+     {Op1,7,Op2,6.0},
+     {Op1,7.0,Op2,6.0},
+
+     {Op1,7,Op2,7},
+     {Op1,7.0,Op2,7},
+     {Op1,7,Op2,7.0},
+     {Op1,7.0,Op2,7.0},
+
+     {Op1,6,Op2,7},
+     {Op1,6.0,Op2,7},
+     {Op1,6,Op2,7.0},
+     {Op1,6.0,Op2,7.0}|gen_lit_combs(T)];
+gen_lit_combs([]) -> [].
+
+gen_func_names([E|Es], I) ->
+    Name = list_to_atom("f" ++ integer_to_list(I)),
+    [{Name,E}|gen_func_names(Es, I+1)];
+gen_func_names([], _) -> [].
+
+gen_rel_op_functions([{Name,{neq,{Op1,Lit1,Op2,Lit2}}}|T]) ->
+    %% Note that in the translation to SSA, '=/=' will be
+    %% translated to '=:=' in a guard (with switched success
+    %% and failure labels). Therefore, to test the optimization,
+    %% we must use '=/=' (or '/=') in a body context.
+    %%
+    %% Here is an example of a generated function:
+    %%
+    %%     f160(A) when erlang:'>='(A, 7) ->
+    %%          one;
+    %%     f160(A) ->
+    %%          true = erlang:'/='(A, 7),
+    %%          two.
+    [?Q("'@Name@'(A) when erlang:'@Op1@'(A, _@Lit1@) -> one;
+        '@Name@'(A) -> true = erlang:'@Op2@'(A, _@Lit2@), two. ")|
+     gen_rel_op_functions(T)];
+gen_rel_op_functions([{Name,{Op1,Lit1,Op2,Lit2}}|T]) ->
+    %% Example of a generated function:
+    %%
+    %% f721(A) when erlang:'=<'(A, 7.0) -> one;
+    %% f721(A) when erlang:'<'(A, 6) -> two;
+    %% f721(_) -> three.
+    [?Q("'@Name@'(A) when erlang:'@Op1@'(A, _@Lit1@) -> one;
+        '@Name@'(A) when erlang:'@Op2@'(A, _@Lit2@) -> two;
+        '@Name@'(_) -> three.")|gen_rel_op_functions(T)];
+gen_rel_op_functions([]) -> [].
+
+test_combinations([{Name,E}|T], Mod) ->
+    try
+        test_combinations_1([5,6,7,8,9], E, fun Mod:Name/1),
+        test_combination(6.5, E, fun Mod:Name/1)
+    catch
+        error:Reason:Stk ->
+            io:format("~p: ~p\n", [Name,E]),
+            erlang:raise(error, Reason, Stk)
+    end,
+    test_combinations(T, Mod);
+test_combinations([], _Mod) -> ok.
+
+test_combinations_1([V|Vs], E, Fun) ->
+    test_combination(V, E, Fun),
+    test_combination(float(V), E, Fun),
+    test_combinations_1(Vs, E, Fun);
+test_combinations_1([], _, _) -> ok.
+
+test_combination(Val, {neq,Expr}, Fun) ->
+    Result = eval_combination_expr(Expr, Val),
+    Result = try
+                 Fun(Val)                       %Returns 'one' or 'two'.
+             catch
+                 error:{badmatch,_} ->
+                     three
+             end;
+test_combination(Val, Expr, Fun) ->
+    Result = eval_combination_expr(Expr, Val),
+    Result = Fun(Val).
+
+eval_combination_expr({Op1,Lit1,Op2,Lit2}, Val) ->
+    case erlang:Op1(Val, Lit1) of
+        true ->
+            one;
+        false ->
+            case erlang:Op2(Val, Lit2) of
+                true -> two;
+                false -> three
+            end
     end.
 
-literal_type_tests_1(Config) ->
+%% Test type tests on literal values. (From emulator test suites.)
+literal_type_tests(Config) when is_list(Config) ->
     %% Generate an Erlang module with all different type of type tests.
     Tests = make_test([{T,L} || T <- type_tests(), L <- literals()] ++
 			    [{is_function,L1,L2} || 
@@ -1762,6 +2008,15 @@ andalso_semi(Config) when is_list(Config) ->
     ok = andalso_semi_bar([a,b,c]),
     ok = andalso_semi_bar(1),
     fc(catch andalso_semi_bar([a,b])),
+
+    ok = andalso_semi_dispatch(name, fun andalso_semi/1),
+    ok = andalso_semi_dispatch(name, fun ?MODULE:andalso_semi/1),
+    ok = andalso_semi_dispatch(name, {?MODULE,andalso_semi,1}),
+    fc(catch andalso_semi_dispatch(42, fun andalso_semi/1)),
+    fc(catch andalso_semi_dispatch(name, not_fun)),
+    fc(catch andalso_semi_dispatch(name, fun andalso_semi_dispatch/2)),
+    fc(catch andalso_semi_dispatch(42, {a,b})),
+
     ok.
 
 andalso_semi_foo(Bar) when is_integer(Bar) andalso Bar =:= 0; Bar =:= 1 ->
@@ -1770,6 +2025,10 @@ andalso_semi_foo(Bar) when is_integer(Bar) andalso Bar =:= 0; Bar =:= 1 ->
 andalso_semi_bar(Bar) when is_list(Bar) andalso length(Bar) =:= 3; Bar =:= 1 ->
    ok.
 
+andalso_semi_dispatch(Registry, MFAOrFun) when
+      is_atom(Registry) andalso is_function(MFAOrFun, 1);
+      is_atom(Registry) andalso tuple_size(MFAOrFun) == 3 ->
+    ok.
 
 t_tuple_size(Config) when is_list(Config) ->
     10 = do_tuple_size({1,2,3,4}),
@@ -1779,15 +2038,10 @@ t_tuple_size(Config) when is_list(Config) ->
     error = ludicrous_tuple_size({a,b,c}),
     error = ludicrous_tuple_size([a,b,c]),
 
-    %% Test the "unsafe case" - the register assigned the tuple size is
-    %% not killed.
-    DataDir = test_lib:get_data_dir(Config),
-    File = filename:join(DataDir, "guard_SUITE_tuple_size"),
-    {ok,Mod,Code} = compile:file(File, [from_asm,binary]),
-    code:load_binary(Mod, File, Code),
-    14 = Mod:t({1,2,3,4}),
-    _ = code:delete(Mod),
-    _ = code:purge(Mod),
+    good_ip({1,2,3,4}),
+    good_ip({1,2,3,4,5,6,7,8}),
+    error = validate_ip({42,11}),
+    error = validate_ip(atom),
     
     ok.
 
@@ -1804,6 +2058,16 @@ ludicrous_tuple_size(T)
 ludicrous_tuple_size(T)
   when tuple_size(T) =:= 16#FFFFFFFFFFFFFFFF -> ok;
 ludicrous_tuple_size(_) -> error.
+
+good_ip(IP) ->
+    IP = validate_ip(IP).
+
+validate_ip(Value) when is_tuple(Value) andalso
+                        ((size(Value) =:= 4) orelse (size(Value) =:= 8)) ->
+    %% size/1 (converted to tuple_size) used more than once.
+    Value;
+validate_ip(_) ->
+    error.
 
 %%
 %% The binary_part/2,3 guard BIFs
@@ -2060,7 +2324,8 @@ do_guard_in_catch_bin(From) ->
 
 %%%
 %%% The beam_bool pass has been eliminated. Here are the tests from
-%%% beam_bool_SUITE.
+%%% beam_bool_SUITE, as well as new tests to test the new beam_ssa_bool
+%%% module.
 %%%
 
 beam_bool_SUITE(_Config) ->
@@ -2069,6 +2334,19 @@ beam_bool_SUITE(_Config) ->
     y_registers(),
     protected(),
     maps(),
+    cover_shortcut_branches(),
+    wrong_order(),
+    megaco(),
+    looks_like_a_guard(),
+    fail_in_guard(),
+    in_catch(),
+    recv_semi(),
+    andalso_repeated_var(),
+    erl1246(),
+    erl1253(),
+    erl1384(),
+    gh4788(),
+    beam_ssa_bool_coverage(),
     ok.
 
 before_and_inside_if() ->
@@ -2206,31 +2484,419 @@ maps() ->
 evidence(#{0 := Charge}) when 0; #{[] => Charge} == #{[] => 42} ->
     ok.
 
-cover_beam_dead(_Config) ->
-    Mod = ?FUNCTION_NAME,
-    Attr = [],
-    Fs = [{function,test,1,2,
-           [{label,1},
-            {line,[]},
-            {func_info,{atom,Mod},{atom,test},1},
-            {label,2},
-            %% Cover beam_dead:turn_op/1 using swapped operand order.
-            {test,is_ne_exact,{f,3},[{integer,1},{x,0}]},
-            {test,is_eq_exact,{f,1},[{atom,a},{x,0}]},
-            {label,3},
-            {move,{atom,ok},{x,0}},
-            return]}],
-    Exp = [{test,1}],
-    Asm = {Mod,Exp,Attr,Fs,3},
-    {ok,Mod,Beam} = compile:forms(Asm, [from_asm,binary,report]),
-    {module,Mod} = code:load_binary(Mod, Mod, Beam),
-    ok = Mod:test(1),
-    ok = Mod:test(a),
-    {'EXIT',_} = (catch Mod:test(other)),
-    true = code:delete(Mod),
-    _ = code:purge(Mod),
+cover_shortcut_branches() ->
+    ok = cover_shortcut_branches({r1}, 0, 42, false),
+    ok = cover_shortcut_branches({r1}, 42, 42, true),
+    error = cover_shortcut_branches({r1}, same, same, false),
+    error = cover_shortcut_branches({r1}, x, y, true),
+    error = cover_shortcut_branches({r2}, 0, 42, false),
+    error = cover_shortcut_branches({}, 0, 42, false),
+    error = cover_shortcut_branches(not_tuple, 0, 42, false),
+    ok.
+
+cover_shortcut_branches(St, X, Y, Z) ->
+    if
+        %% The ((Y =:= X) =:= Z) part will test handling of a comparison
+        %% operator followed by a one-way `br`.
+        ((element(1, St) =:= r1) orelse fail) and ((Y =:= X) =:= Z) ->
+            ok;
+        true ->
+            error
+    end.
+
+wrong_order() ->
+    ok = wrong_order(repeat_until_fail, true),
+    ok = wrong_order(repeat_until_fail, whatever),
+    error = wrong_order(repeat_until_fail, false),
+    error = wrong_order(nope, true),
+    ok.
+
+wrong_order(RepeatType, Mode) ->
+    Parallel = Mode =/= false,
+    RepeatStop = RepeatType =:= repeat_until_fail,
+    if
+        Parallel andalso RepeatStop ->
+            ok;
+        true ->
+            error
+    end.
+
+megaco() ->
+    ok = megaco('NULL', 0),
+    ok = megaco('NULL', 7),
+    ok = megaco('NULL', 15),
+    ok = megaco('NULL', asn1_NOVALUE),
+    ok = megaco(asn1_NOVALUE, 0),
+    ok = megaco(asn1_NOVALUE, 7),
+    ok = megaco(asn1_NOVALUE, 15),
+    ok = megaco(asn1_NOVALUE, asn1_NOVALUE),
+
+    error = megaco(bad, 0),
+    error = megaco(bad, 7),
+    error = megaco(bad, 15),
+    error = megaco(bad, asn1_NOVALUE),
+
+    error = megaco('NULL', not_integer),
+    error = megaco('NULL', -1),
+    error = megaco('NULL', 16),
+    error = megaco(asn1_NOVALUE, not_integer),
+    error = megaco(asn1_NOVALUE, -1),
+    error = megaco(asn1_NOVALUE, 16),
+
+    error = megaco(bad, bad),
+    error = megaco(bad, -1),
+    error = megaco(bad, 42),
 
     ok.
+
+megaco(Top, SelPrio)
+  when (Top =:= 'NULL' orelse Top =:= asn1_NOVALUE) andalso
+       ((is_integer(SelPrio) andalso ((0 =< SelPrio) and (SelPrio =< 15))) orelse
+	SelPrio =:= asn1_NOVALUE) ->
+    ok;
+megaco(_, _) ->
+    error.
+
+%% ERL-1054.
+looks_like_a_guard() ->
+    ok = looks_like_a_guard(0),
+    ok = looks_like_a_guard(1),
+    ok.
+
+looks_like_a_guard(N) ->
+    GuessPosition = id(42),
+    %% The matching of `true` would look like a guard to
+    %% beam_ssa_bool. The optimized code would not be safe.
+    case {1 >= N, GuessPosition == 0} of
+        {true, _} -> ok;
+        {_, true} -> ok;
+        _ -> looks_like_a_guard(N)
+    end.
+
+-record(fail_in_guard, {f}).
+fail_in_guard() ->
+    false = struct_or_map(a, "foo"),
+    false = struct_or_map(a, foo),
+    false = struct_or_map(#{}, "foo"),
+    true = struct_or_map(#{}, foo),
+
+    false = (fun() when whatever =/= (program andalso []) -> true;
+                () -> false
+             end)(),
+    false = if whatever =/= (program orelse []) -> true;
+               true -> false
+            end,
+
+    %% Would crash the compiler if optimizing passes
+    %% were disabled.
+    error = if
+                0.1 orelse "VZ", 42 -> ok;
+                true -> error
+            end,
+    error = (fun() when 3.14; <<[]:(ceil($D))>> -> ok;
+               () -> error
+            end)(),
+    error = fun() when eye; ""#fail_in_guard.f andalso #{[] => true and false} ->
+                    ok;
+               () ->
+                    error
+            end(),
+    error = fun() when (0 #fail_in_guard.f)#fail_in_guard.f -> ok;
+               () -> error
+            end(),
+    error = fun() when 42; <<0.5,0:(element(true, false))>> ->
+                    a = b;
+               () -> error
+            end(),
+
+    ok.
+
+%% ERL-1183. If Name is not an atom, the `fail` atom must cause the
+%% entire guard to fail.
+struct_or_map(Arg, Name) when
+      (is_map(Arg) andalso (is_atom(Name) orelse fail) andalso
+       is_map_key(struct, Arg)) orelse is_map(Arg) -> true;
+struct_or_map(_Arg, _Name) ->
+    false.
+
+in_catch() ->
+    ok = in_catch(true),
+    {'EXIT',{{case_clause,false},[_|_]}} = in_catch(false),
+    {'EXIT',{badarg,[_|_]}} = in_catch(any),
+    ok.
+
+in_catch(V) ->
+    catch
+        case false or V of
+            true -> ok
+        end.
+
+recv_semi() ->
+    timeout = id(receive
+                     ok when home; <<(m#{}):false>> ->
+                         ok
+                 after 0 ->
+                         timeout
+                 end).
+
+andalso_repeated_var() ->
+    ok = andalso_repeated_var(true),
+    error = andalso_repeated_var(false),
+    error = andalso_repeated_var([not_boolean]),
+    ok.
+
+andalso_repeated_var(B) when B andalso B -> ok;
+andalso_repeated_var(_) -> error.
+
+-record(erl1246, {tran_stat = 0}).
+
+erl1246() ->
+    false = erl1246(#erl1246{tran_stat = 0}, #{cid => 1131}),
+    false = erl1246(#erl1246{tran_stat = 12}, #{cid => 1131}),
+    false = erl1246(#erl1246{tran_stat = 12}, #{cid => 9502}),
+    true = erl1246(#erl1246{tran_stat = 0}, #{cid => 9502}),
+    ok.
+
+erl1246(Rec, #{cid := CollID}) ->
+    {GiftCollID, _} = erl1246_conf(gift_coll),
+    IsTranStat = Rec#erl1246.tran_stat =:= erl1246_conf(transform_id),
+    if
+        %% Optimization of 'not' in a guard was broken.
+        CollID =:= GiftCollID andalso not IsTranStat ->
+            true;
+        true ->
+            false
+    end.
+
+erl1246_conf(gift_coll) -> {9502, {112, 45}};
+erl1246_conf(transform_id) -> 12;
+erl1246_conf(_) -> undefined.
+
+erl1253() ->
+    ok = erl1253_orelse_false(a, a, any),
+    ok = erl1253_orelse_false(a, a, true),
+    ok = erl1253_orelse_false(a, a, false),
+    error = erl1253_orelse_false(a, b, any),
+    error = erl1253_orelse_false(a, b, true),
+    ok = erl1253_orelse_false(a, b, false),
+
+    ok = erl1253_orelse_true(a, a, any),
+    ok = erl1253_orelse_true(a, a, true),
+    ok = erl1253_orelse_true(a, a, false),
+    error = erl1253_orelse_true(a, b, any),
+    ok = erl1253_orelse_true(a, b, true),
+    error = erl1253_orelse_true(a, b, false),
+
+    error = erl1253_andalso_false(a, a, any),
+    error = erl1253_andalso_false(a, a, true),
+    ok = erl1253_andalso_false(a, a, false),
+    error = erl1253_andalso_false(a, b, any),
+    error = erl1253_andalso_false(a, b, true),
+    error = erl1253_andalso_false(a, b, false),
+
+    error = erl1253_andalso_true(a, a, any),
+    ok = erl1253_andalso_true(a, a, true),
+    error = erl1253_andalso_true(a, a, false),
+    error = erl1253_andalso_true(a, b, any),
+    error = erl1253_andalso_true(a, b, true),
+    error = erl1253_andalso_true(a, b, false),
+
+    ok.
+
+erl1253_orelse_false(X, Y, Z) ->
+    Res = erl1253_orelse_false_1(X, Y, Z),
+    Res = erl1253_orelse_false_2(X, Y, Z),
+    Res = erl1253_orelse_false_3(X, Y, Z).
+
+erl1253_orelse_false_1(X, Y, Z) ->
+    Bool = Z =:= false,
+    if
+        X =:= Y orelse Bool -> ok;
+        true -> error
+    end.
+
+erl1253_orelse_false_2(X, Y, Z) ->
+    Bool = Z =:= false,
+    if
+        Bool orelse X =:= Y -> ok;
+        true -> error
+    end.
+
+erl1253_orelse_false_3(X, Y, Z) ->
+    Bool1 = X =:= Y,
+    Bool2 = Z =:= false,
+    if
+        Bool1 orelse Bool2 -> ok;
+        true -> error
+    end.
+
+erl1253_orelse_true(X, Y, Z) ->
+    Res = erl1253_orelse_true_1(X, Y, Z),
+    Res = erl1253_orelse_true_2(X, Y, Z),
+    Res = erl1253_orelse_true_3(X, Y, Z).
+
+erl1253_orelse_true_1(X, Y, Z)   ->
+    Bool = Z =:= true,
+    if
+        X =:= Y orelse Bool -> ok;
+        true -> error
+    end.
+
+erl1253_orelse_true_2(X, Y, Z) ->
+    Bool = Z =:= true,
+    if
+        Bool orelse X =:= Y -> ok;
+        true -> error
+    end.
+
+erl1253_orelse_true_3(X, Y, Z)   ->
+    Bool1 = X =:= Y,
+    Bool2 = Z =:= true,
+    if
+        Bool1 orelse Bool2 -> ok;
+        true -> error
+    end.
+
+erl1253_andalso_false(X, Y, Z) ->
+    Res = erl1253_andalso_false_1(X, Y, Z),
+    Res = erl1253_andalso_false_2(X, Y, Z),
+    Res = erl1253_andalso_false_3(X, Y, Z).
+
+erl1253_andalso_false_1(X, Y, Z) ->
+    Bool = Z =:= false,
+    if
+        X =:= Y andalso Bool -> ok;
+        true -> error
+    end.
+
+erl1253_andalso_false_2(X, Y, Z) ->
+    Bool1 = X =:= Y,
+    Bool2 = Z =:= false,
+    if
+        Bool1 andalso Bool2 -> ok;
+        true -> error
+    end.
+
+erl1253_andalso_false_3(X, Y, Z) ->
+    Bool1 = X =:= Y,
+    Bool2 = Z =:= false,
+    if
+        Bool1 andalso Bool2 -> ok;
+        true -> error
+    end.
+
+erl1253_andalso_true(X, Y, Z) ->
+    Res = erl1253_andalso_true_1(X, Y, Z),
+    Res = erl1253_andalso_true_2(X, Y, Z),
+    Res = erl1253_andalso_true_3(X, Y, Z).
+
+erl1253_andalso_true_1(X, Y, Z) ->
+    Bool = Z =:= true,
+    if
+        X =:= Y andalso Bool -> ok;
+        true -> error
+    end.
+
+erl1253_andalso_true_2(X, Y, Z) ->
+    Bool = Z =:= true,
+    if
+        Bool andalso X =:= Y-> ok;
+        true -> error
+    end.
+
+erl1253_andalso_true_3(X, Y, Z) ->
+    Bool1 = X =:= Y,
+    Bool2 = Z =:= true,
+    if
+        Bool1 andalso Bool2 -> ok;
+        true -> error
+    end.
+
+erl1384() ->
+    gurka = erl1384_1(id(a)),
+    gaffel = erl1384_1(id(b)),
+    ok.
+
+erl1384_1(V) ->
+    case {id(false), V =/= a} of
+        {true, true} -> not_reachable;
+        {_, false} -> gurka;
+        _ -> gaffel
+    end.
+
+gh4788() ->
+    ok = do_gh4788(id(0)),
+    ok = do_gh4788(id(1)),
+    ok = do_gh4788(id(undefined)),
+    lt_0_or_undefined = catch do_gh4788(id(-1)),
+    ok.
+
+do_gh4788(N) ->
+    %% beam_ssa_bool would do an unsafe optimization when run after
+    %% the beam_ssa_share pass.
+    case {N >= 0, N == undefined} of
+        {true, _} -> ok;
+        {_, true} -> ok;
+        _ -> throw(lt_0_or_undefined)
+    end,
+    ok.
+
+beam_ssa_bool_coverage() ->
+    {"*","abc"} = collect_modifiers("abc*", []),
+    error = beam_ssa_bool_coverage_1(true),
+    ok.
+
+collect_modifiers([H | T], Buffer)
+    when (H >= $a andalso H =< $z) or
+         (H >= $A andalso H =< $Z) ->
+    collect_modifiers(T, [H | Buffer]);
+collect_modifiers(Rest, Buffer) ->
+    {Rest, lists:reverse(Buffer)}.
+
+beam_ssa_bool_coverage_1(V) when V andalso 0, tuple_size(0) ->
+    ok;
+beam_ssa_bool_coverage_1(_) ->
+    error.
+
+%%%
+%%% End of beam_bool_SUITE tests.
+%%%
+
+repeated_type_tests(_Config) ->
+    binary = repeated_type_test(<<42>>),
+    bitstring = repeated_type_test(<<1:1>>),
+    other = repeated_type_test(atom),
+    ok.
+
+repeated_type_test(T) ->
+    %% Test for a bug in beam_ssa_dead.
+    if is_bitstring(T) ->
+            if is_binary(T) ->                  %This test would be optimized away.
+                    binary;
+               true ->
+                    bitstring
+            end;
+       true ->
+            other
+    end.
+
+%% ERL-1179: The result of '=/=' would be flipped if it was used after being
+%% branched on.
+use_after_branch(_Config) ->
+    {false, gaffel} = use_after_branch_1(foo),
+    {true, gurka} = use_after_branch_1(bar),
+    ok.
+
+use_after_branch_1(A) ->
+    Boolean = A =/= foo,
+    case Boolean of
+        true -> id(something);
+        false -> id(other)
+    end,
+    case Boolean of
+        true -> {id(Boolean), gurka};
+        false -> {id(Boolean), gaffel}
+    end.
 
 %% Call this function to turn off constant propagation.
 id(I) -> I.

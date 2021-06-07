@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,7 +47,8 @@
 	 write_agent_snmp_usm_conf/5, 
 	 write_agent_snmp_vacm_conf/3, 
 
-	 write_manager_snmp_files/8,
+	 write_manager_snmp_files/4, write_manager_snmp_files/5,
+         write_manager_snmp_files/7, write_manager_snmp_files/8,
 	 write_manager_snmp_conf/4, write_manager_snmp_conf/5,
 	 write_manager_snmp_users_conf/2,
 	 write_manager_snmp_agents_conf/2, 
@@ -96,16 +97,14 @@
 	]).
 
 
--export_type([void/0,
-	      order_config_entry_function/0,
+-export_type([
+              order_config_entry_function/0,
 	      check_config_entry_function/0,
-	      write_config_function/0]).
+	      write_config_function/0
+             ]).
 
 
 %%----------------------------------------------------------------------
-
--type void() :: term(). % Any value - ignored
-
 
 %%----------------------------------------------------------------------
 %% Handy SNMP configuration
@@ -502,6 +501,48 @@ config_agent_sys() ->
     {Vsns, ConfigDir, SysConfig}.
 
 
+config_agent_transports(ID) ->
+    config_agent_transports(ID, []).
+
+config_agent_transports(ID, []) ->
+    i(ID ++ ". Configure atleast one transport: "),
+    T = config_agent_transport(ID),
+    config_agent_transports(ID, [T]);
+config_agent_transports(ID, Acc) ->
+    case ask(ID ++ ". Configure another transport (yes/no)?",
+             "yes", fun verify_yes_or_no/1) of
+        yes ->
+            T = config_agent_transport(ID),
+            config_agent_transports(ID, [T|Acc]);
+        no ->
+            lists:reverse(Acc)
+    end.
+
+config_agent_transport(ID) ->
+    TDomain  = ask(ID ++ "a. Transport Domain "
+                   "(UDP IPv4 (u4) or UDP IPv6 (u6))", 
+                   "u4", fun verify_transport_domain/1),
+    Host     = host(TDomain),
+    Address  = ask(ID ++ "b. Address of transport",
+                   Host, fun(A) -> verify_transport_address(TDomain, A) end),
+    PortInfo = ask(ID ++ "c. Port number info (how we shall choose a port)"
+                   "~n    Note that we do not allow all variants here! "
+                   "~n    Edit manually for more variants (range/ranges)."
+                   "~n    default(d)/system(s)/pos-integer",
+                   "4000", fun verify_port_number_info/1),
+    TAddress = {Address, PortInfo},
+    Kind = ask(ID ++ "d. Kind of transport "
+               "(all(a)/request-responder(rr)/trap-sender(ts))",
+               "a", fun verify_transport_kind/1),
+    i("*** We do not ask about the transport options here ***~n"
+      "*** the user must manually edit the config files!  ***"),
+    case Kind of
+        all ->
+            {TDomain, TAddress, []};
+        _ when (Kind =:= req_responder) orelse (Kind =:= trap_sender) ->
+            {TDomain, TAddress, Kind, []}
+    end.
+
 config_agent_snmp(Dir, Vsns) ->
     i("~nAgent snmp config: "
       "~n------------------"),
@@ -513,21 +554,25 @@ config_agent_snmp(Dir, Vsns) ->
 		      EngineName, fun verify_engine_id/1),
     MMS        = ask("3. Max message size?", "484", 
 		     fun verify_max_message_size/1),
-    AgentUDP   = ask("4. The UDP port the agent listens to. "
-		     "(standard 161)",
-		     "4000", fun verify_port_number/1),
-    Host       = host(),
-    AgentIP    = ask("5. IP address for the agent (only used as id ~n"
-		     "   when sending traps)", Host, fun verify_address/1),
-    %% We intentionally skip TDomain...
-    %% If the user wish to use IPv6, the user must create an dummy entry here
-    %% and then manually edit these entries later.
+    ATransports = config_agent_transports("4"),
+    %% AgentUDP   = ask("4. The UDP port the agent listens to. "
+    %%     	     "(standard 161)",
+    %%     	     "4000", fun verify_port_number/1),
+    %% AgentIP    = ask("5. IP address for the agent (only used as id ~n"
+    %%     	     "   when sending traps)", Host, fun verify_address/1),
+
+    ManagerTDomain  = ask("5. Manager Transport Domain"
+                          "(UDP IPv4 (u4) or UDP IPv6 (u6))", 
+                          "u4", fun verify_transport_domain/1),
+    Host       = host(ManagerTDomain),
     ManagerIP  = ask("6. IP address for the manager (only this manager ~n"
 		     "   will have access to the agent, traps are sent ~n"
-		     "   to this one)", Host, fun verify_address/1),
-    TrapUdp    = ask("7. To what UDP port at the manager should traps ~n"
+		     "   to this one)", Host,
+                     fun(A) -> verify_transport_address(ManagerTDomain, A) end),
+    ManagerUdp = ask("7. To what UDP port at the manager should traps ~n"
 		     "   be sent (standard 162)?", "5000", 
 		     fun verify_port_number/1),
+
     SecType    = ask("8. Do you want a none- minimum- or semi-secure"
 		     " configuration? ~n"
 		     "   Note that if you chose v1 or v2, you won't get any"
@@ -573,8 +618,13 @@ config_agent_snmp(Dir, Vsns) ->
 		end,
 		NT
 	end,
+
+
+
     case (catch write_agent_snmp_files(
-		  Dir, Vsns, ManagerIP, TrapUdp, AgentIP, AgentUDP, SysName,
+		  Dir, Vsns,
+                  ManagerTDomain, ManagerIP, ManagerUdp,
+                  ATransports, SysName,
 		  NotifType, SecType, Passwd, EngineID, MMS)) of
 	ok ->
 	   i("~n- - - - - - - - - - - - -"),
@@ -681,7 +731,7 @@ config_manager_sys() ->
 		      "(true/false)?",
 		      "false", fun verify_bool/1),
     NetIfNoReuse = ask("17. Shall the manager IP address and port "
-		       "be not reusable (true/false)?",
+		       "be *not* reusable (true/false)?",
 		       "false", fun verify_bool/1),
     NetIfRecbuf = 
 	case ask("18. Receive buffer size of the manager (in bytes) "
@@ -1106,6 +1156,7 @@ verify_sec_type(ST)         -> {error, "invalid security type: " ++ ST}.
 verify_address(A) ->
     verify_address(A, snmpUDPDomain).
 
+-dialyzer({nowarn_function, verify_address/2}). % Future compat
 verify_address(A, snmpUDPDomain = _Domain) ->
     do_verify_address(A, inet);
 verify_address(A, transportDomainUdpIpv4 = _Domain) ->
@@ -1114,8 +1165,14 @@ verify_address(A, transportDomainUdpIpv6 = _Domain) ->
     do_verify_address(A, inet6).
 
 do_verify_address(A, Family) ->
+    do_verify_address(A, Family, list).
+
+do_verify_address(A, Family, Form)
+  when (Form =:= list) orelse (Form =:= tuple) ->
     case (catch snmp_misc:ip(A, Family)) of
-	{ok, IP} ->
+	{ok, IP} when (Form =:= tuple) ->
+	    {ok, IP};
+	{ok, IP} when (Form =:= list) ->
 	    {ok, tuple_to_list(IP)};
 	{error, _} ->
 	    {error, "invalid address: " ++ A};
@@ -1349,6 +1406,55 @@ verify_irb_user(TO) ->
     end.
     
 
+verify_transport_domain("u4") ->
+    {ok, transportDomainUdpIpv4};
+verify_transport_domain("udp4") ->
+    {ok, transportDomainUdpIpv4};
+verify_transport_domain("transportDomainUdpIpv4") ->
+    {ok, transportDomainUdpIpv4};
+verify_transport_domain("u6") ->
+    {ok, transportDomainUdpIpv6};
+verify_transport_domain("udp6") ->
+    {ok, transportDomainUdpIpv6};
+verify_transport_domain("transportDomainUdpIpv6") ->
+    {ok, transportDomainUdpIpv6};
+verify_transport_domain(TS) ->
+    {error, "invalid transport domain: " ++ TS}.
+
+
+verify_transport_address(transportDomainUdpIpv4 = _Domain, A) ->
+    do_verify_address(A, inet, tuple);
+verify_transport_address(transportDomainUdpIpv6 = _Domain, A) ->
+    do_verify_address(A, inet6, tuple).
+
+
+verify_transport_kind("a") ->
+    {ok, all};
+verify_transport_kind("rr") ->
+    {ok, req_responder};
+verify_transport_kind("ts") ->
+    {ok, trap_sender};
+verify_transport_kind(K) ->
+    {error, "invalid transport kind: " ++ K}.
+
+
+verify_port_number_info("d") ->
+    {ok, 0};
+verify_port_number_info("default") ->
+    {ok, 0};
+verify_port_number_info("s") ->
+    {ok, system};
+verify_port_number_info("system") ->
+    {ok, system};
+verify_port_number_info(P) ->
+    case (catch list_to_integer(P)) of
+	N when is_integer(N) andalso (N > 0) ->
+	    {ok, N};
+	_ ->
+	    {error, "invalid port number: " ++ P}
+    end.
+
+
 verify_term_disco_behaviour("discovery") ->
     {ok, discovery};
 verify_term_disco_behaviour("plain") ->
@@ -1541,17 +1647,29 @@ ask(Q, Default, Verify) when is_list(Q) andalso is_function(Verify) ->
 
 
 host() ->
+    do_host(inet).
+
+host(transportDomainUdpIpv4) ->
+    do_host(inet);
+host(transportDomainUdpIpv6) ->
+    do_host(inet6).
+
+do_host(Fam) ->
     case (catch inet:gethostname()) of
 	{ok, Name} ->
-	    case (catch inet:getaddr(Name, inet)) of
+	    case (catch inet:getaddr(Name, Fam)) of
 		{ok, Addr} when is_tuple(Addr) ->
 		    lists:flatten(
 		      io_lib:format("~w.~w.~w.~w", tuple_to_list(Addr)));
-		_ ->
-		    "127.0.0.1"
+		_ when (Fam =:= inet) ->
+		    "127.0.0.1";
+                _ when (Fam =:= inet6)  ->
+                    "::1"
 	    end;
-	_ -> 
-	    "127.0.0.1"
+        _ when (Fam =:= inet) ->
+            "127.0.0.1";
+        _ when (Fam =:= inet6)  ->
+            "::1"
     end.
 
 guess_agent_name() ->
@@ -1617,10 +1735,88 @@ write_agent_snmp_files(
 %% ----- Agent config files generator functions -----
 %% 
 
+%% This function has no documentation, so for "possible" users
+%% (other then our test suite), we have this spec...
+
+-type agent_pre_transport() :: #{addr := tuple(),
+                                 kind := req_responder | trap_sender,
+                                 opts := list()} |
+                               #{addr := tuple(),
+                                 kind := req_responder | trap_sender} |
+                               #{addr := tuple()}.
+
+-spec write_agent_snmp_files(Dir, Vsns,
+                             TransportDomain, ManagerAddr, AgentPreTransports,
+                             SysName,
+                             NotifyType, SecType, Passwd, EngineID, MMS) ->
+          ok when
+      Dir                :: file:filename(),
+      Vsns               :: [snmp:version()],
+      TransportDomain    :: snmp:tdomain(),
+      ManagerAddr        :: {inet:ip_address(), inet:port_number()},
+      AgentPreTransports :: [agent_pre_transport()],
+      SysName            :: string(),
+      NotifyType         :: trap | inform,
+      SecType            :: none | minimum | {semi, des | aes},
+      Passwd             :: list(),
+      EngineID           :: snmp:engine_id(),
+      MMS                :: snmp:mms();
+
+                            (Dir, Vsns,
+                             TransportDomain, ManagerAddr, AgentAddr,
+                             SysName,
+                             NotifyType, SecType, Passwd, EngineID, MMS) ->
+          ok when
+      Dir                :: file:filename(),
+      Vsns               :: [snmp:version()],
+      TransportDomain    :: snmp:tdomain(),
+      ManagerAddr        :: {inet:ip_address(), inet:port_number()},
+      AgentAddr          :: {inet:ip_address(), inet:port_number()},
+      SysName            :: string(),
+      NotifyType         :: trap | inform,
+      SecType            :: none | minimum | {semi, des | aes},
+      Passwd             :: list(),
+      EngineID           :: snmp:engine_id(),
+      MMS                :: snmp:mms().
+
+write_agent_snmp_files(
+  Dir, Vsns, TransportDomain, ManagerAddr, AgentPreTransports, SysName,
+  NotifType, SecType, Passwd, EngineID, MMS) when is_list(AgentPreTransports) ->
+    F = fun(#{addr := Addr, kind := Kind, opts := Opts})
+              when is_tuple(Addr) andalso
+                   is_atom(Kind) andalso
+                   is_list(Opts) ->
+                {TransportDomain, Addr, Kind, Opts};
+           (#{addr := Addr, kind := Kind})
+              when is_tuple(Addr) andalso
+                   is_atom(Kind) ->
+                {TransportDomain, Addr, Kind, []};
+           (#{addr := Addr})
+              when is_tuple(Addr) ->
+                {TransportDomain, Addr}
+        end,
+    AgentTransports = lists:map(F, AgentPreTransports),
+    write_agent_snmp_conf(Dir, AgentTransports, EngineID, MMS),
+    write_agent_snmp_context_conf(Dir),
+    write_agent_snmp_community_conf(Dir),
+    write_agent_snmp_standard_conf(Dir, SysName),
+    write_agent_snmp_target_addr_conf(Dir, TransportDomain, ManagerAddr, Vsns),
+    write_agent_snmp_target_params_conf(Dir, Vsns),
+    write_agent_snmp_notify_conf(Dir, NotifType),
+    write_agent_snmp_usm_conf(Dir, Vsns, EngineID, SecType, Passwd),
+    write_agent_snmp_vacm_conf(Dir, Vsns, SecType),
+    ok;
 write_agent_snmp_files(
   Dir, Vsns, Domain, ManagerAddr, AgentAddr, SysName,
-  NotifType, SecType, Passwd, EngineID, MMS) ->
-    write_agent_snmp_conf(Dir, Domain, AgentAddr, EngineID, MMS),
+  NotifType, SecType, Passwd, EngineID, MMS)
+  when is_list(Dir) andalso
+       is_list(Vsns) andalso
+       is_atom(Domain) andalso
+       is_tuple(ManagerAddr) andalso
+       is_tuple(ManagerAddr) andalso
+       is_list(SysName) andalso
+       is_atom(NotifType) ->
+    write_agent_snmp_conf(Dir, [{Domain, AgentAddr}], EngineID, MMS),
     write_agent_snmp_context_conf(Dir),
     write_agent_snmp_community_conf(Dir),
     write_agent_snmp_standard_conf(Dir, SysName),
@@ -1633,7 +1829,15 @@ write_agent_snmp_files(
 
 write_agent_snmp_files(
   Dir, Vsns, ManagerIP, TrapUDP, AgentIP, AgentUDP, SysName,
-  NotifType, SecType, Passwd, EngineID, MMS) ->
+  NotifType, SecType, Passwd, EngineID, MMS) 
+  when is_list(Dir) andalso
+       is_list(Vsns) andalso
+       is_list(ManagerIP) andalso
+       is_integer(TrapUDP) andalso
+       is_list(AgentIP) andalso
+       is_integer(AgentUDP) andalso
+       is_list(SysName) andalso
+       is_atom(NotifType) ->
     Domain = snmp_target_mib:default_domain(),
     ManagerAddr = {ManagerIP, TrapUDP},
     write_agent_snmp_conf(Dir, AgentIP, AgentUDP, EngineID, MMS),
@@ -1641,6 +1845,30 @@ write_agent_snmp_files(
     write_agent_snmp_community_conf(Dir),
     write_agent_snmp_standard_conf(Dir, SysName),
     write_agent_snmp_target_addr_conf(Dir, Domain, ManagerAddr, Vsns),
+    write_agent_snmp_target_params_conf(Dir, Vsns),
+    write_agent_snmp_notify_conf(Dir, NotifType),
+    write_agent_snmp_usm_conf(Dir, Vsns, EngineID, SecType, Passwd),
+    write_agent_snmp_vacm_conf(Dir, Vsns, SecType),
+    ok;
+write_agent_snmp_files(
+  Dir, Vsns,
+  ManagerTDomain, ManagerIP, ManagerTrapUDP,
+  AgentTransports, SysName,
+  NotifType, SecType, Passwd, EngineID, MMS) 
+  when is_list(Dir) andalso
+       is_list(Vsns) andalso
+       is_atom(ManagerTDomain) andalso
+       is_tuple(ManagerIP) andalso
+       is_integer(ManagerTrapUDP) andalso
+       is_list(AgentTransports) andalso
+       is_list(SysName) andalso
+       is_atom(NotifType) ->
+    ManagerAddr = {ManagerIP, ManagerTrapUDP},
+    write_agent_snmp_conf(Dir, AgentTransports, EngineID, MMS),
+    write_agent_snmp_context_conf(Dir),
+    write_agent_snmp_community_conf(Dir),
+    write_agent_snmp_standard_conf(Dir, SysName),
+    write_agent_snmp_target_addr_conf(Dir, ManagerTDomain, ManagerAddr, Vsns),
     write_agent_snmp_target_params_conf(Dir, Vsns),
     write_agent_snmp_notify_conf(Dir, NotifType),
     write_agent_snmp_usm_conf(Dir, Vsns, EngineID, SecType, Passwd),
@@ -2106,6 +2334,22 @@ update_agent_vacm_config(Dir, Conf) ->
 %% ----- Manager config files generator functions -----
 %% 
 
+write_manager_snmp_files(Dir, Transports, MMS, EngineID) ->
+    write_manager_snmp_files(Dir, Transports, MMS, EngineID, 
+                             [], [], []).
+
+write_manager_snmp_files(Dir, IP, Port, MMS, EngineID) ->
+    write_manager_snmp_files(Dir, IP, Port, MMS, EngineID, 
+                             [], [], []).
+
+write_manager_snmp_files(Dir, Transports, MMS, EngineID, 
+			 Users, Agents, Usms) ->
+    write_manager_snmp_conf(Dir, Transports, MMS, EngineID),
+    write_manager_snmp_users_conf(Dir, Users),
+    write_manager_snmp_agents_conf(Dir, Agents),
+    write_manager_snmp_usm_conf(Dir, Usms),  
+    ok.
+
 write_manager_snmp_files(Dir, IP, Port, MMS, EngineID, 
 			 Users, Agents, Usms) ->
     write_manager_snmp_conf(Dir, IP, Port, MMS, EngineID),
@@ -2131,7 +2375,7 @@ write_manager_snmp_conf(Dir, Transports, MMS, EngineID) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     Conf =
-	[{transports, Transports},
+	[{transports,       Transports},
 	 {engine_id,        EngineID},
 	 {max_message_size, MMS}],
     write_manager_config(Dir, Hdr, Conf).
@@ -2573,15 +2817,17 @@ write_config_file(Dir, FileName, Order, Check, Write, Entries)
 		    Error
 	    end
     catch
-	Error ->
-	    S = erlang:get_stacktrace(),
-	    d("File write of ~s throwed: ~p~n    ~p~n",
-	      [FileName, Error, S]),
-	    Error;
-	C:E ->
-	    S = erlang:get_stacktrace(),
-	    d("File write of ~s exception: ~p:~p~n    ~p~n",
-	      [FileName,C,E,S]),
+	throw:E:S ->
+	    d("File write of ~s throwed: "
+              "~n   ~p"
+              "~n   ~p"
+              "~n", [FileName, E, S]),
+	    E;
+	C:E:S ->
+	    d("File write of ~s exception: "
+              "~n   ~p:~p"
+              "~n   ~p"
+              "~n", [FileName, C, E, S]),
 	    {error, {failed_write, Dir, FileName, {C, E, S}}}
     end.
 
@@ -2590,16 +2836,18 @@ write_config_file(Dir, FileName, Write, Entries, Fd) ->
 	ok ->
 	    close_config_file(Dir, FileName, Fd)
     catch
-	Error ->
-	    S = erlang:get_stacktrace(),
-	    d("File write of ~s throwed: ~p~n    ~p~n",
-	      [FileName, Error, S]),
+	throw:E:S ->
+	    d("File write of ~s throwed: "
+              "~n   ~p"
+              "~n   ~p"
+              "~n", [FileName, E, S]),
 	    close_config_file(Dir, FileName, Fd),
-	    Error;
-	C:E ->
-	    S = erlang:get_stacktrace(),
-	    d("File write of ~s exception: ~p:~p~n    ~p~n",
-	      [FileName,C,E,S]),
+	    E;
+	C:E:S ->
+	    d("File write of ~s exception: "
+              "~n   ~p:~p"
+              "~n   ~p"
+              "~n", [FileName, C, E, S]),
 	    close_config_file(Dir, FileName, Fd),
 	    {error, {failed_write, Dir, FileName, {C, E, S}}}
     end.
@@ -2661,16 +2909,18 @@ append_config_file(Dir, FileName, Order, Check, Write, Entries, Fd) ->
 	ok ->
 	    close_config_file(Dir, FileName, Fd)
     catch
-	Error ->
-	    S = erlang:get_stacktrace(),
-	    d("File append of ~s throwed: ~p~n    ~p~n",
-	      [FileName, Error, S]),
+	throw:E:S ->
+	    d("File append of ~s throwed: "
+              "~n   ~p"
+              "~n   ~p"
+              "~n", [FileName, E, S]),
 	    close_config_file(Dir, FileName, Fd),
-	    Error;
-	C:E ->
-	    S = erlang:get_stacktrace(),
-	    d("File append of ~s exception: ~p:~p~n    ~p~n",
-	      [FileName,C,E,S]),
+	    E;
+	C:E:S ->
+	    d("File append of ~s exception: "
+              "~n   ~p:~p"
+              "~n   ~p"
+              "~n", [FileName, C, E, S]),
 	    close_config_file(Dir, FileName, Fd),
 	    {error, {failed_append, Dir, FileName, {C, E, S}}}
     end.
@@ -2702,16 +2952,18 @@ read_config_file(Dir, FileName, Order, Check)
 		SortedLines = sort_lines(Lines, Order),
 		{ok, verify_lines(SortedLines, Check, undefined, [])}
 	    catch
-		Error ->
-		    S = erlang:get_stacktrace(),
-		    d("File read of ~s throwed: ~p~n    ~p~n",
-		      [FileName, Error, S]),
-		    {error, Error};
-		T:E ->
-		    S = erlang:get_stacktrace(),
-		    d("File read of ~s exception: ~p:~p~n    ~p~n",
-		      [FileName,T,E,S]),
-		    {error, {failed_read, Dir, FileName, {T, E, S}}}
+		throw:E:S ->
+		    d("File read of ~s throwed: "
+                      "~n   ~p"
+                      "~n   ~p"
+                      "~n", [FileName, E, S]),
+		    {error, E};
+		C:E:S ->
+		    d("File read of ~s exception: "
+                      "~n   ~p:~p"
+                      "~n    ~p"
+                      "~n", [FileName, C, E, S]),
+		    {error, {failed_read, Dir, FileName, {C, E, S}}}
 	    after
 		file:close(Fd)
 	    end;
@@ -2730,7 +2982,8 @@ read_lines(Fd, Acc, StartLine) ->
     end.
 
 read_and_parse_term(Fd, StartLine) ->
-    case io:request(Fd, {get_until, "", erl_scan, tokens, [StartLine]}) of
+    Enc = latin1,
+    case io:request(Fd, {get_until, Enc, "", erl_scan, tokens, [StartLine]}) of
 	{ok, Tokens, EndLine} ->
 	    case erl_parse:parse_term(Tokens) of
                 {ok, Term} ->
@@ -2760,11 +3013,10 @@ verify_lines(
 	{{ok, NewTerm}, NewState} ->
 	    verify_lines(Lines, Check, NewState, [NewTerm|Acc])
     catch
-	{error, Reason} ->
+	throw:{error, Reason}:_ ->
 	    throw({failed_check, StartLine, EndLine, Reason});
-	C:R ->
-	    S = erlang:get_stacktrace(),
-	    throw({failed_check, StartLine, EndLine, {C, R, S}})
+	C:E:S ->
+	    throw({failed_check, StartLine, EndLine, {C, E, S}})
     end.
 
 

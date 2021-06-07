@@ -1,0 +1,7 @@
+
+  [;1m-spec is_list(Term) -> boolean() when Term :: term().[0m
+
+  Returns [;;4mtrue[0m if [;;4mTerm[0m is a list with zero or more elements,
+  otherwise [;;4mfalse[0m.
+
+  Allowed in guard tests.

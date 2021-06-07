@@ -82,29 +82,25 @@ typedef struct ErtsCodeInfo_ {
     BeamInstr op;           /* OpCode(i_func_info) */
     union {
         struct generic_bp* gen_bp;     /* Trace breakpoint */
-#ifdef HIPE
-        void (*ncallee)(void);
-        struct hipe_call_count* hcc;
-#endif
-    }u;
+    } u;
     ErtsCodeMFA mfa;
 } ErtsCodeInfo;
 
 /* Get the code associated with a ErtsCodeInfo ptr. */
 ERTS_GLB_INLINE
-BeamInstr *erts_codeinfo_to_code(ErtsCodeInfo *ci);
+ErtsCodePtr erts_codeinfo_to_code(const ErtsCodeInfo *ci);
 
 /* Get the ErtsCodeInfo for from a code ptr. */
 ERTS_GLB_INLINE
-ErtsCodeInfo *erts_code_to_codeinfo(BeamInstr *I);
+const ErtsCodeInfo *erts_code_to_codeinfo(ErtsCodePtr I);
 
 /* Get the code associated with a ErtsCodeMFA ptr. */
 ERTS_GLB_INLINE
-BeamInstr *erts_codemfa_to_code(ErtsCodeMFA *mfa);
+ErtsCodePtr erts_codemfa_to_code(const ErtsCodeMFA *mfa);
 
 /* Get the ErtsCodeMFA from a code ptr. */
 ERTS_GLB_INLINE
-ErtsCodeMFA *erts_code_to_codemfa(BeamInstr *I);
+const ErtsCodeMFA *erts_code_to_codemfa(ErtsCodePtr I);
 
 /* Called once at emulator initialization.
  */
@@ -132,6 +128,15 @@ ErtsCodeIndex erts_staging_code_ix(void);
  * Caller is suspended and *must* yield if 0 is returned. 
  */
 int erts_try_seize_code_write_permission(struct process* c_p);
+
+/* Try seize exclusive code write permission for aux work.
+ * System thread progress must not be blocked.
+ * On success return true.
+ * On failure return false and aux work func(arg) will be scheduled when
+ * permission is released.                                                                             .
+ */
+int erts_try_seize_code_write_permission_aux(void (*func)(void *),
+                                             void *arg);
 
 /* Release code write permission.
  * Will resume any suspended waiters.
@@ -171,42 +176,50 @@ int erts_has_code_write_permission(void);
            (is_atom((MFA)->function) || is_nil((MFA)->function)) &&     \
            (((MFA)->arity >= 0 && (MFA)->arity < 1024) || (MFA)->arity == -1))
 
+extern erts_atomic32_t the_active_code_index;
+extern erts_atomic32_t the_staging_code_index;
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE
-BeamInstr *erts_codeinfo_to_code(ErtsCodeInfo *ci)
+ErtsCodePtr erts_codeinfo_to_code(const ErtsCodeInfo *ci)
 {
+#ifndef BEAMASM
     ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
+#endif
     ASSERT_MFA(&ci->mfa);
-    return (BeamInstr*)(ci + 1);
+    return (ErtsCodePtr)&ci[1];
 }
 
 ERTS_GLB_INLINE
-ErtsCodeInfo *erts_code_to_codeinfo(BeamInstr *I)
+const ErtsCodeInfo *erts_code_to_codeinfo(ErtsCodePtr I)
 {
-    ErtsCodeInfo *ci = ((ErtsCodeInfo *)(((char *)(I)) - sizeof(ErtsCodeInfo)));
+    const ErtsCodeInfo *ci = &((const ErtsCodeInfo *)I)[-1];
+
+#ifndef BEAMASM
     ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
+#endif
     ASSERT_MFA(&ci->mfa);
+
     return ci;
 }
 
 ERTS_GLB_INLINE
-BeamInstr *erts_codemfa_to_code(ErtsCodeMFA *mfa)
+ErtsCodePtr erts_codemfa_to_code(const ErtsCodeMFA *mfa)
 {
     ASSERT_MFA(mfa);
-    return (BeamInstr*)(mfa + 1);
+    return (ErtsCodePtr)&mfa[1];
 }
 
 ERTS_GLB_INLINE
-ErtsCodeMFA *erts_code_to_codemfa(BeamInstr *I)
+const ErtsCodeMFA *erts_code_to_codemfa(ErtsCodePtr I)
 {
-    ErtsCodeMFA *mfa = ((ErtsCodeMFA *)(((char *)(I)) - sizeof(ErtsCodeMFA)));
+    const ErtsCodeMFA *mfa = &((const ErtsCodeMFA *)I)[-1];
+
     ASSERT_MFA(mfa);
+
     return mfa;
 }
-
-extern erts_atomic32_t the_active_code_index;
-extern erts_atomic32_t the_staging_code_index;
 
 ERTS_GLB_INLINE ErtsCodeIndex erts_active_code_ix(void)
 {

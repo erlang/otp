@@ -36,13 +36,11 @@
     <p>An Erlang process is lightweight compared to threads and
     processes in operating systems.</p>
 
-    <p>A newly spawned Erlang process uses 309 words of memory
-    in the non-SMP emulator without HiPE support. (SMP support
-    and HiPE support both add to this size.) The size can
+    <p>A newly spawned Erlang process uses 326 words of memory. The size can
     be found as follows:</p>
 
     <pre>
-Erlang (BEAM) emulator version 5.6 [async-threads:0] [kernel-poll:false]
+Erlang/OTP 24 [erts-12.0] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit]
 
 Eshell V5.6  (abort with ^G)
 1> <input>Fun = fun() -> receive after infinity -> ok end end.</input>
@@ -101,9 +99,9 @@ loop() ->
       <p>In a system that use comparatively few processes, performance
       <em>might</em> be improved by increasing the minimum heap size
       using either the <c>+h</c> option for
-      <seealso marker="erts:erl">erl</seealso> or on a process-per-process
+      <seecom marker="erts:erl">erl</seecom> or on a process-per-process
       basis using the <c>min_heap_size</c> option for
-      <seealso marker="erts:erlang#spawn_opt/4">spawn_opt/4</seealso>.</p>
+      <seemfa marker="erts:erlang#spawn_opt/4">spawn_opt/4</seemfa>.</p>
 
       <p>The gain is twofold:</p>
       <list type="bulleted">
@@ -135,13 +133,143 @@ loop() ->
 
     <p>All data in messages between Erlang processes is copied,
       except for
-      <seealso marker="binaryhandling#refc_binary">refc binaries</seealso>
+      <seeguide marker="binaryhandling#refc_binary">refc binaries</seeguide>
       on the same Erlang node.</p>
 
     <p>When a message is sent to a process on another Erlang node,
       it is first encoded to the Erlang External Format before
       being sent through a TCP/IP socket. The receiving Erlang node decodes
       the message and distributes it to the correct process.</p>
+
+    <section>
+      <marker id="receiving-messages"></marker>
+      <title>Receiving messages</title>
+
+      <p>The cost of receiving messages depends on how complicated the
+        <c>receive</c> expression is. Simple expressions that match any
+        message are very cheap:</p>
+
+      <p><em>DO</em></p>
+      <code type="erl"><![CDATA[
+    receive
+        Message -> handle_msg(Message)
+    end.]]></code>
+
+      <p>This is not always convenient however: we can receive a message that
+        we do not know how to handle at this point, so it's rather common to
+        only match the messages we expect:</p>
+
+      <code type="erl"><![CDATA[
+    receive
+        {Tag, Message} -> handle_msg(Message)
+    end.]]></code>
+
+      <p>While this is convenient it means that the entire message queue must
+        be searched until it finds a matching message. This is very expensive
+        for processes with long message queues, so we have added an
+        optimization for the common case of sending a request and waiting for a
+        response shortly after:</p>
+
+      <p><em>DO</em></p>
+      <code type="erl"><![CDATA[
+    MRef = monitor(process, Process),
+    Process ! {self(), MRef, Request},
+    receive
+        {MRef, Reply} ->
+            erlang:demonitor(MRef, [flush]),
+            handle_reply(Reply);
+        {'DOWN', MRef, _, _, Reason} ->
+            handle_error(Reason)
+    end.]]></code>
+
+      <p>Since the compiler knows that the reference created by <c>monitor/2</c>
+        cannot exist before the call (since it is a globally unique identifier),
+        and that the <c>receive</c> only matches messages that contain said
+        reference, it will tell the emulator to search only the messages that
+        arrived after the call to <c>monitor/2</c>.</p>
+
+      <p>The above is a simple example where one is but guaranteed that the
+        optimization will take, but what about more complicated code?</p>
+
+      <section>
+        <marker id="recv_opt_info"></marker>
+        <title>Option recv_opt_info</title>
+
+        <p>Use the <c>recv_opt_info</c> option to have the compiler print
+          information about receive optimizations. It can be given either to
+          the compiler or <c>erlc</c>:</p>
+
+        <code type="erl"><![CDATA[
+erlc +recv_opt_info Mod.erl]]></code>
+
+        <p>or passed through an environment variable:</p>
+
+        <code type="erl"><![CDATA[
+export ERL_COMPILER_OPTIONS=recv_opt_info]]></code>
+
+        <p>Notice that <c>recv_opt_info</c> is not meant to be a permanent
+          option added to your <c>Makefile</c>s, because all messages that it
+          generates cannot be eliminated. Therefore, passing the option through
+          the environment is in most cases the most practical approach.</p>
+
+        <p>The warnings look as follows:</p>
+
+        <code type="erl"><![CDATA[
+efficiency_guide.erl:194: Warning: INFO: receive matches any message, this is always fast
+efficiency_guide.erl:200: Warning: NOT OPTIMIZED: all clauses do not match a suitable reference
+efficiency_guide.erl:206: Warning: OPTIMIZED: reference used to mark a message queue position
+efficiency_guide.erl:208: Warning: OPTIMIZED: all clauses match reference created by monitor/2 at efficiency_guide.erl:206
+efficiency_guide.erl:219: Warning: INFO: passing reference created by make_ref/0 at efficiency_guide.erl:218
+efficiency_guide.erl:222: Warning: OPTIMIZED: all clauses match reference in function parameter 1]]></code>
+
+        <p>To make it clearer exactly what code the warnings refer to, the
+          warnings in the following examples are inserted as comments
+          after the clause they refer to, for example:</p>
+
+        <code type="erl"><![CDATA[
+%% DO
+simple_receive() ->
+    %% efficiency_guide.erl:194: Warning: INFO: not a selective receive, this is always fast
+    receive
+        Message -> handle_msg(Message)
+    end.
+
+%% DO NOT, unless Tag is known to be a suitable reference: see
+%% cross_function_receive/0 further down.
+selective_receive(Tag, Message) ->
+    %% efficiency_guide.erl:200: Warning: NOT OPTIMIZED: all clauses do not match a suitable reference
+    receive
+        {Tag, Message} -> handle_msg(Message)
+    end.
+
+%% DO
+optimized_receive(Process, Request) ->
+    %% efficiency_guide.erl:206: Warning: OPTIMIZED: reference used to mark a message queue position
+    MRef = monitor(process, Process),
+    Process ! {self(), MRef, Request},
+    %% efficiency_guide.erl:208: Warning: OPTIMIZED: matches reference created by monitor/2 at efficiency_guide.erl:206
+    receive
+        {MRef, Reply} ->
+            erlang:demonitor(MRef, [flush]),
+            handle_reply(Reply);
+        {'DOWN', MRef, _, _, Reason} ->
+            handle_error(Reason)
+    end.
+
+%% DO
+cross_function_receive() ->
+    %% efficiency_guide.erl:218: Warning: OPTIMIZED: reference used to mark a message queue position
+    Ref = make_ref(),
+    %% efficiency_guide.erl:219: Warning: INFO: passing reference created by make_ref/0 at efficiency_guide.erl:218
+    cross_function_receive(Ref).
+
+cross_function_receive(Ref) ->
+    %% efficiency_guide.erl:222: Warning: OPTIMIZED: all clauses match reference in function parameter 1
+    receive
+        {Ref, Message} -> handle_msg(Message)
+    end.]]></code>
+      </section>
+    </section>
 
     <section>
       <title>Constant Pool</title>
@@ -242,18 +370,14 @@ true
   <section>
     <title>SMP Emulator</title>
 
-    <p>The SMP emulator (introduced in R11B) takes advantage of a
-    multi-core or multi-CPU computer by running several Erlang scheduler
-    threads (typically, the same as the number of cores). Each scheduler
-    thread schedules Erlang processes in the same way as the Erlang scheduler
-    in the non-SMP emulator.</p>
+    <p>The emulator takes advantage of a multi-core or multi-CPU
+    computer by running several Erlang scheduler
+    threads (typically, the same as the number of cores).</p>
 
-    <p>To gain performance by using the SMP emulator, your application
+    <p>To gain performance from a multi-core computer, your application
     <em>must have more than one runnable Erlang process</em> most of the time.
     Otherwise, the Erlang emulator can still only run one Erlang process
-    at the time, but you must still pay the overhead for locking. Although
-    Erlang/OTP tries to reduce the locking overhead as much as possible,
-    it will never become exactly zero.</p>
+    at the time.</p>
 
     <p>Benchmarks that appear to be concurrent are often sequential.
     The estone benchmark, for example, is entirely sequential. So is

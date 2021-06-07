@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,12 +20,13 @@
 
 -module(seq_trace).
 
--define(SEQ_TRACE_SEND, 1).       %(1 << 0)
--define(SEQ_TRACE_RECEIVE, 2).    %(1 << 1)
--define(SEQ_TRACE_PRINT, 4).      %(1 << 2)
--define(SEQ_TRACE_NOW_TIMESTAMP, 8). %(1 << 3)
--define(SEQ_TRACE_STRICT_MON_TIMESTAMP, 16). %(1 << 4)
--define(SEQ_TRACE_MON_TIMESTAMP, 32). %(1 << 5)
+%% Don't forget to update seq_trace_SUITE after changing these.
+-define(SEQ_TRACE_SEND, 1).                     %(1 << 0)
+-define(SEQ_TRACE_RECEIVE, 2).                  %(1 << 1)
+-define(SEQ_TRACE_PRINT, 4).                    %(1 << 2)
+-define(SEQ_TRACE_NOW_TIMESTAMP, 8).            %(1 << 3)
+-define(SEQ_TRACE_STRICT_MON_TIMESTAMP, 16).    %(1 << 4)
+-define(SEQ_TRACE_MON_TIMESTAMP, 32).           %(1 << 5)
 
 -export([set_token/1,
 	 set_token/2,
@@ -39,7 +40,8 @@
 
 %%---------------------------------------------------------------------------
 
--type flag()       :: 'send' | 'receive' | 'print' | 'timestamp' | 'monotonic_timestamp' | 'strict_monotonic_timestamp'.
+-type flag()       :: 'send' | 'receive' | 'print' | 'timestamp' |
+                      'monotonic_timestamp' | 'strict_monotonic_timestamp'.
 -type component()  :: 'label' | 'serial' | flag().
 -type value()      :: (Label :: term())
                     | {Previous :: non_neg_integer(),
@@ -59,7 +61,7 @@ set_token({Flags,Label,Serial,_From,Lastcnt}) ->
     F = decode_flags(Flags),
     set_token2([{label,Label},{serial,{Lastcnt, Serial}} | F]).
 
--spec set_token(Component, Val) -> {Component, OldVal} when
+-spec set_token(Component, Val) -> OldVal when
       Component :: component(),
       Val :: value(),
       OldVal :: value().

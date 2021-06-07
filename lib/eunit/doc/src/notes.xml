@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2018</year>
+      <year>2020</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -32,6 +32,114 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
+
+<section><title>Eunit 2.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <seeerl
+	    marker="eunit_surefire"><c>eunit_surefire</c></seeerl>
+	    report handler has been updated to automatically create
+	    the directories needed to store the surefire xml file.</p>
+          <p>
+	    Own Id: OTP-17300 Aux Id: PR-4695 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed compiler warning.</p>
+          <p>
+	    Own Id: OTP-16674</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Let <c>eunit_surefire</c> skip invalid XML 1.0
+	    characters. </p>
+          <p>
+	    Own Id: OTP-15950 Aux Id: PR-2316, ERL-991 </p>
+        </item>
+        <item>
+          <p>
+	    Add new macro ?capturedOutput for enabling to write test
+	    cases that verify data printed to standard out</p>
+          <p>
+	    Own Id: OTP-16275 Aux Id: PR-2424 </p>
+        </item>
+        <item>
+          <p>
+	    Add option to limit print depth of exceptions generated
+	    by eunit test suites.</p>
+          <p>
+	    Own Id: OTP-16549 Aux Id: PR-2532 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Backport of PR-2316: Strip control codes from
+	    eunit_surefire output to avoid generation of invalid xml</p>
+          <p>
+	    Own Id: OTP-16380 Aux Id: ERL-991, PR-2316, PR-2487 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove compiler warnings from eunit.</p>
+          <p>
+	    Own Id: OTP-16313</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.3.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Handle <c>get_until</c> request with explicit
+	    encoding in the implementation of the I/O protocol. </p>
+          <p>
+	    Own Id: OTP-16000</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Eunit 2.3.7</title>
 

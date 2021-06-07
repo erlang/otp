@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,9 +53,14 @@ typedef struct hash_db_term {
 #define DB_HASH_LOCK_CNT 64
 #endif
 
+typedef struct DbTableHashLockAndCounter {
+    Sint nitems;
+    erts_rwmtx_t lck;
+} DbTableHashLockAndCounter;
+
 typedef struct db_table_hash_fine_locks {
     union {
-	erts_rwmtx_t lck;
+	DbTableHashLockAndCounter lck_ctr;
 	byte _cache_line_alignment[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_rwmtx_t))];
     }lck_vec[DB_HASH_LOCK_CNT];
 } DbTableHashFineLocks;
@@ -63,9 +68,10 @@ typedef struct db_table_hash_fine_locks {
 typedef struct db_table_hash {
     DbTableCommon common;
 
-    /* SMP: szm and nactive are write-protected by is_resizing or table write lock */
+    /* szm, nactive, shrink_limit are write-protected by is_resizing or table write lock */
     erts_atomic_t szm;     /* current size mask. */
     erts_atomic_t nactive; /* Number of "active" slots */
+    erts_atomic_t shrink_limit; /* Shrink table when fewer objects than this */
 
     erts_atomic_t segtab;  /* The segment table (struct segment**) */
     struct segment* first_segtab[1];
@@ -93,7 +99,7 @@ Uint db_kept_items_hash(DbTableHash *tb);
 int db_create_hash(Process *p, 
 		   DbTable *tbl /* [in out] */);
 
-int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail);
+int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail, SWord* consumed_reds_p);
 
 int db_get_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret);
 
@@ -110,6 +116,9 @@ typedef struct {
 
 void db_calc_stats_hash(DbTableHash* tb, DbHashStats*);
 Eterm erts_ets_hash_sizeof_ext_segtab(void);
+void
+erts_db_foreach_thr_prgr_offheap_hash(void (*func)(ErlOffHeap *, void *),
+                                      void *arg);
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 void erts_lcnt_enable_db_hash_lock_count(DbTableHash *tb, int enable);

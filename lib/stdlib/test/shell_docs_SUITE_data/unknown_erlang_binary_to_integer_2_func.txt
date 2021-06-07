@@ -1,0 +1,18 @@
+
+  [;1m-spec binary_to_integer(Binary, Base) -> integer()[0m
+  [;1m                           when Binary :: binary(), Base :: 2..36.[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  Returns an integer whose text representation in base [;;4mBase[0m is [;;4m[0m
+  [;;4mBinary[0m, for example:
+
+    > binary_to_integer(<<"3FF">>, 16).
+    1023
+
+  [;;4mbinary_to_integer/2[0m accepts the same string formats as [;;4m[0m
+  [;;4mlist_to_integer/2[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mBinary[0m contains a bad representation of an
+  integer.

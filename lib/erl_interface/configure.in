@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2000-2018. All Rights Reserved.
+# Copyright Ericsson AB 2000-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,11 +28,6 @@ dnl m4_define(EI_VERSION,`grep EI_VSN ../vsn.mk | sed 's/^.*=[ ]*//'`)
 dnl m4_define(EI_VERSION,regexp(m4_include(VERSION),[version \([-.0-9A-Za-z]+\)],[\1]))
 
 AC_INIT()
-
-if test "x$no_recursion" != "xyes" -a "x$OVERRIDE_CONFIG_CACHE" = "x"; then
-    # We do not want to use a common cache!
-    cache_file=/dev/null
-fi
 
 dnl How to set srcdir absolute is taken from the GNU Emacs distribution
 #### Make srcdir absolute, if it isn't already.  It's important to
@@ -279,8 +274,8 @@ case "$threads_disabled" in
 		fi
 	        ;;
 	    win32_threads)
-		EI_THREADS="true"	
-		THR_DEFS="$THR_DEFS -D_WIN32_WINNT=0x0600 -DWINVER=0x0600"
+		EI_THREADS="true"
+		THR_DEFS="$THR_DEFS -D_REENTRANT -D_WIN32_WINNT=0x0600 -DWINVER=0x0600"
 		;;
 	    pthread)
 		EI_THREADS="true"
@@ -320,6 +315,12 @@ if test "x$GCC" = xyes; then
         WFLAGS="$WFLAGS -fno-strict-aliasing";;
   esac
   CFLAGS="$WERRORFLAGS $CFLAGS"
+
+  # Use -fno-common for gcc, that is link error if multiple definitions of
+  # global variables are encountered. This is ISO C compliant.
+  # Until version 10, gcc has had -fcommon as default, which allows and merges
+  # such dubious duplicates.
+  LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
 else
   WFLAGS=""
   WERRORFLAGS=""
@@ -335,6 +336,10 @@ if test "X$host" = "Xwin32"; then
   LIB_CFLAGS="$CFLAGS"
 else
   if test "x$GCC" = xyes; then
+        # Remove all PIE stuff
+        CFLAGS=`echo $CFLAGS | sed 's/-f\(no-\)\?PIE//g'`
+        LDFLAGS=`echo $LDFLAGS | sed 's/-\(no-\)\?pie//g'`
+
 	LIB_CFLAGS="$CFLAGS -fPIC"
   else
 	LIB_CFLAGS="$CFLAGS"
@@ -364,6 +369,7 @@ LDFLAGS="$LDFLAGS $sanitizers"
 # ---------------------------------------------------------------------------
 # XXX
 # ---------------------------------------------------------------------------
+
 
 AC_OUTPUT(
 	src/$host/Makefile:src/Makefile.in

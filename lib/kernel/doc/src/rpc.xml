@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2018</year>
+      <year>1996</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,14 +37,30 @@
       a function on a remote node and collect the answer. It is used
       for collecting information on a remote node, or for running a
       function with some specific side effects on the remote node.</p>
+      <note><p>
+	<c>rpc:call()</c> and friends makes it quite hard to distinguish
+	between successful results, raised exceptions, and other errors.
+	This cannot be changed due to compatibility reasons. As of OTP 23,
+	a new module <seeerl marker="erpc"><c>erpc</c></seeerl> was
+	introduced in order to provide an API that makes it possible
+	to distingush between the different results. The <c>erpc</c>
+	module provides a subset (however, the central subset) of the
+	functionality available in the <c>rpc</c> module. The <c>erpc</c>
+	implementation also provides a more scalable implementation with
+	better performance than the original <c>rpc</c> implementation.
+	However, since the introduction of <c>erpc</c>, the <c>rpc</c>
+	module implements large parts of its central functionality using
+	<c>erpc</c>, so the <c>rpc</c> module wont not suffer scalability
+	wise and performance wise compared to <c>erpc</c>.
+      </p></note>
   </description>
 
   <datatypes>
     <datatype>
       <name name="key"/>
       <desc>
-        <p>As returned by
-          <seealso marker="#async_call/4"><c>async_call/4</c></seealso>.</p>
+        <p>Opaque value returned by
+          <seemfa marker="#async_call/4"><c>async_call/4</c></seemfa>.</p>
       </desc>
     </datatype>
   </datatypes>
@@ -83,46 +99,68 @@
           promise to deliver the answer.</p>
         <p>In this case, the key <c><anno>Key</anno></c> is returned, which
           can be used in a subsequent call to
-          <seealso marker="#yield/1"><c>yield/1</c></seealso> or
-          <seealso marker="#nb_yield/1"><c>nb_yield/1,2</c></seealso>
+          <seemfa marker="#yield/1"><c>yield/1</c></seemfa> or
+          <seemfa marker="#nb_yield/1"><c>nb_yield/1,2</c></seemfa>
           to retrieve the value of evaluating <c>apply(<anno>Module</anno>,
           <anno>Function</anno>, <anno>Args</anno>)</c> on node
-          <c><anno>Node</anno></c>.</p>
+        <c><anno>Node</anno></c>.</p>
+	<note>
+	  <p>
+	    If you want the ability to distinguish between results,
+	    you may want to consider using the
+	    <seemfa marker="erpc#send_request/4"><c>erpc:send_request()</c></seemfa>
+	    function from the <c>erpc</c> module instead. This also
+	    gives you the ability retrieve the results in other useful
+	    ways.
+	  </p>
+	</note>
         <note>
-          <p><seealso marker="#yield/1"><c>yield/1</c></seealso> and
-            <seealso marker="#nb_yield/1"><c>nb_yield/1,2</c></seealso>
+          <p><seemfa marker="#yield/1"><c>yield/1</c></seemfa> and
+            <seemfa marker="#nb_yield/1"><c>nb_yield/1,2</c></seemfa>
             must be called by the same process from which this function
             was made otherwise they will never yield correctly.</p>
         </note>
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be an <c>rpc</c> server, another server, or a freshly
+	    spawned process.
+	  </p>
+	</note>
       </desc>
     </func>
 
     <func>
       <name name="block_call" arity="4" since=""/>
-      <fsummary>Evaluate a function call on a node in the RPC server's
-        context.</fsummary>
-      <desc>
-        <p>Same as <seealso marker="#call/4"><c>call/4</c></seealso>,
-          but the RPC server at <c><anno>Node</anno></c> does
-          not create a separate process to handle the call. Thus,
-          this function can be used if the intention of the call is to
-          block the RPC server from any other incoming requests until
-          the request has been handled. The function can also be used
-          for efficiency reasons when very small fast functions are
-          evaluated, for example, BIFs that are guaranteed not to
-          suspend.</p>
+      <fsummary>Evaluate a function call on a node.</fsummary>
+	<desc>
+	<p>
+	  The same as calling
+	  <seemfa marker="#block_call/5"><c>rpc:block_call(<anno>Node</anno>,
+	  <anno>Module</anno>, <anno>Function</anno>,
+	  <anno>Args</anno>, infinity)</c></seemfa>.
+	</p>
       </desc>
     </func>
 
     <func>
       <name name="block_call" arity="5" since=""/>
-      <fsummary>Evaluate a function call on a node in the RPC server's
-        context.</fsummary>
+      <fsummary>Evaluate a function call on a node.</fsummary>
       <desc>
-        <p>Same as
-          <seealso marker="#block_call/4"><c>block_call/4</c></seealso>,
-          but with a time-out value in the same manner as
-          <seealso marker="#call/5"><c>call/5</c></seealso>.</p>
+	  <p>
+	    The same as calling
+	    <seemfa marker="#call/5"><c>rpc:call(<anno>Node</anno>,
+	    <anno>Module</anno>, <anno>Function</anno>,
+	    <anno>Args</anno>, <anno>Timeout</anno>)</c></seemfa> with
+	    the exception that it also blocks other <c>rpc:block_call()</c>
+	    operations from executing concurrently on the node
+	    <c><anno>Node</anno></c>.
+	  </p>
+	  <warning><p>
+	    Note that it also blocks other operations than just
+	    <c>rpc:block_call()</c> operations, so use it with care.
+	  </p></warning>
       </desc>
     </func>
 
@@ -131,9 +169,14 @@
       <fsummary>Evaluate a function call on a node.</fsummary>
       <desc>
         <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
-          <anno>Args</anno>)</c> on node <c><anno>Node</anno></c> and returns
+        <anno>Args</anno>)</c> on node <c><anno>Node</anno></c> and returns
           the corresponding value <c><anno>Res</anno></c>, or
-          <c>{badrpc, <anno>Reason</anno>}</c> if the call fails.</p>
+          <c>{badrpc, <anno>Reason</anno>}</c> if the call fails.
+	  The same as calling
+	  <seemfa marker="#call/5"><c>rpc:call(<anno>Node</anno>,
+	  <anno>Module</anno>, <anno>Function</anno>,
+	  <anno>Args</anno>, infinity)</c></seemfa>.
+	</p>
       </desc>
     </func>
 
@@ -149,11 +192,44 @@
           a time-out value in milliseconds. If the call times out,
           <c><anno>Reason</anno></c> is <c>timeout</c>.</p>
         <p>If the reply arrives after the call times out, no message
-          contaminates the caller's message queue, as this
-          function spawns off a middleman process to act as (a void)
-          destination for such an orphan reply. This feature also makes
-          this function more expensive than <c>call/4</c> at
-          the caller's end.</p>
+          contaminates the caller's message queue.</p>
+	<note>
+	  <p>
+	    If you want the ability to distinguish between results,
+	    you may want to consider using the
+	    <seemfa marker="erpc#call/4"><c>erpc:call()</c></seemfa>
+	    function from the <c>erpc</c> module instead.
+	  </p>
+	</note>
+	<note>
+	  <p>Here follows the details of what exactly is returned.</p>
+	  <p><c>{badrpc, <anno>Reason</anno>}</c> will be returned in the
+	  following circumstances:</p>
+          <list type="bulleted">
+            <item>The called function fails with an <c>exit</c> exception.</item>
+            <item>The called function fails with an <c>error</c> exception.</item>
+	    <item>The called function returns a term that matches
+	    <c>{'EXIT', _}</c>.</item>
+	    <item>The called function <c>throws</c>
+	    a term that matches <c>{'EXIT', _}</c>.</item>
+          </list>
+
+	  <p><c><anno>Res</anno></c> is returned in the following circumstances:</p>
+          <list type="bulleted">
+            <item>The called function returns normally with a term that does
+	    <strong>not</strong> match <c>{'EXIT',_}</c>.</item>
+            <item>The called function <c>throw</c>s a term that does
+	    <strong>not</strong> match <c>{'EXIT',_}</c>.</item>
+          </list>
+	</note>
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be the calling process itself, an <c>rpc</c> server,
+	    another server, or a freshly spawned process.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -166,7 +242,15 @@
           <c><anno>Node</anno></c>. No response is delivered and the calling
           process is not suspended until the evaluation is complete, as
           is the case with
-          <seealso marker="#call/4"><c>call/4,5</c></seealso>.</p>
+          <seemfa marker="#call/4"><c>call/4,5</c></seemfa>.</p>
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be an <c>rpc</c> server, another server, or a
+	    freshly spawned process.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -199,7 +283,7 @@
           <anno>Name</anno>, <anno>Msg</anno>)</c>.</p>
       </desc>
     </func>
-
+    
     <func>
       <name name="multi_server_call" arity="3" since=""/>
       <fsummary>Interact with the servers on a number of nodes.</fsummary>
@@ -284,6 +368,22 @@
 {ResL, _} = rpc:multicall(code, load_binary, [Mod, File, Bin]),
 
 %% and then maybe check the ResL list.</code>
+	<note>
+	  <p>
+	    If you want the ability to distinguish between results,
+	    you may want to consider using the
+	    <seemfa marker="erpc#multicall/4"><c>erpc:multicall()</c></seemfa>
+	    function from the <c>erpc</c> module instead.
+	  </p>
+	</note>
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be the calling process itself, an <c>rpc</c> server,
+	    another server, or a freshly spawned process.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -302,13 +402,15 @@
         (non-blocking).</fsummary>
       <desc>
         <p>Non-blocking version of
-          <seealso marker="#yield/1"><c>yield/1</c></seealso>. It returns
+          <seemfa marker="#yield/1"><c>yield/1</c></seemfa>. It returns
           the tuple <c>{value, <anno>Val</anno>}</c> when the computation is
           finished, or <c>timeout</c> when <c><anno>Timeout</anno></c>
           milliseconds has elapsed.</p>
+	  <p>See the note in <seemfa marker="#call/4"><c>call/4</c></seemfa>
+	  for more details of <anno>Val</anno>.</p>
         <note>
           <p>This function must be called by the same process from which
-            <seealso marker="#async_call/4"><c>async_call/4</c></seealso>
+            <seemfa marker="#async_call/4"><c>async_call/4</c></seemfa>
             was made otherwise it will only return <c>timeout</c>.</p>
         </note>
       </desc>
@@ -332,7 +434,7 @@
       <fsummary>Information about a process.</fsummary>
       <desc>
         <p>Location transparent version of the BIF
-          <seealso marker="erts:erlang#process_info/1"><c>erlang:process_info/1</c></seealso> in ERTS.</p>
+          <seemfa marker="erts:erlang#process_info/1"><c>erlang:process_info/1</c></seemfa> in ERTS.</p>
       </desc>
     </func>
 
@@ -342,7 +444,7 @@
       <fsummary>Information about a process.</fsummary>
       <desc>
         <p>Location transparent version of the BIF
-          <seealso marker="erts:erlang#process_info/2"><c>erlang:process_info/2</c></seealso> in ERTS.</p>
+          <seemfa marker="erts:erlang#process_info/2"><c>erlang:process_info/2</c></seemfa> in ERTS.</p>
       </desc>
     </func>
 
@@ -415,15 +517,17 @@
         (blocking).</fsummary>
       <desc>
         <p>Returns the promised answer from a previous
-          <seealso marker="#async_call/4"><c>async_call/4</c></seealso>.
+          <seemfa marker="#async_call/4"><c>async_call/4</c></seemfa>.
           If the answer is available, it is
           returned immediately. Otherwise, the calling process is
           suspended until the answer arrives from <c>Node</c>.</p>
         <note>
           <p>This function must be called by the same process from which
-            <seealso marker="#async_call/4"><c>async_call/4</c></seealso>
+            <seemfa marker="#async_call/4"><c>async_call/4</c></seemfa>
             was made otherwise it will never return.</p>
         </note>
+	<p>See the note in <seemfa marker="#call/4"><c>call/4</c></seemfa>
+	for more details of the return value.</p>
       </desc>
     </func>
   </funcs>

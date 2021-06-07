@@ -38,6 +38,7 @@
 	
 	 dump_log_update_in_place/1,
 	 event_module/1,
+         backend_plugin_registration/1,
 	 inconsistent_database/1,
 	 max_wait_for_decision/1,
 	 send_compressed/1,
@@ -104,7 +105,7 @@ all() ->
     [access_module, auto_repair, backup_module, debug, dir,
      dump_log_load_regulation, {group, dump_log_thresholds},
      dump_log_update_in_place,
-     event_module,
+     event_module, backend_plugin_registration,
      inconsistent_database, max_wait_for_decision,
      send_compressed, app_test, {group, schema_config},
      unknown_config].
@@ -719,6 +720,21 @@ event_module(Config) when is_list(Config) ->
     ?verify_mnesia(Nodes, []),
     ?cleanup(1, Config),
     ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+backend_plugin_registration(doc) ->
+    ["Ensure that backend plugins can be registered at runtime,",
+     "that the init_backend is called exactly once when registering",
+     "a plugin, and not again when registering a new alias"];
+backend_plugin_registration(Config) when is_list(Config) ->
+    Nodes = ?acquire_schema(1, [{default_properties, []} | Config]),
+    ?match(ok, mnesia:start()),
+    ?match({atomic,ok}, mnesia:add_backend_type(ext_ets, ext_test)),
+    ?match({atomic,ok}, mnesia:add_backend_type(ext_dets, ext_test)),
+    ?verify_mnesia(Nodes, []),
+    ?cleanup(1, Config).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

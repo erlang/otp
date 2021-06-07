@@ -1,6 +1,6 @@
 -module(crashdump_helper_unicode).
 -behaviour(gen_server).
--export([start/0, init/1, handle_call/3, handle_cast/2]).
+-export([start/0, init/1, handle_call/3, handle_cast/2, 'спутник'/0]).
 -record(state, {s,a,b,lb}).
 
 start() ->
@@ -8,6 +8,9 @@ start() ->
 
 init([]) ->
     process_flag(trap_exit, true),
+    process_flag(save_calls, 10),
+    erlang:yield(),
+    ?MODULE:'спутник'(),
     ets:new('tab_αβ',[set,named_table]),
     Bin = <<"bin αβ"/utf8>>,
     LongBin = <<"long bin αβ - a utf8 binary which can be expanded αβ"/utf8>>,
@@ -20,3 +23,6 @@ handle_call(_Info, _From, State) ->
     {reply, ok, State}.
 handle_cast(_Info, State) ->
     {noreply, State}.
+
+'спутник'() ->
+    ok.

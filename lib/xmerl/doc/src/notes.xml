@@ -32,6 +32,188 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.3.28</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug that could cause parsing to crash.</p>
+          <p>
+	    Own Id: OTP-17388 Aux Id: OTP-17123 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.27</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed the bug that Xmerl SAX parser couldn't handle files
+	    ending with a ^M.</p>
+          <p>
+	    Own Id: OTP-17308</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.26</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrected namespace and expanded name in the old dom
+	    backend example module.</p>
+          <p>
+	    Own Id: OTP-17060</p>
+        </item>
+        <item>
+          <p>
+	    Corrected a bug that in some cases didn't allow
+	    unresolved references when skip_external_dtd option used.</p>
+          <p>
+	    Own Id: OTP-17061</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.25</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug that the function name didn't get
+	    normalized in some case which left white spaces in links.
+	    </p>
+          <p>
+	    Own Id: OTP-16617</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.24</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a performance problem when using internal general
+	    references in XML content. </p>
+          <p>
+	    Own Id: OTP-16578 Aux Id: ERIERL-482 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.23</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Replace a local floor/1 function with erlang:floor/1.
+	    </p>
+          <p>
+	    Own Id: OTP-16324</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Implement handling of parsed entity content and some
+	    other improvements. </p> <list> <item>Updated the SAX
+	    test-suite (xmerl_sax_std_SUITE) to more recent
+	    version</item> <item>Test now uses its own data directory
+	    since the non-SAX xmerl test suite (xmerl_std_SUITE) uses
+	    a different version of the other suite</item>
+	    <item>Canonical XML checks have been added to all tests
+	    that apply. Canonical, as it applies here, is regular
+	    canonical XML with the addition of notation declarations
+	    if any. Output must match byte-for-byte.</item>
+	    <item>External entities implemented, both as markup and
+	    replacement text</item> <item>Cyclic references are
+	    checked at the end of the DTD parse; also when a
+	    reference is found</item> <item>Default attributes are
+	    reported in events</item> <item>Attributes are whitespace
+	    normalized if their type demands it</item> <item>External
+	    entities can have a different encoding than the base
+	    document and will be transcoded to the document
+	    encoding</item> <item>Conditional sections
+	    (IGNORE/INCLUDE) handling has been added to DTD
+	    parsing</item> <item>Element content-model is now checked
+	    for well-formed-ness</item> <item>A few missing function
+	    clauses have been added</item> </list>
+          <p>
+	    Own Id: OTP-16339</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.22</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>xmerl_sax_parser</c> crashed during charset detection
+	    when the xml declarations attribute values was missing
+	    the closing quotation (&apos; or &quot;).</p>
+          <p>
+	    Own Id: OTP-15826</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.21</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A typo in an error printout has been fixed.</p>
+          <p>
+	    Own Id: OTP-14703 Aux Id: PR-1964 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.20.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>xmerl_sax_parser</c> crashed during charset detection
+	    when the xml declarations attribute values was missing
+	    the closing quotation (&apos; or &quot;).</p>
+          <p>
+	    Own Id: OTP-15826</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.3.20</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

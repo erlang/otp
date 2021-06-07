@@ -1,1 +1,1 @@
-{dialyzer_options, [{warnings, [underspecs]}]}.
+{dialyzer_options, [{indent_opt, false}, {warnings, [underspecs]}]}.

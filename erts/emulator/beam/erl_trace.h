@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ void erts_init_trace(void);
 void erts_trace_check_exiting(Eterm exiting);
 ErtsTracer erts_set_system_seq_tracer(Process *c_p,
                                       ErtsProcLocks c_p_locks,
-                                      ErtsTracer new);
+                                      ErtsTracer new_);
 ErtsTracer erts_get_system_seq_tracer(void);
 void erts_change_default_proc_tracing(int setflags, Uint flagsp,
                                       const ErtsTracer tracerp);
@@ -90,10 +90,10 @@ int erts_is_tracer_valid(Process* p);
 void erts_check_my_tracer_proc(Process *);
 void erts_block_sys_msg_dispatcher(void);
 void erts_release_sys_msg_dispatcher(void);
-void erts_foreach_sys_msg_in_q(void (*func)(Eterm,
-					    Eterm,
-					    Eterm,
-					    ErlHeapFragment *));
+void erts_debug_foreach_sys_msg_in_q(void (*func)(Eterm,
+                                                  Eterm,
+                                                  Eterm,
+                                                  ErlHeapFragment *));
 Eterm erts_set_system_logger(Eterm);
 Eterm erts_get_system_logger(void);
 void erts_queue_error_logger_message(Eterm, Eterm, ErlHeapFragment *);
@@ -105,9 +105,9 @@ Uint32 erts_call_trace(Process *p, ErtsCodeInfo *info, struct binary *match_spec
                        Eterm* args, int local, ErtsTracer *tracer);
 void erts_trace_return(Process* p, ErtsCodeMFA *mfa, Eterm retval,
                        ErtsTracer *tracer);
-void erts_trace_exception(Process* p, ErtsCodeMFA *mfa, Eterm class, Eterm value,
+void erts_trace_exception(Process* p, ErtsCodeMFA *mfa, Eterm class_, Eterm value,
                           ErtsTracer *tracer);
-void erts_trace_return_to(Process *p, BeamInstr *pc);
+void erts_trace_return_to(Process *p, ErtsCodePtr pc);
 void trace_sched(Process*, ErtsProcLocks, Eterm);
 void trace_proc(Process*, ErtsProcLocks, Process*, Eterm, Eterm);
 void trace_proc_spawn(Process*, Eterm what, Eterm pid, Eterm mod, Eterm func, Eterm args);
@@ -134,20 +134,14 @@ void erts_system_profile_setup_active_schedulers(void);
 
 /* system_monitor */
 void monitor_long_gc(Process *p, Uint time);
-void monitor_long_schedule_proc(Process *p, ErtsCodeMFA *in_i,
-                                ErtsCodeMFA *out_i, Uint time);
+void monitor_long_schedule_proc(Process *p, const ErtsCodeMFA *in_i,
+                                const ErtsCodeMFA *out_i, Uint time);
 void monitor_long_schedule_port(Port *pp, ErtsPortTaskType type, Uint time);
 void monitor_large_heap(Process *p);
 void monitor_generic(Process *p, Eterm type, Eterm spec);
 Uint erts_trace_flag2bit(Eterm flag);
 int erts_trace_flags(Eterm List, 
 		 Uint *pMask, ErtsTracer *pTracer, int *pCpuTimestamp);
-Eterm erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr *I);
-Eterm
-erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
-			Export* ep, BeamInstr *cp, Uint32 flags,
-			Uint32 flags_meta, BeamInstr* I,
-			ErtsTracer meta_tracer);
 
 void erts_send_pending_trace_msgs(ErtsSchedulerData *esdp);
 #define ERTS_CHK_PEND_TRACE_MSGS(ESDP)				\
@@ -163,7 +157,10 @@ seq_trace_output_generic((token), (msg), (type), (receiver), NULL, (exitfrom))
 void seq_trace_output_generic(Eterm token, Eterm msg, Uint type, 
 			      Eterm receiver, Process *process, Eterm exitfrom);
 
-int seq_trace_update_send(Process *process);
+/* Bump the sequence number if tracing is enabled; must be used before sending
+ * send trace messages. */
+int seq_trace_update_serial(Process *process);
+void erts_seq_trace_update_node_token(Eterm token);
 
 Eterm erts_seq_trace(Process *process, 
 		     Eterm atom_type, Eterm atom_true_or_false, 

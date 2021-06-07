@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
 	 read_write_file/1, names/1]).
--export([cur_dir_0/1, cur_dir_1/1, make_del_dir/1,
+-export([cur_dir_0/1, cur_dir_1/1, make_del_dir/1, make_del_dir_r/1,
 	 list_dir/1,list_dir_error/1,
 	 untranslatable_names/1, untranslatable_names_error/1,
 	 pos1/1, pos2/1, pos3/1]).
@@ -58,6 +58,8 @@
 -export([ file_info_basic_file/1, file_info_basic_directory/1,
 	  file_info_bad/1, file_info_times/1, file_write_file_info/1,
           file_wfi_helpers/1]).
+-export([ file_handle_info_basic_file/1, file_handle_info_basic_directory/1,
+	  file_handle_info_times/1]).
 -export([rename/1, access/1, truncate/1, datasync/1, sync/1,
 	 read_write/1, pread_write/1, append/1, exclusive/1]).
 -export([ e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
@@ -93,6 +95,8 @@
 -export([advise/1]).
 
 -export([allocate/1]).
+
+-export([allocate_file_size/1]).
 
 -export([standard_io/1,mini_server/1]).
 
@@ -139,13 +143,13 @@ all() ->
     ].
 
 groups() -> 
-    [{dirs, [], [make_del_dir, cur_dir_0, cur_dir_1,
+    [{dirs, [], [make_del_dir, make_del_dir_r, cur_dir_0, cur_dir_1,
 		 list_dir, list_dir_error, untranslatable_names,
 		 untranslatable_names_error]},
      {files, [],
       [{group, open}, {group, pos}, {group, file_info},
        {group, consult}, {group, eval}, {group, script},
-       truncate, sync, datasync, advise, allocate]},
+       truncate, sync, datasync, advise, allocate, allocate_file_size]},
      {open, [],
       [open1, old_modes, new_modes, path_open, close, access,
        read_write, pread_write, append, open_errors,
@@ -153,7 +157,10 @@ groups() ->
      {pos, [], [pos1, pos2, pos3]},
      {file_info, [],
       [file_info_basic_file, file_info_basic_directory,
-       file_info_bad, file_info_times, file_write_file_info,
+       file_info_bad, file_info_times,
+       file_handle_info_basic_file, file_handle_info_basic_directory,
+       file_handle_info_times,
+       file_write_file_info,
        file_wfi_helpers]},
      {consult, [], [consult1, path_consult]},
      {eval, [], [eval1, path_eval]},
@@ -273,11 +280,11 @@ mini_server(Parent) ->
 	    Parent ! {io_request,From,To,{put_chars,Data}},
 	    From ! {io_reply, To, ok},
 	    mini_server(Parent);
-	{io_request,From,To,{get_chars,'',N}} ->
+	{io_request,From,To,{get_chars,_Encoding,'',N}} ->
 	    Parent ! {io_request,From,To,{get_chars,'',N}},
 	    From ! {io_reply, To, {ok, lists:duplicate(N,$a)}},
 	    mini_server(Parent);
-	{io_request,From,To,{get_line,''}} ->
+	{io_request,From,To,{get_line,_Encoding,''}} ->
 	    Parent ! {io_request,From,To,{get_line,''}},
 	    From ! {io_reply, To, {ok, "hej\n"}},
 	    mini_server(Parent)
@@ -628,6 +635,41 @@ make_del_dir(Config) when is_list(Config) ->
     after
 	?FILE_MODULE:set_cwd(CurrentDir)
     end,
+    ok.
+
+make_del_dir_r(Config) when is_list(Config) ->
+    RootDir = proplists:get_value(priv_dir, Config),
+    NewDir = filename:join(RootDir, ?MODULE_STRING ++ "_make_del_dir_r"),
+    ok = ?FILE_MODULE:make_dir(NewDir),
+
+    %% Create:
+    %% newdir/
+    %%     file1
+    %%     dir/
+    %%         file2
+    %%         link -> /newdir/file1
+    File1 = test_server:temp_name(filename:join(NewDir, "file1")),
+    ok = ?FILE_MODULE:write_file(File1, <<"file1">>),
+    Dir = test_server:temp_name(filename:join(NewDir, "dir")),
+    ok = ?FILE_MODULE:make_dir(Dir),
+    File2 = test_server:temp_name(filename:join(Dir, "file2")),
+    ok = ?FILE_MODULE:write_file(File2, <<"file2">>),
+    Link = test_server:temp_name(filename:join(Dir, "link")),
+    case ?FILE_MODULE:make_symlink(File1, Link) of
+        {error, enotsup} -> ok; % symlinks not supported
+        {error, eperm} -> {win32, _} = os:type(), ok; % not allowed to make symlinks
+        ok -> ok
+    end,
+
+    %% check that del_dir_r/1 succeeds on non-empty dir
+    ok = ?FILE_MODULE:del_dir_r(Dir),
+    {error, enoent} = ?FILE_MODULE:read_file_info(Dir),
+    %% check that the symlink wasn't followed
+    {ok, _} = ?FILE_MODULE:read_file_info(File1),
+
+    %% clean up
+    ?FILE_MODULE:del_dir_r(NewDir),
+    [] = flush(),
     ok.
 
 cur_dir_0(Config) when is_list(Config) ->
@@ -987,6 +1029,14 @@ new_modes(Config) when is_list(Config) ->
 	     ok
      end,
 
+     % open directory
+     {ok, Fd9} = ?FILE_MODULE:open(NewDir, [directory]),
+     ok = ?FILE_MODULE:close(Fd9),
+
+     % open raw directory
+     {ok, Fd10} = ?FILE_MODULE:open(NewDir, [raw, directory]),
+     ok = ?FILE_MODULE:close(Fd10),
+
      [] = flush(),
      ok.
 
@@ -1236,6 +1286,10 @@ open_errors(Config) when is_list(Config) ->
     {error, E4} = ?FILE_MODULE:open(DataDirSlash, [write]),
     {eisdir,eisdir,eisdir,eisdir} = {E1,E2,E3,E4},
 
+    Real = filename:join(DataDir, "realmen.html"),
+    {error, enotdir} = ?FILE_MODULE:open(Real, [directory]),
+
+    {'EXIT', {badarg, _}} = (catch ?FILE_MODULE:open("foo", [raw, ram])),
     [] = flush(),
     ok.
 
@@ -1406,7 +1460,8 @@ file_info_basic_directory(Config) when is_list(Config) ->
         {win32, _} ->
             test_directory("/", read_write),
             test_directory("c:/", read_write),
-            test_directory("c:\\", read_write);
+            test_directory("c:\\", read_write),
+            test_directory("\\\\localhost\\c$", read_write);
         _ ->
             test_directory("/", read)
     end,
@@ -1537,6 +1592,180 @@ filter_atime(Atime, Config) ->
 	false ->
 	    Atime
     end.
+
+%% Test read_file_info on I/O devices.
+
+file_handle_info_basic_file(Config) when is_list(Config) ->
+    RootDir = proplists:get_value(priv_dir, Config),
+
+    %% Create a short file.
+    Name = filename:join(RootDir,
+			 atom_to_list(?MODULE)
+			 ++"_basic_test.fil"),
+    {ok,Fd1} = ?FILE_MODULE:open(Name, write),
+    io:put_chars(Fd1, "foo bar"),
+    ok = ?FILE_MODULE:close(Fd1),
+
+    %% Test that the file has the expected attributes.
+    %% The times are tricky, so we will save them to a separate test case.
+
+    {ok, Fd} = ?FILE_MODULE:open(Name, read),
+    {ok,FileInfo} = ?FILE_MODULE:read_file_info(Fd),
+    ok = ?FILE_MODULE:close(Fd),
+
+    {ok, FdRaw} = ?FILE_MODULE:open(Name, [read, raw]),
+    {ok,FileInfoRaw} = ?FILE_MODULE:read_file_info(FdRaw),
+    ok = ?FILE_MODULE:close(FdRaw),
+
+    #file_info{size=Size,type=Type,access=Access,
+	       atime=AccessTime,mtime=ModifyTime} = FileInfo = FileInfoRaw,
+    io:format("Access ~p, Modify ~p", [AccessTime, ModifyTime]),
+    Size = 7,
+    Type = regular,
+    read_write = Access,
+    true = abs(time_dist(filter_atime(AccessTime, Config),
+			 filter_atime(ModifyTime,
+				      Config))) < 5,
+    all_integers(tuple_to_list(AccessTime) ++ tuple_to_list(ModifyTime)),
+
+    [] = flush(),
+    ok.
+
+file_handle_info_basic_directory(Config) when is_list(Config) ->
+    %% Note: filename:join/1 removes any trailing slash,
+    %% which is essential for ?FILE_MODULE:file_info/1 to work on
+    %% platforms such as Windows95.
+    RootDir = filename:join([proplists:get_value(priv_dir, Config)]),
+
+    %% Test that the RootDir directory has the expected attributes.
+    test_directory_handle(RootDir, read_write),
+
+    %% Note that on Windows file systems,
+    %% "/" or "c:/" are *NOT* directories.
+    %% Therefore, test that ?FILE_MODULE:file_info/1 behaves as if they were
+    %% directories.
+    case os:type() of
+        {win32, _} ->
+            test_directory_handle("/", read_write),
+            test_directory_handle("c:/", read_write),
+            test_directory_handle("c:\\", read_write),
+            test_directory_handle("\\\\localhost\\c$", read_write);
+        _ ->
+            test_directory_handle("/", read)
+    end,
+    ok.
+
+test_directory_handle(Name, ExpectedAccess) ->
+    {ok, DirFd} = file:open(Name, [read, directory]),
+    try
+        {ok,FileInfo} = ?FILE_MODULE:read_file_info(DirFd),
+        {ok,FileInfo} = ?FILE_MODULE:read_file_info(DirFd, [raw]),
+        #file_info{size=Size,type=Type,access=Access,
+                   atime=AccessTime,mtime=ModifyTime} = FileInfo,
+        io:format("Testing directory ~s", [Name]),
+        io:format("Directory size is ~p", [Size]),
+        io:format("Access ~p", [Access]),
+        io:format("Access time ~p; Modify time~p",
+                  [AccessTime, ModifyTime]),
+        Type = directory,
+        Access = ExpectedAccess,
+        all_integers(tuple_to_list(AccessTime) ++ tuple_to_list(ModifyTime)),
+        [] = flush(),
+        ok
+    after
+        file:close(DirFd)
+    end.
+
+%% Test that the file times behave as they should.
+
+file_handle_info_times(Config) when is_list(Config) ->
+    %% We have to try this twice, since if the test runs across the change
+    %% of a month the time diff calculations will fail. But it won't happen
+    %% if you run it twice in succession.
+    test_server:m_out_of_n(
+      1,2,
+      fun() -> file_handle_info_int(Config) end),
+    ok.
+
+file_handle_info_int(Config) ->
+    %% Note: filename:join/1 removes any trailing slash,
+    %% which is essential for ?FILE_MODULE:file_info/1 to work on
+    %% platforms such as Windows95.
+
+    RootDir = filename:join([proplists:get_value(priv_dir, Config)]),
+    io:format("RootDir = ~p", [RootDir]),
+
+    Name = filename:join(RootDir,
+			 atom_to_list(?MODULE)
+			 ++"_file_info.fil"),
+    {ok,Fd1} = ?FILE_MODULE:open(Name, write),
+    io:put_chars(Fd1,"foo"),
+    {ok,FileInfo1} = ?FILE_MODULE:read_file_info(Fd1),
+    ok = ?FILE_MODULE:close(Fd1),
+
+    {ok,Fd1Raw} = ?FILE_MODULE:open(Name, [read, raw]),
+    {ok,FileInfo1Raw} = ?FILE_MODULE:read_file_info(Fd1Raw),
+    ok = ?FILE_MODULE:close(Fd1Raw),
+
+    %% We assert that everything but the size is the same, on some OSs the
+    %% size may not have been flushed to disc and we do not want to do a
+    %% sync to force it.
+    FileInfo1Raw = FileInfo1#file_info{ size = FileInfo1Raw#file_info.size },
+
+    #file_info{type=regular,atime=AccTime1,mtime=ModTime1} = FileInfo1,
+
+    Now = erlang:localtime(), %???
+    io:format("Now ~p",[Now]),
+    io:format("Open file Acc ~p Mod ~p",[AccTime1,ModTime1]),
+    true = abs(time_dist(filter_atime(Now, Config),
+			 filter_atime(AccTime1,
+				      Config))) < 8,
+    true = abs(time_dist(Now,ModTime1)) < 8,
+
+    %% Sleep until we can be sure the seconds value has changed.
+    %% Note: FAT-based filesystem (like on Windows 95) have
+    %% a resolution of 2 seconds.
+    timer:sleep(2200),
+
+    %% close the file, and watch the modify date change
+
+    {ok,Fd2} = ?FILE_MODULE:open(Name, read),
+    {ok,FileInfo2} = ?FILE_MODULE:read_file_info(Fd2),
+    ok = ?FILE_MODULE:close(Fd2),
+
+    {ok,Fd2Raw} = ?FILE_MODULE:open(Name, [read, raw]),
+    {ok,FileInfo2Raw} = ?FILE_MODULE:read_file_info(Fd2Raw),
+    ok = ?FILE_MODULE:close(Fd2Raw),
+
+    #file_info{size=Size,type=regular,access=Access,
+               atime=AccTime2,mtime=ModTime2} = FileInfo2 = FileInfo2Raw,
+    io:format("Closed file Acc ~p Mod ~p",[AccTime2,ModTime2]),
+    true = time_dist(ModTime1,ModTime2) >= 0,
+
+    %% this file is supposed to be binary, so it'd better keep it's size
+    Size = 3,
+    Access = read_write,
+
+    %% Do some directory checking
+
+    {ok,Fd3} = ?FILE_MODULE:open(RootDir, [read, directory]),
+    {ok,FileInfo3} = ?FILE_MODULE:read_file_info(Fd3),
+    ok = ?FILE_MODULE:close(Fd3),
+
+    {ok,Fd3Raw} = ?FILE_MODULE:open(RootDir, [read, directory, raw]),
+    {ok,FileInfo3Raw} = ?FILE_MODULE:read_file_info(Fd3Raw),
+    ok = ?FILE_MODULE:close(Fd3Raw),
+
+    #file_info{size=DSize,type=directory,access=DAccess,
+               atime=AccTime3,mtime=ModTime3} = FileInfo3 = FileInfo3Raw,
+    %% this dir was modified only a few secs ago
+    io:format("Dir Acc ~p; Mod ~p; Now ~p", [AccTime3, ModTime3, Now]),
+    true = abs(time_dist(Now,ModTime3)) < 5,
+    DAccess = read_write,
+    io:format("Dir size is ~p",[DSize]),
+
+    [] = flush(),
+    ok.
 
 %% Test the write_file_info/2 function.
 
@@ -2036,6 +2265,37 @@ allocate_and_assert(Fd, Offset, Length) ->
             _ = Result
     end.
 
+%% Tests that asserts that file:allocate/3 changes file size
+allocate_file_size(Config) when is_list(Config) ->
+    case os:type() of
+        {unix, darwin} ->
+            do_allocate_file_size(Config);
+        {unix, linux} ->
+            do_allocate_file_size(Config);
+        {win32, _} ->
+            {skip, "Windows does not support file:allocate/3"};
+        _ ->
+            {skip, "Support for allocate/3 is spotty in our test platform at the moment."}
+    end.
+
+do_allocate_file_size(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Allocate = filename:join(PrivDir, atom_to_list(?MODULE)++"_allocate_file"),
+
+    {ok, Fd} = ?FILE_MODULE:open(Allocate, [write]),
+    Result =
+        case ?FILE_MODULE:allocate(Fd, 0, 1024) of
+            ok ->
+                {ok, 1024} = ?FILE_MODULE:position(Fd, eof),
+                ok;
+            {error, enotsup} ->
+                {skip, "Filesystem does not support file:allocate/3"}
+          end,
+    ok = ?FILE_MODULE:close(Fd),
+
+    [] = flush(),
+    Result.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 delete(Config) when is_list(Config) ->
@@ -2054,6 +2314,21 @@ delete(Config) when is_list(Config) ->
     {error, _} = ?FILE_MODULE:open(Name, read),
     %% Try deleting a nonexistent file
     {error, enoent} = ?FILE_MODULE:delete(Name),
+    Name2 = filename:join(RootDir,
+                          atom_to_list(?MODULE)
+                          ++"_delete_2.fil"),
+    {ok, Fd3} = ?FILE_MODULE:open(Name2, write),
+    io:format(Fd3,"ok.\n",[]),
+    ok = ?FILE_MODULE:close(Fd3),
+    %% Check that the file is readable
+    {ok, Fd4} = ?FILE_MODULE:open(Name2, read),
+    ok = ?FILE_MODULE:close(Fd4),
+    %% Try deleting with the raw option
+    ok = ?FILE_MODULE:delete(Name2, [raw]),
+    %% Check that the file is not readable anymore
+    {error, _} = ?FILE_MODULE:open(Name2, read),
+    %% Try deleting a nonexistent file with the raw option
+    {error, enoent} = ?FILE_MODULE:delete(Name2, [raw]),
     [] = flush(),
     ok.
 
@@ -2190,6 +2465,9 @@ unc_paths(Config) when is_list(Config) ->
             %% different.
             {ok, _} = file:read_file_info("C:\\Windows\\explorer.exe"),
             {ok, _} = file:read_file_info("\\\\localhost\\c$\\Windows\\explorer.exe"),
+
+            {ok, Files} = file:list_dir("C:\\Windows\\"),
+            {ok, Files} = file:list_dir("\\\\localhost\\c$\\Windows\\"),
 
             {ok, Cwd} = file:get_cwd(),
 
@@ -2866,7 +3144,7 @@ symlinks(Config) when is_list(Config) ->
 		{ok, Name} = ?FILE_MODULE:read_link(Alias),
 		{ok, Name} = ?FILE_MODULE:read_link_all(Alias),
 		%% If all is good, delete dir again (avoid hanging dir on windows)
-		rm_rf(?FILE_MODULE,NewDir),
+		file:del_dir_r(NewDir),
 		ok
 	end,
 
@@ -3741,19 +4019,33 @@ otp_10852(Config) when is_list(Config) ->
     ok = rpc_call(Node, read_file, [B]),
     ok = rpc_call(Node, make_link, [B,B]),
     case rpc_call(Node, make_symlink, [B,B]) of
-	ok -> ok;
-	{error, E} when (E =:= enotsup) or (E =:= eperm) ->
-	    {win32,_} = os:type()
+        {error, eilseq} ->
+            %% Some versions of OS X refuse to create files with illegal names.
+            {unix,darwin} = os:type();
+        {error, eperm} ->
+            %% The test user might not have permission to create symlinks.
+            {win32,_} = os:type();
+        ok ->
+            ok
     end,
     ok = rpc_call(Node, delete, [B]),
-    ok = rpc_call(Node, make_dir, [B]),
+    case rpc_call(Node, make_dir, [B]) of
+        {error, eilseq} ->
+            {unix,darwin} = os:type();
+        ok ->
+            ok
+    end,
     ok = rpc_call(Node, del_dir, [B]),
-    ok = rpc_call(Node, write_file, [B,B]),
-    {ok, Fd} = rpc_call(Node, open, [B,[read]]),
-    ok = rpc_call(Node, close, [Fd]),
-    {ok,0} = rpc_call(Node, copy, [B,B]),
-    {ok, Fd2, B} = rpc_call(Node, path_open, [["."], B, [read]]),
-    ok = rpc_call(Node, close, [Fd2]),
+    case rpc_call(Node, write_file, [B,B]) of
+        {error, eilseq} ->
+            {unix,darwin} = os:type();
+        ok ->
+            {ok, Fd} = rpc_call(Node, open, [B,[read]]),
+            ok = rpc_call(Node, close, [Fd]),
+            {ok,0} = rpc_call(Node, copy, [B,B]),
+            {ok, Fd2, B} = rpc_call(Node, path_open, [["."], B, [read]]),
+            ok = rpc_call(Node, close, [Fd2])
+    end,
     true = test_server:stop_node(Node),
     ok.
 
@@ -4497,15 +4789,18 @@ run_large_file_test(Config, Run, Name) ->
 	{{unix,sunos},OsVersion} when OsVersion < {5,5,1} ->
 	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"};
 	{{unix,_},_} ->
-	    N = disc_free(proplists:get_value(priv_dir, Config)),
-	    io:format("Free disk: ~w KByte~n", [N]),
-	    if N < 5 * (1 bsl 20) ->
-		    %% Less than 5 GByte free
-		    {skip,"Less than 5 GByte free"};
-	       true ->
-		    do_run_large_file_test(Config, Run, Name)
-	    end;
-	_ -> 
+            case disc_free(proplists:get_value(priv_dir, Config)) of
+                error ->
+                    {skip, "Failed to query disk space for priv_dir. "
+                           "Is it on a remote file system?~n"};
+                N when N >= 5 * (1 bsl 20) ->
+                    ct:pal("Free disk: ~w KByte~n", [N]),
+                    do_run_large_file_test(Config, Run, Name);
+                N when N < 5 * (1 bsl 20) ->
+                    ct:pal("Free disk: ~w KByte~n", [N]),
+                    {skip,"Less than 5 GByte free"}
+            end;
+	_ ->
 	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"}
     end.
 
@@ -4539,28 +4834,19 @@ do_run_large_file_test(Config, Run, Name0) ->
 
 disc_free(Path) ->
     Data = disksup:get_disk_data(),
-    {_,Tot,Perc} = hd(lists:filter(
-			fun({P,_Size,_Full}) ->
-				lists:prefix(filename:nativename(P),
-					     filename:nativename(Path))
-			end, lists:reverse(lists:sort(Data)))),
-    round(Tot * (1-(Perc/100))).
+
+    %% What partitions could Data be mounted on?
+    Partitions =
+        [D || {P, _Tot, _Perc}=D <- Data,
+         lists:prefix(filename:nativename(P), filename:nativename(Path))],
+
+    %% Sorting in descending order places the partition with the most specific
+    %% path first.
+    case lists:sort(fun erlang:'>='/2, Partitions) of
+        [{_,Tot, Perc} | _] -> round(Tot * (1-(Perc/100)));
+        [] -> error
+    end.
 
 memsize() ->
     {Tot,_Used,_}  = memsup:get_memory_data(),
     Tot.
-
-%%%-----------------------------------------------------------------
-%%% Utilities
-rm_rf(Mod,Dir) ->
-    case  Mod:read_link_info(Dir) of
-	{ok, #file_info{type = directory}} ->
-	    {ok, Content} = Mod:list_dir_all(Dir),
-	    [ rm_rf(Mod,filename:join(Dir,C)) || C <- Content ],
-	    Mod:del_dir(Dir),
-	    ok;
-	{ok, #file_info{}} ->
-	    Mod:delete(Dir);
-	_ ->
-	    ok
-    end.

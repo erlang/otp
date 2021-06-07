@@ -2756,6 +2756,17 @@ extern int               PRIV(strcmp_uc_c8_utf)(const pcre_uchar *,
 
 #endif /* COMPILE_PCRE[8|16|32] */
 
+#if defined(ERLANG_INTEGRATION)
+struct PRIV(valid_utf_ystate) {
+    unsigned int cnt;
+    int length;
+    int yielded;
+    PCRE_PUCHAR p;
+};
+extern int               PRIV(yielding_valid_utf)(PCRE_PUCHAR, int, int *,
+                                                  struct PRIV(valid_utf_ystate) *);
+#endif
+                                               
 extern const pcre_uchar *PRIV(find_bracket)(const pcre_uchar *, BOOL, int);
 extern BOOL              PRIV(is_newline)(PCRE_PUCHAR, int, PCRE_PUCHAR,
                            int *, BOOL);

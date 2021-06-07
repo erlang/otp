@@ -4,6 +4,8 @@
 #if defined __WIN32__
 #include <windows.h> 
 #include <fcntl.h>
+#else
+#include <unistd.h>
 #endif
 
 static int read_exact(char *buffer, int len);

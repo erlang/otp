@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,7 +48,11 @@
 	 zero_width/1,
          eep37/1,
          eep43/1,
-         otp_15035/1]).
+         otp_15035/1,
+         otp_16439/1,
+         otp_14708/1,
+         otp_16545/1,
+         otp_16865/1]).
 
 %%
 %% Define to run outside of test server
@@ -88,7 +92,7 @@ all() ->
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
      otp_8133, otp_10622, otp_13228, otp_14826,
      funs, try_catch, eval_expr_5, zero_width,
-     eep37, eep43, otp_15035].
+     eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865].
 
 groups() -> 
     [].
@@ -1142,7 +1146,7 @@ otp_14826(_Config) ->
     backtrace_check("<<100:8/foo>>.",
                     {undefined_bittype,foo},
                     [{eval_bits,make_bit_type,3},eval_bits,
-                     eval_bits,erl_eval],
+                     eval_bits,eval_bits],
                     none, none),
     backtrace_check("B = <<\"foo\">>, <<B/binary-unit:7>>.",
                     badarg,
@@ -1156,7 +1160,17 @@ simple() ->
     {A}.
 
 simple1() ->
-    erlang:error(simple).
+    %% If the compiler could see that this function would always
+    %% throw an error exception, it would rewrite simple() like this:
+    %%
+    %%   simple() -> simple1().
+    %%
+    %% That would change the stacktrace. To prevent the compiler from
+    %% doing that optimization, we must obfuscate the code.
+    case get(a_key_that_is_not_defined) of
+        undefined -> erlang:error(simple);
+        WillNeverHappen -> WillNeverHappen
+    end.
 
 %% Simple cases, just to cover some code.
 funs(Config) when is_list(Config) ->
@@ -1656,6 +1670,92 @@ otp_15035(Config) when is_list(Config) ->
           {e, d}),
     ok.
 
+otp_16439(Config) when is_list(Config) ->
+    check(fun() -> + - 5 end, "+ - 5.", -5),
+    check(fun() -> - + - 5 end, "- + - 5.", 5),
+    check(fun() -> case 7 of - - 7 -> seven end end,
+         "case 7 of - - 7 -> seven end.", seven),
+
+    {ok,Ts,_} = erl_scan:string("- #{}. "),
+    A = erl_anno:new(1),
+    {ok,[{op,A,'-',{map,A,[]}}]} = erl_parse:parse_exprs(Ts),
+
+    ok.
+
+%% Test guard expressions in keys for maps and in sizes in binary matching.
+
+otp_14708(Config) when is_list(Config) ->
+    check(fun() -> X = 42, #{{tag,X} := V} = #{{tag,X} => a}, V end,
+          "begin X = 42, #{{tag,X} := V} = #{{tag,X} => a}, V end.",
+          a),
+    check(fun() ->
+                  T = {x,y,z},
+                  Map = #{x => 99, y => 100},
+                  #{element(1, T) := V1, element(2, T) := V2} = Map,
+                  {V1, V2}
+          end,
+          "begin
+                  T = {x,y,z},
+                  Map = #{x => 99, y => 100},
+                  #{element(1, T) := V1, element(2, T) := V2} = Map,
+                  {V1, V2}
+          end.",
+          {99, 100}),
+    error_check("#{term_to_binary(42) := _} = #{}.", illegal_guard_expr),
+
+    check(fun() ->
+                  <<Sz:16,Body:(Sz-1)/binary>> = <<4:16,1,2,3>>,
+                  Body
+          end,
+          "begin
+              <<Sz:16,Body:(Sz-1)/binary>> = <<4:16,1,2,3>>,
+             Body
+          end.",
+          <<1,2,3>>),
+    check(fun() ->
+                  Sizes = #{0 => 3, 1 => 7},
+                  <<SzTag:1,Body:(map_get(SzTag, Sizes))/binary>> =
+                      <<1:1,1,2,3,4,5,6,7>>,
+                  Body
+          end,
+          "begin
+             Sizes = #{0 => 3, 1 => 7},
+             <<SzTag:1,Body:(map_get(SzTag, Sizes))/binary>> =
+                 <<1:1,1,2,3,4,5,6,7>>,
+             Body
+          end.",
+          <<1,2,3,4,5,6,7>>),
+    error_check("<<X:(process_info(self()))>> = <<>>.", illegal_bitsize),
+
+    ok.
+
+otp_16545(Config) when is_list(Config) ->
+    case eval_string("<<$W/utf16-native>> = <<$W/utf16-native>>.") of
+        <<$W/utf16-native>> -> ok
+    end,
+    case eval_string("<<$W/utf32-native>> = <<$W/utf32-native>>.") of
+        <<$W/utf32-native>> -> ok
+    end,
+    check(fun() -> <<10/unsigned,"fgbz":86>> end,
+          "<<10/unsigned,\"fgbz\":86>>.",
+          <<10,0,0,0,0,0,0,0,0,0,1,152,0,0,0,0,0,0,0,0,0,6,112,0,0,
+            0,0,0,0,0,0,0,24,128,0,0,0,0,0,0,0,0,0,122>>),
+    check(fun() -> <<"":16/signed>> end,
+          "<<\"\":16/signed>>.",
+          <<>>),
+    error_check("<<\"\":problem/signed>>.", badarg),
+    ok.
+
+otp_16865(Config) when is_list(Config) ->
+    check(fun() -> << <<>> || <<34:(1/0)>> <= <<"string">> >> end,
+          "<< <<>> || <<34:(1/0)>> <= <<\"string\">> >>.",
+          <<>>),
+    %% The order of evaluation is important. Follow the example set by
+    %% compiled code:
+    error_check("<< <<>> || <<>> <= <<1:(-1), (fun() -> a = b end())>> >>.",
+                {badmatch, b}),
+    ok.
+
 %% Check the string in different contexts: as is; in fun; from compiled code.
 check(F, String, Result) ->
     check1(F, String, Result),
@@ -1667,50 +1767,85 @@ check(F, String, Result) ->
 
 check1(F, String, Result) ->
     Result = F(),
-    case catch parse_and_run(String) of
-        {value, Result, _} ->
+    Expr = parse_expr(String),
+    case catch erl_eval:expr(Expr, []) of
+        {value, Result, Bs} when is_list(Bs) ->
             ok;
-        Other ->
-            ct:fail({eval, Other, Result})
+        Other1 ->
+            ct:fail({eval, Other1, Result})
+    end,
+    case catch erl_eval:expr(Expr, #{}) of
+        {value, Result, MapBs} when is_map(MapBs) ->
+            ok;
+        Other2 ->
+            ct:fail({eval, Other2, Result})
     end.
 
 check(F, String, Result, BoundVars, LFH, EFH) ->
     Result = F(),
-    case catch parse_and_run(String, LFH, EFH) of
+    Exprs = parse_exprs(String),
+    case catch erl_eval:exprs(Exprs, [], LFH, EFH) of
         {value, Result, Bs} ->
             %% We just assume that Bs is an orddict...
             Keys = orddict:fetch_keys(Bs),
-            case sort(BoundVars) == Keys of
-                true -> 
+            case sort(BoundVars) == sort(Keys) of
+                true ->
                     ok;
-                false -> 
+                false ->
                     ct:fail({check, BoundVars, Keys})
             end,
             ok;
-        Other ->
-            ct:fail({check, Other, Result})
+        Other1 ->
+            ct:fail({check, Other1, Result})
+    end,
+    case catch erl_eval:exprs(Exprs, #{}, LFH, EFH) of
+        {value, Result, MapBs} ->
+            MapKeys = maps:keys(MapBs),
+            case sort(BoundVars) == sort(MapKeys) of
+                true ->
+                    ok;
+                false ->
+                    ct:fail({check, BoundVars, MapKeys})
+            end,
+            ok;
+        Other2 ->
+            ct:fail({check, Other2, Result})
     end.
 
 error_check(String, Result) ->
-    case catch parse_and_run(String) of
+    Expr = parse_expr(String),
+    case catch erl_eval:expr(Expr, []) of
         {'EXIT', {Result,_}} ->
             ok;
-        Other ->
-            ct:fail({eval, Other, Result})
+        Other1 ->
+            ct:fail({eval, Other1, Result})
+    end,
+    case catch erl_eval:expr(Expr, #{}) of
+        {'EXIT', {Result,_}} ->
+            ok;
+        Other2 ->
+            ct:fail({eval, Other2, Result})
     end.
 
 error_check(String, Result, LFH, EFH) ->
-    case catch parse_and_run(String, LFH, EFH) of
+    Exprs = parse_exprs(String),
+    case catch erl_eval:exprs(Exprs, [], LFH, EFH) of
         {'EXIT', {Result,_}} ->
             ok;
-        Other ->
-            ct:fail({eval, Other, Result})
+        Other1 ->
+            ct:fail({eval, Other1, Result})
+    end,
+    case catch erl_eval:exprs(Exprs, #{}, LFH, EFH) of
+        {'EXIT', {Result,_}} ->
+            ok;
+        Other2 ->
+            ct:fail({eval, Other2, Result})
     end.
 
 backtrace_check(String, Result, Backtrace) ->
     case catch parse_and_run(String) of
         {'EXIT', {Result, BT}} ->
-            check_backtrace(Backtrace, BT);
+            check_backtrace(Backtrace, remove_error_info(BT));
         Other ->
             ct:fail({eval, Other, Result})
     end.
@@ -1718,15 +1853,18 @@ backtrace_check(String, Result, Backtrace) ->
 backtrace_check(String, Result, Backtrace, LFH, EFH) ->
     case catch parse_and_run(String, LFH, EFH) of
         {'EXIT', {Result, BT}} ->
-            check_backtrace(Backtrace, BT);
+            check_backtrace(Backtrace, remove_error_info(BT));
         Other ->
             ct:fail({eval, Other, Result})
     end.
 
+remove_error_info([{M, F, As, Info} | T]) ->
+    [{M, F, As, lists:keydelete(error_info, 1, Info)} | T].
+
 backtrace_catch(String, Result, Backtrace) ->
     case parse_and_run(String) of
         {value, {'EXIT', {Result, BT}}, _Bindings} ->
-            check_backtrace(Backtrace, BT);
+            check_backtrace(Backtrace, remove_error_info(BT));
         Other ->
             ct:fail({eval, Other, Result})
     end.
@@ -1748,15 +1886,21 @@ eval_string(String) ->
     {value, Result, _} = parse_and_run(String),
     Result.
 
-parse_and_run(String) ->
+parse_expr(String) ->
     {ok,Tokens,_} = erl_scan:string(String),
     {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
-    erl_eval:expr(Expr, []).
+    Expr.
 
-parse_and_run(String, LFH, EFH) ->
+parse_exprs(String) ->
     {ok,Tokens,_} = erl_scan:string(String),
     {ok, Exprs} = erl_parse:parse_exprs(Tokens),
-    erl_eval:exprs(Exprs, [], LFH, EFH).
+    Exprs.
+
+parse_and_run(String) ->
+    erl_eval:expr(parse_expr(String), []).
+
+parse_and_run(String, LFH, EFH) ->
+    erl_eval:exprs(parse_exprs(String), [], LFH, EFH).
 
 no_final_dot(S) ->
     case lists:reverse(S) of

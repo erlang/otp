@@ -36,7 +36,6 @@
   <xi:include href="cpu_sup.xml"/>
   <xi:include href="disksup.xml"/>
   <xi:include href="memsup.xml"/>
-  <xi:include href="os_mon_mib.xml"/>
   <xi:include href="os_sup.xml"/>
   <xi:include href="nteventlog.xml"/>
 </application>

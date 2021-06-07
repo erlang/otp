@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1997</year>
-      <year>2017</year>
+      <year>2020</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -68,7 +68,7 @@
 
     <p>For each open disk log, one process handles requests
       made to the disk log. This process is created when
-      <seealso marker="#open/1"><c>open/1</c></seealso>
+      <seemfa marker="#open/1"><c>open/1</c></seemfa>
       is called, provided there exists no process handling the disk log.
       A process that opens a disk log can be an <em>owner</em>
       or an anonymous <em>user</em> of the disk log. Each owner is 
@@ -79,7 +79,7 @@
       messages of the form <c>{disk_log, Node, Log, Info}</c>, which are sent
       from the disk log process when certain events occur, see 
       the functions and in particular the <c>open/1</c> option
-      <seealso marker="#notify"><c>notify</c></seealso>.
+      <seeerl marker="#notify"><c>notify</c></seeerl>.
       A log can have many owners, but a process cannot own a
       log more than once. However, the same process can open the log
       as a user more than once.</p>
@@ -89,10 +89,10 @@
       and there must not be any users left when the disk log process terminates.
       </p>
     <p>Items can be logged <em>synchronously</em> by using functions
-      <seealso marker="#log/2"><c>log/2</c></seealso>,
-      <seealso marker="#blog/2"><c>blog/2</c></seealso>,
-      <seealso marker="#log_terms/2"><c>log_terms/2</c></seealso>, and
-      <seealso marker="#blog_terms/2"><c>blog_terms/2</c></seealso>.
+      <seemfa marker="#log/2"><c>log/2</c></seemfa>,
+      <seemfa marker="#blog/2"><c>blog/2</c></seemfa>,
+      <seemfa marker="#log_terms/2"><c>log_terms/2</c></seemfa>, and
+      <seemfa marker="#blog_terms/2"><c>blog_terms/2</c></seemfa>.
       For each of these functions, the caller is put
       on hold until the items are logged (but not necessarily
       written, use <c>sync/1</c> to ensure that). By adding an <c>a</c>
@@ -102,10 +102,10 @@
       return the control to the caller more or less immediately.
       </p>
     <p>When using the internal format for logs, use functions
-      <seealso marker="#log/2"><c>log/2</c></seealso>,
-      <seealso marker="#log_terms/2"><c>log_terms/2</c></seealso>,
-      <seealso marker="#alog/2"><c>alog/2</c></seealso>, and
-      <seealso marker="#alog_terms/2"><c>alog_terms/2</c></seealso>.
+      <seemfa marker="#log/2"><c>log/2</c></seemfa>,
+      <seemfa marker="#log_terms/2"><c>log_terms/2</c></seemfa>,
+      <seemfa marker="#alog/2"><c>alog/2</c></seemfa>, and
+      <seemfa marker="#alog_terms/2"><c>alog_terms/2</c></seemfa>.
       These functions log one or more Erlang terms.
       By prefixing each of the functions with a <c>b</c> (for "binary"),
       we get the corresponding <c>blog()</c> functions for the external format.
@@ -117,58 +117,20 @@
       <p>The <c>blog()</c> functions can also be used for internally formatted
       logs, but in this case they must be called with binaries constructed
       with calls to
-      <seealso marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seealso>.
+      <seemfa marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seemfa>.
       There is no check to ensure
       this, it is entirely the responsibility of the caller. If these
       functions are called with binaries that do not correspond to
       Erlang terms, the
-      <seealso marker="#chunk/2"><c>chunk/2,3</c></seealso>
+      <seemfa marker="#chunk/2"><c>chunk/2,3</c></seemfa>
       and automatic repair
       functions fail. The corresponding terms (not the binaries)
       are returned when <c>chunk/2,3</c> is called.
       </p>
-    <p>A collection of open disk logs with the same name running on
-      different nodes is said to be a <em>distributed disk log</em>
-      if requests made to any of the logs are automatically made to
-      the other logs as well. The members of such a collection are
-      called individual distributed disk logs, or just distributed
-      disk logs if there is no risk of confusion. There is no order
-      between the members of such a collection. For example, logged
-      terms are not necessarily written to the node where the
-      request was made before written to the other nodes. However,
-      a few functions do not make requests to all
-      members of distributed disk logs, namely
-      <seealso marker="#info/1"><c>info/1</c></seealso>,
-      <seealso marker="#chunk/2"><c>chunk/2,3</c></seealso>,
-      <seealso marker="#bchunk/2"><c>bchunk/2,3</c></seealso>,
-      <seealso marker="#chunk_step/3"><c>chunk_step/3</c></seealso>, and
-      <seealso marker="#lclose/1"><c>lclose/1,2</c></seealso>.</p>
-     <p>An open disk log that is not a distributed disk
-      log is said to be a <em>local disk log</em>. A local disk log is
-      only accessible from the node where the disk log process runs,
-      whereas a distributed disk log is accessible from all nodes in
-      the Erlang system, except for those nodes where a local
-      disk log with the same name as the distributed disk log exists.
-      All processes on nodes that have access to a local or
-      distributed disk log can log items or otherwise change, inspect,
-      or close the log.
+    <p>An open disk log is only accessible from the node where the disk
+      log process runs. All processes on the node where the disk log process
+      runs can log items or otherwise change, inspect, or close the log.
       </p>
-    <p>It is not guaranteed that all log files of a distributed disk log 
-      contain the same log items. No attempt is made to synchronize
-      the contents of the files. However, as long as at least one of 
-      the involved nodes is alive at each time, all items are logged.
-      When logging items to a distributed log, or otherwise trying to
-      change the log, the replies from individual logs are
-      ignored. If all nodes are down, the disk log functions
-      reply with a <c>nonode</c> error.
-      </p>
-    <note>
-      <p>In some applications, it can be unacceptable that
-        replies from individual logs are ignored. An alternative in such
-        situations is to use many local disk logs instead of one
-        distributed disk log, and implement the distribution without use
-        of the <c>disk_log</c> module.</p>
-    </note>
     <p>Errors are reported differently for asynchronous log attempts
       and other uses of the <c>disk_log</c> module. When used synchronously,
       this module replies with an error message, but when called
@@ -177,10 +139,10 @@
       receive an <c>error_status</c> message. 
       </p>
     <p>The <c>disk_log</c> module does not report errors to the
-      <seealso marker="error_logger"><c>error_logger</c></seealso>
+      <seeerl marker="error_logger"><c>error_logger</c></seeerl>
       module. It is up to the caller to decide
       whether to employ the error logger. Function
-      <seealso marker="#format_error/1"><c>format_error/1</c></seealso>
+      <seemfa marker="#format_error/1"><c>format_error/1</c></seemfa>
       can be used to produce readable messages from error replies.
       However, information events are sent to the error logger in two
       situations, namely when a log is repaired, or when a file is missing
@@ -192,12 +154,12 @@
       </p>
     <note>
       <p>If an attempt to reopen or truncate a log fails (see
-        <seealso marker="#reopen/2"><c>reopen/2,3</c></seealso>
+        <seemfa marker="#reopen/2"><c>reopen/2,3</c></seemfa>
 	and
-	<seealso marker ="#truncate/1"><c>truncate/1,2</c></seealso>)
+	<seemfa marker="#truncate/1"><c>truncate/1,2</c></seemfa>)
 	the disk log process terminates immediately. Before the process
 	terminates, links to owners and blocking processes (see
-	<seealso marker="#block/1"><c>block/1,2</c></seealso>) are removed.
+	<seemfa marker="#block/1"><c>block/1,2</c></seemfa>) are removed.
         The effect is that the links work in one direction only. Any
         process using a disk log must check for error message
         <c>no_such_log</c> if some other process truncates or
@@ -238,13 +200,25 @@
   </datatypes>
   <funcs>
     <func>
+      <name name="all" arity="0" since="OTP 24.0"/>
+      <fsummary>Return the accessible disk logs on the current node.</fsummary>
+      <desc>
+        <p>Returns the names of the disk logs accessible on the current node.
+          </p>
+      </desc>
+    </func>
+    <func>
       <name name="accessible_logs" arity="0" since=""/>
       <fsummary>Return the accessible disk logs on the current node.</fsummary>
       <desc>
         <p>Returns the names of the disk logs accessible on the current node.
-          The first list contains local disk logs and the
-          second list contains distributed disk logs.
-          </p>
+	  The first list contains the logs. The second list is always empty
+	  (before Erlang/OTP 24.0 it used to contain so called distributed
+	  disk logs).
+	  </p>
+	<note><p>This function is deprecated.
+	  Use <seemfa marker="#all/0"><c>all/0</c></seemfa> instead.
+          </p></note>
       </desc>
     </func>
     <func>
@@ -261,7 +235,7 @@
           for externally formatted logs. <c>balog/2</c> can also be used
           for internally formatted logs if the binary is
           constructed with a call to
-	  <seealso marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seealso>.
+	  <seemfa marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seemfa>.
           </p>
         <p>Owners subscribing to notifications receive
           message <c>read_only</c>, <c>blocked_log</c>,
@@ -289,7 +263,7 @@
           for externally formatted logs. <c>balog_terms/2</c> can also be used
           for internally formatted logs if the binaries are
           constructed with calls to
-	  <seealso marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seealso>.
+	  <seemfa marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seemfa>.
           </p>
         <p>Owners subscribing to notifications receive
           message <c>read_only</c>, <c>blocked_log</c>,
@@ -378,7 +352,7 @@
           </p>
         <p>If the log size is decreased, for example, to save space,
           function
-	  <seealso marker="#inc_wrap_file/1"><c>inc_wrap_file/1</c></seealso>
+	  <seemfa marker="#inc_wrap_file/1"><c>inc_wrap_file/1</c></seemfa>
 	  can be used to force the log to wrap.
           </p>
       </desc>
@@ -405,10 +379,7 @@
           </p>
         <p>The first time <c>chunk()</c> (or <c>bchunk()</c>) is called,
           an initial continuation, the atom <c>start</c>, must be
-          provided. If a disk log process is running on the
-          current node, terms are read from that log. Otherwise, an
-          individual distributed log on some other node is chosen, if
-          such a log exists.
+          provided.
           </p>
         <p>When <c>chunk/3</c> is called, <c><anno>N</anno></c> controls the
           maximum number of terms that are read from the log in each
@@ -468,10 +439,8 @@
           continuation returned, points to the first log item in the
           new current file.
           </p>
-        <p>If atom <c>start</c> is specified as continuation, a disk log
-          to read terms from is chosen. A local or distributed disk log
-          on the current node is preferred to an
-          individual distributed log on some other node.
+        <p>If atom <c>start</c> is specified as continuation, the first
+          file of the wrap log is chosen as the new current file.
           </p>
         <p>If the wrap log is not full because all files are not yet
           used, <c>{error, end_of_log}</c> is returned if trying to
@@ -485,7 +454,7 @@
       <type name="close_error_rsn"/>
       <desc>
         <p><marker id="close_1"></marker>Closes a
-          local or distributed disk log properly. An internally
+          disk log properly. An internally
           formatted log must be closed before the Erlang system is
           stopped. Otherwise, the log is regarded as unclosed and the
           automatic repair procedure is activated next time the
@@ -512,7 +481,7 @@
           this function returns a descriptive string
           of the error in English. For file errors, function
           <c>format_error/1</c> in module
-	  <seealso marker="file#format_error/1"><c>file</c></seealso>
+	  <seemfa marker="file#format_error/1"><c>file</c></seemfa>
 	  is called.</p>
       </desc>
     </func>
@@ -538,10 +507,8 @@
       <fsummary>Return information about a disk log.</fsummary>
       <type name="dlog_info"/>
       <desc>
-        <p>Returns a list of <c>{Tag, Value}</c> pairs describing the log.
-	  If a disk log process is running on the current node,
-	  that log is used as source of information, otherwise an individual
-	  distributed log on some other node is chosen, if such a log exists.
+        <p>Returns a list of <c>{Tag, Value}</c> pairs describing a log
+	  running on the node.
           </p>
         <p>The following pairs are returned for all logs:
           </p>
@@ -589,7 +556,7 @@
           <item>
             <p><c><anno>Users</anno></c> is the number
               of anonymous users of the log, see the <c>open/1</c> option
-              <seealso marker="#linkto"><c>linkto</c></seealso>.</p>
+              <seeerl marker="#linkto"><c>linkto</c></seeerl>.</p>
           </item>
 	  <tag><c>{status, <anno>Status</anno>}</c></tag>
           <item>
@@ -602,13 +569,6 @@
             <p>The information returned by the
               current invocation of function <c>info/1</c> is
               gathered from the disk log process running on <c><anno>Node</anno></c>.</p>
-          </item>
-	  <tag><c>{distributed, <anno>Dist</anno>}</c></tag>
-          <item>
-            <p>If the log is local on
-              the current node, <c><anno>Dist</anno></c> has the value <c>local</c>,
-              otherwise all nodes where the log is distributed
-              are returned as a list.</p>
           </item>
         </taglist>
         <p>The following pairs are returned for all logs opened in 
@@ -690,17 +650,19 @@
       <fsummary>Close a disk log on one node.</fsummary>
       <type name="lclose_error_rsn"/>
       <desc>
-        <p><c>lclose/1</c> closes a local log or an individual distributed
-	log on the current node.</p>
-        <p><c>lclose/2</c> closes an individual distributed log on the
-	specified node if the node is not the current one.</p>
+        <p><c>lclose/1</c> closes a disk log on the current node.</p>
+        <p><c>lclose/2</c> closes a disk log on the
+          current node if <anno>Node</anno> is the current node.</p>
         <p><c>lclose(<anno>Log</anno>)</c> is equivalent to
           <c>lclose(<anno>Log</anno>,&nbsp;node())</c>.
-          See also <seealso marker="#close_1"><c>close/1</c></seealso>.
+          See also <seeerl marker="#close_1"><c>close/1</c></seeerl>.
           </p>
-        <p>If no log with the specified name exist on the specified node,
+        <p>If no log with the specified name exist on the current node,
 	<c>no_such_log</c> is returned.
           </p>
+	<note><p>These functions are deprecated. Use
+	  <seemfa marker="#close/1"><c>close/1</c></seemfa>
+	  instead.</p></note>
       </desc>
     </func>
     <func>
@@ -715,14 +677,13 @@
         <p>Synchronously
           appends a term to a disk log. Returns <c>ok</c> or
           <c>{error, <anno>Reason</anno>}</c> when the term is written to
-          disk. If the log is distributed, <c>ok</c> is returned,
-	  unless all nodes are down. Terms are written by
+          disk. Terms are written by
           the ordinary <c>write()</c> function of the
           operating system. Hence, it is not guaranteed that the term
           is written to disk, it can linger in
           the operating system kernel for a while. To ensure that the
           item is written to disk, function
-	  <seealso marker="#sync/1"><c>sync/1</c></seealso>
+	  <seemfa marker="#sync/1"><c>sync/1</c></seemfa>
           must be called.
           </p>
         <p><c>log/2</c> is used for internally formatted logs,
@@ -730,8 +691,8 @@
           <c>blog/2</c> can also be used
           for internally formatted logs if the binary is
           constructed with a call to
-	  <seealso marker="erts:erlang#term_to_binary/1">
-	  <c>term_to_binary/1</c></seealso>.</p>
+	  <seemfa marker="erts:erlang#term_to_binary/1">
+	  <c>term_to_binary/1</c></seemfa>.</p>
         <p>Owners subscribing to notifications are notified
           of an error with an <c>error_status</c> message if the error 
           reason tag is <c>invalid_header</c> or <c>file_error</c>.
@@ -759,8 +720,8 @@
           <c>blog_terms/2</c> can also be used
           for internally formatted logs if the binaries are
           constructed with calls to
-	  <seealso marker="erts:erlang#term_to_binary/1">
-	  <c>term_to_binary/1</c></seealso>.</p>
+	  <seemfa marker="erts:erlang#term_to_binary/1">
+	  <c>term_to_binary/1</c></seemfa>.</p>
         <p>Owners subscribing to notifications are notified
           of an error with an <c>error_status</c> message if the error 
           reason tag is <c>invalid_header</c> or <c>file_error</c>.
@@ -773,9 +734,6 @@
       <type name="dlog_options"/>
       <type name="dlog_option"/>
       <type name="open_ret"/>
-      <type name="ret"/>
-      <type name="dist_open_ret"/>
-      <type name="dist_error_rsn"/>
       <type name="open_error_rsn"/>
       <type name="dlog_optattr"/>
       <type name="dlog_size"/>
@@ -859,19 +817,28 @@
               at least the header (if there is one) and one
               item are written on each wrap log file before
               wrapping to the next file.</p>
-            <p>When opening an existing wrap log, it is not
-              necessary to supply a value for option <c>Size</c>, but any
-              supplied value must equal the current log size, otherwise
-              the tuple <c>{error, {size_mismatch, <anno>CurrentSize</anno>,
-	      <anno>NewSize</anno>}}</c> is returned.</p>
-          </item>
-	  <tag><c>{distributed, <anno>Nodes</anno>}</c></tag>
-          <item>
-            <p>This option can be used for
-              adding members to a distributed disk log.
-              Defaults to <c>[]</c>, which means that
-              the log is local on the current node.
+            <p>The first time an existing wrap log is opened, that is,
+              when the disk log process is created, the value of the
+              option <c>size</c> is allowed to differ from the current
+              log size, and the size of the disk log is changed as per
+              <seemfa
+              marker="#change_size/2"><c>change_size/2</c></seemfa>.
               </p>
+            <p>When opening an existing wrap log, it is not
+              necessary to supply a value for option <c>size</c>,
+              but if the log is already open, that is, the disk log
+              process exists,
+              the supplied value must equal the current log size, otherwise
+              the tuple <c>{error, {size_mismatch, <anno>CurrentSize</anno>,
+              <anno>NewSize</anno>}}</c> is returned.</p>
+            <note>
+              <p>Before Erlang/OTP 24.0, the supplied value of option
+                <c>size</c> was to be equal to the current log size when
+                opening an existing wrap log for the first time, that
+                is, when creating the disk log process.</p>
+            </note>
+	    <p>When opening an already open halt log, option <c>size</c>
+	      is ignored.</p>
           </item>
 	  <tag><c>{notify, boolean()}</c><marker id="notify"></marker></tag>
           <item>
@@ -946,7 +913,7 @@
               written first on the log file. If the log is a wrap
               log, the item <c><anno>Head</anno></c> is written first in each new file.
               <c><anno>Head</anno></c> is to be a term if the format is
-              <c>internal</c>, otherwise a sequence of bytes.
+              <c>internal</c>, otherwise an <c>iodata()</c>.
               Defaults to <c>none</c>, which means that
               no header is written first on the file.
               </p>
@@ -958,7 +925,7 @@
               The call <c>M:F(A)</c> is assumed to return <c>{ok, Head}</c>.
               The item <c>Head</c> is written first in each file.
               <c>Head</c> is to be a term if the format is
-              <c>internal</c>, otherwise a sequence of bytes.
+              <c>internal</c>, otherwise an <c>iodata()</c>.
               </p>
           </item>
 	  <tag><c>{mode, <anno>Mode</anno>}</c></tag>
@@ -982,10 +949,7 @@
 	  is returned, where <c><anno>Rec</anno></c> is the number of
 	  whole Erlang terms found in the file and <c><anno>Bad</anno></c>
 	  is the number of bytes in the file that
-          are non-Erlang terms. If the parameter <c>distributed</c>
-          is specified, <c>open/1</c> returns a list of
-          successful replies and a list of erroneous replies. Each
-          reply is tagged with the node name.
+          are non-Erlang terms.
           </p>
         <p>When a disk log is opened in read-write mode, any existing
           log file is checked for. If there is none, a new empty
@@ -1012,23 +976,9 @@
           as owner once again, it is acknowledged with the return value
           <c>{ok, <anno>Log</anno>}</c>, but the state of the disk log is not
           affected.</p></note>
-        <p>If a log with a specified name is local on some node,
-          and one tries to open the log distributed on the same node,
-          the tuple <c>{error, {node_already_open, <anno>Log</anno>}}</c> is
-          returned. The same tuple is returned if the log is distributed on
-          some node, and one tries to open the log locally on the same node.
-          Opening individual distributed disk logs for the first time
-          adds those logs to a (possibly empty) distributed disk log.
-          The supplied option values are used
-          on all nodes mentioned by option <c>distributed</c>.
-          Individual distributed logs know nothing
-          about each other's option values, so each node can be
-          given unique option values by creating a distributed
-          log with many calls to <c>open/1</c>.
-          </p>
         <p>A log file can be opened more than once by giving
           different values to option <c>name</c> or by using the
-          same file when distributing a log on different nodes.
+          same file when opening a log on different nodes.
           It is up to the user of module <c>disk_log</c>
           to ensure that not more than one disk log process has write
 	  access to any file, otherwise the file can be corrupted.
@@ -1113,7 +1063,10 @@
           The header argument is used only once. Next time a wrap log file
           is opened, the header given to <c>open/1</c> is used.
           </p>
-        <p><c>truncate/1,2</c> are used for internally
+        <p><c>truncate/1</c> is used for both internally and externally
+          formatted logs.
+          </p>
+        <p><c>truncate/2</c> is used for internally
           formatted logs, and <c>btruncate/2</c> for externally formatted
           logs.
           </p>
@@ -1142,8 +1095,7 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="file"><c>file(3)</c></seealso>,
-      <seealso marker="pg2"><c>pg2(3)</c></seealso>,
-      <seealso marker="wrap_log_reader"><c>wrap_log_reader(3)</c></seealso></p>
+    <p><seeerl marker="file"><c>file(3)</c></seeerl>,
+      <seeerl marker="wrap_log_reader"><c>wrap_log_reader(3)</c></seeerl></p>
   </section>
 </erlref>

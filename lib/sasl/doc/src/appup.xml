@@ -34,7 +34,7 @@
     <p>The <em>application upgrade file</em> defines how an application
       is upgraded or downgraded in a running system.</p>
     <p>This file is used by the functions in 
-    <seealso marker="systools"><c>systools</c></seealso> 
+    <seeerl marker="systools"><c>systools</c></seeerl> 
     when generating a release upgrade file <c>relup</c>.</p>
   </description>
 
@@ -70,8 +70,8 @@
           numbers.</p></item>
       <tag><c>Instructions</c></tag>
         <item><p>A list of <em>release upgrade instructions</em>, see
-          <seealso marker="#Release Upgrade Instructions">Release
-          Upgrade Instructions</seealso>. It is recommended to use
+          <seefile marker="#Release Upgrade Instructions">Release
+          Upgrade Instructions</seefile>. It is recommended to use
           high-level instructions only. These are automatically
           translated to low-level instructions by <c>systools</c> when
           creating the <c>relup</c> file.</p></item>
@@ -95,14 +95,14 @@
     <p>Release upgrade instructions are interpreted by the release
       handler when an upgrade or downgrade is made. For more
       information about release handling, see
-      <seealso marker="doc/design_principles:release_handling">OTP
-      Design Principles</seealso> in <em>System Documentation</em>.</p>
+      <seeguide marker="system/design_principles:release_handling">OTP
+      Design Principles</seeguide> in <em>System Documentation</em>.</p>
     <p>A process is said to <em>use</em> a module <c>Mod</c> if
       <c>Mod</c> is listed in the <c>Modules</c> part of the child
       specification used to start the process, see
-      <seealso marker="stdlib:supervisor"><c>supervisor(3)</c></seealso>.
+      <seeerl marker="stdlib:supervisor"><c>supervisor(3)</c></seeerl>.
       In the case of 
-      <seealso marker="stdlib:gen_event"><c>gen_event</c></seealso>, 
+      <seeerl marker="stdlib:gen_event"><c>gen_event</c></seeerl>, 
       an event manager process is said to use <c>Mod</c> if <c>Mod</c> 
       is an installed event handler.</p>
 
@@ -127,19 +127,19 @@
     <p>Synchronized code replacement of processes using module
       <c>Mod</c>.</p>
     <p>All those processes are suspended using 
-      <seealso marker="stdlib:sys#suspend/1"><c>sys:suspend</c></seealso>,
+      <seemfa marker="stdlib:sys#suspend/1"><c>sys:suspend</c></seemfa>,
       the new module version is loaded, and
       then the processes are resumed using 
-      <seealso marker="stdlib:sys#resume/1"><c>sys:resume</c></seealso>.</p>
+      <seemfa marker="stdlib:sys#resume/1"><c>sys:resume</c></seemfa>.</p>
     <taglist>
     <tag><c>Change</c></tag>
       <item><p>Defaults to <c>soft</c> and defines the type of
       code change. If it is set to <c>{advanced,Extra}</c>, implemented
       processes using 
-      <seealso marker="stdlib:gen_server"><c>gen_server</c></seealso>, 
-      <seealso marker="stdlib:gen_fsm"><c>gen_fsm</c></seealso>,
-      <seealso marker="stdlib:gen_statem"><c>gen_statem</c></seealso>, or
-      <seealso marker="stdlib:gen_event"><c>gen_event</c></seealso> 
+      <seeerl marker="stdlib:gen_server"><c>gen_server</c></seeerl>, 
+      <seeerl marker="stdlib:gen_fsm"><c>gen_fsm</c></seeerl>,
+      <seeerl marker="stdlib:gen_statem"><c>gen_statem</c></seeerl>, or
+      <seeerl marker="stdlib:gen_event"><c>gen_event</c></seeerl> 
       transform their internal state by calling the callback function
       <c>code_change</c>. Special processes call the callback
       function <c>system_code_change/4</c>. In both cases, the term
@@ -151,7 +151,7 @@
       before loading the new module version. If the value
       is <c>brutal_purge</c>, the processes are killed. If the value is
       <c>soft_purge</c>, 
-      <seealso marker="release_handler#install_release/1"><c>release_handler:install_release/1</c></seealso>
+      <seemfa marker="release_handler#install_release/1"><c>release_handler:install_release/1</c></seemfa>
       returns <c>{error,{old_processes,Mod}}</c>.</p></item>
     <tag><c>PostPurge</c></tag>
       <item><p>Defaults to <c>brutal_purge</c>. It controls
@@ -172,7 +172,7 @@
     <tag><c>Timeout</c></tag>
       <item><p>Defines the time-out when suspending processes.
       If no value or <c>default</c> is specified, the default value for
-      <seealso marker="stdlib:sys#suspend/1"><c>sys:suspend</c></seealso> 
+      <seemfa marker="stdlib:sys#suspend/1"><c>sys:suspend</c></seemfa> 
       is used.</p></item>
     <tag><c>ModType</c></tag>
       <item><p>Defaults to <c>dynamic</c>. It specifies if
@@ -235,7 +235,7 @@
     <p><c>Type</c> defaults to <c>permanent</c> and specifies the start type
       of the application. If <c>Type = permanent | transient | temporary</c>,
       the application is loaded and started in the corresponding way, see
-      <seealso marker="kernel:application"><c>application(3)</c></seealso>.
+      <seeerl marker="kernel:application"><c>application(3)</c></seeerl>.
       If <c>Type = load</c>, the application is only loaded.
       If <c>Type = none</c>, the application is not loaded and not
       started, although the code for its modules is loaded.</p>
@@ -308,7 +308,7 @@ point_of_no_return</pre>
       spontaneously switches to new code, or as a result of a purge
       operation. If no <c>Timeout</c> is specified or <c>default</c> is
       specified, the default value for 
-      <seealso marker="stdlib:sys#suspend/1"><c>sys:suspend</c></seealso> 
+      <seemfa marker="stdlib:sys#suspend/1"><c>sys:suspend</c></seemfa> 
       is used.</p>
     <pre>
 {resume, [Mod]}
@@ -324,13 +324,13 @@ point_of_no_return</pre>
       upgrade or downgrade. This instruction sends a <c>code_change</c>
       system message to all processes using a module <c>Mod</c> by
       calling function 
-      <seealso marker="stdlib:sys#change_code/4"><c>sys:change_code</c></seealso>, 
+      <seemfa marker="stdlib:sys#change_code/4"><c>sys:change_code</c></seemfa>, 
       passing term <c>Extra</c> as argument.</p>
     <pre>
 {stop, [Mod]}
   Mod = atom()</pre>
     <p>Stops all processes using a module <c>Mod</c> by calling
-      <seealso marker="stdlib:supervisor#terminate_child/2"><c>supervisor:terminate_child/2</c></seealso>. 
+      <seemfa marker="stdlib:supervisor#terminate_child/2"><c>supervisor:terminate_child/2</c></seemfa>. 
       This instruction is useful
       when the simplest way to change code is to stop and restart the
       processes that run the code.</p>
@@ -338,7 +338,7 @@ point_of_no_return</pre>
 {start, [Mod]}
   Mod = atom()</pre>
     <p>Starts all stopped processes using a module <c>Mod</c> by calling
-      <seealso marker="stdlib:supervisor#restart_child/2"><c>supervisor:restart_child/2</c></seealso>.</p>
+      <seemfa marker="stdlib:supervisor#restart_child/2"><c>supervisor:restart_child/2</c></seemfa>.</p>
     <pre>
 {sync_nodes, Id, [Node]}
 {sync_nodes, Id, {M, F, A}}
@@ -362,7 +362,7 @@ point_of_no_return</pre>
     <p>Evaluates <c>apply(M, F, A)</c>.</p>
     <p>If the instruction appears before instruction
       <c>point_of_no_return</c>, a failure is caught.
-      <seealso marker="release_handler#install_release/1"><c>release_handler:install_release/1</c></seealso> 
+      <seemfa marker="release_handler#install_release/1"><c>release_handler:install_release/1</c></seemfa> 
       then returns <c>{error,{'EXIT',Reason}}</c>, unless <c>{error,Error}</c> 
       is thrown or returned. Then it returns <c>{error,Error}</c>.</p>
     <p>If the instruction appears after instruction
@@ -378,14 +378,14 @@ restart_new_emulator</pre>
       SASL are used when the emulator restarts.
       Only one <c>restart_new_emulator</c> instruction is allowed
       in the <c>relup</c> file, and it must be placed first.
-      <seealso marker="systools#make_relup/3"><c>systools:make_relup/3,4</c></seealso>
+      <seemfa marker="systools#make_relup/3"><c>systools:make_relup/3,4</c></seemfa>
       ensures this when the <c>relup</c> file is generated. The rest of the
       instructions in the <c>relup</c> file is executed after the
       restart as a part of the boot script.</p>
     <p>An info report is written when the upgrade is completed.
       To programmatically determine if the upgrade is complete,
-      call <seealso marker="release_handler#which_releases/0">
-      <c>release_handler:which_releases/0,1</c></seealso> and check if the
+      call <seemfa marker="release_handler#which_releases/0">
+      <c>release_handler:which_releases/0,1</c></seemfa> and check if the
       expected release has status <c>current</c>.</p>
     <p>The new release must still be made permanent after the upgrade
       is completed, otherwise the old emulator is started if there is
@@ -412,7 +412,7 @@ restart_emulator</pre>
       applications, but can be used by any application when a complete
       reboot of the system is required.</p>
     <p>When generating the <c>relup</c> file,
-      <seealso marker="systools#make_relup/3"><c>systools:make_relup/3,4</c></seealso>
+      <seemfa marker="systools#make_relup/3"><c>systools:make_relup/3,4</c></seemfa>
       ensures that there is only one <c>restart_emulator</c>
       instruction and that it is the last instruction in the
       <c>relup</c> file.</p>
@@ -421,10 +421,10 @@ restart_emulator</pre>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="release_handler"><c>release_handler(3)</c></seealso>,
-      <seealso marker="relup"><c>relup(4)</c></seealso>,
-      <seealso marker="stdlib:supervisor"><c>supervisor(3)</c></seealso>,
-      <seealso marker="systools"><c>systools(3)</c></seealso></p>
+    <p><seeerl marker="release_handler"><c>release_handler(3)</c></seeerl>,
+      <seefile marker="relup"><c>relup(4)</c></seefile>,
+      <seeerl marker="stdlib:supervisor"><c>supervisor(3)</c></seeerl>,
+      <seeerl marker="systools"><c>systools(3)</c></seeerl></p>
   </section>
 </fileref>
 

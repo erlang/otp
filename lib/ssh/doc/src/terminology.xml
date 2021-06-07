@@ -119,15 +119,15 @@
 	</p>
 	<list type="ordered">
 	  <item>If a 
-	  <seealso marker="ssh:ssh#option-pwdfun"><c>pwdfun</c></seealso>
+	  <seeerl marker="ssh:ssh#option-pwdfun"><c>pwdfun</c></seeerl>
 	  is defined, that one is called and the returned boolean is the authentication result.
 	  </item>
 	  <item>Else, if the 
-	  <seealso marker="ssh:ssh#option-user_passwords"><c>user_passwords</c></seealso>
+	  <seeerl marker="ssh:ssh#option-user_passwords"><c>user_passwords</c></seeerl>
 	  option is defined and the username and the password matches, the authentication is a success.
 	  </item>
 	  <item>Else, if the option 
-	  <seealso marker="ssh:ssh#option-password"><c>password</c></seealso>
+	  <seeerl marker="ssh:ssh#option-password"><c>password</c></seeerl>
 	  is defined and matches the password the authentication is a success.
 	  Note that the use of this option is not recommended in non-test code.
 	  </item>
@@ -140,18 +140,18 @@
 	</p>
 	<list type="ordered">
 	  <item>A callback module is selected using the options 
-	  <seealso marker="ssh:ssh#type-key_cb_common_option"><c>key_cb</c></seealso>.
+	  <seetype marker="ssh:ssh#key_cb_common_option"><c>key_cb</c></seetype>.
 	  </item>
 	  <item>The callback module is used to check that the provided public key is one of the user's pre-stored.
 	        In case of the default callback module, the files <c>authorized_keys</c> and <c>authorized_keys2</c>
 		are searched in a directory found in the following order:
 		<list>
 		  <item>If the option
-		  <seealso marker="ssh:ssh_file#type-user_dir_fun_common_option"><c>user_dir_fun</c></seealso>
+		  <seetype marker="ssh:ssh_file#user_dir_fun_common_option"><c>user_dir_fun</c></seetype>
 		  is defined, that fun is called and the returned directory is used,
 		  </item>
 		  <item>Else, If the option 
-		  <seealso marker="ssh:ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>
+		  <seetype marker="ssh:ssh_file#user_dir_common_option"><c>user_dir</c></seetype>
 			is defined, that directory is used,
 		  </item>
 		  <item>Else the subdirectory <c>.ssh</c> in the home directory of the user executing

@@ -51,7 +51,7 @@
       </item>
     </list>
     <p>For more detail, see the 
-      <seealso marker="megaco_transport">megaco_transport</seealso>
+      <seeerl marker="megaco_transport">megaco_transport</seeerl>
       behaviour definition.</p>
   </section>
 
@@ -59,8 +59,8 @@
     <title>Examples</title>
     <p>The Megaco/H.248 application contains implementations
       for the two protocols specified by the Megaco/H.248 standard;
-      UDP, see <seealso marker="megaco_udp">megaco_udp</seealso>, 
-      and TCP/TPKT, see <seealso marker="megaco_tcp">megaco_tcp</seealso>. </p>
+      UDP, see <seeerl marker="megaco_udp">megaco_udp</seeerl>, 
+      and TCP/TPKT, see <seeerl marker="megaco_tcp">megaco_tcp</seeerl>. </p>
   </section>
 </chapter>
 

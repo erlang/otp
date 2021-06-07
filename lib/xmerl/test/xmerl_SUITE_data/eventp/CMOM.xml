@@ -276,7 +276,7 @@
     </exception>
 
     <exception name="UpgradeNotPossibleException">
-        <description>Before an upgrade is started it was found that the upgrade can not take place. A possible reason is that the upgrade package that is running in the node is not in the upgrade window of this upgrade package. </description>
+        <description>Before an upgrade is started it was found that the upgrade cannot take place. A possible reason is that the upgrade package that is running in the node is not in the upgrade window of this upgrade package. </description>
         <exceptionParameter name="message">
             <dataType>
                 <string/>
@@ -1703,7 +1703,7 @@ Example:
 
     <exception name="NoSuchAttributeException">
         <description>Exception thrown when an MO attribute is requested to be accessed but the access 
-method for the is not defined (the attribute can not be accessed)</description>
+method for the is not defined (the attribute cannot be accessed)</description>
     </exception>
 
     <exception name="MoCardinalityViolationException">
@@ -3125,7 +3125,7 @@ active = Synchronization is used in system clock generation.
         <description>RefState can have the following values:
 failed = synchronization reference is not capable to perform its required tasks.
 degraded = capability of synchronization reference to perform its required tasks is degraded e.g. because of signal level degradation. This value is only applicable for traffic carrying (ET physical path termination) synchronization references. Note: attribute degradationIsFault controls whether synchronization reference degradation is interpreted as a synchronization reference fault or not.
-lossOfTracking = system clock regulation algorithm on TU board can not follow the 8kHz synchronization reference signal either because of the poor quality of the signal or because of a HW fault at TU board. If all synchronization references repeatedly end up to state lossOfTracking, fault is likely in TU HW.
+lossOfTracking = system clock regulation algorithm on TU board cannot follow the 8kHz synchronization reference signal either because of the poor quality of the signal or because of a HW fault at TU board. If all synchronization references repeatedly end up to state lossOfTracking, fault is likely in TU HW.
 ok = synchronization reference is capable of performing its required tasks.
 </description>
         <enumMember name="failed">
@@ -11270,7 +11270,7 @@ Note! This action requires a transaction.</description>
 
 The changing of the IP address with operation assignIpAddress might cause interruption of the communication if the network management tool is connected via the ethernet link.
 
-Note: The EthernetLink MO can not be deleted!
+Note: The EthernetLink MO cannot be deleted!
 
 Note: The performance monitoring counters in the EthernetLink MO has a "Wrap-around time" of approximately 2 hours.
 </description>
@@ -11532,8 +11532,8 @@ Note! This action requires a transaction.</description>
         <description>This MO holds the IP routing table.
 
 The IpRoutingTable MO is automatically created when the Ip MO is created.
-The IpRoutingTable MO can not be created manually.
-The IpRoutingTable MO can not be deleted.
+The IpRoutingTable MO cannot be created manually.
+The IpRoutingTable MO cannot be deleted.
 </description>
         <systemCreated/>
         <attribute name="userLabel">
@@ -12967,7 +12967,7 @@ Note! When using fractional atm, timeslot 1 must be a part of the fraction.
 
 Note! ETM1 does not support EPD and PPD
 
-Note! ETM1 does not have a proper buffer management. Thus fairness of UBR+ traffic can not be guaranteed and shaping on UBR+ traffic is not possible.
+Note! ETM1 does not have a proper buffer management. Thus fairness of UBR+ traffic cannot be guaranteed and shaping on UBR+ traffic is not possible.
 
 Note! The number of VCC TP+VPC TP with performance monitoring enabled (i.e. PM mode &lt;&gt; off) is restricted to 1 per port.
 </description>
@@ -13371,7 +13371,7 @@ Struct element description :
 -Date is in string format, max length is 40. Format for date is: weekday month date hour:min:seconds year.
 -Status is in string format, max length is 40.
 
-Note! The identity can not be the same as name. Identity should contain the product identity.
+Note! The identity cannot be the same as name. Identity should contain the product identity.
 
 
 </description>
@@ -13562,7 +13562,7 @@ Note! For comment and operatorName spaces (' ') are also allowed within the stri
 
 This action does not require a transaction.
 
-Note! The configurationVersionName and identity can not be the same. The identity should be the product identity.
+Note! The configurationVersionName and identity cannot be the same. The identity should be the product identity.
 </description>
             <returnType>
                 <void/>
@@ -17367,7 +17367,7 @@ NOTE: There is a restriction of a maximum of 32 Mtp2Tp's per MP.</description>
         <attribute name="mtp2ProfileItuId">
             <description>Reference to a Mtp2ProfileItu MO.
 
-Note: The bitRate can not be changed.</description>
+Note: The bitRate cannot be changed.</description>
             <mandatory/>
             <noNotification/>
             <dataType>
@@ -17566,7 +17566,7 @@ NOTE: There is a restriction of a maximum of 32 Mtp2Tp's per MP.</description>
         <attribute name="mtp2ProfileAnsiId">
             <description>Reference to a Mtp2ProfileAnsi MO.
 
-Note: The bitRate can not be changed.</description>
+Note: The bitRate cannot be changed.</description>
             <mandatory/>
             <noNotification/>
             <dataType>
@@ -21777,7 +21777,7 @@ Each E1/DS1/J1 channel can suport up to 2 VP connections.
 
 The ET-MC41 board support one biderectional F4/F5 PM flow per E1 channel.
 
-Note! The ETMC41 supports IMA. However the E1 ports being part of the same IMA group can not be selected randomly.
+Note! The ETMC41 supports IMA. However the E1 ports being part of the same IMA group cannot be selected randomly.
 
 Note! The number of VCC TP+VPC TP with performance monitoring enabled (i.e. PM mode &lt;&gt; off) is restricted to 1 / port
 
@@ -21883,7 +21883,7 @@ NOTE: There is a restriction of a maximum of 32 Mtp2Tp's per MP.
         <attribute name="mtp2ProfileChinaId">
             <description>Reference to a Mtp2ProfileChina MO.
 
-Note: The bitRate can not be changed.</description>
+Note: The bitRate cannot be changed.</description>
             <mandatory/>
             <noNotification/>
             <dataType>

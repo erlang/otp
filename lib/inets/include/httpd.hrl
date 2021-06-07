@@ -24,7 +24,9 @@
 
 -include_lib("kernel/include/file.hrl").
 
--record(init_data,{peername,resolve}).
+-record(init_data,{peername,
+                   sockname, 
+                   resolve}).
 
 -record(mod,{init_data,
 	     data=[],

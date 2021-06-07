@@ -33,8 +33,8 @@ int ei_decode_pid(const char *buf, int *index, erlang_pid *p)
 
   if (p) {
     if (get_atom(&s, p->node, NULL) < 0) return -1;
-    p->num = get32be(s) & 0x7fff; /* 15 bits */
-    p->serial = get32be(s) & 0x1fff; /* 13 bits */
+    p->num = get32be(s);
+    p->serial = get32be(s);
     if (tag == ERL_PID_EXT)
         p->creation = get8(s) & 0x03; /* 2 bits */
     else

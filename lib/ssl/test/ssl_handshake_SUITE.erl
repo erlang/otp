@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,13 +22,38 @@
 
 -module(ssl_handshake_SUITE).
 
--compile(export_all).
+-behaviour(ct_suite).
 
 -include_lib("common_test/include/ct.hrl").
+-include("ssl_alert.hrl").
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
+-include("ssl_record.hrl").
 -include("tls_handshake.hrl").
 -include_lib("public_key/include/public_key.hrl").
+
+%% Common test
+-export([all/0,
+         init_per_suite/1,
+         init_per_group/2,
+         init_per_testcase/2,
+         end_per_suite/1,
+         end_per_group/2,
+         end_per_testcase/2
+        ]).
+
+%% Test cases
+-export([decode_hello_handshake/1,
+         decode_single_hello_extension_correctly/1,
+         decode_supported_elliptic_curves_hello_extension_correctly/1,
+         decode_unknown_hello_extension_correctly/1,
+         encode_single_hello_sni_extension_correctly/1,
+         decode_single_hello_sni_extension_correctly/1,
+         decode_empty_server_sni_correctly/1,
+         select_proper_tls_1_2_rsa_default_hashsign/1,
+         ignore_hassign_extension_pre_tls_1_2/1,
+         signature_algorithms/1,
+         encode_decode_srp/1]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -42,7 +67,7 @@ all() -> [decode_hello_handshake,
 	  decode_empty_server_sni_correctly,
 	  select_proper_tls_1_2_rsa_default_hashsign,
 	  ignore_hassign_extension_pre_tls_1_2,
-	  unorded_chain,
+	  signature_algorithms,
 	  encode_decode_srp].
 
 %%--------------------------------------------------------------------
@@ -57,7 +82,9 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_,Config) ->
     Config.
 
-init_per_testcase(ignore_hassign_extension_pre_tls_1_2, Config0) ->
+init_per_testcase(TC, Config0) when
+      TC =:= ignore_hassign_extension_pre_tls_1_2 orelse
+      TC =:= signature_algorithms ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
@@ -103,18 +130,16 @@ decode_hello_handshake(_Config) ->
 	
     Version = {3, 0},
     {Records, _Buffer} = tls_handshake:get_tls_handshake(Version, HelloPacket, <<>>, 
-							 #ssl_options{}),
+                                                         default_options_map()),
 
     {Hello, _Data} = hd(Records),
-    #renegotiation_info{renegotiated_connection = <<0>>}
-	= (Hello#server_hello.extensions)#hello_extensions.renegotiation_info.
-
+    Extensions = Hello#server_hello.extensions,
+    #{renegotiation_info := #renegotiation_info{renegotiated_connection = <<0>>}} = Extensions.
 
 decode_single_hello_extension_correctly(_Config) -> 
     Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
-    Extensions = ssl_handshake:decode_hello_extensions(Renegotiation),
-    #renegotiation_info{renegotiated_connection = <<0>>}
-	= Extensions#hello_extensions.renegotiation_info.
+    Extensions = ssl_handshake:decode_extensions(Renegotiation, {3,3}, undefined),
+    #{renegotiation_info := #renegotiation_info{renegotiated_connection = <<0>>}} = Extensions.
 
 decode_supported_elliptic_curves_hello_extension_correctly(_Config) ->
     % List of supported and unsupported curves (RFC4492:S5.1.1)
@@ -125,37 +150,34 @@ decode_supported_elliptic_curves_hello_extension_correctly(_Config) ->
     Len = ListLen + 2,
     Extension = <<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len), ?UINT16(ListLen), EllipticCurveList/binary>>,
     % after decoding we should see only valid curves
-    #hello_extensions{elliptic_curves = DecodedCurves} = ssl_handshake:decode_hello_extensions(Extension),
-    #elliptic_curves{elliptic_curve_list = [?sect233k1, ?sect193r2]} = DecodedCurves.
+    Extensions = ssl_handshake:decode_hello_extensions(Extension, {3,2}, {3,2}, client),
+    #{elliptic_curves := #elliptic_curves{elliptic_curve_list = [?sect233k1, ?sect193r2]}} = Extensions. 
 
 decode_unknown_hello_extension_correctly(_Config) ->
     FourByteUnknown = <<16#CA,16#FE, ?UINT16(4), 3, 0, 1, 2>>,
     Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
-    Extensions = ssl_handshake:decode_hello_extensions(<<FourByteUnknown/binary, Renegotiation/binary>>),
-     #renegotiation_info{renegotiated_connection = <<0>>}
-	= Extensions#hello_extensions.renegotiation_info.
+    Extensions = ssl_handshake:decode_hello_extensions(<<FourByteUnknown/binary, Renegotiation/binary>>, {3,2}, {3,2}, client),
+    #{renegotiation_info := #renegotiation_info{renegotiated_connection = <<0>>}} = Extensions.
+
 
 encode_single_hello_sni_extension_correctly(_Config) ->
-    Exts = #hello_extensions{sni = #sni{hostname = "test.com"}},
     SNI = <<16#00, 16#00, 16#00, 16#0d, 16#00, 16#0b, 16#00, 16#00, 16#08,
 	    $t,    $e,    $s,    $t,    $.,    $c,    $o,    $m>>,
     ExtSize = byte_size(SNI),
     HelloExt = <<ExtSize:16/unsigned-big-integer, SNI/binary>>,
-    Encoded = ssl_handshake:encode_hello_extensions(Exts),
+    Encoded = ssl_handshake:encode_extensions([#sni{hostname = "test.com"}]),
     HelloExt = Encoded.
 
 decode_single_hello_sni_extension_correctly(_Config) ->
-    Exts = #hello_extensions{sni = #sni{hostname = "test.com"}},
     SNI = <<16#00, 16#00, 16#00, 16#0d, 16#00, 16#0b, 16#00, 16#00, 16#08,
 	    $t,    $e,    $s,    $t,    $.,    $c,    $o,    $m>>,
-    Decoded = ssl_handshake:decode_hello_extensions(SNI),
-    Exts = Decoded.
+    Decoded = ssl_handshake:decode_hello_extensions(SNI, {3,3}, {3,3}, client),
+    #{sni := #sni{hostname = "test.com"}} = Decoded.
 
 decode_empty_server_sni_correctly(_Config) ->
-    Exts = #hello_extensions{sni = #sni{hostname = ""}},
     SNI = <<?UINT16(?SNI_EXT),?UINT16(0)>>,
-    Decoded = ssl_handshake:decode_hello_extensions(SNI),
-    Exts = Decoded.
+    Decoded = ssl_handshake:decode_hello_extensions(SNI, {3,3}, {3,3}, server),
+    #{sni := #sni{hostname = ""}} = Decoded.
 
 
 select_proper_tls_1_2_rsa_default_hashsign(_Config) ->
@@ -170,55 +192,85 @@ ignore_hassign_extension_pre_tls_1_2(Config) ->
     Opts = proplists:get_value(server_opts, Config),
     CertFile = proplists:get_value(certfile, Opts),
     [{_, Cert, _}] = ssl_test_lib:pem_to_der(CertFile),
-    HashSigns = #hash_sign_algos{hash_sign_algos = [{sha512, rsa}, {sha, dsa}]},
-    {sha512, rsa} = ssl_handshake:select_hashsign(HashSigns, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,3}), {3,3}),
+    HashSigns = #hash_sign_algos{hash_sign_algos = [{sha512, rsa}, {sha, dsa}, {sha256, rsa}]},
+    {sha512, rsa} = ssl_handshake:select_hashsign({HashSigns, undefined}, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,3}), {3,3}),
     %%% Ignore
-    {md5sha, rsa} = ssl_handshake:select_hashsign(HashSigns, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,2}), {3,2}),
-    {md5sha, rsa} = ssl_handshake:select_hashsign(HashSigns, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,0}), {3,0}).
-
-unorded_chain(Config) when is_list(Config) ->
-    DefConf = ssl_test_lib:default_cert_chain_conf(),
-    CertChainConf = ssl_test_lib:gen_conf(rsa, rsa, DefConf, DefConf),
-    #{server_config := ServerConf,
-      client_config := _ClientConf} = public_key:pkix_test_data(CertChainConf),
-    PeerCert = proplists:get_value(cert, ServerConf),
-    CaCerts = [_, C1, C2] = proplists:get_value(cacerts, ServerConf),
-    {ok,  ExtractedCerts} = ssl_pkix_db:extract_trusted_certs({der, CaCerts}),
-    UnordedChain = case public_key:pkix_is_self_signed(C1) of
-                       true ->
-                           [C1, C2];
-                       false ->
-                           [C2, C1]
-                   end,
-    OrderedChain = [PeerCert | lists:reverse(UnordedChain)],
-    {ok, _, OrderedChain} = 
-        ssl_certificate:certificate_chain(PeerCert, ets:new(foo, []), ExtractedCerts, UnordedChain).
+    {md5sha, rsa} = ssl_handshake:select_hashsign({HashSigns, undefined}, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,2}), {3,2}),
+    {md5sha, rsa} = ssl_handshake:select_hashsign({HashSigns, undefined}, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,0}), {3,0}).
 
 encode_decode_srp(_Config) ->
-    Exts = #hello_extensions{
-              srp = #srp{username = <<"foo">>},
-              sni = #sni{hostname = "bar"},
-              renegotiation_info = undefined,
-              signature_algs = undefined,
-              alpn = undefined,
-              next_protocol_negotiation = undefined,
-              ec_point_formats = undefined,
-              elliptic_curves = undefined
-             },
-    EncodedExts = <<0,20,          % Length
+    Exts = #{srp => #srp{username = <<"foo">>},
+             sni => #sni{hostname = "bar"},
+             renegotiation_info => undefined,
+             signature_algs => undefined,
+             alpn => undefined,
+             next_protocol_negotiation => undefined,
+             ec_point_formats => undefined,
+             elliptic_curves => undefined
+            },
+    EncodedExts0 = <<0,20,          % Length
+                    0,12,          % SRP extension
+                    0,4,           % Length
+                    3,             % srp_I length
+                    102,111,111, % username = "foo"
                     0,0,           % SNI extension
                     0,8,           % Length
                     0,6,           % ServerNameLength
                     0,             % NameType (host_name)
                     0,3,           % HostNameLength
-                    98,97,114,     % hostname = "bar"
-                    0,12,          % SRP extension
-                    0,4,           % Length
-                    3,             % srp_I length
-                    102,111,111>>, % username = "foo"
-    EncodedExts = ssl_handshake:encode_hello_extensions(Exts),
-    Exts = ssl_handshake:decode_hello_extensions({client, EncodedExts}).
+                    98,97,114>>,     % hostname = "bar"
+    EncodedExts0 = <<?UINT16(_),EncodedExts/binary>> =
+        ssl_handshake:encode_hello_extensions(Exts, {3,3}),
+    Exts = ssl_handshake:decode_hello_extensions(EncodedExts, {3,3}, {3,3}, client).
 
+signature_algorithms(Config) ->
+    Opts = proplists:get_value(server_opts, Config),
+    CertFile = proplists:get_value(certfile, Opts),
+    io:format("Cert = ~p~n", [CertFile]),
+    [{_, Cert, _}] = ssl_test_lib:pem_to_der(CertFile),
+    HashSigns0 = #hash_sign_algos{
+                   hash_sign_algos = [{sha512, rsa},
+                                      {sha, dsa},
+                                      {sha256, rsa}]},
+    Schemes0 = #signature_algorithms_cert{
+                 signature_scheme_list = [rsa_pkcs1_sha256,
+                                          ecdsa_sha1]},
+    {sha512, rsa} = ssl_handshake:select_hashsign(
+                      {HashSigns0, Schemes0},
+                      Cert, ecdhe_rsa,
+                      tls_v1:default_signature_algs({3,3}),
+                      {3,3}),
+    HashSigns1 = #hash_sign_algos{
+                    hash_sign_algos = [{sha, dsa},
+                                       {sha256, rsa}]},
+    {sha256, rsa} = ssl_handshake:select_hashsign(
+                      {HashSigns1, Schemes0},
+                      Cert, ecdhe_rsa,
+                      tls_v1:default_signature_algs({3,3}),
+                      {3,3}),
+    Schemes1 = #signature_algorithms_cert{
+                  signature_scheme_list = [rsa_pkcs1_sha1,
+                                           ecdsa_sha1]},
+    %% Signature not supported
+    #alert{} = ssl_handshake:select_hashsign(
+                 {HashSigns1, Schemes1},
+                 Cert, ecdhe_rsa,
+                 tls_v1:default_signature_algs({3,3}),
+                 {3,3}),
+    %% No scheme, hashsign is used
+    {sha256, rsa} = ssl_handshake:select_hashsign(
+                      {HashSigns1, undefined},
+                      Cert, ecdhe_rsa,
+                      tls_v1:default_signature_algs({3,3}),
+                      {3,3}),
+    HashSigns2 = #hash_sign_algos{
+                    hash_sign_algos = [{sha, dsa}]},
+    %% Signature not supported
+    #alert{} = ssl_handshake:select_hashsign(
+                 {HashSigns2, Schemes1},
+                 Cert, ecdhe_rsa,
+                 tls_v1:default_signature_algs({3,3}),
+                 {3,3}).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
@@ -228,3 +280,7 @@ is_supported(Hash) ->
     Algos = crypto:supports(),
     Hashs = proplists:get_value(hashs, Algos), 
     lists:member(Hash, Hashs).
+
+default_options_map() ->
+    Fun = fun (_Key, {Default, _}) -> Default end,
+    maps:map(Fun, ?RULES).

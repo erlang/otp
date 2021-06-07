@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,6 @@
  *
  * %CopyrightEnd%
  */
-
-#ifdef VXWORKS
-#include "reclaim.h"
-#endif
 
 #include "ei_runner.h"
 
@@ -460,8 +456,6 @@ TESTCASE(test_ei_encode_longlong)
 {
     ei_init();
 
-#ifndef VXWORKS
-
     EI_ENCODE_1(encode_longlong, 0);
 
     EI_ENCODE_1(encode_longlong, 255);
@@ -490,8 +484,6 @@ TESTCASE(test_ei_encode_longlong)
 
     EI_ENCODE_1(encode_longlong, -ll(0x8000000000000000));
 
-#endif /* !VXWORKS */
-
     report(1);
 }
 
@@ -500,8 +492,6 @@ TESTCASE(test_ei_encode_longlong)
 TESTCASE(test_ei_encode_ulonglong)
 {
     ei_init();
-
-#ifndef VXWORKS
 
     EI_ENCODE_1(encode_ulonglong, 0);
 
@@ -522,8 +512,6 @@ TESTCASE(test_ei_encode_ulonglong)
     EI_ENCODE_1(encode_ulonglong,  ll(0xffffffffffff));
 
     EI_ENCODE_1(encode_ulonglong,  ll(0xffffffffffffffff));
-
-#endif /* !VXWORKS */
 
     report(1);
 }

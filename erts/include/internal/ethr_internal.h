@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,9 +54,6 @@ extern void (*ethr_thr_child_func__)(void *);
 int ethr_set_tse__(ethr_ts_event *tsep);
 ethr_ts_event *ethr_get_tse__(void);
 ETHR_PROTO_NORETURN__ ethr_abort__(void);
-#ifdef ETHR_WIN32_THREADS
-int ethr_win_get_errno__(void);
-#endif
 
 #ifdef ETHR_INCLUDE_MONOTONIC_CLOCK__
 #undef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
@@ -90,7 +87,7 @@ int ethr_init_common__(ethr_init_data *id);
 int ethr_late_init_common__(ethr_late_init_data *lid);
 void ethr_run_exit_handlers__(void);
 void ethr_ts_event_destructor__(void *vtsep);
-void ethr_set_stacklimit__(char *prev_c, size_t stacksize);
+void ethr_set_stacklimit__(char *prev_c, size_t stacksize) ETHR_NOINLINE;
 
 #if defined(ETHR_X86_RUNTIME_CONF__)
 void ethr_x86_cpuid__(int *eax, int *ebx, int *ecx, int *edx);

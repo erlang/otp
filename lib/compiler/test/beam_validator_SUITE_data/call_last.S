@@ -1,6 +1,6 @@
 {module, call_last}.  %% version = 0
 
-{exports, [{a,1},{b,1},{bar,1},{foo,1},{module_info,0},{module_info,1}]}.
+{exports, [{a,1},{b,1},{bar,1},{foo,1},{baz,2},{biz,2}]}.
 
 {attributes, []}.
 
@@ -53,19 +53,16 @@
     {'%live',1}.
     return.
 
-
-{function, module_info, 0, 10}.
+{function, baz, 2, 10}.
   {label,9}.
-    {func_info,{atom,t},{atom,module_info},0}.
+    {func_info,{atom,t},{atom,baz},2}.
   {label,10}.
-    {move,{atom,t},{x,0}}.
-    {call_ext_only,1,{extfunc,erlang,get_module_info,1}}.
+    {allocate,0,2}.
+    {call_ext_only,2,{extfunc,erlang,put,2}}.
 
-
-{function, module_info, 1, 12}.
+{function, biz, 2, 12}.
   {label,11}.
-    {func_info,{atom,t},{atom,module_info},1}.
+    {func_info,{atom,t},{atom,biz},2}.
   {label,12}.
-    {move,{x,0},{x,1}}.
-    {move,{atom,t},{x,0}}.
-    {call_ext_only,2,{extfunc,erlang,get_module_info,2}}.
+    {allocate,0,2}.
+    {call_only,2,{f,10}}.

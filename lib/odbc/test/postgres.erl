@@ -207,7 +207,7 @@ bit_true_selected() ->
 
 %-------------------------------------------------------------------------
 float_min() ->
-    1.79e-307. 
+    5.0e-324.
 float_max() ->
     1.79e+308.
 
@@ -215,7 +215,7 @@ create_float_table() ->
     " (FIELD float)".
 
 float_underflow() ->
-    "1.80e-308".
+    "2.4e-324".
 float_overflow() ->
     "1.80e+308".
 
@@ -288,7 +288,7 @@ describe_string() ->
 	 {"str4",{sql_varchar,10}}]}.
 
 describe_floating() ->
-    {ok,[{"f",sql_real},{"r",sql_real},{"d",{sql_float,15}}]}.
+    {ok,[{"f",sql_real},{"r",sql_real},{"d",{sql_float,17}}]}.
 describe_dec_num() ->
     {ok,[{"mydec",{sql_numeric,9,3}},{"mynum",{sql_numeric,9,2}}]}.
 

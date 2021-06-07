@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,12 @@
          get_value/5,  get_value/6,
          put_value/5,
          delete_key/5,
-         handle_options/2
+         handle_options/2,
+         keep_user_options/2,
+         keep_set_options/2,
+         no_sensitive/2,
+         initial_default_algorithms/2,
+         check_preferred_algorithms/1
         ]).
 
 -export_type([private_options/0
@@ -42,14 +47,14 @@
 
 -type option_class() :: internal_options | socket_options | user_options . 
 
--type option_declaration() :: #{class := user_options,
-                                chk := fun((any) -> boolean() | {true,any()}),
+-type option_declaration() :: #{class := user_option | undoc_user_option,
+                                chk := fun((any()) -> boolean() | {true,any()}),
                                 default => any()
                                }.
 
 -type option_key() :: atom().
 
--type option_declarations() :: #{ {option_key(),def} := option_declaration() }.
+-type option_declarations() :: #{ option_key() := option_declaration() }.
 
 -type error() :: {error,{eoptions,any()}} .
 
@@ -156,58 +161,125 @@ delete_key(internal_options, Key, Opts, _CallerMod, _CallerLine) when is_map(Opt
 handle_options(Role, PropList0) ->
     handle_options(Role, PropList0, #{socket_options   => [],
                                       internal_options => #{},
-                                      user_options     => []
+                                      key_cb_options   => []
                                      }).
 
-handle_options(Role, PropList0, Opts0) when is_map(Opts0),
-                                            is_list(PropList0) ->
-    PropList1 = proplists:unfold(PropList0), 
+handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
+                         is_list(OptsList0) ->
+    OptsList1 = proplists:unfold(
+                  lists:foldr(fun(T,Acc) when is_tuple(T),
+                                              size(T) =/= 2-> [{special_trpt_args,T} | Acc];
+                                 (X,Acc) -> [X|Acc]
+                              end,
+                              [], OptsList0)),
     try
         OptionDefinitions = default(Role),
-        InitialMap =
+        RoleCnfs = application:get_env(ssh, cnf_key(Role), []),
+        {InitialMap,OptsList2} =
             maps:fold(
-              fun({K,def}, #{default:=V}, M) -> M#{K=>V};
-                 (_,_,M) -> M
+              fun(K, #{default:=Vd}, {M,PL}) ->
+                      %% Now set as the default value:
+                      %%   1: from erl command list: erl -ssh opt val
+                      %%   2: from config file:  {options, [..., {opt,val}, ....]}
+                      %%   3: from the hard-coded option values in default/1
+                      %% The value in the option list will be handled later in save/3 later
+                      case config_val(K, RoleCnfs, OptsList1) of
+                          {ok,V1} ->
+                              %% A value set in config or options. Replace the current.
+                              {M#{K => V1,
+                                  key_cb_options => [{K,V1} | maps:get(key_cb_options,M)]},
+                               [{K,V1} | PL]
+                              };
+
+                          {append,V1} ->
+                              %% A value set in config or options, but should be
+                              %% appended to the existing value
+                              NewVal = maps:get(K,M,[]) ++ V1,
+                              {M#{K => NewVal,
+                                  key_cb_options => [{K,NewVal} |
+                                                     lists:keydelete(K,1,maps:get(key_cb_options,M))]},
+                               [{K,NewVal} | lists:keydelete(K,1,PL)]
+                              };
+                              
+                          undefined ->
+                              %% Use the default value
+                              {M#{K => Vd}, PL}
+                      end
+                 %%          ;
+                 %% (_,_,Acc) ->
+                 %%      Acc
               end,
-              Opts0#{user_options => 
-                         maps:get(user_options,Opts0) ++ PropList1
-                   },
+              {Opts0#{key_cb_options => maps:get(key_cb_options,Opts0)},
+               [{K,V} || {K,V} <- OptsList1,
+                         not maps:is_key(K,Opts0) % Keep socket opts
+               ]
+              },
               OptionDefinitions),
+
+
         %% Enter the user's values into the map; unknown keys are
         %% treated as socket options
         final_preferred_algorithms(
           lists:foldl(fun(KV, Vals) ->
                               save(KV, OptionDefinitions, Vals)
-                      end, InitialMap, PropList1))
+                      end, InitialMap, OptsList2))
     catch
-        error:{eoptions, KV, undefined} -> 
-            {error, {eoptions,KV}};
+        error:{EO, KV, Reason} when EO == eoptions ; EO == eerl_env ->
+            if
+                Reason == undefined ->
+                    {error, {EO,KV}};
+                is_list(Reason) ->
+                    {error, {EO,{KV,lists:flatten(Reason)}}};
+                true ->
+                    {error, {EO,{KV,Reason}}}
+            end
+    end.
 
-        error:{eoptions, KV, Txt} when is_list(Txt) -> 
-            {error, {eoptions,{KV,lists:flatten(Txt)}}};
+cnf_key(server) -> server_options;
+cnf_key(client) -> client_options.
 
-        error:{eoptions, KV, Extra} ->
-            {error, {eoptions,{KV,Extra}}}
+
+config_val(modify_algorithms=Key, RoleCnfs, Opts) ->
+    V = case application:get_env(ssh, Key) of
+            {ok,V0} -> V0;
+            _ -> []
+        end
+        ++ proplists:get_value(Key, RoleCnfs, [])
+        ++ proplists:get_value(Key, Opts, []),
+    case V of
+        [] -> undefined;
+        _ -> {append,V}
+    end;
+
+config_val(Key, RoleCnfs, Opts) ->
+    case lists:keysearch(Key, 1, Opts) of
+        {value, {_,V}} ->
+            {ok,V};
+        false ->
+            case lists:keysearch(Key, 1, RoleCnfs) of
+                {value, {_,V}} ->
+                    {ok,V};
+                false ->
+                    application:get_env(ssh, Key) % returns {ok,V} | undefined
+            end
     end.
 
 
 check_fun(Key, Defs) ->
-    #{chk := Fun} = maps:get({Key,def}, Defs),
-    Fun.
+    case ssh_connection_handler:prohibited_sock_option(Key) of
+        false ->
+            #{chk := Fun} = maps:get(Key, Defs),
+            Fun;
+        true ->
+            fun(_,_) -> forbidden end
+    end.
 
 %%%================================================================
 %%%
 %%% Check and save one option
 %%%
 
-
-%%% First some prohibited inet options:
-save({K,V}, _, _) when K == reuseaddr ;
-                       K == active
-                       ->
-    forbidden_option(K, V);
-
-%%% then compatibility conversions:
+%%% First compatibility conversions:
 save({allow_user_interaction,V}, Opts, Vals) ->
     save({user_interaction,V}, Opts, Vals);
 
@@ -219,6 +291,10 @@ save(Inet, Defs, OptMap) when Inet==inet ; Inet==inet6 ->
 save({Inet,true}, Defs, OptMap) when Inet==inet ; Inet==inet6 ->  save({inet,Inet}, Defs, OptMap);
 save({Inet,false}, _Defs, OptMap) when Inet==inet ; Inet==inet6 -> OptMap;
 
+%% There are inet-options that are not a tuple sized 2. They where marked earlier
+save({special_trpt_args,T}, _Defs, OptMap) when is_map(OptMap) ->
+    OptMap#{socket_options := [T | maps:get(socket_options,OptMap)]};
+
 %% and finaly the 'real stuff':
 save({Key,Value}, Defs, OptMap) when is_map(OptMap) ->
     try (check_fun(Key,Defs))(Value)
@@ -228,14 +304,19 @@ save({Key,Value}, Defs, OptMap) when is_map(OptMap) ->
         {true, ModifiedValue} ->
             OptMap#{Key := ModifiedValue};
         false ->
-            error({eoptions, {Key,Value}, "Bad value"})
+            error({eoptions, {Key,Value}, "Bad value"});
+        forbidden ->
+            error({eoptions, {Key,Value}, 
+                   io_lib:format("The option '~s' is used internally. The "
+                                 "user is not allowed to specify this option.",
+                                 [Key])})
     catch
         %% An unknown Key (= not in the definition map) is
         %% regarded as an inet option:
-        error:{badkey,{inet,def}} ->
+        error:{badkey,inet} ->
             %% atomic (= non-tuple) options 'inet' and 'inet6':
             OptMap#{socket_options := [Value | maps:get(socket_options,OptMap)]};
-        error:{badkey,{Key,def}} ->
+        error:{badkey,Key} ->
             OptMap#{socket_options := [{Key,Value} | maps:get(socket_options,OptMap)]};
 
         %% But a Key that is known but the value does not validate
@@ -248,6 +329,57 @@ save(Opt, _Defs, OptMap) when is_map(OptMap) ->
 
 
 %%%================================================================
+no_sensitive(rm, #{id_string := _,
+                   tstflg := _}) -> '*** removed ***';
+no_sensitive(filter, Opts = #{id_string := _,
+                              tstflg := _}) -> 
+    Sensitive = [password, user_passwords,
+                 dsa_pass_phrase, rsa_pass_phrase, ecdsa_pass_phrase,
+                 ed25519_pass_phrase, ed448_pass_phrase],
+    maps:fold(
+      fun(K, _V, Acc) ->
+              case lists:member(K, Sensitive) of
+                  true -> Acc#{K := '***'};
+                  false -> Acc
+              end
+      end, Opts, Opts);
+no_sensitive(Type, L) when is_list(L) ->
+    [no_sensitive(Type,E) || E <- L];
+no_sensitive(Type, T) when is_tuple(T) ->
+    list_to_tuple( no_sensitive(Type, tuple_to_list(T)) );
+no_sensitive(_, X) ->
+    X.
+
+%%%================================================================
+%%%
+-spec keep_user_options(client|server, #{}) -> #{}.
+
+keep_user_options(Type, Opts) ->
+    Defs = default(Type),
+    maps:filter(fun(Key, _Value) ->
+                        try
+                            #{class := Class} = maps:get(Key,Defs),
+                            Class == user_option
+                        catch
+                            _:_ -> false
+                        end
+                end, Opts).
+
+
+-spec keep_set_options(client|server, #{}) -> #{}.
+
+keep_set_options(Type, Opts) ->
+    Defs = default(Type),
+    maps:filter(fun(Key, Value) ->
+                        try
+                            #{default := DefVal} = maps:get(Key,Defs),
+                            DefVal =/= Value
+                        catch
+                            _:_ -> false
+                        end
+                end, Opts).
+
+%%%================================================================
 %%%
 %%% Default options
 %%%
@@ -257,7 +389,7 @@ save(Opt, _Defs, OptMap) when is_map(OptMap) ->
 default(server) ->
     (default(common))
         #{
-      {subsystems, def} =>
+      subsystems =>
           #{default => [ssh_sftpd:subsystem_spec([])],
             chk => fun(L) ->
                            is_list(L) andalso
@@ -269,42 +401,57 @@ default(server) ->
                                                  false
                                          end, L)
                    end,
-            class => user_options
+            class => user_option
            },
 
-      {shell, def} =>
+      shell =>
           #{default => ?DEFAULT_SHELL,
             chk => fun({M,F,A}) -> is_atom(M) andalso is_atom(F) andalso is_list(A);
-                      (V) -> check_function1(V) orelse check_function2(V)
+                      (disabled) -> true;
+                      (V) -> check_function1(V) orelse
+                                 check_function2(V)
                    end,
-            class => user_options
+            class => user_option
            },
 
-      {exec, def} =>
+      exec =>
           #{default => undefined,
             chk => fun({direct, V}) ->  check_function1(V) orelse check_function2(V) orelse check_function3(V);
+                      (disabled) -> true;
                       %% Compatibility (undocumented):
                       ({M,F,A}) -> is_atom(M) andalso is_atom(F) andalso is_list(A);
                       (V) -> check_function1(V) orelse check_function2(V) orelse check_function3(V)
                    end,
-            class => user_options
+            class => user_option
            },
 
-      {ssh_cli, def} =>
+      ssh_cli =>
           #{default => undefined,
             chk => fun({Cb, As}) -> is_atom(Cb) andalso is_list(As);
                       (V) -> V == no_cli
                    end,
-            class => user_options
+            class => user_option
            },
 
-      {system_dir, def} =>
+      tcpip_tunnel_out =>
+           #{default => false,
+             chk => fun(V) -> erlang:is_boolean(V) end,
+             class => user_option
+            },
+
+      tcpip_tunnel_in =>
+           #{default => false,
+             chk => fun(V) -> erlang:is_boolean(V) end,
+             class => user_option
+            },
+
+      system_dir =>
           #{default => "/etc/ssh",
             chk => fun(V) -> check_string(V) andalso check_dir(V) end,
-            class => user_options
+            class => user_option
            },
 
-      {auth_method_kb_interactive_data, def} =>
+      auth_method_kb_interactive_data =>
           #{default => undefined, % Default value can be constructed when User is known
             chk => fun({S1,S2,S3,B}) ->
                            check_string(S1) andalso
@@ -312,12 +459,13 @@ default(server) ->
                                check_string(S3) andalso
                                is_boolean(B);
                       (F) ->
-                           check_function3(F)
+                           check_function3(F) orelse
+                               check_function4(F)
                    end,
-            class => user_options
+            class => user_option
            },
 
-      {user_passwords, def} =>
+      user_passwords =>
           #{default => [],
             chk => fun(V) ->
                            is_list(V) andalso
@@ -326,22 +474,28 @@ default(server) ->
                                                      check_string(S2)   
                                          end, V)
                    end,
-            class => user_options
+            class => user_option
            },
 
-      {password, def} =>
+      pk_check_user =>
+          #{default => false,
+            chk => fun(V) -> erlang:is_boolean(V) end,
+            class => user_option
+           },
+
+      password =>
           #{default => undefined,
-            chk => fun check_string/1,
-            class => user_options
+            chk => fun(V) -> check_string(V) end,
+            class => user_option
            },
 
-      {dh_gex_groups, def} =>
+      dh_gex_groups =>
           #{default => undefined,
-            chk => fun check_dh_gex_groups/1,
-            class => user_options
+            chk => fun(V) -> check_dh_gex_groups(V) end,
+            class => user_option
            },
 
-      {dh_gex_limits, def} =>
+      dh_gex_limits =>
           #{default => {0, infinity},
             chk => fun({I1,I2}) ->
                            check_pos_integer(I1) andalso
@@ -350,137 +504,143 @@ default(server) ->
                       (_) ->
                            false
                    end,
-            class => user_options
+            class => user_option
            },
 
-      {pwdfun, def} =>
+      pwdfun =>
           #{default => undefined,
             chk => fun(V) -> check_function4(V) orelse check_function2(V) end,
-            class => user_options
+            class => user_option
            },
 
-      {negotiation_timeout, def} =>
+      negotiation_timeout =>
           #{default => 2*60*1000,
+            chk => fun(V) -> check_timeout(V) end,
+            class => user_option
+           },
+
+      hello_timeout =>
+          #{default => 30*1000,
             chk => fun check_timeout/1,
-            class => user_options
+            class => user_option
            },
 
-      {max_sessions, def} =>
+      max_sessions =>
           #{default => infinity,
-            chk => fun check_pos_integer/1,
-            class => user_options
+            chk => fun(V) -> check_pos_integer(V) end,
+            class => user_option
            },
 
-      {max_channels, def} =>
+      max_channels =>
           #{default => infinity,
-            chk => fun check_pos_integer/1,
-            class => user_options
+            chk => fun(V) -> check_pos_integer(V) end,
+            class => user_option
            },
 
-      {parallel_login, def} =>
+      parallel_login =>
           #{default => false,
-            chk => fun erlang:is_boolean/1,
-            class => user_options
+            chk => fun(V) -> erlang:is_boolean(V) end,
+            class => user_option
            },
 
-      {minimal_remote_max_packet_size, def} =>
+      minimal_remote_max_packet_size =>
           #{default => 0,
-            chk => fun check_pos_integer/1,
-            class => user_options
+            chk => fun(V) -> check_pos_integer(V) end,
+            class => user_option
            },
 
-      {failfun, def} =>
+      failfun =>
           #{default => fun(_,_,_) -> void end,
             chk => fun(V) -> check_function3(V) orelse
                                  check_function2(V) % Backwards compatibility
                    end,
-            class => user_options
+            class => user_option
            },
 
-      {connectfun, def} =>
+      connectfun =>
           #{default => fun(_,_,_) -> void end,
-            chk => fun check_function3/1,
-            class => user_options
+            chk => fun(V) -> check_function3(V) end,
+            class => user_option
            },
 
 %%%%% Undocumented
-      {infofun, def} =>
+      infofun =>
           #{default => fun(_,_,_) -> void end,
             chk => fun(V) -> check_function3(V) orelse
                                  check_function2(V) % Backwards compatibility
                    end,
-            class => user_options
+            class => undoc_user_option
            }
      };
 
 default(client) ->
     (default(common))
         #{
-      {dsa_pass_phrase, def} =>
+      dsa_pass_phrase =>
           #{default => undefined,
-            chk => fun check_string/1,
-            class => user_options
+            chk => fun(V) -> check_string(V) end,
+            class => user_option
            },
 
-      {rsa_pass_phrase, def} =>
+      rsa_pass_phrase =>
           #{default => undefined,
-            chk => fun check_string/1,
-            class => user_options
+            chk => fun(V) -> check_string(V) end,
+            class => user_option
            },
 
-      {ecdsa_pass_phrase, def} =>
+      ecdsa_pass_phrase =>
           #{default => undefined,
-            chk => fun check_string/1,
-            class => user_options
+            chk => fun(V) -> check_string(V) end,
+            class => user_option
            },
 
-%%% Not yet implemented      {ed25519_pass_phrase, def} =>
+%%% Not yet implemented      ed25519_pass_phrase =>
 %%% Not yet implemented          #{default => undefined,
-%%% Not yet implemented            chk => fun check_string/1,
-%%% Not yet implemented            class => user_options
+%%% Not yet implemented            chk => fun(V) -> check_string(V) end,
+%%% Not yet implemented            class => user_option
 %%% Not yet implemented           },
 %%% Not yet implemented
-%%% Not yet implemented      {ed448_pass_phrase, def} =>
+%%% Not yet implemented      ed448_pass_phrase =>
 %%% Not yet implemented          #{default => undefined,
-%%% Not yet implemented            chk => fun check_string/1,
-%%% Not yet implemented            class => user_options
+%%% Not yet implemented            chk => fun(V) -> check_string(V) end,
+%%% Not yet implemented            class => user_option
 %%% Not yet implemented           },
 %%% Not yet implemented
-      {silently_accept_hosts, def} =>
+      silently_accept_hosts =>
           #{default => false,
-            chk => fun check_silently_accept_hosts/1,
-            class => user_options
+            chk => fun(V) -> check_silently_accept_hosts(V) end,
+            class => user_option
            },
 
-      {user_interaction, def} =>
+      user_interaction =>
           #{default => true,
-            chk => fun erlang:is_boolean/1,
-            class => user_options
+            chk => fun(V) -> erlang:is_boolean(V) end,
+            class => user_option
            },
 
-      {save_accepted_host, def} =>
+      save_accepted_host =>
           #{default => true,
-            chk => fun erlang:is_boolean/1,
-            class => user_options
+            chk => fun(V) -> erlang:is_boolean(V) end,
+            class => user_option
            },
 
-      {dh_gex_limits, def} =>
+      dh_gex_limits =>
           #{default => {1024, 6144, 8192},      % FIXME: Is this true nowadays?
             chk => fun({Min,I,Max}) ->
                            lists:all(fun check_pos_integer/1,
                                      [Min,I,Max]);
                       (_) -> false
                    end,
-            class => user_options
+            class => user_option
            },
 
-      {connect_timeout, def} =>
+      connect_timeout =>
           #{default => infinity,
-            chk => fun check_timeout/1,
-            class => user_options
+            chk => fun(V) -> check_timeout(V) end,
+            class => user_option
            },
 
-      {user, def} =>
+      user =>
           #{default => 
                 begin
                     Env = case os:type() of
@@ -497,61 +657,68 @@ default(client) ->
                             User
                     end
                 end,
-            chk => fun check_string/1,
-            class => user_options
+            chk => fun(V) -> check_string(V) end,
+            class => user_option
            },
 
-      {password, def} =>
+      password =>
           #{default => undefined,
-            chk => fun check_string/1,
-            class => user_options
+            chk => fun(V) -> check_string(V) end,
+            class => user_option
            },
 
-      {quiet_mode, def} =>
+      quiet_mode =>
           #{default => false,
-            chk => fun erlang:is_boolean/1,
-            class => user_options
+            chk => fun(V) -> erlang:is_boolean(V) end,
+            class => user_option
            },
 
 %%%%% Undocumented
-      {keyboard_interact_fun, def} =>
+      keyboard_interact_fun =>
           #{default => undefined,
-            chk => fun check_function3/1,
-            class => user_options
+            chk => fun(V) -> check_function3(V) end,
+            class => undoc_user_option
            }
      };
 
 default(common) ->
     #{
-       {user_dir, def} =>
+       user_dir =>
            #{default => false, % FIXME: TBD ~/.ssh at time of call when user is known
              chk => fun(V) -> check_string(V) andalso check_dir(V) end,
-             class => user_options
+             class => user_option
             },
 
-      {pref_public_key_algs, def} =>
-          #{default => ssh_transport:default_algorithms(public_key),
-            chk => fun check_pref_public_key_algs/1,
-            class => user_options
+       %% NOTE: This option's default value must be undefined.
+       %% In the final stage that "merges" the modify_algorithms and preferred_algorithms,
+       %% this option's default values is set.
+      pref_public_key_algs =>
+          #{default => undefined,
+            chk => fun(V) -> check_pref_public_key_algs(V) end,
+            class => user_option
            },
 
-       {preferred_algorithms, def} =>
+       preferred_algorithms =>
            #{default => ssh:default_algorithms(),
-             chk => fun check_preferred_algorithms/1,
-             class => user_options
+             chk => fun(V) -> check_preferred_algorithms(V) end,
+             class => user_option
             },
 
        %% NOTE: This option is supposed to be used only in this very module (?MODULE). There is
        %% a final stage in handle_options that "merges" the preferred_algorithms option and this one.
        %% The preferred_algorithms is the one to use in the rest of the ssh application!
-       {modify_algorithms, def} =>
+       modify_algorithms =>
            #{default => undefined, % signals error if unsupported algo in preferred_algorithms :(
-             chk => fun check_modify_algorithms/1,
-             class => user_options
+             chk => fun(V) -> check_modify_algorithms(V) end,
+             class => user_option
             },
 
-       {id_string, def} => 
-           #{default => undefined, % FIXME: see ssh_transport:ssh_vsn/0
+       id_string => 
+           #{default => try {ok, [_|_] = VSN} = application:get_key(ssh, vsn),
+                            "Erlang/" ++ VSN
+                        catch
+                            _:_ -> ""
+                        end,
              chk => fun(random) -> 
                             {true, {random,2,5}}; % 2 - 5 random characters
                        ({random,I1,I2}) -> 
@@ -562,56 +729,49 @@ default(common) ->
                        (V) ->
                             check_string(V)
                     end,
-             class => user_options
+             class => user_option
             },
 
-       {key_cb, def} =>
+       key_cb =>
            #{default => {ssh_file, []},
              chk => fun({Mod,Opts}) -> is_atom(Mod) andalso is_list(Opts);
                        (Mod) when is_atom(Mod) -> {true, {Mod,[]}};
                        (_) -> false
                     end,
-             class => user_options
+             class => user_option
             },
 
-       {profile, def} =>
+       profile =>
            #{default => ?DEFAULT_PROFILE,
-             chk => fun erlang:is_atom/1,
-             class => user_options
+             chk => fun(V) -> erlang:is_atom(V) end,
+             class => user_option
             },
 
-      {idle_time, def} =>
+      idle_time =>
           #{default => infinity,
-            chk => fun check_timeout/1,
-            class => user_options
+            chk => fun(V) -> check_timeout(V) end,
+            class => user_option
            },
 
-       %% This is a "SocketOption"...
-       %% {fd, def} =>
-       %%     #{default => undefined,
-       %%       chk => fun erlang:is_integer/1,
-       %%       class => user_options
-       %%      },
-
-       {disconnectfun, def} =>
+       disconnectfun =>
            #{default => fun(_) -> void end,
-             chk => fun check_function1/1,
-             class => user_options
+             chk => fun(V) -> check_function1(V) end,
+             class => user_option
             },
 
-       {unexpectedfun, def} => 
+       unexpectedfun => 
            #{default => fun(_,_) -> report end,
-             chk => fun check_function2/1,
-             class => user_options
+             chk => fun(V) -> check_function2(V) end,
+             class => user_option
             },
 
-       {ssh_msg_debug_fun, def} =>
+       ssh_msg_debug_fun =>
            #{default => fun(_,_,_,_) -> void end,
-             chk => fun check_function4/1,
-             class => user_options
+             chk => fun(V) -> check_function4(V) end,
+             class => user_option
             },
 
-      {rekey_limit, def} =>
+      rekey_limit =>
           #{default => {3600000, 1024000000}, % {1 hour, 1 GB}
             chk => fun({infinity, infinity}) ->
                            true;
@@ -629,10 +789,10 @@ default(common) ->
                       (_) ->
                            false
                    end,
-            class => user_options
+            class => user_option
            },
 
-      {auth_methods, def} =>
+      auth_methods =>
           #{default => ?SUPPORTED_AUTH_METHODS,
             chk => fun(As) ->
                            try
@@ -644,54 +804,54 @@ default(common) ->
                                _:_ -> false
                            end
                    end,
-            class => user_options
+            class => user_option
            },
 
+       send_ext_info =>
+           #{default => true,
+             chk => fun erlang:is_boolean/1,
+             class => user_option
+            },
+
+       recv_ext_info =>
+           #{default => true,
+             chk => fun erlang:is_boolean/1,
+             class => user_option
+            },
+
 %%%%% Undocumented
-       {transport, def} =>
+       transport =>
            #{default => ?DEFAULT_TRANSPORT,
              chk => fun({A,B,C}) ->
                             is_atom(A) andalso is_atom(B) andalso is_atom(C)
                     end,
-             class => user_options
+             class => undoc_user_option
             },
 
-       {vsn, def} =>
+       vsn =>
            #{default => {2,0},
              chk => fun({Maj,Min}) -> check_non_neg_integer(Maj) andalso check_non_neg_integer(Min);
                        (_) -> false
                     end,
-             class => user_options
+             class => undoc_user_option
             },
     
-       {tstflg, def} =>
+       tstflg =>
            #{default => [],
-             chk => fun erlang:is_list/1,
-             class => user_options
+             chk => fun(V) -> erlang:is_list(V) end,
+             class => undoc_user_option
             },
 
-       {user_dir_fun, def} =>
+       user_dir_fun =>
            #{default => undefined,
-             chk => fun check_function1/1,
-             class => user_options
+             chk => fun(V) -> check_function1(V) end,
+             class => undoc_user_option
             },
 
-       {max_random_length_padding, def} =>
+       max_random_length_padding =>
            #{default => ?MAX_RND_PADDING_LEN,
-             chk => fun check_non_neg_integer/1,
-             class => user_options
-            },
-
-       {send_ext_info, def} =>
-           #{default => true,
-             chk => fun erlang:is_boolean/1,
-             class => user_options
-            },
-
-       {recv_ext_info, def} =>
-           #{default => true,
-             chk => fun erlang:is_boolean/1,
-             class => user_options
+             chk => fun(V) -> check_non_neg_integer(V) end,
+             class => undoc_user_option
             }
      }.
 
@@ -876,6 +1036,11 @@ valid_hash(L, Ss) when is_list(L) -> lists:all(fun(S) -> valid_hash(S,Ss) end, L
 valid_hash(X,  _) -> error_in_check(X, "Expect atom or list in fingerprint spec").
 
 %%%----------------------------------------------------------------
+initial_default_algorithms(DefList, ModList) ->
+    {true, L0} = check_modify_algorithms(ModList),
+    rm_non_supported(false, eval_ops(DefList,L0)).
+
+%%%----------------------------------------------------------------
 check_modify_algorithms(M) when is_list(M) ->
     [error_in_check(Op_KVs, "Bad modify_algorithms")
      || Op_KVs <- M,
@@ -995,19 +1160,25 @@ check_input_ok(Algs) ->
             orelse (size(KVs) =/= 2)].
 
 %%%----------------------------------------------------------------
-final_preferred_algorithms(Options) ->
+final_preferred_algorithms(Options0) ->
     Result =
-        case ?GET_OPT(modify_algorithms, Options) of
+        case ?GET_OPT(modify_algorithms, Options0) of
             undefined ->
                 rm_non_supported(true,
-                                 ?GET_OPT(preferred_algorithms, Options));
+                                 ?GET_OPT(preferred_algorithms, Options0));
             ModAlgs ->
                 rm_non_supported(false,
-                                 eval_ops(?GET_OPT(preferred_algorithms, Options),
+                                 eval_ops(?GET_OPT(preferred_algorithms, Options0),
                                           ModAlgs))
         end,
     error_if_empty(Result), % Throws errors if any value list is empty
-    ?PUT_OPT({preferred_algorithms,Result}, Options).
+    Options1 = ?PUT_OPT({preferred_algorithms,Result}, Options0),
+    case ?GET_OPT(pref_public_key_algs, Options1) of
+        undefined ->
+            ?PUT_OPT({pref_public_key_algs, proplists:get_value(public_key,Result)}, Options1);
+        _ ->
+            Options1
+    end.
     
 eval_ops(PrefAlgs, ModAlgs) ->
     lists:foldl(fun eval_op/2, PrefAlgs, ModAlgs).
@@ -1059,12 +1230,5 @@ error_if_empty([_|T]) ->
     error_if_empty(T);
 error_if_empty([]) ->
     ok.
-
-%%%----------------------------------------------------------------
-forbidden_option(K,V) ->
-    Txt = io_lib:format("The option '~s' is used internally. The "
-                        "user is not allowed to specify this option.",
-                        [K]),
-    error({eoptions, {K,V}, Txt}).
 
 %%%----------------------------------------------------------------

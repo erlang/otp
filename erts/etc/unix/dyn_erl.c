@@ -220,6 +220,11 @@ copy_latest_vsn(char *latest_vsn, char *next_vsn)
     char *np;
     BOOL greater;
 
+    if (latest_vsn[0] == '\0') {
+        strcpy(latest_vsn, next_vsn);
+        return;
+    }
+
     /* Find vsn */
     for (lp = latest_vsn+strlen(latest_vsn)-1 ;lp > latest_vsn && *lp != DIRSEPCHAR; --lp)
 	;
@@ -230,7 +235,7 @@ copy_latest_vsn(char *latest_vsn, char *next_vsn)
 
     /* np =+ length("erts-"); */
     while (TRUE) {
-        if (*lp != *np) {
+        if (*lp != *np || *lp == '\0') {
 	    if (*np > *lp) {
 		greater = TRUE;
 	    } else {

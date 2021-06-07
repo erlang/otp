@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +47,10 @@
 
 #include <limits.h>
 
+#if defined (__HAIKU__)
+#include <os/kernel/OS.h>
+#endif
+
 #define ETHR_INLINE_FUNC_NAME_(X) X ## __
 #define ETHREAD_IMPL__
 
@@ -83,7 +87,7 @@ typedef struct {
     void *prep_func_res;
     size_t stacksize;
     char *name;
-    char name_buff[16];
+    char name_buff[32];
 } ethr_thr_wrap_data__;
 
 static void *thr_wrapper(void *vtwd)
@@ -98,7 +102,7 @@ static void *thr_wrapper(void *vtwd)
 
     ethr_set_stacklimit__(&c, twd->stacksize);
 
-    result = (ethr_sint32_t) ethr_make_ts_event__(&tsep);
+    result = (ethr_sint32_t) ethr_make_ts_event__(&tsep, 0);
 
     if (result == 0) {
 	tsep->iflgs |= ETHR_TS_EV_ETHREAD;
@@ -208,9 +212,9 @@ ethr_x86_cpuid__(int *eax, int *ebx, int *ecx, int *edx)
              "popl %%eax\n\t"
              "movl $0x0, %0\n\t"
              "xorl %%ecx, %%eax\n\t"
-             "jz no_cpuid\n\t"
+             "jz 1f\n\t"
 	     "movl $0x1, %0\n\t"
-             "no_cpuid:\n\t"
+             "1:\n\t"
              : "=r"(have_cpuid)
              :
              : "%eax", "%ecx", "cc");
@@ -331,13 +335,26 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
 #endif
 
     ethr_atomic32_init(&twd.result, (ethr_sint32_t) -1);
-    twd.tse = ethr_get_ts_event();
     twd.thr_func = func;
     twd.arg = arg;
     twd.stacksize = 0;
 
     if (opts && opts->name) {
-        snprintf(twd.name_buff, 16, "%s", opts->name);
+        size_t nlen = sizeof(twd.name_buff);
+#ifdef __HAIKU__
+        if (nlen > B_OS_NAME_LENGTH)
+            nlen = B_OS_NAME_LENGTH;
+#else
+        /*
+         * Length of 16 is known to work. At least pthread_setname_np()
+         * is documented to fail on too long name string, but documentation
+         * does not say what the limit is. Do not have the time to dig
+         * further into that now...
+         */
+        if (nlen > 16)
+            nlen = 16;
+#endif
+        snprintf(twd.name_buff, nlen, "%s", opts->name);
 	twd.name = twd.name_buff;
     } else
         twd.name = NULL;
@@ -345,6 +362,8 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
     res = pthread_attr_init(&attr);
     if (res != 0)
 	return res;
+
+    twd.tse = ethr_get_ts_event();
 
     /* Error cleanup needed after this point */
 
@@ -426,6 +445,7 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
     /* Cleanup... */
 
  error:
+    ethr_leave_ts_event(twd.tse);
     dres = pthread_attr_destroy(&attr);
     if (res == 0)
 	res = dres;
@@ -498,6 +518,14 @@ ethr_setname(char *name)
     pthread_set_name_np(ethr_self(), name);
 #elif defined(ETHR_HAVE_PTHREAD_SETNAME_NP_1)
     pthread_setname_np(name);
+#elif defined(__HAIKU__)
+    thread_id haiku_tid;
+    haiku_tid = get_pthread_thread_id(ethr_self());
+    if (!name) {
+        rename_thread (haiku_tid, "");
+    } else {
+        rename_thread (haiku_tid, name);
+    }
 #endif
 }
 
@@ -507,10 +535,33 @@ ethr_equal_tids(ethr_tid tid1, ethr_tid tid2)
     return pthread_equal((pthread_t) tid1, (pthread_t) tid2);
 }
 
-
 /*
  * Thread specific events
  */
+
+ethr_ts_event *
+ethr_lookup_ts_event__(int busy_dup)
+{
+    return ethr_lookup_ts_event____(busy_dup);
+}
+
+ethr_ts_event *
+ethr_peek_ts_event(void)
+{
+    return ethr_peek_ts_event__();
+}
+
+void
+ethr_unpeek_ts_event(ethr_ts_event *tsep)
+{
+    ethr_unpeek_ts_event__(tsep);
+}
+
+ethr_ts_event *
+ethr_use_ts_event(ethr_ts_event *tsep)
+{
+    return ethr_use_ts_event__(tsep);
+}
 
 ethr_ts_event *
 ethr_get_ts_event(void)

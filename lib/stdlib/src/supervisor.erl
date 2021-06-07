@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,11 +26,15 @@
 	 start_child/2, restart_child/2,
 	 delete_child/2, terminate_child/2,
 	 which_children/1, count_children/1,
-	 check_childspecs/1, get_childspec/2]).
+	 check_childspecs/1, check_childspecs/2,
+	 get_childspec/2]).
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3, format_status/2]).
+
+%% logger callback
+-export([format_log/1, format_log/2]).
 
 %% For release_handler only
 -export([get_callback_module/1]).
@@ -44,51 +48,58 @@
                               {reason,Reason},
                               {offender,extract_child(Child)}]},
                    #{domain=>[otp,sasl],
-                     report_cb=>fun logger:format_otp_report/1,
+                     report_cb=>fun supervisor:format_log/2,
                      logger_formatter=>#{title=>"SUPERVISOR REPORT"},
                      error_logger=>#{tag=>error_report,
-                                     type=>supervisor_report}})).
+                                     type=>supervisor_report,
+                                     report_cb=>fun supervisor:format_log/1}})).
 
 %%--------------------------------------------------------------------------
 
--export_type([sup_flags/0, child_spec/0, startchild_ret/0, strategy/0]).
+-export_type([sup_flags/0, child_spec/0, strategy/0,
+              startchild_ret/0, startchild_err/0,
+              startlink_ret/0, startlink_err/0]).
 
 %%--------------------------------------------------------------------------
 
--type child()    :: 'undefined' | pid().
--type child_id() :: term().
--type mfargs()   :: {M :: module(), F :: atom(), A :: [term()] | undefined}.
--type modules()  :: [module()] | 'dynamic'.
--type restart()  :: 'permanent' | 'transient' | 'temporary'.
--type shutdown() :: 'brutal_kill' | timeout().
--type worker()   :: 'worker' | 'supervisor'.
--type sup_name() :: {'local', Name :: atom()}
-                  | {'global', Name :: atom()}
-                  | {'via', Module :: module(), Name :: any()}.
--type sup_ref()  :: (Name :: atom())
-                  | {Name :: atom(), Node :: node()}
-                  | {'global', Name :: atom()}
-                  | {'via', Module :: module(), Name :: any()}
-                  | pid().
--type child_spec() :: #{id := child_id(),       % mandatory
-			start := mfargs(),      % mandatory
-			restart => restart(),   % optional
-			shutdown => shutdown(), % optional
-			type => worker(),       % optional
-			modules => modules()}   % optional
-                    | {Id :: child_id(),
-                       StartFunc :: mfargs(),
-                       Restart :: restart(),
-                       Shutdown :: shutdown(),
-                       Type :: worker(),
-                       Modules :: modules()}.
+-type auto_shutdown() :: 'never' | 'any_significant' | 'all_significant'.
+-type child()         :: 'undefined' | pid().
+-type child_id()      :: term().
+-type mfargs()        :: {M :: module(), F :: atom(), A :: [term()] | undefined}.
+-type modules()       :: [module()] | 'dynamic'.
+-type restart()       :: 'permanent' | 'transient' | 'temporary'.
+-type significant()   :: boolean().
+-type shutdown()      :: 'brutal_kill' | timeout().
+-type worker()        :: 'worker' | 'supervisor'.
+-type sup_name()      :: {'local', Name :: atom()}
+                       | {'global', Name :: atom()}
+                       | {'via', Module :: module(), Name :: any()}.
+-type sup_ref()       :: (Name :: atom())
+                       | {Name :: atom(), Node :: node()}
+                       | {'global', Name :: atom()}
+                       | {'via', Module :: module(), Name :: any()}
+                       | pid().
+-type child_spec()    :: #{id := child_id(),             % mandatory
+			   start := mfargs(),            % mandatory
+			   restart => restart(),         % optional
+			   significant => significant(), % optional
+			   shutdown => shutdown(),       % optional
+			   type => worker(),             % optional
+			   modules => modules()}         % optional
+                       | {Id :: child_id(),
+                          StartFunc :: mfargs(),
+                          Restart :: restart(),
+                          Shutdown :: shutdown(),
+                          Type :: worker(),
+                          Modules :: modules()}.
 
 -type strategy() :: 'one_for_all' | 'one_for_one'
                   | 'rest_for_one' | 'simple_one_for_one'.
 
--type sup_flags() :: #{strategy => strategy(),         % optional
-		       intensity => non_neg_integer(), % optional
-		       period => pos_integer()}        % optional
+-type sup_flags() :: #{strategy => strategy(),           % optional
+		       intensity => non_neg_integer(),   % optional
+		       period => pos_integer(),          % optional
+		       auto_shutdown => auto_shutdown()} % optional
                    | {RestartStrategy :: strategy(),
                       Intensity :: non_neg_integer(),
                       Period :: pos_integer()}.
@@ -96,9 +107,10 @@
 
 %%--------------------------------------------------------------------------
 %% Defaults
--define(default_flags, #{strategy  => one_for_one,
-			 intensity => 1,
-			 period    => 5}).
+-define(default_flags, #{strategy      => one_for_one,
+			 intensity     => 1,
+			 period        => 5,
+			 auto_shutdown => never}).
 -define(default_child_spec, #{restart  => permanent,
 			      type     => worker}).
 %% Default 'shutdown' is 5000 for workers and infinity for supervisors.
@@ -113,6 +125,7 @@
 		id              :: child_id(),
 		mfargs          :: mfargs(),
 		restart_type    :: restart(),
+		significant     :: significant(),
 		shutdown        :: shutdown(),
 		child_type      :: worker(),
 		modules = []    :: modules()}).
@@ -122,12 +135,13 @@
 		strategy               :: strategy() | 'undefined',
 		children = {[],#{}}    :: children(), % Ids in start order
                 dynamics               :: {'maps', #{pid() => list()}}
-                                        | {'sets', sets:set(pid())}
+                                        | {'mapsets', #{pid() => []}}
                                         | 'undefined',
 		intensity              :: non_neg_integer() | 'undefined',
 		period                 :: pos_integer() | 'undefined',
 		restarts = [],
 		dynamic_restarts = 0   :: non_neg_integer(),
+		auto_shutdown          :: auto_shutdown(),
 	        module,
 	        args}).
 -type state() :: #state{}.
@@ -136,6 +150,7 @@
 -define(is_temporary(_Child_), _Child_#child.restart_type=:=temporary).
 -define(is_transient(_Child_), _Child_#child.restart_type=:=transient).
 -define(is_permanent(_Child_), _Child_#child.restart_type=:=permanent).
+-define(is_significant(_Child_), _Child_#child.significant=:=true).
 
 -callback init(Args :: term()) ->
     {ok, {SupFlags :: sup_flags(), [ChildSpec :: child_spec()]}}
@@ -250,12 +265,32 @@ call(Supervisor, Req) ->
 -spec check_childspecs(ChildSpecs) -> Result when
       ChildSpecs :: [child_spec()],
       Result :: 'ok' | {'error', Error :: term()}.
-check_childspecs(ChildSpecs) when is_list(ChildSpecs) ->
-    case check_startspec(ChildSpecs) of
+check_childspecs(ChildSpecs) ->
+    check_childspecs(ChildSpecs, undefined).
+
+-spec check_childspecs(ChildSpecs, AutoShutdown) -> Result when
+      ChildSpecs :: [child_spec()],
+      AutoShutdown :: undefined | auto_shutdown(),
+      Result :: 'ok' | {'error', Error :: term()}.
+check_childspecs(ChildSpecs, AutoShutdown) when is_list(ChildSpecs) ->
+    check_childspecs1(ChildSpecs, AutoShutdown);
+check_childspecs(X, _AutoShutdown) -> {error, {badarg, X}}.
+
+check_childspecs1(ChildSpecs, undefined) ->
+    check_childspecs2(ChildSpecs, undefined);
+check_childspecs1(ChildSpecs, never) ->
+    check_childspecs2(ChildSpecs, never);
+check_childspecs1(ChildSpecs, any_significant) ->
+    check_childspecs2(ChildSpecs, any_significant);
+check_childspecs1(ChildSpecs, all_significant) ->
+    check_childspecs2(ChildSpecs, all_significant);
+check_childspecs1(_, X) -> {error, {badarg, X}}.
+
+check_childspecs2(ChildSpecs, AutoShutdown) ->
+    case check_startspec(ChildSpecs, AutoShutdown) of
 	{ok, _} -> ok;
 	Error -> {error, Error}
-    end;
-check_childspecs(X) -> {error, {badarg, X}}.
+    end.
 
 %%%-----------------------------------------------------------------
 %%% Called by release_handler during upgrade
@@ -310,7 +345,7 @@ init({SupName, Mod, Args}) ->
 
 init_children(State, StartSpec) ->
     SupName = State#state.name,
-    case check_startspec(StartSpec) of
+    case check_startspec(StartSpec, State#state.auto_shutdown) of
         {ok, Children} ->
             case start_children(Children, SupName) of
                 {ok, NChildren} ->
@@ -324,7 +359,7 @@ init_children(State, StartSpec) ->
     end.
 
 init_dynamic(State, [StartSpec]) ->
-    case check_startspec([StartSpec]) of
+    case check_startspec([StartSpec], State#state.auto_shutdown) of
         {ok, Children} ->
 	    {ok, dyn_init(State#state{children = Children})};
         Error ->
@@ -415,7 +450,7 @@ handle_call({start_child, EArgs}, _From, State) when ?is_simple(State) ->
     end;
 
 handle_call({start_child, ChildSpec}, _From, State) ->
-    case check_childspec(ChildSpec) of
+    case check_childspec(ChildSpec, State#state.auto_shutdown) of
 	{ok, Child} ->
 	    {Resp, NState} = handle_start_child(Child, State),
 	    {reply, Resp, NState};
@@ -624,14 +659,14 @@ code_change(_, State, _) ->
     end.
 
 update_childspec(State, StartSpec) when ?is_simple(State) ->
-    case check_startspec(StartSpec) of
+    case check_startspec(StartSpec, State#state.auto_shutdown) of
         {ok, {[_],_}=Children} ->
             {ok, State#state{children = Children}};
         Error ->
             {error, Error}
     end;
 update_childspec(State, StartSpec) ->
-    case check_startspec(StartSpec) of
+    case check_startspec(StartSpec, State#state.auto_shutdown) of
 	{ok, Children} ->
 	    OldC = State#state.children, % In reverse start order !
 	    NewC = update_childspec1(OldC, Children, []),
@@ -702,20 +737,54 @@ do_restart(Reason, Child, State) when ?is_permanent(Child) ->
     restart(Child, State);
 do_restart(normal, Child, State) ->
     NState = del_child(Child, State),
-    {ok, NState};
+    do_auto_shutdown(Child, NState);
 do_restart(shutdown, Child, State) ->
     NState = del_child(Child, State),
-    {ok, NState};
+    do_auto_shutdown(Child, NState);
 do_restart({shutdown, _Term}, Child, State) ->
     NState = del_child(Child, State),
-    {ok, NState};
+    do_auto_shutdown(Child, NState);
 do_restart(Reason, Child, State) when ?is_transient(Child) ->
     ?report_error(child_terminated, Reason, Child, State#state.name),
     restart(Child, State);
 do_restart(Reason, Child, State) when ?is_temporary(Child) ->
     ?report_error(child_terminated, Reason, Child, State#state.name),
     NState = del_child(Child, State),
-    {ok, NState}.
+    do_auto_shutdown(Child, NState).
+
+do_auto_shutdown(_Child, State=#state{auto_shutdown = never}) ->
+    {ok, State};
+do_auto_shutdown(Child, State) when not ?is_significant(Child) ->
+    {ok, State};
+do_auto_shutdown(_Child, State=#state{auto_shutdown = any_significant}) ->
+    {shutdown, State};
+do_auto_shutdown(_Child, State=#state{auto_shutdown = all_significant})
+  when ?is_simple(State) ->
+    case dyn_size(State) of
+	0 ->
+	    {shutdown, State};
+	_ ->
+	    {ok, State}
+    end;
+do_auto_shutdown(_Child, State=#state{auto_shutdown = all_significant}) ->
+    case
+	children_any(
+	    fun
+		(_, #child{pid = undefined}) ->
+		    false;
+		(_, #child{significant = true}) ->
+		    true;
+		(_, _) ->
+		    false
+	    end,
+	    State#state.children
+	)
+    of
+	true ->
+	    {ok, State};
+	false ->
+	    {shutdown, State}
+    end.
 
 restart(Child, State) ->
     case add_restart(State) of
@@ -723,7 +792,7 @@ restart(Child, State) ->
 	    case restart(NState#state.strategy, Child, NState) of
 		{{try_again, TryAgainId}, NState2} ->
 		    %% Leaving control back to gen_server before
-		    %% trying again. This way other incoming requsts
+		    %% trying again. This way other incoming requests
 		    %% for the supervisor can be handled - e.g. a
 		    %% shutdown request for the supervisor or the
 		    %% child.
@@ -924,38 +993,38 @@ monitor_child(Pid) ->
 terminate_dynamic_children(State) ->
     Child = get_dynamic_child(State),
     {Pids, EStack0} = monitor_dynamic_children(Child,State),
-    Sz = sets:size(Pids),
+    Sz = maps:size(Pids),
     EStack = case Child#child.shutdown of
                  brutal_kill ->
-                     sets:fold(fun(P, _) -> exit(P, kill) end, ok, Pids),
+                     maps:foreach(fun(P, _) -> exit(P, kill) end, Pids),
                      wait_dynamic_children(Child, Pids, Sz, undefined, EStack0);
                  infinity ->
-                     sets:fold(fun(P, _) -> exit(P, shutdown) end, ok, Pids),
+                     maps:foreach(fun(P, _) -> exit(P, shutdown) end, Pids),
                      wait_dynamic_children(Child, Pids, Sz, undefined, EStack0);
                  Time ->
-                     sets:fold(fun(P, _) -> exit(P, shutdown) end, ok, Pids),
+                     maps:foreach(fun(P, _) -> exit(P, shutdown) end, Pids),
                      TRef = erlang:start_timer(Time, self(), kill),
                      wait_dynamic_children(Child, Pids, Sz, TRef, EStack0)
              end,
     %% Unroll stacked errors and report them
-    dict:fold(fun(Reason, Ls, _) ->
+    maps:foreach(fun(Reason, Ls) ->
                       ?report_error(shutdown_error, Reason,
                                    Child#child{pid=Ls}, State#state.name)
-              end, ok, EStack).
+              end, EStack).
 
 monitor_dynamic_children(Child,State) ->
     dyn_fold(fun(P,{Pids, EStack}) when is_pid(P) ->
                      case monitor_child(P) of
                          ok ->
-                             {sets:add_element(P, Pids), EStack};
+                             {maps:put(P, P, Pids), EStack};
                          {error, normal} when not (?is_permanent(Child)) ->
                              {Pids, EStack};
                          {error, Reason} ->
-                             {Pids, dict:append(Reason, P, EStack)}
+                             {Pids, maps_prepend(Reason, P, EStack)}
                      end;
                 (?restarting(_), {Pids, EStack}) ->
                      {Pids, EStack}
-             end, {sets:new(), dict:new()}, State).
+             end, {maps:new(), maps:new()}, State).
 
 wait_dynamic_children(_Child, _Pids, 0, undefined, EStack) ->
     EStack;
@@ -973,34 +1042,42 @@ wait_dynamic_children(#child{shutdown=brutal_kill} = Child, Pids, Sz,
                       TRef, EStack) ->
     receive
         {'DOWN', _MRef, process, Pid, killed} ->
-            wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
+            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
                                   TRef, EStack);
 
         {'DOWN', _MRef, process, Pid, Reason} ->
-            wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
-                                  TRef, dict:append(Reason, Pid, EStack))
+            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
+                                  TRef, maps_prepend(Reason, Pid, EStack))
     end;
 wait_dynamic_children(Child, Pids, Sz, TRef, EStack) ->
     receive
         {'DOWN', _MRef, process, Pid, shutdown} ->
-            wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
+            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
                                   TRef, EStack);
 
         {'DOWN', _MRef, process, Pid, {shutdown, _}} ->
-            wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
+            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
                                   TRef, EStack);
 
         {'DOWN', _MRef, process, Pid, normal} when not (?is_permanent(Child)) ->
-            wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
+            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
                                   TRef, EStack);
 
         {'DOWN', _MRef, process, Pid, Reason} ->
-            wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
-                                  TRef, dict:append(Reason, Pid, EStack));
+            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
+                                  TRef, maps_prepend(Reason, Pid, EStack));
 
         {timeout, TRef, kill} ->
-            sets:fold(fun(P, _) -> exit(P, kill) end, ok, Pids),
+            maps:foreach(fun(P, _) -> exit(P, kill) end, Pids),
             wait_dynamic_children(Child, Pids, Sz, undefined, EStack)
+    end.
+
+maps_prepend(Key, Value, Map) ->
+    case maps:find(Key, Map) of
+        {ok, Values} ->
+            maps:put(Key, [Value|Values], Map);
+        error ->
+            maps:put(Key, [Value], Map)
     end.
 
 %%-----------------------------------------------------------------
@@ -1104,7 +1181,7 @@ find_dynamic_child(Pid, State) ->
             error
     end.
 
-%% Given the pid, find the child record for a non-dyanamic child.
+%% Given the pid, find the child record for a non-dynamic child.
 -spec find_child_by_pid(IdOrPid, state()) -> {ok,child_rec()} | error when
       IdOrPid :: pid() | {restarting,pid()}.
 find_child_by_pid(Pid,#state{children={_Ids,Db}}) ->
@@ -1187,6 +1264,16 @@ children_to_list(_Fun,[],_Db,Acc) ->
 children_fold(Fun,Init,{_Ids,Db}) ->
     maps:fold(Fun, Init, Db).
 
+%% The order is not important - so ignore Ids
+children_any(Pred, {_Ids, Db}) ->
+    Iter=maps:iterator(Db),
+    children_any1(Pred, maps:next(Iter)).
+
+children_any1(_Pred, none) ->
+    false;
+children_any1(Pred, {Key, Value, Iter}) ->
+    Pred(Key, Value) orelse children_any1(Pred, maps:next(Iter)).
+
 -spec append(children(), children()) -> children().
 append({Ids1,Db1},{Ids2,Db2}) ->
     {Ids1++Ids2,maps:merge(Db1,Db2)}.
@@ -1207,14 +1294,17 @@ append({Ids1,Db1},{Ids2,Db2}) ->
 init_state(SupName, Type, Mod, Args) ->
     set_flags(Type, #state{name = supname(SupName,Mod),
 			   module = Mod,
-			   args = Args}).
+			   args = Args,
+			   auto_shutdown = never}).
 
 set_flags(Flags, State) ->
     try check_flags(Flags) of
-	#{strategy := Strategy, intensity := MaxIntensity, period := Period} ->
+	#{strategy := Strategy, intensity := MaxIntensity, period := Period,
+	  auto_shutdown := AutoShutdown} ->
 	    {ok, State#state{strategy = Strategy,
 			     intensity = MaxIntensity,
-			     period = Period}}
+			     period = Period,
+			     auto_shutdown = AutoShutdown}}
     catch
 	Thrown -> Thrown
     end.
@@ -1224,16 +1314,19 @@ check_flags(SupFlags) when is_map(SupFlags) ->
 check_flags({Strategy, MaxIntensity, Period}) ->
     check_flags(#{strategy => Strategy,
 		  intensity => MaxIntensity,
-		  period => Period});
+		  period => Period,
+		  auto_shutdown => never});
 check_flags(What) ->
     throw({invalid_type, What}).
 
 do_check_flags(#{strategy := Strategy,
 		 intensity := MaxIntensity,
-		 period := Period} = Flags) ->
+		 period := Period,
+		 auto_shutdown := AutoShutdown} = Flags) ->
     validStrategy(Strategy),
     validIntensity(MaxIntensity),
     validPeriod(Period),
+    validAutoShutdown(AutoShutdown),
     Flags.
 
 validStrategy(simple_one_for_one) -> true;
@@ -1250,45 +1343,59 @@ validPeriod(Period) when is_integer(Period),
                          Period > 0 -> true;
 validPeriod(What)                   -> throw({invalid_period, What}).
 
+validAutoShutdown(never)           -> true;
+validAutoShutdown(any_significant) -> true;
+validAutoShutdown(all_significant) -> true;
+validAutoShutdown(What)            -> throw({invalid_auto_shutdown, What}).
+
+
 supname(self, Mod) -> {self(), Mod};
 supname(N, _)      -> N.
 
 %%% ------------------------------------------------------
 %%% Check that the children start specification is valid.
 %%% Input: [child_spec()]
+%%%        auto_shutdown()
 %%% Returns: {ok, [child_rec()]} | Error
 %%% ------------------------------------------------------
 
-check_startspec(Children) -> check_startspec(Children, [], #{}).
+check_startspec(Children, AutoShutdown) ->
+    check_startspec(Children, [], #{}, AutoShutdown).
 
-check_startspec([ChildSpec|T], Ids, Db) ->
-    case check_childspec(ChildSpec) of
+check_startspec([ChildSpec|T], Ids, Db, AutoShutdown) ->
+    case check_childspec(ChildSpec, AutoShutdown) of
 	{ok, #child{id=Id}=Child} ->
 	    case maps:is_key(Id, Db) of
 		%% The error message duplicate_child_name is kept for
 		%% backwards compatibility, although
 		%% duplicate_child_id would be more correct.
 		true -> {duplicate_child_name, Id};
-		false -> check_startspec(T, [Id | Ids], Db#{Id=>Child})
+		false -> check_startspec(T, [Id | Ids], Db#{Id=>Child},
+					 AutoShutdown)
 	    end;
 	Error -> Error
     end;
-check_startspec([], Ids, Db) ->
+check_startspec([], Ids, Db, _AutoShutdown) ->
     {ok, {lists:reverse(Ids),Db}}.
 
-check_childspec(ChildSpec) when is_map(ChildSpec) ->
-    catch do_check_childspec(maps:merge(?default_child_spec,ChildSpec));
-check_childspec({Id, Func, RestartType, Shutdown, ChildType, Mods}) ->
+check_childspec(ChildSpec, AutoShutdown) when is_map(ChildSpec) ->
+    catch do_check_childspec(maps:merge(?default_child_spec,ChildSpec),
+			     AutoShutdown);
+check_childspec({Id, Func, RestartType, Shutdown, ChildType, Mods},
+		AutoShutdown) ->
     check_childspec(#{id => Id,
 		      start => Func,
 		      restart => RestartType,
+		      significant => false,
 		      shutdown => Shutdown,
 		      type => ChildType,
-		      modules => Mods});
-check_childspec(X) -> {invalid_child_spec, X}.
+		      modules => Mods},
+		    AutoShutdown);
+check_childspec(X, _AutoShutdown) -> {invalid_child_spec, X}.
 
 do_check_childspec(#{restart := RestartType,
-		     type := ChildType} = ChildSpec)->
+		     type := ChildType} = ChildSpec,
+		   AutoShutdown)->
     Id = case ChildSpec of
 	       #{id := I} -> I;
 	       _ -> throw(missing_id)
@@ -1300,6 +1407,11 @@ do_check_childspec(#{restart := RestartType,
     validId(Id),
     validFunc(Func),
     validRestartType(RestartType),
+    Significant = case ChildSpec of
+		      #{significant := Signf} -> Signf;
+		      _ -> false
+                  end,
+    validSignificant(Significant, RestartType, AutoShutdown),
     validChildType(ChildType),
     Shutdown = case ChildSpec of
 		   #{shutdown := S} -> S;
@@ -1313,7 +1425,8 @@ do_check_childspec(#{restart := RestartType,
 	   end,
     validMods(Mods),
     {ok, #child{id = Id, mfargs = Func, restart_type = RestartType,
-		shutdown = Shutdown, child_type = ChildType, modules = Mods}}.
+		significant = Significant, shutdown = Shutdown,
+		child_type = ChildType, modules = Mods}}.
 
 validChildType(supervisor) -> true;
 validChildType(worker) -> true;
@@ -1331,8 +1444,18 @@ validRestartType(temporary)   -> true;
 validRestartType(transient)   -> true;
 validRestartType(RestartType) -> throw({invalid_restart_type, RestartType}).
 
+validSignificant(true, _RestartType, never) ->
+    throw({bad_combination, [{auto_shutdown, never}, {significant, true}]});
+validSignificant(true, permanent, _AutoShutdown) ->
+    throw({bad_combination, [{restart, permanent}, {significant, true}]});
+validSignificant(Significant, _RestartType, _AutoShutdown)
+  when is_boolean(Significant) ->
+    true;
+validSignificant(Significant, _RestartType, _AutoShutdown) ->
+    throw({invalid_significant, Significant}).
+
 validShutdown(Shutdown)
-  when is_integer(Shutdown), Shutdown > 0 -> true;
+  when is_integer(Shutdown), Shutdown >= 0 -> true;
 validShutdown(infinity)             -> true;
 validShutdown(brutal_kill)          -> true;
 validShutdown(Shutdown)             -> throw({invalid_shutdown, Shutdown}).
@@ -1351,12 +1474,14 @@ validMods(Mods) -> throw({invalid_modules, Mods}).
 child_to_spec(#child{id = Id,
 		    mfargs = Func,
 		    restart_type = RestartType,
+		    significant = Significant,
 		    shutdown = Shutdown,
 		    child_type = ChildType,
 		    modules = Mods}) ->
     #{id => Id,
       start => Func,
       restart => RestartType,
+      significant => Significant,
       shutdown => Shutdown,
       type => ChildType,
       modules => Mods}.
@@ -1405,6 +1530,7 @@ extract_child(Child) when is_list(Child#child.pid) ->
      {id, Child#child.id},
      {mfargs, Child#child.mfargs},
      {restart_type, Child#child.restart_type},
+     {significant, Child#child.significant},
      {shutdown, Child#child.shutdown},
      {child_type, Child#child.child_type}];
 extract_child(Child) ->
@@ -1412,6 +1538,7 @@ extract_child(Child) ->
      {id, Child#child.id},
      {mfargs, Child#child.mfargs},
      {restart_type, Child#child.restart_type},
+     {significant, Child#child.significant},
      {shutdown, Child#child.shutdown},
      {child_type, Child#child.child_type}].
 
@@ -1420,9 +1547,159 @@ report_progress(Child, SupName) ->
                 report=>[{supervisor,SupName},
                          {started,extract_child(Child)}]},
               #{domain=>[otp,sasl],
-                report_cb=>fun logger:format_otp_report/1,
+                report_cb=>fun supervisor:format_log/2,
                 logger_formatter=>#{title=>"PROGRESS REPORT"},
-                error_logger=>#{tag=>info_report,type=>progress}}).
+                error_logger=>#{tag=>info_report,
+                                type=>progress,
+                                report_cb=>fun supervisor:format_log/1}}).
+
+%% format_log/1 is the report callback used by Logger handler
+%% error_logger only. It is kept for backwards compatibility with
+%% legacy error_logger event handlers. This function must always
+%% return {Format,Args} compatible with the arguments in this module's
+%% calls to error_logger prior to OTP-21.0.
+format_log(LogReport) ->
+    Depth = error_logger:get_format_depth(),
+    FormatOpts = #{chars_limit => unlimited,
+                   depth => Depth,
+                   single_line => false,
+                   encoding => utf8},
+    format_log_multi(limit_report(LogReport, Depth), FormatOpts).
+
+limit_report(LogReport, unlimited) ->
+    LogReport;
+limit_report(#{label:={supervisor,progress},
+               report:=[{supervisor,_}=Supervisor,{started,Child}]}=LogReport,
+             Depth) ->
+    LogReport#{report=>[Supervisor,
+                        {started,limit_child_report(Child, Depth)}]};
+limit_report(#{label:={supervisor,_Error},
+               report:=[{supervisor,_}=Supervisor,{errorContext,Ctxt},
+                        {reason,Reason},{offender,Child}]}=LogReport,
+             Depth) ->
+    LogReport#{report=>[Supervisor,
+                        {errorContext,io_lib:limit_term(Ctxt, Depth)},
+                        {reason,io_lib:limit_term(Reason, Depth)},
+                        {offender,limit_child_report(Child, Depth)}]}.
+
+limit_child_report(Report, Depth) ->
+    io_lib:limit_term(Report, Depth).
+
+%% format_log/2 is the report callback for any Logger handler, except
+%% error_logger.
+format_log(Report, FormatOpts0) ->
+    Default = #{chars_limit => unlimited,
+                depth => unlimited,
+                single_line => false,
+                encoding => utf8},
+    FormatOpts = maps:merge(Default, FormatOpts0),
+    IoOpts =
+        case FormatOpts of
+            #{chars_limit:=unlimited} ->
+                [];
+            #{chars_limit:=Limit} ->
+                [{chars_limit,Limit}]
+        end,
+    {Format,Args} = format_log_single(Report, FormatOpts),
+    io_lib:format(Format, Args, IoOpts).
+
+format_log_single(#{label:={supervisor,progress},
+                    report:=[{supervisor,SupName},{started,Child}]},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    {ChildFormat,ChildArgs} = format_child_log_single(Child, "Started:"),
+    Format = "Supervisor: "++P++".",
+    Args =
+        case Depth of
+            unlimited ->
+                [SupName];
+            _ ->
+                [SupName,Depth]
+        end,
+    {Format++ChildFormat,Args++ChildArgs};
+format_log_single(#{label:={supervisor,_Error},
+                    report:=[{supervisor,SupName},
+                             {errorContext,Ctxt},
+                             {reason,Reason},
+                             {offender,Child}]},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format = lists:append(["Supervisor: ",P,". Context: ",P,
+                            ". Reason: ",P,"."]),
+    {ChildFormat,ChildArgs} = format_child_log_single(Child, "Offender:"),
+    Args =
+        case Depth of
+            unlimited ->
+                [SupName,Ctxt,Reason];
+            _ ->
+                [SupName,Depth,Ctxt,Depth,Reason,Depth]
+        end,
+    {Format++ChildFormat,Args++ChildArgs};
+format_log_single(Report,FormatOpts) ->
+    format_log_multi(Report,FormatOpts).
+
+format_log_multi(#{label:={supervisor,progress},
+                   report:=[{supervisor,SupName},
+                            {started,Child}]},
+                 #{depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format =
+        lists:append(
+          ["    supervisor: ",P,"~n",
+           "    started: ",P,"~n"]),
+    Args =
+        case Depth of
+            unlimited ->
+                [SupName,Child];
+            _ ->
+                [SupName,Depth,Child,Depth]
+        end,
+    {Format,Args};
+format_log_multi(#{label:={supervisor,_Error},
+                   report:=[{supervisor,SupName},
+                            {errorContext,Ctxt},
+                            {reason,Reason},
+                            {offender,Child}]},
+                 #{depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format =
+        lists:append(
+          ["    supervisor: ",P,"~n",
+           "    errorContext: ",P,"~n",
+           "    reason: ",P,"~n",
+           "    offender: ",P,"~n"]),
+    Args =
+        case Depth of
+            unlimited ->
+                [SupName,Ctxt,Reason,Child];
+            _ ->
+                [SupName,Depth,Ctxt,Depth,Reason,Depth,Child,Depth]
+        end,
+    {Format,Args}.
+
+format_child_log_single(Child, Tag) ->
+    {id,Id} = lists:keyfind(id, 1, Child),
+    case lists:keyfind(pid, 1, Child) of
+        false ->
+            {nb_children,NumCh} = lists:keyfind(nb_children, 1, Child),
+            {" ~s id=~w,nb_children=~w.", [Tag,Id,NumCh]};
+        T when is_tuple(T) ->
+            {pid,Pid} = lists:keyfind(pid, 1, Child),
+            {" ~s id=~w,pid=~w.", [Tag,Id,Pid]}
+    end.
+
+p(#{single_line:=Single,depth:=Depth,encoding:=Enc}) ->
+    "~"++single(Single)++mod(Enc)++p(Depth);
+p(unlimited) ->
+    "p";
+p(_Depth) ->
+    "P".
+
+single(true) -> "0";
+single(false) -> "".
+
+mod(latin1) -> "";
+mod(_) -> "t".
 
 format_status(terminate, [_PDict, State]) ->
     State;
@@ -1431,36 +1708,41 @@ format_status(_, [_PDict, State]) ->
      {supervisor, [{"Callback", State#state.module}]}].
 
 %%%-----------------------------------------------------------------
-%%% Dynamics database access
-dyn_size(#state{dynamics = {Mod,Db}}) ->
-    Mod:size(Db).
+%%% Dynamics database access.
+%%%
+%%% Store all dynamic children in a map with the pid as the key. If
+%%% the children are permanent, store the start arguments as the value,
+%%% otherwise store [] as the value.
+%%%
 
-dyn_erase(Pid,#state{dynamics={sets,Db}}=State) ->
-    State#state{dynamics={sets,sets:del_element(Pid,Db)}};
-dyn_erase(Pid,#state{dynamics={maps,Db}}=State) ->
-    State#state{dynamics={maps,maps:remove(Pid,Db)}}.
+dyn_size(#state{dynamics = {_Kind,Db}}) ->
+    map_size(Db).
 
-dyn_store(Pid,_,#state{dynamics={sets,Db}}=State) ->
-    State#state{dynamics={sets,sets:add_element(Pid,Db)}};
-dyn_store(Pid,Args,#state{dynamics={maps,Db}}=State) ->
-    State#state{dynamics={maps,Db#{Pid => Args}}}.
+dyn_erase(Pid,#state{dynamics={Kind,Db}}=State) ->
+    State#state{dynamics={Kind,maps:remove(Pid,Db)}}.
 
-dyn_fold(Fun,Init,#state{dynamics={sets,Db}}) ->
-    sets:fold(Fun,Init,Db);
-dyn_fold(Fun,Init,#state{dynamics={maps,Db}}) ->
+dyn_store(Pid,Args,#state{dynamics={Kind,Db}}=State) ->
+    case Kind of
+        mapsets ->
+            %% Children are temporary. The start arguments
+            %% will not be needed again. Store [].
+            State#state{dynamics={mapsets,Db#{Pid => []}}};
+        maps ->
+            %% Children are permanent and may be restarted.
+            %% Store the start arguments.
+            State#state{dynamics={maps,Db#{Pid => Args}}}
+    end.
+
+dyn_fold(Fun,Init,#state{dynamics={_Kind,Db}}) ->
     maps:fold(fun(Pid,_,Acc) -> Fun(Pid,Acc) end, Init, Db).
 
-dyn_map(Fun, #state{dynamics={sets,Db}}) ->
-    lists:map(Fun, sets:to_list(Db));
-dyn_map(Fun, #state{dynamics={maps,Db}}) ->
+dyn_map(Fun, #state{dynamics={_Kind,Db}}) ->
     lists:map(Fun, maps:keys(Db)).
 
-dyn_exists(Pid, #state{dynamics={sets, Db}}) ->
-    sets:is_element(Pid, Db);
-dyn_exists(Pid, #state{dynamics={maps, Db}}) ->
-    maps:is_key(Pid, Db).
+dyn_exists(Pid, #state{dynamics={_Kind, Db}}) ->
+    is_map_key(Pid, Db).
 
-dyn_args(_Pid, #state{dynamics={sets, _Db}}) ->
+dyn_args(_Pid, #state{dynamics={mapsets, _Db}}) ->
     {ok,undefined};
 dyn_args(Pid, #state{dynamics={maps, Db}}) ->
     maps:find(Pid, Db).
@@ -1469,6 +1751,6 @@ dyn_init(State) ->
     dyn_init(get_dynamic_child(State),State).
 
 dyn_init(Child,State) when ?is_temporary(Child) ->
-    State#state{dynamics={sets,sets:new()}};
+    State#state{dynamics={mapsets,maps:new()}};
 dyn_init(_Child,State) ->
     State#state{dynamics={maps,maps:new()}}.

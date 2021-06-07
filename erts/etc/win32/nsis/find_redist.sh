@@ -26,17 +26,9 @@ lookup_prog_in_path ()
     save_ifs=$IFS
     IFS=:
     for p in $PATH; do
-	# In cygwin the programs are not always executable and have .exe suffix...
-	if [ "X$TARGET" = "Xwin32" ]; then
-	    if [ -f $p/$PROG.exe ]; then
-		echo $p/$PROG
-		break;
-	    fi
-	else
-	    if [ -x $p/$PROG ]; then
-		echo $p/$PROG
-		break;
-	    fi
+	if [ -f $p/$PROG.exe ]; then
+	    echo $p/$PROG
+	    break;
 	fi
     done
     IFS=$save_ifs
@@ -89,36 +81,38 @@ add_path_element()
     echo "$PA"
 }
 
+# Look to see if it's 64bit
+if [ "$1" = "win64" ]; then
+    AMD64DIR=true
+    VCREDIST=vcredist_x64
+    COMPONENTS="cl amd64 bin vc"
+elif [ "$1" = "win32" ]; then
+    AMD64DIR=false
+    VCREDIST=vcredist_x86
+    COMPONENTS="cl bin vc"
+else
+    echo "TARGET argument should win32 or win64"
+    exit 2
+fi
+
+if [ x"$VCToolsRedistDir" != x"" ]; then
+    File="$VCToolsRedistDir/$VCREDIST.exe"
+    if [ -r "$File" ]; then
+	echo "$File"
+	exit 0
+    fi
+fi
 
 CLPATH=`lookup_prog_in_path cl`
-
 if [ -z "$CLPATH" ]; then 
     echo "Can not locate cl.exe and vcredist_x86/x64.exe - OK if using mingw" >&2
     exit 1
 fi
 
-# Look to see if it's 64bit
-XX=`remove_path_element cl "$CLPATH"`
-YY=`remove_path_element amd64 "$XX"`
-if [ "$YY" != "$XX" ]; then
-    AMD64DIR=true
-    VCREDIST=vcredist_x64
-    COMPONENTS="cl amd64 bin vc"
-else
-    AMD64DIR=false
-    VCREDIST=vcredist_x86
-    COMPONENTS="cl bin vc"
-fi
-
-if [ X"$1" = X"-n" ]; then
-    echo $VCREDIST.exe
-    exit 0
-fi
-
-# echo $CLPATH
+echo $CLPATH
 BPATH=$CLPATH
 for x in $COMPONENTS; do
-    # echo $x
+    #echo $x
     NBPATH=`remove_path_element $x "$BPATH"`
     if [ "$NBPATH" = "$BPATH" ]; then
 	echo "Failed to locate $VCREDIST.exe because cl.exe was in an unexpected location" >&2

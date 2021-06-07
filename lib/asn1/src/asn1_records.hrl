@@ -99,8 +99,9 @@
 
 %% Code generation parameters and options.
 -record(gen,
-        {erule=ber :: 'ber' | 'per',
+        {erule=ber :: 'ber' | 'per' | 'jer',
          der=false :: boolean(),
+         jer=false :: boolean(),
          aligned=false :: boolean(),
          rec_prefix="" :: string(),
          macro_prefix="" :: string(),

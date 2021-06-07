@@ -1,0 +1,25 @@
+
+  [;1m-spec get_cwd(Drive) -> {ok, Dir} | {error, Reason}[0m
+  [;1m                 when[0m
+  [;1m                     Drive :: string(),[0m
+  [;1m                     Dir :: filename(),[0m
+  [;1m                     Reason :: posix() | badarg.[0m
+
+  Returns [;;4m{ok, Dir}[0m or [;;4m{error, Reason}[0m, where [;;4mDir[0m is the
+  current working directory of the specified drive.
+
+  [;;4mDrive[0m is to be of the form "[;;4mLetter[0m[;;4m:[0m", for example, "c:".
+
+  Returns [;;4m{error, enotsup}[0m on platforms that have no concept of
+  current drive (Unix, for example).
+
+  Typical error reasons:
+
+  [;;4m[;;4menotsup[0m[0m:
+    The operating system has no concept of drives.
+
+  [;;4m[;;4meacces[0m[0m:
+    The drive does not exist.
+
+  [;;4m[;;4meinval[0m[0m:
+    The format of [;;4mDrive[0m is invalid.

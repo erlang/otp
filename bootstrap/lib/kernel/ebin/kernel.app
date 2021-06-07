@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "6.1"},
+  {vsn, "7.3"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -32,9 +32,13 @@
 	     code_server,
 	     dist_util,
 	     erl_boot_server,
+	     erl_compile_server,
 	     erl_distribution,
+             erl_erts_errors,
 	     erl_reply,
+             erl_kernel_errors,
              erl_signal_handler,
+	     erpc,
 	     error_handler,
 	     error_logger,
 	     file,
@@ -46,7 +50,6 @@
 	     group,
 	     group_history,
 	     heart,
-	     hipe_unified_loader,
 	     inet6_tcp,
 	     inet6_tcp_dist,
 	     inet6_udp,
@@ -68,6 +71,8 @@
              logger_formatter,
              logger_h_common,
              logger_handler_watcher,
+             logger_olp,
+             logger_proxy,
              logger_server,
              logger_simple_h,
              logger_std_h,
@@ -92,6 +97,7 @@
              gen_tcp,
              gen_udp,
 	     gen_sctp,
+	     gen_tcp_socket,
              inet,
              inet_db,
              inet_dns,
@@ -100,6 +106,7 @@
              inet_tcp,
              inet_udp,
 	     inet_sctp,
+             pg,
              pg2,
              raw_file_io,
              raw_file_io_compressed,
@@ -107,8 +114,8 @@
              raw_file_io_delayed,
              raw_file_io_inflate,
              raw_file_io_list,
-             raw_file_io_raw,
 	     seq_trace,
+             socket,
 	     standard_error,
 	     wrap_log_reader]},
   {registered, [application_controller,
@@ -140,12 +147,13 @@
                 ddll_server,
                 erl_epmd,
                 inet_db,
-                pg2]},
+                pg]},
   {applications, []},
   {env, [{logger_level, notice},
-         {logger_sasl_compatible, false}
+         {logger_sasl_compatible, false},
+         {shell_docs_ansi,auto}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-10.1", "stdlib-3.5", "sasl-3.0"]}
+  {runtime_dependencies, ["erts-@OTP-16718@", "stdlib-3.13", "sasl-3.0", "crypto-5.0"]}
  ]
 }.

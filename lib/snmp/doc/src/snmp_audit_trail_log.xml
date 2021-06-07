@@ -57,7 +57,7 @@
       mechanism.  This means that the log is not human readable, but
       needs to be formatted off-line before it can be read.  Use the
       function 
-      <seealso marker="snmpa#log_to_txt">snmpa:log_to_txt</seealso> 
+      <seeerl marker="snmpa#log_to_txt">snmpa:log_to_txt</seeerl> 
       for this purpose.
       </p>
   </section>
@@ -74,7 +74,7 @@
       mechanism. This means that the log is not human readable, but
       needs to be formatted off-line before it can be read. Use the
       function 
-      <seealso marker="snmpm#log_to_txt">snmpm:log_to_txt</seealso> 
+      <seeerl marker="snmpm#log_to_txt">snmpm:log_to_txt</seeerl> 
       for this purpose.
       </p>
   </section>

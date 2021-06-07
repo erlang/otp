@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -45,7 +45,7 @@
       addressing mechanism is required to ensure that it can be
       addressed by other applications, regardless on which node it
       currently executes. This issue is not addressed here, but the
-      <c>global</c> or <c>pg2</c> modules in Kernel
+      <c>global</c> or <c>pg</c> modules in Kernel
       can be used for this purpose.</p>
   </section>
 
@@ -61,7 +61,7 @@
     <list type="bulleted">
       <item>Specifies where the application <c>Application = atom()</c>
       can execute.</item>
-      <item>><c>NodeDesc = [Node | {Node,...,Node}]</c> is a list of
+      <item><c>NodeDesc = [Node | {Node,...,Node}]</c> is a list of
       node names in priority order. The order between nodes in a tuple
       is undefined.</item>
       <item><c>Timeout = integer()</c> specifies how many milliseconds
@@ -123,7 +123,7 @@
       <c>application:start(Application)</c> at <em>all of these
       nodes.</em></p>
     <p>A boot script (see
-      <seealso marker="release_structure">Releases</seealso>)
+      <seeguide marker="release_structure">Releases</seeguide>)
       can be used that automatically starts the application.</p>
     <p>The application is started at the first operational node that
       is listed in the list of nodes in the <c>distributed</c>
@@ -164,7 +164,7 @@ Module:start(normal, StartArgs)</code>
 Module:start(normal, StartArgs)</code>
     <p>An exception is if the application has the <c>start_phases</c>
       key defined
-      (see <seealso marker="included_applications">Included Applications</seealso>).
+      (see <seeguide marker="included_applications">Included Applications</seeguide>).
       The application is then instead started by calling:</p>
     <code type="none">
 Module:start({failover, Node}, StartArgs)</code>

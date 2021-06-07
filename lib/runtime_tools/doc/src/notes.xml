@@ -32,6 +32,175 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.16.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The experimental HiPE application has been removed,
+	    together with all related functionality in other
+	    applications.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16963</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.16.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The function <c>dbg:n/1</c> used a local fun to set up a
+	    tracer on a remote node. This works fine as long as the
+	    remote node is running exactly the same version of
+	    Erlang/OTP but does not work at all otherwise. This is
+	    fixed by exporting the relevant function and by calling
+	    this function on the remote node to set up remote
+	    tracing.</p>
+          <p>
+	    Own Id: OTP-16930 Aux Id: ERL-1371, GH-4396 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.16</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Clarify documentation of module 'scheduler'.</p>
+          <p>
+	    Own Id: OTP-17208 Aux Id: GH-4502, PR-4532 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.15.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a crash in <c>appmon_info</c> triggered by trying
+	    to read port info from a port that was in the process of
+	    terminating.</p>
+          <p>
+	    <c>appmon_info</c> is used by <c>observer</c> to get
+	    information from the observed node.</p>
+          <p>
+	    Own Id: OTP-16787 Aux Id: PR-2673 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.15</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Improved the presentation of allocations and carriers
+	    in the <c>instrument</c> module.</p>
+          <p>
+	    Own Id: OTP-16327</p>
+        </item>
+        <item>
+          <p>
+	    Minor updates due to the new spawn improvements made.</p>
+          <p>
+	    Own Id: OTP-16368 Aux Id: OTP-15251 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.14.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The function <c>dbg:n/1</c> used a local fun to set up a
+	    tracer on a remote node. This works fine as long as the
+	    remote node is running exactly the same version of
+	    Erlang/OTP but does not work at all otherwise. This is
+	    fixed by exporting the relevant function and by calling
+	    this function on the remote node to set up remote
+	    tracing.</p>
+          <p>
+	    Own Id: OTP-16930 Aux Id: ERL-1371, GH-4396 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>dbg:stop_clear/0</c> to also clear trace events
+	    (<c>send</c> and <c>'receive'</c>).</p>
+          <p>
+	    Own Id: OTP-16044</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.13.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor updates to build system necessary due to move of
+	    configuration of <c>crypto</c> application.</p>
+          <p>
+	    Own Id: OTP-15262 Aux Id: OTP-15129 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.13.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The function <c>dbg:n/1</c> used a local fun to set up a
+	    tracer on a remote node. This works fine as long as the
+	    remote node is running exactly the same version of
+	    Erlang/OTP but does not work at all otherwise. This is
+	    fixed by exporting the relevant function and by calling
+	    this function on the remote node to set up remote
+	    tracing.</p>
+          <p>
+	    Own Id: OTP-16930 Aux Id: ERL-1371, GH-4396 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.13.2</title>
 
     <section><title>Improvements and New Features</title>
@@ -295,10 +464,10 @@
 	    added to runtime_tools that can assist in gathering and
 	    interpreting the data from Microstate accounting.</p>
           <p>
-	    For more information see <seealso
+	    For more information see <seeerl
 	    marker="erts:erlang#statistics_microstate_accounting">erlang:statistics(microstate_accounting,
-	    _)</seealso> and the <seealso
-	    marker="runtime_tools:msacc">msacc</seealso> module in
+	    _)</seeerl> and the <seeerl
+	    marker="runtime_tools:msacc">msacc</seeerl> module in
 	    runtime_tools.</p>
           <p>
 	    Own Id: OTP-12345</p>
@@ -334,9 +503,9 @@
 	    configure option <c>--with-dynamic-trace=lttng</c>.</p>
 	    <p>The dynamic trace module <c>dyntrace</c> is now
 	    capable to be used as a LTTng sink for Erlang tracing.
-	    For a list of all tracepoints, see <seealso
+	    For a list of all tracepoints, see <seeguide
 	    marker="runtime_tools:LTTng">Runtime Tools User's
-	    Guide</seealso> .</p>
+	    Guide</seeguide> .</p>
 	    <p>This feature also introduces an incompatible change in
 	    trace tags. The trace tags <c>gc_start</c> and
 	    <c>gc_end</c> has been split into <c>gc_minor_start</c>,
@@ -515,18 +684,18 @@
         </item>
         <item>
           <p>
-	    The <seealso
-	    marker="kernel:app"><c>app</c></seealso>-file key
-	    <seealso
-	    marker="kernel:app#runtime_dependencies"><c>runtime_dependencies</c></seealso>
+	    The <seefile
+	    marker="kernel:app"><c>app</c></seefile>-file key
+	    <seefile
+	    marker="kernel:app#runtime_dependencies"><c>runtime_dependencies</c></seefile>
 	    has been introduced.</p>
           <p>
 	    Runtime dependencies have been added to all app-files in
 	    OTP. Note that these may not be completely correct during
 	    OTP 17, but this is actively being worked on.</p>
           <p>
-	    The function <seealso
-	    marker="runtime_tools:system_information#sanity_check/0"><c>system_information:sanity_check/0</c></seealso>
+	    The function <seemfa
+	    marker="runtime_tools:system_information#sanity_check/0"><c>system_information:sanity_check/0</c></seemfa>
 	    will verify all declared runtime dependencies in the
 	    system when called.</p>
           <p>
@@ -1393,4 +1562,3 @@
     </section>
   </section>
 </chapter>
-

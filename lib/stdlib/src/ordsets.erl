@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -150,13 +150,8 @@ union(Es1, []) -> Es1.
       OrdsetList :: [ordset(T)],
       Ordset :: ordset(T).
 
-union([S1,S2|Ss]) ->
-    union1(union(S1, S2), Ss);
-union([S]) -> S;
-union([]) -> [].
-
-union1(S1, [S2|Ss]) -> union1(union(S1, S2), Ss);
-union1(S1, []) -> S1.
+union(OrdsetList) ->
+    lists:umerge(OrdsetList).
 
 %% intersection(OrdSet1, OrdSet2) -> OrdSet.
 %%  Return the intersection of OrdSet1 and OrdSet2.

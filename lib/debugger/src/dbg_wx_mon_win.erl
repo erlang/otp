@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,7 +85,6 @@ init() ->
 -define(W, 800).
 -define(H, 390).
 
-%% FIXME
 -define(autoId, 314).
 -define(stringsId, 271).
 

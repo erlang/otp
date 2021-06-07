@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,17 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfilepickerctrl.html">wxFilePickerCtrl</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxPickerBase}
-%% <br />{@link wxControl}
-%% <br />{@link wxWindow}
-%% <br />{@link wxEvtHandler}
-%% </p>
-%% @type wxFilePickerCtrl().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxFilePickerCtrl).
 -include("wxe.hrl").
 -export([create/3,create/4,destroy/1,getPath/1,new/0,new/2,new/3,setPath/2]).
@@ -43,20 +32,20 @@
   freeze/1,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
   getBestSize/1,getCaret/1,getCharHeight/1,getCharWidth/1,getChildren/1,
   getClientSize/1,getContainingSizer/1,getContentScaleFactor/1,getCursor/1,
-  getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,getForegroundColour/1,
-  getGrandParent/1,getHandle/1,getHelpText/1,getId/1,getInternalMargin/1,
-  getLabel/1,getMaxSize/1,getMinSize/1,getName/1,getParent/1,getPickerCtrlProportion/1,
-  getPosition/1,getRect/1,getScreenPosition/1,getScreenRect/1,getScrollPos/2,
-  getScrollRange/2,getScrollThumb/2,getSize/1,getSizer/1,getTextCtrl/1,
-  getTextCtrlProportion/1,getTextExtent/2,getTextExtent/3,getToolTip/1,
-  getUpdateRegion/1,getVirtualSize/1,getWindowStyleFlag/1,getWindowVariant/1,
-  hasCapture/1,hasScrollbar/2,hasTextCtrl/1,hasTransparentBackground/1,
-  hide/1,inheritAttributes/1,initDialog/1,invalidateBestSize/1,isDoubleBuffered/1,
-  isEnabled/1,isExposed/2,isExposed/3,isExposed/5,isPickerCtrlGrowable/1,
-  isRetained/1,isShown/1,isTextCtrlGrowable/1,isTopLevel/1,layout/1,
-  lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,move/2,move/3,move/4,
-  moveAfterInTabOrder/2,moveBeforeInTabOrder/2,navigate/1,navigate/2,
-  pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,popEventHandler/2,
+  getDPI/1,getDPIScaleFactor/1,getDropTarget/1,getExtraStyle/1,getFont/1,
+  getForegroundColour/1,getGrandParent/1,getHandle/1,getHelpText/1,
+  getId/1,getInternalMargin/1,getLabel/1,getMaxSize/1,getMinSize/1,getName/1,
+  getParent/1,getPickerCtrlProportion/1,getPosition/1,getRect/1,getScreenPosition/1,
+  getScreenRect/1,getScrollPos/2,getScrollRange/2,getScrollThumb/2,
+  getSize/1,getSizer/1,getTextCtrl/1,getTextCtrlProportion/1,getTextExtent/2,
+  getTextExtent/3,getThemeEnabled/1,getToolTip/1,getUpdateRegion/1,
+  getVirtualSize/1,getWindowStyleFlag/1,getWindowVariant/1,hasCapture/1,
+  hasScrollbar/2,hasTextCtrl/1,hasTransparentBackground/1,hide/1,inheritAttributes/1,
+  initDialog/1,invalidateBestSize/1,isDoubleBuffered/1,isEnabled/1,
+  isExposed/2,isExposed/3,isExposed/5,isFrozen/1,isPickerCtrlGrowable/1,
+  isRetained/1,isShown/1,isShownOnScreen/1,isTextCtrlGrowable/1,isTopLevel/1,
+  layout/1,lineDown/1,lineUp/1,lower/1,move/2,move/3,move/4,moveAfterInTabOrder/2,
+  moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
   popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
   refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,
   screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
@@ -71,12 +60,12 @@
   setSize/6,setSizeHints/2,setSizeHints/3,setSizeHints/4,setSizer/2,
   setSizer/3,setSizerAndFit/2,setSizerAndFit/3,setTextCtrlGrowable/1,
   setTextCtrlGrowable/2,setTextCtrlProportion/2,setThemeEnabled/2,
-  setToolTip/2,setTransparent/2,setVirtualSize/2,setVirtualSize/3,setVirtualSizeHints/2,
-  setVirtualSizeHints/3,setVirtualSizeHints/4,setWindowStyle/2,setWindowStyleFlag/2,
-  setWindowVariant/2,shouldInheritColours/1,show/1,show/2,thaw/1,transferDataFromWindow/1,
-  transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
-  validate/1,warpPointer/3]).
+  setToolTip/2,setTransparent/2,setVirtualSize/2,setVirtualSize/3,setWindowStyle/2,
+  setWindowStyleFlag/2,setWindowVariant/2,shouldInheritColours/1,show/1,
+  show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,
+  updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-type wxFilePickerCtrl() :: wx:wx_object().
 -export_type([wxFilePickerCtrl/0]).
 %% @hidden
 parent_class(wxPickerBase) -> true;
@@ -85,12 +74,11 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxFilePickerCtrl() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfilepickerctrl.html#wxfilepickerctrlwxfilepickerctrl">external documentation</a>.
 -spec new() -> wxFilePickerCtrl().
 new() ->
-  wxe_util:construct(?wxFilePickerCtrl_new_0,
-  <<>>).
+  wxe_util:queue_cmd(?get_env(), ?wxFilePickerCtrl_new_0),
+  wxe_util:rec(?wxFilePickerCtrl_new_0).
 
 %% @equiv new(Parent,Id, [])
 -spec new(Parent, Id) -> wxFilePickerCtrl() when
@@ -110,20 +98,20 @@ new(Parent,Id)
 		 | {'size', {W::integer(), H::integer()}}
 		 | {'style', integer()}
 		 | {'validator', wx:wx_object()}.
-new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
+new(#wx_ref{type=ParentT}=Parent,Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
-  MOpts = fun({path, Path}, Acc) ->   Path_UC = unicode:characters_to_binary([Path,0]),[<<1:32/?UI,(byte_size(Path_UC)):32/?UI,(Path_UC)/binary, 0:(((8- ((0+byte_size(Path_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
-          ({message, Message}, Acc) ->   Message_UC = unicode:characters_to_binary([Message,0]),[<<2:32/?UI,(byte_size(Message_UC)):32/?UI,(Message_UC)/binary, 0:(((8- ((0+byte_size(Message_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
-          ({wildcard, Wildcard}, Acc) ->   Wildcard_UC = unicode:characters_to_binary([Wildcard,0]),[<<3:32/?UI,(byte_size(Wildcard_UC)):32/?UI,(Wildcard_UC)/binary, 0:(((8- ((0+byte_size(Wildcard_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
-          ({pos, {PosX,PosY}}, Acc) -> [<<4:32/?UI,PosX:32/?UI,PosY:32/?UI,0:32>>|Acc];
-          ({size, {SizeW,SizeH}}, Acc) -> [<<5:32/?UI,SizeW:32/?UI,SizeH:32/?UI,0:32>>|Acc];
-          ({style, Style}, Acc) -> [<<6:32/?UI,Style:32/?UI>>|Acc];
-          ({validator, #wx_ref{type=ValidatorT,ref=ValidatorRef}}, Acc) ->   ?CLASS(ValidatorT,wx),[<<7:32/?UI,ValidatorRef:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:construct(?wxFilePickerCtrl_new_3,
-  <<ParentRef:32/?UI,Id:32/?UI, BinOpt/binary>>).
+  MOpts = fun({path, Path}) ->   Path_UC = unicode:characters_to_binary(Path),{path,Path_UC};
+          ({message, Message}) ->   Message_UC = unicode:characters_to_binary(Message),{message,Message_UC};
+          ({wildcard, Wildcard}) ->   Wildcard_UC = unicode:characters_to_binary(Wildcard),{wildcard,Wildcard_UC};
+          ({pos, {_posX,_posY}} = Arg) -> Arg;
+          ({size, {_sizeW,_sizeH}} = Arg) -> Arg;
+          ({style, _style} = Arg) -> Arg;
+          ({validator, #wx_ref{type=ValidatorT}} = Arg) ->   ?CLASS(ValidatorT,wx),Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(Parent,Id, Opts,?get_env(),?wxFilePickerCtrl_new_3),
+  wxe_util:rec(?wxFilePickerCtrl_new_3).
 
 %% @equiv create(This,Parent,Id, [])
 -spec create(This, Parent, Id) -> boolean() when
@@ -143,45 +131,44 @@ create(This,Parent,Id)
 		 | {'size', {W::integer(), H::integer()}}
 		 | {'style', integer()}
 		 | {'validator', wx:wx_object()}.
-create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
+create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxFilePickerCtrl),
   ?CLASS(ParentT,wxWindow),
-  MOpts = fun({path, Path}, Acc) ->   Path_UC = unicode:characters_to_binary([Path,0]),[<<1:32/?UI,(byte_size(Path_UC)):32/?UI,(Path_UC)/binary, 0:(((8- ((0+byte_size(Path_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
-          ({message, Message}, Acc) ->   Message_UC = unicode:characters_to_binary([Message,0]),[<<2:32/?UI,(byte_size(Message_UC)):32/?UI,(Message_UC)/binary, 0:(((8- ((0+byte_size(Message_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
-          ({wildcard, Wildcard}, Acc) ->   Wildcard_UC = unicode:characters_to_binary([Wildcard,0]),[<<3:32/?UI,(byte_size(Wildcard_UC)):32/?UI,(Wildcard_UC)/binary, 0:(((8- ((0+byte_size(Wildcard_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
-          ({pos, {PosX,PosY}}, Acc) -> [<<4:32/?UI,PosX:32/?UI,PosY:32/?UI,0:32>>|Acc];
-          ({size, {SizeW,SizeH}}, Acc) -> [<<5:32/?UI,SizeW:32/?UI,SizeH:32/?UI,0:32>>|Acc];
-          ({style, Style}, Acc) -> [<<6:32/?UI,Style:32/?UI>>|Acc];
-          ({validator, #wx_ref{type=ValidatorT,ref=ValidatorRef}}, Acc) ->   ?CLASS(ValidatorT,wx),[<<7:32/?UI,ValidatorRef:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:call(?wxFilePickerCtrl_Create,
-  <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI, 0:32,BinOpt/binary>>).
+  MOpts = fun({path, Path}) ->   Path_UC = unicode:characters_to_binary(Path),{path,Path_UC};
+          ({message, Message}) ->   Message_UC = unicode:characters_to_binary(Message),{message,Message_UC};
+          ({wildcard, Wildcard}) ->   Wildcard_UC = unicode:characters_to_binary(Wildcard),{wildcard,Wildcard_UC};
+          ({pos, {_posX,_posY}} = Arg) -> Arg;
+          ({size, {_sizeW,_sizeH}} = Arg) -> Arg;
+          ({style, _style} = Arg) -> Arg;
+          ({validator, #wx_ref{type=ValidatorT}} = Arg) ->   ?CLASS(ValidatorT,wx),Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(This,Parent,Id, Opts,?get_env(),?wxFilePickerCtrl_Create),
+  wxe_util:rec(?wxFilePickerCtrl_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfilepickerctrl.html#wxfilepickerctrlgetpath">external documentation</a>.
 -spec getPath(This) -> unicode:charlist() when
 	This::wxFilePickerCtrl().
-getPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getPath(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFilePickerCtrl),
-  wxe_util:call(?wxFilePickerCtrl_GetPath,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxFilePickerCtrl_GetPath),
+  wxe_util:rec(?wxFilePickerCtrl_GetPath).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfilepickerctrl.html#wxfilepickerctrlsetpath">external documentation</a>.
--spec setPath(This, Str) -> 'ok' when
-	This::wxFilePickerCtrl(), Str::unicode:chardata().
-setPath(#wx_ref{type=ThisT,ref=ThisRef},Str)
- when ?is_chardata(Str) ->
+-spec setPath(This, Filename) -> 'ok' when
+	This::wxFilePickerCtrl(), Filename::unicode:chardata().
+setPath(#wx_ref{type=ThisT}=This,Filename)
+ when ?is_chardata(Filename) ->
   ?CLASS(ThisT,wxFilePickerCtrl),
-  Str_UC = unicode:characters_to_binary([Str,0]),
-  wxe_util:cast(?wxFilePickerCtrl_SetPath,
-  <<ThisRef:32/?UI,(byte_size(Str_UC)):32/?UI,(Str_UC)/binary, 0:(((8- ((0+byte_size(Str_UC)) band 16#7)) band 16#7))/unit:8>>).
+  Filename_UC = unicode:characters_to_binary(Filename),
+  wxe_util:queue_cmd(This,Filename_UC,?get_env(),?wxFilePickerCtrl_SetPath).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxFilePickerCtrl()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFilePickerCtrl),
-  wxe_util:destroy(?DESTROY_OBJECT,Obj),
+  wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),
   ok.
  %% From wxPickerBase
 %% @hidden
@@ -211,13 +198,15 @@ setTextCtrlProportion(This,Prop) -> wxPickerBase:setTextCtrlProportion(This,Prop
 %% @hidden
 getInternalMargin(This) -> wxPickerBase:getInternalMargin(This).
 %% @hidden
-setInternalMargin(This,Newmargin) -> wxPickerBase:setInternalMargin(This,Newmargin).
+setInternalMargin(This,Margin) -> wxPickerBase:setInternalMargin(This,Margin).
  %% From wxControl
 %% @hidden
 setLabel(This,Label) -> wxControl:setLabel(This,Label).
 %% @hidden
 getLabel(This) -> wxControl:getLabel(This).
  %% From wxWindow
+%% @hidden
+getDPI(This) -> wxWindow:getDPI(This).
 %% @hidden
 getContentScaleFactor(This) -> wxWindow:getContentScaleFactor(This).
 %% @hidden
@@ -257,19 +246,13 @@ setWindowStyleFlag(This,Style) -> wxWindow:setWindowStyleFlag(This,Style).
 %% @hidden
 setWindowStyle(This,Style) -> wxWindow:setWindowStyle(This,Style).
 %% @hidden
-setVirtualSizeHints(This,MinW,MinH, Options) -> wxWindow:setVirtualSizeHints(This,MinW,MinH, Options).
-%% @hidden
-setVirtualSizeHints(This,MinW,MinH) -> wxWindow:setVirtualSizeHints(This,MinW,MinH).
-%% @hidden
-setVirtualSizeHints(This,MinSize) -> wxWindow:setVirtualSizeHints(This,MinSize).
-%% @hidden
-setVirtualSize(This,X,Y) -> wxWindow:setVirtualSize(This,X,Y).
+setVirtualSize(This,Width,Height) -> wxWindow:setVirtualSize(This,Width,Height).
 %% @hidden
 setVirtualSize(This,Size) -> wxWindow:setVirtualSize(This,Size).
 %% @hidden
-setToolTip(This,Tip) -> wxWindow:setToolTip(This,Tip).
+setToolTip(This,TipString) -> wxWindow:setToolTip(This,TipString).
 %% @hidden
-setThemeEnabled(This,EnableTheme) -> wxWindow:setThemeEnabled(This,EnableTheme).
+setThemeEnabled(This,Enable) -> wxWindow:setThemeEnabled(This,Enable).
 %% @hidden
 setSizerAndFit(This,Sizer, Options) -> wxWindow:setSizerAndFit(This,Sizer, Options).
 %% @hidden
@@ -293,13 +276,13 @@ setSize(This,Width,Height) -> wxWindow:setSize(This,Width,Height).
 %% @hidden
 setSize(This,Rect) -> wxWindow:setSize(This,Rect).
 %% @hidden
-setScrollPos(This,Orient,Pos, Options) -> wxWindow:setScrollPos(This,Orient,Pos, Options).
+setScrollPos(This,Orientation,Pos, Options) -> wxWindow:setScrollPos(This,Orientation,Pos, Options).
 %% @hidden
-setScrollPos(This,Orient,Pos) -> wxWindow:setScrollPos(This,Orient,Pos).
+setScrollPos(This,Orientation,Pos) -> wxWindow:setScrollPos(This,Orientation,Pos).
 %% @hidden
-setScrollbar(This,Orient,Pos,ThumbVisible,Range, Options) -> wxWindow:setScrollbar(This,Orient,Pos,ThumbVisible,Range, Options).
+setScrollbar(This,Orientation,Position,ThumbSize,Range, Options) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range, Options).
 %% @hidden
-setScrollbar(This,Orient,Pos,ThumbVisible,Range) -> wxWindow:setScrollbar(This,Orient,Pos,ThumbVisible,Range).
+setScrollbar(This,Orientation,Position,ThumbSize,Range) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range).
 %% @hidden
 setPalette(This,Pal) -> wxWindow:setPalette(This,Pal).
 %% @hidden
@@ -307,7 +290,7 @@ setName(This,Name) -> wxWindow:setName(This,Name).
 %% @hidden
 setId(This,Winid) -> wxWindow:setId(This,Winid).
 %% @hidden
-setHelpText(This,Text) -> wxWindow:setHelpText(This,Text).
+setHelpText(This,HelpText) -> wxWindow:setHelpText(This,HelpText).
 %% @hidden
 setForegroundColour(This,Colour) -> wxWindow:setForegroundColour(This,Colour).
 %% @hidden
@@ -319,7 +302,7 @@ setFocus(This) -> wxWindow:setFocus(This).
 %% @hidden
 setExtraStyle(This,ExStyle) -> wxWindow:setExtraStyle(This,ExStyle).
 %% @hidden
-setDropTarget(This,DropTarget) -> wxWindow:setDropTarget(This,DropTarget).
+setDropTarget(This,Target) -> wxWindow:setDropTarget(This,Target).
 %% @hidden
 setOwnForegroundColour(This,Colour) -> wxWindow:setOwnForegroundColour(This,Colour).
 %% @hidden
@@ -327,9 +310,9 @@ setOwnFont(This,Font) -> wxWindow:setOwnFont(This,Font).
 %% @hidden
 setOwnBackgroundColour(This,Colour) -> wxWindow:setOwnBackgroundColour(This,Colour).
 %% @hidden
-setMinSize(This,MinSize) -> wxWindow:setMinSize(This,MinSize).
+setMinSize(This,Size) -> wxWindow:setMinSize(This,Size).
 %% @hidden
-setMaxSize(This,MaxSize) -> wxWindow:setMaxSize(This,MaxSize).
+setMaxSize(This,Size) -> wxWindow:setMaxSize(This,Size).
 %% @hidden
 setCursor(This,Cursor) -> wxWindow:setCursor(This,Cursor).
 %% @hidden
@@ -383,10 +366,6 @@ popupMenu(This,Menu, Options) -> wxWindow:popupMenu(This,Menu, Options).
 %% @hidden
 popupMenu(This,Menu) -> wxWindow:popupMenu(This,Menu).
 %% @hidden
-popEventHandler(This, Options) -> wxWindow:popEventHandler(This, Options).
-%% @hidden
-popEventHandler(This) -> wxWindow:popEventHandler(This).
-%% @hidden
 pageUp(This) -> wxWindow:pageUp(This).
 %% @hidden
 pageDown(This) -> wxWindow:pageDown(This).
@@ -405,10 +384,6 @@ move(This,X,Y) -> wxWindow:move(This,X,Y).
 %% @hidden
 move(This,Pt) -> wxWindow:move(This,Pt).
 %% @hidden
-makeModal(This, Options) -> wxWindow:makeModal(This, Options).
-%% @hidden
-makeModal(This) -> wxWindow:makeModal(This).
-%% @hidden
 lower(This) -> wxWindow:lower(This).
 %% @hidden
 lineUp(This) -> wxWindow:lineUp(This).
@@ -416,6 +391,8 @@ lineUp(This) -> wxWindow:lineUp(This).
 lineDown(This) -> wxWindow:lineDown(This).
 %% @hidden
 layout(This) -> wxWindow:layout(This).
+%% @hidden
+isShownOnScreen(This) -> wxWindow:isShownOnScreen(This).
 %% @hidden
 isTopLevel(This) -> wxWindow:isTopLevel(This).
 %% @hidden
@@ -430,6 +407,8 @@ isExposed(This,X,Y) -> wxWindow:isExposed(This,X,Y).
 isExposed(This,Pt) -> wxWindow:isExposed(This,Pt).
 %% @hidden
 isEnabled(This) -> wxWindow:isEnabled(This).
+%% @hidden
+isFrozen(This) -> wxWindow:isFrozen(This).
 %% @hidden
 invalidateBestSize(This) -> wxWindow:invalidateBestSize(This).
 %% @hidden
@@ -455,6 +434,8 @@ getUpdateRegion(This) -> wxWindow:getUpdateRegion(This).
 %% @hidden
 getToolTip(This) -> wxWindow:getToolTip(This).
 %% @hidden
+getThemeEnabled(This) -> wxWindow:getThemeEnabled(This).
+%% @hidden
 getTextExtent(This,String, Options) -> wxWindow:getTextExtent(This,String, Options).
 %% @hidden
 getTextExtent(This,String) -> wxWindow:getTextExtent(This,String).
@@ -463,11 +444,11 @@ getSizer(This) -> wxWindow:getSizer(This).
 %% @hidden
 getSize(This) -> wxWindow:getSize(This).
 %% @hidden
-getScrollThumb(This,Orient) -> wxWindow:getScrollThumb(This,Orient).
+getScrollThumb(This,Orientation) -> wxWindow:getScrollThumb(This,Orientation).
 %% @hidden
-getScrollRange(This,Orient) -> wxWindow:getScrollRange(This,Orient).
+getScrollRange(This,Orientation) -> wxWindow:getScrollRange(This,Orientation).
 %% @hidden
-getScrollPos(This,Orient) -> wxWindow:getScrollPos(This,Orient).
+getScrollPos(This,Orientation) -> wxWindow:getScrollPos(This,Orientation).
 %% @hidden
 getScreenRect(This) -> wxWindow:getScreenRect(This).
 %% @hidden
@@ -499,7 +480,7 @@ getFont(This) -> wxWindow:getFont(This).
 %% @hidden
 getExtraStyle(This) -> wxWindow:getExtraStyle(This).
 %% @hidden
-getEventHandler(This) -> wxWindow:getEventHandler(This).
+getDPIScaleFactor(This) -> wxWindow:getDPIScaleFactor(This).
 %% @hidden
 getDropTarget(This) -> wxWindow:getDropTarget(This).
 %% @hidden
@@ -531,7 +512,7 @@ fitInside(This) -> wxWindow:fitInside(This).
 %% @hidden
 fit(This) -> wxWindow:fit(This).
 %% @hidden
-findWindow(This,Winid) -> wxWindow:findWindow(This,Winid).
+findWindow(This,Id) -> wxWindow:findWindow(This,Id).
 %% @hidden
 enable(This, Options) -> wxWindow:enable(This, Options).
 %% @hidden
@@ -559,17 +540,17 @@ clearBackground(This) -> wxWindow:clearBackground(This).
 %% @hidden
 centreOnParent(This, Options) -> wxWindow:centreOnParent(This, Options).
 %% @hidden
-centreOnParent(This) -> wxWindow:centreOnParent(This).
-%% @hidden
-centre(This, Options) -> wxWindow:centre(This, Options).
-%% @hidden
-centre(This) -> wxWindow:centre(This).
-%% @hidden
 centerOnParent(This, Options) -> wxWindow:centerOnParent(This, Options).
+%% @hidden
+centreOnParent(This) -> wxWindow:centreOnParent(This).
 %% @hidden
 centerOnParent(This) -> wxWindow:centerOnParent(This).
 %% @hidden
+centre(This, Options) -> wxWindow:centre(This, Options).
+%% @hidden
 center(This, Options) -> wxWindow:center(This, Options).
+%% @hidden
+centre(This) -> wxWindow:centre(This).
 %% @hidden
 center(This) -> wxWindow:center(This).
 %% @hidden

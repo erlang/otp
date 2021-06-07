@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2017. All Rights Reserved.
+# Copyright Ericsson AB 1997-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -72,8 +72,9 @@ MODULES= \
 	gc_SUITE \
 	guard_SUITE \
 	hash_SUITE \
+	hash_property_test_SUITE \
+	hello_SUITE \
 	hibernate_SUITE \
-	hipe_SUITE \
 	iovec_SUITE \
 	list_bif_SUITE \
 	lttng_SUITE \
@@ -91,6 +92,7 @@ MODULES= \
 	message_queue_data_SUITE \
 	op_SUITE \
 	os_signal_SUITE \
+	perf_SUITE \
 	port_SUITE \
 	port_bif_SUITE \
 	prim_eval_SUITE \
@@ -105,6 +107,7 @@ MODULES= \
 	send_term_SUITE \
 	sensitive_SUITE \
 	signal_SUITE \
+	small_SUITE \
 	smoke_test_SUITE \
 	statistics_SUITE \
 	system_info_SUITE \
@@ -130,7 +133,10 @@ MODULES= \
 	ignore_cores \
 	dgawd_handler \
 	random_iolist \
-	crypto_reference
+	erts_test_utils \
+	erts_test_destructor \
+	crypto_reference \
+	literal_area_collector_test
 
 NO_OPT= bs_bincomp \
 	bs_bit_binaries \
@@ -179,15 +185,11 @@ ERL_COMPILE_FLAGS +=
 # ----------------------------------------------------
 
 make_emakefile: $(NO_OPT_ERL_FILES) $(NATIVE_ERL_FILES)
-	# This special rule can be removed when communication with R7B nodes 
-	# is no longer supported.
-	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) +compressed -o$(EBIN) \
-	'*_SUITE_make' > $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) +compressed -o$(EBIN) \
 	$(MODULES) >> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt $(ERL_COMPILE_FLAGS) \
-	-o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile +native $(ERL_COMPILE_FLAGS) \
+	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt +no_ssa_opt +no_bsm_opt \
+        $(ERL_COMPILE_FLAGS) -o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(NATIVE_MODULES) >> $(EMAKEFILE)
 
 tests debug opt: make_emakefile
@@ -199,6 +201,8 @@ clean:
 	rm -f core *~
 
 docs:
+
+targets: $(TARGET_FILES)
 
 # ----------------------------------------------------
 # Special targets
@@ -224,7 +228,7 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NATIVE_ERL_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
-	tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:
 

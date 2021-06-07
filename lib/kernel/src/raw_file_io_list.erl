@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,10 +21,11 @@
 
 -export([close/1, sync/1, datasync/1, truncate/1, advise/4, allocate/3,
          position/2, write/2, pwrite/2, pwrite/3,
-         read_line/1, read/2, pread/2, pread/3]).
+         read_line/1, read/2, pread/2, pread/3,
+         read_handle_info/2]).
 
 %% OTP internal.
--export([ipread_s32bu_p32bu/3, sendfile/8]).
+-export([ipread_s32bu_p32bu/3, sendfile/8, internal_get_nif_resource/1]).
 
 -export([open_layer/3]).
 
@@ -126,3 +127,12 @@ sendfile(Fd, Dest, Offset, Bytes, ChunkSize, Headers, Trailers, Flags) ->
     Args = [Dest, Offset, Bytes, ChunkSize, Headers, Trailers, Flags],
     PrivateFd = Fd#file_descriptor.data,
     ?CALL_FD(PrivateFd, sendfile, Args).
+
+internal_get_nif_resource(Fd) ->
+    Args = [],
+    PrivateFd = Fd#file_descriptor.data,
+    ?CALL_FD(PrivateFd, internal_get_nif_resource, Args).
+
+read_handle_info(Fd, Opts) ->
+    PrivateFd = Fd#file_descriptor.data,
+    ?CALL_FD(PrivateFd, read_handle_info, [Opts]).

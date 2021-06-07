@@ -19,6 +19,8 @@
 %%
 -module(c).
 
+-include_lib("kernel/include/eep48.hrl").
+
 %% Utilities to use from shell.
 
 %% Avoid warning for local function error/2 clashing with autoimported BIF.
@@ -28,6 +30,7 @@
 	 lc_batch/0, lc_batch/1,
 	 i/3,pid/3,m/0,m/1,mm/0,lm/0,
 	 bt/1, q/0,
+         h/1,h/2,h/3,ht/1,ht/2,ht/3,hcb/1,hcb/2,hcb/3,
 	 erlangrc/0,erlangrc/1,bi/1, flush/0, regs/0, uptime/0,
 	 nregs/0,pwd/0,ls/0,ls/1,cd/1,memory/1,memory/0, xm/1]).
 
@@ -35,7 +38,7 @@
 -export([appcall/4]).
 
 -import(lists, [reverse/1,flatten/1,sublist/3,sort/1,keysort/2,
-		max/1,min/1,foreach/2,foldl/3,flatmap/2]).
+		foreach/2,foldl/3,flatmap/2]).
 -import(io, [format/1, format/2]).
 
 %%-----------------------------------------------------------------------
@@ -48,6 +51,9 @@ help() ->
 		   "cd(Dir)    -- change working directory\n"
 		   "flush()    -- flush any messages sent to the shell\n"
 		   "help()     -- help info\n"
+                   "h(M)       -- module documentation\n"
+                   "h(M,F)     -- module function documentation\n"
+                   "h(M,F,A)   -- module function arity documentation\n"
 		   "i()        -- information about the system\n"
 		   "ni()       -- information about the networked system\n"
 		   "i(X,Y,Z)   -- information about pid <X,Y,Z>\n"
@@ -146,6 +152,126 @@ c(SrcFile, NewOpts, Filter, BeamFile, Info) ->
                ++ lists:filter(F, old_options(Info))),
     format("Recompiling ~ts\n", [SrcFile]),
     safe_recompile(SrcFile, Options, BeamFile).
+
+-type h_return() :: ok | {error, missing | {unknown_format, unicode:chardata()}}.
+-type hf_return() :: h_return() | {error, function_missing}.
+-type ht_return() :: h_return() | {error, type_missing}.
+-type hcb_return() :: h_return() | {error, callback_missing}.
+
+-define(RENDERABLE_FORMAT(Format),
+        Format =:= ?NATIVE_FORMAT;
+        binary_part(Format, 0, 5) =:= <<"text/">>).
+
+-spec h(module()) -> h_return().
+h(Module) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
+            format_docs(shell_docs:render(Module, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec h(module(),function()) -> hf_return().
+h(Module,Function) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
+            format_docs(shell_docs:render(Module, Function, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec h(module(),function(),arity()) -> hf_return().
+h(Module,Function,Arity) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
+            format_docs(shell_docs:render(Module, Function, Arity, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec ht(module()) -> h_return().
+ht(Module) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
+            format_docs(shell_docs:render_type(Module, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec ht(module(),Type :: atom()) -> ht_return().
+ht(Module,Type) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
+            format_docs(shell_docs:render_type(Module, Type, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec ht(module(),Type :: atom(),arity()) ->
+          ht_return().
+ht(Module,Type,Arity) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
+            format_docs(shell_docs:render_type(Module, Type, Arity, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec hcb(module()) -> h_return().
+hcb(Module) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
+            format_docs(shell_docs:render_callback(Module, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec hcb(module(),Callback :: atom()) -> hcb_return().
+hcb(Module,Callback) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
+            format_docs(shell_docs:render_callback(Module, Callback, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec hcb(module(),Callback :: atom(),arity()) ->
+          hcb_return().
+hcb(Module,Callback,Arity) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
+            format_docs(shell_docs:render_callback(Module, Callback, Arity, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+format_docs({error,_} = E) ->
+    E;
+format_docs(Docs) ->
+    {match, Lines} = re:run(Docs,"(.+\n|\n)",[unicode,global,{capture,all_but_first,binary}]),
+    _ = paged_output(fun(Line,_) ->
+                             format("~ts",Line),
+                             {1,undefined}
+                     end, undefined, Lines),
+    ok.
 
 old_options(Info) ->
     case lists:keyfind(options, 1, Info) of
@@ -283,12 +409,10 @@ is_outdir_opt(_) -> false.
 
 is_from_opt(from_core) -> true;
 is_from_opt(from_asm) -> true;
-is_from_opt(from_beam) -> true;
 is_from_opt(_) -> false.
 
 from_opt(".core") -> [from_core];
 from_opt(".S")    -> [from_asm];
-from_opt(".beam") -> [from_beam];
 from_opt(_)       -> [].
 
 %%% Obtain the 'outdir' option from the argument. Return "." if no
@@ -308,7 +432,6 @@ outdir([Opt|Rest]) ->
 %% mimic how suffix is selected in compile:file().
 src_suffix([from_core|_]) -> ".core";
 src_suffix([from_asm|_])  -> ".S";
-src_suffix([from_beam|_]) -> ".beam";
 src_suffix([_|Opts]) -> src_suffix(Opts);
 src_suffix([]) -> ".erl".
 
@@ -475,58 +598,54 @@ ni() -> i(all_procs()).
 -spec i([pid()]) -> 'ok'.
 
 i(Ps) ->
-    i(Ps, length(Ps)).
-
--spec i([pid()], non_neg_integer()) -> 'ok'.
-
-i(Ps, N) when N =< 100 ->
-    iformat("Pid", "Initial Call", "Heap", "Reds",
-	    "Msgs"),
-    iformat("Registered", "Current Function", "Stack", "",
-	    ""),
-    {R,M,H,S} = foldl(fun(Pid, {R0,M0,H0,S0}) ->
-			      {A,B,C,D} = display_info(Pid),
-			      {R0+A,M0+B,H0+C,S0+D}
-		      end, {0,0,0,0}, Ps),
-    iformat("Total", "", w(H), w(R), w(M)),
-    iformat("", "", w(S), "", "");
-i(Ps, N) ->
-    iformat("Pid", "Initial Call", "Heap", "Reds",
-	    "Msgs"),
-    iformat("Registered", "Current Function", "Stack", "",
-	    ""),
-    paged_i(Ps, {0,0,0,0}, N, 50).
-
-paged_i([], {R,M,H,S}, _, _) ->
-    iformat("Total", "", w(H), w(R), w(M)),
-    iformat("", "", w(S), "", "");
-paged_i(Ps, Acc, N, Page) ->
-    {Pids, Rest, N1} =
-	if N > Page ->
-		{L1,L2} = lists:split(Page, Ps),
-		{L1,L2,N-Page};
-	   true ->
-		{Ps, [], 0}
-	end,
-    NewAcc = foldl(fun(Pid, {R,M,H,S}) ->
-			   {A,B,C,D} = display_info(Pid),
-			   {R+A,M+B,H+C,S+D}
-		   end, Acc, Pids),
-    case Rest of
-	[_|_] ->
-	    choice(fun() -> paged_i(Rest, NewAcc, N1, Page) end);
-	[] ->
-	    paged_i([], NewAcc, 0, Page)
+    iformat("Pid", "Initial Call", "Heap", "Reds", "Msgs"),
+    iformat("Registered", "Current Function", "Stack", "", ""),
+    case paged_output(fun(Pid, {R,M,H,S}) ->
+                              {A,B,C,D} = display_info(Pid),
+                              {2,{R+A,M+B,H+C,S+D}}
+                      end, 2, {0,0,0,0}, Ps) of
+        {R,M,H,S} ->
+            iformat("Total", "", w(H), w(R), w(M)),
+            iformat("", "", w(S), "", "");
+        less ->
+            ok
     end.
 
-choice(F) ->
-    case get_line('(c)ontinue (q)uit -->', "c\n") of
+paged_output(Fun, Acc, Items) ->
+    paged_output(Fun, 0, Acc, Items).
+paged_output(Fun, CurrLine, Acc, Items) ->
+    Limit =
+        case io:rows() of
+            {ok, Rows} -> Rows-2;
+            _ -> 100
+        end,
+    paged_output(Fun, CurrLine, Limit, Acc, Items).
+
+paged_output(PrintFun, CurrLine, Limit, Acc, Items) when CurrLine >= Limit ->
+    case more() of
+        more ->
+            paged_output(PrintFun, 0, Limit, Acc, Items);
+        less ->
+            less
+    end;
+paged_output(PrintFun, CurrLine, Limit, Acc, [H|T]) ->
+    {Lines, NewAcc} = PrintFun(H, Acc),
+    paged_output(PrintFun, CurrLine+Lines, Limit, NewAcc, T);
+paged_output(_, _, _, Acc, []) ->
+    Acc.
+
+more() ->
+    case get_line('more (y/n)? (y) ', "y\n") of
 	"c\n" ->
-	    F();
+            more;
+	"y\n" ->
+            more;
 	"q\n" ->
-	    quit;
+	    less;
+	"n\n" ->
+	    less;
 	_ ->
-	    choice(F)
+	    more()
     end.
 
 get_line(P, Default) ->
@@ -937,11 +1056,15 @@ ls() ->
 -spec ls(Dir) -> 'ok' when
       Dir :: file:name().
 
-ls(Dir) ->
-    case file:list_dir(Dir) of
+ls(Dir0) ->
+    case file:list_dir(Dir0) of
 	{ok, Entries} ->
 	    ls_print(sort(Entries));
 	{error, enotdir} ->
+            Dir = if
+                      is_list(Dir0) -> lists:flatten(Dir0);
+                      true -> Dir0
+                  end,
 	    ls_print([Dir]);
 	{error, Error} ->
 	    format("~ts\n", [file:format_error(Error)])
@@ -949,7 +1072,7 @@ ls(Dir) ->
 
 ls_print([]) -> ok;
 ls_print(L) ->
-    Width = min([max(lengths(L, [])), 40]) + 5,
+    Width = erlang:min(max_length(L, 0), 40) + 5,
     ls_print(L, Width, 0).
 
 ls_print(X, Width, Len) when Width + Len >= 80 ->
@@ -961,8 +1084,12 @@ ls_print([H|T], Width, Len) ->
 ls_print([], _, _) ->
     io:nl().
 
-lengths([H|T], L) -> lengths(T, [length(H)|L]);
-lengths([], L)    -> L.
+max_length([H|T], L) when is_atom(H) ->
+    max_length([atom_to_list(H)|T], L);
+max_length([H|T], L) ->
+    max_length(T, erlang:max(length(H), L));
+max_length([], L) ->
+    L.
 
 w(X) ->
     io_lib:write(X).

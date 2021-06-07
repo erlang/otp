@@ -202,7 +202,7 @@ recomment_forms_2(C, [], _Top) ->
 
 standalone_comment({L, Col, _Ind, Text}) ->
     leaf_node(L, L + comment_delta(Text),
-	      erl_syntax:set_pos(erl_syntax:comment(Col - 1, Text), L)).
+	      erl_syntax:set_pos(erl_syntax:comment(Col - 1, Text), anno(L))).
 
 %% Compute delta between first and last line of a comment, given
 %% the lines of text.
@@ -578,8 +578,10 @@ expand_comments([]) ->
 
 expand_comment(C) ->
     {L, _Col, Ind, Text} = C,
-    erl_syntax:set_pos(erl_syntax:comment(Ind, Text), L).
+    erl_syntax:set_pos(erl_syntax:comment(Ind, Text), anno(L)).
 
+anno(Location) ->
+    erl_anno:new(Location).
 
 %% =====================================================================
 %% Abstract data type for extended syntax trees.
@@ -749,6 +751,7 @@ minpos2(X) when X < 1 ->
 minpos2(X) ->
     X.
 
+-dialyzer({no_opaque, get_line/1}).
 get_line(Node) ->
     case erl_syntax:get_pos(Node) of
 	L when is_integer(L) ->

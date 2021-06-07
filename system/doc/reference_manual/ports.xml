@@ -30,10 +30,10 @@
     <file>ports.xml</file>
   </header>
   <p>Examples of how to use ports and port drivers are provided in
-    <seealso marker="doc/tutorial:introduction#interoperability tutorial">
-    Interoperability Tutorial</seealso>.
+    <seeguide marker="system/tutorial:introduction#interoperability tutorial">
+    Interoperability Tutorial</seeguide>.
     For information about the BIFs mentioned, see the
-    <seealso marker="erts:erlang">erlang(3)</seealso> manual
+    <seeerl marker="erts:erlang">erlang(3)</seeerl> manual
     page in ERTS.</p>
 
   <section>
@@ -65,11 +65,11 @@
         system to leak memory, hang or crash.</p>
     </warning>
     <p>For information about port drivers, see the
-      <seealso marker="erts:erl_driver">erl_driver(4)</seealso>
+      <seecref marker="erts:erl_driver">erl_driver(4)</seecref>
       manual page in ERTS,
-      <seealso marker="erts:driver_entry">driver_entry(1)</seealso>
+      <seecref marker="erts:driver_entry">driver_entry(1)</seecref>
       manual page in ERTS, and
-      <seealso marker="kernel:erl_ddll">erl_ddll(3)</seealso>
+      <seeerl marker="kernel:erl_ddll">erl_ddll(3)</seeerl>
       manual page in Kernel.</p>
   </section>
 

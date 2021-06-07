@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -78,10 +78,13 @@
          otp_9302/1,
          thr_free_drv/1,
          async_blast/1,
+         thr_msg_blast/0,
          thr_msg_blast/1,
          consume_timeslice/1,
          env/1,
          poll_pipe/1,
+         lots_of_used_fds_on_boot/1,
+         lots_of_used_fds_on_boot_slave/1,
          z_test/1]).
 
 -export([bin_prefix/2]).
@@ -119,29 +122,6 @@
 -define(delay, 400).
 
 -define(heap_binary_size, 64).
-
-init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    CIOD = rpc(Config,
-               fun() ->
-                       case catch erts_debug:get_internal_state(available_internal_state) of
-                           true -> ok;
-                           _ -> erts_debug:set_internal_state(available_internal_state, true)
-                       end,
-                       erts_debug:get_internal_state(check_io_debug)
-               end),
-    erlang:display({init_per_testcase, Case}),
-    0 = element(1, CIOD),
-    [{testcase, Case}|Config].
-
-end_per_testcase(Case, Config) ->
-    erlang:display({end_per_testcase, Case}),
-    CIOD = rpc(Config,
-               fun() ->
-                       get_stable_check_io_info(),
-                       erts_debug:get_internal_state(check_io_debug)
-               end),
-    0 = element(1, CIOD),
-    ok.
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -182,7 +162,9 @@ groups() ->
       [a_test, use_fallback_pollset,
        bad_fd_in_pollset, fd_change,
        steal_control, smp_select,
-       driver_select_use, z_test]},
+       driver_select_use,
+       lots_of_used_fds_on_boot,
+       z_test]},
      {ioq_exit, [],
       [ioq_exit_ready_input, ioq_exit_ready_output,
        ioq_exit_timeout, ioq_exit_ready_async,
@@ -218,6 +200,48 @@ end_per_group(_GroupName, Config) ->
             stop_node(Node)
     end,
     Config.
+
+init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
+    CIOD = rpc(Config,
+               fun() ->
+                       case catch erts_debug:get_internal_state(available_internal_state) of
+                           true -> ok;
+                           _ -> erts_debug:set_internal_state(available_internal_state, true)
+                       end,
+                       erts_debug:get_internal_state(check_io_debug)
+               end),
+    erlang:display({init_per_testcase, Case}),
+    0 = element(1, CIOD),
+    [{testcase, Case}|Config].
+
+end_per_testcase(Case, Config) ->
+    erlang:display({end_per_testcase, Case}),
+    try rpc(Config, fun() ->
+                            get_stable_check_io_info(),
+                            erts_debug:get_internal_state(check_io_debug)
+                    end) of
+        CIOD ->
+            0 = element(1, CIOD)
+    catch _E:_R:_ST ->
+            %% Logs some info about the system
+            ct_os_cmd("epmd -names"),
+            ct_os_cmd("ps aux"),
+            %% Restart the node
+            case proplists:get_value(node, Config) of
+                undefined ->
+                    ok;
+                Node ->
+                    timer:sleep(1000), %% Give the node time to die
+                    [NodeName, _] = string:lexemes(atom_to_list(Node),"@"),
+                    {ok, Node} = start_node_final(
+                                   list_to_atom(NodeName),
+                                   proplists:get_value(node_args, Config))
+            end
+    end,
+    ok.
+
+ct_os_cmd(Cmd) ->
+    ct:log("~s: ~s",[Cmd,os:cmd(Cmd)]).
 
 %% Test sending bad types to port with an outputv-capable driver.
 outputv_errors(Config) when is_list(Config) ->
@@ -553,12 +577,6 @@ try_change_timer(Port, Timeout) ->
 %% 1) Queue up data in a driver that uses the full driver_queue API to do this.
 %% 2) Get the data back, a random amount at a time.
 queue_echo(Config) when is_list(Config) ->
-    case test_server:is_native(?MODULE) of
-        true -> exit(crashes_native_code);
-        false -> queue_echo_1(Config)
-    end.
-
-queue_echo_1(Config) ->
     ct:timetrap({minutes, 10}),
     Name = 'queue_drv',
     P = start_driver(Config, Name, true),
@@ -998,7 +1016,9 @@ chkio_test({erts_poll_info, Before},
             During = get_check_io_total(erlang:system_info(check_io)),
             erlang:display(During),
 
-            0 = element(1, erts_debug:get_internal_state(check_io_debug)),
+            [0 = element(1, erts_debug:get_internal_state(check_io_debug)) ||
+                %% The pollset is not stable when running the fallback testcase
+                Test /= ?CHKIO_USE_FALLBACK_POLLSET],
             io:format("During test: ~p~n", [During]),
             chk_chkio_port(Port),
             case erlang:port_control(Port, ?CHKIO_STOP, "") of
@@ -1838,6 +1858,79 @@ driver_select_use0(Config) ->
     ok = erl_ddll:stop(),
     ok.
 
+lots_of_used_fds_on_boot(Config) ->
+    case os:type() of
+        {unix, _} -> lots_of_used_fds_on_boot_test(Config);
+        _ -> {skipped, "Unix only test"}
+    end.
+
+lots_of_used_fds_on_boot_test(Config) ->
+    %% Start a node in a wrapper which have lots of fds
+    %% open. This used to hang the whole VM at boot in
+    %% an eternal loop trying to figure out how to size
+    %% arrays in erts_poll() implementation.
+    Name = lots_of_used_fds_on_boot,
+    HostSuffix = lists:dropwhile(fun ($@) -> false; (_) -> true end,
+				 atom_to_list(node())),
+    FullName = list_to_atom(atom_to_list(Name) ++ HostSuffix),
+    Pa = filename:dirname(code:which(?MODULE)),
+    Prog = case catch init:get_argument(progname) of
+	       {ok,[[P]]} -> P;
+	       _ -> exit(no_progname_argument_found)
+	   end,
+    NameSw = case net_kernel:longnames() of
+		 false -> "-sname ";
+		 true -> "-name ";
+		 _ -> exit(not_distributed_node)
+	     end,
+    {ok, Pwd} = file:get_cwd(),
+    NameStr = atom_to_list(Name),
+    DataDir = proplists:get_value(data_dir, Config),
+    Wrapper = filename:join(DataDir, "lots_of_fds_used_wrapper"),
+    CmdLine = Wrapper ++ " " ++ Prog ++ " -noshell -noinput "
+	++ NameSw ++ " " ++ NameStr ++ " "
+	++ "-pa " ++ Pa ++ " "
+	++ "-env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ NameStr ++ " "
+	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()) ++ " "
+        ++ "-s " ++ atom_to_list(?MODULE) ++ " lots_of_used_fds_on_boot_slave "
+        ++ atom_to_list(node()),
+    io:format("Starting node ~p: ~s~n", [FullName, CmdLine]),
+    net_kernel:monitor_nodes(true),
+    Port = case open_port({spawn, CmdLine}, [exit_status]) of
+               Prt when is_port(Prt) ->
+                   Prt;
+               OPError ->
+                   exit({failed_to_start_node, {open_port_error, OPError}})
+           end,
+    receive
+        {Port, {exit_status, 17}} ->
+            {skip, "Cannot open enough fds to test this"};
+        {Port, {exit_status, Error}} ->
+            exit({failed_to_start_node, {exit_status, Error}});
+        {nodeup, FullName} ->
+            io:format("~p connected!~n", [FullName]),
+            FullName = rpc:call(FullName, erlang, node, []),
+            rpc:cast(FullName, erlang, halt, []),
+            receive
+                {Port, {exit_status, 0}} ->
+                    ok;
+                {Port, {exit_status, Error}} ->
+                    exit({unexpected_exit_status, Error})
+            after 5000 ->
+                    exit(missing_exit_status)
+            end
+    after 5000 ->
+            exit(connection_timeout)
+    end.
+
+lots_of_used_fds_on_boot_slave([Master]) ->
+    erlang:monitor_node(Master, true),
+    receive
+        {nodedown, Master} ->
+            erlang:halt()
+    end,
+    ok.
+
 thread_mseg_alloc_cache_clean(Config) when is_list(Config) ->
     case {erlang:system_info(threads),
           erlang:system_info({allocator,mseg_alloc}),
@@ -2064,6 +2157,9 @@ thr_msg_blast_receiver_proc(Port, Max, Parent, Done) ->
         "done" ->
             Parent ! Done
     end.
+
+thr_msg_blast() ->
+    [{timetrap, {minutes, 10}}].
 
 thr_msg_blast(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
@@ -2642,7 +2738,6 @@ start_node(Config) when is_list(Config) ->
 start_node(Name) ->
     start_node(Name, "").
 start_node(NodeName, Args) ->
-    Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)
                         ++ "-"
                         ++ atom_to_list(NodeName)
@@ -2650,7 +2745,17 @@ start_node(NodeName, Args) ->
                         ++ integer_to_list(erlang:system_time(second))
                         ++ "-"
                         ++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, Args ++ " -pa "++Pa}]).
+    start_node_final(Name, Args).
+start_node_final(Name, Args) ->
+    {ok, Pwd} = file:get_cwd(),
+    FinalArgs = [Args, " -pa ", filename:dirname(code:which(?MODULE))],
+    {ok, Node} = test_server:start_node(Name, slave, [{args, FinalArgs}]),
+    LogPath = Pwd ++ "/error_log." ++ atom_to_list(Name),
+    ct:pal("Logging to: ~s", [LogPath]),
+    rpc:call(Node, logger, add_handler, [file_handler, logger_std_h,
+                                         #{formatter => {logger_formatter,#{ single_line => false }},
+                                           config => #{file => LogPath }}]),
+    {ok, Node}.
 
 stop_node(Node) ->
     test_server:stop_node(Node).
@@ -2665,24 +2770,7 @@ wait_deallocations() ->
 
 driver_alloc_size() ->
     wait_deallocations(),
-    case erlang:system_info({allocator_sizes, driver_alloc}) of
-        false ->
-            undefined;
-        MemInfo ->
-            CS = lists:foldl(
-                   fun ({instance, _, L}, Acc) ->
-                           {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
-                           {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
-                           [MBCS,SBCS | Acc]
-                   end,
-                   [],
-                   MemInfo),
-            lists:foldl(
-              fun(L, Sz0) ->
-                      {value,{_,Sz,_,_}} = lists:keysearch(blocks_size, 1, L),
-                      Sz0+Sz
-              end, 0, CS)
-    end.
+    erts_debug:alloc_blocks_size(driver_alloc).
 
 rpc(Config, Fun) ->
     case proplists:get_value(node, Config) of

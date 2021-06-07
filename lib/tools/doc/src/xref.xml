@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2017</year>
+      <year>2000</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -46,7 +46,7 @@
 <em>Module data</em>,
       which are extracted from BEAM files, include local functions,
       exported functions, local calls and external calls. By default,
-      calls to built-in functions (<term id="BIF"></term>) are ignored, but
+      calls to built-in functions (BIF) are ignored, but
       if the option <c>builtins</c>, accepted by some of this
       module's functions, is set to <c>true</c>, calls to BIFs
       are included as well. It is the analyzing OTP version that
@@ -125,7 +125,7 @@ debug information, which is an abstract
       is not exported by any analyzed module or library module. With
       this notion, a local function can be an undefined function, namely
       if it is externally used from some module. All unknown functions
-      are also undefined functions; there is a <seealso marker="xref_chapter#venn2">figure</seealso> in the
+      are also undefined functions; there is a <seeguide marker="xref_chapter#venn2">figure</seeguide> in the
       User's Guide that illustrates this relationship.
       </p>
     <p>Starting with R9C, the module attribute tag <c>deprecated</c>
@@ -138,6 +138,9 @@ debug information, which is an abstract
       <tag>-deprecated({f,1}).</tag>
       <item>The exported function <c>f/1</c> is deprecated. Nothing is
        said whether <c>f/1</c> will be removed or not.</item>
+      <tag>-deprecated({f,1,"Use g/1 instead"}).</tag>
+      <item>As above but with a descriptive string. The string is currently
+       unused by <c>xref</c> but other tools can make use of it.</item>
       <tag>-deprecated({f,'_'}).</tag>
       <item>All exported functions <c>f/0</c>, <c>f/1</c> and so on are
        deprecated.</item>
@@ -705,43 +708,72 @@ Two functions (modules,
       necessary to set up module data again is called, all user
       variables are forgotten.
       </p>
-    <p><em>Types</em></p>
-    <pre>
-application() = atom()
-arity() = int() | -1
-bool() = true | false
-call() = {atom(), atom()} | funcall()
-constant() = mfa() | module() | application() | release()
-directory() = string()
-file() = string()
-funcall() = {mfa(), mfa()}
-function() = atom()
-int() = integer() >= 0
-library() = atom()
-library_path() = path() | code_path
-mfa() = {module(), function(), arity()}
-mode() = functions | modules
-module() = atom()
-release() = atom()
-string_position() = int() | at_end
-variable() = atom()
-xref() = atom() | pid()  </pre>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="application"></name>
+    </datatype>
+    <datatype>
+      <name name="call"></name>
+    </datatype>
+    <datatype>
+      <name name="constant"></name>
+    </datatype>
+    <datatype>
+      <name name="directory"></name>
+    </datatype>
+    <datatype>
+      <name name="file"></name>
+    </datatype>
+    <datatype>
+      <name name="file_error"></name>
+    </datatype>
+    <datatype>
+      <name name="funcall"></name>
+    </datatype>
+    <datatype>
+      <name name="function_name"></name>
+    </datatype>
+    <datatype>
+      <name name="library"></name>
+    </datatype>
+    <datatype>
+      <name name="library_path"></name>
+    </datatype>
+    <datatype>
+      <name name="mode"></name>
+    </datatype>
+    <datatype>
+      <name name="path"></name>
+    </datatype>
+    <datatype>
+      <name name="release"></name>
+    </datatype>
+    <datatype>
+      <name name="string_position"></name>
+    </datatype>
+    <datatype>
+      <name name="variable"></name>
+    </datatype>
+    <datatype>
+      <name name="xarity"></name>
+    </datatype>
+    <datatype>
+      <name name="xmfa"></name>
+    </datatype>
+    <datatype>
+      <name name="xref"></name>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name since="">add_application(Xref, Directory [, Options]) ->  {ok, application()} | Error</name>
+      <name name="add_application" arity="2" since=""></name>
+      <name name="add_application" arity="3" since=""></name>
       <fsummary>Add the modules of an application.</fsummary>
-      <type>
-        <v>Directory = directory()</v>
-        <v>Error = {error, module(), Reason}</v>
-        <v>Options = [Option] | Option</v>
-        <v>Option = {builtins, bool()} | {name, application()}  | {verbose, bool()} | {warnings, bool()}</v>
-        <v>Reason =  {application_clash, {application(), directory(), directory()}} | {file_error, file(), error()} | {invalid_filename, term()} | {invalid_options, term()} | -&nbsp;see&nbsp;also&nbsp;add_directory&nbsp;-</v>
-        <v>Xref = xref()</v>
-      </type>
+      <type name="add_dir_rsn"/>
       <desc>
-        <p>Adds an application, the modules of the application and <seealso marker="#module_data">module data</seealso> of the
-          modules to an <seealso marker="#xref_server">Xref server</seealso>.
+        <p>Adds an application, the modules of the application and <seeerl marker="#module_data">module data</seeerl> of the
+          modules to an <seeerl marker="#xref_server">Xref server</seeerl>.
           The modules will be members of the application.
           The default is to use the base name of the
           directory with the version removed as application name, but
@@ -753,28 +785,21 @@ xref() = atom() | pid()  </pre>
           directory, otherwise modules are searched for in the given
           directory.
           </p>
-        <p>If the <seealso marker="#mode">mode</seealso> of the Xref
+        <p>If the <seeerl marker="#mode">mode</seeerl> of the Xref
           server is <c>functions</c>, BEAM files that contain no
-          <seealso marker="#debug_info">debug information</seealso> are
+          <seeerl marker="#debug_info">debug information</seeerl> are
           ignored.
           </p>
       </desc>
     </func>
     <func>
-      <name since="">add_directory(Xref, Directory [, Options]) ->  {ok, Modules} | Error</name>
+      <name name="add_directory" arity="2" since=""></name>
+      <name name="add_directory" arity="3" since=""></name>
       <fsummary>Add the modules in a directory.</fsummary>
-      <type>
-        <v>Directory = directory()</v>
-        <v>Error = {error, module(), Reason}</v>
-        <v>Modules = [module()]</v>
-        <v>Options = [Option] | Option</v>
-        <v>Option = {builtins, bool()} | {recurse, bool()}  | {verbose, bool()} | {warnings, bool()}</v>
-        <v>Reason = {file_error, file(), error()} | {invalid_filename, term()} | {invalid_options, term()} | {unrecognized_file, file()} | -&nbsp;error from beam_lib:chunks/2&nbsp;-</v>
-        <v>Xref = xref()</v>
-      </type>
+      <type name="add_dir_rsn"/>
       <desc>
-        <p>Adds the modules found in the given directory and the <seealso marker="#module_data">modules' data</seealso>
-          to an <seealso marker="#xref_server">Xref server</seealso>. 
+        <p>Adds the modules found in the given directory and the <seeerl marker="#module_data">modules' data</seeerl>
+          to an <seeerl marker="#xref_server">Xref server</seeerl>. 
           The default is not to examine subdirectories, but if the option
           <c>recurse</c> has the value <c>true</c>, modules are searched
           for in subdirectories on all levels as well as in the given 
@@ -783,51 +808,39 @@ xref() = atom() | pid()  </pre>
           </p>
         <p>The modules added will not be members of any applications. 
           </p>
-        <p>If the <seealso marker="#mode">mode</seealso> of the Xref
+        <p>If the <seeerl marker="#mode">mode</seeerl> of the Xref
           server is <c>functions</c>, BEAM files that contain no
-          <seealso marker="#debug_info">debug information</seealso> are
+          <seeerl marker="#debug_info">debug information</seeerl> are
           ignored.
           </p>
       </desc>
     </func>
     <func>
-      <name since="">add_module(Xref, File [, Options]) -> {ok, module()} | Error</name>
+      <name name="add_module" arity="2" since=""></name>
+      <name name="add_module" arity="3" since=""></name>
       <fsummary>Add a module.</fsummary>
-      <type>
-        <v>Error = {error, module(), Reason}</v>
-        <v>File = file()</v>
-        <v>Options = [Option] | Option</v>
-        <v>Option = {builtins, bool()} | {verbose, bool()}  | {warnings, bool()}</v>
-        <v>Reason = {file_error, file(), error()} | {invalid_filename, term()} | {invalid_options, term()} | {module_clash, {module(), file(), file()}} | {no_debug_info, file()} | -&nbsp;error from beam_lib:chunks/2&nbsp;-</v>
-        <v>Xref = xref()</v>
-      </type>
+      <type name="add_mod_rsn"/>
       <desc>
-        <p>Adds a module and its <seealso marker="#module_data">module data</seealso> to an <seealso marker="#xref_server">Xref server</seealso>.
+        <p>Adds a module and its <seeerl marker="#module_data">module data</seeerl> to an <seeerl marker="#xref_server">Xref server</seeerl>.
           The module will not be member of any application.
           Returns the name of the module.
           </p>
-        <p>If the <seealso marker="#mode">mode</seealso> of the Xref
+        <p>If the <seeerl marker="#mode">mode</seeerl> of the Xref
           server is <c>functions</c>, and the BEAM file contains no
-          <seealso marker="#debug_info">debug information</seealso>,
+          <seeerl marker="#debug_info">debug information</seeerl>,
           the error message <c>no_debug_info</c> is returned.
           </p>
       </desc>
     </func>
     <func>
-      <name since="">add_release(Xref, Directory [, Options]) ->  {ok, release()} | Error</name>
+      <name name="add_release" arity="2" since=""></name>
+      <name name="add_release" arity="3" since=""></name>
       <fsummary>Add the modules of a release.</fsummary>
-      <type>
-        <v>Directory = directory()</v>
-        <v>Error = {error, module(), Reason}</v>
-        <v>Options = [Option] | Option</v>
-        <v>Option = {builtins, bool()} | {name, release()}  | {verbose, bool()} | {warnings, bool()}</v>
-        <v>Reason =  {application_clash, {application(), directory(), directory()}} | {file_error, file(), error()} | {invalid_filename, term()} | {invalid_options, term()} | {release_clash, {release(), directory(), directory()}} | -&nbsp;see&nbsp;also&nbsp;add_directory&nbsp;-</v>
-        <v>Xref = xref()</v>
-      </type>
+      <type name="add_dir_rsn"/>
       <desc>
         <p>Adds a release, the applications of the release, the
-          modules of the applications, and <seealso marker="#module_data">module data</seealso> of the
-          modules to an <seealso marker="#xref_server">Xref server</seealso>.
+          modules of the applications, and <seeerl marker="#module_data">module data</seeerl> of the
+          modules to an <seeerl marker="#xref_server">Xref server</seeerl>.
           The applications will be members of the release, 
           and the modules will be members of the applications.
           The default is to use the base name of the
@@ -841,120 +854,109 @@ xref() = atom() | pid()  </pre>
           If there are several versions of some application, the one
           with the highest version is chosen.
           </p>
-        <p>If the <seealso marker="#mode">mode</seealso> of the Xref
+        <p>If the <seeerl marker="#mode">mode</seeerl> of the Xref
           server is <c>functions</c>, BEAM files that contain no
-          <seealso marker="#debug_info">debug information</seealso> are
+          <seeerl marker="#debug_info">debug information</seeerl> are
           ignored.
           </p>
       </desc>
     </func>
     <func>
-      <name since="">analyze(Xref, Analysis [, Options]) ->  {ok, Answer} | Error</name>
+      <name name="analyze" arity="2" since=""></name>
+      <name name="analyze" arity="3" since=""></name>
       <fsummary>Evaluate a predefined analysis.</fsummary>
-      <type>
-        <v>Analysis = undefined_function_calls  | undefined_functions | locals_not_used | exports_not_used | deprecated_function_calls | {deprecated_function_calls, DeprFlag} | deprecated_functions | {deprecated_functions, DeprFlag} | {call, FuncSpec} | {use, FuncSpec} | {module_call, ModSpec} | {module_use, ModSpec} | {application_call, AppSpec} | {application_use, AppSpec} | {release_call, RelSpec} | {release_use, RelSpec}</v>
-        <v>Answer = [term()]</v>
-        <v>AppSpec = application() | [application()]</v>
-        <v>DeprFlag = next_version | next_major_release | eventually</v>
-        <v>Error = {error, module(), Reason}</v>
-        <v>FuncSpec = mfa() | [mfa()]</v>
-        <v>ModSpec = module() | [module()]</v>
-        <v>Options = [Option] | Option</v>
-        <v>Option = {verbose, bool()}</v>
-        <v>RelSpec = release() | [release()]</v>
-        <v>Reason = {invalid_options, term()} | {parse_error, string_position(), term()} | {unavailable_analysis, term()} | {unknown_analysis, term()} | {unknown_constant, string()} | {unknown_variable, variable()}</v>
-        <v>Xref = xref()</v>
-      </type>
+      <type name="analysis"/>
+      <type name="app_spec"/>
+      <type name="depr_flag"/>
+      <type name="func_spec"/>
+      <type name="mod_spec"/>
+      <type name="rel_spec"/>
+      <type name="analyze_rsn"/>
       <desc>
         <p>          <marker id="analyze"></marker>
 Evaluates a predefined analysis.
           Returns a sorted list without duplicates of <c>call()</c> or
           <c>constant()</c>, depending on the chosen analysis. The
-          predefined analyses, which operate on all <seealso marker="#analyzed_module">analyzed modules</seealso>, are
-          (analyses marked with (*) are available in <c>functions</c><seealso marker="#mode">mode</seealso> only):</p>
+          predefined analyses, which operate on all <seeerl marker="#analyzed_module">analyzed modules</seeerl>, are
+          (analyses marked with (*) are available in <c>functions</c><seeerl marker="#mode">mode</seeerl> only):</p>
         <taglist>
           <tag><c>undefined_function_calls</c>(*)</tag>
-          <item>Returns a list of calls to <seealso marker="#undefined_function">undefined functions</seealso>.</item>
+          <item>Returns a list of calls to <seeerl marker="#undefined_function">undefined functions</seeerl>.</item>
           <tag><c>undefined_functions</c></tag>
-          <item>Returns a list of <seealso marker="#undefined_function">undefined functions</seealso>. </item>
+          <item>Returns a list of <seeerl marker="#undefined_function">undefined functions</seeerl>. </item>
           <tag><c>locals_not_used</c>(*)</tag>
           <item>Returns a list of local functions that have not been
            locally used.</item>
           <tag><c>exports_not_used</c></tag>
           <item>Returns a list of exported functions that have not been
-           externally used.</item>
+           externally used. Note that in <c>modules</c> mode,
+	    <c>M:behaviour_info/1</c> is never reported as unused.
+	  </item>
           <tag><c>deprecated_function_calls</c>(*)</tag>
-          <item>Returns a list of external calls to <seealso marker="#deprecated_function">deprecated functions</seealso>.</item>
-          <tag><c>{deprecated_function_calls, DeprFlag}</c>(*)</tag>
+          <item>Returns a list of external calls to <seeerl marker="#deprecated_function">deprecated functions</seeerl>.</item>
+          <tag><c>{deprecated_function_calls, <anno>DeprFlag</anno>}</c>(*)</tag>
           <item>Returns a list of external calls to deprecated
-           functions. If <c>DeprFlag</c> is equal to
+           functions. If <c><anno>DeprFlag</anno></c> is equal to
           <c>next_version</c>, calls to functions to be removed in
-           next version are returned. If <c>DeprFlag</c> is equal to
+           next version are returned. If <c><anno>DeprFlag</anno></c> is equal to
           <c>next_major_release</c>, calls to functions to be
            removed in next major release are returned as well as
            calls to functions to be removed in next version. Finally,
-           if <c>DeprFlag</c> is equal to <c>eventually</c>, all
+           if <c><anno>DeprFlag</anno></c> is equal to <c>eventually</c>, all
            calls to functions to be removed are returned, including
            calls to functions to be removed in next version or next
            major release.</item>
           <tag><c>deprecated_functions</c></tag>
           <item>Returns a list of externally used deprecated
            functions.</item>
-          <tag><c>{deprecated_functions, DeprFlag}</c></tag>
+          <tag><c>{deprecated_functions, <anno>DeprFlag</anno>}</c></tag>
           <item>Returns a list of externally used deprecated
-           functions. If <c>DeprFlag</c> is equal to
+           functions. If <c><anno>DeprFlag</anno></c> is equal to
           <c>next_version</c>, functions to be removed in next
-           version are returned. If <c>DeprFlag</c> is equal to
+           version are returned. If <c><anno>DeprFlag</anno></c> is equal to
           <c>next_major_release</c>, functions to be removed in next
            major release are returned as well as functions to be
-           removed in next version. Finally, if <c>DeprFlag</c> is
+           removed in next version. Finally, if <c><anno>DeprFlag</anno></c> is
            equal to <c>eventually</c>, all functions to be removed
            are returned, including functions to be removed in next
            version or next major release.</item>
-          <tag><c>{call, FuncSpec}</c>(*)</tag>
+          <tag><c>{call, <anno>FuncSpec</anno>}</c>(*)</tag>
           <item>Returns a list of functions called by some of the given 
            functions.</item>
-          <tag><c>{use, FuncSpec}</c>(*)</tag>
+          <tag><c>{use, <anno>FuncSpec</anno>}</c>(*)</tag>
           <item>Returns a list of functions that use some of the given 
            functions.</item>
-          <tag><c>{module_call, ModSpec}</c></tag>
+          <tag><c>{module_call, <anno>ModSpec</anno>}</c></tag>
           <item>Returns a list of modules called by some of the given 
            modules.</item>
-          <tag><c>{module_use, ModSpec}</c></tag>
+          <tag><c>{module_use, <anno>ModSpec</anno>}</c></tag>
           <item>Returns a list of modules that use some of the given 
            modules.</item>
-          <tag><c>{application_call, AppSpec}</c></tag>
+          <tag><c>{application_call, <anno>AppSpec</anno>}</c></tag>
           <item>Returns a list of applications called by some of the given 
            applications.</item>
-          <tag><c>{application_use, AppSpec}</c></tag>
+          <tag><c>{application_use, <anno>AppSpec</anno>}</c></tag>
           <item>Returns a list of applications that use some of the given 
            applications.</item>
-          <tag><c>{release_call, RelSpec}</c></tag>
+          <tag><c>{release_call, <anno>RelSpec</anno>}</c></tag>
           <item>Returns a list of releases called by some of the given 
            releases.</item>
-          <tag><c>{release_use, RelSpec}</c></tag>
+          <tag><c>{release_use, <anno>RelSpec</anno>}</c></tag>
           <item>Returns a list of releases that use some of the given 
            releases.</item>
         </taglist>
       </desc>
     </func>
     <func>
-      <name since="">d(Directory) -> [DebugInfoResult] | [NoDebugInfoResult] | Error</name>
+      <name name="d" arity="1" since=""></name>
       <fsummary>Check the modules in a directory using the code path.</fsummary>
-      <type>
-        <v>Directory = directory()</v>
-        <v>DebugInfoResult = {deprecated, [funcall()]} | {undefined, [funcall()]} | {unused, [mfa()]}</v>
-        <v>Error = {error, module(), Reason}</v>
-        <v>NoDebugInfoResult = {deprecated, [mfa()]} | {undefined, [mfa()]}</v>
-        <v>Reason = {file_error, file(), error()} | {invalid_filename, term()} | {unrecognized_file, file()} | -&nbsp;error from beam_lib:chunks/2&nbsp;-</v>
-      </type>
       <desc>
         <p>The modules found in the given directory are checked for
-          calls to <seealso marker="#deprecated_function">deprecated functions</seealso>, calls to <seealso marker="#undefined_function">undefined functions</seealso>,
+          calls to <seeerl marker="#deprecated_function">deprecated functions</seeerl>, calls to <seeerl marker="#undefined_function">undefined functions</seeerl>,
           and for unused local functions. The code path is used as
-          <seealso marker="#library_path">library path</seealso>.
+          <seeerl marker="#library_path">library path</seeerl>.
           </p>
-        <p>If some of the found BEAM files contain <seealso marker="#debug_info">debug information</seealso>, then those
+        <p>If some of the found BEAM files contain <seeerl marker="#debug_info">debug information</seeerl>, then those
           modules are checked and a list of tuples is returned. The
           first element of each tuple is one of:
           </p>
@@ -979,100 +981,70 @@ Evaluates a predefined analysis.
       </desc>
     </func>
     <func>
-      <name since="">forget(Xref) -> ok</name>
-      <name since="">forget(Xref, Variables) -> ok | Error</name>
+      <name name="forget" arity="1" since=""></name>
+      <name name="forget" arity="2" since=""></name>
       <fsummary>Remove user variables and their values.</fsummary>
-      <type>
-        <v>Error = {error, module(), Reason}</v>
-        <v>Reason = {not_user_variable, term()}</v>
-        <v>Variables = [variable()] | variable()</v>
-        <v>Xref = xref()</v>
-      </type>
       <desc>
         <p><c>forget/1</c> and <c>forget/2</c> remove all or some of
-          the <seealso marker="#user_variable">user variables</seealso> of an <seealso marker="#xref_server">xref server</seealso>.</p>
+          the <seeerl marker="#user_variable">user variables</seeerl> of an <seeerl marker="#xref_server">Xref server</seeerl>.</p>
       </desc>
     </func>
     <func>
-      <name since="">format_error(Error) -> Chars</name>
+      <name name="format_error" arity="1" since=""></name>
       <fsummary>Return an English description of an Xref error reply.</fsummary>
-      <type>
-        <v>Error = {error, module(), term()}</v>
-        <v>Chars = [char() | Chars]</v>
-      </type>
       <desc>
         <p>Given the error returned by any function of this module, 
           the function <c>format_error</c> returns a descriptive string
           of the error in English. For file errors, the function 
-          <c>format_error/1</c> in the <c>file</c> module is called.</p>
+          <seemfa marker="kernel:file#format_error/1"><c>file:format_error/1</c></seemfa>
+          is called.</p>
       </desc>
     </func>
     <func>
-      <name since="">get_default(Xref) -> [{Option, Value}]</name>
-      <name since="">get_default(Xref, Option) -> {ok, Value} | Error</name>
+      <name name="get_default" arity="1" since=""></name>
+      <name name="get_default" arity="2" since=""></name>
       <fsummary>Return the default values of options.</fsummary>
-      <type>
-        <v>Error = {error, module(), Reason}</v>
-        <v>Option = builtins | recurse | verbose | warnings</v>
-        <v>Reason = {invalid_options, term()}</v>
-        <v>Value = bool()</v>
-        <v>Xref = xref()</v>
-      </type>
       <desc>
         <p>Returns the default values of one or more options.</p>
       </desc>
     </func>
     <func>
-      <name since="">get_library_path(Xref) -> {ok, LibraryPath}</name>
+      <name name="get_library_path" arity="1" since=""></name>
       <fsummary>Return the library path.</fsummary>
-      <type>
-        <v>LibraryPath = library_path()</v>
-        <v>Xref = xref()</v>
-      </type>
       <desc>
-        <p>Returns the <seealso marker="#library_path">library path</seealso>.</p>
+        <p>Returns the <seeerl marker="#library_path">library path</seeerl>.</p>
       </desc>
     </func>
     <func>
-      <name since="">info(Xref) -> [Info]</name>
-      <name since="">info(Xref, Category) -> [{Item, [Info]}]</name>
-      <name since="">info(Xref, Category, Items) ->  [{Item, [Info]}]</name>
+      <name name="info" arity="1" since=""></name>
+      <name name="info" arity="2" since=""></name>
+      <name name="info" arity="3" since=""></name>
       <fsummary>Return information about an Xref server.</fsummary>
-      <type>
-        <v>Application = [] | [application()]</v>
-        <v>Category = modules | applications | releases | libraries</v>
-        <v>Info = {application, Application} | {builtins, bool()} | {directory, directory()} | {library_path, library_path()} | {mode, mode()} | {no_analyzed_modules, int()} | {no_applications, int()} | {no_calls, {NoResolved, NoUnresolved}} | {no_function_calls, {NoLocal, NoResolvedExternal, NoUnresolved}} | {no_functions, {NoLocal, NoExternal}} | {no_inter_function_calls, int()} | {no_releases, int()} | {release, Release} | {version, Version}</v>
-        <v>Item = module() | application() | release() | library()</v>
-        <v>Items = Item | [Item]</v>
-        <v>NoLocal = NoExternal = NoResolvedExternal, NoResolved = NoUnresolved = int()</v>
-        <v>Release = [] | [release()]</v>
-        <v>Version = [int()]</v>
-        <v>Xref = xref()</v>
-      </type>
+      <type name="info"/>
       <desc>
         <p>The <c>info</c> functions return information as a list of
           pairs {Tag,&nbsp;term()} in some order about the state and the 
-          <seealso marker="#module_data">module data</seealso> of an <seealso marker="#xref_server">Xref server</seealso>.
+          <seeerl marker="#module_data">module data</seeerl> of an <seeerl marker="#xref_server">Xref server</seeerl>.
           </p>
         <p><c>info/1</c> returns information with the following tags
           (tags  marked with (*) are available in <c>functions</c>
           mode only):</p>
         <list type="bulleted">
-          <item><c>library_path</c>, the <seealso marker="#library_path">library path</seealso>;</item>
-          <item><c>mode</c>, the <seealso marker="#mode">mode</seealso>;</item>
+          <item><c>library_path</c>, the <seeerl marker="#library_path">library path</seeerl>;</item>
+          <item><c>mode</c>, the <seeerl marker="#mode">mode</seeerl>;</item>
           <item><c>no_releases</c>, number of releases;</item>
           <item><c>no_applications</c>, total number of applications
            (of all releases);</item>
-          <item><c>no_analyzed_modules</c>, total number of <seealso marker="#analyzed_module">analyzed modules</seealso>;</item>
+          <item><c>no_analyzed_modules</c>, total number of <seeerl marker="#analyzed_module">analyzed modules</seeerl>;</item>
           <item><c>no_calls</c> (*), total number of calls (in all
            modules), regarding instances of one function call in 
            different lines as separate calls;</item>
-          <item><c>no_function_calls</c> (*), total number of <seealso marker="#local_call">local calls</seealso>, resolved <seealso marker="#external_call">external calls</seealso> and 
-          <seealso marker="#unresolved_call">unresolved calls</seealso>;</item>
+          <item><c>no_function_calls</c> (*), total number of <seeerl marker="#local_call">local calls</seeerl>, resolved <seeerl marker="#external_call">external calls</seeerl> and 
+          <seeerl marker="#unresolved_call">unresolved calls</seeerl>;</item>
           <item><c>no_functions</c> (*), total number of local and exported
            functions;</item>
           <item><c>no_inter_function_calls</c> (*), total number of
-           calls of the <seealso marker="#inter_call_graph">Inter Call Graph</seealso>.</item>
+           calls of the <seeerl marker="#inter_call_graph">Inter Call Graph</seeerl>.</item>
         </list>
         <p><c>info/2</c> and <c>info/3</c> return information about
           all or some of the analyzed modules, applications, releases
@@ -1141,7 +1113,7 @@ Evaluates a predefined analysis.
         </list>
         <p>The following information is returned for every library module:</p>
         <list type="bulleted">
-          <item><c>directory</c>, the directory where the <seealso marker="#library_module">library module's</seealso> BEAM file is located.</item>
+          <item><c>directory</c>, the directory where the <seeerl marker="#library_module">library module's</seeerl> BEAM file is located.</item>
         </list>
         <p>For every number of calls, functions etc. returned by the
           <c>no_</c> tags, there is a query returning the same number.
@@ -1220,25 +1192,16 @@ Evaluates a predefined analysis.
       </desc>
     </func>
     <func>
-      <name since="">m(Module) -> [DebugInfoResult] | [NoDebugInfoResult] | Error</name>
-      <name since="">m(File) -> [DebugInfoResult] | [NoDebugInfoResult] | Error</name>
+      <name name="m" arity="1" since=""></name>
       <fsummary>Check a module using the code path.</fsummary>
-      <type>
-        <v>DebugInfoResult = {deprecated, [funcall()]} | {undefined, [funcall()]} | {unused, [mfa()]}</v>
-        <v>Error = {error, module(), Reason}</v>
-        <v>File = file()</v>
-        <v>Module = module()</v>
-        <v>NoDebugInfoResult = {deprecated, [mfa()]} | {undefined, [mfa()]}</v>
-        <v>Reason = {file_error, file(), error()} | {interpreted, module()} | {invalid_filename, term()} | {cover_compiled, module()} | {no_such_module, module()}  | -&nbsp;error from beam_lib:chunks/2&nbsp;-</v>
-      </type>
       <desc>
         <p>The given BEAM file (with or without the <c>.beam</c>
           extension) or the file found by calling
-          <c>code:which(Module)</c> is checked for calls to <seealso marker="#deprecated_function">deprecated functions</seealso>, calls to <seealso marker="#undefined_function">undefined functions</seealso>,
+          <c>code:which(<anno>Module</anno>)</c> is checked for calls to <seeerl marker="#deprecated_function">deprecated functions</seeerl>, calls to <seeerl marker="#undefined_function">undefined functions</seeerl>,
           and for unused local functions. The code path is used as
-          <seealso marker="#library_path">library path</seealso>.
+          <seeerl marker="#library_path">library path</seeerl>.
           </p>
-        <p>If the BEAM file contains <seealso marker="#debug_info">debug information</seealso>, then a
+        <p>If the BEAM file contains <seeerl marker="#debug_info">debug information</seeerl>, then a
           list of tuples is returned. The first element of each tuple
           is one of:
           </p>
@@ -1263,28 +1226,16 @@ Evaluates a predefined analysis.
       </desc>
     </func>
     <func>
-      <name since="">q(Xref, Query [, Options]) -> {ok, Answer} | Error</name>
+      <name name="q" arity="2" since=""></name>
+      <name name="q" arity="3" since=""></name>
       <fsummary>Evaluate a query.</fsummary>
-      <type>
-        <v>Answer = false | [constant()] | [Call] | [Component] | int() | [DefineAt] | [CallAt] | [AllLines]</v>
-        <v>Call = call() | ComponentCall</v>
-        <v>ComponentCall = {Component, Component}</v>
-        <v>Component = [constant()]</v>
-        <v>DefineAt = {mfa(), LineNumber}</v>
-        <v>CallAt = {funcall(), LineNumbers}</v>
-        <v>AllLines = {{DefineAt, DefineAt}, LineNumbers}</v>
-        <v>Error = {error, module(), Reason}</v>
-        <v>LineNumbers = [LineNumber]</v>
-        <v>LineNumber = int()</v>
-        <v>Options = [Option] | Option</v>
-        <v>Option = {verbose, bool()}</v>
-        <v>Query = string() | atom()</v>
-        <v>Reason = {invalid_options, term()} | {parse_error, string_position(), term()} | {type_error, string()} | {type_mismatch, string(), string()} | {unknown_analysis, term()} | {unknown_constant, string()} | {unknown_variable, variable()} | {variable_reassigned, string()}</v>
-        <v>Xref = xref()</v>
-      </type>
+      <type name="answer"/>
+      <type name="define_at"/>
+      <type name="component"/>
+      <type name="q_rsn"/>
       <desc>
-        <p>Evaluates a <seealso marker="#query">query</seealso> in the
-          context of an <seealso marker="#xref_server">Xref server</seealso>, and returns the value of the last
+        <p>Evaluates a <seeerl marker="#query">query</seeerl> in the
+          context of an <seeerl marker="#xref_server">Xref server</seeerl>, and returns the value of the last
           statement. The syntax of the value depends on the
           expression:
           </p>
@@ -1294,9 +1245,10 @@ Evaluates a predefined analysis.
           <item>A set of constants is represented by a sorted list
            without duplicates of <c>constant()</c>.</item>
           <item>A set of strongly connected components is a sorted list
-           without duplicates of <c>Component</c>.</item>
+           without duplicates of <c><anno>Component</anno></c>.</item>
           <item>A set of calls between strongly connected components is
-           a sorted list without duplicates of <c>ComponentCall</c>.</item>
+            a sorted list without duplicates of
+            <c><anno>ComponentCall</anno></c>.</item>
           <item>A chain of calls is represented by a list of
           <c>constant()</c>. The list contains the From vertex of every
            call and the To vertex of the last call.</item>
@@ -1306,74 +1258,50 @@ Evaluates a predefined analysis.
           <c>digraph</c> representation) is represented by the atom
           <c>'closure()'</c>.</item>
           <item>A set of line numbered functions is represented by a sorted
-           list without duplicates of <c>DefineAt</c>.</item>
+           list without duplicates of <c><anno>DefineAt</anno></c>.</item>
           <item>A set of line numbered function calls is represented by
-           a sorted list without duplicates of <c>CallAt</c>.</item>
+           a sorted list without duplicates of <c><anno>CallAt</anno></c>.</item>
           <item>A set of line numbered functions and function calls is
            represented by a sorted list without duplicates of
           <c>AllLines</c>.</item>
         </list>
-        <p>For both <c>CallAt</c> and <c>AllLines</c> it holds that for
-          no list element is <c>LineNumbers</c> an empty list; such
+        <p>For both <c><anno>CallAt</anno></c> and <c><anno>AllLines</anno></c>
+          it holds that for
+          no list element is <c><anno>LineNumbers</anno></c> an empty list; such
           elements have been removed. The constants of <c>component</c>
-          and the integers of <c>LineNumbers</c> are sorted and without
-          duplicates.
+          and the integers of <c><anno>LineNumbers</anno></c> are sorted and
+          without duplicates.
           </p>
       </desc>
     </func>
     <func>
-      <name since="">remove_application(Xref, Applications) -> ok | Error</name>
+      <name name="remove_application" arity="2" since=""></name>
       <fsummary>Remove applications and their modules.</fsummary>
-      <type>
-        <v>Applications = application() | [application()]</v>
-        <v>Error = {error, module(), Reason}</v>
-        <v>Reason = {no_such_application, application()}</v>
-        <v>Xref = xref()</v>
-      </type>
       <desc>
-        <p>Removes applications and their modules and <seealso marker="#module_data">module data</seealso> from an <seealso marker="#xref_server">Xref server</seealso>.</p>
+        <p>Removes applications and their modules and <seeerl marker="#module_data">module data</seeerl> from an <seeerl marker="#xref_server">Xref server</seeerl>.</p>
       </desc>
     </func>
     <func>
-      <name since="">remove_module(Xref, Modules) -> ok | Error</name>
+      <name name="remove_module" arity="2" since=""></name>
       <fsummary>Remove analyzed modules.</fsummary>
-      <type>
-        <v>Error = {error, module(), Reason}</v>
-        <v>Modules = module() | [module()]</v>
-        <v>Reason = {no_such_module, module()}</v>
-        <v>Xref = xref()</v>
-      </type>
       <desc>
-        <p>Removes <seealso marker="#analyzed_module">analyzed modules</seealso> and <seealso marker="#module_data">module data</seealso> from an <seealso marker="#xref_server">Xref server</seealso>.</p>
+        <p>Removes <seeerl marker="#analyzed_module">analyzed modules</seeerl> and <seeerl marker="#module_data">module data</seeerl> from an <seeerl marker="#xref_server">Xref server</seeerl>.</p>
       </desc>
     </func>
     <func>
-      <name since="">remove_release(Xref, Releases) -> ok | Error</name>
+      <name name="remove_release" arity="2" since=""></name>
       <fsummary>Remove releases and their applications and modules.</fsummary>
-      <type>
-        <v>Error = {error, module(), Reason}</v>
-        <v>Reason = {no_such_release, release()}</v>
-        <v>Releases = release() | [release()]</v>
-        <v>Xref = xref()</v>
-      </type>
       <desc>
         <p>Removes releases and their applications, modules and
-          <seealso marker="#module_data">module data</seealso> from an
-          <seealso marker="#xref_server">Xref server</seealso>.</p>
+          <seeerl marker="#module_data">module data</seeerl> from an
+          <seeerl marker="#xref_server">Xref server</seeerl>.</p>
       </desc>
     </func>
     <func>
-      <name since="">replace_application(Xref, Application,  Directory [, Options]) -> {ok, application()} | Error</name>
+      <name name="replace_application" arity="3" since=""></name>
+      <name name="replace_application" arity="4" since=""></name>
       <fsummary>Replace an application's modules.</fsummary>
-      <type>
-        <v>Application = application()</v>
-        <v>Directory = directory()</v>
-        <v>Error = {error, module(), Reason}</v>
-        <v>Options = [Option] | Option</v>
-        <v>Option = {builtins, bool()} | {verbose, bool()}  | {warnings, bool()}</v>
-        <v>Reason = {no_such_application, application()} | -&nbsp;see&nbsp;also&nbsp;add_application&nbsp;-</v>
-        <v>Xref = xref()</v>
-      </type>
+      <type name="add_dir_rsn"/>
       <desc>
         <p>Replaces the modules of an application with other modules
           read from an application directory. Release membership of the
@@ -1384,20 +1312,12 @@ Evaluates a predefined analysis.
       </desc>
     </func>
     <func>
-      <name since="">replace_module(Xref, Module, File [, Options]) ->  {ok, module()} | Error</name>
+      <name name="replace_module" arity="3" since=""></name>
+      <name name="replace_module" arity="4" since=""></name>
       <fsummary>Replace an analyzed module.</fsummary>
-      <type>
-        <v>Error = {error, module(), Reason}</v>
-        <v>File = file()</v>
-        <v>Module = module()</v>
-        <v>Options = [Option] | Option</v>
-        <v>Option = {verbose, bool()} | {warnings, bool()}</v>
-        <v>ReadModule = module()</v>
-        <v>Reason = {module_mismatch, module(), ReadModule} | {no_such_module, module()}  | -&nbsp;see&nbsp;also&nbsp;add_module&nbsp;-</v>
-        <v>Xref = xref()</v>
-      </type>
+      <type name="add_mod_rsn"/>
       <desc>
-        <p>Replaces <seealso marker="#module_data">module data</seealso> of an <seealso marker="#analyzed_module">analyzed module</seealso> with
+        <p>Replaces <seeerl marker="#module_data">module data</seeerl> of an <seeerl marker="#analyzed_module">analyzed module</seeerl> with
           data read from a BEAM file. Application membership of the
           module is retained, and so is the value of the
           <c>builtins</c> option of the module. An error is returned
@@ -1409,18 +1329,9 @@ Evaluates a predefined analysis.
       </desc>
     </func>
     <func>
-      <name since="">set_default(Xref, Option, Value) -> {ok, OldValue} | Error</name>
-      <name since="">set_default(Xref, OptionValues) -> ok | Error</name>
+      <name name="set_default" arity="3" since=""></name>
+      <name name="set_default" arity="2" since=""></name>
       <fsummary>Set the default values of options.</fsummary>
-      <type>
-        <v>Error = {error, module(), Reason}</v>
-        <v>OptionValues = [OptionValue] | OptionValue</v>
-        <v>OptionValue = {Option, Value}</v>
-        <v>Option = builtins | recurse | verbose | warnings</v>
-        <v>Reason = {invalid_options, term()}</v>
-        <v>Value = bool()</v>
-        <v>Xref = xref()</v>
-      </type>
       <desc>
         <p>Sets the default value of one or more options. 
           The options that can be set this way are:</p>
@@ -1430,24 +1341,17 @@ Evaluates a predefined analysis.
           <item><c>verbose</c>, with initial default value <c>false</c>;</item>
           <item><c>warnings</c>, with initial default value <c>true</c>.</item>
         </list>
-        <p>The initial default values are set when creating an <seealso marker="#xref_server">Xref server</seealso>. 
+        <p>The initial default values are set when creating an <seeerl marker="#xref_server">Xref server</seeerl>. 
           </p>
       </desc>
     </func>
     <func>
-      <name since="">set_library_path(Xref, LibraryPath [, Options]) ->  ok | Error</name>
+      <name name="set_library_path" arity="2" since=""></name>
+      <name name="set_library_path" arity="3" since=""></name>
       <fsummary>Set the library path and finds the library modules.</fsummary>
-      <type>
-        <v>Error = {error, module(), Reason}</v>
-        <v>LibraryPath = library_path()</v>
-        <v>Options = [Option] | Option</v>
-        <v>Option = {verbose, bool()}</v>
-        <v>Reason = {invalid_options, term()} | {invalid_path, term()}</v>
-        <v>Xref = xref()</v>
-      </type>
       <desc>
-        <p>Sets the <seealso marker="#library_path">library path</seealso>. If the given path is a list of
-          directories, the set of <seealso marker="#library_module">library modules</seealso> is
+        <p>Sets the <seeerl marker="#library_path">library path</seeerl>. If the given path is a list of
+          directories, the set of <seeerl marker="#library_module">library modules</seeerl> is
           determined by choosing the first module
           encountered while traversing the directories in
           the given order, for those modules that occur in more than
@@ -1458,10 +1362,11 @@ Evaluates a predefined analysis.
           used by the functions
           <c>m/1</c> and <c>d/1</c>, but can also be set explicitly.
           Note however that the code path will be traversed once for
-          each used <seealso marker="#library_module">library module</seealso> while setting up module data.
+          each used <seeerl marker="#library_module">library module</seeerl> while setting up module data.
           On the other hand, if there are only a few modules that are
           used but not analyzed, using <c>code_path</c> may be faster
-          than setting the library path to <c>code:get_path()</c>.
+          than setting the library path to
+          <seemfa marker="kernel:code#get_path/0"> <c>code:get_path()</c></seemfa>.
           </p>
         <p>If the library path is set to <c>code_path</c>, the set of
           library modules is not determined, and the <c>info</c>
@@ -1469,63 +1374,43 @@ Evaluates a predefined analysis.
       </desc>
     </func>
     <func>
-      <name since="">start(NameOrOptions) -> Return</name>
+      <name name="start" arity="1" since=""></name>
       <fsummary>Create an Xref server.</fsummary>
-      <type>
-        <v>NameOrOptions = Name | Options</v>
-        <v>Name = atom()</v>
-        <v>Options = [Option] | Option</v>
-        <v>Option = {xref_mode, mode()} | term()</v>
-        <v>Return = {ok, pid()}  | {error, {already_started, pid()}}</v>
-      </type>
       <desc>
-        <p>Creates an <seealso marker="#xref_server">Xref server</seealso>.
+        <p>Creates an <seeerl marker="#xref_server">Xref server</seeerl>.
           The process may optionally be given a name.
-          The default <seealso marker="#mode">mode</seealso> is <c>functions</c>.
+          The default <seeerl marker="#mode">mode</seeerl> is <c>functions</c>.
           Options that are not recognized by Xref
-          are passed on to <c>gen_server:start/4</c>.</p>
+          are passed on to
+          <seemfa marker="stdlib:gen_server#start/4"><c>gen_server:start/4</c></seemfa>.</p>
       </desc>
     </func>
     <func>
-      <name since="">start(Name, Options) -> Return</name>
+      <name name="start" arity="2" since=""></name>
       <fsummary>Create an Xref server.</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>Options = [Option] | Option</v>
-        <v>Option = {xref_mode, mode()} | term()</v>
-        <v>Return = {ok, pid()}  | {error, {already_started, pid()}}</v>
-      </type>
       <desc>
-        <p>Creates an <seealso marker="#xref_server">Xref server</seealso>
+        <p>Creates an <seeerl marker="#xref_server">Xref server</seeerl>
           with a given name. 
-          The default <seealso marker="#mode">mode</seealso> is <c>functions</c>.
+          The default <seeerl marker="#mode">mode</seeerl> is <c>functions</c>.
           Options that are not recognized by Xref
-          are passed on to <c>gen_server:start/4</c>.</p>
+          are passed on to
+          <seemfa marker="stdlib:gen_server#start/4"><c>gen_server:start/4</c></seemfa>.</p>
       </desc>
     </func>
     <func>
-      <name since="">stop(Xref)</name>
+      <name name="stop" arity="1" since=""></name>
       <fsummary>Delete an Xref server.</fsummary>
-      <type>
-        <v>Xref = xref()</v>
-      </type>
       <desc>
-        <p>Stops an <seealso marker="#xref_server">Xref server</seealso>.</p>
+        <p>Stops an <seeerl marker="#xref_server">Xref server</seeerl>.</p>
       </desc>
     </func>
     <func>
-      <name since="">update(Xref [, Options]) -> {ok, Modules} | Error</name>
+      <name name="update" arity="1" since=""></name>
+      <name name="update" arity="2" since=""></name>
       <fsummary>Replace newly compiled analyzed modules.</fsummary>
-      <type>
-        <v>Error = {error, module(), Reason}</v>
-        <v>Modules = [module()]</v>
-        <v>Options = [Option] | Option</v>
-        <v>Option = {verbose, bool()} | {warnings, bool()}</v>
-        <v>Reason = {invalid_options, term()} | {module_mismatch, module(), ReadModule} | -&nbsp;see&nbsp;also&nbsp;add_module&nbsp;-</v>
-        <v>Xref = xref()</v>
-      </type>
+      <type name="add_mod_rsn"/>
       <desc>
-        <p>Replaces the <seealso marker="#module_data">module data</seealso> of all <seealso marker="#analyzed_module">analyzed modules</seealso> the BEAM
+        <p>Replaces the <seeerl marker="#module_data">module data</seeerl> of all <seeerl marker="#analyzed_module">analyzed modules</seeerl> the BEAM
           files of which have been modified since last read by an
           <c>add</c> function or <c>update</c>. Application membership
           of the modules is retained, and so is the value of the
@@ -1534,30 +1419,24 @@ Evaluates a predefined analysis.
       </desc>
     </func>
     <func>
-      <name since="">variables(Xref [, Options]) -> {ok, [VariableInfo]}</name>
+      <name name="variables" arity="1" since=""></name>
+      <name name="variables" arity="2" since=""></name>
       <fsummary>Return the names of variables.</fsummary>
-      <type>
-        <v>Options = [Option] | Option</v>
-        <v>Option = predefined | user | {verbose, bool()}</v>
-        <v>Reason = {invalid_options, term()}</v>
-        <v>VariableInfo = {predefined, [variable()]} | {user, [variable()]}</v>
-        <v>Xref = xref()</v>
-      </type>
       <desc>
         <p>Returns a sorted lists of the names of the variables of an
-          <seealso marker="#xref_server">Xref server</seealso>. 
-          The default is to return the <seealso marker="#user_variable">user variables</seealso> only.</p>
+          <seeerl marker="#xref_server">Xref server</seeerl>. 
+          The default is to return the <seeerl marker="#user_variable">user variables</seeerl> only.</p>
       </desc>
     </func>
   </funcs>
 
   <section>
     <title>See Also</title><p>
-      <seealso marker="stdlib:beam_lib">beam_lib(3)</seealso>,
-      <seealso marker="stdlib:digraph">digraph(3)</seealso>,
-      <seealso marker="stdlib:digraph_utils">digraph_utils(3)</seealso>,
-      <seealso marker="stdlib:re">re(3)</seealso>,
-      <seealso marker="xref_chapter">TOOLS User's Guide</seealso></p>
+      <seeerl marker="stdlib:beam_lib">beam_lib(3)</seeerl>,
+      <seeerl marker="stdlib:digraph">digraph(3)</seeerl>,
+      <seeerl marker="stdlib:digraph_utils">digraph_utils(3)</seeerl>,
+      <seeerl marker="stdlib:re">re(3)</seeerl>,
+      <seeguide marker="xref_chapter">TOOLS User's Guide</seeguide></p>
   </section>
 </erlref>
 

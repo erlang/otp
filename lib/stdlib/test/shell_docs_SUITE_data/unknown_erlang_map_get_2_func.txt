@@ -1,0 +1,21 @@
+
+  [;1m-spec map_get(Key, Map) -> Value[0m
+  [;1m                 when Map :: map(), Key :: any(), Value :: any().[0m
+
+[;;4mSince[0m:
+  OTP 21.0
+
+  Returns value [;;4mValue[0m associated with [;;4mKey[0m if [;;4mMap[0m contains [;;4mKey[0m.
+
+  The call fails with a [;;4m{badmap,Map}[0m exception if [;;4mMap[0m is not a
+  map, or with a [;;4m{badkey,Key}[0m exception if no value is associated
+  with [;;4mKey[0m.
+
+  Example:
+
+    > Key = 1337,
+      Map = #{42 => value_two,1337 => "value one","a" => 1},
+      map_get(Key,Map).
+    "value one"
+
+  Allowed in guard tests.

@@ -91,7 +91,13 @@ result(Response = {{_, Code,_}, _, _},
   when ((Code =:= 200) orelse (Code =:= 206)) andalso (Stream =/= none) ->
     stream_end(Response, Request);
 
-result(Response = {{_,100,_}, _, _}, Request) ->
+%% Ignore the body of response with status code 204 or 304
+result({{_, Code, _} = StatusLine, Headers, _Body}, Request)
+  when Code =:= 204 orelse Code =:= 304 ->
+    transparent({StatusLine, Headers, <<>>}, Request);
+
+result(Response = {{_, Code, _}, _, _}, Request)
+  when (100 =< Code andalso Code =< 199) ->
     status_continue(Response, Request);
 
 %% In redirect loop
@@ -356,7 +362,7 @@ status_continue(_, #request{headers =
 
 status_continue({_,_, Data}, _) ->
     %% The data in the body in this case is actually part of the real
-    %% response sent after the "fake" 100-continue.
+    %% response.
     {ignore, Data}.
 
 status_service_unavailable(Response = {_, Headers, _}, Request) ->
@@ -398,7 +404,7 @@ redirect(Response = {_, Headers, _}, Request) ->
                     THost = http_util:maybe_add_brackets(maps:get(host, URIMap), Brackets),
                     TPort = maps:get(port, URIMap),
                     TPath = maps:get(path, URIMap),
-                    TQuery = maps:get(query, URIMap, ""),
+                    TQuery = add_question_mark(maps:get(query, URIMap, "")),
                     NewURI = uri_string:normalize(
                                uri_string:recompose(URIMap)),
                     HostPort = http_request:normalize_host(TScheme, THost, TPort),
@@ -417,6 +423,14 @@ redirect(Response = {_, Headers, _}, Request) ->
             end
     end.
 
+add_question_mark(<<>>) ->
+    <<>>;
+add_question_mark([]) ->
+    [];
+add_question_mark(Comp) when is_binary(Comp) ->
+    <<$?, Comp/binary>>;
+add_question_mark(Comp) when is_list(Comp) ->
+    [$?|Comp].
 
 %% RFC3986 - 5.2.2.  Transform References
 resolve_uri(Scheme, Host, Port, Path, Query, URI) ->
@@ -573,8 +587,6 @@ is_server_closing(Headers) when is_record(Headers, http_response_h) ->
 	    false
     end.
 
-format_response({{"HTTP/0.9", _, _} = StatusLine, _, Body}) ->
-    {{StatusLine, [], Body}, <<>>};
 format_response({StatusLine, Headers, Body = <<>>}) ->
     {{StatusLine, http_response:header_list(Headers), Body}, <<>>};
 

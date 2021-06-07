@@ -25,20 +25,8 @@
 #include "sys.h"
 #include "signal.h"
 
-/* global variable for floating point checks, (see sys.h) */
-/* Note! This is part of the interface Machine <---> sys.c */
-volatile int erl_fp_exception = 0;
-
-static void fpe_exception(int sig);
-
 void
 erts_sys_init_float(void)
-{
-}
-void erts_thread_init_float(void)
-{
-}
-void erts_thread_disable_fpe(void)
 {
 }
 

@@ -32,18 +32,22 @@
 -export([count/2, lines/1, split_at/2, split_at_stop/1,
 	 split_at_space/1, filename/1, transpose/1, segment/2,
 	 get_first_sentence/1, is_space/1, strip_space/1, parse_expr/2,
-	 parse_contact/2, escape_uri/1, join_uri/2, is_relative_uri/1,
+	 parse_contact/2, escape_uri/1, join_uri/2,
 	 is_name/1, to_label/1, find_doc_dirs/0, find_sources/2,
 	 find_file/2, try_subdir/2, unique/1,
 	 write_file/3, write_file/4, write_info_file/3,
 	 read_info_file/1, get_doc_env/1, get_doc_env/3, copy_file/2,
-	 uri_get/1, run_doclet/2, run_layout/2,
-	 simplify_path/1, timestr/1, datestr/1, read_encoding/2]).
+	 run_doclet/2, run_layout/2,
+	 simplify_path/1, timestr/1, datestr/1, read_encoding/2,
+	 infer_module_app/1]).
 
 -import(edoc_report, [report/2, warning/2]).
 
 -include("edoc.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
+
+-type filename() :: file:filename().
+-type proplist() :: proplists:proplist().
 
 -define(FILE_BASE, "/").
 
@@ -66,6 +70,29 @@ read_encoding(File, Options) ->
     case epp:read_encoding(File, Options) of
         none -> epp:default_encoding();
         Encoding -> Encoding
+    end.
+
+%% @doc Infer application containing the given module.
+%%
+%% It's expected that modules which are not preloaded
+%% and don't match the  `<app>/ebin/<mod>.beam' path pattern
+%% will NOT have an app name inferred properly.
+%% `no_app' is returned in such cases.
+-spec infer_module_app(module()) -> no_app | {app, atom()}.
+infer_module_app(Mod) ->
+    case code:which(Mod) of
+	ModPath when is_list(ModPath) ->
+	    case lists:reverse(string:tokens(ModPath, "/")) of
+		[_BeamFile, "ebin", AppVer | _] ->
+		    [App | _] = string:tokens(AppVer, "-"),
+		    {app, list_to_atom(App)};
+		_ ->
+		    no_app
+	    end;
+	preloaded ->
+	    {app, erts};
+	_ ->
+	    no_app
     end.
 
 %% @private
@@ -305,18 +332,18 @@ parse_expr(S, L) ->
     end.
 
 
+-record(info, {name = "",
+	       email = "",
+	       uri = ""}).
+
+%-type info() :: #info{name :: string(),
+%                      email :: string(),
+%                      uri :: string()}.
+
 %% @doc EDoc "contact information" parsing. This is the type of the
 %% content in e.g.
 %% <a href="overview-summary.html#mtag-author">`@author'</a> tags.
 %% @private
-
-%% % @type info() = #info{name  = string(),
-%% %                      email = string(),
-%% %                      uri   = string()}
-
--record(info, {name = ""  :: string(),
-	       email = "" :: string(),
-	       uri = ""   :: string()}).
 
 parse_contact(S, L) ->
     I = scan_name(S, L, #info{}, []),
@@ -438,128 +465,6 @@ join_uri("", Path) ->
 join_uri(Base, Path) ->
     Base ++ "/" ++ Path.
 
-%% Check for relative URI; "network paths" ("//...") not included!
-
-%% @private
-is_relative_uri([$: | _]) ->
-    false;
-is_relative_uri([$/, $/ | _]) ->
-    false;
-is_relative_uri([$/ | _]) ->
-    true;
-is_relative_uri([$? | _]) ->
-    true;
-is_relative_uri([$# | _]) ->
-    true;
-is_relative_uri([_ | Cs]) ->
-    is_relative_uri(Cs);
-is_relative_uri([]) ->
-    true.
-
-%% @private
-uri_get("file:///" ++ Path) ->
-    uri_get_file(Path);
-uri_get("file://localhost/" ++ Path) ->
-    uri_get_file(Path);
-uri_get("file://" ++ Path) ->
-    Msg = io_lib:format("cannot handle 'file:' scheme with "
-			"nonlocal network-path: 'file://~ts'.",
-			[Path]),
-    {error, Msg};
-uri_get("file:/" ++ Path) ->
-    uri_get_file(Path);
-uri_get("file:" ++ Path) ->
-    Msg = io_lib:format("ignoring malformed URI: 'file:~ts'.", [Path]),
-    {error, Msg};
-uri_get("http:" ++ Path) ->
-    uri_get_http("http:" ++ Path);
-uri_get("ftp:" ++ Path) ->
-    uri_get_ftp("ftp:" ++ Path);
-uri_get("//" ++ Path) ->
-    Msg = io_lib:format("cannot access network-path: '//~ts'.", [Path]),
-    {error, Msg};
-uri_get([C, $:, $/ | _]=Path) when C >= $A, C =< $Z; C >= $a, C =< $z ->
-    uri_get_file(Path);  % special case for Windows
-uri_get([C, $:, $\ | _]=Path) when C >= $A, C =< $Z; C >= $a, C =< $z ->
-    uri_get_file(Path);  % special case for Windows
-uri_get(URI) ->
-    case is_relative_uri(URI) of
-	true ->
-	    uri_get_file(URI);
-	false ->
-	    Msg = io_lib:format("cannot handle URI: '~ts'.", [URI]),
-	    {error, Msg}
-    end.
-
-uri_get_file(File0) ->
-    File = filename:join(?FILE_BASE, File0),
-    case read_file(File) of
-	{ok, Text} ->
-	    {ok, Text};
-	{error, R} ->
-	    {error, file:format_error(R)}
-    end.
-
-uri_get_http(URI) ->
-    %% Try using option full_result=false
-    case catch {ok, httpc:request(get, {URI,[]}, [],
-				  [{full_result, false}])} of
-	{'EXIT', _} ->
-	    uri_get_http_r10(URI);
-	Result ->
-	    uri_get_http_1(Result, URI)
-    end.
-
-uri_get_http_r10(URI) ->
-    %% Try most general form of request
-    Result = (catch {ok, httpc:request(get, {URI,[]}, [], [])}),
-    uri_get_http_1(Result, URI).
-
-uri_get_http_1(Result, URI) ->
-    case Result of
-	{ok, {ok, {200, Text}}} when is_list(Text) ->
-	    %% new short result format
-	    {ok, Text};
-	{ok, {ok, {Status, Text}}} when is_integer(Status), is_list(Text) ->
-	    %% new short result format when status /= 200
-	    Phrase = httpd_util:reason_phrase(Status),
-	    {error, http_errmsg(Phrase, URI)};
-	{ok, {ok, {{_Vsn, 200, _Phrase}, _Hdrs, Text}}} when is_list(Text) ->
-	    %% new long result format
-	    {ok, Text};
-	{ok, {ok, {{_Vsn, _Status, Phrase}, _Hdrs, Text}}} when is_list(Text) ->
-	    %% new long result format when status /= 200
-	    {error, http_errmsg(Phrase, URI)};
-	{ok, {200,_Hdrs,Text}} when is_list(Text) ->
-	    %% old result format
-	    {ok, Text};
-	{ok, {Status,_Hdrs,Text}} when is_list(Text) ->
-	    %% old result format when status /= 200
-	    Phrase = httpd_util:reason_phrase(Status),
-	    {error, http_errmsg(Phrase, URI)};
-	{ok, {error, R}} ->
-	    Reason = inet:format_error(R),
-	    {error, http_errmsg(Reason, URI)};
-	{ok, R} ->
-	    Reason = io_lib:format("bad return value ~tP", [R, 5]),
-	    {error, http_errmsg(Reason, URI)};
-	{'EXIT', R} ->
-	    Reason = io_lib:format("crashed with reason ~tw", [R]),
-	    {error, http_errmsg(Reason, URI)};
-	R ->
-	    Reason = io_lib:format("uncaught throw: ~tw", [R]),
-	    {error, http_errmsg(Reason, URI)}
-    end.
-
-http_errmsg(Reason, URI) ->
-    io_lib:format("http error: ~ts: '~ts'", [Reason, URI]).
-
-%% TODO: implement ftp access method
-
-uri_get_ftp(URI) ->
-    Msg = io_lib:format("cannot access ftp scheme yet: '~ts'.", [URI]),
-    {error, Msg}.
-
 %% @private
 to_label([$\s | Cs]) ->
     to_label(Cs);
@@ -676,13 +581,14 @@ try_subdir(Dir, Subdir) ->
 	false -> Dir
     end.
 
-%% @spec (Text::deep_string(), Dir::edoc:filename(),
-%%        Name::edoc:filename()) -> ok
-%%
 %% @doc Write the given `Text' to the file named by `Name' in directory
 %% `Dir'. If the target directory does not exist, it will be created.
 %% @private
 
+-spec write_file(Text, Dir, Name) -> ok when
+      Text :: unicode:chardata(),
+      Dir :: filename(),
+      Name :: filename().
 write_file(Text, Dir, Name) ->
     write_file(Text, Dir, Name, [{encoding,latin1}]).
 
@@ -702,17 +608,16 @@ write_file(Text, Dir, Name, Options) ->
 %% @private
 write_info_file(App, Modules, Dir) ->
     Ts = [{modules, Modules}],
-    Ts1 = if App =:= ?NO_APP -> Ts;
+    Ts1 = if App =:= no_app -> Ts;
 	     true -> [{application, App} | Ts]
 	  end,
     S0 = [io_lib:fwrite("~p.\n", [T]) || T <- Ts1],
     S = ["%% encoding: UTF-8\n" | S0],
     write_file(S, Dir, ?INFO_FILE, [{encoding,unicode}]).
 
-%% @spec (Name::edoc:filename()) -> {ok, string()} | {error, Reason}
-%%
 %% @doc Reads text from the file named by `Name'.
 
+-spec read_file(filename()) -> {ok, string()} | {error, term()}.
 read_file(File) ->
     case file:read_file(File) of
 	{ok, Bin} ->
@@ -731,7 +636,7 @@ read_file(File) ->
 %% Info files
 
 info_file_data(Ts) ->
-    App = proplists:get_value(application, Ts, ?NO_APP),
+    App = proplists:get_value(application, Ts, no_app),
     Ms = proplists:append_values(modules, Ts),
     {App, Ms}.
 
@@ -748,22 +653,10 @@ read_info_file(Dir) ->
 		{error, R} ->
 		    R1 = file:format_error(R),
 		    warning("could not read '~ts': ~ts.", [File, R1]),
-		    {?NO_APP, []}
+		    {no_app, []}
 	    end;
 	false ->
-	    {?NO_APP, []}
-    end.
-
-%% URI access
-
-uri_get_info_file(Base) ->
-    URI = join_uri(Base, ?INFO_FILE),
-    case uri_get(URI) of
-	{ok, Text} ->
-	    parse_info_file(Text, URI);
-	{error, Msg} ->
-	    warning("could not read '~ts': ~ts.", [URI, Msg]),
-	    {?NO_APP, []}
+	    {no_app, []}
     end.
 
 parse_info_file(Text, Name) ->
@@ -772,10 +665,10 @@ parse_info_file(Text, Name) ->
 	    info_file_data(Vs);
 	{error, eof} ->
 	    warning("unexpected end of file in '~ts'.", [Name]),
-	    {?NO_APP, []};
+	    {no_app, []};
 	{error, {_Line,Module,R}} ->
 	    warning("~ts: ~ts.", [Module:format_error(R), Name]),
-	    {?NO_APP, []}
+	    {no_app, []}
     end.
 
 parse_terms(Text) ->
@@ -897,13 +790,13 @@ find_doc_dirs([]) ->
 
 get_doc_links(App, Modules, Opts) ->
     Path = proplists:append_values(doc_path, Opts) ++ find_doc_dirs(),
-    Ds = [{P, uri_get_info_file(P)} || P <- Path],
+    Ds = [{P, read_info_file(P)} || P <- Path],
     Ds1 = [{"", {App, Modules}} | Ds],
     D = dict:new(),
     make_links(Ds1, D, D).
 
 make_links([{Dir, {App, Ms}} | Ds], A, M) ->
-    A1 = if App == ?NO_APP -> A;
+    A1 = if App == no_app -> A;
 	    true -> add_new(App, Dir, A)
 	 end,
     F = fun (K, D) -> add_new(K, Dir, D) end,
@@ -928,22 +821,13 @@ add_new(K, V, D) ->
 	    dict:store(K, V, D)
     end.
 
-%% @spec (Options::proplist()) -> edoc_env()
 %% @equiv get_doc_env([], [], Opts)
 %% @private
 
+-spec get_doc_env(proplist()) -> edoc:env().
 get_doc_env(Opts) ->
-    get_doc_env([], [], Opts).
+    get_doc_env(no_app, [], Opts).
 
-%% @spec (App, Modules, Options::proplist()) -> edoc_env()
-%%     App = [] | atom()
-%%     Modules = [atom()]
-%%     proplist() = [term()]
-%%
-%% @type proplist() = //stdlib/proplists:property().
-%% @type edoc_env(). Environment information needed by EDoc for
-%% generating references. The data representation is not documented.
-%%
 %% @doc Creates an environment data structure used by parts of EDoc for
 %% generating references, etc. See {@link edoc:run/2} for a description
 %% of the options `file_suffix', `app_default' and `doc_path'.
@@ -955,6 +839,10 @@ get_doc_env(Opts) ->
 %% INHERIT-OPTIONS: get_doc_links/4
 %% DEFER-OPTIONS: edoc:run/2
 
+-spec get_doc_env(App, Modules, Options) -> edoc:env() when
+      App :: atom() | no_app,
+      Modules :: [module()],
+      Options :: proplist().
 get_doc_env(App, Modules, Opts) ->
     Suffix = proplists:get_value(file_suffix, Opts,
 				 ?DEFAULT_FILE_SUFFIX),
@@ -966,8 +854,7 @@ get_doc_env(App, Modules, Opts) ->
 	 apps = A,
 	 modules = M,
 	 app_default = AppDefault,
-	 includes = Includes
-	}.
+	 includes = Includes}.
 
 %% ---------------------------------------------------------------------
 %% Plug-in modules

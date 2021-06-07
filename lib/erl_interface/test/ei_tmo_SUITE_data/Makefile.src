@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2003-2016. All Rights Reserved.
+# Copyright Ericsson AB 2003-2020. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,8 @@ CC = ..@DS@all_SUITE_data@DS@gccifier@exe@ -CC"$(CC0)"
 LD = @LD@
 LIBEI = @erl_interface_eilib@
 LIBFLAGS = ../all_SUITE_data/ei_runner@obj@ \
-	$(LIBEI) @LIBS@ @erl_interface_sock_libs@ \
+	   ../all_SUITE_data/my_ussi@obj@ \
+	 $(LIBEI) @LIBS@ @erl_interface_sock_libs@ \
 	@erl_interface_threadlib@
 CFLAGS = @EI_CFLAGS@ $(THR_DEFS) -I@erl_interface_include@ -I../all_SUITE_data
 EI_TMO_OBJS = ei_tmo_test@obj@ ei_tmo_test_decl@obj@

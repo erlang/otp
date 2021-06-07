@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,8 +67,12 @@ int erts_check_io_max_files(void);
  * not return unless erts_check_io_interrupt(pt, 1) is called by another thread.
  *
  * @param pt the poll thread structure to use.
+ * @param timeout_time timeout
+ * @param poll_only_thread non zero when poll is the only thing the
+ *                         calling thread does
  */
-void erts_check_io(struct erts_poll_thread *pt, ErtsMonotonicTime timeout_time);
+void erts_check_io(struct erts_poll_thread *pt, ErtsMonotonicTime timeout_time,
+                   int poll_only_thread);
 /**
  * Initialize the check io framework. This function will parse the arguments
  * and delete any entries that it is interested in.
@@ -138,13 +142,13 @@ typedef struct {
 
 struct erts_nif_select_event {
     Eterm pid;
-    Eterm immed;
-    Uint32 refn[ERTS_REF_NUMBERS];
+    ErtsMessage *mp;
 };
 
 typedef struct {
     struct erts_nif_select_event in;
     struct erts_nif_select_event out;
+    struct erts_nif_select_event err;
 } ErtsNifSelectDataState;
 
 #endif /* #ifndef ERL_CHECK_IO_INTERNAL__ */

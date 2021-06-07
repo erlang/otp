@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -147,7 +147,7 @@ split_instructions([], Before) ->
 %%          If PrePurgeMethod == soft_purge, the function will succeed
 %%          only if there is no process running old code of any of the
 %%          modules. Else it will throw {error,Mod}, where Mod is the
-%%          first module found that can not be soft_purged.
+%%          first module found that cannot be soft_purged.
 %%
 %%          If PrePurgeMethod == brutal_purge, the function will
 %%          always succeed and return a list of all modules that are
@@ -659,16 +659,25 @@ get_proc_state(Proc) ->
         {status, _, {module, _}, [_, State, _, _, _]} when State == running ;
                                                            State == suspended ->
             State
-    catch exit:{noproc, {sys, get_status, [Proc]}} ->
+    catch exit:{Reason, {sys, get_status, [Proc]}}
+                when Reason =/= timeout andalso
+                     not (is_tuple(Reason) andalso
+                          element(1,Reason) =:= nodedown) ->
         noproc
     end.
 
 maybe_get_dynamic_mods(Name, Pid) ->
-    case catch gen:call(Pid, self(), get_modules) of
+    try gen:call(Pid, self(), get_modules) of
         {ok, Res} ->
-            Res;
-        Other ->
-            error_logger:error_msg("release_handler: ~p~nerror during a"
+            Res
+    catch
+        exit:Reason when Reason =/= timeout andalso
+                         not (is_tuple(Reason) andalso
+                              element(1,Reason) =:= nodedown) ->
+            [];
+        exit:Other ->
+            error_logger:error_msg("release_handler: {'EXIT',~p}~n"
+                                   "error during a"
                                    " get_modules call to ~p (~w),"
                                    " there may be an error in it's"
                                    " childspec. Exiting ...~n",

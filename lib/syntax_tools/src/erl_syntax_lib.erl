@@ -528,8 +528,6 @@ vann(Tree, Env) ->
             vann_case_expr(Tree, Env);
         if_expr ->
             vann_if_expr(Tree, Env);
-        cond_expr ->
-            vann_cond_expr(Tree, Env);
         receive_expr ->
             vann_receive_expr(Tree, Env);
         catch_expr ->
@@ -612,9 +610,6 @@ vann_if_expr(Tree, Env) ->
     {Cs1, {Bound, Free}} = vann_clauses(Cs, Env),
     Tree1 = rewrite(Tree, erl_syntax:if_expr(Cs1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
-
-vann_cond_expr(_Tree, _Env) ->
-    erlang:error({not_implemented,cond_expr}).
 
 vann_catch_expr(Tree, Env) ->
     E = erl_syntax:catch_expr_body(Tree),

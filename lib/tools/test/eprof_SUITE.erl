@@ -108,13 +108,6 @@ basic(Config) when is_list(Config) ->
     ok.
 
 basic_option(Config) when is_list(Config) ->
-    %% Eprof is not supported on native-compile code.
-    case lists:module_info(native_addresses) of
-	[] -> basic_option_1(Config);
-	[_|_] -> {skip,"lists is native-compiled"}
-    end.
-
-basic_option_1(Config) ->
 
     %% load eprof_test and change directory
 
@@ -131,6 +124,7 @@ basic_option_1(Config) ->
     {ok, _} = eprof:profile(fun() -> eprof_test:do(10) end, [{set_on_spawn, true}]),
 
     Mfas1 = lists:foldl(fun({_,Mfas},Out) -> Mfas ++ Out end, [], eprof:dump()),
+    assert_unique_mfas(Mfas1),
 
     {value, {_, {11, _}}} = lists:keysearch({eprof_test,dec,1},  1, Mfas1),
     {value, {_, { 1, _}}} = lists:keysearch({eprof_test, go,1},  1, Mfas1),
@@ -140,6 +134,8 @@ basic_option_1(Config) ->
     {ok, _} = eprof:profile(fun() -> eprof_test:do(10) end, [set_on_spawn]),
 
     Mfas2 = lists:foldl(fun({_,Mfas},Out) -> Mfas ++ Out end, [], eprof:dump()),
+    assert_unique_mfas(Mfas2),
+
     {value, {_, {11, _}}} = lists:keysearch({eprof_test,dec,1},  1, Mfas2),
     {value, {_, { 1, _}}} = lists:keysearch({eprof_test, go,1},  1, Mfas2),
     {value, {_, { 9, _}}} = lists:keysearch({lists, split_2,5},  1, Mfas2),
@@ -148,6 +144,9 @@ basic_option_1(Config) ->
     % disable trace set_on_spawn
     {ok, _} = eprof:profile(fun() -> eprof_test:do(10) end, []),
     [{_, Mfas3}] = eprof:dump(),
+
+    assert_unique_mfas(Mfas3),
+
     {value, {_, {11, _}}} = lists:keysearch({eprof_test,dec,1}, 1, Mfas3),
     {value, {_, { 1, _}}} = lists:keysearch({eprof_test, go,1}, 1, Mfas3),
     false = lists:keysearch({lists, split_2,5},  1, Mfas3),
@@ -157,6 +156,13 @@ basic_option_1(Config) ->
     ok = file:set_cwd(OldCurDir),
     stopped = eprof:stop(),
     ok.
+
+assert_unique_mfas(MFAs) ->
+    Duplicates = lists:sort(MFAs) -- lists:usort(MFAs),
+    case Duplicates of
+        [{{erlang,apply,2},_}] -> ok;
+        [] -> ok
+    end.
 
 tiny(Config) when is_list(Config) -> 
     ensure_eprof_stopped(),

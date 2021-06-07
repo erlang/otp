@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -76,11 +76,9 @@
 init(Vsns) ->
     ?vlog("init -> entry with"
 	"~n   Vsns: ~p", [Vsns]),
-    random:seed(erlang:phash2([node()]),
-                erlang:monotonic_time(),
-                erlang:unique_integer()),
-    ets:insert(snmp_agent_table, {msg_id, random:uniform(2147483647)}),
-    ets:insert(snmp_agent_table, {req_id, random:uniform(2147483647)}),
+    ?SNMP_RAND_SEED(),
+    ets:insert(snmp_agent_table, {msg_id, rand:uniform(2147483647)}),
+    ets:insert(snmp_agent_table, {req_id, rand:uniform(2147483647)}),
     init_counters(),
     init_versions(Vsns, #state{}).
 
@@ -168,6 +166,19 @@ process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) ->
 	      NoteStore, Packet, From,
 	      LocalEngineID, V3Hdr, Data, Log);
 
+	#message{version = MsgVersion} ->
+	    ?vlog("Invalid Version: "
+                  "~n      Message Version: ~p"
+                  "~nwhen"
+                  "~n      Versions:"
+                  "~n         v1:  ~w"
+                  "~n         v2c: ~w"
+                  "~n         v3:  ~w",
+                  [MsgVersion,
+                   State#state.v1, State#state.v2c, State#state.v3]),
+	    inc(snmpInBadVersions),
+	    {discarded, snmpInBadVersions};
+
 	{'EXIT', {bad_version, Vsn}} ->
 	    ?vtrace("exit: bad version: ~p",[Vsn]),
 	    inc(snmpInBadVersions),
@@ -179,9 +190,11 @@ process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) ->
 	    {discarded, Reason};
 
 	UnknownMessage ->
-	    ?vtrace("Unknown message: ~n   ~p"
-		"~nwhen"
-		"~n   State: ~p", [UnknownMessage, State]),
+	    ?vdebug("Unknown message: "
+                    "~n      ~p"
+                    "~nwhen"
+                    "~n   State: "
+                    "~n      ~p", [UnknownMessage, State]),
 	    inc(snmpInBadVersions),
 	    {discarded, snmpInBadVersions}
     end.
@@ -399,7 +412,7 @@ v3_proc(NoteStore, Packet, LocalEngineID, V3Hdr, Data, Log) ->
                 #note{sec_engine_id = SecEngineID,
                       sec_model     = _MsgSecModel,
                       sec_name      = SecName,
-                      sec_level     = SecLevel,
+                      sec_level     = _SecLevel,   % OTP-16207
                       ctx_engine_id = _CtxEngineID,
                       ctx_name      = _CtxName,
                       disco         = true,

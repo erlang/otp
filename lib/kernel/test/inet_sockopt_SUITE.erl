@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 -module(inet_sockopt_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include("kernel_test_lib.hrl").
 
 
 -define(C_GET_IPPROTO_TCP,1).
@@ -625,43 +626,74 @@ ipv6_v6only_close(Module, Socket) ->
 
 %% Test using socket option ipv6_v6only for UDP.
 use_ipv6_v6only_udp(Config) when is_list(Config) ->
+    ?TC_TRY(use_ipv6_v6only_udp,
+	    fun() -> do_use_ipv6_v6only_udp(Config) end).
+
+do_use_ipv6_v6only_udp(Config) ->
     case gen_udp:open(0, [inet6,{ip,{0,0,0,0,0,0,0,1}}, {ipv6_v6only,true}]) of
 	{ok,S6} ->
+	    ?P("IPv6 socket option created - ensure ipv6_v6only"),
 	    case inet:getopts(S6, [ipv6_v6only]) of
 		{ok,[{ipv6_v6only,true}]} ->
 		    use_ipv6_v6only_udp(Config, S6);
-		{ok,Other} ->
-		    {skipped,{getopts,Other}}
+		{ok, Other} ->
+		    ?P("IPv6 socket option created - "
+		       "failed ensuring ipv6_v6only"),
+		    exit({skip, {getopts, Other}})
 	    end;
-	{error,_} ->
-	    {skipped,"Socket type not supported"}
+	{error, OReason} ->
+	    ?P("failed create IPv6 socket: "
+	       "~n   ~p", [OReason]),
+	    exit({skip, "Socket type not supported"})
     end.
 
 use_ipv6_v6only_udp(_Config, S6) ->
-    {ok,Port} = inet:port(S6),
-    {ok,S4} = gen_udp:open(Port, [inet]),
+    {ok, Port} = inet:port(S6),
+    ?P("IPv6 socket port number: ~w", [Port]),
+    S4 = case gen_udp:open(Port, [inet]) of
+	     {ok, Sock4} ->
+		 ?P("IPv4 socket created with port number ~w", [Port]),
+		 Sock4;
+	     {error, eaddrinuse = Reason} ->
+		 ?P("failed create IPv4 socket: ~p => skip", [Reason]),
+		 exit({skip, Reason});
+	     {error, Reason} ->
+		 ?P("failed create IPv4 socket: "
+		    "~n   ~p", [Reason]),
+		 ct:fail({failed_open, inet, Reason})
+	 end,
     E6 = " IPv6-echo.",
     E4 = " IPv4-echo.",
-    Sender =
-	spawn_link(fun () -> use_ipv6_v6only_udp_sender(Port, E6, E4) end),
+    {Sender, MRef} =
+	spawn_monitor(fun () ->
+			      use_ipv6_v6only_udp_sender(Port, E6, E4)
+		      end),
     use_ipv6_v6only_udp_listener(
-      S6, S4, E6, E4, monitor(process, Sender)).
+      S6, S4, E6, E4, Sender, MRef).
 
-use_ipv6_v6only_udp_listener(S6, S4, E6, E4, Mref) ->
+use_ipv6_v6only_udp_listener(S6, S4, E6, E4, Sender, Mref) ->
+    ?P("await upd message"),
     receive
 	{udp,S6,IP,P,Data} ->
+	    ?P("received (IPv6) upd message"),
 	    ok = gen_udp:send(S6, IP, P, [Data|E6]),
-	    use_ipv6_v6only_udp_listener(S6, S4, E6, E4, Mref);
+	    use_ipv6_v6only_udp_listener(S6, S4, E6, E4, Sender, Mref);
 	{udp,S4,IP,P,Data} ->
+	    ?P("received (IPv4) upd message"),
 	    ok = gen_udp:send(S4, IP, P, [Data|E4]),
-	    use_ipv6_v6only_udp_listener(S6, S4, E6, E4, Mref);
-	{'DOWN',Mref,_,_,normal} ->
+	    use_ipv6_v6only_udp_listener(S6, S4, E6, E4, Sender, Mref);
+	{'DOWN', Mref,_,_, normal} ->
+	    ?P("received expected normal down message"),
 	    ok;
-	{'DOWN',Mref,_,_,Result} ->
+	{'DOWN', Mref,_,_, Result} ->
 	    %% Since we are linked we will never arrive here
+	    ?P("received expected down message: "
+	       "~n   ~p", [Result]),
 	    Result;
 	Other ->
-	    exit({failed,{listener_unexpected,Other}})
+	    ?P("received unexpected message: "
+	       "~n   ~p", [Other]),
+	    exit({failed, {listener_unexpected, Other}})
     end.
 
 use_ipv6_v6only_udp_sender(Port, E6, E4) ->
@@ -675,14 +707,16 @@ use_ipv6_v6only_udp_sender(Port, E6, E4) ->
 
 sndrcv(Ip, Port, Opts, Data) ->
     {ok,S} = gen_udp:open(0, Opts),
-    io:format("[~w:~w] ! ~s~n", [Ip,Port,Data]),
+    ?P("[~w:~w] ! ~s", [Ip, Port, Data]),
     ok = gen_udp:send(S, Ip, Port, Data),
     receive
-	{udp,S,Ip,Port,RecData} ->
-	    io:format("[~w:~w] : ~s~n", [Ip,Port,RecData]),
+	{udp, S, Ip, Port, RecData} ->
+	    ?P("[~w:~w] : ~s", [Ip, Port, RecData]),
 	    RecData;
 	Other ->
-	    exit({failed,{sndrcv_unexpectec,Other}})
+	    ?P("received unexpected message: "
+	       "~n   ~p", [Other]),
+	    exit({failed, {sndrcv_unexpectec, Other}})
     end.
 
 

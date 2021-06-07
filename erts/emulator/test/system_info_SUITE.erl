@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,9 +37,12 @@
 
 -export([process_count/1, system_version/1, misc_smoke_tests/1,
          heap_size/1, wordsize/1, memory/1, ets_limit/1, atom_limit/1,
+         procs_bug/1,
          ets_count/1, atom_count/1, system_logger/1]).
 
 -export([init/1, handle_event/2, handle_call/2]).
+
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -48,7 +51,19 @@ suite() ->
 all() -> 
     [process_count, system_version, misc_smoke_tests,
      ets_count, heap_size, wordsize, memory, ets_limit, atom_limit, atom_count,
+     procs_bug,
      system_logger].
+
+
+init_per_testcase(procs_bug, Config) ->
+    procs_bug(init_per_testcase, Config);
+init_per_testcase(_, Config) ->
+    Config.
+
+end_per_testcase(procs_bug, Config) ->
+    procs_bug(end_per_testcase, Config);
+end_per_testcase(_, _) ->
+    ok.
 
 %%%
 %%% The test cases -------------------------------------------------------------
@@ -436,36 +451,52 @@ cmp_memory(MWs, Str) ->
     garbage_collect(),
     erts_debug:set_internal_state(wait, deallocations),
 
-    EDM = erts_debug:get_internal_state(memory),
-    EM = erlang:memory(),
+    retry(3, fun() ->
+                     EDM = erts_debug:get_internal_state(memory),
+                     EM = erlang:memory(),
 
-    io:format("~s:~n"
-	      "erlang:memory() = ~p~n"
-	      "crash dump memory = ~p~n",
-	      [Str, EM, EDM]),
+                     io:format("~s:~n"
+                               "erlang:memory() = ~p~n"
+                               "crash dump memory = ~p~n",
+                               [Str, EM, EDM]),
 
-    check_sane_memory(EM),
-    check_sane_memory(EDM),
+                     check_sane_memory(EM),
+                     check_sane_memory(EDM),
 
-    %% We expect these to always give us exactly the same result
+                     %% We expect these to always give us exactly the same result
 
-    cmp_memory(atom, EM, EDM, 1),
-    cmp_memory(atom_used, EM, EDM, 1),
-    cmp_memory(binary, EM, EDM, 1),
-    cmp_memory(code, EM, EDM, 1),
-    cmp_memory(ets, EM, EDM, 1),
+                     cmp_memory(atom, EM, EDM, 1),
+                     cmp_memory(atom_used, EM, EDM, 1),
+                     cmp_memory(binary, EM, EDM, 1),
+                     cmp_memory(code, EM, EDM, 1),
+                     cmp_memory(ets, EM, EDM, 1),
 
-    %% Total, processes, processes_used, and system will seldom
-    %% give us exactly the same result since the two readings
-    %% aren't taken atomically.
+                     %% Total, processes, processes_used, and system will seldom
+                     %% give us exactly the same result since the two readings
+                     %% aren't taken atomically.
+                     %%
+                     %% Torerance is scaled according to the number of schedulers
+                     %% to match spawn_mem_workers.
 
-    cmp_memory(total, EM, EDM, 1.05),
-    cmp_memory(processes, EM, EDM, 1.05),
-    cmp_memory(processes_used, EM, EDM, 1.05),
-    cmp_memory(system, EM, EDM, 1.05),
+                     Tolerance = 1.05 + 0.01 * erlang:system_info(schedulers_online),
+
+                     cmp_memory(total, EM, EDM, Tolerance),
+                     cmp_memory(processes, EM, EDM, Tolerance),
+                     cmp_memory(processes_used, EM, EDM, Tolerance),
+                     cmp_memory(system, EM, EDM, Tolerance)
+             end),
 
     ok.
     
+retry(N, Fun) ->
+    try Fun()
+    catch
+        error:Error:Stack when N > 1 ->
+            io:format("Test failed: ~p\nat: ~p\nRetry max ~p more times\n",
+                      [Error, Stack, N-1]),
+            retry(N-1, Fun)
+    end.
+
 mapn(_Fun, 0) ->
     [];
 mapn(Fun, N) ->
@@ -649,3 +680,41 @@ handle_call(Msg, State) ->
 handle_event(Event, State) ->
     State ! {report_handler, Event},
     {ok, State}.
+
+
+%% OTP-15909: Provoke bug that would cause VM crash
+%% if doing system_info(procs) when process have queued exit/down signals.
+procs_bug(init_per_testcase, Config) ->
+    %% Use single scheduler and process prio to starve monitoring processes
+    %% from handling their received DOWN signals.
+    OldSchedOnline = erlang:system_flag(schedulers_online,1),
+    [{schedulers_online, OldSchedOnline} | Config];
+procs_bug(end_per_testcase, Config) ->
+    erlang:system_flag(schedulers_online,
+                       proplists:get_value(schedulers_online, Config)),
+    ok.
+
+procs_bug(Config) when is_list(Config) ->
+    {Monee,_} = spawn_opt(fun () -> receive die -> ok end end,
+                         [monitor,{priority,max}]),
+    Papa = self(),
+    Pids = [begin
+                P = spawn_opt(fun () ->
+                                      erlang:monitor(process, Monee),
+                                      Papa ! {self(),ready},
+                                      receive "nada" -> no end
+                              end,
+                              [link, {priority,normal}]),
+                {P, ready} = receive M -> M end,
+                P
+            end
+            || _ <- lists:seq(1,10)],
+    process_flag(priority,high),
+    Monee ! die,
+    {'DOWN',_,process,Monee,normal} = receive M -> M end,
+
+    %% This call did crash VM as Pids have pending DOWN signals.
+    erlang:system_info(procs),
+    process_flag(priority,normal),
+    [begin unlink(P), exit(P, kill) end || P <- Pids],
+    ok.

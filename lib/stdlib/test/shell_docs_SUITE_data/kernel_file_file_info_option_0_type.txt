@@ -1,0 +1,5 @@
+
+  [;1m-type file_info_option() ::[0m
+  [;1m          {time, local} | {time, universal} | {time, posix} | raw.[0m
+
+  There is no documentation for file_info_option/0

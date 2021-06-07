@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@
 
 -module(ssh_xfer).
 
--export([attach/2, attach/3, connect/3, connect/4, connect/5]).
 -export([open/6, opendir/3, readdir/3, close/3, read/5, write/5,
 	 rename/5, remove/3, mkdir/4, rmdir/3, realpath/3, extended/4,
 	 stat/4, fstat/4, lstat/4, setstat/4,
@@ -46,44 +45,6 @@
 
 -define(is_set(F, Bits),
 	((F) band (Bits)) == (F)).
-
--define(XFER_PACKET_SIZE, 65536).
--define(XFER_WINDOW_SIZE, 20*?XFER_PACKET_SIZE).
-
-attach(CM, Opts) ->
-    open_xfer(CM, Opts, []).
-
-attach(CM, Opts, ChanOpts) ->
-    open_xfer(CM, Opts, ChanOpts).
-
-
-connect(Host, Port, Opts) ->
-    case ssh:connect(Host, Port, Opts) of
-	{ok, CM} -> open_xfer(CM, Opts, []);
-	Error -> Error
-    end.
-
-connect(Host, Port, Opts, Timeout) ->
-    connect(Host, Port, Opts, [], Timeout).
-
-connect(Host, Port, Opts, ChanOpts, Timeout) ->
-    case ssh:connect(Host, Port, Opts, Timeout) of
-	{ok, CM} -> open_xfer(CM, [{timeout, Timeout}|Opts], ChanOpts);
-	{error, Timeout} -> {error, timeout};
-	Error -> Error
-    end.
-
-
-open_xfer(CM, Opts, ChanOpts) ->
-    TMO = proplists:get_value(timeout, Opts, infinity),
-    WindowSize = proplists:get_value(window_size, ChanOpts,  ?XFER_WINDOW_SIZE),
-    PacketSize = proplists:get_value(packet_size, ChanOpts,  ?XFER_PACKET_SIZE),
-    case ssh_connection:session_channel(CM, WindowSize, PacketSize, TMO) of
-	{ok, ChannelId} ->
-	    {ok, ChannelId, CM};
-	Error -> 
-	    Error
-    end.
 
 protocol_version_request(XF, Version) ->
     xf_request(XF, ?SSH_FXP_INIT, <<?UINT32(Version)>>).
@@ -132,7 +93,7 @@ write(XF,ReqID, Handle, Offset, Data) ->
 		is_binary(Data) ->
 		    Data;
 		is_list(Data) -> 
-		    unicode:characters_to_binary(Data)
+		    ?to_binary(Data)
 	    end,
     xf_request(XF,?SSH_FXP_WRITE,
 	       [?uint32(ReqID),
@@ -156,13 +117,20 @@ rename(XF, ReqID, OldPath, NewPath, Flags) ->
 	     true ->
 		  (<<>>)
 	  end,
-    xf_request(XF, ?SSH_FXP_RENAME, 
-	       [?uint32(ReqID),
-		?string_utf8(OldPath),
-		?string_utf8(NewPath),
-		FlagBits]).
-
-
+    Ext = XF#ssh_xfer.ext,
+    ExtRename = "posix-rename@openssh.com",
+    case lists:member({ExtRename, "1"}, Ext) of
+	true ->
+	    extended(XF, ReqID, ExtRename,
+		     [?string_utf8(OldPath),
+		      ?string_utf8(NewPath)]);
+	false ->
+	    xf_request(XF, ?SSH_FXP_RENAME,
+		       [?uint32(ReqID),
+			?string_utf8(OldPath),
+			?string_utf8(NewPath),
+			FlagBits])
+    end.
 
 %% Create directory
 mkdir(XF, ReqID, Path, Attrs) ->
@@ -261,7 +229,7 @@ extended(XF, ReqID, Request, Data) ->
     xf_request(XF, ?SSH_FXP_EXTENDED,
 	       [?uint32(ReqID),
 		?string(Request),
-		?binary(Data)]).
+		Data]).
 
 
 %% Send xfer request to connection manager
@@ -272,7 +240,7 @@ xf_request(XF, Op, Arg) ->
 	       is_binary(Arg) -> 
 		   Arg;
 	       is_list(Arg) ->
-		   list_to_binary(Arg)
+		   ?to_binary(Arg)
 	   end,
     Size = 1+size(Data),
     ssh_connection:send(CM, Channel, [<<?UINT32(Size), Op, Data/binary>>]).
@@ -282,7 +250,7 @@ xf_send_reply(#ssh_xfer{cm = CM, channel = Channel}, Op, Arg) ->
 	       is_binary(Arg) ->
 		   Arg;
 	       is_list(Arg) ->
-		   list_to_binary(Arg)
+		   ?to_binary(Arg)
 	   end,
     Size = 1 + size(Data),
     ssh_connection:send(CM, Channel, [<<?UINT32(Size), Op, Data/binary>>]).
@@ -841,6 +809,15 @@ decode_names(Vsn, I, <<?UINT32(Len), FileName:Len/binary,
 encode_names(Vsn, NamesAndAttrs) ->
     lists:mapfoldl(fun(N, L) -> encode_name(Vsn, N, L) end, 0, NamesAndAttrs).
 
+encode_name(Vsn, {{NameUC,LongNameUC},Attr}, Len) when Vsn =< 3 ->
+    Name = binary_to_list(unicode:characters_to_binary(NameUC)),
+    NLen = length(Name),
+	LongName = binary_to_list(unicode:characters_to_binary(LongNameUC)),
+    LNLen = length(LongName),
+	EncAttr = encode_ATTR(Vsn, Attr),
+    ALen = size(EncAttr),
+    NewLen = Len + NLen + LNLen + 4 + 4 + ALen,
+    {[<<?UINT32(NLen)>>, Name, <<?UINT32(LNLen)>>, LongName, EncAttr], NewLen};
 encode_name(Vsn, {NameUC,Attr}, Len) when Vsn =< 3 ->
     Name = binary_to_list(unicode:characters_to_binary(NameUC)),
     NLen = length(Name),

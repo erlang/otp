@@ -1,0 +1,15 @@
+
+  [;1m-spec composite(Function1, Function2) -> Function3[0m
+  [;1m                   when[0m
+  [;1m                       Function1 :: a_function(),[0m
+  [;1m                       Function2 :: a_function(),[0m
+  [;1m                       Function3 :: a_function().[0m
+
+  Returns the composite of the functions [;;4mFunction1[0m and [;;4m[0m
+  [;;4mFunction2[0m.
+
+    1> F1 = sofs:a_function([{a,1},{b,2},{c,2}]),
+    F2 = sofs:a_function([{1,x},{2,y},{3,z}]),
+    F = sofs:composite(F1, F2),
+    sofs:to_external(F).
+    [{a,x},{b,y},{c,y}]

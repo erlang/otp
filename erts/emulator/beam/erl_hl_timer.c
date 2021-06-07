@@ -1903,7 +1903,7 @@ send_async_info(Process *proc, ErtsProcLocks initial_locks,
 
 static ERTS_INLINE Eterm
 send_sync_info(Process *proc, ErtsProcLocks initial_locks,
-               Uint32 *refn, int cancel, Sint64 time_left)
+               Uint32 *refn, int info, int cancel, Sint64 time_left)
 {
     ErtsProcLocks locks = initial_locks;
     ErtsMessage *mp;
@@ -1923,7 +1923,9 @@ send_sync_info(Process *proc, ErtsProcLocks initial_locks,
     ref = make_internal_ref(hp);
     hp += ERTS_REF_THING_SIZE;
 
-    if (time_left < 0)
+    if (!info)
+	res = am_ok;
+    else if (time_left < 0)
         res = am_false;
     else if (time_left <= (Sint64) MAX_SMALL)
         res = make_small((Sint) time_left);
@@ -1974,7 +1976,7 @@ access_sched_local_btm(Process *c_p, Eterm pid,
 
     time_left = access_btm(tmr, (Uint32) esdp->no, esdp, cancel);
 
-    if (!info)
+    if (async && !info)
         return am_ok;
 
     if (c_p) {
@@ -1987,12 +1989,15 @@ access_sched_local_btm(Process *c_p, Eterm pid,
     }
 
     if (!async) {
-        if (c_p)
+        if (c_p) {
+	    if (!info)
+		return am_ok;
             return return_info(c_p, time_left);
+	}
 
         if (proc)
             return send_sync_info(proc, proc_locks,
-                                  rrefn, cancel, time_left);
+                                  rrefn, info, cancel, time_left);
     }
     else if (proc) {
         Eterm ref;
@@ -2182,8 +2187,7 @@ access_bif_timer(Process *c_p, Eterm tref, int cancel, int async, int info)
              *       otherwise, next receive will *not* work
              *       as expected!
              */
-            ERTS_RECV_MARK_SAVE(c_p);
-            ERTS_RECV_MARK_SET(c_p);
+            erts_msgq_set_save_end(c_p);
 
 	    ERTS_BIF_PREP_TRAP1(ret, erts_await_result, c_p, rref);
 	}
@@ -2263,9 +2267,10 @@ parse_bif_timer_options(Eterm option_list, int *async,
     return 1;
 }
 
-static void
-exit_cancel_bif_timer(ErtsBifTimer *tmr, void *vesdp)
+static int
+exit_cancel_bif_timer(ErtsBifTimer *tmr, void *vesdp, Sint reds)
 {
+#define ERTS_BTM_CANCEL_REDS 80
     ErtsSchedulerData *esdp = (ErtsSchedulerData *) vesdp;
     Uint32 sid, roflgs;
     erts_aint_t state;
@@ -2290,7 +2295,7 @@ exit_cancel_bif_timer(ErtsBifTimer *tmr, void *vesdp)
 
         if (sid != (Uint32) esdp->no) {
             queue_canceled_timer(esdp, sid, (ErtsTimer *) tmr);
-            return;
+            return ERTS_BTM_CANCEL_REDS;
         }
 
         if (tmr->btm.tree.parent != ERTS_HLT_PFIELD_NOT_IN_TABLE) {
@@ -2306,13 +2311,8 @@ exit_cancel_bif_timer(ErtsBifTimer *tmr, void *vesdp)
         hl_timer_dec_refc(&tmr->type.hlt, roflgs);
     else
         tw_timer_dec_refc(&tmr->type.twt);
+    return ERTS_BTM_CANCEL_REDS;
 }
-
-#ifdef ERTS_HLT_DEBUG
-#  define ERTS_BTM_MAX_DESTROY_LIMIT 2
-#else
-#  define ERTS_BTM_MAX_DESTROY_LIMIT 50
-#endif
 
 typedef struct {
     ErtsBifTimers *bif_timers;
@@ -2321,10 +2321,9 @@ typedef struct {
     } u;
 } ErtsBifTimerYieldState;
 
-int erts_cancel_bif_timers(Process *p, ErtsBifTimers **btm, void **vyspp)
+int erts_cancel_bif_timers(Process *p, ErtsBifTimers **btm, void **vyspp, int reds)
 {
     ErtsSchedulerData *esdp = erts_proc_sched_data(p);
-
     ErtsBifTimerYieldState ys = {*btm, {ERTS_RBT_YIELD_STAT_INITER}};
     ErtsBifTimerYieldState *ysp;
     int res;
@@ -2337,9 +2336,9 @@ int erts_cancel_bif_timers(Process *p, ErtsBifTimers **btm, void **vyspp)
 						exit_cancel_bif_timer,
 						(void *) esdp,
 						&ysp->u.proc_btm_yield_state,
-						ERTS_BTM_MAX_DESTROY_LIMIT);
+						reds);
 
-    if (res == 0) {
+    if (res > 0) {
 	if (ysp != &ys)
 	    erts_free(ERTS_ALC_T_BTM_YIELD_STATE, ysp);
 	*vyspp = NULL;
@@ -2440,8 +2439,10 @@ BIF_RETTYPE send_after_3(BIF_ALIST_3)
 
     tres = parse_timeout_pos(erts_proc_sched_data(BIF_P), BIF_ARG_1,
 			     NULL, 0, &timeout_pos, &short_time, &tmo);
-    if (tres != 0)
-	BIF_ERROR(BIF_P, BADARG);
+    if (tres != 0) {
+        BIF_P->fvalue = am_time;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
 
     return setup_bif_timer(BIF_P, tmo < ERTS_TIMER_WHEEL_MSEC,
                            timeout_pos, short_time, BIF_ARG_2,
@@ -2453,13 +2454,17 @@ BIF_RETTYPE send_after_4(BIF_ALIST_4)
     ErtsMonotonicTime timeout_pos, tmo;
     int short_time, abs, tres;
 
-    if (!parse_bif_timer_options(BIF_ARG_4, NULL, NULL, &abs))
-	BIF_ERROR(BIF_P, BADARG);
-    
+    if (!parse_bif_timer_options(BIF_ARG_4, NULL, NULL, &abs)) {
+        BIF_P->fvalue = am_badopt;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
+
     tres = parse_timeout_pos(erts_proc_sched_data(BIF_P), BIF_ARG_1, NULL,
 			     abs, &timeout_pos, &short_time, &tmo);
-    if (tres != 0)
-	BIF_ERROR(BIF_P, BADARG);
+    if (tres != 0) {
+        BIF_P->fvalue = am_time;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
 
     return setup_bif_timer(BIF_P, tmo < ERTS_TIMER_WHEEL_MSEC,
                            timeout_pos, short_time, BIF_ARG_2,
@@ -2473,8 +2478,10 @@ BIF_RETTYPE start_timer_3(BIF_ALIST_3)
 
     tres = parse_timeout_pos(erts_proc_sched_data(BIF_P), BIF_ARG_1, NULL,
 			     0, &timeout_pos, &short_time, &tmo);
-    if (tres != 0)
-	BIF_ERROR(BIF_P, BADARG);
+    if (tres != 0) {
+        BIF_P->fvalue = am_time;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
 
     return setup_bif_timer(BIF_P, tmo < ERTS_TIMER_WHEEL_MSEC,
                            timeout_pos, short_time, BIF_ARG_2,
@@ -2486,13 +2493,17 @@ BIF_RETTYPE start_timer_4(BIF_ALIST_4)
     ErtsMonotonicTime timeout_pos, tmo;
     int short_time, abs, tres;
 
-    if (!parse_bif_timer_options(BIF_ARG_4, NULL, NULL, &abs))
-	BIF_ERROR(BIF_P, BADARG);
+    if (!parse_bif_timer_options(BIF_ARG_4, NULL, NULL, &abs)) {
+        BIF_P->fvalue = am_badopt;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
 
     tres = parse_timeout_pos(erts_proc_sched_data(BIF_P), BIF_ARG_1, NULL,
 			     abs, &timeout_pos, &short_time, &tmo);
-    if (tres != 0)
-	BIF_ERROR(BIF_P, BADARG);
+    if (tres != 0) {
+        BIF_P->fvalue = am_time;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
 
     return setup_bif_timer(BIF_P, tmo < ERTS_TIMER_WHEEL_MSEC,
                            timeout_pos, short_time, BIF_ARG_2,
@@ -2819,16 +2830,21 @@ btm_print(ErtsBifTimer *tmr, void *vbtmp, ErtsMonotonicTime tpos, int is_hlt)
 	       (Sint64) left);
 }
 
-static void
-btm_tree_print(ErtsBifTimer *tmr, void *vbtmp)
+static int
+btm_tree_print(ErtsBifTimer *tmr, void *vbtmp, Sint reds)
 {
     int is_hlt = !!(tmr->type.head.roflgs & ERTS_TMR_ROFLG_HLT);
     ErtsMonotonicTime tpos;
+
+    if (erts_atomic32_read_nob(&tmr->btm.state) != ERTS_TMR_STATE_ACTIVE)
+	return 1;
+
     if (is_hlt)
         tpos = 0;
     else
         tpos = erts_tweel_read_timeout(&tmr->type.twt.u.tw_tmr);
     btm_print(tmr, vbtmp, tpos, is_hlt);
+    return 1;
 }
 
 void
@@ -2860,8 +2876,8 @@ typedef struct {
     void *arg;
 } ErtsBTMForeachDebug;
 
-static void
-debug_btm_foreach(ErtsBifTimer *tmr, void *vbtmfd)
+static int
+debug_btm_foreach(ErtsBifTimer *tmr, void *vbtmfd, Sint reds)
 {
     if (erts_atomic32_read_nob(&tmr->btm.state) == ERTS_TMR_STATE_ACTIVE) {
 	ErtsBTMForeachDebug *btmfd = (ErtsBTMForeachDebug *) vbtmfd;
@@ -2870,6 +2886,7 @@ debug_btm_foreach(ErtsBifTimer *tmr, void *vbtmfd)
                     : tmr->type.head.receiver.proc->common.id);
 	(*btmfd->func)(id, tmr->btm.message, tmr->btm.bp, btmfd->arg);
     }
+    return 1;
 }
 
 void
@@ -2918,8 +2935,8 @@ debug_callback_timer_foreach_list(ErtsHLTimer *tmr, void *vdfct)
 		      tmr->head.u.arg);
 }
 
-static void
-debug_callback_timer_foreach(ErtsHLTimer *tmr, void *vdfct)
+static int
+debug_callback_timer_foreach(ErtsHLTimer *tmr, void *vdfct, Sint reds)
 {
     ErtsDebugForeachCallbackTimer *dfct
 	= (ErtsDebugForeachCallbackTimer *) vdfct;
@@ -2934,6 +2951,7 @@ debug_callback_timer_foreach(ErtsHLTimer *tmr, void *vdfct)
 	(*dfct->func)(dfct->arg,
 		      tmr->timeout,
 		      tmr->head.u.arg);
+    return 1;
 }
 
 static void
@@ -2981,7 +2999,8 @@ erts_debug_callback_timer_foreach(void (*tclbk)(void *),
 
 	if (srv->yield.root)
 	    debug_callback_timer_foreach(srv->yield.root,
-					 (void *) &dfct);
+					 (void *) &dfct,
+                                         -1);
 
 	time_rbt_foreach(srv->time_tree,
 			 debug_callback_timer_foreach,

@@ -23,7 +23,7 @@
 -export([absname/1, absname_2/1, 
 	 basename_1/1, basename_2/1,
 	 dirname/1, extension/1, join/1, t_nativename/1]).
--export([pathtype/1,rootname/1,split/1,find_src/1]).
+-export([pathtype/1,rootname/1,split/1]).
 -export([absname_bin/1, absname_bin_2/1, 
 	 basename_bin_1/1, basename_bin_2/1,
 	 dirname_bin/1, extension_bin/1, join_bin/1, t_nativename_bin/1]).
@@ -39,7 +39,6 @@ suite() ->
 
 all() -> 
     [absname, absname_2,
-     find_src,
      absname_bin, absname_bin_2,
      {group,p},
      t_basedir_xdg, t_basedir_windows,
@@ -313,11 +312,18 @@ extension(Config) when is_list(Config) ->
     ".erl" = filename:extension("A:/usr.bar/foo.nisse.erl"),
     "" = filename:extension("A:/usr.bar/foo"),
     "" = filename:extension("A:/usr/foo"),
+    "" = filename:extension(".gitignore"),
+    "" = filename:extension("A:/usr/.gitignore"),
+    ".ignore" = filename:extension("A:/usr/..ignore"),
+    ".ignore" = filename:extension("A:/usr/.git.ignore"),
     case os:type() of
         {win32, _} ->
             "" = filename:extension("A:\\usr\\foo"),
             ".erl" = filename:extension("A:/usr.bar/foo.nisse.erl"),
             "" = filename:extension("A:/usr.bar/foo"),
+            "" = filename:extension("A:\\usr\\.gitignore"),
+            ".ignore" = filename:extension("A:\\usr\\..ignore"),
+            ".ignore" = filename:extension("A:\\usr\\.git.ignore"),
             ok;
         _ -> ok
     end.
@@ -441,8 +447,14 @@ pathtype(Config) when is_list(Config) ->
 rootname(Config) when is_list(Config) ->
     "/jam.src/kalle" = filename:rootname("/jam.src/kalle"),
     "/jam.src/foo" = filename:rootname("/jam.src/foo.erl"),
+    "/jam.src/.gitignore" = filename:rootname("/jam.src/.gitignore"),
+    "/jam.src/.git" = filename:rootname("/jam.src/.git.ignore"),
+    "/jam.src/." = filename:rootname("/jam.src/..gitignore"),
     "/jam.src/foo" = filename:rootname(["/ja",'m.sr',"c/foo.erl"]),
     "/jam.src/foo" = filename:rootname("/jam.src/foo.erl", ".erl"),
+    "/jam.src/.gitignore" = filename:rootname("/jam.src/.gitignore", ".gitignore"),
+    "/jam.src/.git" = filename:rootname("/jam.src/.git.ignore", ".ignore"),
+    "/jam.src/." = filename:rootname("/jam.src/..gitignore", ".gitignore"),
     "/jam.src/foo.jam" = filename:rootname("/jam.src/foo.jam", ".erl"),
     "/jam.src/foo.jam" = filename:rootname(["/jam.sr",'c/foo.j',"am"],".erl"),
     "/jam.src/foo.jam" = filename:rootname(["/jam.sr",'c/foo.j'|am],".erl"),
@@ -495,33 +507,6 @@ t_nativename(Config) when is_list(Config) ->
             "/usr/tmp/arne" =
                 filename:nativename("/usr/tmp//arne/")
     end.
-
-find_src(Config) when is_list(Config) ->
-    {Source,_} = filename:find_src(file),
-    ["file"|_] = lists:reverse(filename:split(Source)),
-    {Source,_} = filename:find_src(file, [{"",""}, {"ebin","src"}]),
-    {Source,_} = filename:find_src(Source),
-    {Source,_} = filename:find_src(Source ++ ".erl"),
-
-    %% Try to find the source for a preloaded module.
-    {error,{preloaded,init}} = filename:find_src(init),
-
-    %% Make sure that find_src works for a slim BEAM file.
-    OldPath = code:get_path(),
-    try
-        PrivDir = proplists:get_value(priv_dir, Config),
-        code:add_patha(PrivDir),
-        Src = "simple",
-        SrcPath = filename:join(PrivDir, Src) ++ ".erl",
-        SrcContents = "-module(simple).\n",
-        ok = file:write_file(SrcPath, SrcContents),
-        {ok,simple} = compile:file(SrcPath, [slim,{outdir,PrivDir}]),
-        BeamPath = filename:join(PrivDir, Src),
-        {BeamPath,[]} = filename:find_src(simple)
-    after
-        code:set_path(OldPath)
-    end,
-    ok.
 
 %%
 %%
@@ -693,11 +678,18 @@ extension_bin(Config) when is_list(Config) ->
     <<".erl">> = filename:extension(<<"A:/usr.bar/foo.nisse.erl">>),
     <<"">> = filename:extension(<<"A:/usr.bar/foo">>),
     <<"">> = filename:extension(<<"A:/usr/foo">>),
+    <<"">> = filename:extension(<<".gitignore">>),
+    <<"">> = filename:extension(<<"A:/usr/.gitignore">>),
+    <<".ignore">> = filename:extension(<<"A:/usr/..ignore">>),
+    <<".ignore">> = filename:extension(<<"A:/usr/.git.ignore">>),
     case os:type() of
         {win32, _} ->
             <<"">> = filename:extension(<<"A:\\usr\\foo">>),
             <<".erl">> = filename:extension(<<"A:/usr.bar/foo.nisse.erl">>),
             <<"">> = filename:extension(<<"A:/usr.bar/foo">>),
+            <<"">> = filename:extension(<<"A:/usr/.gitignore">>),
+            <<".ignore">> = filename:extension(<<"A:/usr/..ignore">>),
+            <<".ignore">> = filename:extension(<<"A:/usr/.git.ignore">>),
             ok;
         _ -> ok
     end.
@@ -886,7 +878,7 @@ t_nativename_bin(Config) when is_list(Config) ->
 
 safe_relative_path(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    Root = filename:join(PrivDir, ?FUNCTION_NAME),
+    Root = filename:join(PrivDir, "filename_SUITE_safe_relative_path"),
     ok = file:make_dir(Root),
     ok = file:set_cwd(Root),
 
@@ -1081,7 +1073,10 @@ check_basedir_xdg([Type|Types]) ->
     Opt  = #{os=>linux},
     Key  = basedir_xdg_env(Type),
     io:format("type: ~p~n", [Type]),
-    Home = os:getenv("HOME"),
+    Home = case os:getenv("WSLENV") of
+               false -> os:getenv("HOME");
+               _ -> os:getenv("USERPROFILE")
+           end,
     NDir = "/some/absolute/path",
     DefPath = basedir_xdg_def(Type,Home,Name),
     EnvPath = case Type of

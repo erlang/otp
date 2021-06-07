@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,6 +46,12 @@ lookup(#'DistributionPoint'{distributionPoint = {fullName, Names}},
 lookup(_,_,_) ->
     not_available.
 
+select(GenNames, CRLDbHandle) when is_list(GenNames) ->
+    lists:flatmap(fun({directoryName, Issuer}) ->
+                          select(Issuer, CRLDbHandle);
+                     (_) ->
+                          []
+                  end, GenNames);
 select(Issuer, {{_Cache, Mapping},_}) ->
     case ssl_pkix_db:lookup(Issuer, Mapping) of
 	undefined ->

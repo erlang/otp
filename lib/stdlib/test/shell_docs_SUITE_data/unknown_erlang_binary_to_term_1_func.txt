@@ -1,0 +1,17 @@
+
+  [;1m-spec binary_to_term(Binary) -> term() when Binary :: ext_binary().[0m
+
+  Returns an Erlang term that is the result of decoding binary
+  object [;;4mBinary[0m, which must be encoded according to the Erlang
+  external term format.
+
+    > Bin = term_to_binary(hello).
+    <<131,100,0,5,104,101,108,108,111>>
+    > hello = binary_to_term(Bin).
+    hello
+
+  Warning:
+    When decoding binaries from untrusted sources, consider using [;;4m[0m
+    [;;4mbinary_to_term/2[0m to prevent Denial of Service attacks.
+
+  See also [;;4mterm_to_binary/1[0m and [;;4mbinary_to_term/2[0m.

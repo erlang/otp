@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
   <!ENTITY man_tcp_sender
-  '<seealso marker="diameter_tcp#sender">diameter_tcp(3)</seealso>'>
-  <!ENTITY gen_sctp '<seealso marker="kernel:gen_sctp">gen_sctp(3)</seealso>'>
+  '<seeerl marker="diameter_tcp#sender">diameter_tcp(3)</seeerl>'>
+  <!ENTITY gen_sctp '<seeerl marker="kernel:gen_sctp">gen_sctp(3)</seeerl>'>
   <!ENTITY gen_sctp_open1
-  '<seealso marker="kernel:gen_sctp#open-1">gen_sctp:open/1</seealso>'>
+  '<seemfa marker="kernel:gen_sctp#open/1">gen_sctp:open/1</seemfa>'>
   <!ENTITY ip_address
-  '<seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>'>
-  <!ENTITY inet '<seealso marker="kernel:inet">inet(3)</seealso>'>
+  '<seetype marker="kernel:inet#ip_address">inet:ip_address()</seetype>'>
+  <!ENTITY inet '<seeerl marker="kernel:inet">inet(3)</seeerl>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;
@@ -18,7 +18,7 @@
 <header>
 <copyright>
 <year>2011</year>
-<year>2017</year>
+<year>2020</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>

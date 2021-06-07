@@ -45,7 +45,7 @@ fact(N) when N>0 ->  % beginning of function declaration
 fact(0) ->           %  |
     1.               % end of function declaration</pre>
     <p>For a description of function declarations, see
-    <seealso marker="functions">Function Declaration Syntax</seealso>.</p>
+    <seeguide marker="functions">Function Declaration Syntax</seeguide>.</p>
   </section>
 
   <section>
@@ -64,7 +64,7 @@ fact(0) ->           %  |
     <p>Any module attribute can be specified. The attributes are stored
       in the compiled code and can be retrieved by calling
       <c>Module:module_info(attributes)</c>, or by using the module
-      <seealso marker="stdlib:beam_lib#chunks/2">beam_lib(3)</seealso>
+      <seemfa marker="stdlib:beam_lib#chunks/2">beam_lib(3)</seemfa>
        in STDLIB.</p>
 
     <p>Several module attributes have predefined meanings.
@@ -81,7 +81,7 @@ fact(0) ->           %  |
           <p>Module declaration, defining the name of the module.
             The name <c>Module</c>, an atom, is to be same as
             the file name minus the extension <c>.erl</c>. Otherwise
-            <seealso marker="code_loading#loading">code loading</seealso> does
+            <seeguide marker="code_loading#loading">code loading</seeguide> does
             not work as intended.</p>
           <p>This attribute is to be specified first and is the only
             mandatory attribute.</p>
@@ -109,14 +109,14 @@ fact(0) ->           %  |
           <p>Compiler options. <c>Options</c> is a single option
             or a list of options.
             This attribute is added to the option list when
-            compiling the module. See the <seealso marker="compiler:compile">
-            compile(3)</seealso> manual page in Compiler.</p>
+            compiling the module. See the <seeerl marker="compiler:compile">
+            compile(3)</seeerl> manual page in Compiler.</p>
         </item>
         <tag><c>-vsn(Vsn).</c></tag>
         <item>
           <p>Module version. <c>Vsn</c> is any literal term and can be
             retrieved using <c>beam_lib:version/1</c>, see the
-            <seealso marker="stdlib:beam_lib#version/1">beam_lib(3)</seealso>
+            <seemfa marker="stdlib:beam_lib#version/1">beam_lib(3)</seemfa>
             manual page in STDLIB.</p>
           <p>If this attribute is not specified, the version defaults
             to the MD5 checksum of the module.</p>
@@ -126,8 +126,8 @@ fact(0) ->           %  |
           <p>This attribute names a function that is to be run
             automatically when a
             module is loaded. For more information, see
-	    <seealso marker="code_loading#on_load">
-            Running a Function When a Module is Loaded</seealso>.</p>
+	    <seeguide marker="code_loading#on_load">
+            Running a Function When a Module is Loaded</seeguide>.</p>
         </item>
       </taglist>
     </section>
@@ -161,8 +161,8 @@ behaviour_info(callbacks) -> Callbacks.</pre>
        extra type information can be used by tools to produce
        documentation or find discrepancies.</p>
       <p>Read more about behaviours and callback modules in
-        <seealso marker="doc/design_principles:spec_proc#behaviours">
-        OTP Design Principles</seealso>.</p>
+        <seeguide marker="system/design_principles:spec_proc#behaviours">
+        OTP Design Principles</seeguide>.</p>
     </section>
 
     <section>
@@ -173,7 +173,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 -record(Record,Fields).</pre>
       <p>Record definitions are allowed anywhere in a module,
         also among the function declarations.
-	Read more in <seealso marker="records">Records</seealso>.</p>
+	Read more in <seeguide marker="records">Records</seeguide>.</p>
     </section>
 
     <section>
@@ -185,7 +185,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 -include("SomeFile.hrl").
 -define(Macro,Replacement).</pre>
 
-      <p>Read more in <seealso marker="macros">Preprocessor</seealso>.</p>
+      <p>Read more in <seeguide marker="macros">Preprocessor</seeguide>.</p>
     </section>
 
     <section>
@@ -209,7 +209,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 	<pre>
 -type my_type() :: atom() | integer().
 -spec my_function(integer()) -> integer().</pre>
-        <p>Read more in <seealso marker="typespec">Types and Function specifications</seealso>.
+        <p>Read more in <seeguide marker="typespec">Types and Function specifications</seeguide>.
 	</p>
 	<p>
 	  The description is based on
@@ -275,7 +275,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 
 	  <p>The list of attributes becomes empty if
 	  the module is stripped with the
-	  <seealso marker="stdlib:beam_lib#strip/1">beam_lib(3)</seealso>
+	  <seemfa marker="stdlib:beam_lib#strip/1">beam_lib(3)</seemfa>
 	  module (in STDLIB).</p>
 	  </item>
 
@@ -284,7 +284,7 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 	  <p>Returns a list of tuples with information about
 	  how the module was compiled. This list is empty if
 	  the module has been stripped with the
-	  <seealso marker="stdlib:beam_lib#strip/1">beam_lib(3)</seealso>
+	  <seemfa marker="stdlib:beam_lib#strip/1">beam_lib(3)</seemfa>
 	  module (in STDLIB).</p>
 	  </item>
 

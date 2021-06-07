@@ -133,6 +133,8 @@ test(Tests) ->
 %% <dl>
 %% <dt>`verbose'</dt>
 %% <dd>Displays more details about the running tests.</dd>
+%% <dt>`print_depth'</dt>
+%% <dd>Maximum depth to which terms are printed in case of error.</dd>
 %% </dl>
 %%
 %% Options in the environment variable EUNIT are also included last in

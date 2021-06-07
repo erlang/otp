@@ -24,16 +24,20 @@
 %%% There will be warnings at level 2 and 3.
 
 f(F) ->
+    io:format("~p"),                            %1
+
     io:format("~", F),				%2
     io:format("~", [F]),			%1
     io:format(a, b),				%1
     io:format(a, "abc"),			%1
     io:format(a, [a | "abc"]),			%2
     io:format(4,5,6,7),				%1
+    io:format("~p", "abc" ++ "xyz"),            %2
 
     io:format("la cucaracha~n"),
     io:format(""),
     io:format("~p ~p~n", [F]),			%1
+    io:format("~p ~p~n", [1,2,F]),		%1
     io:format("~p~n", [F]),
     io:format("~m"),				%1
     io:format(F, "~p", []),			%1

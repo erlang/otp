@@ -45,7 +45,7 @@
     <list type="bulleted">
       <item>
         <p><c>datetime() = {date(), time()}</c></p>
-        <p>See <seealso marker="stdlib:calendar">calendar</seealso> 
+        <p>See <seeerl marker="stdlib:calendar">calendar</seeerl> 
           for more info.</p>
       </item>
 
@@ -86,7 +86,7 @@
       </type>
       <desc>
         <p>Starts the SNMP application.</p>
-        <p>See <seealso marker="kernel:application">application</seealso> for more info.</p>
+        <p>See <seeerl marker="kernel:application">application</seeerl> for more info.</p>
 
         <marker id="start_agent"></marker>
       </desc>
@@ -186,7 +186,7 @@
           validation of the <c>DateAndTime</c> argument. Whenever the data 
           is found to not follow RFC2579, the fun is called to allow a more
           "lax" validation. 
-          See the <seealso marker="#vdat">validate_date_and_time/2</seealso> 
+          See the <seeerl marker="#vdat">validate_date_and_time/2</seeerl> 
           function for more info on the <c>Validate</c> fun. </p>
 
 	<marker id="dat2s2"></marker>
@@ -432,7 +432,7 @@
       <desc>
         <p>Converts an Audit Trail Log to a readable format and 
 	prints it on stdio. See 
-	<seealso marker="snmp#log_to_txt">log_to_txt</seealso> 
+	<seeerl marker="snmp#log_to_txt">log_to_txt</seeerl> 
 	above for more info.</p>
 
         <marker id="change_log_size"></marker>

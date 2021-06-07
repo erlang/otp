@@ -38,7 +38,7 @@
     the callbacks defined in this behavior, the public key handling of an SSH server can
     be customized. By default the SSH application implements this behavior
     with help of the standard OpenSSH files,
-    see the <seealso marker="SSH_app"> ssh(6)</seealso> application manual.</p>
+    see the <seeapp marker="SSH_app"> ssh(6)</seeapp> application manual.</p>
   </description>
 
   <!-- section>
@@ -48,7 +48,7 @@
     or abstractions to indicate the intended use of the data
     type, or both. For more details on public key data types,
     refer to Section 2 Public Key Records in the
-    <seealso marker="public_key:public_key_records"> public_key user's guide</seealso>.
+    <seeguide marker="public_key:public_key_records"> public_key user's guide</seeguide>.
     </p>
 
     <taglist>
@@ -75,10 +75,10 @@
     <datatype>
       <name name="daemon_key_cb_options"/>
       <desc>
-	<p>Options provided to <seealso marker="ssh#daemon-2">ssh:daemon/2,3</seealso>.
+	<p>Options provided to <seemfa marker="ssh#daemon/2">ssh:daemon/2,3</seemfa>.
 	</p>
 	<p>The option list given in the
-	<seealso marker="ssh#type-key_cb_common_option"><c>key_cb</c></seealso>
+	<seetype marker="ssh#key_cb_common_option"><c>key_cb</c></seetype>
 	option is available with the key <c>key_cb_private</c>.
 	</p>
       </desc>
@@ -88,16 +88,16 @@
   <funcs>
     <func>
       <name since="OTP R16B">Module:host_key(Algorithm, DaemonOptions) ->
-      {ok, Key} | {error, Reason}</name>
+      {ok, PrivateKey} | {error, Reason}</name>
       <fsummary>Fetches the host’s private key.</fsummary>
       <type>
-	<v>Algorithm = <seealso marker="ssh#type-pubkey_alg">ssh:pubkey_alg()</seealso></v>
+	<v>Algorithm = <seetype marker="ssh#pubkey_alg">ssh:pubkey_alg()</seetype></v>
 	<d>Host key algorithm.</d>
 
-	<v>DaemonOptions =  <seealso marker="#type-daemon_key_cb_options">daemon_key_cb_options()</seealso></v>
+	<v>DaemonOptions =  <seetype marker="#daemon_key_cb_options">daemon_key_cb_options()</seetype></v>
 
-	<v>PrivateKey = <seealso marker="public_key:public_key#type-private_key">public_key:private_key()</seealso>
-	   | <seealso marker="crypto:crypto#type-engine_key_ref">crypto:engine_key_ref()</seealso>
+	<v>PrivateKey = <seetype marker="public_key:public_key#private_key">public_key:private_key()</seetype>
+	   | <seetype marker="crypto:crypto#engine_key_ref">crypto:engine_key_ref()</seetype>
 	</v>
 
 	<d>Private key of the host matching the <c>Algorithm</c>.
@@ -114,13 +114,13 @@
       <name since="OTP R16B">Module:is_auth_key(PublicUserKey, User, DaemonOptions) -> Result</name>
       <fsummary>Checks if the user key is authorized.</fsummary>
       <type>
-	<v>PublicUserKey = <seealso marker="public_key:public_key#type-public_key">public_key:public_key()</seealso></v>
+	<v>PublicUserKey = <seetype marker="public_key:public_key#public_key">public_key:public_key()</seetype></v>
 	<d>Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added</d>
 
 	<v>User = string()</v>
 	<d>User owning the public key.</d>
 
-	<v>DaemonOptions =  <seealso marker="#type-daemon_key_cb_options">daemon_key_cb_options()</seealso></v>
+	<v>DaemonOptions =  <seetype marker="#daemon_key_cb_options">daemon_key_cb_options()</seetype></v>
 
 	<v>Result = boolean()</v>
       </type>

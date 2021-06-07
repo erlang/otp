@@ -26,8 +26,8 @@
 -include_lib("common_test/include/ct.hrl").
 
 compile(Config, Erule, Options) ->
-    asn1_test_lib:compile("MEDIA-GATEWAY-CONTROL.asn", Config, [Erule|Options]),
-    asn1_test_lib:compile("OLD-MEDIA-GATEWAY-CONTROL.asn", Config, [Erule|Options]),
+    Files = ["MEDIA-GATEWAY-CONTROL.asn","OLD-MEDIA-GATEWAY-CONTROL.asn"],
+    asn1_test_lib:compile_all(Files, Config, [Erule|Options]),
     {ok,'OLD-MEDIA-GATEWAY-CONTROL','MEDIA-GATEWAY-CONTROL'}.
 
 main(no_module,_) -> ok;

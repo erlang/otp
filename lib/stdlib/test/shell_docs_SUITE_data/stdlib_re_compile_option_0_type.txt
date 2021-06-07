@@ -1,0 +1,10 @@
+
+  [;1m-type compile_option() ::[0m
+  [;1m          unicode | anchored | caseless | dollar_endonly | dotall |[0m
+  [;1m          extended | firstline | multiline | no_auto_capture |[0m
+  [;1m          dupnames | ungreedy |[0m
+  [;1m          {newline, nl_spec()} |[0m
+  [;1m          bsr_anycrlf | bsr_unicode | no_start_optimize | ucp |[0m
+  [;1m          never_utf.[0m
+
+  There is no documentation for compile_option/0

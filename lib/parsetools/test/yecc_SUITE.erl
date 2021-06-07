@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@
 -include_lib("stdlib/include/erl_compile.hrl").
 
 -ifdef(debug).
--define(line, put(line, ?LINE), ).
 -define(config(X,Y), foo).
 -define(datadir, "yecc_SUITE_data").
 -define(privdir, "yecc_SUITE_priv").
@@ -50,13 +49,13 @@
 	 otp_5369/1, otp_6362/1, otp_7945/1, otp_8483/1, otp_8486/1,
 	 
 	 otp_7292/1, otp_7969/1, otp_8919/1, otp_10302/1, otp_11269/1,
-         otp_11286/1, otp_14285/1]).
+         otp_11286/1, otp_14285/1, otp_17023/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
+    Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
 end_per_testcase(_Case, Config) ->
@@ -78,7 +77,7 @@ groups() ->
      {bugs, [],
       [otp_5369, otp_6362, otp_7945, otp_8483, otp_8486]},
      {improvements, [], [otp_7292, otp_7969, otp_8919, otp_10302,
-                         otp_11269, otp_11286, otp_14285]}].
+                         otp_11269, otp_11286, otp_14285, otp_17023]}].
 
 init_per_suite(Config) ->
     Config.
@@ -98,7 +97,7 @@ app_test(doc) ->
 app_test(suite) ->
     [];
 app_test(Config) when is_list(Config) ->
-    ?line ok=?t:app_test(parsetools),
+    ok=?t:app_test(parsetools),
     ok.
 
 
@@ -108,51 +107,51 @@ file(suite) -> [];
 file(Config) when is_list(Config) ->
     Dir = ?privdir,
     Ret = [return, {report, false}],
-    ?line {error,[{_,[{none,yecc,{file_error,_}}]}],[]} = 
+    {error,[{_,[{none,yecc,{file_error,_}}]}],[]} = 
         yecc:file("not_a_file", Ret),
-    ?line {error,[{_,[{none,yecc,{file_error,_}}]}],[]} = 
+    {error,[{_,[{none,yecc,{file_error,_}}]}],[]} = 
         yecc:file("not_a_file", [{return,true}]),
-    ?line {error,[{_,[{none,yecc,{file_error,_}}]}],[]} = 
+    {error,[{_,[{none,yecc,{file_error,_}}]}],[]} = 
         yecc:file("not_a_file", [{report,false},return_errors]),
-    ?line error = yecc:file("not_a_file"),
-    ?line error = yecc:file("not_a_file", [{return,false},report]),
-    ?line error = yecc:file("not_a_file", [return_warnings,{report,false}]),
+    error = yecc:file("not_a_file"),
+    error = yecc:file("not_a_file", [{return,false},report]),
+    error = yecc:file("not_a_file", [return_warnings,{report,false}]),
     Filename = filename:join(Dir, "file.yrl"),
     file:delete(Filename),
 
-    ?line {'EXIT', {badarg, _}} = (catch yecc:file({foo})),
-    ?line {'EXIT', {badarg, _}} = 
+    {'EXIT', {badarg, _}} = (catch yecc:file({foo})),
+    {'EXIT', {badarg, _}} = 
         (catch yecc:file(Filename, {parserfile,{foo}})),
-    ?line {'EXIT', {badarg, _}} = 
+    {'EXIT', {badarg, _}} = 
         (catch yecc:file(Filename, {includefile,{foo}})),
 
-    ?line {'EXIT', {badarg, _}} = (catch yecc:file(Filename, no_option)),
-    ?line {'EXIT', {badarg, _}} = 
+    {'EXIT', {badarg, _}} = (catch yecc:file(Filename, no_option)),
+    {'EXIT', {badarg, _}} = 
         (catch yecc:file(Filename, [return | report])),
-    ?line {'EXIT', {badarg, _}} = 
+    {'EXIT', {badarg, _}} = 
         (catch yecc:file(Filename, {return,foo})),
-    ?line {'EXIT', {badarg, _}} = 
+    {'EXIT', {badarg, _}} = 
         (catch yecc:file(Filename, includefile)),
 
     Mini = <<"Nonterminals nt. 
               Terminals t.
               Rootsymbol nt.
               nt -> t.">>,
-    ?line ok = file:write_file(Filename, Mini),
-    ?line {error,[{_,[{none,yecc,{file_error,_}}]}],[]} = 
+    ok = file:write_file(Filename, Mini),
+    {error,[{_,[{none,yecc,{file_error,_}}]}],[]} = 
         yecc:file(Filename, [{parserfile,"//"} | Ret]),
 
-    ?line {error,[{_,[{none,yecc,{file_error,_}}]}],[]} = 
+    {error,[{_,[{none,yecc,{file_error,_}}]}],[]} = 
         yecc:file(Filename, [{includefile,"//"} | Ret]),
-    ?line {error,[{_,[{none,yecc,{file_error,_}}]}],[]} = 
+    {error,[{_,[{none,yecc,{file_error,_}}]}],[]} = 
         yecc:file(Filename, [{includefile,"/ /"} | Ret]),
 
     YeccPre = filename:join(Dir, "yeccpre.hrl"),
-    ?line ok = file:write_file(YeccPre, <<"syntax error. ">>),
+    ok = file:write_file(YeccPre, <<"syntax error. ">>),
     PreErrors1 = run_test(Config, Mini, YeccPre),
-    ?line {errors,[_],[]} = extract(YeccPre, PreErrors1),
-    ?line ok = file:write_file(YeccPre, my_yeccpre()),
-    ?line {'EXIT', {undef,_}} = (catch run_test(Config, Mini, YeccPre)),
+    {errors,[_],[]} = extract(YeccPre, PreErrors1),
+    ok = file:write_file(YeccPre, my_yeccpre()),
+    {'EXIT', {undef,_}} = (catch run_test(Config, Mini, YeccPre)),
 
     MiniCode = <<"
               Nonterminals nt. 
@@ -161,7 +160,7 @@ file(Config) when is_list(Config) ->
               nt -> t.
               Erlang code.
              ">>,
-    ?line {'EXIT', {undef,_}} = (catch run_test(Config, MiniCode, YeccPre)),
+    {'EXIT', {undef,_}} = (catch run_test(Config, MiniCode, YeccPre)),
 
     file:delete(YeccPre),
     file:delete(Filename),
@@ -179,76 +178,76 @@ syntax(Config) when is_list(Config) ->
     Parserfile = filename:join(Dir, "file.erl"),
     Parserfile1 = filename:join(Dir, "a file"),
 
-    ?line ok = file:write_file(Filename, <<"">>),
-    ?line {error,[{_,[{none,yecc,no_grammar_rules},
+    ok = file:write_file(Filename, <<"">>),
+    {error,[{_,[{none,yecc,no_grammar_rules},
                       {none,yecc,nonterminals_missing},
                       {none,yecc,rootsymbol_missing},
                       {none,yecc,terminals_missing}]}],[]} = 
         yecc:file(Filename, Ret),
 
-    ?line ok = file:write_file(Filename, <<"Nonterminals">>),
-    ?line {error,[{_,[{_,yecc,{error,yeccparser,_}}]}],[]} = 
+    ok = file:write_file(Filename, <<"Nonterminals">>),
+    {error,[{_,[{_,yecc,{error,yeccparser,_}}]}],[]} = 
         yecc:file(Filename, Ret),
 
-    ?line ok = file:write_file(Filename, <<"Nonterminals nt.">>),
-    ?line {error,[{_,[{none,yecc,no_grammar_rules},
+    ok = file:write_file(Filename, <<"Nonterminals nt.">>),
+    {error,[{_,[{none,yecc,no_grammar_rules},
                       {none,yecc,rootsymbol_missing},
                       {none,yecc,terminals_missing}]}],[]} = 
         yecc:file(Filename, Ret),
 
-    ?line ok = file:write_file(Filename, <<"Nonterminals nt. Terminals t.">>),
-    ?line {error,[{_,[{none,yecc,no_grammar_rules},
+    ok = file:write_file(Filename, <<"Nonterminals nt. Terminals t.">>),
+    {error,[{_,[{none,yecc,no_grammar_rules},
                       {none,yecc,rootsymbol_missing}]}],[]} = 
         yecc:file(Filename, Ret),
 
     %% Nonterminals and terminals not disjoint.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt 't t'. Terminals t 't t'. Rootsymbol nt.">>),
-    ?line {error,[{_,[{1,yecc,{symbol_terminal_and_nonterminal,'t t'}},
-                      {none,yecc,no_grammar_rules}]}],
+    {error,[{_,[{none,yecc,no_grammar_rules},
+                {{1,17},yecc,{symbol_terminal_and_nonterminal,'t t'}}]}],
            []} = yecc:file(Filename, Ret),
 
     %% Rootsymbol is not a nonterminal.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. 
             Rootsymbol t. nt -> t.">>),
-    ?line {error,[{_,[{2,yecc,{bad_rootsymbol,t}}]}],[]} = 
+    {error,[{_,[{{2,24},yecc,{bad_rootsymbol,t}}]}],[]} =
         yecc:file(Filename, Ret),
 
     %% Rootsymbol is not a nonterminal.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. 
             Rootsymbol t. nt -> t.">>),
-    ?line {error,[{_,[{2,yecc,{bad_rootsymbol,t}}]}],[]} = 
+    {error,[{_,[{{2,24},yecc,{bad_rootsymbol,t}}]}],[]} =
         yecc:file(Filename, Ret),
 
     %% Endsymbol is a nonterminal.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. Rootsymbol nt. 
             Endsymbol nt.
             nt -> t.">>),
-    ?line {error,[{_,[{2,yecc,{endsymbol_is_nonterminal,nt}}]}],[]} = 
+    {error,[{_,[{{2,23},yecc,{endsymbol_is_nonterminal,nt}}]}],[]} =
         yecc:file(Filename, Ret),
 
     %% Endsymbol is a terminal.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. Rootsymbol nt. 
             Endsymbol t.
             nt -> t.">>),
-    ?line {error,[{_,[{2,yecc,{endsymbol_is_terminal,t}}]}],[]} = 
+    {error,[{_,[{{2,23},yecc,{endsymbol_is_terminal,t}}]}],[]} =
         yecc:file(Filename, Ret),
 
     %% No grammar rules.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. Rootsymbol nt. Endsymbol e.">>),
-    ?line {error,[{_,[{none,yecc,no_grammar_rules}]}],[]} = 
+    {error,[{_,[{none,yecc,no_grammar_rules}]}],[]} = 
         yecc:file(Filename, Ret),
 
     %% Bad declaration.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. Rootsymbol nt. Endsymbol e.
             nt -> t. e e.">>),
-    ?line {ok,_,[{_,[{2,yecc,bad_declaration}]}]} = 
+    {ok,_,[{_,[{{2,22},yecc,bad_declaration}]}]} =
         yecc:file(Filename, Ret),
 
     %% Bad declaration with warnings_as_errors.
@@ -257,37 +256,41 @@ syntax(Config) when is_list(Config) ->
     false = filelib:is_regular(Parserfile),
     error = yecc:file(Filename, [return_warnings,warnings_as_errors]),
     false = filelib:is_regular(Parserfile),
-    {error,_,[{_,[{2,yecc,bad_declaration}]}]} =
+    {error,_,[{_,[{{2,22},yecc,bad_declaration}]}]} =
         yecc:file(Filename, [return_errors,warnings_as_errors]),
     false = filelib:is_regular(Parserfile),
-    {ok,_,[{_,[{2,yecc,bad_declaration}]}]} =
+    {ok,_,[{_,[{{2,22},yecc,bad_declaration}]}]} =
         yecc:file(Filename, [return_warnings]),
     true = filelib:is_regular(Parserfile),
 
     %% Bad declaration.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. 
             Rootsymbol nt nt. Rootsymbol nt. Endsymbol e.
             nt -> t.">>),
-    ?line {ok,_,[{_,[{2,yecc,bad_declaration}]}]} = 
+    {ok,_,[{_,[{{2,13},yecc,bad_declaration}]}]} =
         yecc:file(Filename, Ret),
+    ?line {ok,_,[{_,[{2,yecc,bad_declaration}]}]} =
+        yecc:file(Filename, [{error_location, line} | Ret]),
 
     %% Syntax error found by yeccparser.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. Rootsymbol nt. Endsymbol e.
             a - a.">>),
-    ?line {error,[{_,[{2,yecc,{error,_yeccparser,_}}]}],[]} =
+    {error,[{_,[{{2,15},yecc,{error,_,_}}]}],[]} =
         yecc:file(Filename, Ret),
+    {error,[{_,[{2,yecc,{error,_,_}}]}],[]} =
+        yecc:file(Filename, [{error_location, line} | Ret]),
 
     %% Syntax error: unknown nonterminal.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. Rootsymbol nt. Endsymbol e.
             'unknown ' -> t.">>),
-    ?line {error,[{_,[{2,yecc,{undefined_nonterminal,'unknown '}}]}],[]} = 
+    {error,[{_,[{{2,13},yecc,{undefined_nonterminal,'unknown '}}]}],[]} =
         yecc:file(Filename, Ret),
 
     %% Undefined rhs symbols. Note quotes in output.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals Nonterminals nt. 
             Terminals t Terminals. 
             Rootsymbol nt. 
@@ -295,76 +298,76 @@ syntax(Config) when is_list(Config) ->
             nt -> Nonterminals.
             Nonterminals -> Terminals receive foo 45 
                             '17' 'a b'.">>),
-    ?line {error,[{_,[{6,yecc,{undefined_symbol,45}},
-                      {6,yecc,{undefined_symbol,foo}},
-                      {6,yecc,{undefined_symbol,'receive'}},
-                      {7,yecc,{undefined_symbol,'17'}},
-                      {7,yecc,{undefined_symbol,'a b'}}]}],[]} = 
+    {error,[{_,[{{6,39},yecc,{undefined_symbol,'receive'}},
+                {{6,47},yecc,{undefined_symbol,foo}},
+                {{6,51},yecc,{undefined_symbol,45}},
+                {{7,29},yecc,{undefined_symbol,'17'}},
+                {{7,34},yecc,{undefined_symbol,'a b'}}]}],[]} =
         yecc:file(Filename, Ret),
 
     %% '$empty' used early, before Terminals. OK.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. 
             nt -> '$empty'.
             Terminals t. 
             Rootsymbol nt. 
             Endsymbol e.">>),
-    ?line {ok,_,[{_,[{3,yecc,{unused_terminal,t}}]}]} = 
+    {ok,_,[{_,[{{3,23},yecc,{unused_terminal,t}}]}]} =
         yecc:file(Filename, Ret),
 
     %% Illegal use of '$empty'.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt nt2. 
             Terminals t. 
             Rootsymbol nt. 
             Endsymbol e.
             nt -> t.
             nt2 -> t '$empty'.">>),
-    ?line {error,[{_,[{6,yecc,illegal_empty}]}],[]} = 
+    {error,[{_,[{{6,22},yecc,illegal_empty}]}],[]} =
         yecc:file(Filename, Ret),
 
     ParserFile3 = [{parserfile, Parserfile1}],
 
     %% Bad Erlang expression in action. Changed in OTP-7224.
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
          <<"Nonterminals nt. 
             Terminals t. 
             Rootsymbol nt. 
             Endsymbol e.
             nt -> t : a bad code.">>),
-    ?line {ok, _, []} = yecc:file(Filename, ParserFile3 ++ Ret),
+    {ok, _, []} = yecc:file(Filename, ParserFile3 ++ Ret),
 
     SzYeccPre = yeccpre_size(),
     %% Note: checking the line numbers. Changes when yeccpre.hrl changes.
     fun() ->
-            ?line {error,[{_,[{5,_,["syntax error before: ","bad"]}]},
-                          {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
-                              {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
-                   []} = compile:file(Parserfile1, [basic_validation,return]),
-            ?line L1 = 31 + SzYeccPre,
-            ?line L2 = 39 + SzYeccPre
+            {error,[{_,[{{5,25},_,["syntax error before: ","bad"]}]},
+                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}}]}],
+             []} = compile:file(Parserfile1, [basic_validation,return]),
+            L1 = 31 + SzYeccPre,
+            L2 = 39 + SzYeccPre
     end(),
 
     %% Bad macro in action. OTP-7224.
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
          <<"Nonterminals nt. 
             Terminals t. 
             Rootsymbol nt. 
             Endsymbol e.
             nt -> t : ?F(3).">>),
-    ?line {ok, _, []} = yecc:file(Filename, ParserFile3 ++ Ret),
+    {ok, _, []} = yecc:file(Filename, ParserFile3 ++ Ret),
     %% Note: checking the line numbers. Changes when yeccpre.hrl changes.
     fun() ->
-            ?line {error,[{_,[{5,_,{undefined,'F',1}}]},
-                          {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
-                              {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
-                   []} = compile:file(Parserfile1, [basic_validation,return]),
-            ?line L1 = 31 + SzYeccPre,
-            ?line L2 = 39 + SzYeccPre
+            {error,[{_,[{{5,24},_,{undefined,'F',1}}]},
+                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}}]}],
+             []} = compile:file(Parserfile1, [basic_validation,return]),
+            L1 = 31 + SzYeccPre,
+            L2 = 39 + SzYeccPre
     end(),
 
     %% Check line numbers. OTP-7224.
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
          <<"Terminals t. 
             Nonterminals nt. 
             Rootsymbol nt. 
@@ -374,24 +377,24 @@ syntax(Config) when is_list(Config) ->
             -define(F(X), X).
             t() ->
                bad().">>),
-    ?line {ok, _, []} = yecc:file(Filename, ParserFile3 ++ Ret),
-    ?line {error,[{_,[{9,_,{undefined_function,{bad,0}}}]}],
-           [{_,[{8,_,{unused_function,{t,0}}}]}]} 
+    {ok, _, []} = yecc:file(Filename, ParserFile3 ++ Ret),
+    {error,[{_,[{{9,16},_,{undefined_function,{bad,0}}}]}],
+           [{_,[{{8,13},_,{unused_function,{t,0}}}]}]}
         = compile:file(Parserfile1, [basic_validation, return]),
 
     %% Terminals defined before nonterminals. (One of many checks...)
     %% Used to give an error message, but now allowed.
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
          <<"Terminals t. 
             Nonterminals nt. 
             Rootsymbol nt. 
             Endsymbol e.
             nt -> t.
             Erlang code.">>),
-    ?line {ok, _, []} = yecc:file(Filename, Ret),
+    {ok, _, []} = yecc:file(Filename, Ret),
 
     %% Precedence with swapped arguments. Bad declaration.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. 
             Terminals t. 
             Rootsymbol nt. 
@@ -399,33 +402,34 @@ syntax(Config) when is_list(Config) ->
             nt -> t.
             Right t. 
             Left nt 100.">>),
-    ?line {ok,_,[{_,[{6,yecc,bad_declaration},{7,yecc,bad_declaration}]}]} = 
+    {ok,_,[{_,[{{6,13},yecc,bad_declaration},
+               {{7,13},yecc,bad_declaration}]}]} =
         yecc:file(Filename, Ret),
 
     %% Precedence with unknown operator.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. 
             Terminals t. 
             Rootsymbol nt. 
             Endsymbol e.
             nt -> t.
             Unary 100 '-'.">>),
-    ?line {error,[{_,[{6,yecc,{precedence_op_is_unknown,'-'}}]}],[]} = 
+    {error,[{_,[{{6,23},yecc,{precedence_op_is_unknown,'-'}}]}],[]} =
         yecc:file(Filename, Ret),
 
     %% Precedence with endsymbol operator.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. 
             Terminals t. 
             Rootsymbol nt. 
             Endsymbol e.
             nt -> t.
             Unary 100 e.">>),
-    ?line {error,[{_,[{6,yecc,{precedence_op_is_endsymbol,e}}]}],[]} = 
+    {error,[{_,[{{6,23},yecc,{precedence_op_is_endsymbol,e}}]}],[]} =
         yecc:file(Filename, Ret),
 
     %% Duplicated precedence.
-    ?line ok = file:write_file(Filename, <<"
+    ok = file:write_file(Filename, <<"
             Nonterminals nt. 
             Terminals t '+'. 
             Rootsymbol nt. 
@@ -435,98 +439,98 @@ syntax(Config) when is_list(Config) ->
             Left 200 '+'.
             Left 200 '+'.
             Right 200 t.">>),
-    ?line {error,[{_,[{8,yecc,{duplicate_precedence,'+'}},
-                      {9,yecc,{duplicate_precedence,'+'}},
-                      {10,yecc,{duplicate_precedence,t}}]}],
+    {error,[{_,[{{8,22},yecc,{duplicate_precedence,'+'}},
+                {{9,22},yecc,{duplicate_precedence,'+'}},
+                {{10,23},yecc,{duplicate_precedence,t}}]}],
            []} = yecc:file(Filename, Ret),
 
     %% Duplicated nonterminal.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals 'n t' 'n t'. Terminals t. 
             Rootsymbol 'n t'. 'n t' -> t.">>),
-    ?line {ok, _, [{_,[{1,yecc,{duplicate_nonterminal,'n t'}}]}]} = 
+    {ok, _, [{_,[{{1,14},yecc,{duplicate_nonterminal,'n t'}}]}]} =
         yecc:file(Filename, Ret),
-    ?line {ok, _, [{_,[{1,yecc,{duplicate_nonterminal,'n t'}}]}]} = 
+    {ok, _, [{_,[{{1,14},yecc,{duplicate_nonterminal,'n t'}}]}]} =
         yecc:file(Filename, [return_warnings, {report, false}]),
-    ?line {ok, _} = yecc:file(Filename),
-    ?line {ok, _} = 
+    {ok, _} = yecc:file(Filename),
+    {ok, _} = 
         yecc:file(Filename, [{report,false}, {return_warnings,false}]),
 
     %% Duplicated terminal.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals 't t' 't t'. 
             Rootsymbol nt. nt -> 't t'.">>),
-    ?line {ok, _, [{_,[{1,yecc,{duplicate_terminal,'t t'}}]}]} = 
+    {ok, _, [{_,[{{1,28},yecc,{duplicate_terminal,'t t'}}]}]} =
        yecc:file(Filename, Ret),
 
     %% Two Nonterminals declarations.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. 
             Nonterminals nt2.
             Rootsymbol nt2. nt -> t. nt2 -> nt.">>),
-    ?line {error,[{_,[{2,yecc,{duplicate_declaration,'Nonterminals'}}]}],
+    {error,[{_,[{{2,13},yecc,{duplicate_declaration,'Nonterminals'}}]}],
            []} = yecc:file(Filename, Ret),
 
     %% Three Terminals declarations.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. 
             Terminals t1.
             Terminals t1.
             Rootsymbol nt. nt -> t t1.">>),
-    ?line {error,[{_,[{2,yecc,{duplicate_declaration,'Terminals'}},
-                      {3,yecc,{duplicate_declaration,'Terminals'}}]}],
+    {error,[{_,[{{2,13},yecc,{duplicate_declaration,'Terminals'}},
+                {{3,13},yecc,{duplicate_declaration,'Terminals'}}]}],
            []} = yecc:file(Filename, Ret),
 
     %% Two root symbols.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. Rootsymbol t. 
             Rootsymbol nt. nt -> t.">>),
-    ?line {error,[{_,[{2,yecc,{duplicate_declaration,'Rootsymbol'}}]}],[]} = 
+    {error,[{_,[{{2,13},yecc,{duplicate_declaration,'Rootsymbol'}}]}],[]} =
         yecc:file(Filename, Ret),
 
     %% Two end symbols.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. Rootsymbol t. 
             Endsymbol e. 
             Endsymbol e. nt -> t.">>),
-    ?line {error,[{_,[{3,yecc,{duplicate_declaration,'Endsymbol'}}]}],[]} = 
+    {error,[{_,[{{3,13},yecc,{duplicate_declaration,'Endsymbol'}}]}],[]} =
         yecc:file(Filename, Ret),
 
     %% Two end symbols.
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. Rootsymbol t. 
             Expect 1.
             Expect 0.
             Endsymbol e. nt -> t.">>),
-    ?line {error,[{_,[{3,yecc,{duplicate_declaration,'Expect'}}]}],[]} = 
+    {error,[{_,[{{3,13},yecc,{duplicate_declaration,'Expect'}}]}],[]} =
         yecc:file(Filename, Ret),
 
     %% Some words should not be used.
-    ?line ok = file:write_file(Filename, <<"
+    ok = file:write_file(Filename, <<"
             Terminals '$empty' '$end'.
             Nonterminals '$undefined'.
             Rootsymbol '$undefined'.
             Endsymbol '$end'.
             '$undefined' -> '$empty'.
           ">>),
-    ?line {error,[{_,[{2,yecc,{reserved,'$empty'}},
-                      {2,yecc,{reserved,'$end'}},
-                      {3,yecc,{reserved,'$undefined'}},
-                      {5,yecc,{endsymbol_is_terminal,'$end'}}]}],[]} = 
+    {error,[{_,[{{2,23},yecc,{reserved,'$empty'}},
+                {{2,32},yecc,{reserved,'$end'}},
+                {{3,26},yecc,{reserved,'$undefined'}},
+                {{5,23},yecc,{endsymbol_is_terminal,'$end'}}]}],[]} =
         yecc:file(Filename, Ret),
 
     %% Undefined pseudo variable.
-    ?line ok = file:write_file(Filename,<<"
+    ok = file:write_file(Filename,<<"
               Nonterminals nt. 
               Terminals t.
               Rootsymbol nt.
               nt -> t : '$2'.
           ">>),
-    ?line {error,[{_,[{5,yecc,{undefined_pseudo_variable,'$2'}}]}],[]} =
+    {error,[{_,[{{5,25},yecc,{undefined_pseudo_variable,'$2'}}]}],[]} =
         yecc:file(Filename, Ret),
     
     %% Space in module name.
-    ?line ok = file:write_file(Filename, <<"
+    ok = file:write_file(Filename, <<"
         Nonterminals list.
         Terminals element.
         Rootsymbol list.
@@ -546,7 +550,7 @@ syntax(Config) when is_list(Config) ->
 
     Parserfile2 = filename:join(Dir, "a \"file\""),
     %% The parser (yeccgramm.yrl) allows many symbol names...
-    ?line ok = file:write_file(Filename, <<"
+    ok = file:write_file(Filename, <<"
         Nonterminals Nonterminals Rootsymbol ':' '->'. 
         Terminals Terminals. 
         Rootsymbol Rootsymbol. 
@@ -556,9 +560,9 @@ syntax(Config) when is_list(Config) ->
         ':' -> '->'.
         '->' -> Terminals.
        ">>),
-    ?line {ok, _} = yecc:file(Filename, [{parserfile, Parserfile1}]),
-    ?line {ok, _} = yecc:file(Filename, [{parserfile, Parserfile1},time]),
-    ?line {ok,[]} = compile:file(Parserfile1, [basic_validation]),
+    {ok, _} = yecc:file(Filename, [{parserfile, Parserfile1}]),
+    {ok, _} = yecc:file(Filename, [{parserfile, Parserfile1},time]),
+    {ok,[]} = compile:file(Parserfile1, [basic_validation]),
 
     Quotes = <<"
             Nonterminals 
@@ -614,44 +618,44 @@ syntax(Config) when is_list(Config) ->
 
              ">>,
 
-    ?line ok = file:write_file(Filename, Quotes),
-    ?line {ok,_,[{_,
-                  [{3,yecc,{unused_nonterminal,42}},
-                   {3,yecc,{unused_nonterminal,' unused '}},
-                   {3,yecc,{unused_nonterminal,'42'}},
-                   {3,yecc,{unused_nonterminal,'Unused'}},
-                   {3,yecc,{unused_nonterminal,'receive'}},
-                   {6,yecc,{unused_terminal,'"hi"'}},
-                   {6,yecc,{unused_terminal,'there\''}}]}]} =
+    ok = file:write_file(Filename, Quotes),
+    {ok,_,[{_,
+            [{{3,25},yecc,{unused_nonterminal,42}},
+             {{3,28},yecc,{unused_nonterminal,'Unused'}},
+             {{3,35},yecc,{unused_nonterminal,' unused '}},
+             {{3,46},yecc,{unused_nonterminal,'42'}},
+             {{3,61},yecc,{unused_nonterminal,'receive'}},
+             {{6,25},yecc,{unused_terminal,'"hi"'}},
+             {{6,32},yecc,{unused_terminal,'there\''}}]}]} =
         yecc:file(Filename, Ret),
 
     Ts = [{quotes, Quotes, default, ok}],
-    ?line run(Config, Ts),
+    run(Config, Ts),
 
     %% Non-terminal has no rules, but is unused.
-    ?line ok = file:write_file(Filename,<<"
+    ok = file:write_file(Filename,<<"
               Nonterminals nt bad. 
               Terminals t. 
               Rootsymbol nt. 
 
               nt -> t : something.
           ">>),
-    ?line {ok,_,[{_,[{2,yecc,{unused_nonterminal,bad}}]}]} =
+    {ok,_,[{_,[{{2,31},yecc,{unused_nonterminal,bad}}]}]} =
         yecc:file(Filename, Ret),
 
     %% Non-terminal has no rules and is used.
-    ?line ok = file:write_file(Filename,<<"
+    ok = file:write_file(Filename,<<"
               Nonterminals nt bad. 
               Terminals t. 
               Rootsymbol nt. 
 
               nt -> t bad : something.
           ">>),
-    ?line {error,[{_,[{2,yecc,{missing_syntax_rule,bad}}]}],[]} =
+    {error,[{_,[{{2,31},yecc,{missing_syntax_rule,bad}}]}],[]} =
         yecc:file(Filename, Ret),
 
     %% Warning in Erlang code. With and without file attributes.
-    ?line ok = file:write_file(Filename,<<"
+    ok = file:write_file(Filename,<<"
               Nonterminals nt. 
               Terminals t. 
               Rootsymbol nt. 
@@ -663,14 +667,14 @@ syntax(Config) when is_list(Config) ->
               t(A) ->
                   b.
           ">>),
-    ?line {ok, _, []} = 
+    {ok, _, []} = 
         yecc:file(Filename, [file_attributes | Ret]),
     Opts = [basic_validation, return],
     Erlfile = filename:join(Dir, "file.erl"),
-    ?line {ok,[],[{_,[{10,_,_}]}]} = compile:file(Erlfile, Opts),
-    ?line {ok, _, []} = 
+    {ok,[],[{_,[{{10,17},_,_}]}]} = compile:file(Erlfile, Opts),
+    {ok, _, []} = 
         yecc:file(Filename, [{file_attributes,false} | Ret]),
-    ?line {ok,[],[{_,[{4,_,_}]}]} = compile:file(Erlfile, Opts),
+    {ok,[],[{_,[{{4,17},_,_}]}]} = compile:file(Erlfile, Opts),
 
     file:delete(Parserfile1 ++ ".erl"),
     file:delete(Parserfile2 ++ ".erl"),
@@ -685,13 +689,13 @@ compile(Config) when is_list(Config) ->
     Dir = ?privdir,
     Filename = filename:join(Dir, "file.yrl"),
     Parserfile = filename:join(Dir, "file.erl"),
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
                                <<"Nonterminals nt. 
                                   Terminals t.
                                   Rootsymbol nt.
                                   nt -> t.">>),
-    ?line error = yecc:compile(Filename, "//", #options{}),
-    ?line ok = yecc:compile(Filename, Parserfile, #options{}),
+    error = yecc:compile(Filename, "//", #options{}),
+    ok = yecc:compile(Filename, Parserfile, #options{}),
     file:delete(Parserfile),
     file:delete(Filename),
     ok.
@@ -704,14 +708,14 @@ rules(Config) when is_list(Config) ->
     Ret = [return, {report, false}],
     Filename = filename:join(Dir, "file.yrl"),
 
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
       <<"Nonterminals nt. Terminals t. Rootsymbol nt. 
          nt -> t. nt -> t.">>),
-    ?line {error,[{_,[{none,yecc,{conflict,_}}]}],
+    {error,[{_,[{none,yecc,{conflict,_}}]}],
            [{_,[{none,yecc,{conflicts,0,1}}]}]} = 
         yecc:file(Filename, [return, report]),
 
-    ?line ok = file:write_file(Filename, <<"
+    ok = file:write_file(Filename, <<"
                 Nonterminals A B E.
                 Terminals c d f x y.
                 Rootsymbol A.
@@ -721,28 +725,28 @@ rules(Config) when is_list(Config) ->
                 B -> x y.
                 E -> x y.
                 ">>),
-    ?line {error,[{_,[{none,yecc,{conflict,_}}]}],
+    {error,[{_,[{none,yecc,{conflict,_}}]}],
            [{_,[{none,yecc,{conflicts,0,1}}]}]} = 
         yecc:file(Filename, Ret),
 
-    ?line ok = file:write_file(Filename,<<"
+    ok = file:write_file(Filename,<<"
               Terminals t.
               Nonterminals nt.
               Rootsymbol nt.
               nt -> '$empty' : '$1'.
               nt -> t.
           ">>),
-    ?line {error,[{_,[{5,yecc,{undefined_pseudo_variable,'$1'}}]}],[]} =
+    {error,[{_,[{{5,32},yecc,{undefined_pseudo_variable,'$1'}}]}],[]} =
         yecc:file(Filename, Ret),
     
-    ?line ok = file:write_file(Filename,<<"
+    ok = file:write_file(Filename,<<"
               Terminals t.
               Nonterminals nt.
               Rootsymbol nt.
               nt -> '$empty' : '$0'.
               nt -> t.
           ">>),
-    ?line {error,[{_,[{5,yecc,{undefined_pseudo_variable,'$0'}}]}],[]} =
+    {error,[{_,[{{5,32},yecc,{undefined_pseudo_variable,'$0'}}]}],[]} =
         yecc:file(Filename, Ret),
 
     file:delete(Filename),
@@ -770,7 +774,7 @@ rules(Config) when is_list(Config) ->
           ">>,
          default,
          ok}],
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
 
 
@@ -782,7 +786,7 @@ expect(Config) when is_list(Config) ->
     Ret = [return, {report, true}],
     Filename = filename:join(Dir, "file.yrl"),
 
-    ?line ok = file:write_file(Filename, <<"
+    ok = file:write_file(Filename, <<"
                 Nonterminals e. 
                 Terminals i t else. 
                 Rootsymbol e. 
@@ -791,10 +795,10 @@ expect(Config) when is_list(Config) ->
                 e -> i e t e.
                 e -> i e t e else e.
                 ">>),
-    ?line {error,[{_,[{5,yecc,{bad_expect,a}}]}],[]} = 
+    {error,[{_,[{{5,24},yecc,{bad_expect,a}}]}],[]} =
         yecc:file(Filename, Ret),
 
-    ?line ok = file:write_file(Filename, <<"
+    ok = file:write_file(Filename, <<"
                 Nonterminals e. 
                 Terminals i t else. 
                 Rootsymbol e. 
@@ -803,9 +807,9 @@ expect(Config) when is_list(Config) ->
                 e -> i e t e.
                 e -> i e t e else e.
                 ">>),
-    ?line {ok, _, []} = yecc:file(Filename, Ret),
+    {ok, _, []} = yecc:file(Filename, Ret),
 
-    ?line ok = file:write_file(Filename, <<"
+    ok = file:write_file(Filename, <<"
                 Nonterminals e. 
                 Terminals i t else. 
                 Rootsymbol e. 
@@ -814,10 +818,10 @@ expect(Config) when is_list(Config) ->
                 e -> i e t e.
                 e -> i e t e else e.
                 ">>),
-    ?line {ok, _, [{_,[{none,yecc,{conflicts,1,0}}]}]} = 
+    {ok, _, [{_,[{none,yecc,{conflicts,1,0}}]}]} = 
         yecc:file(Filename, Ret),
 
-    ?line ok = file:write_file(Filename, <<"
+    ok = file:write_file(Filename, <<"
                 Nonterminals e. 
                 Terminals i t else. 
                 Rootsymbol e. 
@@ -826,26 +830,26 @@ expect(Config) when is_list(Config) ->
                 e -> i e t e.
                 e -> i e t e else e.
                 ">>),
-    ?line {error,[{_,[{5,yecc,{error,_yeccparser,_}}]}],[]} =
+    {error,[{_,[{{5,24},yecc,{error,_yeccparser,_}}]}],[]} =
         yecc:file(Filename, Ret),
 
     %% States N. An undocumented declaration used for testing.
-    ?line ok = file:write_file(Filename, <<"
+    ok = file:write_file(Filename, <<"
                 Nonterminals nt. 
                 Terminals t.
                 Rootsymbol nt.
                 States 100.
                 nt -> t.">>),
-    ?line {ok,_,[{_, [{none,yecc,{n_states,100,3}}]}]} = 
+    {ok,_,[{_, [{none,yecc,{n_states,100,3}}]}]} = 
         yecc:file(Filename, Ret),
     
-    ?line ok = file:write_file(Filename, <<"
+    ok = file:write_file(Filename, <<"
                 Nonterminals nt. 
                 Terminals t.
                 Rootsymbol nt.
                 States bad.
                 nt -> t.">>),
-    ?line {error,[{_,[{5,yecc,{bad_states,bad}}]}],[]} =
+    {error,[{_,[{{5,24},yecc,{bad_states,bad}}]}],[]} =
         yecc:file(Filename, Ret),
     
     file:delete(Filename),
@@ -859,7 +863,7 @@ conflicts(Config) when is_list(Config) ->
     Ret = [return, {report, true}],
     Filename = filename:join(Dir, "file.yrl"),
 
-    ?line ok = file:write_file(Filename, <<"
+    ok = file:write_file(Filename, <<"
             Nonterminals S List Tuple Elements Element.
             Terminals '{' '}' '[' ']' ',' nil e.
             Rootsymbol S. 
@@ -883,11 +887,11 @@ conflicts(Config) when is_list(Config) ->
             Element -> Tuple : '$1'.
             Element -> e : '$1'.
            ">>),
-    ?line {error,[{_,_}],[{_,[{none,yecc,{conflicts,1,5}}]}]} = 
+    {error,[{_,_}],[{_,[{none,yecc,{conflicts,1,5}}]}]} = 
         yecc:file(Filename, Ret),
 
     %% Can easily be resolved (but don't do it!).
-    ?line ok = file:write_file(Filename, <<"
+    ok = file:write_file(Filename, <<"
             Nonterminals S List Tuple Elements Element.
             Terminals '{' '}' '[' ']' ',' nil e.
             Rootsymbol S. 
@@ -913,7 +917,7 @@ conflicts(Config) when is_list(Config) ->
             Element -> Tuple : '$1'.
             Element -> e : '$1'.
            ">>),
-    ?line {ok, _, []} = 
+    {ok, _, []} = 
         yecc:file(Filename, Ret),
 
     file:delete(Filename),
@@ -970,7 +974,7 @@ empty(Config) when is_list(Config) ->
            ">>,
            default,
            ok}],
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
 
 prec(doc) ->
@@ -983,7 +987,7 @@ prec(Config) when is_list(Config) ->
 
     %% Don't know what 'Unary' actually means, but this is how it has
     %% always worked...
-    ?line ok = file:write_file(Filename, <<"
+    ok = file:write_file(Filename, <<"
                 Nonterminals E.
                 Terminals '*' '+' '=' integer.
                 Rootsymbol E.
@@ -997,7 +1001,7 @@ prec(Config) when is_list(Config) ->
                 Left 200 '+'.
                 Left 400 '*'.
               ">>),
-    ?line {error,[{_,[{none,yecc,{conflict,_}}]}],
+    {error,[{_,[{none,yecc,{conflict,_}}]}],
            [{_,[{none,yecc,{conflicts,1,0}}]}]} = 
         yecc:file(Filename, Ret),
 
@@ -1145,7 +1149,7 @@ prec(Config) when is_list(Config) ->
         default,
         ok}],
 
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
 
 yeccpre(doc) ->
@@ -1213,7 +1217,7 @@ yeccpre(Config) when is_list(Config) ->
            default,
            ok}],
        
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
 
 lalr(doc) ->
@@ -1269,7 +1273,7 @@ lalr(Config) when is_list(Config) ->
            ">>,
            default,
            ok}],
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
 
 old_yecc(doc) ->
@@ -1283,12 +1287,12 @@ old_yecc(Config) when is_list(Config) ->
               Terminals t.
               Rootsymbol nt.
               nt -> t.">>,
-    ?line ok = file:write_file(Filename, Mini),
-    ?line {_, _} = yecc:yecc(Filename, Parserfile),
-    ?line {_, _} = yecc:yecc(Filename, Parserfile, true),
-    ?line {_, _} = yecc:yecc(Filename, Parserfile, true),
+    ok = file:write_file(Filename, Mini),
+    {_, _} = yecc:yecc(Filename, Parserfile),
+    {_, _} = yecc:yecc(Filename, Parserfile, true),
+    {_, _} = yecc:yecc(Filename, Parserfile, true),
     TE = process_flag(trap_exit, true),
-    ?line {'EXIT', error} = 
+    {'EXIT', error} = 
         (catch yecc:yecc(Filename, Parserfile, false, Parserfile)),
     _ = process_flag(trap_exit, TE),
     ok.
@@ -1321,7 +1325,7 @@ other_examples(Config) when is_list(Config) ->
             ">>,
            default,
            ok}],
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
 
 
@@ -1386,7 +1390,7 @@ otp_5369(Config) when is_list(Config) ->
       ">>,
       default,
       ok}],
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
 
 otp_6362(doc) ->
@@ -1415,7 +1419,7 @@ otp_6362(Config) when is_list(Config) ->
       ">>,
       default,
       ok}],
-    ?line run(Config, Ts),
+    run(Config, Ts),
 
     Dir = ?privdir,
     %% Report errors. Very simple test of format_error/1.
@@ -1424,7 +1428,7 @@ otp_6362(Config) when is_list(Config) ->
 
     %% An error introduced due to this ticket. Terminals can be
     %% assigned conflicting precedences, which cannot be resolved.
-    ?line ok = file:write_file(Filename,<<"
+    ok = file:write_file(Filename,<<"
             Nonterminals cmp compare expr fopp.
             Terminals string '>' '='.
             Rootsymbol compare.
@@ -1443,7 +1447,7 @@ otp_6362(Config) when is_list(Config) ->
             fopp -> '>'			: '>'.">>),
 
     Ret = [return, {report, true}],
-    ?line {error,[{_,[{none,yecc,{conflict,_}}]}],[]} = 
+    {error,[{_,[{none,yecc,{conflict,_}}]}],[]} = 
         yecc:file(Filename, Ret),
     file:delete(Filename),
     ok.
@@ -1541,13 +1545,20 @@ otp_8483(Config) when is_list(Config) ->
               elem -> seq.
               seq -> elem.
               seq -> seq elem.">>,
-    ?line ok = file:write_file(Input, Bug1),
+    ok = file:write_file(Input, Bug1),
     Ret = [return, {report, true}],
-    ?line {error,[{_,[{none,yecc,{conflict,_}},
-                      {none,yecc,{conflict,_}},
+    {error,[{_,[{none,yecc,{conflict,_}},
+                {none,yecc,{conflict,{'$end',4,{[seq,elem],3,{6,15}},
+                                      {reduce,[seq,seq,elem],4,{7,15}}}}},
                       {none,yecc,{conflict,_}}]}],
            [{_,[{none,yecc,{conflicts,1,3}}]}]} = 
         yecc:file(Input, Ret),
+    {error,[{_,[{none,yecc,{conflict,_}},
+                {none,yecc,{conflict,{'$end',4,{[seq,elem],3,6},
+                                      {reduce,[seq,seq,elem],4,7}}}},
+                      {none,yecc,{conflict,_}}]}],
+           [{_,[{none,yecc,{conflicts,1,3}}]}]} =
+        yecc:file(Input, [{error_location, line} | Ret]),
     file:delete(Input),
     ok.
 
@@ -1578,7 +1589,7 @@ otp_8486(Config) when is_list(Config) ->
                           {'then',1},{'skip',1},{'else',1},{'skip',1}]),
                ok.
           ">>,default,ok}],
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
 
 otp_7292(doc) ->
@@ -1608,40 +1619,40 @@ otp_7292(Config) when is_list(Config) ->
                        bar. ">>,
 
     %% Check that correct line number is used in messages.
-    ?line ok = file:write_file(Filename, Contents),
+    ok = file:write_file(Filename, Contents),
     ParserFile3 = [{parserfile, Parserfile1}],
     Ret = [return, {report, true}],
-    ?line {ok, _, []} = yecc:file(Filename, ParserFile3 ++ Ret),
+    {ok, _, []} = yecc:file(Filename, ParserFile3 ++ Ret),
 
     %% Note: checking the line numbers. Changes when yeccpre.hrl changes.
     fun() ->
             SzYeccPre = yeccpre_size(),
-            ?line {error,
-                   [{_,[{5,_,["syntax error before: ","bad"]}]},
-                    {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
-                        {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
-                   [{_,[{16,_,{unused_function,{foo,0}}}]}]} = 
+            {error,
+                   [{_,[{{5,32},_,["syntax error before: ","bad"]}]},
+                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}}]}],
+                   [{_,[{{16,20},_,{unused_function,{foo,0}}}]}]} =
                 compile:file(Parserfile1, [basic_validation, return]),
             L1 = 41 + SzYeccPre,
             L2 = 49 + SzYeccPre
     end(),
 
     YeccPre = filename:join(Dir, "yeccpre.hrl"),
-    ?line ok = file:write_file(YeccPre, 
+    ok = file:write_file(YeccPre, 
        [<<"-export([parse/1, parse_and_scan/1, format_error/1]).\n">>,
         yeccpre_v1_2()]),
     Inc = [{includefile,YeccPre}],
-    ?line {ok, _, []} = yecc:file(Filename, ParserFile3 ++ Inc ++ Ret),
+    {ok, _, []} = yecc:file(Filename, ParserFile3 ++ Inc ++ Ret),
     fun() ->
             SzYeccPre = yeccpre_size(YeccPre),
-            ?line {error,
-                   [{_,[{5,_,["syntax error before: ","bad"]}]},
-                    {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
-                        {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
-                   [{_,[{16,_,{unused_function,{foo,0}}}]}]} = 
+            {error,
+                   [{_,[{{5,32},_,["syntax error before: ","bad"]}]},
+                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}}]}],
+                   [{_,[{{16,20},_,{unused_function,{foo,0}}}]}]} =
                 compile:file(Parserfile1, [basic_validation, return]),
-            ?line L1 = 40 + SzYeccPre,
-            ?line L2 = 48 + SzYeccPre
+            L1 = 40 + SzYeccPre,
+            L2 = 48 + SzYeccPre
     end(),
 
     file:delete(YeccPre),
@@ -1774,26 +1785,26 @@ otp_7969(doc) ->
     "OTP-7969. Interface to the I/O protocol..";
 otp_7969(suite) -> [];
 otp_7969(Config) when is_list(Config) ->
-    ?line {ok,Ts1,_} =
+    {ok,Ts1,_} =
         erl_scan:string("'foo\nbar'", {1,1}, [text]),
-    ?line {error,{2,_,["syntax error before: ",[]]}} = erl_parse:parse(Ts1),
+    {error,{{2,5},_,["syntax error before: ",[]]}} = erl_parse:parse(Ts1),
 
-    ?line {ok,Ts1_1,_} = erl_scan:string("'foo\nbar'", 1, [text]),
-    ?line {error,{2,_,["syntax error before: ",[]]}} = erl_parse:parse(Ts1_1),
+    {ok,Ts1_1,_} = erl_scan:string("'foo\nbar'", 1, [text]),
+    {error,{2,_,["syntax error before: ",[]]}} = erl_parse:parse(Ts1_1),
 
-    ?line {ok,Ts2,_EndLocation} =
+    {ok,Ts2,_EndLocation} =
         erl_scan:string("'foo\nbar'", {1,1}, []),
-    %% Can't do better than report possibly wrong line:
-    ?line {error,{1,_,["syntax error before: ",[]]}} = erl_parse:parse(Ts2),
+    %% Can't do better than report possibly wrong location:
+    {error,{{1,1},_,["syntax error before: ",[]]}} = erl_parse:parse(Ts2),
 
-    ?line {ok, Ts11, _}=R1 = erl_scan:string("f() -> a."),
-    ?line F1 = fun() -> {ok,Ts11 ++ [{'$end',2}],2} end,
+    {ok, Ts11, _}=R1 = erl_scan:string("f() -> a."),
+    F1 = fun() -> {ok,Ts11 ++ [{'$end',2}],2} end,
     A1 = erl_anno:new(1),
     {ok,{function,A1,f,0,[{clause,A1,[],[],[{atom,A1,a}]}]}} =
         erl_parse:parse_and_scan({F1, []}),
-    ?line F2 = fun() -> erl_scan:string("f() -> ,") end,
-    ?line {error,{1,erl_parse,_}} = erl_parse:parse_and_scan({F2, []}),
-    ?line F3 = fun() -> case erase(foo) of
+    F2 = fun() -> erl_scan:string("f() -> ,") end,
+    {error,{1,erl_parse,_}} = erl_parse:parse_and_scan({F2, []}),
+    F3 = fun() -> case erase(foo) of
                             bar -> 
                                 {ok,[{'$end',2}],3};
                             undefined ->
@@ -1803,13 +1814,13 @@ otp_7969(Config) when is_list(Config) ->
     {ok,{function,A1,f,0,[{clause,A1,[],[],[{atom,A1,a}]}]}} =
         erl_parse:parse_and_scan({F3,[]}),
     F4 = fun() -> {error, {1, ?MODULE, bad}, 2} end,
-    ?line {error, {1,?MODULE,bad}} = erl_parse:parse_and_scan({F4, []}),
+    {error, {1,?MODULE,bad}} = erl_parse:parse_and_scan({F4, []}),
     F5 = fun() -> {eof, 3} end,
-    ?line {error,{3,erl_parse,_}} = erl_parse:parse_and_scan({F5, []}),
-    ?line {error,{999999,erl_parse,_}} = erl_parse:parse([]),
-    ?line {ok, Ts21, EL} = erl_scan:string("f() -> a; g() -> b. ", {1,1}),
-    ?line F6 = fun() -> {ok, Ts21, EL} end,
-    ?line {error,{{1,11},erl_parse,_}} = erl_parse:parse_and_scan({F6, []}),
+    {error,{3,erl_parse,_}} = erl_parse:parse_and_scan({F5, []}),
+    {error,{999999,erl_parse,_}} = erl_parse:parse([]),
+    {ok, Ts21, EL} = erl_scan:string("f() -> a; g() -> b. ", {1,1}),
+    F6 = fun() -> {ok, Ts21, EL} end,
+    {error,{{1,11},erl_parse,_}} = erl_parse:parse_and_scan({F6, []}),
     ok.
 
 otp_8919(doc) ->
@@ -1833,7 +1844,7 @@ otp_10302(Config) when is_list(Config) ->
                nt -> t.">>,
     ok = file:write_file(Filename, Mini1),
     %% This could (and should) be refined:
-    {error,[{Filename,[{2,Mod1,Err1}]}],[]} =
+    {error,[{Filename,[{{2,29},Mod1,Err1}]}],[]} =
         yecc:file(Filename, Ret),
     "cannot translate from UTF-8" = Mod1:format_error(Err1),
 
@@ -1877,7 +1888,7 @@ otp_10302(Config) when is_list(Config) ->
         Terminals t.
         Rootsymbol \"Ã¶rn_Ð\".
         Hopp -> t : '$1'.">>),
-    {error,[{Filename,[{4,yecc,{bad_symbol,"örn_"++[1024]}}]}],[]} =
+    {error,[{Filename,[{{4,20},yecc,{bad_symbol,"örn_"++[1024]}}]}],[]} =
         yecc:file(Filename, Ret),
 
     ok = file:write_file(Filename,
@@ -1887,7 +1898,7 @@ otp_10302(Config) when is_list(Config) ->
         Rootsymbol Hopp.
         Endsymbol \"Ã¶rn_Ð\".
         Hopp -> t : '$1'.">>),
-    {error,[{Filename,[{5,yecc,{bad_symbol,"örn_"++[1024]}}]}],[]} =
+    {error,[{Filename,[{{5,19},yecc,{bad_symbol,"örn_"++[1024]}}]}],[]} =
         yecc:file(Filename, Ret),
 
     ok = file:write_file(Filename,
@@ -1897,7 +1908,7 @@ otp_10302(Config) when is_list(Config) ->
         Rootsymbol Hopp.
         Expect \"Ã¶rn_Ð\".
         Hopp -> t : '$1'.">>),
-    {error,[{Filename,[{5,yecc,{bad_symbol,"örn_"++[1024]}}]}],[]} =
+    {error,[{Filename,[{{5,16},yecc,{bad_symbol,"örn_"++[1024]}}]}],[]} =
         yecc:file(Filename, Ret),
 
     ok = file:write_file(Filename,
@@ -1907,7 +1918,7 @@ otp_10302(Config) when is_list(Config) ->
         Rootsymbol Hopp.
         States \"Ã¶rn_Ð\".
         Hopp -> t : '$1'.">>),
-    {error,[{Filename,[{5,yecc,{bad_symbol,"örn_"++[1024]}}]}],[]} =
+    {error,[{Filename,[{{5,16},yecc,{bad_symbol,"örn_"++[1024]}}]}],[]} =
         yecc:file(Filename, Ret),
 
     Ts = [{otp_10302_1,<<"
@@ -2023,7 +2034,7 @@ otp_11286(Config) when is_list(Config) ->
     ok = rpc:call(Node, file, write_file, [Filename, Mini1]),
     {ok,ErlFile,[]} = rpc:call(Node, yecc, file, [Filename, Ret]),
     Opts = [return, warn_unused_vars,{outdir,Dir}],
-    {ok,_,_Warnings} = rpc:call(Node, compile, file, [ErlFile, Opts]),
+    {ok,_,_} = rpc:call(Node, compile, file, [ErlFile, Opts]),
 
     Mini2 = <<"Terminals t.
                Nonterminals nt.
@@ -2032,7 +2043,7 @@ otp_11286(Config) when is_list(Config) ->
     ok = rpc:call(Node, file, write_file, [Filename, Mini2]),
     {ok,ErlFile,[]} = rpc:call(Node, yecc, file, [Filename, Ret]),
     Opts = [return, warn_unused_vars,{outdir,Dir}],
-    {ok,_,_Warnings} = rpc:call(Node, compile, file, [ErlFile, Opts]),
+    {ok,_,_} = rpc:call(Node, compile, file, [ErlFile, Opts]),
 
     Mini3 = <<"%% coding: latin-1
                Terminals t.
@@ -2042,7 +2053,7 @@ otp_11286(Config) when is_list(Config) ->
     ok = rpc:call(Node, file, write_file, [Filename, Mini3]),
     {ok,ErlFile,[]} = rpc:call(Node, yecc, file, [Filename, Ret]),
     Opts = [return, warn_unused_vars,{outdir,Dir}],
-    {ok,_,_Warnings} = rpc:call(Node, compile, file, [ErlFile, Opts]),
+    {ok,_,_} = rpc:call(Node, compile, file, [ErlFile, Opts]),
 
     true = test_server:stop_node(Node),
     ok.
@@ -2050,7 +2061,7 @@ otp_11286(Config) when is_list(Config) ->
 otp_14285(Config) ->
     Dir = ?privdir,
     YeccPre = filename:join(Dir, "yeccpre.hrl"),
-    ?line ok = file:write_file(YeccPre,
+    ok = file:write_file(YeccPre,
                                [<<"-export([t/0]).\n">>,my_yeccpre()]),
 
     T0 = <<"
@@ -2129,6 +2140,33 @@ otp_14285(Config) ->
             [<<"%% coding: UTF-8\n">>,T2],default,ok}],
     run(Config, Ts2),
 
+    ok.
+
+otp_17023(Config) ->
+    Dir = ?privdir,
+    Filename = filename:join(Dir, "file.yrl"),
+    Ret = [return, {report, true}],
+
+    {'EXIT', {badarg, _}} = (catch yecc:file(Filename, [{noopt,true}])),
+    OldEnv = os:getenv("ERL_COMPILER_OPTIONS"),
+    true = os:putenv("ERL_COMPILER_OPTIONS", "strong_validation"),
+    ok = file:write_file(Filename,<<"
+              Nonterminals nt. 
+              Terminals t.
+              Rootsymbol nt.
+              nt -> t : '$2'.
+          ">>),
+    {error,[{_,[{{5,25},yecc,{undefined_pseudo_variable,'$2'}}]}],[]} =
+        yecc:file(Filename, Ret),
+    true = os:putenv("ERL_COMPILER_OPTIONS", "{return, false}"),
+    error = yecc:file(Filename, Ret),
+    error = yecc:file(Filename, [return | Ret]), % overridden
+    case OldEnv of
+        false ->
+            os:unsetenv("ERL_COMPILER_OPTIONS");
+        _ ->
+            os:putenv("ERL_COMPILER_OPTIONS", OldEnv)
+    end,
     ok.
 
 start_node(Name, Args) ->

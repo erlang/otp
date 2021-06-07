@@ -19,8 +19,8 @@
 %%
 -module(filename).
 
--deprecated({find_src,1,next_major_release}).
--deprecated({find_src,2,next_major_release}).
+-removed([{find_src,'_',"use filelib:find_source/1,3 instead"}]).
+-deprecated([{safe_relative_path,1,"use filelib:safe_relative_path/2 instead"}]).
 
 %% Purpose: Provides generic manipulation of filenames.
 %%
@@ -71,7 +71,6 @@
 	 extension/1, join/1, join/2, pathtype/1,
          rootname/1, rootname/2, split/1, flatten/1, nativename/1,
          safe_relative_path/1]).
--export([find_src/1, find_src/2]). % deprecated
 -export([basedir/2, basedir/3]).
 -export([validate/1]).
 
@@ -398,22 +397,31 @@ extension(Name) when is_binary(Name) ->
 	[] ->
 	    <<>>;
 	List ->
-	    {Pos,_} = lists:last(List),
-	    <<_:Pos/binary,Part/binary>> = Name,
-	    case binary:match(Part,[<<"/">>|SList]) of
-		nomatch ->
-		    Part;
-		_ ->
-		    <<>>
+	    case lists:last(List) of
+		{0,_} ->
+		    <<>>;
+		{Pos, _} ->
+		    <<_:(Pos-1)/binary,Part/binary>> = Name,
+		    case binary:match(Part,[<<"/">>|SList]) of
+			nomatch ->
+			    <<_:Pos/binary,Result/binary>> = Name,
+			    Result;
+			_ ->
+			    <<>>
+		    end
 	    end
     end;
 
 extension(Name0) ->
     Name = flatten(Name0),
-    extension(Name, [], major_os_type()).
+    extension([$/ | Name], [], major_os_type()).
 
 extension([$.|Rest]=Result, _Result, OsType) ->
     extension(Rest, Result, OsType);
+extension([$/,$.|Rest], _Result, OsType) ->
+    extension(Rest, [], OsType);
+extension([$\\,$.|Rest], _Result, win32) ->
+    extension(Rest, [], win32);
 extension([Char|Rest], [], OsType) when is_integer(Char) ->
     extension(Rest, [], OsType);
 extension([$/|Rest], _Result, OsType) ->
@@ -634,8 +642,8 @@ rootname([$/|Rest], Root, Ext, OsType) ->
     rootname(Rest, [$/]++Ext++Root, [], OsType);
 rootname([$\\|Rest], Root, Ext, win32) ->
     rootname(Rest, [$/]++Ext++Root, [], win32);
-rootname([$.|Rest], Root, [], OsType) ->
-    rootname(Rest, Root, ".", OsType);
+rootname([$.|Rest], [$/|_]=Root, [], OsType) ->
+    rootname(Rest, [$.|Root], [], OsType);
 rootname([$.|Rest], Root, Ext, OsType) ->
     rootname(Rest, Ext++Root, ".", OsType);
 rootname([Char|Rest], Root, [], OsType) when is_integer(Char) ->
@@ -664,14 +672,18 @@ rootname(Name, Ext) when is_binary(Ext) ->
 rootname(Name0, Ext0) ->
     Name = flatten(Name0),
     Ext = flatten(Ext0),
-    rootname2(Name, Ext, []).
+    rootname2(Name, Ext, [], major_os_type()).
 
-rootname2(Ext, Ext, Result) ->
+rootname2(Ext, Ext, [$/|_]=Result, _OsType) ->
+    lists:reverse(Result, Ext);
+rootname2(Ext, Ext, [$\\|_]=Result, win32) ->
+    lists:reverse(Result, Ext);
+rootname2(Ext, Ext, Result, _OsType) ->
     lists:reverse(Result);
-rootname2([], _Ext, Result) ->
+rootname2([], _Ext, Result, _OsType) ->
     lists:reverse(Result);
-rootname2([Char|Rest], Ext, Result) when is_integer(Char) ->
-    rootname2(Rest, Ext, [Char|Result]).
+rootname2([Char|Rest], Ext, Result, OsType) when is_integer(Char) ->
+    rootname2(Rest, Ext, [Char|Result], OsType).
 
 %% Returns a list whose elements are the path components in the filename.
 %%
@@ -836,144 +848,6 @@ climb(_, []) ->
     unsafe;
 climb(T, [_|Acc]) ->
     safe_relative_path_1(T, Acc).
-
-%% NOTE: The find_src/1/2 functions are deprecated; they try to do too much
-%% at once and are not a good fit for this module. Parts of the code have
-%% been moved to filelib:find_file/2 instead. Only this part of this
-%% module is allowed to call the filelib module; such mutual dependency
-%% should otherwise be avoided! This code should eventually be removed.
-%%
-
-%% find_src(Module) --
-%% find_src(Module, Rules) --
-%%
-%% Finds the source file name and compilation options for a compiled
-%% module.  The result can be fed to compile:file/2 to compile the
-%% file again.
-%%
-%% The Module argument (which can be a string or an atom) specifies 
-%% either the module name or the path to the source code, with or 
-%% without the ".erl" extension.  In either case the module must be
-%% known by the code manager, i.e. code:which/1 should succeed.
-%%
-%% Rules describes how the source directory should be found given
-%% the directory for the object code.  Each rule is on the form
-%% {BinSuffix, SourceSuffix}, and is interpreted like this:
-%% If the end of directory name where the object is located matches
-%% BinSuffix, then the suffix will be replaced with SourceSuffix
-%% in the directory name.  If the source file in the resulting
-%% directory, the next rule will be tried.
-%%
-%% Returns: {SourceFile, Options}
-%%
-%% SourceFile is the absolute path to the source file (but without the ".erl"
-%% extension) and Options are the necessary options to compile the file
-%% with compile:file/2, but doesn't include options like 'report' or
-%% 'verbose' that doesn't change the way code is generated.
-%% The paths in the {outdir, Path} and {i, Path} options are guaranteed
-%% to be absolute.
-
--spec find_src(Beam) -> {SourceFile, Options}
-                      | {error, {ErrorReason, Module}} when
-      Beam :: Module | Filename,
-      Filename :: atom() | string(),
-      Module :: module(),
-      SourceFile :: string(),
-      Options :: [Option],
-      Option :: {'i', Path :: string()}
-              | {'outdir', Path :: string()}
-              | {'d', atom()},
-      ErrorReason :: 'non_existing' | 'preloaded' | 'interpreted'.
-find_src(Mod) ->
-    find_src(Mod, []).
-
--spec find_src(Beam, Rules) -> {SourceFile, Options}
-                             | {error, {ErrorReason, Module}} when
-      Beam :: Module | Filename,
-      Filename :: atom() | string(),
-      Rules :: [{BinSuffix :: string(), SourceSuffix :: string()}],
-      Module :: module(),
-      SourceFile :: string(),
-      Options :: [Option],
-      Option :: {'i', Path :: string()}
-              | {'outdir', Path :: string()}
-              | {'d', atom()},
-      ErrorReason :: 'non_existing' | 'preloaded' | 'interpreted'.
-find_src(Mod, Rules) when is_atom(Mod) ->
-    find_src(atom_to_list(Mod), Rules);
-find_src(ModOrFile, Rules) when is_list(ModOrFile) ->
-    Extension = ".erl",
-    Mod = list_to_atom(basename(ModOrFile, Extension)),
-    case code:which(Mod) of
-	Possibly_Rel_Path when is_list(Possibly_Rel_Path) ->
-            {ok, Cwd} = file:get_cwd(),
-            ObjPath = make_abs_path(Cwd, Possibly_Rel_Path),
-            find_src_1(ModOrFile, ObjPath, Mod, Extension, Rules);
-	Ecode when is_atom(Ecode) -> % Ecode :: ecode()
-	    {error, {Ecode, Mod}}
-    end.
-
-%% At this point, the Mod is known to be valid.
-%% If the source name is not known, find it.
-find_src_1(ModOrFile, ObjPath, Mod, Extension, Rules) ->
-    %% The documentation says this function must return the found path
-    %% without extension in all cases. Also, ModOrFile could be given with
-    %% or without extension. Hence the calls to rootname below.
-    ModOrFileRoot = rootname(ModOrFile, Extension),
-    case filelib:is_regular(ModOrFileRoot++Extension) of
-        true  ->
-            find_src_2(ModOrFileRoot, Mod);
-        false ->
-            SrcName = basename(ObjPath, code:objfile_extension()) ++ Extension,
-            case filelib:find_file(SrcName, dirname(ObjPath), Rules) of
-                {ok, SrcFile} ->
-                    find_src_2(rootname(SrcFile, Extension), Mod);
-                Error ->
-                    Error
-            end
-    end.
-
-%% Get the compilation options and return {SrcFileRoot, Options}
-find_src_2(SrcRoot, Mod) ->
-    List = case Mod:module_info(compile) of
-	       none -> [];
-	       List0 -> List0
-	   end,
-    Options = proplists:get_value(options, List, []),
-    {ok, Cwd} = file:get_cwd(),
-    AbsPath = make_abs_path(Cwd, SrcRoot),
-    {AbsPath, filter_options(dirname(AbsPath), Options, [])}.
-
-%% Filters the options.
-%%
-%% 1) Only keep options that have any effect on code generation.
-%%
-%% 2) The paths found in {i, Path} and {outdir, Path} are converted
-%%    to absolute paths.  When doing this, it is assumed that relatives
-%%    paths are relative to directory where the source code is located.
-%%    This is not necessarily true.  It would be safer if the compiler
-%%    would emit absolute paths in the first place.
-
-filter_options(Base, [{outdir, Path}|Rest], Result) ->
-    filter_options(Base, Rest, [{outdir, make_abs_path(Base, Path)}|Result]);
-filter_options(Base, [{i, Path}|Rest], Result) ->
-    filter_options(Base, Rest, [{i, make_abs_path(Base, Path)}|Result]);
-filter_options(Base, [Option|Rest], Result) when Option =:= export_all ->
-    filter_options(Base, Rest, [Option|Result]);
-filter_options(Base, [Option|Rest], Result) when Option =:= binary ->
-    filter_options(Base, Rest, [Option|Result]);
-filter_options(Base, [Tuple|Rest], Result) when element(1, Tuple) =:= d ->
-    filter_options(Base, Rest, [Tuple|Result]);
-filter_options(Base, [Tuple|Rest], Result)
-when element(1, Tuple) =:= parse_transform ->
-    filter_options(Base, Rest, [Tuple|Result]);
-filter_options(Base, [_|Rest], Result) ->
-    filter_options(Base, Rest, Result);
-filter_options(_Base, [], Result) ->
-    Result.
-
-make_abs_path(BasePath, Path) ->
-    join(BasePath, Path).
 
 major_os_type() ->
     {OsT, _} = os:type(),

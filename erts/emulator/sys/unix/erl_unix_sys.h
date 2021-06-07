@@ -326,6 +326,10 @@ extern void sys_sigblock(int);
 extern void sys_init_suspend_handler(void);
 extern void erts_sys_unix_later_init(void);
 
+/* These are defined in sys_signal_stack.c */
+extern void sys_init_signal_stack(void);
+extern void sys_thread_init_signal_stack(void);
+
 /*
  * Handling of floating point exceptions.
  */
@@ -353,10 +357,6 @@ extern void erts_sys_unix_later_init(void);
 
 #define erts_isfinite isfinite
 
-#ifdef NO_FPE_SIGNALS
-
-#define erts_get_current_fp_exception() NULL
-#define erts_thread_init_fp_exception() do{}while(0)
 #  define __ERTS_FP_CHECK_INIT(fpexnp) do {} while (0)
 #  define __ERTS_FP_ERROR(fpexnp, f, Action) if (!isfinite(f)) { Action; } else {}
 #  define __ERTS_FP_ERROR_THOROUGH(fpexnp, f, Action) __ERTS_FP_ERROR(fpexnp, f, Action)
@@ -366,74 +366,9 @@ extern void erts_sys_unix_later_init(void);
 #define erts_sys_block_fpe() 0
 #define erts_sys_unblock_fpe(x) do{}while(0)
 
-#else /* !NO_FPE_SIGNALS */
-
-extern volatile unsigned long *erts_get_current_fp_exception(void);
-extern void erts_thread_init_fp_exception(void);
-#  if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
-#    define erts_fwait(fpexnp,f) \
-	__asm__ __volatile__("fwait" : "=m"(*(fpexnp)) : "m"(f))
-#  elif (defined(__powerpc__) || defined(__ppc__)) && defined(__GNUC__)
-#    define erts_fwait(fpexnp,f) \
-	__asm__ __volatile__("" : "=m"(*(fpexnp)) : "fm"(f))
-#  elif defined(__sparc__) && defined(__linux__) && defined(__GNUC__)
-#    define erts_fwait(fpexnp,f) \
-	__asm__ __volatile__("" : "=m"(*(fpexnp)) : "em"(f))
-#  else
-#    define erts_fwait(fpexnp,f) \
-	__asm__ __volatile__("" : "=m"(*(fpexnp)) : "g"(f))
-#  endif
-#  if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
-     extern void erts_restore_fpu(void);
-#  else
-#    define erts_restore_fpu() /*empty*/
-#  endif
-#  if (!defined(__GNUC__) || \
-       (__GNUC__ < 2) || \
-       (__GNUC__ == 2 && __GNUC_MINOR < 96)) && \
-      !defined(__builtin_expect)
-#    define __builtin_expect(x, expected_value) (x)
-#  endif
-static __inline__ int erts_check_fpe(volatile unsigned long *fp_exception, double f)
-{
-    erts_fwait(fp_exception, f);
-    if (__builtin_expect(*fp_exception == 0, 1))
-       return 0;
-    *fp_exception = 0;
-    erts_restore_fpu();
-    return 1;
-}
-#  undef erts_fwait
-#  undef erts_restore_fpu
-extern void erts_fp_check_init_error(volatile unsigned long *fp_exception);
-static __inline__ void __ERTS_FP_CHECK_INIT(volatile unsigned long *fp_exception)
-{
-    if (__builtin_expect(*fp_exception == 0, 1))
-	return;
-    erts_fp_check_init_error(fp_exception);
-}
-#  define __ERTS_FP_ERROR(fpexnp, f, Action) do { if (erts_check_fpe((fpexnp),(f))) { Action; } } while (0)
-#  define __ERTS_SAVE_FP_EXCEPTION(fpexnp) unsigned long old_erl_fp_exception = *(fpexnp)
-#  define __ERTS_RESTORE_FP_EXCEPTION(fpexnp) \
-              do { *(fpexnp) = old_erl_fp_exception; } while (0)
-   /* This is for library calls where we don't trust the external
-      code to always throw floating-point exceptions on errors. */
-static __inline__ int erts_check_fpe_thorough(volatile unsigned long *fp_exception, double f)
-{
-    return erts_check_fpe(fp_exception, f) || !isfinite(f);
-}
-#  define __ERTS_FP_ERROR_THOROUGH(fpexnp, f, Action) \
-  do { if (erts_check_fpe_thorough((fpexnp),(f))) { Action; } } while (0)
-
-int erts_sys_block_fpe(void);
-void erts_sys_unblock_fpe(int);
-
-#endif /* !NO_FPE_SIGNALS */
-
 #define ERTS_FP_CHECK_INIT(p)		__ERTS_FP_CHECK_INIT(&(p)->fp_exception)
 #define ERTS_FP_ERROR(p, f, A)		__ERTS_FP_ERROR(&(p)->fp_exception, f, A)
 #define ERTS_FP_ERROR_THOROUGH(p, f, A)	__ERTS_FP_ERROR_THOROUGH(&(p)->fp_exception, f, A)
-
 
 /* Threads */
 extern int init_async(int);

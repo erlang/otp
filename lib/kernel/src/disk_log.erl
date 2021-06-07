@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 	 change_notify/3, change_header/2, 
 	 chunk/2, chunk/3, bchunk/2, bchunk/3, chunk_step/3, chunk_info/1,
 	 block/1, block/2, unblock/1, info/1, format_error/1,
-	 accessible_logs/0]).
+	 accessible_logs/0, all/0]).
 
 %% Internal exports
 -export([init/2, internal_open/2,
@@ -46,6 +46,10 @@
 -export([pid2name/1]).
 
 -export_type([continuation/0]).
+
+-deprecated([{accessible_logs, 0, "use disk_log:all/0 instead"},
+             {lclose, 1, "use disk_log:close/1 instead"},
+             {lclose, 2, "use disk_log:close/1 instead"}]).
 
 -type dlog_state_error() :: 'ok' | {'error', term()}.
 
@@ -102,16 +106,13 @@
                         | {'invalid_header', invalid_header()}
                         | {'file_error', file:filename(), file_error()}
                         | {'node_already_open', Log :: log()}.
--type dist_error_rsn() :: 'nodedown' | open_error_rsn().
--type ret()            :: {'ok', Log :: log()}
+-type open_ret()       :: {'ok', Log :: log()}
                         | {'repaired', Log :: log(),
                            {'recovered', Rec :: non_neg_integer()},
-                           {'badbytes', Bad :: non_neg_integer()}}.
--type open_ret()       :: ret() | {'error', open_error_rsn()}.
--type dist_open_ret()  :: {[{node(), ret()}],
-			   [{node(), {'error', dist_error_rsn()}}]}.
+                           {'badbytes', Bad :: non_neg_integer()}}
+                        | {'error', open_error_rsn()}.
 
--spec open(ArgL) -> open_ret() | dist_open_ret() when
+-spec open(ArgL) -> open_ret() when
       ArgL :: dlog_options().
 open(A) ->
     disk_log_server:open(check_arg(A, #arg{options = A})).
@@ -133,7 +134,7 @@ log(Log, Term) ->
 blog(Log, Bytes) ->
     req(Log, {log, external, [ensure_binary(Bytes)]}).
 
--spec log_terms(Log, TermList) -> ok | {error, Resaon :: log_error_rsn()} when
+-spec log_terms(Log, TermList) -> ok | {error, Reason :: log_error_rsn()} when
       Log :: log(),
       TermList :: [term()].
 log_terms(Log, Terms) ->
@@ -195,8 +196,10 @@ lclose(Log) ->
 -spec lclose(Log, Node) -> 'ok' | {'error', lclose_error_rsn()} when
       Log :: log(),
       Node :: node().
-lclose(Log, Node) ->
-    lreq(Log, close, Node).
+lclose(Log, Node) when node() =:= Node ->
+    req(Log, close);
+lclose(_Log, _Node) ->
+    {error, no_such_log}.
 
 -type trunc_error_rsn() :: 'no_such_log' | 'nonode'
                          | {'read_only_mode', log()}
@@ -337,9 +340,8 @@ format_error(Error) ->
                    | {status, Status ::
                         ok | {blocked, QueueLogRecords :: boolean()}}
                    | {node, Node :: node()}
-                   | {distributed, Dist :: local | [node()]}
                    | {head, Head :: none
-                                  | {head, term()}
+                                  | {head, binary()}
                                   | (MFA :: {atom(), atom(), list()})}
                    | {no_written_items, NoWrittenItems ::non_neg_integer()}
                    | {full, Full :: boolean}
@@ -353,7 +355,7 @@ format_error(Error) ->
       Log :: log(),
       InfoList :: [dlog_info()].
 info(Log) -> 
-    sreq(Log, info).
+    req(Log, info).
 
 -spec pid2name(Pid) -> {'ok', Log} | 'undefined' when
       Pid :: pid(),
@@ -401,7 +403,7 @@ chunk(Log, Cont, N) when is_integer(N), N > 0 ->
     ichunk(Log, Cont, N).
 
 ichunk(Log, start, N) ->
-    R = sreq(Log, {chunk, 0, [], N}),
+    R = req(Log, {chunk, 0, [], N}),
     ichunk_end(R, Log);
 ichunk(Log, More, N) when is_record(More, continuation) ->
     R = req2(More#continuation.pid, 
@@ -484,7 +486,7 @@ bchunk(Log, Cont, N) when is_integer(N), N > 0 ->
     bichunk(Log, Cont, N).
 
 bichunk(Log, start, N) ->
-    R = sreq(Log, {chunk, 0, [], N}),
+    R = req(Log, {chunk, 0, [], N}),
     bichunk_end(R);
 bichunk(_Log, #continuation{pid = Pid, pos = Pos, b = B}, N) ->
     R = req2(Pid, {chunk, Pos, B, N}),
@@ -511,7 +513,7 @@ chunk_step(Log, Cont, N) when is_integer(N) ->
     ichunk_step(Log, Cont, N).
 
 ichunk_step(Log, start, N) ->
-    sreq(Log, {chunk_step, 0, N});
+    req(Log, {chunk_step, 0, N});
 ichunk_step(_Log, More, N) when is_record(More, continuation) ->
     req2(More#continuation.pid, {chunk_step, More#continuation.pos, N});
 ichunk_step(_Log, _, _) ->
@@ -526,11 +528,15 @@ chunk_info(More = #continuation{}) ->
 chunk_info(BadCont) ->
    {error, {no_continuation, BadCont}}.
 
--spec accessible_logs() -> {[LocalLog], [DistributedLog]} when
-      LocalLog :: log(),
-      DistributedLog :: log().
+-spec accessible_logs() -> {[Log], []} when
+      Log :: log().
 accessible_logs() ->
-    disk_log_server:accessible_logs().
+    {disk_log_server:all(), []}.
+
+-spec all() -> [Log] when
+      Log :: log().
+all() ->
+    disk_log_server:all().
 
 istart_link(Server) ->  
     {ok, proc_lib:spawn_link(disk_log, init, [self(), Server])}.
@@ -622,10 +628,6 @@ check_arg([{format, internal}|Tail], Res) ->
     check_arg(Tail, Res#arg{format = internal});
 check_arg([{format, external}|Tail], Res) ->
     check_arg(Tail, Res#arg{format = external});
-check_arg([{distributed, []}|Tail], Res) ->
-    check_arg(Tail, Res#arg{distributed = false});
-check_arg([{distributed, Nodes}|Tail], Res) when is_list(Nodes) ->
-    check_arg(Tail, Res#arg{distributed = {true, Nodes}});
 check_arg([{notify, true}|Tail], Res) ->
     check_arg(Tail, Res#arg{notify = true});
 check_arg([{notify, false}|Tail], Res) ->
@@ -646,17 +648,19 @@ check_arg(Arg, _) ->
 check_wrap_arg({ok, Res}, {0,0}, _Version) when Res#arg.size =:= infinity ->
     {error, {badarg, size}};
 check_wrap_arg({ok, Res}, OldSize, Version) when Res#arg.size =:= infinity ->
-    NewRes = Res#arg{size = OldSize},
-    check_wrap_arg({ok, NewRes}, OldSize, Version);
+    {ok,  Res#arg{version = Version, old_size = OldSize, size = OldSize}};
 check_wrap_arg({ok, Res}, {0,0}, Version) ->
-    {ok, Res#arg{version = Version}};
+    {ok, Res#arg{version = Version, old_size = Res#arg.size}};
 check_wrap_arg({ok, Res}, OldSize, Version) when OldSize =:= Res#arg.size ->
-    {ok, Res#arg{version = Version}};
-check_wrap_arg({ok, Res}, _OldSize, Version) when Res#arg.repair =:= truncate,
-						  is_tuple(Res#arg.size) ->
-    {ok, Res#arg{version = Version}};
-check_wrap_arg({ok, Res}, OldSize, _Version) when is_tuple(Res#arg.size) ->
+    {ok, Res#arg{version = Version, old_size = OldSize}};
+check_wrap_arg({ok, Res}, OldSize, Version) when Res#arg.repair =:= truncate,
+                                                 is_tuple(Res#arg.size) ->
+    {ok, Res#arg{version = Version, old_size = OldSize}};
+check_wrap_arg({ok, Res}, OldSize, _Version) when Res#arg.size =/= OldSize,
+                                                  Res#arg.mode =:= read_only ->
     {error, {size_mismatch, OldSize, Res#arg.size}};
+check_wrap_arg({ok, Res}, OldSize, Version) when is_tuple(Res#arg.size) ->
+    {ok, Res#arg{version = Version, old_size = OldSize}};
 check_wrap_arg({ok, _Res}, _OldSize, _Version) ->
     {error, {badarg, size}};
 check_wrap_arg(Ret, _OldSize, _Version) ->
@@ -763,7 +767,7 @@ handle({From, {truncate, Head, F, A}}=Message, S) ->
 		ok ->
 		    erase(is_full),
 		    notify_owners({truncated, S#state.cnt}),
-		    N = if Head =:= none -> 0; true -> 1 end,
+		    N = if H =:= none -> 0; true -> 1 end,
 		    reply(From, ok, (state_ok(S))#state{cnt = N});
 		Error ->
 		    do_exit(S, From, Error, ?failure(Error, F, A))
@@ -944,7 +948,23 @@ handle({Server, {internal_open, A}}, S) ->
 	    case do_open(A) of % does the put
 		{ok, Res, L, Cnt} ->
 		    put(log, opening_pid(A#arg.linkto, A#arg.notify, L)),
-		    reply(Server, Res, S#state{args=A, cnt=Cnt});
+                    #arg{size = Size, old_size = OldSize} = A,
+                    S1 = S#state{args=A, cnt=Cnt},
+                    case Size =:= OldSize of
+                        true ->
+                            reply(Server, Res, S1);
+                        false ->
+                            case catch do_change_size(get(log), Size) of % does the put
+                                ok ->
+                                    reply(Server, Res, S1);
+                                {big, _CurSize} ->
+                                    %% Note: halt logs are opened even if the
+                                    %% given size is too small.
+                                    reply(Server, Res, S1);
+                                Else ->
+                                    reply(Server, Else, S1)
+                            end
+                    end;
 		Res ->
 		    do_fast_exit(S, Server, Res)
 	    end;
@@ -1271,6 +1291,10 @@ compare_arg(format, F, A) when F =/= A#arg.format ->
 compare_arg(repair, R, A) when R =/= A#arg.repair ->
     %% not used, but check it anyway...
     {not_ok, A#arg.repair};
+compare_arg(size, Sz, A) when Sz =/= A#arg.size, A#arg.type =:= wrap ->
+    %% Note: if the given size does not match the size of an open
+    %% halt log, the given size is ignored.
+    {error, {size_mismatch, A#arg.size, Sz}};
 compare_arg(_Attr, _Val, _A) -> 
     ok.
 
@@ -1278,10 +1302,10 @@ compare_arg(_Attr, _Val, _A) ->
 do_open(A) ->
     #arg{type = Type, format = Format, name = Name, head = Head0,
          file = FName, repair = Repair, size = Size, mode = Mode,
-         quiet = Quiet, version = V} = A,
+         quiet = Quiet, version = V, old_size = OldSize} = A,
     disk_log_1:set_quiet(Quiet),
     Head = mk_head(Head0, Format),
-    case do_open2(Type, Format, Name, FName, Repair, Size, Mode, Head, V) of
+    case do_open2(Type, Format, Name, FName, Repair, OldSize, Mode, Head, V) of
         {ok, Ret, Extra, FormatType, NoItems} ->
             L = #log{name = Name, type = Type, format = Format,
                      filename = FName, size = Size,
@@ -1519,9 +1543,6 @@ do_format_error({arg_mismatch, Option, FirstValue, ArgValue}) ->
 		  "the current value ~tp~n", [ArgValue, Option, FirstValue]);
 do_format_error({name_already_open, Log}) ->
     io_lib:format("The disk log ~tp has already opened another file~n", [Log]);
-do_format_error({node_already_open, Log}) ->
-    io_lib:format("The distribution option of the disk log ~tp does not match "
-		  "already open log~n", [Log]);
 do_format_error({open_read_write, Log}) ->
     io_lib:format("The disk log ~tp has already been opened read-write~n", 
 		  [Log]);
@@ -1573,15 +1594,6 @@ do_info(L, Cnt) ->
 	       halt ->
 		   Extra#halt.size
 	   end,
-    Distribution =
-	case disk_log_server:get_log_pids(Name) of
-	    {local, _Pid} -> 
-		local;
-	    {distributed, Pids} ->
-                [node(P) || P <- Pids];
-	    undefined -> % "cannot happen"
-		[]
-	end,
     RW = case Type of
 	     wrap when Mode =:= read_write ->
 		 #handle{curB = CurB, curF = CurF, 
@@ -1610,7 +1622,11 @@ do_info(L, Cnt) ->
 	 end,
     HeadL = case Mode of
 		read_write ->
-		    [{head, Head}];
+		    [{head, case Head of
+                                {ok, H} -> H;
+                                none -> Head;
+                                {_M, _F, _A} -> Head
+                            end}];
 		read_only ->
 		    []
 	    end,
@@ -1625,8 +1641,7 @@ do_info(L, Cnt) ->
 	     HeadL ++
 	     [{mode, Mode},
 	      {status, Status},
-	      {node, node()},
-	      {distributed, Distribution}
+	      {node, node()}
 	     ],
     Common ++ RW.
 
@@ -1857,64 +1872,12 @@ reply(To, Reply, S) ->
     loop(S).
 
 req(Log, R) ->
-    case disk_log_server:get_log_pids(Log) of
-	{local, Pid} ->
-	    monitor_request(Pid, R);
-	undefined ->
-	    {error, no_such_log};
-	{distributed, Pids} ->
-	    multi_req({self(), R}, Pids)
-    end.
-
-multi_req(Msg, Pids) ->
-    Refs = 
-	lists:map(fun(Pid) ->
-			  Ref = erlang:monitor(process, Pid),
-			  Pid ! Msg,
-			  {Pid, Ref}
-		  end, Pids),
-    lists:foldl(fun({Pid, Ref}, Reply) ->
-			receive
-			    {'DOWN', Ref, process, Pid, _Info} ->
-				Reply;
-			    {disk_log, Pid, _Reply} ->
-				erlang:demonitor(Ref, [flush]),
-				ok
-			end
-		end, {error, nonode}, Refs).
-
-sreq(Log, R) ->
-    case nearby_pid(Log, node()) of
+    case disk_log_server:get_log_pid(Log) of
 	undefined ->
 	    {error, no_such_log};
 	Pid ->
 	    monitor_request(Pid, R)
     end.
-
-%% Local req - always talk to log on Node
-lreq(Log, R, Node) ->
-    case nearby_pid(Log, Node) of
-	Pid when is_pid(Pid), node(Pid) =:= Node ->
-	    monitor_request(Pid, R);
-	_Else ->
-	    {error, no_such_log}
-    end.
-
-nearby_pid(Log, Node) ->
-    case disk_log_server:get_log_pids(Log) of
-	undefined ->
-	    undefined;
-	{local, Pid} ->
-	    Pid;
-	{distributed, Pids} ->
-	    get_near_pid(Pids, Node)
-    end.
-
--spec get_near_pid([pid(),...], node()) -> pid().
-
-get_near_pid([Pid | _], Node) when node(Pid) =:= Node -> Pid;
-get_near_pid([Pid], _ ) -> Pid;
-get_near_pid([_ | T], Node) -> get_near_pid(T, Node).
 
 monitor_request(Pid, Req) ->
     Ref = erlang:monitor(process, Pid),
@@ -1960,14 +1923,11 @@ add_ext(File, Ext) ->
     lists:concat([File, ".", Ext]).
 
 notify(Log, R) ->
-    case disk_log_server:get_log_pids(Log) of
+    case disk_log_server:get_log_pid(Log) of
 	undefined ->
 	    {error, no_such_log};
-	{local, Pid} ->
+	Pid ->
 	    Pid ! R,
-	    ok;
-	{distributed, Pids} ->
-	    lists:foreach(fun(Pid) -> Pid ! R end, Pids),
 	    ok
     end.
 

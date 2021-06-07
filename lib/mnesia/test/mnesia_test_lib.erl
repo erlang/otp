@@ -672,7 +672,7 @@ do_prepare([delete_schema | Actions], Selected, All, Config, File, Line) ->
     end,
     do_prepare(Actions, Selected, All, Config, File, Line);
 do_prepare([create_schema | Actions], Selected, All, Config, File, Line) ->
-    Ext = ?BACKEND,
+    Ext = proplists:get_value(default_properties, Config, ?BACKEND),
     case diskless(Config) of
 	true ->
 	    rpc:multicall(Selected, application, set_env, [mnesia, schema, Ext]),

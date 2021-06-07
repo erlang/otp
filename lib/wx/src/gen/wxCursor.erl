@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,91 +18,100 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html">wxCursor</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxBitmap}
-%% </p>
-%% @type wxCursor().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxCursor).
 -include("wxe.hrl").
--export([destroy/1,new/0,new/1,new/3,new/4,ok/1]).
+-export([destroy/1,isOk/1,new/0,new/1,new/2,ok/1]).
 
 %% inherited exports
 -export([convertToImage/1,copyFromIcon/2,getDepth/1,getHeight/1,getMask/1,getPalette/1,
   getSubBitmap/2,getWidth/1,loadFile/2,loadFile/3,parent_class/1,saveFile/3,
   saveFile/4,setDepth/2,setHeight/2,setMask/2,setPalette/2,setWidth/2]).
 
+-type wxCursor() :: wx:wx_object().
 -export_type([wxCursor/0]).
--deprecated([new/3,new/4]).
-
 %% @hidden
 parent_class(wxBitmap) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxCursor() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
 -spec new() -> wxCursor().
 new() ->
-  wxe_util:construct(?wxCursor_new_0,
-  <<>>).
+  wxe_util:queue_cmd(?get_env(), ?wxCursor_new_0),
+  wxe_util:rec(?wxCursor_new_0).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
 %% <br /> Also:<br />
 %% new(Image) -> wxCursor() when<br />
-%% 	Image::wxImage:wxImage().<br />
+%% 	Image::wxImage:wxImage() | wxCursor:wxCursor();<br />
+%%       (CursorId) -> wxCursor() when<br />
+%% 	CursorId::wx:wx_enum().<br />
 %% 
--spec new(CursorId) -> wxCursor() when
-	CursorId::integer();
+%%<br /> Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIFF | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIFF_RESOURCE | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
+%%<br /> CursorId = ?wxCURSOR_NONE | ?wxCURSOR_ARROW | ?wxCURSOR_RIGHT_ARROW | ?wxCURSOR_BULLSEYE | ?wxCURSOR_CHAR | ?wxCURSOR_CROSS | ?wxCURSOR_HAND | ?wxCURSOR_IBEAM | ?wxCURSOR_LEFT_BUTTON | ?wxCURSOR_MAGNIFIER | ?wxCURSOR_MIDDLE_BUTTON | ?wxCURSOR_NO_ENTRY | ?wxCURSOR_PAINT_BRUSH | ?wxCURSOR_PENCIL | ?wxCURSOR_POINT_LEFT | ?wxCURSOR_POINT_RIGHT | ?wxCURSOR_QUESTION_ARROW | ?wxCURSOR_RIGHT_BUTTON | ?wxCURSOR_SIZENESW | ?wxCURSOR_SIZENS | ?wxCURSOR_SIZENWSE | ?wxCURSOR_SIZEWE | ?wxCURSOR_SIZING | ?wxCURSOR_SPRAYCAN | ?wxCURSOR_WAIT | ?wxCURSOR_WATCH | ?wxCURSOR_BLANK | ?wxCURSOR_DEFAULT | ?wxCURSOR_ARROWWAIT | ?wxCURSOR_MAX
+-spec new(CursorName) -> wxCursor() when
+	CursorName::unicode:chardata();
       (Image) -> wxCursor() when
-	Image::wxImage:wxImage().
+	Image::wxImage:wxImage() | wxCursor:wxCursor();
+      (CursorId) -> wxCursor() when
+	CursorId::wx:wx_enum().
+
+new(CursorName)
+ when ?is_chardata(CursorName) ->
+  new(CursorName, []);
+new(#wx_ref{type=ImageT}=Image) ->
+  IswxImage = ?CLASS_T(ImageT,wxImage),
+  IswxCursor = ?CLASS_T(ImageT,wxCursor),
+  ImageType = if
+    IswxImage ->   wxImage;
+    IswxCursor ->   wxCursor;
+    true -> error({badarg, ImageT})
+  end,
+  wxe_util:queue_cmd(wx:typeCast(Image, ImageType),?get_env(),?wxCursor_new_1_0),
+  wxe_util:rec(?wxCursor_new_1_0);
 new(CursorId)
  when is_integer(CursorId) ->
-  wxe_util:construct(?wxCursor_new_1_0,
-  <<CursorId:32/?UI>>);
-new(#wx_ref{type=ImageT,ref=ImageRef}) ->
-  ?CLASS(ImageT,wxImage),
-  wxe_util:construct(?wxCursor_new_1_1,
-  <<ImageRef:32/?UI>>).
-
-%% @equiv new(Bits,Width,Height, [])
--spec new(Bits, Width, Height) -> wxCursor() when
-	Bits::binary(), Width::integer(), Height::integer().
-
-new(Bits,Width,Height)
- when is_binary(Bits),is_integer(Width),is_integer(Height) ->
-  new(Bits,Width,Height, []).
+  wxe_util:queue_cmd(CursorId,?get_env(),?wxCursor_new_1_1),
+  wxe_util:rec(?wxCursor_new_1_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
--spec new(Bits, Width, Height, [Option]) -> wxCursor() when
-	Bits::binary(), Width::integer(), Height::integer(),
-	Option :: {'hotSpotX', integer()}
+%%<br /> Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIFF | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIFF_RESOURCE | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
+-spec new(CursorName, [Option]) -> wxCursor() when
+	CursorName::unicode:chardata(),
+	Option :: {'type', wx:wx_enum()}
+		 | {'hotSpotX', integer()}
 		 | {'hotSpotY', integer()}.
-new(Bits,Width,Height, Options)
- when is_binary(Bits),is_integer(Width),is_integer(Height),is_list(Options) ->
-  wxe_util:send_bin(Bits),
-  MOpts = fun({hotSpotX, HotSpotX}, Acc) -> [<<1:32/?UI,HotSpotX:32/?UI>>|Acc];
-          ({hotSpotY, HotSpotY}, Acc) -> [<<2:32/?UI,HotSpotY:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:construct(?wxCursor_new_4,
-  <<Width:32/?UI,Height:32/?UI, BinOpt/binary>>).
+new(CursorName, Options)
+ when ?is_chardata(CursorName),is_list(Options) ->
+  CursorName_UC = unicode:characters_to_binary(CursorName),
+  MOpts = fun({type, _type} = Arg) -> Arg;
+          ({hotSpotX, _hotSpotX} = Arg) -> Arg;
+          ({hotSpotY, _hotSpotY} = Arg) -> Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(CursorName_UC, Opts,?get_env(),?wxCursor_new_2),
+  wxe_util:rec(?wxCursor_new_2).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html#wxcursorok">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html#wxcursorisok">external documentation</a>.
 -spec ok(This) -> boolean() when
 	This::wxCursor().
-ok(#wx_ref{type=ThisT,ref=ThisRef}) ->
+
+ok(This)
+ when is_record(This, wx_ref) ->
+  isOk(This).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html#wxcursorisok">external documentation</a>.
+-spec isOk(This) -> boolean() when
+	This::wxCursor().
+isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCursor),
-  wxe_util:call(?wxCursor_Ok,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxCursor_IsOk),
+  wxe_util:rec(?wxCursor_IsOk).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxCursor()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCursor),
-  wxe_util:destroy(?DESTROY_OBJECT,Obj),
+  wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),
   ok.
  %% From wxBitmap
 %% @hidden

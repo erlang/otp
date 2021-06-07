@@ -1,0 +1,37 @@
+
+  [;1m-spec consult(Filename) -> {ok, Terms} | {error, Reason}[0m
+  [;1m                 when[0m
+  [;1m                     Filename :: name_all(),[0m
+  [;1m                     Terms :: [term()],[0m
+  [;1m                     Reason ::[0m
+  [;1m                         posix() |[0m
+  [;1m                         badarg | terminated | system_limit |[0m
+  [;1m                         {Line :: integer(),[0m
+  [;1m                          Mod :: module(),[0m
+  [;1m                          Term :: term()}.[0m
+
+  Reads Erlang terms, separated by '.', from [;;4mFilename[0m. Returns one
+  of the following:
+
+  [;;4m[;;4m{ok, Terms}[0m[0m:
+    The file was successfully read.
+
+  [;;4m[;;4m{error, atom()}[0m[0m:
+    An error occurred when opening the file or reading it. For a
+    list of typical error codes, see [;;4mopen/2[0m.
+
+  [;;4m[;;4m{error, {Line, Mod, Term}}[0m[0m:
+    An error occurred when interpreting the Erlang terms in the
+    file. To convert the three-element tuple to an English
+    description of the error, use [;;4mformat_error/1[0m.
+
+  Example:
+
+    f.txt:  {person, "kalle", 25}.
+            {person, "pelle", 30}.
+
+    1> file:consult("f.txt").
+    {ok,[{person,"kalle",25},{person,"pelle",30}]}
+
+  The encoding of [;;4mFilename[0m can be set by a comment, as described
+  in [;;4mepp(3)[0m.

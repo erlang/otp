@@ -172,7 +172,7 @@
     {allocate_zero,1,0}.
   {label,28}.
     {loop_rec,{f,30},{x,0}}.
-    {test,bs_start_match2,{f,29},1,[{x,0},0],{x,0}}.
+    {test,bs_start_match3,{f,29},1,[{x,0}],{x,0}}.
     {test,bs_get_integer2,
           {f,29},
           1,
@@ -219,7 +219,7 @@
     {allocate_zero,1,0}.
   {label,33}.
     {loop_rec,{f,35},{x,0}}.
-    {test,bs_start_match2,{f,34},1,[{x,0},0],{x,0}}.
+    {test,bs_start_match3,{f,34},1,[{x,0}],{x,0}}.
     {test,bs_get_integer2,
           {f,34},
           1,
@@ -240,7 +240,7 @@
           {y,0}}.
     {'%',{no_bin_opt,{binary_used_in,{test,is_binary,{f,34},[{y,0}]}},
                      [63,{file,"receive_stacked.erl"}]}}.
-    {test,is_binary,{f,34},[{y,0}]}.
+    {test,is_eq_exact,{f,34},[{y,0},{literal,<<0,1,2,3>>}]}.
     remove_message.
     {move,{integer,42},{x,0}}.
     {line,[{location,"receive_stacked.erl",64}]}.
@@ -262,7 +262,7 @@
     {allocate_zero,1,0}.
   {label,38}.
     {loop_rec,{f,40},{x,0}}.
-    {test,bs_start_match2,{f,39},1,[{x,0},0],{x,1}}.
+    {test,bs_start_match3,{f,39},1,[{x,0}],{x,1}}.
     {test,bs_get_integer2,
           {f,39},
           2,
@@ -283,7 +283,7 @@
           {y,0}}.
     {'%',{no_bin_opt,{[{x,1},{y,0}],{loop_rec_end,{f,38}},not_handled},
                      [70,{file,"receive_stacked.erl"}]}}.
-    {test,is_binary,{f,39},[{x,0}]}.
+    {test,is_eq_exact,{f,39},[{x,0},{literal,<<0,1,2,3>>}]}.
     remove_message.
     {move,{integer,42},{x,0}}.
     {line,[{location,"receive_stacked.erl",71}]}.

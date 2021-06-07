@@ -26,7 +26,7 @@
 
 -record(wx_ref, {ref, type, state=[]}).
 
--record(wx_env, {port, sv, debug=0}).
+-record(wx_env, {ref, sv, debug=0}).
 
 -record(wx_mem, {bin, size}).
 
@@ -35,10 +35,18 @@
 	      handler=undefined % added after connect
 	     }).
 
+-define(WXE_IDENTIFIER, wx_env).
+
 -define(CLASS(Type,Class), ((Type) =:= Class) orelse (Type):parent_class(Class)).
 
 -define(CLASS_T(Type,Class),
 	try (((Type) =:= Class) orelse (Type):parent_class(Class)) catch _:_ -> false end).
+
+-define(get_env(),
+        case erlang:get(?WXE_IDENTIFIER) of
+            #wx_env{ref=_wx_Ref_} -> _wx_Ref_;
+            _ -> erlang:error({wx,unknown_env})
+        end).
 
 -define(UI, unsigned-native).
 -define(I,  signed-native).
@@ -46,20 +54,23 @@
 
 -define(is_chardata(String), (is_list(String) orelse is_binary(String))).
 
--define(WXE_IDENTIFIER, wx_env).
--define(BATCH_BEGIN,    0).
--define(BATCH_END,      1).
+-define(BATCH_BEGIN,    5).
+-define(BATCH_END,      6).
 %%-define(CREATE_PORT,  2).  %% Not used in erlang
 %%-define(REMOVE_PORT,  3).
--define(DESTROY_OBJECT, 4).
--define(WXE_CB_RETURN,  5).  %% Used for callback return buffer
-%%-define(WXE_SHUTDOWN, 6).  %% Not used in erlang
--define(WXE_REGISTER_OBJECT,  7).  %% Used for object monitoring
--define(WXE_CB_START,   8).  %% Used for event-callback start
--define(WXE_DEBUG_DRIVER,  9).    %% Set debug
-%%-define(WXE_DEBUG_PING,  10).    %% debug ping (when using debugger it's needed)
--define(WXE_BIN_INCR,    11). %% Binary refc incr 
--define(WXE_BIN_DECR,    12). %% Binary refc decr
--define(WXE_INIT_OPENGL, 13). %% Binary refc decr
+
+-define(WXE_CB_START,   9).  %% Used for event-callback start
+-define(WXE_CB_RETURN,  11).  %% Used for callback return buffer
+
+-define(WXE_DEBUG_DRIVER,  8).    %% Set debug
+
+%%-define(WXE_SHUTDOWN, 13).  %% Not used in erlang
+-define(WXE_DEBUG_PING,  14). %% debug ping (when using debugger it's needed)
+-define(WXE_DELETE_ENV,  15).
+-define(WXE_GET_CONSTS,  16).
+
+-define(DESTROY_OBJECT,  50).
+-define(WXE_REGISTER_OBJECT,  51).  %% Used for object monitoring
+%% -define(WXE_INIT_OPENGL, 52).
 
 -include("gen/wxe_funcs.hrl").

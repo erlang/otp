@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@
 -module(client_cb).
 
 -include_lib("diameter/include/diameter.hrl").
--include_lib("diameter/include/diameter_gen_base_rfc3588.hrl").
 
 %% diameter callbacks
 -export([peer_up/3,
@@ -50,28 +49,16 @@ pick_peer([Peer | _], _, _SvcName, _State) ->
 
 %% prepare_request/3
 
-prepare_request(#diameter_packet{msg = ['RAR' = T | Avps]}, _, {_, Caps}) ->
-    #diameter_caps{origin_host = {OH, DH},
-                   origin_realm = {OR, DR}}
+prepare_request(#diameter_packet{msg = [Name | Avps]}, _, {_, Caps}) ->
+    #diameter_caps{origin_host = {OH, _},
+                   origin_realm = {OR, _}}
         = Caps,
-
-    {send, [T | if is_map(Avps) ->
-                        Avps#{'Origin-Host' => OH,
-                              'Origin-Realm' => OR,
-                              'Destination-Host' => DH,
-                              'Destination-Realm' => DR};
-                   is_list(Avps) ->
-                        [{'Origin-Host', OH},
-                         {'Origin-Realm', OR},
-                         {'Destination-Host', DH},
-                         {'Destination-Realm', DR}
-                         | Avps]
-                end]}.
+    {send, [Name | Avps#{'Origin-Host' => OH, 'Origin-Realm' => OR}]}.
 
 %% prepare_retransmit/3
 
-prepare_retransmit(Packet, SvcName, Peer) ->
-    prepare_request(Packet, SvcName, Peer).
+prepare_retransmit(Pkt, _SvcName, _Peer) ->
+    {send, Pkt}.
 
 %% handle_answer/4
 
@@ -86,4 +73,4 @@ handle_error(Reason, _Request, _SvcName, _Peer) ->
 %% handle_request/3
 
 handle_request(_Packet, _SvcName, _Peer) ->
-    erlang:error({unexpected, ?MODULE, ?LINE}).
+    {answer_message, 3001}.  %% DIAMETER_COMMAND_UNSUPPORTED

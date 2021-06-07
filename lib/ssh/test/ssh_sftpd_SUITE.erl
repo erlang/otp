@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,8 +21,42 @@
 %%
 -module(ssh_sftpd_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         access_outside_root/1,
+         links/1,
+         mk_rm_dir/1,
+         open_close_dir/1,
+         open_close_file/1,
+         open_file_dir_v5/1,
+         open_file_dir_v6/1,
+         read_dir/1,
+         read_file/1,
+         real_path/1,
+         relative_path/1,
+         relpath/1,
+         remove_file/1,
+         rename_file/1,
+         retrieve_attributes/1,
+         root_with_cwd/1,
+         set_attributes/1,
+         sshd_read_file/1,
+         ver3_open_flags/1,
+         ver3_rename/1,
+         ver6_basic/1,
+         write_file/1
+        ]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -32,8 +66,8 @@
 
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
--define(XFER_PACKET_SIZE, 32768).
--define(XFER_WINDOW_SIZE, 4*?XFER_PACKET_SIZE).
+%% -define(XFER_PACKET_SIZE, 32768).
+%% -define(XFER_WINDOW_SIZE, 4*?XFER_PACKET_SIZE).
 -define(SSH_TIMEOUT, 10000).
 -define(REG_ATTERS, <<0,0,0,0,1>>).
 -define(UNIX_EPOCH,  62167219200).
@@ -80,9 +114,9 @@ groups() ->
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(
        begin
-	   DataDir = proplists:get_value(data_dir, Config),	    
-	   PrivDir = proplists:get_value(priv_dir, Config),
-	   ssh_test_lib:setup_dsa(DataDir, PrivDir),
+           ssh:start(),
+           ct:log("Pub keys setup for: ~p",
+                  [ssh_test_lib:setup_all_user_host_keys(Config)]),
 	   %% to make sure we don't use public-key-auth
 	   %% this should be tested by other test suites
 	   UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey), 
@@ -91,8 +125,6 @@ init_per_suite(Config) ->
        end).
 
 end_per_suite(Config) ->
-    SysDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:clean_dsa(SysDir),
     UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
     file:del_dir(UserDir),
     ssh:stop().
@@ -196,8 +228,6 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-open_close_file() ->
-    [{doc, "Test SSH_FXP_OPEN and SSH_FXP_CLOSE commands"}].
 open_close_file(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -226,8 +256,6 @@ open_close_file(Config) when is_list(Config) ->
 		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
 		  ?SSH_FXF_OPEN_EXISTING).
 
-ver3_open_flags() ->
-    [{doc, "Test open flags"}].
 ver3_open_flags(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "not_exist.txt"),
@@ -260,8 +288,6 @@ ver3_open_flags(Config) when is_list(Config) ->
 						       Cm, Channel).
     
 %%--------------------------------------------------------------------
-open_close_dir() ->
-    [{doc,"Test SSH_FXP_OPENDIR and SSH_FXP_CLOSE commands"}].
 open_close_dir(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     {Cm, Channel} = proplists:get_value(sftp, Config),
@@ -287,8 +313,6 @@ open_close_dir(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-read_file() ->
-    [{doc, "Test SSH_FXP_READ command"}].
 read_file(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -310,8 +334,6 @@ read_file(Config) when is_list(Config) ->
     {ok, Data} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
-read_dir() ->
-    [{doc,"Test SSH_FXP_READDIR command"}].
 read_dir(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     {Cm, Channel} = proplists:get_value(sftp, Config),
@@ -321,8 +343,6 @@ read_dir(Config) when is_list(Config) ->
     ok = read_dir(Handle, Cm, Channel, ReqId).
 
 %%--------------------------------------------------------------------
-write_file() ->
-    [{doc, "Test SSH_FXP_WRITE command"}].
 write_file(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -345,8 +365,6 @@ write_file(Config) when is_list(Config) ->
     {ok, Data} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
-remove_file() ->
-    [{doc, "Test SSH_FXP_REMOVE command"}].
 remove_file(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -366,8 +384,6 @@ remove_file(Config) when is_list(Config) ->
 	remove(PrivDir, Cm, Channel, NewReqId).
 
 %%--------------------------------------------------------------------
-rename_file() ->
-    [{doc, "Test SSH_FXP_RENAME command"}].
 rename_file(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -403,8 +419,6 @@ rename_file(Config) when is_list(Config) ->
 	       ?SSH_FXP_RENAME_ATOMIC).
 
 %%--------------------------------------------------------------------
-mk_rm_dir() ->
-    [{doc, "Test SSH_FXP_MKDIR and SSH_FXP_RMDIR command"}].
 mk_rm_dir(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     {Cm, Channel} = proplists:get_value(sftp, Config),
@@ -426,8 +440,6 @@ mk_rm_dir(Config) when is_list(Config) ->
 	    _/binary>>, _} = rmdir(DirName, Cm, Channel, NewReqId2).
 
 %%--------------------------------------------------------------------
-real_path() ->
-    [{doc, "Test SSH_FXP_REALPATH command"}].
 real_path(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
@@ -481,8 +493,6 @@ links(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-retrieve_attributes() ->
-    [{"Test SSH_FXP_STAT, SSH_FXP_LSTAT AND SSH_FXP_FSTAT commands"}].
 retrieve_attributes(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -546,8 +556,6 @@ retrieve_attributes(Config) when is_list(Config) ->
 		  end, AttrValues).
 
 %%--------------------------------------------------------------------
-set_attributes() ->
-    [{doc, "Test SSH_FXP_SETSTAT AND SSH_FXP_FSETSTAT commands"}].
 set_attributes(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
@@ -604,8 +612,6 @@ set_attributes(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-ver3_rename() ->
-    [{doc, "Test that ver3 rename message is handled OTP 6352"}].
 ver3_rename(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -618,8 +624,6 @@ ver3_rename(Config) when is_list(Config) ->
 	rename(FileName, NewFileName, Cm, Channel, ReqId, 3, 0).
 
 %%--------------------------------------------------------------------
-relpath() ->
-    [{doc, "Check that realpath works ok seq10670"}].
 relpath(Config) when is_list(Config) ->
     ReqId = 0,
     {Cm, Channel} = proplists:get_value(sftp, Config),
@@ -641,8 +645,6 @@ relpath(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-sshd_read_file() ->
-    [{doc,"Test SSH_FXP_READ command, using sshd-server"}].
 sshd_read_file(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -663,8 +665,6 @@ sshd_read_file(Config) when is_list(Config) ->
 
     {ok, Data} = file:read_file(FileName).
 %%--------------------------------------------------------------------
-ver6_basic() ->
-    [{doc, "Test SFTP Version 6"}].
 ver6_basic(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     %FileName = filename:join(PrivDir, "test.txt"),
@@ -677,8 +677,6 @@ ver6_basic(Config) when is_list(Config) ->
 		  ?SSH_FXF_OPEN_EXISTING).
 
 %%--------------------------------------------------------------------
-access_outside_root() ->
-    [{doc, "Try access files outside the tree below RootDir"}].
 access_outside_root(Config) when is_list(Config) ->
     PrivDir  =  proplists:get_value(priv_dir, Config),
     BaseDir  = filename:join(PrivDir, access_outside_root),
@@ -723,8 +721,6 @@ try_access(Path, Cm, Channel, ReqId) ->
     end.
 
 %%--------------------------------------------------------------------
-root_with_cwd() ->
-    [{doc, "Check if files are found, if the CWD and Root are specified"}].
 root_with_cwd(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     RootDir = filename:join(PrivDir, root_with_cwd),
@@ -753,8 +749,6 @@ root_with_cwd(Config) when is_list(Config) ->
 		  ?SSH_FXF_OPEN_EXISTING).
 
 %%--------------------------------------------------------------------
-relative_path() ->
-    [{doc, "Test paths relative to CWD when opening a file handle."}].
 relative_path(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = "test_relative_path.txt",
@@ -769,8 +763,6 @@ relative_path(Config) when is_list(Config) ->
                   ?SSH_FXF_OPEN_EXISTING).
 
 %%--------------------------------------------------------------------
-open_file_dir_v5() ->
-    [{doc, "Test if open_file fails when opening existing directory."}].
 open_file_dir_v5(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = "open_file_dir_v5",
@@ -786,8 +778,6 @@ open_file_dir_v5(Config) when is_list(Config) ->
                   ?SSH_FXF_OPEN_EXISTING).
 
 %%--------------------------------------------------------------------
-open_file_dir_v6() ->
-    [{doc, "Test if open_file fails when opening existing directory."}].
 open_file_dir_v6(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = "open_file_dir_v6",
@@ -841,7 +831,7 @@ reply(Cm, Channel, RBuf) ->
 	{ssh_cm, Cm, Msg} ->
 	    ct:fail(Msg)
     after 
-	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+	90000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
 open_file(File, Cm, Channel, ReqId, Access, Flags) ->

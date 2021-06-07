@@ -26,7 +26,20 @@
 -include("ssh_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2
+        ]).
+
+-export([
+         simple_connect/1
+        ]).
+
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -67,6 +80,8 @@ init_per_suite(Config) ->
                        {skip, "Engine not supported on this OpenSSL version"};
                    {error, bad_engine_id} ->
                        {skip, "Dynamic Engine not supported"};
+                   {error, notexist} ->
+                       {skip, "No Dynamic Engine to test with"};
                    Other ->
                        ct:log("Engine load failed: ~p",[Other]),
                        {fail, "Engine load failed"}
@@ -81,7 +96,7 @@ end_per_suite(Config) ->
 %%--------------------------------------------------------------------
 init_per_group(dsa_key, Config) ->
     case lists:member('ssh-dss',
-		      ssh_transport:default_algorithms(public_key)) of
+		      ssh_transport:supported_algorithms(public_key)) of
 	true ->
             start_daemon(Config, 'ssh-dss', "dsa_private_key.pem");
 	false ->
@@ -89,7 +104,7 @@ init_per_group(dsa_key, Config) ->
     end;
 init_per_group(rsa_key, Config) ->
     case lists:member('ssh-rsa',
-		      ssh_transport:default_algorithms(public_key)) of
+		      ssh_transport:supported_algorithms(public_key)) of
 	true ->
             start_daemon(Config, 'ssh-rsa', "rsa_private_key.pem");
 	false ->
@@ -102,9 +117,11 @@ start_daemon(Config, KeyType, KeyId) ->
     KeyCBOpts = [{engine, proplists:get_value(engine,Config)},
                  {KeyType, FullKeyId}
                 ],
-    Opts = [{key_cb, {ssh_key_cb_engine_keys, KeyCBOpts}}],
+    Opts = [{key_cb, {ssh_key_cb_engine_keys, KeyCBOpts}},
+            {modify_algorithms, [{append, [{public_key,[KeyType]}]}]}
+           ],
     {Pid, Host, Port} = ssh_test_lib:std_daemon(Config, Opts),
-    [{host_port,{Host,Port}}, {daemon_pid,Pid}| Config].
+    [{host_port,{Host,Port}}, {daemon_pid,Pid}, {key_type,KeyType}| Config].
 
 
 end_per_group(_, Config) ->
@@ -118,7 +135,11 @@ end_per_group(_, Config) ->
 %% A simple exec call
 simple_connect(Config) ->
     {Host,Port} = proplists:get_value(host_port, Config),
-    CRef = ssh_test_lib:std_connect(Config, Host, Port, []),
+    KeyType = proplists:get_value(key_type, Config),
+    Opts = [
+            {modify_algorithms, [{append, [{public_key,[KeyType]}]}]}
+           ],
+    CRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
     ssh:close(CRef).
 
 %%--------------------------------------------------------------------
@@ -146,8 +167,3 @@ load_engine() ->
             {error, Error}
     end.
 
-start_std_daemon(Opts, Config) ->
-    ct:log("starting std_daemon",[]),
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config, Opts),
-    ct:log("started ~p:~p  ~p",[Host,Port,Opts]),
-    [{srvr_pid,Pid},{srvr_addr,{Host,Port}} | Config].

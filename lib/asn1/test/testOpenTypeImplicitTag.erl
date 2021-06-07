@@ -24,10 +24,16 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+
+main(jer) ->
+    roundtrip('Seq', {'Seq',<<"123">>,<<"456">>,12,<<"789">>}),
+    roundtrip('Seq', {'Seq',<<"4711">>,asn1_NOVALUE,12,<<"1137">>}),
+    ok;
 main(_Rules) ->
     roundtrip('Seq', {'Seq',<<1,1,255>>,<<1,1,255>>,12,<<1,1,255>>}),
     roundtrip('Seq', {'Seq',<<1,1,255>>,asn1_NOVALUE,12,<<1,1,255>>}),
     ok.
+
 
 roundtrip(T, V) ->
     asn1_test_lib:roundtrip('OpenTypeImplicitTag', T, V).

@@ -23,11 +23,32 @@
 -module(ssh_dbg_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("ssh/src/ssh.hrl").
+-include("ssh.hrl").
 -include("ssh_test_lib.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         all_dbg/1,
+         cb_basic/1,
+         cb_macros_print/1,
+         cb_print/1,
+         dbg_alg_terminate/1,
+         dbg_authentication/1,
+         dbg_basic/1,
+         dbg_channels/1,
+         dbg_connections/1,
+         dbg_ssh_messages/1
+        ]).
+
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -47,7 +68,9 @@ groups() ->
                 dbg_alg_terminate,
                 dbg_ssh_messages,
                 dbg_connections,
-                dbg_channels]},
+                dbg_channels,
+                dbg_authentication,
+                all_dbg]},
      {circ_buf, [], [cb_basic,
                      cb_print,
                      cb_macros_print
@@ -58,7 +81,7 @@ groups() ->
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(begin
                       ssh:start(),
-                      Config
+                      setup_dirs(Config)
                   end).
 
 end_per_suite(_Config) ->
@@ -82,6 +105,8 @@ end_per_testcase(_TC, Config) ->
                 ok
 
         after 5000 ->
+                ct:log("~p:~p Messages:~n~p",
+                       [?MODULE,?LINE, process_info(self(),messages)]),
                 ssh_dbg:stop(),
                 ssh:stop_daemon(Pid),
                 ct:fail("No '~s' debug message",[ExpectPfx])
@@ -189,6 +214,84 @@ dbg_connections(Config) ->
     ?DBG_RECEIVE("Connection Terminating:", Ref, D, Pid),
 
     stop_and_fail_if_unhandled_dbg_msgs(Ref, [C,D], Pid).
+
+%%--------------------------------------------------------------------
+dbg_authentication(Config) ->
+    Ref = ssh_dbg_start(),
+    {ok,[authentication]} = ssh_dbg:on([authentication]),
+    
+    Parent = self(),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, system_dir(Config)},
+					     {user_dir, user_dir(Config)},
+                                             {user_passwords, [{?USR,?PWD}]},
+                                             {connectfun, fun(_,_,_) ->
+                                                                  Parent ! {daemon_c,Ref,self()}
+                                                          end},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    
+    %% ---- Check password ----
+    Cpwd = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                             {user_dir, user_dir(Config)},
+                                             {user,?USR},
+                                             {password,?PWD},
+                                             {auth_methods,"password"},
+                                             {user_interaction, false}]),
+    Cpwd_d = daemon_connection_ref(Ref, Cpwd),
+
+    ?DBG_RECEIVE("AUTH client: Service ssh-userauth accepted", Ref, Cpwd, Pid),
+    ?DBG_RECEIVE("AUTH client: Query for accepted methods", Ref, Cpwd, Pid),
+    ?DBG_RECEIVE("AUTH srvr: Peer queries auth methods", Ref, Cpwd_d, Pid),
+    ?DBG_RECEIVE("AUTH client: Server supports", Ref, Cpwd, Pid),
+    ?DBG_RECEIVE("AUTH client: Try auth with", Ref, Cpwd, Pid),
+    ?DBG_RECEIVE("AUTH srvr: Peer client authorized", Ref, Cpwd_d, Pid),
+    ?DBG_RECEIVE("AUTH client: Success", Ref, Cpwd, Pid),
+    ssh:close(Cpwd),
+    fail_if_unhandled_dbg_msgs(Ref, [Cpwd,Cpwd_d]),
+
+    %% ---- Check keyboard-interactive ----
+    Ckbi = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                             {user_dir, user_dir(Config)},
+                                             {user,?USR},
+                                             {password,?PWD},
+                                             {auth_methods,"keyboard-interactive"},
+                                             {user_interaction, false}]),
+    Ckbi_d = daemon_connection_ref(Ref, Ckbi),
+
+    ?DBG_RECEIVE("AUTH client: Service ssh-userauth accepted", Ref, Ckbi, Pid),
+    ?DBG_RECEIVE("AUTH client: Query for accepted methods", Ref, Ckbi, Pid),
+    ?DBG_RECEIVE("AUTH srvr: Peer queries auth methods", Ref, Ckbi_d, Pid),
+    ?DBG_RECEIVE("AUTH client: Server supports", Ref, Ckbi, Pid),
+    ?DBG_RECEIVE("AUTH client: Try auth with", Ref, Ckbi, Pid),
+    ?DBG_RECEIVE("AUTH srvr: Ask peer client for password", Ref, Ckbi_d, Pid),
+    ?DBG_RECEIVE("AUTH client: Success", Ref, Ckbi, Pid),
+    ssh:close(Ckbi),
+    fail_if_unhandled_dbg_msgs(Ref, [Ckbi,Ckbi_d]),
+
+    %% ---- Check publickey ----
+    Cpkey = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                             {user_dir, user_dir(Config)},
+                                             {auth_methods,"publickey"},
+                                             {user_interaction, false}]),
+    Cpkey_d = daemon_connection_ref(Ref, Cpkey),
+
+    ?DBG_RECEIVE("AUTH client: Service ssh-userauth accepted", Ref, Cpkey, Pid),
+    ?DBG_RECEIVE("AUTH client: Query for accepted methods", Ref, Cpkey, Pid),
+    ?DBG_RECEIVE("AUTH srvr: Peer queries auth methods", Ref, Cpkey_d, Pid),
+    ?DBG_RECEIVE("AUTH client: Server supports", Ref, Cpkey, Pid),
+    ?DBG_RECEIVE("AUTH client: Try auth with", Ref, Cpkey, Pid),
+    ?DBG_RECEIVE("AUTH srvr: Peer client authorized", Ref, Cpkey_d, Pid),
+    ?DBG_RECEIVE("AUTH client: Success", Ref, Cpkey, Pid),
+    ssh:close(Cpkey),
+    stop_and_fail_if_unhandled_dbg_msgs(Ref, [Cpkey,Cpkey_d], Pid).
+
+
+daemon_connection_ref(Ref,C) ->
+    D =
+        receive
+            {daemon_c,Ref,D0} -> D0
+        end,
+    ct:log("~p:~p~nC = ~p, D=~p",[?MODULE,?LINE, C, D]),
+    D.
 
 %%--------------------------------------------------------------------
 dbg_ssh_messages(Config) ->
@@ -351,6 +454,37 @@ dbg_channels(Config) ->
     stop_and_fail_if_unhandled_dbg_msgs(Ref, [C,D], Pid).
 
 %%--------------------------------------------------------------------
+all_dbg(Config) ->
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir   = proplists:get_value(priv_dir, Config),
+
+    Dir0 = filename:join(proplists:get_value(priv_dir,Config), ssh_test_lib:random_chars(10)),
+    file:make_dir(Dir0),
+    Dir = w2l(Config, Dir0),
+    ct:log("~p:~p created the directory~nsDir0 = ~p~nDir  = ~p", [?MODULE,?LINE,Dir0,Dir]),
+
+    AllTags = ssh_dbg:start(),
+    {ok,AllTags} = ssh_dbg:on(AllTags),
+
+    {_, Host, Port} =
+	ssh_test_lib:daemon([{system_dir, SystemDir},
+			     {user_dir,   UserDir},
+			     {user_passwords, [{?USR,?PWD}]}
+                            ]),
+
+    {ok, ChPid, _C} =
+        ssh_sftp:start_channel(Host, Port,
+                               [{user_dir, UserDir},
+                                {user,?USR},
+                                {password,?PWD},
+                                {user_interaction, false},
+                                {silently_accept_hosts, true}
+                               ]),
+
+    {ok, _Files} = ssh_sftp:list_dir(ChPid, Dir).
+
+
+%%--------------------------------------------------------------------
 cb_basic(_Config) ->
     %% Check that the circular buffer is disabled at start:
     [] = ssh_dbg:cbuf_list(),
@@ -412,6 +546,16 @@ ssh_dbg_start(Ref) ->
     Ref.
 
 %%--------------------------------------------------------------------
+setup_dirs(Config) ->
+    ct:log("Pub keys setup for: ~p",
+           [ssh_test_lib:setup_all_user_host_keys(Config)]),
+    Config.
+
+system_dir(Config) -> filename:join(proplists:get_value(priv_dir, Config), system).
+
+user_dir(Config) -> proplists:get_value(priv_dir, Config).
+
+%%--------------------------------------------------------------------
 queued_msgs(Ref, Conns) ->
     queued_msgs(Ref, Conns, []).
 
@@ -429,11 +573,10 @@ queued_msgs(Ref, Conns, Acc) ->
     end.
 
 %%--------------------------------------------------------------------
-stop_and_fail_if_unhandled_dbg_msgs(Ref, Conns, DaemonPid) ->
-    stop_and_fail_if_unhandled_dbg_msgs(queued_msgs(Ref,Conns), Ref, Conns, DaemonPid).
+fail_if_unhandled_dbg_msgs(Ref, Conns) ->
+    fail_if_unhandled_dbg_msgs(queued_msgs(Ref,Conns), Ref, Conns).
 
-stop_and_fail_if_unhandled_dbg_msgs(Msgs, _Ref, _Conns, DaemonPid) ->
-    ssh:stop_daemon(DaemonPid),
+fail_if_unhandled_dbg_msgs(Msgs, _Ref, _Conns) ->
     case Msgs of
         [] ->
             ok;
@@ -443,15 +586,29 @@ stop_and_fail_if_unhandled_dbg_msgs(Msgs, _Ref, _Conns, DaemonPid) ->
     end.
 
 %%--------------------------------------------------------------------
+stop_and_fail_if_unhandled_dbg_msgs(Ref, Conns, DaemonPid) ->
+    stop_and_fail_if_unhandled_dbg_msgs(queued_msgs(Ref,Conns), Ref, Conns, DaemonPid).
+
+stop_and_fail_if_unhandled_dbg_msgs(Msgs, Ref, Conns, DaemonPid) ->
+    ssh:stop_daemon(DaemonPid),
+    fail_if_unhandled_dbg_msgs(Msgs, Ref, Conns).
+
+
+%%--------------------------------------------------------------------
 dbg_SKIP(Ref, Prefixes) ->
     dbg_SKIP(Ref, Prefixes, []).
 
 dbg_SKIP(Ref, Prefixes, UnexpectedAcc) ->
     receive
+        {Ref, [_, _C, Msg]} when is_tuple(Msg) ->
+            %% filter non ssh_dbg messages, for example from dbg:tp(..) etc
+            dbg_SKIP(Ref, Prefixes, UnexpectedAcc);
         {Ref, [_, _C, Msg]=M} ->
             case lists:any(
                    fun(Pfx) ->
-                           lists:prefix(Pfx, Msg)
+                           try lists:prefix(Pfx, Msg)
+                           catch _:_ -> false
+                           end
                    end, Prefixes) of
                 true ->
                     ct:log("Skip:~n~p", [M]),
@@ -462,4 +619,12 @@ dbg_SKIP(Ref, Prefixes, UnexpectedAcc) ->
     after 0 ->
             lists:reverse(UnexpectedAcc)
     end.
+
+%%%----------------------------------------------------------------
+%% w2l(P) ->
+%%     ssh_test_lib:winpath_to_linuxpath(P).
+
+w2l(Config, P) ->
+    W2L = proplists:get_value(w2l, Config, fun(X) -> X end),
+    W2L(P).
 

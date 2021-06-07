@@ -163,7 +163,7 @@ init(KeyOrName,{IP,Port},{Username,Password}) ->
 	    
 ftp_connect(IP,Port,Username,Password) ->
     _ = ftp:start(),
-    case ftp:start_service([{host,IP},{port,Port}]) of
+    case ftp:open(IP,[{port,Port}]) of
 	{ok,FtpPid} ->
 	    case ftp:user(FtpPid,Username,Password) of
 		ok ->
@@ -208,7 +208,7 @@ reconnect(_Addr,_State) ->
 terminate(FtpPid,State) ->
     log(heading(terminate,State#state.target_name),
 	"Closing FTP connection.\nHandle: ~p\n",[FtpPid]),
-    ftp:stop_service(FtpPid).
+    ftp:close(FtpPid).
 
 
 %%%=================================================================

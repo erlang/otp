@@ -1,0 +1,18 @@
+
+  [;1m-spec relative_product1(BinRel1, BinRel2) -> BinRel3[0m
+  [;1m                           when[0m
+  [;1m                               BinRel1 :: binary_relation(),[0m
+  [;1m                               BinRel2 :: binary_relation(),[0m
+  [;1m                               BinRel3 :: binary_relation().[0m
+
+  Returns the relative product of the converse of the binary
+  relation [;;4mBinRel1[0m and the binary relation [;;4mBinRel2[0m.
+
+    1> R1 = sofs:relation([{1,a},{1,aa},{2,b}]),
+    R2 = sofs:relation([{1,u},{2,v},{3,c}]),
+    R3 = sofs:relative_product1(R1, R2),
+    sofs:to_external(R3).
+    [{a,u},{aa,u},{b,v}]
+
+  [;;4mrelative_product1(R1, R2)[0m is equivalent to [;;4m[0m
+  [;;4mrelative_product(converse(R1), R2)[0m.

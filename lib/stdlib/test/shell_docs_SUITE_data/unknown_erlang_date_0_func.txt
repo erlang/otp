@@ -1,0 +1,11 @@
+
+  [;1m-spec date() -> Date when Date :: calendar:date().[0m
+
+  Returns the current date as [;;4m{Year, Month, Day}[0m.
+
+  The time zone and Daylight Saving Time correction depend on the
+  underlying OS. The return value is based on the OS System Time.
+  Example:
+
+    > date().
+    {1995,2,19}

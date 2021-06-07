@@ -15,5 +15,5 @@
              ftp_response,
              ftp_sup
             ]},
-  {runtime_dependencies, ["erts-7.0","stdlib-3.5","kernel-6.0"]}
+  {runtime_dependencies, ["erts-7.0","stdlib-3.5","kernel-6.0","ssl-10.2","runtime_tools-1.15.1"]}
  ]}.

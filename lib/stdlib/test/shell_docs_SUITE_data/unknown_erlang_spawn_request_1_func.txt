@@ -1,0 +1,9 @@
+
+  [;1m-spec spawn_request(Fun) -> ReqId[0m
+  [;1m                       when Fun :: function(), ReqId :: reference().[0m
+
+[;;4mSince[0m:
+  OTP 23.0
+
+  The same as the call [;;4mspawn_request(node(),Fun,[])[0m. That is, a
+  spawn request on the local node with no options.

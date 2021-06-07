@@ -33,12 +33,12 @@
     <file>ssl_protocol.xml</file>
   </header>
   
-  <p>The Erlang SSL application implements the SSL/TLS/DTLS protocol
+  <p>The Erlang SSL application implements the TLS/DTLS protocol
   for the currently supported versions,  see the
-  <seealso marker="ssl">ssl(3)</seealso> manual page.
+  <seeerl marker="ssl">ssl(3)</seeerl> manual page.
   </p>
 
-  <p>By default SSL/TLS is run over the TCP/IP protocol even
+  <p>By default TLS is run over the TCP/IP protocol even
   though you can plug in any other reliable transport protocol
   with the same Application Programming Interface (API) as the
   <c>gen_tcp</c> module in Kernel. DTLS is by default run over UDP/IP,
@@ -46,7 +46,7 @@
   transports, such as SCTP, may be supported in future releases.</p>
   
   <p>If a client and a server wants to use an upgrade mechanism, such as
-  defined by RFC 2817, to upgrade a regular TCP/IP connection to an TLS
+  defined by RFC 2817, to upgrade a regular TCP/IP connection to a TLS
   connection, this is supported by the Erlang SSL application API. This can be 
   useful for, for example, supporting HTTP and HTTPS on the same port and
   implementing virtual hosting. Note this is a TLS feature only.
@@ -137,28 +137,42 @@
    </section>
   
    <section>
-     <title>TLS Sessions</title>
+     <title>TLS Sessions - PRE TLS-1.3</title>
      
-     <p>From the TLS RFC: "A TLS session is an association between a
-     client and a server. Sessions are created by the handshake
-     protocol. Sessions define a set of cryptographic security
-     parameters, which can be shared among multiple
-     connections. Sessions are used to avoid the expensive negotiation
-     of new security parameters for each connection."</p>
+       <p>From the TLS RFC: "A TLS session is an association between a
+       client and a server. Sessions are created by the handshake
+       protocol. Sessions define a set of cryptographic security
+       parameters, which can be shared among multiple
+       connections. Sessions are used to avoid the expensive negotiation
+       of new security parameters for each connection."</p>
 
-     <p>Session data is by default kept by the SSL application in a
-     memory storage, hence session data is lost at application
-     restart or takeover. Users can define their own callback module
-     to handle session data storage if persistent data storage is
-     required. Session data is also invalidated after 24 hours
-     from it was saved, for security reasons. The amount of time the 
-     session data is to be saved can be configured.</p>
+       <p>Session data is by default kept by the SSL application in a
+       memory storage, hence session data is lost at application
+       restart or takeover. Users can define their own callback module
+       to handle session data storage if persistent data storage is
+       required. Session data is also invalidated when session
+       database exceeds its limit or 24 hours after being saved
+       (RFC max lifetime recommendation). The amount of time the
+       session data is to be saved can be configured.</p>
 
-     <p>By default the TLS/DTLS clients try to reuse an available session and 
-     by default the TLS/DTLS servers agree to reuse sessions when clients
-     ask for it.</p>
+       <p>By default the TLS/DTLS clients try to reuse an available
+       session and by default the TLS/DTLS servers agree to reuse
+       sessions when clients ask for it. See also
+       <seeguide marker="ssl:using_ssl#session-reuse-pre-tls-1.3"> Session Reuse Pre TLS-1.3 </seeguide>
+       </p>
+     </section>
 
+   <section>
+     <title>TLS-1.3 session tickets</title>
+
+     <p>In TLS 1.3 the session reuse is replaced by a new session
+     tickets mechanism based on the pre shared key concept. This
+     mechanism also obsoletes the session tickets from RFC5077, not
+     implemented by this application. See also
+     <seeguide marker="ssl:using_ssl#session-tickets-and-session-resumption-in-tls-1.3">Session Tickets and Session Resumption in TLS-1.3 </seeguide>
+     </p>
    </section>
+
  </chapter>
 
 

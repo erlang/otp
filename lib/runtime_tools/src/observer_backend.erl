@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,8 @@
 -export([vsn/0]).
 
 %% observer stuff
--export([sys_info/0, get_port_list/0, procs_info/1,
+-export([socket_info/0,
+	 sys_info/0, get_port_list/0, get_socket_list/0, procs_info/1,
 	 get_table/3, get_table_list/2, fetch_stats/2]).
 
 %% etop stuff
@@ -39,7 +40,14 @@
 	 ttb_fetch/3,
          ttb_resume_trace/0,
 	 ttb_get_filenames/1]).
+
 -define(CHUNKSIZE,8191). % 8 kbytes - 1 byte
+
+-ifndef(ESOCK_DONT_SHOW_UNSUPPORTED_OPTS).
+-define(ESOCK_KEEP_UNSUPPORTED_OPT(_),             true).
+-else.
+-define(ESOCK_KEEP_UNSUPPORTED_OPT(__SUPPORTED__), __SUPPORTED__).
+-endif.
 
 vsn() ->
     case application:load(runtime_tools) of
@@ -51,6 +59,16 @@ vsn() ->
 %%
 %% observer backend
 %%
+
+socket_info() ->
+    Info0             = socket:info(),
+    {Counters, Info1} = maps:take(counters, Info0),
+    IovMax            = maps:get(iov_max , Info1),
+    NumMons           = socket:number_of_monitors(),
+    [{iov_max, IovMax}, {num_monitors, NumMons} | maps:to_list(Counters)].
+    
+
+
 sys_info() ->
     MemInfo = try erlang:memory() of
 		  Mem -> Mem
@@ -202,6 +220,161 @@ inet_port_extra({_,Type},Port) when Type =:= "udp_inet";
     [{inet,Data}];
 inet_port_extra(_,_) ->
     [].
+
+
+get_socket_list() ->
+    GetOpt = fun(_Sock, {Opt, false}) ->
+		     {Opt, "Not Supported"};
+		(Sock, {Opt, true}) ->
+		     case socket:getopt(Sock, Opt) of
+			 %% Convert to string?
+			 {ok, Value0} ->
+			     %% d("get_socket_list -> ok: "
+			     %% 	"~n   Option: ~p"
+			     %% 	"~n   Value:  ~p", [Opt, Value]),
+			     Value =
+				 if
+				     (Value0 =:= []) -> "-";
+				     true -> Value0
+				 end,
+			     {Opt, Value};
+			 %% We need to handle error cases and convert them
+			 %% to something useful ("Not Supported")
+			 {error, enotsup} = _ERROR ->
+			     %% d("get_socket_list -> error: enotsup"),
+			     {Opt, "Not Supported"};
+			 {error, enoprotoopt} = _ERROR ->
+			     %% d("get_socket_list -> error: enoprotoopt"),
+			     {Opt, "Not Supported"};
+			 {error, enotconn} = _ERROR ->
+			     %% d("get_socket_list -> error: enotconn"),
+			     {Opt, "Not Connected"};
+			 {error, {invalid, _}} = _ERROR ->
+			     %% d("get_socket_list -> error: invalid"),
+			     {Opt, "Not Implemented"};
+			 {error, Reason} ->
+			     %% d("get_socket_list -> error: "
+			     %% 	"~n   Option: ~p"
+			     %% 	"~n   Reason: ~p", [Opt, _Reason]),
+			     {Opt, f("error:~p", [Reason])}
+		     end
+	     end,
+    [begin
+	 Kind  = socket:which_socket_kind(S),
+	 FD    = case socket:getopt(S, otp, fd) of
+		     {ok, FD0} ->
+			 FD0;
+		     _ ->
+			 -1
+		 end,
+	 Info0  = socket:info(S),
+	 IdStr0 = socket:to_list(S),
+	 IdStr  = case Info0 of
+		      #{type     := stream,
+			protocol := tcp} when (Kind =:= compat) ->
+			  %% Faketi fake
+			  "#Socket" ++ Id = IdStr0,
+			  "#InetSocket" ++ Id;
+		      _ ->
+			  IdStr0
+		  end,
+	 {Counters0, Info1} = maps:take(counters, Info0),
+	 Counters = maps:to_list(Counters0),
+	 Info2 = maps:remove(ctype,         Info1),
+	 Info3 = maps:remove(num_acceptors, Info2),
+	 Info4 = maps:remove(num_readers,   Info3),
+	 Info5 = maps:remove(num_writers,   Info4),
+	 Info6 =
+	     case socket:peername(S) of
+		 {ok, RAddr} ->
+		     RAddrStr = sockaddr_to_list(RAddr),
+		     maps:put(raddress, RAddrStr, Info5);
+		 _ ->
+		     Info5
+	     end,
+	 Info7 =
+	     case socket:sockname(S) of
+		 {ok, LAddr} ->
+		     LAddrStr = sockaddr_to_list(LAddr),
+		     maps:put(laddress, LAddrStr, Info6);
+		 _ ->
+		     Info6
+	     end,
+	 SockOpts =
+	     [{{socket, Opt}, Supported} ||
+		 {Opt, Supported} <-
+		     socket:supports(options, socket),
+		 ?ESOCK_KEEP_UNSUPPORTED_OPT(Supported)],
+	 DomainOpts =
+	     case Info7 of
+		 #{domain := inet6} ->
+		     [{{ipv6, Opt}, Supported} ||
+			 {Opt, Supported} <-
+			     socket:supports(options, ipv6),
+			 ?ESOCK_KEEP_UNSUPPORTED_OPT(Supported)];
+		 _ ->
+		     [{{ip, Opt}, Supported} ||
+			 {Opt, Supported} <-
+			     socket:supports(options, ip),
+			 ?ESOCK_KEEP_UNSUPPORTED_OPT(Supported)]
+	     end,
+	 ProtoOpts =
+	     case Info7 of
+		 #{domain   := Domain,
+		   type     := stream,
+		   protocol := tcp} when (Domain =:= inet) orelse
+					 (Domain =:= inet6) ->
+		     [{{tcp, Opt}, Supported} ||
+			 {Opt, Supported} <-
+			     socket:supports(options, tcp),
+			 ?ESOCK_KEEP_UNSUPPORTED_OPT(Supported)];
+		 #{domain   := Domain,
+		   type     := dgram,
+		   protocol := udp} when (Domain =:= inet) orelse
+					 (Domain =:= inet6) ->
+		     [{{udp, Opt}, Supported} ||
+			 {Opt, Supported} <-
+			     socket:supports(options, udp),
+			 ?ESOCK_KEEP_UNSUPPORTED_OPT(Supported)];
+		 #{domain   := Domain,
+		   type     := seqpacket,
+		   protocol := sctp} when (Domain =:= inet) orelse
+					  (Domain =:= inet6) ->
+		     [{{sctp, Opt}, Supported} ||
+			 {Opt, Supported} <-
+			     socket:supports(options, sctp),
+			 ?ESOCK_KEEP_UNSUPPORTED_OPT(Supported)];
+		 _ ->
+		     []
+	     end,
+	 Opts    = SockOpts ++ DomainOpts ++ ProtoOpts,
+	 Options = [GetOpt(S, Opt) || Opt <- Opts],
+	 %% d("get_socket_list -> "
+	 %%   "~n   Options:  ~p", [Options]),
+	 Info7#{id           => S,
+		id_str       => IdStr,
+		fd           => FD,
+		kind         => Kind,
+		monitored_by => socket:monitored_by(S),
+		statistics   => Counters,
+		options      => lists:sort(Options)}
+     end || S <- socket:which_sockets()].
+
+sockaddr_to_list(#{family := local, path := PathBin}) when is_binary(PathBin) ->
+    erlang:binary_to_list(PathBin);
+sockaddr_to_list(#{family := local, path := Path}) when is_list(Path) ->
+    Path;
+sockaddr_to_list(#{family := inet, addr := Addr, port := Port}) ->
+    inet_parse:ntoa(Addr) ++ " : " ++ erlang:integer_to_list(Port);
+sockaddr_to_list(#{family := inet6, addr := Addr, port := Port,
+		   flowinfo := FI, scope_id := SID}) ->
+    inet_parse:ntoa(Addr) ++ " : " ++
+	erlang:integer_to_list(Port) ++ 
+	" , " ++ erlang:integer_to_list(FI) ++
+	" , " ++ erlang:integer_to_list(SID);
+sockaddr_to_list(Addr) ->
+    f("~p", [Addr]).
+    
 
 get_table_list(ets, Opts) ->
     HideUnread = proplists:get_value(unread_hidden, Opts, true),
@@ -433,7 +606,9 @@ ttb_meta_tracer(MetaFile,PI,Parent,SessionData) ->
 	    ReturnMS = [{'_',[],[{return_trace}]}],
 	    erlang:trace_pattern({erlang,spawn,3},ReturnMS,[meta]),
 	    erlang:trace_pattern({erlang,spawn_link,3},ReturnMS,[meta]),
-	    erlang:trace_pattern({erlang,spawn_opt,1},ReturnMS,[meta]),
+	    erlang:trace_pattern({erlang,spawn_opt,4},ReturnMS,[meta]),
+	    erlang:trace_pattern({erts_internal,spawn_init,1},[],[meta]),
+	    erlang:trace_pattern({erts_internal,dist_spawn_init,1},[],[meta]),
 	    erlang:trace_pattern({erlang,register,2},[],[meta]),
 	    erlang:trace_pattern({global,register_name,2},[],[meta]),
             ok;
@@ -459,7 +634,7 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
 	{trace_ts,_,call,{global,register_name,[Name,Pid]},_} ->
 	    ok = ttb_store_meta({pid,{Pid,{global,Name}}},MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
-	{trace_ts,CallingPid,call,{erlang,spawn_opt,[{M,F,Args,_}]},_} ->
+	{trace_ts,CallingPid,call,{erlang,spawn_opt,[M,F,Args,_]},_} ->
 	    MFA = {M,F,length(Args)},
 	    NewAcc = dict:update(CallingPid,
 				 fun(Old) -> [MFA|Old] end, [MFA], 
@@ -497,6 +672,16 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
 			    Acc),
 	    ttb_meta_tracer_loop(MetaFile,PI,NewAcc,State);
 
+	{trace_ts,CallingPid,call,{erts_internal,spawn_init,[{M,F,Args}]},_} ->
+            %% Local spawn_request()...
+            ok = ttb_store_meta({pid,{CallingPid,{M,F,length(Args)}}},MetaFile),
+	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
+
+	{trace_ts,CallingPid,call,{erts_internal, dist_spawn_init, [MFnoA]},_} ->
+            %% Distributed spawn_request()...
+            ok = ttb_store_meta({pid,{CallingPid,MFnoA}},MetaFile),
+	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
+
 	{metadata,Data} when is_list(Data) ->
 	    ok = ttb_store_meta(Data,MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
@@ -530,7 +715,9 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
             try_stop_overload_check(State),
             erlang:trace_pattern({erlang,spawn,3},false,[meta]),
 	    erlang:trace_pattern({erlang,spawn_link,3},false,[meta]),
-	    erlang:trace_pattern({erlang,spawn_opt,1},false,[meta]),
+	    erlang:trace_pattern({erlang,spawn_opt,4},false,[meta]),
+	    erlang:trace_pattern({erts_internal,spawn_init,1},false,[meta]),
+	    erlang:trace_pattern({erts_internal,dist_spawn_init,1},false,[meta]),
 	    erlang:trace_pattern({erlang,register,2},false,[meta]),
 	    erlang:trace_pattern({global,register_name,2},false,[meta]);
 	stop ->
@@ -752,6 +939,7 @@ sys_tables() ->
      mnesia_gvar, mnesia_stats,
 						%     mnesia_transient_decision,
      pg2_table,
+     pg,
      queue,
      schema,
      shell_records,
@@ -763,7 +951,7 @@ sys_tables() ->
 
 sys_processes() ->
     [auth, code_server, global_name_server, inet_db,
-     mnesia_recover, net_kernel, timer_server, wxe_master].
+     mnesia_recover, net_kernel, pg, timer_server, wxe_master].
 
 mnesia_tables() ->
     [ir_AliasDef, ir_ArrayDef, ir_AttributeDef, ir_ConstantDef,
@@ -778,3 +966,21 @@ mnesia_tables() ->
 
 ignore(true, Reason) -> throw(Reason);
 ignore(_,_ ) -> ok.
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
+%% d(F) ->
+%%     d(F, []).
+
+%% d(Debug, F) when is_boolean(Debug) andalso is_list(F) ->
+%%     d(Debug, F, []);
+%% d(F, A) when is_list(F) andalso is_list(A) ->
+%%     d(get(debug), F, A).
+
+%% d(true, F, A) ->
+%%     io:format("[ob] " ++ F ++ "~n", A);
+%% d(_, _, _) ->
+%%     ok.
+
+

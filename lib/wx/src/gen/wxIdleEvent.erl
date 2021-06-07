@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,48 +18,28 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html">wxIdleEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>idle</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxIdle(). #wxIdle{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxIdleEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxIdleEvent).
 -include("wxe.hrl").
--export([canSend/1,getMode/0,moreRequested/1,requestMore/1,requestMore/2,setMode/1]).
+-export([getMode/0,moreRequested/1,requestMore/1,requestMore/2,setMode/1]).
 
 %% inherited exports
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxIdleEvent/0]).
--deprecated([canSend/1]).
-
+-type wxIdleEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxIdleEventType() :: 'idle'.
+-export_type([wxIdleEvent/0, wxIdle/0, wxIdleEventType/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
-
--type wxIdleEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html#wxidleeventcansend">external documentation</a>.
--spec canSend(Win) -> boolean() when
-	Win::wxWindow:wxWindow().
-canSend(#wx_ref{type=WinT,ref=WinRef}) ->
-  ?CLASS(WinT,wxWindow),
-  wxe_util:call(?wxIdleEvent_CanSend,
-  <<WinRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html#wxidleeventgetmode">external documentation</a>.
 %%<br /> Res = ?wxIDLE_PROCESS_ALL | ?wxIDLE_PROCESS_SPECIFIED
 -spec getMode() -> wx:wx_enum().
 getMode() ->
-  wxe_util:call(?wxIdleEvent_GetMode,
-  <<>>).
+  wxe_util:queue_cmd(?get_env(), ?wxIdleEvent_GetMode),
+  wxe_util:rec(?wxIdleEvent_GetMode).
 
 %% @equiv requestMore(This, [])
 -spec requestMore(This) -> 'ok' when
@@ -73,22 +53,21 @@ requestMore(This)
 -spec requestMore(This, [Option]) -> 'ok' when
 	This::wxIdleEvent(),
 	Option :: {'needMore', boolean()}.
-requestMore(#wx_ref{type=ThisT,ref=ThisRef}, Options)
+requestMore(#wx_ref{type=ThisT}=This, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxIdleEvent),
-  MOpts = fun({needMore, NeedMore}, Acc) -> [<<1:32/?UI,(wxe_util:from_bool(NeedMore)):32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:cast(?wxIdleEvent_RequestMore,
-  <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
+  MOpts = fun({needMore, _needMore} = Arg) -> Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(This, Opts,?get_env(),?wxIdleEvent_RequestMore).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html#wxidleeventmorerequested">external documentation</a>.
 -spec moreRequested(This) -> boolean() when
 	This::wxIdleEvent().
-moreRequested(#wx_ref{type=ThisT,ref=ThisRef}) ->
+moreRequested(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxIdleEvent),
-  wxe_util:call(?wxIdleEvent_MoreRequested,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxIdleEvent_MoreRequested),
+  wxe_util:rec(?wxIdleEvent_MoreRequested).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html#wxidleeventsetmode">external documentation</a>.
 %%<br /> Mode = ?wxIDLE_PROCESS_ALL | ?wxIDLE_PROCESS_SPECIFIED
@@ -96,8 +75,7 @@ moreRequested(#wx_ref{type=ThisT,ref=ThisRef}) ->
 	Mode::wx:wx_enum().
 setMode(Mode)
  when is_integer(Mode) ->
-  wxe_util:cast(?wxIdleEvent_SetMode,
-  <<Mode:32/?UI>>).
+  wxe_util:queue_cmd(Mode,?get_env(),?wxIdleEvent_SetMode).
 
  %% From wxEvent
 %% @hidden

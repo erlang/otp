@@ -33,6 +33,10 @@
 
 -opaque atomics_ref() :: reference().
 
+%% We must inline this function so that the stacktrace points to
+%% the correct function.
+-compile({inline, [error_with_info/2]}).
+
 -define(OPT_SIGNED, (1 bsl 0)).
 -define(OPT_DEFAULT, ?OPT_SIGNED).
 
@@ -41,7 +45,17 @@
       Opts :: [Opt],
       Opt :: {signed, boolean()}.
 new(Arity, Opts) ->
-    erts_internal:atomics_new(Arity, encode_opts(Opts, ?OPT_DEFAULT)).
+    try
+        EncodedOpts = encode_opts(Opts, ?OPT_DEFAULT),
+        erts_internal:atomics_new(Arity, EncodedOpts)
+    catch
+        throw:badopt ->
+            ExtraInfo = [{error_info, #{module => erl_erts_errors,
+                                        cause => badopt}}],
+            error(badarg, [Arity, Opts], ExtraInfo);
+        error:Error ->
+            error_with_info(Error, [Arity, Opts])
+    end.
 
 encode_opts([{signed, true}|T], Acc) ->
     encode_opts(T, Acc bor ?OPT_SIGNED);
@@ -50,7 +64,7 @@ encode_opts([{signed, false}|T], Acc) ->
 encode_opts([], Acc) ->
     Acc;
 encode_opts(_, _) ->
-    erlang:error(badarg).
+    throw(badopt).
 
 -spec put(Ref, Ix, Value) -> ok when
       Ref  :: atomics_ref(),
@@ -84,14 +98,24 @@ add_get(_Ref, _Ix, _Incr) ->
       Ix :: integer(),
       Decr :: integer().
 sub(Ref, Ix, Decr) ->
-    ?MODULE:add(Ref, Ix, -Decr).
+    try
+        ?MODULE:add(Ref, Ix, -Decr)
+    catch
+        error:Error ->
+            error_with_info(Error, [Ref, Ix, Decr])
+    end.
 
 -spec sub_get(Ref, Ix, Decr) -> integer() when
       Ref  :: atomics_ref(),
       Ix :: integer(),
       Decr :: integer().
 sub_get(Ref, Ix, Decr) ->
-    ?MODULE:add_get(Ref, Ix, -Decr).
+    try
+        ?MODULE:add_get(Ref, Ix, -Decr)
+    catch
+        error:Error ->
+            error_with_info(Error, [Ref, Ix, Decr])
+    end.
 
 -spec exchange(Ref, Ix, Desired) -> integer() when
       Ref  :: atomics_ref(),
@@ -117,3 +141,6 @@ compare_exchange(_Ref, _Ix, _Expected, _Desired) ->
       Memory :: non_neg_integer().
 info(_Ref) ->
     erlang:nif_error(undef).
+
+error_with_info(Reason, Args) ->
+    error(Reason, Args, [{error_info, #{module => erl_erts_errors}}]).

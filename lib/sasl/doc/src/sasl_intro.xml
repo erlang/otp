@@ -40,14 +40,14 @@
       <item>Report browsing</item>
     </list>
     <p>Section
-      <seealso marker="error_logging">SASL Error Logging</seealso> 
+      <seeguide marker="error_logging">SASL Error Logging</seeguide> 
       describes the error
       handler that produces the supervisor, progress, and crash
       reports, which can be written to screen or to a specified file.
       It also describes the Report Browser (RB).</p>
     <p>The sections about release structure and release handling have
       been moved to section
-      <seealso marker="doc/design_principles:users_guide">OTP Design Principles</seealso>
+      <seeguide marker="system/design_principles:index">OTP Design Principles</seeguide>
       in <em>System Documentation</em>.</p>
   </section>
 

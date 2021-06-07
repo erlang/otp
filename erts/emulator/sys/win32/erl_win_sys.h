@@ -52,10 +52,6 @@
 #include <fcntl.h>
 #include <time.h>
 #include <sys/timeb.h>
-#pragma comment(linker,"/manifestdependency:\"type='win32' "\
-		"name='Microsoft.Windows.Common-Controls' "\
-		"version='6.0.0.0' processorArchitecture='*' "\
-		"publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -88,7 +84,6 @@
 #define NO_SYSCONF
 #define NO_DAEMON
 #define NO_PWD
-/*#define HAVE_MEMMOVE*/
 
 #define strncasecmp _strnicmp
 

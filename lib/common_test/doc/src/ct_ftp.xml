@@ -41,21 +41,21 @@
 
   </description>
 
-  <section>
-    <title>Data Types</title>
-    <marker id="types"/>
-    <taglist>
-      <tag><c>connection() = handle() | target_name()</c></tag>
-        <item><marker id="type-connection"/>
+  <datatypes>
+    <datatype>
+      <name>connection() = handle() | target_name()</name>
+        <desc>
           <p>For <c>target_name</c>, see module
-            <seealso marker="ct"><c>ct</c></seealso>.</p></item>
+        <seeerl marker="ct"><c>ct</c></seeerl>.</p></desc>
+    </datatype>
+    <datatype>
 
-      <tag><c>handle() = handle()</c></tag>
-        <item><marker id="type-handle"/>
+      <name>handle() = handle()</name>
+        <desc>
           <p>Handle for a specific FTP connection, see module
-            <seealso marker="ct"><c>ct</c></seealso>.</p></item>
-    </taglist>
-  </section>
+        <seeerl marker="ct"><c>ct</c></seeerl>.</p></desc>
+    </datatype>
+  </datatypes>
 
   <funcs>
     <func>
@@ -111,13 +111,13 @@
         <p><c>RemoteFile</c> and <c>LocalFile</c> must be absolute paths.</p>
 
         <p>The configuration file must be as for
-          <seealso marker="#put-3"><c>ct_ftp:put/3</c></seealso>.</p>
+          <seemfa marker="#put/3"><c>ct_ftp:put/3</c></seemfa>.</p>
 
         <p>For <c>target_name</c>, see module
-          <seealso marker="ct"><c>ct</c></seealso>.</p>
+          <seeerl marker="ct"><c>ct</c></seeerl>.</p>
 
         <p>See also
-          <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seemfa marker="ct#require/2"><c>ct:require/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -156,10 +156,10 @@
           with the handle value.</p>
 
         <p>For information on how to create a new <c>Name</c>, see
-          <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seemfa marker="ct#require/2"><c>ct:require/2</c></seemfa>.</p>
 
         <p>For <c>target_name</c>, see module
-          <seealso marker="ct"><c>ct</c></seealso>.</p>
+          <seeerl marker="ct"><c>ct</c></seeerl>.</p>
       </desc>
     </func>
 
@@ -180,7 +180,7 @@
         <p><c>LocalFile</c> and <c>RemoteFile</c> must be absolute paths.</p>
 
         <p>For <c>target_name</c>, see module
-          <seealso marker="ct"><c>ct</c></seealso>.</p>
+          <seeerl marker="ct"><c>ct</c></seeerl>.</p>
 
         <p>If the target host is a "special" node, the FTP address must be
           specified in the configuration file as follows:</p>
@@ -198,7 +198,7 @@
         {password,Password}]}.</pre>
 
         <p>See also
-          <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seemfa marker="ct#require/2"><c>ct:require/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -210,7 +210,7 @@
 
         <p>The file gets the same name on the local host.</p>
 
-        <p>See also <seealso marker="#recv-3"><c>ct_ftp:recv/3</c></seealso>.</p>
+        <p>See also <seemfa marker="#recv/3"><c>ct_ftp:recv/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -238,7 +238,7 @@
         <p>The file gets the same name on the remote host.</p>
 
         <p>See also
-          <seealso marker="#send-3"><c>ct_ftp:send/3</c></seealso>.</p>
+          <seemfa marker="#send/3"><c>ct_ftp:send/3</c></seemfa>.</p>
       </desc>
     </func>
 

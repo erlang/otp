@@ -33,7 +33,7 @@
 
 -export([module/4, overview/4, type/2]).
 
--export([hidden_filter/2, get_all_tags/1]).
+-export([hidden_filter/2, get_all_tags/1, get_entry/2, get_tags/2]).
 
 -include("edoc.hrl").
 
@@ -76,11 +76,19 @@
 %% <!ELEMENT callbacks (callback+)>
 %% <!ELEMENT typedecls (typedecl+)>
 %% <!ELEMENT typedecl (typedef, description?)>
+%% <!ATTLIST typedecl
+%%   label CDATA #REQUIRED
+%%   line CDATA #REQUIRED>
 %% <!ELEMENT functions (function+)>
 
 %% NEW-OPTIONS: private, hidden, todo
 %% DEFER-OPTIONS: edoc_extract:source/4
 
+-spec module(Module, Entries, Env, Opts) -> edoc:edoc_module() when
+      Module :: edoc:module_meta(),
+      Entries :: [edoc:entry()],
+      Env :: edoc:env(),
+      Opts :: proplists:proplist().
 module(Module, Entries, Env, Opts) ->
     Name = atom_to_list(Module#module.name),
     HeaderEntry = get_entry(module, Entries),
@@ -135,14 +143,13 @@ module_args(Vs) ->
     [{args, [{arg, [{argName, [atom_to_list(V)]}]} || V <- Vs]}].
 
 types(Tags, Env) ->
-    [{typedecl, [{label, edoc_types:to_label(Def)}],
+    [{typedecl, [{label, edoc_types:to_label(Def)}, {line, Line}],
       [edoc_types:to_xml(Def, Env)] ++ description(Doc)}
-     || #tag{name = type, data = {Def, Doc}} <- Tags].
+     || #tag{name = type, line = Line, data = {Def, Doc}} <- Tags].
 
 functions(Es, Env, Opts) ->
     [function(N, As, Export, Ts, Env, Opts)
-     || #entry{name = {_,_}=N, args = As, export = Export, data = Ts}
-	    <- Es].
+     || #entry{name = {_,_}=N, args = As, export = Export, data = Ts} <- Es].
 
 hidden_filter(Es, Opts) ->
     Private = proplists:get_bool(private, Opts),
@@ -222,6 +229,8 @@ callback({N, A}, _Env, _Opts) ->
 %%   name CDATA #REQUIRED
 %%   arity CDATA #REQUIRED
 %%   exported NMTOKEN(yes | no) #REQUIRED
+%%   private NMTOKEN(yes | no) #IMPLIED
+%%   hidden NMTOKEN(yes | no) #IMPLIED
 %%   label CDATA #IMPLIED>
 %% <!ELEMENT args (arg*)>
 %% <!ELEMENT arg (argName, description?)>
@@ -230,23 +239,19 @@ callback({N, A}, _Env, _Opts) ->
 %% <!ELEMENT throws (type, localdef*)>
 %% <!ELEMENT equiv (expr, see?)>
 %% <!ELEMENT expr (#PCDATA)>
-
-function({N, A}, As, Export, Ts, Env, Opts) ->
-    {Args, Ret, Spec} = signature(Ts, As, Env),
+function({N, A}, []=As, Export, Ts, Env, Opts)->
+    function({N, A}, [As], Export, Ts, Env, Opts);
+function({N, A}, [HAs | _]=As, Export, Ts, Env, Opts) when not is_list(HAs) ->
+    function({N, A}, [As], Export, Ts, Env, Opts);
+function({N, A}, As0, Export, Ts, Env, Opts) ->
     {function, [{name, atom_to_list(N)},
 		{arity, integer_to_list(A)},
-      		{exported, case Export of
-			       true -> "yes";
-			       false -> "no"
-			   end},
+		{exported, yes_or_no(Export)},
+		{private, yes_or_no(is_private(Ts))},
+		{hidden, yes_or_no(is_hidden(Ts))},
 		{label, edoc_refs:to_label(edoc_refs:function(N, A))}],
-     [{args, [{arg, [{argName, [atom_to_list(A)]}] ++ description(D)}
-	      || {A, D} <- Args]}]
-     ++ Spec
-     ++ case Ret of
-	    [] -> [];
-	    _ -> [{returns, description(Ret)}]
-	end
+     lists:append([get_args(lists:nth(Clause, As0), Ts, Clause, Env)
+                   || Clause <- lists:seq(1, length(As0))])
      ++ get_throws(Ts, Env)
      ++ get_equiv(Ts, Env)
      ++ get_doc(Ts)
@@ -255,6 +260,19 @@ function({N, A}, As, Export, Ts, Env, Opts) ->
      ++ sees(Ts, Env)
      ++ todos(Ts, Opts)
     }.
+
+get_args(As, Ts, Clause, Env) ->
+    {Args, Ret, Spec} = signature(Ts, As, Clause, Env),
+    [{args, [{arg, [{argName, [atom_to_list(A)]}] ++ description(D)}
+     || {A, D} <- Args]}]
+    ++ Spec
+    ++ case Ret of
+           [] -> [];
+           _ -> [{returns, description(Ret)}]
+       end.
+
+yes_or_no(true) -> "yes";
+yes_or_no(false) -> "no".
 
 get_throws(Ts, Env) ->
     case get_tags(throws, Ts) of
@@ -328,8 +346,6 @@ get_deprecated(Ts, F, A, Env) ->
 	    case otp_internal:obsolete(M, F, A) of
 		{Tag, Text} when Tag =:= deprecated; Tag =:= removed ->
 		    deprecated([Text]);
-		{Tag, Repl, _Rel} when Tag =:= deprecated; Tag =:= removed ->
-		    deprecated(Repl, Env);
 		_ ->
 		    []
 	    end;
@@ -337,21 +353,8 @@ get_deprecated(Ts, F, A, Env) ->
 	    Es
     end.
 
-deprecated(Repl, Env) ->
-    {Text, Ref} = replacement_function(Env#env.module, Repl),
-    Desc = ["Use ", {a, href(Ref, Env), [{code, [Text]}]}, " instead."],
-    deprecated(Desc).
-
 deprecated(Desc) ->
     [{deprecated, description(Desc)}].
-
-replacement_function(M0, {M,F,A}) when is_list(A) ->
-    %% refer to the largest listed arity - the most general version
-    replacement_function(M0, {M,F,lists:last(lists:sort(A))});
-replacement_function(M, {M,F,A}) ->
-    {io_lib:fwrite("~w/~w", [F, A]), edoc_refs:function(F, A)};
-replacement_function(_, {M,F,A}) ->
-    {io_lib:fwrite("~w:~w/~w", [M, F, A]), edoc_refs:function(M, F, A)}.
 
 get_expr_ref(Expr) ->
     case catch {ok, erl_syntax_lib:analyze_application(Expr)} of
@@ -399,7 +402,10 @@ sees(Tags, Env) ->
 see(Ref, [], Env) ->
     see(Ref, [edoc_refs:to_string(Ref)], Env);
 see(Ref, XML, Env) ->
-    {see, [{name, edoc_refs:to_string(Ref)}] ++ href(Ref, Env), XML}.
+    {DocgenRel, DocgenURI} = edoc_refs:get_docgen_link(Ref),
+    Attrs = [{'docgen-rel', DocgenRel},
+	     {'docgen-href', DocgenURI}] ++ href(Ref, Env),
+    {see, Attrs, XML}.
 
 href(Ref, Env) ->
     [{href, edoc_refs:get_uri(Ref, Env)}]
@@ -421,10 +427,10 @@ todos(Tags, Opts) ->
 	    []
     end.
 
-signature(Ts, As, Env) ->
+signature(Ts, As, Clause, Env) ->
     case get_tags(spec, Ts) of
 	[T] ->
-	    Spec = T#tag.data,
+            Spec = maybe_nth(Clause, T#tag.data),
 	    R = merge_returns(Spec, Ts),
 	    As0 = edoc_types:arg_names(Spec),
 	    Ds0 = edoc_types:arg_descs(Spec),
@@ -438,6 +444,11 @@ signature(Ts, As, Env) ->
 	    S = sets:new(),
 	    {[{A, ""} || A <- fix_argnames(As, S, 1)], [], []}
     end.
+
+maybe_nth(N, List) when is_list(List) ->
+    lists:nth(N, List);
+maybe_nth(1, Other) ->
+    Other.
 
 params(Ts) ->
     [T#tag.data || T <- get_tags(param, Ts)].

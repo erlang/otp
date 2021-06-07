@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2007</year><year>2018</year>
+      <year>2007</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -58,7 +58,7 @@
     </list>
     <p>This module was written for one-to-many style sockets
       (type <c>seqpacket</c>). With the addition of
-      <seealso marker="#peeloff/2"><c>peeloff/2</c></seealso>,
+      <seemfa marker="#peeloff/2"><c>peeloff/2</c></seemfa>,
       one-to-one style sockets (type <c>stream</c>) were introduced.</p>
     <p>Record definitions for this module can be found using:</p>
     <pre>
@@ -82,7 +82,7 @@
       <name name="option"/>
       <desc>
         <p>One of the
-          <seealso marker="#options">SCTP Socket Options</seealso>.</p>
+          <seeerl marker="#options">SCTP Socket Options</seeerl>.</p>
       </desc>
     </datatype>
     <datatype>
@@ -92,7 +92,7 @@
       <name>sctp_socket()</name>
       <desc>
         <p>Socket identifier returned from
-          <seealso marker="#open/0"><c>open/*</c></seealso>.</p>
+          <seemfa marker="#open/0"><c>open/*</c></seemfa>.</p>
         <marker id="exports"></marker>
       </desc>
     </datatype>
@@ -117,11 +117,11 @@
       <fsummary>Close the socket and all associations on it.</fsummary>
       <desc>
         <p>Closes the socket and all associations on it. The unsent
-          data is flushed as in <seealso marker="#eof/2"><c>eof/2</c></seealso>.
+          data is flushed as in <seemfa marker="#eof/2"><c>eof/2</c></seemfa>.
           The <c>close/1</c> call
           is blocking or otherwise depending of the value of
-          the <seealso marker="inet#option-linger"><c>linger</c></seealso>
-          socket <seealso marker="#options">option</seealso>.
+          the <seeerl marker="inet#option-linger"><c>linger</c></seeerl>
+          socket <seeerl marker="#options">option</seeerl>.
           If <c>close</c> does not linger or linger time-out expires,
           the call returns and the data is flushed in the background.</p>
       </desc>
@@ -155,17 +155,17 @@
           relevant for associations sharing the same <c><anno>Socket</anno></c>
           (that is, source address and port), as the controlling process
           blocks until <c>connect/*</c> returns.
-          <seealso marker="#connect_init/4"><c>connect_init/*</c></seealso>
+          <seemfa marker="#connect_init/4"><c>connect_init/*</c></seemfa>
           provides an alternative without this limitation.</p>
         </warning>
         <p><marker id="record-sctp_assoc_change"></marker>
           The result of <c>connect/*</c> is an <c>#sctp_assoc_change{}</c>
           event that contains, in particular, the new
-          <seealso marker="#type-assoc_id">Association ID</seealso>:</p>
+          <seetype marker="#assoc_id">Association ID</seetype>:</p>
         <pre>
 #sctp_assoc_change{
       state             = atom(),
-      error             = atom(),
+      error             = integer(),
       outbound_streams  = integer(),
       inbound_streams   = integer(),
       assoc_id          = assoc_id()
@@ -197,7 +197,7 @@ connect(Socket, Ip, Port>,
         <p>Other states do not normally occur in the output from
           <c>connect/*</c>. Rather, they can occur in
           <c>#sctp_assoc_change{}</c> events received instead of data in
-          <seealso marker="#recv/1"><c>recv/*</c></seealso> calls.
+          <seemfa marker="#recv/1"><c>recv/*</c></seemfa> calls.
           All of them indicate losing the association because of various error
           conditions, and are listed here for the sake of completeness:</p>
         <taglist>
@@ -208,7 +208,9 @@ connect(Socket, Ip, Port>,
           <tag><c>shutdown_comp</c></tag>
           <item></item>
         </taglist>
-        <p>Field <c>error</c> can provide more detailed diagnostics.</p>
+        <p>Field <c>error</c> can provide more detailed diagnostics.
+        The <c>error</c> field value can be converted into a string using
+        <seemfa marker="#error_string/1"><c>error_string/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -234,13 +236,13 @@ connect(Socket, Ip, Port>,
           underlying OS <c>connect(2)</c> system call. If <c>ok</c> is returned,
           the result of the association establishment is received
           by the calling process as an
-          <seealso marker="#record-sctp_assoc_change"><c>#sctp_assoc_change{}</c></seealso>
+          <seeerl marker="#record-sctp_assoc_change"><c>#sctp_assoc_change{}</c></seeerl>
           event. The calling process must be prepared to receive this, or
           poll for it using
-          <seealso marker="#recv/1"><c>recv/*</c></seealso>,
+          <seemfa marker="#recv/1"><c>recv/*</c></seemfa>,
           depending on the value of the active option.</p>
         <p>The parameters are as described in
-          <seealso marker="#connect/5"><c>connect/*</c></seealso>,
+          <seemfa marker="#connect/5"><c>connect/*</c></seemfa>,
            except the <c><anno>Timeout</anno></c> value.</p>
         <p>The timer associated with <c><anno>Timeout</anno></c> only supervises
           IP resolution of <c><anno>Addr</anno></c>.</p>
@@ -253,7 +255,7 @@ connect(Socket, Ip, Port>,
       <desc>
         <p>Assigns a new controlling process <c><anno>Pid</anno></c> to
           <c><anno>Socket</anno></c>. Same implementation as
-          <seealso marker="gen_udp:controlling_process/2"><c>gen_udp:controlling_process/2</c></seealso>.
+          <seemfa marker="gen_udp#controlling_process/2"><c>gen_udp:controlling_process/2</c></seemfa>.
         </p>
       </desc>
     </func>
@@ -324,23 +326,23 @@ connect(Socket, Ip, Port>,
             <p>Sets up the socket for IPv4. This is the default.</p>
           </item>
         </taglist>
-        <p>A default set of socket <seealso marker="#options">options</seealso>
+        <p>A default set of socket <seeerl marker="#options">options</seeerl>
           is used. In particular, the socket is opened in
-          <seealso marker="#option-binary">binary</seealso> and
-          <seealso marker="#option-active">passive</seealso> mode,
+          <seeerl marker="#option-binary">binary</seeerl> and
+          <seeerl marker="#option-active">passive</seeerl> mode,
 	  with <anno>SockType</anno> <c>seqpacket</c>, and with reasonably large
-          <seealso marker="inet#option-sndbuf">kernel</seealso> and driver
-          <seealso marker="inet#option-buffer">buffers</seealso>.</p>
+          <seeerl marker="inet#option-sndbuf">kernel</seeerl> and driver
+          <seeerl marker="inet#option-buffer">buffers</seeerl>.</p>
 	<p>
 	  If the socket is in
-          <seealso marker="#option-active">passive</seealso>
+          <seeerl marker="#option-active">passive</seeerl>
 	  mode data can be received through the
-          <seealso marker="#recv/1"><c>recv/1,2</c></seealso>
+          <seemfa marker="#recv/1"><c>recv/1,2</c></seemfa>
 	  calls.
 	</p>
 	<p>
 	  If the socket is in
-          <seealso marker="#option-active">active</seealso>
+          <seeerl marker="#option-active">active</seeerl>
 	  mode data received data is delivered to the controlling process
 	  as messages:
 	</p>
@@ -349,16 +351,16 @@ connect(Socket, Ip, Port>,
 	</code>
 	<p>
 	  See
-	  <seealso marker="#recv/1"><c>recv/1,2</c></seealso>
+	  <seemfa marker="#recv/1"><c>recv/1,2</c></seemfa>
 	  for a description of the message fields.
 	</p>
 	<note>
 	  <p>
 	    This message format unfortunately differs slightly from the
-	    <seealso marker="gen_udp#open/1"><c>gen_udp</c></seealso>
+	    <seemfa marker="gen_udp#open/1"><c>gen_udp</c></seemfa>
 	    message format with ancillary data,
 	    and from the
-	    <seealso marker="#recv/1"><c>recv/1,2</c></seealso>
+	    <seemfa marker="#recv/1"><c>recv/1,2</c></seemfa>
 	    return tuple format.
 	  </p>
 	</note>
@@ -377,10 +379,10 @@ connect(Socket, Ip, Port>,
           (one-to-one style).</p>
         <p>The existing association argument <c><anno>Assoc</anno></c>
           can be either a
-          <seealso marker="#record-sctp_assoc_change"><c>#sctp_assoc_change{}</c></seealso>
+          <seeerl marker="#record-sctp_assoc_change"><c>#sctp_assoc_change{}</c></seeerl>
           record as returned from, for example,
-          <seealso marker="#recv-2"><c>recv/*</c></seealso>,
-          <seealso marker="#connect-5"><c>connect/*</c></seealso>, or
+          <seemfa marker="#recv/2"><c>recv/*</c></seemfa>,
+          <seemfa marker="#connect/5"><c>connect/*</c></seemfa>, or
 	  from a listening socket in active mode. It can also be just
 	  the field <c>assoc_id</c> integer from such a record.</p>
       </desc>
@@ -400,28 +402,28 @@ connect(Socket, Ip, Port>,
         <p><c><anno>AncData</anno></c> is a list of ancillary data items that
           can be received along with the main <c><anno>Data</anno></c>.
           This list can be empty, or contain a single
-          <seealso marker="#record-sctp_sndrcvinfo"><c>#sctp_sndrcvinfo{}</c></seealso>
+          <seeerl marker="#record-sctp_sndrcvinfo"><c>#sctp_sndrcvinfo{}</c></seeerl>
           record if receiving of such ancillary data is enabled (see option
-          <seealso marker="#option-sctp_events"><c>sctp_events</c></seealso>).
+          <seeerl marker="#option-sctp_events"><c>sctp_events</c></seeerl>).
           It is enabled by default, as such ancillary data
           provides an easy way of determining the association and stream
           over which the message is received.
           (An alternative way is to get the association ID from
           <c><anno>FromIP</anno></c> and <c><anno>FromPort</anno></c> using
           socket option
-          <seealso marker="#option-sctp_get_peer_addr_info"><c>sctp_get_peer_addr_info</c></seealso>,
+          <seeerl marker="#option-sctp_get_peer_addr_info"><c>sctp_get_peer_addr_info</c></seeerl>,
           but this does still not produce the stream number).</p>
 	<p>
 	  <c><anno>AncData</anno></c> may also contain
-	  <seealso marker="inet#type-ancillary_data">
+	  <seetype marker="inet#ancillary_data">
 	    ancillary data
-	  </seealso>
+	  </seetype>
 	  from the socket
-	  <seealso marker="#type-option">options</seealso>
-	  <seealso marker="inet#option-recvtos"><c>recvtos</c></seealso>,
-	  <seealso marker="inet#option-recvtclass"><c>recvtclass</c></seealso>
+	  <seetype marker="#option">options</seetype>
+	  <seeerl marker="inet#option-recvtos"><c>recvtos</c></seeerl>,
+	  <seeerl marker="inet#option-recvtclass"><c>recvtclass</c></seeerl>
 	  or
-	  <seealso marker="inet#option-recvttl"><c>recvttl</c></seealso>,
+	  <seeerl marker="inet#option-recvttl"><c>recvttl</c></seeerl>,
 	  if that is supported by the platform for the socket.
 	</p>
         <p>The <c><anno>Data</anno></c> received can be a <c>binary()</c>
@@ -431,10 +433,10 @@ connect(Socket, Ip, Port>,
         <p>Possible SCTP events:</p>
         <list type="bulleted">
           <item>
-            <seealso marker="#record-sctp_sndrcvinfo"><c>#sctp_sndrcvinfo{}</c></seealso>
+            <seeerl marker="#record-sctp_sndrcvinfo"><c>#sctp_sndrcvinfo{}</c></seeerl>
           </item>
           <item>
-            <seealso marker="#record-sctp_assoc_change"><c>#sctp_assoc_change{}</c></seealso>
+            <seeerl marker="#record-sctp_assoc_change"><c>#sctp_assoc_change{}</c></seeerl>
           </item>
           <item>
             <pre>
@@ -466,9 +468,9 @@ connect(Socket, Ip, Port>,
               field <c>error</c> provides more diagnostics. In such cases,
               event <c>#sctp_paddr_change{}</c> is automatically
               converted into an <c>error</c> term returned by
-              <seealso marker="#recv/1"><c>recv</c></seealso>.
+              <seemfa marker="#recv/1"><c>recv</c></seemfa>.
               The <c>error</c> field value can be converted into a string using
-              <seealso marker="#error_string/1"><c>error_string/1</c></seealso>.
+              <seemfa marker="#error_string/1"><c>error_string/1</c></seemfa>.
             </p>
           </item>
           <item>
@@ -487,13 +489,13 @@ connect(Socket, Ip, Port>,
                 over the wire.</p></item>
               <tag><c>error</c></tag>
               <item><p>Provides extended diagnostics, use
-                <seealso marker="#error_string/1"><c>error_string/1</c>.</seealso></p>
+                <seemfa marker="#error_string/1"><c>error_string/1</c>.</seemfa></p>
               </item>
               <tag><c>info</c></tag>
               <item><p>The original
-                <seealso marker="#record-sctp_sndrcvinfo"><c>#sctp_sndrcvinfo{}</c></seealso>
+                <seeerl marker="#record-sctp_sndrcvinfo"><c>#sctp_sndrcvinfo{}</c></seeerl>
                 record used in the failed
-                <seealso marker="#send/3"><c>send/*</c>.</seealso></p>
+                <seemfa marker="#send/3"><c>send/*</c>.</seemfa></p>
               </item>
               <tag><c>data</c></tag>
               <item><p>The whole original data chunk attempted to be sent.</p>
@@ -502,7 +504,7 @@ connect(Socket, Ip, Port>,
             <p>In the current implementation of the Erlang/SCTP binding,
               this event is internally converted into an <c>error</c> term
               returned by
-              <seealso marker="#recv/1"><c>recv/*</c></seealso>.</p>
+              <seemfa marker="#recv/1"><c>recv/*</c></seemfa>.</p>
           </item>
           <item>
           <pre>
@@ -512,7 +514,7 @@ connect(Socket, Ip, Port>,
 }</pre>
             <p>Delivered when a peer sends an adaptation layer indication
               parameter (configured through option
-              <seealso marker="#option-sctp_adaptation_layer"><c>sctp_adaptation_layer</c></seealso>).
+              <seeerl marker="#option-sctp_adaptation_layer"><c>sctp_adaptation_layer</c></seeerl>).
               Notice that with the current implementation of
               the Erlang/SCTP binding, this event is disabled by default.</p>
           </item>
@@ -525,7 +527,7 @@ connect(Socket, Ip, Port>,
             <p>A partial delivery failure. In the current implementation of
               the Erlang/SCTP binding, this event is internally converted
               into an <c>error</c> term returned by
-              <seealso marker="#recv/1"><c>recv/*</c></seealso>.</p>
+              <seemfa marker="#recv/1"><c>recv/*</c></seemfa>.</p>
           </item>
         </list>
       </desc>
@@ -537,7 +539,7 @@ connect(Socket, Ip, Port>,
       <desc>
         <p>Sends the <c><anno>Data</anno></c> message with all sending
           parameters from a
-          <seealso marker="#record-sctp_sndrcvinfo"><c>#sctp_sndrcvinfo{}</c></seealso>
+          <seeerl marker="#record-sctp_sndrcvinfo"><c>#sctp_sndrcvinfo{}</c></seeerl>
           record. This way, the user can specify the PPID (passed to the remote
           end) and context (passed to the local SCTP layer), which can be used,
           for example, for error identification.
@@ -564,19 +566,19 @@ connect(Socket, Ip, Port>,
       orthogonal to the sets of TCP, UDP, and generic <c>inet</c> options.
       Only options listed here are allowed
       for SCTP sockets. Options can be set on the socket using
-      <seealso marker="#open/1"><c>open/1,2</c></seealso> or
-      <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>,
+      <seemfa marker="#open/1"><c>open/1,2</c></seemfa> or
+      <seemfa marker="inet#setopts/2"><c>inet:setopts/2</c></seemfa>,
       retrieved using
-      <seealso marker="inet#getopts/2"><c>inet:getopts/2</c></seealso>.
+      <seemfa marker="inet#getopts/2"><c>inet:getopts/2</c></seemfa>.
       Options can be changed when calling
-      <seealso marker="#connect/4"><c>connect/4,5</c></seealso>.</p>
+      <seemfa marker="#connect/4"><c>connect/4,5</c></seemfa>.</p>
     <marker id="option-binary"></marker>
     <marker id="option-list"></marker>
     <taglist>
       <tag><c>{mode, list|binary}</c> or just <c>list</c> or <c>binary</c></tag>
       <item>
         <p>Determines the type of data returned from
-          <seealso marker="#recv/1"><c>recv/1,2</c></seealso>.</p>
+          <seemfa marker="#recv/1"><c>recv/1,2</c></seemfa>.</p>
         <marker id="option-active"></marker>
       </item>
       <tag><c>{active, true|false|once|N}</c></tag>
@@ -585,14 +587,14 @@ connect(Socket, Ip, Port>,
           <item>
             <p>If <c>false</c> (passive mode, the default),
               the caller must do an explicit
-              <seealso marker="#recv/1"><c>recv</c></seealso> call
+              <seemfa marker="#recv/1"><c>recv</c></seemfa> call
               to retrieve the available data from the socket.</p>
           </item>
 	  <item>
 	    <p>
 	      If <c>true|once|N</c> (active modes)
 	      received data or events are sent to the owning process.
-	      See <seealso marker="#open/0"><c>open/0..2</c></seealso>
+	      See <seemfa marker="#open/0"><c>open/0..2</c></seemfa>
 	      for the message format.
 	    </p>
 	  </item>
@@ -623,13 +625,13 @@ connect(Socket, Ip, Port>,
               addition is negative, the count is set to <c>0</c>. Once the
               count reaches <c>0</c>, either through the delivery of messages
               or by being explicitly set with
-              <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>,
+              <seemfa marker="inet#setopts/2"><c>inet:setopts/2</c></seemfa>,
               the socket mode is automatically reset to passive (<c>{active,
               false}</c>). When a socket in this active mode transitions to
               passive mode, the message <c>{sctp_passive, Socket}</c> is sent
               to the controlling process to notify it that if it wants to
               receive more data messages from the socket, it must call
-              <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>
+              <seemfa marker="inet#setopts/2"><c>inet:setopts/2</c></seemfa>
               to set the socket back into an active mode.</p>
           </item>
         </list>
@@ -725,12 +727,12 @@ connect(Socket, Ip, Port>,
         <p>Determines the default parameters that this socket tries
           to negotiate with its peer while establishing an association with it.
           Is to be set after
-          <seealso marker="#open/1"><c>open/*</c></seealso>
+          <seemfa marker="#open/1"><c>open/*</c></seemfa>
           but before the first
-          <seealso marker="#connect/4"><c>connect/*</c></seealso>.
+          <seemfa marker="#connect/4"><c>connect/*</c></seemfa>.
           <c>#sctp_initmsg{}</c> can also be used
           as ancillary data with the first call of
-          <seealso marker="#send/3"><c>send/*</c></seealso> to
+          <seemfa marker="#send/3"><c>send/*</c></seemfa> to
           a new peer (when a new association is created).</p>
         <taglist>
           <tag><c>num_ostreams</c></tag>
@@ -886,7 +888,7 @@ Port = port_number()</pre>
         <p><c>#sctp_sndrcvinfo{}</c> is used both in this socket option, and as
           ancillary data while sending or receiving SCTP messages. When
           set as an option, it provides default values for subsequent
-          <seealso marker="#send/3"><c>send</c></seealso>
+          <seemfa marker="#send/3"><c>send</c></seemfa>
           calls on the association specified by
           <c>assoc_id</c>.</p>
         <p><c>assoc_id = 0</c> (default) indicates
@@ -903,7 +905,7 @@ Port = port_number()</pre>
               <item>The message is to be sent unordered</item>
               <tag><c>addr_over</c></tag>
               <item>The address specified in
-                <seealso marker="#send/3"><c>send</c></seealso>
+                <seemfa marker="#send/3"><c>send</c></seemfa>
                 overwrites the primary peer address</item>
               <tag><c>abort</c></tag>
               <item>Aborts the current association without flushing any unsent
@@ -935,12 +937,12 @@ Port = port_number()</pre>
         adaptation_layer_event = true | false
 }</pre>
         <p>This option determines which
-          <seealso marker="#sctp_events">SCTP Events</seealso> are to be
+          <seeerl marker="#sctp_events">SCTP Events</seeerl> are to be
           received (through
-          <seealso marker="#recv/1"><c>recv/*</c></seealso>)
+          <seemfa marker="#recv/1"><c>recv/*</c></seemfa>)
           along with the data. The only exception is <c>data_io_event</c>,
           which enables or disables receiving of
-          <seealso marker="#record-sctp_sndrcvinfo"><c>#sctp_sndrcvinfo{}</c></seealso>
+          <seeerl marker="#record-sctp_sndrcvinfo"><c>#sctp_sndrcvinfo{}</c></seeerl>
           ancillary data, not events.
           By default, all flags except <c>adaptation_layer_event</c> are
           enabled, although <c>sctp_data_io_event</c> and
@@ -1184,9 +1186,9 @@ client_loop(S, Peer1, Port1, AssocId1, Peer2, Port2, AssocId2) -&gt;
   <section>
     <marker id="seealso"></marker>
     <title>See Also</title>
-    <p><seealso marker="gen_tcp"><c>gen_tcp(3)</c></seealso>,
-      <seealso marker="gen_udp"><c>gen_udp(3)</c></seealso>,
-      <seealso marker="inet"><c>inet(3)</c></seealso>,
+    <p><seeerl marker="gen_tcp"><c>gen_tcp(3)</c></seeerl>,
+      <seeerl marker="gen_udp"><c>gen_udp(3)</c></seeerl>,
+      <seeerl marker="inet"><c>inet(3)</c></seeerl>,
       <url href="http://www.rfc-archive.org/getrfc.php?rfc=2960">RFC 2960</url>
       (Stream Control Transmission Protocol),
       <url href="http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13">Sockets

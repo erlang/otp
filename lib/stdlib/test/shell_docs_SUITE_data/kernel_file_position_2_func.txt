@@ -1,0 +1,46 @@
+
+  [;1m-spec position(IoDevice, Location) ->[0m
+  [;1m                  {ok, NewPosition} | {error, Reason}[0m
+  [;1m                  when[0m
+  [;1m                      IoDevice :: io_device(),[0m
+  [;1m                      Location :: location(),[0m
+  [;1m                      NewPosition :: integer(),[0m
+  [;1m                      Reason :: posix() | badarg | terminated.[0m
+
+  Sets the position of the file referenced by [;;4mIoDevice[0m to [;;4m[0m
+  [;;4mLocation[0m. Returns [;;4m{ok, NewPosition}[0m (as absolute offset) if
+  successful, otherwise [;;4m{error, Reason}[0m. [;;4mLocation[0m is one of the
+  following:
+
+  [;;4m[;;4mOffset[0m[0m:
+    The same as [;;4m{bof, Offset}[0m.
+
+  [;;4m[;;4m{bof, Offset}[0m[0m:
+    Absolute offset.
+
+  [;;4m[;;4m{cur, Offset}[0m[0m:
+    Offset from the current position.
+
+  [;;4m[;;4m{eof, Offset}[0m[0m:
+    Offset from the end of file.
+
+  [;;4m[;;4mbof | cur | eof[0m[0m:
+    The same as above with [;;4mOffset[0m 0.
+
+  Notice that offsets are counted in bytes, not in characters. If
+  the file is opened using some other [;;4mencoding[0m than [;;4mlatin1[0m, one
+  byte does not correspond to one character. Positioning in such a
+  file can only be done to known character boundaries. That is, to a
+  position earlier retrieved by getting a current position, to the
+  beginning/end of the file or to some other position known to be
+  on a correct character boundary by some other means (typically
+  beyond a byte order mark in the file, which has a known
+  byte-size).
+
+  A typical error reason is:
+
+  [;;4m[;;4meinval[0m[0m:
+    Either [;;4mLocation[0m is illegal, or it is evaluated to a negative
+    offset in the file. Notice that if the resulting position is a
+    negative value, the result is an error, and after the call the
+    file position is undefined.

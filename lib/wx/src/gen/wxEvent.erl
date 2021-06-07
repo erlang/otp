@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxevent.html">wxEvent</a>.
-%% @type wxEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxEvent).
 -include("wxe.hrl").
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,resumePropagation/2,
@@ -31,59 +26,58 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxEvent() :: wx:wx_object().
 -export_type([wxEvent/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxevent.html#wxeventgetid">external documentation</a>.
 -spec getId(This) -> integer() when
 	This::wxEvent().
-getId(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getId(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxEvent),
-  wxe_util:call(?wxEvent_GetId,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxEvent_GetId),
+  wxe_util:rec(?wxEvent_GetId).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxevent.html#wxeventgetskipped">external documentation</a>.
 -spec getSkipped(This) -> boolean() when
 	This::wxEvent().
-getSkipped(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getSkipped(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxEvent),
-  wxe_util:call(?wxEvent_GetSkipped,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxEvent_GetSkipped),
+  wxe_util:rec(?wxEvent_GetSkipped).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxevent.html#wxeventgettimestamp">external documentation</a>.
 -spec getTimestamp(This) -> integer() when
 	This::wxEvent().
-getTimestamp(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getTimestamp(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxEvent),
-  wxe_util:call(?wxEvent_GetTimestamp,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxEvent_GetTimestamp),
+  wxe_util:rec(?wxEvent_GetTimestamp).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxevent.html#wxeventiscommandevent">external documentation</a>.
 -spec isCommandEvent(This) -> boolean() when
 	This::wxEvent().
-isCommandEvent(#wx_ref{type=ThisT,ref=ThisRef}) ->
+isCommandEvent(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxEvent),
-  wxe_util:call(?wxEvent_IsCommandEvent,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxEvent_IsCommandEvent),
+  wxe_util:rec(?wxEvent_IsCommandEvent).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxevent.html#wxeventresumepropagation">external documentation</a>.
 -spec resumePropagation(This, PropagationLevel) -> 'ok' when
 	This::wxEvent(), PropagationLevel::integer().
-resumePropagation(#wx_ref{type=ThisT,ref=ThisRef},PropagationLevel)
+resumePropagation(#wx_ref{type=ThisT}=This,PropagationLevel)
  when is_integer(PropagationLevel) ->
   ?CLASS(ThisT,wxEvent),
-  wxe_util:cast(?wxEvent_ResumePropagation,
-  <<ThisRef:32/?UI,PropagationLevel:32/?UI>>).
+  wxe_util:queue_cmd(This,PropagationLevel,?get_env(),?wxEvent_ResumePropagation).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxevent.html#wxeventshouldpropagate">external documentation</a>.
 -spec shouldPropagate(This) -> boolean() when
 	This::wxEvent().
-shouldPropagate(#wx_ref{type=ThisT,ref=ThisRef}) ->
+shouldPropagate(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxEvent),
-  wxe_util:call(?wxEvent_ShouldPropagate,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxEvent_ShouldPropagate),
+  wxe_util:rec(?wxEvent_ShouldPropagate).
 
 %% @equiv skip(This, [])
 -spec skip(This) -> 'ok' when
@@ -97,20 +91,19 @@ skip(This)
 -spec skip(This, [Option]) -> 'ok' when
 	This::wxEvent(),
 	Option :: {'skip', boolean()}.
-skip(#wx_ref{type=ThisT,ref=ThisRef}, Options)
+skip(#wx_ref{type=ThisT}=This, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxEvent),
-  MOpts = fun({skip, Skip}, Acc) -> [<<1:32/?UI,(wxe_util:from_bool(Skip)):32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:cast(?wxEvent_Skip,
-  <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
+  MOpts = fun({skip, _skip} = Arg) -> Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(This, Opts,?get_env(),?wxEvent_Skip).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxevent.html#wxeventstoppropagation">external documentation</a>.
 -spec stopPropagation(This) -> integer() when
 	This::wxEvent().
-stopPropagation(#wx_ref{type=ThisT,ref=ThisRef}) ->
+stopPropagation(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxEvent),
-  wxe_util:call(?wxEvent_StopPropagation,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxEvent_StopPropagation),
+  wxe_util:rec(?wxEvent_StopPropagation).
 

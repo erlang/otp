@@ -41,17 +41,17 @@
       when sending messages, and so on, using registered names.</p>
     <p>The distribution mechanism is implemented using TCP/IP sockets.
       How to implement an alternative carrier is described in the
-      <seealso marker="erts:alt_dist">ERTS User's Guide</seealso>.</p>
+      <seeguide marker="erts:alt_dist">ERTS User's Guide</seeguide>.</p>
     <warning>
       <p>
         Starting a distributed node without also specifying
-        <seealso marker="erts:erl#proto_dist"><c>-proto_dist inet_tls</c></seealso>
+        <seecom marker="erts:erl#proto_dist"><c>-proto_dist inet_tls</c></seecom>
         will expose the node to attacks that may give the attacker
         complete access to the node and in extension the cluster.
         When using un-secure distributed nodes, make sure that the
         network is configured to keep potential attackers out.
-        See the <seealso marker="ssl:ssl_distribution">
-        Using SSL for Erlang Distribution</seealso> User's Guide
+        See the <seeguide marker="ssl:ssl_distribution">
+        Using SSL for Erlang Distribution</seeguide> User's Guide
         for details on how to setup a secure distributed node.
       </p>
     </warning>
@@ -92,7 +92,7 @@ dilbert@uab</pre>
       node B, and node B has a connection to node C, then node A
       also tries to connect to node C. This feature can be turned off by
       using the command-line flag <c>-connect_all false</c>, see the
-      <seealso marker="erts:erl">erl(1)</seealso> manual page in ERTS.</p>
+      <seecom marker="erts:erl">erl(1)</seecom> manual page in ERTS.</p>
     <p>If a node goes down, all connections to that node are removed.
       Calling <c>erlang:disconnect_node(Node)</c> forces disconnection
       of a node.</p>
@@ -106,7 +106,7 @@ dilbert@uab</pre>
       started at every host where an Erlang node is started. It is
       responsible for mapping the symbolic node names to machine
       addresses. See the
-      <seealso marker="erts:epmd">epmd(1)</seealso> manual page in ERTS.</p>
+      <seecom marker="erts:epmd">epmd(1)</seecom> manual page in ERTS.</p>
   </section>
 
   <section>
@@ -132,10 +132,10 @@ dilbert@uab</pre>
     <p>A <em>C node</em> is a C program written to act as a hidden node
       in a distributed Erlang system. The library <em>Erl_Interface</em>
       contains functions for this purpose. For more information about
-      C nodes, see the <seealso marker="erl_interface:ei_users_guide">
-      Erl_Interface</seealso> application and
-      <seealso marker="doc/tutorial:introduction#interoperability tutorial">
-      Interoperability Tutorial.</seealso>.</p>
+      C nodes, see the <seeguide marker="erl_interface:ei_users_guide">
+      Erl_Interface</seeguide> application and
+      <seeguide marker="system/tutorial:introduction#interoperability tutorial">
+      Interoperability Tutorial.</seeguide>.</p>
   </section>
 
   <section>
@@ -175,7 +175,7 @@ dilbert@uab</pre>
       way, there is always a fully connected network. If there are
       nodes with different cookies, this method can be inappropriate
       and the command-line flag <c>-connect_all false</c> must be set,
-      see the <seealso marker="erts:erl">erl(1)</seealso>
+      see the <seecom marker="erts:erl">erl(1)</seecom>
       manual page in ERTS.</p>
     <p>The magic cookie of the local node is retrieved by calling
       <c>erlang:get_cookie()</c>.</p>
@@ -184,8 +184,8 @@ dilbert@uab</pre>
   <section>
     <title>Distribution BIFs</title>
     <p>Some useful BIFs for distributed programming
-      (for more information, see the <seealso marker="erts:erlang">
-      erlang(3)</seealso> manual page in ERTS:</p>
+      (for more information, see the <seeerl marker="erts:erlang">
+      erlang(3)</seeerl> manual page in ERTS:</p>
     <table>
       <row>
         <cell align="left" valign="middle"><em>BIF</em></cell>
@@ -249,8 +249,8 @@ dilbert@uab</pre>
   <section>
     <title>Distribution Command-Line Flags</title>
     <p>Examples of command-line flags used for distributed programming
-      (for more information, see the <seealso marker="erts:erl">erl(1)
-      </seealso> manual page in ERTS:</p>
+      (for more information, see the <seecom marker="erts:erl">erl(1)
+      </seecom> manual page in ERTS:</p>
     <table>
       <row>
         <cell align="left" valign="middle"><em>Command-Line Flag</em></cell>

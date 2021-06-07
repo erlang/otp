@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,7 @@
  * %CopyrightEnd%
  */
 
-#ifdef VXWORKS
-#include "reclaim.h"
-#endif
-
+#include <stdlib.h>
 #include "ei_runner.h"
 #include <string.h>
 

@@ -65,7 +65,7 @@ convert_tag(a, [Attr]) ->
 		true ->
 		    {url, [Attr]};
 		false ->
-		    {seealso, [Attr#xmlAttribute{name=marker}]}
+		    makesee(Val)
 	    end;
 	name ->
 	    {marker, [Attr#xmlAttribute{name=id}]}
@@ -87,9 +87,14 @@ convert_tag(underline, Attrs)  -> {em, Attrs};
 convert_tag(Tag, Attrs)        -> {Tag, Attrs}.
 
 is_url("http:"++_) -> true;
+is_url("https:"++_) -> true;
 is_url("../"++_) -> true;
 is_url(FileRef) ->
     case filename:extension(FileRef) of
 	"" -> false; % no extension = xml file
 	_Ext -> true % extension
     end.
+
+makesee(Ref) ->
+    {Tag, Marker} = docgen_edoc_xml_cb:makesee(Ref),
+    {Tag,[#xmlAttribute{name = marker, value = Marker}]}.

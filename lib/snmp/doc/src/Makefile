@@ -29,11 +29,6 @@ VSN = $(SNMP_VSN)
 APPLICATION=snmp
 
 # ----------------------------------------------------
-# Release directory specification
-# ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
-
-# ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
 
@@ -58,89 +53,21 @@ XML_ERRS = $(XML_FILES:%.xml=%.latex.xmls_errs) \
 XML_OUTPUT = $(XML_FILES:%.xml=%.latex.xmls_output) \
               $(XML_FILES:%.xml=%.html.xmls_output)
 
-INFO_FILE = ../../info
-
-#HTML_REF1_FILES = $(XML_REF1_FILES:%.xml=$(HTMLDIR)/%.html)
-HTML_REF3_FILES = $(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html)
-HTML_REF6_FILES = $(XML_REF6_FILES:%.xml=$(HTMLDIR)/%.html)
-HTML_CHAP_FILES = $(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html)
-
-EXTRA_FILES = \
-        $(DEFAULT_HTML_FILES)  \
-        $(HTML_REF1_FILES)     \
-        $(HTML_REF3_FILES)     \
-        $(HTML_REF6_FILES)     \
-        $(HTML_CHAP_FILES)
-
-
-MAN7DIR = $(DOCDIR)/man7
-
-MAN1_FILES = $(MAN1DIR)/snmpc.1
-MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
-MAN6_FILES = $(XML_REF6_FILES:%_app.xml=$(MAN6DIR)/%.6)
-MAN7_FILES = $(MIB_FILES:$(MIBSDIR)/%.mib=$(MAN7DIR)/%.7)
-
-HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
-
-TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
-
-GIF_TARGETS = $(GIF_FILES:%=$(HTMLDIR)/%)
-
-
-# ----------------------------------------------------
-# FLAGS
-# ----------------------------------------------------
-XML_FLAGS +=
-DVIPS_FLAGS +=
+NO_CHUNKS = snmpa_discovery_handler.xml \
+	snmpa_error_report.xml \
+	snmpa_mib_data.xml \
+	snmpa_mib_storage.xml \
+	snmpa_network_interface.xml \
+	snmpa_network_interface_filter.xml \
+	snmpa_notification_delivery_info_receiver.xml \
+	snmpa_notification_filter.xml \
+	snmpm_network_interface.xml \
+	snmpm_network_interface_filter.xml \
+	snmpm_user.xml
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-$(HTMLDIR)/%.gif: %.gif			# Copy them to ../html
-	$(INSTALL_DATA) $< $@
-
-docs: pdf html man
-
-ldocs: local_docs
-
-$(TOP_PDF_FILE): $(XML_FILES)
-
-pdf: $(TOP_PDF_FILE)
-
-html: gifs $(HTML_REF_MAN_FILE)
-
-clean clean_docs: clean_html clean_man clean_pdf
-	rm -f errs core *~
-
-man: man1 man3 man6 man7
-
-man1: $(MAN1_FILES)
-
-man3: $(MAN3_FILES)
-
-man6: $(MAN6_FILES)
-
-man7: $(MAN7_FILES)
-
-gifs: $(GIF_TARGETS)
-
-debug opt:
-
-clean_pdf:
-	@echo "cleaning pdf:"
-	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-
-clean_man:
-	@echo "cleaning man:"
-	rm -f $(MAN1DIR)/*
-	rm -f $(MAN3DIR)/*
-	rm -f $(MAN6DIR)/*
-	rm -f $(MAN7DIR)/*
-
-clean_html:
-	@echo "cleaning html:"
-	rm -rf $(HTMLDIR)/*
-	rm -rf $(XMLDIR)
 
 $(MAN7DIR)/%.7: $(MIBSDIR)/%.mib
 	@echo "processing $*"
@@ -150,40 +77,15 @@ $(MAN7DIR)/%.7: $(MIBSDIR)/%.mib
 	@echo ".fi" >> $@
 	@echo "" >> $@
 
-
-# ----------------------------------------------------
-# Release Target
-# ----------------------------------------------------
-
 $(MAN1DIR)/snmpc.1: snmpc_cmd.xml
 	date=`date +"%B %e %Y"`; \
         xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
 
-include $(ERL_TOP)/make/otp_release_targets.mk
+# ----------------------------------------------------
 
-release_docs_spec: docs
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(HTMLDIR)/* \
-		"$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man1"
-	$(INSTALL_DATA) $(MAN1DIR)/* "$(RELEASE_PATH)/man/man1"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man6"
-	$(INSTALL_DATA) $(MAN6DIR)/* "$(RELEASE_PATH)/man/man6"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man7"
-	$(INSTALL_DATA) $(MAN7DIR)/* "$(RELEASE_PATH)/man/man7"
-
-release_spec:
+include $(ERL_TOP)/make/doc.mk
 
 info: info_xml info_man info_html
-	@echo "MAN1DIR: $(MAN1DIR)"
-	@echo "MAN3DIR: $(MAN3DIR)"
-	@echo "MAN6DIR: $(MAN6DIR)"
-	@echo "MAN7DIR: $(MAN7DIR)"
 
 info_man:
 	@echo "man files:"

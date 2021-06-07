@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,9 +21,15 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 integers/1,coverage/1,booleans/1,setelement/1,cons/1,
-	 tuple/1,record_float/1,binary_float/1,float_compare/1,
-	 arity_checks/1,elixir_binaries/1,find_best/1]).
+	 integers/1,numbers/1,coverage/1,booleans/1,setelement/1,
+	 cons/1,tuple/1,record_float/1,binary_float/1,float_compare/1,
+	 arity_checks/1,elixir_binaries/1,find_best/1,
+         test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
+         none_argument/1,success_type_oscillation/1,type_subtraction/1,
+         container_subtraction/1]).
+
+%% Force id/1 to return 'any'.
+-export([id/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -33,6 +39,7 @@ all() ->
 groups() ->
     [{p,[parallel],
       [integers,
+       numbers,
        coverage,
        booleans,
        setelement,
@@ -43,7 +50,15 @@ groups() ->
        float_compare,
        arity_checks,
        elixir_binaries,
-       find_best
+       find_best,
+       test_size,
+       cover_lists_functions,
+       list_append,
+       bad_binary_unit,
+       none_argument,
+       success_type_oscillation,
+       type_subtraction,
+       container_subtraction
       ]}].
 
 init_per_suite(Config) ->
@@ -76,6 +91,12 @@ integers(_Config) ->
     one = do_integers_5(0, 1),
     two = do_integers_5(0, 2),
     three = do_integers_5(0, 3),
+
+    {'EXIT',{badarith,_}} = (catch do_integers_6()),
+
+    house = do_integers_7(),
+
+    {'EXIT',{badarith,_}} = (catch do_integers_8()),
 
     ok.
 
@@ -113,8 +134,8 @@ do_integers_4(_, _, Res) ->
     Res.
 
 do_integers_5(X0, Y0) ->
-    %% X and Y will use the same register.
-    X = X0 band 1,
+    %% _X and Y will use the same register.
+    _X = X0 band 1,
     Y = Y0 band 3,
     case Y of
         0 -> zero;
@@ -122,6 +143,81 @@ do_integers_5(X0, Y0) ->
         2 -> two;
         3 -> three
     end.
+
+do_integers_6() ->
+    try b after 1 end band 0.
+
+do_integers_7() ->
+    try
+        0
+        band
+        try
+            0:any(),
+            ok
+        catch
+            bad_class:_:_ ->
+                {tag, "nt"}
+        end
+    catch
+        _:_:_ ->
+            house
+    end.
+
+do_integers_8() ->
+    -1 band ((0 div 0) band 0).
+
+numbers(_Config) ->
+    Int = id(42),
+    true = is_integer(Int),
+    true = is_number(Int),
+    false = is_float(Int),
+
+    Float = id(42.0),
+    true = is_float(Float),
+    true = is_number(Float),
+    false = is_integer(Float),
+
+    Number = id(1) + id(2),
+    true = is_number(Number),
+    true = is_integer(Number),
+    false = is_float(Number),
+
+    AnotherNumber = id(99.0) + id(1),
+    true = is_float(AnotherNumber),
+    true = is_number(AnotherNumber),
+    false = is_integer(AnotherNumber),
+
+    NotNumber = id(atom),
+    true = is_atom(NotNumber),
+    false = is_number(NotNumber),
+    false = is_integer(NotNumber),
+    false = is_float(NotNumber),
+
+    true = is_number(Int),
+    true = is_number(Float),
+    true = is_number(Number),
+    true = is_number(AnotherNumber),
+
+    %% Cover beam_ssa_type:join/2.
+
+    Join1 = case id(a) of
+                a -> 3 + id(7);                 %Number.
+                b -> id(5) / id(2)              %Float.
+            end,
+    true = is_integer(Join1),
+
+    Join2 = case id(a) of
+                a -> id(5) / 2;                 %Float.
+                b -> 3 + id(7)                  %Number.
+            end,
+    true = is_float(Join2),
+
+    %% Cover beam_ssa_type:meet/2.
+
+    Meet1 = id(0) + -10.0,                       %Float.
+    10.0 = abs(Meet1),                           %Number.
+
+    ok.
 
 coverage(Config) ->
     {'EXIT',{badarith,_}} = (catch id(1) bsl 0.5),
@@ -161,33 +257,132 @@ coverage(Config) ->
     %% Cover beam_type:verified_type(none).
     {'EXIT',{badarith,_}} = (catch (id(2) / id(1)) band 16#ff),
 
+    false = fun lot:life/147 == #{},
+
     ok.
 
 booleans(_Config) ->
-    {'EXIT',{{case_clause,_},_}} = (catch do_booleans(42)),
+    {'EXIT',{{case_clause,_},_}} = (catch do_booleans_1(42)),
+
+    ok = do_booleans_2(42, 41),
+    error = do_booleans_2(42, 42),
+
+    AnyAtom = id(atom),
+    true = is_atom(AnyAtom),
+    false = is_boolean(AnyAtom),
+
+    MaybeBool = id(maybe),
+    case MaybeBool of
+        true -> ok;
+        maybe -> ok;
+        false -> ok
+    end,
+    false = is_boolean(MaybeBool),
+
+    NotBool = id(a),
+    case NotBool of
+        a -> ok;
+        b -> ok;
+        c -> ok
+    end,
+    false = is_boolean(NotBool),
+
     ok.
 
-do_booleans(B) ->
+do_booleans_1(B) ->
     case is_integer(B) of
 	yes -> yes;
 	no -> no
     end.
 
+do_booleans_2(A, B) ->
+    Not = not do_booleans_cmp(A, B),
+    case Not of
+        true ->
+            case Not of
+                true -> error;
+                false -> ok
+            end;
+        false -> ok
+    end.
+
+do_booleans_cmp(A, B) -> A > B.
+
 setelement(_Config) ->
     T0 = id({a,42}),
     {a,_} = T0,
     {b,_} = setelement(1, T0, b),
+    {z,b} = do_setelement_1(<<(id(1)):32>>, {a,b}, z),
+    {new,two} = do_setelement_2(<<(id(1)):1>>, {one,two}, new),
     ok.
+
+do_setelement_1(<<N:32>>, Tuple, NewValue) ->
+    _ = element(N, Tuple),
+    %% While updating the type for Tuple, beam_ssa_type would do:
+    %%   maps:without(lists:seq(0, 4294967295), Elements)
+    setelement(N, Tuple, NewValue).
+
+do_setelement_2(<<N:1>>, Tuple, NewValue) ->
+    %% Cover the second clause in remove_element_info/2. The
+    %% type for the second element will be kept.
+    two = element(2, Tuple),
+    setelement(N, Tuple, NewValue).
 
 cons(_Config) ->
     [did] = cons(assigned, did),
+
+    true = cons_is_empty_list([]),
+    false = cons_is_empty_list([a]),
+
+    false = cons_not(true),
+    true = cons_not(false),
+
+    {$a,"bc"} = cons_hdtl(true),
+    {$d,"ef"} = cons_hdtl(false),
     ok.
 
 cons(assigned, Instrument) ->
     [Instrument] = [did].
 
+cons_is_empty_list(L) ->
+    Cons = case L of
+               [] -> "true";
+               _ -> "false"
+           end,
+    id(1),
+    case Cons of
+        "true" -> true;
+        "false" -> false
+    end.
+
+cons_not(B) ->
+    Cons = case B of
+               true -> "true";
+               false -> "false"
+           end,
+    id(1),
+    case Cons of
+        "true" -> false;
+        "false" -> true
+    end.
+
+cons_hdtl(B) ->
+    Cons = case B of
+               true -> "abc";
+               false -> "def"
+           end,
+    id(1),
+    {id(hd(Cons)),id(tl(Cons))}.
+
+-record(bird, {a=a,b=id(42)}).
+
 tuple(_Config) ->
     {'EXIT',{{badmatch,{necessary}},_}} = (catch do_tuple()),
+
+    [] = [X || X <- [], #bird{a = a} == {r,X,foo}],
+    [] = [X || X <- [], #bird{b = b} == {bird,X}],
+    [] = [X || X <- [], 3 == X#bird.a],
+
     ok.
 
 do_tuple() ->
@@ -324,6 +519,147 @@ find_best([], <<"a">>) ->
 find_best([], nil) ->
     {error,<<"should not get here">>}.
 
+test_size(_Config) ->
+    2 = do_test_size({a,b}),
+    4 = do_test_size(<<42:32>>),
+    ok.
+
+do_test_size(Term) when is_tuple(Term) ->
+    size(Term);
+do_test_size(Term) when is_binary(Term) ->
+    size(Term).
+
+cover_lists_functions(Config) ->
+    case lists:suffix([no|Config], Config) of
+        true ->
+            ct:fail(should_be_false);
+        false ->
+            ok
+    end,
+    Zipped = lists:zipwith(fun(A, B) -> {A,B} end,
+                           lists:duplicate(length(Config), zip),
+                           Config),
+    true = is_list(Zipped),
+    ok.
+
+list_append(_Config) ->
+    %% '++'/2 has a quirk where it returns the right-hand argument as-is when
+    %% the left-hand is [].
+    hello = id([]) ++ id(hello),
+    ok.
+
+%% OTP-15872: The compiler would treat the "Unit" of bs_init instructions as
+%% the unit of the result instead of the required unit of the input, causing
+%% is_binary checks to be wrongly optimized away.
+bad_binary_unit(_Config) ->
+    Bin = id(<<1,2,3>>),
+    Bitstring = <<Bin/binary,1:1>>,
+    false = is_binary(Bitstring),
+    ok.
+
+%% ERL-1013: The compiler would crash during the type optimization pass.
+none_argument(_Config) ->
+    Binary = id(<<3:16, 42>>),
+    error = id(case Binary of
+                   <<Len:16, Body/binary>> when length(Body) == Len - 2 ->
+                       %% The type for Body will be none. It means
+                       %% that this clause will never match and that
+                       %% uncompress/1 will never be called.
+                       uncompress(Body);
+                   _ ->
+                       error
+               end),
+    ok.
+
+uncompress(CompressedBinary) ->
+    %% The type for CompressedBinary is none, which beam_ssa_type
+    %% did not handle properly.
+    zlib:uncompress(CompressedBinary).
+
+%% ERL-1289: The compiler could enter an endless loop when a return/argument
+%% type pairing was joined with another.
+%%
+%% While this always resulted in correct success types, the joined argument
+%% types could now cover more cases than they did before, making the effective
+%% return type less specific. When a function affected by this was analyzed
+%% again its success typing could become more specific again and start the
+%% process anew.
+success_type_oscillation(_Config) ->
+    Base = {a, []},
+
+    Base = sto_1(id(case_1_1)),
+    Base = sto_1(id(case_2_1)),
+    {b, [Base]} = sto_1(id(case_2_2)),
+
+    ok.
+
+sto_1(case_1_1) -> {a, []};
+sto_1(case_1_2) -> {a, []};
+sto_1(case_2_1) -> sto_1(case_1_1);
+sto_1(case_2_2) -> {b, [sto_1(case_1_1)]};
+sto_1(case_2_3) -> {b, [sto_1(case_1_1)]};
+sto_1(case_2_4) -> {b, [sto_1(case_1_2)]};
+sto_1(case_3_1) -> {b, [sto_1(case_2_1)]};
+sto_1(case_3_2) -> {b, [sto_1(case_2_2)]};
+sto_1(case_3_3) -> {b, [sto_1(case_2_3)]};
+sto_1(case_3_4) -> {b, [sto_1(case_2_4)]};
+sto_1(case_4_1) -> {b, [sto_1(case_3_1)]};
+sto_1(case_4_2) -> {b, [sto_1(case_3_2)]};
+sto_1(step_4_3) -> {b, [sto_1(case_3_3)]}.
+
+%% ERL-1440: On inequality, we subtracted the type *common to* both variables
+%% rather than the left-hand type from the right-hand variable and vice versa,
+%% giving an erroneously narrow type.
+%%
+%% In the test below, we have functions returning integers ranged 1..2 and
+%% 2..3 and test for their equality. We know that it can only succeed when both
+%% return 2, but they can fail when the former returns 1 or the latter returns
+%% 3, so we must not subtract 2 on the failure path.
+type_subtraction(Config) when is_list(Config) ->
+    true = type_subtraction_1(id(<<"A">>)),
+    ok.
+
+type_subtraction_1(_x@1) ->
+    _a@1 = ts_12(_x@1),
+    _b@1 = ts_23(_x@1),
+    case _a@1 /= _b@1 of
+        false -> error;
+        true -> _a@1 =:= 3 andalso _b@1 =:= 2
+    end.
+
+ts_12(_x@1) ->
+    case _x@1 == <<"A">> of
+        false ->
+            2;
+        true ->
+            3
+    end.
+
+ts_23(_x@1) ->
+    case _x@1 == <<"A">> of
+        false ->
+            1;
+        true ->
+            2
+    end.
+
+%% GH-4774: The validator didn't update container contents on type subtraction.
+container_subtraction(Config) when is_list(Config) ->
+    A = id(baz),
+
+    cs_1({foo,[]}),
+    cs_1({bar,A}),
+    cs_2({bar,A}),
+
+    ok.
+
+cs_1({_,[]}) ->
+    ok;
+cs_1({_,_}=Other) ->
+    cs_2(Other).
+
+cs_2({bar,baz}) ->
+    ok.
 
 id(I) ->
     I.

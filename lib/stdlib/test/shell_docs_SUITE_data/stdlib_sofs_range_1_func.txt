@@ -1,0 +1,10 @@
+
+  [;1m-spec range(BinRel) -> Set[0m
+  [;1m               when BinRel :: binary_relation(), Set :: a_set().[0m
+
+  Returns the range of the binary relation [;;4mBinRel[0m.
+
+    1> R = sofs:relation([{1,a},{1,b},{2,b},{2,c}]),
+    S = sofs:range(R),
+    sofs:to_external(S).
+    [a,b,c]

@@ -31,6 +31,152 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
+<section><title>Jinterface 1.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Accept 64-bit process identifiers from external nodes.
+	    This is the first step in an upgrade path toward using
+	    64-bit pids in a future OTP release.</p>
+          <p>
+	    Own Id: OTP-16720 Aux Id: PR-2680 </p>
+        </item>
+        <item>
+          <p>
+	    Accept references up to a size of 160-bits from remote
+	    nodes. This is the first step in an upgrade path toward
+	    using references up to 160-bits in a future OTP release.</p>
+          <p>
+	    Own Id: OTP-17005 Aux Id: OTP-16718 </p>
+        </item>
+        <item>
+          <p>
+	    Accept 64-bit port identifiers from external nodes. This
+	    is the first step in an upgrade path toward using 64-bit
+	    port identifiers in a future OTP release.</p>
+          <p>
+	    Own Id: OTP-17007</p>
+        </item>
+        <item>
+          <p>
+	    Make <c>OtpErlangExternalFun</c>'s fields <c>module</c>,
+	    <c>function</c> and <c>arity</c> public.</p>
+          <p>
+	    Own Id: OTP-17170 Aux Id: PR-3005 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A <seeguide
+	    marker="erts:erl_dist_protocol#new_link_protocol">new
+	    link protocol</seeguide> has been introduced which
+	    prevents links from ending up in an inconsistent state
+	    where one participant considers itself linked while the
+	    other doesn't. This bug has always existed in the
+	    distributed case, but has since OTP 21 also existed in
+	    the node local case since the distributed link protocol
+	    then was adopted also for node local links. The bug
+	    could, however, only trigger if both participants
+	    operated on the link simultaneously.</p>
+          <p>
+	    Own Id: OTP-17127</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Increased size of node incarnation numbers (aka
+	    "creation"), from 2 bits to 32 bits. This will reduce the
+	    risk of pids/ports/refs, from different node incarnation
+	    with the same name, being mixed up.</p>
+          <p>
+	    Own Id: OTP-15603</p>
+        </item>
+        <item>
+          <p>
+	    Improved node connection setup handshake protocol. Made
+	    possible to agree on protocol version without dependence
+	    on <c>epmd</c> or other prior knowledge of peer node
+	    version. Also added exchange of node incarnation
+	    ("creation") values and expanded the distribution
+	    capability flag field from 32 to 64 bits.</p>
+          <p>
+	    Own Id: OTP-16229</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Replaced deprecated &lt;tt&gt; with &lt;code&gt; in
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-16050</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All incorrect (that is, all) uses of "can not" has been
+	    corrected to "cannot" in source code comments,
+	    documentation, examples, and so on.</p>
+          <p>
+	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Added support to receive export funs (<c>fun
+	    M:F/A</c>).</p>
+	    <p>Before this change, export funs sent to a jinterface
+	    node were encoded using an undocumented fallback tuple
+	    format <c>{M,F}</c>. Existing jinterface implementations
+	    expecting these tuples must be changed to instead use the
+	    existing <c>OtpErlangExternalFun</c> class.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15774 Aux Id: OTP-15712 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Jinterface 1.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -92,8 +238,8 @@
 	    by <c>term_to_binary()</c> using latin1 encoding. Note
 	    that all atoms will by default be encoded using utf8 in a
 	    future Erlang/OTP release. For more information see the
-	    documentation of <seealso
-	    marker="erts:erlang#term_to_binary/2"><c>erlang:term_to_binary/2</c></seealso>.</p>
+	    documentation of <seemfa
+	    marker="erts:erlang#term_to_binary/2"><c>erlang:term_to_binary/2</c></seemfa>.</p>
           <p>
 	    Own Id: OTP-14337</p>
         </item>
@@ -720,7 +866,7 @@
         <item>
           <p><c>OtpMbox.receive()</c> and <c>OtpMbox.receive(long timeout)</c> can now throw
             <c>OtpErlangDecodeException</c> if the received message
-            can not be decoded. <c>null</c> is now only returned from
+            cannot be decoded. <c>null</c> is now only returned from
             <c>OtpMbox.receive(long timeout)</c> if a timeout occurs.
             <c>OtpMbox.receive()</c> will never return <c>null</c>.</p>
           <p>*** POTENTIAL INCOMPATIBILITY ***</p>

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
   <!ENTITY compile_forms2
-  '<seealso marker="compiler:compile#forms-2">compile:forms/2</seealso>'>
+  '<seemfa marker="compiler:compile#forms/2">compile:forms/2</seemfa>'>
   <!ENTITY filename
-  '<seealso marker="kernel:file#type-name">file:name()</seealso>'>
+  '<seetype marker="kernel:file#name">file:name()</seetype>'>
   <!ENTITY dictionary
-  '<seealso marker="diameter_dict">dictionary file</seealso>'>
+  '<seefile marker="diameter_dict">dictionary file</seefile>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;
@@ -16,7 +16,7 @@
 <header>
 <copyright>
 <year>2012</year>
-<year>2016</year>
+<year>2020</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>

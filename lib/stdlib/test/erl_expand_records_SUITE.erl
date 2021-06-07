@@ -194,8 +194,9 @@ guard(Config) when is_list(Config) ->
 
     ok = file:write_file(File, Test),
     {ok, guard, Ws} = compile:file(File, [return,{outdir,?privdir}]),
-    Warnings = [L || {_File,WL} <- Ws, {L,_M,nomatch_guard} <- WL],
-    [7,9,11,13,15,17,19,21,23,25,27] = Warnings,
+    Warnings = [L || {_File,WL} <- Ws, {L,sys_core_fold,{nomatch,guard}} <- WL],
+    [{7,15}, {9,15}, {11,15}, {13,15}, {15,15}, {17,15},
+     {19,15}, {21,15}, {23,15}, {25,15}, {27,15}] = Warnings,
 
     ok = file:delete(File),
     ok = file:delete(Beam),
@@ -702,9 +703,13 @@ otp_7078(Config) when is_list(Config) ->
 
 -record(otp_7101, {a,b,c=[],d=[],e=[]}).
 
+id(I) -> I.
+
 %% OTP-7101. Record update: more than one call to setelement/3.
 otp_7101(Config) when is_list(Config) ->
-    Rec = #otp_7101{},
+    %% Ensure the compiler won't do any funny constant propagation tricks.
+    id(#otp_7101{a=a,b=b,c=c,d=d,e=e}),
+    Rec = id(#otp_7101{}),
 
     %% Spawn a tracer process to count the number of setelement/3 calls.
     %% The tracer will forward all trace messages to us.

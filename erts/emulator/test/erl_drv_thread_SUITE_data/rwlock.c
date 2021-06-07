@@ -18,6 +18,7 @@
  */
 
 #include "testcase_driver.h"
+#include <stdio.h>
 
 #ifdef __WIN32__
 #include <windows.h>
@@ -25,6 +26,7 @@
 #include <unistd.h>
 #endif
 #include <errno.h>
+#include <stdio.h>
 
 #define NO_OF_THREADS 17
 

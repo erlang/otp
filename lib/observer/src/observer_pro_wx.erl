@@ -94,7 +94,7 @@ start_link(Notebook, Parent, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init([Notebook, Parent, Config]) ->
-    Attrs = observer_lib:create_attrs(),
+    Attrs = observer_lib:create_attrs(Notebook),
     Self = self(),
     Acc = maps:get(acc, Config, false),
     Holder = spawn_link(fun() -> init_table_holder(Self, Acc, Attrs) end),

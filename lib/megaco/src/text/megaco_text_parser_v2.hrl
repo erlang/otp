@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v2.hrl").
--define(encoder_version_pre_prev3c,true).
+-define(encoder_pre_version_3,true). % version 1 or 2
 -include("megaco_text_tokens.hrl").
 
 -define(d(F,A), io:format("DBG:"++F++"~n",A)).
@@ -1563,6 +1563,7 @@ ensure_uint(Token, Min, Max) ->
 -ifdef(megaco_parser_inline).
 -compile({inline,[{ensure_uint,4}]}).
 -endif.
+-dialyzer({nowarn_function, ensure_uint/4}). % Future compat
 ensure_uint(Val, Min, Max, Line) ->
     if 
 	is_integer(Min) andalso (Val >= Min) ->

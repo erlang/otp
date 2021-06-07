@@ -1,0 +1,8 @@
+
+NIF_LIBS = erts_test_destructor@dll@
+
+all: $(NIF_LIBS)
+
+@SHLIB_RULES@
+
+$(NIF_LIBS): erts_test_destructor.c

@@ -167,9 +167,10 @@ void erts_osenv_init(erts_osenv_t *env) {
     env->tree = NULL;
 }
 
-static void destroy_foreach(env_rbtnode_t *node, void *_state) {
+static int destroy_foreach(env_rbtnode_t *node, void *_state, Sint reds) {
     erts_free(ERTS_ALC_T_ENVIRONMENT, node);
     (void)_state;
+    return 1;
 }
 
 void erts_osenv_clear(erts_osenv_t *env) {
@@ -182,7 +183,7 @@ struct __env_merge {
     erts_osenv_t *env;
 };
 
-static void merge_foreach(env_rbtnode_t *node, void *_state) {
+static int merge_foreach(env_rbtnode_t *node, void *_state, Sint reds) {
     struct __env_merge *state = (struct __env_merge*)(_state);
     env_rbtnode_t *existing_node;
 
@@ -191,6 +192,7 @@ static void merge_foreach(env_rbtnode_t *node, void *_state) {
     if(existing_node == NULL || state->overwrite_existing) {
         erts_osenv_put_native(state->env, &node->key, &node->value);
     }
+    return 1;
 }
 
 void erts_osenv_merge(erts_osenv_t *env, const erts_osenv_t *with, int overwrite) {
@@ -208,7 +210,7 @@ struct __env_foreach_term {
     void *user_state;
 };
 
-static void foreach_term_wrapper(env_rbtnode_t *node, void *_state) {
+static int foreach_term_wrapper(env_rbtnode_t *node, void *_state, Sint reds) {
     struct __env_foreach_term *state = (struct __env_foreach_term*)_state;
     Eterm key, value;
 
@@ -218,6 +220,7 @@ static void foreach_term_wrapper(env_rbtnode_t *node, void *_state) {
         node->value.length, (byte*)node->value.data);
 
     state->user_callback(state->process, state->user_state, key, value);
+    return 1;
 }
 
 void erts_osenv_foreach_term(const erts_osenv_t *env, struct process *process,
@@ -314,10 +317,11 @@ struct __env_foreach_native {
     void *user_state;
 };
 
-static void foreach_native_wrapper(env_rbtnode_t *node, void *_state) {
+static int foreach_native_wrapper(env_rbtnode_t *node, void *_state, Sint reds) {
     struct __env_foreach_native *state = (struct __env_foreach_native*)_state;
 
     state->user_callback(state->user_state, &node->key, &node->value);
+    return 1;
 }
 
 void erts_osenv_foreach_native(const erts_osenv_t *env, void *state,

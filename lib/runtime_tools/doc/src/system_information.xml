@@ -60,8 +60,8 @@
 	  is invalid.</p></item>
 	  <tag><c><anno>MissingRuntimeDependencies</anno></c></tag>
 	  <item><p>An application is missing
-	  <seealso marker="kernel:app#runtime_dependencies">runtime
-	  dependencies</seealso>. The second element identifies the
+	  <seefile marker="kernel:app#runtime_dependencies">runtime
+	  dependencies</seefile>. The second element identifies the
 	  application (with version) that has missing dependencies.
 	  The third element contains the missing dependencies.</p>
 	  <p>Note that this check use application versions that
@@ -70,11 +70,11 @@
 	  installed in the system, but if those are not loaded this
 	  check will fail. The system will of course also fail when
 	  used like this. This may happen when you have multiple 
-	  <seealso marker="doc/system_principles:versions">branched
-	  versions</seealso> of the same application installed in the
+	  <seeguide marker="system/system_principles:versions">branched
+	  versions</seeguide> of the same application installed in the
 	  system, but you do not use a
-	  <seealso marker="doc/system_principles:system_principles#BOOTSCRIPT">boot
-	  script</seealso> identifing the correct application version.</p>
+	  <seeguide marker="system/system_principles:system_principles#BOOTSCRIPT">boot
+	  script</seeguide> identifing the correct application version.</p>
 	  </item>
 	</taglist>
 	<p>Currently the sanity check is limited to verifying

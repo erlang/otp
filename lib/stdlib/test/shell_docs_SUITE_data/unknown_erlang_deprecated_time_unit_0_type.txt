@@ -1,0 +1,18 @@
+
+  [;1m-type deprecated_time_unit() ::[0m
+  [;1m          seconds | milli_seconds | micro_seconds | nano_seconds.[0m
+
+  The [;;4mtime_unit()[0m type also consist of the following deprecated
+  symbolic time units:
+
+  [;;4m[;;4mseconds[0m[0m:
+    Same as [;;4msecond[0m.
+
+  [;;4m[;;4mmilli_seconds[0m[0m:
+    Same as [;;4mmillisecond[0m.
+
+  [;;4m[;;4mmicro_seconds[0m[0m:
+    Same as [;;4mmicrosecond[0m.
+
+  [;;4m[;;4mnano_seconds[0m[0m:
+    Same as [;;4mnanosecond[0m.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,10 +50,9 @@
 %% This is for backward compatibility only; the functionality is broken.
 -define(WARN_DUPLICATED_NAME, global_multi_name_action).
 
-%% Undocumented Kernel variable. Set this to 0 (zero) to get the old
-%% behaviour.
+%% Undocumented Kernel variable.
 -define(N_CONNECT_RETRIES, global_connect_retries).
--define(DEFAULT_N_CONNECT_RETRIES, 5).
+-define(DEFAULT_N_CONNECT_RETRIES, 0).
 
 %%% In certain places in the server, calling io:format hangs everything,
 %%% so we'd better use erlang:display/1.
@@ -81,10 +80,12 @@
 %%       when communicating with vsn 3 nodes. (-R10B)
 %% Vsn 5 uses an ordered list of self() and HisTheLocker when locking
 %%       nodes in the own partition. (R11B-)
+%% Vsn 6 does not send any message between locker processes on different
+%%       nodes, but uses the server as a proxy.
 
 %% Current version of global does not support vsn 4 or earlier.
 
--define(vsn, 5).
+-define(vsn, 6).
 
 %%-----------------------------------------------------------------
 %% connect_all = boolean() - true if we are supposed to set up a
@@ -125,16 +126,12 @@
 %%% There are also ETS tables used for bookkeeping of locks and names
 %%% (the first position is the key):
 %%%
-%%% global_locks (set): {ResourceId, LockRequesterId, [{Pid,RPid,ref()]}
+%%% global_locks (set): {ResourceId, LockRequesterId, [{Pid,ref()]}
 %%%   Pid is locking ResourceId, ref() is the monitor ref.
-%%%   RPid =/= Pid if there is an extra process calling erlang:monitor().
-%%% global_names (set):  {Name, Pid, Method, RPid, ref()}
+%%% global_names (set):  {Name, Pid, Method, ref()}
 %%%   Registered names. ref() is the monitor ref.
-%%%   RPid =/= Pid if there is an extra process calling erlang:monitor().
 %%% global_names_ext (set): {Name, Pid, RegNode}
 %%%   External registered names (C-nodes).
-%%%   (The RPid:s can be removed when/if erlang:monitor() returns before 
-%%%    trying to connect to the other node.)
 %%% 
 %%% Helper tables:
 %%% global_pid_names (bag): {Pid, Name} | {ref(), Name}
@@ -161,6 +158,8 @@
 %%% The new_nodes messages has been augmented with the global lock id.
 %%%
 %%% R14A (OTP-8527): The deleter process has been removed.
+%%%
+%%% Erlang/OTP 22.0: The extra process calling erlang:monitor() is removed.
 
 start() -> 
     gen_server:start({local, global_name_server}, ?MODULE, [], []).
@@ -310,7 +309,7 @@ re_register_name(Name, Pid, Method0) when is_pid(Pid) ->
 -spec registered_names() -> [Name] when
       Name :: term().
 registered_names() ->
-    MS = ets:fun2ms(fun({Name,_Pid,_M,_RP,_R}) -> Name end),
+    MS = ets:fun2ms(fun({Name,_Pid,_M,_R}) -> Name end),
     ets:select(global_names, MS).
 
 %%-----------------------------------------------------------------
@@ -572,17 +571,24 @@ init([]) ->
 %%    {exchange, Node, ListOfNames, _ListOfNamesExt, Tag}
 %%    {resolved, Node, HisOps, HisKnown, _Unused, ListOfNamesExt, Tag}
 %%         HisKnown = list of known nodes in Node's partition
-%% 2. Between lockers on connecting nodes
-%%    {his_locker, Pid} (from our global)
-%%    {lock, Bool} loop until both lockers have lock = true,
-%%          then send to global_name_server {lock_is_set, Node, Tag}
-%% 3. Connecting node's global_name_server informs other nodes in the same 
+%% 2. Between global_name_server and my locker (the local locker)
+%%    {nodeup, Node, Tag}
+%%    {his_the_locker, Pid, {Vsn, HisKnown}, MyKnown}
+%%    {cancel, Node, Tag, Fun | no_fun}
+%%    {add_to_known, Nodes}
+%%    {remove_from_known, Nodes}
+%%    {lock_set, Pid, LockIsSet, HisKnown} (acting as proxy)
+%% 3. Between lockers on connecting nodes (via proxy global_name_server)
+%%    {lock_set, Pid, LockIsSet, HisKnown}
+%%      loop until both lockers have LockIsSet =:= true,
+%%      then send to global_name_server {lock_is_set, Node, Tag, LockId}
+%% 4. Connecting node's global_name_server informs other nodes in the same
 %%    partition about hitherto unknown nodes in the other partition
 %%    {new_nodes, Node, Ops, ListOfNamesExt, NewNodes, ExtraInfo}
-%% 4. Between global_name_server and resolver
+%% 5. Between global_name_server and resolver
 %%    {resolve, NameList, Node} to resolver
 %%    {exchange_ops, Node, Tag, Ops, Resolved} from resolver
-%% 5. sync protocol, between global_name_servers in different partitions
+%% 6. sync protocol, between global_name_servers in different partitions
 %%    {in_sync, Node, IsKnown}
 %%          sent by each node to all new nodes (Node becomes known to them)
 %%-----------------------------------------------------------------
@@ -825,6 +831,11 @@ handle_cast({async_del_lock, _ResourceId, _Pid}, S) ->
     %% R14A nodes and later do not send async_del_lock messages.
     {noreply, S};
 
+handle_cast({lock_set, _Pid, _Set, _HisKnown} = Message, S) ->
+    #state{the_locker = Locker} = S,
+    Locker ! Message,
+    {noreply, S};
+
 handle_cast(Request, S) ->
     error_logger:warning_msg("The global_name_server "
                              "received an unexpected message:\n"
@@ -914,7 +925,7 @@ handle_info({nodeup, Node}, S0) when S0#state.connect_all ->
     end;
 
 handle_info({whereis, Name, From}, S) ->
-    do_whereis(Name, From),
+    _ = do_whereis(Name, From),
     {noreply, S};
 
 handle_info(known, S) ->
@@ -1235,7 +1246,7 @@ ins_name_ext(Name, Pid, Method, RegNode, FromPidOrNode, ExtraInfo, S0) ->
 
 where(Name) ->
     case ets:lookup(global_names, Name) of
-	[{_Name, Pid, _Method, _RPid, _Ref}] ->
+	[{_Name, Pid, _Method, _Ref}] ->
 	    if node(Pid) == node() ->
 		    case is_process_alive(Pid) of
 			true  -> Pid;
@@ -1272,10 +1283,10 @@ can_set_lock({ResourceId, LockRequesterId}) ->
     end.
 
 insert_lock({ResourceId, LockRequesterId}=Id, Pid, PidRefs, S) ->
-    {RPid, Ref} = do_monitor(Pid),
+    Ref = erlang:monitor(process, Pid),
     true = ets:insert(global_pid_ids, {Pid, ResourceId}),
     true = ets:insert(global_pid_ids, {Ref, ResourceId}),
-    Lock = {ResourceId, LockRequesterId, [{Pid,RPid,Ref} | PidRefs]},
+    Lock = {ResourceId, LockRequesterId, [{Pid,Ref} | PidRefs]},
     true = ets:insert(global_locks, Lock),
     trace_message(S, {ins_lock, node(Pid)}, [Id, Pid]).
 
@@ -1293,10 +1304,9 @@ handle_del_lock({ResourceId, LockReqId}, Pid, S0) ->
 	_ -> S0
     end.
 
-remove_lock(ResourceId, LockRequesterId, Pid, [{Pid,RPid,Ref}], Down, S0) ->
+remove_lock(ResourceId, LockRequesterId, Pid, [{Pid,Ref}], Down, S0) ->
     ?trace({remove_lock_1, {id,ResourceId},{pid,Pid}}),
     true = erlang:demonitor(Ref, [flush]),
-    kill_monitor_proc(RPid, Pid),
     true = ets:delete(global_locks, ResourceId),
     true = ets:delete_object(global_pid_ids, {Pid, ResourceId}),
     true = ets:delete_object(global_pid_ids, {Ref, ResourceId}),
@@ -1309,9 +1319,8 @@ remove_lock(ResourceId, LockRequesterId, Pid, [{Pid,RPid,Ref}], Down, S0) ->
 remove_lock(ResourceId, LockRequesterId, Pid, PidRefs0, _Down, S) ->
     ?trace({remove_lock_2, {id,ResourceId},{pid,Pid}}),
     PidRefs = case lists:keyfind(Pid, 1, PidRefs0) of
-                  {Pid, RPid, Ref} ->
+                  {Pid, Ref} ->
                       true = erlang:demonitor(Ref, [flush]),
-                      kill_monitor_proc(RPid, Pid),
                       true = ets:delete_object(global_pid_ids, 
                                                {Ref, ResourceId}),
                       lists:keydelete(Pid, 1, PidRefs0);
@@ -1323,11 +1332,6 @@ remove_lock(ResourceId, LockRequesterId, Pid, PidRefs0, _Down, S) ->
     true = ets:delete_object(global_pid_ids, {Pid, ResourceId}),
     trace_message(S, {rem_lock, node(Pid)}, 
                   [{ResourceId, LockRequesterId}, Pid]).
-
-kill_monitor_proc(Pid, Pid) ->
-    ok;
-kill_monitor_proc(RPid, _Pid) ->
-    exit(RPid, kill).
 
 do_ops(Ops, ConnNode, Names_ext, ExtraInfo, S0) ->
     ?trace({do_ops, {ops,Ops}}),
@@ -1394,8 +1398,8 @@ sync_other(Node, N) ->
     % exit(normal).
 
 insert_global_name(Name, Pid, Method, FromPidOrNode, ExtraInfo, S) ->
-    {RPid, Ref} = do_monitor(Pid),
-    true = ets:insert(global_names, {Name, Pid, Method, RPid, Ref}),
+    Ref = erlang:monitor(process, Pid),
+    true = ets:insert(global_names, {Name, Pid, Method, Ref}),
     true = ets:insert(global_pid_names, {Pid, Name}),
     true = ets:insert(global_pid_names, {Ref, Name}),
     case lock_still_set(FromPidOrNode, ExtraInfo, S) of
@@ -1437,7 +1441,7 @@ extra_info(Tag, ExtraInfo) ->
 del_name(Ref, S) ->
     NameL = [Name || 
                 {_, Name} <- ets:lookup(global_pid_names, Ref),
-                {_, _Pid, _Method, _RPid, Ref1} <- 
+                {_, _Pid, _Method, Ref1} <-
                     ets:lookup(global_names, Name),
                 Ref1 =:= Ref],
     case NameL of
@@ -1450,24 +1454,23 @@ del_name(Ref, S) ->
 %% Keeps the entry in global_names for whereis_name/1.
 delete_global_name_keep_pid(Name, S) ->
     case ets:lookup(global_names, Name) of
-        [{Name, Pid, _Method, RPid, Ref}] ->
-            delete_global_name2(Name, Pid, RPid, Ref, S);
+        [{Name, Pid, _Method, Ref}] ->
+            delete_global_name2(Name, Pid, Ref, S);
         [] ->
             S
     end.
 
 delete_global_name2(Name, S) ->
     case ets:lookup(global_names, Name) of
-        [{Name, Pid, _Method, RPid, Ref}] ->
+        [{Name, Pid, _Method, Ref}] ->
             true = ets:delete(global_names, Name),
-            delete_global_name2(Name, Pid, RPid, Ref, S);
+            delete_global_name2(Name, Pid, Ref, S);
         [] ->
             S
     end.
 
-delete_global_name2(Name, Pid, RPid, Ref, S) ->
+delete_global_name2(Name, Pid, Ref, S) ->
     true = erlang:demonitor(Ref, [flush]),
-    kill_monitor_proc(RPid, Pid),
     delete_global_name(Name, Pid),
     ?trace({delete_global_name,{item,Name},{pid,Pid}}),
     true = ets:delete_object(global_pid_names, {Pid, Name}),
@@ -1501,7 +1504,13 @@ delete_global_name(_Name, _Pid) ->
 %% Version 1: used by unpatched R7.
 %% Version 2: the messages exchanged between the lockers include the known 
 %%            nodes (see OTP-3576).
-%%-----------------------------------------------------------------
+
+%% As of version 6 of global, lockers (on different nodes) do not
+%% communicate directly with each other. Instead messages are sent via
+%% the server. This is in order to avoid race conditions where a
+%% {lock_set, ...} message is received after (before) a nodedown
+%% (nodeup).
+%% -----------------------------------------------------------------
 
 -define(locker_vsn, 2).
 
@@ -1616,7 +1625,7 @@ the_locker_message({lock_set, Pid, true, _HisKnown}, S) ->
         {true, MyTag, HisVsn} ->
             LockId = locker_lock_id(Pid, HisVsn),
             {IsLockSet, S1} = lock_nodes_safely(LockId, [], S),
-            Pid ! {lock_set, self(), IsLockSet, S1#multi.known},
+            send_lock_set(S1, IsLockSet, Pid, HisVsn),
             Known2 = [node() | S1#multi.known],
             ?trace({the_locker, spontaneous, {known2, Known2},
                     {node,Node}, {is_lock_set,IsLockSet}}),
@@ -1643,7 +1652,7 @@ the_locker_message({lock_set, Pid, true, _HisKnown}, S) ->
             end;
         false ->
             ?trace({the_locker, not_there, {node,Node}}),
-            Pid ! {lock_set, self(), false, S#multi.known},
+            send_lock_set(S, false, Pid, _HisVsn=5),
             loop_the_locker(S)
     end;
 the_locker_message({add_to_known, Nodes}, S) ->
@@ -1685,8 +1694,7 @@ select_node(S) ->
             case IsLockSet of
                 true -> 
                     Known1 = Us ++ S2#multi.known,
-                    ?trace({sending_lock_set, self(), {his,HisTheLocker}}),
-                    HisTheLocker ! {lock_set, self(), true, S2#multi.known},
+                    send_lock_set(S2, true, HisTheLocker, HisVsn),
                     S3 = lock_is_set(S2, Him, MyTag, Known1, LockId),
                     loop_the_locker(S3);
                 false ->
@@ -1694,7 +1702,18 @@ select_node(S) ->
             end
     end.
 
-%% Version 5: Both sides use the same requester id. Thereby the nodes
+send_lock_set(S, IsLockSet, HisTheLocker, Vsn) ->
+    ?trace({sending_lock_set, self(), {his,HisTheLocker}}),
+    Message = {lock_set, self(), IsLockSet, S#multi.known},
+    if
+        Vsn < 6 ->
+            HisTheLocker ! Message,
+            ok;
+        true ->
+            gen_server:cast({global_name_server, node(HisTheLocker)}, Message)
+    end.
+
+%% Version 5-6: Both sides use the same requester id. Thereby the nodes
 %% common to both sides are locked by both locker processes. This
 %% means that the lock is still there when the 'new_nodes' message is
 %% received even if the other side has deleted the lock.
@@ -1929,9 +1948,9 @@ reset_node_state(Node) ->
 %% from the same partition.
 exchange_names([{Name, Pid, Method} | Tail], Node, Ops, Res) ->
     case ets:lookup(global_names, Name) of
-	[{Name, Pid, _Method, _RPid2, _Ref2}] ->
+	[{Name, Pid, _Method, _Ref2}] ->
 	    exchange_names(Tail, Node, Ops, Res);
-	[{Name, Pid2, Method2, _RPid2, _Ref2}] when node() < Node ->
+	[{Name, Pid2, Method2, _Ref2}] when node() < Node ->
 	    %% Name clash!  Add the result of resolving to Res(olved).
 	    %% We know that node(Pid) =/= node(), so we don't
 	    %% need to link/unlink to Pid.
@@ -1960,7 +1979,7 @@ exchange_names([{Name, Pid, Method} | Tail], Node, Ops, Res) ->
 		    Op = {delete, Name},
 		    exchange_names(Tail, Node, [Op | Ops], [Op | Res])
 	    end;
-	[{Name, _Pid2, _Method, _RPid, _Ref}] ->
+	[{Name, _Pid2, _Method, _Ref}] ->
 	    %% The other node will solve the conflict.
 	    exchange_names(Tail, Node, Ops, Res);
 	_ ->
@@ -2036,7 +2055,7 @@ pid_is_locking(Pid, PidRefs) ->
 delete_lock(Ref, S0) ->
     Locks = pid_locks(Ref),
     F = fun({ResourceId, LockRequesterId, PidRefs}, S) -> 
-                {Pid, _RPid, Ref} = lists:keyfind(Ref, 3, PidRefs),
+                {Pid, Ref} = lists:keyfind(Ref, 2, PidRefs),
                 remove_lock(ResourceId, LockRequesterId, Pid, PidRefs, true, S)
         end,
     lists:foldl(F, S0, Locks).
@@ -2046,10 +2065,10 @@ pid_locks(Ref) ->
                               ets:lookup(global_locks, ResourceId)
                       end, ets:lookup(global_pid_ids, Ref)),
     [Lock || Lock = {_Id, _Req, PidRefs} <- L, 
-             rpid_is_locking(Ref, PidRefs)].
+             ref_is_locking(Ref, PidRefs)].
 
-rpid_is_locking(Ref, PidRefs) ->
-    lists:keyfind(Ref, 3, PidRefs) =/= false.
+ref_is_locking(Ref, PidRefs) ->
+    lists:keyfind(Ref, 2, PidRefs) =/= false.
 
 handle_nodedown(Node, S) ->
     %% DOWN signals from monitors have removed locks and registered names.
@@ -2062,7 +2081,7 @@ handle_nodedown(Node, S) ->
 
 get_names() ->
     ets:select(global_names, 
-               ets:fun2ms(fun({Name, Pid, Method, _RPid, _Ref}) -> 
+               ets:fun2ms(fun({Name, Pid, Method, _Ref}) ->
                                   {Name, Pid, Method} 
                           end)).
 
@@ -2204,24 +2223,6 @@ unexpected_message(Message, What) ->
                              [What, Message]).
 
 %%% Utilities
-
-%% When/if erlang:monitor() returns before trying to connect to the
-%% other node this function can be removed.
-do_monitor(Pid) ->
-    case (node(Pid) =:= node()) orelse lists:member(node(Pid), nodes()) of
-        true ->
-            %% Assume the node is still up
-            {Pid, erlang:monitor(process, Pid)};
-        false ->
-            F = fun() -> 
-                        Ref = erlang:monitor(process, Pid),
-                        receive 
-                            {'DOWN', Ref, process, Pid, _Info} ->
-                                exit(normal)
-                        end
-                end,
-            erlang:spawn_monitor(F)
-    end.
 
 intersection(_, []) -> 
     [];

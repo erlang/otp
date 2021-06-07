@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2016</year>
+      <year>2010</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -61,7 +61,7 @@
 
         <p>To have effect, this function is to be called from
           <c>init_per_suite/1</c> (see
-          <seealso marker="common_test"><c>common_test</c></seealso>)
+          <seeerl marker="common_test"><c>common_test</c></seeerl>)
           before any tests are performed.</p>
       </desc>
     </func>
@@ -77,8 +77,8 @@
       </type>
       <desc><marker id="cross_cover_analyse-2"/>
         <p>Accumulates cover results over multiple tests. See section
-          <seealso marker="cover_chapter#cross_cover">Cross Cover
-          Analysis</seealso> in the Users's Guide.</p>
+          <seeguide marker="cover_chapter#cross_cover">Cross Cover
+          Analysis</seeguide> in the Users's Guide.</p>
       </desc>
     </func>
 
@@ -94,7 +94,7 @@
 
         <p>Call this function to stop cover test on nodes previously
           added with
-          <seealso marker="#add_nodes-1"><c>ct_cover:add_nodes/1</c></seealso>.
+          <seemfa marker="#add_nodes/1"><c>ct_cover:add_nodes/1</c></seemfa>.
           Results on the remote node are transferred to the <c>Common Test</c>
           node.</p>
       </desc>

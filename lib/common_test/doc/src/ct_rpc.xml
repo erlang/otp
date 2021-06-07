@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2016</year>
+      <year>2010</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -73,7 +73,7 @@
       </type>
       <desc><marker id="app_node-3"/>
         <p>Same as
-          <seealso marker="#app_node-2"><c>ct_rpc:app_node/2</c></seealso>,
+          <seemfa marker="#app_node/2"><c>ct_rpc:app_node/2</c></seemfa>,
           except that argument <c>FailOnBadRPC</c> determines if the search
           for a candidate node is to stop if <c>badrpc</c> is received at
           some point.</p>
@@ -94,7 +94,7 @@
       </type>
       <desc><marker id="app_node-4"/>
         <p>Same as
-          <seealso marker="#app_node-2"><c>ct_rpc:app_node/2</c></seealso>,
+          <seemfa marker="#app_node/2"><c>ct_rpc:app_node/2</c></seemfa>,
           except that argument <c>FailOnBadRPC</c> determines if the search
           for a candidate node is to stop if <c>badrpc</c> is received at
           some point.</p>

@@ -34,8 +34,35 @@ erlcmd="erl -sname a $p $args -mnesia_test_timeout"
 erlcmd1="erl -sname a1 $p $args"
 erlcmd2="erl -sname a2 $p $args"
 
-xterm -geometry 70x20+0+550 -T a1 -e $erlcmd1 &
-xterm -geometry 70x20+450+550 -T a2 -e $erlcmd2 &
+if test z"$MT_TERM" = z ; then
+    MT_TERM=xterm
+fi
+
+case $MT_TERM in
+    xterm)
+	geom0="-geometry 142x40+0+0"
+	geom1="-geometry 70x20+0+550"
+	geom2="-geometry 70x20+480+550"
+	title="-T"
+	exec="-e"
+	;;
+    gnome-terminal)
+	geom0="--geometry 142x40+0+0"
+	geom1="--geometry 70x20+0+740"
+	geom2="--geometry 70x20+700+740"
+	title="--title"
+	exec="--hide-menubar --"
+	;;
+    *rxvt)
+	geom0="-geometry 142x40+0+0"
+	geom1="-geometry 70x20+0+680"
+	geom2="-geometry 70x20+630+680"
+	title="-title"
+	exec="-e"
+esac
+
+$MT_TERM $geom1 $title a1 $exec $erlcmd1 &
+$MT_TERM $geom2 $title a2 $exec $erlcmd2 &
 
 rm "$latest" 2>/dev/null
 ln -s "$log" "$latest"
@@ -51,11 +78,6 @@ echo "Give the following command in order to see the outcome from node a@$h"":"
 echo ""
 echo "	less test_log$$"
 
-ostype=`uname -s`
-if [ "$ostype" = "SunOS" ] ; then 
-  /usr/openwin/bin/xterm -geometry 145x40+0+0 -T a -l -lf "$log" -e $erlcmd &
-else
-  xterm -geometry 145x40+0+0 -T a -e script -f -c "$erlcmd" "$log"  &
-fi
+$MT_TERM $geom0 $title a $exec script -f -c "$erlcmd" "$log"  &
 tail -f "$log" | egrep 'Eval|<>ERROR|NYI'
 

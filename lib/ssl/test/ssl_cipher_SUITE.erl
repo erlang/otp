@@ -20,15 +20,30 @@
 
 -module(ssl_cipher_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-behaviour(ct_suite).
 
 -include_lib("common_test/include/ct.hrl").
-
--include("ssl_internal.hrl").
 -include("tls_record.hrl").
 -include("ssl_cipher.hrl").
--include("ssl_alert.hrl").
+
+%% Callback functions
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2]).
+
+%% Testcases
+-export([aes_decipher_good/0,
+         aes_decipher_good/1,
+         aes_decipher_fail/0,
+         aes_decipher_fail/1,
+         padding_test/1
+        ]).
+
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

@@ -121,7 +121,7 @@ vanilla_reverse([], Acc) ->
     In Erlang, you need to think a little more about how the strings
     are used and choose an appropriate representation. If you
     use regular expressions, use the
-    <seealso marker="stdlib:re">re</seealso> module in STDLIB
+    <seeerl marker="stdlib:re">re</seeerl> module in STDLIB
     instead of the obsolete <c>regexp</c> module.</p>
   </section>
 
@@ -167,13 +167,13 @@ vanilla_reverse([], Acc) ->
     but not guaranteed to speed up the program.</p>
 
     <p>Doing too much work in each NIF call will
-    <seealso marker="erts:erl_nif#WARNING">degrade responsiveness
-    of the VM</seealso>. Doing too little work may mean that
+    <seecref marker="erts:erl_nif#WARNING">degrade responsiveness
+    of the VM</seecref>. Doing too little work may mean that
     the gain of the faster processing in the NIF is eaten up by
     the overhead of calling the NIF and checking the arguments.</p>
 
     <p>Be sure to read about
-    <seealso marker="erts:erl_nif#lengthy_work">Long-running NIFs</seealso>
+    <seecref marker="erts:erl_nif#lengthy_work">Long-running NIFs</seecref>
     before writing a NIF.</p>
   </section>
 </chapter>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,9 +46,9 @@
 %%*  6) IF value is outside the acceptable range THEN wrongValue.
 %%   7) IF variable does not exist and could not ever be created
 %%      THEN noCreation.
-%%   8) IF variable can not be created now THEN inconsistentName.
-%%   9) IF value can not be set now THEN inconsistentValue.
-%%*  9) IF instances of the variable can not be modified THEN notWritable.
+%%   8) IF variable cannot be created now THEN inconsistentName.
+%%   9) IF value cannot be set now THEN inconsistentValue.
+%%*  9) IF instances of the variable cannot be modified THEN notWritable.
 %%  10) IF an unavailable resource is needed THEN resourceUnavailable.
 %%  11) IF any other error THEN genErr.
 %%  12) Otherwise ok!
@@ -390,7 +390,7 @@ dbg_apply(M,F,A) ->
         {'EXIT', {function_clause, [{M, F, A} | _]}} ->
             {'EXIT', {hook_function_clause, {M, F, A}}};
 
-						% XYZ: Older format for compatibility
+        %% XYZ: Older format for compatibility
         {'EXIT', {undef, {M, F, A}}} ->
             {'EXIT', {hook_undef, {M, F, A}}};
         {'EXIT', {function_clause, {M, F, A}}} ->

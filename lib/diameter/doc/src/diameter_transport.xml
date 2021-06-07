@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
-  <!ENTITY message '<seealso marker="#message">message()</seealso>'>
-  <!ENTITY MESSAGES '<seealso marker="#MESSAGES">MESSAGES</seealso>'>
-  <!ENTITY start '<seealso marker="#Mod:start-3">start/3</seealso>'>
+  <!ENTITY message '<seeerl marker="#message">message()</seeerl>'>
+  <!ENTITY MESSAGES '<seeerl marker="#MESSAGES">MESSAGES</seeerl>'>
+  <!ENTITY start '<seemfa marker="#Mod:start/3">start/3</seemfa>'>
   <!ENTITY ip_address
-  '<seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>'>
+  '<seetype marker="kernel:inet#ip_address">inet:ip_address()</seetype>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,8 +23,63 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2,
+         get_all_possible_methods/0,
+         get_all_possible_methods/1,
+         engine_load_all_methods/0,
+         engine_load_all_methods/1,
+         engine_load_some_methods/0,
+         engine_load_some_methods/1,
+         multiple_engine_load/0,
+         multiple_engine_load/1,
+         engine_list/0,
+         engine_list/1,
+         get_id_and_name/0,
+         get_id_and_name/1,
+         engine_by_id/0,
+         engine_by_id/1,
+         bad_arguments/0,
+         bad_arguments/1,
+         unknown_engine/0,
+         unknown_engine/1,
+         pre_command_fail_bad_value/0,
+         pre_command_fail_bad_value/1,
+         pre_command_fail_bad_key/0,
+         pre_command_fail_bad_key/1,
+         failed_engine_init/0,
+         failed_engine_init/1,
+         ctrl_cmd_string/0,
+         ctrl_cmd_string/1,
+         ctrl_cmd_string_optional/0,
+         ctrl_cmd_string_optional/1,
+         ensure_load/0,
+         ensure_load/1,
+         sign_verify_rsa/1,
+         sign_verify_rsa_fake/1,
+         sign_verify_dsa/1,
+         sign_verify_ecdsa/1,
+         sign_verify_rsa_pwd/1,
+         sign_verify_rsa_pwd_bad_pwd/1,
+         priv_encrypt_pub_decrypt_rsa/1,
+         priv_encrypt_pub_decrypt_rsa_pwd/1,
+         pub_encrypt_priv_decrypt_rsa/1,
+         pub_encrypt_priv_decrypt_rsa_pwd/1,
+         get_pub_from_priv_key_rsa/1,
+         get_pub_from_priv_key_rsa_pwd/1,
+         get_pub_from_priv_key_rsa_pwd_no_pwd/1,
+         get_pub_from_priv_key_rsa_pwd_bad_pwd/1,
+         get_pub_from_priv_key_dsa/1,
+         get_pub_from_priv_key_ecdsa/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -80,7 +135,7 @@ groups() ->
 
 
 init_per_suite(Config) ->
-    case {os:type(), crypto:info_lib()} of
+    try {os:type(), crypto:info_lib()} of
         {_, [{_,_, <<"OpenSSL 1.0.1s-freebsd  1 Mar 2016">>}]} ->
             {skip, "Problem with engine on OpenSSL 1.0.1s-freebsd"};
 
@@ -100,6 +155,8 @@ init_per_suite(Config) ->
             catch _:_ ->
                     {skip, "Crypto did not start"}
             end
+    catch _:_ ->
+	    {skip, "Crypto not loaded"}
     end.
 
 end_per_suite(_Config) ->
@@ -148,8 +205,21 @@ end_per_group(_, Config) ->
     end.
 
 %%--------------------------------------------------------------------
-init_per_testcase(_Case, Config) ->
-    Config.
+init_per_testcase(Case, Config) ->
+    case string:tokens(atom_to_list(Case),"_") of
+        ["sign","verify",Type|_] ->
+            skip_if_unsup(list_to_atom(Type), Config);
+
+        ["priv","encrypt","pub","decrypt",Type|_] ->
+            skip_if_unsup(list_to_atom(Type), Config);
+
+        ["get","pub","from","priv","key",Type|_] ->
+            skip_if_unsup(list_to_atom(Type), Config);
+
+        _ ->
+            Config
+    end.
+
 end_per_testcase(_Case, _Config) ->
     ok.
 
@@ -674,7 +744,7 @@ ensure_load(Config) when is_list(Config) ->
     end.
 
 %%%----------------------------------------------------------------
-%%% Pub/priv key storage tests.  Thoose are for testing the crypto.erl
+%%% Pub/priv key storage tests.  Those are for testing the crypto.erl
 %%% support for using priv/pub keys stored in an engine.
 
 sign_verify_rsa(Config) ->
@@ -851,8 +921,18 @@ get_pub_from_priv_key_ecdsa(Config) ->
 %%%================================================================
 %%% Help for engine_stored_pub_priv_keys* test cases
 %%%
-load_storage_engine(Config) ->
-    load_storage_engine(Config, []).
+skip_if_unsup(Type, Config) ->
+    case pkey_supported(Type) of
+        false ->
+            {skip, "Unsupported in this cryptolib"};
+        true ->
+            Config
+    end.
+
+
+pkey_supported(Type) ->
+    lists:member(Type, proplists:get_value(public_keys, crypto:supports(), [])).
+
 
 load_storage_engine(_Config, ExcludeMthds) ->
     case crypto:get_test_engine() of

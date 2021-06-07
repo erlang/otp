@@ -48,7 +48,6 @@ code_area(Parent, Sizer) ->
 	       {?wxSTC_ERLANG_CHARACTER,{236,155,172}},
 	       {?wxSTC_ERLANG_MACRO,    {92,194,241}},
 	       {?wxSTC_ERLANG_RECORD,   {60,150,40}},
-	       {?wxSTC_ERLANG_SEPARATOR,{0,0,0}},
 	       {?wxSTC_ERLANG_NODE_NAME,{0,0,0}}],
     SetStyle = fun({Style, Color}) ->
 		       ?stc:styleSetFont(Ed, Style, FixedFont),

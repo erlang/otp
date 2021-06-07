@@ -1,0 +1,51 @@
+
+  [;1m-spec port_connect(Port, Pid) -> true[0m
+  [;1m                      when Port :: port() | atom(), Pid :: pid().[0m
+
+  Sets the port owner (the connected port) to [;;4mPid[0m. Roughly the
+  same as [;;4mPort ! {Owner, {connect, Pid}}[0m except for the following:
+
+   • The error behavior differs, see below.
+
+   • The port does not reply with [;;4m{Port,connected}[0m.
+
+   • [;;4mport_connect/1[0m is synchronous, see below.
+
+   • The new port owner gets linked to the port.
+
+  The old port owner stays linked to the port and must call [;;4m[0m
+  [;;4munlink(Port)[0m if this is not desired. Any process can set the port
+  owner to be any process with [;;4mport_connect/2[0m.
+
+  For comparison: [;;4mPort ! {self(), {connect, Pid}}[0m only fails with [;;4m[0m
+  [;;4mbadarg[0m if [;;4mPort[0m does not refer to a port or a process. If [;;4mPort[0m
+  is a closed port, nothing happens. If [;;4mPort[0m is an open port and
+  the calling process is the port owner, the port replies with [;;4m[0m
+  [;;4m{Port, connected}[0m to the old port owner. Notice that the old port
+  owner is still linked to the port, while the new is not. If [;;4mPort[0m
+  is an open port and the calling process is not the port owner, the 
+  port owner fails with [;;4mbadsig[0m. The port owner fails with [;;4mbadsig[0m
+  also if [;;4mPid[0m is not an existing local process identifier.
+
+  Notice that any process can set the port owner using [;;4mPort ![0m
+  [;;4m{PortOwner, {connect, Pid}}[0m as if it itself was the port owner,
+  but the reply always goes to the port owner.
+
+  As from Erlang/OTP R16, [;;4mPort ! {PortOwner, {connect, Pid}}[0m is
+  truly asynchronous. Notice that this operation has always been
+  documented as an asynchronous operation, while the underlying
+  implementation has been synchronous. [;;4mport_connect/2[0m is however
+  still fully synchronous because of its error behavior.
+
+  Failures:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mPort[0m is not an identifier of an open port, or the
+    registered name of an open port. If the calling process was
+    previously linked to the closed port, identified by [;;4mPort[0m,
+    the exit signal from the port is guaranteed to be delivered
+    before this [;;4mbadarg[0m exception occurs.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If the process identified by [;;4mPid[0m is not an existing local
+    process.

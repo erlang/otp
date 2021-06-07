@@ -77,7 +77,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>procs</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>procs</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">process_spawn: { cpu_id = 3 }, { pid = "&lt;0.131.0&gt;", parent = "&lt;0.130.0&gt;", entry = "erlang:apply/2" }</code>
@@ -90,7 +90,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>procs</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>procs</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">process_link: { cpu_id = 3 }, { from = "&lt;0.130.0&gt;", to = "&lt;0.131.0&gt;", type = "link" }</code>
@@ -103,7 +103,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>procs</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>procs</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">process_exit: { cpu_id = 3 }, { pid = "&lt;0.130.0&gt;", reason = "normal" }</code>
@@ -125,7 +125,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>running</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>running</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">process_scheduled: { cpu_id = 0 }, { pid = "&lt;0.136.0&gt;", entry = "erlang:apply/2", type = "in" }</code>
@@ -139,7 +139,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>ports</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>ports</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">port_open: { cpu_id = 5 }, { pid = "&lt;0.131.0&gt;", driver = "'/bin/sh -s unix:cmd'", port = "#Port&lt;0.1887&gt;" }</code>
@@ -151,7 +151,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>ports</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>ports</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">port_exit: { cpu_id = 5 }, { port = "#Port&lt;0.1887&gt;", reason = "normal" }</code>
@@ -164,7 +164,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>ports</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>ports</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">port_link: { cpu_id = 5 }, { from = "#Port&lt;0.1887&gt;", to = "&lt;0.131.0&gt;", type = "unlink" }</code>
@@ -172,7 +172,7 @@ $ make </code>
         <p><em>port_scheduled</em></p>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>running</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>running</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <list type="bulleted">
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
@@ -184,7 +184,7 @@ $ make </code>
         <code type="none">port_scheduled: { cpu_id = 5 }, { pid = "#Port&lt;0.1905&gt;", entry = "close", type = "out" }</code>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>running</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>running</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p><em>function_call</em></p>
         <list type="bulleted">
@@ -194,7 +194,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>call</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>call</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">function_call: { cpu_id = 5 }, { pid = "&lt;0.145.0&gt;", entry = "dyntrace_lttng_SUITE:'-t_call/1-fun-1-'/0", depth = 0 }</code>
@@ -207,7 +207,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>call</c> or <c>return_to</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>call</c> or <c>return_to</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">function_return: { cpu_id = 5 }, { pid = "&lt;0.145.0&gt;", entry = "dyntrace_lttng_SUITE:waiter/0", depth = 0 }</code>
@@ -220,7 +220,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>call</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>call</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">function_exception: { cpu_id = 5 }, { pid = "&lt;0.144.0&gt;", entry = "t:call_exc/1", class = "error" }</code>
@@ -233,7 +233,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>send</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>send</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">message_send: { cpu_id = 3 }, { from = "#Port&lt;0.1938&gt;", to = "&lt;0.160.0&gt;", message = "{#Port&lt;0.1938&gt;,eof}" }</code>
@@ -245,7 +245,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>'receive'</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>'receive'</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">message_receive: { cpu_id = 7 }, { to = "&lt;0.167.0&gt;", message = "{&lt;0.165.0&gt;,ok}" }</code>
@@ -259,7 +259,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">gc_minor_start: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", need = 0, heap = 610, old_heap = 0 }</code>
@@ -273,7 +273,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">gc_minor_end: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", reclaimed = 120, heap = 1598, old_heap = 1598 }</code>
@@ -287,7 +287,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">gc_major_start: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", need = 8, heap = 2586, old_heap = 1598 }</code>
@@ -301,7 +301,7 @@ $ make </code>
         </list>
         <p>
             Available through
-            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+            <seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
         </p>
         <p>Example:</p>
         <code type="none">gc_major_end: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", reclaimed = 240, heap = 4185, old_heap = 0 }</code>
@@ -312,14 +312,6 @@ $ make </code>
         <title>BEAM Tracepoints</title>
         <p>All tracepoints are in the domain of <c>org_erlang_otp</c></p>
         <p>All Erlang types are the string equivalent in LTTng.</p>
-
-        <p><em>scheduler_poll</em></p>
-        <list type="bulleted">
-            <item><c>scheduler : integer</c> :: Scheduler ID. Ex. <c>1</c></item>
-            <item><c>runnable : integer</c> :: Runnable. Ex. <c>1</c></item>
-        </list>
-        <p>Example:</p>
-        <code type="none">scheduler_poll: { cpu_id = 4 }, { scheduler = 1, runnable = 1 }</code>
 
         <p><em>driver_init</em></p>
         <list type="bulleted">
@@ -449,23 +441,6 @@ $ make </code>
         </list>
         <p>Example:</p>
         <code type="none">driver_control: { cpu_id = 3 }, { pid = "&lt;0.32767.8191&gt;", port = "#Port&lt;0.0&gt;", driver = "forker", command = 83, bytes = 32 }</code>
-
-        <p><em>aio_pool_get</em></p>
-        <list type="bulleted">
-            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>length : integer</c> :: Async queue length. Ex. <c>0</c></item>
-        </list>
-        <p>Example:</p>
-        <code type="none">aio_pool_get: { cpu_id = 4 }, { port = "#Port&lt;0.3614&gt;", length = 0 }</code>
-
-        <p><em>aio_pool_put</em></p>
-        <list type="bulleted">
-            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>length : integer</c> :: Async queue length. Ex. <c>-1</c></item>
-        </list>
-        <p>Async queue length is not defined for <c>put</c> operations.</p>
-        <p>Example:</p>
-        <code type="none">aio_pool_put: { cpu_id = 3 }, { port = "#Port&lt;0.3614&gt;", length = -1 }</code>
 
         <p><em>carrier_create</em></p>
         <list type="bulleted">

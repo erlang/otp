@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 #endif
 
 #include "sys.h"
+#include "erl_osenv.h"
 #include "erl_alloc.h"
 #include "erl_sys_driver.h"
 #include "global.h"
@@ -38,8 +39,8 @@
 void erts_sys_init_float(void);
 
 void erl_start(int, char**);
-void erts_exit(int n, char*, ...);
-void erl_error(char*, va_list);
+void erts_exit(int n, const char*, ...);
+void erl_error(const char*, va_list);
 
 /*
  * Microsoft-specific function to map a WIN32 error code to a Posix errno.
@@ -186,7 +187,9 @@ void sys_primitive_init(HMODULE beam)
 UWord
 erts_sys_get_page_size(void)
 {
-    return (UWord) 4*1024; /* Guess 4 KB */
+    SYSTEM_INFO info;
+    GetSystemInfo(&info);
+    return (UWord)info.dwPageSize;
 }
 
 Uint
@@ -505,6 +508,9 @@ struct driver_data {
     AsyncIo out;		/* Control block for overlapped writing. */
     int report_exit;            /* Do report exit status for the port */
     erts_atomic32_t refc;       /* References to this struct */
+    ErlDrvSizeT high_watermark;        /* Q size when to go to busy port state */
+    ErlDrvSizeT low_watermark;         /* Q size when to leave busy port state */
+    int busy;
 };
 
 /* Driver interfaces */
@@ -738,13 +744,8 @@ release_driver_data(DriverData* dp)
     }
     ASSERT(dp->inBufSize == 0);
 
-    if (dp->outbuf != NULL) {
-	ASSERT(erts_atomic_read_nob(&sys_misc_mem_sz) >= dp->outBufSize);
-	erts_atomic_add_nob(&sys_misc_mem_sz, -1*dp->outBufSize);
-	DRV_BUF_FREE(dp->outbuf);
-	dp->outBufSize = 0;
-	dp->outbuf = NULL;
-    }
+    /* outbuf is released when queue is released */
+    ASSERT(!dp->outbuf);
     ASSERT(dp->outBufSize == 0);
 
     if (dp->port_pid != INVALID_HANDLE_VALUE) {
@@ -864,13 +865,18 @@ threaded_handle_closer(LPVOID param)
  */
 
 static ErlDrvData
-set_driver_data(DriverData* dp, HANDLE ifd, HANDLE ofd, int read_write, int report_exit)
+set_driver_data(DriverData* dp, HANDLE ifd, HANDLE ofd, int read_write, int report_exit,
+                SysDriverOpts* opts)
 {
     int result;
 
     dp->in.fd = ifd;
     dp->out.fd = ofd;
     dp->report_exit = report_exit;
+    dp->high_watermark = opts->high_watermark;
+    dp->low_watermark = opts->low_watermark;
+    
+    dp->busy = 0;
 
     if (read_write & DO_READ) {
 	result = driver_select(dp->port_num, (ErlDrvEvent)dp->in.ov.hEvent,
@@ -1320,7 +1326,7 @@ spawn_start(ErlDrvPort port_num, char* utf8_name, SysDriverOpts* opts)
 	}
 #endif
 	retval = set_driver_data(dp, hFromChild, hToChild, opts->read_write,
-				 opts->exit_status);
+				 opts->exit_status, opts);
 	if (retval != ERL_DRV_ERROR_GENERAL && retval != ERL_DRV_ERROR_ERRNO) {
             /* We assume that this cannot generate a negative number */
             erl_drv_set_os_pid(port_num, pid);
@@ -1692,7 +1698,7 @@ create_child_process
 	    erts_free(ERTS_ALC_T_TMP, qte);
 	}	    
 	    
-	DEBUGF((stderr,"Creating child process: %S, createFlags = %d\n", newcmdline, createFlags));
+	DEBUGF(("Creating child process: %S, createFlags = %d\n", newcmdline, createFlags));
 	ok = CreateProcessW((wchar_t *) appname,
 			    (wchar_t *) newcmdline,
 			    NULL,
@@ -1990,7 +1996,7 @@ threaded_reader(LPVOID param)
 	    aio->bytesTransferred = n;
 	}
 	SetEvent(aio->ov.hEvent);
-	if ((aio->flags & DF_XLAT_CR) == 0 && aio->bytesTransferred == 0) {
+	if (aio->bytesTransferred == 0) {
 	    break;
 	}
 	if (aio->pendingError != NO_ERROR) {
@@ -2106,15 +2112,15 @@ translate_fd(int fd)
 	handle = GetStdHandle(STD_ERROR_HANDLE);
 	break;
     default:
-	return (HANDLE) fd;
+	return (HANDLE)(SWord) fd;
     }
-    DEBUGF(("translate_fd(%d) -> std(%d)\n", fd, handle));
+    DEBUGF(("translate_fd(%d) -> std(%p)\n", fd, (void*)handle));
 
     if (handle == INVALID_HANDLE_VALUE || handle == 0) {
 	handle = CreateFile("nul", access, 0,
 			    NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     }
-    DEBUGF(("translate_fd(%d) -> %d\n", fd, handle));
+    DEBUGF(("translate_fd(%d) -> %p\n", fd, (void*)handle));
     return handle;
 }
 
@@ -2198,7 +2204,8 @@ fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 	} else if (in == 2 && out == 2) {
 	    save_22_port = dp;
 	}
-	return set_driver_data(dp, (HANDLE) opts->ifd, (HANDLE) opts->ofd, opts->read_write, 0);
+	return set_driver_data(dp, (HANDLE) opts->ifd, (HANDLE) opts->ofd, opts->read_write,
+                               0, opts);
     }
 }
 
@@ -2266,7 +2273,8 @@ vanilla_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
     }
     if (ofd == INVALID_HANDLE_VALUE)
 	return ERL_DRV_ERROR_GENERAL;
-    return set_driver_data(dp, ifd, ofd, opts->read_write,0);
+    return set_driver_data(dp, ifd, ofd, opts->read_write,
+                           0, opts);
 }
 
 static void
@@ -2431,6 +2439,8 @@ output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
     DriverData* dp = (DriverData *) drv_data;
     int pb;			/* The header size for this port. */
     char* current;
+    ErlDrvSizeT qsz, sz;
+    ErlDrvBinary *bin;
 
     pb = dp->packet_bytes;
 
@@ -2450,24 +2460,19 @@ output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
      * Allocate memory for both the message and the header.
      */
 
-    ASSERT(dp->outbuf == NULL);
-    ASSERT(dp->outBufSize == 0);
-
-    ASSERT(!dp->outbuf);
-    dp->outbuf = DRV_BUF_ALLOC(pb+len);
-    if (!dp->outbuf) {
-	driver_failure_posix(dp->port_num, ENOMEM);
-	return ; /* -1; */
+    sz = pb+len;
+    bin = driver_alloc_binary(sz);
+    if (!bin) {
+        driver_failure_posix(dp->port_num, ENOMEM);
+        return ; /* -1; */
     }
-
-    dp->outBufSize = pb+len;
-    erts_atomic_add_nob(&sys_misc_mem_sz, dp->outBufSize);
 
     /*
      * Store header bytes (if any).
      */
 
-    current = dp->outbuf;
+    current = bin->orig_bytes;
+
     switch (pb) {
     case 4:
 	*current++ = (len >> 24) & 255;
@@ -2484,18 +2489,34 @@ output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
 
     if (len)
 	memcpy(current, buf, len);
-    
-    if (!async_write_file(&dp->out, dp->outbuf, pb+len)) {
-	set_busy_port(dp->port_num, 1);
-    } else {
-	dp->out.ov.Offset += pb+len; /* For vanilla driver. */
-	/* XXX OffsetHigh should be changed too. */
-	ASSERT(erts_atomic_read_nob(&sys_misc_mem_sz) >= dp->outBufSize);
-	erts_atomic_add_nob(&sys_misc_mem_sz, -1*dp->outBufSize);
-	DRV_BUF_FREE(dp->outbuf);
-	dp->outBufSize = 0;
-	dp->outbuf = NULL;
+
+    qsz = driver_sizeq(dp->port_num);
+
+    if (qsz > 0) {
+        driver_enq_bin(dp->port_num, bin, 0, sz);
+        qsz += pb+len;
     }
+    else {
+        ASSERT(!dp->outbuf);
+        dp->outbuf = bin->orig_bytes;
+        dp->outBufSize = sz;
+        if (!async_write_file(&dp->out, dp->outbuf, sz)) {
+            driver_enq_bin(dp->port_num, bin, 0, sz);
+            qsz = sz;
+        } else {
+            dp->out.ov.Offset += pb+len; /* For vanilla driver. */
+            /* XXX OffsetHigh should be changed too. */
+            dp->outBufSize = 0;
+            dp->outbuf = NULL;
+        }
+    }
+
+    if (!dp->busy && qsz >= dp->high_watermark)
+        set_busy_port(dp->port_num, (dp->busy = !0));
+
+    /* Binary either handled or buffered */
+    driver_free_binary(bin);
+    
     /*return 0;*/
 }
 
@@ -2691,20 +2712,19 @@ ready_output(ErlDrvData drv_data, ErlDrvEvent ready_event)
     DWORD bytesWritten;
     DriverData *dp = (DriverData *) drv_data;
     int error;
+    ErlDrvSizeT qsz;
 
     if(dp->out.thread == (HANDLE) -1) {
 	dp->out.async_io_active = 0;
     }
     DEBUGF(("ready_output(%p, 0x%x)\n", drv_data, ready_event));
-    set_busy_port(dp->port_num, 0);
-    if (!(dp->outbuf)) {
+    if (!dp->outbuf) {
 	/* Happens because event sometimes get signalled during a successful
 	   write... */
 	return;
     }
-    ASSERT(erts_atomic_read_nob(&sys_misc_mem_sz) >= dp->outBufSize);
-    erts_atomic_add_nob(&sys_misc_mem_sz, -1*dp->outBufSize);
-    DRV_BUF_FREE(dp->outbuf);
+    
+    qsz = driver_deq(dp->port_num, dp->outBufSize);
     dp->outBufSize = 0;
     dp->outbuf = NULL;
 #ifdef HARD_POLL_DEBUG
@@ -2715,15 +2735,32 @@ ready_output(ErlDrvData drv_data, ErlDrvEvent ready_event)
     poll_debug_write_done(dp->out.ov.hEvent,bytesWritten);
 #endif
 
-    if (error == NO_ERROR) {
-	dp->out.ov.Offset += bytesWritten; /* For vanilla driver. */
-	return ; /* 0; */
+    if (error != NO_ERROR) {
+        (void) driver_select(dp->port_num, ready_event, ERL_DRV_WRITE, 0);
+        _dosmaperr(error);
+        driver_failure_posix(dp->port_num, errno);
+        return;
     }
+    
+    dp->out.ov.Offset += bytesWritten; /* For vanilla driver. */
 
-    (void) driver_select(dp->port_num, ready_event, ERL_DRV_WRITE, 0);
-    _dosmaperr(error);
-    driver_failure_posix(dp->port_num, errno);
-    /* return 0; */
+    while (qsz > 0) {
+        int vsize;
+        SysIOVec *iov = driver_peekq(dp->port_num, &vsize);
+        ASSERT(iov->iov_base && iov->iov_len);
+        dp->outbuf = iov->iov_base;
+        dp->outBufSize = iov->iov_len;
+        if (!async_write_file(&dp->out, dp->outbuf, dp->outBufSize))
+            break;
+        dp->out.ov.Offset += dp->outBufSize; /* For vanilla driver. */
+        /* XXX OffsetHigh should be changed too. */
+        qsz = driver_deq(dp->port_num, dp->outBufSize);
+        dp->outbuf = NULL;
+        dp->outBufSize = 0;
+    }
+    
+    if (dp->busy && qsz < dp->low_watermark)
+        set_busy_port(dp->port_num, (dp->busy = 0));
 }
 
 static void stop_select(ErlDrvEvent e, void* _)
@@ -2888,9 +2925,9 @@ unsigned char* sys_preload_begin(Preload* pp)
     ASSERT(beam_module != NULL);
 
     resource = res_name[pp-preloaded];
-    DEBUGF(("Loading name: %s; size: %d; resource: %p\n",
+    DEBUGF(("Loading name: %s; size: %d; resource: %u\n",
 	    pp->name, pp->size, resource));
-    hRes = FindResource(beam_module, (char *) resource, "ERLANG_CODE");
+    hRes = FindResource(beam_module, (char*)(UWord) resource, "ERLANG_CODE");
     return pp->code = LoadResource(beam_module, hRes);
 }
 
@@ -3177,6 +3214,9 @@ thr_create_prepare_child(void *vtcdp)
     erts_sched_bind_atthrcreate_child(tcdp->sched_bind_data);
 }
 
+void erts_sys_scheduler_init(void) {
+    /* Nothing needed on Windows. */
+}
 
 void
 erts_sys_pre_init(void)
@@ -3205,7 +3245,9 @@ erts_sys_pre_init(void)
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_init();
 #endif
-
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_init();
+#endif
 
     erts_init_sys_time_sup();
 

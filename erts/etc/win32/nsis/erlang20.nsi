@@ -52,13 +52,13 @@ Var STARTMENU_FOLDER
 !define MY_STARTMENUPAGE_REGISTRY_VALUENAME "Start Menu Folder"
 
 ;General
-	OutFile "${OUTFILEDIR}\otp_${WINTYPE}_${OTP_VERSION}.exe"
+	OutFile "${OUTFILEDIR}\otp_${WINTYPE}_${OTP_RELEASE_VERSION}.exe"
 
 ;Folder selection page
 !if ${WINTYPE} == "win64"
-  	InstallDir "$PROGRAMFILES64\erl${ERTS_VERSION}"
+  	InstallDir "$PROGRAMFILES64\erl-${OTP_RELEASE_VERSION}"
 !else
-  	InstallDir "$PROGRAMFILES\erl${ERTS_VERSION}"
+  	InstallDir "$PROGRAMFILES\erl-${OTP_RELEASE_VERSION}"
 !endif  
 ;Remember install folder
   	InstallDirRegKey HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}" ""
@@ -68,7 +68,7 @@ Var STARTMENU_FOLDER
 !if ${WINTYPE} == "win64"
 	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_VERSION} (x64)"
 !else
-	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_VERSION}"
+	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_VERSION} (i386)"
 !endif  
 
 ;--------------------------------
@@ -134,7 +134,7 @@ Section "Microsoft redistributable libraries." SecMSRedist
 	IfSilent +3
 	    ExecWait '"$INSTDIR\${REDIST_EXECUTABLE}"'
 	Goto +2
-	    ExecWait '"$INSTDIR\${REDIST_EXECUTABLE}" /q'
+	    ExecWait '"$INSTDIR\${REDIST_EXECUTABLE}" /q /norestart'
 
   	!verbose 1
 SectionEnd ; MSRedist
@@ -144,7 +144,21 @@ SubSection /e "Erlang" SecErlang
 Section "Development" SecErlangDev
 SectionIn 1 RO
 
+
   	SetOutPath "$INSTDIR"
+
+; Don't let Users nor Autenticated Users group create new files
+; Avoid dll injection when installing to non /Program Files/ dirs
+
+        StrCmp $INSTDIR $InstallDir cp_files
+        ; Remove ANY inherited access control
+        ExecShellWait "open" "$SYSDIR\icacls.exe" '"$INSTDIR" /inheritance:r' SW_HIDE
+        ; Grant Admin full control
+        ExecShellWait  "open" "$SYSDIR\icacls.exe" '"$INSTDIR" /grant:r *S-1-5-32-544:(OI)(CI)F' SW_HIDE
+        ; Grant Normal Users read+execute control
+        ExecShellWait "open" "$SYSDIR\icacls.exe" '"$INSTDIR" /grant:r *S-1-1-0:(OI)(CI)RX' SW_HIDE
+
+cp_files:
   	File "${TESTROOT}\Install.ini"
   	File "${TESTROOT}\Install.exe"
 	SetOutPath "$INSTDIR\releases"
@@ -201,7 +215,7 @@ done_startmenu:
 
   	WriteRegStr HKLM \
 		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
-		"DisplayName" "Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})"
+		"DisplayName" "Erlang OTP ${OTP_RELEASE_VERSION} (${ERTS_VERSION})"
   	WriteRegStr HKLM \
 		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
 		"UninstallString" "$INSTDIR\Uninstall.exe"
@@ -225,7 +239,7 @@ done_startmenu:
 
   	WriteRegStr HKCU \
 		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
-		"DisplayName" "Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})"
+		"DisplayName" "Erlang OTP ${OTP_RELEASE_VERSION} (${ERTS_VERSION})"
   	WriteRegStr HKCU \
 		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
 		"UninstallString" "$INSTDIR\Uninstall.exe"

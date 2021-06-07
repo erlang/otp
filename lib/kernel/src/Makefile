@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2018. All Rights Reserved.
+# Copyright Ericsson AB 1996-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,11 +33,10 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Include erts/system/vsn.mk to port number for EPMD -- we will
 # get an unwanted definition for VSN too.  Therefore,
 # we'll use KERNEL_VSN directly instead of assigning it to
-# VSN which is done in other Makefiles.  Same with HIPE_VSN.
+# VSN which is done in other Makefiles.
 
 include ../vsn.mk
 include $(ERL_TOP)/erts/vsn.mk
-include $(ERL_TOP)/lib/hipe/vsn.mk
 
 include $(ERL_TOP)/erts/epmd/epmd.mk
 
@@ -67,11 +66,15 @@ MODULES = \
 	dist_ac \
 	dist_util \
 	erl_boot_server \
+	erl_compile_server \
 	erl_ddll \
 	erl_distribution \
+	erl_erts_errors \
 	erl_epmd \
+	erl_kernel_errors \
 	erl_reply \
 	erl_signal_handler \
+	erpc \
 	erts_debug \
 	error_handler \
 	error_logger \
@@ -79,6 +82,7 @@ MODULES = \
 	file_io_server \
 	file_server \
 	gen_tcp \
+	gen_tcp_socket \
 	gen_udp \
 	gen_sctp \
 	global \
@@ -87,7 +91,6 @@ MODULES = \
 	group \
 	group_history \
 	heart \
-	hipe_unified_loader \
 	inet \
 	inet6_tcp \
 	inet6_tcp_dist \
@@ -127,10 +130,12 @@ MODULES = \
 	net_adm \
 	net_kernel \
 	os \
+	pg \
 	pg2 \
 	ram_file \
 	rpc \
 	seq_trace \
+	socket \
 	standard_error \
 	user \
 	user_drv \
@@ -141,15 +146,15 @@ MODULES = \
 	raw_file_io_deflate \
 	raw_file_io_delayed \
 	raw_file_io_list \
-	raw_file_io_raw \
 	wrap_log_reader
 
 HRL_FILES= ../include/file.hrl ../include/inet.hrl ../include/inet_sctp.hrl \
 	../include/dist.hrl ../include/dist_util.hrl \
-	../include/net_address.hrl ../include/logger.hrl
+	../include/net_address.hrl ../include/logger.hrl ../include/eep48.hrl
+
 
 INTERNAL_HRL_FILES= application_master.hrl disk_log.hrl \
-        erl_epmd.hrl file_int.hrl hipe_ext_format.hrl \
+        erl_epmd.hrl file_int.hrl \
         inet_dns.hrl inet_res.hrl \
         inet_boot.hrl inet_config.hrl inet_int.hrl \
 	inet_dns_record_adts.hrl \
@@ -174,10 +179,9 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # FLAGS
 # ----------------------------------------------------
 
-ifeq ($(NATIVE_LIBS_ENABLED),yes)
-ERL_COMPILE_FLAGS += +native
-endif
-ERL_COMPILE_FLAGS += -I../include -Werror
+ERL_COMPILE_FLAGS += -Werror
+ERL_COMPILE_FLAGS += -I../include
+
 
 # ----------------------------------------------------
 # Targets
@@ -197,9 +201,6 @@ docs:
 # ----------------------------------------------------
 # Special Build Targets
 # ----------------------------------------------------
-
-../../hipe/main/hipe.hrl: ../../hipe/vsn.mk ../../hipe/main/hipe.hrl.src
-	$(vsn_verbose)sed -e "s;%VSN%;$(HIPE_VSN);" ../../hipe/main/hipe.hrl.src > ../../hipe/main/hipe.hrl
 
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(KERNEL_VSN);' $< > $@
@@ -256,7 +257,6 @@ $(EBIN)/gen_tcp.beam: inet_int.hrl
 $(EBIN)/gen_udp.beam: inet_int.hrl
 $(EBIN)/gen_sctp.beam: ../include/inet_sctp.hrl
 $(EBIN)/global.beam: ../../stdlib/include/ms_transform.hrl
-$(EBIN)/hipe_unified_loader.beam: ../../hipe/main/hipe.hrl hipe_ext_format.hrl
 $(EBIN)/inet.beam: ../include/inet.hrl inet_int.hrl ../include/inet_sctp.hrl
 $(EBIN)/inet6_tcp.beam: inet_int.hrl
 $(EBIN)/inet6_tcp_dist.beam: ../include/net_address.hrl ../include/dist.hrl ../include/dist_util.hrl

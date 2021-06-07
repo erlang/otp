@@ -24,16 +24,19 @@
 
 %% Test cases
 -export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
-         revert_map_type/1,
-	t_abstract_type/1,t_erl_parse_type/1,t_type/1, t_epp_dodger/1,
-	t_comment_scan/1,t_igor/1,t_erl_tidy/1,t_prettypr/1]).
+         revert_map_type/1,wrapped_subtrees/1,
+         t_abstract_type/1,t_erl_parse_type/1,t_type/1,
+         t_epp_dodger/1,t_epp_dodger_clever/1,
+         t_comment_scan/1,t_prettypr/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [app_test,appup_test,smoke_test,revert,revert_map,revert_map_type,
-    t_abstract_type,t_erl_parse_type,t_type,t_epp_dodger,
-    t_comment_scan,t_igor,t_erl_tidy,t_prettypr].
+     wrapped_subtrees,
+     t_abstract_type,t_erl_parse_type,t_type,
+     t_epp_dodger,t_epp_dodger_clever,
+     t_comment_scan,t_prettypr].
 
 groups() -> 
     [].
@@ -74,7 +77,7 @@ smoke_test_file(File) ->
 	    [print_error_markers(F, File) || F <- Forms],
 	    ok;
 	{error,Reason} ->
-	    io:format("~s: ~p\n", [File,Reason]),
+	    io:format("~ts: ~p\n", [File,Reason]),
 	    error
     end.
 
@@ -82,7 +85,7 @@ print_error_markers(F, File) ->
     case erl_syntax:type(F) of
 	error_marker ->
 	    {L,M,Info} = erl_syntax:error_marker_info(F),
-	    io:format("~ts:~p: ~s", [File,L,M:format_error(Info)]);
+	    io:format("~ts:~p: ~ts", [File,L,M:format_error(Info)]);
 	_ ->
 	    ok
     end.
@@ -142,6 +145,41 @@ revert_map_type(Config) when is_list(Config) ->
     Mapped2 = erl_syntax_lib:map(fun(X) -> X end, Form2),
     Form2 = erl_syntax:revert(Mapped2),
     ?t:timetrap_cancel(Dog).
+
+%% Read with erl_parse, wrap each tree node with erl_syntax and check that
+%% erl_syntax:subtrees can access the wrapped node.
+wrapped_subtrees(Config) when is_list(Config) ->
+    Dog = ?t:timetrap(?t:minutes(2)),
+    Wc = filename:join([code:lib_dir(stdlib),"src","*.erl"]),
+    Fs = filelib:wildcard(Wc) ++ test_files(Config),
+    Path = [filename:join(code:lib_dir(stdlib), "include"),
+            filename:join(code:lib_dir(kernel), "include")],
+    io:format("~p files\n", [length(Fs)]),
+    Map = fun (File) -> wrapped_subtrees_file(File, Path) end,
+    case p_run(Map, Fs) of
+        0 -> ok;
+        N -> ?t:fail({N,errors})
+    end,
+    ?t:timetrap_cancel(Dog).
+
+wrapped_subtrees_file(File, Path) ->
+    case epp:parse_file(File, Path, []) of
+        {ok,Fs0} ->
+            lists:foreach(fun wrap_each/1, Fs0)
+    end.
+
+wrap_each(Tree) ->
+    % only `wrap` top-level erl_parse node
+    Tree1 = erl_syntax:set_pos(Tree, erl_syntax:get_pos(Tree)),
+    % assert ability to access subtrees of wrapped node with erl_syntax:subtrees/1
+    case erl_syntax:subtrees(Tree1) of
+        [] -> ok;
+        List ->
+            GrpsF = fun(Group) ->
+                          lists:foreach(fun wrap_each/1, Group)
+                    end,
+            lists:foreach(GrpsF, List)
+    end.
 
 %% api tests
 
@@ -272,7 +310,9 @@ t_erl_parse_type(Config) when is_list(Config) ->
 		     {"#{ a:=1, b:=2 }", map_expr,false},
 		     {"M#{ a=>1, b=>2 }", map_expr,false},
 		     {"[V||V <- Vs]", list_comp,false},
+		     {"[catch V||V <- Vs]", list_comp,false},
 		     {"<< <<B>> || <<B>> <= Bs>>", binary_comp,false},
+		     {"<< (catch <<B>>) || <<B>> <= Bs>>", binary_comp,false},
 		     {"#state{ a = A, b = B}", record_expr,false},
 		     {"#state{}", record_expr,false},
 		     {"#s{ a = #def{ a=A }, b = B}", record_expr,false},
@@ -292,6 +332,13 @@ t_epp_dodger(Config) when is_list(Config) ->
     PrivDir   = ?config(priv_dir, Config),
     Filenames = test_files(),
     ok = test_epp_dodger(Filenames,DataDir,PrivDir),
+    ok.
+
+t_epp_dodger_clever(Config) when is_list(Config) ->
+    DataDir   = ?config(data_dir, Config),
+    PrivDir   = ?config(priv_dir, Config),
+    Filenames = ["epp_dodger_clever.erl"],
+    ok = test_epp_dodger_clever(Filenames,DataDir,PrivDir),
     ok.
 
 t_comment_scan(Config) when is_list(Config) ->
@@ -318,33 +365,6 @@ test_files() ->
      "type_specs.erl",
      "specs_and_funs.erl"].
 
-t_igor(Config) when is_list(Config) ->
-    DataDir   = ?config(data_dir, Config),
-    PrivDir   = ?config(priv_dir, Config),
-    FileM1  = filename:join(DataDir,"m1.erl"),
-    FileM2  = filename:join(DataDir,"m2.erl"),
-    ["m.erl",_]=R = igor:merge(m,[FileM1,FileM2],[{outdir,PrivDir}]),
-    io:format("igor:merge/3 = ~p~n", [R]),
-
-    FileTypeSpecs = filename:join(DataDir,"igor_type_specs.erl"),
-    Empty = filename:join(DataDir,"empty.erl"),
-    ["n.erl",_]=R2 = igor:merge(n,[FileTypeSpecs,Empty],[{outdir,PrivDir}]),
-    io:format("igor:merge/3 = ~p~n", [R2]),
-
-    ok.
-
-t_erl_tidy(Config) when is_list(Config) ->
-    DataDir   = ?config(data_dir, Config),
-    File  = filename:join(DataDir,"erl_tidy_tilde.erl"),
-    ok = erl_tidy:file(File, [{stdout, true}]),
-
-    %% OTP-14471.
-    Old = process_flag(trap_exit, true),
-    NonExisting  = filename:join(DataDir,"non_existing_file.erl"),
-    {'EXIT',{error,{0,file,enoent}}} = (catch erl_tidy:file(NonExisting)),
-    true = process_flag(trap_exit, Old),
-    ok.
-
 test_comment_scan([],_) -> ok;
 test_comment_scan([File|Files],DataDir) ->
     Filename  = filename:join(DataDir,File),
@@ -362,7 +382,7 @@ test_comment_scan([File|Files],DataDir) ->
 	  end,
     Fs1 = erl_recomment:recomment_forms(Fs0, Comments),
     Fs2 = erl_syntax_lib:map(Fun, Fs1),
-    io:format("File: ~s~n", [Filename]),
+    io:format("File: ~ts~n", [Filename]),
     io:put_chars(erl_prettypr:format(Fs2, [{paper,  120},
 					   {ribbon, 110}])),
     test_comment_scan(Files,DataDir).
@@ -377,8 +397,8 @@ test_prettypr([File|Files],DataDir,PrivDir) ->
     PP = erl_prettypr:format(Fs, [{paper,  120}, {ribbon, 110}]),
     io:put_chars(PP),
     OutFile = filename:join(PrivDir, File),
-    ok = file:write_file(OutFile,iolist_to_binary(PP)),
-    io:format("Parsing OutFile: ~s~n", [OutFile]),
+    ok = file:write_file(OutFile,unicode:characters_to_binary(PP)),
+    io:format("Parsing OutFile: ~ts~n", [OutFile]),
     {ok, Fs2} = epp:parse_file(OutFile, [], []),
     case [Error || {error, _} = Error <- Fs2] of
         [] ->
@@ -411,9 +431,30 @@ test_epp_dodger([Filename|Files],DataDir,PrivDir) ->
     ok = pretty_print_parse_forms(FsForms,PrivDir,Filename),
     test_epp_dodger(Files,DataDir,PrivDir).
 
+test_epp_dodger_clever([], _, _) -> ok;
+test_epp_dodger_clever([Filename|Files],DataDir,PrivDir) ->
+    io:format("Parsing ~p~n", [Filename]),
+    InFile   = filename:join(DataDir, Filename),
+    Parsers  = [{fun(File) ->
+                         epp_dodger:parse_file(File, [clever])
+                 end, parse_file},
+		{fun(File) ->
+                         epp_dodger:quick_parse_file(File, [clever])
+                 end, quick_parse_file}],
+    FsForms  = parse_with(Parsers, InFile),
+    ok = pretty_print_parse_forms(FsForms,PrivDir,Filename),
+    test_epp_dodger_clever(Files,DataDir,PrivDir).
+
 parse_with([],_) -> [];
 parse_with([{Fun,ParserType}|Funs],File) ->
     {ok, Fs} = Fun(File),
+    ErrorMarkers = [begin
+                        print_error_markers(F, File),
+                        F
+                    end
+                    || F <- Fs,
+                       erl_syntax:type(F) =:= error_marker],
+    [] = ErrorMarkers,
     [{Fs,ParserType}|parse_with(Funs,File)].
 
 pretty_print_parse_forms([],_,_) -> ok;
@@ -445,7 +486,7 @@ pretty_print_parse_forms([{Fs0,Type}|FsForms],PrivDir,Filename) ->
     {Fs2,{CC,CT}} = erl_syntax_lib:mapfold(Comment,{0,0}, Fs1),
     io:format("Commented on ~w cases and ~w tries~n", [CC,CT]),
     PP  = erl_prettypr:format(Fs2),
-    ok  = file:write_file(OutFile,iolist_to_binary(PP)),
+    ok  = file:write_file(OutFile,unicode:characters_to_binary(PP)),
     pretty_print_parse_forms(FsForms,PrivDir,Filename).
 
 

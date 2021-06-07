@@ -1,0 +1,21 @@
+
+  [;1m-spec term_to_binary(Term) -> ext_binary() when Term :: term().[0m
+
+  Returns a binary data object that is the result of encoding [;;4mTerm[0m
+  according to the Erlang external term format.
+
+  This can be used for various purposes, for example, writing a term
+  to a file in an efficient way, or sending an Erlang term to some
+  type of communications channel not supported by distributed
+  Erlang.
+
+    > Bin = term_to_binary(hello).
+    <<131,100,0,5,104,101,108,108,111>>
+    > hello = binary_to_term(Bin).
+    hello
+
+  See also [;;4mbinary_to_term/1[0m.
+
+  Note:
+    There is no guarantee that this function will return the same
+    encoded representation for the same term.

@@ -26,10 +26,12 @@
 	 wait_for_progress/0, report_progress/1,
 	 user_term/3, user_term_multiline/3,
 	 interval_dialog/4, start_timer/1, start_timer/2, stop_timer/1, timer_config/1,
-	 display_info/2, display_info/3, fill_info/2, update_info/2, to_str/1,
+	 display_info/2, display_info/3,
+	 fill_info/2, fill_info/3, update_info/2,
+	 to_str/1,
 	 create_menus/3, create_menu_item/3,
-	 create_attrs/0,
-	 set_listctrl_col_size/2,
+	 is_darkmode/1, colors/1, create_attrs/1,
+	 set_listctrl_col_size/2, mix/3,
 	 create_status_bar/1,
 	 html_window/1, html_window/2,
          make_obsbin/2,
@@ -151,7 +153,8 @@ display_info(Panel, Sizer, Info) ->
 		  case create_box(Panel, BoxInfo) of
 		      {Box, InfoFs} ->
 			  wxSizer:add(Sizer, Box,
-				      [{flag, ?wxEXPAND bor ?wxALL}, {border, 5}]),
+				      [{flag, ?wxEXPAND bor ?wxALL},
+				       {border, 5}]),
 			  wxSizer:addSpacer(Sizer, 5),
 			  InfoFs;
 		      undefined ->
@@ -160,51 +163,98 @@ display_info(Panel, Sizer, Info) ->
 	  end,
     [Add(I) || I <- Info].
 
-fill_info([{dynamic, Key}|Rest], Data)
+fill_info(Fields, Data) ->
+    fill_info(Fields, Data, undefined).
+
+fill_info([{dynamic, Key}|Rest], Data, Default)
   when is_atom(Key); is_function(Key) ->
     %% Special case used by crashdump_viewer when the value decides
     %% which header to use
-    case get_value(Key, Data) of
-	undefined -> [undefined | fill_info(Rest, Data)];
-	{Str,Value} -> [{Str, Value} | fill_info(Rest, Data)]
+    case get_value(Key, Data, Default) of
+	undefined   -> [undefined | fill_info(Rest, Data, Default)];
+	{Str,Value} -> [{Str, Value} | fill_info(Rest, Data, Default)]
     end;
-fill_info([{Str, Key}|Rest], Data) when is_atom(Key); is_function(Key) ->
-    case get_value(Key, Data) of
-	undefined -> [undefined | fill_info(Rest, Data)];
-	Value -> [{Str, Value} | fill_info(Rest, Data)]
+%% This crap is simply to make it unique, see above.
+fill_info([{socket, Str, {Level, Opt} = Key}|Rest], Data, Default)
+  when is_list(Str) andalso is_atom(Level) andalso is_atom(Opt) ->
+    %% d("fill_info(2) -> entry with"
+    %%   "~n   Str: ~s", [Str]),
+    Key = {Level, Opt},
+    case get_value(Key, Data, Default) of
+	undefined ->
+	    %% d("fill_info -> not found"),
+	    [undefined | fill_info(Rest, Data, Default)];
+	Value ->
+	    %% d("fill_info -> found: "
+	    %%   "~n   Value: ~p", [Value]),
+	    [{Str, Value} | fill_info(Rest, Data, Default)]
     end;
-fill_info([{Str,Attrib,Key}|Rest], Data) when is_atom(Key); is_function(Key) ->
-    case get_value(Key, Data) of
-	undefined -> [undefined | fill_info(Rest, Data)];
-	Value -> [{Str,Attrib,Value} | fill_info(Rest, Data)]
-    end;
-fill_info([{Str, {Format, Key}}|Rest], Data)
+fill_info([{Str, Key}|Rest], Data, Default)
   when is_atom(Key); is_function(Key) ->
-    case get_value(Key, Data) of
-	undefined -> [undefined | fill_info(Rest, Data)];
-	Value -> [{Str, {Format, Value}} | fill_info(Rest, Data)]
+    %% d("fill_info(3) -> entry with"
+    %%   "~n   Str: ~s", [Str]),
+    case get_value(Key, Data, Default) of
+	undefined ->
+	    [undefined | fill_info(Rest, Data, Default)];
+	Value ->
+	    [{Str, Value} | fill_info(Rest, Data, Default)]
     end;
-fill_info([{Str, Attrib, {Format, Key}}|Rest], Data)
+fill_info([{Str, Attrib, Key}|Rest], Data, Default)
   when is_atom(Key); is_function(Key) ->
-    case get_value(Key, Data) of
-	undefined -> [undefined | fill_info(Rest, Data)];
-	Value -> [{Str, Attrib, {Format, Value}} | fill_info(Rest, Data)]
+    %% d("fill_info(4) -> entry with"
+    %%   "~n   Str: ~s", [Str]),
+    case get_value(Key, Data, Default) of
+	undefined ->
+	    [undefined | fill_info(Rest, Data, Default)];
+	Value ->
+	    [{Str,Attrib,Value} | fill_info(Rest, Data, Default)]
     end;
-fill_info([{Str,SubStructure}|Rest], Data) when is_list(SubStructure) ->
-    [{Str, fill_info(SubStructure, Data)}|fill_info(Rest,Data)];
-fill_info([{Str,Attrib,SubStructure}|Rest], Data) ->
-    [{Str, Attrib, fill_info(SubStructure, Data)}|fill_info(Rest,Data)];
-fill_info([{Str, Key = {K,N}}|Rest], Data) when is_atom(K), is_integer(N) ->
-    case get_value(Key, Data) of
-	undefined -> [undefined | fill_info(Rest, Data)];
-	Value -> [{Str, Value} | fill_info(Rest, Data)]
+fill_info([{Str, {Format, Key}}|Rest], Data, Default)
+  when is_atom(Key); is_function(Key) ->
+    %% d("fill_info(5) -> entry with"
+    %%   "~n   Str: ~s", [Str]),
+    case get_value(Key, Data, Default) of
+	undefined -> [undefined | fill_info(Rest, Data, Default)];
+	Value -> [{Str, {Format, Value}} | fill_info(Rest, Data, Default)]
     end;
-fill_info([], _) -> [].
+fill_info([{Str, Attrib, {Format, Key}}|Rest], Data, Default)
+  when is_atom(Key); is_function(Key) ->
+    %% d("fill_info(6) -> entry with"
+    %%   "~n   Str:    ~s"
+    %%   "~n   Attrib: ~p"
+    %%   "~n   Format: ~p"
+    %%   "~n   Key:    ~p", [Str, Attrib, Format, Key]),
+    case get_value(Key, Data, Default) of
+	undefined -> [undefined | fill_info(Rest, Data, Default)];
+	Value -> [{Str, Attrib, {Format, Value}} |
+		  fill_info(Rest, Data, Default)]
+    end;
+fill_info([{Str, SubStructure}|Rest], Data, Default)
+  when is_list(SubStructure) ->
+    %% d("fill_info(7) -> entry with"
+    %%   "~n   Str: ~s", [Str]),
+    [{Str, fill_info(SubStructure, Data, Default)}|
+     fill_info(Rest, Data, Default)];
+fill_info([{Str, Attrib, SubStructure}|Rest], Data, Default) ->
+    %% d("fill_info(8) -> entry with"
+    %%   "~n   Str: ~s", [Str]),
+    [{Str, Attrib, fill_info(SubStructure, Data, Default)}|
+     fill_info(Rest, Data, Default)];
+fill_info([{Str, Key = {K,N}}|Rest], Data, Default)
+  when is_atom(K), is_integer(N) ->
+    %% d("fill_info(9) -> entry with"
+    %%   "~n   Str: ~s", [Str]),
+    case get_value(Key, Data, Default) of
+	undefined -> [undefined | fill_info(Rest, Data, Default)];
+	Value -> [{Str, Value} | fill_info(Rest, Data, Default)]
+    end;
+fill_info([], _, _Default) ->
+    [].
 
-get_value(Fun, Data) when is_function(Fun) ->
+get_value(Fun, Data, _Default) when is_function(Fun) ->
     Fun(Data);
-get_value(Key, Data) ->
-    proplists:get_value(Key,Data).
+get_value(Key, Data, Default) ->
+    proplists:get_value(Key, Data, Default).
 
 update_info([Fields|Fs], [{_Header, SubStructure}| Rest]) ->
     update_info2(Fields, SubStructure),
@@ -373,26 +423,44 @@ create_menu_item(separator, Menu, Index) ->
     wxMenu:insertSeparator(Menu, Index),
     Index+1.
 
-create_attrs() ->
-    Font = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
+colors(Window) ->
+    DarkMode = is_darkmode(wxWindow:getBackgroundColour(Window)),
     Text = case wxSystemSettings:getColour(?wxSYS_COLOUR_LISTBOXTEXT) of
-	       {255,255,255,_} -> {10,10,10};  %% Is white on Mac for some reason
-	       Color -> Color
-	   end,
-    #attrs{even = wxListItemAttr:new(Text, ?BG_EVEN, Font),
-	   odd  = wxListItemAttr:new(Text, ?BG_ODD, Font),
-	   deleted = wxListItemAttr:new(?FG_DELETED, ?BG_DELETED, Font),
-	   changed_even = wxListItemAttr:new(Text, mix(?BG_CHANGED,?BG_EVEN), Font),
-	   changed_odd  = wxListItemAttr:new(Text, mix(?BG_CHANGED,?BG_ODD), Font),
-	   new_even = wxListItemAttr:new(Text, mix(?BG_NEW,?BG_EVEN), Font),
-	   new_odd  = wxListItemAttr:new(Text, mix(?BG_NEW, ?BG_ODD), Font),
-	   searched = wxListItemAttr:new(Text, ?BG_SEARCHED, Font)
-	  }.
+               {255,255,255,_} when not DarkMode -> {10,10,10}; %% Is white on Mac for some reason
+               Color -> Color
+           end,
+    Even = wxSystemSettings:getColour(?wxSYS_COLOUR_LISTBOX),
+    Odd = mix(Even, wxSystemSettings:getColour(?wxSYS_COLOUR_HIGHLIGHT), 0.8),
+    #colors{fg=rgb(Text), even=rgb(Even), odd=rgb(Odd)}.
 
-mix(RGB,_) -> RGB.
+create_attrs(Window) ->
+    Font = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
+    #colors{fg=Text, even=Even, odd=Odd} = colors(Window),
+    #attrs{even = wxListItemAttr:new(Text, Even, Font),
+           odd  = wxListItemAttr:new(Text, Odd, Font),
+           deleted = wxListItemAttr:new(?FG_DELETED, ?BG_DELETED, Font),
+           changed_even = wxListItemAttr:new(Text, mix(?BG_CHANGED, ?BG_EVEN, 0.9), Font),
+           changed_odd  = wxListItemAttr:new(Text, mix(?BG_CHANGED, ?BG_ODD, 0.9), Font),
+           new_even = wxListItemAttr:new(Text, mix(?BG_NEW, ?BG_EVEN, 0.9), Font),
+           new_odd  = wxListItemAttr:new(Text, mix(?BG_NEW, ?BG_ODD, 0.9), Font),
+           searched = wxListItemAttr:new(Text, ?BG_SEARCHED, Font)
+          }.
 
-%% mix({R,G,B},{MR,MG,MB}) ->
-%%     {trunc(R*MR/255), trunc(G*MG/255), trunc(B*MB/255)}.
+rgb({R,G,B,_}) -> {R,G,B};
+rgb({_,_,_}=RGB) -> RGB.
+
+mix(RGB,{MR,MG,MB,_}, V) ->
+    mix(RGB, {MR,MG,MB}, V);
+mix({R,G,B,_}, RGB, V) ->
+    mix({R,G,B}, RGB, V);
+mix({R,G,B},{MR,MG,MB}, V) when V =< 1.0 ->
+    {min(255, round(R*V+MR*(1.0-V))),
+     min(255, round(G*V+MG*(1.0-V))),
+     min(255, round(B*V+MB*(1.0-V)))}.
+
+
+is_darkmode({R,G,B,_}) ->
+    ((R+G+B) div 3) < 100.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -871,3 +939,19 @@ make_obsbin(Bin,Tab) ->
     Key = {Preview, Size, Hash},
     ets:insert(Tab, {Key,Bin}),
     ['#OBSBin',Preview,PreviewBitSize,Size,Hash].
+
+
+%% d(F) ->
+%%     d(F, []).
+
+%% d(Debug, F) when is_boolean(Debug) andalso is_list(F) ->
+%%     d(Debug, F, []);
+%% d(F, A) when is_list(F) andalso is_list(A) ->
+%%     d(get(debug), F, A).
+
+%% d(true, F, A) ->
+%%    io:format("[ol] " ++ F ++ "~n", A);
+%% d(_, _, _) ->
+%%    ok.
+
+

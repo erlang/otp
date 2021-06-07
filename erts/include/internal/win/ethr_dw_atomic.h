@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ typedef volatile __int64 * ethr_native_dw_ptr_t;
  * runtime. We, therefore, need an extra word allocated.
  */
 #define ETHR_DW_NATMC_MEM__(VAR) \
-   (&var->c[(int) ((ethr_uint_t) &(VAR)->c[0]) & ETHR_DW_NATMC_ALIGN_MASK__])
+   (&(VAR)->c[(int) ((ethr_uint_t) &(VAR)->c[0]) & ETHR_DW_NATMC_ALIGN_MASK__])
 typedef union {
 #ifdef ETHR_NATIVE_SU_DW_SINT_T
     volatile ETHR_NATIVE_SU_DW_SINT_T dw_sint;
@@ -115,12 +115,12 @@ ethr_native_dw_atomic_addr(ethr_native_dw_atomic_t *var)
 
 static ETHR_INLINE ethr_sint64_t
 ethr_native_su_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
-				    ethr_sint64_t new,
+				    ethr_sint64_t new_value,
 				    ethr_sint64_t exp)
 {
     ethr_native_dw_ptr_t p = (ethr_native_dw_ptr_t) ETHR_DW_NATMC_MEM__(var);
     ETHR_DW_DBG_ALIGNED__(p);
-    return (ethr_sint64_t) _InterlockedCompareExchange64(p, new, exp);
+    return (ethr_sint64_t) _InterlockedCompareExchange64(p, new_value, exp);
 }
 
 #elif ETHR_SIZEOF_PTR == 8
@@ -137,14 +137,14 @@ ethr_native_su_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
 
 static ETHR_INLINE int
 ethr_native_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
-				 ethr_sint_t *new,
+				 ethr_sint_t *new_value,
 				 ethr_sint_t *xchg)
 {
     ethr_native_dw_ptr_t p = (ethr_native_dw_ptr_t) ETHR_DW_NATMC_MEM__(var);
     ETHR_DW_DBG_ALIGNED__(p);
     return (int) _InterlockedCompareExchange128(p,
-						new[ETHR_WIN_HIGH_WORD__],
-						new[ETHR_WIN_LOW_WORD__],
+						new_value[ETHR_WIN_HIGH_WORD__],
+						new_value[ETHR_WIN_LOW_WORD__],
 						xchg);
 }
 

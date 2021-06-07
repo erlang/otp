@@ -1,0 +1,8 @@
+
+  [;1m-spec integer_to_list(Integer) -> string() when Integer :: integer().[0m
+
+  Returns a string corresponding to the text representation of [;;4m[0m
+  [;;4mInteger[0m, for example:
+
+    > integer_to_list(77).
+    "77"

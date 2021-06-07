@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,29 +42,7 @@ static unsigned long param_one = 1;
 #define MEANS_SOCKET_ERROR(Ret) ((Ret == SOCKET_ERROR))
 #define IS_INVALID_SOCKET(Sock) ((Sock) == INVALID_SOCKET)
 
-#elif VXWORKS
-#include <vxWorks.h>
-#include <hostLib.h>
-#include <ifLib.h>
-#include <sockLib.h>
-#include <taskLib.h>
-#include <inetLib.h>
-#include <selectLib.h>
-#include <ioLib.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h> 
-#include <timers.h>
-
-static unsigned long param_zero = 0;
-static unsigned long param_one = 1;
-#define SET_BLOCKING(Sock) ioctl((Sock),FIONBIO,(int)&param_zero)
-#define SET_NONBLOCKING(Sock) ioctl((Sock),FIONBIO,(int)&param_one)
-#define MEANS_SOCKET_ERROR(Ret) ((Ret) == ERROR)
-#define IS_INVALID_SOCKET(Sock) ((Sock) < 0)
-
-#else /* other unix */
+#else /* unix */
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -404,6 +382,12 @@ static int writev_ctx_t__(ei_socket_callbacks *cbs, void *ctx,
     do {
         error = cbs->writev(ctx, (const void *) iov, iovcnt, len, ms);
     } while (error == EINTR);
+
+    /* It should not be possible for writev_ctx_t__ to return EAGAIN,
+       because when the fd is set in non-blocking we always do a select on
+       the fd before trying to write. And if we do not do the select the fd
+       is always in blocking mode. */
+
     return error;
 }
 
@@ -417,7 +401,8 @@ int ei_writev_fill_ctx_t__(ei_socket_callbacks *cbs, void *ctx,
     struct iovec *current_iov;
     int current_iovcnt;
     int fd, error;
-    int basic;
+    int non_blocking = !(cbs->flags & EI_SCLBK_FLG_FULL_IMPL) &&
+        ms != EI_SCLBK_INF_TMO;
 
     if (!cbs->writev)
         return ENOTSUP;
@@ -426,12 +411,10 @@ int ei_writev_fill_ctx_t__(ei_socket_callbacks *cbs, void *ctx,
     if (error)
         return error;
 
-    basic = !(cbs->flags & EI_SCLBK_FLG_FULL_IMPL);
-    
     for (sum = 0, i = 0; i < iovcnt; ++i) {
 	sum += iov[i].iov_len;
     }
-    if (basic && ms != 0U) {
+    if (non_blocking) {
 	SET_NONBLOCKING(fd);
     } 
     current_iovcnt = iovcnt;
@@ -442,7 +425,7 @@ int ei_writev_fill_ctx_t__(ei_socket_callbacks *cbs, void *ctx,
 	error = writev_ctx_t__(cbs, ctx, current_iov, current_iovcnt, &i, ms);
         if (error) {
             *len = done;
-	    if (ms != 0U) {
+	    if (non_blocking) {
 		SET_BLOCKING(fd);
 	    }    
 	    if (iov_base != NULL) {
@@ -478,7 +461,7 @@ int ei_writev_fill_ctx_t__(ei_socket_callbacks *cbs, void *ctx,
 	    break;
 	}
     } 
-    if (basic && ms != 0U) {
+    if (non_blocking) {
 	SET_BLOCKING(fd);
     }
     if (iov_base != NULL) {
@@ -622,7 +605,7 @@ int ei_accept_ctx_t__(ei_socket_callbacks *cbs, void **ctx,
         } while (error == EINTR);
     }
     do {
-        error = cbs->accept(ctx, addr, len, ms);
+        error = cbs->EI_ACCEPT_NAME(ctx, addr, len, ms);
     } while (error == EINTR);
     return error;
 }
@@ -752,9 +735,10 @@ int ei_read_fill_ctx__(ei_socket_callbacks *cbs, void *ctx, char* buf, ssize_t *
 int ei_write_fill_ctx_t__(ei_socket_callbacks *cbs, void *ctx, const char *buf, ssize_t *len, unsigned ms)
 {
     ssize_t tot = *len, done = 0;
-    int error, fd = -1, basic = !(cbs->flags & EI_SCLBK_FLG_FULL_IMPL);
+    int error, fd = -1, non_blocking = !(cbs->flags & EI_SCLBK_FLG_FULL_IMPL) &&
+        ms != EI_SCLBK_INF_TMO;
     
-    if (basic && ms != 0U) {
+    if (non_blocking) {
         error = EI_GET_FD__(cbs, ctx, &fd);
         if (error)
             return error;
@@ -765,14 +749,14 @@ int ei_write_fill_ctx_t__(ei_socket_callbacks *cbs, void *ctx, const char *buf, 
 	error = write_ctx_t__(cbs, ctx, buf+done, &write_len, ms);
         if (error) {
             *len = done;
-	    if (basic && ms != 0U) {
+	    if (non_blocking) {
 		SET_BLOCKING(fd);
 	    }    
 	    return error;
 	}
 	done += write_len;
     } while (done < tot);
-    if (basic && ms != 0U) {
+    if (non_blocking) {
 	SET_BLOCKING(fd);
     }
     *len = done;

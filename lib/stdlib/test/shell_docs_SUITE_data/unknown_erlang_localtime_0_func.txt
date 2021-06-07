@@ -1,0 +1,12 @@
+
+  [;1m-spec erlang:localtime() -> DateTime[0m
+  [;1m                          when DateTime :: calendar:datetime().[0m
+
+  Returns the current local date and time, [;;4m{{Year, Month, Day},[0m
+  [;;4m{Hour, Minute, Second}}[0m, for example:
+
+    > erlang:localtime().
+    {{1996,11,6},{14,45,17}}
+
+  The time zone and Daylight Saving Time correction depend on the
+  underlying OS. The return value is based on the OS System Time.

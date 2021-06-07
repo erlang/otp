@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -70,16 +70,7 @@ print2(_Verbosity,Format,Arguments) ->
 
 
 timestamp() ->
-    format_timestamp(os:timestamp()).
-
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate =
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w ~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
-    lists:flatten(FormatDate).
+    snmp_misc:formated_timestamp().
 
 process_args([], Acc) ->
     lists:reverse(Acc);
@@ -109,7 +100,9 @@ image_of_verbosity(_)     -> "".
 
 %% ShortName
 image_of_sname(ma)        -> "MASTER-AGENT";
-image_of_sname(maw)       -> io_lib:format("MASTER-AGENT-worker(~p)",[self()]);
+image_of_sname(mamw)      -> io_lib:format("MASTER-AGENT-main_worker(~p)",[self()]);
+image_of_sname(masw)      -> io_lib:format("MASTER-AGENT-set_worker(~p)",[self()]);
+image_of_sname(manw)      -> io_lib:format("MASTER-AGENT-notif_worker(~p)",[self()]);
 image_of_sname(madis)     -> io_lib:format("MASTER-AGENT-discovery_inform_sender(~p)",
 					   [self()]);
 image_of_sname(mais)      -> io_lib:format("MASTER-AGENT-inform_sender(~p)",
@@ -147,6 +140,7 @@ image_of_sname(mns)       -> "M-NOTE-STORE";
 image_of_sname(mnif)      -> "M-NET-IF";
 image_of_sname(mnifl)     -> "M-NET-IF-LOGGER";
 image_of_sname(mnifw)     -> io_lib:format("M-NET-IF-worker(~p)", [self()]);
+image_of_sname(mnis)      -> "M-NIS";
 image_of_sname(mconf)     -> "M-CONF";
 
 image_of_sname(lc)        -> io_lib:format("LOG-CONVERTER(~p)", [self()]);
@@ -155,7 +149,8 @@ image_of_sname(mgr)       -> "MGR";
 image_of_sname(mgr_misc)  -> "MGR_MISC";
 
 image_of_sname(undefined) -> "";
-image_of_sname(V)         -> lists:flatten(io_lib:format("~p",[V])).
+image_of_sname(N) when is_list(N) -> N; % Used in testing
+image_of_sname(N)         -> lists:flatten(io_lib:format("~p", [N])).
 
 
 validate(info)  -> info;

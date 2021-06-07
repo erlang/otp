@@ -26,7 +26,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
--export([start/1, crash/1, call/1, cast/1, cast_fast/1,
+-export([start/1, crash/1, call/1, send_request/1, cast/1, cast_fast/1,
 	 continue/1, info/1, abcast/1, multicall/1, multicall_down/1,
 	 call_remote1/1, call_remote2/1, call_remote3/1,
 	 call_remote_n1/1, call_remote_n2/1, call_remote_n3/1, spec_init/1,
@@ -38,7 +38,10 @@
 	 undef_handle_call/1, undef_handle_cast/1, undef_handle_info/1,
 	 undef_init/1, undef_code_change/1, undef_terminate1/1,
 	 undef_terminate2/1, undef_in_terminate/1, undef_in_handle_info/1,
-	 undef_handle_continue/1
+	 undef_handle_continue/1,
+
+         format_log_1/1, format_log_2/1,
+         reply_by_alias_with_payload/1
 	]).
 
 -export([stop1/1, stop2/1, stop3/1, stop4/1, stop5/1, stop6/1, stop7/1,
@@ -61,7 +64,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [start, {group,stop}, crash, call, cast, cast_fast, info, abcast,
+    [start, {group,stop}, crash, call, send_request, cast, cast_fast, info, abcast,
      continue, multicall, multicall_down, call_remote1, call_remote2,
      call_remote3, call_remote_n1, call_remote_n2,
      call_remote_n3, spec_init,
@@ -71,7 +74,8 @@ all() ->
      call_format_status, error_format_status, terminate_crash_format,
      get_state, replace_state,
      call_with_huge_message_queue, {group, undef_callbacks},
-     undef_in_terminate, undef_in_handle_info].
+     undef_in_terminate, undef_in_handle_info,
+     format_log_1, format_log_2, reply_by_alias_with_payload].
 
 groups() -> 
     [{stop, [],
@@ -104,7 +108,8 @@ init_per_testcase(Case, Config) when Case == call_remote1;
 				     Case == call_remote3;
 				     Case == call_remote_n1;
 				     Case == call_remote_n2;
-				     Case == call_remote_n3 ->
+				     Case == call_remote_n3;
+                                     Case == send_request ->
     {ok,N} = start_node(hubba),
     [{node,N} | Config];
 
@@ -161,6 +166,18 @@ start(Config) when is_list(Config) ->
 	    ct:fail(not_stopped)
     end,
 
+    %% anonymous monitored
+    {ok, {Pid1b, Mon1b}} =
+	gen_server:start_monitor(gen_server_SUITE, [], []),
+    ok = gen_server:call(Pid1b, started_p),
+    ok = gen_server:call(Pid1b, stop),
+    receive
+	{'DOWN', Mon1b, process, Pid1b, stopped} ->
+	    ok
+    after 5000 ->
+	    ct:fail(not_stopped)
+    end,
+
     %% local register
     {ok, Pid2} =
 	gen_server:start({local, my_test_name},
@@ -191,6 +208,22 @@ start(Config) when is_list(Config) ->
 	    ct:fail(not_stopped)
     end,
 
+    %% local register monitored
+    {ok, {Pid3b, Mon3b}} =
+	gen_server:start_monitor({local, my_test_name},
+                                 gen_server_SUITE, [], []), 
+    ok = gen_server:call(my_test_name, started_p),
+    {error, {already_started, Pid3b}} =
+	gen_server:start_monitor({local, my_test_name},
+                                 gen_server_SUITE, [], []),
+    ok = gen_server:call(my_test_name, stop),
+    receive
+	{'DOWN', Mon3b, process, Pid3b, stopped} ->
+	    ok
+    after 5000 ->
+	    ct:fail(not_stopped)
+    end,
+
     %% global register
     {ok, Pid4} =
 	gen_server:start({global, my_test_name},
@@ -214,6 +247,22 @@ start(Config) when is_list(Config) ->
     ok = gen_server:call({global, my_test_name}, stop),
     receive
 	{'EXIT', Pid5, stopped} ->
+	    ok
+    after 5000 ->
+	    ct:fail(not_stopped)
+    end,
+
+    %% global register monitored
+    {ok, {Pid5b, Mon5b}} =
+	gen_server:start_monitor({global, my_test_name},
+                                 gen_server_SUITE, [], []), 
+    ok = gen_server:call({global, my_test_name}, started_p),
+    {error, {already_started, Pid5b}} =
+	gen_server:start_monitor({global, my_test_name},
+                                 gen_server_SUITE, [], []),
+    ok = gen_server:call({global, my_test_name}, stop),
+    receive
+	{'DOWN', Mon5b, process, Pid5b, stopped} ->
 	    ok
     after 5000 ->
 	    ct:fail(not_stopped)
@@ -457,6 +506,90 @@ call(Config) when is_list(Config) ->
 
     process_flag(trap_exit, OldFl),
     ok.
+
+%% --------------------------------------
+%% Test gen_server:send_request.
+%% --------------------------------------
+
+send_request(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    {ok, Pid} = gen_server:start_link({local, my_test_name},
+                                      gen_server_SUITE, [], []),
+
+    Async = fun(Process, Req) ->
+                    try
+                        Promise = gen_server:send_request(Process, Req),
+                        gen_server:wait_response(Promise, infinity)
+                    catch _:Reason:ST ->
+                            {'did_exit', Reason, ST}
+                    end
+            end,
+    {reply,ok} = Async(my_test_name, started_p),
+
+    {reply,delayed} = Async(Pid, {delayed_answer,1}),
+
+    %% two requests within a specified time.
+    Promise1 = gen_server:send_request(my_test_name, {call_within, 1000}),
+    Promise2 = gen_server:send_request(my_test_name, next_call),
+    {reply, ok} = gen_server:wait_response(Promise1, infinity),
+    {reply, ok} = gen_server:wait_response(Promise2, infinity),
+
+    Promise3 = gen_server:send_request(my_test_name, {call_within, 1000}),
+    no_reply = gen_server:check_response({foo, bar}, Promise3),
+    receive {[alias|Ref],_} = Msg when is_reference(Ref) ->
+            {reply, ok} = gen_server:check_response(Msg, Promise3)
+    after 1000 ->
+            %% Format changed which is ok. This test is just to make you
+            %% aware that you have changed it
+            exit(message_format_changed)
+    end,
+    timer:sleep(1500),
+
+    {reply, false} = Async(my_test_name, next_call),
+
+    %% timeout
+    Promise5 = gen_server:send_request(my_test_name, {delayed_answer,50}),
+    timeout = gen_server:wait_response(Promise5, 0),
+    {reply, delayed} = gen_server:wait_response(Promise5, infinity),
+
+    %% bad return value in the gen_server loop from handle_call.
+    {error,{{bad_return_value, badreturn},_}} = Async(my_test_name, badreturn),
+
+    %% Test other error cases
+    {error, {noproc,_}} = Async(Pid, started_p),
+    {error, {noproc,_}} = Async(my_test_name, started_p),
+    {error, {noconnection, _}} = Async({my_test_name, foo@node}, started_p),
+
+    {error, {noproc,_}} = Async({global, non_existing}, started_p),
+    catch exit(whereis(dummy_via), foo),
+    {'EXIT', {badarg,_}} =
+        (catch gen_server:send_request({via, dummy_via, non_existing}, started_p)),
+
+    %% Remote nodes
+    Via = dummy_via:reset(),
+    Remote = proplists:get_value(node,Config),
+    {ok, RPid} = rpc:call(Remote, gen_server, start, [{global, remote}, ?MODULE, [], []]),
+    dummy_via:register_name(remote, RPid),
+    {reply, ok} = Async(RPid, started_p),
+    {reply, ok} = Async({global, remote}, started_p),
+    {reply, ok} = Async({via, dummy_via, remote}, started_p),
+    {error, {shutdown, _}} = Async({global, remote}, stop_shutdown),
+    {error, {noproc, _}} = Async({global, remote}, started_p),
+    {error, {noproc, _}} = Async({via, dummy_via, remote}, started_p),
+    {error, {noproc, _}} = Async({via, dummy_via, non_existing}, started_p),
+
+    {ok, _} = rpc:call(Remote, gen_server, start, [{local, remote}, ?MODULE, [], []]),
+    {reply, ok} = Async({remote, Remote}, started_p),
+    {error, {shutdown, _}} = Async({remote, Remote}, stop_shutdown),
+    {error, {noproc, _}} = Async({remote, Remote}, started_p),
+
+    %% Cleanup
+    catch exit(Via, foo2),
+    receive {'EXIT', Via, foo2} -> ok end,
+    process_flag(trap_exit, OldFl),
+    ok.
+
 
 %% --------------------------------------
 %% Test handle_continue.
@@ -1199,20 +1332,22 @@ do_otp_7669_stop() ->
 
 %% Verify that sys:get_status correctly calls our format_status/2 fun.
 call_format_status(Config) when is_list(Config) ->
+    Parent = self(),
+
     {ok, Pid} = gen_server:start_link({local, call_format_status},
 				      ?MODULE, [], []),
     Status1 = sys:get_status(call_format_status),
-    {status, Pid, _Mod, [_PDict, running, _Parent, _, Data1]} = Status1,
+    {status, Pid, Mod, [_Pdict1, running, Parent, _, Data1]} = Status1,
     [format_status_called | _] = lists:reverse(Data1),
     Status2 = sys:get_status(call_format_status, 5000),
-    {status, Pid, _Mod, [_PDict, running, _Parent, _, Data2]} = Status2,
+    {status, Pid, Mod, [_Pdict2, running, Parent, _, Data2]} = Status2,
     [format_status_called | _] = lists:reverse(Data2),
 
     %% check that format_status can handle a name being a pid (atom is
     %% already checked by the previous test)
     {ok, Pid3} = gen_server:start_link(gen_server_SUITE, [], []),
     Status3 = sys:get_status(Pid3),
-    {status, Pid3, _Mod, [_PDict3, running, _Parent, _, Data3]} = Status3,
+    {status, Pid3, Mod, [_PDict3, running, Parent, _, Data3]} = Status3,
     [format_status_called | _] = lists:reverse(Data3),
 
     %% check that format_status can handle a name being a term other than a
@@ -1221,13 +1356,13 @@ call_format_status(Config) when is_list(Config) ->
     {ok, Pid4} = gen_server:start_link(GlobalName1,
 				       gen_server_SUITE, [], []),
     Status4 = sys:get_status(Pid4),
-    {status, Pid4, _Mod, [_PDict4, running, _Parent, _, Data4]} = Status4,
+    {status, Pid4, Mod, [_PDict4, running, Parent, _, Data4]} = Status4,
     [format_status_called | _] = lists:reverse(Data4),
     GlobalName2 = {global, {name, "term"}},
     {ok, Pid5} = gen_server:start_link(GlobalName2,
 				       gen_server_SUITE, [], []),
     Status5 = sys:get_status(GlobalName2),
-    {status, Pid5, _Mod, [_PDict5, running, _Parent, _, Data5]} = Status5,
+    {status, Pid5, Mod, [_PDict5, running, Parent, _, Data5]} = Status5,
     [format_status_called | _] = lists:reverse(Data5),
     ok.
 
@@ -1337,16 +1472,6 @@ replace_state(Config) when is_list(Config) ->
 %% Test that the time for a huge message queue is not
 %% significantly slower than with an empty message queue.
 call_with_huge_message_queue(Config) when is_list(Config) ->
-    case test_server:is_native(gen) of
-	true ->
-	    {skip,
-	     "gen is native - huge message queue optimization "
-	     "is not implemented"};
-	false ->
-	    do_call_with_huge_message_queue()
-    end.
-
-do_call_with_huge_message_queue() ->
     Pid = spawn_link(fun echo_loop/0),
 
     {Time,ok} = tc(fun() -> calls(10000, Pid) end),
@@ -1525,6 +1650,237 @@ wait_until_processed(Pid, Message, N) ->
             timer:sleep(100),
             wait_until_processed(Pid, Message, N-1);
         false ->
+            ok
+    end.
+
+%% Test report callback for Logger handler error_logger
+format_log_1(_Config) ->
+    FD = application:get_env(kernel,error_logger_format_depth),
+    application:unset_env(kernel,error_logger_format_depth),
+    Term = lists:seq(1,15),
+    Name = self(),
+    Report = #{label=>{gen_server,terminate},
+               name=>Name,
+               last_message=>Term,
+               state=>Term,
+               log=>[],
+               reason=>Term,
+               client_info=>{self(),{clientname,[]}}},
+    {F1,A1} = gen_server:format_log(Report),
+    FExpected1 = "** Generic server ~tp terminating \n"
+        "** Last message in was ~tp~n"
+        "** When Server state == ~tp~n"
+        "** Reason for termination ==~n** ~tp~n"
+        "** Client ~tp stacktrace~n"
+        "** ~tp~n",
+    ct:log("F1: ~ts~nA1: ~tp",[F1,A1]),
+    FExpected1=F1,
+    [Name,Term,Term,Term,clientname,[]] = A1,
+
+    Warning = #{label=>{gen_server,no_handle_info},
+                module=>?MODULE,
+                message=>Term},
+    {WF1,WA1} = gen_server:format_log(Warning),
+    WFExpected1 = "** Undefined handle_info in ~p~n"
+        "** Unhandled message: ~tp~n",
+    ct:log("WF1: ~ts~nWA1: ~tp",[WF1,WA1]),
+    WFExpected1=WF1,
+    [?MODULE,Term] = WA1,
+
+    Depth = 10,
+    ok = application:set_env(kernel,error_logger_format_depth,Depth),
+    Limited = [1,2,3,4,5,6,7,8,9,'...'],
+    {F2,A2} = gen_server:format_log(#{label=>{gen_server,terminate},
+                                      name=>Name,
+                                      last_message=>Term,
+                                      state=>Term,
+                                      log=>[],
+                                      reason=>Term,
+                                      client_info=>{self(),{clientname,[]}}}),
+    FExpected2 = "** Generic server ~tP terminating \n"
+        "** Last message in was ~tP~n"
+        "** When Server state == ~tP~n"
+        "** Reason for termination ==~n** ~tP~n"
+        "** Client ~tP stacktrace~n"
+        "** ~tP~n",
+    ct:log("F2: ~ts~nA2: ~tp",[F2,A2]),
+    FExpected2=F2,
+    [Name,Depth,Limited,Depth,Limited,Depth,Limited,Depth,
+     clientname,Depth,[],Depth] = A2,
+
+    {WF2,WA2} = gen_server:format_log(Warning),
+    WFExpected2 = "** Undefined handle_info in ~p~n"
+        "** Unhandled message: ~tP~n",
+    ct:log("WF2: ~ts~nWA2: ~tp",[WF2,WA2]),
+    WFExpected2=WF2,
+    [?MODULE,Limited,Depth] = WA2,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel,error_logger_format_depth);
+        _ ->
+            application:set_env(kernel,error_logger_format_depth,FD)
+    end,
+    ok.
+
+%% Test report callback for any Logger handler
+format_log_2(_Config) ->
+    Term = lists:seq(1,15),
+    Name = self(),
+    NameStr = pid_to_list(Name),
+    Report = #{label=>{gen_server,terminate},
+               name=>Name,
+               last_message=>Term,
+               state=>Term,
+               log=>[],
+               reason=>Term,
+               client_info=>{self(),{clientname,[]}}},
+    FormatOpts1 = #{},
+    Str1 = flatten_format_log(Report,FormatOpts1),
+    L1 = length(Str1),
+    Expected1 = "** Generic server "++NameStr++" terminating \n"
+        "** Last message in was ",
+    ct:log("Str1: ~ts",[Str1]),
+    ct:log("length(Str1): ~p",[L1]),
+    true = lists:prefix(Expected1,Str1),
+
+    Warning = #{label=>{gen_server,no_handle_info},
+                module=>?MODULE,
+                message=>Term},
+    WStr1 = flatten_format_log(Warning,FormatOpts1),
+    WL1 = length(WStr1),
+    WExpected1 = "** Undefined handle_info in gen_server_SUITE\n"
+        "** Unhandled message: ",
+    ct:log("WStr1: ~ts",[WStr1]),
+    ct:log("length(WStr1): ~p",[WL1]),
+    true = lists:prefix(WExpected1,WStr1),
+
+    Depth = 10,
+    FormatOpts2 = #{depth=>Depth},
+    Str2 = flatten_format_log(Report,FormatOpts2),
+    L2 = length(Str2),
+    Expected2 = "** Generic server "++NameStr++" terminating \n"
+        "** Last message in was ",
+    ct:log("Str2: ~ts",[Str2]),
+    ct:log("length(Str2): ~p",[L2]),
+    true = lists:prefix(Expected2,Str2),
+    true = L2<L1,
+
+    WStr2 = flatten_format_log(Warning,FormatOpts2),
+    WL2 = length(WStr2),
+    WExpected2 = "** Undefined handle_info in gen_server_SUITE\n"
+        "** Unhandled message: ",
+    ct:log("WStr2: ~ts",[WStr2]),
+    ct:log("length(WStr2): ~p",[WL2]),
+    true = lists:prefix(WExpected2,WStr2),
+    true = WL2<WL1,
+
+    FormatOpts3 = #{chars_limit=>200},
+    Str3 = flatten_format_log(Report,FormatOpts3),
+    L3 = length(Str3),
+    Expected3 = "** Generic server "++NameStr++" terminating \n"
+        "** Last message in was ",
+    ct:log("Str3: ~ts",[Str3]),
+    ct:log("length(Str3): ~p",[L3]),
+    true = lists:prefix(Expected3,Str3),
+    true = L3<L1,
+
+    WFormatOpts3 = #{chars_limit=>80},
+    WStr3 = flatten_format_log(Warning,WFormatOpts3),
+    WL3 = length(WStr3),
+    WExpected3 = "** Undefined handle_info in gen_server_SUITE\n"
+        "** Unhandled message: ",
+    ct:log("WStr3: ~ts",[WStr3]),
+    ct:log("length(WStr3): ~p",[WL3]),
+    true = lists:prefix(WExpected3,WStr3),
+    true = WL3<WL1,
+
+    FormatOpts4 = #{single_line=>true},
+    Str4 = flatten_format_log(Report,FormatOpts4),
+    L4 = length(Str4),
+    Expected4 = "Generic server "++NameStr++" terminating. Reason: ",
+    ct:log("Str4: ~ts",[Str4]),
+    ct:log("length(Str4): ~p",[L4]),
+    true = lists:prefix(Expected4,Str4),
+    true = L4<L1,
+
+    WStr4 = flatten_format_log(Warning,FormatOpts4),
+    WL4 = length(WStr4),
+    WExpected4 = "Undefined handle_info in gen_server_SUITE. "
+        "Unhandled message: ",
+    ct:log("WStr4: ~ts",[WStr4]),
+    ct:log("length(WStr4): ~p",[WL4]),
+    true = lists:prefix(WExpected4,WStr4),
+    true = WL4<WL1,
+
+    FormatOpts5 = #{single_line=>true, depth=>Depth},
+    Str5 = flatten_format_log(Report,FormatOpts5),
+    L5 = length(Str5),
+    Expected5 = "Generic server "++NameStr++" terminating. Reason: ",
+    ct:log("Str5: ~ts",[Str5]),
+    ct:log("length(Str5): ~p",[L5]),
+    true = lists:prefix(Expected5,Str5),
+    true = L5<L4,
+
+    WStr5 = flatten_format_log(Warning,FormatOpts5),
+    WL5 = length(WStr5),
+    WExpected5 = "Undefined handle_info in gen_server_SUITE. "
+        "Unhandled message: ",
+    ct:log("WStr5: ~ts",[WStr5]),
+    ct:log("length(WStr5): ~p",[WL5]),
+    true = lists:prefix(WExpected5,WStr5),
+    true = WL5<WL4,
+
+    FormatOpts6 = #{single_line=>true, chars_limit=>200},
+    Str6 = flatten_format_log(Report,FormatOpts6),
+    L6 = length(Str6),
+    Expected6 = "Generic server "++NameStr++" terminating. Reason: ",
+    ct:log("Str6: ~ts",[Str6]),
+    ct:log("length(Str6): ~p",[L6]),
+    true = lists:prefix(Expected6,Str6),
+    true = L6<L4,
+
+    WFormatOpts6 = #{single_line=>true, chars_limit=>80},
+    WStr6 = flatten_format_log(Warning,WFormatOpts6),
+    WL6 = length(WStr6),
+    WExpected6 = "Undefined handle_info in gen_server_SUITE. "
+        "Unhandled message: ",
+    ct:log("WStr6: ~ts",[WStr6]),
+    ct:log("length(WStr6): ~p",[WL6]),
+    true = lists:prefix(WExpected6,WStr6),
+    true = WL6<WL4,
+
+    ok.
+
+flatten_format_log(Report, Format) ->
+    lists:flatten(gen_server:format_log(Report, Format)).
+
+reply_by_alias_with_payload(Config) when is_list(Config) ->
+    %% "Payload" version of tag not used yet, but make sure
+    %% gen_server:reply/2 works with it...
+    %%
+    %% Whitebox...
+    Reply = make_ref(),
+    Alias = alias(),
+    Tag = [[alias|Alias], "payload"],
+    spawn_link(fun () ->
+                       gen_server:reply({undefined, Tag},
+                                        Reply)
+               end),
+    receive
+        {[[alias|Alias]|_] = Tag, Reply} ->
+            ok
+    end,
+    %% Check gen:reply/2 as well...
+    Reply2 = make_ref(),
+    Alias2 = alias(),
+    Tag2 = [[alias|Alias2], "payload"],
+    spawn_link(fun () ->
+                       gen:reply({undefined, Tag2},
+                                 Reply2)
+               end),
+    receive
+        {[[alias|Alias2]|_] = Tag2, Reply2} ->
             ok
     end.
 

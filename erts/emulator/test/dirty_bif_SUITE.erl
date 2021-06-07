@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -397,7 +397,9 @@ dirty_process_trace(Config) when is_list(Config) ->
     access_dirty_process(
       Config,
       fun() ->
-	      erlang:trace_pattern({erts_debug,dirty_io,2},
+	      %% BIFs can only be traced when their modules are loaded.
+	      code:ensure_loaded(erts_debug),
+	      1 = erlang:trace_pattern({erts_debug,dirty_io,2},
 				   [{'_',[],[{return_trace}]}],
 				   [local,meta]),
 	      ok

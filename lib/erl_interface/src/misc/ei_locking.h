@@ -24,11 +24,6 @@
 
 #include "config.h"
 
-#if defined(VXWORKS)
-#include <taskLib.h>
-#include <taskVarLib.h>
-#endif
-
 #ifdef __WIN32__
 #include <winsock2.h>
 #include <windows.h>
@@ -45,8 +40,6 @@
 typedef struct ei_mutex_s {
 #ifdef __WIN32__
   HANDLE lock;
-#elif VXWORKS
-  SEM_ID lock;
 #else /* unix */
 #if defined(HAVE_MIT_PTHREAD_H) || defined(HAVE_PTHREAD_H)
   pthread_mutex_t *lock;
@@ -64,7 +57,7 @@ int ei_mutex_lock(ei_mutex_t *l, int nblock);
 int ei_mutex_unlock(ei_mutex_t *l);
 
 
-#if defined(_REENTRANT) && !defined(VXWORKS) && !defined(__WIN32__)
+#if defined(_REENTRANT) && !defined(__WIN32__)
 
 void *ei_m_create(void);
 int ei_m_destroy(void *l);
@@ -72,6 +65,6 @@ int ei_m_lock(void *l);
 int ei_m_trylock(void *l);
 int ei_m_unlock(void *l);
 
-#endif /* _REENTRANT && !VXWORKS && !__WIN32__ */
+#endif /* _REENTRANT && !__WIN32__ */
 
 #endif /* _EI_LOCKING_H */

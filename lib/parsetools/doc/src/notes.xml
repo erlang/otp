@@ -31,6 +31,45 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add types and specifications for documentation.</p>
+          <p>
+	    Own Id: OTP-16957</p>
+        </item>
+        <item>
+          <p>
+	    Let Leex and Yecc recognize the environment variable
+	    ERL_COMPILER_OPTIONS. Add Yecc option <c>{error_location,
+	    column | line}</c>.</p>
+          <p>
+	    Own Id: OTP-17023</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove usage and documentation of old requests of the
+	    I/O-protocol.</p>
+          <p>
+	    Own Id: OTP-15695</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.1.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

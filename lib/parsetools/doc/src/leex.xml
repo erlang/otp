@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2009</year><year>2017</year>
+      <year>2009</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,32 +29,27 @@
     <note><p>The Leex module should be considered experimental
       as it will be subject to changes in future releases.</p></note>
   </description>
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none">
-ErrorInfo = {ErrorLine,module(),error_descriptor()}
-ErrorLine = integer()
-Token = tuple()</code>
-  </section>
+
+  <datatypes>
+    <datatype>
+      <name name="error_info"></name>
+      <desc><p>The standard <c>error_info()</c> structure that is returned
+        from all I/O modules. <c><anno>ErrorDescriptor</anno></c> is formattable
+        by <seemfa marker="#format_error/1"><c>format_error/1</c></seemfa>.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
-      <name since="">file(FileName) -> LeexRet</name>
-      <name since="OTP R16B02">file(FileName, Options) -> LeexRet</name>
+      <name name="file" arity="1" since=""/>
+      <name name="file" arity="2" since="OTP R16B02"/>
       <fsummary>Generate a lexical analyzer</fsummary>
-      <type>
-        <v>FileName = filename()</v>
-        <v>Options = Option | [Option]</v>
-        <v>Option =&nbsp;-&nbsp;see below&nbsp;-</v>
-        <v>LeexRet = {ok, Scannerfile}
-                   | {ok, Scannerfile, Warnings}
-                   | error
-                   | {error, Errors, Warnings}</v>
-        <v>Scannerfile = filename()</v>
-        <v>Warnings = Errors = [{filename(), [ErrorInfo]}]</v>
-        <v>ErrorInfo  = {ErrorLine, module(), Reason}</v>
-        <v>ErrorLine = integer()</v>
-        <v>Reason =&nbsp;-&nbsp;formatable by format_error/1&nbsp;-</v>
-      </type>
+      <type name="leex_ret"/>
+      <type name="ok_ret"/>
+      <type name="error_ret"/>
+      <type name="errors"/>
+      <type name="warnings"/>
       <desc>
         <p>Generates a lexical analyzer from the definition in the input
           file. The input file has the extension <c>.xrl</c>. This is
@@ -68,92 +63,92 @@ Token = tuple()</code>
               description of the DFA in a format which can be viewed with
               Graphviz, <c>www.graphviz.com</c>.</p>
             </item>
-            <tag><c>{includefile,Includefile}</c></tag>
+            <tag><c>{includefile,<anno>Includefile</anno>}</c></tag>
             <item><p>Uses a specific or customised prologue file
               instead of default
               <c>lib/parsetools/include/leexinc.hrl</c> which is
               otherwise included.</p>
             </item>
-            <tag><c>{report_errors, bool()}</c></tag>
+            <tag><c>{report_errors, boolean()}</c></tag>
             <item><p>Causes errors to be printed as they occur. Default is
               <c>true</c>.</p>
             </item>
-            <tag><c>{report_warnings, bool()}</c></tag>
+            <tag><c>{report_warnings, boolean()}</c></tag>
             <item><p>Causes warnings to be printed as they occur. Default is
               <c>true</c>.</p>
             </item>
-            <tag><c>warnings_as_errors</c></tag>
-            <item>
-              <p>Causes warnings to be treated as errors.</p>
-            </item>
-            <tag><c>{report, bool()}</c></tag>
+            <tag><c>{report, boolean()}</c></tag>
             <item><p>This is a short form for both <c>report_errors</c> and
               <c>report_warnings</c>.</p>
             </item>
-            <tag><c>{return_errors, bool()}</c></tag>
-            <item><p>If this flag is set, <c>{error, Errors, Warnings}</c>
+            <tag><c>{return_errors, boolean()}</c></tag>
+            <item><p>If this flag is set,
+	      <c>{error, <anno>Errors</anno>, <anno>Warnings</anno>}</c>
               is returned when there are errors. Default is <c>false</c>.</p>
             </item>
-            <tag><c>{return_warnings, bool()}</c></tag>
+            <tag><c>{return_warnings, boolean()}</c></tag>
             <item><p>If this flag is set, an extra field containing
-              <c>Warnings</c> is added to the tuple returned upon
+              <c><anno>Warnings</anno></c> is added to the tuple returned upon
                success. Default is <c>false</c>.</p>
             </item>
-            <tag><c>{return, bool()}</c></tag>
+            <tag><c>{return, boolean()}</c></tag>
             <item><p>This is a short form for both <c>return_errors</c> and
               <c>return_warnings</c>.</p>
             </item>
-            <tag><c>{scannerfile, Scannerfile}</c></tag>
-            <item><p><c>Scannerfile</c> is the name of the file that
+            <tag><c>{scannerfile, <anno>Scannerfile</anno>}</c></tag>
+            <item><p><c><anno>Scannerfile</anno></c> is the name of the file that
              will contain the Erlang scanner code that is generated.
              The default (<c>""</c>) is to add the extension
-             <c>.erl</c> to <c>FileName</c> stripped of the
+             <c>.erl</c> to <c><anno>FileName</anno></c> stripped of the
              <c>.xrl</c> extension.</p>
             </item>
-            <tag><c>{verbose, bool()}</c></tag>
+            <tag><c>{verbose, boolean()}</c></tag>
             <item><p>Outputs information from parsing the input file and
               generating the internal tables.</p>
+            </item>
+            <tag><c>{warnings_as_errors, boolean()}</c></tag>
+            <item>
+              <p>Causes warnings to be treated as errors.</p>
             </item>
           </taglist>
         <p>Any of the Boolean options can be set to <c>true</c> by 
           stating the name of the option. For example, <c>verbose</c>
           is equivalent to <c>{verbose, true}</c>.</p>
         <p>Leex will add the extension <c>.hrl</c> to the 
-          <c>Includefile</c> name and the extension <c>.erl</c> to the
-          <c>Scannerfile</c> name, unless the extension is already
+          <c><anno>Includefile</anno></c> name and the extension <c>.erl</c> to the
+          <c><anno>Scannerfile</anno></c> name, unless the extension is already
           there.</p>
       </desc>
     </func>
     <func>
-      <name since="">format_error(ErrorInfo) -> Chars</name>
-      <fsummary>Return an English description of a an error tuple.</fsummary>
-      <type>
-        <v>Chars = [char() | Chars]</v>
-      </type>
+      <name name="format_error" arity="1" since=""/>
+      <fsummary>Return an English description of an error reason.</fsummary>
       <desc>
-        <p>Returns a string which describes the error
-          <c>ErrorInfo</c> returned when there is an error in a
-          regular expression.</p>
+        <p>Returns a descriptive string in English of an error reason
+        <c><anno>ErrorDescriptor</anno></c> returned by
+	<seemfa marker="#file/1"><c>leex:file/1,2</c></seemfa>
+	when there is an error in a regular expression.</p>
       </desc>
     </func>
   </funcs>
   
 
-  <section>
-    <title>GENERATED SCANNER EXPORTS</title>
-    <p>The following functions are exported by the generated scanner.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>GENERATED SCANNER EXPORTS</title>
+      <p>The following functions are exported by the generated scanner.</p>
+    </fsdescription>
     <func>
-      <name since="">string(String) -> StringRet</name>
-      <name since="">string(String, StartLine) -> StringRet</name>
+      <name since="">Module:string(String) -> StringRet</name>
+      <name since="">Module:string(String, StartLine) -> StringRet</name>
       <fsummary>Generated by Leex</fsummary>
       <type>
         <v>String = string()</v>
         <v>StringRet = {ok,Tokens,EndLine} | ErrorInfo</v>
         <v>Tokens = [Token]</v>
-        <v>EndLine = StartLine = integer()</v>
+        <v>EndLine = StartLine = erl_anno:line()</v>
       </type>
       <desc>
         <p>Scans <c>String</c> and returns all the tokens in it, or an
@@ -164,9 +159,9 @@ Token = tuple()</code>
     </func>
 
     <func>
-      <name since="">token(Cont, Chars) -> {more,Cont1} | {done,TokenRet,RestChars}
+      <name since="">Module:token(Cont, Chars) -> {more,Cont1} | {done,TokenRet,RestChars}
       </name>
-      <name since="">token(Cont, Chars, StartLine) -> {more,Cont1} 
+      <name since="">Module:token(Cont, Chars, StartLine) -> {more,Cont1}
              | {done,TokenRet,RestChars}
       </name>
       <fsummary>Generated by Leex</fsummary>
@@ -177,7 +172,7 @@ Token = tuple()</code>
         <v>TokenRet = {ok, Token, EndLine} 
                     | {eof, EndLine}
                     | ErrorInfo</v>
-        <v>StartLine = EndLine = integer()</v>
+        <v>StartLine = EndLine = erl_anno:line()</v>
       </type>
       <desc>
         <p>This is a re-entrant call to try and scan one token from
@@ -193,15 +188,15 @@ Token = tuple()</code>
           but used through the i/o system where it can typically be
           called in an application by:</p>
         <code>
-io:request(InFile, {get_until,Prompt,Module,token,[Line]})
+io:request(InFile, {get_until,unicode,Prompt,Module,token,[Line]})
   -> TokenRet</code>
       </desc>
     </func>
 
     <func>
-      <name since="">tokens(Cont, Chars) -> {more,Cont1} | {done,TokensRet,RestChars}
+      <name since="">Module:tokens(Cont, Chars) -> {more,Cont1} | {done,TokensRet,RestChars}
       </name>
-      <name since="">tokens(Cont, Chars, StartLine) -> 
+      <name since="">Module:tokens(Cont, Chars, StartLine) ->
                {more,Cont1} | {done,TokensRet,RestChars}
       </name>
       <fsummary>Generated by Leex</fsummary>
@@ -213,7 +208,7 @@ io:request(InFile, {get_until,Prompt,Module,token,[Line]})
                      | {eof, EndLine}
                      | ErrorInfo</v>
         <v>Tokens = [Token]</v>
-        <v>StartLine = EndLine = integer()</v>
+        <v>StartLine = EndLine = erl_anno:line()</v>
       </type>
       <desc>
         <p>This is a re-entrant call to try and scan tokens from
@@ -240,11 +235,27 @@ io:request(InFile, {get_until,Prompt,Module,token,[Line]})
           but used through the i/o system where it can typically be
           called in an application by:</p>
         <code>
-io:request(InFile, {get_until,Prompt,Module,tokens,[Line]})
+io:request(InFile, {get_until,unicode,Prompt,Module,tokens,[Line]})
   -> TokensRet</code>
       </desc>
     </func>
   </funcs>
+
+  <section>
+    <title>Default Leex Options</title>
+    <p>The (host operating system) environment variable
+      <c>ERL_COMPILER_OPTIONS</c> can be used to give default Leex
+      options. Its value must be a valid Erlang term. If the value is a
+      list, it is used as is. If it is not a list, it is put
+      into a list.</p>
+
+      <p>The list is appended to any options given to
+      <seemfa marker="#file/2">file/2</seemfa>.</p>
+
+      <p>The list can be retrieved with
+      <seemfa marker="compiler:compile#env_compiler_options/0">
+      compile:env_compiler_options/0</seemfa>.</p>
+  </section>
 
   <section>
     <title>Input File Format</title>

@@ -104,11 +104,12 @@ transform_parse_error_test(_Config) ->
 
 otp_15291(_Config) ->
     C0 = merl:quote("() -> ok"),
-    {clause,1,[],[],[{atom,1,ok}]} = C0,
+    A1 = erl_anno:new(1),
+    {clause,A1,[],[],[{atom,A1,ok}]} = C0,
     C2 = merl:quote("(_,_) -> ok"),
-    {clause,1,[{var,1,'_'},{var,1,'_'}],[],[{atom,1,ok}]} = C2,
+    {clause,A1,[{var,A1,'_'},{var,A1,'_'}],[],[{atom,A1,ok}]} = C2,
     C1 = merl:quote("(_) -> ok"),
-    {clause,1,[{var,1,'_'}],[],[{atom,1,ok}]} = C1,
+    {clause,A1,[{var,A1,'_'}],[],[{atom,A1,ok}]} = C1,
     ok.
 
 %% utilities

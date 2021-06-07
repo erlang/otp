@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,15 +35,16 @@
 #include "erl_version.h"
 #include "hash.h"
 #include "atom.h"
-#include "beam_load.h"
+#include "beam_code.h"
 #include "erl_hl_timer.h"
 #include "erl_thr_progress.h"
 #include "erl_proc_sig_queue.h"
+#include "dist.h"
 
 /* Forward declarations -- should really appear somewhere else */
 static void process_killer(void);
 void do_break(void);
-void erl_crash_dump_v(char *file, int line, char* fmt, va_list args);
+void erl_crash_dump_v(char *file, int line, const char* fmt, va_list args);
 
 #ifdef DEBUG
 static void bin_check(void);
@@ -54,7 +55,7 @@ static void print_garb_info(fmtfn_t to, void *to_arg, Process* p);
 static void dump_frequencies(void);
 #endif
 
-static void dump_attributes(fmtfn_t to, void *to_arg, byte* ptr, int size);
+static void dump_attributes(fmtfn_t to, void *to_arg, const byte* ptr, int size);
 
 extern char* erts_system_version[];
 
@@ -74,6 +75,7 @@ port_info(fmtfn_t to, void *to_arg)
 void
 process_info(fmtfn_t to, void *to_arg)
 {
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
     int i, max = erts_ptab_max(&erts_proc);
     for (i = 0; i < max; i++) {
 	Process *p = erts_pix2proc(i);
@@ -81,10 +83,35 @@ process_info(fmtfn_t to, void *to_arg)
 	    /* Do not include processes with no heap,
 	     * they are most likely just created and has invalid data
 	     */
-	    if (!ERTS_PROC_IS_EXITING(p) && p->heap != NULL)
-		print_process_info(to, to_arg, p, 0);
+	    if (p->heap != NULL) {
+                ErtsProcLocks locks = ((esdp && (p == esdp->current_process ||
+                                                 p == esdp->free_process))
+                                       ? ERTS_PROC_LOCK_MAIN : 0);
+		print_process_info(to, to_arg, p, locks);
+            }
 	}
     }
+
+    /* Look for FREE processes in the run-queues and dist entries.
+       These have been removed from the ptab but we still want them
+       in the crash dump for debugging. */
+
+    /* First loop through all run-queues */
+    for (i = 0; i < erts_no_schedulers + ERTS_NUM_DIRTY_RUNQS; i++) {
+        ErtsRunQueue *rq = ERTS_RUNQ_IX(i);
+        int j;
+        for (j = 0; j < ERTS_NO_PROC_PRIO_QUEUES; j++) {
+            Process *p = rq->procs.prio[j].first;
+            while (p) {
+                if (ERTS_PSFLG_FREE & erts_atomic32_read_acqb(&p->state))
+                    print_process_info(to, to_arg, p, 0);
+                p = p->next;
+            }
+        }
+    }
+
+    /* Then check all dist entries */
+    erts_dist_print_procs_suspended_on_de(to, to_arg);
 
     port_info(to, to_arg);
 }
@@ -108,6 +135,7 @@ process_killer(void)
 		    erts_exit(0, "");
 		switch(j) {
 		case 'k':
+                    ASSERT(erts_init_process_id != ERTS_INVALID_PID);
                     /* Send a 'kill' exit signal from init process */
                     erts_proc_sig_send_exit(NULL, erts_init_process_id,
                                             rp->common.id, am_kill, NIL,
@@ -128,7 +156,7 @@ typedef struct {
     void *to_arg;
 } PrintMonitorContext;
 
-static void doit_print_link(ErtsLink *lnk, void *vpcontext)
+static int doit_print_link(ErtsLink *lnk, void *vpcontext, Sint reds)
 {
     PrintMonitorContext *pcontext = vpcontext;
     fmtfn_t to = pcontext->to;
@@ -140,10 +168,11 @@ static void doit_print_link(ErtsLink *lnk, void *vpcontext)
     } else {
 	erts_print(to, to_arg, ", %T", lnk->other.item);
     }
+    return 1;
 }
     
 
-static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
+static int doit_print_monitor(ErtsMonitor *mon, void *vpcontext, Sint reds)
 {
     ErtsMonitorData *mdp;
     PrintMonitorContext *pcontext = vpcontext;
@@ -195,14 +224,16 @@ static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
         /* ignore other monitors... */
         break;
     }
+    return 1;
 }
-			       
+
 /* Display info about an individual Erlang process */
 void
 print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_locks)
 {
     int garbing = 0;
     int running = 0;
+    int exiting = 0;
     Sint len;
     struct saved_calls *scb;
     erts_aint32_t state;
@@ -223,9 +254,12 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
 			| ERTS_PSFLG_DIRTY_RUNNING))
         running = 1;
 
+    if (state & ERTS_PSFLG_EXITING)
+        exiting = 1;
+
     if (!(locks & ERTS_PROC_LOCK_MAIN)) {
         locks |= ERTS_PROC_LOCK_MAIN;
-        if (ERTS_IS_CRASH_DUMPING && running) {
+        if (ERTS_IS_CRASH_DUMPING) {
             if (erts_proc_trylock(p, locks)) {
                 /* crash dumping and main lock taken, this probably means that
                    the process is doing a GC on a dirty-scheduler... so we cannot
@@ -243,7 +277,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
      * If the process is registered as a global process, display the
      * registered name
      */
-    if (p->common.u.alive.reg)
+    if (!ERTS_PROC_IS_EXITING(p) && p->common.u.alive.reg)
 	erts_print(to, to_arg, "Name: %T\n", p->common.u.alive.reg->name);
 
     /*
@@ -314,11 +348,11 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
 	     if (j < 0)
 		j += scb->len;
 	     if (scb->ct[j] == &exp_send)
-		erts_print(to, to_arg, "send");
+		erts_print(to, to_arg, "send\n");
 	     else if (scb->ct[j] == &exp_receive)
-		erts_print(to, to_arg, "'receive'");
+		erts_print(to, to_arg, "'receive'\n");
 	     else if (scb->ct[j] == &exp_timeout)
-		   erts_print(to, to_arg, "timeout");
+		   erts_print(to, to_arg, "timeout\n");
 	     else
 		 erts_print(to, to_arg, "%T:%T/%bpu\n",
 			    scb->ct[j]->info.mfa.module,
@@ -329,7 +363,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
     }
 
     /* display the links only if there are any*/
-    if (ERTS_P_LINKS(p) || ERTS_P_MONITORS(p) || ERTS_P_LT_MONITORS(p)) {
+    if (!exiting && (ERTS_P_LINKS(p) || ERTS_P_MONITORS(p) || ERTS_P_LT_MONITORS(p))) {
 	PrintMonitorContext context = {1, to, to_arg};
 	erts_print(to, to_arg,"Link list: [");
 	erts_link_tree_foreach(ERTS_P_LINKS(p), doit_print_link, &context);	
@@ -361,8 +395,12 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
     erts_print(to, to_arg, "OldBinVHeap: %b64u\n", BIN_OLD_VHEAP(p));
     erts_print(to, to_arg, "BinVHeap unused: %b64u\n",
                BIN_VHEAP_SZ(p) - p->off_heap.overhead);
-    erts_print(to, to_arg, "OldBinVHeap unused: %b64u\n",
-               BIN_OLD_VHEAP_SZ(p) - BIN_OLD_VHEAP(p));
+    if (BIN_OLD_VHEAP_SZ(p) >= BIN_OLD_VHEAP(p)) {
+        erts_print(to, to_arg, "OldBinVHeap unused: %b64u\n",
+                   BIN_OLD_VHEAP_SZ(p) - BIN_OLD_VHEAP(p));
+    } else {
+        erts_print(to, to_arg, "OldBinVHeap unused: overflow\n");
+    }
     erts_print(to, to_arg, "Memory: %beu\n", erts_process_memory(p, !0));
 
     if (garbing) {
@@ -433,7 +471,7 @@ loaded(fmtfn_t to, void *to_arg)
     int i;
     int old = 0;
     int cur = 0;
-    BeamCodeHeader* code;
+    const BeamCodeHeader* code;
     Module* modp;
     ErtsCodeIndex code_ix;
 
@@ -515,7 +553,7 @@ loaded(fmtfn_t to, void *to_arg)
 
 
 static void
-dump_attributes(fmtfn_t to, void *to_arg, byte* ptr, int size)
+dump_attributes(fmtfn_t to, void *to_arg, const byte* ptr, int size)
 {
     erts_print_base64(to, to_arg, ptr, size);
     erts_print(to, to_arg, "\n");
@@ -525,6 +563,8 @@ dump_attributes(fmtfn_t to, void *to_arg, byte* ptr, int size)
 void
 do_break(void)
 {
+    const char *helpstring = "BREAK: (a)bort (A)bort with dump (c)ontinue (p)roc info (i)nfo\n"
+        "       (l)oaded (v)ersion (k)ill (D)b-tables (d)istribution\n";
     int i;
 #ifdef __WIN32__
     char *mode; /* enough for storing "window" */
@@ -539,9 +579,7 @@ do_break(void)
 
     ASSERT(erts_thr_progress_is_blocking());
 
-    erts_printf("\n"
-		"BREAK: (a)bort (c)ontinue (p)roc info (i)nfo (l)oaded\n"
-		"       (v)ersion (k)ill (D)b-tables (d)istribution\n");
+    erts_printf("\n%s", helpstring);
 
     while (1) {
 	if ((i = sys_get_key(0)) <= 0)
@@ -626,7 +664,8 @@ do_break(void)
 	case '\n':
 	    continue;
 	default:
-	    erts_printf("Eh?\n\n");
+	    erts_printf("Invalid option '%c'. Please enter one of the following:\n%s",
+                        i, helpstring);
 	}
     }
 
@@ -731,7 +770,7 @@ crash_dump_limited_writer(void* vfdp, char* buf, size_t len)
 
 /* XXX THIS SHOULD BE IN SYSTEM !!!! */
 void
-erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
+erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
 {
     ErtsThrPrgrData tpd_buf; /* in case we aren't a managed thread... */
     int fd;
@@ -980,15 +1019,18 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     dump_atoms(to, to_arg);
 
     erts_cbprintf(to, to_arg, "=end\n");
+
     if (fp) {
         fclose(fp);
+    } else {
+        close(fd);
     }
-    close(fd);
+
     erts_fprintf(stderr,"done\n");
 }
 
 void
-erts_print_base64(fmtfn_t to, void *to_arg, byte* src, Uint size)
+erts_print_base64(fmtfn_t to, void *to_arg, const byte* src, Uint size)
 {
     static const byte base64_chars[] =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

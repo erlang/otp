@@ -1,0 +1,11 @@
+
+  [;1m-spec erlang:iolist_to_iovec(IoListOrBinary) -> iovec()[0m
+  [;1m                                when[0m
+  [;1m                                    IoListOrBinary ::[0m
+  [;1m                                        iolist() | binary().[0m
+
+[;;4mSince[0m:
+  OTP 20.1
+
+  Returns an iovec that is made from the integers and binaries in [;;4m[0m
+  [;;4mIoListOrBinary[0m.

@@ -36,15 +36,15 @@
       evaluating a function call, <c>case</c>- <c>receive</c>-
       <c>try</c>- expressions and match operator (=) expressions.</p>
     <p>In a pattern matching, a left-hand side
-      <seealso marker="expressions#pattern">pattern</seealso> is matched
+      <seeguide marker="expressions#pattern">pattern</seeguide> is matched
       against a right-hand side
-      <seealso marker="expressions#term">term</seealso>. If
+      <seeguide marker="expressions#term">term</seeguide>. If
       the matching succeeds, any unbound variables in the pattern
       become bound. If the matching fails, a run-time error occurs.</p>
     <p><em>Examples:</em></p>
     <pre>
 1> <input>X.</input>
-** 1: variable 'X' is unbound **
+** 1:1: variable 'X' is unbound **
 2> <input>X = 2.</input>
 2
 3> <input>X + 1.</input>

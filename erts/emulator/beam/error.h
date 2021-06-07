@@ -64,15 +64,16 @@
  * maintains some separation between the class tag and the actions.
  */
 #define EXF_OFFSET	EXTAG_BITS
-#define EXF_BITS	7
+#define EXF_BITS	8
 
-#define EXF_PANIC	(1<<(0+EXF_OFFSET))	/* ignore catches */
-#define EXF_THROWN	(1<<(1+EXF_OFFSET))	/* nonlocal return */
-#define EXF_LOG		(1<<(2+EXF_OFFSET))	/* write to logger on termination */
-#define EXF_NATIVE	(1<<(3+EXF_OFFSET))	/* occurred in native code */
-#define EXF_SAVETRACE	(1<<(4+EXF_OFFSET))	/* save stack trace in internal form */
-#define EXF_ARGLIST	(1<<(5+EXF_OFFSET))	/* has arglist for top of trace */
-#define EXF_RESTORE_NIF	(1<<(6+EXF_OFFSET))	/* restore original bif/nif */
+#define EXF_PANIC         (1<<(0+EXF_OFFSET)) /* ignore catches */
+#define EXF_THROWN        (1<<(1+EXF_OFFSET)) /* nonlocal return */
+#define EXF_LOG           (1<<(2+EXF_OFFSET)) /* write to logger on termination */
+#define EXF_NATIVE        (1<<(3+EXF_OFFSET)) /* occurred in native code */
+#define EXF_SAVETRACE     (1<<(4+EXF_OFFSET)) /* save stack trace in internal form */
+#define EXF_ARGLIST       (1<<(5+EXF_OFFSET)) /* has arglist for top of trace */
+#define EXF_RESTORE_NFUNC (1<<(6+EXF_OFFSET)) /* restore original bif/nif */
+#define EXF_HAS_EXT_INFO  (1<<(7+EXF_OFFSET)) /* has arglist for top of trace */
 
 #define EXC_FLAGBITS	(((1<<(EXF_BITS+EXF_OFFSET))-1) \
 			 & ~((1<<(EXF_OFFSET))-1))
@@ -120,6 +121,11 @@
 					/* Error with given arglist term
 					 * (exit reason in p->fvalue) */
 
+#define EXC_ERROR_3 (EXC_ERROR | EXF_ARGLIST | EXF_HAS_EXT_INFO)
+                                        /* Error with given arglist term
+                                         * and extended error info
+                                         * (exit reason in p->fvalue) */
+
 #define EXC_NORMAL		((1 << EXC_OFFSET) | EXC_EXIT)
 					/* Normal exit (reason 'normal') */
 #define EXC_INTERNAL_ERROR	((2 << EXC_OFFSET) | EXC_ERROR | EXF_PANIC)
@@ -155,10 +161,8 @@
 					/* No matching try clause */
 #define EXC_NOTSUP		((17 << EXC_OFFSET) | EXC_ERROR)
 					/* Not supported */
-
 #define EXC_BADMAP		((18 << EXC_OFFSET) | EXC_ERROR)
 					/* Bad map */
-
 #define EXC_BADKEY		((19 << EXC_OFFSET) | EXC_ERROR)
 					/* Bad key in map */
 
@@ -178,7 +182,6 @@
 #define BADMAP EXC_BADMAP
 #define BADMATCH EXC_BADMATCH
 #define SYSTEM_LIMIT EXC_SYSTEM_LIMIT
-
 
 /*
  * Pseudo error codes (these are never seen by the user).
@@ -211,10 +214,10 @@ extern Eterm exception_tag[NUMBER_EXC_TAGS];
 struct StackTrace {
     Eterm header;	/* bignum header - must be first in struct */
     Eterm freason; /* original exception reason is saved in the struct */
-    BeamInstr* pc;
-    ErtsCodeMFA* current;
+    ErtsCodePtr pc;
+    const ErtsCodeMFA* current;
     int depth;	/* number of saved pointers in trace[] */
-    BeamInstr *trace[1];  /* varying size - must be last in struct */
+    ErtsCodePtr trace[1];  /* varying size - must be last in struct */
 };
 
 #endif /* __ERROR_H__ */

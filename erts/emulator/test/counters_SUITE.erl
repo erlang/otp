@@ -22,12 +22,13 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([suite/0, all/0]).
--export([basic/1, bad/1, limits/1, indep/1, write_concurrency/1]).
+-export([basic/1, bad/1, limits/1, indep/1, write_concurrency/1,
+         error_info/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [basic, bad, limits, indep, write_concurrency].
+    [basic, bad, limits, indep, write_concurrency, error_info].
 
 basic(Config) when is_list(Config) ->
     Size = 10,
@@ -82,10 +83,14 @@ max_atomic_sz() ->
     end.
 
 bad(Config) when is_list(Config) ->
+    {'EXIT',{badarg,_}} = (catch counters:new(-(1 bsl 64),[])),
     {'EXIT',{badarg,_}} = (catch counters:new(0,[])),
     {'EXIT',{badarg,_}} = (catch counters:new(10,[bad])),
     {'EXIT',{badarg,_}} = (catch counters:new(10,[atomic, bad])),
     {'EXIT',{badarg,_}} = (catch counters:new(10,[write_concurrency | bad])),
+
+    {'EXIT',{system_limit,_}} = (catch counters:new(1 bsl 64,[write_concurrency])),
+
     Ref = counters:new(10,[]),
     {'EXIT',{badarg,_}} = (catch counters:get(1742, 7)),
     {'EXIT',{badarg,_}} = (catch counters:get(make_ref(), 7)),
@@ -130,7 +135,7 @@ limits_do(Ref) ->
 %% Verify that independent workers, using different counters
 %% within the same array, do not interfere with each other.
 indep(Config) when is_list(Config) ->
-    NScheds = erlang:system_info(schedulers),
+    NScheds = erlang:system_info(schedulers_online),
     Ref = counters:new(NScheds,[write_concurrency]),
     Rounds = 100,
     Papa = self(),
@@ -182,7 +187,7 @@ indep_subber(_Ref, _I, Val) ->
 write_concurrency(Config) when is_list(Config) ->
     rand:seed(exs1024s),
     io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
-    NScheds = erlang:system_info(schedulers),
+    NScheds = erlang:system_info(schedulers_online),
     Size = 100,
     Ref = counters:new(Size,[write_concurrency]),
     Rounds = 1000,
@@ -231,4 +236,119 @@ rand_log64() ->
     case rand:uniform(2) of
         1 -> -Uint;
         2 -> Uint
+    end.
+
+error_info(_Config) ->
+    Counters = counters:new(10, [write_concurrency]),
+    Huge = 1 bsl 64,
+
+    L = [{add,[bad_ref, 1, 99]},
+         {add,[{atomics, make_ref()}, 1, 99]},
+         {add,[Counters, bad_index, bad_value]},
+         {add,[Counters, 1, Huge]},
+         {add,[Counters, 0, 99]},
+         {add,[Counters, 11, 99]},
+
+         {get, [{atomics, make_ref()}, 1]},
+         {get, [Counters, 0]},
+         {get, [Counters, bad_index]},
+         {get, [Counters, 11]},
+
+         {info, [{atomics, make_ref()}]},
+         {info, [abc]},
+
+         {new, [0, []]},
+         {new, [11, bad_option_list]},
+         {new, [11, [bad_option]]},
+         {new, [1 bsl 64, []]},
+
+         {put, [{atomics, make_ref()}, 1, 42]},
+         {put, [Counters, 1, Huge]},
+         {put, [Counters, 0, 42]},
+         {put, [Counters, 11, 42]},
+         {put, [Counters, 0, abc]},
+
+         {sub, [{atomics, make_ref()}, 1, 99]},
+         {sub, [Counters, bad_index, bad_value]},
+         {sub, [Counters, 0, 99]},
+         {sub, [Counters, 1, Huge]},
+         {sub, [Counters, 11, 99]}
+        ],
+    do_error_info(L).
+
+do_error_info(L0) ->
+    L1 = lists:foldl(fun({_,A}, Acc) when is_integer(A) -> Acc;
+                        ({F,A}, Acc) -> [{F,A,[]}|Acc];
+                        ({F,A,Opts}, Acc) -> [{F,A,Opts}|Acc]
+                     end, [], L0),
+    Tests = ordsets:from_list([{F,length(A)} || {F,A,_} <- L1] ++
+                                  [{F,A} || {F,A} <- L0, is_integer(A)]),
+    Bifs0 = [{F,A} || {F,A} <- counters:module_info(exports),
+                      A =/= 0,
+                      F =/= module_info],
+    Bifs = ordsets:from_list(Bifs0),
+    NYI = [{F,lists:duplicate(A, '*'),nyi} || {F,A} <- Bifs -- Tests],
+    L = lists:sort(NYI ++ L1),
+    do_error_info(L, []).
+
+do_error_info([{_,Args,nyi}=H|T], Errors) ->
+    case lists:all(fun(A) -> A =:= '*' end, Args) of
+        true ->
+            do_error_info(T, [{nyi,H}|Errors]);
+        false ->
+            do_error_info(T, [{bad_nyi,H}|Errors])
+    end;
+do_error_info([{F,Args,Opts}|T], Errors) ->
+    eval_bif_error(F, Args, Opts, T, Errors);
+do_error_info([], Errors0) ->
+    case lists:sort(Errors0) of
+        [] ->
+            ok;
+        [_|_]=Errors ->
+            io:format("\n~p\n", [Errors]),
+            ct:fail({length(Errors),errors})
+    end.
+
+eval_bif_error(F, Args, Opts, T, Errors0) ->
+    Module = counters,
+    try apply(Module, F, Args) of
+        Result ->
+            case lists:member(no_fail, Opts) of
+                true ->
+                    do_error_info(T, Errors0);
+                false ->
+                    do_error_info(T, [{should_fail,{F,Args},Result}|Errors0])
+            end
+    catch
+        error:Reason:Stk ->
+            SF = fun(Mod, _, _) -> Mod =:= test_server end,
+            Str = erl_error:format_exception(error, Reason, Stk, #{stack_trim_fun => SF}),
+            BinStr = iolist_to_binary(Str),
+            ArgStr = lists:join(", ", [io_lib:format("~p", [A]) || A <- Args]),
+            io:format("\n~p:~p(~s)\n~ts", [Module,F,ArgStr,BinStr]),
+
+            case Stk of
+                [{Module,ActualF,ActualArgs,Info}|_] ->
+                    RE = <<"[*][*][*] argument \\d+:">>,
+                    Errors1 = case re:run(BinStr, RE, [{capture, none}]) of
+                                  match ->
+                                      Errors0;
+                                  nomatch when Reason =:= system_limit ->
+                                      Errors0;
+                                  nomatch ->
+                                      [{no_explanation,{F,Args},Info}|Errors0]
+                              end,
+
+                    Errors = case {ActualF,ActualArgs} of
+                                 {F,Args} ->
+                                     Errors1;
+                                 _ ->
+                                     [{renamed,{F,length(Args)},{ActualF,ActualArgs}}|Errors1]
+                             end,
+
+                    do_error_info(T, Errors);
+                _ ->
+                    Errors = [{renamed,{F,length(Args)},hd(Stk)}|Errors0],
+                    do_error_info(T, Errors)
+            end
     end.

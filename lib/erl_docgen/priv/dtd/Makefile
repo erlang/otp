@@ -46,7 +46,6 @@ DTD_FILES = \
 	fileref.dtd	 \
 	xhtml1-frameset.dtd \
 	appref.dtd \
-	cites.dtd \
 	common.image.dtd \
 	cref.dtd \
 	part.dtd \
@@ -55,13 +54,9 @@ DTD_FILES = \
 	common.dtd \
 	common.refs.dtd \
 	erlref.dtd \
-	report.dtd \
 	xhtml1-transitional.dtd \
-	bookinsidecover.dtd \
 	common.entities.dtd \
-	common.table.dtd \
-	fascicules.dtd \
-	terms.dtd
+	common.table.dtd
 
 ENT_FILES = \
 	xhtml-special.ent \

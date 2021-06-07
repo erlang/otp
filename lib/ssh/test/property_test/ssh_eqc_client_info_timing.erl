@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,37 +23,7 @@
 
 -compile(export_all).
 
--proptest(eqc).
--proptest([triq,proper]).
-
--ifndef(EQC).
--ifndef(PROPER).
--ifndef(TRIQ).
--define(EQC,true).
-%%-define(PROPER,true).
-%%-define(TRIQ,true).
--endif.
--endif.
--endif.
-
--ifdef(EQC).
--include_lib("eqc/include/eqc.hrl").
--define(MOD_eqc,eqc).
-
--else.
--ifdef(PROPER).
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc,proper).
-
--else.
--ifdef(TRIQ).
--define(MOD_eqc,triq).
--include_lib("triq/include/triq.hrl").
-
--endif.
--endif.
--endif.
-
+-include_lib("common_test/include/ct_property_test.hrl").
 
 %%% Properties:
 

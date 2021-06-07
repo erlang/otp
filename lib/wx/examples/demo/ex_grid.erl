@@ -67,7 +67,7 @@ do_init(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Async Events are handled in handle_event as in handle_info
-handle_event(#wx{event = #wxGrid{type = grid_cell_change,
+handle_event(#wx{event = #wxGrid{type = grid_cell_changed,
 				 row = Row, col = Col}},
 	     State = #state{}) ->
     Val = wxGrid:getCellValue(State#state.grid, Row, Col),
@@ -145,7 +145,7 @@ create_grid(Panel) ->
     %% Apply the fun to each row
     wx:foreach(Fun, lists:seq(0,99)),
     wxGrid:setColSize(Grid, 2, 150),
-    wxGrid:connect(Grid, grid_cell_change),
+    wxGrid:connect(Grid, grid_cell_changed),
     Grid.
 
 

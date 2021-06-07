@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1127,7 +1127,7 @@ match_line(Name,Pid,Line,[Pattern|Patterns],FoundPrompt,Term,EO,RetTag) ->
     end;
 match_line(Name,Pid,Line,[],FoundPrompt,Term,EO,match) ->
     match_line(Name,Pid,Line,EO#eo.haltpatterns,FoundPrompt,Term,EO,halt);
-%% print any terminated line that can not be matched
+%% print any terminated line that cannot be matched
 match_line(Name,Pid,Line,[],_FoundPrompt,true,_EO,halt) ->
     log(name_or_pid(Name,Pid),"       ~ts",[Line]),
     nomatch;

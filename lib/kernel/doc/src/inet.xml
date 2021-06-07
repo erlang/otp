@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2018</year>
+      <year>1997</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,8 +33,8 @@
   <description>
     <p>This module provides access to TCP/IP protocols.</p>
     <p>See also
-      <seealso marker="erts:inet_cfg">ERTS User's Guide:
-      Inet Configuration</seealso> for more information about how to
+      <seeguide marker="erts:inet_cfg">ERTS User's Guide:
+      Inet Configuration</seeguide> for more information about how to
       configure an Erlang runtime system for IP communication.</p>
     <p>The following two Kernel configuration parameters affect the
       behavior of all sockets opened on an Erlang node:</p>
@@ -80,9 +80,9 @@ Address          ip_address()
 3ffe:b80:1f8d:2:204:acff:fe17:bf38
                 {16#3ffe,16#b80,16#1f8d,16#2,16#204,16#acff,16#fe17,16#bf38}
 fe80::204:acff:fe17:bf38
-                {16#fe80,0,0,0,0,16#204,16#acff,16#fe17,16#bf38}</code>
+                {16#fe80,0,0,0,16#204,16#acff,16#fe17,16#bf38}</code>
     <p>Function
-      <seealso marker="#parse_address/1"><c>parse_address/1</c></seealso>
+      <seemfa marker="#parse_address/1"><c>parse_address/1</c></seemfa>
         can be useful:</p>
     <pre>
 1> <input>inet:parse_address("192.168.42.2").</input>
@@ -118,6 +118,42 @@ fe80::204:acff:fe17:bf38
       <name name="port_number"/>
     </datatype>
     <datatype>
+      <name name="family_address" since="OTP 22.1"/>
+      <desc>
+	<p>
+	  A general address format on the form <c>{Family, Destination}</c>
+	  where <c>Family</c> is an atom such as <c>local</c>
+	  and the format of <c>Destination</c> depends on <c>Family</c>,
+	  and is a complete address
+	  (for example an IP address including port number).
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="inet_address" since="OTP 22.1"/>
+      <desc>
+	<warning>
+	  <p>
+	    This address format is for now experimental
+	    and for completeness to make all address families have a
+	    <c>{Family, Destination}</c> representation.
+	  </p>
+	</warning>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="inet6_address" since="OTP 22.1"/>
+      <desc>
+	<warning>
+	  <p>
+	    This address format is for now experimental
+	    and for completeness to make all address families have a
+	    <c>{Family, Destination}</c> representation.
+	  </p>
+	</warning>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="local_address"/>
       <desc>
 	<p>
@@ -131,9 +167,9 @@ fe80::204:acff:fe17:bf38
 	<p>
 	  A <c>binary()</c> is passed as is to the operating system,
 	  but a <c>string()</c> is encoded according to the
-	  <seealso marker="file#native_name_encoding/0">
+	  <seemfa marker="file#native_name_encoding/0">
 	    system filename encoding mode.
-	  </seealso>
+	  </seemfa>
 	</p>
 	<p>
 	  Other addresses are possible, for example Linux implements
@@ -145,6 +181,23 @@ fe80::204:acff:fe17:bf38
 	  In most API functions where you can use
 	  this address family the port number must be <c>0</c>.
 	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="inet_backend"/>
+      <desc>
+        <p>
+          Select the implementation backend for sockets.
+          The current default is <c>inet</c> which at the bottom uses
+          <c>inet_drv.c</c> to call the platform's socket API.
+          The value <c>socket</c> instead at the bottom uses the
+          <seeerl marker="socket"><c>socket</c></seeerl>
+          module and its NIF implementation.
+        </p>
+        <p>
+          This is a <em>temporary</em> option
+          that will be ignored in a future release.
+        </p>
       </desc>
     </datatype>
     <datatype>
@@ -161,14 +214,14 @@ fe80::204:acff:fe17:bf38
       <desc>
 	<p>
 	  Addresses besides
-	  <seealso marker="#type-ip_address">
+	  <seetype marker="#ip_address">
 	    <c>ip_address()</c>
-	  </seealso>
+	  </seetype>
 	  ones that are returned from socket API functions.
 	  See in particular
-	  <seealso marker="#type-local_address">
+	  <seetype marker="#local_address">
 	    <c>local_address()</c>.
-	  </seealso>
+	  </seetype>
 	  The <c>unspec</c> family corresponds to AF_UNSPEC and can
 	  occur if the other side has no socket address.
 	  The <c>undefined</c> family can only occur in the unlikely
@@ -180,20 +233,26 @@ fe80::204:acff:fe17:bf38
       <name name="ancillary_data"/>
       <desc>
 	<p>
-	  Ancillary data received with the data packet
-	  or read with the socket option
-	  <seealso marker="gen_tcp#type-pktoptions_value">
+	  Ancillary data received with the data packet,
+	  read with the socket option
+	  <seetype marker="gen_tcp#pktoptions_value">
 	    <c>pktoptions</c>
-	  </seealso>
-	  from a TCP socket.
+	  </seetype>
+	  from a TCP socket,
+	  or to set in a call to
+	  <seeerl marker="gen_udp#send-4-AncData"><c>gen_udp:send/4</c></seeerl>
+	  or
+	  <seemfa marker="gen_udp#send/5"><c>gen_udp:send/5</c></seemfa>.
 	</p>
 	<p>
 	  The value(s) correspond to the currently active socket
-	  <seealso marker="#type-socket_setopt">options</seealso>
-	  <seealso marker="inet#option-recvtos"><c>recvtos</c></seealso>,
-	  <seealso marker="inet#option-recvtclass"><c>recvtclass</c></seealso>
+	  <seetype marker="#socket_setopt">options</seetype>
+	  <seeerl marker="inet#option-recvtos"><c>recvtos</c></seeerl>,
+	  <seeerl marker="inet#option-recvtclass"><c>recvtclass</c></seeerl>
 	  and
-	  <seealso marker="inet#option-recvttl"><c>recvttl</c></seealso>.
+	  <seeerl marker="inet#option-recvttl"><c>recvttl</c></seeerl>,
+	  or for a single send operation the option(s) to override
+	  the currently active socket option(s).
 	</p>
       </desc>
     </datatype>
@@ -202,7 +261,7 @@ fe80::204:acff:fe17:bf38
       <desc>
 	<p>
 	  Interface address description list returned from
-	  <seealso marker="#getifaddrs/0"><c>getifaddrs/0,1</c></seealso>
+	  <seemfa marker="#getifaddrs/0"><c>getifaddrs/0,1</c></seemfa>
 	  for a named interface, translated from the returned
 	  data of the POSIX API function <c>getaddrinfo()</c>.
 	</p>
@@ -275,16 +334,16 @@ fe80::204:acff:fe17:bf38
       <desc>
         <p>An atom that is named from the POSIX error codes used in Unix,
           and in the runtime libraries of most C compilers. See section
-          <seealso marker="#error_codes">POSIX Error Codes</seealso>.</p>
+          <seeerl marker="#error_codes">POSIX Error Codes</seeerl>.</p>
       </desc>
     </datatype>
     <datatype>
       <name>socket()</name>
       <desc>
         <p>See
-          <seealso marker="gen_tcp#type-socket"><c>gen_tcp:type-socket</c></seealso>
+          <seetype marker="gen_tcp#socket"><c>gen_tcp:type-socket</c></seetype>
           and
-          <seealso marker="gen_udp#type-socket"><c>gen_udp:type-socket</c></seealso>.
+          <seetype marker="gen_udp#socket"><c>gen_udp:type-socket</c></seetype>.
         </p>
       </desc>
     </datatype>
@@ -309,12 +368,42 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
+      <name name="cancel_monitor" arity="1" since="OTP 24.0"/>
+      <fsummary>Stop socket monitoring</fsummary>
+      <desc>
+	<p>If <c><anno>MRef</anno></c> is a reference that the
+	calling process obtained by calling
+	<seemfa marker="#monitor/1"><c>monitor/1</c></seemfa>, 
+	this monitor is turned off.
+	If the monitoring is already turned off, nothing happens.</p>
+	<p>The returned value is one of the following:</p>
+	<taglist>
+	  <tag><c>true</c></tag>
+	  <item>
+	    <p>The monitor was found and removed. In this case,
+	    no <c>'DOWN'</c> message corresponding to this
+	    monitor has been delivered and will not be delivered. </p>
+	  </item>
+	  <tag><c>false</c></tag>
+	  <item>
+	    <p>The monitor was not found and could not be removed.
+	    This probably because a <c>'DOWN'</c> message corresponding
+	    to this monitor has already been placed in the caller
+	    message queue.</p>
+	  </item>
+	</taglist>
+	<p>Failure: It is an error if <c><anno>MRef</anno></c> refers to a
+	monitor started by another process. </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="format_error" arity="1" since=""/>
       <fsummary>Return a descriptive string for an error reason.</fsummary>
       <desc>
         <p>Returns a diagnostic error string. For possible POSIX values and
           corresponding strings, see section
-          <seealso marker="#error_codes">POSIX Error Codes</seealso>.</p>
+          <seeerl marker="#error_codes">POSIX Error Codes</seeerl>.</p>
       </desc>
     </func>
 
@@ -325,8 +414,8 @@ fe80::204:acff:fe17:bf38
         <p>
 	  Returns the state of the <c>Inet</c> configuration database in
           form of a list of recorded configuration parameters. For more
-          information, see <seealso marker="erts:inet_cfg">ERTS User's Guide:
-          Inet Configuration</seealso>.
+          information, see <seeguide marker="erts:inet_cfg">ERTS User's Guide:
+          Inet Configuration</seeguide>.
 	</p>
         <p>
 	  Only actual parameters with other than default values
@@ -410,9 +499,9 @@ fe80::204:acff:fe17:bf38
         <p>
 	  The interface address description tuples
 	  are documented under the type of the
-          <seealso marker="#type-getifaddrs_ifopts">
+          <seetype marker="#getifaddrs_ifopts">
 	    <c><anno>Ifopts</anno></c>
-	  </seealso>
+	  </seetype>
 	  value.
 	</p>
       </desc>
@@ -429,34 +518,34 @@ fe80::204:acff:fe17:bf38
 	</v>
 	<v>
 	  Namespace =
-	  <seealso marker="file#type-filename_all">
+	  <seetype marker="file#filename_all">
 	    file:filename_all()
-	  </seealso>
+	  </seetype>
 	</v>
 	<v>Ifname = string()</v>
 	<v>
 	  Ifopts =
-	  <seealso marker="#type-getifaddrs_ifopts">
+	  <seetype marker="#getifaddrs_ifopts">
 	    getifaddrs_ifopts()
-	  </seealso>
+	  </seetype>
 	</v>
-	<v>Posix = <seealso marker="#type-posix">posix()</seealso></v>
+	<v>Posix = <seetype marker="#posix">posix()</seetype></v>
       </type>
       <desc>
 	<p>
 	  The same as
-	  <seealso marker="#getifaddrs/0"><c>getifaddrs/0</c></seealso>
+	  <seemfa marker="#getifaddrs/0"><c>getifaddrs/0</c></seemfa>
 	  but the <c>Option</c>
 	  <c>{netns, Namespace}</c> sets a network namespace
 	  for the OS call, on platforms that supports that feature.
 	</p>
 	<p>
 	  See the socket option
-	  <seealso marker="#option-netns">
+	  <seeerl marker="#option-netns">
 	    <c>{netns, Namespace}</c>
-	  </seealso>
+	  </seeerl>
 	  under
-	  <seealso marker="#setopts/2"><c>setopts/2</c></seealso>.
+	  <seemfa marker="#setopts/2"><c>setopts/2</c></seemfa>.
 	</p>
       </desc>
     </func>
@@ -467,11 +556,11 @@ fe80::204:acff:fe17:bf38
       <desc>
         <p>Gets one or more options for a socket. For a list of available
           options, see
-          <seealso marker="#setopts/2"><c>setopts/2</c></seealso>.
+          <seemfa marker="#setopts/2"><c>setopts/2</c></seemfa>.
 	  See also the description for the type
-          <seealso marker="gen_tcp#type-pktoptions_value">
+          <seetype marker="gen_tcp#pktoptions_value">
 	    <c>gen_tcp:pktoptions_value()</c>
-	  </seealso>.</p>
+	  </seetype>.</p>
         <p>The number of elements in the returned
           <c><anno>OptionValues</anno></c>
           list does not necessarily correspond to the number of options
@@ -540,7 +629,7 @@ get_tcpi_sacked(Sock) ->
         <p>Gets one or more statistic options for a socket.</p>
         <p><c>getstat(<anno>Socket</anno>)</c> is equivalent to
           <c>getstat(<anno>Socket</anno>, [recv_avg, recv_cnt, recv_dvi,
-          recv_max, recv_oct, send_avg, send_cnt, send_dvi, send_max,
+          recv_max, recv_oct, send_avg, send_cnt, send_pend, send_max,
           send_oct])</c>.</p>
         <p>The following options are available:</p>
         <taglist>
@@ -572,9 +661,9 @@ get_tcpi_sacked(Sock) ->
           <item>
             <p>Number of packets sent from the socket.</p>
           </item>
-          <tag><c>send_dvi</c></tag>
+          <tag><c>send_pend</c></tag>
           <item>
-            <p>Average packet size deviation, in bytes, sent from the socket.</p>
+            <p>Number of bytes waiting to be sent by the socket.</p>
           </item>
           <tag><c>send_max</c></tag>
           <item>
@@ -644,11 +733,54 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
+      <name name="info" arity="1"  since="OTP 24.0"/>
+      <fsummary>Retreive miscellaneous information about a socket</fsummary>
+      <desc>
+        <p>
+          Produces a term containg miscellaneous information about a socket.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="monitor" arity="1" since="OTP 24.0"/>
+      <fsummary>Start socket monitoring</fsummary>
+      <desc>
+	<p>Start monitor the socket <c><anno>Socket</anno></c>. </p>
+	<p>If the monitored socket does not exist or when the
+	monitor is triggered, a <c>'DOWN'</c> message is sent
+	that has the following pattern:</p>
+	<code type="none">
+	    {'DOWN', MonitorRef, socket, Object, Info}
+	  </code>
+        <p>In the monitor message <c>MonitorRef</c> and <c>Type</c> are the
+          same as described earlier, and:</p>
+        <taglist>
+          <tag><c>Object</c></tag>
+          <item>
+	    <p>The monitored entity, socket, which triggered the event. </p>
+          </item>
+          <tag><c>Info</c></tag>
+          <item>
+	    <p>Either the termination reason of the socket or <c>nosock</c>
+	    (socket <c><anno>Socket</anno></c> did not exist at the time
+	    of monitor creation). </p>
+	  </item>
+        </taglist>
+
+        <p>Making several calls to <c>inet:monitor/1</c> for the same
+	<c><anno>Socket</anno></c> is not an error; it results in
+	as many independent monitoring instances. </p>
+
+      </desc>
+    </func>
+
+    <func>
       <name name="ntoa" arity="1"  since="OTP R16B02"/>
       <fsummary>Convert IPv6/IPV4 address to ASCII.</fsummary>
       <desc>
 	<p>Parses an
-          <seealso marker="#type-ip_address"><c>ip_address()</c></seealso>
+          <seetype marker="#ip_address"><c>ip_address()</c></seetype>
           and returns an IPv4 or IPv6 address string.</p>
       </desc>
     </func>
@@ -658,8 +790,8 @@ get_tcpi_sacked(Sock) ->
       <fsummary>Parse an IPv4 or IPv6 address.</fsummary>
       <desc>
 	<p>Parses an IPv4 or IPv6 address string and returns an
-          <seealso marker="#type-ip4_address"><c>ip4_address()</c></seealso> or
-          <seealso marker="#type-ip6_address"><c>ip6_address()</c></seealso>.
+          <seetype marker="#ip4_address"><c>ip4_address()</c></seetype> or
+          <seetype marker="#ip6_address"><c>ip6_address()</c></seetype>.
           Accepts a shortened IPv4 address string.</p>
       </desc>
     </func>
@@ -669,7 +801,7 @@ get_tcpi_sacked(Sock) ->
       <fsummary>Parse an IPv4 address.</fsummary>
       <desc>
 	<p>Parses an IPv4 address string and returns an
-          <seealso marker="#type-ip4_address"><c>ip4_address()</c></seealso>.
+          <seetype marker="#ip4_address"><c>ip4_address()</c></seetype>.
 	  Accepts a shortened IPv4 address string.</p>
       </desc>
     </func>
@@ -680,7 +812,7 @@ get_tcpi_sacked(Sock) ->
       <desc>
 	<p>Parses an IPv4 address string containing four fields, that is,
           <em>not</em> shortened, and returns an
-          <seealso marker="#type-ip4_address"><c>ip4_address()</c></seealso>.
+          <seetype marker="#ip4_address"><c>ip4_address()</c></seetype>.
         </p>
       </desc>
     </func>
@@ -690,7 +822,7 @@ get_tcpi_sacked(Sock) ->
       <fsummary>Parse an IPv6 address.</fsummary>
       <desc>
 	<p>Parses an IPv6 address string and returns an
-          <seealso marker="#type-ip6_address"><c>ip6_address()</c></seealso>.
+          <seetype marker="#ip6_address"><c>ip6_address()</c></seetype>.
           If an IPv4 address string is specified, an IPv4-mapped IPv6 address
           is returned.</p>
       </desc>
@@ -701,7 +833,7 @@ get_tcpi_sacked(Sock) ->
       <fsummary>Parse an IPv6 address strict.</fsummary>
       <desc>
 	<p>Parses an IPv6 address string and returns an
-          <seealso marker="#type-ip6_address"><c>ip6_address()</c></seealso>.
+          <seetype marker="#ip6_address"><c>ip6_address()</c></seetype>.
           Does <em>not</em> accept IPv4 addresses.</p>
       </desc>
     </func>
@@ -724,8 +856,8 @@ get_tcpi_sacked(Sock) ->
       <fsummary>Parse an IPv4 or IPv6 address strict.</fsummary>
       <desc>
 	<p>Parses an IPv4 or IPv6 address string and returns an
-          <seealso marker="#type-ip4_address"><c>ip4_address()</c></seealso> or
-          <seealso marker="#type-ip6_address"><c>ip6_address()</c></seealso>.
+          <seetype marker="#ip4_address"><c>ip4_address()</c></seetype> or
+          <seetype marker="#ip6_address"><c>ip6_address()</c></seetype>.
           Does <em>not</em> accept a shortened IPv4 address string.</p>
       </desc>
     </func>
@@ -738,7 +870,7 @@ get_tcpi_sacked(Sock) ->
         <p>Returns the address and port for the other end of a connection.</p>
 	<p>Notice that for SCTP sockets, this function returns only
 	  one of the peer addresses of the socket. Function
-	  <seealso marker="#peernames/1"><c>peernames/1,2</c></seealso>
+	  <seemfa marker="#peernames/1"><c>peernames/1,2</c></seemfa>
 	  returns all.</p>
       </desc>
     </func>
@@ -749,7 +881,7 @@ get_tcpi_sacked(Sock) ->
         connection.</fsummary>
       <desc>
 	<p>Equivalent to
-	  <seealso marker="#peernames/2"><c>peernames(<anno>Socket</anno>, 0)</c></seealso>.
+	  <seemfa marker="#peernames/2"><c>peernames(<anno>Socket</anno>, 0)</c></seemfa>.
         </p>
         <p>Notice that the behavior of this function for an SCTP
 	  one-to-many style socket is not defined by the
@@ -798,9 +930,9 @@ get_tcpi_sacked(Sock) ->
               messages to the receiving process.</p>
             <p>If the value is <c>false</c> (passive mode), the process must
               explicitly receive incoming data by calling
-              <seealso marker="gen_tcp#recv/2"><c>gen_tcp:recv/2,3</c></seealso>,
-              <seealso marker="gen_udp#recv/2"><c>gen_udp:recv/2,3</c></seealso>,
-              or <seealso marker="gen_sctp#recv/1"><c>gen_sctp:recv/1,2</c></seealso>
+              <seemfa marker="gen_tcp#recv/2"><c>gen_tcp:recv/2,3</c></seemfa>,
+              <seemfa marker="gen_udp#recv/2"><c>gen_udp:recv/2,3</c></seemfa>,
+              or <seemfa marker="gen_sctp#recv/1"><c>gen_sctp:recv/1,2</c></seemfa>
               (depending on the type of socket).</p>
             <p>If the value is <c>once</c> (<c>{active, once}</c>),
               <em>one</em> data message from the socket is sent
@@ -873,7 +1005,7 @@ get_tcpi_sacked(Sock) ->
               maximum when <c>recbuf</c> is set.
               However, as the size set for <c>recbuf</c>
               usually become larger, you are encouraged to use
-              <seealso marker="#getopts/2"><c>getopts/2</c></seealso>
+              <seemfa marker="#getopts/2"><c>getopts/2</c></seemfa>
               to analyze the behavior of your operating system.</p>
             <p>Note that this is also the maximum amount of data that can be
 	       received from a single recv call. If you are using higher than
@@ -909,7 +1041,7 @@ get_tcpi_sacked(Sock) ->
             <p>The only reason to set it to <c>false</c> is if you want
               to continue sending data to the socket after a close is
               detected, for example, if the peer uses
-              <seealso marker="gen_tcp#shutdown/2"><c>gen_tcp:shutdown/2</c></seealso>
+              <seemfa marker="gen_tcp#shutdown/2"><c>gen_tcp:shutdown/2</c></seemfa>
               to shut down the write side.</p>
           </item>
           <tag><c>{header, Size}</c></tag>
@@ -938,7 +1070,7 @@ get_tcpi_sacked(Sock) ->
 	    <p>Notice that distribution sockets disable the use of
 	      <c>high_msgq_watermark</c> and <c>low_msgq_watermark</c>.
 	      Instead use the
-	      <seealso marker="erts:erlang#system_info_dist_buf_busy_limit">distribution buffer busy limit</seealso>,
+	      <seeerl marker="erts:erlang#system_info_dist_buf_busy_limit">distribution buffer busy limit</seeerl>,
               which is a similar feature.</p>
           </item>
           <tag><c>{high_watermark, Size}</c> (TCP/IP sockets)</tag>
@@ -961,7 +1093,7 @@ get_tcpi_sacked(Sock) ->
 	      before associating it to an address. It is therefore only
 	      reasonable to specify it when creating the socket and not
 	      to use it when calling function
-	      (<seealso marker="#setopts/2"><c>setopts/2</c></seealso>)
+	      (<seemfa marker="#setopts/2"><c>setopts/2</c></seemfa>)
 	      containing this description.</p>
 	    <p>The behavior of a socket with this option set to
 	      <c>true</c> is the only portable one. The original
@@ -983,7 +1115,7 @@ get_tcpi_sacked(Sock) ->
 	      in this case.</p>
 	    <p>Setting this option on platforms where it does not exist
 	      is ignored. Getting this option with
-	      <seealso marker="#getopts/2"><c>getopts/2</c></seealso>
+	      <seemfa marker="#getopts/2"><c>getopts/2</c></seemfa>
 	      returns no value, that is, the returned list does not contain an
 	      <c>{ipv6_v6only,_}</c> tuple. On Windows, the option
 	      does not exist, but it is emulated as a
@@ -994,7 +1126,7 @@ get_tcpi_sacked(Sock) ->
 	      have customized the kernel to only allow <c>false</c>,
 	      which can be doable (but awkward) on, for example, OpenBSD.</p>
 	    <p>If you read back the option value using
-	      <seealso marker="#getopts/2"><c>getopts/2</c></seealso>
+	      <seemfa marker="#getopts/2"><c>getopts/2</c></seemfa>
 	      and get no value, the option does not exist in the host
               operating system. The behavior of both an IPv6 and an IPv4
 	      socket listening on the same port, and for an IPv6 socket
@@ -1006,17 +1138,38 @@ get_tcpi_sacked(Sock) ->
               socket when no other data is exchanged. If
               the other end does not respond, the connection is
               considered broken and an error message is sent to
-              the controlling process. Defaults to <c>disabled</c>.</p>
+              the controlling process. Defaults to <c>false</c>.</p>
             <marker id="option-linger"></marker>
           </item>
           <tag><c>{linger, {true|false, Seconds}}</c></tag>
-          <item>
+	  <item>
             <p>Determines the time-out, in seconds, for flushing unsent data
-              in the <c>close/1</c> socket call. If the first component of
-              the value tuple is <c>false</c>, the second is ignored. This
-              means that <c>close/1</c> returns immediately, not waiting
-              for data to be flushed. Otherwise, the second component is
-              the flushing time-out, in seconds.</p>
+              in the <c>close/1</c> socket call. </p>
+	    <p>The first component is if linger is enabled, the second component
+	    is the flushing time-out, in seconds. There are 3 alternatives:</p>
+	    <taglist>
+	      <tag><c>{false, _}</c></tag>
+	      <item>
+		<p>close/1 or shutdown/2 returns immediately,
+		not waiting for data to be flushed, with closing
+		happening in the background.</p>
+	      </item>
+	      <tag><c>{true, 0}</c></tag>
+	      <item>
+		<p>Aborts the connection when it is closed.
+		Discards any data still remaining in the send buffers
+		and sends RST to the peer.</p>
+		<p>This avoids TCP's TIME_WAIT state, but leaves open
+		the possibility that another "incarnation" of this connection
+		being created.</p>
+	      </item>
+	      <tag><c>{true, Time} when Time > 0</c></tag>
+	      <item>
+		<p>close/1 or shutdown/2 will not return until
+		all queued messages for the socket have been successfully
+		sent or the linger timeout (Time) has been reached.</p>
+	      </item>
+	    </taglist>
           </item>
           <tag><c>{low_msgq_watermark, Size}</c></tag>
           <item>
@@ -1035,8 +1188,8 @@ get_tcpi_sacked(Sock) ->
 	    <p>Notice that distribution sockets disable the use of
 	      <c>high_msgq_watermark</c> and <c>low_msgq_watermark</c>.
 	      Instead they use the
-	      <seealso marker="erts:erlang#system_info_dist_buf_busy_limit">distribution
-	      buffer busy limit</seealso>, which is a similar feature.</p>
+	      <seeerl marker="erts:erlang#system_info_dist_buf_busy_limit">distribution
+	      buffer busy limit</seeerl>, which is a similar feature.</p>
           </item>
           <tag><c>{low_watermark, Size}</c> (TCP/IP sockets)</tag>
           <item>
@@ -1067,13 +1220,13 @@ get_tcpi_sacked(Sock) ->
 	      example, <c>"/var/run/netns/example"</c>, typically created by
 	      command <c>ip netns add example</c>. This option must be used in
 	      a function call that creates a socket, that is,
-	      <seealso marker="gen_tcp#connect/3"><c>gen_tcp:connect/3,4</c></seealso>,
-	      <seealso marker="gen_tcp#listen/2"><c>gen_tcp:listen/2</c></seealso>,
-	      <seealso marker="gen_udp#open/1"><c>gen_udp:open/1,2</c></seealso>
+	      <seemfa marker="gen_tcp#connect/3"><c>gen_tcp:connect/3,4</c></seemfa>,
+	      <seemfa marker="gen_tcp#listen/2"><c>gen_tcp:listen/2</c></seemfa>,
+	      <seemfa marker="gen_udp#open/1"><c>gen_udp:open/1,2</c></seemfa>
 	      or
-	      <seealso marker="gen_sctp#open/0"><c>gen_sctp:open/0,1,2</c></seealso>,
+	      <seemfa marker="gen_sctp#open/0"><c>gen_sctp:open/0,1,2</c></seemfa>,
 	      and also
-	      <seealso marker="#getifaddrs/1"><c>getifaddrs/1</c></seealso>.
+	      <seemfa marker="#getifaddrs/1"><c>getifaddrs/1</c></seemfa>.
 	    </p>
 	    <p>This option uses the Linux-specific syscall
 	      <c>setns()</c>, such as in Linux kernel 3.0 or later,
@@ -1098,27 +1251,27 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
 	      network namespaces.</p>
 	    <p><c>Namespace</c> is a filename and is encoded
 	      and decoded as discussed in module
-	      <seealso marker="file">file</seealso>, with the
+	      <seeerl marker="file">file</seeerl>, with the
               following exceptions:</p>
 	    <list type="bulleted">
 	      <item><p>Emulator flag <c>+fnu</c> is ignored.</p></item>
-	      <item><p><seealso marker="#getopts/2"><c>getopts/2</c></seealso>
+	      <item><p><seemfa marker="#getopts/2"><c>getopts/2</c></seemfa>
 	      for this option returns a binary for the filename if the stored
 	      filename cannot be decoded. This is only to occur if you set the
 	      option using a binary that cannot be decoded with the emulator's
 	      filename encoding:
-	      <seealso marker="file#native_name_encoding/0"><c>file:native_name_encoding/0</c></seealso>.</p></item>
+	      <seemfa marker="file#native_name_encoding/0"><c>file:native_name_encoding/0</c></seemfa>.</p></item>
 	    </list>
           </item>
 	  <tag><c>{bind_to_device, Ifname :: binary()}</c></tag>
 	  <item>
 	    <p>Binds a socket to a specific network interface. This option
 	      must be used in a function call that creates a socket, that is,
-	      <seealso marker="gen_tcp#connect/3"><c>gen_tcp:connect/3,4</c></seealso>,
-	      <seealso marker="gen_tcp#listen/2"><c>gen_tcp:listen/2</c></seealso>,
-	      <seealso marker="gen_udp#open/1"><c>gen_udp:open/1,2</c></seealso>, or
-	      <seealso marker="gen_sctp#open/0"><c>gen_sctp:open/0,1,2</c></seealso>.</p>
-	    <p>Unlike <seealso marker="#getifaddrs/0"><c>getifaddrs/0</c></seealso>, Ifname
+	      <seemfa marker="gen_tcp#connect/3"><c>gen_tcp:connect/3,4</c></seemfa>,
+	      <seemfa marker="gen_tcp#listen/2"><c>gen_tcp:listen/2</c></seemfa>,
+	      <seemfa marker="gen_udp#open/1"><c>gen_udp:open/1,2</c></seemfa>, or
+	      <seemfa marker="gen_sctp#open/0"><c>gen_sctp:open/0,1,2</c></seemfa>.</p>
+	    <p>Unlike <seemfa marker="#getifaddrs/0"><c>getifaddrs/0</c></seemfa>, Ifname
 	      is encoded a binary. In the unlikely case that a system is using
 	      non-7-bit-ASCII characters in network device names, special care
 	      has to be taken when encoding this argument.</p>
@@ -1127,7 +1280,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
 	      and therefore only exists when the runtime system
 	      is compiled for such an operating system.</p>
 	    <p>Before Linux 3.8, this socket option could be set, but could not retrieved
-	      with <seealso marker="#getopts/2"><c>getopts/2</c></seealso>. Since Linux 3.8,
+	      with <seemfa marker="#getopts/2"><c>getopts/2</c></seemfa>. Since Linux 3.8,
 	      it is readable.</p>
 	    <p>The virtual machine also needs elevated privileges, either
 	      running as superuser or (for Linux) having capability
@@ -1143,12 +1296,16 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
           <tag><c>binary</c></tag>
           <item>
             <p>Received <c>Packet</c> is delivered as a binary.</p>
+            <marker id="option-nodelay"></marker>
           </item>
           <tag><c>{nodelay, Boolean}</c>(TCP/IP sockets)</tag>
           <item>
             <p>If <c>Boolean == true</c>, option <c>TCP_NODELAY</c>
-              is turned on for the socket, which means that also small
-              amounts of data are sent immediately.</p>
+            is turned on for the socket, which means that also small
+            amounts of data are sent immediately.</p>
+	    <p>This option is <em>not</em> supported for
+	    <c>domain = local</c>, but if <c>inet_backend =/= socket</c>
+	    this error will be <em>ignored</em>. </p>
           </item>
           <tag><c>{nopush, Boolean}</c>(TCP/IP sockets)</tag>
           <item>
@@ -1208,8 +1365,8 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
                 <p>The Hypertext Transfer Protocol. The packets
                  are returned with the format according to <c>HttpPacket</c>
                  described in
-                 <seealso marker="erts:erlang#decode_packet/3">
-                 <c>erlang:decode_packet/3</c></seealso> in ERTS.
+                 <seemfa marker="erts:erlang#decode_packet/3">
+                 <c>erlang:decode_packet/3</c></seemfa> in ERTS.
                  A socket in passive
                  mode returns <c>{ok, HttpPacket}</c> from <c>gen_tcp:recv</c>
                  while an active socket sends messages like
@@ -1261,7 +1418,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
           <item>
             <p>The minimum size of the receive buffer to use for
               the socket. You are encouraged to use
-              <seealso marker="#getopts/2"><c>getopts/2</c></seealso>
+              <seemfa marker="#getopts/2"><c>getopts/2</c></seemfa>
               to retrieve the size set by your operating system.</p>
 	    <marker id="option-recvtclass"></marker>
           </item>
@@ -1283,16 +1440,16 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
 	      (<c>gen_udp</c> and <c>gen_sctp</c>),
 	      the <c>TCLASS</c> value is returned
 	      in an extended return tuple contained in an
-	      <seealso marker="inet#type-ancillary_data">
+	      <seetype marker="inet#ancillary_data">
 		ancillary data
-	      </seealso>
+	      </seetype>
 	      list.
 	      For stream oriented sockets (<c>gen_tcp</c>)
 	      the only way to get the <c>TCLASS</c>
 	      value is if the platform supports the
-	      <seealso marker="gen_tcp#type-pktoptions_value">
+	      <seetype marker="gen_tcp#pktoptions_value">
 		<c>pktoptions</c>
-	      </seealso>
+	      </seetype>
 	      option.
 	    </p>
 	    <marker id="option-recvtos"></marker>
@@ -1314,16 +1471,16 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
 	      (<c>gen_udp</c> and <c>gen_sctp</c>),
 	      the <c>TOS</c> value is returned
 	      in an extended return tuple contained in an
-	      <seealso marker="inet#type-ancillary_data">
+	      <seetype marker="inet#ancillary_data">
 		ancillary data
-	      </seealso>
+	      </seetype>
 	      list.
 	      For stream oriented sockets (<c>gen_tcp</c>)
 	      the only way to get the <c>TOS</c>
 	      value is if the platform supports the
-	      <seealso marker="gen_tcp#type-pktoptions_value">
+	      <seetype marker="gen_tcp#pktoptions_value">
 		<c>pktoptions</c>
-	      </seealso>
+	      </seetype>
 	      option.
 	    </p>
 	    <marker id="option-recvttl"></marker>
@@ -1345,16 +1502,16 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
 	      (<c>gen_udp</c> and <c>gen_sctp</c>),
 	      the <c>TTL</c> value is returned
 	      in an extended return tuple contained in an
-	      <seealso marker="inet#type-ancillary_data">
+	      <seetype marker="inet#ancillary_data">
 		ancillary data
-	      </seealso>
+	      </seetype>
 	      list.
 	      For stream oriented sockets (<c>gen_tcp</c>)
 	      the only way to get the <c>TTL</c>
 	      value is if the platform supports the
-	      <seealso marker="gen_tcp#type-pktoptions_value">
+	      <seetype marker="gen_tcp#pktoptions_value">
 		<c>pktoptions</c>
-	      </seealso>
+	      </seetype>
 	      option.
 	    </p>
           </item>
@@ -1382,14 +1539,14 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
               returns <c>{error,timeout}</c>. The recommended setting is
               <c>true</c>, which automatically closes the socket.
               Defaults to <c>false</c> because of backward compatibility.</p>
-            <marker id="option-sndbuf"></marker>
+            <marker id="option-show_econnreset"></marker>
           </item>
-          <tag><c>{show_econnreset, Boolean}</c>(TCP/IP sockets)</tag>
+          <tag><c>{show_econnreset, Boolean}</c> (TCP/IP sockets) </tag>
           <item>
             <p>When this option is set to <c>false</c>, which is
               default, an RST received from the TCP peer is treated
               as a normal close (as though an FIN was sent). A caller to
-              <seealso marker="gen_tcp#recv/2"><c>gen_tcp:recv/2</c></seealso>
+              <seemfa marker="gen_tcp#recv/2"><c>gen_tcp:recv/2</c></seemfa>
               gets <c>{error, closed}</c>. In active
               mode, the controlling process receives a
               <c>{tcp_closed, Socket}</c> message, indicating that the
@@ -1398,26 +1555,26 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
               distinguish between a connection that was closed normally,
               and one that was aborted (intentionally or unintentionally)
               by the TCP peer. A call to
-              <seealso marker="gen_tcp#recv/2"><c>gen_tcp:recv/2</c></seealso>
+              <seemfa marker="gen_tcp#recv/2"><c>gen_tcp:recv/2</c></seemfa>
               returns <c>{error, econnreset}</c>. In
               active mode, the controlling process receives a
               <c>{tcp_error, Socket, econnreset}</c> message
               before the usual <c>{tcp_closed, Socket}</c>, as is
               the case for any other socket error. Calls to
-              <seealso marker="gen_tcp#send/2"><c>gen_tcp:send/2</c></seealso>
+              <seemfa marker="gen_tcp#send/2"><c>gen_tcp:send/2</c></seemfa>
               also returns <c>{error, econnreset}</c> when it
               is detected that a TCP peer has sent an RST.</p>
             <p>A connected socket returned from
-              <seealso marker="gen_tcp#accept/1"><c>gen_tcp:accept/1</c></seealso>
+              <seemfa marker="gen_tcp#accept/1"><c>gen_tcp:accept/1</c></seemfa>
               inherits the <c>show_econnreset</c> setting from the
               listening socket.</p>
-            <marker id="option-show_econnreset"></marker>
+            <marker id="option-sndbuf"></marker>
           </item>
           <tag><c>{sndbuf, Size}</c></tag>
           <item>
             <p>The minimum size of the send buffer to use for the socket.
               You are encouraged to use
-              <seealso marker="#getopts/2"><c>getopts/2</c></seealso>,
+              <seemfa marker="#getopts/2"><c>getopts/2</c></seemfa>,
               to retrieve the size set by your operating system.</p>
           </item>
           <tag><c>{priority, Integer}</c></tag>
@@ -1496,7 +1653,7 @@ inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),]]></code>
         <p>Returns the local address and port number for a socket.</p>
 	<p>Notice that for SCTP sockets this function returns only
 	  one of the socket addresses. Function
-	  <seealso marker="#socknames/1"><c>socknames/1,2</c></seealso>
+	  <seemfa marker="#socknames/1"><c>socknames/1,2</c></seemfa>
 	  returns all.</p>
       </desc>
     </func>
@@ -1506,7 +1663,7 @@ inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),]]></code>
       <fsummary>Return all local address/port numbers for a socket.</fsummary>
       <desc>
 	<p>Equivalent to
-	  <seealso marker="#socknames/2"><c>socknames(<anno>Socket</anno>, 0)</c></seealso>.
+	  <seemfa marker="#socknames/2"><c>socknames(<anno>Socket</anno>, 0)</c></seemfa>.
         </p>
       </desc>
     </func>

@@ -144,7 +144,7 @@ ok.]]></code>
   <section>
     <title>Deep and Flat Lists</title>
 
-    <p><seealso marker="stdlib:lists#flatten/1">lists:flatten/1</seealso>
+    <p><seemfa marker="stdlib:lists#flatten/1">lists:flatten/1</seemfa>
     builds an entirely new list. It is therefore expensive, and even
     <em>more</em> expensive than the <c>++</c> operator (which copies its
     left argument, but not its right argument).</p>
@@ -157,10 +157,10 @@ ok.]]></code>
        so there is no reason to flatten the list before sending it to
        the port.</item>
       <item>When calling BIFs that accept deep lists, such as
-      <seealso marker="erts:erlang#list_to_binary/1">list_to_binary/1</seealso> or
-      <seealso marker="erts:erlang#iolist_to_binary/1">iolist_to_binary/1</seealso>.</item>
+      <seemfa marker="erts:erlang#list_to_binary/1">list_to_binary/1</seemfa> or
+      <seemfa marker="erts:erlang#iolist_to_binary/1">iolist_to_binary/1</seemfa>.</item>
       <item>When you know that your list is only one level deep, you can use
-      <seealso marker="stdlib:lists#append/1">lists:append/1</seealso>.</item>
+      <seemfa marker="stdlib:lists#append/1">lists:append/1</seemfa>.</item>
     </list>
 
     <section>
@@ -218,8 +218,8 @@ ok.]]></code>
     <title>Recursive List Functions</title>
 
     <p>In section about myths, the following myth was exposed:
-    <seealso marker="myths#tail_recursive">Tail-Recursive Functions
-    are Much Faster Than Recursive Functions</seealso>.</p>
+    <seeguide marker="myths#tail_recursive">Tail-Recursive Functions
+    are Much Faster Than Recursive Functions</seeguide>.</p>
 
     <p>There is usually not much difference between
     a body-recursive list function and tail-recursive function that reverses

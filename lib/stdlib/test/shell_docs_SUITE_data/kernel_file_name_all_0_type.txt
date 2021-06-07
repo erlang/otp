@@ -1,0 +1,11 @@
+
+  [;1m-type name_all() ::[0m
+  [;1m          string() | atom() | deep_list() | (RawFilename :: binary()).[0m
+
+  If VM is in Unicode filename mode, characters are allowed to be >
+  255. [;;4mRawFilename[0m is a filename not subject to Unicode
+  translation, meaning that it can contain characters not conforming
+  to the Unicode encoding expected from the file system (that is,
+  non-UTF-8 characters although the VM is started in Unicode
+  filename mode). Null characters (integer value zero) are not
+  allowed in filenames (not even at the end).

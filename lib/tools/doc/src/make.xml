@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2017</year>
+      <year>2020</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -38,13 +38,9 @@
   </description>
   <funcs>
     <func>
-      <name since="">all() -> up_to_date | error</name>
-      <name since="">all(Options) -> up_to_date | error</name>
+      <name name="all" arity="0" since=""></name>
+      <name name="all" arity="1" since=""></name>
       <fsummary>Compile a set of modules.</fsummary>
-      <type>
-        <v>Options = [Option]</v>
-	<v>&nbsp;Option = noexec | load | netload | {emake, Emake} | &lt;compiler option&gt;</v>
-      </type>
       <desc>
       <p>This function determines the set of modules to compile and the
           compile options to use, by first looking for the <c>emake</c> make
@@ -64,7 +60,7 @@
         <p>As a side effect, the function prints the name of each module it
           tries to compile. If compilation fails for a module, the make
           procedure stops and <c>error</c> is returned.</p>
-        <p><c>Options</c> is a list of make- and compiler options.
+        <p><c><anno>Options</anno></c> is a list of make- and compiler options.
           The following make options exist:</p>
         <list type="bulleted">
           <item><c>noexec</c>          <br></br>
@@ -77,29 +73,24 @@
           <item><c>netload</c>          <br></br>
 
            Net load mode. Loads all recompiled modules on all known nodes.</item>
-          <item><c>{emake, Emake}</c>          <br></br>
+          <item><c>{emake, <anno>Emake</anno>}</c>          <br></br>
 
            Rather than reading the <c>Emakefile</c> specify configuration explicitly.</item>
         </list>
         <p>All items in <c>Options</c> that are not make options are assumed
           to be compiler options and are passed as-is to
-          <c>compile:file/2</c>. <c>Options</c> defaults to <c>[]</c>.</p>
+          <seemfa marker="compiler:compile#file/2"><c>compile:file/2</c></seemfa>.
+          <c><anno>Options</anno></c> defaults to <c>[]</c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">files(ModFiles) -> up_to_date | error</name>
-      <name since="">files(ModFiles, Options) -> up_to_date | error</name>
+      <name name="files" arity="1" since=""></name>
+      <name name="files" arity="2" since=""></name>
       <fsummary>Compile a set of modules.</fsummary>
-      <type>
-        <v>ModFiles = [Module | File]</v>
-        <v>&nbsp;Module = atom()</v>
-        <v>&nbsp;File = string()</v>
-        <v>Options = [Option]</v>
-        <v>&nbsp;Option = noexec | load | netload | &lt;compiler option&gt;</v>
-      </type>
       <desc>
-        <p><c>files/1,2</c> does exactly the same thing as <c>all/0,1</c> but
-          for the specified <c>ModFiles</c>, which is a list of module or
+        <p><c>files/1,2</c> does exactly the same thing as 
+          <seemfa marker="#all/0"><c>all/0,1</c></seemfa> but
+          for the specified <c><anno>ModFiles</anno></c>, which is a list of module or
           file names. The file extension <c>.erl</c> may be omitted.</p>
         <p>The <c>Emakefile</c> (if it exists) in the current
           directory is searched for compiler options for each module. If
@@ -111,7 +102,8 @@
 
   <section>
     <title>Emakefile</title>
-    <p><c>make:all/0,1</c> and <c>make:files/1,2</c> first looks for
+    <p><seemfa marker="#all/0"><c>make:all/0,1</c></seemfa> and
+      <seemfa marker="#files/1"><c>make:files/1,2</c></seemfa> first looks for
       <c>{emake, Emake}</c> in options, then in the current working directory
       for a file named <c>Emakefile</c>. If present <c>Emake</c> should
       contain elements like this:</p>
@@ -123,7 +115,7 @@ Modules.
     <list type="bulleted">
       <item>a module name, e.g. <c>file1</c></item>
       <item>a module name in another directory,
-       e.g. <c>../foo/file3</c></item>
+       e.g. <c>'../foo/file3'</c></item>
       <item>a set of modules specified with a wildcards,
        e.g. <c>'file*'</c></item>
       <item>a wildcard indicating all modules in current directory,
@@ -144,6 +136,11 @@ Modules.
 {'file1',[debug_info,{i,"../foo"}]}.
 {'*',[debug_info]}.    </code>
     <p></p>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seeerl marker="compiler:compile"><c>compile(3)</c></seeerl></p>
   </section>
 </erlref>
 

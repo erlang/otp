@@ -192,11 +192,13 @@
 
 {"%VSN%",
  [
-  {<<"3\\..*">>, [{restart_application, megaco}]}
+  {<<"3\\..*">>, [{restart_application, megaco}]},
+  {<<"4\\..*">>, [{restart_application, megaco}]}
  ],
 
  [
-  {<<"3\\..*">>, [{restart_application, megaco}]}
+  {<<"3\\..*">>, [{restart_application, megaco}]},
+  {<<"4\\..*">>, [{restart_application, megaco}]}
  ]
 }.
 

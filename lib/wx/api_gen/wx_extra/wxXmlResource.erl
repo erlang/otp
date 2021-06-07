@@ -21,15 +21,6 @@
 <<EXPORT:xrcctrl xrcctrl/3 xrcctrl:EXPORT>>
 
 <<xrcctrl
-%% @doc Looks up a control with Name in a window created with XML
-%% resources. You can use it to set/get values from controls.
-%% The object is type casted to <b>Type</b>.
-%% Example: <br />
-%%  Xrc = wxXmlResource:get(), <br />
-%%  Dlg = wxDialog:new(), <br />
-%%  true = wxXmlResource:loadDialog(Xrc, Dlg, Frame, "controls_dialog"), <br />
-%%  LCtrl = xrcctrl(Dlg, "controls_listctrl", wxListCtrl), <br />
-%%  wxListCtrl:insertColumn(LCtrl, 0, "Name", [{width, 200}]), <br />
 -spec xrcctrl(Window, Name, Type) -> wx:wx_object() when
       Window::wxWindow:wxWindow(),
       Name::string(),

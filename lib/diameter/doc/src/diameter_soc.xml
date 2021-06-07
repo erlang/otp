@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd" [
-  <!ENTITY gen_sctp '<seealso marker="kernel:gen_sctp">gen_sctp(3)</seealso>'>
-  <!ENTITY gen_tcp '<seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>'>
-  <!ENTITY service '<seealso marker="diameter#start_service-2">service</seealso>'>
-  <!ENTITY capabilities '<seealso marker="diameter#capability">capabilities</seealso>'>
-  <!ENTITY events '<seealso marker="diameter#service_event">events</seealso>'>
+  <!ENTITY gen_sctp '<seeerl marker="kernel:gen_sctp">gen_sctp(3)</seeerl>'>
+  <!ENTITY gen_tcp '<seeerl marker="kernel:gen_tcp">gen_tcp(3)</seeerl>'>
+  <!ENTITY service '<seemfa marker="diameter#start_service/2">service</seemfa>'>
+  <!ENTITY capabilities '<seeerl marker="diameter#capability">capabilities</seeerl>'>
+  <!ENTITY events '<seeerl marker="diameter#service_event">events</seeerl>'>
   <!ENTITY NA '&#8212;'>
-  <!ENTITY BR '<br/>&nbsp;<br/>'>
+  <!ENTITY BR '<br/>&#160;<br/>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   %also;
 ]>

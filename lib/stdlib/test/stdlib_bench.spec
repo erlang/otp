@@ -8,3 +8,4 @@
 {skip_groups,"../stdlib_test",stdlib_bench_SUITE,
              [gen_server_comparison,gen_statem_comparison],
              "Not a benchmark"}.
+{groups,"../stdlib_test",ets_SUITE,[benchmark]}.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -392,26 +392,26 @@ do_log_to_binary(Log,Config) ->
     String = try_format(Log,Formatter,FormatterConfig),
     try string_to_binary(String)
     catch C2:R2:S2 ->
-            ?LOG_INTERNAL(debug,[{formatter_error,Formatter},
-                                 {config,FormatterConfig},
-                                 {log_event,Log},
-                                 {bad_return_value,String},
-                                 {catched,{C2,R2,S2}}]),
-            <<"FORMATTER ERROR: bad return value">>
+            ?LOG_INTERNAL(debug,Log,[{formatter_error,Formatter},
+                                     {config,FormatterConfig},
+                                     {log_event,Log},
+                                     {bad_return_value,String},
+                                     {catched,{C2,R2,S2}}]),
+            <<"FORMATTER ERROR: bad return value\n">>
     end.
 
 try_format(Log,Formatter,FormatterConfig) ->
     try Formatter:format(Log,FormatterConfig)
     catch
         C:R:S ->
-            ?LOG_INTERNAL(debug,[{formatter_crashed,Formatter},
-                                 {config,FormatterConfig},
-                                 {log_event,Log},
-                                 {reason,
-                                  {C,R,logger:filter_stacktrace(?MODULE,S)}}]),
+            ?LOG_INTERNAL(debug,Log,[{formatter_crashed,Formatter},
+                                     {config,FormatterConfig},
+                                     {log_event,Log},
+                                     {reason,
+                                      {C,R,logger:filter_stacktrace(?MODULE,S)}}]),
             case {?DEFAULT_FORMATTER,#{}} of
                 {Formatter,FormatterConfig} ->
-                    "DEFAULT FORMATTER CRASHED";
+                    "DEFAULT FORMATTER CRASHED\n";
                 {DefaultFormatter,DefaultConfig} ->
                     try_format(Log#{msg=>{"FORMATTER CRASH: ~tp",
                                           [maps:get(msg,Log)]}},

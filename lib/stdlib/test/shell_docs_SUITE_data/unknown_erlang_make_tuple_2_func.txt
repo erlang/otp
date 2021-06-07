@@ -1,0 +1,9 @@
+
+  [;1m-spec erlang:make_tuple(Arity, InitialValue) -> tuple()[0m
+  [;1m                           when Arity :: arity(), InitialValue :: term().[0m
+
+  Creates a new tuple of the specified [;;4mArity[0m, where all elements
+  are [;;4mInitialValue[0m, for example:
+
+    > erlang:make_tuple(4, []).
+    {[],[],[],[]}

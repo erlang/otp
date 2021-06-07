@@ -139,19 +139,6 @@
       </desc>
     </func>
     <func>
-      <name since="">load_event_file(CollectorPid, FileName) -> {ok, BadBytes} | exit(Reason)</name>
-      <fsummary>Load the event table from a file</fsummary>
-      <type>
-        <v>CollectorPid = pid()</v>
-        <v>FileName = string()</v>
-        <v>BadBytes = integer(X) where X >= 0</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-        <p>Load the event table from a file.</p>
-      </desc>
-    </func>
-    <func>
       <name since="">report(Handle, TraceOrEvent) -> {ok, Continuation} | exit(Reason)</name>
       <name since="">report_event(Handle, DetailLevel, FromTo, Label, Contents) -> {ok, Continuation} | exit(Reason)</name>
       <name since="">report_event(Handle, DetailLevel, From, To, Label, Contents) -> {ok, Continuation} | exit(Reason)</name>
@@ -190,17 +177,6 @@
       </type>
       <desc>
         <p>Make a key out of an event record or an old key.</p>
-      </desc>
-    </func>
-    <func>
-      <name since="">get_table_handle(CollectorPid) -> Handle</name>
-      <fsummary>Return a table handle</fsummary>
-      <type>
-        <v>CollectorPid = pid()</v>
-        <v>Handle = record(table_handle)</v>
-      </type>
-      <desc>
-        <p>Return a table handle.</p>
       </desc>
     </func>
     <func>

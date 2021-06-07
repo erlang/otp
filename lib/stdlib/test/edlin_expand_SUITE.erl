@@ -27,6 +27,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 init_per_testcase(_Case, Config) ->
+    cleanup(),
     Config.
 
 end_per_testcase(_Case, _Config) ->
@@ -44,10 +45,6 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
-    (catch code:delete(expand_test)),
-    (catch code:delete(expand_test1)),
-    (catch code:delete('ExpandTestCaps')),
-    (catch code:delete('ExpandTestCaps1')),
     Config.
 
 end_per_suite(_Config) ->
@@ -59,9 +56,15 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+cleanup() ->
+    [try
+         code:purge(M),
+         code:delete(M)
+     catch _:_ -> ok end || M <- [expand_test, expand_test1,
+                                  'ExpandTestCaps', 'ExpandTestCaps2']].
 
 normal(Config) when is_list(Config) ->
-    {module,expand_test} = c:l(expand_test),
+    {module,expand_test} = compile_and_load(Config,expand_test),
     %% These tests might fail if another module with the prefix
     %% "expand_" happens to also be loaded.
     {yes, "test:", []} = do_expand("expand_"),
@@ -80,8 +83,8 @@ normal(Config) when is_list(Config) ->
 
 %% Normal module name, some function names using quoted atoms.
 quoted_fun(Config) when is_list(Config) ->
-    {module,expand_test} = c:l(expand_test),
-    {module,expand_test1} = c:l(expand_test1),
+    {module,expand_test} = compile_and_load(Config,expand_test),
+    {module,expand_test1} = compile_and_load(Config,expand_test1),
     %% should be no colon after test this time
     {yes, "test", []} = do_expand("expand_"),
     {no, [], []} = do_expand("expandXX_"),
@@ -112,7 +115,7 @@ quoted_fun(Config) when is_list(Config) ->
     ok.
 
 quoted_module(Config) when is_list(Config) ->
-    {module,'ExpandTestCaps'} = c:l('ExpandTestCaps'),
+    {module,'ExpandTestCaps'} = compile_and_load(Config,'ExpandTestCaps'),
     {yes, "Caps':", []} = do_expand("'ExpandTest"),
     {no,[],
      [{"a_fun_name",1},
@@ -125,8 +128,8 @@ quoted_module(Config) when is_list(Config) ->
     ok.
 
 quoted_both(Config) when is_list(Config) ->
-    {module,'ExpandTestCaps'} = c:l('ExpandTestCaps'),
-    {module,'ExpandTestCaps1'} = c:l('ExpandTestCaps1'),
+    {module,'ExpandTestCaps'} = compile_and_load(Config,'ExpandTestCaps'),
+    {module,'ExpandTestCaps1'} = compile_and_load(Config,'ExpandTestCaps1'),
     %% should be no colon (or quote) after test this time
     {yes, "Caps", []} = do_expand("'ExpandTest"),
     {no,[],[{"'#weird-fun-name'",0},
@@ -229,7 +232,7 @@ check_trailing([I|Str], ArityStr, Suffix, Dots) ->
     end.
 
 unicode(Config) when is_list(Config) ->
-    {module,unicode_expand} = c:l('unicode_expand'),
+    {module,unicode_expand} = compile_and_load(Config,'unicode_expand'),
     {no,[],[{"'кlирилли́ческий атом'",0},
             {"'кlирилли́ческий атом'",1},
             {"'кlирилли́ческий атомB'",1},
@@ -253,3 +256,10 @@ do_expand(String) ->
 
 do_format(StringList) ->
     lists:flatten(edlin_expand:format_matches(StringList)).
+
+compile_and_load(Config,Module) ->
+    Filename = filename:join(
+                 proplists:get_value(data_dir,Config),
+                 atom_to_list(Module)),
+    {ok,Module,Bin} = compile:file(Filename, [binary]),
+    code:load_binary(Module, Filename, Bin).

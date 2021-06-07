@@ -304,7 +304,10 @@ to_string(Integer) when is_integer(Integer) ->
     integer_to_list(Integer);
 to_string([]) -> "";
 to_string(List) when is_list(List) ->
-    List;
+    try unicode:characters_to_list(List)
+    catch _:_ ->
+            io_lib:format("~tp",[List])
+    end;
 to_string(Term) ->
     io_lib:format("~tp",[Term]).
 

@@ -55,11 +55,11 @@
       groups a set of manual pages into one unit. The structure is
       similar to the part DTD: first an introduction and then the manual
       pages, written in separate files with the
-      <seealso marker="#apprefDTD">appref</seealso>,
-      <seealso marker="#comrefDTD">comref</seealso>,
-      <seealso marker="#crefDTD">cref</seealso>,
-      <seealso marker="#erlrefDTD">erlref</seealso>, or
-      <seealso marker="#filerefDTD">fileref</seealso> DTD.</p>
+      <seeguide marker="#apprefDTD">appref</seeguide>,
+      <seeguide marker="#comrefDTD">comref</seeguide>,
+      <seeguide marker="#crefDTD">cref</seeguide>,
+      <seeguide marker="#erlrefDTD">erlref</seeguide>, or
+      <seeguide marker="#filerefDTD">fileref</seeguide> DTD.</p>
 
     <p>Example:</p>
     <pre>
@@ -91,11 +91,11 @@
     <p>The top level tag of an <c>application</c> DTD.</p>
 
     <p>Contains a
-      <seealso marker="header_tags">&lt;header&gt;</seealso>,
+      <seeguide marker="header_tags">&lt;header&gt;</seeguide>,
       an optional
-      <seealso marker="user_guide_dtds#descriptionTAG">&lt;description&gt;</seealso>,
+      <seeguide marker="user_guide_dtds#descriptionTAG">&lt;description&gt;</seeguide>,
       followed by one or more
-      <seealso marker="user_guide_dtds#includeTAG">&lt;include&gt;</seealso>.
+      <seeguide marker="user_guide_dtds#includeTAG">&lt;include&gt;</seeguide>.
     </p>
   </section>
 
@@ -148,15 +148,15 @@
       <p>The top level tag of an <c>appref</c> DTD.</p>
 
       <p>Contains
-	<seealso marker="header_tags#headerTAG">&lt;header&gt;</seealso>,
-	<seealso marker="#appTAG">&lt;app&gt;</seealso>,
-	<seealso marker="#appsummaryTAG">&lt;appsummary&gt;</seealso>,
-	<seealso marker="#descriptionTAG">&lt;description&gt;</seealso>,
+	<seeguide marker="header_tags#headerTAG">&lt;header&gt;</seeguide>,
+	<seeguide marker="#appTAG">&lt;app&gt;</seeguide>,
+	<seeguide marker="#appsummaryTAG">&lt;appsummary&gt;</seeguide>,
+	<seeguide marker="#descriptionTAG">&lt;description&gt;</seeguide>,
 	zero or more
-	<seealso marker="#sectionTAG">&lt;section&gt;</seealso> and
-	<seealso marker="#funcsTAG">&lt;funcs&gt;</seealso>, 
+	<seeguide marker="#sectionTAG">&lt;section&gt;</seeguide> and
+	<seeguide marker="#funcsTAG">&lt;funcs&gt;</seeguide>, 
 	followed by zero or more 
-	<seealso marker="#authorsTAG">&lt;authors&gt;</seealso>.</p>
+	<seeguide marker="#authorsTAG">&lt;authors&gt;</seeguide>.</p>
     </section>
 
     <section>
@@ -232,15 +232,15 @@
       <p>The top level tag for a <c>comref</c> DTD.</p>
 
       <p>Contains
-	<seealso marker="header_tags#headerTAG">&lt;header&gt;</seealso>,
-	<seealso marker="#comTAG">&lt;com&gt;</seealso>,
-	<seealso marker="#comsummaryTAG">&lt;comsummary&gt;</seealso>,
-	<seealso marker="#descriptionTAG">&lt;description&gt;</seealso>,
+	<seeguide marker="header_tags#headerTAG">&lt;header&gt;</seeguide>,
+	<seeguide marker="#comTAG">&lt;com&gt;</seeguide>,
+	<seeguide marker="#comsummaryTAG">&lt;comsummary&gt;</seeguide>,
+	<seeguide marker="#descriptionTAG">&lt;description&gt;</seeguide>,
 	zero or more
-	<seealso marker="#sectionTAG">&lt;section&gt;</seealso> and
-	<seealso marker="#funcsTAG">&lt;funcs&gt;</seealso>, 
+	<seeguide marker="#sectionTAG">&lt;section&gt;</seeguide> and
+	<seeguide marker="#funcsTAG">&lt;funcs&gt;</seeguide>, 
 	followed by zero or more
-	<seealso marker="#authorsTAG">&lt;authors&gt;</seealso>.</p>
+	<seeguide marker="#authorsTAG">&lt;authors&gt;</seeguide>.</p>
     </section>
 
     <section>
@@ -320,15 +320,15 @@
       <p>The top level tag for a <c>cref</c> DTD.</p>
 
       <p>Contains
-	<seealso marker="header_tags#headerTAG">&lt;header&gt;</seealso>,
-	<seealso marker="#libTAG">&lt;lib&gt;</seealso>,
-	<seealso marker="#libsummaryTAG">&lt;libsummary&gt;</seealso>,
-	<seealso marker="#descriptionTAG">&lt;description&gt;</seealso>,
+	<seeguide marker="header_tags#headerTAG">&lt;header&gt;</seeguide>,
+	<seeguide marker="#libTAG">&lt;lib&gt;</seeguide>,
+	<seeguide marker="#libsummaryTAG">&lt;libsummary&gt;</seeguide>,
+	<seeguide marker="#descriptionTAG">&lt;description&gt;</seeguide>,
 	zero or more
-	<seealso marker="#sectionTAG">&lt;section&gt;</seealso> and
-	<seealso marker="#funcsTAG">&lt;funcs&gt;</seealso>, followed by
+	<seeguide marker="#sectionTAG">&lt;section&gt;</seeguide> and
+	<seeguide marker="#funcsTAG">&lt;funcs&gt;</seeguide>, followed by
 	zero or more
-	<seealso marker="#authorsTAG">&lt;authors&gt;</seealso>.</p>
+	<seeguide marker="#authorsTAG">&lt;authors&gt;</seeguide>.</p>
     </section>
 
     <section>
@@ -412,15 +412,15 @@
       <p>The top level tag for an <c>erlref</c> DTD.</p>
 
       <p>Contains
-	<seealso marker="header_tags#headerTAG">&lt;header&gt;</seealso>,
-	<seealso marker="#moduleTAG">&lt;module&gt;</seealso>,
-	<seealso marker="#modulesummaryTAG">&lt;modulesummary&gt;</seealso>,
-	<seealso marker="#descriptionTAG">&lt;description&gt;</seealso>,
+	<seeguide marker="header_tags#headerTAG">&lt;header&gt;</seeguide>,
+	<seeguide marker="#moduleTAG">&lt;module&gt;</seeguide>,
+	<seeguide marker="#modulesummaryTAG">&lt;modulesummary&gt;</seeguide>,
+	<seeguide marker="#descriptionTAG">&lt;description&gt;</seeguide>,
 	zero or more
-	<seealso marker="#sectionTAG">&lt;section&gt;</seealso> and
-	<seealso marker="#funcsTAG">&lt;funcs&gt;</seealso>, 
+	<seeguide marker="#sectionTAG">&lt;section&gt;</seeguide> and
+	<seeguide marker="#funcsTAG">&lt;funcs&gt;</seeguide>, 
 	followed by zero or more
-	<seealso marker="#authorsTAG">&lt;authors&gt;</seealso>.</p>
+	<seeguide marker="#authorsTAG">&lt;authors&gt;</seeguide>.</p>
     </section>
 
     <section>
@@ -490,15 +490,15 @@
       <p>The top level tag for a <c>fileref</c> DTD.</p>
 
       <p>Contains
-	<seealso marker="header_tags#headerTAG">&lt;header&gt;</seealso>,
-	<seealso marker="#fileTAG">&lt;file&gt;</seealso>,
-	<seealso marker="#filesummaryTAG">&lt;filesummary&gt;</seealso>,
-	<seealso marker="#descriptionTAG">&lt;description&gt;</seealso>,
+	<seeguide marker="header_tags#headerTAG">&lt;header&gt;</seeguide>,
+	<seeguide marker="#fileTAG">&lt;file&gt;</seeguide>,
+	<seeguide marker="#filesummaryTAG">&lt;filesummary&gt;</seeguide>,
+	<seeguide marker="#descriptionTAG">&lt;description&gt;</seeguide>,
 	zero or more
-	<seealso marker="#sectionTAG">&lt;section&gt;</seealso> and
-	<seealso marker="#funcsTAG">&lt;funcs&gt;</seealso>, 
+	<seeguide marker="#sectionTAG">&lt;section&gt;</seeguide> and
+	<seeguide marker="#funcsTAG">&lt;funcs&gt;</seeguide>, 
 	followed by zero or more
-	<seealso marker="#authorsTAG">&lt;authors&gt;</seealso>.</p>
+	<seeguide marker="#authorsTAG">&lt;authors&gt;</seeguide>.</p>
     </section>
 
     <section>
@@ -524,7 +524,7 @@
       "formal" definitions.</p>
 
     <p>Contains any combination and any number of
-      <seealso marker="block_tags">block tags</seealso> except
+      <seeguide marker="block_tags">block tags</seeguide> except
       <c><![CDATA[<image>]]></c> and <c><![CDATA[<table>]]></c>.</p>
   </section>
 
@@ -533,11 +533,11 @@
     <title>&lt;section&gt;</title>
 
     <p>Subdivisions of the document. Contains an optional
-      <seealso marker="inline_tags#markerTAG">&lt;marker&gt;</seealso>,
-      a <seealso marker="user_guide_dtds#titleTAG">&lt;title&gt;</seealso>,
+      <seeguide marker="inline_tags#markerTAG">&lt;marker&gt;</seeguide>,
+      a <seeguide marker="user_guide_dtds#titleTAG">&lt;title&gt;</seeguide>,
       
       followed by any combination and any number of
-      <seealso marker="block_tags">block tags</seealso> except
+      <seeguide marker="block_tags">block tags</seeguide> except
       <c><![CDATA[<image>]]></c> and <c><![CDATA[<table>]]></c>.</p>
   </section>
 
@@ -548,7 +548,7 @@
     <p>A group of "formal" function definitions.</p>
     
     <p>Contains one or more
-      <seealso marker="#funcTAG">&lt;func&gt;</seealso>.</p>
+      <seeguide marker="#funcTAG">&lt;func&gt;</seeguide>.</p>
   </section>
 
   <section>
@@ -558,10 +558,10 @@
     <p>A "formal" function definition.</p>
 
     <p>Contains one or more
-      <seealso marker="#nameTAG">&lt;name&gt;</seealso>, followed by
-      <seealso marker="#fsummaryTAG">&lt;fsummary&gt;</seealso>,
-      <seealso marker="#typeTAG">&lt;type&gt;</seealso> (optional) and
-      <seealso marker="#descTAG">&lt;desc&gt;</seealso> (optional).</p>
+      <seeguide marker="#nameTAG">&lt;name&gt;</seeguide>, followed by
+      <seeguide marker="#fsummaryTAG">&lt;fsummary&gt;</seeguide>,
+      <seeguide marker="#typeTAG">&lt;type&gt;</seeguide> (optional) and
+      <seeguide marker="#descTAG">&lt;desc&gt;</seeguide> (optional).</p>
   </section>
 
   <section>
@@ -576,7 +576,7 @@
 
     <p>In the case of an <c>erlref</c> DTD, it will
       automatically be added a
-      <seealso marker="inline_tags#markerTAG">marker</seealso>,
+      <seeguide marker="inline_tags#markerTAG">marker</seeguide>,
       <c><![CDATA[<marker id="Name/Arity">]]></c> or
       <c><![CDATA[<marker id="Name">]]></c>, based on the contents of
       this tag before the function definition.</p>
@@ -590,7 +590,7 @@
       <c><![CDATA[<marker id="foo/2">]]></c> before the function
       definition in the generated HTML. That is, referring to
       the function using
-      <c><![CDATA[<seealso marker="#foo/2">foo/2</seealso>]]></c> will
+      <c><![CDATA[<seemfa marker="#foo/2">foo/2</seemfa>]]></c> will
       automatically work.</p>
   </section>
 
@@ -599,8 +599,8 @@
     <title>&lt;fsummary&gt;</title>
 
     <p>Function/command summary. Contains plain text,
-      <seealso marker="inline_tags#cTAG">&lt;c&gt;</seealso> and
-      <seealso marker="inline_tags#emTAG">&lt;em&gt;</seealso>.</p>
+      <seeguide marker="inline_tags#cTAG">&lt;c&gt;</seeguide> and
+      <seeguide marker="inline_tags#emTAG">&lt;em&gt;</seeguide>.</p>
   </section>
 
   <section>
@@ -610,8 +610,8 @@
     <p>Type declarations for the function/command.</p>
 
     <p>Contains one or more pairs of
-      <seealso marker="#vTAG">&lt;v&gt;</seealso> and
-      <seealso marker="#dTAG">&lt;d&gt;</seealso> (optional).</p>
+      <seeguide marker="#vTAG">&lt;v&gt;</seeguide> and
+      <seeguide marker="#dTAG">&lt;d&gt;</seeguide> (optional).</p>
   </section>
 
   <section>
@@ -627,8 +627,8 @@
     <title>&lt;d&gt;</title>
 
     <p>Description for an argument or return value. Contains plain text,
-      <seealso marker="inline_tags#cTAG">&lt;c&gt;</seealso> and
-      <seealso marker="inline_tags#emTAG">&lt;em&gt;</seealso>.</p>
+      <seeguide marker="inline_tags#cTAG">&lt;c&gt;</seeguide> and
+      <seeguide marker="inline_tags#emTAG">&lt;em&gt;</seeguide>.</p>
   </section>
 
   <section>
@@ -636,7 +636,7 @@
     <title>&lt;desc&gt;</title>
 
     <p>Function/command description. Contains
-      <seealso marker="block_tags">block tags</seealso> except
+      <seeguide marker="block_tags">block tags</seeguide> except
       <c>&lt;image&gt;</c> and <c>&lt;table&gt;</c>.</p>
   </section>
 
@@ -647,8 +647,8 @@
     <p>Authors of the manual page. The <c>authors</c> element is  optional.</p>
 
     <p>Contains one or more pairs of
-      <seealso marker="#anameTAG">&lt;aname&gt;</seealso> and
-      <seealso marker="#emailTAG">&lt;email&gt;</seealso>.</p>
+      <seeguide marker="#anameTAG">&lt;aname&gt;</seeguide> and
+      <seeguide marker="#emailTAG">&lt;email&gt;</seeguide>.</p>
   </section>
 
   <section>

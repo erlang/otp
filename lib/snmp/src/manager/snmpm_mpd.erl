@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,11 +68,13 @@
 %%%-----------------------------------------------------------------
 init(Vsns) ->
     ?vdebug("init -> entry with ~p", [Vsns]),
-    random:seed(erlang:phash2([node()]),
-                erlang:monotonic_time(),
-                erlang:unique_integer()),
-    snmpm_config:cre_counter(msg_id, random:uniform(2147483647)),
-    snmpm_config:cre_counter(req_id, random:uniform(2147483647)),
+    ?SNMP_RAND_SEED(),
+    %% rand:seed(exrop,
+    %%           {erlang:phash2([node()]),
+    %%            erlang:monotonic_time(),
+    %%            erlang:unique_integer()}),
+    snmpm_config:cre_counter(msg_id, rand:uniform(2147483647)),
+    snmpm_config:cre_counter(req_id, rand:uniform(2147483647)),
     init_counters(),
     State = init_versions(Vsns, #state{}),
     init_usm(State#state.v3),
@@ -869,8 +871,20 @@ get_agent_max_message_size(Domain, Addr) ->
 	{ok, MMS} ->
 	    MMS;
 	_Error ->
-	    ?vlog("unknown agent: ~s",
-		  [snmp_conf:mk_addr_string({Domain, Addr})]),
+            TAddr = fun(TN) ->
+                            case snmpm_config:agent_info(TN, taddress) of
+                                {ok, TA} ->
+                                    TA;
+                                {error, _} ->
+                                    undefined
+                            end
+                    end,
+            KnownAgents =
+                [{TargetName, TAddr(TargetName)} ||
+                    TargetName <- snmpm_config:which_agents()],
+	    ?vlog("[agent engine max msg size lookup] unknown agent: ~s"
+                  "~n      Known Agents: ~p",
+		  [snmp_conf:mk_addr_string({Domain, Addr}), KnownAgents]),
 	    get_max_message_size()
     end.
 %% get_agent_max_message_size(Addr, Port) ->

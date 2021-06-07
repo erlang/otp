@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -201,10 +201,10 @@ display_worker_result([{Mod, Conf, Cnt}|Res]) ->
     io:format("~s: ~w~n", [image_of(Mod, Conf), Cnt]),
     display_worker_result(Res).
 
-image_of(megaco_per_bin_encoder, Conf) ->
-    bin_image("per_bin", Conf);
-image_of(megaco_ber_bin_encoder, Conf) ->
-    bin_image("ber_bin", Conf);
+image_of(megaco_per_encoder, Conf) ->
+    bin_image("per", Conf);
+image_of(megaco_ber_encoder, Conf) ->
+    bin_image("ber", Conf);
 image_of(megaco_pretty_text_encoder, Conf) ->
     text_image("pretty", Conf);
 image_of(megaco_compact_text_encoder, Conf) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@
 %% We processes the load request queue as a "background" job..
 
 -module(mnesia_controller).
+-compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
 -behaviour(gen_server).
 
@@ -331,35 +332,39 @@ release_schema_commit_lock() ->
 
 %% Special for preparation of add table copy
 get_network_copy(Tid, Tab, Cs) ->
-%   We can't let the controller queue this one
-%   because that may cause a deadlock between schema_operations
-%   and initial tableloadings which both takes schema locks.
-%   But we have to get copier_done msgs when the other side
-%   goes down.
-    call({add_other, self()}),
-    Reason = {dumper,{add_table_copy, Tid}},
-    Work = #net_load{table = Tab,reason = Reason,cstruct = Cs},
-    %% I'll need this cause it's linked trough the subscriber
-    %% might be solved by using monitor in subscr instead.
-    process_flag(trap_exit, true),
-    Load = load_table_fun(Work),
-    Res = ?CATCH(Load()),
-    process_flag(trap_exit, false),
-    call({del_other, self()}),
-    case Res of
- 	#loader_done{is_loaded = true} ->
- 	    Tab = Res#loader_done.table_name,
- 	    case Res#loader_done.needs_announce of
- 		true ->
- 		    i_have_tab(Tab);
- 		false ->
- 		    ignore
- 	    end,
- 	    Res#loader_done.reply;
-	#loader_done{} ->
- 	    Res#loader_done.reply;
- 	Else ->
- 	    {not_loaded, Else}
+    %%   We can't let the controller queue this one
+    %%   because that may cause a deadlock between schema_operations
+    %%   and initial tableloadings which both takes schema locks.
+    %%   But we have to get copier_done msgs when the other side
+    %%   goes down.
+    case call({add_other, self()}) of
+        ok ->
+            Reason = {dumper,{add_table_copy, Tid}},
+            Work = #net_load{table = Tab,reason = Reason,cstruct = Cs},
+            %% I'll need this cause it's linked trough the subscriber
+            %% might be solved by using monitor in subscr instead.
+            process_flag(trap_exit, true),
+            Load = load_table_fun(Work),
+            Res = ?CATCH(Load()),
+            process_flag(trap_exit, false),
+            call({del_other, self()}),
+            case Res of
+                #loader_done{is_loaded = true} ->
+                    Tab = Res#loader_done.table_name,
+                    case Res#loader_done.needs_announce of
+                        true ->
+                            i_have_tab(Tab);
+                        false ->
+                            ignore
+                    end,
+                    Res#loader_done.reply;
+                #loader_done{} ->
+                    Res#loader_done.reply;
+                Else ->
+                    {not_loaded, Else}
+            end;
+        {error, Else} ->
+            {not_loaded, Else}
     end.
 
 %% This functions is invoked from the dumper
@@ -456,8 +461,6 @@ connect_nodes(Ns) ->
 
 connect_nodes(Ns, UserFun) ->
     case mnesia:system_info(is_running) of
-	no ->
-	    {error, {node_not_running, node()}};
 	yes ->
 	    Pid = spawn_link(?MODULE,connect_nodes2,[self(),Ns, UserFun]),
 	    receive
@@ -474,7 +477,9 @@ connect_nodes(Ns, UserFun) ->
 		    end;
 		{'EXIT', Pid, Reason} ->
 		    {error, Reason}
-	    end
+	    end;
+        _ -> %% no, starting or stopping not ready to make a connection yet
+	    {error, {node_not_running, node()}}
     end.
 
 connect_nodes2(Father, Ns, UserFun) ->
@@ -772,6 +777,18 @@ handle_call({unannounce_add_table_copy, [Tab, Node], From}, ReplyTo, State) ->
 	    noreply(State#state{early_msgs = [{call, Msg, undefined} | Msgs]})
     end;
 
+handle_call({add_other, Who}, _From, State = #state{others=Others0, schema_is_merged=SM}) ->
+    case SM of
+        true ->
+            Others = [Who|Others0],
+            {reply, ok, State#state{others=Others}};
+        false ->
+            {reply, {error, {not_active,schema,node()}}, State}
+    end;
+handle_call({del_other, Who}, _From, State = #state{others=Others0}) ->
+    Others = lists:delete(Who, Others0),
+    {reply, ok, State#state{others=Others}};
+
 handle_call(Msg, From, State) when State#state.schema_is_merged /= true ->
     %% Buffer early messages
     Msgs = State#state.early_msgs,
@@ -802,13 +819,6 @@ handle_call({block_table, [Tab], From}, _Dummy, State) ->
 
 handle_call({check_w2r, _Node, Tab}, _From, State) ->
     {reply, val({Tab, where_to_read}), State};
-
-handle_call({add_other, Who}, _From, State = #state{others=Others0}) ->
-    Others = [Who|Others0],
-    {reply, ok, State#state{others=Others}};
-handle_call({del_other, Who}, _From, State = #state{others=Others0}) ->
-    Others = lists:delete(Who, Others0),
-    {reply, ok, State#state{others=Others}};
 
 handle_call(Msg, _From, State) ->
     error("~p got unexpected call: ~tp~n", [?SERVER_NAME, Msg]),
@@ -1571,7 +1581,14 @@ initial_safe_loads() ->
     end.
 
 last_consistent_replica(Tab, Downs) ->
-    Cs = val({Tab, cstruct}),
+    case ?catch_val({Tab, cstruct}) of
+        #cstruct{} = Cs ->
+            last_consistent_replica(Cs, Tab, Downs);
+        _ ->
+            false
+    end.
+
+last_consistent_replica(Cs, Tab, Downs) ->
     Storage = mnesia_lib:cs_to_storage_type(node(), Cs),
     Ram = Cs#cstruct.ram_copies,
     Disc = Cs#cstruct.disc_copies,

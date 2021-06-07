@@ -1529,7 +1529,7 @@ commit_participant(Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
     ?eval_debug_fun({?MODULE, commit_participant, pre}, [{tid, Tid}]),
     case catch mnesia_schema:prepare_commit(Tid, C0, {part, Coord}) of
 	{Modified, C, DumperMode} when record(C, commit) ->
-	    %% If we can not find any local unclear decision
+	    %% If we cannot find any local unclear decision
 	    %% we should presume abort at startup recovery
 	    case lists:member(node(), DiscNs) of
 		false ->

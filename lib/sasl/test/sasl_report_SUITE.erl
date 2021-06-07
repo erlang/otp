@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 -export([gen_server_crash/1, gen_server_crash_unicode/1]).
+-export([gen_server_crash_chars_limit/1,
+         gen_server_crash_chars_limit_unicode/1]).
 -export([legacy_gen_server_crash/1, legacy_gen_server_crash_unicode/1]).
 
 -export([crash_me/0,start_link/0,init/1,handle_cast/2,terminate/2]).
@@ -32,6 +34,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [gen_server_crash,
      gen_server_crash_unicode,
+     gen_server_crash_chars_limit,
+     gen_server_crash_chars_limit_unicode,
      legacy_gen_server_crash,
      legacy_gen_server_crash_unicode].
 
@@ -51,18 +55,31 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 gen_server_crash(Config) ->
-    gen_server_crash(Config, latin1).
+    gen_server_crash(Config, latin1, depth).
 
 gen_server_crash_unicode(Config) ->
-    gen_server_crash(Config, unicode).
+    gen_server_crash(Config, unicode, depth).
+
+gen_server_crash_chars_limit(Config) ->
+    gen_server_crash(Config, latin1, chars_limit).
+
+gen_server_crash_chars_limit_unicode(Config) ->
+    gen_server_crash(Config, unicode, chars_limit).
 
 legacy_gen_server_crash(Config) ->
-    legacy_gen_server_crash(Config,latin1).
+    legacy_gen_server_crash(Config, latin1).
 
 legacy_gen_server_crash_unicode(Config) ->
-    legacy_gen_server_crash(Config,unicode).
+    legacy_gen_server_crash(Config, unicode).
 
-gen_server_crash(Config, Encoding) ->
+gen_server_crash(Config, Encoding, depth) ->
+    FormatterOpts = #{depth=>30},
+    gen_server_crash(Config, Encoding, FormatterOpts, 70000, 150000);
+gen_server_crash(Config, Encoding, chars_limit) ->
+    FormatterOpts = #{chars_limit=>50000, single_line=>true},
+    gen_server_crash(Config, Encoding, FormatterOpts, 50000, 100000).
+
+gen_server_crash(Config, Encoding, FormatterOpts, Min, Max) ->
     TC = list_to_atom(lists:concat([?FUNCTION_NAME,"_",Encoding])),
     PrivDir = filename:join(?config(priv_dir,Config),?MODULE),
     ConfigFileName = filename:join(PrivDir,TC),
@@ -85,9 +102,9 @@ gen_server_crash(Config, Encoding) ->
                    " -boot start_sasl -kernel start_timer true "
                    "-config ",ConfigFileName]}]),
 
-    %% Set depth
-    ok = rpc:call(Node,logger,update_formatter_config,[default,depth,30]),
-    ok = rpc:call(Node,logger,update_formatter_config,[sasl,depth,30]),
+    %% Set depth or chars_limit.
+    ok = rpc:call(Node,logger,update_formatter_config,[default,FormatterOpts]),
+    ok = rpc:call(Node,logger,update_formatter_config,[sasl,FormatterOpts]),
 
     %% Make sure remote node logs it's own logs, and current node does
     %% not log them.
@@ -98,7 +115,7 @@ gen_server_crash(Config, Encoding) ->
                                               (_,_) -> ignore
                                            end,[]}),
     ct:log("Local node Logger config:~n~p",
-           [rpc:call(Node,logger,get_config,[])]),
+           [logger:get_config()]),
     ct:log("Remote node Logger config:~n~p",
            [rpc:call(Node,logger,get_config,[])]),
     ct:log("Remote node error_logger handlers: ~p",
@@ -112,8 +129,8 @@ gen_server_crash(Config, Encoding) ->
     test_server:stop_node(Node),
     ok = logger:remove_primary_filter(no_remote),
 
-    check_file(KernelLog, utf8, 70000, 150000),
-    check_file(SaslLog, Encoding, 70000, 150000),
+    check_file(KernelLog, utf8, Min, Max),
+    check_file(SaslLog, Encoding, Min, Max),
 
     ok = file:delete(KernelLog),
     ok = file:delete(SaslLog),
@@ -169,6 +186,7 @@ check_file(File, Encoding, Min, Max) ->
         _ -> io:format("~ts\n", [Bin])
     end,
     Sz = byte_size(Bin),
+    %% Sz = string:length(string:replace(Bin, " ", "", all)),
     io:format("Size: ~p (allowed range is ~p..~p)\n",
 	      [Sz,Min,Max]),
     if

@@ -26,6 +26,13 @@
 -include_lib("common_test/include/ct.hrl").
 
 int_constraints(Rules) ->
+    case Rules of
+        jer ->
+            {error,_} = 'Constraints':decode('SingleValue', <<"0">>),
+            {error,_} = 'Constraints':decode('SingleValue2', <<"21">>);
+        _ ->
+            ok
+    end,
 
     %%==========================================================
     %% SingleValue ::=  INTEGER (1) 
@@ -143,12 +150,12 @@ int_constraints(Rules) ->
     v_roundtrip(Rules, 'Sv2', 2),
     v_roundtrip(Rules, 'Sv2', 3),
     v_roundtrip(Rules, 'Sv2', 17),
-
+    
     %% Encoded as extension
     v_roundtrip(Rules, 'Sv2', 1),
     v_roundtrip(Rules, 'Sv2', 4),
     v_roundtrip(Rules, 'Sv2', 18),
-
+    
     %% Encoded as root
     v_roundtrip(Rules, 'Sv3', a),
     v_roundtrip(Rules, 'Sv3', b),
@@ -156,7 +163,7 @@ int_constraints(Rules) ->
     v_roundtrip(Rules, 'Sv3', 2, a),
     v_roundtrip(Rules, 'Sv3', 3, b),
     v_roundtrip(Rules, 'Sv3', 17, z),
-
+    
     %% Encoded as extension
     v_roundtrip(Rules, 'Sv3', 1),
     v_roundtrip(Rules, 'Sv3', 4),
@@ -295,16 +302,19 @@ v(Rule, 'Sv3', Val) when is_integer(Val) -> v(Rule, 'Sv2', Val).
 
 shorter_ext(per, "a") -> <<16#80,16#01,16#61>>;
 shorter_ext(uper, "a") -> <<16#80,16#E1>>;
-shorter_ext(ber, _) -> none.
+shorter_ext(ber, _) -> none;
+shorter_ext(jer, _) -> none.
 
 refed_NNL_name(_Erule) ->
     roundtrip('AnotherThing', fred),
     {error,_Reason} = 'Constraints':encode('AnotherThing', fred3).
 
+v_roundtrip(jer,_,_) -> ok;
 v_roundtrip(Erule, Type, Value) ->
     Encoded = asn1_test_lib:hex_to_bin(v(Erule, Type, Value)),
     Encoded = roundtrip('Constraints', Type, Value).
 
+v_roundtrip(jer,_,_,_) -> ok;
 v_roundtrip(Erule, Type, Value, Expected) ->
     Encoded = asn1_test_lib:hex_to_bin(v(Erule, Type, Value)),
     Encoded = asn1_test_lib:roundtrip_enc('Constraints', Type, Value, Expected).
@@ -328,7 +338,7 @@ range_error(ber, Type, Value) ->
     {ok,Encoded} = 'Constraints':encode(Type, Value),
     {error,{asn1,_}} = 'Constraints':decode(Type, Encoded),
     ok;
-range_error(Per, Type, Value) when Per =:= per; Per =:= uper ->
+range_error(Per, Type, Value) when Per =:= per; Per =:= uper; Per =:= jer ->
     %% (U)PER: Values outside the effective range should be rejected
     %% on encode.
     {error,_} = 'Constraints':encode(Type, Value),

@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2018</year>
+      <year>2020</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -54,21 +54,22 @@
     </p>
 
     <note><p>When implementing a client subsystem handler, use
-    <seealso marker="ssh_client_channel">-behaviour(ssh_client_channel)</seealso> instead.
+    <seeerl marker="ssh_client_channel">-behaviour(ssh_client_channel)</seeerl> instead.
     </p>
     </note>
 
   </description>
 
-  <section>
-    <title>Callback Functions</title>
-    <p>
-      The following functions are to be exported from a
-      <c>ssh_server_channel</c> callback module.
-    </p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Callback Functions</title>
+      <p>
+        The following functions are to be exported from a
+        <c>ssh_server_channel</c> callback module.
+      </p>
+    </fsdescription>
     <func>
       <name since="OTP 21.0">Module:init(Args) -> {ok, State} | {ok, State, timeout()} |
       {stop, Reason}</name>
@@ -85,8 +86,8 @@
 	state if the initializations succeed.
 	</p>
 	<p>The time-out values that can be returned
-	have the same semantics as in a <seealso marker="stdlib:gen_server">gen_server</seealso>.
-	If the time-out occurs, <seealso marker="#Module:handle_msg-2">handle_msg/2</seealso>
+	have the same semantics as in a <seeerl marker="stdlib:gen_server">gen_server</seeerl>.
+	If the time-out occurs, <seemfa marker="#Module:handle_msg/2">handle_msg/2</seemfa>
 	is called as <c>handle_msg(timeout, State)</c>.
 	</p>
       </desc>
@@ -100,7 +101,7 @@
       call, or cast messages sent to the channel.</fsummary>
       <type>
 	<v>Msg = timeout | term()</v>
-	<v>ChannelId = <seealso marker="ssh#type-channel_id">ssh:channel_id()</seealso></v>
+	<v>ChannelId = <seetype marker="ssh#channel_id">ssh:channel_id()</seetype></v>
 	<v>State = term() </v>
       </type>
       <desc>
@@ -112,7 +113,7 @@
 	function and all channels are to handle the following message.</p>
 	
 	<taglist>
-	  <tag><c>{ssh_channel_up, ssh:channel_id(), ssh:connection_ref()}</c></tag>
+	  <tag><c>{ssh_channel_up, </c><seetype marker="ssh:ssh#channel_id">ssh:channel_id()</seetype><c>, </c><seetype marker="ssh:ssh#connection_ref">ssh:connection_ref()</seetype><c>}</c></tag>
 	  <item><p>This is the first message that the channel receives.
 	  This is especially useful if the
 	  server wants to send a message to the client without first
@@ -129,21 +130,21 @@
       ChannelId, State}</name>
       <fsummary>Handles <c>ssh</c> connection protocol messages.</fsummary>
       <type>
-	<v>Msg = ssh_connection:event()</v>
-	<v>ChannelId = <seealso marker="ssh#type-channel_id">ssh:channel_id()</seealso></v>
+	<v>Msg = <seetype marker="ssh_connection#event">ssh_connection:event()</seetype></v>
+	<v>ChannelId = <seetype marker="ssh#channel_id">ssh:channel_id()</seetype></v>
 	<v>State = term()</v>
       </type>
       <desc>
 	<p>Handles SSH Connection Protocol messages that may need
 	service-specific attention. For details,
-	see <seealso marker="ssh_connection"> ssh_connection:event()</seealso>.
+	see <seetype marker="ssh_connection#event">ssh_connection:event()</seetype>.
 	</p>
 	
 	<p>The following message is taken care of by the
 	<c>ssh_server_channel</c> behavior.</p>
 	
 	<taglist>
-	  <tag><c>{closed, ssh:channel_id()}</c></tag>
+	  <tag><c>{closed, </c><seetype marker="ssh:ssh#channel_id">ssh:channel_id()</seetype><c>}</c></tag>
 	  <item><p>The channel behavior sends a close message to the
 	  other side, if such a message has not already been sent.
 	  Then it terminates the channel with reason <c>normal</c>.</p></item>
@@ -161,9 +162,9 @@
       </type>
       <desc>
 	<p>This function is called by a channel process when it is
-	about to terminate. Before this function is called, <seealso
-	marker="ssh_connection#close-2"> ssh_connection:close/2
-	</seealso> is called, if it has not been called earlier.
+	about to terminate. Before this function is called, <seemfa
+	marker="ssh_connection#close/2"> ssh_connection:close/2
+	</seemfa> is called, if it has not been called earlier.
 	This function does any necessary cleaning
 	up. When it returns, the channel process terminates with
 	reason <c>Reason</c>. The return value is ignored.

@@ -112,7 +112,14 @@ mixed(Config) when is_list(Config) ->
     [(X+Y) || <<X:3>> <= <<1:3,2:3,3:3,4:3>>, <<Y:3>> <= <<1:3,2:3>>],
   [2,3,3,4,4,5,5,6] =  
     [(X+Y) || <<X:3>> <= <<1:3,2:3,3:3,4:3>>, Y <- [1,2]],
-  ok.
+
+    %% OTP-16899: Nested binary comprehensions would fail to load.
+    <<0,1,0,2,0,3,99>> = mixed_nested([1,2,3]),
+
+    ok.
+
+mixed_nested(L) ->
+    << << << << E:16 >> || E <- L >> || true >>/binary, 99:(id(8))>>.
 
 %% OTP-8179: Call tracing on binary comprehensions would cause a crash.
 tracing(Config) when is_list(Config) ->
@@ -148,3 +155,8 @@ tracer(Parent, N) ->
 		    tracer(Parent, N+1)
 	    end
     end.
+
+%%% Common utilities.
+
+id(I) ->
+    I.

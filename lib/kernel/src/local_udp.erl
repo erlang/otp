@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,7 +41,9 @@ getaddr({?FAMILY, _} = Address) -> {ok, Address}.
 getaddr({?FAMILY, _} = Address, _Timer) -> {ok, Address}.
 
 %% special this side addresses
-translate_ip(IP) -> IP.
+translate_ip(any)      -> undefined;       % Not for this ?FAMILY
+translate_ip(loopback) -> {?FAMILY, <<>>}; % Abstract address on Linux
+translate_ip(IP)       -> IP.              % undefined goes here
 
 open(0) -> open(0, []).
 %%
@@ -56,25 +58,20 @@ open(0, Opts) ->
 	    ifaddr = BAddr,
 	    port = 0,
 	    opts = SockOpts}}
-	when tuple_size(BAddr) =:= 2, element(1, BAddr) =:= ?FAMILY;
-	     BAddr =:= any ->
+          when tuple_size(BAddr) =:= 2, element(1, BAddr) =:= ?FAMILY;
+               BAddr =:= undefined ->
 	    inet:open(
-	      Fd,
-	      case BAddr of
-		  any ->
-		      undefined;
-		  _ ->
-		      BAddr
-	      end,
-	      0, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
+	      Fd, BAddr, 0, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
 	{ok, _} -> exit(badarg)
     end.
 
-send(S, Addr = {?FAMILY,_}, 0, Data) ->
-    prim_inet:sendto(S, Addr, 0, Data).
+send(S, {?FAMILY,_} = Addr, 0, Data) ->
+    prim_inet:sendto(S, Addr, [], Data);
+send(S, {?FAMILY,_} = Addr, AncData, Data) when is_list(AncData) ->
+    prim_inet:sendto(S, Addr, AncData, Data).
 %%
 send(S, Data) ->
-    prim_inet:sendto(S, {?FAMILY,<<>>}, 0, Data).
+    prim_inet:sendto(S, {?FAMILY,<<>>}, [], Data).
 
 connect(S, Addr = {?FAMILY,_}, 0) ->
     prim_inet:connect(S, Addr, 0).

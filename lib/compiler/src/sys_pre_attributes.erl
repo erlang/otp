@@ -114,7 +114,7 @@ pre_transform(S) ->
 
 pre_transform([H | T], Acc, S) ->
     case H of
-	{attribute, Line, Name, Val} ->
+	{attribute, Anno, Name, Val} ->
 	    case lists:keyfind(Name, 2, S#state.pre_ops) of
 		false ->
 		    pre_transform(T, [H | Acc], S);
@@ -123,7 +123,7 @@ pre_transform([H | T], Acc, S) ->
 		    report_warning("Replace attribute ~p: ~p -> ~p~n",
 				   [Name, Val, NewVal],
 				   S),
-		    New = {attribute, Line, Name, NewVal},
+		    New = {attribute, Anno, Name, NewVal},
 		    Pre = lists:keydelete(Name, 2, S#state.pre_ops),
 		    Post = lists:keydelete(Name, 2, S#state.post_ops),
 		    S2 = S#state{pre_ops = Pre, post_ops = Post},
@@ -158,9 +158,9 @@ post_transform(S) ->
 
 post_transform([H | T], Acc, S) ->
     case H of
-	{attribute, Line, module, _Val} = Attribute ->
+	{attribute, Anno, module, _Val} = Attribute ->
 	    Acc2 = lists:reverse([Attribute | Acc]),
-	    Forms = Acc2 ++ attrs(S#state.post_ops, Line, S) ++ T,
+	    Forms = Acc2 ++ attrs(S#state.post_ops, Anno, S) ++ T,
 	    S#state{forms = Forms, post_ops = []};
 	_Any ->
 	    post_transform(T, [H | Acc], S)
@@ -168,12 +168,12 @@ post_transform([H | T], Acc, S) ->
 post_transform([], Acc, S) ->
     S#state{forms = lists:reverse(Acc)}.
 
-attrs([{replace, Name, NewVal} | T], Line, S) ->
+attrs([{replace, Name, NewVal} | T], Anno, S) ->
     report_verbose("Insert attribute ~p: ~p~n", [Name, NewVal], S),
-    [{attribute, Line, Name, NewVal} | attrs(T, Line, S)];
-attrs([{insert, Name, NewVal} | T], Line, S) ->
+    [{attribute, Anno, Name, NewVal} | attrs(T, Anno, S)];
+attrs([{insert, Name, NewVal} | T], Anno, S) ->
     report_verbose("Insert attribute ~p: ~p~n", [Name, NewVal], S),
-    [{attribute, Line, Name, NewVal} | attrs(T, Line, S)];
+    [{attribute, Anno, Name, NewVal} | attrs(T, Anno, S)];
 attrs([], _, _) ->
     [].
 

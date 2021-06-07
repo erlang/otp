@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2018</year>
+      <year>2004</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,189 @@
   </header>
   <p>This document describes the changes made to the asn1 application.</p>
 
+
+<section><title>Asn1 5.0.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug in the <c>asn1</c> compiler that potentially
+	    could cause it to fail to open a file.</p>
+          <p>
+	    Own Id: OTP-17387 Aux Id: OTP-17123 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A parameterized type with a SEQUENCE with extension
+	    ("...") made the compiler backend to crash.</p>
+          <p>
+	    Own Id: OTP-17227 Aux Id: GH-4514 </p>
+        </item>
+        <item>
+          <p>
+	    For JER encoding rules an INTEGER value outside the
+	    declared range is now reported as error during decode.</p>
+          <p>
+	    Own Id: OTP-17306 Aux Id: ERIERL-506 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    For the JER encoding rules, the declared order of the
+	    fields in a SEQUENCE is now maintained in the resulting
+	    JSON object. Previously a map was used which caused an
+	    undefined order of the fields which was not friendly for
+	    debugging.</p>
+          <p>
+	    Own Id: OTP-17297 Aux Id: ERIERL-607 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Changes in order to build on the Haiku operating system.</p>
+          <p>
+	    Thanks to Calvin Buckley</p>
+          <p>
+	    Own Id: OTP-16707 Aux Id: PR-2638 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Adhere to the ASN.1 specification for hstring &amp;
+	    bstring lexical items. That is they may include white
+	    space.</p>
+          <p>
+	    Own Id: OTP-16490</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+        <item>
+          <p>
+	    Improve handling of ellipsis in a CHOICE</p>
+          <p>
+	    Own Id: OTP-16554 Aux Id: ERL-1189 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Dialyzer warnings of type <c>no_match</c> are now
+	    suppressed in the generated files.</p>
+          <p>
+	    Own Id: OTP-16636 Aux Id: ERIERL-145 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The compiler now has limited support for the JSON
+	    encoding rules (ITU-T X.697 ASN.1 encoding rules:
+	    Specification of JavaScript Object Notation Encoding
+	    Rules).</p>
+          <p>
+	    Own Id: OTP-16030</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix 'DEFAULT' with 'OCTET STRING' and 'SEQUENCE OF
+	    CHOICE' with extensions.</p>
+          <p>
+	    Own Id: OTP-16542 Aux Id: PR-2159 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All incorrect (that is, all) uses of "can not" has been
+	    corrected to "cannot" in source code comments,
+	    documentation, examples, and so on.</p>
+          <p>
+	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
+        </item>
+        <item>
+	    <p>Corrected problems with the following value
+	    definitions:</p> <list> <item>value of SEQUENCE OF CHOICE
+	    with extensions</item> <item>value of CHOICE with
+	    extensions</item> <item>DEFAULT used with OCTET
+	    STRING</item> </list>
+          <p>
+	    Own Id: OTP-15697 Aux Id: PR-2159 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Asn1 5.0.8</title>
 

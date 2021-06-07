@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20014,4 +20014,31 @@ run56() ->
     <<"  MumdPEeFred:099">> = iolist_to_binary(re:replace("  Fred:099","(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])","\\1&M&umdPE&e",[global])), 
     <<"  ugxGKrBXEcHyG">> = iolist_to_binary(re:replace("  X","(?=.*X)X$","ugxGKrB&EcHyG",[])), 
     <<"  ugxGKrBXEcHyG">> = iolist_to_binary(re:replace("  X","(?=.*X)X$","ugxGKrB&EcHyG",[global])), 
+    <<">MHFvXX<">> = iolist_to_binary(re:replace(">XXX<","X+(?#comment)?","MHFv",[])), 
+    <<">MHFvMHFvMHFv<">> = iolist_to_binary(re:replace(">XXX<","X+(?#comment)?","MHFv",[global])), 
+    <<"lTpokusldxfHXOpokuswsrRorpokus.">> = iolist_to_binary(re:replace("pokus.","   (?<word> \\w+ )*    \\.   ","lT\\1ldxfHXO\\1wsrRor&",[extended,
+                                                                                                                                                                                                                                                                caseless])), 
+    <<"lTpokusldxfHXOpokuswsrRorpokus.">> = iolist_to_binary(re:replace("pokus.","   (?<word> \\w+ )*    \\.   ","lT\\1ldxfHXO\\1wsrRor&",[extended,
+                                                                                                                                                                                                                                                                 caseless,
+                                                                                                                                                                                                                                                                 global])), 
+    <<"Oeapokus.xo">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) (?&word)*   \\.","Oea&xo",[extended,
+                                                                                                                                                                                                                                                            caseless])), 
+    <<"Oeapokus.xo">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) (?&word)*   \\.","Oea&xo",[extended,
+                                                                                                                                                                                                                                                             caseless,
+                                                                                                                                                                                                                                                             global])), 
+    <<"Wpokus.pity">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) ( (?&word)* )   \\.","W&pity",[extended,
+                                                                                                                                                                                                                                                                    caseless])), 
+    <<"Wpokus.pity">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) ( (?&word)* )   \\.","W&pity",[extended,
+                                                                                                                                                                                                                                                                     caseless,
+                                                                                                                                                                                                                                                                     global])), 
+    <<"iujmNtBvmcyi">> = iolist_to_binary(re:replace("pokus.","(?&word)*  (?(DEFINE) (?<word> \\w+ ) )  \\.","iuj\\1m\\1NtBvmcyi\\1",[extended,
+                                                                                                                                                                                                                                                                                            caseless])), 
+    <<"iujmNtBvmcyi">> = iolist_to_binary(re:replace("pokus.","(?&word)*  (?(DEFINE) (?<word> \\w+ ) )  \\.","iuj\\1m\\1NtBvmcyi\\1",[extended,
+                                                                                                                                                                                                                                                                                             caseless,
+                                                                                                                                                                                                                                                                                             global])), 
+    <<"Ipokus.hokusbQpokus.hokusB">> = iolist_to_binary(re:replace("pokus.hokus","(?&word)*  \\. (?<word> \\w+ )","I&bQ&B",[extended,
+                                                                                                                                                                                                                                           caseless])), 
+    <<"Ipokus.hokusbQpokus.hokusB">> = iolist_to_binary(re:replace("pokus.hokus","(?&word)*  \\. (?<word> \\w+ )","I&bQ&B",[extended,
+                                                                                                                                                                                                                                            caseless,
+                                                                                                                                                                                                                                            global])), 
     ok.

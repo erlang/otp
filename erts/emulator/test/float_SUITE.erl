@@ -24,7 +24,7 @@
 
 -export([all/0, suite/0, groups/0,
          fpe/1,fp_drv/1,fp_drv_thread/1,denormalized/1,match/1,
-         t_mul_add_ops/1,
+         t_mul_add_ops/1,negative_zero/1,
          bad_float_unpack/1, write/1, cmp_zero/1, cmp_integer/1, cmp_bignum/1]).
 -export([otp_7178/1]).
 -export([hidden_inf/1]).
@@ -37,7 +37,7 @@ suite() ->
 all() -> 
     [fpe, fp_drv, fp_drv_thread, otp_7178, denormalized,
      match, bad_float_unpack, write, {group, comparison}
-     ,hidden_inf
+     ,hidden_inf, negative_zero
      ,arith, t_mul_add_ops].
 
 groups() -> 
@@ -55,6 +55,21 @@ otp_7178(Config) when is_list(Config) ->
     true = (Y < 0.00000001) and (Y > -0.00000001),
     {'EXIT', {badarg,_}} = (catch list_to_float("1.0e83291083210")),
     ok.
+
+negative_zero(Config) when is_list(Config) ->
+    <<16#8000000000000000:64>> = do_negative_zero('-', [0.0]),
+    <<16#8000000000000000:64>> = do_negative_zero('*', [-1, 0.0]),
+    <<16#8000000000000000:64>> = do_negative_zero('*', [-1.0, 0.0]),
+    <<16#8000000000000000:64>> = do_negative_zero('*', [-1.0, 0]),
+    ok.
+
+do_negative_zero(Op, Ops) ->
+    Res = <<(my_apply(erlang, Op, Ops))/float>>,
+    Res = <<(case {Op, Ops} of
+                 {'-', [A]} -> -A;
+                 {'*', [A, B]} -> A * B
+             end)/float>>,
+    Res.
 
 %% Forces floating point exceptions and tests that subsequent, legal,
 %% operations are calculated correctly.  Original version by Sebastian

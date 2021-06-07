@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,59 +55,41 @@
 %%% API
 %%%----------------------------------------------------------------------
 
-%% add_release(Servername, Directory) -> 
-%%         {ok, ReleaseName} | Error
-%% add_release(Servername, Directory, Options) ->
-%%         {ok, ReleaseName} | Error
-%% add_application(Servername, Directory) -> 
-%%         {ok, AppName} | Error
-%% add_application(Servername, Directory, Options) ->
-%%         {ok, AppName} | Error
-%% add_module(ServerName, Filename) ->
-%%     {ok, ModuleName} | Error
-%% add_module(ServerName, Filename, Options) ->
-%%     {ok, ModuleName} | Error
-%% add_directory(ServerName, Directory) ->
-%%     {ok, [ModuleName]} | Error
-%% add_directory(ServerName, Directory, Options) ->
-%%     {ok, [ModuleName]} | Error
-%% replace_module(ServerName, Module, Filename) ->
-%%     {ok, Module} | Error
-%% replace_module(ServerName, Module, Filename, Options) ->
-%%     {ok, Module} | Error
-%% replace_application(ServerName, Application, Directory) ->
-%%     {ok, AppName} | Error
-%% replace_application(ServerName, Application, Directory, Options) ->
-%%     {ok, AppName} | Error
-%% remove_module(ServerName, Module) -> ok | Error
-%% remove_application(ServerName, Application) -> ok | Error
-%% remove_release(ServerName, Release) -> ok | Error
-%% get_library_path(Servername) -> {ok, Path}
-%% set_library_path(Servername, Path) -> ok | Error
-%% set_library_path(Servername, Path, Options) -> ok | Error
-%% info(Servername) -> InfoList
-%% info(Servername, What) -> [{what(), InfoList}] | Error
-%% info(Servername, What, Qual) -> [{what(), InfoList}] | Error
-%% update(Servername) -> {ok, [Module]} | Error
-%% update(Servername, Options) -> {ok, [Module]} | Error
-%% forget(Servername) -> ok
-%% forget(Servername, VariableName) -> ok | Error
-%% variables(Servername) -> {ok, [{VarType, [VariableName]}]} | Error
-%% variables(Servername, [VarType]) -> {ok, [{VarType, [VariableName]}]}
-%% analyze(ServerName, What) -> {ok, Answer} | Error
-%% analyze(ServerName, What, Options) -> {ok, Answer} | Error
-%% q(Servername, Query) -> {ok, Answer} | Error
-%% q(Servername, Query, Options) -> {ok, Answer} | Error
-%% get_default(ServerName, Option) -> {ok, Value} | Error
-%% set_default(ServerName, Option, Value) -> {ok, OldValue} | Error
-%% get_default(ServerName) -> [{Option, Value}]
-%% set_default(ServerName, [{Option, Value}]) -> ok | Error
-%% format_error(Error) -> io_string()
-%% m(Module) -> [Result] | Error
-%% m(File) -> [Result] | Error
-%% d(Directory) -> [Result] | Error
+-type application() :: atom().
+-type call() :: {atom(), atom()} | funcall().
+-type constant() :: xmfa() | module() | application() | release().
+-type directory() :: atom() | file:filename().
+-type file() :: file:filename().
+-type file_error() :: atom().
+-type funcall() :: {xmfa(), xmfa()}.
+-type function_name() :: atom().
+-type library() :: atom().
+-type library_path() :: path() | 'code_path'.
+-type mode() :: 'functions' | 'modules'.
+-type path() :: [file()].
+-type release() :: atom().
+-type string_position() :: pos_integer().
+-type variable() :: atom().
+-type xarity() :: arity() | -1.
+-type xmfa() :: {module(), function_name(), xarity()}.
+-type xref() :: atom() | pid().
 
-%% -> [Faulty] | Error; Faulty = {undefined, Calls} | {unused, Funs}
+-spec m(FileOrModule) -> [DebugInfoResult] |
+                   [NoDebugInfoResult] |
+                   {'error', module(), Reason} when
+      FileOrModule :: file:filename() | module(),
+      DebugInfoResult :: {'deprecated', [funcall()]}
+                       | {'undefined', [funcall()]}
+                       | {'unused', [mfa()]},
+      NoDebugInfoResult :: {'deprecated', [xmfa()]}
+                         | {'undefined', [xmfa()]},
+      Reason :: {'cover_compiled', Module}
+              | {'file_error', file(), file_error()}
+              | {'interpreted', Module}
+              | {'invalid_filename', term()}
+              | {'no_such_module', Module}
+              | beam_lib:chnk_rsn().
+
 %% No user variables have been assigned digraphs, so there is no
 %% need to call xref_base:delete/1.
 m(Module) when is_atom(Module) ->
@@ -141,7 +123,20 @@ m(File) ->
 	    end
     end.
 
-%% -> [Faulty] | Error; Faulty = {undefined, Calls} | {unused, Funs}
+-spec d(Directory) -> [DebugInfoResult] |
+                      [NoDebugInfoResult] |
+                      {'error', module(), Reason} when
+      Directory :: directory(),
+      DebugInfoResult :: {'deprecated', [funcall()]}
+                       | {'undefined', [funcall()]}
+                       | {'unused', [mfa()]},
+      NoDebugInfoResult :: {'deprecated', [xmfa()]}
+                         | {'undefined', [xmfa()]},
+      Reason :: {'file_error', file(), file_error()}
+              | {'invalid_filename', term()}
+              | {'unrecognized_file', file()}
+              | beam_lib:chnk_rsn().
+
 d(Directory) ->
     Fun = fun(S) ->
                   xref_base:add_directory(S, Directory, {builtins, true})
@@ -161,11 +156,26 @@ d(Directory) ->
 	    Result
     end.
 
+-spec start(NameOrOptions) ->
+                   {'ok', pid()} |
+                   {'error', {'already_started', pid()}} when
+      NameOrOptions :: Name | Options,
+      Name :: atom(),
+      Options :: Option | [Option],
+      Option :: {'xref_mode', mode()} | term().
+
 start(Name) when is_atom(Name) ->
     start(Name, []);
 start(Opts0) when is_list(Opts0) ->
     {Args, Opts} = split_args(Opts0),
     gen_server:start(xref, Args, Opts).
+
+-spec start(Name, Options) ->
+                   {'ok', pid()} |
+                   {'error', {'already_started', pid()}} when
+      Name :: atom(),
+      Options :: Option | [Option],
+      Option :: {'xref_mode', mode()} | term().
 
 start(Name, Opts0) when is_list(Opts0) ->
     {Args, Opts} = split_args(Opts0),
@@ -181,121 +191,557 @@ split_args(Opts) ->
 	    {[], Opts}
     end.
 
+-spec stop(XrefServer) -> 'stopped' when
+      XrefServer :: xref().
+
 stop(Name) ->
     try gen_server:call(Name, stop, infinity)
     after catch unregister(Name) % ensure the name is gone
     end.
 
+-spec add_release(XrefServer, Directory) ->
+                         {'ok', release()} |
+                         {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Directory :: directory(),
+      Reason :: {'application_clash', {application(), directory(), directory()}}
+              | {'release_clash', {release(), directory(), directory()}}
+              | add_dir_rsn().
+
 add_release(Name, Dir) ->
     gen_server:call(Name, {add_release, Dir}, infinity).
+
+-spec add_release(XrefServer, Directory, Options) ->
+                         {'ok', release()} |
+                         {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Directory :: directory(),
+      Options :: Option | [Option],
+      Option :: {'builtins', boolean()}
+              | {'name', release()}
+              | {'verbose', boolean()}
+              | {'warnings', boolean()}
+              | 'builtins'
+              | 'verbose'
+              | 'warnings',
+      Reason :: {'application_clash', {application(), directory(), directory()}}
+              | {'release_clash', {release(), directory(), directory()}}
+              | add_dir_rsn().
 
 add_release(Name, Dir, Options) ->
     gen_server:call(Name, {add_release, Dir, Options}, infinity).
 
+-spec add_application(XrefServer, Directory) ->
+                             {'ok', application()} |
+                             {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Directory :: directory(),
+      Reason :: {'application_clash', {application(), directory(), directory()}}
+              | add_dir_rsn().
+
 add_application(Name, Dir) ->
     gen_server:call(Name, {add_application, Dir}, infinity).
+
+-spec add_application(XrefServer, Directory, Options) ->
+                             {'ok', application()} |
+                             {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Directory :: directory(),
+      Options :: Option | [Option],
+      Option :: {'builtins', boolean()}
+              | {'name', application()}
+              | {'verbose', boolean()}
+              | {'warnings', boolean()}
+              | 'builtins'
+              | 'verbose'
+              | 'warnings',
+      Reason :: {'application_clash', {application(), directory(), directory()}}
+              | add_dir_rsn().
 
 add_application(Name, Dir, Options) ->
     gen_server:call(Name, {add_application, Dir, Options}, infinity).
 
+-type add_mod_rsn() ::
+        {'file_error', file(), file_error()}
+      | {'invalid_filename', term()}
+      | {'invalid_options', term()}
+      | {'module_clash', {module(), file(), file()}}
+      | {'no_debug_info', file()}
+      | beam_lib:chnk_rsn().
+
+-spec add_module(XrefServer, File) -> 
+                             {'ok', module()} |
+                             {'error', module(), Reason} when
+      XrefServer :: xref(),
+      File :: file:filename(),
+      Reason :: add_mod_rsn().
+
 add_module(Name, File) ->
     gen_server:call(Name, {add_module, File}, infinity).
+
+-spec add_module(XrefServer, File, Options) -> 
+                             {'ok', module()} |
+                             {'error', module(), Reason} when
+      XrefServer :: xref(),
+      File :: file:filename(),
+      Options :: Option | [Option],
+      Option :: {'builtins', boolean()}
+              | {'verbose', boolean()}
+              | {'warnings', boolean()}
+              | 'builtins'
+              | 'verbose'
+              | 'warnings',
+      Reason :: add_mod_rsn().
 
 add_module(Name, File, Options) ->
     gen_server:call(Name, {add_module, File, Options}, infinity).
 
+-type add_dir_rsn() ::
+        {'file_error', file(), file_error()}
+      | {'invalid_filename', term()}
+      | {'invalid_options', term()}
+      | {'unrecognized_file', file()}
+      | beam_lib:chnk_rsn().
+
+-spec add_directory(XrefServer, Directory) ->
+                           {'ok', Modules} |
+                           {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Directory :: directory(),
+      Modules :: [module()],
+      Reason :: {'application_clash', {application(), directory(), directory()}}
+              | add_dir_rsn().
+      
 add_directory(Name, Dir) ->
     gen_server:call(Name, {add_directory, Dir}, infinity).
+
+-spec add_directory(XrefServer, Directory, Options) ->
+                           {'ok', Modules} |
+                           {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Directory :: directory(),
+      Options :: Option | [Option],
+      Option :: {'builtins', boolean()}
+              | {'recurse', boolean()}
+              | {'verbose', boolean()}
+              | {'warnings', boolean()}
+              | 'builtins'
+              | 'recurse'
+              | 'verbose'
+              | 'warnings',
+      Modules :: [module()],
+      Reason :: add_dir_rsn().
 
 add_directory(Name, Dir, Options) ->
     gen_server:call(Name, {add_directory, Dir, Options}, infinity).
 
+-spec replace_module(XrefServer, Module, File) ->
+                                 {'ok', Module} |
+                                 {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Module :: module(),
+      File :: file(),
+      Reason :: {'module_mismatch', Module, ReadModule :: module()}
+              | {'no_such_module', Module}
+              | add_mod_rsn().
+
 replace_module(Name, Module, File) ->
     gen_server:call(Name, {replace_module, Module, File}, infinity).
+
+-spec replace_module(XrefServer, Module, File, Options) ->
+                                 {'ok', Module} |
+                                 {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Module :: module(),
+      File :: file(),
+      Options :: Option | [Option],
+      Option :: {'verbose', boolean()}
+              | {'warnings', boolean()}
+              | 'verbose'
+              | 'warnings',
+      Reason :: {'module_mismatch', Module, ReadModule :: module()}
+              | {'no_such_module', Module}
+              | add_mod_rsn().
 
 replace_module(Name, Module, File, Options) ->
     gen_server:call(Name, {replace_module, Module, File, Options}, infinity).
 
+-spec replace_application(XrefServer, Application, Directory) ->
+                                 {'ok', Application} |
+                                 {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Application :: application(),
+      Directory :: directory(),
+      Reason :: {'no_such_application', Application}
+              | add_dir_rsn().
+
 replace_application(Name, App, Dir) ->
     gen_server:call(Name, {replace_application, App, Dir}, infinity).
+
+-spec replace_application(XrefServer, Application, Directory, Options) ->
+                                 {'ok', Application} |
+                                 {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Application :: application(),
+      Directory :: directory(),
+      Options :: Option | [Option],
+      Option :: {'builtins', boolean()}
+              | {'verbose', boolean()}
+              | {'warnings', boolean()}
+              | 'builtins'
+              | 'verbose'
+              | 'warnings',
+      Reason :: {'application_clash', {application(), directory(), directory()}}
+              | {'no_such_application', Application}
+              | add_dir_rsn().
 
 replace_application(Name, App, Dir, Options) ->
     gen_server:call(Name, {replace_application, App, Dir, Options}, infinity).
 
+-spec remove_module(XrefServer, Modules) ->
+                                'ok' | {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Modules :: module() | [module()],
+      Reason :: {'no_such_module', module()}.
+
 remove_module(Name, Mod) ->
     gen_server:call(Name, {remove_module, Mod}, infinity).
+
+-spec remove_application(XrefServer, Applications) ->
+                                'ok' | {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Applications :: application() | [application()],
+      Reason :: {'no_such_application', application()}.
 
 remove_application(Name, App) ->
     gen_server:call(Name, {remove_application, App}, infinity).
 
+-spec remove_release(XrefServer, Releases) ->
+                                'ok' | {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Releases :: release() | [release()],
+      Reason :: {'no_such_release', release()}.
+
 remove_release(Name, Rel) ->
     gen_server:call(Name, {remove_release, Rel}, infinity).
+
+-spec get_library_path(XrefServer) -> {'ok', LibraryPath} when
+      XrefServer :: xref(),
+      LibraryPath :: library_path().
 
 get_library_path(Name) ->
     gen_server:call(Name, get_library_path, infinity).
 
+-spec set_library_path(XrefServer, LibraryPath) ->
+                              'ok' | {'error', module(), Reason} when
+      XrefServer :: xref(),
+      LibraryPath :: library_path(),
+      Reason :: {'file_error', file(), file_error()}
+              | {'invalid_options', term()}
+              | {'invalid_path', term()}.
+
 set_library_path(Name, Path) ->
     gen_server:call(Name, {set_library_path, Path}, infinity).
+
+-spec set_library_path(XrefServer, LibraryPath, Options) ->
+                              'ok' | {'error', module(), Reason} when
+      XrefServer :: xref(),
+      LibraryPath :: library_path(),
+      Options :: Option | [Option],
+      Option :: {'verbose', boolean()} | 'verbose',
+      Reason :: {'invalid_options', term()}
+              | {'invalid_path', term()}.
 
 set_library_path(Name, Path, Options) ->
     gen_server:call(Name, {set_library_path, Path, Options}, infinity).
 
+-type info() :: {'application', Application :: [application()]}
+              | {'builtins', boolean()}
+              | {'directory', directory()}
+              | {'library_path', library_path()}
+              | {'mode', mode()}
+              | {'no_analyzed_modules', non_neg_integer()}
+              | {'no_applications', non_neg_integer()}
+              | {'no_calls', {NoResolved :: non_neg_integer(),
+                              NoUnresolved :: non_neg_integer()}}
+              | {'no_function_calls',
+                 {NoLocal :: non_neg_integer(),
+                  NoResolvedExternal :: non_neg_integer(),
+                  NoUnresolved :: non_neg_integer()}}
+              | {'no_functions', {NoLocal :: non_neg_integer(),
+                                  NoExternal :: non_neg_integer()}}
+              | {'no_inter_function_calls', non_neg_integer()}
+              | {'no_releases', non_neg_integer()}
+              | {'release', Release :: [release()]}
+              | {'version', Version :: [non_neg_integer()]}.
+
+-spec info(XrefServer) -> [Info] when
+      XrefServer :: xref(),
+      Info :: info().
+
 info(Name) ->
     gen_server:call(Name, info, infinity).
+
+-spec info(XrefServer, Category) ->
+                  [{Item, [Info]}] |
+                  {'error', module(), {'no_such_info', Category}} when
+      XrefServer :: xref(),
+      Category :: 'modules' | 'applications' | 'releases' | 'libraries',
+      Item :: module() | application() | release() | library(),
+      Info :: info().
 
 info(Name, What) ->
     gen_server:call(Name, {info, What}, infinity).
 
+-spec info(XrefServer, Category, Items) -> 
+                  [{Item, [Info]}] |
+                  {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Category :: 'modules' | 'applications' | 'releases' | 'libraries',
+      Items :: Item | [Item],
+      Item :: module() | application() | release() | library(),
+      Info :: info(),
+      Reason :: {'no_such_application', Item}
+              | {'no_such_info', Category}
+              | {'no_such_library', Item}
+              | {'no_such_module', Item}
+              | {'no_such_release', Item}.
+
 info(Name, What, Qual) ->
     gen_server:call(Name, {info, What, Qual}, infinity).
+
+-spec update(XrefServer) ->
+                    {'ok', Modules} |
+                    {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Modules :: [module()],
+      Reason :: {'module_mismatch', module(), ReadModule :: module()}
+              | add_mod_rsn(). % except 'invalid_options'
 
 update(Name) ->
     gen_server:call(Name, update, infinity).
 
+-spec update(XrefServer, Options) ->
+                    {'ok', Modules} |
+                    {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Options :: Option | [Option],
+      Option :: {'verbose', boolean()}
+              | {'warnings', boolean()}
+              | 'verbose'
+              | 'warnings',
+      Modules :: [module()],
+      Reason :: {'module_mismatch', module(), ReadModule :: module()}
+              | add_mod_rsn().
+
 update(Name, Options) ->
     gen_server:call(Name, {update, Options}, infinity).
+
+-spec forget(XrefServer) -> 'ok' when
+      XrefServer :: xref().
 
 forget(Name) ->
     gen_server:call(Name, forget, infinity).
 
+-spec forget(XrefServer, Variables) -> 'ok' | {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Variables :: variable() | [variable()],
+      Reason :: {'not_user_variable', term()}.
+
 forget(Name, Variable) ->
     gen_server:call(Name, {forget, Variable}, infinity).
+
+-spec variables(XrefServer) -> {'ok', [VariableInfo]} when
+      XrefServer :: xref(),
+      VariableInfo :: {'predefined', [variable()]}
+                    | {'user', [variable()]}.
 
 variables(Name) ->
     gen_server:call(Name, variables, infinity).
 
+-spec variables(XrefServer, Options) -> {'ok', [VariableInfo]} when
+      XrefServer :: xref(),
+      Options :: Option | [Option],
+      Option :: 'predefined'
+              | 'user'
+              | {'verbose', boolean()}
+              | 'verbose',
+      VariableInfo :: {'predefined', [variable()]}
+                    | {'user', [variable()]}.
+
 variables(Name, Options) ->
     gen_server:call(Name, {variables, Options}, infinity).
 
+-spec analyse(XrefServer, Analysis) ->
+                     {'ok', Answer} |
+                     {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Analysis :: analysis(),
+      Answer :: [term()],
+      Reason :: analyze_rsn().
+      
 analyse(Name, What) ->
     gen_server:call(Name, {analyze, What}, infinity).
 
+-spec analyse(XrefServer, Analysis, Options) ->
+                     {'ok', Answer} |
+                     {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Analysis :: analysis(),
+      Options :: Option | [Option],
+      Option :: {'verbose', boolean()} | 'verbose',
+      Answer :: [term()],
+      Reason :: analyze_rsn().
+      
 analyse(Name, What, Options) ->
     gen_server:call(Name, {analyze, What, Options}, infinity).
 
+-type app_spec() :: application() | [application()].
+-type depr_flag() :: 'next_version'
+                   | 'next_major_release'
+                   | 'eventually'.
+-type func_spec() :: xmfa() | [xmfa()].
+-type mod_spec() :: module() | [module()].
+-type rel_spec() :: release() | [release()].
+-type analysis() :: 'undefined_function_calls'
+                  | 'undefined_functions'
+                  | 'locals_not_used'
+                  | 'exports_not_used'
+                  | 'deprecated_function_calls'
+                  | {'deprecated_function_calls', DeprFlag :: depr_flag()}
+                  | 'deprecated_functions'
+                  | {'deprecated_functions', DeprFlag :: depr_flag()}
+                  | {'call', FuncSpec :: func_spec()}
+                  | {'use', FuncSpec :: func_spec()}
+                  | {'module_call', ModSpec :: mod_spec()}
+                  | {'module_use', ModSpec :: mod_spec()}
+                  | {'application_call', AppSpec :: app_spec()}
+                  | {'application_use', AppSpec :: app_spec()}
+                  | {'release_call', RelSpec :: rel_spec()}
+                  | {'release_use', RelSpec :: rel_spec()}.
+
+-type analyze_rsn() :: {'invalid_options', term()}
+                     | {'parse_error', string_position(), term()}
+                     | {'unavailable_analysis', term()}
+                     | {'unknown_analysis', term()}
+                     | {'unknown_constant', string()}
+                     | {'unknown_variable', variable()}.
+
+-spec analyze(XrefServer, Analysis) ->
+                     {'ok', Answer} |
+                     {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Analysis :: analysis(),
+      Answer :: [term()],
+      Reason :: analyze_rsn().
+      
 analyze(Name, What) ->
     gen_server:call(Name, {analyze, What}, infinity).
 
+-spec analyze(XrefServer, Analysis, Options) ->
+                     {'ok', Answer} |
+                     {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Analysis :: analysis(),
+      Options :: Option | [Option],
+      Option :: {'verbose', boolean()} | 'verbose',
+      Answer :: [term()],
+      Reason :: analyze_rsn().
+      
 analyze(Name, What, Options) ->
     gen_server:call(Name, {analyze, What, Options}, infinity).
+
+-type component() :: [constant()].
+-type define_at() :: {xmfa(), LineNumber :: non_neg_integer()}.
+-type answer() :: 'false'
+                | [constant()]
+                | [(Call :: call()) |
+                   (ComponentCall :: {component(), component()})]
+                | [Component :: component()]
+                | non_neg_integer()
+                | [DefineAt :: define_at()]
+                | [CallAt :: {funcall(), LineNumbers :: [non_neg_integer()]}]
+                | [AllLines :: {{define_at(), define_at()},
+                                LineNumbers :: [non_neg_integer()]}].
+-type q_rsn() :: {'invalid_options', term()}
+               | {'parse_error', string_position(), term()}
+               | {'type_error', string()}
+               | {'type_mismatch', string(), string()}
+               | {'unknown_analysis', term()}
+               | {'unknown_constant', string()}
+               | {'unknown_variable', variable()}
+               | {'variable_reassigned', string()}.
+
+-spec q(XrefServer, Query) ->
+               {'ok', Answer} |
+               {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Query :: string() | atom(),
+      Answer :: answer(),
+      Reason :: q_rsn().
 
 q(Name, Q) ->
     gen_server:call(Name, {qry, Q}, infinity).
 
+-spec q(XrefServer, Query, Options) ->
+               {'ok', Answer} |
+               {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Query :: string() | atom(),
+      Options :: Option | [Option],
+      Option :: {'verbose', boolean()} | 'verbose',
+      Answer :: answer(),
+      Reason :: q_rsn().
+
 q(Name, Q, Options) ->
     gen_server:call(Name, {qry, Q, Options}, infinity).
+
+-spec get_default(XrefServer) -> [{Option, Value}] when
+      XrefServer :: xref(),
+      Option :: 'builtins' | 'recurse' | 'verbose' | 'warnings',
+      Value :: boolean().
 
 get_default(Name) ->
     gen_server:call(Name, get_default, infinity).
 
+-spec get_default(XrefServer, Option) ->
+                         {'ok', Value} |
+                         {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Option :: 'builtins' | 'recurse' | 'verbose' | 'warnings',
+      Value :: boolean(),
+      Reason :: {'invalid_options', term()}. % 'invalid_option'
+
 get_default(Name, Option) ->
     gen_server:call(Name, {get_default, Option}, infinity).
+
+-spec set_default(XrefServer, OptionValues) ->
+                         'ok' |
+                         {'error', module(), Reason} when
+      XrefServer :: xref(),
+      OptionValues :: OptionValue | [OptionValue],
+      OptionValue :: {Option, Value},
+      Option :: 'builtins' | 'recurse' | 'verbose' | 'warnings',
+      Value :: boolean(),
+      Reason :: {'invalid_options', term()}.
 
 set_default(Name, OptionValues) ->
     gen_server:call(Name, {set_default, OptionValues}, infinity).
 
+-spec set_default(XrefServer, Option, Value) ->
+                         {'ok', OldValue} |
+                         {'error', module(), Reason} when
+      XrefServer :: xref(),
+      Option :: 'builtins' | 'recurse' | 'verbose' | 'warnings',
+      Value :: boolean(),
+      OldValue :: boolean(),
+      Reason :: {'invalid_options', term()}.
+
 set_default(Name, Option, Value) ->
     gen_server:call(Name, {set_default, Option, Value}, infinity).
+
+-spec format_error(Error) -> io_lib:chars() when
+      Error :: {'error', module(), Reason :: term()}.
 
 format_error({error, Module, Error}) ->
     Module:format_error(Error);

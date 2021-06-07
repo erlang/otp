@@ -63,9 +63,12 @@
 
 #include "erl_driver.h"
 #include "sys_uds.h"
-#include "hash.h"
 #include "erl_term.h"
 #include "erl_child_setup.h"
+
+#undef ERTS_GLB_INLINE_INCL_FUNC_DEF
+#define ERTS_GLB_INLINE_INCL_FUNC_DEF 1
+#include "hash.h"
 
 #define SET_CLOEXEC(fd) fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC)
 
@@ -75,11 +78,21 @@
 #define SHELL "/bin/sh"
 #endif /* __ANDROID__ */
 
+#if !defined(MSG_DONTWAIT) && defined(MSG_NONBLOCK)
+#define MSG_DONTWAIT MSG_NONBLOCK
+#endif
+
 //#define HARD_DEBUG
 #ifdef HARD_DEBUG
 #define DEBUG_PRINT(fmt, ...) fprintf(stderr, "%d:" fmt "\r\n", getpid(), ##__VA_ARGS__)
 #else
 #define DEBUG_PRINT(fmt, ...)
+#endif
+
+#ifdef __clang_analyzer__
+   /* CodeChecker does not seem to understand inline asm in FD_ZERO */
+#  undef FD_ZERO
+#  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
 #endif
 
 static char abort_reason[200]; /* for core dump inspection */
@@ -411,10 +424,11 @@ main(int argc, char *argv[])
     int uds_fd = 3, max_fd = 3;
 #ifndef HAVE_CLOSEFROM
     int i;
+    DIR *dir;
 #endif
     struct sigaction sa;
 
-    if (argc < 1 || sscanf(argv[1],"%d",&max_files) != 1) {
+    if (argc < 2 || sscanf(argv[1],"%d",&max_files) != 1) {
         ABORT("Invalid arguments to child_setup");
     }
 
@@ -426,11 +440,29 @@ main(int argc, char *argv[])
 #if defined(HAVE_CLOSEFROM)
     closefrom(4);
 #else
-    for (i = 4; i < max_files; i++)
+    dir = opendir("/dev/fd");
+    if (dir == NULL) { /* /dev/fd not available */
+        for (i = 4; i < max_files; i++)
 #if defined(__ANDROID__)
-        if (i != system_properties_fd())
+            if (i != system_properties_fd())
 #endif
-        (void) close(i);
+            (void) close(i);
+    } else {
+        /* Iterate over fds obtained from /dev/fd */
+        struct dirent *entry;
+        int dir_fd = dirfd(dir);
+
+        while ((entry = readdir(dir)) != NULL) {
+            i = atoi(entry->d_name);
+#if defined(__ANDROID__)
+            if (i != system_properties_fd())
+#endif
+            if (i >= 4 && i != dir_fd)
+                (void) close(i);
+        }
+
+        closedir(dir);
+    }
 #endif
 
     if (pipe(sigchld_pipe) < 0) {

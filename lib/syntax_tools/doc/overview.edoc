@@ -10,9 +10,8 @@
 @doc This package contains modules for handling abstract syntax trees (ASTs)
 in Erlang, in a way that is compatible with the "abstract format" parse
 trees of the stdlib module `erl_parse', together with utilities for reading
-source files, {@link erl_prettypr. pretty-printing syntax trees}, {@link
-igor. merging and renaming modules}, {@link erl_tidy. cleaning up obsolete
-constructs}, and doing {@link merl. metaprogramming} in Erlang.
+source files, {@link erl_prettypr. pretty-printing syntax trees}, and doing
+{@link merl. metaprogramming} in Erlang.
 
 The abstract layer (defined in {@link erl_syntax}) is nicely
 structured and the node types are context-independent. The layer makes
@@ -26,10 +25,6 @@ library module {@link prettypr}: this is a powerful and flexible generic
 pretty printing library, which is also distributed separately.
 
 For a short demonstration of parsing and pretty-printing, simply
-compile the included module <a href="../examples/demo.erl">`demo.erl'</a>,
+compile the included module <a href="demo.erl">`demo.erl'</a>,
 and execute `demo:run()' from the Erlang shell. It will compile the
 remaining modules and give you further instructions.
-
-Also try the {@link erl_tidy} module, as follows:
-```erl_tidy:dir("any-erlang-source-dir", [test, old_guard_tests]).'''
-(the `test' option assures that no files are modified).

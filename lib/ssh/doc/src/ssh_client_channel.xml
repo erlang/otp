@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2018</year>
+      <year>2020</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -53,7 +53,7 @@
     </p>
 
     <note><p>When implementing a <c>ssh</c> subsystem for daemons, use
-    <seealso marker="ssh_server_channel">-behaviour(ssh_server_channel)</seealso> (Replaces ssh_daemon_channel)
+    <seeerl marker="ssh_server_channel">-behaviour(ssh_server_channel)</seeerl> (Replaces ssh_daemon_channel)
     instead.
     </p>
     </note>
@@ -73,7 +73,7 @@
       <fsummary>Makes a synchronous call to a channel.</fsummary>
       <type>
 	<v>ChannelRef = pid() </v>
-	<d>As returned by <seealso marker = "#start_link-4">start_link/4</seealso></d>
+	<d>As returned by <seemfa marker="#start_link/4">start_link/4</seemfa></d>
 	<v>Msg = term()</v>
 	<v>Timeout = timeout()</v>
 	<v>Reply = term()</v>
@@ -83,8 +83,7 @@
       <desc>
 	<p>Makes a synchronous call to the channel process by sending
 	a message and waiting until a reply arrives, or a time-out
-	occurs. The channel calls <seealso marker =
-	"#Module:handle_call-3">Module:handle_call/3</seealso>
+	occurs. The channel calls <seemfa marker="#Module:handle_call/3">Module:handle_call/3</seemfa>
 	to handle the message. If the channel process does not exist,
 	<c>{error, closed}</c> is returned.
 	</p>
@@ -97,14 +96,14 @@
 	ChannelRef and returns ok.</fsummary>
       <type>
 	<v>ChannelRef = pid()</v>
-	<d>As returned by <seealso marker = "#start_link-4">start_link/4</seealso></d>
+	<d>As returned by <seemfa marker="#start_link/4">start_link/4</seemfa></d>
 	<v>Msg = term()</v>
       </type>
       <desc>
 	<p>Sends an asynchronous message to the channel process and
 	returns ok immediately, ignoring if the destination node or
 	channel process does not exist. The channel calls
-	<seealso marker = "#Module:handle_cast-2">Module:handle_cast/2</seealso>
+	<seemfa marker="#Module:handle_cast/2">Module:handle_cast/2</seemfa>
 	 to handle the message.
 	</p>
       </desc>
@@ -115,17 +114,17 @@
       <fsummary>Makes an existing process an ssh_client_channel (replaces ssh_channel) process.</fsummary>
       <type>
 	<v>State = term()</v>
-	<d>as returned by <seealso marker = "#init-1">init/1</seealso></d>
+	<d>as returned by <seemfa marker="#init/1">init/1</seemfa></d>
       </type>
       <desc>
 	<p>Makes an existing process an <c>ssh_client_channel</c> (replaces ssh_channel)
 	process. Does not return, instead the calling process
 	enters the <c>ssh_client_channel</c> (replaces ssh_channel) process receive loop and become an
 	<c>ssh_client_channel</c> process. The process must have been started using
-	one of the start functions in <c>proc_lib</c>, see the <seealso
-	marker="stdlib:proc_lib">proc_lib(3)</seealso> manual page in STDLIB.
+	one of the start functions in <c>proc_lib</c>, see the <seeerl
+	marker="stdlib:proc_lib">proc_lib(3)</seeerl> manual page in STDLIB.
 	The user is responsible for any initialization of the process
-	and must call <seealso marker = "#init-1">init/1</seealso>.
+	and must call <seemfa marker="#init/1">init/1</seemfa>.
 	</p>
       </desc>
     </func>
@@ -150,14 +149,14 @@
 	  <tag><c>{init_args(), list()}</c></tag>
 	  <item><p>The list of arguments to the <c>init</c> function of the callback module.</p></item>
 
-	  <tag><c>{cm, ssh:connection_ref()}</c></tag>
+	  <tag><c>{cm, </c><seetype marker="ssh:ssh#connection_ref">ssh:connection_ref()</seetype><c>}</c></tag>
 	  <item><p>Reference to the <c>ssh</c> connection as returned by
-	  <seealso marker="ssh#connect-3">ssh:connect/3</seealso>.
+	  <seemfa marker="ssh#connect/3">ssh:connect/3</seemfa>.
 	  </p></item>
 	  
-	  <tag><c>{channel_id, ssh:channel_id()}</c></tag>
+	  <tag><c>{channel_id, </c><seetype marker="ssh:ssh#channel_id">ssh:channel_id()</seetype><c>}</c></tag>
 	  <item><p>Id of the <c>ssh</c> channel as returned by
-	  <seealso marker="ssh_connection#session_channel/2">ssh_connection:session_channel/2,4</seealso>.
+	  <seemfa marker="ssh_connection#session_channel/2">ssh_connection:session_channel/2,4</seemfa>.
 	  </p></item>
 	  
 	  </taglist>
@@ -183,12 +182,12 @@
         <p>This function can be used by a channel to send a
         reply to a client that called <c>call/[2,3]</c> when the reply
         cannot be defined in the return value of
-	<seealso marker ="#Module:handle_call-3">Module:handle_call/3</seealso>.</p>
+	<seemfa marker="#Module:handle_call/3">Module:handle_call/3</seemfa>.</p>
         <p><c>Client</c> must be the <c>From</c> argument provided to
           the callback function <c>handle_call/3</c>.
 	  <c>Reply</c> is an arbitrary term,
 	  which is given back to the client as the return value of
-          <seealso marker="#call-2">call/[2,3].</seealso></p>
+          <seemfa marker="#call/2">call/[2,3].</seemfa></p>
       </desc>
     </func>
 
@@ -198,13 +197,13 @@
       {ok, ChannelRef} | {error, Reason}</name>
       <fsummary>Starts a process that handles an SSH channel.</fsummary>
       <type>
-	<v>SshConnection = ssh:connection_ref()</v>
-	<d>As returned by <seealso marker="ssh#connect-3">ssh:connect/3</seealso></d>
+	<v>SshConnection = <seetype marker="ssh:ssh#connection_ref">ssh:connection_ref()</seetype></v>
+	<d>As returned by <seemfa marker="ssh#connect/3">ssh:connect/3</seemfa></d>
 
-	<v>ChannelId = <seealso marker="ssh#type-channel_id">ssh:channel_id()</seealso></v>
+	<v>ChannelId = <seetype marker="ssh#channel_id">ssh:channel_id()</seetype></v>
 	<d>As returned by
-	<seealso marker ="ssh_connection#session_channel/2">
-	ssh_connection:session_channel/[2,4]</seealso>.</d>
+	<seemfa marker="ssh_connection#session_channel/2">
+	ssh_connection:session_channel/[2,4]</seemfa>.</d>
 
 	<v>ChannelCb = atom()</v>
 	<d>Name of the module implementing the service-specific parts
@@ -225,24 +224,23 @@
     </func>
     
   </funcs>
-  
-  <section>
-    <title>Callback Functions</title>
-    <p>
-      The following functions are to be exported from a
-      <c>ssh_client_channel</c> callback module.
-    </p>
-    <marker id="cb_timeouts"></marker>
-    <section>
-      <title>Callback timeouts</title>
-      <p>The timeout values that can be returned by the callback functions
-      have the same semantics as in a <seealso marker="stdlib:gen_server">gen_server</seealso>.
-      If the time-out occurs, <seealso marker="#Module:handle_msg-2">handle_msg/2</seealso>
-      is called as <c>handle_msg(timeout, State)</c>.</p>
-    </section>
-  </section>
 
   <funcs>
+    <fsdescription>
+      <title>Callback Functions</title>
+      <p>
+        The following functions are to be exported from a
+        <c>ssh_client_channel</c> callback module.
+      </p>
+      <marker id="cb_timeouts"></marker>
+      <section>
+        <title>Callback timeouts</title>
+        <p>The timeout values that can be returned by the callback functions
+        have the same semantics as in a <seeerl marker="stdlib:gen_server">gen_server</seeerl>.
+        If the time-out occurs, <seemfa marker="#Module:handle_msg/2">handle_msg/2</seemfa>
+        is called as <c>handle_msg(timeout, State)</c>.</p>
+      </section>
+    </fsdescription>
     <func>
       <name since="OTP 21.0">Module:code_change(OldVsn, State, Extra) -> {ok,
       NewState}</name>
@@ -271,7 +269,7 @@
 	<c>Change={advanced,Extra}</c>, is given in the <c>appup</c>
 	file. For more information, refer to Section 9.11.6
 	Release Handling Instructions in the
-	<seealso marker="doc/design_principles:release_handling#instr">System Documentation</seealso>.
+	<seeguide marker="system/design_principles:release_handling#instr">System Documentation</seeguide>.
 	</p>
 
 	<note><p>Soft upgrade according to the OTP release concept
@@ -302,7 +300,7 @@
 	state if the initializations succeed.
 	</p>
 	<p>For more detailed information on time-outs, see Section
-	<seealso marker="#cb_timeouts">Callback timeouts</seealso>. </p>
+	<seeerl marker="#cb_timeouts">Callback timeouts</seeerl>. </p>
       </desc>
     </func>
    
@@ -314,22 +312,22 @@
 	<v>Msg = term()</v>
 	<v>From = opaque()</v>
 	<d>Is to be used as argument to
-	<seealso marker="#reply-2">reply/2</seealso></d>
+	<seemfa marker="#reply/2">reply/2</seemfa></d>
 	<v>State = term()</v>
 	<v>Result = {reply, Reply, NewState} | {reply, Reply, NewState, timeout()}
 	| {noreply, NewState} | {noreply , NewState, timeout()}
 	| {stop, Reason, Reply, NewState} | {stop, Reason, NewState} </v>
 	<v>Reply = term()</v>
-	<d>Will be the return value of <seealso marker="#call-2">call/[2,3]</seealso></d>
+	<d>Will be the return value of <seemfa marker="#call/2">call/[2,3]</seemfa></d>
 	<v>NewState = term()</v>
 	<v>Reason = term()</v>
       </type>
       <desc>
 	<p>Handles messages sent by calling
-	<seealso marker="#call-2">call/[2,3]</seealso>
+	<seemfa marker="#call/2">call/[2,3]</seemfa>
 	</p>
 	<p>For more detailed information on time-outs,, see Section
-	<seealso marker="#cb_timeouts">Callback timeouts</seealso>.</p>
+	<seeerl marker="#cb_timeouts">Callback timeouts</seeerl>.</p>
       </desc>
     </func>
 
@@ -350,7 +348,7 @@
 	<c>cast/2</c>.
 	</p>
 	<p>For more detailed information on time-outs, see Section
-	<seealso marker="#cb_timeouts">Callback timeouts</seealso>.</p>
+	<seeerl marker="#cb_timeouts">Callback timeouts</seeerl>.</p>
       </desc>
     </func>
  
@@ -362,7 +360,7 @@
       call, or cast messages sent to the channel.</fsummary>
       <type>
 	<v>Msg = timeout | term()</v>
-	<v>ChannelId = <seealso marker="ssh#type-channel_id">ssh:channel_id()</seealso></v>
+	<v>ChannelId = <seetype marker="ssh#channel_id">ssh:channel_id()</seetype></v>
 	<v>State = term() </v>
       </type>
       <desc>
@@ -374,10 +372,10 @@
 	function and all channels are to handle the following message.</p>
 	
 	<taglist>
-	  <tag><c>{ssh_channel_up, ssh:channel_id(), ssh:connection_ref()}</c></tag>
+	  <tag><c>{ssh_channel_up, </c><seetype marker="ssh:ssh#channel_id">ssh:channel_id()</seetype><c>, </c><seetype marker="ssh:ssh#connection_ref">ssh:connection_ref()</seetype><c>}</c></tag>
 	  <item><p>This is the first message that the channel receives.
-	  It is sent just before the <seealso
-	  marker="#init-1">init/1</seealso> function
+	  It is sent just before the <seemfa
+	  marker="#init/1">init/1</seemfa> function
 	  returns successfully. This is especially useful if the
 	  server wants to send a message to the client without first
 	  receiving a message from it. If the message is not
@@ -393,21 +391,21 @@
       ChannelId, State}</name>
       <fsummary>Handles <c>ssh</c> connection protocol messages.</fsummary>
       <type>
-	<v>Msg = ssh_connection:event()</v>
-	<v>ChannelId = <seealso marker="ssh#type-channel_id">ssh:channel_id()</seealso></v>
+	<v>Msg = <seetype marker="ssh_connection#event">ssh_connection:event()</seetype></v>
+	<v>ChannelId = <seetype marker="ssh#channel_id">ssh:channel_id()</seetype></v>
 	<v>State = term()</v>
       </type>
       <desc>
 	<p>Handles SSH Connection Protocol messages that may need
 	service-specific attention. For details,
-	see <seealso marker="ssh_connection"> ssh_connection:event()</seealso>.
+	see <seetype marker="ssh_connection#event">ssh_connection:event()</seetype>.
 	</p>
 	
 	<p>The following message is taken care of by the
 	<c>ssh_client_channel</c> behavior.</p>
 	
 	<taglist>
-	  <tag><c>{closed, ssh:channel_id()}</c></tag>
+	  <tag><c>{closed, </c><seetype marker="ssh:ssh#channel_id">ssh:channel_id()</seetype><c>}</c></tag>
 	  <item><p>The channel behavior sends a close message to the
 	  other side, if such a message has not already been sent.
 	  Then it terminates the channel with reason <c>normal</c>.</p></item>
@@ -425,9 +423,9 @@
       </type>
       <desc>
 	<p>This function is called by a channel process when it is
-	about to terminate. Before this function is called, <seealso
-	marker="ssh_connection#close-2"> ssh_connection:close/2
-	</seealso> is called, if it has not been called earlier.
+	about to terminate. Before this function is called, <seemfa
+	marker="ssh_connection#close/2"> ssh_connection:close/2
+	</seemfa> is called, if it has not been called earlier.
 	This function does any necessary cleaning
 	up. When it returns, the channel process terminates with
 	reason <c>Reason</c>. The return value is ignored.

@@ -57,7 +57,7 @@
 	file is found or if <c>Path</c> is not a directory.
 	<c>config_db()</c> is the server config file in ETS table format
 	as described in
-	<seealso marker="http_server">Inets User's Guide</seealso>.</p>
+	<seeguide marker="http_server">Inets User's Guide</seeguide>.</p>
 
 	<marker id="path"></marker>
       </desc>
@@ -82,7 +82,7 @@
 	exported, <c>ServerRoot</c> is used to
 	generate a file <c>Path</c>. <c>config_db()</c> and
 	<c>interaction_data()</c> are as defined in 
-	<seealso marker="http_server">Inets User's Guide</seealso>.</p>
+	<seeguide marker="http_server">Inets User's Guide</seeguide>.</p>
 
 	<marker id="real_name"></marker>
       </desc>
@@ -106,14 +106,14 @@
 	<c>FakeName</c> is replaced with <c>RealName</c> in the
 	match. The resulting path is split into two parts,
 	<c>ShortPath</c> and <c>AfterPath</c>, as defined in 
-	<seealso marker="httpd_util#split_path-1">httpd_util:split_path/1</seealso>. 
+	<seemfa marker="httpd_util#split_path/1">httpd_util:split_path/1</seemfa>. 
 	<c>Path</c> is generated from <c>ShortPath</c>, that is,
 	the result from 
-	<seealso marker="#default_index">default_index/2</seealso> with
+	<seeerl marker="#default_index">default_index/2</seeerl> with
 	<c>ShortPath</c> as an argument.
 	<c>config_db()</c> is the server config file in ETS table
 	format as described in 
-	<seealso marker="http_server">Inets User's Guide</seealso>.</p>
+	<seeguide marker="http_server">Inets User's Guide</seeguide>.</p>
 
 	<marker id="real_script_name"></marker>
       </desc>
@@ -140,10 +140,10 @@
 	<c>not_a_script</c> is returned. If it is a script, the
 	resulting script path is in two parts,
 	<c>ShortPath</c> and <c>AfterPath</c>, as defined in 
-	<seealso marker="httpd_util#split_script_path-1">httpd_util:split_script_path/1</seealso>.
+	<seemfa marker="httpd_util#split_script_path/1">httpd_util:split_script_path/1</seemfa>.
 	<c>config_db()</c> is the server config file in ETS table
 	format as described in 
-	<seealso marker="http_server">Inets User's Guide</seealso>.</p>
+	<seeguide marker="http_server">Inets User's Guide</seeguide>.</p>
       </desc>
     </func>
   </funcs>

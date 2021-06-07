@@ -1,6 +1,9 @@
 Carrier Migration
 =================
 
+Introduction
+------------
+
 The ERTS memory allocators manage memory blocks in two types of raw
 memory chunks. We call these chunks of raw memory
 *carriers*. Single-block carriers which only contain one large block,
@@ -34,8 +37,7 @@ Solution
 --------
 
 In order to prevent scenarios like this we've implemented support for
-migration of multi-block carriers between allocator instances of the
-same type.
+migration of multi-block carriers between allocator instances.
 
 ### Management of Free Blocks ###
 
@@ -130,10 +132,6 @@ threads may have references to it via the pool.
 
 ### Migration ###
 
-There exists one pool for each allocator type enabling migration of
-carriers between scheduler specific allocator instances of the same
-allocator type.
-
 Each allocator instance keeps track of the current utilization of its
 multi-block carriers. When the total utilization falls below the "abandon
 carrier utilization limit" it starts to inspect the utilization of the
@@ -146,11 +144,11 @@ Since the carrier has been unlinked from the data structure of
 available free blocks, no more allocations will be made in the
 carrier.
 
-The allocator instance that created a carrier is called its **owner**.
+The allocator instance that created a carrier is called its *owner*.
 Ownership never changes.
 
 The allocator instance that has the responsibility to perform deallocations in a
-carrier is called its **employer**. The employer may also perform allocations if
+carrier is called its *employer*. The employer may also perform allocations if
 the carrier is not in the pool. Employment may change when a carrier is fetched from
 or inserted into the pool.
 
@@ -158,14 +156,14 @@ Deallocations in a carrier, while it remains in the pool, is always performed
 the owner. That is, all pooled carriers are employed by their owners.
 
 Each carrier has an atomic word containing a pointer to the employing allocator
-instance and three bit flags; IN_POOL, BUSY and HOMECOMING.
+instance and three bit flags; IN\_POOL, BUSY and HOMECOMING.
 
 When fetching a carrier from the pool, employment may change and further
 deallocations in the carrier will be redirected to the new
 employer using the delayed dealloc functionality.
 
 When a foreign allocator instance abandons a carrier back into the pool, it will
-also pass it back to its **owner** using the delayed dealloc queue. When doing
+also pass it back to its *owner* using the delayed dealloc queue. When doing
 this it will set the HOMECOMING bit flag to mark it as "enqueued". The owner
 will later clear the HOMECOMING bit when the carrier is dequeued. This mechanism
 prevents a carrier from being enqueued again before it has been dequeued.
@@ -185,14 +183,14 @@ back to the owner for deallocation using the delayed dealloc functionality.
 
 In short:
 
-* The allocator instance that created a carrier **owns** it.
-* An empty carrier is always deallocated by its **owner**.
-* **Ownership** never changes.
-* The allocator instance that uses a carrier **employs** it.
-* An **employer** can abandon a carrier into the pool.
+* The allocator instance that created a carrier *owns* it.
+* An empty carrier is always deallocated by its *owner*.
+* *Ownership* never changes.
+* The allocator instance that uses a carrier *employs* it.
+* An *employer* can abandon a carrier into the pool.
 * Pooled carriers are not allocated from.
-* Pooled carriers are always **employed** by their **owner**.
-* **Employment** can only change from **owner** to a foreign allocator
+* Pooled carriers are always *employed* by their *owner*.
+* *Employment* can only change from *owner* to a foreign allocator
   when a carrier is fetched from the pool.
 
 
@@ -208,8 +206,8 @@ limited. We only inspect a limited number of carriers. If none of
 those carriers had a free block large enough to satisfy the allocation
 request, the search will fail. A carrier in the pool can also be BUSY
 if another thread is currently doing block deallocation work on the
-carrier. A BUSY carrier will also be skipped by the search as it can
-not satisfy the request. The pool is lock-free and we do not want to
+carrier. A BUSY carrier will also be skipped by the search as it cannot
+satisfy the request. The pool is lock-free and we do not want to
 block, waiting for the other thread to finish.
 
 ### The bad cluster problem ###
@@ -234,7 +232,7 @@ carrier. When the cluster gets to the same size as the search limit,
 all searches will essentially fail.
 
 To counter the "bad cluster" problem and also ease the contention, the
-search will now always start by first looking at the allocators **own**
+search will now always start by first looking at the allocators *own*
 carriers. That is, carriers that were initially created by the
 allocator itself and later had been abandoned to the pool. If none of
 our own abandoned carrier would do, then the search continues into the
@@ -286,12 +284,4 @@ data structure of free blocks. This performance penalty is however
 reduced using the `aoffcbf` strategy. A trade off between memory
 consumption and performance is however inevitable, and it is up to
 the user to decide what is most important. 
-
-Further work
-------------
-
-It would be quite easy to extend this to allow migration of multi-block
-carriers between all allocator types. More or less the only obstacle
-is maintenance of the statistics information.
-
 

@@ -33,56 +33,50 @@
   <section>
     <title>Terminology</title>
     <p>Errors can roughly be divided into four different types:</p>
-    <list type="bulleted">
-      <item>Compile-time errors</item>
-      <item>Logical errors</item>
-      <item>Run-time errors</item>
-      <item>Generated errors</item>
-    </list>
-    <p>A compile-time error, for example a syntax error, does not
-      cause much trouble as it is caught by the compiler.</p>
-    <p>A logical error is when a program does not behave as intended,
-      but does not crash. An example is that nothing happens when
-      a button in a graphical user interface is clicked.</p>
-    <p>A run-time error is when a crash occurs. An example is
-      when an operator is applied to arguments of the wrong type.
-      The Erlang programming language has built-in features for
-      handling of run-time errors.</p>
-    <p>A run-time error can also be emulated by calling
-      <c>erlang:error(Reason)</c> or <c>erlang:error(Reason, Args)</c>.</p>
-    <p>A run-time error is another name for an exception
-      of class <c>error</c>.
-      </p>
-    <p>A generated error is when the code itself calls
-      <c>exit/1</c> or <c>throw/1</c>. Notice that emulated run-time
-      errors are not denoted as generated errors here.
-      </p>
-    <p>Generated errors are exceptions of classes <c>exit</c> and
-      <c>throw</c>.
-      </p>
-    <p>When a run-time error or generated error occurs in Erlang, 
-      execution for the process that evaluated
-      the erroneous expression is stopped.
-      This is referred to as a <em>failure</em>, that execution or
-      evaluation <em>fails</em>, or that the process <em>fails</em>,
-      <em>terminates</em>, or <em>exits</em>. Notice that a process can
-      terminate/exit for other reasons than a failure.</p>
+    <taglist>
+      <tag>Compile-time errors</tag>
+      <item>When the compiler fails to compile the program, for example a syntax error.</item>
+      <tag>Logical errors</tag>
+      <item>When a program does not behave as intended, but does not crash.
+        An example is that nothing happens when a button in a graphical user
+        interface is clicked.</item>
+      <tag><marker id="run-time-errors"/>Run-time errors</tag>
+      <item>When a crash occurs. An example is
+        when an operator is applied to arguments of the wrong type.
+        The Erlang programming language has built-in features for
+        handling of run-time errors. A run-time error can also be
+        emulated by calling <seemfa marker="erts:erlang#error/1">
+        <c>error(Reason)</c></seemfa>. Run-time errors are exceptions of
+        class <c>error</c>.</item>
+      <tag><marker id="generated-errors"/>Generated errors</tag>
+      <item>When the code itself calls <seemfa marker="erts:erlang#exit/1">
+        <c>exit/1</c></seemfa> or <seemfa marker="erts:erlang#throw/1">
+        <c>throw/1</c></seemfa>. Generated errors are exceptions of
+        class <c>exit</c> or <c>throw</c>.</item>
+    </taglist>
+    <p>When an exception occurs in Erlang, execution of the process that
+      evaluated the erroneous expression is stopped. This is referred to as a
+      <em>failure</em>, that execution or evaluation <em>fails</em>, or that the
+      process <em>fails</em>, <em>terminates</em>, or <em>exits</em>. Notice that
+      a process can terminate/exit for other reasons than a failure.</p>
     <p>A process that terminates emits an <em>exit signal</em> with
-      an <em>exit reason</em> that says something about which error
-      has occurred. Normally, some information about the error is
-      printed to the terminal.</p>
+      an <em>exit reason</em> that describes why the process terminated.
+      Normally, some information about any erroneous termination is printed
+      to the terminal. See <seeguide marker="processes#term">
+      Process Termination</seeguide> in the Processes chapter for more details
+      on termination.</p>
   </section>
 
   <section>
     <title>Exceptions</title>
-    <p>Exceptions are run-time errors or generated errors and 
+    <p>Exceptions are <seeguide marker="#run-time-errors">run-time errors</seeguide> or
+      <seeguide marker="#generated-errors">generated errors</seeguide> and
       are of three different classes, with different origins. The
-      <seealso marker="expressions#try">try</seealso> expression 
+      <seeguide marker="expressions#try">try</seeguide> expression
       can distinguish between the different classes, whereas the
-      <seealso marker="expressions#catch">catch</seealso>
-      expression cannot. They are described in
-      <seealso marker="expressions">Expressions
-      </seealso>.</p>
+      <seeguide marker="expressions#catch">catch</seeguide>
+      expression cannot. <c>try</c> and <c>catch</c> are described in
+      <seeguide marker="expressions">Expressions</seeguide>.</p>
     <table>
       <row>
         <cell align="left" valign="middle"><em>Class</em></cell>
@@ -92,7 +86,7 @@
         <cell align="left" valign="middle"><c>error</c></cell>
         <cell align="left" valign="middle">Run-time error,
         for example, <c>1+a</c>, or the process called
-        <c>erlang:error/1,2</c></cell>
+        <c>error/1,2</c></cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>exit</c></cell>
@@ -104,30 +98,48 @@
       </row>
       <tcaption>Exception Classes.</tcaption>
     </table>
+    <p>All of the above exceptions can also be generated by calling
+      <seemfa marker="erts:erlang#raise/3"><c>erlang:raise/3</c></seemfa>.</p>
     <p>An exception consists of its class, an exit reason
-      (see <seealso marker="#exit_reasons">Exit Reason</seealso>),
+      (see <seeguide marker="#exit_reasons">Exit Reason</seeguide>),
       and a stack trace (which aids in finding the code location of
       the exception).</p>
-    <p>The stack trace can be be bound to a variable from within
-      a <c>try</c> expression, and is returned for
-      exceptions of class <c>error</c> from a <c>catch</c> expression.</p>
-    <p>An exception of class <c>error</c> is also known as a run-time 
-      error.</p>
-
+    <p>The stack trace can be bound to a variable from within a <c>try</c>
+      expression for any exception class, or as part of the exit reason when
+      a run-time error is caught by a <c>catch</c>. Example:</p>
+      <pre>
+> <input>{'EXIT',{test,Stacktrace}} = (catch error(test)), Stacktrace.</input>
+[{shell,apply_fun,3,[]},
+ {erl_eval,do_apply,6,[]},
+ ...]
+> <input>try throw(test) catch Class:Reason:Stacktrace -> Stacktrace end.</input>
+[{shell,apply_fun,3,[]},
+ {erl_eval,do_apply,6,[]},
+ ...]</pre>
       <section>
+	<marker id="stacktrace"></marker>
 	<title>The call-stack back trace (stacktrace)</title>
-        <p>The stack back-trace (<em>stacktrace</em>) is a list of
-          <c>{Module,Function,Arity,Location}</c>
-          tuples. The field <c>Arity</c> in the first tuple can be the
-          argument list of that function call instead of an arity integer,
-          depending on the exception.</p>
-
-	<p><c>Location</c> is a (possibly empty) list of two-tuples
-	that can indicate the location in the source code of the
-	function.  The first element is an atom describing the type of
-	information in the second element. The following items can
-	occur:</p>
+        <p>The stack back-trace
+          (<seetype marker="erts:erlang#stacktrace"><em>stacktrace</em></seetype>)
+          is a list contains <c>{Module, Function, Arity, ExtraInfo}</c>
+          and/or <c>{Fun, Arity, ExtraInfo}</c> tuples. The field <c>Arity</c> in the
+          tuple can be the argument list of that function call instead of an
+          arity integer, depending on the exception.</p>
+	  <p><c>ExtraInfo</c> is a (possibly empty) list of two-element tuples
+	  in any order that provides additional information about the exception.
+	  The first element is an atom describing the type of
+	  information in the second element. The following items can
+	  occur:</p>
 	<taglist>
+          <tag><c>error_info</c></tag>
+          <item>The second element of the tuple is a map
+	  providing additional information about what caused the
+	  exception. This information can be created by calling
+          <seemfa marker="erts:erlang#error/3"><c>error/3</c></seemfa>
+          and is used by
+          <seemfa marker="stdlib:erl_error#format_exception/4">
+            <c>erl_error:format_exception/4</c></seemfa>.
+          </item>
           <tag><c>file</c></tag>
           <item>The second element of the tuple is a string (list of
           characters) representing the filename of the source file
@@ -163,27 +175,25 @@
     <section>
       <title>Error Handling Within Processes</title>
       <p>It is possible to prevent run-time errors and other
-        exceptions from causing
-        the process to terminate by using <c>catch</c> or
-        <c>try</c>, see <seealso marker="expressions">
-        Expressions</seealso> about
-        <seealso marker="expressions#catch">catch</seealso>
-        and <seealso marker="expressions#try">try</seealso>.</p>
+        exceptions from causing the process to terminate by using <c>catch</c> or
+        <c>try</c>, see <seeguide marker="expressions">
+        Expressions</seeguide> about
+        <seeguide marker="expressions#catch">catch</seeguide>
+        and <seeguide marker="expressions#try">try</seeguide>.</p>
     </section>
 
     <section>
       <title>Error Handling Between Processes</title>
       <p>Processes can monitor other processes and detect process
         terminations, see
-        <seealso marker="processes#errors">Processes</seealso>.</p>
+        <seeguide marker="processes#errors">Processes</seeguide>.</p>
     </section>
   </section>
 
   <section>
     <marker id="exit_reasons"></marker>
     <title>Exit Reasons</title>
-    <p>When a run-time error occurs,
-      that is an exception of class <c>error</c>.
+    <p>When a run-time error occurs, that is an exception of class <c>error</c>.
       The exit reason is a tuple <c>{Reason,Stack}</c>, where
       <c>Reason</c> is a term indicating the type of error:</p>
     <table>
@@ -237,7 +247,11 @@
       </row>
       <row>
         <cell align="left" valign="middle"><c>noproc</c></cell>
-        <cell align="left" valign="middle">Trying to link to a non-existing process.</cell>
+        <cell align="left" valign="middle">Trying to link or monitor to a non-existing process or port.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>noconnection</c></cell>
+        <cell align="left" valign="middle">A link or monitor to a remote process was broken because a connection between the nodes could not be established or was severed.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>{nocatch,V}</c></cell>
@@ -246,17 +260,17 @@
       <row>
         <cell align="left" valign="middle"><c>system_limit</c></cell>
         <cell align="left" valign="middle">A system limit has been reached.
-        See <seealso marker="doc/efficiency_guide:advanced">
-        Efficiency Guide</seealso> for information about system limits.
+        See <seeguide marker="system/efficiency_guide:advanced">
+        Efficiency Guide</seeguide> for information about system limits.
         </cell>
       </row>
       <tcaption>Exit Reasons</tcaption>
     </table>
     <p><c>Stack</c> is the stack of function calls being evaluated
       when the error occurred, given as a list of tuples
-      <c>{Module,Name,Arity}</c> with the most recent function call
+      <c>{Module,Name,Arity,ExtraInfo}</c> with the most recent function call
       first. The most recent function call tuple can in some
-      cases be <c>{Module,Name,[Arg]}</c>.</p>
+      cases be <c>{Module,Name,[Arg],ExtraInfo}</c>.</p>
   </section>
 </chapter>
 

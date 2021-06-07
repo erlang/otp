@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -16,8 +16,6 @@
 %% limitations under the License.
 %% 
 %% %CopyrightEnd%
-%%
-%% Purpose : Common utilities used by several optimization passes.
 %% 
 
 -module(bs_construct_SUITE).
@@ -26,10 +24,11 @@
          init_per_suite/1, end_per_suite/1,
 	 test1/1, test2/1, test3/1, test4/1, test5/1, testf/1,
 	 not_used/1, in_guard/1,
-	 mem_leak/1, coerce_to_float/1, bjorn/1,
-	 huge_float_field/1, huge_binary/1, system_limit/1, badarg/1,
+	 mem_leak/1, coerce_to_float/1, bjorn/1, append_empty_is_same/1,
+	 huge_float_field/1, system_limit/1, badarg/1,
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
-	 otp_7422/1, zero_width/1, bad_append/1, bs_add_overflow/1]).
+	 otp_7422/1, zero_width/1, bad_append/1, bs_append_overflow/1,
+         reductions/1, fp16/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -39,10 +38,10 @@ suite() ->
 
 all() -> 
     [test1, test2, test3, test4, test5, testf, not_used,
-     in_guard, mem_leak, coerce_to_float, bjorn,
-     huge_float_field, huge_binary, system_limit, badarg,
+     in_guard, mem_leak, coerce_to_float, bjorn, append_empty_is_same,
+     huge_float_field, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
-     bad_append, bs_add_overflow].
+     bad_append, bs_append_overflow, reductions, fp16].
 
 init_per_suite(Config) ->
     Config.
@@ -464,17 +463,27 @@ make_bin(N, Acc) -> make_bin(N-1, <<Acc/binary,Acc/binary>>).
 
 -define(COF(Int0),
 	(fun(Int) ->
-		       true = <<Int:32/float>> =:= <<(float(Int)):32/float>>,
-		       true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
-			   end)(nonliteral(Int0)),
- 	true = <<Int0:32/float>> =:= <<(float(Int0)):32/float>>,
- 	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
+		 true = <<Int:16/float>> =:= <<(float(Int)):16/float>>,
+		 true = <<Int:32/float>> =:= <<(float(Int)):32/float>>,
+		 true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
+	 end)(nonliteral(Int0)),
+	true = <<Int0:16/float>> =:= <<(float(Int0)):16/float>>,
+	true = <<Int0:32/float>> =:= <<(float(Int0)):32/float>>,
+	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
+
+-define(COF32(Int0),
+	(fun(Int) ->
+		 true = <<Int:32/float>> =:= <<(float(Int)):32/float>>,
+		 true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
+	 end)(nonliteral(Int0)),
+	true = <<Int0:32/float>> =:= <<(float(Int0)):32/float>>,
+	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
 
 -define(COF64(Int0),
 	(fun(Int) ->
-		       true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
-			   end)(nonliteral(Int0)),
- 	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
+		 true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
+	 end)(nonliteral(Int0)),
+	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
 
 nonliteral(X) -> X.
     
@@ -486,8 +495,10 @@ coerce_to_float(Config) when is_list(Config) ->
     ?COF(255),
     ?COF(-255),
     ?COF(38474),
-    ?COF(387498738948729893849444444443),
-    ?COF(-37489378937773899999999999999993),
+    ?COF(65504),
+    ?COF(-65504),
+    ?COF32(387498738948729893849444444443),
+    ?COF32(-37489378937773899999999999999993),
     ?COF64(298748888888888888888888888883478264866528467367364766666666666666663),
     ?COF64(-367546729879999999999947826486652846736736476555566666663),
     ok.
@@ -520,6 +531,16 @@ do_more(Bin, Sz) ->
 do_something() ->
     throw(blurf).
 
+append_empty_is_same(Config) when is_list(Config) ->
+    NonWritableBin = <<"123">>,
+    true = erts_debug:same(NonWritableBin, append(NonWritableBin, <<>>)),
+    WritableBin = <<(id(<<>>))/binary,0,1,2,3,4,5,6,7>>,
+    true = erts_debug:same(WritableBin, append(WritableBin, <<>>)),
+    ok.
+
+append(A, B) ->
+    <<A/binary, B/binary>>.
+
 huge_float_field(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch <<0.0:9/float-unit:8>>),
     huge_float_check(catch <<0.0:67108865/float-unit:64>>),
@@ -532,56 +553,6 @@ huge_float_field(Config) when is_list(Config) ->
 
 huge_float_check({'EXIT',{system_limit,_}}) -> ok;
 huge_float_check({'EXIT',{badarg,_}}) -> ok.
-
-huge_binary(Config) when is_list(Config) ->
-    ct:timetrap({seconds, 60}),
-    16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
-    garbage_collect(),
-    FreeMem = free_mem(),
-    io:format("Free memory (Mb): ~p\n", [FreeMem]),
-    {Shift,Return} = case free_mem() of
-			 undefined ->
-			     %% This test has to be inlined inside the case to
-			     %% use a literal Shift
-			     garbage_collect(),
-			     id(<<0:((1 bsl 32)-1)>>),
-			     {32,ok};
-			 Mb when Mb > 600 ->
-			     garbage_collect(),
-			     id(<<0:((1 bsl 32)-1)>>),
-			     {32,ok};
-			 Mb when Mb > 300 ->
-			     garbage_collect(),
-			     id(<<0:((1 bsl 31)-1)>>),
-			     {31,"Limit huge binaries to 256 Mb"};
-			 Mb when Mb > 200 ->
-			     garbage_collect(),
-			     id(<<0:((1 bsl 30)-1)>>),
-			     {30,"Limit huge binary to 128 Mb"};
-			 _ ->
-			     garbage_collect(),
-			     id(<<0:((1 bsl 29)-1)>>),
-                             {29,"Limit huge binary to 64 Mb"}
-		     end,
-    garbage_collect(),
-    id(<<0:((1 bsl Shift)-1)>>),
-    garbage_collect(),
-    id(<<0:(id((1 bsl Shift)-1))>>),
-    garbage_collect(),
-    case Return of
-	ok -> ok;	     
-	Comment -> {comment, Comment}
-    end.
-
-%% Return the amount of free memory in Mb.
-free_mem() ->
-    {ok,Apps} = application:ensure_all_started(os_mon),
-    Mem = memsup:get_system_memory_data(),
-    [ok = application:stop(App)||App <- Apps],
-    case proplists:get_value(free_memory,Mem) of
-        undefined -> undefined;
-        Val -> Val div (1024*1024)
-    end.
 
 system_limit(Config) when is_list(Config) ->
     WordSize = erlang:system_info(wordsize),
@@ -623,10 +594,11 @@ system_limit_32() ->
     ok.
 
 badarg(Config) when is_list(Config) ->
-    {'EXIT',{badarg,_}} = (catch <<0:(id(1 bsl 100)),0:(id(-1))>>),
-    {'EXIT',{badarg,_}} = (catch <<0:(id(1 bsl 100)),0:(id(-(1 bsl 70)))>>),
-    {'EXIT',{badarg,_}} = (catch <<0:(id(-(1 bsl 70))),0:(id(1 bsl 100))>>),
-    {'EXIT',{badarg,_}} = (catch <<(id(<<>>))/binary,0:(id(-(1 bsl 100)))>>),
+    <<3:2>> = <<1:(id(1)),1:(id(1))>>,
+    {'EXIT',{badarg,_}} = (catch <<0:(id(1)),0:(id(-1))>>),
+    {'EXIT',{badarg,_}} = (catch <<0:(id(1)),0:(id(-(1 bsl 70)))>>),
+    {'EXIT',{badarg,_}} = (catch <<0:(id(-(1 bsl 70))),0:(id(1))>>),
+    {'EXIT',{badarg,_}} = (catch <<(id(<<>>))/binary,0:(id(-(1)))>>),
     ok.
 
 copy_writable_binary(Config) when is_list(Config) ->
@@ -784,7 +756,6 @@ bs_add(Config) when is_list(Config) ->
     %% Find smallest positive bignum.
     SmallestBig = smallest_big(),
     io:format("~p\n", [SmallestBig]),
-    Expected = SmallestBig + N,
     DoTest = fun() ->
 		     exit(Mod:bs_add(SmallestBig, -SmallestBig))
 	     end,
@@ -792,7 +763,14 @@ bs_add(Config) when is_list(Config) ->
     receive
 	{'DOWN',Mref,process,Pid,Res} -> ok
     end,
-    Expected = Res,
+
+    case erlang:system_info(wordsize) of
+        8 ->
+            %% bignum-sized binaries must system_limit on 64-bit platforms
+            {system_limit, _} = Res;
+        4 ->
+            Res = SmallestBig + N
+    end,
 
     %% Clean up.
     ok = file:delete(AsmFile),
@@ -894,38 +872,69 @@ append_unit_8(Bin) ->
 append_unit_16(Bin) ->
     <<Bin/binary-unit:16,0:1>>.
 
-%% Produce a large result of bs_add that, if cast to signed int, would overflow
-%% into a negative number that fits a smallnum.
-bs_add_overflow(_Config) ->
+%% Test that the bs_append instruction will correctly check for
+%% overflow by producing a binary whose total size would exceed the
+%% maximum allowed size for a binary on a 32-bit computer.
+
+bs_append_overflow(_Config) ->
     Memsize = memsize(),
     io:format("Memsize = ~w Bytes~n", [Memsize]),
     case erlang:system_info(wordsize) of
 	8 ->
+            %% Not possible to test on a 64-bit computer.
 	    {skip, "64-bit architecture"};
         _ when Memsize < (2 bsl 30) ->
-	    {skip, "Less then 2 GB of memory"};
+	    {skip, "Less than 2 GB of memory"};
 	4 ->
-            {'EXIT', {system_limit, _}} = (catch bs_add_overflow_signed()),
-            {'EXIT', {system_limit, _}} = (catch bs_add_overflow_unsigned()),
+            {'EXIT', {system_limit, _}} = (catch bs_append_overflow_signed()),
+            erlang:garbage_collect(),
+            {'EXIT', {system_limit, _}} = (catch bs_append_overflow_unsigned()),
+            erlang:garbage_collect(),
 	    ok
     end.
 
-bs_add_overflow_signed() ->
-    %% Produce a large result of bs_add that, if cast to signed int, would
+bs_append_overflow_signed() ->
+    %% Produce a large binary that, if cast to signed int, would
     %% overflow into a negative number that fits a smallnum.
     Large = <<0:((1 bsl 30)-1)>>,
     <<Large/bits, Large/bits, Large/bits, Large/bits,
       Large/bits, Large/bits, Large/bits, Large/bits,
       Large/bits>>.
 
-bs_add_overflow_unsigned() ->
-    %% Produce a large result of bs_add that goes beyond the limit of an
-    %% unsigned word. This used to succeed but produced an incorrect result
+bs_append_overflow_unsigned() ->
+    %% The following would succeed but would produce an incorrect result
     %% where B =:= C!
     A = <<0:((1 bsl 32)-8)>>,
     B = <<2, 3>>,
     C = <<A/binary,1,B/binary>>,
     true = byte_size(B) < byte_size(C).
+
+reductions(_Config) ->
+    TwoMeg = <<0:(2_000*1024)/unit:8>>,
+    reds_at_least(2000, fun() -> <<0:8,TwoMeg/binary>> end),
+    reds_at_least(4000, fun() -> <<0:8,TwoMeg/binary,TwoMeg/binary>> end),
+    reds_at_least(1000, fun() -> <<0:8,TwoMeg:(1000*1024)/binary>> end),
+
+    %% Here we expect about 500 reductions in the bs_append
+    %% instruction for setting up a writable binary and about 2000
+    %% reductions in the bs_put_binary instruction for copying the
+    %% binary data.
+    reds_at_least(2500, fun() -> <<TwoMeg/binary,TwoMeg:(2000*1024)/binary>> end),
+    ok.
+
+reds_at_least(N, Fun) ->
+    receive after 1 -> ok end,
+    {reductions,Red0} = process_info(self(), reductions),
+    _ = Fun(),
+    {reductions,Red1} = process_info(self(), reductions),
+    Diff = Red1 - Red0,
+    io:format("Expected at least ~p; got ~p\n", [N,Diff]),
+    if
+        Diff >= N ->
+            ok;
+        Diff ->
+            ct:fail({expected,N,got,Diff})
+    end.
 
 id(I) -> I.
 
@@ -933,3 +942,45 @@ memsize() ->
     application:ensure_all_started(os_mon),
     {Tot,_Used,_}  = memsup:get_memory_data(),
     Tot.
+
+-define(FP16(EncodedInt, Float),
+        (fun(NlInt, NlFloat) ->
+                 {0, true} = {0, <<NlInt:16>> =:= <<NlFloat:16/float>>},
+                 {1, true} = {1, <<(NlInt+16#8000):16>> =:= <<-NlFloat:16/float>>},
+                 {2, true} = {2, <<NlInt:16/little>> =:= <<NlFloat:16/float-little>>},
+                 {3, true} = {3, <<(NlInt+16#8000):16/little>> =:= <<-NlFloat:16/float-little>>},
+                 {4, true} = {4, <<NlInt:16/native>> =:= <<NlFloat:16/float-native>>},
+                 {5, true} = {5, <<(NlInt+16#8000):16/native>> =:= <<-NlFloat:16/float-native>>}
+         end)(nonliteral(EncodedInt), nonliteral(Float)),
+        {a, true} = {a, <<EncodedInt:16>> =:= <<Float:16/float>>},
+        {b, true} = {b, <<(EncodedInt+16#8000):16>> =:= <<-Float:16/float>>},
+        {c, true} = {c, <<EncodedInt:16/little>> =:= <<Float:16/float-little>>},
+        {d, true} = {d, <<(EncodedInt+16#8000):16/little>> =:= <<-Float:16/float-little>>},
+        {e, true} = {e, <<EncodedInt:16/native>> =:= <<Float:16/float-native>>},
+        {f, true} = {f, <<(EncodedInt+16#8000):16/native>> =:= <<-Float:16/float-native>>}).
+
+fp16(_Config) ->
+    %% smallest positive subnormal number
+    ?FP16(16#0001, 0.000000059604645),
+    %% largest positive subnormal number
+    ?FP16(16#03ff, 0.000060975552),
+    %% smallest positive normal number
+    ?FP16(16#0400, 0.00006103515625),
+    %% largest normal number
+    ?FP16(16#7bff, 65504),
+    ?FP16(16#7bff, 65504.0),
+    %% largest number less than one
+    ?FP16(16#3bff, 0.99951172),
+    %% zero
+    ?FP16(16#0000, 0.0),
+    %% one
+    ?FP16(16#3c00, 1),
+    ?FP16(16#3c00, 1.0),
+    %% smallest number larger than one
+    ?FP16(16#3c01, 1.00097656),
+    %% rounding of 1/3 to nearest
+    ?FP16(16#3555, 0.33325195),
+    %% others
+    ?FP16(16#4000, 2),
+    ?FP16(16#4000, 2.0),
+    ok.

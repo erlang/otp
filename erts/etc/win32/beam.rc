@@ -68,13 +68,14 @@ END
 AboutBox DIALOG DISCARDABLE  0, 0, 217, 55
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About Erlang Shell"
-FONT 8, "MS Sans Serif"
+FONT 10, "Microsoft Sans Serif"
 BEGIN
     ICON            1,-1,11,17,18,20
-    LTEXT           "Erlang Shell Version 1.0",ID_VERSIONSTRING,40,10,119,8,
+    LTEXT           "Erlang OTP Version X.X",ID_OTP_VERSIONSTRING,40,10,200,20,
                     SS_NOPREFIX
-    LTEXT           "Copyright © Ericsson Telecom AB",-1,40,25,
-                    119,8
+    LTEXT           "Erlang Shell Version 1.0",ID_ERTS_VERSIONSTRING,40,20,200,20,
+                    SS_NOPREFIX
+    LTEXT           "Copyright © Ericsson AB",-1,40,35,200,20
     DEFPUSHBUTTON   "OK",IDOK,178,7,32,14,WS_GROUP
 END
 

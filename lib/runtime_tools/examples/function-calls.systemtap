@@ -29,39 +29,85 @@
  *       to your environment.
  */
 
+/**
+ * Triggered on local function entry
+ *
+ * @param arg0 pid
+ * @param arg1 MFA of the function
+ * @param arg2 depth
+ */
 probe process("beam.smp").mark("local-function-entry")
 {
     printf("pid %s enter (local) %s depth %d\n",
 	   user_string($arg1), user_string($arg2), $arg3);
 }
 
+/**
+ * Triggered on global function entry
+ *
+ * @param arg0 pid
+ * @param arg1 MFA of the function
+ * @param arg2 depth
+ */
 probe process("beam.smp").mark("global-function-entry")
 {
     printf("pid %s enter (global)  %s depth %d\n",
 	   user_string($arg1), user_string($arg2), $arg3);
 }
 
+/**
+ * Triggered upon function return, either global or
+ * local
+ *
+ * @param arg0 pid
+ * @param arg1 MFA of the returned from function
+ * @param arg2 depth
+ */
 probe process("beam.smp").mark("function-return")
 {
     printf("pid %s return %s depth %d\n",
 	   user_string($arg1), user_string($arg2), $arg3);
 }
 
+/**
+ * Triggered on built-in function entry
+ *
+ * @param arg0 pid
+ * @param arg1 MFA of the function
+ */
 probe process("beam.smp").mark("bif-entry")
 {
     printf("pid %s BIF entry  mfa %s\n", user_string($arg1), user_string($arg2));
 }
 
+/**
+ * Triggered on built-in function return
+ *
+ * @param arg0 pid
+ * @param arg1 MFA of the returned from function
+ */
 probe process("beam.smp").mark("bif-return")
 {
     printf("pid %s BIF return mfa %s\n", user_string($arg1), user_string($arg2));
 }
 
+/**
+ * Triggered on native function entry
+ *
+ * @param arg0 pid
+ * @param arg1 MFA of the function
+ */
 probe process("beam.smp").mark("nif-entry")
 {
     printf("pid %s NIF entry  mfa %s\n", user_string($arg1), user_string($arg2));
 }
 
+/**
+ * Triggered upon native function return
+ *
+ * @param arg0 pid
+ * @param arg1 MFA of the returned from function
+ */
 probe process("beam.smp").mark("nif-return")
 {
     printf("pid %s NIF return mfa %s\n", user_string($arg1), user_string($arg2));

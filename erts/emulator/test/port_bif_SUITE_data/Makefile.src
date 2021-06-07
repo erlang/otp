@@ -3,12 +3,18 @@ LD = @LD@
 CFLAGS = @CFLAGS@ -I@erl_include@ @DEFS@
 CROSSLDFLAGS = @CROSSLDFLAGS@
 
-all: control_drv@dll@ port_test@exe@
+all: control_drv@dll@ port_test@exe@ sleeper@exe@
 
 port_test@exe@: port_test@obj@
 	$(LD) $(CROSSLDFLAGS) -o port_test port_test@obj@ @LIBS@
 
 port_test@obj@: port_test.c
 	$(CC) -c -o port_test@obj@ $(CFLAGS) port_test.c
+
+sleeper@exe@: sleeper@obj@
+	$(LD) $(CROSSLDFLAGS) -o sleeper sleeper@obj@ @LIBS@
+
+sleeper@obj@: sleeper.c
+	$(CC) -c -o sleeper@obj@ $(CFLAGS) sleeper.c
 
 @SHLIB_RULES@

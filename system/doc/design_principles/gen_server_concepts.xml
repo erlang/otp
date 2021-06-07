@@ -31,7 +31,7 @@
   </header>
   <marker id="gen_server"></marker>
   <p>This section is to be read with the
-    <seealso marker="stdlib:gen_server">gen_server(3)</seealso>
+    <seeerl marker="stdlib:gen_server">gen_server(3)</seeerl>
     manual page in <c>stdlib</c>, where all interface functions and
     callback functions are described in detail.</p>
 
@@ -52,7 +52,7 @@
     <title>Example</title>
     <p>An example of a simple server written in plain Erlang is
       provided in
-      <seealso marker="des_princ#ch1">Overview</seealso>.
+      <seeguide marker="des_princ#ch1">Overview</seeguide>.
       The server can be reimplemented using <c>gen_server</c>,
       resulting in this callback module:</p>
     <marker id="ex"></marker>
@@ -208,7 +208,7 @@ handle_cast({free, Ch}, Chs) ->
         function is needed. The <c>gen_server</c> is automatically
         terminated by its supervisor. Exactly how this is done is
         defined by a
-        <seealso marker="sup_princ#shutdown">shutdown strategy</seealso>
+        <seeguide marker="sup_princ#shutdown">shutdown strategy</seeguide>
         set in the supervisor.</p>
       <p>If it is necessary to clean up before termination, the shutdown
         strategy must be a time-out value and the <c>gen_server</c> must

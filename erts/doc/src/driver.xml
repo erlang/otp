@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,8 +34,8 @@
       valid, as it explains important concepts, but this was
       written for an older driver interface so the examples do not
       work anymore. The reader is encouraged to read the
-      <seealso marker="erl_driver"><c>erl_driver</c></seealso> and
-      <seealso marker="driver_entry"><c>driver_entry</c></seealso>
+      <seecref marker="erl_driver"><c>erl_driver</c></seecref> and
+      <seecref marker="driver_entry"><c>driver_entry</c></seecref>
       documentation also.</p>
   </note>
 
@@ -391,7 +391,7 @@ void encode_result(ei_x_buff* x, PGresult* res, PGconn* conn)
     <p>Before a driver can be called from Erlang, it must be
       loaded and opened. Loading is done using the <c><![CDATA[erl_ddll]]></c>
       module (the <c><![CDATA[erl_ddll]]></c> driver that loads dynamic
-      driver is actually a driver itself). If loading is successfull,
+      driver is actually a driver itself). If loading is successful,
       the port can be opened with <c><![CDATA[open_port/2]]></c>. The port
       name must match the name of the shared library and
       the name in the driver entry structure.</p>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,8 +37,9 @@
 	 create_and_extract/1,
 	 foldl/1,
 	 overflow/1,
-	 verify_sections/3,
-         unicode/1
+	 verify_sections/4,
+         unicode/1,
+         bad_io_server/1
 	]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -53,7 +54,7 @@ all() ->
      emulator_flags_no_shebang, two_lines,
      module_script, beam_script, archive_script, epp,
      create_and_extract, foldl, overflow,
-     archive_script_file_access, unicode].
+     archive_script_file_access, unicode, bad_io_server].
 
 groups() -> 
     [].
@@ -81,31 +82,40 @@ end_per_testcase(_Case, _Config) ->
 basic(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
-    run(Dir, "factorial 5",
+    run(Config, Dir, "factorial 5",
 	<<"factorial 5 = 120\nExitCode:0">>),
-    run(Dir, "factorial_compile 10",
+    run(Config, Dir, "factorial_compile 10",
 	<<"factorial 10 = 3628800\nExitCode:0">>),
-    run(Dir, "factorial_compile_main 7",
+    run(Config, Dir, "factorial_compile_main 7",
 	<<"factorial 7 = 5040\nExitCode:0">>),
-    run(Dir, "factorial_warning 20",
-	[data_dir,<<"factorial_warning:12: Warning: function bar/0 is unused\n"
+    run(Config, Dir, "factorial_warning 20",
+	[data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
 		    "factorial 20 = 2432902008176640000\nExitCode:0">>]),
-    run_with_opts(Dir, "-s", "factorial_warning",
-		  [data_dir,<<"factorial_warning:12: Warning: function bar/0 is unused\nExitCode:0">>]),
-    run_with_opts(Dir, "-s -i", "factorial_warning",
-		  [data_dir,<<"factorial_warning:12: Warning: function bar/0 is unused\nExitCode:0">>]),
-    run_with_opts(Dir, "-c -s", "factorial_warning",
-		  [data_dir,<<"factorial_warning:12: Warning: function bar/0 is unused\nExitCode:0">>]),
-    run(Dir, "filesize "++filename:join(proplists:get_value(data_dir, Config),"filesize"),
-	[data_dir,<<"filesize:11: Warning: function id/1 is unused\n324\nExitCode:0">>]),
-    run(Dir, "test_script_name",
+    run_with_opts(Config, Dir, "-s", "factorial_warning",
+		  [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
+                              "%   12| bar() ->\n"
+                              "%     | ^\n\n"
+                              "ExitCode:0">>]),
+    run_with_opts(Config, Dir, "-s -i", "factorial_warning",
+		  [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
+                              "%   12| bar() ->\n"
+                              "%     | ^\n\n"
+                              "ExitCode:0">>]),
+    run_with_opts(Config, Dir, "-c -s", "factorial_warning",
+		  [data_dir,<<"factorial_warning:12:1: Warning: function bar/0 is unused\n"
+                              "%   12| bar() ->\n"
+                              "%     | ^\n\n"
+                              "ExitCode:0">>]),
+    run(Config, Dir, "filesize "++filename:join(proplists:get_value(data_dir, Config),"filesize"),
+	[data_dir,<<"filesize:11:1: Warning: function id/1 is unused\n324\nExitCode:0">>]),
+    run(Config, Dir, "test_script_name",
 	[data_dir,<<"test_script_name\nExitCode:0">>]),
-    run(Dir, "tail_rec 1000",
+    run(Config, Dir, "tail_rec 1000",
 	[<<"ok\nExitCode:0">>]),
 
     %% We expect the trap_exit flag for the process to be false,
     %% since that is the default state for newly spawned processes.
-    run(Dir, "trap_exit",
+    run(Config, Dir, "trap_exit",
 	<<"false\nExitCode:0">>),
     ok.
 
@@ -114,17 +124,21 @@ basic(Config) when is_list(Config) ->
 errors(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
-    run(Dir, "compile_error",
-	[data_dir,<<"compile_error:5: syntax error before: '*'\n">>,
-	 data_dir,<<"compile_error:8: syntax error before: blarf\n">>,
+    run(Config, Dir, "compile_error",
+	[data_dir,<<"compile_error:5:12: syntax error before: '*'\n">>,
+	 data_dir,<<"compile_error:8:9: syntax error before: blarf\n">>,
 	 <<"escript: There were compilation errors.\nExitCode:127">>]),
-    run(Dir, "lint_error",
-	[data_dir,<<"lint_error:6: function main/1 already defined\n">>,
-	 data_dir,"lint_error:8: variable 'ExitCode' is unbound\n",
+    run(Config, Dir, "lint_error",
+	[data_dir,<<"lint_error:6:1: function main/1 already defined\n">>,
+	 data_dir,"lint_error:8:10: variable 'ExitCode' is unbound\n",
 	 <<"escript: There were compilation errors.\nExitCode:127">>]),
-    run_with_opts(Dir, "-s", "lint_error",
-		  [data_dir,<<"lint_error:6: function main/1 already defined\n">>,
-		   data_dir,"lint_error:8: variable 'ExitCode' is unbound\n",
+    run_with_opts(Config, Dir, "-s", "lint_error",
+		  [data_dir,<<"lint_error:6:1: function main/1 already defined\n"
+                              "%    6| main(Args) ->\n"
+                              "%     | ^\n\n">>,
+		   data_dir,("lint_error:8:10: variable 'ExitCode' is unbound\n"
+                             "%    8|     halt(ExitCode).\n"
+                             "%     |          ^\n\n"),
 		   <<"escript: There were compilation errors.\nExitCode:127">>]),
     ok.
 
@@ -133,7 +147,7 @@ errors(Config) when is_list(Config) ->
 strange_name(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
-    run(Dir, "strange.name -arg1 arg2 arg3",
+    run(Config, Dir, "strange.name -arg1 arg2 arg3",
 	[<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 	   "ExitCode:0">>]),
     ok.
@@ -143,7 +157,7 @@ strange_name(Config) when is_list(Config) ->
 emulator_flags(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
-    run(Dir, "emulator_flags -arg1 arg2 arg3",
+    run(Config, Dir, "emulator_flags -arg1 arg2 arg3",
 	[<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 	   "nostick:[{nostick,[]}]\n"
 	   "mnesia:[{mnesia,[\"dir\",\"a/directory\"]},{mnesia,[\"debug\",\"verbose\"]}]\n"
@@ -157,7 +171,7 @@ emulator_flags(Config) when is_list(Config) ->
 two_lines(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
-    run(Dir, "two_lines -arg1 arg2 arg3",
+    run(Config, Dir, "two_lines -arg1 arg2 arg3",
 	[<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 	   "ERL_FLAGS=false\n"
 	   "unknown:[]\n"
@@ -170,7 +184,7 @@ emulator_flags_no_shebang(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
     %% Need run_with_opts, to always use "escript" explicitly
-    run_with_opts(Dir, "", "emulator_flags_no_shebang -arg1 arg2 arg3",
+    run_with_opts(Config, Dir, "", "emulator_flags_no_shebang -arg1 arg2 arg3",
 		  [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		     "nostick:[{nostick,[]}]\n"
 		     "mnesia:[{mnesia,[\"dir\",\"a/directory\"]},{mnesia,[\"debug\",\"verbose\"]}]\n"
@@ -213,7 +227,7 @@ module_script(Config) when is_list(Config) ->
 			  ErlCode]),
     ok = file:write_file_info(NoArgsFile, OrigFI),
 
-    run(Dir, NoArgsBase ++ " -arg1 arg2 arg3",
+    run(Config, Dir, NoArgsBase ++ " -arg1 arg2 arg3",
 	[<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 	   "nostick:[]\n"
 	   "mnesia:[]\n"
@@ -221,7 +235,7 @@ module_script(Config) when is_list(Config) ->
 	   "unknown:[]\n"
 	   "ExitCode:0">>]),
 
-    run_with_opts(Dir, "", NoArgsBase ++  " -arg1 arg2 arg3",
+    run_with_opts(Config, Dir, "", NoArgsBase ++  " -arg1 arg2 arg3",
 		  [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		     "nostick:[]\n"
 		     "mnesia:[]\n"
@@ -237,7 +251,7 @@ module_script(Config) when is_list(Config) ->
 			  ErlCode]),
     ok = file:write_file_info(NoArgsFile2, OrigFI),
 
-    run_with_opts(Dir, "", NoArgsBase2 ++  " -arg1 arg2 arg3",
+    run_with_opts(Config, Dir, "", NoArgsBase2 ++  " -arg1 arg2 arg3",
 		  [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		     "nostick:[]\n"
 		     "mnesia:[]\n"
@@ -251,7 +265,7 @@ module_script(Config) when is_list(Config) ->
     ok = file:write_file(NoArgsFile3, [ErlCode]),
     ok = file:write_file_info(NoArgsFile3, OrigFI),
 
-    run_with_opts(Dir, "", NoArgsBase3 ++  " -arg1 arg2 arg3",
+    run_with_opts(Config, Dir, "", NoArgsBase3 ++  " -arg1 arg2 arg3",
 		  [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		     "nostick:[]\n"
 		     "mnesia:[]\n"
@@ -272,7 +286,7 @@ module_script(Config) when is_list(Config) ->
 			  ErlCode]),
     ok = file:write_file_info(ArgsFile, OrigFI),
 
-    run(Dir, ArgsBase ++  " -arg1 arg2 arg3",
+    run(Config, Dir, ArgsBase ++  " -arg1 arg2 arg3",
 	[<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 	   "nostick:[{nostick,[]}]\n"
 	   "mnesia:[{mnesia,[\"dir\",\"a/directory\"]},{mnesia,[\"debug\",\"verbose\"]}]\n"
@@ -318,7 +332,7 @@ beam_script(Config) when is_list(Config) ->
 			  BeamCode]),
     ok = file:write_file_info(NoArgsFile, OrigFI),
 
-    run(Dir, NoArgsBase ++  " -arg1 arg2 arg3",
+    run(Config, Dir, NoArgsBase ++  " -arg1 arg2 arg3",
 	[<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 	   "nostick:[]\n"
 	   "mnesia:[]\n"
@@ -326,7 +340,7 @@ beam_script(Config) when is_list(Config) ->
 	   "unknown:[]\n"
 	   "ExitCode:0">>]),
 
-    run_with_opts(Dir, "", NoArgsBase ++  " -arg1 arg2 arg3",
+    run_with_opts(Config, Dir, "", NoArgsBase ++  " -arg1 arg2 arg3",
 		  [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		     "nostick:[]\n"
 		     "mnesia:[]\n"
@@ -342,7 +356,7 @@ beam_script(Config) when is_list(Config) ->
 			  BeamCode]),
     ok = file:write_file_info(NoArgsFile2, OrigFI),
 
-    run_with_opts(Dir, "", NoArgsBase2 ++  " -arg1 arg2 arg3",
+    run_with_opts(Config, Dir, "", NoArgsBase2 ++  " -arg1 arg2 arg3",
 		  [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		     "nostick:[]\n"
 		     "mnesia:[]\n"
@@ -356,7 +370,7 @@ beam_script(Config) when is_list(Config) ->
     ok = file:write_file(NoArgsFile3, [BeamCode]),
     ok = file:write_file_info(NoArgsFile3, OrigFI),
 
-    run_with_opts(Dir, "", NoArgsBase3 ++  " -arg1 arg2 arg3",
+    run_with_opts(Config, Dir, "", NoArgsBase3 ++  " -arg1 arg2 arg3",
 		  [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		     "nostick:[]\n"
 		     "mnesia:[]\n"
@@ -377,7 +391,7 @@ beam_script(Config) when is_list(Config) ->
 			  BeamCode]),
     ok = file:write_file_info(ArgsFile, OrigFI),
 
-    run(Dir, ArgsBase ++  " -arg1 arg2 arg3",
+    run(Config, Dir, ArgsBase ++  " -arg1 arg2 arg3",
 	[<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 	   "nostick:[{nostick,[]}]\n"
 	   "mnesia:[{mnesia,[\"dir\",\"a/directory\"]},{mnesia,[\"debug\",\"verbose\"]}]\n"
@@ -434,14 +448,14 @@ archive_script(Config) when is_list(Config) ->
 			  ArchiveBin]),
     ok = file:write_file_info(MainScript, OrigFI),
 
-    run(PrivDir, MainBase ++  " -arg1 arg2 arg3",
+    run(Config, PrivDir, MainBase ++  " -arg1 arg2 arg3",
 	[<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 	   "dict:[{archive_script_dict,[\"foo\",\"bar\"]},{archive_script_dict,[\"foo\"]}]\n"
 	   "dummy:[{archive_script_dummy,[\"bar\"]}]\n"
 	   "priv:{ok,<<\"Some private data...\\n\">>}\n"
 	   "ExitCode:0">>]),
 
-    run_with_opts(PrivDir, "", MainBase ++  " -arg1 arg2 arg3",
+    run_with_opts(Config, PrivDir, "", MainBase ++  " -arg1 arg2 arg3",
 		  [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		     "dict:[{archive_script_dict,[\"foo\",\"bar\"]},{archive_script_dict,[\"foo\"]}]\n"
 		     "dummy:[{archive_script_dummy,[\"bar\"]}]\n"
@@ -456,7 +470,7 @@ archive_script(Config) when is_list(Config) ->
 			  ArchiveBin]),
     ok = file:write_file_info(MainScript, OrigFI),
 
-    run_with_opts(PrivDir, "", MainBase ++  " -arg1 arg2 arg3",
+    run_with_opts(Config, PrivDir, "", MainBase ++  " -arg1 arg2 arg3",
 		  [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		     "dict:[]\n"
 		     "dummy:[]\n"
@@ -469,7 +483,7 @@ archive_script(Config) when is_list(Config) ->
     ok = file:write_file(MainScript, [ArchiveBin]),
     ok = file:write_file_info(MainScript, OrigFI),
 
-    run_with_opts(PrivDir, "", MainBase ++  " -arg1 arg2 arg3",
+    run_with_opts(Config, PrivDir, "", MainBase ++  " -arg1 arg2 arg3",
 		  [<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 		     "dict:[]\n"
 		     "dummy:[]\n"
@@ -488,7 +502,7 @@ archive_script(Config) when is_list(Config) ->
 			  ArchiveBin]),
     ok = file:write_file_info(AltScript, OrigFI),
 
-    run(PrivDir, AltBase ++  " -arg1 arg2 arg3",
+    run(Config, PrivDir, AltBase ++  " -arg1 arg2 arg3",
 	[<<"main2:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 	   "dict:[{archive_script_dict,[\"foo\",\"bar\"]},{archive_script_dict,[\"foo\"]}]\n"
 	   "dummy:[{archive_script_dummy,[\"bar\"]}]\n"
@@ -588,7 +602,7 @@ archive_script_file_access(Config) when is_list(Config) ->
 
     %% Change to script's directory and run it as "./<script_name>"
     ok = file:set_cwd(PrivDir),
-    run(PrivDir, "./" ++ ScriptName1 ++ " " ++ ScriptName1,
+    run(Config, PrivDir, "./" ++ ScriptName1 ++ " " ++ ScriptName1,
 	[<<"ExitCode:0">>]),
     ok = file:set_cwd(TopDir),
 
@@ -622,7 +636,7 @@ archive_script_file_access(Config) when is_list(Config) ->
 
     %% Change to script's directory and run it as "./<script_name>"
     ok = file:set_cwd(PrivDir),
-    run(PrivDir, "./" ++ ScriptName2 ++ " " ++ ScriptName2,
+    run(Config, PrivDir, "./" ++ ScriptName2 ++ " " ++ ScriptName2,
 	[<<"ExitCode:0">>]),
 
     %% 3. If symlinks are supported, run one of the scripts via a symlink.
@@ -630,7 +644,7 @@ archive_script_file_access(Config) when is_list(Config) ->
     %% This is in order to test error b) described above this test case.
     case element(1,os:type()) =:= win32 orelse file:read_link(Symlink2) of
 	{ok,_} ->
-	    run(PrivDir, "./" ++ SymlinkName2 ++ " " ++ ScriptName2,
+	    run(Config, PrivDir, "./" ++ SymlinkName2 ++ " " ++ ScriptName2,
 		[<<"ExitCode:0">>]);
 	_ -> % not supported
 	    ok
@@ -666,7 +680,7 @@ compile_files([], _, _) ->
 epp(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
-    run(Dir, "factorial_epp 5",
+    run(Config, Dir, "factorial_epp 5",
 	<<"factorial 5 = 120\nExitCode:0">>),
     ok.
 
@@ -686,7 +700,7 @@ create_and_extract(Config) when is_list(Config) ->
 	 [{archive, ArchiveBin}]],
 
     %% Verify all combinations of scripts with shebangs
-    [verify_sections(NewFile, FileInfo, S ++ C ++ E ++ B) ||
+    [verify_sections(Config, NewFile, FileInfo, S ++ C ++ E ++ B) ||
 	S <- [[{shebang, default}],
 	      [{shebang, "/usr/bin/env     escript"}]],
 	C <- [[],
@@ -699,7 +713,7 @@ create_and_extract(Config) when is_list(Config) ->
 	B <- [[{source, Source}] | Bodies]],
 
     %% Verify all combinations of scripts without shebangs
-    [verify_sections(NewFile, FileInfo, S ++ C ++ E ++ B) ||
+    [verify_sections(Config, NewFile, FileInfo, S ++ C ++ E ++ B) ||
 	S <- [[], [{shebang, undefined}]],
 	C <- [[], [{comment, undefined}]],
 	E <- [[], [{emu_args, undefined}]],
@@ -711,7 +725,7 @@ create_and_extract(Config) when is_list(Config) ->
     {ok, [_, _, _, {source, Source}]} = escript:extract(NewFile, []),
     {ok, [_, _, _, {source, BeamCode2}]} =
 	escript:extract(NewFile, [compile_source]),
-    verify_sections(NewFile, FileInfo,
+    verify_sections(Config, NewFile, FileInfo,
 		    [{shebang, default},
 		     {comment, default},
 		     {beam, BeamCode2}]),
@@ -755,7 +769,7 @@ prepare_creation(Base, Config) ->
      Base ++ ".beam", BeamCode,
      ArchiveBin}.
 
-verify_sections(File, FileInfo, Sections) ->
+verify_sections(Config, File, FileInfo, Sections) ->
     io:format("~p:verify_sections(\n\t~p,\n\t~p,\n\t~p).\n",
 	      [?MODULE, File, FileInfo, Sections]),
 
@@ -792,9 +806,9 @@ verify_sections(File, FileInfo, Sections) ->
     Expected = <<ExpectedMain/binary, ExpectedOutput/binary>>,
     case HasArg(shebang) of
 	true ->
-	    run(Dir, InputArgs, [Expected]);
+	    run(Config, Dir, InputArgs, [Expected]);
 	false ->
-	    run_with_opts(Dir, [], InputArgs, [Expected])
+	    run_with_opts(Config, Dir, [], InputArgs, [Expected])
     end,
 
     %% Verify
@@ -923,18 +937,18 @@ emulate_escript_foldl(Fun, Acc, File) ->
 unicode(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
-    run(Dir, "unicode1",
+    run(Config, Dir, "unicode1",
         [<<"escript: exception error: an error occurred when evaluating"
            " an arithmetic expression\n  in operator  '/'/2\n     "
            "called as <<224,170,170>> / <<224,170,170>>\nExitCode:127">>]),
-    run(Dir, "unicode2",
+    run(Config, Dir, "unicode2",
         [<<"escript: exception error: an error occurred when evaluating"
            " an arithmetic expression\n  in operator  '/'/2\n     "
            "called as <<\"\xaa\">> / <<\"\xaa\">>\nExitCode:127">>]),
-    run(Dir, "unicode3", [<<"ExitCode:0">>]),
-    run(Dir, "unicode4", [<<"ExitCode:0">>]),
-    run(Dir, "unicode5", [<<"ExitCode:0">>]),
-    run(Dir, "unicode6", [<<"ExitCode:0">>]),
+    run(Config, Dir, "unicode3", [<<"ExitCode:0">>]),
+    run(Config, Dir, "unicode4", [<<"ExitCode:0">>]),
+    run(Config, Dir, "unicode5", [<<"ExitCode:0">>]),
+    run(Config, Dir, "unicode6", [<<"ExitCode:0">>]),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -942,46 +956,103 @@ unicode(Config) when is_list(Config) ->
 overflow(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
-    run(Dir, "arg_overflow",
+    run(Config, Dir, "arg_overflow",
 	[<<"ExitCode:0">>]),
-    run(Dir, "linebuf_overflow",
+    run(Config, Dir, "linebuf_overflow",
 	[<<"ExitCode:0">>]),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-run(Dir, Cmd0, Expected0) ->
-    Expected = iolist_to_binary(expected_output(Expected0, Dir)),
-    Cmd = case os:type() of
-	      {win32,_} -> "escript " ++ filename:nativename(Dir) ++ "\\" ++ Cmd0;
-	      _ -> Cmd0
-	  end,
-    do_run(Dir, Cmd, Expected).
+%% OTP-16006, ERL-992
+bad_io_server(Config) when is_list(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    Dir = filename:absname(Data),		%Get rid of trailing slash.
+    run(Config, Dir, "bad_io_server",
+        [<<"escript: exception error: an error occurred when evaluating"
+           " an arithmetic expression\n  in operator  '/'/2\n     "
+           "called as '\\x{400}' / 0\nExitCode:127">>]),
+    ok.
 
-run_with_opts(Dir, Opts, Cmd0, Expected) ->
+run(Config, Dir, Cmd, Expected) ->
+    run_with_opts(Config, Dir, "", Cmd, Expected).
+
+run_with_opts(Config, Dir, Opts, Cmd0, Expected) ->
+    [CmdName | _] = string:split(Cmd0, " ", all),
     Cmd = case os:type() of
-	      {win32,_} -> "escript " ++ Opts ++ " " ++ filename:nativename(Dir) ++ "\\" ++ Cmd0;
+	      {win32,Wtype} ->
+                  %% This case is stolen from os:mk_cmd/2
+                  Command = case {os:getenv("COMSPEC"),Wtype} of
+                                {false,windows} -> "command.com /c ";
+                                {false,_} -> "cmd /c ";
+                                {Cspec,_} -> lists:concat([Cspec," /c "])
+                            end,
+                  Command ++ "escript " ++ Opts ++ " " ++ filename:nativename(Dir) ++ "\\" ++ Cmd0;
 	      _ -> "escript " ++ Opts ++ " " ++ Dir ++ "/" ++ Cmd0
 	  end,
-    do_run(Dir, Cmd, Expected).
+    do_run(Config, CmdName, Dir, Cmd, Expected).
 
-do_run(Dir, Cmd, Expected0) ->
+do_run(Config, CmdName, Dir, Cmd0, Expected0) ->
+    StdErrFile = tempnam(Config, CmdName),
+    Cmd = Cmd0 ++ " 2> " ++ filename:nativename(StdErrFile),
     io:format("Run: ~p\n", [Cmd]),
     Expected = iolist_to_binary(expected_output(Expected0, Dir)),
 
-    Env = [{"PATH",Dir++":"++os:getenv("PATH")}],
-    Port = open_port({spawn,Cmd}, [exit_status,eof,in,{env,Env}]),
-    Res = get_data(Port, []),
+    Env = [{"PATH",Dir++":"++os:getenv("PATH")},
+           {"ERL_FLAGS",false},{"ERL_AFLAGS",false}],
+    Port = open_port({spawn,Cmd}, [exit_status,eof,in,{env,Env},hide]),
+    StdOut = get_data(Port, []),
     receive
 	{Port,{exit_status,ExitCode}} ->
-	    case iolist_to_binary([Res,"ExitCode:"++integer_to_list(ExitCode)]) of
-		Expected ->
+	    {ok, StdErr} = file:read_file(StdErrFile),
+	    file:delete(StdErrFile),
+	    Res = [StdErr, StdOut],
+	    Actual = iolist_to_binary([Res,"ExitCode:"++integer_to_list(ExitCode)]),
+	    case matches(Expected, Actual) of
+		true ->
 		    ok;
-		Actual ->
+		false ->
 		    io:format("Expected: ~p\n", [Expected]),
 		    io:format("Actual:   ~p\n", [Actual]),
 		    ct:fail(failed)
 	    end
+    end.
+
+%% Check if Expected and Actual contain the same lines.
+%% The lines may occur in different order.
+matches(Expected, Actual) ->
+    ExpectedLines = string:split(Expected, "\n", all),
+    ActualLines = string:split(Actual, "\n", all),
+    matches_1(ExpectedLines, ActualLines).
+
+matches_1([], []) -> true;
+matches_1([Line | Expected], Actual0) ->
+    case delete_first(Line, Actual0) of
+	false -> false;
+	Actual -> matches_1(Expected, Actual)
+    end.
+
+delete_first(X, L) -> delete_first(X, L, []).
+
+delete_first(_X, [], _Acc) -> false;
+delete_first(X, [X | Tail], Acc) -> lists:reverse(Acc, Tail);
+delete_first(X, [Y | Tail], Acc) -> delete_first(X, Tail, [Y | Acc]).
+
+tempnam(Config, Prefix) ->
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, Prefix ++ ".stderr"),
+    case file:delete(File) of
+	ok -> ok;
+	{error, enoent} -> ok
+    end,
+    case file:open(File, [write, exclusive, raw]) of
+	{ok, IoDev} ->
+	    ok = file:close(IoDev),
+	    ok = file:delete(File),
+	    File;
+	{error, Reason} ->
+	    io:format("Failed to create ~s: ~p\n", [File, Reason]),
+	    ct:fail(failed)
     end.
 
 get_data(Port, SoFar) ->

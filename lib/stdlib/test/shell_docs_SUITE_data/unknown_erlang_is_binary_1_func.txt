@@ -1,0 +1,8 @@
+
+  [;1m-spec is_binary(Term) -> boolean() when Term :: term().[0m
+
+  Returns [;;4mtrue[0m if [;;4mTerm[0m is a binary, otherwise [;;4mfalse[0m.
+
+  A binary always contains a complete number of bytes.
+
+  Allowed in guard tests.

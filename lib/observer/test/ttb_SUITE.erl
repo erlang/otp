@@ -658,11 +658,29 @@ seq_trace(Config) when is_list(Config) ->
     ?line ok = ttb:format(
 		 [filename:join(Privdir,atom_to_list(Node)++"-seq_trace")]),
     ?line [{trace_ts,StartProc,call,{?MODULE,seq,[]},{_,_,_}},
-	   {seq_trace,0,{send,{0,1},StartProc,P1Proc,{Start,P2}}},
-	   {seq_trace,0,{send,{1,2},P1Proc,P2Proc,{P1,Start}}},
-	   {seq_trace,0,{send,{2,3},P2Proc,StartProc,{P2,P1}}},
+           {seq_trace,0,{send,{First, Seq0},StartProc,P1Proc,SpawnRequest1}},
+           {seq_trace,0,{send,{Seq0, Seq1},P1Proc,StartProc,SpawnReply1}},
+           {seq_trace,0,{send,{Seq2, Seq3},StartProc,P2Proc,SpawnRequest2}},
+           {seq_trace,0,{send,{Seq3, Seq4},P2Proc,StartProc,SpawnReply2}},
+	   {seq_trace,0,{send,{Seq5, Seq6},StartProc,P1Proc,{Start,P2}}},
+	   {seq_trace,0,{send,{Seq6,  Seq7},P1Proc,P2Proc,{P1,Start}}},
+	   {seq_trace,0,{send,{Seq7,  Last},P2Proc,StartProc,{P2,P1}}},
 	   end_of_trace] = flush(),
-
+    spawn_request = element(1, SpawnRequest1),
+    SReq1 = element(2, SpawnRequest1),
+    spawn_reply = element(1, SpawnReply1),
+    SReq1 = element(2, SpawnReply1),
+    spawn_request = element(1, SpawnRequest2),
+    SReq2 = element(2, SpawnRequest2),
+    spawn_reply = element(1, SpawnReply2),
+    SReq2 = element(2, SpawnReply2),
+    true = First < Seq0,
+    true = Seq0 < Seq1,
+    true = Seq1 < Seq2,
+    true = Seq2 < Seq3,
+    true = Seq4 < Seq5,
+    true = Seq6 < Seq7,
+    true = Seq7 < Last,
    %% Additional test for metatrace
     case StartProc of
 	{Start,_,_} -> ok;
@@ -720,7 +738,7 @@ diskless(Config) when is_list(Config) ->
     ?line {ok,[{matched,RemoteNode,1}]} = ttb:tp(?MODULE,foo,[]),
 
     ?line rpc:call(RemoteNode,?MODULE,foo,[]),
-    ?line timer:sleep(500), % needed for the IP port to flush
+    ?line timer:sleep(5000), % needed for the IP port to flush
     ?line ttb:stop([nofetch]),
     ?line ok = ttb:format(filename:join(Privdir,
 					atom_to_list(RemoteNode)++"-diskless")),
@@ -749,7 +767,7 @@ diskless_wrap(Config) when is_list(Config) ->
     ?line {ok,[{matched,RemoteNode,1}]} = ttb:tp(?MODULE,foo,[]),
 
     ?line rpc:call(RemoteNode,?MODULE,foo,[]),
-    ?line timer:sleep(500), % needed for the IP port to flush
+    ?line timer:sleep(5000), % needed for the IP port to flush
     ?line ttb:stop([nofetch]),
     ?line ok = ttb:format(filename:join(Privdir,
 					atom_to_list(RemoteNode)++"-diskless.*.wrp")),

@@ -1,0 +1,10 @@
+
+  [;1m-spec node(Arg) -> Node[0m
+  [;1m              when Arg :: pid() | port() | reference(), Node :: node().[0m
+
+  Returns the node where [;;4mArg[0m originates. [;;4mArg[0m can be a process
+  identifier, a reference, or a port. If [;;4mArg[0m originates from the
+  local node and the local node is not alive, [;;4mnonode@nohost[0m is
+  returned.
+
+  Allowed in guard tests.

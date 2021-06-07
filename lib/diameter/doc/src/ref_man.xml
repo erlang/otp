@@ -40,7 +40,7 @@ applications on top of the Diameter protocol. </p>
 </description>
 
 <xi:include href="diameter.xml"/>
-<xi:include href="diameterc.xml"/>
+<xi:include href="diameterc_cmd.xml"/>
 <xi:include href="diameter_app.xml"/>
 <xi:include href="diameter_codec.xml"/>
 <xi:include href="diameter_dict.xml"/>

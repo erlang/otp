@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,10 @@
 	 nested_horrid/1,last_call_optimization/1,bool/1,
 	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1,
 	 hockey/1,handle_info/1,catch_in_catch/1,grab_bag/1,
-         stacktrace/1,nested_stacktrace/1,raise/1]).
+         stacktrace/1,nested_stacktrace/1,raise/1,
+         no_return_in_try_block/1,
+         expression_export/1,
+         coverage/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -43,7 +46,9 @@ groups() ->
        nested_after,nested_horrid,last_call_optimization,
        bool,plain_catch_coverage,andalso_orelse,get_in_try,
        hockey,handle_info,catch_in_catch,grab_bag,
-       stacktrace,nested_stacktrace,raise]}].
+       stacktrace,nested_stacktrace,raise,
+       no_return_in_try_block,expression_export,
+       coverage]}].
 
 
 init_per_suite(Config) ->
@@ -200,55 +205,125 @@ try_of_1(X) ->
              {caught,{Class,Reason}}
     end.
 
-
-
 try_after(Conf) when is_list(Conf) ->
+    try_after_1(fun try_after_basic/2),
+    try_after_1(fun try_after_catch/2),
+    try_after_1(fun try_after_complex/2),
+    try_after_1(fun try_after_fun/2),
+    try_after_1(fun try_after_letrec/2),
+    try_after_1(fun try_after_protect/2),
+    try_after_1(fun try_after_receive/2),
+    try_after_1(fun try_after_receive_timeout/2),
+    try_after_1(fun try_after_try/2),
+    ok.
+
+try_after_1(TestFun) ->
     {{ok,[some,value],undefined},finalized} =
-	try_after_1({value,{ok,[some,value]}},finalized),
+        TestFun({value,{ok,[some,value]}},finalized),
     {{error,badarith,undefined},finalized} =
-	try_after_1({'div',{1,0}},finalized),
+        TestFun({'div',{1,0}},finalized),
     {{error,badarith,undefined},finalized} =
-	try_after_1({'add',{1,a}},finalized),
+        TestFun({'add',{1,a}},finalized),
     {{error,badarg,undefined},finalized} =
-	try_after_1({'abs',a},finalized),
+        TestFun({'abs',a},finalized),
     {{error,[the,{reason}],undefined},finalized} =
-	try_after_1({error,[the,{reason}]},finalized),
+        TestFun({error,[the,{reason}]},finalized),
     {{throw,{thrown,[reason]},undefined},finalized} =
-	try_after_1({throw,{thrown,[reason]}},finalized),
+        TestFun({throw,{thrown,[reason]}},finalized),
     {{exit,{exited,{reason}},undefined},finalized} =
-	try_after_1({exit,{exited,{reason}}},finalized),
+        TestFun({exit,{exited,{reason}}},finalized),
     {{error,function_clause,undefined},finalized} =
-	try_after_1(function_clause,finalized),
+        TestFun(function_clause,finalized),
     ok =
-	try try_after_1({'add',{1,1}}, finalized)
+        try
+            TestFun({'add',{1,1}}, finalized)
         catch
             error:{try_clause,2} -> ok
-	end,
+        end,
     finalized = erase(try_after),
     ok =
-        try try foo({exit,[reaso,{n}]})
-            after put(try_after, finalized)
+        try
+            try
+                foo({exit,[reaso,{n}]})
+            after
+                put(try_after, finalized)
             end
         catch
             exit:[reaso,{n}] -> ok
         end,
     ok.
 
-try_after_1(X, Y) ->
+-define(TRY_AFTER_TESTCASE(Block),
     erase(try_after),
     Try =
         try foo(X) of
-	    {ok,Value} -> {ok,Value,get(try_after)}
+            {ok,Value} -> {ok,Value,get(try_after)}
         catch
-	    Reason -> {throw,Reason,get(try_after)};
-	    error:Reason -> {error,Reason,get(try_after)};
-	    exit:Reason ->  {exit,Reason,get(try_after)}
+            Reason -> {throw,Reason,get(try_after)};
+            error:Reason -> {error,Reason,get(try_after)};
+            exit:Reason ->  {exit,Reason,get(try_after)}
         after
-	    put(try_after, Y)
+            Block,
+            put(try_after, Y)
         end,
-    {Try,erase(try_after)}.
+    {Try,erase(try_after)}).
 
+try_after_basic(X, Y) ->
+    ?TRY_AFTER_TESTCASE(ok).
 
+try_after_catch(X, Y) ->
+    ?TRY_AFTER_TESTCASE((catch put(try_after, Y))).
+
+try_after_complex(X, Y) ->
+    %% Large 'after' block, going above the threshold for wrapper functions.
+    ?TRY_AFTER_TESTCASE(case get(try_after) of
+                            unreachable_0 -> dummy:unreachable_0();
+                            unreachable_1 -> dummy:unreachable_1();
+                            unreachable_2 -> dummy:unreachable_2();
+                            unreachable_3 -> dummy:unreachable_3();
+                            unreachable_4 -> dummy:unreachable_4();
+                            unreachable_5 -> dummy:unreachable_5();
+                            unreachable_6 -> dummy:unreachable_6();
+                            unreachable_7 -> dummy:unreachable_7();
+                            unreachable_8 -> dummy:unreachable_8();
+                            unreachable_9 -> dummy:unreachable_9();
+                            _ -> put(try_after, Y)
+                        end).
+
+try_after_fun(X, Y) ->
+    ?TRY_AFTER_TESTCASE((fun() -> ok end)()).
+
+try_after_letrec(X, Y) ->
+    List = lists:duplicate(100, ok),
+    ?TRY_AFTER_TESTCASE([L || L <- List]).
+
+try_after_protect(X, Y) ->
+    ?TRY_AFTER_TESTCASE(case get(try_after) of
+                            N when element(52, N) < 32 -> ok;
+                            _ -> ok
+                        end).
+
+try_after_receive(X, Y) ->
+    Ref = make_ref(),
+    self() ! Ref,
+    ?TRY_AFTER_TESTCASE(receive
+                            Ref -> Ref
+                        end).
+
+try_after_receive_timeout(X, Y) ->
+    Ref = make_ref(),
+    self() ! Ref,
+    ?TRY_AFTER_TESTCASE(receive
+                            Ref -> Ref
+                        after 1000 -> ok
+                        end).
+
+try_after_try(X, Y) ->
+    ?TRY_AFTER_TESTCASE(try
+                            put(try_after, Y)
+                        catch
+                            _ -> ok
+                        end).
 
 -ifdef(begone).
 
@@ -305,11 +380,19 @@ catch_oops_1(X) ->
 
 after_oops(Conf) when is_list(Conf) ->
     V = {self(),make_ref()},
+
     {{value,V},V} = after_oops_1({value,V}, {value,V}),
     {{exit,V},V} = after_oops_1({exit,V}, {value,V}),
     {{error,V},undefined} = after_oops_1({value,V}, {error,V}),
     {{error,function_clause},undefined} =
-	after_oops_1({exit,V}, function_clause),
+        after_oops_1({exit,V}, function_clause),
+
+    {{value,V},V} = after_oops_2({value,V}, {value,V}),
+    {{exit,V},V} = after_oops_2({exit,V}, {value,V}),
+    {{error,V},undefined} = after_oops_2({value,V}, {error,V}),
+    {{error,function_clause},undefined} =
+        after_oops_2({exit,V}, function_clause),
+
     ok.
 
 after_oops_1(X, Y) ->
@@ -325,7 +408,25 @@ after_oops_1(X, Y) ->
         end,
     {Try,erase(after_oops)}.
 
-
+after_oops_2(X, Y) ->
+    %% GH-4859: `raw_raise` never got an edge to its catch block, making
+    %% try/catch optimization unsafe.
+    erase(after_oops),
+    Try =
+        try
+            try
+                foo(X)
+            catch E:R:S ->
+                erlang:raise(E, R, S)
+            after
+                put(after_oops, foo(Y))
+            end
+        of
+            V -> {value,V}
+        catch
+            C:D -> {C,D}
+        end,
+    {Try,erase(after_oops)}.
 
 eclectic(Conf) when is_list(Conf) ->
     V = {make_ref(),3.1415926535,[[]|{}]},
@@ -1049,7 +1150,68 @@ grab_bag(_Config) ->
     %% Unnecessary catch.
     22 = (catch 22),
 
+    fun() ->
+            F = grab_bag_1(any),
+            true = is_function(F, 1)
+    end(),
+
+    <<>> = grab_bag_2(whatever),
+
+    {'EXIT',_} = (catch grab_bag_3()),
+
     ok.
+
+grab_bag_1(V) ->
+    %% V will be stored in y0.
+    try
+        receive
+        after 0 ->
+                %% y0 will be re-used for the catch tag.
+                %% This is safe, because there are no instructions
+                %% that can raise an exception.
+                catch 22
+        end,
+        %% beam_validator incorrectly assumed that the make_fun2
+        %% instruction could raise an exception and end up at
+        %% the catch part of the try.
+        fun id/1
+    catch
+        %% Never reached, because nothing in the try body raises any
+        %% exception.
+        _:V ->
+            ok
+    end.
+
+grab_bag_2(V) ->
+    try
+        %% y0 will be re-used for the catch tag.
+        %% This is safe, because there are no instructions
+        %% that can raise an exception.
+        catch 22,
+
+        %% beam_validator incorrectly assumed that the bs_init_writable
+        %% instruction could raise an exception and end up at
+        %% the catch part of the try.
+        <<0 || [], #{} <- []>>
+    catch
+        %% Never reached, because nothing in the try body raises any
+        %% exception.
+        error:_ ->
+            V
+    end.
+
+grab_bag_3() ->
+    try 2 of
+        true ->
+            <<
+              "" || [V0] = door
+            >>
+    catch
+        error:true:V0 ->
+            []
+            %% The default clause here (which re-throws the exception)
+            %% would not return two values as expected.
+    end =:= (V0 = 42).
 
 stacktrace(_Config) ->
     V = [make_ref()|self()],
@@ -1077,7 +1239,6 @@ stacktrace(_Config) ->
         error:{badmatch,_}:Stk2 ->
             [{?MODULE,stacktrace_2,0,_},
              {?MODULE,stacktrace,1,_}|_] = Stk2,
-            Stk2 = erlang:get_stacktrace(),
             ok
     end,
 
@@ -1085,7 +1246,6 @@ stacktrace(_Config) ->
         stacktrace_3(a, b)
     catch
         error:function_clause:Stk3 ->
-            Stk3 = erlang:get_stacktrace(),
             case lists:module_info(native) of
                 false ->
                     [{lists,prefix,[a,b],_}|_] = Stk3;
@@ -1106,14 +1266,14 @@ stacktrace_1(X, C1, Y) ->
             C1 -> value1
         catch
             C1:D1:Stk1 ->
-                Stk1 = erlang:get_stacktrace(),
                 {caught1,D1,Stk1}
         after
             foo(Y)
         end of
         V2 -> {value2,V2}
     catch
-        C2:D2:Stk2 -> {caught2,{C2,D2},Stk2=erlang:get_stacktrace()}
+        C2:D2:Stk2 ->
+            {caught2,{C2,D2},Stk2}
     end.
 
 stacktrace_2() ->
@@ -1158,12 +1318,10 @@ nested_stacktrace_1({X1,C1,V1}, {X2,C2,V2}) ->
         V1 -> value1
     catch
         C1:V1:S1 ->
-            S1 = erlang:get_stacktrace(),
             T2 = try foo(X2) of
                      V2 -> value2
                  catch
                      C2:V2:S2 ->
-                         S2 = erlang:get_stacktrace(),
                          {caught2,S2}
                  end,
             {caught1,S1,T2}
@@ -1176,7 +1334,21 @@ raise(_Config) ->
 
     badarg = bad_raise(fun() -> abs(id(x)) end),
 
+    error = stk_used_in_bin_size(<<0:42>>),
     ok.
+
+stk_used_in_bin_size(Bin) ->
+    try
+        throw(fail)
+    catch
+        throw:fail:Stk ->
+            %% The compiler would crash because the building of the
+            %% stacktrack was sunk into each case arm.
+            case Bin of
+                <<0:Stk>> -> ok;
+                _ -> error
+            end
+    end.
 
 bad_raise(Expr) ->
     try
@@ -1268,7 +1440,9 @@ test_raise_4(Expr) ->
     try
         do_test_raise_4(Expr)
     catch
-        exit:{exception,C,E,Stk}:Stk ->
+        exit:{exception,C,E,StkTerm}:Stk ->
+            %% it's not allowed to do the matching directly in the clause head
+            true = (Stk =:= StkTerm),
             try
                 Expr()
             catch
@@ -1285,6 +1459,201 @@ do_test_raise_4(Expr) ->
         C:E:Stk ->
             %% Here the stacktrace must be built.
             erlang:raise(exit, {exception,C,E,Stk}, Stk)
+    end.
+
+no_return_in_try_block(Config) when is_list(Config) ->
+    1.0 = no_return_in_try_block_1(0),
+    1.0 = no_return_in_try_block_1(0.0),
+
+    gurka = no_return_in_try_block_1(gurka),
+    [] = no_return_in_try_block_1([]),
+
+    ok.
+
+no_return_in_try_block_1(H) ->
+    try
+        Float = if
+                    is_number(H) -> float(H);
+                    true -> no_return()
+                end,
+        Float + 1
+    catch
+        throw:no_return -> H
+    end.
+
+no_return() -> throw(no_return).
+
+expression_export(_Config) ->
+    42 = expr_export_1(),
+    42 = expr_export_2(),
+
+    42 = expr_export_3(fun() -> bar end),
+    beer = expr_export_3(fun() -> pub end),
+    {error,failed} = expr_export_3(fun() -> error(failed) end),
+    is_42 = expr_export_3(fun() -> 42 end),
+    no_good = expr_export_3(fun() -> bad end),
+
+    <<>> = expr_export_4(<<1:32>>),
+    <<"abcd">> = expr_export_4(<<2:32,"abcd">>),
+    no_match = expr_export_4(<<0:32>>),
+    no_match = expr_export_4(<<777:32>>),
+
+    {1,2,3} = expr_export_5(),
+    ok.
+
+expr_export_1() ->
+    try Bar = 42 of
+        _ -> Bar
+    after
+        ok
+    end.
+
+expr_export_2() ->
+    try Bar = 42 of
+        _ -> Bar
+    catch
+        _:_ ->
+            error
+    end.
+
+expr_export_3(F) ->
+    try
+        Bar = 42,
+        F()
+    of
+        bar -> Bar;
+        pub -> beer;
+        Bar -> is_42;
+        _ -> no_good
+    catch
+        error:Reason ->
+            {error,Reason}
+    end.
+
+expr_export_4(Bin) ->
+    try
+        SzSz = id(32),
+        Bin
+    of
+        <<Sz:SzSz,Tail:(4*Sz-4)/binary>> -> Tail;
+        <<_/binary>> -> no_match
+    after
+        ok
+    end.
+
+expr_export_5() ->
+    try
+        X = 1,
+        Z = 3,
+        Y = 2
+    of
+        2 -> {X,Y,Z}
+    after
+        ok
+    end.
+
+coverage(_Config) ->
+    {'EXIT',{{badfun,true},[_|_]}} = (catch coverage_1()),
+    ok = coverage_ssa_throw(),
+    error = coverage_pre_codegen(),
+    ok.
+
+%% Cover some code in beam_trim.
+coverage_1() ->
+    try
+        true
+    catch
+        law:business ->
+            program
+    after
+        head
+    end(0),
+    if
+        [2 or 1] ->
+            true
+    end.
+
+%% Cover some code in beam_ssa_throw.
+coverage_ssa_throw() ->
+    cst_trivial(),
+    cst_raw(),
+    cst_stacktrace(),
+    cst_types(),
+
+    ok.
+
+cst_trivial() ->
+    %% never inspects stacktrace
+    try
+        cst_trivial_1()
+    catch
+        _C:_R:_S ->
+            ok
+    end.
+
+cst_trivial_1() -> throw(id(gurka)).
+
+cst_types() ->
+    %% type tests
+    try
+        cst_types_1()
+    catch
+        throw:Val when is_atom(Val);
+                       is_bitstring(Val);
+                       is_binary(Val);
+                       is_float(Val);
+                       is_integer(Val);
+                       is_list(Val);
+                       is_map(Val);
+                       is_number(Val);
+                       is_tuple(Val) ->
+            ok;
+        throw:[_|_]=Cons when hd(Cons) =/= gurka;
+                              tl(Cons) =/= gaffel ->
+            %% is_nonempty_list, get_hd, get_tl
+            ok;
+        throw:Tuple when tuple_size(Tuple) < 5 ->
+            %% tuple_size
+            ok
+    end.
+
+cst_types_1() -> throw(id(gurka)).
+
+cst_stacktrace() ->
+    %% build_stacktrace
+    try
+        cst_stacktrace_1()
+    catch
+        throw:gurka ->
+            ok;
+        _C:_R:Stack ->
+            id(Stack),
+            ok
+    end.
+
+cst_stacktrace_1() -> throw(id(gurka)).
+
+cst_raw() ->
+    %% raw_raise
+    try
+        cst_raw_1()
+    catch
+        throw:gurka ->
+            ok;
+        _C:_R:Stack ->
+            erlang:raise(error, dummy, Stack)
+    end.
+
+cst_raw_1() -> throw(id(gurka)).
+
+%% Cover some code in beam_ssa_pre_codegen.
+coverage_pre_codegen() ->
+    try not (catch 22) of
+        true ->
+            ok
+    catch
+        _:_ ->
+            error
     end.
 
 

@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,15 +18,29 @@
 %% %CopyrightEnd%
 %%
 -module(ssh_bench_SUITE).
--compile(export_all).
+
+-export([
+         suite/0,
+         all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         connect/1,
+         transfer_text/1,
+         send_wait_acc/3
+        ]).
 
 -include_lib("common_test/include/ct_event.hrl").
 -include_lib("common_test/include/ct.hrl").
 
--include_lib("ssh/src/ssh.hrl").
--include_lib("ssh/src/ssh_transport.hrl").
--include_lib("ssh/src/ssh_connect.hrl").
--include_lib("ssh/src/ssh_userauth.hrl").
+-include("ssh.hrl").
+-include("ssh_transport.hrl").
+-include("ssh_connect.hrl").
+-include("ssh_auth.hrl").
 
 %%%================================================================
 %%%
@@ -142,6 +156,7 @@ transfer_text(Config) ->
                {password, proplists:get_value(pwd,      Config)},
                {user_dir, proplists:get_value(priv_dir, Config)},
                {silently_accept_hosts, true},
+               {save_accepted_host, false},
                {user_interaction, false},
                {max_random_length_padding, 0}
               ],
@@ -178,7 +193,7 @@ gen_data(DataSz) ->
 
 
 connect_measure(Port, Cipher, Mac, Data, Options) ->
-    AES_GCM = {cipher,
+    _AES_GCM = {cipher,
                []},
                %% ['aes256-gcm@openssh.com',
                %%  'aes128-gcm@openssh.com']},
@@ -187,22 +202,22 @@ connect_measure(Port, Cipher, Mac, Data, Options) ->
                  {none,none} ->
                      [{modify_algorithms,[{prepend, [{cipher,[Cipher]},
                                                      {mac,[Mac]}]}
-%%%                                          ,{rm,[AES_GCM]}
+%%%                                          ,{rm,[_AES_GCM]}
                                          ]}];
                  {none,_} ->
                      [{modify_algorithms,[{prepend, [{cipher,[Cipher]}]}
-%%%                                          ,{rm,[AES_GCM]}
+%%%                                          ,{rm,[_AES_GCM]}
                                          ]},
                       {preferred_algorithms, [{mac,[Mac]}]}];
                  {_,none} ->
                      [{modify_algorithms,[{prepend, [{mac,[Mac]}]}
-%%%                                          ,{rm,[AES_GCM]}
+%%%                                          ,{rm,[_AES_GCM]}
                                          ]},
                       {preferred_algorithms, [{cipher,[Cipher]}]}];
                  _ ->
                      [{preferred_algorithms, [{cipher,[Cipher]},
                                               {mac,[Mac]}]}
-%%%                      ,{modify_algorithms, [{rm,[AES_GCM]}]}
+%%%                      ,{modify_algorithms, [{rm,[_AES_GCM]}]}
                      ]
              end,
     Times =
@@ -233,7 +248,7 @@ send_wait_acc(C, Ch, Data) ->
 %%%----------------------------------------------------------------
 preferred_algorithms(KexAlg) ->
      [{kex,         [KexAlg]},
-      {public_key,  ['ssh-rsa']},
+      {public_key,  ['rsa-sha2-256']},
       {cipher,      ['aes128-ctr']},
       {mac,         ['hmac-sha1']},
       {compression, [none]}
@@ -252,13 +267,13 @@ median(Data) when is_list(Data) ->
             1 ->
                 lists:nth(N div 2 + 1, SortedData)
         end,
-    ct:pal("median(~p) = ~p",[SortedData,Median]),
+    ct:log("median(~p) = ~p",[SortedData,Median]),
     Median.
 
 %%%----------------------------------------------------------------
 report(LabelList, Value) ->
     Label = report_chars(lists:concat(LabelList)),
-    ct:pal("ct_event:notify ~p: ~p", [Label, Value]),
+    ct:log("ct_event:notify ~p: ~p", [Label, Value]),
     ct_event:notify(
       #event{name = benchmark_data,
              data = [{suite, ?MODULE},

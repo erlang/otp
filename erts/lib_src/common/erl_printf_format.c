@@ -31,19 +31,8 @@
  *  sz: 8 | 16 | 32 | 64 | p | e
  */
 
-/* Without this, variable argument lists break on VxWorks */
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
-
-#ifdef __WIN32__
-#undef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #endif
 
 #include <ctype.h>
@@ -334,10 +323,6 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
     size_t max_size = 2;  /* including possible sign */
     int size;
     int new_fmt = fmt;
-    int fpe_was_unmasked;
-
-    fpe_was_unmasked = erts_printf_block_fpe ? (*erts_printf_block_fpe)() : 0;
-
     if (val < 0.0)
 	dexp = log10(-val);
     else if (val == 0.0)
@@ -445,8 +430,6 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
     if (bufp != sbuf)
 	free((void *) bufp);
 
-    if (erts_printf_unblock_fpe)
-	(*erts_printf_unblock_fpe)(fpe_was_unmasked);
     return res;
 }
 
@@ -936,6 +919,66 @@ erts_printf_sword(fmtfn_t fn, void *arg, char conv, int pad, int width,
     if (res < 0)
 	return res;
     return count;
+}
+
+int
+erts_printf_uword64(fmtfn_t fn, void *arg, char conv, int pad, int width,
+		    ErlPfUWord64 val)
+{
+#if SIZEOF_LONG_LONG
+    int count = 0;
+    int res;
+    int fmt = 0;
+    int prec = -1;
+    switch (conv) {
+    case 'o': fmt |= FMTC_o; break;
+    case 'u': fmt |= FMTC_u; break;
+    case 'x': fmt |= FMTC_x; break;
+    case 'X': fmt |= FMTC_X; break;
+    case 'p': fmt |= FMTC_p; break;
+    default:
+	return -EINVAL;
+    }
+    if (pad)
+	prec = width;
+    res = fmt_long_long(fn, arg, USIGN(val), val, width, prec, fmt, &count);
+    if (res < 0)
+	return res;
+    return count;
+#else
+    return -ENOTSUP;
+#endif
+}
+
+int
+erts_printf_sword64(fmtfn_t fn, void *arg, char conv, int pad, int width,
+		    ErlPfSWord64 val)
+{
+#if SIZEOF_LONG_LONG
+    int count = 0;
+    int res;
+    int fmt = 0;
+    int prec = -1;
+    ErlPfUWord64 ul_val;
+    switch (conv) {
+    case 'd': fmt |= FMTC_d; break;
+    case 'i': fmt |= FMTC_d; break;
+    case 'o': fmt |= FMTC_o; break;
+    case 'x': fmt |= FMTC_x; break;
+    case 'X': fmt |= FMTC_X; break;
+    default:
+	return -EINVAL;
+    }
+    if (pad)
+	prec = width;
+    ul_val = (ErlPfUWord64) (val < 0 ? -val : val);
+    res = fmt_long_long(fn, arg, SIGN(val), ul_val, width, prec, fmt, &count);
+    if (res < 0)
+	return res;
+    return count;
+#else
+    return -ENOTSUP;
+#endif
 }
 
 int

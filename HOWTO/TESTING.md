@@ -130,6 +130,52 @@ i.e.
 Running [ct_run][] from the command line still requires you to do the
 `ts:install()` step above.
 
+### Convenience for running tests without the release and configuration steps
+
+It can be convenient to run tests with a single command. This way, one
+do not need to worry about missing to run `make release_tests` after
+changing a test suite. The `make test` command can be used for this
+purpose. The `make test` command works when the current directory
+contains a directory called test and in the root directory of the
+source code tree.
+
+*(Waring)* Some test cases do not run correctly or cannot be run at
+all through the `make test` command (typically test cases that require
+test specific C code to be compiled) because `make test` runs tests
+directly by invoking the `ct_run` command instead of using the `ts`
+wrapper. One has to follow the procedure described above to run test
+cases that do not work with `make test`.
+
+Below are some examples that illustrate how `make test` can be
+used:
+
+    # ERL_TOP needs to be set correctly
+    cd /path/to/otp
+    export ERL_TOP=`pwd`
+
+    # Build Erlang/OTP
+    #
+    # Note that make test will only compile test code except when
+    # make test is executed from $ERL_TOP.
+    ./otp_build setup -a
+
+    # Run a test case (The ARGS variable is passed to ct_run)
+    (cd $ERL_TOP/erts/emulator && make ARGS="-suite binary_SUITE -case deep_bitstr_lists" test)
+
+    # Run a test suite
+    (cd $ERL_TOP/lib/stdlib && make ARGS="-suite ets_SUITE" test)
+
+    # Run all test suites for an application
+    (cd $ERL_TOP/lib/asn1 && make test)
+
+    # Run all tests
+    #
+    # When executed from $ERL_TOP, "make test" will first release and
+    # configure all tests and then attempt to run all tests with `ts:run`.
+    # This will take several hours.
+    (cd $ERL_TOP && make test)
+
+
 Examining the results
 ---------------------
 
@@ -139,6 +185,52 @@ examine the results so far for the currently executing test suite (in R14B02 and
 later you want to open the `release/tests/test_server/all_runs.html` file to
 get to the currently running test)
 
+
+Run tests with Address Sanitizer
+--------------------------------
+
+First build emulator with `asan` build target.
+See [$ERL_TOP/HOWTO/INSTALL.md][].
+
+Set environment variable `ASAN_LOG_DIR` to the directory
+where the error logs will be generated.
+
+    export ASAN_LOG_DIR=$TESTROOT/test_server/asan_logs
+    mkdir $ASAN_LOG_DIR
+
+Set environment variable `TS_RUN_EMU` to `asan`.
+
+    export TS_RUN_EMU=asan
+
+Then run the tests you want with `ts:run` as described above. Either
+inspect the log files directly or use the script at
+`$ERL_TOP/erts/emulator/asan/asan_logs_to_html` to read all log files
+in `$ASAN_LOG_DIR` and distill them into one html page
+`asan_summary.html`. Repeated reports from the same memory leak will
+for example be ignored by the script and make it easier to analyze.
+
+
+Run tests with Valgrind
+-----------------------
+
+First make sure [valgrind][] is installed, then build OTP from source
+and build the emulator with `valgrind` build target. See
+[$ERL_TOP/HOWTO/INSTALL.md][].
+
+Set environment variable `VALGRIND_LOG_DIR` to the directory
+where the valgrind error logs will be generated.
+
+    export VALGRIND_LOG_DIR=$TESTROOT/test_server/vg_logs
+    mkdir $VALGRIND_LOG_DIR
+
+Set environment variable `TS_RUN_EMU` to `valgrind`.
+
+    export TS_RUN_EMU=valgrind
+
+Then run the tests you want with `ts:run` as described above and
+inspect the log file(s) in `$VALGRIND_LOG_DIR`.
+
+
    [ct_run]: http://www.erlang.org/doc/man/ct_run.html
    [ct hook]: http://www.erlang.org/doc/apps/common_test/ct_hooks_chapter.html
    [$ERL_TOP/HOWTO/INSTALL.md]: INSTALL.md
@@ -146,5 +238,6 @@ get to the currently running test)
    [common_test]: http://www.erlang.org/doc/man/ct.html
    [data_dir]: http://www.erlang.org/doc/apps/common_test/write_test_chapter.html#data_priv_dir
    [configuring the tests]: #configuring-the-test-environment
+   [valgrind]: https://valgrind.org
 
    [?TOC]: true

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2018</year>
+      <year>1996</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,6 +37,17 @@
       the object code, or return a binary, which can be loaded directly.
     </p>
   </description>
+
+  <datatypes>
+    <datatype>
+      <name>option() = term()</name>
+      <desc><p>See <seemfa marker="#file/2">file/2</seemfa> for detailed description</p></desc>
+    </datatype>
+    <datatype>
+      <name>forms() = term()</name>
+      <desc><p>List of Erlang abstract or Core Erlang format representations, as used by <seemfa marker="#forms/2">forms/2</seemfa></p></desc>
+    </datatype>
+  </datatypes>
 
   <funcs>
     <func>
@@ -82,8 +93,15 @@
 	  to be an error if the module name in the source code is
 	  not the same as the basename of the output file.</p>
 
-        <p><marker id="type-option"/>Available options:</p>
+        <p>Available options:</p>
         <taglist>
+	  <tag><c>brief</c></tag>
+          <item>
+            <p>Restricts error and warning messages to a single line of output.
+            As of OTP 24, the compiler will by default also display the part
+            of the source code that the message refers to.</p>
+          </item>
+
           <tag><c>basic_validation</c></tag>
           <item>
             <p>This option is a fast way to test whether a module will
@@ -119,7 +137,7 @@
             <p>The compiler will emit informational warnings about binary
 	    matching optimizations (both successful and unsuccessful).
 	    For more information, see the section about
-	    <seealso marker="doc/efficiency_guide:binaryhandling#bin_opt_info">bin_opt_info</seealso>
+	    <seeguide marker="system/efficiency_guide:binaryhandling#bin_opt_info">bin_opt_info</seeguide>
 	    in the Efficiency Guide.</p>
           </item>
 
@@ -143,8 +161,8 @@
           <tag><c>debug_info</c></tag>
           <item>
             <marker id="debug_info"></marker>
-            <p>Includes debug information in the form of <seealso marker="erts:absform">
-              Erlang Abstract Format</seealso> in the <c>debug_info</c>
+            <p>Includes debug information in the form of <seeguide marker="erts:absform">
+              Erlang Abstract Format</seeguide> in the <c>debug_info</c>
               chunk of the compiled beam module. Tools such as Debugger,
               Xref, and Cover require the debug information to be included.</p>
 
@@ -153,7 +171,7 @@
               (<c>encrypt_debug_info</c>) to prevent this.</p>
 
             <p>For details, see
-              <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
+              <seeerl marker="stdlib:beam_lib#debug_info">beam_lib(3)</seeerl>.</p>
           </item>
 
           <tag><c>{debug_info, {Backend, Data}}</c></tag>
@@ -164,7 +182,7 @@
               The given module must implement a <c>debug_info/4</c> function
               and is responsible for generating different code representations,
               as described in the <c>debug_info</c> under
-              <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
+              <seeerl marker="stdlib:beam_lib#debug_info">beam_lib(3)</seeerl>.</p>
 
             <p><em>Warning</em>: Source code can be reconstructed from
               the debug information. Use encrypted debug information
@@ -186,7 +204,7 @@
               for encrypting the debug information. The default
               (and currently the only) type is <c>des3_cbc</c>.</p>
             <p>For details, see
-              <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
+              <seeerl marker="stdlib:beam_lib#debug_info">beam_lib(3)</seeerl>.</p>
           </item>
 
           <tag><c>encrypt_debug_info</c></tag>
@@ -197,7 +215,7 @@
 	    </p>
 
 	    <p>For details, see
-              <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
+              <seeerl marker="stdlib:beam_lib#debug_info">beam_lib(3)</seeerl>.</p>
           </item>
 
           <tag><c>deterministic</c></tag>
@@ -219,6 +237,7 @@
                 <c>binary</c> is set, nothing is written and the rule is
                 returned in <c>Binary</c>.
             </p>
+            <p>The output will be encoded in UTF-8.</p>
             <p>For example, if you have the following module:
             </p>
             <code>
@@ -303,6 +322,16 @@ module.beam: module.erl \
 	    </p>
           </item>
 
+          <tag><c>recv_opt_info</c></tag>
+          <item>
+            <p>The compiler will emit informational warnings about selective
+              receive optimizations (both successful and unsuccessful). For
+              more information, see the section about
+              <seeguide marker="system/efficiency_guide:processes#receiving-messages">
+              selective receive optimization</seeguide> in the Efficiency
+              Guide.</p>
+          </item>
+
           <tag><c>report_errors/report_warnings</c></tag>
           <item>
             <p>Causes errors/warnings to be printed as they occur.</p>
@@ -333,6 +362,20 @@ module.beam: module.erl \
             <p>Causes warnings to be treated as errors. This option is supported
             since R13B04.</p>
           </item>
+
+	  <tag><c>{error_location,line | column}</c></tag>
+	  <item>
+            <p>If the value of this flag is <c>line</c>, the location
+            <seeerl marker="#error_information"><c>ErrorLocation</c></seeerl>
+            of warnings and errors is a line number. If
+            the value is <c>column</c>, <c>ErrorLocation</c> includes
+            both a line number and a column number.
+	    Default is <c>column</c>. This option is supported
+            since Erlang/OTP 24.0.</p>
+            <p>If the value of this flag is <c>column</c>,
+            <seeerl marker="#debug_info">debug information</seeerl>
+	    includes column information.</p>
+	  </item>
 
           <tag><c>return</c></tag>
           <item>
@@ -402,6 +445,14 @@ module.beam: module.erl \
               parsed code before the code is checked for errors.</p>
           </item>
 
+	  <tag><c>from_abstr</c></tag>
+          <item>
+            <p>The input file is expected to contain Erlang terms representing
+            forms in abstract format (default file suffix ".abstr"). Note
+            that the format of such terms can change between releases.</p>
+            <p>See also the <c>no_lint</c> option.</p>
+          </item>
+
 	  <tag><c>from_asm</c></tag>
           <item>
             <p>The input file is expected to be assembler code (default
@@ -414,6 +465,17 @@ module.beam: module.erl \
             <p>The input file is expected to be core code (default
 	      file suffix ".core"). Notice that the format of core files
               is not documented, and can change between releases.</p>
+          </item>
+
+          <tag><c>no_spawn_compiler_process</c></tag>
+          <item>
+            <p>By default, all code is compiled in a separate process
+              which is terminated at the end of compilation. However,
+              some tools, like Dialyzer or compilers for other BEAM languages,
+              may already manage their own worker processes and spawning
+              an extra process may slow the compilation down.
+              In such scenarios, you can pass this option to stop the
+              compiler from spawning an additional process.</p>
           </item>
 
           <tag><c>no_strict_record_tests</c></tag>
@@ -466,11 +528,24 @@ module.beam: module.erl \
           </item>
 
           <tag><c>no_line_info</c></tag>
-
           <item>
             <p>Omits line number information to produce a slightly
 	      smaller output file.
 	    </p>
+          </item>
+
+          <tag><c>no_lint</c></tag>
+          <item>
+            <p>Skips the pass that checks for errors and warnings. Only
+            applicable together with the <c>from_abstr</c> option. This is
+            mainly for implementations of other languages on top of Erlang,
+            which have already done their own checks to guarantee
+            correctness of the code.</p>
+            <p>Caveat: When this option is used, there are no guarantees
+            that the code output by the compiler is correct and safe to
+            use. The responsibility for correctness lies on the code or
+            person generating the abstract format. If the code contains
+            errors, the compiler may crash or produce unsafe code.</p>
           </item>
 
           <tag><c>{extra_chunks, [{binary(), binary()}]}</c></tag>
@@ -478,7 +553,7 @@ module.beam: module.erl \
             <p>Pass extra chunks to be stored in the <c>.beam</c> file.
               The extra chunks must be a list of tuples with a four byte
               binary as chunk name followed by a binary with the chunk contents.
-              See <seealso marker="stdlib:beam_lib">beam_lib</seealso> for
+              See <seeerl marker="stdlib:beam_lib">beam_lib</seeerl> for
               more information.
 	    </p>
           </item>
@@ -599,11 +674,11 @@ module.beam: module.erl \
 	      assembled list of deprecated functions in Erlang/OTP. To
 	      do a more general check, the Xref tool can be used.
 	      See also
-	      <seealso marker="tools:xref#deprecated_function">xref(3)</seealso>
+	      <seeerl marker="tools:xref#deprecated_function">xref(3)</seeerl>
               and the function
-	      <seealso marker="tools:xref#m/1">xref:m/1</seealso>, also
+	      <seemfa marker="tools:xref#m/1">xref:m/1</seemfa>, also
               accessible through the function 
-	    <seealso marker="stdlib:c#xm/1">c:xm/1</seealso>.</p>
+	    <seemfa marker="stdlib:c#xm/1">c:xm/1</seemfa>.</p>
           </item>
 
 	  <tag><c>{nowarn_deprecated_function, MFAs}</c></tag>
@@ -621,11 +696,27 @@ module.beam: module.erl \
 	    to be deprecated.</p>
           </item>
 
+	  <tag><c>nowarn_removed</c></tag>
+          <item>
+            <p>Turns off warnings for calls to functions that have
+            been removed. Default is to emit warnings for every call
+            to a function known by the compiler to have been recently
+            removed from Erlang/OTP.</p>
+          </item>
+
+	  <tag><c>{nowarn_removed, ModulesOrMFAs}</c></tag>
+          <item>
+            <p>Turns off warnings for calls to modules or functions
+            that have been removed. Default is to emit warnings for
+            every call to a function known by the compiler to have
+            been recently removed from Erlang/OTP.</p>
+          </item>
+
 	  <tag><c>nowarn_obsolete_guard</c></tag>
           <item>
             <p>Turns off warnings for calls to old type testing BIFs, 
 	    such as <c>pid/1</c> and <c>list/1</c>. See the
-	    <seealso marker="doc/reference_manual:expressions#guards">Erlang Reference Manual</seealso>
+	    <seeguide marker="system/reference_manual:expressions#guards">Erlang Reference Manual</seeguide>
 	      for a complete list of type testing BIFs and their old
 	      equivalents. Default is to emit warnings for calls to
 	      old type testing BIFs.</p>
@@ -637,44 +728,99 @@ module.beam: module.erl \
 	    Default is to emit no warnings for unused imported functions.</p>
           </item>
 
+          <tag><c>nowarn_underscore_match</c></tag>
+          <item>
+            <p>By default, warnings are emitted when a variable that begins
+              with an underscore is matched after being bound. Use this
+              option to turn off this kind of warning.</p>
+          </item>
+
           <tag><c>nowarn_unused_vars</c></tag>
           <item>
             <p>By default, warnings are emitted for unused variables,
 	      except for variables beginning with an underscore 
 	      ("Prolog style warnings").
-              Use this option to turn off this kind of warnings.</p>
+              Use this option to turn off this kind of warning.</p>
           </item>
 
 	  <tag><c>nowarn_unused_record</c></tag>
           <item>
-            <p>Turns off warnings for unused record types. Default is to 
-	    emit warnings for unused locally defined record types.</p>
+            <p>Turns off warnings for unused record definitions. Default is to
+	    emit warnings for unused locally defined records.</p>
+          </item>
+
+	  <tag><c>{nowarn_unused_record, RecordNames}</c></tag>
+          <item>
+            <p>Turns off warnings for unused record definitions. Default is to
+	    emit warnings for unused locally defined records.</p>
+          </item>
+
+	  <tag><c>nowarn_unused_type</c></tag>
+          <item>
+            <p>Turns off warnings for unused type declarations. Default is to
+	    emit warnings for unused local type declarations.</p>
+          </item>
+
+          <tag><c>nowarn_nif_inline</c></tag>
+          <item>
+              <p>By default, warnings are emitted when inlining is enabled in
+                a module that may load NIFs, as the compiler may inline NIF
+                fallbacks by accident. Use this option to turn off this kind of
+                warnings.</p>
+          </item>
+
+          <tag><c>warn_missing_spec</c></tag>
+          <item>
+              <p>By default, warnings are not emitted when a specification
+                (or contract) for an exported function is not given. Use this
+                option to turn on this kind of warning.</p>
+          </item>
+
+          <tag><c>warn_missing_spec_all</c></tag>
+          <item>
+              <p>By default, warnings are not emitted when a specification
+                (or contract) for an exported or unexported function is not
+                given. Use this option to turn on this kind of warning.</p>
           </item>
         </taglist>
 
-	<p>Another class of warnings is generated by the compiler
-	  during optimization and code generation. They warn about
-	  patterns that will never match (such as <c>a=b</c>), guards
-	  that always evaluate to false, and expressions that
-	  always fail (such as <c>atom+42</c>).</p>
-	  <p>Those warnings cannot be disabled (except by
-	  disabling all warnings).</p>
+	<p>Other kinds of warnings are <em>opportunistic
+	warnings</em>. They are generated when the compiler happens to
+	notice potential issues during optimization and code
+	generation.</p>
 
-	  <note>
-	    <p>The compiler does not warn for expressions that it
-          does not attempt to optimize. For example, the compiler tries
-          to evaluate <c>1/0</c>, detects that it will cause an
-	  exception, and emits a warning. However,
-	  the compiler is silent about the similar expression,
-	  <c>X/0</c>, because of the variable in it. Thus, the compiler does
-	  not even try to evaluate and therefore it emits no warnings.</p>
-          </note>
+	<note>
+	  <p>The compiler does not warn for expressions that it
+          does not attempt to optimize. For example, the compiler will
+          emit a warning for <c>1/0</c> but not for <c>X/0</c>,
+          because <c>1/0</c> is a constant expression that the compiler
+          will attempt to evaluate.</p>
 
-	<warning>
-          <p>The absence of warnings does not mean that
-	    there are no remaining errors in the code.</p>
-        </warning>
-	
+          <p>The absence of warnings does not mean that there are no
+          remaining errors in the code.</p>
+        </note>
+
+        <p>Opportunistic warnings can be disabled using the following
+        options:</p>
+
+        <taglist>
+          <tag><c>nowarn_opportunistic</c></tag>
+          <item><p>Disable all opportunistic warnings.</p></item>
+
+          <tag><c>nowarn_failed</c></tag>
+          <item><p>Disable warnings for expressions that will always
+          fail (such as <c>atom+42</c>).</p></item>
+
+          <tag><c>nowarn_ignored</c></tag>
+          <item><p>Disable warnings for expressions whose
+          values are ignored.</p></item>
+
+          <tag><c>nowarn_nomatch</c></tag>
+          <item><p>Disable warnings for patterns that will never match
+          (such as <c>a=b</c>) and for guards that always evaluate to
+          <c>false</c>.</p></item>
+        </taglist>
+
 	<note>
 	<p>All options, except the include path
 	  (<c>{i,Dir}</c>), can also be given in the file with attribute
@@ -684,12 +830,13 @@ module.beam: module.erl \
 	</note>
 	
 	<note>
-	<p>The options <c>{nowarn_unused_function, FAs}</c>,
-          <c>{nowarn_bif_clash, FAs}</c>, and 
-          <c>{nowarn_deprecated_function, MFAs}</c> are only
-          recognized when given in files. They are not affected by
-	  options <c>warn_unused_function</c>, <c>warn_bif_clash</c>, or 
-          <c>warn_deprecated_function</c>.</p>
+	<p>Before OTP 22, the option <c>{nowarn_deprecated_function,
+	MFAs}</c> was only recognized when given in the file with
+	attribute <c>-compile()</c>. (The option
+	<c>{nowarn_unused_function,FAs}</c> was incorrectly documented
+	to only work in a file, but it also worked when given in the
+	option list.) Starting from OTP 22, all options that can be
+	given in the file can also be given in the option list.</p>
 	</note>
 
         <p>For debugging of the compiler, or for pure curiosity,
@@ -712,7 +859,7 @@ module.beam: module.erl \
 	The filename is included here, as the compiler uses the 
 	Erlang pre-processor <c>epp</c>, which allows the code to be 
 	included in other files. It is therefore important to know to
-	  <em>which</em> file the line number of an error or a warning refers.
+	  <em>which</em> file the location of an error or a warning refers.
 	</p>
       </desc>
     </func>
@@ -731,15 +878,20 @@ module.beam: module.erl \
       <name since="">forms(Forms, Options) -> CompRet</name>
       <fsummary>Compiles a list of forms.</fsummary>
       <type>
-        <v>Forms = [Form]</v>
+        <v>Forms = <seetype marker="#forms">forms()</seetype></v>
+        <v>forms() = [<seetype marker="stdlib:erl_parse#abstract_form">erl_parse:abstract_form</seetype>] | <seeerl marker="cerl#type-c_module">cerl:c_module()</seeerl></v>
+        <v>Options = [<seetype marker="#option">option()</seetype>]</v>
         <v>CompRet = BinRet | ErrRet</v>
         <v>BinRet = {ok,ModuleName,BinaryOrCode} | {ok,ModuleName,BinaryOrCode,Warnings}</v>
+        <v>ModuleName = module()</v>
         <v>BinaryOrCode = binary() | term()</v>
         <v>ErrRet = error | {error,Errors,Warnings}</v>
+        <v>Warnings = Errors = [{<seetype marker="kernel:file#filename">file:filename()</seetype>, [{<seetype marker="stdlib:erl_anno#location">erl_anno:location()</seetype> | 'none', module(), term()}]}]</v>
       </type>
       <desc>
         <p>Analogous to <c>file/1</c>, but takes a list of forms (in
-	  the Erlang abstract format representation) as first argument.
+	  either Erlang abstract or Core Erlang format representation)
+      as first argument.
           Option <c>binary</c> is implicit, that is, no object code
 	  file is produced. For options that normally produce a listing 
 	  file, such as 'E', the internal format for that compiler pass 
@@ -759,7 +911,7 @@ module.beam: module.erl \
 	  characters that describes the error. This function is
 	  usually called implicitly when an <c>ErrorInfo</c> structure 
 	(described in section 
-	<seealso marker="#error_information">Error Information</seealso>) is processed.</p>
+	<seeerl marker="#error_information">Error Information</seeerl>) is processed.</p>
       </desc>
     </func>
 
@@ -782,7 +934,7 @@ module.beam: module.erl \
       <name since="">noenv_file(File, Options) -> CompRet</name>
       <fsummary>Compiles a file (ignoring <c>ERL_COMPILER_OPTIONS)</c>.</fsummary>
       <desc>
-      <p>Works like <seealso marker="#file/2">file/2</seealso>,
+      <p>Works like <seemfa marker="#file/2">file/2</seemfa>,
 	 except that the environment variable <c>ERL_COMPILER_OPTIONS</c>
 	 is not consulted.</p>
       </desc>
@@ -792,7 +944,7 @@ module.beam: module.erl \
       <name since="">noenv_forms(Forms, Options) -> CompRet</name>
       <fsummary>Compiles a list of forms (ignoring <c>ERL_COMPILER_OPTIONS)</c>.</fsummary>
       <desc>
-        <p>Works like <seealso marker="#forms/2">forms/2</seealso>,
+        <p>Works like <seemfa marker="#forms/2">forms/2</seemfa>,
 	 except that the environment variable <c>ERL_COMPILER_OPTIONS</c>
 	 is not consulted.</p>
       </desc>
@@ -807,7 +959,7 @@ module.beam: module.erl \
       </type>
       <desc>
         <p>Works like
-	<seealso marker="#output_generated/1">output_generated/1</seealso>,
+	<seemfa marker="#output_generated/1">output_generated/1</seemfa>,
 	except that the environment variable <c>ERL_COMPILER_OPTIONS</c>
 	is not consulted.</p>
       </desc>
@@ -824,19 +976,19 @@ module.beam: module.erl \
       into a list.</p>
 
       <p>The list is appended to any options given to
-      <seealso marker="#file/2">file/2</seealso>,
-      <seealso marker="#forms/2">forms/2</seealso>, and
-      <seealso marker="#output_generated/1">output_generated/2</seealso>.
+      <seemfa marker="#file/2">file/2</seemfa>,
+      <seemfa marker="#forms/2">forms/2</seemfa>, and
+      <seemfa marker="#output_generated/1">output_generated/2</seemfa>.
       Use the alternative functions
-      <seealso marker="#noenv_file/2">noenv_file/2</seealso>,
-      <seealso marker="#noenv_forms/2">noenv_forms/2</seealso>, or
-      <seealso marker="#noenv_output_generated/1">noenv_output_generated/2</seealso>
+      <seemfa marker="#noenv_file/2">noenv_file/2</seemfa>,
+      <seemfa marker="#noenv_forms/2">noenv_forms/2</seemfa>, or
+      <seemfa marker="#noenv_output_generated/1">noenv_output_generated/2</seemfa>
       if you do not want the environment variable to be consulted,
       for example, if you are calling the compiler recursively from
       inside a parse transform.</p>
 
       <p>The list can be retrieved with
-      <seealso marker="#env_compiler_options/0">env_compiler_options/0</seealso>.</p>
+      <seemfa marker="#env_compiler_options/0">env_compiler_options/0</seemfa>.</p>
   </section>
 
   <section>
@@ -908,16 +1060,16 @@ pi() -> 3.1416.
 
     <p>The following functions are inlined:</p>
     <list type="bulleted">
-      <item><seealso marker="stdlib:lists#all/2">lists:all/2</seealso></item>
-      <item><seealso marker="stdlib:lists#any/2">lists:any/2</seealso></item>
-      <item><seealso marker="stdlib:lists#foreach/2">lists:foreach/2</seealso></item>
-      <item><seealso marker="stdlib:lists#map/2">lists:map/2</seealso></item>
-      <item><seealso marker="stdlib:lists#flatmap/2">lists:flatmap/2</seealso></item>
-      <item><seealso marker="stdlib:lists#filter/2">lists:filter/2</seealso></item>
-      <item><seealso marker="stdlib:lists#foldl/3">lists:foldl/3</seealso></item>
-      <item><seealso marker="stdlib:lists#foldr/3">lists:foldr/3</seealso></item>
-      <item><seealso marker="stdlib:lists#mapfoldl/3">lists:mapfoldl/3</seealso></item>
-      <item><seealso marker="stdlib:lists#mapfoldr/3">lists:mapfoldr/3</seealso></item>
+      <item><seemfa marker="stdlib:lists#all/2">lists:all/2</seemfa></item>
+      <item><seemfa marker="stdlib:lists#any/2">lists:any/2</seemfa></item>
+      <item><seemfa marker="stdlib:lists#foreach/2">lists:foreach/2</seemfa></item>
+      <item><seemfa marker="stdlib:lists#map/2">lists:map/2</seemfa></item>
+      <item><seemfa marker="stdlib:lists#flatmap/2">lists:flatmap/2</seemfa></item>
+      <item><seemfa marker="stdlib:lists#filter/2">lists:filter/2</seemfa></item>
+      <item><seemfa marker="stdlib:lists#foldl/3">lists:foldl/3</seemfa></item>
+      <item><seemfa marker="stdlib:lists#foldr/3">lists:foldr/3</seemfa></item>
+      <item><seemfa marker="stdlib:lists#mapfoldl/3">lists:mapfoldl/3</seemfa></item>
+      <item><seemfa marker="stdlib:lists#mapfoldr/3">lists:mapfoldr/3</seemfa></item>
     </list>
   </section>
 
@@ -927,6 +1079,10 @@ pi() -> 3.1416.
     <p>Parse transformations are used when a programmer wants to use
       Erlang syntax but with different semantics. The original Erlang
       code is then transformed into other Erlang code.</p>
+
+    <p>See <seeerl marker="stdlib:erl_id_trans">erl_id_trans(3)</seeerl>
+      for an example and an explanation of the function
+      <c>parse_transform_info/0</c>.</p>
   </section>
 
   <section>
@@ -937,10 +1093,10 @@ pi() -> 3.1416.
       <c>ErrorInfo</c> structure, which is returned from all I/O modules.
       It has the following format:</p>
     <code>
-{ErrorLine, Module, ErrorDescriptor}</code>
+{ErrorLocation, Module, ErrorDescriptor}</code>
 
-    <p><c>ErrorLine</c> is the atom <c>none</c> if the error does
-    not correspond to a specific line, for example, if the source file does
+    <p><c>ErrorLocation</c> is the atom <c>none</c> if the error does
+    not correspond to a specific location, for example, if the source file does
     not exist.</p>
 
     <p>A string describing the error is obtained with the following
@@ -952,10 +1108,10 @@ Module:format_error(ErrorDescriptor)</code>
   <section>
     <title>See Also</title>
     <p>
-      <seealso marker="stdlib:epp">epp(3)</seealso>,
-      <seealso marker="stdlib:erl_id_trans">erl_id_trans(3)</seealso>,
-      <seealso marker="stdlib:erl_lint">erl_lint(3)</seealso>,
-      <seealso marker="stdlib:beam_lib">beam_lib(3)</seealso>
+      <seeerl marker="stdlib:epp">epp(3)</seeerl>,
+      <seeerl marker="stdlib:erl_id_trans">erl_id_trans(3)</seeerl>,
+      <seeerl marker="stdlib:erl_lint">erl_lint(3)</seeerl>,
+      <seeerl marker="stdlib:beam_lib">beam_lib(3)</seeerl>
     </p>
   </section>
 </erlref>

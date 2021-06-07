@@ -1,0 +1,17 @@
+y=10
+y=42 z=10
+CALLING DESTROY
+I got destroyed or returned y=42 hej=123
+I got destroyed y=42 call_in_special_code=42 hej=321
+DESTROY ENDED
+y=10
+y=42 z=10
+TRAPPED
+y=42 x=9
+y=42 x=18
+y=42 x=18
+y=42 x=9
+SUCCESS
+I returned y=42
+I got destroyed or returned y=42 hej=123
+RETURNED 9

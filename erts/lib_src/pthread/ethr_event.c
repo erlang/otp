@@ -361,7 +361,7 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
 	if (spincount == 0)
 	    goto set_event_off_waiter;
     }
-    if (timeout == 0)
+    else if (timeout == 0)
 	return ETIMEDOUT;
     else {
 #ifdef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME

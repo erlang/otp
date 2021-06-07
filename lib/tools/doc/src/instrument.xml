@@ -73,14 +73,12 @@
       <desc>
         <p><c><anno>AllocatorType</anno></c> is the type of the allocator that
           employs this carrier.</p>
-        <p><c><anno>TotalSize</anno></c> is the total size of the carrier,
-          including its header.</p>
-        <p><c><anno>AllocatedSize</anno></c> is the combined size of the
-          carrier's allocated blocks, including their headers.</p>
-        <p><c><anno>AllocatedCount</anno></c> is the number of allocated
-          blocks in the carrier.</p>
         <p><c><anno>InPool</anno></c> is whether the carrier is in the
           migration pool.</p>
+        <p><c><anno>TotalSize</anno></c> is the total size of the carrier,
+          including its header.</p>
+        <p><c><anno>Allocations</anno></c> is a summary of the allocated blocks
+          in the carrier.</p>
         <p><c><anno>FreeBlocks</anno></c> is a histogram of the free block
           sizes in the carrier.</p>
         <p>If the carrier could not be scanned in full without harming the
@@ -96,7 +94,7 @@
       <fsummary>Return a summary of all allocations in the system.</fsummary>
       <desc>
         <p>Shorthand for
-          <seealso marker="#allocations/1"><c>allocations(#{})</c>.</seealso></p>
+          <seemfa marker="#allocations/1"><c>allocations(#{})</c>.</seemfa></p>
       </desc>
     </func>
 
@@ -109,17 +107,20 @@
           optionally filtered by allocator type and scheduler id.</p>
         <p>Only binaries and allocations made by NIFs and drivers are tagged by
           default, but this can be configured an a per-allocator basis with the
-          <seealso marker="erts:erts_alloc#M_atags"><c>+M&lt;S&gt;atags</c>
-          </seealso> emulator option.</p>
-        <p>If tagged allocations are not enabled on any of the specified
-          allocator types, the call will fail with
-          <c>{error, not_enabled}</c>.</p>
+          <seecref marker="erts:erts_alloc#M_atags"><c>+M&lt;S&gt;atags</c>
+          </seecref> emulator option.</p>
+        <p>If the specified allocator types are not enabled, the call will fail
+          with <c>{error, not_enabled}</c>.</p>
         <p>The following options can be used:</p>
         <taglist>
           <tag><c>allocator_types</c></tag>
           <item>
-            <p>The allocator types that will be searched. Defaults to all
-              <c>alloc_util</c> allocators.</p>
+            <p>The allocator types that will be searched. Note that blocks can
+              move freely between allocator types, so restricting the search to
+              certain allocators may return unexpected types (e.g. process
+              heaps when searching binary_alloc), or hide blocks that were
+              migrated out.</p>
+            <p>Defaults to all <c>alloc_util</c> allocators.</p>
           </item>
           <tag><c>scheduler_ids</c></tag>
           <item>
@@ -174,7 +175,7 @@
       <fsummary>Return a list of all carriers in the system.</fsummary>
       <desc>
         <p>Shorthand for
-          <seealso marker="#carriers/1"><c>carriers(#{})</c>.</seealso></p>
+          <seemfa marker="#carriers/1"><c>carriers(#{})</c>.</seemfa></p>
       </desc>
     </func>
 
@@ -229,8 +230,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="erts:erts_alloc">erts_alloc(3)</seealso>,
-      <seealso marker="erts:erl">erl(1)</seealso></p>
+    <p><seecref marker="erts:erts_alloc">erts_alloc(3)</seecref>,
+      <seecom marker="erts:erl">erl(1)</seecom></p>
   </section>
 </erlref>
 

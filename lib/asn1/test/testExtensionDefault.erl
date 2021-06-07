@@ -22,14 +22,17 @@
 
 -export([main/1]).
 
-main(_Erule) ->
+main(Erule) ->
     roundtrip('Message', {'Message',1,low}),    %Will be explicitly encoded.
     roundtrip('Message', {'Message',1,high}),
     roundtrip('Message', {'Message',1,asn1_DEFAULT}, {'Message',1,low}),
-
-    map_roundtrip('Message', #{id=>1,priority=>low}), %Will be explicitly encoded.
-    map_roundtrip('Message', #{id=>1,priority=>high}),
-    map_roundtrip('Message', #{id=>1}, #{id=>1,priority=>low}),
+    case Erule of
+        jer -> ok; % no support for maps right now
+        _ ->
+            map_roundtrip('Message', #{id=>1,priority=>low}), %Will be explicitly encoded.
+            map_roundtrip('Message', #{id=>1,priority=>high}),
+            map_roundtrip('Message', #{id=>1}, #{id=>1,priority=>low})
+    end,
     ok.
 
 roundtrip(Type, Value) ->

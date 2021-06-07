@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1648,21 +1648,16 @@ big_to_double(Wterm x, double* resp)
     ErtsDigit* s = BIG_V(xp) + xl;
     short xsgn = BIG_SIGN(xp);
     double dbase = ((double)(D_MASK)+1);
-#ifndef NO_FPE_SIGNALS 
-    volatile unsigned long *fpexnp = erts_get_current_fp_exception();
-#endif
-    __ERTS_SAVE_FP_EXCEPTION(fpexnp);
 
-    __ERTS_FP_CHECK_INIT(fpexnp);
     while (xl--) {
-	d = d * dbase + *--s;
+        d = d * dbase + *--s;
 
-	__ERTS_FP_ERROR(fpexnp, d, __ERTS_RESTORE_FP_EXCEPTION(fpexnp); return -1);
+        if (!erts_isfinite(d)) {
+            return -1;
+        }
     }
 
     *resp = xsgn ? -d : d;
-    __ERTS_FP_ERROR(fpexnp,*resp,;);
-    __ERTS_RESTORE_FP_EXCEPTION(fpexnp);
     return 0;
 }
 
@@ -1710,9 +1705,6 @@ double_to_big(double x, Eterm *heap, Uint hsz)
 	d = x; /* trunc */
 	xp[i] = d; /* store digit */
 	x -= d; /* remove integer part */
-    }
-    while ((ds & (BIG_DIGITS_PER_WORD - 1)) != 0) {
-	xp[ds++] = 0;
     }
 
     if (is_negative) {
@@ -1954,7 +1946,7 @@ dsize_t big_bytes(Eterm x)
 ** xsz is the number of bytes in xp
 ** *r is untouched if number fits in small
 */
-Eterm bytes_to_big(byte *xp, dsize_t xsz, int xsgn, Eterm *r)
+Eterm bytes_to_big(const byte *xp, dsize_t xsz, int xsgn, Eterm *r)
 {
     ErtsDigit* rwp = BIG_V(r);
     dsize_t rsz = 0;
@@ -2176,6 +2168,24 @@ term_to_Uint64(Eterm term, Uint64 *up)
 #endif
 }
 
+int
+term_to_Uint32(Eterm term, Uint32 *up)
+{
+#if ERTS_SIZEOF_ETERM == 4
+    return term_to_Uint(term,up);
+#else
+    if (is_small(term)) {
+	Sint i = signed_val(term);
+	if (i >= 0) {
+            *up = (Uint32) i;
+            return 1;
+        }
+    }
+    *up = BADARG;
+    return 0;
+#endif
+}
+
 
 int term_to_Sint(Eterm term, Sint *sp)
 {
@@ -2366,11 +2376,55 @@ Eterm big_times(Eterm x, Eterm y, Eterm *r)
     return big_norm(r, rsz, sign);
 }
 
+/*
+** Fused div_rem for bignums
+*/
+int big_div_rem(Eterm lhs, Eterm rhs,
+                Eterm *q_hp, Eterm *q,
+                Eterm *r_hp, Eterm *r)
+{
+    Eterm *lhs_val = big_val(lhs);
+    Eterm *rhs_val = big_val(rhs);
 
-/* 
+    int div_sign = BIG_SIGN(lhs_val) != BIG_SIGN(rhs_val);
+    int rem_sign = BIG_SIGN(lhs_val);
+
+    dsize_t lhs_size = BIG_SIZE(lhs_val);
+    dsize_t rhs_size = BIG_SIZE(rhs_val);
+
+    dsize_t quotient_size, remainder_size;
+    Eterm quotient, remainder;
+
+    if (rhs_size == 1) {
+        quotient_size = D_div(BIG_V(lhs_val), lhs_size, BIG_DIGIT(rhs_val, 0),
+                              BIG_V(q_hp), BIG_V(r_hp));
+        remainder_size = 1;
+    } else {
+        quotient_size = I_div(BIG_V(lhs_val), lhs_size,
+                              BIG_V(rhs_val), rhs_size,
+                              BIG_V(q_hp), BIG_V(r_hp),
+                              &remainder_size);
+    }
+
+    quotient = big_norm(q_hp, quotient_size, div_sign);
+    if (quotient == NIL) {
+        return 0;
+    }
+
+    remainder = big_norm(r_hp, remainder_size, rem_sign);
+    if (remainder == NIL) {
+        return 0;
+    }
+
+    *q = quotient;
+    *r = remainder;
+
+    return 1;
+}
+
+/*
 ** Divide bignums
 */
-
 Eterm big_div(Eterm x, Eterm y, Eterm *q)
 {
     Eterm* xp = big_val(x);

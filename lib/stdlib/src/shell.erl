@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -252,9 +252,9 @@ server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
                     fwrite_severity(benign, <<"~ts">>, [E]),
                     server_loop(N0, Eval0, Bs0, RT, Ds0, History0, Results0)
             end;
-	{error,{Line,Mod,What}} ->
-            fwrite_severity(benign, <<"~w: ~ts">>,
-                            [Line, Mod:format_error(What)]),
+	{error,{Location,Mod,What}} ->
+            fwrite_severity(benign, <<"~s: ~ts">>,
+                            [pos(Location), Mod:format_error(What)]),
 	    server_loop(N0, Eval0, Bs0, RT, Ds0, History0, Results0);
 	{error,terminated} ->			%Io process terminated
 	    exit(Eval0, kill),
@@ -277,7 +277,7 @@ get_command(Prompt, Eval, Bs, RT, Ds) ->
         fun() ->
                 exit(
                   case
-                      io:scan_erl_exprs(group_leader(), Prompt, 1, [text])
+                      io:scan_erl_exprs(group_leader(), Prompt, {1,1}, [text])
                   of
                       {ok,Toks,_EndPos} ->
                           erl_eval:extended_parse_exprs(Toks);
@@ -366,107 +366,107 @@ expand_exprs([E|Es], C) ->
 expand_exprs([], _C) ->
     [].
 
-expand_expr({cons,L,H,T}, C) ->
-    {cons,L,expand_expr(H, C),expand_expr(T, C)};
-expand_expr({lc,L,E,Qs}, C) ->
-    {lc,L,expand_expr(E, C),expand_quals(Qs, C)};
-expand_expr({bc,L,E,Qs}, C) ->
-    {bc,L,expand_expr(E, C),expand_quals(Qs, C)};
-expand_expr({tuple,L,Elts}, C) ->
-    {tuple,L,expand_exprs(Elts, C)};
-expand_expr({map,L,Es}, C) ->
-    {map,L,expand_exprs(Es, C)};
-expand_expr({map,L,Arg,Es}, C) ->
-    {map,L,expand_expr(Arg, C),expand_exprs(Es, C)};
-expand_expr({map_field_assoc,L,K,V}, C) ->
-    {map_field_assoc,L,expand_expr(K, C),expand_expr(V, C)};
-expand_expr({map_field_exact,L,K,V}, C) ->
-    {map_field_exact,L,expand_expr(K, C),expand_expr(V, C)};
-expand_expr({record_index,L,Name,F}, C) ->
-    {record_index,L,Name,expand_expr(F, C)};
-expand_expr({record,L,Name,Is}, C) ->
-    {record,L,Name,expand_fields(Is, C)};
-expand_expr({record_field,L,R,Name,F}, C) ->
-    {record_field,L,expand_expr(R, C),Name,expand_expr(F, C)};
-expand_expr({record,L,R,Name,Ups}, C) ->
-    {record,L,expand_expr(R, C),Name,expand_fields(Ups, C)};
-expand_expr({record_field,L,R,F}, C) ->		%This is really illegal!
-    {record_field,L,expand_expr(R, C),expand_expr(F, C)};
-expand_expr({block,L,Es}, C) ->
-    {block,L,expand_exprs(Es, C)};
-expand_expr({'if',L,Cs}, C) ->
-    {'if',L,expand_cs(Cs, C)};
-expand_expr({'case',L,E,Cs}, C) ->
-    {'case',L,expand_expr(E, C),expand_cs(Cs, C)};
-expand_expr({'try',L,Es,Scs,Ccs,As}, C) ->
-    {'try',L,expand_exprs(Es, C),expand_cs(Scs, C),
+expand_expr({cons,A,H,T}, C) ->
+    {cons,A,expand_expr(H, C),expand_expr(T, C)};
+expand_expr({lc,A,E,Qs}, C) ->
+    {lc,A,expand_expr(E, C),expand_quals(Qs, C)};
+expand_expr({bc,A,E,Qs}, C) ->
+    {bc,A,expand_expr(E, C),expand_quals(Qs, C)};
+expand_expr({tuple,A,Elts}, C) ->
+    {tuple,A,expand_exprs(Elts, C)};
+expand_expr({map,A,Es}, C) ->
+    {map,A,expand_exprs(Es, C)};
+expand_expr({map,A,Arg,Es}, C) ->
+    {map,A,expand_expr(Arg, C),expand_exprs(Es, C)};
+expand_expr({map_field_assoc,A,K,V}, C) ->
+    {map_field_assoc,A,expand_expr(K, C),expand_expr(V, C)};
+expand_expr({map_field_exact,A,K,V}, C) ->
+    {map_field_exact,A,expand_expr(K, C),expand_expr(V, C)};
+expand_expr({record_index,A,Name,F}, C) ->
+    {record_index,A,Name,expand_expr(F, C)};
+expand_expr({record,A,Name,Is}, C) ->
+    {record,A,Name,expand_fields(Is, C)};
+expand_expr({record_field,A,R,Name,F}, C) ->
+    {record_field,A,expand_expr(R, C),Name,expand_expr(F, C)};
+expand_expr({record,A,R,Name,Ups}, C) ->
+    {record,A,expand_expr(R, C),Name,expand_fields(Ups, C)};
+expand_expr({record_field,A,R,F}, C) ->		%This is really illegal!
+    {record_field,A,expand_expr(R, C),expand_expr(F, C)};
+expand_expr({block,A,Es}, C) ->
+    {block,A,expand_exprs(Es, C)};
+expand_expr({'if',A,Cs}, C) ->
+    {'if',A,expand_cs(Cs, C)};
+expand_expr({'case',A,E,Cs}, C) ->
+    {'case',A,expand_expr(E, C),expand_cs(Cs, C)};
+expand_expr({'try',A,Es,Scs,Ccs,As}, C) ->
+    {'try',A,expand_exprs(Es, C),expand_cs(Scs, C),
      expand_cs(Ccs, C),expand_exprs(As, C)};
-expand_expr({'receive',L,Cs}, C) ->
-    {'receive',L,expand_cs(Cs, C)};
-expand_expr({'receive',L,Cs,To,ToEs}, C) ->
-    {'receive',L,expand_cs(Cs, C), expand_expr(To, C), expand_exprs(ToEs, C)};
-expand_expr({call,L,{atom,_,e},[N]}, C) ->
+expand_expr({'receive',A,Cs}, C) ->
+    {'receive',A,expand_cs(Cs, C)};
+expand_expr({'receive',A,Cs,To,ToEs}, C) ->
+    {'receive',A,expand_cs(Cs, C), expand_expr(To, C), expand_exprs(ToEs, C)};
+expand_expr({call,A,{atom,_,e},[N]}, C) ->
     case get_cmd(N, C) of
         {undefined,_,_} ->
 	    no_command(N);
 	{[Ce],_V,_CommandN} ->
 	    Ce;
 	{Ces,_V,_CommandN} when is_list(Ces) ->
-	    {block,L,Ces}
+	    {block,A,Ces}
     end;
-expand_expr({call,_L,{atom,_,v},[N]}, C) ->
+expand_expr({call,_A,{atom,_,v},[N]}, C) ->
     case get_cmd(N, C) of
         {_,undefined,_} ->
 	    no_command(N);
 	{Ces,V,CommandN} when is_list(Ces) ->
             {value,erl_anno:new(CommandN),V}
     end;
-expand_expr({call,L,F,Args}, C) ->
-    {call,L,expand_expr(F, C),expand_exprs(Args, C)};
-expand_expr({'catch',L,E}, C) ->
-    {'catch',L,expand_expr(E, C)};
-expand_expr({match,L,Lhs,Rhs}, C) ->
-    {match,L,Lhs,expand_expr(Rhs, C)};
-expand_expr({op,L,Op,Arg}, C) ->
-    {op,L,Op,expand_expr(Arg, C)};
-expand_expr({op,L,Op,Larg,Rarg}, C) ->
-    {op,L,Op,expand_expr(Larg, C),expand_expr(Rarg, C)};
-expand_expr({remote,L,M,F}, C) ->
-    {remote,L,expand_expr(M, C),expand_expr(F, C)};
-expand_expr({'fun',L,{clauses,Cs}}, C) ->
-    {'fun',L,{clauses,expand_exprs(Cs, C)}};
-expand_expr({named_fun,L,Name,Cs}, C) ->
-    {named_fun,L,Name,expand_exprs(Cs, C)};
-expand_expr({clause,L,H,G,B}, C) ->
+expand_expr({call,A,F,Args}, C) ->
+    {call,A,expand_expr(F, C),expand_exprs(Args, C)};
+expand_expr({'catch',A,E}, C) ->
+    {'catch',A,expand_expr(E, C)};
+expand_expr({match,A,Lhs,Rhs}, C) ->
+    {match,A,Lhs,expand_expr(Rhs, C)};
+expand_expr({op,A,Op,Arg}, C) ->
+    {op,A,Op,expand_expr(Arg, C)};
+expand_expr({op,A,Op,Larg,Rarg}, C) ->
+    {op,A,Op,expand_expr(Larg, C),expand_expr(Rarg, C)};
+expand_expr({remote,A,M,F}, C) ->
+    {remote,A,expand_expr(M, C),expand_expr(F, C)};
+expand_expr({'fun',A,{clauses,Cs}}, C) ->
+    {'fun',A,{clauses,expand_exprs(Cs, C)}};
+expand_expr({named_fun,A,Name,Cs}, C) ->
+    {named_fun,A,Name,expand_exprs(Cs, C)};
+expand_expr({clause,A,H,G,B}, C) ->
     %% Could expand H and G, but then erl_eval has to be changed as well.
-    {clause,L,H, G, expand_exprs(B, C)};
-expand_expr({bin,L,Fs}, C) ->
-    {bin,L,expand_bin_elements(Fs, C)};
+    {clause,A,H, G, expand_exprs(B, C)};
+expand_expr({bin,A,Fs}, C) ->
+    {bin,A,expand_bin_elements(Fs, C)};
 expand_expr(E, _C) ->	 % Constants.
     E.
 
-expand_cs([{clause,L,P,G,B}|Cs], C) ->
-    [{clause,L,P,G,expand_exprs(B, C)}|expand_cs(Cs, C)];
+expand_cs([{clause,A,P,G,B}|Cs], C) ->
+    [{clause,A,P,G,expand_exprs(B, C)}|expand_cs(Cs, C)];
 expand_cs([], _C) ->
     [].
 
-expand_fields([{record_field,L,F,V}|Fs], C) ->
-    [{record_field,L,expand_expr(F, C),expand_expr(V, C)}|
+expand_fields([{record_field,A,F,V}|Fs], C) ->
+    [{record_field,A,expand_expr(F, C),expand_expr(V, C)}|
      expand_fields(Fs, C)];
 expand_fields([], _C) -> [].
 
-expand_quals([{generate,L,P,E}|Qs], C) ->
-    [{generate,L,P,expand_expr(E, C)}|expand_quals(Qs, C)];
-expand_quals([{b_generate,L,P,E}|Qs], C) ->
-    [{b_generate,L,P,expand_expr(E, C)}|expand_quals(Qs, C)];
+expand_quals([{generate,A,P,E}|Qs], C) ->
+    [{generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
+expand_quals([{b_generate,A,P,E}|Qs], C) ->
+    [{b_generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
 expand_quals([E|Qs], C) ->
     [expand_expr(E, C)|expand_quals(Qs, C)];
 expand_quals([], _C) -> [].
 
 expand_bin_elements([], _C) ->
     [];
-expand_bin_elements([{bin_element,L,E,Sz,Ts}|Fs], C) ->
-    [{bin_element,L,expand_expr(E, C),Sz,Ts}|expand_bin_elements(Fs, C)].
+expand_bin_elements([{bin_element,A,E,Sz,Ts}|Fs], C) ->
+    [{bin_element,A,expand_expr(E, C),Sz,Ts}|expand_bin_elements(Fs, C)].
 
 no_command(N) ->
     throw({error,
@@ -535,9 +535,9 @@ shell_rep(Ev, Bs0, RT, Ds0) ->
     receive
 	{shell_rep,Ev,{value,V,Bs,Ds}} ->
 	    {V,Ev,Bs,Ds};
-        {shell_rep,Ev,{command_error,{Line,M,Error}}} -> 
-            fwrite_severity(benign, <<"~w: ~ts">>,
-                            [Line, M:format_error(Error)]),
+        {shell_rep,Ev,{command_error,{Location,M,Error}}} ->
+            fwrite_severity(benign, <<"~s: ~ts">>,
+                            [pos(Location), M:format_error(Error)]),
             {{'EXIT',Error},Ev,Bs0,Ds0};
 	{shell_req,Ev,get_cmd} ->
 	    Ev ! {shell_rep,self(),get()},
@@ -774,8 +774,8 @@ used_records({call,_,{remote,_,{atom,_,erlang},{atom,_,is_record}},
     {name, Name, A};
 used_records({call,_,{atom,_,record_info},[A,{atom,_,Name}]}) ->
     {name, Name, A};
-used_records({call,Line,{tuple,_,[M,F]},As}) ->
-    used_records({call,Line,{remote,Line,M,F},As});
+used_records({call,A,{tuple,_,[M,F]},As}) ->
+    used_records({call,A,{remote,A,M,F},As});
 used_records({type,_,record,[{atom,_,Name}|Fs]}) ->
   {name, Name, Fs};
 used_records(T) when is_tuple(T) ->
@@ -908,9 +908,9 @@ apply_fun({M,F}, As, _Shell) ->
 apply_fun(MForFun, As, _Shell) ->
     apply(MForFun, As).
 
-prep_check({call,Line,{atom,_,f},[{var,_,_Name}]}) ->
+prep_check({call,Anno,{atom,_,f},[{var,_,_Name}]}) ->
     %% Do not emit a warning for f(V) when V is unbound.
-    {atom,Line,ok};
+    {atom,Anno,ok};
 prep_check({value,_CommandN,_Val}) ->
     %% erl_lint cannot handle the history expansion {value,_,_}.
     {atom,a0(),ok};
@@ -925,11 +925,11 @@ expand_records([], E0) ->
     E0;
 expand_records(UsedRecords, E0) ->
     RecordDefs = [Def || {_Name,Def} <- UsedRecords],
-    L = erl_anno:new(1),
+    A = erl_anno:new(1),
     E = prep_rec(E0),
-    Forms0 = RecordDefs ++ [{function,L,foo,0,[{clause,L,[],[],[E]}]}],
+    Forms0 = RecordDefs ++ [{function,A,foo,0,[{clause,A,[],[],[E]}]}],
     Forms = erl_expand_records:module(Forms0, [strict_record_tests]),
-    {function,L,foo,0,[{clause,L,[],[],[NE]}]} = lists:last(Forms),
+    {function,A,foo,0,[{clause,A,[],[],[NE]}]} = lists:last(Forms),
     prep_rec(NE).
 
 prep_rec({value,_CommandN,_V}=Value) ->
@@ -985,7 +985,7 @@ local_func(rd, [{atom,_,RecName0},RecDef0], Bs, _Shell, RT, _Lf, _Ef) ->
         {ok,AttrForm} ->
             [RN] = add_records([AttrForm], Bs, RT),
             {value,RN,Bs};
-        {error,{_Line,M,ErrDesc}} ->
+        {error,{_Location,M,ErrDesc}} ->
             ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
             exit(lists:flatten(ErrStr))
     end;
@@ -1144,7 +1144,7 @@ add_records(RAs, Bs0, RT) ->
     Recs = [{Name,D} || {attribute,_,_,{Name,_}}=D <- RAs],
     Bs1 = record_bindings(Recs, Bs0),
     case check_command([], Bs1) of
-        {error,{_Line,M,ErrDesc}} ->
+        {error,{_Location,M,ErrDesc}} ->
             %% A source file that has not been compiled.
             ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
             exit(lists:flatten(ErrStr));
@@ -1186,6 +1186,8 @@ record_bindings(Recs0, Bs0) ->
 read_records(FileOrModule, Opts0) ->
     Opts = lists:delete(report_warnings, Opts0),
     case find_file(FileOrModule) of
+        {beam, Beam, File} ->
+            read_records_from_beam(Beam, File);
         {files,[File]} ->
             read_file_records(File, Opts);
         {files,Files} ->
@@ -1204,10 +1206,22 @@ read_records(FileOrModule, Opts0) ->
 find_file(Mod) when is_atom(Mod) ->
     case code:which(Mod) of
 	File when is_list(File) ->
-	    {files,[File]};
-	preloaded ->
-	    {_M,_Bin,File} = code:get_object_code(Mod),
-            {files,[File]};
+            %% Special cases:
+            %% - Modules not in the code path (loaded with code:load_abs/1):
+            %%   code:get_object_code/1 only searches in the code path
+            %%   but code:which/1 finds all loaded modules
+            %% - File can also be a file in an archive,
+            %%   beam_lib:chunks/2 cannot handle such paths but
+            %%   erl_prim_loader:get_file/1 can
+            case erl_prim_loader:get_file(File) of
+                {ok, Beam, _} ->
+                    {beam, Beam, File};
+                error ->
+                    {error, nofile}
+            end;
+    	preloaded ->
+	    {_M, Beam, File} = code:get_object_code(Mod),
+            {beam, Beam, File};
         _Else -> % non_existing, interpreted, cover_compiled
             {error,nofile}
     end;
@@ -1222,26 +1236,29 @@ find_file(File) ->
 read_file_records(File, Opts) ->
     case filename:extension(File) of
         ".beam" ->
-            case beam_lib:chunks(File, [abstract_code,"CInf"]) of
-                {ok,{_Mod,[{abstract_code,{Version,Forms}},{"CInf",CB}]}} ->
-                    case record_attrs(Forms) of
-                        [] when Version =:= raw_abstract_v1 ->
-                            [];
-                        [] -> 
-                            %% If the version is raw_X, then this test
-                            %% is unnecessary.
-                            try_source(File, CB);
-                        Records -> 
-                            Records
-                    end;
-                {ok,{_Mod,[{abstract_code,no_abstract_code},{"CInf",CB}]}} ->
-                    try_source(File, CB);
-                Error ->
-                    %% Could be that the "Abst" chunk is missing (pre R6).
-                    Error
-            end;
+            read_records_from_beam(File, File);
         _ ->
             parse_file(File, Opts)
+    end.
+
+read_records_from_beam(Beam, File) ->
+    case beam_lib:chunks(Beam, [abstract_code,"CInf"]) of
+        {ok,{_Mod,[{abstract_code,{Version,Forms}},{"CInf",CB}]}} ->
+            case record_attrs(Forms) of
+                [] when Version =:= raw_abstract_v1 ->
+                    [];
+                [] ->
+                    %% If the version is raw_X, then this test
+                    %% is unnecessary.
+                    try_source(File, CB);
+                Records ->
+                    Records
+            end;
+        {ok,{_Mod,[{abstract_code,no_abstract_code},{"CInf",CB}]}} ->
+            try_source(File, CB);
+        Error ->
+            %% Could be that the "Abst" chunk is missing (pre R6).
+            Error
     end.
 
 %% This is how the debugger searches for source files. See int.erl.
@@ -1394,6 +1411,11 @@ substitute_v1(_F, E) ->
 a0() ->
     erl_anno:new(0).
 
+pos({Line,Col}) ->
+    io_lib:format("~w:~w", [Line,Col]);
+pos(Line) ->
+    io_lib:format("~w", [Line]).
+
 check_and_get_history_and_results() ->
     check_env(shell_history_length),
     check_env(shell_saved_results),
@@ -1496,8 +1518,8 @@ catch_exception(Bool) ->
       PromptFunc :: 'default' | {module(),atom()},
       PromptFunc2 :: 'default' | {module(),atom()}.
 
-prompt_func(String) ->
-    set_env(stdlib, shell_prompt_func, String, ?DEF_PROMPT_FUNC).
+prompt_func(PromptFunc) ->
+    set_env(stdlib, shell_prompt_func, PromptFunc, ?DEF_PROMPT_FUNC).
 
 -spec strings(Strings) -> Strings2 when
       Strings :: boolean(),

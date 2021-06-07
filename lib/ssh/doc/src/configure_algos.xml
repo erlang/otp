@@ -41,6 +41,11 @@
     <p>The first subsection will give a short background of the SSH protocol while later sections describes
     the implementation and provides some examples</p>
 
+    <p>How the different levels of configuration "interfer" with this, see the section
+    <seeguide marker="configurations#algorithm-configuration">Algorithm Configuration</seeguide> in the chapter
+    <seeguide marker="configurations">Configuration in SSH</seeguide>.
+    </p>
+
     <section>
       <title>Basics of the ssh protocol's algorithms handling</title>
 
@@ -107,7 +112,7 @@
       <title>The SSH app's mechanism</title>
       <p>The set of algorithms that the SSH app uses by default depends on the algoritms supported by the:</p>
       <list>
-	<item><p><seealso marker="crypto:crypto">crypto</seealso> app,</p>
+	<item><p><seeerl marker="crypto:crypto">crypto</seeerl> app,</p>
 	</item>
 	<item><p>The cryptolib OTP is linked with, usally the one the OS uses, probably OpenSSL,</p>
 	</item>
@@ -116,7 +121,7 @@
       </list>
       <p>Due to this, it impossible to list in documentation what algorithms that are available in a certain installation.</p>
       <p>There is an important command to list the actual algorithms and their ordering:
-      <seealso marker="ssh#default_algorithms-0">ssh:default_algorithms/0</seealso>.</p>
+      <seemfa marker="ssh#default_algorithms/0">ssh:default_algorithms/0</seemfa>.</p>
       <marker id="example_default_algorithms"/>
       <code type="erl">
 0> ssh:default_algorithms().
@@ -145,19 +150,21 @@
 
       </code>
       <p>To change the algorithm list, there are two options which can be used in 
-      <seealso marker="ssh#connect-3">ssh:connect/2,3,4</seealso>
+      <seemfa marker="ssh#connect/3">ssh:connect/2,3,4</seemfa>
       and
-      <seealso marker="ssh#daemon-2">ssh:daemon/2,3</seealso>. The options could of course
+      <seemfa marker="ssh#daemon/2">ssh:daemon/2,3</seemfa>. The options could of course
       be used in all other functions that initiates connections.</p>
       
-      <p>The options are <c>preferred_algorithms</c> and <c>modify_algorithms</c>. The first one
-      replaces the default set, while the latter modifies the default set.</p>
+      <p>The options are
+      <seetype marker="ssh#preferred_algorithms_common_option">preferred_algorithms</seetype> and
+      <seetype marker="ssh#modify_algorithms_common_option">modify_algorithms</seetype>.
+      The first one replaces the default set, while the latter modifies the default set.</p>
     </section>
   </section>
       
   <section>
     <title>Replacing the default set: preferred_algorithms</title>
-    <p>See the <seealso marker="ssh#type-preferred_algorithms_common_option">Reference Manual</seealso> for details</p>
+    <p>See the <seetype marker="ssh#preferred_algorithms_common_option">Reference Manual</seetype> for details</p>
     
     <p>Here follows a series of examples ranging from simple to more complex.</p>
 
@@ -302,7 +309,7 @@
     First one has to list them with <c>ssh:default_algorithms()</c> and then do changes in the lists.</p>
 
     <p>To facilitate addition or removal of algorithms the option <c>modify_algorithms</c> is available.
-    See the <seealso marker="ssh#type-modify_algorithms_common_option">Reference Manual</seealso> for details.</p>
+    See the <seetype marker="ssh#modify_algorithms_common_option">Reference Manual</seetype> for details.</p>
  
     <p>The option takes a list with instructions to append, prepend or remove algorithms:</p>
     <code type="erl">
@@ -315,7 +322,7 @@
     <section>
       <title>Example 5</title>
       <p>As an example let's add the Diffie-Hellman Group1 first in the kex list. It is supported according to 
-      <seealso marker="SSH_app#supported_algos">Supported algoritms</seealso>.</p>
+      <seeapp marker="SSH_app#supported_algos">Supported algoritms</seeapp>.</p>
       <code type="erl">
 5> ssh:chk_algos_opts(
          [{modify_algorithms,
@@ -422,7 +429,49 @@
       but it is possible if an unforeseen need should arise.</p>
     </section>
     
-    
+    <section>
+      <title>Example 8</title>
+      <p>In this example, we need to use a diffie-hellman-group1-sha1 key exchange algorithm
+      although it is unsage and disabled by default.
+      </p>
+      <p>We use the
+      <seetype marker="ssh#modify_algorithms_common_option">modify_algorithms</seetype>
+      option, because we want to keep all other algorithm definitions.
+      </p>
+      <p>We add the option:
+      </p>
+      <code type="erl">
+  {modify_algorithms, [{append, [{kex,['diffie-hellman-group1-sha1']}]}]}
+      </code>
+      <p>either to the Options list in a function call, in the <c>ssh.app</c> file or in a <c>.config</c> file for
+      the <c>erl</c> command.
+      See the chapter
+      <seeguide marker="ssh:configurations">Configuration in SSH</seeguide>
+      in the SSH User's Guide.
+      </p>
+    </section>
+
+    <section>
+      <title>Example 9</title>
+      <p>In this example, we need to use a DSA key for sign and verify.
+      It might be either as a user's key, a host's key or both.
+      </p>
+      <p>To do that, we enable the 'ssh-dss' algorithm that is disabled by default by security reasons. We use the
+      <seetype marker="ssh#modify_algorithms_common_option">modify_algorithms</seetype>
+      option, because we want to keep all other algorithm definitions.
+      </p>
+      <p>We add the option:
+      </p>
+      <code type="erl">
+  {modify_algorithms, [{append, [{public_key,['ssh-dss']}]}]}
+      </code>
+      <p>either to the Options list in a function call, in the <c>ssh.app</c> file or in a <c>.config</c> file for
+      the <c>erl</c> command.
+      See the chapter
+      <seeguide marker="ssh:configurations">Configuration in SSH</seeguide>
+      in the SSH User's Guide.
+      </p>
+    </section>
     
   </section>
 

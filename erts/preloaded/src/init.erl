@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,9 +48,9 @@
 
 -module(init).
 
--export([restart/0,reboot/0,stop/0,stop/1,
+-export([restart/1,restart/0,reboot/0,stop/0,stop/1,
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,
-	 get_argument/1,script_id/0]).
+	 get_argument/1,script_id/0,script_name/0]).
 
 %% for the on_load functionality; not for general use
 -export([run_on_load_handlers/0]).
@@ -58,11 +58,13 @@
 %% internal exports
 -export([fetch_loaded/0,ensure_loaded/1,make_permanent/2,
 	 notify_when_started/1,wait_until_started/0, 
-	 objfile_extension/0, archive_extension/0,code_path_choice/0]).
+	 objfile_extension/0, archive_extension/0,code_path_choice/0,
+         get_configfd/1, set_configfd/2]).
 
 -include_lib("kernel/include/file.hrl").
 
 -type internal_status() :: 'starting' | 'started' | 'stopping'.
+-type mode() :: 'embedded' | 'interactive'.
 
 -record(state, {flags = [],
 		args = [],
@@ -72,7 +74,9 @@
 		status = {starting, starting} :: {internal_status(), term()},
 		script_id = [],
 		loaded = [],
-		subscribed = []}).
+		subscribed = [],
+                configfdid_to_config = #{}    :: #{} | #{integer() := term()},
+                script_name = {[],[]}         :: {string(), string()}}).
 -type state() :: #state{}.
 
 %% Data for eval_script/2.
@@ -94,6 +98,15 @@
 debug(false, _) -> ok;
 debug(_, T)     -> erlang:display(T).
 
+-spec get_configfd(integer()) -> none | term().
+get_configfd(ConfigFdId) ->
+    request({get_configfd, ConfigFdId}).
+
+-spec set_configfd(integer(), term()) -> 'ok'.
+set_configfd(ConfigFdId, Config) ->
+    request({set_configfd, ConfigFdId, Config}),
+    ok.
+
 -spec get_arguments() -> Flags when
       Flags :: [{Flag :: atom(), Values :: [string()]}].
 get_arguments() ->
@@ -114,6 +127,30 @@ get_argument(Arg) ->
       Id :: term().
 script_id() ->
     request(script_id).
+
+%% Returns the path to the boot script. The path can only be relative
+%% (i.e., not absolute) if prim_file:get_cwd() returned an error tuple
+%% during boot. filename:absname/2 is not available during boot so we
+%% construct the path here instead of during boot
+-spec script_name() -> string().
+script_name() ->
+    {BootCWD, ScriptPath} = request(get_script_name),
+    case BootCWD of
+        [] ->
+            ScriptPath;
+        _ ->
+            %% Makes the path absolute if ScriptPath is a relative
+            %% path
+            filename:absname(ScriptPath, BootCWD)
+    end.
+
+%% Module internal function to set the script name during boot
+-spec set_script_name(BootCurrentWorkingDir, ScriptPath) -> 'ok' when
+      BootCurrentWorkingDir :: string(),
+      ScriptPath :: string().
+set_script_name(BootCurrentWorkingDir, ScriptPath) ->
+    request({set_script_name, {BootCurrentWorkingDir, ScriptPath}}),
+    ok.
 
 bs2as(L0) when is_list(L0) ->
     map(fun b2a/1, L0);
@@ -164,7 +201,15 @@ request(Req) ->
     end.
 
 -spec restart() -> 'ok'.
-restart() -> init ! {stop,restart}, ok.
+restart() -> restart([]).
+
+-spec restart([{mode, mode()}]) -> 'ok'.
+restart([]) ->
+    init ! {stop,restart}, ok;
+restart([{mode, Mode}]) when Mode =:= embedded; Mode =:= interactive ->
+    init ! {stop,{restart,Mode}}, ok;
+restart(Opts) when is_list(Opts) ->
+    erlang:error(badarg, [Opts]).
 
 -spec reboot() -> 'ok'.
 reboot() -> init ! {stop,reboot}, ok.
@@ -199,12 +244,6 @@ stop_1(Status) -> init ! {stop,{stop,Status}}, ok.
 boot(BootArgs) ->
     register(init, self()),
     process_flag(trap_exit, true),
-
-    %% Load the static nifs
-    zlib:on_load(),
-    erl_tracer:on_load(),
-    prim_buffer:on_load(),
-    prim_file:on_load(),
 
     {Start0,Flags,Args} = parse_boot_args(BootArgs),
     %% We don't get to profile parsing of BootArgs
@@ -456,7 +495,9 @@ do_handle_msg(Msg,State) ->
 	   status = Status,
 	   script_id = Sid,
 	   args = Args,
-	   subscribed = Subscribed} = State,
+	   subscribed = Subscribed,
+           configfdid_to_config = ConfigFdIdToConfig,
+           script_name = ScriptName} = State,
     case Msg of
 	{From,get_plain_arguments} ->
 	    From ! {init,Args};
@@ -482,23 +523,46 @@ do_handle_msg(Msg,State) ->
 	    end;
 	{From, {ensure_loaded, _}} ->
 	    From ! {init, not_allowed};
-	X ->
-            %% This is equal to calling logger:info/3 which we don't
-            %% want to do from the init process, at least not during
-            %% system boot. We don't want to call logger:timestamp()
-            %% either.
-	    case whereis(user) of
-		undefined ->
-                    catch logger ! {log, info, "init got unexpected: ~p", [X],
-                                    #{pid=>self(),
-                                      gl=>self(),
-                                      time=>os:system_time(microsecond),
-                                      error_logger=>#{tag=>info_msg}}};
-		User ->
-		    User ! X,
-		    ok
-	    end
-    end.		  
+	{From, {get_configfd, ConfigFdId}} ->
+            case ConfigFdIdToConfig of
+                #{ConfigFdId := Config} ->
+                    From ! {init, Config};
+                _ ->
+                    From ! {init, none}
+            end;
+	{From, {set_configfd, ConfigFdId, Config}} ->
+            From ! {init, ok},
+            NewConfigFdIdToConfig = ConfigFdIdToConfig#{ConfigFdId => Config},
+            NewState = State#state{configfdid_to_config = NewConfigFdIdToConfig},
+            {new_state, NewState};
+	{From, get_script_name} ->
+            From ! {init, ScriptName};
+	{From, {set_script_name, NewScriptName}} ->
+            From ! {init, ok},
+            NewState = State#state{script_name = NewScriptName},
+            {new_state, NewState};
+        X ->
+            case whereis(user) of
+                %% io_requests may end up here from various processes that have
+                %% init as their group_leader. Most notably all application_master
+                %% processes have init as their gl, though they will short-circuit
+                %% to `user` if possible.
+                User when element(1, X) =:= io_request,
+                          User =/= undefined ->
+                    User ! X;
+                _ ->
+                    %% Only call the logger module if the logger_server is running.
+                    %% If it is not running, then we don't know that the logger
+                    %% module can be loaded.
+                    case whereis(logger) =/= undefined of
+                        true -> logger:info("init got unexpected: ~p", [X],
+                                            #{ error_logger=>#{tag=>info_msg}});
+                        false ->
+                            erlang:display_string("init got unexpected: "),
+                            erlang:display(X)
+                    end
+            end
+    end.
 
 %%% -------------------------------------------------
 %%% A new release has been installed and made
@@ -552,11 +616,11 @@ stop(Reason,State) ->
     clear_system(BootPid,State1),
     do_stop(Reason,State1).
 
-do_stop(restart,#state{start = Start, flags = Flags, args = Args}) ->
-    %% Make sure we don't have any outstanding messages before doing the restart.
-    flush(),
-    erts_internal:erase_persistent_terms(),
-    boot(Start,Flags,Args);
+do_stop({restart,Mode},#state{start=Start, flags=Flags0, args=Args}) ->
+    Flags = update_flag(mode, Flags0, atom_to_binary(Mode)),
+    do_restart(Start,Flags,Args);
+do_stop(restart,#state{start=Start, flags=Flags, args=Args}) ->
+    do_restart(Start,Flags,Args);
 do_stop(reboot,_) ->
     halt();
 do_stop(stop,State) ->
@@ -565,6 +629,11 @@ do_stop(stop,State) ->
 do_stop({stop,Status},State) ->
     stop_heart(State),
     halt(Status).
+
+do_restart(Start,Flags,Args) ->
+    flush(),
+    erl_init:restart(),
+    boot(Start,Flags,Args).
 
 clear_system(BootPid,State) ->
     Heart = get_heart(State#state.kernel),
@@ -804,7 +873,7 @@ do_boot(Init,Flags,Start) ->
     start_prim_loader(Init, bs2ss(Path), PathFls),
     BootFile = bootfile(Flags,Root),
     BootList = get_boot(BootFile,Root),
-    LoadMode = b2a(get_flag(mode, Flags, false)),
+    LoadMode = b2a(get_flag(mode, Flags, interactive)),
     Deb = b2a(get_flag(init_debug, Flags, false)),
     catch ?ON_LOAD_HANDLER ! {init_debug_flag,Deb},
     BootVars = get_boot_vars(Root, Flags),
@@ -815,10 +884,6 @@ do_boot(Init,Flags,Start) ->
 	     prim_load=true,load_mode=LoadMode,
 	     vars=BootVars},
     eval_script(BootList, Es),
-
-    %% To help identifying Purify windows that pop up,
-    %% print the node name into the Purify log.
-    (catch erlang:system_info({purify, "Node: " ++ atom_to_list(node())})),
 
     start_em(Start),
     case b2a(get_flag(profile_boot,Flags,false)) of
@@ -861,6 +926,7 @@ path_flags(Flags) ->
 
 get_boot(BootFile0,Root) ->
     BootFile = BootFile0 ++ ".boot",
+    
     case get_boot(BootFile) of
 	{ok, CmdList} ->
 	    CmdList;
@@ -884,7 +950,16 @@ get_boot(BootFile) ->
 	    case binary_to_term(Bin) of
 		{script,Id,CmdList} when is_list(CmdList) ->
 		    init ! {self(),{script_id,Id}}, % ;-)
-		    {ok, CmdList};
+                    CWD =
+                        case prim_file:get_cwd() of
+                            {ok, TheCWD} -> TheCWD;
+                            {error, _} -> []
+                        end,
+                    %% The filename module is not available during
+                    %% boot so we call filename:absname/2 in
+                    %% init:script_name/0 instead.
+                    set_script_name(CWD, BootFile),
+                    {ok, CmdList};
 		_ ->
 		    error
 	    end;
@@ -1238,6 +1313,13 @@ get_args([B|Bs], As) ->
 	    get_args(Bs, [B|As])
     end;
 get_args([], As) -> {reverse(As),[]}.
+
+update_flag(Flag, [{Flag, _} | Flags], Value) ->
+    [{Flag, [Value]} | Flags];
+update_flag(Flag, [Head | Flags], Value) ->
+    [Head | update_flag(Flag, Flags, Value)];
+update_flag(Flag, [], Value) ->
+    [{Flag, [Value]}].
 
 %%
 %% Internal get_flag function, with default value.

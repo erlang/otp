@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2018</year>
+      <year>2004</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -61,7 +61,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
       <tag><c><![CDATA[mod = module()]]></c></tag>
       <item>
         <p>A module implementing the 
-          <seealso marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seealso> 
+          <seeerl marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seeerl> 
           behaviour. The info functions of this module will be called at 
           various stages of delivery. </p>
       </item>
@@ -141,7 +141,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
           corresponding instrumentation functions just as if it was a
           GET request coming from a manager. </p>
         <p>Note that the request specific parameters (such as 
-          <seealso marker="#current_request_id">current_request_id</seealso>) 
+          <seeerl marker="#current_request_id">current_request_id</seeerl>) 
           are not accessible for the instrumentation functions if this 
           function is used. </p>
 
@@ -226,26 +226,6 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
         <p>Returns a list (a dictionary) containing information about
 	the agent. Information includes loaded MIBs, registered
 	sub-agents, some information about the memory allocation. </p>
-	<p>As of version 4.4 the format of the info has been changed. 
-	To convert the info to the old format, call the 
-	<seealso marker="#old_info_format">old_info_format</seealso> 
-	function. </p>
-	
-        <marker id="old_info_format"></marker>
-      </desc>
-    </func>
-
-    <func>
-      <name since="">old_info_format(NewInfo) -> OldInfo</name>
-      <fsummary>Return information about the agent</fsummary>
-      <type>
-        <v>OldInfo = NewInfo = [{Key, Value}]</v>
-      </type>
-      <desc>
-        <p>As of version 4.4 the format of the info has been changed. 
-          This function is used to convert to the old (pre-4.4) info 
-          format. </p>
-
         <marker id="load_mib"></marker>
       </desc>
     </func>
@@ -523,6 +503,24 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
       <desc>
         <p>Retrieve all tables known to the agent.</p>
 
+        <marker id="which_transports"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 23.3">which_transports() -> Result</name>
+      <fsummary>Get all configured transports</fsummary>
+      <type>
+        <v>Result = [{TDomain, TAddress} | {TDomain, TAddress, Kind}]</v>
+        <v>TDomain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
+        <v>TAddress = {IpAddr, IpPort}</v>
+        <v>IpAddr = inet:ip_address()</v>
+        <v>IpPort = pos_integer()</v>
+        <v>Kind = req_responder | trap_sender</v>
+      </type>
+      <desc>
+        <p>Retrieve all configured transports.</p>
+
         <marker id="which_variables"></marker>
       </desc>
     </func>
@@ -592,7 +590,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 	during conversion. This could be usefull when converting large 
 	logs (when otherwise the log could wrap during conversion). 
 	Defaults to <c>true</c>. </p>
-	<p>See <seealso marker="snmp#log_to_txt">snmp:log_to_txt</seealso> 
+	<p>See <seeerl marker="snmp#log_to_txt">snmp:log_to_txt</seeerl> 
 	for more info.</p>
 
         <marker id="log_to_io"></marker>
@@ -633,7 +631,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 	during conversion. This could be usefull when converting large 
 	logs (when otherwise the log could wrap during conversion). 
 	Defaults to <c>true</c>. </p>
-	<p>See <seealso marker="snmp#log_to_io">snmp:log_to_io</seealso> 
+	<p>See <seeerl marker="snmp#log_to_io">snmp:log_to_io</seeerl> 
 	for more info.</p>
 
         <marker id="change_log_size"></marker>
@@ -998,7 +996,12 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <v>Agent = pid() | atom()</v>
         <v>Notification = atom()</v>
         <v>SendOpts = [send_option()]</v>
-        <v>send_option() = {receiver, receiver()} | {name, notify_name()} | {context, context_name()} | {varbinds, varbinds()} | {local_engine_id, string()} | {extra, extra_info()}</v>
+	<v>send_option() = {receiver, receiver()} |
+	                   {name, notify_name()} |
+			   {context, context_name()} |
+			   {varbinds, varbinds()} |
+			   {local_engine_id, string()} |
+	                   {extra, extra_info()}</v>
         <v>receiver() = no_receiver | {tag(), tag_receiver()} | notification_delivery_info()</v>
         <v>tag() = term(()</v>
         <v>tag_receiver() = pid() | registered_name() | {Mod, Func, Args}</v>
@@ -1009,8 +1012,12 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <v>notify_name() = string()</v>
         <v>context_name() = string()</v>
         <v>varbinds() = [varbind()]</v>
-        <v>varbind() = {variable(), value()} | {column(), row_index(), value()} | {oid(), value()}</v>
-        <v>variable() = atom()</v>
+	<v>varbind() = {variable(), value()} |
+	               {{process_oid(), variable()}, value()} |
+	               {column(), row_index(), value()} |</v>
+        <v>variable() = aliasname() | oid()</v>
+        <v>aliasname() = atom()</v>
+        <v>process_oid() = keep (default) | truncate</v>
         <v>value() = term()</v>
         <v>column() = atom()</v>
         <v>row_index() = [int()]</v>
@@ -1042,7 +1049,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
           <item>
 	    <p><c>notification_delivery_info()</c> - The information is 
 	    delivered via a function call according to this data. See the 
-	    <seealso marker="#data_types">DATA TYPES</seealso> section 
+	    <seeerl marker="#data_types">DATA TYPES</seeerl> section 
 	    above for details. </p>
 	  </item>
 
@@ -1094,12 +1101,26 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 
 	    </list>
 	  </item>
-        </list>
+	</list>
 
+	<p>The 'process oid' "tag" that can be provided with the
+	variable name / oids is indended to be used for oid post
+	processing. The value '<c>keep</c>', which is the default, leaves
+	the oid as is. The value '<c>truncate</c>', will cause the oid
+	to be "truncated". That is, any trailing ".0" will be removed. </p>
+
+	<note>
+	  <p>There is a way to exclude a varbind from the notification.
+	  In the normal <c>varbinds</c> list, providing the special
+	  value <c>'$ignore-oid'</c> (instead of a normal value) will
+	  exclude this varbind from the notification. </p>
+	  <p>A define for this has been added to the <c>snmp_types.hrl</c>
+	  include file, <c>NOTIFICATION_IGNORE_VB_VALUE</c>. </p>
+	</note>
 	<note>
 	  <p>The <c>extra</c> info is not normally interpreted by the agent, 
 	  instead it is passed through to the 
-	  <seealso marker="snmp_agent_netif">net-if</seealso> process. It is 
+	  <seeguide marker="snmp_agent_netif">net-if</seeguide> process. It is 
 	  up to the implementor of that process to make use of this data. </p>
 	  <p>The version of net-if provided by this application makes no use
 	  of this data, with one exception: 
@@ -1107,10 +1128,10 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 	  <c>snmpa_default_notification_extra_info</c> 
 	  may be used by the agent and is therefor <em>reserved</em>. </p>
 	  <p>See the net-if incomming messages for sending a 
-	  <seealso marker="snmp_agent_netif#im_send_pdu">
-	  trap</seealso> and 
-	  <seealso marker="snmp_agent_netif#im_send_pdu_req">
-	  notification</seealso> for more info. </p>
+	  <seeguide marker="snmp_agent_netif#im_send_pdu">
+	  trap</seeguide> and 
+	  <seeguide marker="snmp_agent_netif#im_send_pdu_req">
+	  notification</seeguide> for more info. </p>
 	</note>
 
 	<marker id="send_notification"></marker>
@@ -1171,7 +1192,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
           <item>
             <p><c>notification_delivery_info()</c> - The information is 
               delivered via a function call according to this data. See the 
-              <seealso marker="#data_types">DATA TYPES</seealso> section 
+              <seeerl marker="#data_types">DATA TYPES</seeerl> section 
               above for details. </p>
 	  </item>
 
@@ -1248,7 +1269,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <p>If <c>Receiver</c> is a <c>notification_delivery_info()</c> record,
           then the information about the notification delivery will be delivered 
           to the <c>receiver</c> via the callback functions defined by the 
-          <seealso marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seealso> 
+          <seeerl marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seeerl> 
           behaviour according to the content of the <c>notification_delivery_info()</c> 
           record. </p>
 
@@ -1359,7 +1380,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 
         <p>The <c>DiscoHandler</c> module is used during the discovery 
           process. See 
-          <seealso marker="snmpa_discovery_handler">discovery handler</seealso>
+          <seeerl marker="snmpa_discovery_handler">discovery handler</seeerl>
           for more info. </p>
 
         <p>The <c>ExtraInfo</c> argument is passed on to the callback functions
@@ -1392,10 +1413,8 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <p>For information about the old config (<c>OldConfig</c>) 
           see the OTP R9C documentation.</p>
         <p>For information about the current agent config 
-          (<c>AgentConfig</c>), see either
-          the <seealso marker="snmp_app">SNMP application</seealso> 
-          part of the reference manual or the 
-          <seealso marker="snmp_config">Configuring the application</seealso> 
+          (<c>AgentConfig</c>), see the 
+          <seeguide marker="snmp_config#configuration_params">Configuring the application</seeguide> 
           chapter of the SNMP user's guide.</p>
 
         <marker id="restart_worker"></marker>

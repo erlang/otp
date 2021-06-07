@@ -1,0 +1,19 @@
+
+  [;1m-spec erlang:yield() -> true.[0m
+
+  Tries to give other processes with the same or higher priority (if
+  any) a chance to execute before returning. There is no guarantee
+  that any other process runs between the invocation and return of [;;4m[0m
+  [;;4merlang:yield/0[0m.
+
+  See the documentation for [;;4mreceive-after[0m expressions for how to
+  make the current process sleep for a specific number of
+  milliseconds.
+
+  Warning:
+    There is seldom or never any need to use this BIF. Using this
+    BIF without a thorough grasp of how the scheduler works can
+    cause performance degradation. The current implementation of
+    this function puts the current process last in the current
+    scheduler's queue for processes of the same priority as the
+    current process.

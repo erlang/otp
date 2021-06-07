@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
 %%
 
 -module(ssl_dist_test_lib).
+
+-behaviour(ct_suite).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
@@ -102,7 +104,7 @@ start_ssl_node(Name, Args) ->
     case open_port({spawn, CmdLine}, []) of
 	Port when is_port(Port) ->
 	    unlink(Port),
-	    erlang:port_close(Port),
+	    catch erlang:port_close(Port),
 	    case await_ssl_node_up(Name, LSock) of
 		#node_handle{} = NodeHandle ->
 		    ?t:format("Ssl node ~s started.~n", [Name]),
@@ -144,6 +146,8 @@ mk_node_cmdline(ListenPort, Name, Args) ->
 	++ integer_to_list(ListenPort) ++ " "
 	++ Args ++ " "
 	++ "-env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ Name ++ " "
+        ++ "-kernel inet_dist_connect_options \"[{recbuf,12582912},{sndbuf,12582912},{high_watermark,8388608},{low_watermark,4194304}]\" "
+        ++ "-kernel inet_dist_listen_options \"[{recbuf,12582912},{sndbuf,12582912},{high_watermark,8388608},{low_watermark,4194304}]\" "
 	++ "-kernel error_logger \"{file,\\\"" ++ Pwd ++ "/error_log." ++ Name ++ "\\\"}\" "
 	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()).
 
@@ -179,8 +183,9 @@ check_ssl_node_up(Socket, Name, Bin) ->
 		    Parent = self(),
 		    Go = make_ref(),
 		    %% Spawn connection handler on test server side
-		    Pid = spawn_link(
+		    Pid = spawn(
 			    fun () ->
+                                    link(group_leader()),
 				    receive Go -> ok end,
                                     process_flag(trap_exit, true),
 				    tstsrvr_con_loop(Name, Socket, Parent)

@@ -33,8 +33,8 @@
   <description>
     <p><c>memsup</c> is a process which supervises the memory usage for
       the system and for individual processes. It is part of the OS_Mon
-      application, see <seealso marker="os_mon_app">os_mon(6)</seealso>.
-      Available for Unix, Windows and VxWorks.</p>
+      application, see <seeapp marker="os_mon_app">os_mon(6)</seeapp>.
+      Available for Unix and Windows.</p>
     <p>Periodically performs a memory check:</p>
     <list type="bulleted">
       <item>
@@ -49,21 +49,21 @@
       </item>
     </list>
     <p>Alarms are reported to the SASL alarm handler, see
-      <seealso marker="sasl:alarm_handler">alarm_handler(3)</seealso>.
+      <seeerl marker="sasl:alarm_handler">alarm_handler(3)</seeerl>.
       To set an alarm, <c>alarm_handler:set_alarm(Alarm)</c> is called
       where <c>Alarm</c> is either of the alarms specified above.</p>
     <p>The alarms are cleared automatically when the alarm cause is no
       longer valid.</p>
     <p>The function 
-      <seealso marker="#get_memory_data/0">get_memory_data()</seealso>
+      <seemfa marker="#get_memory_data/0">get_memory_data()</seemfa>
       can be used to retrieve the result of the latest periodic memory
       check.</p>
     <p>There is also a interface to system dependent memory data,
-      <seealso marker="#get_system_memory_data/0">get_system_memory_data()</seealso>.
+      <seemfa marker="#get_system_memory_data/0">get_system_memory_data()</seemfa>.
       The result is highly dependent on the underlying operating
       system and the interface is targeted primarily for systems
-      without virtual memory (e.g. VxWorks). The output on other
-      systems is however still valid, although sparse.</p>
+      without virtual memory. However, the output on other
+      systems is still valid, although sparse.</p>
     <p>A call to <c>get_system_memory_data/0</c> is more costly
       than a call to <c>get_memory_data/0</c> as data is collected
       synchronously when this function is called.</p>
@@ -102,7 +102,8 @@
       <item>
         <p>A timeout, in seconds, for how long the <c>memsup</c>
           process should wait for a result from a memory check. If
-          the timeout expires, a warning message <c>"OS_MON (memsup) timeout"</c> is issued via <c>error_logger</c> and any
+          the timeout expires, a warning message <c>"OS_MON (memsup) timeout"</c>
+	  is issued via <c>error_logger</c> and any
           pending, synchronous client calls will return a dummy value.
           Normally, this situation should not occur. There have been
           cases on Linux, however, where the pseudo file from which
@@ -121,7 +122,7 @@
           check makes a traversal of the entire list of processes.</p>
       </item>
     </taglist>
-    <p>See <seealso marker="kernel:config">config(4)</seealso> for
+    <p>See <seefile marker="kernel:config">config(4)</seefile> for
       information about how to change the value of configuration
       parameters.</p>
   </section>
@@ -165,12 +166,24 @@
       <desc>
         <p>Invokes a memory check and returns the resulting, system
           dependent, data as a list of tagged tuples, where <c>Tag</c>
-          can be one of the following:</p>
+          currently can be one of the following:</p>
         <taglist>
           <tag><c>total_memory</c></tag>
           <item>The total amount of memory available to the Erlang emulator,
            allocated and free. May or may not be equal to the amount
-           of memory configured in the system.</item>
+          of memory configured in the system.</item>
+	  <tag><c>available_memory</c></tag>
+	  <item>Informs about the amount memory that is available for
+	  increased usage if there is an increased memory need. This
+	  value is not based on a calculation of the other provided
+	  values and should give a better value of the amount of memory
+	  that actually is available than calculating a value based on
+	  the other values reported. This value is currently only present
+	  on newer Linux kernels. If this value is not available on Linux,
+	  you can use the sum of <c>cached_memory</c>,
+	  <c>buffered_memory</c>, and <c>free_memory</c> as an
+	  approximation.
+	  </item>
           <tag><c>free_memory</c></tag>
           <item>The amount of free memory available to the Erlang emulator
            for allocation.</item>
@@ -178,13 +191,6 @@
           <item>The amount of memory available to the whole operating
            system. This may well be equal to <c>total_memory</c> but
            not necessarily.</item>
-          <tag><c>largest_free</c></tag>
-          <item>The size of the largest contiguous free memory block
-           available to the Erlang emulator.</item>
-          <tag><c>number_of_free</c></tag>
-          <item>The number of free blocks available to the Erlang runtime
-           system. This gives a fair indication of how fragmented
-           the memory is.</item>
           <tag><c>buffered_memory</c></tag>
           <item>
                 The amount of memory the system uses for temporary storing raw disk blocks.
@@ -192,6 +198,8 @@
           <tag><c>cached_memory</c></tag>
           <item>
                 The amount of memory the system uses for cached files read from disk.
+	        On Linux, also memory marked as reclaimable in the kernel slab
+		allocator will be added to this value.
           </item>
           <tag><c>total_swap</c></tag>
           <item>
@@ -204,15 +212,16 @@
           </item>
 
         </taglist>
+
+	<note><p>Note that new tagged tuples may be introduced in the result
+	at any time without prior notice</p></note>
+	
+	<p>Note that the order of the tuples in the resulting list is undefined
+	and may change at any time.</p>
+	
         <p>All memory sizes are presented as number of <em>bytes</em>.</p>
-        <p>The <c>largest_free</c> and <c>number_of_free</c> tags are
-          currently only returned on a VxWorks system.</p>
         <p>Returns the empty list [] if <c>memsup</c> is not available,
           or if the memory check times out.</p>
-	<note><p>
-	On linux the memory available to the emulator is <c>cached_memory</c> and <c>buffered_memory</c> in addition to 
-	<c>free_memory</c>.</p>
-	</note>
       </desc>
     </func>
     <func>
@@ -248,7 +257,7 @@
         <p>The change will take effect after the next memory check and is
           non-persistent. That is, in case of a process restart, this
           value is forgotten and the default value will be used. See
-          <seealso marker="#config">Configuration</seealso> above.</p>
+          <seeerl marker="#config">Configuration</seeerl> above.</p>
       </desc>
     </func>
     <func>
@@ -268,7 +277,7 @@
         <p>The change will take effect during the next periodic memory
           check and is non-persistent. That is, in case of a process
           restart, this value is forgotten and the default value will be
-          used. See <seealso marker="#config">Configuration</seealso>
+          used. See <seeerl marker="#config">Configuration</seeerl>
           above.</p>
       </desc>
     </func>
@@ -289,7 +298,7 @@
         <p>The change will take effect during the next periodic memory
           check and is non-persistent. That is, in case of a process
           restart, this value is forgotten and the default value will be
-          used. See <seealso marker="#config">Configuration</seealso>
+          used. See <seeerl marker="#config">Configuration</seeerl>
           above.</p>
       </desc>
     </func>
@@ -315,15 +324,15 @@
         <p>The change will take effect for the next memory check and is
           non-persistent. That is, in the case of a process restart, this
           value is forgotten and the default value will be used. See
-          <seealso marker="#config">Configuration</seealso> above.</p>
+          <seeerl marker="#config">Configuration</seeerl> above.</p>
       </desc>
     </func>
   </funcs>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="sasl:alarm_handler">alarm_handler(3)</seealso>,
-      <seealso marker="os_mon_app">os_mon(3)</seealso></p>
+    <p><seeerl marker="sasl:alarm_handler">alarm_handler(3)</seeerl>,
+      <seeapp marker="os_mon_app">os_mon(3)</seeapp></p>
   </section>
 </erlref>
 

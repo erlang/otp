@@ -4,6 +4,8 @@
 
 **OTP** is a set of Erlang libraries, which consists of the Erlang runtime system, a number of ready-to-use components mainly written in Erlang, and a set of design principles for Erlang programs. [Learn more about Erlang and OTP](http://erlang.org/doc/system_architecture_intro/sys_arch_intro.html).
 
+[Release notes](http://erlang.org/download/otp_versions_tree.html) for all OTP versions.
+
 [Learn how to program in Erlang](http://learnyousomeerlang.com/content).
 
 ## Examples
@@ -48,7 +50,7 @@ Alternatively, you can use [Kerl](https://github.com/kerl/kerl), a script that l
 
 ## Bug Reports
 
-Please visit [bugs.erlang.org](https://bugs.erlang.org/issues/?jql=project%20%3D%20ERL) for reporting bugs. The instructions for submitting bugs reports [can be found here](https://github.com/erlang/otp/wiki/Bug-reports).
+Please visit our [GitHub Issues](https://github.com/erlang/otp/issues) page for reporting bugs. The instructions for submitting bugs reports [can be found here](https://github.com/erlang/otp/wiki/Bug-reports).
 
 ### Security Disclosure
 
@@ -64,7 +66,7 @@ Read our [contribution guide](CONTRIBUTING.md) to learn about our development pr
 
 ### Help Wanted
 
-We have a list of [Help Wanted](https://bugs.erlang.org/issues/?jql=status%20%3D%20%22Help%20Wanted%22) bugs that we would appreciate external help from the community. This is a great place to get involved.
+We have a list of [Help Wanted](https://github.com/erlang/otp/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) bugs that we would appreciate external help from the community. This is a great place to get involved.
 
 ## License
 

@@ -1,0 +1,7 @@
+
+  [;1m-spec is_number(Term) -> boolean() when Term :: term().[0m
+
+  Returns [;;4mtrue[0m if [;;4mTerm[0m is an integer or a floating point number.
+  Otherwise returns [;;4mfalse[0m.
+
+  Allowed in guard tests.

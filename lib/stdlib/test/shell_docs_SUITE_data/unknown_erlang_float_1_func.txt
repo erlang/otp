@@ -1,0 +1,17 @@
+
+  [;1m-spec float(Number) -> float() when Number :: number().[0m
+
+  Returns a float by converting [;;4mNumber[0m to a float, for example:
+
+    > float(55).
+    55.0
+
+  Allowed in guard tests.
+
+  Note:
+    If used on the top level in a guard, it tests whether the
+    argument is a floating point number; for clarity, use [;;4m[0m
+    [;;4mis_float/1[0m instead.
+
+    When [;;4mfloat/1[0m is used in an expression in a guard, such as '[;;4m[0m
+    [;;4mfloat(A) == 4.0[0m', it converts a number as described earlier.

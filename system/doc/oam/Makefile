@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2018. All Rights Reserved.
+# Copyright Ericsson AB 1997-2020. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,7 +75,9 @@ DVIPS_FLAGS +=
 $(HTMLDIR)/%.gif: %.gif
 	$(CP) $< $@
 
-docs: html
+DOC_TARGETS?=html
+
+docs: $(DOC_TARGETS)
 
 local_docs: PDFDIR=../../pdf
 
@@ -96,11 +98,11 @@ clean clean_docs:
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-release_docs_spec: docs
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(GIF_FILES) $(HTMLDIR)/*.html \
+release_html_spec: html
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(GIF_FILES) $(EXTRA_FILES) $(HTMLDIR)/*.html \
 		$(RELSYSDIR)
 
+release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
+
 release_spec:
-
-

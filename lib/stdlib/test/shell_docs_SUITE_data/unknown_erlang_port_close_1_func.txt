@@ -1,0 +1,34 @@
+
+  [;1m-spec port_close(Port) -> true when Port :: port() | atom().[0m
+
+  Closes an open port. Roughly the same as [;;4mPort ! {self(), close}[0m
+  except for the error behavior (see below), being synchronous, and
+  that the port does not reply with [;;4m{Port, closed}[0m. Any process
+  can close a port with [;;4mport_close/1[0m, not only the port owner (the
+  connected process). If the calling process is linked to the port
+  identified by [;;4mPort[0m, the exit signal from the port is guaranteed
+  to be delivered before [;;4mport_close/1[0m returns.
+
+  For comparison: [;;4mPort ! {self(), close}[0m only fails with [;;4mbadarg[0m
+  if [;;4mPort[0m does not refer to a port or a process. If [;;4mPort[0m is a
+  closed port, nothing happens. If [;;4mPort[0m is an open port and the
+  calling process is the port owner, the port replies with [;;4m{Port,[0m
+  [;;4mclosed}[0m when all buffers have been flushed and the port really
+  closes. If the calling process is not the port owner, the port
+  owner fails with [;;4mbadsig[0m.
+
+  Notice that any process can close a port using [;;4mPort ! {PortOwner,[0m
+  [;;4mclose}[0m as if it itself was the port owner, but the reply always
+  goes to the port owner.
+
+  As from Erlang/OTP R16, [;;4mPort ! {PortOwner, close}[0m is truly
+  asynchronous. Notice that this operation has always been
+  documented as an asynchronous operation, while the underlying
+  implementation has been synchronous. [;;4mport_close/1[0m is however
+  still fully synchronous because of its error behavior.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not an identifier of an open port,
+  or the registered name of an open port. If the calling process was
+  previously linked to the closed port, identified by [;;4mPort[0m, the
+  exit signal from the port is guaranteed to be delivered before
+  this [;;4mbadarg[0m exception occurs.

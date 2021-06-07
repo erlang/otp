@@ -1,1 +1,1 @@
-{dialyzer_options, [{warnings, [race_conditions]}]}.
+{dialyzer_options, [{indent_opt, false}, {warnings, [race_conditions]}]}.

@@ -37,6 +37,7 @@ what different type of break actions that are enabled.
 
 Same Same but Different
 -----------------------
+
 Even though `trace_pattern` use the same technique as the non-blocking
 code loading with replicated generations of data structures and an
 atomic switch, the implementations are quite separate from each
@@ -72,6 +73,7 @@ aligned write operation on all hardware architectures we use.
 
 Adding a new Breakpoint
 -----------------------
+
 This is a simplified sequence describing what `trace_pattern` goes
 through when adding a new breakpoint.
 
@@ -82,7 +84,7 @@ through when adding a new breakpoint.
    instruction word in the breakpoint.
 
 3. Write a pointer to the breakpoint at offset -4 from the first
-   instruction "func_info" header.
+   instruction "func\_info" header.
 
 4. Set the staging part of the breakpoint as enabled with specified
    breakpoint data.
@@ -139,7 +141,7 @@ and removing breakpoints.
 
 2. Allocate new breakpoint structures with a disabled active part and
    the original beam instruction. Write a pointer to the breakpoint in
-   "func_info" header at offset -4.
+   "func\_info" header at offset -4.
 
 3. Update the staging part of all affected breakpoints. Disable
    breakpoints that are to be removed.

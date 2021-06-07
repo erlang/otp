@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -283,7 +283,7 @@ i({connect, Pid, Opts, Addrs, Ref}) ->
                mode = {connect, connect(Sock, RAs, RP, [])},
                socket = Sock,
                message_cb = CB,
-               unordered = proplists:get_value(ordered, OwnOpts, false),
+               unordered = proplists:get_value(unordered, OwnOpts, false),
                packet = proplists:get_value(packet, OwnOpts, true),
                send = proplists:get_value(sender, OwnOpts, false)};
 
@@ -813,23 +813,25 @@ recv(#transport{rotate = B} = S)
 recv(#transport{rotate = 0,
                 streams = {_,OS},
                 socket = Sock,
+                assoc_id = Id,
                 unordered = B}
      = S) ->
-    ok = unordered(Sock, OS, B),
+    ok = unordered(Sock, Id, OS, B),
     S#transport{rotate = 1 < OS};
 
 recv(#transport{rotate = N} = S) ->
     S#transport{rotate = N-1}.
 
-%% unordered/3
+%% unordered/4
 
-unordered(Sock, OS, B)
+unordered(Sock, Id, OS, B)
   when B;
        is_integer(B), OS =< B ->
     inet:setopts(Sock, [{sctp_default_send_param,
-                         #sctp_sndrcvinfo{flags = [unordered]}}]);
+                         #sctp_sndrcvinfo{flags = [unordered],
+                                          assoc_id = Id}}]);
 
-unordered(_, OS, B)
+unordered(_, _, OS, B)
   when not B;
        is_integer(B), B < OS ->
     ok.

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2005-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -453,7 +453,7 @@ posix_clock_gettime(clockid_t id, char *name)
 
     if (clock_gettime(id, &ts) != 0) {
 	int err = errno;
-	char *errstr = err ? strerror(err) : "unknown";
+	const char *errstr = err ? strerror(err) : "unknown";
 	erts_exit(ERTS_ABORT_EXIT,
 		 "clock_gettime(%s, _) failed: %s (%d)\n",
 		 name, errstr, err);
@@ -498,13 +498,13 @@ posix_clock_gettime_times(clockid_t mid, char *mname,
     serr = errno;
     
     if (mres != 0) {
-	char *errstr = merr ? strerror(merr) : "unknown";
+	const char *errstr = merr ? strerror(merr) : "unknown";
 	erts_exit(ERTS_ABORT_EXIT,
 		 "clock_gettime(%s, _) failed: %s (%d)\n",
 		 mname, errstr, merr);
     }
     if (sres != 0) {
-	char *errstr = serr ? strerror(serr) : "unknown";
+	const char *errstr = serr ? strerror(serr) : "unknown";
 	erts_exit(ERTS_ABORT_EXIT,
 		 "clock_gettime(%s, _) failed: %s (%d)\n",
 		 sname, errstr, serr);
@@ -698,7 +698,7 @@ mach_clocks_init(void)
 
     if (atexit(mach_clocks_fini) != 0) {
 	int err = errno;
-	char *errstr = err ? strerror(err) : "unknown";
+	const char *errstr = err ? strerror(err) : "unknown";
 	erts_exit(ERTS_ABORT_EXIT,
 		 "Failed to register mach_clocks_fini() "
 		 "for call at exit: %s (%d)\n",
@@ -853,7 +853,7 @@ erts_os_system_time(void)
 
     if (gettimeofday(&tv, NULL) != 0) {
 	int err = errno;
-	char *errstr = err ? strerror(err) : "unknown";
+	const char *errstr = err ? strerror(err) : "unknown";
 	erts_exit(ERTS_ABORT_EXIT,
 		 "gettimeofday(_, NULL) failed: %s (%d)\n",
 		 errstr, err);
@@ -1003,6 +1003,8 @@ static ErtsSysPerfCounter rdtsc(void)
 #elif defined(__i386__)
     __asm__ __volatile__ ("rdtsc\n\t"
                            : "=A" (ts) );
+#else
+    ts = 0;
 #endif
     return ts;
 }

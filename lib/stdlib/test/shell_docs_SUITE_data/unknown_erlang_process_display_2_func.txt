@@ -1,0 +1,9 @@
+
+  [;1m-spec erlang:process_display(Pid, Type) -> true[0m
+  [;1m                                when Pid :: pid(), Type :: backtrace.[0m
+
+  Writes information about the local process [;;4mPid[0m on standard
+  error. The only allowed value for the atom [;;4mType[0m is [;;4mbacktrace[0m,
+  which shows the contents of the call stack, including information
+  about the call chain, with the current function printed first. The
+  format of the output is not further defined.

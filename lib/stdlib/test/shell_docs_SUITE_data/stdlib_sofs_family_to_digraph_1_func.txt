@@ -1,0 +1,21 @@
+
+  [;1m-spec family_to_digraph(Family) -> Graph[0m
+  [;1m                           when[0m
+  [;1m                               Graph :: digraph:graph(),[0m
+  [;1m                               Family :: family().[0m
+
+  Creates a directed graph from family [;;4mFamily[0m. For each pair
+  (a, {b[1], ..., b[n]}) of [;;4mFamily[0m, vertex a and the edges
+  (a, b[i]) for 1 <= i <= n are added to a newly created directed
+  graph.
+
+  If no graph type is specified, [;;4mdigraph:new/0[0m is used for
+  creating the directed graph, otherwise argument [;;4mGraphType[0m is
+  passed on as second argument to [;;4mdigraph:new/1[0m.
+
+  It F is a family, it holds that F is a subset of [;;4m[0m
+  [;;4mdigraph_to_family(family_to_digraph(F), type(F))[0m. Equality holds
+  if [;;4munion_of_family(F)[0m is a subset of [;;4mdomain(F)[0m.
+
+  Creating a cycle in an acyclic graph exits the process with a [;;4m[0m
+  [;;4mcyclic[0m message.

@@ -33,12 +33,9 @@
   <description>
     <p><c>nteventlog</c> provides a generic interface to the Windows
       event log. It is part of the OS_Mon application, see
-      <seealso marker="os_mon_app">os_mon(6)</seealso>. Available for
-      Windows versions where the event log is available. That is, not
-      for Windows 98 and some other older Windows versions, but for most
-      (all?) newer Windows versions.</p>
-    <p>This module is used as the Windows backend for <c>os_sup</c>, see
-      <seealso marker="os_sup">os_sup(3)</seealso>.</p>
+      <seeapp marker="os_mon_app">os_mon(6)</seeapp>.</p>
+    <p>This module is used as the Windows backend for <c>os_sup</c>. See
+      <seeerl marker="os_sup">os_sup(3)</seeerl>.</p>
     <p>To retain backwards compatibility, this module can also be used
       to start a standalone <c>nteventlog</c> process which is not part
       of the OS_Mon supervision tree. When starting such a process,
@@ -55,7 +52,7 @@
       sent to Erlang again after reboot).</p>
     <p>If the event log is configured to wrap around automatically,
       records that have arrived to the log and been overwritten when
-      <c>nteventlog</c> was not running are lost. It however detects
+      <c>nteventlog</c> was not running are lost. However, it detects
       this state and loses no records that are not overwritten.</p>
     <p>The callback function works as described in <c>os_sup(3)</c>.</p>
   </description>
@@ -97,8 +94,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="os_mon_app">os_mon(6)</seealso>,
-      <seealso marker="os_sup">os_sup(3)</seealso></p>
+    <p><seeapp marker="os_mon_app">os_mon(6)</seeapp>,
+      <seeerl marker="os_sup">os_sup(3)</seeerl></p>
     <p>Windows NT documentation</p>
   </section>
 </erlref>

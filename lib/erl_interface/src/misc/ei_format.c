@@ -24,10 +24,6 @@
  * ei_format to build binary format terms a bit like printf
  */
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -238,6 +234,9 @@ static int pquotedatom(const char** fmt, ei_x_buff* x)
 static int pformat(const char** fmt, union arg** args, ei_x_buff* x)
 {
     int res = 0;
+
+    ASSERT(args && *args);
+
     ++(*fmt);	/* skip tilde */
     switch (*(*fmt)++) {
     case 'a': 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ typedef Uint16   ErtsHalfDigit;
 #undef  BIG_HAVE_DOUBLE_DIGIT
 typedef Uint32   ErtsHalfDigit;
 #else
-#error "can not determine machine size"
+#error "cannot determine machine size"
 #endif
 
 typedef Uint  dsize_t;	 /* Vector size type */
@@ -64,7 +64,6 @@ typedef Uint  dsize_t;	 /* Vector size type */
 #define BIG_SIGN(xp)     (!!bignum_header_is_neg(*xp))
 #define BIG_ARITY(xp)    ((Uint)bignum_header_arity(*(xp)))
 #define BIG_DIGIT(xp,i)  *(BIG_V(xp)+(i))
-#define BIG_DIGITS_PER_WORD (sizeof(Uint)/sizeof(ErtsDigit))
 
 #define BIG_SIZE(xp)  BIG_ARITY(xp)
 
@@ -133,6 +132,10 @@ Eterm small_times(Sint, Sint, Eterm*);
 Eterm big_plus(Wterm, Wterm, Eterm*);
 Eterm big_minus(Eterm, Eterm, Eterm*);
 Eterm big_times(Eterm, Eterm, Eterm*);
+
+int big_div_rem(Eterm lhs, Eterm rhs,
+                Eterm *q_hp, Eterm *q,
+                Eterm *r_hp, Eterm *r);
 Eterm big_div(Eterm, Eterm, Eterm*);
 Eterm big_rem(Eterm, Eterm, Eterm*);
 
@@ -156,7 +159,7 @@ Eterm erts_make_integer(Uint, Process *);
 Eterm erts_make_integer_from_uword(UWord x, Process *p);
 
 dsize_t big_bytes(Eterm);
-Eterm bytes_to_big(byte*, dsize_t, int, Eterm*);
+Eterm bytes_to_big(const byte*, dsize_t, int, Eterm*);
 byte* big_to_bytes(Eterm, byte*);
 
 int term_to_Uint(Eterm, Uint*);
@@ -168,6 +171,8 @@ Eterm erts_uint64_array_to_big(Uint **, int, int, Uint64 *);
 int term_to_Uint64(Eterm, Uint64*);
 int term_to_Sint64(Eterm, Sint64*);
 #endif
+int term_to_Uint32(Eterm, Uint32*);
+
 
 Uint32 big_to_uint32(Eterm b);
 int term_equals_2pow32(Eterm);

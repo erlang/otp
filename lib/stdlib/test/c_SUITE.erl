@@ -178,7 +178,10 @@ ls(Config) when is_list(Config) ->
     ok = c:ls(Directory),
     File = filename:join(Directory, "m.erl"),
     ok = c:ls(File),
-    ok = c:ls("no_such_file").
+    ok = c:ls([[[[File]]]]),
+    ok = c:ls("no_such_file"),
+    ok = c:ls(list_to_atom(code:which(c))),
+    ok.
 
 %% Check that c:memory/[0,1] returns consistent results.
 memory(Config) when is_list(Config) ->

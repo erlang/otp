@@ -32,8 +32,6 @@
 
 -export([expand_tags/3, std_macros/1, check_defs/1]).
 
--import(edoc_report, [report/2, error/3, warning/4]).
-
 -include("edoc.hrl").
 -include("edoc_types.hrl").
 
@@ -58,8 +56,10 @@ std_macros(Env) ->
 
 check_defs([{K, D} | Ds]) when is_atom(K), is_list(D) ->
     check_defs(Ds);
+check_defs([{K, D} | Ds]) when is_atom(K), is_function(D, 3) ->
+    check_defs(Ds);
 check_defs([X | _Ds]) ->
-    report("bad macro definition: ~P.", [X, 10]),
+    edoc_report:report("bad macro definition: ~P.", [X, 10]),
     exit(error);
 check_defs([]) ->
     ok.
@@ -69,7 +69,7 @@ check_defs([]) ->
 %% together with the file name etc. The expanded text must be flat!
 
 date_macro(_S, _Line, _Env) ->
-    edoc_lib:datestr(date()).    
+    edoc_lib:datestr(date()).
 
 time_macro(_S, _Line, _Env) ->
     edoc_lib:timestr(time()).
@@ -81,6 +81,7 @@ version_macro(S, Line, Env) ->
 link_macro(S, Line, Env) ->
     {S1, S2} = edoc_lib:split_at_stop(S),
     Ref = edoc_parser:parse_ref(S1, Line),
+    {DocgenRel, DocgenURI} = edoc_refs:get_docgen_link(Ref),
     URI = edoc_refs:get_uri(Ref, Env),
     Txt = if S2 =:= [] -> "<code>" ++ S1 ++ "</code>";
 	     true -> S2
@@ -89,8 +90,8 @@ link_macro(S, Line, Env) ->
 		 true -> " target=\"_top\""; % note the initial space
 		 false -> ""
 	     end,
-    lists:flatten(io_lib:fwrite("<a href=\"~ts\"~ts>~ts</a>",
-				[URI, Target, Txt])).
+    lists:flatten(io_lib:fwrite("<a docgen-rel=\"~ts\" docgen-href=\"~ts\" href=\"~ts\"~ts>~ts</a>",
+				[DocgenRel, DocgenURI, URI, Target, Txt])).
 
 section_macro(S, _Line, _Env) ->
     S1 = lists:reverse(edoc_lib:strip_space(
@@ -127,7 +128,7 @@ expand_tag(Cs, L, Defs, Env, Where) ->
  	{'EXIT', R} ->
 	    exit(R);
 	{error, L1, Error} ->
-	    error(L1, Where, Error),
+	    edoc_report:error(L1, Where, Error),
 	    exit(error);
 	Other ->
 	    throw(Other)
@@ -202,8 +203,8 @@ expand_macro_def(M, Arg, L, Defs, St, As) ->
 			  end,
 		    expand(Txt, L, Defs1, St1, As);
 		error ->
-		    warning(L, St1#state.where,
-			    "undefined macro {@~s}.", [M]),
+		    edoc_report:warning(L, St1#state.where,
+					"undefined macro {@~s}.", [M]),
 		    "??"
 	    end
     end.

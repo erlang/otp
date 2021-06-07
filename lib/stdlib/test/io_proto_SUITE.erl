@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1568,10 +1568,6 @@ request({put_chars, Encoding, Chars}, State) ->
 request({put_chars, Encoding, Module, Function, Args}, State) ->
     {ok, ok, State#state{q=[{put_chars, Encoding, Module, Function, Args} | 
 			    State#state.q ]}};
-request({put_chars,Chars}, State) ->
-    {ok, ok, State#state{q=[{put_chars, Chars} | State#state.q ]}};
-request({put_chars,M,F,As}, State) ->
-    {ok, ok, State#state{q=[{put_chars, M,F,As} | State#state.q ]}};
 request({get_until, Encoding, Prompt, M, F, As}, State) ->
     {ok, convert(State#state.nxt, Encoding, State#state.mode), State#state{nxt = eof, q = [{get_until, Encoding, Prompt, M, F, As} | State#state.q]}};
 request({get_chars, Encoding, Prompt, N}, State) ->
@@ -1582,20 +1578,6 @@ request({get_line, Encoding, Prompt}, State) ->
     {ok, convert(State#state.nxt, Encoding, State#state.mode), 
      State#state{nxt = eof, 
 		 q = [{get_line, Encoding, Prompt} | 
-		      State#state.q]}};
-request({get_until, Prompt, M, F, As}, State) ->
-    {ok, convert(State#state.nxt, latin1, State#state.mode), 
-     State#state{nxt = eof, 
-		 q = [{get_until, Prompt, M, F, As} | State#state.q]}};
-request({get_chars, Prompt, N}, State) ->
-    {ok, convert(State#state.nxt, latin1, State#state.mode), 
-     State#state{nxt = eof, 
-		 q = [{get_chars, Prompt, N} | 
-		      State#state.q]}};
-request({get_line, Prompt}, State) ->
-    {ok, convert(State#state.nxt, latin1, State#state.mode), 
-     State#state{nxt = eof, 
-		 q = [{get_line, Prompt} | 
 		      State#state.q]}};
 request({get_geomentry,_}, State) ->
     {error, {error,enotsup}, State};

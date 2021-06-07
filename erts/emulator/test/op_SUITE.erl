@@ -38,7 +38,11 @@ all() ->
 
 %% Test the bsl and bsr operators.
 bsl_bsr(Config) when is_list(Config) ->
-    Vs = [unvalue(V) || V <- [-16#8000009-2,-1,0,1,2,73,16#8000000,bad,[]]],
+    RawValues = [-16#8000009-2,-1,0,1,2,73,16#8000000,bad,[]],
+
+    [bsl_bsr_const(V) || V <- RawValues],
+
+    Vs = [unvalue(V) || V <- RawValues],
     %% Try to use less memory by splitting the cases
 
     Cases1 = [{Op,X,Y} || Op <- ['bsl'], X <- Vs, Y <- Vs],
@@ -48,7 +52,75 @@ bsl_bsr(Config) when is_list(Config) ->
     Cases2 = [{Op,X,Y} || Op <- ['bsr'], X <- Vs, Y <- Vs],
     N2 = length(Cases2),
     run_test_module(Cases2, false),
+
     {comment,integer_to_list(N1 + N2) ++ " cases"}.
+
+%% Tests constant-argument optimizations in `bsl`/`bsr`
+bsl_bsr_const(A) ->
+    BSL = id('bsl'),
+    BSR = id('bsr'),
+
+    bsl_bsr_compare_results((catch erlang:BSL(1, A)), (catch 1 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSL(3, A)), (catch 3 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSL(7, A)), (catch 7 bsl A)),
+
+    bsl_bsr_compare_results((catch erlang:BSL(A, 1)), (catch A bsl 1)),
+    bsl_bsr_compare_results((catch erlang:BSL(A, 3)), (catch A bsl 3)),
+    bsl_bsr_compare_results((catch erlang:BSL(A, 7)), (catch A bsl 7)),
+
+    bsl_bsr_compare_results((catch erlang:BSL(-2, A)), (catch -2 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSL(-4, A)), (catch -4 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSL(-8, A)), (catch -8 bsl A)),
+
+    bsl_bsr_compare_results((catch erlang:BSL(A, -2)), (catch A bsl -2)),
+    bsl_bsr_compare_results((catch erlang:BSL(A, -4)), (catch A bsl -4)),
+    bsl_bsr_compare_results((catch erlang:BSL(A, -8)), (catch A bsl -8)),
+
+    bsl_bsr_compare_results((catch erlang:BSR(1, A)), (catch 1 bsr A)),
+    bsl_bsr_compare_results((catch erlang:BSR(3, A)), (catch 3 bsr A)),
+    bsl_bsr_compare_results((catch erlang:BSR(7, A)), (catch 7 bsr A)),
+
+    bsl_bsr_compare_results((catch erlang:BSR(A, 1)), (catch A bsr 1)),
+    bsl_bsr_compare_results((catch erlang:BSR(A, 3)), (catch A bsr 3)),
+    bsl_bsr_compare_results((catch erlang:BSR(A, 7)), (catch A bsr 7)),
+
+    bsl_bsr_compare_results((catch erlang:BSR(-2, A)), (catch -2 bsr A)),
+    bsl_bsr_compare_results((catch erlang:BSR(-4, A)), (catch -4 bsr A)),
+    bsl_bsr_compare_results((catch erlang:BSR(-8, A)), (catch -8 bsr A)),
+
+    bsl_bsr_compare_results((catch erlang:BSR(A, -2)), (catch A bsr -2)),
+    bsl_bsr_compare_results((catch erlang:BSR(A, -4)), (catch A bsr -4)),
+    bsl_bsr_compare_results((catch erlang:BSR(A, -8)), (catch A bsr -8)),
+
+
+    %% These numbers can be shifted left one or zero times while remaining a
+    %% small on 32-bit platforms.
+    %%
+    %% The test relies on the compiler turning these into constants.
+    HighEdge32 = (1 bsl (32 - 6)) - 1,
+    LowEdge32 = -(1 bsl (32 - 6)),
+
+    bsl_bsr_compare_results((catch erlang:BSL(HighEdge32, A)), (catch HighEdge32 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSL(LowEdge32, A)), (catch LowEdge32 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSR(HighEdge32, A)), (catch HighEdge32 bsr A)),
+    bsl_bsr_compare_results((catch erlang:BSR(LowEdge32, A)), (catch LowEdge32 bsr A)),
+
+    HighEdge64 = (1 bsl (64 - 6)) - 1,
+    LowEdge64 = -(1 bsl (64 - 6)),
+
+    bsl_bsr_compare_results((catch erlang:BSL(HighEdge64, A)), (catch HighEdge64 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSL(LowEdge64, A)), (catch LowEdge64 bsl A)),
+    bsl_bsr_compare_results((catch erlang:BSR(HighEdge64, A)), (catch HighEdge64 bsr A)),
+    bsl_bsr_compare_results((catch erlang:BSR(LowEdge64, A)), (catch LowEdge64 bsr A)),
+
+    ok.
+
+bsl_bsr_compare_results(Same, Same) ->
+    ok;
+bsl_bsr_compare_results({'EXIT',{Reason,[_|_]}}, {'EXIT',{Reason,[_|_]}}) ->
+    %% The applied and inlined implementations may differ in whether they include
+    %% the operator as the top element of the stack.
+    ok.
 
 %% Test the logical operators and internal BIFs.
 logical(Config) when is_list(Config) ->
@@ -263,11 +335,7 @@ run_test_module(Cases, GuardsOk) ->
 
     %% Compile, load, and run the generated module.
 
-    Native = case test_server:is_native(?MODULE) of
-                 true -> [native];
-                 false -> []
-             end,
-    {ok,Mod,Code1} = compile:forms(Module, [time|Native]),
+    {ok,Mod,Code1} = compile:forms(Module, [time]),
     code:delete(Mod),
     code:purge(Mod),
     {module,Mod} = code:load_binary(Mod, Mod, Code1),
@@ -343,8 +411,7 @@ save_term(Term) ->
 
 make_module(Name, Funcs) ->
     [{attribute,1,module,Name},
-     {attribute,0,compile,export_all},
-     {attribute,0,compile,[{hipe,[{regalloc,linear_scan}]}]} |
+     {attribute,0,compile,export_all} |
      Funcs ++ [{eof,0}]].
 
 make_function(Name, Body) ->
@@ -375,3 +442,5 @@ repeat(_, 0) -> ok;
 repeat(Fun, N) ->
     Fun(),
     repeat(Fun, N-1).
+
+id(I) -> I.

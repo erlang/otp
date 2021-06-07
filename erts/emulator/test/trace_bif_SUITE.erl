@@ -23,27 +23,19 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0]).
--export([trace_bif/1, trace_bif_timestamp/1, trace_on_and_off/1, 
+-export([trace_bif/1, trace_bif_timestamp/1, trace_on_and_off/1,
 	 trace_bif_local/1,
-	 trace_bif_timestamp_local/1, trace_bif_return/1, not_run/1,
+	 trace_bif_timestamp_local/1, trace_bif_return/1,
 	 trace_info_old_code/1]).
 
 -export([bif_process/0]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    case test_server:is_native(trace_bif_SUITE) of
-	true -> [not_run];
-	false ->
-	    [trace_bif, trace_bif_timestamp, trace_on_and_off,
-	     trace_bif_local, trace_bif_timestamp_local,
-	     trace_bif_return, trace_info_old_code]
-    end.
-
-
-not_run(Config) when is_list(Config) -> 
-    {skipped,"Native code"}.
+all() ->
+    [trace_bif, trace_bif_timestamp, trace_on_and_off,
+     trace_bif_local, trace_bif_timestamp_local,
+     trace_bif_return, trace_info_old_code].
 
 %% Tests switching tracing on and off.
 trace_on_and_off(Config) when is_list(Config) ->

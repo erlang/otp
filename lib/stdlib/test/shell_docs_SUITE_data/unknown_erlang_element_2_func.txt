@@ -1,0 +1,11 @@
+
+  [;1m-spec element(N, Tuple) -> term()[0m
+  [;1m                 when N :: pos_integer(), Tuple :: tuple().[0m
+
+  Returns the [;;4mN[0mth element (numbering from 1) of [;;4mTuple[0m, for
+  example:
+
+    > element(2, {a, b, c}).
+    b
+
+  Allowed in guard tests.

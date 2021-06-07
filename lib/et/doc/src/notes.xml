@@ -37,6 +37,22 @@
   one section in this document. The title of each section is the
   version number of <c>Event Tracer (ET)</c>.</p>
 
+<section><title>ET 1.6.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed warnings in code matching on underscore prefixed
+	    variables.</p>
+          <p>
+	    Own Id: OTP-17385 Aux Id: OTP-17123 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>ET 1.6.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

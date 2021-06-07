@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,12 +22,12 @@
 -module(inet_tls_dist).
 
 -export([childspecs/0]).
--export([listen/1, accept/1, accept_connection/5,
-	 setup/5, close/1, select/1, is_node_name/1]).
+-export([listen/2, accept/1, accept_connection/5,
+	 setup/5, close/1, select/1, address/0, is_node_name/1]).
 
 %% Generalized dist API
--export([gen_listen/2, gen_accept/2, gen_accept_connection/6,
-	 gen_setup/6, gen_close/2, gen_select/2]).
+-export([gen_listen/3, gen_accept/2, gen_accept_connection/6,
+	 gen_setup/6, gen_close/2, gen_select/2, gen_address/1]).
 
 -export([nodelay/0]).
 
@@ -41,6 +41,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -include("ssl_api.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% -------------------------------------------------------------------------
 
@@ -61,6 +62,14 @@ gen_select(Driver, Node) ->
         _ ->
             false
     end.
+
+%% ------------------------------------------------------------
+%% Get the address family that this distribution uses
+%% ------------------------------------------------------------
+address() ->
+    gen_address(inet_tcp).
+gen_address(Driver) ->
+    inet_tcp_dist:gen_address(Driver).
 
 %% -------------------------------------------------------------------------
 
@@ -131,8 +140,8 @@ f_recv(SslSocket, Length, Timeout) ->
 f_setopts_pre_nodeup(_SslSocket) ->
     ok.
 
-f_setopts_post_nodeup(_SslSocket) ->
-    ok.
+f_setopts_post_nodeup(SslSocket) ->
+    ssl:setopts(SslSocket, [nodelay()]).
 
 f_getll(DistCtrl) ->
     {ok, DistCtrl}.
@@ -192,13 +201,13 @@ split_stat([], R, W, P) ->
 
 %% -------------------------------------------------------------------------
 
-listen(Name) ->
-    gen_listen(inet_tcp, Name).
+listen(Name, Host) ->
+    gen_listen(inet_tcp, Name, Host).
 
-gen_listen(Driver, Name) ->
-    case inet_tcp_dist:gen_listen(Driver, Name) of
+gen_listen(Driver, Name, Host) ->
+    case inet_tcp_dist:gen_listen(Driver, Name, Host) of
         {ok, {Socket, Address, Creation}} ->
-            inet:setopts(Socket, [{packet, 4}]),
+            inet:setopts(Socket, [{packet, 4}, {nodelay, true}]),
             {ok, {Socket, Address#net_address{protocol=tls}, Creation}};
         Other ->
             Other
@@ -214,27 +223,62 @@ gen_accept(Driver, Listen) ->
     monitor_pid(
       spawn_opt(
         fun () ->
-                accept_loop(Driver, Listen, Kernel)
+            process_flag(trap_exit, true),
+            LOpts = application:get_env(kernel, inet_dist_listen_options, []),
+            MaxPending =
+                case lists:keyfind(backlog, 1, LOpts) of
+                    {backlog, Backlog} -> Backlog;
+                    false -> 128
+                end,
+            DLK = {Driver, Listen, Kernel},
+            accept_loop(DLK, spawn_accept(DLK), MaxPending, #{})
         end,
         [link, {priority, max}])).
 
-accept_loop(Driver, Listen, Kernel) ->
-    case Driver:accept(Listen) of
-        {ok, Socket} ->
-	    case check_ip(Driver, Socket) of
-                true ->
-                    accept_loop(Driver, Listen, Kernel, Socket);
-                {false,IP} ->
-		    error_logger:error_msg(
-                      "** Connection attempt from "
-                      "disallowed IP ~w ** ~n", [IP]),
-		    ?shutdown2(no_node, trace({disallowed, IP}))
-	    end;
-	Error ->
-	    exit(trace(Error))
+%% Concurrent accept loop will spawn a new HandshakePid when
+%%  there is no HandshakePid already running, and Pending map is
+%%  smaller than MaxPending
+accept_loop(DLK, undefined, MaxPending, Pending) when map_size(Pending) < MaxPending ->
+    accept_loop(DLK, spawn_accept(DLK), MaxPending, Pending);
+accept_loop(DLK, HandshakePid, MaxPending, Pending) ->
+    receive
+        {continue, HandshakePid} when is_pid(HandshakePid) ->
+            accept_loop(DLK, undefined, MaxPending, Pending#{HandshakePid => true});
+        {'EXIT', Pid, Reason} when is_map_key(Pid, Pending) ->
+            Reason =/= normal andalso
+                ?LOG_ERROR("TLS distribution handshake failed: ~p~n", [Reason]),
+            accept_loop(DLK, HandshakePid, MaxPending, maps:remove(Pid, Pending));
+        {'EXIT', HandshakePid, Reason} when is_pid(HandshakePid) ->
+            %% HandshakePid crashed before turning into Pending, which means
+            %%  error happened in accept. Need to restart the listener.
+            exit(Reason);
+        Unexpected ->
+            ?LOG_WARNING("TLS distribution: unexpected message: ~p~n" ,[Unexpected]),
+            accept_loop(DLK, HandshakePid, MaxPending, Pending)
     end.
 
-accept_loop(Driver, Listen, Kernel, Socket) ->
+spawn_accept({Driver, Listen, Kernel}) ->
+    AcceptLoop = self(),
+    spawn_link(
+        fun () ->
+            case Driver:accept(Listen) of
+                {ok, Socket} ->
+                    AcceptLoop ! {continue, self()},
+                    case check_ip(Driver, Socket) of
+                        true ->
+                            accept_one(Driver, Kernel, Socket);
+                        {false,IP} ->
+                            ?LOG_ERROR(
+                                "** Connection attempt from "
+                                "disallowed IP ~w ** ~n", [IP]),
+                            trace({disallowed, IP})
+                    end;
+                Error ->
+                    exit(Error)
+            end
+        end).
+
+accept_one(Driver, Kernel, Socket) ->
     Opts = setup_verify_client(Socket, get_ssl_options(server)),
     wait_for_code_server(),
     case
@@ -250,24 +294,29 @@ accept_loop(Driver, Listen, Kernel, Socket) ->
                    Driver:family(), tls}),
             receive
                 {Kernel, controller, Pid} ->
-                    ok = ssl:controlling_process(SslSocket, Pid),
-                    trace(
-                      Pid ! {self(), controller});
+                    case ssl:controlling_process(SslSocket, Pid) of
+                        ok ->
+                            trace(Pid ! {self(), controller});
+                        Error ->
+                            trace(Pid ! {self(), exit}),
+                            ?LOG_ERROR(
+                                "Cannot control TLS distribution connection: ~p~n",
+                                [Error])
+                    end;
                 {Kernel, unsupported_protocol} ->
-                    exit(trace(unsupported_protocol))
-            end,
-            accept_loop(Driver, Listen, Kernel);
+                    trace(unsupported_protocol)
+            end;
         {error, {options, _}} = Error ->
             %% Bad options: that's probably our fault.
             %% Let's log that.
-            error_logger:error_msg(
+            ?LOG_ERROR(
               "Cannot accept TLS distribution connection: ~s~n",
               [ssl:format_error(Error)]),
             gen_tcp:close(Socket),
-            exit(trace(Error));
+            trace(Error);
         Other ->
             gen_tcp:close(Socket),
-            exit(trace(Other))
+            trace(Other)
     end.
 
 
@@ -403,9 +452,9 @@ gen_accept_connection(
 
 do_accept(
   _Driver, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime, Kernel) ->
-    {ok, SslSocket} = tls_sender:dist_tls_socket(DistCtrl),
     receive
 	{AcceptPid, controller} ->
+            {ok, SslSocket} = tls_sender:dist_tls_socket(DistCtrl),
 	    Timer = dist_util:start_timer(SetupTime),
             NewAllowed = allowed_nodes(SslSocket, Allowed),
             HSData0 = hs_data_common(SslSocket),
@@ -418,7 +467,11 @@ do_accept(
                   this_flags = 0,
                   allowed = NewAllowed},
             link(DistCtrl),
-            dist_util:handshake_other_started(trace(HSData))
+            dist_util:handshake_other_started(trace(HSData));
+        {AcceptPid, exit} ->
+            %% this can happen when connection was initiated, but dropped
+            %%  between TLS handshake completion and dist handshake start
+            ?shutdown2(MyNode, connection_setup_failed)
     end.
 
 allowed_nodes(_SslSocket, []) ->
@@ -436,7 +489,7 @@ allowed_nodes(SslSocket, Allowed) ->
                           PeerCert, allowed_hosts(Allowed), PeerIP)
                     of
                         [] ->
-                            error_logger:error_msg(
+                            ?LOG_ERROR(
                               "** Connection attempt from "
                               "disallowed node(s) ~p ** ~n", [PeerIP]),
                             ?shutdown2(
@@ -531,7 +584,7 @@ do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNo
     case ssl:connect(
         Address, TcpPort,
         [binary, {active, false}, {packet, 4},
-            Driver:family(), nodelay()] ++ Opts,
+            Driver:family(), {nodelay, true}] ++ Opts,
         net_kernel:connecttime()) of
     {ok, #sslsocket{pid = [_, DistCtrl| _]} = SslSocket} ->
             _ = monitor_pid(DistCtrl),
@@ -695,12 +748,12 @@ split_node(Driver, Node, LongOrShortNames) ->
         {node, Name, Host} ->
 	    check_node(Driver, Node, Name, Host, LongOrShortNames);
 	{host, _} ->
-	    error_logger:error_msg(
+	    ?LOG_ERROR(
               "** Nodename ~p illegal, no '@' character **~n",
               [Node]),
 	    ?shutdown2(Node, trace({illegal_node_n@me, Node}));
 	_ ->
-	    error_logger:error_msg(
+	    ?LOG_ERROR(
               "** Nodename ~p illegal **~n", [Node]),
 	    ?shutdown2(Node, trace({illegal_node_name, Node}))
     end.
@@ -712,7 +765,7 @@ check_node(Driver, Node, Name, Host, LongOrShortNames) ->
 		{ok, _} ->
 		    {Name, Host};
 		_ ->
-		    error_logger:error_msg(
+		    ?LOG_ERROR(
                       "** System running to use "
                       "fully qualified hostnames **~n"
                       "** Hostname ~s is illegal **~n",
@@ -720,7 +773,7 @@ check_node(Driver, Node, Name, Host, LongOrShortNames) ->
 		    ?shutdown2(Node, trace({not_longnames, Host}))
 	    end;
 	[_,_|_] when LongOrShortNames =:= shortnames ->
-	    error_logger:error_msg(
+	    ?LOG_ERROR(
               "** System NOT running to use "
               "fully qualified hostnames **~n"
               "** Hostname ~s is illegal **~n",
@@ -757,8 +810,8 @@ nodelay() ->
 
 get_ssl_options(Type) ->
     try ets:lookup(ssl_dist_opts, Type) of
-        [{Type, Opts}] ->
-            [{erl_dist, true} | Opts];
+        [{Type, Opts0}] ->
+            [{erl_dist, true} | dist_defaults(Opts0)];
         _ ->
             get_ssl_dist_arguments(Type)
     catch
@@ -769,11 +822,18 @@ get_ssl_options(Type) ->
 get_ssl_dist_arguments(Type) ->
     case init:get_argument(ssl_dist_opt) of
 	{ok, Args} ->
-	    [{erl_dist, true} | ssl_options(Type, lists:append(Args))];
+	    [{erl_dist, true} | dist_defaults(ssl_options(Type, lists:append(Args)))];
 	_ ->
 	    [{erl_dist, true}]
     end.
 
+dist_defaults(Opts) ->
+    case proplists:get_value(versions, Opts, undefined) of
+        undefined ->
+            [{versions, ['tlsv1.2']} | Opts];
+        _ ->
+            Opts
+    end.
 
 ssl_options(_Type, []) ->
     [];
@@ -850,13 +910,13 @@ monitor_pid(Pid) ->
     %%          MRef = erlang:monitor(process, Pid),
     %%          receive
     %%              {'DOWN', MRef, _, _, normal} ->
-    %%                  error_logger:error_report(
-    %%                    [dist_proc_died,
+    %%                  ?LOG_ERROR(
+    %%                    [{slogan, dist_proc_died},
     %%                     {reason, normal},
     %%                     {pid, Pid}]);
     %%              {'DOWN', MRef, _, _, Reason} ->
-    %%                  error_logger:info_report(
-    %%                    [dist_proc_died,
+    %%                  ?LOG_NOTICE(
+    %%                    [{slogan, dist_proc_died},
     %%                     {reason, Reason},
     %%                     {pid, Pid}])
     %%          end

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,23 +23,31 @@
 %% Purpose: Define common macros for testing
 %%----------------------------------------------------------------------
 
+-ifndef(APPLICATION).
+-define(APPLICATION, megaco).
+-endif.
+
+-define(LIB, megaco_test_lib).
+
+-define(PCALL(F, T, D),      ?LIB:proxy_call(F, T, D)).
+
 -define(APPLY(Proxy, Fun),
 	Proxy ! {apply, Fun}).
 
 -define(LOG(Format, Args),
-	megaco_test_lib:log(Format, Args, ?MODULE, ?LINE)).
+	?LIB:log(Format, Args, ?MODULE, ?LINE)).
 
 -define(ERROR(Reason),
-	megaco_test_lib:error(Reason, ?MODULE, ?LINE)).
+	?LIB:error(Reason, ?MODULE, ?LINE)).
 
 -define(OS_BASED_SKIP(Skippable),
-	megaco_test_lib:os_based_skip(Skippable)).
+	?LIB:os_based_skip(Skippable)).
 
 -define(NON_PC_TC_MAYBE_SKIP(Config, Condition),
-	megaco_test_lib:non_pc_tc_maybe_skip(Config, Condition, ?MODULE, ?LINE)).
+	?LIB:non_pc_tc_maybe_skip(Config, Condition, ?MODULE, ?LINE)).
 
 -define(SKIP(Reason),
-	megaco_test_lib:skip(Reason, ?MODULE, ?LINE)).
+	?LIB:skip(Reason, ?MODULE, ?LINE)).
 
 -define(VERIFYL(Expected, Expr),
 	fun(A,B) when list(A), list(B) ->
@@ -69,20 +77,41 @@
 	end()).
 
 -define(RECEIVE(Expected),
-	?VERIFY(Expected, megaco_test_lib:flush())).
+	?VERIFY(Expected, ?LIB:flush())).
 
 -define(MULTI_RECEIVE(Expected),
-	?VERIFY(lists:sort(Expected), lists:sort(megaco_test_lib:flush()))).
+	?VERIFY(lists:sort(Expected), lists:sort(?LIB:flush()))).
+
+-define(TRY_TC(TCN, N, V, PRE, CASE, POST),
+        ?LIB:try_tc(TCN, N, V, PRE, CASE, POST)).
 
 -define(ACQUIRE_NODES(N, Config),
-	megaco_test_lib:prepare_test_case([init, {stop_app, megaco}],
-				   N, Config, ?FILE, ?LINE)).
+	?LIB:prepare_test_case([init, {stop_app, megaco}],
+                               N, Config, ?FILE, ?LINE)).
 
+-define(START_NODE(Node, Force),   ?LIB:start_node(Node, Force, ?FILE, ?LINE)).
+-define(START_NODE(Node),          ?START_NODE(Node, false)).
+-define(START_NODES(Nodes, Force), ?LIB:start_nodes(Nodes, Force, ?FILE, ?LINE)).
+-define(START_NODES(Nodes),        ?START_NODES(Nodes, false)).
+-define(STOP_NODE(Node),           ?LIB:stop_node(Node,   ?FILE, ?LINE)).
+-define(STOP_NODES(Nodes),         ?LIB:stop_nodes(Nodes, ?FILE, ?LINE)).
 
--define(SLEEP(MSEC),    megaco_test_lib:sleep(MSEC)).
--define(M(),            megaco_test_lib:millis()).
--define(MDIFF(A,B),     megaco_test_lib:millis_diff(A,B)).
+-define(SLEEP(MSEC),    ?LIB:sleep(MSEC)).
+-define(HOURS(T),       ?LIB:hours(T)).
+-define(MINS(T),        ?LIB:minutes(T)).
+-define(MINUTES(T),     ?MINS(T)).
+-define(SECS(T),        ?LIB:seconds(T)).
+-define(SECONDS(T),     ?SECS(T)).
+-define(FTS(),          megaco:format_timestamp(erlang:timestamp())).
+-define(FTS(TS),        megaco:format_timestamp(TS)).
+-define(F(F,A),         lists:flatten(io_lib:format(F, A))).
 
--define(HOURS(T),       megaco_test_lib:hours(T)).
--define(MINUTES(T),     megaco_test_lib:minutes(T)).
--define(SECONDS(T),     megaco_test_lib:seconds(T)).
+-define(ANNOUNCE_SUITE_INIT(),
+	io:format(user, "~n*** ~s *** suite ~w init~n~n", [?FTS(), ?MODULE])).
+-define(ANNOUNCE_GROUP_INIT(GR),
+	io:format(user, "~n*** ~s *** group ~w:~w init~n~n", 
+		  [?FTS(), ?MODULE, GR])).
+-define(ANNOUNCE_CASE_INIT(C),
+	io:format(user, "~n*** ~s *** case ~w:~w init~n~n", 
+		  [?FTS(), ?MODULE, C])).
+

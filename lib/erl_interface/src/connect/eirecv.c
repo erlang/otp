@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,10 +38,17 @@
 #include "putget.h"
 #include "ei_trace.h"
 #include "show_msg.h"
+#include "ei_connect_int.h"
 
 #include <errno.h>
 
 #define EIRECVBUF 2048 /* largest possible header is approx 1300 bytes */
+
+static int
+send_unlink_id_ack(ei_socket_callbacks *cbs, void *ctx,
+                   char *id_ext, size_t id_size,
+                   erlang_pid *from, erlang_pid *to,
+                   unsigned tmo);
 
 /* length (4), PASS_THOUGH (1), header, message */
 int 
@@ -70,7 +77,7 @@ ei_recv_internal (int fd,
   err = EI_GET_CBS_CTX__(&cbs, &ctx, fd);
   if (err) {
       EI_CONN_SAVE_ERRNO__(err);
-      return -1;
+      return ERL_ERROR;
   }
 
   /* get length field */
@@ -80,7 +87,7 @@ ei_recv_internal (int fd,
       err = EIO;
   if (err) {
       EI_CONN_SAVE_ERRNO__(err);
-      return -1;
+      return ERL_ERROR;
   }
   
   len = get32be(s);
@@ -91,7 +98,7 @@ ei_recv_internal (int fd,
     ssize_t wlen = sizeof(tock);
     ei_write_fill_ctx_t__(cbs, ctx, tock, &wlen, tmo); /* Failure no problem */
     *msglenp = 0;
-    return 0;			/* maybe flag ERL_EAGAIN [sverkerw] */
+    return ERL_TICK;
   }
   
   /* turn off tracing on each receive. it will be turned back on if
@@ -106,7 +113,7 @@ ei_recv_internal (int fd,
       err = EIO;
   if (err) {
       EI_CONN_SAVE_ERRNO__(err);
-      return -1;
+      return ERL_ERROR;
   }
 
   /* now decode header */
@@ -119,8 +126,8 @@ ei_recv_internal (int fd,
       || ei_decode_tuple_header(header,&index,&arity) 
       || ei_decode_long(header,&index,&msg->msgtype))
   {
-      erl_errno = EIO;	/* Maybe another code for decoding errors */
-      return -1;
+      EI_CONN_SAVE_ERRNO__(EBADMSG);      
+      return ERL_ERROR;
   }
   
   switch (msg->msgtype) {
@@ -129,8 +136,8 @@ ei_recv_internal (int fd,
     if (ei_decode_atom_as(header,&index,msg->cookie,sizeof(msg->cookie),ERLANG_UTF8,NULL,NULL) 
 	|| ei_decode_pid(header,&index,&msg->to))
     {
-	erl_errno = EIO;
-	return -1;
+        EI_CONN_SAVE_ERRNO__(EBADMSG);      
+        return ERL_ERROR;
     }
 
     break;
@@ -141,8 +148,8 @@ ei_recv_internal (int fd,
 	|| ei_decode_atom_as(header,&index,msg->cookie,sizeof(msg->cookie),ERLANG_UTF8,NULL,NULL) 
 	|| ei_decode_atom_as(header,&index,msg->toname,sizeof(msg->toname),ERLANG_UTF8,NULL,NULL))
     {
-	erl_errno = EIO;
-	return -1;
+        EI_CONN_SAVE_ERRNO__(EBADMSG);      
+        return ERL_ERROR;
     }
 
     /* actual message is remaining part of headerbuf, plus any unread bytes */
@@ -155,20 +162,59 @@ ei_recv_internal (int fd,
     if (ei_decode_pid(header,&index,&msg->from) 
 	|| ei_decode_pid(header,&index,&msg->to))
     {
-	erl_errno = EIO;
-	return -1;
+        EI_CONN_SAVE_ERRNO__(EBADMSG);      
+        return ERL_ERROR;
     }
 
     break;
-    
+
+  case ERL_UNLINK_ID: { /* {UNLINK_ID, Id, From, To} */
+      int id;
+      size_t id_size;
+
+      /* Expose old ERL_UNLINK tag to user... */
+      msg->msgtype = ERL_UNLINK;
+
+      if (ei_tracelevel >= 4) show_this_msg = 1;
+      /* Save id on external format... */
+      id = index;
+      if (ei_skip_term(header, &index)) {
+          EI_CONN_SAVE_ERRNO__(EBADMSG);      
+          return ERL_ERROR;
+      }
+      id_size = index - id;
+
+      if (ei_decode_pid(header,&index,&msg->from) 
+          || ei_decode_pid(header,&index,&msg->to)) {
+          EI_CONN_SAVE_ERRNO__(EBADMSG);      
+          return ERL_ERROR;
+      }
+      
+      if (send_unlink_id_ack(cbs, ctx, &header[0] + id, id_size,
+                             &msg->to, &msg->from, tmo)) {
+          return ERL_ERROR;
+      }
+          
+      break;
+  }
+
+  case ERL_UNLINK_ID_ACK: /* {UNLINK_ID_ACK, Id, From, To} */
+      /*
+       * ei currently do not support setting up links and removing
+       * links from the ei side, so an 'unlink id ack' signal should
+       * never arrive...
+       */
+      EI_CONN_SAVE_ERRNO__(EBADMSG);      
+      return ERL_ERROR;
+
   case ERL_EXIT:         /* { EXIT, From, To, Reason } */
   case ERL_EXIT2:        /* { EXIT2, From, To, Reason } */
     if (ei_tracelevel >= 4) show_this_msg = 1;
     if (ei_decode_pid(header,&index,&msg->from) 
 	|| ei_decode_pid(header,&index,&msg->to))
     {
-	erl_errno = EIO;
-	return -1;
+        EI_CONN_SAVE_ERRNO__(EBADMSG);      
+        return ERL_ERROR;
     }
 
     break;
@@ -179,8 +225,8 @@ ei_recv_internal (int fd,
 	|| ei_decode_pid(header,&index,&msg->to)
 	|| ei_decode_trace(header,&index,&msg->token))
     {
-	erl_errno = EIO;
-	return -1;
+        EI_CONN_SAVE_ERRNO__(EBADMSG);      
+        return ERL_ERROR;
     }
 
     ei_trace(1,&msg->token); /* turn on tracing */
@@ -193,8 +239,8 @@ ei_recv_internal (int fd,
 	|| ei_decode_atom_as(header,&index,msg->toname,sizeof(msg->toname),ERLANG_UTF8,NULL,NULL)
 	|| ei_decode_trace(header,&index,&msg->token))
     {
-	erl_errno = EIO;
-	return -1;
+        EI_CONN_SAVE_ERRNO__(EBADMSG);      
+        return ERL_ERROR;
     }
 
     ei_trace(1,&msg->token); /* turn on tracing */
@@ -207,8 +253,8 @@ ei_recv_internal (int fd,
 	|| ei_decode_pid(header,&index,&msg->to)
 	|| ei_decode_trace(header,&index,&msg->token))
     {
-	erl_errno = EIO;
-	return -1;
+        EI_CONN_SAVE_ERRNO__(EBADMSG);      
+        return ERL_ERROR;
     }
 
     ei_trace(1,&msg->token); /* turn on tracing */
@@ -235,14 +281,14 @@ ei_recv_internal (int fd,
           err = ei_read_fill_ctx_t__(cbs, ctx, header, &rlen, tmo);
           if (err) {
               EI_CONN_SAVE_ERRNO__(err);
-              return -1;
+              return ERL_ERROR;
           }
           if (rlen == 0)
               break;
           remain -= rlen;
       }
       erl_errno = EMSGSIZE;
-      return -1;
+      return ERL_ERROR;
     }
     else {
 	/* Dynamic buffer --- grow it. */
@@ -253,7 +299,7 @@ ei_recv_internal (int fd,
       if ((mbuf = realloc(*mbufp, msglen)) == NULL)
       {
 	  erl_errno = ENOMEM;
-	  return -1;
+	  return ERL_ERROR;
       }
 
       *mbufp = mbuf;
@@ -276,7 +322,7 @@ ei_recv_internal (int fd,
       if (err) {
           *msglenp = bytesread-index+1; /* actual bytes in users buffer */
           EI_CONN_SAVE_ERRNO__(err);
-          return -1;
+          return ERL_ERROR;
       }
   }
 
@@ -288,6 +334,60 @@ ei_recv_internal (int fd,
   if (msg->msgtype > 10) msg->msgtype -= 10;
   
   return msg->msgtype;
+}
+
+static int
+send_unlink_id_ack(ei_socket_callbacks *cbs, void *ctx,
+                   char *id_ext, size_t id_size,
+                   erlang_pid *from, erlang_pid *to,
+                   unsigned tmo)
+{
+    /* Send: {ERL_UNLINK_ID_ACK, Id, From, To} */
+    int err, index;
+    ssize_t wlen;
+    char ctl[EIRECVBUF]; /* should be large enough for any ctrl msg */
+    char *s;
+
+    EI_CONN_SAVE_ERRNO__(EINVAL);
+
+    /* leave space for packet size and pass through marker... */
+    index = 5;
+    if (ei_encode_version(ctl, &index) < 0)
+        return ERL_ERROR;
+    if (ei_encode_tuple_header(ctl, &index, 4) < 0)
+        return ERL_ERROR;
+    if (ei_encode_long(ctl, &index, ERL_UNLINK_ID_ACK) < 0)
+        return ERL_ERROR;
+    s = &ctl[0] + index;
+    index += id_size;
+    memcpy((void *) s, (void *) id_ext, id_size);
+    if (ei_encode_pid(ctl, &index, from) < 0)
+        return ERL_ERROR;
+    if (ei_encode_pid(ctl, &index, to) < 0)
+        return ERL_ERROR;
+
+    s = &ctl[0];
+    /* packet size */
+    put32be(s, index - 4);
+    /* pass throug */
+    put8(s, ERL_PASS_THROUGH);
+
+    if (ei_tracelevel >= 4) {
+        if (ei_show_sendmsg(stderr, ctl, NULL) < 0)
+            return ERL_ERROR;
+    }
+
+    wlen = (ssize_t) index;
+    err = ei_write_fill_ctx_t__(cbs, ctx, ctl, &wlen, tmo);
+    if (!err && wlen != (ssize_t) index)
+        err = EIO;
+    if (err) {
+        EI_CONN_SAVE_ERRNO__(err);
+        return ERL_ERROR;
+  }
+
+  erl_errno = 0;
+  return 0;
 }
 
 int ei_receive_encoded(int fd, char **mbufp, int *bufsz,

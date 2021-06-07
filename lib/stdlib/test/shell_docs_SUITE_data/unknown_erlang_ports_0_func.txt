@@ -1,0 +1,7 @@
+
+  [;1m-spec erlang:ports() -> [port()].[0m
+
+  Returns a list of port identifiers corresponding to all the ports
+  existing on the local node.
+
+  Notice that an exiting port exists, but is not open.

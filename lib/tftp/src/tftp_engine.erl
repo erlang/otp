@@ -883,15 +883,14 @@ do_send_msg(#config{udp_socket = Socket, udp_host = RemoteHost, udp_port = Remot
     %%  DumpPath  ->
     %%      trace_udp_send(Req, Msg, IoList, DumpPath)
     %% end,
-    Res = gen_udp:send(Socket, RemoteHost, RemotePort, IoList),
-    case Res of
-        ok ->
-            ok;
-        {error, einval = Reason} ->
+    try
+        ok = gen_udp:send(Socket, RemoteHost, RemotePort, IoList)
+    catch
+        error:{badmatch,{error,einval=Reason}}:StackTrace ->
             error_msg(Config,
                       "Stacktrace; ~p\n gen_udp:send(~p, ~p, ~p, ~p) -> ~p\n", 
-                      [erlang:get_stacktrace(), Socket, RemoteHost, RemotePort, IoList, {error, Reason}]);
-        {error, Reason} ->
+                      [StackTrace, Socket, RemoteHost, RemotePort, IoList, {error, Reason}]);
+        error:{badmatch,{error,Reason}} ->
             {error, Reason} 
     end.
 

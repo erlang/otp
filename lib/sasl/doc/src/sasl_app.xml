@@ -47,7 +47,7 @@
     <title>Configuration</title>
     <p>The following configuration parameters are defined for the SASL
       application. For more information about configuration parameters, see
-      <seealso marker="kernel:app"><c>app(4)</c></seealso> in Kernel.</p>
+      <seefile marker="kernel:app"><c>app(4)</c></seefile> in Kernel.</p>
     <p>All configuration parameters are optional.</p>
     <taglist>
       <tag><c><![CDATA[start_prg = string() ]]></c></tag>
@@ -66,7 +66,7 @@
       <item>
         <p>This parameter specifies the client directory at the master
           nodes. For details, see
-          <seealso marker="doc/design_principles:release_handling">Release Handling</seealso>
+          <seeguide marker="system/design_principles:release_handling">Release Handling</seeguide>
           in <em>OTP Design Principles</em>. This parameter is
           ignored if parameter <c>masters</c> is not set.</p>
       </item>
@@ -105,8 +105,8 @@
       reports are by default stopped by the primary log level, but can
       be enabled by setting this level to <c>info</c>, for example by
       using the Kernel configuration
-      parameter <seealso marker="kernel:kernel_app#logger_level">
-      <c>logger_level</c></seealso>.</p>
+      parameter <seeapp marker="kernel:kernel_app#logger_level">
+      <c>logger_level</c></seeapp>.</p>
     <p>If the old error logger event handlers are still desired, they
       must be added by
       calling <c>error_logger:add_report_handler/1,2</c>.</p>
@@ -116,7 +116,7 @@
         <p>Formats and writes <em>supervisor reports</em>, <em>crash
         reports</em>, and <em>progress reports</em> to <c>stdio</c>.
         This error logger event handler uses
-	<seealso marker="kernel:kernel_app#deprecated-configuration-parameters"><c>error_logger_format_depth</c></seealso>
+	<seeapp marker="kernel:kernel_app#deprecated-configuration-parameters"><c>error_logger_format_depth</c></seeapp>
 	in the Kernel application to limit how much detail is printed
 	in crash and supervisor reports.</p>
       </item>
@@ -125,15 +125,15 @@
         <p>Formats and writes <em>supervisor reports</em>, <em>crash
         report</em>, and <em>progress report</em> to a single file.
         This error logger event handler uses
-	<seealso marker="kernel:kernel_app#deprecated-configuration-parameters"><c>error_logger_format_depth</c></seealso>
+	<seeapp marker="kernel:kernel_app#deprecated-configuration-parameters"><c>error_logger_format_depth</c></seeapp>
 	in the Kernel application to limit the details printed in
 	crash and supervisor reports.</p>
       </item>
     </taglist>
     <p>A similar behaviour, but still using the new logger API, can be
       obtained by setting the Kernel application environment
-      variable <seealso marker="kernel:kernel_app#logger_sasl_compatible">
-	<c>logger_sasl_compatible</c></seealso> to <c>true</c>. This
+      variable <seeapp marker="kernel:kernel_app#logger_sasl_compatible">
+	<c>logger_sasl_compatible</c></seeapp> to <c>true</c>. This
       adds a second instance of the standard Logger handler,
       named <c>sasl</c>, which only prints the SASL reports. No SASL
       reports are then printed by the Kernel logger handler.</p>
@@ -155,7 +155,7 @@
           <tag><c>{file,FileName,Modes}</c></tag>
           <item><p>Same as <c>{file,FileName}</c>, except that <c>Modes</c>
             allows you to specify the modes used for opening the <c>FileName</c>
-            given to the <seealso marker="kernel:file#open/2">file:open/2</seealso>
+            given to the <seemfa marker="kernel:file#open/2">file:open/2</seemfa>
             call. By default, the file is opened in <c>write</c> mode
             with encoding <c>utf8</c>. Use <c>[append]</c> to have
             the <c>FileName</c> open in append mode. A different
@@ -184,8 +184,8 @@
       the error logger to disk. Multiple files and log rotation are
       used. For efficiency reasons, each event is written as a
       binary. For more information about this handler,
-      see <seealso marker="stdlib:log_mf_h">the STDLIB Reference
-      Manual</seealso>.</p>
+      see <seeerl marker="stdlib:log_mf_h">the STDLIB Reference
+      Manual</seeerl>.</p>
     <p>To activate this event handler, three SASL configuration
       parameters must be
       set:</p>
@@ -209,8 +209,8 @@
           not installed.</p>
       </item>
     </taglist>
-    <p>The new <seealso marker="kernel:logger_disk_log_h">
-	<c>logger_disk_log_h</c></seealso> might be an alternative
+    <p>The new <seeerl marker="kernel:logger_disk_log_h">
+	<c>logger_disk_log_h</c></seeerl> might be an alternative
       to <c>log_mf_h</c> if log rotation is desired. This does,
       however, write the log events in clear text and not as binaries.</p>
 
@@ -218,13 +218,13 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="alarm_handler"><c>alarm_handler(3)</c></seealso>,
-      <seealso marker="kernel:error_logger"><c>error_logger(3)</c></seealso>,
-      <seealso marker="kernel:logger"><c>logger(3)</c></seealso>,
-      <seealso marker="stdlib:log_mf_h"><c>log_mf_h(3)</c></seealso>,
-      <seealso marker="rb"><c>rb(3)</c></seealso>,
-      <seealso marker="release_handler"><c>release_handler(3)</c></seealso>,
-      <seealso marker="systools"><c>systools(3)</c></seealso></p>
+    <p><seeerl marker="alarm_handler"><c>alarm_handler(3)</c></seeerl>,
+      <seeerl marker="kernel:error_logger"><c>error_logger(3)</c></seeerl>,
+      <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>,
+      <seeerl marker="stdlib:log_mf_h"><c>log_mf_h(3)</c></seeerl>,
+      <seeerl marker="rb"><c>rb(3)</c></seeerl>,
+      <seeerl marker="release_handler"><c>release_handler(3)</c></seeerl>,
+      <seeerl marker="systools"><c>systools(3)</c></seeerl></p>
   </section>
 </appref>
 

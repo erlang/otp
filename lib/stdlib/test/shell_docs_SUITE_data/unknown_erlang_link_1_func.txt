@@ -1,0 +1,25 @@
+
+  [;1m-spec link(PidOrPort) -> true when PidOrPort :: pid() | port().[0m
+
+  Creates a link between the calling process and another process (or
+  port) [;;4mPidOrPort[0m. If the link already exists or a process
+  attempts to create a link to itself, nothing is done. Returns [;;4m[0m
+  [;;4mtrue[0m if the link is set up.
+
+  If [;;4mPidOrPort[0m does not exist and checking it is cheap, a [;;4mnoproc[0m
+  error is raised. Currently, checking is cheap if the [;;4mPidOrPort[0m
+  is local and the caller does not trap exits (see [;;4mprocess_flag/2 [0m
+  ).
+
+  Apart from any exit signals from the linked process itself, two
+  special exit signals may be sent to the calling process:
+
+   • [;;4mnoproc[0m is sent immediately if [;;4mPidOrPort[0m does not exist at
+     the time of linking (if the caller is trapping exits or [;;4m[0m
+     [;;4mPidOrPort[0m is remote).
+
+   • [;;4mnoconnection[0m if [;;4mPidOrPort[0m is remote and a connection
+     between the nodes could not be established or was severed.
+
+  See Processes ➜ Links in the Erlang Reference Manual for more
+  details.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,20 +18,11 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html">wxButton</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxControl}
-%% <br />{@link wxWindow}
-%% <br />{@link wxEvtHandler}
-%% </p>
-%% @type wxButton().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxButton).
 -include("wxe.hrl").
--export([create/3,create/4,destroy/1,getDefaultSize/0,new/0,new/2,new/3,setDefault/1,
-  setLabel/2]).
+-export([create/3,create/4,destroy/1,getBitmapDisabled/1,getBitmapFocus/1,getBitmapLabel/1,
+  getDefaultSize/0,getDefaultSize/1,new/0,new/2,new/3,setBitmapDisabled/2,
+  setBitmapFocus/2,setBitmapLabel/2,setDefault/1,setLabel/2]).
 
 %% inherited exports
 -export([cacheBestSize/2,canSetTransparent/1,captureMouse/1,center/1,center/2,
@@ -43,23 +34,24 @@
   freeze/1,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
   getBestSize/1,getCaret/1,getCharHeight/1,getCharWidth/1,getChildren/1,
   getClientSize/1,getContainingSizer/1,getContentScaleFactor/1,getCursor/1,
-  getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,getForegroundColour/1,
-  getGrandParent/1,getHandle/1,getHelpText/1,getId/1,getLabel/1,getMaxSize/1,
-  getMinSize/1,getName/1,getParent/1,getPosition/1,getRect/1,getScreenPosition/1,
-  getScreenRect/1,getScrollPos/2,getScrollRange/2,getScrollThumb/2,
-  getSize/1,getSizer/1,getTextExtent/2,getTextExtent/3,getToolTip/1,
-  getUpdateRegion/1,getVirtualSize/1,getWindowStyleFlag/1,getWindowVariant/1,
-  hasCapture/1,hasScrollbar/2,hasTransparentBackground/1,hide/1,inheritAttributes/1,
+  getDPI/1,getDPIScaleFactor/1,getDropTarget/1,getExtraStyle/1,getFont/1,
+  getForegroundColour/1,getGrandParent/1,getHandle/1,getHelpText/1,
+  getId/1,getLabel/1,getMaxSize/1,getMinSize/1,getName/1,getParent/1,
+  getPosition/1,getRect/1,getScreenPosition/1,getScreenRect/1,getScrollPos/2,
+  getScrollRange/2,getScrollThumb/2,getSize/1,getSizer/1,getTextExtent/2,
+  getTextExtent/3,getThemeEnabled/1,getToolTip/1,getUpdateRegion/1,
+  getVirtualSize/1,getWindowStyleFlag/1,getWindowVariant/1,hasCapture/1,
+  hasScrollbar/2,hasTransparentBackground/1,hide/1,inheritAttributes/1,
   initDialog/1,invalidateBestSize/1,isDoubleBuffered/1,isEnabled/1,
-  isExposed/2,isExposed/3,isExposed/5,isRetained/1,isShown/1,isTopLevel/1,
-  layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,move/2,
-  move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,navigate/1,
-  navigate/2,pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,popEventHandler/2,
-  popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
-  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,
-  screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
-  setAcceleratorTable/2,setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,
-  setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
+  isExposed/2,isExposed/3,isExposed/5,isFrozen/1,isRetained/1,isShown/1,
+  isShownOnScreen/1,isTopLevel/1,layout/1,lineDown/1,lineUp/1,lower/1,
+  move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
+  navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
+  popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
+  setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
+  setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
   setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,
   setFont/2,setForegroundColour/2,setHelpText/2,setId/2,setMaxSize/2,
   setMinSize/2,setName/2,setOwnBackgroundColour/2,setOwnFont/2,setOwnForegroundColour/2,
@@ -67,11 +59,12 @@
   setSize/2,setSize/3,setSize/5,setSize/6,setSizeHints/2,setSizeHints/3,
   setSizeHints/4,setSizer/2,setSizer/3,setSizerAndFit/2,setSizerAndFit/3,
   setThemeEnabled/2,setToolTip/2,setTransparent/2,setVirtualSize/2,
-  setVirtualSize/3,setVirtualSizeHints/2,setVirtualSizeHints/3,setVirtualSizeHints/4,
-  setWindowStyle/2,setWindowStyleFlag/2,setWindowVariant/2,shouldInheritColours/1,
-  show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
-  update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
+  setVirtualSize/3,setWindowStyle/2,setWindowStyleFlag/2,setWindowVariant/2,
+  shouldInheritColours/1,show/1,show/2,thaw/1,transferDataFromWindow/1,
+  transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
+  validate/1,warpPointer/3]).
 
+-type wxButton() :: wx:wx_object().
 -export_type([wxButton/0]).
 %% @hidden
 parent_class(wxControl) -> true;
@@ -79,12 +72,11 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxButton() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonwxbutton">external documentation</a>.
 -spec new() -> wxButton().
 new() ->
-  wxe_util:construct(?wxButton_new_0,
-  <<>>).
+  wxe_util:queue_cmd(?get_env(), ?wxButton_new_0),
+  wxe_util:rec(?wxButton_new_0).
 
 %% @equiv new(Parent,Id, [])
 -spec new(Parent, Id) -> wxButton() when
@@ -102,18 +94,18 @@ new(Parent,Id)
 		 | {'size', {W::integer(), H::integer()}}
 		 | {'style', integer()}
 		 | {'validator', wx:wx_object()}.
-new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
+new(#wx_ref{type=ParentT}=Parent,Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
-  MOpts = fun({label, Label}, Acc) ->   Label_UC = unicode:characters_to_binary([Label,0]),[<<1:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((0+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
-          ({pos, {PosX,PosY}}, Acc) -> [<<2:32/?UI,PosX:32/?UI,PosY:32/?UI,0:32>>|Acc];
-          ({size, {SizeW,SizeH}}, Acc) -> [<<3:32/?UI,SizeW:32/?UI,SizeH:32/?UI,0:32>>|Acc];
-          ({style, Style}, Acc) -> [<<4:32/?UI,Style:32/?UI>>|Acc];
-          ({validator, #wx_ref{type=ValidatorT,ref=ValidatorRef}}, Acc) ->   ?CLASS(ValidatorT,wx),[<<5:32/?UI,ValidatorRef:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:construct(?wxButton_new_3,
-  <<ParentRef:32/?UI,Id:32/?UI, BinOpt/binary>>).
+  MOpts = fun({label, Label}) ->   Label_UC = unicode:characters_to_binary(Label),{label,Label_UC};
+          ({pos, {_posX,_posY}} = Arg) -> Arg;
+          ({size, {_sizeW,_sizeH}} = Arg) -> Arg;
+          ({style, _style} = Arg) -> Arg;
+          ({validator, #wx_ref{type=ValidatorT}} = Arg) ->   ?CLASS(ValidatorT,wx),Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(Parent,Id, Opts,?get_env(),?wxButton_new_3),
+  wxe_util:rec(?wxButton_new_3).
 
 %% @equiv create(This,Parent,Id, [])
 -spec create(This, Parent, Id) -> boolean() when
@@ -131,54 +123,111 @@ create(This,Parent,Id)
 		 | {'size', {W::integer(), H::integer()}}
 		 | {'style', integer()}
 		 | {'validator', wx:wx_object()}.
-create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
+create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxButton),
   ?CLASS(ParentT,wxWindow),
-  MOpts = fun({label, Label}, Acc) ->   Label_UC = unicode:characters_to_binary([Label,0]),[<<1:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((0+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
-          ({pos, {PosX,PosY}}, Acc) -> [<<2:32/?UI,PosX:32/?UI,PosY:32/?UI,0:32>>|Acc];
-          ({size, {SizeW,SizeH}}, Acc) -> [<<3:32/?UI,SizeW:32/?UI,SizeH:32/?UI,0:32>>|Acc];
-          ({style, Style}, Acc) -> [<<4:32/?UI,Style:32/?UI>>|Acc];
-          ({validator, #wx_ref{type=ValidatorT,ref=ValidatorRef}}, Acc) ->   ?CLASS(ValidatorT,wx),[<<5:32/?UI,ValidatorRef:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:call(?wxButton_Create,
-  <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI, 0:32,BinOpt/binary>>).
+  MOpts = fun({label, Label}) ->   Label_UC = unicode:characters_to_binary(Label),{label,Label_UC};
+          ({pos, {_posX,_posY}} = Arg) -> Arg;
+          ({size, {_sizeW,_sizeH}} = Arg) -> Arg;
+          ({style, _style} = Arg) -> Arg;
+          ({validator, #wx_ref{type=ValidatorT}} = Arg) ->   ?CLASS(ValidatorT,wx),Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(This,Parent,Id, Opts,?get_env(),?wxButton_Create),
+  wxe_util:rec(?wxButton_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetdefaultsize">external documentation</a>.
 -spec getDefaultSize() -> {W::integer(), H::integer()}.
 getDefaultSize() ->
-  wxe_util:call(?wxButton_GetDefaultSize,
-  <<>>).
+  wxe_util:queue_cmd(?get_env(), ?wxButton_GetDefaultSize_STAT_0),
+  wxe_util:rec(?wxButton_GetDefaultSize_STAT_0).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetdefaultsize">external documentation</a>.
+-spec getDefaultSize(Win) -> {W::integer(), H::integer()} when
+	Win::wxWindow:wxWindow().
+getDefaultSize(#wx_ref{type=WinT}=Win) ->
+  ?CLASS(WinT,wxWindow),
+  wxe_util:queue_cmd(Win,?get_env(),?wxButton_GetDefaultSize_STAT_1),
+  wxe_util:rec(?wxButton_GetDefaultSize_STAT_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetdefault">external documentation</a>.
--spec setDefault(This) -> 'ok' when
+-spec setDefault(This) -> wxWindow:wxWindow() when
 	This::wxButton().
-setDefault(#wx_ref{type=ThisT,ref=ThisRef}) ->
+setDefault(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxButton),
-  wxe_util:cast(?wxButton_SetDefault,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxButton_SetDefault),
+  wxe_util:rec(?wxButton_SetDefault).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetlabel">external documentation</a>.
 -spec setLabel(This, Label) -> 'ok' when
 	This::wxButton(), Label::unicode:chardata().
-setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
+setLabel(#wx_ref{type=ThisT}=This,Label)
  when ?is_chardata(Label) ->
   ?CLASS(ThisT,wxButton),
-  Label_UC = unicode:characters_to_binary([Label,0]),
-  wxe_util:cast(?wxButton_SetLabel,
-  <<ThisRef:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((0+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8>>).
+  Label_UC = unicode:characters_to_binary(Label),
+  wxe_util:queue_cmd(This,Label_UC,?get_env(),?wxButton_SetLabel).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetbitmapdisabled">external documentation</a>.
+-spec getBitmapDisabled(This) -> wxBitmap:wxBitmap() when
+	This::wxButton().
+getBitmapDisabled(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxButton),
+  wxe_util:queue_cmd(This,?get_env(),?wxButton_GetBitmapDisabled),
+  wxe_util:rec(?wxButton_GetBitmapDisabled).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetbitmapfocus">external documentation</a>.
+-spec getBitmapFocus(This) -> wxBitmap:wxBitmap() when
+	This::wxButton().
+getBitmapFocus(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxButton),
+  wxe_util:queue_cmd(This,?get_env(),?wxButton_GetBitmapFocus),
+  wxe_util:rec(?wxButton_GetBitmapFocus).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetbitmaplabel">external documentation</a>.
+-spec getBitmapLabel(This) -> wxBitmap:wxBitmap() when
+	This::wxButton().
+getBitmapLabel(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxButton),
+  wxe_util:queue_cmd(This,?get_env(),?wxButton_GetBitmapLabel),
+  wxe_util:rec(?wxButton_GetBitmapLabel).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetbitmapdisabled">external documentation</a>.
+-spec setBitmapDisabled(This, Bitmap) -> 'ok' when
+	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
+setBitmapDisabled(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
+  ?CLASS(ThisT,wxButton),
+  ?CLASS(BitmapT,wxBitmap),
+  wxe_util:queue_cmd(This,Bitmap,?get_env(),?wxButton_SetBitmapDisabled).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetbitmapfocus">external documentation</a>.
+-spec setBitmapFocus(This, Bitmap) -> 'ok' when
+	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
+setBitmapFocus(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
+  ?CLASS(ThisT,wxButton),
+  ?CLASS(BitmapT,wxBitmap),
+  wxe_util:queue_cmd(This,Bitmap,?get_env(),?wxButton_SetBitmapFocus).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetbitmaplabel">external documentation</a>.
+-spec setBitmapLabel(This, Bitmap) -> 'ok' when
+	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
+setBitmapLabel(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
+  ?CLASS(ThisT,wxButton),
+  ?CLASS(BitmapT,wxBitmap),
+  wxe_util:queue_cmd(This,Bitmap,?get_env(),?wxButton_SetBitmapLabel).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxButton()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxButton),
-  wxe_util:destroy(?DESTROY_OBJECT,Obj),
+  wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),
   ok.
  %% From wxControl
 %% @hidden
 getLabel(This) -> wxControl:getLabel(This).
  %% From wxWindow
+%% @hidden
+getDPI(This) -> wxWindow:getDPI(This).
 %% @hidden
 getContentScaleFactor(This) -> wxWindow:getContentScaleFactor(This).
 %% @hidden
@@ -218,19 +267,13 @@ setWindowStyleFlag(This,Style) -> wxWindow:setWindowStyleFlag(This,Style).
 %% @hidden
 setWindowStyle(This,Style) -> wxWindow:setWindowStyle(This,Style).
 %% @hidden
-setVirtualSizeHints(This,MinW,MinH, Options) -> wxWindow:setVirtualSizeHints(This,MinW,MinH, Options).
-%% @hidden
-setVirtualSizeHints(This,MinW,MinH) -> wxWindow:setVirtualSizeHints(This,MinW,MinH).
-%% @hidden
-setVirtualSizeHints(This,MinSize) -> wxWindow:setVirtualSizeHints(This,MinSize).
-%% @hidden
-setVirtualSize(This,X,Y) -> wxWindow:setVirtualSize(This,X,Y).
+setVirtualSize(This,Width,Height) -> wxWindow:setVirtualSize(This,Width,Height).
 %% @hidden
 setVirtualSize(This,Size) -> wxWindow:setVirtualSize(This,Size).
 %% @hidden
-setToolTip(This,Tip) -> wxWindow:setToolTip(This,Tip).
+setToolTip(This,TipString) -> wxWindow:setToolTip(This,TipString).
 %% @hidden
-setThemeEnabled(This,EnableTheme) -> wxWindow:setThemeEnabled(This,EnableTheme).
+setThemeEnabled(This,Enable) -> wxWindow:setThemeEnabled(This,Enable).
 %% @hidden
 setSizerAndFit(This,Sizer, Options) -> wxWindow:setSizerAndFit(This,Sizer, Options).
 %% @hidden
@@ -254,13 +297,13 @@ setSize(This,Width,Height) -> wxWindow:setSize(This,Width,Height).
 %% @hidden
 setSize(This,Rect) -> wxWindow:setSize(This,Rect).
 %% @hidden
-setScrollPos(This,Orient,Pos, Options) -> wxWindow:setScrollPos(This,Orient,Pos, Options).
+setScrollPos(This,Orientation,Pos, Options) -> wxWindow:setScrollPos(This,Orientation,Pos, Options).
 %% @hidden
-setScrollPos(This,Orient,Pos) -> wxWindow:setScrollPos(This,Orient,Pos).
+setScrollPos(This,Orientation,Pos) -> wxWindow:setScrollPos(This,Orientation,Pos).
 %% @hidden
-setScrollbar(This,Orient,Pos,ThumbVisible,Range, Options) -> wxWindow:setScrollbar(This,Orient,Pos,ThumbVisible,Range, Options).
+setScrollbar(This,Orientation,Position,ThumbSize,Range, Options) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range, Options).
 %% @hidden
-setScrollbar(This,Orient,Pos,ThumbVisible,Range) -> wxWindow:setScrollbar(This,Orient,Pos,ThumbVisible,Range).
+setScrollbar(This,Orientation,Position,ThumbSize,Range) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range).
 %% @hidden
 setPalette(This,Pal) -> wxWindow:setPalette(This,Pal).
 %% @hidden
@@ -268,7 +311,7 @@ setName(This,Name) -> wxWindow:setName(This,Name).
 %% @hidden
 setId(This,Winid) -> wxWindow:setId(This,Winid).
 %% @hidden
-setHelpText(This,Text) -> wxWindow:setHelpText(This,Text).
+setHelpText(This,HelpText) -> wxWindow:setHelpText(This,HelpText).
 %% @hidden
 setForegroundColour(This,Colour) -> wxWindow:setForegroundColour(This,Colour).
 %% @hidden
@@ -280,7 +323,7 @@ setFocus(This) -> wxWindow:setFocus(This).
 %% @hidden
 setExtraStyle(This,ExStyle) -> wxWindow:setExtraStyle(This,ExStyle).
 %% @hidden
-setDropTarget(This,DropTarget) -> wxWindow:setDropTarget(This,DropTarget).
+setDropTarget(This,Target) -> wxWindow:setDropTarget(This,Target).
 %% @hidden
 setOwnForegroundColour(This,Colour) -> wxWindow:setOwnForegroundColour(This,Colour).
 %% @hidden
@@ -288,9 +331,9 @@ setOwnFont(This,Font) -> wxWindow:setOwnFont(This,Font).
 %% @hidden
 setOwnBackgroundColour(This,Colour) -> wxWindow:setOwnBackgroundColour(This,Colour).
 %% @hidden
-setMinSize(This,MinSize) -> wxWindow:setMinSize(This,MinSize).
+setMinSize(This,Size) -> wxWindow:setMinSize(This,Size).
 %% @hidden
-setMaxSize(This,MaxSize) -> wxWindow:setMaxSize(This,MaxSize).
+setMaxSize(This,Size) -> wxWindow:setMaxSize(This,Size).
 %% @hidden
 setCursor(This,Cursor) -> wxWindow:setCursor(This,Cursor).
 %% @hidden
@@ -344,10 +387,6 @@ popupMenu(This,Menu, Options) -> wxWindow:popupMenu(This,Menu, Options).
 %% @hidden
 popupMenu(This,Menu) -> wxWindow:popupMenu(This,Menu).
 %% @hidden
-popEventHandler(This, Options) -> wxWindow:popEventHandler(This, Options).
-%% @hidden
-popEventHandler(This) -> wxWindow:popEventHandler(This).
-%% @hidden
 pageUp(This) -> wxWindow:pageUp(This).
 %% @hidden
 pageDown(This) -> wxWindow:pageDown(This).
@@ -366,10 +405,6 @@ move(This,X,Y) -> wxWindow:move(This,X,Y).
 %% @hidden
 move(This,Pt) -> wxWindow:move(This,Pt).
 %% @hidden
-makeModal(This, Options) -> wxWindow:makeModal(This, Options).
-%% @hidden
-makeModal(This) -> wxWindow:makeModal(This).
-%% @hidden
 lower(This) -> wxWindow:lower(This).
 %% @hidden
 lineUp(This) -> wxWindow:lineUp(This).
@@ -377,6 +412,8 @@ lineUp(This) -> wxWindow:lineUp(This).
 lineDown(This) -> wxWindow:lineDown(This).
 %% @hidden
 layout(This) -> wxWindow:layout(This).
+%% @hidden
+isShownOnScreen(This) -> wxWindow:isShownOnScreen(This).
 %% @hidden
 isTopLevel(This) -> wxWindow:isTopLevel(This).
 %% @hidden
@@ -391,6 +428,8 @@ isExposed(This,X,Y) -> wxWindow:isExposed(This,X,Y).
 isExposed(This,Pt) -> wxWindow:isExposed(This,Pt).
 %% @hidden
 isEnabled(This) -> wxWindow:isEnabled(This).
+%% @hidden
+isFrozen(This) -> wxWindow:isFrozen(This).
 %% @hidden
 invalidateBestSize(This) -> wxWindow:invalidateBestSize(This).
 %% @hidden
@@ -416,6 +455,8 @@ getUpdateRegion(This) -> wxWindow:getUpdateRegion(This).
 %% @hidden
 getToolTip(This) -> wxWindow:getToolTip(This).
 %% @hidden
+getThemeEnabled(This) -> wxWindow:getThemeEnabled(This).
+%% @hidden
 getTextExtent(This,String, Options) -> wxWindow:getTextExtent(This,String, Options).
 %% @hidden
 getTextExtent(This,String) -> wxWindow:getTextExtent(This,String).
@@ -424,11 +465,11 @@ getSizer(This) -> wxWindow:getSizer(This).
 %% @hidden
 getSize(This) -> wxWindow:getSize(This).
 %% @hidden
-getScrollThumb(This,Orient) -> wxWindow:getScrollThumb(This,Orient).
+getScrollThumb(This,Orientation) -> wxWindow:getScrollThumb(This,Orientation).
 %% @hidden
-getScrollRange(This,Orient) -> wxWindow:getScrollRange(This,Orient).
+getScrollRange(This,Orientation) -> wxWindow:getScrollRange(This,Orientation).
 %% @hidden
-getScrollPos(This,Orient) -> wxWindow:getScrollPos(This,Orient).
+getScrollPos(This,Orientation) -> wxWindow:getScrollPos(This,Orientation).
 %% @hidden
 getScreenRect(This) -> wxWindow:getScreenRect(This).
 %% @hidden
@@ -460,7 +501,7 @@ getFont(This) -> wxWindow:getFont(This).
 %% @hidden
 getExtraStyle(This) -> wxWindow:getExtraStyle(This).
 %% @hidden
-getEventHandler(This) -> wxWindow:getEventHandler(This).
+getDPIScaleFactor(This) -> wxWindow:getDPIScaleFactor(This).
 %% @hidden
 getDropTarget(This) -> wxWindow:getDropTarget(This).
 %% @hidden
@@ -492,7 +533,7 @@ fitInside(This) -> wxWindow:fitInside(This).
 %% @hidden
 fit(This) -> wxWindow:fit(This).
 %% @hidden
-findWindow(This,Winid) -> wxWindow:findWindow(This,Winid).
+findWindow(This,Id) -> wxWindow:findWindow(This,Id).
 %% @hidden
 enable(This, Options) -> wxWindow:enable(This, Options).
 %% @hidden
@@ -520,17 +561,17 @@ clearBackground(This) -> wxWindow:clearBackground(This).
 %% @hidden
 centreOnParent(This, Options) -> wxWindow:centreOnParent(This, Options).
 %% @hidden
-centreOnParent(This) -> wxWindow:centreOnParent(This).
-%% @hidden
-centre(This, Options) -> wxWindow:centre(This, Options).
-%% @hidden
-centre(This) -> wxWindow:centre(This).
-%% @hidden
 centerOnParent(This, Options) -> wxWindow:centerOnParent(This, Options).
+%% @hidden
+centreOnParent(This) -> wxWindow:centreOnParent(This).
 %% @hidden
 centerOnParent(This) -> wxWindow:centerOnParent(This).
 %% @hidden
+centre(This, Options) -> wxWindow:centre(This, Options).
+%% @hidden
 center(This, Options) -> wxWindow:center(This, Options).
+%% @hidden
+centre(This) -> wxWindow:centre(This).
 %% @hidden
 center(This) -> wxWindow:center(This).
 %% @hidden

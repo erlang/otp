@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dets_v9).
+-compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
 %% Dets files, implementation part. This module handles version 9.
 %% To be called from dets.erl only.

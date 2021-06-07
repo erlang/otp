@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -373,10 +373,18 @@
 %% macro for use in guard for checking ip address {A,B,C,D}
 -define(ip(A,B,C,D),
 	(((A) bor (B) bor (C) bor (D)) band (bnot 16#ff)) =:= 0).
+-define(ip(Addr),
+        ?ip(element(1, (Addr)), element(2, (Addr)),
+            element(3, (Addr)), element(4, (Addr)))).
 
 -define(ip6(A,B,C,D,E,F,G,H), 
 	(((A) bor (B) bor (C) bor (D) bor (E) bor (F) bor (G) bor (H)) 
 	 band (bnot 16#ffff)) =:= 0).
+-define(ip6(Addr),
+        ?ip6(element(1, (Addr)), element(2, (Addr)),
+             element(3, (Addr)), element(4, (Addr)),
+             element(5, (Addr)), element(6, (Addr)),
+             element(7, (Addr)), element(8, (Addr)))).
 
 -define(ether(A,B,C,D,E,F), 
 	(((A) bor (B) bor (C) bor (D) bor (E) bor (F)) 
@@ -395,7 +403,7 @@
 %%
 -record(connect_opts, 
 	{ 
-	  ifaddr = any,     %% bind to interface address
+	  ifaddr,           %% don't bind explicitly, let connect decide
 	  port   = 0,       %% bind to port (default is dynamic port)
 	  fd     = -1,      %% fd >= 0 => already bound
 	  opts   = []       %% [{active,true}] added in inet:connect_options
@@ -403,7 +411,7 @@
 
 -record(listen_opts, 
 	{ 
-	  ifaddr = any,              %% bind to interface address
+	  ifaddr,                    %% interpreted as 'any' in *_tcp.erl
 	  port   = 0,                %% bind to port (default is dynamic port)
 	  backlog = ?LISTEN_BACKLOG, %% backlog
 	  fd      = -1,              %% %% fd >= 0 => already bound
@@ -413,14 +421,13 @@
 
 -record(udp_opts,
 	{
-	  ifaddr = any,
+	  ifaddr,
 	  port   = 0,
 	  fd     = -1,
 	  opts   = [{active,true}]
 	 }).
 
 -define(SCTP_DEF_BUFSZ, 65536).
--define(SCTP_DEF_IFADDR, any).
 -record(sctp_opts,
 	{
 	  ifaddr,

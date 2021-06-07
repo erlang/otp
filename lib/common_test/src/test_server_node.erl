@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_node).
--compile(r16).
+-compile(r20).
 
 %%%
 %%% The same compiled code for this module must be possible to load
@@ -598,10 +598,19 @@ pick_erl_program(L) ->
 	{prog, S} ->
 	    S;
 	{release, S} ->
+            clear_erl_aflags(),
 	    find_release(S);
 	this ->
 	    ct:get_progname()
     end.
+
+clear_erl_aflags() ->
+    %% When starting a node with a previous release, options in
+    %% ERL_AFLAGS could prevent the node from starting. For example,
+    %% if ERL_AFLAGS is set to "-emu_type lcnt", the node will only
+    %% start if the previous release happens to also have a lock
+    %% counter emulator installed (unlikely).
+    os:unsetenv("ERL_AFLAGS").
 
 %% This is an attempt to distinguish between spaces in the program
 %% path and spaces that separate arguments. The program is quoted to
@@ -636,7 +645,38 @@ find_release(latest) ->
 find_release(previous) ->
     "kaka";
 find_release(Rel) ->
-    find_release(os:type(), Rel).
+    case find_release(os:type(), Rel) of
+        none ->
+            find_release_path(Rel);
+        Else ->
+            Else
+    end.
+
+find_release_path(Rel) ->
+    Paths = string:lexemes(os:getenv("PATH"), ":"),
+    find_release_path(Paths, Rel).
+find_release_path([Path|T], Rel) ->
+    case os:find_executable("erl", Path) of
+        false ->
+            find_release_path(T, Rel);
+        ErlExec ->
+            Pattern = filename:join([Path,"..","releases","*","OTP_VERSION"]),
+            case filelib:wildcard(Pattern) of
+                [VersionFile] ->
+                    {ok, VsnBin} = file:read_file(VersionFile),
+                    [MajorVsn|_] = string:lexemes(VsnBin, "."),
+                    case unicode:characters_to_list(MajorVsn) of
+                        Rel ->
+                            ErlExec;
+                        _Else ->
+                            find_release_path(T, Rel)
+                    end;
+                _Else ->
+                    find_release_path(T, Rel)
+            end
+    end;
+find_release_path([], _) ->
+    none.
 
 find_release({unix,sunos}, Rel) ->
     case os:cmd("uname -p") of

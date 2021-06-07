@@ -61,7 +61,8 @@
          inet}).
 
 -record(opt, {sort_key=2,
-	      sort_incr=true
+	      sort_incr=true,
+              odd_bg
 	     }).
 
 -record(state,
@@ -111,7 +112,10 @@ init([Notebook, Parent, Config]) ->
     wxListCtrl:connect(Grid, size, [{skip, true}]),
 
     wxWindow:setFocus(Grid),
-    {Panel, #state{grid=Grid, parent=Parent, panel=Panel, timer=Config}}.
+    Even = wxSystemSettings:getColour(?wxSYS_COLOUR_LISTBOX),
+    Odd = observer_lib:mix(Even, wxSystemSettings:getColour(?wxSYS_COLOUR_HIGHLIGHT), 0.8),
+    Opt = #opt{odd_bg=Odd},
+    {Panel, #state{grid=Grid, parent=Parent, panel=Panel, timer=Config, opt=Opt}}.
 
 handle_event(#wx{id=?ID_REFRESH},
 	     State = #state{node=Node, grid=Grid, opt=Opt}) ->
@@ -553,7 +557,7 @@ filter_monitor_info() ->
 
 update_grid(Grid, Sel, Opt, Ports) ->
     wx:batch(fun() -> update_grid2(Grid, Sel, Opt, Ports) end).
-update_grid2(Grid, Sel, #opt{sort_key=Sort,sort_incr=Dir}, Ports) ->
+update_grid2(Grid, Sel, #opt{sort_key=Sort,sort_incr=Dir, odd_bg=BG}, Ports) ->
     wxListCtrl:deleteAllItems(Grid),
     Update =
 	fun(#port{id = Id,
@@ -563,8 +567,8 @@ update_grid2(Grid, Sel, #opt{sort_key=Sort,sort_incr=Dir}, Ports) ->
 		  controls = Ctrl},
 	    Row) ->
 		_Item = wxListCtrl:insertItem(Grid, Row, ""),
-		if (Row rem 2) =:= 0 ->
-			wxListCtrl:setItemBackgroundColour(Grid, Row, ?BG_EVEN);
+		if (Row rem 2) =:= 1 ->
+			wxListCtrl:setItemBackgroundColour(Grid, Row, BG);
 		   true -> ignore
 		end,
 

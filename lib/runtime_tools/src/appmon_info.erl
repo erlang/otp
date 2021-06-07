@@ -713,7 +713,11 @@ format(P) when is_pid(P) ->
 	_ -> pid_to_list(P)
     end;
 format(P) when is_port(P) ->
-    "port " ++ integer_to_list(element(2, erlang:port_info(P, id)));
+    case erlang:port_info(P, id) of
+        undefined -> "port closed";
+        {_, Pid} ->
+            "port " ++ integer_to_list(Pid)
+    end;
 format(X) ->
     io:format("What: ~p~n", [X]),
     "???".

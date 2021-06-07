@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,27 +25,36 @@
 int ei_encode_port(char *buf, int *index, const erlang_port *p)
 {
   char *s = buf + *index;
-  const char tag = p->creation > 3 ? ERL_NEW_PORT_EXT : ERL_PORT_EXT;
 
   ++(*index); /* skip ERL_PORT_EXT */
   if (ei_encode_atom_len_as(buf, index, p->node, strlen(p->node), ERLANG_UTF8,
 			    ERLANG_LATIN1|ERLANG_UTF8) < 0) {
       return -1;
   }
-  if (buf) {
-    put8(s, tag);
+  if (p->id > 0x0fffffff /* 28 bits */) {
+      if (buf) {
+          put8(s, ERL_V4_PORT_EXT);
 
-    s = buf + *index;
+          s = buf + *index;
 
-    /* now the integers */
-    put32be(s,p->id & 0x0fffffff /* 28 bits */);
-    if (tag == ERL_PORT_EXT) {
-        put8(s,(p->creation & 0x03));
-    } else {
-        put32be(s, p->creation);
-    }
+          /* now the integers */
+          put64be(s,p->id);
+          put32be(s, p->creation);
+      }
+      *index += 8 + 4;
   }
-  *index += 4 + (tag == ERL_PORT_EXT ? 1 : 4);
+  else {
+      if (buf) {
+          put8(s, ERL_NEW_PORT_EXT);
+
+          s = buf + *index;
+
+          /* now the integers */
+          put32be(s,p->id);
+          put32be(s, p->creation);
+      }
+      *index += 4 + 4;
+  }
   return 0;
 }
 

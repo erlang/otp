@@ -1240,7 +1240,10 @@ all_procinfo(Fd,Fun,Proc,WS,LineHead) ->
 	    Bytes = list_to_integer(bytes(Fd))*WS,
 	    get_procinfo(Fd,Fun,Proc#proc{bin_vheap_unused=Bytes},WS);
 	"OldBinVHeap unused" ->
-	    Bytes = list_to_integer(bytes(Fd))*WS,
+            Bytes = case bytes(Fd) of
+                        "overflow" -> -1;
+                        Int -> list_to_integer(Int)*WS
+                    end,
 	    get_procinfo(Fd,Fun,Proc#proc{old_bin_vheap_unused=Bytes},WS);
 	"New heap start" ->
 	    get_procinfo(Fd,Fun,Proc#proc{new_heap_start=bytes(Fd)},WS);
@@ -1343,12 +1346,12 @@ get_last_calls(Fd,<<>>,Acc,Lines) ->
     end.
 
 get_link_list(Fd) ->
-    case get_chunk(Fd) of
-	{ok,<<"[",Bin/binary>>} ->
+    case string(Fd) of
+	"[" ++ Rest ->
             #{links:=Links,
               mons:=Monitors,
               mon_by:=MonitoredBy} =
-                get_link_list(Fd,Bin,#{links=>[],mons=>[],mon_by=>[]}),
+                get_link_list(Rest,#{links=>[],mons=>[],mon_by=>[]}),
             {lists:reverse(Links),
              lists:reverse(Monitors),
              lists:reverse(MonitoredBy)};
@@ -1356,49 +1359,36 @@ get_link_list(Fd) ->
             {[],[],[]}
     end.
 
-get_link_list(Fd,<<NL:8,_/binary>>=Bin,Acc) when NL=:=$\r; NL=:=$\n->
-    skip(Fd,Bin),
-    Acc;
-get_link_list(Fd,Bin,Acc) ->
-    case binary:split(Bin,[<<", ">>,<<"]">>]) of
+get_link_list(Bin,Acc) ->
+    case string:split(Bin,", ") of
         [Link,Rest] ->
-            get_link_list(Fd,Rest,get_link(Link,Acc));
-        [Incomplete] ->
-            case get_chunk(Fd) of
-                {ok,More} ->
-                    get_link_list(Fd,<<Incomplete/binary,More/binary>>,Acc);
-                eof ->
-                    Acc
-            end
+            get_link_list(Rest,get_link(Link,Acc));
+        [Link] ->
+            get_link(string:trim(Link,trailing,"]"),Acc)
     end.
 
-get_link(<<"#Port",_/binary>>=PortBin,#{links:=Links}=Acc) ->
-    PortStr = binary_to_list(PortBin),
+get_link("#Port"++_=PortStr,#{links:=Links}=Acc) ->
     Acc#{links=>[{PortStr,PortStr}|Links]};
-get_link(<<"<",_/binary>>=PidBin,#{links:=Links}=Acc) ->
-    PidStr = binary_to_list(PidBin),
+get_link("<"++_=PidStr,#{links:=Links}=Acc) ->
     Acc#{links=>[{PidStr,PidStr}|Links]};
-get_link(<<"{to,",Bin/binary>>,#{mons:=Monitors}=Acc) ->
-    Acc#{mons=>[parse_monitor(Bin)|Monitors]};
-get_link(<<"{from,",Bin/binary>>,#{mon_by:=MonitoredBy}=Acc) ->
-    Acc#{mon_by=>[parse_monitor(Bin)|MonitoredBy]};
+get_link("{to," ++ Rest,#{mons:=Monitors}=Acc) ->
+    Acc#{mons=>[parse_monitor(Rest)|Monitors]};
+get_link("{from," ++ Rest,#{mon_by:=MonitoredBy}=Acc) ->
+    Acc#{mon_by=>[parse_monitor(Rest)|MonitoredBy]};
 get_link(Unexpected,Acc) ->
     io:format("WARNING: found unexpected data in link list:~n~ts~n",[Unexpected]),
     Acc.
 
-parse_monitor(MonBin) ->
-    case binary:split(MonBin,[<<",">>,<<"{">>,<<"}">>],[global]) of
-        [PidBin,RefBin,<<>>] ->
-            PidStr = binary_to_list(PidBin),
-            RefStr = binary_to_list(RefBin),
-            {PidStr,PidStr++" ("++RefStr++")"};
-        [<<>>,NameBin,NodeBin,<<>>,RefBin,<<>>] ->
+parse_monitor(Monitor) ->
+    case string:lexemes(Monitor,",{}") of
+        [Node,"[]"] ->
+            {Node,Node++" node monitor"};
+        [Pid,Ref] ->
+            {Pid,Pid++" ("++Ref++")"};
+        [Name,Node,Ref] ->
             %% Named process
-            NameStr = binary_to_list(NameBin),
-            NodeStr = binary_to_list(NodeBin),
-            PidStr = get_pid_from_name(NameStr,NodeStr),
-            RefStr = binary_to_list(RefBin),
-            {PidStr,"{"++NameStr++","++NodeStr++"} ("++RefStr++")"}
+            PidStr = get_pid_from_name(Name,Node),
+            {PidStr,"{"++Name++","++Node++"} ("++Ref++")"}
     end.
 
 get_pid_from_name(Name,Node) ->
@@ -2953,7 +2943,8 @@ parse_term([$p|Line0], _, D) ->			%Port.
     {Port,Line} = get_id(Line0),
     {['#CDVPort'|Port],Line,D};
 parse_term([$S|Str0], _, D) ->			%Information string.
-    Str = lists:reverse(skip_blanks(lists:reverse(Str0))),
+    Str1 = byte_list_to_string(Str0),
+    Str = lists:reverse(skip_blanks(lists:reverse(Str1))),
     {Str,[],D};
 parse_term([$D|Line0], DecodeOpts, D) ->                 %DistExternal
     try

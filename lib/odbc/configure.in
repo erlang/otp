@@ -21,22 +21,11 @@ dnl
 dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
 
-if test "x$no_recursion" != "xyes" -a "x$OVERRIDE_CONFIG_CACHE" = "x"; then
-    # We do not want to use a common cache!
-    cache_file=/dev/null
-fi
-
-
 
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(c_src/odbcserver.c)
 
-if test -z "$ERL_TOP" || test ! -d $ERL_TOP ; then
-  AC_CONFIG_AUX_DIRS(autoconf)
-else
-  erl_top=${ERL_TOP}
-  AC_CONFIG_AUX_DIRS($erl_top/erts/autoconf)
-fi
+AC_CONFIG_AUX_DIRS(${ERL_TOP}/erts/autoconf)
 
 if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
     AC_CANONICAL_HOST
@@ -52,7 +41,6 @@ AC_ARG_WITH(odbc,
 if test "$with_odbc" = "no"; then
 
    rm -f "$ERL_TOP/lib/odbc/SKIP"
-   echo "odbc disabled by user." > "$ERL_TOP/lib/odbc/SKIP"
 
 else dnl "$with_odbc" != "no"
 
@@ -112,6 +100,11 @@ if test "$erl_checkBoth" = 1; then
     AC_CHECK_FUNC(accept, odbc_erl_checkNsl=0, [LIBS=$tk_oldLibs])
 fi
 AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, main, [LIBS="$LIBS -lnsl"]))
+case "$host_os" in
+	haiku*)
+		AC_CHECK_LIB(network, socket)
+		;;
+esac
 
 dnl Checks for header files.
 AC_HEADER_STDC
@@ -159,6 +152,13 @@ AC_SUBST(TARGET_FLAGS)
 
                AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
             ;;
+	haiku*)
+               TARGET_FLAGS="-DUNIX"
+               ODBC_LIB= -L"/system/lib"
+               ODBC_INCLUDE="-I/system/develop/headers"
+               dnl Haiku's package manager will deal with this for us
+               AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+               ;;
         win32|cygwin)
 		TARGET_FLAGS="-DWIN32"
 		AC_CHECK_LIB(ws2_32, main)

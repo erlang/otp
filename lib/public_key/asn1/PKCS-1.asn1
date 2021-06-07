@@ -1,9 +1,14 @@
+-- PKCS #1 v2.2 ASN.1 Module
+-- Revised October 27, 2012
+-- (plain merged with previous version to support all that we need)
+
+-- This module has been checked for conformance with the
+-- ASN.1 standard by the OSS ASN.1 Tools
+
 PKCS-1 {
     iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-1(1)
     modules(0) pkcs-1(1)
 }
-
--- $Revision: 1.1 $
 
 DEFINITIONS EXPLICIT TAGS ::=
 
@@ -15,43 +20,74 @@ BEGIN
 --        gov(101) csor(3) nistalgorithm(4) modules(0) sha2(1)
 --    };
 
+-- ============================
+-- Basic object identifiers
+-- ============================
+-- The DER encoding of this in hexadecimal is:
+-- (0x)06 08
+-- 2A 86 48 86 F7 0D 01 01
+
 pkcs-1    OBJECT IDENTIFIER ::= {
     iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) 1
 }
 
+--
+-- When rsaEncryption is used in an AlgorithmIdentifier the parameters
+-- MUST be present and MUST be NULL.
+--
 rsaEncryption    OBJECT IDENTIFIER ::= { pkcs-1 1 }
 
+--
+-- When id-RSAES-OAEP is used in an AlgorithmIdentifier the parameters MUST
+-- be present and MUST be RSAES-OAEP-params.
+--
 id-RSAES-OAEP    OBJECT IDENTIFIER ::= { pkcs-1 7 }
 
-id-pSpecified    OBJECT IDENTIFIER ::= { pkcs-1 9 }
+--
+-- When id-pSpecified is used in an AlgorithmIdentifier the parameters MUST
+-- be an OCTET STRING.
+--
+id-pSpecified OBJECT IDENTIFIER ::= { pkcs-1 9 }
 
+--
+-- When id-RSASSA-PSS is used in an AlgorithmIdentifier the parameters MUST
+-- be present and MUST be RSASSA-PSS-params.
+--
 id-RSASSA-PSS    OBJECT IDENTIFIER ::= { pkcs-1 10 }
 
-md2WithRSAEncryption       OBJECT IDENTIFIER ::= { pkcs-1 2 }
-md5WithRSAEncryption       OBJECT IDENTIFIER ::= { pkcs-1 4 }
-sha1WithRSAEncryption      OBJECT IDENTIFIER ::= { pkcs-1 5 }
-sha256WithRSAEncryption    OBJECT IDENTIFIER ::= { pkcs-1 11 }
-sha384WithRSAEncryption    OBJECT IDENTIFIER ::= { pkcs-1 12 }
-sha512WithRSAEncryption    OBJECT IDENTIFIER ::= { pkcs-1 13 }
-sha224WithRSAEncryption    OBJECT IDENTIFIER  ::=  { pkcs-1 14 }
+--
+-- When the following OIDs are used in an AlgorithmIdentifier the parameters
+-- MUST be present and MUST be NULL.
+--
+md2WithRSAEncryption         OBJECT IDENTIFIER ::= { pkcs-1 2 }
+md5WithRSAEncryption         OBJECT IDENTIFIER ::= { pkcs-1 4 }
+sha1WithRSAEncryption        OBJECT IDENTIFIER ::= { pkcs-1 5 }
+sha224WithRSAEncryption      OBJECT IDENTIFIER ::= { pkcs-1 14 }
+sha256WithRSAEncryption      OBJECT IDENTIFIER ::= { pkcs-1 11 }
+sha384WithRSAEncryption      OBJECT IDENTIFIER ::= { pkcs-1 12 }
+sha512WithRSAEncryption      OBJECT IDENTIFIER ::= { pkcs-1 13 }
+sha512-224WithRSAEncryption  OBJECT IDENTIFIER ::= { pkcs-1 15 }
+sha512-256WithRSAEncryption  OBJECT IDENTIFIER ::= { pkcs-1 16 }
 
 -- ISO oid  - equvivalent to sha1WithRSAEncryption
 sha-1WithRSAEncryption OBJECT IDENTIFIER ::= {
 	iso(1) identified-organization(3) oiw(14) secsig(3) algorithms(2) sha-1WithRSAEncryption(29)}
-
-id-sha1    OBJECT IDENTIFIER ::= {
-    iso(1) identified-organization(3) oiw(14) secsig(3)
-    algorithms(2) 26
+--
+-- This OID really belongs in a module with the secsig OIDs.
+--
+id-sha1 OBJECT IDENTIFIER ::= {
+ iso(1) identified-organization(3) oiw(14) secsig(3) algorithms(2) 26
 }
-
+--
+-- OIDs for MD2 and MD5, allowed only in EMSA-PKCS1-v1_5.
+--
 id-md2 OBJECT IDENTIFIER ::= {
-    iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 2
-}
+ iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 2}
 
 id-md5 OBJECT IDENTIFIER ::= {
-    iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 5
-}
+ iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 5}
 
+-- Additional oids that where included previously...
 id-hmacWithSHA224 OBJECT IDENTIFIER ::= {
     iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 8
 }
@@ -67,8 +103,6 @@ id-hmacWithSHA384 OBJECT IDENTIFIER ::= {
 id-hmacWithSHA512 OBJECT IDENTIFIER ::= {
     iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 11
 }
-
-id-mgf1    OBJECT IDENTIFIER ::= { pkcs-1 8 }
 
 id-sha224  OBJECT IDENTIFIER  ::=  { joint-iso-itu-t(2)
         country(16) us(840) organization(1) gov(101) csor(3)
@@ -86,68 +120,255 @@ id-sha512  OBJECT IDENTIFIER  ::=  { joint-iso-itu-t(2)
         country(16) us(840) organization(1) gov(101) csor(3)
         nistalgorithm(4) hashalgs(2) 3 }
 
+--
+-- When id-mgf1 is used in an AlgorithmIdentifier the parameters MUST be
+-- present and MUST be a HashAlgorithm, for example sha1.
+--
+id-mgf1 OBJECT IDENTIFIER ::= { pkcs-1 8 }
 
-RSAPublicKey ::= SEQUENCE {
-    modulus           INTEGER,  -- n
-    publicExponent    INTEGER   -- e
+-- ================
+-- Useful types
+-- ================
+ALGORITHM-IDENTIFIER ::= CLASS {
+	&id OBJECT IDENTIFIER UNIQUE,
+	&Type OPTIONAL
 }
 
+ WITH SYNTAX { OID &id [PARAMETERS &Type] }
+-- Note: the parameter InfoObjectSet in the following definitions allows a
+-- distinct information object set to be specified for sets of algorithms
+-- such as:
+-- DigestAlgorithms ALGORITHM-IDENTIFIER ::= {
+-- { OID id-md2 PARAMETERS NULL }|
+-- { OID id-md5 PARAMETERS NULL }|
+-- { OID id-sha1 PARAMETERS NULL }
+-- }
+--
+AlgorithmIdentifier-PKCS1 { ALGORITHM-IDENTIFIER:InfoObjectSet } ::= SEQUENCE {
+	algorithm
+	ALGORITHM-IDENTIFIER.&id({InfoObjectSet}),
+	parameters
+	ALGORITHM-IDENTIFIER.&Type({InfoObjectSet}{@.algorithm}) OPTIONAL
+}
+
+-- ==============
+-- Algorithms
+-- ==============
+--
+-- Allowed EME-OAEP and EMSA-PSS digest algorithms.
+--
+OAEP-PSSDigestAlgorithms ALGORITHM-IDENTIFIER ::= {
+ { OID id-sha1 PARAMETERS NULL }|
+ { OID id-sha256 PARAMETERS NULL }|
+ { OID id-sha384 PARAMETERS NULL }|
+ { OID id-sha512 PARAMETERS NULL },
+ ... -- Allows for future expansion --
+}
+--
+-- Allowed EMSA-PKCS1-v1_5 digest algorithms.
+--
+PKCS1-v1-5DigestAlgorithms ALGORITHM-IDENTIFIER ::= {
+	{ OID id-md2 PARAMETERS NULL }|
+	{ OID id-md5 PARAMETERS NULL }|
+	{ OID id-sha1 PARAMETERS NULL }|
+	{ OID id-sha256 PARAMETERS NULL }|
+	{ OID id-sha384 PARAMETERS NULL }|
+	{ OID id-sha512 PARAMETERS NULL }
+}
+
+-- When id-md2 and id-md5 are used in an AlgorithmIdentifier, the
+-- parameters field shall have a value of type NULL.
+
+-- When id-sha1, id-sha224, id-sha256, id-sha384, id-sha512,
+-- id-sha512-224, and id-sha512-256 are used in an
+-- AlgorithmIdentifier, the parameters (which are optional) SHOULD be
+-- omitted, but if present, they SHALL have a value of type NULL.
+-- However, implementations MUST accept AlgorithmIdentifier values
+-- both without parameters and with NULL parameters.
+
+-- Exception: When formatting the DigestInfoValue in EMSA-PKCS1-v1_5
+-- (see Section 9.2), the parameters field associated with id-sha1,
+-- id-sha224, id-sha256, id-sha384, id-sha512, id-sha512-224, and
+-- id-sha512-256 SHALL have a value of type NULL.  This is to
+-- maintain compatibility with existing implementations and with the
+-- numeric information values already published for EMSA-PKCS1-v1_5,
+-- which are also reflected in IEEE 1363a.
+
+sha1 HashAlgorithm ::= {
+	algorithm id-sha1,
+	parameters SHA1Parameters : NULL
+}
+
+HashAlgorithm ::= AlgorithmIdentifier-PKCS1 { {OAEP-PSSDigestAlgorithms} }
+SHA1Parameters ::= NULL
+
+--
+-- Allowed mask generation function algorithms.
+-- If the identifier is id-mgf1, the parameters are a HashAlgorithm.
+--
+PKCS1MGFAlgorithms ALGORITHM-IDENTIFIER ::= {
+	{ OID id-mgf1 PARAMETERS HashAlgorithm },
+ ... -- Allows for future expansion --
+}
+
+--
+-- Default AlgorithmIdentifier for id-RSAES-OAEP.maskGenAlgorithm and
+-- id-RSASSA-PSS.maskGenAlgorithm.
+--
+mgf1SHA1 MaskGenAlgorithm ::= {
+	algorithm id-mgf1,
+	parameters HashAlgorithm : sha1
+}
+
+MaskGenAlgorithm ::= AlgorithmIdentifier-PKCS1 { {PKCS1MGFAlgorithms} }
+
+--
+-- Allowed algorithms for pSourceAlgorithm.
+--
+PKCS1PSourceAlgorithms ALGORITHM-IDENTIFIER ::= {
+	{ OID id-pSpecified PARAMETERS EncodingParameters },
+ ... -- Allows for future expansion --
+}
+
+EncodingParameters ::= OCTET STRING(SIZE(0..MAX))
+
+--
+-- This identifier means that the label L is an empty string, so the digest
+-- of the empty string appears in the RSA block before masking.
+--
+pSpecifiedEmpty PSourceAlgorithm ::= {
+	algorithm id-pSpecified,
+	parameters EncodingParameters : emptyString
+}
+PSourceAlgorithm ::= AlgorithmIdentifier-PKCS1 { {PKCS1PSourceAlgorithms} }
+
+emptyString EncodingParameters ::= ''H
+
+--
+-- Type identifier definitions for the PKCS #1 OIDs.
+--
+PKCS1Algorithms ALGORITHM-IDENTIFIER ::= {
+	{ OID rsaEncryption PARAMETERS NULL } |
+	{ OID md2WithRSAEncryption PARAMETERS NULL } |
+	{ OID md5WithRSAEncryption PARAMETERS NULL } |
+	{ OID sha1WithRSAEncryption PARAMETERS NULL } |
+	{ OID sha256WithRSAEncryption PARAMETERS NULL } |
+	{ OID sha384WithRSAEncryption PARAMETERS NULL } |
+	{ OID sha512WithRSAEncryption PARAMETERS NULL } |
+	{ OID id-RSAES-OAEP PARAMETERS RSAES-OAEP-params } |
+	PKCS1PSourceAlgorithms |
+	{ OID id-RSASSA-PSS PARAMETERS RSASSA-PSS-params } ,
+ ... -- Allows for future expansion --
+}
+-- ===================
+-- Main structures
+-- ===================
+RSAPublicKey ::= SEQUENCE {
+	modulus INTEGER, -- n
+	publicExponent INTEGER -- e
+}
+--
+-- Representation of RSA private key with information for the CRT algorithm.
+--
 RSAPrivateKey ::= SEQUENCE {
-    version           Version,
-    modulus           INTEGER,  -- n
-    publicExponent    INTEGER,  -- e
-    privateExponent   INTEGER,  -- d
-    prime1            INTEGER,  -- p
-    prime2            INTEGER,  -- q
-    exponent1         INTEGER,  -- d mod (p-1)
-    exponent2         INTEGER,  -- d mod (q-1)
-    coefficient       INTEGER,  -- (inverse of q) mod p
-    otherPrimeInfos   OtherPrimeInfos OPTIONAL
+	version Version,
+	modulus INTEGER, -- n
+	publicExponent INTEGER, -- e
+	privateExponent INTEGER, -- d
+	prime1 INTEGER, -- p
+	prime2 INTEGER, -- q
+	exponent1 INTEGER, -- d mod (p-1)
+	exponent2 INTEGER, -- d mod (q-1)
+	coefficient INTEGER, -- (inverse of q) mod p
+	otherPrimeInfos OtherPrimeInfos OPTIONAL
 }
 
 Version ::= INTEGER { two-prime(0), multi(1) }
-    (CONSTRAINED BY {
-        -- version must be multi if otherPrimeInfos present --
-    })
+ (CONSTRAINED BY {-- version must be multi if otherPrimeInfos present --})
 
 OtherPrimeInfos ::= SEQUENCE SIZE(1..MAX) OF OtherPrimeInfo
 
 OtherPrimeInfo ::= SEQUENCE {
-    prime             INTEGER,  -- ri
-    exponent          INTEGER,  -- di
-    coefficient       INTEGER   -- ti
+	prime INTEGER, -- ri
+	exponent INTEGER, -- di
+	coefficient INTEGER -- ti
 }
 
-Algorithm ::= SEQUENCE {
-	algorithm OBJECT IDENTIFIER,
-	parameters ANY DEFINED BY algorithm OPTIONAL
+--
+-- AlgorithmIdentifier.parameters for id-RSAES-OAEP.
+-- Note that the tags in this Sequence are explicit.
+--
+
+RSAES-OAEP-params ::= SEQUENCE {
+	hashAlgorithm [0] HashAlgorithm DEFAULT sha1,
+	maskGenAlgorithm [1] MaskGenAlgorithm DEFAULT mgf1SHA1,
+	pSourceAlgorithm [2] PSourceAlgorithm DEFAULT pSpecifiedEmpty
 }
 
-AlgorithmNull ::= SEQUENCE {
-	algorithm OBJECT IDENTIFIER,
-	parameters NULL
+--
+-- Identifier for default RSAES-OAEP algorithm identifier.
+-- The DER Encoding of this is in hexadecimal:
+-- (0x)30 0D
+-- 06 09
+-- 2A 86 48 86 F7 0D 01 01 07
+-- 30 00
+-- Notice that the DER encoding of default values is "empty".
+--
+rSAES-OAEP-Default-Identifier RSAES-AlgorithmIdentifier ::= {
+	algorithm id-RSAES-OAEP,
+	parameters RSAES-OAEP-params : {
+	hashAlgorithm sha1,
+	maskGenAlgorithm mgf1SHA1,
+	pSourceAlgorithm pSpecifiedEmpty
+ }
 }
 
+RSAES-AlgorithmIdentifier ::= AlgorithmIdentifier-PKCS1 {
+	{PKCS1Algorithms}
+}
 
+--
+-- AlgorithmIdentifier.parameters for id-RSASSA-PSS.
+-- Note that the tags in this Sequence are explicit.
+--
 RSASSA-PSS-params ::= SEQUENCE {
-    hashAlgorithm      [0] Algorithm,     --  DEFAULT sha1,
-    maskGenAlgorithm   [1] Algorithm,     --  DEFAULT mgf1SHA1,
-    saltLength         [2] INTEGER            DEFAULT 20,
-    trailerField       [3] TrailerField       DEFAULT trailerFieldBC
+	hashAlgorithm [0] HashAlgorithm DEFAULT sha1,
+	maskGenAlgorithm [1] MaskGenAlgorithm DEFAULT mgf1SHA1,
+	saltLength [2] INTEGER DEFAULT 20,
+	trailerField [3] TrailerField DEFAULT trailerFieldBC
 }
 
 TrailerField ::= INTEGER { trailerFieldBC(1) }
 
+--
+-- Identifier for default RSASSA-PSS algorithm identifier
+-- The DER Encoding of this is in hexadecimal:
+-- (0x)30 0D
+-- 06 09
+-- 2A 86 48 86 F7 0D 01 01 0A
+-- 30 00
+-- Notice that the DER encoding of default values is "empty".
+--
+rSASSA-PSS-Default-Identifier RSASSA-AlgorithmIdentifier ::= {
+	algorithm id-RSASSA-PSS,
+	parameters RSASSA-PSS-params : {
+	hashAlgorithm sha1,
+	maskGenAlgorithm mgf1SHA1,
+	saltLength 20,trailerField trailerFieldBC
+ }
+}
+RSASSA-AlgorithmIdentifier ::= AlgorithmIdentifier-PKCS1 {
+	{PKCS1Algorithms}
+}
+
+--
+-- Syntax for the EMSA-PKCS1-v1_5 hash identifier.
+--
 DigestInfo ::= SEQUENCE {
-	digestAlgorithm Algorithm,
+	digestAlgorithm DigestAlgorithm,
 	digest OCTET STRING
 }
 
-DigestInfoNull ::= SEQUENCE {
-	digestAlgorithm AlgorithmNull,
-	digest OCTET STRING
-}
+DigestAlgorithm ::= AlgorithmIdentifier-PKCS1 { {PKCS1-v1-5DigestAlgorithms} }
 
-
-END  -- PKCS1Definitions
-
+END -- PKCS1Definitions

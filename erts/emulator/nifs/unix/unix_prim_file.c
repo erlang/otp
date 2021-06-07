@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson 2017-2018. All Rights Reserved.
+ * Copyright Ericsson 2017-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,17 +97,28 @@ posix_errno_t efile_marshal_path(ErlNifEnv *env, ERL_NIF_TERM path, efile_path_t
 
 ERL_NIF_TERM efile_get_handle(ErlNifEnv *env, efile_data_t *d) {
     efile_unix_t *u = (efile_unix_t*)d;
-
-    ERL_NIF_TERM result;
+    int fd = u->fd;
+    ERL_NIF_TERM handle;
     unsigned char *bits;
 
-    bits = enif_make_new_binary(env, sizeof(u->fd), &result);
-    memcpy(bits, &u->fd, sizeof(u->fd));
+    bits = enif_make_new_binary(env, sizeof(fd), &handle);
+    memcpy(bits, &fd, sizeof(fd));
 
-    return result;
+    return handle;
 }
 
-static int open_file_type_check(const efile_path_t *path, int fd) {
+posix_errno_t efile_dup_handle(ErlNifEnv *env, efile_data_t *d, ErlNifEvent *handle) {
+    efile_unix_t *u = (efile_unix_t*)d;
+    int fd;
+
+    if ((fd = dup(u->fd)) < 0)
+        return errno;
+
+    *handle = fd;
+    return 0;
+}
+
+static int open_file_is_dir(const efile_path_t *path, int fd) {
     struct stat file_info;
     int error;
 
@@ -119,30 +130,12 @@ static int open_file_type_check(const efile_path_t *path, int fd) {
     (void)path;
 #endif
 
-    if(error < 0) {
-        /* If we failed to stat assume success and let the next call handle the
-         * error. The old driver checked whether the file was to be used
-         * immediately in a read within the call, but the new implementation
-         * never does that. */
-         return 1;
-    }
-
-    /* Allow everything that isn't a directory, and error out on the next call
-     * if it's unsupported. */
-    if(S_ISDIR(file_info.st_mode)) {
-        return 0;
-    }
-
-    return 1;
+    /* Assume not a directory on error. */
+    return error == 0 && S_ISDIR(file_info.st_mode);
 }
 
-posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
-        ErlNifResourceType *nif_type, efile_data_t **d) {
-
-    int flags, fd;
-
-    flags = 0;
-
+static int get_flags(enum efile_modes_t modes) {
+    int flags = 0;
     if(modes & EFILE_MODE_READ && !(modes & EFILE_MODE_WRITE)) {
         flags |= O_RDONLY;
     } else if(modes & EFILE_MODE_WRITE && !(modes & EFILE_MODE_READ)) {
@@ -173,19 +166,48 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
         flags |= O_SYNC;
 #endif
     }
+    return flags;
+}
+
+posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
+        ErlNifResourceType *nif_type, efile_data_t **d) {
+
+    int mode, flags, fd;
+
+    flags = get_flags(modes);
+
+    if(modes & EFILE_MODE_DIRECTORY) {
+        mode = DIR_MODE;
+#ifdef O_DIRECTORY
+        flags |= O_DIRECTORY;
+#endif
+    } else {
+        mode = FILE_MODE;
+    }
 
     do {
-        fd = open((const char*)path->data, flags, FILE_MODE);
+        fd = open((const char*)path->data, flags, mode);
     } while(fd == -1 && errno == EINTR);
 
     if(fd != -1) {
         efile_unix_t *u;
 
-        if(!(modes & EFILE_MODE_SKIP_TYPE_CHECK) && !open_file_type_check(path, fd)) {
+#ifndef O_DIRECTORY
+        /* On platforms without O_DIRECTORY support, ensure that using the
+         * directory flag to open a file fails. */
+        if(!(modes & EFILE_MODE_SKIP_TYPE_CHECK) &&
+           (modes & EFILE_MODE_DIRECTORY) && !open_file_is_dir(path, fd)) {
             close(fd);
+            return ENOTDIR;
+        }
+#endif
 
-            /* This is blatantly incorrect, but we're documented as returning
-             * this for everything that isn't a file. */
+        /* open() works on directories without the O_DIRECTORY flag but for
+         * consistency across platforms we require that the user has requested
+         * directory mode. */
+        if(!(modes & EFILE_MODE_SKIP_TYPE_CHECK) &&
+           !(modes & EFILE_MODE_DIRECTORY) && open_file_is_dir(path, fd)) {
+            close(fd);
             return EISDIR;
         }
 
@@ -198,6 +220,24 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
         return 0;
     }
 
+    (*d) = NULL;
+    return errno;
+}
+
+posix_errno_t efile_from_fd(int fd,
+                            ErlNifResourceType *nif_type,
+                            efile_data_t **d) {
+    if (fcntl(fd, F_GETFL) != -1 || errno != EBADF) {
+        efile_unix_t *u;
+
+        u = (efile_unix_t*)enif_alloc_resource(nif_type, sizeof(efile_unix_t));
+        u->fd = fd;
+
+        EFILE_INIT_RESOURCE(&u->common, EFILE_MODE_FROM_ALREADY_OPEN_FD);
+        (*d) = &u->common;
+
+        return 0;
+    }
     (*d) = NULL;
     return errno;
 }
@@ -555,21 +595,57 @@ int efile_allocate(efile_data_t *d, Sint64 offset, Sint64 length) {
 #if defined(HAVE_FALLOCATE)
     /* Linux-specific */
     do {
-        ret = fallocate(u->fd, FALLOC_FL_KEEP_SIZE, offset, length);
+        ret = fallocate(u->fd, 0, offset, length);
     } while(ret < 0 && errno == EINTR);
 #elif defined(F_PREALLOCATE)
     /* Mac-specific */
+    off_t original_position, eof_offset;
     fstore_t fs = {};
 
+    if(offset < 0 || length < 0 || (offset > ERTS_SINT64_MAX - length)) {
+        u->common.posix_errno = EINVAL;
+        return 0;
+    }
+
+    original_position = lseek(u->fd, 0, SEEK_CUR);
+
+    if(original_position < 0) {
+        u->common.posix_errno = errno;
+        return 0;
+    }
+
+    eof_offset = lseek(u->fd, 0, SEEK_END);
+
+    if(eof_offset < 0 || lseek(u->fd, original_position, SEEK_SET) < 0) {
+        u->common.posix_errno = errno;
+        return 0;
+    }
+
+    if(offset + length <= eof_offset) {
+        /* File is already large enough. */
+        return 1;
+    }
+
     fs.fst_flags = F_ALLOCATECONTIG;
-    fs.fst_posmode = F_VOLPOSMODE;
-    fs.fst_offset = offset;
-    fs.fst_length = length;
+    fs.fst_posmode = F_PEOFPOSMODE;
+    fs.fst_offset = 0;
+    fs.fst_length = (offset + length) - eof_offset;
 
     ret = fcntl(u->fd, F_PREALLOCATE, &fs);
     if(ret < 0) {
         fs.fst_flags = F_ALLOCATEALL;
         ret = fcntl(u->fd, F_PREALLOCATE, &fs);
+    }
+
+    if(ret >= 0) {
+        /* We MUST truncate since F_PREALLOCATE works relative to end-of-file,
+         * otherwise we will expand the file on repeated calls to
+         * file:allocate/3 with the same arguments. */
+        ret = ftruncate(u->fd, offset + length);
+        if(ret < 0) {
+            u->common.posix_errno = errno;
+            return 0;
+        }
     }
 #elif !defined(HAVE_POSIX_FALLOCATE)
     u->common.posix_errno = ENOTSUP;
@@ -620,6 +696,33 @@ int efile_truncate(efile_data_t *d) {
     return 1;
 }
 
+static void build_file_info(struct stat *data, efile_fileinfo_t *result) {
+    if(S_ISCHR(data->st_mode) || S_ISBLK(data->st_mode)) {
+        result->type = EFILE_FILETYPE_DEVICE;
+    } else if(S_ISDIR(data->st_mode)) {
+        result->type = EFILE_FILETYPE_DIRECTORY;
+    } else if(S_ISREG(data->st_mode)) {
+        result->type = EFILE_FILETYPE_REGULAR;
+    } else if(S_ISLNK(data->st_mode)) {
+        result->type = EFILE_FILETYPE_SYMLINK;
+    } else {
+        result->type = EFILE_FILETYPE_OTHER;
+    }
+
+    result->a_time = (Sint64)data->st_atime;
+    result->m_time = (Sint64)data->st_mtime;
+    result->c_time = (Sint64)data->st_ctime;
+    result->size = data->st_size;
+
+    result->major_device = data->st_dev;
+    result->minor_device = data->st_rdev;
+    result->links = data->st_nlink;
+    result->inode = data->st_ino;
+    result->mode = data->st_mode;
+    result->uid = data->st_uid;
+    result->gid = data->st_gid;
+}
+
 posix_errno_t efile_read_info(const efile_path_t *path, int follow_links, efile_fileinfo_t *result) {
     struct stat data;
 
@@ -633,30 +736,7 @@ posix_errno_t efile_read_info(const efile_path_t *path, int follow_links, efile_
         }
     }
 
-    if(S_ISCHR(data.st_mode) || S_ISBLK(data.st_mode)) {
-        result->type = EFILE_FILETYPE_DEVICE;
-    } else if(S_ISDIR(data.st_mode)) {
-        result->type = EFILE_FILETYPE_DIRECTORY;
-    } else if(S_ISREG(data.st_mode)) {
-        result->type = EFILE_FILETYPE_REGULAR;
-    } else if(S_ISLNK(data.st_mode)) {
-        result->type = EFILE_FILETYPE_SYMLINK;
-    } else {
-        result->type = EFILE_FILETYPE_OTHER;
-    }
-
-    result->a_time = (Sint64)data.st_atime;
-    result->m_time = (Sint64)data.st_mtime;
-    result->c_time = (Sint64)data.st_ctime;
-    result->size = data.st_size;
-
-    result->major_device = data.st_dev;
-    result->minor_device = data.st_rdev;
-    result->links = data.st_nlink;
-    result->inode = data.st_ino;
-    result->mode = data.st_mode;
-    result->uid = data.st_uid;
-    result->gid = data.st_gid;
+    build_file_info(&data, result);
 
 #ifndef NO_ACCESS
     result->access = EFILE_ACCESS_NONE;
@@ -673,6 +753,56 @@ posix_errno_t efile_read_info(const efile_path_t *path, int follow_links, efile_
 #endif
 
     return 0;
+}
+
+static int check_access(struct stat *st) {
+    int ret = EFILE_ACCESS_NONE;
+
+    if(st->st_uid == geteuid()) {
+        if(st->st_mode & S_IRUSR) {
+            ret |= EFILE_ACCESS_READ;
+        }
+        if(st->st_mode & S_IWUSR) {
+            ret |= EFILE_ACCESS_WRITE;
+        }
+        return ret;
+    }
+
+    if(st->st_gid == getegid()) {
+        if(st->st_mode & S_IRGRP) {
+            ret |= EFILE_ACCESS_READ;
+        }
+        if(st->st_mode & S_IWGRP) {
+            ret |= EFILE_ACCESS_WRITE;
+        }
+        return ret;
+    }
+
+    if(st->st_mode & S_IROTH) {
+        ret |= EFILE_ACCESS_READ;
+    }
+    if(st->st_mode & S_IWOTH) {
+        ret |= EFILE_ACCESS_WRITE;
+    }
+    return ret;
+}
+
+posix_errno_t efile_read_handle_info(efile_data_t *d, efile_fileinfo_t *result) {
+    struct stat data;
+    efile_unix_t *u = (efile_unix_t*)d;
+
+#ifdef HAVE_FSTAT
+    if(fstat(u->fd, &data) < 0) {
+        return errno;
+    }
+
+    build_file_info(&data, result);
+    result->access = check_access(&data);
+
+    return 0;
+#else
+    return ENOTSUP;
+#endif
 }
 
 posix_errno_t efile_set_permissions(const efile_path_t *path, Uint32 permissions) {

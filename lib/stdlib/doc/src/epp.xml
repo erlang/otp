@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,7 +36,7 @@
   <modulesummary>An Erlang code preprocessor.</modulesummary>
   <description>
     <p>The Erlang code preprocessor includes functions that are used by the
-      <seealso marker="compiler:compile"><c>compile</c></seealso>
+      <seeerl marker="compiler:compile"><c>compile</c></seeerl>
       module to preprocess macros and include files before
       the parsing takes place.</p>
 
@@ -72,6 +72,9 @@
     <datatype>
       <name name="source_encoding"></name>
     </datatype>
+    <datatype>
+      <name name="warning_info"></name>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -98,10 +101,10 @@
       <desc>
         <p>Returns a string representation of an encoding. The string
           is recognized by
-          <seealso marker="#read_encoding/1"><c>read_encoding/1,2</c></seealso>,
-          <seealso marker="#read_encoding_from_binary/1">
-          <c>read_encoding_from_binary/1,2</c></seealso>, and
-          <seealso marker="#set_encoding/1"><c>set_encoding/1,2</c></seealso>
+          <seemfa marker="#read_encoding/1"><c>read_encoding/1,2</c></seemfa>,
+          <seemfa marker="#read_encoding_from_binary/1">
+          <c>read_encoding_from_binary/1,2</c></seemfa>, and
+          <seemfa marker="#set_encoding/1"><c>set_encoding/1,2</c></seemfa>
           as a valid encoding.</p>
       </desc>
     </func>
@@ -115,7 +118,7 @@
           describes the error or warning. This function is usually
           called implicitly when processing an <c>ErrorInfo</c>
           structure (see section
-          <seealso marker="#errorinfo">Error Information</seealso>).</p>
+          <seeerl marker="#errorinfo">Error Information</seeerl>).</p>
       </desc>
     </func>
 
@@ -132,6 +135,9 @@
           <c><anno>Options</anno></c>, the return value is
           <c>{ok, <anno>Epp</anno>, <anno>Extra</anno>}</c> instead
           of <c>{ok, <anno>Epp</anno>}</c>.</p>
+       <p>The option <c>location</c> is forwarded
+         to the Erlang token scanner, see
+         <seemfa marker="erl_scan#tokens/3"><c>erl_scan:tokens/3,4</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -157,11 +163,10 @@
       <name name="parse_erl_form" arity="1" since=""/>
       <fsummary>Return the next Erlang form from the opened Erlang source file.
       </fsummary>
-      <type name="warning_info"/>
       <desc>
         <p>Returns the next Erlang form from the opened Erlang source file.
-          Tuple <c>{eof, <anno>Line</anno>}</c> is returned at the end of the
-          file. The first form corresponds to an implicit attribute
+        Tuple <c>{eof, <anno>Location</anno>}</c> is returned at the end
+	  of the file. The first form corresponds to an implicit attribute
           <c>-file(File,1).</c>, where <c>File</c> is the file name.</p>
       </desc>
     </func>
@@ -171,7 +176,7 @@
       <fsummary>Preprocess and parse an Erlang source file.</fsummary>
       <desc>
         <p>Preprocesses and parses an Erlang source file.
-          Notice that tuple <c>{eof, <anno>Line</anno>}</c> returned at the
+          Notice that tuple <c>{eof, <anno>Location</anno>}</c> returned at the
           end of the file is included as a "form".</p>
         <p>If you want to change the file name of the implicit -file()
           attributes inserted during preprocessing, you can do with
@@ -181,6 +186,9 @@
          <c><anno>Options</anno></c>, the return value is
          <c>{ok, [<anno>Form</anno>], <anno>Extra</anno>}</c> instead
          of <c>{ok, [<anno>Form</anno>]}</c>.</p>
+       <p>The option <c>location</c> is forwarded
+         to the Erlang token scanner, see
+         <seemfa marker="erl_scan#tokens/3"><c>erl_scan:tokens/3,4</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -198,7 +206,7 @@
       <name name="read_encoding" arity="2" since="OTP R16B"/>
       <fsummary>Read the encoding from a file.</fsummary>
       <desc>
-        <p>Read the <seealso marker="#encoding">encoding</seealso> from
+        <p>Read the <seeerl marker="#encoding">encoding</seeerl> from
           a file. Returns the read encoding, or <c>none</c> if no
           valid encoding is found.</p>
         <p>Option <c>in_comment_only</c> is <c>true</c> by
@@ -213,7 +221,7 @@
       <name name="read_encoding_from_binary" arity="2" since="OTP R16B"/>
       <fsummary>Read the encoding from a binary.</fsummary>
       <desc>
-        <p>Read the <seealso marker="#encoding">encoding</seealso> from
+        <p>Read the <seeerl marker="#encoding">encoding</seeerl> from
           a binary. Returns the read encoding, or <c>none</c> if no
           valid encoding is found.</p>
         <p>Option <c>in_comment_only</c> is <c>true</c> by
@@ -224,10 +232,36 @@
     </func>
 
     <func>
+      <name name="scan_erl_form" arity="1" since="OTP R13B03"/>
+      <fsummary>Return the raw tokens of the next Erlang form from the opened
+      Erlang source file.</fsummary>
+      <desc>
+        <p>Returns the raw tokens of the next Erlang form from the opened
+        Erlang source file. A tuple <c>{eof, Line}</c> is
+        returned at the end of the file. The first form corresponds to an
+        implicit attribute <c>-file(File,1).</c>, where <c>File</c> is the
+        file name.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="scan_file" arity="2" since="OTP 24.0"/>
+      <fsummary>Preprocess an Erlang source file, returning raw tokens.</fsummary>
+      <desc>
+        <p>Preprocesses an Erlang source file returning a list of the lists
+        of raw tokens of each form.
+        Notice that the tuple <c>{eof, Line}</c> returned at the
+        end of the file is included as a "form", and any failures to scan a
+        form are included in the list as tuples <c>{error,
+        <anno>ErrorInfo</anno>}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="set_encoding" arity="1" since="OTP R16B"/>
       <fsummary>Read and set the encoding of an I/O device.</fsummary>
       <desc>
-        <p>Reads the <seealso marker="#encoding">encoding</seealso> from
+        <p>Reads the <seeerl marker="#encoding">encoding</seeerl> from
           an I/O device and sets the encoding of the device
           accordingly. The position of the I/O device referenced by
           <c><anno>File</anno></c> is not affected. If no valid
@@ -242,13 +276,13 @@
       <name name="set_encoding" arity="2" since="OTP 17.0"/>
       <fsummary>Read and set the encoding of an I/O device.</fsummary>
       <desc>
-        <p>Reads the <seealso marker="#encoding">encoding</seealso> from
+        <p>Reads the <seeerl marker="#encoding">encoding</seeerl> from
           an I/O device and sets the encoding of the device
           accordingly. The position of the I/O device referenced by
           <c><anno>File</anno></c> is not affected. If no valid
           encoding can be read from the I/O device, the encoding of the
           I/O device is set to the
-          <seealso marker="#encoding">encoding</seealso> specified by
+          <seeerl marker="#encoding">encoding</seeerl> specified by
           <c><anno>Default</anno></c>.</p>
         <p>Returns the read encoding, or <c>none</c> if no valid
           encoding is found.</p>
@@ -270,7 +304,7 @@ Module:format_error(ErrorDescriptor)</code>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="erl_parse"><c>erl_parse(3)</c></seealso></p>
+    <p><seeerl marker="erl_parse"><c>erl_parse(3)</c></seeerl></p>
   </section>
 </erlref>
 

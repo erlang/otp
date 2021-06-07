@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -98,7 +98,7 @@ init() ->
 			      {win32,WinType} ->
 				  win32_load_from_registry(WinType);
 			      _ ->
-				  error("can not read win32 system registry~n", [])
+				  error("cannot read win32 system registry~n", [])
 			  end
 		  end, CfgFiles),
 

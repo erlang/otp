@@ -18,8 +18,7 @@
  * %CopyrightEnd% 
  */
 
-#include "erl_driver.h"
-
+#include <erl_nif.h>
 /* Wrap everything from glext.h so we are not dependent on the user version of it */
 
 #ifndef _WIN32
@@ -61,6 +60,17 @@
 # define GLUfuncptr GLvoid (*)()
 #endif
 
+#ifdef _WIN64
+typedef unsigned long long int egl_uword;
+typedef signed   long long int egl_word;
+#else
+typedef unsigned long  int     egl_uword;
+typedef signed   long  int     egl_word;
+#endif
+
+typedef ErlNifSInt64 egl_int64_t;
+typedef ErlNifUInt64 egl_uint64_t;
+
 /* Some new GL types (eliminates the need for glext.h) */
 
 #ifndef HAVE_GLINTPTR
@@ -88,63 +98,55 @@ typedef GLcharARB GLchar;
 typedef unsigned short GLhalfARB;
 #endif
 
-/* Define int32_t, int64_t, and uint64_t types for UST/MSC */
-/* (as used in the GLX_OML_sync_control extension). */
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
-#include <inttypes.h>
-#elif defined(__sun__)
-#include <inttypes.h>
-#if defined(__STDC__)
-#if defined(__arch64__)
-typedef long int int64_t;
-typedef unsigned long int uint64_t;
-#else
-typedef long long int int64_t;
-typedef unsigned long long int uint64_t;
-#endif /* __arch64__ */
-#endif /* __STDC__ */
-#elif defined( __VMS )
-#include <inttypes.h>
-#elif defined(__SCO__) || defined(__USLC__)
-#include <stdint.h>
-#elif defined(__UNIXOS2__) || defined(__SOL64__)
-typedef long int int32_t;
-typedef long long int int64_t;
-typedef unsigned long long int uint64_t;
-#elif defined(WIN32) && defined(_MSC_VER)
-typedef __int32 int32_t;
-typedef __int64 int64_t;
-typedef unsigned __int64 uint64_t;
-#elif defined(WIN32) && defined(__GNUC__)
-#include <stdint.h>
-#else
-#include <inttypes.h>     /* Fallback option */
-#endif
-
 #ifndef HAVE_GLINT64EXT
-typedef int64_t GLint64EXT;
-typedef uint64_t GLuint64EXT;
+typedef egl_int64_t GLint64EXT;
+typedef egl_uint64_t GLuint64EXT;
 #endif
 
 #ifndef GL_ARB_sync
-typedef int64_t GLint64;
-typedef uint64_t GLuint64;
+typedef egl_int64_t GLint64;
+typedef egl_uint64_t GLuint64;
 typedef struct __GLsync *GLsync;
 #endif
 
-/* External Api */
-
-#ifdef _WIN32
-extern "C" __declspec(dllexport) int  egl_init_opengl(void *);
-extern "C" __declspec(dllexport) void egl_dispatch(int, char *, ErlDrvPort, ErlDrvTermData, char **, int *);
-#else 
-extern "C" int egl_init_opengl(void *);
-extern "C" void egl_dispatch(int, char *, ErlDrvPort, ErlDrvTermData, char **, int *);
+#ifndef DEF_EGL_CMD
+typedef struct egl_cmd_t {
+    ErlNifEnv *env;
+    ERL_NIF_TERM args[16];
+    void (*fptr) (ErlNifEnv *, ErlNifPid *, ERL_NIF_TERM *);
+    ErlNifPid pid;
+} egl_cmd;
 #endif
 
-/* internal */
-int erl_tess_impl(char* buff, ErlDrvPort port, ErlDrvTermData caller);
-void gl_error();
-extern int gl_error_op;
-extern ErlDrvTermData gl_active;
+typedef struct {
+    int op;
+    const char * name;
+    const char * alt;
+    void * func;
+    void (*nif_cb) (ErlNifEnv *, ErlNifPid *, ERL_NIF_TERM *);
+} gl_fns_t;
 
+extern gl_fns_t gl_fns[];
+extern int egl_load_functions();
+
+/* internal */
+void init_tess();
+void erl_tess_impl(ErlNifEnv *, ErlNifPid *, ERL_NIF_TERM *);
+extern int gl_error_op;
+
+extern ERL_NIF_TERM EGL_ATOM_OK;
+extern ERL_NIF_TERM EGL_ATOM_REPLY;
+extern ERL_NIF_TERM EGL_ATOM_ERROR;
+extern ERL_NIF_TERM EGL_ATOM_BADARG;
+
+#define Badarg(Op, Argc) {egl_badarg(env,self,Op,Argc); return;}
+
+int egl_get_float(ErlNifEnv* env, ERL_NIF_TERM term, GLfloat* dp);
+int egl_get_short(ErlNifEnv* env, ERL_NIF_TERM term, GLshort* dp);
+int egl_get_ushort(ErlNifEnv* env, ERL_NIF_TERM term, GLushort* dp);
+int egl_get_byte(ErlNifEnv* env, ERL_NIF_TERM term, GLbyte* dp);
+int egl_get_ubyte(ErlNifEnv* env, ERL_NIF_TERM term, GLubyte* dp);
+int egl_get_word(ErlNifEnv* env, ERL_NIF_TERM term, egl_word * dp);
+int egl_get_ptr(ErlNifEnv* env, ERL_NIF_TERM term, void** dp);
+ERL_NIF_TERM egl_lookup_func_func(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+void egl_badarg(ErlNifEnv* env, ErlNifPid *self, int op, const char * argc);

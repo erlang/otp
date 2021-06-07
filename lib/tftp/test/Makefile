@@ -114,7 +114,7 @@ SOURCE = $(ERL_FILES) $(HRL_FILES)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-TFTP_SPECS = tftp.spec tftp_bench.spec
+TFTP_SPECS = tftp.spec
 COVER_FILE = tftp.cover
 TFTP_FILES = tftp.config $(TFTP_SPECS)
 

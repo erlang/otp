@@ -9,6 +9,7 @@
   <xi:include href="../specs/specs_erl_epmd.xml"/>
   <xi:include href="../specs/specs_erl_prim_loader_stub.xml"/>
   <xi:include href="../specs/specs_erlang_stub.xml"/>
+  <xi:include href="../specs/specs_erpc.xml"/>
   <xi:include href="../specs/specs_error_handler.xml"/>
   <xi:include href="../specs/specs_error_logger.xml"/>
   <xi:include href="../specs/specs_file.xml"/>
@@ -26,12 +27,14 @@
   <xi:include href="../specs/specs_logger_formatter.xml"/>
   <xi:include href="../specs/specs_logger_std_h.xml"/>
   <xi:include href="../specs/specs_logger_disk_log_h.xml"/>
+  <xi:include href="../specs/specs_net.xml"/>
   <xi:include href="../specs/specs_net_adm.xml"/>
   <xi:include href="../specs/specs_net_kernel.xml"/>
   <xi:include href="../specs/specs_os.xml"/>
-  <xi:include href="../specs/specs_pg2.xml"/>
+  <xi:include href="../specs/specs_pg.xml"/>
   <xi:include href="../specs/specs_rpc.xml"/>
   <xi:include href="../specs/specs_seq_trace.xml"/>
+  <xi:include href="../specs/specs_socket.xml"/>
   <xi:include href="../specs/specs_user.xml"/>
   <xi:include href="../specs/specs_wrap_log_reader.xml"/>
   <xi:include href="../specs/specs_zlib_stub.xml"/>

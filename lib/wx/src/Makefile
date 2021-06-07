@@ -54,7 +54,6 @@ GEN_FILES       = $(wildcard gen/wx*.erl) \
 GEN_MODS        = $(GEN_FILES:gen/%.erl=%,)
 
 GEN_HRL		= \
-		$(EGEN)/wxe_debug.hrl \
 		$(EGEN)/wxe_funcs.hrl
 
 EXT_HRL		= $(ERLINC)/wx.hrl \
@@ -111,10 +110,10 @@ $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk Makefile
 
 # Rules
 $(EBIN)/%.beam: $(ESRC)/%.erl $(HEADER_FILES)
-	$(V_ERLC) -W -bbeam $(ERL_FLAGS) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
+	$(V_ERLC) -W -bbeam $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
 $(EBIN)/%.beam: $(EGEN)/%.erl $(HEADER_FILES)
-	$(V_ERLC) -W -bbeam $(ERL_FLAGS) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
+	$(V_ERLC) -W -bbeam $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
 # ----------------------------------------------------
 # Release Target

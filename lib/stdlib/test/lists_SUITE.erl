@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,7 +57,8 @@
 	 filter_partition/1, 
 	 join/1,
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
-	 suffix/1, subtract/1, droplast/1, search/1, hof/1]).
+	 suffix/1, subtract/1, droplast/1, search/1, hof/1,
+         error_info/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -121,7 +122,7 @@ groups() ->
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, suffix, subtract, join,
-			 hof, droplast, search]}
+			 hof, droplast, search, error_info]}
     ].
 
 init_per_suite(Config) ->
@@ -158,6 +159,20 @@ append_2(Config) when is_list(Config) ->
     "abcdef"=lists:append("abc", "def"),
     [hej, du]=lists:append([hej], [du]),
     [10, [elem]]=lists:append([10], [[elem]]),
+
+    %% Trapping, both crashing and otherwise.
+    [append_trapping_1(N) || N <- lists:seq(0, 20)],
+
+    ok.
+
+append_trapping_1(N) ->
+    List = lists:duplicate(N + (1 bsl N), gurka),
+    ImproperList = List ++ crash,
+
+    {'EXIT',_} = (catch (ImproperList ++ [])),
+
+    [3, 2, 1 | List] = lists:reverse(List ++ [1, 2, 3]),
+
     ok.
 
 %% Tests the lists:reverse() implementation. The function is
@@ -1679,7 +1694,7 @@ make_fun() ->
     receive {Pid, Fun} -> Fun end.
 
 make_fun(Pid) ->
-    Pid ! {self(), fun make_fun/1}.
+    Pid ! {self(), fun (X) -> {X, Pid} end}.
 
 fun_pid(Fun) ->
     erlang:fun_info(Fun, pid).
@@ -2215,6 +2230,7 @@ sublist_2_e(Config) when is_list(Config) ->
 sublist_3(Config) when is_list(Config) ->
     [] = lists:sublist([], 1, 0),
     [] = lists:sublist([], 1, 1),
+    [] = lists:sublist([], 2, 0),
     [] = lists:sublist([a], 1, 0),
     [a] = lists:sublist([a], 1, 1),
     [a] = lists:sublist([a], 1, 2),
@@ -2228,6 +2244,7 @@ sublist_3(Config) when is_list(Config) ->
     [] = lists:sublist([a], 2, 1),
     [] = lists:sublist([a], 2, 2),
     [] = lists:sublist([a], 2, 79),
+    [] = lists:sublist([a], 3, 1),
     [] = lists:sublist([a,b|c], 1, 0),
     [] = lists:sublist([a,b|c], 2, 0),
     [a] = lists:sublist([a,b|c], 1, 1),
@@ -2586,6 +2603,15 @@ subtract(Config) when is_list(Config) ->
     [1,2,3,4,5,6,7,8,9,9999,10000,20,21,22] =
 	sub(lists:seq(1, 10000)++[20,21,22], lists:seq(10, 9998)),
 
+    %% ERL-986; an integer overflow relating to term comparison
+    %% caused subtraction to be inconsistent.
+    Ids = [2985095936,47540628,135460048,1266126295,240535295,
+           115724671,161800351,4187206564,4178142725,234897063,
+           14773162,6662515191,133150693,378034895,1874402262,
+           3507611978,22850922,415521280,253360400,71683243],
+
+    [] = id(Ids) -- id(Ids),
+
     %% Floats/integers.
     [42.0,42.0] = sub([42.0,42,42.0], [42,42,42]),
     [1,2,3,4,43.0] = sub([1,2,3,4,5,42.0,43.0], [42.0,5]),
@@ -2612,6 +2638,8 @@ subtract(Config) when is_list(Config) ->
     [sub_thresholds(N) || N <- lists:seq(0, 32)],
 
     ok.
+
+id(I) -> I.
 
 sub_non_matching(A, B) ->
     A = sub(A, B).
@@ -2714,3 +2742,28 @@ hof(Config) when is_list(Config) ->
     false = lists:all(fun(N) -> N rem 2 =:= 0 end, L),
 
     ok.
+
+error_info(_Config) ->
+    L = [{keyfind, [whatever, bad_position, bad_list], [{2,".*"},{3,".*"}]},
+         {keymember, [key, 0, bad_list], [{2,".*"}, {3,".*"}]},
+         {keysearch, [key, bad_position, {no,list}], [{2,".*"}, {3,".*"}]},
+         {member, [whatever, not_a_list]},
+         {member, [whatever, [a|b]]},
+         {reverse, [not_a_list, whatever]}
+        ],
+    do_error_info(L).
+
+do_error_info(L0) ->
+    L1 = lists:foldl(fun({_,A}, Acc) when is_integer(A) -> Acc;
+                        ({F,A}, Acc) -> [{F,A,[]}|Acc];
+                        ({F,A,Opts}, Acc) -> [{F,A,Opts}|Acc]
+                     end, [], L0),
+    Tests = ordsets:from_list([{F,length(A)} || {F,A,_} <- L1] ++
+                                  [{F,A} || {F,A} <- L0, is_integer(A)]),
+    Bifs0 = [{F,A} || {M,F,A} <- erlang:system_info(snifs),
+                      M =:= lists,
+                      A =/= 0],
+    Bifs = ordsets:from_list(Bifs0),
+    NYI = [{F,lists:duplicate(A, '*'),nyi} || {F,A} <- Bifs -- Tests],
+    L = lists:sort(NYI ++ L1),
+    error_info_lib:test_error_info(lists, L, [snifs_only]).

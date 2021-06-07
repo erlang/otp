@@ -1,0 +1,13 @@
+
+  [;1m-spec binary_part(Subject, Start, Length) -> binary()[0m
+  [;1m                     when[0m
+  [;1m                         Subject :: binary(),[0m
+  [;1m                         Start :: non_neg_integer(),[0m
+  [;1m                         Length :: integer().[0m
+
+[;;4mSince[0m:
+  OTP R14B
+
+  The same as [;;4mbinary_part(Subject, {Start, Length})[0m.
+
+  Allowed in guard tests.

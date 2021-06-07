@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -149,7 +149,7 @@ static int ttysl_init()
 
 static ErlDrvData ttysl_start(ErlDrvPort port, char* buf)
 {
-    if ((int)ttysl_port != -1 || console_thread == NULL) {
+    if ((SWord)ttysl_port != -1 || console_thread == NULL) {
 	return ERL_DRV_ERROR_GENERAL;
     }
     start_lbuf();
@@ -215,7 +215,7 @@ static ErlDrvSSizeT ttysl_control(ErlDrvData drv_data,
 
 static void ttysl_stop(ErlDrvData ttysl_data)
 {
-    if ((int)ttysl_port != -1) {
+    if ((SWord)ttysl_port != -1) {
         driver_select(ttysl_port, console_input_event, ERL_DRV_READ, 0);
     }
 

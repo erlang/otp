@@ -1,0 +1,19 @@
+
+  [;1m-spec erlang:convert_time_unit(Time, FromUnit, ToUnit) -> ConvertedTime[0m
+  [;1m                                  when[0m
+  [;1m                                      Time :: integer(),[0m
+  [;1m                                      ConvertedTime :: integer(),[0m
+  [;1m                                      FromUnit :: time_unit(),[0m
+  [;1m                                      ToUnit :: time_unit().[0m
+
+[;;4mSince[0m:
+  OTP 18.0
+
+  Converts the [;;4mTime[0m value of time unit [;;4mFromUnit[0m to the
+  corresponding [;;4mConvertedTime[0m value of time unit [;;4mToUnit[0m. The
+  result is rounded using the floor function.
+
+  Warning:
+    You can lose accuracy and precision when converting between
+    time units. To minimize such loss, collect all data at [;;4mnative[0m
+    time unit and do the conversion on the end result.

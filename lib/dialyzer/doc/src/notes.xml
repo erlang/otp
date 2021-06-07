@@ -32,6 +32,268 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 4.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Some internal HiPE modules have been moved into the
+	    dialyzer application so that dialyzer works when HiPE is
+	    disabled.</p>
+          <p>
+	    Own Id: OTP-16883</p>
+        </item>
+        <item>
+	    <p>The experimental HiPE application has been removed,
+	    together with all related functionality in other
+	    applications.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16963</p>
+        </item>
+        <item>
+          <p>
+	    Add warning option <c>no_underspecs</c>.</p>
+          <p>
+	    Own Id: OTP-16986 Aux Id: ERL-1379, ERL-1480, GH-4033 </p>
+        </item>
+        <item>
+          <p>
+	    Report filename and location for warnings returned due to
+	    the <c>-Wunknown</c> option. When used from the
+	    command-line, one location per file is printed.</p>
+          <p>
+	    Own Id: OTP-16995 Aux Id: ERL-1348 </p>
+        </item>
+        <item>
+          <p>
+	    Add types and specifications for documentation.</p>
+          <p>
+	    Own Id: OTP-17084</p>
+        </item>
+        <item>
+          <p>
+	    Add option <c>error_location</c>. The option is
+	    recognized if included in the environment variable
+	    ERL_COMPILER_OPTIONS.</p>
+          <p>
+	    Own Id: OTP-17177 Aux Id: OTP-16824 </p>
+        </item>
+        <item>
+          <p>
+	    Clarify how to declare records used in match patterns.</p>
+          <p>
+	    Own Id: OTP-17183 Aux Id: ERL-892, GH-4493 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct handling of PLTs in the GUI.</p>
+          <p>
+	    Own Id: OTP-17091</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Clarify warning option <c>-Wunmatched_returns</c> in
+	    <c>dialyzer(3)</c>.</p>
+          <p>
+	    Own Id: OTP-17068 Aux Id: ERL-1223 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In rare circumstance, dialyzer wold crash when
+	    analyzing a list comprehension.</p>
+          <p>
+	    Own Id: OTP-16813 Aux Id: ERL-1307 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Improve handling of <c>maps:remove/2</c>. </p>
+          <p>
+	    Own Id: OTP-16055 Aux Id: ERL-1002 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug where warnings about overspecified
+	    functions were erroneously emitted. Only overloaded
+	    functions were affected by the bug. </p>
+          <p>
+	    Own Id: OTP-16292</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Remove test data with GNU license. </p>
+          <p>
+	    Own Id: OTP-16146</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Allow native compilation when using Dialyzer from
+	    Erlang. The options <c>native</c> (defaults to
+	    <c>false</c>) and <c>native_cache</c> have been added.
+	    </p>
+          <p>
+	    Own Id: OTP-15880 Aux Id: PR-2283 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The HiPE compiler would badly miscompile certain
+	    try/catch expressions, so it will now refuse to compile
+	    modules containing try or catch.</p> <p>As a consequence
+	    of this, <c>dialyzer</c> will no longer compile key
+	    modules to native code.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15949</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Make sure Dialyzer does not crash if the formatting
+	    of results fails. Instead of crashing, an unformatted
+	    version of the results is returned. </p>
+          <p>
+	    Own Id: OTP-15922 Aux Id: PR-2240, ERL-949 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug that caused a crash when indenting a
+	    Dialyzer warning mentioning more than one record field.
+	    </p>
+          <p>
+	    Own Id: OTP-15861 Aux Id: ERL-953 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 4.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All incorrect (that is, all) uses of "can not" has been
+	    corrected to "cannot" in source code comments,
+	    documentation, examples, and so on.</p>
+          <p>
+	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> By default Dialyzer inserts line breaks in types,
+	    contracts, and Erlang Code when formatting results. Use
+	    the new <c>--no_indentation</c> option to get the old
+	    behavior of not inserting line breaks. </p>
+          <p>
+	    Own Id: OTP-15135</p>
+        </item>
+        <item>
+	    <p> Use bit syntax in warnings instead of Core Erlang
+	    syntax, for readability. </p>
+          <p>
+	    Own Id: OTP-15752</p>
+        </item>
+        <item>
+	    <p> The format of the raw analysis result tagged with
+	    <c>fun_app_args</c> is changed to <c>{fun_app_args,
+	    [ArgNs, Args, Type]}</c>. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15779</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 3.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -1008,8 +1270,8 @@
           </taglist>
           <p>
 	    For information on how to use Maps please see Map Expressions in the
-		<seealso marker="doc/reference_manual:expressions#map_expressions">
-			Reference Manual</seealso>.</p>
+		<seeguide marker="system/reference_manual:expressions#map_expressions">
+			Reference Manual</seeguide>.</p>
           <p>
 	    The current implementation is without the following
 	    features:</p>

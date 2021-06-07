@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,7 +22,7 @@
 
     </legalnotice>
 
-    <title>snmp</title>
+    <title>SNMP</title>
     <prepared></prepared>
     <responsible></responsible>
     <docno></docno>
@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmp.xml</file>
   </header>
-  <app>snmp</app>
+  <app>SNMP</app>
   <appsummary>The SNMP Application</appsummary>
   <description>
     <p>This chapter describes the <c>snmp</c>
@@ -49,6 +49,17 @@
         <p>a MIB compiler</p>
       </item>
     </list>
+
+    <!--
+
+There are anchors (marker id) in this file, but do **NOT** link to anything
+in this file!! Because of the title is in capital letters, the generated
+html file will also be in capital letters.
+This should not be a problem since almost everything here is duplicated
+in the snmp_config file!
+
+    -->
+
 
   </description>
 
@@ -177,22 +188,46 @@
       <tag><marker id="agent_orig_disco_opts"></marker>
         <c><![CDATA[agent_originating_discovery_opts() = [agent_originating_discovery_opt()] <optional>]]></c></tag>
       <item>
-        <p><c>agent_originating_discovery_opt() = 
-          {enable, boolean()}</c></p>
-        <p>These are options effecting discovery <c>originating</c> in this
-          agent. </p>
-        <p>The default values for the <c>originating</c> 
-          discovery options are: </p>
-        <list type="bulleted">
-          <item>enable: <c>true</c></item>
+	<p><c>agent_originating_discovery_opt() = {enable, boolean()}</c></p>
+	<p>These are options effecting discovery <c>originating</c> in this
+	agent. </p>
+	<p>The default values for the <c>originating</c>
+	discovery options are: </p>
+	<list type="bulleted">
+	  <item>enable: <c>true</c></item>
         </list>
       </item>
 
       <tag><marker id="agent_mt"></marker>
-        <c><![CDATA[multi_threaded() = bool() <optional>]]></c></tag>
+        <c><![CDATA[multi_threaded() = bool() | extended <optional>]]></c></tag>
       <item>
-        <p>If <c>true</c>, the agent is multi-threaded, with one
-          thread for each get request. </p>
+	<p>If <c>true</c> (or <c>extended</c>), the agent is multi-threaded,
+	with one thread for each get request.</p>
+	<p>The value <c>extended</c> means that a special 'process'
+	is also created intended to handle <em>all</em> notifications. </p>
+        <list>
+	  <item>
+	    <p><c>true</c> - One worker dedicated to 'set-requests' and one
+	    (main) worker for all other requests ('get-request' and
+	    notifications).</p>
+	    <p>If the 'main' worker is busy, a temporary process is
+	    spawned to handle that job ('get-request' or notification). </p>
+	  </item>
+	  <item>
+	    <p><c>extended</c> - One worker dedicated to 'set-requests',
+	    one worker dedicated to notifications and one
+	    (main) worker for all 'get-requests'. </p>
+	    <p>If the 'main' worker is busy, a temporary process is
+	    spawned to handle that 'get-request'. </p>
+	  </item>
+	</list>
+	<note>
+	  <p>Even with multi-threaded set to <c>extended</c>
+	  there is still a risk for 'reorder' when sending inform-requsts,
+	  which require a response (and may therefor require resending). </p>
+	  <p>Also, there is of  course no way to guarantee order once the
+	  package is on the network. </p>
+	</note>
         <p>Default is <c>false</c>.</p>
       </item>
 
@@ -252,7 +287,7 @@
       <item>
         <p>Module which handles the network interface part for the
           SNMP agent. Must implement the 
-          <seealso marker="snmpa_network_interface">snmpa_network_interface</seealso> behaviour.</p>
+          <seeerl marker="snmpa_network_interface">snmpa_network_interface</seeerl> behaviour.</p>
         <p>Default is <c>snmpa_net_if</c>.</p>
       </item>
 
@@ -260,15 +295,23 @@
         <c><![CDATA[agent_net_if_options() = [agent_net_if_option()] <optional>]]></c></tag>
       <item>
         <p><c>agent_net_if_option() = {bind_to, bind_to()} |  
-            {sndbuf, sndbuf()} |  
-            {recbuf, recbuf()} |  
-            {no_reuse, no_reuse()} |  
-	    {req_limit, req_limit()} |
-            {filter, agent_net_if_filter_options()}</c></p>
-        <p>These options are actually specific to the used module.
-          The ones shown here are applicable to the default 
-          <c>agent_net_if_module()</c>.</p>
-        <p>For defaults see the options in <c>agent_net_if_option()</c>.</p>
+	{sndbuf,          sndbuf()} |  
+	{recbuf,          recbuf()} |  
+	{no_reuse,        no_reuse()} |  
+	{req_limit,       req_limit()} |
+	{filter,          agent_net_if_filter_options()} |
+	{extra_sock_opts, extra_socket_options()}</c></p>
+	<p>These options are actually specific to the used module.
+	The ones shown here are applicable to the default 
+	<c>agent_net_if_module()</c>.</p>
+	<note>
+	  <p>If the user has configured transports <em>with</em> options
+	  then those will take precedence over these options.
+	  See
+	  <seeguide marker="snmp_agent_config_files#agent_information">agent information</seeguide>
+	  for more info. </p>
+	</note>
+	<p>For defaults see the options in <c>agent_net_if_option()</c>.</p>
       </item>
 
       <tag><marker id="agent_ni_req_limit"></marker>
@@ -294,7 +337,7 @@
       <item>
 	<p>Module which handles the network interface filter part for the
 	  SNMP agent. Must implement the 
-	  <seealso marker="snmpa_network_interface_filter">snmpa_network_interface_filter</seealso> behaviour.</p>
+	  <seeerl marker="snmpa_network_interface_filter">snmpa_network_interface_filter</seeerl> behaviour.</p>
 	<p>Default is <c>snmpa_net_if_filter</c>.</p>
       </item>
 
@@ -327,7 +370,7 @@
         <c><![CDATA[mib_storage_module() = snmpa_mib_data_ets | snmpa_mib_data_dets | snmpa_mib_data_mnesia | module()]]></c></tag>
       <item>
         <p>Defines the mib storage module of the SNMP agent as defined by the 
-	<seealso marker="snmpa_mib_storage">snmpa_mib_storage</seealso> 
+	<seeerl marker="snmpa_mib_storage">snmpa_mib_storage</seeerl> 
 	behaviour. </p>
 	<p>Several entities (<c>mib-server</c> via the its data module and 
 	the <c>symbolic-store</c>) of the snmp agent uses this for storage 
@@ -465,7 +508,7 @@
       <item>
         <p>Defines the backend data module of the SNMP agent mib-server as 
 	defined by the 
-	<seealso marker="snmpa_mib_data">snmpa_mib_data</seealso> 
+	<seeerl marker="snmpa_mib_data">snmpa_mib_data</seeerl> 
 	behaviour. </p>
 	<p>At present only the default module is provided with the agent,  
 	<c>snmpa_mib_data_tttn</c>. </p>
@@ -499,7 +542,7 @@
       <item>
         <p>Defines if the mib server shall perform cache gc automatically or 
 	leave it to the user (see 
-	<seealso marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seealso>). </p>
+	<seeerl marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seeerl>). </p>
         <p>Default is <c>true</c>.</p>
       </item>
 
@@ -514,21 +557,27 @@
       </item>
 
       <tag><marker id="agent_ms_cache_gclimit"></marker>
-        <c><![CDATA[mibs_cache_gclimit() = integer() > 0 | infinity <optional>]]></c></tag>
+        <c><![CDATA[mibs_cache_gclimit() = infinity | integer() > 0 <optional>]]></c></tag>
       <item>
         <p>When performing a GC, this is the max number of cache entries 
 	that will be deleted from the cache. </p>
-        <p>The reason for having this limit is that if the cache is 
+
+	<p>The reason why its possible to set a limit, is that if the cache is 
 	large, the GC can potentially take a long time, during which 
-	the agent is locked. </p>
-	<p>Default is <c>100</c>.</p>
+	the agent is "busy".
+	<em>But</em> on a heavily loaded system, we also risk not removing
+	enough elements in the cache, instead causing it to grow over time.
+	This is the reason the default value is <c>infinity</c>, which will
+	ensure that <em>all</em> candidates are removed as soon as possible. </p>
+
+	<p>Default is <c>infinity</c>.</p>
       </item>
 
       <tag><marker id="agent_error_report_mod"></marker>
         <c><![CDATA[error_report_mod() = atom() <optional>]]></c></tag>
       <item>
         <p>Defines an error report module, implementing the 
-          <seealso marker="snmpa_error_report">snmpa_error_report</seealso> 
+          <seeerl marker="snmpa_error_report">snmpa_error_report</seeerl> 
           behaviour. Two modules are provided with the toolkit: 
           <c>snmpa_error_logger</c> and <c>snmpa_error_io</c>.</p>
         <p>Default is <c>snmpa_error_logger</c>.</p>
@@ -582,7 +631,7 @@
       <tag><marker id="manager_server"></marker>
         <c><![CDATA[server() = [server_opt()] <optional>]]></c></tag>
       <item>
-        <p><c>server_opt() = {timeout, server_timeout()} |  {verbosity, verbosity()}</c></p>
+        <p><c>server_opt() = {timeout, server_timeout()} | {verbosity, verbosity()} | {cbproxy, server_cbproxy()} | {netif_sup, server_nis()}</c></p>
         <p>Specifies the options for the manager server process.</p>
         <p>Default is <c>silence</c>.</p>
       </item>
@@ -601,11 +650,62 @@
           The information will have an <em>best before</em> time,
           defined by the <c>Expire</c> time given when calling the
           request function (see 
-          <seealso marker="snmpm#async_get">async_get</seealso>,
-          <seealso marker="snmpm#async_get_next">async_get_next</seealso> and 
-          <seealso marker="snmpm#async_set">async_set</seealso>).</p>
+          <seeerl marker="snmpm#async_get2">async_get</seeerl>,
+          <seeerl marker="snmpm#async_get_next2">async_get_next</seeerl> and 
+          <seeerl marker="snmpm#async_set2">async_set</seeerl>).</p>
         <p>Time in milli-seconds.</p>
         <p>Default is <c>30000</c>.</p>
+      </item>
+
+      <tag><marker id="manager_server_cbproxy"></marker>
+        <c><![CDATA[server_cbproxy() = temporary (default) | permanent <optional>]]></c></tag>
+      <item>
+        <p>This option specifies how the server will handle callback calls.</p>
+	<taglist>
+	  <tag><marker id="manager_server_cbproxy_temporary"></marker>
+	  <c><![CDATA[temporary (default)]]></c></tag>
+	  <item>
+	    <p>A temporary process will be created for each callback call. </p>
+	  </item>
+	  
+	  <tag><marker id="manager_server_cbproxy_temporary"></marker>
+	  <c><![CDATA[permanent]]></c></tag>
+	  <item>
+	    <p>With this the server will create a permanent (named) process that
+	    in effect serializes all callback calls.</p>
+	  </item>
+	</taglist>
+        <p>Default is <c>temporary</c>.</p>
+      </item>
+
+      <tag><marker id="manager_server_nis"></marker>
+        <c><![CDATA[server_nis() = none (default) | {PingTO, PongTO} <optional>]]></c></tag>
+      <item>
+	<p>This option specifies if the server should actively supervise the
+	net-if process.
+	Note that this will only work if the used net-if process actually supports
+	the protocol. See
+	<seeerl marker="snmpm_network_interface">snmpm_network_interface</seeerl> behaviour for more info. </p>
+	<taglist>
+	  <tag><marker id="manager_server_nis_none"></marker>
+	  <c><![CDATA[none (default)]]></c></tag>
+	  <item>
+	    <p>No active supervision of the net-if process. </p>
+	  </item>
+	  
+	  <tag><marker id="manager_server_nis_active"></marker>
+	  <c><![CDATA[{PingTO :: pos_integer(), PongTO :: pos_integer()}]]></c></tag>
+	  <item>
+	    <p>The <c>PingTO</c> time specifies the between a successful ping
+	    (or start) and the time when a ping message is to be sent to the net-if
+	    process (basically the time between ping). </p>
+	    <p>The <c>PongTO</c> time specifies how long time the net-if process
+	    has to respond to a ping message, with a <em>pong</em> message.
+	    Its starts counting when the ping message has been sent.</p>
+	    <p>Both times are in milli seconds.</p>
+	  </item>
+	</taglist>
+	<p>Default is <c>none</c>.</p>
       </item>
 
       <tag><marker id="manager_config"></marker>
@@ -657,7 +757,7 @@
           <item>
             <p><c>{user, integer()}</c> - The manager will send response
               (acknowledgment) to inform-request messages when the 
-              <seealso marker="snmpm_user#handle_inform">handle_inform</seealso> 
+              <seeerl marker="snmpm_user#handle_inform">handle_inform</seeerl> 
               function completes. The integer is the time, in milli-seconds, 
               that the manager will consider the stored inform-request info 
               valid.</p>
@@ -668,9 +768,9 @@
           </item>
         </list>
         <p>See 
-          <seealso marker="snmpm_network_interface">snmpm_network_interface</seealso>, 
-          <seealso marker="snmpm_user">handle_inform</seealso> and 
-          <seealso marker="snmp_manager_netif">definition of the manager net if</seealso> for more info.</p>
+          <seeerl marker="snmpm_network_interface">snmpm_network_interface</seeerl>, 
+          <seeerl marker="snmpm_user">handle_inform</seeerl> and 
+          <seeguide marker="snmp_manager_netif">definition of the manager net if</seeguide> for more info.</p>
         <p>Default is <c>auto</c>.</p>
       </item>
 
@@ -697,10 +797,11 @@
         <c><![CDATA[manager_net_if_options() = [manager_net_if_option()] <optional>]]></c></tag>
       <item>
         <p><c>manager_net_if_option() = {bind_to, bind_to()} | 
-          {sndbuf, sndbuf()} |  
-          {recbuf, recbuf()} | 
-          {no_reuse, no_reuse()} |
-          {filter, manager_net_if_filter_options()} </c></p>
+	{sndbuf,          sndbuf()} |  
+	{recbuf,          recbuf()} | 
+	{no_reuse,        no_reuse()} |
+	{filter,          manager_net_if_filter_options()} |
+	{extra_sock_opts, extra_socket_options()}</c></p>
         <p>These options are actually specific to the used module.
 	The ones shown here are applicable to the default 
 	<c>manager_net_if_module()</c>.</p>
@@ -712,7 +813,7 @@
       <item>
         <p>The module which handles the network interface part for the
           SNMP manager. It must implement the 
-          <seealso marker="snmpm_network_interface">snmpm_network_interface</seealso> behaviour.</p>
+          <seeerl marker="snmpm_network_interface">snmpm_network_interface</seeerl> behaviour.</p>
         <p>Default is <c>snmpm_net_if</c>.</p>
       </item>
 
@@ -732,7 +833,7 @@
       <item>
 	<p>Module which handles the network interface filter part for the
 	  SNMP manager. Must implement the 
-	  <seealso marker="snmpm_network_interface_filter">snmpm_network_interface_filter</seealso> behaviour.</p>
+	  <seeerl marker="snmpm_network_interface_filter">snmpm_network_interface_filter</seeerl> behaviour.</p>
 	<p>Default is <c>snmpm_net_if_filter</c>.</p>
       </item>
 
@@ -740,7 +841,7 @@
         <c><![CDATA[def_user_module() = atom() <optional>]]></c></tag>
       <item>
         <p>The module implementing the default user. See the 
-          <seealso marker="snmpm_user">snmpm_user</seealso> behaviour.</p>
+          <seeerl marker="snmpm_user">snmpm_user</seeerl> behaviour.</p>
         <p>Default is <c>snmpm_user_default</c>.</p>
       </item>
 
@@ -759,7 +860,7 @@
       <tag><marker id="restart_type"></marker>
         <c>restart_type() = permanent | transient | temporary</c></tag>
       <item>
-        <p>See <seealso marker="stdlib:supervisor#child_spec">supervisor</seealso> 
+        <p>See <seeerl marker="stdlib:supervisor#child_spec">supervisor</seeerl> 
           documentation for more info.</p>
         <p>Default is <c>permanent</c> for the agent and <c>transient</c>
           for the manager.</p>
@@ -831,6 +932,16 @@
       <item>
         <p>Send buffer size. </p>
         <p>Default value is defined by <c>gen_udp</c>.</p>
+      </item>
+
+      <tag><marker id="extra_sock_opts"></marker>
+        <c><![CDATA[extra_socket_options() = list() <optional>]]></c></tag>
+      <item>
+	<p>A list of arbitrary socket options. </p>
+	<p>This list is not inspected by snmp (other then checking that
+	its a list). Its the users responsibility to ensure that these
+	are valid options and does not conflict with the "normal" options. </p>
+        <p>Default is <c>[]</c>.</p>
       </item>
 
       <tag><marker id="note_store"></marker>

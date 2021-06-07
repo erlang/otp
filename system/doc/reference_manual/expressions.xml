@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2018</year>
+      <year>2003</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,8 +37,8 @@
     separate sections:
    </p>
   <list type="bulleted">
-    <item><p><seealso marker="macros">Preprocessor</seealso></p></item>
-    <item><p><seealso marker="records">Records</seealso></p></item>
+    <item><p><seeguide marker="macros">Preprocessor</seeguide></p></item>
+    <item><p><seeguide marker="records">Records</seeguide></p></item>
   </list>
 
   <section>
@@ -82,7 +82,7 @@ Phone_number
 _
 _Height</pre>
     <p>Variables are bound to values using
-      <seealso marker="patterns">pattern matching</seealso>. Erlang
+      <seeguide marker="patterns">pattern matching</seeguide>. Erlang
       uses <em>single assignment</em>, that is, a variable can only be bound
       once.</p>
     <p>The <em>anonymous variable</em> is denoted by underscore (_) and
@@ -92,9 +92,9 @@ _Height</pre>
     <pre>
 [H|_] = [1,2,3]</pre>
     <p>Variables starting with underscore (_), for example,
-      <c>_Height</c>, are normal variables, not anonymous. They are
-      however ignored by the compiler in the sense that they do not
-      generate any warnings for unused variables.</p>
+      <c>_Height</c>, are normal variables, not anonymous. However,
+      they are ignored by the compiler in the sense that they do not
+      generate warnings.</p>
       <p><em>Example:</em></p>
       <p>The following code:</p>
     <pre>
@@ -254,9 +254,9 @@ spawn(m, init, [])</code>
     <p>Notice that when calling a local function, there is a difference
     between using the implicitly or fully qualified function name.
     The latter always refers to the latest version of the module.
-    See <seealso marker="code_loading">Compilation and Code Loading
-    </seealso> and <seealso marker="functions#eval">
-    Function Evaluation</seealso>.</p>
+    See <seeguide marker="code_loading">Compilation and Code Loading
+    </seeguide> and <seeguide marker="functions#eval">
+    Function Evaluation</seeguide>.</p>
 
     <section>
       <title>Local Function Names Clashing With  Auto-Imported BIFs</title>
@@ -402,12 +402,15 @@ Expr1 ! Expr2</pre>
     <p>Sends the value of <c>Expr2</c> as a message to the process
       specified by <c>Expr1</c>. The value of <c>Expr2</c> is also
       the return value of the expression.</p>
-    <p><c>Expr1</c> must evaluate to a pid, a registered name (atom), or
+    <p><c>Expr1</c> must evaluate to a pid, an alias (reference),
+      a port, a registered name (atom), or
       a tuple <c>{Name,Node}</c>. <c>Name</c> is an atom and
       <c>Node</c> is a node name, also an atom.</p>
     <list type="bulleted">
       <item>If <c>Expr1</c> evaluates to a name, but this name is not
        registered, a <c>badarg</c> run-time error occurs.</item>
+      <item>Sending a message to a reference never fails, even if the
+       reference is no longer (or never was) an alias.</item>
       <item>Sending a message to a pid never fails, even if the pid
        identifies a non-existing process.</item>
       <item>Distributed message sending, that is, if <c>Expr1</c>
@@ -427,14 +430,19 @@ receive
     PatternN [when GuardSeqN] ->
         BodyN
 end</pre>
-    <p>Receives messages sent to the process using the send operator
-      (!). The patterns <c>Pattern</c> are sequentially matched
-      against the first message in time order in the mailbox, then
-      the second, and so on. If a match succeeds and the optional
-      guard sequence <c>GuardSeq</c> is true, the corresponding
-      <c>Body</c> is evaluated. The matching message is consumed, that
-      is, removed from the mailbox, while any other messages in
-      the mailbox remain unchanged.</p>
+    <p>
+      Fetches a received message present in the message queue of
+      the process. The first message in the message queue is matched
+      sequentially against the patterns from top to bottom. If no
+      match was found, the matching sequence is repeated for the second
+      message in the queue, and so on. Messages are queued in the
+      <seeguide marker="processes#message-queue-order">order they were
+      received</seeguide>. If a match succeeds, that
+      is, if the <c>Pattern</c> matches and the optional guard sequence
+      <c>GuardSeq</c> is true, then the message is removed from the message
+      queue and the corresponding <c>Body</c> is evaluated. All other
+      messages in the message queue remain unchanged.
+    </p>
     <p>The return value of <c>Body</c> is the return value of
       the <c>receive</c> expression.</p>
     <p><c>receive</c> never fails. The execution is suspended, possibly
@@ -464,13 +472,21 @@ after
     ExprT ->
         BodyT
 end</pre>
-    <p><c>ExprT</c> is to evaluate to an integer. The highest allowed
-      value is 16#FFFFFFFF, that is, the value must fit in 32 bits.
-      <c>receive..after</c> works exactly as <c>receive</c>, except
+    <p><c>receive..after</c> works exactly as <c>receive</c>, except
       that if no matching message has arrived within <c>ExprT</c>
       milliseconds, then <c>BodyT</c> is evaluated instead. The
       return value of <c>BodyT</c> then becomes the return value
-      of the <c>receive..after</c> expression.</p>
+      of the <c>receive..after</c> expression. <c>ExprT</c> is to
+      evaluate to an integer, or the atom <c>infinity</c>. The allowed
+      integer range is from 0 to 4294967295, that is, the longest possible
+      timeout is almost 50 days. With a zero value the timeout occurs
+      immediately if there is no matching message in the message queue.
+    </p>
+    <p>
+      The atom <c>infinity</c> will make the process wait indefinitely for a
+      matching message. This is the same as not using a timeout. It can be
+      useful for timeout values that are calculated at runtime.
+    </p>
     <p><em>Example:</em></p>
     <pre>
 wait_for_onhook() ->
@@ -508,16 +524,6 @@ timer(Pid) ->
         5000 ->
             Pid ! timeout
     end.</pre>
-    <p>There are two special cases for the timeout value <c>ExprT</c>:</p>
-    <taglist>
-      <tag><c>infinity</c></tag>
-      <item>The process is to wait indefinitely for a matching message;
-       this is the same as not using a timeout. This can be
-       useful for timeout values that are calculated at runtime.</item>
-      <tag>0</tag>
-      <item>If there is no matching message in the mailbox, the timeout
-       occurs immediately.</item>
-    </taglist>
   </section>
 
   <section>
@@ -574,10 +580,13 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map 
     <p>Lists are compared element by element. Tuples are ordered by
       size, two tuples with the same size are compared element by
       element.</p>
+    <p>Bit strings are compared bit by bit. If one bit string is a
+      prefix of the other, the shorter bit string is considered smaller.</p>
     <p>Maps are ordered by size, two maps with the same size are compared by keys in
         ascending term order and then by values in key order.
         In maps key order integers types are considered less than floats types.
     </p>
+    <p>Atoms are compared using their string value, codepoint by codepoint.</p>
       <p>When comparing an integer to a float, the term with the lesser
       precision is converted into the type of the other term, unless the
       operator is one of <c>=:=</c> or <c>=/=</c>. A float is more precise than
@@ -600,8 +609,13 @@ false
 false
 4> <input>#{c => 3} > #{a => 1, b => 2}.</input>
 false
-4> <input>#{a => 1, b => 2} == #{a => 1.0, b => 2.0}.</input>
-true</pre>
+5> <input>#{a => 1, b => 2} == #{a => 1.0, b => 2.0}.</input>
+true
+6> <input>&lt;&lt;2:2>> &lt; &lt;&lt;128>>.</input>
+true
+7> <input>&lt;&lt;3:2>> &lt; &lt;&lt;128>>.</input>
+false
+</pre>
   </section>
 
   <section>
@@ -820,10 +834,6 @@ Expr1 -- Expr2</pre>
 2> <input>[1,2,3,2,1,2]--[2,1,2].</input>
 [3,1,2]</pre>
 
-     <warning><p>The complexity of <c>A -- B</c> is
-     proportional to <c>length(A)*length(B)</c>. That is, it
-     becomes very slow if both <c>A</c> and <c>B</c> are
-     long lists.</p></warning>
    </section>
 
   <section>
@@ -943,7 +953,7 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 		  Here <c>M0</c> is any map. It follows that <c>M1 .. M4</c> are maps as well.
 	  </p>
 	  <p>
-		  More <em>Examples:</em>
+		  <em>More examples:</em>
 	  </p>
 <pre>
 1> <input>M = #{1 => a}.</input>
@@ -972,15 +982,20 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 
 	  <code>#{ K := V } = M</code>
 	  <p>
-		  Here <c>M</c> is any map. The key <c>K</c> must be an expression with bound
-		  variables or literals. <c>V</c> can be any pattern with either bound or
-		  unbound variables.
+	    Here <c>M</c> is any map. The key <c>K</c> must be a
+	    <seeguide marker="#guard_expressions">guard
+	    expression</seeguide>, with all variables already bound.
+	    <c>V</c> can be any pattern with either bound or unbound
+	    variables.
 	  </p>
 	  <p>
 		  If the variable <c>V</c> is unbound, it becomes bound to the value associated
 		  with the key <c>K</c>, which must exist in the map <c>M</c>. If the variable
 		  <c>V</c> is bound, it must match the value associated with <c>K</c> in <c>M</c>.
 	  </p>
+	  <note><p>Before OTP 23, the expression defining the key
+	  <c>K</c> was restricted to be either a single variable or a
+	  literal.</p></note>
 	  <p><em>Example:</em></p>
 <pre>
 1> <input>M = #{"tuple" => {1,2}}.</input>
@@ -997,9 +1012,12 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 	  </p>
 	  <code>#{ K1 := V1, .., Kn := Vn } = M</code>
 	  <p>
-		  Here keys <c>K1 .. Kn</c> are any expressions with literals or bound variables. If all
-		  keys exist in map <c>M</c>, all variables in <c>V1 .. Vn</c> is  matched to the
-		  associated values of their respective keys.
+		  Here keys <c>K1 .. Kn</c> are any expressions with
+		  literals or bound variables. If all key expressions
+		  evalute successfully and all keys exist in map
+		  <c>M</c>, all variables in <c>V1 .. Vn</c> is
+		  matched to the associated values of their respective
+		  keys.
 	  </p>
 	  <p>
 		  If the matching conditions are not met, the match fails, either with:
@@ -1033,6 +1051,9 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 		  This expression matches if the expression <c>Expr</c> is of type map, otherwise
 		  it fails with an exception <c>badmatch</c>.
 	  </p>
+	  <p>Here the key to be retrieved is constructed from an expression:</p>
+	  <code>#{{tag,length(List)} := V} = Map</code>
+	  <p><c>List</c> must be an already bound variable.</p>
 	  <section>
 		  <title>Matching Syntax</title>
 		  <p>
@@ -1056,15 +1077,19 @@ handle_call(change, From, #{ state := start } = S) ->
 		  Maps are allowed in guards as long as all subexpressions are valid guard expressions.
 	  </p>
 	  <p>
-		  Two guard BIFs handle maps:
+		  The following guard BIFs handle maps:
 	  </p>
 	  <list>
 		  <item>
-			  <seealso marker="erts:erlang#is_map/1">is_map/1</seealso>
+			  <seemfa marker="erts:erlang#is_map/1">is_map/1</seemfa>
 			   in the <c>erlang</c> module
 		  </item>
 		  <item>
-			  <seealso marker="erts:erlang#map_size/1">map_size/1</seealso>
+			  <seemfa marker="erts:erlang#map_get/2">map_get/2</seemfa>
+			   in the <c>erlang</c> module
+		  </item>
+		  <item>
+			  <seemfa marker="erts:erlang#map_size/1">map_size/1</seemfa>
 			   in the <c>erlang</c> module
 		  </item>
 	  </list>
@@ -1099,8 +1124,13 @@ Ei = Value |
     <p>Used in a bit string construction, <c>Size</c> is an expression
     that is to evaluate to an integer.</p>
     
-    <p>Used in a bit string matching, <c>Size</c> must be an integer, or a
-    variable bound to an integer.</p>
+    <p>Used in a bit string matching, <c>Size</c> must be a
+    <seeguide marker="#guard_expressions">guard expression</seeguide>
+    that evaluates to an integer. All variables in the guard expression
+    must be already bound.</p>
+
+    <note><p>Before OTP 23, <c>Size</c> was restricted to be an
+    integer or a variable bound to an integer.</p></note>
 
     <p>The value of <c>Size</c> specifies the size of the segment in
     units (see below). The default value depends on the type (see
@@ -1152,7 +1182,8 @@ Ei = Value |
     </taglist>
     <p>The value of <c>Size</c> multiplied with the unit gives
       the number of bits. A segment of type <c>binary</c> must have 
-      a size that is evenly divisible by 8.</p>
+      a size that is evenly divisible by 8. For a segment of type <c>float</c>
+      the size must be either 64, 32, or 16.</p>
 
     <note><p>When constructing binaries, if the size <c>N</c> of an integer
     segment is too small to contain the given integer, the most significant
@@ -1220,10 +1251,10 @@ Ei = Value |
 &lt;&lt;1,17,0,42&gt;&gt;
 10> <input>H.</input>
 &lt;&lt;17,0,42&gt;&gt;
-11> <input>&lt;&lt;G,H/bitstring&gt;&gt; = &lt;&lt;1,17,42:12&gt;&gt;.</input>
-&lt;&lt;1,17,1,10:4&gt;&gt;
-12> <input>H.</input>
-&lt;&lt;17,1,10:4&gt;&gt;
+11> <input>&lt;&lt;G,J/bitstring&gt;&gt; = &lt;&lt;1,17,42:12&gt;&gt;.</input>
+&lt;&lt;1,17,2,10:4&gt;&gt;
+12> <input>J.</input>
+&lt;&lt;17,2,10:4&gt;&gt;
 13> <input>&lt;&lt;1024/utf8&gt;&gt;.</input>
 &lt;&lt;208,128&gt;&gt;
 </pre>
@@ -1232,8 +1263,8 @@ Ei = Value |
       "<c><![CDATA[B =<<1>>]]></c>" which is a syntax error. The correct way is
       to write a space after '=': "<c><![CDATA[B= <<1>>]]></c>.</p>
     <p>More examples are provided in
-    <seealso marker="doc/programming_examples:bit_syntax">
-    Programming Examples</seealso>.</p>
+    <seeguide marker="system/programming_examples:bit_syntax">
+    Programming Examples</seeguide>.</p>
   </section>
 
   <section>
@@ -1250,7 +1281,7 @@ end</pre>
     <p>A fun expression begins with the keyword <c>fun</c> and ends
       with the keyword <c>end</c>. Between them is to be a function
       declaration, similar to a
-      <seealso marker="functions#syntax">regular function declaration</seealso>,
+      <seeguide marker="functions#syntax">regular function declaration</seeguide>,
       except that the function name is optional and is to be a variable, if
       any.</p>
     <p>Variables in a fun head shadow the function name and both shadow
@@ -1289,8 +1320,8 @@ fun (Arg1,...,ArgN) -> Name(Arg1,...,ArgN) end</pre>
       the code for the module in which it is defined.
       </p>
     <p>More examples are provided in
-      <seealso marker="doc/programming_examples:funs">
-      Programming Examples</seealso>.</p>
+      <seeguide marker="system/programming_examples:funs">
+      Programming Examples</seeguide>.</p>
   </section>
 
   <section>
@@ -1312,21 +1343,13 @@ catch Expr</code>
       <c>Term</c> is returned.</p>
     <p><c>Reason</c> depends on the type of error that occurred, and
       <c>Stack</c> is the stack of recent function calls, see
-      <seealso marker="errors#exit_reasons">Exit Reasons</seealso>.</p>
+      <seeguide marker="errors#exit_reasons">Exit Reasons</seeguide>.</p>
     <p><em>Examples:</em></p>
     <pre>
 1> <input>catch 1+2.</input>
 3
 2> <input>catch 1+a.</input>
 {'EXIT',{badarith,[...]}}</pre>
-    <p>Notice that <c>catch</c> has low precedence and catch
-      subexpressions often needs to be enclosed in a block
-      expression or in parentheses:</p>
-    <pre>
-3> <input>A = catch 1+2.</input>
-** 1: syntax error before: 'catch' **
-4> <input>A = (catch 1+2).</input>
-3</pre>
     <p>The BIF <c>throw(Any)</c> can be used for non-local return from
       a function. It must be evaluated within a <c>catch</c>, which
       returns the value <c>Any</c>.</p>
@@ -1350,7 +1373,7 @@ catch
         ExceptionBodyN
 end</code>
     <p>This is an enhancement of
-      <seealso marker="#catch">catch</seealso>.
+      <seeguide marker="#catch">catch</seeguide>.
       It gives the possibility to:</p>
     <list type="bulleted">
       <item>Distinguish between different exception classes.</item>
@@ -1411,10 +1434,12 @@ end</code>
     <p>If the evaluation of <c>Exprs</c> succeeds without an exception,
       the patterns <c>Pattern</c> are sequentially matched against
       the result in the same way as for a
-      <seealso marker="#case">case</seealso> expression, except that if
-      the matching fails, a <c>try_clause</c> run-time error occurs.</p>
-    <p>An exception occurring during the evaluation of <c>Body</c> is
-      not caught.</p>
+      <seeguide marker="#case">case</seeguide> expression, except that if
+      the matching fails, a <c>try_clause</c> run-time error occurs instead of a
+      <c>case_clause</c>.</p>
+    <p>Only exceptions occurring during the evaluation of <c>Exprs</c> can be
+      caught by the <c>catch</c> section. Exceptions occurring in a <c>Body</c>
+      or due to a failed match are not caught.</p>
     <p>The <c>try</c> expression can also be augmented with an
       <c>after</c> section, intended to be used for cleanup with side
       effects:</p>
@@ -1497,7 +1522,7 @@ end</code>
     <pre>
 (Expr)</pre>
     <p>Parenthesized expressions are useful to override
-      <seealso marker="#prec">operator precedences</seealso>,
+      <seeguide marker="#prec">operator precedences</seeguide>,
       for example, in arithmetic expressions:</p>
     <pre>
 1> <input>1 + 2 * 3.</input>
@@ -1548,11 +1573,12 @@ end</pre>
       <item>A <em>filter</em> is an expression, which evaluates to
       <c>true</c> or <c>false</c>.</item>
     </list>
-    <p>The variables in the generator patterns, shadow variables in the function
-    clause, surrounding the list comprehensions.</p> <p>A list comprehension
-    returns a list, where the elements are the result of evaluating <c>Expr</c>
-    for each combination of generator list elements and bit string generator
-    elements, for which all filters are true.</p>
+    <p>The variables in the generator patterns shadow previously bound variables,
+    including variables bound in a previous generator pattern.</p>
+    <p>A list comprehension returns a list, where the elements are the
+    result of evaluating <c>Expr</c> for each combination of generator
+    list elements and bit string generator elements, for which all
+    filters are true.</p>
     <p><em>Example:</em></p>
     <pre>
 1> <input>[X*2 || X &lt;- [1,2,3]].</input>
@@ -1567,8 +1593,8 @@ end</pre>
 2> <input>[x || is_integer(x)].</input>
 []</pre>
     <p>More examples are provided in
-    <seealso marker="doc/programming_examples:list_comprehensions">
-    Programming Examples.</seealso></p>
+    <seeguide marker="system/programming_examples:list_comprehensions">
+    Programming Examples.</seeguide></p>
 
   </section>
 
@@ -1599,8 +1625,8 @@ end</pre>
       <item>A <em>filter</em> is an expression that evaluates to
       <c>true</c> or <c>false</c>.</item>
     </list>
-    <p>The variables in the generator patterns, shadow variables in
-      the function clause, surrounding the bit string comprehensions.</p>
+    <p>The variables in the generator patterns shadow previously bound variables,
+    including variables bound in a previous generator pattern.</p>
     <p>A bit string comprehension returns a bit string, which is 
       created by concatenating the results of evaluating <c>BitString</c> 
       for each combination of bit string generator elements, for which all
@@ -1611,8 +1637,8 @@ end</pre>
 &lt;&lt;X&gt;&gt; &lt;= &lt;&lt; 1,2,3 &gt;&gt; &gt;&gt;.</input>
 &lt;&lt;2,4,6&gt;&gt;</pre>
     <p>More examples are provided in
-    <seealso marker="doc/programming_examples:bit_syntax">
-    Programming Examples.</seealso></p>
+    <seeguide marker="system/programming_examples:bit_syntax">
+    Programming Examples.</seeguide></p>
   </section>
 
   <section>
@@ -1628,16 +1654,26 @@ end</pre>
       by comma (,). The guard is true if all guard expressions
       evaluate to <c>true</c>.</p>
     <p><c>GuardExpr1,...,GuardExprN</c></p>
-    <p>The set of valid <em>guard expressions</em> (sometimes called
-      guard tests) is a subset of the set of valid Erlang expressions.
-      The reason for restricting the set of valid expressions is that
-      evaluation of a guard expression must be guaranteed to be free
-      of side effects. Valid guard expressions are the following:</p>
+  </section>
+
+  <section>
+    <marker id="guard_expressions"></marker>
+    <title>Guard Expressions</title>
+    <p>The set of valid <em>guard expressions</em> is a subset of the
+    set of valid Erlang expressions.  The reason for restricting the
+    set of valid expressions is that evaluation of a guard expression
+    must be guaranteed to be free of side effects. Valid guard
+    expressions are the following:</p>
     <list type="bulleted">
-      <item>The atom <c>true</c></item>
-      <item>Other constants (terms and bound variables), all regarded
-       as false</item>
-      <item>Calls to the BIFs specified in table <c>Type Test BIFs</c></item>
+      <item>Variables</item>
+      <item>Constants (atoms, integer, floats, lists, tuples, records,
+      binaries, and maps)</item>
+      <item>Expressions that construct atoms, integer, floats, lists,
+      tuples, records, binaries, and maps</item>
+      <item>Expressions that update a map</item>
+      <item>The record epxressions <c>Expr#Name.Field</c> and <c>#Name.Field</c></item>
+      <item>Calls to the BIFs specified in tables <em>Type Test BIFs</em> and
+      <em>Other BIFs Allowed in Guard Expressions</em></item>
       <item>Term comparisons</item>
       <item>Arithmetic expressions</item>
       <item>Boolean expressions</item>
@@ -1723,6 +1759,9 @@ end</pre>
       </row>
       <row>
         <cell align="left" valign="middle"><c>length(List)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>map_get(Key, Map)</c></cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>map_size(Map)</c></cell>

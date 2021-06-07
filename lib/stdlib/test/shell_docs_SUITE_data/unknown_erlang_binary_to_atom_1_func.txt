@@ -1,0 +1,7 @@
+
+  [;1m-spec binary_to_atom(Binary) -> atom() when Binary :: binary().[0m
+
+[;;4mSince[0m:
+  OTP 23.0
+
+  The same as [;;4mbinary_to_atom[0m [;;4m(Binary, utf8)[0m.

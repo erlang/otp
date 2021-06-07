@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ init_per_testcase(_TestCase, Config) ->
     [{logger_config,PC}|Config].
 
 end_per_testcase(Case, Config) ->
-    try apply(?MODULE,Case,[cleanup,Config])
+    try erlang:apply(?MODULE,Case,[cleanup,Config])
     catch error:undef -> ok
     end,
     ok.
@@ -274,9 +274,9 @@ change_config(_Config) ->
     ok = logger:set_primary_config(#{filter_default=>stop}),
     #{level:=notice,filters:=[],filter_default:=stop}=PC1 =
         logger:get_primary_config(),
-    3 = maps:size(PC1),
+    4 = maps:size(PC1),
     %% Check that internal 'handlers' field has not been changed
-    MS = [{{{?HANDLER_KEY,'$1'},'_','_'},[],['$1']}],
+    MS = [{{{?HANDLER_KEY,'$1'},'_'},[],['$1']}],
     HIds1 = lists:sort(ets:select(?LOGGER_TABLE,MS)), % dirty, internal data
     HIds2 = lists:sort(logger:get_handler_ids()),
     HIds1 = HIds2,
@@ -478,14 +478,15 @@ set_application_level(cleanup,_Config) ->
     ok.
 
 cache_module_level(_Config) ->
-    ok = logger:unset_module_level(?MODULE),
-    [] = ets:lookup(?LOGGER_TABLE,?MODULE), %dirty - add API in logger_config?
+
+    %% This test does a lot of whitebox tests so be prepared for that
+    persistent_term:erase({logger_config,?MODULE}),
+
+    primary = persistent_term:get({logger_config,?MODULE}, primary),
     ?LOG_NOTICE(?map_rep),
-    %% Caching is done asynchronously, so wait a bit for the update
-    timer:sleep(100),
-    [_] = ets:lookup(?LOGGER_TABLE,?MODULE), %dirty - add API in logger_config?
-    ok = logger:unset_module_level(?MODULE),
-    [] = ets:lookup(?LOGGER_TABLE,?MODULE), %dirty - add API in logger_config?
+    5 = persistent_term:get({logger_config,?MODULE}, primary),
+    logger:set_primary_config(level, info),
+    6 = persistent_term:get({logger_config,?MODULE}, primary),
     ok.
 
 cache_module_level(cleanup,_Config) ->
@@ -569,6 +570,7 @@ filter_failed(cleanup,_Config) ->
     ok.
 
 handler_failed(_Config) ->
+    logger:set_primary_config(level,all),
     register(callback_receiver,self()),
     {error,{invalid_id,1}} = logger:add_handler(1,?MODULE,#{}),
     {error,{invalid_module,"nomodule"}} = logger:add_handler(h1,"nomodule",#{}),
@@ -612,7 +614,7 @@ handler_failed(_Config) ->
         logger:add_handler(h1,?MODULE,#{add_call=>KillHandler}),
 
     check_no_log(),
-    ok = logger:add_handler(h1,?MODULE,#{}),
+    ok = logger:add_handler(h1,?MODULE,#{tc_proc=>self()}),
     {error,{attempting_syncronous_call_to_self,_}} =
         logger:set_handler_config(h1,#{conf_call=>CallAddHandler}),
     {error,{callback_crashed,_}} =
@@ -628,7 +630,8 @@ handler_failed(_Config) ->
         logger:set_handler_config(h1,conf_call,KillHandler),
 
     ok = logger:remove_handler(h1),
-    [add,remove] = test_server:messages_get(),
+    [add,{#{level:=error},_},{#{level:=error},_},
+     {#{level:=error},_},{#{level:=error},_},remove] = test_server:messages_get(),
 
     check_no_log(),
     ok = logger:add_handler(h1,?MODULE,#{rem_call=>CallAddHandler}),
@@ -644,6 +647,7 @@ handler_failed(_Config) ->
 handler_failed(cleanup,_Config) ->
     logger:remove_handler(h1),
     logger:remove_handler(h2),
+    logger:set_primary_config(level,info),
     ok.
 
 config_sanity_check(_Config) ->
@@ -880,7 +884,7 @@ other_node(cleanup,_Config) ->
     ok.
 
 compare_levels(_Config) ->
-    Levels = [emergency,alert,critical,error,warning,notice,info,debug],
+    Levels = [none,emergency,alert,critical,error,warning,notice,info,debug,all],
     ok = compare(Levels),
     {error,badarg} = ?TRY(logger:compare_levels(bad,bad)),
     {error,badarg} = ?TRY(logger:compare_levels({bad},notice)),
@@ -913,6 +917,20 @@ process_metadata(_Config) ->
 
     logger:notice(S3=?str,#{custom=>func}),
     check_logged(notice,S3,#{time=>Time,line=>0,custom=>func}),
+
+    %% Test that primary metadata is overwritten by process metadata
+    ok = logger:update_primary_config(
+           #{metadata=>#{time=>Time,custom=>global,global=>added,line=>1}}),
+    logger:notice(S4=?str),
+    check_logged(notice,S4,#{time=>Time,line=>0,custom=>proc,global=>added}),
+
+    %% Test that primary metadata is overwritten by func metadata
+    %% and that primary overwrites location metadata.
+    ok = logger:unset_process_metadata(),
+    logger:notice(S5=?str,#{custom=>func}),
+    check_logged(notice,S5,#{time=>Time,line=>1,custom=>func,global=>added}),
+    ok = logger:set_process_metadata(ProcMeta),
+    ok = logger:update_primary_config(#{metadata=>#{}}),
 
     ProcMeta = logger:get_process_metadata(),
     ok = logger:update_process_metadata(#{custom=>changed,custom2=>added}),
@@ -1146,7 +1164,7 @@ kernel_config(Config) ->
 
     ok.
 
-pretty_print(Config) ->
+pretty_print(_Config) ->
     ok = logger:add_handler(?FUNCTION_NAME,logger_std_h,#{}),
     ok = logger:set_module_level([module1,module2],debug),
 
@@ -1280,11 +1298,21 @@ test_api(Level) ->
     ok = check_logged(Level,#{Level=>rep},#{my=>meta}),
     logger:Level("~w: ~w",[Level,fa]),
     ok = check_logged(Level,"~w: ~w",[Level,fa],#{}),
+    logger:Level('~w: ~w',[Level,fa]),
+    ok = check_logged(Level,'~w: ~w',[Level,fa],#{}),
+    logger:Level(<<"~w: ~w">>,[Level,fa]),
+    ok = check_logged(Level,<<"~w: ~w">>,[Level,fa],#{}),
     logger:Level("~w: ~w ~w",[Level,fa,meta],#{my=>meta}),
     ok = check_logged(Level,"~w: ~w ~w",[Level,fa,meta],#{my=>meta}),
     logger:Level(fun(x) -> {"~w: ~w ~w",[Level,fun_to_fa,meta]} end,x,
                  #{my=>meta}),
     ok = check_logged(Level,"~w: ~w ~w",[Level,fun_to_fa,meta],#{my=>meta}),
+    logger:Level(fun(x) -> {<<"~w: ~w ~w">>,[Level,fun_to_fa,meta]} end,x,
+                 #{my=>meta}),
+    ok = check_logged(Level,<<"~w: ~w ~w">>,[Level,fun_to_fa,meta],#{my=>meta}),
+    logger:Level(fun(x) -> {'~w: ~w ~w',[Level,fun_to_fa,meta]} end,x,
+                 #{my=>meta}),
+    ok = check_logged(Level,'~w: ~w ~w',[Level,fun_to_fa,meta],#{my=>meta}),
     logger:Level(fun(x) -> #{Level=>fun_to_r,meta=>true} end,x,
                      #{my=>meta}),
     ok = check_logged(Level,#{Level=>fun_to_r,meta=>true},#{my=>meta}),
@@ -1310,6 +1338,12 @@ test_log_function(Level) ->
     logger:log(Level,fun(x) -> {"~w: ~w ~w",[Level,fun_to_fa,meta]} end,
                x, #{my=>meta}),
     ok = check_logged(Level,"~w: ~w ~w",[Level,fun_to_fa,meta],#{my=>meta}),
+    logger:log(Level,fun(x) -> {<<"~w: ~w ~w">>,[Level,fun_to_fa,meta]} end,
+               x, #{my=>meta}),
+    ok = check_logged(Level,<<"~w: ~w ~w">>,[Level,fun_to_fa,meta],#{my=>meta}),
+    logger:log(Level,fun(x) -> {'~w: ~w ~w',[Level,fun_to_fa,meta]} end,
+               x, #{my=>meta}),
+    ok = check_logged(Level,'~w: ~w ~w',[Level,fun_to_fa,meta],#{my=>meta}),
     logger:log(Level,fun(x) -> #{Level=>fun_to_r,meta=>true} end,
                x, #{my=>meta}),
     ok = check_logged(Level,#{Level=>fun_to_r,meta=>true},#{my=>meta}),
@@ -1321,6 +1355,16 @@ test_log_function(Level) ->
     logger:log(Level,F2=fun(x) -> erlang:error(fun_that_crashes) end,x,#{}),
     ok = check_logged(Level,"LAZY_FUN CRASH: ~tp; Reason: ~tp",
                       [{F2,x},{error,fun_that_crashes}],#{}),
+    logger:log(Level,fun(x) -> {{"~w: ~w ~w",[Level,fun_to_fa,meta]}, #{my=>override}} end,
+               x, #{my=>meta}),
+    ok = check_logged(Level,"~w: ~w ~w",[Level,fun_to_fa,meta],#{my=>override}),
+    logger:log(Level,fun(x) -> {#{Level=>fun_to_r,meta=>true}, #{my=>override}} end,
+               x, #{my=>meta}),
+    ok = check_logged(Level,#{Level=>fun_to_r,meta=>true},#{my=>override}),
+    logger:log(Level,fun(x) -> {<<"fun_to_s">>,#{my=>override}} end,x,#{my=>meta}),
+    ok = check_logged(Level,<<"fun_to_s">>,#{my=>override}),
+    logger:log(Level, fun(x) -> ignore end, x, #{}),
+    ok = check_no_log(),
     ok.
 
 test_macros(emergency=Level) ->
@@ -1387,4 +1431,10 @@ my_try(Fun) ->
 check_config(crash) ->
     erlang:error({badmatch,3});
 check_config(_) ->
+    ok.
+
+%% this function is also a test. When logger.hrl used non-qualified
+%%  apply/3 call, any module that was implementing apply/3 could
+%%  not use any logging macro
+apply(_Any, _Any, _Any) ->
     ok.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ init(Ref, Parent, [Root,Mode]) ->
 		   root = Root,
 		   path = Path,
 		   moddb = Db,
-		   namedb = init_namedb(Path),
+		   namedb = create_namedb(Path, Root),
 		   mode = Mode},
 
     Parent ! {Ref,{ok,self()}},
@@ -265,8 +265,8 @@ handle_call({add_paths,Where,Dirs0}, _From,
     {reply,Resp,S#state{path=Path}};
 
 handle_call({set_path,PathList}, _From,
-	    #state{path=Path0,namedb=Namedb}=S) ->
-    {Resp,Path,NewDb} = set_path(PathList, Path0, Namedb),
+	    #state{root=Root,path=Path0,namedb=Namedb}=S) ->
+    {Resp,Path,NewDb} = set_path(PathList, Path0, Namedb, Root),
     {reply,Resp,S#state{path=Path,namedb=NewDb}};
 
 handle_call({del_path,Name}, _From,
@@ -293,19 +293,6 @@ handle_call({load_abs,File,Mod}, From, S) when is_atom(Mod) ->
 
 handle_call({load_binary,Mod,File,Bin}, From, S) when is_atom(Mod) ->
     do_load_binary(Mod, File, Bin, From, S);
-
-handle_call({load_native_partial,Mod,Bin}, _From, S) ->
-    Architecture = erlang:system_info(hipe_architecture),
-    Result = (catch hipe_unified_loader:load(Mod, Bin, Architecture)),
-    Status = hipe_result_to_status(Result, S),
-    {reply,Status,S};
-
-handle_call({load_native_sticky,Mod,Bin,WholeModule}, _From, S) ->
-    Architecture = erlang:system_info(hipe_architecture),
-    Result = (catch hipe_unified_loader:load_module(Mod, Bin, WholeModule,
-                                                    Architecture)),
-    Status = hipe_result_to_status(Result, S),
-    {reply,Status,S};
 
 handle_call({ensure_loaded,Mod}, From, St) when is_atom(Mod) ->
     case erlang:module_loaded(Mod) of
@@ -755,12 +742,12 @@ update(Dir, NameDb) ->
 %%
 %% Set a completely new path.
 %%
-set_path(NewPath0, OldPath, NameDb) ->
+set_path(NewPath0, OldPath, NameDb, Root) ->
     NewPath = normalize(NewPath0),
     case check_path(NewPath) of
 	{ok, NewPath2} ->
 	    ets:delete(NameDb),
-	    NewDb = init_namedb(NewPath2),
+	    NewDb = create_namedb(NewPath2, Root),
 	    {true, NewPath2, NewDb};
 	Error ->
 	    {Error, OldPath, NameDb}
@@ -788,11 +775,27 @@ normalize(Other) ->
 %% Handle a table of name-directory pairs.
 %% The priv_dir/1 and lib_dir/1 functions will have
 %% an O(1) lookup.
-init_namedb(Path) ->
-    Db = ets:new(code_names,[private]),
+create_namedb(Path, Root) ->
+    Db = ets:new(code_names,[named_table, public]),
     init_namedb(lists:reverse(Path), Db),
+
+    case lookup_name("erts", Db) of
+        {ok, _, _, _} ->
+            %% erts is part of code path
+            ok;
+        false ->
+            %% No erts in code path, check if this is a source
+            %% repo and if so use that.
+            ErtsDir = filename:join(Root, "erts"),
+            case erl_prim_loader:read_file_info(ErtsDir) of
+                error ->
+                    ok;
+                _ ->
+                    do_insert_name("erts", ErtsDir, Db)
+            end
+    end,
     Db.
-    
+
 init_namedb([P|Path], Db) ->
     insert_dir(P, Db),
     init_namedb(Path, Db);
@@ -997,7 +1000,6 @@ lookup_name(Name, Db) ->
 	_ -> false
     end.
 
-
 %%
 %% Fetch a directory.
 %%
@@ -1119,26 +1121,10 @@ try_load_module_1(File, Mod, Bin, From, #state{moddb=Db}=St) ->
 	    error_msg("Can't load module '~w' that resides in sticky dir\n",[Mod]),
 	    {reply,{error,sticky_directory},St};
 	false ->
-            Architecture = erlang:system_info(hipe_architecture),
-            try_load_module_2(File, Mod, Bin, From, Architecture, St)
+            try_load_module_2(File, Mod, Bin, From, undefined, St)
     end.
 
-try_load_module_2(File, Mod, Bin, From, undefined, St) ->
-    try_load_module_3(File, Mod, Bin, From, undefined, St);
-try_load_module_2(File, Mod, Bin, From, Architecture,
-                  #state{moddb=Db}=St) ->
-    case catch hipe_unified_loader:load_native_code(Mod, Bin, Architecture) of
-        {module,Mod} = Module ->
-	    ets:insert(Db, {Mod,File}),
-            {reply,Module,St};
-        no_native ->
-            try_load_module_3(File, Mod, Bin, From, Architecture, St);
-        Error ->
-            error_msg("Native loading of ~ts failed: ~p\n", [File,Error]),
-            {reply,{error,Error},St}
-    end.
-
-try_load_module_3(File, Mod, Bin, From, _Architecture, St0) ->
+try_load_module_2(File, Mod, Bin, From, _Architecture, St0) ->
     Action = fun({module,_}=Module, #state{moddb=Db}=S) ->
 		     ets:insert(Db, {Mod,File}),
 		     {reply,Module,S};
@@ -1150,15 +1136,6 @@ try_load_module_3(File, Mod, Bin, From, _Architecture, St0) ->
 	     end,
     Res = erlang:load_module(Mod, Bin),
     handle_on_load(Res, Action, Mod, From, St0).
-
-hipe_result_to_status(Result, #state{}) ->
-    case Result of
-	{module,_} ->
-	    Result;
-	_ ->
-	    {error,Result}
-    end.
-
 
 int_list([H|T]) when is_integer(H) -> int_list(T);
 int_list([_|_])                    -> false;
@@ -1437,11 +1414,16 @@ error_msg(Format, Args) ->
     %% This is equal to calling logger:error/3 which we don't want to
     %% do from code_server. We don't want to call logger:timestamp()
     %% either.
-    logger ! {log,error,Format,Args,
-              #{pid=>self(),
-                gl=>group_leader(),
-                time=>os:system_time(microsecond),
-                error_logger=>#{tag=>error}}},
+    _ = try
+            logger ! {log,error,Format,Args,
+                      #{pid=>self(),
+                        gl=>group_leader(),
+                        time=>os:system_time(microsecond),
+                        error_logger=>#{tag=>error}}}
+        catch _:_ ->
+                erlang:display({?MODULE,error}),
+                erlang:display({Format,Args})
+        end,
     ok.
 
 -spec info_msg(io:format(), [term()]) -> 'ok'.
@@ -1449,11 +1431,11 @@ info_msg(Format, Args) ->
     %% This is equal to calling logger:info/3 which we don't want to
     %% do from code_server. We don't want to call logger:timestamp()
     %% either.
-    logger ! {log,info,Format,Args,
-              #{pid=>self(),
-                gl=>group_leader(),
-                time=>os:system_time(microsecond),
-                error_logger=>#{tag=>info_msg}}},
+    catch logger ! {log,info,Format,Args,
+                    #{pid=>self(),
+                      gl=>group_leader(),
+                      time=>os:system_time(microsecond),
+                      error_logger=>#{tag=>info_msg}}},
     ok.
 
 objfile_extension() ->

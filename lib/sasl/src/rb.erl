@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -890,7 +890,7 @@ read_rep(Fd, FilePosition, Device, Abort, Log) ->
     
 handle_bad_form(Date, Msg, Device, Abort, Log) ->
     io:format("rb: ERROR! A report on bad form was encountered. " ++
-	      "It can not be printed to the log.~n~n"),
+	      "It cannot be printed to the log.~n~n"),
     io:format("Details:~n~p ~tp~n~n", [Date,Msg]),
     case {Abort,Device,open_log_file(Log)} of
 	{true,standard_io,standard_io} ->

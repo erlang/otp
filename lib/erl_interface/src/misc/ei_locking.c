@@ -26,7 +26,7 @@
 
 /* Note that these locks are NOT recursive on Win32 or Solaris,
  * i.e. self-deadlock will occur if a thread tries to obtain a lock it
- * is already holding. The primitives used on VxWorks are recursive however.
+ * is already holding.
  */
 
 #include "eidef.h"
@@ -35,10 +35,6 @@
 #include <winsock2.h>
 #include <windows.h>
 #include <winbase.h>
-
-#elif VXWORKS
-#include <vxWorks.h>
-#include <semLib.h>
 
 #else /* unix */
 #include <stdlib.h>
@@ -63,12 +59,6 @@ ei_mutex_t *ei_mutex_create(void)
 
 #ifdef __WIN32__
   l->lock = CreateMutex(NULL,FALSE,NULL);
-
-#elif VXWORKS
-  if (!(l->lock = semMCreate(SEM_DELETE_SAFE))) {
-    ei_free(l);
-    return NULL;
-  }
 #else /* unix */
   l->lock = ei_m_create();
 #endif
@@ -97,10 +87,6 @@ int ei_mutex_free(ei_mutex_t *l, int nblock)
   /* we are now holding the lock */
 #ifdef __WIN32__
   CloseHandle(l->lock);
-
-#elif VXWORKS
-  if (semDelete(l->lock) == ERROR) return -1;
-
 #else /* unix */
   ei_m_destroy(l->lock);
 #endif
@@ -131,11 +117,6 @@ int ei_mutex_lock(ei_mutex_t *l, int nblock)
   /* check valid values for timeout: is 0 ok? */
   if (WaitForSingleObject(l->lock,(nblock? 0 : INFINITE)) != WAIT_OBJECT_0) 
     return -1; 
-
-#elif VXWORKS
-  if (semTake(l->lock,(nblock? NO_WAIT : WAIT_FOREVER)) == ERROR)
-    return -1;
-
 #else /* unix */
   if (nblock) {
     if (ei_m_trylock(l->lock) < 0) return -1;
@@ -151,10 +132,6 @@ int ei_mutex_unlock(ei_mutex_t *l)
 {
 #ifdef __WIN32__
   ReleaseMutex(l->lock);
-
-#elif VXWORKS
-  semGive(l->lock);
-
 #else /* unix */
   ei_m_unlock(l->lock);
 #endif

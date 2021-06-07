@@ -62,44 +62,44 @@
     <title>Compatibility</title>
     <p>The following functions in this module also exist and provides
       the same functionality in the
-      <seealso marker="sets"><c>sets(3)</c></seealso> and
-      <seealso marker="ordsets"><c>ordsets(3)</c></seealso>
+      <seeerl marker="sets"><c>sets(3)</c></seeerl> and
+      <seeerl marker="ordsets"><c>ordsets(3)</c></seeerl>
       modules. That is, by only changing the module name for each call,
       you can try out different set representations.</p>
     <list type="bulleted">
-      <item><seealso marker="#add_element/2"><c>add_element/2</c></seealso>
+      <item><seemfa marker="#add_element/2"><c>add_element/2</c></seemfa>
       </item>
-      <item><seealso marker="#del_element/2"><c>del_element/2</c></seealso>
+      <item><seemfa marker="#del_element/2"><c>del_element/2</c></seemfa>
       </item>
-      <item><seealso marker="#filter/2"><c>filter/2</c></seealso>
+      <item><seemfa marker="#filter/2"><c>filter/2</c></seemfa>
       </item>
-      <item><seealso marker="#fold/3"><c>fold/3</c></seealso>
+      <item><seemfa marker="#fold/3"><c>fold/3</c></seemfa>
       </item>
-      <item><seealso marker="#from_list/1"><c>from_list/1</c></seealso>
+      <item><seemfa marker="#from_list/1"><c>from_list/1</c></seemfa>
       </item>
-      <item><seealso marker="#intersection/1"><c>intersection/1</c></seealso>
+      <item><seemfa marker="#intersection/1"><c>intersection/1</c></seemfa>
       </item>
-      <item><seealso marker="#intersection/2"><c>intersection/2</c></seealso>
+      <item><seemfa marker="#intersection/2"><c>intersection/2</c></seemfa>
       </item>
-      <item><seealso marker="#is_element/2"><c>is_element/2</c></seealso>
+      <item><seemfa marker="#is_element/2"><c>is_element/2</c></seemfa>
       </item>
-      <item><seealso marker="#is_empty/1"><c>is_empty/1</c></seealso>
+      <item><seemfa marker="#is_empty/1"><c>is_empty/1</c></seemfa>
       </item>
-      <item><seealso marker="#is_set/1"><c>is_set/1</c></seealso>
+      <item><seemfa marker="#is_set/1"><c>is_set/1</c></seemfa>
       </item>
-      <item><seealso marker="#is_subset/2"><c>is_subset/2</c></seealso>
+      <item><seemfa marker="#is_subset/2"><c>is_subset/2</c></seemfa>
       </item>
-      <item><seealso marker="#new/0"><c>new/0</c></seealso>
+      <item><seemfa marker="#new/0"><c>new/0</c></seemfa>
       </item>
-      <item><seealso marker="#size/1"><c>size/1</c></seealso>
+      <item><seemfa marker="#size/1"><c>size/1</c></seemfa>
       </item>
-      <item><seealso marker="#subtract/2"><c>subtract/2</c></seealso>
+      <item><seemfa marker="#subtract/2"><c>subtract/2</c></seemfa>
       </item>
-      <item><seealso marker="#to_list/1"><c>to_list/1</c></seealso>
+      <item><seemfa marker="#to_list/1"><c>to_list/1</c></seemfa>
       </item>
-      <item><seealso marker="#union/1"><c>union/1</c></seealso>
+      <item><seemfa marker="#union/1"><c>union/1</c></seemfa>
       </item>
-      <item><seealso marker="#union/2"><c>union/2</c></seealso>
+      <item><seemfa marker="#union/2"><c>union/2</c></seemfa>
       </item>
     </list>
   </section>
@@ -324,10 +324,10 @@
       <desc>
         <p>Returns an iterator that can be used for traversing the entries of
           <c><anno>Set</anno></c>; see
-          <seealso marker="#next/1"><c>next/1</c></seealso>. The implementation
+          <seemfa marker="#next/1"><c>next/1</c></seemfa>. The implementation
           of this is very efficient; traversing the whole set using
           <c>next/1</c> is only slightly slower than getting the list of all
-          elements using <seealso marker="#to_list/1"><c>to_list/1</c></seealso>
+          elements using <seemfa marker="#to_list/1"><c>to_list/1</c></seemfa>
           and traversing that.
           The main advantage of the iterator approach is that it does
           not require the complete list of all elements to be built in
@@ -342,9 +342,9 @@
       <desc>
         <p>Returns an iterator that can be used for traversing the
           entries of <c><anno>Set</anno></c>; see
-          <seealso marker="#next/1"><c>next/1</c></seealso>.
+          <seemfa marker="#next/1"><c>next/1</c></seemfa>.
           The difference as compared to the iterator returned by
-          <seealso marker="#iterator/1"><c>iterator/1</c></seealso>
+          <seemfa marker="#iterator/1"><c>iterator/1</c></seemfa>
           is that the first element greater than
           or equal to <c><anno>Element</anno></c> is returned.</p>
       </desc>
@@ -467,9 +467,9 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="gb_trees"><c>gb_trees(3)</c></seealso>,
-      <seealso marker="ordsets"><c>ordsets(3)</c></seealso>,
-      <seealso marker="sets"><c>sets(3)</c></seealso></p>
+    <p><seeerl marker="gb_trees"><c>gb_trees(3)</c></seeerl>,
+      <seeerl marker="ordsets"><c>ordsets(3)</c></seeerl>,
+      <seeerl marker="sets"><c>sets(3)</c></seeerl></p>
   </section>
 </erlref>
 

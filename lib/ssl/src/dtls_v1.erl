@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,18 +31,18 @@
 
 suites(Minor) ->
     lists:filter(fun(Cipher) -> 
-                         is_acceptable_cipher(ssl_cipher_format:suite_definition(Cipher)) 
+                         is_acceptable_cipher(ssl_cipher_format:suite_bin_to_map(Cipher)) 
                  end,
                  tls_v1:suites(corresponding_minor_tls_version(Minor))).
 all_suites(Version) ->
     lists:filter(fun(Cipher) -> 
-                         is_acceptable_cipher(ssl_cipher_format:suite_definition(Cipher)) 
+                         is_acceptable_cipher(ssl_cipher_format:suite_bin_to_map(Cipher)) 
                  end,
                  ssl_cipher:all_suites(corresponding_tls_version(Version))).
 
 anonymous_suites(Version) ->
     lists:filter(fun(Cipher) -> 
-                         is_acceptable_cipher(ssl_cipher_format:suite_definition(Cipher)) 
+                         is_acceptable_cipher(ssl_cipher_format:suite_bin_to_map(Cipher)) 
                  end, 
                  ssl_cipher:anonymous_suites(corresponding_tls_version(Version))).
                  

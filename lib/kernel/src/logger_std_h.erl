@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -150,6 +150,8 @@ check_h_config(Type,[{type,Type} | Config]) when Type =:= standard_io;
                                                  Type =:= standard_error;
                                                  Type =:= file ->
     check_h_config(Type,Config);
+check_h_config({device,Device},[{type,{device,Device}} | Config]) ->
+    check_h_config({device,Device},Config);
 check_h_config(file,[{file,File} | Config]) when is_list(File) ->
     check_h_config(file,Config);
 check_h_config(file,[{modes,Modes} | Config]) when is_list(Modes) ->
@@ -170,9 +172,11 @@ check_h_config(_Type,[]) ->
     ok.
 
 normalize_config(#{type:={file,File}}=HConfig) ->
-    HConfig#{type=>file,file=>File};
+    normalize_config(HConfig#{type=>file,file=>File});
 normalize_config(#{type:={file,File,Modes}}=HConfig) ->
-    HConfig#{type=>file,file=>File,modes=>Modes};
+    normalize_config(HConfig#{type=>file,file=>File,modes=>Modes});
+normalize_config(#{file:=File}=HConfig) ->
+    HConfig#{file=>filename:absname(File)};
 normalize_config(HConfig) ->
     HConfig.
 
@@ -188,7 +192,7 @@ merge_default_config(Name,Type,HConfig) ->
 
 get_default_config(Name,file) ->
      #{type => file,
-       file => atom_to_list(Name),
+       file => filename:absname(atom_to_list(Name)),
        modes => [raw,append],
        file_check => 0,
        max_no_bytes => infinity,
@@ -298,10 +302,7 @@ terminate(_Name, _Reason, #{file_ctrl_pid:=FWPid}) ->
 open_log_file(HandlerName,#{type:=file,
                             file:=FileName,
                             modes:=Modes,
-                            file_check:=FileCheck,
-                            max_no_bytes:=Size,
-                            max_no_files:=Count,
-                            compress_on_rotate:=Compress}) ->
+                            file_check:=FileCheck}) ->
     try
         case filelib:ensure_dir(FileName) of
             ok ->
@@ -310,18 +311,16 @@ open_log_file(HandlerName,#{type:=file,
                         {ok,#file_info{inode=INode}} =
                             file:read_file_info(FileName,[raw]),
                         UpdateModes = [append | Modes--[write,append,exclusive]],
-                        State0 = #{handler_name=>HandlerName,
-                                   file_name=>FileName,
-                                   modes=>UpdateModes,
-                                   file_check=>FileCheck,
-                                   fd=>Fd,
-                                   inode=>INode,
-                                   last_check=>timestamp(),
-                                   synced=>false,
-                                   write_res=>ok,
-                                   sync_res=>ok},
-                        State = update_rotation({Size,Count,Compress},State0),
-                        {ok,State};
+                        {ok,#{handler_name=>HandlerName,
+                              file_name=>FileName,
+                              modes=>UpdateModes,
+                              file_check=>FileCheck,
+                              fd=>Fd,
+                              inode=>INode,
+                              last_check=>timestamp(),
+                              synced=>false,
+                              write_res=>ok,
+                              sync_res=>ok}};
                     Error ->
                         Error
                 end;
@@ -333,13 +332,22 @@ open_log_file(HandlerName,#{type:=file,
     end.
 
 close_log_file(#{fd:=Fd}) ->
-    _ = file:datasync(Fd),
+    _ = file:datasync(Fd), %% file:datasync may return error as it will flush the delayed_write buffer
     _ = file:close(Fd),
     ok;
 close_log_file(_) ->
     ok.
 
-
+%% A special close that closes the FD properly when the delayed write close failed
+delayed_write_close(#{fd:=Fd}) ->
+    case file:close(Fd) of
+        %% We got an error while closing, could be a delayed write failing
+        %% So we close again in order to make sure the file is closed.
+        {error, _} ->
+            file:close(Fd);
+        Res ->
+            Res
+    end.
 
 %%%-----------------------------------------------------------------
 %%% File control process
@@ -386,21 +394,36 @@ file_ctrl_call(Pid, Msg) ->
             {error,Reason}
     after
         ?DEFAULT_CALL_TIMEOUT ->
+            %% If this timeout triggers we will get a stray
+            %% reply message in our mailbox eventually.
+            %% That does not really matter though as it will
+            %% end up in this module's handle_info and be ignored
+            demonitor(MRef, [flush]),
             {error,{no_response,Pid}}
-    end.    
+    end.
 
 file_ctrl_init(HandlerName,
                #{type:=file,
+                 max_no_bytes:=Size,
+                 max_no_files:=Count,
+                 compress_on_rotate:=Compress,
                  file:=FileName} = HConfig,
                Starter) ->
     process_flag(message_queue_data, off_heap),
     case open_log_file(HandlerName,HConfig) of
         {ok,State} ->
             Starter ! {self(),ok},
-            file_ctrl_loop(State);
+            %% Do the initial rotate (if any) after we ack the starting
+            %% process as otherwise startup of the system will be
+            %% delayed/crash
+            RotState = update_rotation({Size,Count,Compress},State),
+            file_ctrl_loop(RotState);
         {error,Reason} ->
             Starter ! {self(),{error,{open_failed,FileName,Reason}}}
     end;
+file_ctrl_init(HandlerName, #{type:={device,Dev}}, Starter) ->
+    Starter ! {self(),ok},
+    file_ctrl_loop(#{handler_name=>HandlerName,dev=>Dev});
 file_ctrl_init(HandlerName, #{type:=StdDev}, Starter) ->
     Starter ! {self(),ok},
     file_ctrl_loop(#{handler_name=>HandlerName,dev=>StdDev}).
@@ -455,12 +478,12 @@ maybe_ensure_file(State) ->
 %% In order to play well with tools like logrotate, we need to be able
 %% to re-create the file if it has disappeared (e.g. if rotated by
 %% logrotate)
-ensure_file(#{fd:=Fd0,inode:=INode0,file_name:=FileName,modes:=Modes}=State) ->
+ensure_file(#{inode:=INode0,file_name:=FileName,modes:=Modes}=State) ->
     case file:read_file_info(FileName,[raw]) of
         {ok,#file_info{inode=INode0}} ->
             State#{last_check=>timestamp()};
         _ ->
-            close_log_file(Fd0),
+            close_log_file(State),
             case file:open(FileName,Modes) of
                 {ok,Fd} ->
                     {ok,#file_info{inode=INode}} =
@@ -547,10 +570,9 @@ maybe_rotate_file(AddSize,#{rotation:=#{size:=RotSize,
 maybe_rotate_file(_Bin,State) ->
     State.
 
-rotate_file(#{fd:=Fd0,file_name:=FileName,modes:=Modes,rotation:=Rotation}=State) ->
+rotate_file(#{file_name:=FileName,modes:=Modes,rotation:=Rotation}=State) ->
     State1 = sync_dev(State),
-    _ = file:close(Fd0),
-    _ = file:close(Fd0),
+    _ = delayed_write_close(State),
     rotate_files(FileName,maps:get(count,Rotation),maps:get(compress,Rotation)),
     case file:open(FileName,Modes) of
         {ok,Fd} ->

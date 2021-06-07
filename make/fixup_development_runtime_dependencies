@@ -44,7 +44,7 @@ my $erl_top = shift @ARGV;
 
 chdir $erl_top or die "Failed to change directory into '$erl_top'";
 
-print "Fixup of development runtime dependencies\n";
+print "Fixing up development runtime dependencies\n";
 
 #
 # Determine versions of all applications in the source tree...

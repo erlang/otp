@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@
 
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v2.hrl").
--define(encoder_version_pre_prev3c,true).
+-define(encoder_pre_version_3,true). % version 1 or 2
 -include("megaco_text_tokens.hrl").
 
 

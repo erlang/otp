@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,21 +23,25 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([all/0, suite/0,
-	 display/1, display_huge/0, display_string/1,
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
+
+-export([display/1, display_huge/0, display_string/1,
 	 erl_bif_types/1,guard_bifs_in_erl_bif_types/1,
 	 shadow_comments/1,list_to_utf8_atom/1,
 	 specs/1,improper_bif_stubs/1,auto_imports/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
-	 binary_to_atom/1,binary_to_existing_atom/1,
-	 atom_to_binary/1,min_max/1, erlang_halt/1,
+	 t_binary_to_atom/1,t_binary_to_existing_atom/1,
+	 t_atom_to_binary/1,min_max/1, erlang_halt/1,
          erl_crash_dump_bytes/1,
 	 is_builtin/1, error_stacktrace/1,
 	 error_stacktrace_during_call_trace/1,
          group_leader_prio/1, group_leader_prio_dirty/1,
          is_process_alive/1,
          process_info_blast/1,
-         os_env_case_sensitivity/1]).
+         os_env_case_sensitivity/1,
+         test_length/1,
+         fixed_apply_badarg/1,
+         external_fun_apply3/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -48,11 +52,34 @@ all() ->
      specs, improper_bif_stubs, auto_imports,
      t_list_to_existing_atom, os_env, otp_7526,
      display, display_string, list_to_utf8_atom,
-     atom_to_binary, binary_to_atom, binary_to_existing_atom,
+     t_atom_to_binary, t_binary_to_atom, t_binary_to_existing_atom,
      erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
      error_stacktrace, error_stacktrace_during_call_trace,
      group_leader_prio, group_leader_prio_dirty,
-     is_process_alive, process_info_blast, os_env_case_sensitivity].
+     is_process_alive, process_info_blast, os_env_case_sensitivity,
+     test_length,fixed_apply_badarg,external_fun_apply3].
+
+init_per_testcase(guard_bifs_in_erl_bif_types, Config) when is_list(Config) ->
+    skip_missing_erl_bif_types(Config);
+init_per_testcase(erl_bif_types, Config) when is_list(Config) ->
+    skip_missing_erl_bif_types(Config);
+init_per_testcase(shadow_comments, Config) when is_list(Config) ->
+    skip_missing_erl_bif_types(Config);
+init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+    Config.
+
+end_per_testcase(_Func, _Config) ->
+    ok.
+
+%% erl_bif_types comes from dialyzer which some test runs skip building, so
+%% we'll skip the tests that use it as the result shouldn't vary based on
+%% platform. The majority build it so we'll have plenty coverage either way.
+skip_missing_erl_bif_types(Config) ->
+    c:l(erl_bif_types),
+    case erlang:function_exported(erl_bif_types, module_info, 0) of
+        false -> {skip, "erl_bif_types not compiled"};
+        true -> Config
+    end.
 
 %% Uses erlang:display to test that erts_printf does not do deep recursion
 display(Config) when is_list(Config) ->
@@ -97,12 +124,7 @@ display_string(Config) when is_list(Config) ->
     ok.
 
 erl_bif_types(Config) when is_list(Config) ->
-    ensure_erl_bif_types_compiled(),
-
-    List0 = erlang:system_info(snifs),
-
-    %% Ignore missing type information for hipe BIFs.
-    List = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs],
+    List = erlang:system_info(snifs),
 
     KnownTypes = [MFA || MFA <- List, known_types(MFA)],
     io:format("There are ~p BIFs with type information in erl_bif_types.",
@@ -149,8 +171,6 @@ erl_bif_types_3(List) ->
     end.
 
 guard_bifs_in_erl_bif_types(_Config) ->
-    ensure_erl_bif_types_compiled(),
-
     List0 = erlang:system_info(snifs),
     List = [{F,A} || {erlang,F,A} <- List0,
 		     erl_internal:guard_bif(F, A)],
@@ -170,12 +190,10 @@ guard_bifs_in_erl_bif_types(_Config) ->
     end.
 
 shadow_comments(_Config) ->
-    ensure_erl_bif_types_compiled(),
-
     ErlangList = [{erlang,F,A} || {F,A} <- erlang:module_info(exports),
 				  not is_operator(F,A)],
     List0 = erlang:system_info(snifs),
-    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs, M =/= erlang],
+    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= erlang],
     List = List1 ++ ErlangList,
     HasTypes = [MFA || {M,F,A}=MFA <- List,
 		       erl_bif_types:is_known(M, F, A)],
@@ -239,27 +257,14 @@ extract_comments(Mod, Path) ->
 	 {list_to_atom(M),list_to_atom(F),list_to_integer(A)}
      end || L <- Lines].
 
-ensure_erl_bif_types_compiled() ->
-    c:l(erl_bif_types),
-    case erlang:function_exported(erl_bif_types, module_info, 0) of
-	false ->
-	    %% Fail cleanly.
-	    ct:fail("erl_bif_types not compiled");
-	true ->
-	    ok
-    end.
-
 known_types({M,F,A}) ->
     erl_bif_types:is_known(M, F, A).
 
 specs(_) ->
     List0 = erlang:system_info(snifs),
 
-    %% Ignore missing type information for hipe BIFs.
-    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs],
-
     %% Ignore all operators.
-    List = [MFA || MFA <- List1, not is_operator(MFA)],
+    List = [MFA || MFA <- List0, not is_operator(MFA)],
 
     %% Extract specs from the abstract code for all BIFs.
     Path = get_code_path(),
@@ -303,8 +308,7 @@ make_mfa(M, {F,A}) -> {M,F,A};
 make_mfa(M, {M,_,_}=MFA) -> MFA.
 
 improper_bif_stubs(_) ->
-    Bifs0 = erlang:system_info(snifs),
-    Bifs = [MFA || {M,_,_}=MFA <- Bifs0, M =/= hipe_bifs],
+    Bifs = erlang:system_info(snifs),
     Path = get_code_path(),
     BifRel = sofs:relation(Bifs, [{m,f,a}]),
     BifModules = sofs:to_external(sofs:projection(1, BifRel)),
@@ -350,8 +354,6 @@ auto_imports([], Errors) ->
 extract_functions(M, Abstr) ->
     [{{M,F,A},Body} || {function,_,F,A,Body} <- Abstr].
 
-check_stub({erlang,apply,3}, _) ->
-    ok;
 check_stub({_,F,A}, B) ->
     try
 	[{clause,_,Args,[],Body}] = B,
@@ -493,7 +495,7 @@ test_7526(N) ->
 -define(BADARG(E), {'EXIT',{badarg,_}} = (catch E)).
 -define(SYS_LIMIT(E), {'EXIT',{system_limit,_}} = (catch E)).
 
-binary_to_atom(Config) when is_list(Config) ->
+t_binary_to_atom(Config) when is_list(Config) ->
     HalfLong = lists:seq(0, 127),
     HalfLongAtom = list_to_atom(HalfLong),
     HalfLongBin = list_to_binary(HalfLong),
@@ -521,8 +523,10 @@ binary_to_atom(Config) when is_list(Config) ->
 			     test_binary_to_atom(<<C/utf8>>, utf8)
 		     end],
 
-    <<"こんにちは"/utf8>> =
-	atom_to_binary(test_binary_to_atom(<<"こんにちは"/utf8>>, utf8), utf8),
+    ExoticBin = <<"こんにちは"/utf8>>,
+    ExoticAtom = test_binary_to_atom(ExoticBin, utf8),
+    ExoticBin = atom_to_binary(ExoticAtom, utf8),
+    ExoticBin = atom_to_binary(ExoticAtom),
 
     %% badarg failures.
     fail_binary_to_atom(atom),
@@ -540,6 +544,7 @@ binary_to_atom(Config) when is_list(Config) ->
 
     %% Bad UTF8 sequences.
     ?BADARG(binary_to_atom(id(<<255>>), utf8)),
+    ?BADARG(binary_to_atom(id(<<255>>))),
     ?BADARG(binary_to_atom(id(<<255,0>>), utf8)),
     ?BADARG(binary_to_atom(id(<<16#C0,16#80>>), utf8)), %Overlong 0.
     <<B:1/binary, _/binary>> = id(<<194, 163>>), %Truncated character ERL-474
@@ -547,6 +552,7 @@ binary_to_atom(Config) when is_list(Config) ->
 
     %% system_limit failures.
     ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255>>), utf8)),
+    ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255>>))),
     ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255,0>>), utf8)),
     ?SYS_LIMIT(binary_to_atom(<<0:256/unit:8>>, latin1)),
     ?SYS_LIMIT(binary_to_atom(<<0:257/unit:8>>, latin1)),
@@ -559,6 +565,14 @@ binary_to_atom(Config) when is_list(Config) ->
 test_binary_to_atom(Bin0, Encoding) ->
     Res = binary_to_atom(Bin0, Encoding),
     Res = binary_to_existing_atom(Bin0, Encoding),
+    if
+        Encoding =:= utf8;
+        Encoding =:= unicode ->
+            Res = binary_to_atom(Bin0),
+            Res = binary_to_existing_atom(Bin0);
+       true ->
+            ok
+    end,
     Bin1 = id(<<7:3,Bin0/binary,32:5>>),
     Sz = byte_size(Bin0),
     <<_:3,UnalignedBin:Sz/binary,_:5>> = Bin1,
@@ -578,6 +592,12 @@ fail_binary_to_atom(Bin) ->
             ok
     end,
     try
+        binary_to_atom(Bin)
+    catch
+        error:badarg ->
+            ok
+    end,
+    try
         binary_to_existing_atom(Bin, latin1)
     catch
         error:badarg ->
@@ -588,10 +608,16 @@ fail_binary_to_atom(Bin) ->
     catch
         error:badarg ->
             ok
+    end,
+    try
+        binary_to_existing_atom(Bin)
+    catch
+        error:badarg ->
+            ok
     end.
 	
 
-binary_to_existing_atom(Config) when is_list(Config) ->
+t_binary_to_existing_atom(Config) when is_list(Config) ->
     UnlikelyBin = <<"ou0897979655678dsfj923874390867er869fds973qerueoru">>,
     try
 	binary_to_existing_atom(UnlikelyBin, latin1),
@@ -606,13 +632,29 @@ binary_to_existing_atom(Config) when is_list(Config) ->
     catch
 	error:badarg -> ok
     end,
+    try
+	binary_to_existing_atom(UnlikelyBin),
+	ct:fail(atom_exists)
+    catch
+	error:badarg -> ok
+    end,
 
     UnlikelyAtom = binary_to_atom(id(UnlikelyBin), latin1),
     UnlikelyAtom = binary_to_existing_atom(UnlikelyBin, latin1),
+
+    %% ERL-944; a binary that was too large would overflow the latin1-to-utf8
+    %% conversion buffer.
+    OverflowAtom = <<0:511/unit:8,
+                     196, 133, 196, 133, 196, 133, 196, 133, 196, 133,
+                     196, 133, 196, 133, 196, 133, 196, 133, 196, 133,
+                     196, 133, 196, 133, 196, 133, 196, 133, 196, 133,
+                     196, 133, 196, 133, 196, 133, 196, 133, 196, 133>>,
+    {'EXIT', _} = (catch binary_to_existing_atom(OverflowAtom, latin1)),
+
     ok.
 
 
-atom_to_binary(Config) when is_list(Config) ->
+t_atom_to_binary(Config) when is_list(Config) ->
     HalfLong = lists:seq(0, 127),
     HalfLongAtom = list_to_atom(HalfLong),
     HalfLongBin = list_to_binary(HalfLong),
@@ -628,12 +670,15 @@ atom_to_binary(Config) when is_list(Config) ->
     LongBin = atom_to_binary(LongAtom, latin1),
 
     %% utf8.
+    <<>> = atom_to_binary(''),
     <<>> = atom_to_binary('', utf8),
     <<>> = atom_to_binary('', unicode),
     <<127>> = atom_to_binary('\177', utf8),
     <<"abcdef">> = atom_to_binary(abcdef, utf8),
     HalfLongBin = atom_to_binary(HalfLongAtom, utf8),
+    HalfLongBin = atom_to_binary(HalfLongAtom),
     LongAtomBin = atom_to_binary(LongAtom, utf8),
+    LongAtomBin = atom_to_binary(LongAtom),
     verify_long_atom_bin(LongAtomBin, 0),
 
     %% Failing cases.
@@ -665,7 +710,14 @@ fail_atom_to_binary(Term) ->
     catch
         error:badarg ->
             ok
+    end,
+    try
+        atom_to_binary(Term)
+    catch
+        error:badarg ->
+            ok
     end.
+
 
 min_max(Config) when is_list(Config) ->	
     a = erlang:min(id(a), a),
@@ -738,7 +790,12 @@ erlang_halt(Config) when is_list(Config) ->
 
     % This test triggers a segfault when dumping a crash dump
     % to make sure that we can handle it properly.
+
+    %% Prevent address sanitizer from catching SEGV in slave node
+    AsanOpts = add_asan_opt("handle_segv=0"),
     {ok,N4} = slave:start(H, halt_node4),
+    reset_asan_opts(AsanOpts),
+
     CrashDump = filename:join(proplists:get_value(priv_dir,Config),
                               "segfault_erl_crash.dump"),
     true = rpc:call(N4, os, putenv, ["ERL_CRASH_DUMP",CrashDump]),
@@ -755,6 +812,25 @@ erlang_halt(Config) when is_list(Config) ->
         {_,_} ->
             ok
     end.
+
+add_asan_opt(Opt) ->
+    case test_server:is_asan() of
+	true ->
+	    case os:getenv("ASAN_OPTIONS") of
+		false ->
+		    os:putenv("ASAN_OPTIONS", Opt),
+		    undefined;
+		AO ->
+		    os:putenv("ASAN_OPTIONS", AO ++ [$: | Opt]),
+		    AO
+	    end;
+	_ ->
+	    false
+    end.
+
+reset_asan_opts(false) -> ok;
+reset_asan_opts(undefined) -> os:unsetenv("ASAN_OPTIONS");
+reset_asan_opts(AO) -> os:putenv("ASAN_OPTIONS", AO).
 
 wait_until_stable_size(_File,-10) ->
     {error,enoent};
@@ -847,6 +923,7 @@ error_stacktrace_test() ->
     Types = [apply_const_last, apply_const, apply_last,
 	     apply, double_apply_const_last, double_apply_const,
 	     double_apply_last, double_apply, multi_apply_const_last,
+             apply_const_only, apply_only,
 	     multi_apply_const, multi_apply_last, multi_apply,
 	     call_const_last, call_last, call_const, call],
     lists:foreach(fun (Type) ->
@@ -883,12 +960,18 @@ error_stacktrace_test() ->
 		  Types),
     ok.
 
-stk([], Type, Func) ->
-    tail(Type, Func, jump),
-    ok;
 stk([_|L], Type, Func) ->
     stk(L, Type, Func),
-    ok.
+    %% Force the compiler to keep this body-recursive. We want the stack trace
+    %% to have one entry here and another in the base case to test that
+    %% multiple frames in the same function aren't removed unless they're
+    %% identical.
+    id(ok);
+stk([], Type, Func) ->
+    put(erlang, erlang),
+    put(tail, []),
+    tail(Type, Func, jump),
+    id(ok).
 
 tail(Type, Func, jump) ->
     tail(Type, Func, do);
@@ -897,6 +980,12 @@ tail(Type, error_1, do) ->
 tail(Type, error_2, do) ->
     do_error_2(Type).
 
+do_error_2(apply_const_only) ->
+    apply(erlang, error, [oops, [apply_const_only]]);
+do_error_2(apply_only) ->
+    Erlang = get(erlang),
+    Tail = get(tail),
+    apply(Erlang, error, [oops, [apply_only|Tail]]);
 do_error_2(apply_const_last) ->
     erlang:apply(erlang, error, [oops, [apply_const_last]]);
 do_error_2(apply_const) ->
@@ -938,6 +1027,12 @@ do_error_2(call) ->
     erlang:error(id(oops), id([call])).
 
 
+do_error_1(apply_const_only) ->
+    apply(erlang, error, [oops]);
+do_error_1(apply_only) ->
+    Erlang = get(erlang),
+    Tail = get(tail),
+    apply(Erlang, error, [oops|Tail]);
 do_error_1(apply_const_last) ->
     erlang:apply(erlang, error, [oops]);
 do_error_1(apply_const) ->
@@ -1181,16 +1276,90 @@ consume_msgs() ->
     after 0 ->
               ok
     end.
-                              
+
+%% Test that length/1 returns the correct result after trapping, and
+%% also that the argument is correct in the stacktrace for a badarg
+%% exception.
+
+test_length(_Config) ->
+    {Start,Inc} = case test_server:timetrap_scale_factor() of
+                      1 -> {16*4000,3977};
+                      _ -> {100,1}
+            end,
+    Good = lists:reverse(lists:seq(1, Start)),
+    Bad = Good ++ [bad|cons],
+    test_length(Start, 10*Start, Inc, Good, Bad),
+
+    %% Test that calling length/1 from a match spec works.
+    MsList = lists:seq(1, 2*Start),
+    MsInput = [{tag,Good},{tag,MsList}],
+    Ms0 = [{{tag,'$1'},[{'>',{length,'$1'},Start}],['$1']}],
+    Ms = ets:match_spec_compile(Ms0),
+    [MsList] = ets:match_spec_run(MsInput, Ms),
+    ok.
+
+test_length(I, N, Inc, Good, Bad) when I < N ->
+    Length = id(length),
+    I = length(Good),
+    I = erlang:Length(Good),
+
+    %% Test length/1 in guards.
+    if
+        length(Good) =:= I ->
+            ok
+    end,
+    if
+        length(Bad) =:= I ->
+            error(should_fail);
+        true ->
+            ok
+    end,
+
+    {'EXIT',{badarg,[{erlang,length,[[I|_]],_}|_]}} = (catch length(Bad)),
+    {'EXIT',{badarg,[{erlang,length,[[I|_]],_}|_]}} = (catch erlang:Length(Bad)),
+    IncSeq = lists:seq(I + 1, I + Inc),
+    test_length(I+Inc, N, Inc,
+                lists:reverse(IncSeq, Good),
+                lists:reverse(IncSeq, Bad));
+test_length(_, _, _, _, _) -> ok.
+
+%% apply/3 with a fixed number of arguments didn't include all arguments on
+%% badarg exceptions.
+fixed_apply_badarg(Config) when is_list(Config) ->
+    Bad = id({}),
+
+    {'EXIT',{badarg, [{erlang,apply,[{},baz,[a,b]],[{error_info,_}]} | _]}} =
+        (catch Bad:baz(a,b)),
+    {'EXIT',{badarg, [{erlang,apply,[baz,{},[c,d]],[{error_info,_}]} | _]}} =
+        (catch baz:Bad(c,d)),
+
+    {'EXIT',{badarg, [{erlang,apply,[{},baz,[e,f]],[{error_info,_}]} | _]}} =
+        (catch apply(Bad,baz,[e,f])),
+    {'EXIT',{badarg, [{erlang,apply,[baz,{},[g,h]],[{error_info,_}]} | _]}} =
+        (catch apply(baz,Bad,[g,h])),
+
+    ok.
+
+external_fun_apply3(_Config) ->
+    %% erlang:apply/3 would always badarg when called through an external fun.
+
+    Apply = id(fun erlang:apply/3),
+    Self = Apply(erlang, self, []),
+    true = is_pid(Self),
+
+    {'EXIT',{undef,_}} = (catch Apply(does, 'not', [exist])),
+
+    ok.
+
 %% helpers
     
 id(I) -> I.
 
 %% Get code path, including the path for the erts application.
 get_code_path() ->
-    case code:lib_dir(erts) of
-	{error,bad_name} ->
-	    Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
+    Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
+    case filelib:is_dir(Erts) of
+	true->
 	    [Erts|code:get_path()];
 	_ ->
 	    code:get_path()

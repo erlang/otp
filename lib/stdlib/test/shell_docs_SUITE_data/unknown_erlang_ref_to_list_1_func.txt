@@ -1,0 +1,8 @@
+
+  [;1m-spec ref_to_list(Ref) -> string() when Ref :: reference().[0m
+
+  Returns a string corresponding to the text representation of [;;4mRef[0m.
+
+  Warning:
+    This BIF is intended for debugging and is not to be used in
+    application programs.

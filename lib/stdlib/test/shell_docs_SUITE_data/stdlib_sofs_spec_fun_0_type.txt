@@ -1,0 +1,6 @@
+
+  [;1m-type spec_fun() ::[0m
+  [;1m          {external, fun((external_set()) -> boolean())} |[0m
+  [;1m          fun((anyset()) -> boolean()).[0m
+
+  There is no documentation for spec_fun/0

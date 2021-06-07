@@ -1,0 +1,42 @@
+name: Update docker base image
+
+## Update the base image every day
+on:
+  workflow_dispatch:
+  schedule:
+  ## In UTC
+  - cron: '0 0 * * *'
+
+## Build base images to be used by other github workflows
+jobs:
+
+  build:
+    name: Update base Erlang/OTP build images
+    if: github.repository == 'erlang/otp'
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        type: [debian-base,ubuntu-base,i386-debian-base]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Docker login
+        uses: docker/login-action@v1
+        with:
+          registry: docker.pkg.github.com
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Calculate BASE image
+        id: base
+        run: |
+          echo "::set-output name=BASE_TAG::docker.pkg.github.com/erlang/otp/${{ matrix.type }}"
+          .github/scripts/base-tag "${{ matrix.type }}"
+      - name: Build base image
+        run: |
+          docker build --pull --tag ${{ steps.base.outputs.BASE_TAG }} \
+            --cache-from ${{ steps.base.outputs.BASE_TAG }} \
+            --file .github/dockerfiles/Dockerfile.${{ steps.base.outputs.BASE_TYPE }} \
+            --build-arg BASE=${{ steps.base.outputs.BASE }} .
+      - name: Push base image
+        run: docker push ${{ steps.base.outputs.BASE_TAG }}

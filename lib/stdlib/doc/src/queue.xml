@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -52,12 +52,20 @@
       is to be regarded as opaque by other modules. Any code
       assuming knowledge of the format is running on thin ice.</p>
 
-    <p>All operations has an amortized O(1) running time, except
-      <seealso marker="#filter/2"><c>filter/2</c></seealso>,
-      <seealso marker="#join/2"><c>join/2</c></seealso>,
-      <seealso marker="#len/1"><c>len/1</c></seealso>,
-      <seealso marker="#member/2"><c>member/2</c></seealso>,
-      <seealso marker="#split/2"><c>split/2</c></seealso> that have O(n).
+    <p>All operations have an amortized O(1) running time, except
+      <seemfa marker="#all/2"><c>all/2</c></seemfa>,
+      <seemfa marker="#any/2"><c>any/2</c></seemfa>,
+      <seemfa marker="#delete/2"><c>delete/2</c></seemfa>,
+      <seemfa marker="#delete_r/2"><c>delete_r/2</c></seemfa>,
+      <seemfa marker="#delete_with/2"><c>delete_with/2</c></seemfa>,
+      <seemfa marker="#delete_with_r/2"><c>delete_with_r/2</c></seemfa>,
+      <seemfa marker="#filter/2"><c>filter/2</c></seemfa>,
+      <seemfa marker="#filtermap/2"><c>filtermap/2</c></seemfa>,
+      <seemfa marker="#fold/3"><c>fold/3</c></seemfa>,
+      <seemfa marker="#join/2"><c>join/2</c></seemfa>,
+      <seemfa marker="#len/1"><c>len/1</c></seemfa>,
+      <seemfa marker="#member/2"><c>member/2</c></seemfa>,
+      <seemfa marker="#split/2"><c>split/2</c></seemfa> that have O(n).
       To minimize the size of a queue minimizing
       the amount of garbage built by queue operations, the queues
       do not contain explicit length information, and that is
@@ -96,15 +104,13 @@
       some with more readable but perhaps less understandable aliases.</p>
   </description>
 
-  <section>
-    <title>Original API</title>
-  </section>
+ 
 
   <datatypes>
     <datatype>
       <name name="queue" n_vars="1"/>
       <desc><p>As returned by
-        <seealso marker="#new/0"><c>new/0</c></seealso>.</p></desc>
+        <seemfa marker="#new/0"><c>new/0</c></seemfa>.</p></desc>
     </datatype>
     <datatype>
       <name name="queue" n_vars="0"/>
@@ -112,13 +118,80 @@
   </datatypes>
 
   <funcs>
+    <fsdescription>
+      <title>Original API</title>
+    </fsdescription>
+    <func>
+      <name name="all" arity="2" since="OTP 24.0"/>
+      <fsummary>Return <c>true</c> if all items in a queue satisfy
+        <c>Pred</c>.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Pred</anno>(<anno>Item</anno>)</c>
+          returns <c>true</c> for all items <c><anno>Item</anno></c> in
+          <c><anno>Q</anno></c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="any" arity="2" since="OTP 24.0"/>
+      <fsummary>Return <c>true</c> if any of the items in a queue satisfy
+        <c>Pred</c>.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Pred</anno>(<anno>Item</anno>)</c>
+          returns <c>true</c> for at least one item <c><anno>Item</anno></c>
+          in <c><anno>Q</anno></c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete" arity="2" since="OTP 24.0"/>
+      <fsummary>Delete an item from the front of a queue.</fsummary>
+      <desc>
+        <p>Returns a copy of <c><anno>Q1</anno></c> where the first item
+          matching <c><anno>Item</anno></c> is deleted, if there is such an
+          item.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_r" arity="2" since="OTP 24.0"/>
+      <fsummary>Delete an item from the rear of a queue.</fsummary>
+      <desc>
+        <p>Returns a copy of <c><anno>Q1</anno></c> where the last item
+          matching <c><anno>Item</anno></c> is deleted, if there is such an
+          item.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_with" arity="2" since="OTP 24.0"/>
+      <fsummary>Delete an item matching a predicate from the front of a
+        queue.</fsummary>
+      <desc>
+        <p>Returns a copy of <c><anno>Q1</anno></c> where the first item
+          for which <c><anno>Pred</anno></c> returns <c>true</c> is deleted,
+          if there is such an item.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="delete_with_r" arity="2" since="OTP 24.0"/>
+      <fsummary>Delete an item matching a predicate from the rear of a
+        queue.</fsummary>
+      <desc>
+        <p>Returns a copy of <c><anno>Q1</anno></c> where the last item
+          for which <c><anno>Pred</anno></c> returns <c>true</c> is deleted,
+          if there is such an item.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="filter" arity="2" since=""/>
       <fsummary>Filter a queue.</fsummary>
       <desc>
         <p>Returns a queue <c><anno>Q2</anno></c> that is the result of calling
           <c><anno>Fun</anno>(<anno>Item</anno>)</c> on all items in
-          <c><anno>Q1</anno></c>, in order from front to rear.</p>
+          <c><anno>Q1</anno></c>.</p>
         <p>If <c><anno>Fun</anno>(<anno>Item</anno>)</c> returns <c>true</c>,
           <c>Item</c> is copied to the result queue. If it returns <c>false</c>,
           <c><anno>Item</anno></c> is not copied. If it returns a list,
@@ -130,6 +203,42 @@
           as returning <c>[]</c> is semantically equivalent to
           returning <c>false</c>. But returning a list builds
           more garbage than returning an atom.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="filtermap" arity="2" since="OTP 24.0"/>
+      <fsummary>Filter and map a queue.</fsummary>
+      <desc>
+        <p>Returns a queue <c><anno>Q2</anno></c> that is the result of calling
+          <c><anno>Fun</anno>(<anno>Item</anno>)</c> on all items in
+          <c><anno>Q1</anno></c>.</p>
+        <p>If <c><anno>Fun</anno>(<anno>Item</anno>)</c> returns <c>true</c>,
+          <c>Item</c> is copied to the result queue. If it returns <c>false</c>,
+          <c><anno>Item</anno></c> is not copied. If it returns
+          <c>{true, NewItem}</c>, the queue element at this position is replaced
+          with <c>NewItem</c> in the result queue.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="fold" arity="3" since="OTP 24.0"/>
+      <fsummary>Fold a function over a queue.</fsummary>
+      <desc>
+        <p>Calls <c><anno>Fun</anno>(<anno>Item</anno>, <anno>AccIn</anno>)</c>
+          on successive items <c>Item</c> of <c>Queue</c>, starting
+          with <c><anno>AccIn</anno> == <anno>Acc0</anno></c>. The queue is
+          traversed in queue order, that is, from front to rear.
+          <c><anno>Fun</anno>/2</c> must return a new accumulator, which is
+          passed to the next call. The function returns the final value of
+          the accumulator. <c><anno>Acc0</anno></c> is returned if the queue is
+          empty.</p>
+        <p><em>Example:</em></p>
+        <pre>
+> <input>queue:fold(fun(X, Sum) -> X + Sum end, 0, queue:from_list([1,2,3,4,5])).</input>
+15
+> <input>queue:fold(fun(X, Prod) -> X * Prod end, 1, queue:from_list([1,2,3,4,5])).</input>
+120</pre>
       </desc>
     </func>
 
@@ -168,7 +277,7 @@
       <fsummary>Test if a queue is empty.</fsummary>
       <desc>
         <p>Tests if <c><anno>Q</anno></c> is empty and returns <c>true</c> if
-          so, otherwise otherwise.</p>
+          so, otherwise <c>false</c>.</p>
       </desc>
     </func>
 
@@ -270,11 +379,12 @@
     </func>
   </funcs>
 
-  <section>
-    <title>Extended API</title>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Extended API</title>
+    </fsdescription>
     <func>
       <name name="drop" arity="1" since=""/>
       <fsummary>Remove the front item from a queue.</fsummary>
@@ -336,11 +446,12 @@
     </func>
   </funcs>
 
-  <section>
-    <title>Okasaki API</title>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Okasaki API</title>
+    </fsdescription>
     <func>
       <name name="cons" arity="2" since=""/>
       <fsummary>Insert an item at the head of a queue.</fsummary>

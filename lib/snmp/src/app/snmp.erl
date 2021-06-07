@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,40 +60,12 @@
 	 set_trace/1, reset_trace/1, 
 	 set_trace/2, set_trace/3]).
 
-%% Compiler exports
--export([c/1, c/2, is_consistent/1, mib_to_hrl/1, 
-	 compile/3]).
-
-%% Agent exports (Dont use these, they will be removed eventually)
--export([current_request_id/0, current_community/0, current_address/0,
-	 current_context/0, current_net_if_data/0, 
-
-	 get_symbolic_store_db/0,
-	 name_to_oid/1, name_to_oid/2, 
-	 oid_to_name/1, oid_to_name/2,
-	 int_to_enum/2, int_to_enum/3, 
-	 enum_to_int/2, enum_to_int/3,
-
-	 get/2,
-	 info/1, 
-	 load_mibs/2, unload_mibs/2, dump_mibs/0, dump_mibs/1,
-
-	 register_subagent/3, unregister_subagent/2, 
-
-	 send_notification/3, send_notification/4, send_notification/5,
-	 send_notification/6,
-	 send_trap/3, send_trap/4,
-
-	 add_agent_caps/2, del_agent_caps/1, get_agent_caps/0,
-
-	 log_to_txt/2, log_to_txt/3, log_to_txt/4, 
-	 change_log_size/1
-
-	]).
-
 -export_type([
 	      dir/0, 
 	      snmp_timer/0, 
+
+              atl_type/0,
+              verbosity/0,
 
 	      engine_id/0, 
 	      tdomain/0, 
@@ -116,60 +88,19 @@
 	      pdu/0, 
 	      trappdu/0, 
 	      mib/0, 
-	      mib_name/0, 
+	      mib_name/0,
+
+              error_status/0,
+              error_index/0,
  
 	      void/0
 	     ]).
 
 
 %% This is for XREF
--deprecated([{c,                     1, eventually},
-	     {c,                     2, eventually},
-	     {compile,               3, eventually},
-	     {is_consistent,         1, eventually},
-	     {mib_to_hrl,            1, eventually},
-
-	     {change_log_size,       1, eventually},
-	     {log_to_txt,            2, eventually},
-	     {log_to_txt,            3, eventually},
-	     {log_to_txt,            4, eventually},
-
-	     {current_request_id,    0, eventually},
-	     {current_community,     0, eventually},
-	     {current_address,       0, eventually},
-	     {current_context,       0, eventually},
-	     {current_net_if_data,   0, eventually},
-
-	     {get_symbolic_store_db, 0, eventually},
-	     {name_to_oid,           1, eventually},
-	     {name_to_oid,           2, eventually},
-	     {oid_to_name,           1, eventually},
-	     {oid_to_name,           2, eventually},
-	     {int_to_enum,           2, eventually},
-	     {int_to_enum,           3, eventually},
-	     {enum_to_int,           2, eventually},
-	     {enum_to_int,           3, eventually},
-
-	     {get,                   2, eventually},
-	     {info,                  1, eventually},
-	     {load_mibs,             2, eventually},
-	     {unload_mibs,           2, eventually},
-	     {dump_mibs,             0, eventually},
-	     {dump_mibs,             1, eventually},
-
-	     {register_subagent,     3, eventually},
-	     {unregister_subagent,   2, eventually},
-
-	     {send_notification,     3, eventually},
-	     {send_notification,     4, eventually},
-	     {send_notification,     5, eventually},
-	     {send_notification,     6, eventually},
-	     {send_trap,             3, eventually},
-	     {send_trap,             4, eventually},
-
-	     {add_agent_caps,        2, eventually},
-	     {del_agent_caps,        1, eventually},
-	     {get_agent_caps,        0, eventually}]).
+%% -deprecated(
+%%    [
+%%    ]).
  
 
 -define(APPLICATION, snmp).
@@ -184,6 +115,9 @@
 
 -type dir()           :: string().
 -type snmp_timer()    :: #snmp_incr_timer{}.
+
+-type atl_type()      :: read | write | read_write.
+-type verbosity()     :: info | log | debug | trace | silence.
 
 -type engine_id()     :: string().
 -type tdomain()       :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
@@ -207,6 +141,23 @@
 -type mib_name()      :: string().
 -type pdu()           :: #pdu{}.
 -type trappdu()       :: #trappdu{}.
+
+%% We should really specify all of these, but they are so numerous...
+%% See the validate_err/1 function in the snmpa_agent.
+%% Here are a number of them:
+%% badValue |
+%% commitFailed |
+%% genErr |
+%% inconsistentName | inconsistentValue |
+%% noAccess | noCreation |
+%% noSuchInstance | noSuchName | noSuchObject |
+%% notWritable |
+%% resourceUnavailable |
+%% undoFailed |
+%% wrongValue
+
+-type error_status()  :: atom().
+-type error_index()   :: pos_integer().
 
 -type void()          :: term().
 
@@ -570,15 +521,6 @@ print_mod_info(Prefix, {Module, Info}) ->
             _ ->
                 "Not found"
         end,
-    CompDate =
-        case key1search(compile_time, Info) of
-            {value, {Year, Month, Day, Hour, Min, Sec}} ->
-                io_lib:format(
-		  "~w-~2..0w-~2..0w ~2..0w:~2..0w:~2..0w",
-		  [Year, Month, Day, Hour, Min, Sec]);
-            _ ->
-                "Not found"
-        end,
     Digest =
         case key1search(md5, Info) of
             {value, MD5} when is_binary(MD5) ->
@@ -590,13 +532,11 @@ print_mod_info(Prefix, {Module, Info}) ->
               "~s      Vsn:          ~s~n"
               "~s      App vsn:      ~s~n"
               "~s      Compiler ver: ~s~n"
-	      "~s      Compile time: ~s~n"
               "~s      MD5 digest:   ~s~n",
               [Prefix, Module, 
 	       Prefix, Vsn, 
 	       Prefix, AppVsn, 
 	       Prefix, CompVer,
-	       Prefix, CompDate,
 	       Prefix, Digest]),
     ok.
 
@@ -691,13 +631,8 @@ sys_info() ->
     [{arch, SysArch}, {ver, SysVer}].
  
 os_info() ->
-    V = os:version(),
-    case os:type() of
-        {OsFam, OsName} ->
-            [{fam, OsFam}, {name, OsName}, {ver, V}];
-        OsFam ->
-            [{fam, OsFam}, {ver, V}]
-    end.
+    {OsFam, OsName} = os:type(),
+    [{fam, OsFam}, {name, OsName}, {ver, os:version()}].
 
 ms1() ->
     App    = ?APPLICATION,
@@ -1019,78 +954,5 @@ to_erlang_term(String) ->
     {ok, Tokens, _} = erl_scan:string(lists:append([String, ". "])),
     {ok, Term}      = erl_parse:parse_term(Tokens),
     Term.
-
-
-%%%-----------------------------------------------------------------
-%%% BACKWARD COMPATIBILLITY CRAP
-%%%-----------------------------------------------------------------
-
-c(File) -> snmpc:compile(File).
-c(File, Options) -> snmpc:compile(File, Options).
-
-is_consistent(Filenames) ->
-    snmpc:is_consistent(Filenames).
-
-mib_to_hrl(MibName) ->
-    snmpc:mib_to_hrl(MibName).
-
-compile(Input, Output, Options) ->
-    snmpc:compile(Input, Output, Options).
-
-get_symbolic_store_db() -> snmpa:get_symbolic_store_db().
-
-name_to_oid(Name)           -> snmpa:name_to_oid(Name).
-name_to_oid(Db, Name)       -> snmpa:name_to_oid(Db, Name).
-oid_to_name(OID)            -> snmpa:oid_to_name(OID).
-oid_to_name(Db, OID)        -> snmpa:oid_to_name(Db, OID).
-enum_to_int(Name, Enum)     -> snmpa:enum_to_int(Name, Enum).
-enum_to_int(Db, Name, Enum) -> snmpa:enum_to_int(Db, Name, Enum).
-int_to_enum(Name, Int)      -> snmpa:int_to_enum(Name, Int).
-int_to_enum(Db, Name, Int)  -> snmpa:int_to_enum(Db, Name, Int).
-
-current_request_id()  -> snmpa:current_request_id().
-current_context()     -> snmpa:current_context().
-current_community()   -> snmpa:current_community().
-current_address()     -> snmpa:current_address().
-current_net_if_data() -> snmpa:current_net_if_data().
-
-get(Agent, Vars) -> snmpa:get(Agent, Vars).
-info(Agent) -> snmpa:info(Agent).
-dump_mibs()     -> snmpa:dump_mibs().
-dump_mibs(File) -> snmpa:dump_mibs(File).
-load_mibs(Agent, Mibs) -> snmpa:load_mibs(Agent, Mibs).
-unload_mibs(Agent, Mibs) -> snmpa:unload_mibs(Agent, Mibs).
-send_notification(Agent, Notification, Recv) -> 
-    snmpa:send_notification(Agent, Notification, Recv).
-send_notification(Agent, Notification, Recv, Varbinds) ->
-    snmpa:send_notification(Agent, Notification, Recv, Varbinds).
-send_notification(Agent, Notification, Recv, NotifyName, Varbinds) ->
-    snmpa:send_notification(Agent, Notification, Recv, NotifyName, Varbinds).
-send_notification(Agent, Notification, Recv, NotifyName, 
-		  ContextName, Varbinds) ->
-    snmpa:send_notification(Agent, Notification, Recv, NotifyName, 
-			    ContextName, Varbinds).
-send_trap(Agent, Trap, Community) ->
-    snmpa:send_trap(Agent, Trap, Community).
-send_trap(Agent, Trap, Community, Varbinds) ->
-    snmpa:send_trap(Agent, Trap, Community, Varbinds).
-register_subagent(Agent, SubTree, SubAgent) ->
-    snmpa:register_subagent(Agent, SubTree, SubAgent).
-unregister_subagent(Agent, SubOidOrPid) ->
-    snmpa:unregister_subagent(Agent, SubOidOrPid).
-
-add_agent_caps(Oid, Descr) -> snmpa:add_agent_caps(Oid, Descr).
-del_agent_caps(Index) -> snmpa:del_agent_caps(Index).
-get_agent_caps() -> snmpa:get_agent_caps().
-
-log_to_txt(LogDir, Mibs) -> 
-    snmpa:log_to_txt(LogDir, Mibs).
-log_to_txt(LogDir, Mibs, OutFile) -> 
-    snmpa:log_to_txt(LogDir, Mibs, OutFile).
-log_to_txt(LogDir, Mibs, OutFile, LogName) -> 
-    snmpa:log_to_txt(LogDir, Mibs, OutFile, LogName).
-change_log_size(NewSize) -> 
-    snmpa:change_log_size(NewSize).
-
 
 

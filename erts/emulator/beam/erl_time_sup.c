@@ -1888,9 +1888,9 @@ erts_demonitor_time_offset(ErtsMonitor *mon)
 
     erts_mtx_lock(&erts_get_time_mtx);
 
-    ASSERT(erts_monitor_is_in_table(&mdp->target));
+    ASSERT(erts_monitor_is_in_table(&mdp->u.target));
 
-    erts_monitor_list_delete(&time_offset_monitors, &mdp->target);
+    erts_monitor_list_delete(&time_offset_monitors, &mdp->u.target);
 
     ASSERT(no_time_offset_monitors > 0);
     no_time_offset_monitors--;
@@ -1911,8 +1911,8 @@ typedef struct {
     ErtsTimeOffsetMonitorInfo *to_mon_info;
 } ErtsTimeOffsetMonitorContext;
 
-static void
-save_time_offset_monitor(ErtsMonitor *mon, void *vcntxt)
+static int
+save_time_offset_monitor(ErtsMonitor *mon, void *vcntxt, Sint reds)
 {
     ErtsTimeOffsetMonitorContext *cntxt;
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
@@ -1935,7 +1935,7 @@ save_time_offset_monitor(ErtsMonitor *mon, void *vcntxt)
 
     cntxt->to_mon_info[mix].ref
 	= make_internal_ref(&cntxt->to_mon_info[mix].heap[0]);
-
+    return 1;
 }
 
 static void

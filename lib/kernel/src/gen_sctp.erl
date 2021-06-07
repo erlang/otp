@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -217,24 +217,29 @@ peeloff(S, AssocId) when is_port(S), is_integer(AssocId) ->
 	Error -> Error
     end.
 
--spec connect(Socket, Addr, Port, Opts) -> {ok, Assoc} | {error, inet:posix()} when
+-spec connect(Socket, Addr, Port, Opts) ->
+                     {ok, #sctp_assoc_change{state :: 'comm_up'}} |
+                     {error, #sctp_assoc_change{state :: 'cant_assoc'}} |
+                     {error, inet:posix()}
+                         when
       Socket :: sctp_socket(),
       Addr :: inet:ip_address() | inet:hostname(),
       Port :: inet:port_number(),
-      Opts :: [Opt :: option()],
-      Assoc :: #sctp_assoc_change{}.
+      Opts :: [Opt :: option()].
 
 connect(S, Addr, Port, Opts) ->
     connect(S, Addr, Port, Opts, infinity).
 
 -spec connect(Socket, Addr, Port, Opts, Timeout) ->
-                     {ok, Assoc} | {error, inet:posix()} when
+                     {ok, #sctp_assoc_change{state :: 'comm_up'}} |
+                     {error, #sctp_assoc_change{state :: 'cant_assoc'}} |
+                     {error, inet:posix()}
+                         when
       Socket :: sctp_socket(),
       Addr :: inet:ip_address() | inet:hostname(),
       Port :: inet:port_number(),
       Opts :: [Opt :: option()],
-      Timeout :: timeout(),
-      Assoc :: #sctp_assoc_change{}.
+      Timeout :: timeout().
 
 connect(S, Addr, Port, Opts, Timeout) ->
     case do_connect(S, Addr, Port, Opts, Timeout, true) of

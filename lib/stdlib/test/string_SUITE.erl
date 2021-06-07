@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -103,6 +103,15 @@ debug() ->
         test(?LINE,?FUNCTION_NAME,B,C,D, false),
         test(?LINE,?FUNCTION_NAME,hd(C),[B|tl(C)],D, false)).
 
+-define(TRY(Exp),
+        fun() ->
+                try Exp
+                catch _E:Reason:_ST ->
+                        %% io:format("~p:~w: ~p: ~.0p ~p~n",
+                        %%           [?FUNCTION_NAME, ?LINE,_E,Reason, hd(_ST)]),
+                        {'EXIT', Reason}
+                end
+        end()).
 
 is_empty(_) ->
     ?TEST("", [], true),
@@ -126,6 +135,10 @@ length(_) ->
     ?TEST(["abc"|<<"abc">>], [], 6),
     ?TEST(["abc",["def"]], [], 6),
     ?TEST([<<97/utf8, 778/utf8, 98/utf8>>, [776,111,776]], [], 3), %% åäö in nfd
+
+    InvalidUTF8 = <<192,192>>,
+    {'EXIT', {badarg, _}} = ?TRY(string:length(InvalidUTF8)),
+    {'EXIT', {badarg, _}} = ?TRY(string:length(<<$a, InvalidUTF8/binary, $z>>)),
     ok.
 
 equal(_) ->
@@ -226,6 +239,8 @@ to_graphemes(_) ->
     true = erlang:length(GCs) =:= erlang:length(string:to_graphemes(NFD)),
     true = erlang:length(GCs) =:=
         erlang:length(string:to_graphemes(unicode:characters_to_nfc_list(String))),
+
+    {'EXIT', {badarg, _}} = ?TRY(string:to_graphemes(<<$a,192,192,$z>>)),
     ok.
 
 reverse(_) ->
@@ -238,6 +253,11 @@ reverse(_) ->
     ?TEST(Str2, [], lists:reverse(Str2)),
     ?TEST(Str3, [], lists:reverse(Str3)),
     true = string:reverse(Str3) =:= lists:reverse(string:to_graphemes(Str3)),
+
+    InvalidUTF8 = <<192,192>>,
+    {'EXIT', {badarg, _}} = ?TRY(string:reverse(InvalidUTF8)),
+    {'EXIT', {badarg, _}} = ?TRY(string:reverse(<<$a, InvalidUTF8/binary, $z>>)),
+
     ok.
 
 slice(_) ->
@@ -258,6 +278,14 @@ slice(_) ->
     ?TEST([<<"aå"/utf8>>,"äöbcd"], [3,3], "öbc"),
     ?TEST([<<"aåä"/utf8>>,"öbcd"], [3,10], "öbcd"),
 
+    InvalidUTF8 = <<192,192>>,
+    [$b, $c|InvalidUTF8] = string:slice(["abc", InvalidUTF8], 1),
+    InvalidUTF8 = string:slice(["abc", InvalidUTF8], 3),
+    {'EXIT', {badarg, _}} = ?TRY(string:slice(["abc", InvalidUTF8], 1, 5)),
+    BadUtf8 = <<$a, InvalidUTF8/binary, "teststring">>,
+    {'EXIT', {badarg, _}} = ?TRY(string:slice(BadUtf8, 2)),
+    {'EXIT', {badarg, _}} = ?TRY(string:slice(BadUtf8, 1, 5)),
+    {'EXIT', {badarg, _}} = ?TRY(string:slice(BadUtf8, 0, 5)),
     ok.
 
 pad(_) ->
@@ -270,6 +298,10 @@ pad(_) ->
     ?TEST(Str, [10, trailing, $.], "Hallå....."),
     ?TEST(Str++["f"], [10, trailing, $.], "Hallåf...."),
     ?TEST(Str++[" flåwer"], [10, trailing, $.], "Hallå flåwer"),
+
+    InvalidUTF8 = <<192,192>>,
+    {'EXIT', {badarg, _}} = ?TRY(string:pad(InvalidUTF8, 10, both, $.)),
+    {'EXIT', {badarg, _}} = ?TRY(string:pad(<<$a, InvalidUTF8/binary, $z>>, 10, both, $.)),
     ok.
 
 trim(_) ->
@@ -300,6 +332,11 @@ trim(_) ->
     ?TEST([[<<"!v">>|<<204,128,$v,204,129>>]],[trailing, [[$v,769]]], [$!,$v,768]),
     ?TEST([[[<<"v">>|<<204,129,118,204,128,118>>],769,118,769]], [trailing, [[118,769]]], [$v,769,$v,768]),
     ?TEST([<<"vv">>|<<204,128,118,204,128>>], [trailing, [[118,768]]], "v"),
+
+    InvalidUTF8 = <<192,192>>,
+    {'EXIT', {badarg, _}} = ?TRY(string:trim(InvalidUTF8, both, "az")),
+    %% Not checked  (using binary search)
+    %% {'EXIT', {badarg, _}} = ?TRY(string:trim(<<$a, $b, InvalidUTF8/binary, $z>>, both, "az")),
     ok.
 
 chomp(_) ->
@@ -400,6 +437,13 @@ take(_) ->
     ?TEST([<<"e">>,778,"åäöe", <<778/utf8>>, $e, 779], [[[$e,778]], true, trailing],
           {[$e,778]++"åäöe"++[778], [$e,779]}),
 
+    InvalidUTF8 = <<192,192>>,
+    {'EXIT', {badarg, _}} = ?TRY(string:take(InvalidUTF8, [$.], false, leading)),
+    %% Not checked  (using binary search)
+    %% {'EXIT', {badarg, _}} = ?TRY(string:take(InvalidUTF8, [$.], true, leading)),
+    %% {'EXIT', {badarg, _}} = ?TRY(string:take(InvalidUTF8, [$.], false, trailing)),
+    {'EXIT', {badarg, _}} = ?TRY(string:take(InvalidUTF8, [$.], true, trailing)),
+
     ok.
 
 
@@ -416,6 +460,11 @@ uppercase(_) ->
     ?TEST("ǉǇ", [], "ǇǇ"),
     ?TEST("Ǉǉ", [], "ǇǇ"),
     ?TEST("ß sharp s", [], "SS SHARP S"),
+
+    InvalidUTF8 = <<192,192>>,
+    {'EXIT', {badarg, _}} = ?TRY(string:uppercase(InvalidUTF8)),
+    {'EXIT', {badarg, _}} = ?TRY(string:uppercase(<<$a, InvalidUTF8/binary, $z>>)),
+
     ok.
 
 lowercase(_) ->
@@ -429,6 +478,10 @@ lowercase(_) ->
     ?TEST(["Mic",<<"HAŁ"/utf8>>], [], "michał"),
     ?TEST("ß SHARP S", [], "ß sharp s"),
     ?TEST("İ I WITH DOT ABOVE", [], "i̇ i with dot above"),
+
+    InvalidUTF8 = <<192,192>>,
+    {'EXIT', {badarg, _}} = ?TRY(string:lowercase(InvalidUTF8)),
+    {'EXIT', {badarg, _}} = ?TRY(string:lowercase(<<$a, InvalidUTF8/binary, $z>>)),
     ok.
 
 titlecase(_) ->
@@ -442,6 +495,10 @@ titlecase(_) ->
     ?TEST("ǉǇ", [], "ǈǇ"),
     ?TEST("Ǉǉ", [], "ǈǉ"),
     ?TEST("ß sharp s", [], "Ss sharp s"),
+
+    InvalidUTF8 = <<192,192>>,
+    {'EXIT', {badarg, _}} = ?TRY(string:titlecase(InvalidUTF8)),
+    <<$A, _/binary>> = ?TRY(string:titlecase(<<$a, InvalidUTF8/binary, $z>>)),
     ok.
 
 casefold(_) ->
@@ -456,6 +513,10 @@ casefold(_) ->
     ?TEST("ß SHARP S", [], "ss sharp s"),
     ?TEST("ẞ SHARP S", [], "ss sharp s"),
     ?TEST("İ I WITH DOT ABOVE", [], "i̇ i with dot above"),
+
+    InvalidUTF8 = <<192,192>>,
+    {'EXIT', {badarg, _}} = ?TRY(string:casefold(InvalidUTF8)),
+    {'EXIT', {badarg, _}} = ?TRY(string:casefold(<<$a, InvalidUTF8/binary, $z>>)),
     ok.
 
 
@@ -740,7 +801,7 @@ meas(Config) ->
         _ -> % No scaling, run at most 1.5 min
             Tester = spawn(Exec),
             receive {test_done, Tester} -> ok
-            after 90000 ->
+            after 118000 ->
                     io:format("Timelimit reached stopping~n",[]),
                     exit(Tester, die)
             end,
@@ -754,19 +815,22 @@ do_measure(DataDir) ->
     io:format("~p~n",[byte_size(Bin)]),
     Do = fun(Name, Func, Mode) ->
                  {N, Mean, Stddev, _} = time_func(Func, Mode, Bin, 20),
-                 io:format("~15w ~6w ~6.2fms ±~5.2fms #~.2w gc included~n",
+                 io:format("~15w ~15w ~8.2fms ±~6.2fms #~.2w gc included~n",
                            [Name, Mode, Mean/1000, Stddev/1000, N])
          end,
     Do2 = fun(Name, Func, Mode) ->
                   {N, Mean, Stddev, _} = time_func(Func, binary, <<>>, 20),
-                  io:format("~15w ~6w ~6.2fms ±~5.2fms #~.2w gc included~n",
+                  io:format("~15w ~15w ~8.2fms ±~6.2fms #~.2w gc included~n",
                             [Name, Mode, Mean/1000, Stddev/1000, N])
           end,
+    %% lefty_list means a list balanced to the left, like
+    %% [[[30],31],32]. Only some functions check such lists.
+    Modes = [list, lefty_list, binary, {many_lists,1}, {many_lists, 4}],
     io:format("----------------------~n"),
 
     Do(old_tokens, fun(Str) -> string:tokens(Str, [$\n,$\r]) end, list),
     Tokens = {lexemes, fun(Str) -> string:lexemes(Str, [$\n,$\r]) end},
-    [Do(Name,Fun,Mode) || {Name,Fun} <- [Tokens], Mode <- [list, binary]],
+    [Do(Name,Fun,Mode) || {Name,Fun} <- [Tokens], Mode <- Modes],
 
     S0 = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxy.....",
     S0B = <<"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxy.....">>,
@@ -824,17 +888,17 @@ do_measure(DataDir) ->
 
     io:format("--~n",[]),
     NthTokens = {nth_lexemes, fun(Str) -> string:nth_lexeme(Str, 18000, [$\n,$\r]) end},
-    [Do(Name,Fun,Mode) || {Name,Fun} <- [NthTokens], Mode <- [list, binary]],
+    [Do(Name,Fun,Mode) || {Name,Fun} <- [NthTokens], Mode <- Modes],
     Do2(take_t, repeat(fun() -> string:take(S0, [$.,$y], false, trailing) end), list),
     Do2(take_t, repeat(fun() -> string:take(S0B, [$.,$y], false, trailing) end), binary),
     Do2(take_tc, repeat(fun() -> string:take(S0, [$x], true, trailing) end), list),
     Do2(take_tc, repeat(fun() -> string:take(S0B, [$x], true, trailing) end), binary),
 
     Length = {length, fun(Str) -> string:length(Str) end},
-    [Do(Name,Fun,Mode) || {Name,Fun} <- [Length], Mode <- [list, binary]],
+    [Do(Name,Fun,Mode) || {Name,Fun} <- [Length], Mode <- Modes],
 
     Reverse = {reverse, fun(Str) -> string:reverse(Str) end},
-    [Do(Name,Fun,Mode) || {Name,Fun} <- [Reverse], Mode <- [list, binary]],
+    [Do(Name,Fun,Mode) || {Name,Fun} <- [Reverse], Mode <- Modes],
 
     ok.
 
@@ -1047,12 +1111,22 @@ needs_check(_) -> true.
 %%%% Timer stuff
 
 time_func(Fun, Mode, Bin, Repeat) ->
-    timer:sleep(100), %% Let emulator catch up and clean things before test runs
+    %% Let emulator catch up and clean things before test runs
+    timer:sleep(100),
+
+    %% We're spawning with a minimum heap size of 1k because certain benchmarks
+    %% (e.g. string_lexemes_binary) keep very little heap data alive, making
+    %% them very sensitive to changes in GC behavior.
+    %%
+    %% If we don't do this, something as benign as shrinking a stack frame can
+    %% make things run slower by making it stick to a smaller heap size,
+    %% causing it to GC more often.
     Self = self(),
-    Pid = spawn_link(fun() ->
-                             Str = mode(Mode, Bin),
-                             Self ! {self(),time_func(0,0,0, Fun, Str, undefined, Repeat)}
-                     end),
+    Pid = spawn_opt(fun() ->
+                            Str = mode(Mode, Bin),
+                            Res = time_func(0,0,0, Fun, Str, undefined, Repeat),
+                            Self ! {self(), Res}
+                    end, [link, {min_heap_size, 1 bsl 10}]),
     receive {Pid,Msg} -> Msg end.
 
 time_func(N,Sum,SumSq, Fun, Str, _, Repeat) when N < Repeat ->
@@ -1064,7 +1138,33 @@ time_func(N,Sum,SumSq, _, _, Res, _) ->
     {N, Mean, Stdev, Res}.
 
 mode(binary, Bin) -> Bin;
-mode(list, Bin) -> unicode:characters_to_list(Bin).
+mode(list, Bin) -> unicode:characters_to_list(Bin);
+mode(lefty_list, Bin) ->
+    L = unicode:characters_to_list(Bin),
+    to_left(L);
+mode({many_lists, N}, Bin) ->
+    group(unicode:characters_to_list(Bin), N).
+
+group([], _N) ->
+    [];
+group(L, N) ->
+    try lists:split(N, L) of
+        {L1, L2} ->
+            [L1 | group(L2, N)]
+    catch
+        _:_ ->
+            [L]
+    end.
+
+to_left([]) ->
+    [];
+to_left([H|L]) ->
+    to_left([H], L).
+
+to_left(V, []) ->
+    V;
+to_left(V, [H|L]) ->
+    to_left([V,H], L).
 
 %%
 %% Old string lists Test cases starts here.

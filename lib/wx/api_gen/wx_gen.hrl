@@ -75,7 +75,7 @@
        ).
 
 -record(enum, {from, skip="", as_atom=false, vals}).
--record(const,{name,val,enum,is_const}).
+-record(const,{name,val,enum,is_const,opt}).
 
 -define(error(What), 
 	erlang:error({{?MODULE,?LINE},{get(current_class),get(current_func)},What})).

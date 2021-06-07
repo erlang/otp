@@ -37,7 +37,7 @@
     <p><c>Inets</c> is a container for Internet clients and servers
       including the following:</p>
       <list type="bulleted">
-       <item>An <term id="HTTP"></term> client and server</item>
+       <item>An HTTP client and server</item>
      </list>
      <p>The HTTP client and server are HTTP 1.1 compliant as
       defined in 

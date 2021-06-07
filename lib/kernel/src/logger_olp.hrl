@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,25 +72,8 @@
 
 -define(timestamp(), erlang:monotonic_time(microsecond)).
 
--define(get_mode(Tid),
-        case ets:lookup(Tid, mode) of
-            [{mode,M}] -> M;
-            _          -> async
-        end).
-
--define(set_mode(Tid, M),
-        begin ets:insert(Tid, {mode,M}), M end).
-
--define(change_mode(Tid, M0, M1),
-        if M0 == M1 ->
-                M0;
-           true ->
-                ets:insert(Tid, {mode,M1}),
-                M1
-        end).
-
 -define(max(X1, X2),
-        if 
+        if
             X2 == undefined -> X1;
             X2 > X1 -> X2;
             true -> X1

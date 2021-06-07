@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -120,12 +120,12 @@ meas_init(MessagePackage, Codecs) ->
     display_system_info(),
     display_app_info(),
     io:format("~n", []),
-    Started = now(),
+    Started = os:timestamp(),
     case megaco_codec_transform:messages(MessagePackage) of
 	Messages when is_list(Messages) ->
 	    ExpandedMessages = expand_messages(Codecs, Messages),
 	    Results = t1(ExpandedMessages, []), 
-	    display_time(Started, now()),
+	    display_time(Started, os:timestamp()),
 	    store_results(Results);
 	Error ->
 	    Error

@@ -1,7 +1,7 @@
 % This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,10 +49,7 @@
 	     ct_telnet,
 	     ct_testspec,
 	     ct_util,
-	     ct_webtool,
-	     ct_webtool_sup,
 	     unix_telnet,
-	     vts,
 	     ct_config,
 	     ct_config_plain,
 	     ct_config_xml,
@@ -66,13 +63,13 @@
 	     test_server_gl,
 	     test_server_io,
 	     test_server_node,
-	     test_server_sup
+	     test_server_sup,
+	     ct_suite
 	    ]},
   {registered, [ct_logs,
 		ct_util_server,
 		ct_config_server,
 		ct_make_ref,
-		vts,
 		ct_master,
 		ct_master_logs,
 		test_server_ctrl,

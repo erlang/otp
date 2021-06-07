@@ -1,0 +1,14 @@
+
+  [;1m-spec list_to_float(String) -> float() when String :: string().[0m
+
+  Returns the float whose text representation is [;;4mString[0m, for
+  example:
+
+    > list_to_float("2.2017764e+0").
+    2.2017764
+
+  The float string format is the same as the format for Erlang
+  float literals except for that underscores are not permitted.
+
+  Failure: [;;4mbadarg[0m if [;;4mString[0m contains a bad representation of a
+  float.

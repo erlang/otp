@@ -27,13 +27,10 @@
 
 -export_type([env_var_name/0, env_var_value/0, env_var_name_value/0]).
 
--export([getenv/0, getenv/1, getenv/2, putenv/2, unsetenv/1]).
-
-%%% BIFs
-
--export([get_env_var/1, getpid/0, list_env_vars/0, perf_counter/0,
-         perf_counter/1, set_env_var/2, set_signal/2, system_time/0,
-         system_time/1, timestamp/0, unset_env_var/1]).
+-export([getenv/0, getenv/1, getenv/2, putenv/2, unsetenv/1,
+         getpid/0, env/0, perf_counter/0,
+         perf_counter/1, set_signal/2, system_time/0,
+         system_time/1, timestamp/0]).
 
 -type os_command() :: atom() | io_lib:chars().
 -type os_command_opts() :: #{ max_size => non_neg_integer() | infinity }.
@@ -46,14 +43,18 @@
 
 -type env_var_name_value() :: nonempty_string().
 
--spec list_env_vars() -> [{env_var_name(), env_var_value()}].
-list_env_vars() ->
+%% We must inline these functions so that the stacktrace points to
+%% the correct function.
+-compile({inline, [badarg_with_cause/2, badarg_with_info/1]}).
+
+-spec env() -> [{env_var_name(), env_var_value()}].
+env() ->
     erlang:nif_error(undef).
 
--spec get_env_var(VarName) -> Value | false when
+-spec getenv(VarName) -> Value | false when
       VarName :: env_var_name(),
       Value :: env_var_value().
-get_env_var(_VarName) ->
+getenv(_VarName) ->
     erlang:nif_error(undef).
 
 -spec getpid() -> Value when
@@ -72,12 +73,17 @@ perf_counter() ->
       Unit :: erlang:time_unit().
 
 perf_counter(Unit) ->
-      erlang:convert_time_unit(os:perf_counter(), perf_counter, Unit).
+    try
+        erlang:convert_time_unit(os:perf_counter(), perf_counter, Unit)
+    catch
+        error:_ ->
+            badarg_with_info([Unit])
+    end.
 
--spec set_env_var(VarName, Value) -> true when
+-spec putenv(VarName, Value) -> true when
       VarName :: env_var_name(),
       Value :: env_var_value().
-set_env_var(_, _) ->
+putenv(_VarName, _Value) ->
     erlang:nif_error(undef).
 
 -spec system_time() -> integer().
@@ -97,9 +103,9 @@ system_time(_Unit) ->
 timestamp() ->
     erlang:nif_error(undef).
 
--spec unset_env_var(VarName) -> true when
+-spec unsetenv(VarName) -> true when
       VarName :: env_var_name().
-unset_env_var(_) ->
+unsetenv(_VarName) ->
     erlang:nif_error(undef).
 
 -spec set_signal(Signal, Option) -> 'ok' when
@@ -115,36 +121,22 @@ set_signal(_Signal, _Option) ->
 
 -spec getenv() -> [env_var_name_value()].
 getenv() ->
-    [lists:flatten([Key, $=, Value]) || {Key, Value} <- os:list_env_vars() ].
-
--spec getenv(VarName) -> Value | false when
-      VarName :: env_var_name(),
-      Value :: env_var_value().
-getenv(VarName) ->
-    os:get_env_var(VarName).
+    [lists:flatten([Key, $=, Value]) || {Key, Value} <- os:env() ].
 
 -spec getenv(VarName, DefaultValue) -> Value when
       VarName :: env_var_name(),
       DefaultValue :: env_var_value(),
       Value :: env_var_value().
 getenv(VarName, DefaultValue) ->
-    case os:getenv(VarName) of
+    try os:getenv(VarName) of
         false ->
            DefaultValue;
         Value ->
             Value
+    catch
+        error:_ ->
+            badarg_with_info([VarName, DefaultValue])
     end.
-
--spec putenv(VarName, Value) -> true when
-      VarName :: env_var_name(),
-      Value :: env_var_value().
-putenv(VarName, Value) ->
-    os:set_env_var(VarName, Value).
-
--spec unsetenv(VarName) -> true when
-      VarName :: env_var_name().
-unsetenv(VarName) ->
-    os:unset_env_var(VarName).
 
 -spec type() -> {Osfamily, Osname} when
       Osfamily :: unix | win32,
@@ -265,23 +257,46 @@ extensions() ->
 -spec cmd(Command) -> string() when
       Command :: os_command().
 cmd(Cmd) ->
-    cmd(Cmd, #{ }).
+    try
+        cmd(Cmd, #{ })
+    catch
+        error:_ ->
+            badarg_with_info([Cmd])
+    end.
 
 -spec cmd(Command, Options) -> string() when
       Command :: os_command(),
       Options :: os_command_opts().
 cmd(Cmd, Opts) ->
+    try
+        do_cmd(Cmd, Opts)
+    catch
+        throw:badopt ->
+            badarg_with_cause([Cmd, Opts], badopt);
+        error:_ ->
+            badarg_with_info([Cmd, Opts])
+    end.
+
+do_cmd(Cmd, Opts) ->
+    MaxSize = get_option(max_size, Opts, infinity),
     {SpawnCmd, SpawnOpts, SpawnInput, Eot} = mk_cmd(os:type(), validate(Cmd)),
     Port = open_port({spawn, SpawnCmd}, [binary, stderr_to_stdout,
                                          stream, in, hide | SpawnOpts]),
     MonRef = erlang:monitor(port, Port),
     true = port_command(Port, SpawnInput),
-    Bytes = get_data(Port, MonRef, Eot, [], 0, maps:get(max_size, Opts, infinity)),
+    Bytes = get_data(Port, MonRef, Eot, [], 0, MaxSize),
     demonitor(MonRef, [flush]),
     String = unicode:characters_to_list(Bytes),
     if  %% Convert to unicode list if possible otherwise return bytes
 	is_list(String) -> String;
 	true -> binary_to_list(Bytes)
+    end.
+
+get_option(Opt, Options, Default) ->
+    case Options of
+        #{Opt := Value} -> Value;
+        #{} -> Default;
+        _ -> throw(badopt)
     end.
 
 mk_cmd({win32,Wtype}, Cmd) ->
@@ -293,7 +308,11 @@ mk_cmd({win32,Wtype}, Cmd) ->
     {Command, [], [], <<>>};
 mk_cmd(_,Cmd) ->
     %% Have to send command in like this in order to make sh commands like
-    %% cd and ulimit available
+    %% cd and ulimit available.
+    %%
+    %% We use an absolute path here because we do not want the path to be
+    %% searched in case a stale NFS handle is somewhere in the path before
+    %% the sh command.
     {"/bin/sh -s unix:cmd", [out],
      %% We insert a new line after the command, in case the command
      %% contains a comment character.
@@ -392,3 +411,9 @@ flush_exit(Port) ->
     after 0 ->
             ok
     end.
+
+badarg_with_cause(Args, Cause) ->
+    erlang:error(badarg, Args, [{error_info, #{module => erl_kernel_errors,
+                                               cause => Cause}}]).
+badarg_with_info(Args) ->
+    erlang:error(badarg, Args, [{error_info, #{module => erl_kernel_errors}}]).

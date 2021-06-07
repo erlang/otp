@@ -26,7 +26,4 @@
 get_info() ->
     Tab = ets:new(pt_expand,[set,public]),
     {ok,PT,TW} = crashdump_viewer:persistent_terms(),
-    {{expand,
-      observer_html_lib:expandable_term("Persistent Terms",PT,Tab),
-      Tab},
-     TW}.
+    {{expand, "Persistent Terms", PT, Tab}, TW}.

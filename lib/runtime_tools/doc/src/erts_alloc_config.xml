@@ -37,10 +37,10 @@
         tool and might be subject to backward incompatible
         changes.</p>
     </note>
-    <p><seealso marker="erts:erts_alloc">erts_alloc(3)</seealso> is an
+    <p><seecref marker="erts:erts_alloc">erts_alloc(3)</seecref> is an
       Erlang Run-Time System internal memory allocator library.
       <c>erts_alloc_config</c> is intended to be used to aid creation
-      of an <seealso marker="erts:erts_alloc">erts_alloc(3)</seealso>
+      of an <seecref marker="erts:erts_alloc">erts_alloc(3)</seecref>
       configuration that is suitable for a limited number of runtime
       scenarios. The configuration that <c>erts_alloc_config</c>
       produce is intended as a suggestion, and may need to be
@@ -65,25 +65,25 @@
     <p>A configuration is created in the following way:</p>
     <list type="bulleted">
       <item>
-        <p>Pass the <seealso marker="erts:erts_alloc#Mea">+Mea config</seealso>
+        <p>Pass the <seecref marker="erts:erts_alloc#Mea">+Mea config</seecref>
 	   command-line flag to the Erlang runtime system you are going
 	   to use for creation of the allocator configuration. It will
 	   disable features that prevent <c>erts_alloc_config</c> from
 	   doing its job. Note, you should <em>not</em> use this flag
 	   when using the created configuration. Also note that it is
 	   important that you use the same
-	   <seealso marker="erts:erl#+S">amount of schedulers</seealso>
+	   <seecom marker="erts:erl#+S">amount of schedulers</seecom>
 	   when creating the configuration as you are going the use on
 	   the system using the configuration.</p>
       </item>
       <item>
         <p>Run your applications with different scenarios (the more
           the better) and save information about each scenario by calling
-          <seealso marker="#save_scenario/0">save_scenario/0</seealso>.
+          <seemfa marker="#save_scenario/0">save_scenario/0</seemfa>.
           It may be hard to know when the applications are at an (for
           <c>erts_alloc_config</c>) important runtime scenario. A good
           approach may therefore be to call
-          <seealso marker="#save_scenario/0">save_scenario/0</seealso>
+          <seemfa marker="#save_scenario/0">save_scenario/0</seemfa>
           repeatedly, e.g. once every tenth second. Note that it is
           important that your applications reach the runtime scenarios
           that are important for <c>erts_alloc_config</c> when you are
@@ -92,13 +92,13 @@
       </item>
       <item>
         <p>When you have covered all scenarios, call
-          <seealso marker="#make_config/1">make_config/1</seealso>
+          <seemfa marker="#make_config/1">make_config/1</seemfa>
           in order to create a configuration. The configuration is
           written to a file that you have chosen. This configuration
           file can later be read by an Erlang runtime-system at
           startup. Pass the command line argument 
-          <seealso marker="erts:erl#args_file">-args_file FileName</seealso>
-          to the <seealso marker="erts:erl">erl(1)</seealso> command.</p>
+          <seecom marker="erts:erl#args_file">-args_file FileName</seecom>
+          to the <seecom marker="erts:erl">erl(1)</seecom> command.</p>
       </item>
       <item>
         <p>The configuration produced by <c>erts_alloc_config</c> may
@@ -106,10 +106,10 @@
           file produced by <c>erts_alloc_config</c>; instead, put your
           modifications in another file and load this file after the
           file produced by <c>erts_alloc_config</c>. That is, put the
-          <seealso marker="erts:erl#args_file">-args_file FileName</seealso>
+          <seecom marker="erts:erl#args_file">-args_file FileName</seecom>
           argument that reads your modification file later on the
           command-line than the 
-          <seealso marker="erts:erl#args_file">-args_file FileName</seealso>
+          <seecom marker="erts:erl#args_file">-args_file FileName</seecom>
           argument that reads the configuration file produced by
           <c>erts_alloc_config</c>. If a memory allocation parameter
           appear multiple times, the last version of will be used, i.e.,
@@ -144,13 +144,13 @@
       <desc>
         <p><c>save_scenario/0</c> saves information about the current
           runtime scenario. This information will later be used when
-          <seealso marker="#make_config/0">make_config/0</seealso>,
-          or <seealso marker="#make_config/1">make_config/1</seealso>
+          <seemfa marker="#make_config/0">make_config/0</seemfa>,
+          or <seemfa marker="#make_config/1">make_config/1</seemfa>
           is called.</p>
         <p>The first time <c>save_scenario/0</c> is called a server
           will be started. This server will save runtime scenarios. All
           saved scenarios can be removed by calling
-          <seealso marker="#make_config/0">stop/0</seealso>.</p>
+          <seemfa marker="#make_config/0">stop/0</seemfa>.</p>
       </desc>
     </func>
     <func>
@@ -161,7 +161,7 @@
       </type>
       <desc>
         <p>This is the same as calling
-          <seealso marker="#make_config/1">make_config(group_leader())</seealso>.</p>
+          <seemfa marker="#make_config/1">make_config(group_leader())</seemfa>.</p>
       </desc>
     </func>
     <func>
@@ -173,7 +173,7 @@
       </type>
       <desc>
         <p><c>make_config/1</c> uses the information previously saved by
-          <seealso marker="#save_scenario/0">save_scenario/0</seealso>
+          <seemfa marker="#save_scenario/0">save_scenario/0</seemfa>
           in order to produce an <c>erts_alloc</c> configuration. At
           least one scenario have had to be saved. All scenarios
           previously saved will be used when creating the
@@ -183,9 +183,9 @@
           filename. A file named <c>FileNameOrIODev</c> is created and
           the configuration will be written to that file. If
           <c>FileNameOrIODev</c> is an
-          <seealso marker="stdlib:io">io_device()</seealso> (see the
+          <seeerl marker="stdlib:io">io_device()</seeerl> (see the
           documentation of the module
-          <seealso marker="stdlib:io">io</seealso>), the configuration
+          <seeerl marker="stdlib:io">io</seeerl>), the configuration
           will be written to the io device.</p>
       </desc>
     </func>
@@ -203,9 +203,9 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="erts:erts_alloc">erts_alloc(3)</seealso>,
-      <seealso marker="erts:erl">erl(1)</seealso>,
-      <seealso marker="stdlib:io">io(3)</seealso></p>
+    <p><seecref marker="erts:erts_alloc">erts_alloc(3)</seecref>,
+      <seecom marker="erts:erl">erl(1)</seecom>,
+      <seeerl marker="stdlib:io">io(3)</seeerl></p>
   </section>
 </erlref>
 

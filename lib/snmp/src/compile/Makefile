@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2019. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,8 +59,22 @@ PARSER_TARGET = $(PARSER_MODULE).$(EMULATOR)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ifeq ($(WARN_UNUSED_VARS),true)
-ERL_COMPILE_FLAGS += +warn_unused_vars
+ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/snmp/ebin
+
+ifeq ($(SNMP_WARNING_AS_ERROR),)
+  ERL_COMPILE_FLAGS += -Werror
+else
+  ifeq ($(SNMP_WARNING_AS_ERROR),true)
+    ERL_COMPILE_FLAGS += -Werror
+  endif
+endif
+
+ifeq ($(WARN_UNUSED_VARS),)
+  ERL_COMPILE_FLAGS += +warn_unused_vars
+else
+  ifeq ($(WARN_UNUSED_VARS),true)
+    ERL_COMPILE_FLAGS += +warn_unused_vars
+  endif
 endif
 
 ERL_COMPILE_FLAGS += -I../../include \

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,6 +111,12 @@
 #    include <sys/times.h>
 #    include <limits.h>
 #  endif
+#endif
+
+#ifdef __clang_analyzer__
+   /* CodeChecker does not seem to understand inline asm in FD_ZERO */
+#  undef FD_ZERO
+#  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
 #endif
 
 #define HEART_COMMAND_ENV          "HEART_COMMAND"
@@ -283,8 +289,8 @@ free_env_val(char *value)
  */
 static void get_arguments(int argc, char** argv) {
     int i = 1;
-    int h;
-    unsigned long p;
+    int h = -1;
+    unsigned long p = 0;
 
     while (i < argc) {
 	switch (argv[i][0]) {
@@ -977,7 +983,7 @@ debugf(const char *format,...)
 
 #ifdef __WIN32__
 void print_last_error() {
-	LPVOID lpMsgBuf;
+	LPTSTR lpMsgBuf;
 	FormatMessage( 
 		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
 		NULL,

@@ -1,0 +1,26 @@
+
+  [;1m-spec read_link_all(Name) -> {ok, Filename} | {error, Reason}[0m
+  [;1m                       when[0m
+  [;1m                           Name :: name_all(),[0m
+  [;1m                           Filename :: filename_all(),[0m
+  [;1m                           Reason :: posix() | badarg.[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  Returns [;;4m{ok, Filename}[0m if [;;4mName[0m refers to a symbolic link or [;;4m[0m
+  [;;4m{error, Reason}[0m otherwise. On platforms that do not support
+  symbolic links, the return value is [;;4m{error,enotsup}[0m.
+
+  Notice that [;;4mFilename[0m can be either a list or a binary.
+
+  Typical error reasons:
+
+  [;;4m[;;4meinval[0m[0m:
+    [;;4mName[0m does not refer to a symbolic link.
+
+  [;;4m[;;4menoent[0m[0m:
+    The file does not exist.
+
+  [;;4m[;;4menotsup[0m[0m:
+    Symbolic links are not supported on this platform.

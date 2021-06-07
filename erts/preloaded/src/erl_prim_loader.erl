@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -300,12 +300,18 @@ check_file_result(Func, Target, {error,Reason}) ->
             %% This is equal to calling logger:error/2 which
             %% we don't want to do from code_server during system boot.
             %% We don't want to call logger:timestamp() either.
-            logger ! {log,error,#{label=>{?MODULE,file_error},report=>Report},
-                      #{pid=>self(),
-                        gl=>group_leader(),
-                        time=>os:system_time(microsecond),
-                        error_logger=>#{tag=>error_report,
-                                        type=>std_error}}},
+            _ = try
+                    logger ! {log,error,#{label=>{?MODULE,file_error},report=>Report},
+                              #{pid=>self(),
+                                gl=>group_leader(),
+                                time=>os:system_time(microsecond),
+                                error_logger=>#{tag=>error_report,
+                                                type=>std_error}}}
+                catch _:_ ->
+                        %% If logger has not been started yet we just display it
+                        erlang:display({?MODULE,file_error}),
+                        erlang:display(Report)
+                end,
             error
     end;
 check_file_result(_, _, Other) ->
@@ -1188,7 +1194,7 @@ ensure_virtual_dirs(Components, Fun, FakeFI, Includes, Dirs, Acc) ->
 		    {I, F, Acc3};
 		true ->
 		    %% The directory element does already exist
-		    %% Recursivly ensure dir elements on all levels
+		    %% Recursively ensure dir elements on all levels
 		    ensure_virtual_dirs(Dir,Fun,FakeFI,Includes,Dirs,Acc)
 	    end
     end.

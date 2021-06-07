@@ -241,14 +241,14 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
         msg = enif_make_binary(env, &bin);
 
-        if (!enif_port_command(env, &to_port, NULL, msg))
-            /* port has probably died, enabled will clean up */;
+        (void) enif_port_command(env, &to_port, NULL, msg);
+        /* if failure: port has probably died, enabled will clean up */
 
         enif_release_binary(&bin);
     } else {
 
-        if (!enif_send(env, &to_pid, NULL, msg))
-            /* process has probably died, enabled will clean up */;
+        (void) enif_send(env, &to_pid, NULL, msg);
+        /* if failure: process has probably died, enabled will clean up */
     }
 
 error:

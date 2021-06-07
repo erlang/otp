@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -643,7 +643,7 @@ select_token(LowerText, Version) ->
         "emergency"             -> 'EmergencyToken';
         "eg"                    -> 'EmergencyToken';
         "emergencyofftoken"     -> 'EmergencyOffToken';
-        "emergencyoff"          when (Version >= 3) -> 'EmergencyOffToken';   % v3 (as of prev3c)
+        "emergencyoff"          when (Version >= 3) -> 'EmergencyOffToken';   % v3
         "ego"                   -> 'EmergencyOffToken';
         "emergencyvalue"        when (Version >= 3) -> 'EmergencyValueToken'; % v3 
         "egv"                   when (Version >= 3) -> 'EmergencyValueToken'; % v3

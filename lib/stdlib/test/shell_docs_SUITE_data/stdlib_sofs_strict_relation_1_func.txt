@@ -1,0 +1,13 @@
+
+  [;1m-spec strict_relation(BinRel1) -> BinRel2[0m
+  [;1m                         when[0m
+  [;1m                             BinRel1 :: binary_relation(),[0m
+  [;1m                             BinRel2 :: binary_relation().[0m
+
+  Returns the strict relation corresponding to the binary relation [;;4m[0m
+  [;;4mBinRel1[0m.
+
+    1> R1 = sofs:relation([{1,1},{1,2},{2,1},{2,2}]),
+    R2 = sofs:strict_relation(R1),
+    sofs:to_external(R2).
+    [{1,2},{2,1}]

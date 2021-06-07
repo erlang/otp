@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,6 +51,10 @@
 	 check_ip/1, check_ip/2,
 	 check_port/1,
 %%	 ip_port_to_domaddr/2,
+         check_transport_address/2,
+         check_transport_kind/1,
+         check_transport_opts/1,
+         check_transport_port_ranges/1,
 	 check_address/2, check_address/3,
 	 check_taddress/2,
 	 mk_taddress/1, mk_taddress/2,
@@ -164,6 +168,14 @@ no_filter(X) -> X.
 %% An ordering function (A, B) shall return true iff
 %% A is less than or equal to B i.e shall return
 %% false iff A is to be ordered after B.
+
+-spec keyorder(N, A, B, Keys) ->
+                      boolean() when
+      N    :: integer(),
+      A    :: tuple(),
+      B    :: tuple(),
+      Keys :: maybe_improper_list().
+
 keyorder(N, A, B, _) when element(N, A) == element(N, B) ->
     true;
 keyorder(N, A, B, [Key | _])
@@ -190,8 +202,10 @@ read(File, Verify) ->
 read(File, Order, Check) when is_function(Order), is_function(Check) ->
     ?vdebug("read -> entry with~n"
 	"   File: ~p", [File]),
-    Fd = open_file(File),
-    read_fd(File, Order, Check, Fd, 1, []).
+    Fd    = open_file(File),
+    Lines = read_fd(File, Order, Check, Fd, 1, []),
+    file:close(Fd),
+    Lines.
 
 read_fd(File, Order, Check, Fd, StartLine, Res) ->
     case do_read(Fd, "", StartLine) of
@@ -236,15 +250,16 @@ read_check(File, Check, [{StartLine, Row, EndLine}|Lines], State, Res) ->
 		    "   NewRow: ~p~n", [NewRow]),
 	    read_check(File, Check, Lines, NewState, [NewRow | Res])
     catch
-	{error, Reason} ->
-	    ?vtrace("read_check -> error:~n"
-		    "   Reason: ~p", [Reason]),
+	throw:{error, Reason} ->
+	    ?vtrace("read_check -> error:"
+		    "~n   Reason: ~p", [Reason]),
 	    error({failed_check, File, StartLine, EndLine, Reason});
-	Class:Reason ->
-	    Error = {Class,Reason,erlang:get_stacktrace()},
-	    ?vtrace("read_check -> failure:~n"
-		    "   Error: ~p", [Error]),
-	    error({failed_check, File, StartLine, EndLine, Error})
+	C:E:S ->
+	    ?vtrace("read_check -> failure:"
+                    "~n   Class: ~p"
+		    "~n   Error: ~p"
+		    "~n   Stack: ~p", [C, E, S]),
+	    error({failed_check, File, StartLine, EndLine, {C, E, S}})
     end.
 
 open_file(File) ->
@@ -256,7 +271,8 @@ open_file(File) ->
     end.
 
 do_read(Io, Prompt, StartLine) ->
-    case io:request(Io, {get_until,Prompt,erl_scan,tokens,[StartLine]}) of
+    Enc = latin1,
+    case io:request(Io, {get_until,Enc,Prompt,erl_scan,tokens,[StartLine]}) of
 	{ok, Toks, EndLine} ->
 	    case erl_parse:parse_term(Toks) of
 		{ok, Term} ->
@@ -793,6 +809,91 @@ mk_addr_string_ntoa(Domain, IP, Port) ->
       io_lib:format(
 	"~s:~w", [mk_addr_string_ntoa(Domain, IP), Port])).
 
+
+%% ---------
+
+%% This is internal - can *not* be specified by the user.
+%% check_transport_kind(all) ->
+%%     ok;
+check_transport_kind(req_responder) ->
+    ok;
+check_transport_kind(trap_sender) ->
+    ok;
+check_transport_kind(BadKind) ->
+    error({bad_transport_kind, BadKind}).
+
+
+
+%% ---------
+
+%% The options we accept are the same as for net-if!
+%%    {bind_to,         bind_to()}  |
+%%    {sndbuf,          sndbuf()}   |
+%%    {recbuf,          recbuf()}   |
+%%    {no_reuse,        no_reuse()} |
+%%    {extra_sock_opts, list()}
+%% bind_to()  :: boolean()
+%% sndbuf()   :: pos_integer()
+%% rcvbuf()   :: pos_integer()
+%% no_reuse() :: boolean()
+%% <EPHEMERAL-FOR-FUTUR-USE>
+%%    {ephemeral, ephemeral()} |
+%% ephemeral() :: none |
+%%                once |
+%%                {data, pos_integer()}  |
+%%                {sends, pos_integer()} |
+%%                {alive_time, pos_integer()}
+%% </EPHEMERAL-FOR-FUTUR-USE>
+
+check_transport_opts(Opts) when is_list(Opts) ->
+    check_transport_opts(Opts, [], []);
+check_transport_opts(BadOpts) ->
+    error({bad_transport_opts, BadOpts}).
+
+check_transport_opts([], Extra, Acc) ->
+    lists:reverse(Acc) ++ Extra;
+check_transport_opts([{bind_to, BindTo} = Opt|Opts], Extra, Acc)
+  when is_boolean(BindTo) ->
+    check_transport_opts(Opts, Extra, [Opt|Acc]);
+check_transport_opts([{sndbuf, BufSz} = Opt|Opts], Extra, Acc)
+  when is_integer(BufSz) andalso (BufSz > 0) ->
+    check_transport_opts(Opts, Extra, [Opt | Acc]);
+check_transport_opts([{recbuf, BufSz} = Opt|Opts], Extra, Acc)
+  when is_integer(BufSz) andalso (BufSz > 0) ->
+    check_transport_opts(Opts, Extra, [Opt | Acc]);
+check_transport_opts([{no_reuse, NoReuse} = Opt|Opts], Extra, Acc)
+  when is_boolean(NoReuse) ->
+    check_transport_opts(Opts, Extra, [Opt|Acc]);
+%% <EPHEMERAL-FOR-FUTUR-USE>
+%% check_transport_opts([{ephemeral, Ephm} = Opt|Opts], Extra, Acc) ->
+%%     check_transport_opt_ophm(Ephm),
+%%     check_transport_opts(Opts, Extra, [Opt|Acc]);
+%% </EPHEMERAL-FOR-FUTUR-USE>
+check_transport_opts([{extra_sock_opts, Extra1} = Opt|Opts], Extra2, Acc)
+  when is_list(Extra1) andalso (Extra2 =:= []) ->
+    check_transport_opts(Opts, Extra1, [Opt|Acc]);
+check_transport_opts([H|_], _Extra, _Acc) ->
+    error({bad_transport_opts, H}).
+
+%% <EPHEMERAL-FOR-FUTUR-USE>
+%% check_transport_opt_ophm(none) ->
+%%     ok;
+%% check_transport_opt_ophm(once) ->
+%%     ok;
+%% check_transport_opt_ophm({data, DataSz})
+%%   when is_integer(DataSz) andalso (DataSz > 0) ->
+%%     ok;
+%% check_transport_opt_ophm({sends, Sends})
+%%   when is_integer(Sends) andalso (Sends > 0) ->
+%%     ok;
+%% check_transport_opt_ophm({alive_time, T})
+%%   when is_integer(T) andalso (T > 0) ->
+%%     ok;
+%% check_transport_opt_ophm(BadEphm) ->
+%%     error({bad_transport_opts, {ephemeral, BadEphm}}).
+%% </EPHEMERAL-FOR-FUTUR-USE>
+
+
 %% ---------
 
 check_ip(X) ->
@@ -817,26 +918,69 @@ check_port(Port) when ?is_word(Port) ->
 check_port(Port) ->
     error({bad_port, Port}).
 
-%% ip_port_to_domaddr(IP, Port) when ?is_word(Port) ->
-%%     %% XXX There is only code for IP domains here
-%%     case check_address_ip(transportDomainUdpIpv4, IP) of
-%% 	false ->
-%% 	    case check_address_ip(transportDomainUdpIpv6, IP) of
-%% 		false ->
-%% 		    error({bad_address, {transportDomainUdpIpv4, {IP, Port}}});
-%% 		true ->
-%% 		    {transportDomainUdpIpv6, {IP, Port}};
-%% 		FixedIP ->
-%% 		    {transportDomainUdpIpv6, {FixedIP, Port}}
-%% 	    end;
-%% 	true ->
-%% 	    {transportDomainUdpIpv4, {IP, Port}};
-%% 	FixedIP ->
-%% 	    {transportDomainUdpIpv4, {FixedIP, Port}}
-%%     end;
-%% ip_port_to_domaddr(IP, Port) ->
-%%     error({bad_address, {transportDomainUdpIpv4, {IP, Port}}}).
 
+check_transport_address(transportDomainUdpIpv4 = _Domain,
+                        {{A0, A1, A2, A3}, PortInfo})
+  when ?is_ipv4_addr(A0, A1, A2, A3) ->
+    case PortInfo of
+        system ->
+            %% The actual port number will be choosen
+            %% by the system (create with port = 0)
+            %% when the socket is created.
+            true;
+        Port when ?is_word(Port) andalso (Port >= 0) ->
+            %% Note that the value 0, zero, has the normal meaning of 
+            %% letting the system choose (that is the same effect as
+            %% using 'system').
+            true;
+        {Min, Max} when ?is_word(Min) andalso (Min > 0) andalso
+                        ?is_word(Max) andalso (Max > Min) ->
+            true;
+        Ranges when is_list(Ranges) ->
+            check_transport_port_ranges(Ranges);
+        _ ->
+            false
+    end;
+check_transport_address(transportDomainUdpIpv6 = _Domain,
+                        {{A0, A1, A2, A3, A4, A5, A6, A7}, PortInfo})
+  when ?is_ipv6_addr(A0, A1, A2, A3, A4, A5, A6, A7) ->
+    case PortInfo of
+        system ->
+            %% The actual port number will be choosen
+            %% by the system (create with port = 0)
+            %% when the socket is created.
+            true;
+        Port when ?is_word(Port) andalso (Port >= 0) ->
+            %% Note that the value 0, zero, has the normal meaning of 
+            %% letting the system choose (that is the same effect as
+            %% using 'system').
+            true;
+        {Min, Max} when ?is_word(Min) andalso (Min > 0) andalso
+                        ?is_word(Max) andalso (Max > Min) ->
+            true;
+        Ranges when is_list(Ranges) ->
+            check_transport_port_ranges(Ranges);
+        _ ->
+            false
+    end;
+check_transport_address(BadDomain, _) ->
+    error({bad_domain, BadDomain}).
+
+
+check_transport_port_ranges([]) ->
+    true;
+check_transport_port_ranges([PortNo|Ranges])
+  when ?is_word(PortNo) andalso (PortNo > 0) ->
+    check_transport_port_ranges(Ranges);
+check_transport_port_ranges([{Min, Max}|Ranges])
+  when ?is_word(Min) andalso (Min > 0) andalso
+       ?is_word(Max) andalso (Max > Min) ->
+    check_transport_port_ranges(Ranges);
+check_transport_port_ranges(_) ->
+    false.
+    
+
+    
 %% Check a configuration term field from a file to see if it
 %% can be fixed to be fed to mk_taddress/2.
 

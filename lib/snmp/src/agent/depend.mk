@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2004-2016. All Rights Reserved.
+# Copyright Ericsson AB 2004-2019. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,9 @@ $(EBIN)/snmpa_authentication_service.$(EMULATOR): \
 
 $(EBIN)/snmpa_error_report.$(EMULATOR): \
 	snmpa_error_report.erl
+
+$(EBIN)/snmpa_get_mechanism.$(EMULATOR): \
+	snmpa_get_mechanism.erl
 
 $(EBIN)/snmpa_network_interface.$(EMULATOR): \
 	snmpa_network_interface.erl
@@ -77,6 +80,20 @@ $(EBIN)/snmpa_error_io.$(EMULATOR): \
 $(EBIN)/snmpa_error_logger.$(EMULATOR): \
 	snmpa_error_report.erl \
 	snmpa_error_logger.erl
+
+$(EBIN)/snmpa_set.$(EMULATOR): \
+	snmpa_set_mechanism.erl \
+	snmpa_set.erl \
+	../misc/snmp_verbosity.hrl
+
+$(EBIN)/snmpa_get.$(EMULATOR): \
+	snmpa_get_mechanism.erl \
+	snmpa_get.erl \
+	../misc/snmp_verbosity.hrl
+
+$(EBIN)/snmpa_get_lib.$(EMULATOR): \
+	snmpa_get_lib.erl \
+	../misc/snmp_verbosity.hrl
 
 $(EBIN)/snmpa_local_db.$(EMULATOR): \
 	snmpa_local_db.erl \

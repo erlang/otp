@@ -39,11 +39,11 @@
     <p>Each Logger handler has a configured formatter specified as a
       module and a configuration term. The purpose of the formatter is
       to translate the log events to a final printable string
-      (<seealso marker="stdlib:unicode#type-chardata"><c>unicode:chardata()</c>
-      </seealso>) which can be written to the output device of the
+      (<seetype marker="stdlib:unicode#chardata"><c>unicode:chardata()</c>
+      </seetype>) which can be written to the output device of the
       handler. See
-      sections <seealso marker="logger_chapter#handlers">Handlers</seealso>
-      and <seealso marker="logger_chapter#formatters">Formatters</seealso>
+      sections <seeguide marker="logger_chapter#handlers">Handlers</seeguide>
+      and <seeguide marker="logger_chapter#formatters">Formatters</seeguide>
       in the Kernel User's Guide for more information.</p>
     <p><c>logger_formatter</c> is the default formatter used by
       Logger.</p>
@@ -55,7 +55,7 @@
       <name name="config"/>
       <desc>
 	<p>The configuration term for <c>logger_formatter</c> is a
-	  <seealso marker="stdlib:maps">map</seealso>, and the
+	  <seeerl marker="stdlib:maps">map</seeerl>, and the
 	  following keys can be set as configuration parameters:</p>
 	<taglist>
 	  <tag><marker id="chars_limit"/>
@@ -63,8 +63,8 @@
 	  <item>
 	    <p>A positive integer representing the value of the option
 	      with the same name to be used when calling
-	      <seealso marker="stdlib:io_lib#format-3">
-		<c>io_lib:format/3</c></seealso>.
+	      <seemfa marker="stdlib:io_lib#format/3">
+		<c>io_lib:format/3</c></seemfa>.
 	      This value limits the total number of characters printed
 	      for each log event. Notice that this is a soft limit. For a
 	      hard truncation limit, see option <c>max_size</c>.</p>
@@ -78,7 +78,7 @@
 	      format controls ~p and ~w are replaced with ~P and ~W,
 	      respectively, and the value is used as the depth
 	      parameter. For details, see
-	      <seealso marker="stdlib:io#format-2"><c>io:format/2,3</c></seealso>
+	      <seemfa marker="stdlib:io#format/2"><c>io:format/2,3</c></seemfa>
 	      in STDLIB.</p>
 	    <p>Defaults to <c>unlimited</c>.</p>
 	  </item>
@@ -88,11 +88,11 @@
 	      logger_formatter's part of <c>Metadata</c>. The value of
 	      this field is a string similar to the header created by
 	      the
-	      old <seealso marker="error_logger"><c>error_logger</c></seealso>
+	      old <seeerl marker="error_logger"><c>error_logger</c></seeerl>
 	      event handlers. It can be included in the log event by
 	      adding the list <c>[logger_formatter,header]</c> to the
 	      template. See the description of
-	      the <seealso marker="#type-template"><c>template()</c></seealso>
+	      the <seetype marker="#template"><c>template()</c></seetype>
 	      type for more information.</p>
 	    <p>Defaults to <c>false</c>.</p>
 	  </item>
@@ -105,16 +105,16 @@
 	      by <c>chars_limit</c> or <c>depth</c>, it is truncated.</p>
 	    <p>Defaults to <c>unlimited</c>.</p>
 	  </item>
-	  <tag><c>report_cb = </c><seealso marker="logger#type-report_cb">
-	      <c>logger:report_cb()</c></seealso></tag>
+	  <tag><c>report_cb = </c><seetype marker="logger#report_cb">
+	      <c>logger:report_cb()</c></seetype></tag>
 	  <item>
 	    <p>A report callback is used by the formatter to transform
 	      log messages on report form to a format string and
 	      arguments. The report callback can be specified in the
 	      metadata for the log event. If no report callback exists
 	      in metadata, <c>logger_formatter</c> will
-	      use <seealso marker="logger#format_report-1">
-		<c>logger:format_report/1</c></seealso> as default
+	      use <seemfa marker="logger#format_report/1">
+		<c>logger:format_report/1</c></seemfa> as default
 	      callback.</p>
 	    <p>If this configuration parameter is set, it replaces
 	      both the default report callback, and any report
@@ -127,8 +127,8 @@
 	      single line. To achieve this, <c>logger_formatter</c>
 	      sets the field width to <c>0</c> for all <c>~p</c>
 	      and <c>~P</c> control sequences in the format a string
-	      (see <seealso marker="stdlib:io#format-2">
-		<c>io:format/2</c></seealso>), and replaces all
+	      (see <seemfa marker="stdlib:io#format/2">
+		<c>io:format/2</c></seemfa>), and replaces all
 	      newlines in the message with <c>", "</c>. White spaces
 	      following directly after newlines are removed. Notice
 	      that newlines added by the <c>template</c> parameter are
@@ -136,13 +136,13 @@
 	    <p>Defaults to <c>true</c>.</p>
 	  </item>
 	  <tag><marker id="template"/>
-	    <c>template = </c><seealso marker="#type-template"><c>template()</c>
-	  </seealso></tag>
+	    <c>template = </c><seetype marker="#template"><c>template()</c>
+	  </seetype></tag>
 	  <item>
 	    <p>The template describes how the formatted string is
 	      composed by combining different data values from the log
 	      event. See the description of
-	      the <seealso marker="#type-template"><c>template()</c></seealso>
+	      the <seetype marker="#template"><c>template()</c></seetype>
 	      type for more information about this.</p>
 	  </item>
 	  <tag><c>time_designator = byte()</c></tag>
@@ -153,8 +153,8 @@
 	    <p>Defaults to <c>$T</c>.</p>
 	    <p>The value of this parameter is used as
 	      the <c>time_designator</c> option
-	      to <seealso marker="stdlib:calendar#system_time_to_rfc3339-2">
-		<c>calendar:system_time_to_rcf3339/2</c></seealso>.</p>
+	      to <seemfa marker="stdlib:calendar#system_time_to_rfc3339/2">
+		<c>calendar:system_time_to_rcf3339/2</c></seemfa>.</p>
 	  </item>
 	  <tag><c>time_offset = integer() | [byte()]</c></tag>
 	  <item>
@@ -172,14 +172,14 @@
 	    <p>Defaults to an empty string, meaning that timestamps
 	      are displayed in local time. However, for backwards
 	      compatibility, if the SASL configuration
-	      parameter <seealso marker="sasl:sasl_app#utc_log">
-		<c>utc_log</c></seealso><c>=true</c>, the default is
+	      parameter <seeapp marker="sasl:sasl_app#utc_log">
+		<c>utc_log</c></seeapp><c>=true</c>, the default is
 	      changed to <c>"Z"</c>, meaning that timestamps are displayed
 	      in UTC.</p>
 	    <p>The value of this parameter is used as
 	      the <c>offset</c> option
-	      to <seealso marker="stdlib:calendar#system_time_to_rfc3339-2">
-		<c>calendar:system_time_to_rcf3339/2</c></seealso>.</p>
+	      to <seemfa marker="stdlib:calendar#system_time_to_rfc3339/2">
+		<c>calendar:system_time_to_rcf3339/2</c></seemfa>.</p>
 	  </item>
 	</taglist>
       </desc>
@@ -244,7 +244,7 @@ exit_reason: "It crashed"</code>
 
 	    <p>Notice that all eight levels can occur in the heading,
 	      not only <c>ERROR</c>, <c>WARNING</c> or <c>INFO</c> as
-	      <seealso marker="error_logger"><c>error_logger</c></seealso>
+	      <seeerl marker="error_logger"><c>error_logger</c></seeerl>
 	      produces. And microseconds are added at the end of the
 	      timestamp.</p>
 	  </item>
@@ -298,14 +298,14 @@ exit_reason: "It crashed"</code>
 	  and <c>{error,term()}</c> if it is faulty.</p>
 	<p>The following Logger API functions can trigger this callback:</p>
 	<list>
-	  <item><seealso marker="logger#add_handler-3">
-	      <c>logger:add_handler/3</c></seealso></item>
-	  <item><seealso marker="logger#set_handler_config-2">
-	      <c>logger:set_handler_config/2,3</c></seealso></item>
-	  <item><seealso marker="logger#update_handler_config-2">
-	      <c>logger:update_handler_config/2</c></seealso></item>
-	  <item><seealso marker="logger#update_formatter_config-2">
-	      <c>logger:update_formatter_config/2</c></seealso></item>
+	  <item><seemfa marker="logger#add_handler/3">
+	      <c>logger:add_handler/3</c></seemfa></item>
+	  <item><seemfa marker="logger#set_handler_config/2">
+	      <c>logger:set_handler_config/2,3</c></seemfa></item>
+	  <item><seemfa marker="logger#update_handler_config/2">
+	      <c>logger:update_handler_config/2</c></seemfa></item>
+	  <item><seemfa marker="logger#update_formatter_config/2">
+	      <c>logger:update_formatter_config/2</c></seemfa></item>
 	</list>
       </desc>
     </func>
@@ -318,19 +318,19 @@ exit_reason: "It crashed"</code>
 	<list>
 	  <item>If the message is on report form, it is converted to
 	    <c>{Format,Args}</c> by calling the report callback. See
-	    section <seealso marker="logger_chapter#log_message">Log
-	    Message</seealso> in the Kernel User's Guide for more
+	    section <seeguide marker="logger_chapter#log_message">Log
+	    Message</seeguide> in the Kernel User's Guide for more
 	    information about report callbacks and valid forms of log
 	    messages.</item>
 	  <item>The message size is limited according to the values of
-	    configuration parameters <seealso marker="#chars_limit">
-	      <c>chars_limit</c></seealso>
-	    and <seealso marker="#depth"><c>depth</c></seealso>.</item>
+	    configuration parameters <seeerl marker="#chars_limit">
+	      <c>chars_limit</c></seeerl>
+	    and <seeerl marker="#depth"><c>depth</c></seeerl>.</item>
 	  <item>The full log entry is composed according to
-	    the <seealso marker="#template"><c>template</c></seealso>.</item>
+	    the <seeerl marker="#template"><c>template</c></seeerl>.</item>
 	  <item>If the final string is too long, it is truncated
 	    according to the value of configuration
-	    parameter <seealso marker="#max_size"><c>max_size</c></seealso>.</item>
+	    parameter <seeerl marker="#max_size"><c>max_size</c></seeerl>.</item>
 	</list>
       </desc>
     </func>
@@ -339,14 +339,14 @@ exit_reason: "It crashed"</code>
   <section>
     <title>See Also</title>
     <p>
-      <seealso marker="stdlib:calendar"><c>calendar(3)</c></seealso>,
-      <seealso marker="error_logger"><c>error_logger(3)</c></seealso>,
-      <seealso marker="stdlib:io"><c>io(3)</c></seealso>,
-      <seealso marker="stdlib:io_lib"><c>io_lib(3)</c></seealso>,
-      <seealso marker="logger"><c>logger(3)</c></seealso>,
-      <seealso marker="stdlib:maps"><c>maps(3)</c></seealso>,
-      <seealso marker="sasl:sasl_app"><c>sasl(6)</c></seealso>,
-      <seealso marker="stdlib:unicode"><c>unicode(3)</c></seealso>
+      <seeerl marker="stdlib:calendar"><c>calendar(3)</c></seeerl>,
+      <seeerl marker="error_logger"><c>error_logger(3)</c></seeerl>,
+      <seeerl marker="stdlib:io"><c>io(3)</c></seeerl>,
+      <seeerl marker="stdlib:io_lib"><c>io_lib(3)</c></seeerl>,
+      <seeerl marker="logger"><c>logger(3)</c></seeerl>,
+      <seeerl marker="stdlib:maps"><c>maps(3)</c></seeerl>,
+      <seeapp marker="sasl:sasl_app"><c>sasl(6)</c></seeapp>,
+      <seeerl marker="stdlib:unicode"><c>unicode(3)</c></seeerl>
     </p>
   </section>
 </erlref>

@@ -1,0 +1,21 @@
+
+  [;1m-spec tl(List) -> term() when List :: nonempty_maybe_improper_list().[0m
+
+  Returns the tail of [;;4mList[0m, that is, the list minus the first
+  element, for example:
+
+    > tl([geesties, guilies, beasties]).
+    [guilies, beasties]
+
+    > tl([geesties]).
+    []
+
+    > tl([geesties, guilies, beasties | improper_end]).
+    [guilies, beasties | improper_end]
+
+    > tl([geesties | improper_end]).
+    improper_end
+
+  Allowed in guard tests.
+
+  Failure: [;;4mbadarg[0m if [;;4mList[0m is the empty list [;;4m[][0m.

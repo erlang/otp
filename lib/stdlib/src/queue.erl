@@ -27,7 +27,8 @@
 -export([get/1,get_r/1,peek/1,peek_r/1,drop/1,drop_r/1]).
 
 %% Higher level API
--export([reverse/1,join/2,split/2,filter/2]).
+-export([reverse/1,join/2,split/2,filter/2,filtermap/2,fold/3,any/2,all/2,
+	 delete/2,delete_r/2,delete_with/2,delete_with_r/2]).
 
 %% Okasaki API from klacke
 -export([cons/2,head/1,tail/1,
@@ -37,7 +38,7 @@
 
 %% Mis-spelled, deprecated.
 -export([lait/1]).
--deprecated([lait/1]).
+-deprecated([{lait,1,"use queue:liat/1 instead"}]).
 
 %%--------------------------------------------------------------------------
 %% Efficient implementation of double ended fifo queues
@@ -373,7 +374,11 @@ filter_f(Fun, [X|F]) ->
     case Fun(X) of
 	true ->
 	    [X|filter_f(Fun, F)];
+	[Y] ->
+	    [Y|filter_f(Fun, F)];
 	false ->
+	    filter_f(Fun, F);
+	[] ->
 	    filter_f(Fun, F);
 	L when is_list(L) ->
 	    L++filter_f(Fun, F)
@@ -388,11 +393,226 @@ filter_r(Fun, [X|R0]) ->
     case Fun(X) of
 	true ->
 	    [X|R];
+	[Y] ->
+	    [Y|R];
 	false ->
+	    R;
+	[] ->
 	    R;
 	L when is_list(L) ->
 	    lists:reverse(L, R)
     end.
+
+%% Filter and map a queue, traverses in queue order.
+%%
+%% O(len(Q1))
+-spec filtermap(Fun, Q1) -> Q2 when
+      Fun :: fun((Item) -> boolean() | {'true', Value}),
+      Q1 :: queue(Item),
+      Q2 :: queue(Item | Value),
+      Item :: term(),
+      Value :: term().
+filtermap(Fun, {R0, F0}) when is_function(Fun, 1), is_list(R0), is_list(F0) ->
+    F = lists:filtermap(Fun, F0),
+    R = filtermap_r(Fun, R0),
+    if R =:= [] ->
+	    f2r(F);
+       F =:= [] ->
+	    r2f(R);
+       true ->
+	    {R,F}
+    end;
+filtermap(Fun, Q) ->
+    erlang:error(badarg, [Fun,Q]).
+
+%% Call Fun in reverse order, i.e tail to head
+filtermap_r(_, []) ->
+    [];
+filtermap_r(Fun, [X|R0]) ->
+    R = filtermap_r(Fun, R0),
+    case Fun(X) of
+	true ->
+	    [X|R];
+	{true, Y} ->
+	    [Y|R];
+	false ->
+	    R
+    end.
+
+%% Fold a function over a queue, in queue order.
+%%
+%% O(len(Q))
+-spec fold(Fun, Acc0, Q :: queue(Item)) -> Acc1 when
+      Fun :: fun((Item, AccIn) -> AccOut),
+      Acc0 :: term(),
+      Acc1 :: term(),
+      AccIn :: term(),
+      AccOut :: term().
+fold(Fun, Acc0, {R, F}) when is_function(Fun, 2), is_list(R), is_list(F) ->
+    Acc1 = lists:foldl(Fun, Acc0, F),
+    lists:foldr(Fun, Acc1, R);
+fold(Fun, Acc0, Q) ->
+    erlang:error(badarg, [Fun, Acc0, Q]).
+
+%% Check if any item satisfies the predicate, traverse in queue order.
+%%
+%% O(len(Q)) worst case
+-spec any(Pred, Q :: queue(Item)) -> boolean() when
+      Pred :: fun((Item) -> boolean()).
+any(Pred, {R, F}) when is_function(Pred, 1), is_list(R), is_list(F) ->
+    lists:any(Pred, F) orelse
+    lists:any(Pred, R);
+any(Pred, Q) ->
+    erlang:error(badarg, [Pred, Q]).
+
+%% Check if all items satisfy the predicate, traverse in queue order.
+%%
+%% O(len(Q)) worst case
+-spec all(Pred, Q :: queue(Item)) -> boolean() when
+      Pred :: fun((Item) -> boolean()).
+all(Pred, {R, F}) when is_function(Pred, 1), is_list(R), is_list(F) ->
+    lists:all(Pred, F) andalso
+    lists:all(Pred, R);
+all(Pred, Q) ->
+    erlang:error(badarg, [Pred, Q]).
+
+%% Delete the first occurence of an item in the queue,
+%% according to queue order.
+%%
+%% O(len(Q1)) worst case
+-spec delete(Item, Q1) -> Q2 when
+      Item :: T,
+      Q1 :: queue(T),
+      Q2 :: queue(T),
+      T :: term().
+delete(Item, {R0, F0} = Q) when is_list(R0), is_list(F0) ->
+    case delete_front(Item, F0) of
+        false ->
+            case delete_rear(Item, R0) of
+                false ->
+                    Q;
+                [] ->
+                    f2r(F0);
+                R1 ->
+                    {R1, F0}
+            end;
+        [] ->
+            r2f(R0);
+        F1 ->
+            {R0, F1}
+    end;
+delete(Item, Q) ->
+    erlang:error(badarg, [Item, Q]).
+
+%% Delete the last occurence of an item in the queue,
+%% according to queue order.
+%%
+%% O(len(Q1)) worst case
+-spec delete_r(Item, Q1) -> Q2 when
+      Item :: T,
+      Q1 :: queue(T),
+      Q2 :: queue(T),
+      T :: term().
+delete_r(Item, {R0, F0}) when is_list(R0), is_list(F0) ->
+    {F1, R1}=delete(Item, {F0, R0}),
+    {R1, F1};
+delete_r(Item, Q) ->
+    erlang:error(badarg, [Item, Q]).
+
+delete_front(Item, [Item|Rest]) ->
+    Rest;
+delete_front(Item, [X|Rest]) ->
+    case delete_front(Item, Rest) of
+        false -> false;
+        F -> [X|F]
+    end;
+delete_front(_, []) ->
+    false.
+
+delete_rear(Item, [X|Rest]) ->
+    case delete_rear(Item, Rest) of
+        false when X=:=Item ->
+            Rest;
+        false ->
+            false;
+        R ->
+            [X|R]
+    end;
+delete_rear(_, []) ->
+    false.
+
+%% Delete the first occurence of an item in the queue
+%% matching a predicate, according to queue order.
+%%
+%% O(len(Q1)) worst case
+-spec delete_with(Pred, Q1) -> Q2 when
+      Pred :: fun((Item) -> boolean()),
+      Q1 :: queue(Item),
+      Q2 :: queue(Item),
+      Item :: term().
+delete_with(Pred, {R0, F0} = Q) when is_function(Pred, 1), is_list(R0), is_list(F0) ->
+    case delete_with_front(Pred, F0) of
+	false ->
+	    case delete_with_rear(Pred, R0) of
+		false ->
+		    Q;
+		[] ->
+		    f2r(F0);
+		R1 ->
+		    {R1, F0}
+	    end;
+	[] ->
+	    r2f(R0);
+	F1 ->
+	    {R0, F1}
+    end;
+delete_with(Pred, Q) ->
+    erlang:error(badarg, [Pred, Q]).
+
+%% Delete the last occurence of an item in the queue
+%% matching a predicate, according to queue order.
+%%
+%% O(len(Q1)) worst case
+-spec delete_with_r(Pred, Q1) -> Q2 when
+      Pred :: fun((Item) -> boolean()),
+      Q1 :: queue(Item),
+      Q2 :: queue(Item),
+      Item :: term().
+delete_with_r(Pred, {R0, F0}) when is_function(Pred, 1), is_list(R0), is_list(F0) ->
+    {F1, R1} = delete_with(Pred, {F0, R0}),
+    {R1, F1};
+delete_with_r(Pred, Q) ->
+    erlang:error(badarg, [Pred, Q]).
+
+delete_with_front(Pred, [X|Rest]) ->
+    case Pred(X) of
+	true ->
+	    Rest;
+	false ->
+	    case delete_with_front(Pred, Rest) of
+		false ->
+		    false;
+		F ->
+		    [X|F]
+	    end
+    end;
+delete_with_front(_, []) ->
+    false.
+
+delete_with_rear(Pred, [X|Rest]) ->
+    case delete_with_rear(Pred, Rest) of
+	false ->
+	    case Pred(X) of
+		true ->
+		    Rest;
+		false ->
+		    false
+	    end;
+	R ->
+	    [X|R]
+    end;
+delete_with_rear(_, []) ->
+    false.
 
 %%--------------------------------------------------------------------------
 %% Okasaki API inspired by an Erlang user contribution "deque.erl" 

@@ -1,0 +1,14 @@
+
+  [;1m-spec pid_to_list(Pid) -> string() when Pid :: pid().[0m
+
+  Returns a string corresponding to the text representation of [;;4mPid[0m.
+  Example:
+
+    > erlang:pid_to_list(self()).
+    "<0.85.0>"
+
+  Note:
+    The creation for the node is not included in the list
+    representation of [;;4mPid[0m. This means that processes in
+    different incarnations of a node with a specific name can get
+    the same list representation.

@@ -1,0 +1,38 @@
+name: Sync all github releases with erlang.org
+
+## Update the base image every day
+on:
+  workflow_dispatch:
+  schedule:
+  ## In UTC
+  - cron: '0 * * * *'
+
+## Build base images to be used by other github workflows
+jobs:
+
+  # Wait for up to a minute for previous runs to complete, abort if not done by then
+  pre-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: 'Block Concurrent Executions'
+        uses: softprops/turnstyle@v1
+        with:
+          poll-interval-seconds: 10
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sync-releases:
+    needs: pre-ci
+    if: github.repository == 'erlang/otp'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      ## We need to login to the package registry in order to pull
+      ## the base debian image.
+      - name: Docker login
+        run: docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+      - name: Sync releases
+        run: >
+          .github/scripts/sync-github-releases.sh ${{ github.repository }}
+          "Bearer ${{ secrets.GITHUB_TOKEN }}" "^[2-9][1-9]\\..*" 25m

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2018. All Rights Reserved.
+# Copyright Ericsson AB 2004-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,7 +39,13 @@ RELSYSDIR = $(RELEASE_PATH)/lib/ssh-$(VSN)
 
 # Behaviour (api) modules are first so they are compiled when
 # the compiler reaches a callback module using them.
-BEHAVIOUR_MODULES= \
+# The $(BEHAVIOUR_MODULES_1) has a behaviour used in one or more
+# of the $(BEHAVIOUR_MODULES_2)
+
+BEHAVIOUR_MODULES_1= \
+	ssh_dbg
+
+BEHAVIOUR_MODULES_2= \
 	ssh_client_key_api \
 	ssh_daemon_channel \
 	ssh_server_channel \
@@ -52,43 +58,50 @@ MODULES= \
 	ssh \
 	ssh_acceptor \
 	ssh_acceptor_sup \
+	ssh_agent \
 	ssh_app \
 	ssh_auth\
 	ssh_bits \
+	ssh_channel_sup \
 	ssh_cli \
 	ssh_connection \
 	ssh_connection_handler \
-	ssh_connection_sup \
-	ssh_dbg \
 	ssh_file \
+	ssh_fsm_kexinit \
+	ssh_fsm_userauth_client \
+	ssh_fsm_userauth_server \
 	ssh_info \
 	ssh_io \
+	ssh_lib \
 	ssh_message \
 	ssh_no_io \
 	ssh_options \
-	ssh_server_channel_sup \
 	ssh_sftp \
 	ssh_sftpd \
 	ssh_sftpd_file\
 	ssh_shell \
 	ssh_subsystem_sup \
-	ssh_sup \
 	ssh_system_sup \
+	ssh_tcpip_forward_srv \
+	ssh_tcpip_forward_client \
+	ssh_tcpip_forward_acceptor_sup \
+	ssh_tcpip_forward_acceptor \
 	ssh_transport \
-	ssh_xfer \
-	sshc_sup \
-	sshd_sup
+	ssh_xfer
 
 HRL_FILES =
 
 ERL_FILES= \
 	$(MODULES:%=%.erl) \
-	$(BEHAVIOUR_MODULES:%=%.erl)
+	$(BEHAVIOUR_MODULES_1:%=%.erl) \
+	$(BEHAVIOUR_MODULES_2:%=%.erl)
 
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-BEHAVIOUR_TARGET_FILES= $(BEHAVIOUR_MODULES:%=$(EBIN)/%.$(EMULATOR))
+BEHAVIOUR_TARGET_FILES_1= $(BEHAVIOUR_MODULES_1:%=$(EBIN)/%.$(EMULATOR))
+BEHAVIOUR_TARGET_FILES_2= $(BEHAVIOUR_MODULES_2:%=$(EBIN)/%.$(EMULATOR))
+BEHAVIOUR_TARGET_FILES= $(BEHAVIOUR_TARGET_FILES_1) $(BEHAVIOUR_TARGET_FILES_2)
 
 APP_FILE= ssh.app
 APPUP_FILE= ssh.appup
@@ -99,7 +112,25 @@ APP_TARGET= $(EBIN)/$(APP_FILE)
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
-INTERNAL_HRL_FILES = ssh_auth.hrl ssh_connect.hrl ssh_transport.hrl ssh.hrl ssh_userauth.hrl ssh_xfer.hrl
+INTERNAL_HRL_FILES = \
+	ssh.hrl \
+	ssh_agent.hrl \
+	ssh_auth.hrl \
+	ssh_connect.hrl \
+	ssh_fsm.hrl \
+	ssh_transport.hrl \
+	ssh_xfer.hrl
+
+DEPDIR=$(ERL_TOP)/lib/ssh/src/deps
+DEP_FILE=$(DEPDIR)/ssh.d
+$(shell mkdir -p $(dir $(DEP_FILE)) >/dev/null)
+
+ifeq ($(TARGET), win32)
+  # Native path without C: ignore driveletter case
+  ERL_TOP_NATIVE = $(shell w32_path.sh -m $(ERL_TOP) | sed "s@[a-zA-Z]:@:@")
+else
+  ERL_TOP_NATIVE = $(ERL_TOP)
+endif
 
 # ----------------------------------------------------
 # FLAGS
@@ -115,13 +146,25 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 # Targets
 # ----------------------------------------------------
 
-$(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
+$(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES_2)
+$(BEHAVIOUR_TARGET_FILES_2): $(BEHAVIOUR_TARGET_FILES_1)
 
-debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
+$(DEP_FILE): $(ERL_FILES)
+	@echo SED $(TARGET) $(ERL_TOP_NATIVE)
+	$(gen_verbose)erlc -M $(ERL_FILES) \
+	| sed "s@[a-zA-Z]\?$(ERL_TOP_NATIVE)@../../..@g" \
+	| sed "s/\.$(EMULATOR)/\.$$\(EMULATOR\)/" \
+	| sed 's@^ssh_@$$(EBIN)/ssh_@' \
+	| sed 's@^sshc_@$$(EBIN)/sshc_@' \
+	| sed 's@^sshd_@$$(EBIN)/sshd_@' \
+	> $(DEP_FILE)
+
+debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(DEP_FILE)
 
 clean:
 	rm -f $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(BEHAVIOUR_TARGET_FILES)
 	rm -f errs core *~
+	rm -rf $(DEPDIR)
 
 $(APP_TARGET):	$(APP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
@@ -148,80 +191,7 @@ release_spec: opt
 
 release_docs_spec:
 
-
-deps:
-	erlc -M $(ERL_FILES) \
-	| sed 's@$(ERL_TOP)/lib@../..@g' \
-	| sed 's/\.$(EMULATOR)/\.$$\(EMULATOR\)/' \
-	| sed 's@^ssh_@$$(EBIN)/ssh_@'
-
-ssh.$(EMULATOR): ssh.erl ssh.hrl ssh_connect.hrl \
-  ../../public_key/include/public_key.hrl \
-  ../../public_key/include/OTP-PUB-KEY.hrl \
-  ../../public_key/include/PKCS-FRAME.hrl \
-  ../../kernel/include/file.hrl
-$(EBIN)/ssh_sup.$(EMULATOR): ssh_sup.erl
-sshc_sup.$(EMULATOR): sshc_sup.erl
-sshd_sup.$(EMULATOR): sshd_sup.erl ssh.hrl
-$(EBIN)/ssh_connection_sup.$(EMULATOR): ssh_connection_sup.erl
-$(EBIN)/ssh_connection.$(EMULATOR): ssh_connection.erl ssh.hrl ssh_connect.hrl \
-  ssh_transport.hrl
-$(EBIN)/ssh_connection_handler.$(EMULATOR): ssh_connection_handler.erl ssh.hrl \
-  ssh_transport.hrl ssh_auth.hrl ssh_connect.hrl
-$(EBIN)/ssh_shell.$(EMULATOR): ssh_shell.erl ssh_connect.hrl
-$(EBIN)/ssh_system_sup.$(EMULATOR): ssh_system_sup.erl ssh.hrl
-$(EBIN)/ssh_subsystem_sup.$(EMULATOR): ssh_subsystem_sup.erl
-$(EBIN)/ssh_server_channel_sup.$(EMULATOR): ssh_server_channel_sup.erl
-$(EBIN)/ssh_acceptor_sup.$(EMULATOR): ssh_acceptor_sup.erl ssh.hrl
-$(EBIN)/ssh_acceptor.$(EMULATOR): ssh_acceptor.erl ssh.hrl
-$(EBIN)/ssh_app.$(EMULATOR): ssh_app.erl
-$(EBIN)/ssh_auth.$(EMULATOR): ssh_auth.erl \
-  ../../public_key/include/public_key.hrl \
-  ../../public_key/include/OTP-PUB-KEY.hrl \
-  ../../public_key/include/PKCS-FRAME.hrl \
-  ssh.hrl ssh_auth.hrl ssh_transport.hrl
-$(EBIN)/ssh_bits.$(EMULATOR): ssh_bits.erl ssh.hrl
-$(EBIN)/ssh_cli.$(EMULATOR): ssh_cli.erl ssh.hrl ssh_connect.hrl
-$(EBIN)/ssh_file.$(EMULATOR): ssh_file.erl \
-  ../../public_key/include/public_key.hrl \
-  ../../public_key/include/OTP-PUB-KEY.hrl \
-  ../../public_key/include/PKCS-FRAME.hrl \
-  ../../kernel/include/file.hrl ssh.hrl
-$(EBIN)/ssh_io.$(EMULATOR): ssh_io.erl ssh.hrl
-$(EBIN)/ssh_info.$(EMULATOR): ssh_info.erl
-$(EBIN)/ssh_message.$(EMULATOR): ssh_message.erl \
-  ../../public_key/include/public_key.hrl \
-  ../../public_key/include/OTP-PUB-KEY.hrl \
-  ../../public_key/include/PKCS-FRAME.hrl \
-  ssh.hrl ssh_connect.hrl ssh_auth.hrl ssh_transport.hrl
-$(EBIN)/ssh_no_io.$(EMULATOR): ssh_no_io.erl ssh_transport.hrl
-$(EBIN)/ssh_sftp.$(EMULATOR): ssh_sftp.erl \
-  ../../kernel/include/file.hrl ssh.hrl \
-  ssh_xfer.hrl
-$(EBIN)/ssh_sftpd.$(EMULATOR): ssh_sftpd.erl \
-  ../../kernel/include/file.hrl ssh.hrl \
-  ssh_xfer.hrl
-$(EBIN)/ssh_sftpd_file.$(EMULATOR): ssh_sftpd_file.erl
-$(EBIN)/ssh_transport.$(EMULATOR): ssh_transport.erl \
-  ../../public_key/include/public_key.hrl \
-  ../../public_key/include/OTP-PUB-KEY.hrl \
-  ../../public_key/include/PKCS-FRAME.hrl \
-  ../../kernel/include/inet.hrl \
-  ssh_transport.hrl ssh.hrl
-$(EBIN)/ssh_xfer.$(EMULATOR): ssh_xfer.erl ssh.hrl ssh_xfer.hrl
-$(EBIN)/ssh_sftpd_file_api.$(EMULATOR): ssh_sftpd_file_api.erl
-$(EBIN)/ssh_client_channel.$(EMULATOR): ssh_client_channel.erl ssh_connect.hrl
-$(EBIN)/ssh_channel.$(EMULATOR): ssh_channel.erl ssh_connect.hrl
-$(EBIN)/ssh_daemon_channel.$(EMULATOR): ssh_daemon_channel.erl
-$(EBIN)/ssh_server_channel.$(EMULATOR): ssh_server_channel.erl
-$(EBIN)/ssh_client_key_api.$(EMULATOR): ssh_client_key_api.erl \
-  ../../public_key/include/public_key.hrl \
-  ../../public_key/include/OTP-PUB-KEY.hrl \
-  ../../public_key/include/PKCS-FRAME.hrl \
-  ssh.hrl
-$(EBIN)/ssh_server_key_api.$(EMULATOR): ssh_server_key_api.erl \
-  ../../public_key/include/public_key.hrl \
-  ../../public_key/include/OTP-PUB-KEY.hrl \
-  ../../public_key/include/PKCS-FRAME.hrl \
-  ssh.hrl
-
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+-include $(DEP_FILE)

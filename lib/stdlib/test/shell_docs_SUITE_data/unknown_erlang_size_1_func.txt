@@ -1,0 +1,18 @@
+
+  [;1m-spec size(Item) -> non_neg_integer() when Item :: tuple() | binary().[0m
+
+  Returns the number of elements in a tuple or the number of bytes
+  in a binary or bitstring, for example:
+
+    > size({morni, mulle, bwange}).
+    3
+    > size(<<11, 22, 33>>).
+    3
+
+  For bitstrings, the number of whole bytes is returned. That is, if
+  the number of bits in the bitstring is not divisible by 8, the
+  resulting number of bytes is rounded down.
+
+  Allowed in guard tests.
+
+  See also [;;4mtuple_size/1[0m, [;;4mbyte_size/1[0m, and [;;4mbit_size/1[0m.

@@ -28,7 +28,7 @@
 	 init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
--export([floor_ceil/1]).
+-export([floor_ceil/1, error_info/1]).
 
 
 suite() ->
@@ -36,7 +36,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() ->
-    [floor_ceil].
+    [floor_ceil, error_info].
 
 groups() ->
     [].
@@ -90,3 +90,83 @@ do_floor_ceil(Val) ->
 	    1.0 = Ceil - Floor,
 	    Floor
     end.
+
+error_info(_Config) ->
+    L0 = [{acosh, [a]},
+          {acosh, [0.5]},
+
+          {asinh, [a]},
+
+          {atanh, [a]},
+          {atanh, [10]},
+          {atanh, [1]},
+
+          {cosh, [a]},
+          {sinh, [a]},
+          {tanh, [a]},
+
+          %% Trigonmetric functions.
+          {acos, [a]},
+          {acos, [999]},
+
+          {asin, [a]},
+          {asin, [999]},
+
+          {atan, [a]},
+          {atan2, [a, b],[{1,".*"},{2,".*"}]},
+
+          {cos, [a]},
+          {sin, [a]},
+          {tan, [a]},
+
+          %% Logarithms.
+
+          {log, [a]},
+          {log, [-1]},
+
+          {log10, [a]},
+          {log10, [-1]},
+
+          {log2, [a]},
+          {log2, [-1]},
+
+          %% The others.
+          {ceil, [a]},
+          {erf, [a]},
+          {erfc, [a]},
+          {exp, [a]},
+          {floor, [a]},
+
+          {fmod, [a, b],[{1,".*"},{2,".*"}]},
+          {fmod, [a, 1]},
+          {fmod, [1, 0]},
+
+          {pow, [a, b],[{1,".*"},{2,".*"}]},
+
+          {sqrt, [a]},
+          {sqrt, [-1]},
+
+          %% Intentionally unexplained errors. It is difficult to explain
+          %% a range error in a sensible way because neither argument by itself
+          %% is guilty.
+          {pow, [2.0, 10000000], [unexplained]}
+         ],
+    L = ignore_undefined(L0),
+    error_info_lib:test_error_info(math, L).
+
+ignore_undefined([H|T]) ->
+    Name = element(1, H),
+    Args = element(2, H),
+    try apply(math, Name, Args) of
+        _ ->
+            [H|ignore_undefined(T)]
+    catch
+        _:undef ->
+            %% This math BIF is not implemented on this platform.
+            %% Ignore it.
+            [{Name, length(Args)}|ignore_undefined(T)];
+        _:_ ->
+            [H|ignore_undefined(T)]
+    end;
+ignore_undefined([]) ->
+    [].

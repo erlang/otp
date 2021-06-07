@@ -1,3 +1,3 @@
 
-wpc_hlines.erl:22: Function bad/1 has no local return
-wpc_hlines.erl:22: The pattern 'false' can never match the type 'true'
+wpc_hlines.erl:22:1: Function bad/1 has no local return
+wpc_hlines.erl:22:1: The pattern 'false' can never match the type 'true'

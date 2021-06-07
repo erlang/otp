@@ -21,7 +21,7 @@ The cause of an assertion can be either errors in the application
 program (for instance, passing NULL pointers to any function that
 expects an ETERM pointer) or in erl_interface itself.
 
-If you encounter any assertion failures which think you originate in
+If you encounter any assertion failures which you think originate in
 erl_interface, I'll need the following information to track it down:
 
 1a) The printout from the assertion, especially filename and line number.
@@ -35,7 +35,7 @@ erl_interface, I'll need the following information to track it down:
 Changes in this version
 -----------------------
 
-There is now *one* representation for an empty list, not two as is used
+There is now *one* representation for an empty list, not two as it used
 to be.  An empty list is represented by the Erl_EmptyList structure.
 There are new macros, ERL_IS_EMPTY_LIST(ep), to test for an empty list,
 and ERL_IS_CONS(ep) to test for a cons cell (more on that below).

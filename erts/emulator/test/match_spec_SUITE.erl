@@ -20,7 +20,7 @@
 
 -module(match_spec_SUITE).
 
--export([all/0, suite/0, not_run/1]).
+-export([all/0, suite/0]).
 -export([test_1/1, test_2/1, test_3/1, caller_and_return_to/1, bad_match_spec_bin/1,
 	 trace_control_word/1, silent/1, silent_no_ms/1, silent_test/1,
 	 ms_trace2/1, ms_trace3/1, ms_trace_dead/1, boxed_and_small/1,
@@ -44,23 +44,16 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 1}}].
 
-all() -> 
-    case test_server:is_native(match_spec_SUITE) of
-	false ->
-	    [test_1, test_2, test_3, caller_and_return_to, bad_match_spec_bin,
-	     trace_control_word, silent, silent_no_ms, silent_test, ms_trace2,
-	     ms_trace3, ms_trace_dead, boxed_and_small, destructive_in_test_bif,
-	     guard_exceptions, unary_plus, unary_minus, fpe,
-	     moving_labels,
-	     faulty_seq_trace,
-	     empty_list,
-             otp_9422,
-             maps];
-	true -> [not_run]
-    end.
-
-not_run(Config) when is_list(Config) ->
-    {skipped, "Native Code"}.
+all() ->
+    [test_1, test_2, test_3, caller_and_return_to, bad_match_spec_bin,
+     trace_control_word, silent, silent_no_ms, silent_test, ms_trace2,
+     ms_trace3, ms_trace_dead, boxed_and_small, destructive_in_test_bif,
+     guard_exceptions, unary_plus, unary_minus, fpe,
+     moving_labels,
+     faulty_seq_trace,
+     empty_list,
+     otp_9422,
+     maps].
 
 test_1(Config) when is_list(Config) ->
     tr(fun() -> ?MODULE:f1(a) end,
@@ -198,7 +191,8 @@ caller_and_return_to(Config) ->
                {trace,Tracee,call,{?MODULE,do_the_put,[test]},{?MODULE,do_put,1}},
                {trace,Tracee,call,{erlang,integer_to_list,[1]},{?MODULE,do_the_put,1}},
                {trace,Tracee,return_to,{?MODULE,do_the_put,1}},
-               {trace,Tracee,call,{erlang,put,[test,"1"]},{?MODULE,do_put,1}},
+               {trace,Tracee,call,{erlang,put,[test,"1"]},{?MODULE,do_the_put,1}},
+               {trace,Tracee,return_to,{?MODULE,do_the_put,1}},
                {trace,Tracee,return_to,{?MODULE,do_put,1}},
 
                %% These last trace messages are a bit strange...

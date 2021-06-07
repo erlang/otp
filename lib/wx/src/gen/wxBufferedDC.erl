@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,56 +18,45 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbuffereddc.html">wxBufferedDC</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxMemoryDC}
-%% <br />{@link wxDC}
-%% </p>
-%% @type wxBufferedDC().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxBufferedDC).
 -include("wxe.hrl").
 -export([destroy/1,init/2,init/3,init/4,new/0,new/1,new/2,new/3]).
 
 %% inherited exports
--export([blit/5,blit/6,calcBoundingBox/3,clear/1,computeScaleAndOrigin/1,crossHair/2,
-  destroyClippingRegion/1,deviceToLogicalX/2,deviceToLogicalXRel/2,
-  deviceToLogicalY/2,deviceToLogicalYRel/2,drawArc/4,drawBitmap/3,drawBitmap/4,
-  drawCheckMark/2,drawCircle/3,drawEllipse/2,drawEllipse/3,drawEllipticArc/5,
-  drawIcon/3,drawLabel/3,drawLabel/4,drawLine/3,drawLines/2,drawLines/3,
-  drawPoint/2,drawPolygon/2,drawPolygon/3,drawRectangle/2,drawRectangle/3,
-  drawRotatedText/4,drawRoundedRectangle/3,drawRoundedRectangle/4,
-  drawText/3,endDoc/1,endPage/1,floodFill/3,floodFill/4,getBackground/1,
-  getBackgroundMode/1,getBrush/1,getCharHeight/1,getCharWidth/1,getClippingBox/1,
-  getFont/1,getLayoutDirection/1,getLogicalFunction/1,getMapMode/1,
-  getMultiLineTextExtent/2,getMultiLineTextExtent/3,getPPI/1,getPartialTextExtents/2,
-  getPen/1,getPixel/2,getSize/1,getSizeMM/1,getTextBackground/1,getTextExtent/2,
-  getTextExtent/3,getTextForeground/1,getUserScale/1,gradientFillConcentric/4,
-  gradientFillConcentric/5,gradientFillLinear/4,gradientFillLinear/5,
-  isOk/1,logicalToDeviceX/2,logicalToDeviceXRel/2,logicalToDeviceY/2,
-  logicalToDeviceYRel/2,maxX/1,maxY/1,minX/1,minY/1,parent_class/1,resetBoundingBox/1,
-  selectObject/2,selectObjectAsSource/2,setAxisOrientation/3,setBackground/2,
-  setBackgroundMode/2,setBrush/2,setClippingRegion/2,setClippingRegion/3,
-  setDeviceOrigin/3,setFont/2,setLayoutDirection/2,setLogicalFunction/2,
-  setMapMode/2,setPalette/2,setPen/2,setTextBackground/2,setTextForeground/2,
-  setUserScale/3,startDoc/2,startPage/1]).
+-export([blit/5,blit/6,calcBoundingBox/3,clear/1,crossHair/2,destroyClippingRegion/1,
+  deviceToLogicalX/2,deviceToLogicalXRel/2,deviceToLogicalY/2,deviceToLogicalYRel/2,
+  drawArc/4,drawBitmap/3,drawBitmap/4,drawCheckMark/2,drawCircle/3,drawEllipse/2,
+  drawEllipse/3,drawEllipticArc/5,drawIcon/3,drawLabel/3,drawLabel/4,
+  drawLine/3,drawLines/2,drawLines/3,drawPoint/2,drawPolygon/2,drawPolygon/3,
+  drawRectangle/2,drawRectangle/3,drawRotatedText/4,drawRoundedRectangle/3,
+  drawRoundedRectangle/4,drawText/3,endDoc/1,endPage/1,floodFill/3,floodFill/4,
+  getBackground/1,getBackgroundMode/1,getBrush/1,getCharHeight/1,getCharWidth/1,
+  getClippingBox/1,getFont/1,getLayoutDirection/1,getLogicalFunction/1,
+  getMapMode/1,getMultiLineTextExtent/2,getMultiLineTextExtent/3,getPPI/1,
+  getPartialTextExtents/2,getPen/1,getPixel/2,getSize/1,getSizeMM/1,
+  getTextBackground/1,getTextExtent/2,getTextExtent/3,getTextForeground/1,
+  getUserScale/1,gradientFillConcentric/4,gradientFillConcentric/5,
+  gradientFillLinear/4,gradientFillLinear/5,isOk/1,logicalToDeviceX/2,
+  logicalToDeviceXRel/2,logicalToDeviceY/2,logicalToDeviceYRel/2,maxX/1,
+  maxY/1,minX/1,minY/1,parent_class/1,resetBoundingBox/1,selectObject/2,
+  selectObjectAsSource/2,setAxisOrientation/3,setBackground/2,setBackgroundMode/2,
+  setBrush/2,setClippingRegion/2,setClippingRegion/3,setDeviceOrigin/3,
+  setFont/2,setLayoutDirection/2,setLogicalFunction/2,setMapMode/2,
+  setPalette/2,setPen/2,setTextBackground/2,setTextForeground/2,setUserScale/3,
+  startDoc/2,startPage/1]).
 
+-type wxBufferedDC() :: wx:wx_object().
 -export_type([wxBufferedDC/0]).
--compile([{nowarn_deprecated_function, {wxDC,computeScaleAndOrigin,1}}]).
-
 %% @hidden
 parent_class(wxMemoryDC) -> true;
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxBufferedDC() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbuffereddc.html#wxbuffereddcwxbuffereddc">external documentation</a>.
 -spec new() -> wxBufferedDC().
 new() ->
-  wxe_util:construct(?wxBufferedDC_new_0,
-  <<>>).
+  wxe_util:queue_cmd(?get_env(), ?wxBufferedDC_new_0),
+  wxe_util:rec(?wxBufferedDC_new_0).
 
 %% @equiv new(Dc, [])
 -spec new(Dc) -> wxBufferedDC() when
@@ -91,31 +80,31 @@ new(Dc)
 	Option :: {'buffer', wxBitmap:wxBitmap()}
 		 | {'style', integer()}.
 
-new(Dc,Area={AreaW,AreaH})
+new(Dc,{AreaW,AreaH} = Area)
  when is_record(Dc, wx_ref),is_integer(AreaW),is_integer(AreaH) ->
   new(Dc,Area, []);
-new(#wx_ref{type=DcT,ref=DcRef}, Options)
+new(#wx_ref{type=DcT}=Dc, Options)
  when is_list(Options) ->
   ?CLASS(DcT,wxDC),
-  MOpts = fun({buffer, #wx_ref{type=BufferT,ref=BufferRef}}, Acc) ->   ?CLASS(BufferT,wxBitmap),[<<1:32/?UI,BufferRef:32/?UI>>|Acc];
-          ({style, Style}, Acc) -> [<<2:32/?UI,Style:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:construct(?wxBufferedDC_new_2,
-  <<DcRef:32/?UI, 0:32,BinOpt/binary>>).
+  MOpts = fun({buffer, #wx_ref{type=BufferT}} = Arg) ->   ?CLASS(BufferT,wxBitmap),Arg;
+          ({style, _style} = Arg) -> Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(Dc, Opts,?get_env(),?wxBufferedDC_new_2),
+  wxe_util:rec(?wxBufferedDC_new_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbuffereddc.html#wxbuffereddcwxbuffereddc">external documentation</a>.
 -spec new(Dc, Area, [Option]) -> wxBufferedDC() when
 	Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()},
 	Option :: {'style', integer()}.
-new(#wx_ref{type=DcT,ref=DcRef},{AreaW,AreaH}, Options)
+new(#wx_ref{type=DcT}=Dc,{AreaW,AreaH} = Area, Options)
  when is_integer(AreaW),is_integer(AreaH),is_list(Options) ->
   ?CLASS(DcT,wxDC),
-  MOpts = fun({style, Style}, Acc) -> [<<1:32/?UI,Style:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:construct(?wxBufferedDC_new_3,
-  <<DcRef:32/?UI,AreaW:32/?UI,AreaH:32/?UI, 0:32,BinOpt/binary>>).
+  MOpts = fun({style, _style} = Arg) -> Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(Dc,Area, Opts,?get_env(),?wxBufferedDC_new_3),
+  wxe_util:rec(?wxBufferedDC_new_3).
 
 %% @equiv init(This,Dc, [])
 -spec init(This, Dc) -> 'ok' when
@@ -139,52 +128,50 @@ init(This,Dc)
 	Option :: {'buffer', wxBitmap:wxBitmap()}
 		 | {'style', integer()}.
 
-init(This,Dc,Area={AreaW,AreaH})
+init(This,Dc,{AreaW,AreaH} = Area)
  when is_record(This, wx_ref),is_record(Dc, wx_ref),is_integer(AreaW),is_integer(AreaH) ->
   init(This,Dc,Area, []);
-init(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef}, Options)
+init(#wx_ref{type=ThisT}=This,#wx_ref{type=DcT}=Dc, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxBufferedDC),
   ?CLASS(DcT,wxDC),
-  MOpts = fun({buffer, #wx_ref{type=BufferT,ref=BufferRef}}, Acc) ->   ?CLASS(BufferT,wxBitmap),[<<1:32/?UI,BufferRef:32/?UI>>|Acc];
-          ({style, Style}, Acc) -> [<<2:32/?UI,Style:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:cast(?wxBufferedDC_Init_2,
-  <<ThisRef:32/?UI,DcRef:32/?UI, BinOpt/binary>>).
+  MOpts = fun({buffer, #wx_ref{type=BufferT}} = Arg) ->   ?CLASS(BufferT,wxBitmap),Arg;
+          ({style, _style} = Arg) -> Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(This,Dc, Opts,?get_env(),?wxBufferedDC_Init_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbuffereddc.html#wxbuffereddcinit">external documentation</a>.
 -spec init(This, Dc, Area, [Option]) -> 'ok' when
 	This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()},
 	Option :: {'style', integer()}.
-init(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef},{AreaW,AreaH}, Options)
+init(#wx_ref{type=ThisT}=This,#wx_ref{type=DcT}=Dc,{AreaW,AreaH} = Area, Options)
  when is_integer(AreaW),is_integer(AreaH),is_list(Options) ->
   ?CLASS(ThisT,wxBufferedDC),
   ?CLASS(DcT,wxDC),
-  MOpts = fun({style, Style}, Acc) -> [<<1:32/?UI,Style:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:cast(?wxBufferedDC_Init_3,
-  <<ThisRef:32/?UI,DcRef:32/?UI,AreaW:32/?UI,AreaH:32/?UI, BinOpt/binary>>).
+  MOpts = fun({style, _style} = Arg) -> Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(This,Dc,Area, Opts,?get_env(),?wxBufferedDC_Init_3).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxBufferedDC()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBufferedDC),
-  wxe_util:destroy(?DESTROY_OBJECT,Obj),
+  wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),
   ok.
  %% From wxMemoryDC
 %% @hidden
-selectObjectAsSource(This,Bmp) -> wxMemoryDC:selectObjectAsSource(This,Bmp).
+selectObjectAsSource(This,Bitmap) -> wxMemoryDC:selectObjectAsSource(This,Bitmap).
 %% @hidden
-selectObject(This,Bmp) -> wxMemoryDC:selectObject(This,Bmp).
+selectObject(This,Bitmap) -> wxMemoryDC:selectObject(This,Bitmap).
  %% From wxDC
 %% @hidden
 startPage(This) -> wxDC:startPage(This).
 %% @hidden
 startDoc(This,Message) -> wxDC:startDoc(This,Message).
 %% @hidden
-setUserScale(This,X,Y) -> wxDC:setUserScale(This,X,Y).
+setUserScale(This,XScale,YScale) -> wxDC:setUserScale(This,XScale,YScale).
 %% @hidden
 setTextForeground(This,Colour) -> wxDC:setTextForeground(This,Colour).
 %% @hidden
@@ -206,7 +193,7 @@ setDeviceOrigin(This,X,Y) -> wxDC:setDeviceOrigin(This,X,Y).
 %% @hidden
 setClippingRegion(This,Pt,Sz) -> wxDC:setClippingRegion(This,Pt,Sz).
 %% @hidden
-setClippingRegion(This,Region) -> wxDC:setClippingRegion(This,Region).
+setClippingRegion(This,Rect) -> wxDC:setClippingRegion(This,Rect).
 %% @hidden
 setBrush(This,Brush) -> wxDC:setBrush(This,Brush).
 %% @hidden
@@ -260,7 +247,7 @@ getSize(This) -> wxDC:getSize(This).
 %% @hidden
 getPPI(This) -> wxDC:getPPI(This).
 %% @hidden
-getPixel(This,Pt) -> wxDC:getPixel(This,Pt).
+getPixel(This,Pos) -> wxDC:getPixel(This,Pos).
 %% @hidden
 getPen(This) -> wxDC:getPen(This).
 %% @hidden
@@ -302,9 +289,9 @@ drawText(This,Text,Pt) -> wxDC:drawText(This,Text,Pt).
 %% @hidden
 drawRoundedRectangle(This,Pt,Sz,Radius) -> wxDC:drawRoundedRectangle(This,Pt,Sz,Radius).
 %% @hidden
-drawRoundedRectangle(This,R,Radius) -> wxDC:drawRoundedRectangle(This,R,Radius).
+drawRoundedRectangle(This,Rect,Radius) -> wxDC:drawRoundedRectangle(This,Rect,Radius).
 %% @hidden
-drawRotatedText(This,Text,Pt,Angle) -> wxDC:drawRotatedText(This,Text,Pt,Angle).
+drawRotatedText(This,Text,Point,Angle) -> wxDC:drawRotatedText(This,Text,Point,Angle).
 %% @hidden
 drawRectangle(This,Pt,Sz) -> wxDC:drawRectangle(This,Pt,Sz).
 %% @hidden
@@ -330,7 +317,7 @@ drawIcon(This,Icon,Pt) -> wxDC:drawIcon(This,Icon,Pt).
 %% @hidden
 drawEllipticArc(This,Pt,Sz,Sa,Ea) -> wxDC:drawEllipticArc(This,Pt,Sz,Sa,Ea).
 %% @hidden
-drawEllipse(This,Pt,Sz) -> wxDC:drawEllipse(This,Pt,Sz).
+drawEllipse(This,Pt,Size) -> wxDC:drawEllipse(This,Pt,Size).
 %% @hidden
 drawEllipse(This,Rect) -> wxDC:drawEllipse(This,Rect).
 %% @hidden
@@ -342,7 +329,7 @@ drawBitmap(This,Bmp,Pt, Options) -> wxDC:drawBitmap(This,Bmp,Pt, Options).
 %% @hidden
 drawBitmap(This,Bmp,Pt) -> wxDC:drawBitmap(This,Bmp,Pt).
 %% @hidden
-drawArc(This,Pt1,Pt2,Centre) -> wxDC:drawArc(This,Pt1,Pt2,Centre).
+drawArc(This,PtStart,PtEnd,Centre) -> wxDC:drawArc(This,PtStart,PtEnd,Centre).
 %% @hidden
 deviceToLogicalYRel(This,Y) -> wxDC:deviceToLogicalYRel(This,Y).
 %% @hidden
@@ -356,12 +343,10 @@ destroyClippingRegion(This) -> wxDC:destroyClippingRegion(This).
 %% @hidden
 crossHair(This,Pt) -> wxDC:crossHair(This,Pt).
 %% @hidden
-computeScaleAndOrigin(This) -> wxDC:computeScaleAndOrigin(This).
-%% @hidden
 clear(This) -> wxDC:clear(This).
 %% @hidden
 calcBoundingBox(This,X,Y) -> wxDC:calcBoundingBox(This,X,Y).
 %% @hidden
-blit(This,DestPt,Sz,Source,SrcPt, Options) -> wxDC:blit(This,DestPt,Sz,Source,SrcPt, Options).
+blit(This,Dest,Size,Source,Src, Options) -> wxDC:blit(This,Dest,Size,Source,Src, Options).
 %% @hidden
-blit(This,DestPt,Sz,Source,SrcPt) -> wxDC:blit(This,DestPt,Sz,Source,SrcPt).
+blit(This,Dest,Size,Source,Src) -> wxDC:blit(This,Dest,Size,Source,Src).

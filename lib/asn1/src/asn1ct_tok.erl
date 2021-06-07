@@ -239,16 +239,16 @@ skip_multiline_comment(Stream, [_|T], Lno, Level) ->
     skip_multiline_comment(Stream, T, Lno, Level).
 
 collect_quoted("'B"++T, Lno, L) ->
-    case check_bin(L) of
-        true ->
-            {{bstring,Lno,lists:reverse(L)}, T};
+    case validate_bin(L) of
+        {ok, Bin} ->
+            {{bstring,Lno,Bin}, T};
         false ->
             throw({error,{invalid_binary_number,lists:reverse(L)}})
     end;
 collect_quoted("'H"++T, Lno, L) ->
-    case check_hex(L) of
-        true ->
-            {{hstring,Lno,lists:reverse(L)}, T};
+    case validate_hex(L) of
+        {ok, Hex} ->
+            {{hstring,Lno,Hex}, T};
         false ->
             throw({error,{invalid_hex_number,lists:reverse(L)}})
     end;
@@ -257,24 +257,31 @@ collect_quoted([H|T], Lno, L) ->
 collect_quoted([], _, _) ->        % This should be allowed FIX later
     throw({error,eol_in_token}).
 
-check_bin([$0|T]) ->
-    check_bin(T);
-check_bin([$1|T]) ->
-    check_bin(T);
-check_bin([]) ->
-    true;
-check_bin(_) ->
-    false.
+validate_bin(L) ->
+    validate_bin(L,[]).
 
-check_hex([H|T]) when $0 =< H , H =< $9 ->
-    check_hex(T);
-check_hex([H|T])  when $A =< H , H =< $F ->
-    check_hex(T);
-check_hex([]) ->
-    true;
-check_hex(_) ->
-    false.
+validate_bin([H|T], A) when H =:= $0; H =:= $1 ->
+    validate_bin(T, [H|A]);
+validate_bin([$\s|T], A) ->
+    validate_bin(T, A);
+validate_bin([_|_], _) ->
+    false;
+validate_bin([], A) ->
+    {ok, A}.
 
+validate_hex(L) ->
+    validate_hex(L,[]).
+
+validate_hex([H|T], A) when $0 =< H , H =< $9 ->
+    validate_hex(T, [H|A]);
+validate_hex([H|T], A) when $A =< H , H =< $F ->
+    validate_hex(T, [H|A]);
+validate_hex([$\s|T], A) ->
+    validate_hex(T, A);
+validate_hex([_|_], _) ->
+    false;
+validate_hex([], A) ->
+    {ok, A}.
 
 %% reserved_word(A) -> true|false|rstrtype
 %% A = atom()

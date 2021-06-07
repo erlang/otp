@@ -132,7 +132,8 @@ packed_registers(Config) when is_list(Config) ->
 	       "_ = id(2),\n"
 	       "id([_@Vars,_@NewVars,_@MoreNewVars]).\n"
 	       "id(I) -> I.\n"]),
-    merl:compile_and_load(Code),
+
+    merl:compile_and_load(Code, []),
 
     %% Optionally print the generated code.
     PrintCode = false,                          %Change to true to print code.
@@ -353,20 +354,115 @@ do_fconv(tuple_literal, Float) when is_float(Float) ->
     Float + {a,b}.
 
 select_val(Config) when is_list(Config) ->
-    zero = do_select_val(0),
-    big = do_select_val(1 bsl 64),
-    integer = do_select_val(42),
+    Mod = ?FUNCTION_NAME,
+
+    %% Test select_val instructions around interesting powers of 2.
+    Powers = lists:seq(0, 33) ++ lists:seq(47, 49) ++ lists:seq(58, 65),
+    L = make_tests(Powers, 0, []),
+    Code = make_module(Mod, L),
+    merl:compile_and_load(Code, []),
+
+    %% Uncomment the following line to print the generated code.
+    %%merl:print(Code),
+
+    verify(L, Mod),
+
+    %% Clean up.
+    true = code:delete(Mod),
+    false = code:purge(Mod),
+
     ok.
 
-do_select_val(X) ->
-    case X of
-	0 ->
-	    zero;
-	1 bsl 64 ->
-	    big;
-	Int when is_integer(Int) ->
-	    integer
+verify([{F,L}|T], Mod) ->
+    verify_1(L, F, Mod),
+
+    Sum = lists:sum([abs(V) || {V,_} <- L]),
+    expect_error(Mod, F, -Sum),
+    expect_error(Mod, F, Sum),
+    expect_error(Mod, F, not_an_integer),
+
+    verify(T, Mod);
+verify([], _Mod) -> ok.
+
+verify_1([{V,Exp}|T], F, Mod) ->
+    case Mod:F(V) of
+        Exp ->
+            verify_1(T, F, Mod);
+        Other ->
+            io:format("~p:~p(~p) evaluates to ~p; expected ~p",
+                      [Mod,F,V,Other,Exp]),
+            ct:fail(unexpected_value)
+    end;
+verify_1([], _, _) -> ok.
+
+expect_error(M, F, V) ->
+    try M:F(V) of
+        UnexpectedSuccess ->
+            io:format("~p:~p(~p) evaluates to ~p; expected it to fail",
+                      [M,F,V,UnexpectedSuccess]),
+            ct:fail(unexpected_success)
+    catch error:function_clause:Stk ->
+            [{M,F,[V],_}|_] = Stk
     end.
+
+make_tests([P|Ps], N0, Acc0) ->
+    {Acc,N} = make_tests_1(1 bsl P, N0, Acc0),
+    make_tests(Ps, N, Acc);
+make_tests([], N0, Acc0) ->
+    %% Finally, generate a function with a huge number of clauses.
+    NC = 2000,
+
+    %% Let the last number be a bignum.
+    Last = 1 bsl (erlang:system_info(wordsize)*8 - 5),
+
+    Step = 5,
+    {Acc,_} = make_test("huge_bsearch", Last - NC*Step, Last, Step, N0, Acc0),
+    lists:reverse(Acc).
+
+make_tests_1(V, N0, Acc0) ->
+    {Acc,N} = make_tests_2(V, N0, Acc0),
+    make_tests_2(-V, N, Acc).
+
+make_tests_2(V, N0, Acc0) ->
+    %% Because the values are not consecutive, a binary search will be
+    %% generated.
+    NumClauses = 14,
+    {Acc1,N1} = make_tests_3(V - NumClauses*5, V, NumClauses, 5, N0, Acc0),
+
+    %% Test a binary search with 107 values.
+    {Acc,N} = make_test("bsearch", V - 5*50, V + 5*56, 5, N1, Acc1),
+
+    %% Use consecutive values to allow a jump table to be used.
+    make_test("jump_tab", V - 10, V + 10, 1, N, Acc).
+
+make_tests_3(_First, _Last, 0, _Step, N, Acc) ->
+    {Acc,N};
+make_tests_3(First, Last, NumClauses, Step, N0, Acc0) ->
+    {Acc,N} = make_test("f", First, Last, Step, N0, Acc0),
+    make_tests_3(First+Step, Last+Step, NumClauses-1, Step, N, Acc).
+
+make_test(Prefix, First, Last, Step, N, Acc) ->
+    Name = list_to_atom(Prefix ++ integer_to_list(N)),
+    Seq = lists:seq(First, Last, Step),
+    L = [{I,erlang:phash2({I,N})} || I <- Seq],
+    {[{Name,L}|Acc],N+1}.
+
+make_module(Mod, L) ->
+    ModDef = ?Q(["-module('@Mod@')."]),
+    Fs = make_funcs(L),
+    Xs = [{F,1} || {F,_} <- L],
+    Exported = [erl_syntax:arity_qualifier(merl:term(N), merl:term(A)) ||
+                   {N,A} <- Xs],
+    Export = ?Q("-export(['@_Exported'/1])."),
+    [ModDef, Export | Fs].
+
+make_funcs([{Name,List}|T]) ->
+    [make_func(Name, List) | make_funcs(T)];
+make_funcs([]) -> [].
+
+make_func(Name, List) ->
+    Cs = [?Q(["(_@I@) -> _@Body@"]) || {I,Body} <- List],
+    erl_syntax:function(erl_syntax:atom(Name), Cs).
 
 swap_temp_apply(_Config) ->
     {swap_temp_applied,42} = do_swap_temp_apply(41),

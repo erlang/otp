@@ -1,6 +1,16 @@
 -module(ssh_eqc_event_handler).
 
--compile(export_all).
+-export([
+         add_report_handler/0,
+         get_reports/1,
+         code_change/3,
+         handle_call/2,
+         handle_event/2,
+         handle_info/2,
+         init/1,
+         terminate/2
+        ]).
+
 
 -behaviour(gen_event).
 

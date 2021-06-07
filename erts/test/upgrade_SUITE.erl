@@ -20,12 +20,14 @@
 
 -compile(export_all).
 
+-compile(r21).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -define(upgr_sname,otp_upgrade).
 
-%% Applications that are excluded from this test because they can not
+%% Applications that are excluded from this test because they cannot
 %% just be started in a new node with out specific configuration.
 -define(start_exclude,
 	[cosEvent,cosEventDomain,cosFileTransfer,cosNotification,
@@ -35,11 +37,8 @@
 %% Applications that are excluded from this test because their appup
 %% file don't support the upgrade.
 %% In specific:
-%% - hipe does not support any upgrade at all
-%% - dialyzer requires hipe (in the .app file)
 %% - erl_interface, jinterface support no upgrade
--define(appup_exclude, 
-	[dialyzer,hipe,typer,erl_interface,jinterface,ose]).
+-define(appup_exclude, [erl_interface,jinterface]).
 
 init_per_suite(Config) ->
     %% Check that a real release is running, not e.g. cerl
@@ -80,7 +79,7 @@ end_per_testcase(_Case,Config) ->
     ok.
 
 all() ->
-    [minor,major].
+    [minor,major,ancient_major].
 
 %% If this is major release X, then this test performs an upgrade from
 %% major release X-1 to the current release.
@@ -88,6 +87,13 @@ major(Config) ->
     Current = erlang:system_info(otp_release),
     PreviousMajor = previous_major(Current),
     upgrade_test(PreviousMajor,Current,Config).
+
+%% If this is major release X, then this test performs an upgrade from
+%% major release X-2 to the current release.
+ancient_major(Config) ->
+    Current = erlang:system_info(otp_release),
+    PreviousPreviousMajor = previous_major(previous_major(Current)),
+    upgrade_test(PreviousPreviousMajor,Current,Config).
 
 %% If this is a patched version of major release X, then this test
 %% performs an upgrade from major release X to the current release.

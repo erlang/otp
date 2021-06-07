@@ -59,11 +59,14 @@ BIF_RETTYPE erts_internal_atomics_new_2(BIF_ALIST_2)
     Uint bytes;
     Eterm* hp;
 
-    if (!term_to_UWord(BIF_ARG_1, &cnt)
-        || cnt == 0
-        || !term_to_UWord(BIF_ARG_2, &opts)) {
-
+    if (!term_to_UWord(BIF_ARG_1, &cnt)) {
+        BIF_ERROR(BIF_P, cnt);
+    }
+    if (cnt == 0) {
         BIF_ERROR(BIF_P, BADARG);
+    }
+    if (!term_to_UWord(BIF_ARG_2, &opts)) {
+        BIF_ERROR(BIF_P, opts);
     }
 
     if (cnt > (ERTS_UWORD_MAX / sizeof(p->v[0])))

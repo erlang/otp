@@ -46,17 +46,24 @@ DIALYZER_DIR = $(ERL_TOP)/lib/dialyzer
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
-MODULES =  \
+MODULES = \
+	cerl_closurean \
+	cerl_lib \
+	cerl_pmatch \
+	cerl_prettypr \
+	cerl_typean \
 	dialyzer \
 	dialyzer_analysis_callgraph \
 	dialyzer_behaviours \
 	dialyzer_callgraph \
 	dialyzer_cl \
 	dialyzer_cl_parse \
+	dialyzer_clean_core \
 	dialyzer_codeserver \
 	dialyzer_contracts \
 	dialyzer_dataflow \
 	dialyzer_dep \
+	dialyzer_dot \
 	dialyzer_explanation \
 	dialyzer_gui_wx \
 	dialyzer_options \
@@ -69,6 +76,8 @@ MODULES =  \
 	dialyzer_coordinator \
 	dialyzer_worker \
 	dialyzer_utils \
+	erl_bif_types \
+	erl_types \
 	typer
 
 HRL_FILES= dialyzer.hrl dialyzer_gui_wx.hrl
@@ -88,10 +97,8 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # FLAGS
 # ----------------------------------------------------
 
-ifeq ($(NATIVE_LIBS_ENABLED),yes)
-ERL_COMPILE_FLAGS += +native
-endif
-ERL_COMPILE_FLAGS += +warn_export_vars +warn_unused_import +warn_untyped_record +warn_missing_spec +warnings_as_errors
+ERL_COMPILE_FLAGS += -Werror
+ERL_COMPILE_FLAGS += +warn_export_vars +warn_unused_import +warn_missing_spec
 
 # ----------------------------------------------------
 # Targets

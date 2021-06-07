@@ -120,7 +120,7 @@
 
 /*------------------------   TYPDEFS  ----------------------------------*/
 
-typedef char byte;
+typedef unsigned char byte;
 typedef int Boolean;
 
 typedef struct {
@@ -158,7 +158,7 @@ typedef struct {
 	byte *string;
 	SQLINTEGER *integer;
 	double *floating;
-	byte *bool;
+	byte *boolean;
     }values;
 } param_array;
 

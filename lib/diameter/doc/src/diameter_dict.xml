@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE fileref SYSTEM "fileref.dtd" [
   <!ENTITY format
-           '<seealso marker="#FILE_FORMAT">FILE FORMAT</seealso>'>
+           '<seefile marker="#FILE_FORMAT">FILE FORMAT</seefile>'>
   <!ENTITY records
-           '<seealso marker="#MESSAGE_RECORDS">MESSAGE RECORDS</seealso>'>
+           '<seefile marker="#MESSAGE_RECORDS">MESSAGE RECORDS</seefile>'>
   <!ENTITY types
-           '<seealso marker="#DATA_TYPES">DATA TYPES</seealso>'>
+           '<seefile marker="#DATA_TYPES">DATA TYPES</seefile>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;

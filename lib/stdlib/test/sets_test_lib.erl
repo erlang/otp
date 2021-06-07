@@ -20,18 +20,22 @@
 
 -module(sets_test_lib).
 
--export([new/2]).
+-export([new/2, new/4]).
 
 new(Mod, Eq) ->
+    new(Mod, Eq, fun Mod:new/0, fun Mod:from_list/1).
+
+new(Mod, Eq, New, FromList) ->
     fun	(add_element, {El,S}) -> add_element(Mod, El, S);
 	(del_element, {El,S}) -> del_element(Mod, El, S);
-	(empty, []) -> Mod:new();
+	(empty, []) -> New();
 	(equal, {S1,S2}) -> Eq(S1, S2);
 	(filter, {F,S}) -> filter(Mod, F, S);
 	(fold, {F,A,S}) -> fold(Mod, F, A, S);
-	(from_list, L) -> Mod:from_list(L);
+	(from_list, L) -> FromList(L);
 	(intersection, {S1,S2}) -> intersection(Mod, Eq, S1, S2);
 	(intersection, Ss) -> intersection(Mod, Eq, Ss);
+	(is_disjoint, {S,Set}) -> Mod:is_disjoint(S, Set);
 	(is_empty, S) -> Mod:is_empty(S);
 	(is_set, S) -> Mod:is_set(S);
 	(is_subset, {S,Set}) -> is_subset(Mod, Eq, S, Set);
@@ -39,7 +43,7 @@ new(Mod, Eq) ->
         (iterator_from, {Start, S}) -> Mod:iterator_from(Start, S);
 	(module, []) -> Mod;
         (next, I) -> Mod:next(I);
-	(singleton, E) -> singleton(Mod, E);
+	(singleton, E) -> singleton(Mod, FromList, E);
 	(size, S) -> Mod:size(S);
 	(subtract, {S1,S2}) -> subtract(Mod, S1, S2);
 	(to_list, S) -> Mod:to_list(S);
@@ -47,10 +51,10 @@ new(Mod, Eq) ->
 	(union, Ss) -> union(Mod, Eq, Ss)
     end.
 
-singleton(Mod, E) ->
+singleton(Mod, FromList, E) ->
     case erlang:function_exported(Mod, singleton, 1) of
 	true -> Mod:singleton(E);
-	false -> Mod:from_list([E])
+	false -> FromList([E])
     end.
 
 add_element(Mod, El, S0) ->

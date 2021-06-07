@@ -93,6 +93,12 @@
 #endif
 #include <sys/times.h>
 
+#ifdef __clang_analyzer__
+   /* CodeChecker does not seem to understand inline asm in FD_ZERO */
+#  undef FD_ZERO
+#  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
+#endif
+
 #ifndef RETSIGTYPE
 #define RETSIGTYPE void
 #endif
@@ -116,6 +122,17 @@
 #endif
 
 #endif /* !WIN32 */
+
+#if defined(__GNUC__)
+#  define PROTO_NORETURN__ void __attribute__((noreturn))
+#  define IMPL_NORETURN__ void
+#elif defined(__WIN32__) && defined(_MSC_VER)
+#  define PROTO_NORETURN__ __declspec(noreturn) void
+#  define IMPL_NORETURN__ __declspec(noreturn) void
+#else
+#  define PROTO_NORETURN__ void
+#  define IMPL_NORETURN__ void
+#endif
 
 #define PACKET_BYTES 4
 #ifdef WIN32
@@ -298,6 +315,12 @@ static HANDLE debug_console_allocated = INVALID_HANDLE_VALUE;
 #define REALLOC(Old, Size) my_realloc((Old), (Size))
 #define FREE(Ptr) free(Ptr)
 
+#ifdef DEBUG
+#define ASSERT(Cnd) do { if (!(Cnd)) { abort(); } } while(0)
+#else
+#define ASSERT(Cnd)
+#endif
+
 #ifdef WIN32
 #define WAKEUP_WINSOCK() do {			\
     char dummy_buff[100];			\
@@ -309,7 +332,7 @@ static HANDLE debug_console_allocated = INVALID_HANDLE_VALUE;
 static char *format_address(int siz, AddrByte *addr);
 static void debugf(char *format, ...);
 static void warning(char *format, ...);
-static void fatal(char *format, ...);
+static PROTO_NORETURN__ fatal(char *format, ...);
 static void *my_malloc(size_t size);
 static void *my_realloc(void *old, size_t size);
 static int get_int32(AddrByte *buff);
@@ -1578,8 +1601,7 @@ static int create_worker(Worker *pworker, int save_que)
 	pworker->que_first = pworker->que_last = NULL;
 	pworker->que_size = 0;
     }
-    DEBUGF(3,("Created worker[%ld] with fd %d", 
-	      (long) pworker->pid, (int) pworker->readfrom));
+    DEBUGF(3,("Created worker[%ld]", (long) pworker->pid));
     return 0;
 }
 
@@ -1722,6 +1744,7 @@ static int worker_loop(void)
 		req = REALLOC(req, (req_size = this_size));
 	    }
 	}
+        ASSERT(req != NULL);
 	if (read_exact(0, req, (size_t) this_size) != this_size) {
 	    DEBUGF(1,("Worker got EOF while reading data, exiting."));
 	    exit(0);
@@ -1855,7 +1878,8 @@ static int worker_loop(void)
 		DEBUGF(5,("getnameinfo returned %d", error_num));
 		if (error_num) {
 		    error_num = map_netdb_error_ai(error_num);
-		    sa = NULL;
+                    FREE(sa);
+                    sa = NULL;
 		}
 #elif defined(HAVE_GETIPNODEBYADDR) /*#ifdef HAVE_GETNAMEINFO*/
 		struct in6_addr ia;
@@ -1957,10 +1981,10 @@ static int worker_loop(void)
     }
     close_mesq(readfrom);
     close_mesq(writeto);
+#endif
     if (reply) {
 	FREE(reply);
     }
-#endif
     return 1;
 }
 
@@ -2121,6 +2145,7 @@ static size_t build_reply(SerialType serial, struct hostent *he,
 			      (*preply_size = need));
 	}
     }
+    ASSERT(*preply != NULL);
     ptr = *preply;
     PUT_PACKET_BYTES(ptr,need - PACKET_BYTES);
     ptr += PACKET_BYTES;
@@ -2180,7 +2205,7 @@ static size_t build_reply_ai(SerialType serial, int addrlen,
 			      (*preply_size = need));
 	}
     }
-
+    ASSERT(*preply != NULL);
     ptr = *preply;
     PUT_PACKET_BYTES(ptr,need - PACKET_BYTES);
     ptr += PACKET_BYTES;
@@ -2562,9 +2587,7 @@ static void debugf(char *format, ...)
 	WriteFile(debug_console_allocated,buff,strlen(buff),&res,NULL);
     }
 #else
-    /* suppress warning with 'if' */
-    if(write(2,buff,strlen(buff)))
-	;
+    (void)! write(2,buff,strlen(buff));
 #endif
     va_end(ap);
 }
@@ -2586,14 +2609,12 @@ static void warning(char *format, ...)
 	WriteFile(GetStdHandle(STD_ERROR_HANDLE),buff,strlen(buff),&res,NULL);
     }
 #else
-    /* suppress warning with 'if' */
-    if(write(2,buff,strlen(buff)))
-	;
+    (void)! write(2,buff,strlen(buff));
 #endif
     va_end(ap);
 }
 
-static void fatal(char *format, ...)
+static IMPL_NORETURN__ fatal(char *format, ...)
 {
     char buff[2048];
     char *ptr;
@@ -2610,9 +2631,7 @@ static void fatal(char *format, ...)
 	WriteFile(GetStdHandle(STD_ERROR_HANDLE),buff,strlen(buff),&res,NULL);
     }
 #else
-    /* suppress warning with 'if' */
-    if(write(2,buff,strlen(buff)))
-	;
+    (void)! write(2,buff,strlen(buff));
 #endif
     va_end(ap);
 #ifndef WIN32

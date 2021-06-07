@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1998</year>
-      <year>2016</year>
+      <year>2020</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -42,56 +42,76 @@
   </description>
   <funcs>
     <func>
-      <name since="">file(File [, Options])</name>
-      <fsummary>Create a <c>TAGS</c>file for the file <c>File</c>.</fsummary>
+      <name name="file" arity="1" since=""></name>
+      <name name="file" arity="2" since=""></name>
+      <fsummary>Create a <c>TAGS</c>file for the file <c><anno>File</anno></c>.
+      </fsummary>
+      <type name="option"/>
       <desc>
-        <p>Create a <c>TAGS</c> file for the file <c>File</c>.</p>
+        <p>Create a <c>TAGS</c> file for the file <c><anno>File</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">files(FileList [, Options])</name>
-      <fsummary>Create a TAGS file for the files in the list<c>FileList</c>.</fsummary>
+      <name name="files" arity="1" since=""></name>
+      <name name="files" arity="2" since=""></name>
+      <fsummary>Create a TAGS file for the files in the list
+        <c><anno>FileList</anno></c>.</fsummary>
+      <type name="option"/>
       <desc>
         <p>Create a TAGS file for the files in the list
-          <c>FileList</c>.</p>
+          <c><anno>FileList</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">dir(Dir [, Options])</name>
-      <fsummary>Create a TAGS file for all files in directory<c>Dir</c>.</fsummary>
+      <name name="dir" arity="1" since=""></name>
+      <name name="dir" arity="2" since=""></name>
+      <fsummary>Create a TAGS file for all files in directory<c><anno>Dir</anno></c>.
+      </fsummary>
+      <type name="option"/>
       <desc>
         <p>Create a TAGS file for all files in directory
-          <c>Dir</c>.</p>
+          <c><anno>Dir</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">dirs(DirList [, Options])</name>
+      <name name="dirs" arity="1" since=""></name>
+      <name name="dirs" arity="2" since=""></name>
       <fsummary>Create a TAGS file for all files in any directory in<c>DirList</c>.</fsummary>
+      <type name="option"/>
       <desc>
         <p>Create a TAGS file for all files in any directory in
-          <c>DirList</c>.</p>
+          <c><anno>DirList</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name since="">subdir(Dir [, Options])</name>
-      <fsummary>Descend recursively down the directory <c>Dir</c>and create a <c>TAGS</c>file based on all files found.</fsummary>
+      <name name="subdir" arity="1" since=""></name>
+      <name name="subdir" arity="2" since=""></name>
+      <fsummary>Descend recursively down the directory <c><anno>Dir</anno></c>
+        and create a <c>TAGS</c> file based on all files found.</fsummary>
+      <type name="option"/>
       <desc>
-        <p>Descend recursively down the directory <c>Dir</c> and
+        <p>Descend recursively down the directory <c><anno>Dir</anno></c> and
           create a <c>TAGS</c> file based on all files found.</p>
       </desc>
     </func>
     <func>
-      <name since="">subdirs(DirList [, Options])</name>
-      <fsummary>Descend recursively down all the directories in<c>DirList</c>and create a <c>TAGS</c>file based on all files found.</fsummary>
+      <name name="subdirs" arity="1" since=""></name>
+      <name name="subdirs" arity="2" since=""></name>
+      <fsummary>Descend recursively down all the directories in
+        <c><anno>DirList</anno></c> and create a <c>TAGS</c>file based
+        on all files found.</fsummary>
+      <type name="option"/>
       <desc>
         <p>Descend recursively down all the directories in
-          <c>DirList</c> and create a <c>TAGS</c> file based on all
+          <c><anno>DirList</anno></c> and create a <c>TAGS</c> file based on all
           files found.</p>
       </desc>
     </func>
     <func>
-      <name since="">root([Options])</name>
+      <name name="root" arity="0" since=""></name>
+      <name name="root" arity="1" since=""></name>
       <fsummary>Create a <c>TAGS</c>file covering all files in the Erlang distribution.</fsummary>
+      <type name="option"/>
       <desc>
         <p>Create a <c>TAGS</c> file covering all files in
           the Erlang distribution.</p>

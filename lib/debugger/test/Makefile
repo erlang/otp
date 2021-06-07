@@ -32,6 +32,7 @@ MODULES= \
 	bs_match_int_SUITE \
 	bs_match_misc_SUITE \
 	bs_match_tail_SUITE \
+	bs_size_expr_SUITE \
 	bs_utf_SUITE \
 	bug_SUITE \
 	erl_eval_SUITE \

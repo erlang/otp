@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -171,7 +171,7 @@ ERTS_GLB_INLINE void erts_port_task_pre_init_sched(ErtsPortTaskSched *ptsp,
 ERTS_GLB_INLINE void
 erts_port_task_init_sched(ErtsPortTaskSched *ptsp, Eterm instr_id)
 {
-    char *lock_str = "port_sched_lock";
+    const char *lock_str = "port_sched_lock";
     ptsp->next = NULL;
     ptsp->taskq.local.busy.first = NULL;
     ptsp->taskq.local.busy.last = NULL;

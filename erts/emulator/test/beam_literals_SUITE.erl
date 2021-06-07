@@ -143,7 +143,38 @@ matching_bigs_and_smalls(Config) when is_list(Config) ->
     e = matching3(42),
     f = matching3(-4533),
     other = matching3(77),
-    other = matching3(39274120984379249874219748).
+    other = matching3(39274120984379249874219748),
+
+    a = matching4(1),
+    b = matching4(5),
+    c = matching4(10),
+    d = matching4(15),
+    e = matching4(20),
+    f = matching4(25),
+    big = matching4(79379377983497837983789333),
+    g = matching4(30),
+    h = matching4(35),
+    i = matching4(40),
+    j = matching4(45),
+    k = matching4(50),
+    other = matching4(a),
+    other = matching4(383793474329747922),
+
+    x = matching5(1),
+    y = matching5(2),
+    z = matching5(3),
+    xx = matching5(4),
+    yy = matching5(5),
+    zz = matching5(6),
+    xxx = matching5(7),
+    yyy = matching5(8),
+    zzz = matching5(9),
+    big = matching5(1 bsl 128),
+    other = matching5(0),
+    other = matching5(10),
+    other = matching5(-1111111111111111111111111111111111111),
+
+    ok.
 
 %% Mixed small and big.
 
@@ -154,6 +185,32 @@ matching3(3978429867297393873) -> d;
 matching3(42) -> e;
 matching3(-4533) -> f;
 matching3(_) -> other.
+
+matching4(1) -> a;
+matching4(5) -> b;
+matching4(10) -> c;
+matching4(15) -> d;
+matching4(20) -> e;
+matching4(25) -> f;
+matching4(79379377983497837983789333) -> big;
+matching4(30) -> g;
+matching4(35) -> h;
+matching4(40) -> i;
+matching4(45) -> j;
+matching4(50) -> k;
+matching4(_) -> other.
+
+matching5(1) -> x;
+matching5(2) -> y;
+matching5(3) -> z;
+matching5(4) -> xx;
+matching5(5) -> yy;
+matching5(6) -> zz;
+matching5(7) -> xxx;
+matching5(8) -> yyy;
+matching5(9) -> zzz;
+matching5(1 bsl 128) -> big;
+matching5(_) -> other.
 
 %% Test literal badmatches with big number and floats.
 badmatch(Config) when is_list(Config) ->
@@ -237,14 +294,31 @@ literal_type_tests(Config) when is_list(Config) ->
     Mod:test(),
     true = code:delete(Mod),
     code:purge(Mod),
-			       
+
     %% Test compile:form/2.  Turn off all optimizations.
-    {ok,Mod,Code2} = compile:forms(Form, [binary,report,time,
-						no_copt,no_postopt]),
+    NoOpt = [no_copt,no_bool_opt,no_share_opt,no_bsm_opt,no_fun_opt,
+             no_ssa_opt,no_recv_opt,no_postopt],
+    {ok,Mod,Code2} = compile:forms(Form, [binary,report,time|NoOpt]),
     {module,Mod} = code:load_binary(Mod, Mod, Code2),
     Mod:test(),
     true = code:delete(Mod),
     code:purge(Mod),
+
+    %% The new SSA-based compiler in OTP 22 and later will evaluate
+    %% calls to guard BIFs and tests even if all optimizations are
+    %% turned off. To ensure that BEAM can load and execute type tests
+    %% with literal operands, we will need to assemble a pre-generated
+    %% .S file. The comments in the .S file itself explains how it
+    %% was generated.
+
+    DataDir = proplists:get_value(data_dir, Config),
+    UnoptTestsFile = filename:join(DataDir, "unoptimized_literal_tests"),
+    {ok,UnoptMod,Code3} = compile:file(UnoptTestsFile, [from_asm,binary,report,time]),
+    {module,UnoptMod} = code:load_binary(UnoptMod, UnoptMod, Code3),
+    UnoptMod:test(),
+    true = code:delete(UnoptMod),
+    code:purge(UnoptMod),
+
     ok.
 
 make_test([{is_function=T,L}|Ts]) ->

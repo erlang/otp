@@ -119,11 +119,11 @@ verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, Ti
 	    ct:fail({connect_error, ConnectError, 
 		     [SocketType, Host, Port, TranspOpts]})
     catch
-	T:E ->
+	T:E:Stk ->
 	    ct:fail({connect_failure, 
 		     [{type,       T}, 
 		      {error,      E}, 
-		      {stacktrace, erlang:get_stacktrace()}, 
+		      {stacktrace, Stk},
 		      {args,       [SocketType, Host, Port, TranspOpts]}]}) 
     end.
 
@@ -136,11 +136,11 @@ verify_request_N(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, 
 	    ct:fail({connect_error, ConnectError, 
 		     [SocketType, Host, Port, TranspOpts]})
     catch
-	T:E ->
+	T:E:Stk ->
 	    ct:fail({connect_failure, 
 		     [{type,       T}, 
 		      {error,      E}, 
-		      {stacktrace, erlang:get_stacktrace()}, 
+		      {stacktrace, Stk},
 		      {args,       [SocketType, Host, Port, TranspOpts]}]}) 
     end.
 
@@ -307,12 +307,27 @@ validate(RequestStr, #state{status_line = {Version, StatusCode, _},
 	    check_body(RequestStr, StatusCode, 
 		       Headers#http_response_h.'content-type',
 		       list_to_integer(Headers#http_response_h.'content-length'),
-		       Body)
+		       Body),
+            case proplists:get_bool(fetch_hrefs, Options) of
+                true ->
+                    {ok, fetch_hrefs(Body)};
+                _ ->
+                    ok
+            end
     end.
 
 %--------------------------------------------------------------------
 %% Internal functions
 %%------------------------------------------------------------------
+fetch_hrefs(Body) ->
+    {match, Matches} = re:run(Body, <<"HREF.*\"">>, [global]),
+    Parse = fun(B, S, L) ->
+                    Sliced = string:slice(B, S, L),
+                    HrefBin = lists:nth(2, re:split(Sliced, <<"\"">>)),
+                    binary:bin_to_list(HrefBin)
+            end,
+    [Parse(Body, Start, Length) || [{Start, Length}] <- Matches].
+
 check_version(Version, Options) ->
     case lists:keysearch(version, 1, Options) of
 	{value, {version, Version}} ->
@@ -388,8 +403,8 @@ is_expect(RequestStr) ->
     end.
 
 %% OTP-5775, content-length
-check_body("GET /cgi-bin/erl/httpd_example:get_bin HTTP/1.0\r\n\r\n", 200, "text/html", Length, _Body) when (Length =/= 274) ->
-    ct:fail(content_length_error);
+check_body("GET /cgi-bin/erl/httpd_example:get_bin HTTP/1.1\r\n\r\n", 200, "text/html", Length, _Body) when (Length =/= 274) ->
+    ct:fail({content_length_error, Length});
 check_body("GET /cgi-bin/cgi_echo HTTP/1.0\r\n\r\n", 200, "text/plain", 
 	   _, Body) ->
     case size(Body) of

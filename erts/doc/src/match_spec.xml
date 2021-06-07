@@ -35,9 +35,9 @@
   <p>A "match specification" (<c>match_spec</c>) is an Erlang term describing a
     small "program" that tries to match something. It can be used
     to either control tracing with
-    <seealso marker="erlang#trace_pattern/3">erlang:trace_pattern/3</seealso>
+    <seemfa marker="erlang#trace_pattern/3">erlang:trace_pattern/3</seemfa>
     or to search for objects in an ETS table with for example
-    <seealso marker="stdlib:ets#select/2">ets:select/2</seealso>.
+    <seemfa marker="stdlib:ets#select/2">ets:select/2</seemfa>.
     The match specification in many ways works like a small function in Erlang,
     but is interpreted/compiled by the Erlang runtime system to something much more
     efficient than calling an Erlang function. The match specification is also
@@ -144,7 +144,7 @@
     </list>
 
     <p>A match specification  used in
-      <seealso marker="stdlib:ets"><c>ets(3)</c></seealso>
+      <seeerl marker="stdlib:ets"><c>ets(3)</c></seeerl>
       can be described in the following <em>informal</em> grammar:</p>
 
     <list type="bulleted">
@@ -411,7 +411,7 @@
             enable list takes precedence. If no tracer is specified, the same
             tracer as the process executing the match specification is used (not the meta tracer).
             If that process doesn't have tracer either, then trace flags are ignored.</p>
-          <p>When using a <seealso marker="erl_tracer">tracer module</seealso>,
+          <p>When using a <seeerl marker="erl_tracer">tracer module</seeerl>,
             the module must be loaded before the match specification is
             executed. If it is not loaded, the match fails.</p>
           <p>With three parameters to this function, the first is
@@ -562,7 +562,7 @@
         <list type="bulleted">
           <item>
             <p>The variable <c><![CDATA['$_']]></c> expands to the whole
-            <seealso marker="#match_target">match target</seealso> term.
+            <seeguide marker="#match_target">match target</seeguide> term.
             </p>
           </item>
           <item>
@@ -867,7 +867,7 @@
   ['$_']}]
     ]]></code>
 
-    <p>Function <seealso marker="stdlib:ets#test_ms/2"><c>ets:test_ms/2></c></seealso>
+    <p>Function <seemfa marker="stdlib:ets#test_ms/2"><c>ets:test_ms/2></c></seemfa>
       can be useful for testing complicated ETS matches.</p>
   </section>
 </chapter>

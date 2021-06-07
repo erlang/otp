@@ -341,8 +341,12 @@ max([],    Max)              -> Max.
       Len :: non_neg_integer(),
       T :: term().
 
-sublist(List, S, L) when is_integer(L), L >= 0 ->
-    sublist(nthtail(S-1, List), L).
+sublist(List, 1, L) when is_list(List), is_integer(L), L >= 0 ->
+    sublist(List, L);
+sublist([], S, _L) when is_integer(S), S >= 2 ->
+    [];
+sublist([_H|T], S, L) when is_integer(S), S >= 2 ->
+    sublist(T, S-1, L).
 
 -spec sublist(List1, Len) -> List2 when
       List1 :: [T],

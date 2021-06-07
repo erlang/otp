@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2004-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,19 +22,22 @@
 #include "ei.h"
 #include "ei_internal.h"
 
-#define EI_COMPAT_NO_REL (~((unsigned) 0))
+#include <limits.h>
 
-static unsigned compat_rel = EI_COMPAT_NO_REL;
+#ifndef EI_COMPAT
+#  define EI_COMPAT UINT_MAX
+#endif
+
+static unsigned compat_rel = EI_COMPAT;
 
 void
 ei_set_compat_rel(unsigned rel)
 {
-    if (compat_rel == EI_COMPAT_NO_REL)
-	compat_rel = rel;
+    compat_rel = rel;
 }
 
-int
-ei_internal_use_r9_pids_ports(void)
+int ei_internal_use_21_bitstr_expfun(void)
 {
-    return compat_rel < 10;
+    return compat_rel < 22;
 }
+

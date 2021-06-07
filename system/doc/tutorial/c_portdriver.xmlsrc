@@ -30,7 +30,7 @@
     <file>c_portdriver.xml</file>
   </header>
   <p>This section outlines an example of how to solve the example problem
-    in <seealso marker="example">Problem Example</seealso>
+    in <seeguide marker="example">Problem Example</seeguide>
     by using a linked-in port driver.</p>
   <p>A port driver is a linked-in driver that is accessible as a port
     from an Erlang program. It is a shared library (SO in UNIX, DLL in
@@ -55,7 +55,7 @@
       is the <em>connected process</em> of the port
       driver. Terminating this process closes the port driver.</p>
     <p>Before the port is created, the driver must be loaded. This is
-      done with the function <c>erl_dll:load_driver/1</c>, with the
+      done with the function <c>erl_ddll:load_driver/1</c>, with the
       name of the shared library as argument.</p>
     <p>The port is then created using the BIF <c>open_port/2</c>, with
       the tuple <c>{spawn, DriverName}</c> as the first argument. The

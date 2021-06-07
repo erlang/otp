@@ -39,26 +39,26 @@
       <tag><em>User's Guide</em></tag>
       <item>
 	<p>(DTD:
-	  <seealso marker="user_guide_dtds#partDTD">part</seealso>)
+	  <seeguide marker="user_guide_dtds#partDTD">part</seeguide>)
 	  A collection of chapters
-	  (<seealso marker="user_guide_dtds#chapterDTD">chapter</seealso>).
+	  (<seeguide marker="user_guide_dtds#chapterDTD">chapter</seeguide>).
 	</p>
       </item> 
 
       <tag><em>Reference Manual</em></tag>
       <item>
 	<p>(DTD:
-	  <seealso marker="refman_dtds#applicationDTD">application</seealso>
+	  <seeguide marker="refman_dtds#applicationDTD">application</seeguide>
 	  A collection of manual pages for modules
-	  (<seealso marker="refman_dtds#erlrefDTD">erlref</seealso>),
+	  (<seeguide marker="refman_dtds#erlrefDTD">erlref</seeguide>),
 	  applications
-	  (<seealso marker="refman_dtds#apprefDTD">appref</seealso>),
+	  (<seeguide marker="refman_dtds#apprefDTD">appref</seeguide>),
 	  commands
-	  (<seealso marker="refman_dtds#comrefDTD">comref</seealso>),
+	  (<seeguide marker="refman_dtds#comrefDTD">comref</seeguide>),
 	  C libraries
-	  (<seealso marker="refman_dtds#crefDTD">cref</seealso>) and
+	  (<seeguide marker="refman_dtds#crefDTD">cref</seeguide>) and
 	  files
-	  (<seealso marker="refman_dtds#filerefDTD">fileref</seealso>).
+	  (<seeguide marker="refman_dtds#filerefDTD">fileref</seeguide>).
 	</p>
       </item>
 
@@ -95,8 +95,8 @@
       use the same DTD.</p>
 
     <p>The basic set of tags are divided into two categories:
-      <seealso marker="block_tags">block tags</seealso> and
-      <seealso marker="inline_tags">inline tags</seealso>. Block tags
+      <seeguide marker="block_tags">block tags</seeguide> and
+      <seeguide marker="inline_tags">inline tags</seeguide>. Block tags
       typically define a separate block of information, like a
       paragraph or a list. Inline tags are typically used within block
       tags, for example a highlighted word within a paragraph.</p>

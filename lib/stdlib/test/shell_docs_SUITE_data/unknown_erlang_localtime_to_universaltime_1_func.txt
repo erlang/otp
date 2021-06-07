@@ -1,0 +1,16 @@
+
+  [;1m-spec erlang:localtime_to_universaltime(Localtime) -> Universaltime[0m
+  [;1m                                           when[0m
+  [;1m                                               Localtime ::[0m
+  [;1m                                                   calendar:datetime(),[0m
+  [;1m                                               Universaltime ::[0m
+  [;1m                                                   calendar:datetime().[0m
+
+  Converts local date and time to Universal Time Coordinated (UTC),
+  if supported by the underlying OS. Otherwise no conversion is done
+  and [;;4mLocaltime[0m is returned. Example:
+
+    > erlang:localtime_to_universaltime({{1996,11,6},{14,45,17}}).
+    {{1996,11,6},{13,45,17}}
+
+  Failure: [;;4mbadarg[0m if [;;4mLocaltime[0m denotes an invalid date and time.

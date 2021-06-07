@@ -52,24 +52,79 @@
        Integer with the base <em><c>base</c></em>, that must be an
        integer in the range 2..36.</item>
     </list>
+    <p>Leading zeroes are ignored. Single underscore <c>_</c> can be inserted
+    between digits as a visual separator.</p>
     <p><em>Examples:</em></p>
     <pre>
 1> <input>42.</input>
 42
-2> <input>$A.</input>
+2> <input>-1_234_567_890.</input>
+-1234567890
+3> <input>$A.</input>
 65
-3> <input>$\n.</input>
+4> <input>$\n.</input>
 10
-4> <input>2#101.</input>
+5> <input>2#101.</input>
 5
-5> <input>16#1f.</input>
+6> <input>16#1f.</input>
 31
-6> <input>2.3.</input>
+7> <input>16#4865_316F_774F_6C64.</input>
+5216630098191412324
+8> <input>2.3.</input>
 2.3
-7> <input>2.3e3.</input>
+9> <input>2.3e3.</input>
 2.3e3
-8> <input>2.3e-3.</input>
-0.0023</pre>
+10> <input>2.3e-3.</input>
+0.0023
+11> <input>1_234.333_333</input>
+1234.333333
+</pre>
+<marker id="float_representation_problem" />
+    <section>
+      <title>Representation of Floating Point Numbers</title>
+      <p>When working with floats you may not see what you expect when printing or
+        doing arithmetic operations. This is because floats
+        are represented by a fixed number of bits in a base-2 system while
+        printed floats are represented with a base-10 system. Here are
+        examples of this phenomenon:
+      </p>
+      <pre>
+> <input>0.1+0.2.</input>
+0.30000000000000004
+</pre>
+<p>The real numbers <c>0.1</c> and <c>0.2</c> cannot be represented
+exactly as floats.</p>
+<pre>
+> <input>{36028797018963968.0, 36028797018963968 == 36028797018963968.0,
+  36028797018963970.0, 36028797018963970 == 36028797018963970.0}.</input>
+{3.602879701896397e16, true,
+ 3.602879701896397e16, false}.
+</pre>
+      <p>
+        The value <c>36028797018963968</c> can be represented exactly
+        as a float value but Erlang's pretty printer rounds
+        <c>36028797018963968.0</c> to <c>3.602879701896397e16</c>
+        (<c>=36028797018963970.0</c>) as all values in the range
+        <c>[36028797018963966.0, 36028797018963972.0]</c> are
+        represented by <c>36028797018963968.0</c>.
+      </p>
+      <p>
+        For more information about floats and issues with them see:
+      </p>
+        <list type="bulleted">
+          <item><url
+                    href="https://floating-point-gui.de/">What Every Programmer
+          Should Know About Floating-Point Arithmetic</url>,</item>
+          <item><url
+                    href="https://0.30000000000000004.com/">0.30000000000000004.com/</url>, and</item>
+          <item><url href="https://docs.python.org/3/tutorial/floatingpoint.html">Floating Point Arithmetic: Issues and
+          Limitations</url>.</item>
+        </list>
+      <p>If you need to work with decimal fractions, for instance if you need to represent money,
+        then you should use a library that handles that or work in cents instead of euros so
+        that you do not need decimal fractions.
+      </p>
+    </section>
   </section>
 
   <section>
@@ -90,7 +145,7 @@ phone_number
     <title>Bit Strings and Binaries</title>
     <p>A bit string is used to store an area of untyped memory.</p>
     <p>Bit strings are expressed using the
-      <seealso marker="expressions#bit_syntax">bit syntax</seealso>.</p>
+      <seeguide marker="expressions#bit_syntax">bit syntax</seeguide>.</p>
     <p>Bit strings that consist of a number of bits that are evenly
       divisible by eight, are called <em>binaries</em></p>
     <p><em>Examples:</em></p>
@@ -102,14 +157,21 @@ phone_number
 1> <input>&lt;&lt;1:1,0:1&gt;&gt;.</input>
 &lt;&lt;2:2>></pre>
     <p>For more examples,
-      see <seealso marker="doc/programming_examples:bit_syntax">
-      Programming Examples</seealso>.</p>
+      see <seeguide marker="system/programming_examples:bit_syntax">
+      Programming Examples</seeguide>.</p>
   </section>
 
   <section>
     <title>Reference</title>
-    <p>A reference is a term that is unique in an Erlang runtime
-      system, created by calling <c>make_ref/0</c>.</p>
+    <p>
+      A term that is
+      <seeguide marker="system/efficiency_guide:advanced#unique_references">unique</seeguide>
+      among connected nodes. A reference can be created by calling the
+      <seemfa marker="erts:erlang#make_ref/0"><c>make_ref/0</c></seemfa>
+      BIF. The
+      <seemfa marker="erts:erlang#is_reference/1"><c>is_reference/1</c></seemfa>
+      BIF can be used to test if a term is a reference.
+    </p>
   </section>
 
   <section>
@@ -123,10 +185,10 @@ phone_number
 #Fun&lt;erl_eval.6.39074546&gt;
 2> <input>Fun1(2).</input>
 3</pre>
-    <p>Read more about funs in <seealso marker="expressions#funs">
-      Fun Expressions</seealso>. For more examples, see
-      <seealso marker="doc/programming_examples:funs">
-      Programming Examples</seealso>.</p>
+    <p>Read more about funs in <seeguide marker="expressions#funs">
+      Fun Expressions</seeguide>. For more examples, see
+      <seeguide marker="system/programming_examples:funs">
+      Programming Examples</seeguide>.</p>
   </section>
 
   <section>
@@ -134,25 +196,32 @@ phone_number
     <p>A port identifier identifies an Erlang port.</p>
     <p><c>open_port/2</c>, which is used to create ports, returns
       a value of this data type.</p>
-    <p>Read more about ports in <seealso marker="ports">Ports and Port Drivers</seealso>.</p>
+    <p>Read more about ports in <seeguide marker="ports">Ports and Port Drivers</seeguide>.</p>
   </section>
 
   <section>
-    <title>Pid</title>
-    <p>A process identifier, pid, identifies a process.</p>
-    <p>The following BIFs, which are used to create processes, return
-      values of this data type:</p>
-    <list type="bulleted">
-      <item><c>spawn/1,2,3,4</c></item>
-      <item><c>spawn_link/1,2,3,4</c></item>
-      <item><c>spawn_opt/4</c></item>
-    </list>
+    <title>PID</title>
+    <p>
+      PID is an abbreviation for process identifier. Each process has
+      a PID which identifies the process. PIDs are unique among processes
+      that are alive on connected nodes. However, a PID of a terminated
+      process may be reused as a PID for a new process after a while.
+    </p>
+    <p>
+      The BIF <seemfa marker="erts:erlang#self/0"><c>self/0</c></seemfa>
+      returns the PID of the calling process. When
+      <seeguide marker="processes#process-creation">creating a new
+      process</seeguide>, the parent process will be able to get the PID
+      of the child process either via the return value, as is the case
+      when calling the <seemfa marker="erts:erlang#spawn/3"><c>spawn/3</c></seemfa>
+      BIF, or via a message, which is the case when calling the
+      <seemfa marker="erts:erlang#spawn_request/5"><c>spawn_request/5</c></seemfa>
+      BIF. A PID is typically used when when sending a process a
+      <seeguide marker="processes#signals">signal</seeguide>. The
+      <seemfa marker="erts:erlang#is_pid/1"><c>is_pid/1</c></seemfa>
+      BIF can be used to test whether a term is a PID. 
+    </p>
     <p><em>Example:</em></p>
-    <pre>
-1> <input>spawn(m, f, []).</input>
-&lt;0.51.0></pre>
-    <p>In the following example, the BIF <c>self()</c> returns
-      the pid of the calling process:</p>
     <pre>
 -module(m).
 -export([loop/0]).
@@ -170,7 +239,7 @@ loop() ->
 I am &lt;0.58.0>
 who_are_you</pre>
     <p>Read more about processes in
-      <seealso marker="processes">Processes</seealso>.</p>
+      <seeguide marker="processes">Processes</seeguide>.</p>
   </section>
 
   <section>
@@ -224,10 +293,10 @@ adam
 6> <input>map_size(#{}).</input>
 0</pre>
     <p>A collection of maps processing functions can be found in
-      <seealso marker="stdlib:maps"><c>maps</c></seealso> manual page
+      <seeerl marker="stdlib:maps"><c>maps</c></seeerl> manual page
       in STDLIB.</p>
-    <p>Read more about maps in <seealso marker="expressions#map_expressions">
-      Map Expressions</seealso>.</p>
+    <p>Read more about maps in <seeguide marker="expressions#map_expressions">
+      Map Expressions</seeguide>.</p>
   <note>
     <p>Maps are considered to be experimental during Erlang/OTP R17.</p>
   </note>
@@ -274,7 +343,7 @@ a
 7> <input>length([]).</input>
 0</pre>
     <p>A collection of list processing functions can be found in
-      the <seealso marker="stdlib:lists">lists</seealso> manual
+      the <seeerl marker="stdlib:lists">lists</seeerl> manual
       page in STDLIB.</p>
   </section>
 
@@ -302,7 +371,7 @@ a
       expressions are translated to tuple expressions during
       compilation. Therefore, record expressions are not understood by
       the shell unless special actions are taken. For details, see the
-      <seealso marker="stdlib:shell">shell(3)</seealso> manual
+      <seeerl marker="stdlib:shell">shell(3)</seeerl> manual
       page in STDLIB).</p>
     <p><em>Examples:</em></p>
     <pre>
@@ -317,9 +386,9 @@ new(Name, Age) ->
 1> <input>person:new(ernie, 44).</input>
 {person,ernie,44}</pre>
     <p>Read more about records in
-      <seealso marker="records">Records</seealso>. More examples can be
-      found in <seealso marker="doc/programming_examples:records">
-      Programming Examples</seealso>.</p>
+      <seeguide marker="records">Records</seeguide>. More examples can be
+      found in <seeguide marker="system/programming_examples:records">
+      Programming Examples</seeguide>.</p>
   </section>
 
   <section>

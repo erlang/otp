@@ -1,0 +1,14 @@
+
+  [;1m-spec spawn_monitor(Node, Fun) -> {pid(), reference()}[0m
+  [;1m                       when Node :: node(), Fun :: function().[0m
+
+[;;4mSince[0m:
+  OTP 23.0
+
+  Returns the process identifier of a new process, started by the
+  application of [;;4mFun[0m to the empty list [;;4m[][0m on the node [;;4mNode[0m,
+  and a reference for a monitor created to the new process.
+  Otherwise works like [;;4mspawn/3[0m.
+
+  If the node identified by [;;4mNode[0m does not support distributed [;;4m[0m
+  [;;4mspawn_monitor()[0m, the call will fail with a [;;4mnotsup[0m exception.

@@ -92,7 +92,7 @@ person</pre>
     <p>This is because record definitions are only available
       at compile time, not at runtime. For details on records
       in the shell, see the
-      <seealso marker="stdlib:shell">shell(3)</seealso>
+      <seeerl marker="stdlib:shell">shell(3)</seeerl>
       manual page in STDLIB.</p>
   </section>
 
@@ -222,7 +222,7 @@ print(#person{name = Name, age = Age,
 
 %% Demonstrates type testing, selector, updating.
 
-birthday(P) when record(P, person) -> 
+birthday(P) when is_record(P, person) -> 
    P#person{age = P#person.age + 1}.
 
 register_two_hackers() ->

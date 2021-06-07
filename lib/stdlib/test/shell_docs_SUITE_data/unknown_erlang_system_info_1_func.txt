@@ -1,0 +1,220 @@
+
+  [;1m-spec erlang:system_info(allocated_areas) -> [tuple()];[0m
+  [;1m                        (allocator) ->[0m
+  [;1m                            {Allocator, Version, Features, Settings}[0m
+  [;1m                            when[0m
+  [;1m                                Allocator :: undefined | glibc,[0m
+  [;1m                                Version :: [non_neg_integer()],[0m
+  [;1m                                Features :: [atom()],[0m
+  [;1m                                Settings ::[0m
+  [;1m                                    [{Subsystem :: atom(),[0m
+  [;1m                                      [{Parameter :: atom(),[0m
+  [;1m                                        Value :: term()}]}];[0m
+  [;1m                        ({allocator, Alloc}) -> [_] when Alloc :: atom();[0m
+  [;1m                        (alloc_util_allocators) -> [Alloc][0m
+  [;1m                            when Alloc :: atom();[0m
+  [;1m                        ({allocator_sizes, Alloc}) -> [_][0m
+  [;1m                            when Alloc :: atom().[0m
+
+  [;1m-spec erlang:system_info(creation) -> integer();[0m
+  [;1m                        (delayed_node_table_gc) ->[0m
+  [;1m                            infinity | non_neg_integer();[0m
+  [;1m                        (dist) -> binary();[0m
+  [;1m                        (dist_buf_busy_limit) -> non_neg_integer();[0m
+  [;1m                        (dist_ctrl) ->[0m
+  [;1m                            {Node :: node(),[0m
+  [;1m                             ControllingEntity :: port() | pid()}.[0m
+
+[;;4mSince[0m:
+  OTP 18.0,OTP R14B01
+
+  [;1m-spec erlang:system_info(atom_count) -> pos_integer();[0m
+  [;1m                        (atom_limit) -> pos_integer();[0m
+  [;1m                        (ets_count) -> pos_integer();[0m
+  [;1m                        (ets_limit) -> pos_integer();[0m
+  [;1m                        (port_count) -> non_neg_integer();[0m
+  [;1m                        (port_limit) -> pos_integer();[0m
+  [;1m                        (process_count) -> pos_integer();[0m
+  [;1m                        (process_limit) -> pos_integer().[0m
+
+[;;4mSince[0m:
+  OTP 20.0,OTP 21.1,OTP R16B,OTP R16B03
+
+  [;1m-spec erlang:system_info(c_compiler_used) -> {atom(), term()};[0m
+  [;1m                        (check_io) -> [_];[0m
+  [;1m                        (compat_rel) -> integer();[0m
+  [;1m                        (debug_compiled) -> boolean();[0m
+  [;1m                        (driver_version) -> string();[0m
+  [;1m                        (dynamic_trace) -> none | dtrace | systemtap;[0m
+  [;1m                        (dynamic_trace_probes) -> boolean();[0m
+  [;1m                        (emu_flavor) -> emu | jit;[0m
+  [;1m                        (emu_type) ->[0m
+  [;1m                            opt | debug | gcov | valgrind | gprof |[0m
+  [;1m                            lcnt | frmptr;[0m
+  [;1m                        (info) -> binary();[0m
+  [;1m                        (kernel_poll) -> boolean();[0m
+  [;1m                        (loaded) -> binary();[0m
+  [;1m                        (machine) -> string();[0m
+  [;1m                        (modified_timing_level) -> integer() | undefined;[0m
+  [;1m                        (nif_version) -> string();[0m
+  [;1m                        (otp_release) -> string();[0m
+  [;1m                        (port_parallelism) -> boolean();[0m
+  [;1m                        (system_architecture) -> string();[0m
+  [;1m                        (system_logger) -> logger | undefined | pid();[0m
+  [;1m                        (system_version) -> string();[0m
+  [;1m                        (trace_control_word) -> non_neg_integer();[0m
+  [;1m                        (version) -> string();[0m
+  [;1m                        (wordsize |[0m
+  [;1m                         {wordsize, internal} |[0m
+  [;1m                         {wordsize, external}) ->[0m
+  [;1m                            4 | 8.[0m
+
+[;;4mSince[0m:
+  OTP 17.4,OTP 21.3,OTP 24.0,OTP R15B01,OTP R16B
+
+  [;1m-spec erlang:system_info(dirty_cpu_schedulers) -> non_neg_integer();[0m
+  [;1m                        (dirty_cpu_schedulers_online) ->[0m
+  [;1m                            non_neg_integer();[0m
+  [;1m                        (dirty_io_schedulers) -> non_neg_integer();[0m
+  [;1m                        (multi_scheduling) ->[0m
+  [;1m                            disabled | blocked | blocked_normal |[0m
+  [;1m                            enabled;[0m
+  [;1m                        (multi_scheduling_blockers) -> [Pid :: pid()];[0m
+  [;1m                        (normal_multi_scheduling_blockers) ->[0m
+  [;1m                            [Pid :: pid()];[0m
+  [;1m                        (scheduler_bind_type) ->[0m
+  [;1m                            spread | processor_spread | thread_spread |[0m
+  [;1m                            thread_no_node_processor_spread |[0m
+  [;1m                            no_node_processor_spread |[0m
+  [;1m                            no_node_thread_spread | no_spread | unbound;[0m
+  [;1m                        (scheduler_bindings) -> tuple();[0m
+  [;1m                        (scheduler_id) -> SchedulerId :: pos_integer();[0m
+  [;1m                        (schedulers | schedulers_online) ->[0m
+  [;1m                            pos_integer();[0m
+  [;1m                        (smp_support) -> boolean();[0m
+  [;1m                        (threads) -> boolean();[0m
+  [;1m                        (thread_pool_size) -> non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 17.0,OTP 19.0
+
+  [;1m-spec erlang:system_info(end_time) -> non_neg_integer();[0m
+  [;1m                        (os_monotonic_time_source) -> [{atom(), term()}];[0m
+  [;1m                        (os_system_time_source) -> [{atom(), term()}];[0m
+  [;1m                        (start_time) -> integer();[0m
+  [;1m                        (time_correction) -> true | false;[0m
+  [;1m                        (time_offset) -> preliminary | final | volatile;[0m
+  [;1m                        (time_warp_mode) ->[0m
+  [;1m                            no_time_warp | single_time_warp |[0m
+  [;1m                            multi_time_warp;[0m
+  [;1m                        (tolerant_timeofday) -> enabled | disabled.[0m
+
+[;;4mSince[0m:
+  OTP 17.1,OTP 18.0
+
+  [;1m-spec erlang:system_info(version) -> string().[0m
+
+  [;1m-spec erlang:system_info(cpu_topology) -> CpuTopology[0m
+  [;1m                            when CpuTopology :: cpu_topology();[0m
+  [;1m                        ({cpu_topology, defined | detected | used}) ->[0m
+  [;1m                            CpuTopology[0m
+  [;1m                            when CpuTopology :: cpu_topology();[0m
+  [;1m                        (logical_processors |[0m
+  [;1m                         logical_processors_available |[0m
+  [;1m                         logical_processors_online) ->[0m
+  [;1m                            unknown | pos_integer();[0m
+  [;1m                        (update_cpu_info) -> changed | unchanged.[0m
+
+[;;4mSince[0m:
+  OTP R14B
+
+  [;1m-spec erlang:system_info(fullsweep_after) ->[0m
+  [;1m                            {fullsweep_after, non_neg_integer()};[0m
+  [;1m                        (garbage_collection) -> [{atom(), integer()}];[0m
+  [;1m                        (heap_sizes) -> [non_neg_integer()];[0m
+  [;1m                        (heap_type) -> private;[0m
+  [;1m                        (max_heap_size) ->[0m
+  [;1m                            {max_heap_size,[0m
+  [;1m                             MaxHeapSize :: max_heap_size()};[0m
+  [;1m                        (message_queue_data) -> message_queue_data();[0m
+  [;1m                        (min_heap_size) ->[0m
+  [;1m                            {min_heap_size,[0m
+  [;1m                             MinHeapSize :: pos_integer()};[0m
+  [;1m                        (min_bin_vheap_size) ->[0m
+  [;1m                            {min_bin_vheap_size,[0m
+  [;1m                             MinBinVHeapSize :: pos_integer()};[0m
+  [;1m                        (procs) -> binary().[0m
+
+[;;4mSince[0m:
+  OTP 19.0,OTP R13B04
+
+  Types:
+    -type max_heap_size() ::
+          Size ::
+              non_neg_integer() |
+              #{size => non_neg_integer(),
+                kill => boolean(),
+                error_logger => boolean()}.
+    -type message_queue_data() :: off_heap | on_heap.
+
+  Returns information about the default process heap settings:
+
+  [;;4m[;;4mfullsweep_after[0m[0m:
+    Returns [;;4m{fullsweep_after, integer() >= 0}[0m, which is the [;;4m[0m
+    [;;4mfullsweep_after[0m garbage collection setting used by default.
+    For more information, see [;;4mgarbage_collection[0m described
+    below.
+
+  [;;4m[;;4mgarbage_collection[0m[0m:
+    Returns a list describing the default garbage collection
+    settings. A process spawned on the local node by a [;;4mspawn[0m or [;;4m[0m
+    [;;4mspawn_link[0m uses these garbage collection settings. The
+    default settings can be changed by using [;;4merlang:system_flag/2[0m. [;;4m[0m
+    [;;4mspawn_opt/2,3,4[0m can spawn a process that does not use the
+    default settings.
+
+  [;;4m[;;4mheap_sizes[0m[0m:
+    Returns a list of integers representing valid heap sizes in
+    words. All Erlang heaps are sized from sizes in this list.
+
+  [;;4m[;;4mheap_type[0m[0m:
+    Returns the heap type used by the current emulator. One heap
+    type exists:
+
+    [;;4m[;;4mprivate[0m[0m:
+      Each process has a heap reserved for its use and no
+      references between heaps of different processes are
+      allowed. Messages passed between processes are copied
+      between heaps.
+
+  [;;4m[;;4mmax_heap_size[0m[0m:
+    Returns [;;4m{max_heap_size, MaxHeapSize}[0m, where [;;4mMaxHeapSize[0m is
+    the current system-wide maximum heap size settings for spawned
+    processes. This setting can be set using the command-line
+    flags [;;4m+hmax[0m, [;;4m+hmaxk[0m and [;;4m+hmaxel[0m in [;;4merl(1)[0m. It can also
+    be changed at runtime using [;;4merlang:system_flag(max_heap_size,[0m
+    [;;4mMaxHeapSize)[0m. For more details about the [;;4mmax_heap_size[0m
+    process flag, see [;;4mprocess_flag(max_heap_size, MaxHeapSize)[0m.
+
+  [;;4m[;;4mmessage_queue_data[0m[0m:
+    Returns the default value of the [;;4mmessage_queue_data[0m process
+    flag, which is either [;;4moff_heap[0m or [;;4mon_heap[0m. This default is
+    set by command-line argument [;;4m+hmqd[0m in [;;4merl(1)[0m. For more
+    information on the [;;4mmessage_queue_data[0m process flag, see
+    documentation of [;;4mprocess_flag(message_queue_data, MQD)[0m.
+
+  [;;4m[;;4mmin_heap_size[0m[0m:
+    Returns [;;4m{min_heap_size, MinHeapSize}[0m, where [;;4mMinHeapSize[0m is
+    the current system-wide minimum heap size for spawned
+    processes.
+
+  [;;4m[;;4mmin_bin_vheap_size[0m[0m:
+    Returns [;;4m{min_bin_vheap_size, MinBinVHeapSize}[0m, where [;;4m[0m
+    [;;4mMinBinVHeapSize[0m is the current system-wide minimum binary
+    virtual heap size for spawned processes.
+
+  [;;4m[;;4mprocs[0m[0m:
+    Returns a binary containing a string of process and port
+    information formatted as in Erlang crash dumps. For more
+    information, see section How to interpret the Erlang crash
+    dumps in the User's Guide.

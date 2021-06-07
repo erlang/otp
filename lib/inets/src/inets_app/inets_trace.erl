@@ -42,7 +42,7 @@
 %% Parameters:
 %% Level -> max | min | integer()
 %% Destination -> File | Port | io | HandlerSpec
-%% Service -> httpc | httpd | ftpc | tftp | all
+%% Service -> httpc | httpd | all
 %% File -> string()
 %% Port -> integer()
 %% Verbosity -> true | false
@@ -99,7 +99,7 @@ do_enable(Level, Type, HandleSpec) ->
 valid_trace_service(all) ->
     true;
 valid_trace_service(Service) ->
-    lists:member(Service, [httpc, httpd, ftpc, tftp]).
+    lists:member(Service, [httpc, httpd]).
 
 
 %%-----------------------------------------------------------------
@@ -188,7 +188,7 @@ error_to_exit(Where, {error, Reason}) ->
 %% Parameters:
 %% Severity -> 0 =< integer() =< 100
 %% Label -> string()
-%% Service -> httpd | httpc | ftp | tftp
+%% Service -> httpd | httpc
 %% Content -> [{tag, term()}]
 %%
 %% Description:

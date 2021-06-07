@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +49,10 @@
 #include <sys/ioctl.h>
 #endif
 
+#ifdef ADDRESS_SANITIZER
+#  include <sanitizer/asan_interface.h>
+#endif
+
 #define ERTS_WANT_BREAK_HANDLING
 #define WANT_NONBLOCKING    /* must define this to pull in defs from sys.h */
 #include "sys.h"
@@ -75,6 +79,7 @@
 #include "erl_check_io.h"
 #include "erl_cpu_topology.h"
 #include "erl_osenv.h"
+#include "erl_dyn_lock_check.h"
 extern int  driver_interrupt(int, int);
 extern void do_break(void);
 
@@ -83,7 +88,6 @@ extern void erl_sys_args(int*, char**);
 /* The following two defs should probably be moved somewhere else */
 
 extern void erts_sys_init_float(void);
-
 
 #ifdef DEBUG
 static int debug_log = 0;
@@ -235,18 +239,8 @@ thr_create_prepare_child(void *vtcdp)
     erts_lcnt_thread_setup();
 #endif
 
-#ifndef NO_FPE_SIGNALS
-    /*
-     * We do not want fp exeptions in other threads than the
-     * scheduler threads. We enable fpe explicitly in the scheduler
-     * threads after this.
-     */
-    erts_thread_disable_fpe();
-#endif
-
     erts_sched_bind_atthrcreate_child(tcdp->sched_bind_data);
 }
-
 
 void
 erts_sys_pre_init(void)
@@ -256,12 +250,14 @@ erts_sys_pre_init(void)
     erts_printf_add_cr_to_stdout = 1;
     erts_printf_add_cr_to_stderr = 1;
 
-
     eid.thread_create_child_func = thr_create_prepare_child;
     /* Before creation in parent */
     eid.thread_create_prepare_func = thr_create_prepare;
     /* After creation in parent */
     eid.thread_create_parent_func = thr_create_cleanup,
+
+    /* Must be done really early. */
+    sys_init_signal_stack();
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_pre_thr_init();
@@ -276,7 +272,9 @@ erts_sys_pre_init(void)
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_init();
 #endif
-
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_init();
+#endif
 
     erts_init_sys_time_sup();
 
@@ -313,6 +311,10 @@ erts_sys_pre_init(void)
     crashdump_companion_cube_fd = open("/dev/null", O_RDONLY);
 
     /* don't lose it, there will be cake */
+}
+
+void erts_sys_scheduler_init(void) {
+    sys_thread_init_signal_stack();
 }
 
 void
@@ -383,6 +385,9 @@ void erts_sys_sigsegv_handler(int signo) {
  */
 int
 erts_sys_is_area_readable(char *start, char *stop) {
+#ifdef ADDRESS_SANITIZER
+    return __asan_region_is_poisoned(start, stop-start) == NULL;
+#else
     int fds[2];
     if (!pipe(fds)) {
         /* We let write try to figure out if the pointers are readable */
@@ -397,7 +402,7 @@ erts_sys_is_area_readable(char *start, char *stop) {
         return 1;
     }
     return 0;
-
+#endif
 }
 
 static ERTS_INLINE int
@@ -672,9 +677,6 @@ void erts_replace_intr(void) {
 void init_break_handler(void)
 {
    sys_signal(SIGINT,  request_break);
-#ifndef ETHR_UNUSABLE_SIGUSRX
-   sys_signal(SIGUSR1, generic_signal_handler);
-#endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
    sys_signal(SIGQUIT, generic_signal_handler);
 }
 
@@ -689,6 +691,13 @@ void
 erts_sys_unix_later_init(void)
 {
     sys_signal(SIGTERM, generic_signal_handler);
+#ifndef ETHR_UNUSABLE_SIGUSRX
+   sys_signal(SIGUSR1, generic_signal_handler);
+#endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
+
+    /* Ignore SIGCHLD to ensure orphaned processes don't turn into zombies on
+     * death when we're pid 1. */
+    sys_signal(SIGCHLD, SIG_IGN);
 }
 
 int sys_max_files(void)
@@ -740,10 +749,17 @@ void os_version(int *pMajor, int *pMinor, int *pBuild) {
 				 * X.Y or X.Y.Z.  */
 
     (void) uname(&uts);
+#ifdef _AIX
+    /* AIX stores the major in version and minor in release */
+    *pMajor = atoi(uts.version);
+    *pMinor = atoi(uts.release);
+    *pBuild = 0; /* XXX: get oslevel for AIX or TR on i */
+#else
     release = uts.release;
     *pMajor = get_number(&release); /* Pointer to major version. */
     *pMinor = get_number(&release); /* Pointer to minor version. */
     *pBuild = get_number(&release); /* Pointer to build number. */
+#endif
 }
 
 void erts_do_break_handling(void)
@@ -908,7 +924,7 @@ void sys_preload_end(Preload* p)
 */
 int sys_get_key(int fd) {
     int c, ret;
-    unsigned char rbuf[64];
+    unsigned char rbuf[64] = {0};
     fd_set fds;
 
     fflush(stdout);		/* Flush query ??? */
@@ -1087,7 +1103,6 @@ static void initialize_darwin_main_thread_pipes(void)
 void
 erts_sys_main_thread(void)
 {
-    erts_thread_disable_fpe();
 #ifdef __DARWIN__
     initialize_darwin_main_thread_pipes();
 #else

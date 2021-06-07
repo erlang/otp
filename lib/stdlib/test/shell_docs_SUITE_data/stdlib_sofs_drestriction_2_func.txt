@@ -1,0 +1,18 @@
+
+  [;1m-spec drestriction(BinRel1, Set) -> BinRel2[0m
+  [;1m                      when[0m
+  [;1m                          BinRel1 :: binary_relation(),[0m
+  [;1m                          BinRel2 :: binary_relation(),[0m
+  [;1m                          Set :: a_set().[0m
+
+  Returns the difference between the binary relation [;;4mBinRel1[0m and
+  the restriction of [;;4mBinRel1[0m to [;;4mSet[0m.
+
+    1> R1 = sofs:relation([{1,a},{2,b},{3,c}]),
+    S = sofs:set([2,4,6]),
+    R2 = sofs:drestriction(R1, S),
+    sofs:to_external(R2).
+    [{1,a},{3,c}]
+
+  [;;4mdrestriction(R, S)[0m is equivalent to [;;4m[0m
+  [;;4mdifference(R, restriction(R, S))[0m.

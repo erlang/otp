@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -661,6 +661,9 @@ opt(transport, {transport_module, M}) ->
 opt(transport, {transport_config, _, Tmo}) ->
     ?IS_UINT32(Tmo) orelse Tmo == infinity;
 
+opt(transport, {transport_config, _}) ->
+    true;
+
 opt(transport, {applications, As}) ->
     is_list(As);
 
@@ -720,15 +723,16 @@ opt(_, {K, _})
   when K == disconnect_cb;
        K == capabilities_cb ->
     true;
-opt(transport, {K, _})
-  when K == transport_config;
-       K == private ->
+opt(transport, {private, _}) ->
     true;
 
-%% Anything else, which is ignored in transport config. This makes
-%% options sensitive to spelling mistakes, but arbitrary options are
-%% passed by some users as a way to identify transports so can't just
-%% do away with it.
+%% Anything else is ignored in transport config. This makes options
+%% sensitive to spelling mistakes and unintentionally passing service
+%% options, but arbitrary options are passed by some users as a way to
+%% identify transports (they can be returned by diameter:service_info/2
+%% for example) so can't just do away with it, although silently
+%% swallowing service options is at least debatable. The documentation
+%% says anything, so accept anything.
 opt(K, _) ->
     K == transport.
 

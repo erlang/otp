@@ -252,7 +252,19 @@ obj:*/ssleay.*
    fun:start_thread
    fun:clone
 }
-
+{
+   Crypto engine internal...
+   Memcheck:Leak
+   fun:malloc
+   fun:CRYPTO_malloc
+   fun:ENGINE_new
+   fun:ENGINE_by_id
+   fun:engine_by_id_nif
+   fun:process_main
+   fun:sched_thread_func
+   fun:thr_wrapper
+   fun:start_thread
+}
 {
    Harmless assembler bug in openssl
    Memcheck:Addr8
@@ -265,7 +277,36 @@ obj:*/ssleay.*
    Memcheck:Addr8
    fun:RC4
 }
-
+{
+Crypto internal... loading gives expected errors when curves are tried. But including <openssl/err.h> and removing them triggers compiler errors on Windows
+Memcheck:Leak
+fun:malloc
+...
+fun:valid_curve
+fun:init_curves
+fun:init_curve_types
+fun:init_algorithms_types
+fun:initialize
+fun:load
+fun:erts_load_nif
+fun:process_main
+fun:sched_thread_func
+}
+{
+Crypto internal.. loading pecularities revisited
+Memcheck:Leak
+fun:malloc
+fun:CRYPTO_malloc
+fun:lh_new
+...
+fun:ecdh_check
+fun:ECDH_compute_key
+fun:ecdh_compute_key_nif
+fun:process_main
+fun:sched_thread_func
+fun:thr_wrapper
+fun:start_thread
+}
 {
 Prebuilt constant terms in os_info_init (PossiblyLost)
 Memcheck:Leak
@@ -350,3 +391,10 @@ fun:_dlerror_run
 ...
 }
 
+{
+getnameinfo() seen to leak memory at beam exit (?)
+Memcheck:Leak
+...
+fun:getnameinfo
+...
+}

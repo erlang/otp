@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -269,7 +269,7 @@ display_megaco_info() ->
     io:format("Megaco version:      ~s~n", [Ver]).
 
 display_asn1_info() ->
-    AI = megaco_ber__media_gateway_control_v1:info(),
+    AI = megaco_ber_media_gateway_control_v1:info(),
     Vsn = 
 	case lists:keysearch(vsn, 1, AI) of
 	    {value, {vsn, V}} when is_atom(V) ->

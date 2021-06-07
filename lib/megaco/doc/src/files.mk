@@ -55,7 +55,7 @@ XML_CHAPTER_FILES = \
 
 BOOK_FILES = book.xml
 
-IMG_FILES = \
+IMAGE_FILES = \
 	single_node_config.gif \
 	distr_node_config.gif \
 	megaco_sys_arch.gif \

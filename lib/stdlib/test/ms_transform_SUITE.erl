@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,6 +44,8 @@
 -export([no_warnings/1]).
 -export([eep37/1]).
 -export([otp_14454/1]).
+-export([otp_16824/1]).
+-export([unused_record/1]).
 
 init_per_testcase(_Func, Config) ->
     Config.
@@ -60,7 +62,7 @@ all() ->
      record_index, multipass, bitsyntax, record_defaults,
      andalso_orelse, float_1_function, action_function,
      warnings, no_warnings, top_match, old_guards, autoimported,
-     semicolon, eep37, otp_14454].
+     semicolon, eep37, otp_14454, otp_16824, unused_record].
 
 groups() -> 
     [].
@@ -89,14 +91,16 @@ warnings(Config) when is_list(Config) ->
 	     "            when is_integer(A) and (A+5 > B) -> "
 	     "              A andalso B "
 	     "            end)">>,
-    [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'A'}}]}] =
+    [{_,[{{1,22},ms_transform,{?WARN_NUMBER_SHADOW,'A'}}]}] =
 	compile_ww(Prog),
+    [{_,[{1,ms_transform,{50,'A'}}]}] =
+        compile_ww(<<>>,Prog,[{error_location,line}]),
     Prog2 = <<"C = 5,
                ets:fun2ms(fun ({A,B} =
 				   C) when is_integer(A) and (A+5 > B) ->
                                   {A andalso B,C}
                           end)">>,
-    [{_,[{3,ms_transform,{?WARN_NUMBER_SHADOW,'C'}}]}] =
+    [{_,[{{3,8},ms_transform,{?WARN_NUMBER_SHADOW,'C'}}]}] =
 	      compile_ww(Prog2),
 	      Rec3 = <<"-record(a,{a,b,c,d=foppa}).">>,
 	      Prog3 = <<"A = 3,
@@ -106,8 +110,8 @@ warnings(Config) when is_list(Config) ->
 					 when is_integer(A) and (A+5 > B) ->
 					   {A andalso B,C}
 				   end)">>,
-    [{_,[{3,ms_transform,{?WARN_NUMBER_SHADOW,'C'}},
-         {4,ms_transform,{?WARN_NUMBER_SHADOW,'A'}}]}] =
+    [{_,[{{3,20},ms_transform,{?WARN_NUMBER_SHADOW,'C'}},
+         {{4,15},ms_transform,{?WARN_NUMBER_SHADOW,'A'}}]}] =
 			compile_ww(Rec3,Prog3),
 			Rec4 = <<"-record(a,{a,b,c,d=foppa}).">>,
 			Prog4 = <<"A=3,C=5, "
@@ -281,6 +285,8 @@ basic_ets(Config) when is_list(Config) ->
 	compile_and_run(<<"ets:fun2ms(fun({A,B}) -> {B,A} end)">>),
     [{{'$1','$2'},[],[['$2','$1']]}] =
 	compile_and_run(<<"ets:fun2ms(fun({A,B}) -> [B,A] end)">>),
+    [{{"foo" ++ '_','$1'},[],['$1']}] =
+        compile_and_run(<<"ets:fun2ms(fun({\"foo\" ++ _, X}) -> X end)">>),
     ok.
 
 %% Tests basic ets:fun2ms.
@@ -313,6 +319,8 @@ from_shell(Config) when is_list(Config) ->
     [{[a,b],[],[{message,banan},{return_trace}]}] =
 	do_eval(
 	  "dbg:fun2ms(fun([a,b]) -> message(banan), return_trace() end)"),
+    [{{"foo" ++ '_','$1'},[],['$1']}] =
+        do_eval("ets:fun2ms(fun({\"foo\" ++ _, X}) -> X end)"),
     ok.
 
 %% Tests expansion of records in fun2ms.
@@ -783,6 +791,28 @@ otp_14454(Config) when is_list(Config) ->
     ok.
 
 
+otp_16824(Config) when is_list(Config) ->
+    setup(Config),
+    Prog = <<
+      "-module(tmp).\n",
+      "-include_lib(\"stdlib/include/ms_transform.hrl\").\n",
+      "-export([tmp/1]).\n\n",
+      "tmp(_) -> ets:fun2ms(fun(<<>>) -> 1 end).\n">>,
+    FN = temp_name(),
+    ok = file:write_file(FN, Prog),
+    {ok, Forms} = parse_file(FN),
+    {error,[{_, [{{5,25},ms_transform,_}]}], []} =
+        compile:forms(Forms, [return]),
+    ok.
+
+%% OTP-17186.
+unused_record(Config) when is_list(Config) ->
+    setup(Config),
+    Record = <<"-record(r, {f}).\n\n">>,
+    Expr = <<"ets:fun2ms(fun(#r{}) -> e end)">>,
+    [] = compile_ww(Record, Expr),
+    ok.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Helpers
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -819,14 +849,18 @@ compile_and_run(Records,Expr) ->
     Expr/binary,".\n">>,
     FN=temp_name(),
     file:write_file(FN,Prog),
-    {ok,Forms} = epp:parse_file(FN,"",""),
+    {ok,Forms} = parse_file(FN),
     {ok,tmp,Bin} = compile:forms(Forms),
     code:load_binary(tmp,FN,Bin),
     tmp:tmp().
 
 compile_ww(Expr) ->
     compile_ww(<<>>,Expr).
+
 compile_ww(Records,Expr) ->
+    compile_ww(Records,Expr,[]).
+
+compile_ww(Records,Expr, Opts) ->
     Prog = <<
 	"-module(tmp).\n",
     "-include_lib(\"stdlib/include/ms_transform.hrl\").\n",
@@ -837,10 +871,9 @@ compile_ww(Records,Expr) ->
     Expr/binary,".\n">>,
     FN=temp_name(),
     file:write_file(FN,Prog),
-    {ok,Forms} = epp:parse_file(FN,"",""),
+    {ok,Forms} = parse_file(FN),
     {ok,tmp,_Bin,Wlist} = compile:forms(Forms,[return_warnings,
-					       nowarn_unused_vars,
-					       nowarn_unused_record]),
+					       nowarn_unused_vars | Opts]),
     Wlist.
 
 compile_no_ww(Expr) ->
@@ -851,11 +884,13 @@ compile_no_ww(Expr) ->
     Expr/binary,".\n">>,
     FN=temp_name(),
     file:write_file(FN,Prog),
-    {ok,Forms} = epp:parse_file(FN,"",""),
+    {ok,Forms} = parse_file(FN),
     {ok,tmp,_Bin,Wlist} = compile:forms(Forms,[return_warnings,
-					       nowarn_unused_vars,
-					       nowarn_unused_record]),
+					       nowarn_unused_vars]),
     Wlist.
+
+parse_file(FN) ->
+    epp:parse_file(FN, [{location, {1,1}}]).
 
 do_eval(String) ->
     {done,{ok,T,_},[]} = erl_scan:tokens(

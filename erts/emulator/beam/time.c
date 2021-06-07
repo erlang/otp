@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -195,6 +195,9 @@
 #if 0
 #  define ERTS_TW_HARD_DEBUG
 #endif
+#if 0
+#  define ERTS_TW_DEBUG
+#endif
 
 #if defined(ERTS_TW_HARD_DEBUG) && !defined(ERTS_TW_DEBUG)
 #  define ERTS_TW_DEBUG
@@ -316,7 +319,7 @@ struct ErtsTimerWheel_ {
 #define ERTS_TW_SLOT_AT_ONCE (-1)
 
 #define ERTS_TW_BUMP_LATER_WHEEL(TIW) \
-    ((tiw)->pos + ERTS_TW_LATER_WHEEL_SLOT_SIZE >= (TIW)->later.pos)
+    ((TIW)->pos + ERTS_TW_LATER_WHEEL_SLOT_SIZE >= (TIW)->later.pos)
 
 static int bump_later_wheel(ErtsTimerWheel *tiw, int *yield_count_p);
 
@@ -480,6 +483,8 @@ find_next_timeout(ErtsSchedulerData *esdp, ErtsTimerWheel *tiw)
 
     ERTS_HARD_DBG_CHK_WHEELS(tiw, 0);
 
+    ERTS_TW_ASSERT(tiw->at_once.nto == 0);
+    ERTS_TW_ASSERT(tiw->nto == tiw->soon.nto + tiw->later.nto);
     ERTS_TW_ASSERT(tiw->yield_slot == ERTS_TW_SLOT_INACTIVE);
 
     if (tiw->nto == 0) { /* no timeouts in wheel */
@@ -701,7 +706,8 @@ remove_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
         if (slot < ERTS_TW_SOON_WHEEL_END_SLOT) {
             if (empty_slot
                 && tiw->true_next_timeout_time
-                && p->timeout_pos == tiw->next_timeout_pos) {
+                && p->timeout_pos == tiw->next_timeout_pos
+                && tiw->yield_slot == ERTS_TW_SLOT_INACTIVE) {
                 tiw->true_next_timeout_time = 0;
             }
             if (--tiw->soon.nto == 0)
@@ -714,7 +720,8 @@ remove_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
                 ErtsMonotonicTime tpos = tiw->later.min_tpos;
                 tpos &= ERTS_TW_LATER_WHEEL_POS_MASK;
                 tpos -= ERTS_TW_LATER_WHEEL_SLOT_SIZE;
-                if (tpos == tiw->next_timeout_pos)
+                if (tpos == tiw->next_timeout_pos
+                    && tiw->yield_slot == ERTS_TW_SLOT_INACTIVE)
                     tiw->true_next_timeout_time = 0;
             }
             if (--tiw->later.nto == 0) {
@@ -864,6 +871,8 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 	    }
 
 	    if (tiw->pos >= bump_to) {
+                if (tiw->at_once.nto)
+                    continue;
                 ERTS_MSACC_POP_STATE_M_X();
 		break;
             }
@@ -908,7 +917,6 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 
             {
                 ErtsMonotonicTime tmp_slots = bump_to - tiw->pos;
-                tmp_slots = (bump_to - tiw->pos);
                 if (tmp_slots < ERTS_TW_SOON_WHEEL_SIZE)
                     slots = (int) tmp_slots;
                 else

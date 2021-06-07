@@ -119,7 +119,8 @@ user_skip(Config) when is_list(Config) ->
 	      Join(DataDir, "user_skip_3_SUITE"),
 	      Join(DataDir, "user_skip_4_SUITE"),
 	      Join(DataDir, "user_skip_5_SUITE"),
-	      Join(DataDir, "user_skip_6_SUITE")],
+	      Join(DataDir, "user_skip_6_SUITE"),
+	      Join(DataDir, "user_skip_13_SUITE")],
 
     {Opts,ERPid} = setup({suite,Suites}, Config),
     ok = ct_test_support:run(Opts, Config),
@@ -566,7 +567,7 @@ test_events(auto_skip) ->
 test_events(user_skip) ->
     [{?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,start_info,{6,6,35}},
+     {?eh,start_info,{7,7,39}},
 
      {?eh,tc_start,{user_skip_1_SUITE,init_per_suite}},
      {?eh,tc_done,
@@ -723,15 +724,54 @@ test_events(user_skip) ->
 	 {?eh,tc_user_skip,{user_skip_6_SUITE,{tc4,psub2},"Sub group skipped"}},
 	 {?eh,tc_user_skip,{user_skip_6_SUITE,{end_per_group,psub2},
 			    "Sub group skipped"}}]},
-       
        {?eh,tc_start,{user_skip_6_SUITE,tc2}},
        {?eh,tc_done,{user_skip_6_SUITE,tc2,ok}},
        {?eh,test_stats,{8,0,{27,0}}},
        {?eh,tc_start,{user_skip_6_SUITE,{end_per_group,ptop2,[parallel]}}},
        {?eh,tc_done,{user_skip_6_SUITE,{end_per_group,ptop2,[parallel]},ok}}]},
-       
-       {?eh,test_done,{'DEF','STOP_TIME'}},
-       {?eh,stop_logging,[]}
+
+     [{?eh,tc_start,{user_skip_13_SUITE,{init_per_group,top1,[]}}},
+      {?eh,tc_done,{user_skip_13_SUITE,{init_per_group,top1,[]},ok}},
+      [{?eh,tc_start,{user_skip_13_SUITE,{init_per_group,sub11,[]}}},
+       {?eh,tc_done,{user_skip_13_SUITE,{init_per_group,sub11,[]},ok}},
+       {?eh,tc_start,{user_skip_13_SUITE,tc1}},
+       {?eh,tc_done,{user_skip_13_SUITE,tc1,ok}},
+       {?eh,test_stats,{9,0,{27,0}}},
+       {?eh,tc_start,{user_skip_13_SUITE,{end_per_group,sub11,[]}}},
+       {?eh,tc_done,{user_skip_13_SUITE,{end_per_group,sub11,[]},ok}}],
+      [{?eh,tc_start,{user_skip_13_SUITE,{init_per_group,sub12,[]}}},
+       {?eh,tc_done,{user_skip_13_SUITE, {init_per_group,sub12,[]},
+                     {skipped,"Sub group skipped"}}},
+       {?eh,tc_user_skip,{user_skip_13_SUITE,{tc1,sub12},"Sub group skipped"}},
+       {?eh,test_stats,{9,0,{28,0}}},
+       {?eh,tc_user_skip,{user_skip_13_SUITE,{end_per_group,sub12},
+                          "Sub group skipped"}},
+       {?eh,tc_start,{user_skip_13_SUITE,{end_per_group,top1,[]}}},
+       {?eh,tc_done,{user_skip_13_SUITE,{end_per_group,top1,[]},ok}}
+      ]],
+     [{?eh,tc_start,{user_skip_13_SUITE,{init_per_group,top2,[]}}},
+      {?eh,tc_done,{user_skip_13_SUITE,{init_per_group,top2,[]},ok}},
+       [{?eh,tc_start,
+         {user_skip_13_SUITE,{init_per_group,sub21,[]}}},
+        {?eh,tc_done,
+         {user_skip_13_SUITE,{init_per_group,sub21,[]},ok}},
+        {?eh,tc_start,{user_skip_13_SUITE,tc2}},
+        {?eh,tc_done,{user_skip_13_SUITE,tc2,ok}},
+        {?eh,test_stats,{10,0,{28,0}}},
+        {?eh,tc_start,{user_skip_13_SUITE,{end_per_group,sub21,[]}}},
+        {?eh,tc_done,{user_skip_13_SUITE,{end_per_group,sub21,[]},ok}}],
+       [{?eh,tc_start,{user_skip_13_SUITE,{init_per_group,sub22,[]}}},
+        {?eh,tc_done,{user_skip_13_SUITE,{init_per_group,sub22,[]},ok}},
+        {?eh,tc_start,{user_skip_13_SUITE,tc2}},
+        {?eh,tc_done,{user_skip_13_SUITE,tc2,ok}},
+        {?eh,test_stats,{11,0,{28,0}}},
+        {?eh,tc_start,{user_skip_13_SUITE,{end_per_group,sub22,[]}}},
+        {?eh,tc_done,{user_skip_13_SUITE,{end_per_group,sub22,[]},ok}}],
+      {?eh,tc_start,{user_skip_13_SUITE,{end_per_group,top2,[]}}},
+      {?eh,tc_done,{user_skip_13_SUITE,{end_per_group,top2,[]},ok}}],
+
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
     ];
 
 test_events(testspec_skip) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,9 @@
 	 bs_shadowed_size_var/1,
 	 cover_v3_kernel_1/1,cover_v3_kernel_2/1,cover_v3_kernel_3/1,
 	 cover_v3_kernel_4/1,cover_v3_kernel_5/1,
-         non_variable_apply/1,name_capture/1,fun_letrec_effect/1]).
+         non_variable_apply/1,name_capture/1,fun_letrec_effect/1,
+         get_map_element/1,receive_tests/1,
+         core_lint/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -57,7 +59,9 @@ groups() ->
        bs_shadowed_size_var,
        cover_v3_kernel_1,cover_v3_kernel_2,cover_v3_kernel_3,
        cover_v3_kernel_4,cover_v3_kernel_5,
-       non_variable_apply,name_capture,fun_letrec_effect
+       non_variable_apply,name_capture,fun_letrec_effect,
+       get_map_element,receive_tests,
+       core_lint
       ]}].
 
 
@@ -95,6 +99,8 @@ end_per_group(_GroupName, Config) ->
 ?comp(non_variable_apply).
 ?comp(name_capture).
 ?comp(fun_letrec_effect).
+?comp(get_map_element).
+?comp(receive_tests).
 
 try_it(Mod, Conf) ->
     Src = filename:join(proplists:get_value(data_dir, Conf),
@@ -109,3 +115,58 @@ compile_and_load(Src, Opts) ->
     _ = code:delete(Mod),
     _ = code:purge(Mod),
     ok.
+
+core_lint(_Config) ->
+    OK = cerl:c_atom(ok),
+    core_lint_function(illegal),
+    core_lint_function(cerl:c_let([OK], OK, OK)),
+    core_lint_function(cerl:c_let([cerl:c_var(var)], cerl:c_var(999), OK)),
+    core_lint_function(cerl:c_let([cerl:c_var(var)], cerl:c_var(unknown), OK)),
+    core_lint_function(cerl:c_try(OK, [], OK, [], handler)),
+    core_lint_function(cerl:c_apply(cerl:c_var({OK,0}), [OK])),
+
+    core_lint_function([], [OK], OK),
+    core_lint_function([cerl:c_var({cerl:c_char($*),OK})], [], OK),
+
+    core_lint_pattern([cerl:c_var(99),cerl:c_var(99)]),
+    core_lint_pattern([cerl:c_let([cerl:c_var(var)], OK, OK)]),
+    core_lint_bs_pattern([OK]),
+    Flags = cerl:make_list([big,unsigned]),
+    core_lint_bs_pattern([cerl:c_bitstr(cerl:c_var(tail), cerl:c_atom(binary), Flags),
+                          cerl:c_bitstr(cerl:c_var(value), cerl:c_atom(binary), Flags)]),
+
+    BadGuard1 = cerl:c_call(OK, OK, []),
+    BadGuard2 = cerl:c_call(cerl:c_atom(erlang), OK, []),
+    BadGuard3 = cerl:c_call(cerl:c_atom(erlang), cerl:c_atom(is_record), [OK,OK,OK]),
+    PatMismatch = cerl:c_case(cerl:c_nil(),
+                              [cerl:c_clause([], OK),
+                               cerl:c_clause([OK], OK),
+                               cerl:c_clause([OK], BadGuard1, OK),
+                               cerl:c_clause([OK], BadGuard2, OK),
+                               cerl:c_clause([OK], BadGuard3, OK)]),
+    core_lint_function(PatMismatch),
+
+    ok.
+
+core_lint_bs_pattern(Ps) ->
+    core_lint_pattern([cerl:c_binary(Ps)]).
+
+core_lint_pattern(Ps) ->
+    Cs = [cerl:c_clause(Ps, cerl:c_float(42))],
+    core_lint_function(cerl:c_case(cerl:c_nil(), Cs)).
+
+core_lint_function(Body) ->
+    core_lint_function([], [], Body).
+
+core_lint_function(Exports, Attributes, Body) ->
+    ModName = cerl:c_atom(core_lint_test),
+    MainFun = cerl:c_fun([], Body),
+    MainVar = cerl:c_var({main,0}),
+    Mod = cerl:c_module(ModName, Exports, Attributes, [{MainVar,MainFun}]),
+    {error,[{"core_lint_test",Errors}],[]} =
+        compile:forms(Mod, [from_core,clint0,return]),
+    io:format("~p\n", [Errors]),
+    [] = lists:filter(fun({none,core_lint,_}) -> false;
+                         (_) -> true
+                      end, Errors),
+    error = compile:forms(Mod, [from_core,clint0,report]).

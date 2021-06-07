@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2018. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
 #include "global.h"
 #include "erl_node_tables.h"
 #include "erl_monitor_link.h"
+#include "erl_bif_unique.h"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Red-black tree implementation used for monitors and links.                *
@@ -46,6 +47,7 @@ ml_get_key(ErtsMonLnkNode *mln)
 
 #ifdef ERTS_ML_DEBUG
     switch (mln->type) {
+    case ERTS_MON_TYPE_ALIAS:
     case ERTS_MON_TYPE_PROC:
     case ERTS_MON_TYPE_PORT:
     case ERTS_MON_TYPE_DIST_PROC:
@@ -104,6 +106,7 @@ ml_cmp_keys(Eterm key1, Eterm key2)
                    || is_small(key1)
                    || is_external_pid(key1)
                    || is_internal_ordinary_ref(key1)
+                   || is_internal_pid_ref(key1)
                    || is_external_ref(key1));
 
     ERTS_ML_ASSERT(is_internal_pid(key2)
@@ -112,6 +115,7 @@ ml_cmp_keys(Eterm key1, Eterm key2)
                    || is_small(key2)
                    || is_external_pid(key2)
                    || is_internal_ordinary_ref(key2)
+                   || is_internal_pid_ref(key2)
                    || is_external_ref(key2));
 
     if (is_immed(key1)) {
@@ -154,19 +158,21 @@ ml_cmp_keys(Eterm key1, Eterm key2)
         w1 = boxed_val(key1);
         hdr1 = *w1;
 
-        if ((hdr1 & _TAG_HEADER_MASK) == _TAG_HEADER_REF) {
+        if (is_ref_thing_header(hdr1)) {
             Eterm *w2;
+
+            ERTS_ML_ASSERT(is_ordinary_ref_thing(w1) || is_pid_ref_thing(w1));
 
             if (!is_internal_ref(key2))
                 return is_immed(key2) ? 1 : -1;
 
             w2 = internal_ref_val(key2);
 
-            ERTS_ML_ASSERT(w1[0] == ERTS_REF_THING_HEADER);
-            ERTS_ML_ASSERT(w2[0] == ERTS_REF_THING_HEADER);
+            ERTS_ML_ASSERT(is_ordinary_ref_thing(w2) || is_pid_ref_thing(w2));
 
-            return sys_memcmp((void *) &w1[1], (void *) &w2[1],
-                              (ERTS_REF_THING_SIZE - 1)*sizeof(Eterm));
+            return sys_memcmp((void *) internal_non_magic_ref_thing_numbers(w1),
+                              (void *) internal_non_magic_ref_thing_numbers(w2),
+                              ERTS_REF_NUMBERS*sizeof(Uint32));
         }
 
         ERTS_ML_ASSERT(is_external(key1));
@@ -191,7 +197,8 @@ ml_cmp_keys(Eterm key1, Eterm key2)
                 if (n1->sysname != n2->sysname)
                     return n1->sysname < n2->sysname ? -1 : 1;
                 ASSERT(n1->creation != n2->creation);
-                return n1->creation < n2->creation ? -1 : 1;
+                if (n1->creation != 0 && n2->creation != 0)
+                    return n1->creation < n2->creation ? -1 : 1;
             }
 
             ndw1 = external_thing_data_words(et1);
@@ -335,7 +342,7 @@ ml_rbt_delete(ErtsMonLnkNode **root, ErtsMonLnkNode *ml)
 
 static void
 ml_rbt_foreach(ErtsMonLnkNode *root,
-               void (*func)(ErtsMonLnkNode *, void *),
+               ErtsMonLnkNodeFunc func,
                void *arg)
 {
     mon_lnk_rbt_foreach(root, func, arg);
@@ -348,7 +355,7 @@ typedef struct {
 
 static int
 ml_rbt_foreach_yielding(ErtsMonLnkNode *root,
-                        void (*func)(ErtsMonLnkNode *, void *),
+                        ErtsMonLnkNodeFunc func,
                         void *arg,
                         void **vyspp,
                         Sint limit)
@@ -362,7 +369,7 @@ ml_rbt_foreach_yielding(ErtsMonLnkNode *root,
 	ysp = &ys;
     res = mon_lnk_rbt_foreach_yielding(ysp->root, func, arg,
                                        &ysp->rbt_ystate, limit);
-    if (res == 0) {
+    if (res > 0) {
 	if (ysp != &ys)
 	    erts_free(ERTS_ALC_T_ML_YIELD_STATE, ysp);
 	*vyspp = NULL;
@@ -383,22 +390,22 @@ ml_rbt_foreach_yielding(ErtsMonLnkNode *root,
 }
 
 typedef struct {
-    void (*func)(ErtsMonLnkNode *, void *);
+    ErtsMonLnkNodeFunc func;
     void *arg;
 } ErtsMonLnkForeachDeleteContext;
 
-static void
-rbt_wrap_foreach_delete(ErtsMonLnkNode *ml, void *vctxt)
+static int
+rbt_wrap_foreach_delete(ErtsMonLnkNode *ml, void *vctxt, Sint reds)
 {
     ErtsMonLnkForeachDeleteContext *ctxt = vctxt;
     ERTS_ML_ASSERT(ml->flags & ERTS_ML_FLG_IN_TABLE);
     ml->flags &= ~ERTS_ML_FLG_IN_TABLE;
-    ctxt->func(ml, ctxt->arg);
+    return ctxt->func(ml, ctxt->arg, reds);
 }
 
 static void
 ml_rbt_foreach_delete(ErtsMonLnkNode **root,
-                      void (*func)(ErtsMonLnkNode *, void *),
+                      ErtsMonLnkNodeFunc func,
                       void *arg)
 {
     ErtsMonLnkForeachDeleteContext ctxt;
@@ -411,7 +418,7 @@ ml_rbt_foreach_delete(ErtsMonLnkNode **root,
 
 static int
 ml_rbt_foreach_delete_yielding(ErtsMonLnkNode **root,
-                               void (*func)(ErtsMonLnkNode *, void *),
+                               ErtsMonLnkNodeFunc func,
                                void *arg,
                                void **vyspp,
                                Sint limit)
@@ -433,7 +440,7 @@ ml_rbt_foreach_delete_yielding(ErtsMonLnkNode **root,
                                                (void *) &ctxt,
                                                &ysp->rbt_ystate,
                                                limit);
-    if (res == 0) {
+    if (res > 0) {
 	if (ysp != &ys)
 	    erts_free(ERTS_ALC_T_ML_YIELD_STATE, ysp);
 	*vyspp = NULL;
@@ -459,12 +466,11 @@ ml_rbt_foreach_delete_yielding(ErtsMonLnkNode **root,
 
 static int
 ml_dl_list_foreach_yielding(ErtsMonLnkNode *list,
-                            void (*func)(ErtsMonLnkNode *, void *),
+                            ErtsMonLnkNodeFunc func,
                             void *arg,
                             void **vyspp,
-                            Sint limit)
+                            Sint reds)
 {
-    Sint cnt = 0;
     ErtsMonLnkNode *ml = (ErtsMonLnkNode *) *vyspp;
 
     ERTS_ML_ASSERT(!ml || list);
@@ -475,28 +481,26 @@ ml_dl_list_foreach_yielding(ErtsMonLnkNode *list,
     if (ml) {
         do {
             ERTS_ML_ASSERT(ml->flags & ERTS_ML_FLG_IN_TABLE);
-            func(ml, arg);
+            reds -= func(ml, arg, reds);
             ml = ml->node.list.next;
-            cnt++;
-        } while (ml != list && cnt < limit);
+        } while (ml != list && reds > 0);
         if (ml != list) {
             *vyspp = (void *) ml;
-            return 1; /* yield */
+            return 0; /* yield */
         }
     }
 
     *vyspp = NULL;
-    return 0; /* done */
+    return reds <= 0 ? 1 : reds; /* done */
 }
 
 static int
 ml_dl_list_foreach_delete_yielding(ErtsMonLnkNode **list,
-                                   void (*func)(ErtsMonLnkNode *, void *),
+                                   ErtsMonLnkNodeFunc func,
                                    void *arg,
                                    void **vyspp,
-                                   Sint limit)
+                                   Sint reds)
 {
-    Sint cnt = 0;
     ErtsMonLnkNode *first = *list;
     ErtsMonLnkNode *ml = (ErtsMonLnkNode *) *vyspp;
 
@@ -510,19 +514,18 @@ ml_dl_list_foreach_delete_yielding(ErtsMonLnkNode **list,
             ErtsMonLnkNode *next = ml->node.list.next;
             ERTS_ML_ASSERT(ml->flags & ERTS_ML_FLG_IN_TABLE);
             ml->flags &= ~ERTS_ML_FLG_IN_TABLE;
-            func(ml, arg);
+            reds -= func(ml, arg, reds);
             ml = next;
-            cnt++;
-        } while (ml != first && cnt < limit);
+        } while (ml != first && reds > 0);
         if (ml != first) {
             *vyspp = (void *) ml;
-            return 1; /* yield */
+            return 0; /* yield */
         }
     }
 
     *vyspp = NULL;
     *list = NULL;
-    return 0; /* done */
+    return reds <= 0 ? 1 : reds; /* done */
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
@@ -543,11 +546,27 @@ erts_mon_link_dist_create(Eterm nodename)
     mld->links = NULL;
     mld->monitors = NULL;
     mld->orig_name_monitors = NULL;
+    mld->dist_pend_spawn_exit = NULL;
     return mld;
 }
 
+static void
+mon_link_dist_destroy(void* vmld)
+{
+    ErtsMonLnkDist *mld = (ErtsMonLnkDist*)vmld;
+    ERTS_ML_ASSERT(erts_atomic_read_nob(&mld->refc) == 0);
+    ERTS_ML_ASSERT(!mld->alive);
+    ERTS_ML_ASSERT(!mld->links);
+    ERTS_ML_ASSERT(!mld->monitors);
+    ERTS_ML_ASSERT(!mld->orig_name_monitors);
+    ERTS_ML_ASSERT(!mld->dist_pend_spawn_exit);
+
+    erts_mtx_destroy(&mld->mtx);
+    erts_free(ERTS_ALC_T_ML_DIST, mld);
+}
+
 void
-erts_mon_link_dist_destroy__(ErtsMonLnkDist *mld)
+erts_schedule_mon_link_dist_destruction__(ErtsMonLnkDist *mld)
 {
     ERTS_ML_ASSERT(erts_atomic_read_nob(&mld->refc) == 0);
     ERTS_ML_ASSERT(!mld->alive);
@@ -555,8 +574,10 @@ erts_mon_link_dist_destroy__(ErtsMonLnkDist *mld)
     ERTS_ML_ASSERT(!mld->monitors);
     ERTS_ML_ASSERT(!mld->orig_name_monitors);
 
-    erts_mtx_destroy(&mld->mtx);
-    erts_free(ERTS_ALC_T_ML_DIST, mld);
+    erts_schedule_thr_prgr_later_cleanup_op(mon_link_dist_destroy,
+                                            mld,
+                                            &mld->cleanup_lop,
+                                            sizeof(ErtsMonLnkDist));
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
@@ -579,7 +600,7 @@ monitor_init(void)
     erts_monitor_origin_key_offset = offsetof(ErtsMonitorData, ref);
     ASSERT(erts_monitor_origin_key_offset >= erts_monitor_origin_offset);
     erts_monitor_origin_key_offset -= erts_monitor_origin_offset;
-    erts_monitor_target_offset = offsetof(ErtsMonitorData, target);
+    erts_monitor_target_offset = offsetof(ErtsMonitorData, u.target);
     erts_monitor_target_key_offset = offsetof(ErtsMonitorData, ref);
     ASSERT(erts_monitor_target_key_offset >= erts_monitor_target_offset);
     erts_monitor_target_key_offset -= erts_monitor_target_offset;
@@ -591,6 +612,7 @@ ErtsMonitor *
 erts_monitor_tree_lookup(ErtsMonitor *root, Eterm key)
 {
     ERTS_ML_ASSERT(is_internal_ordinary_ref(key)
+                   || is_internal_pid_ref(key)
                    || is_external_ref(key)
                    || is_atom(key)
                    || is_small(key)
@@ -618,7 +640,8 @@ create_monitor(Eterm target, void *vcctxt)
                                                NIL,
                                                cctxt->origin,
                                                target,
-                                               NIL);
+                                               NIL,
+                                               THE_NON_VALUE);
     ERTS_ML_ASSERT(ml_cmp_keys(ml_get_key(&mdp->origin), target) == 0);
     return (ErtsMonLnkNode *) &mdp->origin;
 }
@@ -666,135 +689,204 @@ erts_monitor_tree_delete(ErtsMonitor **root, ErtsMonitor *mon)
 
 void
 erts_monitor_tree_foreach(ErtsMonitor *root,
-                          void (*func)(ErtsMonitor *, void *),
+                          ErtsMonitorFunc func,
                           void *arg)
 {
     ml_rbt_foreach((ErtsMonLnkNode *) root,
-                   (void (*)(ErtsMonLnkNode*, void*)) func,
+                   (ErtsMonLnkNodeFunc) func,
                    arg);
+}
+
+void
+erts_debug_monitor_tree_destroying_foreach(ErtsMonitor *root,
+                                           ErtsMonitorFunc func,
+                                           void *arg,
+                                           void *vysp)
+{
+    void *tmp_vysp = erts_alloc(ERTS_ALC_T_ML_YIELD_STATE,
+                                sizeof(ErtsMonLnkYieldState));
+    Sint reds;
+    sys_memcpy(tmp_vysp, tmp_vysp, sizeof(ErtsMonLnkYieldState));
+    do {
+        reds = ml_rbt_foreach_yielding((ErtsMonLnkNode *) root,
+                                       (ErtsMonLnkNodeFunc) func,
+                                       arg, &tmp_vysp, (Sint) INT_MAX);
+    } while (reds <= 0);
+    ERTS_ML_ASSERT(!tmp_vysp);
 }
 
 int
 erts_monitor_tree_foreach_yielding(ErtsMonitor *root,
-                                   void (*func)(ErtsMonitor *, void *),
+                                   ErtsMonitorFunc func,
                                    void *arg,
                                    void **vyspp,
                                    Sint limit)
 {
     return ml_rbt_foreach_yielding((ErtsMonLnkNode *) root,
-                                   (void (*)(ErtsMonLnkNode*, void*)) func,
+                                   (int (*)(ErtsMonLnkNode*, void*, Sint)) func,
                                    arg, vyspp, limit);
 }
 
 void
 erts_monitor_tree_foreach_delete(ErtsMonitor **root,
-                                 void (*func)(ErtsMonitor *, void *),
+                                 ErtsMonitorFunc func,
                                  void *arg)
 {
     ml_rbt_foreach_delete((ErtsMonLnkNode **) root,
-                          (void (*)(ErtsMonLnkNode*, void*)) func,
+                          (int (*)(ErtsMonLnkNode*, void*, Sint)) func,
                           arg);
 }
 
 int
 erts_monitor_tree_foreach_delete_yielding(ErtsMonitor **root,
-                                          void (*func)(ErtsMonitor *, void *),
+                                          ErtsMonitorFunc func,
                                           void *arg,
                                           void **vyspp,
                                           Sint limit)
 {
     return ml_rbt_foreach_delete_yielding((ErtsMonLnkNode **) root,
-                                          (void (*)(ErtsMonLnkNode*, void*)) func,
+                                          (int (*)(ErtsMonLnkNode*, void*, Sint)) func,
                                           arg, vyspp, limit);
 }
 
 void
 erts_monitor_list_foreach(ErtsMonitor *list,
-                          void (*func)(ErtsMonitor *, void *),
+                          ErtsMonitorFunc func,
                           void *arg)
 {
     void *ystate = NULL;
-    while (ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
-                                       (void (*)(ErtsMonLnkNode *, void *)) func,
-                                       arg, &ystate, (Sint) INT_MAX));
+    while (!ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
+                                        (int (*)(ErtsMonLnkNode *, void *, Sint)) func,
+                                        arg, &ystate, (Sint) INT_MAX));
+}
+
+void
+erts_debug_monitor_list_destroying_foreach(ErtsMonitor *list,
+                                           ErtsMonitorFunc func,
+                                           void *arg,
+                                           void *vysp)
+{
+    void *tmp_vysp = vysp;
+    while (!ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
+                                        (int (*)(ErtsMonLnkNode *, void *, Sint)) func,
+                                        arg, &tmp_vysp, (Sint) INT_MAX));
+    ERTS_ML_ASSERT(!tmp_vysp);
 }
 
 int
 erts_monitor_list_foreach_yielding(ErtsMonitor *list,
-                                   void (*func)(ErtsMonitor *, void *),
+                                   ErtsMonitorFunc func,
                                    void *arg,
                                    void **vyspp,
                                    Sint limit)
 {
     return ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
-                                       (void (*)(ErtsMonLnkNode *, void *)) func,
+                                       (int (*)(ErtsMonLnkNode *, void *, Sint)) func,
                                        arg, vyspp, limit);
 }
 
 void
 erts_monitor_list_foreach_delete(ErtsMonitor **list,
-                                 void (*func)(ErtsMonitor *, void *),
+                                 ErtsMonitorFunc func,
                                  void *arg)
 {
     void *ystate = NULL;
-    while (ml_dl_list_foreach_delete_yielding((ErtsMonLnkNode **) list,
-                                              (void (*)(ErtsMonLnkNode*, void*)) func,
-                                              arg, &ystate, (Sint) INT_MAX));
+    while (!ml_dl_list_foreach_delete_yielding((ErtsMonLnkNode **) list,
+                                               (int (*)(ErtsMonLnkNode*, void*, Sint)) func,
+                                               arg, &ystate, (Sint) INT_MAX));
 }
 
 int
 erts_monitor_list_foreach_delete_yielding(ErtsMonitor **list,
-                                          void (*func)(ErtsMonitor *, void *),
+                                          ErtsMonitorFunc func,
                                           void *arg,
                                           void **vyspp,
                                           Sint limit)
 {
     return ml_dl_list_foreach_delete_yielding((ErtsMonLnkNode **) list,
-                                              (void (*)(ErtsMonLnkNode*, void*)) func,
+                                              (int (*)(ErtsMonLnkNode*, void*, Sint)) func,
                                               arg, vyspp, limit);
+
+}
+
+static Eterm
+mk_heap_fragment_eterm(Eterm value)
+{
+    /*
+     * Save value in its own heap fragment. Return pointer to heap fragment
+     * as a tagged continuation pointer which can be stored as an Eterm.
+     *
+     * bp->mem[0]   = Non immediate value
+     * bp->mem[1]   = Beginning of heap
+     */
+
+    Uint hsz = size_object(value)+1;
+    ErlHeapFragment *bp = new_message_buffer(hsz);
+    Eterm *hp = &bp->mem[1];
+    bp->mem[0] = copy_struct(value, hsz-1, &hp, &bp->off_heap);
+    return make_cp((void*)bp);
 }
 
 ErtsMonitorData *
-erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
+erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, Eterm tag)
 {
     ErtsMonitorData *mdp;
+    Uint16 tag_flag;
 
     switch (type) {
     case ERTS_MON_TYPE_PROC:
     case ERTS_MON_TYPE_PORT:
         if (is_nil(name)) {
-            ErtsMonitorDataHeap *mdhp;
-            ErtsORefThing *ortp;
+            Eterm *hp;
+            Eterm *ref_thing;
 
         case ERTS_MON_TYPE_TIME_OFFSET:
 
             ERTS_ML_ASSERT(is_nil(name));
             ERTS_ML_ASSERT(is_immed(orgn) && is_immed(trgt));
-            ERTS_ML_ASSERT(is_internal_ordinary_ref(ref));
-        
-            mdhp = erts_alloc(ERTS_ALC_T_MONITOR, sizeof(ErtsMonitorDataHeap));
-            mdp = &mdhp->md;
-            ERTS_ML_ASSERT(((void *) mdp) == ((void *) mdhp));
+            ERTS_ML_ASSERT(is_internal_ordinary_ref(ref)
+                           || is_internal_pid_ref(ref));
 
-            ortp = (ErtsORefThing *) (char *) internal_ref_val(ref);
-            mdhp->oref_thing = *ortp;
-            mdp->ref = make_internal_ref(&mdhp->oref_thing.header);
+            if (is_non_value(tag)) {
+                ErtsMonitorDataHeap *mdhp;
+                mdhp = erts_alloc(ERTS_ALC_T_MONITOR, sizeof(ErtsMonitorDataHeap));
+                mdp = &mdhp->md;
+                hp = &mdhp->ref_heap[0];
+                ERTS_ML_ASSERT(((void *) mdp) == ((void *) mdhp));
+                tag_flag = (Uint16) 0;
+            }
+            else {
+                ErtsMonitorDataTagHeap *mdthp;
+                mdthp = erts_alloc(ERTS_ALC_T_MONITOR_TAG, sizeof(ErtsMonitorDataTagHeap));
+                mdp = &mdthp->md;
+                hp = &mdthp->heap[0];
+                ERTS_ML_ASSERT(((void *) mdp) == ((void *) mdthp));
+                *hp = is_immed(tag) ? tag : mk_heap_fragment_eterm(tag);
+                hp++;
+                tag_flag = ERTS_ML_FLG_TAG;
+            }
 
+            ref_thing = internal_ref_val(ref);
+            sys_memcpy((void *) hp,
+                       (void *) ref_thing,
+                       sizeof(Eterm)*(1 + thing_arityval(*ref_thing)));
+            mdp->ref = make_internal_ref(hp);
             mdp->origin.other.item = trgt;
             mdp->origin.offset = (Uint16) offsetof(ErtsMonitorData, origin);
             mdp->origin.key_offset = (Uint16) offsetof(ErtsMonitorData, ref);
             ERTS_ML_ASSERT(mdp->origin.key_offset >= mdp->origin.offset);
             mdp->origin.key_offset -= mdp->origin.offset;
-            mdp->origin.flags = (Uint16) 0;
+            mdp->origin.flags = tag_flag;
             mdp->origin.type = type;
 
-            mdp->target.other.item = orgn;
-            mdp->target.offset = (Uint16) offsetof(ErtsMonitorData, target);
-            mdp->target.key_offset = (Uint16) offsetof(ErtsMonitorData, ref);
-            ERTS_ML_ASSERT(mdp->target.key_offset >= mdp->target.offset);
-            mdp->target.key_offset -= mdp->target.offset;
-            mdp->target.flags = ERTS_ML_FLG_TARGET;
-            mdp->target.type = type;
+            mdp->u.target.other.item = orgn;
+            mdp->u.target.offset = (Uint16) offsetof(ErtsMonitorData, u.target);
+            mdp->u.target.key_offset = (Uint16) offsetof(ErtsMonitorData, ref);
+            ERTS_ML_ASSERT(mdp->u.target.key_offset >= mdp->u.target.offset);
+            mdp->u.target.key_offset -= mdp->u.target.offset;
+            mdp->u.target.flags = ERTS_ML_FLG_TARGET | tag_flag;
+            mdp->u.target.type = type;
+            erts_atomic32_init_nob(&mdp->refc, 2);
             break;
         }
     case ERTS_MON_TYPE_DIST_PROC:
@@ -803,25 +895,63 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
     case ERTS_MON_TYPE_NODES: {
         ErtsMonitorDataExtended *mdep;
         Uint size = sizeof(ErtsMonitorDataExtended) - sizeof(Eterm);
-        Uint rsz, osz, tsz;
+        Uint rsz, osz, tsz, thfsz;
         Eterm *hp;
         ErlOffHeap oh;
-        Uint16 name_flag = is_nil(name) ? ((Uint16) 0) : ERTS_ML_FLG_NAME;
+        Uint16 name_flag;
+        Uint16 pending_flag;
 
         rsz = is_immed(ref) ? 0 : size_object(ref);
-        tsz = is_immed(trgt) ? 0 : size_object(trgt);
+        if (trgt != am_pending) {
+            if (is_not_immed(trgt))
+                tsz = size_object(trgt);
+            else
+                tsz = 0;
+            pending_flag = (Uint16) 0;
+            name_flag = is_nil(name) ? ((Uint16) 0) : ERTS_ML_FLG_NAME;
+        }
+        else {
+            /* Pending spawn_request() */
+            pending_flag = ERTS_ML_FLG_SPAWN_PENDING;
+            /* Prepare for storage of exteral pid */
+            tsz = EXTERNAL_PID_HEAP_SIZE;
+            /* name contains tag */
+            
+            /* Not by name */
+            name_flag = (Uint16) 0;
+            
+        }
         if (type == ERTS_MON_TYPE_RESOURCE)
             osz = 0;
         else
             osz = is_immed(orgn) ? 0 : size_object(orgn);
 
-        size += (rsz + osz + tsz) * sizeof(Eterm);
+        thfsz = is_non_value(tag) ? 0 : 1;
+        
+        size += (rsz + osz + tsz + thfsz) * sizeof(Eterm);
 
         mdep = erts_alloc(ERTS_ALC_T_MONITOR_EXT, size);
 
         ERTS_INIT_OFF_HEAP(&oh);
 
         hp = &mdep->heap[0];
+        if (!thfsz)
+            tag_flag = (Uint16) 0;
+        else {
+            *hp = is_immed(tag) ? tag : mk_heap_fragment_eterm(tag);
+            hp++;
+            tag_flag = ERTS_ML_FLG_TAG;
+        }
+
+        if (pending_flag) {
+            /* Make room for the future pid... */
+#ifdef DEBUG
+            int i;
+            for (i = 0; i < EXTERNAL_PID_HEAP_SIZE; i++)
+                hp[i] = THE_NON_VALUE;
+#endif
+            hp += EXTERNAL_PID_HEAP_SIZE;
+        }
 
         mdp = &mdep->md;
         ERTS_ML_ASSERT(((void *) mdp) == ((void *) mdep));
@@ -830,38 +960,54 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
 
         mdp->origin.other.item = tsz ? copy_struct(trgt, tsz, &hp, &oh) : trgt;
         mdp->origin.offset = (Uint16) offsetof(ErtsMonitorData, origin);
-        mdp->origin.flags = ERTS_ML_FLG_EXTENDED|name_flag;
+        mdp->origin.flags = ERTS_ML_FLG_EXTENDED|name_flag|pending_flag|tag_flag;
         mdp->origin.type = type;
 
         if (type == ERTS_MON_TYPE_RESOURCE)
-            mdp->target.other.ptr = (void *) orgn;
+            mdp->u.target.other.ptr = (void *) orgn;
         else
-            mdp->target.other.item = osz ? copy_struct(orgn, osz, &hp, &oh) : orgn;
-        mdp->target.offset = (Uint16) offsetof(ErtsMonitorData, target);
-        mdp->target.flags = ERTS_ML_FLG_TARGET|ERTS_ML_FLG_EXTENDED|name_flag;
-        mdp->target.type = type;
+            mdp->u.target.other.item = osz ? copy_struct(orgn, osz, &hp, &oh) : orgn;
+        mdp->u.target.offset = (Uint16) offsetof(ErtsMonitorData, u.target);
+        mdp->u.target.flags = ERTS_ML_FLG_TARGET|ERTS_ML_FLG_EXTENDED|name_flag|tag_flag;
+        mdp->u.target.type = type;
 
         if (type == ERTS_MON_TYPE_NODE || type == ERTS_MON_TYPE_NODES) {
             mdep->u.refc = 0;
             mdp->origin.key_offset = (Uint16) offsetof(ErtsMonitor, other.item);
-            mdp->target.key_offset = (Uint16) offsetof(ErtsMonitor, other.item);
+            mdp->u.target.key_offset = (Uint16) offsetof(ErtsMonitor, other.item);
             ERTS_ML_ASSERT(!oh.first);
             mdep->uptr.node_monitors = NULL;
         }
         else {
             mdep->u.name = name;
+            if (pending_flag) {
+                /* spawn_request() tag is in 'name' */
+                if (is_not_immed(name)) {
+                    /*
+                     * Save the tag in its own heap fragment with a
+                     * little trick:
+                     *
+                     * bp->mem[0]   = The tag
+                     * bp->mem[1]   = Beginning of heap
+                     * mdep->u.name = Countinuation pointer to
+                     *                heap fragment...
+                     */
+                    mdep->u.name = mk_heap_fragment_eterm(name);
+                }
+            }
 
             mdp->origin.key_offset = (Uint16) offsetof(ErtsMonitorData, ref);
             ERTS_ML_ASSERT(mdp->origin.key_offset >= mdp->origin.offset);
             mdp->origin.key_offset -= mdp->origin.offset;
 
-            mdp->target.key_offset = (Uint16) offsetof(ErtsMonitorData, ref);
-            ERTS_ML_ASSERT(mdp->target.key_offset >= mdp->target.offset);
-            mdp->target.key_offset -= mdp->target.offset;
+            mdp->u.target.key_offset = (Uint16) offsetof(ErtsMonitorData, ref);
+            ERTS_ML_ASSERT(mdp->u.target.key_offset >= mdp->u.target.offset);
+            mdp->u.target.key_offset -= mdp->u.target.offset;
 
             mdep->uptr.ohhp = oh.first;
         }
         mdep->dist = NULL;
+        erts_atomic32_init_nob(&mdp->refc, 2);
         break;
     }
     case ERTS_MON_TYPE_SUSPEND: {
@@ -885,15 +1031,41 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
         mdp->origin.flags = (Uint16) ERTS_ML_FLG_EXTENDED;
         mdp->origin.type = type;
 
-        mdp->target.other.item = orgn;
-        mdp->target.offset = (Uint16) offsetof(ErtsMonitorData, target);
-        mdp->target.key_offset = (Uint16) offsetof(ErtsMonitor, other.item);
-        mdp->target.flags = ERTS_ML_FLG_TARGET|ERTS_ML_FLG_EXTENDED;
-        mdp->target.type = type;
+        mdp->u.target.other.item = orgn;
+        mdp->u.target.offset = (Uint16) offsetof(ErtsMonitorData, u.target);
+        mdp->u.target.key_offset = (Uint16) offsetof(ErtsMonitor, other.item);
+        mdp->u.target.flags = ERTS_ML_FLG_TARGET|ERTS_ML_FLG_EXTENDED;
+        mdp->u.target.type = type;
 
         msp->next = NULL;
         erts_atomic_init_relb(&msp->state, 0);
+        erts_atomic32_init_nob(&mdp->refc, 2);
+        break;
+    }
+    case ERTS_MON_TYPE_ALIAS: {
+        Eterm *ref_thing;
 
+        ERTS_ML_ASSERT(is_nil(name) && is_nil(trgt));
+        ERTS_ML_ASSERT(is_internal_pid(orgn));
+        ERTS_ML_ASSERT(is_internal_pid_ref(ref));
+        ERTS_ML_ASSERT(orgn == erts_get_pid_of_ref(ref));
+        
+        mdp = erts_alloc(ERTS_ALC_T_ALIAS, sizeof(ErtsMonitorData));
+
+        ref_thing = internal_ref_val(ref);
+        sys_memcpy((void *) &mdp->u.ref_heap[0],
+                   (void *) ref_thing,
+                   sizeof(Eterm)*(1 + thing_arityval(*ref_thing)));
+        mdp->ref = make_internal_ref(&mdp->u.ref_heap[0]);
+        mdp->origin.other.item = orgn;
+        mdp->origin.offset = (Uint16) offsetof(ErtsMonitorData, origin);
+        mdp->origin.key_offset = (Uint16) offsetof(ErtsMonitorData, ref);
+        ERTS_ML_ASSERT(mdp->origin.key_offset >= mdp->origin.offset);
+        mdp->origin.key_offset -= mdp->origin.offset;
+        mdp->origin.flags = (Uint16) 0;
+        mdp->origin.type = type;
+
+        erts_atomic32_init_nob(&mdp->refc, 1);
         break;
     }
     default:
@@ -901,8 +1073,6 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
         mdp = NULL;
         break;
     }
-
-    erts_atomic32_init_nob(&mdp->refc, 2);
 
     return mdp;
 }
@@ -916,17 +1086,50 @@ erts_monitor_destroy__(ErtsMonitorData *mdp)
 {
     ERTS_ML_ASSERT(erts_atomic32_read_nob(&mdp->refc) == 0);
     ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_IN_TABLE));
-    ERTS_ML_ASSERT(!(mdp->target.flags & ERTS_ML_FLG_IN_TABLE));
-    ERTS_ML_ASSERT((mdp->origin.flags & ERTS_ML_FLGS_SAME)
-                   == (mdp->target.flags & ERTS_ML_FLGS_SAME));
+    ERTS_ML_ASSERT(mdp->origin.type == ERTS_MON_TYPE_ALIAS
+                   || !(mdp->u.target.flags & ERTS_ML_FLG_IN_TABLE));
+    ERTS_ML_ASSERT(mdp->origin.type == ERTS_MON_TYPE_ALIAS
+                   || ((mdp->origin.flags & ERTS_ML_FLGS_SAME)
+                       == (mdp->u.target.flags & ERTS_ML_FLGS_SAME)));
 
-    if (!(mdp->origin.flags & ERTS_ML_FLG_EXTENDED))
-        erts_free(ERTS_ALC_T_MONITOR, mdp);
-    else if (mdp->origin.type == ERTS_MON_TYPE_SUSPEND)
+    switch (mdp->origin.type) {
+    case ERTS_MON_TYPE_ALIAS:
+        ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_TAG));
+        erts_free(ERTS_ALC_T_ALIAS, mdp);
+        break;
+    case ERTS_MON_TYPE_SUSPEND:
+        ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_TAG));
         erts_free(ERTS_ALC_T_MONITOR_SUSPEND, mdp);
-    else {
-        ErtsMonitorDataExtended *mdep = (ErtsMonitorDataExtended *) mdp;
+        break;
+    default: {
+        ErtsMonitorDataExtended *mdep;
         ErlOffHeap oh;
+        ErtsAlcType_t atype;
+
+        if (!(mdp->origin.flags & ERTS_ML_FLG_TAG)) {
+            if (mdp->origin.flags & ERTS_ML_FLG_EXTENDED)
+                atype = ERTS_ALC_T_MONITOR_EXT;
+            else
+                atype = ERTS_ALC_T_MONITOR;
+        }
+        else {
+            Eterm tag_storage;
+            if (mdp->origin.flags & ERTS_ML_FLG_EXTENDED) {
+                atype = ERTS_ALC_T_MONITOR_EXT;
+                tag_storage = ((ErtsMonitorDataExtended *) mdp)->heap[0];
+            }
+            else {
+                atype = ERTS_ALC_T_MONITOR_TAG;
+                tag_storage = ((ErtsMonitorDataTagHeap *) mdp)->heap[0];
+            }
+            if (is_CP(tag_storage))
+                free_message_buffer((ErlHeapFragment *) cp_val(tag_storage));
+        }
+        if (atype != ERTS_ALC_T_MONITOR_EXT) {
+            erts_free(atype, mdp);
+            break;
+        }
+        mdep = (ErtsMonitorDataExtended *) mdp;
         if (mdp->origin.type == ERTS_MON_TYPE_NODE)
             ERTS_ML_ASSERT(!mdep->uptr.node_monitors);
         else if (mdep->uptr.ohhp) {
@@ -936,7 +1139,23 @@ erts_monitor_destroy__(ErtsMonitorData *mdp)
         }
         if (mdep->dist)
             erts_mon_link_dist_dec_refc(mdep->dist);
+        if (mdp->origin.flags & ERTS_ML_FLG_SPAWN_PENDING) {
+            /*
+             * We have the spawn_request() tag stored in
+             * mdep->u.name via a little trick
+             * (see pending_flag in erts_monitor_create()).
+             * If non-immediate value make sure to release
+             * this heap fragment as well.
+             */
+            if (is_not_immed(mdep->u.name)) {
+                ErlHeapFragment *bp;
+                bp = (ErlHeapFragment *) cp_val(mdep->u.name);
+                free_message_buffer(bp);
+            }
+        }
         erts_free(ERTS_ALC_T_MONITOR_EXT, mdp);
+        break;
+    }
     }
 }
 
@@ -960,15 +1179,23 @@ erts_monitor_size(ErtsMonitor *mon)
     Uint size, refc;
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
 
-    if (!(mon->flags & ERTS_ML_FLG_EXTENDED))
-        size = sizeof(ErtsMonitorDataHeap);
-    else if (mon->type == ERTS_MON_TYPE_SUSPEND)
+    switch (mdp->origin.type) {
+    case ERTS_MON_TYPE_ALIAS:
+        size = sizeof(ErtsMonitorData);
+        break;
+    case ERTS_MON_TYPE_SUSPEND:
         size = sizeof(ErtsMonitorSuspend);
-    else {
+        break;
+    default: {
         ErtsMonitorDataExtended *mdep;
-        Uint hsz = 0;
+        Uint hsz;
+        if (!(mon->flags & ERTS_ML_FLG_EXTENDED)) {
+            size = sizeof(ErtsMonitorDataHeap);
+            break;
+        }
 
         mdep = (ErtsMonitorDataExtended *) mdp;
+        hsz = 0;
 
         if (mon->type != ERTS_MON_TYPE_NODE
             && mon->type != ERTS_MON_TYPE_NODES) {
@@ -977,11 +1204,13 @@ erts_monitor_size(ErtsMonitor *mon)
             if (mon->type == ERTS_MON_TYPE_DIST_PROC) {
                 if (!is_immed(mdep->md.origin.other.item))
                     hsz += NC_HEAP_SIZE(mdep->md.origin.other.item);
-                if (!is_immed(mdep->md.target.other.item))
-                    hsz += NC_HEAP_SIZE(mdep->md.target.other.item);
+                if (!is_immed(mdep->md.u.target.other.item))
+                    hsz += NC_HEAP_SIZE(mdep->md.u.target.other.item);
             }
         }
         size = sizeof(ErtsMonitorDataExtended) + (hsz - 1)*sizeof(Eterm);
+        break;
+    }
     }
     
     refc = (Uint) erts_atomic32_read_nob(&mdp->refc);
@@ -996,8 +1225,8 @@ erts_monitor_size(ErtsMonitor *mon)
 \*                                                                           */
 
 #ifdef ERTS_ML_DEBUG
-size_t erts_link_a_offset;
-size_t erts_link_b_offset;
+size_t erts_link_proc_offset;
+size_t erts_link_dist_offset;
 size_t erts_link_key_offset;
 #endif
 
@@ -1005,8 +1234,8 @@ static ERTS_INLINE void
 link_init(void)
 {
 #ifdef ERTS_ML_DEBUG
-    erts_link_a_offset = offsetof(ErtsLinkData, a);
-    erts_link_b_offset = offsetof(ErtsLinkData, b);
+    erts_link_proc_offset = offsetof(ErtsLinkData, proc);
+    erts_link_dist_offset = offsetof(ErtsLinkData, dist);
     erts_link_key_offset = offsetof(ErtsLink, other.item);
 #endif
 }
@@ -1025,29 +1254,45 @@ erts_link_tree_lookup_insert(ErtsLink **root, ErtsLink *lnk)
                                              (ErtsMonLnkNode *) lnk);
 }
 
+static ErtsMonLnkNode *
+create_link_internal(Eterm id, void *vtypep)
+{
+    ErtsMonLnkNode *lnk = erts_link_internal_create(*((Uint16 *) vtypep), id);
+    ERTS_ML_ASSERT(ml_cmp_keys(lnk->other.item, id) == 0);
+    return (ErtsMonLnkNode *) lnk;
+}
+
+ErtsLink *erts_link_internal_tree_lookup_create(ErtsLink **root, int *created,
+                                                Uint16 type, Eterm other)
+{
+    return (ErtsLink *) ml_rbt_lookup_create((ErtsMonLnkNode **) root,
+                                             other, create_link_internal,
+                                             (void *) &type,
+                                             created);
+}
+
 typedef struct {
     Uint16 type;
-    Eterm a;
+    Eterm this_;
 } ErtsLinkCreateCtxt;
 
 static ErtsMonLnkNode *
-create_link(Eterm b, void *vcctxt)
+create_link_external(Eterm other, void *vcctxt)
 {
     ErtsLinkCreateCtxt *cctxt = vcctxt;
-    ErtsLinkData *ldp = erts_link_create(cctxt->type, cctxt->a, b);
-    ERTS_ML_ASSERT(ml_cmp_keys(ldp->a.other.item, b) == 0);
-    return (ErtsMonLnkNode *) &ldp->a;
+    ErtsLinkData *ldp = erts_link_external_create(cctxt->type, cctxt->this_, other);
+    return (ErtsMonLnkNode *) &ldp->proc;
 }
 
-ErtsLink *erts_link_tree_lookup_create(ErtsLink **root, int *created,
-                                       Uint16 type, Eterm this,
-                                       Eterm other)
+ErtsLink *erts_link_external_tree_lookup_create(ErtsLink **root, int *created,
+                                                Uint16 type, Eterm this_,
+                                                Eterm other)
 {
     ErtsLinkCreateCtxt cctxt;
     cctxt.type = type;
-    cctxt.a = this;
+    cctxt.this_ = this_;
     return (ErtsLink *) ml_rbt_lookup_create((ErtsMonLnkNode **) root,
-                                             other, create_link,
+                                             other, create_link_external,
                                              (void *) &cctxt,
                                              created);
 }
@@ -1074,112 +1319,124 @@ erts_link_tree_delete(ErtsLink **root, ErtsLink *lnk)
 
 void
 erts_link_tree_foreach(ErtsLink *root,
-                       void (*func)(ErtsLink *, void *),
+                       ErtsLinkFunc func,
                        void *arg)
 {
     ml_rbt_foreach((ErtsMonLnkNode *) root,
-                   (void (*)(ErtsMonLnkNode*, void*)) func,
+                   (ErtsMonLnkNodeFunc) func,
                    arg);
 
 }
 
+void
+erts_debug_link_tree_destroying_foreach(ErtsLink *root,
+                                        ErtsLinkFunc func,
+                                        void *arg,
+                                        void *vysp)
+{
+    void *tmp_vysp = erts_alloc(ERTS_ALC_T_ML_YIELD_STATE,
+                                sizeof(ErtsMonLnkYieldState));
+    Sint reds;
+    sys_memcpy(tmp_vysp, vysp, sizeof(ErtsMonLnkYieldState));
+    do {
+        reds = ml_rbt_foreach_yielding((ErtsMonLnkNode *) root,
+                                       (ErtsMonLnkNodeFunc) func,
+                                       arg, &tmp_vysp, (Sint) INT_MAX);
+    } while (reds <= 0);
+    ERTS_ML_ASSERT(!tmp_vysp);
+}
+
 int
 erts_link_tree_foreach_yielding(ErtsLink *root,
-                                void (*func)(ErtsLink *, void *),
+                                ErtsLinkFunc func,
                                 void *arg,
                                 void **vyspp,
                                 Sint limit)
 {
     return ml_rbt_foreach_yielding((ErtsMonLnkNode *) root,
-                                   (void (*)(ErtsMonLnkNode*, void*)) func,
+                                   (ErtsMonLnkNodeFunc) func,
                                    arg, vyspp, limit);
 }
 
 void
 erts_link_tree_foreach_delete(ErtsLink **root,
-                              void (*func)(ErtsLink *, void *),
+                              ErtsLinkFunc func,
                               void *arg)
 {
     ml_rbt_foreach_delete((ErtsMonLnkNode **) root,
-                          (void (*)(ErtsMonLnkNode*, void*)) func,
+                          (ErtsMonLnkNodeFunc) func,
                           arg);
 }
 
 int
 erts_link_tree_foreach_delete_yielding(ErtsLink **root,
-                                       void (*func)(ErtsLink *, void *),
+                                       ErtsLinkFunc func,
                                        void *arg,
                                        void **vyspp,
                                        Sint limit)
 {
     return ml_rbt_foreach_delete_yielding((ErtsMonLnkNode **) root,
-                                          (void (*)(ErtsMonLnkNode*, void*)) func,
+                                          (ErtsMonLnkNodeFunc) func,
                                           arg, vyspp, limit);
 }
 
 void
 erts_link_list_foreach(ErtsLink *list,
-                       void (*func)(ErtsLink *, void *),
+                       ErtsLinkFunc func,
                        void *arg)
 {
     void *ystate = NULL;
-    while (ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
-                                       (void (*)(ErtsMonLnkNode *, void *)) func,
-                                       arg, &ystate, (Sint) INT_MAX));
+    while (!ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
+                                        (ErtsMonLnkNodeFunc) func,
+                                        arg, &ystate, (Sint) INT_MAX));
 }
 
 int
 erts_link_list_foreach_yielding(ErtsLink *list,
-                                void (*func)(ErtsLink *, void *),
+                                ErtsLinkFunc func,
                                 void *arg,
                                 void **vyspp,
                                 Sint limit)
 {
     return ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
-                                       (void (*)(ErtsMonLnkNode *, void *)) func,
+                                       (ErtsMonLnkNodeFunc) func,
                                        arg, vyspp, limit);
 }
 
 void
 erts_link_list_foreach_delete(ErtsLink **list,
-                               void (*func)(ErtsLink *, void *),
+                               ErtsLinkFunc func,
                                void *arg)
 {
     void *ystate = NULL;
-    while (ml_dl_list_foreach_delete_yielding((ErtsMonLnkNode **) list,
-                                              (void (*)(ErtsMonLnkNode*, void*)) func,
-                                              arg, &ystate, (Sint) INT_MAX));
+    while (!ml_dl_list_foreach_delete_yielding((ErtsMonLnkNode **) list,
+                                               (ErtsMonLnkNodeFunc) func,
+                                               arg, &ystate, (Sint) INT_MAX));
 }
 
 int
 erts_link_list_foreach_delete_yielding(ErtsLink **list,
-                                       void (*func)(ErtsLink *, void *),
+                                       int (*func)(ErtsLink *, void *, Sint),
                                        void *arg,
                                        void **vyspp,
                                        Sint limit)
 {
     return ml_dl_list_foreach_delete_yielding((ErtsMonLnkNode **) list,
-                                              (void (*)(ErtsMonLnkNode*, void*)) func,
+                                              (ErtsMonLnkNodeFunc) func,
                                               arg, vyspp, limit);
 }
 
-ErtsLinkData *
-erts_link_create(Uint16 type, Eterm a, Eterm b)
+ErtsLink *
+erts_link_internal_create(Uint16 type, Eterm id)
 {
-    ErtsLinkData *ldp;
-
+    ErtsILink *ilnk;
 #ifdef ERTS_ML_DEBUG
     switch (type) {
     case ERTS_LNK_TYPE_PROC:
-        ERTS_ML_ASSERT(is_internal_pid(a) && is_internal_pid(a));
+        ERTS_ML_ASSERT(is_internal_pid(id));
         break;
     case ERTS_LNK_TYPE_PORT:
-        ERTS_ML_ASSERT(is_internal_pid(a) || is_internal_pid(b));
-        ERTS_ML_ASSERT(is_internal_port(a) || is_internal_port(b));
-        break;
-    case ERTS_LNK_TYPE_DIST_PROC:
-        ERTS_ML_ASSERT(is_internal_pid(a) || is_internal_pid(b));
-        ERTS_ML_ASSERT(is_external_pid(a) || is_external_pid(b));
+        ERTS_ML_ASSERT(is_internal_pid(id) || is_internal_port(id));
         break;
     default:
         ERTS_INTERNAL_ERROR("Invalid link type");
@@ -1187,129 +1444,127 @@ erts_link_create(Uint16 type, Eterm a, Eterm b)
     }
 #endif
 
-    if (type != ERTS_LNK_TYPE_DIST_PROC) {
-        ldp = erts_alloc(ERTS_ALC_T_LINK, sizeof(ErtsLinkData));
+    ilnk = erts_alloc(ERTS_ALC_T_LINK, sizeof(ErtsILink));
 
-        ldp->a.other.item = b;
-        ldp->a.flags = (Uint16) 0;
+    ilnk->link.other.item = id;
+    ilnk->link.key_offset = (Uint16) offsetof(ErtsLink, other.item);
+    ilnk->link.offset = (Uint16) 0;
+    ilnk->link.flags = (Uint16) 0;
+    ilnk->link.type = type;
+    ilnk->unlinking = 0;
 
-        ldp->b.other.item = a;
-        ldp->b.flags = (Uint16) 0;
-    }
-    else {
-        ErtsLinkDataExtended *ldep;
-        Uint size, hsz;
-        Eterm *hp;
-        ErlOffHeap oh;
+    return &ilnk->link;
+}
 
-        if (is_internal_pid(a))
-            hsz = NC_HEAP_SIZE(b);
-        else 
-            hsz = NC_HEAP_SIZE(a);
-        ERTS_ML_ASSERT(hsz > 0);
+ErtsLinkData *
+erts_link_external_create(Uint16 type, Eterm this_, Eterm other)
+{
+    ErtsLinkData *ldp;
+    ErtsELink *elnk;
+    Uint size, hsz;
+    Eterm *hp;
+    ErlOffHeap oh;
 
-        size = sizeof(ErtsLinkDataExtended) - sizeof(Eterm);
-        size += hsz*sizeof(Eterm);
+    ERTS_ML_ASSERT(type == ERTS_LNK_TYPE_DIST_PROC);
+    ERTS_ML_ASSERT(is_internal_pid(this_));
+    ERTS_ML_ASSERT(is_external_pid(other));
 
-        ldp = erts_alloc(ERTS_ALC_T_LINK_EXT, size);
+    hsz = EXTERNAL_PID_HEAP_SIZE;
 
-        ldp->a.flags = ERTS_ML_FLG_EXTENDED;
-        ldp->b.flags = ERTS_ML_FLG_EXTENDED;
+    size = sizeof(ErtsELink) - sizeof(Eterm);
+    size += hsz*sizeof(Eterm);
 
-        ldep = (ErtsLinkDataExtended *) ldp;
-        hp = &ldep->heap[0];
+    ldp = erts_alloc(ERTS_ALC_T_LINK_EXT, size);
 
-        ERTS_INIT_OFF_HEAP(&oh);
+    elnk = (ErtsELink *) ldp;
+    hp = &elnk->heap[0];
 
-        if (is_internal_pid(a)) {
-            ldp->a.other.item = STORE_NC(&hp, &oh, b);
-            ldp->b.other.item = a;
-        }
-        else {
-            ldp->a.other.item = b;
-            ldp->b.other.item = STORE_NC(&hp, &oh, a);
-        }
+    ERTS_INIT_OFF_HEAP(&oh);
 
-        ldep->ohhp = oh.first;
-        ldep->dist = NULL;
-    }
+    ldp->proc.other.item = STORE_NC(&hp, &oh, other);
+    ldp->proc.flags = ERTS_ML_FLG_EXTENDED;
+    ldp->proc.key_offset = (Uint16) offsetof(ErtsLink, other.item);
+    ldp->proc.offset = (Uint16) offsetof(ErtsLinkData, proc);
+    ldp->proc.type = type;
+
+    ldp->dist.other.item = this_;
+    ldp->dist.flags = ERTS_ML_FLG_EXTENDED;
+    ldp->dist.key_offset = (Uint16) offsetof(ErtsLink, other.item);
+    ldp->dist.offset = (Uint16) offsetof(ErtsLinkData, dist);
+    ldp->dist.type = type;
+
+    elnk->ohhp = oh.first;
+    elnk->dist = NULL;
+    elnk->unlinking = 0;
 
     erts_atomic32_init_nob(&ldp->refc, 2);
-
-    ldp->a.key_offset = (Uint16) offsetof(ErtsLink, other.item);
-    ldp->a.offset = (Uint16) offsetof(ErtsLinkData, a);
-    ldp->a.type = type;
-
-    ldp->b.key_offset = (Uint16) offsetof(ErtsLink, other.item);
-    ldp->b.offset = (Uint16) offsetof(ErtsLinkData, b);
-    ldp->b.type = type;
 
     return ldp;
 }
 
 /*
- * erts_link_destroy__() should only be called from
+ * erts_link_destroy_elink__() should only be called from
  * erts_link_release() or erts_link_release_both().
  */
 void
-erts_link_destroy__(ErtsLinkData *ldp)
+erts_link_destroy_elink__(ErtsELink *elnk)
 {
-    ERTS_ML_ASSERT(erts_atomic32_read_nob(&ldp->refc) == 0);
-    ERTS_ML_ASSERT(!(ldp->a.flags & ERTS_ML_FLG_IN_TABLE));
-    ERTS_ML_ASSERT(!(ldp->b.flags & ERTS_ML_FLG_IN_TABLE));
-    ERTS_ML_ASSERT((ldp->a.flags & ERTS_ML_FLGS_SAME)
-                   == (ldp->b.flags & ERTS_ML_FLGS_SAME));
+    ErlOffHeap oh;
+    ERTS_ML_ASSERT(erts_atomic32_read_nob(&elnk->ld.refc) == 0);
+    ERTS_ML_ASSERT(!(elnk->ld.proc.flags & ERTS_ML_FLG_IN_TABLE));
+    ERTS_ML_ASSERT(!(elnk->ld.dist.flags & ERTS_ML_FLG_IN_TABLE));
+    ERTS_ML_ASSERT((elnk->ld.proc.flags & ERTS_ML_FLGS_SAME)
+                   == (elnk->ld.dist.flags & ERTS_ML_FLGS_SAME));
+    ERTS_ML_ASSERT(elnk->ld.proc.flags & ERTS_ML_FLG_EXTENDED);
+    ERTS_ML_ASSERT(elnk->ld.dist.flags & ERTS_ML_FLG_EXTENDED);
 
-    if (!(ldp->a.flags & ERTS_ML_FLG_EXTENDED))
-        erts_free(ERTS_ALC_T_LINK, ldp);
-    else {
-        ErtsLinkDataExtended *ldep = (ErtsLinkDataExtended *) ldp;
-        ErlOffHeap oh;
-        if (ldep->ohhp) {
-            ERTS_INIT_OFF_HEAP(&oh);
-            oh.first = ldep->ohhp;
-            erts_cleanup_offheap(&oh);
-        }
-        if (ldep->dist)
-            erts_mon_link_dist_dec_refc(ldep->dist);
-        erts_free(ERTS_ALC_T_LINK_EXT, ldep);
+    if (elnk->ohhp) {
+        ERTS_INIT_OFF_HEAP(&oh);
+        oh.first = elnk->ohhp;
+        erts_cleanup_offheap(&oh);
     }
+    if (elnk->dist)
+        erts_mon_link_dist_dec_refc(elnk->dist);
+    erts_free(ERTS_ALC_T_LINK_EXT, elnk);
 }
 
 void
 erts_link_set_dead_dist(ErtsLink *lnk, Eterm nodename)
 {
-    ErtsLinkDataExtended *ldep;
-    ldep = (ErtsLinkDataExtended *) erts_link_to_data(lnk);
+    ErtsELink *elnk;
 
     ERTS_ML_ASSERT(lnk->flags & ERTS_ML_FLG_EXTENDED);
     ERTS_ML_ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
-    ERTS_ML_ASSERT(!ldep->dist);
 
-    ldep->dist = erts_mon_link_dist_create(nodename);
-    ldep->dist->alive = 0;
+    elnk = erts_link_to_elink(lnk);
+
+    ERTS_ML_ASSERT(!elnk->dist);
+
+    elnk->dist = erts_mon_link_dist_create(nodename);
+    elnk->dist->alive = 0;
 }
 
 Uint
 erts_link_size(ErtsLink *lnk)
 {
     Uint size, refc;
-    ErtsLinkData *ldp = erts_link_to_data(lnk);
 
-    if (!(lnk->flags & ERTS_ML_FLG_EXTENDED))
-        size = sizeof(ErtsLinkData);
+    if (!(lnk->flags & ERTS_ML_FLG_EXTENDED)) {
+        size = sizeof(ErtsLink);
+        refc = 1;
+    }
     else {
-        ErtsLinkDataExtended *ldep = (ErtsLinkDataExtended *) ldp;
+        ErtsELink *elnk = erts_link_to_elink(lnk);
 
         ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
-        ASSERT(is_external_pid_header(ldep->heap[0]));
+        ASSERT(is_external_pid_header(elnk->heap[0]));
 
-        size = sizeof(ErtsLinkDataExtended);
-        size += thing_arityval(ldep->heap[0])*sizeof(Eterm);
+        size = sizeof(ErtsELink);
+        size += thing_arityval(elnk->heap[0])*sizeof(Eterm);
+        refc = (Uint) erts_atomic32_read_nob(&elnk->ld.refc);
+        ASSERT(refc > 0);
     }
     
-    refc = (Uint) erts_atomic32_read_nob(&ldp->refc);
-    ASSERT(refc > 0);
 
     return size / refc;
 }

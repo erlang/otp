@@ -20,11 +20,12 @@
 %%
 -module(testContextSwitchingTypes).
 
--export([test/1]).
+-export([test/2]).
 
 -include_lib("common_test/include/ct.hrl").
 
-test(Config) ->
+test(jer,_Config) -> ok;
+test(_Rule,Config) ->
     ValT_1 = 'ContextSwitchingTypes':'val1-T'(),
     check_EXTERNAL(enc_dec('T', ValT_1)),
 

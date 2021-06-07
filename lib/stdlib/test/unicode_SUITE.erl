@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +34,9 @@
 	 ex_binaries_errors_utf16_big/1,
 	 ex_binaries_errors_utf32_little/1,
 	 ex_binaries_errors_utf32_big/1,
-         normalize/1
+         normalize/1,
+         huge_illegal_code_points/1,
+         error_info/1
         ]).
 
 suite() ->
@@ -47,7 +49,9 @@ all() ->
      latin1, exceptions,
      binaries_errors_limit,
      normalize,
-     {group,binaries_errors}].
+     {group,binaries_errors},
+     huge_illegal_code_points,
+     error_info].
 
 groups() -> 
     [{binaries_errors,[parallel],
@@ -1024,6 +1028,26 @@ normalize(_) ->
 
     ok.
 
+huge_illegal_code_points(Config) when is_list(Config) ->
+    LargeList = lists:duplicate(1024, $x),
+    Pre = ["ok part", [[LargeList]]],
+    Post = ["error tail", [[LargeList]]],
+    huge_illegal_code_points_aux(Pre, 1 bsl 27, Post),
+    huge_illegal_code_points_aux(Pre, 1 bsl 28, Post),
+    huge_illegal_code_points_aux(Pre, 1 bsl 32, Post),
+    huge_illegal_code_points_aux(Pre, 1 bsl 59, Post),
+    huge_illegal_code_points_aux(Pre, 1 bsl 60, Post),
+    huge_illegal_code_points_aux(Pre, 1 bsl 64, Post),
+    ok.
+
+huge_illegal_code_points_aux(Pre, Error, Post) ->
+    ErrorList = [Error|Post],
+    In = [Pre | ErrorList],
+    FlatPre = lists:flatten(Pre),
+    {error, FlatPre, ErrorList} = unicode:characters_to_list(In),
+    BinPre = list_to_binary(FlatPre),
+    {error, BinPre, ErrorList} = unicode:characters_to_binary(In),
+    ok.
 
 %%
 %% Diverse utilities
@@ -1383,6 +1407,56 @@ make_unaligned(Bin0) when is_binary(Bin0) ->
     Sz = byte_size(Bin0),
     <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
     Bin.
+
+error_info(_Config) ->
+    L = [{characters_to_binary, [abc]},
+         {characters_to_binary,[abc, utf8]},
+         {characters_to_binary,[abc, bad_encoding],[{1,".*"},{2,".*"}]},
+
+         {characters_to_binary, [abc, pqr, xyz],[{1,".*"},{2,".*"},{3,".*"}]},
+         {characters_to_binary, [abc, latin1, utf8]},
+         {characters_to_binary, [<<1:1>>, utf8, latin1]},
+
+         {characters_to_list,[abc]},
+         {characters_to_list,[<<1:1>>]},
+         {characters_to_list,[<<"abc">>, xyz]},
+         {characters_to_list,[<<"abc",1:1>>, utf8]},
+
+         {characters_to_nfc_binary, [abc]},
+         {characters_to_nfc_binary, [<<1:1>>]},
+
+         {characters_to_nfc_list, [abc]},
+         {characters_to_nfc_list, [[abc]]},
+
+         {characters_to_nfd_binary, [abc]},
+         {characters_to_nfd_list, [<<1:1>>]},
+
+         {characters_to_nfkc_binary,[[abc]]},
+         {characters_to_nfkc_binary,[{a,b,c}]},
+
+         {characters_to_nfkc_list,[<<1:1>>]},
+         {characters_to_nfkc_list,[abc]},
+
+         {characters_to_nfkd_binary, [abc]},
+         {characters_to_nfkd_binary, [<<1:1>>]},
+
+         {characters_to_nfkd_list, [abc]},
+         {characters_to_nfkd_list, [<<1:11>>]},
+
+         %% Not BIFs (they don't throw badarg when they fail).
+         {bom_to_encoding, 1},                  %Not BIF.
+         {encoding_to_bom, 1},                   %Not BIF.
+
+         %% Internal use only.
+         {bin_is_7bit, 1},
+         {characters_to_binary_int, 2},
+         {characters_to_list_int, 2}
+        ],
+    error_info_lib:test_error_info(unicode, L).
+
+%%%
+%%% Utilities.
+%%%
 
 id(I) -> I.
 

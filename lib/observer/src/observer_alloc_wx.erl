@@ -158,7 +158,7 @@ handle_info({refresh, Seq},
     State#state.active andalso (catch wxWindow:refresh(Panel)),
     erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, Next}),
     if Seq =:= (trunc(DispF)-1) ->
-	    Req = rpc:async_call(Node, observer_backend, sys_info, []),
+	    Req = request_info(Node),
 	    {noreply, State#state{time=Ti#ti{tick=Next}, async=Req}};
        true ->
 	    {noreply, State#state{time=Ti#ti{tick=Next}}}
@@ -192,6 +192,13 @@ code_change(_, _, State) ->
     State.
 
 %%%%%%%%%%
+
+request_info(Node) ->
+    ReplyTo = self(),
+    spawn(fun() ->
+                  Res = rpc:call(Node, observer_backend, sys_info, []),
+                  ReplyTo ! {self(), {promise_reply, Res}}
+          end).
 
 restart_fetcher(Node, #state{panel=Panel, wins=Wins0, time=Ti} = State) ->
     case rpc:call(Node, observer_backend, sys_info, []) of
@@ -261,19 +268,30 @@ sum_alloc_instances([{_,_,Data}|Instances],BS,CS,TotalBS,TotalCS) ->
 sum_alloc_instances([],BS,CS,TotalBS,TotalCS) ->
     {BS,CS,TotalBS,TotalCS,true}.
 
-sum_alloc_one_instance([{sbmbcs,[{blocks_size,BS,_,_},{carriers_size,CS,_,_}]}|
+sum_alloc_one_instance([{_,[{blocks,TypedBlocks},{carriers_size,CS,_,_}]}|
 			Rest],OldBS,OldCS,TotalBS,TotalCS) ->
-    sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS,TotalCS);
+    %% OTP 23 and later.
+    BS = sum_alloc_block_list(TypedBlocks, 0),
+    sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS+BS,TotalCS+CS);
 sum_alloc_one_instance([{_,[{blocks_size,BS,_,_},{carriers_size,CS,_,_}]}|
 			Rest],OldBS,OldCS,TotalBS,TotalCS) ->
-    sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS+BS,TotalCS+CS);
-sum_alloc_one_instance([{_,[{blocks_size,BS},{carriers_size,CS}]}|
-			Rest],OldBS,OldCS,TotalBS,TotalCS) ->
+    %% OTP 22 and earlier.
     sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS+BS,TotalCS+CS);
 sum_alloc_one_instance([_|Rest],BS,CS,TotalBS,TotalCS) ->
     sum_alloc_one_instance(Rest,BS,CS,TotalBS,TotalCS);
 sum_alloc_one_instance([],BS,CS,TotalBS,TotalCS) ->
     {BS,CS,TotalBS,TotalCS}.
+
+sum_alloc_block_list([{_Type, [{size, Current, _, _}]} | Rest], Acc) ->
+    %% We ignore the type since we're returning a summary of all blocks in the
+    %% carriers employed by a certain instance.
+    sum_alloc_block_list(Rest, Current + Acc);
+sum_alloc_block_list([{_Type, [{size, Current}]} | Rest], Acc) ->
+    sum_alloc_block_list(Rest, Current + Acc);
+sum_alloc_block_list([_ | Rest], Acc) ->
+    sum_alloc_block_list(Rest, Acc);
+sum_alloc_block_list([], Acc) ->
+    Acc.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

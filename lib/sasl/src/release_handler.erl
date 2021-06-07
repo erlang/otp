@@ -1120,7 +1120,7 @@ new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters) ->
 	    {ok,[FC]} ->
 		FC;
 	    {error,Error1} ->
-		io:format("Warning: ~w can not read ~tp: ~tp~n",
+		io:format("Warning: ~w cannot read ~tp: ~tp~n",
 			  [?MODULE,FromFile,Error1]),
 		[]
 	end,
@@ -1130,7 +1130,7 @@ new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters) ->
 	    {ok,[ToConfig]} ->
 		[lists:keyfind(App,1,ToConfig) || App <- [kernel,stdlib,sasl]];
 	    {error,Error2} ->
-		io:format("Warning: ~w can not read ~tp: ~tp~n",
+		io:format("Warning: ~w cannot read ~tp: ~tp~n",
 			  [?MODULE,ToFile,Error2]),
 		[false,false,false]
 	end,

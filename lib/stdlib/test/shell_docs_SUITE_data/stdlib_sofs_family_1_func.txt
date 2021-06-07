@@ -1,0 +1,8 @@
+
+  [;1m-spec family(Tuples) -> Family[0m
+  [;1m                when Family :: family(), Tuples :: [tuple()].[0m
+
+  Creates a family of subsets. [;;4mfamily(F, T)[0m is equivalent to [;;4m[0m
+  [;;4mfrom_term(F, T)[0m if the result is a family. If no type is
+  explicitly specified, [;;4m[{atom, [atom]}][0m is used as the family
+  type.

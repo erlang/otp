@@ -1,0 +1,42 @@
+
+  [;1m-spec halt(Status, Options) -> no_return()[0m
+  [;1m              when[0m
+  [;1m                  Status :: non_neg_integer() | abort | string(),[0m
+  [;1m                  Options :: [Option],[0m
+  [;1m                  Option :: {flush, boolean()}.[0m
+
+[;;4mSince[0m:
+  OTP R15B01
+
+  [;;4mStatus[0m must be a non-negative integer, a string, or the atom [;;4m[0m
+  [;;4mabort[0m. Halts the Erlang runtime system. Has no return value.
+  Depending on [;;4mStatus[0m, the following occurs:
+
+  [;;4minteger()[0m:
+    The runtime system exits with integer value [;;4mStatus[0m as status
+    code to the calling environment (OS).
+    Note:
+      On many platforms, the OS supports only status codes
+      0-255. A too large status code is truncated by clearing
+      the high bits.
+
+  [;;4mstring()[0m:
+    An Erlang crash dump is produced with [;;4mStatus[0m as slogan. Then
+    the runtime system exits with status code [;;4m1[0m. The string will
+    be truncated if longer than 200 characters.
+    Note:
+      Before ERTS 9.1 (OTP-20.1) only code points in the range
+      0-255 was accepted in the string. Now any unicode string
+      is valid.
+
+  [;;4m[;;4mabort[0m[0m:
+    The runtime system aborts producing a core dump, if that is
+    enabled in the OS.
+
+  For integer [;;4mStatus[0m, the Erlang runtime system closes all ports
+  and allows async threads to finish their operations before
+  exiting. To exit without such flushing, use [;;4mOption[0m as [;;4m[0m
+  [;;4m{flush,false}[0m.
+
+  For statuses [;;4mstring()[0m and [;;4mabort[0m, option [;;4mflush[0m is ignored and
+  flushing is not done.

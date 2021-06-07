@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,13 +32,16 @@
 -include("ssh_xfer.hrl").
 -include("ssh_connect.hrl"). %% For ?DEFAULT_PACKET_SIZE and ?DEFAULT_WINDOW_SIZE
 
+
 %%--------------------------------------------------------------------
 %% External exports
 -export([subsystem_spec/1]).
 
 -export([init/1, handle_ssh_msg/2, handle_msg/2, terminate/2]).
 
--export([dbg_trace/3]).
+-behaviour(ssh_dbg).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
+
 
 -record(state, {
 	  xf,   			% [{channel,ssh_xfer states}...]
@@ -58,7 +61,18 @@
 %%====================================================================
 %% API
 %%====================================================================
--spec subsystem_spec(list()) -> subsystem_spec().
+-spec subsystem_spec(Options) -> Spec when
+      Options :: [ {cwd, string()} |
+                   {file_handler, CbMod | {CbMod, FileState}} |
+                   {max_files, integer()} |
+                   {root, string()} |
+                   {sftpd_vsn, integer()}
+                 ],
+      Spec :: {Name, {CbMod,Options}},
+      Name :: string(),
+      CbMod :: atom(),
+      FileState :: term().
+
 
 subsystem_spec(Options) ->
     {"sftp", {?MODULE, Options}}.
@@ -440,19 +454,19 @@ get_handle(Handles, BinHandle) ->
 
 %%% read_dir/5: read directory, send names, and return new state
 read_dir(State0 = #state{file_handler = FileMod, max_files = MaxLength, file_state = FS0},
-	 XF, ReqId, Handle, RelPath, {cache, Files}) ->
+	 XF = #ssh_xfer{cm = _CM, channel = _Channel, vsn = Vsn}, ReqId, Handle, RelPath, {cache, Files}) ->
     AbsPath = relate_file_name(RelPath, State0),
     if
 	length(Files) > MaxLength ->
 	    {ToSend, NewCache} = lists:split(MaxLength, Files),
-	    {NamesAndAttrs, FS1} = get_attrs(AbsPath, ToSend, FileMod, FS0),
+	    {NamesAndAttrs, FS1} = get_attrs(AbsPath, ToSend, FileMod, FS0, Vsn),
 	    ssh_xfer:xf_send_names(XF, ReqId, NamesAndAttrs),
 	    Handles = lists:keyreplace(Handle, 1,
 				       State0#state.handles,
 				       {Handle, directory, {RelPath,{cache, NewCache}}}),
 	    State0#state{handles = Handles, file_state = FS1};
 	true ->
-	    {NamesAndAttrs, FS1} = get_attrs(AbsPath, Files, FileMod, FS0),
+	    {NamesAndAttrs, FS1} = get_attrs(AbsPath, Files, FileMod, FS0, Vsn),
 	    ssh_xfer:xf_send_names(XF, ReqId, NamesAndAttrs),
 	    Handles = lists:keyreplace(Handle, 1,
 				       State0#state.handles,
@@ -460,12 +474,12 @@ read_dir(State0 = #state{file_handler = FileMod, max_files = MaxLength, file_sta
 	    State0#state{handles = Handles, file_state = FS1}
     end;
 read_dir(State0 = #state{file_handler = FileMod, max_files = MaxLength, file_state = FS0},
-	 XF, ReqId, Handle, RelPath, _Status) ->
+	 XF = #ssh_xfer{cm = _CM, channel = _Channel, vsn = Vsn}, ReqId, Handle, RelPath, _Status) ->
     AbsPath = relate_file_name(RelPath, State0),
     {Res, FS1} = FileMod:list_dir(AbsPath, FS0),
     case Res of
 	{ok, Files} when MaxLength == 0 orelse MaxLength > length(Files) ->
-	    {NamesAndAttrs, FS2} = get_attrs(AbsPath, Files, FileMod, FS1),
+	    {NamesAndAttrs, FS2} = get_attrs(AbsPath, Files, FileMod, FS1, Vsn),
 	    ssh_xfer:xf_send_names(XF, ReqId, NamesAndAttrs),
 	    Handles = lists:keyreplace(Handle, 1,
 				       State0#state.handles,
@@ -473,7 +487,7 @@ read_dir(State0 = #state{file_handler = FileMod, max_files = MaxLength, file_sta
 	    State0#state{handles = Handles, file_state = FS2};
 	{ok, Files} ->
 	    {ToSend, Cache} = lists:split(MaxLength, Files),
-	    {NamesAndAttrs, FS2} = get_attrs(AbsPath, ToSend, FileMod, FS1),
+	    {NamesAndAttrs, FS2} = get_attrs(AbsPath, ToSend, FileMod, FS1, Vsn),
 	    ssh_xfer:xf_send_names(XF, ReqId, NamesAndAttrs),
 	    Handles = lists:keyreplace(Handle, 1,
 				       State0#state.handles,
@@ -484,21 +498,74 @@ read_dir(State0 = #state{file_handler = FileMod, max_files = MaxLength, file_sta
 	    send_status({error, Error}, ReqId, State1)
     end.
 
+type_to_string(regular)   -> "-";
+type_to_string(directory) -> "d";
+type_to_string(symlink)   -> "s";
+type_to_string(device)   -> "?";
+type_to_string(undefined)   -> "?";
+type_to_string(other)   -> "?".
+
+%% Converts a numeric mode to its human-readable representation
+mode_to_string(Mode) ->
+    mode_to_string(Mode, "xwrxwrxwr", []).
+mode_to_string(Mode, [C|T], Acc) when Mode band 1 =:= 1 ->
+    mode_to_string(Mode bsr 1, T, [C|Acc]);
+mode_to_string(Mode, [_|T], Acc) ->
+    mode_to_string(Mode bsr 1, T, [$-|Acc]);
+mode_to_string(_, [], Acc) ->
+    Acc.
+
+%% Converts a POSIX time to a readable string
+time_to_string({{Y, Mon, Day}, {H, Min, _}}) ->
+    io_lib:format("~s ~2w ~s:~s ~w", [month(Mon), Day, two_d(H), two_d(Min), Y]).
+
+two_d(N) ->
+    tl(integer_to_list(N + 100)).
+
+month(1) -> "Jan";
+month(2) -> "Feb";
+month(3) -> "Mar";
+month(4) -> "Apr";
+month(5) -> "May";
+month(6) -> "Jun";
+month(7) -> "Jul";
+month(8) -> "Aug";
+month(9) -> "Sep";
+month(10) -> "Oct";
+month(11) -> "Nov";
+month(12) -> "Dec".
+
+longame({Name, Type, Size, Mtime, Mode, Uid, Gid}) ->
+	io_lib:format("~s~s ~4w/~-4w ~7w ~s ~s\n", 
+           [type_to_string(Type), mode_to_string(Mode),
+           Uid, Gid, Size, time_to_string(Mtime), Name]).
+
+%%% get_long_name: get file longname (version 3)
+%%% format output : -rwxr-xr-x   1 uid/gid    348911 Mar 25 14:29 t-filexfer
+get_long_name(FileName, I) when is_record(I, file_info) ->
+    longame({FileName, I#file_info.type, I#file_info.size, I#file_info.mtime, 
+        I#file_info.mode, I#file_info.uid, I#file_info.gid}).
 
 %%% get_attrs: get stat of each file and return
-get_attrs(RelPath, Files, FileMod, FS) ->
-    get_attrs(RelPath, Files, FileMod, FS, []).
+get_attrs(RelPath, Files, FileMod, FS, Vsn) ->
+    get_attrs(RelPath, Files, FileMod, FS, Vsn, []).
 
-get_attrs(_RelPath, [], _FileMod, FS, Acc) ->
+get_attrs(_RelPath, [], _FileMod, FS, _Vsn, Acc) ->
     {lists:reverse(Acc), FS};
-get_attrs(RelPath, [F | Rest], FileMod, FS0, Acc) ->
+get_attrs(RelPath, [F | Rest], FileMod, FS0, Vsn, Acc) ->
     Path = filename:absname(F, RelPath),
     case FileMod:read_link_info(Path, FS0) of
 	{{ok, Info}, FS1} ->
+		Name = if Vsn =< 3 ->
+			 LongName = get_long_name(F, Info),
+		     {F, LongName};
+		 true ->
+			 F
+	     end,
 	    Attrs = ssh_sftp:info_to_attr(Info),
-	    get_attrs(RelPath, Rest, FileMod, FS1, [{F, Attrs} | Acc]);
+	    get_attrs(RelPath, Rest, FileMod, FS1, Vsn, [{Name, Attrs} | Acc]);
 	{{error, enoent}, FS1} ->
-	    get_attrs(RelPath, Rest, FileMod, FS1, Acc);
+	    get_attrs(RelPath, Rest, FileMod, FS1, Vsn, Acc);
 	{Error, FS1} ->
 	    {Error, FS1}
     end.
@@ -508,7 +575,7 @@ close_our_file({_,Fd}, FileMod, FS0) ->
     FS1.
 
 %%% stat: do the stat
-stat(Vsn, ReqId, Data, State, F) ->
+stat(_Vsn, ReqId, Data, State, F) ->
     <<?UINT32(BLen), BPath:BLen/binary, _/binary>> = Data,
     stat(ReqId, unicode:characters_to_list(BPath), State, F).
 
@@ -940,14 +1007,19 @@ maybe_increase_recv_window(ConnectionManager, ChannelId, Options) ->
 %%%# Tracing
 %%%#
 
-dbg_trace(points,         _,  _) -> [terminate];
+ssh_dbg_trace_points() -> [terminate].
 
-dbg_trace(flags,  terminate,  _) -> [c];
-dbg_trace(on,     terminate,  _) -> dbg:tp(?MODULE,  terminate, 2, x);
-dbg_trace(off,    terminate,  _) -> dbg:ctpg(?MODULE, terminate, 2);
-dbg_trace(format, terminate, {call, {?MODULE,terminate, [Reason, State]}}) ->
+ssh_dbg_flags(terminate) -> [c].
+
+ssh_dbg_on(terminate) -> dbg:tp(?MODULE,  terminate, 2, x).
+
+ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 2).
+
+ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, State]}}) ->
     ["SftpD Terminating:\n",
      io_lib:format("Reason: ~p,~nState:~n~s", [Reason, wr_record(State)])
-    ].
+    ];
+ssh_dbg_format(terminate, {return_from, {?MODULE,terminate,2}, _Ret}) ->
+    skip.
 
 ?wr_record(state).

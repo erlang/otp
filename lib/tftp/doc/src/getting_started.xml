@@ -34,25 +34,25 @@
 
   <section>
     <title>General Information</title>
-    <p>The <seealso marker="tftp#start/1">start/1</seealso> function starts
+    <p>The <seemfa marker="tftp#start/1">start/1</seemfa> function starts
       a daemon process listening for UDP packets on a port. When it
       receives a request for read or write, it spawns a temporary server
       process handling the transfer.</p>
     <p>On the client side,
-      function <seealso marker="tftp#read_file/3">read_file/3</seealso>
-      and <seealso marker="tftp#write_file/3">write_file/3</seealso>
+      function <seemfa marker="tftp#read_file/3">read_file/3</seemfa>
+      and <seemfa marker="tftp#write_file/3">write_file/3</seemfa>
       spawn a temporary client process establishing
       contact with a TFTP daemon and perform the file transfer.</p>
     <p><c>tftp</c> uses a callback module to handle the file
       transfer. Two such callback modules are provided,
       <c>tftp_binary</c> and <c>tftp_file</c>. See
-      <seealso marker="tftp#read_file/3">read_file/3</seealso> and
-      <seealso marker="tftp#write_file/3">write_file/3</seealso> for details.
+      <seemfa marker="tftp#read_file/3">read_file/3</seemfa> and
+      <seemfa marker="tftp#write_file/3">write_file/3</seemfa> for details.
       You can also implement your own callback modules, see
-      <seealso marker="tftp#tftp_callback">CALLBACK FUNCTIONS</seealso>.
+      <seeerl marker="tftp#tftp_callback">CALLBACK FUNCTIONS</seeerl>.
       A callback module provided by
       the user is registered using option <c>callback</c>, see
-    <seealso marker="tftp#options">DATA TYPES</seealso>.</p>
+    <seeerl marker="tftp#options">DATA TYPES</seeerl>.</p>
   </section>
 
   <section>

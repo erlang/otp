@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2018</year>
+      <year>1997</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -44,21 +44,21 @@
     <p>In Windows, all functions return filenames with forward slashes
       only, even if the arguments contain backslashes. To normalize a
       filename by removing redundant directory separators, use
-      <seealso marker="#join/1"><c>join/1</c></seealso>.</p>
+      <seemfa marker="#join/1"><c>join/1</c></seemfa>.</p>
 
     <p>
       The module supports
-      <seealso marker="unicode_usage#notes-about-raw-filenames">raw
-      filenames</seealso> in the way that if a binary is
+      <seeguide marker="unicode_usage#notes-about-raw-filenames">raw
+      filenames</seeguide> in the way that if a binary is
       present, or the filename cannot be interpreted according to the return
-      value of <seealso marker="kernel:file#native_name_encoding/0">
-      <c>file:native_name_encoding/0</c></seealso>, a raw filename is also
+      value of <seemfa marker="kernel:file#native_name_encoding/0">
+      <c>file:native_name_encoding/0</c></seemfa>, a raw filename is also
       returned. For example, <c>join/1</c> provided with a path component
       that is a binary (and cannot be interpreted under the current
       native filename encoding) results in a raw filename that is returned
       (the join operation is performed of course). For more information
       about raw filenames, see the
-      <seealso marker="kernel:file"><c>file</c></seealso> module.</p>
+      <seeerl marker="kernel:file"><c>file</c></seeerl> module.</p>
 
     <note>
       <p>
@@ -123,7 +123,7 @@
       <fsummary>Convert a filename to an absolute name, relative a specified
         directory.</fsummary>
       <desc>
-        <p>Same as <seealso marker="#absname/1"><c>absname/1</c></seealso>,
+        <p>Same as <seemfa marker="#absname/1"><c>absname/1</c></seemfa>,
           except that the directory to which the filename is to be made
           relative is specified in argument <c><anno>Dir</anno></c>.</p>
       </desc>
@@ -134,7 +134,7 @@
       <fsummary>Join an absolute directory with a relative filename.</fsummary>
       <desc>
         <p>Joins an absolute directory with a relative filename. Similar to
-          <seealso marker="#join/2"><c>join/2</c></seealso>, but on platforms
+          <seemfa marker="#join/2"><c>join/2</c></seemfa>, but on platforms
           with tight restrictions on raw filename length and no support for
           symbolic links (read: VxWorks), leading parent directory components
           in <c><anno>Filename</anno></c> are matched against trailing
@@ -157,10 +157,10 @@
       <type variable="Application"/>
       <desc>
           <p>
-              Equivalent to <seealso marker="#basedir_3_1">
-              basedir(<anno>PathType</anno>, <anno>Application</anno>, #{})</seealso>
-	      or <seealso marker="#basedir_3_2">
-basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seealso>.
+              Equivalent to <seeerl marker="#basedir_3_1">
+              basedir(<anno>PathType</anno>, <anno>Application</anno>, #{})</seeerl>
+	      or <seeerl marker="#basedir_3_2">
+basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
           </p>
       </desc>
     </func>
@@ -390,54 +390,6 @@ true
     </func>
 
     <func>
-      <name name="find_src" arity="1" since=""/>
-      <name name="find_src" arity="2" since=""/>
-      <fsummary>Find the filename and compiler options for a module.</fsummary>
-      <desc>
-        <p>Finds the source filename and compiler options for a module.
-          The result can be fed to <seealso marker="compiler:compile#file/2">
-          <c>compile:file/2</c></seealso> to compile the file again.</p>
-        <warning>
-          <p>This function is deprecated. Use <seealso marker="filelib#find_source/1">
-            <c>filelib:find_source/1</c></seealso> instead for finding source files.</p>
-          <p>If possible, use the <seealso marker="beam_lib"><c>beam_lib(3)</c></seealso>
-          module to extract the compiler options and the abstract code
-          format from the Beam file and compile that instead.</p></warning>
-        <p>Argument <c><anno>Beam</anno></c>, which can be a string or an atom,
-          specifies either the module name or the path to the source
-          code, with or without extension <c>".erl"</c>. In either
-          case, the module must be known by the code server, that is,
-          <c>code:which(<anno>Module</anno>)</c> must succeed.</p>
-        <p><c><anno>Rules</anno></c> describes how the source directory can be
-          found when the object code directory is known. It is a list of
-          tuples <c>{<anno>BinSuffix</anno>, <anno>SourceSuffix</anno>}</c> and
-          is interpreted as follows: if the end of the directory name where the
-          object is located matches <c><anno>BinSuffix</anno></c>, then the
-	  name created by replacing <c><anno>BinSuffix</anno></c> with
-          <c><anno>SourceSuffix</anno></c> is expanded by calling
-	  <seealso marker="filelib#wildcard/1">
-	  <c>filelib:wildcard/1</c></seealso>.
-	  If a regular file is found among the matches, the function
-	  returns that location together with <c><anno>Options</anno></c>.
-          Otherwise the next rule is tried, and so on.</p>
-        <p><c><anno>Rules</anno></c> defaults
-          to:</p>
-        <code type="none">
-[{"", ""}, {"ebin", "src"}, {"ebin", "esrc"},
- {"ebin", "src/*"}, {"ebin", "esrc/*"}]</code>
-        <p>The function returns <c>{<anno>SourceFile</anno>,
-          <anno>Options</anno>}</c> if it succeeds.
-          <c><anno>SourceFile</anno></c> is the absolute path to the source
-          file without extension <c>".erl"</c>. <c><anno>Options</anno></c>
-          includes the options that are necessary to recompile the file with
-          <c>compile:file/2</c>, but excludes options such as <c>report</c>
-          and <c>verbose</c>, which do not change the way code is generated.
-          The paths in options <c>{outdir, <anno>Path</anno>}</c> and
-          <c>{i, Path}</c> are guaranteed to be absolute.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="flatten" arity="1" since=""/>
       <fsummary>Convert a filename to a flat string.</fsummary>
       <desc>
@@ -494,7 +446,7 @@ true
           shell and native applications on the current platform. On Windows,
           forward slashes are converted to backward slashes. On all
           platforms, the name is normalized as done by
-          <seealso marker="#join/1"><c>join/1</c></seealso>.</p>
+          <seemfa marker="#join/1"><c>join/1</c></seemfa>.</p>
         <p><em>Examples:</em></p>
         <pre>
 19> <input>filename:nativename("/usr/local/bin/").</input> % Unix
@@ -546,7 +498,7 @@ true
         <p><em>Examples:</em></p>
         <pre>
 20> <input>filename:rootname("/beam.src/kalle").</input>
-/beam.src/kalle"
+"/beam.src/kalle"
 21> <input>filename:rootname("/beam.src/foo.erl").</input>
 "/beam.src/foo"
 22> <input>filename:rootname("/beam.src/foo.erl", ".erl").</input>
@@ -570,6 +522,10 @@ true
           <item><p>A ".." component would climb up above the root of
           the relative path.</p></item>
         </list>
+        <warning>
+          <p>This function is deprecated. Use <seemfa marker="filelib#safe_relative_path/2">
+          <c>filelib:safe_relative_path/2</c></seemfa> instead for sanitizing paths.</p>
+        </warning>
         <p><em>Examples:</em></p>
         <pre>
 1> <input>filename:safe_relative_path("dir/sub_dir/..").</input>

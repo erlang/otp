@@ -25,7 +25,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+	 terminate/2]).
 
 -record(state, {port, mfa}).
 
@@ -91,31 +91,6 @@ terminate(_Reason, State) ->
 	    port_close(Port)
     end,
     ok.
-
-%% os_mon-2.0
-%% For live downgrade to/upgrade from os_mon-1.8[.1]
-code_change(Vsn, PrevState, "1.8") ->
-    case Vsn of
-
-	%% Downgrade from this version
-	{down, _Vsn} ->
-	    process_flag(trap_exit, false),
-
-	    %% Downgrade to old State tuple
-	    State = {PrevState#state.port, PrevState#state.mfa},
-	    {ok, State};
-
-	%% Upgrade to this version
-	_Vsn ->
-	    process_flag(trap_exit, true),
-
-	    %% Upgrade to this state record
-	    {Port, MFA} = PrevState,
-	    State = #state{port=Port, mfa=MFA},
-	    {ok, State}
-    end;
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
 
 %%----------------------------------------------------------------------
 %% Internal functions

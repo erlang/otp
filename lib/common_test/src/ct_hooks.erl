@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -363,7 +363,16 @@ terminate_if_scope_ends(HookId, Function0, Hooks) ->
     Function = strip_config(Function0),
     case lists:keyfind(HookId, #ct_hook_config.id, Hooks) of
         #ct_hook_config{ id = HookId, scope = Function} = Hook ->
-            terminate([Hook]),
+            case Function of
+                [AllOrGroup,_] when AllOrGroup=:=post_all;
+                                    AllOrGroup=:=post_groups ->
+                    %% The scope only contains one function (post_all
+                    %% or post_groups), and init has not been called,
+                    %% so skip terminate as well.
+                    ok;
+                _ ->
+                    terminate([Hook])
+            end,
             lists:keydelete(HookId, #ct_hook_config.id, Hooks);
         _ ->
             Hooks

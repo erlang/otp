@@ -34,6 +34,6 @@
   <modulesummary>Coordination of system startup.</modulesummary>
   <description>
   <p>This module is moved to the
-    <seealso marker="erts:init">ERTS</seealso> application.</p>
+    <seeerl marker="erts:init">ERTS</seeerl> application.</p>
   </description>
 </erlref>

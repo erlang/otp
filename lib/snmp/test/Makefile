@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2020. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +37,6 @@ VSN = $(SNMP_VSN)
 include modules.mk
 
 SNMP_ROOT = ..
-SNMP_SUITE = snmp_SUITE 
 
 ERL_FILES = $(MODULES:%=%.erl)
 
@@ -90,14 +89,8 @@ ifeq ($(SNMP_DEBUG),)
   # SNMP_DEBUG = d
 endif
 
-ifeq ($(SNMP_DEBUG),e)
-  SNMP_FLAGS += -Dsnmp_error
-endif
-ifeq ($(SNMP_DEBUG),l)
-  SNMP_FLAGS += -Dsnmp_error -Dsnmp_log
-endif
 ifeq ($(SNMP_DEBUG),d)
-  SNMP_FLAGS += -Dsnmp_error -Dsnmp_log -Dsnmp_debug
+  SNMP_FLAGS += -Dsnmp_debug
 endif
 
 ifeq ($(DONT_USE_TS),true)
@@ -117,10 +110,6 @@ endif
 GROUP_CHECK = +'{group_check,false}'
 
 SNMP_MIB_FLAGS += $(GROUP_CHECK) $(USE_DESCRIPTION) -I$(SNMP_BIN_TARGET_DIR)
-
-ifndef SUITE
-SUITE = snmp_SUITE
-endif
 
 ESTOP = -s init stop
 
@@ -145,6 +134,22 @@ endif
 # FLAGS
 # ----------------------------------------------------
 EBIN = .
+
+ifeq ($(SNMP_WARNING_AS_ERROR),)
+  ERL_COMPILE_FLAGS += -Werror
+else
+  ifeq ($(SNMP_WARNING_AS_ERROR),true)
+    ERL_COMPILE_FLAGS += -Werror
+  endif
+endif
+
+ifeq ($(WARN_UNUSED_VARS),)
+  ERL_COMPILE_FLAGS += +warn_unused_vars
+else
+  ifeq ($(WARN_UNUSED_VARS),true)
+    ERL_COMPILE_FLAGS += +warn_unused_vars
+  endif
+endif
 
 ERL_COMPILE_FLAGS += -I../../snmp/src/app \
                      -I../../snmp/src/misc \
@@ -180,7 +185,7 @@ emakebuild: $(EMAKEFILE)
 targets: mib $(EMAKEFILE) 
 	erl -make
 
-old_targets: $(TARGET_FILES) $(TEST_SERVER_TARGETS)
+old_targets: mib $(TARGET_FILES)
 
 $(EMAKEFILE):  Makefile
 	$(MAKE_EMAKE) $(ERL_COMPILE_FLAGS) -o$(EBIN) '*_SUITE_make' > $(EMAKEFILE)
@@ -193,30 +198,20 @@ clean:
 
 docs:
 
-appup: snmp_appup_mgr.$(EMULATOR)
-
 mib: $(MIB_TARGETS)
 
 make: old_targets
 
-test: make
-	$(MERL) $(ARGS) -sname snmp_test $(ERL_PATH) \
-            -s snmp_test_server run $(SUITE) \
-            $(MAYBE_ESTOP)
+test: agent manager
 
 agent: make
 	$(MERL) $(ARGS) -sname snmp_agent_test $(ERL_PATH) \
-            -s snmp_test_server run snmp_agent_test \
+            -s snmp_test_server run snmp_agent_SUITE \
             $(MAYBE_ESTOP)
 
 manager: make
 	$(MERL) $(ARGS) -sname snmp_manager_test $(ERL_PATH) \
-            -s snmp_test_server run snmp_manager_test \
-            $(MAYBE_ESTOP)
-
-appup: make
-	$(MERL) $(ARGS) -sname snmp_appup_test $(ERL_PATH) \
-            -s snmp_test_server run snmp_appup_test \
+            -s snmp_test_server run snmp_manager_SUITE \
             $(MAYBE_ESTOP)
 
 

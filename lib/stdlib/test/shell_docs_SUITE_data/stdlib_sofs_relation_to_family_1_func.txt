@@ -1,0 +1,14 @@
+
+  [;1m-spec relation_to_family(BinRel) -> Family[0m
+  [;1m                            when[0m
+  [;1m                                Family :: family(),[0m
+  [;1m                                BinRel :: binary_relation().[0m
+
+  Returns family [;;4mFamily[0m such that the index set is equal to the 
+  domain of the binary relation [;;4mBinRel[0m, and [;;4mFamily[0m[i] is the 
+  image of the set of i under [;;4mBinRel[0m.
+
+    1> R = sofs:relation([{b,1},{c,2},{c,3}]),
+    F = sofs:relation_to_family(R),
+    sofs:to_external(F).
+    [{b,[1]},{c,[2,3]}]

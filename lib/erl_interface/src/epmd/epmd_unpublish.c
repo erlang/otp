@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,16 +21,6 @@
 #include <winsock2.h>
 #include <windows.h>
 #include <winbase.h>
-
-#elif  VXWORKS
-#include <vxWorks.h>
-#include <ifLib.h>
-#include <sockLib.h>
-#include <inetLib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 
 #else
 #include <unistd.h>

@@ -19,8 +19,8 @@
 
 -module(alloc_SUITE).
 -author('rickard.green@uab.ericsson.se').
--export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
-
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2,
+	 init_per_suite/1, end_per_suite/1]).
 -export([basic/1,
 	 coalesce/1,
 	 threads/1,
@@ -32,7 +32,8 @@
 	 erts_mmap/1,
 	 cpool/1,
          set_dyn_param/1,
-	 migration/1]).
+	 migration/1,
+         cpool_opt/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -43,7 +44,20 @@ suite() ->
 all() -> 
     [basic, coalesce, threads, realloc_copy, bucket_index,
      set_dyn_param,
-     bucket_mask, rbtree, mseg_clear_cache, erts_mmap, cpool, migration].
+     bucket_mask, rbtree, mseg_clear_cache, erts_mmap, cpool, migration,
+     cpool_opt].
+
+init_per_suite(Config) ->
+    case test_server:memory_checker() of
+	MC when MC =:= valgrind; MC =:= asan ->
+	    %% No point testing own allocators under valgrind or asan.
+	    {skip, "Memory checker " ++ atom_to_list(MC)};
+	none ->
+	    Config
+    end.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     [{testcase, Case},{debug,false}|Config].
@@ -71,7 +85,53 @@ migration(Cfg) ->
     %% Disable driver_alloc to avoid recursive alloc_util calls
     %% through enif_mutex_create() in my_creating_mbc().
     drv_case(Cfg, concurrent, "+MZe true +MRe false"),
-    drv_case(Cfg, concurrent, "+MZe true +MRe false +MZas ageffcbf").
+    drv_case(Cfg, concurrent, "+MZe true +MRe false +MZas ageffcbf"),
+    drv_case(Cfg, concurrent, "+MZe true +MRe false +MZas chaosff").
+
+cpool_opt(Config) when is_list(Config) ->
+    OldEnv = clear_env(),
+    try
+        {ok, NodeA} = start_node(Config, "+Mue true +Mut true +Muacul de +Mucp @", []),
+        {cp, '@'} = get_cp_opt(NodeA, binary_alloc),
+        {cp, '@'} = get_cp_opt(NodeA, std_alloc),
+        {cp, '@'} = get_cp_opt(NodeA, ets_alloc),
+        {cp, '@'} = get_cp_opt(NodeA, fix_alloc),
+        {cp, '@'} = get_cp_opt(NodeA, eheap_alloc),
+        {cp, '@'} = get_cp_opt(NodeA, ll_alloc),
+        {cp, '@'} = get_cp_opt(NodeA, driver_alloc),
+        {cp, '@'} = get_cp_opt(NodeA, sl_alloc),
+        stop_node(NodeA),
+        {ok, NodeB} = start_node(Config, "+Mue true +Mut true +Muacul de +Mucp :", []),
+        {cp, 'B'} = get_cp_opt(NodeB, binary_alloc),
+        {cp, 'D'} = get_cp_opt(NodeB, std_alloc),
+        {cp, 'E'} = get_cp_opt(NodeB, ets_alloc),
+        {cp, 'F'} = get_cp_opt(NodeB, fix_alloc),
+        {cp, 'H'} = get_cp_opt(NodeB, eheap_alloc),
+        {cp, 'L'} = get_cp_opt(NodeB, ll_alloc),
+        {cp, 'R'} = get_cp_opt(NodeB, driver_alloc),
+        {cp, 'S'} = get_cp_opt(NodeB, sl_alloc),
+        stop_node(NodeB),
+        {ok, NodeC} = start_node(Config, "+Mue true +Mut true +Muacul de +Mucp : +MEcp H", []),
+        {cp, 'B'} = get_cp_opt(NodeC, binary_alloc),
+        {cp, 'D'} = get_cp_opt(NodeC, std_alloc),
+        {cp, 'H'} = get_cp_opt(NodeC, ets_alloc),
+        {cp, 'F'} = get_cp_opt(NodeC, fix_alloc),
+        {cp, 'H'} = get_cp_opt(NodeC, eheap_alloc),
+        {cp, 'L'} = get_cp_opt(NodeC, ll_alloc),
+        {cp, 'R'} = get_cp_opt(NodeC, driver_alloc),
+        {cp, 'S'} = get_cp_opt(NodeC, sl_alloc),
+        stop_node(NodeC)
+    after
+        restore_env(OldEnv)
+    end,
+    ok.
+
+get_cp_opt(Node, Alloc) ->
+    AInfo = rpc:call(Node, erlang, system_info, [{allocator,Alloc}]),
+    {instance, 1, IList} = lists:keyfind(1, 2, AInfo),
+    {options, OList} = lists:keyfind(options, 1, IList),
+    lists:keyfind(cp, 1, OList).
+    
 
 erts_mmap(Config) when is_list(Config) ->
     case {os:type(), mmsc_flags()} of
@@ -301,45 +361,52 @@ wait_for_memory_deallocations() ->
     end.
 
 print_stats(migration) ->
-    IFun = fun({instance,Inr,Istats}, {Bacc,Cacc,Pacc}) ->
-                   {mbcs,MBCS} = lists:keyfind(mbcs, 1, Istats),
-                   Btup = lists:keyfind(blocks, 1, MBCS),
-                   Ctup = lists:keyfind(carriers, 1, MBCS),
+    IFun = fun({instance,_,Stats}, {Regular0, Pooled0}) ->
+                   {mbcs,MBCS} = lists:keyfind(mbcs, 1, Stats),
+                   {sbcs,SBCS} = lists:keyfind(sbcs, 1, Stats),
 
-                   Ptup = case lists:keyfind(mbcs_pool, 1, Istats) of
-                              {mbcs_pool,POOL} ->
-                                  {blocks, Bpool} = lists:keyfind(blocks, 1, POOL),
-                                  {carriers, Cpool} = lists:keyfind(carriers, 1, POOL),
-                                  {pool, Bpool, Cpool};
-                              false ->
-                                  {pool, 0, 0}
-                          end,
-                   io:format("{instance,~p,~p,~p,~p}}\n",
-                             [Inr, Btup, Ctup, Ptup]),
-                   {tuple_add(Bacc,Btup),tuple_add(Cacc,Ctup),
-                    tuple_add(Pacc,Ptup)};
-              (_, Acc) -> Acc
+                   Regular = MBCS ++ SBCS ++ Regular0,
+                   case lists:keyfind(mbcs_pool, 1, Stats) of
+                        {mbcs_pool,Pool} -> {Regular, Pool ++ Pooled0};
+                        false -> {Regular, Pooled0}
+                   end;
+              (_, Acc) ->
+                  Acc
            end,
 
-    {Btot,Ctot,Ptot} = lists:foldl(IFun,
-                                   {{blocks,0,0,0},{carriers,0,0,0},{pool,0,0}},
-                                   erlang:system_info({allocator,test_alloc})),
+    Stats = erlang:system_info({allocator,test_alloc}),
+    {Regular, Pooled} = lists:foldl(IFun, {[], []}, Stats),
 
-    {pool, PBtot, PCtot} = Ptot,
-    io:format("Number of blocks  : ~p\n", [Btot]),
-    io:format("Number of carriers: ~p\n", [Ctot]),
-    io:format("Number of pooled blocks  : ~p\n", [PBtot]),
-    io:format("Number of pooled carriers: ~p\n", [PCtot]);
-print_stats(_) -> ok.
+    {RegBlocks, RegCarriers} = summarize_alloc_stats(Regular, {0, 0}),
+    {PooledBlocks, PooledCarriers} = summarize_alloc_stats(Pooled, {0, 0}),
 
-tuple_add(T1, T2) ->
-    list_to_tuple(lists:zipwith(fun(E1,E2) when is_number(E1), is_number(E2) ->
-					 E1 + E2;
-				    (A,A) ->
-					 A
-				 end,
-				 tuple_to_list(T1), tuple_to_list(T2))).
+    io:format("Number of blocks  : ~p\n", [RegBlocks]),
+    io:format("Number of carriers: ~p\n", [RegCarriers]),
+    io:format("Number of pooled blocks  : ~p\n", [PooledBlocks]),
+    io:format("Number of pooled carriers: ~p\n", [PooledCarriers]);
+print_stats(_) ->
+    ok.
 
+summarize_alloc_stats([{blocks,L} | Rest], {Blocks0, Carriers}) ->
+    Blocks = count_blocks([S || {_Type, S} <- L], Blocks0),
+    summarize_alloc_stats(Rest, {Blocks, Carriers});
+summarize_alloc_stats([{carriers, Count, _, _} | Rest], {Blocks, Carriers0}) ->
+    summarize_alloc_stats(Rest, {Blocks, Carriers0 + Count});
+summarize_alloc_stats([{carriers, Count} | Rest], {Blocks, Carriers0}) ->
+    summarize_alloc_stats(Rest, {Blocks, Carriers0 + Count});
+summarize_alloc_stats([_ | Rest], Acc) ->
+    summarize_alloc_stats(Rest, Acc);
+summarize_alloc_stats([], Acc) ->
+    Acc.
+
+count_blocks([{count, Count, _, _} | Rest], Acc) ->
+    count_blocks(Rest, Acc + Count);
+count_blocks([{count, Count} | Rest], Acc) ->
+    count_blocks(Rest, Acc + Count);
+count_blocks([_ | Rest], Acc) ->
+    count_blocks(Rest, Acc);
+count_blocks([], Acc) ->
+    Acc.
 
 one_shot(CaseName) ->
     State = CaseName:start({1, 0, erlang:system_info(build_type)}),
@@ -362,7 +429,7 @@ many_shot(CaseName, I, Mem) ->
     Result1.
 
 concurrent(CaseName) ->
-    NSched = erlang:system_info(schedulers),
+    NSched = erlang:system_info(schedulers_online),
     Mem = (free_memory() * 3) div 4,
     PRs = lists:map(fun(I) -> spawn_opt(fun() ->
 						many_shot(CaseName, I,
@@ -470,4 +537,40 @@ free_memory() ->
 	error : undef ->
 	    ct:fail({"os_mon not built"})
     end.
+
+clear_env() ->
+    ErlRelFlagsName =
+        "ERL_OTP"
+        ++ erlang:system_info(otp_release)
+        ++ "_FLAGS",
+    ErlFlags = os:getenv("ERL_FLAGS"),
+    os:unsetenv("ERL_FLAGS"),
+    ErlAFlags = os:getenv("ERL_AFLAGS"),
+    os:unsetenv("ERL_AFLAGS"),
+    ErlZFlags = os:getenv("ERL_ZFLAGS"),
+    os:unsetenv("ERL_ZFLAGS"),
+    ErlRelFlags = os:getenv(ErlRelFlagsName),
+    os:unsetenv(ErlRelFlagsName),
+    {ErlFlags, ErlAFlags, ErlZFlags, ErlRelFlags}.
+
+restore_env({ErlFlags, ErlAFlags, ErlZFlags, ErlRelFlags}) ->
+    if ErlFlags == false -> ok;
+       true -> os:putenv("ERL_FLAGS", ErlFlags)
+    end,
+    if ErlAFlags == false -> ok;
+       true -> os:putenv("ERL_AFLAGS", ErlAFlags)
+    end,
+    if ErlZFlags == false -> ok;
+       true -> os:putenv("ERL_ZFLAGS", ErlZFlags)
+    end,
+    if ErlRelFlags == false -> ok;
+       true ->
+            ErlRelFlagsName =
+                "ERL_OTP"
+                ++ erlang:system_info(otp_release)
+                ++ "_FLAGS",
+            os:putenv(ErlRelFlagsName, ErlRelFlags)
+    end,
+    ok.
+
 

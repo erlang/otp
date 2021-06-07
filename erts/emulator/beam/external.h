@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,8 +56,12 @@
 #define FUN_EXT           'u'
 #define ATOM_UTF8_EXT     'v'
 #define SMALL_ATOM_UTF8_EXT 'w'
+#define V4_PORT_EXT       'x'
 
 #define DIST_HEADER       'D'
+#define DIST_FRAG_HEADER  'E'
+#define DIST_FRAG_CONT    'F'
+#define HOPEFUL_DATA      'H'
 #define ATOM_CACHE_REF    'R'
 #define ATOM_INTERNAL_REF2 'I'
 #define ATOM_INTERNAL_REF3 'K'
@@ -87,6 +91,8 @@
 #include "erl_node_tables.h"
 #undef ERL_NODE_TABLES_BASIC_ONLY
 #include "erl_alloc.h"
+
+#define ERTS_NO_HIX (~((Uint32) 0))
 
 #define ERTS_ATOM_CACHE_SIZE 2048
 
@@ -120,25 +126,28 @@ typedef struct {
 #define ERTS_DIST_EXT_ATOM_TRANS_TAB ((Uint32) 0x2)
 #define ERTS_DIST_EXT_BTT_SAFE       ((Uint32) 0x4)
 
-#define ERTS_DIST_CON_ID_MASK ((Uint32) 0x00ffffff) /* also in net_kernel.erl */
+#define ERTS_DIST_CON_ID_MASK ((Uint32) 0x00ffffff)
 
-typedef struct {
-    DistEntry *dep;
+struct binary;
+typedef struct erl_dist_external_data ErtsDistExternalData;
+
+struct erl_dist_external_data {
+    Uint64 seq_id;
+    Uint64 frag_id;
     byte *extp;
     byte *ext_endp;
+    struct binary *binp;
+};
+
+typedef struct erl_dist_external {
     Sint heap_size;
-    Uint32 connection_id;
+    DistEntry *dep;
     Uint32 flags;
+    Uint32 connection_id;
+    ErtsDistExternalData *data;
+    struct ErtsMonLnkDist__ *mld;   /* copied from DistEntry.mld */
     ErtsAtomTranslationTable attab;
 } ErtsDistExternal;
-
-#define ERTS_DIST_EXT_SIZE(EDEP) \
-  (sizeof(ErtsDistExternal) \
-   - (((EDEP)->flags & ERTS_DIST_EXT_ATOM_TRANS_TAB) \
-      ? (ASSERT(0 <= (EDEP)->attab.size \
-		&& (EDEP)->attab.size <= ERTS_ATOM_CACHE_SIZE), \
-	 sizeof(Eterm)*(ERTS_ATOM_CACHE_SIZE - (EDEP)->attab.size)) \
-      : sizeof(ErtsAtomTranslationTable)))
 
 typedef struct {
     byte *extp;
@@ -149,49 +158,66 @@ typedef struct {
 
 
 /* -------------------------------------------------------------------------- */
+struct TTBSizeContext_;
+struct TTBEncodeContext_;
 
 void erts_init_atom_cache_map(ErtsAtomCacheMap *);
 void erts_reset_atom_cache_map(ErtsAtomCacheMap *);
 void erts_destroy_atom_cache_map(ErtsAtomCacheMap *);
-void erts_finalize_atom_cache_map(ErtsAtomCacheMap *, Uint32);
+void erts_finalize_atom_cache_map(ErtsAtomCacheMap *, Uint64);
 
-Uint erts_encode_ext_dist_header_size(ErtsAtomCacheMap *);
-byte *erts_encode_ext_dist_header_setup(byte *, ErtsAtomCacheMap *);
-Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf*, DistEntry *, Uint32 dflags, Sint reds);
+Uint erts_encode_ext_dist_header_size(struct TTBEncodeContext_ *ctx, ErtsAtomCacheMap *, Uint);
+byte *erts_encode_ext_dist_header_setup(struct TTBEncodeContext_ *ctx, byte *,
+                                        ErtsAtomCacheMap *, Uint, Eterm);
+byte *erts_encode_ext_dist_header_fragment(byte **, Uint, Eterm);
+Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf*, DistEntry *, Uint64 dflags, Sint reds);
 struct erts_dsig_send_context;
-int erts_encode_dist_ext_size(Eterm, Uint32, ErtsAtomCacheMap*, Uint* szp);
-int erts_encode_dist_ext_size_int(Eterm term, struct erts_dsig_send_context* ctx, Uint* szp);
-struct TTBEncodeContext_;
-int erts_encode_dist_ext(Eterm, byte **, Uint32, ErtsAtomCacheMap *,
-			  struct TTBEncodeContext_ *, Sint* reds);
 
-Uint erts_encode_ext_size(Eterm);
-Uint erts_encode_ext_size_2(Eterm, unsigned);
+typedef enum {
+    ERTS_EXT_SZ_OK,
+    ERTS_EXT_SZ_YIELD,
+    ERTS_EXT_SZ_SYSTEM_LIMIT
+} ErtsExtSzRes;
+
+ErtsExtSzRes erts_encode_dist_ext_size(Eterm term, ErtsAtomCacheMap *acmp,
+                                       struct TTBSizeContext_ *ctx,
+                                       Uint* szp, Sint *redsp,
+                                       Sint *vlenp, Uint *fragments);
+int erts_encode_dist_ext(Eterm, byte **, Uint64, ErtsAtomCacheMap *,
+                         struct TTBEncodeContext_ *, Uint *,
+                         Sint *);
+ErtsExtSzRes erts_encode_ext_size(Eterm, Uint *szp);
+ErtsExtSzRes erts_encode_ext_size_2(Eterm, unsigned, Uint *szp);
 Uint erts_encode_ext_size_ets(Eterm);
 void erts_encode_ext(Eterm, byte **);
 byte* erts_encode_ext_ets(Eterm, byte *, struct erl_off_heap_header** ext_off_heap);
 
-ERTS_GLB_INLINE void erts_free_dist_ext_copy(ErtsDistExternal *);
-ERTS_GLB_INLINE void *erts_dist_ext_trailer(ErtsDistExternal *);
-ErtsDistExternal *erts_make_dist_ext_copy(ErtsDistExternal *, Uint);
-void *erts_dist_ext_trailer(ErtsDistExternal *);
-void erts_destroy_dist_ext_copy(ErtsDistExternal *);
+Uint erts_dist_ext_size(ErtsDistExternal *);
+Uint erts_dist_ext_data_size(ErtsDistExternal *);
+void erts_free_dist_ext_copy(ErtsDistExternal *);
+void erts_make_dist_ext_copy(ErtsDistExternal *, ErtsDistExternal *);
+void erts_dist_ext_frag(ErtsDistExternalData *, ErtsDistExternal *);
+#define erts_get_dist_ext(HFRAG) ((ErtsDistExternal*)((HFRAG)->mem + (HFRAG)->used_size))
 
-#define ERTS_PREP_DIST_EXT_FAILED       (-1)
-#define ERTS_PREP_DIST_EXT_SUCCESS      (0)
-#define ERTS_PREP_DIST_EXT_CLOSED       (1)
+typedef enum {
+    ERTS_PREP_DIST_EXT_FAILED,
+    ERTS_PREP_DIST_EXT_SUCCESS,
+    ERTS_PREP_DIST_EXT_FRAG_CONT,
+    ERTS_PREP_DIST_EXT_CLOSED
+} ErtsPrepDistExtRes;
 
-int erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint,
-			  DistEntry *, Uint32 conn_id, ErtsAtomCache *);
-Sint erts_decode_dist_ext_size(ErtsDistExternal *);
-Eterm erts_decode_dist_ext(ErtsHeapFactory* factory, ErtsDistExternal *);
+ErtsPrepDistExtRes erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint, struct binary *,
+                                         DistEntry *, Uint32, ErtsAtomCache *);
+Sint erts_decode_dist_ext_size(ErtsDistExternal *, int, int);
+Eterm erts_decode_dist_ext(ErtsHeapFactory*, ErtsDistExternal *, int);
 
-Sint erts_decode_ext_size(byte*, Uint);
-Sint erts_decode_ext_size_ets(byte*, Uint);
-Eterm erts_decode_ext(ErtsHeapFactory*, byte**, Uint32 flags);
-Eterm erts_decode_ext_ets(ErtsHeapFactory*, byte*);
+Sint erts_decode_ext_size(const byte*, Uint);
+Sint erts_decode_ext_size_ets(const byte*, Uint);
+Eterm erts_decode_ext(ErtsHeapFactory*, const byte**, Uint32 flags);
+Eterm erts_decode_ext_ets(ErtsHeapFactory*, const byte*);
 
-Eterm erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags);
+Eterm erts_term_to_binary(Process* p, Eterm Term, int level, Uint64 flags);
+Eterm erts_debug_term_to_binary(Process *p, Eterm term, Eterm opts);
 
 Sint erts_binary2term_prepare(ErtsBinary2TermState *, byte *, Sint);
 void erts_binary2term_abort(ErtsBinary2TermState *);
@@ -199,26 +225,5 @@ Eterm erts_binary2term_create(ErtsBinary2TermState *, ErtsHeapFactory*);
 int erts_debug_max_atom_out_cache_index(void);
 int erts_debug_atom_to_out_cache_index(Eterm);
 void transcode_free_ctx(DistEntry* dep);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE void
-erts_free_dist_ext_copy(ErtsDistExternal *edep)
-{
-    if (edep->dep)
-	erts_deref_dist_entry(edep->dep);
-    erts_free(ERTS_ALC_T_EXT_TERM_DATA, edep);
-}
-
-ERTS_GLB_INLINE void *
-erts_dist_ext_trailer(ErtsDistExternal *edep)
-{
-    void *res = (void *) (edep->ext_endp
-			  + ERTS_EXTRA_DATA_ALIGN_SZ(edep->ext_endp));
-    ASSERT((((UWord) res) % sizeof(Uint)) == 0);
-    return res;
-}
-
-#endif
 
 #endif /* ERL_EXTERNAL_H__ */

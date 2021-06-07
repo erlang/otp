@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,13 +23,60 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet.hrl").
--include_lib("ssh/src/ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
--include_lib("ssh/src/ssh_transport.hrl").
--include_lib("ssh/src/ssh_auth.hrl").
+-include("ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
+-include("ssh_transport.hrl").
+-include("ssh_auth.hrl").
 -include("ssh_test_lib.hrl").
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         bad_long_service_name/1,
+         bad_packet_length/2,
+         bad_service_name/1,
+         bad_service_name/2,
+         bad_service_name_length/2,
+         bad_service_name_then_correct/1,
+         bad_very_long_service_name/1,
+         client_handles_keyboard_interactive_0_pwds/1,
+         client_info_line/1,
+         do_gex_client_init/3,
+         do_gex_client_init_old/3,
+         empty_service_name/1,
+         ext_info_c/1,
+         ext_info_s/1,
+         gex_client_init_option_groups/1,
+         gex_client_init_option_groups_file/1,
+         gex_client_init_option_groups_moduli_file/1,
+         gex_client_old_request_exact/1,
+         gex_client_old_request_noexact/1,
+         gex_server_gex_limit/1,
+         lib_match/1,
+         lib_no_match/1,
+         lib_works_as_client/1,
+         lib_works_as_server/1,
+         modify_append/1,
+         modify_combo/1,
+         modify_prepend/1,
+         modify_rm/1,
+         no_common_alg_client_disconnects/1,
+         no_common_alg_server_disconnects/1,
+         no_ext_info_s1/1,
+         no_ext_info_s2/1,
+         packet_length_too_large/1,
+         packet_length_too_short/1,
+         preferred_algorithms/1,
+         service_name_length_too_large/1,
+         service_name_length_too_short/1
+        ]).
 
 -define(NEWLINE, <<"\r\n">>).
 -define(REKEY_DATA_TMO, 65000).
@@ -38,7 +85,11 @@
 -define(EXTRA_KEX, 'diffie-hellman-group1-sha1').
 
 -define(CIPHERS, ['aes256-ctr','aes192-ctr','aes128-ctr','aes128-cbc','3des-cbc']).
--define(DEFAULT_CIPHERS, [{client2server,?CIPHERS}, {server2client,?CIPHERS}]).
+-define(DEFAULT_CIPHERS, (fun() -> Ciphs = filter_supported(cipher, ?CIPHERS),
+                                   [{client2server,Ciphs}, {server2client,Ciphs}]
+                          end)()
+        ).
+
 
 -define(v(Key, Config), proplists:get_value(Key, Config)).
 -define(v(Key, Config, Default), proplists:get_value(Key, Config, Default)).
@@ -415,7 +466,7 @@ do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
 	    [{silently_accept_hosts, true},
 	     {user_dir, user_dir(Config)},
 	     {user_interaction, false},
-	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha1']},
+	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha256']},
                                     {cipher,?DEFAULT_CIPHERS}
                                    ]}
 	    ]},
@@ -450,7 +501,7 @@ do_gex_client_init_old(Config, N, {G,P}) ->
 	    [{silently_accept_hosts, true},
 	     {user_dir, user_dir(Config)},
 	     {user_interaction, false},
-	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha1']},
+	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha256']},
                                     {cipher,?DEFAULT_CIPHERS}
                                    ]}
 	    ]},
@@ -903,10 +954,8 @@ stop_apps(_Config) ->
 
 
 setup_dirs(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-    ssh_test_lib:setup_rsa(DataDir, PrivDir),
+    ct:log("Pub keys setup for: ~p",
+           [ssh_test_lib:setup_all_user_host_keys(Config)]),
     Config.
 
 system_dir(Config) -> filename:join(proplists:get_value(priv_dir, Config), system).
@@ -977,6 +1026,7 @@ std_connect(Host, Port, Config, Opts) ->
 		%% Prefere User's Opts to the default opts
 		[O || O = {Tag,_} <- [{user,User},{password,Pwd},
 				      {silently_accept_hosts, true},
+                                      {save_accepted_host, false},
 				      {user_dir, user_dir(Config)},
 				      {user_interaction, false}],
 		      not lists:keymember(Tag, 1, Opts)

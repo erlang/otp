@@ -76,6 +76,11 @@
 -define(ALTERNATIVE_UNDECODED,alt_undec).
 -define(ALTERNATIVE_PARTS,alt_parts).
 
+%% Removed functions
+
+-removed({decode,'_',"use Mod:decode/2 instead"}).
+-removed({encode,'_',"use Mod:encode/2 instead"}).
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This is the interface to the compiler
 
@@ -860,6 +865,7 @@ init_gen_record(EncodingRule, Options) ->
                 _ -> EncodingRule
             end,
     Der = proplists:get_bool(der, Options),
+    Jer = proplists:get_bool(jer, Options) andalso (EncodingRule =/= jer),
     Aligned = EncodingRule =:= per,
     RecPrefix = proplists:get_value(record_name_prefix, Options, ""),
     MacroPrefix = proplists:get_value(macro_name_prefix, Options, ""),
@@ -867,7 +873,7 @@ init_gen_record(EncodingRule, Options) ->
                true -> map;
                false -> record
            end,
-    #gen{erule=Erule,der=Der,aligned=Aligned,
+    #gen{erule=Erule,der=Der,jer=Jer,aligned=Aligned,
          rec_prefix=RecPrefix,macro_prefix=MacroPrefix,
          pack=Pack,options=Options}.
 
@@ -1010,11 +1016,11 @@ input_file_type(File) ->
 	    case file:read_file_info(lists:concat([File,".asn1"])) of
 		{ok,_FileInfo} ->
 		    {single_file, lists:concat([File,".asn1"])};
-		_Error ->
+		_ ->
 		    case file:read_file_info(lists:concat([File,".asn"])) of
 			{ok,_FileInfo} ->
 			    {single_file, lists:concat([File,".asn"])};
-			_Error ->
+			_ ->
 			    case file:read_file_info(lists:concat([File,".py"])) of
 				{ok,_FileInfo} ->
 				    {single_file, lists:concat([File,".py"])};
@@ -1078,7 +1084,7 @@ get_file_list1(Stream,Dir,Includes,Acc) ->
     end.
 
 get_rule(Options) ->
-    case [Rule || Rule <- [ber,per,uper],
+    case [Rule || Rule <- [ber,per,uper,jer],
 		  Opt <- Options,
 		  Rule =:= Opt] of
 	[Rule] ->
@@ -1688,6 +1694,9 @@ create_pdec_command(ModName,{'CHOICE',[Comp=#'ComponentType'{name=C1}|_]},TNL=[C
     create_pdec_command(ModName,[Comp],TNL,Acc);
 create_pdec_command(ModName,{'CHOICE',[#'ComponentType'{}|Comps]},TNL,Acc) ->
     create_pdec_command(ModName,{'CHOICE',Comps},TNL,Acc);
+create_pdec_command(ModName,{'CHOICE',{Cs1,Cs2}},TNL,Acc)
+  when is_list(Cs1),is_list(Cs2) ->
+    create_pdec_command(ModName,{'CHOICE',Cs1 ++ Cs2},TNL,Acc);
 create_pdec_command(ModName,#'Externaltypereference'{module=M,type=C1},
 		    TypeNameList,Acc) ->
      #type{def=Def} = get_referenced_type(M,C1),

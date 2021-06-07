@@ -122,6 +122,7 @@ release_tests_spec: opt
 	cp $(XML_FILES) "$(RELSYSDIR)"
 	@tar cfh - xmerl_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	@tar cfh - xmerl_std_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cfh - xmerl_sax_std_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	@tar cfh - xmerl_xsd_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	@tar cfh - xmerl_xsd_MS2002-01-16_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	@tar cfh - xmerl_xsd_NIST2002-01-16_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)

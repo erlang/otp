@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2018</year>
+      <year>2020</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -34,6 +34,309 @@
     <rev>A</rev>
     <file>notes.xml</file>
   </header>
+
+<section><title>Public_Key 1.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    TLS connections now support EdDSA certificates.</p>
+          <p>
+	    Own Id: OTP-17142 Aux Id: PR-4756, GH-4637, GH-4650 </p>
+        </item>
+        <item>
+          <p>
+	    The functions public_key:ssh_encode/2,
+	    public_key:ssh_decode/2,
+	    public_key:ssh_hostkey_fingerprint/1 and
+	    public_key:ssh_hostkey_fingerprint/2 are deprecated.</p>
+          <p>
+	    Replacement functions are available in SSH, see the
+	    <seeguide
+	    marker="system/general_info:deprecations#otp-24">Deprecations</seeguide>
+	    chapter in the Erlang/OTP documentation.</p>
+          <p>
+	    Own Id: OTP-17352</p>
+        </item>
+        <item>
+          <p>
+	    Enhance documentation and logging of certificate
+	    handling.</p>
+          <p>
+	    Own Id: OTP-17384 Aux Id: GH-4800 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed case insensitive hostname check.</p>
+          <p>
+	    Own Id: OTP-17242 Aux Id: GH-4500 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add sanity check of trusted anchor certificate expiration
+	    to pkix_path_validation/3. Although the anchor is
+	    considered a trusted input this sanity check does provide
+	    extra security for the users of the public_key
+	    application as this property needs to be checked at time
+	    of usage and fits very well with the other checks
+	    performed here.</p>
+          <p>
+	    Own Id: OTP-16907</p>
+        </item>
+        <item>
+          <p>
+	    Adjust generation of test certificates to conform to RFC
+	    5280 rules for formatting of the certificates validity</p>
+          <p>
+	    Own Id: OTP-17111</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.9.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Corrected dialyzer spec for pkix_path_validation/3</p>
+          <p>
+	    Own Id: OTP-17069</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix the issue that pem_decode will crash with an invalid
+	    input.</p>
+          <p>
+	    Own Id: OTP-16902 Aux Id: ERIERL-534 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed an insignificant whitespace issue when decoding PEM
+	    file.</p>
+          <p>
+	    Own Id: OTP-16801 Aux Id: ERL-1309 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Experimental OCSP client support.</p>
+          <p>
+	    Own Id: OTP-16448</p>
+        </item>
+        <item>
+          <p>
+	    Use user returned path validation error for selfsigned
+	    cert. It allows users of the ssl application to customize
+	    the generated TLS alert, within the range of defined
+	    alerts.</p>
+          <p>
+	    Own Id: OTP-16592</p>
+        </item>
+        <item>
+          <p>
+	    add API function to retrieve the subject-ID of an X509
+	    certificate</p>
+          <p>
+	    Own Id: OTP-16705</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added support for RSA-PSS signature schemes</p>
+          <p>
+	    Own Id: OTP-15247</p>
+        </item>
+        <item>
+          <p>
+	    Calls of deprecated functions in the <seeguide
+	    marker="crypto:new_api#the-old-api">Old Crypto
+	    API</seeguide> are replaced by calls of their <seeguide
+	    marker="crypto:new_api#the-new-api">substitutions</seeguide>.</p>
+          <p>
+	    Own Id: OTP-16346</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.7.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support for key exchange with Edward curves and
+	    PSS-RSA padding in signature verification.</p>
+          <p>
+	    Own Id: OTP-16528</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrected CRL handling which could cause CRL verification
+	    to fail. This could happen when the CRL distribution
+	    point explicitly specifies the CRL issuer, that is not
+	    using the fallback.</p>
+          <p>
+	    Own Id: OTP-16156 Aux Id: ERL-1030 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Support Password based encryption with AES</p>
+          <p>
+	    Own Id: OTP-15870 Aux Id: ERL-952 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change dialyzer spec to avoid confusion</p>
+          <p>
+	    Own Id: OTP-15843 Aux Id: ERL-915 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.6.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    RSA options passed to crypto for encrypt and decrypt with
+	    public or private key.</p>
+          <p>
+	    Own Id: OTP-15754 Aux Id: ERL-878 </p>
+        </item>
+        <item>
+          <p>
+	    Fix dialyzer warnings caused by a faulty type
+	    specification for digest_type().</p>
+          <p>
+	    This change updates digest_type() and the functions
+	    operating with this argument type to accept both 'sha1'
+	    and 'sha' as digest_type().</p>
+          <p>
+	    Own Id: OTP-15776</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add possibility to read PEM files encrypted with old PEM
+	    encryption using AES-256</p>
+          <p>
+	    Own Id: OTP-13726</p>
+        </item>
+        <item>
+          <p>
+	    Relax decoding of certificates to so that "harmless"
+	    third party encoding errors may be accepted but not
+	    created by the public_key application. This adds
+	    acceptance of using an incorrect three character country
+	    code, the PKIX standard use two character country codes.
+	    It is also accepted that the country code is utf8 encoded
+	    but the specification says it should be ASCII.</p>
+          <p>
+	    Own Id: OTP-15687 Aux Id: PR-2162 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.6.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Support Pasword based encryption with AES</p>
+          <p>
+	    Own Id: OTP-15870 Aux Id: ERL-952 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Public_Key 1.6.6</title>
 
@@ -1195,4 +1498,3 @@
 
   
 </chapter>
-

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -76,27 +76,84 @@
 
 %%% External interface
 
+-spec root() -> 'ok' | 'error'.
+
 root() -> root([]).
+
+-spec root(Options) -> 'ok' | 'error' when
+      Options :: [option()].
+
 root(Options) -> subdir(code:root_dir(), Options).
 
+-spec dir(Dir) -> 'ok' | 'error' when
+      Dir :: file:filename().
+
 dir(Dir) -> dir(Dir, []).
+
+-spec dir(Dir, Options) -> 'ok' | 'error' when
+      Dir :: file:filename(),
+      Options :: [option()].
+
 dir(Dir, Options) -> dirs([Dir], Options).
 
+-spec dirs(DirList) -> 'ok' | 'error' when
+      DirList :: [file:filename()].
+
 dirs(Dirs) -> dirs(Dirs, []).
+
+-spec dirs(DirList, Options) -> 'ok' | 'error' when
+      DirList :: [file:filename()],
+      Options :: [option()].
+
 dirs(Dirs, Options) ->
     files(collect_dirs(Dirs, false), Options).
 
+-spec subdir(Dir) -> 'ok' | 'error' when
+      Dir :: file:filename().
+
 subdir(Dir) -> subdir(Dir, []).
+
+-spec subdir(Dir, Options) -> 'ok' | 'error' when
+      Dir :: file:filename(),
+      Options :: [option()].
+
 subdir(Dir, Options) -> subdirs([Dir], Options).
 
+-spec subdirs(DirList) -> 'ok' | 'error' when
+      DirList :: [file:filename()].
+
 subdirs(Dirs) -> subdirs(Dirs, []).
+
+-spec subdirs(DirList, Options) -> 'ok' | 'error' when
+      DirList :: [file:filename()],
+      Options :: [option()].
+
 subdirs(Dirs, Options) ->
     files(collect_dirs(Dirs, true), Options).
 
+-type option() :: {'outfile', NameOfTAGSFile :: file:filename()}
+                | {'outdir', NameOfDirectory :: file:filename()}.
+
+-spec file(File) -> 'ok' | 'error' when
+      File :: file:filename().
+
 file(Name) -> file(Name, []).
+
+-spec file(File, Options) -> 'ok' | 'error' when
+      File :: file:filename(),
+      Options :: [option()].
+
 file(Name, Options) -> files([Name], Options).
 
+-spec files(FileList) -> 'ok' | 'error' when
+      FileList :: [file:filename()].
+
 files(Files) -> files(Files, []).
+
+-spec files(FileList, Options) -> 'ok' | 'error' when
+      FileList :: [file:filename()],
+      Options :: [option()].
+
 files(Files, Options) ->
     case open_out(Options) of
 	{ok, Os} ->

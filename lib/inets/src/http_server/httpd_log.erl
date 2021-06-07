@@ -54,7 +54,7 @@ access_entry(Log, NoLog, Info, RFC931, AuthUser, Date, StatusCode,
 		I;
 	    _ ->
 		%% This is better than nothing
-		httpd_util:flatlength(SizeStrOrBytes) 
+		erlang:iolist_size(SizeStrOrBytes)
 	end,
     access_entry(Log, NoLog, Info, RFC931, AuthUser, Date, StatusCode, Size);
 access_entry(Log, NoLog, 

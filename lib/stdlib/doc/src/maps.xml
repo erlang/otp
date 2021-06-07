@@ -35,15 +35,20 @@
 
   <datatypes>
     <datatype>
-      <name name="iterator"/>
+      <name name="iterator" n_vars="2"/>
       <desc>
-        <p>An iterator representing the key value associations in a map.</p>
-        <p>Created using <seealso marker="#iterator-1"><c>maps:iterator/1</c></seealso>.</p>
-        <p>Consumed by <seealso marker="#next-1"><c>maps:next/1</c></seealso>,
-          <seealso marker="#filter-2"><c>maps:filter/2</c></seealso>,
-          <seealso marker="#fold-3"><c>maps:fold/3</c></seealso> and
-          <seealso marker="#map-2"><c>maps:map/2</c></seealso>.</p>
+        <p>An iterator representing the associations in a map with keys of type
+          <c><anno>Key</anno></c> and values of type <c><anno>Value</anno></c>.</p>
+        <p>Created using <seemfa marker="#iterator/1"><c>maps:iterator/1</c></seemfa>.</p>
+        <p>Consumed by <seemfa marker="#next/1"><c>maps:next/1</c></seemfa>,
+          <seemfa marker="#filter/2"><c>maps:filter/2</c></seemfa>,
+          <seemfa marker="#fold/3"><c>maps:fold/3</c></seemfa> and
+          <seemfa marker="#map/2"><c>maps:map/2</c></seemfa>.</p>
       </desc>
+    </datatype>
+
+    <datatype>
+      <name name="iterator" n_vars="0"/>
     </datatype>
   </datatypes>
 
@@ -64,6 +69,33 @@
   Pred = fun(K,V) -> is_atom(K) andalso (V rem 2) =:= 0 end,
   maps:filter(Pred,M).
 #{a => 2,c => 4}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="filtermap" arity="2" since="OTP 24.0"/>
+      <fsummary>Filter and map a map.</fsummary>
+      <desc>
+        <p>Returns a map <c><anno>Map</anno></c> that is the result of calling
+          <c><anno>Fun</anno>(<anno>Key</anno>, <anno>Value1</anno>)</c> for
+          every <c><anno>Key</anno></c> to value <c><anno>Value1</anno></c>
+          association in <c><anno>MapOrIter</anno></c> in any order.</p>
+        <p>If <c><anno>Fun</anno>(<anno>Key</anno>, <anno>Value1</anno>)</c>
+          returns <c>true</c>, the association is copied to the result map. If
+          it returns <c>false</c>, the association is not copied. If it returns
+          <c>{true, NewValue}</c>, the value for <c><anno>Key</anno></c> is
+          replaced with <c>NewValue</c>at this position is replaced in the
+          result map.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
+          or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
+          function of arity 3.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Fun = fun(K,V) when is_atom(K) -> {true, V*2}; (_,V) -> (V rem 2) =:= 0 end,
+  Map = #{k1 => 1, "k2" => 2, "k3" => 3},
+  maps:filtermap(Fun,Map).
+#{k1 => 2,"k2" => 2}</code>
       </desc>
     </func>
 
@@ -90,13 +122,13 @@
       <name name="fold" arity="3" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
-        <p>Calls <c>F(K, V, AccIn)</c> for every <c><anno>K</anno></c> to value
-          <c><anno>V</anno></c> association in <c><anno>MapOrIter</anno></c> in
-          any order. Function <c>fun F/3</c> must return a new
-          accumulator, which is passed to the next successive call.
-          This function returns the final value of the accumulator. The initial
-          accumulator value <c><anno>Init</anno></c> is returned if the map is
-          empty.</p>
+        <p>Calls <c>F(Key, Value, AccIn)</c> for every <c><anno>Key</anno></c>
+          to value <c><anno>Value</anno></c> association in
+          <c><anno>MapOrIter</anno></c> in any order. Function <c>fun F/3</c>
+          must return a new accumulator, which is passed to the next successive
+          call. This function returns the final value of the accumulator.
+          The initial accumulator value <c><anno>Init</anno></c> is returned
+          if the map is empty.</p>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
           or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
@@ -107,6 +139,34 @@
   Map = #{"k1" => 1, "k2" => 2, "k3" => 3},
   maps:fold(Fun,0,Map).
 6</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="foreach" arity="2" since="OTP 24.0"/>
+      <fsummary>Apply a function to each element of a map.</fsummary>
+      <desc>
+        <p>Calls <c>fun F(Key, Value)</c> for every <c><anno>Key</anno></c>
+          to value <c><anno>Value</anno></c> association in
+          <c><anno>MapOrIter</anno></c> in any order.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
+          or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
+          function of arity 2.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="from_keys" arity="2" since="OTP 24.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Takes a list of keys and a value and builds a map where all keys
+          point to the same value. The key can be in any order, and keys
+          and value can be of any term.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Keys = ["a", "b", "c"], maps:from_keys(Keys, ok).
+#{"a" => ok,"b" => ok,"c" => ok}</code>
       </desc>
     </func>
 
@@ -168,6 +228,53 @@ val1
     </func>
 
     <func>
+      <name name="intersect" arity="2" since="OTP 24.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Intersects two maps into a single map
+        <c><anno>Map3</anno></c>. If a key exists in both maps, the
+        value in <c><anno>Map1</anno></c> is superseded by the value
+        in <c><anno>Map2</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+        <c><anno>Map1</anno></c> or <c><anno>Map2</anno></c> is not a
+        map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map1 = #{a => "value_one", b => "value_two"},
+  Map2 = #{a => 1, c => 2},
+  maps:intersect(Map1,Map2).
+#{a => 1}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="intersect_with" arity="3" since="OTP 24.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Intersects two maps into a single map
+        <c><anno>Map3</anno></c>. If a key exists in both maps, the
+        value in <c><anno>Map1</anno></c> is combined with the value
+        in <c><anno>Map2</anno></c> by the
+        <c><anno>Combiner</anno></c> fun. When
+        <c><anno>Combiner</anno></c> is applied the key that exists in
+        both maps is the first parameter, the value from
+        <c><anno>Map1</anno></c> is the second parameter, and the value
+        from <c><anno>Map2</anno></c> is the third parameter.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+        <c><anno>Map1</anno></c> or <c><anno>Map2</anno></c> is not a
+        map. The call fails with a <c>badarg</c> exception if
+        <c><anno>Combiner</anno></c> is not a fun that takes three
+        arguments.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map1 = #{a => "value_one", b => "value_two"},
+  Map2 = #{a => 1, c => 2},
+  maps:intersect_with(fun(_Key, Value1, Value2) -> {Value1, Value2} end, Map1, Map2).
+#{a => {"value_one",1}}</code>
+      </desc>
+    </func>
+
+    <func>
       <name name="is_key" arity="2" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
@@ -192,7 +299,7 @@ false</code>
       <fsummary>Create a map iterator.</fsummary>
       <desc>
         <p>Returns a map iterator <c><anno>Iterator</anno></c> that can
-          be used by <seealso marker="#next-1"><c>maps:next/1</c></seealso>
+          be used by <seemfa marker="#next/1"><c>maps:next/1</c></seemfa>
           to traverse the key-value associations in a map. When iterating
           over a map, the memory usage is guaranteed to be bounded no matter
           the size of the map.</p>
@@ -234,11 +341,12 @@ none</code>
       <fsummary></fsummary>
       <desc>
         <p>Produces a new map <c><anno>Map</anno></c> by calling function
-          <c>fun F(K, V1)</c> for every <c><anno>K</anno></c> to value
-          <c><anno>V1</anno></c> association in <c><anno>MapOrIter</anno></c> in
-          any order. Function <c>fun F/2</c> must return value
-          <c><anno>V2</anno></c> to be associated with key <c><anno>K</anno></c>
-          for the new map <c><anno>Map</anno></c>.</p>
+          <c>fun F(Key, Value1)</c> for every <c><anno>Key</anno></c> to value
+          <c><anno>Value1</anno></c> association in
+          <c><anno>MapOrIter</anno></c> in any order. Function <c>fun Fun/2</c>
+          must return value <c><anno>Value2</anno></c> to be associated with
+          key <c><anno>Key</anno></c> for the new map
+          <c><anno>Map</anno></c>.</p>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
           or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
@@ -267,6 +375,33 @@ none</code>
   Map2 = #{a => 1, c => 2},
   maps:merge(Map1,Map2).
 #{a => 1,b => "value_two",c => 2}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="merge_with" arity="3" since="OTP 24.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Merges two maps into a single map
+        <c><anno>Map3</anno></c>. If a key exists in both maps, the
+        value in <c><anno>Map1</anno></c> is combined with the value
+        in <c><anno>Map2</anno></c> by the
+        <c><anno>Combiner</anno></c> fun. When
+        <c><anno>Combiner</anno></c> is applied the key that exists in
+        both maps is the first parameter, the value from
+        <c><anno>Map1</anno></c> is the second parameter, and the value
+        from <c><anno>Map2</anno></c> is the third parameter.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+        <c><anno>Map1</anno></c> or <c><anno>Map2</anno></c> is not a
+        map. The call fails with a <c>badarg</c> exception if
+        <c><anno>Combiner</anno></c> is not a fun that takes three
+        arguments.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map1 = #{a => "value_one", b => "value_two"},
+  Map2 = #{a => 1, c => 2},
+  maps:merge_with(fun(_Key, Value1, Value2) -> {Value1, Value2} end, Map1, Map2).
+#{a => {"value_one",1},b => "value_two",c => 2}</code>
       </desc>
     </func>
 

@@ -57,6 +57,7 @@ MODULES = \
 	httpd_file\
 	httpd_instance_sup \
 	httpd_log \
+	httpd_logger \
 	httpd_manager \
 	httpd_misc_sup \
 	httpd_request \
@@ -73,14 +74,12 @@ MODULES = \
 	mod_auth_dets \
 	mod_auth_mnesia \
 	mod_auth_server \
-	mod_browser \
 	mod_cgi \
 	mod_dir \
 	mod_disk_log \
 	mod_esi \
 	mod_get \
 	mod_head \
-	mod_htaccess \
 	mod_log \
 	mod_range \
 	mod_responsecontrol \

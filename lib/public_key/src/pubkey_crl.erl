@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -340,6 +340,7 @@ verify_issuer_and_scope(#'OTPCertificate'{tbsCertificate = TBSCert}= Cert,
     end.
 
 dp_crlissuer_to_issuer(DPCRLIssuer) ->
+     %% Assume the cRLIssuer SEQUENCE is of length exactly 1
      [{directoryName, Issuer}] = pubkey_cert_records:transform(DPCRLIssuer, decode),
      Issuer.
 

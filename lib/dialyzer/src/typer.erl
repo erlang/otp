@@ -937,8 +937,9 @@ analyze_one_function({Var, FunBody} = Function, Acc) ->
 	     dialyzerObj = NewDialyzerObj}.
 
 get_line([Line|_]) when is_integer(Line) -> Line;
-get_line([_|T]) -> get_line(T);
-get_line([]) -> none.
+get_line([{Line, _Column} | _Tail]) when is_integer(Line) -> Line;
+get_line([_|Tail]) -> get_line(Tail);
+get_line([]) -> -1.
 
 get_file([{file,File}|_]) -> File;
 get_file([_|T]) -> get_file(T);
@@ -980,7 +981,7 @@ fatal_error(Slogan) ->
 
 mode_error(OldMode, NewMode) ->
   Msg = io_lib:format("Mode was previously set to '~s'; "
-		      "can not set it to '~s' now",
+		      "cannot set it to '~s' now",
 		      [OldMode, NewMode]),
   fatal_error(Msg).
 

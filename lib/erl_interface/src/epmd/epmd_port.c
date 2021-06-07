@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,16 +24,6 @@
 #include <winsock2.h>
 #include <windows.h>
 #include <winbase.h>
-
-#elif  VXWORKS
-#include <vxWorks.h>
-#include <ifLib.h>
-#include <sockLib.h>
-#include <inetLib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 
 #else
 #include <unistd.h>
@@ -114,9 +104,6 @@ static int ei_epmd_r4_port (struct in_addr *addr, const char *alive,
   int err;
   ssize_t dlen;
   unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
-#if defined(VXWORKS)
-  char ntoabuf[32];
-#endif
 
   if (len > sizeof(buf) - 3)
   {
@@ -144,17 +131,8 @@ static int ei_epmd_r4_port (struct in_addr *addr, const char *alive,
       return -1;
   }
 
-#ifdef VXWORKS
-  /* FIXME use union/macro for level. Correct level? */
-  if (ei_tracelevel > 2) {
-    inet_ntoa_b(*addr,ntoabuf);
-    EI_TRACE_CONN2("ei_epmd_r4_port",
-		   "-> PORT2_REQ alive=%s ip=%s",alive,ntoabuf);
-  }
-#else
   EI_TRACE_CONN2("ei_epmd_r4_port",
 		 "-> PORT2_REQ alive=%s ip=%s",alive,inet_ntoa(*addr));
-#endif
 
   dlen = (ssize_t) 2;
   err = ei_read_fill_t__(fd, buf, &dlen, tmo);

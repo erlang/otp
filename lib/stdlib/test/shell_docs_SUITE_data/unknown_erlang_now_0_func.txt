@@ -1,0 +1,31 @@
+
+  [;1m-spec now() -> Timestamp when Timestamp :: timestamp().[0m
+
+[;;4mDeprecated[0m:
+  erlang:now/0 is deprecated; see the "Time and Time Correction in
+  Erlang" chapter of the ERTS User's Guide for more information
+
+  Types:
+    -type timestamp() ::
+          {MegaSecs :: non_neg_integer(),
+           Secs :: non_neg_integer(),
+           MicroSecs :: non_neg_integer()}.
+
+  Warning:
+    This function is deprecated. Do not use it.
+
+    For more information, see section Time and Time Correction
+    in the User's Guide. Specifically, section Dos and Dont's
+    describes what to use instead of [;;4merlang:now/0[0m.
+
+  Returns the tuple [;;4m{MegaSecs, Secs, MicroSecs}[0m, which is the
+  elapsed time since 00:00 GMT, January 1, 1970 (zero hour), if
+  provided by the underlying OS. Otherwise some other point in time
+  is chosen. It is also guaranteed that the following calls to this
+  BIF return continuously increasing values. Hence, the return value
+  from [;;4merlang:now/0[0m can be used to generate unique time stamps. If
+  it is called in a tight loop on a fast machine, the time of the
+  node can become skewed.
+
+  Can only be used to check the local time of day if the time-zone
+  information of the underlying OS is properly configured.

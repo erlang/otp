@@ -30,7 +30,7 @@
 			       insidecover?,
 			       pagetext,
 			       preamble,
-			       (applications|parts|headline|pagetext)+,
+			       (applications|parts|internals|headline|pagetext)+,
 				(listoffigures?,
 				 listoftables?,
 				 listofterms?,
@@ -56,6 +56,7 @@
 <!ELEMENT applications        (include)* >
 <!ELEMENT parts               (title?,description?,(include|onepart)*) >
 <!ATTLIST parts               lift (yes|no) "no" >
+<!ELEMENT internals           (include)* >
 <!ELEMENT headline            (#PCDATA) >
 <!ELEMENT index               EMPTY >
 <!ELEMENT listoffigures       EMPTY >

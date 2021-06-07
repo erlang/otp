@@ -1346,10 +1346,6 @@ safeToken2           -> 'ServiceChangeIncompleteToken'  : '$1' . % v3
 
 Erlang code.
 
-%% The following directive is needed for (significantly) faster compilation
-%% of the generated .erl file by the HiPE compiler.  Please do not remove.
--compile([{hipe,[{regalloc,linear_scan}]}]).
-
 -include("megaco_text_parser_v1.hrl").
 
 %%i(F) ->

@@ -90,8 +90,8 @@ close_calls(Where) ->				%Line 86
 	call2(),				%Line 90
 	call3(),				%Line 91
 	no_crash				%Line 92
-    catch error:crash ->
-	    erlang:get_stacktrace()		%Line 94
+    catch error:crash:Stk ->
+	    Stk                                 %Line 94
     end.					%Line 95
 
 call1() ->					%Line 97
@@ -201,14 +201,14 @@ line_numbers(Config) when is_list(Config) ->
 	      {?MODULE,line_numbers,1,_}|_]}} =
 	(catch do_call_abs(y, y)),
     {'EXIT',{badarg,
-	     [{erlang,abs,[[]],[]},
+	     [{erlang,abs,[[]],[{error_info,#{}}]},
 	      {?MODULE,do_call_abs,2,
 	       [{file,File},{line,126}]},
 	      {?MODULE,line_numbers,1,_}|_]}} =
 	(catch do_call_abs(x, [])),
 
     {'EXIT',{badarg,
-	     [{erlang,link,[[]],[]},
+	     [{erlang,link,[[]],[{error_info,#{}}]},
 	      {?MODULE,do_call_unsafe_bif,2,
 	       [{file,File},{line,129}]},
 	      {?MODULE,line_numbers,1,_}|_]}} =

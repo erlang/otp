@@ -94,11 +94,12 @@ alloc_hist_merge_hist(Index, A, B) ->
 -type carrier_info_list() ::
     {HistogramStart :: non_neg_integer(),
      Carriers :: [{AllocatorType :: atom(),
+                   InPool :: boolean(),
                    TotalSize :: non_neg_integer(),
                    UnscannedSize :: non_neg_integer(),
-                   AllocatedSize :: non_neg_integer(),
-                   AllocatedCount :: non_neg_integer(),
-                   InPool :: boolean(),
+                   Allocations :: {Type :: atom(),
+                                   Count :: non_neg_integer(),
+                                   Size :: non_neg_integer()},
                    FreeBlocks :: block_histogram()}]}.
 
 -spec carriers() -> {ok, Result} | {error, Reason} when

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2018</year>
+      <year>2003</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -140,8 +140,7 @@
         | nonempty_improper_list(Type1, Type2) %% Type1 and Type2 as above
         | nonempty_list(Type)                  %% Proper non-empty list
 
-  Map :: map()                                 %% denotes a map of any size
-       | #{}                                   %% denotes the empty map
+  Map :: #{}                                   %% denotes the empty map
        | #{AssociationList}
 
   Tuple :: tuple()                             %% denotes a tuple of any size
@@ -192,23 +191,23 @@
     <c>AssociationList</c> are allowed to overlap, and if they do, the
     leftmost association takes precedence. A map association has a key in
     <c>AssociationList</c> if it belongs to this type.
-    <c>AssociationList</c> can contain both mandatory and optional
-    association types.
+    <c>AssociationList</c> can contain both mandatory <c>(:=)</c> and
+    optional <c>(=&gt;)</c> association types.
     If an association type is mandatory, an association with that type
-    is to be present.
+    needs to be present.
     In the case of an optional association type it is not required for
     the key type to be present.
   </p>
   <p>
-    Notice that the syntactic representation of <c>map()</c> is
-    <c>#{any() =&gt; any()}</c> (or <c>#{_ =&gt; _}</c>), not <c>#{}</c>.
     The notation <c>#{}</c> specifies the singleton type for the empty map.
+    Note that this notation is not a shorthand for the <c>map()</c> type.
   </p>
   <p>
     For convenience, the following types are also built-in.
     They can be thought as predefined aliases for the type unions also shown in
     the table.
   </p>
+  <marker id="builtin_types"/>
   <table>
     <row>
       <cell><em>Built-in type</em></cell><cell><em>Defined as</em></cell>
@@ -220,7 +219,13 @@
       <cell><c>binary()</c></cell><cell><c>&lt;&lt;_:_*8&gt;&gt;</c></cell>
     </row>
     <row>
+      <cell><c>nonempty_binary()</c></cell><cell><c>&lt;&lt;_:8, _:_*8&gt;&gt;</c></cell>
+    </row>
+    <row>
       <cell><c>bitstring()</c></cell><cell><c>&lt;&lt;_:_*1&gt;&gt;</c></cell>
+    </row>
+    <row>
+      <cell><c>nonempty_bitstring()</c></cell><cell><c>&lt;&lt;_:1, _:_*1&gt;&gt;</c></cell>
     </row>
     <row>
       <cell><c>boolean()</c></cell><cell><c>'false' | 'true'</c></cell>
@@ -257,6 +262,9 @@
     </row>
     <row>
       <cell><c>iolist()</c></cell><cell><c>maybe_improper_list(byte() | binary() | iolist(), binary() | [])</c></cell>
+    </row>
+    <row>
+      <cell><c>map()</c></cell><cell><c>#{any() =&gt; any()}</c></cell>
     </row>
     <row>
       <cell><c>function()</c></cell><cell><c>fun()</c></cell>
@@ -334,8 +342,8 @@
           | #Erlang_Atom{Fields}</pre>
   <p>
     Records are extended to possibly contain type information.
-    This is described in <seealso marker="#typeinrecords">
-    Type Information in Record Declarations</seealso>.
+    This is described in <seeguide marker="#typeinrecords">
+    Type Information in Record Declarations</seeguide>.
   </p>
   </section>
 
@@ -465,6 +473,33 @@
       Any unspecified fields are assumed to have the type in the original
       record declaration.
     </p>
+    <note>
+      <p>When records are used to create patterns for ETS and
+        Mnesia match functions, Dialyzer may need some help not to emit
+        bad warnings. For example:</p>
+
+<pre>
+    -type height() :: pos_integer().
+    -record(person, {name :: string(), height :: height()}).
+
+    lookup(Name, Tab) ->
+	ets:match_object(Tab, #person{name = Name, _ = '_'}).</pre>
+
+      <p>Dialyzer will emit a warning since <c>'_'</c> is not in the
+        type of record field <c>height</c>.</p>
+
+      <p>The recommended way of dealing with this is to declare the
+        smallest record field types to accommodate all your needs,
+        and then create refinements as needed. The modified example:</p>
+
+<pre>
+    -record(person, {name :: string(), height :: height() | '_'}).
+
+    -type person() :: #person{height :: height()}.</pre>
+
+      <p>In specifications and type declarations the type
+        <c>person()</c> is to be preferred before <c>#person{}</c>.</p>
+    </note>
   </section>
 
   <section>
@@ -474,22 +509,20 @@
       <c>-spec</c> attribute. The general format is as follows:
     </p>
     <pre>
-  -spec Module:Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
+  -spec Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
     <p>
-      The arity of the function must match the number of arguments,
-      else a compilation error occurs.
+      An implementation of the function with the same name
+      <c>Function</c> must exist in the current module, and the arity
+      of the function must match the number of arguments, else a
+      compilation error occurs.
     </p>
     <p>
-      This form can also be used in header files (.hrl) to declare type
-      information for exported functions.
-      Then these header files can be included in files that (implicitly or
-      explicitly) import these functions.
-    </p>
-    <p>
-      Within a given module, the following shorthand suffices in most cases:
+      The following longer format with module name is also valid as
+      long as <c>Module</c> is the name of the current module. This
+      can be useful for documentation purposes.
     </p>
     <pre>
-  -spec Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
+  -spec Module:Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
     <p>
       Also, for documentation purposes, argument names can be given:
     </p>

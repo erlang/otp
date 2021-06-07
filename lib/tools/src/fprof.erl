@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -87,6 +87,9 @@ dbg(_, _, _) ->
 %%%----------------------------------------------------------------------
 
 
+-spec apply(Func, Args) -> term() when
+      Func :: fun() | {Module :: module(), Function :: atom()},
+      Args :: [term()].
 
 apply({M, F}, Args) 
   when is_atom(M), is_atom(F), is_list(Args) ->
@@ -96,6 +99,34 @@ apply(Fun, Args)
     apply_1(Fun, Args, []);
 apply(A, B) ->
     erlang:error(badarg, [A, B]).
+
+-type pid_spec() :: pid() | atom().
+-type trace_option() :: 'cpu_time'
+                      | {'cpu_time', boolean()}
+                      | 'file'
+                      | {'file', Filename :: file:filename()}
+                      | {'procs', PidSpec :: pid_spec()}
+                      | {'procs', [PidSpec :: pid_spec()]}
+                      | 'start'
+                      | 'stop'
+                      | {'tracer', Tracer :: pid() | port()}
+                      | 'verbose'
+                      | {'verbose', boolean()}.
+
+-type apply_option() :: 'continue'
+                        | {'procs', PidList :: [pid()]}
+                        | 'start'
+                        | TraceStartOption :: trace_option().
+
+-spec apply(Module, Function, Args) -> term() when
+                Module :: module(),
+                Function :: atom(),
+                Args :: [term()];
+           (Func, Args, OptionList) -> term() when
+                Func :: fun() | {Module :: module(), Function :: atom()},
+                Args :: [term()],
+                OptionList :: [Option],
+                Option :: apply_option().
 
 apply(M, F, Args) when is_atom(M), is_atom(F), is_list(Args) ->
     apply_1(M, F, Args, []);
@@ -107,6 +138,13 @@ apply(Fun, Args, Options)
     apply_1(Fun, Args, Options);
 apply(A, B, C) ->
     erlang:error(badarg, [A, B, C]).
+
+-spec apply(Module, Function, Args, OptionList) -> term() when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      OptionList :: [Option],
+      Option :: apply_option().
 
 apply(M, F, Args, Options)
   when is_atom(M), is_atom(F), is_list(Args), is_list(Options) ->
@@ -278,15 +316,62 @@ apply_continue(Function, Args, Procs, Options) ->
 %%%----------------------------------------------------------------------
 
 
+-dialyzer({no_contracts, trace/2}).
+-spec trace('start', Filename) -> 'ok' |
+                                  {'error', Reason} |
+                                  {'EXIT', ServerPid, Reason} when
+                Filename :: file:filename(),
+                ServerPid :: pid(),
+                Reason :: term();
+           ('verbose', Filename) -> 'ok' |
+                                    {'error', Reason} |
+                                    {'EXIT', ServerPid, Reason} when
+                Filename :: file:filename(),
+                ServerPid :: pid(),
+                Reason :: term();
+           (OptionName, OptionValue) -> 'ok' |
+                                     {'error', Reason} |
+                                     {'EXIT', ServerPid, Reason} when
+                OptionName :: atom(),
+                OptionValue :: term(),
+                ServerPid :: pid(),
+                Reason :: term().
 
 trace(start, Filename) ->
     trace([start, {file, Filename}]);
 trace(verbose, Filename) ->
     trace([start, verbose, {file, Filename}]);
-trace(Option, Value) when is_atom(Option) ->
-    trace([{Option, Value}]);
-trace(Option, Value) ->
-    erlang:error(badarg, [Option, Value]).
+trace(OptionName, Value) when is_atom(OptionName) ->
+    trace([{OptionName, Value}]);
+trace(OptionName, Value) ->
+    erlang:error(badarg, [OptionName, Value]).
+
+-dialyzer({no_contracts, trace/1}).
+-spec trace('verbose') -> 'ok' |
+                        {'error', Reason} |
+                        {'EXIT', ServerPid, Reason} when
+                ServerPid :: pid(),
+                Reason :: term();
+           (OptionName) -> 'ok' |
+                           {'error', Reason} |
+                           {'EXIT', ServerPid, Reason} when
+                OptionName :: atom(),
+                ServerPid :: pid(),
+                Reason :: term();
+           ({OptionName, OptionValue}) -> 'ok' |
+                                          {'error', Reason} |
+                                          {'EXIT', ServerPid, Reason} when
+                OptionName :: atom(),
+                OptionValue :: term(),
+                ServerPid :: pid(),
+                Reason :: term();
+           (OptionList) -> 'ok' |
+                           {'error', Reason} |
+                           {'EXIT', ServerPid, Reason} when
+                OptionList :: [Option],
+                Option :: trace_option(),
+                ServerPid :: pid(),
+                Reason :: term().
 
 trace(stop) ->
     %% This shortcut is present to minimize the number of undesired
@@ -357,14 +442,65 @@ trace(Options) ->
     erlang:error(badarg, [Options]).
 
 
+-spec profile() -> 'ok' |
+                   {'error', Reason} |
+                   {'EXIT', ServerPid, Reason} when
+                ServerPid :: pid(),
+                Reason :: term().
 
 profile() ->
     profile([]).
+
+-type profile_option() :: 'append'
+                        | 'dump'
+                        | {'dump',
+                           pid() | Dump :: (Dumpfile :: file:filename() | [])}
+                        | 'file'
+                        | {'file', Filename :: file:filename()}
+                        | 'start'
+                        | 'stop'.
+
+-spec profile(OptionName, OptionValue) ->'ok' |
+                                         {'ok', Tracer} |
+                                         {'error', Reason} |
+                                         {'EXIT', ServerPid, Reason} when
+      OptionName :: atom(),
+      OptionValue :: term(),
+      Tracer :: pid(),
+      ServerPid :: pid(),
+      Reason :: term().
 
 profile(Option, Value) when is_atom(Option) ->
     profile([{Option, Value}]);
 profile(Option, Value) ->
     erlang:error(badarg, [Option, Value]).
+
+-spec profile(OptionName) -> 'ok' |
+                             {'ok', Tracer} |
+                             {'error', Reason} |
+                             {'EXIT', ServerPid, Reason} when
+                  OptionName :: atom(),
+                  Tracer :: pid(),
+                  ServerPid :: pid(),
+                  Reason :: term();
+           ({OptionName, OptionValue}) -> 'ok' |
+                                          {'ok', Tracer} |
+                                          {'error', Reason} |
+                                          {'EXIT', ServerPid, Reason} when
+                  OptionName :: atom(),
+                  OptionValue :: term(),
+                  Tracer :: pid(),
+                  ServerPid :: pid(),
+                  Reason :: term();
+           (OptionList) -> 'ok' |
+                           {'ok', Tracer} |
+                           {'error', Reason} |
+                           {'EXIT', ServerPid, Reason} when
+                  OptionList :: [Option],
+                  Option :: profile_option(),
+                  Tracer :: pid(),
+                  ServerPid :: pid(),
+                  Reason :: term().
 
 profile(Option) when is_atom(Option) ->
     profile([Option]);
@@ -427,14 +563,63 @@ profile(Options) ->
     erlang:error(badarg, [Options]).
 
 
+-spec analyse() ->  'ok' |
+                    {'error', Reason} |
+                    {'EXIT', ServerPid, Reason} when
+      ServerPid :: pid(),
+      Reason :: term().
 
 analyse() ->
     analyse([]).
+
+-spec analyse(OptionName, OptionValue) ->'ok' |
+                                         {'error', Reason} |
+                                         {'EXIT', ServerPid, Reason} when
+      OptionName :: atom(),
+      OptionValue :: term(),
+      ServerPid :: pid(),
+      Reason :: term().
 
 analyse(Option, Value) when is_atom(Option) ->
     analyse([{Option, Value}]);
 analyse(Option, Value) ->
     erlang:error(badarg, [Option, Value]).
+
+-type analyse_option() :: 'append'
+                        | 'callers'
+                        | {'callers', boolean()}
+                        | {'cols', Cols :: non_neg_integer()}
+                        | 'dest'
+                        | {'dest',
+                           Dest :: (pid() | (Destfile :: file:filename()))}
+                        | 'details'
+                        | {'details', boolean()}
+                        | 'no_callers'
+                        | 'no_details'
+                        | {'sort', SortSpec :: 'acc' | 'own'}
+                        | 'totals'
+                        | {'totals', boolean()}.
+
+-spec analyse(OptionName) -> 'ok' |
+                             {'error', Reason} |
+                             {'EXIT', ServerPid, Reason} when
+                  OptionName :: atom(),
+                  ServerPid :: pid(),
+                  Reason :: term();
+           ({OptionName, OptionValue}) -> 'ok' |
+                                          {'error', Reason} |
+                                          {'EXIT', ServerPid, Reason} when
+                  OptionName :: atom(),
+                  OptionValue :: term(),
+                  ServerPid :: pid(),
+                  Reason :: term();
+           (OptionList) -> 'ok' |
+                           {'error', Reason} |
+                           {'EXIT', ServerPid, Reason} when
+                  OptionList :: [Option],
+                  Option :: analyse_option(),
+                  ServerPid :: pid(),
+                  Reason :: term().
 
 analyse(Option) when is_atom(Option) ->
     analyse([Option]);
@@ -649,6 +834,9 @@ code_change() ->
 %%% Exported functions
 %%%-------------------
 
+-spec start() -> {'ok', Pid} | {'error', {'already_started', Pid}} when
+      Pid :: pid().
+
 %% Start server process
 start() ->
     spawn_3step(
@@ -676,11 +864,14 @@ start() ->
       end).
 
 
+-spec stop() -> 'ok'.
 
 %% Stop server process
-
 stop() ->
     stop(normal).
+
+-spec stop(Reason) -> 'ok' when
+      Reason :: term().
 
 stop(kill) ->
     case whereis(?FPROF_SERVER) of
@@ -705,7 +896,7 @@ stop(Reason) ->
 call(Request) ->
     case whereis(?FPROF_SERVER) of
 	undefined ->
-	    start(),
+	    _ = start(),
 	    just_call(Request);
 	Server ->
 	    just_call(Server, Request)
@@ -2782,6 +2973,8 @@ parsify({A, B, C}) ->
     {parsify(A), parsify(B), parsify(C)};
 parsify(Tuple) when is_tuple(Tuple) ->
     list_to_tuple(parsify(tuple_to_list(Tuple)));
+parsify(Map) when is_map(Map) ->
+    maps:from_list(parsify(maps:to_list(Map)));
 parsify(Pid) when is_pid(Pid) ->
     erlang:pid_to_list(Pid);
 parsify(Port) when is_port(Port) ->

@@ -38,15 +38,15 @@
   <description>
     <p>All functions exported from this module can be used as primary
       or handler
-      filters. See <seealso marker="logger#add_primary_filter-2">
-	<c>logger:add_primary_filter/2</c></seealso>
-      and <seealso marker="logger#add_handler_filter-3">
-	<c>logger:add_handler_filter/3</c></seealso> for more information
+      filters. See <seemfa marker="logger#add_primary_filter/2">
+	<c>logger:add_primary_filter/2</c></seemfa>
+      and <seemfa marker="logger#add_handler_filter/3">
+	<c>logger:add_handler_filter/3</c></seemfa> for more information
       about how filters are added.</p>
-    <p>Filters are removed with <seealso marker="logger#remove_primary_filter-1">
-	<c>logger:remove_primary_filter/1</c></seealso>
-      and <seealso marker="logger#remove_handler_filter-2">
-	<c>logger:remove_handler_filter/2</c></seealso>.</p>
+    <p>Filters are removed with <seemfa marker="logger#remove_primary_filter/1">
+	<c>logger:remove_primary_filter/1</c></seemfa>
+      and <seemfa marker="logger#remove_handler_filter/2">
+	<c>logger:remove_handler_filter/2</c></seemfa>.</p>
   </description>
 
   <funcs>
@@ -81,15 +81,15 @@ D2 = [otp, sasl]</pre>
 	  Erlang/OTP. D1 specifies that the log event comes from
 	  Erlang/OTP in general, and D2 indicates that the log event
 	  is a so
-	  called <seealso marker="logger_chapter#sasl_reports">SASL
-	  report</seealso>.</p>
+	  called <seeguide marker="logger_chapter#sasl_reports">SASL
+	  report</seeguide>.</p>
 
 	<p>The <c><anno>Extra</anno></c> parameter to
 	  the <c>domain/2</c> function is specified when adding the
-	  filter via <seealso marker="logger#add_primary_filter-2">
-	    <c>logger:add_primary_filter/2</c></seealso>
-	  or <seealso marker="logger#add_handler_filter-3">
-	    <c>logger:add_handler_filter/3</c></seealso>.</p>
+	  filter via <seemfa marker="logger#add_primary_filter/2">
+	    <c>logger:add_primary_filter/2</c></seemfa>
+	  or <seemfa marker="logger#add_handler_filter/3">
+	    <c>logger:add_handler_filter/3</c></seemfa>.</p>
 
 	<p>The filter compares the value of the <c>domain</c> field in
 	  the log event's metadata (<c>Domain</c>) against
@@ -161,15 +161,15 @@ ok</code>
 
 	  <p>The <c><anno>Extra</anno></c> parameter is specified when
 	    adding the filter
-	    via <seealso marker="logger#add_primary_filter-2">
-	      <c>logger:add_primary_filter/2</c></seealso>
-	    or <seealso marker="logger#add_handler_filter-3">
-	      <c>logger:add_handler_filter/3</c></seealso>.</p>
+	    via <seemfa marker="logger#add_primary_filter/2">
+	      <c>logger:add_primary_filter/2</c></seemfa>
+	    or <seemfa marker="logger#add_handler_filter/3">
+	      <c>logger:add_handler_filter/3</c></seemfa>.</p>
 
 	  <p>The filter compares the value of the event's log level
 	    (<c>Level</c>) to <c><anno>MatchLevel</anno></c> by
-	    calling <seealso marker="logger#compare_levels-2">
-	      <c>logger:compare_levels(Level, MatchLevel)</c></seealso>.
+	    calling <seemfa marker="logger#compare_levels/2">
+	      <c>logger:compare_levels(Level, MatchLevel)</c></seemfa>.
 	    The filter matches if the value
 	    of <c><anno>Operator</anno></c> is:</p>
 
@@ -246,7 +246,7 @@ ok</code>
   <section>
     <title>See Also</title>
     <p>
-      <seealso marker="logger"><c>logger(3)</c></seealso>
+      <seeerl marker="logger"><c>logger(3)</c></seeerl>
     </p>
   </section>
 </erlref>

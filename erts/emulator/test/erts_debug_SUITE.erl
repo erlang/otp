@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,10 +20,14 @@
 
 -module(erts_debug_SUITE).
 -include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/include/ct_event.hrl").
 
--export([all/0, suite/0,
-	 test_size/1,flat_size_big/1,df/1,term_type/1,
-	 instructions/1, stack_check/1]).
+-export([all/0, suite/0, groups/0,
+         test_size/1,flat_size_big/1,df/1,term_type/1,
+         instructions/1, stack_check/1, alloc_blocks_size/1,
+         interpreter_size_bench/1]).
+
+-export([do_alloc_blocks_size/0]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -31,8 +35,18 @@ suite() ->
 
 all() -> 
     [test_size, flat_size_big, df, instructions, term_type,
-     stack_check].
+     stack_check, alloc_blocks_size].
 
+groups() -> 
+    [{interpreter_size_bench, [], [interpreter_size_bench]}].
+
+interpreter_size_bench(_Config) ->
+    Size = erts_debug:interpreter_size(),
+    ct_event:notify(#event{name=benchmark_data,
+                           data=[{value,Size}]}),
+    {comment,integer_to_list(Size)++" bytes"}.
+
+%% White box testing of term heap sizes
 test_size(Config) when is_list(Config) ->
     ConsCell1 = id([a|b]),
     ConsCell2 = id(ConsCell1),
@@ -54,13 +68,12 @@ test_size(Config) when is_list(Config) ->
     true = do_test_size(maps:from_list([{I,I}||I<-lists:seq(1,254)])) >= map_size_lower_bound(254),
     true = do_test_size(maps:from_list([{I,I}||I<-lists:seq(1,239)])) >= map_size_lower_bound(239),
 
-    %% Test internal consistency of sizes, but without testing
-    %% exact sizes.
     Const = id(42),
     AnotherConst = id(7),
 
     %% Fun environment size = 0 (the smallest fun possible)
     SimplestFun = fun() -> ok end,
+    FunSz0 = 6,
     FunSz0 = do_test_size(SimplestFun),
 
     %% Fun environment size = 1
@@ -72,6 +85,36 @@ test_size(Config) when is_list(Config) ->
     FunSz2 = FunSz1 + 1,
 
     FunSz1 = do_test_size(fun() -> ConsCell1 end) - do_test_size(ConsCell1),
+
+    2 = do_test_size(fun lists:sort/1),
+
+    Arch = 8 * erlang:system_info({wordsize, external}),
+    case {Arch, do_test_size(mk_ext_pid({a@b, 1}, 17, 42))} of
+	{32, 5} -> ok;
+	{64, 4} -> ok
+    end,
+    case {Arch, do_test_size(mk_ext_port({a@b, 1}, 1742))} of
+	{32, 5} -> ok;
+	{64, 4} -> ok
+    end,
+    case {Arch, do_test_size(make_ref())} of
+	{32, 4} -> ok;
+	{64, 3} -> ok
+    end,
+    case {Arch, do_test_size(mk_ext_ref({a@b, 1}, [42,43,44]))} of
+	{32, 6} -> ok;
+	{64, 5} -> ok
+    end,
+    3 = do_test_size(atomics:new(1,[])), % Magic ref
+
+    3 = do_test_size(<<1,2,3>>),       % ErlHeapBin
+    case {Arch, do_test_size(<<0:(8*64)>>)} of   % ERL_ONHEAP_BIN_LIMIT
+	{32, 18} -> ok;
+	{64, 10} -> ok
+    end,
+    6 = do_test_size(<<0:(8*65)>>),    % ProcBin
+    8 = do_test_size(<<5:7>>),         % ErlSubBin + ErlHeapBin
+    11 = do_test_size(<<0:(8*80+1)>>), % ErlSubBin + ProcBin
 
     %% Test shared data structures.
     do_test_size([ConsCell1|ConsCell1],
@@ -210,5 +253,40 @@ instructions(Config) when is_list(Config) ->
     _ = [list_to_atom(I) || I <- Is],
     ok.
 
+alloc_blocks_size(Config) when is_list(Config) ->
+    F = fun(Args) ->
+                Node = start_slave(Args),
+                ok = rpc:call(Node, ?MODULE, do_alloc_blocks_size, []),
+                true = test_server:stop_node(Node)
+        end,
+    case test_server:is_asan() of
+	false -> F("+Meamax");
+	true -> skip
+    end,
+    F("+Meamin"),
+    F(""),
+    ok.
+
+do_alloc_blocks_size() ->
+    _ = erts_debug:alloc_blocks_size(binary_alloc),
+    ok.
+
+start_slave(Args) ->
+    Name = ?MODULE_STRING ++ "_slave",
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok, Node} = test_server:start_node(list_to_atom(Name),
+                                        slave,
+                                        [{args, "-pa " ++ Pa ++ " " ++ Args}]),
+    Node.
+
 id(I) ->
     I.
+
+mk_ext_pid({NodeName, Creation}, Number, Serial) ->
+    erts_test_utils:mk_ext_pid({NodeName, Creation}, Number, Serial).
+
+mk_ext_port({NodeName, Creation}, Number) ->
+    erts_test_utils:mk_ext_port({NodeName, Creation}, Number).
+
+mk_ext_ref({NodeName, Creation}, Numbers) ->
+    erts_test_utils:mk_ext_ref({NodeName, Creation}, Numbers).

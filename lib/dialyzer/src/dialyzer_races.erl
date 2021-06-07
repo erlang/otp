@@ -105,7 +105,7 @@
                      arg_types  :: [erl_types:erl_type()],
                      vars       :: [core_vars()],
                      state      :: dialyzer_dataflow:state(),
-                     file_line  :: file_line(),
+                     file_loc   :: file_location(),
                      var_map    :: dict:dict() | 'undefined'}).
 -record(fun_call,   {caller     :: dialyzer_callgraph:mfa_or_funlbl(),
                      callee     :: dialyzer_callgraph:mfa_or_funlbl(),
@@ -128,7 +128,7 @@
                      args       :: args(),
                      arg_types  :: [erl_types:erl_type()],
                      vars       :: [core_vars()],
-                     file_line  :: file_line(),
+                     file_loc   :: file_location(),
                      index      :: non_neg_integer(),
                      fun_mfa    :: dialyzer_callgraph:mfa_or_funlbl(),
                      fun_label  :: label()}).
@@ -161,10 +161,10 @@
 
 -spec store_race_call(dialyzer_callgraph:mfa_or_funlbl(),
 		      [erl_types:erl_type()], [core_vars()],
-                      file_line(), dialyzer_dataflow:state()) ->
+                      file_location(), dialyzer_dataflow:state()) ->
   dialyzer_dataflow:state().
 
-store_race_call(Fun, ArgTypes, Args, FileLine, State) ->
+store_race_call(Fun, ArgTypes, Args, FileLocation, State) ->
   Races = dialyzer_dataflow:state__get_races(State),
   CurrFun = Races#races.curr_fun,
   CurrFunLabel = Races#races.curr_fun_label,
@@ -184,7 +184,7 @@ store_race_call(Fun, ArgTypes, Args, FileLine, State) ->
             VarArgs = format_args(Args, ArgTypes, CleanState, register),
             RaceFun = #race_fun{mfa = Fun, args = VarArgs,
                                 arg_types = ArgTypes, vars = Args,
-                                file_line = FileLine, index = RaceListSize,
+                                file_loc = FileLocation, index = RaceListSize,
                                 fun_mfa = CurrFun, fun_label = CurrFunLabel},
             {[#warn_call{call_name = register, args = VarArgs}|
               RaceList], RaceListSize + 1, [RaceFun|RaceTags], no_t};
@@ -192,7 +192,7 @@ store_race_call(Fun, ArgTypes, Args, FileLine, State) ->
             VarArgs = format_args(Args, ArgTypes, CleanState, unregister),
             RaceFun = #race_fun{mfa = Fun, args = VarArgs,
                                 arg_types = ArgTypes, vars = Args,
-                                file_line = FileLine, index = RaceListSize,
+                                file_loc = FileLocation, index = RaceListSize,
                                 fun_mfa = CurrFun, fun_label = CurrFunLabel},
             {[#warn_call{call_name = unregister, args = VarArgs}|
               RaceList], RaceListSize + 1, [RaceFun|RaceTags], no_t};
@@ -200,13 +200,13 @@ store_race_call(Fun, ArgTypes, Args, FileLine, State) ->
             VarArgs = format_args(Args, ArgTypes, CleanState, whereis),
 	    {[#dep_call{call_name = whereis, args = VarArgs,
                         arg_types = ArgTypes, vars = Args,
-                        state = CleanState, file_line = FileLine}|
+                        state = CleanState, file_loc = FileLocation}|
               RaceList], RaceListSize + 1, RaceTags, no_t};
 	  {ets, insert, 2} ->
             VarArgs = format_args(Args, ArgTypes, CleanState, ets_insert),
             RaceFun = #race_fun{mfa = Fun, args = VarArgs,
                                 arg_types = ArgTypes, vars = Args,
-                                file_line = FileLine, index = RaceListSize,
+                                file_loc = FileLocation, index = RaceListSize,
                                 fun_mfa = CurrFun, fun_label = CurrFunLabel},
             {[#warn_call{call_name = ets_insert, args = VarArgs}|
               RaceList], RaceListSize + 1, [RaceFun|RaceTags], no_t};
@@ -214,7 +214,7 @@ store_race_call(Fun, ArgTypes, Args, FileLine, State) ->
             VarArgs = format_args(Args, ArgTypes, CleanState, ets_lookup),
             {[#dep_call{call_name = ets_lookup, args = VarArgs,
                         arg_types = ArgTypes, vars = Args,
-                        state = CleanState, file_line = FileLine}|
+                        state = CleanState, file_loc = FileLocation}|
               RaceList], RaceListSize + 1, RaceTags, no_t};
 	  {ets, new, 2} ->
 	    VarArgs = format_args(Args, ArgTypes, CleanState, ets_new),
@@ -240,7 +240,7 @@ store_race_call(Fun, ArgTypes, Args, FileLine, State) ->
               end,
             {[#dep_call{call_name = mnesia_dirty_read, args = VarArgs,
                         arg_types = ArgTypes, vars = Args,
-                        state = CleanState, file_line = FileLine}|RaceList],
+                        state = CleanState, file_loc = FileLocation}|RaceList],
 	     RaceListSize + 1, RaceTags, no_t};
           {mnesia, dirty_write, A} when A =:= 1 orelse A =:= 2 ->
             VarArgs =
@@ -252,7 +252,7 @@ store_race_call(Fun, ArgTypes, Args, FileLine, State) ->
               end,
             RaceFun = #race_fun{mfa = Fun, args = VarArgs,
                                 arg_types = ArgTypes, vars = Args,
-                                file_line = FileLine, index = RaceListSize,
+                                file_loc = FileLocation, index = RaceListSize,
                                 fun_mfa = CurrFun, fun_label = CurrFunLabel},
             {[#warn_call{call_name = mnesia_dirty_write,
 			 args = VarArgs}|RaceList],
@@ -286,7 +286,7 @@ race(State) ->
       [] -> State;
       [#race_fun{mfa = Fun,
                  args = VarArgs, arg_types = ArgTypes,
-                 vars = Args, file_line = FileLine,
+                 vars = Args, file_loc = FileLocation,
                  index = Index, fun_mfa = CurrFun,
                  fun_label = CurrFunLabel}|T] ->
         Callgraph = dialyzer_dataflow:state__get_callgraph(State),
@@ -308,9 +308,9 @@ race(State) ->
         DepList = fixup_race_list(RaceWarnTag, VarArgs, State1),
         {State2, RaceWarn} =
           get_race_warn(Fun, Args, ArgTypes, DepList, State),
-        {File, Line} = FileLine,
+        {File, Location} = FileLocation,
         CurrMFA = dialyzer_dataflow:state__find_function(CurrFun, State),
-        WarningInfo = {File, Line, CurrMFA},
+        WarningInfo = {File, Location, CurrMFA},
         race(
           state__add_race_warning(
             state__renew_race_tags(T, State2), RaceWarn, RaceWarnTag,
@@ -1254,9 +1254,9 @@ cleanup_dep_calls(DepList) ->
   case DepList of
     [] -> [];
     [#dep_call{call_name = CallName, arg_types = ArgTypes,
-               vars = Vars, state = State, file_line = FileLine}|T] ->
+               vars = Vars, state = State, file_loc = FileLocation}|T] ->
       [#dep_call{call_name = CallName, arg_types = ArgTypes,
-                 vars = Vars, state = State, file_line = FileLine}|
+                 vars = Vars, state = State, file_loc = FileLocation}|
        cleanup_dep_calls(T)]
   end.
 
@@ -2353,7 +2353,7 @@ get_reason(DependencyList, Reason) ->
   case DependencyList of
     [] -> "";
     [#dep_call{call_name = Call, arg_types = ArgTypes, vars = Args,
-               state = State, file_line = {File, Line}}|T] ->
+               state = State, file_loc = {File, Location}}|T] ->
       R =
         Reason ++
         case Call of
@@ -2365,7 +2365,7 @@ get_reason(DependencyList, Reason) ->
         " call in " ++
         filename:basename(File) ++
         " on line " ++
-        lists:flatten(io_lib:write(Line)),
+        lists:flatten(io_lib:write(Location)),
       case T of
         [] -> R;
         _ -> get_reason(T, R ++ ", ")

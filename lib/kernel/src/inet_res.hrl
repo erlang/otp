@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,23 +21,43 @@
 %% Dns & resolver defintions
 %%
 
--define(RES_TIMEOUT, 2000).      %% milli second between retries 
--define(RES_RETRY,   3).         %% number of retry
--define(RES_FILE_UPDATE_TM, 5).  %% seconds between file_info
+%% milli second for requests
+-define(RES_TIMEOUT,           2000).
 
--define(CACHE_LIMIT, 100).          %% number of cached dns_rr
--define(CACHE_REFRESH, 60*60*1000). %% refresh interval
+%% milli second to wait before next request after a failure
+-define(RES_SERVFAIL_RETRY_TO, 1500).
 
--define(PACKETSZ,  512).         %% maximum packet size
--define(MAXDNAME,  256).         %% maximum domain name
--define(MAXCDNAME, 255).         %% maximum compressed domain name
--define(MAXLABEL,  63).		 %% maximum length of domain label
+%% number of retry
+-define(RES_RETRY,             3).
+
+%% seconds between file_info
+-define(RES_FILE_UPDATE_TM,    5).
+
+%% number of cached dns_rr
+-define(CACHE_LIMIT,           100).
+
+%% refresh interval
+-define(CACHE_REFRESH,         60*60*1000).
+
+%% maximum packet size
+-define(PACKETSZ,              512).
+
+%% maximum domain name
+-define(MAXDNAME,              256).
+
+%% maximum compressed domain name
+-define(MAXCDNAME,             255).
+
+%% maximum length of domain label
+-define(MAXLABEL,              63).
+
 %%  Number of bytes of fixed size data in query structure 
--define(QFIXEDSZ,  4).
+-define(QFIXEDSZ,              4).
+
 %% number of bytes of fixed size data in resource record 
--define(RRFIXEDSZ, 10).
+-define(RRFIXEDSZ,             10).
 
 %%
 %% Internet nameserver port number
 %%
--define(NAMESERVER_PORT, 53).
+-define(NAMESERVER_PORT,       53).

@@ -126,11 +126,12 @@
 %% per write than base 10, but the speedup is only 21%.)
 
 -define(DEFAULT, undefined).
--define(LEAFSIZE, 10).		% the "base"
--define(NODESIZE, ?LEAFSIZE).   % (no reason to have a different size)
+-define(LEAFSIZE, 10).         % the "base" (assumed to be > 1)
+-define(NODESIZE, ?LEAFSIZE).  % must not be LEAFSIZE-1; keep same as leaf
 -define(NODEPATTERN(S), {_,_,_,_,_,_,_,_,_,_,S}). % NODESIZE+1 elements!
--define(NEW_NODE(S),  % beware of argument duplication!
-	setelement((?NODESIZE+1),erlang:make_tuple((?NODESIZE+1),(S)),(S))).
+-define(NEW_NODE(E,S),  % general case (currently unused)
+        setelement((?NODESIZE+1),erlang:make_tuple((?NODESIZE+1),(E)),(S))).
+-define(NEW_NODE(S), erlang:make_tuple((?NODESIZE+1),(S))).  % when E = S
 -define(NEW_LEAF(D), erlang:make_tuple(?LEAFSIZE,(D))).
 -define(NODELEAFS, ?NODESIZE*?LEAFSIZE).
 
@@ -605,7 +606,7 @@ grow(I, E, M) ->
     grow_1(I, E, M).
 
 grow_1(I, E, M) when I >= M ->
-    grow(I, setelement(1, ?NEW_NODE(M), E), ?extend(M));
+    grow_1(I, setelement(1, ?NEW_NODE(M), E), ?extend(M));
 grow_1(_I, E, M) ->
     {E, M}.
 
@@ -1631,12 +1632,11 @@ foldl_test_() ->
      ?_assert(foldl(Sum, 0, from_list(lists:seq(0,10))) =:= 55),
      ?_assert(foldl(Reverse, [], from_list(lists:seq(0,1000)))
 	      =:= lists:reverse(lists:seq(0,1000))),
-     ?_assert({999,[N0*100+1+2,N0*2+1+1,0]} =:= 
-	      foldl(Vals, {0,[]}, 
+     ?_assertEqual({N0*100+1-2,[N0*100+1+2,N0*2+1+1,0]},
+	      foldl(Vals, {0,[]},
 		    set(N0*100+1,2,
 			set(N0*2+1,1,
 			    set(0,0,new())))))
-     
     ].
 -endif.
 
@@ -1786,12 +1786,11 @@ foldr_test_() ->
      ?_assert(foldr(Sum, 0, from_list(lists:seq(0,10))) =:= 55),
      ?_assert(foldr(List, [], from_list(lists:seq(0,1000)))
  	      =:= lists:seq(0,1000)),
-     ?_assert({999,[0,N0*2+1+1,N0*100+1+2]} =:= 
-	      foldr(Vals, {0,[]}, 
+     ?_assertEqual({N0*100+1-2,[0,N0*2+1+1,N0*100+1+2]},
+	      foldr(Vals, {0,[]},
 		    set(N0*100+1,2,
 			set(N0*2+1,1,
 			    set(0,0,new())))))
-     
     ].
 -endif.
 

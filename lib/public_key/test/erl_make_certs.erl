@@ -23,8 +23,10 @@
 -module(erl_make_certs).
 -include_lib("public_key/include/public_key.hrl").
 
--export([make_cert/1, gen_rsa/1, verify_signature/3, write_pem/3]).
--compile(export_all).
+-export([make_cert/1, gen_rsa/1, verify_signature/3, write_pem/3,
+         gen_dsa/2, gen_ec/1,
+         pem_to_der/1, der_to_pem/2
+        ]).
 
 %%--------------------------------------------------------------------
 %% @doc  Create and return a der encoded certificate

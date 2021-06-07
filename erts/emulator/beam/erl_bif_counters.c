@@ -80,8 +80,10 @@ BIF_RETTYPE erts_internal_counters_new_1(BIF_ALIST_1)
     Uint bytes, cache_lines;
     Eterm* hp;
 
-    if (!term_to_UWord(BIF_ARG_1, &cnt)
-        || cnt == 0) {
+    if (!term_to_UWord(BIF_ARG_1, &cnt)) {
+        BIF_ERROR(BIF_P, cnt);
+    }
+    if (cnt == 0) {
         BIF_ERROR(BIF_P, BADARG);
     }
 

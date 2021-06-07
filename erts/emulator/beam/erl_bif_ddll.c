@@ -829,7 +829,7 @@ BIF_RETTYPE erl_ddll_format_error_int_1(BIF_ALIST_1)
 	    "cannot be loaded/unloaded";
 	break;
     case am_permanent:
-	errstring = "DDLL driver is permanent an can not be unloaded/loaded";
+	errstring = "DDLL driver is permanent an cannot be unloaded/loaded";
 	break;
     case am_not_loaded:
 	errstring = "DDLL driver is not loaded";
@@ -1554,11 +1554,9 @@ static int do_unload_driver_entry(DE_Handle *dh, Eterm *save_name)
 	    /* Future locking problems? Don't dare to let go of the
 	       diver_list lock here!*/
 	    if (q->finish) {
-		int fpe_was_unmasked = erts_block_fpe();
 		DTRACE1(driver_finish, q->name);
                 LTTNG1(driver_finish, q->name);
 		(*(q->finish))();
-		erts_unblock_fpe(fpe_was_unmasked);
 	    }
 	    erts_sys_ddll_close(dh->handle);
 	    erts_destroy_driver(q);

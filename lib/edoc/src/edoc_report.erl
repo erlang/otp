@@ -23,15 +23,15 @@
 %% @copyright 2001-2003 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @see edoc
-%% @end 
+%% @end
 %% =====================================================================
 
 %% @doc EDoc verbosity/error reporting.
 
 -module(edoc_report).
 
-%% Avoid warning for local function error/2 clashing with autoimported BIF.
--compile({no_auto_import,[error/2]}).
+%% Avoid warning for local functions error/{1,2,3} clashing with autoimported BIF.
+-compile({no_auto_import, [error/1, error/2, error/3]}).
 -export([error/1,
 	 error/2,
 	 error/3,

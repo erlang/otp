@@ -25,7 +25,8 @@
 	 t_list_to_tuple/1, t_list_to_upper_boundry_tuple/1, t_tuple_to_list/1,
 	 t_make_tuple_2/1, t_make_upper_boundry_tuple_2/1, t_make_tuple_3/1,
 	 t_append_element/1, t_append_element_upper_boundry/1,
-	 build_and_match/1, tuple_with_case/1, tuple_in_guard/1]).
+         build_and_match/1, tuple_with_case/1, tuple_in_guard/1,
+         get_two_tuple_elements/1]).
 -include_lib("common_test/include/ct.hrl").
 
 %% Tests tuples and the BIFs:
@@ -47,7 +48,8 @@ all() ->
      t_make_tuple_2, t_make_upper_boundry_tuple_2, t_make_tuple_3,
      t_append_element, t_append_element_upper_boundry,
      t_insert_element, t_delete_element,
-     tuple_with_case, tuple_in_guard].
+     tuple_with_case, tuple_in_guard,
+     get_two_tuple_elements].
 
 groups() -> 
     [].
@@ -401,6 +403,30 @@ tuple_in_guard(Config) when is_list(Config) ->
 	true ->
 	    ct:fail("failed")
     end,
+    ok.
+
+%% For BeamAsm, test that the tuple pointer is correctly reloaded after
+%% a get_two_tuple_elements instruction that ovewrites the register holding
+%% the tuple.
+get_two_tuple_elements(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    GTTETestsFile = filename:join(DataDir, "get_two_tuple_elements"),
+
+    %% Compile from Erlang source code.
+    {ok,GTTEMod,Code1} = compile:file(GTTETestsFile, [no_ssa_opt_sink,binary,report,time]),
+    {module,GTTEMod} = code:load_binary(GTTEMod, GTTEMod, Code1),
+    GTTEMod:GTTEMod(),
+    true = code:delete(GTTEMod),
+    code:purge(GTTEMod),
+
+    %% Compile from the pre-generated BEAM assmebly code file. (In case that the
+    %% compiler's code generation has changed.)
+    {ok,GTTEMod,Code2} = compile:file(GTTETestsFile, [from_asm,binary,report,time]),
+    {module,GTTEMod} = code:load_binary(GTTEMod, GTTEMod, Code2),
+    GTTEMod:GTTEMod(),
+    true = code:delete(GTTEMod),
+    code:purge(GTTEMod),
+
     ok.
 
 %% Use this function to avoid compile-time evaluation of an expression.

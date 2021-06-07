@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,104 +32,272 @@
 #include "bif.h"
 #include "erl_binary.h"
 
+static Eterm keyfind(Export* Bif, Process* p, Eterm Key, Eterm Pos, Eterm List);
 
-static Eterm keyfind(int Bif, Process* p, Eterm Key, Eterm Pos, Eterm List);
+/* erlang:'++'/2
+ *
+ * Adds a list to another (LHS ++ RHS). For historical reasons this is
+ * implemented by copying LHS and setting its tail to RHS without checking
+ * that RHS is a proper list. [] ++ 'not_a_list' will therefore result in
+ * 'not_a_list', and [1,2] ++ 3 will result in [1,2|3], and this is a bug that
+ * we have to live with. */
 
+typedef struct {
+    Eterm lhs_original;
+    Eterm rhs_original;
 
-static BIF_RETTYPE append(Process* p, Eterm A, Eterm B)
-{
-    Eterm list;
-    Eterm copy;
-    Eterm last;
-    Eterm* hp = NULL;
-    Sint i;
+    Eterm iterator;
 
-    list = A;
+    Eterm result;
+    Eterm *result_cdr;
+} ErtsAppendContext;
 
-    if (is_nil(list)) {
-        BIF_RET(B);
+static int append_ctx_bin_dtor(Binary *context_bin) {
+    return 1;
+}
+
+static Eterm append_create_trap_state(Process *p,
+                                      ErtsAppendContext *from_context) {
+    ErtsAppendContext *to_context;
+    Binary *state_bin;
+    Eterm *hp;
+
+    state_bin = erts_create_magic_binary(sizeof(ErtsAppendContext),
+                                         append_ctx_bin_dtor);
+
+    to_context = ERTS_MAGIC_BIN_DATA(state_bin);
+    *to_context = *from_context;
+
+    if (from_context->result_cdr == &from_context->result) {
+        to_context->result_cdr = &to_context->result;
     }
 
-    if (is_not_list(list)) {
-        BIF_ERROR(p, BADARG);
+    hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+    return erts_mk_magic_ref(&hp, &MSO(p), state_bin);
+}
+
+static BIF_RETTYPE lists_append_alloc(Process *p, ErtsAppendContext *context) {
+    static const Uint CELLS_PER_RED = 40;
+
+    Eterm *alloc_top, *alloc_end;
+    Uint cells_left, max_cells;
+    Eterm lookahead;
+
+    cells_left = max_cells = CELLS_PER_RED * ERTS_BIF_REDS_LEFT(p);
+    lookahead = context->iterator;
+
+#ifdef DEBUG
+    cells_left = max_cells = max_cells / 10 + 1;
+#endif
+
+    while (cells_left != 0 && is_list(lookahead)) {
+        lookahead = CDR(list_val(lookahead));
+        cells_left--;
     }
 
-    /* optimistic append on heap first */
+    BUMP_REDS(p, (max_cells - cells_left) / CELLS_PER_RED);
 
-    if ((i = HeapWordsLeft(p) / 2) < 4) {
-        goto list_tail;
+    if (is_not_list(lookahead) && is_not_nil(lookahead)) {
+        /* It's possible that we're erroring out with an incomplete list, so it
+         * must be terminated or we'll leave a hole in the heap. */
+        *context->result_cdr = NIL;
+        return -1;
     }
 
-    hp   = HEAP_TOP(p);
-    copy = last = CONS(hp, CAR(list_val(list)), make_list(hp+2));
-    list = CDR(list_val(list));
-    hp  += 2;
-    i   -= 2; /* don't use the last 2 words (extra i--;) */
+    alloc_top = HAlloc(p, 2 * (max_cells - cells_left));
+    alloc_end = alloc_top + 2 * (max_cells - cells_left);
 
-    while(i-- && is_list(list)) {
-        Eterm* listp = list_val(list);
-        last = CONS(hp, CAR(listp), make_list(hp+2));
-        list = CDR(listp);
-        hp += 2;
+    while (alloc_top < alloc_end) {
+        Eterm *cell = list_val(context->iterator);
+
+        ASSERT(context->iterator != lookahead);
+
+        *context->result_cdr = make_list(alloc_top);
+        context->result_cdr = &CDR(alloc_top);
+        CAR(alloc_top) = CAR(cell);
+
+        context->iterator = CDR(cell);
+        alloc_top += 2;
     }
 
-    /* A is proper and B is NIL return A as-is, don't update HTOP */
-
-    if (is_nil(list) && is_nil(B)) {
-        BIF_RET(A);
+    if (is_list(context->iterator)) {
+        /* The result only has to be terminated when returning it to the user,
+         * but we're doing it when trapping as well to prevent headaches when
+         * debugging. */
+        *context->result_cdr = NIL;
+        ASSERT(cells_left == 0);
+        return 0;
     }
 
-    if (is_nil(list)) {
-        HEAP_TOP(p) = hp;
-        CDR(list_val(last)) = B;
-        BIF_RET(copy);
+    *context->result_cdr = context->rhs_original;
+    ASSERT(is_nil(context->iterator));
+
+    if (is_nil(context->rhs_original)) {
+        /* The list we created was equal to the original, so we'll return that
+         * in the hopes that the garbage we created can be removed soon. */
+        context->result = context->lhs_original;
     }
 
-list_tail:
+    return 1;
+}
 
-    if ((i = erts_list_length(list)) < 0) {
-        BIF_ERROR(p, BADARG);
+static BIF_RETTYPE lists_append_onheap(Process *p, ErtsAppendContext *context) {
+    static const Uint CELLS_PER_RED = 60;
+
+    Eterm *alloc_start, *alloc_top, *alloc_end;
+    Uint cells_left, max_cells;
+
+    cells_left = max_cells = CELLS_PER_RED * ERTS_BIF_REDS_LEFT(p);
+
+#ifdef DEBUG
+    cells_left = max_cells = max_cells / 10 + 1;
+#endif
+
+    ASSERT(HEAP_LIMIT(p) >= HEAP_TOP(p) + 2);
+    alloc_start = HEAP_TOP(p);
+    alloc_end = HEAP_LIMIT(p) - 2;
+    alloc_top = alloc_start;
+
+    /* Don't process more cells than we have reductions for. */
+    alloc_end = MIN(alloc_top + (cells_left * 2), alloc_end);
+
+    while (alloc_top < alloc_end && is_list(context->iterator)) {
+        Eterm *cell = list_val(context->iterator);
+
+        *context->result_cdr = make_list(alloc_top);
+        context->result_cdr = &CDR(alloc_top);
+        CAR(alloc_top) = CAR(cell);
+
+        context->iterator = CDR(cell);
+        alloc_top += 2;
     }
 
-    /* remaining list was proper and B is NIL */
-    if (is_nil(B)) {
-        BIF_RET(A);
+    cells_left -= (alloc_top - alloc_start) / 2;
+    HEAP_TOP(p) = alloc_top;
+
+    ASSERT(cells_left >= 0 && cells_left <= max_cells);
+    BUMP_REDS(p, (max_cells - cells_left) / CELLS_PER_RED);
+
+    if (is_not_list(context->iterator) && is_not_nil(context->iterator)) {
+        *context->result_cdr = NIL;
+        return -1;
     }
 
-    if (hp) {
-        /* Note: fall through case, already written
-         * on the heap.
-         * The last 2 words of the heap is not written yet
-         */
-        Eterm *hp_save = hp;
-        ASSERT(i != 0);
-        HEAP_TOP(p) = hp + 2;
-        if (i == 1) {
-            hp[0] = CAR(list_val(list));
-            hp[1] = B;
-            BIF_RET(copy);
+    if (is_list(context->iterator)) {
+        if (cells_left > CELLS_PER_RED) {
+            return lists_append_alloc(p, context);
         }
-        hp   = HAlloc(p, 2*(i - 1));
-        last = CONS(hp_save, CAR(list_val(list)), make_list(hp));
-    } else {
-        hp   = HAlloc(p, 2*i);
-        copy = last = CONS(hp, CAR(list_val(list)), make_list(hp+2));
-        hp  += 2;
+
+        *context->result_cdr = NIL;
+        return 0;
     }
 
-    list = CDR(list_val(list));
-    i--;
+    *context->result_cdr = context->rhs_original;
+    ASSERT(is_nil(context->iterator));
 
-    ASSERT(i > -1);
-    while(i--) {
-        Eterm* listp = list_val(list);
-        last = CONS(hp, CAR(listp), make_list(hp+2));
-        list = CDR(listp);
-        hp  += 2;
+    if (is_nil(context->rhs_original)) {
+        context->result = context->lhs_original;
     }
 
-    CDR(list_val(last)) = B;
-    BIF_RET(copy);
+    return 1;
+}
+
+static int append_continue(Process *p, ErtsAppendContext *context) {
+    /* We build the result on the unused part of the heap if possible to save
+     * us the trouble of having to figure out the list size. We fall back to
+     * lists_append_alloc when we run out of space. */
+    if (HeapWordsLeft(p) > 8) {
+        return lists_append_onheap(p, context);
+    }
+
+    return lists_append_alloc(p, context);
+}
+
+static int append_start(Process *p, Eterm lhs, Eterm rhs,
+                        ErtsAppendContext *context) {
+    context->lhs_original = lhs;
+    context->rhs_original = rhs;
+
+    context->result_cdr = &context->result;
+    context->result = NIL;
+
+    context->iterator = lhs;
+
+    return append_continue(p, context);
+}
+
+/* erlang:'++'/2 */
+static Eterm append(Export *bif_entry, BIF_ALIST_2) {
+    Eterm lhs = BIF_ARG_1, rhs = BIF_ARG_2;
+
+    if (is_nil(lhs)) {
+        /* This is buggy but expected, `[] ++ 'not_a_list'` has always resulted
+         * in 'not_a_list'. */
+        return rhs;
+    } else if (is_list(lhs)) {
+        /* We start with the context on the stack in the hopes that we won't
+         * have to trap. */
+        ErtsAppendContext context;
+        int res;
+
+        res = append_start(BIF_P, lhs, rhs, &context);
+
+        if (res == 0) {
+            Eterm state_mref;
+
+            state_mref = append_create_trap_state(BIF_P, &context);
+            erts_set_gc_state(BIF_P, 0);
+
+            BIF_TRAP2(bif_entry, BIF_P, state_mref, NIL);
+        }
+
+        if (res < 0) {
+            ASSERT(is_nil(*context.result_cdr));
+            BIF_ERROR(BIF_P, BADARG);
+        }
+
+        ASSERT(*context.result_cdr == context.rhs_original);
+        BIF_RET(context.result);
+    } else if (is_internal_magic_ref(lhs)) {
+        ErtsAppendContext *context;
+        int (*dtor)(Binary*);
+        Binary *magic_bin;
+
+        int res;
+
+        magic_bin = erts_magic_ref2bin(lhs);
+        dtor = ERTS_MAGIC_BIN_DESTRUCTOR(magic_bin);
+
+        if (dtor != append_ctx_bin_dtor) {
+            BIF_ERROR(BIF_P, BADARG);
+        }
+
+        ASSERT(BIF_P->flags & F_DISABLE_GC);
+        ASSERT(rhs == NIL);
+
+        context = ERTS_MAGIC_BIN_DATA(magic_bin);
+        res = append_continue(BIF_P, context);
+
+        if (res == 0) {
+            BIF_TRAP2(bif_entry, BIF_P, lhs, NIL);
+        }
+
+        erts_set_gc_state(BIF_P, 1);
+
+        if (res < 0) {
+            ASSERT(is_nil(*context->result_cdr));
+            ERTS_BIF_ERROR_TRAPPED2(BIF_P, BADARG, bif_entry,
+                                    context->lhs_original,
+                                    context->rhs_original);
+        }
+
+        ASSERT(*context->result_cdr == context->rhs_original);
+        BIF_RET(context->result);
+    }
+
+    ASSERT(!(BIF_P->flags & F_DISABLE_GC));
+
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 /*
@@ -139,12 +307,12 @@ list_tail:
 Eterm
 ebif_plusplus_2(BIF_ALIST_2)
 {
-    return append(BIF_P, BIF_ARG_1, BIF_ARG_2);
+    return append(BIF_TRAP_EXPORT(BIF_ebif_plusplus_2), BIF_CALL_ARGS);
 }
 
 BIF_RETTYPE append_2(BIF_ALIST_2)
 {
-    return append(BIF_P, BIF_ARG_1, BIF_ARG_2);
+    return append(BIF_TRAP_EXPORT(BIF_append_2), BIF_CALL_ARGS);
 }
 
 /* erlang:'--'/2
@@ -244,11 +412,24 @@ typedef struct {
 #define ERTS_RBT_GET_LEFT(T) ((T)->left)
 #define ERTS_RBT_SET_LEFT(T, L) ((T)->left = (L))
 #define ERTS_RBT_GET_KEY(T) ((T)->key)
-#define ERTS_RBT_CMP_KEYS(KX, KY) CMP_TERM(KX, KY)
+#define ERTS_RBT_CMP_KEYS(KX, KY) subtract_term_cmp((KX), (KY))
 #define ERTS_RBT_WANT_LOOKUP_INSERT
 #define ERTS_RBT_WANT_LOOKUP
 #define ERTS_RBT_WANT_DELETE
 #define ERTS_RBT_UNDEF
+
+/* erl_rbtree expects comparisons to return an int */
+static int subtract_term_cmp(Eterm a, Eterm b) {
+    Sint res = CMP_TERM(a, b);
+
+    if (res < 0) {
+        return -1;
+    } else if (res > 0) {
+        return 1;
+    }
+
+    return 0;
+}
 
 #include "erl_rbtree.h"
 
@@ -772,10 +953,8 @@ static int subtract_continue(Process *p, ErtsSubtractContext *context) {
         case SUBTRACT_STAGE_SET_FINISH: {
             return subtract_set_finish(p, context);
         }
-
-        default:
-            ERTS_ASSERT(!"unreachable");
     }
+    ERTS_INTERNAL_ERROR("unreachable");
 }
 
 static int subtract_start(Process *p, Eterm lhs, Eterm rhs,
@@ -784,7 +963,12 @@ static int subtract_start(Process *p, Eterm lhs, Eterm rhs,
 
     context->lhs_original = lhs;
     context->rhs_original = rhs;
-
+#ifdef DEBUG
+    /* Silence CodeChecker in subtract_ctx_move() */
+    context->lhs_remaining = 17;
+    context->rhs_remaining = 42;
+    context->result = 99;
+#endif
     return subtract_continue(p, context);
 }
 
@@ -857,11 +1041,11 @@ static Eterm subtract(Export *bif_entry, BIF_ALIST_2) {
 }
 
 BIF_RETTYPE ebif_minusminus_2(BIF_ALIST_2) {
-    return subtract(bif_export[BIF_ebif_minusminus_2], BIF_CALL_ARGS);
+    return subtract(BIF_TRAP_EXPORT(BIF_ebif_minusminus_2), BIF_CALL_ARGS);
 }
 
 BIF_RETTYPE subtract_2(BIF_ALIST_2) {
-    return subtract(bif_export[BIF_subtract_2], BIF_CALL_ARGS);
+    return subtract(BIF_TRAP_EXPORT(BIF_subtract_2), BIF_CALL_ARGS);
 }
 
 
@@ -886,7 +1070,7 @@ BIF_RETTYPE lists_member_2(BIF_ALIST_2)
     while (is_list(list)) {
 	if (--max_iter < 0) {
 	    BUMP_ALL_REDS(BIF_P);
-	    BIF_TRAP2(bif_export[BIF_lists_member_2], BIF_P, term, list);
+	    BIF_TRAP2(BIF_TRAP_EXPORT(BIF_lists_member_2), BIF_P, term, list);
 	}
 	item = CAR(list_val(list));
 	if ((item == term) || (non_immed_key && eq(item, term))) {
@@ -915,7 +1099,7 @@ static BIF_RETTYPE lists_reverse_alloc(Process *c_p,
     list = list_in;
     tail = tail_in;
 
-    cells_left = max_cells = CELLS_PER_RED * (1 + ERTS_BIF_REDS_LEFT(c_p));
+    cells_left = max_cells = CELLS_PER_RED * ERTS_BIF_REDS_LEFT(c_p);
     lookahead = list;
 
     while (cells_left != 0 && is_list(lookahead)) {
@@ -948,7 +1132,7 @@ static BIF_RETTYPE lists_reverse_alloc(Process *c_p,
     }
 
     ASSERT(is_list(tail) && cells_left == 0);
-    BIF_TRAP2(bif_export[BIF_lists_reverse_2], c_p, list, tail);
+    BIF_TRAP2(BIF_TRAP_EXPORT(BIF_lists_reverse_2), c_p, list, tail);
 }
 
 static BIF_RETTYPE lists_reverse_onheap(Process *c_p,
@@ -964,7 +1148,7 @@ static BIF_RETTYPE lists_reverse_onheap(Process *c_p,
     list = list_in;
     tail = tail_in;
 
-    cells_left = max_cells = CELLS_PER_RED * (1 + ERTS_BIF_REDS_LEFT(c_p));
+    cells_left = max_cells = CELLS_PER_RED * ERTS_BIF_REDS_LEFT(c_p);
 
     ASSERT(HEAP_LIMIT(c_p) >= HEAP_TOP(c_p) + 2);
     alloc_start = HEAP_TOP(c_p);
@@ -992,14 +1176,12 @@ static BIF_RETTYPE lists_reverse_onheap(Process *c_p,
     if (is_nil(list)) {
         BIF_RET(tail);
     } else if (is_list(list)) {
-        ASSERT(is_list(tail));
-
         if (cells_left > CELLS_PER_RED) {
             return lists_reverse_alloc(c_p, list, tail);
         }
 
         BUMP_ALL_REDS(c_p);
-        BIF_TRAP2(bif_export[BIF_lists_reverse_2], c_p, list, tail);
+        BIF_TRAP2(BIF_TRAP_EXPORT(BIF_lists_reverse_2), c_p, list, tail);
     }
 
     BIF_ERROR(c_p, BADARG);
@@ -1029,7 +1211,7 @@ lists_keymember_3(BIF_ALIST_3)
 {
     Eterm res;
 
-    res = keyfind(BIF_lists_keymember_3, BIF_P,
+    res = keyfind(BIF_TRAP_EXPORT(BIF_lists_keymember_3), BIF_P,
 		  BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     if (is_value(res) && is_tuple(res)) {
 	return am_true;
@@ -1043,7 +1225,7 @@ lists_keysearch_3(BIF_ALIST_3)
 {
     Eterm res;
     
-    res = keyfind(BIF_lists_keysearch_3, BIF_P,
+    res = keyfind(BIF_TRAP_EXPORT(BIF_lists_keysearch_3), BIF_P,
 		  BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     if (is_non_value(res) || is_not_tuple(res)) {
 	return res;
@@ -1056,12 +1238,12 @@ lists_keysearch_3(BIF_ALIST_3)
 BIF_RETTYPE
 lists_keyfind_3(BIF_ALIST_3)
 {
-    return keyfind(BIF_lists_keyfind_3, BIF_P,
+    return keyfind(BIF_TRAP_EXPORT(BIF_lists_keyfind_3), BIF_P,
 		   BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 }
 
 static Eterm
-keyfind(int Bif, Process* p, Eterm Key, Eterm Pos, Eterm List)
+keyfind(Export *Bif, Process* p, Eterm Key, Eterm Pos, Eterm List)
 {
     int max_iter = 10 * CONTEXT_REDS;
     Sint pos;
@@ -1077,7 +1259,7 @@ keyfind(int Bif, Process* p, Eterm Key, Eterm Pos, Eterm List)
 	while (is_list(List)) {
 	    if (--max_iter < 0) {
 		BUMP_ALL_REDS(p);
-		BIF_TRAP3(bif_export[Bif], p, Key, Pos, List);
+		BIF_TRAP3(Bif, p, Key, Pos, List);
 	    }
 	    term = CAR(list_val(List));
 	    List = CDR(list_val(List));
@@ -1102,7 +1284,7 @@ keyfind(int Bif, Process* p, Eterm Key, Eterm Pos, Eterm List)
 	while (is_list(List)) {
 	    if (--max_iter < 0) {
 		BUMP_ALL_REDS(p);
-		BIF_TRAP3(bif_export[Bif], p, Key, Pos, List);
+		BIF_TRAP3(Bif, p, Key, Pos, List);
 	    }
 	    term = CAR(list_val(List));
 	    List = CDR(list_val(List));
@@ -1120,7 +1302,7 @@ keyfind(int Bif, Process* p, Eterm Key, Eterm Pos, Eterm List)
 	while (is_list(List)) {
 	    if (--max_iter < 0) {
 		BUMP_ALL_REDS(p);
-		BIF_TRAP3(bif_export[Bif], p, Key, Pos, List);
+		BIF_TRAP3(Bif, p, Key, Pos, List);
 	    }
 	    term = CAR(list_val(List));
 	    List = CDR(list_val(List));

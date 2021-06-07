@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -455,6 +455,17 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			objp = list_val(ioterm);
 			obj = CAR(objp);
 		    }
+                } else if (is_big(obj)) {
+                    /*
+                     * This is obviously an error, but we
+                     * need do_build_utf8() to produce the
+                     * error; otherwise, we will generate
+                     * a badarg instead of the informative
+                     * error tuple.
+                     */
+		    DESTROY_ESTACK(stack);
+                    *costp = cost;
+                    return need;
 		} else {
 		    DESTROY_ESTACK(stack);
 		    *costp = cost;
@@ -800,7 +811,29 @@ static int check_leftovers(byte *source, int size)
     }
     return -1;
 }
-	
+
+
+static Eterm
+mk_utf8_result_bin(Process *p, Eterm bin)
+{
+    /*
+     * Don't let small refc-binaries escape out in the system
+     * when done. That is, convert such to heap binaries.
+     */
+    Uint size = binary_size(bin);
+
+    ASSERT(*binary_val(bin) == HEADER_PROC_BIN);
+    
+    if (size <= ERL_ONHEAP_BIN_LIMIT) {
+	ErlHeapBin* hb = (ErlHeapBin *) HAlloc(p, heap_bin_size(size));
+	hb->thing_word = header_heap_bin(size);
+	hb->size = size;
+        sys_memcpy(hb->data, binary_bytes(bin), size);
+	return make_binary(hb);
+    }
+    
+    return bin;
+}
 	 
 
 static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,Uint pos,
@@ -822,15 +855,15 @@ static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,Uint pos,
 	} else {
 	   hp = HAlloc(p,4);
 	} 
-	ret = TUPLE3(hp,am_error,bin,rest_term);
+	ret = TUPLE3(hp,am_error,mk_utf8_result_bin(p,bin),rest_term);
     } else if (rest_term == NIL && num_leftovers != 0) {
 	Eterm leftover_bin = new_binary(p, leftover, num_leftovers);
 	if (check_leftovers(leftover,num_leftovers) != 0) {
 	    hp = HAlloc(p,4);
-	    ret = TUPLE3(hp,am_error,bin,leftover_bin);
+	    ret = TUPLE3(hp,am_error,mk_utf8_result_bin(p,bin),leftover_bin);
 	} else {
 	    hp = HAlloc(p,4);
-	    ret = TUPLE3(hp,am_incomplete,bin,leftover_bin);
+	    ret = TUPLE3(hp,am_incomplete,mk_utf8_result_bin(p,bin),leftover_bin);
 	}
     } else { /* All OK */	    
 	if (rest_term != NIL) { /* Trap */
@@ -843,8 +876,8 @@ static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,Uint pos,
 	    BIF_TRAP3(&characters_to_utf8_trap_exp, p, bin, rest_term, latin1);
 	} else { /* Success */
 	    /*hp = HAlloc(p,5);
-	      ret = TUPLE4(hp,bin,rest_term,make_small(pos),make_small(err));*/
-	    ret = bin;
+	      ret = TUPLE4(hp,mk_utf8_result_bin(p,bin),rest_term,make_small(pos),make_small(err));*/
+	    ret = mk_utf8_result_bin(p,bin);
 	}
     }
     BIF_RET(ret);
@@ -1057,7 +1090,7 @@ static BIF_RETTYPE build_list_return(Process *p, byte *bytes, Uint pos, Uint cha
 	    rc.num_bytes_to_process = pos;
 	    rc.num_resulting_chars = characters;
 	    rc.state = ERTS_UTF8_OK; /* not used */
-	    BIF_TRAP3(&characters_to_list_trap_1_exp, p, make_magic_bin_for_restart(p,&rc), 
+	    BIF_TRAP3(&characters_to_list_trap_1_exp, p, make_magic_bin_for_restart(p,&rc),
 		      rest_term, latin1);
 	} else { /* Success */
 	    BIF_RET(finalize_list_to_list(p, bytes, NIL, 0U, pos, characters, ERTS_UTF8_OK, left, NIL));
@@ -1358,11 +1391,9 @@ Uint erts_atom_to_string_length(Eterm atom)
     else {
         byte* err_pos;
         Uint num_chars;
-#ifdef DEBUG
         int ares =
-#endif
             erts_analyze_utf8(ap->name, ap->len, &err_pos, &num_chars, NULL);
-        ASSERT(ares == ERTS_UTF8_OK);
+        ASSERT(ares == ERTS_UTF8_OK); (void)ares;
 
         return num_chars;
     }
@@ -1649,7 +1680,7 @@ static BIF_RETTYPE finalize_list_to_list(Process *p,
 	    rc.state = state;
 	    rc.bytes = bytes;
 	    BUMP_ALL_REDS(p);
-	    BIF_TRAP3(&characters_to_list_trap_2_exp, p, 
+	    BIF_TRAP3(&characters_to_list_trap_2_exp, p,
 		       make_magic_bin_for_restart(p, &rc), rest, converted); 
 	}
     }
@@ -1758,7 +1789,7 @@ static BIF_RETTYPE do_bif_utf8_to_list(Process *p,
 	    Eterm enumchar = erts_make_integer(num_resulting_chars,p);
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    BUMP_ALL_REDS(p);
-	    BIF_TRAP3(&characters_to_list_trap_3_exp, p, orig_bin, epos, 
+	    BIF_TRAP3(&characters_to_list_trap_3_exp, p, orig_bin, epos,
 		      enumchar);
 	}
     } 

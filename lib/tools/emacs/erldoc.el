@@ -2,7 +2,7 @@
 
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2016-2017. All Rights Reserved.
+;; Copyright Ericsson AB 2016-2020. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -60,9 +60,10 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'url-parse))
 (require 'cl-lib)
+(require 'json)
 (require 'erlang)
+(eval-when-compile (require 'url-parse))
 
 (eval-and-compile                       ;for emacs < 24.3
   (or (fboundp 'user-error) (defalias 'user-error 'error)))
@@ -87,6 +88,13 @@ up the indexing."
 (defcustom erldoc-output-file (locate-user-emacs-file "cache/erldoc")
   "File to store the parsed results."
   :type 'file
+  :group 'erldoc)
+
+(defcustom erldoc-no-signature-function #'ignore
+  "Notification function called if no function signature was found."
+  :type '(choice (function-item :tag "Ignore" ignore)
+                 (function-item :tag "Warn" warn)
+                 (function-item :tag "Error" error))
   :group 'erldoc)
 
 (defun erldoc-strip-string (s)
@@ -212,11 +220,21 @@ up the indexing."
          ;; Get the full function signature.
          (when (and (eq (car-safe d) 'a)
                     (gethash (erldoc-dom-get-attribute d 'name) table))
-           (push (append (gethash (erldoc-dom-get-attribute d 'name) table)
-                         (list (funcall span-content
-                                        (or (erldoc-dom-get-element d 'span)
-                                            (cadr (memq d erldoc-dom-walk-siblings))))))
-                 entries))
+           (let* ((name (erldoc-dom-get-attribute d 'name))
+                  (mfa-url (gethash name table))
+                  (mfa (car mfa-url))
+                  (sig (or (funcall span-content d)
+                           (funcall span-content
+                                    (or (erldoc-dom-get-element d 'span)
+                                        (cadr
+                                         (memq d erldoc-dom-walk-siblings))))
+                           (progn
+                             (funcall erldoc-no-signature-function
+                                      "erldoc-parse-man: no sig for %s"
+                                      mfa)
+                             nil))))
+             (push (append mfa-url (list sig))
+                   entries)))
          ;; Get data types
          (when (and (eq (car-safe d) 'a)
                     (string-prefix-p "type-"
@@ -251,7 +269,6 @@ up the indexing."
     (with-temp-buffer
       (if (not json)
           (pp table (current-buffer))
-        (eval-and-compile (require 'json))
         (let ((json-encoding-pretty-print t))
           (insert (json-encode table))))
       (unless (file-directory-p (file-name-directory output))
@@ -280,7 +297,7 @@ up the indexing."
             (unless (file-exists-p of)
               (erldoc-parse-all erldoc-man-index of))
             (unless (string= erldoc-output-file of)
-              (make-symbolic-link of erldoc-output-file))))
+              (make-symbolic-link (expand-file-name of) erldoc-output-file))))
         (setq erldoc-lookup-table
               (with-temp-buffer
                 (insert-file-contents erldoc-output-file)
@@ -356,9 +373,12 @@ up the indexing."
           (sigs))
       (maphash (lambda (k v)
                  (when (string-match re k)
-                   (push (cons (string-to-number (match-string 1 k))
-                               (cdr (erldoc-tokenize-signature (cadr v))))
-                         sigs)))
+                   (if (cadr v)
+                       (push (cons (string-to-number (match-string 1 k))
+                                   (cdr (erldoc-tokenize-signature (cadr v))))
+                             sigs)
+                     (funcall erldoc-no-signature-function
+                              "erldoc-format-signature: No sig for %s" k))))
                (erldoc-lookup-table))
       (when sigs
         ;; Mostly single return type but there are exceptions such as
@@ -407,7 +427,7 @@ up the indexing."
 (defvar erldoc-user-guides nil)
 
 (defvar erldoc-missing-user-guides
-  '("compiler" "hipe" "kernel" "os_mon" "parsetools")
+  '("compiler" "kernel" "os_mon" "parsetools")
   "List of standard Erlang applications with no user guides.")
 
 ;; Search in `code:lib_dir/0' using find LIB_DIR -type f -name
@@ -416,8 +436,7 @@ up the indexing."
                              "kernel" "observer" "os_mon"
                              "runtime_tools" "sasl" "snmp"
                              "ssl" "test_server"
-                             ("ssh" . "SSH") ("stdlib" . "STDLIB")
-                             ("hipe" . "HiPE"))
+                             ("ssh" . "SSH") ("stdlib" . "STDLIB"))
   "List of applications that come with a manual.")
 
 (defun erldoc-user-guide-chapters (user-guide)

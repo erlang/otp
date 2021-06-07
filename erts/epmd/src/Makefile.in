@@ -20,22 +20,13 @@
 include $(ERL_TOP)/make/target.mk
 
 ifeq ($(TYPE),debug)
-PURIFY     =
 TYPEMARKER = .debug
 TYPE_FLAGS = -DDEBUG @DEBUG_FLAGS@
 else
 
-ifeq ($(TYPE),purify)
-PURIFY     = purify
-TYPEMARKER =
-TYPE_FLAGS = -O2 -DPURIFY
-else
-
 override TYPE = opt
-PURIFY     =
 TYPEMARKER =
 TYPE_FLAGS = -O2
-endif
 endif
 
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
@@ -53,11 +44,7 @@ ERTS_INCL = -I$(ERL_TOP)/erts/include \
 ifeq ($(TARGET),win32)
 ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal_r$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@
 else
-ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@
-else
 ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@ -lm
-endif
 endif
 
 ERTS_LIB = $(ERL_TOP)/erts/lib_src/obj/$(TARGET)/$(TYPE)/MADE
@@ -120,7 +107,7 @@ clean:
 #
 
 $(BINDIR)/$(EPMD): $(EPMD_OBJS) $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(EPMD_OBJS) $(LIBS)
+	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(EPMD_OBJS) $(LIBS)
 
 $(OBJDIR)/%.o: %.c epmd.h epmd_int.h
 	$(V_CC) $(CFLAGS) $(EPMD_FLAGS) -o $@ -c $<

@@ -1,0 +1,4 @@
+
+  [;1m-type binary_relation() :: relation().[0m
+
+  A binary relation.

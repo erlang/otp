@@ -39,7 +39,7 @@ TEX_FILES= $(SGML_FILES:.sgml=.tex)
 DVI_FILES= $(SGML_FILES:.sgml=.dvi)
 PSFIG_FILES= $(FIG_FILES:.fig=.ps) 
 PS_FILES= $(SGML_FILES:.sgml=.ps)
-GIF_FILES= min_head.gif
+GIF_FILES=
 ERL_FILES=
 HRL_FILES=
 DATA_FILES=

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,8 +20,6 @@
 
 -module(ssh_trpt_test_lib).
 
-%%-compile(export_all).
-
 -export([exec/1, exec/2,
 	 instantiate/2,
 	 format_msg/1,
@@ -30,9 +28,9 @@
        ).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("ssh/src/ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
--include_lib("ssh/src/ssh_transport.hrl").
--include_lib("ssh/src/ssh_auth.hrl").
+-include("ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
+-include("ssh_transport.hrl").
+-include("ssh_auth.hrl").
 
 %%%----------------------------------------------------------------
 -record(s, {
@@ -100,7 +98,7 @@ exec(Op, S0=#s{}) ->
 	    report_trace(exit, Exit, S1),
 	    exit({Exit,Op});
         Cls:Err ->
-            ct:pal("Class=~p, Error=~p", [Cls,Err]),
+            ct:log("Class=~p, Error=~p", [Cls,Err]),
             error({"fooooooO",Op})
     end;
 exec(Op, {ok,S=#s{}}) -> exec(Op, S);
@@ -568,75 +566,6 @@ receive_binary_msg(S0=#s{}) ->
                            ))
      end.
 
-
-
-old_receive_binary_msg(S0=#s{ssh=C0=#ssh{decrypt_block_size = BlockSize,
-				     recv_mac_size = MacSize
-				    }
-			}) ->
-    case size(S0#s.encrypted_data_buffer) >= max(8,BlockSize) of
-	false ->
-	    %% Need more bytes to decode the packet_length field
-	    Remaining = max(8,BlockSize) - size(S0#s.encrypted_data_buffer),
-	    receive_binary_msg( receive_wait(Remaining, S0) );
-	true ->
-	    %% Has enough bytes to decode the packet_length field
-	    {_, <<?UINT32(PacketLen), _/binary>>, _} =
-		ssh_transport:decrypt_blocks(S0#s.encrypted_data_buffer, BlockSize, C0), % FIXME: BlockSize should be at least 4
-
-	    %% FIXME: Check that ((4+PacketLen) rem BlockSize) == 0 ?
-
-	    S1 = if
-		     PacketLen > ?SSH_MAX_PACKET_SIZE ->
-			 fail({too_large_message,PacketLen},S0);        % FIXME: disconnect
-
-		     ((4+PacketLen) rem BlockSize) =/= 0 ->
-			 fail(bad_packet_length_modulo, S0); % FIXME: disconnect
-
-		     size(S0#s.encrypted_data_buffer) >= (4 + PacketLen + MacSize) ->
-			 %% has the whole packet
-			 S0;
-
-		     true ->
-			 %% need more bytes to get have the whole packet
-			 Remaining = (4 + PacketLen + MacSize) - size(S0#s.encrypted_data_buffer),
-			 receive_wait(Remaining, S0)
-		 end,
-
-	    %% Decrypt all, including the packet_length part (re-use the initial #ssh{})
-	    {C1, SshPacket = <<?UINT32(_),?BYTE(PadLen),Tail/binary>>, EncRest} = 
-		ssh_transport:decrypt_blocks(S1#s.encrypted_data_buffer, PacketLen+4, C0),
-	    
-	    PayloadLen = PacketLen - 1 - PadLen,
-	    <<CompressedPayload:PayloadLen/binary, _Padding:PadLen/binary>> = Tail,
-
-	    {C2, Payload} = ssh_transport:decompress(C1, CompressedPayload),
-
-	    <<Mac:MacSize/binary, Rest/binary>> = EncRest,
-
-	    case {ssh_transport:is_valid_mac(Mac, SshPacket, C2),
-		  catch ssh_message:decode(set_prefix_if_trouble(Payload,S1))}
-	    of
-		{false,         _} -> fail(bad_mac,S1);
-		{_,    {'EXIT',_}} -> fail(decode_failed,S1);
-
-		{true, Msg} ->
-		    C3 = case Msg of
-			     #ssh_msg_kexinit{} ->
-				 ssh_transport:key_init(opposite_role(C2), C2, Payload);
-			     _ ->
-				 C2
-			 end,
-		    S2 = opt(print_messages, S1,
-			     fun(X) when X==true;X==detail -> {"Recv~n~s~n",[format_msg(Msg)]} end),
-		    S3 = opt(print_messages, S2, 
-			     fun(detail) -> {"decrypted bytes ~p~n",[SshPacket]} end),
-		    S3#s{ssh = inc_recv_seq_num(C3),
-			 encrypted_data_buffer = Rest,
-			 return_value = Msg
-			}
-	    end
-    end.
 
 
 set_prefix_if_trouble(Msg = <<?BYTE(Op),_/binary>>, #s{alg=#alg{kex=Kex}})

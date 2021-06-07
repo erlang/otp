@@ -42,8 +42,6 @@
   <xi:include href="erl_recomment.xml"/>
   <xi:include href="erl_syntax.xml"/>
   <xi:include href="erl_syntax_lib.xml"/>
-  <xi:include href="erl_tidy.xml"/>
-  <xi:include href="igor.xml"/>
   <xi:include href="merl.xml"/>
   <xi:include href="merl_transform.xml"/>
   <xi:include href="prettypr.xml"/>

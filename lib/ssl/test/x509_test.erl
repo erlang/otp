@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 
  -module(x509_test).
 
- -include_lib("public_key/include/public_key.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 -export([extensions/1, gen_pem_config_files/3]).
 
@@ -64,6 +64,8 @@ do_gen_pem_config_files(Config, CertFile, KeyFile, CAFile) ->
 cert_entry(Cert) ->
     {'Certificate', Cert, not_encrypted}.
 
+key_entry({'PrivateKeyInfo', DERKeyInfo}) ->
+    {'PrivateKeyInfo', DERKeyInfo, not_encrypted};
 key_entry({'RSAPrivateKey', DERKey}) ->
     {'RSAPrivateKey', DERKey, not_encrypted};
 key_entry({'DSAPrivateKey', DERKey}) ->
@@ -105,4 +107,5 @@ extension({Id, Data, Critical}) ->
 
 der_to_pem(File, Entries) ->
     PemBin = public_key:pem_encode(Entries),
+    _ = file:delete(File),
     file:write_file(File, PemBin).

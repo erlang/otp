@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2017. All Rights Reserved.
+# Copyright Ericsson AB 1996-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,36 +23,29 @@ include $(ERL_TOP)/make/target.mk
 
 ERTS_LIB_TYPEMARKER=.$(TYPE)
 
-USING_MINGW=@MIXED_CYGWIN_MINGW@
 USING_VC=@MIXED_VC@
 
 ifeq ($(TYPE),debug)
-PURIFY =
 TYPEMARKER = .debug
 TYPE_FLAGS = -DDEBUG @DEBUG_FLAGS@
 else
 
-ifeq ($(TYPE),purify)
-PURIFY = purify
-TYPEMARKER =
-TYPE_FLAGS = -g -O2 -DPURIFY
-else
-
 override TYPE=opt
-PURIFY =
 TYPEMARKER =
 ERTS_LIB_TYPEMARKER=
 TYPE_FLAGS =
 endif
-endif
 
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
+include $(ERL_TOP)/make/$(TARGET)/otp_ded.mk
 include ../../vsn.mk
 
 ERTS_INCL = -I$(ERL_TOP)/erts/include \
             -I$(ERL_TOP)/erts/include/$(TARGET) \
             -I$(ERL_TOP)/erts/include/internal \
             -I$(ERL_TOP)/erts/include/internal/$(TARGET)
+
+EI_INCL   = -I$(ERL_TOP)/lib/erl_interface/include
 
 CC        = @CC@
 WFLAGS    = @WFLAGS@
@@ -87,6 +80,10 @@ DRVDIR    = $(ERL_TOP)/erts/emulator/drivers/@ERLANG_OSTYPE@
 UXETC     = ../unix
 WINETC	  = ../win32
 
+# Threads flags and libs
+THR_DEFS=@THR_DEFS@
+THR_LIBS=@THR_LIBS@
+
 ifeq ($(TARGET), win32)
 ETC       = $(WINETC)
 else
@@ -107,6 +104,8 @@ ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPE
 endif
 
 ERTS_LIB = $(ERL_TOP)/erts/lib_src/obj/$(TARGET)/$(TYPE)/MADE
+
+EI_LIB = -L$(ERL_TOP)/lib/erl_interface/obj/$(TARGET) -lei $(THR_LIBS)
 
 # ----------------------------------------------------
 # Release directory specification
@@ -147,7 +146,14 @@ MC_OUTPUTS=$(OBJDIR)/erlsrv_logmess.h $(OBJDIR)/erlsrv_logmess.res
 MT_FLAG="-MD"
 endif
 INET_GETHOST = $(BINDIR)/inet_gethost.exe
-INSTALL_EMBEDDED_PROGS += $(BINDIR)/typer.exe $(BINDIR)/dialyzer.exe $(BINDIR)/erlc.exe $(BINDIR)/start_erl.exe $(BINDIR)/escript.exe $(BINDIR)/ct_run.exe
+INSTALL_EMBEDDED_PROGS += \
+	$(BINDIR)/typer.exe \
+	$(BINDIR)/dialyzer.exe \
+	$(BINDIR)/erlc.exe \
+	$(BINDIR)/start_erl.exe \
+	$(BINDIR)/escript.exe \
+	$(BINDIR)/ct_run.exe \
+	$(BINDIR)/erl_call.exe
 INSTALL_SRC = $(WINETC)/start_erl.c $(WINETC)/Nmakefile.start_erl
 ERLEXECDIR=.
 INSTALL_LIBS =
@@ -158,9 +164,11 @@ INSTALL_TOP = Install.ini
 INSTALL_TOP_BIN = $(BINDIR)/Install.exe
 INSTALL_PROGS =              \
 	$(INET_GETHOST)      \
-	$(BINDIR)/heart.exe   $(BINDIR)/erlsrv.exe   \
-	$(BINDIR)/erl.exe $(BINDIR)/erl_log.exe \
-	$(BINDIR)/werl.exe \
+	$(BINDIR)/heart.exe  \
+	$(BINDIR)/erlsrv.exe \
+	$(BINDIR)/erl.exe    \
+	$(BINDIR)/erl_log.exe\
+	$(BINDIR)/werl.exe   \
 	$(BINDIR)/$(ERLEXEC) \
 	$(INSTALL_EMBEDDED_PROGS)
 
@@ -180,9 +188,16 @@ ENTRY_OBJ=
 ERLSRV_OBJECTS= 
 MC_OUTPUTS=
 INET_GETHOST = $(BINDIR)/inet_gethost@EXEEXT@
-INSTALL_EMBEDDED_PROGS += $(BINDIR)/typer@EXEEXT@ $(BINDIR)/dialyzer@EXEEXT@ \
- $(BINDIR)/erlc@EXEEXT@ $(BINDIR)/escript@EXEEXT@ $(BINDIR)/ct_run@EXEEXT@ \
- $(BINDIR)/run_erl $(BINDIR)/to_erl $(BINDIR)/dyn_erl
+INSTALL_EMBEDDED_PROGS += \
+	$(BINDIR)/typer@EXEEXT@ \
+	$(BINDIR)/dialyzer@EXEEXT@ \
+	$(BINDIR)/erlc@EXEEXT@ \
+	$(BINDIR)/escript@EXEEXT@ \
+	$(BINDIR)/ct_run@EXEEXT@ \
+	$(BINDIR)/run_erl@EXEEXT@ \
+	$(BINDIR)/to_erl@EXEEXT@ \
+	$(BINDIR)/dyn_erl@EXEEXT@ \
+	$(BINDIR)/erl_call@EXEEXT@
 INSTALL_EMBEDDED_DATA = $(UXETC)/start.src $(UXETC)/start_erl.src
 INSTALL_TOP = Install
 INSTALL_TOP_BIN = 
@@ -190,6 +205,7 @@ INSTALL_MISC = $(UXETC)/format_man_pages $(UXETC)/makewhatis
 INSTALL_SRC = $(UXETC)/setuid_socket_wrap.c #delivered as an example
 ERLEXECDIR = .
 INSTALL_LIBS =
+EXTRA_LIBS = $(BINDIR)/jit-reader.so
 INSTALL_OBJS =
 INSTALL_INCLUDES =
 TEXTFILES = Install erl.src
@@ -201,7 +217,7 @@ INSTALL_PROGS =              \
 endif
 
 .PHONY: etc
-etc:	$(ENTRY_OBJ) $(INSTALL_PROGS) $(INSTALL_LIBS) $(TEXTFILES) $(INSTALL_TOP_BIN)
+etc:	$(ENTRY_OBJ) $(INSTALL_PROGS) $(EXTRA_LIBS) $(INSTALL_LIBS) $(TEXTFILES) $(INSTALL_TOP_BIN)
 
 # erlexec needs the erts_internal library...
 $(ERTS_LIB):
@@ -388,14 +404,14 @@ $(OBJDIR)/heart.o: heart.c $(RC_GENERATED)
 #	$(V_CC) $(CFLAGS) -o $@ -c $<
 #
 #$(BINDIR)/%: $(OBJDIR)/%.o
-#	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $< $(LIBS)
+#	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $< $(LIBS)
 
 $(OBJDIR)/inet_gethost.o: inet_gethost.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c inet_gethost.c
 
 # inet_gethost
 $(BINDIR)/inet_gethost@EXEEXT@: $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose) $(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 # run_erl
 $(BINDIR)/run_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o
@@ -417,45 +433,53 @@ $(OBJDIR)/dyn_erl.o: $(UXETC)/dyn_erl.c $(RC_GENERATED)
 $(OBJDIR)/safe_string.o: $(ETC)/safe_string.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c $(ETC)/safe_string.c
 
+# erl_call
+$(BINDIR)/erl_call@EXEEXT@: $(ERL_TOP)/lib/erl_interface/bin/$(TARGET)/erl_call@EXEEXT@
+	$(ld_verbose)cp $< $@
+
 ifneq ($(TARGET),win32)
 $(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/$(ERLEXEC).o $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/$(ERLEXEC).o $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/$(ERLEXEC).o: $(ERLEXECDIR)/$(ERLEXEC).c $(RC_GENERATED)
 	$(V_CC) -I$(EMUDIR) $(CFLAGS) -o $@ -c $(ERLEXECDIR)/$(ERLEXEC).c
 endif
 
 $(BINDIR)/erlc@EXEEXT@: $(OBJDIR)/erlc.o $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS) $(EI_LIB)
 
 $(OBJDIR)/erlc.o: erlc.c $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -o $@ -c erlc.c
+	$(V_CC) $(CFLAGS) $(THR_DEFS) $(EI_INCL) $(MT_FLAG) -o $@ -c erlc.c
 
 $(BINDIR)/dialyzer@EXEEXT@: $(OBJDIR)/dialyzer.o $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/dialyzer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/dialyzer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/dialyzer.o: dialyzer.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c dialyzer.c
 
 $(BINDIR)/typer@EXEEXT@: $(OBJDIR)/typer.o $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/typer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/typer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/typer.o: typer.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c typer.c
 
 $(BINDIR)/escript@EXEEXT@: $(OBJDIR)/escript.o $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/escript.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/escript.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/escript.o: escript.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c escript.c
 
 $(BINDIR)/ct_run@EXEEXT@: $(OBJDIR)/ct_run.o $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/ct_run.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/ct_run.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/ct_run.o: ct_run.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c ct_run.c
 
+$(OBJDIR)/jit-reader.o: $(ETC)/jit-reader.c $(ETC)/jit-reader.h
+	$(V_CC) $(DED_CFLAGS) -I$(ETC) -o $@ -c $<
 
+$(BINDIR)/jit-reader.so: $(OBJDIR)/jit-reader.o
+	$(V_LD) $(DED_LDFLAGS) -o $@ $^
 
 Install:	$(UXETC)/Install.src ../../vsn.mk $(TARGET)/Makefile
 	$(vsn_verbose)sed -e 's;%I_VSN%;$(VSN);' \
@@ -483,9 +507,14 @@ ifneq ($(INSTALL_OBJS),)
 endif
 	$(INSTALL_DIR) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 ifneq ($(TARGET), win32)
-ifneq ($(findstring vxworks,$(TARGET)), vxworks)
 	$(INSTALL_SCRIPT) erl.src "$(RELEASE_PATH)/erts-$(VSN)/bin"
-endif
+# On Android, the shell is found in /system/bin/sh instead of /bin/sh
+	case "$(TARGET)" in \
+		*-android*) \
+		sed -i'' -e "s;/bin/sh;/system/bin/sh;" \
+			"$(RELEASE_PATH)/erts-$(VSN)/bin/erl.src" \
+		;; \
+	esac
 endif
 ifneq ($(INSTALL_PROGS),)
 	$(INSTALL_PROGRAM) $(INSTALL_PROGS) "$(RELEASE_PATH)/erts-$(VSN)/bin"
@@ -506,6 +535,15 @@ ifneq ($(INSTALL_SRC),)
 endif
 ifneq ($(INSTALL_EMBEDDED_DATA),)
 	$(INSTALL_SCRIPT) $(INSTALL_EMBEDDED_DATA) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+# On Android, the shell is found in /system/bin/sh instead of /bin/sh
+	case "$(TARGET)" in \
+		*-android*) \
+		sed -i'' -e "s;/bin/sh;/system/bin/sh;" \
+			"$(RELEASE_PATH)/erts-$(VSN)/bin/start_erl.src"; \
+		sed -i'' -e "s;/bin/sh;/system/bin/sh;" \
+			"$(RELEASE_PATH)/erts-$(VSN)/bin/start.src"; \
+		;; \
+	esac
 endif
 ifneq ($(INSTALL_LIBS),)
 	$(INSTALL_DATA) $(INSTALL_LIBS) "$(RELEASE_PATH)/erts-$(VSN)/bin"

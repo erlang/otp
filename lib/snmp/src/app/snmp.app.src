@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,6 +49,9 @@
              snmpa_error_io,
              snmpa_error_logger,
              snmpa_error_report,
+             snmpa_get,
+             snmpa_get_lib,
+             snmpa_get_mechanism, 
              snmpa_local_db,
              snmpa_mib,
              snmpa_mib_data,

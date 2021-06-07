@@ -22,44 +22,54 @@
 -export([scan/1, scan/3]).
 
 scan(Inport) ->
-    scan(Inport, '', 1).
+    scan(Inport, '', {1, 1}).
 
-scan(Inport, Prompt, Line1) ->
-    case catch io:scan_erl_form(Inport, Prompt, Line1) of
-	{eof, Line2} ->
-	    {eof, Line2};
-	{ok, Tokens, Line2} ->
-	    case Tokens of
+scan(Inport, Prompt, Location1) ->
+    case catch io:scan_erl_form(Inport, Prompt, Location1, [text, return]) of
+	{eof, Location2} ->
+	    {eof, Location2};
+	{ok, Tokens, Location2} ->
+            LexedTokens = lex(Tokens),
+            ParsableTokens = [Token || Token <- LexedTokens,
+                                       element(1, Token) =/= white_space,
+                                       element(1, Token) =/= comment],
+	    case ParsableTokens of
 		[] ->
-		    scan(Inport, Prompt, Line2);
+		    scan(Inport, Prompt, Location2);
 		_ ->
-		    {ok, lex(Tokens), Line2}
+		    {ok, LexedTokens, ParsableTokens, Location2}
 	    end;
         {error, Reason} ->
             {error, Reason};
-	{error, Descriptor, Line2} ->
-	    {error, Descriptor, Line2};
+	{error, Descriptor, Location2} ->
+	    {error, Descriptor, Location2};
 	{'EXIT', Why} ->
-	    io:format('yeccscan: Error scanning input line ~w~n', [Line1]),
+	    io:format('yeccscan: Error scanning input line ~s~n',
+                      [pos(Location1)]),
 	    exit(Why)
     end.
+
+pos({Line,Col}) ->
+    io_lib:format("~w:~w", [Line, Col]);
+pos(Line) ->
+    io_lib:format("~w", [Line]).
 
 lex([]) ->
     [];
 lex([Token | Tokens]) ->
     case Token of
-	{'dot', Line} ->
-	    [{'dot', Line} | lex(Tokens)];
-	{':', Line} ->
-            [{':', Line} | lex(Tokens)];
-        {'->', Line} ->
-            [{'->', Line} | lex(Tokens)];
-	{Category, Line, Symbol} ->
-	    [{Category, Line, Symbol} | lex(Tokens)];
-	{Other, Line} ->
+	{'dot', Location} ->
+	    [{'dot', Location} | lex(Tokens)];
+	{':', Location} ->
+            [{':', Location} | lex(Tokens)];
+        {'->', Location} ->
+            [{'->', Location} | lex(Tokens)];
+	{Category, Location, Symbol} ->
+	    [{Category, Location, Symbol} | lex(Tokens)];
+	{Other, Location} ->
             Cat = case erl_scan:reserved_word(Other) of
                       true -> reserved_word;
                       false -> reserved_symbol
                   end,
-            [{Cat, Line, Other} | lex(Tokens)]
+            [{Cat, Location, Other} | lex(Tokens)]
     end.

@@ -30,13 +30,13 @@
 -behaviour(gen_server).
 
 %% API
--export([start/1, stop/0, register_me/1, set_debug/2, invoke_callback/1]).
+-export([start/1, stop/0, register_me/1, set_debug/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
--record(state, {port,cb_port,users,cleaners=[],cb,cb_cnt}).
+-record(state, {env,users,cleaners=[],cb,cb_cnt}).
 -record(user,  {events=[]}).
 %%-record(event, {object, callback, cb_handler}).
 
@@ -58,8 +58,8 @@ start(SilentStart) ->
 	undefined ->
 	    case gen_server:start(?MODULE, [SilentStart], []) of
 		{ok, Pid}  ->
-		    {ok, Port} = gen_server:call(Pid, get_port, infinity),
-		    wx:set_env(Env = #wx_env{port=Port,sv=Pid}),
+		    {ok, Ref} = gen_server:call(Pid, get_env, infinity),
+		    wx:set_env(Env = #wx_env{ref=Ref,sv=Pid}),
 		    Env;
 		{error, {Reason, _Stack}} ->
 		    erlang:error(Reason)
@@ -90,10 +90,9 @@ set_debug(Pid, Level) ->
 %%====================================================================
 
 init([SilentStart]) ->
-    {Port,CBPort} = wxe_master:init_port(SilentStart),
-    put(?WXE_IDENTIFIER, #wx_env{port=Port,sv=self()}),
-    {ok,#state{port=Port, cb_port=CBPort,
-	       users=gb_trees:empty(), cb=gb_trees:empty(), cb_cnt=1}}.
+    Env = wxe_master:init_env(SilentStart),
+    put(?WXE_IDENTIFIER, #wx_env{ref=Env,sv=self()}),
+    {ok,#state{env=Env, users=gb_trees:empty(), cb=gb_trees:empty(), cb_cnt=1}}.
 
 %% Register process
 handle_call(register_me, {From,_}, State=#state{users=Users}) ->
@@ -106,8 +105,8 @@ handle_call(register_me, {From,_}, State=#state{users=Users}) ->
 	    {reply, ok, State#state{users=New}}
     end;
 %% Port request
-handle_call(get_port, _, State=#state{port=Port}) ->
-    {reply, {ok,Port}, State};
+handle_call(get_env, _, State=#state{env=Env}) ->
+    {reply, {ok,Env}, State};
 
 %% Connect callback
 handle_call({connect_cb,Obj,Msg},{From,_},State) ->
@@ -155,7 +154,7 @@ handle_cast(_Msg, State) ->
 %%%% Info
 
 %% Callback request from driver
-handle_info(Cb = {_, _, '_wx_invoke_cb_'}, State) ->
+handle_info({'_wx_invoke_cb_', _, _, _} = Cb, State) ->
     invoke_cb(Cb, State),
     {noreply, State};
 
@@ -200,6 +199,7 @@ handle_info(_Info, State) ->
 terminate(_Reason, _State) ->
     %% erlang:display({?MODULE, killed, process_info(self(),trap_exit),_Reason}),
     %% timer:sleep(250), %% Give driver a chance to clean up
+    wxe_util:delete_env(?get_env()),
     shutdown.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -237,40 +237,42 @@ handle_connect(Object, EvData=#evh{handler=Handler},
 	    {reply, {error, terminating}, State0}
     end.
 
-invoke_cb({{Ev=#wx{}, Ref=#wx_ref{}}, FunId,_}, _S) ->
+invoke_cb({'_wx_invoke_cb_', FunId, Ev=#wx{}, Ref=#wx_ref{}}, _S) ->
     %% Event callbacks
+    Env = get(?WXE_IDENTIFIER),
     case get(FunId) of
 	{{nospawn, Fun}, _} when is_function(Fun) ->
-	    invoke_callback_fun(fun() -> Fun(Ev, Ref), <<>> end);
+	    invoke_callback_fun(Env, Fun, [Ev, Ref], true);
 	{Fun,_} when is_function(Fun) ->
-	    invoke_callback(fun() -> Fun(Ev, Ref), <<>> end);
+	    invoke_callback(Env, Fun, [Ev, Ref], true);
 	{Pid,_} when is_pid(Pid) -> %% wx_object sync event
-	    invoke_callback(Pid, Ev, Ref);
+	    invoke_callback_obj(Env, Pid, Ev, Ref);
 	Err ->
-	    ?log("Internal Error ~p~n",[Err])
+	    ?log("Internal Error ~p~n",[Err]),
+            invoke_callback_fun(Env, fun() -> ok end, [], true)
     end;
-invoke_cb({FunId, Args, _}, _S) when is_list(Args), is_integer(FunId) ->
+invoke_cb({'_wx_invoke_cb_', FunId, Args, _}, _S) when is_list(Args), is_integer(FunId) ->
     %% Overloaded functions
+    Env = get(?WXE_IDENTIFIER),
     case get(FunId) of
 	{Fun,_} when is_function(Fun) ->
-	    invoke_callback(fun() -> Fun(Args) end);
+	    invoke_callback(Env, Fun, Args, false);
 	Err ->
-	    ?log("Internal Error ~p ~p ~p~n",[Err, FunId, Args])
+	    ?log("Internal Error ~p ~p ~p~n",[Err, FunId, Args]),
+            invoke_callback_fun(Env, fun() -> ok end, [], true)
     end.
 
-invoke_callback(Fun) ->
-    Env = get(?WXE_IDENTIFIER),
+invoke_callback(Env, Fun, Args, IsEvent) ->
     spawn(fun() ->
 		  wx:set_env(Env),
-		  invoke_callback_fun(Fun)
+		  invoke_callback_fun(Env, Fun, Args, IsEvent)
 	  end),
     ok.
 
-invoke_callback(Pid, Ev, Ref) ->
-    Env = get(?WXE_IDENTIFIER),
+invoke_callback_obj(Env, Pid, Ev, Ref) ->
     CB = fun() ->
 		 wx:set_env(Env),
-		 wxe_util:cast(?WXE_CB_START, <<>>),
+                 wxe_util:queue_cmd(Env, ?WXE_CB_START),
 		 try
 		     case get_wx_object_state(Pid, 5) of
 			 ignore ->
@@ -288,24 +290,24 @@ invoke_callback(Pid, Ev, Ref) ->
 			 ?log("Callback fun crashed with {'EXIT, ~p, ~p}~n",
 			      [Reason, Stacktrace])
 		 end,
-		 wxe_util:cast(?WXE_CB_RETURN, <<>>)
+                 wxe_util:queue_cmd(ok, Env, ?WXE_CB_RETURN)
 	 end,
     spawn(CB),
     ok.
 
-invoke_callback_fun(Fun) ->
-    wxe_util:cast(?WXE_CB_START, <<>>),
+invoke_callback_fun(#wx_env{ref=EnvRef}, Fun, Args, IsEvent) ->
+    wxe_util:queue_cmd(EnvRef, ?WXE_CB_START),
     Res = try
-	      Return = Fun(),
-	      true = is_binary(Return),
-	      Return
+	      apply(Fun, Args)
 	  catch _:Reason:Stacktrace ->
 		  ?log("Callback fun crashed with {'EXIT, ~p, ~p}~n",
 		       [Reason, Stacktrace]),
-		  <<>>
+		  ok
 	  end,
-    wxe_util:cast(?WXE_CB_RETURN, Res).
-
+    case IsEvent of
+        false -> wxe_util:queue_cmd(Res, EnvRef, ?WXE_CB_RETURN);
+        true -> wxe_util:queue_cmd(ok, EnvRef, ?WXE_CB_RETURN)
+    end.
 
 get_wx_object_state(Pid, N) when N > 0 ->
     case process_info(Pid, dictionary) of

@@ -28,7 +28,14 @@
 key_value(KeyValueStr) ->
     case lists:splitwith(fun($:) -> false; (_) -> true end, KeyValueStr) of
 	{Key, [$: | Value]} when Key =/= [] ->
-	    {http_util:to_lower(string:strip(Key)),  string:strip(Value)};
+            %% RFC 7230 - 3.2.4 ... No whitespace is allowed between the header field-name and colon. 
+            case string:strip(Key, right) of
+                Key ->
+                    {http_util:to_lower(string:strip(Key, left)),  string:strip(Value)};
+                 _ ->
+                    %% Ignore invalid header
+                    undefined
+            end;
 	{_, []} -> 
 	    undefined;
         _ ->
@@ -96,9 +103,11 @@ is_absolut_uri(_) ->
 %% Description: returns a normalized Host header value, with the port
 %% number omitted for well-known ports
 %%-------------------------------------------------------------------------
-normalize_host(https, Host, 443 = _Port) ->
+normalize_host(https, Host, Port) when Port =:= 443 orelse
+                                       Port =:= undefined ->
     Host;
-normalize_host(http, Host, 80 = _Port) ->
+normalize_host(http, Host, Port) when Port =:= 80 orelse
+                                      Port =:= undefined ->
     Host;
 normalize_host(_Scheme, Host, Port) ->
     Host ++ ":" ++ integer_to_list(Port).

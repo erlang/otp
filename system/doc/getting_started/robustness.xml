@@ -30,7 +30,7 @@
     <file>robustness.xml</file>
   </header>
   <p>Several things are wrong with the messenger example in
-    <seealso marker="conc_prog#ex">A Larger Example</seealso>.
+    <seeguide marker="conc_prog#ex">A Larger Example</seeguide>.
     For example, if a node where a user is logged
     on goes down without doing a logoff, the user remains in
     the server's <c>User_List</c>, but the client disappears. This
@@ -141,12 +141,12 @@ after pong_timeout() -></code>
       bad match, trying to call a function that does not exist and so on)
       exits with an error, that is, has an <em>abnormal</em> exit. A
       process which executes
-      <seealso marker="erts:erlang#exit/1">exit(Reason)</seealso>
+      <seemfa marker="erts:erlang#exit/1">exit(Reason)</seemfa>
       where <c>Reason</c> is any Erlang term except the atom
       <c>normal</c>, also has an abnormal exit.</p>
     <p>An Erlang process can set up links to other Erlang processes. If
       a process calls
-      <seealso marker="erts:erlang#link/1">link(Other_Pid)</seealso>
+      <seemfa marker="erts:erlang#link/1">link(Other_Pid)</seemfa>
       it sets up a bidirectional link between itself and the process
       called <c>Other_Pid</c>. When a process terminates, it sends
       something called a <em>signal</em> to all the processes it has
@@ -168,7 +168,7 @@ after pong_timeout() -></code>
       exits abnormally, all the processes in the transaction are
       killed. As it is often wanted to create a process and link to it at
       the same time, there is a special BIF,
-      <seealso marker="erts:erlang#spawn_link/1">spawn_link</seealso>
+      <seemfa marker="erts:erlang#spawn_link/1">spawn_link</seemfa>
       that does the same as <c>spawn</c>, but also creates a link to
       the spawned process.</p>
     <p>Now an example of the ping pong example using links to terminate
@@ -227,7 +227,7 @@ Ping received pong</pre>
     <code type="none">
 process_flag(trap_exit, true)</code>
     <p>There are several other process flags, see
-      <seealso marker="erts:erlang#process_flag/2">erlang(3)</seealso>.
+      <seemfa marker="erts:erlang#process_flag/2">erlang(3)</seemfa>.
       Changing the default behaviour of a process in this way is
       usually not done in standard user programs, but is left to
       the supervisory programs in OTP.

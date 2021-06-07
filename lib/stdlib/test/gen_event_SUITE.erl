@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
          start_opt/1,
          undef_init/1, undef_handle_call/1, undef_handle_event/1,
          undef_handle_info/1, undef_code_change/1, undef_terminate/1,
-         undef_in_terminate/1]).
+         undef_in_terminate/1, format_log_1/1, format_log_2/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -40,7 +40,8 @@ all() ->
     [start, {group, test_all}, hibernate, auto_hibernate,
      call_format_status, call_format_status_anon, error_format_status,
      get_state, replace_state,
-     start_opt, {group, undef_callbacks}, undef_in_terminate].
+     start_opt, {group, undef_callbacks}, undef_in_terminate,
+     format_log_1, format_log_2].
 
 groups() ->
     [{test_all, [],
@@ -112,6 +113,11 @@ start(Config) when is_list(Config) ->
     [] = gen_event:which_handlers(Pid1),
     ok = gen_event:stop(Pid1),
 
+    {ok, {Pid1b,Mon1b}} = gen_event:start_monitor(), %anonymous
+    [] = gen_event:which_handlers(Pid1b),
+    ok = gen_event:stop(Pid1b),
+    receive {'DOWN',Mon1b,process,Pid1b,_} -> ok end,
+
     {ok, Pid2} = gen_event:start(?LMGR),
     [] = gen_event:which_handlers(my_dummy_name),
     [] = gen_event:which_handlers(Pid2),
@@ -122,20 +128,44 @@ start(Config) when is_list(Config) ->
     [] = gen_event:which_handlers(Pid3),
     ok = gen_event:stop(my_dummy_name),
 
+    {ok, {Pid3b,Mon3b}} = gen_event:start_monitor(?LMGR),
+    [] = gen_event:which_handlers(my_dummy_name),
+    [] = gen_event:which_handlers(Pid3b),
+    ok = gen_event:stop(my_dummy_name),
+    receive {'DOWN',Mon3b,process,Pid3b,_} -> ok end,
+
     {ok, Pid4} = gen_event:start_link(?GMGR),
     [] = gen_event:which_handlers(?GMGR),
     [] = gen_event:which_handlers(Pid4),
     ok = gen_event:stop(?GMGR),
+
+    {ok, {Pid4b,Mon4b}} = gen_event:start_monitor(?GMGR),
+    [] = gen_event:which_handlers(?GMGR),
+    [] = gen_event:which_handlers(Pid4b),
+    ok = gen_event:stop(?GMGR),
+    receive {'DOWN',Mon4b,process,Pid4b,_} -> ok end,
 
     {ok, Pid5} = gen_event:start_link({via, dummy_via, my_dummy_name}),
     [] = gen_event:which_handlers({via, dummy_via, my_dummy_name}),
     [] = gen_event:which_handlers(Pid5),
     ok = gen_event:stop({via, dummy_via, my_dummy_name}),
 
+    {ok, {Pid5b,Mon5b}} = gen_event:start_monitor({via, dummy_via, my_dummy_name}),
+    [] = gen_event:which_handlers({via, dummy_via, my_dummy_name}),
+    [] = gen_event:which_handlers(Pid5b),
+    ok = gen_event:stop({via, dummy_via, my_dummy_name}),
+    receive {'DOWN',Mon5b,process,Pid5b,_} -> ok end,
+
     {ok, _} = gen_event:start_link(?LMGR),
     {error, {already_started, _}} = gen_event:start_link(?LMGR),
     {error, {already_started, _}} = gen_event:start(?LMGR),
     ok = gen_event:stop(my_dummy_name),
+
+    {ok, {Pid5c,Mon5c}} = gen_event:start_monitor(?LMGR),
+    {error, {already_started, Pid5c}} = gen_event:start_monitor(?LMGR),
+    {error, {already_started, Pid5c}} = gen_event:start(?LMGR),
+    ok = gen_event:stop(my_dummy_name),
+    receive {'DOWN',Mon5c,process,Pid5c,_} -> ok end,
 
     {ok, Pid6} = gen_event:start_link(?GMGR),
     {error, {already_started, _}} = gen_event:start_link(?GMGR),
@@ -148,6 +178,17 @@ start(Config) when is_list(Config) ->
 	    ct:fail(exit_gen_event)
     end,
 
+    {ok, {Pid6b,Mon6b}} = gen_event:start_monitor(?GMGR),
+    {error, {already_started, _}} = gen_event:start_monitor(?GMGR),
+    {error, {already_started, _}} = gen_event:start(?GMGR),
+
+    ok = gen_event:stop(?GMGR, shutdown, 10000),
+    receive
+	{'DOWN', Mon6b, process, Pid6b, shutdown} -> ok
+    after 10000 ->
+	    ct:fail(exit_gen_event)
+    end,
+
     {ok, Pid7} = gen_event:start_link({via, dummy_via, my_dummy_name}),
     {error, {already_started, _}} = gen_event:start_link({via, dummy_via, my_dummy_name}),
     {error, {already_started, _}} = gen_event:start({via, dummy_via, my_dummy_name}),
@@ -155,6 +196,17 @@ start(Config) when is_list(Config) ->
     exit(Pid7, shutdown),
     receive
 	{'EXIT', Pid7, shutdown} -> ok
+    after 10000 ->
+	    ct:fail(exit_gen_event)
+    end,
+
+    {ok, {Pid7b,Mon7b}} = gen_event:start_monitor({via, dummy_via, my_dummy_name}),
+    {error, {already_started, _}} = gen_event:start_monitor({via, dummy_via, my_dummy_name}),
+    {error, {already_started, _}} = gen_event:start({via, dummy_via, my_dummy_name}),
+
+    exit(Pid7b, shutdown),
+    receive
+	{'DOWN', Mon7b, process, Pid7b, shutdown} -> ok
     after 10000 ->
 	    ct:fail(exit_gen_event)
     end,
@@ -763,27 +815,49 @@ sync_notify(Config) when is_list(Config) ->
     ok.
 
 call(Config) when is_list(Config) ->
+    Async = fun(Mgr,H,Req) ->
+                    try
+                        Promise = gen_event:send_request(Mgr,H,Req),
+                        gen_event:wait_response(Promise, infinity)
+                    catch _:Reason ->
+                            {'did_exit', Reason}
+                    end
+            end,
     {ok,_} = gen_event:start({local, my_dummy_handler}),
     ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
     ok = gen_event:add_handler(my_dummy_handler, {dummy_h, 1}, [self()]),
     [{dummy_h, 1}, dummy_h] = gen_event:which_handlers(my_dummy_handler),
     {'EXIT',_} = (catch gen_event:call(non_exist, dummy_h, hejsan)),
-    {error, bad_module} =
-	gen_event:call(my_dummy_handler, bad_h, hejsan),
+    {error, _} = Async(non_exist, dummy_h, hejsan),
+    {error, bad_module} = gen_event:call(my_dummy_handler, bad_h, hejsan),
+    {error, bad_module} = Async(my_dummy_handler, bad_h, hejsan),
+
     {ok, hejhopp} = gen_event:call(my_dummy_handler, dummy_h, hejsan),
-    {ok, hejhopp} = gen_event:call(my_dummy_handler, {dummy_h, 1},
-				   hejsan),
-    {ok, hejhopp} = gen_event:call(my_dummy_handler, dummy_h, hejsan,
-				   10000),
+    {reply, {ok, hejhopp}} = Async(my_dummy_handler, dummy_h, hejsan),
+    {ok, hejhopp} = gen_event:call(my_dummy_handler, {dummy_h, 1}, hejsan),
+    {reply, {ok, hejhopp}} = Async(my_dummy_handler, {dummy_h, 1}, hejsan),
+    {ok, hejhopp} = gen_event:call(my_dummy_handler, {dummy_h, 1}, hejsan),
+    {reply, {ok, hejhopp}} = Async(my_dummy_handler, {dummy_h, 1}, hejsan),
+    {ok, hejhopp} = gen_event:call(my_dummy_handler, dummy_h, hejsan, 10000),
     {'EXIT', {timeout, _}} =
 	(catch gen_event:call(my_dummy_handler, dummy_h, hejsan, 0)),
     flush(),
+    P1 = gen_event:send_request(my_dummy_handler, dummy_h, hejsan),
+    timeout = gen_event:wait_response(P1, 0),
+    {reply, {ok, hejhopp}} = gen_event:wait_response(P1, infinity),
+
+    flush(),
+    P2 = gen_event:send_request(my_dummy_handler, dummy_h, hejsan),
+    no_reply = gen_event:check_response({other,msg}, P2),
+    {reply, {ok, hejhopp}} = receive Msg -> gen_event:check_response(Msg, P2)
+                             after 1000 -> exit(tmo) end,
+
     ok = gen_event:delete_handler(my_dummy_handler, {dummy_h, 1}, []),
     {ok, swapped} = gen_event:call(my_dummy_handler, dummy_h,
 				   {swap_call,dummy1_h,swap}),
     [dummy1_h] = gen_event:which_handlers(my_dummy_handler),
-    {error, bad_module} =
-	gen_event:call(my_dummy_handler, dummy_h, hejsan),
+    {error, bad_module} = gen_event:call(my_dummy_handler, dummy_h, hejsan),
+    {error, bad_module} = Async(my_dummy_handler, dummy_h, hejsan),
     ok = gen_event:call(my_dummy_handler, dummy1_h, delete_call),
     receive
 	{dummy1_h, removed} ->
@@ -1221,3 +1295,209 @@ fake_upgrade(Pid, Mod) ->
     Ret = sys:change_code(Pid, Mod, old_vsn, []),
     ok = sys:resume(Pid),
     Ret.
+
+%% Test report callback for Logger handler error_logger
+format_log_1(_Config) ->
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+    Term = lists:seq(1, 15),
+    Handler = my_handler,
+    Name = self(),
+    Report = #{label=>{gen_event,terminate},
+               handler=>Handler,
+               name=>Name,
+               last_message=>Term,
+               state=>Term,
+               reason=>Term},
+    {F1, A1} = gen_event:format_log(Report),
+    FExpected1 = "** gen_event handler ~tp crashed.\n"
+        "** Was installed in ~tp\n"
+        "** Last event was: ~tp\n"
+        "** When handler state == ~tp\n"
+        "** Reason == ~tp\n",
+    ct:log("F1: ~ts~nA1: ~tp", [F1,A1]),
+    FExpected1 = F1,
+    [Handler,Name,Term,Term,Term] = A1,
+
+    Warning = #{label=>{gen_event,no_handle_info},
+                module=>?MODULE,
+                message=>Term},
+    {WF1,WA1} = gen_event:format_log(Warning),
+    WFExpected1 = "** Undefined handle_info in ~p\n"
+                  "** Unhandled message: ~tp\n",
+    ct:log("WF1: ~ts~nWA1: ~tp", [WF1,WA1]),
+    WFExpected1 = WF1,
+    [?MODULE,Term] = WA1,
+
+    Depth = 10,
+    ok = application:set_env(kernel, error_logger_format_depth, Depth),
+    Limited = [1,2,3,4,5,6,7,8,9,'...'],
+    {F2,A2} = gen_event:format_log(#{label=>{gen_event,terminate},
+                                     handler=>Handler,
+                                     name=>Name,
+                                     last_message=>Term,
+                                     state=>Term,
+                                     reason=>Term}),
+    FExpected2 = "** gen_event handler ~tP crashed.\n"
+        "** Was installed in ~tP\n"
+        "** Last event was: ~tP\n"
+        "** When handler state == ~tP\n"
+        "** Reason == ~tP\n",
+    ct:log("F2: ~ts~nA2: ~tp", [F2,A2]),
+    FExpected2 = F2,
+    [Handler,Depth,Name,Depth,Limited,Depth,Limited,Depth,Limited,Depth] = A2,
+
+    {WF2,WA2} = gen_event:format_log(Warning),
+    WFExpected2 = "** Undefined handle_info in ~p\n"
+                  "** Unhandled message: ~tP\n",
+    ct:log("WF2: ~ts~nWA2: ~tp", [WF2,WA2]),
+    WFExpected2 = WF2,
+    [?MODULE,Limited,Depth] = WA2,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
+    ok.
+
+%% Test report callback for any Logger handler
+format_log_2(_Config) ->
+    Term = lists:seq(1, 15),
+    Handler = my_handler,
+    Name = self(),
+    NameStr = pid_to_list(Name),
+    Report = #{label=>{gen_event,terminate},
+               handler=>Handler,
+               name=>Name,
+               last_message=>Term,
+               state=>Term,
+               reason=>Term},
+    FormatOpts1 = #{},
+    Str1 = flatten_format_log(Report, FormatOpts1),
+    L1 = length(Str1),
+    Expected1 = "** gen_event handler my_handler crashed.\n"
+        "** Was installed in "++NameStr++"\n"
+        "** Last event was: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n"
+        "** When handler state == [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n"
+        "** Reason == [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n",
+    ct:log("Str1: ~ts", [Str1]),
+    ct:log("length(Str1): ~p", [L1]),
+    true = Expected1 =:= Str1,
+
+    Warning = #{label=>{gen_event,no_handle_info},
+                module=>?MODULE,
+                message=>Term},
+    WStr1 = flatten_format_log(Warning, FormatOpts1),
+    WL1 = length(WStr1),
+    WExpected1 = "** Undefined handle_info in gen_event_SUITE\n"
+        "** Unhandled message: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n",
+    ct:log("WStr1: ~ts", [WStr1]),
+    ct:log("length(WStr1): ~p", [WL1]),
+    true = WExpected1 =:= WStr1,
+
+    Depth = 10,
+    FormatOpts2 = #{depth=>Depth},
+    Str2 = flatten_format_log(Report, FormatOpts2),
+    L2 = length(Str2),
+    Expected2 = "** gen_event handler my_handler crashed.\n"
+        "** Was installed in " ++ NameStr ++ "\n"
+        "** Last event was: [1,2,3,4,5,6,7,8,9|...]\n"
+        "** When handler state == [1,2,3,4,5,6,7,8,9|...]\n"
+        "** Reason == [1,2,3,4,5,6,7,8,9|...]\n",
+    ct:log("Str2: ~ts", [Str2]),
+    ct:log("length(Str2): ~p", [L2]),
+    true = Expected2 =:= Str2,
+
+    WStr2 = flatten_format_log(Warning, FormatOpts2),
+    WL2 = length(WStr2),
+    WExpected2 = "** Undefined handle_info in gen_event_SUITE\n"
+        "** Unhandled message: [1,2,3,4,5,6,7,8,9|...]\n",
+    ct:log("WStr2: ~ts", [WStr2]),
+    ct:log("length(WStr2): ~p", [WL2]),
+    true = WExpected2 =:= WStr2,
+
+    FormatOpts3 = #{chars_limit=>200},
+    Str3 = flatten_format_log(Report, FormatOpts3),
+    L3 = length(Str3),
+    Expected3 = "** gen_event handler my_handler crashed.\n"
+                "** Was installed",
+    ct:log("Str3: ~ts", [Str3]),
+    ct:log("length(Str3): ~p", [L3]),
+    true = lists:prefix(Expected3, Str3),
+    true = L3 < L1,
+
+    WFormatOpts3 = #{chars_limit=>80},
+    WStr3 = flatten_format_log(Warning, WFormatOpts3),
+    WL3 = length(WStr3),
+    WExpected3 = "** Undefined handle_info in gen_event_SUITE\n"
+        "** Unhandled message: ",
+    ct:log("WStr3: ~ts", [WStr3]),
+    ct:log("length(WStr3): ~p", [WL3]),
+    true = lists:prefix(WExpected3, WStr3),
+    true = WL3 < WL1,
+
+    FormatOpts4 = #{single_line=>true},
+    Str4 = flatten_format_log(Report, FormatOpts4),
+    L4 = length(Str4),
+
+    Expected4 = "Generic event handler my_handler crashed. "
+        "Installed: "++NameStr++". "
+        "Last event: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]. "
+        "State: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]. "
+        "Reason: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].",
+    ct:log("Str4: ~ts", [Str4]),
+    ct:log("length(Str4): ~p", [L4]),
+    true = Expected4 =:= Str4,
+
+    WStr4 = flatten_format_log(Warning, FormatOpts4),
+    WL4 = length(WStr4),
+    WExpected4 = "Undefined handle_info in gen_event_SUITE. "
+        "Unhandled message: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].",
+    ct:log("WStr4: ~ts", [WStr4]),
+    ct:log("length(WStr4): ~p", [WL4]),
+    true = WExpected4 =:= WStr4,
+
+    FormatOpts5 = #{single_line=>true, depth=>Depth},
+    Str5 = flatten_format_log(Report, FormatOpts5),
+    L5 = length(Str5),
+    Expected5 = "Generic event handler my_handler crashed. "
+        "Installed: "++NameStr++". "
+        "Last event: [1,2,3,4,5,6,7,8,9|...]. "
+        "State: [1,2,3,4,5,6,7,8,9|...]. "
+        "Reason: [1,2,3,4,5,6,7,8,9|...].",
+    ct:log("Str5: ~ts", [Str5]),
+    ct:log("length(Str5): ~p", [L5]),
+    true = Expected5 =:= Str5,
+
+    WStr5 = flatten_format_log(Warning, FormatOpts5),
+    WL5 = length(WStr5),
+    WExpected5 = "Undefined handle_info in gen_event_SUITE. "
+        "Unhandled message: [1,2,3,4,5,6,7,8,9|...].",
+    ct:log("WStr5: ~ts", [WStr5]),
+    ct:log("length(WStr5): ~p", [WL5]),
+    true = WExpected5 =:= WStr5,
+
+    FormatOpts6 = #{single_line=>true, chars_limit=>200},
+    Str6 = flatten_format_log(Report, FormatOpts6),
+    L6 = length(Str6),
+    Expected6 = "Generic event handler my_handler crashed. Installed: ",
+    ct:log("Str6: ~ts", [Str6]),
+    ct:log("length(Str6): ~p", [L6]),
+    true = lists:prefix(Expected6, Str6),
+    true = L6 < L4,
+
+    WFormatOpts6 = #{single_line=>true, chars_limit=>80},
+    WStr6 = flatten_format_log(Warning, WFormatOpts6),
+    WL6 = length(WStr6),
+    WExpected6 = "Undefined handle_info in gen_event_SUITE. ",
+    ct:log("WStr6: ~ts", [WStr6]),
+    ct:log("length(WStr6): ~p", [WL6]),
+    true = lists:prefix(WExpected6, WStr6),
+    true = WL6 < WL4,
+
+    ok.
+
+flatten_format_log(Report, Format) ->
+    lists:flatten(gen_event:format_log(Report, Format)).

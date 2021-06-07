@@ -87,7 +87,7 @@
       directory described above, except that directories without
       an <c>ebin</c> directory are ignored.</p>
     <p>All application directories found in the additional directories
-      appears before the standard OTP applications, except for the
+      appear before the standard OTP applications, except for the
       Kernel and STDLIB applications, which are placed before
       any additional applications. In other words, modules found in any
       of the additional library directories override modules with
@@ -110,7 +110,7 @@
      experimental. The purpose of releasing it before it is ready
      is to obtain early feedback. The file format, semantics,
      interfaces, and so on, can be changed in a future release. The function
-     <seealso marker="#lib_dir/2"><c>lib_dir/2</c></seealso>
+     <seemfa marker="#lib_dir/2"><c>lib_dir/2</c></seemfa>
      and  flag <c>-code_path_choice</c> are also
      experimental.</p></warning>
 
@@ -160,7 +160,7 @@ zip:create("mnesia-4.4.7.ez",
      example, the call
      <c>erl_prim_loader:list_dir( "/otp/root/lib/mnesia-4.4.7.ez/mnesia-4.4.7/examples/bench)"</c>
      would list the contents of a directory inside an archive.
-     See <seealso marker="erts:erl_prim_loader"><c>erl_prim_loader(3)</c></seealso>.</p>
+     See <seeerl marker="erts:erl_prim_loader"><c>erl_prim_loader(3)</c></seeerl>.</p>
 
     <p>An application archive file and a regular application directory
      can coexist. This can be useful when it is needed to have
@@ -197,7 +197,7 @@ zip:create("mnesia-4.4.7.ez",
      level in the archive. At startup, the top directory in the
      embedded archive and all (second level) <c>ebin</c>
      directories in the embedded archive are added to the code path.
-     See <seealso marker="erts:escript"><c>erts:escript(1)</c></seealso>.</p>
+     See <seecom marker="erts:escript"><c>erts:escript(1)</c></seecom>.</p>
 
     <p>When the choice of directories in the code path is
      <c>strict</c>, the directory that ends up in the code path is
@@ -221,8 +221,8 @@ zip:create("mnesia-4.4.7.ez",
      script</c> can be <c>strict</c> or <c>relaxed</c>. It is
      particularly useful to set the flag to <c>relaxed</c> when
      elaborating with code loading from archives without editing the
-     <c>boot script</c>. The default is <c>relaxed</c>. See <seealso
-     marker="erts:init"><c>erts:init(3)</c></seealso>.</p></section>
+     <c>boot script</c>. The default is <c>relaxed</c>. See <seeerl
+     marker="erts:init"><c>erts:init(3)</c></seeerl>.</p></section>
 
   <section>
 
@@ -249,7 +249,7 @@ zip:create("mnesia-4.4.7.ez",
     <p>For more information about old and current code, and how to
       make a process switch from old to current code, see section
       Compilation and Code Loading in the
-      <seealso marker="doc/reference_manual:code_loading">Erlang Reference Manual</seealso>.</p>
+      <seeguide marker="system/reference_manual:code_loading">Erlang Reference Manual</seeguide>.</p>
   </section>
 
   <section>
@@ -296,7 +296,7 @@ zip:create("mnesia-4.4.7.ez",
       <tag><c>on_load_failure</c></tag>
       <item>
 	<p>The module has an
-	<seealso marker="doc/reference_manual:code_loading#on_load">-on_load function</seealso>
+	<seeguide marker="system/reference_manual:code_loading#on_load">-on_load function</seeguide>
 	that failed when it was called.</p>
       </item>
 
@@ -313,6 +313,9 @@ zip:create("mnesia-4.4.7.ez",
     </datatype>
     <datatype>
       <name name="load_error_rsn"/>
+    </datatype>
+    <datatype>
+      <name name="module_status"/>
     </datatype>
     <datatype>
       <name name="prepared_code"/>
@@ -451,12 +454,12 @@ zip:create("mnesia-4.4.7.ez",
           example, <c><anno>Module</anno>.beam</c>. The loading fails if the module
           name found in the object code differs from the name
           <c><anno>Module</anno></c>.
-          <seealso marker="#load_binary/3"><c>load_binary/3</c></seealso> must
+          <seemfa marker="#load_binary/3"><c>load_binary/3</c></seemfa> must
           be used to load object code with a module name that is
           different from the file name.</p>
         <p>Returns <c>{module, <anno>Module</anno>}</c> if successful, or
 	<c>{error, Reason}</c> if loading fails.
-	See <seealso marker="#error_reasons">Error Reasons for Code-Loading Functions</seealso> for a description of the possible error reasons.</p>
+	See <seeerl marker="#error_reasons">Error Reasons for Code-Loading Functions</seeerl> for a description of the possible error reasons.</p>
       </desc>
     </func>
     <func>
@@ -470,7 +473,7 @@ zip:create("mnesia-4.4.7.ez",
           <c><anno>Filename</anno></c> is an absolute or
           relative filename. The code path is not searched. It returns
           a value in the same way as
-          <seealso marker="#load_file/1"><c>load_file/1</c></seealso>. Notice
+          <seemfa marker="#load_file/1"><c>load_file/1</c></seemfa>. Notice
           that <c><anno>Filename</anno></c> must not contain the extension (for
           example, <c>.beam</c>) because <c>load_abs/1</c> adds the correct
           extension.</p>
@@ -481,11 +484,11 @@ zip:create("mnesia-4.4.7.ez",
       <fsummary>Ensure that a module is loaded.</fsummary>
       <desc>
         <p>Tries to load a module in the same way as
-          <seealso marker="#load_file/1"><c>load_file/1</c></seealso>,
+          <seemfa marker="#load_file/1"><c>load_file/1</c></seemfa>,
 	  unless the module is already loaded.
           However, in embedded mode it does not load a module that is not
           already loaded, but returns <c>{error, embedded}</c> instead.
-	  See <seealso marker="#error_reasons">Error Reasons for Code-Loading Functions</seealso> for a description of other possible error reasons.</p>
+	  See <seeerl marker="#error_reasons">Error Reasons for Code-Loading Functions</seeerl> for a description of other possible error reasons.</p>
       </desc>
     </func>
     <func>
@@ -503,7 +506,7 @@ zip:create("mnesia-4.4.7.ez",
           the code server.</p>
         <p>Returns <c>{module, <anno>Module</anno>}</c> if successful, or
 	<c>{error, Reason}</c> if loading fails.
-	See <seealso marker="#error_reasons">Error Reasons for Code-Loading Functions</seealso> for a description of the possible error reasons.</p>
+	See <seeerl marker="#error_reasons">Error Reasons for Code-Loading Functions</seeerl> for a description of the possible error reasons.</p>
       </desc>
     </func>
     <func>
@@ -529,7 +532,7 @@ zip:create("mnesia-4.4.7.ez",
 	  <tag><c>on_load_not_allowed</c></tag>
 	  <item>
 	    <p>A module contains an
-	    <seealso marker="doc/reference_manual:code_loading#on_load">-on_load function</seealso>.</p>
+	    <seeguide marker="system/reference_manual:code_loading#on_load">-on_load function</seeguide>.</p>
 	  </item>
 	  <tag><c>duplicated</c></tag>
 	  <item>
@@ -538,7 +541,7 @@ zip:create("mnesia-4.4.7.ez",
 	  </item>
 	  <tag><c>not_purged</c></tag>
 	  <item>
-	    <p>The object code can not be loaded because an old version
+	    <p>The object code cannot be loaded because an old version
 	    of the code already exists.</p>
 	  </item>
 	  <tag><c>sticky_directory</c></tag>
@@ -553,9 +556,9 @@ zip:create("mnesia-4.4.7.ez",
 	</taglist>
 	<p>If it is important to minimize the time that an application
 	is inactive while changing code, use
-	<seealso marker="#prepare_loading/1">prepare_loading/1</seealso>
+	<seemfa marker="#prepare_loading/1">prepare_loading/1</seemfa>
 	and
-	<seealso marker="#finish_loading/1">finish_loading/1</seealso>
+	<seemfa marker="#finish_loading/1">finish_loading/1</seemfa>
 	instead of <c>atomic_load/1</c>. Here is an example:</p>
 <pre>
 {ok,Prepared} = code:prepare_loading(Modules),
@@ -572,7 +575,7 @@ ok = code:finish_loading(Prepared),
         <p>Prepares to load the modules in the list
         <c><anno>Modules</anno></c>.
 	Finish the loading by calling
-	<seealso marker="#finish_loading/1">finish_loading(Prepared)</seealso>.</p>
+	<seemfa marker="#finish_loading/1">finish_loading(Prepared)</seemfa>.</p>
 	<p>This function can fail with one of the following error reasons:</p>
 	<taglist>
 	  <tag><c>badfile</c></tag>
@@ -587,7 +590,7 @@ ok = code:finish_loading(Prepared),
 	  <tag><c>on_load_not_allowed</c></tag>
 	  <item>
 	    <p>A module contains an
-	    <seealso marker="doc/reference_manual:code_loading#on_load">-on_load function</seealso>.</p>
+	    <seeguide marker="system/reference_manual:code_loading#on_load">-on_load function</seeguide>.</p>
 	  </item>
 	  <tag><c>duplicated</c></tag>
 	  <item>
@@ -603,7 +606,7 @@ ok = code:finish_loading(Prepared),
       <desc>
         <p>Tries to load code for all modules that have been previously
 	prepared by
-	<seealso marker="#prepare_loading/1">prepare_loading/1</seealso>.
+	<seemfa marker="#prepare_loading/1">prepare_loading/1</seemfa>.
 	The loading occurs atomically, meaning that
         either all modules are loaded at the same time, or
         none of the modules are loaded.</p>
@@ -611,7 +614,7 @@ ok = code:finish_loading(Prepared),
 	<taglist>
 	  <tag><c>not_purged</c></tag>
 	  <item>
-	    <p>The object code can not be loaded because an old version
+	    <p>The object code cannot be loaded because an old version
 	    of the code already exists.</p>
 	  </item>
 	  <tag><c>sticky_directory</c></tag>
@@ -632,10 +635,10 @@ ok = code:finish_loading(Prepared),
       <desc>
         <p>Tries to load any modules not already loaded in the list
 	<c><anno>Modules</anno></c> in the same way as
-          <seealso marker="#load_file/1">load_file/1</seealso>.</p>
+          <seemfa marker="#load_file/1">load_file/1</seemfa>.</p>
 	  <p>Returns <c>ok</c> if successful, or
 	  <c>{error,[{Module,Reason}]}</c> if loading of some modules fails.
-	  See <seealso marker="#error_reasons">Error Reasons for Code-Loading Functions</seealso> for a description of other possible error reasons.</p>
+	  See <seeerl marker="#error_reasons">Error Reasons for Code-Loading Functions</seeerl> for a description of other possible error reasons.</p>
       </desc>
     </func>
     <func>
@@ -661,7 +664,7 @@ ok = code:finish_loading(Prepared),
 	<note><p>As of ERTS version 9.0, a process is only considered
 	to be lingering in the code if it has direct references to the code.
 	For more information see documentation of
-	<seealso marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>,
+	<seemfa marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seemfa>,
 	which is used in order to determine this.</p></note>
         <p>Returns <c>true</c> if successful and any process is needed to
           be killed, otherwise <c>false</c>.</p>
@@ -676,7 +679,7 @@ ok = code:finish_loading(Prepared),
 	<note><p>As of ERTS version 9.0, a process is only considered
 	to be lingering in the code if it has direct references to the code.
 	For more information see documentation of
-	<seealso marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>,
+	<seemfa marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seemfa>,
 	which is used in order to determine this.</p></note>
         <p>Returns <c>false</c> if the module cannot be purged because
           of processes lingering in old code, otherwise <c>true</c>.</p>
@@ -695,10 +698,25 @@ ok = code:finish_loading(Prepared),
         <p>Normally, <c><anno>Loaded</anno></c> is the absolute filename
           <c>Filename</c> from which the code is obtained. If the module
           is preloaded (see
-          <seealso marker="sasl:script"><c>script(4)</c></seealso>),
+          <seefile marker="sasl:script"><c>script(4)</c></seefile>),
           <c>Loaded==preloaded</c>. If the module is Cover-compiled (see
-          <seealso marker="tools:cover"><c>cover(3)</c></seealso>),
+          <seeerl marker="tools:cover"><c>cover(3)</c></seeerl>),
           <c>Loaded==cover_compiled</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="all_available" arity="0" since="OTP 23.0"/>
+      <fsummary>Get all available modules.</fsummary>
+      <type name="loaded_filename"/>
+      <type name="loaded_ret_atoms"/>
+      <type_desc name="loaded_filename"><c><anno>Filename</anno></c> is an absolute
+      filename.</type_desc>
+      <desc>
+        <p>Returns a list of tuples <c>{<anno>Module</anno>, <anno>Filename</anno>,
+          <anno>Loaded</anno>}</c> for all available modules. A module is considered
+          to be available if it either is loaded or would be loaded if called.
+          <c><anno>Filename</anno></c> is normally the absolute filename, as described for
+          <seemfa marker="#is_loaded/1"><c>is_loaded/1</c></seemfa>.</p>
       </desc>
     </func>
     <func>
@@ -712,12 +730,13 @@ ok = code:finish_loading(Prepared),
         <p>Returns a list of tuples <c>{<anno>Module</anno>, <anno>Loaded</anno>}</c> for all
           loaded modules. <c><anno>Loaded</anno></c> is normally the absolute filename,
           as described for
-          <seealso marker="#is_loaded/1"><c>is_loaded/1</c></seealso>.</p>
+          <seemfa marker="#is_loaded/1"><c>is_loaded/1</c></seemfa>.</p>
       </desc>
     </func>
     <func>
       <name name="which" arity="1" since=""/>
       <fsummary>The object code file of a module.</fsummary>
+      <type name="loaded_filename"/>
       <type name="loaded_ret_atoms"/>
       <desc>
         <p>If the module is not loaded, this function searches the code
@@ -747,6 +766,21 @@ ok = code:finish_loading(Prepared),
 {_Module, Binary, Filename} = code:get_object_code(Module),
 rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
 ...</code>
+      </desc>
+    </func>
+    <func>
+      <name name="get_doc" arity="1" since="OTP 23.0"/>
+      <fsummary>Gets the documentation for a module.</fsummary>
+      <desc>
+        <p>Searches the code path for EEP-48 style documentation and returns it
+          if available. If no documentation can be found the function tries to
+          generate documentation from the debug information in the module.
+          If no debug information is available, this function will return
+          <c>{error,missing}</c>.
+        </p>
+        <p>For more information about the documentation chunk see
+          <seeguide marker="kernel:eep48_chapter">Documentation Storage and Format</seeguide>
+          in Kernel's User's Guide.</p>
       </desc>
     </func>
     <func>
@@ -901,10 +935,20 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="module_status" arity="1" since="OTP 20.0"/>
-      <fsummary>Return the status of the module in relation to object file on disk.</fsummary>
+      <name name="module_status" arity="0" since="OTP 23.0"/>
+      <fsummary>Return the statuses of all loaded modules.</fsummary>
+      <type name="module_status"/>
       <desc>
-	<p>Returns:</p>
+        <p>See <seemfa marker="#module_status/1"><c>module_status/1</c></seemfa> and <seemfa marker="#all_loaded/0"><c>all_loaded/0</c></seemfa> for details.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="module_status" arity="1" since="OTP 20.0"/>
+      <fsummary>Return the status of a module or modules in relation to the
+      object files on disk.</fsummary>
+      <type name="module_status"/>
+      <desc>
+	<p>The status of a module can be one of:</p>
 	<taglist>
 	<tag><c>not_loaded</c></tag>
 	<item><p>If <c><anno>Module</anno></c> is not currently loaded.</p></item>
@@ -924,13 +968,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
         <c>removed</c> otherwise. Modules whose load path is an empty string
         (which is the convention for auto-generated code) will only be
         reported as <c>loaded</c> or <c>not_loaded</c>.</p>
-        <p>For modules that have native code loaded (see
-        <seealso marker="#is_module_native/1"><c>is_module_native/1</c></seealso>),
-        the MD5 sum of the native code in the object file is used for the
-        comparison, if it exists; the Beam code in the file is ignored.
-        Reversely, for modules that do not currently have native code
-        loaded, any native code in the file will be ignored.</p>
-        <p>See also <seealso marker="#modified_modules/0"><c>modified_modules/0</c></seealso>.</p>
+        <p>See also <seemfa marker="#modified_modules/0"><c>modified_modules/0</c></seemfa>.</p>
       </desc>
     </func>
     <func>
@@ -938,25 +976,18 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       <fsummary>Return a list of all modules modified on disk.</fsummary>
       <desc>
         <p>Returns the list of all currently loaded modules for which
-        <seealso marker="#module_status/1"><c>module_status/1</c></seealso>
-        returns <c>modified</c>. See also <seealso marker="#all_loaded/0"><c>all_loaded/0</c></seealso>.</p>
+        <seemfa marker="#module_status/1"><c>module_status/1</c></seemfa>
+        returns <c>modified</c>. See also <seemfa marker="#all_loaded/0"><c>all_loaded/0</c></seemfa>.</p>
       </desc>
     </func>
     <func>
       <name name="is_module_native" arity="1" since=""/>
       <fsummary>Test if a module has native code.</fsummary>
       <desc>
-	<p>Returns:</p>
-	<taglist>
-	<tag><c>true</c></tag>
-	<item><p>If <c><anno>Module</anno></c> is the
-	name of a loaded module that has native code loaded</p></item>
-        <tag><c>false</c></tag>
-	<item><p>If <c><anno>Module</anno></c> is loaded but does not have
-	native code</p></item>
-	<tag><c>undefined</c></tag>
-	<item><p>If <c><anno>Module</anno></c> is not loaded</p></item>
-	</taglist>
+        <p>Returns <c>false</c> if the given <c><anno>Module</anno></c> is
+          loaded, and <c>undefined</c> if it is not.</p>
+        <warning><p>This function is deprecated and will be removed in a future
+          release.</p></warning>
       </desc>
     </func>
 
@@ -970,7 +1001,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
         an IDE) provides additional code for a running node. If the code server is
 	in interactive mode, it only has to add the path to the code. If the code server
 	is in embedded mode, the code must be loaded with
-	<seealso marker="#load_binary/3"><c>load_binary/3</c></seealso>.</p>
+	<seemfa marker="#load_binary/3"><c>load_binary/3</c></seemfa>.</p>
       </desc>
     </func>
   </funcs>

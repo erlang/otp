@@ -78,7 +78,7 @@
 
 %% Utilities for collecting characters.
 -export([collect_chars/3, collect_chars/4,
-	 collect_line/2, collect_line/3, collect_line/4,
+	 collect_line/3, collect_line/4,
 	 get_until/3, get_until/4]).
 
 %% The following functions were used by Yecc's include-file.
@@ -412,14 +412,25 @@ write_port(Port) ->
 write_ref(Ref) ->
     erlang:ref_to_list(Ref).
 
+write_map(_, 1, _E) -> "#{}";
 write_map(Map, D, E) when is_integer(D) ->
-    [$#,${,write_map_body(maps:to_list(Map), D, D - 1, E),$}].
+    I = maps:iterator(Map),
+    case maps:next(I) of
+        {K, V, NextI} ->
+            D0 = D - 1,
+            W = write_map_assoc(K, V, D0, E),
+            [$#,${,[W | write_map_body(NextI, D0, D0, E)],$}];
+        none -> "#{}"
+    end.
 
-write_map_body(_, 1, _D0, _E) -> "...";
-write_map_body([], _, _D0, _E) -> [];
-write_map_body([{K,V}], _D, D0, E) -> write_map_assoc(K, V, D0, E);
-write_map_body([{K,V}|KVs], D, D0, E) ->
-    [write_map_assoc(K, V, D0, E),$, | write_map_body(KVs, D - 1, D0, E)].
+write_map_body(_, 1, _D0, _E) -> ",...";
+write_map_body(I, D, D0, E) ->
+    case maps:next(I) of
+        {K, V, NextI} ->
+            W = write_map_assoc(K, V, D0, E),
+            [$,,W|write_map_body(NextI, D - 1, D0, E)];
+        none -> ""
+    end.
 
 write_map_assoc(K, V, D, E) ->
     [write1(K, D, E)," => ",write1(V, D, E)].
@@ -840,6 +851,7 @@ collect_chars({binary,Stack,N}, Data,latin1, _) ->
     end;
 collect_chars({list,Stack,N}, Data, _,_) ->
     collect_chars_list(Stack, N, Data);
+
 %% collect_chars(Continuation, MoreChars, Count)
 %%  Returns:
 %%	{done,Result,RestChars}
@@ -869,32 +881,6 @@ collect_chars_list(Stack, N, []) ->
     {list,Stack,N};
 collect_chars_list(Stack,N, [H|T]) ->
     collect_chars_list([H|Stack], N-1, T).
-
-%% collect_line(Continuation, MoreChars)
-%%  Returns:
-%%	{done,Result,RestChars}
-%%	{more,Continuation}
-%%
-%%  XXX Can be removed when compatibility with pre-R12B-5 nodes
-%%  is no longer required.
-%% 
-collect_line([], Chars) ->
-    collect_line1(Chars, []);
-collect_line({SoFar}, More) ->
-    collect_line1(More, SoFar).
-
-collect_line1([$\r, $\n|Rest], Stack) ->
-    collect_line1([$\n|Rest], Stack);
-collect_line1([$\n|Rest], Stack) ->
-    {done,lists:reverse([$\n|Stack], []),Rest};
-collect_line1([C|Rest], Stack) ->
-    collect_line1(Rest, [C|Stack]);
-collect_line1(eof, []) ->
-    {done,eof,[]};
-collect_line1(eof, Stack) ->
-    {done,lists:reverse(Stack, []),[]};
-collect_line1([], Stack) ->
-    {more,{Stack}}.
 
 %% collect_line(State, Data, _). New in R9C.
 %%  Returns:

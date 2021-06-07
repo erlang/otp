@@ -63,7 +63,7 @@
 -module(wx).
 
 -export([parent_class/1, new/0, new/1, destroy/0,
-	 get_env/0,set_env/1, debug/1,
+	 get_env/0, set_env/1, subscribe_events/0, debug/1,
 	 batch/1,foreach/2,map/2,foldl/3,foldr/3,
 	 getObjectType/1, typeCast/2,
 	 null/0, is_null/1, equal/2]).
@@ -112,8 +112,8 @@ new(Options) when is_list(Options) ->
     Debug = proplists:get_value(debug, Options, 0),
     SilentStart = proplists:get_value(silent_start, Options, false),
     Level = calc_level(Debug),
-    #wx_env{port=Port} = wxe_server:start(SilentStart andalso Level =:= 0),
-    put(opengl_port, Port),
+    #wx_env{} = wxe_server:start(SilentStart andalso Level =:= 0),
+    %% put(opengl_port, Port),
     set_debug(Level),
     null().
 
@@ -130,19 +130,36 @@ destroy() ->
 -spec get_env() -> wx_env().
 get_env() ->
     case get(?WXE_IDENTIFIER) of
-	undefined -> erlang:error({wxe,unknown_port});
+	undefined -> erlang:error({wx,unknown_env});
 	Env = #wx_env{} -> Env
     end.
 
 %% @doc Sets the process wx environment, allows this process to use
 %% another process wx environment.
 -spec set_env(wx_env()) -> 'ok'.
-set_env(#wx_env{sv=Pid, port=Port} = Env) ->
+set_env(#wx_env{sv=Pid} = Env) ->
     put(?WXE_IDENTIFIER, Env),
-    put(opengl_port, Port),
+    %%    put(opengl_port, Port),
     %%    wxe_util:cast(?REGISTER_PID, <<>>),
     wxe_server:register_me(Pid),
     ok.
+
+%% @doc Adds the calling process to the list of of processes that are
+%% listening to wx application events. At the moment these are
+%% all MacOSX specific events corresponding to MacNewFile() and friends
+%% from wxWidgets wxApp https://docs.wxwidgets.org/trunk/classwx_app.html
+%%
+%% * `{file_new, ""}` 
+%% * `{file_open, Filename}`
+%% * `{file_print, Filename}`
+%% * `{url_open, Url}`
+%% * `{reopen_app, ""}`
+%%
+%% The call always returns ok but will have sent any already received
+%% events to the calling process. 
+-spec subscribe_events() -> 'ok'.
+subscribe_events() ->
+    gen_server:call(wxe_master, subscribe_msgs, infinity).
 
 %% @doc Returns the null object
 -spec null() -> wx_object().
@@ -180,66 +197,66 @@ typeCast(Old=#wx_ref{}, NewType) when is_atom(NewType) ->
 %% @see foldr/3
 -spec batch(function()) -> term().
 batch(Fun) ->
-    ok = wxe_util:cast(?BATCH_BEGIN, <<>>),
+    ok = wxe_util:queue_cmd(?BATCH_BEGIN),
     try Fun()
     catch
 	error:W:S -> erlang:exit({W, S});
 	throw:W -> erlang:throw(W);
 	exit:W  -> erlang:exit(W)
     after
-        ok = wxe_util:cast(?BATCH_END, <<>>)
+        ok = wxe_util:queue_cmd(?BATCH_END)
     end.
 
 %% @doc Behaves like {@link //stdlib/lists:foreach/2} but batches wx commands. See {@link batch/1}.
 -spec foreach(function(), list()) -> 'ok'.
 foreach(Fun, List) ->
-    ok = wxe_util:cast(?BATCH_BEGIN, <<>>),
+    ok = wxe_util:queue_cmd(?BATCH_BEGIN),
     try lists:foreach(Fun, List)
     catch
 	error:W:S -> erlang:exit({W, S});
 	throw:W -> erlang:throw(W);
 	exit:W  -> erlang:exit(W)
     after
-        ok = wxe_util:cast(?BATCH_END, <<>>)
+        ok = wxe_util:queue_cmd(?BATCH_END)
     end.
 
 %% @doc Behaves like {@link //stdlib/lists:map/2} but batches wx commands. See {@link batch/1}.
 -spec map(function(), list()) -> list().
 map(Fun, List) ->
-    ok = wxe_util:cast(?BATCH_BEGIN, <<>>),
+    ok = wxe_util:queue_cmd(?BATCH_BEGIN),
     try lists:map(Fun, List)
     catch
 	error:W:S -> erlang:exit({W, S});
 	throw:W -> erlang:throw(W);
 	exit:W  -> erlang:exit(W)
     after
-        ok = wxe_util:cast(?BATCH_END, <<>>)
+        ok = wxe_util:queue_cmd(?BATCH_END)
     end.
 
 %% @doc Behaves like {@link //stdlib/lists:foldl/3} but batches wx commands. See {@link batch/1}.
 -spec foldl(function(), term(), list()) -> term().
 foldl(Fun, Acc, List) ->
-    ok = wxe_util:cast(?BATCH_BEGIN, <<>>),
+    ok = wxe_util:queue_cmd(?BATCH_BEGIN),
     try lists:foldl(Fun, Acc, List)
     catch
 	error:W:S -> erlang:exit({W, S});
 	throw:W -> erlang:throw(W);
 	exit:W  -> erlang:exit(W)
     after
-        ok = wxe_util:cast(?BATCH_END, <<>>)
+        ok = wxe_util:queue_cmd(?BATCH_END)
     end.
 
 %% @doc Behaves like {@link //stdlib/lists:foldr/3} but batches wx commands. See {@link batch/1}.
 -spec foldr(function(), term(), list()) -> term().
 foldr(Fun, Acc, List) ->
-    ok = wxe_util:cast(?BATCH_BEGIN, <<>>),
+    ok = wxe_util:queue_cmd(?BATCH_BEGIN),
     try lists:foldr(Fun, Acc, List)
     catch
 	error:W:S -> erlang:exit({W, S});
 	throw:W -> erlang:throw(W);
 	exit:W  -> erlang:exit(W)
     after
-        ok = wxe_util:cast(?BATCH_END, <<>>)
+        ok = wxe_util:queue_cmd(?BATCH_END)
     end.
 
 -define(MIN_BIN_SIZE, 64).  %% Current emulator min off heap size
@@ -251,6 +268,7 @@ foldr(Fun, Acc, List) ->
 %%
 %% This is far from erlang's intentional usage and can crash the erlang emulator.
 %% Use it carefully.
+
 -spec create_memory(integer()) -> wx_memory().
 create_memory(Size) when Size > ?MIN_BIN_SIZE ->
     #wx_mem{bin = <<0:(Size*8)>>, size = Size};
@@ -268,24 +286,28 @@ get_memory_bin(#wx_mem{bin=Bin, size=Size}) ->
 %% @doc Saves the memory from deletion until release_memory/1 is called.
 %% If release_memory/1 is not called the memory will not be garbage collected.
 -spec retain_memory(wx_memory()) -> 'ok'.
-retain_memory(#wx_mem{bin=Bin}) ->
-    wxe_util:send_bin(Bin),
-    ok = wxe_util:cast(?WXE_BIN_INCR, <<>>);
+retain_memory(#wx_mem{}=Mem) ->
+    case get(Mem) of
+        {Mem, N} -> put(Mem, N+1);
+        undefined -> put(Mem, 1)
+    end,
+    ok;
 retain_memory(Bin) when is_binary(Bin) ->
     case byte_size(Bin) > ?MIN_BIN_SIZE of
 	true  -> ok;
 	false -> erlang:error(small_bin)
     end,
-    wxe_util:send_bin(Bin),
-    ok = wxe_util:cast(?WXE_BIN_INCR, <<>>).
+    retain_memory(#wx_mem{bin=Bin, size=byte_size(Bin)}).
 
 -spec release_memory(wx_memory()) -> 'ok'.
-release_memory(#wx_mem{bin=Bin}) ->
-    wxe_util:send_bin(Bin),
-    ok = wxe_util:cast(?WXE_BIN_DECR, <<>>);
+release_memory(#wx_mem{}=Mem) ->
+    case erase(Mem) of
+        1 -> ok;
+        N -> put(Mem, N-1),
+             ok
+    end;
 release_memory(Bin) when is_binary(Bin) ->
-    wxe_util:send_bin(Bin),
-    ok = wxe_util:cast(?WXE_BIN_DECR, <<>>).
+    release_memory(#wx_mem{bin=Bin, size=byte_size(Bin)}).
 
 %% @doc Sets debug level. If debug level is 'verbose' or 'trace'
 %% each call is printed on console. If Level is 'driver' each allocated
@@ -316,15 +338,13 @@ calc_level(Level) when is_integer(Level) ->
     Level.
 
 set_debug(Level) when is_integer(Level) ->
-    case get(?WXE_IDENTIFIER) of
-	undefined -> erlang:error({wxe,unknown_port});
+    case get_env() of
 	#wx_env{debug=Old} when Old =:= Level -> ok;
-	Env = #wx_env{sv=Server, port=Port, debug=Old} ->
+	Env = #wx_env{sv=Server, debug=Old} ->
 	    if
 		Old > 16, Level > 16 -> ok;
 		Old < 16, Level < 16 -> ok;
-		true ->
-		    erlang:port_call(Port,?WXE_DEBUG_DRIVER, [Level bsr 4])
+		true -> wxe_util:debug_driver(Level bsr 4)
 	    end,
 	    put(?WXE_IDENTIFIER, Env#wx_env{debug=Level}),
 	    wxe_server:set_debug(Server,Level),

@@ -47,7 +47,18 @@
 
 #if defined(USE_DYNAMIC_TRACE) && defined(USE_VM_PROBES) 
 
+#ifdef __cplusplus
+extern "C++" {
+/* Generated erlang_dtrace.h contains #include <sys/sdt.h>, which
+ * has C++ code requiring C++ linkage. However beam_asm.hpp includes
+ * global.h with C linkage, and compilation fails, because <sdt.h>
+ * uses C++ templates when __cplusplus is defined.
+*/
 #include "erlang_dtrace.h"
+}
+#else
+#include "erlang_dtrace.h"
+#endif
 
 #define DTRACE_ENABLED(name)                         \
     erlang_##name##_enabled()

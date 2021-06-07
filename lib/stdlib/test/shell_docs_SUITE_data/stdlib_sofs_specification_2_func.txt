@@ -1,0 +1,18 @@
+
+  [;1m-spec specification(Fun, Set1) -> Set2[0m
+  [;1m                       when[0m
+  [;1m                           Fun :: spec_fun(),[0m
+  [;1m                           Set1 :: a_set(),[0m
+  [;1m                           Set2 :: a_set().[0m
+
+  Returns the set containing every element of [;;4mSet1[0m for which [;;4mFun[0m
+  returns [;;4mtrue[0m. If [;;4mFun[0m is a tuple [;;4m{external, Fun2}[0m, [;;4mFun2[0m is
+  applied to the external set of each element, otherwise [;;4mFun[0m is
+  applied to each element.
+
+    1> R1 = sofs:relation([{a,1},{b,2}]),
+    R2 = sofs:relation([{x,1},{x,2},{y,3}]),
+    S1 = sofs:from_sets([R1,R2]),
+    S2 = sofs:specification(fun sofs:is_a_function/1, S1),
+    sofs:to_external(S2).
+    [[{a,1},{b,2}]]

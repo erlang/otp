@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,32 +64,54 @@ convert_list(List) ->
 expr_grp(Fields, Bindings, EvalFun) ->
     expr_grp(Fields, Bindings, EvalFun, <<>>).
 
-expr_grp([Field | FS], Bs0, Lf, Acc) ->
-    {Bin,Bs} = eval_field(Field, Bs0, Lf),
-    expr_grp(FS, Bs, Lf, <<Acc/binary-unit:1,Bin/binary-unit:1>>);
-expr_grp([], Bs0, _Lf, Acc) ->
-    {value,Acc,Bs0}.
+expr_grp(FS, Bs0, Ef, Acc) ->
+    %% Separate the evaluation of values, sizes, and TLS:s from the
+    %% creation of the binary in order to mimic compiled code when it
+    %% comes to loops and failures.
+    {ListOfEvalField,Bs1} = expr_grp1(FS, Bs0, Ef, []),
+    {value,create_binary(ListOfEvalField, Acc),Bs1}.
+
+expr_grp1([Field | FS], Bs0, Ef, ListOfEvalField) ->
+    {EvalField,Bs} = eval_field(Field, Bs0, Ef),
+    expr_grp1(FS, Bs, Ef, [EvalField|ListOfEvalField]);
+expr_grp1([], Bs, _Ef, ListOfFieldData) ->
+    {lists:reverse(ListOfFieldData),Bs}.
+
+create_binary([EvalField|ListOfEvalField], Acc) ->
+    Bin = EvalField(),
+    create_binary(ListOfEvalField, <<Acc/binary-unit:1,Bin/binary-unit:1>>);
+create_binary([], Acc) ->
+    Acc.
 
 eval_field({bin_element, _, {string, _, S}, {integer,_,8}, [integer,{unit,1},unsigned,big]}, Bs0, _Fun) ->
     Latin1 = [C band 16#FF || C <- S],
-    {list_to_binary(Latin1),Bs0};
+    {fun() -> list_to_binary(Latin1) end,Bs0};
 eval_field({bin_element, _, {string, _, S}, default, default}, Bs0, _Fun) ->
     Latin1 = [C band 16#FF || C <- S],
-    {list_to_binary(Latin1),Bs0};
-eval_field({bin_element, Line, {string, _, S}, Size0, Options0}, Bs0, Fun) ->
+    {fun() ->list_to_binary(Latin1) end,Bs0};
+eval_field({bin_element, Anno, {string, _, S}, Size0, Options0}, Bs0, Fun) ->
     {Size1,[Type,{unit,Unit},Sign,Endian]} =
-        make_bit_type(Line, Size0, Options0),
+        make_bit_type(Anno, Size0, Options0),
     {value,Size,Bs1} = Fun(Size1, Bs0),
-    Res = << <<(eval_exp_field1(C, Size, Unit,
-				Type, Endian, Sign))/binary>> ||
-	      C <- S >>,
-    {Res,Bs1};
-eval_field({bin_element,Line,E,Size0,Options0}, Bs0, Fun) ->
+    {fun() ->
+             Res = << <<(eval_exp_field1(C, Size, Unit,
+                                         Type, Endian, Sign))/bitstring>> ||
+                       C <- S >>,
+             case S of
+                 "" -> % find errors also when the string is empty
+                     _ = eval_exp_field1(0, Size, Unit, Type, Endian, Sign),
+                     ok;
+                 _ ->
+                     ok
+             end,
+             Res
+     end,Bs1};
+eval_field({bin_element,Anno,E,Size0,Options0}, Bs0, Fun) ->
     {value,V,Bs1} = Fun(E, Bs0),
     {Size1,[Type,{unit,Unit},Sign,Endian]} = 
-        make_bit_type(Line, Size0, Options0),
+        make_bit_type(Anno, Size0, Options0),
     {value,Size,Bs} = Fun(Size1, Bs1),
-    {eval_exp_field1(V, Size, Unit, Type, Endian, Sign),Bs}.
+    {fun() -> eval_exp_field1(V, Size, Unit, Type, Endian, Sign) end,Bs}.
 
 eval_exp_field1(V, Size, Unit, Type, Endian, Sign) ->
     try
@@ -119,10 +141,14 @@ eval_exp_field(Val, _Size, _Unit, utf16, big, _) ->
     <<Val/big-utf16>>;
 eval_exp_field(Val, _Size, _Unit, utf16, little, _) ->
     <<Val/little-utf16>>;
+eval_exp_field(Val, _Size, _Unit, utf16, native, _) ->
+    <<Val/native-utf16>>;
 eval_exp_field(Val, _Size, _Unit, utf32, big, _) ->
     <<Val/big-utf32>>;
 eval_exp_field(Val, _Size, _Unit, utf32, little, _) ->
     <<Val/little-utf32>>;
+eval_exp_field(Val, _Size, _Unit, utf32, native, _) ->
+    <<Val/native-utf32>>;
 eval_exp_field(Val, Size, Unit, float, little, _) ->
     <<Val:(Size*Unit)/float-little>>;
 eval_exp_field(Val, Size, Unit, float, native, _) ->
@@ -183,26 +209,31 @@ bin_gen_field({bin_element,_,{string,_,S},default,default},
         _ ->
             done
     end;
-bin_gen_field({bin_element,Line,{string,SLine,S},Size0,Options0},
+bin_gen_field({bin_element,Anno,{string,SAnno,S},Size0,Options0},
               Bin0, Bs0, BBs0, Mfun, Efun) ->
     {Size1, [Type,{unit,Unit},Sign,Endian]} =
-        make_bit_type(Line, Size0, Options0),
-    match_check_size(Mfun, Size1, BBs0),
-    {value, Size, _BBs} = Efun(Size1, BBs0),
-    F = fun(C, Bin, Bs, BBs) ->
-                bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian,
-                               {integer,SLine,C}, Bs, BBs, Mfun)
-        end,
-    bin_gen_field_string(S, Bin0, Bs0, BBs0, F);
-bin_gen_field({bin_element,Line,VE,Size0,Options0}, 
+        make_bit_type(Anno, Size0, Options0),
+    case catch Efun(Size1, BBs0) of
+        {value, Size, _BBs} -> % 
+            F = fun(C, Bin, Bs, BBs) ->
+                        bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian,
+                                       {integer,SAnno,C}, Bs, BBs, Mfun)
+                end,
+            bin_gen_field_string(S, Bin0, Bs0, BBs0, F)
+    end;
+bin_gen_field({bin_element,Anno,VE,Size0,Options0},
               Bin, Bs0, BBs0, Mfun, Efun) ->
     {Size1, [Type,{unit,Unit},Sign,Endian]} = 
-        make_bit_type(Line, Size0, Options0),
+        make_bit_type(Anno, Size0, Options0),
     V = erl_eval:partial_eval(VE),
     NewV = coerce_to_float(V, Type),
-    match_check_size(Mfun, Size1, BBs0, false),
-    {value, Size, _BBs} = Efun(Size1, BBs0),
-    bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian, NewV, Bs0, BBs0, Mfun).
+    case catch Efun(Size1, BBs0) of
+        {value, Size, _BBs} ->
+            bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian,
+                           NewV, Bs0, BBs0, Mfun);
+        _ ->
+            done
+    end.
 
 bin_gen_field_string([], Rest, Bs, BBs, _F) ->
     {match,Bs,BBs,Rest};
@@ -264,26 +295,24 @@ match_field_1({bin_element,_,{string,_,S},default,default},
     Size = byte_size(Bits),
     <<Bits:Size/binary,Rest/binary-unit:1>> = Bin,
     {Bs,BBs,Rest};
-match_field_1({bin_element,Line,{string,SLine,S},Size0,Options0},
+match_field_1({bin_element,Anno,{string,SAnno,S},Size0,Options0},
               Bin0, Bs0, BBs0, Mfun, Efun) ->
     {Size1, [Type,{unit,Unit},Sign,Endian]} =
-        make_bit_type(Line, Size0, Options0),
+        make_bit_type(Anno, Size0, Options0),
     Size2 = erl_eval:partial_eval(Size1),
-    match_check_size(Mfun, Size2, BBs0),
     {value, Size, _BBs} = Efun(Size2, BBs0),
     F = fun(C, Bin, Bs, BBs) ->
                 match_field(Bin, Type, Size, Unit, Sign, Endian,
-                            {integer,SLine,C}, Bs, BBs, Mfun)
+                            {integer,SAnno,C}, Bs, BBs, Mfun)
         end,
     match_field_string(S, Bin0, Bs0, BBs0, F);
-match_field_1({bin_element,Line,VE,Size0,Options0}, 
+match_field_1({bin_element,Anno,VE,Size0,Options0},
               Bin, Bs0, BBs0, Mfun, Efun) ->
     {Size1, [Type,{unit,Unit},Sign,Endian]} = 
-        make_bit_type(Line, Size0, Options0),
+        make_bit_type(Anno, Size0, Options0),
     V = erl_eval:partial_eval(VE),
     NewV = coerce_to_float(V, Type),
     Size2 = erl_eval:partial_eval(Size1),
-    match_check_size(Mfun, Size2, BBs0),
     {value, Size, _BBs} = Efun(Size2, BBs0),
     match_field(Bin, Type, Size, Unit, Sign, Endian, NewV, Bs0, BBs0, Mfun).
 
@@ -300,9 +329,9 @@ match_field(Bin, Type, Size, Unit, Sign, Endian, NewV, Bs0, BBs0, Mfun) ->
     {Bs,BBs,Rest}.
 
 %% Almost identical to the one in sys_pre_expand.
-coerce_to_float({integer,L,I}=E, float) ->
+coerce_to_float({integer,Anno,I}=E, float) ->
     try
-	{float,L,float(I)}
+	{float,Anno,float(I)}
     catch
 	error:badarg -> E;
 	error:badarith -> E
@@ -331,11 +360,17 @@ get_value(Bin, utf16, undefined, _Unit, _Sign, big) ->
 get_value(Bin, utf16, undefined, _Unit, _Sign, little) ->
     <<I/little-utf16,Rest/bits>> = Bin,
     {I,Rest};
+get_value(Bin, utf16, undefined, _Unit, _Sign, native) ->
+    <<I/native-utf16,Rest/bits>> = Bin,
+    {I,Rest};
 get_value(Bin, utf32, undefined, _Unit, _Sign, big) ->
     <<Val/big-utf32,Rest/bits>> = Bin,
     {Val,Rest};
 get_value(Bin, utf32, undefined, _Unit, _Sign, little) ->
     <<Val/little-utf32,Rest/bits>> = Bin,
+    {Val,Rest};
+get_value(Bin, utf32, undefined, _Unit, _Sign, native) ->
+    <<Val/native-utf32,Rest/bits>> = Bin,
     {Val,Rest};
 get_value(Bin, binary, all, Unit, _Sign, _Endian) ->
     0 = (bit_size(Bin) rem Unit),
@@ -375,36 +410,15 @@ get_float(Bin, Size, big) ->
     {Val,Rest}.
 
 %% Identical to the one in sys_pre_expand.
-make_bit_type(Line, default, Type0) ->
+make_bit_type(Anno, default, Type0) ->
     case erl_bits:set_bit_type(default, Type0) of
-        {ok,all,Bt} -> {{atom,Line,all},erl_bits:as_list(Bt)};
-	{ok,undefined,Bt} -> {{atom,Line,undefined},erl_bits:as_list(Bt)};
-        {ok,Size,Bt} -> {{integer,Line,Size},erl_bits:as_list(Bt)};
+        {ok,all,Bt} -> {{atom,Anno,all},erl_bits:as_list(Bt)};
+	{ok,undefined,Bt} -> {{atom,Anno,undefined},erl_bits:as_list(Bt)};
+        {ok,Size,Bt} -> {{integer,Anno,Size},erl_bits:as_list(Bt)};
         {error,Reason} -> erlang:raise(error, Reason, ?STACKTRACE)
     end;
-make_bit_type(_Line, Size, Type0) -> %Size evaluates to an integer or 'all'
+make_bit_type(_Anno, Size, Type0) -> %Size evaluates to an integer or 'all'
     case erl_bits:set_bit_type(Size, Type0) of
         {ok,Size,Bt} -> {Size,erl_bits:as_list(Bt)};
         {error,Reason} -> erlang:raise(error, Reason, ?STACKTRACE)
     end.
-
-match_check_size(Mfun, Size, Bs) ->
-    match_check_size(Mfun, Size, Bs, true).
-
-match_check_size(Mfun, {var,_,V}, Bs, _AllowAll) ->
-    case Mfun(binding, {V,Bs}) of
-        {value,_} -> ok;
-	unbound -> throw(invalid) % or, rather, error({unbound,V})
-    end;
-match_check_size(_, {atom,_,all}, _Bs, true) ->
-    ok;
-match_check_size(_, {atom,_,all}, _Bs, false) ->
-    throw(invalid);
-match_check_size(_, {atom,_,undefined}, _Bs, _AllowAll) ->
-    ok;
-match_check_size(_, {integer,_,_}, _Bs, _AllowAll) ->
-    ok;
-match_check_size(_, {value,_,_}, _Bs, _AllowAll) ->
-    ok;	%From the debugger.
-match_check_size(_, _, _Bs, _AllowAll) ->
-    throw(invalid).

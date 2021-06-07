@@ -22,16 +22,11 @@ include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 # ----------------------------------------------------
-# Application version
-# ----------------------------------------------------
-include ../vsn.mk
-VSN=$(GS_VSN)
-
-# ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
 
 MODULES= \
+	ssh_cth \
 	ssh_algorithms_SUITE \
 	ssh_options_SUITE \
 	ssh_basic_SUITE \
@@ -39,10 +34,14 @@ MODULES= \
 	ssh_chan_behaviours_SUITE \
 	ssh_compat_SUITE \
 	ssh_connection_SUITE \
+	ssh_agent_mock_server \
+	ssh_agent_SUITE \
 	ssh_dbg_SUITE \
 	ssh_engine_SUITE \
 	ssh_protocol_SUITE \
 	ssh_property_test_SUITE \
+	ssh_pubkey_SUITE \
+	ssh_renegotiate_SUITE \
 	ssh_sftp_SUITE \
 	ssh_sftpd_SUITE \
 	ssh_sftpd_erlclient_SUITE \
@@ -50,6 +49,7 @@ MODULES= \
 	ssh_to_openssh_SUITE \
 	ssh_upgrade_SUITE \
 	ssh_test_lib \
+	ssh_log_h \
 	ssh_key_cb \
 	ssh_key_cb_options \
 	ssh_key_cb_engine_keys \
@@ -63,29 +63,28 @@ MODULES= \
 	ssh_relay \
 	ssh_eqc_event_handler
 
-HRL_FILES_NEEDED_IN_TEST= \
+ERL_FILES= $(MODULES:%=%.erl)
+
+HRL_FILES= \
 	$(ERL_TOP)/lib/ssh/test/ssh_test_lib.hrl \
 	$(ERL_TOP)/lib/ssh/src/ssh.hrl \
+	$(ERL_TOP)/lib/ssh/src/ssh_agent.hrl \
+	$(ERL_TOP)/lib/ssh/src/ssh_auth.hrl \
+	$(ERL_TOP)/lib/ssh/src/ssh_connect.hrl \
+	$(ERL_TOP)/lib/ssh/src/ssh_transport.hrl \
 	$(ERL_TOP)/lib/ssh/src/ssh_xfer.hrl
 
-ERL_FILES= $(MODULES:%=%.erl)
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-DATA_DIRS = $(MODULES:%=%_data)
+SPEC_FILES = \
+	ssh.spec \
+	ssh_bench.spec
 
-INCLUDES = -I$(ERL_TOP)/lib/ssh/src
+COVER_FILE = ssh.cover
 
 EMAKEFILE=Emakefile
 MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
-
-ifeq ($(MAKE_EMAKE),)
-BUILDTARGET   = $(TARGET_FILES)
-RELTEST_FILES = $(INETS_SPECS) $(SOURCE)
-else
-BUILDTARGET   = emakebuild
-RELTEST_FILES = $(EMAKEFILE) $(INETS_SPECS) $(SOURCE)
-endif
 
 # ----------------------------------------------------
 # Release directory specification
@@ -94,19 +93,19 @@ RELSYSDIR = $(RELEASE_PATH)/ssh_test
 
 # ----------------------------------------------------
 # FLAGS
-# The path to the test_server ebin dir is needed when
-# running the target "targets".
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += $(INCLUDES)
+
+INCLUDES = -I$(ERL_TOP)/lib/ssh/src
+
+ERL_COMPILE_FLAGS += $(INCLUDES) -pa ../ebin
 
 EBIN = .
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-tests debug opt: $(BUILDTARGET)
 
-targets: $(TARGET_FILES)
+tests debug opt: emakebuild $(TARGET_FILES)
 
 .PHONY: emakebuild
 
@@ -120,11 +119,8 @@ clean:
 	rm -f $(EMAKEFILE)
 	rm -f $(TARGET_FILES)
 	rm -f core
-docs:
 
-info:
-	@echo "TARGET_FILES = $(TARGET_FILES)"
-	@echo "DATA_DIRS = $(DATA_DIRS)"
+docs:
 
 # ----------------------------------------------------
 # Release Target
@@ -135,9 +131,11 @@ release_spec: opt
 
 release_tests_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(ERL_FILES) "$(RELSYSDIR)"
-	$(INSTALL_DATA) ssh.spec ssh_bench.spec ssh.cover "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(HRL_FILES_NEEDED_IN_TEST) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(EMAKEFILE) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(SPEC_FILES) $(COVER_FILE) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(ERL_FILES)    "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(HRL_FILES)    "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 

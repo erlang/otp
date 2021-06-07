@@ -54,7 +54,7 @@
     <pre>
       [{inets, [{services, [{httpc, PropertyList}]}]}]</pre>
     <p>For valid properties, see 
-    <seealso marker="httpc">httpc(3)</seealso>. </p>
+    <seeerl marker="httpc">httpc(3)</seeerl>. </p>
   </section>
 
   <section>

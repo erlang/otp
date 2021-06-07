@@ -37,8 +37,8 @@
       Also, parts that are greatly simplified are indicated with *manual*.
       This means that a lot more information on the subject is to be found in
       the Erlang book or in
-      <seealso marker="doc/reference_manual:introduction#erlang ref manual">
-      Erlang Reference Manual</seealso>.</p>
+      <seeguide marker="system/reference_manual:introduction#erlang ref manual">
+      Erlang Reference Manual</seeguide>.</p>
 
   <section>
     <title>Prerequisites</title>
@@ -64,8 +64,8 @@
       <item>How to communicate with the outside world and software
         written in other languages (ports);
         this is described in
-        <seealso marker="doc/tutorial:introduction#interoperability tutorial">
-        Interoperability Tutorial</seealso>.</item>
+        <seeguide marker="system/tutorial:introduction#interoperability tutorial">
+        Interoperability Tutorial</seeguide>.</item>
       <item>Erlang libraries (for example, file handling).</item>
       <item>OTP and (in consequence) the Mnesia database.</item>
       <item>Hash tables for Erlang terms (ETS).</item>

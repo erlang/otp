@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -147,7 +147,13 @@
 -define(USER_MOD_DEFAULT,   snmpm_user_default).
 -define(USER_DATA_DEFAULT,  undefined).
 
-%% -define(DEF_ADDR_TAG, default_addr_tag).
+-define(SERVER_OPT_VERB_DEFAULT, silence).
+-define(SERVER_OPT_GCT_DEFAULT,  30000).
+-define(SERVER_OPT_MT_DEFAULT,   true).
+-define(SERVER_OPT_CBP_DEFAULT,  temporary). % permanent
+-define(SERVER_OPT_NIS_DEFAULT,  none).
+
+%% -define(DEF_ADDR_TAG,       default_addr_tag).
 -define(DEFAULT_TARGETNAME, default_agent).
 -define(DEF_PORT_TAG,       default_port_tag).
 -define(SUPPORTED_DOMAINS,  [transportDomainUdpIpv4, transportDomainUdpIpv6]).
@@ -357,7 +363,7 @@ register_agent(UserId, TargetName, Config0)
     %% Check: 
     %%   1) That the mandatory configs are present
     %%   2) That no illegal config, e.g. user_id (used internally), 
-    %%      is not present
+    %%      are present
     %%   3) Check that there are no invalid or erroneous configs
     %%   4) Check that the manager is capable of using the selected version
     try
@@ -479,10 +485,7 @@ agent_info(Domain, Address, Item) when is_atom(Domain) ->
 	NAddress ->
 	    do_agent_info(Domain, NAddress, Item)
     catch
-	_Thrown ->
-	    %% p(?MODULE_STRING":agent_info(~p, ~p, ~p) throwed ~p at.~n"
-	    %%   "    ~p",
-	    %%   [Domain, Address, Item, _Thrown, erlang:get_stacktrace()]),
+	_C:_E:_S ->
 	    {error, not_found}
     end;
 agent_info(Ip, Port, Item) when is_integer(Port) ->
@@ -493,10 +496,7 @@ agent_info(Ip, Port, Item) when is_integer(Port) ->
 	Address ->
 	    do_agent_info(Domain, Address, Item)
     catch
-	_Thrown ->
-	    %% p(?MODULE_STRING":agent_info(~p, ~p, ~p) throwed ~p at.~n"
-	    %%   "    ~p",
-	    %%   [Ip, Port, Item, _Thrown, erlang:get_stacktrace()]),
+	_C:_E:_S ->
 	    {error, not_found}
     end.
 
@@ -1116,13 +1116,17 @@ do_init(Opts) ->
     end,
 
     %% -- Server (optional) --
-    ServerOpts = get_opt(server,         Opts,      []),
-    ServerVerb = get_opt(verbosity,      ServerOpts, silence),
-    ServerGct  = get_opt(timeout,        ServerOpts, 30000),
-    ServerMt   = get_opt(multi_threaded, ServerOpts, true),
+    ServerOpts = get_opt(server,         Opts,       []),
+    ServerVerb = get_opt(verbosity,      ServerOpts, ?SERVER_OPT_VERB_DEFAULT),
+    ServerGct  = get_opt(timeout,        ServerOpts, ?SERVER_OPT_GCT_DEFAULT),
+    ServerMt   = get_opt(multi_threaded, ServerOpts, ?SERVER_OPT_MT_DEFAULT),
+    ServerCBP  = get_opt(cbproxy,        ServerOpts, ?SERVER_OPT_CBP_DEFAULT),
+    ServerNIS  = get_opt(netif_sup,      ServerOpts, ?SERVER_OPT_NIS_DEFAULT),
     ets:insert(snmpm_config_table, {server_verbosity,      ServerVerb}),
     ets:insert(snmpm_config_table, {server_timeout,        ServerGct}),
     ets:insert(snmpm_config_table, {server_multi_threaded, ServerMt}),
+    ets:insert(snmpm_config_table, {server_cbproxy,        ServerCBP}),
+    ets:insert(snmpm_config_table, {server_nis,            ServerNIS}),
    
     %% -- Mibs (optional) --
     ?vdebug("initiate mini mib", []),
@@ -1131,7 +1135,7 @@ do_init(Opts) ->
     init_mini_mib(Mibs),
 
     %% -- Net-if (optional) --
-    ?vdebug("net_if options", []),
+    ?vdebug("net-if options", []),
     NetIfIrb     = 
 	case get_opt(inform_request_behaviour, Opts, ?IRB_DEFAULT) of
 	    user ->
@@ -1415,6 +1419,14 @@ verify_server_opts([{verbosity, Verbosity}|Opts]) ->
 verify_server_opts([{timeout, Timeout}|Opts]) ->
     verify_server_timeout(Timeout),
     verify_server_opts(Opts);
+verify_server_opts([{multi_threaded, MT}|Opts]) when is_boolean(MT) ->
+    verify_server_opts(Opts);
+verify_server_opts([{cbproxy, CBP}|Opts]) ->
+    verify_server_cbproxy(CBP),
+    verify_server_opts(Opts);
+verify_server_opts([{netif_sup, NIS}|Opts]) ->
+    verify_server_nis(NIS),
+    verify_server_opts(Opts);
 verify_server_opts([Opt|_]) ->
     error({invalid_server_option, Opt}).
 
@@ -1422,6 +1434,24 @@ verify_server_timeout(T) when is_integer(T) andalso (T > 0) ->
     ok;
 verify_server_timeout(T) ->
     error({invalid_server_timeout, T}).
+
+verify_server_cbproxy(temporary) ->
+    ok;
+verify_server_cbproxy(permanent) ->
+    ok;
+verify_server_cbproxy(CBP) ->
+    error({invalid_server_cbproxy, CBP}).
+
+verify_server_nis(none) ->
+    ok;
+verify_server_nis({PingTo, PongTo} = _V) when is_integer(PingTo) andalso
+                                              (PingTo > 0) andalso
+                                              is_integer(PongTo) andalso
+                                              (PongTo > 0) ->
+    ok;
+verify_server_nis(NIS) ->
+    error({invalid_server_netif_sup, NIS}).
+
 
 verify_net_if_opts([]) ->
     ok;
@@ -1688,9 +1718,10 @@ read_agents_config_file(Dir) ->
     Check = fun check_agent_config/2,
     try read_file(Dir, "agents.conf", Order, Check, [])
     catch
-	throw:Error ->
-	    ?vlog("agent config error: ~p", [Error]),
-	    erlang:raise(throw, Error, erlang:get_stacktrace())
+	throw:E:S ->
+	    ?vlog("agent config error: "
+                  "~n   ~p", [E]),
+	    erlang:raise(throw, E, S)
     end.
 
 check_agent_config(Agent, State) ->
@@ -1794,14 +1825,14 @@ order_agent(ItemA, ItemB) ->
     snmp_conf:keyorder(1, ItemA, ItemB, [tdomain, port]).
 
 fix_agent_config(Conf) ->
-    ?vdebug("fix_agent_config -> entry with~n~n"
-	    "   Conf: ~p", [Conf]),
+    ?vdebug("fix_agent_config -> entry with"
+	    "~n      Conf: ~p", [Conf]),
     fix_agent_config(lists:sort(fun order_agent/2, Conf), []).
 
 fix_agent_config([], FixedConf) ->
     Ret = lists:reverse(FixedConf),
-    ?vdebug("fix_agent_config -> returns:~n"
-	    "   ~p", [Ret]),
+    ?vdebug("fix_agent_config -> done when (fixed config):"
+	    "~n      ~p", [Ret]),
     Ret;
 fix_agent_config([{taddress = Item, Address} = Entry|Conf], FixedConf) ->
     {value, {tdomain, TDomain}} = lists:keysearch(tdomain, 1, FixedConf),
@@ -1935,9 +1966,10 @@ read_users_config_file(Dir) ->
     Check = fun (User, State) -> {check_user_config(User), State} end,
     try read_file(Dir, "users.conf", Order, Check, [])
     catch
-	throw:Error ->
-	    ?vlog("failure reading users config file: ~n   ~p", [Error]),
-	    erlang:raise(throw, Error, erlang:get_stacktrace())
+	throw:E:S ->
+	    ?vlog("failure reading users config file: "
+                  "~n   ~p", [E]),
+	    erlang:raise(throw, E, S)
     end.
 
 check_user_config({Id, Mod, Data}) ->
@@ -2351,10 +2383,11 @@ read_file(Dir, FileName, Order, Check, Default) ->
 read_file(Dir, FileName, Order, Check) ->
     try snmp_conf:read(filename:join(Dir, FileName), Order, Check)
     catch
-	throw:{error, Reason} = Error
+	throw:{error, Reason} = E:S
 	  when element(1, Reason) =:= failed_open ->
-	    error_msg("failed reading config from ~s: ~p", [FileName, Reason]),
-	    erlang:raise(throw, Error, erlang:get_stacktrace())
+	    error_msg("failed reading config from ~s: "
+                      "~n   ~p", [FileName, Reason]),
+	    erlang:raise(throw, E, S)
     end.
 
 %%--------------------------------------------------------------------
@@ -2741,16 +2774,16 @@ dets_backup(close, _Cont, _D, B) ->
     ok;
 dets_backup(read, Cont1, D, B) ->
     case dets:bchunk(D, Cont1) of
+        {error, _} = ERROR ->
+            ERROR;
+        '$end_of_table' ->
+            dets:close(B),
+            end_of_input;
         {Cont2, Data} ->
             F = fun(Arg) ->
                         dets_backup(Arg, Cont2, D, B)
                 end,
-            {Data, F};
-        '$end_of_table' ->
-            dets:close(B),
-            end_of_input;
-        Error ->
-            Error
+            {Data, F}
     end.
 
 
@@ -3085,7 +3118,7 @@ do_update_usm_user_info(Key,
 	    {error, {unsupported_crypto, des_cbc}}
     end;    
 do_update_usm_user_info(Key, 
-			#usm_user{priv = usmAesCfb128Protocoll} = User, 
+			#usm_user{priv = usmAesCfb128Protocol} = User, 
 			priv_key, Val) 
   when length(Val) =:= 16 ->
     case is_crypto_supported(aes_cfb128) of

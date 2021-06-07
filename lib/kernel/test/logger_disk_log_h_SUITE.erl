@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -293,7 +293,7 @@ logging(Config) ->
     ok = start_and_add(Name, #{filter_default=>log,
                                formatter=>{?MODULE,self()}},
                        #{file => LogFile}),
-    MsgFormatter = fun(Term) -> {io_lib:format("Term:~p",[Term]),[]} end,
+    MsgFormatter = fun(Term) -> {"Term:~p",[Term]} end,
     logger:notice([{x,y}], #{report_cb => MsgFormatter}),
     logger:notice([{x,y}], #{}),
     ct:pal("Checking contents of ~p", [?log_no(LogFile,1)]),   
@@ -1243,12 +1243,12 @@ restart_after(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     NewHConfig1 =
         HConfig#{config=>DLHConfig#{overload_kill_enable=>true,
-                                    overload_kill_qlen=>10,
+                                    overload_kill_qlen=>4,
                                     overload_kill_restart_after=>infinity}},
     ok = logger:update_handler_config(?MODULE, NewHConfig1),
     MRef1 = erlang:monitor(process, whereis(h_proc_name())),
     %% kill handler
-    send_burst({n,100}, {spawn,4,0}, {chars,79}, notice),
+    send_burst({n,100}, {spawn,5,0}, {chars,79}, notice),
     receive
         {'DOWN', MRef1, _, _, _Reason1} ->
             file_delete(Log),
@@ -1265,13 +1265,13 @@ restart_after(Config) ->
     RestartAfter = ?OVERLOAD_KILL_RESTART_AFTER,
     NewHConfig2 =
         HConfig#{config=>DLHConfig#{overload_kill_enable=>true,
-                                    overload_kill_qlen=>10,
+                                    overload_kill_qlen=>4,
                                     overload_kill_restart_after=>RestartAfter}},
     ok = logger:update_handler_config(?MODULE, NewHConfig2),
     Pid0 = whereis(h_proc_name()),
     MRef2 = erlang:monitor(process, Pid0),
     %% kill handler
-    send_burst({n,100}, {spawn,4,0}, {chars,79}, notice),
+    send_burst({n,100}, {spawn,5,0}, {chars,79}, notice),
     receive
         {'DOWN', MRef2, _, _, _Reason2} ->
             file_delete(Log),
@@ -1360,7 +1360,23 @@ start_handler(Name, FuncName, Config) ->
     
 stop_handler(Name) ->
     ct:pal("Stopping handler ~p!", [Name]),
-    logger:remove_handler(Name).
+    Res = logger:remove_handler(Name),
+    RegName = ?name_to_reg_name(logger_disk_log_h, Name),
+    erlang:monitor(process, RegName),
+    receive
+        {'DOWN',_,_,_,_} ->
+            Res
+    after 5000 ->
+            %% If the removal fails, we make sure that it is removed
+            %% so that the next testcase is not effected.
+            exit(whereis(RegName), kill),
+            receive
+                {'DOWN',_,_,_,_} ->
+                    %% We fail this testcase in order to catch any bugs
+                    %% in shutdown
+                    ct:fail("Failed to stop handler")
+            end
+    end.
 
 send_burst(NorT, Type, {chars,Sz}, Class) ->
     Text = [34 + rand:uniform(126-34) || _ <- lists:seq(1,Sz)],

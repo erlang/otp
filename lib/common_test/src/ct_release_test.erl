@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@
 
 %%-----------------------------------------------------------------
 -define(testnode, 'ct_release_test-upgrade').
--define(exclude_apps, [hipe, dialyzer]). % never include these apps
+-define(exclude_apps, [dialyzer]). % never include these apps
 
 %%-----------------------------------------------------------------
 -record(ct_data, {from,to}).
@@ -152,10 +152,10 @@
 %% returned configuration must therefore also be returned from
 %% the calling `init_per_*'.
 %%
-%% If the initialization fails, e.g. if a required release can
-%% not be found, the function returns `{skip,Reason}'. In
+%% If the initialization fails, e.g. if a required release
+%% cannot be found, the function returns `{skip,Reason}'. In
 %% this case the other test support functions in this mudule
-%% can not be used.
+%% cannot be used.
 %%
 %% Example:
 %%
@@ -426,7 +426,7 @@ init_upgrade_test(Level) ->
     case OldRel of
 	false ->
 	    ct:log("Release ~tp is not available."
-		   " Upgrade on '~p' level can not be tested.",
+		   " Upgrade on '~p' level cannot be tested.",
 		   [FromVsn,Level]),
 	    undefined;
 	_ ->
@@ -475,7 +475,7 @@ fetch_all_apps(Node) ->
 		  A = list_to_atom(filename:basename(filename:rootname(F))),
 		  _ = rpc:call(Node,application,load,[A]),
 		  case rpc:call(Node,application,get_key,[A,vsn]) of
-		      {ok,V} -> [{A,V}];
+		      {ok,V} -> [{A,V,rpc:call(Node,code,lib_dir,[A])}];
 		      _ -> []
 		  end
 	  end,
@@ -517,7 +517,7 @@ upgrade(Apps,Level,Callback,CreateDir,InstallDir,Config) ->
 target_system(Apps,CreateDir,InstallDir,{FromVsn,_,AllAppsVsns,Path}) ->
     RelName0 = "otp-"++FromVsn,
 
-    AppsVsns = [{A,V} || {A,V} <- AllAppsVsns, lists:member(A,Apps)],
+    AppsVsns = [{A,V,D} || {A,V,D} <- AllAppsVsns, lists:member(A,Apps)],
     {RelName,ErtsVsn} = create_relfile(AppsVsns,CreateDir,RelName0,FromVsn),
 
     %% Create .script and .boot
@@ -528,7 +528,7 @@ target_system(Apps,CreateDir,InstallDir,{FromVsn,_,AllAppsVsns,Path}) ->
 				     {path,Path}]]),
 
     %% Unpack the tar to complete the installation
-    erl_tar:extract(RelName ++ ".tar.gz", [{cwd, InstallDir}, compressed]),
+    ok = erl_tar:extract(RelName ++ ".tar.gz", [{cwd, InstallDir}, compressed]),
 
     %% Add bin and log dirs
     BinDir = filename:join([InstallDir, "bin"]),
@@ -554,11 +554,11 @@ target_system(Apps,CreateDir,InstallDir,{FromVsn,_,AllAppsVsns,Path}) ->
 
     %% create start_erl.data, sys.config and start.src
     StartErlData = filename:join([InstallDir, "releases", "start_erl.data"]),
-    write_file(StartErlData, io_lib:fwrite("~s ~s~n", [ErtsVsn, FromVsn])),
+    ok = write_file(StartErlData, io_lib:fwrite("~s ~s~n", [ErtsVsn, FromVsn])),
     SysConfig = filename:join([InstallDir, "releases", FromVsn, "sys.config"]),
-    write_file(SysConfig, "[]."),
+    ok = write_file(SysConfig, "[]."),
     StartSrc = filename:join(ErtsBinDir,"start.src"),
-    write_file(StartSrc,start_script()),
+    ok = write_file(StartSrc,start_script()),
     ok = file:change_mode(StartSrc,8#0755),
 
     %% Make start_erl executable
@@ -620,7 +620,7 @@ upgrade_system(Apps, FromRel, CreateDir, InstallDir, {_,ToVsn,_,_}) ->
 			      [{path,[FromPath]},
 			       {outdir,CreateDir}]]),
     SysConfig = filename:join([CreateDir, "sys.config"]),
-    write_file(SysConfig, "[]."),
+    ok = write_file(SysConfig, "[]."),
 
     ok = systools(make_tar,[RelName,[{erts,code:root_dir()}]]),
 
@@ -636,8 +636,7 @@ do_upgrade({Cb,InitState},FromVsn,FromAppsVsns,ToRel,ToAppsVsns,InstallDir) ->
     {ok,Node} = start_node(Start,FromVsn,FromAppsVsns),
 
     ct:log("Node started: ~p",[Node]),
-    CtData = #ct_data{from = [{A,V,code:lib_dir(A)} || {A,V} <- FromAppsVsns],
-		      to=[{A,V,code:lib_dir(A)} || {A,V} <- ToAppsVsns]},
+    CtData = #ct_data{from = FromAppsVsns,to=ToAppsVsns},
     State1 = do_callback(Node,Cb,upgrade_init,[CtData,InitState]),
 
     [{"OTP upgrade test",FromVsn,_,permanent}] =
@@ -724,14 +723,14 @@ previous_major(Rel) ->
     integer_to_list(list_to_integer(Rel)-1).
 
 create_relfile(AppsVsns,CreateDir,RelName0,RelVsn) ->
-    UpgradeAppsVsns = [{A,V,restart_type(A)} || {A,V} <- AppsVsns],
+    UpgradeAppsVsns = [{A,V,restart_type(A)} || {A,V,_D} <- AppsVsns],
 
     CoreAppVsns0 = get_vsns([kernel,stdlib,sasl]),
     CoreAppVsns =
-	[{A,V,restart_type(A)} || {A,V} <- CoreAppVsns0,
+	[{A,V,restart_type(A)} || {A,V,_D} <- CoreAppVsns0,
 				  false == lists:keymember(A,1,AppsVsns)],
 
-    Apps = [App || {App,_} <- AppsVsns],
+    Apps = [App || {App,_,_} <- AppsVsns],
     StartDepsVsns = get_start_deps(Apps,CoreAppVsns),
     StartApps = [StartApp || {StartApp,_,_} <- StartDepsVsns] ++ Apps,
 
@@ -744,7 +743,7 @@ create_relfile(AppsVsns,CreateDir,RelName0,RelVsn) ->
     %% processes of these applications will not be running.
     TestToolAppsVsns0 = get_vsns([common_test]),
     TestToolAppsVsns =
-	[{A,V,none} || {A,V} <- TestToolAppsVsns0,
+	[{A,V,none} || {A,V,_D} <- TestToolAppsVsns0,
 		       false == lists:keymember(A,1,AllAppsVsns0)],
 
     AllAppsVsns1 = AllAppsVsns0 ++ TestToolAppsVsns,
@@ -766,7 +765,7 @@ get_vsns(Apps) ->
     [begin
 	 _ = application:load(A),
 	 {ok,V} = application:get_key(A,vsn),
-	 {A,V}
+	 {A,V,code:lib_dir(A)}
      end || A <- Apps].
 
 get_start_deps([App|Apps],Acc) ->
@@ -858,7 +857,7 @@ subst_file(Src, Dest, Vars, Opts) ->
     {ok, Bin} = file:read_file(Src),
     Conts = unicode:characters_to_list(Bin),
     NConts = subst(Conts, Vars),
-    write_file(Dest, NConts),
+    ok = write_file(Dest, NConts),
     case lists:member(preserve, Opts) of
         true ->
             {ok, FileInfo} = file:read_file_info(Src),
@@ -880,8 +879,9 @@ start_node(Start,ExpVsn,ExpAppsVsns) ->
     erlang:port_close(Port),
     wait_node_up(permanent,ExpVsn,ExpAppsVsns).
 
-wait_node_up(ExpStatus,ExpVsn,ExpAppsVsns) ->
+wait_node_up(ExpStatus,ExpVsn,ExpAppsVsns0) ->
     Node = node_name(?testnode),
+    ExpAppsVsns = [{A,V} || {A,V,_D} <- ExpAppsVsns0],
     wait_node_up(Node,ExpStatus,ExpVsn,lists:keysort(1,ExpAppsVsns),60).
 
 wait_node_up(Node,ExpStatus,ExpVsn,ExpAppsVsns,0) ->
@@ -893,7 +893,7 @@ wait_node_up(Node,ExpStatus,ExpVsn,ExpAppsVsns,N) ->
 	  rpc:call(Node, application, which_applications, [])} of
 	{[{_,ExpVsn,_,_}],Apps} when is_list(Apps) ->
 	    case [{A,V} || {A,_,V} <- lists:keysort(1,Apps),
-			   lists:keymember(A,1,ExpAppsVsns)] of
+                           lists:keymember(A,1,ExpAppsVsns)] of
 		ExpAppsVsns ->
 		    {ok,Node};
 		_ ->

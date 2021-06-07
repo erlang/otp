@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,9 +23,14 @@
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/src/inet_res.hrl").
 -include_lib("kernel/src/inet_dns.hrl").
+-include("kernel_test_lib.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
+-export([
+         all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
+
 	 t_gethostbyaddr/0, t_gethostbyaddr/1,
 	 t_getaddr/0, t_getaddr/1,
 	 t_gethostbyname/0, t_gethostbyname/1,
@@ -35,7 +40,8 @@
 	 ipv4_to_ipv6/0, ipv4_to_ipv6/1,
 	 host_and_addr/0, host_and_addr/1,
 	 t_gethostnative/1, 
-	 gethostnative_parallell/1, cname_loop/1, missing_hosts_reload/1,
+	 gethostnative_parallell/1, cname_loop/1,
+         missing_hosts_reload/1, hosts_file_quirks/1,
          gethostnative_soft_restart/0, gethostnative_soft_restart/1,
 	 gethostnative_debug_level/0, gethostnative_debug_level/1,
 	 lookup_bad_search_option/1,
@@ -43,29 +49,48 @@
 	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1,
 	 parse_strict_address/1, ipv4_mapped_ipv6_address/1,
          simple_netns/1, simple_netns_open/1,
-         simple_bind_to_device/1, simple_bind_to_device_open/1]).
+         add_del_host/1, add_del_host_v6/1,
+         simple_bind_to_device/1, simple_bind_to_device_open/1
+        ]).
 
--export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
-	 kill_gethost/0, parallell_gethost/0, test_netns/0]).
--export([init_per_testcase/2, end_per_testcase/2]).
+-export([
+         get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
+	 kill_gethost/0, parallell_gethost/0, test_netns/0
+        ]).
+
+
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,1}}].
+    [
+     {ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}
+    ].
 
 all() -> 
-    [t_gethostbyaddr, t_gethostbyname, t_getaddr,
+    [
+     t_gethostbyaddr, t_gethostbyname, t_getaddr,
      t_gethostbyaddr_v6, t_gethostbyname_v6, t_getaddr_v6,
      ipv4_to_ipv6, host_and_addr, {group, parse},
-     t_gethostnative, gethostnative_parallell, cname_loop, missing_hosts_reload,
+     t_gethostnative, gethostnative_parallell, cname_loop,
+     missing_hosts_reload, hosts_file_quirks,
      gethostnative_debug_level, gethostnative_soft_restart,
      lookup_bad_search_option,
      getif, getif_ifr_name_overflow, getservbyname_overflow,
      getifaddrs, parse_strict_address, simple_netns, simple_netns_open,
-     simple_bind_to_device, simple_bind_to_device_open].
+     add_del_host, add_del_host_v6,
+     simple_bind_to_device, simple_bind_to_device_open
+    ].
 
 groups() -> 
-    [{parse, [], [parse_hosts, parse_address]}].
+    [
+     {parse, [], parse_cases()}
+    ].
+
+parse_cases() ->
+    [
+     parse_hosts,
+     parse_address
+    ].
 
 %% Required configuaration
 required(v4) ->
@@ -83,11 +108,38 @@ required(hosts) ->
 	    [{require, test_hosts}]
     end.     
 
-init_per_suite(Config) ->
-    Config.
 
-end_per_suite(_Config) ->
-    ok.
+init_per_suite(Config0) ->
+
+    ?P("init_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite([{allow_skip, false} | Config0]) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+            
+            ?P("init_per_suite -> end when "
+               "~n      Config: ~p", [Config1]),
+            
+            Config1
+    end.
+
+end_per_suite(Config0) ->
+
+    ?P("end_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    ?P("end_per_suite -> "
+            "~n      Nodes: ~p", [erlang:nodes()]),
+
+    Config1.
+
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -95,27 +147,73 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(lookup_bad_search_option, Config) ->
+
+init_per_testcase(Case, Config0) ->
+    ?P("init_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config0, erlang:nodes(), pi(links), pi(monitors)]),
+
+    kernel_test_global_sys_monitor:reset_events(),
+
+    Config1 = init_per_testcase2(Case, Config0),
+
+    ?P("init_per_testcase -> done when"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [Config1, erlang:nodes(), pi(links), pi(monitors)]),
+    Config1.
+
+init_per_testcase2(gethostnative_debug_level, Config) ->
+    ?TT(?MINS(2)),
+    Config;
+init_per_testcase2(gethostnative_soft_restart, Config) ->
+    ?TT(?MINS(2)),
+    Config;
+init_per_testcase2(lookup_bad_search_option, Config) ->
     Db = inet_db,
     Key = res_lookup,
-    %% The bad option can not enter through inet_db:set_lookup/1,
+    %% The bad option cannot enter through inet_db:set_lookup/1,
     %% but through e.g .inetrc.
     Prev = ets:lookup(Db, Key),
     ets:delete(Db, Key),
     ets:insert(Db, {Key,[lookup_bad_search_option]}),
-    io:format("Misconfigured resolver lookup order", []),
+    ?P("init_per_testcase -> Misconfigured resolver lookup order"),
     [{Key,Prev}|Config];
-init_per_testcase(_Func, Config) ->
+init_per_testcase2(_Func, Config) ->
     Config.
 
-end_per_testcase(lookup_bad_search_option, Config) ->
-    Db = inet_db,
-    Key = res_lookup,
+end_per_testcase(Case, Config) ->
+    ?P("end_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), pi(links), pi(monitors)]),
+
+    ?P("system events during test: "
+       "~n   ~p", [kernel_test_global_sys_monitor:events()]),
+
+    end_per_testcase2(Case, Config),
+
+    ?P("end_per_testcase -> done with"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), pi(links), pi(monitors)]),
+    ok.
+
+end_per_testcase2(lookup_bad_search_option, Config) ->
+    ?P("end_per_testcase2 -> restore resolver lookup order"),
+    Db   = inet_db,
+    Key  = res_lookup,
     Prev = proplists:get_value(Key, Config),
     ets:delete(Db, Key),
     ets:insert(Db, Prev),
-    io:format("Restored resolver lookup order", []);
-end_per_testcase(_Func, _Config) ->
+    ?P("end_per_testcase2 -> resolver lookup order restored");
+end_per_testcase2(_Func, _Config) ->
     ok.
 
 t_gethostbyaddr() ->
@@ -375,18 +473,21 @@ ipv4_to_ipv6(Config) when is_list(Config) ->
     end,
     ok.
 
-host_and_addr() ->
-    [{timetrap,{minutes,5}}|required(hosts)].
 
 %% Test looking up hosts and addresses. Use 'ypcat hosts'
 %% or the local eqivalent to find all hosts.
+
+host_and_addr() ->
+    ?P("host_and_addr -> entry"),
+    [{timetrap,{minutes,5}}|required(hosts)].
+
 host_and_addr(Config) when is_list(Config) ->
     lists:foreach(fun try_host/1, get_hosts(Config)),
     ok.
 
 try_host({Ip0, Host}) ->
-    {ok,Ip} = inet:getaddr(Ip0, inet),
-    {ok,{hostent, _, _, inet, _, Ips1}} = inet:gethostbyaddr(Ip),
+    {ok, Ip}                             = inet:getaddr(Ip0, inet),
+    {ok,{hostent, _, _, inet, _, Ips1}}  = inet:gethostbyaddr(Ip),
     {ok,{hostent, _, _, inet, _, _Ips2}} = inet:gethostbyname(Host),
     true = lists:member(Ip, Ips1),
     ok.
@@ -698,6 +799,8 @@ t_gethostnative(Config) when is_list(Config) ->
 	{error,notfound} ->
 	    ok;
 	{error,no_data} ->
+	    ok;
+	{error,try_again} ->
 	    ok
     end.
 
@@ -868,41 +971,242 @@ missing_hosts_reload(Config) when is_list(Config) ->
     % cleanup
     true = test_server:stop_node(TestNode).
 
+
+%% The /etc/hosts file format and limitations is quite undocumented.
+%%
+%% Our implementation of the hosts file resolver tries to
+%% do the right thing.  Here is an attempt to define "the right thing",
+%% and this test case tries to check most of these rules:
+%%
+%% * A hosts file consists of entries with one IP address,
+%%   and a list of host names.  The IP address is IPv4 or IPv6.
+%%   The first host name is the primary host name
+%%   and the others are aliases.
+%%
+%% * A lookup for an IP address should return one #hostent{} record
+%%   with the one IP address from the query, and the host names
+%%   from all entries with the same IP address concatenated.
+%%   The first host name from the first hosts file entry
+%%   with the requested IP address will be the primary host name
+%%   and all others are aliases.  All host names are returned
+%%   as in the hosts file entries i.e character case is preserved.
+%%
+%% * A lookup for a host name is character case insensitive.
+%%
+%% * A lookup for a host name should return one #hostent{} record
+%%   with the host name list from the first hosts file entry
+%%   with an IP address of the requested address family
+%%   that has a matching host name, as it is in the hosts file
+%%   i.e character case is preserved.  The IP addresses in the
+%%   returned #hostent{} record should be the first from the
+%%   same matching hosts file entry, followed by all others
+%%   for which there is a matching host name and address family.
+%%   There should be no duplicates among the returned IP addresses.
+%%
+%% * These rules are of the opinion that if duplicate host names
+%%   with the same character casing occurs for the same IP
+%%   address, it is a configuration error, so it is not tested for
+%%   and there is no preferred behaviour.
+hosts_file_quirks(Config) when is_list(Config) ->
+    Records = [R1, R2, R3, R4, R5] =
+        [#hostent{
+            h_name = h_ex(Name),
+            h_aliases = [h_ex(Alias) || Alias <- Aliases],
+            h_addrtype = Fam,
+            h_length =
+                case Fam of
+                    inet -> 4;
+                    inet6 -> 16
+                end,
+            h_addr_list =
+                [case Fam of
+                     inet -> inet_ex(N);
+                     inet6 -> inet6_ex(N)
+                 end]}
+         || {{Fam,N}, Name, Aliases} <-
+                [{{inet,1}, "a", ["B"]},
+                 {{inet,2}, "D", []},
+                 {{inet6,3}, "A", ["c"]},
+                 {{inet,1}, "c", []},
+                 {{inet,5}, "A", []}]],
+    true = R1#hostent.h_addr_list =:= R4#hostent.h_addr_list,
+    R14 =
+        R1#hostent{
+          h_aliases =
+              R1#hostent.h_aliases ++
+              [R4#hostent.h_name | R4#hostent.h_aliases]},
+    R145 =
+        R14#hostent{
+          h_addr_list =
+              R1#hostent.h_addr_list ++ R5#hostent.h_addr_list},
+    %%
+    RootDir = proplists:get_value(priv_dir,Config),
+    HostsFile = filename:join(RootDir, atom_to_list(?MODULE) ++ "-quirks.hosts"),
+    InetRc = filename:join(RootDir, "quirks.inetrc"),
+    ok = file:write_file(HostsFile, hostents_to_list(Records)),
+    ok = file:write_file(InetRc, "{hosts_file, \"" ++ HostsFile ++ "\"}.\n"),
+    %%
+    %% start a node
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok, TestNode} = test_server:start_node(?MODULE, slave,
+        [{args, "-pa " ++ Pa ++ " -kernel inetrc '\"" ++ InetRc ++ "\"'"}]),
+    %% ensure it has our RC
+    Rc = rpc:call(TestNode, inet_db, get_rc, []),
+    {hosts_file, HostsFile} = lists:keyfind(hosts_file, 1, Rc),
+    false = lists:keyfind(host, 1, Rc),
+    %%
+    %% check entries
+    io:format("Check hosts file contents~n", []),
+    V1 =
+      [{R14, inet_ex(1)},
+       {R2, inet_ex(2)},
+       {R3, inet6_ex(3)},
+       {R5, inet_ex(5)},
+       {R145, h_ex("a"), inet},
+       {R14, h_ex("b"), inet},
+       {R14, h_ex("c"), inet},
+       {R2, h_ex("d"), inet},
+       {R3, h_ex("a"), inet6},
+       {R3, h_ex("c"), inet6}
+      ],
+    hosts_file_quirks_verify(TestNode, V1),
+    %%
+    %% test add and del
+    A1 = inet_ex(1),
+    Hs1 = [h_ex("a"), h_ex("B")],
+    ok = rpc:call(TestNode, inet_db, add_host, [A1, Hs1]),
+    io:format("Check after add host~n", []),
+    hosts_file_quirks_verify(
+      TestNode,
+      [{R1, A1},
+       {R2, inet_ex(2)},
+       {R3, inet6_ex(3)},
+       {R5, inet_ex(5)},
+       {R1, h_ex("a"), inet},
+       {R1, h_ex("b"), inet},
+       {R14, h_ex("c"), inet},
+       {R2, h_ex("d"), inet},
+       {R3, h_ex("a"), inet6},
+       {R3, h_ex("c"), inet6}
+      ]),
+    {host, A1, Hs1} =
+        lists:keyfind(host, 1, rpc:call(TestNode, inet_db, get_rc, [])),
+    ok = rpc:call(TestNode, inet_db, del_host, [inet_ex(1)]),
+    io:format("Check after del host~n", []),
+    hosts_file_quirks_verify(TestNode, V1),
+    %%
+    %% cleanup
+    true = test_server:stop_node(TestNode).
+
+hosts_file_quirks_verify(_TestNode, Vs) ->
+    hosts_file_quirks_verify(_TestNode, Vs, true).
+%%
+hosts_file_quirks_verify(_TestNode, [], Ok) ->
+    case Ok of
+        true -> ok;
+        false -> error(verify_failed)
+    end;
+hosts_file_quirks_verify(TestNode, [V | Vs], Ok) ->
+    case
+        case V of
+            {R, Addr} ->
+                {R, rpc:call(TestNode, inet_hosts, gethostbyaddr, [Addr])};
+            {R, Host, Fam} ->
+                {R, rpc:call(TestNode, inet_hosts, gethostbyname, [Host, Fam])}
+        end
+    of
+        {nxdomain, {error, nxdomain}} ->
+            hosts_file_quirks_verify(TestNode, Vs, Ok);
+        {_R_1, {error, nxdomain}} ->
+            io:format("Verify failed ~p: nxdomain~n", [V]),
+            hosts_file_quirks_verify(TestNode, Vs, false);
+        {R_1, {ok, R_1}} ->
+            hosts_file_quirks_verify(TestNode, Vs, Ok);
+        {_R_1, {ok, R_2}} ->
+            io:format("Verify failed ~p: ~p~n", [V, R_2]),
+            hosts_file_quirks_verify(TestNode, Vs, false)
+    end.
+
+%% Expand entry
+h_ex(H) -> H ++ ".example.com".
+inet_ex(N) -> {127,17,17,N}.
+inet6_ex(N) -> {0,0,0,0,17,17,17,N}.
+
+hostents_to_list([]) -> [];
+hostents_to_list([R | Rs]) ->
+    #hostent{
+       h_name = Name,
+       h_aliases = Aliases,
+       h_addr_list = [IP]} = R,
+    [inet:ntoa(IP), $\t,
+     lists:join($\s, [Name | Aliases]), $\r, $\n
+     | hostents_to_list(Rs)].
+
+
 %% These must be run in the whole suite since they need
 %% the host list and require inet_gethost_native to be started.
 %%
 -record(gethostnative_control, {control_seq,
-				control_interval=100,
-				lookup_delay=10,
-				lookup_count=300,
-				lookup_processes=20}).
+				control_interval = 100,
+				lookup_delay     = 10,
+				lookup_count     = 300,
+				lookup_processes = 20}).
 
 gethostnative_soft_restart() -> required(hosts).
 
 %% Check that no name lookups fails during soft restart
 %% of inet_gethost_native.
 gethostnative_soft_restart(Config) when is_list(Config) ->
-    gethostnative_control(Config,
-			  #gethostnative_control{
-			     control_seq=[soft_restart]}).
-
+    Opts  = gethostnative_adjusted_opts(Config,
+                                        [soft_restart]),
+    gethostnative_control(Config, Opts).
 
 gethostnative_debug_level() -> required(hosts).
 
 %% Check that no name lookups fails during debug level change
 %% of inet_gethost_native.
 gethostnative_debug_level(Config) when is_list(Config) ->
-    gethostnative_control(Config,
-			  #gethostnative_control{
-			     control_seq=[{debug_level,1},
-					  {debug_level,0}]}).
+    Opts  = gethostnative_adjusted_opts(Config,
+                                        [{debug_level, 1},
+                                         {debug_level, 0}]),
+    gethostnative_control(Config, Opts).
 
-gethostnative_control(Config, Optrec) ->
+gethostnative_adjusted_opts(Config, CtrlSeq) ->
+    Factor = ?config(kernel_factor, Config),
+    gethostnative_adjusted_opts2(Factor, CtrlSeq).
+
+gethostnative_adjusted_opts2(1, CtrlSeq) ->
+    #gethostnative_control{control_seq = CtrlSeq};
+gethostnative_adjusted_opts2(F, CtrlSeq) ->
+    Opts = #gethostnative_control{control_seq = CtrlSeq},
+    gethostnative_adjusted_opts3(F, Opts).
+
+gethostnative_adjusted_opts3(
+  F,
+  #gethostnative_control{lookup_count     = Cnt,
+                         lookup_processes = NProc} = Opts) ->
+    Adjust = fun(X) ->
+                     if
+                         F > 10 ->
+                             X div 4;
+                         F > 5 ->
+                             X div 3;
+                         F > 2 -> 
+                             (2 * X) div 3;
+                         true ->
+                             X
+                     end
+             end,
+    Opts#gethostnative_control{lookup_count     = Adjust(Cnt),
+                               lookup_processes = Adjust(NProc)}.
+
+
+gethostnative_control(Config, Opts) ->
     case inet_db:res_option(lookup) of
 	[native] ->
 	    case whereis(inet_gethost_native) of
 		Pid when is_pid(Pid) ->
-		    gethostnative_control_1(Config, Optrec);
+		    gethostnative_control_1(Config, Opts);
 		_ ->
 		    {skipped, "Not running native gethostbyname"}
 	    end;
@@ -910,54 +1214,63 @@ gethostnative_control(Config, Optrec) ->
 	    {skipped, "Native not only lookup metod"}
     end.
 
-gethostnative_control_1(Config,
-			#gethostnative_control{
-			   control_seq=Seq,
-			   control_interval=Interval,
-			   lookup_delay=Delay,
-			   lookup_count=Cnt,
-			   lookup_processes=N}) ->
+gethostnative_control_1(
+  Config,
+  #gethostnative_control{control_seq      = Seq,
+                         control_interval = Interval,
+                         lookup_delay     = Delay,
+                         lookup_count     = Cnt,
+                         lookup_processes = N}) ->
+    ?P("gethostnative control -> begin with"
+       "~n      Ctrl Seq:      ~p"
+       "~n      Ctrl interval: ~p"
+       "~n      Lookup delay:  ~p"
+       "~n      Lookup count:  ~p"
+       "~n      Lookup procs:  ~p", [Seq, Interval, Delay, Cnt, N]),
     {ok, Hostname} = inet:gethostname(),
-    {ok, _} = inet:gethostbyname(Hostname),
-    Hosts =
-	[Hostname|[H || {_,H} <- get_hosts(Config)]
-	 ++[H++D || H <- ["www.","www1.","www2.",""],
-		    D <- ["erlang.org","erlang.se"]]
-	 ++[H++"cslab.ericsson.net" || H <- ["morgoth.","hades.","styx."]]],
+    {ok, _}        = inet:gethostbyname(Hostname),
+    Hosts          =
+        [Hostname|[H || {_,H} <- get_hosts(Config)]
+         ++[H++D || H <- ["www.","www1.","www2.",""],
+        	    D <- ["erlang.org","erlang.se"]]
+         ++[H++"cslab.ericsson.net" || H <- ["morgoth.","hades.","styx."]]],
+    ?P("ctrl-1: Hosts: "
+       "~n   ~p", [Hosts]),
     %% Spawn some processes to do parallel lookups while
     %% I repeatedly do inet_gethost_native:control/1.
     TrapExit = process_flag(trap_exit, true),
     gethostnative_control_2([undefined], Interval, Delay, Cnt, N, Hosts),
-    io:format(
-      "First intermission: now starting control sequence ~w\n",
-      [Seq]),
     erlang:display(first_intermission),
+    ?P("ctrl-1: First intermission: "
+       "~n   Now starting control sequence ~p", [Seq]),
     gethostnative_control_2(Seq, Interval, Delay, Cnt, N, Hosts),
     erlang:display(second_intermission),
-    io:format(
-      "Second intermission:  now stopping control sequence ~w\n",
-      [Seq]),
+    ?P("ctrl-1: Second intermission: "
+       "~n   Now stopping control sequence ~p", [Seq]),
     gethostnative_control_2([undefined], Interval, Delay, Cnt, N, Hosts),
     true = process_flag(trap_exit, TrapExit),
+    ?P("control-1: done"),
     ok.
 
 gethostnative_control_2(Seq, Interval, Delay, Cnt, N, Hosts) ->
-    Tag = make_ref(),
-    Parent = self(),
-    Lookupers =
-	[spawn_link(
-	   fun () -> 
-		   lookup_loop(Hosts, Delay, Tag, Parent, Cnt, Hosts) 
-	   end)
-	 || _ <- lists:seq(1, N)],
+    Tag       = make_ref(),
+    Parent    = self(),
+    Lookup    = fun() ->
+                        ?P("lookuper starting"),
+                        lookup_loop(Hosts, Delay, Tag, Parent, Cnt, Hosts) 
+                end,
+    Lookupers = [spawn_link(Lookup) || _ <- lists:seq(1, N)],
     control_loop(Seq, Interval, Tag, Lookupers, Seq),
     gethostnative_control_3(Tag, ok).
 
 gethostnative_control_3(Tag, Reason) ->
     receive
-	{Tag,Error} ->
+	{Tag, Lookuper, Error} ->
+            ?P("control-3: received lookup error from ~p: ~p",
+               [Lookuper, Error]),
 	    gethostnative_control_3(Tag, Error)
     after 0 ->
+            ?P("control-3: no (more) lookup errors"),
 	    Reason
     end.
 
@@ -971,19 +1284,41 @@ control_loop([Op|Ops], Interval, Tag, Lookupers, Seq) ->
 		 Seq).
 
 control_loop_1(Op, Interval, Tag, Lookupers) ->
+    ?P("ctrl-loop-1: await lookuper exit"),
     receive
-	{'EXIT',Pid,Reason} ->
+        {'EXIT', _Pid, {timetrap_timeout, _, _}} ->
+            ?P("ctrl-loop-1: "
+               "timetrap timeout while ~w lookupers remaining: "
+               "~n   Op:       ~p"
+               "~n   Interval: ~p"
+               "~n   Tag:      ~p",
+               [length(Lookupers), Op, Interval, Tag]),
+            if
+                (Op =/= undefined) ->
+                    exit({timetrap, {Op, Tag, length(Lookupers)}});
+                true ->
+                    exit({timetrap, {Tag, length(Lookupers)}})
+            end;
+
+	{'EXIT', Pid, Reason} ->
 	    case Reason of
 		Tag -> % Done
+                    ?P("ctrl-loop-1: "
+                       "received expected exit from lookuper ~p", [Pid]),
 		    control_loop_1
 		      (Op, Interval, Tag,
 		       lists:delete(Pid, Lookupers));
 		_ ->
-		    io:format("Lookuper ~p died: ~p",
-			      [Pid,Reason]),
-		    ct:fail("Lookuper died")
+                    ?P("ctrl-loop-1: "
+                       "received unexpected exit from ~p: "
+                       "~n   ~p", [Pid, Reason]),
+		    ct:fail(?F("Unexpected exit from ~p", [Pid]))
 	    end
+
     after Interval ->
+            ?P("ctrl-loop-1: "
+               "timeout => (maybe) attempt control ~p when"
+               "~n   Lookupers: ~p", [Op, Lookupers]),
 	    if Op =/= undefined ->
 		    ok = inet_gethost_native:control(Op);
 	       true ->
@@ -993,19 +1328,25 @@ control_loop_1(Op, Interval, Tag, Lookupers) ->
     end.
 
 lookup_loop(_, _Delay, Tag, _Parent,  0, _Hosts) ->
+    ?P("lookup-loop: done with ~p", [Tag]),
     exit(Tag);
 lookup_loop([], Delay, Tag, Parent, Cnt, Hosts) ->
+    ?P("lookup-loop: begin lookup (~p) again when count = ~p", [Tag, Cnt]),
     lookup_loop(Hosts, Delay, Tag, Parent, Cnt, Hosts);
 lookup_loop([H|Hs], Delay, Tag, Parent, Cnt, Hosts) ->
+    ?P("lookup-loop: try lookup (~p, ~p) ~p", [Tag, Cnt, H]),
     case inet:gethostbyname(H) of
-	{ok,_Hent} -> ok;
-	{error,nxdomain} -> ok;
+	{ok, _Hent} ->
+            ?P("lookup-loop: lookup => found"),
+            ok;
+	{error, nxdomain} ->
+            ?P("lookup-loop: lookup => nxdomain"),
+            ok;
 	Error ->
-	    io:format("Name lookup error for ~p for ~p: ~p",
-		      [self(),H,Error]),
-	    Parent ! {Tag,Error}
+	    ?P("loopkup-loop: lookup => error for ~p: ~p", [H, Error]),
+	    Parent ! {Tag, self(), Error}
     end,
-    receive 
+    receive
     after rand:uniform(Delay) ->
 	    lookup_loop(Hs, Delay, Tag, Parent, Cnt-1, Hosts) 
     end.
@@ -1413,3 +1754,54 @@ jog_bind_to_device_opt(S) ->
     ok = inet:setopts(S, [{bind_to_device,<<"lo">>}]),
     {ok,[{bind_to_device,<<"lo">>}]} = inet:getopts(S, [bind_to_device]),
     ok.
+
+add_del_host(_Config) ->
+    Name = "foo.com",
+    Alias = "bar.org",
+    Ip = {69,89,31,226},
+    HostEnt = #hostent{
+        h_name = Name,
+        h_aliases = [Alias],
+        h_addrtype = inet,
+        h_length = 4,
+        h_addr_list = [Ip]
+    },
+    {error, nxdomain} = inet_hosts:gethostbyname(Name, inet),
+    ok = inet_db:add_host(Ip, [Name, Alias]),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Alias, inet),
+    ok = inet_db:del_host(Ip),
+    {error, nxdomain} = inet_hosts:gethostbyname(Name, inet),
+    {error, nxdomain} = inet_hosts:gethostbyname(Alias, inet),
+    ok = inet_db:add_host(Ip, [Name, Alias]),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet).
+
+add_del_host_v6(_Config) ->
+    Name = "foo.com",
+    Alias = "bar.org",
+    Ip = {32,1,219,8,10,11,18,240},
+    HostEnt = #hostent{
+        h_name = Name,
+        h_aliases = [Alias],
+        h_addrtype = inet6,
+        h_length = 16,
+        h_addr_list = [Ip]
+    },
+    {error, nxdomain} = inet_hosts:gethostbyname(Name, inet6),
+    ok = inet_db:add_host(Ip, [Name, Alias]),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet6),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Alias, inet6),
+    ok = inet_db:del_host(Ip),
+    {error, nxdomain} = inet_hosts:gethostbyname(Name, inet6),
+    {error, nxdomain} = inet_hosts:gethostbyname(Alias, inet6),
+    ok = inet_db:add_host(Ip, [Name, Alias]),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet6).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+pi(Item) ->
+    {Item, Val} = process_info(self(), Item),
+    Val.
+    
+

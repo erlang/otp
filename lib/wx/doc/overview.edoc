@@ -218,7 +218,7 @@ the <em>fun</em> returns.
 
 The callbacks are always invoked by another process and have
 exclusive usage of the GUI when invoked. This means that a callback <em>fun</em>
-can not use the process dictionary and should not make calls to other
+cannot use the process dictionary and should not make calls to other
 processes.  Calls to another process inside a callback <em>fun</em> may cause a
 deadlock if the other process is waiting on completion of his call to
 the GUI.

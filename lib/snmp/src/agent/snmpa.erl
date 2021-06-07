@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@
 	 int_to_enum/2, int_to_enum/3, 
 	 enum_to_int/2, enum_to_int/3,
 
-	 info/0, info/1, old_info_format/1, 
+	 info/0, info/1,
 	 load_mib/1, load_mib/2, 
 	 load_mibs/1, load_mibs/2, load_mibs/3, 
 	 unload_mib/1, unload_mib/2, 
@@ -62,6 +62,8 @@
 	 get/2, get/3, get_next/2, get_next/3,
 
 	 register_subagent/3, unregister_subagent/2, 
+
+         which_transports/0,
 
 	 send_notification2/3, 
 	 send_notification/3, send_notification/4, send_notification/5,
@@ -122,9 +124,6 @@
 	      mib_storage_module/0, 
 	      mib_storage_options/0
              ]).
-
--deprecated([{old_info_format, 1, next_major_release}]).
-
 
 -include("snmpa_atl.hrl").
 -include("snmpa_internal.hrl").
@@ -278,16 +277,6 @@ get_next(Agent, Vars, Context) -> snmpa_agent:get_next(Agent, Vars, Context).
 info()      -> info(snmp_master_agent).
 info(Agent) -> snmpa_agent:info(Agent).
 
-old_info_format(Info) when is_list(Info) ->
-    {value, Vsns}         = lists:keysearch(vsns,            1, Info),
-    {value, {_, MibInfo}} = lists:keysearch(mib_server,      1, Info),
-    {value, SAa}          = lists:keysearch(subagents,       1, MibInfo),
-    {value, LoadedMibs}   = lists:keysearch(loaded_mibs,     1, MibInfo),
-    {value, TreeSz}       = lists:keysearch(tree_size_bytes, 1, MibInfo),
-    {value, ProcMem}      = lists:keysearch(process_memory,  1, MibInfo),
-    {value, DbMem}        = lists:keysearch(db_memory,       1, MibInfo),
-    [Vsns, SAa, LoadedMibs, TreeSz, ProcMem, DbMem].
-    
 
 %% -
 
@@ -828,6 +817,18 @@ sys_up_time() ->
     % time in 0.01 seconds.
     StartTime = system_start_time(),
     (snmp_misc:now(cs) - StartTime) rem (2 bsl 31).
+
+
+%%%-----------------------------------------------------------------
+
+which_transports() ->
+    {value, Transports} = snmp_framework_mib:intAgentTransports(get),
+    [case Kind of
+         all ->
+             {Domain, Address};
+         _ ->
+             {Domain, Address, Kind}
+     end || {Domain, Address, Kind, _} <- Transports].
 
 
 %%%-----------------------------------------------------------------

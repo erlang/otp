@@ -1,0 +1,28 @@
+
+  [;1m-spec datasync(IoDevice) -> ok | {error, Reason}[0m
+  [;1m                  when[0m
+  [;1m                      IoDevice :: io_device(),[0m
+  [;1m                      Reason :: posix() | badarg | terminated.[0m
+
+[;;4mSince[0m:
+  OTP R14B
+
+  Ensures that any buffers kept by the operating system (not by the
+  Erlang runtime system) are written to disk. In many ways it
+  resembles [;;4mfsync[0m but it does not update some of the metadata of
+  the file, such as the access time. On some platforms this function
+  has no effect.
+
+  Applications that access databases or log files often write a tiny
+  data fragment (for example, one line in a log file) and then call [;;4m[0m
+  [;;4mfsync()[0m immediately to ensure that the written data is physically
+  stored on the hard disk. Unfortunately, [;;4mfsync()[0m always initiates
+  two write operations: one for the newly written data and another
+  one to update the modification time stored in the [;;4minode[0m. If the
+  modification time is not a part of the transaction concept, [;;4m[0m
+  [;;4mfdatasync()[0m can be used to avoid unnecessary [;;4minode[0m disk write
+  operations.
+
+  Available only in some POSIX systems, this call results in a call
+  to [;;4mfsync()[0m, or has no effect in systems not providing the [;;4m[0m
+  [;;4mfdatasync()[0m syscall.

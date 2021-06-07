@@ -32,35 +32,71 @@
 %%  function name must be on the same line. CurrentBefore is reversed
 %%  and over_word/3 reverses the characters it finds. In certain cases
 %%  possible expansions are printed.
+%%
+%%  The function also handles expansion with "h(" for module and functions.
 expand(Bef0) ->
     {Bef1,Word,_} = edlin:over_word(Bef0, [], 0),
     case over_white(Bef1, [], 0) of
- 	{[$:|Bef2],_White,_Nwh} ->
+        {[$,|Bef2],_White,_Nwh} ->
+	    {Bef3,_White1,_Nwh1} = over_white(Bef2, [], 0),
+	    {Bef4,Mod,_Nm} = edlin:over_word(Bef3, [], 0),
+            case expand_function(Bef4) of
+                help ->
+                    expand_function_name(Mod, Word, ",");
+                _ ->
+                    expand_module_name(Word, ",")
+            end;
+        {[$:|Bef2],_White,_Nwh} ->
  	    {Bef3,_White1,_Nwh1} = over_white(Bef2, [], 0),
  	    {_,Mod,_Nm} = edlin:over_word(Bef3, [], 0),
- 	    expand_function_name(Mod, Word);
+	    expand_function_name(Mod, Word, "(");
  	{_,_,_} ->
- 	    expand_module_name(Word)
+            CompleteChar
+                = case expand_function(Bef1) of
+                      help -> ",";
+                      _ -> ":"
+                  end,
+	    expand_module_name(Word, CompleteChar)
     end.
 
-expand_module_name(Prefix) ->
-    match(Prefix, code:all_loaded(), ":").
+expand_function("("++Str) ->
+    case edlin:over_word(Str, [], 0) of
+        {_,"h",_} ->
+            help;
+        {_,"ht",_} ->
+            help_type;
+        _ ->
+            module
+    end;
+expand_function(_) ->
+    module.
 
-expand_function_name(ModStr, FuncPrefix) ->
+expand_module_name("",_) ->
+    {no, [], []};
+expand_module_name(Prefix,CompleteChar) ->
+    match(Prefix, [{list_to_atom(M),P} || {M,P,_} <- code:all_available()], CompleteChar).
+
+expand_function_name(ModStr, FuncPrefix, CompleteChar) ->
     case to_atom(ModStr) of
 	{ok, Mod} ->
-	    case erlang:module_loaded(Mod) of
-		true ->
-		    L = Mod:module_info(),
-		    case lists:keyfind(exports, 1, L) of
-			{_, Exports} ->
-			    match(FuncPrefix, Exports, "(");
-			_ ->
-			    {no, [], []}
-		    end;
-		false ->
-		    {no, [], []}
-	    end;
+            Exports =
+                case erlang:module_loaded(Mod) of
+                    true ->
+                        Mod:module_info(exports);
+                    false ->
+                        case beam_lib:chunks(code:which(Mod), [exports]) of
+                            {ok, {Mod, [{exports,E}]}} ->
+                                E;
+                            _ ->
+                                {no, [], []}
+                        end
+                end,
+            case Exports of
+                {no, [], []} ->
+                    {no, [], []};
+                Exports ->
+                    match(FuncPrefix, Exports, CompleteChar)
+            end;
 	error ->
 	    {no, [], []}
     end.
@@ -99,8 +135,10 @@ match(Prefix, Alts, Extra0) ->
  	    {no, [], []}
     end.
 
-flat_write(T) ->
-    lists:flatten(io_lib:fwrite("~tw",[T])).
+flat_write(T) when is_atom(T) ->
+    lists:flatten(io_lib:fwrite("~tw",[T]));
+flat_write(S) ->
+    S.
 
 %% Return the list of names L in multiple columns.
 format_matches(L) ->

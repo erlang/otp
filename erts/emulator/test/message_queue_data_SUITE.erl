@@ -20,8 +20,9 @@
 
 -module(message_queue_data_SUITE).
 
--export([all/0, suite/0]).
--export([basic/1, process_info_messages/1, total_heap_size/1]).
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
+-export([basic/1, process_info_messages/1, total_heap_size/1,
+	 change_to_off_heap/1]).
 
 -export([basic_test/1]).
 
@@ -31,8 +32,16 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 2}}].
 
+init_per_suite(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    Config.
+
+end_per_suite(_Config) ->
+    erts_debug:set_internal_state(available_internal_state, false),
+    ok.
+
 all() -> 
-    [basic, process_info_messages, total_heap_size].
+    [basic, process_info_messages, total_heap_size, change_to_off_heap].
 
 %%
 %%
@@ -186,11 +195,137 @@ total_heap_size(_Config) ->
     ct:log("OffSize = ~p, OffSizeAfter = ~p",[OffSize, OffSizeAfter]),
     true = OffSize == OffSizeAfter.
 
+change_to_off_heap(Config) when is_list(Config) ->
+    %% Without seq-trace tokens on messages...
+    change_to_off_heap_test(),
+    %% With seq-trace tokens on messages...
+    Tracer = start_seq_tracer(),
+    try
+	change_to_off_heap_test()
+    after
+	stop_seq_tracer(Tracer)
+    end,
+    ok.
+
+change_to_off_heap_test() ->
+    process_flag(message_queue_data, on_heap),
+    process_flag(min_heap_size, 1000000),
+    garbage_collect(),
+    persistent_term:put(mqd_test_ref, make_ref()),
+    try
+	Alias = alias(),
+	%% A lot of on-heap messages to convert in the change...
+	Msgs = make_misc_messages(Alias, persistent_term:get(mqd_test_ref)),
+	%% io:format("Msgs: ~p~n",[Msgs]),
+	process_flag(message_queue_data, off_heap),
+	wait_change_off_heap(),
+	%% All messages in message queue have now been moved off-heap...
+	RecvMsgs = recv_msgs(),
+	unalias(Alias),
+	%% io:format("RecvMsgs: ~p~n",[RecvMsgs]),
+	true = Msgs =:= RecvMsgs,
+	garbage_collect(),
+	persistent_term:erase(mqd_test_ref),
+	receive after 1000 -> ok end,
+	garbage_collect(),
+	true = Msgs =:= RecvMsgs
+    after
+ 	persistent_term:erase(mqd_test_ref)
+    end.
+
+start_seq_tracer() ->
+    Tester = self(),
+    Go = make_ref(),
+    Pid = spawn_link(fun () ->
+			     seq_trace:set_system_tracer(self()),
+			     Tester ! Go,
+			     seq_trace_loop([])
+		     end),
+    receive
+	Go ->
+	    seq_trace:set_token(label,666),
+	    seq_trace:set_token('receive',true),
+	    Pid
+    end.
+
+stop_seq_tracer(Tracer) ->
+    Ref = make_ref(),
+    Tracer ! {stop, Ref, self()},
+    receive
+	{Ref, SeqTrace} ->
+	    io:format("SeqTrace: ~p~n", [SeqTrace])
+    end.
+
+seq_trace_loop(SeqTrace) ->
+    receive
+	{seq_trace,_Label,_Info,_Ts} = ST->
+	    seq_trace_loop([ST|SeqTrace]);
+	{seq_trace,_Label,_Info} = ST ->
+	    seq_trace_loop([ST|SeqTrace]);
+	{stop,Ref,From} ->
+	    From ! {Ref,lists:reverse(SeqTrace)}
+    end.
+
+make_misc_messages(Alias, Lit) ->
+    process_flag(trap_exit, true),
+    make_misc_messages(Alias, Lit, [], 100).
+
+make_misc_messages(_Alias, _Lit, Msgs, N) when N =< 0 ->
+    lists:flatten(lists:reverse(Msgs));
+make_misc_messages(Alias, Lit, Msgs, N) ->
+    M1 = Lit,
+    M2 = {Lit, N},
+    M3 = immediate,
+    M4 = {not_immediate, N},
+    exit(self(), tjena), %% Will become off-heap msg...
+    %% Rest will become on-heap msgs...
+    self() ! M1,
+    self() ! M2,
+    self() ! M3,
+    self() ! M4,
+    Alias ! M1,
+    Alias ! M2,
+    Alias ! M3,
+    Alias ! M4,
+    NewMsgs = [{'EXIT', self(), tjena},
+	       M1, M2, M3, M4, M1, M2, M3, M4],
+    make_misc_messages(Alias, Lit, [NewMsgs | Msgs], N-9).
+
 %%
 %%
 %% helpers
 %%
 %%
+
+wait_change_off_heap() ->
+    %%
+    %% Will wait until a change to off_heap message_queue_data
+    %% has been made on current process if (and only if) it
+    %% was previously changed on this process...
+    %%
+    %% Work with *current* inplementation! This may change...
+    %%
+    erts_debug:set_internal_state(wait, thread_progress),
+    %% We have now flushed later ops including later op that
+    %% sent 'adjust msgq' signal to us. Now pass a message
+    %% through our message queue. When received we know that
+    %% that the 'adjust message queue' signal has been
+    %% handled...
+    %%
+    Ref = make_ref(),
+    self() ! Ref,
+    receive Ref -> ok end.
+    
+recv_msgs() ->    
+    recv_msgs([]).
+
+recv_msgs(Msgs) ->
+    receive
+	Msg ->
+	    recv_msgs([Msg|Msgs])
+    after 0 ->
+	    lists:reverse(Msgs)
+    end.
 
 start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
     Pa = filename:dirname(code:which(?MODULE)),

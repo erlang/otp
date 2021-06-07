@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@
 %% This is ugly but...
 %%----------------------------------------------------------------------
 
-Expect 91.
+Expect 94.
 
 
 %%----------------------------------------------------------------------
@@ -760,12 +760,13 @@ auditReturnParameter -> signalsDescriptor         : {signalsDescriptor, '$1'} .
 auditReturnParameter -> digitMapDescriptor        : {digitMapDescriptor, '$1'} .
 auditReturnParameter -> observedEventsDescriptor  : {observedEventsDescriptor, '$1'} .
 auditReturnParameter -> eventBufferDescriptor     : {eventBufferDescriptor, '$1'} .
-auditReturnParameter -> statisticsDescriptor      : {statisticsDescriptor, '$1'} .
+%% Conflict with 'empty' statisticsDescriptor and auditReturnItem (see below)
+auditReturnParameter -> statisticsDescriptor      : ensure_arp_statisticsDescriptor('$1') .
 auditReturnParameter -> packagesDescriptor        : {packagesDescriptor, '$1'} .
 auditReturnParameter -> errorDescriptor           : {errorDescriptor, '$1'} .
 auditReturnParameter -> auditReturnItem           : {auditReturnItem, '$1'} .
 
-auditDescriptor      -> 'AuditToken' 'LBRKT' auditDescriptorBody 'RBRKT' : 
+auditDescriptor      -> 'AuditToken' 'LBRKT' auditDescriptorBody 'RBRKT' :
                         merge_auditDescriptor('$3') .
 
 auditDescriptorBody  -> auditItem auditItemList : ['$1' | '$2'].
@@ -780,13 +781,16 @@ auditReturnItem      -> 'MuxToken'             : muxToken .
 auditReturnItem      -> 'ModemToken'           : modemToken .
 auditReturnItem      -> 'MediaToken'           : mediaToken .
 auditReturnItem      -> 'DigitMapToken'        : digitMapToken .
-auditReturnItem      -> 'StatsToken'           : statsToken .
+%% Conflict with 'empty' statisticsDescriptor:
+%% auditReturnItem      -> 'StatsToken'           : statsToken .
 auditReturnItem      -> 'ObservedEventsToken'  : observedEventsToken .
 auditReturnItem      -> 'PackagesToken'        : packagesToken .
 
 %% at-most-once, and DigitMapToken and PackagesToken are not allowed 
 %% in AuditCapabilities command 
 auditItem          -> auditReturnItem        : '$1' .
+%% Moved from ari above (conflict with 'empty' statisticsDescriptor)
+auditItem          -> 'StatsToken'           : statsToken.
 auditItem          -> 'SignalsToken'         : signalsToken.
 auditItem          -> 'EventBufferToken'     : eventBufferToken.
 auditItem          -> 'EventsToken'          : eventsToken .
@@ -1095,11 +1099,13 @@ localParmList        -> '$empty': [] .
 
 terminationStateDescriptor -> 'TerminationStateToken'
                               'LBRKT' terminationStateParm 
-                                      terminationStateParms 'RBRKT'
-		              : merge_terminationStateDescriptor(['$3' | '$4']) .
+                                      terminationStateParms 'RBRKT' :
+                              merge_terminationStateDescriptor(['$3' | '$4']) .
 
-terminationStateParms -> 'COMMA' terminationStateParm terminationStateParms : ['$2' | '$3'] .
-terminationStateParms -> '$empty' : [] .
+terminationStateParms -> 'COMMA' terminationStateParm terminationStateParms :
+                         ['$2' | '$3'] .
+terminationStateParms -> '$empty' :
+                         [] .
 
 %% at-most-once per item except for propertyParm
 localParm            -> 'ReservedGroupToken' 'EQUAL' onOrOff : {group, '$3'} .
@@ -1504,6 +1510,7 @@ statisticsDescriptor -> 'StatsToken'
                         'LBRKT' statisticsParameter 
                                 statisticsParameters 'RBRKT'
                         : ['$3' | '$4'] .
+statisticsDescriptor -> 'StatsToken' : [] .
 
 statisticsParameters -> 'COMMA' statisticsParameter statisticsParameters  : ['$2' | '$3'] .
 statisticsParameters -> '$empty' : [] .
@@ -1553,7 +1560,7 @@ value                -> safeToken     : ensure_value('$1').
 safeToken            -> safeToken2              : make_safe_token('$1') .
 
 safeToken2           -> 'SafeChars'             : '$1' .
-%% BMK BMK safeToken2           -> 'AddToken'              : '$1' .
+safeToken2           -> 'AddToken'              : '$1' .
 safeToken2           -> 'AuditToken'            : '$1' .
 safeToken2           -> 'AuditCapToken'         : '$1' .
 safeToken2           -> 'AuditValueToken'       : '$1' .
@@ -1579,7 +1586,7 @@ safeToken2           -> 'EmbedToken'            : '$1' .
 %% BMK BMK safeToken2           -> 'EmergencyOffToken'     : '$1' .
 safeToken2           -> 'ErrorToken'            : '$1' .
 %% v2-safeToken2           -> 'EventBufferToken'      : '$1' .
-%% v2-safeToken2           -> 'EventsToken'           : '$1' .
+safeToken2           -> 'EventsToken'           : '$1' .
 %% v3-safeToken2           -> 'ExternalToken'         : '$1' . % v3
 safeToken2           -> 'FailoverToken'         : '$1' .
 safeToken2           -> 'ForcedToken'           : '$1' .
@@ -1671,10 +1678,6 @@ safeToken2           -> 'V91Token'              : '$1' .
 safeToken2           -> 'VersionToken'          : '$1' .
 
 Erlang code.
-
-%% The following directive is needed for (significantly) faster compilation
-%% of the generated .erl file by the HiPE compiler.  Please do not remove.
--compile([{hipe,[{regalloc,linear_scan}]}]).
 
 -include("megaco_text_parser_v3.hrl").
 

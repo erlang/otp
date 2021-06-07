@@ -1,5 +1,5 @@
 -module(efficiency_guide).
--compile([export_all,nowarn_export_all).
+-compile([export_all,nowarn_export_all]).
 
 %% DO NOT
 naive_reverse([H|T]) ->
@@ -188,5 +188,41 @@ explicit_map_pairs(Map, Xs0, Ys0) ->
 	[] ->
 	    Ys0
     end.
-			    
-			    
+
+%% DO
+simple_receive() ->
+    receive
+        Message -> handle_msg(Message)
+    end.
+
+%% OK, if Tag is a reference.
+selective_receive(Tag, Message) ->
+    receive
+        {Tag, Message} -> handle_msg(Message)
+    end.
+
+%% DO
+optimized_receive(Process, Request) ->
+    MRef = monitor(process, Process),
+    Process ! {self(), MRef, Request},
+    receive
+        {MRef, Reply} ->
+            erlang:demonitor(MRef, [flush]),
+            handle_reply(Reply);
+        {'DOWN', MRef, _, _, Reason} ->
+            handle_error(Reason)
+    end.
+
+%% DO
+cross_function_receive() ->
+    Ref = make_ref(),
+    cross_function_receive(Ref).
+
+cross_function_receive(Ref) ->
+    receive
+        {Ref, Message} -> handle_msg(Message)
+    end.
+    
+handle_reply(_) -> ok.
+handle_error(_) -> ok.
+handle_msg(_) -> ok.

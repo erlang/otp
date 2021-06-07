@@ -68,8 +68,11 @@ typedef struct {
 	    Uint64 started_interval;
 	    struct reg_proc *reg;
 	    ErtsLink *links;
-	    ErtsMonitor *monitors;
+             /* Local target monitors, double linked list
+                contains the remote part of local monitors  */
             ErtsMonitor *lt_monitors;
+             /* other monitors, rb tree */
+	    ErtsMonitor *monitors;
 	} alive;
 
 	/* --- While being released --- */

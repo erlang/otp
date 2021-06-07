@@ -23,11 +23,14 @@ package com.ericsson.otp.erlang;
 class Link {
     private final OtpErlangPid local;
     private final OtpErlangPid remote;
+    private long unlinking = 0;
     private int hashCodeValue = 0;
 
     public Link(final OtpErlangPid local, final OtpErlangPid remote) {
         this.local = local;
         this.remote = remote;
+        this.unlinking = 0;
+        
     }
 
     public OtpErlangPid local() {
@@ -45,6 +48,14 @@ class Link {
     public boolean equals(final OtpErlangPid alocal, final OtpErlangPid aremote) {
         return local.equals(alocal) && remote.equals(aremote)
                 || local.equals(aremote) && remote.equals(alocal);
+    }
+
+    public long getUnlinking() {
+        return this.unlinking;
+    }
+
+    public void setUnlinking(long unlink_id) {
+        this.unlinking = unlink_id;
     }
 
     @Override

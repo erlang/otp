@@ -21,7 +21,7 @@
 
 -export([all/0, suite/0, groups/0,init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
-         tuples/1, cons/1]).
+         tuples/1, cons/1, catastrophic_runtime/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -32,7 +32,7 @@ all() ->
 
 groups() ->
     [{p,[parallel],
-      [tuples, cons]}].
+      [tuples, cons, catastrophic_runtime]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -47,11 +47,10 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
 id(X) -> X.
 
 tuples(Config) when is_list(Config) ->
-    Tuple = {ok,id(value)},
+    Tuple = id({ok,id(value)}),
 
     true = erts_debug:same(Tuple, simple_tuple(Tuple)),
     true = erts_debug:same(Tuple, simple_tuple_in_map(#{hello => Tuple})),
@@ -59,24 +58,24 @@ tuples(Config) when is_list(Config) ->
     true = erts_debug:same(Tuple, simple_tuple_fun_repeated(Tuple, Tuple)),
     true = erts_debug:same(Tuple, simple_tuple_twice_head(Tuple, Tuple)),
 
-    {Tuple1, Tuple2} = simple_tuple_twice_body(Tuple),
+    {Tuple1, Tuple2} = id(simple_tuple_twice_body(Tuple)),
     true = erts_debug:same(Tuple, Tuple1),
     true = erts_debug:same(Tuple, Tuple2),
 
-    Nested = {nested,Tuple},
+    Nested = id({nested,Tuple}),
     true = erts_debug:same(Tuple, nested_tuple_part(Nested)),
     true = erts_debug:same(Nested, nested_tuple_whole(Nested)),
     true = erts_debug:same(Nested, nested_tuple_with_alias(Nested)),
 
     true = erts_debug:same(Tuple, tuple_rebinding_after(Tuple)),
 
-    Tuple = unaliased_tuple_rebinding_before(Tuple),
+    Tuple = id(unaliased_tuple_rebinding_before(Tuple)),
     false = erts_debug:same(Tuple, unaliased_tuple_rebinding_before(Tuple)),
-    Nested = unaliased_literal_tuple_head(Nested),
+    Nested = id(unaliased_literal_tuple_head(Nested)),
     false = erts_debug:same(Nested, unaliased_literal_tuple_head(Nested)),
-    Nested = unaliased_literal_tuple_body(Nested),
+    Nested = id(unaliased_literal_tuple_body(Nested)),
     false = erts_debug:same(Nested, unaliased_literal_tuple_body(Nested)),
-    Nested = unaliased_different_var_tuple(Nested, Tuple),
+    Nested = id(unaliased_different_var_tuple(Nested, Tuple)),
     false = erts_debug:same(Nested, unaliased_different_var_tuple(Nested, Tuple)).
 
 simple_tuple({ok,X}) ->
@@ -119,7 +118,7 @@ unaliased_different_var_tuple({nested,{ok,value}=X}, Y) ->
     {nested,Y}.
 
 cons(Config) when is_list(Config) ->
-    Cons = [ok|id(value)],
+    Cons = id([ok|id(value)]),
 
     true = erts_debug:same(Cons, simple_cons(Cons)),
     true = erts_debug:same(Cons, simple_cons_in_map(#{hello => Cons})),
@@ -127,27 +126,27 @@ cons(Config) when is_list(Config) ->
     true = erts_debug:same(Cons, simple_cons_fun_repeated(Cons, Cons)),
     true = erts_debug:same(Cons, simple_cons_twice_head(Cons, Cons)),
 
-    {Cons1,Cons2} = simple_cons_twice_body(Cons),
+    {Cons1,Cons2} = id(simple_cons_twice_body(Cons)),
     true = erts_debug:same(Cons, Cons1),
     true = erts_debug:same(Cons, Cons2),
 
-    Nested = [nested,Cons],
+    Nested = id([nested,Cons]),
     true = erts_debug:same(Cons, nested_cons_part(Nested)),
     true = erts_debug:same(Nested, nested_cons_whole(Nested)),
     true = erts_debug:same(Nested, nested_cons_with_alias(Nested)),
     true = erts_debug:same(Cons, cons_rebinding_after(Cons)),
 
     Unstripped = id([a,b]),
-    Stripped = cons_with_binary([<<>>|Unstripped]),
+    Stripped = id(cons_with_binary([<<>>|Unstripped])),
     true = erts_debug:same(Unstripped, Stripped),
 
-    Cons = unaliased_cons_rebinding_before(Cons),
+    Cons = id(unaliased_cons_rebinding_before(Cons)),
     false = erts_debug:same(Cons, unaliased_cons_rebinding_before(Cons)),
-    Nested = unaliased_literal_cons_head(Nested),
+    Nested = id(unaliased_literal_cons_head(Nested)),
     false = erts_debug:same(Nested, unaliased_literal_cons_head(Nested)),
-    Nested = unaliased_literal_cons_body(Nested),
+    Nested = id(unaliased_literal_cons_body(Nested)),
     false = erts_debug:same(Nested, unaliased_literal_cons_body(Nested)),
-    Nested = unaliased_different_var_cons(Nested, Cons),
+    Nested = id(unaliased_different_var_cons(Nested, Cons)),
     false = erts_debug:same(Nested, unaliased_different_var_cons(Nested, Cons)).
 
 simple_cons([ok|X]) ->
@@ -193,3 +192,28 @@ unaliased_literal_cons_body([nested,[ok|value]=X]) ->
 unaliased_different_var_cons([nested,[ok|value]=X], Y) ->
     io:format("~p~n", [X]),
     [nested,Y].
+
+catastrophic_runtime(Config) ->
+    ct:timetrap({minutes, 6}),
+    Depth = 16000,
+
+    PrivDir = proplists:get_value(priv_dir,Config),
+    Path = filename:join(PrivDir, "catastrophic_runtime.erl"),
+
+    Term = catastrophic_runtime_1(Depth),
+    Source = ["-module(catastrophic_runtime). t(Value) -> ", Term, "."],
+    ok = file:write_file(Path, Source),
+
+    {ok, catastrophic_runtime} = compile:file(Path, [return_error]),
+    file:delete(Path),
+
+    ok.
+
+catastrophic_runtime_1(0) ->
+    <<"Value">>;
+catastrophic_runtime_1(N) ->
+    Nested = catastrophic_runtime_1(N - 1),
+    Integer = integer_to_binary(N),
+    Eq = [<<"{{'.',[],[erlang,'=:=']},[],[Value, \"">>, Integer, <<"\"]}">>],
+    [<<"{{'.',[],[erlang,atom]},[],[">>, Nested, <<",">>, Eq, <<"]}">>].
+

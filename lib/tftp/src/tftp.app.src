@@ -18,5 +18,5 @@
              tftp_logger,
              tftp_sup
             ]},
-  {runtime_dependencies, ["stdlib-3.5","kernel-6.0"]}
+  {runtime_dependencies, ["erts-6.0","stdlib-3.5","kernel-6.0"]}
  ]}.

@@ -385,7 +385,7 @@ prepare_decoration(FunTypes, Callgraph, Codeserver) ->
           case dialyzer_callgraph:lookup_name(Label, Callgraph) of
             {ok, MFA} ->
               case dialyzer_codeserver:lookup_mfa_contract(MFA, Codeserver) of
-                {ok, {_FileLine, Contract, _Xtra}} ->
+                {ok, {_FileLocation, Contract, _Xtra}} ->
                   [{LabelType, {MFA, Contract}}|Acc];
                 error -> [{LabelType, no}|Acc]
               end;

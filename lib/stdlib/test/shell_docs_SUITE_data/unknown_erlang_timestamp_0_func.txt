@@ -1,0 +1,36 @@
+
+  [;1m-spec erlang:timestamp() -> Timestamp when Timestamp :: timestamp().[0m
+
+[;;4mSince[0m:
+  OTP 18.0
+
+  Types:
+    -type timestamp() ::
+          {MegaSecs :: non_neg_integer(),
+           Secs :: non_neg_integer(),
+           MicroSecs :: non_neg_integer()}.
+
+  Returns current Erlang system time on the format [;;4m{MegaSecs,[0m
+  [;;4mSecs, MicroSecs}[0m. This format is the same as [;;4mos:timestamp/0[0m and
+  the deprecated [;;4merlang:now/0[0m use. The reason for the existence of [;;4m[0m
+  [;;4merlang:timestamp()[0m is purely to simplify use for existing code
+  that assumes this time stamp format. Current Erlang system time
+  can more efficiently be retrieved in the time unit of your choice
+  using [;;4merlang:system_time/1[0m.
+
+  The [;;4merlang:timestamp()[0m BIF is equivalent to:
+
+    timestamp() ->
+        ErlangSystemTime = erlang:system_time(microsecond),
+        MegaSecs = ErlangSystemTime div 1000_000_000_000,
+        Secs = ErlangSystemTime div 1000_000 - MegaSecs*1000_000,
+        MicroSecs = ErlangSystemTime rem 1000_000,
+        {MegaSecs, Secs, MicroSecs}.
+
+  It, however, uses a native implementation that does not build
+  garbage on the heap and with slightly better performance.
+
+  Note:
+    This time is not a monotonically increasing time in the
+    general case. For more information, see the documentation of 
+    time warp modes in the User's Guide.

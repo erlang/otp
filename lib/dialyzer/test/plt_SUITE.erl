@@ -9,14 +9,16 @@
 -export([suite/0, all/0, build_plt/1, beam_tests/1, update_plt/1,
          local_fun_same_as_callback/1,
          remove_plt/1, run_plt_check/1, run_succ_typings/1,
-         bad_dialyzer_attr/1, merge_plts/1, bad_record_type/1]).
+         bad_dialyzer_attr/1, merge_plts/1, bad_record_type/1,
+         letrec_rvals/1]).
 
 suite() ->
   [{timetrap, ?plt_timeout}].
 
 all() -> [build_plt, beam_tests, update_plt, run_plt_check,
           remove_plt, run_succ_typings, local_fun_same_as_callback,
-          bad_dialyzer_attr, merge_plts, bad_record_type].
+          bad_dialyzer_attr, merge_plts, bad_record_type,
+          letrec_rvals].
 
 build_plt(Config) ->
   OutDir = ?config(priv_dir, Config),
@@ -222,7 +224,7 @@ local_fun_same_as_callback(Config) when is_list(Config) ->
                       {files, [TestBeam]},
                       {init_plt, Plt}] ++ Opts),
     ok.
-  
+
 %%% [James Fish:]
 %%% Dialyzer always asserts that files and directories passed in its
 %%% options exist. Therefore it is not possible to remove a beam/module
@@ -283,7 +285,7 @@ bad_dialyzer_attr(Config) ->
     {dialyzer_error,
      "Analysis failed with error:\n" ++ Str1} =
         (catch dialyzer:run(Opts)),
-    S1 = string:find(Str1, "dial.erl:2: function undef/0 undefined"),
+    S1 = string:find(Str1, "dial.erl:2:17: function undef/0 undefined"),
     true = is_list(S1),
 
     Prog2 = <<"-module(dial).
@@ -292,7 +294,7 @@ bad_dialyzer_attr(Config) ->
     {dialyzer_error,
      "Analysis failed with error:\n" ++ Str2} =
         (catch dialyzer:run(Opts)),
-    S2 = string:find(Str2, "dial.erl:2: badly formed dialyzer "
+    S2 = string:find(Str2, "dial.erl:2:17: badly formed dialyzer "
                            "attribute: {no_return,{undef,1,2}}"),
     true = is_list(S2),
 
@@ -391,8 +393,28 @@ bad_record_type(Config) ->
      "Analysis failed with error:\n" ++ Str} =
         (catch dialyzer:run(Opts)),
     P = string:str(Str,
-                    "bad_record_type.erl:4: Illegal declaration of #r{f}"),
+                    "bad_record_type.erl:4:16: Illegal declaration of #r{f}"),
     true = P > 0,
+    ok.
+
+letrec_rvals(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Plt = filename:join(PrivDir, "letrec_rvals.plt"),
+    Prog = <<"
+-module(letrec_rvals).
+
+-export([demo_fun/1]).
+
+demo_fun(_Arg) ->
+    case ok of
+        _ ->
+            _Res = _Arg,
+            [ ok || _ <- [] ]
+    end,
+    _Res.
+    ">>,
+    {ok, BeamFile} = compile(Config, Prog, letrec_rvals, []),
+    [] = run_dialyzer(plt_build, [BeamFile], [{output_plt, Plt}]),
     ok.
 
 erlang_beam() ->

@@ -23,6 +23,7 @@ package com.ericsson.otp.erlang;
 class Links {
     Link[] links;
     int count;
+    int active;
 
     Links() {
         this(10);
@@ -31,34 +32,112 @@ class Links {
     Links(final int initialSize) {
         links = new Link[initialSize];
         count = 0;
+        active = 0;
     }
 
-    synchronized void addLink(final OtpErlangPid local,
-            final OtpErlangPid remote) {
-        if (find(local, remote) == -1) {
+    // Try add link and return if it was added or not...
+    // If already existing it will not be added again.
+    // If force is true it is added even if it is
+    // currently unlinking; otherwise not.
+    synchronized boolean addLink(final OtpErlangPid local,
+                                 final OtpErlangPid remote,
+                                 final boolean force) {
+        int i = find(local, remote);
+        if (i != -1) {
+            if (links[i].getUnlinking() != 0 && force) {
+                links[i].setUnlinking(0);
+                active++;
+                return true;
+            }
+            return false;
+        }
+        else {
             if (count >= links.length) {
                 final Link[] tmp = new Link[count * 2];
                 System.arraycopy(links, 0, tmp, 0, count);
                 links = tmp;
             }
             links[count++] = new Link(local, remote);
+            active++;
+            return true;
         }
     }
 
-    synchronized void removeLink(final OtpErlangPid local,
-            final OtpErlangPid remote) {
+    // Try remove link and return whether it was active or not...
+    synchronized boolean removeLink(final OtpErlangPid local,
+                                    final OtpErlangPid remote) {
         int i;
 
         if ((i = find(local, remote)) != -1) {
+            long unlinking = links[i].getUnlinking();
             count--;
             links[i] = links[count];
             links[count] = null;
+            if (unlinking == 0) {
+                active--;
+                return true;
+            }
         }
+        return false;
     }
 
-    synchronized boolean exists(final OtpErlangPid local,
-            final OtpErlangPid remote) {
-        return find(local, remote) != -1;
+    // Try remove active link and return whether it was removed or not...
+    synchronized boolean removeActiveLink(final OtpErlangPid local,
+                                          final OtpErlangPid remote) {
+        int i;
+
+        if ((i = find(local, remote)) != -1) {
+            long unlinking = links[i].getUnlinking();
+            if (unlinking != 0)
+                return false;
+            count--;
+            active--;
+            links[i] = links[count];
+            links[count] = null;
+            return true;
+        }
+        return false;
+    }
+
+    // Remove link if unlink_id match and return whether it was removed or not...
+    synchronized boolean removeUnlinkingLink(final OtpErlangPid local,
+                                             final OtpErlangPid remote,
+                                             final long unlink_id) {
+        int i;
+
+        if (unlink_id == 0) {
+            return false;
+        }
+
+        if ((i = find(local, remote)) != -1) {
+            long unlinking = links[i].getUnlinking();
+            if (unlinking != unlink_id)
+                return false;
+            count--;
+            links[i] = links[count];
+            links[count] = null;
+            return true;
+        }
+        return false;
+    }
+
+    synchronized boolean setUnlinking(final OtpErlangPid local,
+                                      final OtpErlangPid remote,
+                                      final long unlink_id) {
+        int i;
+
+        if (unlink_id == 0) {
+            return false;
+        }
+
+        if ((i = find(local, remote)) != -1) {
+            if (links[i].getUnlinking() == 0) {
+                links[i].setUnlinking(unlink_id);
+                active--;
+                return true;
+            }
+        }
+        return false;
     }
 
     synchronized int find(final OtpErlangPid local, final OtpErlangPid remote) {
@@ -70,29 +149,15 @@ class Links {
         return -1;
     }
 
-    int count() {
-        return count;
-    }
-
-    /* all local pids get notified about broken connection */
-    synchronized OtpErlangPid[] localPids() {
-        OtpErlangPid[] ret = null;
-        if (count != 0) {
-            ret = new OtpErlangPid[count];
-            for (int i = 0; i < count; i++) {
-                ret[i] = links[i].local();
-            }
-        }
-        return ret;
-    }
-
-    /* all remote pids get notified about failed pid */
     synchronized OtpErlangPid[] remotePids() {
         OtpErlangPid[] ret = null;
-        if (count != 0) {
-            ret = new OtpErlangPid[count];
-            for (int i = 0; i < count; i++) {
-                ret[i] = links[i].remote();
+        if (active != 0) {
+            int a = 0;
+            ret = new OtpErlangPid[active];
+            for (int i = 0; a < active; i++) {
+                if (links[i].getUnlinking() == 0) {
+                    ret[a++] = links[i].remote();
+                }
             }
         }
         return ret;
@@ -112,13 +177,4 @@ class Links {
         return ret;
     }
 
-    /* returns a copy of the link table */
-    synchronized Link[] links() {
-        Link[] ret = null;
-        if (count != 0) {
-            ret = new Link[count];
-            System.arraycopy(links, 0, ret, 0, count);
-        }
-        return ret;
-    }
 }

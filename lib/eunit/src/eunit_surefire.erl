@@ -95,6 +95,7 @@ start(Options) ->
 
 init(Options) ->
     XMLDir = proplists:get_value(dir, Options, ?XMLDIR),
+    ensure_xmldir(XMLDir),
     St = #state{verbose = proplists:get_bool(verbose, Options),
 		xmldir = XMLDir,
 		testsuites = []},
@@ -253,6 +254,19 @@ add_testcase_to_testsuite({error, Exception}, TestCaseTmp, TestSuite) ->
 	    TestSuite#testsuite{
 	      aborted = TestSuite#testsuite.aborted+1,
 	      testcases = [TestCase|TestSuite#testsuite.testcases] }
+    end.
+
+ensure_xmldir(XMLDir) ->
+    Steps = [
+        fun filelib:ensure_dir/1,
+        fun file:make_dir/1],
+    lists:foldl(fun ensure_xmldir/2, XMLDir, Steps).
+
+ensure_xmldir(Fun, XMLDir) ->
+    case Fun(XMLDir) of
+        ok -> XMLDir;
+        {error, eexist} -> XMLDir;
+        {error, _Reason} = Error -> throw(Error)
     end.
 
 %% ----------------------------------------------------------------------------
@@ -451,6 +465,11 @@ escape_xml([$< | Tail], Acc, ForAttr) -> escape_xml(Tail, [$;, $t, $l, $& | Acc]
 escape_xml([$> | Tail], Acc, ForAttr) -> escape_xml(Tail, [$;, $t, $g, $& | Acc], ForAttr);
 escape_xml([$& | Tail], Acc, ForAttr) -> escape_xml(Tail, [$;, $p, $m, $a, $& | Acc], ForAttr);
 escape_xml([$" | Tail], Acc, true) -> escape_xml(Tail, [$;, $t, $o, $u, $q, $& | Acc], true); % "
+escape_xml([Char | Tail], Acc, ForAttr) when
+	  Char == $\n; Char == $\r; Char == $\t -> escape_xml(Tail, [Char | Acc], ForAttr);
+%% Strip C0 control codes which are not allowed in XML 1.0
+escape_xml([Char | Tail], Acc, ForAttr) when
+	  0 =< Char, Char =< 31 -> escape_xml(Tail, Acc, ForAttr);
 escape_xml([Char | Tail], Acc, ForAttr) when is_integer(Char) -> escape_xml(Tail, [Char | Acc], ForAttr).
 
 %% the input may be utf8 or latin1; the resulting list is unicode

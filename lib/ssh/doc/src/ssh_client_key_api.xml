@@ -38,46 +38,17 @@
     the callbacks defined in this behavior, the public key handling of an SSH client can
     be customized. By default the <c>ssh</c> application implements this behavior
     with help of the standard OpenSSH files,
-    see the <seealso marker="SSH_app"> ssh(6)</seealso> application manual.</p>
+    see the <seeapp marker="SSH_app"> ssh(6)</seeapp> application manual.</p>
   </description>
-
-  <!-- section>
-    <title>DATA TYPES</title>
-
-    <p>Type definitions that are used more than once in this module,
-    or abstractions to indicate the intended use of the data
-    type, or both. For more details on public key data types,
-    refer to Section 2 Public Key Records in the
-    <seealso marker="public_key:public_key_records"> public_key user's guide:</seealso>
-    </p>
-    <taglist>
-      <tag><c>boolean() =</c></tag>
-      <item><p><c>true | false</c></p></item>
-      <tag><c>string() =</c></tag>
-      <item><p><c>[byte()]</c></p></item>
-      <tag><c>public_key() =</c></tag>
-      <item><p><c>#'RSAPublicKey'{} 
-      | {integer(),#'Dss-Parms'{}} 
-      | {#'ECPoint'{},{namedCurve,Curve::string()}}</c></p></item>
-      <tag><c>private_key() =</c></tag>
-      <item><p><c>#'RSAPrivateKey'{} 
-      | #'DSAPrivateKey'{} 
-      | #'ECPrivateKey'{}</c></p></item>      
-      <tag><c>public_key_algorithm() =</c></tag>
-      <item><p><c>'ssh-rsa' | 'ssh-dss' 
-      | 'rsa-sha2-256' | 'rsa-sha2-384' | 'rsa-sha2-512' 
-      | 'ecdsa-sha2-nistp256' | 'ecdsa-sha2-nistp384' | 'ecdsa-sha2-nistp521' </c></p></item>
-    </taglist>
-  </section -->
 
   <datatypes>
     <datatype>
       <name name="client_key_cb_options"/>
       <desc>
-	<p>Options provided to <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso>.
+	<p>Options provided to <seemfa marker="ssh#connect/3">ssh:connect/[3,4]</seemfa>.
 	</p>
 	<p>The option list given in the
-	<seealso marker="ssh#type-key_cb_common_option"><c>key_cb</c></seealso>
+	<seetype marker="ssh#key_cb_common_option"><c>key_cb</c></seetype>
 	option is available with the key <c>key_cb_private</c>.
 	</p>
       </desc>
@@ -92,13 +63,43 @@
 	<v>HostNames = string()</v>
 	<d>Description of the host that owns the <c>PublicHostKey</c>.</d>
 
-	<v>PublicHostKey = <seealso marker="public_key:public_key#type-public_key">public_key:public_key()</seealso></v>
+	<v>PublicHostKey = <seetype marker="public_key:public_key#public_key">public_key:public_key()</seetype></v>
 	<d>Of ECDSA keys, only the Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added.</d>
 
-	<v>ConnectOptions =  <seealso marker="#type-client_key_cb_options">client_key_cb_options()</seealso></v>
+	<v>ConnectOptions =  <seetype marker="#client_key_cb_options">client_key_cb_options()</seetype></v>
+      </type>
+      <desc>
+	<p>This function is retired in favour for <c>Module:add_host_key/4</c> which is the prefered API function.
+	The calling SSH application will still try the <c>add_host_key/3</c> if the call to <c>add_host_key/4</c> failed.
+	</p>
+	 <p>Adds a host key to the set of trusted host keys.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B">Module:add_host_key(Host, Port, PublicHostKey, ConnectOptions) -> ok | {error, Reason}</name>
+      <fsummary>Adds a host key to the set of trusted host keys.</fsummary>
+      <type>
+	<v>Host = <seetype marker="kernel:inet#ip_address">inet:ip_address()</seetype>
+	| <seetype marker="kernel:inet#hostname">inet:hostname()</seetype>
+        | [ <seetype marker="kernel:inet#ip_address">inet:ip_address()</seetype>
+	  | <seetype marker="kernel:inet#hostname">inet:hostname()</seetype> ]</v>
+	<d>The host that owns the <c>PublicHostKey</c>. One or more IP addresses or hostnames.</d>
+
+	<v>Port = <seetype marker="kernel:inet#port_number">inet:port_number()</seetype></v>
+	<d>The Port number of the Host.</d>
+
+	<v>PublicHostKey = <seetype marker="public_key:public_key#public_key">public_key:public_key()</seetype></v>
+	<d>Of ECDSA keys, only the Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added.</d>
+
+	<v>ConnectOptions =  <seetype marker="#client_key_cb_options">client_key_cb_options()</seetype></v>
       </type>
       <desc>
 	 <p>Adds a host key to the set of trusted host keys.</p>
+	 <p>This function is prefered to the old <c>Module:add_host_key/3</c> since it also uses
+	the peer host port number and may return an error message.</p>
+	<p>The OTP/SSH application first calls this function in the callback module, and then
+	the old <c>Module:add_host_key/3</c> for compatibilty.</p>
       </desc>
     </func>
 
@@ -106,42 +107,78 @@
       <name since="OTP R16B">Module:is_host_key(Key, Host, Algorithm, ConnectOptions) -> Result</name>
       <fsummary>Checks if a host key is trusted.</fsummary>
       <type>
-	<v>Key = <seealso marker="public_key:public_key#type-public_key">public_key:public_key()</seealso></v>
+	<v>Key = <seetype marker="public_key:public_key#public_key">public_key:public_key()</seetype></v>
 	<d>Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added.</d>
 
 	<v>Host = string()</v>
 	<d>Description of the host.</d>
 
-	<v>Algorithm = <seealso marker="ssh#type-pubkey_alg">ssh:pubkey_alg()</seealso></v>
+	<v>Algorithm = <seetype marker="ssh#pubkey_alg">ssh:pubkey_alg()</seetype></v>
 	<d>Host key algorithm.</d>
 
-	<v>ConnectOptions =  <seealso marker="#type-client_key_cb_options">client_key_cb_options()</seealso></v>
+	<v>ConnectOptions =  <seetype marker="#client_key_cb_options">client_key_cb_options()</seetype></v>
 
 	<v>Result = boolean()</v>
       </type>
       <desc>
+	<p>This function is retired in favour for <c>Module:is_host_key/5</c> which is the prefered API function.
+	The calling SSH application will still try the <c>is_host_key/4</c> if the call to <c>is_host_key/5</c> failed.
+	</p>
 	<p>Checks if a host key is trusted.</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP R16B">Module:user_key(Algorithm, ConnectOptions) ->
-      {ok, PrivateKey}  | {error, Reason}</name>
-      <fsummary>Fetches the users <em>public key</em> matching the <c>Algorithm</c>.</fsummary>
+      <name since="OTP 23.0">Module:is_host_key(Key, Host, Port, Algorithm, ConnectOptions) -> Result</name>
+      <fsummary>Checks if a host key is trusted.</fsummary>
       <type>
-	<v>Algorithm = <seealso marker="ssh#type-pubkey_alg">ssh:pubkey_alg()</seealso></v>
+	<v>Key = <seetype marker="public_key:public_key#public_key">public_key:public_key()</seetype></v>
+	<d>Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added.</d>
+
+	<v>Host = <seetype marker="kernel:inet#ip_address">inet:ip_address()</seetype>
+	| <seetype marker="kernel:inet#hostname">inet:hostname()</seetype>
+        | [ <seetype marker="kernel:inet#ip_address">inet:ip_address()</seetype>
+	  | <seetype marker="kernel:inet#hostname">inet:hostname()</seetype> ]</v>
+	<d>Description of the host with one or more IP addresses or hostnames.</d>
+
+	<v>Port = <seetype marker="kernel:inet#port_number">inet:port_number()</seetype></v>
+	<d>The Port number of the host.</d>
+
+	<v>Algorithm = <seetype marker="ssh#pubkey_alg">ssh:pubkey_alg()</seetype></v>
 	<d>Host key algorithm.</d>
 
-	<v>ConnectOptions =  <seealso marker="#type-client_key_cb_options">client_key_cb_options()</seealso></v>
+	<v>ConnectOptions =  <seetype marker="#client_key_cb_options">client_key_cb_options()</seetype></v>
 
-	<v>PrivateKey = <seealso marker="public_key:public_key#type-private_key">public_key:private_key()</seealso></v>
-	<d>Private key of the user matching the <c>Algorithm</c>.</d>
+	<v>Result = boolean() | {error, Error::term()}</v>
+	<d>The exact error message depends on the actual callback module. The Error message makes
+	the connection to fail, and is returned from e.g ssh:connect/3.</d>
+      </type>
+      <desc>
+	<p>Checks if a host key is trusted.</p>
+	<p>This function is prefered to the old <c>Module:is_host_key/4</c> since it also uses
+	the peer host port number and may return an error message.</p>
+	<p>The OTP/SSH application first calls this function in the callback module, and then
+	the old <c>Module:is_host_key/4</c> for compatibilty.</p>
+      </desc>
+    </func>
 
-	<v>Reason = term()</v>
+    <func>
+      <name since="OTP R16B">Module:user_key(Algorithm, ConnectOptions) -> Result</name>
+      <fsummary>Fetches the users <em>public key</em> matching the <c>Algorithm</c>.</fsummary>
+      <type>
+	<v>Algorithm = <seetype marker="ssh#pubkey_alg">ssh:pubkey_alg()</seetype></v>
+	<d>Host key algorithm.</d>
+
+	<v>ConnectOptions =  <seetype marker="#client_key_cb_options">client_key_cb_options()</seetype></v>
+
+	<v>Result = {ok, <seetype marker="public_key:public_key#private_key">public_key:private_key()</seetype>} |
+                    {ok, {ssh2_pubkey, PubKeyBlob :: binary()}} |
+                    {error, term()}</v>
       </type>
 
       <desc>
-	<p>Fetches the users <em>public key</em> matching the <c>Algorithm</c>.</p>
+	<p>Fetches the users <em>public key</em> matching the <c>Algorithm</c>. Some key callback modules
+	may return <c>{ssh2_pubkey, PubKeyBlob :: binary()}</c>.</p>
 	<note><p>The private key contains the public key.</p></note>
 
       </desc>

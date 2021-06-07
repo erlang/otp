@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,11 +33,22 @@
 
 -export([breakpoint/2, disassemble/1, display/1, dist_ext_to_term/2,
          flat_size/1, get_internal_state/1, instructions/0,
+         interpreter_size/0,
          map_info/1, same/2, set_internal_state/2,
          size_shared/1, copy_shared/1, dirty_cpu/2, dirty_io/2, dirty/3,
          lcnt_control/1, lcnt_control/2, lcnt_collect/0, lcnt_clear/0,
-         lc_graph/0, lc_graph_to_dot/2, lc_graph_merge/2]).
+         lc_graph/0, lc_graph_to_dot/2, lc_graph_merge/2,
+         alloc_blocks_size/1]).
 
+%% Reroutes calls to the given MFA to error_handler:breakpoint/3
+%%
+%% Note that this is potentially unsafe as compiled code may assume that the
+%% targeted function returns a specific type, triggering undefined behavior if
+%% this function were to return something else.
+%%
+%% For reference, the debugger avoids the issue by purging the affected module
+%% and interpreting all functions in the module, ensuring that no assumptions
+%% are made with regard to return or argument types.
 -spec breakpoint(MFA, Flag) -> non_neg_integer() when
       MFA :: {Module :: module(),
               Function :: atom(),
@@ -90,7 +101,7 @@ copy_shared(_) ->
 
 -spec get_internal_state(W) -> term() when
       W :: reds_left | node_and_dist_references | monitoring_nodes
-         | next_pid | 'DbTable_words' | check_io_debug
+         | next_pid | 'DbTable_words' | check_io_debug | lc_graph
          | process_info_args | processes | processes_bif_info
          | max_atom_out_cache_index | nbalance | available_internal_state
          | force_heap_frags | memory
@@ -115,6 +126,11 @@ get_internal_state(_) ->
 -spec instructions() -> [string()].
 
 instructions() ->
+    erlang:nif_error(undef).
+
+-spec interpreter_size() -> pos_integer().
+
+interpreter_size() ->
     erlang:nif_error(undef).
 
 -spec ic(F) -> Result when
@@ -180,8 +196,6 @@ same(_, _) ->
                            (re_loop_limit, non_neg_integer()) -> non_neg_integer();
                            (unicode_loop_limit, default) -> -1;
                            (unicode_loop_limit, non_neg_integer()) -> non_neg_integer();
-                           (hipe_test_reschedule_suspend, term()) -> nil();
-                           (hipe_test_reschedule_resume, pid() | port()) -> boolean();
                            (test_long_gc_sleep, non_neg_integer()) -> true;
                            (kill_dist_connection, port()) -> boolean();
                            (not_running_optimization, boolean()) -> boolean();
@@ -495,3 +509,53 @@ lcg_print_locks(Out, [LastLock]) ->
 lcg_print_locks(Out, [Lock | Rest]) ->
     io:format(Out, "~w,\n", [Lock]),
     lcg_print_locks(Out, Rest).
+
+
+%% Returns the amount of memory allocated by the given allocator type.
+-spec alloc_blocks_size(Type) -> non_neg_integer() | undefined when
+      Type :: atom().
+
+alloc_blocks_size(Type) ->
+    Allocs = erlang:system_info(alloc_util_allocators),
+    Sizes = erlang:system_info({allocator_sizes, Allocs}),
+    alloc_blocks_size_1(Sizes, Type, 0).
+
+alloc_blocks_size_1([], _Type, 0) ->
+    undefined;
+alloc_blocks_size_1([{_Type, false} | Rest], Type, Acc) ->
+    alloc_blocks_size_1(Rest, Type, Acc);
+alloc_blocks_size_1([{_Type, Instances} | Rest], Type, Acc) ->
+    F = fun ({instance, _, L}, Acc0) ->
+                MBCSPool = case lists:keyfind(mbcs_pool, 1, L) of
+                               {_, Pool} -> Pool;
+                               false -> []
+                           end,
+                {_,MBCS} = lists:keyfind(mbcs, 1, L),
+                {_,SBCS} = lists:keyfind(sbcs, 1, L),
+                Acc1 = sum_block_sizes(MBCSPool, Type, Acc0),
+                Acc2 = sum_block_sizes(MBCS, Type, Acc1),
+                sum_block_sizes(SBCS, Type, Acc2)
+        end,
+    alloc_blocks_size_1(Rest, Type, lists:foldl(F, Acc, Instances));
+alloc_blocks_size_1([], _Type, Acc) ->
+    Acc.
+
+sum_block_sizes([{blocks, List} | Rest], Type, Acc) ->
+    sum_block_sizes(Rest, Type, sum_block_sizes_1(List, Type, Acc));
+sum_block_sizes([_ | Rest], Type, Acc) ->
+    sum_block_sizes(Rest, Type, Acc);
+sum_block_sizes([], _Type, Acc) ->
+    Acc.
+
+sum_block_sizes_1([{Type, L} | Rest], Type, Acc0) ->
+    Acc = lists:foldl(fun({size, Sz,_,_}, Sz0) -> Sz0+Sz;
+                         ({size, Sz}, Sz0) -> Sz0+Sz;
+                         (_, Sz) -> Sz
+                      end, Acc0, L),
+    sum_block_sizes_1(Rest, Type, Acc);
+sum_block_sizes_1([_ | Rest], Type, Acc) ->
+    sum_block_sizes_1(Rest, Type, Acc);
+sum_block_sizes_1([], _Type, Acc) ->
+    Acc.
+
+

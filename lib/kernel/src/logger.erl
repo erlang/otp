@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,9 +86,11 @@
 -type report_cb_config() :: #{depth       := pos_integer() | unlimited,
                               chars_limit := pos_integer() | unlimited,
                               single_line := boolean()}.
--type msg_fun() :: fun((term()) -> {io:format(),[term()]} |
-                                   report() |
-                                   unicode:chardata()).
+-type msg_fun() :: fun((term()) -> msg_fun_return() | {msg_fun_return(), metadata()}).
+-type msg_fun_return() :: {io:format(),[term()]} |
+                           report() |
+                           unicode:chardata() |
+                           ignore.
 -type metadata() :: #{pid    => pid(),
                       gl     => pid(),
                       time   => timestamp(),
@@ -108,6 +110,7 @@
 -type filter_arg() :: term().
 -type filter_return() :: stop | ignore | log_event().
 -type primary_config() :: #{level => level() | all | none,
+                            metadata => metadata(),
                             filter_default => log | stop,
                             filters => [{filter_id(),filter()}]}.
 -type handler_config() :: #{id => handler_id(),
@@ -256,9 +259,8 @@ log(Level, FunOrFormat, Args, Metadata) ->
 -spec allow(Level,Module) -> boolean() when
       Level :: level(),
       Module :: module().
-allow(Level,Module) when ?IS_LEVEL(Level), is_atom(Module) ->
-    logger_config:allow(?LOGGER_TABLE,Level,Module).
-
+allow(Level,Module) when is_atom(Module) ->
+    logger_config:allow(Level,Module).
 
 -spec macro_log(Location,Level,StringOrReport)  -> ok when
       Location :: location(),
@@ -404,7 +406,9 @@ remove_handler(HandlerId) ->
                         (filter_default,FilterDefault) -> ok | {error,term()} when
       FilterDefault :: log | stop;
                         (filters,Filters) -> ok | {error,term()} when
-      Filters :: [{filter_id(),filter()}].
+      Filters :: [{filter_id(),filter()}];
+                        (metadata,Meta) -> ok | {error,term()} when
+      Meta :: metadata().
 set_primary_config(Key,Value) ->
     logger_server:set_config(primary,Key,Value).
 
@@ -571,8 +575,8 @@ set_application_level(App,Level) ->
             {error, {not_loaded, App}}
     end.
 
--spec unset_application_level(Application) -> ok | {error, not_loaded} when
-      Application :: atom().
+-spec unset_application_level(Application) ->
+         ok | {error, {not_loaded, Application}} when Application :: atom().
 unset_application_level(App) ->
     case application:get_key(App, modules) of
         {ok, Modules} ->
@@ -595,16 +599,16 @@ get_module_level(Modules) when is_list(Modules) ->
       Module :: module(),
       Level :: level() | all | none.
 get_module_level() ->
-    logger_config:get_module_level(?LOGGER_TABLE).
+    logger_config:get_module_level().
 
 %%%-----------------------------------------------------------------
 %%% Misc
 -spec compare_levels(Level1,Level2) -> eq | gt | lt when
-      Level1 :: level(),
-      Level2 :: level().
-compare_levels(Level,Level) when ?IS_LEVEL(Level) ->
+      Level1 :: level() | all | none,
+      Level2 :: level() | all | none.
+compare_levels(Level,Level) when ?IS_LEVEL_ALL(Level) ->
     eq;
-compare_levels(Level1,Level2) when ?IS_LEVEL(Level1), ?IS_LEVEL(Level2) ->
+compare_levels(Level1,Level2) when ?IS_LEVEL_ALL(Level1), ?IS_LEVEL_ALL(Level2) ->
     Int1 = logger_config:level_to_int(Level1),
     Int2 = logger_config:level_to_int(Level2),
     if Int1 < Int2 -> gt;
@@ -800,6 +804,7 @@ internal_init_logger() ->
         Env = get_logger_env(kernel),
         check_logger_config(kernel,Env),
         ok = logger:set_primary_config(level, get_logger_level()),
+        ok = logger:set_primary_config(metadata, get_primary_metadata()),
         ok = logger:set_primary_config(filter_default,
                                        get_primary_filter_default(Env)),
 
@@ -950,10 +955,18 @@ get_logger_type(Env) ->
 
 get_logger_level() ->
     case application:get_env(kernel,logger_level,info) of
-        Level when ?IS_LEVEL(Level); Level=:=all; Level=:=none ->
+        Level when ?IS_LEVEL_ALL(Level) ->
             Level;
         Level ->
             throw({logger_level, Level})
+    end.
+
+get_primary_metadata() ->
+    case application:get_env(kernel,logger_default_metadata,#{}) of
+        Meta when is_map(Meta) ->
+            Meta;
+        Meta ->
+            throw({logger_metadata, Meta})
     end.
 
 get_primary_filter_default(Env) ->
@@ -1027,14 +1040,14 @@ get_logger_env(App) ->
 %%%-----------------------------------------------------------------
 %%% Internal
 do_log(Level,Msg,#{mfa:={Module,_,_}}=Meta) ->
-    case logger_config:allow(?LOGGER_TABLE,Level,Module) of
+    case logger_config:allow(Level,Module) of
         true ->
             log_allowed(#{},Level,Msg,Meta);
         false ->
             ok
     end;
 do_log(Level,Msg,Meta) ->
-    case logger_config:allow(?LOGGER_TABLE,Level) of
+    case logger_config:allow(Level) of
         true ->
             log_allowed(#{},Level,Msg,Meta);
         false ->
@@ -1049,9 +1062,51 @@ do_log(Level,Msg,Meta) ->
              report() |
              unicode:chardata(),
       Meta :: metadata().
-log_allowed(Location,Level,{Fun,FunArgs},Meta) when is_function(Fun,1) ->
+log_allowed(Location,Level,{Fun,FunArgs}=FunCall,Meta) when is_function(Fun,1) ->
     try Fun(FunArgs) of
-        Msg={Format,Args} when is_list(Format), is_list(Args) ->
+        {FunRes, #{} = FunMeta} ->
+            log_fun_allowed(Location, Level, FunRes, maps:merge(Meta, FunMeta), FunCall);
+        FunRes ->
+            log_fun_allowed(Location, Level, FunRes, Meta, FunCall)
+    catch C:R ->
+            log_allowed(Location,Level,
+                        {"LAZY_FUN CRASH: ~tp; Reason: ~tp",
+                         [{Fun,FunArgs},{C,R}]},
+                        Meta)
+    end;
+log_allowed(Location,Level,Msg,LogCallMeta) when is_map(LogCallMeta) ->
+
+    Tid = tid(),
+
+    {ok,PrimaryConfig} = logger_config:get(Tid,primary),
+
+    %% Metadata priorities are:
+    %% Location (added in API macros) - will be overwritten by
+    %% Default Metadata (added by logger:primary_config/1) - will be overwritten by
+    %% process metadata (set by set_process_metadata/1), which in turn will be
+    %% overwritten by the metadata given as argument in the log call
+    %% (function or macro).
+
+    Meta = add_default_metadata(
+             maps:merge(
+               Location,
+               maps:merge(
+                 maps:get(metadata,PrimaryConfig),
+                 maps:merge(proc_meta(),LogCallMeta)))),
+
+    case node(maps:get(gl,Meta)) of
+        Node when Node=/=node() ->
+            log_remote(Node,Level,Msg,Meta);
+        _ ->
+            ok
+    end,
+    do_log_allowed(Level,Msg,Meta,Tid,PrimaryConfig).
+
+log_fun_allowed(Location, Level, FunRes, Meta, FunCall) ->
+    case FunRes of
+        ignore ->
+            ok;
+        Msg={Format,Args} when ?IS_FORMAT(Format), is_list(Args) ->
             log_allowed(Location,Level,Msg,Meta);
         Report when ?IS_REPORT(Report) ->
             log_allowed(Location,Level,Report,Meta);
@@ -1060,48 +1115,28 @@ log_allowed(Location,Level,{Fun,FunArgs},Meta) when is_function(Fun,1) ->
         Other ->
             log_allowed(Location,Level,
                         {"LAZY_FUN ERROR: ~tp; Returned: ~tp",
-                         [{Fun,FunArgs},Other]},
+                         [FunCall,Other]},
                         Meta)
-    catch C:R ->
-            log_allowed(Location,Level,
-                        {"LAZY_FUN CRASH: ~tp; Reason: ~tp",
-                         [{Fun,FunArgs},{C,R}]},
-                        Meta)
-    end;
-log_allowed(Location,Level,Msg,Meta0) when is_map(Meta0) ->
-    %% Metadata priorities are:
-    %% Location (added in API macros) - will be overwritten by process
-    %% metadata (set by set_process_metadata/1), which in turn will be
-    %% overwritten by the metadata given as argument in the log call
-    %% (function or macro).
-    Meta = add_default_metadata(
-             maps:merge(Location,maps:merge(proc_meta(),Meta0))),
-    case node(maps:get(gl,Meta)) of
-        Node when Node=/=node() ->
-            log_remote(Node,Level,Msg,Meta);
-        _ ->
-            ok
-    end,
-    do_log_allowed(Level,Msg,Meta,tid()).
+    end.
 
-do_log_allowed(Level,{Format,Args}=Msg,Meta,Tid)
+do_log_allowed(Level,{Format,Args}=Msg,Meta,Tid,Config)
   when ?IS_LEVEL(Level),
-       is_list(Format),
+       ?IS_FORMAT(Format),
        is_list(Args),
        is_map(Meta) ->
-    logger_backend:log_allowed(#{level=>Level,msg=>Msg,meta=>Meta},Tid);
-do_log_allowed(Level,Report,Meta,Tid)
+    logger_backend:log_allowed(#{level=>Level,msg=>Msg,meta=>Meta},Tid,Config);
+do_log_allowed(Level,Report,Meta,Tid,Config)
   when ?IS_LEVEL(Level),
        ?IS_REPORT(Report),
        is_map(Meta) ->
     logger_backend:log_allowed(#{level=>Level,msg=>{report,Report},meta=>Meta},
-                               Tid);
-do_log_allowed(Level,String,Meta,Tid)
+                               Tid,Config);
+do_log_allowed(Level,String,Meta,Tid,Config)
   when ?IS_LEVEL(Level),
        ?IS_STRING(String),
        is_map(Meta) ->
     logger_backend:log_allowed(#{level=>Level,msg=>{string,String},meta=>Meta},
-                               Tid).
+                               Tid,Config).
 tid() ->
     ets:whereis(?LOGGER_TABLE).
 

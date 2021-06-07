@@ -30,7 +30,7 @@
 -include("ssl_cipher.hrl").
 
 %% Handling of incoming data
--export([get_dtls_records/3,  init_connection_states/2, empty_connection_state/1]).
+-export([get_dtls_records/4,  init_connection_states/2, empty_connection_state/1]).
 
 -export([save_current_connection_state/2, next_epoch/2, get_connection_state_by_epoch/3, replay_detect/2,
          init_connection_state_seq/2, current_connection_state_epoch/2]).
@@ -162,25 +162,16 @@ current_connection_state_epoch(#{current_write := #{epoch := Epoch}},
     Epoch.
 
 %%--------------------------------------------------------------------
--spec get_dtls_records(binary(), [ssl_record:ssl_version()], binary()) -> {[binary()], binary()} | #alert{}.
+-spec get_dtls_records(binary(), {atom(), atom(), ssl_record:ssl_version(), [ssl_record:ssl_version()]}, binary(),
+                       ssl_options()) -> {[binary()], binary()} | #alert{}.
 %%
 %% Description: Given old buffer and new data from UDP/SCTP, packs up a records
 %% and returns it as a list of tls_compressed binaries also returns leftover
 %% data
 %%--------------------------------------------------------------------
-get_dtls_records(Data, Versions, Buffer) ->
+get_dtls_records(Data, Vinfo, Buffer, SslOpts) ->
     BinData = list_to_binary([Buffer, Data]),
-    case erlang:byte_size(BinData) of
-        N when N >= 3 ->
-            case assert_version(BinData, Versions) of
-                true ->
-                    get_dtls_records_aux(BinData, []);
-                false ->
-                    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
-            end;
-        _ ->
-            get_dtls_records_aux(BinData, [])
-    end.
+    get_dtls_records_aux(Vinfo, BinData, [], SslOpts).
 
 %%====================================================================
 %% Encoding DTLS records
@@ -224,8 +215,26 @@ encode_change_cipher_spec(Version, Epoch, ConnectionStates) ->
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------
 encode_data(Data, Version, ConnectionStates) ->
-    #{epoch := Epoch} = ssl_record:current_connection_state(ConnectionStates, write),
-    encode_plain_text(?APPLICATION_DATA, Version, Epoch, Data, ConnectionStates).
+    #{epoch := Epoch, max_fragment_length := MaxFragmentLength}
+        = ssl_record:current_connection_state(ConnectionStates, write),
+    MaxLength = if is_integer(MaxFragmentLength) ->
+                        MaxFragmentLength;
+                   true ->
+                        ?MAX_PLAIN_TEXT_LENGTH
+                end,
+    case iolist_size(Data) of
+	N when N > MaxLength ->
+            Frags = tls_record:split_iovec(erlang:iolist_to_iovec(Data), MaxLength),
+            {RevCipherText, ConnectionStates1} =
+                lists:foldl(fun(Frag, {Acc, CS0}) ->
+                                    {CipherText, CS1} = 
+                                        encode_plain_text(?APPLICATION_DATA, Version, Epoch, Frag, CS0),
+                                    {[CipherText|Acc], CS1}
+                            end, {[], ConnectionStates}, Frags),
+            {lists:reverse(RevCipherText), ConnectionStates1};
+        _ ->
+            encode_plain_text(?APPLICATION_DATA, Version, Epoch, Data, ConnectionStates)
+    end.
 
 encode_plain_text(Type, Version, Epoch, Data, ConnectionStates) ->
     Write0 = get_connection_state_by_epoch(Epoch, ConnectionStates, write),
@@ -402,49 +411,52 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
       mac_secret  => undefined,
       secure_renegotiation => undefined,
       client_verify_data => undefined,
-      server_verify_data => undefined
+      server_verify_data => undefined,
+      max_fragment_length => undefined
      }.
-assert_version(<<?BYTE(_), ?BYTE(MajVer), ?BYTE(MinVer), _/binary>>, Versions) ->
-    is_acceptable_version({MajVer, MinVer}, Versions).
 
-get_dtls_records_aux(<<?BYTE(?APPLICATION_DATA),?BYTE(MajVer),?BYTE(MinVer),
+get_dtls_records_aux({DataTag, StateName, _, Versions} = Vinfo, <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),
+                                                         ?UINT16(Epoch), ?UINT48(SequenceNumber),
+                                                         ?UINT16(Length), Data:Length/binary, Rest/binary>> = RawDTLSRecord,
+		     Acc, #{log_level := LogLevel} = SslOpts)
+  when ((StateName == hello)
+        orelse ((StateName == certify) andalso (DataTag == udp))
+        orelse ((StateName == abbreviated) andalso (DataTag == udp))) andalso ((Type == ?HANDSHAKE)
+                                                                               orelse
+                                                                                 (Type == ?ALERT)) ->
+    ssl_logger:debug(LogLevel, inbound, 'record', [RawDTLSRecord]),
+    case is_acceptable_version({MajVer, MinVer}, Versions) of
+        true ->
+            get_dtls_records_aux(Vinfo, Rest, [#ssl_tls{type = Type,
+                                                 version = {MajVer, MinVer},
+                                                 epoch = Epoch, sequence_number = SequenceNumber,
+                                                 fragment = Data} | Acc], SslOpts);
+        false ->
+              ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+        end;
+get_dtls_records_aux({_, _, Version, _} = Vinfo, <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),
 		       ?UINT16(Epoch), ?UINT48(SequenceNumber),
-		       ?UINT16(Length), Data:Length/binary, Rest/binary>>,
-		     Acc) ->
-    get_dtls_records_aux(Rest, [#ssl_tls{type = ?APPLICATION_DATA,
-					 version = {MajVer, MinVer},
-					 epoch = Epoch, sequence_number = SequenceNumber,
-					 fragment = Data} | Acc]);
-get_dtls_records_aux(<<?BYTE(?HANDSHAKE),?BYTE(MajVer),?BYTE(MinVer),
-		       ?UINT16(Epoch), ?UINT48(SequenceNumber),
-		       ?UINT16(Length),
-		       Data:Length/binary, Rest/binary>>, Acc) when MajVer >= 128 ->
-    get_dtls_records_aux(Rest, [#ssl_tls{type = ?HANDSHAKE,
-					 version = {MajVer, MinVer},
-					 epoch = Epoch, sequence_number = SequenceNumber,
-					 fragment = Data} | Acc]);
-get_dtls_records_aux(<<?BYTE(?ALERT),?BYTE(MajVer),?BYTE(MinVer),
-		       ?UINT16(Epoch), ?UINT48(SequenceNumber),
-		       ?UINT16(Length), Data:Length/binary,
-		       Rest/binary>>, Acc) ->
-    get_dtls_records_aux(Rest, [#ssl_tls{type = ?ALERT,
-					 version = {MajVer, MinVer},
-					 epoch = Epoch, sequence_number = SequenceNumber,
-					 fragment = Data} | Acc]);
-get_dtls_records_aux(<<?BYTE(?CHANGE_CIPHER_SPEC),?BYTE(MajVer),?BYTE(MinVer),
-		       ?UINT16(Epoch), ?UINT48(SequenceNumber),
-		       ?UINT16(Length), Data:Length/binary, Rest/binary>>,
-		     Acc) ->
-    get_dtls_records_aux(Rest, [#ssl_tls{type = ?CHANGE_CIPHER_SPEC,
-					 version = {MajVer, MinVer},
-					 epoch = Epoch, sequence_number = SequenceNumber,
-					 fragment = Data} | Acc]);
-get_dtls_records_aux(<<?BYTE(_), ?BYTE(_MajVer), ?BYTE(_MinVer),
+		       ?UINT16(Length), Data:Length/binary, Rest/binary>> = RawDTLSRecord,
+		     Acc, #{log_level := LogLevel} = SslOpts) when (Type == ?APPLICATION_DATA) orelse
+                                        (Type == ?HANDSHAKE) orelse
+                                        (Type == ?ALERT) orelse
+                                        (Type == ?CHANGE_CIPHER_SPEC) ->
+    ssl_logger:debug(LogLevel, inbound, 'record', [RawDTLSRecord]),
+    case {MajVer, MinVer} of
+        Version ->
+            get_dtls_records_aux(Vinfo, Rest, [#ssl_tls{type = Type,
+                                                 version = {MajVer, MinVer},
+                                                 epoch = Epoch, sequence_number = SequenceNumber,
+                                                 fragment = Data} | Acc], SslOpts);
+        _ ->
+            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+    end;
+get_dtls_records_aux(_, <<?BYTE(_), ?BYTE(_MajVer), ?BYTE(_MinVer),
 		       ?UINT16(Length), _/binary>>,
-		     _Acc) when Length > ?MAX_CIPHER_TEXT_LENGTH ->
+		     _Acc, _) when Length > ?MAX_CIPHER_TEXT_LENGTH ->
     ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);
 
-get_dtls_records_aux(Data, Acc) ->
+get_dtls_records_aux(_, Data, Acc, _) ->
     case size(Data) =< ?MAX_CIPHER_TEXT_LENGTH + ?INITIAL_BYTES of
 	true ->
 	    {lists:reverse(Acc), Data};

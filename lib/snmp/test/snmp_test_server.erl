@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -207,7 +207,7 @@ do_subcases(Mod, Fun, [{conf, Init, Cases, Finish}|SubCases], Config, Acc)
 		[{failed, {Mod, Fun}, Error}]
 	end,
     do_subcases(Mod, Fun, SubCases, Config, [R|Acc]);
-do_subcases(Mod, Fun, [SubCase|SubCases], Config, Acc) when atom(SubCase) ->
+do_subcases(Mod, Fun, [SubCase|SubCases], Config, Acc) when is_atom(SubCase) ->
     R = do_case(Mod, SubCase, Config),
     do_subcases(Mod, Fun, SubCases,Config, [R|Acc]).
 
@@ -407,7 +407,7 @@ d(_, _, _, _) ->
     ok.
 
 timestamp() ->
-    {Date, Time}     = calendar:now_to_datetime( now() ),
+    {Date, Time}     = calendar:now_to_datetime( erlang:timestamp() ),
     {YYYY, MM, DD}   = Date,
     {Hour, Min, Sec} = Time,
     FormatDate =

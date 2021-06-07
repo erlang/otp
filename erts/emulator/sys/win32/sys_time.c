@@ -141,15 +141,27 @@ SystemTime2MilliSec(SYSTEMTIME *stp)
     return stime;
 }
 
+#define SKIP 0x3FF
+
 static ErtsMonotonicTime
 os_monotonic_time_qpc(void)
 {
     LARGE_INTEGER pc;
 
-    if (!(*internal_state.r.o.pQueryPerformanceCounter)(&pc))
-	erts_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
+    ErtsMonotonicTime temp;
 
-    return (ErtsMonotonicTime) pc.QuadPart;
+    /*
+     * Windows QPC does not ensure that the returned clocks
+     * are monotonic over several threads, reduce resolution to ensure
+     * that we return monotonic clocks even on multiple threads.
+     */
+    do {
+        if (!(*internal_state.r.o.pQueryPerformanceCounter)(&pc))
+            erts_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
+        temp = (ErtsMonotonicTime) pc.QuadPart;
+    } while(!(temp & SKIP));
+
+    return temp & (ERTS_I64_LITERAL(0xFFFFFFFFFFFFFFFF)-SKIP);
 }
 
 static void
@@ -365,18 +377,9 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 
 	    internal_state.r.o.pcf = (Uint32) pf.QuadPart;
 	    sys_hrtime_func = sys_hrtime_qpc;
-	    
-	    /*
-	     * We only use QueryPerformanceCounter() for
-	     * os-monotonic-time if its frequency is equal
-	     * to, or larger than GHz in order to ensure
-	     * that the user wont be able to observe faulty
-	     * order between values retrieved on different threads.
-	     */
-	    if (pf.QuadPart < (LONGLONG) 1000*1000*1000)
-		goto get_tick_count64;
 
-	    if (ERTS_DISABLE_USE_OF_QPC_FOR_MONOTONIC_TIME)
+            /* We need at least 0.1 microseconds resolution */
+	    if (pf.QuadPart < (LONGLONG) 9*1000*1000)
 		goto get_tick_count64;
 
 	    init_resp->os_monotonic_time_info.func = "QueryPerformanceCounter";

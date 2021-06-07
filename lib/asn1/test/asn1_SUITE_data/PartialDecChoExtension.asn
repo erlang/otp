@@ -1,0 +1,12 @@
+PartialDecChoExtension DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+ChoExt ::=  CHOICE 
+{
+  i BOOLEAN,
+  ...,
+  j INTEGER
+}
+
+END

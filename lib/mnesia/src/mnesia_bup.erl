@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1121,6 +1121,7 @@ local_uninstall_fallback(Master, FA) ->
             Bup = FA2#fallback_args.fallback_bup,
             file:delete(Tmp),
             Res = file:delete(Bup),
+            unregister(mnesia_fallback),
             ?eval_debug_fun({?MODULE, uninstall_fallback2, post_delete}, []),
             Master ! {self(), Res},
             unlink(Master),

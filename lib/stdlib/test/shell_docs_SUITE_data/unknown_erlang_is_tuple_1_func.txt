@@ -1,0 +1,6 @@
+
+  [;1m-spec is_tuple(Term) -> boolean() when Term :: term().[0m
+
+  Returns [;;4mtrue[0m if [;;4mTerm[0m is a tuple, otherwise [;;4mfalse[0m.
+
+  Allowed in guard tests.

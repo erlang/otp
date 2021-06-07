@@ -47,7 +47,7 @@ int wmain(int argc, wchar_t **argv)
     InitFile *ini_file;
     InitSection *ini_section;
     HANDLE module = GetModuleHandle(NULL);
-    wchar_t *binaries[] = { L"erl.exe", L"werl.exe", L"erlc.exe",
+    wchar_t *binaries[] = { L"erl.exe", L"werl.exe", L"erlc.exe", L"erl_call.exe",
 			    L"dialyzer.exe",
 			    L"typer.exe",
 			    L"escript.exe", L"ct_run.exe", NULL };

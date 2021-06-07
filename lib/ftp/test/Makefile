@@ -115,7 +115,7 @@ SOURCE = $(ERL_FILES) $(HRL_FILES)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-FTP_SPECS = ftp.spec ftp_bench.spec
+FTP_SPECS = ftp.spec
 COVER_FILE = ftp.cover
 FTP_FILES = ftp.config $(FTP_SPECS)
 

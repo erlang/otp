@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@
 %%
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/include/ct_event.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
@@ -50,7 +51,16 @@
 	 terms/1, terms_float/1, float_middle_endian/1,
          b2t_used_big/1,
 	 external_size/1, t_iolist_size/1,
+         t_iolist_size_huge_list/1,
+         t_iolist_size_huge_bad_arg_list/1,
+         t_iolist_size_shallow_trapping/1,
+         t_iolist_size_shallow_short_lists/1,
+         t_iolist_size_shallow_tiny_lists/1,
+         t_iolist_size_deep_trapping/1,
+         t_iolist_size_deep_short_lists/1,
+         t_iolist_size_deep_tiny_lists/1,
 	 t_hash/1,
+         sub_bin_copy/1,
 	 bad_size/1,
 	 bad_term_to_binary/1,
 	 bad_binary_to_term_2/1,safe_binary_to_term2/1,
@@ -62,7 +72,9 @@
          term2bin_tuple_fallbacks/1,
          robustness/1,otp_8117/1,
 	 otp_8180/1, trapping/1, large/1,
-	 error_after_yield/1, cmp_old_impl/1]).
+	 error_after_yield/1, cmp_old_impl/1,
+         t2b_system_limit/1,
+         term_to_iovec/1]).
 
 %% Internal exports.
 -export([sleeper/0,trapping_loop/4]).
@@ -70,15 +82,20 @@
 suite() -> [{ct_hooks,[ts_install_cth]},
 	    {timetrap,{minutes,4}}].
 
-all() -> 
+all() ->
     [copy_terms, conversions, deep_lists, deep_bitstr_lists,
      t_split_binary, bad_split,
      bad_list_to_binary, bad_binary_to_list, terms,
      terms_float, float_middle_endian, external_size, t_iolist_size,
+     t_iolist_size_huge_list,
+     t_iolist_size_huge_bad_arg_list,
+     {group, iolist_size_benchmarks},
      b2t_used_big,
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
-     bad_term_to_binary, more_bad_terms, otp_5484, otp_5933,
+     sub_bin_copy, bad_term_to_binary, t2b_system_limit,
+     term_to_iovec, more_bad_terms,
+     otp_5484, otp_5933,
      ordering, unaligned_order, gc_test,
      bit_sized_binary_sizes, otp_6817, otp_8117, deep,
      term2bin_tuple_fallbacks,
@@ -86,13 +103,36 @@ all() ->
      error_after_yield, cmp_old_impl].
 
 groups() -> 
-    [].
+    [
+     {
+      iolist_size_benchmarks, 
+      [],
+      [t_iolist_size_shallow_trapping,
+       t_iolist_size_shallow_short_lists,
+       t_iolist_size_shallow_tiny_lists,
+       t_iolist_size_deep_trapping,
+       t_iolist_size_deep_short_lists,
+       t_iolist_size_deep_tiny_lists
+      ]
+     }
+    ].
 
 init_per_suite(Config) ->
+    A0 = case application:start(sasl) of
+	     ok -> [sasl];
+	     _ -> []
+	 end,
+    A = case application:start(os_mon) of
+	     ok -> [os_mon|A0];
+	     _ -> A0
+	 end,
+    [{started_apps, A}|Config].
+
+end_per_suite(Config) ->
+    As = proplists:get_value(started_apps, Config),
+    lists:foreach(fun (A) -> application:stop(A) end, As),
     Config.
 
-end_per_suite(_Config) ->
-    ok.
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -337,12 +377,12 @@ t_split_binary(Config) when is_list(Config) ->
 
     %% Sub binary of heap binary.
     split(L, make_sub_binary(B), size(B)),
-    {X,_Y} = split_binary(B, size(B) div 2),
+    {X,Y} = split_binary(B, size(B) div 2),
     split(binary_to_list(X), X, size(X)),
 
     %% Unaligned sub binary of heap binary.
     split(L, make_unaligned_sub_binary(B), size(B)),
-    {X,_Y} = split_binary(B, size(B) div 2),
+    {X,Y} = split_binary(B, size(B) div 2),
     split(binary_to_list(X), X, size(X)),
     
     %% Reference-counted binary.
@@ -352,12 +392,12 @@ t_split_binary(Config) when is_list(Config) ->
 
     %% Sub binary of reference-counted binary.
     split(L2, make_sub_binary(B2), size(B2)),
-    {X2,_Y2} = split_binary(B2, size(B2) div 2),
+    {X2,Y2} = split_binary(B2, size(B2) div 2),
     split(binary_to_list(X2), X2, size(X2)),
 
     %% Unaligned sub binary of reference-counted binary.
     split(L2, make_unaligned_sub_binary(B2), size(B2)),
-    {X2,_Y2} = split_binary(B2, size(B2) div 2),
+    {X2,Y2} = split_binary(B2, size(B2) div 2),
     split(binary_to_list(X2), X2, size(X2)),
 
     ok.
@@ -417,6 +457,7 @@ bad_term_to_binary(Config) when is_list(Config) ->
     T = id({a,b,c}),
     {'EXIT',{badarg,_}} = (catch term_to_binary(T, not_a_list)),
     {'EXIT',{badarg,_}} = (catch term_to_binary(T, [blurf])),
+    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [iovec])),
     {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,-1}])),
     {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,10}])),
     {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,cucumber}])),
@@ -426,6 +467,111 @@ bad_term_to_binary(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{minor_version,x}])),
 
     ok.
+
+t2b_system_limit(Config) when is_list(Config) ->
+    case erlang:system_info(wordsize) of
+        8 ->
+            case proplists:get_value(system_total_memory,
+                                     memsup:get_system_memory_data()) of
+                Memory when is_integer(Memory),
+                            Memory > 6*1024*1024*1024 ->
+                    do_t2b_system_limit();
+                _ ->
+                    {skipped, "Not enough memory on this machine"}
+            end;
+        4 ->
+            {skipped, "Only interesting on 64-bit builds"}
+    end.
+
+do_t2b_system_limit() ->
+    F = fun() ->
+                io:format("Creating HugeBin~n", []),
+                Bits = (1 bsl 32) + 1,
+                HugeBin = <<0:Bits/unit:8>>,
+                test_t2b_system_limit(HugeBin, term_to_binary,
+                                      fun erlang:term_to_binary/1,
+                                      fun erlang:term_to_binary/2),
+                test_t2b_system_limit(HugeBin, term_to_iovec,
+                                      fun erlang:term_to_iovec/1,
+                                      fun erlang:term_to_iovec/2),
+                garbage_collect(),
+                ok
+        end,
+    Opts = [{args, "-pa " ++ filename:dirname(code:which(?MODULE))}],
+    {ok,Node} = test_server:start_node(?FUNCTION_NAME, slave, Opts),
+    erpc:call(Node, F).
+
+test_t2b_system_limit(HugeBin, Name, F1, F2) ->
+    io:format("Testing ~p(HugeBin)~n", [Name]),
+    {'EXIT',{system_limit,[{erlang,Name,[HugeBin],_}|_]}} =
+        t2b_eval(fun() -> F1(HugeBin) end),
+
+    io:format("Testing ~p(HugeBin, [compressed])~n", [Name]),
+    {'EXIT',{system_limit,[{erlang,Name,[HugeBin,[compressed]],_}|_]}} =
+        t2b_eval(fun() -> F2(HugeBin, [compressed]) end),
+
+    %% Check that it works also after we have trapped...
+    io:format("Creating HugeListBin~n", []),
+    HugeListBin = [lists:duplicate(2000000, 2000000), HugeBin],
+
+    io:format("Testing ~p(HugeListBin)~n", [Name]),
+    {'EXIT',{system_limit,[{erlang,Name,[HugeListBin],_}|_]}} =
+        t2b_eval(fun() -> F1(HugeListBin) end),
+
+    io:format("Testing ~p(HugeListBin, [compressed])~n", [Name]),
+    {'EXIT',{system_limit,[{erlang,Name,[HugeListBin,[compressed]],_}|_]}} =
+        t2b_eval(fun() -> F2(HugeListBin, [compressed]) end),
+
+    ok.
+
+t2b_eval(F) ->
+    Result = (catch F()),
+    io:put_chars(io_lib:format("~P\n", [Result,100])),
+    Result.
+
+term_to_iovec(Config) when is_list(Config) ->
+    Bin = list_to_binary(lists:duplicate(1000,100)),
+    Bin2 = list_to_binary(lists:duplicate(65,100)),
+    check_term_to_iovec({[Bin, atom, Bin, 1244, make_ref(), Bin]}),
+    check_term_to_iovec(Bin),
+    check_term_to_iovec([Bin,Bin,Bin,Bin]),
+    check_term_to_iovec(blipp),
+    check_term_to_iovec(lists:duplicate(1000,100)),
+    check_term_to_iovec([[Bin2]]),
+    check_term_to_iovec([erlang:ports(), Bin, erlang:processes()]),
+    ok.
+
+check_term_to_iovec(Term) ->
+    IoVec1 = erlang:term_to_iovec(Term),
+    ok = check_is_iovec(IoVec1),
+    IoVec2 = erlang:term_to_iovec(Term, []),
+    ok = check_is_iovec(IoVec2),
+    B = erlang:term_to_binary(Term),
+    IoVec1Bin = erlang:iolist_to_binary(IoVec1),
+    IoVec2Bin = erlang:iolist_to_binary(IoVec2),
+    try
+        B = IoVec1Bin
+    catch
+        _:_ ->
+            io:format("Binary: ~p~n", [B]),
+            io:format("I/O vec1 binary: ~p~n", [IoVec1Bin]),
+            io:format("I/O vec1: ~p~n", [IoVec1]),
+            ct:fail(not_same_result)
+    end,
+    try
+        B = IoVec2Bin
+    catch
+        _:_ ->
+            io:format("Binary: ~p~n", [B]),
+            io:format("I/O vec2 binary: ~p~n", [IoVec2Bin]),
+            io:format("I/O vec2: ~p~n", [IoVec2]),
+            ct:fail(not_same_result)
+    end.
+    
+check_is_iovec([]) ->
+    ok;
+check_is_iovec([B|Bs]) when is_binary(B) ->
+    check_is_iovec(Bs).
 
 %% Tests binary_to_term/1 and term_to_binary/1.
 
@@ -615,6 +761,143 @@ build_iolist(N0, Base) ->
 	    [47,L,L|Seq]
     end.
 
+approx_4GB_bin() ->
+    Bin = lists:duplicate(4194304, 255),
+    BinRet = erlang:iolist_to_binary(lists:duplicate(1124, Bin)),
+    BinRet.
+
+duplicate_iolist(IOList, 0) ->
+    IOList;
+duplicate_iolist(IOList, NrOfTimes) ->
+    duplicate_iolist([IOList, IOList], NrOfTimes - 1).
+
+t_iolist_size_huge_list(Config)  when is_list(Config) ->
+    run_when_enough_resources(
+      fun() ->
+              {TimeToCreateIOList, IOList} = timer:tc(fun()->duplicate_iolist(approx_4GB_bin(), 32) end),
+              {IOListSizeTime, CalculatedSize} = timer:tc(fun()->erlang:iolist_size(IOList) end),
+              20248183924657750016 = CalculatedSize,
+              {comment, io_lib:format("Time to create iolist: ~f s. Time to calculate size: ~f s.", 
+                                      [TimeToCreateIOList / 1000000, IOListSizeTime / 1000000])}
+      end).
+
+t_iolist_size_huge_bad_arg_list(Config)  when is_list(Config) ->
+    run_when_enough_resources(
+      fun() ->
+              P = self(),
+              spawn_link(fun()-> IOListTmp = duplicate_iolist(approx_4GB_bin(), 32),
+                                 IOList = [IOListTmp, [badarg]],
+                                 {'EXIT',{badarg,_}} = (catch erlang:iolist_size(IOList)),
+                                 P ! ok
+                         end),
+              receive ok -> ok end
+         end).
+
+%% iolist_size tests for shallow lists
+
+t_iolist_size_shallow_trapping(Config) when is_list(Config) ->
+    Lengths = [2000, 20000, 200000, 200000, 2000000, 20000000],
+    run_iolist_size_test_and_benchmark(Lengths, fun make_shallow_iolist/2).
+
+t_iolist_size_shallow_short_lists(Config) when is_list(Config) ->
+    Lengths = lists:duplicate(15000, 300),
+    run_iolist_size_test_and_benchmark(Lengths, fun make_shallow_iolist/2).
+
+t_iolist_size_shallow_tiny_lists(Config) when is_list(Config) ->
+    Lengths = lists:duplicate(250000, 18),
+    run_iolist_size_test_and_benchmark(Lengths, fun make_shallow_iolist/2).
+
+make_shallow_iolist(SizeDiv2, LastItem) ->
+    lists:map(
+      fun(I) -> 
+              case I of
+                  SizeDiv2 -> [1, LastItem];
+                  _ -> [1, 1]
+              end
+      end,
+      lists:seq(1, SizeDiv2)).
+
+%% iolist_size tests for deep lists
+
+t_iolist_size_deep_trapping(Config) when is_list(Config) ->
+    Lengths = [2000, 20000, 200000, 200000, 2000000, 10000000],
+    run_iolist_size_test_and_benchmark(Lengths, fun make_deep_iolist/2).
+
+t_iolist_size_deep_short_lists(Config) when is_list(Config) ->
+    Lengths = lists:duplicate(10000, 300),
+    run_iolist_size_test_and_benchmark(Lengths, fun make_deep_iolist/2).
+
+t_iolist_size_deep_tiny_lists(Config) when is_list(Config) ->
+    Lengths = lists:duplicate(150000, 18),
+    run_iolist_size_test_and_benchmark(Lengths, fun make_deep_iolist/2).
+
+make_deep_iolist(1, LastItem) ->
+    [1, LastItem];
+make_deep_iolist(Depth, LastItem) ->
+    [[1, 1], make_deep_iolist(Depth - 1, LastItem)].
+
+% Helper functions for iolist_size tests
+
+run_iolist_size_test_and_benchmark(Lengths, ListGenerator) ->
+    run_when_enough_resources(
+      fun() ->
+              GoodListsWithSizes =
+                  lists:map(fun(Length) -> {Length*2, ListGenerator(Length, 1)} end, Lengths),
+              BadListsWithSizes =
+                  lists:map(fun(Length) -> {Length*2, ListGenerator(Length, bad)} end, Lengths),
+              erlang:garbage_collect(),
+              report_throughput(
+                fun() ->
+                        lists:foreach(
+                          fun(_)->
+                                  lists:foreach(
+                                    fun({Size, List}) -> Size = iolist_size(List) end,
+                                    GoodListsWithSizes),
+                                  lists:foreach(
+                                    fun({_, List}) -> {'EXIT',_} = (catch (iolist_size(List))) end,
+                                    BadListsWithSizes)
+                          end,
+                          lists:seq(1,3))
+                end,
+                lists:sum(Lengths)*4)
+      end).
+
+report_throughput(Fun, NrOfItems) ->
+    Parent = self(),
+    spawn(fun() -> Parent ! timer:tc(Fun) end),
+    {Time, _} = receive D -> D end,
+    ItemsPerMicrosecond = NrOfItems / Time,
+    ct_event:notify(#event{ name = benchmark_data, data = [{value, ItemsPerMicrosecond}]}),
+    {comment, io_lib:format("Items per microsecond: ~p, Nr of items: ~p, Benchmark time: ~p seconds)",
+                            [ItemsPerMicrosecond, NrOfItems, Time/1000000])}.
+
+total_memory() ->
+    %% Total memory in GB.
+    try
+	MemoryData = memsup:get_system_memory_data(),
+	case lists:keysearch(total_memory, 1, MemoryData) of
+	    {value, {total_memory, TM}} ->
+		TM div (1024*1024*1024);
+	    false ->
+		{value, {system_total_memory, STM}} =
+		    lists:keysearch(system_total_memory, 1, MemoryData),
+		STM div (1024*1024*1024)
+	end
+    catch
+	_ : _ ->
+	    undefined
+    end.
+
+run_when_enough_resources(Fun) ->
+    case {total_memory(), erlang:system_info(wordsize)} of
+        {Mem, 8} when is_integer(Mem) andalso Mem >= 15 ->
+            Fun();
+        {Mem, WordSize} ->
+            {skipped, 
+             io_lib:format("Not enough resources (System Memory >= ~p, Word Size = ~p)",
+                           [Mem, WordSize])}
+    end.
+    
 
 %% OTP-4053
 bad_binary_to_term_2(Config) when is_list(Config) ->
@@ -677,32 +960,7 @@ bad_terms(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch binary_to_term(<<131,$M,-1:32,1,11,22,33>>)),
     ok.
 
-
-corrupter(Term) when is_function(Term);
-		     is_function(hd(Term));
-		     is_function(element(2,element(2,element(2,Term)))) ->
-    %% Check if lists is native compiled. If it is, we do not try to
-    %% corrupt funs as this can create some very strange behaviour.
-    %% To show the error print `Byte` in the foreach fun in corrupter/2.
-    case erlang:system_info(hipe_architecture) of
-	undefined ->
-	    corrupter0(Term);
-	Architecture ->
-	    {lists, ListsBinary, _ListsFilename} = code:get_object_code(lists),
-	    ChunkName = hipe_unified_loader:chunk_name(Architecture),
-	    NativeChunk = beam_lib:chunks(ListsBinary, [ChunkName]),
-	    case NativeChunk of
-		{ok,{_,[{_,Bin}]}} when is_binary(Bin) ->
-		    S = io_lib:format("Skipping corruption of: ~P", [Term,12]),
-		    io:put_chars(S);
-		{error, beam_lib, _} ->
-		    corrupter0(Term)
-	    end
-    end;
 corrupter(Term) ->
-    corrupter0(Term).
-
-corrupter0(Term) ->
     try
 	      S = io_lib:format("About to corrupt: ~P", [Term,12]),
 	      io:put_chars(S)
@@ -1216,7 +1474,8 @@ sleeper() ->
 gc_test(Config) when is_list(Config) ->
     %% Note: This test is only relevant for REFC binaries.
     %% Therefore, we take care that all binaries are REFC binaries.
-    B = list_to_binary(lists:seq(0, ?heap_binary_size)),
+    true = 192 > ?heap_binary_size,
+    B = list_to_binary(lists:seq(1, 192)),
     Self = self(),
     F1 = fun() ->
 		 gc(),
@@ -1225,22 +1484,22 @@ gc_test(Config) when is_list(Config) ->
 	 end,
     F = fun() ->
 		receive go -> ok end,
-		{binary,[{_,65,1}]} = process_info(self(), binary),
+		{binary,[{_,192,1}]} = process_info(self(), binary),
 		gc(),
-		{B1,B2} = my_split_binary(B, 4),
+		{B1,B2} = my_split_binary(B, 68),
 		gc(),
 		gc(),
 		{binary,L1} = process_info(self(), binary),
 		[Binfo1,Binfo2,Binfo3] = L1,
-		{_,65,3} = Binfo1 = Binfo2 = Binfo3,
-		65 = size(B),
-		4 = size(B1),
-		61 = size(B2),
+		{_,192,3} = Binfo1 = Binfo2 = Binfo3,
+		192 = size(B),
+		68 = size(B1),
+		124 = size(B2),
 		F1()
 	end,
     gc(),
     gc(),
-    65 = size(B),
+    192 = size(B),
     gc_test1(spawn_opt(erlang, apply, [F,[]], [link,{fullsweep_after,0}])).
 
 gc_test1(Pid) ->
@@ -1531,13 +1790,16 @@ error_after_yield_bad_ext_term() ->
 		    BadAtomExt]). %% Invalid atom at the end
 	    
 cmp_old_impl(Config) when is_list(Config) ->
-    %% Compare results from new yielding implementations with
-    %% old non yielding implementations 
+    %% This test was originally a comparison with the non yielding
+    %% implementation in R16B. Since OTP 22 we can't talk distribution with such
+    %% old nodes (< 19). The test case it kept but compares with previous major
+    %% version for semantic regression test.
     Cookie = atom_to_list(erlang:get_cookie()),
-    Rel = "r16b_latest",
+    Rel = (integer_to_list(list_to_integer(erlang:system_info(otp_release)) - 1)
+           ++ "_latest"),
     case test_server:is_release_available(Rel) of
 	false ->
-	    {skipped, "No "++Rel++" available"};
+	    {skipped, "No OTP "++Rel++" available"};
 	true ->
 	    {ok, Node} = test_server:start_node(list_to_atom(atom_to_list(?MODULE)++"_"++Rel),
 				       peer,
@@ -1586,6 +1848,42 @@ cmp_old_impl(Config) when is_list(Config) ->
 	    ok
     end.
 
+%% OTP-16265
+%% This testcase is mainly targeted toward --enable-sharing-preserving.
+sub_bin_copy(Config) when is_list(Config) ->
+    Papa = self(),
+    Echo = spawn_link(fun() -> echo(Papa) end),
+    HeapBin = list_to_binary(lists:seq(1,3)),
+    sub_bin_copy_1(HeapBin, Echo),
+    ProcBin = list_to_binary(lists:seq(1,65)),
+    sub_bin_copy_1(ProcBin, Echo),
+    unlink(Echo),
+    exit(Echo, kill),
+    ok.
+
+sub_bin_copy_1(RealBin, Echo) ->
+    Bits = bit_size(RealBin) - 1,
+    <<SubBin:Bits/bits, _/bits>> = RealBin,
+
+    %% Send (copy) messages consisting of combinations of both
+    %% the SubBin and the RealBin it refers to.
+    [begin
+         Echo ! Combo,
+         {_, Combo} = {Combo, receive M -> M end}
+     end
+     || Len <- lists:seq(2,5), Combo <- combos([RealBin, SubBin], Len)],
+    ok.
+
+combos(_, 0) ->
+    [[]];
+combos(Elements, Len) ->
+    [[E | C] || E <- Elements, C <- combos(Elements,Len-1)].
+
+echo(Papa) ->
+    receive M -> Papa ! M end,
+    echo(Papa).
+
+
 %% Utilities.
 
 huge_iolist(Lim) ->
@@ -1598,9 +1896,16 @@ huge_iolist(X, Sz, Lim) ->
     huge_iolist([X, X], Sz*2, Lim).
 
 cmp_node(Node, {M, F, A}) ->
-    Res = rpc:call(Node, M, F, A),
+    ResN = rpc:call(Node, M, F, A),
     Res = apply(M, F, A),
-    ok.
+    case ResN =:= Res of
+        true ->
+            ok;
+        false ->
+            io:format("~p: ~p~n~p: ~p~n",
+                      [Node, ResN, node(), Res]),
+            ct:fail(different_results)
+    end.
 
 make_sub_binary(Bin) when is_binary(Bin) ->
     {_,B} = split_binary(list_to_binary([0,1,3,Bin]), 3),

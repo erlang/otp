@@ -1,0 +1,19 @@
+
+  [;1m-spec multiple_relative_product(TupleOfBinRels, BinRel1) -> BinRel2[0m
+  [;1m                                   when[0m
+  [;1m                                       TupleOfBinRels ::[0m
+  [;1m                                           tuple_of(BinRel),[0m
+  [;1m                                       BinRel :: binary_relation(),[0m
+  [;1m                                       BinRel1 :: binary_relation(),[0m
+  [;1m                                       BinRel2 :: binary_relation().[0m
+
+  If [;;4mTupleOfBinRels[0m is a non-empty tuple {R[1], ..., R[n]} of
+  binary relations and [;;4mBinRel1[0m is a binary relation, then [;;4mBinRel2[0m
+  is the multiple relative product of the ordered set
+  (R[i], ..., R[n]) and [;;4mBinRel1[0m.
+
+    1> Ri = sofs:relation([{a,1},{b,2},{c,3}]),
+    R = sofs:relation([{a,b},{b,c},{c,a}]),
+    MP = sofs:multiple_relative_product({Ri, Ri}, R),
+    sofs:to_external(sofs:range(MP)).
+    [{1,2},{2,3},{3,1}]

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2017. All Rights Reserved.
+ * Copyright Ericsson AB 2017-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,15 +28,17 @@
 
 /* Property/category are bitfields to simplify their use in masks. */
 #define ERTS_LOCK_FLAGS_MASK_CATEGORY (0xFFC0)
-#define ERTS_LOCK_FLAGS_MASK_PROPERTY (0x0030)
+#define ERTS_LOCK_FLAGS_MASK_PROPERTY (0x0038)
 
 /* Type is a plain number. */
-#define ERTS_LOCK_FLAGS_MASK_TYPE     (0x000F)
+#define ERTS_LOCK_FLAGS_MASK_TYPE     (0x0007)
 
 #define ERTS_LOCK_FLAGS_TYPE_SPINLOCK (1)
 #define ERTS_LOCK_FLAGS_TYPE_MUTEX    (2)
 #define ERTS_LOCK_FLAGS_TYPE_PROCLOCK (3)
 
+/* Lock checker use real term order instead of raw word compare */
+#define ERTS_LOCK_FLAGS_PROPERTY_TERM_ORDER (1 << 3)
 /* "Static" guarantees that the lock will never be destroyed once created. */
 #define ERTS_LOCK_FLAGS_PROPERTY_STATIC     (1 << 4)
 #define ERTS_LOCK_FLAGS_PROPERTY_READ_WRITE (1 << 5)
@@ -69,10 +71,10 @@
 typedef unsigned short erts_lock_flags_t;
 typedef unsigned short erts_lock_options_t;
 
-/* @brief Gets the type name of the lock, honoring the RW flag if supplied. */
+/** @brief Gets the type name of the lock, honoring the RW flag if supplied. */
 const char *erts_lock_flags_get_type_name(erts_lock_flags_t flags);
 
-/* @brief Gets a short-form description of the given lock options. (rw/r/w) */
+/** @brief Gets a short-form description of the given lock options. (rw/r/w) */
 const char *erts_lock_options_get_short_desc(erts_lock_options_t options);
 
 #endif /* ERTS_LOCK_FLAGS_H__ */

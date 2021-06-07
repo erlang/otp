@@ -49,6 +49,8 @@ import java.io.IOException;
 public class OtpConnection extends AbstractConnection {
     protected OtpSelf self;
     protected GenericQueue queue; // messages get delivered here
+    protected Links links;
+    private long unlink_id;
 
     /*
      * Accept an incoming connection from a remote node. Used by {@link
@@ -96,7 +98,58 @@ public class OtpConnection extends AbstractConnection {
 
     @Override
     public void deliver(final OtpMsg msg) {
-        queue.put(msg);
+        switch (msg.type()) {
+        case OtpMsg.exitTag:
+        case OtpMsg.linkTag:
+        case OtpMsg.unlinkTag:
+        case AbstractConnection.unlinkIdTag:
+        case AbstractConnection.unlinkIdAckTag:
+            handle_link_operation(msg);
+            break;
+        default:
+            queue.put(msg);
+            break;
+        }
+    }
+
+    private synchronized void handle_link_operation(final OtpMsg m) {
+        final OtpErlangPid remote = m.getSenderPid();
+        switch (m.type()) {
+        case OtpMsg.linkTag:
+            // only queue up link-message if link was added...
+            if (links.addLink(self.pid(), remote, false)) {
+                queue.put(m);
+            }
+            break;
+
+        case OtpMsg.unlinkTag:
+        case AbstractConnection.unlinkIdTag: {
+            final long unlink_id = m.getUnlinkId();
+            // only queue up unlink-message if link was removed...
+            if (links.removeActiveLink(self.pid(), remote)) {
+                // Use old unlinkTag without unlink id for
+                // backwards compatibility...
+                queue.put(new OtpMsg(OtpMsg.unlinkTag, self.pid(),
+                                     remote));
+            }
+            try {
+                super.sendUnlinkAck(self.pid(), remote, unlink_id);
+            } catch (final Exception e) {
+            }
+            break;
+        }
+
+        case AbstractConnection.unlinkIdAckTag:
+            links.removeUnlinkingLink(self.pid(), remote, m.getUnlinkId());
+            break;
+
+        case OtpMsg.exitTag:
+            // only queue up exit-message if link was removed...
+            if (links.removeActiveLink(self.pid(), remote)) {
+                queue.put(m);
+            }
+            break;
+        }
     }
 
     /**
@@ -544,7 +597,14 @@ public class OtpConnection extends AbstractConnection {
      *                occurs.
      */
     public void link(final OtpErlangPid dest) throws IOException {
-        super.sendLink(self.pid(), dest);
+        if (links.addLink(self.pid(), dest, true)) {
+            try {
+                super.sendLink(self.pid(), dest);
+            } catch (final IOException e) {
+                links.removeLink(self.pid(), dest); // restore...
+                throw e;
+            }
+        }
     }
 
     /**
@@ -560,7 +620,17 @@ public class OtpConnection extends AbstractConnection {
      *                occurs.
      */
     public void unlink(final OtpErlangPid dest) throws IOException {
-        super.sendUnlink(self.pid(), dest);
+        long unlink_id = this.unlink_id++;
+        if (unlink_id == 0)
+            unlink_id = this.unlink_id++;
+        if (links.setUnlinking(self.pid(), dest, unlink_id)) {
+            try {
+                super.sendUnlink(self.pid(), dest, unlink_id);
+            } catch (final IOException e) {
+                links.addLink(self.pid(), dest, true); // restore...
+                throw e;
+            }
+        }
     }
 
     /**

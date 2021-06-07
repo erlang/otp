@@ -35,7 +35,8 @@ Mods =  wxt wx_test_lib wx_obj_test \
 	wx_event_SUITE \
 	wx_class_SUITE \
 	wx_xtra_SUITE \
-	wx_opengl_SUITE
+	wx_opengl_SUITE \
+	wx_test_enums
 
 ErlSrc          = $(Mods:%=%.erl)
 ErlTargets      = $(Mods:%=$(EBIN)/%.beam) 

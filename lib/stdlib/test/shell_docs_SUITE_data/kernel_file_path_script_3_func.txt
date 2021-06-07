@@ -1,0 +1,19 @@
+
+  [;1m-spec path_script(Path, Filename, Bindings) ->[0m
+  [;1m                     {ok, Value, FullName} | {error, Reason}[0m
+  [;1m                     when[0m
+  [;1m                         Path :: [Dir :: name_all()],[0m
+  [;1m                         Filename :: name_all(),[0m
+  [;1m                         Bindings :: erl_eval:binding_struct(),[0m
+  [;1m                         Value :: term(),[0m
+  [;1m                         FullName :: filename_all(),[0m
+  [;1m                         Reason ::[0m
+  [;1m                             posix() |[0m
+  [;1m                             badarg | terminated | system_limit |[0m
+  [;1m                             {Line :: integer(),[0m
+  [;1m                              Mod :: module(),[0m
+  [;1m                              Term :: term()}.[0m
+
+  The same as [;;4mpath_script/2[0m but the variable bindings [;;4mBindings[0m
+  are used in the evaluation. See [;;4merl_eval(3)[0m about variable
+  bindings.

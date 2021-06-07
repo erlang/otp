@@ -12,6 +12,7 @@
   <xi:include href="../specs/specs_digraph_utils.xml"/>
   <xi:include href="../specs/specs_epp.xml"/>
   <xi:include href="../specs/specs_erl_anno.xml"/>
+  <xi:include href="../specs/specs_erl_error.xml"/>
   <xi:include href="../specs/specs_erl_eval.xml"/>
   <xi:include href="../specs/specs_erl_expand_records.xml"/>
   <xi:include href="../specs/specs_erl_id_trans.xml"/>
@@ -51,6 +52,7 @@
   <xi:include href="../specs/specs_sets.xml"/>
   <xi:include href="../specs/specs_shell.xml"/>
   <xi:include href="../specs/specs_shell_default.xml"/>
+  <xi:include href="../specs/specs_shell_docs.xml"/>
   <xi:include href="../specs/specs_slave.xml"/>
   <xi:include href="../specs/specs_sofs.xml"/>
   <xi:include href="../specs/specs_string.xml"/>

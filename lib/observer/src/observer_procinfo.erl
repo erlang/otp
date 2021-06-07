@@ -214,12 +214,14 @@ init_process_page(Panel, Pid) ->
 
 init_message_page(Parent, Pid, Table) ->
     Win = observer_lib:html_window(Parent),
+    Cs = observer_lib:colors(Parent),
     Update = fun() ->
 		     case observer_wx:try_rpc(node(Pid), erlang, process_info,
 					      [Pid, messages])
 		     of
 			 {messages, Messages} ->
-			     Html = observer_html_lib:expandable_term("Message Queue", Messages, Table),
+			     Html = observer_html_lib:expandable_term("Message Queue", Messages,
+                                                                      Table, Cs),
 			     wxHtmlWindow:setPage(Win, Html);
 			 _ ->
 			     throw(process_undefined)
@@ -230,11 +232,12 @@ init_message_page(Parent, Pid, Table) ->
 
 init_dict_page(Parent, Pid, Table) ->
     Win = observer_lib:html_window(Parent),
+    Cs = observer_lib:colors(Parent),
     Update = fun() ->
 		     case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, dictionary])
 		     of
 			 {dictionary,Dict} ->
-			     Html = observer_html_lib:expandable_term("Dictionary", Dict, Table),
+			     Html = observer_html_lib:expandable_term("Dictionary", Dict, Table, Cs),
 			     wxHtmlWindow:setPage(Win, Html);
 			 _ ->
 			     throw(process_undefined)
@@ -254,6 +257,8 @@ init_stack_page(Parent, Pid) ->
     wxListCtrl:insertColumn(LCtrl, 1, Li),
     wxListCtrl:setColumnWidth(LCtrl, 1, Scale * 300),
     wxListItem:destroy(Li),
+    Even = wxSystemSettings:getColour(?wxSYS_COLOUR_LISTBOX),
+    Odd = observer_lib:mix(Even, wxSystemSettings:getColour(?wxSYS_COLOUR_HIGHLIGHT), 0.8),
     Update = fun() ->
 		     case observer_wx:try_rpc(node(Pid), erlang, process_info,
 					      [Pid, current_stacktrace])
@@ -262,8 +267,8 @@ init_stack_page(Parent, Pid) ->
 			     wxListCtrl:deleteAllItems(LCtrl),
 			     wx:foldl(fun({M, F, A, Info}, Row) ->
 					      _Item = wxListCtrl:insertItem(LCtrl, Row, ""),
-					      ?EVEN(Row) andalso
-						  wxListCtrl:setItemBackgroundColour(LCtrl, Row, ?BG_EVEN),
+					      ?EVEN(Row) orelse
+						  wxListCtrl:setItemBackgroundColour(LCtrl, Row, Odd),
 					      wxListCtrl:setItem(LCtrl, Row, 0, observer_lib:to_str({M,F,A})),
 					      FileLine = case Info of
 							     [{file,File},{line,Line}] ->
@@ -288,9 +293,10 @@ init_stack_page(Parent, Pid) ->
 
 init_state_page(Parent, Pid, Table) ->
     Win = observer_lib:html_window(Parent),
+    Cs = observer_lib:colors(Parent),
     Update = fun() ->
 		     StateInfo = fetch_state_info(Pid),
-		     Html = observer_html_lib:expandable_term("ProcState", StateInfo, Table),
+		     Html = observer_html_lib:expandable_term("ProcState", StateInfo, Table, Cs),
 		     wxHtmlWindow:setPage(Win, Html)
 	     end,
     Update(),
@@ -341,6 +347,7 @@ fetch_state_info2(Pid, M) ->
 
 init_log_page(Parent, Pid, Table) ->
     Win = observer_lib:html_window(Parent),
+    Cs = observer_lib:colors(Parent),
     Update = fun() ->
 		     Fd = spawn_link(fun() -> io_server() end),
 		     rpc:call(node(Pid), rb, rescan, [[{start_log, Fd}]]),
@@ -353,7 +360,7 @@ init_log_page(Parent, Pid, Table) ->
 		     NbBlanks = length(Pref) - 1,
 		     Re = "(<" ++ Pref ++ "\.[^>]{1,}>)[ ]{"++ integer_to_list(NbBlanks) ++ "}",
 		     Look = re:replace(ExpPid, Re, "\\1", [global, {return, list}]),
-		     Html = observer_html_lib:expandable_term("SaslLog", Look, Table),
+		     Html = observer_html_lib:expandable_term("SaslLog", Look, Table, Cs),
 		     wxHtmlWindow:setPage(Win, Html)
 	     end,
     Update(),

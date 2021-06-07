@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@
                     template        => template(),
                     time_designator => byte(),
                     time_offset     => integer() | [byte()]}.
--type template() :: [metakey() | {metakey(),template(),template()} | string()].
+-type template() :: [metakey() | {metakey(),template(),template()} | unicode:chardata()].
 -type metakey() :: atom() | [atom()].
 
 %%%-----------------------------------------------------------------
@@ -323,7 +323,7 @@ timestamp_to_datetimemicro(SysTime,Config) when is_integer(SysTime) ->
     {Date,Time,Micro,UtcStr}.
 
 format_mfa({M,F,A},_) when is_atom(M), is_atom(F), is_integer(A) ->
-    atom_to_list(M)++":"++atom_to_list(F)++"/"++integer_to_list(A);
+    io_lib:fwrite("~tw:~tw/~w", [M, F, A]);
 format_mfa({M,F,A},Config) when is_atom(M), is_atom(F), is_list(A) ->
     format_mfa({M,F,length(A)},Config);
 format_mfa(MFA,Config) ->
@@ -530,6 +530,11 @@ check_template([Str|T]) when is_list(Str) ->
     case io_lib:printable_unicode_list(Str) of
         true -> check_template(T);
         false -> error
+    end;
+check_template([Bin|T]) when is_binary(Bin) ->
+    case unicode:characters_to_list(Bin) of
+        Str when is_list(Str) -> check_template([Str|T]);
+        _Error -> error
     end;
 check_template([]) ->
     ok;

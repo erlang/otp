@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2005</year>
-      <year>2016</year>
+      <year>2020</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -55,7 +55,7 @@
 
   <section>
     <title>See Also</title>
-    <p>Section <seealso marker="erts:absform">The Abstract Format</seealso>
+    <p>Section <seeguide marker="erts:absform">The Abstract Format</seeguide>
       in ERTS User's Guide.</p>
   </section>
 </erlref>

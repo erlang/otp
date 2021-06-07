@@ -33,13 +33,19 @@
          code_server     = none           :: 'none'
                                            | dialyzer_codeserver:codeserver(),
 	 erlang_mode     = false          :: boolean(),
-	 external_calls  = []             :: [mfa()],
-         external_types  = []             :: [mfa()],
+	 external_calls  = []             :: [{mfa(),
+                                              {file:filename(),
+                                               erl_anno:location()}}],
+         external_types  = []             :: [{mfa(),
+                                               {file:filename(),
+                                                erl_anno:location()}}],
 	 legal_warnings  = ordsets:new()  :: [dial_warn_tag()],
 	 mod_deps        = dict:new()     :: dialyzer_callgraph:mod_deps(),
 	 output          = standard_io	  :: io:device(),
 	 output_format   = formatted      :: format(),
-	 filename_opt    = basename       :: fopt(),
+	 filename_opt    = basename       :: filename_opt(),
+         indent_opt      = ?INDENT_OPT    :: iopt(),
+         error_location  = ?ERROR_LOCATION :: error_location(),
 	 output_plt      = none           :: 'none' | file:filename(),
 	 plt_info        = none           :: 'none' | dialyzer_plt:plt_info(),
 	 report_mode     = normal         :: rep_mode(),
@@ -319,12 +325,6 @@ report_analysis_start(#options{analysis_type = Type,
       end
   end.
 
-report_native_comp(#options{report_mode = ReportMode}) ->
-  case ReportMode of
-    quiet -> ok;
-    _ -> io:format("  Compiling some key modules to native code...")
-  end.
-
 report_elapsed_time(T1, T2, #options{report_mode = ReportMode}) ->
   case ReportMode of
     quiet -> ok;
@@ -374,7 +374,6 @@ do_analysis(Options) ->
   
 do_analysis(Files, Options, Plt, PltInfo) ->
   assert_writable(Options#options.output_plt),
-  hipe_compile(Files, Options),
   report_analysis_start(Options),
   State0 = new_state(),
   State1 = init_output(State0, Options),
@@ -483,113 +482,18 @@ expand_dependent_modules_1([Mod|Mods], Included, ModDeps) ->
 expand_dependent_modules_1([], Included, _ModDeps) ->
   Included.
 
--define(MIN_PARALLELISM, 7).
--define(MIN_FILES_FOR_NATIVE_COMPILE, 20).
-
--spec hipe_compile([file:filename()], #options{}) -> 'ok'.
-
-hipe_compile(Files, #options{erlang_mode = ErlangMode} = Options) ->
-  NoNative = (get(dialyzer_options_native) =:= false),
-  FewFiles = (length(Files) < ?MIN_FILES_FOR_NATIVE_COMPILE),
-  case NoNative orelse FewFiles orelse ErlangMode of
-    true -> ok;
-    false ->
-      case erlang:system_info(hipe_architecture) of
-	undefined -> ok;
-	_ ->
-	  Mods = [lists, dict, digraph, digraph_utils, ets,
-		  gb_sets, gb_trees, ordsets, sets, sofs,
-		  cerl, erl_types, cerl_trees, erl_bif_types,
-		  dialyzer_analysis_callgraph, dialyzer, dialyzer_behaviours,
-		  dialyzer_codeserver, dialyzer_contracts,
-		  dialyzer_coordinator, dialyzer_dataflow, dialyzer_dep,
-		  dialyzer_plt, dialyzer_succ_typings, dialyzer_typesig,
-		  dialyzer_worker],
-	  report_native_comp(Options),
-	  {T1, _} = statistics(wall_clock),
-	  Cache = (get(dialyzer_options_native_cache) =/= false),
-	  native_compile(Mods, Cache),
-	  {T2, _} = statistics(wall_clock),
-	  report_elapsed_time(T1, T2, Options)
-      end
-  end.
-
-native_compile(Mods, Cache) ->
-  case dialyzer_utils:parallelism() > ?MIN_PARALLELISM of
-    true ->
-      Parent = self(),
-      Pids = [spawn(fun () -> Parent ! {self(), hc(M, Cache)} end) || M <- Mods],
-      lists:foreach(fun (Pid) -> receive {Pid, Res} -> Res end end, Pids);
-    false ->
-      lists:foreach(fun (Mod) -> hc(Mod, Cache) end, Mods)
-  end.
-
-hc(Mod, Cache) ->
-  {module, Mod} = code:ensure_loaded(Mod),
-  case code:is_module_native(Mod) of
-    true -> ok;
-    false ->
-      %% io:format(" ~w", [Mod]),
-      case Cache of
-	false ->
-	  {ok, Mod} = hipe:c(Mod),
-	  ok;
-	true ->
-	  hc_cache(Mod)
-      end
-  end.
-
-hc_cache(Mod) ->
-  CacheBase = cache_base_dir(),
-  %% Use HiPE architecture, version and erts checksum in directory name,
-  %% to avoid clashes between incompatible binaries.
-  HipeArchVersion =
-    lists:concat(
-      [erlang:system_info(hipe_architecture), "-",
-       hipe:version(), "-",
-       hipe:erts_checksum()]),
-  CacheDir = filename:join(CacheBase, HipeArchVersion),
-  OrigBeamFile = code:which(Mod),
-  {ok, {Mod, <<Checksum:128>>}} = beam_lib:md5(OrigBeamFile),
-  CachedBeamFile = filename:join(CacheDir, lists:concat([Mod, "-", Checksum, ".beam"])),
-  ok = filelib:ensure_dir(CachedBeamFile),
-  ModBin =
-    case filelib:is_file(CachedBeamFile) of
-      true ->
-	{ok, BinFromFile} = file:read_file(CachedBeamFile),
-	BinFromFile;
-      false ->
-	{ok, Mod, CompiledBin} = compile:file(OrigBeamFile, [from_beam, native, binary]),
-	ok = file:write_file(CachedBeamFile, CompiledBin),
-	CompiledBin
-    end,
-  code:unstick_dir(filename:dirname(OrigBeamFile)),
-  {module, Mod} = code:load_binary(Mod, CachedBeamFile, ModBin),
-  true = code:is_module_native(Mod),
-  ok.
-
-cache_base_dir() ->
-  %% http://standards.freedesktop.org/basedir-spec/basedir-spec-0.7.html
-  %% If XDG_CACHE_HOME is set to an absolute path, use it as base.
-  XdgCacheHome = os:getenv("XDG_CACHE_HOME"),
-  CacheHome =
-    case is_list(XdgCacheHome) andalso filename:pathtype(XdgCacheHome) =:= absolute of
-      true ->
-	XdgCacheHome;
-      false ->
-	%% Otherwise, the default is $HOME/.cache.
-	{ok, [[Home]]} = init:get_argument(home),
-	filename:join(Home, ".cache")
-    end,
-  filename:join([CacheHome, "dialyzer_hipe_cache"]).
-
 new_state() ->
   #cl_state{}.
 
 init_output(State0, #options{output_file = OutFile,
 			     output_format = OutFormat,
-			     filename_opt = FOpt}) ->
-  State = State0#cl_state{output_format = OutFormat, filename_opt = FOpt},
+			     filename_opt = FOpt,
+                             indent_opt = IOpt,
+                             error_location = EOpt}) ->
+  State = State0#cl_state{output_format = OutFormat,
+                          filename_opt = FOpt,
+                          indent_opt = IOpt,
+                          error_location = EOpt},
   case OutFile =:= none of
     true ->
       State;
@@ -699,6 +603,7 @@ return_value(State = #cl_state{code_server = CodeServer,
 			       mod_deps = ModDeps,
 			       output_plt = OutputPlt,
 			       plt_info = PltInfo,
+                               error_location = EOpt,
 			       stored_warnings = StoredWarnings},
 	     Plt) ->
   %% Just for now:
@@ -730,26 +635,30 @@ return_value(State = #cl_state{code_server = CodeServer,
     true -> 
       AllWarnings =
         UnknownWarnings ++ process_warnings(StoredWarnings),
-      {RetValue, set_warning_id(AllWarnings)}
+      {RetValue, set_warning_id(AllWarnings, EOpt)}
   end.
 
 unknown_warnings(State = #cl_state{legal_warnings = LegalWarnings}) ->
-  Unknown = case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
-              true ->
-                unknown_functions(State) ++
-                  unknown_types(State);
-              false -> []
-            end,
-  WarningInfo = {_Filename = "", _Line = 0, _MorMFA = ''},
-  [{?WARN_UNKNOWN, WarningInfo, W} || W <- Unknown].
+  case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
+    true ->
+      lists:sort(unknown_functions(State)) ++
+        lists:sort(unknown_types(State));
+    false -> []
+  end.
 
 unknown_functions(#cl_state{external_calls = Calls}) ->
-  [{unknown_function, MFA} || MFA <- Calls].
+  [{?WARN_UNKNOWN, {File, Location, ''},{unknown_function, MFA}} ||
+    {MFA, {File, Location}} <- Calls].
 
-set_warning_id(Warnings) ->
-  lists:map(fun({Tag, {File, Line, _MorMFA}, Msg}) ->
-                {Tag, {File, Line}, Msg}
+set_warning_id(Warnings, EOpt) ->
+  lists:map(fun({Tag, {File, Location, _MorMFA}, Msg}) ->
+                {Tag, {File, set_location(Location, EOpt)}, Msg}
             end, Warnings).
+
+set_location({Line, _}, line) ->
+  Line;
+set_location(Location, _EOpt) ->
+  Location.
 
 print_ext_calls(#cl_state{report_mode = quiet}) ->
   ok;
@@ -764,24 +673,27 @@ print_ext_calls(#cl_state{output = Output,
 	true -> io:nl(Output); %% Need to do a newline first
 	false -> ok
       end,
+      Calls1 = limit_unknown(Calls),
       case Format of
 	formatted ->
 	  io:put_chars(Output, "Unknown functions:\n"),
-	  do_print_ext_calls(Output, Calls, "  ");
+	  do_print_ext_calls(Output, Calls1, "  ");
 	raw ->
 	  io:put_chars(Output, "%% Unknown functions:\n"),
-	  do_print_ext_calls(Output, Calls, "%%  ")
+	  do_print_ext_calls(Output, Calls1, "%%  ")
       end
   end.
 
-do_print_ext_calls(Output, [{M,F,A}|T], Before) ->
-  io:format(Output, "~s~tp:~tp/~p\n", [Before,M,F,A]),
+do_print_ext_calls(Output, [{{M,F,A},{File,Location}}|T], Before) ->
+  io:format(Output, "~s~tp:~tp/~p (~ts)\n",
+            [Before,M,F,A,file_pos(File, Location)]),
   do_print_ext_calls(Output, T, Before);
 do_print_ext_calls(_, [], _) ->
   ok.
 
 unknown_types(#cl_state{external_types = Types}) ->
-  [{unknown_type, MFA} || MFA <- Types].
+  [{?WARN_UNKNOWN, {File, Location, ''},{unknown_type, MFA}} ||
+    {MFA, {File, Location}} <- Types].
 
 print_ext_types(#cl_state{report_mode = quiet}) ->
   ok;
@@ -797,38 +709,68 @@ print_ext_types(#cl_state{output = Output,
         true -> io:nl(Output); %% Need to do a newline first
         false -> ok
       end,
+      Types1 = limit_unknown(Types),
       case Format of
         formatted ->
           io:put_chars(Output, "Unknown types:\n"),
-          do_print_ext_types(Output, Types, "  ");
+          do_print_ext_types(Output, Types1, "  ");
         raw ->
           io:put_chars(Output, "%% Unknown types:\n"),
-          do_print_ext_types(Output, Types, "%%  ")
+          do_print_ext_types(Output, Types1, "%%  ")
       end
   end.
 
-do_print_ext_types(Output, [{M,F,A}|T], Before) ->
-  io:format(Output, "~s~tp:~tp/~p\n", [Before,M,F,A]),
+do_print_ext_types(Output, [{{M,F,A},{File,Location}}|T], Before) ->
+  io:format(Output, "~s~tp:~tp/~p (~ts)\n",
+            [Before,M,F,A,file_pos(File, Location)]),
   do_print_ext_types(Output, T, Before);
 do_print_ext_types(_, [], _) ->
   ok.
+
+file_pos(File, 0) ->
+  io_lib:format("~ts", [File]);
+file_pos(File, Pos) ->
+  io_lib:format("~ts:~s", [File, pos(Pos)]).
+
+pos({Line,Col}) ->
+    io_lib:format("~w:~w", [Line,Col]);
+pos(Line) ->
+    io_lib:format("~w", [Line]).
+
+%%
+%% Keep one warning per MFA and File. Often too many warnings otherwise.
+%%
+limit_unknown(Unknowns) ->
+  L = [{{MFA, File}, Line} || {MFA, {File, Line}} <- Unknowns],
+  [{MFA, {File, Line}} || {{MFA, File}, [Line|_]} <-
+                            dialyzer_utils:family(L)].
+%% Keep one warning per MFA. This is how it used to be before Erlang/OTP 24.
+%% limit_unknown(Unknowns) ->
+%%   F = dialyzer_utils:family(Unknowns),
+%%   [{MFA, {File, Line}} || {MFA, [{File, Line}|_]} <- F].
 
 print_warnings(#cl_state{stored_warnings = []}) ->
   ok;
 print_warnings(#cl_state{output = Output,
 			 output_format = Format,
 			 filename_opt = FOpt,
+                         indent_opt = IOpt,
+                         error_location = EOpt,
 			 stored_warnings = Warnings}) ->
   PrWarnings = process_warnings(Warnings),
   case PrWarnings of
     [] -> ok;
     [_|_] ->
+      PrWarningsId = set_warning_id(PrWarnings, EOpt),
       S = case Format of
 	    formatted ->
-	      [dialyzer:format_warning(W, FOpt) || W <- PrWarnings];
+              Opts = [{filename_opt, FOpt},
+                      {indent_opt, IOpt},
+                      {error_location, EOpt}],
+	      [dialyzer:format_warning(W, Opts) || W <- PrWarningsId];
 	    raw ->
 	      [io_lib:format("~tp. \n",
-                             [W]) || W <- set_warning_id(PrWarnings)]
+                             [W]) || W <- set_warning_id(PrWarningsId, EOpt)]
 	  end,
       io:format(Output, "\n~ts", [S])
   end.
@@ -836,7 +778,7 @@ print_warnings(#cl_state{output = Output,
 -spec process_warnings([raw_warning()]) -> [raw_warning()].
   
 process_warnings(Warnings) ->
-  Warnings1 = lists:keysort(2, Warnings), %% Sort on file/line (and m/mfa..)
+  Warnings1 = lists:keysort(2, Warnings), %% Sort on file/location (and m/mfa..)
   remove_duplicate_warnings(Warnings1, []).
 
 remove_duplicate_warnings([Duplicate, Duplicate|Left], Acc) ->

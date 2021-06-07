@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2017</year>
+      <year>2000</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,7 +37,316 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 3.18.4</title>
+  <section><title>Megaco 4.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    All the pre-v3 codec(s) (prev3a, prev3b and prev3c) was
+	    deprecated in OTP-23.0. They have now been removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16560</p>
+        </item>
+        <item>
+          <p>
+	    Removed deprecated functions marked for removal.</p>
+          <p>
+	    Own Id: OTP-17049</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Megaco 3.19.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed usage of <c>AC_CONFIG_AUX_DIRS()</c> macros in
+	    configure script sources.</p>
+          <p>
+	    Own Id: OTP-17093 Aux Id: ERL-1447, PR-2948 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Empty statistics descriptor (now) allowed in both encode
+	    and decode for version 3.</p>
+          <p>
+	    Own Id: OTP-17012 Aux Id: ERL-1405 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The expected number of warnings when (yecc) generating v2
+	    and v3 (text) parser's was incorrect.</p>
+          <p>
+	    Own Id: OTP-16836</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The v2 and v3 parsers could not properly decode some IPv6
+	    addresses.</p>
+          <p>
+	    Own Id: OTP-16818 Aux Id: ERIERL-526 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The mini parser could not properly decode some IPv6
+	    addresses.</p>
+          <p>
+	    Own Id: OTP-16631 Aux Id: ERIERL-491 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+        <item>
+          <p>
+	    The preliminary version 3 codec(s) prev3a, prev3b and
+	    prev3c has been deprecated and will be *removed* in OTP
+	    24. The encoding config option 'version3' will continue
+	    to work until OTP 24.</p>
+          <p>
+	    Own Id: OTP-16531</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Megaco 3.18.8.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Megaco 3.18.8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Empty statistics descriptor (now) allowed in both encode
+	    and decode for version 3.</p>
+          <p>
+	    Own Id: OTP-17012 Aux Id: ERL-1405 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Megaco 3.18.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The v2 and v3 parsers could not properly decode some IPv6
+	    addresses.</p>
+          <p>
+	    Own Id: OTP-16818 Aux Id: ERIERL-526 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Megaco 3.18.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The mini parser could not properly decode some IPv6
+	    addresses.</p>
+          <p>
+	    Own Id: OTP-16631 Aux Id: ERIERL-491 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The documented function
+	    megaco:get_sdp_record_from_PropertGroup/2 was a wrapper
+	    for megaco_sdp:get_sdp_record_from_PropertGroup/2 but did
+	    not actually exist. This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-16449</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Test suite completely reworked. Add (timestamp) utility
+	    functions for debugging and testing.</p>
+          <p>
+	    Own Id: OTP-16158</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The meas example had not been updated for a long time,
+	    which caused it to not work. Also, it made use of
+	    deprecated functions (now()). This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-16061</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix various minor issues related to Dialyzer. Mostly
+	    these are dialyzer warnings, but there was also some
+	    minor bugs detected by Dialyzer.</p>
+          <p>
+	    Own Id: OTP-15882</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor updates to build system necessary due to move of
+	    configuration of <c>crypto</c> application.</p>
+          <p>
+	    Own Id: OTP-15262 Aux Id: OTP-15129 </p>
+        </item>
+        <item>
+          <p>
+	    Minor adjustments made to build system for parallel
+	    configure.</p>
+          <p>
+	    Own Id: OTP-15340 Aux Id: OTP-14625 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -263,7 +572,7 @@
 	  The binary encoding option <c>driver</c> has been removed
 	  since this (the use of the asn1 linked in driver) is
 	  now default and there is now way to <em>not</em> use it.
-	  See <seealso marker="megaco_encode#binary_config">configuration of binary encoding</seealso> for more info. </p>
+	  See <seeguide marker="megaco_encode#binary_config">configuration of binary encoding</seeguide> for more info. </p>
         </item>
 
       </list>
@@ -327,7 +636,7 @@
 	  The binary encoding option <c>driver</c> has been removed
 	  since this (the use of the asn1 linked in driver) is
 	  now default and there is now way to <em>not</em> use it.
-	  See <seealso marker="megaco_encode#binary_config">configuration of binary encoding</seealso> for more info. </p>
+	  See <seeguide marker="megaco_encode#binary_config">configuration of binary encoding</seeguide> for more info. </p>
         </item>
 
       </list>
@@ -613,7 +922,7 @@
       <list type="bulleted">
         <item>
           <p>Updated the
-            <seealso marker="megaco_performance">performance</seealso>
+            <seeguide marker="megaco_performance">performance</seeguide>
             chapter. </p>
           <p>Own Id: OTP-8696</p>
         </item>
@@ -697,7 +1006,7 @@
       <list type="bulleted">
         <item>
           <p>Updated the
-            <seealso marker="megaco_performance">performance</seealso>
+            <seeguide marker="megaco_performance">performance</seeguide>
             chapter. </p>
           <p>Own Id: OTP-8696</p>
         </item>

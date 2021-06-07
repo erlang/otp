@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
 %%
 
 -module(diameter_tcp).
+
+-dialyzer(no_improper_lists).
 
 -behaviour(gen_server).
 
@@ -569,7 +571,11 @@ m({'DOWN', M, process, P, _} = T, #monitor{parent = MRef,
 
 %% l/2
 %%
-%% Transition listener state.
+%% Transition listener state. Or not anymore since any message causes
+%% the process to exit.
+
+-spec l(tuple(), #listener{})
+   -> no_return().
 
 %% Service process has died.
 l({'DOWN', _, process, Pid, _} = T, #listener{service = Pid,

@@ -71,24 +71,24 @@
 
     <list type="bulleted">
       <item>Add <c>-ct_hooks</c> as an argument to 
-      <seealso marker="run_test_chapter#ct_run">ct_run</seealso>. 
+      <seeguide marker="run_test_chapter#ct_run">ct_run</seeguide>. 
       To add multiple CTHs using this method, append them to each other
       using the keyword <c>and</c>, that is, 
       <c>ct_run -ct_hooks cth1 [{debug,true}] and cth2 ...</c>.</item>
       <item>Add tag <c>ct_hooks</c> to your 
-      <seealso marker="run_test_chapter#test_specifications">
-      Test Specification</seealso>.</item>
+      <seeguide marker="run_test_chapter#test_specifications">
+      Test Specification</seeguide>.</item>
       <item>Add tag <c>ct_hooks</c> to your call to 
-      <seealso marker="ct#run_test-1">ct:run_test/1</seealso>.</item>
+      <seemfa marker="ct#run_test/1">ct:run_test/1</seemfa>.</item>
     </list>
 
     <p>CTHs can also be added within a test suite. This is done by returning
     <c>{ct_hooks,[CTH]}</c> in the configuration list from 
-    <seealso marker="common_test#Module:suite-0">suite/0</seealso>,
-    <seealso marker="common_test#Module:init_per_suite-1">
-      init_per_suite/1</seealso>, or
-      <seealso marker="common_test#Module:init_per_group-2">
-    init_per_group/2</seealso>.</p>
+    <seemfa marker="ct_suite#Module:suite/0">suite/0</seemfa>,
+    <seemfa marker="ct_suite#Module:init_per_suite/1">
+      init_per_suite/1</seemfa>, or
+      <seemfa marker="ct_suite#Module:init_per_group/2">
+    init_per_group/2</seemfa>.</p>
 
     <p>In this case, <c>CTH</c> can either be only the module name of the CTH 
     or a tuple with the module name and the initial arguments, and optionally 
@@ -105,7 +105,7 @@
 	to be activated. This can cause problems if you want to override 
 	CTHs in test specifications while still having them in the
 	suite information function. The 
-	<seealso marker="ct_hooks#Module:id-1">id/1</seealso>
+	<seemfa marker="ct_hooks#Module:id/1">id/1</seemfa>
 	callback exists to address this problem. By returning the same
 	<c>id</c> in both places, <c>Common Test</c> knows that this CTH
 	is already installed and does not try to install it again.</p>
@@ -118,7 +118,7 @@
       This is not always desired, so <c>Common Test</c> allows
       the user to specify a priority for each hook. The priority can either
       be specified in the CTH function 
-      <seealso marker="ct_hooks#Module:init-2">init/2</seealso> or when 
+      <seemfa marker="ct_hooks#Module:init/2">init/2</seemfa> or when 
       installing the hook. The priority specified at installation overrides the 
       priority returned by the CTH.</p>
     </section>
@@ -130,9 +130,9 @@
     <p>Once the CTH is installed into a certain test run it remains there until
       its scope is expired. The scope of a CTH depends on when it is 
       installed, see the following table.
-      Function <seealso marker="ct_hooks#Module:init-2">init/2</seealso> is 
+      Function <seemfa marker="ct_hooks#Module:init/2">init/2</seemfa> is 
       called at the beginning of the scope and function
-      <seealso marker="ct_hooks#Module:terminate-1">terminate/1</seealso> 
+      <seemfa marker="ct_hooks#Module:terminate/1">terminate/1</seemfa> 
       is called when the scope ends.</p>
     <table>
       <row>
@@ -141,44 +141,44 @@
 	<cell><em>CTH scope ends after</em></cell>
       </row>
       <row>
-	<cell><seealso marker="run_test_chapter#ct_run">ct_run</seealso></cell>
+	<cell><seeguide marker="run_test_chapter#ct_run">ct_run</seeguide></cell>
 	<cell>the first test suite is to be run</cell>
 	<cell>the last test suite has been run</cell>
       </row>
       <row>
-	<cell><seealso marker="ct#run_test-1">ct:run_test</seealso></cell>
+	<cell><seemfa marker="ct#run_test/1">ct:run_test</seemfa></cell>
 	<cell>the first test suite is run</cell>
 	<cell>the last test suite has been run</cell>
       </row>
       <row>
-	<cell><seealso marker="run_test_chapter#test_specifications">
-	  Test Specification</seealso></cell>
+	<cell><seeguide marker="run_test_chapter#test_specifications">
+	  Test Specification</seeguide></cell>
 	<cell>the first test suite is run</cell>
 	<cell>the last test suite has been run</cell>
       </row>
       <row>
-	<cell><seealso marker="common_test#Module:suite-0">suite/0
-	</seealso></cell>
-	<cell><seealso marker="ct_hooks#Module:pre_init_per_suite-3">
-	    pre_init_per_suite/3</seealso> is called</cell>
-	<cell><seealso marker="ct_hooks#Module:post_end_per_suite-4">
-	  post_end_per_suite/4</seealso> has been called for that test suite</cell>
+	<cell><seemfa marker="ct_suite#Module:suite/0">suite/0
+	</seemfa></cell>
+	<cell><seemfa marker="ct_hooks#Module:pre_init_per_suite/3">
+	    pre_init_per_suite/3</seemfa> is called</cell>
+	<cell><seemfa marker="ct_hooks#Module:post_end_per_suite/4">
+	  post_end_per_suite/4</seemfa> has been called for that test suite</cell>
       </row>
       <row>
-	<cell><seealso marker="common_test#Module:init_per_suite-1">
-	  init_per_suite/1</seealso></cell>
-	<cell><seealso marker="ct_hooks#Module:post_init_per_suite-4">
-	    post_init_per_suite/4</seealso> is called</cell>
-	<cell><seealso marker="ct_hooks#Module:post_end_per_suite-4">
-	  post_end_per_suite/4</seealso> has been called for that test suite</cell>
+	<cell><seemfa marker="ct_suite#Module:init_per_suite/1">
+	  init_per_suite/1</seemfa></cell>
+	<cell><seemfa marker="ct_hooks#Module:post_init_per_suite/4">
+	    post_init_per_suite/4</seemfa> is called</cell>
+	<cell><seemfa marker="ct_hooks#Module:post_end_per_suite/4">
+	  post_end_per_suite/4</seemfa> has been called for that test suite</cell>
       </row>
       <row>
-	<cell><seealso marker="common_test#Module:init_per_group-2">
-	  init_per_group/2</seealso></cell>
-	<cell><seealso marker="ct_hooks#Module:post_init_per_group-5">
-	    post_init_per_group/5</seealso> is called</cell>
-	<cell><seealso marker="ct_hooks#Module:post_end_per_group-5">
-	  post_end_per_group/5</seealso> has been called for that group</cell>
+	<cell><seemfa marker="ct_suite#Module:init_per_group/2">
+	  init_per_group/2</seemfa></cell>
+	<cell><seemfa marker="ct_hooks#Module:post_init_per_group/5">
+	    post_init_per_group/5</seemfa> is called</cell>
+	<cell><seemfa marker="ct_hooks#Module:post_end_per_group/5">
+	  post_end_per_group/5</seemfa> has been called for that group</cell>
       </row>
     <tcaption>Scope of a CTH</tcaption>
     </table>
@@ -197,12 +197,12 @@
       <title>External Configuration Data and Logging</title>
       <p>Configuration data values in the CTH can be read
 	by calling 
-	<seealso marker="ct#get_config-1"><c>ct:get_config/1,2,3</c></seealso> 
+	<seemfa marker="ct#get_config/1"><c>ct:get_config/1,2,3</c></seemfa> 
 	(as explained in section
-	<seealso marker="config_file_chapter#require_config_data">Requiring and Reading Configuration Data</seealso>).
+	<seeguide marker="config_file_chapter#require_config_data">Requiring and Reading Configuration Data</seeguide>).
 	The configuration variables in question must, as always, first have been
 	required by a suite-, group-, or test case information function,
-	or by function <seealso marker="ct#require-1"><c>ct:require/1/2</c></seealso>.
+	or by function <seemfa marker="ct#require/1"><c>ct:require/1/2</c></seemfa>.
 	The latter can also be used in CT hook functions.</p>
       <p>The CT hook functions can call any logging function
 	in the <c>ct</c> interface to print information to the log files, or to
@@ -236,12 +236,12 @@
 	In a CTH, the behavior can be hooked in before the following functions:</p>
 
      <list type="bulleted">
-       <item><seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_group-2"><c>init_per_group</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase</c></seealso></item>
-       <item><seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso></item>
-       <item><seealso marker="common_test#Module:end_per_group-2"><c>end_per_group</c></seealso></item>
-       <item><seealso marker="common_test#Module:end_per_suite-1"><c>end_per_suite</c></seealso></item>
+       <item><seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:init_per_group/2"><c>init_per_group</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:end_per_group/2"><c>end_per_group</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:end_per_suite/1"><c>end_per_suite</c></seemfa></item>
      </list>
 
         <p>
@@ -282,12 +282,12 @@
       <title>Post Hooks</title>
       <p>In a CTH, behavior can be hooked in after the following functions:</p>
       <list type="bulleted">
-       <item><seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_group-2"><c>init_per_group</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase</c></seealso></item>
-       <item><seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso></item>
-       <item><seealso marker="common_test#Module:end_per_group-2"><c>end_per_group</c></seealso></item>
-       <item><seealso marker="common_test#Module:end_per_suite-1"><c>end_per_suite</c></seealso></item>
+       <item><seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:init_per_group/2"><c>init_per_group</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:end_per_group/2"><c>end_per_group</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:end_per_suite/1"><c>end_per_suite</c></seemfa></item>
      </list>
 
      <p>
@@ -333,8 +333,8 @@
       <title>Skip and Fail Hooks</title>
       <p>
 	After any post hook has been executed for all installed CTHs, 
-	<seealso marker="ct_hooks#Module:on_tc_fail-4">on_tc_fail</seealso>
-	or <seealso marker="ct_hooks#Module:on_tc_skip-4">on_tc_skip</seealso>
+	<seemfa marker="ct_hooks#Module:on_tc_fail/4">on_tc_fail</seemfa>
+	or <seemfa marker="ct_hooks#Module:on_tc_skip/4">on_tc_skip</seemfa>
 	is called if the testcase failed or was skipped, respectively. 
 	You cannot affect the outcome of the tests any further at this point. 
       </p>
@@ -354,7 +354,7 @@
     and terminate.
     Any system error- or progress reports generated during the init- or
     termination stage are saved in the 
-    <seealso marker="run_test_chapter#pre_post_test_io_log">Pre- and Post Test I/O Log</seealso>. 
+    <seeguide marker="run_test_chapter#pre_post_test_io_log">Pre- and Post Test I/O Log</seeguide>. 
     (This is also true for any printouts made
     with <c>ct:log/2</c> and <c>ct:pal/2</c>).</p>
 
@@ -375,7 +375,7 @@
     <marker id="example"/>
      <title>Example CTH</title>
      <p>The following CTH logs information about a test run into a format 
-       parseable by <seealso marker="kernel:file#consult-1">file:consult/1</seealso> 
+       parseable by <seemfa marker="kernel:file#consult/1">file:consult/1</seemfa> 
        (in Kernel):
      </p>
      <code>
@@ -506,9 +506,13 @@
 	If an event cannot be associated with a test case, it is printed in
 	the <c>Common Test</c> framework log.
 	This happens for test cases running in parallel and events occuring
-	in-between test cases. You can configure the level of
-	<seealso marker="sasl:sasl_app">SASL</seealso> reports
-	using the normal SASL mechanisms.</p>
+        in-between test cases.</p>
+        <p>The log events are handled using a <seeerl marker="kernel:logger">Logger</seeerl>
+        handler called cth_log_redirect. The formatting and level is copied from
+        the current <c>default</c> handler when the cth is started. If you want to
+        use another level either change the <c>default</c> handler level before
+        starting common_test, or use the <seemfa marker="kernel:logger#set_handler_config/3">
+        <c>logger:set_handler_config/3</c></seemfa> API.</p>
        </item>
        <tag><c>cth_surefire</c></tag>
        <item>
@@ -541,7 +545,3 @@ x86_64-unknown-linux-gnu.my_test.logs/run.2012-12-12_11.19.39/suite.log.html"</c
   </section>
 
 </chapter>
-
-
-
-

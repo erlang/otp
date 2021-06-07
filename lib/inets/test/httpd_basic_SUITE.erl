@@ -37,6 +37,7 @@ all() ->
     [uri_too_long_414, 
      header_too_long_413,
      entity_too_long,
+     http_0_9_not_supported,
      erl_script_nocache_opt,
      script_nocache,
      escaped_url_in_error_body,
@@ -163,14 +164,10 @@ uri_too_long_414(Config) when is_list(Config) ->
     ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(), 
  				       "GET /morethantenchars "
  				       "HTTP/1.1\r\n\r\n",
- 				       [{statuscode, 414},
-					%% Server will send lowest version
-					%% as it will not get to the 
-					%% client version
-					%% before aborting
- 				        {version, "HTTP/0.9"}]),    
+ 				       [{statuscode, 414},                            
+       			        {version, "HTTP/1.1"}]),
     inets:stop(httpd, Pid).
-    
+
 %%-------------------------------------------------------------------------
 header_too_long_413() ->
     [{doc,"Test that too long headers's get 413 HTTP code"}].
@@ -188,7 +185,24 @@ header_too_long_413(Config) when is_list(Config) ->
  				       [{statuscode, 413},
  				        {version, "HTTP/1.1"}]),
     inets:stop(httpd, Pid).
-   
+
+%%-------------------------------------------------------------------------
+
+http_0_9_not_supported() ->
+    [{doc, "Test that HTTP 0.9 is not supported"}].
+http_0_9_not_supported(Config) when is_list(Config) ->
+    HttpdConf =   proplists:get_value(httpd_conf, Config),
+    {ok, Pid} = inets:start(httpd, HttpdConf),
+    Info = httpd:info(Pid),
+    Port = proplists:get_value(port, Info),
+    Address = proplists:get_value(bind_address, Info),
+
+    ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(),
+     				       "GET /\r\n\r\n",
+     				       [{statuscode, 505},
+     				        {version, "HTTP/1.1"}]),
+    inets:stop(httpd, Pid).
+
 %%-------------------------------------------------------------------------
 
 entity_too_long() ->
@@ -205,22 +219,14 @@ entity_too_long(Config) when is_list(Config) ->
      				       "GET / " ++
 					   lists:duplicate(5, $A) ++ "\r\n\r\n",
      				       [{statuscode, 400},
-     					%% Server will send lowest version
-    					%% as it will not get to the 
-     					%% client version
-     					%% before aborting
-     				        {version, "HTTP/0.9"}]),
-    
+     				        {version, "HTTP/1.1"}]),
+
     %% Too long
     ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(), 
  				       "GET / " ++
 					   lists:duplicate(100, $A) ++ "\r\n\r\n",
  				       [{statuscode, 413},
-					%% Server will send lowest version
-					%% as it will not get to the 
-					%% client version
-					%% before aborting
- 				        {version, "HTTP/0.9"}]),
+ 				        {version, "HTTP/1.1"}]),
     %% Not so long but wrong
     ok = httpd_test_lib:verify_request(ip_comm, Address, Port, node(), 
 				       lists:duplicate(5, $A) ++ " / "
@@ -240,7 +246,7 @@ entity_too_long(Config) when is_list(Config) ->
 					%% as it will not get to the 
 					%% client version
 					%% before aborting
- 				        {version, "HTTP/0.9"}]),   
+ 				        {version, "HTTP/1.1"}]),   
     inets:stop(httpd, Pid).
     
 %%-------------------------------------------------------------------------
@@ -302,11 +308,13 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
     
     %% Ask for a non-existing page(1)
     Path            = "/<b>this_is_bold<b>",
-    HTMLEncodedPath = http_util:html_encode(Path),
     URL2 = uri_string:recompose(#{scheme => "http",
                                   host => "localhost",
                                   port => Port,
                                   path => Path}),
+    
+    #{path := EncodedPath} = uri_string:parse(URL2),
+    HTMLEncodedPath =  http_util:html_encode(EncodedPath),
     {ok, {404, Body3}} = httpc:request(get, {URL2, []},
 				       [{url_encode,  true}, 
 					{version,     "HTTP/1.0"}],

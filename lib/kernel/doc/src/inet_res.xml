@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2009</year><year>2018</year>
+      <year>2009</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,12 +33,12 @@
   <description>
     <p>This module performs DNS name resolving to recursive name servers.</p>
     <p>See also
-      <seealso marker="erts:inet_cfg">ERTS User's Guide: Inet Configuration</seealso>
+      <seeguide marker="erts:inet_cfg">ERTS User's Guide: Inet Configuration</seeguide>
       for more information about how to configure an Erlang runtime system
       for IP communication, and how to enable this DNS client by defining
       <c><![CDATA['dns']]></c> as a lookup method.
       The DNS client then acts as a backend for the resolving functions in
-      <seealso marker="kernel:inet"><c>inet</c></seealso>.</p>
+      <seeerl marker="kernel:inet"><c>inet</c></seeerl>.</p>
     <p>This DNS client can resolve DNS records even if it
       is not used for normal name resolving in the node.</p>
     <p>This is not a full-fledged resolver, only a
@@ -48,31 +48,45 @@
   <section>
     <title>Name Resolving</title>
     <p>UDP queries are used unless resolver option
-      <c>usevc</c> is <c>true</c>, which forces TCP queries.
-      If the query is too large for UDP, TCP is used instead.
-      For regular DNS queries, 512 bytes is the size limit.</p>
+    <c>usevc</c> is <c>true</c>, which forces TCP queries.
+    If the query is too large for UDP, TCP is used instead.
+    For regular DNS queries, 512 bytes is the size limit.</p>
+
     <p>When EDNS is enabled (resolver option
-      <c>edns</c> is set to the EDNS version (that is, <c>0</c>
-      instead of <c>false</c>), resolver option
-      <c>udp_payload_size</c> sets the limit. If a name server
-      replies with the TC bit set (truncation), indicating that
-      the answer is incomplete, the query is retried
-      to that name server using TCP. Resolver option
-      <c>udp_payload_size</c> also sets the advertised
-      size for the maximum allowed reply size, if EDNS is
-      enabled, otherwise the name server uses the limit
-      512 bytes. If the reply is larger, it gets truncated,
-      forcing a TCP requery.</p>
+    <c>edns</c> is set to the EDNS version (that is, <c>0</c>
+    instead of <c>false</c>), resolver option
+    <c>udp_payload_size</c> sets the limit. If a name server
+    replies with the TC bit set (truncation), indicating that
+    the answer is incomplete, the query is retried
+    to that name server using TCP. Resolver option
+    <c>udp_payload_size</c> also sets the advertised
+    size for the maximum allowed reply size, if EDNS is
+    enabled, otherwise the name server uses the limit
+    512 bytes. If the reply is larger, it gets truncated,
+    forcing a TCP requery.</p>
+
     <p>For UDP queries, resolver options <c>timeout</c>
-      and <c>retry</c> control retransmission.
-      Each name server in the <c>nameservers</c> list is
-      tried with a time-out of <c>timeout</c>/<c>retry</c>.
-      Then all name servers are tried again, doubling the
-      time-out, for a total of <c>retry</c> times.</p>
+    and <c>retry</c> control retransmission.
+    Each name server in the <c>nameservers</c> list is
+    tried with a time-out of <c>timeout</c>/<c>retry</c>.
+    Then all name servers are tried again, doubling the
+    time-out, for a total of <c>retry</c> times.</p>
+
+    <marker id="servfail_retry_timeout"/>
+    <p>But before all name servers are tried again, there is a
+    (user configurable) timeout, <c>servfail_retry_timeout</c>.
+    The point of this is to prevent the new query to be handled by
+    a server's servfail cache (a client that is to eager will
+    actually only get what is in the servfail cache).
+    If there is too little time left
+    of the resolver call's timeout to do a retry,
+    the resolver call may return
+    before the call's timeout has expired. </p>
+
     <p>For queries not using the <c>search</c> list,
-      if the query to all <c>nameservers</c> results in
-      <c>{error,nxdomain}</c> or an empty answer, the same
-      query is tried for <c>alt_nameservers</c>.</p>
+    if the query to all <c>nameservers</c> results in
+    <c>{error,nxdomain}</c> or an empty answer, the same
+    query is tried for <c>alt_nameservers</c>.</p>
   </section>
 
   <section>
@@ -211,7 +225,7 @@ inet_dns:record_type(_) -> undefined.</pre>
         address.</fsummary>
       <desc>
         <p>Backend functions used by
-          <seealso marker="kernel:inet#gethostbyaddr/1"><c>inet:gethostbyaddr/1</c></seealso>.
+          <seemfa marker="kernel:inet#gethostbyaddr/1"><c>inet:gethostbyaddr/1</c></seemfa>.
         </p>
       </desc>
     </func>
@@ -224,10 +238,10 @@ inet_dns:record_type(_) -> undefined.</pre>
       </fsummary>
       <desc>
         <p>Backend functions used by
-          <seealso marker="kernel:inet#gethostbyname/1"><c>inet:gethostbyname/1,2</c></seealso>.
+          <seemfa marker="kernel:inet#gethostbyname/1"><c>inet:gethostbyname/1,2</c></seemfa>.
         </p>
         <p>This function uses resolver option <c>search</c> just like
-          <seealso marker="#getbyname/2"><c>getbyname/2,3</c></seealso>.
+          <seemfa marker="#getbyname/2"><c>getbyname/2,3</c></seemfa>.
         </p>
         <p>If resolver option <c>inet6</c> is <c>true</c>,
           an IPv6 address is looked up.</p>
@@ -250,7 +264,7 @@ inet_dns:record_type(_) -> undefined.</pre>
           specific types that are not <c>any</c>. An empty answer
           or a failed lookup returns an empty list.</p>
         <p>Calls
-          <seealso marker="#resolve/3"><c>resolve/*</c></seealso>
+          <seemfa marker="#resolve/3"><c>resolve/*</c></seemfa>
           with the same arguments and filters the result, so
           <c><anno>Opts</anno></c> is described for those functions.</p>
       </desc>      
@@ -266,7 +280,7 @@ inet_dns:record_type(_) -> undefined.</pre>
         <p>Resolves a DNS record of the specified type and class for the
           specified name. The returned <c>dns_msg()</c> can be examined using
           access functions in <c>inet_db</c>, as described in section
-          in <seealso marker="#dns_types">DNS Types</seealso>.</p>
+          in <seeerl marker="#dns_types">DNS Types</seeerl>.</p>
         <p>If <c><anno>Name</anno></c> is an <c>ip_address()</c>, the domain
           name to query for is generated as the standard reverse
           <c>".IN-ADDR.ARPA."</c> name for an IPv4 address, or the
@@ -282,9 +296,15 @@ inet_dns:record_type(_) -> undefined.</pre>
           function, it is used.</p>
         <p>Option <c>verbose</c> (or rather <c>{verbose,true}</c>)
           causes diagnostics printout through
-          <seealso marker="stdlib:io#format/3"><c>io:format/2</c></seealso>
+          <seemfa marker="stdlib:io#format/3"><c>io:format/2</c></seemfa>
           of queries, replies retransmissions, and so on, similar
           to from utilities, such as <c>dig</c> and <c>nslookup</c>.</p>
+        <p>Option <c>nxdomain_reply</c> (or rather <c>{nxdomain_reply,true}</c>)
+	  causes nxdomain errors from DNS servers to be returned as
+	  <c>{error, {nxdomain, dns_msg()}}</c>.
+	  <c>dns_msg()</c> contains the additional sections that where included
+	  by the answering server. This is mainly useful to inspect the SOA record
+	  to get the TTL for negative caching.</p>
         <p>If <c><anno>Opt</anno></c> is any atom, it is interpreted
           as <c>{<anno>Opt</anno>,true}</c> unless the atom string starts with
           <c>"no"</c>, making the
@@ -300,9 +320,9 @@ inet_dns:record_type(_) -> undefined.</pre>
   <section>
     <title>Example</title>
     <p>This access functions example shows how
-      <seealso marker="#lookup/3"><c>lookup/3</c></seealso>
+      <seemfa marker="#lookup/3"><c>lookup/3</c></seemfa>
       can be implemented using
-      <seealso marker="#resolve/3"><c>resolve/3</c></seealso>
+      <seemfa marker="#resolve/3"><c>resolve/3</c></seemfa>
       from outside the module:</p>
     <code type="none">
 example_lookup(Name, Class, Type) ->
@@ -317,14 +337,15 @@ example_lookup(Name, Class, Type) ->
      end.</code>
   </section>
 
-  <section>
-    <title>Legacy Functions</title>
-    <p>These are deprecated because the annoying double
-      meaning of the name servers/time-out argument, and
-      because they have no decent place for a resolver options list.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Legacy Functions</title>
+      <p>These are deprecated because the annoying double
+        meaning of the name servers/time-out argument, and
+        because they have no decent place for a resolver options list.</p>
+    </fsdescription>
     <func>
       <name name="nslookup" arity="3" since=""/>
       <name name="nslookup" arity="4" clause_i="1" since=""/>

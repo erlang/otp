@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@
 	 wildcard_one/1,wildcard_two/1,wildcard_errors/1,
 	 fold_files/1,otp_5960/1,ensure_dir_eexist/1,ensure_dir_symlink/1,
 	 wildcard_symlink/1, is_file_symlink/1, file_props_symlink/1,
-         find_source/1, find_source_subdir/1]).
+         find_source/1, find_source_subdir/1, safe_relative_path/1,
+         safe_relative_path_links/1]).
 
 -import(lists, [foreach/2]).
 
@@ -49,7 +50,8 @@ all() ->
     [wildcard_one, wildcard_two, wildcard_errors,
      fold_files, otp_5960, ensure_dir_eexist, ensure_dir_symlink,
      wildcard_symlink, is_file_symlink, file_props_symlink,
-     find_source, find_source_subdir].
+     find_source, find_source_subdir, safe_relative_path,
+     safe_relative_path_links].
 
 groups() -> 
     [].
@@ -79,9 +81,11 @@ wildcard_one(Config) when is_list(Config) ->
     do_wildcard_1(Dir,
 		  fun(Wc) ->
 			  L = filelib:wildcard(Wc),
+			  L = filelib:wildcard(disable_prefix_opt(Wc)),
 			  L = filelib:wildcard(Wc, erl_prim_loader),
 			  L = filelib:wildcard(Wc, "."),
 			  L = filelib:wildcard(Wc, Dir),
+			  L = filelib:wildcard(disable_prefix_opt(Wc), Dir),
 			  L = filelib:wildcard(Wc, Dir++"/.")
 		  end),
     file:set_cwd(OldCwd),
@@ -118,6 +122,16 @@ wcc(Wc, Error) ->
 	     [{filelib,wildcard,1,_}|_]}} = (catch filelib:wildcard(Wc)),
     {'EXIT',{{badpattern,Error},
 	     [{filelib,wildcard,2,_}|_]}} = (catch filelib:wildcard(Wc, ".")).
+
+disable_prefix_opt([_,$:|_]=Wc) ->
+    Wc;
+disable_prefix_opt([C|Wc]) when $a =< C, C =< $z; C =:= $@ ->
+    %% There is an optimization for patterns that have a literal prefix
+    %% (such as "lib/compiler/ebin/*"). Test that we'll get the same result
+    %% if we disable that optimization.
+    [$[, C, $] | Wc];
+disable_prefix_opt(Wc) ->
+    Wc.
 
 do_wildcard_1(Dir, Wcf0) ->
     do_wildcard_2(Dir, Wcf0),
@@ -300,6 +314,30 @@ do_wildcard_10(Dir, Wcf) ->
     end,
 
     del(Files),
+    wildcard_11(Dir, Wcf).
+
+%% ERL-ERL-1029/OTP-15987: Fix problems with "@/.." and ".." in general.
+wildcard_11(Dir, Wcf) ->
+    Dirs0 = ["@","@dir","dir@"],
+    Dirs = [filename:join(Dir, D) || D <- Dirs0],
+    _ = [ok = file:make_dir(D) || D <- Dirs],
+    Files0 = ["@a","b@","x","y","z"],
+    Files = mkfiles(Files0, Dir),
+
+    ["@","@a","@dir","b@","dir@","x","y","z"] = Wcf("*"),
+    ["@"] = Wcf("@"),
+    ["@","@a","@dir"] = Wcf("@*"),
+    ["@/..","@dir/.."] = Wcf("@*/.."),
+    ["@/../@","@/../@a","@/../@dir",
+     "@dir/../@","@dir/../@a","@dir/../@dir"] = Wcf("@*/../@*"),
+
+    %% Non-directories followed by "/.." should not match any files.
+    [] = Wcf("@a/.."),
+    [] = Wcf("x/.."),
+
+    %% Cleanup.
+    del(Files),
+    [ok = file:del_dir(D) || D <- Dirs],
     ok.
 
 fold_files(Config) when is_list(Config) ->
@@ -538,7 +576,7 @@ file_props_symlink(Config) ->
     end.
 
 find_source(Config) when is_list(Config) ->
-    %% filename:find_{file,source}() does not work if the files are
+    %% filelib:find_{file,source}() does not work if the files are
     %% cover-compiled. To make sure that the test does not fail
     %% when the STDLIB is cover-compiled, search for modules in
     %% the compiler application.
@@ -613,3 +651,167 @@ find_source_subdir(Config) when is_list(Config) ->
     {ok, SrcFile} = filelib:find_file(SrcName, BeamDir),
 
     ok.
+
+safe_relative_path(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Root = filename:join(PrivDir, "filelib_SUITE_safe_relative_path"),
+    ok = file:make_dir(Root),
+    ok = file:set_cwd(Root),
+
+    ok = file:make_dir("a"),
+    ok = file:set_cwd("a"),
+    ok = file:make_dir("b"),
+    ok = file:set_cwd("b"),
+    ok = file:make_dir("c"),
+
+    ok = file:set_cwd(Root),
+
+    "a" = test_srp("a"),
+    "a/b" = test_srp("a/b"),
+    "a/b" = test_srp("a/./b"),
+    "a/b" = test_srp("a/./b/."),
+
+    "" = test_srp("a/.."),
+    "" = test_srp("a/./.."),
+    "" = test_srp("a/../."),
+    "a" = test_srp("a/b/.."),
+    "a" = test_srp("a/../a"),
+    "a" = test_srp("a/../a/../a"),
+    "a/b/c" = test_srp("a/../a/b/c"),
+
+    unsafe = test_srp("a/../.."),
+    unsafe = test_srp("a/../../.."),
+    unsafe = test_srp("a/./../.."),
+    unsafe = test_srp("a/././../../.."),
+    unsafe = test_srp("a/b/././../../.."),
+
+    unsafe = test_srp(PrivDir),                 %Absolute path.
+
+    ok.
+
+test_srp(RelPath) ->
+    Res = do_test_srp(RelPath),
+    Res = case do_test_srp(list_to_binary(RelPath)) of
+              Bin when is_binary(Bin) ->
+                  binary_to_list(Bin);
+              Other ->
+                  Other
+          end.
+
+do_test_srp(RelPath) ->
+    {ok,Root} = file:get_cwd(),
+    ok = file:set_cwd(RelPath),
+    {ok,Cwd} = file:get_cwd(),
+    ok = file:set_cwd(Root),
+    case filelib:safe_relative_path(RelPath, Cwd) of
+        unsafe ->
+            true = length(Cwd) < length(Root),
+            unsafe;
+        "" ->
+            "";
+        SafeRelPath ->
+            ok = file:set_cwd(SafeRelPath),
+            {ok,Cwd} = file:get_cwd(),
+            true = length(Cwd) >= length(Root),
+            ok = file:set_cwd(Root),
+            SafeRelPath
+    end.
+
+safe_relative_path_links(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    BaseDir = filename:join(PrivDir, "filelib_SUITE_safe_relative_path_links"),
+    ok = file:make_dir(BaseDir),
+    try
+        case check_symlink_support(BaseDir) of
+            true ->
+                simple_test(BaseDir),
+                inside_directory_test(BaseDir),
+                nested_links_test(BaseDir),
+                loop_test(BaseDir),
+                loop_with_parent_test(BaseDir),
+                revist_links_test(BaseDir);
+            false ->
+                {skipped, "This platform/user can't create symlinks."}
+        end
+    after
+        %% This test leaves some rather nasty links that may screw with
+        %% z_SUITE's core file search, so we must make sure everything's
+        %% removed regardless of what happens.
+        rm_rf(BaseDir)
+    end.
+
+check_symlink_support(BaseDir) ->
+    Canary = filename:join(BaseDir, "symlink_canary"),
+    Link = filename:join(BaseDir, "symlink_canary_link"),
+    ok = file:write_file(Canary, <<"chirp">>),
+    ok =:= file:make_symlink(Canary, Link).
+
+simple_test(BaseDir) ->
+    file:make_dir(filename:join(BaseDir, "simple_test")),
+    file:make_symlink("..", filename:join(BaseDir, "simple_test/link")),
+
+    unsafe = filelib:safe_relative_path("link/file", filename:join(BaseDir, "simple_test")),
+    "file" = filelib:safe_relative_path("file", filename:join(BaseDir, "simple_test/link")).
+
+inside_directory_test(BaseDir) ->
+    file:make_dir(filename:join(BaseDir, "inside_directory_test")),
+    file:make_symlink("..", filename:join(BaseDir, "inside_directory_test/link")),
+
+    unsafe = filelib:safe_relative_path("link/file", filename:join(BaseDir, "inside_directory_test")),
+    "file" = filelib:safe_relative_path("file", filename:join(BaseDir, "inside_directory_test/link")).
+
+nested_links_test(BaseDir) ->
+    file:make_dir(filename:join(BaseDir, "nested_links_test")),
+    file:make_dir(filename:join(BaseDir, "nested_links_test/a")),
+    file:make_symlink("a/b/c", filename:join(BaseDir, "nested_links_test/link")),
+    file:make_symlink("..", filename:join(BaseDir, "nested_links_test/a/b")),
+
+    "c/file" = filelib:safe_relative_path("link/file", filename:join(BaseDir, "nested_links_test")),
+
+    file:delete(filename:join(BaseDir, "nested_links_test/a/b")),
+    file:make_symlink("../..", filename:join(BaseDir, "nested_links_test/a/b")),
+    unsafe = filelib:safe_relative_path("link/file", filename:join(BaseDir, "nested_links_test")).
+
+loop_test(BaseDir) ->
+    file:make_dir(filename:join(BaseDir, "loop_test")),
+
+    file:make_symlink("b", filename:join(BaseDir, "loop_test/c")),
+    file:make_symlink("c", filename:join(BaseDir, "loop_test/b")),
+
+    unsafe = filelib:safe_relative_path("c", filename:join(BaseDir, "loop_test")).
+
+loop_with_parent_test(BaseDir) ->
+    file:make_dir(filename:join(BaseDir, "loop_with_parent_test")),
+    file:make_dir(filename:join(BaseDir, "loop_with_parent_test/bar")),
+
+    file:make_symlink("../bar/foo", filename:join(BaseDir, "loop_with_parent_test/bar/foo")),
+
+    unsafe = filelib:safe_relative_path("bar/foo", filename:join(BaseDir, "loop_with_parent_test")).
+
+revist_links_test(BaseDir) ->
+    file:make_dir(filename:join(BaseDir, "revist_links_test")),
+
+    file:make_symlink(".", filename:join(BaseDir, "revist_links_test/x")),
+    file:make_symlink("x", filename:join(BaseDir, "revist_links_test/y")),
+    file:make_symlink("y", filename:join(BaseDir, "revist_links_test/z")),
+
+    "file" = filelib:safe_relative_path("x/file", filename:join(BaseDir, "revist_links_test")),
+    "file" = filelib:safe_relative_path("y/x/file", filename:join(BaseDir, "revist_links_test")),
+    "file" = filelib:safe_relative_path("x/x/file", filename:join(BaseDir, "revist_links_test")),
+    "file" = filelib:safe_relative_path("x/y/x/y/file", filename:join(BaseDir, "revist_links_test")),
+    "file" = filelib:safe_relative_path("x/y/z/x/y/z/file", filename:join(BaseDir, "revist_links_test")),
+    "file" = filelib:safe_relative_path("x/x/y/y/file", filename:join(BaseDir, "revist_links_test")),
+    "file" = filelib:safe_relative_path("x/z/y/x/./z/foo/../x/./y/file", filename:join(BaseDir, "revist_links_test")).
+
+rm_rf(Dir) ->
+    case file:read_link_info(Dir) of
+        {ok, #file_info{type = directory}} ->
+            {ok, Content} = file:list_dir_all(Dir),
+            [ rm_rf(filename:join(Dir,C)) || C <- Content ],
+            file:del_dir(Dir),
+            ok;
+        {ok, #file_info{}} ->
+            file:delete(Dir);
+        _ ->
+            ok
+    end.

@@ -1,0 +1,8 @@
+
+  [;1m-spec check_process_code(Pid, Module) -> CheckResult[0m
+  [;1m                            when[0m
+  [;1m                                Pid :: pid(),[0m
+  [;1m                                Module :: module(),[0m
+  [;1m                                CheckResult :: boolean().[0m
+
+  The same as [;;4mcheck_process_code(Pid, Module, [])[0m .

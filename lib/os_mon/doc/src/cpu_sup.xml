@@ -33,7 +33,7 @@
   <description>
     <p><c>cpu_sup</c> is a process which supervises the CPU load
       and CPU utilization. It is part of the OS_Mon application, see
-      <seealso marker="os_mon_app">os_mon(6)</seealso>. Available for Unix,
+      <seeapp marker="os_mon_app">os_mon(6)</seeapp>. Available for Unix,
       although CPU utilization values (<c>util/0,1</c>) are only
       available for Solaris, Linux and FreeBSD.</p>
     <p>The load values are proportional to how long time a runnable
@@ -276,7 +276,7 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="os_mon_app">os_mon(3)</seealso></p>
+    <p><seeapp marker="os_mon_app">os_mon(3)</seeapp></p>
   </section>
 </erlref>
 

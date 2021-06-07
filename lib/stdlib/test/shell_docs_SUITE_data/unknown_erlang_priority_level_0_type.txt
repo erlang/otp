@@ -1,0 +1,5 @@
+
+  [;1m-type priority_level() :: low | normal | high | max.[0m
+
+  Process priority level. For more info see [;;4mprocess_flag(priority,[0m
+  [;;4mLevel)[0m

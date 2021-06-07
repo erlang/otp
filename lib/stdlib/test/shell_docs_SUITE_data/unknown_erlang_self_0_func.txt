@@ -1,0 +1,10 @@
+
+  [;1m-spec self() -> pid().[0m
+
+  Returns the process identifier of the calling process, for
+  example:
+
+    > self().
+    <0.26.0>
+
+  Allowed in guard tests.

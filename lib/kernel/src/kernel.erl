@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,11 +64,11 @@ config_change(Changed, New, Removed) ->
 %%%   (file,code,  | erl_dist (A)| | safe_sup (1)|
 %%%    rpc, ...)    -------------   -------------
 %%%		          |               |
-%%%                  (net_kernel,  (disk_log, pg2,
+%%%                  (net_kernel,  (disk_log, pg,
 %%%          	      auth, ...)     ...)
 %%%
 %%% The rectangular boxes are supervisors.  All supervisors except
-%%% for kernel_safe_sup terminates the enitre erlang node if any of
+%%% for kernel_safe_sup terminates the entire erlang node if any of
 %%% their children dies.  Any child that can't be restarted in case
 %%% of failure must be placed under one of these supervisors.  Any
 %%% other child must be placed under safe_sup.  These children may
@@ -116,7 +116,7 @@ init([]) ->
                  restart => temporary,
                  shutdown => 2000,
                  type => supervisor,
-                 modules => [user_sup]},
+                 modules => [standard_error]},
 
     User = #{id => user,
              start => {user_sup, start, []},
@@ -141,30 +141,15 @@ init([]) ->
                   modules => [logger_sup]},
 
     case init:get_argument(mode) of
-        {ok, [["minimal"]]} ->
+        {ok, [["minimal"]|_]} ->
             {ok, {SupFlags,
                   [Code, File, StdError, User, LoggerSup, Config, RefC, SafeSup]}};
         _ ->
-            Rpc = #{id => rex,
-                    start => {rpc, start_link, []},
-                    restart => permanent,
-                    shutdown => 2000,
-                    type => worker,
-                    modules => [rpc]},
-
-            Global = #{id => global_name_server,
-                       start => {global, start_link, []},
-                       restart => permanent,
-                       shutdown => 2000,
-                       type => worker,
-                       modules => [global]},
-
-            GlGroup = #{id => global_group,
-                        start => {global_group,start_link,[]},
-                        restart => permanent,
-                        shutdown => 2000,
-                        type => worker,
-                        modules => [global_group]},
+            DistChildren =
+		case application:get_env(kernel, start_distribution) of
+		    {ok, false} -> [];
+		    _ -> start_distribution()
+		end,
 
             InetDb = #{id => inet_db,
                        start => {inet_db, start_link, []},
@@ -173,13 +158,6 @@ init([]) ->
                        type => worker,
                        modules => [inet_db]},
 
-            NetSup = #{id => net_sup,
-                       start => {erl_distribution, start_link, []},
-                       restart => permanent,
-                       shutdown => infinity,
-                       type => supervisor,
-                       modules => [erl_distribution]},
-
             SigSrv = #{id => erl_signal_server,
                        start => {gen_event, start_link, [{local, erl_signal_server}]},
                        restart => permanent,
@@ -187,14 +165,13 @@ init([]) ->
                        type => worker,
                        modules => dynamic},
 
-            DistAC = start_dist_ac(),
-
             Timer = start_timer(),
+            CompileServer = start_compile_server(),
 
             {ok, {SupFlags,
-                  [Code, Rpc, Global, InetDb | DistAC] ++
-                  [NetSup, GlGroup, File, SigSrv,
-                   StdError, User, Config, RefC, SafeSup, LoggerSup] ++ Timer}}
+                  [Code, InetDb | DistChildren] ++
+                      [File, SigSrv, StdError, User, Config, RefC, SafeSup, LoggerSup] ++
+                      Timer ++ CompileServer}}
     end;
 init(safe) ->
     SupFlags = #{strategy => one_for_one,
@@ -203,7 +180,7 @@ init(safe) ->
 
     Boot = start_boot_server(),
     DiskLog = start_disk_log(),
-    Pg2 = start_pg2(),
+    Pg = start_pg(),
 
     %% Run the on_load handlers for all modules that have been
     %% loaded so far. Running them at this point means that
@@ -211,7 +188,40 @@ init(safe) ->
     %% (and in particular call code:priv_dir/1 or code:lib_dir/1).
     init:run_on_load_handlers(),
 
-    {ok, {SupFlags, Boot ++ DiskLog ++ Pg2}}.
+    {ok, {SupFlags, Boot ++ DiskLog ++ Pg}}.
+
+start_distribution() ->
+    Rpc = #{id => rex,
+            start => {rpc, start_link, []},
+            restart => permanent,
+            shutdown => 2000,
+            type => worker,
+            modules => [rpc]},
+
+    Global = #{id => global_name_server,
+               start => {global, start_link, []},
+               restart => permanent,
+               shutdown => 2000,
+               type => worker,
+               modules => [global]},
+
+    DistAC = start_dist_ac(),
+
+    NetSup = #{id => net_sup,
+               start => {erl_distribution, start_link, []},
+               restart => permanent,
+               shutdown => infinity,
+               type => supervisor,
+               modules => [erl_distribution]},
+
+    GlGroup = #{id => global_group,
+                start => {global_group,start_link,[]},
+                restart => permanent,
+                shutdown => 2000,
+                type => worker,
+                modules => [global_group]},
+
+    [Rpc, Global | DistAC] ++ [NetSup, GlGroup].
 
 start_dist_ac() ->
     Spec = [#{id => dist_ac,
@@ -269,15 +279,15 @@ start_disk_log() ->
             []
     end.
 
-start_pg2() ->
-    case application:get_env(kernel, start_pg2) of
+start_pg() ->
+    case application:get_env(kernel, start_pg) of
         {ok, true} ->
-            [#{id => pg2,
-               start => {pg2, start_link, []},
-               restart => permanent,
-               shutdown => 1000,
-               type => worker,
-               modules => [pg2]}];
+            [#{id => pg,
+                start => {pg, start_link, []},
+                restart => permanent,
+                shutdown => 1000,
+                type => worker,
+                modules => [pg]}];
         _ ->
             []
     end.
@@ -291,6 +301,19 @@ start_timer() ->
                shutdown => 1000,
                type => worker,
                modules => [timer]}];
+        _ ->
+            []
+    end.
+
+start_compile_server() ->
+    case application:get_env(kernel, start_compile_server) of
+        {ok, true} ->
+            [#{id => erl_compile_server,
+               start => {erl_compile_server, start_link, []},
+               restart => permanent,
+               shutdown => 2000,
+               type => worker,
+               modules => [erl_compile_server]}];
         _ ->
             []
     end.

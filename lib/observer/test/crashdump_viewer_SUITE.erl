@@ -35,6 +35,8 @@
 -define(failed_file,"failed-cases.txt").
 -define(helper_mod,crashdump_helper).
 
+%% -define(P(F),    print(F)).
+-define(P(F, A), print(F, A)).
 
 
 init_per_testcase(start_stop, Config) ->
@@ -152,29 +154,41 @@ start_stop(Config) when is_list(Config) ->
     ct:log("CDV procs: ~n~p~n",[Regs]),
     [true=is_pid(P) || {P,_,_} <- Regs],
     timer:sleep(5000), % give some time to live
+    ct:log("try stop crashdump viewer (async)~n"),
     ok = crashdump_viewer:stop(),
+    ct:log("await crashdump viewer processes termination~n"),
     recv_downs(Regs),
+    ct:log("sleep some~n"),
     timer:sleep(2000),
+    ct:log("try get all processes~n"),
     ProcsAfter = processes(),
     NumProcsAfter = length(ProcsAfter),
-    if NumProcsAfter=/=NumProcsBefore ->
-	    ct:log("Before but not after:~n~p~n",
-		   [[{P,process_info(P)} || P <- ProcsBefore -- ProcsAfter]]),
-	    ct:log("After but not before:~n~p~n",
-		   [[{P,process_info(P)} || P <- ProcsAfter -- ProcsBefore]]),
-	    ct:fail("leaking processes");
+    ct:log("try verify crashdump viewer stopped~n"),
+    if (NumProcsAfter =/= NumProcsBefore) ->
+	    ct:log("Leaking processes: "
+                   "~n   Before but not after:"
+                   "~n      ~p"
+                   "~n   After but not before:"
+                   "~n      ~p",
+		   [
+                    [{P,process_info(P)} || P <- ProcsBefore -- ProcsAfter],
+                    [{P,process_info(P)} || P <- ProcsAfter -- ProcsBefore]
+                   ]);
        true ->
 	    ok
     end,
     ok.
 
 recv_downs([]) ->
+    ct:log("'DOWN' received from all registered proceses~n", []),
     ok;
 recv_downs(Regs) ->
     receive
-	{'DOWN',Ref,process,_Pid,_} ->
-	    ct:log("Got 'DOWN' for process ~n~p~n",[_Pid]),
-	    recv_downs(lists:keydelete(Ref,3,Regs))
+	{'DOWN', Ref, process, _Pid, _} ->
+            Regs2 = lists:keydelete(Ref, 3, Regs),
+	    ct:log("Got 'DOWN' for process ~p (~w procs remaining)~n",
+                   [_Pid, length(Regs2)]),
+	    recv_downs(Regs2)
     after 30000 ->
 	    ct:log("Timeout waiting for down:~n~p~n",
 		   [[{Reg,process_info(P)} || {P,_,_}=Reg <- Regs]]),
@@ -324,7 +338,8 @@ wait_for_progress_done() ->
 %%%-----------------------------------------------------------------
 %%% General check of what is displayed for a dump
 browse_file(File) ->
-    io:format("~nBrowsing file: ~s",[File]),
+    io:format("~n[~s] Browsing file: ~s", [formated_timestamp(), File]),
+    %% io:format("~nBrowsing file: ~s",[File]),
 
     ok = start_backend(File),
 
@@ -369,11 +384,10 @@ is_truncated(File) ->
     end.
 
 incomplete_allowed(File) ->
-    %% Incomplete heap is allowed for native libs, since some literals
-    %% are not dumped - and for pre OTP-20 (really pre 20.2) releases,
-    %% since literals were not dumped at all then.
+    %% Incomplete heap is allowed for pre OTP-20 (really pre 20.2)
+    %% releases, since literals were not dumped at all then.
     Rel = get_rel_from_dump_name(File),
-    Rel < 20 orelse test_server:is_native(lists).
+    Rel < 20.
 
 special(File,Procs) ->
     case filename:extension(File) of
@@ -579,8 +593,16 @@ special(File,Procs) ->
             #proc{pid=Pid0} =
                 lists:keyfind("'unicode_reg_name_αβ'",#proc.name,Procs),
             Pid = pid_to_list(Pid0),
-	    {ok,#proc{},[]} = crashdump_viewer:proc_details(Pid),
+	    {ok,Proc,[]} = crashdump_viewer:proc_details(Pid),
+            #proc{last_calls=LastCalls,stack_dump=Stk} = Proc,
             io:format("  unicode registered name ok",[]),
+
+            ["crashdump_helper_unicode:'спутник'/0",
+             "ets:new/2"|_] = lists:reverse(LastCalls),
+            io:format("  last calls ok",[]),
+
+            verify_unicode_stack(Stk),
+            io:format("  unicode stack values ok",[]),
 
 	    {ok,[#ets_table{id="'tab_αβ'",name="'tab_αβ'"}],[]} =
                 crashdump_viewer:ets_tables(Pid),
@@ -619,10 +641,34 @@ special(File,Procs) ->
             Pts = proplists:get_value(pts,Dict),
             io:format("  persistent terms ok",[]),
             ok;
+        ".global_literals" ->
+	    %% I registered a process as aaaaaaaa_global_literals in
+	    %% the dump to make sure it will be the first in the list
+	    %% when sorted on names.
+	    [#proc{pid=Pid0,name=Name}|_Rest] = lists:keysort(#proc.name,Procs),
+            "aaaaaaaa_global_literals" = Name,
+	    Pid = pid_to_list(Pid0),
+	    {ok,ProcDetails=#proc{},[]} = crashdump_viewer:proc_details(Pid),
+	    io:format("  process details ok",[]),
+
+	    #proc{dict=Dict} = ProcDetails,
+            Globals = proplists:get_value(global_literals,Dict),
+            Globals = {os:type(),os:version()},
+            io:format("  global_literals ok",[]),
+            ok;
 	_ ->
 	    ok
     end,
     ok.
+
+verify_unicode_stack([{_,{state,Str,Atom,Bin,LongBin}}|_]) ->
+    'unicode_atom_αβ' = Atom,
+    "unicode_string_αβ" = Str,
+    <<"bin αβ"/utf8>> = Bin,
+    <<"long bin αβ - a utf8 binary which can be expanded αβ"/utf8>> = LongBin,
+    ok;
+verify_unicode_stack([_|T]) ->
+    verify_unicode_stack(T).
 
 verify_binaries([H|T1], [H|T2]) ->
     %% Heap binary.
@@ -645,12 +691,17 @@ lookat_all_pids([#proc{pid=Pid0}|Procs],TruncAllowed,IncompAllowed) ->
         {[],[],[]} ->
             ok;
         {["WARNING: This process has an incomplete heap."++_],[],[]}
-          when IncompAllowed ->
+	when IncompAllowed ->
             ok;  % native libs, literals might not be included in dump
         _ when TruncAllowed ->
             ok; % truncated dump
         TWs ->
-            ct:fail({unexpected_warning,TWs})
+	    ?P("lookat_all_pids -> unexpected warning"
+	       "~n   Pid:           ~s"
+	       "~n   IncompAllowed: ~p"
+	       "~n   TruncAllowed:  ~p"
+	       "~n   ~p", [Pid, IncompAllowed, TruncAllowed, TWs]),
+            ct:fail({unexpected_warning, Pid, TWs, IncompAllowed, TruncAllowed})
     end,
     lookat_all_pids(Procs,TruncAllowed,IncompAllowed).
 
@@ -704,9 +755,10 @@ do_create_dumps(DataDir,Rel) ->
             CD6 = dump_with_unicode_atoms(DataDir,Rel,"unicode"),
             CD7 = dump_with_maps(DataDir,Rel,"maps"),
             CD8 = dump_with_persistent_terms(DataDir,Rel,"persistent_terms"),
+            CD9 = dump_with_global_literals(DataDir,Rel,"global_literals"),
             TruncDumpMod = truncate_dump_mod(CD1),
             TruncatedDumpsBinary = truncate_dump_binary(CD1),
-	    {[CD1,CD2,CD3,CD4,CD5,CD6,CD7,CD8,
+	    {[CD1,CD2,CD3,CD4,CD5,CD6,CD7,CD8,CD9,
               TruncDumpMod|TruncatedDumpsBinary],
              DosDump};
 	_ ->
@@ -886,6 +938,16 @@ dump_with_persistent_terms(DataDir,Rel,DumpName) ->
     ?t:stop_node(n1),
     CD.
 
+dump_with_global_literals(DataDir,Rel,DumpName) ->
+    Opt = rel_opt(Rel),
+    Pz = "-pz \"" ++ filename:dirname(code:which(?MODULE)) ++ "\"",
+    PzOpt = [{args,Pz}],
+    {ok,N1} = ?t:start_node(n1,peer,Opt ++ PzOpt),
+    {ok,_Pid} = rpc:call(N1,crashdump_helper,dump_global_literals,[]),
+    CD = dump(N1,DataDir,Rel,DumpName),
+    ?t:stop_node(n1),
+    CD.
+
 dump(Node,DataDir,Rel,DumpName) ->
     Crashdump = filename:join(DataDir, dump_prefix(Rel)++DumpName),
     rpc:call(Node,os,putenv,["ERL_CRASH_DUMP",Crashdump]),
@@ -947,3 +1009,26 @@ compat_rel(current) ->
     "";
 compat_rel(Rel) ->
     lists:concat(["+R",Rel," "]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% f(F, A) ->
+%%     lists:flatten(io_lib:format(F, A)).
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp({_N1, _N2, N3} = TS) ->
+    {_Date, Time}   = calendar:now_to_local_time(TS),
+    {Hour, Min, Sec} = Time,
+    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                             [Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatTS).
+
+%% print(F) ->
+%%     print(F, []).
+
+print(F, A) ->
+    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
+

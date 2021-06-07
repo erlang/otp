@@ -34,7 +34,7 @@
     <title>Introduction</title>
     <p>The module <c>cover</c> provides a set of functions for coverage
       analysis of Erlang programs, counting how many times each
-      <seealso marker="#lines">executable line</seealso> is executed.</p>
+      <seeguide marker="#lines">executable line</seeguide> is executed.</p>
     <p>Coverage analysis can be used to verify test cases, making sure all
       relevant code is covered, and may be helpful when looking for
       bottlenecks in the code.</p>
@@ -127,7 +127,7 @@ s() ->
       <p>Before any analysis can take place, the involved modules must be
         <em>Cover compiled</em>. This means that some extra information is
         added to the module before it is compiled into a binary which then
-        is <seealso marker="#loading">loaded</seealso>. The source file of
+        is <seeguide marker="#loading">loaded</seeguide>. The source file of
         the module is not affected and no <c>.beam</c> file is created.</p>
       <pre>
 2> <input>cover:compile_module(channel).</input>
@@ -381,7 +381,7 @@ File generated from channel.erl by COVER 2001-05-21 at 11:16:38
         Incidentally, when the test case is corrected a bug in <c>channel</c>
         should indeed be discovered.</p>
       <p>When the Cover analysis is ready, Cover is stopped and all Cover
-        compiled modules are <seealso marker="#loading">unloaded</seealso>.
+        compiled modules are <seeguide marker="#loading">unloaded</seeguide>.
         The code for <c>channel</c> is now loaded as usual from a
         <c>.beam</c> file in the current path.</p>
       <pre>
@@ -405,10 +405,10 @@ ok
         Cover compiled module, performance decreases proportionally to
         the size and number of the Cover compiled modules.</p>
       <p>To improve performance when analysing cover results it is possible
-	to do multiple calls to <seealso marker="cover#analyse-1">analyse</seealso>
-	and <seealso marker="cover#analyse_to_file-1">analyse_to_file</seealso>
+	to do multiple calls to <seemfa marker="cover#analyse/1">analyse</seemfa>
+	and <seemfa marker="cover#analyse_to_file/1">analyse_to_file</seemfa>
 	at once. You can also use the 
-	<seealso marker="cover#async_analyse_to_file-1">async_analyse_to_file</seealso> 
+	<seemfa marker="cover#async_analyse_to_file/1">async_analyse_to_file</seemfa> 
 	convenience function.
       </p>
     </section>

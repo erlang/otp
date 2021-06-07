@@ -28,25 +28,16 @@
 	 position/2, truncate/1, datasync/1, sync/1]).
 
 %% Specialized file operations
--export([get_size/1, get_file/1, set_file/2, get_file_close/1]).
--export([compress/1, uncompress/1, uuencode/1, uudecode/1, advise/4]).
+-export([get_size/1, get_file/1, advise/4]).
 -export([allocate/3]).
-
--export([open_mode/1]).  %% used by ftp-file
-
 -export([ipread_s32bu_p32bu/3]).
 
-
-
 %% Includes and defines
-
 -define(RAM_FILE_DRV, "ram_file_drv").
 -define(MAX_I32, (1 bsl 31)).
 -define(G_I32(X), is_integer(X), X >= -?MAX_I32, X < ?MAX_I32).
 
 -include("file.hrl").
-
-
 
 %% --------------------------------------------------------------------------
 %% These operation codes were once identical between efile_drv.c
@@ -66,12 +57,8 @@
 
 %% Other operations
 -define(RAM_FILE_GET,            30).
--define(RAM_FILE_SET,            31).
--define(RAM_FILE_GET_CLOSE,      32).
 -define(RAM_FILE_COMPRESS,       33).
 -define(RAM_FILE_UNCOMPRESS,     34).
--define(RAM_FILE_UUENCODE,       35).
--define(RAM_FILE_UUDECODE,       36).
 -define(RAM_FILE_SIZE,           37).
 -define(RAM_FILE_ADVISE,         38).
 -define(RAM_FILE_ALLOCATE,       39).
@@ -119,14 +106,6 @@ open(Data, ModeList) when is_list(ModeList) ->
  	    end;
  	{error,_}=Error ->
   	    Error
-    end;
-%% Old obsolete mode specification
-open(Data, Mode) ->
-    case mode_list(Mode) of
-	ModeList when is_list(ModeList) ->
-	    open(Data, ModeList);
-	Error ->
-	    Error
     end.
 
 close(#file_descriptor{module = ?MODULE, data = Port}) -> 
@@ -323,45 +302,9 @@ get_file(#file_descriptor{module = ?MODULE, data = Port}) ->
 get_file(#file_descriptor{}) ->
     {error, enotsup}.
 
-set_file(#file_descriptor{module = ?MODULE, data = Port}, Data) ->
-    call_port(Port, [?RAM_FILE_SET | Data]);
-set_file(#file_descriptor{}, _) ->
-    {error, enotsup}.
-
-get_file_close(#file_descriptor{module = ?MODULE, data = Port}) ->
-    case call_port(Port, [?RAM_FILE_GET_CLOSE]) of
-	{ok, {_Sz, Data}} -> 
-	    {ok, Data};
-	Error -> 
-	    Error
-    end;
-get_file_close(#file_descriptor{}) ->
-    {error, enotsup}.
-
 get_size(#file_descriptor{module = ?MODULE, data = Port}) ->
     call_port(Port, [?RAM_FILE_SIZE]);
 get_size(#file_descriptor{}) ->
-    {error, enotsup}.
-
-compress(#file_descriptor{module = ?MODULE, data = Port}) ->
-    call_port(Port, [?RAM_FILE_COMPRESS]);
-compress(#file_descriptor{}) ->
-    {error, enotsup}.
-
-uncompress(#file_descriptor{module = ?MODULE, data = Port}) ->
-    call_port(Port, [?RAM_FILE_UNCOMPRESS]);
-uncompress(#file_descriptor{}) ->
-    {error, enotsup}.
-
-
-uuencode(#file_descriptor{module = ?MODULE, data = Port}) ->
-    call_port(Port, [?RAM_FILE_UUENCODE]);
-uuencode(#file_descriptor{}) ->
-    {error, enotsup}.
-
-uudecode(#file_descriptor{module = ?MODULE, data = Port}) ->
-    call_port(Port, [?RAM_FILE_UUDECODE]);
-uudecode(#file_descriptor{}) ->
     {error, enotsup}.
 
 advise(#file_descriptor{module = ?MODULE, data = Port}, Offset,
@@ -449,21 +392,6 @@ ll_close(Port) ->
 
 %%%-----------------------------------------------------------------
 %%% Utility functions.
-
-mode_list(read) ->
-    [read];
-mode_list(write) ->
-    [write];
-mode_list(read_write) ->
-    [read, write];
-mode_list({binary, Mode}) when is_atom(Mode) ->
-    [binary | mode_list(Mode)];
-mode_list({character, Mode}) when is_atom(Mode) ->
-    mode_list(Mode);
-mode_list(_) ->
-    {error, badarg}.
-
-
 
 %% Converts a list of mode atoms into an mode word for the driver.
 %% Returns {Mode, Opts} wher Opts is a list of options for 

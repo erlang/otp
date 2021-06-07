@@ -1,0 +1,8 @@
+
+  [;1m-spec to_external(AnySet) -> ExternalSet[0m
+  [;1m                     when[0m
+  [;1m                         ExternalSet :: external_set(),[0m
+  [;1m                         AnySet :: anyset().[0m
+
+  Returns the external set of an atomic, ordered, or unordered
+  set.

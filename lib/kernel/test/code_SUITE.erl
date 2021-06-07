@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,10 +25,10 @@
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
 	 replace_path/1, load_file/1, load_abs/1, ensure_loaded/1,
-	 delete/1, purge/1, purge_many_exits/1, soft_purge/1, is_loaded/1,
-	 all_loaded/1,
+	 delete/1, purge/1, purge_many_exits/0, purge_many_exits/1,
+         soft_purge/1, is_loaded/1, all_loaded/1, all_available/1,
 	 load_binary/1, dir_req/1, object_code/1, set_path_file/1,
-	 upgrade/1,
+	 upgrade/0, upgrade/1,
 	 sticky_dir/1, pa_pz_option/1, add_del_path/1,
 	 dir_disappeared/1, ext_mod_dep/1, clash/1,
 	 where_is_file/1,
@@ -40,8 +40,8 @@
 	 on_load_deleted/1,
 	 big_boot_embedded/1,
          module_status/1,
-	 native_early_modules/1, get_mode/1,
-	 normalized_paths/1]).
+	 get_mode/1,
+	 normalized_paths/1, mult_embedded_flags/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2,
 	 init_per_suite/1, end_per_suite/1]).
@@ -55,13 +55,13 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,5}}].
+     {timetrap,{seconds,30}}].
 
 all() ->
     [set_path, get_path, add_path, add_paths, del_path,
      replace_path, load_file, load_abs, ensure_loaded,
      delete, purge, purge_many_exits, soft_purge, is_loaded, all_loaded,
-     load_binary, dir_req, object_code, set_path_file,
+     all_available, load_binary, dir_req, object_code, set_path_file,
      upgrade,
      sticky_dir, pa_pz_option, add_del_path, dir_disappeared,
      ext_mod_dep, clash, where_is_file,
@@ -72,7 +72,8 @@ all() ->
      on_load_purge, on_load_self_call, on_load_pending,
      on_load_deleted,
      module_status,
-     big_boot_embedded, native_early_modules, get_mode, normalized_paths].
+     big_boot_embedded, get_mode, normalized_paths,
+     mult_embedded_flags].
 
 %% These need to run in order
 groups() -> [{sequence, [sequence], [on_load_update,
@@ -139,6 +140,11 @@ end_per_testcase(TC, Config) when TC == mult_lib_roots;
 end_per_testcase(on_load_embedded, Config) ->
     LinkName = proplists:get_value(link_name, Config),
     _ = del_link(LinkName),
+    end_per_testcase(Config);
+end_per_testcase(upgrade, Config) ->
+    %% Make sure tracing is turned off even if the test times out.
+    erlang:trace_pattern({error_handler,undefined_function,3}, false, [global]),
+    erlang:trace(self(), false, [call]),
     end_per_testcase(Config);
 end_per_testcase(_Func, Config) ->
     end_per_testcase(Config).
@@ -349,7 +355,7 @@ load_abs(Config) when is_list(Config) ->
 ensure_loaded(Config) when is_list(Config) ->
     {module, lists} = code:ensure_loaded(lists),
     case init:get_argument(mode) of
-	{ok, [["embedded"]]} ->
+	{ok, [["embedded"] | _]} ->
 	    {error, embedded} = code:ensure_loaded(code_b_test),
 	    {error, badarg} = code:ensure_loaded(34),
 	    ok;
@@ -390,6 +396,9 @@ purge(Config) when is_list(Config) ->
     true = code_b_test:check_exit(Pid),
     process_flag(trap_exit, OldFlag),
     ok.
+
+purge_many_exits() ->
+    [{timetrap, {minutes, 2}}].
 
 purge_many_exits(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
@@ -498,6 +507,47 @@ all_unique([]) -> ok;
 all_unique([_]) -> ok;
 all_unique([{X,_}|[{Y,_}|_]=T]) when X < Y -> all_unique(T).
 
+all_available(Config) when is_list(Config) ->
+    case test_server:is_cover() of
+	true -> {skip,"Cover is running"};
+	false -> all_available_1(Config)
+    end.
+
+all_available_1(Config) ->
+
+    %% Add an ez dir to make sure the modules in there are found
+    DDir = proplists:get_value(data_dir,Config)++"clash/",
+    true = code:add_path(DDir++"foobar-0.1.ez/foobar-0.1/ebin"),
+
+    Available = code:all_available(),
+
+    %% Test that baz and blarg that are part of the .ez archive are found
+    {value, _} =
+        lists:search(fun({Name,_,Loaded}) -> not Loaded andalso Name =:= "baz" end, Available),
+    {value, _} =
+        lists:search(fun({Name,_,Loaded}) -> not Loaded andalso Name =:= "blarg" end, Available),
+
+    %% Test that all loaded are part of all available
+    Loaded = [{atom_to_list(M),P,true} || {M,P} <- code:all_loaded()],
+    [] = Loaded -- Available,
+
+    {value, {ModStr,_,false} = NotLoaded} =
+        lists:search(fun({Name,_,Loaded}) -> not is_atom(Name) end, Available),
+    ct:log("Testing with ~p",[NotLoaded]),
+
+    Mod = list_to_atom(ModStr),
+
+    %% Test that the module is actually not loaded
+    false = code:is_loaded(Mod),
+
+    %% Load it
+    Mod:module_info(),
+
+    {value, {ModStr,_,true}} =
+        lists:search(fun({Name,_,_}) -> Name =:= ModStr end, code:all_available()),
+
+    ok.
+
 load_binary(Config) when is_list(Config) ->
     TestDir = test_dir(),
     File = TestDir ++ "/code_b_test" ++ code:objfile_extension(),
@@ -514,24 +564,12 @@ load_binary(Config) when is_list(Config) ->
     ok.
 
 
+upgrade() ->
+    [{timetrap,{minutes,2}}].
+
 upgrade(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
-
-    case erlang:system_info(hipe_architecture) of
-        undefined ->
-            upgrade_do(DataDir, beam, [beam]);
-
-        _ ->
-            T = [beam, hipe],
-            [upgrade_do(DataDir, Client, T) || Client <- T],
-
-            case hipe:llvm_support_available() of
-                false -> ok;
-                true  ->
-                    T2 = [beam, hipe_llvm],
-                    [upgrade_do(DataDir, Client, T2) || Client <- T2]
-            end
-    end,
+    upgrade_do(DataDir, beam, [beam]),
     ok.
 
 upgrade_do(DataDir, Client, T) ->
@@ -551,12 +589,8 @@ compile_load(Mod, Dir, Ver, CodeType) ->
 		[Ver, Mod, CodeType]),
 	    [{d,list_to_atom("VERSION_" ++ integer_to_list(Ver))}]
     end,
-    Target = case CodeType of
-	beam -> [];
-	hipe -> [native];
-	hipe_llvm -> [native,{hipe,[to_llvm]}]
-    end,
-    CompOpts = [binary, report] ++ Target ++ Version,
+
+    CompOpts = [binary, report] ++ Version,
 
     Src = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
     T1 = erlang:now(),
@@ -788,8 +822,7 @@ analyse([], [This={M,F,A}|Path], Visited, ErrCnt0) ->
     %% the code_server is started.
     OK = [erlang, os, prim_file, erl_prim_loader, init, ets,
 	  code_server, lists, lists_sort, unicode, binary, filename,
-	  gb_sets, gb_trees, hipe_unified_loader, hipe_bifs,
-	  erts_code_purger,
+	  gb_sets, gb_trees, erts_code_purger, erts_internal, code,
 	  prim_zip, zlib],
     ErrCnt1 =
 	case lists:member(M, OK) or erlang:is_builtin(M,F,A) of
@@ -867,18 +900,6 @@ check_funs({'$M_EXPR','$F_EXPR',_},
 	    {code_server,start_link,1}]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',_},
 	   [{erlang,spawn_link,1},{code_server,start_link,1}]) -> 0;
-check_funs({'$M_EXPR','$F_EXPR',2},
-	   [{hipe_unified_loader,write_words,3} | _]) -> 0;
-check_funs({'$M_EXPR','$F_EXPR',2},
-	   [{hipe_unified_loader,patch_label_or_labels,4} | _]) -> 0;
-check_funs({'$M_EXPR','$F_EXPR',2},
-	   [{hipe_unified_loader,sort_and_write,5} | _]) -> 0;
-check_funs({'$M_EXPR','$F_EXPR',2},
-	   [{lists,foldl,3},
-	    {hipe_unified_loader,sort_and_write,5} | _]) -> 0;
-check_funs({'$M_EXPR','$F_EXPR',1},
-	   [{lists,foreach,2},
-	    {hipe_unified_loader,patch_consts,4} | _]) -> 0;
 check_funs({'$M_EXPR',warning_msg,2},
 	   [{code_server,finish_on_load_report,2} | _]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',1},
@@ -889,17 +910,6 @@ check_funs({'$M_EXPR','$F_EXPR',2},
 	   [{code_server,handle_pending_on_load,4}|_]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',2},
 	   [{code_server,finish_on_load_2,3}|_]) -> 0;
-%% This is cheating! /raimo
-%%
-%% check_funs(This = {M,_,_}, Path) ->
-%%     case catch atom_to_list(M) of
-%% 	[$h,$i,$p,$e | _] ->
-%% 	    io:format("hipe_module_ignored(~p, ~p)~n", [This, Path]),
-%% 	    0;
-%% 	_ ->
-%% 	    io:format("not_verified(~p, ~p)~n", [This, Path]),
-%% 	    1
-%%     end;
 check_funs(This, Path) ->
     io:format("not_verified(~p, ~p)~n", [This, Path]),
     1.
@@ -1021,6 +1031,13 @@ mult_lib_remove_prefix([H|T1], [H|T2]) ->
 mult_lib_remove_prefix([$/|T], []) -> T.
 
 bad_erl_libs(Config) when is_list(Config) ->
+    %% Preserve ERL_LIBS if set.
+    BadLibs0 = "/no/such/dir",
+    BadLibs =
+         case os:getenv("ERL_LIBS") of
+             false -> BadLibs0;
+             Libs -> BadLibs0 ++ ":" ++ Libs
+         end,
     {ok,Node} =
 	test_server:start_node(bad_erl_libs, slave, []),
     Code = rpc:call(Node,code,get_path,[]),
@@ -1028,10 +1045,9 @@ bad_erl_libs(Config) when is_list(Config) ->
 
     {ok,Node2} =
 	test_server:start_node(bad_erl_libs, slave,
-			       [{args,"-env ERL_LIBS /no/such/dir"}]),
+			       [{args,"-env ERL_LIBS " ++ BadLibs}]),
     Code2 = rpc:call(Node,code,get_path,[]),
     test_server:stop_node(Node2),
-
     %% Test that code path is not affected by the faulty ERL_LIBS
     Code = Code2,
 
@@ -1367,12 +1383,6 @@ create_big_boot(Config) ->
     {filename:join(LatestDir, LatestName),Apps}.
 
 %% The following apps cannot be loaded.
-%% hipe .app references (or can reference) files that have no
-%% corresponding beam file (if hipe is not enabled).
-filter_app("hipe",_) -> false;
-
-%% Dialyzer depends on hipe
-filter_app("dialyzer",_) -> false;
 
 %% Orber requires explicit configuration
 filter_app("orber",_) -> false;
@@ -1399,6 +1409,9 @@ filter_app("os_mon",true) -> false;
 
 %% erts is not a "real" app either =/
 filter_app("erts",_) -> false;
+
+%% wx* depends on that wxwidgets libs
+filter_app("wx"++_,_) -> false;
 
 %% Other apps should be OK.
 filter_app(_,_) -> true.
@@ -1550,6 +1563,11 @@ on_load_update_code_1(3, Mod) ->
 
 %% Test -on_load while trace feature 'on_load' is enabled (OTP-14612)
 on_load_trace_on_load(Config) ->
+    %% 'on_load' enables tracing for all newly loaded modules, so we make a dry
+    %% run to ensure that ancillary modules like 'merl' won't be loaded during
+    %% the actual test.
+    on_load_update(Config),
+
     Papa = self(),
     Tracer = spawn_link(fun F() -> receive M -> Papa ! M end, F() end),
     {tracer,[]} = erlang:trace_info(self(),tracer),
@@ -1769,35 +1787,6 @@ delete_before_reload(Mod, Reload) ->
 
     ok.
 
-
-%% Test that the native code of early loaded modules is loaded.
-native_early_modules(Config) when is_list(Config) ->
-    case erlang:system_info(hipe_architecture) of
-	undefined ->
-	    {skip,"Native code support is not enabled"};
-	Architecture ->
-	    native_early_modules_1(Architecture)
-    end.
-
-native_early_modules_1(Architecture) ->
-    {lists, ListsBinary, _ListsFilename} = code:get_object_code(lists),
-    ChunkName = hipe_unified_loader:chunk_name(Architecture),
-    NativeChunk = beam_lib:chunks(ListsBinary, [ChunkName]),
-    IsHipeCompiled = case NativeChunk of
-        {ok,{_,[{_,Bin}]}} when is_binary(Bin) -> true;
-        {error, beam_lib, _} -> false
-    end,
-    case IsHipeCompiled of
-        false ->
-	    {skip,"OTP apparently not configured with --enable-native-libs"};
-        true ->
-	    true = lists:all(fun code:is_module_native/1,
-		[ets,file,filename,gb_sets,gb_trees,
-		    %%hipe_unified_loader, no_native as workaround
-		    lists,os]),
-            ok
-    end.
-
 %% Test that the mode of the code server is properly retrieved.
 get_mode(Config) when is_list(Config) ->
     interactive = code:get_mode().
@@ -1815,6 +1804,28 @@ do_normalized_paths([M|Ms]) ->
 	    do_normalized_paths(Ms)
     end;
 do_normalized_paths([]) ->
+    ok.
+
+%% Make sure that the extra -mode flags are ignored
+mult_embedded_flags(_Config) ->
+    Modes = [{" -mode embedded", embedded},
+	     {" -mode interactive", interactive},
+	     {" -mode invalid", interactive}],
+
+    [ begin
+	  {ArgMode, ExpectedMode} = Mode,
+	  {ok, Node} = start_node(mode_test, ArgMode),
+	  ExpectedMode = rpc:call(Node, code, get_mode, []),
+	  true = stop_node(Node)
+      end || Mode <- Modes],
+
+    [ begin
+	  {ArgIgnoredMode, _} = IgnoredMode,
+	  {ArgRelevantMode, ExpectedMode} = RelevantMode,
+	  {ok, Node} = start_node(mode_test, ArgRelevantMode ++ ArgIgnoredMode),
+	  ExpectedMode = rpc:call(Node, code, get_mode, []),
+	  true = stop_node(Node)
+      end || IgnoredMode <- Modes, RelevantMode <- Modes],
     ok.
 
 %% Test that module_status/1 behaves as expected
@@ -1838,6 +1849,11 @@ module_status() ->
     loaded = code:module_status(erlang),        % preloaded
     loaded = code:module_status(?MODULE),       % normal known loaded
 
+    %% module_status/0 returns status for each loaded module
+    true = (lists:sort([{M, code:module_status(M)}
+                        || {M, _} <- code:all_loaded()])
+            =:= lists:sort(code:module_status())),
+
     non_existing = code:which(?TESTMOD), % verify dummy name not in path
     code:purge(?TESTMOD), % ensure no previous version in memory
     code:delete(?TESTMOD),
@@ -1849,6 +1865,11 @@ module_status() ->
     ok = ?TESTMOD:f(),
     "" = code:which(?TESTMOD), % verify empty string for source file
     loaded = code:module_status(?TESTMOD),
+
+    %% module_status/1 also accepts a list of modules
+    [] = code:module_status([]),
+    [{erlang, loaded},{?MODULE,loaded},{?TESTMOD,loaded}] =
+        code:module_status([erlang, ?MODULE, ?TESTMOD]),
 
     %% deleting generated code
     true = code:delete(?TESTMOD),
@@ -1899,63 +1920,10 @@ module_status() ->
     compile_beam(0),
     loaded = code:module_status(?TESTMOD),
 
-    case erlang:system_info(hipe_architecture) of
-	undefined ->
-	    %% no native support
-	    ok;
-	_ ->
-	    %% native chunk is ignored if beam code is already loaded
-	    load_code(),
-	    loaded = code:module_status(?TESTMOD),
-	    false = has_native(?TESTMOD),
-	    compile_native(0),
-	    BeamMD5 = erlang:get_module_info(?TESTMOD, md5),
-	    {ok,{?TESTMOD,BeamMD5}} = beam_lib:md5(?TESTMODOBJ), % beam md5 unchanged
-	    loaded = code:module_status(?TESTMOD),
-
-	    %% native code reported as loaded, though different md5 from beam
-	    load_code(),
-	    true = has_native(?TESTMOD),
-	    NativeMD5 = erlang:get_module_info(?TESTMOD, md5),
-	    true = (BeamMD5 =/= NativeMD5),
-	    loaded = code:module_status(?TESTMOD),
-
-	    %% recompilation ignores timestamps, only md5 matters
-	    compile_native(1100), % later timestamp
-	    loaded = code:module_status(?TESTMOD),
-
-	    %% modifying native module detects different md5
-	    make_source_file(<<"2">>),
-	    compile_native(0),
-	    modified = code:module_status(?TESTMOD),
-
-	    %% loading the modified native code from disk makes it loaded
-	    load_code(),
-	    true = has_native(?TESTMOD),
-	    NativeMD5_2 = erlang:get_module_info(?TESTMOD, md5),
-	    true = (NativeMD5 =/= NativeMD5_2), % verify native md5 changed
-	    {ok,{?TESTMOD,BeamMD5_2}} = beam_lib:md5(?TESTMODOBJ),
-	    true = (BeamMD5_2 =/= NativeMD5_2), % verify md5 differs from beam
-	    loaded = code:module_status(?TESTMOD),
-
-	    %% removing and recreating a native module with same md5
-	    remove_code(),
-	    removed = code:module_status(?TESTMOD),
-	    compile_native(0),
-	    loaded = code:module_status(?TESTMOD),
-
-	    %% purging/deleting native module
-	    code:purge(?TESTMOD),
-	    true = code:delete(?TESTMOD),
-	    not_loaded = code:module_status(?TESTMOD)
-    end,
     ok.
 
 compile_beam(Sleep) ->
     compile(Sleep, []).
-
-compile_native(Sleep) ->
-    compile(Sleep, [native]).
 
 compile(Sleep, Opts) ->
     timer:sleep(Sleep),  % increment compilation timestamp
@@ -1967,12 +1935,6 @@ load_code() ->
 
 remove_code() ->
     ok = file:delete(?TESTMODOBJ).
-
-has_native(Module) ->
-    case erlang:get_module_info(Module, native_addresses) of
-	[] -> false;
-	[_|_] -> true
-    end.
 
 make_source_file(Body) ->
     ok = file:write_file(?TESTMODSRC, dummy_source(Body)).

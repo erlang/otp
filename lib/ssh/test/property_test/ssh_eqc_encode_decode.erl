@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,36 +23,7 @@
 
 -compile(export_all).
 
--proptest(eqc).
--proptest([triq,proper]).
-
--ifndef(EQC).
--ifndef(PROPER).
--ifndef(TRIQ).
--define(EQC,true).
-%%-define(PROPER,true).
-%%-define(TRIQ,true).
--endif.
--endif.
--endif.
-
--ifdef(EQC).
--include_lib("eqc/include/eqc.hrl").
--define(MOD_eqc,eqc).
-
--else.
--ifdef(PROPER).
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc,proper).
-
--else.
--ifdef(TRIQ).
--define(MOD_eqc,triq).
--include_lib("triq/include/triq.hrl").
-
--endif.
--endif.
--endif.
+-include_lib("common_test/include/ct_property_test.hrl").
 
 %% Public key records:
 -include_lib("public_key/include/public_key.hrl").
@@ -215,7 +186,7 @@ gen_pubkey_string(Type) ->
 		 ecdsa -> {#'ECPoint'{point=[1,2,3,4,5]},
 			   {namedCurve,{1,2,840,10045,3,1,7}}} % 'secp256r1' nistp256
 	     end,
-    gen_string(public_key:ssh_encode(PubKey, ssh2_pubkey)).
+    gen_string(ssh_message:ssh2_pubkey_encode(PubKey)).
 
     
 gen_signature_string(Type) ->

@@ -3,6 +3,7 @@
 ## License
 
 By making a contribution to this project, I certify that:
+
 (a) The contribution was created in whole or in part by me and I
     have the right to submit it under the open source license
     indicated in the file; or
@@ -29,13 +30,13 @@ By making a contribution to this project, I certify that:
 Erlang/otp is licensed under the
 Apache License 2.0
 
-As stated in: LICENSE.txt 
+As stated in: [LICENSE.txt](LICENSE.txt)
 
 http://developercertificate.org/
 
 ## Reporting a bug
 
-Report bugs at https://bugs.erlang.org. See [Bug reports](https://github.com/erlang/otp/wiki/Bug-reports)
+Report bugs at https://github.com/erlang/otp/issues. See [Bug reports](https://github.com/erlang/otp/wiki/Bug-reports)
 for more information.
 
 ## Submitting Pull Requests
@@ -94,6 +95,9 @@ a discussion on the mailing list.
 * Make sure existing test cases don't fail. It is not necessary to run all tests (that would take many hours),
 but you should at least run the tests for the application you have changed.
 See [Running tests](https://github.com/erlang/otp/wiki/Running-tests).
+* Make sure the documentation builds and is according to the dtd. eg. `make xmllint` or `cd lib/stdlib/ && make xmllint`
+* Make sure no new dialyzer warnings have been added. eg. `make dialyzer` or `cd lib/stdlib/ && make dialyzer`
+* Make sure that travis passes, if you go to https://travis-ci.org/$YOUR_GITHUB_USER/otp/ you can enable travis builds for you otp fork.
 
 Make sure that your branch contains clean commits:
 
@@ -105,8 +109,11 @@ Make sure that your branch contains clean commits:
 * Don't merge `maint` or `master` into your branch. Use `git rebase` if you need to resolve merge
 conflicts or include the latest changes.
 
-* To make it possible to use the powerful `git bisect` command, make sure that each commit can be
-compiled and that it works.
+* Each commit should represent a logical change, such as a feature added or bug fixed, and also include relevant changes to documentation and tests.
+
+* Each commit should compile separately and pass the most relevant test cases. This makes it possible to use the powerful `git bisect` command.
+
+* Changes to multiple applications should be made in separate commits to facilitate code reviews, unless special circumstances motivates a single commit, such as not breaking the ability to build cleanly.
 
 * Check for unnecessary whitespace before committing with `git diff --check`.
 However, do not fix preexisting whitespace errors in otherwise untouched source lines.

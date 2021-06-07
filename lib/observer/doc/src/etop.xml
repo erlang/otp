@@ -93,7 +93,7 @@
     </taglist>
 
     <p>For details about Erlang Top, see the
-    <seealso marker="etop_ug">User's Guide</seealso>.</p>
+    <seeguide marker="etop_ug">User's Guide</seeguide>.</p>
 
   </description>
   <funcs>
@@ -116,7 +116,7 @@
       </type>
       <desc>
         <p>Starts <c>etop</c>. To view the possible options, use
-          <seealso marker="#help/0"><c>help/0</c></seealso>.</p>
+          <seemfa marker="#help/0"><c>help/0</c></seemfa>.</p>
       </desc>
     </func>
     <func>

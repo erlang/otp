@@ -1,0 +1,9 @@
+%{
+  "credentials_obfuscation": {:hex, :credentials_obfuscation, "1.1.0", "513793cc20c18afc9e03e584b436192a751a8344890e03a8741c65c8d6866fab", [:rebar3], [], "hexpm"},
+  "goldrush": {:hex, :goldrush, "0.1.9", "f06e5d5f1277da5c413e84d5a2924174182fb108dabb39d5ec548b27424cd106", [:rebar3], [], "hexpm"},
+  "jsx": {:hex, :jsx, "2.9.0", "d2f6e5f069c00266cad52fb15d87c428579ea4d7d73a33669e12679e203329dd", [:mix, :rebar3], [], "hexpm"},
+  "lager": {:hex, :lager, "3.8.0", "3402b9a7e473680ca179fc2f1d827cab88dd37dd1e6113090c6f45ef05228a1c", [:rebar3], [{:goldrush, "0.1.9", [hex: :goldrush, repo: "hexpm", optional: false]}], "hexpm"},
+  "rabbit_common": {:hex, :rabbit_common, "3.7.18", "4249efdf1fd96a81739ffad675582f980cc55aa0a02217e4907b4cd719c44822", [:make, :rebar3], [{:credentials_obfuscation, "1.1.0", [hex: :credentials_obfuscation, repo: "hexpm", optional: false]}, {:jsx, "2.9.0", [hex: :jsx, repo: "hexpm", optional: false]}, {:lager, "3.8.0", [hex: :lager, repo: "hexpm", optional: false]}, {:ranch, "1.7.1", [hex: :ranch, repo: "hexpm", optional: false]}, {:recon, "2.5.0", [hex: :recon, repo: "hexpm", optional: false]}], "hexpm"},
+  "ranch": {:hex, :ranch, "1.7.1", "6b1fab51b49196860b733a49c07604465a47bdb78aa10c1c16a3d199f7f8c881", [:rebar3], [], "hexpm"},
+  "recon": {:hex, :recon, "2.5.0", "2f7fcbec2c35034bade2f9717f77059dc54eb4e929a3049ca7ba6775c0bd66cd", [:mix, :rebar3], [], "hexpm"},
+}

@@ -51,6 +51,22 @@ PrivateKeyInfo ::= SEQUENCE {
   privateKey PrivateKey,
   attributes [0] Attributes OPTIONAL }
 
+-- START FROM RFC 5958
+OneAsymmetricKey ::= SEQUENCE {
+     version                   Version,
+     privateKeyAlgorithm       AlgorithmIdentifier {{...}},
+     privateKey                PrivateKey,
+     attributes            [0] Attributes OPTIONAL,
+     ...,
+     [[2: publicKey        [1] PublicKey OPTIONAL ]],
+     ...
+   }
+
+PublicKey ::= BIT STRING
+                     -- Content varies based on type of key. The
+                     -- algorithm identifier dictates the format of
+                     -- the key.
+-- END FROM RFC 5958
 Version ::= INTEGER {v1(0)} (v1,...)
 
 PrivateKey ::= OCTET STRING

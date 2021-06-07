@@ -117,7 +117,11 @@ call(AppMaster, Req) ->
 init(Parent, Starter, ApplData, Type) ->
     link(Parent),
     process_flag(trap_exit, true),
-    OldGleader = group_leader(),
+    OldGleader =
+        case group_leader() == whereis(init) of
+            true -> init;
+            false -> group_leader()
+        end,
     %% We become the group leader, but forward all I/O to OldGleader.
     %% This is just a way to identify processes that belong to the
     %% application. Used for example to find ourselves from any
@@ -158,7 +162,7 @@ start_it(State, Type) ->
 init_loop(Pid, Tag, State, Type) ->
     receive
  	IoReq when element(1, IoReq) =:= io_request ->
-	    State#state.gleader ! IoReq,
+            _ = relay_to_group_leader(IoReq, State),
 	    init_loop(Pid, Tag, State, Type);
 	{Tag, Res} ->
 	    Res;
@@ -175,7 +179,7 @@ init_loop(Pid, Tag, State, Type) ->
 main_loop(Parent, State) ->
     receive
 	IoReq when element(1, IoReq) =:= io_request ->
-	    State#state.gleader ! IoReq,
+            _ = relay_to_group_leader(IoReq, State),
 	    main_loop(Parent, State);
 	{'EXIT', Parent, Reason} ->
 	    terminate(Reason, State);
@@ -198,7 +202,7 @@ main_loop(Parent, State) ->
 terminate_loop(Child, State) ->
     receive
  	IoReq when element(1, IoReq) =:= io_request ->
-	    State#state.gleader ! IoReq,
+            _ = relay_to_group_leader(IoReq, State),
 	    terminate_loop(Child, State);
 	{'EXIT', Child, _} ->
 	    ok;
@@ -231,8 +235,20 @@ terminate(Reason, State = #state{child=Child, children=Children, req=Reqs}) ->
     kill_children(Children),
     exit(Reason).
 
-
-
+%% If the group_leader is the `init` process, the message is meant to
+%% end up in `user` so we send it there directly.
+relay_to_group_leader(IoReq, State) ->
+    if
+        State#state.gleader =:= init ->
+            case whereis(user) of
+                undefined ->
+                    State#state.gleader ! IoReq;
+                User ->
+                    User ! IoReq
+            end;
+        true ->
+            State#state.gleader ! IoReq
+    end.
 
 %%======================================================================
 %%======================================================================
@@ -365,10 +381,10 @@ loop_it(Parent, Child, Mod, AppState) ->
 	    NewAppState = prep_stop(Mod, AppState),
 	    exit(Child, Reason),
 	    receive
-		{'EXIT', Child, Reason2} ->
-		    exit(Reason2)
+		{'EXIT', Child, _} -> ok
 	    end,
-	    catch Mod:stop(NewAppState);
+	    catch Mod:stop(NewAppState),
+	    exit(Reason);
 	{'EXIT', Child, Reason} -> % forward *all* exit reasons (inc. normal)
 	    NewAppState = prep_stop(Mod, AppState),
 	    catch Mod:stop(NewAppState),

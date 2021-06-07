@@ -14,6 +14,12 @@ size="-3">TM</font></sup> programming language, EDoc is adapted to the
 conventions of the Erlang world, and has several features not found in
 Javadoc.
 
+EDoc can generate static HTML documentation accessible with any
+web browser or
+<a href="https://www.erlang.org/erlang-enhancement-proposals/eep-0048.html">EEP-48</a>
+doc chunks with {@link //erl_docgen/doc_storage. application/erlang+html}
+to provide documentation for other tools like {@link //stdlib/shell_docs}.
+
 == Contents ==
 
 <ol>
@@ -29,6 +35,7 @@ Javadoc.
   <li>{@section Wiki notation}</li>
   <li>{@section Macro expansion}</li>
   <li>{@section Type specifications}</li>
+  <li>{@section Doc chunks}</li>
   <li>{@section Acknowledgements}</li>
 </ol>
 
@@ -73,17 +80,24 @@ in the "footer".
 == Running EDoc ==
 
 The following are the main functions for running EDoc:
-    <ul>
-      <li>{@link edoc:application/2}: Creates documentation for a
-	  typical Erlang application.</li>
-      <li>{@link edoc:files/2}: Creates documentation for a
-	  specified set of source files.</li>
-      <li>{@link edoc:run/2}: General interface function; the common
-          back-end for the above functions. Options are documented here.</li>
-    </ul>
+<ul>
+<li>{@link edoc:application/2}: Creates documentation for a
+    typical Erlang application.</li>
+<li>{@link edoc:files/2}: Creates documentation for a
+    specified set of source files.</li>
+<li>{@link edoc:run/2}: General interface function; the common
+    back-end for the above functions. Options are documented here.</li>
+</ul>
 
 Note that the function {@link edoc:file/2} belongs to the old, deprecated
 interface (from EDoc version 0.1), and should not be used.
+
+It's also possible to run EDoc directly from the command line,
+using the {@link edoc_cmd. `bin/edoc' EScript}.
+The script acts as a command line entry point to both {@link edoc:application/2}
+and {@link edoc:files/2} functions.
+It also allows to generate just the EEP-48 doc chunks (using the `-chunks' flag)
+instead of the complete HTML documentation.
 
 
 == The overview page ==
@@ -766,14 +780,19 @@ following escape sequences may be used: <dl>
  === Function specifications ===
 
 Note that although the syntax described in the following can still be used
-for specifying functions we recommend that Erlang specifications as
-described in <seealso marker="doc/reference_manual:typespec"> Types
-and Function Specification</seealso> should be added to the source
-code instead. This way the analyses of <seealso
-marker="dialyzer:dialyzer">Dialyzer</seealso>'s can be utilized in the
+for specifying functions we recommend that Erlang specifications
+(that is the `-spec' and `-type' attributes)
+as described in <seeguide marker="system/reference_manual:typespec"> Types
+and Function Specification</seeguide> should be added to the source
+code instead. This way the analyses of <seeerl
+marker="dialyzer:dialyzer">Dialyzer</seeerl>'s can be utilized in the
 process of keeping the documentation consistent and up-to-date.
-Erlang specifications will be used unless there is also a function
-specification (a `@spec' tag followed by a type) with the same name.
+
+Erlang specifications (`-spec' and `-type') are required to properly
+generate doc chunks. Redundant `-spec' attributes and `@spec' tags will
+cause warnings to be emitted and the specifications to be skipped in chunks.
+Old-style `@spec' and `@type' specifications can still be used to generate
+static HTML documentation.
 
 The following grammar describes the form of the specifications following
 a `@spec' tag. A '`?'' suffix implies that the element is optional.
@@ -984,10 +1003,14 @@ contain any annotations at all.
 
 Note that although the syntax described in the following can still be used
 for specifying types we recommend that Erlang types as described in
-<seealso marker="doc/reference_manual:typespec"> Types and Function
-Specification</seealso> should be added to the source code instead.
-Erlang types will be used unless there is a type alias with the same
-name.
+<seeguide marker="system/reference_manual:typespec"> Types and Function
+Specification</seeguide> should be added to the source code instead.
+
+Old-style `@type' tags will result in just type names, but no definitions,
+in doc chunks - please use `-type' attributes to ensure all
+available type information is available in the chunks.
+For static HTML, Erlang types will be used unless there is a type alias
+with the same name.
 
 The following grammar (see above for auxiliary definitions) describes
 the form of the definitions that may follow a `@type' tag:
@@ -1091,6 +1114,127 @@ Details:
   <li>`none()' means "no data type". E.g., a function
       that never returns has type `(...) -> none()'</li>
 </ul>
+
+
+== Doc chunks ==
+
+EDoc implements <a href="https://www.erlang.org/erlang-enhancement-proposals/eep-0048.html">EEP-48</a>
+and allows to output doc chunks for Erlang projects which use the EDoc language for source
+code documentation.
+
+There are two ways to generate the doc chunks: either by using {@link edoc_cmd. `bin/edoc'}
+or by using the <a href="http://rebar3.org/docs/commands/#edoc">Rebar3 `edoc' command</a>.
+Ultimately, they're both just entry points to EDoc, the application,
+so deciding which to use is just a matter of preference.
+
+=== Using edoc EScript ===
+
+In order to generate doc chunks using {@link edoc_cmd. `bin/edoc'},
+make sure the compiled Erlang app can be found in the Erlang code path:
+
+```
+$ pwd
+/tmp/recon
+$ rebar3 compile
+$ export PATH="$(dirname `which erl`)/../lib/erlang/lib/edoc-0.12/bin:$PATH"
+$ edoc -app recon -chunks -pa _build/default/lib/recon/ebin
+Running with opts:
+#{app => recon,
+  code_paths => ["_build/default/lib/recon/ebin"],
+  files => [],mode => chunks,run => app}
+$ ls _build/default/lib/recon/doc/chunks/
+recon.chunk        recon_lib.chunk    recon_rec.chunk
+recon_alloc.chunk  recon_map.chunk    recon_trace.chunk
+'''
+
+The project does not have to be built with Rebar3 - the above is just an example.
+From now on the chunks will be available as the source
+of {@link //stdlib/shell_docs. documentation for the Erlang shell}:
+
+```
+$ erl -pa _build/default/lib/recon/ebin
+...
+1> h(recon).
+
+   recon
+
+  Recon, as a module, provides access to the high-level functionality contained in the
+  Recon application.
+  ...
+
+2> h(recon_alloc, allocators, 0).
+
+  -spec allocators() -> [allocdata(term())].
+
+  returns a dump of all allocator settings and values
+'''
+
+=== Using Rebar3 edoc command ===
+
+Doc chunks can also be built using `rebar3 edoc', given `edoc_opts' is properly set up:
+
+```
+$ pwd
+/tmp/recon
+$ cat >> rebar.config <<EOF
+> {edoc_opts, [{doclet, edoc_doclet_chunks},
+>              {layout, edoc_layout_chunks},
+>              {preprocess, true},
+>              {dir, "_build/docs/lib/recon/doc"}]}.
+> EOF
+$ rebar3 edoc
+$ ls _build/docs/lib/recon/doc/chunks/
+recon.chunk        recon_lib.chunk    recon_rec.chunk
+recon_alloc.chunk  recon_map.chunk    recon_trace.chunk
+'''
+
+`rebar3 shell' will set up the paths for us if we use the `docs' profile:
+
+```
+$ rebar3 as docs shell
+...
+1> h(recon).
+
+   recon
+
+  Recon, as a module, provides access to the high-level functionality contained in the
+  Recon application.
+  ...
+'''
+
+=== Using the EDoc API ===
+
+EDoc comes with two sets of doclet/layout pairs:
+<ul>
+<li>{@link edoc_doclet} and {@link edoc_layout} - the default pair which
+    is used to generate static HTML documentation</li>
+<li>{@link edoc_doclet_chunks} and {@link edoc_layout_chunks} - the
+    <a href="https://www.erlang.org/erlang-enhancement-proposals/eep-0048.html">EEP-48</a>
+    compliant pair which generates doc chunks
+    with {@link //erl_docgen/doc_storage. application/erlang+html}</li>
+</ul>
+
+In order to generate doc chunks using {@link edoc:application/2}
+or {@link edoc:files/2} we have to specify which doclet and layout we want to use:
+
+```
+Opts = [{doclet, edoc_doclet_chunks},
+        {layout, edoc_layout_chunks}].
+'''
+
+Then, it's just a matter of deciding whether we want to generate documentation
+for the whole application ({@link edoc:application/2})
+or only selected source files ({@link edoc:files/2}):
+
+```
+App = my_app.
+edoc:application(App, Opts).
+%% or
+Files = ["src/my_app_mod1.erl", "src/my_app_mod2.erl"].
+edoc:files(Files, Opts).
+'''
+
+See `src/edoc_cli.erl' source code for an example of using this interface.
 
 
 == Acknowledgements ==

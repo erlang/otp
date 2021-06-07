@@ -140,11 +140,14 @@
 %% helper functions. To xmerl_lib ??
 -export([accumulate_whitespace/4]).
 
+-export_type([xmlElement/0]).
+
 %-define(debug, 1).
 -include("xmerl.hrl").		% record def, macros
 -include("xmerl_internal.hrl").
 -include_lib("kernel/include/file.hrl").
 
+-type xmlElement() :: #xmlElement{}.
 
 -define(fatal(Reason, S),
 	if

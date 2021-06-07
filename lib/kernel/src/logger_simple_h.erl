@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -61,15 +61,20 @@ log(#{meta:=#{error_logger:=#{tag:=info_report,type:=Type}}},_Config)
     %% Skip info reports that are not 'std_info' (ref simple logger in
     %% error_logger)
     ok;
-log(#{msg:=_,meta:=#{time:=_}}=Log,_Config) ->
+log(#{msg:=_,meta:=#{time:=_}=M}=Log,_Config) ->
     _ = case whereis(?MODULE) of
             undefined ->
                 %% Is the node on the way down? Real emergency?
                 %% Log directly from client just to get it out
-                do_log(
-                  #{level=>error,
-                    msg=>{report,{error,simple_handler_process_dead}},
-                    meta=>#{time=>logger:timestamp()}}),
+                case maps:get(internal_log_event, M, false) of
+                    false ->
+                        do_log(
+                          #{level=>error,
+                            msg=>{report,{error,simple_handler_process_dead}},
+                            meta=>#{time=>logger:timestamp()}});
+                    true ->
+                        ok
+                end,
                 do_log(Log);
             _ ->
                 ?MODULE ! {log,Log}
@@ -90,7 +95,7 @@ init(Starter) ->
 loop(Buffer) ->
     receive
         stop ->
-            %% We replay the logger messages of there is
+            %% We replay the logger messages if there is
             %% a default handler when the simple handler
             %% is removed.
             case logger:get_handler_config(default) of
@@ -134,13 +139,23 @@ drop_msg(N) ->
 %%%-----------------------------------------------------------------
 %%% Internal
 
-%% Can't do io_lib:format
+do_log(Log) ->
+    try
+        Str = logger_formatter:format(Log,
+                 #{ legacy_header => true, single_line => false
+                   ,depth => unlimited, time_offset => ""
+                 }),
+        erlang:display_string(lists:flatten(unicode:characters_to_list(Str)))
+    catch _E:_R:_ST ->
+        % erlang:display({_E,_R,_ST}),
+        display_log(Log)
+    end.
 
-do_log(#{msg:={report,Report},
+display_log(#{msg:={report,Report},
          meta:=#{time:=T,error_logger:=#{type:=Type}}}) ->
     display_date(T),
     display_report(Type,Report);
-do_log(#{msg:=Msg,meta:=#{time:=T}}) ->
+display_log(#{msg:=Msg,meta:=#{time:=T}}) ->
     display_date(T),
     display(Msg).
 
@@ -193,6 +208,8 @@ display_report(Atom, A) when is_atom(Atom) ->
 display_report(F, A) ->
     erlang:display({F, A}).
 
+display_report(#{ report := Report }) ->
+    display_report(Report);
 display_report([A, []]) ->
     %% Special case for crash reports when process has no links
     display_report(A);

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,35 +22,28 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #ifdef __WIN32__
 #include <winsock2.h>
 #include <windows.h>
 #include <process.h>
 #else
-#ifndef VXWORKS
 #include <pthread.h>
-#endif
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #endif
 
 #include "ei.h"
+#include "my_ussi.h"
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#include <sockLib.h>
-#include <inetLib.h>
-#define MAIN cnode
-#else
 #define MAIN main
-#endif
 
 /*
    A small einode.
    To be called from the test case ei_accept_SUITE:multi_thread
-   usage: eiaccnode <cookie> <n>
+   usage: eiaccnode <cookie> <n> <default|ussi>
 
    - start threads 0..n-1
    - in each thread
@@ -61,7 +54,8 @@
       - shutdown gracefully
 */
 
-static const char* cookie, * desthost;
+static const char* cookie;
+static int use_ussi;
 
 #ifndef SD_SEND
 #ifdef SHUTWR
@@ -78,7 +72,7 @@ static void*
 #endif
     einode_thread(void* num)
 {
-    int n = (int)num;
+    int n = (int)(long)num;
     int port;
     ei_cnode ec;
     char myname[100], destname[100], filename[100];
@@ -88,18 +82,26 @@ static void*
     FILE* file;
 
     sprintf(filename, "eiacc%d_trace.txt", n);
-    file = fopen(filename, "w");
+    file = fopen(filename, "a");
 
     sprintf(myname, "eiacc%d", n); fflush(file);
-    r = ei_connect_init(&ec, myname, cookie, 0);
+    fprintf(file, "---- use_ussi = %d ----\n", use_ussi); fflush(file);
+    if (use_ussi)
+        r = ei_connect_init_ussi(&ec, myname, cookie, 0,
+                                 &my_ussi, sizeof(my_ussi), NULL);
+    else
+        r = ei_connect_init(&ec, myname, cookie, 0);
+    fprintf(file, "r=%d\n", r); fflush(file);
     port = 0;
     listen = ei_listen(&ec, &port, 5);
     if (listen <= 0) {
 	fprintf(file, "listen err\n"); fflush(file);
 	exit(7);
     }
-    fprintf(file, "thread %d (%s:%s) listening on port %d\n", n, myname, destname, port);
-    if (ei_publish(&ec, port) == -1) {
+    fprintf(file, "thread %d (%s:%s) listening on port %d\n", n, myname, destname, port); fflush(file);
+    r = ei_publish(&ec, port);
+    fprintf(file, "r=%d\n", r); fflush(file);
+    if (r == -1) {
 	fprintf(file, "ei_publish port %d\n", port+n); fflush(file);
 	exit(8);
     }
@@ -151,54 +153,52 @@ static void*
     return 0;
 }
 
+int
 MAIN(int argc, char *argv[])
 {
     int i, n, no_threads;
-#ifndef VXWORKS
 #ifdef __WIN32__
     HANDLE threads[100];
 #else
     pthread_t threads[100];
 #endif
-#endif
 
-    if (argc < 3)
+    if (argc < 4)
 	exit(1);
 
     cookie = argv[1];
     n = atoi(argv[2]);
     if (n > 100)
 	exit(2);
-    desthost = argv[3];
-    if (argc == 3)
+
+    if (strcmp(argv[3], "default") == 0)
+        use_ussi = 0;
+    else if (strcmp(argv[3], "ussi") == 0)
+        use_ussi = 1;
+    else
+        printf("bad argv[3] '%s'", argv[3]);
+
+    if (argc == 4)
         no_threads = 0;
     else
         no_threads = argv[4] != NULL && strcmp(argv[4], "nothreads") == 0;
-#ifdef VXWORKS
-    no_threads = 1;
-#endif
 
     ei_init();
 
     for (i = 0; i < n; ++i) {
 	if (!no_threads) {
-#ifndef VXWORKS
 #ifdef __WIN32__
 	    unsigned tid;
 	    threads[i] = (HANDLE)_beginthreadex(NULL, 0, einode_thread,
-						(void*)i, 0, &tid);
+						(void*)(size_t)i, 0, &tid);
 #else
-	    pthread_create(&threads[i], NULL, einode_thread, (void*)i);
-#endif
-#else
-	    ;
+	    pthread_create(&threads[i], NULL, einode_thread, (void*)(size_t)i);
 #endif
 	} else
-	    einode_thread((void*)i);
+	    einode_thread((void*)(size_t)i);
     }
 
     if (!no_threads)
-#ifndef VXWORKS
 	for (i = 0; i < n; ++i) {
 #ifdef __WIN32__
 	    if (WaitForSingleObject(threads[i], INFINITE) != WAIT_OBJECT_0)
@@ -207,9 +207,6 @@ MAIN(int argc, char *argv[])
 #endif
 		printf("bad wait thread %d\n", i);
 	}
-#else
-    ;
-#endif
     printf("ok\n");
     return 0;
 }

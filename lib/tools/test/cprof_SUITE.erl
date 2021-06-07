@@ -64,9 +64,7 @@ config(data_dir, _) ->
     "cprof_SUITE_data".
 -else.
 %% When run in test server.
--export([all/0, suite/0,
-         init_per_testcase/2, end_per_testcase/2,
-         not_run/1]).
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, on_load/1, modules/1]).
 
 init_per_testcase(_Case, Config) ->
@@ -82,15 +80,8 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{seconds,30}}].
 
-all() -> 
-    case test_server:is_native(cprof_SUITE) of
-        true -> [not_run];
-        false -> [basic, on_load, modules]
-    end.
-
-
-not_run(Config) when is_list(Config) -> 
-    {skipped,"Native code"}.
+all() ->
+    [basic, on_load, modules].
 
 %% Tests basic profiling
 basic(Config) when is_list(Config) ->
@@ -211,16 +202,12 @@ on_load_test(Config) ->
     Lr = seq_r(1, M, fun succ/1),
     N2 = cprof:pause(),
     {Module,0,[]} = cprof:analyse(Module),
-    M_1 = M - 1,
     M4__4 = M*4 - 4,
     M10_7 = M*10 - 7,
     {?MODULE,M10_7,[{{?MODULE,succ,1},M4__4},
+                    {{?MODULE,'-fun.succ/1-',1},M4__4},
                     {{?MODULE,seq_r,4},M},
                     {{?MODULE,seq,3},M},
-                    {{?MODULE,'-on_load_test/1-fun-5-',1},M_1},
-                    {{?MODULE,'-on_load_test/1-fun-4-',1},M_1},
-                    {{?MODULE,'-on_load_test/1-fun-3-',1},M_1},
-                    {{?MODULE,'-on_load_test/1-fun-2-',1},M_1},
                     {{?MODULE,seq_r,3},1}]}
     = cprof:analyse(?MODULE),
     N2 = cprof:stop(),
@@ -246,18 +233,14 @@ modules_test(Config) ->
     Lr = seq_r(1, M, fun succ/1),
     N = cprof:pause(),
     Lr = lists:reverse(L),
-    M_1 = M - 1,
     M4_4 = M*4 - 4,
     M10_7 = M*10 - 7,
     M2__1 = M*2 + 1,
     {Tot,ModList} = cprof:analyse(),
     {value,{?MODULE,M10_7,[{{?MODULE,succ,1},M4_4},
+                           {{?MODULE,'-fun.succ/1-',1},M4_4},
                            {{?MODULE,seq_r,4},M},
                            {{?MODULE,seq,3},M},
-                           {{?MODULE,'-modules_test/1-fun-3-',1},M_1},
-                           {{?MODULE,'-modules_test/1-fun-2-',1},M_1},
-                           {{?MODULE,'-modules_test/1-fun-1-',1},M_1},
-                           {{?MODULE,'-modules_test/1-fun-0-',1},M_1},
                            {{?MODULE,seq_r,3},1}]}} =
       lists:keysearch(?MODULE, 1, ModList),
     {value,{Module,M2__1,[{{Module,seq_r,4},M},

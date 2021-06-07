@@ -22,7 +22,7 @@
 
     </legalnotice>
 
-    <title>Mnesia</title>
+    <title>Overview</title>
     <prepared>Claes Wikstr&ouml;m, Hans Nilsson and H&aring;kan Mattsson</prepared>
     <responsible>Bjarne D&auml;cker</responsible>
     <docno></docno>
@@ -33,36 +33,33 @@
     <file>Mnesia_overview.xml</file>
   </header>
 
-    <p>The management of data in telecommunications system has many
-      aspects, thereof some, but not all, are addressed by traditional
-      commercial Database Management Systems (DBMSs). In particular the
-      high level of fault tolerance that is required in many nonstop
+    <p>The management of data in telecommunications systems has many
+      aspects of which some, but not all, are addressed by traditional
+      Database Management Systems (DBMSs). In particular, the
+      high level of fault tolerance required in many nonstop
       systems, combined with requirements on the DBMS to run in the same
-      address space as the application, have led us to implement a new
+      address space as the applications, have led us to implement a new
       DBMS, called Mnesia.</p>
-    <p>Mnesia is implemented in, and tightly connected to Erlang.
+    <p>Mnesia is implemented in, and tightly coupled to Erlang.
       It provides the functionality that is necessary for the
-      implementation of fault tolerant telecommunications systems.</p>
-    <p>Mnesia is a multiuser distributed DBMS specially made for
-      industrial telecommunications applications written in Erlang,
+      implementation of fault-tolerant telecommunications systems.</p>
+    <p>Mnesia is a multiuser distributed DBMS specifically designed for
+      industrial-grade telecommunications applications written in Erlang,
       which is also the intended target language.
-      Mnesia tries to address all the data
-      management issues required for typical telecommunications systems.
-      It has a number of features that are not normally found in traditional
-      databases.</p>
-    <p>In telecommunications applications, there are different needs
-      from the features provided by traditional DBMSs. The applications now
-      implemented in Erlang need a mixture of a broad range
-      of features, which generally are not satisfied by traditional DBMSs.
-      Mnesia is designed with requirements like the following in
-      mind:</p>
-    <list type="ordered">
-      <item>Fast real-time key/value lookup
+      Mnesia tries to address all the data management issues required for
+      typical telecommunications systems and has a number of features not
+      normally found in traditional DBMSs.</p>
+    <p>Telecommunications applications need a mix of a broad range
+      of features generally not provided by traditional DBMSs.
+      Mnesia is designed to meet requirements such as:</p>
+    <list type="bulleted">
+      <item>Fast real-time key-value lookup
       </item>
-      <item>Complicated non-real-time queries mainly for
-        operation and maintenance
+      <item>Complex non-real-time queries
+        (mainly for operation and maintenance tasks)
       </item>
-      <item>Distributed data because of distributed applications
+      <item>Distributed data
+        (due to the distributed nature of the applications)
       </item>
       <item>High fault tolerance
       </item>
@@ -71,34 +68,33 @@
       <item>Complex objects
       </item>
     </list>
-    <p>Mnesia is designed with the typical data management problems
-      of telecommunications applications in mind. This sets Mnesia
-      apart from most other DBMS. Hence Mnesia
-      combines many concepts found in traditional databases such as
-      transactions and queries with concepts found in data management
-      systems for telecommunications applications, for example:</p>
+    <p>Mnesia addresses the typical data management issues required for
+      telecommunications applications which sets it apart from most other DBMSs.
+      It combines many concepts found in traditional DBMSs, such as transactions
+      and queries, with concepts found in data management systems for
+      telecommunications applications such as:</p>
       <list type="bulleted">
         <item>Fast real-time operations
         </item>
-        <item>Configurable degree of fault tolerance (by replication)
+        <item>Configurable replication for fault tolerance
         </item>
-        <item>The ability to reconfigure the system without stopping or
-          suspending it.
+        <item>Dynamic reconfiguration without service disruption
         </item>
       </list>
-    <p>Mnesia is also interesting because of its tight coupling to
-      Erlang, thus almost turning Erlang into a database programming
-      language. This has many benefits, the foremost is that
+    <p>Mnesia is also unique due to its tight coupling to
+      Erlang. It almost turns Erlang into a database programming
+      language, which yields many benefits. The foremost is that
       the impedance mismatch between the data format used by the DBMS
       and the data format used by the programming language, which is used
       to manipulate the data, completely disappears.</p>
 
   <section>
-    <title>Mnesia Database Management System (DBMS)</title>
+    <title>The Mnesia Database Management System</title>
     <section>
       <title>Features</title>
-      <p>Mnesia contains the following features that combine to
-        produce a fault-tolerant, distributed DBMS written in Erlang:
+      <p>Mnesia has the following features that combine to
+        produce a fault-tolerant distributed database management
+        system (DBMS) written in Erlang:
         </p>
       <list type="bulleted">
         <item>Database schema can be dynamically reconfigured at runtime.
@@ -107,85 +103,85 @@
           replication, and persistence.
         </item>
         <item>Tables can be moved or replicated to several nodes to improve
-          fault tolerance. The rest of the system can still access the tables
-          to read, write, and delete records.
+          fault tolerance. Other nodes in the system can still access the
+          tables to read, write, and delete records.
         </item>
         <item>Table locations are transparent to the programmer.
           Programs address table names and the system itself keeps track of
           table locations.
         </item>
-        <item>Database transactions can be distributed, and many
-          functions can be called within one transaction.
+        <item>Transactions can be distributed and multiple
+          operations can be executed within a single transaction.
         </item>
-        <item>Several transactions can run concurrently, and their execution
-          is fully synchronized by the DBMS. Mnesia ensures that no
-          two processes manipulate data simultaneously.
+        <item>Multiple transactions can run concurrently and their execution
+          is fully synchronized by Mnesia, ensuring that no
+          two processes manipulate the same data simultaneously.
         </item>
         <item>Transactions can be assigned the property of being executed on
-          all nodes in the system, or on none. Transactions can also be
-          bypassed in favor of running "dirty operations", which reduce
-          overheads and run fast.
+          all nodes in the system, or on none.
+        </item>
+        <item>Transactions can be bypassed using dirty operations,
+          which reduce overheads and run fast.
         </item>
       </list>
-      <p>Details of these features are described in the following sections.</p>
+      <p>All of the above features are described in detail
+        in the coming sections.</p>
     </section>
 
     <section>
-      <title>Add-On Application</title>
+      <title>Query List Comprehension</title>
       <p>Query List Comprehension (QLC) can be used with Mnesia
-        to produce specialized functions that enhance the operational
-        ability of Mnesia. QLC has its own documentation as part
-        of the OTP documentation set. The main features of QLC
-        when used with Mnesia are as follows:</p>
+        to produce specialized functions that enhance its operational
+        ability. QLC has its own documentation as part
+        of the OTP documentation set. The main QLC advantages
+        when used with Mnesia are:</p>
       <list type="bulleted">
-        <item>QLC can optimize the query compiler for the Mnesia
-          DBMS, essentially making the DBMS more efficient.
+        <item>QLC can optimize the query compiler for Mnesia,
+          essentially making the system more efficient.
         </item>
         <item>QLC can be used as a database programming
-          language for Mnesia. It includes a notation called "list
-          comprehensions" and can be used to make complex database
+          language for Mnesia. It includes a notation called list
+          comprehensions which can be used to execute complex database
           queries over a set of tables.
         </item>
       </list>
-      <p>For information about QLC, see the
-        <seealso marker="stdlib:qlc">qlc</seealso> manual page
+      <p>For more information about QLC, please see the
+        <seeerl marker="stdlib:qlc">qlc</seeerl> manual page
         in STDLIB.</p>
     </section>
 
     <section>
       <title>When to Use Mnesia</title>
-        <p>Use Mnesia with the following types of applications:</p>
+        <p>Mnesia is a great fit for applications that:</p>
         <list type="bulleted">
-          <item>Applications that need to replicate data.
+          <item>Need to replicate data.
           </item>
-          <item>Applications that perform complicated searches on data.
+          <item>Perform complex data queries.
           </item>
-          <item>Applications that need to use atomic transactions to
-            update several records simultaneously.
+          <item>Need to use atomic transactions to
+            safely update several records simultaneously.
           </item>
-          <item>Applications that use soft real-time characteristics.
+          <item>Require soft real-time characteristics.
           </item>
         </list>
-        <p>Mnesia is not as appropriate with the
-          following types of applications:</p>
+        <p>Mnesia is not as appropriate for applications that:</p>
         <list type="bulleted">
-          <item>Programs that process plain text or binary data files.
+          <item>Process plain text or binary data files.
           </item>
-          <item>Applications that merely need a look-up dictionary that
-            can be stored to disc. Those applications  use the standard
+          <item>Merely need a lookup dictionary that
+            can be stored on disc. Such applications may use the standard
             library module <c>dets</c>, which is a disc-based version
-            of the module <c>ets</c>. For information about <c>dets</c>,
-            see the <seealso marker="stdlib:dets">dets</seealso>
+            of the <c>ets</c> module. For more information about <c>dets</c>,
+            please see the <seeerl marker="stdlib:dets">dets</seeerl>
             manual page in STDLIB.
           </item>
-          <item>Applications that need disc logging facilities.
-            Those applications can
-            use the module <c>disk_log</c> by preference. For
-            information about <c>disk_log</c>, see the
-            <seealso marker="kernel:disk_log">disk_log</seealso>
+          <item>Need disc logging facilities.
+            Such applications may use the module <c>disk_log</c>.
+            For more information about <c>disk_log</c>, please see the
+            <seeerl marker="kernel:disk_log">disk_log</seeerl>
             manual page in Kernel.
           </item>
-          <item>Hard real-time systems.
+          <item>Require hard real-time characteristics.
           </item>
         </list>
     </section>

@@ -147,15 +147,15 @@ do_log(Level,{report,Msg},#{?MODULE:=#{tag:=Tag}}=Meta) ->
             _ ->
                 %% From logger call which added error_logger data to
                 %% obtain backwards compatibility with error_logger:*_msg/1,2
-                case maps:get(report_cb,Meta,fun logger:format_report/1) of
+                case get_report_cb(Meta) of
                     RCBFun when is_function(RCBFun,1) ->
                         try RCBFun(Msg) of
                             {F,A} when is_list(F), is_list(A) ->
                                 {F,A};
                             Other ->
                                 {"REPORT_CB ERROR: ~tp; Returned: ~tp",[Msg,Other]}
-                        catch C:R ->
-                                {"REPORT_CB CRASH: ~tp; Reason: ~tp",[Msg,{C,R}]}
+                        catch C:R:S ->
+                                {"REPORT_CB CRASH: ~tp; Reason: ~tp",[Msg,{C,R,S}]}
                         end;
                     RCBFun when is_function(RCBFun,2) ->
                         try RCBFun(Msg,#{depth=>get_format_depth(),
@@ -215,6 +215,13 @@ fix_warning_tag(_,Tag) -> Tag.
 fix_warning_type(error,std_warning) -> std_error;
 fix_warning_type(info,std_warning) -> std_info;
 fix_warning_type(_,Type) -> Type.
+
+get_report_cb(#{?MODULE:=#{report_cb:=RBFun}}) ->
+    RBFun;
+get_report_cb(#{report_cb:=RBFun}) ->
+    RBFun;
+get_report_cb(_) ->
+    fun logger:format_report/1.
 
 %%-----------------------------------------------------------------
 %% These two simple old functions generate events tagged 'error'

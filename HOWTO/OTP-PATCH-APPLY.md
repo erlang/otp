@@ -137,8 +137,8 @@ dependencies among applications actually loaded.
 Please take a look at the reference of [sanity_check()][] for more
 information.
 
-[application resource file]: kernel:app
-[runtime_dependencies]: kernel:app#runtime_dependencies
+[application resource file]: seefile/kernel:app
+[runtime_dependencies]: seefile/kernel:app#runtime_dependencies
 [building and installing Erlang/OTP]: INSTALL.md
-[version handling]: ../system_principles/versions
-[sanity_check()]: runtime_tools:system_information#sanity_check-0
+[version handling]: system/system_principles:versions
+[sanity_check()]: seemfa/runtime_tools:system_information#sanity_check/0

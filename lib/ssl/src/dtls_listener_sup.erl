@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,9 @@
 
 %% API
 -export([start_link/0]).
--export([start_child/1]).
+-export([start_child/1,
+         lookup_listener/2,
+         register_listener/3]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -42,11 +44,40 @@ start_link() ->
 
 start_child(Args) ->
     supervisor:start_child(?MODULE, Args).
-    
+
+lookup_listener(IP, Port) ->
+    try ets:lookup(dtls_listener_sup, {IP, Port}) of
+        [] ->
+            undefined;
+        [{{IP, Port}, {Owner, Handler}}] ->
+            case erlang:is_process_alive(Handler) of 
+                true ->
+                    case (Owner =/= undefined) andalso
+                        erlang:is_process_alive(Owner) of
+                        true ->
+                            %% Trying to bind port that is already bound
+                            {error, already_listening};
+                        false ->
+                            %% Re-open same listen socket when the handler
+                            %% is dead.
+                            {ok, Handler}
+                    end;
+                false ->
+                    ets:delete(dtls_listener_sup, {IP, Port}),
+                    undefined
+            end
+    catch _:_ ->
+            undefined
+    end.
+
+register_listener(OwnerAndListner, IP, Port) ->
+    ets:insert(dtls_listener_sup, {{IP, Port}, OwnerAndListner}).
+
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
 init(_O) ->
+    ets:new(dtls_listener_sup, [named_table, public, set]),
     RestartStrategy = simple_one_for_one,
     MaxR = 0,
     MaxT = 3600,

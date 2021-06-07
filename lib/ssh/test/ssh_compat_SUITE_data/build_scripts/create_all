@@ -24,6 +24,8 @@ SSH_SSL_VERSIONS=(\
         openssh 7.9p1  openssl  1.0.2p  \
                                         \
         openssh 7.9p1  libressl 2.6.4   \
+                                        \
+	openssh 8.2p1  openssl  1.0.2p  \
 	)
 
 if [ "x$1" == "x-b" ]

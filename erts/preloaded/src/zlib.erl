@@ -37,11 +37,17 @@
 
 -export([on_load/0]).
 
-%% These are soft-deprecated until OTP 21.
-% -deprecated([inflateChunk/1, inflateChunk/2,
-%              getBufSize/1, setBufSize/2,
-%              crc32/1,crc32/2,crc32/3,adler32/2,adler32/3,
-%              crc32_combine/4,adler32_combine/4]).
+-deprecated([{inflateChunk, 1, "use safeInflate/2 instead"},
+             {inflateChunk, 2, "use safeInflate/2 instead"},
+             {getBufSize, 1, "this function will be removed in a future release"},
+             {setBufSize, 2, "this function will be removed in a future release"},
+             {crc32, 1, "use erlang:crc32/1 on the uncompressed data instead"},
+             {crc32, 2, "use erlang:crc32/1 instead"},
+             {crc32, 3, "use erlang:crc32/2 instead"},
+             {adler32, 2, "use erlang:adler32/1 instead"},
+             {adler32, 3, "use erlang:adler32/2 instead"},
+             {crc32_combine, 4, "use erlang:crc32_combine/3 instead"},
+             {adler32_combine, 4, "use erlang:adler_combine/3 instead"}]).
 
 -export_type([zstream/0, zflush/0, zlevel/0, zwindowbits/0, zmemlevel/0,
               zstrategy/0]).
@@ -58,7 +64,7 @@
 -define(Z_BEST_COMPRESSION,       9).
 -define(Z_DEFAULT_COMPRESSION,  (-1)).
 
-%% compresssion strategy
+%% compression strategy
 -define(Z_FILTERED,            1).
 -define(Z_HUFFMAN_ONLY,        2).
 -define(Z_RLE,                 3).

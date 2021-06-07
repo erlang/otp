@@ -1,0 +1,5 @@
+
+  [;1m-spec union(SetOfSets) -> Set[0m
+  [;1m               when Set :: a_set(), SetOfSets :: set_of_sets().[0m
+
+  Returns the union of the set of sets [;;4mSetOfSets[0m.

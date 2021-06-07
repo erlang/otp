@@ -23,7 +23,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 head_mismatch_line/1,warnings_as_errors/1, bif_clashes/1,
-	 transforms/1,maps_warnings/1,bad_utf8/1]).
+	 transforms/1,maps_warnings/1,bad_utf8/1,bad_decls/1]).
 
 %% Used by transforms/1 test case.
 -export([parse_transform/2]).
@@ -36,7 +36,7 @@ all() ->
 groups() -> 
     [{p,test_lib:parallel(),
       [head_mismatch_line,warnings_as_errors,bif_clashes,
-       transforms,maps_warnings,bad_utf8]}].
+       transforms,maps_warnings,bad_utf8,bad_decls]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -64,7 +64,7 @@ bif_clashes(Config) when is_list(Config) ->
              ">>,
            [return_warnings],
 	   {error,
-	    [{4, erl_lint,{call_to_redefined_old_bif,{length,1}}}], []} }],
+	    [{{4,18}, erl_lint,{call_to_redefined_old_bif,{length,1}}}], []} }],
     [] = run(Config, Ts),
     Ts1 = [{bif_clashes2,
            <<"
@@ -75,7 +75,7 @@ bif_clashes(Config) when is_list(Config) ->
              ">>,
            [return_warnings],
 	    {error,
-	     [{3, erl_lint,{redefine_old_bif_import,{length,1}}}], []} }],
+	     [{{3,16}, erl_lint,{redefine_old_bif_import,{length,1}}}], []} }],
     [] = run(Config, Ts1),
     Ts00 = [{bif_clashes3,
            <<"
@@ -112,7 +112,7 @@ bif_clashes(Config) when is_list(Config) ->
              ">>,
            [return_warnings],
 	   {warning,
-	    [{4, erl_lint,{call_to_redefined_bif,{binary_part,3}}}]} }],
+	    [{{4,18}, erl_lint,{call_to_redefined_bif,{binary_part,3}}}]} }],
     [] = run(Config, Ts000),
     Ts111 = [{bif_clashes6,
            <<"
@@ -123,7 +123,7 @@ bif_clashes(Config) when is_list(Config) ->
              ">>,
            [return_warnings],
 	    {warning,
-	     [{3, erl_lint,{redefine_bif_import,{binary_part,3}}}]} }],
+	     [{{3,16}, erl_lint,{redefine_bif_import,{binary_part,3}}}]} }],
     [] = run(Config, Ts111),
     Ts2 = [{bif_clashes7,
            <<"
@@ -137,7 +137,7 @@ bif_clashes(Config) when is_list(Config) ->
              ">>,
            [],
           {error,
-           [{7,erl_lint,{define_import,{length,1}}}],
+           [{{7,15},erl_lint,{define_import,{length,1}}}],
            []} }],
     [] = run2(Config, Ts2),
     Ts3 = [{bif_clashes8,
@@ -151,7 +151,7 @@ bif_clashes(Config) when is_list(Config) ->
              ">>,
            [],
           {error,
-           [{4,erl_lint,{illegal_guard_local_call,{length,1}}}],
+           [{{4,25},erl_lint,{illegal_guard_local_call,{length,1}}}],
            []} }],
     [] = run2(Config, Ts3),
     Ts4 = [{bif_clashes9,
@@ -164,7 +164,7 @@ bif_clashes(Config) when is_list(Config) ->
              ">>,
            [],
           {error,
-           [{5,erl_lint,{illegal_guard_local_call,{length,1}}}],
+           [{{5,25},erl_lint,{illegal_guard_local_call,{length,1}}}],
            []} }],
     [] = run2(Config, Ts4),
 
@@ -176,7 +176,7 @@ bif_clashes(Config) when is_list(Config) ->
 %% Tests that a head mismatch is reported on the correct line (OTP-2125).
 head_mismatch_line(Config) when is_list(Config) ->
     [E|_] = get_compilation_errors(Config, "head_mismatch_line"),
-    {26, Mod, Reason} = E,
+    {{26,1}, Mod, Reason} = E,
     Mod:format_error(Reason),
     ok.
 
@@ -202,7 +202,7 @@ warnings_as_errors(Config) when is_list(Config) ->
 	    [warnings_as_errors, export_all, {outdir, OutDir}],
 	    {error,
 	     [],
-	     [{3,erl_lint,{unused_var,'A'}}]} }],
+	     [{{3,18},erl_lint,{unused_var,'A'}}]} }],
     [] = run(Ts1, TestFile, write_beam),
     false = filelib:is_regular(BeamFile),
 
@@ -214,7 +214,7 @@ warnings_as_errors(Config) when is_list(Config) ->
              ">>,
 	    [return_warnings, export_all, {outdir, OutDir}],
 	    {warning,
-	       [{3,erl_lint,{unused_var,'A'}}]} }],
+	       [{{3,18},erl_lint,{unused_var,'A'}}]} }],
 
     [] = run(Ts2, TestFile, write_beam),
     true = filelib:is_regular(BeamFile),
@@ -230,24 +230,37 @@ transforms(Config) ->
 	    [return],
 	    {error,[{none,compile,{undef_parse_transform,non_existing}}],[]}}],
     [] = run(Config, Ts1),
+
     Ts2 = <<"
               -compile({parse_transform,",?MODULE_STRING,"}).
              ">>,
-    {error,[{none,compile,{parse_transform,?MODULE,{too_bad,_}}}],[]} =
-	run_test(Ts2, test_filename(Config), [], dont_write_beam),
-    Ts3 = <<"
-              -compile({parse_transform,",?MODULE_STRING,"}).
-             ">>,
-    {error,[{none,compile,{parse_transform,?MODULE,{undef,_}}}],[]} =
-        run_test(Ts3, test_filename(Config), [call_undef], dont_write_beam),
+
+    {error,[{none,compile,{parse_transform,?MODULE,{error,too_bad,_}}}],[]} =
+	run_test(Ts2, test_filename(Config), [{pt_error,error}], dont_write_beam),
+
+    {error,[{none,compile,{parse_transform,?MODULE,{error,undef,_}}}],[]} =
+        run_test(Ts2, test_filename(Config), [{pt_error,call_undef}], dont_write_beam),
+
+    {error,[{none,compile,{parse_transform,?MODULE,{exit,exited,_}}}],[]} =
+        run_test(Ts2, test_filename(Config), [{pt_error,exit}], dont_write_beam),
+
+    {error,[{none,compile,{parse_transform,?MODULE,{throw,thrown,[_|_]}}}],[]} =
+        run_test(Ts2, test_filename(Config), [{pt_error,throw}], dont_write_beam),
+
     ok.
 
 parse_transform(_, Opts) ->
-    case lists:member(call_undef, Opts) of
-        false -> error(too_bad);
-        true -> camembert:délicieux()
+    {_,Error} = lists:keyfind(pt_error, 1, Opts),
+    case Error of
+        call_undef ->
+            camembert:délicieux();
+        throw ->
+            throw(thrown);
+        exit ->
+            exit(exited);
+        error ->
+            error(too_bad)
     end.
-
 
 maps_warnings(Config) when is_list(Config) ->
     Ts1 = [{map_ok_use_of_pattern,
@@ -270,28 +283,129 @@ maps_warnings(Config) when is_list(Config) ->
               id(I) -> I.
              ">>,
 	    [return],
-	    {error,[{3,erl_lint,{unbound_var,'K'}},
-		    {6,erl_lint,illegal_map_key}],[]}}
+	    {error,[{{3,15},erl_lint,{unbound_var,'K'}}],[]}}
     ],
     [] = run2(Config, Ts1),
     ok.
 
 bad_utf8(Config) ->
-    Ts = [{bad_utf8,
+    Ts = [{bad_explicit_utf8,
 	   %% If coding is specified explicitly as utf-8, there should be
-	   %% a compilation error; we must not fallback to parsing the
-	   %% file in latin-1 mode.
+	   %% a compilation error for a latin-1 comment.
 	   <<"%% coding: utf-8
               %% Bj",246,"rn
               t() -> \"",246,"\".
              ">>,
 	   [],
-	   {error,[{2,epp,cannot_parse},
-		   {2,file_io_server,invalid_unicode}],
+	   {error,[{{2,15},epp,cannot_parse},
+		   {{2,15},file_io_server,invalid_unicode}],
 	    []}
-	  }],
+	  },
+
+          {bad_implicit_utf8,
+           %% If there is no coding comment given, encoding defaults to utf-8
+	   %% and there should be a compilation error for a latin-1 comment.
+	   <<"
+              %% Bj",246,"rn
+              t() -> \"",246,"\".
+             ">>,
+	   [],
+	   {error,[{{2,15},epp,cannot_parse},
+		   {{2,15},file_io_server,invalid_unicode}],
+	    []}
+          }
+         ],
     [] = run2(Config, Ts),
     ok.
+
+bad_decls(Config) ->
+    Ts = [{bad_decls_1,
+	   <<"\n-module({l}).
+             ">>,
+	   [],
+           {error,[{{2,9},erl_parse,"bad " ++ ["module"] ++ " declaration"}],
+            []}
+	  },
+          {bad_decls_2,
+	   <<"\n-module(l, m).
+             ">>,
+	   [],
+           {error,[{{2,12},erl_parse,"bad variable list"}],[]}
+	  },
+          {bad_decls_3,
+	   <<"\n-export([a/1], Y).
+             ">>,
+	   [],
+           {error,[{{2,16},erl_parse,"bad " ++ ["export"] ++ " declaration"}],
+            []}
+	  },
+          {bad_decls_4,
+	   <<"\n-import([a/1], Y).
+             ">>,
+	   [],
+           {error,[{{2,16},erl_parse,"bad " ++ ["import"] ++ " declaration"}],
+            []}
+	  },
+          {bad_decls_5,
+	   <<"\n-ugly({A,B}).
+             ">>,
+	   [],
+           {error,[{{2,7},erl_parse,"bad attribute"}],[]}
+	  },
+          {bad_decls_6,
+	   <<"\n-ugly(a, b).
+             ">>,
+	   [],
+           {error,[{{2,10},erl_parse,"bad attribute"}],[]}
+	  },
+          {bad_decls_7,
+	   <<"\n-export([A/1]).
+             ">>,
+	   [],
+           {error,[{{2,10},erl_parse,"bad function name"}],[]}
+	  },
+          {bad_decls_8,
+	   <<"\n-export([a/a]).
+             ">>,
+	   [],
+           {error,[{{2,12},erl_parse,"bad function arity"}],[]}
+	  },
+          {bad_decls_9,
+	   <<"\n-export([a/1, {3,4}]).
+             ">>,
+	   [],
+           {error,[{{2,15},erl_parse,"bad Name/Arity"}],[]}
+	  },
+          {bad_decls_10,
+	   <<"\n-record(A, {{bad,a}}).
+             ">>,
+	   [],
+           {error,[{{2,9},erl_parse,"bad " ++ ["record"] ++ " declaration"}],
+            []}
+           },
+          {bad_decls_11,
+	   <<"\n-record(a, [a,b,c,d]).
+             ">>,
+	   [],
+           {error,[{{2,12},erl_parse,"bad record declaration"}],[]}
+           },
+          {bad_decls_12,
+	   <<"\n-record(a).
+             ">>,
+	   [],
+           {error,[{{2,9},erl_parse,"bad " ++ ["record"] ++ " declaration"}],
+            []}
+           }
+          ],
+    [] = run2(Config, Ts),
+
+    {error,{{1,4},erl_parse,"bad term"}} = parse_string("1, 2 + 4."),
+    {error,{{1,1},erl_parse,"bad term"}} = parse_string("34 + begin 34 end."),
+    ok.
+
+parse_string(S) ->
+    {ok,Ts,_} = erl_scan:string(S, {1, 1}),
+    erl_parse:parse_term(Ts).
 
 
 run(Config, Tests) ->
@@ -344,7 +458,7 @@ test_filename(Conf) ->
 run_test(Test0, File, Warnings, WriteBeam) ->
     ModName = filename:rootname(filename:basename(File), ".erl"),
     Mod = list_to_atom(ModName),
-    Test = ["-module(",ModName,"). ",Test0],
+    Test = iolist_to_binary(["-module(",ModName,"). ",Test0]),
     Opts = case WriteBeam of
 	       dont_write_beam ->
 		   [binary,return_errors|Warnings];
@@ -360,6 +474,7 @@ run_test(Test0, File, Warnings, WriteBeam) ->
     io:format("~p\n", [Opts]),
     Res = case compile:file(File, Opts) of
 	      {ok,Mod,_,[{_File,Ws}]} ->
+                  print_diagnostics(Ws, Test),
 		  {warning,Ws};
 	      {ok,Mod,_,[]} ->
 		  [];
@@ -368,15 +483,42 @@ run_test(Test0, File, Warnings, WriteBeam) ->
 	      {ok,Mod,[]} ->
 		  [];
 	      {error,[{XFile,Es}],Ws} = _ZZ when is_list(XFile) ->
+                  print_diagnostics(Es, Test),
 		  {error,Es,Ws};
 	      {error,[{XFile,Es1},{XFile,Es2}],Ws} = _ZZ
 		when is_list(XFile) ->
-		  {error,Es1++Es2,Ws};
+                  Es = Es1 ++ Es2,
+                  print_diagnostics(Es, Test),
+		  {error,Es,Ws};
 	      {error,Es,[{_File,Ws}]} = _ZZ->
+                  print_diagnostics(Es ++ Ws, Test),
 		  {error,Es,Ws}
 	  end,
     file:delete(File),
     Res.
+
+print_diagnostics(Warnings, Source) ->
+    case binary:match(Source, <<"-file(">>) of
+        nomatch ->
+            Lines = binary:split(Source, <<"\n">>, [global]),
+            Cs = [print_diagnostic(W, Lines) || W <- Warnings],
+            io:put_chars(Cs);
+        _ ->
+            %% There are probably fake line numbers greater than
+            %% the number of actual lines.
+            ok
+    end.
+
+print_diagnostic({{LineNum,Column},Mod,Data}, Lines) ->
+    Line0 = lists:nth(LineNum, Lines),
+    <<Line1:(Column-1)/binary,_/binary>> = Line0,
+    Spaces = re:replace(Line1, <<"[^\t]">>, <<" ">>, [global]),
+    CaretLine = [Spaces,"^"],
+    [io_lib:format("~p:~p: ~ts\n", [LineNum,Column,Mod:format_error(Data)]),
+     Line0, "\n",
+     CaretLine, "\n\n"];
+print_diagnostic(_, _) ->
+    [].
 
 fail() ->
     ct:fail(failed).

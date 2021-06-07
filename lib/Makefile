@@ -25,16 +25,21 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 ERTS_APPLICATIONS = stdlib sasl kernel compiler
 
 # Then these have to be build
+ifdef TINY_BUILD
+ERLANG_APPLICATIONS = parsetools
+else
 ERLANG_APPLICATIONS = tools common_test runtime_tools inets parsetools
+endif
 
 # These are only build if -a is given to otp_build or make is used directly
-ALL_ERLANG_APPLICATIONS = xmerl edoc erl_docgen snmp otp_mibs erl_interface \
+ALL_ERLANG_APPLICATIONS = xmerl edoc erl_docgen snmp erl_interface \
 		  asn1 jinterface \
 	          wx debugger reltool \
 	          mnesia crypto os_mon syntax_tools \
 	          public_key ssl observer odbc diameter \
 	          et megaco \
-		  eunit ssh eldap dialyzer hipe ftp tftp
+		  eunit ssh eldap dialyzer ftp tftp
+
 
 ifdef BUILD_ALL
   ERLANG_APPLICATIONS += $(ALL_ERLANG_APPLICATIONS)
@@ -55,13 +60,17 @@ else
       kernel stdlib compiler
   else
     ifdef SECONDARY_BOOTSTRAP
-      SUB_DIRECTORIES = hipe parsetools asn1/src
+      ifdef TINY_BUILD
+        SUB_DIRECTORIES = parsetools sasl
+      else
+        SUB_DIRECTORIES = parsetools asn1/src
+      endif
     else
       ifdef TERTIARY_BOOTSTRAP
-        SUB_DIRECTORIES = snmp sasl jinterface syntax_tools wx
+        SUB_DIRECTORIES = snmp sasl erl_interface jinterface syntax_tools wx public_key
       else
         ifdef DOC_BOOTSTRAP
-          SUB_DIRECTORIES = xmerl edoc erl_docgen
+          SUB_DIRECTORIES = xmerl edoc erl_docgen public_key
         else # Not bootstrap build
           SUB_DIRECTORIES = $(ERTS_APPLICATIONS) \
 			    $(ERLANG_APPLICATIONS) \

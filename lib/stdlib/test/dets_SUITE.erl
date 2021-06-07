@@ -3880,9 +3880,7 @@ bad_object({error,{{{bad_object,_,_},_,_,_}, FileName}}, FileName) ->
     ok. % Debug.
 
 check_badarg({'EXIT', {badarg, [{M,F,Args,_} | _]}}, M, F, Args) ->
-    true;
-check_badarg({'EXIT', {badarg, [{M,F,A,_} | _]}}, M, F, Args)  ->
-    true = test_server:is_native(M) andalso length(Args) =:= A.
+    true.
 
 check_pps({Ports0,Procs0} = P0) ->
     ok = check_dets_tables(),

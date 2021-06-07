@@ -35,7 +35,8 @@
 	 lookup_all/2, is_defined/2, get_value/2, get_value/3,
 	 get_all_values/2, append_values/2, get_bool/2, get_keys/1,
 	 delete/2, substitute_aliases/2, substitute_negations/2,
-	 expand/2, normalize/2, split/2]).
+	 expand/2, normalize/2, split/2, from_map/1, to_map/1,
+	 to_map/2]).
 
 %% ---------------------------------------------------------------------
 
@@ -220,7 +221,7 @@ get_value(Key, [P | Ps], Default) ->
 		{_, Value} ->
 		    Value;
 		_ ->
-		    %% Don</code>t continue the search!
+		    %% Don't continue the search!
 		    Default
 	    end;
        true ->
@@ -410,8 +411,8 @@ substitute_aliases_1([], P) ->
 %% associated with some key <code>K1</code> such that <code>{K1,
 %% K2}</code> occurs in <code>Negations</code>, then if the entry was
 %% <code>{K1, true}</code> it will be replaced with <code>{K2,
-%% false}</code>, otherwise it will be replaced with <code>{K2,
-%% true}</code>, thus changing the name of the option and simultaneously
+%% false}</code>, otherwise it will be replaced with <code>K2</code>,
+%% thus changing the name of the option and simultaneously
 %% negating the value given by <code>get_bool(ListIn)</code>. If the same
 %% <code>K1</code> occurs more than once in <code>Negations</code>, only
 %% the first occurrence is used.
@@ -419,8 +420,7 @@ substitute_aliases_1([], P) ->
 %% <p>Example: <code>substitute_negations([{no_foo, foo}], L)</code>
 %% will replace any atom <code>no_foo</code> or tuple <code>{no_foo,
 %% true}</code> in <code>L</code> with <code>{foo, false}</code>, and
-%% any other tuple <code>{no_foo, ...}</code> with <code>{foo,
-%% true}</code>.</p>
+%% any other tuple <code>{no_foo, ...}</code> with <code>foo</code>.</p>
 %%
 %% @see get_bool/2
 %% @see substitute_aliases/2
@@ -608,14 +608,17 @@ flatten([]) ->
       Expansions :: [{Property :: property(), Expansion :: [term()]}],
       ListOut :: [term()].
 
-normalize(L, [{aliases, As} | Xs]) ->
-    normalize(substitute_aliases(As, L), Xs);
-normalize(L, [{expand, Es} | Xs]) ->
-    normalize(expand(Es, L), Xs);
-normalize(L, [{negations, Ns} | Xs]) ->
-    normalize(substitute_negations(Ns, L), Xs);
-normalize(L, []) ->
-    compact(L).
+normalize(L, Stages) ->
+    compact(apply_stages(L, Stages)).
+
+apply_stages(L, [{aliases, As} | Xs]) ->
+    apply_stages(substitute_aliases(As, L), Xs);
+apply_stages(L, [{expand, Es} | Xs]) ->
+    apply_stages(expand(Es, L), Xs);
+apply_stages(L, [{negations, Ns} | Xs]) ->
+    apply_stages(substitute_negations(Ns, L), Xs);
+apply_stages(L, []) ->
+    L.
 
 %% ---------------------------------------------------------------------
 
@@ -640,24 +643,24 @@ normalize(L, []) ->
       Rest :: [term()].
 
 split(List, Keys) ->
-    {Store, Rest} = split(List, dict:from_list([{K, []} || K <- Keys]), []),
-    {[lists:reverse(dict:fetch(K, Store)) || K <- Keys],
+    {Store, Rest} = split(List, maps:from_list([{K, []} || K <- Keys]), []),
+    {[lists:reverse(map_get(K, Store)) || K <- Keys],
      lists:reverse(Rest)}.
 
 split([P | Ps], Store, Rest) ->
     if is_atom(P) ->
-	    case dict:is_key(P, Store) of
+	    case is_map_key(P, Store) of
 		true ->
-		    split(Ps, dict_prepend(P, P, Store), Rest);
+		    split(Ps, maps_prepend(P, P, Store), Rest);
 		false ->
 		    split(Ps, Store, [P | Rest])
 	    end;
        tuple_size(P) >= 1 ->
 	    %% Note that Key does not have to be an atom in this case.
 	    Key = element(1, P),
-	    case dict:is_key(Key, Store) of
+	    case is_map_key(Key, Store) of
 		true ->
-		    split(Ps, dict_prepend(Key, P, Store), Rest);
+		    split(Ps, maps_prepend(Key, P, Store), Rest);
 		false ->
 		    split(Ps, Store, [P | Rest])
 	    end;
@@ -667,5 +670,82 @@ split([P | Ps], Store, Rest) ->
 split([], Store, Rest) ->
     {Store, Rest}.
 
-dict_prepend(Key, Val, Dict) ->
-    dict:store(Key, [Val | dict:fetch(Key, Dict)], Dict).
+maps_prepend(Key, Val, Dict) ->
+    Dict#{Key := [Val | map_get(Key, Dict)]}.
+
+%% ---------------------------------------------------------------------
+
+%% @doc Converts the property list <code>List</code> to a map.
+%%
+%% Shorthand atom values in <code>List</code> will be expanded to an
+%% association of the form <code>Atom => true</code>. Tuples of the
+%% form <code>{Key, Value}</code> in <code>List</code> will be
+%% converted to an association of the form <code>Key => Value</code>.
+%% Anything else will be silently ignored.
+%%
+%% If the same key appears in <code>List</code> multiple times, the
+%% value of the one appearing nearest to the head of <code>List</code>
+%% will be in the result map, that is the value that would be returned
+%% by a call to <code>get_value/2</code> with this key.
+%%
+%% <p>Example:<pre>
+%% to_map([a, {b, 1}, {c, 2}, {c, 3}])</pre>
+%% returns<pre>
+%% #{a => true, b => 1, c => 2}</pre>
+%% </p>
+
+-spec to_map(List) -> Map when
+      List :: [Shorthand | {Key, Value} | term()],
+      Map :: #{Shorthand => 'true', Key => Value},
+      Shorthand :: atom(),
+      Key :: term(),
+      Value :: term().
+
+to_map(List) ->
+    lists:foldr(
+        fun
+            ({K, V}, M) ->
+                M#{K => V};
+            %% if tuples with arity /= 2 appear before atoms or
+            %% tuples with arity == 2, get_value/2,3 returns early
+            (T, M) when 1 =< tuple_size(T) ->
+                maps:remove(element(1, T), M);
+            (K, M) when is_atom(K) ->
+                M#{K => true};
+            (_, M) ->
+                M
+        end,
+        #{},
+        List
+    ).
+
+%% @doc Converts the property list <code>List</code> to a map
+%% after applying the normalizations given in <code>Stages</code>.
+%%
+%% @see normalize/2
+%% @see to_map/1
+
+-spec to_map(List, Stages) -> Map when
+      List :: [term()],
+      Stages :: [Operation],
+      Operation :: {'aliases', Aliases}
+                 | {'negations', Negations}
+                 | {'expand', Expansions},
+      Aliases :: [{Key, Key}],
+      Negations :: [{Key, Key}],
+      Expansions :: [{Property :: property(), Expansion :: [term()]}],
+      Map :: #{term() => term()}.
+
+to_map(List, Stages) ->
+    to_map(apply_stages(List, Stages)).
+
+%% @doc Converts the map <code>Map</code> to a property list.
+
+-spec from_map(Map) -> List when
+    Map :: #{Key => Value},
+    List :: [{Key, Value}],
+    Key :: term(),
+    Value :: term().
+
+from_map(Map) ->
+    maps:to_list(Map).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -223,6 +223,7 @@ rfc3339(Config) when is_list(Config) ->
     {'EXIT', _} = (catch do_format_z(253402300799+1, [])),
     {'EXIT', _} = (catch do_parse("9999-12-31T23:59:60Z", [])),
     {'EXIT', _} = (catch do_format_z(253402300799*1000000000+999999999+1, Ns)),
+    {'EXIT', _} = (catch do_parse("2010-04-11T22:35:41", [])), % OTP-16514
     253402300799 = do_parse("9999-12-31T23:59:59Z", []),
 
     "0000-01-01T00:00:00Z" = test_parse("0000-01-01T00:00:00.0+00:00"),

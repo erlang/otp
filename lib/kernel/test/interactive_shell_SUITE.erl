@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,15 +19,24 @@
 %%
 -module(interactive_shell_SUITE).
 -include_lib("common_test/include/ct.hrl").
+-include_lib("kernel/include/file.hrl").
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 get_columns_and_rows/1, exit_initial/1, job_control_local/1, 
-	 job_control_remote/1,
-	 job_control_remote_noshell/1,ctrl_keys/1]).
+	 job_control_remote/1,stop_during_init/1,
+         shell_history/1, shell_history_resize/1, shell_history_eaccess/1,
+         shell_history_repair/1, shell_history_repair_corrupt/1,
+         shell_history_corrupt/1,
+         shell_history_custom/1, shell_history_custom_errors/1,
+	 job_control_remote_noshell/1,ctrl_keys/1,
+         get_columns_and_rows_escript/1,
+         remsh/1, remsh_longnames/1, remsh_no_epmd/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% For spawn
 -export([toerl_server/3]).
+%% Exports for custom shell history module
+-export([load/0, add/1]).
 
 init_per_testcase(_Func, Config) ->
     Config.
@@ -40,12 +49,23 @@ suite() ->
      {timetrap,{minutes,3}}].
 
 all() -> 
-    [get_columns_and_rows, exit_initial, job_control_local,
+    [get_columns_and_rows_escript,get_columns_and_rows,
+     exit_initial, job_control_local,
      job_control_remote, job_control_remote_noshell,
-     ctrl_keys].
+     ctrl_keys, stop_during_init, {group, shell_history},
+     remsh, remsh_longnames, remsh_no_epmd].
 
 groups() -> 
-    [].
+    [{shell_history, [],
+      [shell_history,
+       shell_history_resize,
+       shell_history_eaccess,
+       shell_history_repair,
+       shell_history_repair_corrupt,
+       shell_history_corrupt,
+       shell_history_custom,
+       shell_history_custom_errors
+      ]}].
 
 init_per_suite(Config) ->
     Term = os:getenv("TERM", "dumb"),
@@ -58,6 +78,11 @@ end_per_suite(Config) ->
     os:putenv("TERM",Term),
     ok.
 
+init_per_group(shell_history, Config) ->
+    case proplists:get_value(default_shell, Config) of
+        old -> {skip, "Not supported in old shell"};
+        new -> Config
+    end;
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -67,10 +92,64 @@ end_per_group(_GroupName, Config) ->
 
 %%-define(DEBUG,1).
 -ifdef(DEBUG).
--define(dbg(Data),erlang:display(Data)).
+-define(dbg(Data),ct:pal("~p",[Data])).
 -else.
 -define(dbg(Data),noop).
 -endif.
+
+string_to_term(Str) ->
+    {ok,Tokens,_EndLine} = erl_scan:string(Str ++ "."),
+    {ok,AbsForm} = erl_parse:parse_exprs(Tokens),
+    {value,Value,_Bs} = erl_eval:exprs(AbsForm, erl_eval:new_bindings()),
+    Value.
+
+run_unbuffer_escript(Rows, Columns, EScript, NoTermStdIn, NoTermStdOut) ->
+    DataDir = filename:join(filename:dirname(code:which(?MODULE)), "interactive_shell_SUITE_data"),
+    TmpFile = filename:join(DataDir, "tmp"),
+    ok = file:write_file(TmpFile, <<>>),
+    CommandModifier =
+        case {NoTermStdIn, NoTermStdOut} of
+            {false, false} -> "";
+            {true, false} -> io_lib:format(" < ~s", [TmpFile]);
+            {false, true} -> io_lib:format(" > ~s ; cat ~s", [TmpFile, TmpFile]);
+            {true, true} -> io_lib:format(" > ~s < ~s ; cat ~s", [TmpFile, TmpFile, TmpFile])
+        end,
+    Command = io_lib:format("unbuffer -p bash -c \"stty rows ~p; stty columns ~p; escript ~s ~s\"",
+                               [Rows, Columns, EScript, CommandModifier]),
+    %% io:format("Command: ~s ~n", [Command]),
+    Out = os:cmd(Command),
+    %% io:format("Out: ~p ~n", [Out]),
+    string_to_term(Out).
+
+get_columns_and_rows_escript(Config) when is_list(Config) ->
+    ExpectUnbufferInstalled =
+        try
+            "79" = string:trim(os:cmd("unbuffer -p bash -c \"stty columns 79 ; tput cols\"")),
+            true
+        catch
+            _:_ -> false
+        end,
+    case ExpectUnbufferInstalled of
+        false ->
+            {skip,
+             "The unbuffer tool (https://core.tcl-lang.org/expect/index) does not seem to be installed.~n"
+             "On Ubuntu/Debian: \"sudo apt-get install expect\""};
+        true ->
+            DataDir = filename:join(filename:dirname(code:which(?MODULE)), "interactive_shell_SUITE_data"),
+            IoColumnsErl = filename:join(DataDir, "io_columns.erl"),
+            IoRowsErl = filename:join(DataDir, "io_rows.erl"),
+            [
+             begin
+                 {ok, 42} = run_unbuffer_escript(99, 42, IoColumnsErl, NoTermStdIn, NoTermStdOut),
+                 {ok, 99} = run_unbuffer_escript(99, 42, IoRowsErl, NoTermStdIn, NoTermStdOut)
+             end
+             ||
+                {NoTermStdIn, NoTermStdOut} <- [{false, false}, {true, false}, {false, true}]
+            ],
+            {error,enotsup} = run_unbuffer_escript(99, 42, IoRowsErl, true, true),
+            {error,enotsup} = run_unbuffer_escript(99, 42, IoColumnsErl, true, true),
+            ok
+    end.
 
 %% Test that the shell can access columns and rows.
 get_columns_and_rows(Config) when is_list(Config) ->
@@ -147,6 +226,309 @@ exit_initial(Config) when is_list(Config) ->
 		    {putline,""},
 		    {putline,"35."},
 		    {getline_re,"35"}],[])
+    end.
+
+stop_during_init(Config) when is_list(Config) ->
+    case get_progs() of
+	{error,_Reason} ->
+	    {skip,"No runerl present"};
+	{RunErl,_ToErl,Erl} ->
+	    case create_tempdir() of
+		{error, Reason2} ->
+		    {skip, Reason2};
+		Tempdir ->
+		    XArg = " -kernel shell_history enabled -s init stop",
+		    start_runerl_command(RunErl, Tempdir, "\\\""++Erl++"\\\""++XArg),
+                    Logs = rtnode_read_logs(Tempdir),
+                    rtnode_dump_logs(Logs),
+		    nomatch = binary:match(maps:get("erlang.log.1",Logs),
+                                           <<"*** ERROR: Shell process terminated! ***">>)
+	    end
+     end.
+
+%% This testcase tests that shell_history works as it should.
+%% We use Ctrl + P = Cp=[$\^p] in order to navigate up
+%% We use Ctrl + N = Cp=[$\^n] in order to navigate down
+%% We use Ctrl + B = Cp=[$\^b] in order to navigate left
+%% in the console. We also need to sleep for a while in order
+%% for the system to update the display before we enter more
+%% commands.
+shell_history(Config) when is_list(Config) ->
+    Path = shell_history_path(Config, "basic"),
+    rtnode([
+            {putline, "echo1."},
+            {getline, "echo1"},
+            {putline, "echo2."},
+            {getline, "echo2"},
+            {putline, "echo3."},
+            {getline, "echo3"},
+            {putline, "echo4."},
+            {getline, "echo4"},
+            {putline, "echo5."},
+            {getline, "echo5"}
+           ], [], [], " -kernel shell_history enabled " ++
+               "-kernel shell_history_drop '[\\\"init:stop().\\\"]' " ++
+               mk_sh_param(Path)),
+    rtnode([
+            {putline, ""},
+            %% the init:stop that stopped the node is dropped
+            {putdata, [$\^p]}, {getdata, "echo5."},
+            {putdata, [$\n]},
+            {getline, "echo5"},
+            {putdata, [$\^p]}, {getdata,"echo5."},
+            {putdata, [$\^p]}, {getdata,"echo4."},
+            {putdata, [$\^p]}, {getdata,"echo3."},
+            {putdata, [$\^p]}, {getdata,"echo2."},
+            {putdata, [$\^n]}, {getdata,"echo3."},
+            {putdata, [$\^n]}, {getdata,"echo4."},
+            {putdata, [$\^b]}, {sleep,50}, %% the echo4. (cursor moved one left)
+            {putline, ["echo"]},
+            {getline, "echo4echo"}
+           ], [], [], " -kernel shell_history enabled " ++ mk_sh_param(Path)).
+
+shell_history_resize(Config) ->
+    Path = shell_history_path(Config, "resize"),
+    rtnode([
+            {putline, "echo."},
+            {getline, "echo"}
+           ], [], [], " -kernel shell_history_file_bytes 123456 " ++
+               "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+
+    {ok, Logs} =
+        rtnode([
+                {putline, ""},
+                {putdata, [$\^p]}, {getdata,"init:stop()."},
+                {putdata, [$\^p]}, {getdata,"echo."},
+                {putdata, [$\n]},
+                {getline, "echo"}
+               ], [], [], " -kernel shell_history_file_bytes 654321 " ++
+                   "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+
+    rtnode_check_logs(
+      "erlang.log.1",
+      "The configured log history file size is different from the size "
+      "of the log file on disk", Logs),
+
+    ok.
+
+shell_history_eaccess(Config) ->
+    Path = shell_history_path(Config, "eaccess"),
+    file:make_dir(filename:dirname(Path)),
+    ok = file:make_dir(Path),
+    {ok, Info} = file:read_file_info(Path),
+    try
+        NoExecMode = Info#file_info.mode band (bnot 8#111),
+        file:write_file_info(Path,Info#file_info{ mode = NoExecMode }),
+
+        %% Cannot create history log in folder
+        {ok, Logs1} =
+            rtnode([
+                    {putline, "echo."},
+                    {getline, "echo"}
+                   ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+
+        rtnode_check_logs("erlang.log.1", "Error handling file", Logs1),
+
+        %% shell_docs recursively creates the folder to store the
+        %% logs. This test checks that erlang still starts if we
+        %% cannot create the folders to the path.
+        {ok, Logs2} = 
+            rtnode([
+                    {putline, "echo."},
+                    {getline, "echo"}
+                   ], [], [], "-kernel shell_history enabled " ++
+                       mk_sh_param(filename:join(Path,"logs"))),
+
+        rtnode_check_logs("erlang.log.1", "Error handling file", Logs2)
+
+    after
+        file:write_file_info(Path, Info)
+    end.
+
+shell_history_repair(Config) ->
+    Path = shell_history_path(Config, "repair"),
+
+    %% We stop a node without closing the log
+    try rtnode([
+            {putline, "echo."},
+            {getline, "echo"},
+            {sleep, 2500}, %% disk_log internal cache timer is 2000 ms
+            {putline, "erlang:halt(0)."}
+           ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)) of
+        _ ->
+            ok
+    catch _:_ ->
+            ok
+    end,
+
+    {ok, Logs} =
+        rtnode([
+                {putline, ""},
+                {putdata, [$\^p]}, {getdata,"echo."},
+                {putdata, [$\n]},
+                {getline, "echo"}
+               ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+
+    %% The regexp below checks that he string is NOT part of the log
+    rtnode_check_logs("erlang.log.1", 
+                      "The shell history log file was corrupted and was repaired",
+                      false,
+                      Logs),
+    ok.
+
+shell_history_repair_corrupt(Config) ->
+    Path = shell_history_path(Config, "repair_corrupt"),
+
+    %% We stop a node without closing the log
+    try rtnode([
+            {putline, "echo."},
+            {getline, "echo"},
+            {sleep, 2500}, %% disk_log internal cache timer is 2000 ms
+            {putline, "erlang:halt(0)."}
+           ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)) of
+        _ ->
+            ok
+    catch _:_ ->
+            ok
+    end,
+
+    %% We corrupt the disklog
+    {ok, D} = file:open(filename:join(Path,"erlang-shell-log.1"), [read,append]),
+    ok = file:write(D, [10,10]),
+    ok = file:close(D),
+
+    {ok, Logs} =
+        rtnode([
+                {putline, ""},
+                {putdata, [$\^p]}, {getdata,"echo."},
+                {putdata, [$\n]},
+                {getline, "echo"}
+               ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+
+    rtnode_check_logs("erlang.log.1", 
+                      "The shell history log file was corrupted and was repaired.",
+                      Logs),
+    ok.
+
+shell_history_corrupt(Config) ->
+    Path = shell_history_path(Config, "corrupt"),
+
+    %% We stop a node without closing the log
+    try rtnode([
+            {putline, "echo."},
+            {getline, "echo"}
+           ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)) of
+        _ ->
+            ok
+    catch _:_ ->
+            ok
+    end,
+
+    %% We corrupt the disklog
+    {ok, D} = file:open(filename:join(Path,"erlang-shell-log.1"), [read, append]),
+    ok = file:write(D, [10, 10]),
+    ok = file:close(D),
+
+    {ok, Logs} =
+        rtnode([
+                {putline, ""},
+                {putdata, [$\^p]}, {getdata,"init:stop()."},
+                {putdata, [$\^p]}, {getdata,"echo."},
+                {putdata, [$\n]},
+                {getline, "echo"}
+               ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+
+    rtnode_check_logs("erlang.log.1",  "Invalid chunk in the file", Logs),
+    ok.
+
+    
+shell_history_path(Config, TestCase) ->
+        filename:join([proplists:get_value(priv_dir, Config),
+                       "shell_history", TestCase]).
+
+mk_sh_param(Path) ->
+    "-kernel shell_history_path '\\\""  ++ Path ++ "\\\"'".
+
+shell_history_custom(_Config) ->
+    %% Up key: Ctrl + P = Cp=[$\^p]
+    rtnode([
+            {putline, ""},
+            {putdata, [$\^p]}, {getdata,"0."},
+            {putdata, [$\n]},
+            {getline, "0"},
+            {putline, "echo."},
+            {getline, "!echo"} %% exclamation sign is printed by custom history module
+           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+               " -pz " ++ filename:dirname(code:which(?MODULE))).
+
+shell_history_custom_errors(_Config) ->
+
+    %% Check that we can start with a node with an undefined
+    %% provider module.
+    rtnode([
+            {putline, "echo."},
+            {getline, "echo"}
+           ], [], [], " -kernel shell_history very_broken " ++
+               " -pz " ++ filename:dirname(code:which(?MODULE))),
+
+    %% Check that we can start with a node with a provider module
+    %% that crashes in load/0
+    rtnode([
+            {putline, "echo."},
+            {getline, "echo"}
+           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+               " -kernel provider_load crash" ++
+               " -pz " ++ filename:dirname(code:which(?MODULE))),
+
+    %% Check that we can start with a node with a provider module
+    %% that return incorrect in load/0
+    rtnode([
+            {putline, "echo."},
+            {getline, "echo"}
+           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+               " -kernel provider_load badreturn" ++
+               " -pz " ++ filename:dirname(code:which(?MODULE))),
+
+    %% Check that we can start with a node with a provider module
+    %% that crashes in load/0
+    rtnode([
+            {putline, "echo."},
+            {getline, "Disabling shell history logging."},
+            {getline, "echo"}
+           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+               " -kernel provider_add crash" ++
+               " -pz " ++ filename:dirname(code:which(?MODULE))),
+
+    %% Check that we can start with a node with a provider module
+    %% that return incorrect in load/0
+    rtnode([
+            {putline, "echo."},
+            {getline, "It returned {error,badreturn}."},
+            {getline, "echo"}
+           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
+               " -kernel provider_add badreturn" ++
+               " -pz " ++ filename:dirname(code:which(?MODULE))).    
+
+load() ->
+    case application:get_env(kernel,provider_load) of
+        {ok, crash} ->
+            error(crash);
+        {ok, badreturn} ->
+            %% Should return a list of string()
+            ok;
+        _ ->
+            ["0.\n\n"]
+    end.
+
+add(_Line) ->
+    case application:get_env(kernel,provider_add) of
+        {ok, crash} ->
+            error(crash);
+        {ok, badreturn} ->
+            %% Should return ok
+            {error, badreturn};
+        _ ->
+            io:format("!", [])
     end.
 
 %% Tests that local shell can be started by means of job control.
@@ -325,10 +707,124 @@ wordRight(Chars) ->
     [{putline,"world"++Home++"\"hello "++Chars++"\"."},
      {getline,"\"hello world\""}].
 
+%% Test that -remsh works
+remsh(Config) when is_list(Config) ->
+    case proplists:get_value(default_shell,Config) of
+        old -> {skip,"Not supported in old shell"};
+        new ->
+            NodeStr = lists:flatten(io_lib:format("~p",[node()])),
+            [_Name,Host] = string:split(atom_to_list(node()),"@"),
+            Cmds = [{kill_emulator_command,sigint},
+                    {putline,""},
+                    {putline,"node()."},
+                    {getline,NodeStr}],
+
+            %% Test that remsh works with explicit -sname
+            rtnode(Cmds ++ [{putline,"nodes()."},
+                            {getline,"['Remshtest@"++Host++"']"}],
+                   "Remshtest", [], "-remsh " ++ NodeStr),
+
+            %% Test that remsh works without -sname
+            rtnode(Cmds, [], [], " -remsh " ++ NodeStr)
+
+
+    end.
+
+%% Test that -remsh works with long names
+remsh_longnames(Config) when is_list(Config) ->
+
+    case proplists:get_value(default_shell,Config) of
+        old -> {skip,"Not supported in old shell"};
+        new ->
+            %% If we cannot resolve the domain, we need to add localhost to the longname
+            Domain =
+                case inet_db:res_option(domain) of
+                    [] ->
+                        "@127.0.0.1";
+                    _ -> ""
+                end,
+            case rtstart(" -name " ++ atom_to_list(?FUNCTION_NAME)++Domain) of
+                {ok, _SRPid, _STPid, SState} ->
+                    {ok, _CRPid, CTPid, CState} =
+                        rtstart("-name undefined" ++ Domain ++
+                                    " -remsh " ++ atom_to_list(?FUNCTION_NAME)),
+                    try
+                        ok = get_and_put(
+                               CTPid,
+                               [{kill_emulator_command,sigint},
+                                {putline,""},
+                                {putline,"node()."},
+                                {getline_re,atom_to_list(?FUNCTION_NAME)}], 1)
+                    after
+                        rtstop(CState), %% Stop client before server
+                        rtstop(SState)
+                    end;
+                Else ->
+                    Else
+            end
+    end.
+
+%% Test that -remsh works without epmd
+remsh_no_epmd(Config) when is_list(Config) ->
+
+    case proplists:get_value(default_shell,Config) of
+        old -> {skip,"Not supported in old shell"};
+        new ->
+            EPMD_ARGS = "-start_epmd false -erl_epmd_port 12345 ",
+            case rtstart([],"ERL_EPMD_PORT=12345 ",
+                         EPMD_ARGS ++ " -sname " ++ atom_to_list(?FUNCTION_NAME)) of
+                {ok, _SRPid, STPid, SState} ->
+                    try
+                        ok = get_and_put(
+                               STPid,
+                               [{putline,""},
+                                {putline,"node()."},
+                                {getline_re,atom_to_list(?FUNCTION_NAME)}], 1),
+                            {ok, _CRPid, CTPid, CState} =
+                            rtstart([],"ERL_EPMD_PORT=12345 ",
+                                    EPMD_ARGS ++ " -remsh "++atom_to_list(?FUNCTION_NAME)),
+                        try
+                            ok = get_and_put(
+                                   CTPid,
+                                   [{kill_emulator_command,sigint},
+                                    {putline,""},
+                                    {putline,"node()."},
+                                    {getline_re,atom_to_list(?FUNCTION_NAME)}], 1)
+                        after
+                            rtstop(CState)
+                        end
+                    after
+                        rtstop(SState)
+                    end;
+                Else ->
+                    Else
+            end
+    end.
 
 rtnode(C,N) ->
     rtnode(C,N,[]).
 rtnode(Commands,Nodename,ErlPrefix) ->
+    rtnode(Commands,Nodename,ErlPrefix,[]).
+rtnode(Commands,Nodename,ErlPrefix,Args) ->
+    case rtstart(Nodename,ErlPrefix,Args) of
+        {ok, _SPid, CPid, RTState} ->
+            erase(getline_skipped),
+            Res = (catch get_and_put(CPid, Commands, 1)),
+            Logs = rtstop(RTState),
+            case Res of
+                ok ->
+                    {Res, Logs};
+                _Else ->
+                    rtnode_dump_logs(Logs),
+                    ok = Res
+            end;
+        Skip ->
+            Skip
+    end.
+
+rtstart(Args) ->
+    rtstart([],[],Args).
+rtstart(Nodename,ErlPrefix,Args) ->
     case get_progs() of
 	{error,_Reason} ->
 	    {skip,"No runerl present"};
@@ -339,36 +835,36 @@ rtnode(Commands,Nodename,ErlPrefix) ->
 		Tempdir ->
 		    SPid =
 			start_runerl_node(RunErl,ErlPrefix++"\\\""++Erl++"\\\"",
-					  Tempdir,Nodename),
+					  Tempdir,Nodename,Args),
 		    CPid = start_toerl_server(ToErl,Tempdir),
-		    erase(getline_skipped),
-		    Res =
-			(catch get_and_put(CPid, Commands,1)),
-		    case stop_runerl_node(CPid) of
-			{error,_} ->
-			    CPid2 =
-				start_toerl_server
-				  (ToErl,Tempdir),
-			    erase(getline_skipped),
-			    ok = get_and_put
-				   (CPid2,
-				    [{putline,[7]},
-				     {sleep,
-				      timeout(short)},
-				     {putline,""},
-				     {getline," -->"},
-				     {putline,"s"},
-				     {putline,"c"},
-				     {putline,""}],1),
-			    stop_runerl_node(CPid2);
-			_ ->
-			    ok
-		    end,
-		    wait_for_runerl_server(SPid),
-		    ok = rm_rf(Tempdir),
-		    ok = Res
-	    end
+                    {ok, SPid, CPid, {CPid, SPid, ToErl, Tempdir}}
+            end
     end.
+
+rtstop({CPid, SPid, ToErl, Tempdir}) ->
+    case stop_runerl_node(CPid) of
+        {error,_} ->
+            CPid2 =
+                start_toerl_server(ToErl,Tempdir),
+            erase(getline_skipped),
+            ok = get_and_put
+                   (CPid2,
+                    [{putline,[7]},
+                     {sleep,
+                      timeout(short)},
+                     {putline,""},
+                     {getline," -->"},
+                     {putline,"s"},
+                     {putline,"c"},
+                     {putline,""}],1),
+            stop_runerl_node(CPid2);
+        _ ->
+            ok
+    end,
+    wait_for_runerl_server(SPid),
+    Logs = rtnode_read_logs(Tempdir),
+    file:del_dir_r(Tempdir),
+    Logs.
 
 timeout(long) ->
     2 * timeout(normal);
@@ -386,24 +882,6 @@ start_noshell_node(Name) ->
 stop_noshell_node(Node) ->
     test_server:stop_node(Node).
 
-
-rm_rf(Dir) ->
-    try
-	{ok,List} = file:list_dir(Dir),
-	Files = [filename:join([Dir,X]) || X <- List],
-	[case file:list_dir(Y) of
-	     {error, enotdir} ->
-		 ok = file:delete(Y);
-	     _ ->
-		 ok = rm_rf(Y)
-	 end || Y <- Files],
-	ok = file:del_dir(Dir),
-	ok
-    catch
-	_:Exception -> {error, {Exception,Dir}}
-    end.
-
-
 get_and_put(_CPid,[],_) ->
     ok;
 get_and_put(CPid, [{sleep, X}|T],N) ->
@@ -411,6 +889,13 @@ get_and_put(CPid, [{sleep, X}|T],N) ->
     receive
     after X ->
 	    get_and_put(CPid,T,N+1)
+    end;
+get_and_put(CPid, [{kill_emulator_command, Cmd}|T],N) ->
+    ?dbg({kill_emulator_command, Cmd}),
+    CPid ! {self(), {kill_emulator_command, Cmd}},
+    receive
+        {kill_emulator_command,_Res} ->
+            get_and_put(CPid,T,N)
     end;
 get_and_put(CPid, [{getline, Match}|T],N) ->
     ?dbg({getline, Match}),
@@ -465,6 +950,20 @@ get_and_put(CPid, [{getline_re, Match}|T],N) ->
 	    end
     end;
 
+get_and_put(CPid, [{getdata, Match}|T],N) ->
+    ?dbg({getdata, Match}),
+    CPid ! {self(), {get_data, timeout(normal), Match}},
+    receive
+	{get_data, timeout} ->
+	    error_logger:error_msg("~p: getdata timeout waiting for \"~s\" "
+				   "(command number ~p, skipped: ~p)~n",
+				   [?MODULE, Match,N,get(getline_skipped)]),
+	    {error, timeout};
+	{get_data, _Data} ->
+	    ?dbg({CPid,data,_Data}),
+            get_and_put(CPid, T, N+1)
+    end;
+
 get_and_put(CPid, [{putline_raw, Line}|T],N) ->
     ?dbg({putline_raw, Line}),
     CPid ! {self(), {send_line, Line}},
@@ -490,6 +989,19 @@ get_and_put(CPid, [{putline, Line}|T],N) ->
 	    error_logger:error_msg("~p: putline timeout (~p) sending "
 				   "\"~s\" (command number ~p)~n[~p]~n",
 				   [?MODULE, Timeout, Line, N,get()]),
+	    {error, timeout}
+    end;
+get_and_put(CPid, [{putdata, Data}|T],N) ->
+    ?dbg({putdata, Data}),
+    CPid ! {self(), {send_data, Data}},
+    Timeout = timeout(normal),
+    receive
+	{send_data, ok} ->
+	    get_and_put(CPid, T,N+1)
+    after Timeout ->
+	    error_logger:error_msg("~p: putline_raw timeout (~p) sending "
+				   "\"~s\" (command number ~p)~n",
+				   [?MODULE, Timeout, Data, N]),
 	    {error, timeout}
     end.
 
@@ -590,7 +1102,7 @@ create_nodename(X) ->
     end.
 
 
-start_runerl_node(RunErl,Erl,Tempdir,Nodename) ->
+start_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
     XArg = case Nodename of
 	       [] ->
 		   [];
@@ -599,11 +1111,13 @@ start_runerl_node(RunErl,Erl,Tempdir,Nodename) ->
 				   true -> Nodename
 				end)++
 		       " -setcookie "++atom_to_list(erlang:get_cookie())
-	   end,
-    spawn(fun() ->
-		  os:cmd("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++
-			     Erl++XArg++"\"")
-	  end).
+	   end ++ " " ++ Args,
+    spawn(fun() -> start_runerl_command(RunErl, Tempdir, Erl++XArg) end).
+
+start_runerl_command(RunErl, Tempdir, Cmd) ->
+    FullCmd = "\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++Cmd++"\"",
+    ct:pal("~ts",[FullCmd]),
+    os:cmd(FullCmd).
 
 start_toerl_server(ToErl,Tempdir) ->
     Pid = spawn(?MODULE,toerl_server,[self(),ToErl,Tempdir]),
@@ -618,13 +1132,11 @@ try_to_erl(_Command, 0) ->
     {error, cannot_to_erl};
 try_to_erl(Command, N) ->
     ?dbg({?LINE,N}),
-    Port = open_port({spawn, Command},[eof,{line,1000}]),
-    Timeout = timeout(normal) div 2,
+    Port = open_port({spawn, Command},[eof]),
+    Timeout = timeout(short) div 2,
     receive
-	{Port, eof} -> 	
-	    receive after Timeout ->
-			    ok
-		    end,
+	{Port, eof} ->
+            timer:sleep(Timeout),
 	    try_to_erl(Command, N-1)
     after Timeout ->
 	    ?dbg(Port),
@@ -632,7 +1144,7 @@ try_to_erl(Command, N) ->
     end.
 
 toerl_server(Parent,ToErl,Tempdir) ->
-    Port = try_to_erl("\""++ToErl++"\" "++Tempdir++"/ 2>/dev/null",8),
+    Port = try_to_erl("\""++ToErl++"\" "++Tempdir++"/ 2>/dev/null", 8),
     case Port of
 	P when is_port(P) ->
 	    Parent ! {self(),started};
@@ -640,7 +1152,7 @@ toerl_server(Parent,ToErl,Tempdir) ->
 	    Parent ! {self(),error,Other},
 	    exit(Other)
     end,
-    case toerl_loop(Port,[]) of
+    case toerl_loop(#{ port => Port}) of
 	normal ->
 	    ok;
 	{error, Reason} ->
@@ -649,54 +1161,61 @@ toerl_server(Parent,ToErl,Tempdir) ->
 	    exit(Reason)
     end.
 
-toerl_loop(Port,Acc) ->
-    ?dbg({toerl_loop, Port, Acc}),
+toerl_loop(#{ port := Port } = State0) ->
+    ?dbg({toerl_loop, Port, maps:get(acc,State0,[]),
+          maps:get(match,State0,nomatch)}),
+
+    State = handle_match(State0),
+
     receive
-	{Port,{data,{Tag0,Data}}} when is_port(Port) ->
-	    ?dbg({?LINE,Port,{data,{Tag0,Data}}}),
-	    case Acc of
-		[{noeol,Data0}|T0] ->
-		    toerl_loop(Port,[{Tag0, Data0++Data}|T0]);
-		_ ->
-		    toerl_loop(Port,[{Tag0,Data}|Acc])
-	    end;
-	{Pid,{get_line,Timeout}} ->
-	    case Acc of
-		[] ->
-		    case get_data_within(Port,Timeout,[]) of
-			timeout ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,[]);
-			{noeol,Data1} ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,[{noeol,Data1}]);
-			{eol,Data2} ->
-			    Pid ! {get_line, Data2}, 
-			    toerl_loop(Port,[])
-		    end;
-		[{noeol,Data3}] ->
-		    case get_data_within(Port,Timeout,Data3) of
-			timeout ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,Acc);
-			{noeol,Data4} ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,[{noeol,Data4}]);
-			{eol,Data5} ->
-			    Pid ! {get_line, Data5},
-			    toerl_loop(Port,[])
-		    end;
-		List ->
-		    {NewAcc,[{eol,Data6}]} = lists:split(length(List)-1,List),
-		    Pid ! {get_line,Data6},
-		    toerl_loop(Port,NewAcc)
-	    end;
+	{Port,{data,Data}} when is_port(Port) ->
+	    ?dbg({?LINE,Port,{data,Data}}),
+            toerl_loop(State#{ acc => lists:flatten([maps:get(acc,State,[]),Data])});
+        {Pid, {get_data, Timeout, Match}} ->
+            toerl_loop(
+              State#{ get =>
+                          #{ match => Match,
+                             timer => erlang:start_timer(Timeout, self(), timeout),
+                             tag => get_data,
+                             from => Pid }
+                    });
+        {Pid, {get_line, Timeout}} ->
+            toerl_loop(
+              State#{ get =>
+                          #{ match => "\r\n",
+                             timer => erlang:start_timer(Timeout, self(), timeout),
+                             tag => get_line,
+                             from => Pid }
+                    });
 	{Pid, {send_line, Data7}} ->
 	    Port ! {self(),{command, Data7++"\n"}},
 	    Pid ! {send_line, ok},
-	    toerl_loop(Port,Acc);
+	    toerl_loop(State);
+        {Pid, {send_data, Data}} ->
+            Port ! {self(),{command, Data}},
+	    Pid ! {send_data, ok},
+	    toerl_loop(State);
+        {Pid, {kill_emulator_command, Cmd}} ->
+            put(kill_emulator_command, Cmd),
+            Pid ! {kill_emulator_command, ok},
+	    toerl_loop(State);
 	{_Pid, kill_emulator} ->
-	    Port ! {self(),{command, "init:stop().\n"}},
+            case get(kill_emulator_command) of
+                undefined ->
+                    Port ! {self(),{command, "init:stop().\n"}};
+                sigint ->
+                    ?dbg({putdata,[$\^c]}),
+                    Port ! {self(),{command, [$\^c]}},
+                    receive
+                        {Port,{data,_Data}} ->
+                            ?dbg({exit_data, _Data}),
+                            ok
+                    after 2000 ->
+                            ok
+                    end,
+                    ?dbg({putdata,"a\n"}),
+                    Port ! {self(),{command, "a\n"}}
+            end,
 	    Timeout1 = timeout(long),
 	    receive
 		{Port,eof} ->
@@ -704,55 +1223,78 @@ toerl_loop(Port,Acc) ->
 	    after Timeout1 ->
 		    {error, kill_timeout}
 	    end;
+        {timeout,Timer,timeout} ->
+            #{ get := #{ tag := Tag, from := Pid, timer := Timer } } = State,
+            Pid ! {Tag, timeout},
+            toerl_loop(maps:remove(get, State));
 	{Port, eof} ->
 	    {error, unexpected_eof};
 	Other ->
 	    {error, {unexpected, Other}}
     end.
 
-millistamp() ->
-    erlang:monotonic_time(millisecond).
-
-get_data_within(Port, X, Acc) when X =< 0 ->
-    ?dbg({get_data_within, X, Acc, ?LINE}),
-    receive
-	{Port,{data,{Tag0,Data}}} ->
-	    ?dbg({?LINE,Port,{data,{Tag0,Data}}}),
-	    {Tag0, Acc++Data}
-    after 0 ->
-	    case Acc of
-		[] ->
-		    timeout;
-		Noeol ->
-		    {noeol,Noeol}
-	    end
+handle_match(#{ acc := Acc, get := #{ tag := Tag,
+                                      match := Match,
+                                      from := From,
+                                      timer := Timer}} = State) ->
+    case string:split(Acc, Match) of
+        [Pre,Post] ->
+            ?dbg({match,Pre}),
+            From ! {Tag, Pre},
+            erlang:cancel_timer(Timer),
+            receive
+                {timeout,Timer,timeout} ->
+                    ok
+            after 0 ->
+                    ok
+            end,
+            maps:put(acc, Post, maps:remove(get, State));
+        [Acc] ->
+            State
     end;
+handle_match(State) ->
+    State.
 
+rtnode_check_logs(Logname, Pattern, Logs) ->
+rtnode_check_logs(Logname, Pattern, true, Logs).
+rtnode_check_logs(Logname, Pattern, Match, Logs) ->
+        case re:run(maps:get(Logname, Logs), Pattern) of
+            {match, [_]} when Match ->
+                ok;
+            nomatch when not Match ->
+                ok;
+            _ ->
+                rtnode_dump_logs(Logs),
+                ct:fail("~p not found in log ~ts",[Pattern, Logname])
+        end.
 
-get_data_within(Port, Timeout, Acc) ->	
-    ?dbg({get_data_within, Timeout, Acc, ?LINE}),
-    T1 = millistamp(),
-    receive 
-	{Port,{data,{noeol,Data}}} ->
-	    ?dbg({?LINE,Port,{data,{noeol,Data}}}),
-	    Elapsed = millistamp() - T1 + 1,
-	    get_data_within(Port, Timeout - Elapsed, Acc ++ Data); 
-	{Port,{data,{eol,Data1}}} ->
-	    ?dbg({?LINE,Port,{data,{eol,Data1}}}),
-	    {eol, Acc ++ Data1}
-    after Timeout ->
-	    timeout
-    end.
+rtnode_dump_logs(Logs) ->
+    maps:foreach(
+      fun(File, Data) ->
+              ct:pal("~ts: ~ts",[File, Data])
+      end, Logs).
+
+rtnode_read_logs(Tempdir) ->
+    {ok, LogFiles} = file:list_dir(Tempdir),
+    lists:foldl(
+      fun(File, Acc) ->
+              case file:read_file(filename:join(Tempdir, File)) of
+                  {ok, Data} ->
+                      Acc#{ File => Data };
+                  _ ->
+                      Acc
+              end
+      end, #{}, LogFiles).
 
 get_default_shell() ->
     try
-	rtnode([{putline,""},
-		{putline, "whereis(user_drv)."},
-		{getline, "undefined"}],[]),
-	old
+        rtnode([{putline,""},
+                {putline, "whereis(user_drv)."},
+                {getline, "undefined"}],[]),
+        old
     catch _E:_R ->
-	    ?dbg({_E,_R}),
-	    new
+            ?dbg({_E,_R}),
+            new
     end.
 
 atom2list(A) ->

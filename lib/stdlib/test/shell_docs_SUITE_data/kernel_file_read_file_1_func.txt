@@ -1,0 +1,30 @@
+
+  [;1m-spec read_file(Filename) -> {ok, Binary} | {error, Reason}[0m
+  [;1m                   when[0m
+  [;1m                       Filename :: name_all(),[0m
+  [;1m                       Binary :: binary(),[0m
+  [;1m                       Reason ::[0m
+  [;1m                           posix() | badarg | terminated | system_limit.[0m
+
+  Returns [;;4m{ok, Binary}[0m, where [;;4mBinary[0m is a binary data object
+  that contains the contents of [;;4mFilename[0m, or [;;4m{error, Reason}[0m if
+  an error occurs.
+
+  Typical error reasons:
+
+  [;;4m[;;4menoent[0m[0m:
+    The file does not exist.
+
+  [;;4m[;;4meacces[0m[0m:
+    Missing permission for reading the file, or for searching one
+    of the parent directories.
+
+  [;;4m[;;4meisdir[0m[0m:
+    The named file is a directory.
+
+  [;;4m[;;4menotdir[0m[0m:
+    A component of the filename is not a directory. On some
+    platforms, [;;4menoent[0m is returned instead.
+
+  [;;4m[;;4menomem[0m[0m:
+    There is not enough memory for the contents of the file.

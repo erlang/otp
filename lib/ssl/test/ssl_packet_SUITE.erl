@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,10 +21,197 @@
 %%
 -module(ssl_packet_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-behaviour(ct_suite).
 
 -include_lib("common_test/include/ct.hrl").
+
+%% Callback functions
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2]).
+
+%% Testcases
+-export([packet_raw_passive_many_small/0,
+         packet_raw_passive_many_small/1,
+         packet_0_passive_many_small/0,
+         packet_0_passive_many_small/1,
+         packet_1_passive_many_small/0,
+         packet_1_passive_many_small/1,
+         packet_2_passive_many_small/0,
+         packet_2_passive_many_small/1,
+         packet_4_passive_many_small/0,
+         packet_4_passive_many_small/1,
+         packet_raw_passive_some_big/0,
+         packet_raw_passive_some_big/1,
+         packet_0_passive_some_big/0,
+         packet_0_passive_some_big/1,
+         packet_1_passive_some_big/0,
+         packet_1_passive_some_big/1,
+         packet_2_passive_some_big/0,
+         packet_2_passive_some_big/1,
+         packet_4_passive_some_big/0,
+         packet_4_passive_some_big/1,
+         packet_wait_passive/0,
+         packet_wait_passive/1,
+         packet_size_passive/0,
+         packet_size_passive/1,
+         header_decode_one_byte_passive/0,
+         header_decode_one_byte_passive/1,
+         header_decode_two_bytes_passive/0,
+         header_decode_two_bytes_passive/1,
+         header_decode_two_bytes_two_sent_passive/0,
+         header_decode_two_bytes_two_sent_passive/1,
+         header_decode_two_bytes_one_sent_passive/0,
+         header_decode_two_bytes_one_sent_passive/1,
+         packet_httph_passive/0,
+         packet_httph_passive/1,
+         packet_httph_bin_passive/0,
+         packet_httph_bin_passive/1,
+         packet_http_error_passive/0,
+         packet_http_error_passive/1,
+         packet_baddata_passive/0,
+         packet_baddata_passive/1,
+         packet_raw_active_once_many_small/0,
+         packet_raw_active_once_many_small/1,
+         packet_0_active_once_many_small/0,
+         packet_0_active_once_many_small/1,
+         packet_1_active_once_many_small/0,
+         packet_1_active_once_many_small/1,
+         packet_2_active_once_many_small/0,
+         packet_2_active_once_many_small/1,
+         packet_4_active_once_many_small/0,
+         packet_4_active_once_many_small/1,
+         packet_raw_active_once_some_big/0,
+         packet_raw_active_once_some_big/1,
+         packet_0_active_once_some_big/0,
+         packet_0_active_once_some_big/1,
+         packet_1_active_once_some_big/0,
+         packet_1_active_once_some_big/1,
+         packet_2_active_once_some_big/0,
+         packet_2_active_once_some_big/1,
+         packet_4_active_once_some_big/0,
+         packet_4_active_once_some_big/1,
+         packet_httph_active_once/0,
+         packet_httph_active_once/1,
+         packet_httph_bin_active_once/0,
+         packet_httph_bin_active_once/1,
+         packet_raw_active_many_small/0,
+         packet_raw_active_many_small/1,
+         packet_0_active_many_small/0,
+         packet_0_active_many_small/1,
+         packet_1_active_many_small/0,
+         packet_1_active_many_small/1,
+         packet_2_active_many_small/0,
+         packet_2_active_many_small/1,
+         packet_4_active_many_small/0,
+         packet_4_active_many_small/1,
+         packet_raw_active_some_big/0,
+         packet_raw_active_some_big/1,
+         packet_0_active_some_big/0,
+         packet_0_active_some_big/1,
+         packet_1_active_some_big/0,
+         packet_1_active_some_big/1,
+         packet_2_active_some_big/0,
+         packet_2_active_some_big/1,
+         packet_4_active_some_big/0,
+         packet_4_active_some_big/1,
+         packet_wait_active/0,
+         packet_wait_active/1,
+         packet_size_active/0,
+         packet_size_active/1,
+         packet_switch/0,
+         packet_switch/1,
+         header_decode_one_byte_active/0,
+         header_decode_one_byte_active/1,
+         header_decode_two_bytes_active/0,
+         header_decode_two_bytes_active/1,
+         header_decode_two_bytes_two_sent_active/0,
+         header_decode_two_bytes_two_sent_active/1,
+         header_decode_two_bytes_one_sent_active/0,
+         header_decode_two_bytes_one_sent_active/1,
+         packet_httph_active/0,
+         packet_httph_active/1,
+         packet_httph_bin_active/0,
+         packet_httph_bin_active/1,
+         packet_baddata_active/0,
+         packet_baddata_active/1,
+         packet_cdr_decode/0,
+         packet_cdr_decode/1,
+         packet_cdr_decode_list/0,
+	 packet_cdr_decode_list/1,
+         packet_http_decode/0,
+         packet_http_decode/1,
+         packet_http_decode_list/0,
+         packet_http_decode_list/1,
+         packet_http_bin_decode_multi/0,
+         packet_http_bin_decode_multi/1,
+         packet_line_decode/0,
+         packet_line_decode/1,
+         packet_line_decode_list/0,
+         packet_line_decode_list/1,
+         packet_asn1_decode/0,
+         packet_asn1_decode/1,
+         packet_asn1_decode_list/0,
+	 packet_asn1_decode_list/1,
+         packet_sunrm_decode/0,
+         packet_sunrm_decode/1,
+         packet_sunrm_decode_list/0,
+         packet_sunrm_decode_list/1,
+         packet_send_to_large/0,
+         packet_send_to_large/1,
+         packet_tpkt_decode/0,
+         packet_tpkt_decode/1,
+         packet_tpkt_decode_list/0,
+         packet_tpkt_decode_list/1,
+         reject_packet_opt/0,
+         reject_packet_opt/1
+        ]).
+
+%% Apply export
+-export([send_raw/3,
+         passive_raw/3,
+         passive_recv_packet/3,
+         send/3,
+         send_incomplete/3,
+         active_once_raw/4,
+         active_once_packet/3,
+         active_raw/3,
+         active_once_raw/3,
+         active_packet/3,
+         assert_packet_opt/2,
+         server_packet_decode/2,
+         client_packet_decode/2,
+         server_header_decode_active/3,
+         client_header_decode_active/3,
+         server_header_decode_passive/3,
+         client_header_decode_passive/3,
+         server_line_packet_decode/2,
+         server_line_packet_decode/4,
+         client_line_packet_decode/2,
+         client_line_packet_decode/5,
+         server_http_decode/2,
+         client_http_decode/2,
+         server_http_bin_decode/3,
+         client_http_bin_decode/3,
+         client_http_decode_list/2,
+         server_http_decode_error/2,
+         server_send_trailer/2,
+         client_http_decode_trailer_active/1,
+         client_http_decode_trailer_bin_active/1,
+         client_http_decode_trailer_active_once/1,
+         client_http_decode_trailer_bin_active_once/1,
+         client_http_decode_trailer_passive/1,
+         client_http_decode_trailer_bin_passive/1,
+         add_tpkt_header/1,
+         client_reject_packet_opt/2,
+         send_switch_packet/3,
+         recv_switch_packet/3
+         ]).
 
 -define(BYTE(X),     X:8/unsigned-big-integer).
 -define(UINT16(X),   X:16/unsigned-big-integer).
@@ -41,7 +228,7 @@
 
 -define(MANY, 1000).
 -define(SOME, 50).
--define(BASE_TIMEOUT_SECONDS, 5).
+-define(BASE_TIMEOUT_SECONDS, 20).
 -define(SOME_SCALE, 2).
 -define(MANY_SCALE, 3).
 
@@ -50,19 +237,19 @@
 %%--------------------------------------------------------------------
 all() -> 
     [
+     {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
     ].
 
 groups() ->
-    [{'tlsv1.2', [], socket_packet_tests() ++ protocol_packet_tests()},
+    [{'tlsv1.3', [], socket_packet_tests() ++ protocol_packet_tests()},
+     {'tlsv1.2', [], socket_packet_tests() ++ protocol_packet_tests()},
      {'tlsv1.1', [], socket_packet_tests() ++ protocol_packet_tests()},
      {'tlsv1', [], socket_packet_tests() ++ protocol_packet_tests()},
-     {'sslv3', [], socket_packet_tests() ++ protocol_packet_tests()},
      %% We will not support any packet types if the transport is
      %% not reliable. We might support it for DTLS over SCTP in the future 
      {'dtlsv1.2', [], [reject_packet_opt]},
@@ -173,28 +360,10 @@ end_per_suite(_Config) ->
     application:stop(crypto).
 
 init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-	true ->
-	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
-		true ->
-		    ssl_test_lib:init_tls_version(GroupName, Config);
-		false ->
-		    {skip, "Missing crypto support"}
-	    end;
-	_ ->
-	    ssl:stop(),
-	    ssl:start(),
-	    Config
-    end.
-
+    ssl_test_lib:init_per_group(GroupName, Config). 
 
 end_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            ssl_test_lib:clean_tls_version(Config);
-        false ->
-            Config
-    end.
+  ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(_TestCase, Config) ->
     ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS}),
@@ -592,8 +761,8 @@ packet_baddata_active(Config) when is_list(Config) ->
 						   {packet, cdr} |
 						   ClientOpts]}]),
     receive
-	{Client, {other, {ssl_error, _Socket, 
-			  {invalid_packet, _}},{error,closed},1}} -> ok;
+	{Client, {ssl_error, _, {invalid_packet, _}}} ->
+            ok;
 	Unexpected ->
 	    ct:fail({unexpected, Unexpected})
     end,    
@@ -627,7 +796,8 @@ packet_baddata_passive(Config) when is_list(Config) ->
 						   ClientOpts]}]),
 
     receive
-	{Client, {other, {error, {invalid_packet, _}},{error,closed}, 1}} -> ok;
+	{Client, {error, {invalid_packet, _}}} ->
+            ok;
 	Unexpected ->
 	    ct:fail({unexpected, Unexpected})
     end,    
@@ -660,11 +830,11 @@ packet_size_active(Config) when is_list(Config) ->
 						   {packet, 4}, {packet_size, 10} |
 						   ClientOpts]}]),
     receive
-	{Client, {other, {ssl_error, _Socket, 
-			  {invalid_packet, _}},{error,closed},1}} -> ok;
+	{Client, {ssl_error, _, {invalid_packet, _}}}->
+            ok;
 	Unexpected ->
 	    ct:fail({unexpected, Unexpected})
-    end,    
+    end, 
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
@@ -695,7 +865,8 @@ packet_size_passive(Config) when is_list(Config) ->
 						   {packet, 4}, {packet_size, 30} |
 						   ClientOpts]}]),
     receive
-	{Client, {other, {error, {invalid_packet, _}},{error,closed},1}} -> ok;
+	{Client, {error, {invalid_packet, _}}} ->
+            ok;
 	Unexpected ->
 	    ct:fail({unexpected, Unexpected})
     end,
@@ -860,11 +1031,11 @@ server_http_decode(Socket, HttpResponse) ->
 	Other4 -> exit({?LINE, Other4})
     end,
     assert_packet_opt(Socket, http),
-    ok = ssl:send(Socket, HttpResponse),
+    spawn(fun() -> ssl:send(Socket, HttpResponse) end),
     ok.
 
 client_http_decode(Socket, HttpRequest) ->
-    ok = ssl:send(Socket, HttpRequest),
+    spawn(fun() -> ssl:send(Socket, HttpRequest) end),
     receive
 	{ssl, Socket, {http_response, {1,1}, 200, "OK"}}  -> ok;
 	Other1 -> exit({?LINE, Other1})
@@ -922,7 +1093,7 @@ packet_http_decode_list(Config) when is_list(Config) ->
 
 
 client_http_decode_list(Socket, HttpRequest) ->
-    ok = ssl:send(Socket, HttpRequest),
+    spawn(fun() -> ssl:send(Socket, HttpRequest) end),
     receive
 	{ssl, Socket, {http_response, {1,1}, 200, "OK"}}  -> ok;
 	Other1 -> exit({?LINE, Other1})
@@ -1001,13 +1172,13 @@ server_http_bin_decode(Socket, HttpResponse, Count) when Count > 0 ->
 	Other4 -> exit({?LINE, Other4})
     end,
     assert_packet_opt(Socket, http_bin),
-    ok = ssl:send(Socket, HttpResponse),
+    spawn(fun() -> ssl:send(Socket, HttpResponse) end),
     server_http_bin_decode(Socket, HttpResponse, Count - 1);
 server_http_bin_decode(_, _, _) ->
     ok.
 
 client_http_bin_decode(Socket, HttpRequest, Count) when Count > 0 ->
-    ok = ssl:send(Socket, HttpRequest),
+    spawn(fun() -> ssl:send(Socket, HttpRequest) end),
     receive
 	{ssl, Socket, {http_response, {1,1}, 200, <<"OK">>}}  -> ok;
 	Other1 -> exit({?LINE, Other1})
@@ -1085,7 +1256,7 @@ server_http_decode_error(Socket, HttpResponse) ->
     {ok, http_eoh} = ssl:recv(Socket, 0),
 
     assert_packet_opt(Socket, http),
-    ok = ssl:send(Socket, HttpResponse),
+    spawn(fun() -> ssl:send(Socket, HttpResponse) end),
     ok.
 %%--------------------------------------------------------------------
 packet_httph_active() ->
@@ -1130,7 +1301,7 @@ server_send_trailer(Socket, Trailer)->
 client_http_decode_trailer_active(Socket) ->
     receive
 	{ssl, Socket,
-	 {http_header,36,'Content-Encoding',undefined,"gzip"}} ->
+	 {http_header,36,'Content-Encoding',"Content-Encoding","gzip"}} ->
 	    ok;
 	Other1 ->
 	    exit({?LINE, Other1})
@@ -1180,7 +1351,7 @@ packet_httph_bin_active(Config) when is_list(Config) ->
 client_http_decode_trailer_bin_active(Socket) ->
     receive
 	{ssl, Socket,
-	 {http_header,36,'Content-Encoding',undefined, <<"gzip">>}} ->
+	 {http_header,36,'Content-Encoding',<<"Content-Encoding">>, <<"gzip">>}} ->
 	    ok;
 	Other1 ->
 	    exit({?LINE, Other1})
@@ -1232,7 +1403,7 @@ client_http_decode_trailer_active_once(Socket) ->
     ssl:setopts(Socket, [{active, once}]),
     receive
 	{ssl, Socket,
-	 {http_header,36,'Content-Encoding',undefined,"gzip"}} ->
+	 {http_header,36,'Content-Encoding',"Content-Encoding","gzip"}} ->
 	    ok;
 	Other1 ->
 	    exit({?LINE, Other1})
@@ -1284,7 +1455,7 @@ client_http_decode_trailer_bin_active_once(Socket) ->
     ssl:setopts(Socket, [{active, once}]),
     receive
 	{ssl, Socket,
-	 {http_header,36,'Content-Encoding',undefined, <<"gzip">>}} ->
+	 {http_header,36,'Content-Encoding',<<"Content-Encoding">>, <<"gzip">>}} ->
 	    ok;
 	Other1 ->
 	    exit({?LINE, Other1})
@@ -1335,7 +1506,7 @@ packet_httph_passive(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 client_http_decode_trailer_passive(Socket) ->
-    {ok,{http_header,36,'Content-Encoding',undefined,"gzip"}} = ssl:recv(Socket, 0),
+    {ok,{http_header,36,'Content-Encoding',"Content-Encoding","gzip"}} = ssl:recv(Socket, 0),
     {ok, http_eoh} = ssl:recv(Socket, 0),
     ok.
 
@@ -1375,7 +1546,7 @@ packet_httph_bin_passive(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 client_http_decode_trailer_bin_passive(Socket) ->
-    {ok,{http_header,36,'Content-Encoding',undefined,<<"gzip">>}} = ssl:recv(Socket, 0),
+    {ok,{http_header,36,'Content-Encoding',<<"Content-Encoding">>,<<"gzip">>}} = ssl:recv(Socket, 0),
     {ok, http_eoh} = ssl:recv(Socket, 0),
     ok.
 
@@ -2009,15 +2180,17 @@ packet(Config, Data, Send, Recv, Quantity, Packet, Active) ->
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},
 					{mfa, {?MODULE, Send ,[Data, Quantity]}},
-					{options, [{packet, Packet} | ServerOpts]}]),
+					{options, [{packet, Packet}, {nodelay, true}| ServerOpts]
+                                         ++ ssl_test_lib:bigger_buffers()}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
 					{host, Hostname},
 					{from, self()},
 					{mfa, {?MODULE, Recv, [Data, Quantity]}},
 					{options, [{active, Active},
+                                                   {nodelay, true},
 						   {packet, Packet} |
-						   ClientOpts]}]),
+						   ClientOpts] ++ ssl_test_lib:bigger_buffers()}]),
 
     ssl_test_lib:check_result(Client, ok),
 
@@ -2048,11 +2221,11 @@ passive_recv_packet(Socket, _, 0) ->
 	    {other, Other, ssl:connection_information(Socket, [session_id, cipher_suite]), 0}
     end;
 passive_recv_packet(Socket, Data, N) ->
-    case ssl:recv(Socket, 0) of
+    case ssl:recv(Socket, 0, 10000) of
 	{ok, Data} -> 
 	    passive_recv_packet(Socket, Data, N-1);
-	Other ->
-	    {other, Other, ssl:connection_information(Socket, [session_id, cipher_suite]), N}
+        {error, _} = Other ->
+            Other
     end.
 
 send(Socket,_, 0) ->
@@ -2108,18 +2281,10 @@ active_once_packet(Socket,_, 0) ->
     end;
 active_once_packet(Socket, Data, N) ->
     receive 	
-	{ssl, Socket, Byte} when length(Byte) == 1 ->
-	    ssl:setopts(Socket, [{active, once}]),
-	    receive 
-		{ssl, Socket, _} ->
-		    ssl:setopts(Socket, [{active, once}]),
-		    active_once_packet(Socket, Data, N-1)
-	    end;
 	{ssl, Socket, Data} ->
-	    ok
-    end,
-    ssl:setopts(Socket, [{active, once}]),
-    active_once_packet(Socket, Data, N-1).
+            ssl:setopts(Socket, [{active, once}]),
+            active_once_packet(Socket, Data, N-1)
+    end.
 
 active_raw(Socket, Data, N) ->
     active_raw(Socket, (length(Data) * N)).
@@ -2140,15 +2305,10 @@ active_packet(Socket, _, 0) ->
     end;
 active_packet(Socket, Data, N) ->
     receive 
-	{ssl, Socket, Byte} when length(Byte) == 1 ->
-	    receive
-		{ssl, Socket, _} ->
-		    active_packet(Socket, Data, N -1)
-		end;
 	{ssl, Socket, Data} ->
-	    active_packet(Socket, Data, N -1);
+	    active_packet(Socket, Data, N-1);
 	Other ->
-	    {other, Other, ssl:connection_information(Socket,  [session_id, cipher_suite]),N}
+	    Other
     end.
 
 assert_packet_opt(Socket, Type) ->
@@ -2159,12 +2319,13 @@ server_packet_decode(Socket, Packet) ->
 	{ssl, Socket, Packet}  -> ok;
 	Other1 -> exit({?LINE, Other1})
     end,
-    ok = ssl:send(Socket, Packet),
+    spawn(fun() -> ssl:send(Socket, Packet) end),
     receive
 	{ssl, Socket, Packet}  -> ok;
 	Other2 -> exit({?LINE, Other2})
     end,
-    ok = ssl:send(Socket, Packet).
+    spawn(fun() -> ssl:send(Socket, Packet) end),
+    ok.
 
 client_packet_decode(Socket, Packet) when is_binary(Packet)->
     <<P1:10/binary, P2/binary>> = Packet,
@@ -2173,14 +2334,12 @@ client_packet_decode(Socket, [Head | Tail] = Packet) ->
     client_packet_decode(Socket, [Head], Tail, Packet).
 
 client_packet_decode(Socket, P1, P2, Packet) ->
-    ct:log("Packet: ~p ~n", [Packet]),
-    ok = ssl:send(Socket, P1),
-    ok = ssl:send(Socket, P2),
+    spawn(fun() -> ssl:send(Socket, P1), ssl:send(Socket, P2)  end),
     receive
 	{ssl, Socket, Packet}  -> ok;
 	Other1 -> exit({?LINE, Other1})
     end,
-    ok = ssl:send(Socket, Packet),
+    spawn(fun() -> ssl:send(Socket, Packet) end),
     receive
 	{ssl, Socket, Packet}  -> ok;
 	Other2 -> exit({?LINE, Other2})
@@ -2193,10 +2352,11 @@ server_header_decode_active(Socket, Packet, Result) ->
 	{ssl, Socket, Other1} ->
 	    check_header_result(Result, Other1)
     end,
-    ok = ssl:send(Socket, Packet).
+    spawn(fun() -> ssl:send(Socket, Packet) end),
+    ok.
 
 client_header_decode_active(Socket, Packet, Result) ->
-    ok = ssl:send(Socket, Packet),
+    spawn(fun() -> ssl:send(Socket, Packet) end),
     receive
 	{ssl, Socket, Result}  ->
 	    ok;
@@ -2211,11 +2371,11 @@ server_header_decode_passive(Socket, Packet, Result) ->
 	{ok, Other} ->
 	    check_header_result(Result, Other)
     end,
-    ok = ssl:send(Socket, Packet).
+    spawn(fun() -> ssl:send(Socket, Packet) end),
+    ok.
 
 client_header_decode_passive(Socket, Packet, Result) ->
-    ok = ssl:send(Socket, Packet),
-
+    spawn(fun() -> ssl:send(Socket, Packet) end),
     case ssl:recv(Socket, 0) of
 	{ok, Result} ->
 	    ok;
@@ -2253,7 +2413,8 @@ server_line_packet_decode(Socket, L1, L2, Packet) ->
   	{ssl, Socket,  L2} -> ok;
   	Other2 -> exit({?LINE, Other2})
     end,
-    ok = ssl:send(Socket, Packet).
+    spawn(fun() -> ssl:send(Socket, Packet) end),
+    ok.
 
 client_line_packet_decode(Socket, Packet) when is_binary(Packet)->
     <<P1:10/binary, P2/binary>> = Packet,
@@ -2264,8 +2425,7 @@ client_line_packet_decode(Socket, [Head | Tail] = Packet) ->
     client_line_packet_decode(Socket, [Head], Tail, L1 ++ "\n", L2 ++ "\n").
 
 client_line_packet_decode(Socket, P1, P2, L1, L2) ->
-    ok = ssl:send(Socket, P1),
-    ok = ssl:send(Socket, P2),
+    spawn(fun() -> ssl:send(Socket, P1),  ssl:send(Socket, P2) end),
     receive
   	{ssl, Socket, L1} -> ok;
   	Other1 -> exit({?LINE, Other1})
@@ -2305,11 +2465,11 @@ client_reject_packet_opt(Config, PacketOpt) ->
 
 
 send_switch_packet(SslSocket, Data, NextPacket) ->
-    ssl:send(SslSocket, Data),
+    spawn(fun() -> ssl:send(SslSocket, Data) end),
     receive
         {ssl, SslSocket, "Hello World"} ->
             ssl:setopts(SslSocket, [{packet, NextPacket}]),
-            ssl:send(SslSocket, Data),
+            spawn(fun() -> ssl:send(SslSocket, Data) end),
             receive 
                 {ssl, SslSocket, "Hello World"} ->
                     ok
@@ -2318,10 +2478,11 @@ send_switch_packet(SslSocket, Data, NextPacket) ->
 recv_switch_packet(SslSocket, Data, NextPacket) ->
     receive
         {ssl, SslSocket, "Hello World"} ->
-            ssl:send(SslSocket, Data),
+            spawn(fun() -> ssl:send(SslSocket, Data) end),
             ssl:setopts(SslSocket, [{packet, NextPacket}]),
             receive 
                 {ssl, SslSocket, "Hello World"} ->
-                    ssl:send(SslSocket, Data)
+                    spawn(fun() -> ssl:send(SslSocket, Data) end),
+                    ok                        
             end
     end.

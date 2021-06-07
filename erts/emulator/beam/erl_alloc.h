@@ -26,9 +26,22 @@
 #define ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #include "erl_thr_progress.h"
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
-#include "erl_alloc_util.h"
 #include "erl_threads.h"
 #include "erl_mmap.h"
+
+typedef enum {
+    ERTS_ALC_S_INVALID = 0,
+
+    ERTS_ALC_S_GOODFIT,
+    ERTS_ALC_S_BESTFIT,
+    ERTS_ALC_S_AFIT,
+    ERTS_ALC_S_FIRSTFIT,
+
+    ERTS_ALC_S_MIN = ERTS_ALC_S_GOODFIT,
+    ERTS_ALC_S_MAX = ERTS_ALC_S_FIRSTFIT
+} ErtsAlcStrat_t;
+
+#include "erl_alloc_util.h"
 
 #ifdef DEBUG
 #  undef ERTS_ALC_WANT_INLINE
@@ -51,6 +64,14 @@
 
 #define ERTS_ALC_NO_FIXED_SIZES \
   (ERTS_ALC_N_MAX_A_FIXED_SIZE - ERTS_ALC_N_MIN_A_FIXED_SIZE + 1)
+
+#define ERTS_ALC_IS_FIX_TYPE(T) \
+    (ERTS_ALC_T2N(T) >= ERTS_ALC_N_MIN_A_FIXED_SIZE && \
+     ERTS_ALC_T2N(T) <= ERTS_ALC_N_MAX_A_FIXED_SIZE)
+
+#define ERTS_ALC_FIX_TYPE_IX(T) \
+  (ASSERT(ERTS_ALC_IS_FIX_TYPE(T)), \
+   ERTS_ALC_T2N((T)) - ERTS_ALC_N_MIN_A_FIXED_SIZE)
 
 void erts_sys_alloc_init(void);
 void *erts_sys_alloc(ErtsAlcType_t, void *, Uint);
@@ -228,7 +249,7 @@ void *erts_alloc(ErtsAlcType_t type, Uint size)
     void *res;
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     res = (*erts_allctrs[ERTS_ALC_T2A(type)].alloc)(
-            ERTS_ALC_T2N(type),
+            type,
             erts_allctrs[ERTS_ALC_T2A(type)].extra,
             size);
     if (!res)
@@ -243,7 +264,7 @@ void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size)
     void *res;
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     res = (*erts_allctrs[ERTS_ALC_T2A(type)].realloc)(
-	ERTS_ALC_T2N(type),
+	type,
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	ptr,
 	size);
@@ -258,7 +279,7 @@ void erts_free(ErtsAlcType_t type, void *ptr)
 {
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     (*erts_allctrs[ERTS_ALC_T2A(type)].free)(
-	ERTS_ALC_T2N(type),
+	type,
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	ptr);
     ERTS_MSACC_POP_STATE_X();
@@ -271,7 +292,7 @@ void *erts_alloc_fnf(ErtsAlcType_t type, Uint size)
     void *res;
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     res = (*erts_allctrs[ERTS_ALC_T2A(type)].alloc)(
-	ERTS_ALC_T2N(type),
+	type,
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	size);
     ERTS_MSACC_POP_STATE_X();
@@ -285,7 +306,7 @@ void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size)
     void *res;
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     res = (*erts_allctrs[ERTS_ALC_T2A(type)].realloc)(
-	ERTS_ALC_T2N(type),
+	type,
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	ptr,
 	size);
@@ -337,23 +358,10 @@ erts_alloc_get_verify_unused_temp_alloc(Allctr_t **allctr);
 #define ERTS_ALC_CACHE_LINE_ALIGN_SIZE(SZ) \
   (((((SZ) - 1) / ERTS_CACHE_LINE_SIZE) + 1) * ERTS_CACHE_LINE_SIZE)
 
+#if !defined(VALGRIND) && !defined(ADDRESS_SANITIZER)
+
 #define ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
     ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, (void) 0, (void) 0, (void) 0)
-
-#define ERTS_TS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
-ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)
-
-#define ERTS_TS_PALLOC_IMPL(NAME, TYPE, PASZ)				\
-static erts_spinlock_t NAME##_lck;					\
-ERTS_PRE_ALLOC_IMPL(NAME, TYPE, PASZ,					\
-		    erts_spinlock_init(&NAME##_lck, #NAME "_alloc_lock", NIL, \
-		          ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR),\
-		    erts_spin_lock(&NAME##_lck),			\
-		    erts_spin_unlock(&NAME##_lck))
-
-
-#define ERTS_PALLOC_IMPL(NAME, TYPE, PASZ)				\
-  ERTS_TS_PALLOC_IMPL(NAME, TYPE, PASZ)
 
 
 #define ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, ILCK, LCK, ULCK)	\
@@ -585,6 +593,69 @@ NAME##_free(TYPE *p)							\
 			  (char *) p);					\
 }
 
+#else /* !defined(VALGRIND) && !defined(ADDRESS_SANITIZER) */
+
+/*
+ * For VALGRIND and ADDRESS_SANITIZER we short circuit all preallocation
+ * with dummy wrappers around malloc and free.
+ */
+
+#define ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
+    ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, (void) 0, (void) 0, (void) 0)
+
+#define ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, ILCK, LCK, ULCK)	\
+static void init_##NAME##_alloc(void)                                   \
+{                                                                       \
+}                                                                       \
+static ERTS_INLINE TYPE* NAME##_alloc(void)			        \
+{                                                                       \
+    return malloc(sizeof(TYPE));                                        \
+}				                                        \
+static ERTS_INLINE void NAME##_free(TYPE *p)                            \
+{                                                                       \
+    free((void *) p);                                                   \
+}
+
+#define ERTS_SCHED_PREF_PALLOC_IMPL(NAME, TYPE, PASZ)			\
+  ERTS_SCHED_PREF_PRE_ALLOC_IMPL(NAME, TYPE, PASZ)
+
+#define ERTS_SCHED_PREF_AUX(NAME, TYPE, PASZ)				\
+ERTS_SCHED_PREF_PRE_ALLOC_IMPL(NAME##_pre, TYPE, PASZ)
+
+#define ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT)	\
+        ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)
+
+#define ERTS_THR_PREF_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT)	        \
+void erts_##NAME##_pre_alloc_init_thread(void)				\
+{									\
+}                                                                       \
+static void init_##NAME##_alloc(int nthreads)				\
+{									\
+}									\
+static ERTS_INLINE TYPE* NAME##_alloc(void)			        \
+{									\
+    return malloc(sizeof(TYPE));				        \
+}									\
+static ERTS_INLINE void NAME##_free(TYPE *p)				\
+{									\
+    free(p);					                        \
+}
+
+#define ERTS_SCHED_PREF_PRE_ALLOC_IMPL(NAME, TYPE, PASZ)		  \
+static void init_##NAME##_alloc(void)                                     \
+{                                                                         \
+}                                                                         \
+static TYPE* NAME##_alloc(void)                                           \
+{                                                                         \
+    return (TYPE *) malloc(sizeof(TYPE));                                 \
+}                                                                         \
+static int NAME##_free(TYPE *p)                                           \
+{                                                                         \
+    free(p);                                                              \
+    return 1;                                                             \
+}
+
+#endif /* VALGRIND ||  ADDRESS_SANITIZER */
 
 #ifdef DEBUG
 #define ERTS_ALC_DBG_BLK_SZ(PTR) (*(((UWord *) (PTR)) - 2))

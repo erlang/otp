@@ -197,8 +197,7 @@ setup(#state{frame=Frame, notebook=Notebook}=State) ->
     MemPanel = add_page(Notebook, ?MEM_STR, cdv_multi_wx, cdv_mem_cb),
 
     %% Persistent Terms Panel
-    PersistentPanel = add_page(Notebook, ?PERSISTENT_STR,
-                               cdv_html_wx, cdv_persistent_cb),
+    PersistentPanel = add_page(Notebook, ?PERSISTENT_STR, cdv_html_wx, cdv_persistent_cb),
 
     %% Memory Panel
     IntPanel = add_page(Notebook, ?INT_STR, cdv_multi_wx, cdv_int_tab_cb),
@@ -230,7 +229,7 @@ setup(#state{frame=Frame, notebook=Notebook}=State) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%Callbacks
-handle_event(#wx{event=#wxNotebook{type=command_notebook_page_changing}},
+handle_event(#wx{event=#wxBookCtrl{type=command_notebook_page_changing}},
 	     #state{active_tab=Previous} = State) ->
     case get_active_pid(State) of
 	Previous -> {noreply, State};
@@ -459,10 +458,7 @@ maybe_warn_filename(FileName) ->
         true ->
             continue;
         false ->
-            DumpName = case os:getenv("ERL_CRASH_DUMP") of
-                           false -> filename:absname("erl_crash.dump");
-                           Name -> filename:absname(Name)
-                       end,
+            DumpName = filename:absname(os:getenv("ERL_CRASH_DUMP", "erl_crash.dump")),
             case filename:absname(FileName) of
                 DumpName ->
                     Warning =

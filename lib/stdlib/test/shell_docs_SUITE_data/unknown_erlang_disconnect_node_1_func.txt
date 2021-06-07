@@ -1,0 +1,13 @@
+
+  [;1m-spec disconnect_node(Node) -> boolean() | ignored when Node :: node().[0m
+
+  Forces the disconnection of a node. This appears to the node [;;4mNode[0m
+  as if the local node has crashed. This BIF is mainly used in the
+  Erlang network authentication protocols.
+
+  Returns [;;4mtrue[0m if disconnection succeeds, otherwise [;;4mfalse[0m. If
+  the local node is not alive, [;;4mignored[0m is returned.
+
+  Note:
+    This function may return before [;;4mnodedown[0m messages have been
+    delivered.

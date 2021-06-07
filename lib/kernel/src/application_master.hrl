@@ -18,4 +18,4 @@
 %% %CopyrightEnd%
 %%
 -record(appl_data, {name, regs = [], phases, mod, mods = [],
-                    inc_apps, maxP = infinity, maxT = infinity}).
+                    maxP = infinity, maxT = infinity}).

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2017</year>
+      <year>2003</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,7 +33,7 @@
   <section>
     <title>Introduction</title>
     <p>The complete specification for the bit syntax appears in the
-    <seealso marker="doc/reference_manual:expressions#bit_syntax">Reference Manual</seealso>.</p>
+    <seeguide marker="system/reference_manual:expressions#bit_syntax">Reference Manual</seeguide>.</p>
     <p>In Erlang, a Bin is used for constructing binaries and matching
       binary patterns. A Bin is written with the following syntax:</p>
     <code type="none"><![CDATA[
@@ -150,14 +150,14 @@ end.]]></code>
      </list>
     <p>Default values are used when specifications are missing.
       The default values are described in
-      <seealso marker="#Defaults">Defaults</seealso>.</p>
+      <seeguide marker="#Defaults">Defaults</seeguide>.</p>
     <p>The <c>Value</c> part is any expression, when used in binary construction.
       Used in binary matching, the <c>Value</c> part must
       be a literal or a variable. For more information about
       the <c>Value</c> part, see
-      <seealso marker="#Constructing Binaries and Bitstrings">Constructing Binaries and Bitstrings</seealso>
+      <seeguide marker="#Constructing Binaries and Bitstrings">Constructing Binaries and Bitstrings</seeguide>
       and
-      <seealso marker="#Matching Binaries">Matching Binaries</seealso>.</p>
+      <seeguide marker="#Matching Binaries">Matching Binaries</seeguide>.</p>
     <p>The <c>Size</c> part of the segment multiplied by the unit in
       <c>TypeSpecifierList</c> (described later) gives the number
       of bits for the segment. In construction, <c>Size</c> is any
@@ -168,7 +168,7 @@ end.]]></code>
     <taglist>
       <tag>Type</tag>
       <item>The most commonly used types are <c>integer</c>, <c>float</c>, and <c>binary</c>.
-      See <seealso marker="doc/reference_manual:expressions#bit_syntax">Bit Syntax Expressions in the Reference Manual</seealso> for a complete description.
+      See <seeguide marker="system/reference_manual:expressions#bit_syntax">Bit Syntax Expressions in the Reference Manual</seeguide> for a complete description.
 </item>
       <tag>Signedness</tag>
       <item>The signedness specification can be either <c>signed</c>
@@ -285,14 +285,16 @@ X:4/little-signed-integer-unit:8</code>
     <p>Each segment in a binary can consist of zero or more bits.
        A segment of type <c>binary</c> must have a size evenly divisible by 8
     (or divisible by the unit size, if the unit size has been changed).
-    A segment of type <c>bitstring</c> has no restrictions on the size.</p>
+    A segment of type <c>bitstring</c> has no restrictions on the size.
+    A segment of type <c>float</c> must have size 64 or 32.</p>
     <p>As mentioned earlier, segments have the following general syntax:</p>
     <p><c>Value:Size/TypeSpecifierList</c></p>
     <p>When matching <c>Value</c>, value must be either a variable or
       an integer, or a floating point literal. Expressions are not
       allowed.</p>
-    <p><c>Size</c> must be an integer literal, or a previously bound
-      variable. The following is not allowed:</p>
+      <p><c>Size</c> must be a
+      <seeguide marker="system/reference_manual:expressions#guard_expressions">guard expression</seeguide>, which can use literals and previously bound variables.
+      The following is not allowed:</p>
     <code type="none"><![CDATA[
 foo(N, <<X:N,T/binary>>) ->
    {X,T}.]]></code>
@@ -303,6 +305,33 @@ foo(N, <<X:N,T/binary>>) ->
 foo(N, Bin) ->
    <<X:N,T/binary>> = Bin,
    {X,T}.]]></code>
+    <note><p>Before OTP 23, <c>Size</c> was restricted to be an
+    integer or a variable bound to an integer.</p></note>
+
+    <section>
+      <title>Binding and Using a Size Variable</title>
+      <p>There is one exception to the rule that a variable that is
+      as size must be previously bound. It is possible to match and
+      bind a variable, and use it as a size within the the same
+      binary pattern. For example:</p>
+
+    <code type="none"><![CDATA[
+bar(<<Sz:8,Payload:Sz/binary-unit:8,Rest/binary>>) ->
+   {Payload,Rest}.]]></code>
+
+    <p>Here <c>Sz</c> is bound to the value in the first byte of
+    the binary. <c>Sz</c> is then used at the number of bytes
+    to match out as a binary.</p>
+
+    <p>Starting in OTP 23, the size can be a guard expression:</p>
+    <code type="none"><![CDATA[
+bar(<<Sz:8,Payload:((Sz-1)*8)/binary,Rest/binary>>) ->
+   {Payload,Rest}.]]></code>
+
+    <p>Here <c>Sz</c> is the combined size of the header and the
+    payload, so we will need to subtract one byte to get the size
+    of the payload.</p>
+    </section>
 
     <section>
       <title>Getting the Rest of the Binary or Bitstring</title>

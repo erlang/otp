@@ -448,11 +448,11 @@ intermediate(Term, D, T, RF, Enc, Str) when T > 0 ->
     case If of
         {_, Len, Dots, _} when Dots =:= 0; Len > T; D =:= 1 ->
             If;
-        _ ->
-            find_upper(If, Term, T, D0, 2, D, RF, Enc, Str)
+        {_, Len, _, _} ->
+            find_upper(If, Term, T, D0, 2, D, RF, Enc, Str, Len)
     end.
 
-find_upper(Lower, Term, T, Dl, Dd, D, RF, Enc, Str) ->
+find_upper(Lower, Term, T, Dl, Dd, D, RF, Enc, Str, LastLen) ->
     Dd2 = Dd * 2,
     D1 = case D < 0 of
              true -> Dl + Dd2;
@@ -462,8 +462,11 @@ find_upper(Lower, Term, T, Dl, Dd, D, RF, Enc, Str) ->
     case If of
         {_, _, _Dots=0, _} -> % even if Len > T
             If;
+        {_, LastLen, _, _} ->
+            %% Cannot happen if print_length() is free of bugs.
+            If;
         {_, Len, _, _} when Len =< T, D1 < D orelse D < 0 ->
-	    find_upper(If, Term, T, D1, Dd2, D, RF, Enc, Str);
+	    find_upper(If, Term, T, D1, Dd2, D, RF, Enc, Str, Len);
         _ ->
 	    search_depth(Lower, If, Term, T, Dl, D1, RF, Enc, Str)
     end.
@@ -610,11 +613,15 @@ print_length_map_pairs(Term, D, D0, T, RF, Enc, Str) when D =:= 1; T =:= 0->
            end,
     {dots, 3, 3, More};
 print_length_map_pairs({K, V, Iter}, D, D0, T, RF, Enc, Str) ->
-    Pair1 = print_length_map_pair(K, V, D0, tsub(T, 1), RF, Enc, Str),
-    {_, Len1, _, _} = Pair1,
     Next = maps:next(Iter),
+    T1 = case Next =:= none of
+             false -> tsub(T, 1);
+             true -> T
+         end,
+    Pair1 = print_length_map_pair(K, V, D0, T1, RF, Enc, Str),
+    {_, Len1, _, _} = Pair1,
     [Pair1 |
-     print_length_map_pairs(Next, D - 1, D0, tsub(T, Len1+1), RF, Enc, Str)].
+     print_length_map_pairs(Next, D - 1, D0, tsub(T1, Len1), RF, Enc, Str)].
 
 print_length_map_pair(K, V, D, T, RF, Enc, Str) ->
     {_, KL, KD, _} = P1 = print_length(K, D, T, RF, Enc, Str),
@@ -639,7 +646,10 @@ print_length_tuple1(Tuple, I, D, T, RF, Enc, Str) when D =:= 1; T =:= 0->
     {dots, 3, 3, More};
 print_length_tuple1(Tuple, I, D, T, RF, Enc, Str) ->
     E = element(I, Tuple),
-    T1 = tsub(T, 1),
+    T1 = case I =:= tuple_size(Tuple) of
+             false -> tsub(T, 1);
+             true -> T
+         end,
     {_, Len1, _, _} = Elem1 = print_length(E, D - 1, T1, RF, Enc, Str),
     T2 = tsub(T1, Len1),
     [Elem1 | print_length_tuple1(Tuple, I + 1, D - 1, T2, RF, Enc, Str)].
@@ -668,7 +678,10 @@ print_length_fields(Term, D, T, Tuple, I, RF, Enc, Str)
     {dots, 3, 3, More};
 print_length_fields([Def | Defs], D, T, Tuple, I, RF, Enc, Str) ->
     E = element(I, Tuple),
-    T1 = tsub(T, 1),
+    T1 = case I =:= tuple_size(Tuple) of
+             false -> tsub(T, 1);
+             true -> T
+         end,
     Field1 = print_length_field(Def, D - 1, T1, E, RF, Enc, Str),
     {_, Len1, _, _} = Field1,
     T2 = tsub(T1, Len1),
@@ -693,8 +706,13 @@ print_length_list1(Term, D, T, RF, Enc, Str) when D =:= 1; T =:= 0->
     More = fun(T1, Dd) -> ?FUNCTION_NAME(Term, D+Dd, T1, RF, Enc, Str) end,
     {dots, 3, 3, More};
 print_length_list1([E | Es], D, T, RF, Enc, Str) ->
-    {_, Len1, _, _} = Elem1 = print_length(E, D - 1, tsub(T, 1), RF, Enc, Str),
-    [Elem1 | print_length_list1(Es, D - 1, tsub(T, Len1 + 1), RF, Enc, Str)];
+    %% If E is the last element in list, don't account length for a comma.
+    T1 = case Es =:= [] of
+             false -> tsub(T, 1);
+             true -> T
+         end,
+    {_, Len1, _, _} = Elem1 = print_length(E, D - 1, T1, RF, Enc, Str),
+    [Elem1 | print_length_list1(Es, D - 1, tsub(T1, Len1), RF, Enc, Str)];
 print_length_list1(E, D, T, RF, Enc, Str) ->
     print_length(E, D - 1, T, RF, Enc, Str).
 
@@ -720,55 +738,40 @@ printable_list(_L, 1, _T, _Enc) ->
     false;
 printable_list(L, _D, T, latin1) when T < 0 ->
     io_lib:printable_latin1_list(L);
-printable_list(L, _D, T, Enc) when T >= 0 ->
-    case slice(L, tsub(T, 2), Enc) of
-        false ->
-            false;
-        {prefix, Prefix} when Enc =:= latin1 ->
-            io_lib:printable_latin1_list(Prefix) andalso {true, Prefix};
-        {prefix, Prefix} ->
-            %% Probably an overestimation.
-            io_lib:printable_list(Prefix) andalso {true, Prefix};
-        all when Enc =:= latin1 ->
-            io_lib:printable_latin1_list(L);
+printable_list(L, _D, T, latin1) when T >= 0 ->
+    N = tsub(T, 2),
+    case printable_latin1_list(L, N) of
         all ->
-            io_lib:printable_list(L)
+            true;
+        0 ->
+            {L1, _} = lists:split(N, L),
+            {true, L1};
+        _NC ->
+            false
     end;
-printable_list(L, _D, T, _Uni) when T < 0->
-    io_lib:printable_list(L).
-
-slice(L, N, latin1) ->
-    try lists:split(N, L) of
-        {_, []} ->
-            all;
-        {[], _} ->
-            false;
-        {L1, _} ->
-            {prefix, L1}
-    catch
-        _:_ ->
-            all
-    end;
-slice(L, N, _Uni) ->
+printable_list(L, _D, T, _Unicode) when T >= 0 ->
+    N = tsub(T, 2),
     %% Be careful not to traverse more of L than necessary.
     try string:slice(L, 0, N) of
         "" ->
             false;
         Prefix ->
-            %% Assume no binaries are introduced by string:slice().
             case is_flat(L, lists:flatlength(Prefix)) of
                 true ->
                     case string:equal(Prefix, L) of
                         true ->
-                            all;
+                            io_lib:printable_list(L);
                         false ->
-                            {prefix, Prefix}
+                            io_lib:printable_list(Prefix)
+                            andalso {true, Prefix}
                     end;
                 false ->
                     false
             end
     catch _:_ -> false
-    end.
+    end;
+printable_list(L, _D, T, _Uni) when T < 0->
+    io_lib:printable_list(L).
 
 is_flat(_L, 0) ->
     true;
@@ -795,6 +798,8 @@ printable_bin0(Bin, D, T, Enc) ->
           end,
     printable_bin(Bin, Len, D, Enc).
 
+printable_bin(_Bin, 0, _D, _Enc) ->
+    false;
 printable_bin(Bin, Len, D, latin1) ->
     N = erlang:min(20, Len),
     L = binary_to_list(Bin, 1, N),
@@ -845,10 +850,10 @@ printable_bin1(Bin, Start, Len) ->
     end.
 
 %% -> all | integer() >=0. Adopted from io_lib.erl.
-% printable_latin1_list([_ | _], 0) -> 0;
-printable_latin1_list([C | Cs], N) when C >= $\s, C =< $~ ->
+printable_latin1_list([_ | _], 0) -> 0;
+printable_latin1_list([C | Cs], N) when is_integer(C), C >= $\s, C =< $~ ->
     printable_latin1_list(Cs, N - 1);
-printable_latin1_list([C | Cs], N) when C >= $\240, C =< $\377 ->
+printable_latin1_list([C | Cs], N) when is_integer(C), C >= $\240, C =< $\377 ->
     printable_latin1_list(Cs, N - 1);
 printable_latin1_list([$\n | Cs], N) -> printable_latin1_list(Cs, N - 1);
 printable_latin1_list([$\r | Cs], N) -> printable_latin1_list(Cs, N - 1);
@@ -906,9 +911,6 @@ write_string(S, _Uni) ->
     io_lib:write_string(S, $"). %"
 
 expand({_, _, _Dots=0, no_more} = If, _T, _Dd) -> If;
-%% expand({{list,L}, _Len, _, no_more}, T, Dd) ->
-%%     {NL, NLen, NDots} = expand_list(L, T, Dd, 2),
-%%     {{list,NL}, NLen, NDots, no_more};
 expand({{tuple,IsTagged,L}, _Len, _, no_more}, T, Dd) ->
     {NL, NLen, NDots} = expand_list(L, T, Dd, 2),
     {{tuple,IsTagged,NL}, NLen, NDots, no_more};
@@ -937,8 +939,12 @@ expand_list(Ifs, T, Dd, L0) ->
 expand_list([], _T, _Dd) ->
     [];
 expand_list([If | Ifs], T, Dd) ->
-    {_, Len1, _, _} = Elem1 = expand(If, tsub(T, 1), Dd),
-    [Elem1 | expand_list(Ifs, tsub(T, Len1 + 1), Dd)];
+    T1 = case Ifs =:= [] of
+             false -> tsub(T, 1);
+             true -> T
+         end,
+    {_, Len1, _, _} = Elem1 = expand(If, T1, Dd),
+    [Elem1 | expand_list(Ifs, tsub(T1, Len1), Dd)];
 expand_list({_, _, _, More}, T, Dd) ->
     More(T, Dd).
 

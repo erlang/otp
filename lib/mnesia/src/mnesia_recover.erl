@@ -449,6 +449,9 @@ wait_for_decision(D, InitBy, N) ->
     if 
 	Outcome =:= committed -> {Tid, committed};
 	Outcome =:= aborted   -> {Tid, aborted};
+	InitBy == startup ->
+	    {ok, Res} = call({wait_for_decision, D}),
+	    {Tid, Res};
 	Outcome =:= presume_abort -> 
 	    case N > Max of
 		true -> {Tid, aborted};
@@ -460,10 +463,7 @@ wait_for_decision(D, InitBy, N) ->
 	    %% Wait a while for active transactions
 	    %% to end and try again
 	    timer:sleep(100), 
-	    wait_for_decision(D, InitBy, N);
-	InitBy == startup ->
-	    {ok, Res} = call({wait_for_decision, D}),
-	    {Tid, Res}
+	    wait_for_decision(D, InitBy, N)
     end.
 
 still_pending([Tid | Pending]) ->

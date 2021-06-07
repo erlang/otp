@@ -18,10 +18,13 @@
 %% %CopyrightEnd%
 %%
 
-%% We use the dynamic hashing techniques by Per-Åke Larsson as
-%% described in "The Design and Implementation of Dynamic Hashing for
-%% Sets and Tables in Icon" by Griswold and Townsend.  Much of the
-%% terminology comes from that paper as well.
+%% The new version 2 has moved to use maps under the roof whenever a
+%% map is given.
+
+%% The previous version (version 1) uses the dynamic hashing techniques
+%% by Per-Åke Larsson as described in "The Design and Implementation
+%% of Dynamic Hashing for Sets and Tables in Icon" by Griswold and
+%% Townsend.  Much of the terminology comes from that paper as well.
 
 %% The segments are all of the same fixed size and we just keep
 %% increasing the size of the top tuple as the table grows.  At the
@@ -35,6 +38,7 @@
 %% reorder keys within in a bucket.
 
 -module(sets).
+-compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
 %% Standard interface.
 -export([new/0,is_set/1,size/1,is_empty/1,to_list/1,from_list/1]).
@@ -43,8 +47,14 @@
 -export([is_disjoint/2]).
 -export([subtract/2,is_subset/2]).
 -export([fold/3,filter/2]).
+-export([new/1, from_list/2]).
 
 -export_type([set/0, set/1]).
+
+%% This is the value used when sets are represented as maps.
+%% We use an empty list instead of an atom as it is cheaper
+%% to serialize.
+-define(VALUE, []).
 
 %% Note: mk_seg/1 must be changed too if seg_size is changed.
 -define(seg_size, 16).
@@ -53,6 +63,7 @@
 -define(contract_load, 3).
 -define(exp_size, ?seg_size * ?expand_load).
 -define(con_size, ?seg_size * ?contract_load).
+-compile({no_auto_import,[size/1]}).
 
 %%------------------------------------------------------------------------------
 
@@ -73,7 +84,7 @@
 
 -type set() :: set(_).
 
--opaque set(Element) :: #set{segs :: segs(Element)}.
+-opaque set(Element) :: #set{segs :: segs(Element)} | #{Element => ?VALUE}.
 
 %%------------------------------------------------------------------------------
 
@@ -83,10 +94,41 @@ new() ->
     Empty = mk_seg(?seg_size),
     #set{empty = Empty, segs = {Empty}}.
 
+-spec new([{version, 1..2}]) -> set().
+new([{version, 2}]) ->
+    #{};
+new(Opts) ->
+    case proplists:get_value(version, Opts, 1) of
+        1 -> new();
+        2 -> new([{version, 2}])
+    end.
+
+%% from_list([Elem]) -> Set.
+%%  Build a set from the elements in List.
+-spec from_list(List) -> Set when
+      List :: [Element],
+      Set :: set(Element).
+from_list(Ls) ->
+    lists:foldl(fun (E, S) -> add_element(E, S) end, new(), Ls).
+
+-spec from_list(List, [{version, 1..2}]) -> Set when
+      List :: [Element],
+      Set :: set(Element).
+from_list(Ls, [{version, 2}]) ->
+    maps:from_keys(Ls, ?VALUE);
+from_list(Ls, Opts) ->
+    case proplists:get_value(version, Opts, 1) of
+        1 -> from_list(Ls);
+        2 -> from_list(Ls, [{version, 2}])
+    end.
+
+%%------------------------------------------------------------------------------
+
 %% is_set(Set) -> boolean().
 %%  Return 'true' if Set is a set of elements, else 'false'.
 -spec is_set(Set) -> boolean() when
       Set :: term().
+is_set(#{}) -> true;
 is_set(#set{}) -> true;
 is_set(_) -> false.
 
@@ -94,35 +136,36 @@ is_set(_) -> false.
 %%  Return the number of elements in Set.
 -spec size(Set) -> non_neg_integer() when
       Set :: set().
-size(S) -> S#set.size. 
+size(#{}=S) -> map_size(S);
+size(#set{size=Size}) -> Size.
 
 %% is_empty(Set) -> boolean().
 %%  Return 'true' if Set is an empty set, otherwise 'false'.
 -spec is_empty(Set) -> boolean() when
       Set :: set().
-is_empty(S) -> S#set.size=:=0.
+is_empty(#{}=S) -> map_size(S)=:=0;
+is_empty(#set{size=Size}) -> Size=:=0.
 
 %% to_list(Set) -> [Elem].
 %%  Return the elements in Set as a list.
 -spec to_list(Set) -> List when
       Set :: set(Element),
       List :: [Element].
-to_list(S) ->
+to_list(#{}=S) ->
+    maps:keys(S);
+to_list(#set{} = S) ->
     fold(fun (Elem, List) -> [Elem|List] end, [], S).
-
-%% from_list([Elem]) -> Set.
-%%  Build a set from the elements in List.
--spec from_list(List) -> Set when
-      List :: [Element],
-      Set :: set(Element).
-from_list(L) ->
-    lists:foldl(fun (E, S) -> add_element(E, S) end, new(), L).
 
 %% is_element(Element, Set) -> boolean().
 %%  Return 'true' if Element is an element of Set, else 'false'.
 -spec is_element(Element, Set) -> boolean() when
       Set :: set(Element).
-is_element(E, S) ->
+is_element(E, #{}=S) ->
+    case S of
+        #{E := _} -> true;
+        _ -> false
+    end;
+is_element(E, #set{}=S) ->
     Slot = get_slot(S, E),
     Bkt = get_bucket(S, Slot),
     lists:member(E, Bkt).
@@ -132,7 +175,9 @@ is_element(E, S) ->
 -spec add_element(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
-add_element(E, S0) ->
+add_element(E, #{}=S) ->
+    S#{E=>?VALUE};
+add_element(E, #set{}=S0) ->
     Slot = get_slot(S0, E),
     Bkt = get_bucket(S0, Slot),
     case lists:member(E, Bkt) of
@@ -148,7 +193,9 @@ add_element(E, S0) ->
 -spec del_element(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
-del_element(E, S0) ->
+del_element(E, #{}=S) ->
+    maps:remove(E, S);
+del_element(E, #set{}=S0) ->
     Slot = get_slot(S0, E),
     Bkt = get_bucket(S0, Slot),
     case lists:member(E, Bkt) of
@@ -179,10 +226,15 @@ update_bucket(Set, Slot, NewBucket) ->
       Set1 :: set(Element),
       Set2 :: set(Element),
       Set3 :: set(Element).
-union(S1, S2) when S1#set.size < S2#set.size ->
-    fold(fun (E, S) -> add_element(E, S) end, S2, S1);
+union(#{}=S1, #{}=S2) ->
+    maps:merge(S1,S2);
 union(S1, S2) ->
-    fold(fun (E, S) -> add_element(E, S) end, S1, S2).
+    case size(S1) < size(S2) of
+	true ->
+	    fold(fun (E, S) -> add_element(E, S) end, S2, S1);
+	false ->
+	    fold(fun (E, S) -> add_element(E, S) end, S1, S2)
+    end.
 
 %% union([Set]) -> Set
 %%  Return the union of the list of sets.
@@ -205,10 +257,49 @@ union1(S1, []) -> S1.
       Set1 :: set(Element),
       Set2 :: set(Element),
       Set3 :: set(Element).
-intersection(S1, S2) when S1#set.size < S2#set.size ->
-    filter(fun (E) -> is_element(E, S2) end, S1);
+intersection(#{}=S1, #{}=S2) ->
+    case map_size(S1) < map_size(S2) of
+        true ->
+            Next = maps:next(maps:iterator(S1)),
+            intersection_heuristic(Next, [], [], floor(map_size(S1) * 0.75), S1, S2);
+        false ->
+            Next = maps:next(maps:iterator(S2)),
+            intersection_heuristic(Next, [], [], floor(map_size(S2) * 0.75), S2, S1)
+    end;
 intersection(S1, S2) ->
-    filter(fun (E) -> is_element(E, S1) end, S2).
+    case size(S1) < size(S2) of
+        true ->
+	    filter(fun (E) -> is_element(E, S2) end, S1);
+        false ->
+	    filter(fun (E) -> is_element(E, S1) end, S2)
+    end.
+
+%% If we are keeping more than 75% of the keys, then it is
+%% cheaper to delete them. Stop accumulating and start deleting.
+intersection_heuristic(Next, _Keep, Delete, 0, Acc, Reference) ->
+  intersection_decided(Next, remove_keys(Delete, Acc), Reference);
+intersection_heuristic({Key, _Value, Iterator}, Keep, Delete, KeepCount, Acc, Reference) ->
+    Next = maps:next(Iterator),
+    case Reference of
+        #{Key := _} ->
+            intersection_heuristic(Next, [Key | Keep], Delete, KeepCount - 1, Acc, Reference);
+        _ ->
+            intersection_heuristic(Next, Keep, [Key | Delete], KeepCount, Acc, Reference)
+    end;
+intersection_heuristic(none, Keep, _Delete, _Count, _Acc, _Reference) ->
+    maps:from_keys(Keep, ?VALUE).
+
+intersection_decided({Key, _Value, Iterator}, Acc0, Reference) ->
+    Acc1 = case Reference of
+        #{Key := _} -> Acc0;
+        #{} -> maps:remove(Key, Acc0)
+    end,
+    intersection_decided(maps:next(Iterator), Acc1, Reference);
+intersection_decided(none, Acc, _Reference) ->
+    Acc.
+
+remove_keys([K | Ks], Map) -> remove_keys(Ks, maps:remove(K, Map));
+remove_keys([], Map) -> Map.
 
 %% intersection([Set]) -> Set.
 %%  Return the intersection of the list of sets.
@@ -229,14 +320,35 @@ intersection1(S1, []) -> S1.
 -spec is_disjoint(Set1, Set2) -> boolean() when
       Set1 :: set(Element),
       Set2 :: set(Element).
-is_disjoint(S1, S2) when S1#set.size < S2#set.size ->
-    fold(fun (_, false) -> false;
-	     (E, true) -> not is_element(E, S2)
-	 end, true, S1);
+is_disjoint(#{}=S1, #{}=S2) ->
+    if
+	map_size(S1) < map_size(S2) ->
+	    is_disjoint_1(S2, maps:iterator(S1));
+	true ->
+	    is_disjoint_1(S1, maps:iterator(S2))
+    end;
 is_disjoint(S1, S2) ->
-    fold(fun (_, false) -> false;
-	     (E, true) -> not is_element(E, S1)
-	 end, true, S2).
+    case size(S1) < size(S2) of
+        true ->
+	    fold(fun (_, false) -> false;
+		(E, true) -> not is_element(E, S2)
+	    end, true, S1);
+        false ->
+	    fold(fun (_, false) -> false;
+		(E, true) -> not is_element(E, S1)
+	    end, true, S2)
+    end.
+
+is_disjoint_1(Set, Iter) ->
+    case maps:next(Iter) of
+        {K, _, NextIter} ->
+            case Set of
+                #{K := _} -> false;
+                #{} -> is_disjoint_1(Set, NextIter)
+            end;
+        none ->
+            true
+    end.
 
 %% subtract(Set1, Set2) -> Set.
 %%  Return all and only the elements of Set1 which are not also in
@@ -245,8 +357,37 @@ is_disjoint(S1, S2) ->
       Set1 :: set(Element),
       Set2 :: set(Element),
       Set3 :: set(Element).
+
+subtract(#{}=S1, #{}=S2) ->
+    Next = maps:next(maps:iterator(S1)),
+    subtract_heuristic(Next, [], [], floor(map_size(S1) * 0.75), S1, S2);
 subtract(S1, S2) ->
     filter(fun (E) -> not is_element(E, S2) end, S1).
+
+%% If we are keeping more than 75% of the keys, then it is
+%% cheaper to delete them. Stop accumulating and start deleting.
+subtract_heuristic(Next, _Keep, Delete, 0, Acc, Reference) ->
+  subtract_decided(Next, remove_keys(Delete, Acc), Reference);
+subtract_heuristic({Key, _Value, Iterator}, Keep, Delete, KeepCount, Acc, Reference) ->
+    Next = maps:next(Iterator),
+    case Reference of
+        #{Key := _} ->
+            subtract_heuristic(Next, Keep, [Key | Delete], KeepCount, Acc, Reference);
+        _ ->
+            subtract_heuristic(Next, [Key | Keep], Delete, KeepCount - 1, Acc, Reference)
+    end;
+subtract_heuristic(none, Keep, _Delete, _Count, _Acc, _Reference) ->
+    maps:from_keys(Keep, ?VALUE).
+
+subtract_decided({Key, _Value, Iterator}, Acc, Reference) ->
+    case Reference of
+        #{Key := _} ->
+            subtract_decided(maps:next(Iterator), maps:remove(Key, Acc), Reference);
+        _ ->
+            subtract_decided(maps:next(Iterator), Acc, Reference)
+    end;
+subtract_decided(none, Acc, _Reference) ->
+    Acc.
 
 %% is_subset(Set1, Set2) -> boolean().
 %%  Return 'true' when every element of Set1 is also a member of
@@ -254,8 +395,27 @@ subtract(S1, S2) ->
 -spec is_subset(Set1, Set2) -> boolean() when
       Set1 :: set(Element),
       Set2 :: set(Element).
+
+is_subset(#{}=S1, #{}=S2) ->
+    if
+	map_size(S1) > map_size(S2) ->
+	    false;
+	true ->
+	    is_subset_1(S2, maps:iterator(S1))
+    end;
 is_subset(S1, S2) ->
     fold(fun (E, Sub) -> Sub andalso is_element(E, S2) end, true, S1).
+
+is_subset_1(Set, Iter) ->
+    case maps:next(Iter) of
+        {K, _, NextIter} ->
+            case Set of
+                #{K := _} -> is_subset_1(Set, NextIter);
+                #{} -> false
+            end;
+        none ->
+            true
+    end.
 
 %% fold(Fun, Accumulator, Set) -> Accumulator.
 %%  Fold function Fun over all elements in Set and return Accumulator.
@@ -266,7 +426,16 @@ is_subset(S1, S2) ->
       Acc1 :: Acc,
       AccIn :: Acc,
       AccOut :: Acc.
-fold(F, Acc, D) -> fold_set(F, Acc, D).
+fold(F, Acc, #{}=D) -> fold_1(F, Acc, maps:iterator(D));
+fold(F, Acc, #set{}=D) -> fold_set(F, Acc, D).
+
+fold_1(Fun, Acc, Iter) ->
+    case maps:next(Iter) of
+        {K, _, NextIter} ->
+            fold_1(Fun, Fun(K,Acc), NextIter);
+        none ->
+            Acc
+    end.
 
 %% filter(Fun, Set) -> Set.
 %%  Filter Set with Fun.
@@ -274,7 +443,21 @@ fold(F, Acc, D) -> fold_set(F, Acc, D).
       Pred :: fun((Element) -> boolean()),
       Set1 :: set(Element),
       Set2 :: set(Element).
-filter(F, D) -> filter_set(F, D).
+filter(F, #{}=D) -> maps:from_keys(filter_1(F, maps:iterator(D)), ?VALUE);
+filter(F, #set{}=D) -> filter_set(F, D).
+
+filter_1(Fun, Iter) ->
+    case maps:next(Iter) of
+        {K, _, NextIter} ->
+            case Fun(K) of
+                true ->
+                    [K | filter_1(Fun, NextIter)];
+                false ->
+                    filter_1(Fun, NextIter)
+            end;
+        none ->
+            []
+    end.
 
 %% get_slot(Hashdb, Key) -> Slot.
 %%  Get the slot.  First hash on the new range, if we hit a bucket

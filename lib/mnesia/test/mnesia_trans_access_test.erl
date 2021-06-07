@@ -26,7 +26,8 @@
          init_per_group/2, end_per_group/2,
          all/0, groups/0]).
 
--export([write/1, read/1, wread/1, delete/1, delete_object/1,
+-export([write/1, read/1, wread/1, delete/1,
+         delete_object_bag/1, delete_object_set/1,
          match_object/1, select/1, select14/1, all_keys/1, transaction/1,
          basic_nested/1, mix_of_nested_activities/1,
          nested_trans_both_ok/1, nested_trans_child_dies/1,
@@ -63,7 +64,7 @@ end_per_testcase(Func, Conf) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 all() ->
-    [write, read, wread, delete, delete_object,
+    [write, read, wread, delete, delete_object_bag, delete_object_set,
      match_object, select, select14, all_keys, transaction,
      {group, nested_activities}, {group, index_tabs},
      {group, index_lifecycle}].
@@ -221,14 +222,26 @@ delete(Config) when is_list(Config) ->
 
 %% Delete matching record
 
-delete_object(suite) -> [];
-delete_object(Config) when is_list(Config) ->
+delete_object_bag(suite) -> [];
+delete_object_bag(Config) when is_list(Config) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config),
+    ?match(ok, delete_object(Node1, bag)),
+    ?verify_mnesia(Nodes, []).
+
+delete_object_set(suite) -> [];
+delete_object_set(Config) when is_list(Config) ->
+    [Node1] = Nodes = ?acquire_nodes(1, Config),
+    ?match(ok, delete_object(Node1, set)),
+    ?verify_mnesia(Nodes, []).
+
+delete_object(Node1, Type) ->
     Tab = delete_object,
-    Schema = [{name, Tab}, {type, bag}, {attributes, [k, v]}, {ram_copies, [Node1]}],
+    Schema = [{name, Tab}, {type, Type},
+              {attributes, [k, v]}, {ram_copies, [Node1]}],
     ?match({atomic, ok},  mnesia:create_table(Schema)),
 
     OneRec = {Tab, 1, 2},
+    OtherRec = {Tab, 1, 3},
     ?match({aborted, {bad_type, _}},
 	   mnesia:transaction(fun() -> mnesia:delete_object([]) end)),
     ?match({aborted, {bad_type, _}},
@@ -237,16 +250,88 @@ delete_object(Config) when is_list(Config) ->
 	   mnesia:transaction(fun() -> mnesia:delete_object({Tab, 1}) end)),
     ?match({atomic, ok},
 	   mnesia:transaction(fun() -> mnesia:delete_object(OneRec) end)),
+
+    %% Delete already existing object
     ?match({atomic, ok},
 	   mnesia:transaction(fun() -> mnesia:write(OneRec) end)),
     ?match({atomic, ok},
-	   mnesia:transaction(fun() -> mnesia:delete_object(OneRec) end)),
+	   mnesia:transaction(fun() ->
+                                      [OneRec] = mnesia:read(Tab, 1),
+                                      ok = mnesia:delete_object(OneRec),
+                                      [] = mnesia:read(Tab, 1),
+                                      ok
+                              end)),
+    ?match([], mnesia:dirty_read(Tab, 1)),
+
+    %% Delete already existing object (written twice)
     ?match({atomic, ok},
 	   mnesia:transaction(fun() -> mnesia:write(OneRec) end)),
     ?match({atomic, ok},
 	   mnesia:transaction(fun() -> mnesia:write(OneRec) end)),
     ?match({atomic, ok},
-	   mnesia:transaction(fun() -> mnesia:delete_object(OneRec) end)),
+	   mnesia:transaction(fun() ->
+                                      [OneRec] = mnesia:read(Tab, 1),
+                                      ok = mnesia:delete_object(OneRec),
+                                      [] = mnesia:read(Tab, 1),
+                                      ok
+                              end)),
+    ?match([], mnesia:dirty_read(Tab, 1)),
+
+    %% Delete object written in same transaction
+    ?match({atomic, ok},
+	   mnesia:transaction(fun() ->
+                                      [] = mnesia:read(Tab, 1),
+                                      ok = mnesia:write(OneRec),
+                                      ok = mnesia:delete_object(OneRec),
+                                      [] = mnesia:read(Tab, 1),
+                                      ok
+                              end)),
+    ?match([], mnesia:dirty_read(Tab, 1)),
+
+    %% Delete other object than written in same transaction
+    ?match({atomic, ok},
+	   mnesia:transaction(fun() ->
+                                      [] = mnesia:read(Tab, 1),
+                                      ok = mnesia:write(OneRec),
+                                      ok = mnesia:delete_object(OtherRec),
+                                      [OneRec] = mnesia:read(Tab, 1),
+                                      ok
+                              end)),
+    ?match([OneRec], mnesia:dirty_read(Tab, 1)),
+
+    %% Delete other object than already existing
+    ?match({atomic, ok},
+	   mnesia:transaction(fun() ->
+                                      [OneRec] = mnesia:read(Tab, 1),
+                                      ok = mnesia:delete_object(OtherRec),
+                                      [OneRec] = mnesia:read(Tab, 1),
+                                      ok
+                              end)),
+    ?match([OneRec], mnesia:dirty_read(Tab, 1)),
+
+    %% Delete object in combination with delete
+    ?match({atomic, ok},
+	   mnesia:transaction(fun() ->
+                                      [OneRec] = mnesia:read(Tab, 1),
+                                      ok = mnesia:delete({Tab, 1}),
+                                      ok = mnesia:delete_object(OtherRec),
+                                      [] = mnesia:read(Tab, 1),
+                                      ok
+                              end)),
+    ?match([], mnesia:dirty_read(Tab, 1)),
+
+    %% Several delete_object in same transaction (last on non existing record)
+    ?match({atomic, ok},
+	   mnesia:transaction(fun() -> mnesia:write(OneRec) end)),
+    ?match({atomic, ok},
+	   mnesia:transaction(fun() ->
+                                      [OneRec] = mnesia:read(Tab, 1),
+                                      ok = mnesia:delete_object(OneRec),
+                                      ok = mnesia:delete_object(OtherRec),
+                                      [] = mnesia:read(Tab, 1),
+                                      ok
+                              end)),
+    ?match([], mnesia:dirty_read(Tab, 1)),
 
     ?match({'EXIT', {aborted, no_transaction}},  mnesia:delete_object(OneRec)),
 
@@ -255,7 +340,8 @@ delete_object(Config) when is_list(Config) ->
     ?match({aborted, {bad_type, Tab, _}},
 	   mnesia:transaction(fun() -> mnesia:delete_object({Tab, {['$5']}, 21}) end)),
 
-    ?verify_mnesia(Nodes, []).
+    ?match({atomic, ok},  mnesia:delete_table(Tab)),
+    ok.
 
 %% Read matching records
 

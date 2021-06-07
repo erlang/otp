@@ -1,0 +1,67 @@
+
+  [;1m-spec erlang:system_profile(ProfilerPid, Options) -> ProfilerSettings[0m
+  [;1m                               when[0m
+  [;1m                                   ProfilerPid ::[0m
+  [;1m                                       pid() | port() | undefined,[0m
+  [;1m                                   Options :: [system_profile_option()],[0m
+  [;1m                                   ProfilerSettings ::[0m
+  [;1m                                       undefined |[0m
+  [;1m                                       {pid() | port(),[0m
+  [;1m                                        [system_profile_option()]}.[0m
+
+  Types:
+    -type system_profile_option() ::
+          exclusive | runnable_ports | runnable_procs | scheduler |
+          timestamp | monotonic_timestamp | strict_monotonic_timestamp.
+
+  Sets system profiler options. [;;4mProfilerPid[0m is a local process
+  identifier (pid) or port receiving profiling messages. The
+  receiver is excluded from all profiling. The second argument is a
+  list of profiling options:
+
+  [;;4m[;;4mexclusive[0m[0m:
+    If a synchronous call to a port from a process is done, the
+    calling process is considered not runnable during the call
+    runtime to the port. The calling process is notified as [;;4m[0m
+    [;;4minactive[0m, and later [;;4mactive[0m when the port callback returns.
+
+  [;;4m[;;4mmonotonic_timestamp[0m[0m:
+    Time stamps in profile messages use Erlang monotonic time.
+    The time stamp (Ts) has the same format and value as produced
+    by [;;4merlang:monotonic_time(nanosecond)[0m.
+
+  [;;4m[;;4mrunnable_procs[0m[0m:
+    If a process is put into or removed from the run queue, a
+    message, [;;4m{profile, Pid, State, Mfa, Ts}[0m, is sent to [;;4m[0m
+    [;;4mProfilerPid[0m. Running processes that are reinserted into the
+    run queue after having been pre-empted do not trigger this
+    message.
+
+  [;;4m[;;4mrunnable_ports[0m[0m:
+    If a port is put into or removed from the run queue, a
+    message, [;;4m{profile, Port, State, 0, Ts}[0m, is sent to [;;4m[0m
+    [;;4mProfilerPid[0m.
+
+  [;;4m[;;4mscheduler[0m[0m:
+    If a scheduler is put to sleep or awoken, a message, [;;4m[0m
+    [;;4m{profile, scheduler, Id, State, NoScheds, Ts}[0m, is sent to [;;4m[0m
+    [;;4mProfilerPid[0m.
+
+  [;;4m[;;4mstrict_monotonic_timestamp[0m[0m:
+    Time stamps in profile messages consist of Erlang monotonic
+    time and a monotonically increasing integer. The time stamp
+    (Ts) has the same format and value as produced by [;;4m[0m
+    [;;4m{erlang:monotonic_time(nanosecond),[0m
+    [;;4merlang:unique_integer([monotonic])}[0m.
+
+  [;;4m[;;4mtimestamp[0m[0m:
+    Time stamps in profile messages include a time stamp (Ts) that
+    has the same form as returned by [;;4merlang:now()[0m. This is also
+    the default if no time stamp flag is specified. If [;;4m[0m
+    [;;4mcpu_timestamp[0m has been enabled through [;;4merlang:trace/3[0m, this
+    also effects the time stamp produced in profiling messages
+    when flag [;;4mtimestamp[0m is enabled.
+
+  Note:
+    [;;4merlang:system_profile[0m behavior can change in a future
+    release.

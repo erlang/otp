@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,11 +64,13 @@
 
 %% Exports for internal use.
 
--export([start_link/2,
+-export([start_link/3,
 	 kernel_apply/3,
 	 longnames/0,
+         nodename/0,
 	 protocol_childspecs/0,
-	 epmd_module/0]).
+	 epmd_module/0,
+         dist_listen/0]).
 
 -export([disconnect/1, passive_cnct/1]).
 -export([hidden_connect_node/1]).
@@ -95,19 +97,23 @@
 
 -import(error_logger,[error_msg/2]).
 
+-type node_name_type() :: static | dynamic.
+
 -record(state, {
-	  name,         %% The node name
 	  node,         %% The node name including hostname
 	  type,         %% long or short names
 	  tick,         %% tick information
 	  connecttime,  %% the connection setuptime.
 	  connections,  %% table of connections
-	  conn_owners = [], %% List of connection owner pids,
-	  pend_owners = [], %% List of potential owners
+	  conn_owners = #{}, %% Map of connection owner pids,
+	  dist_ctrlrs = #{}, %% Map of dist controllers (local ports or pids),
+	  pend_owners = #{}, %% Map of potential owners
 	  listen,       %% list of  #listen
 	  allowed,       %% list of allowed nodes in a restricted system
 	  verbose = 0,   %% level of verboseness
-	  publish_on_nodes = undefined
+	  publish_on_nodes = undefined,
+          dyn_name_pool = #{},  %% Reusable remote node names: #{Host => [{Name,Creation}]}
+          supervisor    %% Our supervisor (net_sup | net_sup_dynamic | {restart,Restarter})
 	 }).
 
 -record(listen, {
@@ -120,21 +126,30 @@
 -define(LISTEN_ID, #listen.listen).
 -define(ACCEPT_ID, #listen.accept).
 
+-type connection_state() :: pending | up | up_pending.
+-type connection_type() :: normal | hidden.
+
+-include("net_address.hrl").
+
+%% Relaxed typing to allow ets:select without Dialyzer complains.
 -record(connection, {
-		     node,          %% remote node name
-                     conn_id,       %% Connection identity
-		     state,         %% pending | up | up_pending
-		     owner,         %% owner pid
-	             pending_owner, %% possible new owner
-		     address,       %% #net_address
-		     waiting = [],  %% queued processes
-		     type           %% normal | hidden
-		    }).
+    node :: node() | '_',                  %% remote node name
+    conn_id,                               %% Connection identity
+    state :: connection_state() | '_',
+    owner :: pid() | '_',                  %% owner pid
+    ctrlr,                                 %% Controller port or pid
+    pending_owner :: pid() | '_' | undefined,   %% possible new owner
+    address = #net_address{} :: #net_address{} | '_',
+    waiting = [],                          %% queued processes
+    type :: connection_type() | '_',
+    remote_name_type :: node_name_type() | '_',
+    creation :: integer() | '_' | undefined,     %% only set if remote_name_type == dynamic
+    named_me = false :: boolean() | '_'          %% did peer gave me my node name?
+}).
 
 -record(barred_connection, {
 	  node %% remote node name
 	 }).
-
 
 -record(tick, {ticker,        %% ticker                     : pid()
 	       time           %% Ticktime in milli seconds  : integer()
@@ -149,8 +164,6 @@
 %% This timeout is set for every distributed action during
 %% the connection setup.
 -define(SETUPTIME, 7000).
-
--include("net_address.hrl").
 
 %%% BIF
 
@@ -175,13 +188,42 @@ allowed() ->                   request(allowed).
 
 longnames() ->                 request(longnames).
 
+nodename() ->                  request(nodename).
+
 -spec stop() -> ok | {error, Reason} when
       Reason :: not_allowed | not_found.
-stop() ->                      erl_distribution:stop().
+stop() ->
+    case persistent_term:get(net_kernel, undefined) of
+        undefined -> ok;
+        _ -> persistent_term:erase(net_kernel)
+    end,
+    erl_distribution:stop().
 
-node_info(Node) ->             get_node_info(Node).
-node_info(Node, Key) ->        get_node_info(Node, Key).
-nodes_info() ->                get_nodes_info().
+-type node_info() ::
+    {address, #net_address{}} |
+    {type, connection_type()} |
+    {in, non_neg_integer()} |
+    {out, non_neg_integer()} |
+    {owner, pid()} |
+    {state, connection_state()}.
+
+-spec node_info(node()) -> {ok, [node_info()]} | {error, bad_node}.
+node_info(Node) ->
+    get_node_info(Node).
+
+-spec node_info(node(), address) -> {ok, Address} | {error, bad_node} when Address :: #net_address{};
+    (node(), type) -> {ok, Type} | {error, bad_node} when Type :: connection_type();
+    (node(), in | out) -> {ok, Bytes} | {error, bad_node} when Bytes :: non_neg_integer();
+    (node(), owner) -> {ok, Owner} | {error, bad_node} when Owner :: pid();
+    (node(), state) -> {ok, State} | {error, bad_node} when State :: connection_state().
+    %(node(), term()) -> {error, invalid_key} | {error, bad_node}.
+node_info(Node, Key) ->
+    get_node_info(Node, Key).
+
+-spec nodes_info() -> {ok, [{node(), [node_info()]}]}.
+nodes_info() ->
+    get_nodes_info().
+
 i() ->                         print_info().
 i(Node) ->                     print_info(Node).
 
@@ -212,7 +254,6 @@ set_net_ticktime(T) when is_integer(T) ->
       NetTicktime :: pos_integer().
 get_net_ticktime() ->
     ticktime_res(request(ticktime)).
-
 
 %% The monitor_nodes() feature has been moved into the emulator.
 %% The feature is reached via (intentionally) undocumented process
@@ -274,7 +315,6 @@ connect_node(Node) when is_atom(Node) ->
 hidden_connect_node(Node) when is_atom(Node) ->
     request({connect, hidden, Node}).
 
-
 passive_connect_monitor(From, Node) ->
     ok = monitor_nodes(true,[{node_type,all}]),
     Reply = case lists:member(Node,nodes([connected])) of
@@ -292,15 +332,36 @@ passive_connect_monitor(From, Node) ->
     {Pid, Tag} = From,
     erlang:send(Pid, {Tag, Reply}).
 
-
 %% If the net_kernel isn't running we ignore all requests to the
 %% kernel, thus basically accepting them :-)
 request(Req) ->
     case whereis(net_kernel) of
-	P when is_pid(P) ->
-	    gen_server:call(net_kernel,Req,infinity);
-	_ -> ignored
+        P when is_pid(P) ->
+            try
+                gen_server:call(net_kernel,Req,infinity)
+            catch
+                exit:{Reason,_} when Reason =:= noproc;
+                                     Reason =:= shutdown;
+                                     Reason =:= killed ->
+                    retry_request_maybe(Req)
+            end;
+        _ ->
+            retry_request_maybe(Req)
     end.
+
+retry_request_maybe(Req) ->
+    case persistent_term:get(net_kernel, undefined) of
+        dynamic_node_name ->
+            %% net_kernel must be restarting due to lost connection
+            %% toward the node that named us.
+            %% We want reconnection attempts to succeed so we wait and retry.
+            receive after 100 -> ok end,
+            request(Req);
+
+        _ ->
+            ignored
+    end.
+
 
 %% This function is used to dynamically start the
 %% distribution.
@@ -311,13 +372,13 @@ start(Args) ->
 %% This is the main startup routine for net_kernel (only for internal
 %% use by the Kernel application.
 
-start_link([Name], CleanHalt) ->
-    start_link([Name, longnames], CleanHalt);
-start_link([Name, LongOrShortNames], CleanHalt) ->
-    start_link([Name, LongOrShortNames, 15000], CleanHalt);
+start_link([Name], CleanHalt, NetSup) ->
+    start_link([Name, longnames], CleanHalt, NetSup);
+start_link([Name, LongOrShortNames], CleanHalt, NetSup) ->
+    start_link([Name, LongOrShortNames, 15000], CleanHalt, NetSup);
 
-start_link([Name, LongOrShortNames, Ticktime], CleanHalt) ->
-    Args = {Name, LongOrShortNames, Ticktime, CleanHalt},
+start_link([Name, LongOrShortNames, Ticktime], CleanHalt, NetSup) ->
+    Args = {Name, LongOrShortNames, Ticktime, CleanHalt, NetSup},
     case gen_server:start_link({local, net_kernel}, ?MODULE,
 			       Args, []) of
 	{ok, Pid} ->
@@ -328,15 +389,14 @@ start_link([Name, LongOrShortNames, Ticktime], CleanHalt) ->
 	    exit(nodistribution)
     end.
 
-init({Name, LongOrShortNames, TickT, CleanHalt}) ->
+init({Name, LongOrShortNames, TickT, CleanHalt, NetSup}) ->
     process_flag(trap_exit,true),
     case init_node(Name, LongOrShortNames, CleanHalt) of
 	{ok, Node, Listeners} ->
 	    process_flag(priority, max),
 	    Ticktime = to_integer(TickT),
 	    Ticker = spawn_link(net_kernel, ticker, [self(), Ticktime]),
-	    {ok, #state{name = Name,
-			node = Node,
+	    {ok, #state{node = Node,
 			type = LongOrShortNames,
 			tick = #tick{ticker = Ticker, time = Ticktime},
 			connecttime = connecttime(),
@@ -346,7 +406,8 @@ init({Name, LongOrShortNames, TickT, CleanHalt}) ->
 					  {keypos, #connection.node}]),
 			listen = Listeners,
 			allowed = [],
-			verbose = 0
+			verbose = 0,
+                        supervisor = NetSup
 		       }};
 	Error ->
 	    {stop, Error}
@@ -360,14 +421,14 @@ do_auto_connect_1(Node, ConnId, From, State) ->
                     spawn(?MODULE,passive_connect_monitor,[From,Node]),
                     {noreply, State};
                 _ ->
-                    erts_internal:abort_connection(Node, ConnId),
+                    erts_internal:abort_pending_connection(Node, ConnId),
                     {reply, false, State}
             end;
 
         ConnLookup ->
             do_auto_connect_2(Node, ConnId, From, State, ConnLookup)
     end.
-   
+
 do_auto_connect_2(Node, passive_cnct, From, State, ConnLookup) ->
     try erts_internal:new_connection(Node) of
         ConnId ->
@@ -393,7 +454,7 @@ do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
             case application:get_env(kernel, dist_auto_connect) of
                 {ok, never} ->
                     ?connect_failure(Node,{dist_auto_connect,never}),
-                    erts_internal:abort_connection(Node, ConnId),                    
+                    erts_internal:abort_pending_connection(Node, ConnId),
                     {reply, false, State};
 
                 %% This might happen due to connection close
@@ -403,21 +464,19 @@ do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
                                 (hd(ConnLookup))#connection.state =:= up ->
                     ?connect_failure(Node,{barred_connection,
                                            ets:lookup(sys_dist, Node)}),
-                    erts_internal:abort_connection(Node, ConnId),
                     {reply, false, State};
                 _ ->
                     case setup(Node, ConnId, normal, From, State) of
                         {ok, SetupPid} ->
-                            Owners = [{SetupPid, Node} | State#state.conn_owners],
-                            {noreply,State#state{conn_owners=Owners}};
+                            Owners = State#state.conn_owners,
+                            {noreply,State#state{conn_owners=Owners#{SetupPid => Node}}};
                         _Error  ->
                             ?connect_failure(Node, {setup_call, failed, _Error}),
-                            erts_internal:abort_connection(Node, ConnId),
+                            erts_internal:abort_pending_connection(Node, ConnId),
                             {reply, false, State}
                     end
             end
     end.
-
 
 do_explicit_connect([#connection{conn_id = ConnId, state = up}], _, _, ConnId, _From, State) ->
     {reply, true, State};
@@ -425,7 +484,7 @@ do_explicit_connect([#connection{conn_id = ConnId}=Conn], _, _, ConnId, From, St
   when Conn#connection.state =:= pending;
        Conn#connection.state =:= up_pending ->
     Waiting = Conn#connection.waiting,
-    ets:insert(sys_dist, Conn#connection{waiting = [From|Waiting]}),    
+    ets:insert(sys_dist, Conn#connection{waiting = [From|Waiting]}),
     {noreply, State};
 do_explicit_connect([#barred_connection{}], Type, Node, ConnId, From , State) ->
     %% Barred connection only affects auto_connect, ignore it.
@@ -433,13 +492,12 @@ do_explicit_connect([#barred_connection{}], Type, Node, ConnId, From , State) ->
 do_explicit_connect(_ConnLookup, Type, Node, ConnId, From , State) ->
     case setup(Node,ConnId,Type,From,State) of
         {ok, SetupPid} ->
-            Owners = [{SetupPid, Node} | State#state.conn_owners],
-            {noreply,State#state{conn_owners=Owners}};
+            Owners = State#state.conn_owners,
+            {noreply,State#state{conn_owners=Owners#{SetupPid => Node}}};
         _Error ->
             ?connect_failure(Node, {setup_call, failed, _Error}),
             {reply, false, State}
     end.
-
 
 %% ------------------------------------------------------------
 %% handle_call.
@@ -462,6 +520,8 @@ handle_call({passive_cnct, Node}, From, State) ->
 %%
 handle_call({connect, _, Node}, From, State) when Node =:= node() ->
     async_reply({reply, true, State}, From);
+handle_call({connect, _Type, _Node}, _From, #state{supervisor = {restart,_}}=State) ->
+    {noreply, State};
 handle_call({connect, Type, Node}, From, State) ->
     verbose({connect, Type, Node}, 1, State),
     ConnLookup = ets:lookup(sys_dist, Node),
@@ -474,18 +534,16 @@ handle_call({connect, Type, Node}, From, State) ->
                     {noreply, _S} -> %% connection pending
                         ok;
                     {reply, false, _S} -> %% connection refused
-                        erts_internal:abort_connection(Node, ConnId)
+                        erts_internal:abort_pending_connection(Node, ConnId)
                 end,
                 R1
-                    
         catch
             _:_ ->
                 error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
                                        [Node]),
-                {reply, false, State}                    
+                {reply, false, State}
         end,
     return_call(R, From);
-            
 
 %%
 %% Close the connection to Node.
@@ -551,6 +609,9 @@ handle_call({apply,_Mod,_Fun,_Args}, {From,Tag}, State)
 handle_call(longnames, From, State) ->
     async_reply({reply, get(longnames), State}, From);
 
+handle_call(nodename, From, State) ->
+    async_reply({reply, State#state.node, State}, From);
+
 handle_call({update_publish_nodes, Ns}, From, State) ->
     async_reply({reply, ok, State#state{publish_on_nodes = Ns}}, From);
 
@@ -569,7 +630,6 @@ handle_call({publish_on_node, Node}, From, State) ->
 		      lists:member(Node, Nodes)
 	      end,
     async_reply({reply, Publish, NewState}, From);
-
 
 handle_call({verbose, Level}, From, State) ->
     async_reply({reply, State#state.verbose, State#state{verbose = Level}},
@@ -668,27 +728,21 @@ code_change(_OldVsn, State, _Extra) ->
 %% terminate.
 %% ------------------------------------------------------------
 
-terminate(no_network, State) ->
-    lists:foreach(
-      fun({Node, Type}) ->
-	      case Type of
-		  normal -> ?nodedown(Node, State);
-		  _ -> ok
-	      end
-      end, get_up_nodes() ++ [{node(), normal}]);
-terminate(_Reason, State) ->
-    lists:foreach(
-      fun(#listen {listen = Listen,module = Mod}) ->
-	      Mod:close(Listen)
-      end, State#state.listen),
-    lists:foreach(
-      fun({Node, Type}) ->
-	      case Type of
-		  normal -> ?nodedown(Node, State);
-		  _ -> ok
-	      end
-      end, get_up_nodes() ++ [{node(), normal}]).
-
+terminate(Reason, State) ->
+    case Reason of
+        no_network ->
+            ok;
+        _ ->
+            lists:foreach(
+              fun(#listen {listen = Listen,module = Mod}) ->
+                      case Listen of
+                          undefined -> ignore;
+                          _ -> Mod:close(Listen)
+                      end
+              end, State#state.listen)
+    end,
+    lists:foreach(fun(Node) -> ?nodedown(Node, State)
+                  end, get_nodes_up_normal() ++ [node()]).
 
 %% ------------------------------------------------------------
 %% handle_info.
@@ -717,12 +771,11 @@ handle_info({auto_connect,Node, DHandle}, State) ->
 %% accept a new connection.
 %%
 handle_info({accept,AcceptPid,Socket,Family,Proto}, State) ->
-    MyNode = State#state.node,
     case get_proto_mod(Family,Proto,State#state.listen) of
 	{ok, Mod} ->
 	    Pid = Mod:accept_connection(AcceptPid,
 					Socket,
-					MyNode,
+                                        State#state.node,
 					State#state.allowed,
 					State#state.connecttime),
 	    AcceptPid ! {self(), controller, Pid},
@@ -733,20 +786,44 @@ handle_info({accept,AcceptPid,Socket,Family,Proto}, State) ->
     end;
 
 %%
+%% New dist controller has been registered
+%%
+handle_info({dist_ctrlr, Ctrlr, Node, SetupPid} = Msg,
+	    #state{dist_ctrlrs = DistCtrlrs} = State) ->
+    case ets:lookup(sys_dist, Node) of
+	[Conn] when (Conn#connection.state =:= pending)
+                    andalso (Conn#connection.owner =:= SetupPid)
+                    andalso (Conn#connection.ctrlr =:= undefined)
+                    andalso (is_port(Ctrlr) orelse is_pid(Ctrlr))
+                    andalso (node(Ctrlr) == node()) ->
+            link(Ctrlr),
+            ets:insert(sys_dist, Conn#connection{ctrlr = Ctrlr}),
+            {noreply, State#state{dist_ctrlrs = DistCtrlrs#{Ctrlr => Node}}};
+	_ ->
+            error_msg("Net kernel got ~tw~n",[Msg]),
+	    {noreply, State}
+    end;
+
+%%
 %% A node has successfully been connected.
 %%
-handle_info({SetupPid, {nodeup,Node,Address,Type,Immediate}},
-	    State) ->
-    case {Immediate, ets:lookup(sys_dist, Node)} of
-	{true, [Conn]} when Conn#connection.state =:= pending,
-			    Conn#connection.owner =:= SetupPid ->
-	    ets:insert(sys_dist, Conn#connection{state = up,
-						 address = Address,
-						 waiting = [],
-						 type = Type}),
-	    SetupPid ! {self(), inserted},
-	    reply_waiting(Node,Conn#connection.waiting, true),
-	    {noreply, State};
+handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe}}, State) ->
+    case ets:lookup(sys_dist, Node) of
+	[Conn] when (Conn#connection.state =:= pending)
+                    andalso (Conn#connection.owner =:= SetupPid)
+                    andalso (Conn#connection.ctrlr /= undefined) ->
+            ets:insert(sys_dist, Conn#connection{state = up,
+                                                 address = Address,
+                                                 waiting = [],
+                                                 type = Type,
+                                                 named_me = NamedMe}),
+            SetupPid ! {self(), inserted},
+            reply_waiting(Node,Conn#connection.waiting, true),
+            State1 = case NamedMe of
+                         true -> State#state{node = node()};
+                         false -> State
+                     end,
+            {noreply, State1};
 	_ ->
 	    SetupPid ! {self(), bad_request},
 	    {noreply, State}
@@ -755,8 +832,10 @@ handle_info({SetupPid, {nodeup,Node,Address,Type,Immediate}},
 %%
 %% Mark a node as pending (accept) if not busy.
 %%
-handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
-    case ets:lookup(sys_dist, Node) of
+handle_info({AcceptPid, {accept_pending,MyNode,NodeOrHost,Type}}, State0) ->
+    {NameType, Node, Creation,
+     ConnLookup, State} = ensure_node_name(NodeOrHost, State0),
+    case ConnLookup of
 	[#connection{state=pending}=Conn] ->
 	    if
 		MyNode > Node ->
@@ -774,21 +853,17 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
 			{'EXIT', OldOwner, _} ->
 			    true
 		    end,
-		    Owners = lists:keyreplace(OldOwner,
-					      1,
-					      State#state.conn_owners,
-					      {AcceptPid, Node}),
 		    ets:insert(sys_dist, Conn#connection{owner = AcceptPid}),
 		    AcceptPid ! {self(),{accept_pending,ok_pending}},
-		    State1 = State#state{conn_owners=Owners},
-		    {noreply,State1}
+                    Owners = maps:remove(OldOwner, State#state.conn_owners),
+		    {noreply, State#state{conn_owners=Owners#{AcceptPid => Node}}}
 	    end;
 	[#connection{state=up}=Conn] ->
 	    AcceptPid ! {self(), {accept_pending, up_pending}},
 	    ets:insert(sys_dist, Conn#connection { pending_owner = AcceptPid,
 						  state = up_pending }),
-	    Pend = [{AcceptPid, Node} | State#state.pend_owners ],
-	    {noreply, State#state { pend_owners = Pend }};
+	    Pend = State#state.pend_owners,
+	    {noreply, State#state { pend_owners = Pend#{AcceptPid => Node} }};
 	[#connection{state=up_pending}] ->
 	    AcceptPid ! {self(), {accept_pending, already_pending}},
 	    {noreply, State};
@@ -799,11 +874,16 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
                                                      conn_id = ConnId,
                                                      state = pending,
                                                      owner = AcceptPid,
-                                                     address = Address,
-                                                     type = Type}),
-                    AcceptPid ! {self(),{accept_pending,ok}},
-                    Owners = [{AcceptPid,Node} | State#state.conn_owners],
-                    {noreply, State#state{conn_owners = Owners}}
+                                                     type = Type,
+                                                     remote_name_type = NameType,
+                                                     creation = Creation}),
+                    Ret = case NameType of
+                              static -> ok;
+                              dynamic-> {ok, Node, Creation}
+                          end,
+                    AcceptPid ! {self(),{accept_pending,Ret}},
+                    Owners = State#state.conn_owners,
+                    {noreply, State#state{conn_owners = Owners#{AcceptPid => Node}}}
             catch
                 _:_ ->
                     error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
@@ -814,15 +894,17 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
     end;
 
 handle_info({SetupPid, {is_pending, Node}}, State) ->
-    Reply = lists:member({SetupPid,Node},State#state.conn_owners),
+    Reply = case maps:get(SetupPid, State#state.conn_owners, undefined) of
+                Node -> true;
+                _ -> false
+            end,
     SetupPid ! {self(), {is_pending, Reply}},
     {noreply, State};
-
 
 %%
 %% Handle different types of process terminations.
 %%
-handle_info({'EXIT', From, Reason}, State) when is_pid(From) ->
+handle_info({'EXIT', From, Reason}, State) ->
     verbose({'EXIT', From, Reason}, 1, State),
     handle_exit(From, Reason, State);
 
@@ -846,14 +928,18 @@ handle_info({From,badcookie,_To,_Mess}, State) ->
 %%
 handle_info(tick, State) ->
     ?tckr_dbg(tick),
-    lists:foreach(fun({Pid,_Node}) -> Pid ! {self(), tick} end,
-		  State#state.conn_owners),
+    maps:foreach(fun (Pid, _Node) ->
+                     Pid ! {self(), tick}
+              end,
+              State#state.conn_owners),
     {noreply,State};
 
 handle_info(aux_tick, State) ->
     ?tckr_dbg(aux_tick),
-    lists:foreach(fun({Pid,_Node}) -> Pid ! {self(), aux_tick} end,
-		  State#state.conn_owners),
+    maps:foreach(fun (Pid, _Node) ->
+                     Pid ! {self(), aux_tick}
+              end,
+              State#state.conn_owners),
     {noreply,State};
 
 handle_info(transition_period_end,
@@ -870,6 +956,43 @@ handle_info(transition_period_end,
 handle_info(X, State) ->
     error_msg("Net kernel got ~tw~n",[X]),
     {noreply,State}.
+
+ensure_node_name(Node, State) when is_atom(Node) ->
+    {static, Node, undefined, ets:lookup(sys_dist, Node), State};
+ensure_node_name(Host, State0) when is_list(Host) ->
+    case string:split(Host, "@", all) of
+        [Host] ->
+            {Node, Creation, State1} = generate_node_name(Host, State0),
+            case ets:lookup(sys_dist, Node) of
+                [#connection{}] ->
+                    %% Either a static named connection setup used a recycled
+                    %% dynamic name or we have an unlikely random dynamic
+                    %% name clash. Either way try again.
+                    ensure_node_name(Host, State1);
+
+                ConnLookup ->
+                    {dynamic, Node, Creation, ConnLookup, State1}
+            end;
+
+        _ ->
+            {error, Host, undefined, [], State0}
+    end.
+
+generate_node_name(Host, State0) ->
+    NamePool = State0#state.dyn_name_pool,
+    case maps:get(Host, NamePool, []) of
+        [] ->
+            Name = integer_to_list(rand:uniform(1 bsl 64), 36),
+            {list_to_atom(Name ++ "@" ++ Host),
+             create_creation(),
+             State0};
+
+        [{Node,Creation} | Rest] ->
+            {Node, Creation,
+             State0#state{dyn_name_pool = NamePool#{Host => Rest}}}
+    end.
+
+
 
 %% -----------------------------------------------------------
 %% Handle exit signals.
@@ -892,8 +1015,10 @@ do_handle_exit(Pid, Reason, State) ->
     listen_exit(Pid, State),
     accept_exit(Pid, State),
     conn_own_exit(Pid, Reason, State),
+    dist_ctrlr_exit(Pid, Reason, State),
     pending_own_exit(Pid, State),
     ticker_exit(Pid, State),
+    restarter_exit(Pid, State),
     {noreply,State}.
 
 listen_exit(Pid, State) ->
@@ -919,21 +1044,24 @@ accept_exit(Pid, State) ->
 	    false
     end.
 
-conn_own_exit(Pid, Reason, State) ->
-    Owners = State#state.conn_owners,
-    case lists:keysearch(Pid, 1, Owners) of
-	{value, {Pid, Node}} ->
-	    throw({noreply, nodedown(Pid, Node, Reason, State)});
-	_ ->
-	    false
+conn_own_exit(Pid, Reason, #state{conn_owners = Owners} = State) ->
+    case maps:get(Pid, Owners, undefined) of
+        undefined -> false;
+        Node -> throw({noreply, nodedown(Pid, Node, Reason, State)})
     end.
 
-pending_own_exit(Pid, State) ->
-    Pend = State#state.pend_owners,
-    case lists:keysearch(Pid, 1, Pend) of
-	{value, {Pid, Node}} ->
-	    NewPend = lists:keydelete(Pid, 1, Pend),
-	    State1 = State#state { pend_owners = NewPend },
+dist_ctrlr_exit(Pid, Reason, #state{dist_ctrlrs = DCs} = State) ->
+    case maps:get(Pid, DCs, undefined) of
+        undefined -> false;
+        Node -> throw({noreply, nodedown(Pid, Node, Reason, State)})
+    end.
+
+pending_own_exit(Pid, #state{pend_owners = Pend} = State) ->
+    case maps:get(Pid, Pend, undefined) of
+        undefined ->
+            false;
+        Node ->
+	    State1 = State#state { pend_owners = maps:remove(Pid, Pend)},
 	    case get_conn(Node) of
 		{ok, Conn} when Conn#connection.state =:= up_pending ->
 		    reply_waiting(Node,Conn#connection.waiting, true),
@@ -944,9 +1072,7 @@ pending_own_exit(Pid, State) ->
 		_ ->
 		    ok
 	    end,
-	    throw({noreply, State1});
-	_ ->
-	    false
+	    throw({noreply, State1})
     end.
 
 ticker_exit(Pid, #state{tick = #tick{ticker = Pid, time = T} = Tck} = State) ->
@@ -959,15 +1085,25 @@ ticker_exit(Pid, #state{tick = #tick_change{ticker = Pid,
 ticker_exit(_, _) ->
     false.
 
+restarter_exit(Pid, State) ->
+    case State#state.supervisor of
+        {restart, Pid} ->
+	    error_msg("** Distribution restart failed, net_kernel terminating... **\n", []),
+	    throw({stop, restarter_exit, State});
+        _ ->
+            false
+    end.
+
+
 %% -----------------------------------------------------------
 %% A node has gone down !!
 %% nodedown(Owner, Node, Reason, State) -> State'
 %% -----------------------------------------------------------
 
-nodedown(Owner, Node, Reason, State) ->
+nodedown(Exited, Node, Reason, State) ->
     case get_conn(Node) of
 	{ok, Conn} ->
-	    nodedown(Conn, Owner, Node, Reason, Conn#connection.type, State);
+	    nodedown(Conn, Exited, Node, Reason, Conn#connection.type, State);
 	_ ->
 	    State
     end.
@@ -978,70 +1114,158 @@ get_conn(Node) ->
 	_      -> error
     end.
 
-nodedown(Conn, Owner, Node, Reason, Type, OldState) ->
-    Owners = lists:keydelete(Owner, 1, OldState#state.conn_owners),
-    State = OldState#state{conn_owners = Owners},
+delete_owner(Owner, #state{conn_owners = Owners} = State) ->
+    State#state{conn_owners = maps:remove(Owner, Owners)}.
+
+delete_ctrlr(Ctrlr, #state{dist_ctrlrs = DCs} = State) ->
+    State#state{dist_ctrlrs = maps:remove(Ctrlr, DCs)}.
+
+nodedown(Conn, Exited, Node, Reason, Type, State) ->
     case Conn#connection.state of
-	pending when Conn#connection.owner =:= Owner ->
-	    pending_nodedown(Conn, Node, Type, State);
-	up when Conn#connection.owner =:= Owner ->
-	    up_nodedown(Conn, Node, Reason, Type, State);
-	up_pending when Conn#connection.owner =:= Owner ->
-	    up_pending_nodedown(Conn, Node, Reason, Type, State);
+	pending ->
+	    pending_nodedown(Conn, Exited, Node, Type, State);
+	up ->
+	    up_nodedown(Conn, Exited, Node, Reason, Type, State);
+	up_pending ->
+	    up_pending_nodedown(Conn, Exited, Node, Reason, Type, State);
 	_ ->
-	    OldState
+	    State
     end.
 
-pending_nodedown(Conn, Node, Type, State) ->
-    % Don't bar connections that have never been alive
-    %mark_sys_dist_nodedown(Node),
-    % - instead just delete the node:
-    erts_internal:abort_connection(Node, Conn#connection.conn_id),
-    ets:delete(sys_dist, Node),
-    reply_waiting(Node,Conn#connection.waiting, false),
-    case Type of
-	normal ->
-	    ?nodedown(Node, State);
-	_ ->
-	    ok
+pending_nodedown(#connection{owner = Owner,
+                             waiting = Waiting,
+                             conn_id = CID} = Conn,
+                 Exited, Node, Type, State0) when Owner =:= Exited ->
+    %% Owner exited!
+    State2 = case erts_internal:abort_pending_connection(Node, CID) of
+                 false ->
+                     %% Just got connected but that message has not
+                     %% reached us yet. Wait for controller to exit and
+                     %% handle this then...
+                     State0;
+                 true ->
+                     %% Don't bar connections that have never been alive
+                     State1 = delete_connection(Conn, false, State0),
+                     reply_waiting(Node, Waiting, false),
+                     case Type of
+                         normal ->
+                             ?nodedown(Node, State1);
+                         _ ->
+                             ok
+                     end,
+                     State1
     end,
+    delete_owner(Owner, State2);
+pending_nodedown(#connection{owner = Owner,
+                             ctrlr = Ctrlr,
+                             waiting = Waiting} = Conn,
+                 Exited, Node, Type, State0) when Ctrlr =:= Exited ->
+    %% Controller exited!
+    %%
+    %% Controller has been registered but crashed
+    %% before sending mark up message...
+    %%
+    %% 'nodeup' messages has been sent by the emulator,
+    %% so bar the connection...
+    State1 = delete_connection(Conn, true, State0),
+    reply_waiting(Node,Waiting, true),
+    case Type of
+        normal ->
+            ?nodedown(Node, State1);
+        _ ->
+            ok
+    end,
+    delete_owner(Owner, delete_ctrlr(Ctrlr, State1));
+pending_nodedown(_Conn, _Exited, _Node, _Type, State) ->
     State.
 
-up_pending_nodedown(Conn, Node, _Reason, _Type, State) ->
-    AcceptPid = Conn#connection.pending_owner,
-    Owners = State#state.conn_owners,
-    Pend = lists:keydelete(AcceptPid, 1, State#state.pend_owners),
-    erts_internal:abort_connection(Node, Conn#connection.conn_id),
+up_pending_nodedown(#connection{owner = Owner,
+                                ctrlr = Ctrlr,
+                                pending_owner = AcceptPid} = Conn,
+                    Exited, Node, _Reason,
+                    _Type, State) when Ctrlr =:= Exited  ->
+    %% Controller exited!
     Conn1 = Conn#connection { owner = AcceptPid,
                               conn_id = erts_internal:new_connection(Node),
+                              ctrlr = undefined,
 			      pending_owner = undefined,
 			      state = pending },
     ets:insert(sys_dist, Conn1),
     AcceptPid ! {self(), pending},
-    State#state{conn_owners = [{AcceptPid,Node}|Owners], pend_owners = Pend}.
-
-
-up_nodedown(Conn, Node, _Reason, Type, State) ->
-    mark_sys_dist_nodedown(Conn, Node),
-    case Type of
-	normal -> ?nodedown(Node, State);
-	_ -> ok
-    end,
+    Pend = maps:remove(AcceptPid, State#state.pend_owners),
+    Owners = State#state.conn_owners,
+    State1 = State#state{conn_owners = Owners#{AcceptPid => Node},
+                         pend_owners = Pend},
+    delete_owner(Owner, delete_ctrlr(Ctrlr, State1));
+up_pending_nodedown(#connection{owner = Owner},
+                    Exited, _Node, _Reason,
+                    _Type, State) when Owner =:= Exited  ->
+    %% Owner exited!
+    delete_owner(Owner, State);
+up_pending_nodedown(_Conn, _Exited, _Node, _Reason, _Type, State) ->
     State.
 
-mark_sys_dist_nodedown(Conn, Node) ->
-    erts_internal:abort_connection(Node, Conn#connection.conn_id),
-    case application:get_env(kernel, dist_auto_connect) of
-	{ok, once} ->
+up_nodedown(#connection{owner = Owner,
+                        ctrlr = Ctrlr} = Conn,
+            Exited, Node, _Reason, Type, State0) when Ctrlr =:= Exited ->
+    %% Controller exited!
+    State1 = delete_connection(Conn, true, State0),
+    case Type of
+	normal -> ?nodedown(Node, State1);
+	_ -> ok
+    end,
+    delete_owner(Owner, delete_ctrlr(Ctrlr, State1));
+up_nodedown(#connection{owner = Owner},
+            Exited, _Node, _Reason,
+            _Type, State) when Owner =:= Exited  ->
+    %% Owner exited!
+    delete_owner(Owner, State);
+up_nodedown(_Conn, _Exited, _Node, _Reason, _Type, State) ->
+    State.
+
+delete_connection(#connection{named_me = true}, _, State) ->
+    restart_distr(State);
+
+delete_connection(#connection{node = Node}=Conn, MayBeBarred, State) ->
+    BarrIt = MayBeBarred andalso
+        case application:get_env(kernel, dist_auto_connect) of
+            {ok, once} ->
+                true;
+            _ ->
+                false
+        end,
+    case BarrIt of
+        true ->
 	    ets:insert(sys_dist, #barred_connection{node = Node});
 	_ ->
 	    ets:delete(sys_dist, Node)
+    end,
+    case Conn#connection.remote_name_type of
+        dynamic ->
+            %% Return remote node name to pool
+            [_Name,Host] = string:split(atom_to_list(Node), "@", all),
+            NamePool0 = State#state.dyn_name_pool,
+            DynNames = maps:get(Host, NamePool0, []),
+            false = lists:keyfind(Node, 1, DynNames), % ASSERT
+            FreeName = {Node, next_creation(Conn#connection.creation)},
+            NamePool1 = NamePool0#{Host => [FreeName | DynNames]},
+            State#state{dyn_name_pool = NamePool1};
+
+        static ->
+            State
     end.
 
-%% -----------------------------------------------------------
-%% End handle_exit/2 !!
-%% -----------------------------------------------------------
+restart_distr(State) ->
+    Restarter = spawn_link(fun() -> restart_distr_do(State#state.supervisor) end),
+    State#state{supervisor = {restart, Restarter}}.
 
+restart_distr_do(NetSup) ->
+    process_flag(trap_exit,true),
+    ok = supervisor:terminate_child(kernel_sup, NetSup),
+    case supervisor:restart_child(kernel_sup, NetSup) of
+        {ok, Pid} when is_pid(Pid) ->
+            ok
+    end.
 
 %% -----------------------------------------------------------
 %% monitor_nodes/[1,2] errors
@@ -1119,55 +1343,33 @@ mk_monitor_nodes_error(_Flag, Opts) ->
 do_disconnect(Node, State) ->
     case ets:lookup(sys_dist, Node) of
 	[Conn] when Conn#connection.state =:= up ->
-	    disconnect_pid(Conn#connection.owner, State);
+	    disconnect_ctrlr(Conn#connection.ctrlr, State);
 	[Conn] when Conn#connection.state =:= up_pending ->
-	    disconnect_pid(Conn#connection.owner, State);
+	    disconnect_ctrlr(Conn#connection.ctrlr, State);
 	_ ->
 	    {false, State}
     end.
 
-
-disconnect_pid(Pid, State) ->
-    exit(Pid, disconnect),
-    %% Sync wait for connection to die!!!
+disconnect_ctrlr(Ctrlr, State) ->
+    exit(Ctrlr, disconnect),
     receive
-	{'EXIT',Pid,Reason} ->
-	    {_,State1} = handle_exit(Pid, Reason, State),
-	    {true, State1}
+        {'EXIT',Ctrlr,Reason} ->
+            {_,State1} = handle_exit(Ctrlr, Reason, State),
+            {true, State1}
     end.
 
 %%
 %%
 %%
-get_nodes(Which) ->
-    get_nodes(ets:first(sys_dist), Which).
 
-get_nodes('$end_of_table', _) ->
-    [];
-get_nodes(Key, Which) ->
-    case ets:lookup(sys_dist, Key) of
-	[Conn = #connection{state = up}] ->
-	    [Conn#connection.node | get_nodes(ets:next(sys_dist, Key),
-					      Which)];
-	[Conn = #connection{}] when Which =:= all ->
-	    [Conn#connection.node | get_nodes(ets:next(sys_dist, Key),
-					      Which)];
-	_ ->
-	    get_nodes(ets:next(sys_dist, Key), Which)
-    end.
-
-%% Return a list of all nodes that are 'up'.
-get_up_nodes() ->
-    get_up_nodes(ets:first(sys_dist)).
-
-get_up_nodes('$end_of_table') -> [];
-get_up_nodes(Key) ->
-    case ets:lookup(sys_dist, Key) of
- 	[#connection{state=up,node=Node,type=Type}] ->
- 	    [{Node,Type}|get_up_nodes(ets:next(sys_dist, Key))];
- 	_ ->
- 	    get_up_nodes(ets:next(sys_dist, Key))
-    end.
+%% Return a list of all nodes that are 'up' and not hidden.
+get_nodes_up_normal() ->
+    ets:select(sys_dist, [{#connection{node = '$1',
+                                       state = up,
+                                       type = normal,
+                                       _ = '_'},
+                           [],
+                           ['$1']}]).
 
 ticker(Kernel, Tick) when is_integer(Tick) ->
     process_flag(priority, max),
@@ -1297,14 +1499,15 @@ setup(Node, ConnId, Type, From, State) ->
 						     owner = Pid,
 						     waiting = Waiting,
 						     address = Addr,
-						     type = normal}),
+						     type = normal,
+                                                     remote_name_type = static}),
 		    {ok, Pid};
 		Error ->
 		    Error
     end.
 
 setup_check(Node, State) ->
-    Allowed = State#state.allowed,    
+    Allowed = State#state.allowed,
     case lists:member(Node, Allowed) of
 	false when Allowed =/= [] ->
 	    error_msg("** Connection attempt with "
@@ -1315,9 +1518,7 @@ setup_check(Node, State) ->
                 {ok, _L}=OK -> OK;
                 Error -> Error
             end
-    end.                    
-
-    
+    end.
 
 %%
 %% Find a module that is willing to handle connection setup to Node
@@ -1331,10 +1532,10 @@ select_mod(Node, [L|Ls]) ->
 select_mod(Node, []) ->
     {error, {unsupported_address_type, Node}}.
 
-
 get_proto_mod(Family,Protocol,[L|Ls]) ->
     A = L#listen.address,
-    if A#net_address.family =:= Family,
+    if  L#listen.accept =/= undefined,
+        A#net_address.family =:= Family,
        A#net_address.protocol =:= Protocol ->
 	    {ok, L#listen.module};
        true ->
@@ -1346,18 +1547,16 @@ get_proto_mod(_Family, _Protocol, []) ->
 %% -------- Initialisation functions ------------------------
 
 init_node(Name, LongOrShortNames, CleanHalt) ->
-    {NameWithoutHost0,_Host} = split_node(Name),
     case create_name(Name, LongOrShortNames, 1) of
 	{ok,Node} ->
-	    NameWithoutHost = list_to_atom(NameWithoutHost0),
-	    case start_protos(NameWithoutHost, Node, CleanHalt) of
+	    case start_protos(Node, CleanHalt) of
 		{ok, Ls} ->
 		    {ok, Node, Ls};
 		Error ->
 		    Error
 	    end;
 	Error ->
- 	    Error
+	    Error
     end.
 
 %% Create the node name
@@ -1387,9 +1586,7 @@ create_name(Name, LongOrShortNames, Try) ->
             {error, badarg};
 	{error,Type} ->
 	    error_logger:info_msg(
-	      lists:concat(["Can\'t set ",
-			    Type,
-			    " node name!\n"
+	      lists:concat(["Can't set ", Type, " node name!\n"
 			    "Please check your configuration\n"])),
 	    {error,badarg}
     end.
@@ -1433,7 +1630,7 @@ validate_hostname([$@|HostPart] = Host) ->
     end.
 
 valid_name_head(Head) ->
-    {ok, MP} = re:compile("^[0-9A-Za-z_\\-]*$", [unicode]),
+    {ok, MP} = re:compile("^[0-9A-Za-z_\\-]+$", [unicode]),
         case re:run(Head, MP) of
             {match, _} ->
                 true;
@@ -1466,7 +1663,6 @@ protocol_childspecs([H|T]) ->
 	    protocol_childspecs(T)
     end.
 
-
 %%
 %% epmd_module() -> module_name of erl_epmd or similar gen_server_module.
 %%
@@ -1480,19 +1676,39 @@ epmd_module() ->
     end.
 
 %%
+%% dist_listen() -> whether the erlang distribution should listen for connections
+%%
+dist_listen() ->
+    case persistent_term:get(net_kernel, undefined) of
+        dynamic_node_name ->
+            false;
+        _ ->
+            case init:get_argument(dist_listen) of
+                {ok,[[DoListen]]} ->
+                    list_to_atom(DoListen) =/= false;
+                _ ->
+                    true
+            end
+    end.
+
+%%
 %% Start all protocols
 %%
 
-start_protos(Name, Node, CleanHalt) ->
+start_protos(Node, CleanHalt) ->
     case init:get_argument(proto_dist) of
 	{ok, [Protos]} ->
-	    start_protos(Name, Protos, Node, CleanHalt);
+	    start_protos(Node, Protos, CleanHalt);
 	_ ->
-	    start_protos(Name, ["inet_tcp"], Node, CleanHalt)
+	    start_protos(Node, ["inet_tcp"], CleanHalt)
     end.
 
-start_protos(Name, Ps, Node, CleanHalt) ->
-    case start_protos(Name, Ps, Node, [], CleanHalt) of
+start_protos(Node, Ps, CleanHalt) ->
+    Listeners = case dist_listen() of
+                    false -> start_protos_no_listen(Node, Ps, [], CleanHalt);
+                    _ -> start_protos_listen(Node, Ps, CleanHalt)
+                end,
+    case Listeners of
 	[] ->
 	    case CleanHalt of
 		true -> halt(1);
@@ -1502,42 +1718,98 @@ start_protos(Name, Ps, Node, CleanHalt) ->
 	    {ok, Ls}
     end.
 
-start_protos(Name, [Proto | Ps], Node, Ls, CleanHalt) ->
-    Mod = list_to_atom(Proto ++ "_dist"),
-    case catch Mod:listen(Name) of
-	{ok, {Socket, Address, Creation}} ->
-	    case set_node(Node, Creation) of
-		ok ->
-		    AcceptPid = Mod:accept(Socket),
-		    auth:sync_cookie(),
-		    L = #listen {
-		      listen = Socket,
-		      address = Address,
-		      accept = AcceptPid,
-		      module = Mod },
-		    start_protos(Name,Ps, Node, [L|Ls], CleanHalt);
-		_ ->
-		    Mod:close(Socket),
-		    S = "invalid node name: " ++ atom_to_list(Node),
-		    proto_error(CleanHalt, Proto, S),
-		    start_protos(Name, Ps, Node, Ls, CleanHalt)
-	    end;
-	{'EXIT', {undef,_}} ->
-	    proto_error(CleanHalt, Proto, "not supported"),
-	    start_protos(Name, Ps, Node, Ls, CleanHalt);
-	{'EXIT', Reason} ->
-	    register_error(CleanHalt, Proto, Reason),
-	    start_protos(Name, Ps, Node, Ls, CleanHalt);
-	{error, duplicate_name} ->
-	    S = "the name " ++ atom_to_list(Node) ++
-		" seems to be in use by another Erlang node",
-	    proto_error(CleanHalt, Proto, S),
-	    start_protos(Name, Ps, Node, Ls, CleanHalt);
-	{error, Reason} ->
-	    register_error(CleanHalt, Proto, Reason),
-	    start_protos(Name, Ps, Node, Ls, CleanHalt)
+start_protos_no_listen(Node, [Proto | Ps], Ls, CleanHalt) ->
+    {Name, "@"++_Host}  = split_node(Node),
+    Ok = case Name of
+             "undefined" ->
+                 persistent_term:put(net_kernel,dynamic_node_name),
+                 true;
+             _ ->
+                 (set_node(Node, create_creation()) =:= ok)
+         end,
+    case Ok of
+        true ->
+            auth:sync_cookie(),
+            Mod = list_to_atom(Proto ++ "_dist"),
+            L = #listen {
+                   listen = undefined,
+                   address = Mod:address(),
+                   accept = undefined,
+                   module = Mod },
+            start_protos_no_listen(Node, Ps, [L|Ls], CleanHalt);
+        false ->
+            S = "invalid node name: " ++ atom_to_list(Node),
+            proto_error(CleanHalt, Proto, S),
+            start_protos_no_listen(Node, Ps, Ls, CleanHalt)
     end;
-start_protos(_, [], _Node, Ls, _CleanHalt) ->
+start_protos_no_listen(_Node, [], Ls, _CleanHalt) ->
+    Ls.
+
+create_creation() ->
+    Cr = try binary:decode_unsigned(crypto:strong_rand_bytes(4)) of
+             Creation ->
+                 Creation
+         catch _:_ ->
+                 rand:uniform((1 bsl 32)-1)
+         end,
+    wrap_creation(Cr).
+
+next_creation(Creation) ->
+    wrap_creation(Creation + 1).
+
+%% Avoid small creations 0,1,2,3
+wrap_creation(Cr) when Cr >= 4 andalso Cr < (1 bsl 32) ->
+    Cr;
+wrap_creation(Cr) ->
+    wrap_creation((Cr + 4) band ((1 bsl 32) - 1)).
+    
+
+start_protos_listen(Node, Ps, CleanHalt) ->
+    case split_node(Node) of
+        {"undefined", _} ->
+            start_protos_no_listen(Node, Ps, [], CleanHalt);
+        {Name, "@"++Host} ->
+            start_protos_listen(list_to_atom(Name), Host, Node, Ps, [], CleanHalt)
+    end.
+start_protos_listen(Name, Host, Node, [Proto | Ps], Ls, CleanHalt) ->
+    Mod = list_to_atom(Proto ++ "_dist"),
+    try try Mod:listen(Name,Host)
+        catch error:undef ->
+                Mod:listen(Name)
+        end of
+        {ok, {Socket, Address, Creation}} ->
+            case set_node(Node, Creation) of
+                ok ->
+                    AcceptPid = Mod:accept(Socket),
+                    auth:sync_cookie(),
+                    L = #listen{
+                           listen = Socket,
+                           address = Address,
+                           accept = AcceptPid,
+                           module = Mod },
+                    start_protos_listen(Name, Host, Node, Ps, [L|Ls], CleanHalt);
+                _ ->
+                    Mod:close(Socket),
+                    S = "invalid node name: " ++ atom_to_list(Node),
+                    proto_error(CleanHalt, Proto, S),
+                    start_protos_listen(Name, Host, Node, Ps, Ls, CleanHalt)
+            end;
+        {error, duplicate_name} ->
+            S = "the name " ++ atom_to_list(Node) ++
+                " seems to be in use by another Erlang node",
+            proto_error(CleanHalt, Proto, S),
+            start_protos_listen(Name, Host, Node, Ps, Ls, CleanHalt);
+        {error, Reason} ->
+            register_error(CleanHalt, Proto, Reason),
+            start_protos_listen(Name, Host, Node, Ps, Ls, CleanHalt)
+    catch error:undef ->
+            proto_error(CleanHalt, Proto, "not supported"),
+            start_protos_listen(Name, Host, Node, Ps, Ls, CleanHalt);
+          _:Reason ->
+            register_error(CleanHalt, Proto, Reason),
+            start_protos_listen(Name, Host, Node, Ps, Ls, CleanHalt)
+    end;
+start_protos_listen(_Name, _Host, _Node, [], Ls, _CleanHalt) ->
     Ls.
 
 register_error(false, Proto, Reason) ->
@@ -1557,12 +1829,14 @@ proto_error(CleanHalt, Proto, String) ->
 	    erlang:display_string(S)
     end.
 
+set_node(Node, Creation) when Creation < 0 ->
+    set_node(Node, create_creation());
 set_node(Node, Creation) when node() =:= nonode@nohost ->
     case catch erlang:setnode(Node, Creation) of
-	true ->
-	    ok;
-	{'EXIT',Reason} ->
-	    {error,Reason}
+        true ->
+            ok;
+        {'EXIT',Reason} ->
+            {error,Reason}
     end;
 set_node(Node, _Creation) when node() =:= Node ->
     ok.
@@ -1585,62 +1859,73 @@ connecttime() ->
 
 get_node_info(Node) ->
     case ets:lookup(sys_dist, Node) of
-	[Conn = #connection{owner = Owner, state = State}] ->
-	    case get_status(Owner, Node, State) of
-		{ok, In, Out} ->
-		    {ok, [{owner, Owner},
-			  {state, State},
-			  {address, Conn#connection.address},
-			  {type, Conn#connection.type},
-			  {in, In},
-			  {out, Out}]};
-		_ ->
-		    {error, bad_node}
-	    end;
-	_ ->
-	    {error, bad_node}
+        [#connection{owner = Owner, state = up, address = Addr, type = Type}] ->
+            MRef = monitor(process, Owner),
+            Owner ! {self(), get_status},
+            receive
+                {Owner, get_status, {ok, Read, Write}} ->
+                    demonitor(MRef, [flush]),
+                    {ok, [{owner, Owner}, {state, up}, {address, Addr},
+                        {type, Type}, {in, Read}, {out, Write}]};
+                {'DOWN', MRef, process, Owner, _Info} ->
+                    {error, bad_node}
+            end;
+        [#connection{owner = Owner, state = State, address = Addr, type = Type}] ->
+            {ok, [{owner, Owner}, {state, State}, {address, Addr},
+                  {type, Type}, {in, 0}, {out, 0}]};
+        _ ->
+            {error, bad_node}
     end.
-
-%%
-%% We can't do monitor_node here incase the node is pending,
-%% the monitor_node/2 call hangs until the connection is ready.
-%% We will not ask about in/out information either for pending
-%% connections as this also would block this call awhile.
-%%
-get_status(Owner, Node, up) ->
-    monitor_node(Node, true),
-    Owner ! {self(), get_status},
-    receive
-	{Owner, get_status, Res} ->
-	    monitor_node(Node, false),
-	    Res;
-	{nodedown, Node} ->
-	    error
-    end;
-get_status(_, _, _) ->
-    {ok, 0, 0}.
 
 get_node_info(Node, Key) ->
     case get_node_info(Node) of
-	{ok, Info} ->
-	    case lists:keysearch(Key, 1, Info) of
-		{value, {Key, Value}} -> {ok, Value};
-		_                     -> {error, invalid_key}
-	    end;
-	Error ->
-	    Error
+        {ok, Info} ->
+            case lists:keyfind(Key, 1, Info) of
+                {Key, Value} ->
+                    {ok, Value};
+                false ->
+                    {error, invalid_key}
+            end;
+        {error, bad_node} ->
+            {error, bad_node}
     end.
 
-get_nodes_info() ->
-    get_nodes_info(get_nodes(all), []).
 
-get_nodes_info([Node|Nodes], InfoList) ->
-    case get_node_info(Node) of
-	{ok, Info} -> get_nodes_info(Nodes, [{Node, Info}|InfoList]);
-	_          -> get_nodes_info(Nodes, InfoList)
-    end;
-get_nodes_info([], InfoList) ->
-    {ok, InfoList}.
+get_nodes_info() ->
+    Conns = ets:select(sys_dist, [{#connection{_ = '_'}, [], ['$_']}]),
+    Info = multi_info(Conns, {self(), get_status}, #{}, []),
+    {ok, Info}.
+
+multi_info([], _Msg, PidToRef, NodeInfos) ->
+    multi_receive(PidToRef, NodeInfos);
+multi_info([#connection{owner = Owner, state = up} = Conn | Conns], Msg, PidToRef, NodeInfos) ->
+    % connection is up, try to figure out in/out bytes
+    MRef = erlang:monitor(process, Owner),
+    Owner ! Msg,
+    multi_info(Conns, Msg, maps:put(Owner, {MRef, Conn}, PidToRef), NodeInfos);
+multi_info([#connection{node = Node, owner = Owner, type = Type,
+    state = State, address = Addr} | Conns], Msg, PidToRef, NodeInfos) ->
+    % connection is not up: in/out bytes are zero
+    multi_info(Conns, Msg, PidToRef, [
+        {Node, [{owner, Owner}, {state, State}, {address, Addr}, {type, Type}, {in, 0}, {out, 0}]}
+        | NodeInfos]).
+
+multi_receive(PidToRef, NodeInfos) when map_size(PidToRef) =:= 0 ->
+    NodeInfos;
+multi_receive(PidToRef, NodeInfos) ->
+    receive
+        {DistProc, get_status, {ok, Read, Write}} ->
+            {{MRef, #connection{node = Node, owner = Owner, type = Type,
+                state = State, address = Addr}}, NewRefs} = maps:take(DistProc, PidToRef),
+            erlang:demonitor(MRef, [flush]),
+            multi_receive(NewRefs, [
+                {Node, [{owner, Owner}, {state, State}, {address, Addr}, {type, Type}, {in, Read}, {out, Write}]}
+                | NodeInfos]);
+        {'DOWN', _MRef, process, Pid, _Info} ->
+            % connection went down: reproducing compatible behaviour with
+            %   not showing any information about this connection
+            multi_receive(maps:remove(Pid, PidToRef), NodeInfos)
+    end.
 
 %% ------------------------------------------------------------
 %% Misc. functions
@@ -1660,7 +1945,6 @@ reply_waiting1([From|W], Rep) ->
     reply_waiting1(W, Rep);
 reply_waiting1([], _) ->
     ok.
-
 
 -ifdef(UNUSED).
 
@@ -1721,7 +2005,6 @@ fmt_address(A) ->
 	_ ->
 	    lists:flatten(io_lib:format("~p", [A#net_address.address]))
     end.
-
 
 fetch(Key, Info) ->
     case lists:keysearch(Key, 1, Info) of
@@ -1793,7 +2076,6 @@ call_owner(Owner, Msg) ->
 	{'DOWN', Mref, _, _, _} ->
 	    error
     end.
-
 
 -spec setopts(Node, Options) -> ok | {error, Reason} | ignored when
       Node :: node() | new,
@@ -1871,4 +2153,3 @@ merge_opts([H|T], B0) ->
 
 getopts(Node, Opts) when is_atom(Node), is_list(Opts) ->
     request({getopts, Node, Opts}).
-

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2018</year>
+      <year>1997</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -62,7 +62,113 @@ do_recv(Sock, Bs) ->
             {ok, list_to_binary(Bs)}
     end.</code>
     <p>For more examples, see section
-      <seealso marker="#examples">Examples</seealso>.</p>
+    <seeerl marker="#examples">Examples</seeerl>.</p>
+
+    <note>
+      <p>
+        Functions that create sockets can take an optional option;
+        <c>{inet_backend,&nbsp;Backend}</c> that, if specified,
+        has to be the first option.  This selects
+        the implementation backend towards the platform's socket API.
+      </p>
+      <p>
+        This is a <em>temporary</em> option
+        that will be ignored in a future release.
+      </p>
+      <p>
+        The default is <c>Backend&nbsp;=&nbsp;inet</c>
+        that selects the traditional <c>inet_drv.c</c> driver.
+        The other choice is <c>Backend&nbsp;=&nbsp;socket</c>
+        that selects the new <seeerl marker="socket"><c>socket</c></seeerl>
+        module and its NIF implementation.
+      </p>
+      <p>
+        The system default can be changed when the node is started
+        with the application <c>kernel</c>'s configuration variable
+        <c>inet_backend</c>.
+      </p>
+      <p>For <c>gen_tcp</c> with <c>inet_backend = socket</c> we have tried
+      to be as "compatible" as possible which has sometimes been impossible.
+      Here is a list of cases when the behaviour of inet-backend
+      <c>inet</c> (default) and <c>socket</c> are different: </p>
+      <list type="bulleted">
+        <item>
+	  <p><seeerl marker="#non_blocking_send">Non-blocking send</seeerl></p>
+	  <p>If a user calling
+	  <seemfa marker="#send/2"><c>gen_tcp:send/2</c></seemfa>     
+	  with <c>inet_backend = inet</c>,
+	  tries to send more data than there is room for in the OS buffers,
+	  the "rest data" is buffered by the inet driver (and later sent in the
+	  background).
+	  The effect for the user is that the call is non-blocking.</p>
+	  <p>This is <em>not</em> the effect when
+	  <c>inet_backend = socket</c>, since there is no buffering.
+	  Instead the user hangs either until all data has been sent or the
+	  <c>send_timeout</c> timeout has been reached. </p>
+	</item>
+
+	<item><p>Remote close detected by background send. </p>
+	<p>An background send will detect a 'remote close' and
+	(the inet driver will) mark the socket as 'closed'.
+	No other action is taken.
+	If the socket has <c>active</c> set to <c>false</c> (passive) at
+	this point and no one is reading, this will not be noticed.
+	But as soon as the socket is "activated" (<c>active</c> set to
+	not <c>false</c>,
+	<seemfa marker="#send/2">send/2</seemfa>
+	is called or
+	<seemfa marker="#recv/2">recv/2,3</seemfa>
+	is called),
+	an error message will be sent to the
+	caller or (socket) owner: <c>{tcp_error, Socket, econnreset}</c>.
+	Any data in the OS receive buffers will be lost! </p>
+	<p>This behaviour is <em>not</em> replicated by the socket
+	implementation.
+	A send operation will detect a remote close and immediately
+	return this to the caller, but do nothing else.
+	A reader will therefor be able to extract any data from the OS buffers.
+	If the socket is set to <c>active</c> to not <c>false</c>, the data
+	will be received as expected (<c>{tcp, ...}</c> and then a closed
+	message (<c>{tcp_closed, ...}</c> will be received (not an error). </p>
+	</item>
+
+        <item>
+	  <p>The option
+	  <seeerl marker="inet#option-show_econnreset">show_econnreset</seeerl>
+	  basically do <em>not</em>
+	  work as described when used with <c>inet_backend = socket</c>.
+	  The "issue" is that a remote close (as described above)
+	  <em>do</em> allow a reader to extract what is in the read buffers
+	  before a close is "delivered".</p>
+	</item>
+
+        <item>
+	  <p>The option
+	  <seeerl marker="inet#option-nodelay">nodelay</seeerl>
+	  is a TCP specific option that is <em>not</em> compatible with
+	  <c>domain = local</c>. </p>
+	  <p>When using <c>inet_backend = socket</c>, trying to create a socket
+	  (via listen or connect) with <c>domain = local</c>
+	  (for example with option {ifaddr, {local,"/tmp/test"}})
+	  <em>will fail</em> with <c>{error, enotsup}</c>. </p>
+	  <p>This does not actually work for <c>inet_backend = inet</c> either,
+	  but in that case the error is simply <em>ignored</em>,
+	  which is a <em>bad</em> idea. We have choosen to <em>not</em>
+	  ignore this error for <c>inet_backend = socket</c>. </p>
+	</item>
+
+	<item>
+	  <p><seeerl marker="#async_shutdown_write">Async shutdown write</seeerl></p>
+	  <p>Calling
+	  <seemfa marker="#shutdown/2">gen_tcp:shutdown(Socket, write | read_write)</seemfa>
+	  on a socket created with <c>inet_backend = socket</c>
+	  will take <em>immediate</em> effect,
+	  unlike for a socket created with <c>inet_backend = inet</c>.</p>
+	  <p>See <seeerl marker="#async_shutdown_write">async shutdown write</seeerl>
+	  for more info. </p>
+	</item>
+      </list>
+    </note>
   </description>
 
   <datatypes>
@@ -77,9 +183,9 @@ do_recv(Sock, Bs) ->
 	  <c>IP_PKTOPTIONS</c>, or the IPv6 option
 	  <c>IPV6_PKTOPTIONS</c> or <c>IPV6_2292PKTOPTIONS</c> for the socket
 	  this value is returned from
-	  <seealso marker="inet#getopts/2"><c>inet:getopts/2</c></seealso>
+	  <seemfa marker="inet#getopts/2"><c>inet:getopts/2</c></seemfa>
 	  when called with the option name
-	  <seealso marker="#type-option_name"><c>pktoptions</c></seealso>.
+	  <seetype marker="#option_name"><c>pktoptions</c></seetype>.
 	</p>
 	<note>
 	  <p>
@@ -107,8 +213,8 @@ do_recv(Sock, Bs) ->
     <datatype>
       <name>socket()</name>
       <desc><p>As returned by
-        <seealso marker="#accept/1"><c>accept/1,2</c></seealso> and
-        <seealso marker="#connect/3"><c>connect/3,4</c></seealso>.</p>
+        <seemfa marker="#accept/1"><c>accept/1,2</c></seemfa> and
+        <seemfa marker="#connect/3"><c>connect/3,4</c></seemfa>.</p>
         <marker id="connect"></marker>
       </desc>
     </datatype>
@@ -120,12 +226,12 @@ do_recv(Sock, Bs) ->
       <name name="accept" arity="2" since=""/>
       <fsummary>Accept an incoming connection request on a listening socket.</fsummary>
       <type_desc variable="ListenSocket">Returned by
-        <seealso marker="#listen/2"><c>listen/2</c></seealso>.
+        <seemfa marker="#listen/2"><c>listen/2</c></seemfa>.
       </type_desc>
       <desc>
         <p>Accepts an incoming connection request on a listening socket.
           <c><anno>Socket</anno></c> must be a socket returned from
-          <seealso marker="#listen/2"><c>listen/2</c></seealso>.
+          <seemfa marker="#listen/2"><c>listen/2</c></seemfa>.
           <c><anno>Timeout</anno></c> specifies a time-out value in
           milliseconds. Defaults to <c>infinity</c>.</p>
         <p>Returns:</p>
@@ -139,16 +245,16 @@ do_recv(Sock, Bs) ->
           <item><p><c>{error, system_limit}</c> if all available ports in the
             Erlang emulator are in use</p></item>
           <item><p>A POSIX error value if something else goes wrong, see
-            <seealso marker="inet"><c>inet(3)</c></seealso> for possible
+            <seeerl marker="inet"><c>inet(3)</c></seeerl> for possible
             error values</p></item>
         </list>
         <p>Packets can be sent to the returned socket <c><anno>Socket</anno></c>
           using
-          <seealso marker="#send/2"><c>send/2</c></seealso>.
+          <seemfa marker="#send/2"><c>send/2</c></seemfa>.
           Packets sent from the peer are delivered as messages (unless
           <c>{active, false}</c> is specified in the option list for the
           listening socket, in which case packets are retrieved by calling
-          <seealso marker="#recv/2"><c>recv/2</c></seealso>):</p>
+          <seemfa marker="#recv/2"><c>recv/2</c></seemfa>):</p>
         <code type="none">
 {tcp, Socket, Data}</code>
         <note>
@@ -173,13 +279,13 @@ do_recv(Sock, Bs) ->
          delivery of the data to the recipient there are two common ways to
          achieve this.</p>
          <list type="ordered">
-           <item><p>Use <seealso marker="#shutdown/2">
-             <c>gen_tcp:shutdown(Sock, write)</c></seealso> to signal that
+           <item><p>Use <seemfa marker="#shutdown/2">
+             <c>gen_tcp:shutdown(Sock, write)</c></seemfa> to signal that
              no more data is to be sent and wait for the read side of the
              socket to be closed.</p>
            </item>
-           <item><p>Use the socket option <seealso marker="inet#packet">
-             <c>{packet, N}</c></seealso> (or something similar) to make
+           <item><p>Use the socket option <seeerl marker="inet#packet">
+             <c>{packet, N}</c></seeerl> (or something similar) to make
              it possible for the receiver to close the connection when it
              knowns it has received all the data.</p>
            </item>
@@ -220,9 +326,9 @@ do_recv(Sock, Bs) ->
 	  <item>
             <p>
 	      Sets up a Unix Domain Socket. See
-	      <seealso marker="inet#type-local_address">
+	      <seetype marker="inet#local_address">
 		<c>inet:local_address()</c>
-	      </seealso>
+	      </seetype>
 	    </p>
           </item>
           <tag><c>{port, Port}</c></tag>
@@ -232,16 +338,16 @@ do_recv(Sock, Bs) ->
             <c>inet_tcp</c> for IPv4 and <c>inet6_tcp</c> for IPv6.</p></item>
           <tag><c>Opt</c></tag>
           <item><p>See
-            <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>.</p>
+            <seemfa marker="inet#setopts/2"><c>inet:setopts/2</c></seemfa>.</p>
           </item>
         </taglist>
         <p>Packets can be sent to the returned socket <c><anno>Socket</anno></c>
-          using <seealso marker="#send/2"><c>send/2</c></seealso>.
+          using <seemfa marker="#send/2"><c>send/2</c></seemfa>.
           Packets sent from the peer are delivered as messages:</p>
         <code type="none">
 {tcp, Socket, Data}</code>
         <p>If the socket is in <c>{active, N}</c> mode (see
-          <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>
+          <seemfa marker="inet#setopts/2"><c>inet:setopts/2</c></seemfa>
           for details) and its message counter drops to <c>0</c>, the following
           message is delivered to indicate that the
           socket has transitioned to passive (<c>{active, false}</c>) mode:</p>
@@ -253,16 +359,22 @@ do_recv(Sock, Bs) ->
         <p>If an error occurs on the socket, the following message is delivered
           (unless <c>{active, false}</c> is specified in the option list for
           the socket, in which case packets are retrieved by calling
-          <seealso marker="#recv/2"><c>recv/2</c></seealso>):</p>
+          <seemfa marker="#recv/2"><c>recv/2</c></seemfa>):</p>
         <code type="none">
 {tcp_error, Socket, Reason}</code>
         <p>The optional <c><anno>Timeout</anno></c> parameter specifies a
           time-out in milliseconds. Defaults to <c>infinity</c>.</p>
         <note>
+          <p>Keep in mind that if the underlying OS <c>connect()</c> call returns
+            a timeout, <c>gen_tcp:connect</c> will also return a timeout
+            (i.e. <c>{error, etimedout}</c>), even if a larger <c>Timeout</c> was
+            specified.</p>
+        </note>
+        <note>
           <p>The default values for options specified to <c>connect</c> can
             be affected by the Kernel configuration parameter
             <c>inet_default_connect_options</c>. For details, see
-            <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
+            <seeerl marker="inet"><c>inet(3)</c></seeerl>.</p>
         </note>
       </desc>
     </func>
@@ -286,7 +398,7 @@ do_recv(Sock, Bs) ->
           If any other process is interacting with the socket while
           the transfer is happening, the transfer may not work correctly
           and messages may remain in the caller's mailbox. For instance
-          changing the sockets active mode before the transfere is complete
+          changing the sockets active mode before the transfer is complete
           may cause this.</p>
       </desc>
     </func>
@@ -299,7 +411,7 @@ do_recv(Sock, Bs) ->
           the local host.</p>
         <p>If <c><anno>Port</anno> == 0</c>, the underlying OS assigns an
           available port number, use
-          <seealso marker="inet#port/1"><c>inet:port/1</c></seealso>
+          <seemfa marker="inet#port/1"><c>inet:port/1</c></seemfa>
           to retrieve it.</p>
         <p>The following options are available:</p>
         <taglist>
@@ -333,17 +445,17 @@ do_recv(Sock, Bs) ->
             <c>inet_tcp</c> for IPv4 and <c>inet6_tcp</c> for IPv6.</p></item>
           <tag><c>Opt</c></tag>
           <item><p>See
-            <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>.
+            <seemfa marker="inet#setopts/2"><c>inet:setopts/2</c></seemfa>.
             </p></item>
         </taglist>
         <p>The returned socket <c><anno>ListenSocket</anno></c> should be used
-          in calls to <seealso marker="#accept/1"><c>accept/1,2</c></seealso> to
+          in calls to <seemfa marker="#accept/1"><c>accept/1,2</c></seemfa> to
           accept incoming connection requests.</p>
         <note>
           <p>The default values for options specified to <c>listen</c> can
             be affected by the Kernel configuration parameter
             <c>inet_default_listen_options</c>. For details, see
-            <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
+            <seeerl marker="inet"><c>inet(3)</c></seeerl>.</p>
         </note>
       </desc>
     </func>
@@ -354,7 +466,7 @@ do_recv(Sock, Bs) ->
       <fsummary>Receive a packet from a passive socket.</fsummary>
       <type_desc variable="HttpPacket">See the description of
         <c>HttpPacket</c> in
-        <seealso marker="erts:erlang#decode_packet/3"><c>erlang:decode_packet/3</c></seealso>
+        <seemfa marker="erts:erlang#decode_packet/3"><c>erlang:decode_packet/3</c></seemfa>
       in ERTS.
       </type_desc>
       <desc>
@@ -380,8 +492,33 @@ do_recv(Sock, Bs) ->
       <desc>
         <p>Sends a packet on a socket.</p>
         <p>There is no <c>send</c> call with a time-out option, use socket
-          option <c>send_timeout</c> if time-outs are desired. See section
-          <seealso marker="#examples">Examples</seealso>.</p>
+        option <c>send_timeout</c> if time-outs are desired. See section
+        <seeerl marker="#examples">Examples</seeerl>.</p>
+	<p>The return value <c>{error, {timeout, RestData}}</c> can
+	only be returned when <c>inet_backend = socket</c>. </p>
+        <marker id="non_blocking_send"></marker>
+        <note>
+          <p>Non-blocking send.</p>
+          <p>If the user tries to send more data than there is room for
+          in the OS send buffers, the 'rest data' is put into (inet driver)
+          internal buffers and later sent in the background.
+          The function immediately returns ok (<em>not</em> informing the
+          caller that not all of the data was actually sent).
+          Any issue while sending the 'rest data' is maybe returned later. </p>
+          <p>When using <c>inet_backend = socket</c>, the
+          behaviour is different. There is <em>no</em>
+          buffering done (like the inet-driver does), instead
+          the caller will "hang" until all of the data has been sent or
+          send timeout (as specified by the <c>send_timeout</c> option)
+          expires (the function can hang even when using 'inet' backend
+          if the internal buffers are full). </p>
+	  <p>If this happens when using <c>packet =/= raw</c>, we have a partial
+	  package written. A new package therefor <em>must not</em> be written
+	  at this point, as there is no way for the peer to distinguish this
+	  from the data portion of the current package. Instead, set package
+	  to raw, send the rest data (as raw data) and then set package to
+	  the wanted package type again. </p>
+        </note>
       </desc>
     </func>
 
@@ -400,10 +537,25 @@ do_recv(Sock, Bs) ->
           to shutdown the socket is postponed until that data is written to the
           kernel socket send buffer. If any errors are encountered, the socket
           is closed and <c>{error, closed}</c> is returned on the next
-          <seealso marker="#recv/2"><c>recv/2</c></seealso> or
-          <seealso marker="#send/2"><c>send/2</c></seealso>.</p>
+          <seemfa marker="#recv/2"><c>recv/2</c></seemfa> or
+          <seemfa marker="#send/2"><c>send/2</c></seemfa>.</p>
         <p>Option <c>{exit_on_close, false}</c> is useful if the peer has done
           a shutdown on the write side.</p>
+        <marker id="async_shutdown_write"></marker>
+        <note>
+          <p>Async shutdown write (write or read_write).</p>
+          <p>If the shutdown attempt is made while the inet-driver
+	  is sending buffered data in the background,
+	  the shutdown is postponed until all buffered data has been sent.
+	  The function immediately returns <c>ok</c> and the caller is
+          <em>not</em> informed (that the shutdown has <em>not yet</em>
+          been performed). </p>
+          <p>When using <c>inet_backend = socket</c>, the
+          behaviour is different. A shutdown with
+          <c>How == write | read_write</c>, the operation will
+          take <em>immediate</em> effect (unlike the inet-driver,
+	  which basically saves the operation for later). </p>
+        </note>
       </desc>
     </func>
   </funcs>

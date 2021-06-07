@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2005-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@
  * %CopyrightEnd%
  */
 
-/* Without this, variable argument lists break on VxWorks */
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
+
+#if defined(__sun) || defined(__sun__)
+    /* For flockfile(3c), putc_unlocked(3c), etc */
+    #define __EXTENSIONS__
 #endif
 
 #include <string.h>
@@ -411,7 +411,9 @@ erts_vfprintf(FILE *filep, const char *format, va_list arglist)
 	    fmt_f = write_f_add_cr;
 	else
 	    fmt_f = erts_write_fp;
+	FLOCKFILE(filep);
 	res = erts_printf_format(fmt_f,(void *)filep,(char *)format,arglist);
+	FUNLOCKFILE(filep);
     }
     return res;
 }

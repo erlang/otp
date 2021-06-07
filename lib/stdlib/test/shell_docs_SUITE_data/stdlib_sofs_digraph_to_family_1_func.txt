@@ -1,0 +1,16 @@
+
+  [;1m-spec digraph_to_family(Graph) -> Family[0m
+  [;1m                           when[0m
+  [;1m                               Graph :: digraph:graph(),[0m
+  [;1m                               Family :: family().[0m
+
+  Creates a family from the directed graph [;;4mGraph[0m. Each vertex a
+  of [;;4mGraph[0m is represented by a pair (a, {b[1], ..., b[n]}), where
+  the b[i]:s are the out-neighbors of a. If no type is explicitly
+  specified, [{atom, [atom]}] is used as type of the family. It is
+  assumed that [;;4mType[0m is a valid type of the external set of the
+  family.
+
+  If G is a directed graph, it holds that the vertices and edges of
+  G are the same as the vertices and edges of [;;4m[0m
+  [;;4mfamily_to_digraph(digraph_to_family(G))[0m.

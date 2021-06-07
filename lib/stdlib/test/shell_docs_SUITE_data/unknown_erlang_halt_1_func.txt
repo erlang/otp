@@ -1,0 +1,10 @@
+
+  [;1m-spec halt(Status) -> no_return()[0m
+  [;1m              when Status :: non_neg_integer() | abort | string().[0m
+
+  The same as [;;4mhalt(Status, [])[0m. Example:
+
+    > halt(17).
+    os_prompt% echo $?
+    17
+    os_prompt%

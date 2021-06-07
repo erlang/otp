@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2016</year><year>2018</year>
+      <year>2016</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,7 +22,7 @@
 
     </legalnotice>
 
-    <title>gen_statem Behavior</title>
+    <title>gen_statem Behaviour</title>
     <prepared></prepared>
     <docno></docno>
     <date></date>
@@ -32,7 +32,7 @@
   <marker id="gen_statem Behaviour" />
   <p>
     This section is to be read with the
-    <seealso marker="stdlib:gen_statem"><c>gen_statem(3)</c></seealso>
+    <seeerl marker="stdlib:gen_statem"><c>gen_statem(3)</c></seeerl>
     manual page in STDLIB, where all interface functions and callback
     functions are described in detail.
   </p>
@@ -44,26 +44,37 @@
     <title>Event-Driven State Machines</title>
     <p>
       Established Automata Theory does not deal much with
-      how a state transition is triggered,
+      how a <em>state transition</em> is triggered,
       but assumes that the output is a function
       of the input (and the state) and that they are
       some kind of values.
     </p>
     <p>
       For an Event-Driven State Machine, the input is an event
-      that triggers a state transition and the output
-      is actions executed during the state transition.
-      It can analogously to the mathematical model of a
-      Finite-State Machine be described as
+      that triggers a <em>state transition</em> and the output
+      is actions executed during the <em>state transition</em>.
+      Analogously to the mathematical model of a
+      Finite State Machine, it can be described as
       a set of relations of the following form:
     </p>
     <pre>
 State(S) x Event(E) -> Actions(A), State(S')</pre>
-    <p>These relations are interpreted as follows:
+    <p>
+      These relations are interpreted as follows:
       if we are in state <c>S</c> and event <c>E</c> occurs, we
-      are to perform actions <c>A</c> and make a transition to
-      state <c>S'</c>. Notice that <c>S'</c> can be equal to <c>S</c>
+      are to perform actions <c>A</c>, and make a transition to
+      state <c>S'</c>. Notice that <c>S'</c> can be equal to <c>S</c>,
       and that <c>A</c> can be empty.
+    </p>
+    <p>
+      In <c>gen_statem</c> we define
+      a <em>state change</em> as a <em>state transition</em>
+      in which the new state <c>S'</c> is different from
+      the current state <c>S</c>, where "different" means
+      Erlang's strict inequality: <c>=/=</c>
+      also known as "does not match".
+      <c>gen_statem</c> does more things during <em>state changes</em>
+      than during other <em>state transitions</em>.
     </p>
     <p>
       As <c>A</c> and <c>S'</c> depend only on
@@ -72,12 +83,12 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       (see, for example, the Wikipedia article "Mealy machine").
     </p>
     <p>
-      Like most <c>gen_</c> behaviors, <c>gen_statem</c> keeps
+      Like most <c>gen_</c> behaviours, <c>gen_statem</c> keeps
       a server <c>Data</c> besides the state. Because of this, and as
       there is no restriction on the number of states
       (assuming that there is enough virtual machine memory)
       or on the number of distinct input events,
-      a state machine implemented with this behavior
+      a state machine implemented with this behaviour
       is in fact Turing complete.
       But it feels mostly like an Event-Driven Mealy machine.
     </p>
@@ -95,47 +106,49 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     <list type="bulleted">
       <item>
 	Co-located callback code for each state,
-	regardless of
-	<seealso marker="#Event Types">Event Type</seealso>
+	for all
+	<seeguide marker="#Event Types and Event Content">
+	  <em>Event Types</em>
+	</seeguide>
 	(such as <em>call</em>, <em>cast</em> and <em>info</em>)
       </item>
       <item>
-	<seealso marker="#Postponing Events">
+	<seeguide marker="#Postponing Events">
 	  Postponing Events
-	</seealso>
+	</seeguide>
 	(a substitute for selective receive)
       </item>
       <item>
-	<seealso marker="#Inserted Events">
+	<seeguide marker="#Inserted Events">
 	  Inserted Events
-	</seealso>
-	that is: events from the state machine to itself
-	(in particular purely internal events)
+	</seeguide>
+	(that is, events from the state machine to itself;
+	 for purely internal events in particular)
       </item>
       <item>
-	<seealso marker="#State Enter Calls">
-	  State Enter Calls
-	</seealso>
+	<seeguide marker="#State Enter Calls">
+	  <em>State Enter Calls</em>
+	</seeguide>
 	(callback on state entry co-located with the rest
 	of each state's callback code)
       </item>
       <item>
-	Easy-to-use timeouts
-	(<seealso marker="#State Time-Outs">State Time-Outs</seealso>,
-	<seealso marker="#Event Time-Outs">Event Time-Outs</seealso>
+	Easy-to-use time-outs
+	(<seeguide marker="#State Time-Outs">State Time-Outs</seeguide>,
+	<seeguide marker="#Event Time-Outs">Event Time-Outs</seeguide>
 	and
-	<seealso marker="#Generic Time-Outs">Generic Time-outs</seealso>
+	<seeguide marker="#Generic Time-Outs">Generic Time-Outs</seeguide>
 	(named time-outs))
       </item>
     </list>
     <p>
       If so, or if possibly needed in future versions,
       then you should consider using <c>gen_statem</c> over
-      <seealso marker="stdlib:gen_server"><c>gen_server</c></seealso>.
+      <seeerl marker="stdlib:gen_server"><c>gen_server</c></seeerl>.
     </p>
     <p>
       For simple state machines not needing these features
-      <seealso marker="stdlib:gen_server"><c>gen_server</c></seealso>
+      <seeerl marker="stdlib:gen_server"><c>gen_server</c></seeerl>
       works just fine.
       It also has got smaller call overhead,
       but we are talking about something like 2 vs 3.3 microseconds
@@ -152,11 +165,11 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     <marker id="Callback Module" />
     <title>Callback Module</title>
     <p>
-      The callback module contains functions that implement
+      The <em>callback module</em> contains functions that implement
       the state machine.
       When an event occurs,
       the <c>gen_statem</c> behaviour engine
-      calls a function in the callback module with the event,
+      calls a function in the <em>callback module</em> with the event,
       current state and server data.
       This function performs the actions for this event,
       and returns the new state and server data
@@ -164,10 +177,27 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     </p>
     <p>
       The behaviour engine holds the state machine state,
-      server data, timer references, a queue of posponed messages
+      server data, timer references, a queue of postponed messages
       and other metadata.  It receives all process messages,
-      handles the system messages, and calls the callback module
+      handles the system messages, and calls the <em>callback module</em>
       with machine specific events.
+    </p>
+    <p>
+      The <em>callback module</em> can be changed for a running server
+      using any of the
+      <seeguide marker="#Transition Actions">transition actions</seeguide>
+      <seetype marker="stdlib:gen_statem#action"><c>{change_callback_module, NewModule}</c></seetype>,
+      <seetype marker="stdlib:gen_statem#action"><c>{push_callback_module, NewModule}</c></seetype> or
+      <seetype marker="stdlib:gen_statem#action"><c>pop_callback_module</c></seetype>.
+      Note that this is a pretty esoteric thing to do...
+      The origin for this feature is a protocol that after
+      version negotiation branches off into quite different
+      state machines depending on the protocol version.
+      There <i>might</i> be other use cases.
+      <i>Beware</i> that the new callback module
+      completely replaces the previous behaviour module,
+      so all relevant callback functions have to handle
+      the state and data from the previous callback module.
     </p>
   </section>
 
@@ -177,13 +207,13 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     <marker id="Callback Modes" />
     <title>Callback Modes</title>
     <p>
-      The <c>gen_statem</c> behavior supports two callback modes:
+      The <c>gen_statem</c> behaviour supports two <em>callback modes</em>:
     </p>
     <taglist>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-callback_mode">
+	<seetype marker="stdlib:gen_statem#callback_mode">
 	  <c>state_functions</c>
-	</seealso>
+	</seetype>
       </tag>
       <item>
         <p>
@@ -191,9 +221,9 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	</p>
       </item>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-callback_mode">
+	<seetype marker="stdlib:gen_statem#callback_mode">
 	  <c>handle_event_function</c>
-	  </seealso>
+	  </seetype>
       </tag>
       <item>
         <p>
@@ -202,31 +232,35 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       </item>
     </taglist>
     <p>
-      The callback mode is selected at server start
-      and may be changed with a code upgrade/downgrade.
+      The <em>callback mode</em> is a property of
+      the <em>callback module</em> and is set at server start.
+      It may be changed due to a code upgrade/downgrade,
+      or when changing the <em>callback module</em>.
     </p>
     <p>
       See the section
-      <seealso marker="#Event Handler">Event Handler</seealso>
+      <seeguide marker="#State Callback"><em>State Callback</em></seeguide>
       that describes the event handling callback function(s).
     </p>
     <p>
-      The callback mode is selected by implementing
+      The <em>callback mode</em> is selected by implementing
       a mandatory callback function
-      <seealso marker="stdlib:gen_statem#Module:callback_mode/0">
+      <seemfa marker="stdlib:gen_statem#Module:callback_mode/0">
 	<c>Module:callback_mode()</c>
-      </seealso>
-      that returns one of the callback modes.
+      </seemfa>
+      that returns one of the <em>callback modes</em>.
     </p>
     <p>
       The
-      <seealso marker="stdlib:gen_statem#Module:callback_mode/0">
+      <seemfa marker="stdlib:gen_statem#Module:callback_mode/0">
 	<c>Module:callback_mode()</c>
-      </seealso>
-      function may also return a list containing the callback mode
+      </seemfa>
+      function may also return a list containing the <em>callback mode</em>
       and the atom <c>state_enter</c> in which case
-      <seealso marker="#State Enter Calls">State Enter Calls</seealso>
-      are activated for the callback mode.
+      <seeguide marker="#State Enter Calls">
+	<em>state enter calls</em>
+      </seeguide>
+      are activated for the <em>callback mode</em>.
     </p>
 
     <section>
@@ -237,11 +271,11 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	it is the one most like <c>gen_fsm</c>.
 	But if you do not want the restriction that the state
 	must be an atom, or if you do not want to write
-	one event handler function per state; please read on...
+	one <em>state callback</em> function per state; please read on...
       </p>
       <p>
 	The two
-	<seealso marker="#Callback Modes">Callback Modes</seealso>
+	<seeguide marker="#Callback Modes"><em>callback modes</em></seeguide>
 	give different possibilities and restrictions,
 	with one common goal:
 	to handle all possible combinations of events and states.
@@ -257,7 +291,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	With <c>state_functions</c>, you are restricted to use
 	atom-only states, and the <c>gen_statem</c> engine
 	branches depending on state name for you.
-	This encourages the callback module to co-locate
+	This encourages the <em>callback module</em> to co-locate
 	the implementation of all event actions particular
 	to one state in the same place in the code,
 	hence to focus on one state at the time.
@@ -276,9 +310,9 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	This mode works equally well when you want to focus on
 	one event at the time or on
 	one state at the time, but function
-	<seealso marker="stdlib:gen_statem#Module:handle_event/4">
+	<seemfa marker="stdlib:gen_statem#Module:handle_event/4">
 	  <c>Module:handle_event/4</c>
-	</seealso>
+	</seemfa>
 	quickly grows too large to handle without branching to
 	helper functions.
       </p>
@@ -286,7 +320,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	The mode enables the use of non-atom states, for example,
 	complex states or even hierarchical states.
 	See section
-	<seealso marker="#Complex State">Complex State</seealso>.
+	<seeguide marker="#Complex State">Complex State</seeguide>.
 	If, for example, a state diagram is largely alike
 	for the client side and the server side of a protocol,
 	you can have a state <c>{StateName,server}</c> or
@@ -302,54 +336,60 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 <!-- =================================================================== -->
 
   <section>
-    <marker id="Event Handler" />
-    <title>Event Handler</title>
+    <marker id="State Callback" />
+    <title>State Callback</title>
     <p>
-      Which callback function that handles an event
-      depends on the callback mode:
+      The <em>state callback</em> is the callback function
+      that handles an event in the current state,
+      and which function that is depends on the <em>callback mode</em>:
     </p>
     <taglist>
       <tag><c>state_functions</c></tag>
       <item>
 	The event is handled by:<br />
-	<seealso marker="stdlib:gen_statem#Module:StateName/3">
+	<seemfa marker="stdlib:gen_statem#Module:StateName/3">
 	  <c>Module:StateName(EventType, EventContent, Data)</c>
-	</seealso>
+	</seemfa>
 	<p>
 	  This form is the one mostly used in the
-	  <seealso marker="#Example">Example</seealso>
+	  <seeguide marker="#Example">Example</seeguide>
 	  section.
 	</p>
       </item>
       <tag><c>handle_event_function</c></tag>
       <item>
 	The event is handled by:<br />
-	<seealso marker="stdlib:gen_statem#Module:handle_event/4">
+	<seemfa marker="stdlib:gen_statem#Module:handle_event/4">
 	  <c>Module:handle_event(EventType, EventContent, State, Data)</c>
-	</seealso>
+	</seemfa>
 	<p>
 	  See section
-	  <seealso marker="#One Event Handler">One Event Handler</seealso>
+	  <seeguide marker="#One State Callback">
+	    <em>One State Callback</em>
+	  </seeguide>
 	  for an example.
 	</p>
       </item>
     </taglist>
     <p>
       The state is either the name of the function itself or an argument to it.
-      The other arguments are the <c>EventType</c> described in section
-      <seealso marker="#Event Types">Event Types</seealso>,
-      the event dependent <c>EventContent</c>, and the current server <c>Data</c>.
+      The other arguments are the <c>EventType</c>
+      and the event dependent <c>EventContent</c>,
+      both described in section
+      <seeguide marker="#Event Types and Event Content">Event Types and Event Content</seeguide>,
+      and the current server <c>Data</c>.
     </p>
     <p>
-      State enter calls are also handled by the event handler and have
-      slightly different arguments. See the section
-      <seealso marker="#State Enter Calls">State Enter Calls</seealso>.
+      <em>State enter calls</em> are also handled by the event handler
+      and have slightly different arguments. See section
+      <seeguide marker="#State Enter Calls">State Enter Calls</seeguide>.
     </p>
     <p>
-      The event handler return values are defined in the description of
-      <seealso marker="stdlib:gen_statem#Module:StateName/3">
+      The <em>state callback</em> return values
+      are defined in the description of
+      <seemfa marker="stdlib:gen_statem#Module:StateName/3">
 	<c>Module:StateName/3</c>
-      </seealso>
+      </seemfa>
       in the <c>gen_statem</c> manual page, but here is
       a more readable list:
     </p>
@@ -361,24 +401,29 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       <item>
 	<p>
 	  Set next state and update the server data.
-	  If the <c>Actions</c> field is used, execute state transition actions.
-	  An empty <c>Actions</c> list is equivalent to not returning the field.
+	  If the <c>Actions</c> field is used,
+	  execute <em>transition actions</em>.
+	  An empty <c>Actions</c> list is equivalent to
+	  not returning the field.
 	</p>
 	<p>
 	  See section
-	  <seealso marker="#State Transition Actions">
-	    State Transition Actions
-	  </seealso>
+	  <seeguide marker="#Transition Actions">
+	    <em>Transition Actions</em>
+	  </seeguide>
 	  for a list of possible
-	  state transition actions.
+	  <em>transition actions</em>.
 	</p>
 	<p>
-	  If <c>NextState =/= State</c> the state machine changes
-	  to a new state.  A
-	  <seealso marker="#State Enter Calls">state enter call</seealso>
-	  is performed if enabled and all
-	  <seealso marker="#Postponing Events">postponed events</seealso>
-	  are retried.
+	  If <c>NextState =/= State</c> this is a <em>state change</em>
+	  so the extra things <c>gen_statem</c> does are: the event queue
+	  is restarted from the oldest
+	  <seeguide marker="#Postponing Events">postponed event</seeguide>,
+	  any current
+	  <seeguide marker="#State Time-Outs">state time-out</seeguide>
+	  is cancelled, and a
+	  <seeguide marker="#State Enter Calls">state enter call</seeguide>
+	  is performed, if enabled.
 	</p>
       </item>
       <tag>
@@ -388,7 +433,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       <item>
 	<p>
 	  Same as the <c>next_state</c> values with
-	  <c>NextState =:= State</c>, that is, no state change.
+	  <c>NextState =:= State</c>, that is, no <em>state change</em>.
 	</p>
       </item>
       <tag>
@@ -411,11 +456,18 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	<p>
 	  Same as the <c>keep_state</c> or <c>keep_state_and_data</c> values,
 	  and if
-	  <seealso marker="#State Enter Calls">
+	  <seeguide marker="#State Enter Calls">
 	    State Enter Calls
-	  </seealso>
-	  are enabled, repeat the state enter call
+	  </seeguide>
+	  are enabled, repeat the <em>state enter call</em>
 	  as if this state was entered again.
+	</p>
+	<p>
+	  If these return values are used from a
+	  <em>state enter call</em> the <c>OldState</c> does not change,
+	  but if used from an event handling <em>state callback</em>
+	  the new <em>state enter call's</em> <c>OldState</c>
+	  will be the current state.
 	</p>
       </item>
       <tag>
@@ -435,7 +487,10 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       <item>
 	<p>
 	  Same as the <c>stop</c> values, but first execute the given
-	  state transition actions that may only be reply actions.
+	  <seeguide marker="#Transition Actions">
+	    <em>transition actions</em>
+	  </seeguide>
+	  that may only be reply actions.
 	</p>
       </item>
     </taglist>
@@ -445,25 +500,25 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       <title>The First State</title>
       <p>
 	To decide the first state the
-	<seealso marker="stdlib:gen_statem#Module:init/1">
+	<seemfa marker="stdlib:gen_statem#Module:init/1">
 	  <c>Module:init(Args)</c>
-	</seealso>
+	</seemfa>
 	callback function is called before any
-	<seealso marker="#Event Handler">Event Handler</seealso>
-	is called.  This function behaves like an event handler
-	function, but gets its only argument <c>Args</c> from 
+	<seeguide marker="#State Callback"><em>state callback</em></seeguide>
+	is called.  This function behaves like a <em>state callback</em>
+	function, but gets its only argument <c>Args</c> from
 	the <c>gen_statem</c>
-	<seealso marker="stdlib:gen_statem#start/3">
+	<seemfa marker="stdlib:gen_statem#start/3">
 	  <c>start/3,4</c>
-	</seealso>
+	</seemfa>
 	or
-	<seealso marker="stdlib:gen_statem#start_link/3">
+	<seemfa marker="stdlib:gen_statem#start_link/3">
 	  <c>start_link/3,4</c>
-	</seealso>
+	</seemfa>
 	function, and returns <c>{ok, State, Data}</c>
 	or <c>{ok, State, Data, Actions}</c>.
 	If you use the
-	<seealso marker="#Postponing Events"><c>postpone</c></seealso>
+	<seeguide marker="#Postponing Events"><c>postpone</c></seeguide>
 	action from this function, that action is ignored,
 	since there is no event	to postpone.
       </p>
@@ -474,216 +529,321 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 <!-- =================================================================== -->
 
   <section>
-    <marker id="State Transition Actions" />
-    <title>State Transition Actions</title>
+    <marker id="Transition Actions" />
+    <title>Transition Actions</title>
     <p>
       In the first section
-      <seealso marker="#Event-Driven State Machines">
-	Event-Driven State Machines
-      </seealso>
+      (<seeguide marker="#Event-Driven State Machines">Event-Driven State Machines</seeguide>),
       actions were mentioned as a part of
       the general state machine model. These general actions
-      are implemented with the code that callback module
+      are implemented with the code that <em>callback module</em>
       <c>gen_statem</c> executes in an event-handling
       callback function before returning
       to the <c>gen_statem</c> engine.
     </p>
     <p>
-      There are more specific state-transition actions
+      There are more specific <em>transition actions</em>
       that a callback function can command the <c>gen_statem</c>
       engine to do after the callback function return.
       These are commanded by returning a list of
-      <seealso marker="stdlib:gen_statem#type-action">actions</seealso>
+      <seetype marker="stdlib:gen_statem#action">actions</seetype>
       in the
-      <seealso marker="stdlib:gen_statem#type-state_callback_result">
+      <seetype marker="stdlib:gen_statem#state_callback_result">
 	return value
-      </seealso>
+      </seetype>
       from the
-      <seealso marker="stdlib:gen_statem#Module:StateName/3">callback function</seealso>.
-      These are the possible state transition actions:
+      <seemfa marker="stdlib:gen_statem#Module:StateName/3">callback function</seemfa>.
+      These are the possible <em>transition actions</em>:
     </p>
     <taglist>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-postpone">
+	<seetype marker="stdlib:gen_statem#postpone">
 	  <c>postpone</c>
-	</seealso>
+	</seetype>
 	<br />
 	<c>{postpone, Boolean}</c>
       </tag>
       <item>
 	If set postpone the current event, see section
-	<seealso marker="#Postponing Events">Postponing Events</seealso>
+	<seeguide marker="#Postponing Events">Postponing Events</seeguide>.
       </item>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-hibernate">
+	<seetype marker="stdlib:gen_statem#hibernate">
 	  <c>hibernate</c>
-	</seealso>
+	</seetype>
 	<br />
 	<c>{hibernate, Boolean}</c>
       </tag>
       <item>
 	If set hibernate the <c>gen_statem</c>, treated in section
-	<seealso marker="#Hibernation">Hibernation</seealso>
+	<seeguide marker="#Hibernation">Hibernation</seeguide>.
       </item>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-state_timeout">
-	  <c>{state_timeout, Time}</c>
-	</seealso>
+	<seetype marker="stdlib:gen_statem#state_timeout">
+	  <c>{state_timeout, Time, EventContent}</c>
+	</seetype>
 	<br />
-	<c>{state_timeout, Time, Opts}</c>
+	<c>{state_timeout, Time, EventContent, Opts}</c><br />
+	<seetype marker="stdlib:gen_statem#timeout_update_action">
+	  <c>{state_timeout, update, EventContent}</c>
+	</seetype>
+	<br />
+	<seetype marker="stdlib:gen_statem#timeout_cancel_action">
+	  <c>{state_timeout, cancel}</c>
+	</seetype>
       </tag>
       <item>
-	Start a state time-out, read more in section
-	<seealso marker="#State Time-Outs">State Time-Outs</seealso>
+	Start, update or cancel a state time-out, read more in sections
+	<seeguide marker="#Time-Outs">Time-Outs</seeguide> and
+	<seeguide marker="#State Time-Outs">State Time-Outs</seeguide>.
       </item>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-generic_timeout">
-	  <c>{{timeout, Name}, Time}</c>
-	</seealso>
+	<seetype marker="stdlib:gen_statem#generic_timeout">
+	  <c>{{timeout, Name}, Time, EventContent}</c>
+	</seetype>
 	<br />
-	<c>{{timeout, Name}, Time, Opts}</c>
+	<c>{{timeout, Name}, Time, EventContent, Opts}</c><br />
+	<seetype marker="stdlib:gen_statem#timeout_update_action">
+	  <c>{{timeout, Name}, update, EventContent}</c>
+	</seetype>
+	<br />
+	<seetype marker="stdlib:gen_statem#timeout_cancel_action">
+	  <c>{{timeout, Name}, cancel}</c>
+	</seetype>
       </tag>
       <item>
-	Start a generic time-out, read more in section
-	<seealso marker="#Generic Time-Outs">Generic Time-Outs</seealso>
+	Start, update or cancel a generic time-out, read more in sections
+	<seeguide marker="#Time-Outs">Time-Outs</seeguide> and
+	<seeguide marker="#Generic Time-Outs">Generic Time-Outs</seeguide>.
       </item>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-event_timeout">
-	  <c>{timeout, Time}</c>
-	</seealso>
+	<seetype marker="stdlib:gen_statem#event_timeout">
+	  <c>{timeout, Time, EventContent}</c>
+	</seetype>
 	<br />
-	<c>{timeout, Time, Opts}</c><br />
+	<c>{timeout, Time, EventContent, Opts}</c><br />
 	<c>Time</c>
       </tag>
       <item>
-	Start an event time-out, see more in section
-	<seealso marker="#Event Time-Outs">Event Time-Outs</seealso>
+	Start an event time-out, see more in sections
+	<seeguide marker="#Time-Outs">Time-Outs</seeguide> and
+	<seeguide marker="#Event Time-Outs">Event Time-Outs</seeguide>.
       </item>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-reply_action">
+	<seetype marker="stdlib:gen_statem#reply_action">
 	  <c>{reply, From, Reply}</c>
-	</seealso>
+	</seetype>
       </tag>
       <item>
 	Reply to a caller, mentioned at the end of section
-	<seealso marker="#All State Events">All State Events</seealso>
+	<seeguide marker="#All State Events">All State Events</seeguide>.
       </item>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-action">
+	<seetype marker="stdlib:gen_statem#action">
 	  <c>{next_event, EventType, EventContent}</c>
-	</seealso>
+	</seetype>
       </tag>
       <item>
-	Generate the next event to handle, see section 
-	<seealso marker="#Inserted Events">Inserted Events</seealso>
+	Generate the next event to handle, see section
+	<seeguide marker="#Inserted Events">Inserted Events</seeguide>.
+      </item>
+      <tag>
+	<seetype marker="stdlib:gen_statem#action">
+	  <c>{change_callback_module, NewModule}</c>
+	</seetype>
+      </tag>
+      <item>
+	Change the
+	<seeguide marker="#Callback Module">
+	  <em>callback module</em>
+	</seeguide>
+	for the running server.
+	This can be done during any <em>state transition</em>,
+	whether it is a <em>state change</em> or not,
+	but it can <i>not</i> be done from a
+	<seeguide marker="#State Enter Calls"><em>state enter call</em></seeguide>.
+      </item>
+      <tag>
+	<seetype marker="stdlib:gen_statem#action">
+	  <c>{push_callback_module, NewModule}</c>
+	</seetype>
+      </tag>
+      <item>
+	Push the current <em>callback module</em>
+	to the top of an internal stack of callback modules
+	and set the new
+	<seeguide marker="#Callback Module">
+	  <em>callback module</em>
+	</seeguide>
+	for the running server.
+	Otherwise like
+	<c>{change_callback_module, NewModule}</c>
+	above.
+      </item>
+      <tag>
+	<seetype marker="stdlib:gen_statem#action">
+	  <c>pop_callback_module</c>
+	</seetype>
+      </tag>
+      <item>
+	Pop the top module from
+	the internal stack of callback modules
+	and set it to be the new
+	<seeguide marker="#Callback Module">
+	  <em>callback module</em>
+	</seeguide>
+	for the running server.
+	If the stack is empty the server fails.
+	Otherwise like
+	<c>{change_callback_module, NewModule}</c>
+	above.
       </item>
     </taglist>
     <p>
       For details, see the <c>gen_statem(3)</c>
       manual page for type
-      <seealso marker="stdlib:gen_statem#type-action"><c>action()</c></seealso>.
+      <seetype marker="stdlib:gen_statem#action"><c>action()</c></seetype>.
       You can, for example, reply to many callers,
       generate multiple next events,
       and set a time-out to use absolute instead of relative time
       (using the <c>Opts</c> field).
+    </p>
+    <p>
+      Among these <em>transition actions</em> only to reply to a caller
+      is an immediate action.  The others are collected and handled
+      later during the <em>state transition</em>.
+      <seeguide marker="#Inserted Events">Inserted Events</seeguide>
+      are stored and inserted all together,
+      and the rest set transition options
+      where the last of a specific type override the previous.
+      See the description of a <em>state transition</em>
+      in the <c>gen_statem(3)</c> manual page for type
+      <seetype marker="stdlib:gen_statem#transition_option"><c>transition_option()</c></seetype>.
+    </p>
+    <p>
+      The different
+      <seeguide marker="#Time-Outs">Time-Outs</seeguide> and
+      <seeguide marker="#Inserted Events"><c>next_event</c></seeguide>
+      actions generate new events with corresponding
+      <seeguide marker="#Event Types and Event Content">
+	Event Types and Event Content
+      </seeguide>.
     </p>
   </section>
 
 <!-- =================================================================== -->
 
   <section>
-    <marker id="Event Types" />
-    <title>Event Types</title>
+    <marker id="Event Types and Event Content" />
+    <title>Event Types and Event Content</title>
     <p>
       Events are categorized in different
-      <seealso marker="stdlib:gen_statem#type-event_type">event types</seealso>.
+      <seetype marker="stdlib:gen_statem#event_type"><em>event types</em></seetype>.
       Events of all types are for a given state
       handled in the same callback function, and that function gets
       <c>EventType</c> and <c>EventContent</c> as arguments.
+      The meaning of the <c>EventContent</c>
+      depends on the <c>EventType</c>.
     </p>
     <p>
-      The following is a complete list of event types and where
+      The following is a complete list of <em>event types</em> and where
       they come from:
     </p>
     <taglist>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-external_event_type">
+	<seetype marker="stdlib:gen_statem#external_event_type">
 	  <c>cast</c>
-	</seealso>
+	</seetype>
       </tag>
       <item>
 	Generated by
-	<seealso marker="stdlib:gen_statem#cast/2"><c>gen_statem:cast</c></seealso>.
+	<seemfa marker="stdlib:gen_statem#cast/2">
+	  <c>gen_statem:cast(ServerRef, Msg)</c>
+	</seemfa>
+	where <c>Msg</c> becomes the <c>EventContent</c>.
       </item>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-external_event_type">
+	<seetype marker="stdlib:gen_statem#external_event_type">
 	  <c>{call,From}</c>
-	</seealso>
+	</seetype>
       </tag>
       <item>
 	Generated by
-	<seealso marker="stdlib:gen_statem#call/2"><c>gen_statem:call</c></seealso>,
-	where <c>From</c> is the reply address to use
-	when replying either through the state transition action
-	<c>{reply,From,Msg}</c> or by calling
-	<seealso marker="stdlib:gen_statem#reply/1"><c>gen_statem:reply</c></seealso>.
+	<seemfa marker="stdlib:gen_statem#call/2">
+	  <c>gen_statem:call(ServerRef, Request)</c>
+	</seemfa>
+	where <c>Request</c> becomes the <c>EventContent</c>.
+	<c>From</c> is the reply address to use
+	when replying either through the <em>transition action</em>
+	<c>{reply,From,Reply}</c> or by calling
+	<seemfa marker="stdlib:gen_statem#reply/1">
+	  <c>gen_statem:reply(From, Reply)</c>
+	</seemfa>
+	from the <em>callback module</em>.
       </item>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-external_event_type">
+	<seetype marker="stdlib:gen_statem#external_event_type">
 	  <c>info</c>
-	</seealso>
+	</seetype>
       </tag>
       <item>
 	Generated by any regular process message sent to
 	the <c>gen_statem</c> process.
+	The process message becomes the <c>EventContent</c>.
       </item>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-timeout_event_type">
+	<seetype marker="stdlib:gen_statem#timeout_event_type">
 	  <c>state_timeout</c>
-	</seealso>
+	</seetype>
       </tag>
       <item>
-	Generated by state transition action
-	<seealso marker="stdlib:gen_statem#type-state_timeout">
+	Generated by <em>transition action</em>
+	<seetype marker="stdlib:gen_statem#timeout_action">
 	  <c>{state_timeout,Time,EventContent}</c>
-	</seealso>
-	state timer timing out.
+	</seetype>
+	state timer timing out. Read more in sections
+	<seeguide marker="#Time-Outs">Time-Outs</seeguide> and
+	<seeguide marker="#State Time-Outs">State Time-Outs</seeguide>.
       </item>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-timeout_event_type">
+	<seetype marker="stdlib:gen_statem#timeout_event_type">
 	  <c>{timeout,Name}</c>
-	</seealso>
+	</seetype>
       </tag>
       <item>
-	Generated by state transition action
-	<seealso marker="stdlib:gen_statem#type-generic_timeout">
+	Generated by <em>transition action</em>
+	<seetype marker="stdlib:gen_statem#timeout_action">
 	  <c>{{timeout,Name},Time,EventContent}</c>
-	</seealso>
-	generic timer timing out.
+	</seetype>
+	generic timer timing out.  Read more in sections
+	<seeguide marker="#Time-Outs">Time-Outs</seeguide> and
+	<seeguide marker="#Generic Time-Outs">Generic Time-Outs</seeguide>.
       </item>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-timeout_event_type">
+	<seetype marker="stdlib:gen_statem#timeout_event_type">
 	  <c>timeout</c>
-	</seealso>
+	</seetype>
       </tag>
       <item>
-	Generated by state transition action
-	<seealso marker="stdlib:gen_statem#type-event_timeout">
+	Generated by <em>transition action</em>
+	<seetype marker="stdlib:gen_statem#timeout_action">
 	  <c>{timeout,Time,EventContent}</c>
-	</seealso>
+	</seetype>
 	(or its short form <c>Time</c>)
-	event timer timing out.
+	event timer timing out.  Read more in sections
+	<seeguide marker="#Time-Outs">Time-Outs</seeguide> and
+	<seeguide marker="#Event Time-Outs">Event Time-Outs</seeguide>.
       </item>
       <tag>
-	<seealso marker="stdlib:gen_statem#type-event_type">
+	<seetype marker="stdlib:gen_statem#event_type">
 	  <c>internal</c>
-	</seealso>
+	</seetype>
       </tag>
       <item>
-	Generated by state transition
-	<seealso marker="stdlib:gen_statem#type-action">action</seealso>
-	<c>{next_event,internal,EventContent}</c>.
-	All event types above can also be generated using
+	Generated by <em>transition action</em>
+	<seetype marker="stdlib:gen_statem#action"><c>{next_event,internal,EventContent}</c></seetype>.
+	All <em>event types</em> above can also be generated using
+	the <c>next_event</c> action:
 	<c>{next_event,EventType,EventContent}</c>.
       </item>
     </taglist>
@@ -695,15 +855,15 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     <marker id="State Enter Calls" />
     <title>State Enter Calls</title>
     <p>
-      The <c>gen_statem</c> behavior can if this is enabled,
-      regardless of callback mode,
+      The <c>gen_statem</c> behaviour can if this is enabled,
+      regardless of <em>callback mode</em>,
       automatically
-      <seealso marker="stdlib:gen_statem#type-state_enter">
+      <seetype marker="stdlib:gen_statem#state_enter">
 	call the state callback
-      </seealso>
+      </seetype>
       with special arguments whenever the state changes
       so you can write state enter actions
-      near the rest of the state transition rules.
+      near the rest of the <em>state transition</em> rules.
       It typically looks like this:
     </p>
     <pre>
@@ -714,35 +874,174 @@ StateName(EventType, EventContent, Data) ->
     ... code for actions here ...
     {next_state, NewStateName, NewData}.</pre>
     <p>
-      Since the state enter call is not an event there are restrictions
+      Since the <em>state enter call</em> is not an event there are restrictions
       on the allowed return value and
-      <seealso marker="#State Transition Actions">State Transition Actions</seealso>.
+      <seeguide marker="#Transition Actions">State Transition Actions</seeguide>.
       You may not change the state,
-      <seealso marker="#Postponing Events">postpone</seealso>
-      this non-event, or
-      <seealso marker="#Inserted Events">insert events</seealso>.
+      <seeguide marker="#Postponing Events">postpone</seeguide>
+      this non-event,
+      <seeguide marker="#Inserted Events">insert any events</seeguide>,
+      or change the
+      <seeguide marker="#Callback Module"><em>callback module</em></seeguide>.
     </p>
     <p>
-      The first state that is entered will get a state enter call
+      The first state that is entered
+      will get a <em>state enter call</em>
       with <c>OldState</c> equal to the current state.
     </p>
     <p>
-      You may repeat the state enter call using the <c>{repeat_state,...}</c>
-      return value from the 
-      <seealso marker="#Event Handler">Event Handler</seealso>.
+      You may repeat the <em>state enter call</em>
+      using the <c>{repeat_state,...}</c>
+      return value from the
+      <seeguide marker="#State Callback">state callback</seeguide>.
       In this case <c>OldState</c> will also be equal to the current state.
     </p>
     <p>
       Depending on how your state machine is specified,
-      this can be a very useful feature,
-      but it forces you to handle the state enter calls in all states.
+      this can be a very useful feature, but it forces you to handle
+      the <em>state enter calls</em> in all states.
       See also the
-      <seealso marker="#State Enter Actions">
+      <seeguide marker="#State Enter Actions">
 	State Enter Actions
-      </seealso>
-      chapter.
+      </seeguide>
+      section.
     </p>
   </section>
+
+<!-- =================================================================== -->
+
+  <section>
+    <marker id="Time-Outs" />
+    <title>Time-Outs</title>
+    <p>
+      Time-outs in <c>gen_statem</c> are started from a
+      <seeguide marker="#Transition Actions">
+	<em>transition action</em>
+      </seeguide>
+      during a state transition that is when exiting from the
+      <seeguide marker="#State Callback"><em>state callback</em></seeguide>.
+    </p>
+    <p>
+      There are 3 types of time-outs in <c>gen_statem</c>:
+    </p>
+    <taglist>
+      <tag>
+	<seetype marker="stdlib:gen_statem#state_timeout">
+	  <c>state_timeout</c>
+	</seetype>
+      </tag>
+      <item>
+	There is one
+	<seeguide marker="#State Time-Outs">State Time-Out</seeguide>
+	that is automatically cancelled by a <em>state change</em>.
+      </item>
+      <tag>
+	<seetype marker="stdlib:gen_statem#generic_timeout">
+	  <c>{timeout, Name}</c>
+	</seetype>
+      </tag>
+      <item>
+	There are any number of
+	<seeguide marker="#Generic Time-Outs">Generic Time-Outs</seeguide>
+	differing by their <c>Name</c>.
+	They have no automatic cancelling.
+      </item>
+      <tag>
+	<seetype marker="stdlib:gen_statem#event_timeout">
+	  <c>timeout</c>
+	</seetype>
+      </tag>
+      <item>
+	There is one
+	<seeguide marker="#Event Time-Outs">Event Time-Out</seeguide>
+	that is automatically cancelled by any event.
+	Note that
+	<seeguide marker="#Postponing Events">postponed </seeguide>
+	and
+	<seeguide marker="#Inserted Events">inserted</seeguide>
+	events cancel this time-out just as external events.
+      </item>
+    </taglist>
+    <p>
+      When a time-out is started any running time-out of the same type;
+      <c>state_timeout</c>, <c>{timeout, Name}</c> or <c>timeout</c>,
+      is cancelled, that is, the time-out is restarted with the new time.
+    </p>
+    <p>
+      All time-outs has got an <c>EventContent</c> that is part of the
+      <seeguide marker="#Transition Actions">
+	<em>transition action</em>
+      </seeguide>
+      that starts the time-out.
+      Different <c>EventContent</c>s does not create different time-outs.
+      The <c>EventContent</c> is delivered to the
+      <seeguide marker="#State Callback"><em>state callback</em></seeguide>
+      when the time-out expires.
+    </p>
+    <section>
+      <marker id="Cancelling a Time-Out" />
+      <title>Cancelling a Time-Out</title>
+      <p>
+	If a time-out is started with the time <c>infinity</c> it will
+	never time out, in fact it will not even be started, and any
+	running time-out with the same tag will be cancelled.
+	The <c>EventContent</c> will in this case be ignored,
+	so why not set it to <c>undefined</c>.
+      </p>
+      <p>
+	A more explicit way to cancel a timer is to use a
+	<seeguide marker="#Transition Actions">
+	  <em>transition action</em>
+	</seeguide>
+	on the form
+	<seetype marker="stdlib:gen_statem#timeout_cancel_action">
+	  <c>{TimeoutType, cancel}</c>
+	</seetype>
+	which is a feature introduced in OTP 22.1.
+      </p>
+    </section>
+    <section>
+      <marker id="Updating a Time-Out" />
+      <title>Updating a Time-Out</title>
+      <p>
+	While a time-out is running, its <c>EventContent</c>
+	can be updated using a
+	<seeguide marker="#Transition Actions">
+	  <em>transition action</em>
+	</seeguide>
+	on the form
+	<seetype marker="stdlib:gen_statem#timeout_update_action">
+	  <c>{TimeoutType, update, NewEventContent}</c>
+	</seetype>
+	which is a feature introduced in OTP 22.1.
+      </p>
+      <p>
+	If this feature is used while no such <c>TimeoutType</c>
+	is running then a time-out event is immediately delivered
+	as when starting a
+	<seeguide marker="#Time-Out Zero">Time-Out Zero</seeguide>.
+      </p>
+    </section>
+    <section>
+      <marker id="Time-Out Zero" />
+      <title>Time-Out Zero</title>
+      <p>
+	If a time-out is started with the time <c>0</c> it will
+	actually not be started.  Instead the time-out event will
+	immediately be inserted to be processed after any events
+	already enqueued, and before any not yet received external events.
+	Note that some time-outs are automatically cancelled
+	so if you for example combine
+	<seeguide marker="#Postponing Events">postponing</seeguide>
+	an event in a <em>state change</em> with starting an
+	<seeguide marker="#Event Time-Outs">event time-out</seeguide>
+	with time <c>0</c> there will be no time-out event inserted
+	since the event time-out is cancelled by the postponed
+	event that is delivered due to the state change.
+      </p>
+    </section>
+  </section>
+
 
 <!-- =================================================================== -->
 
@@ -765,7 +1064,7 @@ StateName(EventType, EventContent, Data) ->
     </image>
     <p>
       This code lock state machine can be implemented using
-      <c>gen_statem</c> with the following callback module:
+      <c>gen_statem</c> with the following <em>callback module</em>:
     </p>
     <code type="erl"><![CDATA[
 -module(code_lock).
@@ -846,7 +1145,7 @@ start_link(Code) ->
     ]]></code>
     <p>
       <c>start_link</c> calls function
-      <seealso marker="stdlib:gen_statem#start_link/4"><c>gen_statem:start_link/4</c></seealso>,
+      <seemfa marker="stdlib:gen_statem#start_link/4"><c>gen_statem:start_link/4</c></seemfa>,
       which spawns and links to a new process, a <c>gen_statem</c>.
     </p>
     <list type="bulleted">
@@ -861,14 +1160,15 @@ start_link(Code) ->
           Instead its pid must be used. The name can also be specified
           as <c>{global,Name}</c>, then the <c>gen_statem</c> is
           registered using
-          <seealso marker="kernel:global#register_name/2"><c>global:register_name/2</c></seealso>
+          <seemfa marker="kernel:global#register_name/2"><c>global:register_name/2</c></seemfa>
           in Kernel.
         </p>
       </item>
       <item>
         <p>
           The second argument, <c>?MODULE</c>, is the name of
-          the callback module, that is, the module where the callback
+          the <em>callback module</em>, that is,
+	  the module where the callback
           functions are located, which is this module.
         </p>
         <p>
@@ -890,7 +1190,7 @@ start_link(Code) ->
         <p>
           The fourth argument, <c>[]</c>, is a list of options.
           For the available options, see
-          <seealso marker="stdlib:gen_statem#start_link/3"><c>gen_statem:start_link/3</c></seealso>.
+          <seemfa marker="stdlib:gen_statem#start_link/3"><c>gen_statem:start_link/3</c></seemfa>.
 	</p>
       </item>
     </list>
@@ -901,7 +1201,7 @@ start_link(Code) ->
       where <c>State</c> is the initial state of the <c>gen_statem</c>,
       in this case <c>locked</c>; assuming that the door is locked to begin
       with. <c>Data</c> is the internal server data of the <c>gen_statem</c>.
-      Here the server data is a <seealso marker="stdlib:maps">map</seealso>
+      Here the server data is a <seeerl marker="stdlib:maps">map</seeerl>
       with key <c>code</c> that stores the correct button sequence,
       key <c>length</c> store its length,
       and key <c>buttons</c> that stores the collected buttons
@@ -915,28 +1215,28 @@ init(Code) ->
     {ok, locked, Data}.
     ]]></code>
     <p>Function
-      <seealso marker="stdlib:gen_statem#start_link/3"><c>gen_statem:start_link</c></seealso>
+      <seemfa marker="stdlib:gen_statem#start_link/3"><c>gen_statem:start_link</c></seemfa>
       is synchronous. It does not return until the <c>gen_statem</c>
       is initialized and is ready to receive events.
     </p>
     <p>
       Function
-      <seealso marker="stdlib:gen_statem#start_link/3"><c>gen_statem:start_link</c></seealso>
+      <seemfa marker="stdlib:gen_statem#start_link/3"><c>gen_statem:start_link</c></seemfa>
       must be used if the <c>gen_statem</c>
       is part of a supervision tree, that is, started by a supervisor.
       Another function,
-      <seealso marker="stdlib:gen_statem#start/3"><c>gen_statem:start</c></seealso>
+      <seemfa marker="stdlib:gen_statem#start/3"><c>gen_statem:start</c></seemfa>
       can be used to start a standalone <c>gen_statem</c>, that is,
       a <c>gen_statem</c> that is not part of a supervision tree.
     </p>
 
     <p>
       Function
-      <seealso marker="stdlib:gen_statem#Module:callback_mode/0"><c>Module:callback_mode/0</c></seealso>
+      <seemfa marker="stdlib:gen_statem#Module:callback_mode/0"><c>Module:callback_mode/0</c></seemfa>
       selects the
-      <seealso marker="#Callback Modes"><c>CallbackMode</c></seealso>
-      for the callback module, in this case
-      <seealso marker="stdlib:gen_statem#type-callback_mode"><c>state_functions</c></seealso>.
+      <seeguide marker="#Callback Modes"><c>CallbackMode</c></seeguide>
+      for the <em>callback module</em>, in this case
+      <seetype marker="stdlib:gen_statem#callback_mode"><c>state_functions</c></seetype>.
       That is, each state has got its own handler function:
     </p>
     <code type="erl"><![CDATA[
@@ -953,7 +1253,7 @@ callback_mode() ->
     <title>Handling Events</title>
     <p>The function notifying the code lock about a button event is
       implemented using
-      <seealso marker="stdlib:gen_statem#cast/2"><c>gen_statem:cast/2</c></seealso>:
+      <seemfa marker="stdlib:gen_statem#cast/2"><c>gen_statem:cast/2</c></seemfa>:
     </p>
     <code type="erl"><![CDATA[
 button(Button) ->
@@ -1051,11 +1351,13 @@ open(state_timeout, lock,  Data) ->
     ]]></code>
     <p>
       The timer for a state time-out is automatically cancelled
-      when the state machine changes states.  You can restart
-      a state time-out by setting it to a new time, which cancels
-      the running timer and starts a new.  This implies that
-      you can cancel a state time-out by restarting it with
-      time <c>infinity</c>.
+      when the state machine does a <em>state change</em>.
+    </p>
+    <p>
+      You can restart, cancel or update a state time-out.
+      See section
+      <seeguide marker="#Time-Outs">Time-Outs</seeguide>
+      for details.
     </p>
   </section>
 
@@ -1128,7 +1430,7 @@ open(...) -> ... ;
 
     <p>
       This example uses
-      <seealso marker="stdlib:gen_statem#call/2"><c>gen_statem:call/2</c></seealso>,
+      <seemfa marker="stdlib:gen_statem#call/2"><c>gen_statem:call/2</c></seemfa>,
       which waits for a reply from the server.
       The reply is sent with a <c>{reply,From,Reply}</c> tuple
       in an action list in the <c>{keep_state, ...}</c> tuple
@@ -1137,7 +1439,7 @@ open(...) -> ... ;
       care about what it is.
     </p>
     <p>
-      If the common event handler needs to know the current state
+      If the common <em>state callback</em> needs to know the current state
       a function <c>handle_common/4</c> can be used instead:
     </p>
     <code type="erl"><![CDATA[
@@ -1149,16 +1451,16 @@ open(...) -> ... ;
 <!-- =================================================================== -->
 
   <section>
-    <marker id="One Event Handler" />
-    <title>One Event Handler</title>
+    <marker id="One State Callback" />
+    <title>One State Callback</title>
     <p>
       If
-      <seealso marker="#Callback Modes">
-	Callback Mode
-      </seealso>
+      <seeguide marker="#Callback Modes">
+	<em>callback mode</em>
+      </seeguide>
       <c>handle_event_function</c> is used,
       all events are handled in
-      <seealso marker="stdlib:gen_statem#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>
+      <seemfa marker="stdlib:gen_statem#Module:handle_event/4"><c>Module:handle_event/4</c></seemfa>
       and we can (but do not have to) use an event-centered approach
       where we first branch depending on event
       and then depending on state:
@@ -1219,7 +1521,7 @@ handle_event(
 	no stop function is needed.
 	The <c>gen_statem</c> is automatically terminated by its supervisor.
 	Exactly how this is done is defined by a
-	<seealso marker="sup_princ#shutdown">shutdown strategy</seealso>
+	<seeguide marker="sup_princ#shutdown">shutdown strategy</seeguide>
 	set in the supervisor.
       </p>
       <p>
@@ -1227,7 +1529,7 @@ handle_event(
 	strategy must be a time-out value and the <c>gen_statem</c> must
 	in function <c>init/1</c> set itself to trap exit signals
 	by calling
-	<seealso marker="erts:erlang#process_flag/2"><c>process_flag(trap_exit, true)</c></seealso>:
+	<seemfa marker="erts:erlang#process_flag/2"><c>process_flag(trap_exit, true)</c></seemfa>:
       </p>
       <code type="erl"><![CDATA[
 init(Args) ->
@@ -1257,7 +1559,7 @@ terminate(_Reason, State, _Data) ->
       <p>
 	If the <c>gen_statem</c> is not part of a supervision tree,
 	it can be stopped using
-	<seealso marker="stdlib:gen_statem#stop/1"><c>gen_statem:stop</c></seealso>,
+	<seemfa marker="stdlib:gen_statem#stop/1"><c>gen_statem:stop</c></seemfa>,
 	preferably through an API function:
       </p>
       <code type="erl"><![CDATA[
@@ -1283,13 +1585,16 @@ stop() ->
     <title>Event Time-Outs</title>
     <p>
       A time-out feature inherited from <c>gen_statem</c>'s predecessor
-      <seealso marker="stdlib:gen_fsm"><c>gen_fsm</c></seealso>,
+      <seeerl marker="stdlib:gen_fsm"><c>gen_fsm</c></seeerl>,
       is an event time-out, that is,
       if an event arrives the timer is cancelled.
       You get either an event or a time-out, but not both.
     </p>
     <p>
-      It is ordered by the state transition action
+      It is ordered by the
+      <seeguide marker="#Transition Actions">
+	<em>transition action</em>
+      </seeguide>
       <c>{timeout,Time,EventContent}</c>, or just an integer <c>Time</c>,
       even without the enclosing actions list
       (the latter is a form inherited from <c>gen_fsm</c>.
@@ -1315,20 +1620,21 @@ locked(
 ]]></code>
     <p>
       Whenever we receive a button event we start an event time-out
-      of 30 seconds, and if we get an event type <c>timeout</c>
+      of 30 seconds, and if we get an <em>event type</em> of <c>timeout</c>
       we reset the remaining code sequence.
     </p>
     <p>
       An event time-out is cancelled by any other event so you either
       get some other event or the time-out event.  It is therefore
-      not possible nor needed to cancel or restart an event time-out.
-      Whatever event you act on has already cancelled
-      the event time-out...
+      not possible nor needed to cancel, restart or update an event time-out.
+      Whatever event you act on has already cancelled the event time-out,
+      so there is never a running event time-out
+      while the <em>state callback</em> executes.
     </p>
     <p>
-      Note that an event time-out does not work well with
-      when you have for example a status call as in
-      <seealso marker="#All State Events">All State Events</seealso>,
+      Note that an event time-out does not work well
+      when you have for example a status call as in section
+      <seeguide marker="#All State Events">All State Events</seeguide>,
       or handle unknown events, since all kinds of events
       will cancel the event time-out.
     </p>
@@ -1350,9 +1656,9 @@ locked(
       to the time-out in another, maybe cancel the time-out
       without changing states, or perhaps run multiple
       time-outs in parallel. All this can be accomplished with
-      <seealso marker="stdlib:gen_statem#type-generic_timeout">generic time-outs</seealso>.
+      <seetype marker="stdlib:gen_statem#generic_timeout">generic time-outs</seetype>.
       They may look a little bit like
-      <seealso marker="stdlib:gen_statem#type-event_timeout">event time-outs</seealso>
+      <seetype marker="stdlib:gen_statem#event_timeout">event time-outs</seetype>
       but contain a name to allow for any number of them simultaneously
       and they are not automatically cancelled.
     </p>
@@ -1383,19 +1689,25 @@ open(cast, {button,_}, Data) ->
 ]]></code>
     <p>
       Specific generic time-outs can just as
-      <seealso marker="#State Time-Outs">State Time-Outs</seealso>
+      <seeguide marker="#State Time-Outs">state time-outs</seeguide>
       be restarted or cancelled
       by setting it to a new time or <c>infinity</c>.
     </p>
     <p>
-      In this particular case we do not need to cancel the timeout
-      since the timeout event is the only possible reason to
-      change the state from <c>open</c> to <c>locked</c>.
+      In this particular case we do not need to cancel the time-out
+      since the time-out event is the only possible reason to
+      do a <em>state change</em> from <c>open</c> to <c>locked</c>.
     </p>
     <p>
       Instead of bothering with when to cancel a time-out,
       a late time-out event can be handled by ignoring it
       if it arrives in a state where it is known to be late.
+    </p>
+    <p>
+      You can restart, cancel or update a generic time-out.
+      See section
+      <seeguide marker="#Time-Outs">Time-Outs</seeguide>
+      for details.
     </p>
   </section>
 
@@ -1407,12 +1719,12 @@ open(cast, {button,_}, Data) ->
     <p>
       The most versatile way to handle time-outs is to use
       Erlang Timers; see
-      <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer/3,4</c></seealso>.
+      <seemfa marker="erts:erlang#start_timer/4"><c>erlang:start_timer/3,4</c></seemfa>.
       Most time-out tasks can be performed with the
       time-out features in <c>gen_statem</c>,
-      but an example of one that can not is if you should need
+      but an example of one that cannot is if you should need
       the return value from
-      <seealso marker="erts:erlang#cancel_timer/2"><c>erlang:cancel_timer(Tref)</c></seealso>, that is; the remaining time of the timer.
+      <seemfa marker="erts:erlang#cancel_timer/2"><c>erlang:cancel_timer(Tref)</c></seemfa>, that is; the remaining time of the timer.
     </p>
     <p>
       Here is how to accomplish the state time-out
@@ -1442,22 +1754,22 @@ open(cast, {button,_}, Data) ->
 ]]></code>
     <p>
       Removing the <c>timer</c> key from the map when we
-      change to state <c>locked</c> is not strictly
+      do a <em>state change</em> to <c>locked</c> is not strictly
       necessary since we can only get into state <c>open</c>
       with an updated <c>timer</c> map value.  But it can be nice
       to not have outdated values in the state <c>Data</c>!
     </p>
     <p>
       If you need to cancel a timer because of some other event, you can use
-      <seealso marker="erts:erlang#cancel_timer/2"><c>erlang:cancel_timer(Tref)</c></seealso>.
-      Note that a time-out message cannot arrive after this,
-      unless you have postponed it before (see the next section),
+      <seemfa marker="erts:erlang#cancel_timer/2"><c>erlang:cancel_timer(Tref)</c></seemfa>.
+      Note that no time-out message will arrive after this (because the timer has been explicitly canceled),
+      unless you have already postponed one earlier (see the next section),
       so ensure that you do not accidentally postpone such messages.
-      Also note that a time-out message may have arrived
-      just before you cancelling it, so you may have to read out
-      such a message from the process mailbox depending on
-      the return value from 
-      <seealso marker="erts:erlang#cancel_timer/2"><c>erlang:cancel_timer(Tref)</c></seealso>.
+      Also note that a time-out message may arrive during a <em>state callback</em>
+      that is cancelling the timer, so you may have to read out
+      such a message from the process mailbox, depending on
+      the return value from
+      <seemfa marker="erts:erlang#cancel_timer/2"><c>erlang:cancel_timer(Tref)</c></seemfa>.
     </p>
     <p>
       Another way to handle a late time-out can be to not cancel it,
@@ -1474,14 +1786,14 @@ open(cast, {button,_}, Data) ->
     <p>
       If you want to ignore a particular event in the current state
       and handle it in a future state, you can postpone the event.
-      A postponed event is retried after the state has
-      changed, that is, <c>OldState =/= NewState</c>.
+      A postponed event is retried after a <em>state change</em>,
+      that is, <c>OldState =/= NewState</c>.
     </p>
     <p>
-      Postponing is ordered by the state transition
-      <seealso marker="#State Transition Actions">
-	State Transition Action
-      </seealso>
+      Postponing is ordered by the
+      <seeguide marker="#Transition Actions">
+	<em>transition action</em>
+      </seeguide>
       <c>postpone</c>.
     </p>
     <p>
@@ -1496,17 +1808,18 @@ open(cast, {button,_}, Data) ->
 ...
 ]]></code>
     <p>
-      Since a postponed event is only retried after a state change,
+      Since a postponed event is only retried
+      after a <em>state change</em>,
       you have to think about where to keep a state data item.
       You can keep it in the server <c>Data</c>
       or in the <c>State</c> itself,
       for example by having two more or less identical states
       to keep a boolean value, or by using a complex state
       (see section
-      <seealso marker="#Complex State">Complex State</seealso>)
+      <seeguide marker="#Complex State">Complex State</seeguide>)
       with
-      <seealso marker="#Callback Modes">Callback Mode</seealso>
-      <seealso marker="stdlib:gen_statem#type-callback_mode"><c>handle_event_function</c></seealso>.
+      <seeguide marker="#Callback Modes"><em>callback mode</em></seeguide>
+      <seetype marker="stdlib:gen_statem#callback_mode"><c>handle_event_function</c></seetype>.
       If a change in the value changes the set of events that is handled,
       then the value should be kept in the State.
       Otherwise no postponed events will be retried
@@ -1516,7 +1829,7 @@ open(cast, {button,_}, Data) ->
       This is not important if you do not postpone events.
       But if you later decide to start postponing some events,
       then the design flaw of not having separate states
-      when they should be, might become a hard to find bug.
+      when they should be, might become a hard-to-find bug.
     </p>
 
     <section>
@@ -1595,28 +1908,28 @@ do_unlock() ->
     io:format("Open~n", []).
     ]]></code>
     <p>
-      The selective receive in this case causes implicitly <c>open</c>
-      to postpone any events to the <c>locked</c> state.
+      The selective receive in this case causes <c>open</c>
+      to implicitly postpone any events to the <c>locked</c> state.
     </p>
     <p>
       A selective receive cannot be used from a <c>gen_statem</c>
-      behavior as for any <c>gen_*</c> behavior,
+      behaviour (or from any <c>gen_*</c> behaviour),
       as the receive statement is within the <c>gen_*</c> engine itself.
       It must be there because all
-      <seealso marker="stdlib:sys"><c>sys</c></seealso>
-      compatible behaviors must respond to system messages and therefore
+      <seeerl marker="stdlib:sys"><c>sys</c></seeerl>
+      compatible behaviours must respond to system messages and therefore
       do that in their engine receive loop,
-      passing non-system messages to the callback module.
+      passing non-system messages to the <em>callback module</em>.
     </p>
     <p>
       The
-      <seealso marker="#State Transition Actions">
-	State Transition Action
-      </seealso>
+      <seeguide marker="#Transition Actions">
+	<em>transition action</em>
+      </seeguide>
       <c>postpone</c> is designed to model
       selective receives. A selective receive implicitly postpones
       any not received events, but the <c>postpone</c>
-      state transition action explicitly postpones one received event.
+      <em>transition action</em> explicitly postpones one received event.
     </p>
     <p>
       Both mechanisms have the same theoretical
@@ -1638,14 +1951,17 @@ do_unlock() ->
       (described in the next section), especially if just
       one or a few states has got state enter actions,
       this is a perfect use case for the built in
-      <seealso marker="#State Enter Calls">State Enter Calls</seealso>.
+      <seeguide marker="#State Enter Calls"><em>state enter calls</em></seeguide>.
     </p>
     <p>
       You return a list containing <c>state_enter</c> from your
-      <seealso marker="stdlib:gen_statem#Module:callback_mode/0"><c>callback_mode/0</c></seealso>
+      <seemfa marker="stdlib:gen_statem#Module:callback_mode/0">
+	<c>callback_mode/0</c>
+      </seemfa>
       function and the <c>gen_statem</c> engine will call your
-      state callback once with the arguments
-      <c>(enter, OldState, ...)</c> whenever the state changes.
+      <em>state callback</em> once with an event
+      <c>(enter, OldState, ...)</c>
+      whenever it does a <em>state change</em>.
       Then you just need to handle these event-like calls in all states.
     </p>
     <code type="erl"><![CDATA[
@@ -1684,9 +2000,9 @@ open(state_timeout, lock, Data) ->
       or <c>repeat_state_and_data</c> that otherwise behaves
       exactly like their <c>keep_state</c> siblings.
       See the type
-      <seealso marker="stdlib:gen_statem#type-state_callback_result">
+      <seetype marker="stdlib:gen_statem#state_callback_result">
 	<c>state_callback_result()</c>
-      </seealso>
+      </seetype>
       in the reference manual.
     </p>
   </section>
@@ -1700,14 +2016,14 @@ open(state_timeout, lock, Data) ->
       It can sometimes be beneficial to be able to generate events
       to your own state machine.
       This can be done with the
-      <seealso marker="#State Transition Actions">
-	State Transition Action
-      </seealso>
-      <c>{next_event,EventType,EventContent}</c>.
+      <seeguide marker="#Transition Actions">
+	<em>transition action</em>
+      </seeguide>
+      <seetype marker="stdlib:gen_statem#action"><c>{next_event,EventType,EventContent}</c></seetype>.
     </p>
     <p>
       You can generate events of any existing
-      <seealso marker="stdlib:gen_statem#type-action">type</seealso>,
+      <seetype marker="stdlib:gen_statem#action">type</seetype>,
       but the <c>internal</c> type can only be generated through action
       <c>next_event</c>. Hence, it cannot come from an external source,
       so you can be certain that an <c>internal</c> event is an event
@@ -1731,11 +2047,9 @@ open(state_timeout, lock, Data) ->
     </p>
     <p>
       A variant of this is to use a
-      <seealso marker="#Complex State">
-	Complex State
-      </seealso>
+      <seeguide marker="#Complex State">complex state</seeguide>
       with
-      <seealso marker="#One Event Handler">One Event Handler</seealso>.
+      <seeguide marker="#One State Callback"><em>one state callback</em></seeguide>.
       The state is then modeled with for example a tuple
       <c>{MainFSMState,SubFSMState}</c>.
     </p>
@@ -1795,7 +2109,7 @@ open(internal, {button,_}, Data) ->
     <title>Example Revisited</title>
     <p>
       This section includes the example after most of the mentioned
-      modifications and some more using state enter calls,
+      modifications and some more using <em>state enter calls</em>,
       which deserves a new state diagram:
     </p>
     <!-- The image is edited with dia in a .dia file,
@@ -1920,7 +2234,8 @@ terminate(_Reason, State, _Data) ->
         This section describes what to change in the example
         to use one <c>handle_event/4</c> function.
         The previously used approach to first branch depending on event
-	does not work that well here because of the state enter calls,
+	does not work that well here
+	because of the <em>state enter calls</em>,
         so this example first branches depending on state:
       </p>
       <code type="erl"><![CDATA[
@@ -2018,9 +2333,9 @@ handle_event({call,From}, code_length, _State, #{length := Length}) ->
     <p>
       To avoid this, you can format the internal state
       that gets in the error log and gets returned from
-      <seealso marker="stdlib:sys#get_status/1"><c>sys:get_status/1,2</c></seealso>
+      <seemfa marker="stdlib:sys#get_status/1"><c>sys:get_status/1,2</c></seemfa>
       by implementing function
-      <seealso marker="stdlib:gen_statem#Module:format_status/2"><c>Module:format_status/2</c></seealso>,
+      <seemfa marker="stdlib:gen_statem#Module:format_status/2"><c>Module:format_status/2</c></seemfa>,
       for example like this:
     </p>
     <code type="erl"><![CDATA[
@@ -2045,7 +2360,7 @@ format_status(Opt, [_PDict,State,Data]) ->
     ]]></code>
     <p>
       It is not mandatory to implement a
-      <seealso marker="stdlib:gen_statem#Module:format_status/2"><c>Module:format_status/2</c></seealso>
+      <seemfa marker="stdlib:gen_statem#Module:format_status/2"><c>Module:format_status/2</c></seemfa>
       function. If you do not, a default implementation is used that
       does the same as this example function without filtering
       the <c>Data</c> term, that is, <c>StateData = {State,Data}</c>,
@@ -2059,16 +2374,16 @@ format_status(Opt, [_PDict,State,Data]) ->
     <marker id="Complex State" />
     <title>Complex State</title>
     <p>
-      The callback mode
-      <seealso marker="stdlib:gen_statem#type-callback_mode"><c>handle_event_function</c></seealso>
+      The <em>callback mode</em>
+      <seetype marker="stdlib:gen_statem#callback_mode"><c>handle_event_function</c></seetype>
       enables using a non-atom state as described in section
-      <seealso marker="#Callback Modes">Callback Modes</seealso>,
+      <seeguide marker="#Callback Modes">Callback Modes</seeguide>,
       for example, a complex state term like a tuple.
     </p>
     <p>
       One reason to use this is when you have a state item
       that when changed should cancel the
-      <seealso marker="#State Time-Outs">State Time-Out</seealso>,
+      <seeguide marker="#State Time-Outs">state time-out</seeguide>,
       or one that affects the event handling
       in combination with postponing events.
       We will go for the latter and complicate the previous example
@@ -2104,7 +2419,7 @@ x
       so it is not to be recognized as the lock button.
       Or we can make the lock button part of the state so
       when we then change the lock button in the locked state,
-      the change becomes a state change
+      the change becomes a <em>state change</em>
       and all postponed events are retried,
       therefore the lock is immediately locked!
     </p>
@@ -2214,12 +2529,12 @@ terminate(_Reason, State, _Data) ->
       and the amount of heap memory all these servers need
       is a problem, then the memory footprint of a server
       can be mimimized by hibernating it through
-      <seealso marker="stdlib:proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>.
+      <seemfa marker="stdlib:proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seemfa>.
     </p>
     <note>
       <p>
         It is rather costly to hibernate a process; see
-        <seealso marker="erts:erlang#hibernate/3"><c>erlang:hibernate/3</c></seealso>.
+        <seemfa marker="erts:erlang#hibernate/3"><c>erlang:hibernate/3</c></seemfa>.
         It is not something you want to do after every event.
       </p>
     </note>
@@ -2242,7 +2557,7 @@ handle_event(enter, _OldState, {open,_}, _Data) ->
 ]]></code>
     <p>
       The atom
-      <seealso marker="stdlib:gen_statem#type-hibernate"><c>hibernate</c></seealso>
+      <seetype marker="stdlib:gen_statem#hibernate"><c>hibernate</c></seetype>
       in the action list on the last line
       when entering the <c>{open,_}</c> state is the only change.
       If any event arrives in the <c>{open,_},</c> state, we
@@ -2258,20 +2573,21 @@ handle_event(enter, _OldState, {open,_}, _Data) ->
     </p>
     <p>
       Another not uncommon scenario is to use the
-      <seealso marker="#Event Time-Outs">Event Time-Out</seealso>
+      <seeguide marker="#Event Time-Outs">event time-out</seeguide>
       to trigger hibernation after a certain time of inactivity.
       There is also a server start option
-      <seealso marker="stdlib:gen_statem#type-hibernate_after_opt">
+      <seetype marker="stdlib:gen_statem#enter_loop_opt">
 	<c>{hibernate_after, Timeout}</c>
-      </seealso>
+      </seetype>
       for
-      <seealso marker="stdlib:gen_statem#start/3">
-	<c>start/3,4</c>
-      </seealso>
-      or
-      <seealso marker="stdlib:gen_statem#start_link/3">
+      <seemfa marker="stdlib:gen_statem#start/3"><c>start/3,4</c></seemfa>,
+      <seemfa marker="stdlib:gen_statem#start_link/3">
 	<c>start_link/3,4</c>
-      </seealso>
+      </seemfa>
+      or
+      <seemfa marker="stdlib:gen_statem#enter_loop/4">
+	<c>enter_loop/4,5,6</c>
+      </seemfa>
       that may be used to automatically hibernate the server.
     </p>
     <p>

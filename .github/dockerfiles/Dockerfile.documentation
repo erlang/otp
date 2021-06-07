@@ -1,0 +1,23 @@
+FROM docker.pkg.github.com/erlang/otp/ubuntu-base
+
+ARG MAKEFLAGS=-j4
+ENV MAKEFLAGS=$MAKEFLAGS \
+        ERLC_USE_SERVER=yes \
+        ERL_TOP=/buildroot/otp \
+        PATH=/buildroot/otp/bin:$PATH
+
+ARG ARCHIVE=./otp.tar.gz
+COPY $ARCHIVE /buildroot/otp.tar.gz
+RUN cd /buildroot && tar -xzf ./otp.tar.gz
+
+WORKDIR /buildroot/otp/
+
+ENV RELEASE_ROOT=/otp
+
+RUN ./configure --prefix=/otp && make && make release
+
+RUN ./configure && make && make release
+
+RUN make docs release_docs
+
+ENTRYPOINT ["bash","-c"]

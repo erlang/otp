@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
 
 %%-----------------------------------------------------------------------
 
--type mode()   :: 'native' | 'compile' | 'debug' | 'interpret' | 'run'.
+-type mode()   :: 'compile' | 'debug' | 'interpret' | 'run'.
 -type source() :: 'archive' | 'beam' | 'text'.
 
 -record(state, {file         :: file:filename(),
@@ -164,12 +164,12 @@ extract(File, Options) when is_list(File), is_list(Options) ->
     try
 	EO = parse_extract_options(Options,
 				   #extract_options{compile_source = false}),
-	{HeaderSz, NextLineNo, Fd, Sections} =
+	{HeaderSz, StartLine, Fd, Sections} =
 	    parse_header(File, not EO#extract_options.compile_source),
 	Type = Sections#sections.type,
 	case {Type, EO#extract_options.compile_source} of
 	    {source, true} ->
-		Bin = compile_source(Type, File, Fd, NextLineNo, HeaderSz);
+		Bin = compile_source(Type, File, Fd, StartLine, HeaderSz);
 	    {_, _} ->
 		ok = file:close(Fd),
 		case file:read_file(File) of
@@ -197,9 +197,9 @@ parse_extract_options([H | T], EO) ->
 parse_extract_options([], EO) ->
     EO.
 
-compile_source(Type, File, Fd, NextLineNo, HeaderSz) ->
+compile_source(Type, File, Fd, StartLine, HeaderSz) ->
     {text, _Module, Forms, _HasRecs, _Mode} =
-	do_parse_file(Type, File, Fd, NextLineNo, HeaderSz, false),
+	do_parse_file(Type, File, Fd, StartLine, HeaderSz, false),
     ok = file:close(Fd),
     case compile:forms(Forms, [return_errors, debug_info]) of
 	{ok, _, BeamBin} ->
@@ -276,16 +276,16 @@ start(EscriptOptions) ->
             [File|Args] ->
                 parse_and_run(File, Args, EscriptOptions);
             [] ->
-                io:format("escript: Missing filename\n", []),
+                io:format(standard_error, "escript: Missing filename\n", []),
                 my_halt(127)
         end
     catch
         throw:Str ->
-            io:format("escript: ~ts\n", [Str]),
+            put_chars(io_lib:format("escript: ~ts\n", [Str])),
             my_halt(127);
         _:Reason:Stk ->
-            io:format("escript: Internal error: ~tp\n", [Reason]),
-            io:format("~tp\n", [Stk]),
+            put_chars(io_lib:format("escript: Internal error: ~tp\n", [Reason])),
+            put_chars(io_lib:format("~tp\n", [Stk])),
             my_halt(127)
     end.
 
@@ -306,11 +306,7 @@ parse_and_run(File, Args, Options) ->
 		    false ->
 			case lists:member("i", Options) of
 			    true  -> interpret;
-			    false -> 
-				case lists:member("n", Options) of
-				    true -> native;
-				    false -> Mode
-				end
+			    false -> Mode
 			end
 		end
         end,
@@ -321,14 +317,6 @@ parse_and_run(File, Args, Options) ->
                     interpret(FormsOrBin, HasRecs, File, Args);
                 compile ->
                     case compile:forms(FormsOrBin, [report]) of
-                        {ok, Module, BeamBin} ->
-                            {module, Module} = code:load_binary(Module, File, BeamBin),
-                            run(Module, Args);
-                        _Other ->
-                            fatal("There were compilation errors.")
-                    end;
-		native ->
-                    case compile:forms(FormsOrBin, [report,native]) of
                         {ok, Module, BeamBin} ->
                             {module, Module} = code:load_binary(Module, File, BeamBin),
                             run(Module, Args);
@@ -413,12 +401,12 @@ parse_file(File) ->
     end.
 
 parse_file(File, CheckOnly) ->
-    {HeaderSz, NextLineNo, Fd, Sections} =
+    {HeaderSz, StartLine, Fd, Sections} =
 	parse_header(File, false),
     do_parse_file(Sections#sections.type,
-		  File, Fd, NextLineNo, HeaderSz, CheckOnly).
+		  File, Fd, StartLine, HeaderSz, CheckOnly).
 
-do_parse_file(Type, File, Fd, NextLineNo, HeaderSz, CheckOnly) ->
+do_parse_file(Type, File, Fd, StartLine, HeaderSz, CheckOnly) ->
     S = initial_state(File),
     #state{mode = Mode,
 	   source = Source,
@@ -436,7 +424,7 @@ do_parse_file(Type, File, Fd, NextLineNo, HeaderSz, CheckOnly) ->
 		parse_beam(S, File, HeaderSz, CheckOnly);
 	    source ->
 		%% Source code
-		parse_source(S, File, Fd, NextLineNo, HeaderSz, CheckOnly)
+		parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly)
         end,
     {Source, Module, FormsOrBin, HasRecs, Mode}.
 
@@ -612,7 +600,8 @@ parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly) ->
     _ = io:get_line(Fd, ''),
     Encoding = epp:set_encoding(Fd),
     {ok, _} = file:position(Fd, HeaderSz),
-    case epp:open(File, Fd, StartLine, IncludePath, PreDefMacros) of
+    case epp:open([{fd, Fd}, {name, File}, {location, {StartLine, 1}},
+                   {includes, IncludePath}, {macros, PreDefMacros}]) of
         {ok, Epp} ->
             _ = [io:setopts(Fd, [{encoding,Encoding}]) ||
                     Encoding =/= none],
@@ -635,7 +624,7 @@ parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly) ->
             ok = file:close(Fd),
 	    check_source(S3, CheckOnly);
 	{error, Reason} ->
-	    io:format("escript: ~tp\n", [Reason]),
+	    io:format(standard_error, "escript: ~tp\n", [Reason]),
 	    fatal("Preprocessor error")
     end.
 
@@ -692,22 +681,25 @@ epp_parse_file(Epp, S, Forms) ->
     Parsed = epp:parse_erl_form(Epp),
     epp_parse_file2(Epp, S, Forms, Parsed).
 
+epp_parse_file2(Epp, S, Forms, {ok, {attribute, _, mode, native}}) ->
+    %% Native mode is no longer supported, just ignore it.
+    epp_parse_file(Epp, S, Forms);
 epp_parse_file2(Epp, S, Forms, Parsed) ->
-    %% io:format("~p\n", [Parsed]),
+    %% io:format(standard_error, "~p\n", [Parsed]),
     case Parsed of
         {ok, Form} ->
             case Form of
                 {attribute,_,record, _} ->
-		    S2 = S#state{has_records = true},
-		    epp_parse_file(Epp, S2, [Form | Forms]);
+                    S2 = S#state{has_records = true},
+                    epp_parse_file(Epp, S2, [Form | Forms]);
                 {attribute,Ln,mode,NewMode} ->
                     S2 = S#state{mode = NewMode},
                     if
-                        NewMode =:= compile; NewMode =:= interpret; NewMode =:= debug; NewMode =:= native ->
+                        NewMode =:= compile; NewMode =:= interpret; NewMode =:= debug ->
                             epp_parse_file(Epp, S2, [Form | Forms]);
                         true ->
                             Args = lists:flatten(io_lib:format("illegal mode attribute: ~p", [NewMode])),
-                            io:format("~ts:~w ~s\n", [S#state.file,Ln,Args]),
+                            io:format(standard_error, "~ts:~s: ~s\n", [S#state.file,pos(Ln),Args]),
                             Error = {error,{Ln,erl_parse,Args}},
                             Nerrs= S#state.n_errors + 1,
                             epp_parse_file(Epp, S2#state{n_errors = Nerrs}, [Error | Forms])
@@ -723,8 +715,8 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
                     epp_parse_file(Epp, S, [Form | Forms])
             end;
         {error,{Ln,Mod,Args}} = Form ->
-            io:format("~ts:~w: ~ts\n",
-                      [S#state.file,Ln,Mod:format_error(Args)]),
+            io:format(standard_error, "~ts:~s: ~ts\n",
+                      [S#state.file,pos(Ln),Mod:format_error(Args)]),
             epp_parse_file(Epp, S#state{n_errors = S#state.n_errors + 1}, [Form | Forms]);
         {eof, LastLine} ->
             S#state{forms_or_bin = lists:reverse([{eof, LastLine} | Forms])}
@@ -780,7 +772,7 @@ interpret(Forms, HasRecs,  File, Args) ->
 	    false -> Forms;
 	    true  -> erl_expand_records:module(Forms, [])
 	end,
-    Dict = parse_to_dict(Forms2),
+    Dict = parse_to_map(Forms2),
     ArgsA = erl_parse:abstract(Args, 0),
     Anno = a0(),
     Call = {call,Anno,{atom,Anno,main},[ArgsA]},
@@ -802,51 +794,56 @@ report_errors(Errors) ->
                   Errors).
 
 list_errors(F, [{Line,Mod,E}|Es]) ->
-    io:fwrite("~ts:~w: ~ts\n", [F,Line,Mod:format_error(E)]),
+    io:fwrite(standard_error, "~ts:~s: ~ts\n", [F,pos(Line),Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(F, [{Mod,E}|Es]) ->
-    io:fwrite("~ts: ~ts\n", [F,Mod:format_error(E)]),
+    io:format(standard_error, "~ts: ~ts\n", [F,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(_F, []) -> ok.
+
+pos({Line,Col}) ->
+    io_lib:format("~w:~w", [Line,Col]);
+pos(Line) ->
+    io_lib:format("~w", [Line]).
 
 report_warnings(Ws0) ->
     Ws1 = lists:flatmap(fun({{F,_L},Eds}) -> format_message(F, Eds);
                            ({F,Eds}) -> format_message(F, Eds) end,
                   Ws0),
     Ws = ordsets:from_list(Ws1),
-    lists:foreach(fun({_,Str}) -> io:put_chars(Str) end, Ws).
+    lists:foreach(fun({_,Str}) -> io:put_chars(standard_error, Str) end, Ws).
 
 format_message(F, [{Line,Mod,E}|Es]) ->
-    M = {{F,Line},io_lib:format("~ts:~w: Warning: ~ts\n", [F,Line,Mod:format_error(E)])},
+    M = {{F,Line},io_lib:format("~ts:~s: Warning: ~ts\n", [F,pos(Line),Mod:format_error(E)])},
     [M|format_message(F, Es)];
 format_message(F, [{Mod,E}|Es]) ->
     M = {none,io_lib:format("~ts: Warning: ~ts\n", [F,Mod:format_error(E)])},
     [M|format_message(F, Es)];
 format_message(_, []) -> [].
 
-parse_to_dict(L) -> parse_to_dict(L, dict:new()).
+parse_to_map(L) -> parse_to_map(L, maps:new()).
 
-parse_to_dict([{function,_,Name,Arity,Clauses}|T], Dict0) ->
-    Dict = dict:store({local, Name,Arity}, Clauses, Dict0),
-    parse_to_dict(T, Dict);
-parse_to_dict([{attribute,_,import,{Mod,Funcs}}|T], Dict0) ->
-    Dict = lists:foldl(fun(I, D) ->
-                               dict:store({remote,I}, Mod, D)
-                       end, Dict0, Funcs),
-    parse_to_dict(T, Dict);
-parse_to_dict([_|T], Dict) ->
-    parse_to_dict(T, Dict);
-parse_to_dict([], Dict) ->
-    Dict.
+parse_to_map([{function,_,Name,Arity,Clauses}|T], Map0) ->
+    Map = maps:put({local, Name,Arity}, Clauses, Map0),
+    parse_to_map(T, Map);
+parse_to_map([{attribute,_,import,{Mod,Funcs}}|T], Map0) ->
+    Map = lists:foldl(fun(I, D) ->
+                              maps:put({remote,I}, Mod, D)
+                       end, Map0, Funcs),
+    parse_to_map(T, Map);
+parse_to_map([_|T], Map) ->
+    parse_to_map(T, Map);
+parse_to_map([], Map) ->
+    Map.
 
 code_handler(local, [file], _, File) ->
     File;
-code_handler(Name, Args, Dict, File) ->
-    %%io:format("code handler=~p~n",[{Name, Args}]),
+code_handler(Name, Args, Map, File) ->
+    %%io:format(standard_error, "code handler=~p~n",[{Name, Args}]),
     Arity = length(Args),
-    case dict:find({local,Name,Arity}, Dict) of
+    case maps:find({local,Name,Arity}, Map) of
         {ok, Cs} ->
-            LF = {value,fun(I, J) -> code_handler(I, J, Dict, File) end},
+            LF = {value,fun(I, J) -> code_handler(I, J, Map, File) end},
             case erl_eval:match_clause(Cs, Args,erl_eval:new_bindings(),LF) of
                 {Body, Bs} ->
                     eval_exprs(Body, Bs, LF, none, none);
@@ -854,12 +851,12 @@ code_handler(Name, Args, Dict, File) ->
                     erlang:error({function_clause,[{local,Name,Args}]})
             end;
         error ->
-            case dict:find({remote,{Name,Arity}}, Dict) of
+            case maps:find({remote,{Name,Arity}}, Map) of
                 {ok, Mod} ->
-                    %% io:format("Calling:~p~n",[{Mod,Name,Args}]),
+                    %% io:format(standard_error, "Calling:~p~n",[{Mod,Name,Args}]),
                     apply(Mod, Name, Args);
                 error ->
-                    io:format("Script does not export ~tw/~w\n", [Name,Arity]),
+                    io:format(standard_error, "Script does not export ~tw/~w\n", [Name,Arity]),
                     my_halt(127)
             end
     end.
@@ -885,14 +882,28 @@ format_exception(Class, Reason, StackTrace) ->
     erl_error:format_exception(1, Class, Reason, StackTrace, StackFun, PF, Enc).
 
 encoding() ->
-    [{encoding, Encoding}] = enc(),
-    Encoding.
-
-enc() ->
-    case lists:keyfind(encoding, 1, io:getopts()) of
-        false -> [{encoding,latin1}]; % should never happen
-        Enc -> [Enc]
+    case io:getopts() of
+        {error, _}=_Err ->
+            latin1;
+        Opts ->
+            case lists:keyfind(encoding, 1, Opts) of
+                false -> latin1;
+                {encoding, Encoding} -> Encoding
+            end
     end.
+
+put_chars(String) ->
+    try
+        io:put_chars(standard_error, String)
+    catch
+        _:_ ->
+            display_err(lists:flatten(String))
+    end.
+
+display_err(String) ->
+    Port = open_port({fd,2,2}, [out,binary]),
+    Port ! {self(), {command, list_to_binary(String)}},
+    port_close(Port).
 
 a0() ->
     anno(0).

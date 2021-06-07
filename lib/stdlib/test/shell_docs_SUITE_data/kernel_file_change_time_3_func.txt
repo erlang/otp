@@ -1,0 +1,10 @@
+
+  [;1m-spec change_time(Filename, Atime, Mtime) -> ok | {error, Reason}[0m
+  [;1m                     when[0m
+  [;1m                         Filename :: name_all(),[0m
+  [;1m                         Atime :: date_time(),[0m
+  [;1m                         Mtime :: date_time(),[0m
+  [;1m                         Reason :: posix() | badarg.[0m
+
+  Changes the modification and last access times of a file. See [;;4m[0m
+  [;;4mwrite_file_info/2[0m.

@@ -93,7 +93,7 @@
           <p>Database Management.</p>
           <list type="bulleted">
             <item><em>QLC</em> Query language support for Mnesia DBMS.</item>
-            <item><em>Mnesia</em> A heavy duty real-time distributed database.</item>
+            <item><em>Mnesia</em> A heavy-duty real-time distributed database.</item>
             <item><em>ODBC</em> ODBC database interface.</item>
           </list>
         </item>

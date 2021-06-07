@@ -97,7 +97,7 @@
   <section>
     <marker id="see_also"></marker>
     <title>SEE ALSO</title>
-    <p><seealso marker="httpd">httpd(3)</seealso></p>
+    <p><seeerl marker="httpd">httpd(3)</seeerl></p>
   </section>
   
 </erlref>

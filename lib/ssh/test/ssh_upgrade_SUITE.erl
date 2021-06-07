@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,8 +19,22 @@
 %%
 -module(ssh_upgrade_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
+
+-export([
+         major_upgrade/1,
+         minor_upgrade/1,
+         upgrade_downgraded/2,
+         upgrade_init/2,
+         upgrade_upgraded/2
+        ]).
 
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_test_lib.hrl").
@@ -61,9 +75,7 @@ init_per_suite(Config0) ->
 
 end_per_suite(Config) ->
     ct_release_test:cleanup(Config),
-    ssh:stop(),
-    UserDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:clean_rsa(UserDir).
+    ssh:stop().
 
 init_per_testcase(_TestCase, Config) ->
     Config.
@@ -149,8 +161,7 @@ setup_server_client(#state{config=Config} = State) ->
 	
     SFTP = ssh_sftpd:subsystem_spec([{root,FtpRootDir},{cwd,FtpRootDir}]),
 
-    {Server,Host,Port} = ssh_test_lib:daemon(ssh_test_lib:inet_port(), % when lower rel is 18.x
-					     [{system_dir,DataDir},
+    {Server,Host,Port} = ssh_test_lib:daemon([{system_dir,DataDir},
 					      {user_passwords,[{"hej","hopp"}]},
 					      {subsystems,[SFTP]}]),
     

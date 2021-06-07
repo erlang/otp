@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,10 +54,23 @@
 ** 2.13: 20.1 add enif_ioq
 ** 2.14: 21.0 add enif_ioq_peek_head, enif_(mutex|cond|rwlock|thread)_name
 **                enif_vfprintf, enif_vsnprintf, enif_make_map_from_arrays
+** 2.15: 22.0 ERL_NIF_SELECT_CANCEL, enif_select_(read|write)
+**            enif_term_type
+** 2.16: 24.0 enif_init_resource_type, enif_dynamic_resource_call
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 14
-#define ERL_NIF_MIN_ERTS_VERSION "erts-10.0 (OTP-21)"
+#define ERL_NIF_MINOR_VERSION 16
+
+/*
+ * WHEN CHANGING INTERFACE VERSION, also replace erts version below with
+ * a ticket number e.g. "erts-@OTP-12345@". The syntax is the same as for
+ * runtime dependencies so multiple tickets should be separated with ":", e.g.
+ * "erts-@OTP-12345:OTP-54321@".
+ *
+ * If you're not on the OTP team, you should use a placeholder like
+ * erts-@MyName@ instead.
+ */
+#define ERL_NIF_MIN_ERTS_VERSION "erts-12.0"
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -84,7 +97,7 @@ typedef ErlNapiSInt64 ErlNifSInt64;
 typedef ErlNapiUInt ErlNifUInt;
 typedef ErlNapiSInt ErlNifSInt;
 
-#  define ERL_NIF_VM_VARIANT "beam.vanilla" 
+#define ERL_NIF_VM_VARIANT "beam.vanilla"
 typedef ErlNifUInt ERL_NIF_TERM;
 
 typedef ERL_NIF_TERM ERL_NIF_UINT;
@@ -160,6 +173,10 @@ typedef int ErlNifEvent;
 #define ERL_NIF_SELECT_STOP_SCHEDULED (1 << 1)
 #define ERL_NIF_SELECT_INVALID_EVENT  (1 << 2)
 #define ERL_NIF_SELECT_FAILED         (1 << 3)
+#define ERL_NIF_SELECT_READ_CANCELLED (1 << 4)
+#define ERL_NIF_SELECT_WRITE_CANCELLED (1 << 5)
+#define ERL_NIF_SELECT_ERROR_CANCELLED (1 << 6)
+#define ERL_NIF_SELECT_NOTSUP          (1 << 7)
 
 typedef enum
 {
@@ -188,11 +205,14 @@ typedef struct enif_resource_type_t ErlNifResourceType;
 typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
 typedef void ErlNifResourceStop(ErlNifEnv*, void*, ErlNifEvent, int is_direct_call);
 typedef void ErlNifResourceDown(ErlNifEnv*, void*, ErlNifPid*, ErlNifMonitor*);
+typedef void ErlNifResourceDynCall(ErlNifEnv*, void* obj, void* call_data);
 
 typedef struct {
     ErlNifResourceDtor* dtor;
     ErlNifResourceStop* stop;  /* at ERL_NIF_SELECT_STOP event */
     ErlNifResourceDown* down;  /* enif_monitor_process */
+    int members;
+    ErlNifResourceDynCall* dyncall;
 } ErlNifResourceTypeInit;
 
 typedef ErlDrvSysInfo ErlNifSysInfo;
@@ -273,6 +293,26 @@ typedef struct erts_io_queue ErlNifIOQueue;
 typedef enum {
     ERL_NIF_IOQ_NORMAL = 1
 } ErlNifIOQueueOpts;
+
+typedef enum {
+    ERL_NIF_TERM_TYPE_ATOM = 1,
+    ERL_NIF_TERM_TYPE_BITSTRING = 2,
+    ERL_NIF_TERM_TYPE_FLOAT = 3,
+    ERL_NIF_TERM_TYPE_FUN = 4,
+    ERL_NIF_TERM_TYPE_INTEGER = 5,
+    ERL_NIF_TERM_TYPE_LIST = 6,
+    ERL_NIF_TERM_TYPE_MAP = 7,
+    ERL_NIF_TERM_TYPE_PID = 8,
+    ERL_NIF_TERM_TYPE_PORT = 9,
+    ERL_NIF_TERM_TYPE_REFERENCE = 10,
+    ERL_NIF_TERM_TYPE_TUPLE = 11,
+
+    /* This is a dummy value intended to coax the compiler into warning about
+     * unhandled values in a switch even if all the above values have been
+     * handled. We can add new entries at any time so the user must always
+     * have a default case. */
+    ERL_NIF_TERM_TYPE__MISSING_DEFAULT_CASE__READ_THE_MANUAL = -1
+} ErlNifTermType;
 
 /*
  * Return values from enif_thread_type(). Negative values

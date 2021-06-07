@@ -1,0 +1,10 @@
+
+[memory]
+
+fun:scgc_mark_reachable_objects_in_region
+fun:reverse_bits
+
+[address]
+
+fun:scgc_mark_reachable_objects_in_region
+fun:reverse_bits

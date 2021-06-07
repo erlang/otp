@@ -28,7 +28,21 @@
 %% Test cases
 -export([api/1, alarm1/1, alarm2/1, process/1]).
 -export([config/1, timeout/1, unavailable/1, port/1]).
--export([otp_5910/1]).
+-export([otp_5910/1, improved_system_memory_data/1]).
+
+
+-define(SYSTEM_MEMORY_DATA_TAGS,
+        [available_memory,
+         total_memory,
+         free_memory,
+         system_total_memory,
+         largest_free,
+         number_of_free,
+         free_swap,
+         total_swap,
+         cached_memory,
+         buffered_memory,
+         shared_memory]).
 
 init_per_suite(Config) when is_list(Config) ->
     ok = application:start(os_mon),
@@ -58,7 +72,7 @@ all() ->
               _OS -> [api, alarm1, alarm2, process]
           end,
     Bugs = [otp_5910],
-    All ++ Bugs.
+    All ++ Bugs ++ [improved_system_memory_data].
 
 
 %% Test of API functions
@@ -80,16 +94,7 @@ api(Config) when is_list(Config) ->
 
     %% get_system_memory_data()
     ExtMemData = memsup:get_system_memory_data(),
-    Tags = [total_memory,
-            free_memory,
-            system_total_memory,
-            largest_free,
-            number_of_free,
-            free_swap,
-            total_swap,
-            cached_memory,
-            buffered_memory,
-            shared_memory],
+    Tags = ?SYSTEM_MEMORY_DATA_TAGS,
 
     true = lists:all(fun({Tag,Value}) when is_atom(Tag),
                                            is_integer(Value) ->
@@ -717,6 +722,47 @@ otp_5910(Config) when is_list(Config) ->
     ok = application:start(os_mon),
     ok.
 
+improved_system_memory_data(Config) ->
+    {ok, Node} = start_node(Config),
+    ok = rpc:call(Node, application, start, [sasl]),
+    ok = rpc:call(Node, application, start, [os_mon]),
+
+    ExtMemData = rpc:call(Node, memsup, get_system_memory_data, []),
+
+    stop_node(Node),
+
+    Tags = ?SYSTEM_MEMORY_DATA_TAGS,
+    AvailableMemoryPresent
+        = lists:foldl(fun ({Tag,Value}, AMP) when is_atom(Tag),
+                                                  is_integer(Value),
+                                                  Value >= 0 ->
+                              true = lists:member(Tag, Tags),
+                              case Tag of
+                                  available_memory ->
+                                      false = AMP,
+                                      true;
+                                  _ ->
+                                      AMP
+                              end
+                      end,
+                      false,
+                      ExtMemData),
+
+    case os:type() of
+        {unix,linux} ->
+            {ok, Data} = file:read_file("/proc/meminfo"),
+            case re:run(Data, <<"MemAvailable">>) of
+                {match, _} ->
+                    true = AvailableMemoryPresent,
+                    {comment, "available_memory present in result"};
+                _ ->
+                    {comment, "No available_memory present in result"}
+            end;
+        _ ->
+            ok
+    end.
+                    
+
 %%----------------------------------------------------------------------
 %% Auxiliary
 %%----------------------------------------------------------------------
@@ -756,3 +802,20 @@ flush() ->
     after 0 ->
               ok
     end.
+
+start_node(Config) ->
+    start_node(Config, "").
+
+start_node(Config, Args) when is_list(Config) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    Name = list_to_atom(atom_to_list(?MODULE)
+			++ "-"
+			++ atom_to_list(proplists:get_value(testcase, Config))
+			++ "-"
+			++ integer_to_list(erlang:system_time(second))
+			++ "-"
+			++ integer_to_list(erlang:unique_integer([positive]))),
+    test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
+
+stop_node(Node) ->
+    test_server:stop_node(Node).

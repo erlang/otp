@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,11 +42,16 @@
       StringOrReport :: unicode:chardata() | logger:report(),
       Meta :: logger:metadata().
 log(RemoteLog) ->
-    Olp = persistent_term:get(?MODULE),
-    case logger_olp:get_pid(Olp) =:= self() of
+    Olp = persistent_term:get(?MODULE, undefined),
+    case (Olp =:= undefined) orelse (logger_olp:get_pid(Olp) =:= self()) of
         true ->
             %% This happens when the log event comes from the
             %% emulator, and the group leader is on a remote node.
+            %%
+            %% OR
+            %%
+            %% when we are to log a remote message before the logger_proxy
+            %% has started
             _ = handle_load(RemoteLog, no_state),
             ok;
         false ->
@@ -112,9 +117,12 @@ init([]) ->
 
 %% Log event to send to the node where the group leader of it's client resides
 handle_load({remote,Node,Log},State) ->
-    %% If the connection is overloaded (send_nosuspend returns false),
-    %% we drop the message.
-    _ = erlang:send_nosuspend({?SERVER,Node},Log),
+    case erlang:send({?SERVER,Node},Log,[nosuspend]) of
+        _ok_or_nosuspend ->
+            %% If the connection is overloaded (send returns nosuspend),
+            %% we drop the message.
+            ok
+    end,
     State;
 %% Log event to log on this node
 handle_load({log,Level,Format,Args,Meta},State) ->
@@ -126,7 +134,11 @@ handle_load({log,Level,Report,Meta},State) ->
 
 %% Log event sent to this process e.g. from the emulator - it is really load
 handle_info(Log,State) when is_tuple(Log), element(1,Log)==log ->
-    {load,State}.
+    {load,State};
+handle_info(_Log,State) ->
+    %% Handle stray reply messages from sync try_log, not needed after OTP-24
+    %% as then aliases will prevent late messages.
+    State.
 
 terminate(overloaded, _State) ->
     _ = erlang:system_flag(system_logger,undefined),
@@ -143,13 +155,13 @@ notify({mode_change,Mode0,Mode1},State) ->
            true ->
                 ok
         end,
-    ?LOG_INTERNAL(notice,"~w switched from ~w to ~w mode",[?MODULE,Mode0,Mode1]),
+    ?LOG_INTERNAL(notice,#{},"~w switched from ~w to ~w mode",[?MODULE,Mode0,Mode1]),
     State;
 notify({flushed,Flushed},State) ->
-    ?LOG_INTERNAL(notice, "~w flushed ~w log events",[?MODULE,Flushed]),
+    ?LOG_INTERNAL(notice,#{},"~w flushed ~w log events",[?MODULE,Flushed]),
     State;
 notify(restart,State) ->
-    ?LOG_INTERNAL(notice, "~w restarted", [?MODULE]),
+    ?LOG_INTERNAL(notice,#{},"~w restarted", [?MODULE]),
     State;
 notify(_Note,State) ->
     State.
@@ -159,7 +171,7 @@ notify(_Note,State) ->
 try_log(Args) ->
     try apply(logger,log,Args)
     catch C:R:S ->
-            ?LOG_INTERNAL(debug,[{?MODULE,log_failed},
-                                 {log,Args},
-                                 {reason,{C,R,S}}])
+            ?LOG_INTERNAL(debug,#{},[{?MODULE,log_failed},
+                                     {log,Args},
+                                     {reason,{C,R,S}}])
     end.

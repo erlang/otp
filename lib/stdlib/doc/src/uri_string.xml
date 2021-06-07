@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2017</year><year>2018</year>
+      <year>2017</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -65,24 +65,27 @@
     <p>The functions implemented by this module cover the following use cases:</p>
     <list type="bulleted">
       <item>Parsing URIs into its components and returing a map<br></br>
-      <seealso marker="#parse/1"><c>parse/1</c></seealso>
+      <seemfa marker="#parse/1"><c>parse/1</c></seemfa>
       </item>
       <item>Recomposing a map of URI components into a URI string<br></br>
-      <seealso marker="#recompose/1"><c>recompose/1</c></seealso>
+      <seemfa marker="#recompose/1"><c>recompose/1</c></seemfa>
       </item>
       <item>Changing inbound binary and percent-encoding of URIs<br></br>
-      <seealso marker="#transcode/2"><c>transcode/2</c></seealso>
+      <seemfa marker="#transcode/2"><c>transcode/2</c></seemfa>
       </item>
       <item>Transforming URIs into a normalized form<br></br>
-      <seealso marker="#normalize/1"><c>normalize/1</c></seealso><br></br>
-      <seealso marker="#normalize/2"><c>normalize/2</c></seealso>
+      <seemfa marker="#normalize/1"><c>normalize/1</c></seemfa><br></br>
+      <seemfa marker="#normalize/2"><c>normalize/2</c></seemfa>
       </item>
       <item>Composing form-urlencoded query strings from a list of key-value pairs<br></br>
-      <seealso marker="#compose_query/1"><c>compose_query/1</c></seealso><br></br>
-      <seealso marker="#compose_query/2"><c>compose_query/2</c></seealso>
+      <seemfa marker="#compose_query/1"><c>compose_query/1</c></seemfa><br></br>
+      <seemfa marker="#compose_query/2"><c>compose_query/2</c></seemfa>
       </item>
       <item>Dissecting form-urlencoded query strings into a list of key-value pairs<br></br>
-      <seealso marker="#dissect_query/1"><c>dissect_query/1</c></seealso>
+      <seemfa marker="#dissect_query/1"><c>dissect_query/1</c></seemfa>
+      </item>
+      <item>Decoding percent-encoded triplets<br></br>
+      <seemfa marker="#percent_decode/1"><c>percent_decode/1</c></seemfa>
       </item>
     </list>
     <p>There are four different encodings present during the handling of URIs:</p>
@@ -150,6 +153,21 @@
   <funcs>
 
     <func>
+      <name name="allowed_characters" arity="0" since="OTP 23.2"/>
+      <fsummary>Print allowed characters in URI components.</fsummary>
+      <desc>
+	<p>This is a utility function meant to be used in the shell for printing
+	the allowed characters in each
+	major URI component, and also in the most important characters sets.
+	Please note that this function does not replace the ABNF rules defined by
+	the standards, these character sets are derived directly from those
+	aformentioned rules. For more information see the
+	<seeguide marker="uri_string_usage#percent_encoding">Uniform Resource
+	Identifiers</seeguide> chapter in stdlib's Users Guide.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="compose_query" arity="1" since="OTP 21.0"/>
       <fsummary>Compose urlencoded query string.</fsummary>
       <desc>
@@ -161,8 +179,8 @@
 	<url href="https://www.w3.org/TR/html50/">HTML 5.0</url> specification for
 	non-UTF-8 encodings.
 	</p>
-	<p>See also the opposite operation <seealso marker="#dissect_query/1">
-	<c>dissect_query/1</c></seealso>.
+	<p>See also the opposite operation <seemfa marker="#dissect_query/1">
+	<c>dissect_query/1</c></seemfa>.
 	</p>
         <p><em>Example:</em></p>
         <pre>
@@ -194,8 +212,8 @@
 	0x61 to 0x7A, are percent-encoded (U+0025 PERCENT SIGN character (%) followed by
 	uppercase ASCII hex digits representing the hexadecimal value of the byte).
 	</p>
-	<p>See also the opposite operation <seealso marker="#dissect_query/1">
-	<c>dissect_query/1</c></seealso>.
+	<p>See also the opposite operation <seemfa marker="#dissect_query/1">
+	<c>dissect_query/1</c></seemfa>.
 	</p>
         <p><em>Example:</em></p>
         <pre>
@@ -221,8 +239,8 @@
 	<url href="https://www.w3.org/TR/html50/">HTML 5.0</url> specification for
 	non-UTF-8 encodings.
 	</p>
-	<p>See also the opposite operation <seealso marker="#compose_query/1">
-	<c>compose_query/1</c></seealso>.
+	<p>See also the opposite operation <seemfa marker="#compose_query/1">
+	<c>compose_query/1</c></seemfa>.
 	</p>
         <p><em>Example:</em></p>
         <pre>
@@ -252,7 +270,7 @@
 2> <![CDATA[uri_string:normalize(<<"mid/content=5/../6">>).]]>
 <![CDATA[<<"mid/6">>]]>
 3> uri_string:normalize("http://localhost:80").
-"https://localhost/"
+"http://localhost/"
 4> <input>uri_string:normalize(#{scheme => "http",port => 80,path => "/a/b/c/./../../g",</input>
 4> host => "localhost-örebro"}).
 "http://localhost-%C3%B6rebro/a/g"
@@ -265,7 +283,7 @@
       <fsummary>Syntax-based normalization.</fsummary>
       <desc>
 	<p>Same as <c>normalize/1</c> but with an additional
-	<c><anno>Options</anno></c> parameter, that controls if the normalized URI
+	<c><anno>Options</anno></c> parameter, that controls whether the normalized URI
 	shall be returned as an uri_map().
 	There is one supported option: <c>return_map</c>.
 	</p>
@@ -292,8 +310,8 @@
 	compliant <c>uri_string()</c> into a <c>uri_map()</c>, that holds the parsed
 	components of the <c>URI</c>.
 	If parsing fails, an error tuple is returned.</p>
-	<p>See also the opposite operation <seealso marker="#recompose/1">
-	<c>recompose/1</c></seealso>.</p>
+	<p>See also the opposite operation <seemfa marker="#recompose/1">
+	<c>recompose/1</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <pre>
 1> <input>uri_string:parse("foo://user@example.com:8042/over/there?name=ferret#nose").</input>
@@ -309,6 +327,37 @@
     </func>
 
     <func>
+      <name name="percent_decode" arity="1" since="OTP 23.2"/>
+      <fsummary>Decode percent-decode triplets in the input.</fsummary>
+      <desc>
+	<p>Decodes all percent-encoded triplets in the input that can be both a
+	<c>uri_string()</c> and a <c>uri_map()</c>. Note, that this function performs
+	raw decoding and it shall be used on already parsed URI components. Applying
+	this function directly on a standard URI can effectively change it.</p>
+	<p>If the input encoding is not UTF-8, an error tuple is returned.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>uri_string:percent_decode(#{host => "localhost-%C3%B6rebro",path => [],</input>
+1> <input>scheme => "http"}).</input>
+#{host => "localhost-örebro",path => [],scheme => "http"}
+2> <![CDATA[uri_string:percent_decode(<<"%C3%B6rebro">>).]]>
+<![CDATA[<<"örebro"/utf8>>]]>
+	</pre>
+	<warning><p>
+	Using <c>uri_string:percent_decode/1</c> directly on a URI is not safe. This
+	example shows, that after each consecutive application of the function
+	the resulting URI will be changed. None of these URIs refer to the same
+        resource.</p>
+	<pre>
+<![CDATA[3> uri_string:percent_decode(<<"http://local%252Fhost/path">>).
+<<"http://local%2Fhost/path">>
+4> uri_string:percent_decode(<<"http://local%2Fhost/path">>).
+<<"http://local/host/path">>]]>
+        </pre></warning>
+      </desc>
+    </func>
+
+    <func>
       <name name="recompose" arity="1" since="OTP 21.0"/>
       <fsummary>Recompose URI.</fsummary>
       <desc>
@@ -316,18 +365,59 @@
 	<c><anno>URIString</anno></c> (percent-encoded), based on the components of
 	<c><anno>URIMap</anno></c>.
 	If the <c><anno>URIMap</anno></c> is invalid, an error tuple is returned.</p>
-	<p>See also the opposite operation <seealso marker="#parse/1">
-	<c>parse/1</c></seealso>.</p>
+	<p>See also the opposite operation <seemfa marker="#parse/1">
+	<c>parse/1</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <pre>
 1> <input>URIMap = #{fragment => "nose", host => "example.com", path => "/over/there",</input>
 1> port => 8042, query => "name=ferret", scheme => "foo", userinfo => "user"}.
-#{fragment => "top",host => "example.com",
-  path => "/over/there",port => 8042,query => "?name=ferret",
-  scheme => foo,userinfo => "user"}
+#{fragment => "nose",host => "example.com",
+  path => "/over/there",port => 8042,query => "name=ferret",
+  scheme => "foo",userinfo => "user"}
 
 2> <input>uri_string:recompose(URIMap).</input>
 "foo://example.com:8042/over/there?name=ferret#nose"</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="resolve" arity="2" since="OTP 22.3"/>
+      <fsummary>Relative resolution.</fsummary>
+      <desc>
+        <p>Convert a <c><anno>RefURI</anno></c> reference that might be relative
+	to a given base URI into the parsed components of the reference's target,
+	which can then be recomposed to form the target URI.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>uri_string:resolve("/abs/ol/ute", "http://localhost/a/b/c?q").</input>
+"http://localhost/abs/ol/ute"
+2> uri_string:resolve("../relative", "http://localhost/a/b/c?q").
+"http://localhost/a/relative"
+3> uri_string:resolve("http://localhost/full", "http://localhost/a/b/c?q").
+"http://localhost/full"
+4> uri_string:resolve(#{path => "path", query => "xyz"}, "http://localhost/a/b/c?q").
+"http://localhost/a/b/path?xyz"
+	</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="resolve" arity="3" since="OTP 22.3"/>
+      <fsummary>Relative resolution.</fsummary>
+      <desc>
+	<p>Same as <c>resolve/2</c> but with an additional
+	<c><anno>Options</anno></c> parameter, that controls whether the target URI
+	shall be returned as an uri_map().
+	There is one supported option: <c>return_map</c>.
+	</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>uri_string:resolve("/abs/ol/ute", "http://localhost/a/b/c?q", [return_map]).</input>
+#{host => "localhost",path => "/abs/ol/ute",scheme => "http"}
+2> uri_string:resolve(#{path => "/abs/ol/ute"}, #{scheme => "http",
+2> host => "localhost", path => "/a/b/c?q"}, [return_map]).
+#{host => "localhost",path => "/abs/ol/ute",scheme => "http"}
+	</pre>
       </desc>
     </func>
 

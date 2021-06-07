@@ -42,7 +42,7 @@
         <c><![CDATA[ERTS]]></c> itself.</p>
       <p>For information on how to communicate with Erlang/OTP components
         from earlier releases, see the documentation of system flag
-        <seealso marker="erl#compat_rel"><c>+R</c></seealso> in <c>erl(1)</c>.
+        <seecom marker="erl#compat_rel"><c>+R</c></seecom> in <c>erl(1)</c>.
       </p>
     </note>
   </section>

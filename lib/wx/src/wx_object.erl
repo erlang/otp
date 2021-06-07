@@ -117,11 +117,15 @@
 	 start_link/3, start_link/4,
 	 stop/1, stop/3,
 	 call/2, call/3,
+         send_request/2, wait_response/1, wait_response/2, check_response/2,
 	 cast/2,
 	 reply/2,
 	 get_pid/1,
 	 set_pid/2
 	]).
+
+-type request_id() :: term().
+-type server_ref() :: Obj::wx:wx_object()|atom()|pid().
 
 %% -export([behaviour_info/1]).
 -callback init(Args :: term()) ->
@@ -316,6 +320,34 @@ call(Name, Request, Timeout) when is_atom(Name) orelse is_pid(Name) ->
     catch _:Reason ->
             erlang:error({Reason, {?MODULE, call, [Name, Request, Timeout]}})
     end.
+
+%% @doc Make an send_request to a generic server.
+%% and return a RequestId which can/should be used with wait_response/[1|2].
+%% Invokes handle_call(Request, From, State) in server.
+-spec send_request(Obj, Request::term()) -> request_id() when
+      Obj::wx:wx_object()|atom()|pid().
+send_request(#wx_ref{state=Pid}, Request) ->
+    gen:send_request(Pid, '$gen_call', Request);
+send_request(Pid, Request) when is_atom(Pid) orelse is_pid(Pid) ->
+    gen:send_request(Pid, '$gen_call', Request).
+
+%% @doc Wait infinitely for a reply from a generic server.
+-spec wait_response(RequestId::request_id()) ->
+        {reply, Reply::term()} | {error, {term(), server_ref()}}.
+wait_response(RequestId) ->
+    gen:wait_response(RequestId, infinity).
+
+%% @doc Wait 'timeout' for a reply from a generic server.
+-spec wait_response(Key::request_id(), timeout()) ->
+        {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
+wait_response(RequestId, Timeout) ->
+    gen:wait_response(RequestId, Timeout).
+
+%% @doc Check if a received message was a reply to a RequestId
+-spec check_response(Msg::term(), Key::request_id()) ->
+        {reply, Reply::term()} | 'false' | {error, {term(), server_ref()}}.
+check_response(Msg, RequestId) ->
+    gen:check_response(Msg, RequestId).
 
 %% @doc Make a cast to a wx_object server.
 %% Invokes handle_cast(Request, State) in the server
@@ -670,28 +702,38 @@ dbg_opts(Name, Opts) ->
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time]] = StatusData,
-    StatusHdr = "Status for wx object ",
-    Header = if
-		 is_pid(Name) ->
-		     lists:concat([StatusHdr, pid_to_list(Name)]);
-		 is_atom(Name); is_list(Name) ->
-		     lists:concat([StatusHdr, Name]);
-		 true ->
-		     {StatusHdr, Name}
-	     end,
-    Log = sys:get_debug(log, Debug, []),
-    Specfic = 
-	case erlang:function_exported(Mod, format_status, 2) of
-	    true ->
-		case catch Mod:format_status(Opt, [PDict, State]) of
-		    {'EXIT', _} -> [{data, [{"State", State}]}];
-		    Else -> Else
-		end;
-	    _ ->
-		[{data, [{"State", State}]}]
-	end,
+    Header = gen:format_status_header("Status for wx object ", Name),
+    Log = sys:get_log(Debug),
+    Specific = case format_status(Opt, Mod, PDict, State) of
+                   S when is_list(S) -> S;
+                   S -> [S]
+               end,
     [{header, Header},
      {data, [{"Status", SysState},
 	     {"Parent", Parent},
-	     {"Logged events", Log}]} |
-     Specfic].
+	     {"Logged events", format_log_state(Mod, Log)}]} |
+     Specific].
+
+format_log_state(Mod, Log) ->
+    [case Event of
+         {out,Msg,From,State} ->
+             {out,Msg,From,format_status(terminate, Mod, get(), State)};
+         {noreply,State} ->
+             {noreply,format_status(terminate, Mod, get(), State)};
+         _ -> Event
+     end || Event <- Log].
+
+format_status(Opt, Mod, PDict, State) ->
+    DefStatus = case Opt of
+		    terminate -> State;
+		    _ -> [{data, [{"State", State}]}]
+		end,
+    case erlang:function_exported(Mod, format_status, 2) of
+	true ->
+	    case catch Mod:format_status(Opt, [PDict, State]) of
+		{'EXIT', _} -> DefStatus;
+		Else -> Else
+	    end;
+	_ ->
+	    DefStatus
+    end.

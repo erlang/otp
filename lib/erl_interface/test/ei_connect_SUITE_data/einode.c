@@ -21,6 +21,7 @@
 /* to test multiple threads in ei */
 
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 
 #ifdef __WIN32__
@@ -28,20 +29,12 @@
 #include <windows.h>
 #include <process.h>
 #else
-#ifndef VXWORKS
 #include <pthread.h>
-#endif
 #include <sys/socket.h>
+#include <unistd.h>
 #endif
 
 #include "ei.h"
-#include "erl_interface.h"
-
-#ifdef VXWORKS
-#define MAIN cnode
-#else
-#define MAIN main
-#endif
 
 /*
    A small einode.
@@ -102,35 +95,28 @@ static void*
     return 0;
 }
 
-MAIN(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     int i, n, no_threads;
-#ifndef VXWORKS
 #ifdef __WIN32__
     HANDLE threads[100];
 #else
     pthread_t threads[100];
 #endif
-#endif
 
     if (argc < 3)
 	exit(1);
 
-    erl_init(NULL, 0);
+    ei_init();
 
     cookie = argv[1];
     n = atoi(argv[2]);
     if (n > 100)
 	exit(2);
     desthost = argv[3];
-#ifndef VXWORKS
     no_threads = argv[4] != NULL && strcmp(argv[4], "nothreads") == 0;
-#else
-    no_threads = 1;
-#endif
     for (i = 0; i < n; ++i) {
 	if (!no_threads) {
-#ifndef VXWORKS
 #ifdef __WIN32__
 	    unsigned tid;
 	    threads[i] = (HANDLE)_beginthreadex(NULL, 0, einode_thread,
@@ -138,14 +124,10 @@ MAIN(int argc, char *argv[])
 #else
 	    pthread_create(&threads[i], NULL, einode_thread, (void*)i);
 #endif
-#else
-	    ;
-#endif
 	} else
 	    einode_thread((void*)i);
     }
     if (!no_threads)
-#ifndef VXWORKS
 	for (i = 0; i < n; ++i) {
 #ifdef __WIN32__
 	    if (WaitForSingleObject(threads[i], INFINITE) != WAIT_OBJECT_0)
@@ -154,9 +136,6 @@ MAIN(int argc, char *argv[])
 #endif
 		printf("bad wait thread %d\n", i);
 	}
-#else
-	    ;
-#endif
     printf("ok\n");
     return 0;
 }

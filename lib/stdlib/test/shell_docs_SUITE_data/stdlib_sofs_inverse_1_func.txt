@@ -1,0 +1,12 @@
+
+  [;1m-spec inverse(Function1) -> Function2[0m
+  [;1m                 when[0m
+  [;1m                     Function1 :: a_function(),[0m
+  [;1m                     Function2 :: a_function().[0m
+
+  Returns the inverse of function [;;4mFunction1[0m.
+
+    1> R1 = sofs:relation([{1,a},{2,b},{3,c}]),
+    R2 = sofs:inverse(R1),
+    sofs:to_external(R2).
+    [{a,1},{b,2},{c,3}]

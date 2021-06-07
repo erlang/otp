@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@
 	 stop/1, 
 	 send_discovery_pdu/2, 
 	 send_pdu/2, send_msg/4, send_bytes/2,
-	 error/2,
 	 get_pdu/1, set_pdu/2, format_hdr/1]).
 
 %% internal exports
@@ -38,11 +37,14 @@
 
 -define(SNMP_USE_V3, true).
 -include_lib("snmp/include/snmp_types.hrl").
+-include_lib("snmp/src/misc/snmp_verbosity.hrl").
+-include("snmp_test_lib.hrl").
 
 
 %%----------------------------------------------------------------------
 %% The InHandler process will receive messages on the form {snmp_pdu, Pdu}.
 %%----------------------------------------------------------------------
+
 start_link_packet(
   InHandler, AgentIp, UdpPort, TrapUdp, VsnHdr, Version, Dir, BufSz) ->
     start_link_packet(
@@ -59,9 +61,29 @@ start_link_packet(
 start_link_packet(
   InHandler, AgentIp, UdpPort, TrapUdp, VsnHdr, Version, Dir, BufSz,
   Dbg, IpFamily) when is_integer(UdpPort) ->
+    do_start_link_packet(InHandler,
+                         AgentIp, UdpPort, TrapUdp,
+                         VsnHdr, Version, Dir, BufSz,
+                         Dbg, IpFamily);
+start_link_packet(InHandler,
+                  AgentIp, {AReqPort, ATrapPort} = UdpPorts, TrapUdp,
+                  VsnHdr, Version, Dir, BufSz,
+                  Dbg, IpFamily) when is_integer(AReqPort) andalso
+                                      is_integer(ATrapPort) ->
+    do_start_link_packet(InHandler,
+                         AgentIp, UdpPorts, TrapUdp,
+                         VsnHdr, Version, Dir, BufSz,
+                         Dbg, IpFamily).
+
+do_start_link_packet(InHandler,
+                     AgentIp, UdpPorts, TrapUdp,
+                     VsnHdr, Version, Dir, BufSz,
+                     Dbg, IpFamily) ->
     Args =
 	[self(),
-	 InHandler, AgentIp, UdpPort, TrapUdp,  VsnHdr, Version, Dir, BufSz,
+	 InHandler,
+         AgentIp, UdpPorts, TrapUdp,
+         VsnHdr, Version, Dir, BufSz,
 	 Dbg, IpFamily],
     proc_lib:start_link(?MODULE, init_packet, Args).
 
@@ -97,16 +119,24 @@ send_bytes(Bytes, PacketPid) ->
 %%--------------------------------------------------
 init_packet(
   Parent,
-  SnmpMgr, AgentIp, UdpPort, TrapUdp, VsnHdr, Version, Dir, BufSz,
+  SnmpMgr, AgentIp, UdpPorts, TrapUdp, VsnHdr, Version, Dir, BufSz,
   DbgOptions, IpFamily) ->
+    %% This causes "verbosity printouts" to print (from the
+    %% specified level) in the modules we "borrow" from the
+    %% agent code (burr,,,).
+    %% With "our" name (mgr_misc).
     put(sname, mgr_misc),
     init_debug(DbgOptions),
-    {ok, UdpId} =
-	gen_udp:open(TrapUdp, [{recbuf,BufSz}, {reuseaddr, true}, IpFamily]),
+    %% Make use of the "test name" print "feature"
+    put(tname, "MGR-MISC"),
+    ?IPRINT("starting"),
+    UdpOpts     = [{recbuf,BufSz}, {reuseaddr, true}, IpFamily],
+    {ok, UdpId} = gen_udp:open(TrapUdp, UdpOpts),
     put(msg_id, 1),
-    proc_lib:init_ack(Parent, self()),
     init_usm(Version, Dir),
-    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, []).
+    proc_lib:init_ack(Parent, self()),
+    ?IPRINT("started"),
+    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version, []).
 
 init_debug(Dbg) when is_atom(Dbg) ->
     put(debug,Dbg),
@@ -128,7 +158,7 @@ init_debug(DbgOptions) when is_list(DbgOptions) ->
     ok.
 
 
-packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, MsgData) ->
+packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version, MsgData) ->
     receive
 	{send_discovery_pdu, From, Pdu} ->
 	    d("packet_loop -> received send_discovery_pdu with"
@@ -140,9 +170,10 @@ packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, MsgData) ->
 		{M, B} when is_list(B) -> 
 		    put(discovery, {M, From}),
 		    display_outgoing_message(M),
-		    udp_send(UdpId, AgentIp, UdpPort, B)
+                    Port = select_request_port(UdpPorts),
+		    udp_send(UdpId, AgentIp, Port, B)
 	    end,
-	    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, []);
+	    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version, []);
 
 	{send_pdu, Pdu} ->
 	    d("packet_loop -> received send_pdu with"
@@ -150,10 +181,11 @@ packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, MsgData) ->
 	    case mk_msg(Version, Pdu, VsnHdr, MsgData) of
 		error ->
 		    ok;
-		B when is_list(B) -> 
-		    udp_send(UdpId, AgentIp, UdpPort, B)
+		B when is_list(B) ->
+                    Port = select_request_port(UdpPorts),
+		    udp_send(UdpId, AgentIp, Port, B)
 	    end,
-	    packet_loop(SnmpMgr,UdpId,AgentIp,UdpPort,VsnHdr,Version,[]);
+	    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version, []);
 
 	{send_msg, Msg, Ip, Udp} ->
 	    d("packet_loop -> received send_msg with"
@@ -162,124 +194,96 @@ packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, MsgData) ->
 	      "~n   Udp:  ~p", [Msg,Ip,Udp]),
 	    case catch snmp_pdus:enc_message(Msg) of
 		{'EXIT', Reason} ->
-		    error("Encoding error:"
-			  "~n   Msg:    ~w"
-			  "~n   Reason: ~w",[Msg, Reason]);
+		    ?EPRINT("Encoding error:"
+                            "~n   Msg:    ~w"
+                            "~n   Reason: ~w",[Msg, Reason]);
 		B when is_list(B) -> 
 		    udp_send(UdpId, Ip, Udp, B)
 	    end,
-	    packet_loop(SnmpMgr,UdpId,AgentIp,UdpPort,VsnHdr,Version,[]);
-	{udp, UdpId, Ip, UdpPort, Bytes} ->
+	    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version, []);
+
+	{udp, UdpId, Ip, Port, Bytes} ->
 	    d("packet_loop -> received udp with"
 	      "~n   UdpId:     ~p"
 	      "~n   Ip:        ~p"
-	      "~n   UdpPort:   ~p"
-	      "~n   sz(Bytes): ~p", [UdpId, Ip, UdpPort, sz(Bytes)]),	    
+	      "~n   Port:      ~p (~p)"
+	      "~n   sz(Bytes): ~p", [UdpId, Ip, Port, UdpPorts, sz(Bytes)]),
+            case UdpPorts of
+                Port ->
+                    ok;
+                {Port, _} -> % Should be a (request) response
+                    ok;
+                {_, Port} -> % Should be a trap
+                    ok;
+                _ ->
+                    d("packet_loop -> received packet from unknown port"
+                      "~n   ~p", [Port]),
+                    exit({snmp_packet_from_unknown_port, Port, UdpPorts})
+            end,
 	    MsgData3 = handle_udp_packet(Version, erase(discovery),
-					 UdpId, Ip, UdpPort, Bytes,
+					 UdpId, Ip, Port, Bytes,
 					 SnmpMgr, AgentIp),
-	    packet_loop(SnmpMgr,UdpId,AgentIp,UdpPort,VsnHdr,Version,
+	    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version,
 			MsgData3);
+
+        {udp_error, UdpId, Reason} ->
+	    gen_udp:close(UdpId),
+	    exit({udp_error, Reason});
+
 	{send_bytes, B} ->
 	    d("packet_loop -> received send_bytes with"
-	      "~n   sz(B): ~p", [sz(B)]),	    
-	    udp_send(UdpId, AgentIp, UdpPort, B),
-	    packet_loop(SnmpMgr,UdpId,AgentIp,UdpPort,VsnHdr,Version,[]);
+	      "~n   sz(B): ~p", [sz(B)]),
+            Port = select_request_port(UdpPorts),
+	    udp_send(UdpId, AgentIp, Port, B),
+	    packet_loop(SnmpMgr, UdpId, AgentIp, UdpPorts, VsnHdr, Version, []);
+
 	{stop, Pid} ->
 	    d("packet_loop -> received stop from ~p", [Pid]),	    
 	    gen_udp:close(UdpId),
 	    Pid ! {self(), stopped},
 	    exit(normal);
+
 	Other ->
 	    d("packet_loop -> received unknown"
 	      "~n   ~p", [Other]),	    
 	    exit({snmp_packet_got_other, Other})
     end.
 
+select_request_port({Port, _}) when is_integer(Port) ->
+    Port;
+select_request_port(Port) when is_integer(Port) ->
+    Port.
+
+%% select_trap_port({_, Port}) when is_integer(Port) ->
+%%     Port;
+%% select_trap_port(Port) when is_integer(Port) ->
+%%     Port.
 
 handle_udp_packet(_V, undefined, 
 		  UdpId, Ip, UdpPort,
 		  Bytes, SnmpMgr, AgentIp) ->
-    M = (catch snmp_pdus:dec_message_only(Bytes)),
-    MsgData3 =
-	case M of
-	    Message when Message#message.version =:= 'version-3' ->
-		d("handle_udp_packet -> version 3"),
-		case catch handle_v3_msg(Bytes, Message) of
-		    {ok, NewData, MsgData2} ->
-			Msg = Message#message{data = NewData},
-			case SnmpMgr of
-			    {pdu, Pid} ->
-				Pdu = get_pdu(Msg), 
-				d("packet_loop -> "
-				  "send pdu to manager (~w): ~p", [Pid, Pdu]),
-				Pid ! {snmp_pdu, Pdu};
-			    {msg, Pid} ->
-				d("packet_loop -> "
-				  "send msg to manager (~w): ~p", [Pid, Msg]),
-				Pid ! {snmp_msg, Msg, Ip, UdpPort}
-			end,
-			MsgData2;
-		    {error, Reason, B} ->
-			udp_send(UdpId, AgentIp, UdpPort, B),
-			error("Decoding error. Auto-sending Report.\n"
-			      "Reason: ~w "
-			      "(UDPport: ~w, Ip: ~w)",
-			      [Reason, UdpPort, Ip]),
-			[];
-		    {error, Reason} ->
-			error("Decoding error. "
-				      "Bytes: ~w ~n Reason: ~w "
-			      "(UDPport: ~w, Ip: ~w)",
-			      [Bytes, Reason, UdpPort, Ip]),
-			[]
-		end;
-	    Message when is_record(Message, message) ->
-		%% v1 or v2c
-		d("handle_udp_packet -> version v1 or v2c"),
-		case catch snmp_pdus:dec_pdu(Message#message.data) of
-		    Pdu when is_record(Pdu, pdu) ->
-			case SnmpMgr of
-			    {pdu, Pid} ->
-				d("handle_udp_packet -> "
-				  "send pdu to manager (~w): ~p", 
-				  [Pid, Pdu]),
-				Pid ! {snmp_pdu, Pdu};
-			    {msg, Pid} ->
-				d("handle_udp_packet -> "
-				  "send pdu-msg to manager (~w):  ~p", 
-				  [Pid, Pdu]),
-				Msg = Message#message{data = Pdu},
-				Pid ! {snmp_msg, Msg, Ip, UdpPort}
-			end;
-		    Pdu when is_record(Pdu, trappdu) ->
-			case SnmpMgr of
-			    {pdu, Pid} ->
-				d("handle_udp_packet -> "
-				  "send trap to manager (~w): ~p", 
-				  [Pid, Pdu]),
-				Pid ! {snmp_pdu, Pdu};
-			    {msg, Pid} ->
-				d("handle_udp_packet -> "
-				  "send trap-msg to manager (~w): ~p", 
-				  [Pid, Pdu]),
-				Msg = Message#message{data = Pdu},
-				Pid ! {snmp_msg, Msg, Ip, UdpPort}
-			end;
-		    Reason ->
-			error("Decoding error. "
-			      "Bytes: ~w ~n Reason: ~w "
-			      "(UDPport: ~w, Ip: ~w)",
-			      [Bytes, Reason, UdpPort, Ip])
-		end,
-		[];
-	    Reason ->
-		error("Decoding error. Bytes: ~w ~n Reason: ~w "
-		      "(UDPport: ~w, Ip: ~w)",
-		      [Bytes, Reason, UdpPort, Ip]),
-		[]
-	end,
-    MsgData3;
+    try snmp_pdus:dec_message_only(Bytes) of
+        Message when Message#message.version =:= 'version-3' ->
+            d("handle_udp_packet -> version 3"),
+            handle_v3_message(SnmpMgr, UdpId, Ip, UdpPort, AgentIp,
+                              Bytes, Message);
+
+        Message when is_record(Message, message) ->
+            d("handle_udp_packet -> version 1 or 2"),
+            handle_v1_or_v2_message(SnmpMgr, UdpId, Ip, UdpPort, AgentIp,
+                                    Bytes, Message)
+
+    catch
+        Class:Error:_ ->
+            ?EPRINT("Decoding error: "
+                    "~n   Class: ~w"
+                    "~n   Error: ~p"
+                    "~n   Bytes: ~p"
+                    "~n   Port:  ~w"
+                    "~n   Ip:    ~p)",
+                    [Class, Error, Bytes, UdpPort, Ip]),
+            []
+    end;
 handle_udp_packet(V, {DiscoReqMsg, From}, _UdpId, _Ip, _UdpPort, 
 		  Bytes, _, _AgentIp) ->
     DiscoRspMsg = (catch snmp_pdus:dec_message(Bytes)),
@@ -295,6 +299,94 @@ handle_udp_packet(V, {DiscoReqMsg, From}, _UdpId, _Ip, _UdpPort,
 	Error ->
 	    From ! {discovery_response, Error},
 	    []
+    end.
+
+handle_v3_message(Mgr, UdpId, Ip, UdpPort, AgentIp,
+                  Bytes, Message) ->
+    try handle_v3_msg(Bytes, Message) of
+        {ok, NewData, MsgData} ->
+            Msg = Message#message{data = NewData},
+            case Mgr of
+                {pdu, Pid} ->
+                    Pdu = get_pdu(Msg), 
+                    d("handle_v3_message -> send pdu to manager (~p): "
+                      "~n   ~p", [Pid, Pdu]),
+                    Pid ! {snmp_pdu, Pdu};
+                {msg, Pid} ->
+                    d("handle_v3_message -> send msg to manager (~p): "
+                      "~n   ~p", [Pid, Msg]),
+                    Pid ! {snmp_msg, Msg, Ip, UdpPort}
+            end,
+            MsgData
+
+        catch
+            throw:{error, Reason, B}:_ ->
+                udp_send(UdpId, AgentIp, UdpPort, B),
+                ?EPRINT("Decoding (v3) error - Auto-sending Report:"
+                        "~n   Reason: ~p"
+                        "~n   Port:   ~p"
+                        "~n   Ip:     ~p",
+                        [Reason, UdpPort, Ip]),
+                [];
+
+            throw:{error, Reason}:_ ->
+                ?EPRINT("Decoding (v3) error:"
+                        "~n   Reason: ~p"
+                        "~n   Bytes:  ~p"
+                        "~n   Port:   ~p"
+                        "~n   Ip:     ~p",
+                        [Reason, Bytes, UdpPort, Ip]),
+                [];
+
+            Class:Error:_ ->
+                ?EPRINT("Decoding (v3) error:"
+                        "~n   Class: ~p"
+                        "~n   Error: ~p"
+                        "~n   Bytes: ~p"
+                        "~n   Port:  ~p"
+                        "~n   Ip:    ~p",
+                        [Class, Error, Bytes, UdpPort, Ip]),
+                []
+
+    end.
+
+handle_v1_or_v2_message(Mgr, _UdpId, Ip, UdpPort, _AgentIp,
+                        Bytes, Message) ->
+    try snmp_pdus:dec_pdu(Message#message.data) of
+        Pdu when is_record(Pdu, pdu) ->
+            case Mgr of
+                {pdu, Pid} ->
+                    d("handle_v1_or_v2_message -> send pdu to manager (~p): "
+                      "~n   ~p", [Pid, Pdu]),
+                    Pid ! {snmp_pdu, Pdu};
+                {msg, Pid} ->
+                    d("handle_v1_or_v2_message -> send msg to manager (~p): "
+                      "~n   ~p", [Pid, Pdu]),
+                    Msg = Message#message{data = Pdu},
+                    Pid ! {snmp_msg, Msg, Ip, UdpPort}
+            end;
+        Pdu when is_record(Pdu, trappdu) ->
+            case Mgr of
+                {pdu, Pid} ->
+                    d("handle_v1_or_v2_message -> send trap-pdu to manager (~p): "
+                      "~n   ~p", [Pid, Pdu]),
+                    Pid ! {snmp_pdu, Pdu};
+                {msg, Pid} ->
+                    d("handle_v1_or_v2_message -> send trap-msg to manager (~p): "
+                      "~n   ~p", [Pid, Pdu]),
+                    Msg = Message#message{data = Pdu},
+                    Pid ! {snmp_msg, Msg, Ip, UdpPort}
+            end
+
+    catch
+        Class:Error:_ ->
+            ?EPRINT("Decoding (v1 or v2) error: "
+                    "~n   Class: ~p"
+                    "~n   Error: ~p "
+                    "~n   Bytes: ~p"
+                    "~n   Port:  ~p"
+                    "~n   Ip:    ~p",
+                    [Class, Error, Bytes, UdpPort, Ip])
     end.
 
 
@@ -427,12 +519,6 @@ generate_v3_report_msg(_MsgID, _MsgSecurityModel, Data, ErrorInfo) ->
 	   undefined).
 
 
-error(Format, Data) ->
-    io:format("*** Error ***~n"),
-    ok = io:format(Format, Data),
-    io:format("~n").
-
-
 mk_discovery_msg('version-3', Pdu, _VsnHdr, UserName) ->
     ScopedPDU = #scopedPdu{contextEngineID = "",
 			   contextName     = "",
@@ -457,9 +543,9 @@ mk_discovery_msg('version-3', Pdu, _VsnHdr, UserName) ->
     Msg = #message{version = 'version-3', vsn_hdr = Hdr, data = Bytes},
     case (catch snmp_pdus:enc_message_only(Msg)) of
 	{'EXIT', Reason} ->
-	    error("Discovery encoding error: "
-		  "~n   Pdu:    ~w"
-		  "~n   Reason: ~w",[Pdu, Reason]),
+	    ?EPRINT("Discovery encoding error: "
+                    "~n   Pdu:    ~p"
+                    "~n   Reason: ~p", [Pdu, Reason]),
 	    error;
 	L when is_list(L) ->
 	    {Msg#message{data = ScopedPDU}, L}
@@ -468,9 +554,9 @@ mk_discovery_msg(Version, Pdu, {Com, _, _, _, _}, _UserName) ->
     Msg = #message{version = Version, vsn_hdr = Com, data = Pdu},
     case catch snmp_pdus:enc_message(Msg) of
 	{'EXIT', Reason} ->
-	    error("Discovery encoding error:"
-		  "~n   Pdu:    ~w"
-		  "~n   Reason: ~w",[Pdu, Reason]),
+	    ?EPRINT("Discovery encoding error:"
+                    "~n   Pdu:    ~p"
+                    "~n   Reason: ~p", [Pdu, Reason]),
 	    error;
 	L when is_list(L) -> 
 	    {Msg, L}
@@ -516,14 +602,14 @@ mk_msg('version-3', Pdu, {Context, User, EngineID, CtxEngineId, SecLevel},
     case catch snmpa_usm:generate_outgoing_msg(Message, SecEngineID,
 					       SecName, SecData, SecLevel) of
 	{'EXIT', Reason} ->
-	    error("version-3 message encoding exit"
-		  "~n   Pdu:    ~w"
-		  "~n   Reason: ~w",[Pdu, Reason]),
+	    ?EPRINT("version-3 message encoding exit"
+                    "~n   Pdu:    ~p"
+                    "~n   Reason: ~p", [Pdu, Reason]),
 	    error;
 	{error, Reason} ->
-	    error("version-3 message encoding error"
-		  "~n   Pdu:    ~w"
-		  "~n   Reason: ~w",[Pdu, Reason]),
+	    ?EPRINT("version-3 message encoding error"
+                    "~n   Pdu:    ~p"
+                    "~n   Reason: ~p", [Pdu, Reason]),
 	    error;
 	Packet ->
 	    Packet
@@ -532,9 +618,9 @@ mk_msg(Version, Pdu, {Com, _User, _EngineID, _Ctx, _SecLevel}, _SecData) ->
     Msg = #message{version = Version, vsn_hdr = Com, data = Pdu},
     case catch snmp_pdus:enc_message(Msg) of
 	{'EXIT', Reason} ->
-	    error("~w encoding error"
-		  "~n   Pdu:    ~w"
-		  "~n   Reason: ~w",[Version, Pdu, Reason]),
+	    ?EPRINT("~w encoding error"
+                    "~n   Pdu:    ~p"
+                    "~n   Reason: ~p", [Version, Pdu, Reason]),
 	    error;
 	B when is_list(B) -> 
 	    B
@@ -553,13 +639,16 @@ vsn('version-2') -> v2c.
 
 
 udp_send(UdpId, AgentIp, UdpPort, B) ->
+    ?vlog("attempt send message (~w bytes) to ~p", [sz(B), {AgentIp, UdpPort}]),
     case (catch gen_udp:send(UdpId, AgentIp, UdpPort, B)) of
-	{error,ErrorReason} ->
-	    error("failed (error) sending message to ~p:~p: "
-		  "~n   ~p",[AgentIp, UdpPort, ErrorReason]);
-	{'EXIT',ExitReason} ->
-	    error("failed (exit) sending message to ~p:~p:"
-		  "~n   ~p",[AgentIp, UdpPort, ExitReason]);
+	{error, ErrorReason} ->
+	    ?EPRINT("failed (error) sending message to ~p:~p: "
+		  "~n   ~p",[AgentIp, UdpPort, ErrorReason]),
+            error;
+	{'EXIT', ExitReason} ->
+	    ?EPRINT("failed (exit) sending message to ~p:~p:"
+                    "~n   ~p",[AgentIp, UdpPort, ExitReason]),
+            error;
 	_ ->
 	    ok
     end.
@@ -577,18 +666,109 @@ set_pdu(Msg, RePdu) ->
     Msg#message{data = RePdu}.
 
 
+%% Disgustingly, we borrow stuff from the agent, including the
+%% local-db. Also, disgustingly, the local-db may actually not
+%% have died yet. But since we actually *need* a clean local-db,
+%% we must make sure its dead before we try to start the new
+%% instance...
 init_usm('version-3', Dir) ->
+    ?IPRINT("init_usm -> create (and init) fake \"agent\" table", []),
     ets:new(snmp_agent_table, [set, public, named_table]),
     ets:insert(snmp_agent_table, {agent_mib_storage, persistent}),
-    snmpa_local_db:start_link(normal, Dir, [{verbosity,trace}]),
+    %% The local-db process may *still* be running (from a previous
+    %% test case), on the way down, but not yet dead.
+    %% Either way, before we try to start it, make sure its old instance
+    %% dead and *gone*!
+    %% How do we do that without getting hung up? Calling the stop
+    %% function, will not do since it uses Timeout=infinity.
+    ?IPRINT("init_usm -> ensure (old) fake local-db is dead", []),
+    ensure_local_db_dead(),
+    ?IPRINT("init_usm -> try start fake local-db", []),
+    case snmpa_local_db:start_link(normal, Dir,
+                                   [{sname,     "MGR-LOCAL-DB"},
+                                    {verbosity, trace}]) of
+        {ok, Pid} ->
+            ?IPRINT("init_usm -> local-db started: ~p"
+                    "~n   ~p", [Pid, process_info(Pid)]);
+        {error, {already_started, Pid}} ->
+            LDBInfo = process_info(Pid),
+            ?EPRINT("init_usm -> local-db already started: ~p"
+                    "~n   ~p", [Pid, LDBInfo]),
+            ?FAIL({still_running, snmpa_local_db, LDBInfo});
+        {error, Reason} ->
+            ?EPRINT("init_usm -> failed start local-db: "
+                    "~n   ~p", [Reason]),
+            ?FAIL({failed_starting, snmpa_local_db, Reason})
+    end,
     NameDb = snmpa_agent:db(snmpEngineID),
+    ?IPRINT("init_usm -> try set manager engine-id"),
     R = snmp_generic:variable_set(NameDb, "mgrEngine"),
-    io:format("~w:init_usm -> engine-id set result: ~p~n", [?MODULE,R]),
+    snmp_verbosity:print(info, info, "init_usm -> engine-id set result: ~p", [R]),
+    ?IPRINT("init_usm -> try set engine boots (framework-mib)"),
     snmp_framework_mib:set_engine_boots(1),
+    ?IPRINT("init_usm -> try set engine time (framework-mib)"),
     snmp_framework_mib:set_engine_time(1),
-    snmp_user_based_sm_mib:reconfigure(Dir);
+    ?IPRINT("init_usm -> try usm (mib) reconfigure"),
+    snmp_user_based_sm_mib:reconfigure(Dir),
+    ?IPRINT("init_usm -> done"),
+    ok;
 init_usm(_Vsn, _Dir) ->
     ok.
+
+ensure_local_db_dead() ->
+    ensure_dead(whereis(snmpa_local_db), 2000).
+
+ensure_dead(Pid, Timeout) when is_pid(Pid) ->
+    MRef = erlang:monitor(process, Pid),
+    try
+        begin
+            ensure_dead_wait(Pid, MRef, Timeout),
+            ensure_dead_stop(Pid, MRef, Timeout),
+            ensure_dead_kill(Pid, MRef, Timeout),
+            exit(failed_stop_local_db)
+        end
+    catch
+        throw:ok ->
+            ok
+    end;
+ensure_dead(_, _) ->
+    ?IPRINT("ensure_dead -> already dead", []),
+    ok.
+
+ensure_dead_wait(Pid, MRef, Timeout) ->
+    receive
+        {'DOWN', MRef, process, Pid, _Info} ->
+            ?IPRINT("ensure_dead_wait -> died peacefully"),
+            throw(ok)
+    after Timeout ->
+            ?WPRINT("ensure_dead_wait -> giving up"),
+            ok
+    end.
+
+ensure_dead_stop(Pid, MRef, Timeout) ->
+    %% Spawn a stop'er process
+    StopPid = spawn(fun() -> snmpa_local_db:stop() end),
+    receive
+        {'DOWN', MRef, process, Pid, _Info} ->
+            ?NPRINT("ensure_dead -> dead (stopped)"),
+            throw(ok)
+    after Timeout ->
+            ?WPRINT("ensure_dead_stop -> giving up"),
+            exit(StopPid, kill),
+            ok
+    end.
+
+ensure_dead_kill(Pid, MRef, Timeout) ->
+    exit(Pid, kill),
+    receive
+        {'DOWN', MRef, process, Pid, _Info} ->
+            ?NPRINT("ensure_dead -> dead (killed)"),
+            throw(ok)
+    after Timeout ->
+            ?WPRINT("ensure_dead_kill -> giving up"),
+            ok
+    end.
+
 
 
 display_incomming_message(M) ->
@@ -775,20 +955,17 @@ display_prop_hdr(S) ->
 %%----------------------------------------------------------------------
 
 sz(L) when is_list(L) ->
-    length(lists:flatten(L));
+    iolist_size(L);
 sz(B) when is_binary(B) ->
     size(B);
 sz(O) ->
     {unknown_size, O}.
 
 d(F)   -> d(F, []).
-d(F,A) -> d(get(debug),F,A).
+d(F,A) -> d(get(debug), F, A).
 
-d(true,F,A) ->
-    io:format("*** [~s] MGR_PS_DBG *** " ++ F ++ "~n",
-	      [formated_timestamp()|A]);
+d(true, F, A) ->
+    ?IPRINT(F, A);
 d(_,_F,_A) -> 
     ok.
 
-formated_timestamp() ->
-    snmp_test_lib:formated_timestamp().

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -156,12 +156,7 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	{error,{already_started,_}} ->
 	    ok;
 	_ ->
-	    case whereis(vts) of
-		undefined ->
-		    ct_event:add_handler();
-		VtsPid ->
-		    ct_event:add_handler([{vts,VtsPid}])
-	    end
+            ct_event:add_handler()
     end,
 
     %% start ct_config server
@@ -192,7 +187,10 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	    ok
     end,
 
-    ct_default_gl:start_link(group_leader()),
+    case ct_default_gl:start_link(group_leader()) of
+        {ok, _} -> ok;
+        ignore -> ok
+    end,
 
     {StartTime,TestLogDir} = ct_logs:init(Mode, Verbosity),
 

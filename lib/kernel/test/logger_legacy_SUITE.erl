@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -137,9 +137,9 @@ gen_event(_Config) ->
     ok = gen_event:add_handler(Pid,?MODULE,gen_event),
     Msg = fun() -> erlang:error({badmatch,b}) end,
     Pid ! Msg,
-    ?check({warning_msg,"** Undefined handle_info in ~tp"++_,[?MODULE,Msg]}),
+    ?check({warning_msg,"** Undefined handle_info in ~p"++_,[?MODULE,Msg]}),
     gen_event:notify(Pid,Msg),
-    ?check({error,"** gen_event handler ~p crashed."++_,
+    ?check({error,"** gen_event handler ~tp crashed."++_,
             [?MODULE,Pid,Msg,gen_event,{{badmatch,b},_}]}).
 
 gen_fsm(_Config) ->

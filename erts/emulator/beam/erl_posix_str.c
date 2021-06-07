@@ -171,6 +171,9 @@ erl_errno_id(error)
 #if defined(EIDRM) && (!defined(EINPROGRESS) || (EIDRM != EINPROGRESS))
     case EIDRM: return "eidrm";
 #endif
+#ifdef EILSEQ
+    case EILSEQ: return "eilseq";
+#endif
 #ifdef EINIT
     case EINIT: return "einit";
 #endif

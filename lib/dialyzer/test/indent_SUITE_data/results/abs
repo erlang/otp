@@ -1,0 +1,13 @@
+
+abs.erl:16:5: The pattern 
+          'true' can never match the type 
+          'false'
+abs.erl:27:5: The pattern 
+          'true' can never match the type 
+          'false'
+abs.erl:37:5: The pattern 
+          'true' can never match the type 
+          'false'
+abs.erl:49:5: The pattern 
+          'true' can never match the type 
+          'false'

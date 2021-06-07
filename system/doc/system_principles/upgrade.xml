@@ -83,10 +83,10 @@
       <c>restart_emulator</c> has no effect as the
       <c>release_handler</c> will not execute them.</p>
     <p>For information about the release upgrade file, see the
-      <seealso marker="sasl:relup">relup(4)</seealso> manual page
+      <seefile marker="sasl:relup">relup(4)</seefile> manual page
       in SASL.
       For more information about upgrade instructions, see the
-      <seealso marker="sasl:appup">appup(4)</seealso> manual page
+      <seefile marker="sasl:appup">appup(4)</seefile> manual page
       in SASL.</p>
   </section>
 

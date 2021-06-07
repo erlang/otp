@@ -66,6 +66,17 @@ t_case(Config) when is_list(Config) ->
     true = (catch t_case_e({a,b}, {a,b})),
     false = (catch t_case_e({a,b}, 42)),
 
+    {true,false} = t_case_f1(true, pos),
+    {false,true} = t_case_f1(true, whatever),
+    {false,true} = t_case_f1(false, pos),
+    {false,true} = t_case_f1(false, whatever),
+    {false,false} = t_case_f1(not_boolean, pos),
+    {false,false} = t_case_f1(not_boolean, whatever),
+
+    false = t_case_f2(true),
+    true = t_case_f2(false),
+    false = t_case_f2(whatever),
+
     true = t_case_xy(42, 100, 700),
     true = t_case_xy(42, 100, whatever),
     false = t_case_xy(42, wrong, 700),
@@ -108,6 +119,25 @@ t_case_e(A, B) ->
     case A =:= B of
 	Bool when is_tuple(A) -> id(Bool)
     end.
+
+t_case_f1(IsInt, Eval) ->
+    B = case IsInt of
+            true -> Eval =:= pos;
+            false -> false;
+            _ -> IsInt
+        end,
+
+    %% The above is the same as `IsInt andalso Eval =:= pos` in a guard.
+    %% In a real guard, variable `B` will only be used once.
+    {B =:= true, B =:= false}.
+
+t_case_f2(IsInt) ->
+    B = case IsInt of
+            true -> false;
+            false -> true;
+            _ -> IsInt
+        end,
+    B =:= true.
 
 t_case_xy(X, Y, Z) ->
     Res = t_case_x(X, Y, Z),
@@ -212,6 +242,9 @@ t_andalso(Config) when is_list(Config) ->
     true = begin (X1 = true) andalso X1, X1 end,
     false = false = begin (X2 = false) andalso X2, X2 end,
 
+    %% Cover conversion to right associativity.
+    true = (is_list(Config) andalso is_list(Bs)) andalso is_list(Ps),
+
     ok.
 
 t_orelse(Config) when is_list(Config) ->
@@ -244,6 +277,9 @@ t_orelse(Config) when is_list(Config) ->
 
     true = begin (X1 = true) orelse X1, X1 end,
     false = begin (X2 = false) orelse X2, X2 end,
+
+    %% Cover conversion to right associativity.
+    false = (is_atom(Config) orelse is_atom(Bs)) orelse is_atom(Ps),
 
     ok.
 

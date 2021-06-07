@@ -1,0 +1,32 @@
+FROM docker.pkg.github.com/erlang/otp/ubuntu-base
+## We do a SSA lint check here
+ENV ERL_COMPILER_OPTIONS=ssalint
+
+ARG MAKEFLAGS=-j4
+ENV MAKEFLAGS=$MAKEFLAGS \
+        ERLC_USE_SERVER=yes \
+        ERL_TOP=/buildroot/otp \
+        PATH=/buildroot/otp/bin:$PATH
+
+ARG ARCHIVE=./otp.tar.gz
+COPY $ARCHIVE /buildroot/otp.tar.gz
+RUN cd /buildroot && tar -xzf ./otp.tar.gz
+
+WORKDIR /buildroot/otp/
+
+ENV CC=clang CXX=clang++ \
+        CFLAGS="-O2 -g -Werror"
+
+## Configure, check that no application are disabled and then make
+# We need --with-ssl-lib-subdir=lib/x86_64-linux-gnu since clang does not
+# give us this information such as gcc does...
+RUN  ./configure --with-ssl --with-ssl-lib-subdir=lib/x86_64-linux-gnu --prefix=/otp && \
+        if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi && \
+        make && make install
+
+## Disable -Werror as testcases do not compile with it on
+ENV CFLAGS="-O2 -g"
+
+RUN TESTSUITE_ROOT=/tests ./otp_build tests
+
+ENTRYPOINT ["bash","-c"]

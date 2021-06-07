@@ -350,7 +350,7 @@ master_loop(#state{node_ctrl_pids=[],
 			  io_lib:format("~-40.40.*ts~tp\n",
 					[$_,atom_to_list(Node),Result])
 		  end,lists:reverse(Finished)),
-    log(all,"TEST RESULTS",Str,[]),
+    log(all,"TEST RESULTS","~ts", [Str]),
     log(all,"Info","Updating log files",[]),
     refresh_logs(LogDirs,[]),
     
@@ -574,7 +574,7 @@ refresh_logs([],Refreshed) ->
 			  io_lib:format("Refreshing logs in ~tp... ~tp",
 					[D,Result])
 		  end,Refreshed),
-    log(all,"Info",Str,[]).
+    log(all,"Info","~ts", [Str]).
 
 %%%-----------------------------------------------------------------
 %%% NODE CONTROLLER, runs and controls tests on a test node.

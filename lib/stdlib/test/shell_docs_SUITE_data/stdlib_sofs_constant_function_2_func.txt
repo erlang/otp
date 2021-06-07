@@ -1,0 +1,15 @@
+
+  [;1m-spec constant_function(Set, AnySet) -> Function[0m
+  [;1m                           when[0m
+  [;1m                               AnySet :: anyset(),[0m
+  [;1m                               Function :: a_function(),[0m
+  [;1m                               Set :: a_set().[0m
+
+  Creates the function that maps each element of set [;;4mSet[0m onto [;;4m[0m
+  [;;4mAnySet[0m.
+
+    1> S = sofs:set([a,b]),
+    E = sofs:from_term(1),
+    R = sofs:constant_function(S, E),
+    sofs:to_external(R).
+    [{a,1},{b,1}]

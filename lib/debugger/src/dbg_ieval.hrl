@@ -22,6 +22,7 @@
 		module,           % MFA which called the currently
 		function,         %  interpreted function
 		arguments,        %
+                error_info = [],  % [{error_info,Map}] | []
 
 		%% True if the current expression is at the top level
 		%% (i.e. the next call will leave interpreted code).

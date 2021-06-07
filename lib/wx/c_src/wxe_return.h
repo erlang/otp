@@ -29,116 +29,102 @@
 #define	_WXE_RETURN_H
 //#define wxUSEGUI
 #include "wxe_impl.h"
-extern "C" {
-#include "wxe_driver.h"
-}
 #include <wx/wx.h>
+#include <wx/aui/aui.h>
 #include <wx/geometry.h>
 #include <wx/colour.h>
 #include <wx/grid.h>
 #include <wx/gbsizer.h>
 #include <wx/dynarray.h>
 #include <wx/html/htmlcell.h>
-
+#include <wx/graphics.h>
 
 #define RT_BUFF_SZ 64
+
+
 
 class wxeReturn {
 
 public:
-    wxeReturn (ErlDrvTermData      _port,
-	       ErlDrvTermData      _caller,
+    wxeReturn (wxeMemEnv           *_memenv,
+               ErlNifPid           _caller,
 	       bool                _isResult=false);
 
     ~wxeReturn();
+    //    void add(ErlDrvTermData type, ErlDrvTermData data);
 
+    ERL_NIF_TERM make_ref(const unsigned int ref, ERL_NIF_TERM className);
+    ERL_NIF_TERM make_ref(const unsigned int ref, const char* className);
+    ERL_NIF_TERM make_atom(const char* atomName);
 
-    void add(ErlDrvTermData type, ErlDrvTermData data);
+    ERL_NIF_TERM make_binary(const char* atomName, size_t size);
+    ERL_NIF_TERM make_ext2term(wxeErlTerm * term);
+    ERL_NIF_TERM make_ext2term(wxETreeItemData * term);
 
-    void addRef(const unsigned int ref, const char* className);
-    void addAtom(const char* atomName);
-    
-    void addBinary(const char* atomName, size_t size);
-    void addExt2Term(wxeErlTerm * term);
-    void addExt2Term(wxETreeItemData * term);
+    ERL_NIF_TERM make_list_strings(size_t size, wxString* atomName);
 
-    void addNil() { do_add(ERL_DRV_NIL); };
+    ERL_NIF_TERM make_list_objs(const wxWindowList& wx_list, WxeApp *app, const char *cname);
+    ERL_NIF_TERM make_list_objs(const wxSizerItemList& wx_list, WxeApp *app, const char *cname);
+    ERL_NIF_TERM make_list_objs(const wxMenuItemList& wx_list, WxeApp *app, const char *cname);
 
-    void addUint(unsigned int n);
-    
-    void addInt(int n);
-    
-    void addFloat(double f);
-    
-    void addTupleCount(unsigned int n);
-    
-    /** @param n length of the list (not including the NIL terminator */
-    void endList(unsigned int n);
-    
-    void addBool(int val);
-    
-    void add(const wxString s);
-    void add(const wxString* s);
-    void add(wxArrayString val);
-    
-    void add(wxPoint pt);
-    
-    void add( wxPoint2DDouble point2D);
-        
-    void add(wxSize size);
-    
-    void add(wxRect rect);
-    
-    void add(wxRect2DDouble rect2D);
-    
-    void add(wxDateTime dateTime);
-        
-    void add(wxColour colour);
-    
-    void add(wxGridCellCoords val);
+    ERL_NIF_TERM make_array_objs(wxGridCellCoordsArray& arr);
+    // ERL_NIF_TERM make_array_objs(const wxList& wx_list, WxeApp *app, const char *cname);
+    ERL_NIF_TERM make_array_objs(wxArrayTreeItemIds& arr);
+    ERL_NIF_TERM make_array_objs(wxAuiPaneInfoArray&, WxeApp *app, const char *cname);
 
-    void add(wxGBPosition val);
+    ERL_NIF_TERM make_bool(int val);
+    ERL_NIF_TERM make_int(int val);
+    ERL_NIF_TERM make_uint(unsigned int val);
+    ERL_NIF_TERM make_double(double val);
 
-    void add(wxGBSpan val);
+    ERL_NIF_TERM make(const wxString s);
+    ERL_NIF_TERM make(const wxString* s);
+    ERL_NIF_TERM make(wxArrayString val);
 
-    void add(wxMouseState val);
+    ERL_NIF_TERM make(wxPoint pt);
+    ERL_NIF_TERM make( wxPoint2DDouble point2D);
 
-    void add(wxArrayInt val);
+    ERL_NIF_TERM make(wxSize size);
+    ERL_NIF_TERM make(wxRect rect);
 
-    void add(wxArrayDouble val);
+    ERL_NIF_TERM make(wxRect2DDouble rect2D);
 
-    void add(wxUIntPtr *val);
+    ERL_NIF_TERM make(wxDateTime dateTime);
 
-    void add(const wxHtmlLinkInfo *val);
+    ERL_NIF_TERM make(wxColour colour);
+    ERL_NIF_TERM make(wxGraphicsGradientStop colour);
 
-    void add(const wxHtmlLinkInfo &val);
+    ERL_NIF_TERM make(wxGridCellCoords val);
 
-    void do_add(ErlDrvTermData val);
+    ERL_NIF_TERM make(wxGBPosition val);
+    ERL_NIF_TERM make(wxGBSpan val);
 
-    void ensureFloatCount(size_t n);
+    ERL_NIF_TERM make(wxMouseState val);
 
-    int  send();
-    
+    ERL_NIF_TERM make(wxArrayInt val);
+    ERL_NIF_TERM make(wxArrayDouble val);
+    ERL_NIF_TERM make(wxUIntPtr *val);
+
+    ERL_NIF_TERM make(const wxHtmlLinkInfo *val);
+    ERL_NIF_TERM make(const wxHtmlLinkInfo &val);
+
+    int send(ERL_NIF_TERM msg);
+    void send_callback(int callback, ERL_NIF_TERM args);
+    void send_callback(int callback, wxObject *obj, const char *class_name, ERL_NIF_TERM args);
+
     void reset();
-    
-    unsigned int size();
-    
+
+    ErlNifEnv              *env;
+
 private:
 
-    inline void  addDate(wxDateTime dateTime);
+    inline ERL_NIF_TERM  make_date(wxDateTime dateTime);
+    inline ERL_NIF_TERM  make_time(wxDateTime dateTime);
 
-    inline void  addTime(wxDateTime dateTime);
-
-    ErlDrvTermData          caller;
-    ErlDrvTermData          port;
-    wxArrayDouble           temp_float;
+    ErlNifPid               caller;
     wxMBConvUTF32           utfConverter;
     bool                    isResult;
-
-    unsigned int            rt_max;
-    unsigned int            rt_n;
-    ErlDrvTermData          *rtb;
-    ErlDrvTermData          buff[RT_BUFF_SZ];
+    wxeMemEnv               *memenv;
 };
 
 #endif	/* _WXE_RETURN_H */

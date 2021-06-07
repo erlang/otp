@@ -62,7 +62,7 @@
       instrumentation functions for the MIB, should have the suffix
       <c>.funcs</c>. If the compiler does not find the association file,
       it gives a warning message and uses default instrumentation
-      functions.  (See <seealso marker="snmp_instr_functions#snmp_3">Default Instrumentation</seealso> for more details).
+      functions.  (See <seeguide marker="snmp_instr_functions#snmp_3">Default Instrumentation</seeguide> for more details).
       </p>
     <p>The MIB compiler is started with a call to
       <c><![CDATA[snmpc:compile(<mibname>).]]></c> For example:

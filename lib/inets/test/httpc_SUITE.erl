@@ -106,7 +106,11 @@ real_requests()->
      streaming_error,
      inet_opts,
      invalid_headers,
-     invalid_body
+     invalid_body,
+     no_scheme,
+     invalid_uri,
+     undefined_port,
+     binary_url
     ].
 
 real_requests_esi() ->
@@ -172,6 +176,8 @@ misc() ->
      timeout_memory_leak,
      wait_for_whole_response,
      post_204_chunked,
+     head_chunked_empty_body,
+     head_empty_body,
      chunkify_fun
     ].
 
@@ -339,14 +345,6 @@ end_per_testcase(Case, Config)
 end_per_testcase(_Case, _Config) ->
     ok.
 
-is_ipv6_supported() ->
-    case gen_udp:open(0, [inet6]) of
-        {ok, Socket} ->
-            gen_udp:close(Socket),
-            true;
-        _ ->
-            false
-    end.
 
 
 %%--------------------------------------------------------------------
@@ -1059,14 +1057,11 @@ invalid_chunk_size(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 emulate_lower_versions(doc) ->
-    [{doc, "Perform request as 0.9 and 1.0 clients."}];
+    [{doc, "Perform request as 1.0 clients."}];
 emulate_lower_versions(Config) when is_list(Config) ->
 
     URL = url(group_name(Config), "/dummy.html", Config),
 
-    {ok, Body0} =
-	httpc:request(get, {URL, []}, [{version, "HTTP/0.9"}], []),
-    inets_test_lib:check_body(Body0),
     {ok, {{"HTTP/1.0", 200, _}, [_ | _], Body1 = [_ | _]}} =
 	httpc:request(get, {URL, []}, [{version, "HTTP/1.0"}], []),
     inets_test_lib:check_body(Body1),
@@ -1240,6 +1235,36 @@ invalid_body(Config) ->
     end.
 
 %%-------------------------------------------------------------------------
+
+binary_url(Config) ->
+    URL = uri_string:normalize(url(group_name(Config), "/dummy.html", Config)),
+    {ok, _Response} = httpc:request(unicode:characters_to_binary(URL)).
+
+
+%%-------------------------------------------------------------------------
+
+no_scheme(_Config) ->
+    {error,{bad_scheme,"ftp"}} = httpc:request("ftp://foobar"),
+    {error,{no_scheme}} = httpc:request("//foobar"),
+    {error,{no_scheme}} = httpc:request("foobar"),
+    ok.
+
+
+%%-------------------------------------------------------------------------
+
+invalid_uri(Config) ->
+    URL = url(group_name(Config), "/bar?x[]=a", Config),
+    {error, invalid_uri} = httpc:request(URL),
+    ok.
+
+%%-------------------------------------------------------------------------
+
+undefined_port(_Config) ->
+    {error, {failed_connect, _Reason}} = httpc:request("http://:"),
+    ok.
+
+
+%%-------------------------------------------------------------------------
 remote_socket_close(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/just_close.html", Config),
     {error, socket_closed_remotely} = httpc:request(URL).
@@ -1411,7 +1436,7 @@ post_204_chunked(_Config) ->
     {ok, ListenSocket} = gen_tcp:listen(0, [{active,once}, binary]),
     {ok,{_,Port}} = inet:sockname(ListenSocket),
     spawn(fun () -> custom_server(Msg, Chunk, ListenSocket,
-                                  fun post_204_receive/0) end),
+                                  fun custom_receive/0) end),
 
     {ok,Host} = inet:gethostname(),
     End = "/cgi-bin/erl/httpd_example:post_204",
@@ -1421,7 +1446,7 @@ post_204_chunked(_Config) ->
     %% Second request times out in the faulty case.
     {ok, _} = httpc:request(post, {URL, [], "text/html", []}, [], []).
 
-post_204_receive() ->
+custom_receive() ->
     receive
         {tcp, _, Msg} ->
             ct:log("Message received: ~p", [Msg])
@@ -1447,6 +1472,58 @@ send_response(Msg, Chunk, Socket) ->
     gen_tcp:send(Socket, Msg),
     timer:sleep(250),
     gen_tcp:send(Socket, Chunk).
+
+%%--------------------------------------------------------------------
+head_chunked_empty_body() ->
+    [{doc,"Test that HTTP responses (to HEAD requests) with 'Transfer-Encoding: chunked' and empty chunked-encoded body do not freeze the http client"}].
+head_chunked_empty_body(_Config) ->
+    Msg = "HTTP/1.1 403 Forbidden\r\n" ++
+        "Date: Thu, 23 Aug 2018 13:36:29 GMT\r\n" ++
+        "Content-Type: text/html\r\n" ++
+        "Server: inets/6.5.2.3\r\n" ++
+        "Cache-Control: no-cache\r\n" ++
+        "Pragma: no-cache\r\n" ++
+        "Expires: Fri, 24 Aug 2018 07:49:35 GMT\r\n" ++
+        "Transfer-Encoding: chunked\r\n" ++
+        "\r\n",
+    Chunk = "0\r\n\r\n",
+
+    {ok, ListenSocket} = gen_tcp:listen(0, [{active,once}, binary]),
+    {ok,{_,Port}} = inet:sockname(ListenSocket),
+    spawn(fun () -> custom_server(Msg, Chunk, ListenSocket,
+                                  fun custom_receive/0) end),
+    {ok,Host} = inet:gethostname(),
+    URL = ?URL_START ++ Host ++ ":" ++ integer_to_list(Port),
+    {ok, _} = httpc:request(head, {URL, []}, [], []),
+    timer:sleep(500),
+    %% Second request times out in the faulty case.
+    {ok, _} = httpc:request(head, {URL, []}, [], []).
+
+%%--------------------------------------------------------------------
+head_empty_body() ->
+    [{doc,"Test that HTTP responses (to HEAD requests) with 'Transfer-Encoding: chunked' and empty body do not freeze the http client"}].
+head_empty_body(_Config) ->
+    Msg = "HTTP/1.1 403 Forbidden\r\n" ++
+        "Date: Thu, 23 Aug 2018 13:36:29 GMT\r\n" ++
+        "Content-Type: text/html\r\n" ++
+        "Server: inets/6.5.2.3\r\n" ++
+        "Cache-Control: no-cache\r\n" ++
+        "Pragma: no-cache\r\n" ++
+        "Expires: Fri, 24 Aug 2018 07:49:35 GMT\r\n" ++
+        "Transfer-Encoding: chunked\r\n" ++
+        "\r\n",
+    NoChunk = "", %% Do not chunk encode!
+
+    {ok, ListenSocket} = gen_tcp:listen(0, [{active,once}, binary]),
+    {ok,{_,Port}} = inet:sockname(ListenSocket),
+    spawn(fun () -> custom_server(Msg, NoChunk, ListenSocket,
+                                  fun custom_receive/0) end),
+    {ok,Host} = inet:gethostname(),
+    URL = ?URL_START ++ Host ++ ":" ++ integer_to_list(Port),
+    {ok, _} = httpc:request(head, {URL, []}, [], []),
+    timer:sleep(500),
+    %% Second request times out in the faulty case.
+    {ok, _} = httpc:request(head, {URL, []}, [], []).
 
 %%--------------------------------------------------------------------
 chunkify_fun() ->
@@ -1612,7 +1689,8 @@ post_with_content_type(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 request_options() ->
-    [{doc, "Test http get request with socket options against local server (IPv6)"}].
+    [{require, ipv6_hosts},
+     {doc, "Test http get request with socket options against local server (IPv6)"}].
 request_options(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     {ok, {{_,200,_}, [_ | _], _ = [_ | _]}} = httpc:request(get, Request, [],
@@ -1992,10 +2070,10 @@ dummy_ssl_server_loop(MFA, Handlers, ListenSocket) ->
 	    lists:foreach(Stopper, Handlers),
 	    From ! {stopped, self()}
     after 0 ->
-	    {ok, Socket} = ssl:transport_accept(ListenSocket),
-	    ok = ssl:ssl_accept(Socket, infinity),
-	    HandlerPid  = dummy_request_handler(MFA, Socket),
-	    ssl:controlling_process(Socket, HandlerPid),
+	    {ok, Tsocket} = ssl:transport_accept(ListenSocket),
+	    {ok, Ssocket} = ssl:handshake(Tsocket, infinity),
+	    HandlerPid  = dummy_request_handler(MFA, Ssocket),
+	    ssl:controlling_process(Ssocket, HandlerPid),
 	    HandlerPid ! ssl_controller,
 	    dummy_ssl_server_loop(MFA, [HandlerPid | Handlers],
 				  ListenSocket)
@@ -2135,7 +2213,7 @@ dummy_ssl_server_hang_init(Caller, Inet, SslOpt) ->
     dummy_ssl_server_hang_loop(AcceptSocket).
 
 dummy_ssl_server_hang_loop(_) ->
-    %% Do not do ssl:ssl_accept as we
+    %% Do not do ssl:handshake as we
     %% want to time out the underlying gen_tcp:connect
     receive
 	stop ->
@@ -2187,7 +2265,7 @@ check_cookie([_Head | Tail]) ->
 
 content_length([]) ->
     0;
-content_length(["content-length:" ++ Value | _]) ->
+content_length([{"content-length", Value}|_]) ->
     list_to_integer(string:strip(Value));
 content_length([_Head | Tail]) ->
    content_length(Tail).
@@ -2944,4 +3022,13 @@ receive_stream_n(Ref, N) ->
 	{http, {Ref,stream, Data}} ->
 	    ct:pal("Data:  ~p", [Data]),
 	    receive_stream_n(Ref, N-1)
+    end.
+
+is_ipv6_supported() ->
+    {ok, Hostname0} = inet:gethostname(),
+    try 
+        lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts))
+    catch
+         _: _ ->
+            false
     end.

@@ -74,14 +74,14 @@
     variable (<c>CfgVarName</c> in the previous definition) exists before
     attempting to read the associated value in a test case or configuration function.</p>
 
-    <p><c>require</c> is an assert statement, which can be part of the <seealso
-    marker="write_test_chapter#suite">Test Suite Information Function</seealso> or
-    <seealso marker="write_test_chapter#info_function">Test Case Information
-    Function</seealso>. If the required variable is unavailable, the
+    <p><c>require</c> is an assert statement, which can be part of the <seeguide
+    marker="write_test_chapter#suite">Test Suite Information Function</seeguide> or
+    <seeguide marker="write_test_chapter#info_function">Test Case Information
+    Function</seeguide>. If the required variable is unavailable, the
     test is skipped (unless a default value has been specified, see section
-    <seealso marker="write_test_chapter#info_function">Test Case Information
-    Function</seealso> for details). Also, function
-    <seealso marker="ct#require-1"><c>ct:require/1/2</c></seealso> can be called 
+    <seeguide marker="write_test_chapter#info_function">Test Case Information
+    Function</seeguide> for details). Also, function
+    <seemfa marker="ct#require/1"><c>ct:require/1/2</c></seemfa> can be called 
     from a test case to check if a specific variable is available. The return 
     value from this function must be checked explicitly and appropriate 
     action be taken depending on the result (for example, to skip the test case
@@ -91,7 +91,7 @@
     information-list is to look like
     <c>{require,CfgVarName}</c> or <c>{require,AliasName,CfgVarName}</c>.
     The arguments <c>AliasName</c> and <c>CfgVarName</c> are the same as the
-    arguments to <seealso marker="ct#require-1"><c>ct:require/1,2</c></seealso>. 
+    arguments to <seemfa marker="ct#require/1"><c>ct:require/1,2</c></seemfa>. 
     <c>AliasName</c> becomes an alias for the configuration variable,
     and can be used as reference to the configuration data value.
     The configuration variable can be associated with any
@@ -103,7 +103,7 @@
         (or test case) and improve readability.</item>
     </list>
     <p>To read the value of a configuration variable, use function
-    <seealso marker="ct#get_config-1"><c>get_config/1,2,3</c></seealso>.
+    <seemfa marker="ct#get_config/1"><c>get_config/1,2,3</c></seemfa>.
     </p>
     <p><em>Example:</em></p>
     <pre>
@@ -121,7 +121,7 @@
   <title>Using Configuration Variables Defined in Multiple Files</title>
     <p>If a configuration variable is defined in multiple files and you 
       want to access all possible values, use function
-      <seealso marker="ct#get_config-3"><c>ct:get_config/3</c></seealso>
+      <seemfa marker="ct#get_config/3"><c>ct:get_config/3</c></seemfa>
       and specify <c>all</c> in the options list. The values are then
       returned in a list and the order of the elements corresponds to the order 
       that the configuration files were specified at startup.</p>
@@ -134,7 +134,7 @@
       if they must be stored in open and shared directories.</p> 
        <p>To have <c>Common Test</c> encrypt a
       specified file using function <c>DES3</c> in application <c>Crypto</c>,
-      call <seealso marker="ct#encrypt_config_file-2"><c>ct:encrypt_config_file/2,3</c></seealso>
+      call <seemfa marker="ct#encrypt_config_file/2"><c>ct:encrypt_config_file/2,3</c></seemfa>
       The encrypted file can then be used as a regular configuration file
       in combination with other encrypted files or normal text files. However, the 
       key for decrypting the configuration file must be provided when running the test.
@@ -142,16 +142,16 @@
       <c>decrypt_file</c>, or a key file in a predefined location.</p>
       
       <p><c>Common Test</c> also provides decryption functions, 
-      <seealso marker="ct#decrypt_config_file-2"><c>ct:decrypt_config_file/2,3</c></seealso>, 
+      <seemfa marker="ct#decrypt_config_file/2"><c>ct:decrypt_config_file/2,3</c></seemfa>, 
       for recreating the original text files.</p> 
   </section>
 
   <section>
     <title>Opening Connections Using Configuration Data</title>
     <p>Two different methods for opening a connection using the support functions 
-       in, for example, <seealso marker="ct_ssh"><c>ct_ssh</c></seealso>, 
-       <seealso marker="ct_ftp"><c>ct_ftp</c></seealso>, and 
-    <seealso marker="ct_telnet"><c>ct_telnet</c></seealso> follows:</p>
+       in, for example, <seeerl marker="ct_ssh"><c>ct_ssh</c></seeerl>, 
+       <seeerl marker="ct_ftp"><c>ct_ftp</c></seeerl>, and 
+    <seeerl marker="ct_telnet"><c>ct_telnet</c></seeerl> follows:</p>
     <list type="bulleted">
       <item>Using a configuration target name (an alias) as reference.</item>
       <item>Using the configuration variable as reference.</item>
@@ -457,7 +457,7 @@
 
     <p>Here, the handler also provides for dynamically reloading of
       configuration variables. If 
-      <seealso marker="ct#reload_config-1"><c>ct:reload_config(localtime)</c></seealso> is called from
+      <seemfa marker="ct#reload_config/1"><c>ct:reload_config(localtime)</c></seemfa> is called from
       the test case function, all variables loaded with <c>config_driver:read_config/1</c>
       are updated with their latest values, and the new value for variable
       <c>localtime</c> is returned.</p>

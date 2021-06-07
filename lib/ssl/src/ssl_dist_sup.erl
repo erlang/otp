@@ -70,16 +70,16 @@ ssl_admin_child_spec() ->
     StartFunc = {ssl_dist_admin_sup, start_link , []},
     Restart = permanent, 
     Shutdown = 4000,
-    Modules = [ssl_admin_sup],
+    Modules = [ssl_dist_admin_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
 ssl_connection_sup() ->
-    Name = ssl_dist_connection_sup,
-    StartFunc = {ssl_dist_connection_sup, start_link, []},
+    Name = tls_dist_sup,
+    StartFunc = {tls_dist_sup, start_link, []},
     Restart = permanent,
     Shutdown = 4000,
-    Modules = [ssl_connection_sup],
+    Modules = [tls_dist_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 

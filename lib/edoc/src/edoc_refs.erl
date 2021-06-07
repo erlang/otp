@@ -34,7 +34,10 @@
 
 -export([app/1, app/2, module/1, module/2, module/3,
 	 function/2, function/3, function/4, type/1, type/2, type/3,
-	 to_string/1, to_label/1, get_uri/2, is_top/2]).
+	 to_string/1, to_label/1, get_docgen_link/1, get_uri/2, is_top/2]).
+
+-export_type([t/0,
+	      docgen_rel/0]).
 
 -import(edoc_lib, [join_uri/2, escape_uri/1]).
 
@@ -42,6 +45,16 @@
 
 -define(INDEX_FILE, "index.html").
 
+-type t() :: {app, atom()}
+	   | {app, atom(), t()}
+	   | {module, atom()}
+	   | {module, atom(), t()}
+	   | {function, atom(), arity()}
+	   | {type, atom()}
+	   | {type, atom(), arity()}.
+
+-type docgen_rel() :: seemfa | seeerl | seetype | seeapp | seecom | seecref | seefile | seeguide.
+%% See http://erlang.org/doc/apps/erl_docgen/inline_tags.html#%3Csee*%3E---see-tags
 
 %% Creating references:
 
@@ -101,6 +114,38 @@ to_label({function, F, A}) ->
     escape_uri(atom_to_list(F)) ++ "-" ++ integer_to_list(A);
 to_label({type, T}) ->
     "type-" ++ escape_uri(atom_to_list(T)).
+
+-spec get_docgen_link(_) -> {docgen_rel(), string()}.
+get_docgen_link({app, _} = Ref) ->
+    {seeapp, docgen_uri(Ref)};
+get_docgen_link({app, _, InnerRef} = Ref) ->
+    {Rel, _} = get_docgen_link(InnerRef),
+    {Rel, docgen_uri(Ref)};
+get_docgen_link({module, _, InnerRef} = Ref) ->
+    {Rel, _} = get_docgen_link(InnerRef),
+    {Rel, docgen_uri(Ref)};
+get_docgen_link({module, _} = Ref) ->
+    {seeerl, docgen_uri(Ref)};
+get_docgen_link({function, _, _} = Ref) ->
+    {seemfa, docgen_uri(Ref)};
+get_docgen_link({type, _} = Ref) ->
+    {seetype, docgen_uri(Ref)}.
+
+docgen_uri({app, A}) ->
+    [atom_to_list(A), ":index"];
+docgen_uri({app, A, Ref}) ->
+    [atom_to_list(A), ":", docgen_uri(Ref)];
+docgen_uri({module, M}) ->
+    atom_to_list(M);
+docgen_uri({module, M, Ref}) ->
+    [atom_to_list(M), docgen_uri(Ref)];
+docgen_uri({function, F, A}) ->
+    ["#", atom_to_list(F), "/", integer_to_list(A)];
+docgen_uri({type, T}) ->
+    ["#", atom_to_list(T), "/0"];
+docgen_uri({type, T, A}) ->
+    %% This case is not used yet, but since types also have arity it should be in the future.
+    ["#", atom_to_list(T), "/", integer_to_list(A)].
 
 get_uri({app, App}, Env) ->
     join_uri(app_ref(App, Env), ?INDEX_FILE);

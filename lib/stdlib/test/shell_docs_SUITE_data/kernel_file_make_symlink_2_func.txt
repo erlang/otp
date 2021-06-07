@@ -1,0 +1,29 @@
+
+  [;1m-spec make_symlink(Existing, New) -> ok | {error, Reason}[0m
+  [;1m                      when[0m
+  [;1m                          Existing :: name_all(),[0m
+  [;1m                          New :: name_all(),[0m
+  [;1m                          Reason :: posix() | badarg.[0m
+
+  Creates a symbolic link [;;4mNew[0m to the file or directory [;;4mExisting[0m
+  on platforms supporting symbolic links (most Unix systems and
+  Windows, beginning with Vista). [;;4mExisting[0m does not need to exist.
+  Returns [;;4mok[0m if the link is successfully created, otherwise [;;4m[0m
+  [;;4m{error, Reason}[0m. On platforms not supporting symbolic links, [;;4m[0m
+  [;;4m{error, enotsup}[0m is returned.
+
+  Typical error reasons:
+
+  [;;4m[;;4meacces[0m[0m:
+    Missing read or write permissions for the parent directories
+    of [;;4mExisting[0m or [;;4mNew[0m.
+
+  [;;4m[;;4meexist[0m[0m:
+    [;;4mNew[0m already exists.
+
+  [;;4m[;;4menotsup[0m[0m:
+    Symbolic links are not supported on this platform.
+
+  [;;4m[;;4meperm[0m[0m:
+    User does not have privileges to create symbolic links ([;;4m[0m
+    [;;4mSeCreateSymbolicLinkPrivilege[0m on Windows).

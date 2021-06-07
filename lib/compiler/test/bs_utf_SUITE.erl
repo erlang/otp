@@ -233,6 +233,14 @@ utf32_to_unicode(<<C/utf32,T/binary>>) ->
 utf32_to_unicode(<<>>) -> [].
 
 literals(Config) when is_list(Config) ->
+    <<>> = id(<<""/utf8>>),
+    <<>> = id(<<""/utf16>>),
+    <<>> = id(<<""/little-utf16>>),
+    <<>> = id(<<""/native-utf16>>),
+    <<>> = id(<<""/utf32>>),
+    <<>> = id(<<""/little-utf32>>),
+    <<>> = id(<<""/native-utf32>>),
+
     abc_utf8 = match_literal(<<"abc"/utf8>>),
     abc_utf8 = match_literal(<<$a,$b,$c>>),
     abc_utf8 = match_literal(<<$a/utf8,$b/utf8,$c/utf8>>),
@@ -246,6 +254,10 @@ literals(Config) when is_list(Config) ->
     abc_utf32be = match_literal(<<$a:32,$b:32,$c:32>>),
     abc_utf32le = match_literal(<<"abc"/little-utf32>>),
     abc_utf32le = match_literal(<<$a:32/little,$b:32/little,$c:32/little>>),
+
+    mm_utf8 = match_literal(<<"Мастер и Маргарита"/utf8>>),
+    mm_utf16be = match_literal(<<"Мастер и Маргарита"/utf16>>),
+    mm_utf32be = match_literal(<<"Мастер и Маргарита"/utf32>>),
 
     bjorn_utf8 = match_literal(<<"bj\366rn"/utf8>>),
     bjorn_utf8 = match_literal(<<$b,$j,195,182,$r,$n>>),
@@ -294,6 +306,9 @@ match_literal(<<"abc"/big-utf16>>) -> abc_utf16be;
 match_literal(<<"abc"/little-utf16>>) -> abc_utf16le;
 match_literal(<<"abc"/big-utf32>>) -> abc_utf32be;
 match_literal(<<"abc"/little-utf32>>) -> abc_utf32le;
+match_literal(<<"Мастер и Маргарита"/utf8>>) -> mm_utf8;
+match_literal(<<"Мастер и Маргарита"/utf16>>) -> mm_utf16be;
+match_literal(<<"Мастер и Маргарита"/big-utf32>>) -> mm_utf32be;
 match_literal(<<"bj\366rn"/utf8>>) -> bjorn_utf8;
 match_literal(<<"bj\366rn"/big-utf16>>) -> bjorn_utf16be;
 match_literal(<<"bj\366rn"/little-utf16>>) -> bjorn_utf16le.
@@ -396,3 +411,5 @@ utf32_data() ->
      
 fc({'EXIT',{function_clause,_}}) -> ok;
 fc({'EXIT',{{case_clause,_},_}}) when ?MODULE =:= bs_utf_inline_SUITE -> ok.
+
+id(I) -> I.

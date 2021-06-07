@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,23 +18,20 @@
 %% %CopyrightEnd%
 %%
 
+-module(server).
+
 %%
-%% An example Diameter server that can respond to the base protocol
-%% RAR sent by the client example.
+%% An example Diameter server that answers the base protocol ACR sent
+%% by the client example.
 %%
-%% The simplest example to start a server listening on the loopback
-%% address (which will serve the example usage given in client.erl) is
-%% like this assuming diameter is already started (eg. diameter:start()):
+%% Simplest usage to listen on TCP at 127.0.0.1:3868:
 %%
 %%   server:start().
 %%   server:listen(tcp).
 %%
-%% The first call starts a service, the second adds a transport listening
-%% on the default port.
-%%
 
--module(server).
 
+%% Interface.
 -export([start/1,    %% start a service
          start/2,    %%
          listen/2,   %% add a listening transport
@@ -44,6 +41,9 @@
 -export([start/0,
          listen/1,
          stop/0]).
+
+%% Internal callback.
+-export([message/3]).
 
 -define(DEF_SVC_NAME, ?MODULE).
 
@@ -55,45 +55,110 @@
                         {'Vendor-Id', 193},
                         {'Product-Name', "Server"},
                         {'Auth-Application-Id', [0]},
+                        {decode_format, map},
                         {restrict_connections, false},
+                        {strict_mbit, false},
                         {string_decode, false},
                         {application, [{alias, common},
                                        {dictionary, diameter_gen_base_rfc6733},
-                                       {module, server_cb}]}]).
+                                       {module, server_cb},
+                                       {call_mutates_state, false}]}]).
+
+%% start/2
+
+start(Name, Opts) ->
+    Defaults = [T || {K,_} = T <- ?SERVICE(Name),
+                     not lists:keymember(K, 1, Opts)],
+    diameter:start_service(Name, Opts ++ Defaults).
 
 %% start/1
 
-start(Name)
-  when is_atom(Name) ->
-    start(Name, []);
-
-start(Opts)
-  when is_list(Opts) ->
+start(Opts) ->
     start(?DEF_SVC_NAME, Opts).
 
 %% start/0
 
 start() ->
-    start(?DEF_SVC_NAME).
-
-%% start/2
-
-start(Name, Opts) ->
-    node:start(Name, Opts ++ [T || {K,_} = T <- ?SERVICE(Name),
-                                   false == lists:keymember(K, 1, Opts)]).
+    start(?DEF_SVC_NAME, []).
 
 %% listen/2
 
-listen(Name, T) ->
-    node:listen(Name, T).
+listen(Name, Opts)
+  when is_list(Opts) ->
+    diameter:add_transport(Name, {listen, lists:flatmap(fun opts/1, Opts)});
 
-listen(T) ->
-    listen(?DEF_SVC_NAME, T).
+%% backwards compatibility with old config
+listen(Name, {T, Opts}) ->
+    listen(Name, [T | Opts]);
+listen(Name, T) ->
+    listen(Name, [T]).
+
+%% listen/1
+
+listen(Opts) ->
+    listen(?DEF_SVC_NAME, Opts).
 
 %% stop/1
 
 stop(Name) ->
-    node:stop(Name).
+    diameter:stop_service(Name).
+
+%% stop/0
 
 stop() ->
     stop(?DEF_SVC_NAME).
+
+%% ===========================================================================
+
+%% opts/1
+%%
+%% Map a 3-tuple a transport_module/transport_config pair as a
+%% convenience, pass everything else unmodified.
+
+opts(T)
+  when T == tcp;
+       T == sctp ->
+    opts({T, loopback, default});
+
+opts({tcp, Addr, Port}) ->
+    opts({diameter_tcp, Addr, Port});
+
+opts({sctp, Addr, Port}) ->
+    opts({diameter_sctp, Addr, Port});
+
+opts({Mod, loopback, Port}) ->
+    opts({Mod, {127,0,0,1}, Port});
+
+opts({Mod, Addr, default}) ->
+    opts({Mod, Addr, 3868});
+
+opts({Mod, Addr, Port}) ->
+    [{transport_module, Mod},
+     {transport_config, [{reuseaddr, true},
+                         {sender, true},
+                         {message_cb, {?MODULE, message, [0]}},
+                         {ip, Addr},
+                         {port, Port}]}];
+opts(T) ->
+    [T].
+
+%% message/3
+%%
+%% Simple message callback that limits the number of concurrent
+%% requests on the peer connection in question.
+
+%% Incoming request.
+message(recv, <<_:32, 1:1, _/bits>> = Bin, N) ->
+    [Bin, N < 32, {?MODULE, message, [N+1]}];
+
+%% Outgoing request.
+message(ack, <<_:32, 1:1, _/bits>>, _) ->
+    [];
+
+%% Incoming answer or request discarded.
+message(ack, _, N) ->
+    [N =< 32, {?MODULE, message, [N-1]}];
+
+%% Outgoing message or incoming answer.
+message(_, Bin, _) ->
+    [Bin].

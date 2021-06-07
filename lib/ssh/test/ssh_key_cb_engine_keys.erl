@@ -25,7 +25,12 @@
 
 -module(ssh_key_cb_engine_keys).
 -behaviour(ssh_server_key_api).
--compile(export_all).
+
+-export([
+         host_key/2,
+         is_auth_key/3
+        ]).
+
 
 host_key(SshAlg, Options) ->
     KBopts = proplists:get_value(key_cb_private, Options, []),

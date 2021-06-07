@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -205,7 +205,7 @@ hello_required_exists(Config) ->
     SshDir = ?config(ssh_dir,Config),
     {ok,_Client1} = open_configured_success(my_named_connection,SshDir),
 
-    %% Check that same name can not be used twice
+    %% Check that same name cannot be used twice
     {error,{connection_exists,_Client1}} =
 	ct_netconfc:open(my_named_connection,[{user_dir,SshDir}]),
 
@@ -271,7 +271,7 @@ no_client_hello(Config) ->
 
     %% Tell server to receive a get request and then die without
     %% replying since no hello has been received. (is this correct
-    %% behavoiur??)
+    %% behaviour??)
     ?NS:expect_do(get,close),
     {error,closed} = ct_netconfc:get(Client,whatever),
     ok.
@@ -385,7 +385,7 @@ timeout_get(Config) ->
 %% received, the timeout message might already be sent when the timer
 %% is cancelled. This test checks that the timeout message is flushed
 %% from the message queue. If it isn't, the client crashes and the
-%% session can not be closed afterwards.
+%% session cannot be closed afterwards.
 %% Note that we can only hope that the test case triggers the problem
 %% every now and then, as it is very timing dependent...
 flush_timeout_get(Config) ->

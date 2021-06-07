@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@
 %% Spawn export
 -export([input_loop/2]).
 
--export([dbg_trace/3]).
+-behaviour(ssh_dbg).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
 
 -record(state, 
 	{
@@ -91,7 +92,7 @@ handle_ssh_msg({ssh_cm, _, {data, _ChannelId, 0, Data}}, State) ->
     %% TODO: When unicode support is ready
     %% should we call this function or perhaps a new
     %% function.
-    io:put_chars(Data),
+    io:format("~ts", [Data]),
     {ok, State};
 
 handle_ssh_msg({ssh_cm, _, 
@@ -100,7 +101,7 @@ handle_ssh_msg({ssh_cm, _,
     %% TODO: When unicode support is ready
     %% should we call this function or perhaps a new
     %% function.
-    io:put_chars(Data),
+    io:format("~ts", [Data]),
     {ok, State};
 
 handle_ssh_msg({ssh_cm, _, {eof, _ChannelId}}, State) ->
@@ -143,9 +144,18 @@ handle_msg({input, IoPid, eof}, #state{io = IoPid, channel = ChannelId,
     ssh_connection:send_eof(ConnectionManager, ChannelId),
     {ok, State};
 
-handle_msg({input, IoPid, Line}, #state{io = IoPid,
+handle_msg({input, IoPid, Line0}, #state{io = IoPid,
 					channel = ChannelId,
 					cm = ConnectionManager} = State) ->
+    %% Not nice, but it make it work somehow
+    Line = case encoding(Line0) of
+               utf8 ->
+                   Line0;
+               unicode ->
+                   unicode:characters_to_binary(Line0);
+               latin1 ->
+                   unicode:characters_to_binary(Line0,latin1,utf8)
+           end,
     ssh_connection:send(ConnectionManager, ChannelId, Line),
     {ok, State}.
     
@@ -160,9 +170,19 @@ terminate(_Reason, #state{io = IoPid}) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+encoding(Bin) ->
+    case unicode:characters_to_binary(Bin,utf8,utf8) of
+	Bin ->
+	    utf8;
+        Bin2 when is_binary(Bin2) ->
+            unicode;
+	_ ->
+	    latin1
+    end.
 
+%%--------------------------------------------------------------------
 input_loop(Fd, Pid) ->
-    case io:get_line(Fd, '>') of
+    case io:get_line(Fd, '') of
 	eof ->
 	    Pid ! {input, self(), eof},
 	    ok; 
@@ -188,14 +208,70 @@ get_ancestors() ->
 %%%# Tracing
 %%%#
 
-dbg_trace(points,         _,  _) -> [terminate];
+ssh_dbg_trace_points() -> [terminate, shell].
 
-dbg_trace(flags,  terminate,  _) -> [c];
-dbg_trace(on,     terminate,  _) -> dbg:tp(?MODULE,  terminate, 2, x);
-dbg_trace(off,    terminate,  _) -> dbg:ctpg(?MODULE, terminate, 2);
-dbg_trace(format, terminate, {call, {?MODULE,terminate, [Reason, State]}}) ->
+ssh_dbg_flags(shell) -> [c];
+ssh_dbg_flags(terminate) -> [c].
+
+ssh_dbg_on(shell) -> dbg:tp(?MODULE,handle_ssh_msg,2,x);
+ssh_dbg_on(terminate) -> dbg:tp(?MODULE,  terminate, 2, x).
+
+ssh_dbg_off(shell) -> dbg:ctpg(?MODULE,handle_ssh_msg,2);
+ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 2).
+
+
+ssh_dbg_format(shell, {call,{?MODULE,handle_ssh_msg,
+                           [{ssh_cm, _ConnectionHandler, Request},
+                            #state{channel=Ch}]}}) when is_tuple(Request) ->
+    [io_lib:format("SHELL conn ~p chan ~p, req ~p", 
+                   [self(),Ch,element(1,Request)]),
+     case Request of
+         {window_change, ChannelId, Width, Height, PixWidth, PixHeight} ->
+             fmt_kv([{channel_id,ChannelId}, 
+                     {width,Width}, {height,Height},
+                     {pix_width,PixWidth}, {pixel_hight,PixHeight}]);
+
+         {env, ChannelId, WantReply, Var, Value} ->
+             fmt_kv([{channel_id,ChannelId}, {want_reply,WantReply}, {Var,Value}]);
+
+         {exec, ChannelId, WantReply, Cmd} ->
+             fmt_kv([{channel_id,ChannelId}, {want_reply,WantReply}, {command,Cmd}]);
+
+         {pty, ChannelId, WantReply,
+          {TermName, Width, Height, PixWidth, PixHeight, Modes}} ->
+             fmt_kv([{channel_id,ChannelId}, {want_reply,WantReply}, 
+                     {term,TermName},
+                     {width,Width}, {height,Height}, {pix_width,PixWidth}, {pixel_hight,PixHeight},
+                     {pty_opts, Modes}]);
+
+         {data, ChannelId, Type, Data} -> 
+             fmt_kv([{channel_id,ChannelId},
+                     {type, case Type of
+                                0 -> "0 (normal data)";
+                                1 -> "1 (extended data, i.e. errors)";
+                                _ -> Type
+                            end},
+                     {data, ssh_dbg:shrink_bin(Data)},
+                     {hex, h, Data}
+                    ]);
+         _ ->
+             io_lib:format("~nunder construction:~nRequest = ~p",[Request])
+     end];
+ssh_dbg_format(shell, {call,{?MODULE,handle_ssh_msg,_}}) -> skip;
+ssh_dbg_format(shell, {return_from,{?MODULE,handle_ssh_msg,2},_Result}) -> skip;
+
+ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, State]}}) ->
     ["Shell Terminating:\n",
      io_lib:format("Reason: ~p,~nState:~n~s", [Reason, wr_record(State)])
-    ].
+    ];
+ssh_dbg_format(terminate, {return_from, {?MODULE,terminate,2}, _Ret}) ->
+    skip.
 
 ?wr_record(state).
+
+fmt_kv(KVs) -> lists:map(fun fmt_kv1/1, KVs).
+
+fmt_kv1({K,V})   -> io_lib:format("~n~p: ~p",[K,V]);
+fmt_kv1({K,s,V}) -> io_lib:format("~n~p: ~s",[K,V]);
+fmt_kv1({K,h,V}) -> io_lib:format("~n~p: ~s",[K, [$\n|ssh_dbg:hex_dump(V)]]).
+    

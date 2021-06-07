@@ -1312,15 +1312,19 @@ get_own_nodes() ->
 %%% -hidden command line argument
 %%%====================================================================================
 publish_arg() ->
-    case init:get_argument(hidden) of
-	{ok,[[]]} ->
-	    hidden;
-	{ok,[["true"]]} ->
-	    hidden;
-	_ ->
-	    normal
+    case net_kernel:dist_listen() of
+        false ->
+            hidden;
+        _ ->
+            case init:get_argument(hidden) of
+                {ok,[[]]} ->
+                    hidden;
+                {ok,[["true"]]} ->
+                    hidden;
+                _ ->
+                    normal
+            end
     end.
-
 
 %%%====================================================================================
 %%% Own group publication type and nodes

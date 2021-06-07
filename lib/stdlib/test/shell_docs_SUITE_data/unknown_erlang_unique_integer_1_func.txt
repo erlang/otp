@@ -1,0 +1,68 @@
+
+  [;1m-spec erlang:unique_integer(ModifierList) -> integer()[0m
+  [;1m                               when[0m
+  [;1m                                   ModifierList :: [Modifier],[0m
+  [;1m                                   Modifier :: positive | monotonic.[0m
+
+[;;4mSince[0m:
+  OTP 18.0
+
+  Generates and returns an integer unique on current runtime system
+  instance. The integer is unique in the sense that this BIF, using
+  the same set of modifiers, does not return the same integer more
+  than once on the current runtime system instance. Each integer
+  value can of course be constructed by other means.
+
+  By default, when [;;4m[][0m is passed as [;;4mModifierList[0m, both negative
+  and positive integers can be returned. This to use the range of
+  integers that do not need heap memory allocation as much as
+  possible. By default the returned integers are also only
+  guaranteed to be unique, that is, any returned integer can be
+  smaller or larger than previously returned integers.
+
+  [;;4mModifier[0ms:
+
+  [;;4mpositive[0m:
+    Returns only positive integers.
+
+    Notice that by passing the [;;4mpositive[0m modifier you will get
+    heap allocated integers (bignums) quicker.
+
+  [;;4mmonotonic[0m:
+    Returns strictly monotonically increasing integers
+    corresponding to creation time. That is, the integer returned
+    is always larger than previously returned integers on the
+    current runtime system instance.
+
+    These values can be used to determine order between events on
+    the runtime system instance. That is, if both [;;4mX =[0m
+    [;;4merlang:unique_integer([monotonic])[0m and [;;4mY =[0m
+    [;;4merlang:unique_integer([monotonic])[0m are executed by different
+    processes (or the same process) on the same runtime system
+    instance and [;;4mX < Y[0m, we know that [;;4mX[0m was created before [;;4mY[0m.
+
+    Warning:
+      Strictly monotonically increasing values are inherently
+      quite expensive to generate and scales poorly. This is
+      because the values need to be synchronized between CPU
+      cores. That is, do not pass the [;;4mmonotonic[0m modifier
+      unless you really need strictly monotonically increasing
+      values.
+
+  All valid [;;4mModifier[0ms can be combined. Repeated (valid) [;;4mModifier[0m
+  s in the [;;4mModifierList[0m are ignored.
+
+  Note:
+    The set of integers returned by [;;4merlang:unique_integer/1[0m
+    using different sets of [;;4mModifier[0ms will overlap. For
+    example, by calling [;;4munique_integer([monotonic])[0m, and [;;4m[0m
+    [;;4munique_integer([positive, monotonic])[0m repeatedly, you will
+    eventually see some integers that are returned by both calls.
+
+  Failures:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    if [;;4mModifierList[0m is not a proper list.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    if [;;4mModifier[0m is not a valid modifier.

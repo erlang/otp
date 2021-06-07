@@ -558,7 +558,8 @@ erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrCallbacks *callbacks)
 ErtsThrPrgrData *
 erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
 					  ErtsThrPrgrCallbacks *callbacks,
-					  int pref_wakeup)
+					  int pref_wakeup,
+                                          int deep_sleeper)
 {
     ErtsThrPrgrData *tpd = perhaps_thr_prgr_data(NULL);
     int is_blocking = 0, managed;
@@ -593,6 +594,7 @@ erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
     tpd->is_managed = 1;
     tpd->is_blocking = is_blocking;
     tpd->is_temporary = 0;
+    tpd->is_deep_sleeper = deep_sleeper;
 #ifdef ERTS_ENABLE_LOCK_CHECK
     tpd->is_delaying = 1;
 #endif
@@ -763,7 +765,6 @@ leader_update(ErtsThrPrgrData *tpd)
 		(void) block_thread(tpd);
 	}
 	else {
-	    int force_wakeup_check = 0;
 	    erts_aint32_t set_flags = ERTS_THR_PRGR_LFLG_NO_LEADER;
 	    tpd->leader = 0;
 	    tpd->leader_state.current = ERTS_THR_PRGR_VAL_WAITING;
@@ -788,20 +789,10 @@ leader_update(ErtsThrPrgrData *tpd)
 		/* Need to check umrefc again */
 		ETHR_MEMBAR(ETHR_StoreLoad);
 		refc = erts_atomic_read_nob(&intrnl->umrefc[umrefc_ix].refc);
-		if (refc == 0) {
-		    /* Need to force wakeup check */
-		    force_wakeup_check = 1;
+		if (refc == 0 && got_sched_wakeups()) {
+                    /* Someone need to make progress */
+                    wakeup_managed(tpd->id);
 		}
-	    }
-
-	    if ((force_wakeup_check
-		 || ((lflgs & (ERTS_THR_PRGR_LFLG_NO_LEADER
-			       | ERTS_THR_PRGR_LFLG_WAITING_UM
-			       | ERTS_THR_PRGR_LFLG_ACTIVE_MASK))
-		     == ERTS_THR_PRGR_LFLG_NO_LEADER))
-		&& got_sched_wakeups()) {
-		/* Someone need to make progress */
-		wakeup_managed(tpd->id);
 	    }
 	}
     }
@@ -888,7 +879,10 @@ erts_thr_progress_prepare_wait(ErtsThrPrgrData *tpd)
 	== ERTS_THR_PRGR_LFLG_NO_LEADER 
 	&& got_sched_wakeups()) {
 	/* Someone need to make progress */
-	wakeup_managed(tpd->id);
+        if (tpd->is_deep_sleeper)
+            wakeup_managed(1);
+        else
+            wakeup_managed(tpd->id);
     }
 }
 
@@ -1072,11 +1066,13 @@ request_wakeup_managed(ErtsThrPrgrData *tpd, ErtsThrPrgrVal value)
 
     /*
      * Only managed threads that aren't in waiting state
-     * are allowed to call this function.
+     * and aren't deep sleepers are allowed to call this
+     * function.
      */
 
     ASSERT(tpd->is_managed);
     ASSERT(tpd->confirmed != ERTS_THR_PRGR_VAL_WAITING);
+    ASSERT(!tpd->is_deep_sleeper);
 
     if (has_reached_wakeup(value)) {
 	wakeup_managed(tpd->id);
@@ -1345,6 +1341,8 @@ thr_progress_block(ErtsThrPrgrData *tpd, int wait)
 	    bc = erts_atomic32_read_acqb(&intrnl->misc.data.block_count);
 	}
     }
+
+    /* tse event returned in erts_thr_progress_unblock() */
     return bc;
 
 }

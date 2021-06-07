@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2015</year><year>2017</year>
+      <year>2015</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -38,25 +38,80 @@
     <p>
       This module provides a pseudo random number generator.
       The module contains a number of algorithms.
-      The uniform distribution algorithms use the
+      The uniform distribution algorithms are based on the
       <url href="http://xorshift.di.unimi.it">
-	xoroshiro116+ and xorshift1024* algorithms by Sebastiano Vigna.
+	Xoroshiro and Xorshift algorithms
       </url>
+      by Sebastiano Vigna.
       The normal distribution algorithm uses the
       <url href="http://www.jstatsoft.org/v05/i08">
 	Ziggurat Method by Marsaglia and Tsang
       </url>
       on top of the uniform distribution algorithm.
     </p>
-    <p>For some algorithms, jump functions are provided for generating
-        non-overlapping sequences for parallel computations.
-        The jump functions perform calculations
-        equivalent to perform a large number of repeated calls
-        for calculating new states. </p>
+    <p>
+      For most algorithms, jump functions are provided for generating
+      non-overlapping sequences for parallel computations.
+      The jump functions perform calculations
+      equivalent to perform a large number of repeated calls
+      for calculating new states.
+    </p>
 
-    <p>The following algorithms are provided:</p>
+    <p>
+      <marker id="algorithms"/>
+      The following algorithms are provided:
+    </p>
 
     <taglist>
+      <tag><c>exsss</c></tag>
+      <item>
+        <p>Xorshift116**, 58 bits precision and period of 2^116-1</p>
+        <p>Jump function: equivalent to 2^64 calls</p>
+	<p>
+	  This is the Xorshift116 generator combined with the StarStar scrambler
+	  from the 2018 paper by David Blackman and Sebastiano Vigna:
+	  <url href="http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf">
+	    Scrambled Linear Pseudorandom Number Generators
+	  </url>
+	</p>
+	<p>
+	  The generator does not need 58-bit rotates so it is faster
+	  than the Xoroshiro116 generator, and when combined with
+	  the StarStar scrambler it does not have any weak low bits
+	  like <c>exrop</c> (Xoroshiro116+).
+	</p>
+	<p>
+	  Alas, this combination is about 10% slower than <c>exrop</c>,
+	  but is despite that the
+          <seeerl marker="#default-algorithm">
+            <em>default algorithm</em>
+          </seeerl>
+          thanks to its statistical qualities.
+	</p>
+      </item>
+      <tag><c>exro928ss</c></tag>
+      <item>
+        <p>Xoroshiro928**, 58 bits precision and a period of 2^928-1</p>
+        <p>Jump function: equivalent to 2^512 calls</p>
+	<p>
+	  This is a 58 bit version of Xoroshiro1024**,
+	  from the 2018 paper by David Blackman and Sebastiano Vigna:
+	  <url href="http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf">
+	    Scrambled Linear Pseudorandom Number Generators
+	  </url>
+	  that on a 64 bit Erlang system executes only
+          about 40% slower than the
+          <seeerl marker="#default-algorithm">
+            <em>default</em> <c>exsss</c> <em>algorithm</em>
+          </seeerl>
+          but with much longer period and better statistical properties,
+          but on the flip side a larger state.
+	</p>
+	<p>
+	  Many thanks to Sebastiano Vigna for his help with
+	  the 58 bit adaption.
+	</p>
+      </item>
       <tag><c>exrop</c></tag>
       <item>
         <p>Xoroshiro116+, 58 bits precision and period of 2^116-1</p>
@@ -72,7 +127,10 @@
         <p>Xorshift116+, 58 bits precision and period of 2^116-1</p>
         <p>Jump function: equivalent to 2^64 calls</p>
 	<p>
-	  This is a corrected version of the previous default algorithm,
+	  This is a corrected version of the previous
+          <seeerl marker="#default-algorithm">
+            <em>default algorithm</em>,
+          </seeerl>
 	  that now has been superseded by Xoroshiro116+ (<c>exrop</c>).
 	  Since there is no native 58 bit rotate instruction this
 	  algorithm executes a little (say &lt; 15%) faster than <c>exrop</c>.
@@ -83,10 +141,19 @@
     </taglist>
 
     <p>
-      The default algorithm is <c>exrop</c> (Xoroshiro116+).
+      <marker id="default-algorithm"/>
+      The current <em>default algorithm</em> is
+      <seeerl marker="#algorithms">
+      <c>exsss</c> (Xorshift116**).
+      </seeerl>
       If a specific algorithm is
-      required, ensure to always use <seealso marker="#seed-1">
-      <c>seed/1</c></seealso> to initialize the state.
+      required, ensure to always use <seemfa marker="#seed/1">
+      <c>seed/1</c></seemfa> to initialize the state.
+    </p>
+    <p>
+      Which algorithm that is the default may change between
+      Erlang/OTP releases, and is selected to be one with high
+      speed, small state and "good enough" statistical properties.
     </p>
 
     <p>
@@ -133,19 +200,27 @@
       variable <c>rand_seed</c> to remember the current state.</p>
 
     <p>If a process calls
-      <seealso marker="#uniform-0"><c>uniform/0</c></seealso>,
-      <seealso marker="#uniform-1"><c>uniform/1</c></seealso> or
-      <seealso marker="#uniform_real-0"><c>uniform_real/0</c></seealso> without
-      setting a seed first, <seealso marker="#seed-1"><c>seed/1</c></seealso>
-      is called automatically with the default algorithm and creates a
-      non-constant seed.</p>
+      <seemfa marker="#uniform/0"><c>uniform/0</c></seemfa>,
+      <seemfa marker="#uniform/1"><c>uniform/1</c></seemfa> or
+      <seemfa marker="#uniform_real/0"><c>uniform_real/0</c></seemfa> without
+      setting a seed first, <seemfa marker="#seed/1"><c>seed/1</c></seemfa>
+      is called automatically with the
+      <seeerl marker="#default-algorithm">
+        <em>default algorithm</em>
+      </seeerl>
+      and creates a non-constant seed.</p>
 
     <p>The functions with explicit state never use the process dictionary.</p>
 
     <p><em>Examples:</em></p>
 
-    <p>Simple use; creates and seeds the default algorithm
-      with a non-constant seed if not already done:</p>
+    <p>
+      Simple use; creates and seeds the
+      <seeerl marker="#default-algorithm">
+        <em>default algorithm</em>
+      </seeerl>
+      with a non-constant seed if not already done:
+    </p>
 
     <pre>
 R0 = rand:uniform(),
@@ -154,19 +229,19 @@ R1 = rand:uniform(),</pre>
     <p>Use a specified algorithm:</p>
 
     <pre>
-_ = rand:seed(exs1024s),
+_ = rand:seed(exs928ss),
 R2 = rand:uniform(),</pre>
 
     <p>Use a specified algorithm with a constant seed:</p>
 
     <pre>
-_ = rand:seed(exs1024s, {123, 123534, 345345}),
+_ = rand:seed(exs928ss, {123, 123534, 345345}),
 R3 = rand:uniform(),</pre>
 
    <p>Use the functional API with a non-constant seed:</p>
 
    <pre>
-S0 = rand:seed_s(exrop),
+S0 = rand:seed_s(exsss),
 {R4, S1} = rand:uniform_s(S0),</pre>
 
    <p>Textbook basic form Box-Muller standard normal deviate</p>
@@ -190,13 +265,14 @@ SND0 = math:sqrt(-2 * math:log(R5)) * math:cos(math:pi() * R6)</pre>
       <p>The builtin random number generator algorithms are not
         cryptographically strong. If a cryptographically strong
         random number generator is needed, use something like
-        <seealso marker="crypto:crypto#rand_seed-0"><c>crypto:rand_seed/0</c></seealso>.
+        <seemfa marker="crypto:crypto#rand_seed/0"><c>crypto:rand_seed/0</c></seemfa>.
       </p>
     </note>
 
     <p>
-      For all these generators the lowest bit(s) has got
-      a slightly less random behaviour than all other bits.
+      For all these generators except <c>exro928ss</c> and <c>exsss</c>
+      the lowest bit(s) has got a slightly less
+      random behaviour than all other bits.
       1 bit for <c>exrop</c> (and <c>exsp</c>),
       and 3 bits for <c>exs1024s</c>.
       See for example the explanation in the
@@ -211,7 +287,7 @@ up to (and included) 16TB, with the exception of binary rank tests,
 which fail due to the lowest bit being an LFSR; all other bits pass all
 tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     <p>
-      If this is a problem; to generate a boolean
+      If this is a problem; to generate a boolean with these algorithms
       use something like this:
     </p>
     <pre>(rand:uniform(16) > 8)</pre>
@@ -254,11 +330,42 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       </desc>
     </datatype>
     <datatype>
-      <name name="exs64_state"/>
-      <desc><p>Algorithm specific internal state</p></desc>
+      <name name="seed"/>
+      <desc>
+	<p>
+	  A seed value for the generator.
+	</p>
+	<p>
+	  A list of integers sets the generator's internal state directly,
+	  after algorithm-dependent checks of the value
+	  and masking to the proper word size.
+          The number of integers must be equal to the
+          number of state words in the generator.
+	</p>
+	<p>
+	  An integer is used as the initial state for a SplitMix64 generator.
+	  The output values of that is then used for setting
+	  the generator's internal state
+	  after masking to the proper word size
+	  and if needed avoiding zero values.
+	</p>
+	<p>
+	  A traditional 3-tuple of integers seed is passed through
+	  algorithm-dependent hashing functions to create
+	  the generator's initial state.
+	</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="exsplus_state"/>
+      <desc><p>Algorithm specific internal state</p></desc>
+    </datatype>
+    <datatype>
+      <name name="exro928_state"/>
+      <desc><p>Algorithm specific internal state</p></desc>
+    </datatype>
+    <datatype>
+      <name name="exrop_state"/>
       <desc><p>Algorithm specific internal state</p></desc>
     </datatype>
     <datatype>
@@ -266,18 +373,47 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       <desc><p>Algorithm specific internal state</p></desc>
     </datatype>
     <datatype>
-      <name name="exrop_state"/>
+      <name name="exs64_state"/>
       <desc><p>Algorithm specific internal state</p></desc>
     </datatype>
   </datatypes>
 
   <funcs>
     <func>
+      <name name="bytes" arity="1" since="OTP 24.0"/>
+      <fsummary>Return a random binary.</fsummary>
+      <desc><marker id="bytes-1"/>
+      <p>
+        Returns, for a specified integer <c><anno>N</anno> >= 0</c>,
+        a <c>binary()</c> with that number of random bytes.
+        Generates as many random numbers as required using
+        the selected algorithm to compose the binary,
+        and updates the state in the process dictionary accordingly.
+      </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="bytes_s" arity="2" since="OTP 24.0"/>
+      <fsummary>Return a random binary.</fsummary>
+      <desc><marker id="bytes-1"/>
+      <p>
+        Returns, for a specified integer <c><anno>N</anno> >= 0</c>
+        and a state, a <c>binary()</c> with that number of random bytes,
+        and a new state.
+        Generates as many random numbers as required using
+        the selected algorithm to compose the binary,
+        and the new state.
+      </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="export_seed" arity="0" since="OTP 18.0"/>
       <fsummary>Export the random number generation state.</fsummary>
       <desc><marker id="export_seed-0"/>
         <p>Returns the random number state in an external format.
-          To be used with <seealso marker="#seed-1"><c>seed/1</c></seealso>.</p>
+          To be used with <seemfa marker="#seed/1"><c>seed/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -286,7 +422,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       <fsummary>Export the random number generation state.</fsummary>
       <desc><marker id="export_seed_s-1"/>
         <p>Returns the random number generator state in an external format.
-          To be used with <seealso marker="#seed-1"><c>seed/1</c></seealso>.</p>
+          To be used with <seemfa marker="#seed/1"><c>seed/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -356,7 +492,8 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="seed" arity="1" since="OTP 18.0"/>
+      <name name="seed" arity="1" clause_i="1" since="OTP 18.0"/>
+      <name name="seed" arity="1" clause_i="2" since="OTP 24.0"/>
       <fsummary>Seed random number generator.</fsummary>
       <desc>
         <marker id="seed-1"/>
@@ -364,43 +501,70 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 	  Seeds random number generation with the specifed algorithm and
           time-dependent data if <c><anno>AlgOrStateOrExpState</anno></c>
 	  is an algorithm.
+          <c><anno>Alg</anno>&nbsp;=&nbsp;default</c>
+          is an alias for the
+          <seeerl marker="#default-algorithm">
+            <em>default algorithm</em>.
+          </seeerl>
 	</p>
         <p>Otherwise recreates the exported seed in the process dictionary,
           and returns the state. See also
-          <seealso marker="#export_seed-0"><c>export_seed/0</c></seealso>.</p>
+          <seemfa marker="#export_seed/0"><c>export_seed/0</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="seed" arity="2" since="OTP 18.0"/>
+      <name name="seed" arity="2" clause_i="1" since="OTP 18.0"/>
+      <name name="seed" arity="2" clause_i="2" since="OTP 24.0"/>
       <fsummary>Seed the random number generation.</fsummary>
       <desc>
-        <p>Seeds random number generation with the specified algorithm and
-          integers in the process dictionary and returns the state.</p>
+        <p>
+          Seeds random number generation with the specified algorithm and
+          integers in the process dictionary and returns the state.
+          <c><anno>Alg</anno>&nbsp;=&nbsp;default</c>
+          is an alias for the
+          <seeerl marker="#default-algorithm">
+            <em>default algorithm</em>.
+          </seeerl>
+        </p>
       </desc>
     </func>
 
     <func>
-      <name name="seed_s" arity="1" since="OTP 18.0"/>
+      <name name="seed_s" arity="1" clause_i="1" since="OTP 18.0"/>
+      <name name="seed_s" arity="1" clause_i="2" since="OTP 24.0"/>
       <fsummary>Seed random number generator.</fsummary>
       <desc>
         <p>
 	  Seeds random number generation with the specifed algorithm and
           time-dependent data if <c><anno>AlgOrStateOrExpState</anno></c>
 	  is an algorithm.
+          <c><anno>Alg</anno>&nbsp;=&nbsp;default</c>
+          is an alias for the
+          <seeerl marker="#default-algorithm">
+            <em>default algorithm</em>.
+          </seeerl>
 	</p>
         <p>Otherwise recreates the exported seed and returns the state.
-          See also <seealso marker="#export_seed-0">
-          <c>export_seed/0</c></seealso>.</p>
+          See also <seemfa marker="#export_seed/0">
+          <c>export_seed/0</c></seemfa>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="seed_s" arity="2" since="OTP 18.0"/>
+      <name name="seed_s" arity="2" clause_i="1" since="OTP 18.0"/>
+      <name name="seed_s" arity="2" clause_i="2" since="OTP 24.0"/>
       <fsummary>Seed the random number generation.</fsummary>
       <desc>
-        <p>Seeds random number generation with the specified algorithm and
-          integers and returns the state.</p>
+        <p>
+          Seeds random number generation with the specified algorithm and
+          integers and returns the state.
+          <c><anno>Alg</anno>&nbsp;=&nbsp;default</c>
+          is an alias for the
+          <seeerl marker="#default-algorithm">
+            <em>default algorithm</em>.
+          </seeerl>
+        </p>
       </desc>
     </func>
 
@@ -423,7 +587,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 	    fatal for certain applications.  If that is undesired
 	    you can use <c>(1.0 - rand:uniform())</c> to get the
 	    interval <c>0.0 &lt; <anno>X</anno> =&lt; 1.0</c>, or instead use
-	    <seealso marker="#uniform_real-0"><c>uniform_real/0</c></seealso>.
+	    <seemfa marker="#uniform_real/0"><c>uniform_real/0</c></seemfa>.
 	  </p>
 	  <p>
 	    If neither endpoint is desired you can test and re-try
@@ -461,7 +625,7 @@ end.</pre>
 	  <p>
 	    The generated numbers from this function has got better
 	    granularity for small numbers than the regular
-	    <seealso marker="#uniform-0"><c>uniform/0</c></seealso>
+	    <seemfa marker="#uniform/0"><c>uniform/0</c></seemfa>
 	    because all bits in the mantissa are random.
 	    This property, in combination with the fact that exactly zero
 	    is never returned is useful for algoritms doing for example
@@ -470,7 +634,7 @@ end.</pre>
 	</note>
 	<p>
 	  See
-	  <seealso marker="#uniform_real_s-1"><c>uniform_real_s/1</c></seealso>
+	  <seemfa marker="#uniform_real_s/1"><c>uniform_real_s/1</c></seemfa>
 	  for more explanation.
 	</p>
       </desc>
@@ -506,7 +670,7 @@ end.</pre>
 	    fatal for certain applications.  If that is undesired
 	    you can use <c>(1.0 - rand:uniform(State))</c> to get the
 	    interval <c>0.0 &lt; <anno>X</anno> =&lt; 1.0</c>, or instead use
-	    <seealso marker="#uniform_real_s-1"><c>uniform_real_s/1</c></seealso>.
+	    <seemfa marker="#uniform_real_s/1"><c>uniform_real_s/1</c></seemfa>.
 	  </p>
 	  <p>
 	    If neither endpoint is desired you can test and re-try
@@ -544,7 +708,7 @@ end.</pre>
 	  <p>
 	    The generated numbers from this function has got better
 	    granularity for small numbers than the regular
-	    <seealso marker="#uniform_s-1"><c>uniform_s/1</c></seealso>
+	    <seemfa marker="#uniform_s/1"><c>uniform_s/1</c></seemfa>
 	    because all bits in the mantissa are random.
 	    This property, in combination with the fact that exactly zero
 	    is never returned is useful for algoritms doing for example
@@ -574,13 +738,13 @@ end.</pre>
 	  <c>0 =&lt; integer(N) &lt; 2.0^53</c>
 	  the probability is the same.
 	  Compare that with the form of the numbers generated by
-	  <seealso marker="#uniform_s-1"><c>uniform_s/1</c></seealso>.
+	  <seemfa marker="#uniform_s/1"><c>uniform_s/1</c></seemfa>.
 	</p>
 	<p>
 	  Having to generate extra random bits for
 	  small numbers costs a little performance.
 	  This function is about 20% slower than the regular
-	  <seealso marker="#uniform_s-1"><c>uniform_s/1</c></seealso>
+	  <seemfa marker="#uniform_s/1"><c>uniform_s/1</c></seemfa>
 	</p>
       </desc>
     </func>

@@ -28,7 +28,6 @@ public class OtpErlangRef extends OtpErlangObject {
     // don't change this!
     private static final long serialVersionUID = -7022666480768586521L;
 
-    private final int tag;
     private final String node;
     private final int creation;
 
@@ -49,7 +48,6 @@ public class OtpErlangRef extends OtpErlangObject {
     public OtpErlangRef(final OtpLocalNode self) {
         final OtpErlangRef r = self.createRef();
 
-	tag = r.tag;
         ids = r.ids;
         creation = r.creation;
         node = r.node;
@@ -70,7 +68,6 @@ public class OtpErlangRef extends OtpErlangObject {
             throws OtpErlangDecodeException {
         final OtpErlangRef r = buf.read_ref();
 
-	tag = r.tag;
         node = r.node();
         creation = r.creation();
 
@@ -90,7 +87,6 @@ public class OtpErlangRef extends OtpErlangObject {
      *            another arbitrary number.
      */
     public OtpErlangRef(final String node, final int id, final int creation) {
-	this.tag = OtpExternal.newRefTag;
         this.node = node;
         ids = new int[1];
         ids[0] = id & 0x3ffff; // 18 bits
@@ -138,18 +134,22 @@ public class OtpErlangRef extends OtpErlangObject {
      */
     public OtpErlangRef(final int tag, final String node, final int[] ids,
 			final int creation) {
-	this.tag = tag;
         this.node = node;
 
-        // use at most 3 words
+        // use at most 5 words
         int len = ids.length;
-        this.ids = new int[3];
-        this.ids[0] = 0;
-        this.ids[1] = 0;
-        this.ids[2] = 0;
-
-        if (len > 3) {
-            len = 3;
+        if (len < 3) {
+            this.ids = new int[3];
+            this.ids[0] = 0;
+            this.ids[1] = 0;
+            this.ids[2] = 0;
+        }
+        else if (len <= 5) {
+            this.ids = new int[len];
+        }
+        else {
+            this.ids = new int[5];
+            len = 5;
         }
         System.arraycopy(ids, 0, this.ids, 0, len);
 	if (tag == OtpExternal.newRefTag) {
@@ -162,7 +162,7 @@ public class OtpErlangRef extends OtpErlangObject {
     }
 
     protected int tag() {
-        return tag;
+        return OtpExternal.newerRefTag;
     }
 
     /**
@@ -178,7 +178,7 @@ public class OtpErlangRef extends OtpErlangObject {
     /**
      * Get the array of id numbers from the ref. If this is an old style ref,
      * the array is of length 1. If this is a new style ref, the array has
-     * length 3.
+     * length 3-5.
      *
      * @return the array of id numbers from the ref.
      */
@@ -265,11 +265,28 @@ public class OtpErlangRef extends OtpErlangObject {
             return false;
         }
 
-        if (isNewRef() && ref.isNewRef()) {
-            return ids[0] == ref.ids[0] && ids[1] == ref.ids[1]
-                    && ids[2] == ref.ids[2];
+        if (ids.length != ref.ids.length) {
+            if (ids.length > ref.ids.length) {
+                for (int i = ref.ids.length; i < ids.length; i++) {
+                    if (ids[i] != 0) {
+                        return false;
+                    }
+                }
+            }
+            else {
+                for (int i = ids.length; i < ref.ids.length; i++) {
+                    if (ref.ids[i] != 0) {
+                        return false;
+                    }
+                }
+            }
         }
-        return ids[0] == ref.ids[0];
+        for (int i = 0; i < ids.length; i++) {
+            if (ids[i] != ref.ids[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

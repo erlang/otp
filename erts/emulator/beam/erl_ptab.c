@@ -27,10 +27,10 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
+#include "global.h"
 #define ERTS_PTAB_WANT_BIF_IMPL__
 #define ERTS_PTAB_WANT_DEBUG_FUNCS__
 #include "erl_ptab.h"
-#include "global.h"
 #include "erl_binary.h"
 
 typedef struct ErtsPTabListBifData_ ErtsPTabListBifData;
@@ -974,7 +974,7 @@ ptab_list_bif_engine(Process *c_p, Eterm *res_accp, Binary *mbp)
 	    if (cix != 0)
 		ptlbdp->chunk[cix].interval
 		    = erts_step_interval_nob(erts_ptab_interval(ptab));
-	    else if (ptlbdp->bif_invocation)
+	    else if (invocation_interval_p)
 		ptlbdp->chunk[0].interval = *invocation_interval_p;
 	    /* else: interval is irrelevant */
 

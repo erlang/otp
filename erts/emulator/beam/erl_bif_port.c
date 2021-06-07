@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@
 #include "erl_bif_unique.h"
 #include "dtrace-wrapper.h"
 #include "erl_proc_sig_queue.h"
+#include "erl_osenv.h"
 
 static Port *open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump);
 static int merge_global_environment(erts_osenv_t *env, Eterm key_value_pairs);
@@ -59,12 +60,14 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
     Eterm res;
     char *str;
     int err_type, err_num;
-    ErtsLinkData *ldp;
-    ErtsLink *lnk;
+    ErtsLink *proc_lnk, *port_lnk;
 
     port = open_port(BIF_P, BIF_ARG_1, BIF_ARG_2, &err_type, &err_num);
     if (!port) {
-	if (err_type == -3) {
+	if (err_type == -4) {
+            /* Invalid settings arguments. */
+            return am_badopt;
+        } else if (err_type == -3) {
 	    ASSERT(err_num == BADARG || err_num == SYSTEM_LIMIT);
 	    if (err_num == BADARG)
                 res = am_badarg;
@@ -82,15 +85,15 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
         BIF_RET(res);
     }
 
-    ldp = erts_link_create(ERTS_LNK_TYPE_PORT, BIF_P->common.id, port->common.id);
-    ASSERT(ldp->a.other.item == port->common.id);
-    ASSERT(ldp->b.other.item == BIF_P->common.id);
+    proc_lnk = erts_link_internal_create(ERTS_LNK_TYPE_PORT, port->common.id);
+    port_lnk = erts_link_internal_create(ERTS_LNK_TYPE_PORT, BIF_P->common.id);
     /*
      * This link should not already be present, but can potentially
      * due to id wrapping...
      */
-    lnk = erts_link_tree_lookup_insert(&ERTS_P_LINKS(BIF_P), &ldp->a);
-    erts_link_tree_insert(&ERTS_P_LINKS(port), &ldp->b);
+    if (!!erts_link_tree_lookup_insert(&ERTS_P_LINKS(BIF_P), proc_lnk))
+        erts_link_internal_release(proc_lnk);
+    erts_link_tree_insert(&ERTS_P_LINKS(port), port_lnk);
 
     if (port->drv_ptr->flags & ERL_DRV_FLAG_USE_INIT_ACK) {
 
@@ -104,8 +107,7 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
          * We unconditionaly *must* do a receive on a message
          * containing the reference after this...
          */
-        ERTS_RECV_MARK_SAVE(BIF_P);
-        ERTS_RECV_MARK_SET(BIF_P);
+        erts_msgq_set_save_end(BIF_P);
 
         res = erts_proc_store_ref(BIF_P, port->async_open_port->ref);
     } else {
@@ -119,9 +121,6 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
     ERTS_BIF_PREP_RET(ret, res);
 
     erts_port_release(port);
-
-    if (lnk)
-        erts_link_release(lnk);
 
     return ret;
 }
@@ -167,7 +166,7 @@ BIF_RETTYPE erts_internal_port_command_3(BIF_ALIST_3)
     BIF_RETTYPE res;
     Port *prt;
     int flags = 0;
-    Eterm ref;
+    erts_aint32_t state;
 
     if (is_not_nil(BIF_ARG_3)) {
 	Eterm l = BIF_ARG_3;
@@ -179,59 +178,68 @@ BIF_RETTYPE erts_internal_port_command_3(BIF_ALIST_3)
 	    else if (car == am_nosuspend)
 		flags |= ERTS_PORT_SIG_FLG_NOSUSPEND;
 	    else
-		BIF_RET(am_badarg);
+		BIF_RET(am_badopt);
 	    l = CDR(cons);
 	}
 	if (!is_nil(l))
-	    BIF_RET(am_badarg);
+	    BIF_RET(am_badopt);
     }
 
     prt = sig_lookup_port(BIF_P, BIF_ARG_1);
     if (!prt)
-	BIF_RET(am_badarg);
-
-    if (flags & ERTS_PORT_SIG_FLG_FORCE) {
-	if (!(prt->drv_ptr->flags & ERL_DRV_FLAG_SOFT_BUSY))
-	    BIF_RET(am_notsup);
+        ERTS_BIF_PREP_RET(res, am_badarg);
+    else if ((flags & ERTS_PORT_SIG_FLG_FORCE)
+             && !(prt->drv_ptr->flags & ERL_DRV_FLAG_SOFT_BUSY)) {
+        ERTS_BIF_PREP_RET(res, am_notsup);
     }
-
+    else {
+        Eterm ref;
 #ifdef DEBUG
-    ref = NIL;
+        ref = NIL;
 #endif
 
-    switch (erts_port_output(BIF_P, flags, prt, prt->common.id, BIF_ARG_2, &ref)) {
-    case ERTS_PORT_OP_BADARG:
-    case ERTS_PORT_OP_DROPPED:
- 	ERTS_BIF_PREP_RET(res, am_badarg);
-	break;
-    case ERTS_PORT_OP_BUSY:
-	ASSERT(!(flags & ERTS_PORT_SIG_FLG_FORCE));
-	if (flags & ERTS_PORT_SIG_FLG_NOSUSPEND)
-	    ERTS_BIF_PREP_RET(res, am_false);
-	else {
-	    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, prt);
-	    ERTS_BIF_PREP_YIELD3(res, bif_export[BIF_erts_internal_port_command_3],
-				 BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+	switch (erts_port_output(BIF_P, flags, prt, prt->common.id,
+				 BIF_ARG_2, &ref)) {
+	case ERTS_PORT_OP_BADARG:
+	case ERTS_PORT_OP_DROPPED:
+	    ERTS_BIF_PREP_RET(res, am_badarg);
+	    break;
+	case ERTS_PORT_OP_BUSY:
+	    ASSERT(!(flags & ERTS_PORT_SIG_FLG_FORCE));
+	    if (flags & ERTS_PORT_SIG_FLG_NOSUSPEND)
+		ERTS_BIF_PREP_RET(res, am_false);
+	    else {
+		erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, prt);
+		ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_erts_internal_port_command_3),
+				BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+	    }
+	    break;
+	case ERTS_PORT_OP_BUSY_SCHEDULED:
+	    ASSERT(!(flags & ERTS_PORT_SIG_FLG_FORCE));
+	    /* Fall through... */
+	case ERTS_PORT_OP_SCHEDULED:
+	    ASSERT(is_internal_ordinary_ref(ref));
+	    /* Signal order preserved by reply... */
+	    BIF_RET(ref);
+	    break;
+	case ERTS_PORT_OP_DONE:
+	    ERTS_BIF_PREP_RET(res, am_true);
+	    break;
+	default:
+	    ERTS_INTERNAL_ERROR("Unexpected erts_port_output() result");
+	    break;
 	}
-	break;
-    case ERTS_PORT_OP_BUSY_SCHEDULED:
-	ASSERT(!(flags & ERTS_PORT_SIG_FLG_FORCE));
-	/* Fall through... */
-    case ERTS_PORT_OP_SCHEDULED:
-	ASSERT(is_internal_ordinary_ref(ref));
-	ERTS_BIF_PREP_RET(res, ref);
-	break;
-    case ERTS_PORT_OP_DONE:
-	ERTS_BIF_PREP_RET(res, am_true);
-	break;
-    default:
-	ERTS_INTERNAL_ERROR("Unexpected erts_port_output() result");
-	break;
     }
 
-    if (ERTS_PROC_IS_EXITING(BIF_P)) {
+    state = erts_atomic32_read_acqb(&BIF_P->state);
+    if (state & ERTS_PSFLG_EXITING) {
 	KILL_CATCHES(BIF_P);	/* Must exit */
 	ERTS_BIF_PREP_ERROR(res, BIF_P, EXC_ERROR);
+    }
+    else {
+        /* Ensure signal order is preserved... */
+        if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q))
+            ERTS_BIF_PREP_HANDLE_SIGNALS_RETURN(res, BIF_P, res);
     }
 
     return res;
@@ -242,41 +250,46 @@ BIF_RETTYPE erts_internal_port_call_3(BIF_ALIST_3)
     Port* prt;
     Eterm retval;
     Uint uint_op;
-    unsigned int op;
     erts_aint32_t state;
 
     prt = sig_lookup_port(BIF_P, BIF_ARG_1);
     if (!prt)
-	BIF_RET(am_badarg);
-
-    if (!term_to_Uint(BIF_ARG_2, &uint_op))
-	BIF_RET(am_badarg);
-
-    if (uint_op > (Uint) UINT_MAX)
-	BIF_RET(am_badarg);
-
-    op = (unsigned int) uint_op;
-
-    switch (erts_port_call(BIF_P, prt, op, BIF_ARG_3, &retval)) {
-    case ERTS_PORT_OP_DROPPED:
-    case ERTS_PORT_OP_BADARG:
 	retval = am_badarg;
-	break;
-    case ERTS_PORT_OP_SCHEDULED:
-	ASSERT(is_internal_ordinary_ref(retval));
-	break;
-    case ERTS_PORT_OP_DONE:
-	ASSERT(is_not_internal_ref(retval));
-	break;
-    default:
-	ERTS_INTERNAL_ERROR("Unexpected erts_port_call() result");
-	retval = am_internal_error;
-	break;
+    else if (!term_to_Uint(BIF_ARG_2, &uint_op))
+	retval = am_badarg;
+    else if (uint_op > (Uint) UINT_MAX)
+	retval = am_badarg;
+    else {
+        unsigned int op = (unsigned int) uint_op;
+
+        switch (erts_port_call(BIF_P, prt, op, BIF_ARG_3, &retval)) {
+        case ERTS_PORT_OP_DROPPED:
+        case ERTS_PORT_OP_BADARG:
+            retval = am_badarg;
+            break;
+        case ERTS_PORT_OP_SCHEDULED:
+            ASSERT(is_internal_ordinary_ref(retval));
+            /* Signal order preserved by reply... */
+            BIF_RET(retval);
+            break;
+        case ERTS_PORT_OP_DONE:
+            ASSERT(is_not_internal_ref(retval));
+            break;
+        default:
+            ERTS_INTERNAL_ERROR("Unexpected erts_port_call() result");
+            retval = am_internal_error;
+            break;
+        }
     }
 
     state = erts_atomic32_read_acqb(&BIF_P->state);
     if (state & ERTS_PSFLG_EXITING)
 	ERTS_BIF_EXITED(BIF_P);
+    else {
+        /* Ensure signal order is preserved... */
+        if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q))
+            ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, retval);
+    }
 
     BIF_RET(retval);
 }
@@ -286,41 +299,45 @@ BIF_RETTYPE erts_internal_port_control_3(BIF_ALIST_3)
     Port* prt;
     Eterm retval;
     Uint uint_op;
-    unsigned int op;
     erts_aint32_t state;
 
     prt = sig_lookup_port(BIF_P, BIF_ARG_1);
     if (!prt)
-	BIF_RET(am_badarg);
-
-    if (!term_to_Uint(BIF_ARG_2, &uint_op))
-	BIF_RET(am_badarg);
-
-    if (uint_op > (Uint) UINT_MAX)
-	BIF_RET(am_badarg);
-
-    op = (unsigned int) uint_op;
-
-    switch (erts_port_control(BIF_P, prt, op, BIF_ARG_3, &retval)) {
-    case ERTS_PORT_OP_BADARG:
-    case ERTS_PORT_OP_DROPPED:
 	retval = am_badarg;
-	break;
-    case ERTS_PORT_OP_SCHEDULED:
-	ASSERT(is_internal_ordinary_ref(retval));
-	break;
-    case ERTS_PORT_OP_DONE:
-	ASSERT(is_not_internal_ref(retval));
-	break;
-    default:
-	ERTS_INTERNAL_ERROR("Unexpected erts_port_control() result");
-	retval = am_internal_error;
-	break;
+    else if (!term_to_Uint(BIF_ARG_2, &uint_op))
+	retval = am_badarg;
+    else if (uint_op > (Uint) UINT_MAX)
+	retval = am_badarg;
+    else {
+        unsigned int op = (unsigned int) uint_op;
+
+        switch (erts_port_control(BIF_P, prt, op, BIF_ARG_3, &retval)) {
+        case ERTS_PORT_OP_BADARG:
+        case ERTS_PORT_OP_DROPPED:
+            retval = am_badarg;
+            break;
+        case ERTS_PORT_OP_SCHEDULED:
+            ASSERT(is_internal_ordinary_ref(retval));
+            /* Signal order preserved by reply... */
+            BIF_RET(retval);
+        case ERTS_PORT_OP_DONE:
+            ASSERT(is_not_internal_ref(retval));
+            break;
+        default:
+            ERTS_INTERNAL_ERROR("Unexpected erts_port_control() result");
+            retval = am_internal_error;
+            break;
+        }
     }
 
     state = erts_atomic32_read_acqb(&BIF_P->state);
     if (state & ERTS_PSFLG_EXITING)
 	ERTS_BIF_EXITED(BIF_P);
+    else {
+        /* Ensure signal order is preserved... */
+        if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q))
+            ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, retval);
+    }
 
     BIF_RET(retval);
 }
@@ -331,30 +348,44 @@ BIF_RETTYPE erts_internal_port_control_3(BIF_ALIST_3)
  */
 BIF_RETTYPE erts_internal_port_close_1(BIF_ALIST_1)
 {
-    Eterm ref;
+    Eterm retval;
     Port *prt;
-
-#ifdef DEBUG
-    ref = NIL;
-#endif
 
     prt = sig_lookup_port(BIF_P, BIF_ARG_1);
     if (!prt)
-	BIF_RET(am_badarg);
+	retval = am_badarg;
+    else {
 
-    switch (erts_port_exit(BIF_P, 0, prt, BIF_P->common.id, am_normal, &ref)) {
-    case ERTS_PORT_OP_BADARG:
-    case ERTS_PORT_OP_DROPPED:
-	BIF_RET(am_badarg);
-    case ERTS_PORT_OP_SCHEDULED:
-	ASSERT(is_internal_ordinary_ref(ref));
-	BIF_RET(ref);
-    case ERTS_PORT_OP_DONE:
-	BIF_RET(am_true);
-    default:
-	ERTS_INTERNAL_ERROR("Unexpected erts_port_exit() result");
-	BIF_RET(am_internal_error);
+#ifdef DEBUG
+        retval = NIL;
+#endif
+
+        switch (erts_port_exit(BIF_P, 0, prt, BIF_P->common.id,
+                               am_normal, &retval)) {
+        case ERTS_PORT_OP_BADARG:
+        case ERTS_PORT_OP_DROPPED:
+            retval = am_badarg;
+            break;
+        case ERTS_PORT_OP_SCHEDULED:
+            ASSERT(is_internal_ordinary_ref(retval));
+            /* Signal order preserved by reply... */
+            BIF_RET(retval);
+            break;
+        case ERTS_PORT_OP_DONE:
+            retval = am_true;
+            break;
+        default:
+            ERTS_INTERNAL_ERROR("Unexpected erts_port_exit() result");
+            retval = am_internal_error;
+            break;
+        }
     }
+
+    /* Ensure signal order is preserved... */
+    if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P))
+        ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, retval);
+    
+    BIF_RET(retval);
 }
 
 /*
@@ -363,32 +394,42 @@ BIF_RETTYPE erts_internal_port_close_1(BIF_ALIST_1)
  */
 BIF_RETTYPE erts_internal_port_connect_2(BIF_ALIST_2)
 {
-    Eterm ref;
+    Eterm retval;
     Port* prt;
 
     prt = sig_lookup_port(BIF_P, BIF_ARG_1);
     if (!prt)
-	BIF_RET(am_badarg);
-
+	retval = am_badarg;
+    else {
 #ifdef DEBUG
-    ref = NIL;
+        retval = NIL;
 #endif
 
-    switch (erts_port_connect(BIF_P, 0, prt, BIF_P->common.id, BIF_ARG_2, &ref)) {
-    case ERTS_PORT_OP_BADARG:
-    case ERTS_PORT_OP_DROPPED:
-	BIF_RET(am_badarg);
-    case ERTS_PORT_OP_SCHEDULED:
-	ASSERT(is_internal_ordinary_ref(ref));
-	BIF_RET(ref);
-	break;
-    case ERTS_PORT_OP_DONE:
-	BIF_RET(am_true);
-	break;
-    default:
-	ERTS_INTERNAL_ERROR("Unexpected erts_port_connect() result");
-	BIF_RET(am_internal_error);
+        switch (erts_port_connect(BIF_P, 0, prt, BIF_P->common.id,
+                                  BIF_ARG_2, &retval)) {
+        case ERTS_PORT_OP_BADARG:
+        case ERTS_PORT_OP_DROPPED:
+            retval = am_badarg;
+            break;
+        case ERTS_PORT_OP_SCHEDULED:
+            ASSERT(is_internal_ordinary_ref(retval));
+            /* Signal order preserved by reply... */
+            BIF_RET(retval);
+        case ERTS_PORT_OP_DONE:
+            retval = am_true;
+            break;
+        default:
+            ERTS_INTERNAL_ERROR("Unexpected erts_port_connect() result");
+            retval = am_internal_error;
+            break;
+        }
     }
+
+    /* Ensure signal order is preserved... */
+    if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P))
+        ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, retval);
+    
+    BIF_RET(retval);
 }
 
 BIF_RETTYPE erts_internal_port_info_1(BIF_ALIST_1)
@@ -399,33 +440,44 @@ BIF_RETTYPE erts_internal_port_info_1(BIF_ALIST_1)
     if (is_internal_port(BIF_ARG_1) || is_atom(BIF_ARG_1)) {
 	prt = sig_lookup_port(BIF_P, BIF_ARG_1);
 	if (!prt)
-	    BIF_RET(am_undefined);
+	    retval = am_undefined;
+        else {
+            switch (erts_port_info(BIF_P, prt, THE_NON_VALUE, &retval)) {
+            case ERTS_PORT_OP_BADARG:
+                retval = am_badarg;
+                break;
+            case ERTS_PORT_OP_DROPPED:
+                retval = am_undefined;
+                break;
+            case ERTS_PORT_OP_SCHEDULED:
+                ASSERT(is_internal_ordinary_ref(retval));
+                /* Signal order preserved by reply... */
+                BIF_RET(retval);
+            case ERTS_PORT_OP_DONE:
+                ASSERT(is_not_internal_ref(retval));
+                break;
+            default:
+                ERTS_INTERNAL_ERROR("Unexpected erts_port_info() result");
+                retval = am_internal_error;
+                break;
+            }
+        }
     }
     else if (is_external_port(BIF_ARG_1)) {
 	if (external_port_dist_entry(BIF_ARG_1) == erts_this_dist_entry)
-	    BIF_RET(am_undefined);
+	    retval = am_undefined;
 	else
-	    BIF_RET(am_badarg);
+	    retval = am_badarg;
     }
     else {
-	BIF_RET(am_badarg);
+	retval = am_badarg;
     }
 
-    switch (erts_port_info(BIF_P, prt, THE_NON_VALUE, &retval)) {
-    case ERTS_PORT_OP_BADARG:
-	BIF_RET(am_badarg);
-    case ERTS_PORT_OP_DROPPED:
-	BIF_RET(am_undefined);
-    case ERTS_PORT_OP_SCHEDULED:
-	ASSERT(is_internal_ordinary_ref(retval));
-	BIF_RET(retval);
-    case ERTS_PORT_OP_DONE:
-	ASSERT(is_not_internal_ref(retval));
-	BIF_RET(retval);
-    default:
-	ERTS_INTERNAL_ERROR("Unexpected erts_port_info() result");
-	BIF_RET(am_internal_error);
-    }
+    /* Ensure signal order is preserved... */
+    if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P))
+        ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, retval);
+    
+    BIF_RET(retval);
 }
 
 
@@ -437,33 +489,44 @@ BIF_RETTYPE erts_internal_port_info_2(BIF_ALIST_2)
     if (is_internal_port(BIF_ARG_1) || is_atom(BIF_ARG_1)) {
 	prt = sig_lookup_port(BIF_P, BIF_ARG_1);
 	if (!prt)
-	    BIF_RET(am_undefined);
+	    retval = am_undefined;
+        else {
+            switch (erts_port_info(BIF_P, prt, BIF_ARG_2, &retval)) {
+            case ERTS_PORT_OP_BADARG:
+                retval = am_badarg;
+                break;
+            case ERTS_PORT_OP_DROPPED:
+                retval = am_undefined;
+                break;
+            case ERTS_PORT_OP_SCHEDULED:
+                ASSERT(is_internal_ordinary_ref(retval));
+                /* Signal order preserved by reply... */
+                BIF_RET(retval);
+            case ERTS_PORT_OP_DONE:
+                ASSERT(is_not_internal_ref(retval));
+                break;
+            default:
+                ERTS_INTERNAL_ERROR("Unexpected erts_port_info() result");
+                retval = am_internal_error;
+                break;
+            }
+        }
     }
     else if (is_external_port(BIF_ARG_1)) {
 	if (external_port_dist_entry(BIF_ARG_1) == erts_this_dist_entry)
-	    BIF_RET(am_undefined);
+	    retval = am_undefined;
 	else
-	    BIF_RET(am_badarg);
+	    retval = am_badtype;
     }
     else {
-	BIF_RET(am_badarg);
+	retval = am_badtype;
     }
 
-    switch (erts_port_info(BIF_P, prt, BIF_ARG_2, &retval)) {
-    case ERTS_PORT_OP_BADARG:
-	BIF_RET(am_badarg);
-    case ERTS_PORT_OP_DROPPED:
-	BIF_RET(am_undefined);
-    case ERTS_PORT_OP_SCHEDULED:
-	ASSERT(is_internal_ordinary_ref(retval));
-	BIF_RET(retval);
-    case ERTS_PORT_OP_DONE:
-	ASSERT(is_not_internal_ref(retval));
-	BIF_RET(retval);
-    default:
-	ERTS_INTERNAL_ERROR("Unexpected erts_port_info() result");
-	BIF_RET(am_internal_error);
-    }
+    /* Ensure signal order is preserved... */
+    if (ERTS_PROC_HAS_INCOMING_SIGNALS(BIF_P))
+        ERTS_BIF_HANDLE_SIGNALS_RETURN(BIF_P, retval);
+
+    BIF_RET(retval);
 }
 
 /*
@@ -658,7 +721,8 @@ Eterm erts_port_data_read(Port* prt)
  * Error returns: -1 or -2 returned from open_driver (-2 implies
  * that *err_nump contains the error code; -1 means we don't really know what happened),
  * -3 if argument parsing failed or we are out of ports (*err_nump should contain
- * either BADARG or SYSTEM_LIMIT).
+ * either BADARG or SYSTEM_LIMIT),
+ * -4 if port settings were invalid.
  */
 
 static Port *
@@ -691,6 +755,10 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     opts.spawn_type = ERTS_SPAWN_ANY; 
     opts.argv = NULL;
     opts.parallelism = erts_port_parallelism;
+    opts.high_watermark = 8192;
+    opts.low_watermark = opts.high_watermark / 2;
+    opts.port_watermarks_set = 0;
+    opts.msgq_watermarks_set = 0;
     erts_osenv_init(&opts.envir);
 
     linebuf = 0;
@@ -698,8 +766,9 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     *err_nump = 0;
 
     if (is_not_list(settings) && is_not_nil(settings)) {
-	goto badarg;
+	goto bad_settings;
     }
+
     /*
      * Parse the settings.
      */
@@ -713,7 +782,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		option = *tp++;
 		if (option == am_packet) {
 		    if (is_not_small(*tp)) {
-			goto badarg;
+			goto bad_settings;
 		    }
 		    opts.packet_bytes = signed_val(*tp);
 		    switch (opts.packet_bytes) {
@@ -722,15 +791,15 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		    case 4:
 			break;
 		    default:
-			goto badarg;
+			goto bad_settings;
 		   }
 		} else if (option == am_line) {
 		    if (is_not_small(*tp)) {
-			goto badarg;
+			goto bad_settings;
 		    }
 		    linebuf = signed_val(*tp);
 		    if (linebuf <= 0) {
-			goto badarg;
+			goto bad_settings;
 		    }
 		} else if (option == am_env) {
 		    if (merged_environment) {
@@ -741,13 +810,13 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		    merged_environment = 1;
 
 		    if (merge_global_environment(&opts.envir, *tp)) {
-		        goto badarg;
+		        goto bad_settings;
 		    }
 		} else if (option == am_args) {
 		    char **av;
 		    char **oav = opts.argv;
 		    if ((av = convert_args(*tp)) == NULL) {
-			goto badarg;
+			goto bad_settings;
 		    }
 		    opts.argv = av;
 		    if (oav) {
@@ -760,7 +829,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		    char *a0;
 
 		    if ((a0 = erts_convert_filename_to_native(*tp, NULL, 0, ERTS_ALC_T_TMP, 1, 1, NULL)) == NULL) {
-			goto badarg;
+			goto bad_settings;
 		    }
 		    if (opts.argv == NULL) {
 			opts.argv = erts_alloc(ERTS_ALC_T_TMP, 
@@ -781,9 +850,65 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		    else if (*tp == am_false)
 			opts.parallelism = 0;
 		    else
-			goto badarg;
+			goto bad_settings;
+                } else if (option == am_busy_limits_port) {
+                    Uint high, low;
+                    if (*tp == am_disabled)
+                        low = high = ERL_DRV_BUSY_MSGQ_DISABLED;
+                    else if (!is_tuple_arity(*tp, 2))
+                        goto bad_settings;
+                    else {
+                        Eterm *wtp = tuple_val(*tp);
+                        if (!term_to_Uint(wtp[1], &low))
+                            goto bad_settings;
+                        if (!term_to_Uint(wtp[2], &high))
+                            goto bad_settings;
+                        if (high < ERL_DRV_BUSY_MSGQ_LIM_MIN)
+                            goto bad_settings;
+                        if (high > ERL_DRV_BUSY_MSGQ_LIM_MAX)
+                            goto bad_settings;
+                        if (low < ERL_DRV_BUSY_MSGQ_LIM_MIN)
+                            goto bad_settings;
+                        if (low > ERL_DRV_BUSY_MSGQ_LIM_MAX)
+                            goto bad_settings;
+                        if (high == ~((Uint) 0) || low == ~((Uint) 0))
+                            goto bad_settings;
+                        if (low > high)
+                            low = high;
+                    }
+                    opts.low_watermark = low;
+                    opts.high_watermark = high;
+                    opts.port_watermarks_set = !0;
+                } else if (option == am_busy_limits_msgq) {
+                    Uint high, low;
+                    if (*tp == am_disabled)
+                        low = high = ERL_DRV_BUSY_MSGQ_DISABLED;
+                    else if (!is_tuple_arity(*tp, 2))
+                        goto bad_settings;
+                    else {
+                        Eterm *wtp = tuple_val(*tp);
+                        if (!term_to_Uint(wtp[1], &low))
+                            goto bad_settings;
+                        if (!term_to_Uint(wtp[2], &high))
+                            goto bad_settings;
+                        if (high < ERL_DRV_BUSY_MSGQ_LIM_MIN)
+                            goto bad_settings;
+                        if (high > ERL_DRV_BUSY_MSGQ_LIM_MAX)
+                            goto bad_settings;
+                        if (low < ERL_DRV_BUSY_MSGQ_LIM_MIN)
+                            goto bad_settings;
+                        if (low > ERL_DRV_BUSY_MSGQ_LIM_MAX)
+                            goto bad_settings;
+                        if (high == ~((Uint) 0) || low == ~((Uint) 0))
+                            goto bad_settings;
+                        if (low > high)
+                            low = high;
+                    }
+                    opts.low_msgq_watermark = low;
+                    opts.high_msgq_watermark = high;
+                    opts.msgq_watermarks_set = !0;
 		} else {
-		    goto badarg;
+		    goto bad_settings;
 		}
 	    } else if (*nargs == am_stream) {
 		opts.packet_bytes = 0;
@@ -810,24 +935,25 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	    } else if (*nargs == am_overlapped_io) {
 		opts.overlapped_io = 1;
 	    } else {
-		goto badarg;
+		goto bad_settings;
 	    }
 	    if (is_nil(*++nargs)) 
 		break;
 	    if (is_not_list(*nargs)) {
-		goto badarg;
+		goto bad_settings;
 	    }
 	    nargs = list_val(*nargs);
 	}
     }
+
     if (opts.read_write == 0)	/* implement default */
 	opts.read_write = DO_READ|DO_WRITE;
 
     /* Mutually exclusive arguments. */
     if((linebuf && opts.packet_bytes) || 
        (opts.redir_stderr && !opts.use_stdio)) {
-	goto badarg;
-}
+	goto bad_settings;
+    }
 
     /* If we lacked an env option, fill in the global environment without
      * changes. */
@@ -838,7 +964,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     /*
      * Parse the first argument and start the appropriate driver.
      */
-    
+
     if (is_atom(name) || (i = is_string(name))) {
 	/* a vanilla port */
 	if (is_atom(name)) {
@@ -982,7 +1108,13 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	erts_free(ERTS_ALC_T_TMP, (void *) opts.wd);
     }
     return port;
-    
+
+ bad_settings:
+    if (err_typep)
+	*err_typep = -4;
+    port = NULL;
+    goto do_return;
+
  badarg:
     if (err_typep)
 	*err_typep = -3;
@@ -1227,22 +1359,25 @@ static int http_request_erl(void* arg, const http_atom_t* meth,
 }
 
 static int
-http_header_erl(void* arg, const http_atom_t* name, const char* name_ptr,
-                int name_len, const char* value_ptr, int value_len)
+http_header_erl(void* arg, const http_atom_t* name,
+		const char* name_ptr, int name_len,
+		const char* oname_ptr, int oname_len,
+		const char* value_ptr, int value_len)
 {
     struct packet_callback_args* pca = (struct packet_callback_args*) arg;    
-    Eterm bit_term, name_term, val_term;
+    Eterm bit_term, name_term, oname_term, val_term;
     Uint sz = 6;
     Eterm* hp;
 #ifdef DEBUG
     Eterm* hend;
 #endif
     
-    /* {http_header,Bit,Name,IValue,Value} */
+    /* {http_header,Bit,Name,Oname,Value} */
 
     if (name == NULL) {
 	http_bld_string(pca, NULL, &sz, name_ptr, name_len);
     }
+    http_bld_string(pca, NULL, &sz, oname_ptr, oname_len);
     http_bld_string(pca, NULL, &sz, value_ptr, value_len);
 
     hp = HAlloc(pca->p, sz);
@@ -1259,8 +1394,9 @@ http_header_erl(void* arg, const http_atom_t* name, const char* name_ptr,
 	name_term = http_bld_string(pca, &hp,NULL,name_ptr,name_len);
     }
 
+    oname_term = http_bld_string(pca, &hp, NULL, oname_ptr, oname_len);
     val_term = http_bld_string(pca, &hp, NULL, value_ptr, value_len);
-    pca->res = TUPLE5(hp, am_http_header, bit_term, name_term, am_undefined, val_term);
+    pca->res = TUPLE5(hp, am_http_header, bit_term, name_term, oname_term, val_term);
     ASSERT(hp+6==hend);
     return 1;
 }   
@@ -1356,10 +1492,6 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     int   code;
     char  delimiter = '\n';
 
-    if (!is_binary(BIF_ARG_2) || 
-        (!is_list(BIF_ARG_3) && !is_nil(BIF_ARG_3))) {
-        BIF_ERROR(BIF_P, BADARG);
-    }
     switch (BIF_ARG_1) {
     case make_small(0): case am_raw: type = TCP_PB_RAW; break;
     case make_small(1): type = TCP_PB_1; break;
@@ -1377,6 +1509,12 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     case am_httph_bin: type = TCP_PB_HTTPH_BIN; break;
     case am_ssl_tls: type = TCP_PB_SSL_TLS; break;
     default:
+        BIF_P->fvalue = am_badopt;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
+
+    if (!is_binary(BIF_ARG_2) ||
+        (!is_list(BIF_ARG_3) && !is_nil(BIF_ARG_3))) {
         BIF_ERROR(BIF_P, BADARG);
     }
 

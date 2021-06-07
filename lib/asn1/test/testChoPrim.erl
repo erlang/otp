@@ -38,7 +38,9 @@ bool(Rules) ->
 	per ->
 	    ok;
 	uper ->
-	    ok
+	    ok;
+        jer ->
+            ok
     end,
     ok.
 
@@ -58,7 +60,9 @@ int(Rules) ->
 	per ->
 	    ok;
 	uper ->
-	    ok
+	    ok;
+        jer ->
+            ok
     end,
     ok.
 

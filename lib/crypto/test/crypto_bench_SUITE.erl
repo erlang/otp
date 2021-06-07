@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,8 +21,24 @@
 %%
 -module(crypto_bench_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0,
+         all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         block/1,
+         stream/1,
+         chacha/1
+        ]).
+
+-compile([{nowarn_deprecated_function,
+           [{crypto,block_encrypt,4},
+            {crypto,stream_encrypt,2},
+            {crypto,stream_init,3}]}]).
+
 
 -include_lib("common_test/include/ct_event.hrl").
 -include_lib("common_test/include/ct.hrl").
@@ -67,7 +83,7 @@ init_per_suite(Config0) ->
             calibrate([{sec_goal,10} | Config1])
 
     catch _:_ ->
-	    {fail, "Crypto did not start"}
+	    {skip, "Crypto did not start"}
     end.
 
 end_per_suite(_Config) ->
@@ -170,8 +186,8 @@ run_cryptos(Cryptos, Config) ->
                            )
              end
      catch
-         _:_ ->
-             ct:pal("~p unsupported",[{Crypto,KeySize,BlockSize}])
+         _C:_E ->
+             ct:pal("~p unsupported ~p ~p",[{Crypto,KeySize,BlockSize},_C,_E])
      end
      || Crypto <- Cryptos,
         supported(Crypto)
@@ -186,14 +202,6 @@ run(Crypto, KeySize, BlockSize, MilliSecGoal) ->
 fmt(X) -> X.
 
 
-find_value(KeyPath, PropList, Default) ->
-    try find_value(KeyPath, PropList)
-    of
-        undefined -> Default
-    catch
-        error:function_clause -> Default
-    end.
-
 find_value(KeyPath, PropList) ->
     lists:foldl(fun(K, L) when is_list(L) -> proplists:get_value(K,L);
                    (_, _) -> undefined
@@ -204,62 +212,90 @@ find_value(KeyPath, PropList) ->
 %%%
 funs({block, {Type, Key, IV, Block}}) ->
     {fun() -> ok end,
-     fun(_) -> crypto:block_encrypt(Type, Key, IV, Block) end,
+     fun(_) -> crypto:crypto_one_time(Type, Key, IV, Block, true) end,
      fun(_) -> ok end};
 
-funs({stream, {Type, Key, IV, Block}}) ->
-    {fun() -> {crypto:stream_init(Type, Key, IV),ok} end,
-     fun({Ctx,_}) -> crypto:stream_encrypt(Ctx, Block) end,
+funs({aead, {Type, Key, IV, AAD, Block, TagSize}}) ->
+    {fun() -> ok end,
+     fun(_) -> crypto:crypto_one_time_aead(Type, Key, IV, Block, AAD, TagSize, true) end,
+     fun(_) -> ok end};
+
+funs({aead, {Type, Key, IV, AAD, Block}}) ->
+    {fun() -> ok end,
+     fun(_) -> crypto:crypto_one_time_aead(Type, Key, IV, Block, AAD, true) end,
      fun(_) -> ok end}.
 
 
-data(aes_cbc, KeySize, BlockSize) ->
-    Type = case KeySize of
-               128 -> aes_cbc128;
-               256 -> aes_cbc256
-           end,
+type(Type, Size) ->
+    Ciphers = ciphers(),
+    case lists:member(Type, Ciphers) of
+        true ->
+            Type;
+        false ->
+            case string:tokens(atom_to_list(Type), "_") of
+                [Family,Mode] ->
+                    NewType = list_to_atom(lists:concat([Family,"_",Size,"_",Mode])),
+                    case lists:member(NewType, Ciphers) of
+                        true ->
+                            NewType;
+                        false ->
+                            false
+                    end;
+                _X -> 
+                    false
+            end
+    end.
+
+
+ciphers() ->
+    try crypto:supports(ciphers)
+    catch
+        _:_ -> proplists:get_value(ciphers, crypto:supports())
+    end.
+                
+
+data(aes_cbc=Type0, KeySize, BlockSize) ->
+    Key = mk_bin(KeySize div 8),
+    IV = mk_bin(16),
+    Block = mk_bin(BlockSize),
+    Type = type(Type0, KeySize),
+    {Type, funs({block, {Type, Key, IV, Block}})};
+
+data(aes_gcm=Type0, KeySize, BlockSize) ->
+    Key = mk_bin(KeySize div 8),
+    IV = mk_bin(12),
+    Block = mk_bin(BlockSize),
+    AAD = <<01,02,03,04>>,
+    Type = type(Type0, KeySize),
+    {Type, funs({aead, {Type, Key, IV, AAD, Block, 16}})};
+
+data(aes_ccm=Type0, KeySize, BlockSize) ->
+    Key = mk_bin(KeySize div 8),
+    IV = mk_bin(12),
+    Block = mk_bin(BlockSize),
+    AAD = <<01,02,03,04>>,
+    Type = type(Type0, KeySize),
+    {Type, funs({aead, {Type, Key, IV, AAD, Block, 12}})};
+
+data(aes_ctr=Type0, KeySize, BlockSize) ->
+    Key = mk_bin(KeySize div 8),
+    IV = mk_bin(16),
+    Block = mk_bin(BlockSize),
+    Type = type(Type0, KeySize),
+    {Type, funs({block, {Type, Key, IV, Block}})};
+
+data(chacha20_poly1305=Type, 256=KeySize, BlockSize) ->
+    Key = mk_bin(KeySize div 8),
+    IV = mk_bin(12),
+    AAD = <<01,02,03,04>>,
+    Block = mk_bin(BlockSize),
+    {Type, funs({aead, {Type, Key, IV, AAD, Block, 16}})};
+
+data(chacha20=Type, 256=KeySize, BlockSize) ->
     Key = mk_bin(KeySize div 8),
     IV = mk_bin(16),
     Block = mk_bin(BlockSize),
     {Type, funs({block, {Type, Key, IV, Block}})};
-
-data(aes_gcm, KeySize, BlockSize) ->
-    Type = aes_gcm,
-    Key = mk_bin(KeySize div 8),
-    IV = mk_bin(12),
-    Block = mk_bin(BlockSize),
-    AAD = <<01,02,03,04>>,
-    {Type, funs({block, {Type, Key, IV, {AAD,Block,16}}})};
-
-data(aes_ccm, KeySize, BlockSize) ->
-    Type = aes_ccm,
-    Key = mk_bin(KeySize div 8),
-    IV = mk_bin(12),
-    Block = mk_bin(BlockSize),
-    AAD = <<01,02,03,04>>,
-    {Type, funs({block, {Type, Key, IV, {AAD,Block,12}}})};
-
-data(aes_ctr, KeySize, BlockSize) ->
-    Type = aes_ctr,
-    Key = mk_bin(KeySize div 8),
-    IV = mk_bin(16),
-    Block = mk_bin(BlockSize),
-    {Type, funs({stream, {Type, Key, IV, Block}})};
-
-data(chacha20_poly1305, 256=KeySize, BlockSize) ->
-    Type = chacha20_poly1305,
-    Key = mk_bin(KeySize div 8),
-    IV = mk_bin(16),
-    AAD = <<01,02,03,04>>,
-    Block = mk_bin(BlockSize),
-    {Type, funs({block, {Type, Key, IV, {AAD,Block}}})};
-
-data(chacha20, 256=KeySize, BlockSize) ->
-    Type = chacha20,
-    Key = mk_bin(KeySize div 8),
-    IV = mk_bin(16),
-    Block = mk_bin(BlockSize),
-    {Type, funs({stream, {Type, Key, IV, Block}})};
 
 data(empty, 0, 0) ->
     {undefined,

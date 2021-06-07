@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
          openzip_api/1, zip_api/1, open_leak/1, unzip_jar/1,
 	 unzip_traversal_exploit/1,
          compress_control/1,
-	 foldl/1,fd_leak/1]).
+	 foldl/1,fd_leak/1,unicode/1,test_zip_dir/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -40,7 +40,7 @@ all() ->
      unzip_to_binary, zip_to_binary, unzip_options,
      zip_options, list_dir_options, aliases, openzip_api,
      zip_api, open_leak, unzip_jar, compress_control, foldl,
-     unzip_traversal_exploit,fd_leak].
+     unzip_traversal_exploit,fd_leak,unicode,test_zip_dir].
 
 groups() -> 
     [].
@@ -105,49 +105,32 @@ borderline_test(Size, TempDir) ->
 
 
     %% Verify that Unix zip can read it. (if we have a unix zip that is!)
-    unzip_list(Archive, Name),
+    zipinfo_match(Archive, Name),
 
     ok.
 
-unzip_list(Archive, Name) ->
-    case unix_unzip_exists() of
-	true ->
-            unzip_list1(Archive, Name);
+zipinfo_match(Archive, Name) ->
+    case check_zipinfo_exists() of
+        true ->
+            Encoding = file:native_name_encoding(),
+            Expect = unicode:characters_to_binary(Name ++ "\n",
+                                                  Encoding, Encoding),
+            cmd_expect("zipinfo -1 " ++ Archive, Expect);
         _ ->
             ok
     end.
 
-%% Used to do os:find_executable() to check if unzip exists, but on
-%% some hosts that would give an unzip program which did not take the
-%% "-Z" option.
-%% Here we check that "unzip -Z" (which should display usage) and
-%% check that it exists with status 0.
-unix_unzip_exists() ->
-    case os:type() of
-	{unix,_} ->
-	    Port = open_port({spawn,"unzip -Z > /dev/null"}, [exit_status]),
-	    receive
-		{Port,{exit_status,0}} ->
-		    true;
-		{Port,{exit_status,_Fail}} ->
-		    false
-	    end;
-	_ ->
-	    false
-    end.
-
-unzip_list1(Archive, Name) ->
-    Expect = Name ++ "\n",
-    cmd_expect("unzip -Z -1 " ++ Archive, Expect).
+check_zipinfo_exists() ->
+    is_list(os:find_executable("zipinfo")).
 
 cmd_expect(Cmd, Expect) ->
-    Port = open_port({spawn, make_cmd(Cmd)}, [stream, in, eof]),
-    get_data(Port, Expect).
+    Port = open_port({spawn, make_cmd(Cmd)}, [stream, in, binary, eof]),
+    get_data(Port, Expect, <<>>).
 
-get_data(Port, Expect) ->
+get_data(Port, Expect, Acc) ->
     receive
         {Port, {data, Bytes}} ->
-            get_data(Port, match_output(Bytes, Expect, Port));
+            get_data(Port, Expect, <<Acc/binary, Bytes/binary>>);
         {Port, eof} ->
             Port ! {self(), close},
             receive
@@ -160,21 +143,17 @@ get_data(Port, Expect) ->
             after 1 ->                          % force context switch
                     ok
             end,
-            match_output(eof, Expect, Port)
+            match_output(Acc, Expect, Port)
     end.
 
-match_output([C|Output], [C|Expect], Port) ->
+match_output(<<C, Output/bits>>, <<C,Expect/bits>>, Port) ->
     match_output(Output, Expect, Port);
-match_output([_|_], [_|_], Port) ->
+match_output(<<_, _/bits>>, <<_, _/bits>>, Port) ->
     kill_port_and_fail(Port, badmatch);
-match_output([X|Output], [], Port) ->
-    kill_port_and_fail(Port, {too_much_data, [X|Output]});
-match_output([], Expect, _Port) ->
-    Expect;
-match_output(eof, [], _Port) ->
-    [];
-match_output(eof, Expect, Port) ->
-    kill_port_and_fail(Port, {unexpected_end_of_input, Expect}).
+match_output(<<_, _/bits>>=Rest, <<>>, Port) ->
+    kill_port_and_fail(Port, {too_much_data, Rest});
+match_output(<<>>, <<>>, _Port) ->
+    ok.
 
 kill_port_and_fail(Port, Reason) ->
     unlink(Port),
@@ -913,3 +892,163 @@ do_fd_leak(Bad, N) ->
             io:format("Bad error after ~p attempts\n", [N]),
             erlang:raise(C, R, Stk)
     end.
+
+unicode(Config) ->
+    case file:native_name_encoding() of
+        latin1 ->
+            {comment, "Native name encoding is Latin-1; skipping all tests"};
+        utf8 ->
+            DataDir = proplists:get_value(data_dir, Config),
+            ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+            test_file_comment(DataDir),
+            test_archive_comment(DataDir),
+            test_bad_comment(DataDir),
+            test_latin1_archive(DataDir),
+            case has_zip() of
+                false ->
+                    {comment, "No zip program found; skipping some tests"};
+                true ->
+                    case zip_is_unicode_aware() of
+                        true ->
+                            test_filename_compatibility(),
+                            ok;
+                        false ->
+                            {comment, "Old zip program; skipping some tests"}
+                    end
+            end
+    end.
+
+test_filename_compatibility() ->
+    FancyName = "üñíĉòdë한",
+    Archive = "test.zip",
+
+    {ok, Archive} = zip:zip(Archive, [{FancyName, <<"test">>}]),
+    zipinfo_match(Archive, FancyName).
+
+test_file_comment(DataDir) ->
+    Archive = filename:join(DataDir, "zip_file_comment.zip"),
+    Comments = ["a", [246], [1024]],
+    FileNames = [[C] ++ ".txt" || C <- [$a, 246, 1024]],
+    [begin
+         test_zip_file(FileName, Comment, Archive),
+         test_file_comment(FileName, Comment, Archive)
+     end ||
+        Comment <- Comments, FileName <- FileNames],
+    ok.
+
+test_zip_file(FileName, Comment, Archive) ->
+    _ = file:delete(Archive),
+    io:format("*** zip:zip(). Testing FileName ~ts, Comment ~ts\n",
+              [FileName, Comment]),
+    ok = file:write_file(FileName, ["anything"]),
+    {ok, Archive} =
+        zip:zip(Archive, [FileName], [verbose, {comment, Comment}]),
+    zip_check(Archive, Comment, FileName, "").
+
+test_file_comment(FileName, Comment, Archive) ->
+    case test_zip1() of
+        false ->
+            ok;
+        true ->
+            _ = file:delete(Archive),
+            io:format("*** zip(1). Testing FileName ~ts, Comment ~ts\n",
+                      [FileName, Comment]),
+            ok = file:write_file(FileName, ["anything"]),
+            R = os:cmd("echo " ++ Comment ++ "| zip -c " ++
+                           Archive ++ " " ++ FileName),
+            io:format("os:cmd/1 returns ~lp\n", [R]),
+            zip_check(Archive, "", FileName, Comment)
+    end.
+
+test_archive_comment(DataDir) ->
+    Archive = filename:join(DataDir, "zip_archive_comment.zip"),
+    Chars = [$a, 246, 1024],
+    [test_archive_comment(Char, Archive) || Char <- Chars],
+    ok.
+
+test_archive_comment(Char, Archive) ->
+    case test_zip1() of
+        false ->
+            ok;
+        true ->
+            _ = file:delete(Archive),
+            FileName = "a.txt",
+            Comment = [Char],
+            io:format("*** Testing archive Comment ~ts\n", [Comment]),
+            ok = file:write_file(FileName, ["anything"]),
+
+            {ok, _} =
+                zip:zip(Archive, [FileName], [verbose, {comment, Comment}]),
+            Res = os:cmd("zip -z " ++ Archive),
+            io:format("os:cmd/1 returns ~lp\n", [Res]),
+            true = lists:member(Char, Res),
+
+            os:cmd("echo " ++ Comment ++ "| zip -z "++
+                       Archive ++ " " ++ FileName),
+            zip_check(Archive, Comment, FileName, "")
+    end.
+
+test_zip1() ->
+    has_zip() andalso zip_is_unicode_aware().
+
+has_zip() ->
+    os:find_executable("zip") =/= false.
+
+zip_is_unicode_aware() ->
+    S = os:cmd("zip -v | grep 'UNICODE_SUPPORT'"),
+    string:find(S, "UNICODE_SUPPORT") =/= nomatch.
+
+zip_check(Archive, ArchiveComment, FileName, FileNameComment) ->
+    {ok, CommentAndFiles} = zip:table(Archive),
+    io:format("zip:table/1 returns\n  ~lp\n", [CommentAndFiles]),
+    io:format("checking archive comment ~lp\n", [ArchiveComment]),
+    [_] = [C || #zip_comment{comment = C} <- CommentAndFiles,
+                C =:= ArchiveComment],
+    io:format("checking filename ~lp\n", [FileName]),
+    io:format("and filename comment ~lp\n", [FileNameComment]),
+    [_] = [F || #zip_file{name = F, comment = C} <- CommentAndFiles,
+                F =:= FileName, C =:= FileNameComment],
+    {ok, FileList} = zip:unzip(Archive, [verbose]),
+    io:format("zip:unzip/2 returns\n  ~lp\n", [FileList]),
+    true = lists:member(FileName, FileList),
+    ok.
+
+test_bad_comment(DataDir) ->
+    Archive = filename:join(DataDir, "zip_bad_comment.zip"),
+    FileName = "a.txt",
+    file:write_file(FileName, ["something"]),
+    Comment = [9999999],
+    {error,{bad_unicode,Comment}} =
+        zip:zip(Archive, [FileName], [verbose, {comment, Comment}]).
+
+test_latin1_archive(DataDir) ->
+    Archive = filename:join(DataDir, "zip-latin1.zip"),
+    FileName = [246] ++ ".txt",
+    ArchiveComment = [246],
+    zip_check(Archive, ArchiveComment, FileName, "").
+
+test_zip_dir(Config) when is_list(Config) ->
+    case {os:find_executable("unzip"), os:type()} of
+        {UnzipPath, {unix,_}} when is_list(UnzipPath)->
+            DataDir = proplists:get_value(data_dir, Config),
+            Dir = filename:join([DataDir, "test-zip", "dir-1"]),
+            TestZipOutputDir = filename:join(DataDir, "test-zip-output"),
+            TestZipOutput = filename:join(TestZipOutputDir, "test.zip"),
+            zip:create(TestZipOutput, [Dir]),
+            run_command(UnzipPath, ["-o", TestZipOutput,  "-d", TestZipOutputDir]),
+            {ok, FileContent} = file:read_file(filename:join([TestZipOutputDir, Dir, "file.txt"])),
+            <<"OKOK\n">> = FileContent,
+            ok;
+        _ -> {skip, "Not Unix or unzip program not found"}
+    end.
+
+run_command(Command, Args) ->
+    Port = erlang:open_port({spawn_executable, Command}, [{args, Args}, exit_status]),
+    (fun Reciver() ->
+             receive
+                 {Port,{exit_status,_}} -> ok;
+                 {Port, S} -> io:format("UNZIP: ~p~n", [S]),
+                              Reciver()
+             end
+     end)().
+    

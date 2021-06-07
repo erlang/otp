@@ -1,0 +1,5 @@
+/smoke-build/*
+
+# The dependency lock file must be kept to ensure that the smoke
+# test won't be broken as time passes.
+!/smoke-build/mix.lock

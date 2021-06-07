@@ -1,0 +1,13 @@
+
+  [;1m-spec partition(SetOfSets) -> Partition[0m
+  [;1m                   when SetOfSets :: set_of_sets(), Partition :: a_set().[0m
+
+  Returns the partition of the union of the set of sets [;;4mSetOfSets[0m
+  such that two elements are considered equal if they belong to the
+  same elements of [;;4mSetOfSets[0m.
+
+    1> Sets1 = sofs:from_term([[a,b,c],[d,e,f],[g,h,i]]),
+    Sets2 = sofs:from_term([[b,c,d],[e,f,g],[h,i,j]]),
+    P = sofs:partition(sofs:union(Sets1, Sets2)),
+    sofs:to_external(P).
+    [[a],[b,c],[d],[e,f],[g],[h,i],[j]]

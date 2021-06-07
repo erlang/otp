@@ -6,7 +6,8 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 
 MODULES= \
-	edoc_SUITE
+	edoc_SUITE \
+	eep48_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 

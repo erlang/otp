@@ -20,7 +20,7 @@
 
 
 /*
- * Description:	Impementation of Erlang process locks.
+ * Description:	Implementation of Erlang process locks.
  *
  * Author: 	Rickard Green
  */
@@ -149,7 +149,7 @@ erts_init_proc_lock(int cpus)
 #if ERTS_PROC_LOCK_OWN_IMPL
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-#define CHECK_UNUSED_TSE(W) ERTS_LC_ASSERT((W)->uflgs == 0)
+#define CHECK_UNUSED_TSE(W) ASSERT((W)->uflgs == 0)
 #else
 #define CHECK_UNUSED_TSE(W)
 #endif
@@ -193,7 +193,7 @@ enqueue_waiter(erts_proc_lock_t *lck, int ix, erts_tse_t *wtr)
 	wtr->prev = wtr;
     }
     else {
-	ERTS_LC_ASSERT(lck->queue[ix]->next && lck->queue[ix]->prev);
+	ASSERT(lck->queue[ix]->next && lck->queue[ix]->prev);
 	wtr->next = lck->queue[ix];
 	wtr->prev = lck->queue[ix]->prev;
 	wtr->prev->next = wtr;
@@ -205,14 +205,14 @@ static erts_tse_t *
 dequeue_waiter(erts_proc_lock_t *lck, int ix)
 {
     erts_tse_t *wtr = lck->queue[ix];
-    ERTS_LC_ASSERT(lck->queue[ix]);
+    ASSERT(lck->queue[ix]);
     if (wtr->next == wtr) {
-	ERTS_LC_ASSERT(lck->queue[ix]->prev == wtr);
+	ASSERT(lck->queue[ix]->prev == wtr);
 	lck->queue[ix] = NULL;
     }
     else {
-	ERTS_LC_ASSERT(wtr->next != wtr);
-	ERTS_LC_ASSERT(wtr->prev != wtr);
+	ASSERT(wtr->next != wtr);
+	ASSERT(wtr->prev != wtr);
 	wtr->next->prev = wtr->prev;
 	wtr->prev->next = wtr->next;
 	lck->queue[ix] = wtr->next;
@@ -236,7 +236,7 @@ try_aquire(erts_proc_lock_t *lck, erts_tse_t *wtr)
     ErtsProcLocks locks = wtr->uflgs;
     int lock_no;
 
-    ERTS_LC_ASSERT(got_locks != locks);
+    ASSERT(got_locks != locks);
 
     for (lock_no = 0; lock_no <= ERTS_PROC_LOCK_MAX_BIT; lock_no++) {
 	ErtsProcLocks lock = ((ErtsProcLocks) 1) << lock_no;
@@ -245,7 +245,7 @@ try_aquire(erts_proc_lock_t *lck, erts_tse_t *wtr)
 	    if (lck->queue[lock_no]) {
 		/* Others already waiting */
 	    enqueue:
-		ERTS_LC_ASSERT(ERTS_PROC_LOCK_FLGS_READ_(lck)
+		ASSERT(ERTS_PROC_LOCK_FLGS_READ_(lck)
 			       & (lock << ERTS_PROC_LOCK_WAITER_SHIFT));
 		enqueue_waiter(lck, lock_no, wtr);
 		break;
@@ -259,7 +259,7 @@ try_aquire(erts_proc_lock_t *lck, erts_tse_t *wtr)
 	    else {
 		/* Got the lock */
 		got_locks |= lock;
-		ERTS_LC_ASSERT(!(old_lflgs & wflg));
+		ASSERT(!(old_lflgs & wflg));
 		/* No one else can be waiting for the lock; remove wait flag */
 		(void) ERTS_PROC_LOCK_FLGS_BAND_(lck, ~wflg);
 		if (got_locks == locks)
@@ -303,14 +303,14 @@ transfer_locks(Process *p,
 #ifdef ERTS_ENABLE_LOCK_CHECK
 	    tlocks &= ~lock;
 #endif
-	    ERTS_LC_ASSERT(ERTS_PROC_LOCK_FLGS_READ_(&p->lock)
+	    ASSERT(ERTS_PROC_LOCK_FLGS_READ_(&p->lock)
 			   & (lock << ERTS_PROC_LOCK_WAITER_SHIFT));
 	    transferred++;
 	    wtr = dequeue_waiter(&p->lock, lock_no);
-	    ERTS_LC_ASSERT(wtr);
+	    ASSERT(wtr != NULL);
 	    if (!p->lock.queue[lock_no])
 		unset_waiter |= lock;
-	    ERTS_LC_ASSERT(wtr->uflgs & lock);
+	    ASSERT(wtr->uflgs & lock);
 	    wtr->uflgs &= ~lock;
 	    if (wtr->uflgs)
 		try_aquire(&p->lock, wtr);
@@ -335,7 +335,7 @@ transfer_locks(Process *p,
     check_queue(&p->lock);
 #endif
 
-    ERTS_LC_ASSERT(tlocks == 0); /* We should have transferred all of them */
+    ASSERT(tlocks == 0); /* We should have transferred all of them */
 
     if (!wake) {
 	if (unlock)
@@ -455,7 +455,7 @@ wait_for_locks(Process *p,
 	ASSERT(wtr->uflgs == 0);
     }
 
-    ERTS_LC_ASSERT(locks == (ERTS_PROC_LOCK_FLGS_READ_(&p->lock) & locks));
+    ASSERT(locks == (ERTS_PROC_LOCK_FLGS_READ_(&p->lock) & locks));
 
     tse_return(wtr);
 }
@@ -592,7 +592,7 @@ proc_safelock(int is_managed,
     ErtsProcLocks unlock_mask;
     int lock_no, refc1 = 0, refc2 = 0;
 
-    ERTS_LC_ASSERT(b_proc);
+    ASSERT(b_proc);
 
 
     /* Determine inter process lock order...
@@ -628,8 +628,8 @@ proc_safelock(int is_managed,
 	    have_locks2 = a_have_locks;
 	}
 	else {
-	    ERTS_LC_ASSERT(a_proc == b_proc);
-	    ERTS_LC_ASSERT(a_proc->common.id == b_proc->common.id);
+	    ASSERT(a_proc == b_proc);
+	    ASSERT(a_proc->common.id == b_proc->common.id);
 	    p1 = a_proc;
 #ifdef ERTS_ENABLE_LOCK_CHECK
 	    pid1 = a_proc->common.id;
@@ -774,21 +774,21 @@ proc_safelock(int is_managed,
 
     if (p1 && p2) {
 	if (p1 == a_proc) {
-	    ERTS_LC_ASSERT(a_need_locks == have_locks1);
-	    ERTS_LC_ASSERT(b_need_locks == have_locks2);
+	    ASSERT(a_need_locks == have_locks1);
+	    ASSERT(b_need_locks == have_locks2);
 	}
 	else {
-	    ERTS_LC_ASSERT(a_need_locks == have_locks2);
-	    ERTS_LC_ASSERT(b_need_locks == have_locks1);
+	    ASSERT(a_need_locks == have_locks2);
+	    ASSERT(b_need_locks == have_locks1);
 	}
     }
     else {
-	ERTS_LC_ASSERT(p1);
+	ASSERT(p1);
 	if (a_proc) {
-	    ERTS_LC_ASSERT(have_locks1 == (a_need_locks | b_need_locks));
+	    ASSERT(have_locks1 == (a_need_locks | b_need_locks));
 	}
 	else {
-	    ERTS_LC_ASSERT(have_locks1 == b_need_locks);
+	    ASSERT(have_locks1 == b_need_locks);
 	}
     }
 #endif
@@ -846,7 +846,7 @@ erts_pid2proc_opt(Process *c_p,
 	return NULL;
     pix = internal_pid_index(pid);
 
-    ERTS_LC_ASSERT((pid_need_locks & ERTS_PROC_LOCKS_ALL) == pid_need_locks);
+    ASSERT((pid_need_locks & ERTS_PROC_LOCKS_ALL) == pid_need_locks);
     need_locks = pid_need_locks;
 
     if (c_p && c_p->common.id == pid) {
@@ -985,11 +985,11 @@ erts_pid2proc_opt(Process *c_p,
 	erts_proc_dec_refc(dec_refc_proc);
 
 #if ERTS_PROC_LOCK_OWN_IMPL && defined(ERTS_PROC_LOCK_DEBUG)
-    ERTS_LC_ASSERT(!proc
-		   || proc == ERTS_PROC_LOCK_BUSY
-		   || (pid_need_locks ==
-		       (ERTS_PROC_LOCK_FLGS_READ_(&proc->lock)
-			& pid_need_locks)));
+    ASSERT(!proc
+           || proc == ERTS_PROC_LOCK_BUSY
+           || (pid_need_locks ==
+               (ERTS_PROC_LOCK_FLGS_READ_(&proc->lock)
+                & pid_need_locks)));
 #endif
 
     return proc;
@@ -1180,7 +1180,7 @@ void erts_lcnt_update_process_locks(int enable) {
 #if ERTS_PROC_LOCK_OWN_IMPL
 
 void
-erts_proc_lc_lock(Process *p, ErtsProcLocks locks, char *file, unsigned int line)
+erts_proc_lc_lock(Process *p, ErtsProcLocks locks, const char *file, unsigned int line)
 {
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
 					   p->common.id,
@@ -1209,7 +1209,7 @@ erts_proc_lc_lock(Process *p, ErtsProcLocks locks, char *file, unsigned int line
 
 void
 erts_proc_lc_trylock(Process *p, ErtsProcLocks locks, int locked,
-		     char* file, unsigned int line)
+		     const char *file, unsigned int line)
 {
     erts_lc_lock_t lck = ERTS_LC_LOCK_INIT(-1,
 					   p->common.id,
@@ -1308,7 +1308,7 @@ erts_proc_lc_might_unlock(Process *p, ErtsProcLocks locks)
 }
 
 void
-erts_proc_lc_require_lock(Process *p, ErtsProcLocks locks, char *file,
+erts_proc_lc_require_lock(Process *p, ErtsProcLocks locks, const char *file,
 			  unsigned int line)
 {
 #if ERTS_PROC_LOCK_OWN_IMPL
@@ -1655,7 +1655,7 @@ erts_proc_lc_my_proc_locks(Process *p)
 }
 
 void
-erts_proc_lc_chk_no_proc_locks(char *file, int line)
+erts_proc_lc_chk_no_proc_locks(const char *file, int line)
 {
     int resv[5];
     int ids[5] = {lc_id.proc_lock_main,
@@ -1681,12 +1681,12 @@ check_queue(erts_proc_lock_t *lck)
     ErtsProcLocks lflgs = ERTS_PROC_LOCK_FLGS_READ_(lck);
 
     for (lock_no = 0; lock_no <= ERTS_PROC_LOCK_MAX_BIT; lock_no++) {
-	ErtsProcLocks wtr;
-	wtr = (((ErtsProcLocks) 1) << lock_no) << ERTS_PROC_LOCK_WAITER_SHIFT;
-	if (lflgs & wtr) {
+	ErtsProcLocks bit;
+	bit = (((ErtsProcLocks) 1) << lock_no) << ERTS_PROC_LOCK_WAITER_SHIFT;
+	if (lflgs & bit) {
 	    int n;
 	    erts_tse_t *wtr;
-	    ERTS_LC_ASSERT(lck->queue[lock_no]);
+	    ERTS_ASSERT(lck->queue[lock_no]);
 	    wtr = lck->queue[lock_no];
 	    n = 0;
 	    do {
@@ -1697,10 +1697,10 @@ check_queue(erts_proc_lock_t *lck)
 		wtr = wtr->prev;
 		n--;
 	    } while (wtr != lck->queue[lock_no]);
-	    ERTS_LC_ASSERT(n == 0);
+	    ERTS_ASSERT(n == 0);
 	}
 	else {
-	    ERTS_LC_ASSERT(!lck->queue[lock_no]);
+	    ERTS_ASSERT(!lck->queue[lock_no]);
 	}
     }
 }

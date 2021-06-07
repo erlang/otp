@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ getaddrs({?FAMILY, _} = Address) -> {ok, [Address]}.
 getaddrs({?FAMILY, _} = Address, _Timer) -> {ok, [Address]}.
 
 %% special this side addresses
-translate_ip(IP) -> IP.
+translate_ip(IP) -> local_udp:translate_ip(IP).
 
 %%
 %% Send data on a socket
@@ -105,16 +105,10 @@ do_connect(Addr = {?FAMILY, _}, 0, Opts, Time) ->
 	    port = 0,
 	    opts = SockOpts}}
 	when tuple_size(BAddr) =:= 2, element(1, BAddr) =:= ?FAMILY;
-	     BAddr =:= any ->
+	     BAddr =:= undefined ->
 	    case inet:open(
-		   Fd,
-		   case BAddr of
-		       any ->
-			   undefined;
-		       _ ->
-			   BAddr
-		   end,
-		   0, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
+		   Fd, BAddr, 0, SockOpts,
+                   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
 		{ok, S} ->
 		    case prim_inet:connect(S, Addr, 0, Time) of
 			ok -> {ok,S};
@@ -137,8 +131,8 @@ listen(0, Opts) ->
 	    ifaddr = BAddr,
 	    port = 0,
 	    opts = SockOpts} = R}
-	when tuple_size(BAddr) =:= 2, element(1, BAddr) =:= ?FAMILY;
-	     BAddr =:= any ->
+          when tuple_size(BAddr) =:= 2, element(1, BAddr) =:= ?FAMILY;
+               BAddr =:= undefined ->
 	    case inet:open(
 		   Fd, BAddr, 0, SockOpts,
 		   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
@@ -175,4 +169,4 @@ accept(L, Timeout) ->
 %% Create a port/socket from a file descriptor
 %%
 fdopen(Fd, Opts) ->
-    inet:open(Fd, undefined, 0, Opts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE).
+    inet:fdopen(Fd, Opts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE).

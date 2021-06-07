@@ -39,8 +39,7 @@ t4() ->
 s1() ->
     try foo:bar()
     catch
-        E:P ->
-            S = erlang:get_stacktrace(),
+        E:P:S ->
             {a,b} = S, % can never match
             {E, P}
     end.
@@ -48,8 +47,7 @@ s1() ->
 s2() ->
     try foo:bar()
     catch
-        E:P ->
-            S = erlang:get_stacktrace(),
+        E:P:S ->
             [a,b] = S, % can never match
             {E, P}
     end.
@@ -57,8 +55,7 @@ s2() ->
 s3() ->
     try foo:bar()
     catch
-        E:P ->
-            S = erlang:get_stacktrace(),
+        E:P:S ->
             [{m,f,[],[]}] = S,
             {E, P}
     end.
@@ -66,8 +63,7 @@ s3() ->
 s4() ->
     try foo:bar()
     catch
-        E:P ->
-            S = erlang:get_stacktrace(),
+        E:P:S ->
             [{m,f,1,[{file,"tjo"},{line,95}]}] = S,
             {E, P}
     end.

@@ -39,18 +39,32 @@
       The representation of a set is undefined.</p>
 
     <p>This module provides the same interface as the
-      <seealso marker="ordsets"><c>ordsets(3)</c></seealso> module
+      <seeerl marker="ordsets"><c>ordsets(3)</c></seeerl> module
       but with an undefined representation. One difference is
       that while this module considers two elements as different if they
       do not match (<c>=:=</c>), <c>ordsets</c> considers two elements as
       different if and only if they do not compare equal (<c>==</c>).</p>
+
+    <p>Erlang/OTP 24.0 introduced a new internal representation for sets
+      which is more performant. Developers can use this new representation
+      by passing the <c>{version, 2}</c> flag to <seemfa marker="#new/1"><c>new/1</c></seemfa>
+      and <seemfa marker="#from_list/2"><c>from_list/2</c></seemfa>, such
+      as <c>sets:new([{version, 2}])</c>. This new representation will
+      become the default in future Erlang/OTP versions. Functions that
+      work on two sets, such as <seemfa marker="#union/2"><c>union/2</c></seemfa>
+      and similar, will work with sets of different versions. In such cases,
+      there is no guarantee about the version of the returned set. Explicit
+      conversion from the old version to the new one can be done with
+      <c>sets:from_list(sets:to_list(Old), [{version,2}])</c>.
+    </p>
+
   </description>
 
   <datatypes>
     <datatype>
       <name name="set" n_vars="1"/>
       <desc><p>As returned by
-        <seealso marker="#new/0"><c>new/0</c></seealso>.</p></desc>
+        <seemfa marker="#new/0"><c>new/0</c></seemfa>.</p></desc>
     </datatype>
     <datatype>
       <name name="set" n_vars="0"/>
@@ -100,6 +114,14 @@
       <fsummary>Convert a list into a <c>Set</c>.</fsummary>
       <desc>
         <p>Returns a set of the elements in <c><anno>List</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="from_list" arity="2" since="OTP 24.0"/>
+      <fsummary>Convert a list into a <c>Set</c> at the given version.</fsummary>
+      <desc>
+        <p>Returns a set of the elements in <c><anno>List</anno></c> at the given version.</p>
       </desc>
     </func>
 
@@ -175,6 +197,14 @@
     </func>
 
     <func>
+      <name name="new" arity="1" since="OTP 24.0"/>
+      <fsummary>Return an empty set at the given version.</fsummary>
+      <desc>
+        <p>Returns a new empty set at the given version.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="size" arity="1" since=""/>
       <fsummary>Return the number of elements in a set.</fsummary>
       <desc>
@@ -220,8 +250,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="gb_sets"><c>gb_sets(3)</c></seealso>,
-      <seealso marker="ordsets"><c>ordsets(3)</c></seealso></p>
+    <p><seeerl marker="gb_sets"><c>gb_sets(3)</c></seeerl>,
+      <seeerl marker="ordsets"><c>ordsets(3)</c></seeerl></p>
   </section>
 </erlref>
 

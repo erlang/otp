@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -128,7 +128,7 @@
 %% ===========================================================================
 
 %% Fraction of shuffle/parallel groups to randomly skip.
--define(SKIP, 0.25).
+-define(SKIP, 0.90).
 
 %% Positive number of testcases from which to select (randomly) from
 %% tc(), the list of testcases to run, or [] to run all. The random
@@ -279,19 +279,19 @@ all() ->
 
 %% Redefine this to run one or more groups for debugging purposes.
 -define(GROUPS, []).
-%-define(GROUPS, [[tcp,rfc6733,record,map,false,false,false,false]]).
+%-define(GROUPS, [[sctp,rfc6733,record,map,false,false,true,false]]).
 
 %% Issues with gen_sctp sporadically cause huge numbers of failed
 %% testcases when running testcases in parallel.
 groups() ->
-    Names = names(),
+    Names = names([] == ?GROUPS orelse ?GROUPS),
     [{P, [P], Ts} || Ts <- [tc()], P <- [shuffle, parallel]]
         ++
         [{?util:name(N), [], [{group, if T == sctp; S -> shuffle;
                                          true         -> parallel end}]}
          || [T,_,_,_,S|_] = N <- Names]
         ++
-        [{T, [], [{group, ?util:name(N)} || N <- names(Names, ?GROUPS),
+        [{T, [], [{group, ?util:name(N)} || N <- Names,
                                             T == hd(N)]}
          || T <- ?TRANSPORTS]
         ++
@@ -305,15 +305,16 @@ names() ->
                              S  <- ?STRING_DECODES,
                              ST <- ?CALLBACKS,
                              SS <- ?SENDERS,
-                             CS <- ?SENDERS].
+                             CS <- ?SENDERS,
+                             ?SKIP =< rand:uniform()].
 
-names(Names, []) ->
+names(true) ->
+    names(names());
+
+names(Names) ->
     [N || N <- Names,
           [CS,SS|_] <- [lists:reverse(N)],
-          SS orelse CS];  %% avoid deadlock
-
-names(_, Names) ->
-    Names.
+          SS orelse CS].  %% avoid deadlock
 
 %% --------------------
 
@@ -336,14 +337,9 @@ init_per_group(_) ->
 init_per_group(Name, Config)
   when Name == shuffle;
        Name == parallel ->
-    case rand:uniform() < ?SKIP of
-        true ->
-            {skip, random};
-        false ->
-            start_services(Config),
-            add_transports(Config),
-            replace({sleep, Name == parallel}, Config)
-    end;
+    start_services(Config),
+    add_transports(Config),
+    replace({sleep, Name == parallel}, Config);
 
 init_per_group(sctp = Name, Config) ->
     {_, Sctp} = lists:keyfind(Name, 1, Config),

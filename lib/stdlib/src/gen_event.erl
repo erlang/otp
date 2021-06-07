@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,13 +31,20 @@
 %%% Re-written by Joe with new functional interface !
 %%% Modified by Martin - uses proc_lib, sys and gen!
 
+%%%
+%%% NOTE: If init_ack() return values are modified, see comment
+%%%       above monitor_return() in gen.erl!
+%%%
 
 -export([start/0, start/1, start/2,
          start_link/0, start_link/1, start_link/2,
+         start_monitor/0, start_monitor/1, start_monitor/2,
          stop/1, stop/3,
 	 notify/2, sync_notify/2,
 	 add_handler/3, add_sup_handler/3, delete_handler/3, swap_handler/3,
-	 swap_sup_handler/3, which_handlers/1, call/3, call/4, wake_hib/5]).
+	 swap_sup_handler/3, which_handlers/1, call/3, call/4,
+         send_request/3, wait_response/2, receive_response/2, check_response/2,
+         wake_hib/5]).
 
 -export([init_it/6,
 	 system_continue/3,
@@ -48,7 +55,7 @@
 	 format_status/2]).
 
 %% logger callback
--export([format_log/1]).
+-export([format_log/1, format_log/2]).
 
 -export_type([handler/0, handler_args/0, add_handler_ret/0,
               del_handler_ret/0]).
@@ -128,11 +135,13 @@
                     | {'logfile', string()}.
 -type option() :: {'timeout', timeout()}
                 | {'debug', [debug_flag()]}
-                | {'spawn_opt', [proc_lib:spawn_option()]}
+                | {'spawn_opt', [proc_lib:start_spawn_option()]}
                 | {'hibernate_after', timeout()}.
 -type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', term()}
                    | {'via', atom(), term()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
+-type start_mon_ret() :: {'ok', {pid(),reference()}} | {'error', term()}.
+-type request_id() :: term().
 
 %%---------------------------------------------------------------------------
 
@@ -183,6 +192,20 @@ start_link(Options) when is_list(Options) ->
 start_link(Name, Options) ->
     gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], Options).
 
+-spec start_monitor() -> start_mon_ret().
+start_monitor() ->
+    gen:start(?MODULE, monitor, ?NO_CALLBACK, [], []).
+
+-spec start_monitor(emgr_name() | [option()]) -> start_mon_ret().
+start_monitor(Name) when is_tuple(Name) ->
+    gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], []);
+start_monitor(Options) when is_list(Options) ->
+    gen:start(?MODULE, monitor, ?NO_CALLBACK, [], Options).
+
+-spec start_monitor(emgr_name(), [option()]) -> start_mon_ret().
+start_monitor(Name, Options) ->
+    gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], Options).
+
 %% -spec init_it(pid(), 'self' | pid(), emgr_name(), module(), [term()], [_]) -> 
 init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
@@ -212,6 +235,34 @@ call(M, Handler, Query) -> call1(M, Handler, Query).
 
 -spec call(emgr_ref(), handler(), term(), timeout()) -> term().
 call(M, Handler, Query, Timeout) -> call1(M, Handler, Query, Timeout).
+
+-spec send_request(emgr_ref(), handler(), term()) -> request_id().
+send_request(M, Handler, Query) ->
+    gen:send_request(M, self(), {call, Handler, Query}).
+
+-spec wait_response(RequestId::request_id(), timeout()) ->
+        {reply, Reply::term()} | 'timeout' | {error, {Reason::term(), emgr_ref()}}.
+wait_response(RequestId, Timeout) ->
+    case gen:wait_response(RequestId, Timeout) of
+        {reply, {error, _} = Err} -> Err;
+        Return -> Return
+    end.
+
+-spec receive_response(RequestId::request_id(), timeout()) ->
+        {reply, Reply::term()} | 'timeout' | {error, {Reason::term(), emgr_ref()}}.
+receive_response(RequestId, Timeout) ->
+    case gen:receive_response(RequestId, Timeout) of
+        {reply, {error, _} = Err} -> Err;
+        Return -> Return
+    end.
+
+-spec check_response(Msg::term(), RequestId::request_id()) ->
+        {reply, Reply::term()} | 'no_reply' | {error, {Reason::term(), emgr_ref()}}.
+check_response(Msg, RequestId) ->
+    case gen:check_response(Msg, RequestId)  of
+        {reply, {error, _} = Err} -> Err;
+        Return -> Return
+    end.
 
 -spec delete_handler(emgr_ref(), handler(), term()) -> term().
 delete_handler(M, Handler, Args) -> rpc(M, {delete_handler, Handler, Args}).
@@ -353,9 +404,8 @@ terminate_server(Reason, Parent, MSL, ServerName) ->
     do_unlink(Parent, MSL),
     exit(Reason).
 
-reply({From, Ref}, Msg) ->
-    From ! {Ref, Msg},
-    ok.
+reply(From, Reply) ->
+    gen:reply(From, Reply).
 
 %% unlink the supervisor process of all supervised handlers.
 %% We do not want a handler supervisor to EXIT due to the
@@ -590,8 +640,10 @@ server_update(Handler1, Func, Event, SName) ->
                            module=>Mod1,
                            message=>Event},
                          #{domain=>[otp],
-                           report_cb=>fun gen_event:format_log/1,
-                           error_logger=>#{tag=>warning_msg}}), % warningmap??
+                           report_cb=>fun gen_event:format_log/2,
+                           error_logger=>
+                               #{tag=>warning_msg, % warningmap??
+                                 report_cb=>fun gen_event:format_log/1}}),
             {ok, Handler1};
 	Other ->
 	    do_terminate(Mod1, Handler1, {error, Other}, State,
@@ -752,46 +804,165 @@ report_error(Handler, Reason, State, LastIn, SName) ->
                                       get(),State),
                  reason=>Reason},
                #{domain=>[otp],
-                 report_cb=>fun gen_event:format_log/1,
-                 error_logger=>#{tag=>error}}).
+                 report_cb=>fun gen_event:format_log/2,
+                 error_logger=>#{tag=>error,
+                                 report_cb=>fun gen_event:format_log/1}}).
 
-format_log(#{label:={gen_event,terminate},
-             handler:=Handler,
-             name:=SName,
-             last_message:=LastIn,
-             state:=State,
-             reason:=Reason}) ->
-    Reason1 =
-	case Reason of
-	    {'EXIT',{undef,[{M,F,A,L}|MFAs]}} ->
-		case code:is_loaded(M) of
-		    false ->
-			{'module could not be loaded',[{M,F,A,L}|MFAs]};
-		    _ ->
-			case erlang:function_exported(M, F, length(A)) of
-			    true ->
-				{undef,[{M,F,A,L}|MFAs]};
-			    false ->
-				{'function not exported',[{M,F,A,L}|MFAs]}
-			end
-		end;
-	    {'EXIT',Why} ->
-		Why;
-	    _ ->
-		Reason
-	end,
-    {"** gen_event handler ~p crashed.~n"
-     "** Was installed in ~tp~n"
-     "** Last event was: ~tp~n"
-     "** When handler state == ~tp~n"
-     "** Reason == ~tp~n",
-     [Handler,SName,LastIn,State,Reason1]};
-format_log(#{label:={gen_event,no_handle_info},
-             module:=Mod,
-             message:=Msg}) ->
-    {"** Undefined handle_info in ~tp~n"
-     "** Unhandled message: ~tp~n",
-     [Mod, Msg]}.
+%% format_log/1 is the report callback used by Logger handler
+%% error_logger only. It is kept for backwards compatibility with
+%% legacy error_logger event handlers. This function must always
+%% return {Format,Args} compatible with the arguments in this module's
+%% calls to error_logger prior to OTP-21.0.
+format_log(Report) ->
+    Depth = error_logger:get_format_depth(),
+    FormatOpts = #{chars_limit => unlimited,
+                   depth => Depth,
+                   single_line => false,
+                   encoding => utf8},
+    format_log_multi(limit_report(Report, Depth), FormatOpts).
+
+limit_report(Report, unlimited) ->
+    Report;
+limit_report(#{label:={gen_event,terminate},
+               last_message:=LastIn,
+               state:=State,
+               reason:=Reason}=Report,
+             Depth) ->
+    Report#{last_message => io_lib:limit_term(LastIn, Depth),
+            state => io_lib:limit_term(State, Depth),
+            reason => io_lib:limit_term(Reason, Depth)};
+limit_report(#{label:={gen_event,no_handle_info},
+               message:=Msg}=Report,
+             Depth) ->
+    Report#{message => io_lib:limit_term(Msg, Depth)}.
+
+%% format_log/2 is the report callback for any Logger handler, except
+%% error_logger.
+format_log(Report, FormatOpts0) ->
+    Default = #{chars_limit => unlimited,
+                depth => unlimited,
+                single_line => false,
+                encoding => utf8},
+    FormatOpts = maps:merge(Default, FormatOpts0),
+    IoOpts =
+        case FormatOpts of
+            #{chars_limit:=unlimited} ->
+                [];
+            #{chars_limit:=Limit} ->
+                [{chars_limit,Limit}]
+        end,
+    {Format,Args} = format_log_single(Report, FormatOpts),
+    io_lib:format(Format, Args, IoOpts).
+
+format_log_single(#{label:={gen_event,terminate},
+                    handler:=Handler,
+                    name:=SName,
+                    last_message:=LastIn,
+                    state:=State,
+                    reason:=Reason},
+                  #{single_line:=true, depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Reason1 = fix_reason(Reason),
+    Format1 = lists:append(["Generic event handler ",P," crashed. "
+                            "Installed: ",P,". Last event: ",P,
+                            ". State: ",P,". Reason: ",P,"."]),
+    Args1 =
+        case Depth of
+            unlimited ->
+                [Handler,SName,Reason1,LastIn,State];
+            _ ->
+                [Handler,Depth,SName,Depth,Reason1,Depth,
+                 LastIn,Depth,State,Depth]
+        end,
+    {Format1, Args1};
+format_log_single(#{label:={gen_event,no_handle_info},
+                    module:=Mod,
+                    message:=Msg},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format = lists:append(["Undefined handle_info in ",P,
+                           ". Unhandled message: ",P,"."]),
+    Args =
+        case Depth of
+            unlimited ->
+                [Mod,Msg];
+            _ ->
+                [Mod,Depth,Msg,Depth]
+        end,
+    {Format,Args};
+format_log_single(Report,FormatOpts) ->
+    format_log_multi(Report,FormatOpts).
+
+format_log_multi(#{label:={gen_event,terminate},
+                   handler:=Handler,
+                   name:=SName,
+                   last_message:=LastIn,
+                   state:=State,
+                   reason:=Reason},
+                 #{depth:=Depth}=FormatOpts) ->
+    Reason1 = fix_reason(Reason),
+    P = p(FormatOpts),
+    Format =
+        lists:append(["** gen_event handler ",P," crashed.\n",
+                      "** Was installed in ",P,"\n",
+                      "** Last event was: ",P,"\n",
+                      "** When handler state == ",P,"\n",
+                      "** Reason == ",P,"\n"]),
+    Args =
+        case Depth of
+            unlimited ->
+                [Handler,SName,LastIn,State,Reason1];
+            _ ->
+                [Handler,Depth,SName,Depth,LastIn,Depth,State,Depth,
+                 Reason1,Depth]
+        end,
+    {Format,Args};
+format_log_multi(#{label:={gen_event,no_handle_info},
+                   module:=Mod,
+                   message:=Msg},
+                 #{depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format =
+        "** Undefined handle_info in ~p\n"
+        "** Unhandled message: "++P++"\n",
+    Args =
+        case Depth of
+            unlimited ->
+                [Mod,Msg];
+            _ ->
+                [Mod,Msg,Depth]
+        end,
+    {Format,Args}.
+
+fix_reason({'EXIT',{undef,[{M,F,A,_L}|_]=MFAs}=Reason}) ->
+    case code:is_loaded(M) of
+        false ->
+            {'module could not be loaded',MFAs};
+        _ ->
+            case erlang:function_exported(M, F, length(A)) of
+                true ->
+                    Reason;
+                false ->
+                    {'function not exported',MFAs}
+            end
+    end;
+fix_reason({'EXIT',Reason}) ->
+    Reason;
+fix_reason(Reason) ->
+    Reason.
+
+p(#{single_line:=Single,depth:=Depth,encoding:=Enc}) ->
+    "~"++single(Single)++mod(Enc)++p(Depth);
+p(unlimited) ->
+    "p";
+p(_Depth) ->
+    "P".
+
+single(true) -> "0";
+single(false) -> "".
+
+mod(latin1) -> "";
+mod(_) -> "t".
 
 handler(Handler) when not Handler#handler.id ->
     Handler#handler.module;

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,8 +45,8 @@ typedef struct bp_data_time {     /* Call time */
 } BpDataTime;
 
 typedef struct {
+    const ErtsCodeInfo *ci;
     ErtsMonotonicTime time;
-    ErtsCodeInfo *ci;
 } process_breakpoint_time_t; /* used within psd */
 
 typedef struct {
@@ -119,20 +119,16 @@ void erts_bp_free_matched_functions(BpFunctions* f);
 void erts_install_breakpoints(BpFunctions* f);
 void erts_uninstall_breakpoints(BpFunctions* f);
 void erts_consolidate_bp_data(BpFunctions* f, int local);
-void erts_consolidate_bif_bp_data(void);
 
 void erts_set_trace_break(BpFunctions *f, Binary *match_spec);
 void erts_clear_trace_break(BpFunctions *f);
 
-void erts_set_call_trace_bif(ErtsCodeInfo *ci, Binary *match_spec, int local);
-void erts_clear_call_trace_bif(ErtsCodeInfo *ci, int local);
+void erts_set_export_trace(ErtsCodeInfo *ci, Binary *match_spec, int local);
+void erts_clear_export_trace(ErtsCodeInfo *ci, int local);
 
 void erts_set_mtrace_break(BpFunctions *f, Binary *match_spec,
 			  ErtsTracer tracer);
 void erts_clear_mtrace_break(BpFunctions *f);
-void erts_set_mtrace_bif(ErtsCodeInfo *ci, Binary *match_spec,
-			 ErtsTracer tracer);
-void erts_clear_mtrace_bif(ErtsCodeInfo *ci);
 
 void erts_set_debug_break(BpFunctions *f);
 void erts_clear_debug_break(BpFunctions *f);
@@ -142,32 +138,28 @@ void erts_clear_count_break(BpFunctions *f);
 
 void erts_clear_all_breaks(BpFunctions* f);
 int erts_clear_module_break(Module *modp);
-void erts_clear_export_break(Module *modp, ErtsCodeInfo* ci);
+void erts_clear_export_break(Module *modp, Export *ep);
 
 BeamInstr erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *ci, Eterm* reg);
 BeamInstr erts_trace_break(Process *p, ErtsCodeInfo *ci, Eterm *args,
                            Uint32 *ret_flags, ErtsTracer *tracer);
 
-int erts_is_trace_break(ErtsCodeInfo *ci, Binary **match_spec_ret, int local);
-int erts_is_mtrace_break(ErtsCodeInfo *ci, Binary **match_spec_ret,
+int erts_is_trace_break(const ErtsCodeInfo *ci, Binary **match_spec_ret, int local);
+int erts_is_mtrace_break(const ErtsCodeInfo *ci, Binary **match_spec_ret,
 			 ErtsTracer *tracer_ret);
-int erts_is_mtrace_bif(ErtsCodeInfo *ci, Binary **match_spec_ret,
-		       ErtsTracer *tracer_ret);
-int erts_is_native_break(ErtsCodeInfo *ci);
-int erts_is_count_break(ErtsCodeInfo *ci, Uint *count_ret);
-int erts_is_time_break(Process *p, ErtsCodeInfo *ci, Eterm *call_time);
 
-void erts_trace_time_call(Process* c_p, ErtsCodeInfo *ci, BpDataTime* bdt);
-void erts_trace_time_return(Process* c_p, ErtsCodeInfo *ci);
+int erts_is_count_break(const ErtsCodeInfo *ci, Uint *count_ret);
+int erts_is_time_break(Process *p, const ErtsCodeInfo *ci, Eterm *call_time);
+
+const ErtsCodeInfo* erts_trace_time_call(Process* c_p,
+                                         const ErtsCodeInfo *ci,
+                                         BpDataTime* bdt);
+void erts_trace_time_return(Process* c_p, const ErtsCodeInfo *ci);
 void erts_schedule_time_break(Process *p, Uint out);
 void erts_set_time_break(BpFunctions *f, enum erts_break_op);
 void erts_clear_time_break(BpFunctions *f);
 
-int erts_is_time_trace_bif(Process *p, ErtsCodeInfo *ci, Eterm *call_time);
-void erts_set_time_trace_bif(ErtsCodeInfo *ci, enum erts_break_op);
-void erts_clear_time_trace_bif(ErtsCodeInfo *ci);
-
-ErtsCodeInfo *erts_find_local_func(ErtsCodeMFA *mfa);
+const ErtsCodeInfo *erts_find_local_func(const ErtsCodeMFA *mfa);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

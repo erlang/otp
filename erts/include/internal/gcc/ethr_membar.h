@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2015. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@
  *          issue an aquire memory barrier and an __atomic
  *          builtin memory acess with the __ATOMIC_RELEASE
  *          memory model must at least issue a release memory
- *          barrier. Otherwise the two can not be paired.
+ *          barrier. Otherwise the two cannot be paired.
  *       4. All __atomic builtins accessing memory using the
  *          __ATOMIC_CONSUME builtin can be used for the same
  *          reason __ATOMIC_ACQUIRE can be used. The ethread
@@ -149,14 +149,51 @@ ethr_full_fence__(void)
     __asm__ __volatile__("dmb sy" : : : "memory");
 }
 
+#if ETHR_HAVE_GCC_ASM_ARM_DMB_ST_INSTRUCTION
 static __inline__ __attribute__((__always_inline__)) void
 ethr_store_fence__(void)
 {
+    /* StoreStore */
     __asm__ __volatile__("dmb st" : : : "memory");
 }
+#endif
 
-#define ETHR_MEMBAR(B) \
- ETHR_CHOOSE_EXPR((B) == ETHR_StoreStore, ethr_store_fence__(), ethr_full_fence__())
+#if ETHR_HAVE_GCC_ASM_ARM_DMB_LD_INSTRUCTION
+static __inline__ __attribute__((__always_inline__)) void
+ethr_load_fence__(void)
+{
+    /* LoadLoad and LoadStore */
+    __asm__ __volatile__("dmb ld" : : : "memory");
+}
+#endif
+
+#if ETHR_HAVE_GCC_ASM_ARM_DMB_ST_INSTRUCTION && ETHR_HAVE_GCC_ASM_ARM_DMB_LD_INSTRUCTION
+/* sy, st & ld */
+#define ETHR_MEMBAR(B)                                                  \
+    ETHR_CHOOSE_EXPR((B) == ETHR_StoreStore,                            \
+                     ethr_store_fence__(),                              \
+                     ETHR_CHOOSE_EXPR((B) & (ETHR_StoreStore            \
+                                             | ETHR_StoreLoad),         \
+                                      ethr_full_fence__(),              \
+                                      ethr_load_fence__()))
+#elif ETHR_HAVE_GCC_ASM_ARM_DMB_ST_INSTRUCTION
+/* sy & st */
+#define ETHR_MEMBAR(B)                                                  \
+    ETHR_CHOOSE_EXPR((B) == ETHR_StoreStore,                            \
+                     ethr_store_fence__(), \
+                     ethr_full_fence__())
+#elif ETHR_HAVE_GCC_ASM_ARM_DMB_LD_INSTRUCTION
+/* sy & ld */
+#define ETHR_MEMBAR(B)                                                  \
+    ETHR_CHOOSE_EXPR((B) & (ETHR_StoreStore                             \
+                            | ETHR_StoreLoad),                          \
+                     ethr_full_fence__(),                               \
+                     ethr_load_fence__())
+#else
+/* sy */
+#define ETHR_MEMBAR(B)                                                  \
+ ethr_full_fence__()
+#endif
 
 #elif ETHR_HAVE___sync_synchronize
 
@@ -205,9 +242,13 @@ ethr_full_fence__(void)
 /*
  * Define ETHR_READ_DEPEND_MEMORY_BARRIER for all architechtures
  * not known to order data dependent loads
+ *
+ * This is a bit too conservative, but better safe than sorry...
+ * Add more archs as needed...
  */
 
-#if !defined(__ia64__) && !defined(__arm__)
+#if !defined(__ia64__) && !defined(__arm__) && !defined(__arm64__) \
+    && !defined(__aarch32__) && !defined(__aarch64__)
 #  define ETHR_READ_DEPEND_MEMORY_BARRIER ETHR_MEMBAR(ETHR_LoadLoad)
 #endif
 

@@ -23,6 +23,7 @@
 -module(kernel_SUITE).
 -include_lib("common_test/include/ct.hrl").
 
+-compile(r21).
 
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -106,7 +107,7 @@ appup_tests(App,{OkVsns0,NokVsns}) ->
 create_test_vsns(App) ->
     ThisMajor = erlang:system_info(otp_release),
     FirstMajor = previous_major(ThisMajor),
-    SecondMajor = previous_major(FirstMajor),
+    SecondMajor = previous_major(previous_major(FirstMajor)),
     Ok = app_vsn(App,[ThisMajor,FirstMajor]),
     Nok0 = app_vsn(App,[SecondMajor]),
     Nok = case Ok of

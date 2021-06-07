@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2012</year><year>2016</year>
+      <year>2012</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -41,36 +41,22 @@
 
   <section>
     <title>Passing of Signals</title>
-    <p>The amount of time that passes between a signal is sent
-    and the arrival of the signal at the destination is unspecified
-    but positive. If the receiver has terminated, the signal does
-    not arrive, but it can trigger another signal.
-    For example, a link signal sent to a non-existing process
-    triggers an exit signal, which is sent back to where the link
-    signal originated from. When communicating over the distribution,
-    signals can be lost if the distribution channel goes down.</p>
-
-    <p>The only signal ordering guarantee given is the following: if
-    an entity sends multiple signals to the same destination entity,
-    the order is preserved; that is, if <c>A</c> sends
-    a signal <c>S1</c> to <c>B</c>, and later sends
-    signal <c>S2</c> to <c>B</c>, <c>S1</c> is guaranteed not to
-    arrive after <c>S2</c>.</p>
+    <p>
+      This information has been moved to the
+      <seeguide marker="system/reference_manual:processes#signal-delivery">
+	<i>Signals</i> section of the <i>Processes</i> chapter
+	in the <i>Erlang Reference Manual</i></seeguide>.
+    </p>
   </section>
 
   <section>
     <title>Synchronous Communication</title>
-    <p>Some communication is synchronous. If broken down into pieces,
-    a synchronous communication operation consists of two asynchronous
-    signals; one request signal and one reply signal. An example of
-    such a synchronous communication is a call to
-    <seealso marker="erlang:process_info/2">
-    <c>erlang:process_info/2</c></seealso>
-    when the first argument is not <c>self()</c>. The caller sends
-    an asynchronous signal requesting information, and then
-    waits for the reply signal containing the requested information. When
-    the request signal reaches its destination, the destination process
-    replies with the requested information.</p>
+    <p>
+      This information has been moved to the
+      <seeguide marker="system/reference_manual:processes#sync-comm">
+	<i>Signals</i> section of the <i>Processes</i> chapter
+	in the <i>Erlang Reference Manual</i></seeguide>.
+    </p>
   </section>
 
   <section>

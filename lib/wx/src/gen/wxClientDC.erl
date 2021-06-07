@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,72 +18,52 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclientdc.html">wxClientDC</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxWindowDC}
-%% <br />{@link wxDC}
-%% </p>
-%% @type wxClientDC().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxClientDC).
 -include("wxe.hrl").
--export([destroy/1,new/0,new/1]).
+-export([destroy/1,new/1]).
 
 %% inherited exports
--export([blit/5,blit/6,calcBoundingBox/3,clear/1,computeScaleAndOrigin/1,crossHair/2,
-  destroyClippingRegion/1,deviceToLogicalX/2,deviceToLogicalXRel/2,
-  deviceToLogicalY/2,deviceToLogicalYRel/2,drawArc/4,drawBitmap/3,drawBitmap/4,
-  drawCheckMark/2,drawCircle/3,drawEllipse/2,drawEllipse/3,drawEllipticArc/5,
-  drawIcon/3,drawLabel/3,drawLabel/4,drawLine/3,drawLines/2,drawLines/3,
-  drawPoint/2,drawPolygon/2,drawPolygon/3,drawRectangle/2,drawRectangle/3,
-  drawRotatedText/4,drawRoundedRectangle/3,drawRoundedRectangle/4,
-  drawText/3,endDoc/1,endPage/1,floodFill/3,floodFill/4,getBackground/1,
-  getBackgroundMode/1,getBrush/1,getCharHeight/1,getCharWidth/1,getClippingBox/1,
-  getFont/1,getLayoutDirection/1,getLogicalFunction/1,getMapMode/1,
-  getMultiLineTextExtent/2,getMultiLineTextExtent/3,getPPI/1,getPartialTextExtents/2,
-  getPen/1,getPixel/2,getSize/1,getSizeMM/1,getTextBackground/1,getTextExtent/2,
-  getTextExtent/3,getTextForeground/1,getUserScale/1,gradientFillConcentric/4,
-  gradientFillConcentric/5,gradientFillLinear/4,gradientFillLinear/5,
-  isOk/1,logicalToDeviceX/2,logicalToDeviceXRel/2,logicalToDeviceY/2,
-  logicalToDeviceYRel/2,maxX/1,maxY/1,minX/1,minY/1,parent_class/1,resetBoundingBox/1,
-  setAxisOrientation/3,setBackground/2,setBackgroundMode/2,setBrush/2,
-  setClippingRegion/2,setClippingRegion/3,setDeviceOrigin/3,setFont/2,
-  setLayoutDirection/2,setLogicalFunction/2,setMapMode/2,setPalette/2,
-  setPen/2,setTextBackground/2,setTextForeground/2,setUserScale/3,startDoc/2,
-  startPage/1]).
+-export([blit/5,blit/6,calcBoundingBox/3,clear/1,crossHair/2,destroyClippingRegion/1,
+  deviceToLogicalX/2,deviceToLogicalXRel/2,deviceToLogicalY/2,deviceToLogicalYRel/2,
+  drawArc/4,drawBitmap/3,drawBitmap/4,drawCheckMark/2,drawCircle/3,drawEllipse/2,
+  drawEllipse/3,drawEllipticArc/5,drawIcon/3,drawLabel/3,drawLabel/4,
+  drawLine/3,drawLines/2,drawLines/3,drawPoint/2,drawPolygon/2,drawPolygon/3,
+  drawRectangle/2,drawRectangle/3,drawRotatedText/4,drawRoundedRectangle/3,
+  drawRoundedRectangle/4,drawText/3,endDoc/1,endPage/1,floodFill/3,floodFill/4,
+  getBackground/1,getBackgroundMode/1,getBrush/1,getCharHeight/1,getCharWidth/1,
+  getClippingBox/1,getFont/1,getLayoutDirection/1,getLogicalFunction/1,
+  getMapMode/1,getMultiLineTextExtent/2,getMultiLineTextExtent/3,getPPI/1,
+  getPartialTextExtents/2,getPen/1,getPixel/2,getSize/1,getSizeMM/1,
+  getTextBackground/1,getTextExtent/2,getTextExtent/3,getTextForeground/1,
+  getUserScale/1,gradientFillConcentric/4,gradientFillConcentric/5,
+  gradientFillLinear/4,gradientFillLinear/5,isOk/1,logicalToDeviceX/2,
+  logicalToDeviceXRel/2,logicalToDeviceY/2,logicalToDeviceYRel/2,maxX/1,
+  maxY/1,minX/1,minY/1,parent_class/1,resetBoundingBox/1,setAxisOrientation/3,
+  setBackground/2,setBackgroundMode/2,setBrush/2,setClippingRegion/2,
+  setClippingRegion/3,setDeviceOrigin/3,setFont/2,setLayoutDirection/2,
+  setLogicalFunction/2,setMapMode/2,setPalette/2,setPen/2,setTextBackground/2,
+  setTextForeground/2,setUserScale/3,startDoc/2,startPage/1]).
 
+-type wxClientDC() :: wx:wx_object().
 -export_type([wxClientDC/0]).
--deprecated([new/0]).
-
--compile([{nowarn_deprecated_function, {wxDC,computeScaleAndOrigin,1}}]).
-
 %% @hidden
 parent_class(wxWindowDC) -> true;
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxClientDC() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclientdc.html#wxclientdcwxclientdc">external documentation</a>.
--spec new() -> wxClientDC().
-new() ->
-  wxe_util:construct(?wxClientDC_new_0,
-  <<>>).
-
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclientdc.html#wxclientdcwxclientdc">external documentation</a>.
--spec new(Win) -> wxClientDC() when
-	Win::wxWindow:wxWindow().
-new(#wx_ref{type=WinT,ref=WinRef}) ->
-  ?CLASS(WinT,wxWindow),
-  wxe_util:construct(?wxClientDC_new_1,
-  <<WinRef:32/?UI>>).
+-spec new(Window) -> wxClientDC() when
+	Window::wxWindow:wxWindow().
+new(#wx_ref{type=WindowT}=Window) ->
+  ?CLASS(WindowT,wxWindow),
+  wxe_util:queue_cmd(Window,?get_env(),?wxClientDC_new),
+  wxe_util:rec(?wxClientDC_new).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxClientDC()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxClientDC),
-  wxe_util:destroy(?DESTROY_OBJECT,Obj),
+  wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),
   ok.
  %% From wxWindowDC
  %% From wxDC
@@ -92,7 +72,7 @@ startPage(This) -> wxDC:startPage(This).
 %% @hidden
 startDoc(This,Message) -> wxDC:startDoc(This,Message).
 %% @hidden
-setUserScale(This,X,Y) -> wxDC:setUserScale(This,X,Y).
+setUserScale(This,XScale,YScale) -> wxDC:setUserScale(This,XScale,YScale).
 %% @hidden
 setTextForeground(This,Colour) -> wxDC:setTextForeground(This,Colour).
 %% @hidden
@@ -114,7 +94,7 @@ setDeviceOrigin(This,X,Y) -> wxDC:setDeviceOrigin(This,X,Y).
 %% @hidden
 setClippingRegion(This,Pt,Sz) -> wxDC:setClippingRegion(This,Pt,Sz).
 %% @hidden
-setClippingRegion(This,Region) -> wxDC:setClippingRegion(This,Region).
+setClippingRegion(This,Rect) -> wxDC:setClippingRegion(This,Rect).
 %% @hidden
 setBrush(This,Brush) -> wxDC:setBrush(This,Brush).
 %% @hidden
@@ -168,7 +148,7 @@ getSize(This) -> wxDC:getSize(This).
 %% @hidden
 getPPI(This) -> wxDC:getPPI(This).
 %% @hidden
-getPixel(This,Pt) -> wxDC:getPixel(This,Pt).
+getPixel(This,Pos) -> wxDC:getPixel(This,Pos).
 %% @hidden
 getPen(This) -> wxDC:getPen(This).
 %% @hidden
@@ -210,9 +190,9 @@ drawText(This,Text,Pt) -> wxDC:drawText(This,Text,Pt).
 %% @hidden
 drawRoundedRectangle(This,Pt,Sz,Radius) -> wxDC:drawRoundedRectangle(This,Pt,Sz,Radius).
 %% @hidden
-drawRoundedRectangle(This,R,Radius) -> wxDC:drawRoundedRectangle(This,R,Radius).
+drawRoundedRectangle(This,Rect,Radius) -> wxDC:drawRoundedRectangle(This,Rect,Radius).
 %% @hidden
-drawRotatedText(This,Text,Pt,Angle) -> wxDC:drawRotatedText(This,Text,Pt,Angle).
+drawRotatedText(This,Text,Point,Angle) -> wxDC:drawRotatedText(This,Text,Point,Angle).
 %% @hidden
 drawRectangle(This,Pt,Sz) -> wxDC:drawRectangle(This,Pt,Sz).
 %% @hidden
@@ -238,7 +218,7 @@ drawIcon(This,Icon,Pt) -> wxDC:drawIcon(This,Icon,Pt).
 %% @hidden
 drawEllipticArc(This,Pt,Sz,Sa,Ea) -> wxDC:drawEllipticArc(This,Pt,Sz,Sa,Ea).
 %% @hidden
-drawEllipse(This,Pt,Sz) -> wxDC:drawEllipse(This,Pt,Sz).
+drawEllipse(This,Pt,Size) -> wxDC:drawEllipse(This,Pt,Size).
 %% @hidden
 drawEllipse(This,Rect) -> wxDC:drawEllipse(This,Rect).
 %% @hidden
@@ -250,7 +230,7 @@ drawBitmap(This,Bmp,Pt, Options) -> wxDC:drawBitmap(This,Bmp,Pt, Options).
 %% @hidden
 drawBitmap(This,Bmp,Pt) -> wxDC:drawBitmap(This,Bmp,Pt).
 %% @hidden
-drawArc(This,Pt1,Pt2,Centre) -> wxDC:drawArc(This,Pt1,Pt2,Centre).
+drawArc(This,PtStart,PtEnd,Centre) -> wxDC:drawArc(This,PtStart,PtEnd,Centre).
 %% @hidden
 deviceToLogicalYRel(This,Y) -> wxDC:deviceToLogicalYRel(This,Y).
 %% @hidden
@@ -264,12 +244,10 @@ destroyClippingRegion(This) -> wxDC:destroyClippingRegion(This).
 %% @hidden
 crossHair(This,Pt) -> wxDC:crossHair(This,Pt).
 %% @hidden
-computeScaleAndOrigin(This) -> wxDC:computeScaleAndOrigin(This).
-%% @hidden
 clear(This) -> wxDC:clear(This).
 %% @hidden
 calcBoundingBox(This,X,Y) -> wxDC:calcBoundingBox(This,X,Y).
 %% @hidden
-blit(This,DestPt,Sz,Source,SrcPt, Options) -> wxDC:blit(This,DestPt,Sz,Source,SrcPt, Options).
+blit(This,Dest,Size,Source,Src, Options) -> wxDC:blit(This,Dest,Size,Source,Src, Options).
 %% @hidden
-blit(This,DestPt,Sz,Source,SrcPt) -> wxDC:blit(This,DestPt,Sz,Source,SrcPt).
+blit(This,Dest,Size,Source,Src) -> wxDC:blit(This,Dest,Size,Source,Src).

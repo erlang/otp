@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@
 		receive_handle}).
 
 -include_lib("megaco/include/megaco.hrl").
-%% -include("megaco_test_lib.hrl").
+-include("megaco_test_lib.hrl").
 -define(SERVER, ?MODULE).
 
 
@@ -75,7 +75,8 @@ start(RH) ->
 start_transport() ->
     %% GS_ARGS = [{debug,[trace]}], 
     GS_ARGS = [], 
-    {ok, Pid} = gen_server:start_link({local, ?SERVER}, ?MODULE, [self()], GS_ARGS),
+    {ok, Pid} = gen_server:start_link({local, ?SERVER}, ?MODULE, [self()],
+                                      GS_ARGS),
     unlink(Pid),
     {ok, Pid}.
 
@@ -94,15 +95,25 @@ stop() ->
 %%----------------------------------------------------------------------
 
 send_message(SendHandle, Bin) ->
+    d("send_message -> entry with"
+      "~n      SendHandle: ~p", [SendHandle]),
     call({transport, {send_message, SendHandle, Bin}}).
 
 send_message(SendHandle, Bin, Resend) ->
+    d("send_message -> entry with"
+      "~n      SendHandle: ~p"
+      "~n      Resend:     ~p", [SendHandle, Resend]),
     call({transport, {send_message, SendHandle, Bin, Resend}}).
 
 resend_message(SendHandle, Bin) ->
+    d("resend_message -> entry with"
+      "~n      SendHandle: ~p", [SendHandle]),
     call({transport, {resend_message, SendHandle, Bin}}).
 
 incomming_message(Pid, Msg) ->
+    d("incomming_message -> entry with"
+      "~n      Pid: ~p"
+      "~n      Msg: ~p", [Pid, Msg]),
     cast(Pid, {incomming_message, Msg}).
 
 
@@ -138,6 +149,8 @@ handle_call({connect, _Sup, Opts}, _From, State) ->
     SendHandle = self(), 
     ControlPid = self(),
     Reply  = {ok, SendHandle, ControlPid},
+    d("handle_call(connect) -> done when"
+      "~n      Reply: ~p", [Reply]),
     {reply, Reply, State#state{controller     = Controller,
 			       receive_handle = ReceiveHandle}};
 
@@ -149,7 +162,10 @@ handle_call({listen, _Sup, Opts}, _From, State) ->
     SendHandle = self(), 
     ControlPid = self(),
     Reply  = {ok, SendHandle, ControlPid},
+    d("handle_call(listen) -> inform controller"),
     Controller ! {listen, ReceiveHandle, SendHandle, ControlPid},  
+    d("handle_call(listen) -> done when"
+      "~n      Reply: ~p", [Reply]),
     {reply, Reply, State#state{controller     = Controller,
 			       receive_handle = ReceiveHandle}};
 
@@ -164,6 +180,8 @@ handle_call({transport, Event}, _From,
     d("handle_call(transport) -> entry with"
       "~n   Event: ~p", [Event]),
     Reply = handle_transport(Pid, RH, Event),
+    d("handle_call(transport) -> done when"
+      "~n      Reply: ~p", [Reply]),
     {reply, Reply, State};
 
 handle_call(Req, From, State) ->
@@ -335,21 +353,11 @@ d(F) ->
     d(F, []).
 
 d(F, A) ->
-    print(now(), F, A).
+    print(F, A).
 
 
-print(Ts, F, A) ->
+print(F, A) ->
     io:format("*** [~s] GENERIC TRANSPORT [~p] ***"
 	      "~n   " ++ F ++ "~n", 
-	      [format_timestamp(Ts), self() | A]).
-
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate = 
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),  
-    lists:flatten(FormatDate).
-
+	      [?FTS(), self() | A]).
 

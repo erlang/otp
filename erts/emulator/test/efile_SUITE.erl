@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,7 +45,12 @@ iter_max_files(Config) when is_list(Config) ->
 iter_max_files_1(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
     TestFile = filename:join(DataDir, "existing_file"),
-    N = 10,
+    case erlang:system_info(debug_compiled) of
+        true ->
+            N = 5;
+        false ->
+            N = 10
+    end,
     %% Run on a different node in order to make the test more stable.
     Dir = filename:dirname(code:which(?MODULE)),
     {ok,Node} = test_server:start_node(test_iter_max_files,slave,
@@ -100,34 +105,27 @@ open_files(Name) ->
 %% a /proc directory), let's read some zero sized files 500 times each, while
 %% ensuring that response isn't empty << >>
 proc_zero_sized_files(Config) when is_list(Config) ->
-    {Type, Flavor} = os:type(),
-    %% Some files which exist on Linux but might be missing on other systems
-    Inputs = ["/proc/cpuinfo",
-              "/proc/meminfo",
-              "/proc/partitions",
-              "/proc/swaps",
-              "/proc/version",
-              "/proc/uptime",
-              %% curproc is present on freebsd
-              "/proc/curproc/cmdline"],
-    case filelib:is_dir("/proc") of
-        false -> {skip, "/proc not found"}; % skip the test if no /proc
-        _ when Type =:= unix andalso Flavor =:= sunos ->
-            %% SunOS has a /proc, but no zero sized special files
-            {skip, "sunos does not have any zero sized special files"};
-        true ->
-            %% Take away files which do not exist in proc
-            Inputs1 = lists:filter(fun filelib:is_file/1, Inputs),
+    TestFiles0 = [%% Some files which exist on Linux but might be missing on
+                  %% other systems
+                  "/proc/cpuinfo",
+                  "/proc/meminfo",
+                  "/proc/partitions",
+                  "/proc/swaps",
+                  "/proc/version",
+                  "/proc/uptime",
+                  %% curproc is present on FreeBSD
+                  "/proc/curproc/cmdline"],
 
-            %% Fail if none of mentioned files exist in /proc, did we just get
-            %% a normal /proc directory without any special files?
-            ?assertNotEqual([], Inputs1),
+    TestFiles = [F || F <- TestFiles0, filelib:is_file(F)],
 
+    case TestFiles of
+        [_|_] ->
             %% For 6 inputs and 500 attempts each this do run anywhere
             %% between 500 and 3000 function calls.
-            lists:foreach(
-                fun(Filename) -> do_proc_zero_sized(Filename, 500) end,
-                Inputs1)
+            [do_proc_zero_sized(F, 500) || F <- TestFiles],
+            ok;
+        [] ->
+            {skip, "Failed to find any known zero-sized files"}
     end.
 
 %% @doc Test one file N times to also trigger possible leaking fds and memory

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2016</year>
+      <year>2010</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -63,7 +63,7 @@
         <p>Starts an Erlang node with name <c>Node</c> on the local host.</p>
 
         <p>See also
-          <seealso marker="#start-3"><c>ct_slave:start/3</c></seealso>.</p>
+          <seemfa marker="#start/3"><c>ct_slave:start/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -85,7 +85,7 @@
           atom-valued and <c>start(Node, Opts)</c> when it is list-valued.</p>
 
         <p>See also
-          <seealso marker="#start-3"><c>ct_slave:start/3</c></seealso>.</p>
+          <seemfa marker="#start/3"><c>ct_slave:start/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -159,7 +159,7 @@
             occurs during initialization or startup. Defaults to <c>true</c>.
             Notice that the node can also be still alive it the boot time-out
             occurred, but it is not killed in this case.</p></item>
-          <tag><c>erlang_flags</c></tag>
+          <tag><c>erl_flags</c></tag>
           <item><p>Specifies which flags are added to the parameters of the
             executable <c>erl</c>.</p></item>
           <tag><c>env</c></tag>
@@ -176,7 +176,7 @@
           <item><p><c>{error, started_not_connected, NodeName}</c> if the
             node is started, but not connected to the master node.</p></item>
           <item><p><c>{error, not_alive, NodeName}</c> if the node on which
-            <seealso marker="#start-3"><c>ct_slave:start/3</c></seealso> is
+            <seemfa marker="#start/3"><c>ct_slave:start/3</c></seemfa> is
             called, is not alive. Notice that <c>NodeName</c> is the name of
             the current node in this case.</p></item>
         </list>

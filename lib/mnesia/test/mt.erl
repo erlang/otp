@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,6 +67,7 @@ alias(recovery) -> mnesia_recovery_test;
 alias(registry) -> mnesia_registry_test;
 alias(suite) -> mnesia_SUITE;
 alias(trans) -> mnesia_trans_access_test;
+alias(ixp) -> mnesia_index_plugin_test;
 alias(Other) -> Other.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

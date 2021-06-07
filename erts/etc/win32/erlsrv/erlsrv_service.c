@@ -525,6 +525,28 @@ static BOOL start_a_service(ServerInfo *srvi){
 
   new_acl(&save_acl);
 
+  {
+      BOOL bIsProcessInJob;
+      if (!IsProcessInJob(GetCurrentProcess(), NULL, &bIsProcessInJob)) {
+	  log_error(L"IsProcessInJob failed");
+	  return FALSE;
+      }
+      if (!bIsProcessInJob) {
+	  HANDLE hJob = CreateJobObject(NULL, NULL);
+	  JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = { 0 };
+	  /*
+	   * Causes all processes associated with the job to terminate when the
+	   * last handle to the job is closed.
+	   */
+	  jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+	  SetInformationJobObject(hJob, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli));
+	  if (AssignProcessToJobObject(hJob, GetCurrentProcess()) == FALSE) {
+	      log_error(L"Could not AssignProcessToJobObject");
+	      return FALSE;
+	  }
+      }
+  }
+
   if(!CreateProcessW(NULL,
 		     execbuff,
 		     &attr,

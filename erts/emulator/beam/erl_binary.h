@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -278,7 +278,6 @@ Eterm erts_bin_bytes_to_list(Eterm previous, Eterm* hp, byte* bytes, Uint size, 
  */
 
 BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg, Export *bif);
-BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is_tuple);
 BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen);
 
 
@@ -312,9 +311,11 @@ ERTS_GLB_INLINE void erts_free_aligned_binary_bytes(byte* buf);
 ERTS_GLB_INLINE void erts_free_aligned_binary_bytes_extra(byte* buf, ErtsAlcType_t);
 ERTS_GLB_INLINE Binary *erts_bin_drv_alloc_fnf(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_drv_alloc(Uint size);
+ERTS_GLB_INLINE Binary *erts_bin_nrml_alloc_fnf(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_nrml_alloc(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc_fnf(Binary *bp, Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc(Binary *bp, Uint size);
+ERTS_GLB_INLINE void erts_magic_binary_free(Binary *bp);
 ERTS_GLB_INLINE void erts_bin_free(Binary *bp);
 ERTS_GLB_INLINE void erts_bin_release(Binary *bp);
 ERTS_GLB_INLINE Binary *erts_create_magic_binary_x(Uint size,
@@ -351,11 +352,24 @@ erts_free_aligned_binary_bytes(byte* buf)
     erts_free_aligned_binary_bytes_extra(buf,ERTS_ALC_T_TMP);
 }
 
+/* A binary's size in bits must fit into a word for matching to work. We used
+ * to allow creating larger binaries than this, but they acted really strangely
+ * in Erlang code and were pretty much only usable in drivers and NIFs.
+ *
+ * This check also ensures, indirectly, that there won't be an overflow when
+ * the size is bumped by CHICKEN_PAD and the binary struct itself. */
+#define BINARY_OVERFLOW_CHECK(BYTE_SIZE) \
+    do { \
+         if (ERTS_UNLIKELY(BYTE_SIZE > ERTS_UWORD_MAX / CHAR_BIT)) { \
+             return NULL; \
+         } \
+    } while(0)
+
 /* Explicit extra bytes allocated to counter buggy drivers.
 ** These extra bytes where earlier (< R13B04) added by an alignment-bug
 ** in this code. Do we dare remove this in some major release (R14?) maybe?
 */
-#if defined(DEBUG) || defined(VALGRIND)
+#if defined(DEBUG) || defined(VALGRIND) || defined(ADDRESS_SANITIZER)
 #  define CHICKEN_PAD 0
 #else
 #  define CHICKEN_PAD (sizeof(void*) - 1)
@@ -364,86 +378,114 @@ erts_free_aligned_binary_bytes(byte* buf)
 ERTS_GLB_INLINE Binary *
 erts_bin_drv_alloc_fnf(Uint size)
 {
-    Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
     Binary *res;
+    Uint bsize;
 
-    if (bsize < size) /* overflow */
-	return NULL;
-    res = erts_alloc_fnf(ERTS_ALC_T_DRV_BINARY, bsize);
+    BINARY_OVERFLOW_CHECK(size);
+    bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
+
+    res = (Binary *)erts_alloc_fnf(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
+
     if (res) {
-	res->orig_size = size;
-	res->intern.flags = BIN_FLAG_DRV;
+        res->orig_size = size;
+        res->intern.flags = BIN_FLAG_DRV;
         erts_refc_init(&res->intern.refc, 1);
     }
+
     return res;
 }
 
 ERTS_GLB_INLINE Binary *
 erts_bin_drv_alloc(Uint size)
 {
-    Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    Binary *res;
+    Binary *res = erts_bin_drv_alloc_fnf(size);
 
-    if (bsize < size) /* overflow */
-	erts_alloc_enomem(ERTS_ALC_T_DRV_BINARY, size);
-    res = erts_alloc(ERTS_ALC_T_DRV_BINARY, bsize);
+    if (res) {
+        return res;
+    }
+
+    erts_alloc_enomem(ERTS_ALC_T_DRV_BINARY, size);
+}
+
+ERTS_GLB_INLINE Binary *
+erts_bin_nrml_alloc_fnf(Uint size)
+{
+    Binary *res;
+    Uint bsize;
+
+    BINARY_OVERFLOW_CHECK(size);
+    bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
+
+    res = (Binary *)erts_alloc_fnf(ERTS_ALC_T_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
-    res->orig_size = size;
-    res->intern.flags = BIN_FLAG_DRV;
-    erts_refc_init(&res->intern.refc, 1);
+
+    if (res) {
+        res->orig_size = size;
+        res->intern.flags = 0;
+        erts_refc_init(&res->intern.refc, 1);
+    }
+
     return res;
 }
 
 ERTS_GLB_INLINE Binary *
 erts_bin_nrml_alloc(Uint size)
 {
-    Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    Binary *res;
+    Binary *res = erts_bin_drv_alloc_fnf(size);
 
-    if (bsize < size) /* overflow */
-	erts_alloc_enomem(ERTS_ALC_T_BINARY, size);
-    res = erts_alloc(ERTS_ALC_T_BINARY, bsize);
-    ERTS_CHK_BIN_ALIGNMENT(res);
-    res->orig_size = size;
-    res->intern.flags = 0;
-    erts_refc_init(&res->intern.refc, 1);
-    return res;
+    if (res) {
+        return res;
+    }
+
+    erts_alloc_enomem(ERTS_ALC_T_BINARY, size);
 }
 
 ERTS_GLB_INLINE Binary *
 erts_bin_realloc_fnf(Binary *bp, Uint size)
 {
+    ErtsAlcType_t type;
     Binary *nbp;
-    Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    ErtsAlcType_t type = (bp->intern.flags & BIN_FLAG_DRV) ? ERTS_ALC_T_DRV_BINARY
-	                                            : ERTS_ALC_T_BINARY;
+    Uint bsize;
+    
+    type = (bp->intern.flags & BIN_FLAG_DRV) ? ERTS_ALC_T_DRV_BINARY
+                                             : ERTS_ALC_T_BINARY;
     ASSERT((bp->intern.flags & BIN_FLAG_MAGIC) == 0);
-    if (bsize < size) /* overflow */
-	return NULL;
-    nbp = erts_realloc_fnf(type, (void *) bp, bsize);
+
+    BINARY_OVERFLOW_CHECK(size);
+    bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
+
+    nbp = (Binary *)erts_realloc_fnf(type, (void *) bp, bsize);
     ERTS_CHK_BIN_ALIGNMENT(nbp);
-    if (nbp)
-	nbp->orig_size = size;
+
+    if (nbp) {
+        nbp->orig_size = size;
+    }
+
     return nbp;
 }
 
 ERTS_GLB_INLINE Binary *
 erts_bin_realloc(Binary *bp, Uint size)
 {
-    Binary *nbp;
-    Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    ErtsAlcType_t type = (bp->intern.flags & BIN_FLAG_DRV) ? ERTS_ALC_T_DRV_BINARY
-	                                            : ERTS_ALC_T_BINARY;
-    ASSERT((bp->intern.flags & BIN_FLAG_MAGIC) == 0);
-    if (bsize < size) /* overflow */
-	erts_realloc_enomem(type, bp, size);
-    nbp = erts_realloc_fnf(type, (void *) bp, bsize);
-    if (!nbp)
-	erts_realloc_enomem(type, bp, bsize);
-    ERTS_CHK_BIN_ALIGNMENT(nbp);
-    nbp->orig_size = size;
-    return nbp;
+    Binary *nbp = erts_bin_realloc_fnf(bp, size);
+
+    if (nbp) {
+        return nbp;
+    }
+
+    if (bp->intern.flags & BIN_FLAG_DRV) {
+        erts_realloc_enomem(ERTS_ALC_T_DRV_BINARY, bp, size);
+    } else {
+        erts_realloc_enomem(ERTS_ALC_T_BINARY, bp, size);
+    }
+}
+
+ERTS_GLB_INLINE void
+erts_magic_binary_free(Binary *bp)
+{
+    erts_magic_ref_remove_bin(ERTS_MAGIC_BIN_REFN(bp));
+    erts_free(ERTS_MAGIC_BIN_ATYPE(bp), (void *) bp);
 }
 
 ERTS_GLB_INLINE void
@@ -454,8 +496,7 @@ erts_bin_free(Binary *bp)
             /* Destructor took control of the deallocation */
             return;
         }
-	erts_magic_ref_remove_bin(ERTS_MAGIC_BIN_REFN(bp));
-        erts_free(ERTS_MAGIC_BIN_ATYPE(bp), (void *) bp);
+        erts_magic_binary_free(bp);
     }
     else if (bp->intern.flags & BIN_FLAG_DRV)
 	erts_free(ERTS_ALC_T_DRV_BINARY, (void *) bp);
@@ -478,7 +519,7 @@ erts_create_magic_binary_x(Uint size, int (*destructor)(Binary *),
 {
     Uint bsize = unaligned ? ERTS_MAGIC_BIN_UNALIGNED_SIZE(size)
                            : ERTS_MAGIC_BIN_SIZE(size);
-    Binary* bptr = erts_alloc_fnf(alloc_type, bsize);
+    Binary* bptr = (Binary *)erts_alloc_fnf(alloc_type, bsize);
     ASSERT(bsize > size);
     if (!bptr)
 	erts_alloc_n_enomem(ERTS_ALC_T2N(alloc_type), bsize);
@@ -516,7 +557,7 @@ erts_binary_to_magic_indirection(Binary *bp)
     ErtsMagicIndirectionWord *mip;
     ASSERT(bp->intern.flags & BIN_FLAG_MAGIC);
     ASSERT(ERTS_MAGIC_BIN_ATYPE(bp) == ERTS_ALC_T_MINDIRECTION);
-    mip = ERTS_MAGIC_BIN_UNALIGNED_DATA(bp);
+    mip = (ErtsMagicIndirectionWord*)ERTS_MAGIC_BIN_UNALIGNED_DATA(bp);
     return &mip->smp_atomic_word;
 }
 
