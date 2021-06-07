@@ -133,6 +133,7 @@ erts_get_module(Eterm mod, ErtsCodeIndex code_ix)
     IndexTable* mod_tab;
 
     ASSERT(is_atom(mod));
+    ERTS_LC_ASSERT(erts_get_scheduler_id() > 0 || erts_thr_progress_lc_is_delaying());
 
     mod_tab = &module_tables[code_ix];
 

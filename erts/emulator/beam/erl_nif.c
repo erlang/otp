@@ -850,6 +850,8 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     from = c_p ? c_p->common.id : am_undefined;
 
     if (!env || !env->tracee) {
+        /* This clause is taken when enif_send is called in a nif
+           that is not a erl_tracer nif. */
 
         if (c_p && IS_TRACED_FL(c_p, F_TRACE_SEND)) {
 	    full_flush_env(env);
