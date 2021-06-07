@@ -30,7 +30,7 @@
 -include_lib("stdlib/include/assert.hrl").
 
 suite() ->
-    [{timetrap,{minutes,10}}].
+    [{timetrap,{minutes,20}}].
 
 all() ->
     [render_smoke, render, render_non_native, links, normalize, {group, prop}].
