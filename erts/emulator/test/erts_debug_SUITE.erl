@@ -232,6 +232,7 @@ stack_check(Config) when is_list(Config) ->
     %% by PCRE). VM will crash if it doesn't work...
     Size = erts_debug:get_internal_state(stack_check),
     erts_debug:set_internal_state(available_internal_state,false),
+    true = (is_integer(Size) and (Size > 0)),
     {comment, "Stack size: "++integer_to_list(Size)++" bytes"}.
 
 df_smoke([M|Ms]) ->
