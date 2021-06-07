@@ -1479,9 +1479,10 @@ f.txt:  {person, "kalle", 25}.
           <item>
             <p>Size of file in bytes.</p>
           </item>
-          <tag><c>type = device | directory | other | regular | symlink</c></tag>
+          <tag><c>type = device | directory | other | regular</c></tag>
           <item>
-            <p>The type of the file.</p>
+            <p>The type of the file. Can also contain <c>symlink</c> when returned
+              from <seemfa marker="#read_link_info/1">read_link_info/1,2</seemfa>.</p>
           </item>
           <tag><c>access = read | write | read_write | none</c></tag>
           <item>
