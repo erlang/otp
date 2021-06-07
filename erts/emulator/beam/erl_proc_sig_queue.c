@@ -7262,7 +7262,7 @@ wake_handle_signals(Process *proc)
 #ifdef DEBUG
     Process *c_p = erts_get_current_process();
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(proc));
-    ASSERT(c_p->sig_qs.flags & FS_WAIT_HANDLE_SIGS);
+    ASSERT(proc->sig_qs.flags & FS_WAIT_HANDLE_SIGS);
     ERTS_ASSERT(c_p == erts_dirty_process_signal_handler_max
                 || c_p == erts_dirty_process_signal_handler_high
                 || erts_dirty_process_signal_handler);
