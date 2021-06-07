@@ -4104,9 +4104,9 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
             UWord size;
             char c;
             if (erts_is_above_stack_limit(&c))
-                size = erts_check_stack_recursion_downwards(&c);
+                size = erts_check_stack_recursion_downwards(&c, &c);
             else
-                size = erts_check_stack_recursion_upwards(&c);
+                size = erts_check_stack_recursion_upwards(&c, &c);
 	    if (IS_SSMALL(size))
 		BIF_RET(make_small(size));
 	    else {

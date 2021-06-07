@@ -1313,27 +1313,39 @@ ms_wait(Process *c_p, Eterm etimeout, int busy)
  */
 
 UWord
-erts_check_stack_recursion_downwards(char *start_c)
+erts_check_stack_recursion_downwards(char *start_c, char* prev_c)
 {
     char *limit = ERTS_STACK_LIMIT;
     char c;
     UWord res;
+
+    if (prev_c == &c) {
+         /* Protect against eternal loop if C compiler do tail call
+            optimization. This may also prevent such optimizations. */
+        return 0;
+    }
     if (erts_check_below_limit(&c, limit + 1024))
         return (char *) erts_ptr_id(start_c) - (char *) erts_ptr_id(&c);
-    res = erts_check_stack_recursion_downwards(start_c);
+    res = erts_check_stack_recursion_downwards(start_c, &c);
     erts_ptr_id(&c);
     return res;
 }
 
 UWord
-erts_check_stack_recursion_upwards(char *start_c)
+erts_check_stack_recursion_upwards(char *start_c, char* prev_c)
 {
     char *limit = ERTS_STACK_LIMIT;
     char c;
     UWord res;
+
+    if (prev_c == &c) {
+         /* Protect against eternal loop if C compiler do tail call
+            optimization. This may also prevent such optimizations. */
+        return 0;
+    }
     if (erts_check_above_limit(&c, limit - 1024))
         return (char *) erts_ptr_id(&c) - (char *) erts_ptr_id(start_c);
-    res = erts_check_stack_recursion_upwards(start_c);
+    res = erts_check_stack_recursion_upwards(start_c, &c);
     erts_ptr_id(&c);
     return res;
 }

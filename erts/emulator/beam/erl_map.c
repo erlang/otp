@@ -98,8 +98,8 @@ static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory*, hxnode_t *hxns, 
 static Eterm hashmap_from_chunked_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, Uint size, int is_root, ErtsAlcType_t temp_memory_allocator);
 static Eterm hashmap_info(Process *p, Eterm node);
 static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]);
-static int hxnodecmp(hxnode_t* a, hxnode_t* b);
-static int hxnodecmpkey(hxnode_t* a, hxnode_t* b);
+static int hxnodecmp(const void* a, const void* b);
+static int hxnodecmpkey(const void* a, const void* b);
 #define swizzle32(D,S) \
     do { \
 	(D) = ((S) & 0x0000000f) << 28 | ((S) & 0x000000f0) << 20  \
@@ -761,7 +761,7 @@ static Eterm hashmap_from_unsorted_array(ErtsHeapFactory* factory,
     }
 
     /* sort and compact array (remove non-unique entries) */
-    erts_qsort(hxns, n, sizeof(hxnode_t), (int (*)(const void *, const void *)) hxnodecmp);
+    erts_qsort(hxns, n, sizeof(hxnode_t), hxnodecmp);
 
     ix = 0, cx = 0;
     while(ix < n - 1) {
@@ -775,8 +775,7 @@ static Eterm hashmap_from_unsorted_array(ErtsHeapFactory* factory,
 
 	    /* resort with keys instead of hash value within region */
 
-	    erts_qsort(&hxns[ix], jx - ix, sizeof(hxnode_t),
-                       (int (*)(const void *, const void *)) hxnodecmpkey);
+	    erts_qsort(&hxns[ix], jx - ix, sizeof(hxnode_t), hxnodecmpkey);
 
 	    while(ix < jx) {
 		lx = ix;
@@ -870,7 +869,7 @@ static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory* factory,
 		tmp[i].skip = 1;
 	    }
 
-	    erts_qsort(tmp, jx - ix, sizeof(hxnode_t), (int (*)(const void *, const void *)) hxnodecmp);
+	    erts_qsort(tmp, jx - ix, sizeof(hxnode_t), hxnodecmp);
 
 	    hxns[ix].skip = jx - ix;
 	    hxns[ix].val  =
@@ -1155,7 +1154,9 @@ static Eterm hashmap_from_chunked_array(ErtsHeapFactory *factory, hxnode_t *hxns
 }
 #undef HALLOC_EXTRA
 
-static int hxnodecmpkey(hxnode_t *a, hxnode_t *b) {
+static int hxnodecmpkey(const void *va, const void *vb) {
+    const hxnode_t *a = (const hxnode_t*) va;
+    const hxnode_t *b = (const hxnode_t*) vb;
     Sint c = CMP_TERM(CAR(list_val(a->val)), CAR(list_val(b->val)));
 #if ERTS_SIZEOF_ETERM <= SIZEOF_INT
     return c;
@@ -1164,7 +1165,10 @@ static int hxnodecmpkey(hxnode_t *a, hxnode_t *b) {
 #endif
 }
 
-static int hxnodecmp(hxnode_t *a, hxnode_t *b) {
+static int hxnodecmp(const void *va, const void *vb) {
+    const hxnode_t *a = (const hxnode_t*) va;
+    const hxnode_t *b = (const hxnode_t*) vb;
+
     if (a->hx < b->hx)
 	return 1;
     else if (a->hx == b->hx)
