@@ -447,10 +447,10 @@ dirty_nif_send_traced(Config) when is_list(Config) ->
 			      {ok, Rcvr} = send_wait_from_dirty_nif(Rcvr),
 			      Parent ! {self(), sent}
 		      end),
-    1 = erlang:trace(Sndr, true, [send]),
+    1 = erlang:trace(Sndr, true, [send, running, exiting]),
     Start = erlang:monotonic_time(),
     Sndr ! {self(), go},
-    receive {trace, Sndr, send, {ok, Rcvr}, Rcvr} -> ok end,
+
     receive {Rcvr, received} -> ok end,
     End1 = erlang:monotonic_time(),
     Time1 = erlang:convert_time_unit(End1-Start, native, 1000),
@@ -461,7 +461,32 @@ dirty_nif_send_traced(Config) when is_list(Config) ->
     Time2 = erlang:convert_time_unit(End2-Start, native, 1000),
     io:format("Time2: ~p milliseconds~n", [Time2]),
     true = Time2 >= 1900,
+
+    %% Make sure that the send trace is
+    %% in between an in and and out trace
+    (fun F() ->
+             %% We got an in trace, look for out or send
+             {trace,Sndr,in,_} = recv_trace_from(Sndr),
+             case recv_trace_from(Sndr) of
+                 {trace,Sndr,out,_} ->
+                     %% We got an out, look for another in
+                     F();
+                 {trace,Sndr,send,_,_} ->
+                     %% We got a send, look for another out
+                     {trace,Sndr,out,_} = recv_trace_from(Sndr),
+                     ok
+             end
+     end)(),
+
     ok.
+
+recv_trace_from(Sndr) ->
+    receive
+        M when element(1, M) =:= trace;
+               element(1, M) =:= trace_ts,
+               element(2, M) =:= Sndr ->
+            M
+    end.
 
 dirty_literal_test_code() ->
     "
