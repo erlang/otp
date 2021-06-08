@@ -3094,9 +3094,6 @@ used_type(TypePair, Anno, #lint{usage = Usage, file = File} = St) ->
 is_default_type({Name, NumberOfTypeVariables}) ->
     erl_internal:is_type(Name, NumberOfTypeVariables).
 
-%% OTP 24.0
-is_newly_introduced_builtin_type({nonempty_binary, 0}) -> true;
-is_newly_introduced_builtin_type({nonempty_bitstring, 0}) -> true;
 is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
 
 is_obsolete_builtin_type(TypePair) ->
