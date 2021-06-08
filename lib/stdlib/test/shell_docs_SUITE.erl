@@ -324,7 +324,7 @@ docsmap(Fun) ->
                       ok;
                   {error, cover_compiled} ->
                       ok;
-                  {error, E} when E =:= eperm; E =:= eacces ->
+                  {error, E} when E =:= eperm; E =:= eacces; E =:= eio ->
                       %% This can happen in BSD's for some reason...
                       ok;
                   {error, eisdir} ->
