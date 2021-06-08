@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -313,7 +313,22 @@ mk_cmd(_,Cmd) ->
     %% We use an absolute path here because we do not want the path to be
     %% searched in case a stale NFS handle is somewhere in the path before
     %% the sh command.
-    {"/bin/sh -s unix:cmd", [out],
+    %%
+    %% Check if the default shell is located in /bin/sh as expected usually
+    %% or in /system/bin/sh as implemented on Android. The raw option is
+    %% used to bypass the file server and speed up the file access.
+    Shell = case file:read_file_info("/bin/sh",[raw]) of
+                {ok,#file_info{type=regular}} ->
+                    "/bin/sh";
+                _ ->
+                    case file:read_file_info("/system/bin/sh",[raw]) of
+                        {ok,#file_info{type=regular}} ->
+                            "/system/bin/sh";
+                        _ ->
+                            "/bin/sh"
+                    end
+            end,
+    {Shell ++ " -s unix:cmd", [out],
      %% We insert a new line after the command, in case the command
      %% contains a comment character.
      %%
