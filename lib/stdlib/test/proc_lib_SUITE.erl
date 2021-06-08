@@ -668,34 +668,47 @@ stop(_Config) ->
     Pid3 = proc_lib:spawn(HangProc),
     {'EXIT',timeout} = (catch proc_lib:stop(Pid3,normal,1000)),
 
+    %% Ensure that a termination message is always sent to the
+    %% target process and that it eventually terminates.
+    Pid4 = proc_lib:spawn(HangProc),
+    Ref4 = monitor(process, Pid4),
+    {'EXIT', timeout} = (catch proc_lib:stop(Pid4, normal, 0)),
+    ok = receive
+	{'DOWN', Ref4, process, _, _} ->
+	    ok;
+	M -> M
+    after 6000 ->
+	timeout
+    end,
+
     %% Success case with other reason than 'normal'
-    Pid4 = proc_lib:spawn(SysMsgProc),
-    ok = proc_lib:stop(Pid4,other_reason,infinity),
-    false = erlang:is_process_alive(Pid4),
+    Pid5 = proc_lib:spawn(SysMsgProc),
+    ok = proc_lib:stop(Pid5,other_reason,infinity),
+    false = erlang:is_process_alive(Pid5),
 
     %% System message is handled, but process dies with other reason
     %% than the given (in system_terminate/4 below)
-    Pid5 = proc_lib:spawn(SysMsgProc),
-    {'EXIT',{{badmatch,2},_Stacktrace}} = (catch proc_lib:stop(Pid5,crash,infinity)),
-    false = erlang:is_process_alive(Pid5),
+    Pid6 = proc_lib:spawn(SysMsgProc),
+    {'EXIT',{{badmatch,2},_Stacktrace}} = (catch proc_lib:stop(Pid6,crash,infinity)),
+    false = erlang:is_process_alive(Pid6),
 
     %% Local registered name
-    Pid6 = proc_lib:spawn(SysMsgProc),
-    register(to_stop,Pid6),
+    Pid7 = proc_lib:spawn(SysMsgProc),
+    register(to_stop,Pid7),
     ok = proc_lib:stop(to_stop),
     undefined = whereis(to_stop),
-    false = erlang:is_process_alive(Pid6),
+    false = erlang:is_process_alive(Pid7),
 
     %% Remote registered name
     {ok,Node} = test_server:start_node(proc_lib_SUITE_stop,slave,[]),
     Dir = filename:dirname(code:which(?MODULE)),
     rpc:call(Node,code,add_path,[Dir]),
-    Pid7 = spawn(Node,SysMsgProc),
-    true = rpc:call(Node,erlang,register,[to_stop,Pid7]),
-    Pid7 = rpc:call(Node,erlang,whereis,[to_stop]),
+    Pid8 = spawn(Node,SysMsgProc),
+    true = rpc:call(Node,erlang,register,[to_stop,Pid8]),
+    Pid8 = rpc:call(Node,erlang,whereis,[to_stop]),
     ok = proc_lib:stop({to_stop,Node}),
     undefined = rpc:call(Node,erlang,whereis,[to_stop]),
-    false = rpc:call(Node,erlang,is_process_alive,[Pid7]),
+    false = rpc:call(Node,erlang,is_process_alive,[Pid8]),
 
     %% Local and remote registered name, but non-existing
     {'EXIT',noproc} = (catch proc_lib:stop(to_stop)),
