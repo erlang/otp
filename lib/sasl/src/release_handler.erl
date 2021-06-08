@@ -162,7 +162,7 @@ unpack_release(ReleaseName) ->
 %% Purpose: Checks the relup script for the specified version.
 %%          The release must be unpacked.
 %%          Options = [purge] - all old code that can be soft purged
-%%          will be purged if all checks succeeds. This can be usefully
+%%          will be purged if all checks succeeds. This can be useful
 %%          in order to reduce time needed in the following call to
 %%          install_release.
 %% Returns: {ok, FromVsn, Descr} | {error, Reason}
