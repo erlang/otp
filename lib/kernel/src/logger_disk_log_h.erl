@@ -58,8 +58,8 @@ adding_handler(Config) ->
 
 %%%-----------------------------------------------------------------
 %%% Updating handler config
-changing_config(SetOrUpdate, OldConfig, NewConfig) ->
-    logger_h_common:changing_config(SetOrUpdate, OldConfig, NewConfig).
+changing_config(SetOrUpdate,OldConfig,NewConfig) ->
+    logger_h_common:changing_config(SetOrUpdate,OldConfig,NewConfig).
 
 %%%-----------------------------------------------------------------
 %%% Handler being removed
@@ -68,12 +68,12 @@ removing_handler(Config) ->
 
 %%%-----------------------------------------------------------------
 %%% Log a string or report
--spec log(LogEvent, Config) -> ok when
+-spec log(LogEvent,Config) -> ok when
       LogEvent :: logger:log_event(),
       Config :: logger:handler_config().
 
-log(LogEvent, Config) ->
-    logger_h_common:log(LogEvent, Config).
+log(LogEvent,Config) ->
+    logger_h_common:log(LogEvent,Config).
 
 %%%-----------------------------------------------------------------
 %%% Remove internal fields from configuration
@@ -86,13 +86,13 @@ filter_config(Config) ->
 init(Name, #{file:=File,type:=Type,max_no_bytes:=MNB,max_no_files:=MNF}) ->
     case open_disk_log(Name, File, Type, MNB, MNF) of
         ok ->
-            {ok,#{log_opts => #{file => File,
-                                type => Type,
-                                max_no_bytes => MNB,
-                                max_no_files => MNF},
-                  prev_log_result => ok,
-                  prev_sync_result => ok,
-                  prev_disk_log_info => undefined}};
+            {ok,#{log_opts=>#{file=>File,
+                              type=>Type,
+                              max_no_bytes=>MNB,
+                              max_no_files=>MNF},
+                  prev_log_result=>ok,
+                  prev_sync_result=>ok,
+                  prev_disk_log_info=>undefined}};
         Error ->
             Error
     end.
@@ -147,57 +147,57 @@ check_h_config([Other | _]) ->
 check_h_config([]) ->
     ok.
 
-merge_default_logopts(Name, HConfig) ->
-    Type = maps:get(type, HConfig, wrap),
+merge_default_logopts(Name,HConfig) ->
+    Type = maps:get(type,HConfig,wrap),
     {DefaultNoFiles,DefaultNoBytes} =
         case Type of
             halt -> {undefined,infinity};
             _wrap -> {10,1048576}
         end,
     {ok,Dir} = file:get_cwd(),
-    Defaults = #{file => filename:join(Dir,Name),
-                 max_no_files => DefaultNoFiles,
-                 max_no_bytes => DefaultNoBytes,
-                 type => Type},
-    maps:merge(Defaults, HConfig).
+    Defaults = #{file=>filename:join(Dir,Name),
+                 max_no_files=>DefaultNoFiles,
+                 max_no_bytes=>DefaultNoBytes,
+                 type=>Type},
+    maps:merge(Defaults,HConfig).
 
 filesync(Name,_Mode,State) ->
     Result = ?disk_log_sync(Name),
-    maybe_notify_error(Name, filesync, Result, prev_sync_result, State).
+    maybe_notify_error(Name,filesync,Result,prev_sync_result,State).
 
-write(Name, Mode, Bin, State) ->
-    Result = ?disk_log_write(Name, Mode, Bin),
-    maybe_notify_error(Name, log, Result, prev_log_result, State).
+write(Name,Mode,Bin,State) ->
+    Result = ?disk_log_write(Name,Mode,Bin),
+    maybe_notify_error(Name,log,Result,prev_log_result,State).
 
-reset_state(_Name, State) ->
-    State#{prev_log_result => ok,
-           prev_sync_result => ok,
-           prev_disk_log_info => undefined}.
+reset_state(_Name,State) ->
+    State#{prev_log_result=>ok,
+           prev_sync_result=>ok,
+           prev_disk_log_info=>undefined}.
 
 %% The disk log owner must handle status messages from disk_log.
-handle_info(Name, {disk_log, _Node, Log, Info={truncated,_NoLostItems}}, State) ->
-    maybe_notify_status(Name, Log, Info, prev_disk_log_info, State);
-handle_info(Name, {disk_log, _Node, Log, Info = {blocked_log,_Items}}, State) ->
-    maybe_notify_status(Name, Log, Info, prev_disk_log_info, State);
-handle_info(Name, {disk_log, _Node, Log, Info = full}, State) ->
-    maybe_notify_status(Name, Log, Info, prev_disk_log_info, State);
-handle_info(Name, {disk_log, _Node, Log, Info = {error_status,_Status}}, State) ->
-    maybe_notify_status(Name, Log, Info, prev_disk_log_info, State);
-handle_info(_, _, State) ->
+handle_info(Name,{disk_log,_Node,Log,Info={truncated,_NoLostItems}},State) ->
+    maybe_notify_status(Name,Log,Info,prev_disk_log_info,State);
+handle_info(Name,{disk_log,_Node,Log,Info={blocked_log,_Items}},State) ->
+    maybe_notify_status(Name,Log,Info,prev_disk_log_info,State);
+handle_info(Name,{disk_log,_Node,Log,Info=full}, State) ->
+    maybe_notify_status(Name,Log,Info,prev_disk_log_info,State);
+handle_info(Name,{disk_log,_Node,Log,Info={error_status,_Status}},State) ->
+    maybe_notify_status(Name,Log,Info,prev_disk_log_info,State);
+handle_info(_,_,State) ->
     State.
 
-terminate(Name, _Reason, _State) ->
-    _ = close_disk_log(Name, normal),
+terminate(Name,_Reason,_State) ->
+    _ = close_disk_log(Name,normal),
     ok.
 
 %%%-----------------------------------------------------------------
 %%% Internal functions
-open_disk_log(Name, File, Type, MaxNoBytes, MaxNoFiles) ->
+open_disk_log(Name,File,Type,MaxNoBytes,MaxNoFiles) ->
     case filelib:ensure_dir(File) of
         ok ->
             Size =
-                if Type == halt -> MaxNoBytes;
-                   Type == wrap -> {MaxNoBytes,MaxNoFiles}
+                if Type==halt -> MaxNoBytes;
+                   Type==wrap -> {MaxNoBytes,MaxNoFiles}
                 end,
             Opts = [{name,   Name},
                     {file,   File},
@@ -219,27 +219,27 @@ open_disk_log(Name, File, Type, MaxNoBytes, MaxNoFiles) ->
             Error
     end.
 
-close_disk_log(Name, _) ->
+close_disk_log(Name,_) ->
     _ = ?disk_log_sync(Name),
     _ = disk_log:close(Name),
     ok.
 
-disk_log_write(Name, sync, Bin) ->
-    disk_log:blog(Name, Bin);
-disk_log_write(Name, async, Bin) ->
-    disk_log:balog(Name, Bin).
+disk_log_write(Name,sync,Bin) ->
+    disk_log:blog(Name,Bin);
+disk_log_write(Name,async,Bin) ->
+    disk_log:balog(Name,Bin).
 
 %%%-----------------------------------------------------------------
 %%% Print error messages, but don't repeat the same message
-maybe_notify_error(Name, Op, Result, Key, #{log_opts:=LogOpts}=State) ->
-    {Result,error_notify_new({Name, Op, LogOpts, Result}, Result, Key, State)}.
+maybe_notify_error(Name,Op,Result,Key,#{log_opts:=LogOpts}=State) ->
+    {Result,error_notify_new({Name,Op,LogOpts,Result},Result,Key,State)}.
 
-maybe_notify_status(Name, Log, Info, Key, State) ->
-    error_notify_new({disk_log, Name, Log, Info}, Info, Key, State).
+maybe_notify_status(Name,Log,Info,Key,State) ->
+    error_notify_new({disk_log,Name,Log,Info},Info,Key,State).
 
-error_notify_new(Term, What, Key, State) ->
-    error_notify_new(What, maps:get(Key,State), Term),
-    State#{Key => What}.
+error_notify_new(Term,What,Key,State) ->
+    error_notify_new(What,maps:get(Key,State),Term),
+    State#{Key=>What}.
 
 error_notify_new(ok,_Prev,_Term) ->
     ok;
