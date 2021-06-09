@@ -56,6 +56,7 @@
          gracefull_invalid_long_start_no_nl/1,
          gracefull_invalid_start/1,
          gracefull_invalid_version/1,
+         kex_error/1,
          interrupted_send/1,
          max_channels_option/1,
          no_sensitive_leak/1,
@@ -137,6 +138,7 @@ all() ->
      gracefull_invalid_start,
      gracefull_invalid_long_start,
      gracefull_invalid_long_start_no_nl,
+     kex_error,
      stop_listener,
      no_sensitive_leak,
      start_subsystem_on_closed_channel,
@@ -1165,6 +1167,71 @@ gracefull_invalid_long_start_no_nl(Config) when is_list(Config) ->
 	    end
     after 
 	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+    end.
+
+kex_error(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    [Kex1,Kex2|_] = proplists:get_value(kex, ssh:default_algorithms()),
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                              {user_dir, UserDir},
+                                              {password, "morot"},
+                                              {preferred_algorithms,[{kex,[Kex1]}]}
+                                             ]),
+    Ref = make_ref(),
+    ok = ssh_log_h:add_fun(kex_error,
+                           fun(#{msg:={report,#{format:=Fmt,args:=As,label:={error_logger,_}}}}, Pid) ->
+                                   true = (erlang:process_info(Pid) =/= undefined), % remove handler if we are dead
+                                   Pid ! {Ref, lists:flatten(io_lib:format(Fmt,As))};
+                              (_,Pid) ->
+                                   true = (erlang:process_info(Pid) =/= undefined), % remove handler if we are dead
+                                   ok % Other msg
+                           end,
+                           self()),
+    try
+        ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user, "foo"},
+                                          {password, "morot"},
+                                          {user_interaction, false},
+                                          {user_dir, UserDir},
+                                          {preferred_algorithms,[{kex,[Kex2]}]}
+                                         ])
+    of
+        _ ->
+            ok = logger:remove_handler(kex_error),
+            ct:fail("expected failure", [])
+    catch
+        error:{badmatch,{error,"Key exchange failed"}} ->
+            %% ok
+            receive
+                {Ref, ErrMsgTxt} ->
+                    ok = logger:remove_handler(kex_error),
+                    ct:log("ErrMsgTxt = ~n~s", [ErrMsgTxt]),
+                    Lines = lists:map(fun string:trim/1, string:tokens(ErrMsgTxt, "\n")),
+                    OK = (lists:all(fun(S) -> lists:member(S,Lines) end,
+                                    ["Disconnects with code = 3 [RFC4253 11.1]: Key exchange failed",
+                                     "Details:",
+                                     "No common key exchange algorithm,",
+                                     "we have:",
+                                     "peer have:"]) andalso
+                          string:find(ErrMsgTxt, atom_to_list(Kex1)) =/= nomatch andalso
+                          string:find(ErrMsgTxt, atom_to_list(Kex2)) =/= nomatch),
+                    case OK of
+                        true ->
+                            ok;
+                        false ->
+                            ct:fail("unexpected error text msg", [])
+                    end
+            after 20000 ->
+                    ok = logger:remove_handler(kex_error),
+                    ct:fail("timeout", [])
+            end;
+
+        error:{badmatch,{error,_}} ->
+            ok = logger:remove_handler(kex_error),
+            ct:fail("unexpected error msg", [])
     end.
 
 stop_listener(Config) when is_list(Config) ->
