@@ -57,7 +57,8 @@
 
 %% The gen_server behaviour
 -export([init/1, handle_call/3, handle_cast/2, handle_continue/2,
-	 handle_info/2, code_change/3, terminate/2, format_status/2]).
+	 handle_info/2, code_change/3, terminate/2, format_status/2,
+         format_status/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -2128,3 +2129,20 @@ format_status(terminate, [_PDict, State]) ->
     {formatted, State};
 format_status(normal, [_PDict, _State]) ->
     format_status_called.
+
+%% format_status(Message) ->
+%%     maps:map(fun(Key, Value) ->
+%%                      {formatted, Value}
+%%              end, Message).
+format_status(Status) ->
+  maps:map(
+    fun(state,State) ->
+            case maps:get(opt,Status) of
+                normal -> [{data, [{"State", State}]}];
+                _ -> State
+            end;
+       (message,{password, _Pass}) ->
+            {password, removed};
+       (_,Value) ->
+            Value
+    end, Status).
