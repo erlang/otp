@@ -298,7 +298,7 @@ remove_release(Vsn) ->
 %%          .rel.
 %%          The release dir will be created.  The necessary files can
 %%          be installed by calling install_file/2.
-%%          The release_handler remebers where all libs are located.
+%%          The release_handler remembers where all libs are located.
 %%          If remove_release is called later,
 %%          those libs are removed as well (if no other releases uses
 %%          them).
