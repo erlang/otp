@@ -152,6 +152,35 @@
 
 </section>
 
+<section><title>Ssh 4.11.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Filter out sensitive data (passwords etc) from progress
+	    reports and supervisor reports.</p>
+          <p>
+	    Own Id: OTP-17468 Aux Id: ERIERL-656 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The "Key exchange failed" Info Report is now more
+	    informative.</p>
+          <p>
+	    Own Id: OTP-17450 Aux Id: ERIERL-655 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.11.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
