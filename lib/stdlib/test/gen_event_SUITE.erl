@@ -974,7 +974,7 @@ call(Config) when is_list(Config) ->
     ok.
 
 flush() ->
-    receive _ -> flush() after 0 -> ok end.
+    receive M -> [M|flush()] after 0 -> [] end.
 
 info(Config) when is_list(Config) ->
     {ok,_} = gen_event:start({local, my_dummy_handler}),
@@ -1100,22 +1100,25 @@ info(Config) when is_list(Config) ->
     ok = gen_event:stop(my_dummy_handler),
     ok.
 
-%% Test that sys:get_status/1,2 calls format_status/2.
+%% Test that sys:get_status/1,2 calls format_status/1,2.
 call_format_status(Config) when is_list(Config) ->
+    call_format_status(dummy1_h),
+    call_format_status(dummy_h);
+call_format_status(Module) when is_atom(Module) ->
     {ok, Pid} = gen_event:start({local, my_dummy_handler}),
     %% State here intentionally differs from what we expect from format_status
     State = self(),
     FmtState = "dummy1_h handler state",
-    ok = gen_event:add_handler(my_dummy_handler, dummy1_h, [State]),
+    ok = gen_event:add_handler(my_dummy_handler, Module, [State]),
     Status1 = sys:get_status(Pid),
     Status2 = sys:get_status(Pid, 5000),
     ok = gen_event:stop(Pid),
     {status, Pid, _, [_, _, Pid, [], Data1]} = Status1,
     HandlerInfo1 = proplists:get_value(items, Data1),
-    {"Installed handlers", [{_,dummy1_h,_,FmtState,_}]} = HandlerInfo1,
+    {"Installed handlers", [{_,Module,_,FmtState,_}]} = HandlerInfo1,
     {status, Pid, _, [_, _, Pid, [], Data2]} = Status2,
     HandlerInfo2 = proplists:get_value(items, Data2),
-    {"Installed handlers", [{_,dummy1_h,_,FmtState,_}]} = HandlerInfo2,
+    {"Installed handlers", [{_,Module,_,FmtState,_}]} = HandlerInfo2,
     ok.
 
 %% Test that sys:get_status/1,2 calls format_status/2 for anonymous
@@ -1136,28 +1139,38 @@ call_format_status_anon(Config) when is_list(Config) ->
 error_format_status(Config) when is_list(Config) ->
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
+    try
+        error_format_status(dummy1_h),
+        error_format_status(dummy_h)
+    after
+            process_flag(trap_exit, OldFl),
+            error_logger_forwarder:unregister()
+    end;
+error_format_status(Module) when is_atom(Module) ->
     State = self(),
     {ok, Pid} = gen_event:start({local, my_dummy_handler}),
-    ok = gen_event:add_sup_handler(my_dummy_handler, dummy1_h, [State]),
+    ok = gen_event:add_sup_handler(my_dummy_handler, Module, [State]),
     ok = gen_event:notify(my_dummy_handler, do_crash),
     receive
-	{gen_event_EXIT,dummy1_h,{'EXIT',_}} -> ok
+	{gen_event_EXIT,Module,{'EXIT',_}} -> ok
     after 5000 ->
-	    ct:fail(exit_gen_event)
+	    ct:fail({exit_gen_event,flush()})
     end,
     FmtState = "dummy1_h handler state",
     receive
 	{error,_GroupLeader, {Pid,
 			      "** gen_event handler"++_,
-			      [dummy1_h,my_dummy_handler,do_crash,
+			      [Module,my_dummy_handler,do_crash,
 			       FmtState, _]}} ->
 	    ok;
 	Other ->
-	    io:format("Unexpected: ~p", [Other]),
+	    ct:pal("Unexpected: ~p", [Other]),
 	    ct:fail(failed)
+    after 5000 ->
+	    ct:fail({exit_gen_event,flush()})
     end,
+    unlink(Pid),
     ok = gen_event:stop(Pid),
-    process_flag(trap_exit, OldFl),
     ok.
 
 %% Test that sys:get_state/1,2 return the gen_event state.

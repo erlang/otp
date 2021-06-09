@@ -40,7 +40,7 @@
 %% Types
 %%-----------------------------------------------------------------
 
--export_type([dbg_opt/0, dbg_fun/0, debug_option/0]).
+-export_type([dbg_opt/0, dbg_fun/0, debug_option/0, system_event/0]).
 
 -type name()         :: pid() | atom()
                       | {'global', term()}

@@ -118,9 +118,15 @@
       PDict :: [{Key :: term(), Value :: term()}],
       State :: term(),
       Status :: term().
+-callback format_status(Status) -> NewStatus when
+      Status :: #{ state => term(),
+                   message => term(),
+                   reason => term(),
+                   log => [sys:system_event()] },
+      NewStatus :: Status.
 
 -optional_callbacks(
-    [handle_info/2, terminate/2, code_change/3, format_status/2]).
+    [handle_info/2, terminate/2, code_change/3, format_status/1, format_status/2]).
 
 %%---------------------------------------------------------------------------
 
@@ -776,6 +782,8 @@ do_terminate(Mod, Handler, Args, State, LastIn, SName, Reason) ->
 	    ok
     end.
 
+-spec report_terminate(_, How, _, _, _, _, _) -> ok when
+      How :: crash | normal | shutdown | {swapped, handler(), false | pid()}.
 report_terminate(Handler, crash, {error, Why}, State, LastIn, SName, _) ->
     report_terminate(Handler, Why, State, LastIn, SName);
 report_terminate(Handler, How, _, State, LastIn, SName, _) ->
@@ -795,14 +803,34 @@ report_terminate(Handler, Reason, State, LastIn, SName) ->
 report_error(_Handler, normal, _, _, _)             -> ok;
 report_error(_Handler, shutdown, _, _, _)           -> ok;
 report_error(_Handler, {swapped,_,_}, _, _, _)      -> ok;
-report_error(Handler, Reason, State, LastIn, SName) ->
+report_error(Handler, Exit, State, LastIn, SName) ->
+
+    %% The reason comes from a catch expression, so we remove
+    %% the 'EXIT' and stacktrace from it so that the format_status
+    %% callback does not have deal with that.
+    {Reason, ReasonFun} =
+        case Exit of
+            {'EXIT',{R,ST}} ->
+                {R, fun(Reason) -> {'EXIT',{Reason,ST}} end};
+            {'EXIT',R} ->
+                {R, fun(Reason) -> {'EXIT',Reason} end};
+            R ->
+                {R, fun(Reason) -> Reason end}
+        end,
+    Status = gen:format_status(
+               Handler#handler.module,
+               terminate,
+               #{ state => State,
+                  message => LastIn,
+                  reason => Reason
+                },
+               [get(), State]),
     ?LOG_ERROR(#{label=>{gen_event,terminate},
                  handler=>handler(Handler),
                  name=>SName,
-                 last_message=>LastIn,
-                 state=>format_status(terminate,Handler#handler.module,
-                                      get(),State),
-                 reason=>Reason},
+                 last_message=>maps:get(message,Status),
+                 state=>maps:get('$status',Status,maps:get(state,Status)),
+                 reason=>ReasonFun(maps:get(reason,Status))},
                #{domain=>[otp],
                  report_cb=>fun gen_event:format_log/2,
                  error_logger=>#{tag=>error,
@@ -992,24 +1020,19 @@ get_modules(MSL) ->
 %% Status information
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
-    [PDict, SysState, Parent, _Debug, [ServerName, MSL, _HibernateAfterTimeout, _Hib]] = StatusData,
-    Header = gen:format_status_header("Status for event handler",
-                                      ServerName),
-    FmtMSL = [MS#handler{state=format_status(Opt, Mod, PDict, State)}
-              || #handler{module = Mod, state = State} = MS <- MSL],
+    [PDict, SysState, Parent, Debug, [ServerName, MSL, _HibernateAfterTimeout, _Hib]] = StatusData,
+    Header = gen:format_status_header("Status for event handler", ServerName),
+    {FmtMSL, Logs} =
+        lists:mapfoldl(
+          fun(#handler{module = Mod, state = State} = MS, Logs) ->
+                  Status = gen:format_status(
+                             Mod, Opt, #{ log => Logs, state => State },
+                             [PDict, State]),
+                  {MS#handler{state=maps:get('$status',Status,maps:get(state,Status))},
+                   maps:get(log,Status)}
+          end, sys:get_log(Debug), MSL),
     [{header, Header},
      {data, [{"Status", SysState},
+             {"Logged Events", Logs},
 	     {"Parent", Parent}]},
      {items, {"Installed handlers", FmtMSL}}].
-
-format_status(Opt, Mod, PDict, State) ->
-    case erlang:function_exported(Mod, format_status, 2) of
-        true ->
-            Args = [PDict, State],
-            case catch Mod:format_status(Opt, Args) of
-                {'EXIT', _} -> State;
-                Else -> Else
-            end;
-        false ->
-            State
-    end.

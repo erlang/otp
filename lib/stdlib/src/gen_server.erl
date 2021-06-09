@@ -168,6 +168,12 @@
 -callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
                       Extra :: term()) ->
     {ok, NewState :: term()} | {error, Reason :: term()}.
+-callback format_status(Status) -> NewStatus when
+      Status :: #{ state => term(),
+                   message => term(),
+                   reason => term(),
+                   log => [sys:system_event()] },
+      NewStatus :: Status.
 -callback format_status(Opt, StatusData) -> Status when
       Opt :: 'normal' | 'terminate',
       StatusData :: [PDict | State],
@@ -176,7 +182,8 @@
       Status :: term().
 
 -optional_callbacks(
-    [handle_info/2, handle_continue/2, terminate/2, code_change/3, format_status/2]).
+    [handle_info/2, handle_continue/2, terminate/2, code_change/3,
+     format_status/1, format_status/2]).
 
 %%%  -----------------------------------------------------------------
 %%% Starts a generic server.
@@ -906,27 +913,28 @@ print_event(Dev, Event, Name) ->
 
 -spec terminate(_, _, _, _, _, _, _, _) -> no_return().
 terminate(Reason, Stacktrace, Name, From, Msg, Mod, State, Debug) ->
-  terminate(exit, Reason, Stacktrace, Reason, Name, From, Msg, Mod, State, Debug).
+  terminate(exit, Reason, Stacktrace, false, Name, From, Msg, Mod, State, Debug).
 
 -spec terminate(_, _, _, _, _, _, _, _, _) -> no_return().
 terminate(Class, Reason, Stacktrace, Name, From, Msg, Mod, State, Debug) ->
-  ReportReason = {Reason, Stacktrace},
-  terminate(Class, Reason, Stacktrace, ReportReason, Name, From, Msg, Mod, State, Debug).
+  terminate(Class, Reason, Stacktrace, true, Name, From, Msg, Mod, State, Debug).
 
 -spec terminate(_, _, _, _, _, _, _, _, _, _) -> no_return().
-terminate(Class, Reason, Stacktrace, ReportReason, Name, From, Msg, Mod, State, Debug) ->
+terminate(Class, Reason, Stacktrace, ReportStacktrace, Name, From, Msg, Mod, State, Debug) ->
     Reply = try_terminate(Mod, terminate_reason(Class, Reason, Stacktrace), State),
     case Reply of
 	{'EXIT', C, R, S} ->
-	    error_info({R, S}, Name, From, Msg, Mod, State, Debug),
+	    error_info(R, S, Name, From, Msg, Mod, State, Debug),
 	    erlang:raise(C, R, S);
 	_ ->
 	    case {Class, Reason} of
 		{exit, normal} -> ok;
 		{exit, shutdown} -> ok;
 		{exit, {shutdown,_}} -> ok;
-		_ ->
-		    error_info(ReportReason, Name, From, Msg, Mod, State, Debug)
+		_ when ReportStacktrace ->
+		    error_info(Reason, Stacktrace, Name, From, Msg, Mod, State, Debug);
+                _ ->
+		    error_info(Reason, undefined, Name, From, Msg, Mod, State, Debug)
 	    end
     end,
     case Stacktrace of
@@ -939,19 +947,37 @@ terminate(Class, Reason, Stacktrace, ReportReason, Name, From, Msg, Mod, State, 
 terminate_reason(error, Reason, Stacktrace) -> {Reason, Stacktrace};
 terminate_reason(exit, Reason, _Stacktrace) -> Reason.
 
-error_info(_Reason, application_controller, _From, _Msg, _Mod, _State, _Debug) ->
+error_info(_Reason, _ST, application_controller, _From, _Msg, _Mod, _State, _Debug) ->
     %% OTP-5811 Don't send an error report if it's the system process
     %% application_controller which is terminating - let init take care
     %% of it instead
     ok;
-error_info(Reason, Name, From, Msg, Mod, State, Debug) ->
+error_info(Reason, ST, Name, From, Msg, Mod, State, Debug) ->
     Log = sys:get_log(Debug),
+    Status =
+        gen:format_status(Mod, terminate,
+                          #{ reason => Reason,
+                             state => State,
+                             message => Msg,
+                             log => Log },
+                          [get(),State]),
+    ReportReason =
+        if ST == undefined ->
+                %% When ST is undefined, it should not be included in the
+                %% reported reason for the crash as it is then caused
+                %% by an invalid return from a callback and thus thus the
+                %% stacktrace is irrelevant.
+                maps:get(reason, Status);
+           true ->
+                {maps:get(reason, Status), ST}
+        end,
+
     ?LOG_ERROR(#{label=>{gen_server,terminate},
                  name=>Name,
-                 last_message=>Msg,
-                 state=>format_status(terminate, Mod, get(), State),
-                 log=>format_log_state(Mod, Log),
-                 reason=>Reason,
+                 last_message=>maps:get(message,Status),
+                 state=>maps:get('EXIT',Status,maps:get('$status',Status,maps:get(state,Status))),
+                 log=>format_log_state(Mod,maps:get(log,Status)),
+                 reason=>ReportReason,
                  client_info=>client_stacktrace(From)},
                #{domain=>[otp],
                  report_cb=>fun gen_server:format_log/2,
@@ -1212,37 +1238,42 @@ mod(_) -> "t".
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time, _HibernateAfterTimeout]] = StatusData,
     Header = gen:format_status_header("Status for generic server", Name),
-    Log = sys:get_log(Debug),
-    Specific = case format_status(Opt, Mod, PDict, State) of
-		  S when is_list(S) -> S;
-		  S -> [S]
-	      end,
+    Status =
+        case gen:format_status(Mod, Opt, #{ state => State, log => sys:get_log(Debug) },
+                               [PDict, State]) of
+            #{ 'EXIT' := R } = M ->
+                M#{ '$status' => [{data,[{"State",R}]}] };
+            %% Status is set when the old format_status/2 is called,
+            %% so we do a little backwards compatibility dance here
+            #{ '$status' := S } = M when is_list(S) -> M;
+            #{ '$status' := S } = M -> M#{ '$status' := [S] };
+            #{ state := S } = M ->
+                M#{ '$status' => [{data, [{"State",S}] }] }
+        end,
     [{header, Header},
      {data, [{"Status", SysState},
 	     {"Parent", Parent},
-	     {"Logged events", format_log_state(Mod, Log)}]} |
-     Specific].
+	     {"Logged events", format_log_state(Mod, maps:get(log,Status))}]} |
+     maps:get('$status',Status)].
 
 format_log_state(Mod, Log) ->
-    [case Event of
-         {out,Msg,From,State} ->
-             {out,Msg,From,format_status(terminate, Mod, get(), State)};
-         {noreply,State} ->
-             {noreply,format_status(terminate, Mod, get(), State)};
-         _ -> Event
-     end || Event <- Log].
-
-format_status(Opt, Mod, PDict, State) ->
-    DefStatus = case Opt of
-		    terminate -> State;
-		    _ -> [{data, [{"State", State}]}]
-		end,
-    case erlang:function_exported(Mod, format_status, 2) of
-	true ->
-	    case catch Mod:format_status(Opt, [PDict, State]) of
-		{'EXIT', _} -> DefStatus;
-		Else -> Else
-	    end;
-	_ ->
-	    DefStatus
+    %% If format_status/1 was exported, the log has already been handled by
+    %% that call, so we should not pass all log events into the callback again.
+    case erlang:function_exported(Mod, format_status, 1) of
+        false ->
+            [case Event of
+                 {out,Msg,From,State} ->
+                     Status = gen:format_status(
+                                Mod, terminate, #{ state => State },
+                                [get(), State]),
+                     {out, Msg, From, maps:get(state, Status) };
+                 {noreply,State} ->
+                     Status = gen:format_status(
+                                Mod, terminate, #{ state => State },
+                                [get(), State]),
+                     {noreply, maps:get(state, Status)};
+                 _ -> Event
+             end || Event <- Log];
+        true ->
+            Log
     end.
