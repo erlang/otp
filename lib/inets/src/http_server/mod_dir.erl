@@ -159,16 +159,18 @@ format(Path,RequestURI,ConfigDB,InitEntry) ->
 	{ok,FileInfo} when FileInfo#file_info.type == directory ->
 	    {{Year, Month, Day},{Hour, Minute, _Second}} = 
 		FileInfo#file_info.mtime,
-	    EntryLength=length(InitEntry),
+	    EntryLength = string:length(InitEntry),
 	    if
 		EntryLength > 21 ->
+		    TruncatedEntry = encode_html_entity(
+                                       string:slice(InitEntry, 0, 19)),
 		    io_lib:format("<span title=\"[~s]\">~s</span> "
-				  "<A HREF=\"~s\">~-19.s..</A>"
+				  "<A HREF=\"~s\">~s..</A>"
 				  "~*.*c~2.2.0w-~s-~w ~2.2.0w:~2.2.0w"
 				  "        -\n",
                                   ["DIR", icon(folder),
                                    RequestURI ++ "/" ++ percent_encode(InitEntry) ++ "/",
-                                   Entry, 23-21, 23-21, $ ,
+                                   TruncatedEntry, 23-21, 23-21, $ ,
                                    Day, httpd_util:month(Month),
                                    Year,Hour,Minute]);
 		true ->
@@ -185,14 +187,17 @@ format(Path,RequestURI,ConfigDB,InitEntry) ->
 		FileInfo#file_info.mtime,
 	    Suffix=httpd_util:strip_extension_dot(Entry),
 	    MimeType=httpd_util:lookup_mime(ConfigDB,Suffix,""),
-	    EntryLength=length(InitEntry),
+	    EntryLength = string:length(InitEntry),
 	    if
 		EntryLength > 21 ->
+		    TruncatedEntry = encode_html_entity(
+                                       string:slice(InitEntry, 0, 19)),
 		    io_lib:format("<span title=\"[~s]\">~s</span>"
-				  " <A HREF=\"~s\">~-19.s..</A>~*.*c~2.2.0"
+				  " <A HREF=\"~s\">~s..</A>~*.*c~2.2.0"
 				  "w-~s-~w ~2.2.0w:~2.2.0w~8wk  ~s\n",
 				  [Suffix, icon(Suffix, MimeType),
-                                   RequestURI ++ "/" ++ percent_encode(InitEntry), Entry, 23-21, 23-21, $ , Day,
+                                   RequestURI ++ "/" ++ percent_encode(InitEntry),
+                                   TruncatedEntry, 23-21, 23-21, $ , Day,
 				   httpd_util:month(Month),Year,Hour,Minute,
 				   trunc(FileInfo#file_info.size/1024+1),
 				   MimeType]);
