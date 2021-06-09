@@ -31,6 +31,32 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 7.3.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handling of the "." domain as a search domain was
+	    incorrect and caused a crash in the DNS resolver
+	    <c>inet_res</c>, which has now been fixed.</p>
+          <p>
+	    Own Id: OTP-17473 Aux Id: GH-4838, OTP-17439 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed rare bug that could cause net_kernel process to
+	    hang for ever. Have seen to happen with massive number of
+	    TLS connections while remote nodes are restarting. Bug
+	    exists since OTP-22.0.</p>
+          <p>
+	    Own Id: OTP-17476 Aux Id: GH-4931, PR-4934 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 7.3.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
