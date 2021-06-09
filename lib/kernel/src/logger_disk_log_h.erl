@@ -98,7 +98,7 @@ init(Name, #{file:=File,type:=Type,max_no_bytes:=MNB,max_no_files:=MNF}) ->
     end.
 
 check_config(Name,set,undefined,HConfig0) ->
-    HConfig=merge_default_logopts(Name,maps:merge(get_default_config(),HConfig0)),
+    HConfig=merge_default_logopts(Name,HConfig0),
     check_config(HConfig);
 check_config(_Name,SetOrUpdate,OldHConfig,NewHConfig0) ->
     WriteOnce = maps:with([type,file,max_no_files,max_no_bytes],OldHConfig),
@@ -106,7 +106,7 @@ check_config(_Name,SetOrUpdate,OldHConfig,NewHConfig0) ->
         case SetOrUpdate of
             set ->
                 %% Do not reset write-once fields to defaults
-                maps:merge(get_default_config(),WriteOnce);
+                WriteOnce;
             update ->
                 OldHConfig
         end,
@@ -146,9 +146,6 @@ check_h_config([Other | _]) ->
     {error,Other};
 check_h_config([]) ->
     ok.
-
-get_default_config() ->
-     #{}.
 
 merge_default_logopts(Name, HConfig) ->
     Type = maps:get(type, HConfig, wrap),
