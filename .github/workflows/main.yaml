@@ -22,6 +22,7 @@ name: Build and check Erlang/OTP
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
 
