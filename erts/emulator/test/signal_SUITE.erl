@@ -35,7 +35,8 @@
 
 % Test cases
 -export([xm_sig_order/1,
-         kill2killed/1]).
+         kill2killed/1,
+         contended_signal_handling/1]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
@@ -55,8 +56,8 @@ suite() ->
 
 all() -> 
     [xm_sig_order,
-     kill2killed].
-
+     kill2killed,
+     contended_signal_handling].
 
 %% Test that exit signals and messages are received in correct order
 xm_sig_order(Config) when is_list(Config) ->
@@ -152,10 +153,84 @@ spawn_link_line(NodeA, NodeB, Type, N, Tester) ->
                        receive after infinity -> ok end
                end).
 
+contended_signal_handling(Config) when is_list(Config) ->
+    %%
+    %% Test for a race in signal handling of a process.
+    %%
+    %% When executing dirty, a "dirty signal handler"
+    %% process will handle signals for the process. If
+    %% the process stops executing dirty while the dirty
+    %% signal handler process is handling signals on
+    %% behalf of the process, both the dirty signal handler
+    %% process and the process itself might try to handle
+    %% signals for the process at the same time. There used
+    %% to be a bug that caused both processes to enter the
+    %% signal handling code simultaneously when the main
+    %% lock of the process was temporarily released during
+    %% signal handling (see GH-4885/OTP-17462/PR-4914).
+    %% Currently the main lock is only released when the
+    %% process receives an 'unlock' signal from a port,
+    %% and then responds by sending an 'unlock-ack' signal
+    %% to the port. This testcase tries to massage that
+    %% scenario. It is quite hard to cause a crash even
+    %% when the bug exists, but this testcase at least
+    %% sometimes causes a crash when the bug is present.
+    %%
+    process_flag(priority, high),
+    Drv = unlink_signal_drv,
+    ok = load_driver(Config, Drv),
+    try
+        contended_signal_handling_test(Drv, 250)
+    after
+        ok = erl_ddll:unload_driver(Drv)
+    end,
+    ok.
+
+contended_signal_handling_test(_Drv, 0) ->
+    ok;
+contended_signal_handling_test(Drv, N) ->
+    Ports = contended_signal_handling_make_ports(Drv, 100, []),
+    erlang:yield(),
+    contended_signal_handling_cmd_ports(Ports),
+    erts_debug:dirty_cpu(wait, rand:uniform(5)),
+    wait_until(fun () -> Ports == Ports -- erlang:ports() end),
+    contended_signal_handling_test(Drv, N-1).
+
+contended_signal_handling_cmd_ports([]) ->
+    ok;
+contended_signal_handling_cmd_ports([P|Ps]) ->
+    P ! {self(), {command, ""}},
+    contended_signal_handling_cmd_ports(Ps).
+
+contended_signal_handling_make_ports(_Drv, 0, Ports) ->
+    Ports;
+contended_signal_handling_make_ports(Drv, N, Ports) ->
+    Port = open_port({spawn, Drv}, []),
+    true = is_port(Port),
+    contended_signal_handling_make_ports(Drv, N-1, [Port|Ports]).
 
 %%
 %% -- Internal utils --------------------------------------------------------
 %%
+
+load_driver(Config, Driver) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    case erl_ddll:load_driver(DataDir, Driver) of
+        ok ->
+            ok;
+        {error, Error} = Res ->
+            io:format("~s\n", [erl_ddll:format_error(Error)]),
+            Res
+    end.
+
+wait_until(Fun) ->
+    case (catch Fun()) of
+        true ->
+            ok;
+        _ ->
+            receive after 1 -> ok end,
+            wait_until(Fun)
+    end.
 
 repeat(_Fun, N) when is_integer(N), N =< 0 ->
     ok;
