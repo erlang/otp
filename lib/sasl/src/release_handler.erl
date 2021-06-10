@@ -1168,7 +1168,7 @@ new_emulator_rm_tmp_release(?tmp_vsn(_)=TmpVsn,EVsn,NewVsn,
 new_emulator_rm_tmp_release(_,_,_,_,Releases,_) ->
     Releases.
 
-%% Rename the tempoarary service (for erts ugprade) to the real ToVsn
+%% Rename the temporary service (for erts ugprade) to the real ToVsn
 rename_tmp_service(EVsn,TmpVsn,NewVsn) ->
     FromName = hd(string:lexemes(atom_to_list(node()),"@")) ++ "_" ++ TmpVsn,
     ToName = hd(string:lexemes(atom_to_list(node()),"@")) ++ "_" ++ NewVsn,
