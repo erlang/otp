@@ -124,6 +124,10 @@ dflag2str(?DFLAG_FRAGMENTS) ->
     "FRAGMENTS";
 dflag2str(?DFLAG_HANDSHAKE_23) ->
     "HANDSHAKE_23";
+dflag2str(?DFLAG_UNLINK_ID) ->
+    "UNLINK_ID";
+dflag2str(?DFLAG_MANDATORY_25_DIGEST) ->
+    "MANDATORY_25_DIGEST";
 dflag2str(?DFLAG_SPAWN) ->
     "SPAWN";
 dflag2str(?DFLAG_NAME_ME) ->
@@ -132,8 +136,8 @@ dflag2str(?DFLAG_V4_NC) ->
     "V4_NC";
 dflag2str(?DFLAG_ALIAS) ->
     "ALIAS";
-dflag2str(_) ->
-    "UNKNOWN".
+dflag2str(Other) ->
+    lists:flatten(io_lib:format("UNKNOWN<~.16.0B>", [Other])).
 
 
 adjust_flags(ThisFlags, OtherFlags) ->
@@ -200,7 +204,8 @@ handshake_other_started(#hs_data{request_type=ReqType,
     AddFlgs = convert_flags(AddFlgs0),
     RejFlgs = convert_flags(RejFlgs0),
     ReqFlgs = convert_flags(ReqFlgs0),
-    {PreOtherFlags,NodeOrHost,Creation,SendNameVersion} = recv_name(HSData0),
+    {PreOtherFlags0,NodeOrHost,Creation,SendNameVersion} = recv_name(HSData0),
+    PreOtherFlags = expand_mandatory_25_flag(PreOtherFlags0),
     EDF = erts_internal:get_dflags(),
     PreThisFlags = make_this_flags(ReqType, AddFlgs, RejFlgs, NodeOrHost, EDF,
                                    PreOtherFlags),
@@ -235,6 +240,15 @@ handshake_other_started(#hs_data{request_type=ReqType,
 handshake_other_started(OldHsData) when element(1,OldHsData) =:= hs_data ->
     handshake_other_started(convert_old_hsdata(OldHsData)).
 
+expand_mandatory_25_flag(Flags) ->
+    if
+        Flags band ?DFLAG_MANDATORY_25_DIGEST =/= 0 ->
+            %% From OTP 25, the single flag ?DFLAG_MANDATORY_25_DIGEST can
+            %% replace all the flags in ?MANDATORY_DFLAGS_25.
+            Flags bor ?MANDATORY_DFLAGS_25;
+        true ->
+            Flags
+    end.
 
 %%
 %% Check mandatory flags...

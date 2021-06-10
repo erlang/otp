@@ -95,11 +95,11 @@ public class AbstractNode implements OtpTransportFactory {
     static final int dFlagBigCreation = 0x40000;
     static final int dFlagHandshake23 = 0x1000000;
     static final int dFlagUnlinkId = 0x2000000;
+    static final int dFlagMandatory25Digest = 0x4000000;
     static final long dFlagV4PidsRefs = 0x4L << 32;
 
-    /* Mandatory flags for distribution. Keep them in sync with
-       DFLAG_DIST_MANDATORY in erts/emulator/beam/dist.h. */
-    static final long mandatoryFlags = dFlagExtendedReferences
+    /* Mandatory flags in OTP 25. */
+    static final long mandatoryFlags25 = dFlagExtendedReferences
         | dFlagFunTags
         | dFlagExtendedPidsPorts
         | dFlagUtf8Atoms
@@ -110,6 +110,10 @@ public class AbstractNode implements OtpTransportFactory {
         | dFlagExportPtrTag
         | dFlagBitBinaries;
 
+    /* Mandatory flags for distribution. Keep them in sync with
+       DFLAG_DIST_MANDATORY in erts/emulator/beam/dist.h. */
+    static final long mandatoryFlags = mandatoryFlags25;
+
     int ntype = NTYPE_R6;
     int proto = 0; // tcp/ip
     int distHigh = 6;
@@ -118,7 +122,8 @@ public class AbstractNode implements OtpTransportFactory {
     long flags = mandatoryFlags
         | dFlagHandshake23
         | dFlagUnlinkId
-        | dFlagV4PidsRefs;
+        | dFlagV4PidsRefs
+        | dFlagMandatory25Digest;
 
     /* initialize hostname and default cookie */
     static {

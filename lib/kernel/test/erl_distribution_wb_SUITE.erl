@@ -26,7 +26,8 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2, whitebox/1, 
-	 switch_options/1, missing_compulsory_dflags/1]).
+	 switch_options/1, missing_compulsory_dflags/1,
+         dflag_mandatory_25/1]).
 
 
 -define(to_port(Socket, Data),
@@ -41,20 +42,21 @@
 -define(DIST_VER_HIGH, 6).
 -define(DIST_VER_LOW, 5).
 
--define(DFLAG_PUBLISHED, 1).
--define(DFLAG_ATOM_CACHE, 2).
--define(DFLAG_EXTENDED_REFERENCES, 4).
--define(DFLAG_DIST_MONITOR, 8).
--define(DFLAG_FUN_TAGS,             16#10).
--define(DFLAG_NEW_FUN_TAGS,         16#80).
--define(DFLAG_EXTENDED_PIDS_PORTS, 16#100).
--define(DFLAG_EXPORT_PTR_TAG,      16#200).
--define(DFLAG_BIT_BINARIES,        16#400).
--define(DFLAG_NEW_FLOATS,          16#800).
--define(DFLAG_UTF8_ATOMS,        16#10000).
--define(DFLAG_MAP_TAG,           16#20000).
--define(DFLAG_BIG_CREATION,      16#40000).
--define(DFLAG_HANDSHAKE_23,    16#1000000).
+-define(DFLAG_PUBLISHED,                16#01).
+-define(DFLAG_ATOM_CACHE,               16#02).
+-define(DFLAG_EXTENDED_REFERENCES,      16#04).
+-define(DFLAG_DIST_MONITOR,             16#08).
+-define(DFLAG_FUN_TAGS,                 16#10).
+-define(DFLAG_NEW_FUN_TAGS,             16#80).
+-define(DFLAG_EXTENDED_PIDS_PORTS,     16#100).
+-define(DFLAG_EXPORT_PTR_TAG,          16#200).
+-define(DFLAG_BIT_BINARIES,            16#400).
+-define(DFLAG_NEW_FLOATS,              16#800).
+-define(DFLAG_UTF8_ATOMS,            16#10000).
+-define(DFLAG_MAP_TAG,               16#20000).
+-define(DFLAG_BIG_CREATION,          16#40000).
+-define(DFLAG_HANDSHAKE_23,        16#1000000).
+-define(DFLAG_MANDATORY_25_DIGEST, 16#4000000).
 
 %% From OTP R9 extended references are compulsory.
 %% From OTP R10 extended pids and ports are compulsory.
@@ -98,7 +100,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [whitebox, switch_options, missing_compulsory_dflags].
+    [whitebox, switch_options, missing_compulsory_dflags, dflag_mandatory_25].
 
 groups() -> 
     [].
@@ -417,6 +419,23 @@ missing_compulsory_dflags(Config) when is_list(Config) ->
     stop_node(Node),
     ok.
 
+%% Test that instead of passing all compulsory flags, we can instead
+%% pass only ?DFLAG_MANDATORY_25_DIGEST to ensure that we will be able to communicate
+%% with a future release where ?DFLAG_MANDATORY_25_DIGEST is mandatory.
+dflag_mandatory_25(_Config) ->
+    [Name1, Name2] = get_nodenames(2, ?FUNCTION_NAME),
+    {ok, Node} = start_node(Name1, ""),
+    {NA,NB} = split(Node),
+    {port,PortNo,_} = erl_epmd:port_please(NA, NB),
+    {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),
+                                    PortNo,
+                                    [{active,false},{packet,2}]),
+    OtherNode = list_to_atom(atom_to_list(Name2)++"@"++atom_to_list(NB)),
+    send_name(SocketA, OtherNode, ?DIST_VER_HIGH, ?DIST_VER_HIGH, ?DFLAG_MANDATORY_25_DIGEST),
+    ok = recv_status(SocketA),
+    gen_tcp:close(SocketA),
+    ok.
+
 %%
 %% Here comes the utilities
 %%
@@ -526,7 +545,8 @@ recv_status(Socket) ->
     end.
 
 send_challenge(Socket, Node, Challenge, Version, GotFlags) ->
-    send_challenge(Socket, Node, Challenge, Version, GotFlags, ?COMPULSORY_DFLAGS).
+    Flags = ?COMPULSORY_DFLAGS bor ?DFLAG_MANDATORY_25_DIGEST,
+    send_challenge(Socket, Node, Challenge, Version, GotFlags, Flags).
 
 send_challenge(Socket, Node, Challenge, ?DIST_VER_LOW, _GotFlags, Flags) ->
     {ok, {{_Ip1,_Ip2,_Ip3,_Ip4}, _}} = inet:sockname(Socket),
@@ -550,8 +570,8 @@ recv_challenge(Socket, OurVersion) ->
 	{?DIST_VER_LOW,
          [$n,V1,V0,Fl1,Fl2,Fl3,Fl4,CA3,CA2,CA1,CA0 | Ns]} ->
 	    Flags = ?u32(Fl1,Fl2,Fl3,Fl4),
-            true = (Flags band ?COMPULSORY_DFLAGS) =:= ?COMPULSORY_DFLAGS,
-	    Node =list_to_atom(Ns),
+            verify_flags(Flags),
+            Node = list_to_atom(Ns),
 	    ?DIST_VER_LOW = ?u16(V1,V0),
 	    Challenge = ?u32(CA3,CA2,CA1,CA0),
 	    {Node,$n,Challenge};
@@ -560,7 +580,7 @@ recv_challenge(Socket, OurVersion) ->
          [$N, F7,F6,F5,F4,F3,F2,F1,F0, CA3,CA2,CA1,CA0,
               Cr3,Cr2,Cr1,Cr0, NL1,NL0 | Ns]} ->
 	    <<Flags:64>> = <<F7,F6,F5,F4,F3,F2,F1,F0>>,
-            true = (Flags band ?COMPULSORY_DFLAGS) =:= ?COMPULSORY_DFLAGS,
+            verify_flags(Flags),
             <<Creation:32>> = <<Cr3,Cr2,Cr1,Cr0>>,
             true = (Creation =/= 0),
             <<NameLen:16>> = <<NL1,NL0>>,
@@ -571,6 +591,17 @@ recv_challenge(Socket, OurVersion) ->
 
 	_ ->
 	    ?shutdown(no_node)	    
+    end.
+
+verify_flags(Flags) ->
+    RequiredFlags = ?COMPULSORY_DFLAGS bor ?DFLAG_MANDATORY_25_DIGEST,
+    if
+        Flags band RequiredFlags =:= RequiredFlags ->
+            ok;
+        true ->
+            io:format("Given flags:    ~.16.0B\n", [Flags]),
+            io:format("Required flags: ~.16.0B\n", [RequiredFlags]),
+            ct:fail(missing_dflags)
     end.
 
 send_complement(Socket, SentNameMsg, ChallengeMsg, OurVersion) ->
@@ -627,7 +658,8 @@ recv_challenge_ack(Socket, ChallengeB, CookieA) ->
     end.
 
 send_name(Socket, MyNode0, OurVersion, AssumedVersion) ->
-    send_name(Socket, MyNode0, OurVersion, AssumedVersion, ?COMPULSORY_DFLAGS).
+    Flags = ?COMPULSORY_DFLAGS bor ?DFLAG_MANDATORY_25_DIGEST,
+    send_name(Socket, MyNode0, OurVersion, AssumedVersion, Flags).
 
 send_name(Socket, MyNode0, OurVersion, AssumedVersion, Flags) ->
     MyNode = atom_to_list(MyNode0),

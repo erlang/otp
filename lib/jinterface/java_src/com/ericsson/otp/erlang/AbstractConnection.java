@@ -1283,6 +1283,10 @@ public abstract class AbstractConnection extends Thread {
                 throw new IOException("Unknown remote node type");
             }
 
+            if ((apeer.flags & AbstractNode.dFlagMandatory25Digest) != 0) {
+                apeer.flags |= AbstractNode.mandatoryFlags25;
+            }
+
             if ((apeer.flags & AbstractNode.mandatoryFlags) != AbstractNode.mandatoryFlags) {
                 throw new IOException(
                         "Handshake failed - peer cannot handle all mandatory capabilities");
@@ -1342,6 +1346,10 @@ public abstract class AbstractConnection extends Thread {
             if (!hisname.equals(peer.node)) {
                 throw new IOException(
                         "Handshake failed - peer has wrong name: " + hisname);
+            }
+
+            if ((peer.flags & AbstractNode.dFlagMandatory25Digest) != 0) {
+                peer.flags |= AbstractNode.mandatoryFlags25;
             }
 
             if ((peer.flags & AbstractNode.mandatoryFlags) != AbstractNode.mandatoryFlags) {

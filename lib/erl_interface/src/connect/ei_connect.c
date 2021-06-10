@@ -2264,7 +2264,8 @@ error:
 static DistFlags preferred_flags(void)
 {
     DistFlags flags =
-        DFLAG_EXTENDED_REFERENCES
+        DFLAG_MANDATORY_25_DIGEST
+        | DFLAG_EXTENDED_REFERENCES
         | DFLAG_DIST_MONITOR
         | DFLAG_EXTENDED_PIDS_PORTS
         | DFLAG_FUN_TAGS
@@ -2506,6 +2507,10 @@ static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
         EI_TRACE_ERR1("recv_challenge",
                       "<- RECV_CHALLENGE nodename too long (%d)", nodename_len);
         goto error;
+    }
+
+    if (*flags & DFLAG_MANDATORY_25_DIGEST) {
+        *flags |= DFLAG_DIST_MANDATORY_25;
     }
 
     if ((*flags & DFLAG_DIST_MANDATORY) != DFLAG_DIST_MANDATORY) {
@@ -2899,6 +2904,10 @@ static int recv_name(ei_socket_callbacks *cbs, void *ctx,
         *flags = get64be(s);
         s += 4; /* ignore peer 'creation' */
         namelen = get16be(s);
+    }
+
+    if (*flags & DFLAG_MANDATORY_25_DIGEST) {
+        *flags |= DFLAG_DIST_MANDATORY_25;
     }
 
     if ((*flags & DFLAG_DIST_MANDATORY) != DFLAG_DIST_MANDATORY) {

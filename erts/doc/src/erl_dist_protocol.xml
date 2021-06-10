@@ -1115,6 +1115,12 @@ DiB == gen_digest(ChA, ICA)?
 	  <seeguide marker="#old_link_protocol">old link protocol</seeguide>
 	  will be used as a fallback.</p>
 	</item>
+	<tag><c>-define(DFLAG_MANDATORY_25_DIGEST, (1 bsl 36)).</c></tag>
+        <item>
+	  <p>The node supports all capabilities that are mandatory in OTP 25.
+          Introduced in OTP 25.</p>
+          <note><p>This flag will become mandatory in OTP 27.</p></note>
+        </item>
         <tag><marker id="DFLAG_SPAWN"/><c>-define(DFLAG_SPAWN, (1 bsl 32)).</c></tag>
         <item>
           <p>Set if the <seeguide marker="#SPAWN_REQUEST"><c>SPAWN_REQUEST</c></seeguide>,
