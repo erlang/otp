@@ -59,7 +59,8 @@ do_dir(Info) ->
 	{ok,FileInfo} when FileInfo#file_info.type == directory ->
 	    case dir(DefaultPath,string:strip( Info#mod.request_uri,right,$/),
 		     Info#mod.config_db) of
-		{ok, Dir} ->
+		{ok, DirUnicode} ->
+		    Dir = unicode:characters_to_binary(DirUnicode),
 		    LastModified =
 			case (catch httpd_util:rfc1123_date(
 				      FileInfo#file_info.mtime)) of
@@ -69,7 +70,7 @@ do_dir(Info) ->
 				%% if a computer is wrongly configured. 
 				[]
 			end,
-		    Head=[{content_type,"text/html"},
+		    Head=[{content_type,"text/html; charset=UTF-8"},
 			  {content_length,
 			   integer_to_list(erlang:iolist_size(Dir))},
 			  {code,200} | LastModified],
@@ -119,8 +120,10 @@ header(Path,RequestURI) ->
                      _  -> RequestURI
                  end,
     Header = "<!DOCTYPE html>\n"
-        "<HTML>\n<HEAD>\n<TITLE>Index of " ++ DisplayURI ++
-	"</TITLE>\n</HEAD>\n<BODY>\n<H1>Index of "++
+	"<HTML>\n<HEAD>\n"
+	"<meta charset=\"UTF-8\">"
+	"<TITLE>Index of " ++ DisplayURI ++ "</TITLE>\n"
+	"</HEAD>\n<BODY>\n<H1>Index of "++
 	DisplayURI ++ "</H1>\n<PRE><span>" ++ icon(blank) ++
 	"</span> Name                   Last modified         "
 	"Size  Description <HR>\n",
@@ -140,7 +143,7 @@ format(Path,RequestURI) ->
     {ok,FileInfo}=file:read_file_info(Path),
     {{Year, Month, Day},{Hour, Minute, _Second}} = FileInfo#file_info.mtime,
     io_lib:format("<span title=\"~s\">~s</span>"
-		  " <A HREF=\"~s\">Parent directory</A>      "
+		  " <A HREF=\"~ts\">Parent directory</A>      "
 		  " ~2.2.0w-~s-~w ~2.2.0w:~2.2.0w        -\n",
 		  ["DIR",icon(back),percent_encode(RequestURI),Day,
 		   httpd_util:month(Month),Year,Hour,Minute]).
@@ -165,7 +168,7 @@ format(Path,RequestURI,ConfigDB,InitEntry) ->
 		    TruncatedEntry = encode_html_entity(
                                        string:slice(InitEntry, 0, 19)),
 		    io_lib:format("<span title=\"[~s]\">~s</span> "
-				  "<A HREF=\"~s\">~s..</A>"
+				  "<A HREF=\"~ts\">~ts..</A>"
 				  "~*.*c~2.2.0w-~s-~w ~2.2.0w:~2.2.0w"
 				  "        -\n",
                                   ["DIR", icon(folder),
@@ -175,7 +178,7 @@ format(Path,RequestURI,ConfigDB,InitEntry) ->
                                    Year,Hour,Minute]);
 		true ->
 		    io_lib:format("<span title=\"[~s]\">~s</span>"
-				  " <A HREF=\"~s\">~s</A>~*.*c~2.2.0"
+				  " <A HREF=\"~ts\">~ts</A>~*.*c~2.2.0"
 				  "w-~s-~w ~2.2.0w:~2.2.0w        -\n",
 				  ["DIR", icon(folder),
                                    RequestURI ++ "/" ++ percent_encode(InitEntry) ++ "/",Entry,
@@ -193,7 +196,7 @@ format(Path,RequestURI,ConfigDB,InitEntry) ->
 		    TruncatedEntry = encode_html_entity(
                                        string:slice(InitEntry, 0, 19)),
 		    io_lib:format("<span title=\"[~s]\">~s</span>"
-				  " <A HREF=\"~s\">~s..</A>~*.*c~2.2.0"
+				  " <A HREF=\"~ts\">~ts..</A>~*.*c~2.2.0"
 				  "w-~s-~w ~2.2.0w:~2.2.0w~8wk  ~s\n",
 				  [Suffix, icon(Suffix, MimeType),
                                    RequestURI ++ "/" ++ percent_encode(InitEntry),
@@ -203,7 +206,7 @@ format(Path,RequestURI,ConfigDB,InitEntry) ->
 				   MimeType]);
 		true ->
 		    io_lib:format("<span title=\"[~s]\">~s</span> "
-				  "<A HREF=\"~s\">~s</A>~*.*c~2.2.0w-~s-~w"
+				  "<A HREF=\"~ts\">~ts</A>~*.*c~2.2.0w-~s-~w"
 				  " ~2.2.0w:~2.2.0w~8wk  ~s\n",
 				  [Suffix, icon(Suffix, MimeType),
                                    RequestURI ++ "/" ++ percent_encode(InitEntry), Entry, 23-EntryLength,
