@@ -93,6 +93,16 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 
 -record(typeinfo, {attr, anno}).
 
+-type type_id() :: {'export', []}
+                 | {'record', atom()}
+                 | {'spec', mfa()}
+                 | {'type', ta()}.
+
+-record(used_type, {anno :: erl_anno:anno(),
+                    at = {export, []} :: type_id()}).
+
+-type used_type() :: #used_type{}.
+
 %% Usage of records, functions, and imports. The variable table, which
 %% is passed on as an argument, holds the usage of variables.
 -record(usage, {
@@ -101,7 +111,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
           used_records = gb_sets:new()          %Used record definitions
               :: gb_sets:set(atom()),
           used_types = maps:new()               %Used type definitions
-              :: #{ta() := anno()}
+              :: #{ta() := [used_type()]}
          }).
 
 
@@ -130,6 +140,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                not_removed=gb_sets:empty()      %Not considered removed
                    :: gb_sets:set(module_or_mfa()),
                func=[],                         %Current function
+               type_id=[],                      %Current type id
                warn_format=0,                   %Warn format calls
 	       enabled_warnings=[],		%All enabled warnings (ordset).
                nowarn_bif_clash=[],             %All no warn bif clashes (ordset).
@@ -1288,8 +1299,10 @@ check_undefined_types(#lint{usage=Usage,types=Def}=St0) ->
 		TA <- UTAs,
 		not is_map_key(TA, Def),
 		not is_default_type(TA)],
-    foldl(fun ({TA,Anno}, St) ->
-		  add_error(Anno, {undefined_type,TA}, St)
+    foldl(fun ({TA,UsedTypeList}, St) ->
+                  foldl( fun(#used_type{anno = Anno}, St1) ->
+                                 add_error(Anno, {undefined_type,TA}, St1)
+                         end, St, UsedTypeList)
 	  end, St0, Undef).
 
 %% check_bif_clashes(Forms, State0) -> State
@@ -1423,21 +1436,21 @@ export(Anno, Es, #lint{exports = Es0, called = Called} = St0) ->
 -spec export_type(anno(), [ta()], lint_state()) -> lint_state().
 %%  Mark types as exported; also mark them as used from the export line.
 
-export_type(Anno, ETs, #lint{usage = Usage, exp_types = ETs0} = St0) ->
-    UTs0 = Usage#usage.used_types,
-    try foldl(fun ({T,A}=TA, {E,U,St2}) when is_atom(T), is_integer(A) ->
+export_type(Anno, ETs, #lint{exp_types = ETs0} = St0) ->
+    try foldl(fun ({T,A}=TA, {E,St2}) when is_atom(T), is_integer(A) ->
 		      St = case gb_sets:is_element(TA, E) of
 			       true ->
 				   Warn = {duplicated_export_type,TA},
 				   add_warning(Anno, Warn, St2);
 			       false ->
-				   St2
+                                   St3 = St2#lint{type_id = {export, []}},
+                                   used_type(TA, Anno, St3)
 			   end,
-		      {gb_sets:add_element(TA, E), maps:put(TA, Anno, U), St}
+		      {gb_sets:add_element(TA, E), St}
 	      end,
-	      {ETs0,UTs0,St0}, ETs) of
-	{ETs1,UTs1,St1} ->
-	    St1#lint{usage = Usage#usage{used_types = UTs1}, exp_types = ETs1}
+	      {ETs0,St0}, ETs) of
+	{ETs1,St1} ->
+	    St1#lint{exp_types = ETs1}
     catch
 	error:_ ->
 	    add_error(Anno, {bad_export_type, ETs}, St0)
@@ -2673,7 +2686,8 @@ record_def(Anno, Name, Fs0, St0) ->
             St2 = St1#lint{records=maps:put(Name, {Anno,Fs1},
                                             St1#lint.records)},
             Types = [T || {typed_record_field, _, T} <- Fs0],
-            check_type({type, nowarn(), product, Types}, St2)
+            St3 = St2#lint{type_id = {record, Name}},
+            check_type({type, nowarn(), product, Types}, St3)
     end.
 
 %% def_fields([RecDef], RecordName, State) -> {[DefField],State}.
@@ -2893,7 +2907,8 @@ type_def(Attr, Anno, TypeName, ProtoType, Args, St0) ->
         fun(St) ->
                 NewDefs = maps:put(TypePair, Info, TypeDefs),
                 CheckType = {type, nowarn(), product, [ProtoType|Args]},
-                check_type(CheckType, St#lint{types=NewDefs})
+                St1 = St#lint{types=NewDefs, type_id={type, TypePair}},
+                check_type(CheckType, St1)
         end,
     case is_default_type(TypePair) of
         true ->
@@ -3087,9 +3102,11 @@ check_record_types([], _Name, _DefFields, SeenVars, St, _SeenFields) ->
     {SeenVars, St}.
 
 used_type(TypePair, Anno, #lint{usage = Usage, file = File} = St) ->
-    OldUsed = Usage#usage.used_types,
-    UsedTypes = maps:put(TypePair, erl_anno:set_file(File, Anno), OldUsed),
-    St#lint{usage=Usage#usage{used_types=UsedTypes}}.
+    Used = Usage#usage.used_types,
+    UsedType = #used_type{anno = erl_anno:set_file(File, Anno),
+                          at = St#lint.type_id},
+    NewUsed = maps_prepend(TypePair, UsedType, Used),
+    St#lint{usage=Usage#usage{used_types=NewUsed}}.
 
 is_default_type({Name, NumberOfTypeVariables}) ->
     erl_internal:is_type(Name, NumberOfTypeVariables).
@@ -3116,12 +3133,12 @@ spec_decl(Anno, MFA0, TypeSpecs, St00 = #lint{specs = Specs, module = Mod}) ->
     case is_map_key(MFA, Specs) of
 	true -> add_error(Anno, {redefine_spec, MFA0}, St1);
 	false ->
-            case MFA of
-                {Mod, _, _} ->
-                    check_specs(TypeSpecs, spec_wrong_arity, Arity, St1);
-                _ ->
-                    add_error(Anno, {bad_module, MFA}, St1)
-            end
+            St2 = case MFA of
+                      {Mod, _, _} -> St1;
+                      _ -> add_error(Anno, {bad_module, MFA}, St1)
+                  end,
+            St3 = St2#lint{type_id = {spec, MFA}},
+            check_specs(TypeSpecs, spec_wrong_arity, Arity, St3)
     end.
 
 %% callback_decl(Anno, Fun, Types, State) -> State.
@@ -3137,8 +3154,9 @@ callback_decl(Anno, MFA0, TypeSpecs,
             St1 = St0#lint{callbacks = maps:put(MFA, Anno, Callbacks)},
             case is_map_key(MFA, Callbacks) of
                 true -> add_error(Anno, {redefine_callback, MFA0}, St1);
-                false -> check_specs(TypeSpecs, callback_wrong_arity,
-                                     Arity, St1)
+                false ->
+                    St2 = St1#lint{type_id = {spec, MFA}},
+                    check_specs(TypeSpecs, callback_wrong_arity, Arity, St2)
             end
     end.
 
@@ -3259,11 +3277,10 @@ check_unused_types(Forms, St) ->
         false -> St
     end.
 
-check_unused_types_1(Forms, #lint{usage=Usage, types=Ts, exp_types=ExpTs}=St) ->
+check_unused_types_1(Forms, #lint{types=Ts}=St) ->
     case [File || {attribute,_A,file,{File,_Anno}} <- Forms] of
 	[FirstFile|_] ->
-	    D = Usage#usage.used_types,
-	    L = gb_sets:to_list(ExpTs) ++ maps:keys(D),
+            L = reached_types(St),
 	    UsedTypes = gb_sets:from_list(L),
 	    FoldFun =
                 fun({{record, _}=_Type, 0}, _, AccSt) ->
@@ -3286,6 +3303,19 @@ check_unused_types_1(Forms, #lint{usage=Usage, types=Ts, exp_types=ExpTs}=St) ->
 	[] ->
 	    St
     end.
+
+reached_types(#lint{usage = Usage}) ->
+    Es = [{From, {type, To}} ||
+             {To, UsedTs} <- maps:to_list(Usage#usage.used_types),
+             #used_type{at = From} <- UsedTs],
+    Initial = initially_reached_types(Es),
+    G = sofs:family_to_digraph(sofs:rel2fam(sofs:relation(Es))),
+    R = digraph_utils:reachable(Initial, G),
+    true = digraph:delete(G),
+    [T || {type, T} <- R].
+
+initially_reached_types(Es) ->
+    [FromTypeId || {{T, _}=FromTypeId, _} <- Es, T =/= type].
 
 check_local_opaque_types(St) ->
     #lint{types=Ts, exp_types=ExpTs} = St,

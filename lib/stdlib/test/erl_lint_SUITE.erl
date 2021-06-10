@@ -74,7 +74,8 @@
          warn_missing_spec/1,
          otp_16824/1,
          underscore_match/1,
-         unused_record/1]).
+         unused_record/1,
+         unused_type2/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -98,7 +99,7 @@ all() ->
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
      otp_15456, otp_15563, unused_type, binary_types, removed, otp_16516,
      inline_nifs, warn_missing_spec, otp_16824,
-     underscore_match, unused_record].
+     underscore_match, unused_record, unused_type2].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3724,7 +3725,10 @@ predef(Config) when is_list(Config) ->
     %% dict(), digraph() and so on were removed in Erlang/OTP 18.0.
     E2 = get_compilation_result(Config, "predef2", []),
     Tag = undefined_type,
-    {[{{7,13},erl_lint,{Tag,{array,0}}},
+    {[{{5,2},erl_lint,{Tag,{array,0}}},
+      {{5,2},erl_lint,{Tag,{digraph,0}}},
+      {{5,2},erl_lint,{Tag,{gb_set,0}}},
+      {{7,13},erl_lint,{Tag,{array,0}}},
       {{12,12},erl_lint,{Tag,{dict,0}}},
       {{17,15},erl_lint,{Tag,{digraph,0}}},
       {{27,14},erl_lint,{Tag,{gb_set,0}}},
@@ -4625,6 +4629,63 @@ unused_record(Config) when is_list(Config) ->
             ">>,
            {[]},
            []}
+         ],
+    [] = run(Config, Ts),
+
+    ok.
+
+unused_type2(Config) when is_list(Config) ->
+    Ts = [{unused_type2_1,
+           <<"-type t() :: [t()].
+              t() ->
+                  a.
+            ">>,
+           {[]},
+           {warnings,[{{1,22},erl_lint,{unused_type,{t,0}}},
+                      {{2,15},erl_lint,{unused_function,{t,0}}}]}},
+          {unused_type2_2,
+           <<"-type t1() :: t2().
+              -type t2() :: t1().
+               t() ->
+                   a.
+            ">>,
+           {[]},
+           {warnings,[{{1,22},erl_lint,{unused_type,{t1,0}}},
+                      {{2,16},erl_lint,{unused_type,{t2,0}}},
+                      {{3,16},erl_lint,{unused_function,{t,0}}}]}},
+          {unused_type2_3,
+           <<"-callback cb() -> t().
+              -type t() :: atom().
+               t() ->
+                   a.
+            ">>,
+           {[]},
+           {warnings,[{{3,16},erl_lint,{unused_function,{t,0}}}]}},
+          {unused_type2_4,
+           <<"-spec t() -> t().
+              -type t() :: atom().
+               t() ->
+                   a.
+            ">>,
+           {[]},
+           {warnings,[{{3,16},erl_lint,{unused_function,{t,0}}}]}},
+          {unused_type2_5,
+           <<"-export_type([t/0]).
+              -type t() :: atom().
+               t() ->
+                   a.
+            ">>,
+           {[]},
+           {warnings,[{{3,16},erl_lint,{unused_function,{t,0}}}]}},
+          {unused_type2_6,
+           <<"-record(r, {f :: t()}).
+              -type t() :: atom().
+               t() ->
+                   a.
+            ">>,
+           {[]},
+           {warnings,[{{1,22},erl_lint,{unused_record,r}},
+                      {{3,16},erl_lint,{unused_function,{t,0}}}]}}
          ],
     [] = run(Config, Ts),
 
