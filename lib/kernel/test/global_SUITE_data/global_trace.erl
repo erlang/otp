@@ -73,42 +73,17 @@ logdir() ->
 %%% For one thing, the trace from all nodes are written onto the file
 %%% as one single term. One term per node would be better. &c.
 
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 -record(state, {connect_all, known = [], synced = [],
 		resolvers = [], syncers = [], node_name = node(),
-		the_locker, the_deleter, the_registrar, trace = [],
+		the_locker, the_registrar, trace = [],
                 global_lock_down
                }).
 
 %% Compatible with different versions.
 state(#state{}=S) ->
-    S;
-state({state, ConnectAll, Known, Synced, LockersResolvers, Syncers,
-       NodeName, TheLocker, TheDeleter}) ->
-    %% r10b: Lockers, r10b_patched, r11b: Resolvers
-    #state{connect_all = ConnectAll, known = Known, synced = Synced,
-           resolvers = LockersResolvers, syncers = Syncers, 
-           node_name = NodeName, the_locker = TheLocker, 
-           the_deleter = TheDeleter, the_registrar = undefined, trace = []};
-state({state, ConnectAll, Known, Synced, Resolvers, Syncers,
-       NodeName, TheLocker, TheDeleter, Trace}) ->
-    %% r11b, some time before r11b-3
-    #state{connect_all = ConnectAll, known = Known, synced = Synced,
-           resolvers = Resolvers, syncers = Syncers, 
-           node_name = NodeName, the_locker = TheLocker, 
-           the_deleter = TheDeleter, the_registrar = undefined, 
-           trace = Trace};
-state({state, ConnectAll, Known, Synced, Resolvers, Syncers,
-       NodeName, TheLocker, TheDeleter, TheRegistrar, Trace}) ->
-    %% r11b, some time after r11b-3
-    #state{connect_all = ConnectAll, known = Known, synced = Synced,
-           resolvers = Resolvers, syncers = Syncers, 
-           node_name = NodeName, the_locker = TheLocker, 
-           the_deleter = TheDeleter, the_registrar = TheRegistrar, 
-           trace = Trace, global_lock_down = false};
-state(Else) ->
-    Else.
+    S.
 
 %%% Trace tuples look like {Node, Now, Message, Nodes, Extra}.
 %%% Nodes is the list as returned by nodes().
@@ -123,12 +98,11 @@ state(Else) ->
 %%%                              {ops,Ops}]
 %%%    NewKnown = Known ++ AddedNodes
 %%%    AddedNodes = NewNodes -- Known
-%%%    NewNodes är här den man förhandlat med plus de noder den känner till.
+%%%    NewNodes is the other node and the nodes known to that node.
 %%% {added, AddedNodes}, Extra = [{ops,Ops}]
 %%%    NewKnown = Known ++ AddedNodes
-%%%    Den (passiva) noden får Nodes som är NewNodes
-%%%    hos den förhandlande. Sedan: AddedNodes = (Nodes -- Known) -- [node()].
-%%%    Det är som hos förhandlaren.
+%%%    The (passive) node gets Nodes which is NewNodes on the other node.
+%%%    Then: AddedNodes = (Nodes -- Known) -- [node()].
 %%% {nodes_changed, {New,Old}}
 %%%    Every now and then the list [node() | nodes()] is checked for updates.
 %%%    New are the nodes that global does not know of (yet).
@@ -187,7 +161,7 @@ t(File) ->
 %% {show_state, From, To} 
 %%    From = To = integer() | {integer(), integer()}
 %%      Examples: {7, 8} (show states between seconds 7.0 and 8.0);
-%%                {{1,431234},{2,432}} (between 1.431234 and 2.000432)
+%%                {{1,431234},{2,432}} (between 1.431234 and 2.432)
 %%      The state of a node includes locks, names, nodes, known, ...
 %%      Default is {{0,0}, {0,0}}, that is, do not show state.
 %% show_state
@@ -226,7 +200,7 @@ t(File, Options) ->
                     {high_level_trace, ET, D3} ->
                         {D3, ET};
                     _ ->
-                        {D1, now()}
+                        {D1, erlang:timestamp()}
                 end,
     D = adjust_nodes(D2),
     {NodeNodeTrace, _NodeTrace, Trace, Base} = get_trace(D, End),
@@ -320,13 +294,12 @@ adjust_times(Ts, Base) ->
     [setelement(2, adj_tag(T, Base), adjust_time(element(2, T), Base)) || 
         T <- Ts].
 
-adj_tag({Node, Time, {M, Node2}, Nodes, Extra}=T, Base) ->
+adj_tag({Node, Time, {M, Node2}, Nodes, Extra}=T, _Base) ->
     if
         M =:= new_resolver;
         M =:= kill_resolver;
         M =:= exit_resolver ->
-            {Node, Time, {M, Node2}, Nodes, 
-             [adjust_time(hd(Extra), Base) | tl(Extra)]};
+            {Node, Time, {M, Node2}, Nodes, Extra};
         true ->
             T
     end.
@@ -356,10 +329,16 @@ adjust_node(Node) ->
             z_2;
         "z_" ++ _ ->
             z;
-        "b_" ++ _ ->
-            b;
         "c_external_nodes" ++ _ ->
             c_external_nodes;
+        "a_" ++ _ ->
+            a;
+        "b_" ++ _ ->
+            b;
+        "c_" ++ _ ->
+            c;
+        "d_" ++ _ ->
+            d;
         _ ->
             Node
     end.
@@ -381,7 +360,7 @@ eval([T | Ts], Time0, S0, Fun) ->
     end,
     case time_diff(Time1, Time0) > 0 of 
         true ->
-            display_nodes("PAUS", Time1, S0#w.nodes, T);
+            display_nodes("PAUSE", Time1, S0#w.nodes, T);
         false ->
             ok
     end,
@@ -800,9 +779,9 @@ ms(syncers) ->
 no_info(D) ->
     [{Node,no_info} || {Node, no_info} <- D].
 
-resolvers(D, Base, End) ->
+resolvers(D, _Base, End) ->
     [{Node,
-      [{N,adjust_time(T, Base),P} || {N, T, P} <- Rs, T < End]} || 
+      [{N,T,P} || {N, T, P} <- Rs, T < End]} ||
         {Node, {info,State}} <- D,
         is_record(State, state),
         [] =/= (Rs = (state(State))#state.resolvers)].
@@ -834,16 +813,21 @@ negotiations(Trace) ->
               {Node,T,Added,[{new_nodes,[Other|_]=NewNodes},_Abcast,_Ops]} <- Ns],
     Act ++ Pass.
 
-show_spurious(NodeTrace, Spurious) ->
-    Pairs = [{Node,ActionNode} || {{Node,ActionNode}, _Time} <- Spurious],
-    S = sofs:restriction(sofs:relation(NodeTrace), sofs:set(Pairs)),
+show_spurious(NodeTraceL, SpuriousL) ->
+    TraceDomL = [{Node,ActionNode} ||
+                    {{Node,ActionNode}, _Ts} <- NodeTraceL],
+    SpuriousDomL = [{Node,ActionNode} ||
+                       {{Node,ActionNode}, _Times} <- SpuriousL],
+    S = sofs:restriction(sofs:relation(NodeTraceL), sofs:set(SpuriousDomL)),
+    %% Some spurious lost:
+    Spurious = sofs:restriction(sofs:relation(SpuriousL), sofs:set(TraceDomL)),
     [foo || 
         {{{Node,ANode},Times},
-         {{Node,ANode},Ts}} <- lists:zip(family(Spurious), 
+         {{Node,ANode},Ts}} <- lists:zip(family(sofs:to_external(Spurious)),
                                          sofs:to_external(S)),
-        show_spurious(Node, ANode, Times, lists:keysort(2, Ts))].
+        show_spurious2(Node, ANode, Times, lists:keysort(2, Ts))].
 
-show_spurious(Node, ActionNode, Times, Ts) ->
+show_spurious2(Node, ActionNode, Times, Ts) ->
     io:format("** Actions for ~p on node ~p **~n", [ActionNode, Node]),
     lists:map(fun(T) -> spurious(Node, T, Times) end, Ts),
     io:format("-- End of actions for ~p on node ~p --~n", [ActionNode, Node]),
