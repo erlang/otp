@@ -181,8 +181,11 @@ traverse(Tree, Out, State, CurrentFun) ->
       {ActionFuns, State3} = traverse(Action, Out, State2, CurrentFun),
       {merge_outs([ClauseFuns, ActionFuns]), State3};
     seq ->
-      {_, State1} = traverse(cerl:seq_arg(Tree), Out, State, CurrentFun),
-      traverse(cerl:seq_body(Tree), Out, State1, CurrentFun);
+      OldNumRvals = state__num_rvals(State),
+      State1 = state__store_num_rvals(1, State),
+      {_, State2} = traverse(cerl:seq_arg(Tree), Out, State1, CurrentFun),
+      State3 = state__store_num_rvals(OldNumRvals, State2),
+      traverse(cerl:seq_body(Tree), Out, State3, CurrentFun);
     'try' ->
       Arg = cerl:try_arg(Tree),
       Body = cerl:try_body(Tree),
