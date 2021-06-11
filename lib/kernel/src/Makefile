@@ -84,6 +84,7 @@ MODULES = \
 	gen_tcp \
 	gen_tcp_socket \
 	gen_udp \
+	gen_udp_socket \
 	gen_sctp \
 	global \
 	global_group \

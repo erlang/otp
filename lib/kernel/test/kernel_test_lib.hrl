@@ -43,6 +43,10 @@
         ?LIB:connect(__C__, __H__, __P__, __O__)).
 -define(CONNECT(__C__, __H__, __P__, __O__, __T__),
         ?LIB:connect(__C__, __H__, __P__, __O__, __T__)).
+
+-define(OPEN(C, P),              ?LIB:open(C, P, [])).
+-define(OPEN(C, P, O),           ?LIB:open(C, P, O)).
+
 -define(INET_BACKEND_OPTS(C),    ?LIB:inet_backend_opts(C)).
 -define(EXPLICIT_INET_BACKEND(), ?LIB:explicit_inet_backend()).
 -define(TEST_INET_BACKENDS(),    ?LIB:test_inet_backends()).

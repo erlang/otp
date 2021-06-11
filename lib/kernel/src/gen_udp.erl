@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,9 @@
 -export([fdopen/2]).
 
 -include("inet_int.hrl").
+
+-define(module_socket(Handler, Handle),
+        {'$inet', (Handler), (Handle)}).
 
 -type option() ::
         {active,          true | false | once | -32768..32767} |
@@ -88,9 +91,13 @@
         recvttl |
         pktoptions |
 	ipv6_v6only.
--type socket() :: port().
+
+-type socket() :: inet:socket().
 
 -export_type([option/0, option_name/0, socket/0]).
+
+
+%% -- open ------------------------------------------------------------------
 
 -spec open(Port) -> {ok, Socket} | {error, Reason} when
       Port :: inet:port_number(),
@@ -115,23 +122,60 @@ open(Port) ->
       Reason :: system_limit | inet:posix().
 
 open(Port, Opts0) ->
+    case inet:gen_udp_module(Opts0) of
+	{?MODULE, Opts} ->
+	    open1(Port, Opts);
+	{GenUdpMod, Opts} ->
+	    GenUdpMod:open(Port, Opts)
+    end.
+
+open1(Port, Opts0) ->
     {Mod, Opts} = inet:udp_module(Opts0),
     {ok, UP} = Mod:getserv(Port),
     Mod:open(UP, Opts).
+    
+
+%% -- close -----------------------------------------------------------------
 
 -spec close(Socket) -> ok when
       Socket :: socket().
 
+close(?module_socket(GenUdpMod, _) = S) when is_atom(GenUdpMod) ->
+    GenUdpMod:?FUNCTION_NAME(S);
 close(S) ->
     inet:udp_close(S).
+
+
+%% -- send ------------------------------------------------------------------
+
+%% Connected send
+
+-spec send(Socket, Packet) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Packet :: iodata(),
+      Reason :: not_owner | inet:posix().
+
+send(?module_socket(GenUdpMod, _) = S, Packet)
+  when is_atom(GenUdpMod) ->
+    GenUdpMod:?FUNCTION_NAME(S, Packet);
+send(S, Packet) when is_port(S) ->
+    case inet_db:lookup_socket(S) of
+	{ok, Mod} ->
+	    Mod:send(S, Packet);
+	Error ->
+	    Error
+    end.
 
 -spec send(Socket, Destination, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
       Destination :: {inet:ip_address(), inet:port_number()} |
-                     inet:family_address(),
+		     inet:family_address(),
       Packet :: iodata(),
       Reason :: not_owner | inet:posix().
-%%%
+
+send(?module_socket(GenUdpMod, _) = S, Destination, Packet)
+  when is_atom(GenUdpMod) ->
+    GenUdpMod:?FUNCTION_NAME(S, Destination, Packet);
 send(Socket, Destination, Packet) ->
     send(Socket, Destination, [], Packet).
 
@@ -157,7 +201,11 @@ send(Socket, Destination, Packet) ->
       PortZero :: inet:port_number(),
       Packet :: iodata(),
       Reason :: not_owner | inet:posix().
-%%%
+
+send(?module_socket(GenUdpMod, _) = S, Arg2, Arg3, Packet)
+  when is_atom(GenUdpMod) ->
+    GenUdpMod:?FUNCTION_NAME(S, Arg2, Arg3, Packet);
+
 send(S, {_,_} = Destination, PortZero = AncData, Packet) when is_port(S) ->
     %% Destination is {Family,Addr} | {IP,Port},
     %% so it is complete - argument PortZero is redundant
@@ -190,7 +238,11 @@ send(S, Host, Port, Packet) when is_port(S) ->
       AncData :: inet:ancillary_data(),
       Packet :: iodata(),
       Reason :: not_owner | inet:posix().
-%%%
+
+send(?module_socket(GenUdpMod, _) = S, Host, Port, AncData, Packet)
+  when is_atom(GenUdpMod) ->
+    GenUdpMod:?FUNCTION_NAME(S, Host, Port, AncData, Packet);
+
 send(S, Host, Port, AncData, Packet)
   when is_port(S), is_list(AncData) ->
     case inet_db:lookup_socket(S) of
@@ -209,14 +261,8 @@ send(S, Host, Port, AncData, Packet)
 	    Error
     end.
 
-%% Connected send
-send(S, Packet) when is_port(S) ->
-    case inet_db:lookup_socket(S) of
-	{ok, Mod} ->
-	    Mod:send(S, Packet);
-	Error ->
-	    Error
-    end.
+
+%% -- recv ------------------------------------------------------------------
 
 -spec recv(Socket, Length) ->
                   {ok, RecvData} | {error, Reason} when
@@ -229,7 +275,10 @@ send(S, Packet) when is_port(S) ->
       Packet :: string() | binary(),
       Reason :: not_owner | inet:posix().
 
-recv(S,Len) when is_port(S), is_integer(Len) ->
+recv(?module_socket(GenUdpMod, _) = S, Len)
+  when is_atom(GenUdpMod) andalso is_integer(Len) ->
+    GenUdpMod:?FUNCTION_NAME(S, Len);
+recv(S, Len) when is_port(S) andalso is_integer(Len) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
 	    Mod:recv(S, Len);
@@ -249,13 +298,23 @@ recv(S,Len) when is_port(S), is_integer(Len) ->
       Packet :: string() | binary(),
       Reason :: not_owner | timeout | inet:posix().
 
-recv(S,Len,Time) when is_port(S) ->
+recv(?module_socket(GenUdpMod, _) = S, Len, Time)
+  when is_atom(GenUdpMod) ->
+    GenUdpMod:?FUNCTION_NAME(S, Len, Time);
+recv(S, Len, Time) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
-	    Mod:recv(S, Len,Time);
+	    Mod:recv(S, Len, Time);
 	Error ->
 	    Error
     end.
+
+
+%% -- connect ---------------------------------------------------------------
+
+connect(?module_socket(GenUdpMod, _) = S, Address, Port)
+  when is_atom(GenUdpMod) ->
+    GenUdpMod:?FUNCTION_NAME(S, Address, Port);
 
 connect(S, Address, Port) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -270,16 +329,26 @@ connect(S, Address, Port) when is_port(S) ->
 	    Error
     end.
 
+
+%% -- controlling_process ---------------------------------------------------
+
 -spec controlling_process(Socket, Pid) -> ok | {error, Reason} when
       Socket :: socket(),
       Pid :: pid(),
       Reason :: closed | not_owner | badarg | inet:posix().
 
+controlling_process(?module_socket(GenUdpMod, _) = S, NewOwner)
+  when is_atom(GenUdpMod) ->
+    GenUdpMod:?FUNCTION_NAME(S, NewOwner);
+
 controlling_process(S, NewOwner) ->
     inet:udp_controlling_process(S, NewOwner).
 
+
+%% -- fdopen ----------------------------------------------------------------
+
 %%
-%% Create a port/socket from a file descriptor 
+%% Create a port/socket from a file descriptor
 %%
 fdopen(Fd, Opts0) ->
     {Mod,Opts} = inet:udp_module(Opts0),
