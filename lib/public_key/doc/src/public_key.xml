@@ -433,6 +433,7 @@
       and this function creates the appropriate
       <c>'SubjectPublicKeyInfo'</c> entry.
       </p>
+      <p>Password can be either a string or function which returns password string. </p>
     </desc> 
   </func>
 

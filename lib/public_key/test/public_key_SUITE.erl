@@ -64,6 +64,8 @@
          ec_pem_encode_generated/1,
          encrypted_pem/0,
          encrypted_pem/1,
+         encrypted_pem2/1,
+         encrypted_pem2/1,
          dh_pem/0,
          dh_pem/1,
          pkcs10_pem/0,
@@ -159,7 +161,7 @@ all() ->
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, rsa_pss_pss_pem, ec_pem, encrypted_pem,
-			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem, ec_pem2,
+			      encrypted_pem2, dh_pem, cert_pem, pkcs7_pem, pkcs10_pem, ec_pem2,
 			      rsa_priv_pkcs8, dsa_priv_pkcs8, ec_priv_pkcs8,
                               eddsa_priv_pkcs8, eddsa_priv_rfc5958,
                               ec_pem_encode_generated,
@@ -481,6 +483,39 @@ encrypted_pem(Config) when is_list(Config) ->
     check_encapsulated_header(Pem),
     true = check_entry_type(public_key:pem_entry_decode(Entry2, "4567efgh"),
 			     'RSAPrivateKey').
+
+
+%%--------------------------------------------------------------------
+encrypted_pem2() ->
+    [{doc, "Encrypted PEM-file decode/encode"}].
+encrypted_pem2(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+
+    [{'RSAPrivateKey', DerRSAKey, not_encrypted}] =
+        erl_make_certs:pem_to_der(filename:join(Datadir, "client_key.pem")),
+
+    RSAKey = public_key:der_decode('RSAPrivateKey', DerRSAKey),
+
+    Salt0 = crypto:strong_rand_bytes(8),
+    Entry0 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey,
+                                         {{"DES-EDE3-CBC", Salt0}, "1234abcd"}),
+    RSAKey = public_key:pem_entry_decode(Entry0,fun()-> "1234abcd" end),
+    Des3KeyFile = filename:join(Datadir, "des3_client_key.pem"),
+    erl_make_certs:der_to_pem(Des3KeyFile, [Entry0]),
+    [{'RSAPrivateKey', _, {"DES-EDE3-CBC", Salt0}}] =
+        erl_make_certs:pem_to_der(Des3KeyFile),
+
+    Salt1 = crypto:strong_rand_bytes(8),
+    Entry1 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey,
+                                           {{"DES-CBC", Salt1}, "4567efgh"}),
+    DesKeyFile = filename:join(Datadir, "des_client_key.pem"),
+    erl_make_certs:der_to_pem(DesKeyFile, [Entry1]),
+    [{'RSAPrivateKey', _, {"DES-CBC", Salt1}} =Entry2] =
+        erl_make_certs:pem_to_der(DesKeyFile),
+    {ok, Pem} = file:read_file(DesKeyFile),
+    check_encapsulated_header(Pem),
+    true = check_entry_type(public_key:pem_entry_decode(Entry2, "4567efgh"),
+                             'RSAPrivateKey').
     
 %%--------------------------------------------------------------------
 
