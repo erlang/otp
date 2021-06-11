@@ -693,7 +693,7 @@
 -define(TPP_SMALL_NUM,  5000).
 -define(TPP_MEDIUM_NUM, 500).
 -define(TPP_LARGE_NUM,  50).
--define(TPP_NUM(Config, Base), Base div lookup(esock_factor, 1, Config)).
+-define(TPP_NUM(Config, Base), (Base) div lookup(esock_factor, 1, Config)).
 
 -define(TTEST_RUNTIME,  ?SECS(10)).
 
@@ -38135,7 +38135,8 @@ traffic_ping_pong_large_send_and_recv_tcp4(Config) when is_list(Config) ->
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
     tc_try(traffic_ping_pong_large_send_and_recv_tcp4,
-           fun() -> is_old_fedora16() end,
+           fun() -> is_old_fedora16(),
+		    is_slow_ubuntu(Config) end,
            fun() ->
                    InitState = #{domain => inet,
                                  proto  => tcp,
@@ -38164,7 +38165,8 @@ traffic_ping_pong_large_send_and_recv_tcp6(Config) when is_list(Config) ->
     Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
     tc_try(traffic_ping_pong_large_send_and_recv_tcp6,
            fun() -> is_old_fedora16(),
-                    has_support_ipv6() end,
+                    has_support_ipv6(),
+		    is_slow_ubuntu(Config) end,
            fun() ->
                    InitState = #{domain => inet6,
                                  proto  => tcp,
@@ -38225,14 +38227,42 @@ traffic_ping_pong_large_host_cond2(_) ->
     ok.
 
 
+etc_issue() ->
+    string:trim(os:cmd("cat /etc/issue")).
+
 is_old_fedora16() ->
-    is_old_fedora16(string:trim(os:cmd("cat /etc/issue"))).
+    is_old_fedora16( etc_issue() ).
 
 %% We actually only have one host running this, a slow VM.
 is_old_fedora16("Fedora release 16 " ++ _) ->
     skip("Very slow VM");
 is_old_fedora16(_) ->
     ok.
+
+
+%% This is a bit subjective, but...
+%% ..we have some WMs that is not "fast enough", but the only
+%% thing we can test on is 'esock factor' (other than host name).
+%% This means we actually skip this on platforms where its
+%% not actually needed.
+%% The host in question is a Ubuntu 20.04...
+is_slow_ubuntu(Config) ->
+    case lookup(esock_factor, 1, Config) of
+	F when is_integer(F) andalso (F > 1) ->
+	    case os:type() of
+		{unix, linux} ->
+		    case etc_issue() of
+			"Ubuntu 20.04" ++ _ ->
+			    skip("Slow Ubuntu host");
+			_ ->
+			    ok
+		    end;
+		_ ->
+		    ok
+	    end;
+	_ ->
+	    ok
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
