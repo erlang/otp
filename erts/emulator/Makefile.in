@@ -23,6 +23,12 @@ include ../vsn.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 -include $(TARGET)/gen_git_version.mk
 
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+libdir = @libdir@
+
+ENABLE_PKG_CONFIG = @ENABLE_PKG_CONFIG@
+
 ENABLE_ALLOC_TYPE_VARS = @ENABLE_ALLOC_TYPE_VARS@
 JIT_ENABLED=@JIT_ENABLED@
 JIT_ARCH=@JIT_ARCH@
@@ -506,12 +512,23 @@ ifeq ($(TARGET),win32)
 RELEASE_INCLUDES += sys/$(ERLANG_OSTYPE)/erl_win_dyn_driver.h
 endif
 
+PKG-CONFIG = \
+	$(TARGET)/erl_erts.pc
+
+ifdef ENABLE_PKG_CONFIG
+pkg-config:
+	$(INSTALL_DIR) "$(DESTDIR)/$(libdir)/pkgconfig"
+	$(INSTALL_DATA) $(PKG-CONFIG) "$(DESTDIR)/$(libdir)/pkgconfig"
+else
+pkg-config:
+endif
+
 .PHONY: release_spec
 ifdef VOID_EMULATOR
 release_spec:
 	@echo $(VOID_EMULATOR)' - omitted target release_spec (install)'
 else
-release_spec: all
+release_spec: all pkg-config
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src"
 	$(INSTALL_DIR) "$(RELSYSDIR)/include"

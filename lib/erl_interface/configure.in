@@ -24,8 +24,8 @@
 
 # Find the erl_interface version number and set m4 macro to it.
 # We do this because AC_INIT can't handle shell variables. Still broken.
-dnl m4_define(EI_VERSION,`grep EI_VSN ../vsn.mk | sed 's/^.*=[ ]*//'`)
-dnl m4_define(EI_VERSION,regexp(m4_include(VERSION),[version \([-.0-9A-Za-z]+\)],[\1]))
+m4_define([ei_version],`grep EI_VSN $srcdir/vsn.mk | sed 's/^.*=[ ]*//' | awk 'NR==1{print $1}'`)
+#dnl m4_define(EI_VERSION,regexp(m4_include(VERSION),[version \([-.0-9A-Za-z]+\)],[\1]))
 
 AC_INIT()
 
@@ -58,6 +58,9 @@ else
     host_os=win32
 fi
 
+EI_VERSION=ei_version
+AC_SUBST(EI_VERSION)
+
 TARGET=$host
 AC_SUBST(TARGET)
 
@@ -85,6 +88,16 @@ AC_ARG_ENABLE(mask-real-errno,
   esac ],
 [ mask_real_errno=yes ])
 
+AC_ARG_ENABLE(pkg-config,
+[  --enable-pkg-config install pkg-config file],
+[ case "$enableval" in
+    no) enable_pkg_config= ;;
+    *)  enable_pkg_config=yes ;;
+  esac ],
+[ enable_pkg_config= ])
+
+ENABLE_PKG_CONFIG=$enable_pkg_config
+AC_SUBST(ENABLE_PKG_CONFIG)
 
 dnl ----------------------------------------------------------------------
 dnl Checks for programs
@@ -374,4 +387,5 @@ LDFLAGS="$LDFLAGS $sanitizers"
 AC_OUTPUT(
 	src/$host/Makefile:src/Makefile.in
 	src/$host/eidefs.mk:src/eidefs.mk.in
+	src/$host/erl_ei.pc:erl_ei.pc.in
 	)

@@ -21,10 +21,15 @@ dnl %CopyrightEnd%
 dnl The string "FIXME convbreak" means that there is a break of
 dnl autoconf convention that should be cleaned up.
 
+m4_define([erts_version],`grep VSN $srcdir/vsn.mk | sed 's/^.*=[ ]*//' | awk 'NR==1{print $1}'`)
+
 AC_INIT(vsn.mk)
 AC_PREREQ(2.59)
 
 LM_PRECIOUS_VARS
+
+ERTS_VERSION=erts_version
+AC_SUBST(ERTS_VERSION)
 
 dnl We check if -Werror was given on command line and if so
 dnl we disable it for the configure and only use it when
@@ -3615,6 +3620,22 @@ CFLAGS="$CFLAGS $sanitizers"
 LDFLAGS="$LDFLAGS $sanitizers"
 ])
 
+
+dnl ----------------------------------------------------------------------
+dnl Enable pkg-config.
+dnl ----------------------------------------------------------------------
+
+AC_ARG_ENABLE(pkg-config,
+[  --enable-pkg-config install pkg-config file],
+[ case "$enableval" in
+    no) enable_pkg_config= ;;
+    *)  enable_pkg_config=yes ;;
+  esac ],
+[ enable_pkg_config= ])
+
+ENABLE_PKG_CONFIG=$enable_pkg_config
+AC_SUBST(ENABLE_PKG_CONFIG)
+
 dnl ----------------------------------------------------------------------
 dnl Output the result.
 dnl ----------------------------------------------------------------------
@@ -3628,6 +3649,7 @@ AC_CONFIG_FILES([
   include/internal/$host/erts_internal.mk:include/internal/erts_internal.mk.in
   lib_src/$host/Makefile:lib_src/Makefile.in
   ../make/$host/otp.mk:../make/otp.mk.in
+  emulator/$host/erl_erts.pc:erl_erts.pc.in
 ])
 
 AC_CONFIG_FILES([../make/make_emakefile:../make/make_emakefile.in],
