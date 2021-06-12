@@ -385,18 +385,17 @@ int atom_table_sz(void)
     return ret;
 }
 
-int
-erts_atom_get(const char *name, Uint len, Eterm* ap, ErtsAtomEncoding enc)
+Eterm
+erts_atom_get(const char *name, Uint len, ErtsAtomEncoding enc)
 {
     byte utf8_copy[MAX_ATOM_SZ_FROM_LATIN1];
     Atom a;
     int i;
-    int res;
 
     switch (enc) {
     case ERTS_ATOM_ENC_LATIN1:
         if (len > MAX_ATOM_CHARACTERS) {
-            return 0;
+            return THE_NON_VALUE;
         }
 
         latin1_to_utf8(utf8_copy, sizeof(utf8_copy), (const byte**)&name, &len);
@@ -406,12 +405,12 @@ erts_atom_get(const char *name, Uint len, Eterm* ap, ErtsAtomEncoding enc)
         break;
     case ERTS_ATOM_ENC_7BIT_ASCII:
         if (len > MAX_ATOM_CHARACTERS) {
-            return 0;
+            return THE_NON_VALUE;
         }
 
         for (i = 0; i < len; i++) {
             if (name[i] & 0x80) {
-                return 0;
+                return THE_NON_VALUE;
             }
         }
 
@@ -420,7 +419,7 @@ erts_atom_get(const char *name, Uint len, Eterm* ap, ErtsAtomEncoding enc)
         break;
     case ERTS_ATOM_ENC_UTF8:
         if (len > MAX_ATOM_SZ_LIMIT) {
-            return 0;
+            return THE_NON_VALUE;
         }
 
         /* We don't need to check whether the encoding is legal as all atom
@@ -434,10 +433,9 @@ erts_atom_get(const char *name, Uint len, Eterm* ap, ErtsAtomEncoding enc)
 
     atom_read_lock();
     i = index_get(&erts_atom_table, (void*) &a);
-    res = i < 0 ? 0 : (*ap = make_atom(i), 1);
     atom_read_unlock();
 
-    return res;
+    return (i >= 0) ? make_atom(i) : THE_NON_VALUE;
 }
 
 void

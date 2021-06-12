@@ -1877,10 +1877,18 @@ int enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom
 int enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len,
 				ERL_NIF_TERM* atom, ErlNifCharEncoding encoding)
 {
+    Eterm a;
+
     ASSERT(encoding == ERL_NIF_LATIN1);
     if (len > MAX_ATOM_CHARACTERS)
         return 0;
-    return erts_atom_get(name, len, atom, ERTS_ATOM_ENC_LATIN1);
+    a = erts_atom_get(name, len, ERTS_ATOM_ENC_LATIN1);
+    if (is_value(a)) {
+	*atom = a;
+	return 1;
+    } else {
+	return 0;
+    }
 }
 
 ERL_NIF_TERM enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)
@@ -4397,7 +4405,6 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
     Module* module_p;
     Eterm mod_atom;
     const Atom* mod_atomp;
-    Eterm f_atom;
     const ErtsCodeMFA* caller;
     ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
     Eterm ret = am_ok;
@@ -4523,10 +4530,12 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
             const ErtsCodeInfo* ci;
             ErlNifFunc* f = &entry->funcs[i];
             ErtsNifBeamStub* stub = &lib->finish->beam_stubv[i];
+            Eterm f_atom;
 
             stub->code_info_exec = NULL; /* end marker in case we fail */
 
-	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1)
+	    f_atom = erts_atom_get(f->name, sys_strlen(f->name), ERTS_ATOM_ENC_LATIN1);
+	    if (is_non_value(f_atom)
 		|| (ci_pp = get_func_pp(this_mi->code_hdr, f_atom, f->arity))==NULL) {
 		ret = load_nif_error(c_p,bad_lib,"Function not found %T:%s/%u",
 				     mod_atom, f->name, f->arity);
@@ -4729,7 +4738,7 @@ static void patch_call_nif_early(ErlNifEntry* entry,
         ErtsCodeInfo* ci;
         Eterm f_atom;
 
-        erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1);
+        f_atom = erts_atom_get(f->name, sys_strlen(f->name), ERTS_ATOM_ENC_LATIN1);
 
         ci_pp = get_func_pp(this_mi->code_hdr, f_atom, f->arity);
         ci = erts_writable_code_ptr(this_mi, *ci_pp);

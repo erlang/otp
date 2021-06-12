@@ -2903,9 +2903,11 @@ dec_atom(ErtsDistExternal *edep, const byte* ep, Eterm* objp)
 	char_enc = ERTS_ATOM_ENC_UTF8;
     dec_atom_common:
         if (edep && (edep->flags & ERTS_DIST_EXT_BTT_SAFE)) {
-	    if (!erts_atom_get((char*)ep, len, objp, char_enc)) {
+	    Eterm atom = erts_atom_get((char*)ep, len, char_enc);
+	    if (is_non_value(atom)) {
                 goto error;
 	    }
+	    *objp = atom;
         } else {
 	    Eterm atom = erts_atom_put(ep, len, char_enc, 0);
 	    if (is_non_value(atom))
@@ -4149,9 +4151,11 @@ dec_term(ErtsDistExternal *edep,
 	    char_enc = ERTS_ATOM_ENC_UTF8;
 dec_term_atom_common:
 	    if (edep && (edep->flags & ERTS_DIST_EXT_BTT_SAFE)) {
-		if (!erts_atom_get((char*)ep, n, objp, char_enc)) {
+		Eterm atom = erts_atom_get((char*)ep, n, char_enc);
+		if (is_non_value(atom)) {
 		    goto error;
 		}
+		*objp = atom;
 	    } else {
 		Eterm atom = erts_atom_put(ep, n, char_enc, 0);
 		if (is_non_value(atom))

@@ -3207,7 +3207,8 @@ BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
     } else {
 	Eterm a;
 	
-	if (erts_atom_get((char *) buf, written, &a, ERTS_ATOM_ENC_UTF8)) {
+	a = erts_atom_get((char *) buf, written, ERTS_ATOM_ENC_UTF8);
+	if (is_value(a)) {
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	    BIF_RET(a);
 	} else {
