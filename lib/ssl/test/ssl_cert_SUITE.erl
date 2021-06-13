@@ -113,7 +113,13 @@
          hello_retry_client_auth_empty_cert_rejected/0,
          hello_retry_client_auth_empty_cert_rejected/1,
          basic_rsa_1024/0,
-         basic_rsa_1024/1
+         basic_rsa_1024/1,
+         signature_algorithms_bad_curve_secp256r1/0,
+         signature_algorithms_bad_curve_secp256r1/1,
+         signature_algorithms_bad_curve_secp384r1/0,
+         signature_algorithms_bad_curve_secp384r1/1,
+         signature_algorithms_bad_curve_secp521r1/0,
+         signature_algorithms_bad_curve_secp521r1/1
          ]).
 
 %%--------------------------------------------------------------------
@@ -147,7 +153,10 @@ groups() ->
      {rsa_pss_rsae_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
      {rsa_pss_pss, [], all_version_tests() ++ rsa_tests()},
      {rsa_pss_pss_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
-     {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()},
+     {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++
+          [signature_algorithms_bad_curve_secp256r1,
+           signature_algorithms_bad_curve_secp384r1,
+           signature_algorithms_bad_curve_secp521r1]},
      {eddsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
     ].
 
@@ -357,13 +366,37 @@ do_init_per_group(_Group, Config) ->
 end_per_group(GroupName, Config) ->
   ssl_test_lib:end_per_group(GroupName, Config).
 
+init_per_testcase(signature_algorithms_bad_curve_secp256r1, Config) ->
+    init_rsa_ecdsa_opts(Config, secp256r1);
+init_per_testcase(signature_algorithms_bad_curve_secp384r1, Config) ->
+    init_rsa_ecdsa_opts(Config, secp384r1);
+init_per_testcase(signature_algorithms_bad_curve_secp521r1, Config) ->
+    init_rsa_ecdsa_opts(Config, secp521r1);
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 10}),
     Config.
 
-end_per_testcase(_TestCase, Config) ->     
+end_per_testcase(_TestCase, Config) ->
     Config.
+
+init_rsa_ecdsa_opts(Config0, Curve) ->
+    PKAlg = crypto:supports(public_keys),
+    case lists:member(ecdsa, PKAlg) andalso (lists:member(ecdh, PKAlg) orelse lists:member(dh, PKAlg)) of
+        true ->
+            Config = ssl_test_lib:make_rsa_ecdsa_cert(Config0, Curve),
+            COpts = proplists:get_value(client_rsa_ecdsa_opts, Config),
+            SOpts = proplists:get_value(server_rsa_ecdsa_opts, Config),
+            [{cert_key_alg, ecdsa} |
+             lists:delete(cert_key_alg,
+                          [{client_cert_opts, COpts},
+                           {server_cert_opts, SOpts} |
+                           lists:delete(server_cert_opts,
+                                        lists:delete(client_cert_opts, Config))]
+                         )];
+        false ->
+            {skip, "Missing EC crypto support"}
+    end.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -1081,6 +1114,57 @@ hello_retry_client_auth_empty_cert_rejected(Config) ->
                   {supported_groups, [secp256r1, x25519]}|ClientOpts2],
    
     ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required).
+
+%%--------------------------------------------------------------------
+signature_algorithms_bad_curve_secp256r1() ->
+     [{doc,"TLS 1.3: Test that the the client fails to connect "
+       "if server's certificate has a key using an unsupported curve."}].
+
+signature_algorithms_bad_curve_secp256r1(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']}, {log_level, debug}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {signature_algs, [ecdsa_secp384r1_sha384,
+                                    ecdsa_secp521r1_sha512,
+                                    {sha256,rsa}]}|ClientOpts0],
+
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, insufficient_security).
+
+%%--------------------------------------------------------------------
+signature_algorithms_bad_curve_secp384r1() ->
+     [{doc,"TLS 1.3: Test that the the client fails to connect "
+       "if server's certificate has a key using an unsupported curve."}].
+
+signature_algorithms_bad_curve_secp384r1(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']}, {log_level, debug}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {signature_algs, [ecdsa_secp256r1_sha256,
+                                    ecdsa_secp521r1_sha512,
+                                    {sha256,rsa}]}|ClientOpts0],
+
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, insufficient_security).
+
+%%--------------------------------------------------------------------
+signature_algorithms_bad_curve_secp521r1() ->
+     [{doc,"TLS 1.3: Test that the the client fails to connect "
+       "if server's certificate has a key using an unsupported curve."}].
+
+signature_algorithms_bad_curve_secp521r1(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']}, {log_level, debug}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {signature_algs, [ecdsa_secp256r1_sha256,
+                                    ecdsa_secp384r1_sha384,
+                                    {sha256,rsa}]}|ClientOpts0],
+
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, insufficient_security).
 
 %%--------------------------------------------------------------------
 basic_rsa_1024() ->

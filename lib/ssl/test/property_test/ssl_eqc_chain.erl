@@ -259,10 +259,10 @@ extraneous_der_cert_chain_opts(Version, Alg) ->
     #{server_config := ServerConf0,
       client_config := ClientConf0} = public_key:pkix_test_data(#{server_chain => #{root => SRoot,
                                                                                     intermediates => intermediates(Alg, 1),
-                                                                                    peer => []},
+                                                                                    peer => peer_key(ecdsa)},
                                                                   client_chain => #{root => CRoot, 
                                                                                     intermediates => intermediates(Alg, 1),
-                                                                                    peer => []}}), 
+                                                                                    peer => peer_key(ecdsa)}}),
     
     {ClientChain, ClientRoot} = extraneous_chain_and_root(ClientConf0, "OTP test client ROOT", 1),
     {ServerChain, ServerRoot} = extraneous_chain_and_root(ServerConf0, "OTP test server ROOT", 1),
@@ -280,10 +280,10 @@ extraneous_pem_cert_chain_opts(Version, Alg, PrivDir) ->
     #{server_config := ServerConf0,
       client_config := ClientConf0} = public_key:pkix_test_data(#{server_chain => #{root => SRoot,
                                                                                     intermediates => intermediates(Alg, 1),
-                                                                                    peer => []},
+                                                                                    peer => peer_key(ecdsa)},
                                                                   client_chain => #{root => CRoot, 
                                                                                     intermediates => intermediates(Alg, 1),
-                                                                                    peer => []}}), 
+                                                                                    peer => peer_key(ecdsa)}}),
 
     {ClientChain, ClientRoot} = extraneous_chain_and_root(ClientConf0, "OTP test client ROOT", 1),
     {ServerChain, ServerRoot} = extraneous_chain_and_root(ServerConf0, "OTP test server ROOT", 1),
@@ -301,10 +301,10 @@ extra_extraneous_der_cert_chain_opts(Version, Alg) ->
     #{server_config := ServerConf0,
       client_config := ClientConf0} = public_key:pkix_test_data(#{server_chain => #{root => SRoot,
                                                                                     intermediates => intermediates(Alg, 3),
-                                                                                    peer => []},
+                                                                                    peer => peer_key(ecdsa)},
                                                                   client_chain => #{root => CRoot, 
                                                                                     intermediates => intermediates(Alg, 3),
-                                                                                    peer => []}}), 
+                                                                                    peer => peer_key(ecdsa)}}),
     
   
     {ClientChain0, ClientRoot0} = extraneous_chain_and_root(ClientConf0, "OTP test client ROOT", 2),
@@ -330,10 +330,10 @@ der_extraneous_and_unorder_chain(Version, Alg) ->
       client_config := ClientConf0} =  
         public_key:pkix_test_data(#{server_chain => #{root => SRoot,
                                                       intermediates => intermediates(Alg, 3),
-                                                      peer => []},
+                                                      peer => peer_key(ecdsa)},
                                     client_chain => #{root => CRoot, 
                                                       intermediates => intermediates(Alg, 3),
-                                                      peer => []}}), 
+                                                      peer => peer_key(ecdsa)}}),
 
     {ClientChain0, ClientRoot0} = chain_and_root(ClientConf0),
     {ServerChain0, ServerRoot0} = chain_and_root(ServerConf0),
@@ -370,12 +370,12 @@ chain_and_root(Config) ->
     {Chain, Root}.
 
 extraneous_chain_and_root(Config, Name, 1) ->
-    #{cert := NewRoot, key := Key} = public_key:pkix_test_root_cert(Name, []),
+    #{cert := NewRoot, key := Key} = public_key:pkix_test_root_cert(Name, root_key(ecdsa)),
     {[OwnCert, CA0, OldRoot], OldRoot} = chain_and_root(Config),
     CA1 = new_intermediat(CA0, Key),
     {[OwnCert, CA1, CA0], NewRoot};
 extraneous_chain_and_root(Config, Name, 2) ->
-    #{cert := NewRoot, key := Key} = public_key:pkix_test_root_cert(Name, []),
+    #{cert := NewRoot, key := Key} = public_key:pkix_test_root_cert(Name, root_key(ecdsa)),
      {[OwnCert, CA0, CA1, CA2, OldRoot], OldRoot} = chain_and_root(Config),
     CA3 = new_intermediat(CA2, Key),
     {[OwnCert, CA0, CA1, CA2, CA3], NewRoot}.
@@ -411,13 +411,13 @@ create_extraneous_and_unorded([Client, _CCA0, _CCA1, CCA2, _CCA3], [Client, OCCA
     {[Client, OCCA0, CCA2, OCCA2, OCROOT, OCCA1], [Server, OSCA0, SCA2, OSCA2, OSROOT, OSCA1]}.
                               
 root_key(ecdsa) ->
-    []; %% Just generate one
+    [{key,{namedCurve, ?secp256r1}}]; %% Use a curve that will be default supported in all TLS versions
 root_key(rsa) ->
     %% As rsa keygen is not guaranteed to be fast
     [{key, ssl_test_lib:hardcode_rsa_key(6)}].
 
 peer_key(ecdsa) ->
-    []; %% Just generate one
+    [{key, {namedCurve, ?secp256r1}}]; %% Use a curve that will be default supported in all TLS versions
 peer_key(rsa) ->
     %% As rsa keygen is not guaranteed to be fast
     [{key, ssl_test_lib:hardcode_rsa_key(6)}].
