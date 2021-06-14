@@ -680,13 +680,13 @@ if test X"$WX_HAVE_STATIC_LIBS" = X"true" ; then
    LIBS=$WX_LIBS_STATIC   
 fi
 
-AC_LINK_IFELSE([AC_LANG_SOURCE([
+AC_LINK_IFELSE([AC_LANG_SOURCE([[
 		#ifdef WIN32
 		# include <windows.h>
 		#endif
                 #include "wx/wx.h"
 		#include "wx/stc/stc.h"
-		])
+
 
 		class MyApp : public wxApp
 		{
@@ -699,7 +699,7 @@ AC_LINK_IFELSE([AC_LANG_SOURCE([
                   };
 		};
 		IMPLEMENT_APP(MyApp)
-	       ],
+               ]])],
 	       [
 		CAN_LINK_WX=yes
 	       ],

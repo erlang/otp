@@ -397,7 +397,7 @@ AS_IF([test X"$with_spectre_mitigation" != X"no"],
 
     AC_MSG_CHECKING([for spectre mitigation])
     AC_COMPILE_IFELSE(
-        [AC_LANG_PROGRAM([],[return 0;])],
+        [AC_LANG_PROGRAM([[]],[[return 0;]])],
         [AC_MSG_RESULT([yes])],
         [AC_MSG_ERROR([no])])
 
@@ -413,7 +413,7 @@ AS_IF([test X"$with_spectre_mitigation" != X"no"],
 
         AC_MSG_CHECKING([whether spectre mitigation can be disabled on a per-function basis])
         AC_COMPILE_IFELSE(
-            [AC_LANG_PROGRAM([$i_noretpoline_attr],[return 0;])],
+            [AC_LANG_PROGRAM([[$i_noretpoline_attr]],[[return 0;]])],
             [AC_MSG_RESULT([yes])],
             [AC_MSG_ERROR([no])])
 
@@ -661,10 +661,10 @@ AS_IF([test "x$GCC" = xyes],
 
 AC_MSG_CHECKING([C99 support])
 
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[
 #if __STDC_VERSION__ < 199901L
   #error "Not C99"
-#endif])],
+#endif]])],
   [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no])
      CFLAGS="-std=gnu99 $CFLAGS"
@@ -698,7 +698,7 @@ AS_IF([test "X$PROFILE_CORRECTION" = "Xtrue"],
    CFLAGS="-fprofile-generate $saved_CFLAGS"
    LDFLAGS="-fprofile-generate $saved_LDFLAGS"
    AC_MSG_CHECKING([whether $CC links with -fprofile-generate])
-   AC_LINK_IFELSE([AC_LANG_PROGRAM([],[return 0;])],
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],[[return 0;]])],
         [AC_MSG_RESULT([yes])
          PROFILE_GENERATE=true],
         [AC_MSG_RESULT([no])
@@ -715,7 +715,7 @@ AS_IF([test "X$PROFILE_INSTR_GENERATE" = "Xtrue"],
    # we can link programs with -fprofile-instr-use
    saved_CFLAGS=$CFLAGS;
    CFLAGS="-fprofile-instr-generate -Werror $saved_CFLAGS"
-   AC_RUN_IFELSE([AC_LANG_PROGRAM([],[])],
+   AC_RUN_IFELSE([AC_LANG_PROGRAM([[]],[[]])],
      [AC_PATH_PROG([LLVM_PROFDATA], [llvm-profdata],[],[$PATH:/Library/Developer/CommandLineTools/usr/bin])
       AC_CHECK_PROGS([XCRUN], [xcrun])
       AS_IF([test "X$XCRUN" != "X" -a "X$LLVM_PROFDATA" = "X"],
@@ -736,7 +736,7 @@ AS_IF([test "X$PROFILE_INSTR_GENERATE" = "Xtrue"],
         CFLAGS="-fprofile-instr-use=default.profdata $saved_CFLAGS";
         $LLVM_PROFDATA merge -output=default.profdata *.profraw;
         AC_MSG_CHECKING([whether $CC accepts -fprofile-instr-use=default.profdata -Werror])
-        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[return 0;])],
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[return 0;]])],
           [AC_MSG_RESULT([yes])
            PROFILE_INSTR_USE=true],
           [AC_MSG_RESULT([no])
@@ -2868,10 +2868,10 @@ AS_IF([test ${enable_jit} != no],
           old_CXXFLAGS=$CXXFLAGS
           CXXFLAGS="$CXXFLAGS -std=c++17"
           AC_COMPILE_IFELSE(
-              [AC_LANG_PROGRAM([],
-               [#if __cplusplus < 201703L
+              [AC_LANG_PROGRAM([[]],
+               [[#if __cplusplus < 201703L
                 #error "Needs C++17 compiler"
-                #endif])],
+                #endif]])],
               [AC_MSG_CHECKING([for C++17 support])
                AC_MSG_RESULT([yes])
                HAVE_CXX17=true],
@@ -3290,7 +3290,7 @@ AS_IF([test "$enable_lttng_test" = "yes"],
     AC_MSG_CHECKING([for tracepoint_enabled in lttng/tracepoint.h])
     AC_COMPILE_IFELSE(
         [AC_LANG_PROGRAM(
-            [#include <lttng/tracepoint.h>
+            [[#include <lttng/tracepoint.h>
              #define TRACEPOINT_PROVIDER org_erlang_otp
              TRACEPOINT_EVENT(
                  org_erlang_otp,
@@ -3298,8 +3298,8 @@ AS_IF([test "$enable_lttng_test" = "yes"],
                  TP_ARGS(int, my_int),
                  TP_FIELDS(ctf_integer(int, my_int, my_int)))
              #define TRACEPOINT_CREATE_PROBES
-             #define TRACEPOINT_DEFINE],
-            [if(tracepoint_enabled(org_erlang_otp,dummy)) do {} while(0)])],
+             #define TRACEPOINT_DEFINE]],
+            [[if(tracepoint_enabled(org_erlang_otp,dummy)) do {} while(0)]])],
         [AC_MSG_RESULT([yes])],
         [AC_MSG_ERROR([no (available in lttng-ust v2.7)])])
     if test "x$ac_cv_header_lttng_tracepoint_h" = "xyes" \
