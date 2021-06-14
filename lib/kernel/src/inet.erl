@@ -674,37 +674,43 @@ socket_to_list(Socket) when is_port(Socket) ->
 info({'$inet', GenSocketMod, _} = Socket)
   when is_atom(GenSocketMod) ->
     GenSocketMod:?FUNCTION_NAME(Socket);
-info(Socket) ->
-    PortInfo = port_info(Socket),
-    States =
-        case prim_inet:getstatus(Socket) of
-            {ok, State0} ->
-                State0;
-            _ ->
-                #{}
-        end,
-    Stats =
-        case getstat(Socket) of
-            {ok, Stats0} ->
-                maps:from_list(Stats0);
-            _ ->
-                []
-        end,
-    PortInfo#{counters => Stats,
-              states   => States}.
+info(Socket) when is_port(Socket) ->
+    case port_info(Socket) of
+	#{states := _} = PortInfo ->
+	    PortInfo;
+	PortInfo0 ->
+	    %% Its actually possible to call this function for non-socket ports,
+	    %% but in that case we have no status or statistics.
+	    PortInfo1 =
+		case prim_inet:getstatus(Socket) of
+		    {ok, State} ->
+			PortInfo0#{states => State};
+		    _ ->
+			PortInfo0
+		end,
+	    case getstat(Socket) of
+		{ok, Stats0} ->
+		    PortInfo1#{counters => maps:from_list(Stats0)};
+		_ ->
+		    PortInfo1
+	    end
+    end.
 
 port_info(P) when is_port(P) ->
-    PI0 = port_info(erlang:port_info(P),
-                    [connected, links, input, output]) ++
-        [erlang:port_info(P, memory),
-         erlang:port_info(P, monitors)],
-    PI = pi_replace([{connected, owner}], PI0),
-    maps:from_list(PI);
-port_info(_) ->
-    #{}.
+    case erlang:port_info(P) of
+	PI0 when is_list(PI0) ->
+	    PI1 = port_info(PI0, [connected, links, input, output]) ++
+		[erlang:port_info(P, memory), erlang:port_info(P, monitors)],
+	    PI2 = pi_replace([{connected, owner}], PI1),
+	    maps:from_list(PI2);
+	_ ->
+	    #{states => [closed]}
+    end.
 
-port_info(PI, Items) ->
-    port_info(PI, Items, []).
+port_info(PI, Items) when is_list(PI) ->
+    port_info(PI, Items, []);
+port_info(_, _) ->
+    [].
 
 port_info(_PI, [], Acc) ->
     Acc;
