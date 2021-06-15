@@ -87,6 +87,7 @@ ERTS_GLB_INLINE void erts_sched_make_magic_ref_in_array(ErtsSchedulerData *esdp,
 							Uint32 ref[ERTS_REF_NUMBERS]);
 ERTS_GLB_INLINE Eterm erts_sched_make_ref_in_buffer(ErtsSchedulerData *esdp,
 						    Eterm buffer[ERTS_REF_THING_SIZE]);
+ERTS_GLB_INLINE Eterm erts_mk_magic_ref_get_refc(Eterm * *hpp, ErlOffHeap * ohp, Binary*, erts_aint_t*);
 ERTS_GLB_INLINE Eterm erts_mk_magic_ref(Eterm **hpp, ErlOffHeap *ohp, Binary *mbp);
 ERTS_GLB_INLINE Binary *erts_magic_ref2bin(Eterm mref);
 ERTS_GLB_INLINE void erts_magic_ref_save_bin(Eterm ref);
@@ -175,15 +176,24 @@ erts_sched_make_ref_in_buffer(ErtsSchedulerData *esdp,
 }
 
 ERTS_GLB_INLINE Eterm
-erts_mk_magic_ref(Eterm **hpp, ErlOffHeap *ohp, Binary *bp)
+erts_mk_magic_ref_get_refc(Eterm **hpp, ErlOffHeap *ohp, Binary *bp, erts_aint_t* refcp)
 {
     Eterm *hp = *hpp;
     ASSERT(bp->intern.flags & BIN_FLAG_MAGIC);
     write_magic_ref_thing(hp, ohp, (ErtsMagicBinary *) bp);
     *hpp += ERTS_MAGIC_REF_THING_SIZE;
-    erts_refc_inc(&bp->intern.refc, 1);
+    if (refcp)
+        *refcp = erts_refc_inctest(&bp->intern.refc, 1);
+    else
+        erts_refc_inc(&bp->intern.refc, 1);
     OH_OVERHEAD(ohp, bp->orig_size / sizeof(Eterm));
     return make_internal_ref(hp);
+}
+
+ERTS_GLB_INLINE Eterm
+erts_mk_magic_ref(Eterm **hpp, ErlOffHeap *ohp, Binary *bp)
+{
+    return erts_mk_magic_ref_get_refc(hpp, ohp, bp, NULL);
 }
 
 ERTS_GLB_INLINE Binary *
