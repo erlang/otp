@@ -66,7 +66,8 @@
 	 socket_monitor1_demon_after/1,
 	 socket_monitor2/1,
 	 socket_monitor2_manys/1,
-	 socket_monitor2_manyc/1
+	 socket_monitor2_manyc/1,
+	 otp_17492/1
 	]).
 
 %% Internal exports.
@@ -188,7 +189,8 @@ all_cases() ->
      otp_8102, otp_9389,
      otp_12242, delay_send_error,
      bidirectional_traffic,
-     {group, socket_monitor}
+     {group, socket_monitor},
+     otp_17492
     ].
 
 close_cases() ->
@@ -7137,6 +7139,69 @@ do_socket_monitor2_manyc(Config) ->
     sm_await_down(Pid3, Mon3, ok),
     sm_await_down(Pid4, Mon4, ok),
     sm_await_down(Pid5, Mon5, ok),
+    ?P("done"),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is the most basic of tests.
+%% Spawn a process that creates a (listen) socket, then spawns (client)
+%% processes that create monitors to it...
+otp_17492(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
+    ?TC_TRY(otp_17492, fun() -> do_otp_17492(Config) end).
+
+do_otp_17492(Config) ->
+    ?P("begin"),
+
+    Self = self(),
+
+    ?P("try create listen socket"),
+    {ok, L} = ?LISTEN(Config, 0, []),
+
+    ?P("try get (created) listen socket info"),
+    try inet:info(L) of
+	#{owner := Owner} = Info when is_pid(Owner) andalso (Owner =:= Self) ->
+	    ?P("(created) Listen socket info: ~p", [Info]);
+	OBadInfo ->
+	    ?P("(created) listen socket info: ~p", [OBadInfo]),
+	    (catch gen_tcp:close(L)),
+	    ct:fail({invalid_created_info, OBadInfo})
+    catch
+	OC:OE:OS ->
+	    ?P("Failed get (created) listen socket info: "
+	       "~n   Class: ~p"
+	       "~n   Error: ~p"
+	       "~n   Stack: ~p", [OC, OE, OS]),
+	    (catch gen_tcp:close(L)),
+	    ct:fail({unexpected_created_info_result, {OC, OE, OS}})
+    end,
+
+    ?P("try close (listen) socket"),
+    ok = gen_tcp:close(L),
+
+    ?P("try get (closed) listen socket info"),
+    try inet:info(L) of
+	#{states := [closed]} = CInfo when is_port(L) ->
+	    ?P("(closed) listen socket info: "
+	       "~n   ~p", [CInfo]);
+	#{rstates := [closed], wstates := [closed]} = CInfo ->
+	    ?P("(closed) listen socket info: "
+	       "~n   ~p", [CInfo]);
+	CBadInfo ->
+	    ?P("(closed) listen socket info: ~p", [CBadInfo]),
+	    ct:fail({invalid_closed_info, CBadInfo})
+    catch
+	CC:CE:CS ->
+	    ?P("Failed get (closed) listen socket info: "
+	       "~n   Class: ~p"
+	       "~n   Error: ~p"
+	       "~n   Stack: ~p", [CC, CE, CS]),
+	    (catch gen_tcp:close(L)),
+	    ct:fail({unexpected_closed_info_result, {CC, CE, CS}})
+    end,
+
     ?P("done"),
     ok.
 

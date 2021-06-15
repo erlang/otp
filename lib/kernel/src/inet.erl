@@ -708,9 +708,7 @@ port_info(P) when is_port(P) ->
     end.
 
 port_info(PI, Items) when is_list(PI) ->
-    port_info(PI, Items, []);
-port_info(_, _) ->
-    [].
+    port_info(PI, Items, []).
 
 port_info(_PI, [], Acc) ->
     Acc;
