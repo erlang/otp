@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1482,6 +1482,7 @@ enc_opt(show_econnreset) -> ?INET_LOPT_TCP_SHOW_ECONNRESET;
 enc_opt(line_delimiter)  -> ?INET_LOPT_LINE_DELIM;
 enc_opt(raw)             -> ?INET_OPT_RAW;
 enc_opt(bind_to_device)  -> ?INET_OPT_BIND_TO_DEVICE;
+enc_opt(win_reuseaddr)   -> ?INET_OPT_WIN_REUSEADDR;
 % Names of SCTP opts:
 enc_opt(sctp_rtoinfo)	 	   -> ?SCTP_OPT_RTOINFO;
 enc_opt(sctp_associnfo)	 	   -> ?SCTP_OPT_ASSOCINFO;
@@ -1549,6 +1550,7 @@ dec_opt(?INET_LOPT_TCP_SHOW_ECONNRESET) -> show_econnreset;
 dec_opt(?INET_LOPT_LINE_DELIM)      -> line_delimiter;
 dec_opt(?INET_OPT_RAW)              -> raw;
 dec_opt(?INET_OPT_BIND_TO_DEVICE) -> bind_to_device;
+dec_opt(?INET_OPT_WIN_REUSEADDR)  -> win_reuseaddr;
 dec_opt(I) when is_integer(I)     -> undefined.
 
 
@@ -1588,6 +1590,7 @@ type_opt(_,   Opt) ->
 %% Types of option values, by option name:
 %%
 type_opt_1(reuseaddr)       -> bool;
+type_opt_1(win_reuseaddr)   -> bool;
 type_opt_1(keepalive)       -> bool;
 type_opt_1(dontroute)       -> bool;
 type_opt_1(linger)          -> {bool,int};
