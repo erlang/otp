@@ -27,7 +27,11 @@
 dnl m4_define(EI_VERSION,`grep EI_VSN ../vsn.mk | sed 's/^.*=[ ]*//'`)
 dnl m4_define(EI_VERSION,regexp(m4_include(VERSION),[version \([-.0-9A-Za-z]+\)],[\1]))
 
-AC_INIT()
+AC_INIT
+AC_CONFIG_SRCDIR([include/ei.h])
+AC_PREREQ([2.71])
+
+m4_include([otp.m4])
 
 dnl How to set srcdir absolute is taken from the GNU Emacs distribution
 #### Make srcdir absolute, if it isn't already.  It's important to
@@ -50,18 +54,14 @@ case "${srcdir}" in
   *  ) srcdir="`(cd ${srcdir}; pwd)`" ;;
 esac
 
-AC_CONFIG_AUX_DIR([$srcdir/src/auxdir])
+AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
-if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
-    AC_CANONICAL_HOST
-else
-    host_os=win32
-fi
+ERL_CANONICAL_SYSTEM_TYPE
 
 TARGET=$host
 AC_SUBST(TARGET)
 
-AC_CONFIG_HEADER([src/$host/config.h:config.h.in])
+AC_CONFIG_HEADERS([src/$host/config.h:config.h.in])
 
 dnl ----------------------------------------------------------------------
 dnl Optional features
@@ -92,6 +92,7 @@ dnl ----------------------------------------------------------------------
 
 AC_PROG_CC
 AC_PROG_CPP
+AC_PROG_EGREP
 dnl AC_PROG_LIBTOOL
 AC_PROG_RANLIB
 AC_CHECK_PROGS(LD, ld.sh)
@@ -164,7 +165,8 @@ AC_CHECK_LIB([nsl], [gethostbyname])
 AC_CHECK_LIB([socket], [getpeername])
 
 # Checks for header files.
-AC_HEADER_STDC
+AC_CHECK_INCLUDES_DEFAULT
+
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h malloc.h netdb.h netinet/in.h stddef.h stdlib.h string.h sys/param.h sys/socket.h sys/select.h sys/time.h unistd.h sys/types.h sys/uio.h])
 
@@ -175,14 +177,12 @@ dnl AC_C_VOLATILE
 AC_TYPE_UID_T
 AC_TYPE_PID_T
 AC_TYPE_SIZE_T
-AC_HEADER_TIME
+AC_CHECK_HEADERS_ONCE([sys/time.h])
+
 AC_MSG_CHECKING([for socklen_t usability])
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <sys/socket.h>], 
-[socklen_t mylen;],
-[AC_MSG_RESULT(yes) 
- AC_DEFINE(HAVE_SOCKLEN_T, [], [Define if you have the `socklen_t' type])],
-[AC_MSG_RESULT(no)])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
+#include <sys/socket.h>]], [[socklen_t mylen;]])],[AC_MSG_RESULT(yes) 
+ AC_DEFINE(HAVE_SOCKLEN_T, [], [Define if you have the `socklen_t' type])],[AC_MSG_RESULT(no)])
 
 # Checks for library functions.
 AC_FUNC_ALLOCA
@@ -194,7 +194,7 @@ dnl AC_FUNC_MALLOC
 dnl AC_FUNC_REALLOC
 AC_FUNC_MEMCMP
 dnl AC_FUNC_SELECT_ARGTYPES
-dnl AC_TYPE_SIGNAL
+
 dnl AC_FUNC_STRERROR_R
 dnl AC_FUNC_VPRINTF
 AC_CHECK_FUNCS([dup2 gethostbyaddr gethostbyname \
@@ -221,7 +221,8 @@ AC_ARG_WITH(gmp,
 # We don't just want any GNU MP version, we want 4.1 or later
 # that contain the import/export functions we need.
 
-if test "x$with_gmp" = "xyes" ;then
+AS_IF([test "x$with_gmp" = "xyes"],
+  [
     for dir in /usr /usr/pkg /usr/local /usr/local/gmp /usr/lib/gmp /usr/gmp; do
 	AC_CHECK_HEADER($dir/include/gmp.h, ac_cv_gmp=yes, ac_cv_gmp=no)
 	if test $ac_cv_gmp = yes ; then
@@ -246,7 +247,7 @@ elif test "x$with_gmp" != "xno" -a -n "$with_gmp" ;then
     AC_DEFINE(HAVE_GMP_H, [], [Define if you have "gmp.h"])
     AC_CHECK_LIB(gmp, __gmpz_export)
     # FIXME return ERROR if no lib
-fi
+  ])
 
 LM_WINDOWS_ENVIRONMENT
 	
@@ -260,8 +261,10 @@ AC_SUBST(THR_LIBS)
 AC_SUBST(THR_DEFS)
 AC_SUBST(EI_THREADS)
 
-case "$threads_disabled" in
-    no|maybe)
+AS_CASE(["$threads_disabled"],
+
+    [no|maybe],
+    [
 	LM_CHECK_THR_LIB
         ETHR_CHK_GCC_ATOMIC_OPS([])
 
@@ -270,7 +273,7 @@ case "$threads_disabled" in
 	        EI_THREADS="false"
 		# Fail if --enable-threads given and no threads found
 		if test "x$threads_disabled" = "xno"; then
-		    AC_MSG_ERROR(No threads support found)
+		    AC_MSG_ERROR([No threads support found])
 		fi
 	        ;;
 	    win32_threads)
@@ -285,19 +288,21 @@ case "$threads_disabled" in
 	    	AC_MSG_WARN([Unexpected thread library: $THR_LIB_NAME])
 		;;
 	esac
-	;;
-    yes)
+    ],
+
+    [yes],
+    [
 	# Threads disabled
 	EI_THREADS="false"
-	;;
-esac
+    ])
 
 # ---------------------------------------------------------------------------
 # Warning flags to the C compiler
 # ---------------------------------------------------------------------------
 AC_SUBST(WFLAGS)
 
-if test "x$GCC" = xyes; then
+AS_IF([test "x$GCC" = xyes],
+ [
   # Treat certain GCC warnings as errors
   LM_TRY_ENABLE_CFLAG([-Werror=return-type], [WERRORFLAGS])
   WFLAGS="-Wall -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wnested-externs -Winline"
@@ -321,10 +326,11 @@ if test "x$GCC" = xyes; then
   # Until version 10, gcc has had -fcommon as default, which allows and merges
   # such dubious duplicates.
   LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
-else
+ ],
+ [
   WFLAGS=""
   WERRORFLAGS=""
-fi
+ ])
 
 # ---------------------------------------------------------------------------
 # FIXME We want to use libtool but until then....
@@ -371,7 +377,7 @@ LDFLAGS="$LDFLAGS $sanitizers"
 # ---------------------------------------------------------------------------
 
 
-AC_OUTPUT(
-	src/$host/Makefile:src/Makefile.in
+AC_CONFIG_FILES([src/$host/Makefile:src/Makefile.in
 	src/$host/eidefs.mk:src/eidefs.mk.in
-	)
+	])
+AC_OUTPUT

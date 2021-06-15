@@ -1,4 +1,4 @@
-dnl
+dnl -*-Autoconf-*-
 dnl %CopyrightBegin%
 dnl
 dnl Copyright Ericsson AB 1998-2020. All Rights Reserved.
@@ -19,12 +19,52 @@ dnl %CopyrightEnd%
 dnl
 
 dnl
-dnl aclocal.m4
+dnl otp.m4
 dnl
-dnl Local macros used in configure.in. The Local Macros which
-dnl could/should be part of autoconf are prefixed LM_, macros specific
-dnl to the Erlang system are prefixed ERL_.
+dnl Local macros that can be used in `configure.ac` files in OTP. To use
+dnl any of the macros your `configure.ac` file should include this file
+dnl using `m4_include([otp.m4])` after AC_INIT.
 dnl
+dnl The Local Macros which could be part of autoconf are prefixed LM_,
+dnl macros specific dnl to the Erlang system are prefixed ERL_ (this is
+dnl not always consistently made...).
+dnl
+
+AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
+[
+    AC_CANONICAL_HOST
+    # Adjust for local legacy windows hack...
+    AS_CASE([$host],
+            [local-*-windows],
+            [
+                host=win32
+                host_os=win32
+                host_vendor=
+                host_cpu=
+            ])
+
+    AC_CANONICAL_BUILD
+    # Adjust for local legacy windows hack...
+    AS_CASE([$build],
+            [local-*-windows],
+            [
+                build=win32
+                build_os=win32
+                build_vendor=
+                build_cpu=
+            ])
+
+    AC_CANONICAL_TARGET
+    # Adjust for local legacy windows hack...
+    AS_CASE([$target],
+            [local-*-windows],
+            [
+                target=win32
+                target_os=win32
+                target_vendor=
+                target_cpu=
+            ])
+])
 
 AC_DEFUN(LM_PRECIOUS_VARS,
 [
@@ -90,13 +130,18 @@ fi
 
 AC_DEFUN(LM_CHECK_GETCONF,
 [
-if test "$cross_compiling" != "yes"; then
+AS_IF(
+  [test "$cross_compiling" != "yes"],
+  [
     AC_CHECK_PROG([GETCONF], [getconf], [getconf], [false])
-else
+  ],
+  [
     dnl First check if we got a `<HOST>-getconf' in $PATH
     host_getconf="$host_alias-getconf"
     AC_CHECK_PROG([GETCONF], [$host_getconf], [$host_getconf], [false])
-    if test "$GETCONF" = "false" && test "$erl_xcomp_sysroot" != ""; then
+    AS_IF(
+      [test "$GETCONF" = "false" && test "$erl_xcomp_sysroot" != ""],
+      [
 	dnl We should perhaps give up if we have'nt found it by now, but at
 	dnl least in one Tilera MDE `getconf' under sysroot is a bourne
 	dnl shell script which we can use. We try to find `<HOST>-getconf'
@@ -107,8 +152,8 @@ else
 	prfx="$erl_xcomp_sysroot"
         AC_PATH_TOOL([GETCONF], [getconf], [false],
 	             ["$prfx/usr/bin:$prfx/bin:$prfx/usr/local/bin"])
-    fi
-fi
+      ])
+   ])
 ])
 
 dnl ----------------------------------------------------------------------
@@ -235,7 +280,7 @@ AC_DEFUN(LM_FIND_EMU_CC,
 	[AC_CACHE_CHECK(for a compiler that handles jumptables,
 			ac_cv_prog_emu_cc,
 			[
-AC_TRY_COMPILE([],[
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
 #if defined(__clang_major__) && __clang_major__ >= 3
     /* clang 3.x or later is fine */
 #elif defined(__llvm__)
@@ -254,7 +299,7 @@ lbl1:
     return 1;
 lbl2:
     return 2;
-],ac_cv_prog_emu_cc="$CC",ac_cv_prog_emu_cc=no)
+]])],[ac_cv_prog_emu_cc="$CC"],[ac_cv_prog_emu_cc=no])
 
 if test "$ac_cv_prog_emu_cc" = no; then
 	for ac_progname in emu_cc.sh gcc-4.2 gcc; do
@@ -274,14 +319,15 @@ if test "$ac_cv_prog_emu_cc" = no; then
 	done
 fi
 
-if test "$ac_cv_prog_emu_cc" != no; then
+AS_IF([test "$ac_cv_prog_emu_cc" != no],
+      [
 	save_CC="$CC"
 	save_CFLAGS=$CFLAGS
 	save_CPPFLAGS=$CPPFLAGS
 	CC="$ac_cv_prog_emu_cc"
 	CFLAGS=""
 	CPPFLAGS=""
-	AC_TRY_COMPILE([],[
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
 #if defined(__clang_major__) && __clang_major__ >= 3
     /* clang 3.x or later is fine */
 #elif defined(__llvm__)
@@ -300,11 +346,11 @@ if test "$ac_cv_prog_emu_cc" != no; then
     	return 1;
 	lbl2:
     	return 2;
-	],ac_cv_prog_emu_cc="$CC",ac_cv_prog_emu_cc=no)
+	]])],[ac_cv_prog_emu_cc="$CC"],[ac_cv_prog_emu_cc=no])
 	CC=$save_CC
 	CFLAGS=$save_CFLAGS
 	CPPFLAGS=$save_CPPFLAGS
-fi
+     ])
 ])
 if test "$ac_cv_prog_emu_cc" = no; then
 	AC_DEFINE(NO_JUMP_TABLE,[],[Defined if no found C compiler can handle jump tables])
@@ -383,9 +429,7 @@ dnl Check if the system has the SO_BSDCOMPAT flag on sockets (linux)
 dnl
 AC_DEFUN(LM_DECL_SO_BSDCOMPAT,
 [AC_CACHE_CHECK([for SO_BSDCOMPAT declaration], ac_cv_decl_so_bsdcompat,
-AC_TRY_COMPILE([#include <sys/socket.h>], [int i = SO_BSDCOMPAT;],
-               ac_cv_decl_so_bsdcompat=yes,
-               ac_cv_decl_so_bsdcompat=no))
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/socket.h>]], [[int i = SO_BSDCOMPAT;]])],[ac_cv_decl_so_bsdcompat=yes],[ac_cv_decl_so_bsdcompat=no]))
 
 case "${ac_cv_decl_so_bsdcompat}" in
   "yes" ) AC_DEFINE(HAVE_SO_BSDCOMPAT,[],
@@ -405,31 +449,28 @@ dnl
 AC_DEFUN(LM_DECL_INADDR_LOOPBACK,
 [AC_CACHE_CHECK([for INADDR_LOOPBACK in netinet/in.h],
  ac_cv_decl_inaddr_loopback,
-[AC_TRY_COMPILE([#include <sys/types.h>
-#include <netinet/in.h>], [int i = INADDR_LOOPBACK;],
-ac_cv_decl_inaddr_loopback=yes, ac_cv_decl_inaddr_loopback=no)
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
+#include <netinet/in.h>]], [[int i = INADDR_LOOPBACK;]])],[ac_cv_decl_inaddr_loopback=yes],[ac_cv_decl_inaddr_loopback=no])
 ])
 
-if test ${ac_cv_decl_inaddr_loopback} = no; then
+AS_IF(
+ [test ${ac_cv_decl_inaddr_loopback} = no],
+ [
   AC_CACHE_CHECK([for INADDR_LOOPBACK in rpc/types.h],
                    ac_cv_decl_inaddr_loopback_rpc,
-                   AC_TRY_COMPILE([#include <rpc/types.h>],
-                                   [int i = INADDR_LOOPBACK;],
-                                   ac_cv_decl_inaddr_loopback_rpc=yes,
-                                   ac_cv_decl_inaddr_loopback_rpc=no))
+                   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <rpc/types.h>]], [[int i = INADDR_LOOPBACK;]])],[ac_cv_decl_inaddr_loopback_rpc=yes],[ac_cv_decl_inaddr_loopback_rpc=no]))
 
-   case "${ac_cv_decl_inaddr_loopback_rpc}" in
-     "yes" )
+   AS_IF(
+      [test "${ac_cv_decl_inaddr_loopback_rpc}" = "yes"],
+      [
         AC_DEFINE(DEF_INADDR_LOOPBACK_IN_RPC_TYPES_H,[],
-		[Define if you need to include rpc/types.h to get INADDR_LOOPBACK defined]) ;;
-      * )
+		[Define if you need to include rpc/types.h to get INADDR_LOOPBACK defined])
+      ],
+      [
   	AC_CACHE_CHECK([for INADDR_LOOPBACK in winsock2.h],
                    ac_cv_decl_inaddr_loopback_winsock2,
-                   AC_TRY_COMPILE([#define WIN32_LEAN_AND_MEAN
-				   #include <winsock2.h>],
-                                   [int i = INADDR_LOOPBACK;],
-                                   ac_cv_decl_inaddr_loopback_winsock2=yes,
-                                   ac_cv_decl_inaddr_loopback_winsock2=no))
+                   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#define WIN32_LEAN_AND_MEAN
+				   #include <winsock2.h>]], [[int i = INADDR_LOOPBACK;]])],[ac_cv_decl_inaddr_loopback_winsock2=yes],[ac_cv_decl_inaddr_loopback_winsock2=no]))
 	case "${ac_cv_decl_inaddr_loopback_winsock2}" in
      		"yes" )
 			AC_DEFINE(DEF_INADDR_LOOPBACK_IN_WINSOCK2_H,[],
@@ -438,9 +479,9 @@ if test ${ac_cv_decl_inaddr_loopback} = no; then
 			# couldn't find it anywhere
         		AC_DEFINE(HAVE_NO_INADDR_LOOPBACK,[],
 				[Define if you don't have a definition of INADDR_LOOPBACK]) ;;
-	esac;;
-   esac
-fi
+	esac
+      ])
+ ])
 ])
 
 
@@ -454,9 +495,8 @@ dnl
 AC_DEFUN(LM_STRUCT_SOCKADDR_SA_LEN,
 [AC_CACHE_CHECK([whether struct sockaddr has sa_len field],
                 ac_cv_struct_sockaddr_sa_len,
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <sys/socket.h>], [struct sockaddr s; s.sa_len = 10;],
-  ac_cv_struct_sockaddr_sa_len=yes, ac_cv_struct_sockaddr_sa_len=no))
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
+#include <sys/socket.h>]], [[struct sockaddr s; s.sa_len = 10;]])],[ac_cv_struct_sockaddr_sa_len=yes],[ac_cv_struct_sockaddr_sa_len=no]))
 
 dnl FIXME convbreak
 case ${ac_cv_struct_sockaddr_sa_len} in
@@ -477,28 +517,28 @@ AC_DEFUN(LM_SYS_IPV6,
 [AC_MSG_CHECKING(for IP version 6 support)
 AC_CACHE_VAL(ac_cv_sys_ipv6_support,
 [ok_so_far=yes
- AC_TRY_COMPILE([#include <sys/types.h>
+ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
 #ifdef __WIN32__
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #else
 #include <netinet/in.h>
-#endif],
-   [struct in6_addr a6; struct sockaddr_in6 s6;], ok_so_far=yes, ok_so_far=no)
+#endif]], [[struct in6_addr a6; struct sockaddr_in6 s6;]])],[ok_so_far=yes],[ok_so_far=no])
 
-if test $ok_so_far = yes; then
+AS_IF(
+ [test $ok_so_far = yes],
+ [
   ac_cv_sys_ipv6_support=yes
-else
-  AC_TRY_COMPILE([#include <sys/types.h>
+ ],
+ [
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
 #ifdef __WIN32__
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #else
 #include <netinet/in.h>
-#endif],
-    [struct in_addr6 a6; struct sockaddr_in6 s6;],
-    ac_cv_sys_ipv6_support=in_addr6, ac_cv_sys_ipv6_support=no)
-fi
+#endif]], [[struct in_addr6 a6; struct sockaddr_in6 s6;]])],[ac_cv_sys_ipv6_support=in_addr6],[ac_cv_sys_ipv6_support=no])
+ ])
 ])dnl
 
 dnl
@@ -533,7 +573,8 @@ dnl
 
 AC_DEFUN(LM_SYS_MULTICAST,
 [AC_CACHE_CHECK([for multicast support], ac_cv_sys_multicast_support,
-[AC_EGREP_CPP(^yes$,
+[
+AC_EGREP_CPP(^yes$,
 [#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -559,9 +600,8 @@ dnl
 AC_DEFUN(LM_DECL_SYS_ERRLIST,
 [AC_CACHE_CHECK([for sys_errlist declaration in stdio.h or errno.h],
   ac_cv_decl_sys_errlist,
-[AC_TRY_COMPILE([#include <stdio.h>
-#include <errno.h>], [char *msg = *(sys_errlist + 1);],
-  ac_cv_decl_sys_errlist=yes, ac_cv_decl_sys_errlist=no)])
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>
+#include <errno.h>]], [[char *msg = *(sys_errlist + 1);]])],[ac_cv_decl_sys_errlist=yes],[ac_cv_decl_sys_errlist=no])])
 if test $ac_cv_decl_sys_errlist = yes; then
   AC_DEFINE(SYS_ERRLIST_DECLARED,[],
 	[define if the variable sys_errlist is declared in a system header file])
@@ -586,10 +626,10 @@ dnl
 AC_DEFUN(LM_CHECK_FUNC_DECL,
 [AC_MSG_CHECKING([for conflicting declaration of $1])
 AC_CACHE_VAL(ac_cv_func_decl_$1,
-[AC_TRY_COMPILE([#include <stdio.h>
-$3],[$2
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>
+$3]], [[$2
 char *c = (char *)$1;
-], eval "ac_cv_func_decl_$1=no", eval "ac_cv_func_decl_$1=yes")])
+]])],[eval "ac_cv_func_decl_$1=no"],[eval "ac_cv_func_decl_$1=yes"])])
 if eval "test \"`echo '$ac_cv_func_decl_'$1`\" = yes"; then
   AC_MSG_RESULT(yes)
   ifelse([$4], , :, [$4])
@@ -695,7 +735,7 @@ case $ac_cv_c_double_middle_endian in
       [AC_MSG_WARN([unknown double endianness
 presetting ac_cv_c_double_middle_endian=no (or yes) will help])]) ;;
 esac
-])# AC_C_DOUBLE_MIDDLE_ENDIAN
+])dnl # AC_C_DOUBLE_MIDDLE_ENDIAN
 
 
 AC_DEFUN(ERL_MONOTONIC_CLOCK,
@@ -743,57 +783,52 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
 
   AC_CACHE_CHECK([for clock_gettime(CLOCK_MONOTONIC_RAW, _)], erl_cv_clock_gettime_monotonic_raw,
   [
-       AC_TRY_LINK([
+       AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <time.h>
 $trust_test
-		      ],
-		      [
+		      ]], [[
     struct timespec ts;
     long long result;
     clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
     result = ((long long) ts.tv_sec) * 1000000000LL + 
     ((long long) ts.tv_nsec);
-		      ],
-		      erl_cv_clock_gettime_monotonic_raw=yes,
-		      erl_cv_clock_gettime_monotonic_raw=no)
+		      ]])],[erl_cv_clock_gettime_monotonic_raw=yes],[erl_cv_clock_gettime_monotonic_raw=no])
   ])
 
   AC_CACHE_CHECK([for clock_gettime() with ${check_msg}monotonic clock type], erl_cv_clock_gettime_monotonic_$1,
   [
      for clock_type in $prefer_resolution_clock_gettime_monotonic $default_resolution_clock_gettime_monotonic $high_resolution_clock_gettime_monotonic $low_resolution_clock_gettime_monotonic; do
-       AC_TRY_LINK([
+       AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <time.h>
 $trust_test
-		      ],
-		      [
+		      ]], [[
     struct timespec ts;
     long long result;
     clock_gettime($clock_type,&ts);
     result = ((long long) ts.tv_sec) * 1000000000LL + 
     ((long long) ts.tv_nsec);
-		      ],
-		      erl_cv_clock_gettime_monotonic_$1=$clock_type,
-		      erl_cv_clock_gettime_monotonic_$1=no)
+		      ]])],[erl_cv_clock_gettime_monotonic_$1=$clock_type],[erl_cv_clock_gettime_monotonic_$1=no])
        test $erl_cv_clock_gettime_monotonic_$1 = no || break
      done
   ])
 
   LIBS="$save_LIBS"
 
-  if test "$LD_MAY_BE_WEAK" != "no"; then
+  AS_IF(
+   [test "$LD_MAY_BE_WEAK" != "no"],
+   [
     AC_CHECK_FUNCS([clock_get_attributes gethrtime])
-  else
+   ],
+   [
     AC_CHECK_FUNCS([clock_getres clock_get_attributes gethrtime])
-  fi
-
+   ])
   
   AC_CACHE_CHECK([for mach clock_get_time() with monotonic clock type], erl_cv_mach_clock_get_time_monotonic,
   [
-     AC_TRY_COMPILE([
+     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <mach/clock.h>
 #include <mach/mach.h>
-			],
-	 		[
+			]], [[
     kern_return_t res;
     clock_serv_t clk_srv;
     mach_timespec_t time_spec;
@@ -801,9 +836,7 @@ $trust_test
     host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &clk_srv);
     res = clock_get_time(clk_srv, &time_spec);
     mach_port_deallocate(mach_task_self(), clk_srv);
-    			],
-    			erl_cv_mach_clock_get_time_monotonic=yes,
-			erl_cv_mach_clock_get_time_monotonic=no)
+    			]])],[erl_cv_mach_clock_get_time_monotonic=yes],[erl_cv_mach_clock_get_time_monotonic=no])
   ])
   
   erl_corrected_monotonic_clock=no
@@ -908,40 +941,35 @@ AC_DEFUN(ERL_WALL_CLOCK,
   AC_CACHE_CHECK([for clock_gettime() with ${check_msg}wall clock type], erl_cv_clock_gettime_wall_$1,
   [
      for clock_type in $prefer_resolution_clock_gettime_wall $default_resolution_clock_gettime_wall $high_resolution_clock_gettime_wall $low_resolution_clock_gettime_wall; do
-       AC_TRY_LINK([
+       AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <time.h>
 $trust_test
-		      ],
-		      [
+		      ]], [[
     struct timespec ts;
     long long result;
     clock_gettime($clock_type,&ts);
     result = ((long long) ts.tv_sec) * 1000000000LL + 
     ((long long) ts.tv_nsec);
-		      ],
-		      erl_cv_clock_gettime_wall_$1=$clock_type,
-		      erl_cv_clock_gettime_wall_$1=no)
+		      ]])],[erl_cv_clock_gettime_wall_$1=$clock_type],[erl_cv_clock_gettime_wall_$1=no])
        test $erl_cv_clock_gettime_wall_$1 = no || break
      done
   ])
 
   LIBS="$save_LIBS"
 
-  if test "$LD_MAY_BE_WEAK" != "no"; then
-     check_for_clock_getres=
-  else
-     check_for_clock_getres=clock_getres
-  fi
+  AS_IF([test "$LD_MAY_BE_WEAK" = "no"],
+        [
+            AC_CHECK_FUNCS([clock_getres])
+        ])
 
-  AC_CHECK_FUNCS([$check_for_clock_getres clock_get_attributes gettimeofday])
+  AC_CHECK_FUNCS([clock_get_attributes gettimeofday])
   
   AC_CACHE_CHECK([for mach clock_get_time() with wall clock type], erl_cv_mach_clock_get_time_wall,
   [
-     AC_TRY_COMPILE([
+     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <mach/clock.h>
 #include <mach/mach.h>
-			],
-	 		[
+			]], [[
     kern_return_t res;
     clock_serv_t clk_srv;
     mach_timespec_t time_spec;
@@ -949,9 +977,7 @@ $trust_test
     host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &clk_srv);
     res = clock_get_time(clk_srv, &time_spec);
     mach_port_deallocate(mach_task_self(), clk_srv);
-    			],
-    			erl_cv_mach_clock_get_time_wall=yes,
-			erl_cv_mach_clock_get_time_wall=no)
+    			]])],[erl_cv_mach_clock_get_time_wall=yes],[erl_cv_mach_clock_get_time_wall=no])
   ])
 
   erl_wall_clock_lib=
@@ -1003,13 +1029,16 @@ NEED_NPTL_PTHREAD_H=no
 
 dnl win32?
 AC_MSG_CHECKING([for native win32 threads])
-if test "X$host_os" = "Xwin32"; then
+AS_IF(
+  [test "X$host_os" = "Xwin32"],
+  [
     AC_MSG_RESULT(yes)
     THR_DEFS="-DWIN32_THREADS"
     THR_LIBS=
     THR_LIB_NAME=win32_threads
     THR_LIB_TYPE=win32_threads
-else
+  ],
+  [
     AC_MSG_RESULT(no)
     THR_DEFS=
     THR_LIBS=
@@ -1022,42 +1051,50 @@ dnl The usual pthread lib...
     AC_CHECK_LIB(pthread, pthread_create, THR_LIBS="-lpthread")
 
 dnl Very old versions of FreeBSD have pthreads in special c library, c_r...
-    if test "x$THR_LIBS" = "x"; then
-	AC_CHECK_LIB(c_r, pthread_create, THR_LIBS="-lc_r")
-    fi
+    AS_IF([test "x$THR_LIBS" = "x"],
+          [
+              AC_CHECK_LIB([c_r], [pthread_create], [THR_LIBS="-lc_r"])
+          ])
 
 dnl QNX has pthreads in standard C library
-    if test "x$THR_LIBS" = "x"; then
-	AC_CHECK_FUNC(pthread_create, THR_LIBS="none_needed")
-    fi
+    AS_IF([test "x$THR_LIBS" = "x"],
+          [
+              AC_CHECK_FUNC([pthread_create], [THR_LIBS="none_needed"])
+          ])
 
 dnl On ofs1 the '-pthread' switch should be used
-    if test "x$THR_LIBS" = "x"; then
+    AS_IF(
+      [test "x$THR_LIBS" = "x"],
+      [
 	AC_MSG_CHECKING([if the '-pthread' switch can be used])
 	saved_cflags=$CFLAGS
 	CFLAGS="$CFLAGS -pthread"
-	AC_TRY_LINK([#include <pthread.h>],
-		    pthread_create((void*)0,(void*)0,(void*)0,(void*)0);,
-		    [THR_DEFS="-pthread"
-		     THR_LIBS="-pthread"])
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <pthread.h>]], [[pthread_create((void*)0,(void*)0,(void*)0,(void*)0);]])],[THR_DEFS="-pthread"
+		     THR_LIBS="-pthread"],[])
 	CFLAGS=$saved_cflags
 	if test "x$THR_LIBS" != "x"; then
 	    AC_MSG_RESULT(yes)
 	else
 	    AC_MSG_RESULT(no)
 	fi
-    fi
+      ])
 
-    if test "x$THR_LIBS" != "x"; then
+    AS_IF(
+      [test "x$THR_LIBS" != "x"],
+      [
 	THR_DEFS="$THR_DEFS -D_THREAD_SAFE -D_REENTRANT -DPOSIX_THREADS"
 	THR_LIB_NAME=pthread
 	if test "x$THR_LIBS" = "xnone_needed"; then
 	    THR_LIBS=
 	fi
-	case $host_os in
-	    solaris*)
-		THR_DEFS="$THR_DEFS -D_POSIX_PTHREAD_SEMANTICS" ;;
-	    linux*)
+	AS_CASE(
+            [$host_os],
+	    [solaris*],
+            [
+		THR_DEFS="$THR_DEFS -D_POSIX_PTHREAD_SEMANTICS"
+            ],
+            [linux*],
+            [
 		THR_DEFS="$THR_DEFS -D_POSIX_THREAD_SAFE_FUNCTIONS"
 
 		LM_CHECK_GETCONF
@@ -1082,13 +1119,17 @@ dnl On ofs1 the '-pthread' switch should be used
 		    nptl=yes
 		    AC_MSG_WARN([result yes guessed because of cross compilation])
 		fi
-		if test $nptl = yes; then
+		AS_IF(
+                  [test $nptl = yes],
+                  [
 		    THR_LIB_TYPE=posix_nptl
 		    need_nptl_incldir=no
-		    AC_CHECK_HEADER(nptl/pthread.h,
+		    AC_CHECK_HEADER([nptl/pthread.h],
 				    [need_nptl_incldir=yes
 				     NEED_NPTL_PTHREAD_H=yes])
-		    if test $need_nptl_incldir = yes; then
+		    AS_IF(
+                      [test $need_nptl_incldir = yes],
+                      [
 			# Ahh...
 			nptl_path="$C_INCLUDE_PATH:$CPATH"
 			if test X$cross_compiling != Xyes; then
@@ -1109,8 +1150,8 @@ dnl On ofs1 the '-pthread' switch should be used
 			IFS=$save_ifs
 			nptl_incldir=
 			for dir in $nptl_ws_path; do
-		            AC_CHECK_HEADER($dir/nptl/pthread.h,
-					    nptl_incldir=$dir/nptl)
+		            AC_CHECK_HEADER([$dir/nptl/pthread.h],
+					    [nptl_incldir=$dir/nptl])
 			    if test "x$nptl_incldir" != "x"; then
 				THR_DEFS="$THR_DEFS -isystem $nptl_incldir"
 				break
@@ -1119,11 +1160,9 @@ dnl On ofs1 the '-pthread' switch should be used
 			if test "x$nptl_incldir" = "x"; then
 			    AC_MSG_ERROR(Failed to locate nptl system include directory)
 			fi
-		    fi
-		fi
-		;;
-	    *) ;;
-	esac
+                      ])
+                  ])
+            ])
 
 	dnl We sometimes need THR_DEFS in order to find certain headers
 	dnl (at least for pthread.h on osf1).
@@ -1146,8 +1185,8 @@ dnl On ofs1 the '-pthread' switch should be used
 	dnl restore CPPFLAGS
 	CPPFLAGS=$saved_cppflags
 
-    fi
-fi
+      ])
+  ])
 
 ])
 
@@ -1204,17 +1243,17 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OP__,
     AC_CACHE_CHECK([for 32-bit $1()], ethr_cv_32bit_$1,
 		   [
 		       ethr_cv_32bit_$1=no
-		       AC_TRY_LINK([], [$atomic32_call], [ethr_cv_32bit_$1=yes])
+		       AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[$atomic32_call]])],[ethr_cv_32bit_$1=yes],[])
 		   ])
     AC_CACHE_CHECK([for 64-bit $1()], ethr_cv_64bit_$1,
 		   [
 		       ethr_cv_64bit_$1=no
-		       AC_TRY_LINK([], [$atomic64_call], [ethr_cv_64bit_$1=yes])
+		       AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[$atomic64_call]])],[ethr_cv_64bit_$1=yes],[])
 		   ])
     AC_CACHE_CHECK([for 128-bit $1()], ethr_cv_128bit_$1,
 		   [
 		       ethr_cv_128bit_$1=no
-		       AC_TRY_LINK([], [$atomic128_call], [ethr_cv_128bit_$1=yes])
+		       AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[$atomic128_call]])],[ethr_cv_128bit_$1=yes],[])
 		   ])
 
 	case $ethr_cv_128bit_$1-$ethr_cv_64bit_$1-$ethr_cv_32bit_$1 in
@@ -1303,9 +1342,7 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
     AC_CACHE_CHECK([for a working __sync_synchronize()], ethr_cv___sync_synchronize,
 		   [
 		       ethr_cv___sync_synchronize=no
-		       AC_TRY_LINK([],
-				   [ __sync_synchronize(); ],
-				   [ethr_cv___sync_synchronize=yes])
+		       AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ __sync_synchronize(); ]])],[ethr_cv___sync_synchronize=yes],[])
 		       if test $ethr_cv___sync_synchronize = yes; then
 			   #
 			   # Old gcc versions on at least x86 have a buggy
@@ -1346,16 +1383,16 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
     ethr_arm_dbm_sy_instr_val=0
     ethr_arm_dbm_st_instr_val=0
     ethr_arm_dbm_ld_instr_val=0
-    case "$GCC-$host_cpu" in
-	yes-arm*|yes-aarch*)
+    AS_CASE(
+      ["$GCC-$host_cpu"],
+      [yes-arm*|yes-aarch*],
+      [
 	    AC_CACHE_CHECK([for ARM 'dmb sy' instruction], ethr_cv_arm_dbm_sy_instr,
 			   [
 				ethr_cv_arm_dbm_sy_instr=no
-				AC_TRY_LINK([],
-					    [
+				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
 						__asm__ __volatile__("dmb sy" : : : "memory");
-					    ],
-					    [ethr_cv_arm_dbm_sy_instr=yes])
+					    ]])],[ethr_cv_arm_dbm_sy_instr=yes],[])
 			   ])
 	    if test $ethr_cv_arm_dbm_sy_instr = yes; then
 		ethr_arm_dbm_sy_instr_val=1
@@ -1365,11 +1402,9 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 	    AC_CACHE_CHECK([for ARM 'dmb st' instruction], ethr_cv_arm_dbm_st_instr,
 			   [
 				ethr_cv_arm_dbm_st_instr=no
-				AC_TRY_LINK([],
-					    [
+				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
 						__asm__ __volatile__("dmb st" : : : "memory");
-					    ],
-					    [ethr_cv_arm_dbm_st_instr=yes])
+					    ]])],[ethr_cv_arm_dbm_st_instr=yes],[])
 			   ])
 	    if test $ethr_cv_arm_dbm_st_instr = yes; then
 		ethr_arm_dbm_st_instr_val=1
@@ -1377,18 +1412,15 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 	    AC_CACHE_CHECK([for ARM 'dmb ld' instruction], ethr_cv_arm_dbm_ld_instr,
 			   [
 				ethr_cv_arm_dbm_ld_instr=no
-				AC_TRY_LINK([],
-					    [
+				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
 						__asm__ __volatile__("dmb ld" : : : "memory");
-					    ],
-					    [ethr_cv_arm_dbm_ld_instr=yes])
+					    ]])],[ethr_cv_arm_dbm_ld_instr=yes],[])
 			   ])
 	    if test $ethr_cv_arm_dbm_ld_instr = yes; then
 		ethr_arm_dbm_ld_instr_val=1
-	    fi;;
-	*)
-	    ;;
-    esac
+	    fi
+      ])
+
     AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION], [$ethr_arm_dbm_sy_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb sy' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
     AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_ST_INSTRUCTION], [$ethr_arm_dbm_st_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb st' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
     AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_LD_INSTRUCTION], [$ethr_arm_dbm_ld_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb ld' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
@@ -1424,20 +1456,17 @@ AC_DEFUN(ETHR_CHK_INTERLOCKED,
 	"4") ilckd_call="${ilckd}(var, ($3) 0, ($3) 0, arr);";;
     esac
     have_interlocked_op=no
-    AC_TRY_LINK(
-	[
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 	#define WIN32_LEAN_AND_MEAN
 	#include <windows.h>
 	#include <intrin.h>
-	],
-	[
+	]], [[
 	    volatile $3 *var;
 	    volatile $3 arr[2];
 
 	    $ilckd_call
 	    return 0;
-	],
-	[have_interlocked_op=yes])
+	]])],[have_interlocked_op=yes],[])
     test $have_interlocked_op = yes && $4
     AC_MSG_RESULT([$have_interlocked_op])
 ])
@@ -1580,9 +1609,10 @@ AS_HELP_STRING([--without-threadnames],
 dnl Name of lib where ethread implementation is located
 ethr_lib_name=ethread
 
-case "$THR_LIB_NAME" in
-
-    win32_threads)
+AS_CASE(
+    ["$THR_LIB_NAME"],
+    [win32_threads],
+    [
 	ETHR_THR_LIB_BASE_DIR=win
 	# * _WIN32_WINNT >= 0x0400 is needed for
 	#   TryEnterCriticalSection
@@ -1654,9 +1684,9 @@ case "$THR_LIB_NAME" in
 	   ethr_native_atomic_implementation=windows
 	   ethr_have_native_spinlock=yes
 	fi
-	;;
-
-    pthread)
+    ],
+    [pthread],
+    [
 	ETHR_THR_LIB_BASE_DIR=pthread
 	AC_DEFINE(ETHR_PTHREADS, 1, [Define if you have pthreads])
 	case $host_os in
@@ -1751,15 +1781,9 @@ case "$THR_LIB_NAME" in
 			AC_DEFINE(ETHR_HAVE_SYS_TIME_H, 1, \
 [Define if you have the <sys/time.h> header file.]))
 
-	AC_TRY_COMPILE([#include <time.h>
-			#include <sys/time.h>], 
-			[struct timeval *tv; return 0;],
-			AC_DEFINE(ETHR_TIME_WITH_SYS_TIME, 1, \
-[Define if you can safely include both <sys/time.h> and <time.h>.]))
-
 	AC_MSG_CHECKING([for usable PTHREAD_STACK_MIN])
 	pthread_stack_min=no
-	AC_TRY_COMPILE([
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <limits.h>
 #if defined(ETHR_NEED_NPTL_PTHREAD_H)
 #include <nptl/pthread.h>
@@ -1768,9 +1792,7 @@ case "$THR_LIB_NAME" in
 #elif defined(ETHR_HAVE_PTHREAD_H)
 #include <pthread.h>
 #endif
-			], 
-			[return PTHREAD_STACK_MIN;],
-			[pthread_stack_min=yes])
+			]], [[return PTHREAD_STACK_MIN;]])],[pthread_stack_min=yes],[])
 
 	AC_MSG_RESULT([$pthread_stack_min])
 	test $pthread_stack_min != yes || {
@@ -1780,43 +1802,47 @@ case "$THR_LIB_NAME" in
 	dnl
 	dnl Check for functions
 	dnl
-	AC_CHECK_FUNC(pthread_spin_lock, \
+	AC_CHECK_FUNC([pthread_spin_lock], \
 			[ethr_have_native_spinlock=yes \
 			 AC_DEFINE(ETHR_HAVE_PTHREAD_SPIN_LOCK, 1, \
 [Define if you have the pthread_spin_lock function.])])
 
 	have_sched_yield=no
 	have_librt_sched_yield=no
-	AC_CHECK_FUNC(sched_yield, [have_sched_yield=yes])
-	if test $have_sched_yield = no; then
-	    AC_CHECK_LIB(rt, sched_yield,
+	AC_CHECK_FUNC([sched_yield], [have_sched_yield=yes])
+	AS_IF(
+          [test $have_sched_yield = no],
+          [
+	    AC_CHECK_LIB([rt], [sched_yield],
 			 [have_librt_sched_yield=yes
 			  ETHR_X_LIBS="$ETHR_X_LIBS -lrt"])
-	fi
-	if test $have_sched_yield = yes || test $have_librt_sched_yield = yes; then
+          ])
+	AS_IF(
+          [test $have_sched_yield = yes || test $have_librt_sched_yield = yes],
+          [
 	    AC_DEFINE(ETHR_HAVE_SCHED_YIELD, 1, [Define if you have the sched_yield() function.])
 	    AC_MSG_CHECKING([whether sched_yield() returns an int])
 	    sched_yield_ret_int=no
-	    AC_TRY_LINK([
+	    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 				#ifdef ETHR_HAVE_SCHED_H
 				#include <sched.h>
 				#endif
-			   ],
-			   [int sched_yield();],
-			   [sched_yield_ret_int=yes])
+			   ]], [[int sched_yield();]])],[sched_yield_ret_int=yes],[])
 	    AC_MSG_RESULT([$sched_yield_ret_int])
 	    if test $sched_yield_ret_int = yes; then
 		AC_DEFINE(ETHR_SCHED_YIELD_RET_INT, 1, [Define if sched_yield() returns an int.])
 	    fi
-	fi
+          ])
 
 	have_pthread_yield=no
-	AC_CHECK_FUNC(pthread_yield, [have_pthread_yield=yes])
-	if test $have_pthread_yield = yes; then
+	AC_CHECK_FUNC([pthread_yield], [have_pthread_yield=yes])
+	AS_IF(
+          [test $have_pthread_yield = yes],
+          [
 	    AC_DEFINE(ETHR_HAVE_PTHREAD_YIELD, 1, [Define if you have the pthread_yield() function.])
 	    AC_MSG_CHECKING([whether pthread_yield() returns an int])
 	    pthread_yield_ret_int=no
-	    AC_TRY_LINK([
+	    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 				#if defined(ETHR_NEED_NPTL_PTHREAD_H)
 				#include <nptl/pthread.h>
 				#elif defined(ETHR_HAVE_MIT_PTHREAD_H)
@@ -1824,30 +1850,31 @@ case "$THR_LIB_NAME" in
 				#elif defined(ETHR_HAVE_PTHREAD_H)
 				#include <pthread.h>
 				#endif
-			   ],
-			   [int pthread_yield();],
-			   [pthread_yield_ret_int=yes])
+			   ]], [[int pthread_yield();]])],[pthread_yield_ret_int=yes],[])
 	    AC_MSG_RESULT([$pthread_yield_ret_int])
 	    if test $pthread_yield_ret_int = yes; then
 		AC_DEFINE(ETHR_PTHREAD_YIELD_RET_INT, 1, [Define if pthread_yield() returns an int.])
 	    fi
-	fi
+          ])
 
 	have_pthread_rwlock_init=no
 	AC_CHECK_FUNC(pthread_rwlock_init, [have_pthread_rwlock_init=yes])
-	if test $have_pthread_rwlock_init = yes; then
-
+	AS_IF(
+          [test $have_pthread_rwlock_init = yes],
+          [
 	    ethr_have_pthread_rwlockattr_setkind_np=no
 	    AC_CHECK_FUNC(pthread_rwlockattr_setkind_np,
 			  [ethr_have_pthread_rwlockattr_setkind_np=yes])
 
-	    if test $ethr_have_pthread_rwlockattr_setkind_np = yes; then
+	    AS_IF(
+              [test $ethr_have_pthread_rwlockattr_setkind_np = yes],
+              [
 		AC_DEFINE(ETHR_HAVE_PTHREAD_RWLOCKATTR_SETKIND_NP, 1, \
 [Define if you have the pthread_rwlockattr_setkind_np() function.])
 
 		AC_MSG_CHECKING([for PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP])
 		ethr_pthread_rwlock_writer_nonrecursive_initializer_np=no
-		AC_TRY_LINK([
+		AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 				#if defined(ETHR_NEED_NPTL_PTHREAD_H)
 				#include <nptl/pthread.h>
 				#elif defined(ETHR_HAVE_MIT_PTHREAD_H)
@@ -1855,20 +1882,18 @@ case "$THR_LIB_NAME" in
 				#elif defined(ETHR_HAVE_PTHREAD_H)
 				#include <pthread.h>
 				#endif
-			    ],
-			    [
+			    ]], [[
 				pthread_rwlockattr_t *attr;
 				return pthread_rwlockattr_setkind_np(attr,
 				    PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
-			    ],
-			    [ethr_pthread_rwlock_writer_nonrecursive_initializer_np=yes])
+			    ]])],[ethr_pthread_rwlock_writer_nonrecursive_initializer_np=yes],[])
 		AC_MSG_RESULT([$ethr_pthread_rwlock_writer_nonrecursive_initializer_np])
 		if test $ethr_pthread_rwlock_writer_nonrecursive_initializer_np = yes; then
 		    AC_DEFINE(ETHR_HAVE_PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP, 1, \
 [Define if you have the PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP rwlock attribute.])
 		fi
-	    fi
-	fi
+              ])
+          ])
 
 	if test "$force_pthread_rwlocks" = "yes"; then
 
@@ -1886,10 +1911,12 @@ case "$THR_LIB_NAME" in
 			AC_DEFINE(ETHR_HAVE_PTHREAD_ATTR_SETGUARDSIZE, 1, \
 [Define if you have the pthread_attr_setguardsize function.]))
 
-	if test "x$erl_monotonic_clock_id" != "x"; then
+	AS_IF(
+         [test "x$erl_monotonic_clock_id" != "x"],
+         [
 	  AC_MSG_CHECKING(whether pthread_cond_timedwait() can use the monotonic clock $erl_monotonic_clock_id for timeout)
 	  pthread_cond_timedwait_monotonic=no
-	  AC_TRY_LINK([
+	  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 			#if defined(ETHR_NEED_NPTL_PTHREAD_H)
 			#  include <nptl/pthread.h>
 			#elif defined(ETHR_HAVE_MIT_PTHREAD_H)
@@ -1897,22 +1924,15 @@ case "$THR_LIB_NAME" in
 			#elif defined(ETHR_HAVE_PTHREAD_H)
 			#  include <pthread.h>
 			#endif
-			#ifdef ETHR_TIME_WITH_SYS_TIME
-			#  include <time.h>
+			#include <time.h>
+			#ifdef ETHR_HAVE_SYS_TIME_H
 			#  include <sys/time.h>
-			#else
-			#  ifdef ETHR_HAVE_SYS_TIME_H
-			#    include <sys/time.h>
-			#  else
-			#    include <time.h>
-			#  endif
 			#endif
 			#if defined(ETHR_HAVE_MACH_CLOCK_GET_TIME)
 			#  include <mach/clock.h>
 			#  include <mach/mach.h>
 			#endif
-			], 
-			[
+			]], [[
 			int res;
 			pthread_condattr_t attr;
 			pthread_cond_t cond;
@@ -1922,31 +1942,28 @@ case "$THR_LIB_NAME" in
 			res = pthread_condattr_setclock(&attr, ETHR_MONOTONIC_CLOCK_ID);
 			res = pthread_cond_init(&cond, &attr);
 			res = pthread_cond_timedwait(&cond, &mutex, &cond_timeout);
-			],
-			[pthread_cond_timedwait_monotonic=yes])
+			]])],[pthread_cond_timedwait_monotonic=yes],[])
 	  AC_MSG_RESULT([$pthread_cond_timedwait_monotonic])
 	  if test $pthread_cond_timedwait_monotonic = yes; then
 	    AC_DEFINE(ETHR_HAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC, [1], [Define if pthread_cond_timedwait() can be used with a monotonic clock])
 	  fi
-	fi
+	 ])
 
 	linux_futex=no
 	AC_MSG_CHECKING([for Linux futexes])
-	AC_TRY_LINK([
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 			#include <sys/syscall.h>
 			#include <unistd.h>
 			#include <linux/futex.h>
 			#include <sys/time.h>
-		    ],
-		    [
+		    ]], [[
 			int i = 1;
 			syscall(__NR_futex, (void *) &i, FUTEX_WAKE, 1,
 				(void*)0,(void*)0, 0);
 			syscall(__NR_futex, (void *) &i, FUTEX_WAIT, 0,
 				(void*)0,(void*)0, 0);
 			return 0;
-		    ],
-		    linux_futex=yes)
+		    ]])],[linux_futex=yes],[])
 	AC_MSG_RESULT([$linux_futex])
 	test $linux_futex = yes && AC_DEFINE(ETHR_HAVE_LINUX_FUTEX, 1, [Define if you have a linux futex implementation.])
 
@@ -1954,18 +1971,12 @@ case "$THR_LIB_NAME" in
 	AC_MSG_CHECKING([for pthread_setname_np])
 	old_CFLAGS=$CFLAGS
 	CFLAGS="$CFLAGS -Werror"
-	AC_TRY_LINK([#define __USE_GNU
-                     #include <pthread.h>],
-                    [pthread_setname_np(pthread_self(), "name");],
-                    pthread_setname=linux)
-	AC_TRY_LINK([#define __USE_GNU
-                     #include <pthread.h>],
-                    [pthread_set_name_np(pthread_self(), "name");],
-                    pthread_setname=bsd)
-	AC_TRY_LINK([#define _DARWIN_C_SOURCE
-                     #include <pthread.h>],
-                    [pthread_setname_np("name");],
-                    pthread_setname=darwin)
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#define __USE_GNU
+                     #include <pthread.h>]], [[pthread_setname_np(pthread_self(), "name");]])],[pthread_setname=linux],[])
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#define __USE_GNU
+                     #include <pthread.h>]], [[pthread_set_name_np(pthread_self(), "name");]])],[pthread_setname=bsd],[])
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#define _DARWIN_C_SOURCE
+                     #include <pthread.h>]], [[pthread_setname_np("name");]])],[pthread_setname=darwin],[])
         AC_MSG_RESULT([$pthread_setname])
         case $with_threadnames-$pthread_setname in
              yes-linux) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_2, 1,
@@ -1979,16 +1990,12 @@ case "$THR_LIB_NAME" in
 
 	pthread_getname=no
 	AC_MSG_CHECKING([for pthread_getname_np])
-	AC_TRY_LINK([#define __USE_GNU
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#define __USE_GNU
                      #define _DARWIN_C_SOURCE
-                     #include <pthread.h>],
-                    [char buff[256]; pthread_getname_np(pthread_self(), buff, 256);],
-                    pthread_getname=linux)
-	AC_TRY_LINK([#define __USE_GNU
+                     #include <pthread.h>]], [[char buff[256]; pthread_getname_np(pthread_self(), buff, 256);]])],[pthread_getname=linux],[])
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#define __USE_GNU
                      #define _DARWIN_C_SOURCE
-                     #include <pthread.h>],
-                    [char buff[256]; pthread_getname_np(pthread_self(), buff);],
-                    pthread_getname=ibm)
+                     #include <pthread.h>]], [[char buff[256]; pthread_getname_np(pthread_self(), buff);]])],[pthread_getname=ibm],[])
         AC_MSG_RESULT([$pthread_getname])
         case $pthread_getname in
              linux) AC_DEFINE(ETHR_HAVE_PTHREAD_GETNAME_NP_3, 1,
@@ -1999,10 +2006,12 @@ case "$THR_LIB_NAME" in
 	esac
 	CFLAGS=$old_CFLAGS
 
-	if test "X$disable_native_ethr_impls" = "Xyes"; then
+	AS_IF(
+          [test "X$disable_native_ethr_impls" = "Xyes"],
+          [
 	    ethr_have_native_atomics=no
-	else
-
+          ],
+          [
 	    ETHR_CHK_GCC_ATOMIC_OPS([])
 
 	    AC_MSG_CHECKING([for a usable libatomic_ops implementation])
@@ -2019,8 +2028,7 @@ case "$THR_LIB_NAME" in
 	    	    fi;;
 	    esac
 	    ethr_have_libatomic_ops=no
-	    AC_TRY_LINK([#include "atomic_ops.h"],
-	    	        [
+	    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include "atomic_ops.h"]], [[
 	    	    	    volatile AO_t x;
 	    	    	    AO_t y;
 	    	    	    int z;
@@ -2051,12 +2059,13 @@ case "$THR_LIB_NAME" in
 #else
 #error No compare_and_swap
 #endif
-	    	        ],
-	    	        [ethr_have_native_atomics=yes
+	    	        ]])],[ethr_have_native_atomics=yes
 			 ethr_native_atomic_implementation=libatomic_ops
-	    	         ethr_have_libatomic_ops=yes])
+	    	         ethr_have_libatomic_ops=yes],[])
 	    AC_MSG_RESULT([$ethr_have_libatomic_ops])
-	    if test $ethr_have_libatomic_ops = yes; then
+	    AS_IF(
+              [test $ethr_have_libatomic_ops = yes],
+              [
 	        AC_CHECK_SIZEOF(AO_t, ,
 	    	    	        [
 	    	    	    	    #include <stdio.h>
@@ -2069,9 +2078,11 @@ case "$THR_LIB_NAME" in
 	    	    AC_DEFINE(ETHR_PREFER_LIBATOMIC_OPS_NATIVE_IMPLS, 1, [Define if you prefer libatomic_ops native ethread implementations])
 	        fi
 	        ETHR_DEFS="$ETHR_DEFS $libatomic_ops_include"
-	    elif test "x$with_libatomic_ops" != "xno" && test "x$with_libatomic_ops" != "x"; then
+              ],
+              [test "x$with_libatomic_ops" != "xno" && test "x$with_libatomic_ops" != "x"],
+              [
 	        AC_MSG_ERROR([No usable libatomic_ops implementation found])
-	    fi
+              ])
 
 	    case "$host_cpu" in
 	      sparc | sun4u | sparc64 | sun4v)
@@ -2103,7 +2114,7 @@ case "$THR_LIB_NAME" in
 	    	    ;;
 	    esac
 
-	fi
+          ])
 
 	test ethr_have_native_atomics = "yes" && ethr_have_native_spinlock=yes
 
@@ -2112,10 +2123,7 @@ case "$THR_LIB_NAME" in
 	dnl restore CPPFLAGS
 	CPPFLAGS=$saved_cppflags
 
-	;;
-    *)
-	;;
-esac
+    ])
 
 AC_MSG_CHECKING([whether default stack size should be modified])
 if test "x$ethr_modified_default_stack_size" != "x"; then
@@ -2167,32 +2175,30 @@ esac
 AC_C_DOUBLE_MIDDLE_ENDIAN
 
 ETHR_X86_SSE2_ASM=no
-case "$GCC-$ac_cv_sizeof_void_p-$host_cpu" in
-  yes-4-i86pc | yes-4-i*86 | yes-4-x86_64 | yes-4-amd64)
+AS_CASE(
+ ["$GCC-$ac_cv_sizeof_void_p-$host_cpu"],
+ [yes-4-i86pc | yes-4-i*86 | yes-4-x86_64 | yes-4-amd64],
+ [
     AC_MSG_CHECKING([for gcc sse2 asm support])
     save_CFLAGS="$CFLAGS"
     CFLAGS="$CFLAGS -msse2"
     gcc_sse2_asm=no
-    AC_TRY_COMPILE([],
-	[
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
 		long long x, *y;
 		__asm__ __volatile__("movq %1, %0\n\t" : "=x"(x) : "m"(*y) : "memory");
-	],
-	[gcc_sse2_asm=yes])
+	]])],[gcc_sse2_asm=yes],[])
     CFLAGS="$save_CFLAGS"
     AC_MSG_RESULT([$gcc_sse2_asm])
     if test "$gcc_sse2_asm" = "yes"; then
       AC_DEFINE(ETHR_GCC_HAVE_SSE2_ASM_SUPPORT, 1, [Define if you use a gcc that supports -msse2 and understand sse2 specific asm statements])
       ETHR_X86_SSE2_ASM=yes
     fi
-    ;;
-  *)
-    ;;
-esac
+ ])
 
-case "$GCC-$host_cpu" in
-  yes-i86pc | yes-i*86 | yes-x86_64 | yes-amd64)
-
+AS_CASE(
+  ["$GCC-$host_cpu"],
+  [yes-i86pc | yes-i*86 | yes-x86_64 | yes-amd64],
+  [
     if test $ac_cv_sizeof_void_p = 4; then
        dw_cmpxchg="cmpxchg8b"
     else
@@ -2221,8 +2227,7 @@ case "$GCC-$host_cpu" in
 	AC_MSG_CHECKING([for gcc $pic_text$dw_cmpxchg plain asm support])    
 
 	plain_cmpxchg=no
-    	AC_TRY_COMPILE([],
-	[
+    	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
     char xchgd;
     long new[2], xchg[2], *p;		  
     __asm__ __volatile__(
@@ -2235,8 +2240,7 @@ case "$GCC-$host_cpu" in
 	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=q"(xchgd)
 	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new[1]), "b"(new[0])
 	: "cc", "memory");
-	],
-	[plain_cmpxchg=yes])
+	]])],[plain_cmpxchg=yes],[])
 
 	AC_MSG_RESULT([$plain_cmpxchg])
 
@@ -2255,15 +2259,12 @@ case "$GCC-$host_cpu" in
 	# as input to the asm on 32-bit x86 and old gcc
 	# compilers (gcc vsn < 5).
 
-    	AC_TRY_COMPILE([],
-	[
+    	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
 #if !defined(__PIC__) || !__PIC__
 #  error no pic
 #endif
-	],
-	[pic_cmpxchg=yes
-	 gcc_cflags_pic=yes],
-	[pic_cmpxchg=no])
+	]])],[pic_cmpxchg=yes
+	 gcc_cflags_pic=yes],[pic_cmpxchg=no])
 
 	if test $pic_cmpxchg = yes; then
 	   gcc_pic_dw_cmpxchg_asm=$gcc_dw_cmpxchg_asm
@@ -2275,15 +2276,16 @@ case "$GCC-$host_cpu" in
 
     done
 
-    if test $gcc_pic_dw_cmpxchg_asm = no && test $ac_cv_sizeof_void_p = 4; then
+    AS_IF(
+     [test $gcc_pic_dw_cmpxchg_asm = no && test $ac_cv_sizeof_void_p = 4],
+     [ 
 
       AC_MSG_CHECKING([for gcc pic cmpxchg8b asm support with EBX workaround])
 
       # Check if we can work around it by managing the ebx
       # register explicitly in the asm...
 
-      AC_TRY_COMPILE([],
-	[
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
     char xchgd;
     long new[2], xchg[2], *p;		  
     __asm__ __volatile__(
@@ -2295,21 +2297,21 @@ case "$GCC-$host_cpu" in
 	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=q"(xchgd)
 	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new[1]), "r"(new[0])
 	: "cc", "memory");
-	],
-	[gcc_pic_dw_cmpxchg_asm=yes
-	 gcc_cmpxchg8b_pic_no_clobber_ebx=yes])     
+	]])],[gcc_pic_dw_cmpxchg_asm=yes
+	 gcc_cmpxchg8b_pic_no_clobber_ebx=yes],[])     
 
       AC_MSG_RESULT([$gcc_pic_dw_cmpxchg_asm])
 
-      if test $gcc_pic_dw_cmpxchg_asm = no; then
+      AS_IF(
+       [test $gcc_pic_dw_cmpxchg_asm = no],
+       [
 
       	AC_MSG_CHECKING([for gcc pic cmpxchg8b asm support with EBX and register shortage workarounds])
         # If no optimization is enabled we sometimes get a
 	# register shortage. Check if we can work around
 	# this...
 
-      	AC_TRY_COMPILE([],
-	  [
+      	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
       char xchgd;
       long new[2], xchg[2], *p;
       __asm__ __volatile__(
@@ -2323,19 +2325,17 @@ case "$GCC-$host_cpu" in
 	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "r"(new)
 	: "cc", "memory");
 
-	],
-	[gcc_pic_dw_cmpxchg_asm=yes
+	]])],[gcc_pic_dw_cmpxchg_asm=yes
 	 gcc_cmpxchg8b_pic_no_clobber_ebx=yes
-	 gcc_cmpxchg8b_pic_no_clobber_ebx_register_shortage=yes])
+	 gcc_cmpxchg8b_pic_no_clobber_ebx_register_shortage=yes],[])
 
         AC_MSG_RESULT([$gcc_pic_dw_cmpxchg_asm])
-      fi
+       ])
 
       if test $gcc_cflags_pic = yes; then
         gcc_dw_cmpxchg_asm=$gcc_pic_dw_cmpxchg_asm
       fi
- 
-   fi
+     ])
 
     CFLAGS="$save_CFLAGS"
 
@@ -2347,10 +2347,8 @@ case "$GCC-$host_cpu" in
     fi
     if test "$gcc_dw_cmpxchg_asm" = "yes"; then
       AC_DEFINE(ETHR_GCC_HAVE_DW_CMPXCHG_ASM_SUPPORT, 1, [Define if you use a gcc that supports the double word cmpxchg instruction])
-    fi;;
-  *)
-    ;;
-esac
+    fi
+ ])
 
 AC_DEFINE(ETHR_HAVE_ETHREAD_DEFINES, 1, \
 [Define if you have all ethread defines])
@@ -2417,7 +2415,9 @@ case "$with_clock_resolution" in
      ;;
 esac
 
-if test "$force_gettimeofday_os_system_time" = "yes"; then
+AS_IF(
+ [test "$force_gettimeofday_os_system_time" = "yes"],
+ [
 
   AC_CHECK_FUNCS([gettimeofday])
   if test "$ac_cv_func_gettimeofday" = "yes"; then
@@ -2425,8 +2425,9 @@ if test "$force_gettimeofday_os_system_time" = "yes"; then
   else
     AC_MSG_ERROR([No gettimeofday() available])
   fi
-
-else # $force_gettimeofday_os_system_time != yes
+ ],
+ [
+  # $force_gettimeofday_os_system_time != yes
 
 case "$with_clock_gettime_realtime_id" in
    ""|no)
@@ -2445,16 +2446,22 @@ case "$with_clock_gettime_realtime_id" in
      ;;
 esac
 
-case "$with_clock_resolution-$with_clock_gettime_realtime_id" in
-  high-no)
-	ERL_WALL_CLOCK(high_resolution);;
-  low-no)
-	ERL_WALL_CLOCK(low_resolution);;
-  default-no)
-	ERL_WALL_CLOCK(default_resolution);;
-  *)
-	ERL_WALL_CLOCK(custom_resolution, $with_clock_gettime_realtime_id);;
-esac
+AS_CASE(["$with_clock_resolution-$with_clock_gettime_realtime_id"],
+        [high-no],
+        [
+            ERL_WALL_CLOCK([high_resolution])
+        ],
+        [low-no],
+        [
+            ERL_WALL_CLOCK([low_resolution])
+        ],
+        [default-no],
+        [
+            ERL_WALL_CLOCK([default_resolution])
+        ],
+        [
+            ERL_WALL_CLOCK([custom_resolution], [$with_clock_gettime_realtime_id])
+        ])
 
 case "$erl_wall_clock_func-$erl_wall_clock_id-$with_clock_gettime_realtime_id" in
   *-*-no)
@@ -2488,7 +2495,7 @@ if test "x$erl_wall_clock_id" != "x"; then
     AC_DEFINE_UNQUOTED(WALL_CLOCK_ID, [$erl_wall_clock_id], [Define to wall clock id to use])
 fi
 
-fi # $force_gettimeofday_os_system_time != yes
+ ]) # $force_gettimeofday_os_system_time != yes
 
 case "$with_clock_gettime_monotonic_id" in
    ""|no)
@@ -2507,16 +2514,22 @@ case "$with_clock_gettime_monotonic_id" in
      ;;
 esac
 
-case "$with_clock_resolution-$with_clock_gettime_monotonic_id" in
-  high-no)
-	ERL_MONOTONIC_CLOCK(high_resolution, undefined, $prefer_elapsed_monotonic_time_during_suspend);;
-  low-no)
-	ERL_MONOTONIC_CLOCK(low_resolution, undefined, $prefer_elapsed_monotonic_time_during_suspend);;
-  default-no)
-	ERL_MONOTONIC_CLOCK(default_resolution, undefined, $prefer_elapsed_monotonic_time_during_suspend);;
-  *)
-	ERL_MONOTONIC_CLOCK(custom_resolution, $with_clock_gettime_monotonic_id, $prefer_elapsed_monotonic_time_during_suspend);;
-esac
+AS_CASE(["$with_clock_resolution-$with_clock_gettime_monotonic_id"],
+        [high-no],
+        [
+            ERL_MONOTONIC_CLOCK([high_resolution], [undefined], [$prefer_elapsed_monotonic_time_during_suspend])
+        ],
+        [low-no],
+        [
+            ERL_MONOTONIC_CLOCK([low_resolution], [undefined], [$prefer_elapsed_monotonic_time_during_suspend])
+        ],
+        [default-no],
+        [
+            ERL_MONOTONIC_CLOCK([default_resolution], [undefined], [$prefer_elapsed_monotonic_time_during_suspend])
+        ],
+        [
+            ERL_MONOTONIC_CLOCK([custom_resolution], [$with_clock_gettime_monotonic_id], [$prefer_elapsed_monotonic_time_during_suspend])
+        ])
 
 case "$erl_monotonic_clock_func-$erl_monotonic_clock_id-$with_clock_gettime_monotonic_id" in
   *-*-no)
@@ -2569,9 +2582,9 @@ if test $erl_cv_clock_gettime_monotonic_raw = yes; then
   AC_DEFINE(HAVE_CLOCK_GETTIME_MONOTONIC_RAW, [1], [Define if you have clock_gettime(CLOCK_MONOTONIC_RAW, _)])
 fi
 
-ERL_MONOTONIC_CLOCK(high_resolution, undefined, no)
+ERL_MONOTONIC_CLOCK([high_resolution], [undefined], [no])
 
-case $$erl_monotonic_clock_low_resolution-$erl_monotonic_clock_func in
+case $erl_monotonic_clock_low_resolution-$erl_monotonic_clock_func in
   no-mach_clock_get_time)
     monotonic_hrtime=yes    
     AC_DEFINE(SYS_HRTIME_USING_MACH_CLOCK_GET_TIME, [1], [Define if you want to implement erts_os_hrtime() using mach clock_get_time()])
@@ -2605,7 +2618,7 @@ dnl or (yet to be written) write to the procfs ctl file.
 dnl
 
 AC_MSG_CHECKING([if gethrvtime works and how to use it])
-AC_TRY_RUN([
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
 /* gethrvtime procfs ioctl test */
 /* These need to be undef:ed to not break activation of
  * micro level process accounting on /proc/self 
@@ -2653,10 +2666,7 @@ int main() {
 	exit(5);
     exit(0); return 0;
 }
-],
-erl_gethrvtime=procfs_ioctl,
-erl_gethrvtime=false,
-[
+]])],[erl_gethrvtime=procfs_ioctl],[erl_gethrvtime=false],[
 case X$erl_xcomp_gethrvtime_procfs_ioctl in
     X)
 	erl_gethrvtime=cross;;
@@ -2672,13 +2682,13 @@ esac
 ])
 
 LIBRT=$xrtlib
-case $erl_gethrvtime in
-  procfs_ioctl)
+AS_IF([test "$erl_gethrvtime" = "procfs_ioctl"],
+      [
 	AC_DEFINE(HAVE_GETHRVTIME_PROCFS_IOCTL,[1],
 		[define if gethrvtime() works and uses ioctl() to /proc/self])
 	AC_MSG_RESULT(uses ioctl to procfs)
-	;;
-  *)
+      ],
+      [
 	if test $erl_gethrvtime = cross; then
 	    erl_gethrvtime=false
 	    AC_MSG_RESULT(cross)
@@ -2694,7 +2704,7 @@ case $erl_gethrvtime in
 	AC_MSG_CHECKING([if clock_gettime can be used to get thread CPU time])
 	save_libs=$LIBS
 	LIBS="-lrt"
-	AC_TRY_RUN([
+	AC_RUN_IFELSE([AC_LANG_SOURCE([[
 	#include <stdlib.h>
 	#include <unistd.h>
 	#include <string.h>
@@ -2717,10 +2727,7 @@ case $erl_gethrvtime in
 	      exit(5);
 	    exit(0); return 0;
 	  }
-	],
-	erl_clock_gettime_cpu_time=yes,
-	erl_clock_gettime_cpu_time=no,
-	[
+	]])],[erl_clock_gettime_cpu_time=yes],[erl_clock_gettime_cpu_time=no],[
 	case X$erl_xcomp_clock_gettime_cpu_time in
 	    X) erl_clock_gettime_cpu_time=cross;;
 	    Xyes|Xno) erl_clock_gettime_cpu_time=$erl_xcomp_clock_gettime_cpu_time;;
@@ -2742,8 +2749,7 @@ case $erl_gethrvtime in
 		*)
 			;;
 	esac
-	;;
-esac
+      ])
 AC_SUBST(LIBRT)
 ])dnl
 
@@ -2762,29 +2768,35 @@ AC_DEFUN([LM_TRY_ENABLE_CFLAG], [
     AC_MSG_CHECKING([if we can add $1 to $2 (via CFLAGS)])
     saved_CFLAGS=$CFLAGS;
     CFLAGS="$1 $$2";
-    AC_TRY_COMPILE([],[return 0;],can_enable_flag=true,can_enable_flag=false)
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[return 0;]])],[can_enable_flag=true],[can_enable_flag=false])
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    AS_IF(
+      [test "X$can_enable_flag" = "Xtrue"],
+      [
         AC_MSG_RESULT([yes])
         AS_VAR_SET($2, "$1 $$2")
-    else
+      ],
+      [
         AC_MSG_RESULT([no])
-    fi
+      ])
 ])
 
 AC_DEFUN([LM_CHECK_ENABLE_CFLAG], [
     AC_MSG_CHECKING([whether $CC accepts $1...])
     saved_CFLAGS=$CFLAGS;
     CFLAGS="$1 $CFLAGS";
-    AC_TRY_COMPILE([],[return 0;],can_enable_flag=true,can_enable_flag=false)
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[return 0;]])],[can_enable_flag=true],[can_enable_flag=false])
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    AS_IF(
+      [test "X$can_enable_flag" = "Xtrue"],
+      [
         AS_VAR_SET($2, true)
         AC_MSG_RESULT([yes])
-    else
+      ],
+      [
         AS_VAR_SET($2, false)
         AC_MSG_RESULT([no])
-    fi
+      ])
 ])
 
 dnl
@@ -2798,23 +2810,26 @@ AC_DEFUN([LM_CHECK_RUN_CFLAG], [
     AC_MSG_CHECKING([whether $CC accepts $1...])
     saved_CFLAGS=$CFLAGS;
     CFLAGS="$1 $CFLAGS";
-    AC_TRY_RUN([],[return 0;],can_enable_flag=true,can_enable_flag=false)
+    AC_RUN_IFELSE([AC_LANG_SOURCE([[]])],[return 0;],[can_enable_flag=true],[can_enable_flag=false])
     CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"; then
+    AS_IF(
+      [test "X$can_enable_flag" = "Xtrue"],
+      [
         AS_VAR_SET($2, true)
         AC_MSG_RESULT([yes])
-    else
+      ],
+      [
         AS_VAR_SET($2, false)
         AC_MSG_RESULT([no])
-    fi
+      ])
 ])
 
 dnl ERL_TRY_LINK_JAVA(CLASSES, FUNCTION-BODY
 dnl                   [ACTION_IF_FOUND [, ACTION-IF-NOT-FOUND]])
-dnl Freely inspired by AC_TRY_LINK. (Maybe better to create a 
+dnl Freely inspired by AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[],[]). (Maybe better to create a 
 dnl AC_LANG_JAVA instead...)
 AC_DEFUN(ERL_TRY_LINK_JAVA,
-[java_link='$JAVAC conftest.java 1>&AC_FD_CC'
+[java_link='$JAVAC conftest.java 1>&AS_MESSAGE_LOG_FD'
 changequote(, )dnl
 cat > conftest.java <<EOF
 $1
@@ -2823,20 +2838,24 @@ class conftest { public static void main(String[] args) {
    ; return; }}
 EOF
 changequote([, ])dnl
-if AC_TRY_EVAL(java_link) && test -s conftest.class; then
+AS_IF(
+  [AC_TRY_EVAL(java_link) && test -s conftest.class],
+  [
    ifelse([$3], , :, [rm -rf conftest*
    $3])
-else
-   echo "configure: failed program was:" 1>&AC_FD_CC
-   cat conftest.java 1>&AC_FD_CC
-   echo "configure: PATH was $PATH" 1>&AC_FD_CC
+
+  ],
+  [
+   echo "configure: failed program was:" 1>&AS_MESSAGE_LOG_FD
+   cat conftest.java 1>&AS_MESSAGE_LOG_FD
+   echo "configure: PATH was $PATH" 1>&AS_MESSAGE_LOG_FD
 ifelse([$4], , , [  rm -rf conftest*
   $4
 ])dnl
-fi
-rm -f conftest*])
-#define UNSAFE_MASK  0xc0000000 /* Mask for bits that must be constant */
 
+  ])
+rm -f conftest*])
+dnl #define UNSAFE_MASK  0xc0000000 /* Mask for bits that must be constant */
 
 dnl ----------------------------------------------------------------------
 dnl
@@ -3004,7 +3023,9 @@ else
 fi
 # DED_EMU_THR_DEFS=$EMU_THR_DEFS
 DED_CFLAGS="$CFLAGS $CPPFLAGS $DED_CFLAGS"
-if test "x$GCC" = xyes; then
+AS_IF(
+  [test "x$GCC" = xyes],
+  [
     # Use -fno-common for gcc, that is link error if multiple definitions of
     # global variables are encountered. This is ISO C compliant.
     # Until version 10, gcc has had -fcommon as default, which allows and merges
@@ -3015,7 +3036,7 @@ if test "x$GCC" = xyes; then
     DED_CFLAGS="$DED_CFLAGS -fPIC"
     # Remove -fPIE and -fno-PIE
     DED_CFLAGS=`echo $DED_CFLAGS | sed 's/-f\(no-\)\?PIE//g'`
-fi
+  ])
 
 DED_EXT=so
 case $host_os in

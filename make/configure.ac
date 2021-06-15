@@ -18,9 +18,11 @@ dnl limitations under the License.
 dnl
 dnl %CopyrightEnd%
 
-AC_PREREQ(2.8)dnl
+AC_PREREQ([2.71])dnl
 
-AC_INIT()
+AC_INIT
+
+m4_include([otp.m4])
 
 LM_PRECIOUS_VARS
 
@@ -82,20 +84,9 @@ AC_SUBST(ERL_TOP)
 dnl
 dnl Aux programs are found in erts/autoconf
 dnl
-AC_CONFIG_AUX_DIR(${ERL_TOP}/erts/autoconf)
+AC_CONFIG_AUX_DIRS([${ERL_TOP}/make/autoconf])
 
-dnl
-dnl Figure out what we are running on. And in violation of autoconf
-dnl style assume that $host is also what we are building for. I would
-dnl like to get cross compiling working, since we actually have
-dnl systems we cross compile for!
-dnl
-
-if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
-    AC_CANONICAL_HOST
-else
-    host_os=$host
-fi
+ERL_CANONICAL_SYSTEM_TYPE
 
 TARGET=$host
 AC_SUBST(TARGET)

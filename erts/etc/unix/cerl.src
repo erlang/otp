@@ -83,7 +83,7 @@ skip_erlexec=no
 
 # Default rootdir
 ROOTDIR=%SRC_ROOTDIR%
-BINDIR="$ROOTDIR/bin/`$ROOTDIR/erts/autoconf/config.guess`"
+BINDIR="$ROOTDIR/bin/`$ROOTDIR/make/autoconf/config.guess`"
 TARGET=%TARGET%
 #BINDIR="$ROOTDIR/bin/%TARGET%"
 PROGNAME=$ROOTDIR/bin/cerl

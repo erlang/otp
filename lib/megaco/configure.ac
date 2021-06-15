@@ -23,15 +23,15 @@ dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
 
 
-AC_INIT(vsn.mk)
+AC_INIT
+AC_CONFIG_SRCDIR([vsn.mk])
+AC_PREREQ([2.71])
 
-AC_CONFIG_AUX_DIRS(${ERL_TOP}/erts/autoconf)
+m4_include([otp.m4])
 
-if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
-    AC_CANONICAL_HOST
-else
-    host_os=win32
-fi
+AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
+
+ERL_CANONICAL_SYSTEM_TYPE
 
 dnl ----------------------------------------------------------------------
 dnl Checks for programs.
@@ -42,7 +42,7 @@ AC_PROG_CC
 LM_WINDOWS_ENVIRONMENT
 
 AC_DEFUN(ERL_REENTRANT_FLEX,
-[flex_compile='$LEX -R -Pconftest -oconftest.c conftest.flex 1>&AC_FD_CC'
+[flex_compile='$LEX -R -Pconftest -oconftest.c conftest.flex 1>&AS_MESSAGE_LOG_FD'
 changequote(253, 273)dnl
 cat > conftest.flex <<EOF
 /*
@@ -79,9 +79,9 @@ if AC_TRY_EVAL(flex_compile) && test -s conftest.c; then
    $1])
    AC_MSG_RESULT([yes])
 else
-   echo "configure: failed program was:" 1>&AC_FD_CC
-   cat conftest.flex 1>&AC_FD_CC
-   echo "configure: PATH was $PATH" 1>&AC_FD_CC
+   echo "configure: failed program was:" 1>&AS_MESSAGE_LOG_FD
+   cat conftest.flex 1>&AS_MESSAGE_LOG_FD
+   echo "configure: PATH was $PATH" 1>&AS_MESSAGE_LOG_FD
 ifelse([$2], , , [
   $2
 ])dnl
@@ -108,7 +108,7 @@ dnl
 dnl flex is needed by megaco. lex wont do!
 dnl
 
-AC_PROG_LEX
+AC_PROG_LEX([noyywrap])
 if test "$LEX" != flex; then
   ENABLE_MEGACO_FLEX_SCANNER=false
 else
@@ -189,6 +189,8 @@ if test "$PERL" = no_perl; then
   AC_MSG_ERROR([Perl is required to build the flex scanner!])
 fi
 
-AC_OUTPUT(examples/meas/Makefile:examples/meas/Makefile.in)
-AC_OUTPUT(src/flex/$host/Makefile:src/flex/Makefile.in)
+AC_CONFIG_FILES([examples/meas/Makefile:examples/meas/Makefile.in])
+AC_OUTPUT
+AC_CONFIG_FILES([src/flex/$host/Makefile:src/flex/Makefile.in])
+AC_OUTPUT
 
