@@ -41,17 +41,6 @@ AC_DEFUN([WX_MSG_ERROR],
     fi
 ])
 
-
-AS_IF(
- [test -z "$ERL_TOP" || test ! -d $ERL_TOP],
- [
-  AC_MSG_ERROR([ERL_TOP is not set])
- ],
- [
-  erl_top=${ERL_TOP}
-  WX_BUILDING_INSIDE_ERLSRC=true
- ])
-
 AC_ARG_WITH(wx,
 [  --with-wxdir=PATH    specify location of wxWidgets include and lib
   --with-wx             use wxWidgets (default)
@@ -332,7 +321,6 @@ ERL=erl
 ERLANG_ROOT_DIR=$ERL_TOP
 AC_SUBST(ERLC)
 
-AC_SUBST(WX_BUILDING_INSIDE_ERLSRC)
 AC_SUBST(ERLANG_ROOT_DIR)
 
 dnl
@@ -765,13 +753,7 @@ AC_SUBST(SO_EXT)
 AC_SUBST(RUN_ERL)
 AC_SUBST(CXXNOOPTFLAGS)
 
-
-if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
-    dnl  Find driver directory name according to erlang
-    WXERL_SYS_TYPE=`erl -noshell -eval 'io:format("~s~n",[[erlang:system_info(system_architecture)]])' -s erlang halt`
-else
-    WXERL_SYS_TYPE=$TARGET
-fi
+WXERL_SYS_TYPE=$TARGET
 
 AC_SUBST(WXERL_SYS_TYPE)
 

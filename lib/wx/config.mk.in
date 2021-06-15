@@ -17,20 +17,12 @@
 # 
 # %CopyrightEnd%
 #
-INSIDE_ERLSRC	 = @WX_BUILDING_INSIDE_ERLSRC@
 SYS_TYPE	 = @WXERL_SYS_TYPE@
 CAN_BUILD_DRIVER = @WXERL_CAN_BUILD_DRIVER@
 
 VSN = $(WX_VSN)
 
-ifeq ($(INSIDE_ERLSRC), true)
-
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 RELSYSDIR = $(RELEASE_PATH)/lib/wx-$(VSN)
-
-else
-INSTALLDIR=@ERLANG_ROOT_DIR@/lib
-endif
-
