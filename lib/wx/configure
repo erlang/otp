@@ -675,7 +675,6 @@ WX_CFLAGS
 WX_CPPFLAGS
 WX_CONFIG_PATH
 ERLANG_ROOT_DIR
-WX_BUILDING_INSIDE_ERLSRC
 ERLC
 DEBUG_CXXFLAGS
 DEBUG_CFLAGS
@@ -3113,19 +3112,6 @@ fi
 
 
 
-if test -z "$ERL_TOP" || test ! -d $ERL_TOP
-then :
-
-  as_fn_error $? "ERL_TOP is not set" "$LINENO" 5
-
-else $as_nop
-
-  erl_top=${ERL_TOP}
-  WX_BUILDING_INSIDE_ERLSRC=true
-
-fi
-
-
 # Check whether --with-wx was given.
 if test ${with_wx+y}
 then :
@@ -5559,7 +5545,6 @@ ERLANG_ROOT_DIR=$ERL_TOP
 
 
 
-
 if test "$cross_compiling" = "yes"
 then :
 
@@ -7245,12 +7230,7 @@ esac
 
 
 
-
-if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
-        WXERL_SYS_TYPE=`erl -noshell -eval 'io:format("~s~n",[erlang:system_info(system_architecture)])' -s erlang halt`
-else
-    WXERL_SYS_TYPE=$TARGET
-fi
+WXERL_SYS_TYPE=$TARGET
 
 
 
