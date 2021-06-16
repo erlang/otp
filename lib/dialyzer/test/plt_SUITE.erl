@@ -412,6 +412,20 @@ demo_fun(_Arg) ->
             [ ok || _ <- [] ]
     end,
     _Res.
+
+handle_info() ->
+    case chids_to_audit() of
+        {ChIds, St2} ->
+            [ ChId || ChId <- ChIds ],
+            ok
+    end,
+    check_done(St2).
+
+chids_to_audit() ->
+    some_module:get_audit_list().
+
+check_done(_) ->
+    ok.
     ">>,
     {ok, BeamFile} = compile(Config, Prog, letrec_rvals, []),
     [] = run_dialyzer(plt_build, [BeamFile], [{output_plt, Plt}]),
