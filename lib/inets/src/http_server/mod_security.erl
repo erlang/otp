@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 	 list_auth_users/1, list_auth_users/2, list_auth_users/3]).
 
 %% module API exports
--export([do/1, load/2, store/2, remove/1]).
+-export([do/1, store/2, remove/1]).
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
@@ -100,43 +100,6 @@ do(Info) ->
 		    {proceed, Info#mod.data}
 	    end
     end.
-
-load("<Directory " ++ Directory, []) ->
-    Dir = string:strip(string:strip(Directory),right, $>),
-    {ok, [{security_directory, {Dir, [{path, Dir}]}}]};
-load(eof,[{security_directory, {Directory, _DirData}}|_]) ->
-    {error, ?NICE("Premature end-of-file in "++Directory)};
-load("SecurityDataFile " ++ FileName, 
-     [{security_directory, {Dir, DirData}}]) ->
-    File = string:strip(FileName),
-    {ok, [{security_directory, {Dir, [{data_file, File}|DirData]}}]};
-load("SecurityCallbackModule " ++ ModuleName,
-     [{security_directory, {Dir, DirData}}]) ->
-    Mod = list_to_atom(string:strip(ModuleName)),
-    {ok, [{security_directory, {Dir, [{callback_module, Mod}|DirData]}}]};
-load("SecurityMaxRetries " ++ Retries,
-     [{security_directory, {Dir, DirData}}]) ->
-    load_return_int_tag("SecurityMaxRetries", max_retries, 
-			string:strip(Retries), Dir, DirData);
-load("SecurityBlockTime " ++ Time,
-      [{security_directory, {Dir, DirData}}]) ->
-    load_return_int_tag("SecurityBlockTime", block_time,
-			string:strip(Time), Dir, DirData);
-load("SecurityFailExpireTime " ++ Time,
-     [{security_directory, {Dir, DirData}}]) ->
-    load_return_int_tag("SecurityFailExpireTime", fail_expire_time,
-			string:strip(Time), Dir, DirData);
-load("SecurityAuthTimeout " ++ Time0,
-     [{security_directory, {Dir, DirData}}]) ->
-    Time = string:strip(Time0),
-    load_return_int_tag("SecurityAuthTimeout", auth_timeout,
-			string:strip(Time), Dir, DirData);
-load("AuthName " ++ Name0,
-     [{security_directory, {Dir, DirData}}]) ->
-    Name = string:strip(Name0),
-    {ok, [{security_directory, {Dir, [{auth_name, Name}|DirData]}}]};
-load("</Directory>",[{security_directory, {Dir, DirData}}]) ->
-    {ok, [], {security_directory, {Dir, DirData}}}.
 
 store({security_directory, {Dir, DirData}}, ConfigList) 
   when is_list(Dir) andalso is_list(DirData) ->
@@ -285,17 +248,3 @@ secret_path(Path, [[NewDir]|Rest], Dir) ->
     end.
 
 
-
-load_return_int_tag(Name, Atom, Time, Dir, DirData) ->
-    case Time of
-	"infinity" ->
-	    {ok, [{security_directory, {Dir, 
-		   [{Atom, 99999999999999999999999999999} | DirData]}}]};
-	_Int ->
-	    case catch list_to_integer(Time) of
-		{'EXIT', _} ->
-		    {error, Time++" is an invalid "++Name};
-		Val ->
-		    {ok, [{security_directory, {Dir, [{Atom, Val}|DirData]}}]}
-	    end
-    end.
