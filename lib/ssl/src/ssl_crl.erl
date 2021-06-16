@@ -63,13 +63,10 @@ trusted_cert_and_path(CRL, issuer_not_found, CertPath, {Db, DbRef}) ->
 search_certpath(CRL, CertPath, Db, DbRef) ->
     Issuer = public_key:pkix_normalize_name(public_key:pkix_crl_issuer(CRL)),
     IsIssuerFun =
-	fun(#cert{otp=ErlCertCandidate}, Acc) ->
-		verify_crl_issuer(CRL, ErlCertCandidate, Issuer, Acc);
-	   (_, Acc) ->
-		Acc
+	fun(ErlCertCandidate, Acc) ->
+		verify_crl_issuer(CRL, ErlCertCandidate, Issuer, Acc)
 	end,
-    Certs = [#cert{der=Der, otp=public_key:pkix_decode_cert(Der,otp)} || Der <- CertPath],
-    case find_issuer(IsIssuerFun, certpath, Certs) of
+    case find_issuer(IsIssuerFun, certpath, CertPath) of
 	{ok, OtpCert} ->
 	    {ok, Root, Chain} = ssl_certificate:certificate_chain(OtpCert, Db, DbRef),
 	    {ok, Root, lists:reverse(Chain)};
