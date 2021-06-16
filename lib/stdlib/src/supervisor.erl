@@ -1500,7 +1500,7 @@ add_restart(State) ->
     P = State#state.period,
     R = State#state.restarts,
     Now = erlang:monotonic_time(1),
-    R1 = add_restart([Now|R], Now, P),
+    R1 = add_restart(R, Now, P),
     State1 = State#state{restarts = R1},
     case length(R1) of
 	CurI when CurI  =< I ->
@@ -1509,18 +1509,13 @@ add_restart(State) ->
 	    {terminate, State1}
     end.
 
-add_restart([R|Restarts], Now, Period) ->
-    case inPeriod(R, Now, Period) of
-	true ->
-	    [R|add_restart(Restarts, Now, Period)];
-	_ ->
-	    []
-    end;
-add_restart([], _, _) ->
-    [].
-
-inPeriod(Then, Now, Period) ->
-    Now =< Then + Period.
+add_restart(Restarts0, Now, Period) ->
+    Treshold = Now - Period,
+    Restarts1 = lists:takewhile(
+                  fun (R) -> R >= Treshold end,
+                  Restarts0
+                 ),
+    [Now | Restarts1].
 
 %%% ------------------------------------------------------
 %%% Error and progress reporting.
