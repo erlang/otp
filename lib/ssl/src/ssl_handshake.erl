@@ -355,10 +355,10 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
 	end
     catch
         error:{_,{error, {asn1, Asn1Reason}}} ->
-             %% ASN-1 decode of certificate somehow failed
-             ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason});
-         error:OtherReason ->
-             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {unexpected_error, OtherReason})
+            %% ASN-1 decode of certificate somehow failed
+            ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason});
+        error:OtherReason ->
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {unexpected_error, OtherReason})
     end.
 %%--------------------------------------------------------------------
 -spec certificate_verify(binary(), public_key_info(), ssl_record:ssl_version(), term(),

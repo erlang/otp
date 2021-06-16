@@ -986,7 +986,8 @@ expired_root_with_cross_signed_root(Config) when is_list(Config) ->
     SCerts = proplists:get_value(cacerts, ServerOpts),
 
     {ok, ExtractedCAs} = ssl_pkix_db:extract_trusted_certs({der, SCerts}),
-    {ok, Root, [_Peer, CA1, CA2, Root]} = ssl_certificate:certificate_chain(SCert, ets:new(foo, []), ExtractedCAs, []),
+    {ok, Root, [_Peer, CA1, CA2, Root]} = ssl_certificate:certificate_chain(SCert, ets:new(foo, []), 
+                                                                            ExtractedCAs, [], encoded),
 
     OTPCA1 = public_key:pkix_decode_cert(CA1, otp),
     OTPCA2 = public_key:pkix_decode_cert(CA2, otp),
@@ -1176,5 +1177,5 @@ no_reuse(_) ->
 chain_and_root(Config) ->
     OwnCert = proplists:get_value(cert, Config),
     {ok, ExtractedCAs} = ssl_pkix_db:extract_trusted_certs({der, proplists:get_value(cacerts, Config)}),
-    {ok, Root, Chain} = ssl_certificate:certificate_chain(OwnCert, ets:new(foo, []), ExtractedCAs, []),
+    {ok, Root, Chain} = ssl_certificate:certificate_chain(OwnCert, ets:new(foo, []), ExtractedCAs, [], encoded),
     {Chain, Root}.
