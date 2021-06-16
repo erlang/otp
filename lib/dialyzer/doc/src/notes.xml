@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 4.3.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In rare circumstances, Dialyzer could crash analyzing
+	    code with a list comprehension whose value was ignored.
+	    (Thanks to Ulf Wiger for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-17482</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 4.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
