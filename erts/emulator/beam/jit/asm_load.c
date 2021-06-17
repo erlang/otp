@@ -40,13 +40,50 @@
 
 static void init_label(Label *lp);
 
+static int named_labels_compare(BeamFile_ExportEntry *a,
+                                BeamFile_ExportEntry *b) {
+    if (a->label < b->label)
+        return -1;
+    else if (a->label == b->label)
+        return 0;
+    else
+        return 1;
+}
+
 int beam_load_prepare_emit(LoaderState *stp) {
     BeamCodeHeader *hdr;
+    BeamFile_ExportTable *named_labels_ptr = NULL, named_labels;
     int i;
 
+    if (erts_jit_asm_dump) {
+        /* Dig out all named labels from the BEAM-file and sort them on the
+           label id. */
+        named_labels.count = stp->beam.exports.count + stp->beam.locals.count;
+        named_labels.entries = erts_alloc(
+                ERTS_ALC_T_PREPARED_CODE,
+                named_labels.count * sizeof(named_labels.entries[0]));
+
+        for (unsigned i = 0; i < stp->beam.exports.count; i++)
+            memcpy(&named_labels.entries[i],
+                   &stp->beam.exports.entries[i],
+                   sizeof(stp->beam.exports.entries[i]));
+        for (unsigned i = 0; i < stp->beam.locals.count; i++)
+            memcpy(&named_labels.entries[i + stp->beam.exports.count],
+                   &stp->beam.locals.entries[i],
+                   sizeof(stp->beam.locals.entries[i]));
+
+        qsort(named_labels.entries,
+              named_labels.count,
+              sizeof(named_labels.entries[0]),
+              (int (*)(const void *, const void *))named_labels_compare);
+        named_labels_ptr = &named_labels;
+    }
     stp->ba = beamasm_new_assembler(stp->module,
                                     stp->beam.code.label_count,
-                                    stp->beam.code.function_count);
+                                    stp->beam.code.function_count,
+                                    named_labels_ptr);
+    if (named_labels_ptr != NULL)
+        erts_free(ERTS_ALC_T_PREPARED_CODE, named_labels_ptr->entries);
 
     /* Initialize code header */
     stp->codev_size = stp->beam.code.function_count + 1;

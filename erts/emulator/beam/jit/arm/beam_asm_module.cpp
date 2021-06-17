@@ -79,7 +79,8 @@ ErtsCodePtr BeamModuleAssembler::getLambda(unsigned index) {
 
 BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
                                          Eterm mod,
-                                         unsigned num_labels)
+                                         unsigned num_labels,
+                                         BeamFile_ExportTable *named_labels)
         : BeamAssembler(getAtom(mod)) {
     this->ga = ga;
     this->mod = mod;
@@ -104,8 +105,9 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
 BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
                                          Eterm mod,
                                          unsigned num_labels,
-                                         unsigned num_functions)
-        : BeamModuleAssembler(ga, mod, num_labels) {
+                                         unsigned num_functions,
+                                         BeamFile_ExportTable *named_labels)
+        : BeamModuleAssembler(ga, mod, num_labels, named_labels) {
     codeHeader = a.newLabel();
     a.align(kAlignCode, 8);
     a.bind(codeHeader);
