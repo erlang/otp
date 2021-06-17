@@ -407,7 +407,10 @@ void BeamModuleAssembler::emit_tuple_assertion(const ArgVal &Src,
     a.short_().je(ok);
 
     a.bind(fatal);
-    { a.ud2(); }
+    {
+        a.comment("# Tuple assertion failure");
+        a.ud2();
+    }
     a.bind(ok);
 }
 #endif

@@ -883,6 +883,7 @@ void BeamGlobalAssembler::emit_call_nif_early() {
         a.test(ARG2, imm(sizeof(UWord) - 1));
         a.short_().je(next);
 
+        a.comment("# Return address isn't word-aligned");
         a.ud2();
 
         a.bind(next);
