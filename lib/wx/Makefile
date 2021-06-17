@@ -21,7 +21,6 @@
 include ./vsn.mk
 
 ifdef TERTIARY_BOOTSTRAP
- INSIDE_ERLSRC = true
  SUBDIRS = src
 else # Normal build
  include ./config.mk

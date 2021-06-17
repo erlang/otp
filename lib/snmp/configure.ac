@@ -2,21 +2,19 @@
 define([AC_CACHE_LOAD], )dnl
 define([AC_CACHE_SAVE], )dnl
 
-AC_INIT(vsn.mk)
+AC_INIT
+AC_CONFIG_SRCDIR([src/app/snmp.app.src])
+AC_PREREQ([2.71])
 
-AC_CONFIG_AUX_DIRS(${ERL_TOP}/erts/autoconf)
+m4_include([otp.m4])
 
-if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
-    AC_CANONICAL_HOST
-else
-    host_os=win32
-fi
-
+AC_CONFIG_AUX_DIRS([${ERL_TOP}/make/autoconf])
 
 dnl ----------------------------------------------------------------------
 dnl Checks for programs.
 dnl ----------------------------------------------------------------------
 
+ERL_CANONICAL_SYSTEM_TYPE
 
 AC_CHECK_PROG(PERL, perl, perl, no_perl)
 if test "$PERL" = no_perl; then
@@ -24,5 +22,6 @@ if test "$PERL" = no_perl; then
 fi
 
 
-AC_OUTPUT(mibs/Makefile:mibs/Makefile.in)
+AC_CONFIG_FILES([mibs/Makefile:mibs/Makefile.in])
+AC_OUTPUT
 

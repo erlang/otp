@@ -30,15 +30,9 @@
 #define ETHR_CHILD_WAIT_SPIN_COUNT 4000
 
 #include <stdio.h>
-#ifdef ETHR_TIME_WITH_SYS_TIME
-#  include <time.h>
+#include <time.h>
+#ifdef ETHR_HAVE_SYS_TIME_H
 #  include <sys/time.h>
-#else
-#  ifdef ETHR_HAVE_SYS_TIME_H
-#    include <sys/time.h>
-#  else
-#    include <time.h>
-#  endif
 #endif
 #include <sys/types.h>
 #include <unistd.h>

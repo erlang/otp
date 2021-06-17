@@ -183,7 +183,7 @@ get_xcomp_flag(Flag, Flags) ->
 get_xcomp_flag(Flag, Tag, Flags) ->
     case proplists:get_value(Flag,Flags) of
 	undefined -> "";
-	"guess" -> [" --",Tag,"=",os:cmd("$ERL_TOP/erts/autoconf/config.guess")];
+	"guess" -> [" --",Tag,"=",os:cmd("$ERL_TOP/make/autoconf/config.guess")];
 	HostVal -> [" --",Tag,"=",HostVal]
     end.
 

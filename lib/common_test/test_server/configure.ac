@@ -19,7 +19,9 @@ dnl
 dnl %CopyrightEnd%
 dnl 
 
-AC_INIT(conf_vars.in)
+AC_INIT
+AC_CONFIG_SRCDIR([conf_vars.in])
+AC_PREREQ([2.71])
 
 AC_CANONICAL_HOST
 
@@ -84,7 +86,7 @@ AC_CHECK_HEADER(net/errno.h, AC_DEFINE(HAVE_NET_ERRNO_H))
 
 AC_CHECK_HEADER(linux/tcp.h, AC_DEFINE(HAVE_LINUX_TCP_H))
 AC_MSG_CHECKING(for sane linux/tcp.h)
-AC_TRY_COMPILE([#include <stdio.h>
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>
 		#include <stdlib.h>
 		#include <string.h>
 		#include <unistd.h>
@@ -94,10 +96,7 @@ AC_TRY_COMPILE([#include <stdio.h>
 		#include <sys/wait.h>
 		#include <linux/tcp.h>
 		#include <netinet/in.h>
-		#include <netdb.h>],
-		[return 0;],	
-		have_sane_linux_tcp_h=yes,
-		have_sane_linux_tcp_h=no)
+		#include <netdb.h>]], [[return 0;]])],[have_sane_linux_tcp_h=yes],[have_sane_linux_tcp_h=no])
 
 if test $have_sane_linux_tcp_h = yes; then
 	AC_DEFINE(HAVE_SANE_LINUX_TCP_H,[1],
@@ -150,8 +149,10 @@ AC_CHECK_LIB(dl, dlopen, have_dl=yes, have_dl=no)
 
 SHLIB_LDLIBS=
 fullSrcDir=`cd $srcdir; pwd`
-case $system in
-    *-linux-*)
+AS_CASE([$system],
+
+    [*-linux-*],
+    [
 	SHLIB_CFLAGS="-fPIC"
 	SHLIB_SUFFIX=".so"
 	if test "$have_dl" = yes; then
@@ -170,8 +171,10 @@ case $system in
 	    fi
 	fi
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *-openbsd*|*-netbsd*|*-freebsd*|*-dragonfly*)
+    ],
+
+    [*-openbsd*|*-netbsd*|*-freebsd*|*-dragonfly*],
+    [
 	# Not available on all versions:  check for include file.
 	AC_CHECK_HEADER(dlfcn.h, [
 	    SHLIB_CFLAGS="-fpic"
@@ -193,8 +196,10 @@ case $system in
 	    AC_MSG_ERROR(don't know how to compile and link dynamic drivers)
 	])
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *-solaris2*|*-sysv4*)
+    ],
+
+    [*-solaris2*|*-sysv4*],
+    [
 	SHLIB_CFLAGS="-KPIC"
 	SHLIB_LD="/usr/ccs/bin/ld"
 	SHLIB_LDFLAGS="$no_mXX_LDFLAGS -G -z text"
@@ -206,15 +211,19 @@ case $system in
 	fi
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL="-z allextract"
-	;;
-    *darwin*)
+    ],
+
+    [*darwin*],
+    [
 	SHLIB_CFLAGS="-fno-common"
 	SHLIB_LD="cc"
 	SHLIB_LDFLAGS="$LDFLAGS -bundle -flat_namespace -undefined suppress"
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *osf1*)
+    ],
+
+    [*osf1*],
+    [
 	SHLIB_CFLAGS="-fPIC"
 	SHLIB_LD="ld"
 	SHLIB_LDFLAGS="$LDFLAGS -shared"
@@ -226,15 +235,18 @@ case $system in
 	fi
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *osf5*)
+    ],
+
+    [*osf5*],
+    [
 	SHLIB_CFLAGS="-fPIC"
 	SHLIB_LD="${CC} -shared"
 	SHLIB_LDFLAGS="$LDFLAGS"
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL=""
-	;;
-    *)
+    ],
+
+    [
 	# No dynamic loading.
 	SHLIB_CFLAGS=""
 	SHLIB_LD="ld"
@@ -243,8 +255,7 @@ case $system in
 	SHLIB_SUFFIX=""
 	SHLIB_EXTRACT_ALL=""
 	AC_MSG_ERROR(don't know how to compile and link dynamic drivers)
-	;;
-esac
+    ])
 
 # If we're running gcc, then change the C flags for compiling shared
 # libraries to the right flags for gcc, instead of those for the
@@ -317,14 +328,16 @@ AC_SUBST(EI_CFLAGS)
 
 erl_checkBoth=0
 AC_CHECK_FUNC(connect, erl_checkSocket=0, erl_checkSocket=1)
-if test "$erl_checkSocket" = 1; then
+AS_IF([test "$erl_checkSocket" = 1],
+  [
     AC_CHECK_LIB(socket, main, LIBS="$LIBS -lsocket", erl_checkBoth=1)
-fi
-if test "$erl_checkBoth" = 1; then
+  ])
+AS_IF([test "$erl_checkBoth" = 1],
+  [
     tk_oldLibs=$LIBS
     LIBS="$LIBS -lsocket -lnsl"
     AC_CHECK_FUNC(accept, erl_checkNsl=0, [LIBS=$tk_oldLibs])
-fi
+  ])
 AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, main, [LIBS="$LIBS -lnsl"]))
 
 dnl Checks for library functions.
@@ -334,7 +347,8 @@ AC_CHECK_FUNCS(usleep)
 
 # First check if the library is available, then if we can choose between
 # two versions of gethostbyname
-AC_HAVE_LIBRARY(resolv)
+AC_CHECK_LIB([resolv],[main],[],[],[])ac_cv_lib_resolv=ac_cv_lib_resolv_main
+
 AC_CHECK_LIB(resolv, res_gethostbyname,[AC_DEFINE(HAVE_RES_GETHOSTBYNAME,1)])
 
 #--------------------------------------------------------------------
@@ -342,8 +356,7 @@ AC_CHECK_LIB(resolv, res_gethostbyname,[AC_DEFINE(HAVE_RES_GETHOSTBYNAME,1)])
 #--------------------------------------------------------------------
 
 AC_MSG_CHECKING([for isfinite])
-AC_TRY_LINK([#include <math.h>],
-            [isfinite(0);], have_isfinite=yes, have_isfinite=no)
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <math.h>]], [[isfinite(0);]])],[have_isfinite=yes],[have_isfinite=no])
 
 if test $have_isfinite = yes; then
     AC_DEFINE(HAVE_ISFINITE,1)
@@ -438,10 +451,10 @@ SSLEAY_ROOT=$TARGET
 #
 dnl ERL_TRY_LINK_JAVA(CLASSES, FUNCTION-BODY
 dnl                   [ACTION_IF_FOUND [, ACTION-IF-NOT-FOUND]])
-dnl Freely inspired by AC_TRY_LINK. (Maybe better to create a 
+dnl Freely inspired by AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[],[]). (Maybe better to create a 
 dnl AC_LANG_JAVA instead...)
 AC_DEFUN(ERL_TRY_LINK_JAVA,
-[java_link='$JAVAC conftest.java 1>&AC_FD_CC'
+[java_link='$JAVAC conftest.java 1>&AS_MESSAGE_LOG_FD'
 changequote(, )dnl
 cat > conftest.java <<EOF
 $1
@@ -450,21 +463,24 @@ class conftest { public static void main(String[] args) {
    ; return; }}
 EOF
 changequote([, ])dnl
-if AC_TRY_EVAL(java_link) && test -s conftest.class; then
+AS_IF([AC_TRY_EVAL(java_link) && test -s conftest.class],
+ [
    ifelse([$3], , :, [rm -rf conftest*
    $3])
-else
-   echo "configure: failed program was:" 1>&AC_FD_CC
-   cat conftest.java 1>&AC_FD_CC
-   echo "configure: PATH was $PATH" 1>&AC_FD_CC
+ ],
+ [
+   echo "configure: failed program was:" 1>&AS_MESSAGE_LOG_FD
+   cat conftest.java 1>&AS_MESSAGE_LOG_FD
+   echo "configure: PATH was $PATH" 1>&AS_MESSAGE_LOG_FD
 ifelse([$4], , , [  rm -rf conftest*
   $4
 ])dnl
-fi
+ ])
 rm -f conftest*])
 dnl
 AC_CHECK_PROGS(JAVAC, javac guavac gcj jikes bock)
-if test -n "$JAVAC"; then
+AS_IF([test -n "$JAVAC"],
+ [
   dnl Make sure it's at least JDK 1.5
   AC_CACHE_CHECK(for JDK version 1.5, 
      ac_cv_prog_javac_ver_1_5,
@@ -473,7 +489,7 @@ if test -n "$JAVAC"; then
   if test $ac_cv_prog_javac_ver_1_5 = no; then
     unset -v JAVAC
   fi
-fi
+ ])
 if test -n "$JAVAC"; then
   AC_SUBST(JAVAC)
   :
@@ -489,4 +505,5 @@ else
 fi
 AC_SUBST(test_c_compiler)
 
-AC_OUTPUT(conf_vars)
+AC_CONFIG_FILES([conf_vars])
+AC_OUTPUT

@@ -1,4 +1,4 @@
-dnl Process this file with autoconf to produce a configure script. -*-m4-*-
+dnl Process this file with autoconf to produce a configure script. -*-Autoconf-*-
 
 dnl %CopyrightBegin%
 dnl
@@ -21,8 +21,11 @@ dnl %CopyrightEnd%
 dnl The string "FIXME convbreak" means that there is a break of
 dnl autoconf convention that should be cleaned up.
 
-AC_INIT(vsn.mk)
-AC_PREREQ(2.59)
+AC_INIT
+AC_CONFIG_SRCDIR([emulator/beam/erl_process.c])
+AC_PREREQ([2.71])
+
+m4_include([otp.m4])
 
 LM_PRECIOUS_VARS
 
@@ -73,24 +76,13 @@ erl_top=${ERL_TOP}
 # echo X
 # echo XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-AC_CONFIG_AUX_DIRS($srcdir/autoconf)
+AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
 dnl ----------------------------------------------------------------------
 dnl Figure out what system we are running on.
 dnl ----------------------------------------------------------------------
 
-#
-# To configure for free source run ./configure --host=free_source
-#
-dnl
-dnl AC_CANONICAL_HOST does not like free_source as a host specification,
-dnl so we make a little special case.
-dnl
-if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
-    AC_CANONICAL_HOST
-else
-    host_os=$host
-fi
+ERL_CANONICAL_SYSTEM_TYPE
 
 if test "$cross_compiling" = "yes"; then
     CROSS_COMPILING=yes
@@ -101,9 +93,9 @@ AC_SUBST(CROSS_COMPILING)
 
 ERL_XCOMP_SYSROOT_INIT
 
-AC_ISC_POSIX
+AC_SEARCH_LIBS([strerror],[cposix])
 
-AC_CONFIG_HEADER($host/config.h:config.h.in include/internal/$host/ethread_header_config.h:include/internal/ethread_header_config.h.in include/$host/erl_int_sizes_config.h:include/erl_int_sizes_config.h.in)
+AC_CONFIG_HEADERS([$host/config.h:config.h.in include/internal/$host/ethread_header_config.h:include/internal/ethread_header_config.h.in include/$host/erl_int_sizes_config.h:include/erl_int_sizes_config.h.in])
 dnl ----------------------------------------------------------------------
 dnl Optional features.
 dnl ----------------------------------------------------------------------
@@ -399,16 +391,18 @@ esac
 
 i_noretpoline_attr=""
 
-if test X"$with_spectre_mitigation" != X"no"; then
+AS_IF([test X"$with_spectre_mitigation" != X"no"],
+  [
     CFLAGS="$CFLAGS -mindirect-branch=thunk"
 
     AC_MSG_CHECKING([for spectre mitigation])
     AC_COMPILE_IFELSE(
-        [AC_LANG_PROGRAM([],[return 0;])],
+        [AC_LANG_PROGRAM([[]],[[return 0;]])],
         [AC_MSG_RESULT([yes])],
         [AC_MSG_ERROR([no])])
 
-    if test X"$with_spectre_mitigation" = X"incomplete"; then
+    AS_IF([test X"$with_spectre_mitigation" = X"incomplete"],
+      [
         # gcc and clang support this attribute if they're recent enough. Note
         # that we must compile with -Werror to check for actual support as they
         # warn rather than error out on unsupported attributes.
@@ -419,13 +413,13 @@ if test X"$with_spectre_mitigation" != X"no"; then
 
         AC_MSG_CHECKING([whether spectre mitigation can be disabled on a per-function basis])
         AC_COMPILE_IFELSE(
-            [AC_LANG_PROGRAM([$i_noretpoline_attr],[return 0;])],
+            [AC_LANG_PROGRAM([[$i_noretpoline_attr]],[[return 0;]])],
             [AC_MSG_RESULT([yes])],
             [AC_MSG_ERROR([no])])
 
         CFLAGS="$i_preserve_cflags"
-    fi
-fi
+      ])
+  ])
 
 AC_DEFINE_UNQUOTED(ERTS_NO_RETPOLINE, $i_noretpoline_attr,
                    [Per-function attribute for disabling retpoline. This is
@@ -438,6 +432,87 @@ dnl ----------------------------------------------------------------------
 
 AC_PROG_CC
 AC_SUBST(GCC)
+
+AC_PROG_EGREP
+AC_PROG_CPP
+AC_PROG_RANLIB
+AC_PROG_YACC
+LM_PROG_PERL5
+if test "$ac_cv_path_PERL" = false; then
+  AC_MSG_ERROR([Perl version 5 is required to build the emulator!])
+fi
+AC_PROG_LN_S
+AC_CHECK_TOOL([AR], [ar], [false])
+if test "$ac_cv_prog_AR" = false; then
+  AC_MSG_ERROR([No 'ar' command found in PATH])
+fi
+
+
+#
+# Get programs needed for building the documentation 
+#
+
+## Delete previous failed configure results
+if test -f doc/CONF_INFO; then
+   rm -f doc/CONF_INFO
+fi
+
+AC_CHECK_PROGS(XSLTPROC, xsltproc)
+if test -z "$XSLTPROC"; then
+  echo "xsltproc" >> doc/CONF_INFO
+  AC_MSG_WARN([No 'xsltproc' command found: the documentation cannot be built])
+fi
+
+AC_CHECK_PROGS(FOP, fop)
+if test -z "$FOP"; then
+  FOP="$ERL_TOP/make/fakefop"
+  echo "fop" >> doc/CONF_INFO
+  AC_MSG_WARN([No 'fop' command found: going to generate placeholder PDF files])
+fi
+
+AC_CHECK_PROGS(XMLLINT, xmllint)
+if test -z "$XMLLINT"; then
+  echo "xmllint" >> doc/CONF_INFO
+  AC_MSG_WARN([No 'xmllint' command found: can't run the xmllint target for the documentation])
+fi
+
+dnl
+dnl We can live with Solaris /usr/ucb/install
+dnl
+case $host in
+  *-*-solaris*|free_source)
+    if test -x /usr/ucb/install; then
+      INSTALL="/usr/ucb/install -c"
+    fi
+    ;;
+  *)
+    ;;
+esac
+AC_PROG_INSTALL
+LM_PROG_INSTALL_DIR
+
+case $host_os in
+	darwin*)
+		dnl Need to preserve modification time on archives;
+		dnl otherwise, ranlib has to be run on archives
+		dnl again after installation.
+		INSTALL_DATA="$INSTALL_DATA -p";;
+	*)
+		;;
+esac
+
+dnl
+dnl Fix for Tilera install permissions
+dnl
+
+case $build in
+	*tile*)
+		INSTALL_PROGRAM="$INSTALL_PROGRAM -m755"
+		INSTALL_SCRIPT="$INSTALL_SCRIPT -m755"
+		;;
+	*)
+		;;
+esac
 
 dnl ---------------------------------------------------------------------
 dnl Special stuff regarding CFLAGS and details in the environment...
@@ -507,14 +582,14 @@ esac
 
 lfs_conf=ok
 lfs_source=none
-if test "${LFS_CFLAGS+set}" = "set" || \
-   test "${LFS_LDFLAGS+set}" = "set" || \
-   test "${LFS_LIBS+set}" = "set"; then
+AS_IF([test "${LFS_CFLAGS+set}" = "set" || test "${LFS_LDFLAGS+set}" = "set" || test "${LFS_LIBS+set}" = "set"],
+  [
     lfs_source=user
-else
+  ],
+  [
    LM_CHECK_GETCONF
    test "$GETCONF" = "false" || lfs_source=getconf
-fi
+  ])
 
 if test "$lfs_source" = "none"; then
     AC_MSG_WARN([Do not know how to check for large file support flags; no getconf is available])
@@ -545,7 +620,8 @@ else
     fi
 fi
 
-if test "x$GCC" = xyes; then
+AS_IF([test "x$GCC" = xyes],
+ [
   # Treat certain GCC warnings as errors
   LM_TRY_ENABLE_CFLAG([-Werror=return-type], [WERRORFLAGS])
   LM_TRY_ENABLE_CFLAG([-Werror=implicit], [WERRORFLAGS])
@@ -566,7 +642,7 @@ if test "x$GCC" = xyes; then
 
   saved_CFLAGS=$CFLAGS
   CFLAGS="$CFLAGS -Wdeclaration-after-statement"
-  AC_TRY_COMPILE([],[;], warn_decl_after_st=true, warn_decl_after_st=false)
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[;]])],[warn_decl_after_st=true],[warn_decl_after_st=false])
   if test "X$warn_decl_after_st" = "Xtrue"; then
     WFLAGS="$WFLAGS -Wdeclaration-after-statement"
   fi
@@ -577,17 +653,18 @@ if test "x$GCC" = xyes; then
   # Until version 10, gcc has had -fcommon as default, which allows and merges
   # such dubious duplicates.
   LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
-else
+ ],
+ [
   WFLAGS=""
   WERRORFLAGS=${WERRORFLAGS:-""}
-fi
+ ])
 
 AC_MSG_CHECKING([C99 support])
 
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[
 #if __STDC_VERSION__ < 199901L
   #error "Not C99"
-#endif])],
+#endif]])],
   [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no])
      CFLAGS="-std=gnu99 $CFLAGS"
@@ -614,57 +691,63 @@ LM_CHECK_RUN_CFLAG([-fprofile-generate -Werror],[PROFILE_GENERATE])
 LM_CHECK_RUN_CFLAG([-fprofile-use -Werror],[PROFILE_USE])
 LM_CHECK_RUN_CFLAG([-fprofile-use -fprofile-correction -Werror],[PROFILE_CORRECTION])
 
-if test "X$PROFILE_CORRECTION" = "Xtrue"; then
+AS_IF([test "X$PROFILE_CORRECTION" = "Xtrue"],
+  [
    saved_CFLAGS=$CFLAGS
    saved_LDFLAGS=$LDFLAGS
    CFLAGS="-fprofile-generate $saved_CFLAGS"
    LDFLAGS="-fprofile-generate $saved_LDFLAGS"
    AC_MSG_CHECKING([whether $CC links with -fprofile-generate])
-   AC_LINK_IFELSE([AC_LANG_PROGRAM([],[return 0;])],
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],[[return 0;]])],
         [AC_MSG_RESULT([yes])
          PROFILE_GENERATE=true],
         [AC_MSG_RESULT([no])
          PROFILE_GENERATE=false])
    CFLAGS=$saved_CFLAGS
    LDFLAGS=$saved_LDFLAGS
-fi
+  ])
 
 ## Check if this is clang
 LM_CHECK_ENABLE_CFLAG([-fprofile-instr-generate -Werror],[PROFILE_INSTR_GENERATE])
-if test "X$PROFILE_INSTR_GENERATE" = "Xtrue"; then
+AS_IF([test "X$PROFILE_INSTR_GENERATE" = "Xtrue"],
+  [
    # It was clang, now we also have to check if we have llvm-profdata and that
    # we can link programs with -fprofile-instr-use
    saved_CFLAGS=$CFLAGS;
    CFLAGS="-fprofile-instr-generate -Werror $saved_CFLAGS"
-   AC_RUN_IFELSE([AC_LANG_PROGRAM([],[])],
+   AC_RUN_IFELSE([AC_LANG_PROGRAM([[]],[[]])],
      [AC_PATH_PROG([LLVM_PROFDATA], [llvm-profdata],[],[$PATH:/Library/Developer/CommandLineTools/usr/bin])
       AC_CHECK_PROGS([XCRUN], [xcrun])
-      if test "X$XCRUN" != "X" -a "X$LLVM_PROFDATA" = "X"; then
+      AS_IF([test "X$XCRUN" != "X" -a "X$LLVM_PROFDATA" = "X"],
+       [
         AC_MSG_CHECKING([for $XCRUN $LLVM_PROFDATA])
-        if $XCRUN $LLVM_PROFDATA --help 2>& AS_MESSAGE_LOG_FD >& AS_MESSAGE_LOG_FD; then
+        AS_IF([$XCRUN $LLVM_PROFDATA --help 2>& AS_MESSAGE_LOG_FD >& AS_MESSAGE_LOG_FD],
+	 [
           LLVM_PROFDATA="$XCRUN $LLVM_PROFDATA"
           AC_MSG_RESULT([yes])
-        else
+         ],
+	 [
           AC_MSG_RESULT([no])
-        fi
-      fi
+         ])
+       ])
       AC_SUBST(LLVM_PROFDATA)
-      if test "X$LLVM_PROFDATA" != "X"; then
+      AS_IF([test "X$LLVM_PROFDATA" != "X"],
+       [
         CFLAGS="-fprofile-instr-use=default.profdata $saved_CFLAGS";
         $LLVM_PROFDATA merge -output=default.profdata *.profraw;
         AC_MSG_CHECKING([whether $CC accepts -fprofile-instr-use=default.profdata -Werror])
-        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[return 0;])],
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[return 0;]])],
           [AC_MSG_RESULT([yes])
            PROFILE_INSTR_USE=true],
           [AC_MSG_RESULT([no])
            PROFILE_INSTR_USE=false])
         rm -f default.profdata
-      fi],
+       ])],
      [],
      [AC_MSG_NOTICE([Disabling PGO when cross-compiling])])
    rm -f *.profraw
    CFLAGS=$saved_CFLAGS;
-fi
+  ])
 
 AC_ARG_ENABLE(pgo,
 AS_HELP_STRING([--enable-pgo],
@@ -839,92 +922,6 @@ else
 	AC_MSG_RESULT([no])
 fi
 
-
-dnl some tests below will call this if we haven't already - and autoconf
-dnl can't handle those tests being done conditionally at runtime
-AC_PROG_CPP
-
-AC_PROG_RANLIB
-
-AC_PROG_YACC
-LM_PROG_PERL5
-if test "$ac_cv_path_PERL" = false; then
-  AC_MSG_ERROR([Perl version 5 is required to build the emulator!])
-fi
-AC_PROG_LN_S
-
-
-AC_CHECK_TOOL([AR], [ar], [false])
-if test "$ac_cv_prog_AR" = false; then
-  AC_MSG_ERROR([No 'ar' command found in PATH])
-fi
-
-#
-# Get programs needed for building the documentation 
-#
-
-## Delete previous failed configure results
-if test -f doc/CONF_INFO; then
-   rm -f doc/CONF_INFO
-fi
-
-AC_CHECK_PROGS(XSLTPROC, xsltproc)
-if test -z "$XSLTPROC"; then
-  echo "xsltproc" >> doc/CONF_INFO
-  AC_MSG_WARN([No 'xsltproc' command found: the documentation cannot be built])
-fi
-
-AC_CHECK_PROGS(FOP, fop)
-if test -z "$FOP"; then
-  FOP="$ERL_TOP/make/fakefop"
-  echo "fop" >> doc/CONF_INFO
-  AC_MSG_WARN([No 'fop' command found: going to generate placeholder PDF files])
-fi
-
-AC_CHECK_PROGS(XMLLINT, xmllint)
-if test -z "$XMLLINT"; then
-  echo "xmllint" >> doc/CONF_INFO
-  AC_MSG_WARN([No 'xmllint' command found: can't run the xmllint target for the documentation])
-fi
-
-dnl
-dnl We can live with Solaris /usr/ucb/install
-dnl
-case $host in
-  *-*-solaris*|free_source)
-    if test -x /usr/ucb/install; then
-      INSTALL="/usr/ucb/install -c"
-    fi
-    ;;
-  *)
-    ;;
-esac
-AC_PROG_INSTALL
-LM_PROG_INSTALL_DIR
-
-case $host_os in
-	darwin*)
-		dnl Need to preserve modification time on archives;
-		dnl otherwise, ranlib has to be run on archives
-		dnl again after installation.
-		INSTALL_DATA="$INSTALL_DATA -p";;
-	*)
-		;;
-esac
-
-dnl
-dnl Fix for Tilera install permissions
-dnl
-
-case $build in
-	*tile*)
-		INSTALL_PROGRAM="$INSTALL_PROGRAM -m755"
-		INSTALL_SCRIPT="$INSTALL_SCRIPT -m755"
-		;;
-	*)
-		;;
-esac
-
 dnl ----------------------------------------------------------------------
 dnl Misc. things (some of them should go away)
 dnl ----------------------------------------------------------------------
@@ -946,7 +943,6 @@ LD_MAY_BE_WEAK=no
 AC_SUBST(LD)
 
 dnl Check for cygwin and object/exe files extension
-dnl AC_CYGWIN is deprecated
 AC_EXEEXT
 AC_OBJEXT
 
@@ -972,25 +968,32 @@ AC_SUBST(ERLANG_OSTYPE)
 # Otherwise we assume that if the linker accepts the flag, it is needed.
 AC_MSG_CHECKING(for extra flags needed to export symbols)
 DEXPORT=""
-case $host_os in
-	aix*|os400*)
+AS_CASE([$host_os],
+	[aix*|os400*],
+	[
 		DEXPORT=-Wl,-bexpall,-brtl
-	;;
-	bsdi*)
+	],
+	[bsdi*],
+	[
     		DEXPORT="-rdynamic " 
-    	;;
-	win32)
+    	],
+	[win32],
+	[
     		DEXPORT="" 
-    	;;
-	*)
+    	],
+	[
+		DEXPORT=
 		save_ldflags="$LDFLAGS"
 		LDFLAGS=-Wl,-export-dynamic
-		AC_TRY_LINK(,,[DEXPORT=-Wl,-export-dynamic], [
-			LDFLAGS=-Wl,-Bexport
-			AC_TRY_LINK(,,[DEXPORT=-Wl,-Bexport],)])
+		AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[DEXPORT="$LDFLAGS"])
+		AS_IF([test "$DEXPORT" = ""],
+		  [
+		   LDFLAGS=-Wl,-Bexport
+		   AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[DEXPORT="$LDFLAGS"])
+		  ])
 		LDFLAGS="$save_ldflags"
-	;;
-esac
+	])
+
 AC_SUBST(DEXPORT)
 case "x$DEXPORT" in
 	"x")
@@ -1127,18 +1130,17 @@ AC_CHECK_FUNCS([posix_fadvise closefrom])
 AC_CHECK_HEADERS([linux/falloc.h])
 dnl * Old glibcs have broken fallocate64(). Make sure not to use it.
 AC_CACHE_CHECK([whether fallocate() works],i_cv_fallocate_works,[
-    AC_TRY_LINK([
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
         #include <stdio.h>
         #include <stdlib.h>
         #include <fcntl.h>
         #include <unistd.h>
 	#include <fcntl.h>
 	#include <linux/falloc.h>
-	],
-        [	            
+	]], [[	            
 	int fd = creat("conftest.temp", 0600);
         fallocate(fd, FALLOC_FL_KEEP_SIZE,(off_t)  1024,(off_t)  1024);
-    	], i_cv_fallocate_works=yes, i_cv_fallocate_works=no)
+    	]])],[i_cv_fallocate_works=yes],[i_cv_fallocate_works=no])
 ])
 if test $i_cv_fallocate_works = yes; then
    AC_DEFINE(HAVE_FALLOCATE, 1, Define if you have a working fallocate())
@@ -1147,7 +1149,7 @@ fi
 dnl * Old glibcs have broken posix_fallocate(). Make sure not to use it.
 dnl * It may also be broken in AIX.
 AC_CACHE_CHECK([whether posix_fallocate() works],i_cv_posix_fallocate_works,[
-    AC_TRY_RUN([
+    AC_RUN_IFELSE([AC_LANG_SOURCE([[
         #if !defined(__sun) && !defined(__sun__)
         #define _XOPEN_SOURCE 600
         #endif
@@ -1169,11 +1171,11 @@ AC_CACHE_CHECK([whether posix_fallocate() works],i_cv_posix_fallocate_works,[
             unlink("conftest.temp");
             return ret;
         }
-    ], [
+    ]])],[
         i_cv_posix_fallocate_works=yes
-    ], [
+    ],[
         i_cv_posix_fallocate_works=no
-    ], [
+    ],[
         i_cv_posix_fallocate_works=no
     ])
 ])
@@ -1271,8 +1273,8 @@ dnl ----------------------------------------------------------------------
 
 TERMCAP_LIB=
 
-if test "x$with_termcap" != "xno" &&
-   test "X$host" != "Xwin32"; then
+AS_IF([test "x$with_termcap" != "xno" && test "X$host" != "Xwin32"],
+  [
     # try these libs
     termcap_libs="tinfo ncurses curses termcap termlib"
 
@@ -1286,7 +1288,7 @@ if test "x$with_termcap" != "xno" &&
     if test "x$TERMCAP_LIB" = "x"; then
 	AC_MSG_ERROR([No curses library functions found])
     fi
-fi
+  ])
 
 AC_SUBST(TERMCAP_LIB)
 
@@ -1295,16 +1297,16 @@ if test "x$TERMCAP_LIB" != "x"; then
 	AC_DEFINE(HAVE_TERMCAP, 1, [Define if termcap functions exists])
 fi
 
-if test "X$host" != "Xwin32"; then
+AS_IF([test "X$host" != "Xwin32"],
+  [
     AC_MSG_CHECKING(for wcwidth)
-    AC_TRY_LINK([#include <wchar.h>], [wcwidth(0);],
-                have_wcwidth=yes, have_wcwidth=no)
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <wchar.h>]], [[wcwidth(0);]])],[have_wcwidth=yes],[have_wcwidth=no])
     if test $have_wcwidth = yes; then
         AC_MSG_RESULT([yes])
         AC_DEFINE(HAVE_WCWIDTH, [1],
                   [Define to 1 if you have a `wcwidth' function.])
     fi
-fi
+  ])
 
 dnl -------------
 dnl zlib
@@ -1320,11 +1322,13 @@ AC_ARG_ENABLE(builtin-zlib,
 
 Z_LIB=
 
-if test "x$enable_builtin_zlib" = "xyes"; then
+AS_IF([test "x$enable_builtin_zlib" = "xyes"],
+ [
   AC_DEFINE(HAVE_ZLIB_INFLATEGETDICTIONARY, 1,
             [Define if your zlib version defines inflateGetDictionary.])
   AC_MSG_NOTICE([Using our own built-in zlib source])
-else
+ ],
+ [
 AC_MSG_CHECKING(for zlib 1.2.5 or higher)
 zlib_save_LIBS=$LIBS
 LIBS="-lz $LIBS"
@@ -1349,15 +1353,17 @@ error
  AC_MSG_RESULT(no)
 ])
 
-if test "$Z_LIB" != ""; then
+AS_IF([test "$Z_LIB" != ""],
+ [
   AC_SEARCH_LIBS(inflateGetDictionary, [z],
                  AC_DEFINE(HAVE_ZLIB_INFLATEGETDICTIONARY, 1,
                            [Define if your zlib version defines inflateGetDictionary.]))
-fi
+ ])
 
 LIBS=$zlib_save_LIBS
 
-fi
+ ])
+
 AC_SUBST(Z_LIB)
 
 
@@ -1380,11 +1386,10 @@ else
     fi
 fi
 
-if test "x$USE_ESOCK" = "xyes"; then
-    if test "x$USE_ESOCK" = "xyes"; then
+AS_IF([test "x$USE_ESOCK" = "xyes" && test "x$USE_ESOCK" = "xyes"],
+      [
         AC_CHECK_FUNCS([localtime_r strftime getprotoent setprotoent endprotoent])
-    fi
-fi
+      ])
 
 AC_SUBST(USE_ESOCK)
 
@@ -1504,14 +1509,16 @@ tk_oldLibs=$LIBS
 erl_checkBoth=0
 SOCKET_LIBS=""
 AC_CHECK_FUNC(connect, erl_checkSocket=0, erl_checkSocket=1)
-if test "$erl_checkSocket" = 1; then
+AS_IF([test "$erl_checkSocket" = 1],
+  [
     AC_CHECK_LIB(socket, main, SOCKET_LIBS="-lsocket", erl_checkBoth=1)
-fi
+  ])
 
-if test "$erl_checkBoth" = 1; then
+AS_IF([test "$erl_checkBoth" = 1],
+  [
     LIBS="$LIBS -lsocket -lnsl"
     AC_CHECK_FUNC(accept, SOCKET_LIBS="-lsocket -lnsl")
-fi
+  ])
 
 LIBS="$tk_oldLibs $SOCKET_LIBS"
 AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, main, [SOCKET_LIBS="$SOCKET_LIBS -lnsl"]))
@@ -1526,22 +1533,23 @@ dnl These gethostbyname thingies use old style AC_DEFINE for BC with ancient
 dnl autoconf...
 dnl 
 
-if test "$have_gethostbyname_r" = yes; then
+AS_IF([test "$have_gethostbyname_r" = yes],
+      [
 	# OK, so we have gethostbyname_r() - but do we know how to call it...?
 	# (if not, HAVE_GETHOSTBYNAME_R will not be defined at all)
-	case $host_os in
-		solaris2*)
+	AS_CASE([$host_os],
+		[solaris2*],
+		[
 			AC_DEFINE(HAVE_GETHOSTBYNAME_R, GHBN_R_SOLARIS,
 				[Define to flavour of gethostbyname_r])
-		;;
-		aix*|os400*)
+		],
+		[aix*|os400*],
+		[
 			# AIX version also needs "struct hostent_data" defn
-			AC_TRY_COMPILE([#include <netdb.h>],
-				[struct hostent_data hd;],
-				AC_DEFINE(HAVE_GETHOSTBYNAME_R, GHBN_R_AIX,
-				    [Define to flavour of gethostbyname_r]))
-		;;
-		*)
+			AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <netdb.h>]], [[struct hostent_data hd;]])],[AC_DEFINE(HAVE_GETHOSTBYNAME_R, GHBN_R_AIX,
+				    Define to flavour of gethostbyname_r)],[])
+		],
+		[
 			AC_EGREP_CPP(^yes$,[
 #include <stdio.h>
 #ifdef __GLIBC__
@@ -1549,23 +1557,21 @@ yes
 #endif
 			  ], AC_DEFINE(HAVE_GETHOSTBYNAME_R, GHBN_R_GLIBC,
 				[Define to flavour of gethostbyname_r]))
-		;;
-	esac
-fi
+		])
+      ])
 
 AC_MSG_CHECKING(for working posix_openpt implementation)
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #define _XOPEN_SOURCE 600 
 #include <stdlib.h>
 #include <fcntl.h>
-],
-[
+]], [[
     int mfd = posix_openpt(O_RDWR);
     ptsname(mfd);
     grantpt(mfd);
     unlockpt(mfd);
     return mfd;
-], working_posix_openpt=yes, working_posix_openpt=no)
+]])],[working_posix_openpt=yes],[working_posix_openpt=no])
 
 if test "X$working_posix_openpt" = "Xyes"; then
     AC_DEFINE(HAVE_WORKING_POSIX_OPENPT, [1],
@@ -1583,11 +1589,8 @@ dnl netdb.h  version  1.18.
 AC_MSG_CHECKING([if netdb.h requires netinet/in.h to be previously included])
 AC_EGREP_CPP(sockaddr_in, 
 	     [#include <netdb.h>],
-	     AC_TRY_COMPILE([#include <netinet/in.h>
-			     #include <netdb.h>], 
-			    [return 0;],
-			    need_in_h=yes, 
-                            need_in_h=no),
+	     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <netinet/in.h>
+			     #include <netdb.h>]], [[return 0;]])],[need_in_h=yes],[need_in_h=no]),
              need_in_h=no)
 
 if test $need_in_h = yes; then
@@ -1601,10 +1604,7 @@ fi
 dnl Check for type socklen_t
 dnl
 AC_MSG_CHECKING([for socklen_t])
-AC_TRY_COMPILE( [#include <sys/socket.h>], 
-		[socklen_t test;],
-		have_socklen_t=yes, 
-                have_socklen_t=no),
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/socket.h>]], [[socklen_t test;]])],[have_socklen_t=yes],[have_socklen_t=no]),
 
 if test $have_socklen_t = yes; then
 	AC_DEFINE(HAVE_SOCKLEN_T,[1],[Define if we have socklen_t])
@@ -1619,8 +1619,7 @@ dnl (e.g. function call for thread-safe) a simple 'extern int' may conflict
 dnl (we do assume that h_errno exists at all...)
 AC_CACHE_CHECK([for h_errno declaration in netdb.h],
   ac_cv_decl_h_errno,
-[AC_TRY_COMPILE([#include <netdb.h>], [int err = h_errno;],
-  ac_cv_decl_h_errno=yes, ac_cv_decl_h_errno=no)])
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <netdb.h>]], [[int err = h_errno;]])],[ac_cv_decl_h_errno=yes],[ac_cv_decl_h_errno=no])])
 if test $ac_cv_decl_h_errno = yes; then
   AC_DEFINE(H_ERRNO_DECLARED,[1],
 	[define if h_errno is declared (in some way) in a system header file])
@@ -1636,9 +1635,10 @@ saved_cppflags=$CPPFLAGS
 CPPFLAGS="$CPPFLAGS $EMU_THR_DEFS"
 
 AC_HEADER_DIRENT
-AC_HEADER_STDC
+AC_CHECK_INCLUDES_DEFAULT
+
 AC_HEADER_SYS_WAIT
-AC_HEADER_TIME
+AC_CHECK_HEADERS_ONCE([sys/time.h])
 
 dnl Interactive UX needs <net/errno.h> for socket related error codes.
 dnl Some Linuxes needs <sys/socketio.h> instead of <sys/sockio.h>
@@ -1668,7 +1668,8 @@ AC_CHECK_MEMBERS([struct ifreq.ifr_enaddr], [], [],
 dnl ----------------------------------------------------------------------
 dnl  Check the availability of systemd
 dnl ----------------------------------------------------------------------
-if test x"$enable_systemd" != x"no"; then
+AS_IF([test x"$enable_systemd" != x"no"],
+[
 
 systemd_daemon_save_LIBS=$LIBS
 LIBS=
@@ -1688,7 +1689,7 @@ elif test x"$enable_systemd" = x"yes"; then
   AC_MSG_FAILURE([--enable-systemd was given, but test for systemd failed])
 fi
 LIBS=$systemd_daemon_save_LIBS
-fi
+])
 AC_SUBST(SYSTEMD_DAEMON_LIBS)
 
 
@@ -1696,7 +1697,8 @@ dnl ----------------------------------------------------------------------
 dnl Check the availability for libdlpi
 dnl ----------------------------------------------------------------------
 AC_CHECK_LIB(dlpi, dlpi_open)
-if test x"$ac_cv_lib_dlpi_dlpi_open" = x"no"; then
+AS_IF([test x"$ac_cv_lib_dlpi_dlpi_open" = x"no"],
+  [
    unset -v ac_cv_lib_dlpi_dlpi_open
    dnl Try again now with -L/lib (or ditto 64) as argument to linker since
    dnl gcc makes /usr/ccs/bin/ld ignore the crle configured linker default paths
@@ -1732,7 +1734,7 @@ if test x"$ac_cv_lib_dlpi_dlpi_open" = x"no"; then
       LDFLAGS="$save_ldflags"
    fi
    unset -v save_ldflags
-fi
+ ])
 
 AC_CHECK_HEADER(sys/resource.h,
 	[AC_DEFINE(HAVE_SYS_RESOURCE_H, 1,
@@ -1762,7 +1764,8 @@ AC_CHECK_HEADERS([netpacket/packet.h],
 
 dnl Check for kernel SCTP support
 AC_SUBST(LIBSCTP)
-if test "x$enable_sctp" != "xno" ; then
+AS_IF([test "x$enable_sctp" != "xno"],
+  [
     AC_CHECK_HEADER(netinet/sctp.h,
         [LIBSCTP=libsctp.so.1
 	 AC_DEFINE(HAVE_SCTP_H, [1],
@@ -1772,7 +1775,7 @@ if test "x$enable_sctp" != "xno" ; then
 	 #include <sys/socket.h>
 	 #endif
 	])
-fi
+  ])
 
 case "x$enable_sctp" in
      xno|x)
@@ -1783,7 +1786,8 @@ case "x$enable_sctp" in
 	fi;;
 esac
 
-if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
+AS_IF([test x"$ac_cv_header_netinet_sctp_h" = x"yes"],
+  [
     AS_IF([test "x$enable_sctp" = "xlib"],
         AC_CHECK_LIB(sctp, sctp_bindx))
     AC_CHECK_FUNCS([sctp_bindx sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs])
@@ -1824,7 +1828,7 @@ if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
          #endif
          #include <netinet/sctp.h>
         ])
-fi
+  ])
 
 dnl Check for setns
 AC_CHECK_HEADERS(sched.h setns.h)
@@ -1850,15 +1854,12 @@ LM_DECL_SYS_ERRLIST
 
 AC_CACHE_CHECK([if windows.h includes winsock2.h],
 		erts_cv_windows_h_includes_winsock2_h,
-		AC_TRY_COMPILE([#include <windows.h>
-				],
-			       [#ifndef _WINSOCK2API_
+		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <windows.h>
+				]], [[#ifndef _WINSOCK2API_
 				#error winsock2.h not included
 				#endif
 				int i = 1;
-				],
-			       erts_cv_windows_h_includes_winsock2_h=yes,
-			       erts_cv_windows_h_includes_winsock2_h=no))
+				]])],[erts_cv_windows_h_includes_winsock2_h=yes],[erts_cv_windows_h_includes_winsock2_h=no]))
 if test $erts_cv_windows_h_includes_winsock2_h = yes; then
 	AC_DEFINE(WINDOWS_H_INCLUDES_WINSOCK2_H, 1, \
 [Define if windows.h includes winsock2.h])
@@ -1872,7 +1873,7 @@ dnl Checks for typedefs, structures, and compiler characteristics.
 dnl ----------------------------------------------------------------------
 
 AC_C_CONST
-AC_TYPE_SIGNAL
+
 AC_TYPE_OFF_T
 AC_TYPE_PID_T
 AC_TYPE_SIZE_T
@@ -1902,11 +1903,10 @@ AC_SUBST(BITS64)
 AC_MSG_CHECKING([for C compiler 'restrict' support])
 restrict_keyword=""
 for x in restrict __restrict; do
-    AC_TRY_COMPILE([int * $x foo(int * $x arg);
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[int * $x foo(int * $x arg);
 		    int * $x foo(int * $x arg)
 		        { int * $x var=arg; return var;}
-		   ],[],
-		   [restrict_keyword=$x],[])
+		   ]], [[]])],[restrict_keyword=$x],[])
     if test "x$restrict_keyword" != "x"; then
 	break
     fi
@@ -1921,15 +1921,13 @@ fi
 if test "x$ac_compiler_gnu" = "xyes"; then
 AC_MSG_CHECKING([if we should add -fno-tree-copyrename to CFLAGS for computed gotos to work properly])
 ## tree-copyrename was broken in gcc 4.3 and then removed in gcc 6
-AC_TRY_COMPILE([],[
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[
 		#if (__GNUC__ > 4 && __GNUC__ < 6)  || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
 			;
 			#else
 			#error old and ok
 			#endif
-			],
-			no_tree_copyrename=yes,
-			no_tree_copyrename=no)
+			]])],[no_tree_copyrename=yes],[no_tree_copyrename=no])
 
 if test "x$no_tree_copyrename" = "xyes"; then
 	CFLAGS="$CFLAGS -fno-tree-copyrename"
@@ -1939,7 +1937,7 @@ else
 fi
 
 AC_MSG_CHECKING([for broken gcc-4.3.0 compiler])
-AC_TRY_RUN([
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
 /* pr36339.c */
 extern void abort (void);
 
@@ -1972,7 +1970,7 @@ int main(void)
     abort ();
   return 0;
 }
-], gcc_4_3_0_bug=no, gcc_4_3_0_bug=yes, gcc_4_3_0_bug=cross)
+]])],[gcc_4_3_0_bug=no],[gcc_4_3_0_bug=yes],[gcc_4_3_0_bug=cross])
 
 case $gcc_4_3_0_bug in
 	yes|no)
@@ -2031,21 +2029,21 @@ AC_SEARCH_LIBS(fdatasync, [rt])
 
 
 dnl sendfile syscall
-case $host_os in
-    linux*|freebsd*|dragonfly*|darwin*)
+AS_CASE([$host_os],
+        [linux*|freebsd*|dragonfly*|darwin*],
+	[
 		AC_CHECK_FUNCS([sendfile])
-		;;
-    solaris*)
+	],
+    	[solaris*],
+	[
 		AC_SEARCH_LIBS(sendfilev, sendfile,
 			AC_DEFINE([HAVE_SENDFILEV],[1],
 		           [Define to 1 if you have the `sendfilev' function.]))
-		;;
-    win32)
+        ],
+	[win32],
+	[
 		LIBS="$LIBS -lmswsock"
-		;;
-    *)
-		;;
-esac
+	])
 
 dnl ----------------------------------------------------------------------
 dnl Checks for library functions.
@@ -2071,7 +2069,7 @@ AC_CHECK_HEADERS(ws2tcpip.h,[],[],[
 ])
 dnl AC_CHECK_FUNC(getaddrinfo, have_getaddrinfo=yes, have_getaddrinfo=no)
 AC_MSG_CHECKING(for getaddrinfo)
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <stdlib.h>
 #include <string.h>
 #ifdef HAVE_WINSOCK2_H
@@ -2087,14 +2085,13 @@ AC_TRY_LINK([
 #include <sys/socket.h>
 #include <netdb.h>
 #endif
-], 
-[
+]], [[
 getaddrinfo("","",NULL,NULL);
-],have_getaddrinfo=yes, have_getaddrinfo=no)
+]])],[have_getaddrinfo=yes],[have_getaddrinfo=no])
 if test $have_getaddrinfo = yes; then
         AC_MSG_RESULT([yes])
         AC_MSG_CHECKING([whether getaddrinfo accepts enough flags])
-        AC_TRY_LINK([
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <stdlib.h>
 #include <string.h>
 #ifdef HAVE_WINSOCK2_H
@@ -2110,8 +2107,7 @@ if test $have_getaddrinfo = yes; then
 #include <sys/socket.h>
 #include <netdb.h>
 #endif
-],
-[
+]], [[
     struct addrinfo hints, *ai;
     memset(&hints, 0, sizeof(hints));
     hints.ai_flags = AI_CANONNAME;
@@ -2123,7 +2119,7 @@ if test $have_getaddrinfo = yes; then
     } else {
 	exit(1);
     }
-],, have_getaddrinfo=no)
+]])],[],[have_getaddrinfo=no])
 	AC_MSG_RESULT($have_getaddrinfo)
 	case $have_getaddrinfo in
 	    yes)
@@ -2135,7 +2131,7 @@ else
     AC_MSG_RESULT([no])
 fi
 AC_MSG_CHECKING(for getnameinfo)
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <stdlib.h>
 #include <string.h>
 #ifdef HAVE_WINSOCK2_H
@@ -2151,10 +2147,9 @@ AC_TRY_LINK([
 #include <sys/socket.h>
 #include <netdb.h>
 #endif
-], 
-[
+]], [[
 getnameinfo(NULL,0,NULL,0,NULL,0,0);
-],have_getnameinfo=yes, have_getnameinfo=no)
+]])],[have_getnameinfo=yes],[have_getnameinfo=no])
 if test $have_getnameinfo = yes; then
         AC_MSG_RESULT([yes])
 	AC_DEFINE(HAVE_GETNAMEINFO, [1], 
@@ -2176,13 +2171,13 @@ AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlop
 ## We have a special check for inet_pton as AC_CHECK_FUCNS does not work
 ## on windows 32-bit as there a macro is used to rename the symbol...
 AC_MSG_CHECKING([for inet_pton])
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #ifdef WIN32
 #include <ws2tcpip.h>
 #else
 #include <arpa/inet.h>
 #endif
-],[inet_pton(2,"",(void*)0)], have_inet_pton=yes, have_inet_pton=no)
+]], [[inet_pton(2,"",(void*)0)]])],[have_inet_pton=yes],[have_inet_pton=no])
 
 if test $have_inet_pton = yes; then
     AC_DEFINE(HAVE_INET_PTON,[1],
@@ -2193,8 +2188,7 @@ else
 fi
 
 AC_MSG_CHECKING([for isfinite])
-AC_TRY_LINK([#include <math.h>],
-            [isfinite(0);], have_isfinite=yes, have_isfinite=no)
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <math.h>]], [[isfinite(0);]])],[have_isfinite=yes],[have_isfinite=no])
 
 if test $have_isfinite = yes; then
     AC_DEFINE(HAVE_ISFINITE,[1],
@@ -2204,14 +2198,19 @@ else
     AC_MSG_RESULT(no)
 fi
 
-case X$erl_xcomp_posix_memalign in
-     Xno) ;;
-     Xyes) have_posix_memalign=yes ;;
-     *)
+AS_CASE([X$erl_xcomp_posix_memalign],
+	[Xno],
+	[],
+	[Xyes],
+	[
+	have_posix_memalign=yes
+	],
+        [
 	AC_CHECK_FUNC(
 		[posix_memalign],
-                [if test "$cross_compiling" != yes; then
-AC_TRY_RUN([
+                [AS_IF([test "$cross_compiling" != yes],
+		       [     		       
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdlib.h>
 int main(void) {
     void *ptr = NULL;
@@ -2221,12 +2220,13 @@ int main(void) {
       return error;
     return 0;
 }
-],have_posix_memalign=yes
-)
-		 else
+]])],[have_posix_memalign=yes
+],[],[])
+		       ],
+		       [
 			have_posix_memalign=yes
-		 fi]);;
-esac
+		       ])])
+	])
 
 if test "$have_posix_memalign" = "yes"; then
    AC_DEFINE(HAVE_POSIX_MEMALIGN,[1],
@@ -2255,10 +2255,7 @@ LM_CHECK_FUNC_DECL(fread, [extern int fread();],,
 dnl Checking with TRY_LINK since putc_unlocked might be (probably is) a macro
 AC_CACHE_CHECK([for putc_unlocked],
 	erts_cv_putc_unlocked,
-	AC_TRY_LINK([#include <stdio.h>],
-		[int res = putc_unlocked('x',stdout);],
-		erts_cv_putc_unlocked=yes,
-             	erts_cv_putc_unlocked=no))
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]], [[int res = putc_unlocked('x',stdout);]])],[erts_cv_putc_unlocked=yes],[erts_cv_putc_unlocked=no]))
 if test $erts_cv_putc_unlocked = yes; then
 	AC_DEFINE(HAVE_PUTC_UNLOCKED, 1, [Define if you have putc_unlocked])
 fi
@@ -2266,10 +2263,7 @@ fi
 dnl Checking with TRY_LINK since fwrite_unlocked might be a macro
 AC_CACHE_CHECK([for fwrite_unlocked],
 	erts_cv_fwrite_unlocked,
-	AC_TRY_LINK([#include <stdio.h>],
-		[size_t res = fwrite_unlocked(NULL,sizeof(char),0,stdout);],
-		erts_cv_fwrite_unlocked=yes,
-             	erts_cv_fwrite_unlocked=no))
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]], [[size_t res = fwrite_unlocked(NULL,sizeof(char),0,stdout);]])],[erts_cv_fwrite_unlocked=yes],[erts_cv_fwrite_unlocked=no]))
 if test $erts_cv_fwrite_unlocked = yes; then
 	AC_DEFINE(HAVE_FWRITE_UNLOCKED, 1, [Define if you have fwrite_unlocked])
 fi
@@ -2351,8 +2345,7 @@ dnl Checks for features/quirks in the system that affects Erlang.
 dnl ----------------------------------------------------------------------
 
 AC_MSG_CHECKING([for sched_getaffinity/sched_setaffinity])
-AC_TRY_LINK([#include <sched.h>],
-[
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <sched.h>]], [[
 #ifndef CPU_SETSIZE
 #error no CPU_SETSIZE
 #endif
@@ -2364,9 +2357,7 @@ AC_TRY_LINK([#include <sched.h>],
 	res = sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
 	res = CPU_ISSET(1, &cpuset);
 	CPU_CLR(1, &cpuset);
-],
-		sched_xetaffinity=yes,
-		sched_xetaffinity=no)
+]])],[sched_xetaffinity=yes],[sched_xetaffinity=no])
 AC_MSG_RESULT([$sched_xetaffinity])
 if test $sched_xetaffinity = yes; then
 	AC_DEFINE(HAVE_SCHED_xETAFFINITY, 1, [Define if you have sched_getaffinity/sched_setaffinity])
@@ -2374,8 +2365,7 @@ fi
 
 
 AC_MSG_CHECKING([for pset functionality])
-AC_TRY_LINK([#include <sys/pset.h>],
-[
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <sys/pset.h>]], [[
 	int res;
 	psetid_t id = PS_MYID;
 	int type = PS_PRIVATE;
@@ -2383,36 +2373,30 @@ AC_TRY_LINK([#include <sys/pset.h>],
 	processorid_t cpulist[1024];
 
 	res = pset_info(id, &type, &numcpus, &cpulist[0]);
-],
-		pset_functionality=yes,
-		pset_functionality=no)
+]])],[pset_functionality=yes],[pset_functionality=no])
 AC_MSG_RESULT([$pset_functionality])
 if test $pset_functionality = yes; then
 	AC_DEFINE(HAVE_PSET, 1, [Define if you have pset functionality])
 fi
 
 AC_MSG_CHECKING([for processor_bind functionality])
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/types.h>
 #include <sys/processor.h>
 #include <sys/procset.h>
-],
-[
+]], [[
 	int res = processor_bind(P_LWPID, P_MYID, PBIND_NONE, NULL);
-],
-		processor_bind_functionality=yes,
-		processor_bind_functionality=no)
+]])],[processor_bind_functionality=yes],[processor_bind_functionality=no])
 AC_MSG_RESULT([$processor_bind_functionality])
 if test $processor_bind_functionality = yes; then
 	AC_DEFINE(HAVE_PROCESSOR_BIND, 1, [Define if you have processor_bind functionality])
 fi
 
 AC_MSG_CHECKING([for cpuset_getaffinity/cpuset_setaffinity])
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/param.h>
 #include <sys/cpuset.h>
-],
-[
+]], [[
 	int res;
 	cpuset_t cpuset;
 	CPU_ZERO(&cpuset);
@@ -2421,9 +2405,7 @@ AC_TRY_LINK([
 	res = cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_PID, -1, sizeof(cpuset_t), &cpuset);
 	res = CPU_ISSET(1, &cpuset);
 	CPU_CLR(1, &cpuset);
-],
-		cpuset_xetaffinity=yes,
-		cpuset_xetaffinity=no)
+]])],[cpuset_xetaffinity=yes],[cpuset_xetaffinity=no])
 AC_MSG_RESULT([$cpuset_xetaffinity])
 if test $cpuset_xetaffinity = yes; then
 	AC_DEFINE(HAVE_CPUSET_xETAFFINITY, 1, [Define if you have cpuset_getaffinity/cpuset_setaffinity])
@@ -2431,27 +2413,21 @@ fi
 
 AC_CACHE_CHECK([for 'end' symbol],
 		erts_cv_have_end_symbol,
-		[AC_TRY_LINK([],
-			[extern char end; {char *x = &end; *x= 0;}],
-			erts_cv_have_end_symbol=yes,
-			erts_cv_have_end_symbol=no)])
+		[AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[extern char end; {char *x = &end; *x= 0;}]])],[erts_cv_have_end_symbol=yes],[erts_cv_have_end_symbol=no])])
 if test $erts_cv_have_end_symbol = yes; then
 	AC_DEFINE(HAVE_END_SYMBOL, 1, [Define if you have the 'end' symbol])
 fi
 
 AC_CACHE_CHECK([for '_end' symbol],
 		erts_cv_have__end_symbol,
-		[AC_TRY_LINK([],
-			[extern char _end; {char *x = &_end; *x= 0;}],
-			erts_cv_have__end_symbol=yes,
-			erts_cv_have__end_symbol=no)])
+		[AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[extern char _end; {char *x = &_end; *x= 0;}]])],[erts_cv_have__end_symbol=yes],[erts_cv_have__end_symbol=no])])
 if test $erts_cv_have__end_symbol = yes; then
 	AC_DEFINE(HAVE__END_SYMBOL, 1, [Define if you have the '_end' symbol])
 fi
 
 AC_CACHE_CHECK([if __after_morecore_hook can track malloc()s core memory use],
 		erts_cv___after_morecore_hook_can_track_malloc,
-		[AC_TRY_RUN([
+		[AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdlib.h>
 #ifdef HAVE_MALLOC_H
 #  include <malloc.h>
@@ -2573,17 +2549,14 @@ int main(void)
 	    return 1;
     return 0;
 }
-	],
-	erts_cv___after_morecore_hook_can_track_malloc=yes,
-	erts_cv___after_morecore_hook_can_track_malloc=no,
-	[
+	]])],[erts_cv___after_morecore_hook_can_track_malloc=yes],[erts_cv___after_morecore_hook_can_track_malloc=no],[
 	case X$erl_xcomp_after_morecore_hook in
 	    X) erts_cv___after_morecore_hook_can_track_malloc=cross;;
 	    Xyes|Xno) erts_cv___after_morecore_hook_can_track_malloc=$erl_xcomp_after_morecore_hook;;
 	    *) AC_MSG_ERROR([Bad erl_xcomp_after_morecore_hook value: $erl_xcomp_after_morecore_hook]);;
 	esac
-	]
-	)])
+	
+	])])
 
 case $erts_cv___after_morecore_hook_can_track_malloc in
 	yes) AC_DEFINE(ERTS___AFTER_MORECORE_HOOK_CAN_TRACK_MALLOC, 1, \
@@ -2592,7 +2565,8 @@ case $erts_cv___after_morecore_hook_can_track_malloc in
 	*) ;;
 esac
 
-if test "x$ac_cv_func_sbrk" = "xyes"; then
+AS_IF([test "x$ac_cv_func_sbrk" = "xyes"],
+  [
     AC_CACHE_CHECK([types of sbrk()s return value and argument],
 		    erts_cv_sbrk_ret_arg_types,
 		    [
@@ -2604,10 +2578,8 @@ if test "x$ac_cv_func_sbrk" = "xyes"; then
 	for rtype in $ret_types; do
 	    for atype in $arg_types; do
 		IFS=$save_ifs
-		AC_TRY_LINK([#include <sys/types.h>
-				#include <unistd.h>],
-				[$rtype sbrk($atype incr);],
-				[erts_cv_sbrk_ret_arg_types="$rtype,$atype"])
+		AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
+				#include <unistd.h>]], [[$rtype sbrk($atype incr);]])],[erts_cv_sbrk_ret_arg_types="$rtype,$atype"],[])
 		IFS=","
 		if test "$erts_cv_sbrk_ret_arg_types" != "unknown"; then
 		    break 2
@@ -2627,9 +2599,10 @@ EOF
 	AC_DEFINE_UNQUOTED(SBRK_ARG_TYPE, $arg_type, \
 [Define the sbrk() argument type.])
     fi
-fi
+  ])
 
-if test $ac_cv_func_brk = yes; then
+AS_IF([test $ac_cv_func_brk = yes],
+  [
     AC_CACHE_CHECK([types of brk()s return value and argument],
 		    erts_cv_brk_ret_arg_types,
 		    [
@@ -2641,10 +2614,8 @@ if test $ac_cv_func_brk = yes; then
 	for rtype in $ret_types; do
 	    for atype in $arg_types; do
 		IFS=$save_ifs
-		AC_TRY_LINK([#include <sys/types.h>
-				#include <unistd.h>],
-				[$rtype brk($atype endds);],
-				[erts_cv_brk_ret_arg_types="$rtype,$atype"])
+		AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
+				#include <unistd.h>]], [[$rtype brk($atype endds);]])],[erts_cv_brk_ret_arg_types="$rtype,$atype"],[])
 		IFS=","
 		if test "$erts_cv_brk_ret_arg_types" != "unknown"; then
 		    break 2
@@ -2664,14 +2635,14 @@ EOF
 	AC_DEFINE_UNQUOTED(BRK_ARG_TYPE, $arg_type, \
 [Define the brk() argument type.])
     fi
+  ])
 
-fi
-
-if test $ac_cv_func_sbrk = yes; then
+AS_IF([test $ac_cv_func_sbrk = yes],
+  [
 
     AC_CACHE_CHECK([if sbrk()/brk() wrappers can track malloc()s core memory use],
 		    erts_cv_brk_wrappers_can_track_malloc,
-		    [AC_TRY_RUN([
+		    [AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -2836,10 +2807,7 @@ int main(void)
 	    return 1;
     return 0;
 }
-	],
-	    erts_cv_brk_wrappers_can_track_malloc=yes,
-	    erts_cv_brk_wrappers_can_track_malloc=no,
-	    [
+	]])],[erts_cv_brk_wrappers_can_track_malloc=yes],[erts_cv_brk_wrappers_can_track_malloc=no],[
 	    case X$erl_xcomp_dlsym_brk_wrappers in
 		X) erts_cv_brk_wrappers_can_track_malloc=cross;;
 		Xyes|Xno) erts_cv_brk_wrappers_can_track_malloc=$erl_xcomp_dlsym_brk_wrappers;;
@@ -2854,7 +2822,7 @@ int main(void)
 		AC_MSG_WARN([result no guessed because of cross compilation]);;
 	    *) ;;
 	esac
-fi
+  ])
 
 dnl Restore LIBS
 LIBS=$saved_libs
@@ -2876,7 +2844,8 @@ AC_CHECK_PROG(M4, m4, m4)
 
 dnl Test if JIT can be enabled
 JIT_ARCH=
-if test ${enable_jit} != no; then
+AS_IF([test ${enable_jit} != no],
+  [
    case "$ARCH" in
         amd64)
            JIT_ARCH=x86
@@ -2894,16 +2863,18 @@ if test ${enable_jit} != no; then
            ;;
    esac
 
-   if test ${enable_jit} != no; then
-       if test "$CXX" != false; then
+   AS_IF([test ${enable_jit} != no],
+     [
+       AS_IF([test "$CXX" != false],
+         [
           AC_LANG_PUSH(C++)
           old_CXXFLAGS=$CXXFLAGS
           CXXFLAGS="$CXXFLAGS -std=c++17"
           AC_COMPILE_IFELSE(
-              [AC_LANG_PROGRAM([],
-               [#if __cplusplus < 201703L
+              [AC_LANG_PROGRAM([[]],
+               [[#if __cplusplus < 201703L
                 #error "Needs C++17 compiler"
-                #endif])],
+                #endif]])],
               [AC_MSG_CHECKING([for C++17 support])
                AC_MSG_RESULT([yes])
                HAVE_CXX17=true],
@@ -2911,7 +2882,7 @@ if test ${enable_jit} != no; then
                AC_MSG_RESULT([no])
                HAVE_CXX17=false])
           AC_LANG_POP()
-       fi
+         ])
        if test "$CXX" = false -o "$HAVE_CXX17" = false; then
          if test ${enable_jit} = yes; then
            AC_MSG_ERROR([JIT needs a C++ compiler with C++17 support])
@@ -2924,44 +2895,45 @@ EOF
            AC_MSG_WARN([JIT disable due to lack of C++ compiler with C++17 support])
         fi
      fi
-   fi
+    ])
 
    if test ${enable_jit} != no; then
      enable_jit=yes
    fi
-fi
+  ])
 
 dnl Test if we can use the native stack for Erlang code
-if test ${enable_jit} != no; then
-  case $host_os in
-    openbsd*)
+AS_IF([test ${enable_jit} != no],
+ [
+  AS_CASE([$host_os],
+    [openbsd*],
+    [
       # Whenever the kernel is entered (page faults, system calls, etc),
       # OpenBSD checks whether the stack pointer is in an area allocated with
       # MAP_STACK, so we can't use the native stack for Erlang code.
       #
       # https://undeadly.org/cgi?action=article;sid=20180310000858
-      enable_native_stack=no;;
-    win32*)
+      enable_native_stack=no
+    ],
+    [win32*],
+    [
       # Windows never messes with the stack, so it's safe by default.
-      enable_native_stack=yes;;
-    *)
+      enable_native_stack=yes
+    ],
+    [
       # Use the native stack if we can safely redirect OS signals to a
       # different stack.
       AC_MSG_CHECKING([for safe signal delivery])
-      AC_TRY_COMPILE(
-        [#include <signal.h>],
-        [#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <signal.h>]], [[#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
          #define __DARWIN__ 1
          #endif
          #if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__sun__))
          #error "Unknown libc. Assume musl, which does not allow safe signals"
-         #endif],
-        [AC_MSG_RESULT([yes])
-         enable_native_stack=yes],
-        [AC_MSG_RESULT([no, disabling native stack in JIT])
-         enable_native_stack=no]
-      );;
-  esac
+         #endif]])],[AC_MSG_RESULT([yes])
+         enable_native_stack=yes],[AC_MSG_RESULT([no, disabling native stack in JIT])
+         enable_native_stack=no
+      ])
+    ])
 
   case "$JIT_ARCH" in
     x86)
@@ -2973,7 +2945,7 @@ if test ${enable_jit} != no; then
     *)
       ;;
   esac
-fi
+ ])
 
 dnl
 dnl Check if the `perf` profiler is supported. At the moment it assumes it
@@ -3042,13 +3014,15 @@ AC_SUBST(FLAVORS)
 # Check for working poll().
 #
 AC_MSG_CHECKING([for working poll()])
-if test "x$ac_cv_header_poll_h" != "xyes" -o "x$ac_cv_func_poll" != "xyes"; then
+AS_IF([test "x$ac_cv_header_poll_h" != "xyes" -o "x$ac_cv_func_poll" != "xyes"],
+[
 
 poll_works=no
 
-else
+],
+[
 
-AC_TRY_RUN([
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <poll.h>
 main()
 {
@@ -3067,10 +3041,7 @@ main()
   exit(0);
 #endif
 }
-],
-poll_works=yes,
-poll_works=no,
-[
+]])],[poll_works=yes],[poll_works=no],[
 case X$erl_xcomp_poll in
     X) poll_works=cross;;
     Xyes|Xno) poll_works=$erl_xcomp_poll;;
@@ -3078,7 +3049,7 @@ case X$erl_xcomp_poll in
 esac
 ])
 
-fi
+])
 
 case $poll_works-$host_os in
     no-*|cross-darwin*)
@@ -3127,9 +3098,10 @@ fi
 #
 # If epoll() found, check that it is level triggered.
 #
-if test $have_kernel_poll = epoll; then
+AS_IF([test $have_kernel_poll = epoll],
+      [
 	AC_MSG_CHECKING([whether epoll is level triggered])
-	AC_TRY_LINK([#include <sys/epoll.h>],[
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <sys/epoll.h>]], [[
 			#ifdef EPOLLET
 			/* Edge triggered option exist, assume level triggered
 			   is default */
@@ -3139,12 +3111,10 @@ if test $have_kernel_poll = epoll; then
 			   triggered only */
 			#error No EPOLLET
 			#endif
-			],
-			level_triggered_epoll=yes,
-			[level_triggered_epoll=no
+			]])],[level_triggered_epoll=yes],[level_triggered_epoll=no
 			 have_kernel_poll=no])
 	AC_MSG_RESULT([$level_triggered_epoll])
-fi
+      ])
 #
 # Check if we should enable kernel poll support
 #
@@ -3181,7 +3151,7 @@ esac
 AC_SUBST(ERTS_BUILD_FALLBACK_POLL)
 
 AC_MSG_CHECKING([whether putenv() stores a copy of the key-value pair])
-AC_TRY_RUN([
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdlib.h>
 int main(void) {
     int i;
@@ -3211,10 +3181,7 @@ int main(void) {
 	    return 5;
     return 0;
 }
-],
-copying_putenv=yes,
-copying_putenv=no,
-[
+]])],[copying_putenv=yes],[copying_putenv=no],[
 case X$erl_xcomp_putenv_copy in
     X) copying_putenv=cross;;
     Xyes|Xno) copying_putenv=$erl_xcomp_putenv_copy;;
@@ -3246,19 +3213,23 @@ LM_FIND_EMU_CC
 dnl
 dnl DTrace & LTTNG
 dnl
-case $DYNAMIC_TRACE_FRAMEWORK in
-     dtrace|systemtap)
+AS_CASE([$DYNAMIC_TRACE_FRAMEWORK],
+     [dtrace|systemtap],
+     [
         AC_CHECK_TOOL(DTRACE, dtrace, none)
         test "$DTRACE" = "none" && AC_MSG_ERROR([No dtrace utility found.]);
         enable_lttng_test=no
-	enable_dtrace_test=yes;;
-     lttng)
+	enable_dtrace_test=yes
+     ],
+     [lttng],
+     [
         enable_lttng_test=yes
-        enable_dtrace_test=no;;
-     *)
+        enable_dtrace_test=no
+     ],
+     [
         enable_lttng_test=no
-        enable_dtrace_test=no;;
-esac        
+        enable_dtrace_test=no
+     ])
 		     
 AC_SUBST(DTRACE)
 
@@ -3282,8 +3253,10 @@ case $OPSYS in
 	: # Nothing to do
     ;;
 esac
-if test "$enable_dtrace_test" = "yes" ; then
-        if test "$DTRACE" = "dtrace" ; then
+AS_IF([test "$enable_dtrace_test" = "yes"],
+      [
+        AS_IF([test "$DTRACE" = "dtrace"],
+	      [
                 AC_CHECK_HEADERS(sys/sdt.h)
 		AC_MSG_CHECKING([for 1-stage DTrace precompilation])
                 # The OS X version of dtrace prints a spurious line here.
@@ -3293,15 +3266,12 @@ if test "$enable_dtrace_test" = "yes" ; then
 		AC_MSG_RESULT([yes])
 
 		AC_MSG_CHECKING([for 2-stage DTrace precompilation])
-                AC_TRY_COMPILE([ #include "foo-dtrace.h" ],
-                    [ERLANG_DIST_PORT_BUSY_ENABLED();],
-		    [rm -f $DTRACE_2STEP_TEST
+                AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include "foo-dtrace.h" ]], [[ERLANG_DIST_PORT_BUSY_ENABLED();]])],[rm -f $DTRACE_2STEP_TEST
 		     dtrace -G $DTRACE_CPP $DTRACE_BITS_FLAG -Iemulator/beam -o $DTRACE_2STEP_TEST -s emulator/beam/erlang_dtrace.d conftest.$OBJEXT 2>&AS_MESSAGE_LOG_FD
                      if test -f $DTRACE_2STEP_TEST; then
 			rm -f $DTRACE_2STEP_TEST
                         DTRACE_ENABLED_2STEP=yes
-		     fi],
-                    [])
+		     fi],[])
 		rm -f foo-dtrace.h
 		AS_IF([test "x$DTRACE_ENABLED_2STEP" = "xyes"],
 		      [AC_MSG_RESULT([yes])],
@@ -3319,12 +3289,14 @@ if test "$enable_dtrace_test" = "yes" ; then
                         LIBS="$LIBS -ldtrace"
                     ;;
                 esac
-        else
+              ],
+	      [
                 AC_MSG_ERROR([Dtrace preprocessing test failed.])
-        fi
-fi
+	      ])
+      ])
 
-if test "$enable_lttng_test" = "yes" ; then
+AS_IF([test "$enable_lttng_test" = "yes"],
+  [
     AC_CHECK_HEADERS(lttng/tracepoint.h)
     AC_CHECK_HEADERS(lttng/tracepoint-event.h)
     dnl The macro tracepoint_enabled is not present in older lttng versions
@@ -3332,7 +3304,7 @@ if test "$enable_lttng_test" = "yes" ; then
     AC_MSG_CHECKING([for tracepoint_enabled in lttng/tracepoint.h])
     AC_COMPILE_IFELSE(
         [AC_LANG_PROGRAM(
-            [#include <lttng/tracepoint.h>
+            [[#include <lttng/tracepoint.h>
              #define TRACEPOINT_PROVIDER org_erlang_otp
              TRACEPOINT_EVENT(
                  org_erlang_otp,
@@ -3340,8 +3312,8 @@ if test "$enable_lttng_test" = "yes" ; then
                  TP_ARGS(int, my_int),
                  TP_FIELDS(ctf_integer(int, my_int, my_int)))
              #define TRACEPOINT_CREATE_PROBES
-             #define TRACEPOINT_DEFINE],
-            [if(tracepoint_enabled(org_erlang_otp,dummy)) do {} while(0)])],
+             #define TRACEPOINT_DEFINE]],
+            [[if(tracepoint_enabled(org_erlang_otp,dummy)) do {} while(0)]])],
         [AC_MSG_RESULT([yes])],
         [AC_MSG_ERROR([no (available in lttng-ust v2.7)])])
     if test "x$ac_cv_header_lttng_tracepoint_h" = "xyes" \
@@ -3352,7 +3324,7 @@ if test "$enable_lttng_test" = "yes" ; then
     else
         AC_MSG_ERROR([No LTTng support found.])
     fi
-fi
+  ])
 
 
 #--------------------------------------------------------------------
@@ -3421,7 +3393,8 @@ else
 fi
 
 AC_CHECK_PROGS(JAVAC, $check_javac)
-if test -n "$JAVAC"; then
+AS_IF([test -n "$JAVAC"],
+ [
   dnl Make sure it's at least JDK 1.6
   AC_CACHE_CHECK(for JDK version 1.6, 
      ac_cv_prog_javac_ver_1_6,
@@ -3430,7 +3403,7 @@ if test -n "$JAVAC"; then
   if test $ac_cv_prog_javac_ver_1_6 = no; then
     unset -v JAVAC
   fi
-fi
+ ])
 if test -z "$JAVAC"; then
 
   if test "X$with_javac" != "X"; then
@@ -3577,13 +3550,11 @@ dnl Check for GCC diagnostic ignored "-Waddress-of-packed-member"
 dnl ----------------------------------------------------------------------
 saved_CFLAGS="$CFLAGS"
 CFLAGS="-Werror $CFLAGS"
-AC_TRY_COMPILE([],
-        [_Pragma("GCC diagnostic push")
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[_Pragma("GCC diagnostic push")
          _Pragma("GCC diagnostic ignored \"-Waddress-of-packed-member\"")
          _Pragma("GCC diagnostic pop")
-         ],
-         AC_DEFINE(HAVE_GCC_DIAG_IGNORE_WADDRESS_OF_PACKED_MEMBER,[1],
-           [define if compiler support _Pragma('GCC diagnostic ignored '-Waddress-of-packed-member'')]))
+         ]])],[AC_DEFINE(HAVE_GCC_DIAG_IGNORE_WADDRESS_OF_PACKED_MEMBER,1,
+           define if compiler support _Pragma('GCC diagnostic ignored '-Waddress-of-packed-member''))],[])
 CFLAGS="$saved_CFLAGS"
 
 
