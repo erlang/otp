@@ -1939,7 +1939,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="hash_equals" arity="2" since=""/>
+      <name name="hash_equals" arity="2" since="OTP 25.0"/>
       <fsummary>Constant time memory comparison for fixed length binaries</fsummary>
       <desc>
         <p>
