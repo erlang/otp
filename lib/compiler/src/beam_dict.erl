@@ -239,14 +239,14 @@ atom_table(#asm{atoms=Atoms}, Encoding) ->
 
 %% Returns the table of local functions.
 %%    local_table(Dict) -> {NumLocals, [{Function, Arity, Label}...]}
--spec local_table(bdict()) -> {non_neg_integer(), [{label(),arity(),label()}]}.
+-spec local_table(bdict()) -> {non_neg_integer(), [{index(),arity(),label()}]}.
 
 local_table(#asm{locals = Locals}) ->
     {length(Locals),Locals}.
 
 %% Returns the export table.
 %%    export_table(Dict) -> {NumExports, [{Function, Arity, Label}...]}
--spec export_table(bdict()) -> {non_neg_integer(), [{label(),arity(),label()}]}.
+-spec export_table(bdict()) -> {non_neg_integer(), [{index(),arity(),label()}]}.
 
 export_table(#asm{exports = Exports}) ->
     {length(Exports),Exports}.
