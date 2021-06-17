@@ -104,8 +104,10 @@ end_per_testcase(_Func, Config) ->
        "~n   Monitors: ~p",
        [Config, erlang:nodes(), pi(links), pi(monitors)]),
 
+    SysEvs = kernel_test_global_sys_monitor:events(),
+
     ?P("system events during test: "
-       "~n   ~p", [kernel_test_global_sys_monitor:events()]),
+       "~n   ~p", [SysEvs]),
 
     ?P("end_per_testcase -> done with"
        "~n   Nodes:    ~p"
@@ -5098,7 +5100,45 @@ send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
                 1;
             {Snd2, {{error, timeout}, N}} ->
                 ?P("[para] timeout received from sender 2 (~p, ~p)", [Snd2, N]),
-                2
+                2;
+
+            {'EXIT', _Pid, {timetrap_timeout, _Timeout, _Stack}} ->
+                %% The test case (timetrap) has timed out, which either means
+                %% we are running on very slow hw or some system functions
+                %% are slowing us down (this test case should never normally
+                %% time out like this).
+                ?P("Test case timetrap timeout - check for system events"),
+                case kernel_test_global_sys_monitor:events(?SECS(5)) of
+                    SysEvs when (SysEvs =/= []) ->
+                        ?P("timetrap timeout with system events: "
+                           "~n   System Events: ~p"
+                           "~n   Sender 1 Info: ~p"
+                           "~n   Sender 2 Info: ~p"
+                           "~n   Socket Info:   ~p",
+                           [SysEvs,
+                            process_info(Snd1), process_info(Snd2),
+                            SockInfo()]),
+                        ?SKIPT(?F("TC system ~w events", [length(SysEvs)]));
+                    {error, Reason} ->
+                        ?P("TC timetrap timeout but failed get system events: "
+                           "~n   Reason:        ~p"
+                           "~n   Sender 1 Info: ~p"
+                           "~n   Sender 2 Info: ~p"
+                           "~n   Socket Info:   ~p",
+                           [Reason,
+                            process_info(Snd1), process_info(Snd2),
+                            SockInfo()]),
+                        exit({timetrap, {failed_get_sys_evs, Reason}});
+                    [] ->
+                        ?P("TC timetrap *without* system events: "
+                           "~n   Sender 1 Info: ~p"
+                           "~n   Sender 2 Info: ~p"
+                           "~n   Socket Info:   ~p",
+                           [process_info(Snd1), process_info(Snd2),
+                            SockInfo()]),
+                        exit(timetrap)
+                end
+
         after 20000 ->
                 SockInfo1 = SockInfo(),
                 SockTo1   = SockTimeout(),
