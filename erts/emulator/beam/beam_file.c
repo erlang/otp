@@ -323,24 +323,23 @@ static int parse_import_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     return 1;
 }
 
-static int parse_export_chunk(BeamFile *beam, IFF_Chunk *chunk) {
-    BeamFile_ExportTable *exports;
+static int parse_export_table(BeamFile_ExportTable *dest,
+			      BeamFile *beam, IFF_Chunk *chunk) {
     BeamFile_AtomTable *atoms;
     BeamReader reader;
     Sint32 count;
     int i;
 
-    exports = &beam->exports;
-    ASSERT(exports->entries == NULL);
+    ASSERT(dest->entries == NULL);
 
     beamreader_init(chunk->data, chunk->size, &reader);
 
     LoadAssert(beamreader_read_i32(&reader, &count));
-    LoadAssert(CHECK_ITEM_COUNT(count, 0, sizeof(exports->entries[0])));
+    LoadAssert(CHECK_ITEM_COUNT(count, 0, sizeof(dest->entries[0])));
 
-    exports->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
-                                  count * sizeof(exports->entries[0]));
-    exports->count = count;
+    dest->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                  count * sizeof(dest->entries[0]));
+    dest->count = count;
 
     atoms = &beam->atoms;
 
@@ -355,12 +354,16 @@ static int parse_export_chunk(BeamFile *beam, IFF_Chunk *chunk) {
         LoadAssert(arity >= 0 && arity <= MAX_ARG);
         LoadAssert(label >= 0);
 
-        exports->entries[i].function = atoms->entries[atom_index];
-        exports->entries[i].arity = arity;
-        exports->entries[i].label = label;
+        dest->entries[i].function = atoms->entries[atom_index];
+        dest->entries[i].arity = arity;
+        dest->entries[i].label = label;
     }
 
     return 1;
+}
+
+static int parse_export_chunk(BeamFile *beam, IFF_Chunk *chunk) {
+    return parse_export_table(&beam->exports, beam, chunk);
 }
 
 static int parse_lambda_chunk(BeamFile *beam, IFF_Chunk *chunk) {
