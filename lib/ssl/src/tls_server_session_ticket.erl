@@ -31,7 +31,7 @@
 -include("ssl_cipher.hrl").
 
 %% API
--export([start_link/5,
+-export([start_link/6,
          new/3,
          use/4
         ]).
@@ -47,18 +47,19 @@
                 stateful,
                 nonce,
                 lifetime,
-                max_early_data_size
+                max_early_data_size,
+                listen_monitor
                }).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
--spec start_link(atom(), integer(), integer(), integer(), tuple()) -> {ok, Pid :: pid()} |
+-spec start_link(term(), atom(), integer(), integer(), integer(), tuple()) -> {ok, Pid :: pid()} |
                       {error, Error :: {already_started, pid()}} |
                       {error, Error :: term()} |
                       ignore.
-start_link(Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay) ->
-    gen_server:start_link(?MODULE, [Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay], []).
+start_link(Listner, Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay) ->
+    gen_server:start_link(?MODULE, [Listner, Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay], []).
 
 new(Pid, Prf, MasterSecret) ->
     gen_server:call(Pid, {new_session_ticket, Prf, MasterSecret}, infinity).
@@ -72,10 +73,11 @@ use(Pid, Identifiers, Prf, HandshakeHist) ->
 %%%===================================================================
 
 -spec init(Args :: term()) -> {ok, State :: term()}.                             
-init(Args) ->
+init([Listener | Args]) ->
     process_flag(trap_exit, true),
+    Monitor = inet:monitor(Listener),
     State = inital_state(Args),
-    {ok, State}.
+    {ok, State#state{listen_monitor = Monitor}}.
 
 -spec handle_call(Request :: term(), From :: {pid(), term()}, State :: term()) ->
                          {reply, Reply :: term(), NewState :: term()} .
@@ -120,6 +122,8 @@ handle_info(rotate_bloom_filters,
     BloomFilter = tls_bloom_filter:rotate(BloomFilter0),
     erlang:send_after(Window * 1000, self(), rotate_bloom_filters),
     {noreply, State#state{stateless = Stateless#{bloom_filter => BloomFilter}}};
+handle_info({'DOWN', Monitor, _, _, _}, #state{listen_monitor = Monitor} = State) ->
+    {stop, normal, State};
 handle_info(_Info, State) ->
     {noreply, State}.
 

@@ -84,7 +84,7 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
             MaxEarlyDataSize = ssl_config:get_max_early_data_size(),
             %% TLS-1.3 session handling
             {ok, SessionHandler} =
-                session_tickets_tracker(LifeTime, TicketStoreSize, MaxEarlyDataSize, SslOpts),
+                session_tickets_tracker(ListenSocket, LifeTime, TicketStoreSize, MaxEarlyDataSize, SslOpts),
             %% PRE TLS-1.3 session handling
             {ok, SessionIdHandle} = session_id_tracker(ListenSocket, SslOpts),
             Trackers =  [{option_tracker, Tracker}, {session_tickets_tracker, SessionHandler},
@@ -263,15 +263,16 @@ inherit_tracker(ListenSocket, EmOpts, #{erl_dist := false} = SslOpts) ->
 inherit_tracker(ListenSocket, EmOpts, #{erl_dist := true} = SslOpts) ->
     ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts]).
 
-session_tickets_tracker(_, _, _, #{erl_dist := false,
+session_tickets_tracker(_,_, _, _, #{erl_dist := false,
                                    session_tickets := disabled}) ->
     {ok, disabled};
-session_tickets_tracker(Lifetime, TicketStoreSize, MaxEarlyDataSize, 
+session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSize,
                         #{erl_dist := false,
                           session_tickets := Mode,
                           anti_replay := AntiReplay}) ->
-    tls_server_session_ticket_sup:start_child([Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay]);
-session_tickets_tracker(Lifetime, TicketStoreSize, MaxEarlyDataSize,
+    tls_server_session_ticket_sup:start_child([ListenSocket, Mode, Lifetime,
+                                               TicketStoreSize, MaxEarlyDataSize, AntiReplay]);
+session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSize,
                         #{erl_dist := true,
                           session_tickets := Mode,
                           anti_replay := AntiReplay}) ->
@@ -280,7 +281,8 @@ session_tickets_tracker(Lifetime, TicketStoreSize, MaxEarlyDataSize,
     Workers = proplists:get_value(workers, Children),
     case Workers of
         0 ->
-            tls_server_session_ticket_sup:start_child([Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay]);
+            tls_server_session_ticket_sup:start_child([ListenSocket, Mode, Lifetime,
+                                                       TicketStoreSize, MaxEarlyDataSize, AntiReplay]);
         1 ->
             [{_,Child,_, _}] = supervisor:which_children(SupName),
             {ok, Child}
@@ -320,7 +322,7 @@ start_link(Port, SockOpts, SslOpts) ->
 %%--------------------------------------------------------------------
 init([Listen, Opts, SslOpts]) ->
     process_flag(trap_exit, true),
-    Monitor = monitor_listen(Listen),
+    Monitor = inet:monitor(Listen),
     {ok, #state{emulated_opts = do_set_emulated_opts(Opts, []), 
                 listen_monitor = Monitor,
                 ssl_opts = SslOpts}}.
@@ -396,9 +398,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 call(Pid, Msg) ->
     gen_server:call(Pid, Msg, infinity).
-
-monitor_listen(Listen) when is_port(Listen) ->
-    erlang:monitor(port, Listen).
 
 split_options(Opts) ->
     split_options(Opts, emulated_options(), [], []).
