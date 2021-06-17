@@ -137,9 +137,9 @@ Erlang terms in case of a garbage collection.
 ## Frame pointers
 
 To aid debuggers and sampling profilers, we support running Erlang code with
-native frame pointers. As of writing this only enabled together with `perf`
-support (`+JPperf true`) to save stack space, but we may add a flag to
-explicitly enable it in the future.
+native frame pointers. At the time of writing, this is only enabled together
+with `perf` support (`+JPperf true`) to save stack space, but we may add a flag
+to explicitly enable it in the future.
 
 When enabled, continuation pointers (CP) have both a return address _and_ a
 frame pointer that points at the previous CP. CPs must form a valid chain at
