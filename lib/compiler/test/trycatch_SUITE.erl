@@ -1257,7 +1257,7 @@ stacktrace(_Config) ->
     try
         throw(x)
     catch
-        throw:x:IntentionallyUnused ->
+        throw:x:_IntentionallyUnused ->
             ok
     end.
 
