@@ -366,6 +366,12 @@ static int parse_export_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     return parse_export_table(&beam->exports, beam, chunk);
 }
 
+#ifdef BEAMASM
+static int parse_locals_chunk(BeamFile *beam, IFF_Chunk *chunk) {
+    return parse_export_table(&beam->locals, beam, chunk);
+}
+#endif
+
 static int parse_lambda_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     BeamFile_LambdaTable *lambdas;
     BeamFile_AtomTable *atoms;
@@ -743,6 +749,7 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         MakeIffId('C', 'I', 'n', 'f'), /* 8 */
         MakeIffId('L', 'i', 'n', 'e'), /* 9 */
         MakeIffId('A', 't', 'U', '8'), /* 10 */
+        MakeIffId('L', 'o', 'c', 'T'), /* 11 */
     };
 
     static const int ATOM_CHUNK = 0;
@@ -756,6 +763,9 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
     static const int COMPILE_CHUNK = 8;
     static const int LINE_CHUNK = 9;
     static const int UTF8_ATOM_CHUNK = 10;
+#ifdef BEAMASM
+    static const int LOC_CHUNK = 11;
+#endif
 
     static const int NUM_CHUNKS = sizeof(chunk_iffs) / sizeof(chunk_iffs[0]);
 
@@ -817,6 +827,15 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         error = BEAMFILE_READ_CORRUPT_EXPORT_TABLE;
         goto error;
     }
+
+#ifdef BEAMASM
+    if (erts_jit_asm_dump && chunks[LOC_CHUNK].size > 0) {
+        if (!parse_locals_chunk(beam, &chunks[LOC_CHUNK])) {
+            error = BEAMFILE_READ_CORRUPT_LOCALS_TABLE;
+            goto error;
+        }
+    }
+#endif
 
     if (chunks[LAMBDA_CHUNK].size > 0) {
         if (!parse_lambda_chunk(beam, &chunks[LAMBDA_CHUNK])) {
@@ -945,6 +964,13 @@ void beamfile_free(BeamFile *beam) {
         erts_free(ERTS_ALC_T_PREPARED_CODE, beam->exports.entries);
         beam->exports.entries = NULL;
     }
+
+#ifdef BEAMASM
+    if (beam->locals.entries) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, beam->locals.entries);
+        beam->locals.entries = NULL;
+    }
+#endif
 
     if (beam->lambdas.entries) {
         erts_free(ERTS_ALC_T_PREPARED_CODE, beam->lambdas.entries);

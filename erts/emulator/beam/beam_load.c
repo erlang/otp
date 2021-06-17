@@ -148,6 +148,8 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
         BeamLoadError0(stp, "corrupt line table");
     case BEAMFILE_READ_CORRUPT_LITERAL_TABLE:
         BeamLoadError0(stp, "corrupt literal table");
+    case BEAMFILE_READ_CORRUPT_LOCALS_TABLE:
+        BeamLoadError0(stp, "corrupt locals table");
     case BEAMFILE_READ_SUCCESS:
         break;
     }
