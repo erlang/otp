@@ -843,7 +843,7 @@ sendtos_ok({unix,netbsd}, _OSVer) -> false;
 sendtos_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer, {6,9,0});
 sendtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 sendtos_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {4,0,0});
-sendtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {13,0,0});
+sendtos_ok({unix,freebsd}, _OSVer) -> false; % not semver_lt(OSVer, {13,1,0});
 %%
 sendtos_ok({unix,_}, _) -> true;
 sendtos_ok(_, _) -> false.
@@ -852,7 +852,7 @@ sendtos_ok(_, _) -> false.
 sendttl_ok({unix,darwin}, _OSVer) -> false; % not semver_lt(OSVer, {19,6,0});
 sendttl_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {4,0,0});
 %% Using the option returns enoprotoopt, so it is not implemented.
-sendttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {13,0,0});
+sendttl_ok({unix,freebsd}, _OSVer) -> false; % not semver_lt(OSVer, {13,1,0});
 %% Option has no effect
 sendttl_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 sendttl_ok({unix,openbsd}, _OSVer) -> false; % not semver_lt(OSVer, {6,9,0});
