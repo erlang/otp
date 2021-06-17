@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -190,9 +190,11 @@
 	 cnt = 0,       %% access count
 	 ttl = 0,       %% time to live
 	 data = [],     %% raw data
-	  %%
+	 %%
 	 tm,            %% creation time
-         bm = [],       %% Bitmap storing domain character case information.
+         bm = "",       %% Used to be defined as:
+         %%                Bitmap storing domain character case information
+         %%       but now; Case normalized domain
          func = false   %% Optional function calculating the data field.
 	}).
 

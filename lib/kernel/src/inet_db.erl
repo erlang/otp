@@ -584,19 +584,32 @@ db_get(Name) ->
     end.
 
 add_rr(RR) ->
-    call({add_rr, RR}).
+    %% Questionable if we need to support this;
+    %% not used by OTP
+    %%
+    res_cache_answer([RR]).
 
 add_rr(Domain, Class, Type, TTL, Data) ->
-    call({add_rr, dns_rr_add(Domain, Class, Type, TTL, Data)}).
+    %% Only used from a test suite within OTP,
+    %% can be optimized to create the whole record inline
+    %% and call {add_rrs, [RR]} directly
+    RR =
+        #dns_rr{
+           domain = Domain, class = Class, type = Type,
+           ttl = TTL, data = Data},
+    res_cache_answer([RR]).
 
 del_rr(Domain, Class, Type, Data) ->
-    call({del_rr, dns_rr_match(Domain, Class, Type, Data)}).
+    call({del_rr, dns_rr_match(tolower(Domain), Class, Type, Data)}).
+
 
 res_cache_answer(RRs) ->
-    lists:foreach(fun add_rr/1, RRs).
-
-    
-
+    TM = times(),
+    call(
+      {add_rrs,
+       [RR#dns_rr{
+          bm = tolower(RR#dns_rr.domain), tm = TM, cnt = TM}
+        || RR <- RRs]}).
 
 %%
 %% getbyname (cache version)
@@ -706,7 +719,7 @@ lookup_rr(Domain, Class, Type) ->
 %%
 res_hostent_by_domain(Domain, Type, Rec) ->
     RRs =
-        [RR#dns_rr{domain = tolower(N)} ||
+        [RR#dns_rr{bm = tolower(N)} ||
             #dns_rr{
                domain = N,
                class = in,
@@ -717,21 +730,22 @@ res_hostent_by_domain(Domain, Type, Rec) ->
     Domain_1 = stripdot(Domain),
     res_hostent_by_domain(Domain_1, tolower(Domain_1), [], [], Type, RRs).
 
-res_hostent_by_domain(Domain, LDomain, Aliases, LAliases, Type, RRs) ->
-    case res_lookup_type(LDomain, Type, RRs) of
+res_hostent_by_domain(Domain, LcDomain, Aliases, LcAliases, Type, RRs) ->
+    case res_lookup_type(LcDomain, Type, RRs) of
 	[] ->
-	    case res_lookup_type(LDomain, ?S_CNAME, RRs) of
+	    case res_lookup_type(LcDomain, ?S_CNAME, RRs) of
 		[] ->  
 		    {error, nxdomain};
 		[CName | _] ->
-                    LCName = tolower(CName),
-		    case lists:member(LCName, [LDomain | LAliases]) of
-			true -> 
+                    LcCName = tolower(CName),
+		    case lists:member(LcCName, [LcDomain | LcAliases]) of
+			true ->
+                            %% CNAME loop
 			    {error, nxdomain};
 			false ->
 			    res_hostent_by_domain(
-                              CName, LCName,
-                              [Domain | Aliases], [LDomain | LAliases],
+                              CName, LcCName,
+                              [Domain | Aliases], [LcDomain | LcAliases],
                               Type, RRs)
 		    end
 	    end;
@@ -740,9 +754,9 @@ res_hostent_by_domain(Domain, LDomain, Aliases, LAliases, Type, RRs) ->
     end.
 
 %% newly resolved lookup address record
-res_lookup_type(Domain,Type,RRs) ->
+res_lookup_type(LcDomain, Type, RRs) ->
     [R#dns_rr.data || R <- RRs,
-		      R#dns_rr.domain =:= Domain,
+		      R#dns_rr.bm   =:= LcDomain,
 		      R#dns_rr.type =:= Type].
 
 %%
@@ -763,7 +777,7 @@ gethostbyaddr(IP, HType, HLen, DnIP, DnIPs) ->
             case lookup_cname(DnIP) of
                 [#dns_rr{data = DnIP_1} | _] ->
                     DnIPs_1 = [DnIP | DnIPs],
-                    %% CName loop protection
+                    %% CNAME loop protection
                     case lists:member(DnIP_1, DnIPs_1) of
                         true ->
                             {error, nxdomain};
@@ -784,7 +798,7 @@ gethostbyaddr(IP, HType, HLen, DnIP, DnIPs) ->
 res_gethostbyaddr(IP, Rec) ->
     {ok, {IP1, HType, HLen}} = dnt(IP),
     RRs =
-        [RR#dns_rr{domain = tolower(N)} ||
+        [RR#dns_rr{bm = tolower(N)} ||
             #dns_rr{
                domain = N,
                class = in,
@@ -810,7 +824,7 @@ ent_gethostbyaddr([RR|RRs], IP, AddrType, Length) ->
            h_name = Domain,
            %% Since a PTR record should point to
            %% the canonical name, this Domain should
-           %% have no canonical name, so it this really reasonable?
+           %% have no CNAME record, so is this really reasonable?
            h_aliases = lookup_cname(Domain),
            h_addr_list = [IP],
            h_addrtype = AddrType,
@@ -942,7 +956,7 @@ init([]) ->
     end,
     Db = ets:new(inet_db, [public, named_table]),
     reset_db(Db),
-    CacheOpts = [public, bag, {keypos,#dns_rr.domain}, named_table],
+    CacheOpts = [public, bag, {keypos,#dns_rr.bm}, named_table],
     Cache = ets:new(inet_cache, CacheOpts),
     HostsByname = ets:new(inet_hosts_byname, [named_table]),
     HostsByaddr = ets:new(inet_hosts_byaddr, [named_table]),
@@ -1030,10 +1044,9 @@ handle_call(Request, From, #state{db=Db}=State) ->
 			IP),
 	    {reply, ok, State};
 
-	{add_rr, RR} when is_record(RR, dns_rr) ->
-	    ?dbg("add_rr: ~p~n", [RR]),
-	    do_add_rr(RR, Db, State),
-	    {reply, ok, State};
+	{add_rrs, RRs} ->
+	    ?dbg("add_rrs: ~p~n", [RRs]),
+	    {reply, do_add_rrs(RRs, Db, State), State};
 
 	{del_rr, RR} when is_record(RR, dns_rr) ->
 	    Cache = State#state.cache,
@@ -1677,35 +1690,40 @@ is_reqname(_) -> false.
 %% #dns_rr.cnt is used to store the access time
 %% instead of number of accesses.
 %%
-do_add_rr(RR, Db, State) ->
+do_add_rrs(RRs, Db, State) ->
     CacheDb = State#state.cache,
-    TM = times(),
-    case alloc_entry(Db, CacheDb, TM) of
+    do_add_rrs(RRs, Db, State, CacheDb).
+
+do_add_rrs([], _Db, _State, _CacheDb) ->
+    ok;
+do_add_rrs([RR | RRs], Db, State, CacheDb) ->
+    case alloc_entry(Db, CacheDb, #dns_rr.tm) of
 	true ->
             %% Add to cache
+            %%
             #dns_rr{
-               domain = Domain, class = Class, type = Type,
+               bm = LcDomain, class = Class, type = Type,
                data = Data} = RR,
             DeleteRRs =
                 ets:match_object(
-                  CacheDb, dns_rr_match(Domain, Class, Type, Data)),
-            InsertRR = RR#dns_rr{tm = TM, cnt = TM},
+                  CacheDb, dns_rr_match(LcDomain, Class, Type, Data)),
             %% Insert before delete to always have an RR present.
             %% Watch out to not delete what we insert.
-            case lists:member(InsertRR, DeleteRRs) of
+            case lists:member(RR, DeleteRRs) of
                 true ->
                     _ = [ets:delete_object(CacheDb, DelRR) ||
                             DelRR <- DeleteRRs,
-                            DelRR =/= InsertRR],
-                    true;
+                            DelRR =/= RR],
+                    ok;
                 false ->
-                    ets:insert(CacheDb, InsertRR),
+                    ets:insert(CacheDb, RR),
                     _ = [ets:delete_object(CacheDb, DelRR) ||
                             DelRR <- DeleteRRs],
-                    true
-            end;
+                    ok
+            end,
+            do_add_rrs(RRs, Db, State, CacheDb);
 	false ->
-	    false
+	    ok
     end.
 
 
@@ -1729,23 +1747,15 @@ dns_rr_match_cnt(Cnt) ->
        domain = '_', class = '_', type = '_', data = '_',
        cnt = Cnt, tm = '_', ttl = '_', bm = '_', func = '_'}.
 %%
-dns_rr_match(Domain, Class, Type) ->
+dns_rr_match(LcDomain, Class, Type) ->
     #dns_rr{
-       domain = Domain, class = Class, type = Type, data = '_',
-       cnt = '_', tm = '_', ttl = '_', bm = '_', func = '_'}.
+       domain = '_', class = Class, type = Type, data = '_',
+       cnt = '_', tm = '_', ttl = '_', bm = LcDomain, func = '_'}.
 %%
-dns_rr_match(Domain, Class, Type, Data) ->
+dns_rr_match(LcDomain, Class, Type, Data) ->
     #dns_rr{
-       domain = Domain, class = Class, type = Type, data = Data,
-       cnt = '_', tm = '_', ttl = '_', bm = '_', func = '_'}.
-
-%% RR creation
--compile({inline, [dns_rr_add/5]}).
-%%
-dns_rr_add(Domain, Class, Type, TTL, Data) ->
-    #dns_rr{
-       domain = Domain, class = Class, type = Type,
-       ttl = TTL, data = Data}.
+       domain = '_', class = Class, type = Type, data = Data,
+       cnt = '_', tm = '_', ttl = '_', bm = LcDomain, func = '_'}.
 
 
 %% We are simultaneously updating the table from all clients
@@ -1805,8 +1815,8 @@ match_rr(CacheDb, [RR | RRs], Time, ResultRRs, InsertRRs, DeleteRRs) ->
 
 -compile({inline, [match_rr_key/1]}).
 match_rr_key(
-  #dns_rr{domain = Domain, class = Class, type = Type, data = Data}) ->
-    {Domain, Class, Type, Data}.
+  #dns_rr{bm = LcDomain, class = Class, type = Type, data = Data}) ->
+    {LcDomain, Class, Type, Data}.
 
 
 %%
@@ -1817,13 +1827,35 @@ match_rr_key(
 %% to much on stdlib. Furthermore string:to_lower/1
 %% does not follow RFC 4343.
 %%
-tolower([]) -> [];
-tolower([C|Cs]) when is_integer(C), 0 =< C, C =< 16#10FFFF ->
-    if  C >= $A, C =< $Z ->
-	    [(C-$A)+$a|tolower(Cs)];
-	true ->
-	    [C|tolower(Cs)]
+tolower(Domain) ->
+    case rfc_4343_lc(Domain) of
+        ok ->
+            %% Optimization for already lowercased domain
+            Domain;
+        LcDomain ->
+            LcDomain
     end.
+
+rfc_4343_lc([]) -> ok; % Optimization for already lowercased domain
+rfc_4343_lc([C | Cs]) when is_integer(C), 0 =< C, C =< 16#10FFFF ->
+    if
+        $A =< C, C =< $Z ->
+            [(C - $A) + $a |
+             case rfc_4343_lc(Cs) of
+                 ok ->
+                     Cs;
+                 LCs ->
+                     LCs
+             end];
+        true ->
+            case rfc_4343_lc(Cs) of
+                ok ->
+                    ok;
+                LCs ->
+                    [C | LCs]
+            end
+    end.
+
 
 %% Case insensitive domain name comparison according to RFC 4343
 %% "Domain Name System (DNS) Case Insensitivity Clarification",
