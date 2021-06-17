@@ -77,6 +77,22 @@
 
 </section>
 
+  <section><title>Inets 7.3.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved user input handling in inets/mod_esi preventing
+	    unnecessary atom creation.</p>
+          <p>
+	    Own Id: OTP-17490</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Inets 7.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
