@@ -398,7 +398,9 @@ call(Pid, Msg) ->
     gen_server:call(Pid, Msg, infinity).
 
 monitor_listen(Listen) when is_port(Listen) ->
-    erlang:monitor(port, Listen).
+    erlang:monitor(port, Listen);
+monitor_listen(Listen) ->
+    socket:monitor(Listen).
 
 split_options(Opts) ->
     split_options(Opts, emulated_options(), [], []).
