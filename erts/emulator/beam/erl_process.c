@@ -7963,6 +7963,7 @@ erts_set_schedulers_online(Process *p,
     int online, increase;
     ErtsProcList *plp;
     int dirty_no, change_dirty, dirty_online;
+    Eterm resume_next = NIL;
 
     if (new_no < 1)
 	return ERTS_SCHDLR_SSPND_EINVAL;
@@ -7973,8 +7974,7 @@ erts_set_schedulers_online(Process *p,
 
     if (dirty_only)
 	resume_proc = 0;
-    else
-    {
+    else {
 	resume_proc = 1;
 	/*
 	 * If we suspend current process we need to suspend before
@@ -7994,8 +7994,7 @@ erts_set_schedulers_online(Process *p,
     have_unlocked_plocks = 0;
     no = (int) new_no;
 
-    if (!dirty_only)
-    {
+    if (!dirty_only) {
 	changing = erts_atomic32_read_nob(&schdlr_sspnd.changing);
 	if (changing & ERTS_SCHDLR_SSPND_CHNG_ONLN) {
 	enqueue_wait:
@@ -8004,7 +8003,7 @@ erts_set_schedulers_online(Process *p,
 	    erts_proclist_store_last(&schdlr_sspnd.chngq, plp);
 	    resume_proc = 0;
 	    res = ERTS_SCHDLR_SSPND_YIELD_RESTART;
-	    goto done;
+	    goto return_wait;
 	}
 	plp = erts_proclist_peek_first(schdlr_sspnd.chngq);
 	if (!plp) {
@@ -8014,6 +8013,7 @@ erts_set_schedulers_online(Process *p,
 	    ASSERT(schdlr_sspnd.changer == am_true);
 	    if (!erts_proclist_same(plp, p))
 		goto enqueue_wait;
+	    schdlr_sspnd.changer = am_false;
 	    p->flags &= ~F_SCHDLR_ONLN_WAITQ;
 	    erts_proclist_remove(&schdlr_sspnd.chngq, plp);
 	    proclist_destroy(plp);
@@ -8072,8 +8072,7 @@ erts_set_schedulers_online(Process *p,
 
     if (dirty_only)
 	increase = (dirty_no > dirty_online);
-    else
-    {
+    else {
 	change_flags |= ERTS_SCHDLR_SSPND_CHNG_ONLN;
 	schdlr_sspnd_set_nscheds(&schdlr_sspnd.online,
 				 ERTS_SCHED_NORMAL,
@@ -8098,8 +8097,7 @@ erts_set_schedulers_online(Process *p,
 		    dcpu_sched_ix_resume_wake(ix);
 	    }
 	}
-	if (!dirty_only)
-	{
+	if (!dirty_only) {
 	    if (schdlr_sspnd.msb.ongoing|schdlr_sspnd.nmsb.ongoing) {
 		for (ix = online; ix < no; ix++)
 		    erts_sched_poke(ERTS_SCHED_SLEEP_INFO_IX(ix));
@@ -8136,8 +8134,7 @@ erts_set_schedulers_online(Process *p,
                 dcpu_sched_ix_wake(0);
 	    }
 	}
-	if (!dirty_only)
-	{
+	if (!dirty_only) {
 	    if (schdlr_sspnd.msb.ongoing|schdlr_sspnd.nmsb.ongoing) {
 		for (ix = no; ix < online; ix++)
 		    erts_sched_poke(ERTS_SCHED_SLEEP_INFO_IX(ix));
@@ -8162,13 +8159,24 @@ erts_set_schedulers_online(Process *p,
 
     if (change_flags & ERTS_SCHDLR_SSPND_CHNG_ONLN) {
 	/* Suspend and wait for requested change to complete... */
+        ASSERT(schdlr_sspnd.changer == am_false);
 	schdlr_sspnd.changer = p->common.id;
 	resume_proc = 0;
 	res = ERTS_SCHDLR_SSPND_YIELD_DONE;
     }
-
+    else {
 done:
-
+        ASSERT(schdlr_sspnd.changer == am_false);
+        /* We're done; we may need to wake up a queued process... */
+        plp = erts_proclist_peek_first(schdlr_sspnd.chngq);
+        if (plp) {
+            schdlr_sspnd.changer = am_true; /* change right in transit */
+            /* resume process that is queued for next change... */
+            resume_next = plp->u.pid;
+            ASSERT(is_internal_pid(resume_next));
+        }
+    }
+return_wait:
     ASSERT(schdlr_sspnd_get_nscheds(&schdlr_sspnd.online,
 				    ERTS_SCHED_DIRTY_CPU)
 	   <= schdlr_sspnd_get_nscheds(&schdlr_sspnd.online,
@@ -8185,6 +8193,15 @@ done:
 	resume_process(p, plocks|ERTS_PROC_LOCK_STATUS);
 	if (!(plocks & ERTS_PROC_LOCK_STATUS))
 	    erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    }
+
+    if (is_internal_pid(resume_next)) {
+	Process *rp = erts_proc_lookup(resume_next);
+	if (rp) {
+	    erts_proc_lock(rp, ERTS_PROC_LOCK_STATUS);
+	    resume_process(rp, ERTS_PROC_LOCK_STATUS);
+	    erts_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
+	}
     }
 
     return res;
