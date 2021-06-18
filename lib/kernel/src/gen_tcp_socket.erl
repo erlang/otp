@@ -85,6 +85,9 @@
 -define(select_info(SelectRef),
         {select_info, _, (SelectRef)}).
 
+-define(CLOSED_SOCKET, #{rstates => [closed], wstates => [closed]}).
+
+
 %%% ========================================================================
 %%% API
 %%%
@@ -570,7 +573,12 @@ getstat(?MODULE_socket(Server, _Socket), What) when is_list(What) ->
 %% -------------------------------------------------------------------------
 
 info(?MODULE_socket(Server, _Socket)) ->
-    call(Server, info).
+    case call(Server, info) of
+	{error, closed} ->
+	    ?CLOSED_SOCKET;
+	Other ->
+	    Other
+    end.
 
 
 %% -------------------------------------------------------------------------
@@ -1468,7 +1476,7 @@ handle_event({call, From}, info, State, {P, D}) ->
     case State of
         'closed' ->
             {keep_state_and_data,
-             [{reply, From, #{}}]};
+             [{reply, From, ?CLOSED_SOCKET}]};
         _ ->
             {D_1, Result} = handle_info(P#params.socket, P#params.owner, D),
             {keep_state, {P, D_1},
