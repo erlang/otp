@@ -2602,7 +2602,7 @@ fi
 
 ERL_MONOTONIC_CLOCK(high_resolution, undefined, no)
 
-case $$erl_monotonic_clock_low_resolution-$erl_monotonic_clock_func in
+case $erl_monotonic_clock_low_resolution-$erl_monotonic_clock_func in
   no-mach_clock_get_time)
     monotonic_hrtime=yes    
     AC_DEFINE(SYS_HRTIME_USING_MACH_CLOCK_GET_TIME, [1], [Define if you want to implement erts_os_hrtime() using mach clock_get_time()])
