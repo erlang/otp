@@ -21385,7 +21385,7 @@ $as_echo "$erl_cv_mach_clock_get_time_monotonic" >&6; }
 
 
 
-case $$erl_monotonic_clock_low_resolution-$erl_monotonic_clock_func in
+case $erl_monotonic_clock_low_resolution-$erl_monotonic_clock_func in
   no-mach_clock_get_time)
     monotonic_hrtime=yes
 
