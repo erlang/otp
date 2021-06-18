@@ -44,18 +44,11 @@
          aead_encrypt/6, 
          aead_decrypt/6,
 	 suites/1, 
-         all_suites/1, 
+         all_suites/1,
          crypto_support_filters/0,
-	 anonymous_suites/1, 
-         psk_suites/1, 
-         psk_suites_anon/1, 
-         srp_suites/1, 
-         srp_suites_anon/1,
-	 rc4_suites/1, 
-         des_suites/1, 
-         rsa_suites/1, 
-         filter/3, 
-         filter_suites/1, 
+	 anonymous_suites/1,
+         filter/3,
+         filter_suites/1,
          filter_suites/2,
 	 hash_algorithm/1, 
          sign_algorithm/1, 
@@ -328,15 +321,20 @@ suites({3, Minor}) ->
     tls_v1:suites(Minor);
 suites({_, Minor}) ->
     dtls_v1:suites(Minor).
-
+all_suites({3, 4} = Version) ->
+    suites(Version)
+	++ tls_v1:psk_suites({3,3})
+	++ tls_v1:srp_suites({3,3})
+        ++ tls_v1:rsa_suites({3,3})
+        ++ tls_v1:des_suites({3,3})
+        ++ tls_v1:rc4_suites({3,3});
 all_suites({3, _} = Version) ->
     suites(Version)
-	++ psk_suites(Version)
-	++ srp_suites(Version)
-        ++ rsa_suites(Version)
-        ++ des_suites(Version)
-        ++ rc4_suites(Version);
-
+	++ tls_v1:psk_suites(Version)
+	++ tls_v1:srp_suites(Version)
+        ++ tls_v1:rsa_suites(Version)
+        ++ tls_v1:des_suites(Version)
+        ++ tls_v1:rc4_suites(Version);
 all_suites(Version) ->
     dtls_v1:all_suites(Version).
 
@@ -347,202 +345,20 @@ all_suites(Version) ->
 %% Description: Returns a list of the anonymous cipher suites, only supported
 %% if explicitly set by user. Intended only for testing.
 %%--------------------------------------------------------------------
-anonymous_suites({3, N} = Version) ->
-    srp_suites_anon(Version) ++ anonymous_suites(N);
+anonymous_suites({3, N}) ->
+    anonymous_suites(N);
 anonymous_suites({254, _} = Version) ->
     dtls_v1:anonymous_suites(Version);
-anonymous_suites(4) ->
-    []; %% Raw public key negotiation may be used instead
-anonymous_suites( 3 = N) ->
-    psk_suites_anon(N) ++
-    [?TLS_DH_anon_WITH_AES_128_GCM_SHA256,
-     ?TLS_DH_anon_WITH_AES_256_GCM_SHA384,
-     ?TLS_DH_anon_WITH_AES_128_CBC_SHA256,
-     ?TLS_DH_anon_WITH_AES_256_CBC_SHA256,
-     ?TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
-     ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
-     ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_DH_anon_WITH_RC4_128_MD5];
-anonymous_suites(2 = N) ->
-    psk_suites_anon(N) ++
-    [?TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
-     ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
-     ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_DH_anon_WITH_DES_CBC_SHA,
-     ?TLS_DH_anon_WITH_RC4_128_MD5];
-anonymous_suites(N)  when N == 0;
-			  N == 1 ->
-    psk_suites_anon(N) ++
-        [?TLS_DH_anon_WITH_RC4_128_MD5,
-         ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
-         ?TLS_DH_anon_WITH_DES_CBC_SHA
-        ].
+
+anonymous_suites(1 = N) ->
+    tls_v1:exclusive_anonymous_suites(N);
+anonymous_suites(4 = N) ->
+    tls_v1:exclusive_anonymous_suites(N);
+anonymous_suites(N) when N > 1->
+    tls_v1:exclusive_anonymous_suites(N) ++ anonymous_suites(N-1).
 
 %%--------------------------------------------------------------------
--spec psk_suites(ssl_record:ssl_version() | integer()) -> [ssl_cipher_format:cipher_suite()].
-%%
-%% Description: Returns a list of the PSK cipher suites, only supported
-%% if explicitly set by user.
-%%--------------------------------------------------------------------
-psk_suites({3, N}) ->
-    psk_suites(N);
-psk_suites(4) ->
-    []; %% TODO Add new PSK, PSK_(EC)DHE suites
-psk_suites(3) ->
-    [
-     ?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384,
-     ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA384,
-     ?TLS_RSA_PSK_WITH_AES_128_GCM_SHA256,
-     ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA256
-    ] ++ psk_suites(0);
-psk_suites(_) ->
-    [?TLS_RSA_PSK_WITH_AES_256_CBC_SHA,
-     ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA,
-     ?TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_RSA_PSK_WITH_RC4_128_SHA].
-
-%%--------------------------------------------------------------------
--spec psk_suites_anon(ssl_record:ssl_version() | integer()) -> [ssl_cipher_format:cipher_suite()].
-%%
-%% Description: Returns a list of the anonymous PSK cipher suites, only supported
-%% if explicitly set by user.
-%%--------------------------------------------------------------------
-psk_suites_anon({3, N}) ->
-    psk_suites_anon(N);
-psk_suites_anon(3 = N) ->
-    [
-     ?TLS_DHE_PSK_WITH_AES_256_GCM_SHA384,
-     ?TLS_PSK_WITH_AES_256_GCM_SHA384,
-     ?TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA384,
-     ?TLS_DHE_PSK_WITH_AES_256_CBC_SHA384,
-     ?TLS_PSK_WITH_AES_256_CBC_SHA384,
-     ?TLS_DHE_PSK_WITH_AES_256_CCM,
-     ?TLS_PSK_DHE_WITH_AES_256_CCM_8,
-     ?TLS_PSK_WITH_AES_256_CCM,
-     ?TLS_PSK_WITH_AES_256_CCM_8,
-     ?TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256,
-     ?TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256,
-     ?TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256,
-     ?TLS_DHE_PSK_WITH_AES_128_GCM_SHA256,
-     ?TLS_PSK_WITH_AES_128_GCM_SHA256,
-     ?TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256,
-     ?TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256,
-     ?TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA256,
-     ?TLS_DHE_PSK_WITH_AES_128_CBC_SHA256,
-     ?TLS_PSK_WITH_AES_128_CBC_SHA256,
-     ?TLS_DHE_PSK_WITH_AES_128_CCM,
-     ?TLS_PSK_DHE_WITH_AES_128_CCM_8,
-     ?TLS_PSK_WITH_AES_128_CCM,
-     ?TLS_PSK_WITH_AES_128_CCM_8,
-     ?TLS_ECDHE_PSK_WITH_RC4_128_SHA
-    ] ++ psk_suites_anon(N-1);
-psk_suites_anon(N) when  N > 0 ->
-	[?TLS_DHE_PSK_WITH_AES_256_CBC_SHA,
-	 ?TLS_PSK_WITH_AES_256_CBC_SHA,
-	 ?TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA,
-	 ?TLS_DHE_PSK_WITH_AES_128_CBC_SHA,
-	 ?TLS_PSK_WITH_AES_128_CBC_SHA,
-	 ?TLS_ECDHE_PSK_WITH_3DES_EDE_CBC_SHA,
-	 ?TLS_DHE_PSK_WITH_3DES_EDE_CBC_SHA,
-	 ?TLS_PSK_WITH_3DES_EDE_CBC_SHA,
-	 ?TLS_ECDHE_PSK_WITH_RC4_128_SHA,
-	 ?TLS_DHE_PSK_WITH_RC4_128_SHA,
-	 ?TLS_PSK_WITH_RC4_128_SHA];
-psk_suites_anon(0) ->
-    [].
-%%--------------------------------------------------------------------
--spec srp_suites(tls_record:tls_version()) -> [ssl_cipher_format:cipher_suite()].
-%%
-%% Description: Returns a list of the SRP cipher suites, only supported
-%% if explicitly set by user.
-%%--------------------------------------------------------------------
-srp_suites(_) ->
-    [?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA,
-     ?TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA,
-     ?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA,
-     ?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA].
-
-%%--------------------------------------------------------------------
--spec srp_suites_anon(tls_record:tls_version()) -> [ssl_cipher_format:cipher_suite()].
-%%
-%% Description: Returns a list of the SRP anonymous cipher suites, only supported
-%% if explicitly set by user.
-%%--------------------------------------------------------------------
-srp_suites_anon(_) ->
-    [?TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_SRP_SHA_WITH_AES_128_CBC_SHA,
-     ?TLS_SRP_SHA_WITH_AES_256_CBC_SHA].
-
-%%--------------------------------------------------------------------
--spec rc4_suites(Version::ssl_record:ssl_version() | integer()) -> 
-                        [ssl_cipher_format:cipher_suite()].
-%%
-%% Description: Returns a list of the RSA|(ECDH/RSA)| (ECDH/ECDSA) 
-%% with RC4 cipher suites, only supported if explicitly set by user. 
-%% Are not considered secure any more. Other RC4 suites already
-%% belonged to the user configured only category.
-%%--------------------------------------------------------------------
-rc4_suites({3, 0}) ->
-    rc4_suites(0);
-rc4_suites({3, Minor}) ->
-    rc4_suites(Minor) ++ rc4_suites(0);
-rc4_suites(0) ->
-    [?TLS_RSA_WITH_RC4_128_SHA,
-     ?TLS_RSA_WITH_RC4_128_MD5];
-rc4_suites(N) when N =< 4 ->
-    [?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
-     ?TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-     ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
-     ?TLS_ECDH_RSA_WITH_RC4_128_SHA].
-
-%%--------------------------------------------------------------------
--spec des_suites(Version::ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
-%%
-%% Description: Returns a list of the cipher suites
-%% with DES cipher, only supported if explicitly set by user. 
-%% Are not considered secure any more. 
-%%--------------------------------------------------------------------
-des_suites(_)->
-    [?TLS_DHE_RSA_WITH_DES_CBC_SHA,
-     ?TLS_RSA_WITH_DES_CBC_SHA,
-     ?TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA
-    ].
-
-%%--------------------------------------------------------------------
--spec rsa_suites(Version::ssl_record:ssl_version() | integer()) -> [ssl_cipher_format:cipher_suite()].
-%%
-%% Description: Returns a list of the RSA key exchange 
-%% cipher suites, only supported if explicitly set by user. 
-%% Are not considered secure any more. 
-%%--------------------------------------------------------------------
-rsa_suites({3, 0}) ->
-    rsa_suites(0);
-rsa_suites({3, Minor}) ->
-    rsa_suites(Minor) ++ rsa_suites(0);
-rsa_suites(0) ->
-    [?TLS_RSA_WITH_AES_256_CBC_SHA,
-     ?TLS_RSA_WITH_AES_128_CBC_SHA,
-     ?TLS_RSA_WITH_3DES_EDE_CBC_SHA
-    ];  
-rsa_suites(N) when N >= 3 ->
-    [
-     ?TLS_RSA_WITH_AES_256_GCM_SHA384,
-     ?TLS_RSA_WITH_AES_256_CBC_SHA256,
-     ?TLS_RSA_WITH_AES_128_GCM_SHA256,
-     ?TLS_RSA_WITH_AES_128_CBC_SHA256
-    ];
-rsa_suites(_) ->
-    [].
-
-%%--------------------------------------------------------------------
--spec filter(undefined | binary(), [ssl_cipher_format:cipher_suite()], 
+-spec filter(undefined | binary(), [ssl_cipher_format:cipher_suite()],
              ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Select the cipher suites that can be used together with the 

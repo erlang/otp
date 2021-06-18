@@ -1868,13 +1868,11 @@ new_options_in_handshake(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    [_, Cipher | _] = ssl:filter_cipher_suites(ssl:cipher_suites(all, Version), 
-                                               [{key_exchange,
+    Ciphers = [_, Cipher | _] = ssl:filter_cipher_suites(ssl:cipher_suites(all, Version), 
+                                                         [{key_exchange,
                                                  fun(dhe_rsa) ->
                                                          true;
                                                     (ecdhe_rsa) ->
-                                                         true;
-                                                    (ecdh_rsa) ->
                                                          true;
                                                     (rsa) ->
                                                          false;
@@ -1895,7 +1893,7 @@ new_options_in_handshake(Config) when is_list(Config) ->
 					{host, Hostname},
 					{from, self()}, 
 					{mfa, {?MODULE, connection_info_result, []}},
-					{options, [{ciphers, [Cipher]} | ClientOpts]}]),
+					{options, [{ciphers, Ciphers} | ClientOpts]}]),
     
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
