@@ -67,8 +67,8 @@
 -export([res_option/1, res_option/2, res_check_option/2]).
 -export([socks_option/1]).
 -export([getbyname/2, get_searchlist/0]).
--export([gethostbyaddr/1]).
--export([res_gethostbyaddr/2,res_hostent_by_domain/3]).
+-export([gethostbyaddr/2]).
+-export([res_gethostbyaddr/3,res_hostent_by_domain/3]).
 -export([res_update_conf/0, res_update_hosts/0]).
 %% inet help functions
 -export([tolower/1, eq_domains/2]).
@@ -651,6 +651,34 @@ get_searchlist() ->
     end.
 
 
+%%
+%% hostent_by_domain (cache version)
+%%
+hostent_by_domain(Domain, Type) ->
+    ?dbg("hostent_by_domain: ~p~n", [Domain]),
+    case resolve_cnames(stripdot(Domain), Type, fun lookup_cache_data/2) of
+        {error, _} = Error ->
+            Error;
+        {D, Addrs, Aliases} ->
+            {ok, make_hostent(D, Addrs, Aliases, Type)}
+    end.
+
+%%
+%% hostent_by_domain (newly resolved version)
+%% match data field directly and cache RRs.
+%%
+res_hostent_by_domain(Domain, Type, Rec) ->
+    RRs = res_filter_rrs(Type, Rec#dns_rec.anlist),
+    ?dbg("res_hostent_by_domain: ~p - ~p~n", [Domain, RRs]),
+    LookupFun = res_lookup_fun(RRs),
+    case resolve_cnames(stripdot(Domain), Type, LookupFun) of
+        {error, _} = Error ->
+            Error;
+        {D, Addrs, Aliases} ->
+            res_cache_answer(RRs),
+            {ok, make_hostent(D, Addrs, Aliases, Type)}
+    end.
+
 make_hostent(Name, Addrs, Aliases, ?S_A) ->
     #hostent {
 	      h_name = Name,
@@ -677,181 +705,117 @@ make_hostent(Name, Datas, Aliases, Type) ->
 	      h_aliases = Aliases
 	     }.
 
-hostent_by_domain(Domain, Type) ->
-    ?dbg("hostent_by_domain: ~p~n", [Domain]),
-    hostent_by_domain(stripdot(Domain), [], [], Type).
 
-hostent_by_domain(Domain, Aliases, LAliases, Type) ->
-    case lookup_type(Domain, Type) of
-	[] ->
-	    case lookup_cname(Domain) of
-		[] ->  
-		    {error, nxdomain};
-		[CName | _] ->
-		    LDomain = tolower(Domain),
-		    case lists:member(CName, [LDomain | LAliases]) of
-                        true -> 
-			    {error, nxdomain};
-                        false ->
-			    hostent_by_domain(CName, [Domain | Aliases],
-					      [LDomain | LAliases], Type)
-		    end
-	    end;
-	Addrs ->
-	    {ok, make_hostent(Domain, Addrs, Aliases, Type)}
+
+res_filter_rrs(Type, RRs) ->
+    [RR#dns_rr{bm = tolower(N)} ||
+        #dns_rr{
+           domain = N,
+           class = in,
+           type = T} = RR <- RRs,
+        T =:= Type orelse T =:= ?S_CNAME].
+
+res_lookup_fun(RRs) ->
+    fun (LcDomain, Type) ->
+            [Data
+             || #dns_rr{bm = LcD, type = T, data = Data}
+                    <- RRs,
+                LcD =:= LcDomain,
+                T   =:= Type]
     end.
 
-%% lookup canonical name
-lookup_cname(Domain) ->
-    lookup_type(Domain, ?S_CNAME).
 
-%% lookup address record
-lookup_type(Domain, Type) ->
-    [R#dns_rr.data || R <- lookup_rr(Domain, in, Type) ].
+resolve_cnames(Domain, Type, LookupFun) ->
+    resolve_cnames(Domain, Type, LookupFun, tolower(Domain), [], []).
 
-%% lookup resource record
-lookup_rr(Domain, Class, Type) ->
-    match_rr(dns_rr_match(tolower(Domain), Class, Type)).
-
-%%
-%% hostent_by_domain (newly resolved version)
-%% match data field directly and cache RRs.
-%%
-res_hostent_by_domain(Domain, Type, Rec) ->
-    RRs =
-        [RR#dns_rr{bm = tolower(N)} ||
-            #dns_rr{
-               domain = N,
-               class = in,
-               type = T} = RR <- Rec#dns_rec.anlist,
-            T =:= Type orelse T =:= ?S_CNAME],
-    res_cache_answer(RRs),
-    ?dbg("res_hostent_by_domain: ~p - ~p~n", [Domain, RRs]),
-    Domain_1 = stripdot(Domain),
-    res_hostent_by_domain(Domain_1, tolower(Domain_1), [], [], Type, RRs).
-
-res_hostent_by_domain(Domain, LcDomain, Aliases, LcAliases, Type, RRs) ->
-    case res_lookup_type(LcDomain, Type, RRs) of
-	[] ->
-	    case res_lookup_type(LcDomain, ?S_CNAME, RRs) of
-		[] ->  
-		    {error, nxdomain};
-		[CName | _] ->
-                    LcCName = tolower(CName),
-		    case lists:member(LcCName, [LcDomain | LcAliases]) of
-			true ->
+resolve_cnames(Domain, Type, LookupFun, LcDomain, Aliases, LcAliases) ->
+    case LookupFun(LcDomain, Type) of
+        [] ->
+            case LookupFun(LcDomain, ?S_CNAME) of
+                [] ->
+                    %% Did not find neither Type nor CNAME record
+                    {error, nxdomain};
+                [CName] ->
+                    LcCname = tolower(CName),
+                    case lists:member(LcCname, [LcDomain | LcAliases]) of
+                        true ->
                             %% CNAME loop
-			    {error, nxdomain};
-			false ->
-			    res_hostent_by_domain(
-                              CName, LcCName,
-                              [Domain | Aliases], [LcDomain | LcAliases],
-                              Type, RRs)
-		    end
-	    end;
-	Addrs ->
-	    {ok, make_hostent(Domain, Addrs, Aliases, Type)}
+                            {error, nxdomain};
+                        false ->
+                            %% Repeat with the (more) canonical domain name
+                            resolve_cnames(
+                              CName, Type, LookupFun, LcCname,
+                              [Domain | Aliases], [LcDomain, LcAliases])
+                    end;
+                [_ | _] = _CNames ->
+                    ?dbg("resolve_cnames duplicate cnames=~p~n", [_CNames]),
+                    {error, nxdomain}
+            end;
+        [_ | _] = Results ->
+            {Domain, Results, Aliases}
     end.
 
-%% newly resolved lookup address record
-res_lookup_type(LcDomain, Type, RRs) ->
-    [R#dns_rr.data || R <- RRs,
-		      R#dns_rr.bm   =:= LcDomain,
-		      R#dns_rr.type =:= Type].
 
 %%
 %% gethostbyaddr (cache version)
 %% match data field directly
 %%
-gethostbyaddr(IP) ->
-    case dnip(IP) of
-	{ok, {IP1, HType, HLen, DnIP}} ->
-            gethostbyaddr(IP1, HType, HLen, DnIP, []);
-	Error -> Error
-    end.
-
-gethostbyaddr(IP, HType, HLen, DnIP, DnIPs) ->
-    MatchPtrRR = dns_rr_match(DnIP, in, ptr),
-    case match_rr(MatchPtrRR) of
-        [] ->
-            case lookup_cname(DnIP) of
-                [#dns_rr{data = DnIP_1} | _] ->
-                    DnIPs_1 = [DnIP | DnIPs],
-                    %% CNAME loop protection
-                    case lists:member(DnIP_1, DnIPs_1) of
-                        true ->
-                            {error, nxdomain};
-                        false ->
-                            gethostbyaddr(IP, HType, HLen, DnIP_1, DnIPs_1)
-                    end;
-                CNames when is_list(CNames) ->
-                    {error, nxdomain}
-            end;
-        RRs when is_list(RRs) ->
-            ent_gethostbyaddr(RRs, IP, HType, HLen)
+gethostbyaddr(Domain, IP) ->
+    ?dbg("gethostbyaddr: ~p~n", [IP]),
+    case resolve_cnames(Domain, ?S_PTR, fun lookup_cache_data/2) of
+        {error, _} = Error ->
+            Error;
+        {_D, Domains, _Aliases} ->
+            ent_gethostbyaddr(Domains, IP)
     end.
 
 %%
 %% res_gethostbyaddr (newly resolved version)
 %% match data field directly and cache RRs.
 %%
-res_gethostbyaddr(IP, Rec) ->
-    {ok, {IP1, HType, HLen}} = dnt(IP),
-    RRs =
-        [RR#dns_rr{bm = tolower(N)} ||
-            #dns_rr{
-               domain = N,
-               class = in,
-               type = T} = RR <- Rec#dns_rec.anlist,
-            T =:= ?S_PTR orelse T =:= ?S_CNAME],
-    res_cache_answer(RRs),
-    case [RR || #dns_rr{type = ?S_PTR} = RR <- RRs] of
-        [] ->
-            {error, nxdomain};
-        PtrRRs ->
-            ent_gethostbyaddr(PtrRRs, IP1, HType, HLen)
+res_gethostbyaddr(Name, IP, Rec) ->
+    RRs = res_filter_rrs(?S_PTR, Rec#dns_rec.anlist),
+    ?dbg("res_gethostbyaddr: ~p - ~p~n", [IP, RRs]),
+    LookupFun = res_lookup_fun(RRs),
+    case resolve_cnames(Name, ?S_PTR, LookupFun) of
+        {error, _} = Error ->
+            Error;
+        {_D, Domains, _Aliases} ->
+            case ent_gethostbyaddr(Domains, IP) of
+                {ok, _HEnt} = Result ->
+                    res_cache_answer(RRs),
+                    Result;
+                {error, _} = Error ->
+                    Error
+            end
     end.
 
-ent_gethostbyaddr([RR|RRs], IP, AddrType, Length) ->
-    %% debug
-    if RRs =/= [] ->
-            ?dbg("gethostbyaddr found extra=~p~n", [RRs]);
-       true -> ok
-    end,
-    Domain = RR#dns_rr.data,
+ent_gethostbyaddr([Domain], IP) ->
+    {IP_1, AddrType, Length} = norm_ip(IP),
     H =
         #hostent{
            h_name = Domain,
-           %% Since a PTR record should point to
-           %% the canonical name, this Domain should
-           %% have no CNAME record, so is this really reasonable?
-           h_aliases = lookup_cname(Domain),
-           h_addr_list = [IP],
+           h_aliases = [],
+           h_addr_list = [IP_1],
            h_addrtype = AddrType,
            h_length = Length },
-    {ok, H}.
+    {ok, H};
+ent_gethostbyaddr([_ | _] = _Domains, _IP) ->
+    ?dbg("gethostbyaddr duplicate domains=~p~n", [_Domains]),
+    {error, nxdomain}.
+
+%% Normalize an IPv4-compatible IPv6 address
+%% into a plain IPv4 address
+%%
+norm_ip(IP) when tuple_size(IP) =:= 4 ->
+    {IP, inet, 4};
+norm_ip({0,0,0,0,0,16#ffff,G,H}) ->
+    A = G bsr 8, B = G band 16#ff, C = H bsr 8, D = H band 16#ff,
+    {{A,B,C,D}, inet, 4};
+norm_ip(IP) when tuple_size(IP) =:= 8 ->
+    {IP, inet6, 16}.
 
 
-dnip(IP) ->
-    case dnt(IP) of
-	{ok,{IP1 = {A,B,C,D}, inet, HLen}} ->
-	    {ok,{IP1, inet, HLen, dn_in_addr_arpa(A,B,C,D)}};
-	{ok,{IP1 = {A,B,C,D,E,F,G,H}, inet6, HLen}} ->
-	    {ok,{IP1, inet6, HLen, dn_ip6_int(A,B,C,D,E,F,G,H)}};
-	_ ->
-	    {error, formerr}
-    end.
-
-
-dnt(IP = {A,B,C,D}) when ?ip(A,B,C,D) ->
-    {ok, {IP, inet, 4}};
-dnt({0,0,0,0,0,16#ffff,G,H}) when is_integer(G+H) ->
-    A = G div 256, B = G rem 256, C = H div 256, D = H rem 256,
-    {ok, {{A,B,C,D}, inet, 4}};
-dnt(IP = {A,B,C,D,E,F,G,H}) when ?ip6(A,B,C,D,E,F,G,H) ->
-    {ok, {IP, inet6, 16}};
-dnt(_) ->
-    {error, formerr}.
 
 %%
 %% Register socket Modules
@@ -1758,6 +1722,11 @@ dns_rr_match(LcDomain, Class, Type, Data) ->
        cnt = '_', tm = '_', ttl = '_', bm = LcDomain, func = '_'}.
 
 
+lookup_cache_data(LcDomain, Type) ->
+    [Data
+     || #dns_rr{data = Data}
+            <- match_rr(dns_rr_match(LcDomain, in, Type))].
+
 %% We are simultaneously updating the table from all clients
 %% and the server, so we might get duplicate recource records
 %% in the table, i.e identical domain, class, type and data.
@@ -1891,25 +1860,6 @@ eq_domains([], []) ->
 eq_domains(As, Bs) when is_list(As), is_list(Bs) ->
     false.
 
-
-dn_ip6_int(A,B,C,D,E,F,G,H) ->
-    dnib(H) ++ dnib(G) ++ dnib(F) ++ dnib(E) ++ 
-	dnib(D) ++ dnib(C) ++ dnib(B) ++ dnib(A) ++ "ip6.int".
-
-dn_in_addr_arpa(A,B,C,D) ->
-    integer_to_list(D) ++ "." ++
-	integer_to_list(C) ++ "." ++
-	integer_to_list(B) ++ "." ++
-	integer_to_list(A) ++ ".in-addr.arpa".
-
-dnib(X) ->
-    [hex(X), $., hex(X bsr 4), $., hex(X bsr 8), $., hex(X bsr 12), $.].
-
-hex(X) ->
-    X4 = (X band 16#f),
-    if X4 < 10 -> X4 + $0;
-       true -> (X4-10) + $a
-    end.
 
 %% Strip trailing dot, do not produce garbage unless necessary.
 %%
