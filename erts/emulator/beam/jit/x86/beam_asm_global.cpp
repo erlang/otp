@@ -176,6 +176,7 @@ void BeamGlobalAssembler::emit_export_trampoline() {
     a.je(jump_trace);
 
     /* Must never happen. */
+    a.comment("# Unexpected export trampoline op");
     a.ud2();
 
     a.bind(call_bif);
@@ -286,6 +287,7 @@ void BeamGlobalAssembler::emit_process_exit() {
 
     a.test(RET, RET);
     a.je(labels[do_schedule]);
+    a.comment("# End of process");
     a.ud2();
 }
 
@@ -337,6 +339,7 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
     a.jmp(RET);
 
     a.bind(crash);
+    a.comment("# Error address is not a CP or NULL or ARG2 and ARG4 are unset");
     a.ud2();
 }
 

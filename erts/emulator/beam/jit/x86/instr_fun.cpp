@@ -389,5 +389,6 @@ void BeamModuleAssembler::emit_i_call_fun_last(const ArgVal &Arity,
 
 /* Psuedo-instruction for signalling lambda load errors. Never actually runs. */
 void BeamModuleAssembler::emit_i_lambda_error(const ArgVal &Dummy) {
+    a.comment("# Lambda error");
     a.ud2();
 }
