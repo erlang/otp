@@ -86,18 +86,44 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
     this->mod = mod;
 
     labels.reserve(num_labels + 1);
-    for (unsigned i = 1; i < num_labels; i++) {
-        Label lbl;
 
-#ifdef DEBUG
-        std::string lblName = "label_" + std::to_string(i);
-        lbl = a.newNamedLabel(lblName.data());
-#else
-        lbl = a.newLabel();
-#endif
-
-        labels[i] = lbl;
+    if (erts_jit_asm_dump && named_labels) {
+        BeamFile_ExportEntry *e = &named_labels->entries[0];
+        for (unsigned i = 1; i < num_labels; i++) {
+            Label lbl;
+            char tmp[512]; // Large enough to hold most realistic
+                           // function names. We will truncate too
+                           // long names, but as the label name is not
+                           // important for the functioning of asmjit
+                           // and this functionality is probably only
+                           // used by developers, we don't bother with
+                           // dynamic allocation.
+            // The named_labels are sorted, so no need for a search.
+            if ((unsigned)e->label == i) {
+                erts_snprintf(tmp, sizeof(tmp), "%T/%d", e->function, e->arity);
+                lbl = a.newNamedLabel(tmp);
+                e++;
+            } else {
+                std::string lblName = "label_" + std::to_string(i);
+                lbl = a.newNamedLabel(lblName.data());
+            }
+            labels[i] = lbl;
+        }
+        return;
     }
+    if (erts_jit_asm_dump) {
+        // There is no naming info, but dumping of the assembly code
+        // has been requested, so do the best we can and number the
+        // labels.
+        for (unsigned i = 1; i < num_labels; i++) {
+            std::string lblName = "label_" + std::to_string(i);
+            labels[i] = a.newNamedLabel(lblName.data());
+        }
+        return;
+    }
+    // No output is requested, go with unnamed labels
+    for (unsigned i = 1; i < num_labels; i++)
+        labels[i] = a.newLabel();
 }
 
 BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
