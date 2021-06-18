@@ -35,7 +35,8 @@
 	 init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--export([send_to_closed/1, active_n/1,
+-export([
+	 send_to_closed/1, active_n/1,
 	 buffer_size/1, binary_passive_recv/1, max_buffer_size/1, bad_address/1,
 	 read_packets/1, recv_poll_after_active_once/1,
          open_fd/1, connect/1, implicit_inet6/1,
@@ -43,7 +44,9 @@
          sendtos/1, sendtosttl/1, sendttl/1, sendtclass/1,
 	 local_basic/1, local_unbound/1,
 	 local_fdopen/1, local_fdopen_unbound/1, local_abstract/1,
-         recv_close/1]).
+         recv_close/1,
+	 otp_17492/1
+	]).
 
 
 -define(TRY_TC(F), try_tc(F)).
@@ -68,7 +71,8 @@ all() ->
      recvtos, recvtosttl, recvttl, recvtclass,
      sendtos, sendtosttl, sendttl, sendtclass,
      {group, local},
-     recv_close
+     recv_close,
+     otp_17492
     ].
 
 groups() -> 
@@ -127,7 +131,7 @@ init_per_group(local, Config) ->
 	{ok,S} ->
 	    ok = gen_udp:close(S),
 	    Config;
-	{error,eafnosupport} ->
+	{error, eafnosupport} ->
 	    {skip, "AF_LOCAL not supported"}
     end;
 init_per_group(_GroupName, Config) ->
@@ -1202,6 +1206,9 @@ connect(Config) when is_list(Config) ->
     ?P("done"),
     ok.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 implicit_inet6(Config) when is_list(Config) ->
     ?TC_TRY(implicit_inet6, fun() -> do_implicit_inet6(Config) end).
 
@@ -1292,6 +1299,73 @@ implicit_inet6(S1, Active, Addr) ->
     ?P("close \"remote\" socket"),
     ok = gen_udp:close(S2),
     ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is the most basic of tests.
+%% Spawn a process that creates a socket, then spawns (client)
+%% processes that create monitors to it...
+otp_17492(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
+    ?TC_TRY(otp_17492, fun() -> do_otp_17492(Config) end).
+
+do_otp_17492(Config) ->
+    ?P("begin"),
+
+    Self = self(),
+
+    ?P("try create socket"),
+    {ok, L} = gen_udp:open(0, []),
+
+    ?P("try get (created) socket info"),
+    try inet:info(L) of
+	#{owner := Owner} = Info when is_pid(Owner) andalso (Owner =:= Self) ->
+	    ?P("(created) socket info: ~p", [Info]);
+	OBadInfo ->
+	    ?P("(created) socket info: ~p", [OBadInfo]),
+	    (catch gen_udp:close(L)),
+	    ct:fail({invalid_created_info, OBadInfo})
+    catch
+	OC:OE:OS ->
+	    ?P("Failed get (created) Listen socket info: "
+	       "~n   Class: ~p"
+	       "~n   Error: ~p"
+	       "~n   Stack: ~p", [OC, OE, OS]),
+	    (catch gen_udp:close(L)),
+	    ct:fail({unexpected_created_info_result, {OC, OE, OS}})
+    end,
+
+    ?P("try close socket"),
+    ok = gen_udp:close(L),
+
+    ?P("try get (closed) socket info"),
+    try inet:info(L) of
+	#{states := [closed]} = CInfo when is_port(L) ->
+	    ?P("(closed) socket info: "
+	       "~n   ~p", [CInfo]);
+	#{rstates := [closed], wstates := [closed]} = CInfo ->
+	    ?P("(closed) socket info: "
+	       "~n   ~p", [CInfo]);
+	CBadInfo ->
+	    ?P("(closed) socket info: ~p", [CBadInfo]),
+	    ct:fail({invalid_closed_info, CBadInfo})
+    catch
+	CC:CE:CS ->
+	    ?P("Failed get (closed) socket info: "
+	       "~n   Class: ~p"
+	       "~n   Error: ~p"
+	       "~n   Stack: ~p", [CC, CE, CS]),
+	    (catch gen_udp:close(L)),
+	    ct:fail({unexpected_closed_info_result, {CC, CE, CS}})
+    end,
+
+    ?P("done"),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 ok({ok,V}) -> V;
 ok(NotOk) ->
