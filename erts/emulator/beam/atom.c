@@ -500,7 +500,6 @@ typedef struct _atom_text {
 
 static AtomText* text_list;	/* List of text buffers */
 static byte *atom_text_pos;
-static byte *atom_text_end;
 static Uint reserved_atom_space;	/* Total amount of atom text space */
 static Uint atom_space;		/* Amount of atom text space used */
 
@@ -658,7 +657,6 @@ more_atom_space(void)
     text_list = ptr;
 
     atom_text_pos = ptr->text;
-    atom_text_end = atom_text_pos + ATOM_TEXT_SIZE;
     reserved_atom_space += sizeof(AtomText);
 
     VERBOSE(DEBUG_SYSTEM,("Allocated %d atom space\n",ATOM_TEXT_SIZE));
@@ -672,10 +670,12 @@ static byte*
 atom_text_alloc(int bytes)
 {
     byte *res;
+    byte *text_end;
 
     atom_write_lock();
     ASSERT(bytes <= MAX_ATOM_SZ_LIMIT);
-    if (bytes > atom_text_end - atom_text_pos) {
+    text_end = text_list->text + ATOM_TEXT_SIZE;
+    if (bytes > text_end - atom_text_pos) {
 	more_atom_space();
     }
     res = atom_text_pos;
@@ -1002,7 +1002,6 @@ init_atom_table(void)
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     atom_text_pos = NULL;
-    atom_text_end = NULL;
     reserved_atom_space = 0;
     atom_space = 0;
     text_list = NULL;
