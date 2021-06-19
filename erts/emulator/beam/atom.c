@@ -27,12 +27,23 @@
 #include "erl_vm.h"
 #include "global.h"
 #include "hash.h"
+#include "index.h"
 #include "atom.h"
 
 
 #define ATOM_SIZE  3000
 
-IndexTable erts_atom_table;	/* The index table */
+/*
+ * Atom entry.
+ * Internal view, including hash/index table details.
+ */
+
+typedef struct atom_int {
+    IndexSlot slot;		/* MUST BE LOCATED AT TOP OF STRUCT!!! */
+    Atom atom;			/* this is what client code gets to see */
+} AtomInt;
+
+static IndexTable erts_atom_table;	/* The index table */
 
 static erts_rwmtx_t atom_table_lock;
 
@@ -126,10 +137,10 @@ atom_text_alloc(int bytes)
  */
 
 static HashValue
-atom_hash(Atom* obj)
+atom_hash(AtomInt* obj)
 {
-    byte* p = obj->name;
-    int len = obj->len;
+    byte* p = obj->atom.name;
+    int len = obj->atom.len;
     HashValue h = 0, g;
     byte v;
 
@@ -152,24 +163,24 @@ atom_hash(Atom* obj)
 
 
 static int 
-atom_cmp(Atom* tmpl, Atom* obj)
+atom_cmp(AtomInt* tmpl, AtomInt* obj)
 {
-    if (tmpl->len == obj->len &&
-	sys_memcmp(tmpl->name, obj->name, tmpl->len) == 0)
+    if (tmpl->atom.len == obj->atom.len &&
+	sys_memcmp(tmpl->atom.name, obj->atom.name, tmpl->atom.len) == 0)
 	return 0;
     return 1;
 }
 
 
-static Atom*
-atom_alloc(Atom* tmpl)
+static AtomInt*
+atom_alloc(AtomInt* tmpl)
 {
-    Atom* obj = (Atom*) erts_alloc(ERTS_ALC_T_ATOM, sizeof(Atom));
+    AtomInt* obj = (AtomInt*) erts_alloc(ERTS_ALC_T_ATOM, sizeof(AtomInt));
 
-    obj->name = atom_text_alloc(tmpl->len);
-    sys_memcpy(obj->name, tmpl->name, tmpl->len);
-    obj->len = tmpl->len;
-    obj->latin1_chars = tmpl->latin1_chars;
+    obj->atom.name = atom_text_alloc(tmpl->atom.len);
+    sys_memcpy(obj->atom.name, tmpl->atom.name, tmpl->atom.len);
+    obj->atom.len = tmpl->atom.len;
+    obj->atom.latin1_chars = tmpl->atom.latin1_chars;
     obj->slot.index = -1;
 
     /*
@@ -184,18 +195,18 @@ atom_alloc(Atom* tmpl)
 	int i;
 	int j;
 
-	j = (tmpl->len < 4) ? tmpl->len : 4;
+	j = (tmpl->atom.len < 4) ? tmpl->atom.len : 4;
 	for(i = 0; i < j; ++i)
-	    c[i] = tmpl->name[i];
+	    c[i] = tmpl->atom.name[i];
 	for(; i < 4; ++i)
 	    c[i] = '\0';
-	obj->ord0 = (c[0] << 23) + (c[1] << 15) + (c[2] << 7) + (c[3] >> 1);
+	obj->atom.ord0 = (c[0] << 23) + (c[1] << 15) + (c[2] << 7) + (c[3] >> 1);
     }
     return obj;
 }
 
 static void
-atom_free(Atom* obj)
+atom_free(AtomInt* obj)
 {
     ASSERT(obj->slot.index == atom_val(am_ErtsSecretAtom));
 }
@@ -244,7 +255,7 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
     const byte *text = name;
     Uint tlen;
     Sint no_latin1_chars;
-    Atom a;
+    AtomInt a;
     int aix;
 
 #ifdef ERTS_ATOM_PUT_OPS_STAT
@@ -293,8 +304,8 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 	break;
     }
 
-    a.len = tlen;
-    a.name = (byte *) text;
+    a.atom.len = tlen;
+    a.atom.name = (byte *) text;
     atom_read_lock();
     aix = index_get(&erts_atom_table, (void*) &a);
     atom_read_unlock();
@@ -332,9 +343,9 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
     ASSERT(tlen <= MAX_ATOM_SZ_LIMIT);
     ASSERT(-1 <= no_latin1_chars && no_latin1_chars <= MAX_ATOM_CHARACTERS);
 
-    a.len = tlen;
-    a.latin1_chars = (Sint16) no_latin1_chars;
-    a.name = (byte *) text;
+    a.atom.len = tlen;
+    a.atom.latin1_chars = (Sint16) no_latin1_chars;
+    a.atom.name = (byte *) text;
     atom_write_lock();
     aix = index_put(&erts_atom_table, (void*) &a);
     atom_write_unlock();
@@ -389,7 +400,7 @@ Eterm
 erts_atom_get(const char *name, Uint len, ErtsAtomEncoding enc)
 {
     byte utf8_copy[MAX_ATOM_SZ_FROM_LATIN1];
-    Atom a;
+    AtomInt a;
     int i;
 
     switch (enc) {
@@ -400,8 +411,8 @@ erts_atom_get(const char *name, Uint len, ErtsAtomEncoding enc)
 
         latin1_to_utf8(utf8_copy, sizeof(utf8_copy), (const byte**)&name, &len);
 
-        a.name = (byte*)name;
-        a.len = (Sint16)len;
+        a.atom.name = (byte*)name;
+        a.atom.len = (Sint16)len;
         break;
     case ERTS_ATOM_ENC_7BIT_ASCII:
         if (len > MAX_ATOM_CHARACTERS) {
@@ -414,8 +425,8 @@ erts_atom_get(const char *name, Uint len, ErtsAtomEncoding enc)
             }
         }
 
-        a.len = (Sint16)len;
-        a.name = (byte*)name;
+        a.atom.len = (Sint16)len;
+        a.atom.name = (byte*)name;
         break;
     case ERTS_ATOM_ENC_UTF8:
         if (len > MAX_ATOM_SZ_LIMIT) {
@@ -426,8 +437,8 @@ erts_atom_get(const char *name, Uint len, ErtsAtomEncoding enc)
          * names are stored as UTF-8 and we know a lookup with a badly encoded
          * name will fail. */
 
-        a.len = (Sint16)len;
-        a.name = (byte*)name;
+        a.atom.len = (Sint16)len;
+        a.atom.name = (byte*)name;
         break;
     }
 
@@ -452,12 +463,17 @@ erts_atom_get_text_space_sizes(Uint *reserved, Uint *used)
 	atom_read_unlock();
 }
 
+static AtomInt *atom_tab_int(Uint i)
+{
+    return (AtomInt *) erts_index_lookup(&erts_atom_table, i);
+}
+
 void
 init_atom_table(void)
 {
     HashFunctions f;
     int i;
-    Atom a;
+    AtomInt a;
     erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
 
     rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
@@ -491,24 +507,24 @@ init_atom_table(void)
     /* Ordinary atoms */
     for (i = 0; erl_atom_names[i] != 0; i++) {
 	int ix;
-	a.len = sys_strlen(erl_atom_names[i]);
-	a.latin1_chars = a.len;
-	a.name = (byte*)erl_atom_names[i];
+	a.atom.len = sys_strlen(erl_atom_names[i]);
+	a.atom.latin1_chars = a.atom.len;
+	a.atom.name = (byte*)erl_atom_names[i];
 	a.slot.index = i;
 #ifdef DEBUG
 	/* Verify 7-bit ascii */
-	for (ix = 0; ix < a.len; ix++) {
-	    ASSERT((a.name[ix] & 0x80) == 0);
+	for (ix = 0; ix < a.atom.len; ix++) {
+	    ASSERT((a.atom.name[ix] & 0x80) == 0);
 	}
 #endif
 	ix = index_put(&erts_atom_table, (void*) &a);
-	atom_text_pos -= a.len;
-	atom_space -= a.len;
-	atom_tab(ix)->name = (byte*)erl_atom_names[i];
+	atom_text_pos -= a.atom.len;
+	atom_space -= a.atom.len;
+	atom_tab_int(ix)->atom.name = (byte*)erl_atom_names[i];
     }
 
     /* Hide am_ErtsSecretAtom */
-    hash_erase(&erts_atom_table.htable, atom_tab(atom_val(am_ErtsSecretAtom)));
+    hash_erase(&erts_atom_table.htable, atom_tab_int(atom_val(am_ErtsSecretAtom)));
 }
 
 void
@@ -532,7 +548,12 @@ erts_get_atom_limit(void)
     return erts_atom_table.limit;
 }
 
-HashValue atom_hvalue(Eterm atom)
+UWord atom_hvalue(Eterm atom)
 {
-    return atom_tab(atom_val(atom))->slot.bucket.hvalue;
+    return atom_tab_int(atom_val(atom))->slot.bucket.hvalue;
+}
+
+Atom *atom_tab(Uint i)
+{
+    return &atom_tab_int(i)->atom;
 }

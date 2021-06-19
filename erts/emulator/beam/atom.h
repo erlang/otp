@@ -21,7 +21,6 @@
 #ifndef __ATOM_H__
 #define __ATOM_H__
 
-#include "index.h"
 #include "erl_atom_table.h"
 
 #define MAX_ATOM_CHARACTERS 255
@@ -44,28 +43,20 @@
 
 /*
  * Atom entry.
+ * Public view, without hash/index table details.
  */
 typedef struct atom {
-    IndexSlot slot;  /* MUST BE LOCATED AT TOP OF STRUCT!!! */
     Sint16 len;      /* length of atom name (UTF-8 encoded) */
     Sint16 latin1_chars; /* 0-255 if atom can be encoded in latin1; otherwise, -1 */
     int ord0;        /* ordinal value of first 3 bytes + 7 bits */
     byte* name;      /* name of atom */
 } Atom;
 
-extern IndexTable erts_atom_table;
-
-ERTS_GLB_INLINE Atom* atom_tab(Uint i);
+Atom *atom_tab(Uint i);
 ERTS_GLB_INLINE int erts_is_atom_utf8_bytes(byte *text, size_t len, Eterm term);
 ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE Atom*
-atom_tab(Uint i)
-{
-    return (Atom *) erts_index_lookup(&erts_atom_table, i);
-}
-
 ERTS_GLB_INLINE int erts_is_atom_utf8_bytes(byte *text, size_t len, Eterm term)
 {
     Atom *a;
@@ -142,6 +133,6 @@ void dump_atoms(fmtfn_t, void *);
 Uint erts_get_atom_limit(void);
 Eterm erts_atom_get(const char* name, Uint len, ErtsAtomEncoding enc);
 void erts_atom_get_text_space_sizes(Uint *reserved, Uint *used);
-HashValue atom_hvalue(Eterm atom);
+UWord atom_hvalue(Eterm atom);
 #endif
 
