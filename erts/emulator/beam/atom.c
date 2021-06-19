@@ -531,3 +531,8 @@ erts_get_atom_limit(void)
 {
     return erts_atom_table.limit;
 }
+
+HashValue atom_hvalue(Eterm atom)
+{
+    return atom_tab(atom_val(atom))->slot.bucket.hvalue;
+}

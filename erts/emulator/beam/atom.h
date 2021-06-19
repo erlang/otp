@@ -142,5 +142,6 @@ void dump_atoms(fmtfn_t, void *);
 Uint erts_get_atom_limit(void);
 Eterm erts_atom_get(const char* name, Uint len, ErtsAtomEncoding enc);
 void erts_atom_get_text_space_sizes(Uint *reserved, Uint *used);
+HashValue atom_hvalue(Eterm atom);
 #endif
 

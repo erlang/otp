@@ -915,7 +915,7 @@ tail_recur:
 	break;
     case ATOM_DEF:
 	hash = hash*FUNNY_NUMBER1 +
-	    (atom_tab(atom_val(term))->slot.bucket.hvalue);
+	    atom_hvalue(term);
 	break;
     case SMALL_DEF:
 	{
@@ -944,9 +944,9 @@ tail_recur:
 
 	    hash = hash * FUNNY_NUMBER11 + ep->info.mfa.arity;
 	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(ep->info.mfa.module))->slot.bucket.hvalue);
+		atom_hvalue(ep->info.mfa.module);
 	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(ep->info.mfa.function))->slot.bucket.hvalue);
+		atom_hvalue(ep->info.mfa.function);
 	    break;
 	}
 
@@ -957,7 +957,7 @@ tail_recur:
 
 	    hash = hash * FUNNY_NUMBER10 + num_free;
 	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(funp->fe->module))->slot.bucket.hvalue);
+		atom_hvalue(funp->fe->module);
 	    hash = hash*FUNNY_NUMBER2 + funp->fe->index;
 	    hash = hash*FUNNY_NUMBER2 + funp->fe->old_uniq;
 	    if (num_free > 0) {
@@ -1473,7 +1473,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
 	    switch (term & _TAG_IMMED2_MASK) {
 	    case _TAG_IMMED2_ATOM:
 		/* Fast, but the poor hash value should be mixed. */
-		return atom_tab(atom_val(term))->slot.bucket.hvalue;
+		return atom_hvalue(term);
 	    }
 	    break;
 	case _TAG_IMMED1_SMALL:
@@ -1675,10 +1675,10 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
 		Export* ep = *((Export **) (export_val(term) + 1));
 		UINT32_HASH_2
 		    (ep->info.mfa.arity,
-		     atom_tab(atom_val(ep->info.mfa.module))->slot.bucket.hvalue,
+		     atom_hvalue(ep->info.mfa.module),
 		     HCONST);
 		UINT32_HASH
-		    (atom_tab(atom_val(ep->info.mfa.function))->slot.bucket.hvalue,
+		    (atom_hvalue(ep->info.mfa.function),
 		     HCONST_14);
 		goto hash2_common;
 	    }
@@ -1691,7 +1691,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                     .bptr = NULL};
 		UINT32_HASH_2
 		    (ctx.num_free,
-		     atom_tab(atom_val(funp->fe->module))->slot.bucket.hvalue,
+		     atom_hvalue(funp->fe->module),
 		     HCONST);
 		UINT32_HASH_2
 		    (funp->fe->index, funp->fe->old_uniq, HCONST);
@@ -1963,9 +1963,9 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
 		case _TAG_IMMED2_ATOM:
 		    if (hash == 0)
 			/* Fast, but the poor hash value should be mixed. */
-			hash = atom_tab(atom_val(term))->slot.bucket.hvalue;
+			hash = atom_hvalue(term);
 		    else
-			UINT32_HASH(atom_tab(atom_val(term))->slot.bucket.hvalue,
+			UINT32_HASH(atom_hvalue(term),
 				    HCONST_3);
 		    goto hash2_common;
 		case _TAG_IMMED2_NIL:

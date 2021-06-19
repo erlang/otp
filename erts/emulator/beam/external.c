@@ -163,9 +163,10 @@ atom2cix(Eterm atom)
 {
     Uint val;
     ASSERT(is_atom(atom));
-    val = atom_val(atom);
 #ifdef ERTS_ATOM_CACHE_HASH
-    val = atom_tab(val)->slot.bucket.hvalue;
+    val = atom_hvalue(atom);
+#else
+    val = atom_val(atom);
 #endif
 #if ERTS_USE_ATOM_CACHE_SIZE == 256
     return (int) (val & ((Uint) 0xff));
