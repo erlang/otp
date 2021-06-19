@@ -59,7 +59,9 @@
 	 dirty_scheduler_threads/1,
          poll_threads/1,
 	 reader_groups/1,
-         otp_16446/1]).
+         otp_16446/1,
+         simultaneously_change_schedulers_online/1,
+         simultaneously_change_schedulers_online_with_exits/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -76,7 +78,9 @@ all() ->
      dirty_scheduler_threads,
      poll_threads,
      reader_groups,
-     otp_16446].
+     otp_16446,
+     simultaneously_change_schedulers_online,
+     simultaneously_change_schedulers_online_with_exits].
 
 groups() -> 
     [{scheduler_bind, [],
@@ -84,10 +88,12 @@ groups() ->
        sct_cmd, sbt_cmd]}].
 
 init_per_suite(Config) ->
-    Config.
+    [{schedulers_online, erlang:system_info(schedulers_online)} | Config].
 
 end_per_suite(Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false),
+    SchedOnln = proplists:get_value(schedulers_online, Config),
+    erlang:system_flag(schedulers_online, SchedOnln),
     Config.
 
 init_per_testcase(update_cpu_info, Config) ->
@@ -1905,6 +1911,62 @@ otp_16446(Config) when is_list(Config) ->
     Comment = "low/normal ratio: " ++ erlang:float_to_list(Ratio,[{decimals,4}]),
     erlang:display(Comment),
     {comment, Comment}.
+
+simultaneously_change_schedulers_online(Config) when is_list(Config) ->
+    SchedOnline = erlang:system_info(schedulers_online),
+    Change = fun Change (0) ->
+                     ok;
+                 Change (N) ->
+                     %timer:sleep(rand:uniform(100)),
+                     erlang:system_flag(schedulers_online,
+                                        rand:uniform(erlang:system_info(schedulers))),
+                     Change(N-1)
+             end,
+    PMs = lists:map(fun (_) ->
+                            spawn_monitor(fun () -> Change(10) end)
+                    end, lists:seq(1,2500)),
+    lists:foreach(fun ({P, M}) ->
+                          receive
+                              {'DOWN', M, process, P, normal} ->
+                                  ok
+                          end
+                  end,
+                  PMs),
+    erlang:system_flag(schedulers_online, SchedOnline),
+    ok.
+
+simultaneously_change_schedulers_online_with_exits(Config) when is_list(Config) ->
+    SchedOnline = erlang:system_info(schedulers_online),
+    Change = fun Change (0) ->
+                     exit(bye);
+                 Change (N) ->
+                     %timer:sleep(rand:uniform(100)),
+                     erlang:system_flag(schedulers_online,
+                                        rand:uniform(erlang:system_info(schedulers))),
+                     Change(N-1)
+             end,
+    PMs = lists:map(fun (_) ->
+                            spawn_monitor(fun () -> Change(10) end)
+                    end, lists:seq(1,2500)),
+    %% Kill every 10:th process...
+    _ = lists:foldl(fun ({P, _M}, 0) ->
+                            exit(P, bye),
+                            10;
+                        (_PM, N) ->
+                            N-1
+                    end,
+                    10,
+                    PMs),
+    lists:foreach(fun ({P, M}) ->
+                          receive
+                              {'DOWN', M, process, P, Reason} ->
+                                  bye = Reason
+                          end
+                  end,
+                  PMs),
+    erlang:system_flag(schedulers_online, SchedOnline),
+    ok.
+
 
 %%
 %% Utils
