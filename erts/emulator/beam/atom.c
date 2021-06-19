@@ -675,7 +675,7 @@ atom_text_alloc(int bytes)
 
     atom_write_lock();
     ASSERT(bytes <= MAX_ATOM_SZ_LIMIT);
-    if (atom_text_pos + bytes >= atom_text_end) {
+    if (bytes > atom_text_end - atom_text_pos) {
 	more_atom_space();
     }
     res = atom_text_pos;
