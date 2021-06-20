@@ -32,19 +32,14 @@
 
 #define ATOM_SIZE  3000
 
-typedef struct atom_index_slot
-{
-    HashBucket bucket;
-    int index;
-} AtomIndexSlot;
-
 /*
  * Atom entry.
  * Internal view, including hash/index table details.
  */
 
 typedef struct atom_int {
-    AtomIndexSlot slot;		/* MUST BE LOCATED AT TOP OF STRUCT!!! */
+    HashBucket bucket;		/* MUST BE LOCATED AT TOP OF STRUCT!!! */
+    int index;
     Atom atom;			/* this is what client code gets to see */
 } AtomInt;
 
@@ -55,11 +50,10 @@ typedef struct atom_int {
 typedef struct atom_index_table
 {
     Hash htable;		/* Mapping obj -> index */
-    ErtsAlcType_t type;
     int size;			/* Allocated size */
     int limit;			/* Max size */
     int entries;		/* Number of entries */
-    AtomIndexSlot ***seg_table;	/* Mapping index -> obj */
+    AtomInt ***seg_table;	/* Mapping index -> obj */
 } AtomIndexTable;
 
 #define ATOM_INDEX_PAGE_SHIFT 10
@@ -97,8 +91,9 @@ static byte *atom_text_end;
 static Uint reserved_atom_space;	/* Total amount of atom text space */
 static Uint atom_space;		/* Amount of atom text space used */
 
-static void atom_index_info(fmtfn_t to, void *arg, AtomIndexTable *t)
+static void atom_index_info(fmtfn_t to, void *arg)
 {
+    AtomIndexTable *t = &erts_atom_table;
     hash_info(to, arg, &t->htable);
     erts_print(to, arg, "=index_table:%s\n", t->htable.name);
     erts_print(to, arg, "size: %d\n",	t->size);
@@ -109,11 +104,12 @@ static void atom_index_info(fmtfn_t to, void *arg, AtomIndexTable *t)
 /*
  * Returns size of table in bytes. Stored objects not included.
  */
-static int atom_index_table_sz(AtomIndexTable *t)
+static int atom_index_table_sz(void)
 {
+    AtomIndexTable *t = &erts_atom_table;
     return (sizeof(AtomIndexTable)
 	    - sizeof(Hash)
-	    + t->size * sizeof(AtomIndexSlot *)
+	    + t->size * sizeof(AtomInt *)
 	    + hash_table_sz(&t->htable));
 }
 
@@ -121,29 +117,31 @@ static int atom_index_table_sz(AtomIndexTable *t)
  * init a pre allocated or static hash structure
  * and allocate buckets.
  */
-static AtomIndexTable *
-atom_index_init(ErtsAlcType_t type, AtomIndexTable *t, char *name,
-		int size, int limit, HashFunctions fun)
+static void atom_index_init(HashFunctions fun)
 {
-    Uint base_size = (((Uint) limit + ATOM_INDEX_PAGE_SIZE - 1) / ATOM_INDEX_PAGE_SIZE) * sizeof(AtomIndexSlot *);
+    AtomIndexTable *t = &erts_atom_table;
+    int size = ATOM_SIZE;
+    int limit = erts_atom_table_size;
+    Uint base_size = (((Uint) limit + ATOM_INDEX_PAGE_SIZE - 1) / ATOM_INDEX_PAGE_SIZE) * sizeof(AtomInt *);
 
-    hash_init(type, &t->htable, name, 3*size/4, fun);
+    hash_init(ERTS_ALC_T_ATOM_TABLE, &t->htable, "atom_tab", 3*size/4, fun);
 
     t->size = 0;
     t->limit = limit;
     t->entries = 0;
-    t->type = type;
-    t->seg_table = (AtomIndexSlot ***) erts_alloc(type, base_size);
-    return t;
+    t->seg_table = (AtomInt ***) erts_alloc(ERTS_ALC_T_ATOM_TABLE, base_size);
 }
 
-static AtomIndexSlot *atom_index_put_entry(AtomIndexTable *t, void *tmpl)
+static int atom_index_put(AtomInt *tmpl)
 {
+    AtomIndexTable *t = &erts_atom_table;
+    AtomInt *p;
     int ix;
-    AtomIndexSlot *p = (AtomIndexSlot *) hash_put(&t->htable, tmpl);
 
-    if (p->index >= 0) {
-	return p;
+    p = (AtomInt *) hash_put(&t->htable, tmpl);
+    ix = p->index;
+    if (ix >= 0) {
+	return ix;
     }
 
     ix = t->entries;
@@ -154,36 +152,26 @@ static AtomIndexSlot *atom_index_put_entry(AtomIndexTable *t, void *tmpl)
 	    erts_exit(ERTS_DUMP_EXIT, "no more index entries in %s (max=%d)\n",
 		      t->htable.name, t->limit);
 	}
-	sz = ATOM_INDEX_PAGE_SIZE * sizeof(AtomIndexSlot*);
-	t->seg_table[ix >> ATOM_INDEX_PAGE_SHIFT] = erts_alloc(t->type, sz);
+	sz = ATOM_INDEX_PAGE_SIZE * sizeof(AtomInt *);
+	t->seg_table[ix >> ATOM_INDEX_PAGE_SHIFT] = erts_alloc(ERTS_ALC_T_ATOM_TABLE, sz);
 	t->size += ATOM_INDEX_PAGE_SIZE;
     }
     p->index = ix;
     t->seg_table[ix >> ATOM_INDEX_PAGE_SHIFT][ix & ATOM_INDEX_PAGE_MASK] = p;
-
-    /*
-     * Do a write barrier here to allow readers to do lock free iteration.
-     * erts_index_num_entries() does matching read barrier.
-     */
-    ERTS_THR_WRITE_MEMORY_BARRIER;
     t->entries++;
-
-    return p;
+    return ix;
 }
 
-static int atom_index_put(AtomIndexTable *t, void *tmpl)
+static int atom_index_get(AtomInt *tmpl)
 {
-    return atom_index_put_entry(t, tmpl)->index;
-}
-
-static int atom_index_get(AtomIndexTable *t, void *tmpl)
-{
-    AtomIndexSlot *p = (AtomIndexSlot *) hash_get(&t->htable, tmpl);
+    AtomIndexTable *t = &erts_atom_table;
+    AtomInt *p = (AtomInt *) hash_get(&t->htable, tmpl);
     return p ? p->index : -1;
 }
 
-static AtomIndexSlot *atom_index_lookup(AtomIndexTable *t, Uint ix)
+static AtomInt *atom_index_lookup(Uint ix)
 {
+    AtomIndexTable *t = &erts_atom_table;
     return t->seg_table[ix >> ATOM_INDEX_PAGE_SHIFT][ix & ATOM_INDEX_PAGE_MASK];
 }
 
@@ -195,7 +183,7 @@ void atom_info(fmtfn_t to, void *to_arg)
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	atom_read_lock();
-    atom_index_info(to, to_arg, &erts_atom_table);
+    atom_index_info(to, to_arg);
 #ifdef ERTS_ATOM_PUT_OPS_STAT
     erts_print(to, to_arg, "atom_put_ops: %ld\n",
 	       erts_atomic_read_nob(&atom_put_ops));
@@ -294,7 +282,7 @@ atom_alloc(AtomInt* tmpl)
     sys_memcpy(obj->atom.name, tmpl->atom.name, tmpl->atom.len);
     obj->atom.len = tmpl->atom.len;
     obj->atom.latin1_chars = tmpl->atom.latin1_chars;
-    obj->slot.index = -1;
+    obj->index = -1;
 
     /*
      * Precompute ordinal value of first 3 bytes + 7 bits.
@@ -321,7 +309,7 @@ atom_alloc(AtomInt* tmpl)
 static void
 atom_free(AtomInt* obj)
 {
-    ASSERT(obj->slot.index == atom_val(am_ErtsSecretAtom));
+    ASSERT(obj->index == atom_val(am_ErtsSecretAtom));
 }
 
 static void latin1_to_utf8(byte* conv_buf, Uint buf_sz,
@@ -420,7 +408,7 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
     a.atom.len = tlen;
     a.atom.name = (byte *) text;
     atom_read_lock();
-    aix = atom_index_get(&erts_atom_table, (void*) &a);
+    aix = atom_index_get(&a);
     atom_read_unlock();
     if (aix >= 0) {
 	/* Already in table no need to verify it */
@@ -460,7 +448,7 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
     a.atom.latin1_chars = (Sint16) no_latin1_chars;
     a.atom.name = (byte *) text;
     atom_write_lock();
-    aix = atom_index_put(&erts_atom_table, (void*) &a);
+    aix = atom_index_put(&a);
     atom_write_unlock();
     return aix;
 }
@@ -503,7 +491,7 @@ int atom_table_sz(void)
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	atom_read_lock();
-    ret = atom_index_table_sz(&erts_atom_table);
+    ret = atom_index_table_sz();
     if (lock)
 	atom_read_unlock();
     return ret;
@@ -556,7 +544,7 @@ erts_atom_get(const char *name, Uint len, ErtsAtomEncoding enc)
     }
 
     atom_read_lock();
-    i = atom_index_get(&erts_atom_table, (void*) &a);
+    i = atom_index_get(&a);
     atom_read_unlock();
 
     return (i >= 0) ? make_atom(i) : THE_NON_VALUE;
@@ -578,7 +566,7 @@ erts_atom_get_text_space_sizes(Uint *reserved, Uint *used)
 
 static AtomInt *atom_tab_int(Uint i)
 {
-    return (AtomInt *) atom_index_lookup(&erts_atom_table, i);
+    return atom_index_lookup(i);
 }
 
 void
@@ -613,8 +601,7 @@ init_atom_table(void)
     atom_space = 0;
     text_list = NULL;
 
-    atom_index_init(ERTS_ALC_T_ATOM_TABLE, &erts_atom_table,
-		    "atom_tab", ATOM_SIZE, erts_atom_table_size, f);
+    atom_index_init(f);
     more_atom_space();
 
     /* Ordinary atoms */
@@ -623,14 +610,14 @@ init_atom_table(void)
 	a.atom.len = sys_strlen(erl_atom_names[i]);
 	a.atom.latin1_chars = a.atom.len;
 	a.atom.name = (byte*)erl_atom_names[i];
-	a.slot.index = i;
+	a.index = i;
 #ifdef DEBUG
 	/* Verify 7-bit ascii */
 	for (ix = 0; ix < a.atom.len; ix++) {
 	    ASSERT((a.atom.name[ix] & 0x80) == 0);
 	}
 #endif
-	ix = atom_index_put(&erts_atom_table, (void*) &a);
+	ix = atom_index_put(&a);
 	atom_text_pos -= a.atom.len;
 	atom_space -= a.atom.len;
 	atom_tab_int(ix)->atom.name = (byte*)erl_atom_names[i];
@@ -649,7 +636,7 @@ dump_atoms(fmtfn_t to, void *to_arg)
      * Print out the atom table starting from the end.
      */
     while (--i >= 0) {
-	if (atom_index_lookup(&erts_atom_table, i)) {
+	if (atom_index_lookup(i)) {
 	    erts_print(to, to_arg, "%T\n", make_atom(i));
 	}
     }
@@ -663,7 +650,7 @@ erts_get_atom_limit(void)
 
 UWord atom_hvalue(Eterm atom)
 {
-    return atom_tab_int(atom_val(atom))->slot.bucket.hvalue;
+    return atom_tab_int(atom_val(atom))->bucket.hvalue;
 }
 
 Atom *atom_tab(Uint i)
