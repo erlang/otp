@@ -67,8 +67,8 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 
 .innertube 
 {
-    margin-left: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
-    margin-right: 11em;
+    margin: 0 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
+    max-width: 67ex;
 }
 
 .footer 
@@ -180,7 +180,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
   padding: 0.5em 1em;
   margin: 1em 0;
   font-size: 0.7em;
-  overflow-x: scroll;
+  overflow-x: auto;
 }
 .extrafrontpageinfo {
   color: #C00;
@@ -204,7 +204,8 @@ pre {
 }
 .exports-tube
 {
-    margin-right: 11em;
+    margin-right: 15px;
+    max-width: 67ex;
 }
 
 footer       { }
