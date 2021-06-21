@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!DOCTYPE part SYSTEM "part.dtd">
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
 
-<part xmlns:xi="http://www.w3.org/2001/XInclude">
+<chapter>
   <header>
     <copyright>
-      <year>2019</year>
+      <year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,18 +19,19 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
-    <title>General Information</title>
-    <prepared>OTP Team</prepared>
+    <title>Upcoming Potential Incompatibilities</title>
+    <prepared></prepared>
     <docno></docno>
-    <date>2019-02-23</date>
+    <date></date>
     <rev></rev>
-    <file>part.xml</file>
+    <file>upcoming_incompatibilities.xml</file>
   </header>
-  <xi:include href="deprecations.xml"/>
-  <xi:include href="removed.xml"/>
-  <xi:include href="scheduled_for_removal.xml"/>
-  <xi:include href="upcoming_incompatibilities.xml"/>
-</part>
+  <section>
+    <title>Introduction</title>
+    <p>This document lists planned upcoming potential incompatibilities in
+    Erlang/OTP.</p>
+  </section>
+</chapter>
