@@ -69,7 +69,8 @@
       <desc>
         <p>Returns <c>true</c> if <c><anno>Pred</anno>(<anno>Elem</anno>)</c>
           returns <c>true</c> for all elements <c><anno>Elem</anno></c> in
-          <c><anno>List</anno></c>, otherwise <c>false</c>.</p>
+          <c><anno>List</anno></c>, otherwise <c>false</c>. The <c>Pred</c>
+          function must return a boolean.</p>
       </desc>
     </func>
 
@@ -80,7 +81,8 @@
       <desc>
         <p>Returns <c>true</c> if <c><anno>Pred</anno>(<anno>Elem</anno>)</c>
           returns <c>true</c> for at least one element <c><anno>Elem</anno></c>
-          in <c><anno>List</anno></c>.</p>
+          in <c><anno>List</anno></c>. The <c>Pred</c> function must return a
+          boolean.</p>
       </desc>
     </func>
 
@@ -154,7 +156,8 @@
         <p>Drops elements <c><anno>Elem</anno></c> from
           <c><anno>List1</anno></c> while
           <c><anno>Pred</anno>(<anno>Elem</anno>)</c> returns <c>true</c> and
-          returns the remaining list.</p>
+          returns the remaining list. The <c>Pred</c> function must return a
+          boolean.</p>
       </desc>
     </func>
 
@@ -177,7 +180,8 @@
       <desc>
         <p><c><anno>List2</anno></c> is a list of all elements
           <c><anno>Elem</anno></c> in <c><anno>List1</anno></c> for which
-          <c><anno>Pred</anno>(<anno>Elem</anno>)</c> returns <c>true</c>.</p>
+          <c><anno>Pred</anno>(<anno>Elem</anno>)</c> returns <c>true</c>.
+	  The <c>Pred</c> function must return a boolean.</p>
       </desc>
     </func>
 
@@ -696,7 +700,8 @@ c</pre>
           such that <c><anno>Pred</anno>(<anno>Value</anno>)</c> returns
           <c>true</c>, returns <c>{value, <anno>Value</anno>}</c>
           for the first such <c><anno>Value</anno></c>,
-          otherwise returns <c>false</c>.</p>
+          otherwise returns <c>false</c>. The <c>Pred</c> function must return
+          a boolean.</p>
       </desc>
     </func>
 
@@ -798,7 +803,8 @@ splitwith(Pred, List) ->
 {[1],[2,3,4,5,6,7]}
 > <input>lists:splitwith(fun(A) -> is_atom(A) end, [a,b,1,c,d,2,3,4,e]).</input>
 {[a,b],[1,c,d,2,3,4,e]}</pre>
-        <p>For a different way to partition a list, see 
+        <p>The <c>Pred</c> function must return a
+          boolean. For a different way to partition a list, see 
           <seemfa marker="#partition/2"><c>partition/2</c></seemfa>.</p>
       </desc>
     </func>
@@ -879,7 +885,8 @@ splitwith(Pred, List) ->
           <c><anno>List1</anno></c> while
           <c><anno>Pred</anno>(<anno>Elem</anno>)</c> returns <c>true</c>, that
           is, the function returns the longest prefix of the list for which
-          all elements satisfy the predicate.</p>
+          all elements satisfy the predicate. The <c>Pred</c> function must
+          return a boolean.</p>
       </desc>
     </func>
 
