@@ -113,7 +113,12 @@ static Uint atom_space;		/* Amount of atom text space used */
 static void atom_index_info(fmtfn_t to, void *arg)
 {
     AtomIndexTable *t = &erts_atom_table;
+    int lock = !ERTS_IS_CRASH_DUMPING;
+    if (lock)
+	atom_read_lock();
     hash_info(to, arg, &t->htable);
+    if (lock)
+	atom_read_unlock();
     erts_print(to, arg, "=index_table:%s\n", t->htable.name);
     erts_print(to, arg, "size: %d\n", (int) erts_atomic_read_mb(&t->size));
     erts_print(to, arg, "limit: %d\n", t->limit);
@@ -126,10 +131,18 @@ static void atom_index_info(fmtfn_t to, void *arg)
 static int atom_index_table_sz(void)
 {
     AtomIndexTable *t = &erts_atom_table;
+    int lock = !ERTS_IS_CRASH_DUMPING;
+    int hsz;
+
+    if (lock)
+	atom_read_lock();
+    hsz = hash_table_sz(&t->htable);
+    if (lock)
+	atom_read_unlock();
     return (sizeof(AtomIndexTable)
 	    - sizeof(Hash)
 	    + (int) erts_atomic_read_mb(&t->size) * sizeof(AtomInt *)
-	    + hash_table_sz(&t->htable));
+	    + hsz);
 }
 
 /*
@@ -161,7 +174,9 @@ static int atom_index_put(AtomInt *tmpl)
     int size, size0;
     AtomInt **segment;
 
+    atom_write_lock();
     p = (AtomInt *) hash_put(&t->htable, tmpl);
+    atom_write_unlock();
     ix = (int) erts_atomic_read_mb(&p->index);
     if (ix >= 0) {
 	return ix;
@@ -208,7 +223,11 @@ static int atom_index_put(AtomInt *tmpl)
 static int atom_index_get(AtomInt *tmpl)
 {
     AtomIndexTable *t = &erts_atom_table;
-    AtomInt *p = (AtomInt *) hash_get(&t->htable, tmpl);
+    AtomInt *p;
+
+    atom_read_lock();
+    p = (AtomInt *) hash_get(&t->htable, tmpl);
+    atom_read_unlock();
     return p ? (int) erts_atomic_read_mb(&p->index) : -1;
 }
 
@@ -223,17 +242,11 @@ static AtomInt *atom_index_lookup(Uint ix)
  */
 void atom_info(fmtfn_t to, void *to_arg)
 {
-    int lock = !ERTS_IS_CRASH_DUMPING;
-    if (lock)
-	atom_read_lock();
     atom_index_info(to, to_arg);
 #ifdef ERTS_ATOM_PUT_OPS_STAT
     erts_print(to, to_arg, "atom_put_ops: %ld\n",
 	       erts_atomic_read_nob(&atom_put_ops));
 #endif
-
-    if (lock)
-	atom_read_unlock();
 }
 
 /*
@@ -450,9 +463,7 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 
     a.atom.len = tlen;
     a.atom.name = (byte *) text;
-    atom_read_lock();
     aix = atom_index_get(&a);
-    atom_read_unlock();
     if (aix >= 0) {
 	/* Already in table no need to verify it */
 	return aix;
@@ -490,9 +501,7 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
     a.atom.len = tlen;
     a.atom.latin1_chars = (Sint16) no_latin1_chars;
     a.atom.name = (byte *) text;
-    atom_write_lock();
     aix = atom_index_put(&a);
-    atom_write_unlock();
     return aix;
 }
 
@@ -518,26 +527,12 @@ am_atom_put(const char* name, Sint len)
 
 int atom_table_size(void)
 {
-    int ret;
-    int lock = !ERTS_IS_CRASH_DUMPING;
-    if (lock)
-	atom_read_lock();
-    ret = (int) erts_atomic_read_mb(&erts_atom_table.entries);
-    if (lock)
-	atom_read_unlock();
-    return ret;
+    return (int) erts_atomic_read_mb(&erts_atom_table.entries);
 }
 
 int atom_table_sz(void)
 {
-    int ret;
-    int lock = !ERTS_IS_CRASH_DUMPING;
-    if (lock)
-	atom_read_lock();
-    ret = atom_index_table_sz();
-    if (lock)
-	atom_read_unlock();
-    return ret;
+    return atom_index_table_sz();
 }
 
 Eterm
@@ -586,9 +581,7 @@ erts_atom_get(const char *name, Uint len, ErtsAtomEncoding enc)
         break;
     }
 
-    atom_read_lock();
     i = atom_index_get(&a);
-    atom_read_unlock();
 
     return (i >= 0) ? make_atom(i) : THE_NON_VALUE;
 }
