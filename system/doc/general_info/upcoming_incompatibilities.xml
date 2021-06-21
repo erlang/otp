@@ -34,4 +34,35 @@
     <p>This document lists planned upcoming potential incompatibilities in
     Erlang/OTP.</p>
   </section>
+
+  <section>
+    <title>OTP 25</title>
+    <section>
+      <title>Distribution flags will become mandatory</title>
+      <p>In OTP 25, more <seeguide
+      marker="erts:erl_dist_protocol#dflags">distribution
+      flags</seeguide> will become mandatory. That is, Erlang nodes
+      will refuse to connect to nodes not implementing all of the
+      mandatory distribution flags. If you implement the Erlang
+      distribution protocol yourself, you will need to implement
+      support for all mandatory distribution flags in order to
+      communicate with Erlang nodes running OTP 25.</p>
+      <p>The following distribution flags will become mandatory in OTP
+      25:</p>
+      <taglist>
+        <tag><c>DFLAG_BIT_BINARIES</c></tag>
+        <item>Support for bitstrings.</item>
+        <tag><c>DFLAG_EXPORT_PTR_TAG</c></tag>
+        <item>Support for external funs (<c>fun Module:Name/Arity</c>).</item>
+        <tag><c>DFLAG_MAP_TAGS</c></tag>
+        <item>Support for maps.</item>
+        <tag><c>DFLAG_NEW_FLOATS</c></tag>
+        <item>Support for the new encoding of floats.</item>
+        <tag><c>DFLAG_FUN_TAGS</c></tag>
+        <item>Support for funs, but only in the new format
+        (<c>NEW_FUN_EXT</c>) because <c>DFLAG_NEW_FUN_TAGS</c> is also
+        mandatory.</item>
+      </taglist>
+    </section>
+  </section>
 </chapter>
