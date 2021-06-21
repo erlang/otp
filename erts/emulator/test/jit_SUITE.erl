@@ -18,18 +18,34 @@
 %% %CopyrightEnd%
 %%
 
--module(perf_SUITE).
+-module(jit_SUITE).
 
--export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
+-export([suite/0, groups/0, all/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2]).
 -export([symbols/1, annotate/1]).
 
 suite() ->
     [{timetrap, {minutes, 4}}].
 
-all() -> 
-    [symbols, annotate].
+groups() ->
+    [{perf, [symbols, annotate]}].
+
+all() ->
+    [{group, perf}].
 
 init_per_suite(Config) ->
+    case erlang:system_info(emu_flavor) of
+        jit ->
+            Config;
+        _ ->
+            {skip, "No point in running JIT tests on non-JIT emulator"}
+    end.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(perf, Config) ->
     case os:find_executable("perf") of
         false ->
             {skip, "perf not found"};
@@ -64,9 +80,11 @@ init_per_suite(Config) ->
                 _ ->
                     {skip,"unknown old perf version: " ++ PerfVsn}
             end
-    end.
+    end;
+init_per_group(_, Config) ->
+    Config.
 
-end_per_suite(Config) ->
+end_per_group(perf, Config) ->
     %% perf inject writes data to /tmp and ~/.debug/tmp so we need to clean
     %% that up after the tests are done.
     SoToDelete = get_tmp_so_files() -- proplists:get_value(sobefore, Config),
@@ -79,6 +97,8 @@ end_per_suite(Config) ->
                       ok
               end
       end, SoToDelete),
+    ok;
+end_per_group(_, _Config) ->
     ok.
 
 get_tmp_so_files() ->
