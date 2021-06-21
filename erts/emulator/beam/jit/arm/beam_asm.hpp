@@ -920,6 +920,17 @@ class BeamModuleAssembler : public BeamAssembler {
     typedef std::unordered_map<BeamLabel, Label> LabelMap;
     LabelMap rawLabels;
 
+    /* Map of label number to function name. Only defined for the
+     * entry label of a function. This map will be populated and
+     * used only when assembly output has been requested. */
+    typedef std::unordered_map<BeamLabel, std::string> LabelNames;
+    LabelNames labelNames;
+
+    /* Sequence number used to create unique named labels by
+     * resolve_label(). Only used when assembly output has been
+     * requested. */
+    long labelSeq = 0;
+
     struct patch {
         Label where;
         uint64_t val_offs;
@@ -1213,7 +1224,9 @@ protected:
      * When the branch type is not `dispUnknown`, this must be used
      * _IMMEDIATELY BEFORE_ the instruction that the label is used in. */
     Label resolve_beam_label(const ArgVal &Label, enum Displacement disp);
-    Label resolve_label(Label target, enum Displacement disp);
+    Label resolve_label(Label target,
+                        enum Displacement disp,
+                        std::string *name = nullptr);
 
     /* Resolves a shared fragment, creating a trampoline that loads the
      * appropriate address before jumping there.
