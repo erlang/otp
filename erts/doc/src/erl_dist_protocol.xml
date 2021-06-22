@@ -988,7 +988,7 @@ DiB == gen_digest(ChA, ICA)?
         <tag><c>-define(DFLAG_EXTENDED_REFERENCES,16#4).</c></tag>
         <item>
           <p>The node implements extended (3 &times; 32 bits) references. This
-            is required today. If not present, the  connection is refused.</p>
+            flag is mandatory. If not present, the  connection is refused.</p>
         </item>
         <tag><c>-define(DFLAG_DIST_MONITOR,16#8).</c></tag>
         <item>
@@ -997,7 +997,8 @@ DiB == gen_digest(ChA, ICA)?
         <tag><c>-define(DFLAG_FUN_TAGS,16#10).</c></tag>
         <item>
           <p>The node uses separate tag for funs (lambdas) in the distribution
-            protocol.</p>
+          protocol.</p>
+          <note><p>This flag will become mandatory in OTP 25.</p></note>
         </item>
         <tag><c>-define(DFLAG_DIST_MONITOR_NAME,16#20).</c></tag>
         <item>
@@ -1009,28 +1010,34 @@ DiB == gen_digest(ChA, ICA)?
         </item>
         <tag><c>-define(DFLAG_NEW_FUN_TAGS,16#80).</c></tag>
         <item>
-	  <p>The node understands the <seeguide marker="erl_ext_dist#NEW_FUN_EXT">
-	    <c>NEW_FUN_EXT</c></seeguide> tag.</p>
+	  <p>The node understands the <seeguide
+	  marker="erl_ext_dist#NEW_FUN_EXT">
+	  <c>NEW_FUN_EXT</c></seeguide> tag. This flag is
+	  mandatory. If not present, the connection is refused.</p>
         </item>
         <tag><c>-define(DFLAG_EXTENDED_PIDS_PORTS,16#100).</c></tag>
         <item>
-          <p>The node can handle extended pids and ports. This is required
-            today. If not present, the connection is refused.</p>
+          <p>The node can handle extended pids and ports. This
+          flag is mandatory.  If not present, the connection is
+          refused.</p>
         </item>
         <tag><c>-define(DFLAG_EXPORT_PTR_TAG,16#200).</c></tag>
         <item>
 	  <p>The node understands the <seeguide marker="erl_ext_dist#EXPORT_EXT">
-	    <c>EXPORT_EXT</c></seeguide> tag.</p>
+	  <c>EXPORT_EXT</c></seeguide> tag.</p>
+          <note><p>This flag will become mandatory in OTP 25.</p></note>
         </item>
         <tag><c>-define(DFLAG_BIT_BINARIES,16#400).</c></tag>
         <item>
 	  <p>The node understands the <seeguide marker="erl_ext_dist#BIT_BINARY_EXT">
-	    <c>BIT_BINARY_EXT</c></seeguide> tag.</p>
+	  <c>BIT_BINARY_EXT</c></seeguide> tag.</p>
+          <note><p>This flag will become mandatory in OTP 25.</p></note>
         </item>
         <tag><c>-define(DFLAG_NEW_FLOATS,16#800).</c></tag>
         <item>
 	  <p>The node understands the <seeguide marker="erl_ext_dist#NEW_FLOAT_EXT">
-	    <c>NEW_FLOAT_EXT</c></seeguide> tag.</p>
+	  <c>NEW_FLOAT_EXT</c></seeguide> tag.</p>
+          <note><p>This flag will become mandatory in OTP 25.</p></note>
         </item>
         <tag><c>-define(DFLAG_UNICODE_IO,16#1000).</c></tag>
         <item>
@@ -1050,12 +1057,14 @@ DiB == gen_digest(ChA, ICA)?
 	    <seeguide marker="erl_ext_dist#ATOM_UTF8_EXT">
 	    <c>ATOM_UTF8_EXT</c></seeguide> and
 	    <seeguide marker="erl_ext_dist#SMALL_ATOM_UTF8_EXT">
-	    <c>SMALL ATOM_UTF8_EXT</c></seeguide>.</p>
+	      <c>SMALL ATOM_UTF8_EXT</c></seeguide>.  This flag is
+	      mandatory. If not present, the connection is refused.</p>
         </item>
         <tag><c>-define(DFLAG_MAP_TAG, 16#20000).</c></tag>
         <item>
           <p>The node understands the map tag
 	  <seeguide marker="erl_ext_dist#MAP_EXT"><c>MAP_EXT</c></seeguide>.</p>
+          <note><p>This flag will become mandatory in OTP 25.</p></note>
         </item>
         <tag><marker id="DFLAG_BIG_CREATION"/><c>-define(DFLAG_BIG_CREATION, 16#40000).</c></tag>
         <item>
@@ -1063,7 +1072,7 @@ DiB == gen_digest(ChA, ICA)?
 	  <seeguide marker="erl_ext_dist#NEW_PID_EXT"><c>NEW_PID_EXT</c></seeguide>,
 	  <seeguide marker="erl_ext_dist#NEW_PORT_EXT"><c>NEW_PORT_EXT</c></seeguide> and
 	  <seeguide marker="erl_ext_dist#NEWER_REFERENCE_EXT"><c>NEWER_REFERENCE_EXT</c></seeguide>.
-	  </p>
+          This flag is mandatory. If not present, the connection is refused.</p>
         </item>
         <tag><c>-define(DFLAG_SEND_SENDER, 16#80000).</c></tag>
         <item>

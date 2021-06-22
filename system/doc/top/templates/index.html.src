@@ -47,6 +47,7 @@ limitations under the License.
  <li><a href="general_info/deprecations.html" class="modules">Deprecations</a></li>
  <li><a href="general_info/removed.html" class="modules">Removed Functionality</a></li>
  <li><a href="general_info/scheduled_for_removal.html" class="modules">Scheduled for Removal</a></li>
+ <li><a href="general_info/upcoming_incompatibilities.html" class="modules">Upcoming Potential Incompatibilities</a></li>
 </ul>
 
 <ul class="expand-collapse-items">
