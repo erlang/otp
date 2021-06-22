@@ -183,13 +183,14 @@
                                  % string() | {error, Reason}
 		buf = false,     % binary() | list() | boolean()
 		pending = [],    % [#pending]
-		event_receiver :: pid() | undefined}).
+		receivers = [] :: list() | pid()}).% notification destinations
 
 %% Run-time client options.
 -record(options, {ssh = [], % Options for the ssh application
 		  host,
 		  port = ?DEFAULT_PORT,
 		  timeout = ?DEFAULT_TIMEOUT,
+                  receivers = [],
 		  name,
                   type}).
 
@@ -216,9 +217,11 @@
                 | {port, inet:port_number()}
                 | {timeout, timeout()}
                 | {capability, string() | [string()]}
+                | {receiver, term()}
                 | ssh:client_option().
 
 -type session_option() :: {timeout,timeout()}
+                        | {receiver, term()}
                         | {capability, string() | [string()]}.
 
 -type host() :: inet:hostname() | inet:ip_address().
@@ -923,7 +926,8 @@ kill_session(Client, SessionId, Timeout) ->
 init(_KeyOrName,{CM,{Host,Port}},Options) ->
     case ssh_channel(#connection{reference=CM,host=Host,port=Port},Options) of
         {ok,Connection} ->
-	    {ok, CM, #state{connection = Connection}};
+	    {ok, CM, #state{connection = Connection,
+                            receivers = Options#options.receivers}};
 	{error,Reason}->
 	    {error,Reason}
     end;
@@ -939,7 +943,8 @@ init(_KeyOrName,{_Host,_Port},Options) ->
     case ssh_open(Options) of
 	{ok, Connection} ->
 	    {ConnPid,_} = Connection#connection.reference,
-	    {ok, ConnPid, #state{connection = Connection}};
+	    {ok, ConnPid, #state{connection = Connection,
+                                 receivers = Options#options.receivers}};
 	{error,Reason}->
 	    {error,Reason}
     end.
@@ -1157,6 +1162,9 @@ opt({timeout, _} = T, _) ->
 opt({capability, _}, Rec) ->
     Rec;
 
+opt({receiver, Dest}, #options{receivers = T} = Rec) ->
+    Rec#options{receivers = [Dest | T]};
+
 opt(Opt, #options{ssh = Opts} = Rec) -> %% option verified by ssh
     Rec#options{ssh = [Opt | Opts]}.
 
@@ -1164,6 +1172,9 @@ opt(Opt, #options{ssh = Opts} = Rec) -> %% option verified by ssh
 
 make_session_options(Opts, Rec) ->
     make_options(Opts, Rec, fun session_opt/2).
+
+session_opt({receiver, Dest}, #options{receivers = T} = Rec) ->
+    Rec#options{receivers = [Dest | T]};
 
 session_opt({capability, _}, Rec) ->
     Rec;
@@ -1560,18 +1571,23 @@ decode(hello, E, #state{hello_status = Other} = State) ->
                       {hello_status, Other}]),
     State;
 
-decode(notification, E, #state{event_receiver = Pid} = State)
-  when is_pid(Pid) ->
-    Pid ! E,
-    State;
-
 decode(notification, E, State) ->
-    ConnName = (State#state.connection)#connection.name,
-    ?error(ConnName, [{got_unexpected_notification, E}]),
+    notify(State, E),
     State;
 
 decode(Other, E, State) ->
     decode_send({got_unexpected_msg, Other}, E, State).
+
+%% notify/2
+
+notify(#state{receivers = []} = State, E) ->
+    Name = (State#state.connection)#connection.name,
+    ?error(Name, [{got_unexpected_notification, E}]);
+
+%% Sending can fail with an atom-valued destination, but it's up to
+%% the user.
+notify(#state{receivers = T}, E) ->
+    lists:foreach(fun(D) -> D ! E end, if is_pid(T) -> [T]; true -> T end).
 
 %% reply/2
 %%
@@ -1676,10 +1692,15 @@ do_decode_rpc_reply(close_session, Result, State) ->
             {Other, State}
     end;
 
-do_decode_rpc_reply({create_subscription, From}, Result, State) ->
+%% Only set a new destination if one (or more) hasn't been set with a
+%% receiver option(), to allow more than calls to create_subscription
+%% to order notifications.
+do_decode_rpc_reply({create_subscription, Pid}, Result, #state{receivers = T}
+                                                        = State) ->
     case decode_ok(Result) of
-        ok ->
-            {ok, State#state{event_receiver = From}};
+        ok when T == [];
+                is_pid(T) ->
+            {ok, State#state{receivers = Pid}};
         Other ->
             {Other, State}
     end;

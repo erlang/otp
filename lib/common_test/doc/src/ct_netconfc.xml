@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!DOCTYPE erlref SYSTEM "erlref.dtd">
+<!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY create_subscription '<seemfa marker="#create_subscription/2"><c>create_subscription/2,3</c></seemfa>'>
+  <!ENTITY send_rpc '<seemfa marker="#send_rpc/2"><c>send_rpc/2,3</c></seemfa>'>
+]>
 
 <erlref>
   <header>
@@ -85,7 +88,7 @@
     as return value.
     There are functions for each RPC defined in RFC 6241 and
     the create-subscription RPC from RFC 5277, all of which are
-    wrappers on <seemfa marker="#send_rpc/2"><c>send_rpc/2,3</c></seemfa>,
+    wrappers on &send_rpc;,
     that can be used to send an arbitrary RPC
     not defined in RFC 6241 or RFC 5277.</p>
 
@@ -238,7 +241,7 @@
       <name name="notification"/>
       <desc>
         <p>Event notification messages sent as a result of calls to
-        <seemfa marker="#create_subscription/2"><c>create_subscription/2,3</c></seemfa>.</p>
+        &create_subscription;.</p>
       </desc>
     </datatype>
     <datatype>
@@ -258,6 +261,17 @@
         connection and hello independently;
         one timeout for connection establishment, another for hello
         reception.</p>
+
+        <p>Option <c>receiver</c> specifies a destination for incoming
+        notification messages; a left operand of the send operator
+        (<c>!</c>).
+        If not specified then a process calling &create_subscription;
+        becomes the receiver, but explicitly setting a receiver makes
+        it possible to receive notifications that are not ordered by
+        calling this function.
+        Multiple receiver options can be specified.</p>
+
+        <p>Receiver options are ignored by connect/1-3.</p>
 
         <p>Option <c>capability</c> specifies the content of a
         corresponding element in an outgoing hello message, each
@@ -484,6 +498,15 @@
         The map-based variants documented above provide the same
         functionality with simpler arguments.</p>
 
+        <note>
+        <p>create-subscription is no longer the only RPC with which
+        NETCONF notifications can be ordered: RFC 8639 adds
+        establish-subscription and future RFCs may add other methods.
+        Specify a <c>receiver</c> option at session creation to
+        provide a destination for incoming notifications independently
+        of a call to &create_subscription;, and use &send_rpc; to send
+        establish-subscription and other arbirary RPCs.</p>
+        </note>
       </desc>
     </func>
 
