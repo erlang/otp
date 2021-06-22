@@ -223,9 +223,7 @@
 
 -type host() :: inet:hostname() | inet:ip_address().
 
--type notification() :: {notification, xml_attributes(), notification_content()}.
--type notification_content() :: [event_time()|simple_xml()].
--type event_time() :: {eventTime,xml_attributes(),[xs_datetime()]}.
+-type notification() :: {notification, xml_attributes(), [simple_xml()]}.
 
 -type stream_name() :: string().
 -type streams() :: [{stream_name(),[stream_data()]}].

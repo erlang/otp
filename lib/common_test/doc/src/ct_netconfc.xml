@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2019</year>
+      <year>2010</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -233,12 +233,6 @@
         <p>where <c>T</c> and <c>Z</c> are literal and <c>.s</c> is
         one or more fractional seconds.</p>
       </desc>
-    </datatype>
-    <datatype>
-      <name name="event_time"/>
-    </datatype>
-    <datatype>
-      <name name="notification_content"/>
     </datatype>
     <datatype>
       <name name="notification"/>
