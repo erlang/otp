@@ -430,8 +430,13 @@ dnl ----------------------------------------------------------------------
 dnl Checks for programs.
 dnl ----------------------------------------------------------------------
 
+AC_LANG([C])
+
 AC_PROG_CC
 AC_SUBST(GCC)
+
+AC_PROG_CXX
+AC_SUBST(CXXFLAGS)
 
 AC_PROG_EGREP
 AC_PROG_CPP
@@ -3418,21 +3423,6 @@ if test -z "$JAVAC"; then
 fi
 
 fi # end - try to find javac
-
-dnl
-dnl Orber has a c++ example, this isn't the right way to check for
-dnl it, but....
-dnl
-AC_SUBST(CXXFLAGS)
-dnl this deliberately does not believe that 'gcc' is a C++ compiler
-AC_CHECK_TOOLS(CXX, [$CCC c++ g++ CC cxx cc++ cl], false)
-
-# Remove SKIP file from previous run
-rm -f $ERL_TOP/lib/orber/SKIP
-
-if test "$CXX" = false; then
-  echo "No C++ compiler found" > $ERL_TOP/lib/orber/SKIP
-fi
 
 dnl ----------------------------------------------------------------------
 dnl Include CPPFLAGS in CFLAGS
