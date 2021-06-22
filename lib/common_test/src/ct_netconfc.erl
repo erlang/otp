@@ -1737,47 +1737,18 @@ get_local_name_atom(Tag) ->
 %% prefix, remove {'xmlns:prefix',_}, else remove default {xmlns,_}.
 remove_xmlnsattr_for_tag(Tag,Attrs) ->
     {Prefix,_TagStr} = get_qualified_name(Tag),
-    XmlnsTag = xmlnstag(Prefix),
-    case lists:keytake(XmlnsTag,1,Attrs) of
-	{value,_,NoNsAttrs} ->
-	    NoNsAttrs;
-	false ->
-	    Attrs
-    end.
+    lists:keydelete(xmlnstag(Prefix), 1, Attrs).
 
-%% Take all xmlns attributes from the parent's attribute list and
-%% forward into all childrens' attribute lists. But do not overwrite
-%% any.
-forward_xmlns_attr(ParentAttrs,Children) ->
-    do_forward_xmlns_attr(get_all_xmlns_attrs(ParentAttrs,[]),Children).
+%% Prepend xmlns attributes from parent to children, omitting those
+%% the child sets.
+forward_xmlns_attr(ParentAttrs, Children) ->
+    Namespace = lists:filter(fun is_xmlns/1, ParentAttrs),
+    [{T, Ns ++ A, C} || {T, A, C} <- Children,
+                        F <- [fun({K,_}) -> not lists:keymember(K, 1, A) end],
+                        Ns <- [lists:filter(F, Namespace)]].
 
-do_forward_xmlns_attr(XmlnsAttrs,[{ChT,ChA,ChC}|Children]) ->
-    ChA1 = add_xmlns_attrs(XmlnsAttrs,ChA),
-    [{ChT,ChA1,ChC} | do_forward_xmlns_attr(XmlnsAttrs,Children)];
-do_forward_xmlns_attr(_XmlnsAttrs,[]) ->
-    [].
-
-add_xmlns_attrs([{Key,_}=A|XmlnsAttrs],ChA) ->
-    case lists:keymember(Key,1,ChA) of
-	true ->
-	    add_xmlns_attrs(XmlnsAttrs,ChA);
-	false ->
-	    add_xmlns_attrs(XmlnsAttrs,[A|ChA])
-    end;
-add_xmlns_attrs([],ChA) ->
-    ChA.
-
-get_all_xmlns_attrs([{xmlns,_}=Default|Attrs],XmlnsAttrs) ->
-    get_all_xmlns_attrs(Attrs,[Default|XmlnsAttrs]);
-get_all_xmlns_attrs([{Key,_}=Attr|Attrs],XmlnsAttrs) ->
-    case atom_to_list(Key) of
-	"xmlns:"++_Prefix ->
-	    get_all_xmlns_attrs(Attrs,[Attr|XmlnsAttrs]);
-	_ ->
-	    get_all_xmlns_attrs(Attrs,XmlnsAttrs)
-    end;
-get_all_xmlns_attrs([],XmlnsAttrs) ->
-    XmlnsAttrs.
+is_xmlns({Key, _}) ->
+    Key == xmlns orelse lists:prefix("xmlns:", atom_to_list(Key)).
 
 %% Decode server hello to pick out session id and capabilities
 decode_hello({hello, _Attrs, Hello}) ->
