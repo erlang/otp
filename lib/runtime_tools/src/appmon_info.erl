@@ -709,9 +709,17 @@ format(P) when is_pid(P), node(P) /= node() ->
     pid_to_list(P) ++ " " ++ atom_to_list(node(P));
 format(P) when is_pid(P) ->
     case process_info(P, registered_name) of
-	{registered_name, Name} -> atom_to_list(Name);
-	_ -> pid_to_list(P)
-    end;
+		{registered_name, Name} -> atom_to_list(Name);
+		_ ->
+			case sys:get_label(P) of
+				undefined ->
+					pid_to_list(P);
+				Label when is_list(Label); is_binary(Label) ->
+					io_lib:format("~ts ~tp", [Label, P]);
+				Label ->
+					io_lib:format("~tp ~tp", [Label, P])
+			end
+	end;
 format(P) when is_port(P) ->
     case erlang:port_info(P, id) of
         undefined -> "port closed";

@@ -31,6 +31,7 @@
 	 install/2, install/3, remove/2, remove/3]).
 -export([handle_system_msg/6, handle_system_msg/7, handle_debug/4,
 	 print_log/1, get_log/1, get_debug/3, debug_options/1, suspend_loop_hib/6]).
+-export([put_label/1, get_label/0, get_label/1]).
 
 -deprecated([{get_debug,3,
               "incorrectly documented and only for internal use. Can often "
@@ -776,3 +777,20 @@ debug_options([_ | T], Debug) ->
     debug_options(T, Debug);
 debug_options([], Debug) -> 
     Debug.
+
+-spec put_label(Label :: any()) -> any().
+put_label(Label) ->
+    put('$process_label', Label).
+
+-spec get_label() -> any().
+get_label() ->
+    get_label(self()).
+
+-spec get_label(Pid :: pid()) -> any().
+get_label(Pid) when is_pid(Pid) ->
+    case process_info(Pid, dictionary) of
+        {dictionary, D} ->
+            proplists:get_value('$process_label', D);
+        _ ->
+            undefined
+    end.
