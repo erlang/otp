@@ -1,7 +1,7 @@
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -183,7 +183,7 @@
                                  % string() | {error, Reason}
 		buf = false,     % binary() | list() | boolean()
 		pending = [],    % [#pending]
-		event_receiver}).% pid
+		event_receiver :: pid() | undefined}).
 
 %% Run-time client options.
 -record(options, {ssh = [], % Options for the ssh application
@@ -1562,8 +1562,14 @@ decode(hello, E, #state{hello_status = Other} = State) ->
                       {hello_status, Other}]),
     State;
 
+decode(notification, E, #state{event_receiver = Pid} = State)
+  when is_pid(Pid) ->
+    Pid ! E,
+    State;
+
 decode(notification, E, State) ->
-    State#state.event_receiver ! E,
+    ConnName = (State#state.connection)#connection.name,
+    ?error(ConnName, [{got_unexpected_notification, E}]),
     State;
 
 decode(Other, E, State) ->
