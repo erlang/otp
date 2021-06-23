@@ -189,9 +189,6 @@ do_get_disc_copy2(Tab, Reason, Storage = {ext, Alias, Mod}, _Type) ->
 %%                                      Release read lock on table
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(MAX_TRANSFER_SIZE, 7500).
--define(MAX_RAM_FILE_SIZE, 1000000).
--define(MAX_RAM_TRANSFERS, (?MAX_RAM_FILE_SIZE div ?MAX_TRANSFER_SIZE) + 1).
 -define(MAX_NOPACKETS, 20).
 
 net_load_table(Tab, {dumper,{add_table_copy, _}}=Reason, Ns, Cs) ->
@@ -740,6 +737,15 @@ db_put({disc_only_copies, Tab}, Val) ->
 db_put({{ext, Alias, Mod}, Tab}, Val) ->
     ok = Mod:insert(Alias, Tab, Val).
 
+max_transfer_size() ->
+    MaxTransferSize = 64000,
+    case ?catch_val(max_transfer_size) of
+	{'EXIT', _} ->
+	    mnesia_lib:set(max_transfer_size, MaxTransferSize),
+	    MaxTransferSize;
+	Val -> Val
+    end.
+
 %% This code executes at the remote site where the data is
 %% executes in a special copier process.
 
@@ -748,7 +754,7 @@ calc_nokeys(Storage, Tab) ->
     Key = mnesia_lib:db_first(Storage, Tab),
     Recs = mnesia_lib:db_get(Storage, Tab, Key),
     BinSize = size(term_to_binary(Recs)),
-    (?MAX_TRANSFER_SIZE div BinSize) + 1.
+    (max_transfer_size() div BinSize) + 1.
 
 send_table(Pid, Tab, RemoteS) ->
     case ?catch_val({Tab, storage_type}) of

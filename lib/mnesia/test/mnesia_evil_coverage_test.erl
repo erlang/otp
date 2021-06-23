@@ -140,6 +140,7 @@ system_info(Config) when is_list(Config) ->
     ?match(A when is_atom(A), mnesia:system_info(dump_log_update_in_place)),
     ?match(I when is_integer(I), mnesia:system_info(transaction_log_writes)),
     ?match(I when is_integer(I), mnesia:system_info(send_compressed)),
+    ?match(I when is_integer(I), mnesia:system_info(max_transfer_size)),
     ?match(L when is_list(L), mnesia:system_info(all)),
     ?match(L when is_list(L), mnesia:system_info(backend_types)),
     ?match({'EXIT', {aborted, Reason }} when element(1, Reason) == badarg
