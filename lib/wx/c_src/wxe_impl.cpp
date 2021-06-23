@@ -525,7 +525,11 @@ void * newMemEnv(ErlNifEnv* env, wxe_me_ref *mr)
 void WxeApp::destroyMemEnv(wxeMetaCommand &Ecmd)
 {
   // Clear incoming cmd queue first
-  // dispatch_cmds();
+  dispatch_cmds();
+  enif_mutex_lock(wxe_batch_locker_m);
+  wxe_needs_wakeup = 1;
+  enif_mutex_unlock(wxe_batch_locker_m);
+
   wxWindow *parent = NULL;
 
   if(!Ecmd.me_ref || !Ecmd.me_ref->memenv) {
