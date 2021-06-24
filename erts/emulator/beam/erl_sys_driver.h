@@ -31,8 +31,6 @@
 
 #define ERL_SYS_DRV
 
-typedef SWord ErlDrvEvent; /* An event to be selected on. */
-
 typedef struct _SysDriverOpts SysDriverOpts;
 
 #include "erl_driver.h"
