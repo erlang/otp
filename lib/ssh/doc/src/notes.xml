@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.12.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Filter out sensitive data (passwords etc) from progress
+	    reports and supervisor reports.</p>
+          <p>
+	    Own Id: OTP-17468 Aux Id: ERIERL-656 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.12.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

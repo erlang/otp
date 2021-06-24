@@ -31,6 +31,49 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 12.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A call to <c>erlang:cancel_timer(_, [{info, false}])</c>
+	    could cause the calling process to block forever in the
+	    call. Note that only the synchronous version of the call
+	    (that is, the <c>async</c> option is <c>false</c>) in
+	    combination with the <c>info</c> option set to
+	    <c>false</c> was effected by this bug.</p>
+          <p>
+	    Own Id: OTP-17472 Aux Id: PR-4932 </p>
+        </item>
+        <item>
+          <p>
+	    Microstate accounting (msacc) and
+	    <c>os:perf_counter()</c> unintentionally used system time
+	    instead of monotonic time for time measurements on a lot
+	    of systems. These systems were all non x86/x86_64 systems
+	    or x86/x86_64 systems without a reliable and constant
+	    rdtsc instruction.</p>
+          <p>
+	    The lock counting (lcnt) built runtime system also
+	    unintentionally used system time instead of monotonic
+	    time for time measurements on all systems.</p>
+          <p>
+	    Own Id: OTP-17493</p>
+        </item>
+        <item>
+          <p>
+	    Simultaneous calls to
+	    <c>erlang:system_flag(schedulers_online, _)</c> could
+	    cause callers to end up in a suspended state forever.</p>
+          <p>
+	    Own Id: OTP-17500 Aux Id: GH-4809 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

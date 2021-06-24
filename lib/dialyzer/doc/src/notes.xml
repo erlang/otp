@@ -32,6 +32,29 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 4.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Do not expose line number <c>0</c> in messages if there
+	    are other locations to use.</p>
+          <p>
+	    Own Id: OTP-17443 Aux Id: GH-4890 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, Dialyzer could crash analyzing
+	    code with a list comprehension whose value was ignored.
+	    (Thanks to Ulf Wiger for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-17482</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 4.4</title>
 
     <section><title>Improvements and New Features</title>
