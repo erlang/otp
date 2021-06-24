@@ -83,6 +83,8 @@
 -export([get_cert_params/1,
          select_own_cert/1,
          server_name/3,
+         path_validate/9,
+         path_validation/10,
          validation_fun_and_state/4,
          path_validation_alert/1]).
 
@@ -352,8 +354,8 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
                 path_validation_alert(Reason)
 	end
     catch
-	error:{_,{error, {asn1, Asn1Reason}}} ->
-	    %% ASN-1 decode of certificate somehow failed
+        error:{_,{error, {asn1, Asn1Reason}}} ->
+            %% ASN-1 decode of certificate somehow failed
             ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason});
         error:OtherReason ->
             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {unexpected_error, OtherReason})
@@ -1736,6 +1738,7 @@ handle_ocsp_extension(false = Stapling, Extensions) ->
         _Else -> %% unsolicited status_request
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unexpected_status_request)
     end.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -1793,6 +1796,13 @@ certificate_authorities_from_db(_CertDbHandle, {extracted, CertDbData}) ->
 		[], CertDbData).
 
 %%-------------Handle handshake messages --------------------------------
+path_validate(TrustedAndPath, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+              Version, SslOptions, CertExt) ->
+    InitialPotentialError = {error, {bad_cert, unknown_ca}},
+    InitialInvalidated = [],
+    path_validate(TrustedAndPath, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+                  Version, SslOptions, CertExt, InitialInvalidated, InitialPotentialError).
+
 validation_fun_and_state({Fun, UserState0}, VerifyState, CertPath, LogLevel) ->
     {fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
 	     case ssl_certificate:validate(OtpCert,
@@ -3552,23 +3562,38 @@ empty_extensions(_, server_hello) ->
 handle_log(Level, {LogLevel, ReportMap, Meta}) ->
     ssl_logger:log(Level, LogLevel, ReportMap, Meta).
 
-
-path_validate([{TrustedCert, Path}], ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
-              Version, SslOptions, CertExt) ->
-    path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, 
-                    CRLDbHandle, Version, SslOptions, CertExt);
+%%% Recurse over possible paths until we find a valid one
+%%% or run out of alternatives.
+path_validate([], _, _, _, _, _, _, _, _, _, {error, {bad_cert, root_cert_expired}}) ->
+    %% ROOT cert expired and no alternative ROOT certs could be found
+    %% to validate this path or shorter variant of this path. So fail it
+    %% with normal certificate expire reason.
+    {error, {bad_cert, cert_expired}};
+path_validate([], _, _, _, _, _, _, _, _, _, Error) ->
+    Error;
 path_validate([{TrustedCert, Path} | Rest], ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
-              Version, SslOptions, CertExt) ->
-    case path_validation(TrustedCert, Path, ServerName, 
-                         Role, CertDbHandle, CRLDbHandle, CertDbRef, 
+              Version, SslOptions, CertExt, InvalidatedList, Error) ->
+    CB = path_validation_cb(Version),
+    case CB:path_validation(TrustedCert, Path, ServerName,
+                         Role, CertDbHandle, CertDbRef, CRLDbHandle,
                          Version, SslOptions, CertExt) of
-        {ok, _} = Result ->
-            Result;
-        {error, _} ->
+        {error, {bad_cert, root_cert_expired}} = NewError ->
+            NewInvalidatedList = [TrustedCert | InvalidatedList],
+            Alt = ssl_certificate:find_cross_sign_root_paths(Path, CertDbHandle, CertDbRef, NewInvalidatedList),
+            path_validate(Alt ++ Rest, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+                          Version, SslOptions, CertExt, NewInvalidatedList, NewError);
+        {error, {bad_cert, unknown_ca}} = NewError ->
+            Alt = ssl_certificate:find_cross_sign_root_paths(Path, CertDbHandle, CertDbRef, InvalidatedList),
+            path_validate(Alt ++ Rest, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+                          Version, SslOptions, CertExt, InvalidatedList,  error_to_propagate(Error, NewError));
+        {error, _} when Rest =/= []->
             path_validate(Rest, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
-                          Version, SslOptions, CertExt)
+                          Version, SslOptions, CertExt, InvalidatedList, Error);
+        Result ->
+            Result
     end.
 
+%% Call basic path validation algorithm in public_key pre TLS-1.3
 path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle, Version,
                 #{verify_fun := VerifyFun,
                   customize_hostname_check := CustomizeHostnameCheck,
@@ -3599,3 +3624,13 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
     Options = [{max_path_length, Depth},
                {verify_fun, ValidationFunAndState}],
     public_key:pkix_path_validation(TrustedCert, Path, Options).
+
+error_to_propagate({error, {bad_cert, root_cert_expired}} = Error, _) ->
+    Error;
+error_to_propagate(_, Error) ->
+    Error.
+
+path_validation_cb({3,4}) ->
+    tls_handshake_1_3;
+path_validation_cb(_) ->
+    ?MODULE.
