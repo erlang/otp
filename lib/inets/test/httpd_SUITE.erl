@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ groups() ->
      {http_1_1, [],
       [host, chunked, expect, cgi, cgi_chunked_encoding_test,
        trace, range, if_modified_since, mod_esi_chunk_timeout,
-       esi_put, esi_patch, esi_post, esi_proagate] ++ http_head() ++ http_get() ++ load()},
+       esi_put, esi_patch, esi_post, esi_proagate, esi_atom_leak] ++ http_head() ++ http_get() ++ load()},
      {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
      {http_rel_path_script_alias, [], [cgi]},
      {not_sup, [], [put_not_sup]}
@@ -961,6 +961,35 @@ esi_proagate(Config)  when is_list(Config) ->
         Err ->
             ct:fail(Err)
     end.        
+%%-------------------------------------------------------------------------
+esi_atom_leak() ->
+    [{doc, "Test mod_esi for atom leakage - verify module, function names and HTTP headers"}].
+
+esi_atom_leak(Config) when is_list(Config) ->
+    NumberStrings = [integer_to_list(N) || N <- lists:seq(1, 10)],
+
+    NotExistingModule =
+        ["GET /cgi-bin/erl/not_existing_" ++ S ++":get " || S <- NumberStrings],
+    %% check atom count after first HTTP call, to ignore count increase upon initial module loading
+    GetFun = fun(Url, HeadersAndBody, Expected) ->
+                     ok = http_status(Url, HeadersAndBody, Config, Expected),
+                     erlang:system_info(atom_count)
+             end,
+    AtomCount1 = [GetFun(U, {"", ""}, [{statuscode, 404}]) || U <- NotExistingModule],
+    IsStable = fun(L) -> lists:max(L) == lists:min(L) end,
+    true = IsStable(AtomCount1),
+
+    NotExistingFunction =
+        ["GET /cgi-bin/erl/httpd_example:not_existing" ++ S ++ " "
+         || S <- NumberStrings],
+    AtomCount2 = [GetFun(U, {"", ""}, [{statuscode, 404}]) || U <- NotExistingFunction],
+    true = IsStable(AtomCount2),
+
+    NotExistingHdr =
+        [{"NotExistingHeader_" ++ S ++ ":100 \r\n", ""} || S <- NumberStrings],
+    AtomCount3 = [GetFun("GET /cgi-bin/erl/httpd_example:get ", H, [{statuscode, 200}])
+                  || H <- NotExistingHdr],
+    true = IsStable(AtomCount3).
 
 %%-------------------------------------------------------------------------
 cgi() ->
