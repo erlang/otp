@@ -1903,7 +1903,7 @@ send_async_info(Process *proc, ErtsProcLocks initial_locks,
 
 static ERTS_INLINE Eterm
 send_sync_info(Process *proc, ErtsProcLocks initial_locks,
-               Uint32 *refn, int cancel, Sint64 time_left)
+               Uint32 *refn, int info, int cancel, Sint64 time_left)
 {
     ErtsProcLocks locks = initial_locks;
     ErtsMessage *mp;
@@ -1923,7 +1923,9 @@ send_sync_info(Process *proc, ErtsProcLocks initial_locks,
     ref = make_internal_ref(hp);
     hp += ERTS_REF_THING_SIZE;
 
-    if (time_left < 0)
+    if (!info)
+	res = am_ok;
+    else if (time_left < 0)
         res = am_false;
     else if (time_left <= (Sint64) MAX_SMALL)
         res = make_small((Sint) time_left);
@@ -1974,7 +1976,7 @@ access_sched_local_btm(Process *c_p, Eterm pid,
 
     time_left = access_btm(tmr, (Uint32) esdp->no, esdp, cancel);
 
-    if (!info)
+    if (async && !info)
         return am_ok;
 
     if (c_p) {
@@ -1987,12 +1989,15 @@ access_sched_local_btm(Process *c_p, Eterm pid,
     }
 
     if (!async) {
-        if (c_p)
+        if (c_p) {
+	    if (!info)
+		return am_ok;
             return return_info(c_p, time_left);
+	}
 
         if (proc)
             return send_sync_info(proc, proc_locks,
-                                  rrefn, cancel, time_left);
+                                  rrefn, info, cancel, time_left);
     }
     else if (proc) {
         Eterm ref;
