@@ -418,12 +418,12 @@ ois_is([#b_set{op=get_tl,dst=Dst,args=[Src]} | Is], Ts0) ->
     {Type, _, _} = beam_call_types:types(erlang, tl, [SrcType]),
     Ts = Ts0#{ Dst => Type },
     ois_is(Is, Ts);
-ois_is([#b_set{op=get_tuple_element,dst=Dst,args=[Src, Offset]} | Is], Ts0) ->
+ois_is([#b_set{op=get_tuple_element,
+               dst=Dst,
+               args=[Src, #b_literal{val=Offset}]} | Is], Ts0) ->
     Type = case Ts0 of
-               #{ Src := #t_tuple{size=Size,elements=Es} } ->
-                   #b_literal{val=N} = Offset,
-                   true = Size > N,                    %Assertion.
-                   beam_types:get_tuple_element(N + 1, Es);
+               #{ Src := #t_tuple{size=Size,elements=Es} } when Offset < Size ->
+                   beam_types:get_tuple_element(Offset + 1, Es);
                #{} ->
                    any
            end,

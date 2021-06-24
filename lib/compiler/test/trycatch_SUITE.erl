@@ -30,6 +30,7 @@
          stacktrace/1,nested_stacktrace/1,raise/1,
          no_return_in_try_block/1,
          expression_export/1,
+         throw_opt_crash/1,
          coverage/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -48,6 +49,7 @@ groups() ->
        hockey,handle_info,catch_in_catch,grab_bag,
        stacktrace,nested_stacktrace,raise,
        no_return_in_try_block,expression_export,
+       throw_opt_crash,
        coverage]}].
 
 
@@ -1551,6 +1553,30 @@ expr_export_5() ->
     after
         ok
     end.
+
+%% GH-4953: Type inference in throw optimization could crash in rare
+%% circumstances when a thrown type conflicted with one that was matched in
+%% a catch clause.
+throw_opt_crash(_Config) ->
+    try
+        throw_opt_crash_1(id(false), {pass, id(b), id(c)}),
+        throw_opt_crash_1(id(false), {crash, id(b)}),
+        ok
+    catch
+        throw:{pass, B, C} ->
+            {error, gurka, {B, C}};
+        throw:{beta, B, C} ->
+            {error, gaffel, {B, C}};
+        throw:{gamma, B, C} ->
+            {error, grammofon, {B, C}}
+    end.
+
+throw_opt_crash_1(true, {_, _ ,_}=Term) ->
+    throw(Term);
+throw_opt_crash_1(true, {_, _}=Term) ->
+    throw(Term);
+throw_opt_crash_1(false, _Term) ->
+    ok.
 
 coverage(_Config) ->
     {'EXIT',{{badfun,true},[_|_]}} = (catch coverage_1()),
