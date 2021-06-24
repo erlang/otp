@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2021</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Upcoming Potential Incompatibilities</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>upcoming_incompatibilities.xml</file>
+  </header>
+  <section>
+    <title>Introduction</title>
+    <p>This document lists planned upcoming potential incompatibilities in
+    Erlang/OTP.</p>
+  </section>
+
+  <section>
+    <title>OTP 25</title>
+    <section>
+      <title>Distribution flags will become mandatory</title>
+      <p>In OTP 25, more <seeguide
+      marker="erts:erl_dist_protocol#dflags">distribution
+      flags</seeguide> will become mandatory. That is, Erlang nodes
+      will refuse to connect to nodes not implementing all of the
+      mandatory distribution flags. If you implement the Erlang
+      distribution protocol yourself, you will need to implement
+      support for all mandatory distribution flags in order to
+      communicate with Erlang nodes running OTP 25.</p>
+      <p>The following distribution flags will become mandatory in OTP
+      25:</p>
+      <taglist>
+        <tag><c>DFLAG_BIT_BINARIES</c></tag>
+        <item>Support for bitstrings.</item>
+        <tag><c>DFLAG_EXPORT_PTR_TAG</c></tag>
+        <item>Support for external funs (<c>fun Module:Name/Arity</c>).</item>
+        <tag><c>DFLAG_MAP_TAGS</c></tag>
+        <item>Support for maps.</item>
+        <tag><c>DFLAG_NEW_FLOATS</c></tag>
+        <item>Support for the new encoding of floats.</item>
+        <tag><c>DFLAG_FUN_TAGS</c></tag>
+        <item>Support for funs, but only in the new format
+        (<c>NEW_FUN_EXT</c>) because <c>DFLAG_NEW_FUN_TAGS</c> is also
+        mandatory.</item>
+      </taglist>
+    </section>
+  </section>
+
+  <section>
+    <title>OTP 26</title>
+    <section>
+      <title>The distribution flag DFLAG_V4_NC will become mandatory</title>
+      <p>As of OTP 26, the distribution flag <seeguide
+      marker="erts:erl_dist_protocol#DFLAG_V4_NC">DFLAG_V4_NC</seeguide>
+      will become mandatory. If you implement the Erlang distribution
+      protocol yourself, you will need to implement support for
+      <c>DFLAG_V4_NC</c> in order to communicate with Erlang nodes
+      running OTP 26.</p>
+    </section>
+
+    <section>
+      <title>The new link protocol will become mandatory</title>
+      <p>
+	As of OTP 26, the <seeguide
+	marker="erts:erl_dist_protocol#new_link_protocol">new link
+	protocol</seeguide> will become mandatory. That is, Erlang
+	nodes will then refuse to connect to nodes not implementing
+	the new link protocol. If you implement the Erlang
+	distribution yourself, you are, however, encouraged to
+	implement the new link protocol as soon as possible since the
+	old protocol can cause links to enter an inconsistent state.
+      </p>
+    </section>
+
+  </section>
+</chapter>
