@@ -32,7 +32,7 @@
          handle_options/2,
          keep_user_options/2,
          keep_set_options/2,
-
+         no_sensitive/2,
          initial_default_algorithms/2,
          check_preferred_algorithms/1
         ]).
@@ -327,6 +327,28 @@ save({Key,Value}, Defs, OptMap) when is_map(OptMap) ->
 save(Opt, _Defs, OptMap) when is_map(OptMap) ->
     OptMap#{socket_options := [Opt | maps:get(socket_options,OptMap)]}.
 
+
+%%%================================================================
+no_sensitive(rm, #{id_string := _,
+                   tstflg := _}) -> '*** removed ***';
+no_sensitive(filter, Opts = #{id_string := _,
+                              tstflg := _}) -> 
+    Sensitive = [password, user_passwords,
+                 dsa_pass_phrase, rsa_pass_phrase, ecdsa_pass_phrase,
+                 ed25519_pass_phrase, ed448_pass_phrase],
+    maps:fold(
+      fun(K, _V, Acc) ->
+              case lists:member(K, Sensitive) of
+                  true -> Acc#{K := '***'};
+                  false -> Acc
+              end
+      end, Opts, Opts);
+no_sensitive(Type, L) when is_list(L) ->
+    [no_sensitive(Type,E) || E <- L];
+no_sensitive(Type, T) when is_tuple(T) ->
+    list_to_tuple( no_sensitive(Type, tuple_to_list(T)) );
+no_sensitive(_, X) ->
+    X.
 
 %%%================================================================
 %%%

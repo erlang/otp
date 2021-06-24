@@ -58,6 +58,7 @@
          gracefull_invalid_version/1,
          interrupted_send/1,
          max_channels_option/1,
+         no_sensitive_leak/1,
          ptty_alloc/1,
          ptty_alloc_default/1,
          ptty_alloc_pixel/1,
@@ -137,6 +138,7 @@ all() ->
      gracefull_invalid_long_start,
      gracefull_invalid_long_start_no_nl,
      stop_listener,
+     no_sensitive_leak,
      start_subsystem_on_closed_channel,
      max_channels_option
     ].
@@ -1225,6 +1227,69 @@ stop_listener(Config) when is_list(Config) ->
 	    ct:fail({unexpected, Error})
     end.
 
+no_sensitive_leak(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    %% Save old, and set new log level:
+    #{level := Level} = logger:get_primary_config(),
+    logger:set_primary_config(level, info),
+    %% Define a collect fun:
+    Ref = make_ref(),
+    Collect = 
+        fun G(N,Nf,Nt) ->
+                receive
+                    {Ref, false, _} ->
+                        G(N+1, Nf+1, Nt);
+                    {Ref, true, R} ->
+                        ct:log("Report leaked:~n~p", [R]),
+                        G(N+1, Nf, Nt+1)
+                after 100 ->
+                        {N, Nf, Nt}
+                end
+        end,
+ 
+    %% Install the test handler:
+    Hname = no_sensitive_leak,
+    ok = ssh_log_h:add_fun(Hname,
+                           fun(#{msg := {report, R=#{report := Rep}}}, Pid) ->
+                                   true = (erlang:process_info(Pid, status) =/= undefined), % remove handler if we are dead
+                                   Pid ! {Ref,ssh_log_h:sensitive_in_opt(Rep),Rep};
+                              (_,Pid) ->
+                                   true = (erlang:process_info(Pid, status) =/= undefined), % remove handler if we are dead
+                                   ok
+                           end,
+                           self()),
+
+    {Pid0, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					      {user_dir, UserDir},
+					      {password, "morot"},
+					      {exec, fun ssh_exec_echo/1}]),
+
+    ConnectionRef0 = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+						       {user, "foo"},
+						       {password, "morot"},
+						       {user_interaction, true},
+						       {user_dir, UserDir}]),
+    %% Kill acceptor to make it restart:
+    [true|_] =
+        [exit(Pacc,kill) || {{ssh_system_sup,_},P1,supervisor,_} <- supervisor:which_children(sshd_sup),
+                            {{ssh_acceptor_sup,_},P2,supervisor,_} <- supervisor:which_children(P1),
+                            {{ssh_acceptor_sup,_},Pacc,worker,_} <- supervisor:which_children(P2)],
+    
+    %% Remove the test handler and reset the logger level:
+    timer:sleep(500),
+    logger:remove_handler(Hname),
+    logger:set_primary_config(Level),
+
+    case Collect(0, 0, 0) of
+        {0, 0,   0} -> ct:fail("Logging failed, line = ~p", [?LINE]);
+        {_, _,   0} -> ok;
+        {_, _, Nt0} -> ct:fail("Leak in ~p cases!", [Nt0])
+    end.
+    
 start_subsystem_on_closed_channel(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
