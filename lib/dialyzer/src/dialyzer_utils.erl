@@ -33,6 +33,7 @@
          get_fun_meta_info/3,
          is_suppressed_fun/2,
          is_suppressed_tag/3,
+         is_compiler_generated/1,
 	 pp_hook/0,
 	 process_record_remote_types/1,
          merge_types/2,
@@ -746,6 +747,16 @@ is_fa({FuncName, Arity})
   when is_atom(FuncName), is_integer(Arity), Arity >= 0 -> true;
 is_fa(_) -> false.
 
+-spec is_compiler_generated([term()]) -> boolean().
+
+is_compiler_generated(Ann) ->
+  lists:member(compiler_generated, Ann) orelse (get_line(Ann) < 1).
+
+get_line([Line|_]) when is_integer(Line) -> Line;
+get_line([{Line, _Column} | _Tail]) when is_integer(Line) -> Line;
+get_line([_|Tail]) -> get_line(Tail);
+get_line([]) -> -1.
+
 %%-------------------------------------------------------------------
 %% Author      : Per Gustafsson <pergu@it.uu.se>
 %% Description : Provides better printing of binaries.
@@ -999,24 +1010,18 @@ get_location(Tree, Default) ->
 
 get_all_locations(Tree) ->
   SubTrees = lists:append(cerl:subtrees(Tree)),
-  case maybe_get_location(cerl:get_ann(Tree)) of
-    no ->
-      [];
-    Location ->
-      [Location]
-  end
+  Ann = cerl:get_ann(Tree),
+  [get_location(Ann) || not is_compiler_generated(Ann)]
   ++
   lists:append([get_all_locations(T) || T <- SubTrees]).
 
-maybe_get_location([Line|_]) when is_integer(Line) ->
+get_location([Line|_]) when is_integer(Line) ->
   Line;
-maybe_get_location([{Line, Column}|_Tail]) when is_integer(Line),
-                                                is_integer(Column) ->
-  {Line, Column};
-maybe_get_location([_|Tail]) ->
-  maybe_get_location(Tail);
-maybe_get_location([]) ->
-  no.
+get_location([{Line, Column}=Loc|_Tail]) when is_integer(Line),
+                                              is_integer(Column) ->
+  Loc;
+get_location([_|Tail]) ->
+  get_location(Tail).
 
 %%------------------------------------------------------------------------------
 

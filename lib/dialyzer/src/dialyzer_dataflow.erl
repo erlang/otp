@@ -3649,11 +3649,6 @@ add_work(New, {List, Rev, Set} = Work) ->
 %%%
 %%% ===========================================================================
 
-get_line([Line|_]) when is_integer(Line) -> Line;
-get_line([{Line, _Column} | _Tail]) when is_integer(Line) -> Line;
-get_line([_|Tail]) -> get_line(Tail);
-get_line([]) -> -1.
-
 get_location(Tree) ->
   dialyzer_utils:get_location(Tree, 1).
 
@@ -3669,7 +3664,7 @@ get_file([_|Tail], State) ->
   get_file(Tail, State).
 
 is_compiler_generated(Ann) ->
-  lists:member(compiler_generated, Ann) orelse (get_line(Ann) < 1).
+  dialyzer_utils:is_compiler_generated(Ann).
 
 is_literal_record(Tree) ->
   Ann = cerl:get_ann(Tree),
