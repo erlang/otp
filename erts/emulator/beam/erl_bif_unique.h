@@ -114,7 +114,7 @@ ERTS_GLB_INLINE Eterm erts_get_pid_of_ref(Eterm ref);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE void
-erts_set_ref_numbers(Uint32 ref[ERTS_REF_NUMBERS], Uint32 thr_id, Uint64 value)
+erts_set_ref_numbers(Uint32 *ref, Uint32 thr_id, Uint64 value)
 {
     /*
      * We cannot use thread id in the first 18-bit word since
