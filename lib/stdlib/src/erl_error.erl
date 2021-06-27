@@ -269,6 +269,8 @@ explain_reason(restricted_shell_started, exit, [], _PF, _S, _Enc, _CL) ->
     <<"restricted shell starts now">>;
 explain_reason(restricted_shell_stopped, exit, [], _PF, _S, _Enc, _CL) ->
     <<"restricted shell stopped">>;
+explain_reason(calling_self, exit, [], _PF, _S, _Enc, _CL) ->
+    <<"the current process attempted to call itself">>;
 %% Other exit code:
 explain_reason(Reason, Class, [], PF, S, _Enc, CL) ->
     {L, _} = PF(Reason, (iolist_size(S)+1) + exited_size(Class), CL),
