@@ -304,10 +304,13 @@ $ <input>erl \
       <item>
         <p>Useful for debugging. Prints the arguments sent to the emulator.</p>
       </item>
-      <tag><c><![CDATA[-emu_flavor Flavor]]></c></tag>
+      <tag><c><![CDATA[-emu_flavor emu|jit|smp]]></c></tag>
       <item>
-        <p>Start an emulator of a different flavor. The current available flavors
-          are: <c>emu</c> and <c>jit</c>. You can combine this flag with
+        <p>Start an emulator of a different flavor. Normally only one flavor is
+          available, more can be added by building specific flavors. The currently
+          available flavors are: <c>emu</c> and <c>jit</c>.
+          The <c>smp</c> flavor is an alias for the current default flavor.
+          You can combine this flag with
           <c>--emu_type</c>. You can get the current flavor at run-time using
           <seeerl marker="erlang#system_info_emu_flavor">
             <c>erlang:system_info(emu_flavor)</c></seeerl>.
