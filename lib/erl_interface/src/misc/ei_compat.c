@@ -35,9 +35,3 @@ ei_set_compat_rel(unsigned rel)
 {
     compat_rel = rel;
 }
-
-int ei_internal_use_21_bitstr_expfun(void)
-{
-    return compat_rel < 22;
-}
-

@@ -2264,7 +2264,8 @@ error:
 static DistFlags preferred_flags(void)
 {
     DistFlags flags =
-        DFLAG_EXTENDED_REFERENCES
+        DFLAG_MANDATORY_25_DIGEST
+        | DFLAG_EXTENDED_REFERENCES
         | DFLAG_DIST_MONITOR
         | DFLAG_EXTENDED_PIDS_PORTS
         | DFLAG_FUN_TAGS
@@ -2279,10 +2280,6 @@ static DistFlags preferred_flags(void)
         | DFLAG_HANDSHAKE_23
         | DFLAG_V4_NC
         | DFLAG_UNLINK_ID;
-    if (ei_internal_use_21_bitstr_expfun()) {
-        flags &= ~(DFLAG_EXPORT_PTR_TAG
-                   | DFLAG_BIT_BINARIES);
-    }
     return flags;
 }
 
@@ -2512,22 +2509,13 @@ static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
         goto error;
     }
 
-    if (!(*flags & DFLAG_EXTENDED_REFERENCES)) {
-	EI_TRACE_ERR0("recv_challenge","<- RECV_CHALLENGE peer cannot "
-		      "handle extended references");
-	goto error;
+    if (*flags & DFLAG_MANDATORY_25_DIGEST) {
+        *flags |= DFLAG_DIST_MANDATORY_25;
     }
 
-    if (!(*flags & DFLAG_EXTENDED_PIDS_PORTS)) {
+    if ((*flags & DFLAG_DIST_MANDATORY) != DFLAG_DIST_MANDATORY) {
 	EI_TRACE_ERR0("recv_challenge","<- RECV_CHALLENGE peer cannot "
-		      "handle extended pids and ports");
-	erl_errno = EIO;
-	goto error;
-    }
-	    
-    if (!(*flags & DFLAG_NEW_FLOATS)) {
-	EI_TRACE_ERR0("recv_challenge","<- RECV_CHALLENGE peer cannot "
-		      "handle binary float encoding");
+		      "handle all mandatory capabilities");
 	goto error;
     }
 
@@ -2918,15 +2906,13 @@ static int recv_name(ei_socket_callbacks *cbs, void *ctx,
         namelen = get16be(s);
     }
 
-    if (!(*flags & DFLAG_EXTENDED_REFERENCES)) {
-	EI_TRACE_ERR0("recv_name","<- RECV_NAME peer cannot handle"
-		      "extended references");
-	goto error;
+    if (*flags & DFLAG_MANDATORY_25_DIGEST) {
+        *flags |= DFLAG_DIST_MANDATORY_25;
     }
 
-    if (!(*flags & DFLAG_EXTENDED_PIDS_PORTS)) {
+    if ((*flags & DFLAG_DIST_MANDATORY) != DFLAG_DIST_MANDATORY) {
 	EI_TRACE_ERR0("recv_name","<- RECV_NAME peer cannot "
-		      "handle extended pids and ports");
+		      "handle all mandatory capabilities");
 	erl_errno = EIO;
 	goto error;
     }

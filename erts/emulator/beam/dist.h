@@ -25,33 +25,35 @@
 #include "erl_node_tables.h"
 #include "zlib.h"
 
-#define DFLAG_PUBLISHED               ((Uint64)0x01)
-#define DFLAG_ATOM_CACHE              ((Uint64)0x02)
-#define DFLAG_EXTENDED_REFERENCES     ((Uint64)0x04)
-#define DFLAG_DIST_MONITOR            ((Uint64)0x08)
-#define DFLAG_FUN_TAGS                ((Uint64)0x10)
-#define DFLAG_DIST_MONITOR_NAME       ((Uint64)0x20)
-#define DFLAG_HIDDEN_ATOM_CACHE       ((Uint64)0x40)
-#define DFLAG_NEW_FUN_TAGS            ((Uint64)0x80)
-#define DFLAG_EXTENDED_PIDS_PORTS    ((Uint64)0x100)
-#define DFLAG_EXPORT_PTR_TAG         ((Uint64)0x200)
-#define DFLAG_BIT_BINARIES           ((Uint64)0x400)
-#define DFLAG_NEW_FLOATS             ((Uint64)0x800)
-#define DFLAG_UNICODE_IO            ((Uint64)0x1000)
-#define DFLAG_DIST_HDR_ATOM_CACHE   ((Uint64)0x2000)
-#define DFLAG_SMALL_ATOM_TAGS       ((Uint64)0x4000)
-#define DFLAG_ETS_COMPRESSED        ((Uint64)0x8000) /* internal */
-#define DFLAG_UTF8_ATOMS           ((Uint64)0x10000)
-#define DFLAG_MAP_TAG              ((Uint64)0x20000)
-#define DFLAG_BIG_CREATION         ((Uint64)0x40000)
-#define DFLAG_SEND_SENDER          ((Uint64)0x80000)
-#define DFLAG_BIG_SEQTRACE_LABELS ((Uint64)0x100000)
-#define DFLAG_PENDING_CONNECT     ((Uint64)0x200000) /* internal */
-#define DFLAG_EXIT_PAYLOAD        ((Uint64)0x400000)
-#define DFLAG_FRAGMENTS           ((Uint64)0x800000)
-#define DFLAG_HANDSHAKE_23       ((Uint64)0x1000000)
-#define DFLAG_UNLINK_ID          ((Uint64)0x2000000)
-#define DFLAG_RESERVED          ((Uint64)0xfc000000)
+#define DFLAG_PUBLISHED                ((Uint64)0x01)
+#define DFLAG_ATOM_CACHE               ((Uint64)0x02)
+#define DFLAG_EXTENDED_REFERENCES      ((Uint64)0x04)
+#define DFLAG_DIST_MONITOR             ((Uint64)0x08)
+#define DFLAG_FUN_TAGS                 ((Uint64)0x10)
+#define DFLAG_DIST_MONITOR_NAME        ((Uint64)0x20)
+#define DFLAG_HIDDEN_ATOM_CACHE        ((Uint64)0x40)
+#define DFLAG_NEW_FUN_TAGS             ((Uint64)0x80)
+#define DFLAG_EXTENDED_PIDS_PORTS     ((Uint64)0x100)
+#define DFLAG_EXPORT_PTR_TAG          ((Uint64)0x200)
+#define DFLAG_BIT_BINARIES            ((Uint64)0x400)
+#define DFLAG_NEW_FLOATS              ((Uint64)0x800)
+#define DFLAG_UNICODE_IO             ((Uint64)0x1000)
+#define DFLAG_DIST_HDR_ATOM_CACHE    ((Uint64)0x2000)
+#define DFLAG_SMALL_ATOM_TAGS        ((Uint64)0x4000)
+#define DFLAG_ETS_COMPRESSED         ((Uint64)0x8000) /* internal */
+#define DFLAG_UTF8_ATOMS            ((Uint64)0x10000)
+#define DFLAG_MAP_TAG               ((Uint64)0x20000)
+#define DFLAG_BIG_CREATION          ((Uint64)0x40000)
+#define DFLAG_SEND_SENDER           ((Uint64)0x80000)
+#define DFLAG_BIG_SEQTRACE_LABELS  ((Uint64)0x100000)
+#define DFLAG_PENDING_CONNECT      ((Uint64)0x200000) /* internal */
+#define DFLAG_EXIT_PAYLOAD         ((Uint64)0x400000)
+#define DFLAG_FRAGMENTS            ((Uint64)0x800000)
+#define DFLAG_HANDSHAKE_23        ((Uint64)0x1000000)
+#define DFLAG_UNLINK_ID           ((Uint64)0x2000000)
+#define DFLAG_MANDATORY_25_DIGEST ((Uint64)0x4000000)
+#define DFLAG_RESERVED           ((Uint64)0xf8000000)
+
 /*
  * As the old handshake only support 32 flag bits, we reserve the remaining
  * bits in the lower 32 for changes in the handshake protocol or potentially
@@ -62,21 +64,28 @@
 #define DFLAG_V4_NC            (((Uint64)0x4) << 32)
 #define DFLAG_ALIAS            (((Uint64)0x8) << 32)
 
-/* Mandatory flags for distribution */
-#define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
-                              | DFLAG_EXTENDED_PIDS_PORTS       \
-			      | DFLAG_UTF8_ATOMS                \
-			      | DFLAG_NEW_FUN_TAGS              \
-                              | DFLAG_BIG_CREATION)
+
+/* Mandatory flags for distribution in OTP 25. */
+#define DFLAG_DIST_MANDATORY_25 (DFLAG_EXTENDED_REFERENCES        \
+                                | DFLAG_FUN_TAGS                  \
+                                | DFLAG_EXTENDED_PIDS_PORTS       \
+                                | DFLAG_UTF8_ATOMS                \
+                                | DFLAG_NEW_FUN_TAGS              \
+                                | DFLAG_BIG_CREATION              \
+                                | DFLAG_NEW_FLOATS                \
+                                | DFLAG_MAP_TAG                   \
+                                | DFLAG_EXPORT_PTR_TAG            \
+                                | DFLAG_BIT_BINARIES)
+
+/* Mandatory flags for distribution. */
+#define DFLAG_DIST_MANDATORY DFLAG_DIST_MANDATORY_25
 
 /*
  * Additional optimistic flags when encoding toward pending connection.
  * If remote node (erl_interface) does not support these then we may need
  * to transcode messages enqueued before connection setup was finished.
  */
-#define DFLAG_DIST_HOPEFULLY (DFLAG_EXPORT_PTR_TAG              \
-                              | DFLAG_BIT_BINARIES              \
-                              | DFLAG_DIST_MONITOR              \
+#define DFLAG_DIST_HOPEFULLY (DFLAG_DIST_MONITOR                \
                               | DFLAG_DIST_MONITOR_NAME         \
                               | DFLAG_SPAWN                     \
 			      | DFLAG_ALIAS			\
@@ -84,13 +93,9 @@
 
 /* Our preferred set of flags. Used for connection setup handshake */
 #define DFLAG_DIST_DEFAULT (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY \
-                            | DFLAG_FUN_TAGS                  \
-                            | DFLAG_NEW_FLOATS                \
                             | DFLAG_UNICODE_IO                \
                             | DFLAG_DIST_HDR_ATOM_CACHE       \
                             | DFLAG_SMALL_ATOM_TAGS           \
-                            | DFLAG_UTF8_ATOMS                \
-                            | DFLAG_MAP_TAG                   \
                             | DFLAG_SEND_SENDER               \
                             | DFLAG_BIG_SEQTRACE_LABELS       \
                             | DFLAG_EXIT_PAYLOAD              \
@@ -99,7 +104,8 @@
                             | DFLAG_SPAWN                     \
                             | DFLAG_V4_NC		      \
                             | DFLAG_ALIAS		      \
-                            | DFLAG_UNLINK_ID)
+                            | DFLAG_UNLINK_ID                 \
+                            | DFLAG_MANDATORY_25_DIGEST)
 
 /* Flags addable by local distr implementations */
 #define DFLAG_DIST_ADDABLE    DFLAG_DIST_DEFAULT
@@ -114,14 +120,7 @@
 #define DFLAG_DIST_STRICT_ORDER DFLAG_DIST_HDR_ATOM_CACHE
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
-#define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\
-			       | DFLAG_NEW_FUN_TAGS		\
-			       | DFLAG_NEW_FLOATS		\
-			       | DFLAG_EXTENDED_PIDS_PORTS	\
-			       | DFLAG_EXPORT_PTR_TAG		\
-			       | DFLAG_BIT_BINARIES             \
-			       | DFLAG_MAP_TAG                  \
-                               | DFLAG_BIG_CREATION)
+#define TERM_TO_BINARY_DFLAGS DFLAG_NEW_FLOATS
 
 /* opcodes used in distribution messages */
 enum dop {
