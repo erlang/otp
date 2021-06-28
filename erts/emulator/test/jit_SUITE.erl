@@ -18,18 +18,35 @@
 %% %CopyrightEnd%
 %%
 
--module(perf_SUITE).
+-module(jit_SUITE).
 
--export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
--export([symbols/1, annotate/1]).
+-export([suite/0, groups/0, all/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2]).
+-export([annotate/1, named_labels/1, symbols/1]).
 
 suite() ->
     [{timetrap, {minutes, 4}}].
 
-all() -> 
-    [symbols, annotate].
+groups() ->
+    [{perf, [symbols, annotate]}].
+
+all() ->
+    [{group, perf}, named_labels].
 
 init_per_suite(Config) ->
+    case erlang:system_info(emu_flavor) of
+        jit ->
+            Config;
+        _ ->
+            {skip, "No point in running JIT tests on non-JIT emulator"}
+    end.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(perf, Config) ->
     case os:find_executable("perf") of
         false ->
             {skip, "perf not found"};
@@ -64,9 +81,11 @@ init_per_suite(Config) ->
                 _ ->
                     {skip,"unknown old perf version: " ++ PerfVsn}
             end
-    end.
+    end;
+init_per_group(_, Config) ->
+    Config.
 
-end_per_suite(Config) ->
+end_per_group(perf, Config) ->
     %% perf inject writes data to /tmp and ~/.debug/tmp so we need to clean
     %% that up after the tests are done.
     SoToDelete = get_tmp_so_files() -- proplists:get_value(sobefore, Config),
@@ -79,6 +98,31 @@ end_per_suite(Config) ->
                       ok
               end
       end, SoToDelete),
+    ok;
+end_per_group(_, _Config) ->
+    ok.
+
+init_per_testcase(named_labels, Config) ->
+    %% Only run named_labels on platforms where we know it works.
+    case erlang:system_info(system_architecture) of
+	"x86" ++ _ ->
+	    [{asmbefore,get_tmp_asm_files()}|Config];
+	"aarch64" ++ _ ->
+	    [{asmbefore,get_tmp_asm_files()}|Config];
+	_ ->
+	    {skip, "Unsupported architecture"}
+    end;
+init_per_testcase(_Case, Config) ->
+    Config.
+
+end_per_testcase(named_labels, Config) ->
+    AsmToDelete = get_tmp_asm_files() -- proplists:get_value(asmbefore, Config),
+    lists:foreach(
+      fun(File) ->
+              ok = file:delete(File)
+      end, AsmToDelete),
+    ok;
+end_per_testcase(_, _Config) ->
     ok.
 
 get_tmp_so_files() ->
@@ -128,4 +172,52 @@ annotate(Config) ->
             ct:log("Did not find disassembly test for ~ts.~n~ts",
                    [Symbol, Anno])
     end.
-    
+
+get_tmp_asm_files() ->
+    {ok, Cwd} = file:get_cwd(),
+    filelib:wildcard(filename:join(Cwd, "*.asm")).
+
+named_labels(_Config) ->
+    %% Check that pretty printing of named labels is working. We do
+    %% that by loading this module in an emulator running with +JDdump
+    %% true and then checking that the produced jit_SUITE.asm contains
+    %% a label for each exported function. We also check that the
+    %% label for the non-exported function get_tmp_asm_files/0, which
+    %% is used by this test, is present.
+    Exports = proplists:get_value(exports, ?MODULE:module_info()),
+    ModName = atom_to_list(?MODULE),
+    ModulePath = filename:dirname(code:which(?MODULE)),
+    Cmd = "erl +JDdump true -noshell -pa " ++ ModulePath ++ " -eval \""
+        ++ ModName ++ ":module_info(),erlang:halt(0).\"",
+    os:cmd(Cmd),
+    {ok, Cwd} = file:get_cwd(),
+    AsmFile = filename:join(Cwd, ModName ++ ".asm"),
+    {ok, Data} = file:read_file(AsmFile),
+    Expected = sets:from_list([ lists:flatten(io_lib:format("~p/~p", [N,A]))
+                                || {N,A} <- Exports]
+                              ++ ["get_tmp_asm_files/0"]),
+    StripSeqNo = fun(Lbl) ->
+                         %% In the Arm JIT, labels have the form
+                         %% @Mod:Name/Arity-SequenceNumber, so strip
+                         %% out the Mod part and the sequence number
+                         %% as we can't know anything about them.
+                         case re:run(Lbl, "^.*\:(.*)-[0-9]*$",
+                                     [{capture,all_but_first,list}]) of
+                             {match,[R]} -> R;
+                             nomatch -> Lbl
+                         end
+                 end,
+    case re:run(Data, "^(.*)\:\n",
+                [global,multiline,{capture,all_but_first,list}]) of
+        {match,Labels} ->
+            Found = sets:from_list([ StripSeqNo(NA) || [NA] <- Labels]),
+            case sets:is_subset(Expected, Found) of
+                true ->
+                    ok;
+                false ->
+                    ct:fail("Expected ~p, found ~p",
+                            [sets:to_list(Expected), sets:to_list(Found)])
+            end;
+        _ ->
+            ct:fail("No labels found in assembly dump")
+    end.

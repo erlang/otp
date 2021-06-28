@@ -1050,11 +1050,13 @@ class BeamModuleAssembler : public BeamAssembler {
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
-                        unsigned num_labels);
+                        unsigned num_labels,
+                        BeamFile_ExportTable *named_labels = NULL);
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
                         unsigned num_labels,
-                        unsigned num_functions);
+                        unsigned num_functions,
+                        BeamFile_ExportTable *named_labels = NULL);
 
     bool emit(unsigned op, const Span<ArgVal> &args);
 

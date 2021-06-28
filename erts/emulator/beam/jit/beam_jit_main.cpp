@@ -493,8 +493,15 @@ extern "C"
 #endif
     }
 
-    void *beamasm_new_assembler(Eterm mod, int num_labels, int num_functions) {
-        return new BeamModuleAssembler(bga, mod, num_labels, num_functions);
+    void *beamasm_new_assembler(Eterm mod,
+                                int num_labels,
+                                int num_functions,
+                                BeamFile_ExportTable *named_labels) {
+        return new BeamModuleAssembler(bga,
+                                       mod,
+                                       num_labels,
+                                       num_functions,
+                                       named_labels);
     }
 
     int beamasm_emit(void *instance, unsigned specific_op, BeamOp *op) {

@@ -150,6 +150,9 @@ typedef struct {
     BeamFile_AtomTable atoms;
     BeamFile_ImportTable imports;
     BeamFile_ExportTable exports;
+#ifdef BEAMASM
+    BeamFile_ExportTable locals;
+#endif
     BeamFile_LambdaTable lambdas;
     BeamFile_LineTable lines;
 
@@ -185,6 +188,7 @@ enum beamfile_read_result {
     BEAMFILE_READ_CORRUPT_EXPORT_TABLE,
     BEAMFILE_READ_MISSING_IMPORT_TABLE,
     BEAMFILE_READ_CORRUPT_IMPORT_TABLE,
+    BEAMFILE_READ_CORRUPT_LOCALS_TABLE,
 
     /* Optional chunks */
     BEAMFILE_READ_CORRUPT_LAMBDA_TABLE,

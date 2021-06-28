@@ -323,24 +323,23 @@ static int parse_import_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     return 1;
 }
 
-static int parse_export_chunk(BeamFile *beam, IFF_Chunk *chunk) {
-    BeamFile_ExportTable *exports;
+static int parse_export_table(BeamFile_ExportTable *dest,
+			      BeamFile *beam, IFF_Chunk *chunk) {
     BeamFile_AtomTable *atoms;
     BeamReader reader;
     Sint32 count;
     int i;
 
-    exports = &beam->exports;
-    ASSERT(exports->entries == NULL);
+    ASSERT(dest->entries == NULL);
 
     beamreader_init(chunk->data, chunk->size, &reader);
 
     LoadAssert(beamreader_read_i32(&reader, &count));
-    LoadAssert(CHECK_ITEM_COUNT(count, 0, sizeof(exports->entries[0])));
+    LoadAssert(CHECK_ITEM_COUNT(count, 0, sizeof(dest->entries[0])));
 
-    exports->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
-                                  count * sizeof(exports->entries[0]));
-    exports->count = count;
+    dest->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                  count * sizeof(dest->entries[0]));
+    dest->count = count;
 
     atoms = &beam->atoms;
 
@@ -355,13 +354,23 @@ static int parse_export_chunk(BeamFile *beam, IFF_Chunk *chunk) {
         LoadAssert(arity >= 0 && arity <= MAX_ARG);
         LoadAssert(label >= 0);
 
-        exports->entries[i].function = atoms->entries[atom_index];
-        exports->entries[i].arity = arity;
-        exports->entries[i].label = label;
+        dest->entries[i].function = atoms->entries[atom_index];
+        dest->entries[i].arity = arity;
+        dest->entries[i].label = label;
     }
 
     return 1;
 }
+
+static int parse_export_chunk(BeamFile *beam, IFF_Chunk *chunk) {
+    return parse_export_table(&beam->exports, beam, chunk);
+}
+
+#ifdef BEAMASM
+static int parse_locals_chunk(BeamFile *beam, IFF_Chunk *chunk) {
+    return parse_export_table(&beam->locals, beam, chunk);
+}
+#endif
 
 static int parse_lambda_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     BeamFile_LambdaTable *lambdas;
@@ -740,6 +749,7 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         MakeIffId('C', 'I', 'n', 'f'), /* 8 */
         MakeIffId('L', 'i', 'n', 'e'), /* 9 */
         MakeIffId('A', 't', 'U', '8'), /* 10 */
+        MakeIffId('L', 'o', 'c', 'T'), /* 11 */
     };
 
     static const int ATOM_CHUNK = 0;
@@ -753,6 +763,9 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
     static const int COMPILE_CHUNK = 8;
     static const int LINE_CHUNK = 9;
     static const int UTF8_ATOM_CHUNK = 10;
+#ifdef BEAMASM
+    static const int LOC_CHUNK = 11;
+#endif
 
     static const int NUM_CHUNKS = sizeof(chunk_iffs) / sizeof(chunk_iffs[0]);
 
@@ -814,6 +827,15 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         error = BEAMFILE_READ_CORRUPT_EXPORT_TABLE;
         goto error;
     }
+
+#ifdef BEAMASM
+    if (erts_jit_asm_dump && chunks[LOC_CHUNK].size > 0) {
+        if (!parse_locals_chunk(beam, &chunks[LOC_CHUNK])) {
+            error = BEAMFILE_READ_CORRUPT_LOCALS_TABLE;
+            goto error;
+        }
+    }
+#endif
 
     if (chunks[LAMBDA_CHUNK].size > 0) {
         if (!parse_lambda_chunk(beam, &chunks[LAMBDA_CHUNK])) {
@@ -942,6 +964,13 @@ void beamfile_free(BeamFile *beam) {
         erts_free(ERTS_ALC_T_PREPARED_CODE, beam->exports.entries);
         beam->exports.entries = NULL;
     }
+
+#ifdef BEAMASM
+    if (beam->locals.entries) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, beam->locals.entries);
+        beam->locals.entries = NULL;
+    }
+#endif
 
     if (beam->lambdas.entries) {
         erts_free(ERTS_ALC_T_PREPARED_CODE, beam->lambdas.entries);
