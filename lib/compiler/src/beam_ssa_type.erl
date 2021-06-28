@@ -886,6 +886,15 @@ simplify(#b_set{op={bif,'=:='},args=[LHS,RHS]}=I, Ts) ->
                     eval_bif(I, Ts)
             end
     end;
+simplify(#b_set{op={bif,is_list},args=[Src]}=I, Ts) ->
+    case raw_type(Src, Ts) of
+        #t_union{list=#t_cons{}} ->
+            I#b_set{op=is_nonempty_list,args=[Src]};
+        #t_union{list=nil} ->
+            I#b_set{op={bif,'=:='},args=[Src,#b_literal{val=[]}]};
+        _ ->
+            eval_bif(I, Ts)
+    end;
 simplify(#b_set{op={bif,Op},args=Args}=I, Ts) ->
     Types = normalized_types(Args, Ts),
     case is_float_op(Op, Types) of
@@ -945,7 +954,51 @@ simplify(#b_set{op=is_nonempty_list,args=[Src]}=I, Ts) ->
     end;
 simplify(#b_set{op=is_tagged_tuple,
                 args=[Src,#b_literal{val=Size},#b_literal{}=Tag]}=I, Ts) ->
-    simplify_is_record(I, normalized_type(Src, Ts), Size, Tag, Ts);
+    case raw_type(Src, Ts) of
+        #t_union{tuple_set=TupleSet}=U ->
+            %% A union of different types, one of them (probably)
+            %% a tuple. Dig out the tuple type from the union and
+            %% find out whether it will match.
+            TupleOnlyType = #t_union{tuple_set=TupleSet},
+            TT = beam_types:normalize(TupleOnlyType),
+            case simplify_is_record(I, TT, Size, Tag, Ts) of
+                #b_literal{val=true} ->
+                    %% The tuple part of the union will always match.
+                    %% A simple is_tuple/1 test will be sufficient to
+                    %% distinguish the tuple from the other types in
+                    %% the union.
+                    I#b_set{op={bif,is_tuple},args=[Src]};
+                #b_literal{val=false}=False ->
+                    %% Src is never a tuple.
+                    False;
+                _ ->
+                    %% More than one type of tuple can match. Find out
+                    %% whether the possible tuples can be
+                    %% distinguished by size.
+                    TupleArityType = #t_tuple{size=Size,exact=true},
+                    TTT = beam_types:meet(TupleArityType, TupleOnlyType),
+                    case simplify_is_record(I, TTT, Size, Tag, Ts) of
+                        #b_literal{val=true} ->
+                            %% The possible tuple types have different sizes.
+                            %% Example: {ok, _} | {error, _, _}.
+                            case beam_types:normalize(U) of
+                                #t_tuple{} ->
+                                    %% Src is known to be a tuple, so it will
+                                    %% be sufficient to test the arity.
+                                    beam_ssa:add_anno(constraints, arity, I);
+                                any ->
+                                    %% Src might not be a tuple. Must
+                                    %% test for a tuple with a given
+                                    %% arity.
+                                    beam_ssa:add_anno(constraints, tuple_arity, I)
+                            end;
+                        _ ->
+                            I
+                    end
+            end;
+        SimpleType ->
+            simplify_is_record(I, SimpleType, Size, Tag, Ts)
+    end;
 simplify(#b_set{op=put_list,args=[#b_literal{val=H},
                                   #b_literal{val=T}]}, _Ts) ->
     #b_literal{val=[H|T]};

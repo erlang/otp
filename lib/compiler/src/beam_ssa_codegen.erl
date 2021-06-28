@@ -1209,9 +1209,19 @@ cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=I,
 cg_block([#cg_set{op=bs_test_tail,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
     [Ctx,{integer,Bits}] = beam_args(Args0, St),
     {[{test,bs_test_tail2,bif_fail(Fail),[Ctx,Bits]}],St};
-cg_block([#cg_set{op=is_tagged_tuple,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
-    [Src,{integer,Arity},Tag] = beam_args(Args0, St),
-    {[{test,is_tagged_tuple,ensure_label(Fail, St),[Src,Arity,Tag]}],St};
+cg_block([#cg_set{op=is_tagged_tuple,anno=Anno,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
+    case Anno of
+        #{constraints := arity} ->
+            [Src,{integer,Arity},_Tag] = beam_args(Args0, St),
+            {[{test,test_arity,ensure_label(Fail, St),[Src,Arity]}],St};
+        #{constraints := tuple_arity} ->
+            [Src,{integer,Arity},_Tag] = beam_args(Args0, St),
+            {[{test,is_tuple,ensure_label(Fail, St),[Src]},
+              {test,test_arity,ensure_label(Fail, St),[Src,Arity]}],St};
+        #{} ->
+            [Src,{integer,Arity},Tag] = beam_args(Args0, St),
+            {[{test,is_tagged_tuple,ensure_label(Fail, St),[Src,Arity,Tag]}],St}
+    end;
 cg_block([#cg_set{op=is_nonempty_list,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
     Args = beam_args(Args0, St),
     {[{test,is_nonempty_list,ensure_label(Fail, St),Args}],St};
