@@ -25,7 +25,8 @@
          cover_ssa_dead/1,combine_sw/1,share_opt/1,
          beam_ssa_dead_crash/1,stack_init/1,
          mapfoldl/0,mapfoldl/1,
-         grab_bag/1,coverage/1]).
+         grab_bag/1,redundant_br/1,
+         coverage/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -45,6 +46,7 @@ groups() ->
        beam_ssa_dead_crash,
        stack_init,
        grab_bag,
+       redundant_br,
        coverage
       ]}].
 
@@ -1084,6 +1086,18 @@ grab_bag_17() ->
             []
     end.
 
+redundant_br(_Config) ->
+    {false,{x,y,z}} = redundant_br_1(id({x,y,z})),
+    {true,[[a,b,c]]} = redundant_br_1(id([[[a,b,c]]])),
+    ok.
+
+redundant_br_1(Specs0) ->
+    {Join,Specs} =
+        if
+            is_list(hd(hd(Specs0))) -> {true,hd(Specs0)};
+            true -> {false,Specs0}
+        end,
+    id({Join,Specs}).
 
 coverage(_Config) ->
 
