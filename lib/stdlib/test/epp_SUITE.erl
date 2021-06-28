@@ -24,7 +24,7 @@
 -export([rec_1/1, include_local/1, predef_mac/1,
 	 upcase_mac_1/1, upcase_mac_2/1,
 	 variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
-         pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
+         pmod/1, not_circular/1, skip_header/1, otp_6277/1, gh_4995/1, otp_7702/1,
          otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1,
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
@@ -66,7 +66,7 @@ suite() ->
 all() -> 
     [rec_1, {group, upcase_mac}, include_local, predef_mac,
      {group, variable}, otp_4870, otp_4871, otp_5362, pmod,
-     not_circular, skip_header, otp_6277, otp_7702, otp_8130,
+     not_circular, skip_header, otp_6277, gh_4995, otp_7702, otp_8130,
      overload_mac, otp_8388, otp_8470, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
      encoding, extends, function_macro, test_error, test_warning,
@@ -476,6 +476,17 @@ otp_6277(Config) when is_list(Config) ->
 
               ?ASSERT().">>,
            [{error,{4,epp,{undefined,'MODULE', none}}}]}],
+    [] = check(Config, Ts),
+    ok.
+
+%% Test -ifdef(MODULE) before module declaration. Should not be
+%% considered defined.
+gh_4995(Config) when is_list(Config) ->
+    Ts = [{gh_4995,
+           <<"-ifdef(MODULE).
+              -record(r, {x = ?MODULE}).
+              -endif.">>,
+           []}],
     [] = check(Config, Ts),
     ok.
 
