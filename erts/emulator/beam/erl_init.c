@@ -587,26 +587,34 @@ void erts_usage(void)
     int this_rel = this_rel_num();
     erts_fprintf(stderr, "Usage: %s [flags] [ -- [init_args] ]\n", progname(program));
     erts_fprintf(stderr, "The flags are:\n\n");
-    erts_fprintf(stderr, "-a size        suggested stack size in kilo words for threads\n");
-    erts_fprintf(stderr, "               in the async-thread pool, valid range is [%d-%d]\n",
+    erts_fprintf(stderr, "-a size        suggest stack size in kilo words for threads\n");
+    erts_fprintf(stderr, "               in the async-thread pool; valid range is [%d-%d]\n",
 		 ERTS_ASYNC_THREAD_MIN_STACK_SIZE,
 		 ERTS_ASYNC_THREAD_MAX_STACK_SIZE);
-#ifdef BEAMASM
-    erts_fprintf(stderr, "-asmdump       dump generated assembly code for each module loaded\n");
-#endif
-    erts_fprintf(stderr, "-A number      set number of threads in async thread pool,\n");
+    erts_fprintf(stderr, "-A number      set number of threads in async thread pool;\n");
     erts_fprintf(stderr, "               valid range is [1-%d]\n",
 		 ERTS_MAX_NO_OF_ASYNC_THREADS);
-    erts_fprintf(stderr, "-B[c|d|i]      c to have Ctrl-c interrupt the Erlang shell,\n");
-    erts_fprintf(stderr, "               d (or no extra option) to disable the break\n");
-    erts_fprintf(stderr, "               handler, i to ignore break signals\n");
+    erts_fprintf(stderr, "\n");
+
+    erts_fprintf(stderr, "-B[c|d|i]      set break (Ctrl-C) behavior; valid letters are:\n");
+    erts_fprintf(stderr, "                  'c' to have Ctrl-C interrupt the Erlang shell;\n");
+    erts_fprintf(stderr, "                  'd' (or no extra option) to disable the break handler;\n");
+    erts_fprintf(stderr, "                  'i' to ignore break signals\n");
+    erts_fprintf(stderr, "\n");
+
     erts_fprintf(stderr, "-c bool        enable or disable time correction\n");
     erts_fprintf(stderr, "-C mode        set time warp mode; valid modes are:\n");
-    erts_fprintf(stderr, "               no_time_warp|single_time_warp|multi_time_warp\n");
+    erts_fprintf(stderr, "               no_time_warp | single_time_warp | multi_time_warp\n");
+    erts_fprintf(stderr, "\n");
+
     erts_fprintf(stderr, "-d             don't write a crash dump for internally detected errors\n");
     erts_fprintf(stderr, "               (halt(String) will still produce a crash dump)\n");
     erts_fprintf(stderr, "-dcg           set the limit for the number of decentralized counter groups\n");
-    erts_fprintf(stderr, "-fn[u|a|l]     Control how filenames are interpreted\n");
+    erts_fprintf(stderr, "\n");
+
+    erts_fprintf(stderr, "-fn[u|a|l]     control how filenames are interpreted\n");
+    erts_fprintf(stderr, "\n");
+
     erts_fprintf(stderr, "-hms size      set minimum heap size in words (default %d)\n",
 	       H_DEFAULT_SIZE);
     erts_fprintf(stderr, "-hmbs size     set minimum binary virtual heap size in words (default %d)\n",
@@ -615,117 +623,135 @@ void erts_usage(void)
 	       H_DEFAULT_MAX_SIZE);
     erts_fprintf(stderr, "-hmaxk bool    enable or disable kill at max heap size (default true)\n");
     erts_fprintf(stderr, "-hmaxel bool   enable or disable error_logger report at max heap size (default true)\n");
-    erts_fprintf(stderr, "-hpds size     initial process dictionary size (default %d)\n",
+    erts_fprintf(stderr, "-hpds size     set initial process dictionary size (default %d)\n",
 	       erts_pd_initial_size);
-    erts_fprintf(stderr, "-hmqd  val     set default message queue data flag for processes,\n");
+    erts_fprintf(stderr, "-hmqd  val     set default message queue data flag for processes;\n");
     erts_fprintf(stderr, "               valid values are: off_heap | on_heap\n");
-    erts_fprintf(stderr, "-IOp number    set number of pollsets to be used to poll for I/O,\n");
-    erts_fprintf(stderr, "               This value has to be equal or smaller than the\n");
-    erts_fprintf(stderr, "               number of poll threads. If the current platform\n");
-    erts_fprintf(stderr, "               does not support concurrent update of pollsets\n");
-    erts_fprintf(stderr, "               this value is ignored.\n");
+    erts_fprintf(stderr, "\n");
+
+    erts_fprintf(stderr, "-IOp number    set number of pollsets to be used to poll for I/O\n");
+    erts_fprintf(stderr, "               (this value must be equal or smaller than the\n");
+    erts_fprintf(stderr, "               number of poll threads; ignored if the current platform\n");
+    erts_fprintf(stderr, "               does not support concurrent update of pollsets)\n");
     erts_fprintf(stderr, "-IOt number    set number of threads to be used to poll for I/O\n");
     erts_fprintf(stderr, "-IOPp number   set number of pollsets as a percentage of the\n");
-    erts_fprintf(stderr, "               number of poll threads.");
+    erts_fprintf(stderr, "               number of poll threads\n");
     erts_fprintf(stderr, "-IOPt number   set number of threads to be used to poll for I/O\n");
-    erts_fprintf(stderr, "               as a percentage of the number of schedulers.");
+    erts_fprintf(stderr, "               as a percentage of the number of schedulers\n");
     erts_fprintf(stderr, "-i module      set the boot module (default init)\n");
-    erts_fprintf(stderr, "-n[s|a|d]      Control behavior of signals to ports\n");
-    erts_fprintf(stderr, "               Note that this flag is deprecated!\n");
-    erts_fprintf(stderr, "-M<X> <Y>      memory allocator switches,\n");
-    erts_fprintf(stderr, "               see the erts_alloc(3) documentation for more info.\n");
-    erts_fprintf(stderr, "-pc <set>      Control what characters are considered printable (default latin1)\n");
-    erts_fprintf(stderr, "-P number      set maximum number of processes on this node,\n");
+    erts_fprintf(stderr, "\n");
+
+#ifdef BEAMASM
+    erts_fprintf(stderr, "-JDdump bool   enable or disable dumping of generated assembly code for each module loaded\n");
+    erts_fprintf(stderr, "-JDperf bool   enable or disable support for perf on Linux\n");
+    erts_fprintf(stderr, "\n");
+#endif
+
+    erts_fprintf(stderr, "-n[s|a|d]      control behavior of signals to ports (this flag is deprecated)\n");
+    erts_fprintf(stderr, "\n");
+
+    erts_fprintf(stderr, "-M<X> <Y>      set memory allocator switches;\n");
+    erts_fprintf(stderr, "               see the erts_alloc(3) documentation for more info\n");
+    erts_fprintf(stderr, "\n");
+
+    erts_fprintf(stderr, "-pc <set>      control what characters are considered printable (default latin1)\n");
+    erts_fprintf(stderr, "-P number      set maximum number of processes on this node;\n");
     erts_fprintf(stderr, "               valid range is [%d-%d]\n",
 		 ERTS_MIN_PROCESSES, ERTS_MAX_PROCESSES);
-    erts_fprintf(stderr, "-Q number      set maximum number of ports on this node,\n");
+    erts_fprintf(stderr, "\n");
+
+    erts_fprintf(stderr, "-Q number      set maximum number of ports on this node;\n");
     erts_fprintf(stderr, "               valid range is [%d-%d]\n",
 		 ERTS_MIN_PORTS, ERTS_MAX_PORTS);
-    erts_fprintf(stderr, "-R number      set compatibility release number,\n");
+    erts_fprintf(stderr, "\n");
+
+    erts_fprintf(stderr, "-R number      set compatibility release number;\n");
     erts_fprintf(stderr, "               valid range [%d-%d]\n",
 		 this_rel-2, this_rel);
     erts_fprintf(stderr, "-r             force ets memory block to be moved on realloc\n");
     erts_fprintf(stderr, "-rg amount     set reader groups limit\n");
-    erts_fprintf(stderr, "-sbt type      set scheduler bind type, valid types are:\n");
-    erts_fprintf(stderr, "-stbt type     u|ns|ts|ps|s|nnts|nnps|tnnps|db\n");
-    erts_fprintf(stderr, "-sbwt val      set scheduler busy wait threshold, valid values are:\n");
-    erts_fprintf(stderr, "               none|very_short|short|medium|long|very_long.\n");
-    erts_fprintf(stderr, "-sbwtdcpu val  set dirty CPU scheduler busy wait threshold, valid values are:\n");
-    erts_fprintf(stderr, "               none|very_short|short|medium|long|very_long.\n");
-    erts_fprintf(stderr, "-sbwtdio val   set dirty IO scheduler busy wait threshold, valid values are:\n");
-    erts_fprintf(stderr, "               none|very_short|short|medium|long|very_long.\n");
-    erts_fprintf(stderr, "-scl bool      enable/disable compaction of scheduler load,\n");
-    erts_fprintf(stderr, "               see the erl(1) documentation for more info.\n");
-    erts_fprintf(stderr, "-sct cput      set cpu topology,\n");
-    erts_fprintf(stderr, "               see the erl(1) documentation for more info.\n");
-    erts_fprintf(stderr, "-secio bool    enable/disable eager check I/O scheduling,\n");
-    erts_fprintf(stderr, "               see the erl(1) documentation for more info.\n");
+    erts_fprintf(stderr, "\n");
+
+    erts_fprintf(stderr, "-sbt type      set scheduler bind type; valid types are:\n");
+    erts_fprintf(stderr, "               u | ns | ts | ps | s | nnts | nnps| tnnps | db\n");
+    erts_fprintf(stderr, "-sbwt val      set scheduler busy wait threshold; valid values are:\n");
+    erts_fprintf(stderr, "               none | very_short | short | medium | long | very_long\n");
+    erts_fprintf(stderr, "-sbwtdcpu val  set dirty CPU scheduler busy wait threshold; valid values are:\n");
+    erts_fprintf(stderr, "               none | very_short | short | medium | long | very_long\n");
+    erts_fprintf(stderr, "-sbwtdio val   set dirty IO scheduler busy wait threshold; valid values are:\n");
+    erts_fprintf(stderr, "               none | very_short | short | medium | long | very_long\n");
+    erts_fprintf(stderr, "-scl bool      enable/disable compaction of scheduler load\n");
+    erts_fprintf(stderr, "-sct cput      set cpu topology\n");
+    erts_fprintf(stderr, "-secio bool    enable or disable eager check I/O scheduling\n");
 #if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT
-    erts_fprintf(stderr, "-sub bool      enable/disable scheduler utilization balancing,\n");
+    erts_fprintf(stderr, "-sub bool      enable or disable scheduler utilization balancing\n");
 #else
-    erts_fprintf(stderr, "-sub false     disable scheduler utilization balancing,\n");
+    erts_fprintf(stderr, "-sub false     disable scheduler utilization balancing\n");
 #endif
-    erts_fprintf(stderr, "               see the erl(1) documentation for more info.\n");
-    erts_fprintf(stderr, "-sws val       set scheduler wakeup strategy, valid values are:\n");
-    erts_fprintf(stderr, "               default|legacy.\n");
-    erts_fprintf(stderr, "-swct val      set scheduler wake cleanup threshold, valid values are:\n");
-    erts_fprintf(stderr, "               very_lazy|lazy|medium|eager|very_eager.\n");
-    erts_fprintf(stderr, "-swt val       set scheduler wakeup threshold, valid values are:\n");
-    erts_fprintf(stderr, "               very_low|low|medium|high|very_high.\n");
-    erts_fprintf(stderr, "-swtdcpu val   set dirty CPU scheduler wakeup threshold, valid values are:\n");
-    erts_fprintf(stderr, "               very_low|low|medium|high|very_high.\n");
-    erts_fprintf(stderr, "-swtdio val    set dirty IO scheduler wakeup threshold, valid values are:\n");
-    erts_fprintf(stderr, "               very_low|low|medium|high|very_high.\n");
-    erts_fprintf(stderr, "-sss size      suggested stack size in kilo words for scheduler threads,\n");
+    erts_fprintf(stderr, "-sws val       set scheduler wakeup strategy; valid values are:\n");
+    erts_fprintf(stderr, "               default | legacy\n");
+    erts_fprintf(stderr, "-swct val      set scheduler wake cleanup threshold; valid values are:\n");
+    erts_fprintf(stderr, "               very_lazy | lazy | medium | eager | very_eager\n");
+    erts_fprintf(stderr, "-swt val       set scheduler wakeup threshold; valid values are:\n");
+    erts_fprintf(stderr, "               very_low | low | medium | high | very_high\n");
+    erts_fprintf(stderr, "-swtdcpu val   set dirty CPU scheduler wakeup threshold; valid values are:\n");
+    erts_fprintf(stderr, "               very_low | low | medium | high | very_high\n");
+    erts_fprintf(stderr, "-swtdio val    set dirty IO scheduler wakeup threshold; valid values are:\n");
+    erts_fprintf(stderr, "               very_low | low | medium | high | very_high\n");
+    erts_fprintf(stderr, "-sss size      suggest stack size in kilo words for scheduler threads;\n");
     erts_fprintf(stderr, "               valid range is [%d-%d] (default %d)\n",
 		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
 		 ERTS_SCHED_THREAD_MAX_STACK_SIZE,
                  ERTS_DEFAULT_SCHED_STACK_SIZE);
-    erts_fprintf(stderr, "-sssdcpu size  suggested stack size in kilo words for dirty CPU scheduler\n");
-    erts_fprintf(stderr, "               threads, valid range is [%d-%d] (default %d)\n",
+    erts_fprintf(stderr, "-sssdcpu size  suggest stack size in kilo words for dirty CPU scheduler\n");
+    erts_fprintf(stderr, "               threads; valid range is [%d-%d] (default %d)\n",
 		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
 		 ERTS_SCHED_THREAD_MAX_STACK_SIZE,
                  ERTS_DEFAULT_DCPU_SCHED_STACK_SIZE);
-    erts_fprintf(stderr, "-sssdio size   suggested stack size in kilo words for dirty IO scheduler\n");
-    erts_fprintf(stderr, "               threads, valid range is [%d-%d] (default %d)\n",
+    erts_fprintf(stderr, "-sssdio size   suggest stack size in kilo words for dirty IO scheduler\n");
+    erts_fprintf(stderr, "               threads; valid range is [%d-%d] (default %d)\n",
 		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
 		 ERTS_SCHED_THREAD_MAX_STACK_SIZE,
                  ERTS_DEFAULT_DIO_SCHED_STACK_SIZE);
     erts_fprintf(stderr, "-spp Bool      set port parallelism scheduling hint\n");
     erts_fprintf(stderr, "-S n1:n2       set number of schedulers (n1), and number of\n");
-    erts_fprintf(stderr, "               schedulers online (n2), maximum for both\n");
+    erts_fprintf(stderr, "               schedulers online (n2); maximum for both\n");
     erts_fprintf(stderr, "               numbers is %d\n",
 		 ERTS_MAX_NO_OF_SCHEDULERS);
     erts_fprintf(stderr, "-SP p1:p2      specify schedulers (p1) and schedulers online (p2)\n");
     erts_fprintf(stderr, "               as percentages of logical processors configured and logical\n");
     erts_fprintf(stderr, "               processors available, respectively\n");
     erts_fprintf(stderr, "-SDcpu n1:n2   set number of dirty CPU schedulers (n1), and number of\n");
-    erts_fprintf(stderr, "               dirty CPU schedulers online (n2), valid range for both\n");
+    erts_fprintf(stderr, "               dirty CPU schedulers online (n2); valid range for both\n");
     erts_fprintf(stderr, "               numbers is [1-%d], and n2 must be less than or equal to n1\n",
 		 ERTS_MAX_NO_OF_DIRTY_CPU_SCHEDULERS);
     erts_fprintf(stderr, "-SDPcpu p1:p2  specify dirty CPU schedulers (p1) and dirty CPU schedulers\n");
     erts_fprintf(stderr, "               online (p2) as percentages of logical processors configured\n");
     erts_fprintf(stderr, "               and logical processors available, respectively\n");
-    erts_fprintf(stderr, "-SDio n        set number of dirty I/O schedulers, valid range is [1-%d]\n",
+    erts_fprintf(stderr, "-SDio n        set number of dirty I/O schedulers; valid range is [1-%d]\n",
 		 ERTS_MAX_NO_OF_DIRTY_IO_SCHEDULERS);
-    erts_fprintf(stderr, "-t size        set the maximum number of atoms the emulator can handle\n");
+    erts_fprintf(stderr, "-t size        set the maximum number of atoms the emulator can handle;\n");
     erts_fprintf(stderr, "               valid range is [%d-%d]\n",
 		 MIN_ATOM_TABLE_SIZE, MAX_ATOM_TABLE_SIZE);
-    erts_fprintf(stderr, "-T number      set modified timing level, valid range is [0-%d]\n",
+    erts_fprintf(stderr, "\n");
+
+    erts_fprintf(stderr, "-T number      set modified timing level; valid range is [0-%d]\n",
 		 ERTS_MODIFIED_TIMING_LEVELS-1);
+    erts_fprintf(stderr, "\n");
+
     erts_fprintf(stderr, "-V             print Erlang version\n");
     erts_fprintf(stderr, "-v             turn on chatty mode (GCs will be reported etc)\n");
-    erts_fprintf(stderr, "-W<i|w|e>      set error logger warnings mapping,\n");
+    erts_fprintf(stderr, "\n");
+
+    erts_fprintf(stderr, "-W<i|w|e>      set error logger warnings mapping;\n");
     erts_fprintf(stderr, "               see error_logger documentation for details\n");
-    erts_fprintf(stderr, "-zdbbl size    set the distribution buffer busy limit in kilobytes\n");
+    erts_fprintf(stderr, "\n");
+
+    erts_fprintf(stderr, "-zdbbl size    set the distribution buffer busy limit in kilobytes;\n");
     erts_fprintf(stderr, "               valid range is [1-%d]\n", INT_MAX/1024);
-    erts_fprintf(stderr, "-zdntgc time   set delayed node table gc in seconds\n");
-    erts_fprintf(stderr, "               valid values are infinity or intergers in the range [0-%d]\n",
+    erts_fprintf(stderr, "-zdntgc time   set delayed node table gc in seconds;\n");
+    erts_fprintf(stderr, "               valid values are infinity or integers in the range [0-%d]\n",
 		 ERTS_NODE_TAB_DELAY_GC_MAX);
-#if 0
-    erts_fprintf(stderr, "-zebwt  val    set ets busy wait threshold, valid values are:\n");
-    erts_fprintf(stderr, "               none|very_short|short|medium|long|very_long|extremely_long\n");
-#endif
     erts_fprintf(stderr, "\n");
     erts_fprintf(stderr, "Note that if the emulator is started with erlexec (typically\n");
     erts_fprintf(stderr, "from the erl script), these flags should be specified with +.\n");
@@ -1670,7 +1696,6 @@ erl_start(int argc, char **argv)
                 break;
             default:
                 erts_fprintf(stderr, "invalid JIT option %s\n", argv[i]);
-                erts_usage();
                 break;
             }
         }
