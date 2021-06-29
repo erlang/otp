@@ -48,6 +48,25 @@ static ERTS_INLINE void atomic_set_ptr_mb(void **pptr, void *val)
 }
 
 /*
+ * Atomic operations on byte pointers.
+ */
+
+static ERTS_INLINE byte *atomic_read_bytep_mb(byte **ptr)
+{
+    return (byte *) atomic_read_ptr_mb((void **) ptr);
+}
+
+static ERTS_INLINE void atomic_set_bytep_mb(byte **ptr, byte *val)
+{
+    atomic_set_ptr_mb((void **) ptr, (void *) val);
+}
+
+static ERTS_INLINE byte *atomic_cmpxchg_bytep_mb(byte **ptr, byte *new, byte *exp)
+{
+    return (byte *) atomic_cmpxchg_ptr_mb((void **) ptr, new, exp);
+}
+
+/*
  * Atom entry.
  * Internal view, including hash/index table details.
  */
@@ -80,21 +99,6 @@ static ERTS_INLINE AtomInt *atomic_read_atomintp_mb(AtomInt **ptr)
 /*
  * Lock-free operations on AtomInt lists sorted on key (transformed hvalue)
  */
-
-static ERTS_INLINE byte *atomic_read_bytep_mb(byte **ptr)
-{
-    return (byte *) atomic_read_ptr_mb((void **) ptr);
-}
-
-static ERTS_INLINE void atomic_set_bytep_mb(byte **ptr, byte *val)
-{
-    atomic_set_ptr_mb((void **) ptr, (void *) val);
-}
-
-static ERTS_INLINE byte *atomic_cmpxchg_bytep_mb(byte **ptr, byte *new, byte *exp)
-{
-    return (byte *) atomic_cmpxchg_ptr_mb((void **) ptr, new, exp);
-}
 
 /* Find atom by key and name in list sorted on increasing key.
  * Returns atom if found, NULL if not found.
