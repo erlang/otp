@@ -661,14 +661,16 @@ init_atom_table(void)
 	    ASSERT((a.atom.name[ix] & 0x80) == 0);
 	}
 #endif
-	ix = atom_index_put(&a);
+	/* am_ErtsSecretAtom should be entered in the index table but not the hash table */
+	if (i != atom_val(am_ErtsSecretAtom)) {
+	    ix = atom_index_put(&a);
+	} else {
+	    ix = atom_index_put_raw(atom_alloc(&a));
+	}
 	atom_text_pos -= a.atom.len;
 	atom_space -= a.atom.len;
 	atom_tab_int(ix)->atom.name = (byte*)erl_atom_names[i];
     }
-
-    /* Hide am_ErtsSecretAtom */
-    hash_erase(&erts_atom_table.htable, atom_tab_int(atom_val(am_ErtsSecretAtom)));
 }
 
 void
