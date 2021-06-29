@@ -507,12 +507,7 @@ static Uint atom_space;		/* Amount of atom text space used */
 static void atom_index_info(fmtfn_t to, void *arg)
 {
     AtomIndexTable *t = &erts_atom_table;
-    int lock = !ERTS_IS_CRASH_DUMPING;
-    if (lock)
-	atom_read_lock();
     atom_hash_info(to, arg, &t->htable);
-    if (lock)
-	atom_read_unlock();
     erts_print(to, arg, "=index_table:%s\n", t->htable.name);
     erts_print(to, arg, "size: %d\n", (int) erts_atomic_read_mb(&t->size));
     erts_print(to, arg, "limit: %d\n", t->limit);
@@ -525,14 +520,9 @@ static void atom_index_info(fmtfn_t to, void *arg)
 static int atom_index_table_sz(void)
 {
     AtomIndexTable *t = &erts_atom_table;
-    int lock = !ERTS_IS_CRASH_DUMPING;
     int hsz;
 
-    if (lock)
-	atom_read_lock();
     hsz = atom_hash_table_sz(&t->htable);
-    if (lock)
-	atom_read_unlock();
     return (sizeof(AtomIndexTable)
 	    - sizeof(Hash)
 	    + (int) erts_atomic_read_mb(&t->size) * sizeof(AtomInt *)
@@ -613,9 +603,7 @@ static int atom_index_put(AtomInt *tmpl)
     int ix;
 
     tmpl = atom_alloc(tmpl);
-    atom_write_lock();
     p = atom_hash_insert(&t->htable, tmpl);
-    atom_write_unlock();
 
     if (p)
 	erts_free(ERTS_ALC_T_ATOM, tmpl);
@@ -634,9 +622,7 @@ static int atom_index_get(AtomInt *tmpl)
     AtomIndexTable *t = &erts_atom_table;
     AtomInt *p;
 
-    atom_read_lock();
     p = atom_hash_find(&t->htable, tmpl);
-    atom_read_unlock();
     return p ? (int) erts_atomic_read_mb(&p->index) : -1;
 }
 
@@ -687,6 +673,7 @@ atom_text_alloc(int bytes)
 {
     byte *res;
 
+    atom_write_lock();
     ASSERT(bytes <= MAX_ATOM_SZ_LIMIT);
     if (atom_text_pos + bytes >= atom_text_end) {
 	more_atom_space();
@@ -694,6 +681,7 @@ atom_text_alloc(int bytes)
     res = atom_text_pos;
     atom_text_pos += bytes;
     atom_space    += bytes;
+    atom_write_unlock();
     return res;
 }
 
