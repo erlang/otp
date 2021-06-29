@@ -67,6 +67,102 @@ static ERTS_INLINE byte *atomic_cmpxchg_bytep_mb(byte **ptr, byte *new, byte *ex
 }
 
 /*
+ * Functions for allocating space for the text of atoms. We do not
+ * use malloc for each atom to prevent excessive memory fragmentation
+ */
+
+typedef struct _atom_text {
+    struct _atom_text* next;
+    unsigned char text[ATOM_TEXT_SIZE];
+} AtomText;
+
+static AtomText *atom_text_buf;			/* Current text buffer */
+static byte *atom_text_pos;			/* Position in current buffer */
+static erts_atomic_t atom_reserved_space;	/* Total amount of atom text space */
+static erts_atomic_t atom_used_space;		/* Amount of atom text space used */
+
+static ERTS_INLINE AtomText *atomic_read_atomtextp_mb(AtomText **ptr)
+{
+    return (AtomText *) atomic_read_ptr_mb((void **) ptr);
+}
+
+static ERTS_INLINE AtomText *atomic_cmpxchg_atomtextp_mb(AtomText **ptr, AtomText *new, AtomText *exp)
+{
+    return (AtomText *) atomic_cmpxchg_ptr_mb((void **) ptr, new, exp);
+}
+
+/*
+ * Allocate an atom text segment.
+ */
+static void more_atom_space(AtomText *text_buf)
+{
+    AtomText *ptr;
+
+    ptr = (AtomText *) erts_alloc(ERTS_ALC_T_ATOM_TXT, sizeof(AtomText));
+
+    ptr->next = text_buf;
+    if (atomic_cmpxchg_atomtextp_mb(&atom_text_buf, ptr, text_buf) != text_buf) {
+	erts_free(ERTS_ALC_T_ATOM_TXT, ptr);
+	return;
+    }
+    atomic_set_bytep_mb(&atom_text_pos, ptr->text);
+    erts_atomic_add_mb(&atom_reserved_space, sizeof(AtomText));
+
+    VERBOSE(DEBUG_SYSTEM,("Allocated %d atom space\n", ATOM_TEXT_SIZE));
+}
+
+/*
+ * Allocate string space within an atom text segment.
+ */
+static byte *atom_text_alloc(int bytes)
+{
+    byte *text_end;
+    byte *text_pos;
+    AtomText *text_buf;
+
+    ASSERT(bytes <= MAX_ATOM_SZ_LIMIT);
+
+    for (;;) {
+	/* read <atom_text_buf,atom_text_pos>, loop until there's enough room */
+	for (;;) {
+	    /* read <atom_text_buf,atom_text_pos>, loop until consistent */
+	    do {
+		text_buf = atomic_read_atomtextp_mb(&atom_text_buf);
+		text_pos = atomic_read_bytep_mb(&atom_text_pos);
+		text_end = text_buf->text + ATOM_TEXT_SIZE;
+	    } while (!(text_pos >= text_buf->text && text_pos <= text_end));
+	    /* if there's enough room we're done */
+	    if (bytes <= text_end - text_pos)
+		break;
+	    more_atom_space(text_buf);
+	}
+	/* reserve the room we need */
+	if (atomic_cmpxchg_bytep_mb(&atom_text_pos, text_pos + bytes, text_pos) == text_pos)
+	    break; /* success */
+	/* we raced with a concurrent update, so have to restart */
+    }
+    erts_atomic_add_mb(&atom_used_space, bytes);
+    return text_pos;
+}
+
+void erts_atom_get_text_space_sizes(Uint *reserved, Uint *used)
+{
+    Uint r0, r, u;
+
+    r = erts_atomic_read_mb(&atom_reserved_space);
+    do {
+	r0 = r;
+	u = erts_atomic_read_mb(&atom_used_space);
+	r = erts_atomic_read_mb(&atom_reserved_space);
+	/* the variables are strictly increasing hence no ABA problem */
+    } while (r != r0);
+    if (reserved)
+	*reserved = r;
+    if (used)
+	*used = u;
+}
+
+/*
  * Atom entry.
  * Internal view, including hash/index table details.
  */
@@ -355,8 +451,6 @@ static AtomInt *atom_hash_find(AtomHashTable *t, AtomInt *tmpl)
     return list_find(atomic_read_atomintp_mb(&dummy->next), tmpl);
 }
 
-static byte *atom_text_alloc(int bytes); /* forward */
-
 static AtomInt *atom_hash_insert(AtomHashTable *t, AtomInt *new)
 {
     Uint hvalue;
@@ -490,30 +584,6 @@ static AtomIndexTable erts_atom_table;	/* The index table */
 #ifdef ERTS_ATOM_PUT_OPS_STAT
 static erts_atomic_t atom_put_ops;
 #endif
-
-/* Functions for allocating space for the ext of atoms. We do not
- * use malloc for each atom to prevent excessive memory fragmentation
- */
-
-typedef struct _atom_text {
-    struct _atom_text* next;
-    unsigned char text[ATOM_TEXT_SIZE];
-} AtomText;
-
-static AtomText *atom_text_buf;			/* Current text buffer */
-static byte *atom_text_pos;			/* Position in current buffer */
-static erts_atomic_t atom_reserved_space;	/* Total amount of atom text space */
-static erts_atomic_t atom_used_space;		/* Amount of atom text space used */
-
-static ERTS_INLINE AtomText *atomic_read_atomtextp_mb(AtomText **ptr)
-{
-    return (AtomText *) atomic_read_ptr_mb((void **) ptr);
-}
-
-static ERTS_INLINE AtomText *atomic_cmpxchg_atomtextp_mb(AtomText **ptr, AtomText *new, AtomText *exp)
-{
-    return (AtomText *) atomic_cmpxchg_ptr_mb((void **) ptr, new, exp);
-}
 
 static void atom_index_info(fmtfn_t to, void *arg)
 {
@@ -653,62 +723,6 @@ void atom_info(fmtfn_t to, void *to_arg)
     erts_print(to, to_arg, "atom_put_ops: %ld\n",
 	       erts_atomic_read_nob(&atom_put_ops));
 #endif
-}
-
-/*
- * Allocate an atom text segment.
- */
-static void
-more_atom_space(AtomText *text_buf)
-{
-    AtomText *ptr;
-
-    ptr = (AtomText *) erts_alloc(ERTS_ALC_T_ATOM_TXT, sizeof(AtomText));
-
-    ptr->next = text_buf;
-    if (atomic_cmpxchg_atomtextp_mb(&atom_text_buf, ptr, text_buf) != text_buf) {
-	erts_free(ERTS_ALC_T_ATOM_TXT, ptr);
-	return;
-    }
-    atomic_set_bytep_mb(&atom_text_pos, ptr->text);
-    erts_atomic_add_mb(&atom_reserved_space, sizeof(AtomText));
-
-    VERBOSE(DEBUG_SYSTEM,("Allocated %d atom space\n", ATOM_TEXT_SIZE));
-}
-
-/*
- * Allocate string space within an atom text segment.
- */
-
-static byte *atom_text_alloc(int bytes)
-{
-    byte *text_end;
-    byte *text_pos;
-    AtomText *text_buf;
-
-    ASSERT(bytes <= MAX_ATOM_SZ_LIMIT);
-
-    for (;;) {
-	/* read <atom_text_buf,atom_text_pos>, loop until there's enough room */
-	for (;;) {
-	    /* read <atom_text_buf,atom_text_pos>, loop until consistent */
-	    do {
-		text_buf = atomic_read_atomtextp_mb(&atom_text_buf);
-		text_pos = atomic_read_bytep_mb(&atom_text_pos);
-		text_end = text_buf->text + ATOM_TEXT_SIZE;
-	    } while (!(text_pos >= text_buf->text && text_pos <= text_end));
-	    /* if there's enough room we're done */
-	    if (bytes <= text_end - text_pos)
-		break;
-	    more_atom_space(text_buf);
-	}
-	/* reserve the room we need */
-	if (atomic_cmpxchg_bytep_mb(&atom_text_pos, text_pos + bytes, text_pos) == text_pos)
-	    break; /* success */
-	/* we raced with a concurrent update, so have to restart */
-    }
-    erts_atomic_add_mb(&atom_used_space, bytes);
-    return text_pos;
 }
 
 /*
@@ -989,24 +1003,6 @@ erts_atom_get(const char *name, Uint len, ErtsAtomEncoding enc)
     i = atom_index_get(&a);
 
     return (i >= 0) ? make_atom(i) : THE_NON_VALUE;
-}
-
-void
-erts_atom_get_text_space_sizes(Uint *reserved, Uint *used)
-{
-    Uint r0, r, u;
-
-    r = erts_atomic_read_mb(&atom_reserved_space);
-    do {
-	r0 = r;
-	u = erts_atomic_read_mb(&atom_used_space);
-	r = erts_atomic_read_mb(&atom_reserved_space);
-	/* the variables are strictly increasing hence no ABA problem */
-    } while (r != r0);
-    if (reserved)
-	*reserved = r;
-    if (used)
-	*used = u;
 }
 
 static AtomInt *atom_tab_int(Uint i)
