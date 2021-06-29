@@ -480,13 +480,6 @@ typedef struct atom_index_table
 
 static AtomIndexTable erts_atom_table;	/* The index table */
 
-static erts_rwmtx_t atom_table_lock;
-
-#define atom_read_lock()	erts_rwmtx_rlock(&atom_table_lock)
-#define atom_read_unlock()	erts_rwmtx_runlock(&atom_table_lock)
-#define atom_write_lock()	erts_rwmtx_rwlock(&atom_table_lock)
-#define atom_write_unlock()	erts_rwmtx_rwunlock(&atom_table_lock)
-
 #if 0
 #define ERTS_ATOM_PUT_OPS_STAT
 #endif
@@ -689,7 +682,6 @@ static byte *atom_text_alloc(int bytes)
     byte *text_pos;
     AtomText *text_buf;
 
-    atom_write_lock();
     ASSERT(bytes <= MAX_ATOM_SZ_LIMIT);
 
     for (;;) {
@@ -712,7 +704,6 @@ static byte *atom_text_alloc(int bytes)
 	/* we raced with a concurrent update, so have to restart */
     }
     erts_atomic_add_mb(&atom_used_space, bytes);
-    atom_write_unlock();
     return text_pos;
 }
 
@@ -1000,10 +991,7 @@ void
 erts_atom_get_text_space_sizes(Uint *reserved, Uint *used)
 {
     Uint r0, r, u;
-    int lock = !ERTS_IS_CRASH_DUMPING;
 
-    if (lock)
-	atom_read_lock();
     r = erts_atomic_read_mb(&atom_reserved_space);
     do {
 	r0 = r;
@@ -1015,8 +1003,6 @@ erts_atom_get_text_space_sizes(Uint *reserved, Uint *used)
 	*reserved = r;
     if (used)
 	*used = u;
-    if (lock)
-	atom_read_unlock();
 }
 
 static AtomInt *atom_tab_int(Uint i)
@@ -1029,17 +1015,10 @@ init_atom_table(void)
 {
     int i;
     AtomInt a;
-    erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
-
-    rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
-    rwmtx_opt.lived = ERTS_RWMTX_LONG_LIVED;
 
 #ifdef ERTS_ATOM_PUT_OPS_STAT
     erts_atomic_init_nob(&atom_put_ops, 0);
 #endif
-
-    erts_rwmtx_init_opt(&atom_table_lock, &rwmtx_opt, "atom_tab", NIL,
-        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     atom_text_pos = NULL;
     erts_atomic_set_mb(&atom_reserved_space, 0);
