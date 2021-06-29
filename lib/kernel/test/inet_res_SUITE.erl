@@ -27,11 +27,12 @@
 -include("kernel_test_lib.hrl").
 
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
+-export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
+	 init_per_group/2, end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2
         ]).
--export([basic/1, resolve/1, edns0/1, txt_record/1, files_monitor/1,
+-export([basic/1, name_addr_and_cached/1, resolve/1,
+         edns0/1, txt_record/1, files_monitor/1,
 	 nxdomain_reply/1, last_ms_answer/1, intermediate_error/1,
          servfail_retry_timeout_default/1, servfail_retry_timeout_1000/1,
          label_compression_limit/1
@@ -71,7 +72,8 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [basic, resolve, edns0, txt_record, files_monitor,
+    [basic, resolve, name_addr_and_cached,
+     edns0, txt_record, files_monitor,
      nxdomain_reply, last_ms_answer,
      intermediate_error,
      servfail_retry_timeout_default, servfail_retry_timeout_1000,
@@ -123,13 +125,14 @@ end_per_group(_GroupName, Config) ->
 
 zone_dir(TC) ->
     case TC of
-	basic              -> otptest;
-	resolve            -> otptest;
-	edns0              -> otptest;
-	files_monitor      -> otptest;
-	nxdomain_reply     -> otptest;
-	last_ms_answer     -> otptest;
-        intermediate_error ->
+	basic                -> otptest;
+	name_addr_and_cached -> otptest;
+	resolve              -> otptest;
+	edns0                -> otptest;
+	files_monitor        -> otptest;
+	nxdomain_reply       -> otptest;
+	last_ms_answer       -> otptest;
+        intermediate_error   ->
             {internal,
              #{rcode => ?REFUSED}};
         servfail_retry_timeout_default ->
@@ -511,64 +514,337 @@ basic(Config) when is_list(Config) ->
     NS = ns(Config),
     Name = "ns.otptest",
     NameC = caseflip(Name),
-    IP = {127,0,0,254},
+    IP1 = {127,0,0,253},
+    IP2 = {127,0,0,254},
     %%
     %% nslookup
     {ok,Msg1} = inet_res:nslookup(Name, in, a, [NS]),
     ?P("nslookup with ~p: ~n      ~p", [Name, Msg1]),
-    [RR1] = inet_dns:msg(Msg1, anlist),
-    IP = inet_dns:rr(RR1, data),
+    [RR1, RR2] = lists:sort(inet_dns:msg(Msg1, anlist)),
+    IP1 = inet_dns:rr(RR1, data),
+    IP2 = inet_dns:rr(RR2, data),
     Bin1 = inet_dns:encode(Msg1),
     %%io:format("Bin1 = ~w~n", [Bin1]),
     {ok,Msg1} = inet_dns:decode(Bin1),
     %% Now with scrambled case
     {ok,Msg1b} = inet_res:nslookup(NameC, in, a, [NS]),
     ?P("nslookup with ~p: ~n      ~p", [NameC, Msg1b]),
-    [RR1b] = inet_dns:msg(Msg1b, anlist),
-    IP = inet_dns:rr(RR1b, data),
+    [RR1b, RR2b] = lists:sort(inet_dns:msg(Msg1b, anlist)),
+    IP1 = inet_dns:rr(RR1b, data),
+    IP2 = inet_dns:rr(RR2b, data),
     Bin1b = inet_dns:encode(Msg1b),
     %%io:format("Bin1b = ~w~n", [Bin1b]),
     {ok,Msg1b} = inet_dns:decode(Bin1b),
     true =
 	(tolower(inet_dns:rr(RR1, domain))
 	 =:= tolower(inet_dns:rr(RR1b, domain))),
+    true =
+	(tolower(inet_dns:rr(RR2, domain))
+	 =:= tolower(inet_dns:rr(RR2b, domain))),
     %%
     %% resolve
     {ok,Msg2} = inet_res:resolve(Name, in, a, [{nameservers,[NS]},verbose]),
     ?P("resolve with ~p: ~n      ~p", [Name, Msg2]),
-    [RR2] = inet_dns:msg(Msg2, anlist),
-    IP = inet_dns:rr(RR2, data),
+    [RR1c, RR2c] = lists:sort(inet_dns:msg(Msg2, anlist)),
+    IP1 = inet_dns:rr(RR1c, data),
+    IP2 = inet_dns:rr(RR2c, data),
     Bin2 = inet_dns:encode(Msg2),
     %%io:format("Bin2 = ~w~n", [Bin2]),
     {ok,Msg2} = inet_dns:decode(Bin2),
     %% Now with scrambled case
     {ok,Msg2b} = inet_res:resolve(NameC, in, a, [{nameservers,[NS]},verbose]),
     ?P("resolve with ~p: ~n      ~p", [NameC, Msg2b]),
-    [RR2b] = inet_dns:msg(Msg2b, anlist),
-    IP = inet_dns:rr(RR2b, data),
+    [RR1d, RR2d] = lists:sort(inet_dns:msg(Msg2b, anlist)),
+    IP1 = inet_dns:rr(RR1d, data),
+    IP2 = inet_dns:rr(RR2d, data),
     Bin2b = inet_dns:encode(Msg2b),
     %%io:format("Bin2b = ~w~n", [Bin2b]),
     {ok,Msg2b} = inet_dns:decode(Bin2b),
     true =
-	(tolower(inet_dns:rr(RR2, domain))
-	  =:= tolower(inet_dns:rr(RR2b, domain))),
+	(tolower(inet_dns:rr(RR1c, domain))
+	  =:= tolower(inet_dns:rr(RR1d, domain))),
+    true =
+	(tolower(inet_dns:rr(RR2c, domain))
+	  =:= tolower(inet_dns:rr(RR2d, domain))),
     %%
     %% lookup
     ?P("lookup"),
-    [IP] = inet_res:lookup(Name, in, a, [{nameservers,[NS]},verbose]),
-    [IP] = inet_res:lookup(NameC, in, a, [{nameservers,[NS]},verbose]),
+    [IP1, IP2] =
+        lists:sort(
+          inet_res:lookup(Name, in, a, [{nameservers,[NS]},verbose])),
+    [IP1, IP2] =
+        lists:sort(
+          inet_res:lookup(NameC, in, a, [{nameservers,[NS]},verbose])),
     %%
     %% gethostbyname
     ?P("gethostbyname"),
-    {ok,#hostent{h_addr_list=[IP]}} = inet_res:gethostbyname(Name),
-    {ok,#hostent{h_addr_list=[IP]}} = inet_res:gethostbyname(NameC),
+    {ok,#hostent{h_addr_list=IPs1}} = inet_res:gethostbyname(Name),
+    [IP1, IP2] = lists:sort(IPs1),
+    {ok,#hostent{h_addr_list=IPs2}} = inet_res:gethostbyname(NameC),
+    [IP1, IP2] = lists:sort(IPs2),
     %%
     %% getbyname
     ?P("getbyname"),
-    {ok,#hostent{h_addr_list=[IP]}} = inet_res:getbyname(Name, a),
-    {ok,#hostent{h_addr_list=[IP]}} = inet_res:getbyname(NameC, a),
+    {ok,#hostent{h_addr_list=IPs3}} = inet_res:getbyname(Name, a),
+    [IP1, IP2] = lists:sort(IPs3),
+    {ok,#hostent{h_addr_list=IPs4}} = inet_res:getbyname(NameC, a),
+    [IP1, IP2] = lists:sort(IPs4),
     ?P("end"),
     ok.
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Check that lookup of names and addresses works the same
+%% also when cached, by simply repeating the lookups
+
+name_addr_and_cached(Config) when is_list(Config) ->
+    ?P("begin"),
+
+%%%    dbg:tracer(),
+%%%    dbg:p(all, c),
+%%%    dbg:tpl(inet_res, do_query, cx),
+
+    NS = ns(Config),
+    Domain = "otptest",
+    Options =
+        [{lookup, [dns]},
+         {resolv_conf, []},
+         {hosts_file, []},
+         {domain, Domain},
+         {nameservers, [NS]},
+         {search, [Domain]},
+         {alt_nameservers, []},
+         {inet6, false},
+         {usevc, false},
+         {edns, 0}],
+    SavedOptions =
+        [{Option, inet_db:res_option(Option)}
+         || {Option, _Value} <- Options],
+    [inet_db:res_option(Option, Value)
+     || {Option, Value} <- Options],
+    try
+        ?P("first pass"),
+        %% Flip character case randomly
+        name_addr(Domain, fun caseflip/1),
+        %%
+        ?P("second pass"),
+        %% Use only character upper case,
+        %% should get identical results from the cache
+        name_addr(Domain, fun toupper/1)
+    after
+        [inet_db:res_option(Option, Value)
+         || {Option, Value} <- SavedOptions]
+    end,
+    ?P("done"),
+    ok.
+
+name_addr(Domain, CFlip) ->
+%%    RDomain4 = "0.0.127.in-addr.arpa",
+%%    RDomain6 = "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa",
+    H4 =
+        #hostent{
+           h_addrtype = inet,
+           h_length = 4},
+    H6 =
+        #hostent{
+           h_addrtype = inet6,
+           h_length = 16},
+    H_mx              = CFlip("mx"),
+    H_mx_             = CFlip("mx."),
+    IP4_mx            = {127,0,0,10},
+    %%
+    H_resolve         = CFlip("resolve"),
+    H_resolve_        = CFlip("resolve."),
+    H_cname_resolve   = CFlip("cname.resolve"),
+    H_cname_resolve_  = CFlip("cname.resolve."),
+    %%
+    IP4_resolve       = {127,0,0,28},
+    IP6_resolve       = {0,0,0,0,0,0,127 bsl 8,28},
+    IP64_resolve      = {0,0,0,0,0,16#ffff,127 bsl 8,28},
+    %%
+    H_ns              = CFlip("ns"),
+    H_ns_             = CFlip("ns."),
+    IP4_ns_1          = {127,0,0,253},
+    IP4_ns_2          = {127,0,0,254},
+    IP6_ns_1          = {0,0,0,0,0,0,127 bsl 8,253},
+    IP6_ns_2          = {0,0,0,0,0,0,127 bsl 8,254},
+    IP64_ns_1         = {0,0,0,0,0,16#ffff,127 bsl 8,253},
+    IP64_ns_2         = {0,0,0,0,0,16#ffff,127 bsl 8,254},
+    Lookups =
+        %% The search list is [Domain] so a lookup of a short
+        %% name should return the fully qualified name with
+        %% Domain appended.
+        %%
+        %% Lookup results should have the same character case
+        %% as the query.  Both for short (search) lookups and
+        %% for full name lookups.
+        %%
+        %% Lookup via a CNAME record should return the
+        %% result as stored in DNS but the CNAME should be
+        %% returned as an alias with the query character case
+        %% preserved.
+        %%
+        %% Address lookups (reverse/PTR lookups) can only
+        %% return the one address we looked up and the
+        %% fully qualified name as in DNS, and no aliases.
+        %%
+        %% IPv6 address lookups in ::ffff.A.B.C.D
+        %% (IPv4-compatible IPv6 addresses) should be
+        %% internally done as IPv4 lookups by the client,
+        %% without the caller noticing.
+        %%
+        [{{H_mx, inet}, fun norm/1, ?LINE,
+          H4#hostent{
+            h_name = H_mx++[$.|Domain],
+            h_addr_list = [IP4_mx]}},
+         {{H_mx_++Domain, inet}, fun norm/1, ?LINE,
+          H4#hostent{
+            h_name = H_mx_++Domain,
+            h_addr_list = [IP4_mx]}},
+         {{H_resolve, inet}, fun norm/1, ?LINE,
+          H4#hostent{
+            h_name = H_resolve++[$.|Domain],
+            h_addr_list = [IP4_resolve]}},
+         {{H_resolve_++Domain, inet}, fun norm/1, ?LINE,
+          H4#hostent{
+            h_name = H_resolve_++Domain,
+            h_addr_list = [IP4_resolve]}},
+         {{H_cname_resolve, inet}, fun lower_h_name/1, ?LINE,
+          H4#hostent{
+            h_name = "resolve."++Domain,
+            h_aliases = [H_cname_resolve++[$.|Domain]],
+            h_addr_list = [IP4_resolve]}},
+         {{H_cname_resolve_++Domain, inet}, fun lower_h_name/1, ?LINE,
+          H4#hostent{
+            h_name = "resolve."++Domain,
+            h_aliases = [H_cname_resolve_++Domain],
+            h_addr_list = [IP4_resolve]}},
+         %%
+         {{H_ns, inet}, fun norm/1, ?LINE,
+          H4#hostent{
+            h_name = H_ns++[$.|Domain],
+            h_addr_list = [IP4_ns_1,IP4_ns_2]}},
+         {{H_ns_++Domain, inet}, fun norm/1, ?LINE,
+          H4#hostent{
+            h_name = H_ns_++Domain,
+            h_addr_list = [IP4_ns_1,IP4_ns_2]}},
+         %%
+         {IP4_ns_2, fun norm/1, ?LINE,
+          H4#hostent{
+            h_name = "ns."++Domain,
+            h_addr_list = [IP4_ns_2]}},
+         {IP4_ns_1, fun norm/1, ?LINE,
+          H4#hostent{
+            h_name = "ns."++Domain,
+            h_addr_list = [IP4_ns_1]}},
+         {IP4_mx, fun norm/1, ?LINE,
+          H4#hostent{
+            h_name = "mx."++Domain,
+            h_addr_list = [IP4_mx]}},
+         {IP4_mx, fun norm/1, ?LINE,
+          H4#hostent{
+            h_name = "mx."++Domain,
+            h_addr_list = [IP4_mx]}},
+         %%
+         %%
+         %%
+         {{H_resolve_++Domain, inet6}, fun norm/1, ?LINE,
+          H6#hostent{
+            h_name = H_resolve_++Domain,
+            h_addr_list = [IP6_resolve]}},
+         {{H_resolve, inet6}, fun norm/1, ?LINE,
+          H6#hostent{
+            h_name = H_resolve++[$.|Domain],
+            h_addr_list = [IP6_resolve]}},
+         {{H_cname_resolve, inet6}, fun lower_h_name/1, ?LINE,
+          H6#hostent{
+            h_name = "resolve."++Domain,
+            h_aliases = [H_cname_resolve++[$.|Domain]],
+            h_addr_list = [IP6_resolve]}},
+         {{H_cname_resolve_++Domain, inet6}, fun lower_h_name/1, ?LINE,
+          H6#hostent{
+            h_name = "resolve."++Domain,
+            h_aliases = [H_cname_resolve_++Domain],
+            h_addr_list = [IP6_resolve]}},
+         {IP6_resolve, fun norm/1, ?LINE,
+          H6#hostent{
+            h_name = "resolve."++Domain,
+            h_addr_list = [IP6_resolve]}},
+         {IP64_resolve, fun norm/1, ?LINE,
+          H6#hostent{
+            h_name = "resolve."++Domain,
+            h_addr_list = [IP64_resolve]}},
+         %%
+         {{H_ns, inet6}, fun norm/1, ?LINE,
+          H6#hostent{
+            h_name = H_ns++[$.|Domain],
+            h_addr_list =
+                [IP6_ns_1,
+                 IP6_ns_2]}},
+         {{H_ns_++Domain, inet6}, fun norm/1, ?LINE,
+          H6#hostent{
+            h_name = H_ns_++Domain,
+            h_addr_list =
+                [IP6_ns_1,
+                 IP6_ns_2]}},
+         {IP6_ns_1, fun norm/1, ?LINE,
+          H6#hostent{
+            h_name = "ns."++Domain,
+            h_addr_list = [IP6_ns_1]}},
+         {IP6_ns_2, fun norm/1, ?LINE,
+          H6#hostent{
+            h_name = "ns."++Domain,
+            h_addr_list = [IP6_ns_2]}},
+         {IP64_ns_1, fun norm/1, ?LINE,
+          H6#hostent{
+            h_name = "ns."++Domain,
+            h_addr_list = [IP64_ns_1]}},
+         {IP64_ns_2, fun norm/1, ?LINE,
+          H6#hostent{
+            h_name = "ns."++Domain,
+            h_addr_list = [IP64_ns_2]}}
+         %%
+         %%
+         %%
+        ],
+    Results =
+        [case Target of
+             {H, T} ->
+                 inet_res:gethostbyname(H, T);
+             Addr ->
+                 inet_res:gethostbyaddr(Addr)
+         end || {Target, _TFun, _Line, _HE} <- Lookups],
+    ?P("inet_cache: ~p~n", [ets:tab2list(inet_cache)]),
+    [] = merge_results(Lookups, Results),
+    ok.
+
+lower_h_name(#hostent{h_name = HName} = HE) ->
+    norm(HE#hostent{h_name = tolower(HName)}).
+
+%%%lower_h_aliases(#hostent{h_aliases = HAliases} = HE) ->
+%%%    HE#hostent{
+%%%      h_aliases = [tolower(HAlias) || HAlias <- HAliases]}.
+
+norm(#hostent{h_addr_list = Addrs} = HE) ->
+    HE#hostent{h_addr_list = lists:sort(Addrs)}.
+
+merge_results([], []) ->
+    [];
+merge_results([{H_T, TFun, Line, HE} | Lookups], [Result | Results]) ->
+    case
+        case Result of
+            {ok, ResultHE} ->
+                {ok, TFun(ResultHE)};
+            _ ->
+                Result
+        end
+    of
+        {ok, HE} ->
+            merge_results(Lookups, Results);
+        Other ->
+            [{{Line, H_T, HE}, Other} | merge_results(Lookups, Results)]
+    end.
 
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1131,40 +1407,51 @@ timestamp() ->
     erlang:monotonic_time(milli_seconds).
 
 
-%% Case flip helper
+%% Case flip helper, randomly flips the case of about every second [a-zA-Z]
 
-caseflip([C|Cs]) when is_integer(C), $a =< C, C =< $z ->
-    [(C - $a + $A)|caseflip_skip(Cs)];
-caseflip([C|Cs]) when is_integer(C), $A =< C, C =< $Z ->
-    [(C - $A + $a)|caseflip_skip(Cs)];
-caseflip([C|Cs]) ->
-    [C|caseflip(Cs)];
+-compile({inline, [caseflip/3]}).
+
+caseflip([C | Cs]) when is_integer(C), $a =< C, C =< $z ->
+    caseflip(Cs, C, $a - $A);
+caseflip([C | Cs]) when is_integer(C), $A =< C, C =< $Z ->
+    caseflip(Cs, C, $A - $a);
+caseflip([C | Cs]) ->
+    [C | caseflip(Cs)];
 caseflip([]) ->
     [].
-
-caseflip_skip([C|Cs]) when is_integer(C), $a =< C, C =< $z ->
-    [C|caseflip(Cs)];
-caseflip_skip([C|Cs]) when is_integer(C), $A =< C, C =< $Z ->
-    [C|caseflip(Cs)];
-caseflip_skip([C|Cs]) ->
-    [C|caseflip_skip(Cs)];
-caseflip_skip([]) ->
-    [].
-
-tolower_email([$.|Cs]) ->
-    [$.|tolower(Cs)];
-tolower_email([C|Cs]) ->
-    [C|tolower_email(Cs)].
-
-%% Case fold to lower case according to RFC 4343
 %%
-tolower([C|Cs]) when is_integer(C) ->
+caseflip(Cs, C, Diff) ->
+    [case 0.5 =< rand:uniform() of
+         true ->
+             C - Diff;
+         false ->
+             C
+     end | caseflip(Cs)].
+
+
+tolower_email([$. | Cs]) ->
+    [$. | tolower(Cs)];
+tolower_email([C | Cs]) ->
+    [C | tolower_email(Cs)].
+
+%% Case fold according to RFC 4343
+%%
+tolower([C | Cs]) when is_integer(C) ->
     if  $A =< C, C =< $Z ->
-	    [(C - $A + $a)|tolower(Cs)];
+	    [(C - $A + $a) | tolower(Cs)];
 	true ->
-	    [C|tolower(Cs)]
+	    [C | tolower(Cs)]
     end;
 tolower([]) ->
+    [].
+
+toupper([C | Cs]) when is_integer(C) ->
+    if  $a =< C, C =< $z ->
+	    [(C - $a + $A) | toupper(Cs)];
+	true ->
+	    [C | toupper(Cs)]
+    end;
+toupper([]) ->
     [].
 
 -compile({inline,[ok/1]}).
