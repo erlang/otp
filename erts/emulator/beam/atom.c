@@ -675,7 +675,37 @@ static int atom_index_put_raw(AtomInt *p)
     return ix;
 }
 
-static AtomInt *atom_alloc(AtomInt *); /* forward */
+static AtomInt *atom_alloc(AtomInt *tmpl)
+{
+    AtomInt *obj = (AtomInt *) erts_alloc(ERTS_ALC_T_ATOM, sizeof(AtomInt));
+
+    obj->hvalue = tmpl->hvalue; /* precomputed */
+    obj->atom.name = tmpl->atom.name; /* name is reallocated by atom_hash_insert() */
+    obj->atom.len = tmpl->atom.len;
+    obj->atom.latin1_chars = tmpl->atom.latin1_chars;
+    erts_atomic_set_mb(&obj->index, -1);
+
+    /*
+     * Precompute ordinal value of first 3 bytes + 7 bits.
+     * This is used by erl_utils.h:erts_cmp_atoms().
+     * We cannot use the full 32 bits of the first 4 bytes,
+     * since we use the sign of the difference between two
+     * ordinal values to represent their relative order.
+     */
+    {
+	unsigned char c[4];
+	int i;
+	int j;
+
+	j = (tmpl->atom.len < 4) ? tmpl->atom.len : 4;
+	for(i = 0; i < j; ++i)
+	    c[i] = tmpl->atom.name[i];
+	for(; i < 4; ++i)
+	    c[i] = '\0';
+	obj->atom.ord0 = (c[0] << 23) + (c[1] << 15) + (c[2] << 7) + (c[3] >> 1);
+    }
+    return obj;
+}
 
 static int atom_index_put(AtomInt *tmpl)
 {
@@ -755,38 +785,6 @@ atom_hash(AtomInt* obj)
 	}
     }
     return h;
-}
-
-static AtomInt *atom_alloc(AtomInt *tmpl)
-{
-    AtomInt *obj = (AtomInt *) erts_alloc(ERTS_ALC_T_ATOM, sizeof(AtomInt));
-
-    obj->hvalue = tmpl->hvalue; /* precomputed */
-    obj->atom.name = tmpl->atom.name; /* name is reallocated by atom_hash_insert() */
-    obj->atom.len = tmpl->atom.len;
-    obj->atom.latin1_chars = tmpl->atom.latin1_chars;
-    erts_atomic_set_mb(&obj->index, -1);
-
-    /*
-     * Precompute ordinal value of first 3 bytes + 7 bits.
-     * This is used by erl_utils.h:erts_cmp_atoms().
-     * We cannot use the full 32 bits of the first 4 bytes,
-     * since we use the sign of the difference between two
-     * ordinal values to represent their relative order.
-     */
-    {
-	unsigned char c[4];
-	int i;
-	int j;
-
-	j = (tmpl->atom.len < 4) ? tmpl->atom.len : 4;
-	for(i = 0; i < j; ++i)
-	    c[i] = tmpl->atom.name[i];
-	for(; i < 4; ++i)
-	    c[i] = '\0';
-	obj->atom.ord0 = (c[0] << 23) + (c[1] << 15) + (c[2] << 7) + (c[3] >> 1);
-    }
-    return obj;
 }
 
 static void latin1_to_utf8(byte* conv_buf, Uint buf_sz,
