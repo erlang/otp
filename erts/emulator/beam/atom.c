@@ -23,14 +23,10 @@
 #endif
 
 #include "sys.h"
-#include "erl_sys_driver.h"
 #include "erl_vm.h"
 #include "global.h"
-#include "hash.h"
 #include "atom.h"
 
-
-#define ATOM_SIZE  3000
 
 /*
  * Atomic operations on generic pointers.
@@ -41,14 +37,28 @@ static ERTS_INLINE void *atomic_cmpxchg_ptr_mb(void **pptr, void *new, void *exp
     return (void *) erts_atomic_cmpxchg_mb((erts_atomic_t *) pptr, (erts_aint_t) new, (erts_aint_t) exp);
 }
 
+static ERTS_INLINE void *atomic_read_ptr_mb(void **pptr)
+{
+    return (void *) erts_atomic_read_mb((erts_atomic_t *) pptr);
+}
+
+static ERTS_INLINE void atomic_set_ptr_mb(void **pptr, void *val)
+{
+    erts_atomic_set_mb((erts_atomic_t *) pptr, (erts_aint_t) val);
+}
+
 /*
  * Atom entry.
  * Internal view, including hash/index table details.
  */
 
+typedef uint32_t sokey_t;	/* split-ordered list key, must have known width */
+
 typedef struct atom_int {
-    HashBucket bucket;		/* MUST BE LOCATED AT TOP OF STRUCT!!! */
+    struct atom_int *next;
+    sokey_t key;
     erts_atomic_t index;
+    UWord hvalue;
     Atom atom;			/* this is what client code gets to see */
 } AtomInt;
 
@@ -62,13 +72,397 @@ static ERTS_INLINE AtomInt *atomic_cmpxchg_atomintp_mb(AtomInt **ptr, AtomInt *n
     return (AtomInt *) atomic_cmpxchg_ptr_mb((void **) ptr, new, exp);
 }
 
+static ERTS_INLINE AtomInt *atomic_read_atomintp_mb(AtomInt **ptr)
+{
+    return (AtomInt *) atomic_read_ptr_mb((void **) ptr);
+}
+
+/*
+ * Lock-free operations on AtomInt lists sorted on key (transformed hvalue)
+ */
+
+static ERTS_INLINE byte *atomic_read_bytep_mb(byte **ptr)
+{
+    return (byte *) atomic_read_ptr_mb((void **) ptr);
+}
+
+static ERTS_INLINE void atomic_set_bytep_mb(byte **ptr, byte *val)
+{
+    atomic_set_ptr_mb((void **) ptr, (void *) val);
+}
+
+/* Find atom by key and name in list sorted on increasing key.
+ * Returns atom if found, NULL if not found.
+ */
+static AtomInt *list_find(AtomInt *cur, AtomInt *tmpl)
+{
+    while (cur) {
+	if (cur->key == tmpl->key &&
+	    cur->atom.len == tmpl->atom.len &&
+	    sys_memcmp(atomic_read_bytep_mb(&cur->atom.name), tmpl->atom.name, tmpl->atom.len) == 0) /* found */
+	    return cur;
+	if (cur->key > tmpl->key) /* key not in list */
+	    break;
+	/* cur->key <= tmpl->key, keep looking */
+	cur = atomic_read_atomintp_mb(&cur->next);
+    }
+    return NULL;
+}
+
+/* Insert new atom in list sorted on increasing key.
+ * If another atom with the same key already is present, returns
+ * that other atom, otherwise NULL signalling successful insertion.
+ */
+static AtomInt *list_insert(AtomInt **head, AtomInt *new)
+{
+    AtomInt **prev;
+    AtomInt *cur;
+    sokey_t key;
+
+    key = new->key;
+    for (;;) {
+	prev = head;
+	for (;;) {
+	    cur = atomic_read_atomintp_mb(prev);
+	    if (!cur)			/* end of list, we insert here */
+		break;
+	    if (cur->key == key &&
+		cur->atom.len == new->atom.len &&
+		sys_memcmp(atomic_read_bytep_mb(&cur->atom.name), new->atom.name, new->atom.len) == 0) /* already there, return other */
+		return cur;
+	    if (cur->key > key) /* key not in list, we insert here */
+		break;
+	    /* cur->key <= key, keep looking */
+	    prev = &cur->next;
+	}
+	new->next = cur;
+	if (atomic_cmpxchg_atomintp_mb(prev, new, cur) == cur)
+	    return NULL;
+	/* someone concurrently updated *prev, retry */
+    }
+}
+
+static ERTS_INLINE int key_is_regular(sokey_t key)
+{
+    return (key & 1) != 0; /* see so_regularkey() */
+}
+
+/* Compute the length of a bucket.
+ * Stops upon finding a dummy node, which implies a different bucket.
+ */
+static int list_length(AtomInt *cur)
+{
+    int len;
+
+    len = 0;
+    while (cur && key_is_regular(cur->key)) {
+	++len;
+	cur = atomic_read_atomintp_mb(&cur->next);
+    }
+    return len;
+}
+
+/*
+ * Lock-free Atom Hash Table using Split-Ordered Lists, based on:
+ *
+ * Ori Shalev and Nir Shavit, "Split-Ordered Lists: Lock-Free Extensible
+ * Hash Tables", Journal of the ACM, Vol. 53, No. 3, May 2006, pp. 379--405.
+ */
+
+typedef struct {
+    const char *name;		/* Table name (static string, for debugging) */
+    erts_atomic_t size;		/* Number of buckets, always a power of 2 */
+    erts_atomic_t nrobjs;	/* Number of objects in table */
+    erts_atomic_t grow_limit;	/* Expand when nrobjs > grow_limit */
+    AtomInt **seg_table;	/* Array of segments of dummy objects */
+} AtomHashTable;
+
+#define ATOM_HASH_PAGE_SHIFT	10
+#define ATOM_HASH_PAGE_SIZE	(1 << ATOM_HASH_PAGE_SHIFT)
+#define ATOM_HASH_PAGE_MASK	((1 << ATOM_HASH_PAGE_SHIFT) - 1)
+
+/* reverse the bits in a 32-bit word */
+static uint32_t reverse(uint32_t w)
+{
+    w = ((w & 0x0000FFFF) << 16) |  (w >> 16);
+    w = ((w & 0x00FF00FF) << 8)  | ((w >> 8) & 0x00FF00FF);
+    w = ((w & 0x0F0F0F0F) << 4)  | ((w >> 4) & 0x0F0F0F0F);
+    w = ((w & 0x33333333) << 2)  | ((w >> 2) & 0x33333333);
+    w = ((w & 0x55555555) << 1)  | ((w >> 1) & 0x55555555);
+    return w;
+}
+
+static sokey_t so_dummykey(sokey_t key)
+{
+    return reverse(key);
+}
+
+static sokey_t so_regularkey(sokey_t key)
+{
+    return reverse(key | (1U << 31));
+}
+
+/* given a bucket b = p + (1 << i), where p < (1 << i) and i < 32, return p */
+static uint32_t bucket_parent(uint32_t bucket)
+{
+    uint32_t mask;
+
+    /* given bucket 0...01x...x
+       compute mask 0...011...1 */
+    mask = bucket;
+    mask |= (mask >> 1);
+    mask |= (mask >> 2);
+    mask |= (mask >> 4);
+    mask |= (mask >> 8);
+    mask |= (mask >> 16);
+
+    /* now clear highest set bit */
+    return bucket & (mask >> 1);
+}
+
+/*
+ * Every bucket neeeds a dummy element, so we make the segments
+ * arrays of elements (AtomInt:s) not pointers to elements;
+ * this saves one level of indirection when inspecting a bucket.
+ *
+ * To distinguish an uninitialized from an initialized dummy, we
+ * place a marker in its index field to indicate its state.
+ */
+
+#define ATOM_HASH_INDEX_UNINITIALIZED	(-1)
+#define ATOM_HASH_INDEX_INITIALIZED	(-2)
+
+static ERTS_INLINE void atom_hash_mark_dummy_uninitialized(AtomInt *dummy)
+{
+    erts_atomic_set_mb(&dummy->index, ATOM_HASH_INDEX_UNINITIALIZED);
+}
+
+static ERTS_INLINE void atom_hash_mark_dummy_initialized(AtomInt *dummy)
+{
+    erts_atomic_set_mb(&dummy->index, ATOM_HASH_INDEX_INITIALIZED);
+}
+
+static ERTS_INLINE int atom_hash_dummy_is_uninitialized(AtomInt *dummy)
+{
+    return erts_atomic_read_mb(&dummy->index) == ATOM_HASH_INDEX_UNINITIALIZED;
+}
+
+static AtomInt *atom_hash_new_segment(void)
+{
+    Uint sz;
+    AtomInt *segment;
+    int i;
+
+    sz = ATOM_HASH_PAGE_SIZE * sizeof(AtomInt);
+    segment = erts_alloc(ERTS_ALC_T_ATOM_TABLE, sz);
+    memzero(segment, sz);
+
+    for (i = 0; i < ATOM_HASH_PAGE_SIZE; ++i)
+	atom_hash_mark_dummy_uninitialized(&segment[i]);
+
+    return segment;
+}
+
+static ERTS_INLINE Uint atom_hash_grow_limit(Uint size)
+{
+    /* This cannot overflow since size is bounded by the maximum number
+       of atoms, which is (UINT_MAX >> 6) [_TAG_IMMED2_SIZE == 6]. */
+    return (8 * size) / 5;	/* grow at 160% load */
+}
+
+static void atom_hash_init(AtomHashTable *t, const char *name)
+{
+    int limit = erts_atom_table_size;
+    Uint sz;
+    AtomInt *seg0;
+
+    t->name = name;
+    erts_atomic_set_mb(&t->size, 2);
+    erts_atomic_set_mb(&t->nrobjs, 0);
+    erts_atomic_set_mb(&t->grow_limit, UWORD_CONSTANT(1) << 1);
+
+    sz = (((Uint) limit + ATOM_HASH_PAGE_SIZE - 1) / ATOM_HASH_PAGE_SIZE) * sizeof(AtomInt *);
+    t->seg_table = (AtomInt **) erts_alloc(ERTS_ALC_T_ATOM_TABLE, sz);
+    memzero(t->seg_table, sz);
+
+    seg0 = atom_hash_new_segment();
+    seg0[0].key = so_dummykey(0);
+    atom_hash_mark_dummy_initialized(&seg0[0]);
+    t->seg_table[0] = seg0;
+}
+
+static AtomInt *atom_hash_dummy_raw(AtomHashTable *t, sokey_t bucket)
+{
+    AtomInt *segment, *tmp;
+
+    segment = atomic_read_atomintp_mb(&t->seg_table[bucket >> ATOM_HASH_PAGE_SHIFT]);
+    if (!segment) {
+	segment = atom_hash_new_segment();
+	tmp = atomic_cmpxchg_atomintp_mb(&t->seg_table[bucket >> ATOM_HASH_PAGE_SHIFT], segment, NULL);
+	if (tmp != NULL) {
+	    erts_free(ERTS_ALC_T_ATOM_TABLE, segment);
+	    segment = tmp;
+	}
+    }
+    return &segment[bucket & ATOM_HASH_PAGE_MASK];
+}
+
+static void atom_hash_initialize_bucket(AtomHashTable *t, sokey_t bucket, AtomInt *dummy)
+{
+    sokey_t parent_bucket;
+    AtomInt *parent_dummy;
+
+    parent_bucket = bucket_parent(bucket);
+    parent_dummy = atom_hash_dummy_raw(t, parent_bucket);
+    if (atom_hash_dummy_is_uninitialized(parent_dummy))
+	atom_hash_initialize_bucket(t, parent_bucket, parent_dummy);
+
+    dummy->key = so_dummykey(bucket);
+    (void) list_insert(&parent_dummy->next, dummy);
+    atom_hash_mark_dummy_initialized(dummy);
+}
+
+static AtomInt *atom_hash_key_dummy(AtomHashTable *t, sokey_t key, Uint size)
+{
+    sokey_t bucket = key & (size - 1); /* size is always a power of two */
+    AtomInt *dummy = atom_hash_dummy_raw(t, bucket);
+    if (atom_hash_dummy_is_uninitialized(dummy))
+	atom_hash_initialize_bucket(t, bucket, dummy);
+    return dummy;
+}
+
+static AtomInt *atom_hash_find(AtomHashTable *t, AtomInt *tmpl)
+{
+    Uint hvalue;
+    sokey_t key;
+    Uint size;
+    AtomInt *dummy;
+
+    hvalue = tmpl->hvalue;
+    size = erts_atomic_read_mb(&t->size);
+    key = (sokey_t) hvalue & ((1U << 31) - 1);
+    dummy = atom_hash_key_dummy(t, key, size);
+    tmpl->key = so_regularkey(key);
+    return list_find(atomic_read_atomintp_mb(&dummy->next), tmpl);
+}
+
+static byte *atom_text_alloc(int bytes); /* forward */
+
+static AtomInt *atom_hash_insert(AtomHashTable *t, AtomInt *new)
+{
+    Uint hvalue;
+    sokey_t key;
+    Uint size;
+    AtomInt *dummy;
+    AtomInt *other;
+    Uint nrobjs;
+    Uint grow_limit;
+    byte *name;
+
+    hvalue = new->hvalue;
+    key = (sokey_t) hvalue & ((1U << 31) - 1);
+    size = erts_atomic_read_mb(&t->size);
+    dummy = atom_hash_key_dummy(t, key, size);
+    new->key = so_regularkey(key);
+
+    other = list_insert(&dummy->next, new);
+    if (other)
+	return other;
+
+    name = atom_text_alloc(new->atom.len);
+    sys_memcpy(name, atomic_read_bytep_mb(&new->atom.name), new->atom.len);
+    atomic_set_bytep_mb(&new->atom.name, name);
+
+    nrobjs = erts_atomic_inc_read_mb(&t->nrobjs);
+    /* grow at 160% load, as long as size does not exceed 1<<31 */
+    grow_limit = erts_atomic_read_mb(&t->grow_limit);
+    if (nrobjs > grow_limit && size < (1 << 31))
+	if (erts_atomic_cmpxchg_mb(&t->size, 2 * size, size) == size)
+	    (void) erts_atomic_cmpxchg_mb(&t->grow_limit, atom_hash_grow_limit(size * 2), grow_limit);
+
+    return NULL;
+}
+
+static void atom_hash_info(fmtfn_t to, void *arg, AtomHashTable *t)
+{
+    const char *name;
+    int size;
+    int used;
+    int nrobjs;
+    int objects;
+    int max_depth;
+    int nrseg;
+    int i;
+
+    name = t->name;
+    size = erts_atomic_read_mb(&t->size);
+
+    max_depth = 0;
+    objects = 0;
+    used = 0;
+
+    nrseg = (size + ATOM_HASH_PAGE_SIZE - 1) / ATOM_HASH_PAGE_SIZE;
+    for (i = 0; i < nrseg; ++i) {
+	AtomInt *segment;
+	int j;
+
+	segment = atomic_read_atomintp_mb(&t->seg_table[i]);
+	if (!segment)
+	    continue;
+	for (j = 0; j < ATOM_HASH_PAGE_SIZE; ++j) {
+	    AtomInt *dummy;
+	    int depth;
+
+	    dummy = &segment[j];
+	    if (atom_hash_dummy_is_uninitialized(dummy))
+		continue;
+	    depth = list_length(atomic_read_atomintp_mb(&dummy->next));
+	    if (depth) {
+		objects += depth;
+		++used;
+		if (depth > max_depth)
+		    max_depth = depth;
+	    }
+	}
+    }
+
+    nrobjs = erts_atomic_read_mb(&t->nrobjs);
+    ASSERT(objects <= nrobjs);
+
+    erts_print(to, arg, "=hash_table:%s\n", name);
+    erts_print(to, arg, "size: %d\n",       size);
+    erts_print(to, arg, "used: %d\n",       used);
+    erts_print(to, arg, "objs: %d\n",       nrobjs);
+    erts_print(to, arg, "depth: %d\n",      max_depth);
+}
+
+static int atom_hash_table_sz(AtomHashTable *t)
+{
+    unsigned int maxseg;
+    unsigned int nrseg;
+    unsigned int i;
+
+    maxseg = ((Uint) erts_atom_table_size + ATOM_HASH_PAGE_SIZE - 1) / ATOM_HASH_PAGE_SIZE;
+
+    nrseg = 0;
+    for (i = 0; i < maxseg; ++i)
+	if (t->seg_table[i] != NULL)
+	    ++nrseg;
+
+    return
+	(sizeof(AtomHashTable) +
+	 strlen(t->name) + 1 +
+	 maxseg * sizeof(AtomInt *) +
+	 nrseg * ATOM_HASH_PAGE_SIZE * sizeof(AtomInt));
+}
+
 /*
  * Atom Index Table
  */
 
 typedef struct atom_index_table
 {
-    Hash htable;		/* Mapping obj -> index */
+    AtomHashTable htable;	/* Mapping obj -> index */
     erts_atomic_t size;		/* Allocated size */
     int limit;			/* Max size */
     erts_atomic_t entries;	/* Number of entries */
@@ -116,7 +510,7 @@ static void atom_index_info(fmtfn_t to, void *arg)
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	atom_read_lock();
-    hash_info(to, arg, &t->htable);
+    atom_hash_info(to, arg, &t->htable);
     if (lock)
 	atom_read_unlock();
     erts_print(to, arg, "=index_table:%s\n", t->htable.name);
@@ -136,7 +530,7 @@ static int atom_index_table_sz(void)
 
     if (lock)
 	atom_read_lock();
-    hsz = hash_table_sz(&t->htable);
+    hsz = atom_hash_table_sz(&t->htable);
     if (lock)
 	atom_read_unlock();
     return (sizeof(AtomIndexTable)
@@ -149,14 +543,13 @@ static int atom_index_table_sz(void)
  * init a pre allocated or static hash structure
  * and allocate buckets.
  */
-static void atom_index_init(HashFunctions fun)
+static void atom_index_init(void)
 {
     AtomIndexTable *t = &erts_atom_table;
-    int size = ATOM_SIZE;
     int limit = erts_atom_table_size;
     Uint base_size = (((Uint) limit + ATOM_INDEX_PAGE_SIZE - 1) / ATOM_INDEX_PAGE_SIZE) * sizeof(AtomInt *);
 
-    hash_init(ERTS_ALC_T_ATOM_TABLE, &t->htable, "atom_tab", 3*size/4, fun);
+    atom_hash_init(&t->htable, "atom_tab");
 
     erts_atomic_set_mb(&t->size, 0);
     t->limit = limit;
@@ -211,15 +604,23 @@ static int atom_index_put_raw(AtomInt *p)
     return ix;
 }
 
+static AtomInt *atom_alloc(AtomInt *); /* forward */
+
 static int atom_index_put(AtomInt *tmpl)
 {
     AtomIndexTable *t = &erts_atom_table;
     AtomInt *p;
     int ix;
 
+    tmpl = atom_alloc(tmpl);
     atom_write_lock();
-    p = (AtomInt *) hash_put(&t->htable, tmpl);
+    p = atom_hash_insert(&t->htable, tmpl);
     atom_write_unlock();
+
+    if (p)
+	erts_free(ERTS_ALC_T_ATOM, tmpl);
+    else
+	p = tmpl;
 
     ix = (int) erts_atomic_read_mb(&p->index);
     if (ix >= 0)
@@ -234,7 +635,7 @@ static int atom_index_get(AtomInt *tmpl)
     AtomInt *p;
 
     atom_read_lock();
-    p = (AtomInt *) hash_get(&t->htable, tmpl);
+    p = atom_hash_find(&t->htable, tmpl);
     atom_read_unlock();
     return p ? (int) erts_atomic_read_mb(&p->index) : -1;
 }
@@ -328,24 +729,12 @@ atom_hash(AtomInt* obj)
     return h;
 }
 
-
-static int 
-atom_cmp(AtomInt* tmpl, AtomInt* obj)
+static AtomInt *atom_alloc(AtomInt *tmpl)
 {
-    if (tmpl->atom.len == obj->atom.len &&
-	sys_memcmp(tmpl->atom.name, obj->atom.name, tmpl->atom.len) == 0)
-	return 0;
-    return 1;
-}
+    AtomInt *obj = (AtomInt *) erts_alloc(ERTS_ALC_T_ATOM, sizeof(AtomInt));
 
-
-static AtomInt*
-atom_alloc(AtomInt* tmpl)
-{
-    AtomInt* obj = (AtomInt*) erts_alloc(ERTS_ALC_T_ATOM, sizeof(AtomInt));
-
-    obj->atom.name = atom_text_alloc(tmpl->atom.len);
-    sys_memcpy(obj->atom.name, tmpl->atom.name, tmpl->atom.len);
+    obj->hvalue = tmpl->hvalue; /* precomputed */
+    obj->atom.name = tmpl->atom.name; /* name is reallocated by atom_hash_insert() */
     obj->atom.len = tmpl->atom.len;
     obj->atom.latin1_chars = tmpl->atom.latin1_chars;
     erts_atomic_set_mb(&obj->index, -1);
@@ -370,12 +759,6 @@ atom_alloc(AtomInt* tmpl)
 	obj->atom.ord0 = (c[0] << 23) + (c[1] << 15) + (c[2] << 7) + (c[3] >> 1);
     }
     return obj;
-}
-
-static void
-atom_free(AtomInt* obj)
-{
-    ASSERT((int) erts_atomic_read_mb(&obj->index) == atom_val(am_ErtsSecretAtom));
 }
 
 static void latin1_to_utf8(byte* conv_buf, Uint buf_sz,
@@ -473,6 +856,7 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 
     a.atom.len = tlen;
     a.atom.name = (byte *) text;
+    a.hvalue = atom_hash(&a);
     aix = atom_index_get(&a);
     if (aix >= 0) {
 	/* Already in table no need to verify it */
@@ -498,6 +882,8 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 		return ATOM_MAX_CHARS_ERROR;
 	    ASSERT(no_chars == MAX_ATOM_CHARACTERS);
 	    tlen = err_pos - text;
+	    a.atom.len = tlen;
+	    a.hvalue = atom_hash(&a);
 	    break;
 	default:
 	    /* Bad utf8... */
@@ -508,9 +894,7 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
     ASSERT(tlen <= MAX_ATOM_SZ_LIMIT);
     ASSERT(-1 <= no_latin1_chars && no_latin1_chars <= MAX_ATOM_CHARACTERS);
 
-    a.atom.len = tlen;
     a.atom.latin1_chars = (Sint16) no_latin1_chars;
-    a.atom.name = (byte *) text;
     aix = atom_index_put(&a);
     return aix;
 }
@@ -560,8 +944,6 @@ erts_atom_get(const char *name, Uint len, ErtsAtomEncoding enc)
 
         latin1_to_utf8(utf8_copy, sizeof(utf8_copy), (const byte**)&name, &len);
 
-        a.atom.name = (byte*)name;
-        a.atom.len = (Sint16)len;
         break;
     case ERTS_ATOM_ENC_7BIT_ASCII:
         if (len > MAX_ATOM_CHARACTERS) {
@@ -574,8 +956,6 @@ erts_atom_get(const char *name, Uint len, ErtsAtomEncoding enc)
             }
         }
 
-        a.atom.len = (Sint16)len;
-        a.atom.name = (byte*)name;
         break;
     case ERTS_ATOM_ENC_UTF8:
         if (len > MAX_ATOM_SZ_LIMIT) {
@@ -586,11 +966,12 @@ erts_atom_get(const char *name, Uint len, ErtsAtomEncoding enc)
          * names are stored as UTF-8 and we know a lookup with a badly encoded
          * name will fail. */
 
-        a.atom.len = (Sint16)len;
-        a.atom.name = (byte*)name;
         break;
     }
 
+    a.atom.len = (Sint16) len;
+    a.atom.name = (byte *) name;
+    a.hvalue = atom_hash(&a);
     i = atom_index_get(&a);
 
     return (i >= 0) ? make_atom(i) : THE_NON_VALUE;
@@ -618,7 +999,6 @@ static AtomInt *atom_tab_int(Uint i)
 void
 init_atom_table(void)
 {
-    HashFunctions f;
     int i;
     AtomInt a;
     erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
@@ -633,21 +1013,13 @@ init_atom_table(void)
     erts_rwmtx_init_opt(&atom_table_lock, &rwmtx_opt, "atom_tab", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
-    f.hash = (H_FUN) atom_hash;
-    f.cmp  = (HCMP_FUN) atom_cmp;
-    f.alloc = (HALLOC_FUN) atom_alloc;
-    f.free = (HFREE_FUN) atom_free;
-    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
-    f.meta_free = (HMFREE_FUN) erts_free;
-    f.meta_print = (HMPRINT_FUN) erts_print;
-
     atom_text_pos = NULL;
     atom_text_end = NULL;
     reserved_atom_space = 0;
     atom_space = 0;
     text_list = NULL;
 
-    atom_index_init(f);
+    atom_index_init();
     more_atom_space();
 
     /* Ordinary atoms */
@@ -664,14 +1036,17 @@ init_atom_table(void)
 	}
 #endif
 	/* am_ErtsSecretAtom should be entered in the index table but not the hash table */
-	if (i != atom_val(am_ErtsSecretAtom)) {
-	    ix = atom_index_put(&a);
-	} else {
-	    ix = atom_index_put_raw(atom_alloc(&a));
+	a.hvalue = atom_hash(&a);
+	{
+	    AtomInt *p = atom_alloc(&a);
+	    ix = atom_index_put_raw(p);
+	    if (ix != atom_val(am_ErtsSecretAtom)) {
+		(void) atom_hash_insert(&erts_atom_table.htable, p);
+		atom_text_pos -= a.atom.len;
+		atom_space -= a.atom.len;
+		p->atom.name = (byte *) erl_atom_names[i];
+	    }
 	}
-	atom_text_pos -= a.atom.len;
-	atom_space -= a.atom.len;
-	atom_tab_int(ix)->atom.name = (byte*)erl_atom_names[i];
     }
 }
 
@@ -698,7 +1073,7 @@ erts_get_atom_limit(void)
 
 UWord atom_hvalue(Eterm atom)
 {
-    return atom_tab_int(atom_val(atom))->bucket.hvalue;
+    return atom_tab_int(atom_val(atom))->hvalue;
 }
 
 Atom *atom_tab(Uint i)
