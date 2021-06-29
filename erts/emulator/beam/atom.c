@@ -165,22 +165,13 @@ static void atom_index_init(HashFunctions fun)
     memzero(t->seg_table, base_size);
 }
 
-static int atom_index_put(AtomInt *tmpl)
+static int atom_index_put_raw(AtomInt *p)
 {
     AtomIndexTable *t = &erts_atom_table;
-    AtomInt *p;
     int ix;
     int entries;
     int size, size0;
     AtomInt **segment;
-
-    atom_write_lock();
-    p = (AtomInt *) hash_put(&t->htable, tmpl);
-    atom_write_unlock();
-    ix = (int) erts_atomic_read_mb(&p->index);
-    if (ix >= 0) {
-	return ix;
-    }
 
     for (;;) {
 	size = (int) erts_atomic_read_mb(&t->size);
@@ -218,6 +209,23 @@ static int atom_index_put(AtomInt *tmpl)
     erts_atomic_set_mb(&p->index, ix);
     erts_atomic_inc_mb(&t->entries);
     return ix;
+}
+
+static int atom_index_put(AtomInt *tmpl)
+{
+    AtomIndexTable *t = &erts_atom_table;
+    AtomInt *p;
+    int ix;
+
+    atom_write_lock();
+    p = (AtomInt *) hash_put(&t->htable, tmpl);
+    atom_write_unlock();
+
+    ix = (int) erts_atomic_read_mb(&p->index);
+    if (ix >= 0)
+	return ix;
+
+    return atom_index_put_raw(p);
 }
 
 static int atom_index_get(AtomInt *tmpl)
