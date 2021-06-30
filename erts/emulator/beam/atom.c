@@ -299,6 +299,8 @@ atom_text_alloc(int bytes)
 /*
  * Calculate atom hash value (using the hash algorithm
  * hashpjw from the Dragon Book).
+ *
+ * This cannot be changed, as phash2/[12] depend on it.
  */
 
 static HashValue
