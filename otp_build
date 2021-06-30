@@ -1145,8 +1145,8 @@ case $TARGET in
     *)
         if [ -x /bin/wslpath -a X"$OVERRIDE_TARGET" = X"" \
                 -a X"$1" != X"env_win32" -a X"$1" != X"env_msys32" -a X"$1" != X"env_msys64" ]; then
-            echo "Building linux binary; if you intended to cross build for win32 use"  >&2
-            echo '   eval `./otp_build env_win32`\n' >&2
+            echo "Building linux binary; if you intended to cross build for win32 (x64) use"  >&2
+            echo '   eval `./otp_build env_win32 x64`\n' >&2
         fi
         ;;
 esac
