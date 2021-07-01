@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@
 -include_lib("common_test/src/ct_netconfc.hrl").
 -include("netconfc_test_lib.hrl").
 
+-compile(nowarn_export_all).
 -compile(export_all).
 
 suite() ->
@@ -98,6 +99,7 @@ all() ->
 	     get_event_streams,
 	     create_subscription,
 	     receive_one_event,
+             receive_two_events,
 	     receive_multiple_events,
 	     receive_event_and_rpc,
 	     receive_event_and_rpc_in_chunks,
@@ -979,31 +981,43 @@ create_subscription(Config) ->
     ok.
 
 receive_one_event(Config) ->
+    receive_events(Config, 1, []).
+
+receive_two_events(Config) ->
+    receive_events(Config, 2, [{receiver, self()}, {receiver, self()}]).
+
+receive_events(Config, N, Opts) ->
     SshDir = ?config(ssh_dir,Config),
-    {ok,Client} = open_success(SshDir),
+    {ok,Client} = open_success(SshDir, Opts),
     ?NS:expect_reply({'create-subscription',[stream]},ok),
     ?ok = ct_netconfc:create_subscription(Client),
 
     ?NS:hupp({send_events,1}),
 
-    receive
-	%% Matching ?NS:make_msg({event,_})
-	{notification,?NETCONF_NOTIF_NAMESPACE_ATTR,
-	 [{eventTime,[],[_Time]},
-	  {event,[{xmlns,"http://my.namespaces.com/event"}],
-	   [{severity,_,_},
-	    {description,_,_}]}]} ->
-	    ok;
-	Other ->
-	    ct:fail({got_unexpected_while_waiting_for_event, Other})
-    after 3000 ->
-	    ct:fail(timeout_waiting_for_event)
-    end,
+    receive_events(N),
 
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
 
     ok.
+
+receive_events(0) ->
+    ok;
+receive_events(N) ->
+    receive
+        {notification,?NETCONF_NOTIF_NAMESPACE_ATTR,
+         [{eventTime,[],[_Time]},
+          {event,[{xmlns,"http://my.namespaces.com/event"}],
+           [{severity,_,_},
+            {description,_,_}]}]} ->
+            ok;
+        Other ->
+            ct:fail({got_unexpected_while_waiting_for_event, Other})
+    after 3000 ->
+            ct:fail(timeout_waiting_for_event)
+    end,
+    receive_events(N-1).
+
 
 receive_multiple_events(Config) ->
     SshDir = ?config(ssh_dir,Config),

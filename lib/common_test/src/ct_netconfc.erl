@@ -1,7 +1,7 @@
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -183,13 +183,14 @@
                                  % string() | {error, Reason}
 		buf = false,     % binary() | list() | boolean()
 		pending = [],    % [#pending]
-		event_receiver}).% pid
+		receivers = [] :: list() | pid()}).% notification destinations
 
 %% Run-time client options.
 -record(options, {ssh = [], % Options for the ssh application
 		  host,
 		  port = ?DEFAULT_PORT,
 		  timeout = ?DEFAULT_TIMEOUT,
+                  receivers = [],
 		  name,
                   type}).
 
@@ -216,16 +217,16 @@
                 | {port, inet:port_number()}
                 | {timeout, timeout()}
                 | {capability, string() | [string()]}
+                | {receiver, term()}
                 | ssh:client_option().
 
 -type session_option() :: {timeout,timeout()}
+                        | {receiver, term()}
                         | {capability, string() | [string()]}.
 
 -type host() :: inet:hostname() | inet:ip_address().
 
--type notification() :: {notification, xml_attributes(), notification_content()}.
--type notification_content() :: [event_time()|simple_xml()].
--type event_time() :: {eventTime,xml_attributes(),[xs_datetime()]}.
+-type notification() :: {notification, xml_attributes(), [simple_xml()]}.
 
 -type stream_name() :: string().
 -type streams() :: [{stream_name(),[stream_data()]}].
@@ -925,7 +926,8 @@ kill_session(Client, SessionId, Timeout) ->
 init(_KeyOrName,{CM,{Host,Port}},Options) ->
     case ssh_channel(#connection{reference=CM,host=Host,port=Port},Options) of
         {ok,Connection} ->
-	    {ok, CM, #state{connection = Connection}};
+	    {ok, CM, #state{connection = Connection,
+                            receivers = Options#options.receivers}};
 	{error,Reason}->
 	    {error,Reason}
     end;
@@ -941,7 +943,8 @@ init(_KeyOrName,{_Host,_Port},Options) ->
     case ssh_open(Options) of
 	{ok, Connection} ->
 	    {ConnPid,_} = Connection#connection.reference,
-	    {ok, ConnPid, #state{connection = Connection}};
+	    {ok, ConnPid, #state{connection = Connection,
+                                 receivers = Options#options.receivers}};
 	{error,Reason}->
 	    {error,Reason}
     end.
@@ -1159,6 +1162,9 @@ opt({timeout, _} = T, _) ->
 opt({capability, _}, Rec) ->
     Rec;
 
+opt({receiver, Dest}, #options{receivers = T} = Rec) ->
+    Rec#options{receivers = [Dest | T]};
+
 opt(Opt, #options{ssh = Opts} = Rec) -> %% option verified by ssh
     Rec#options{ssh = [Opt | Opts]}.
 
@@ -1166,6 +1172,9 @@ opt(Opt, #options{ssh = Opts} = Rec) -> %% option verified by ssh
 
 make_session_options(Opts, Rec) ->
     make_options(Opts, Rec, fun session_opt/2).
+
+session_opt({receiver, Dest}, #options{receivers = T} = Rec) ->
+    Rec#options{receivers = [Dest | T]};
 
 session_opt({capability, _}, Rec) ->
     Rec;
@@ -1563,11 +1572,22 @@ decode(hello, E, #state{hello_status = Other} = State) ->
     State;
 
 decode(notification, E, State) ->
-    State#state.event_receiver ! E,
+    notify(State, E),
     State;
 
 decode(Other, E, State) ->
     decode_send({got_unexpected_msg, Other}, E, State).
+
+%% notify/2
+
+notify(#state{receivers = []} = State, E) ->
+    Name = (State#state.connection)#connection.name,
+    ?error(Name, [{got_unexpected_notification, E}]);
+
+%% Sending can fail with an atom-valued destination, but it's up to
+%% the user.
+notify(#state{receivers = T}, E) ->
+    lists:foreach(fun(D) -> D ! E end, if is_pid(T) -> [T]; true -> T end).
 
 %% reply/2
 %%
@@ -1672,10 +1692,15 @@ do_decode_rpc_reply(close_session, Result, State) ->
             {Other, State}
     end;
 
-do_decode_rpc_reply({create_subscription, From}, Result, State) ->
+%% Only set a new destination if one (or more) hasn't been set with a
+%% receiver option(), to allow more than calls to create_subscription
+%% to order notifications.
+do_decode_rpc_reply({create_subscription, Pid}, Result, #state{receivers = T}
+                                                        = State) ->
     case decode_ok(Result) of
-        ok ->
-            {ok, State#state{event_receiver = From}};
+        ok when T == [];
+                is_pid(T) ->
+            {ok, State#state{receivers = Pid}};
         Other ->
             {Other, State}
     end;
@@ -1733,47 +1758,18 @@ get_local_name_atom(Tag) ->
 %% prefix, remove {'xmlns:prefix',_}, else remove default {xmlns,_}.
 remove_xmlnsattr_for_tag(Tag,Attrs) ->
     {Prefix,_TagStr} = get_qualified_name(Tag),
-    XmlnsTag = xmlnstag(Prefix),
-    case lists:keytake(XmlnsTag,1,Attrs) of
-	{value,_,NoNsAttrs} ->
-	    NoNsAttrs;
-	false ->
-	    Attrs
-    end.
+    lists:keydelete(xmlnstag(Prefix), 1, Attrs).
 
-%% Take all xmlns attributes from the parent's attribute list and
-%% forward into all childrens' attribute lists. But do not overwrite
-%% any.
-forward_xmlns_attr(ParentAttrs,Children) ->
-    do_forward_xmlns_attr(get_all_xmlns_attrs(ParentAttrs,[]),Children).
+%% Prepend xmlns attributes from parent to children, omitting those
+%% the child sets.
+forward_xmlns_attr(ParentAttrs, Children) ->
+    Namespace = lists:filter(fun is_xmlns/1, ParentAttrs),
+    [{T, Ns ++ A, C} || {T, A, C} <- Children,
+                        F <- [fun({K,_}) -> not lists:keymember(K, 1, A) end],
+                        Ns <- [lists:filter(F, Namespace)]].
 
-do_forward_xmlns_attr(XmlnsAttrs,[{ChT,ChA,ChC}|Children]) ->
-    ChA1 = add_xmlns_attrs(XmlnsAttrs,ChA),
-    [{ChT,ChA1,ChC} | do_forward_xmlns_attr(XmlnsAttrs,Children)];
-do_forward_xmlns_attr(_XmlnsAttrs,[]) ->
-    [].
-
-add_xmlns_attrs([{Key,_}=A|XmlnsAttrs],ChA) ->
-    case lists:keymember(Key,1,ChA) of
-	true ->
-	    add_xmlns_attrs(XmlnsAttrs,ChA);
-	false ->
-	    add_xmlns_attrs(XmlnsAttrs,[A|ChA])
-    end;
-add_xmlns_attrs([],ChA) ->
-    ChA.
-
-get_all_xmlns_attrs([{xmlns,_}=Default|Attrs],XmlnsAttrs) ->
-    get_all_xmlns_attrs(Attrs,[Default|XmlnsAttrs]);
-get_all_xmlns_attrs([{Key,_}=Attr|Attrs],XmlnsAttrs) ->
-    case atom_to_list(Key) of
-	"xmlns:"++_Prefix ->
-	    get_all_xmlns_attrs(Attrs,[Attr|XmlnsAttrs]);
-	_ ->
-	    get_all_xmlns_attrs(Attrs,XmlnsAttrs)
-    end;
-get_all_xmlns_attrs([],XmlnsAttrs) ->
-    XmlnsAttrs.
+is_xmlns({Key, _}) ->
+    Key == xmlns orelse lists:prefix("xmlns:", atom_to_list(Key)).
 
 %% Decode server hello to pick out session id and capabilities
 decode_hello({hello, _Attrs, Hello}) ->
