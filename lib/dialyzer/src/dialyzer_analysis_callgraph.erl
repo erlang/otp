@@ -679,7 +679,7 @@ find_call_file_and_location({Module, _, _} = FromMFA, ToMFA, CodeServer) ->
   hd(cerl_trees:fold(Fun, [], FunCode)).
 
 get_location(Tree) ->
-  dialyzer_utils:get_location(Tree, -1).
+  dialyzer_utils:get_location(Tree, 0).
 
 get_file(Codeserver, Module, [{file, FakeFile}|_]) ->
   dialyzer_codeserver:translate_fake_file(Codeserver, Module, FakeFile);
