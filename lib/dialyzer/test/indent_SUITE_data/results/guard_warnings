@@ -126,9 +126,9 @@ guard_warnings.erl:92:15: Guard test
 guard_warnings.erl:94:15: Guard test 
           'true' == 
           'false' can never succeed
-guard_warnings.erl:96:20: Guard test 
+guard_warnings.erl:96:20: Guard test not(
           'true' =:= 
-          'false' can never succeed
+          'true') can never succeed
 guard_warnings.erl:98:20: Guard test not(
           'true' == 
           'true') can never succeed

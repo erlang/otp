@@ -380,7 +380,7 @@ gexpr({call,Line,{remote,_,{atom,_,erlang},{atom,_,'not'}},[A]}, Bools, St) ->
 gexpr(E0, Bools, St0) ->
     gexpr_test(E0, Bools, St0).
 
-%% gexpr_not(L, R, Bools, State) -> {Cexpr,[PreExp],Bools,State}.
+%% gexpr_bool(L, R, Bools, State) -> {Cexpr,[PreExp],Bools,State}.
 %%  Generate a guard for boolean operators
 
 gexpr_bool(Op, L, R, Bools0, St0, Line) ->
@@ -400,13 +400,32 @@ gexpr_bool(Op, L, R, Bools0, St0, Line) ->
 gexpr_not(A, Bools0, St0, Line) ->
     {Ae0,Aps,Bools,St1} = gexpr(A, Bools0, St0),
     case Ae0 of
-        #icall{module=#c_literal{val=erlang},
+        #icall{anno=#a{anno=[v3_core,compiler_generated]},
+               module=#c_literal{val=erlang},
                name=#c_literal{val='=:='},
                args=[E,#c_literal{val=true}]}=EqCall ->
             %%
-            %% Doing the following transformation
-            %%    not(Expr =:= true)  ==>  Expr =:= false
-            %% will help eliminating redundant is_boolean/1 tests.
+            %% We here have the expression:
+            %%
+            %%    not(Expr =:= true)
+            %%
+            %% The annotations tested in the code above guarantees
+            %% that the original expression in the Erlang source
+            %% code was:
+            %%
+            %%    not Expr
+            %%
+            %% That expression can be transformed as follows:
+            %%
+            %%    not Expr  ==>  Expr =:= false
+            %%
+            %% which will produce the same result, but may eliminate
+            %% redundant is_boolean/1 tests (see unforce/3).
+            %%
+            %% Note that this tranformation would not be safe if the
+            %% original expression had been:
+            %%
+            %%    not(Expr =:= true)
             %%
             Ae = EqCall#icall{args=[E,#c_literal{val=false}]},
             {Al,Alps,St2} = force_safe(Ae, St1),
@@ -474,14 +493,30 @@ gexpr_test(E0, Bools0, St0) ->
     end.
 
 icall_eq_true(Arg) ->
-    #icall{anno=#a{anno=[compiler_generated]},
+    %% We need to recognize a '=:=' added by this pass, so we will add
+    %% an extra 'v3_core' annotation. (Being paranoid, we don't want
+    %% to trust 'compiler_generated' alone as it could have been added
+    %% by a parse transform.)
+    #icall{anno=#a{anno=[v3_core,compiler_generated]},
 	   module=#c_literal{val=erlang},
 	   name=#c_literal{val='=:='},
 	   args=[Arg,#c_literal{val=true}]}.
 
+%% force_booleans([Var], E, Eps, St) -> Expr.
+%%  Variables used in the top-level of a guard must be booleans.
+%%
+%%  Add necessary is_boolean/1 guard tests to ensure that the guard
+%%  will fail if any of the variables is not a boolean.
+
 force_booleans(Vs0, E, Eps, St) ->
     Vs1 = [set_anno(V, []) || V <- Vs0],
+
+    %% Prune the list of variables that will need is_boolean/1
+    %% tests. Basically, if the guard consists of simple expressions
+    %% joined by 'and's no is_boolean/1 tests are needed.
     Vs = unforce(E, Eps, Vs1),
+
+    %% Add is_boolean/1 tests for the remaining variables.
     force_booleans_1(Vs, E, Eps, St).
 
 force_booleans_1([], E, Eps, St) ->
@@ -505,7 +540,7 @@ force_booleans_1([V|Vs], E0, Eps0, St0) ->
 %%  Filter BoolExprList. BoolExprList is a list of simple expressions
 %%  (variables or literals) of which we are not sure whether they are booleans.
 %%
-%%  The basic idea for filtering is the following transformation
+%%  The basic idea for filtering is the following transformation:
 %%
 %%      (E =:= Bool) and is_boolean(E)   ==>  E =:= Bool
 %%
@@ -516,12 +551,13 @@ force_booleans_1([V|Vs], E0, Eps0, St0) ->
 %%
 %%      E1 and (E2 =:= true) and E3 and is_boolean(E)   ==>  E1 and (E2 =:= true) and E3
 %%
-%%  but expressions such as
+%%  but expressions such as:
 %%
 %%     not (E =:= true) and is_boolean(E)
 %%
-%%  cannot be transformed in this way (such expressions are the reason for
-%%  adding the is_boolean/1 test in the first place).
+%%  or expression using 'or' or 'xor' cannot be transformed in this
+%%  way (such expressions are the reason for adding the is_boolean/1
+%%  test in the first place).
 %%
 unforce(_, _, []) ->
     [];
@@ -2757,7 +2793,7 @@ cexpr(#ifun{anno=#a{us=Us0}=A0,name={named,Name},fc=#iclause{pats=Ps}}=Fun0,
 cexpr(#iapply{anno=A,op=Op,args=Args}, _As, St) ->
     {#c_apply{anno=A#a.anno,op=Op,args=Args},[],A#a.us,St};
 cexpr(#icall{anno=A,module=Mod,name=Name,args=Args}, _As, St0) ->
-    Anno = A#a.anno,
+    Anno = A#a.anno -- [v3_core],
     case (not cerl:is_c_atom(Mod)) andalso member(tuple_calls, St0#core.opts) of
 	true ->
 	    GenAnno = [compiler_generated|Anno],

@@ -92,6 +92,6 @@ guard_warnings.erl:92:1: Function test41/0 has no local return
 guard_warnings.erl:94:15: Guard test 'true' == 'false' can never succeed
 guard_warnings.erl:94:1: Function test42/0 has no local return
 guard_warnings.erl:96:1: Function test43/0 has no local return
-guard_warnings.erl:96:20: Guard test 'true' =:= 'false' can never succeed
+guard_warnings.erl:96:20: Guard test not('true' =:= 'true') can never succeed
 guard_warnings.erl:98:1: Function test44/0 has no local return
 guard_warnings.erl:98:20: Guard test not('true' == 'true') can never succeed
