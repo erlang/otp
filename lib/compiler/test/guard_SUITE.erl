@@ -217,6 +217,10 @@ basic_not(Config) when is_list(Config) ->
     check(fun() -> if not (True xor False) -> ok;
 		      true -> error end end, error),
 
+    check(fun() -> if not (True =:= true) -> ok; true -> error end end, error),
+    check(fun() -> if not (False =:= true) -> ok; true -> error end end, ok),
+    check(fun() -> if not (Glurf =:= true) -> ok; true -> error end end, ok),
+
     ok.
 
 complex_not(Config) when is_list(Config) ->
