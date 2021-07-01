@@ -410,14 +410,14 @@ find_duplicates(List) ->
   
 -spec to_file(file:filename(), plt(), mod_deps(), {[file_md5()], mod_deps()}) -> 'ok'.
 
-%% Write the PLT to file, and deletes the PLT.
+%% Write the PLT to file, and delete the PLT.
 to_file(FileName, Plt, ModDeps, MD5_OldModDeps) ->
   Fun = fun() -> to_file1(FileName, Plt, ModDeps, MD5_OldModDeps) end,
   Return = subproc(Fun),
   delete(Plt),
   case Return of
     ok -> ok;
-    Thrown -> throw(Thrown)
+    {error, Msg} -> plt_error(Msg)
   end.
 
 to_file1(FileName,
@@ -455,7 +455,7 @@ to_file1(FileName,
     {error, Reason} ->
       Msg = io_lib:format("Could not write PLT file ~ts: ~w\n",
 			  [FileName, Reason]),
-      {dialyzer_error, Msg}
+      {error, Msg}
   end.
 
 -type md5_diff()    :: [{'differ', atom()} | {'removed', atom()}].
@@ -540,10 +540,10 @@ compute_md5_from_file(File) ->
       erlang:md5(lists:sort(Filtered));
     {error, beam_lib, {file_error, _, enoent}} ->
       Msg = io_lib:format("File not found: ~ts\n", [File]),
-      throw({dialyzer_error, Msg});
+      plt_error(Msg);
     {error, beam_lib, _} ->
       Msg = io_lib:format("Could not compute MD5 for .beam: ~ts\n", [File]),
-      throw({dialyzer_error, Msg})
+      plt_error(Msg)
   end.
 
 init_diff_list(RemoveFiles, AddFiles) ->
@@ -600,10 +600,18 @@ tab2list(Tab) ->
   dialyzer_utils:ets_tab2list(Tab).
 
 subproc(Fun) ->
-  F = fun() -> exit(Fun()) end,
+  F = fun() ->
+          exit(try Fun()
+               catch throw:T ->
+                   {thrown, T}
+               end)
+      end,
   {Pid, Ref} = erlang:spawn_monitor(F),
   receive {'DOWN', Ref, process, Pid, Return} ->
-      Return
+    case Return of
+      {thrown, T} -> throw(T);
+      _ -> Return
+    end
   end.
 
 %%---------------------------------------------------------------------------
