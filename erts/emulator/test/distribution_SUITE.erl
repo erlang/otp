@@ -72,6 +72,7 @@
          message_latency_large_link_exit/0,
          message_latency_large_monitor_exit/0,
          message_latency_large_exit2/0,
+         dist_entry_refc_race/1,
          system_limit/1,
          hopefull_data_encoding/1,
          hopefull_export_fun_bug/1,
@@ -83,6 +84,7 @@
          optimistic_dflags_echo/0, optimistic_dflags_sender/1,
          roundtrip/1, bounce/1, do_dist_auto_connect/1, inet_rpc_server/1,
          dist_parallel_sender/3, dist_parallel_receiver/0,
+         derr_run/1,
          dist_evil_parallel_receiver/0, make_busy/2]).
 
 %% epmd_module exports
@@ -104,6 +106,7 @@ all() ->
      contended_atom_cache_entry, contended_unicode_atom_cache_entry,
      {group, message_latency},
      {group, bad_dist}, {group, bad_dist_ext},
+     dist_entry_refc_race,
      start_epmd_false, no_epmd, epmd_module, system_limit,
      hopefull_data_encoding, hopefull_export_fun_bug,
      huge_iovec].
@@ -2814,6 +2817,48 @@ mk_rand_bin(0, Data) ->
     list_to_binary(Data);
 mk_rand_bin(N, Data) ->
     mk_rand_bin(N-1, [rand:uniform(256) - 1 | Data]).
+
+
+%% Try provoke DistEntry refc bugs (OTP-17513).
+dist_entry_refc_race(_Config) ->
+    {ok, Node} = start_node(dist_entry_refc_race, "+zdntgc 1"),
+    Pid = spawn_link(Node, ?MODULE, derr_run, [self()]),
+    {Pid, done} = receive M -> M end,
+    stop_node(Node),
+    ok.
+
+derr_run(Papa) ->
+    inet_db:set_lookup([file]), % make connection attempt fail fast
+    NScheds = erlang:system_info(schedulers_online),
+    SeqList = lists:seq(1, 25 * NScheds),
+    Nodes = [list_to_atom("none@host" ++ integer_to_list(Seq))
+             || Seq <- SeqList],
+    Self = self(),
+    Pids = [spawn_link(fun () -> derr_sender(Self, Nodes) end)
+            || _ <- SeqList],
+    derr_count(1, 8000),
+    [begin unlink(P), exit(P,kill) end || P <- Pids],
+    Papa ! {self(), done},
+    ok.
+
+derr_count(Max, Max) ->
+    done;
+derr_count(N, Max) ->
+    receive
+        count -> ok
+    end,
+    case N rem 1000 of
+        0 ->
+            io:format("Total attempts: ~bk~n", [N div 1000]);
+        _ -> ok
+    end,
+    derr_count(N+1, Max).
+
+
+derr_sender(Main, Nodes) ->
+    [{none, Node} ! msg || Node <- Nodes],
+    Main ! count,
+    derr_sender(Main, Nodes).
 
 
 %%% Utilities
