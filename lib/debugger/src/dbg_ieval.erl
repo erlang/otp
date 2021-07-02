@@ -664,6 +664,16 @@ expr({map,Line,E0,Fs0}, Bs0, Ieval0) ->
 			    ({map_exact,K,V}, Mi) -> maps:update(K,V,Mi)
 			end, E, Fs),
     {value,Value,merge_bindings(Bs2, Bs1, Ieval)};
+
+%% Record update
+expr({record_update,Line,Es},Bs,#ieval{level=Le}=Ieval0) ->
+    %% Incr Level, we don't need to step (next) trough temp
+    %% variables creation and matching
+    Ieval = Ieval0#ieval{top=false, line=Line, level=Le+1},
+    Seq = fun(E, {_, _, Bs1}) -> expr(E, Bs1, Ieval) end,
+    {value,Value,Bs1} = lists:foldl(Seq, {value, true, Bs}, Es),
+    {value,Value,remove_temporary_bindings(Bs1)};
+
 %% A block of statements
 expr({block,Line,Es},Bs,Ieval) ->
     seq(Es, Bs, Ieval#ieval{line=Line});
@@ -1731,6 +1741,9 @@ add_binding(N,Val,[B1|Bs]) ->
     [B1|add_binding(N,Val,Bs)];
 add_binding(N,Val,[]) ->
     [{N,Val}].
+
+remove_temporary_bindings(Bs0) ->
+    [{Var,Val} || {Var, Val} <- Bs0, hd(atom_to_list(Var)) =/= $%].
 
 %% get_stacktrace() -> Stacktrace
 %%  Return the latest stacktrace for the process.
