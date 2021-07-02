@@ -1381,9 +1381,6 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
      * XREG2 = error reason/thrown value
      * XREG3 = raw stacktrace. */
 
-    mov_imm(TMP1, NIL);
-    a.str(TMP1, arm::Mem(c_p, offsetof(Process, fvalue)));
-
     a.mov(XREG0, XREG2);
     a.cmp(XREG1, imm(am_throw));
 
@@ -1484,7 +1481,22 @@ void BeamModuleAssembler::emit_try_case(const ArgVal &Y) {
     a.str(TMP1, arm::Mem(c_p, offsetof(Process, catches)));
     mov_imm(TMP1, NIL);
     mov_arg(Y, TMP1);
-    a.str(TMP1, arm::Mem(c_p, offsetof(Process, fvalue)));
+
+#ifdef DEBUG
+    Label ok = a.newLabel();
+    comment("Start of assertion code");
+    a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, fvalue)));
+    a.ldr(TMP2, arm::Mem(c_p, offsetof(Process, ftrace)));
+    mov_imm(TMP3, NIL);
+    a.cmp(TMP1, TMP3);
+    a.ccmp(TMP2, TMP3, 0, arm::Cond::kEQ);
+    a.cond_eq().b(ok);
+
+    comment("Assertion c_p->fvalue == NIL && c_p->ftrace == NIL failed");
+    a.udf(0x42);
+
+    a.bind(ok);
+#endif
 }
 
 void BeamModuleAssembler::emit_try_case_end(const ArgVal &Src) {
