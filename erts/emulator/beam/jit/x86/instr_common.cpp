@@ -1617,7 +1617,6 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
 
     /* Load thrown value / reason into ARG2 for add_stacktrace */
     a.mov(ARG2, getXRef(2));
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), imm(NIL));
 
     a.cmp(getXRef(1), imm(am_throw));
     a.short_().jne(not_throw);
@@ -1696,13 +1695,26 @@ void BeamModuleAssembler::emit_try_end(const ArgVal &Y) {
 
 void BeamModuleAssembler::emit_try_case(const ArgVal &Y) {
     a.dec(x86::qword_ptr(c_p, offsetof(Process, catches)));
-    mov_imm(RET, NIL);
-    mov_arg(Y, RET);
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), RET);
+    mov_arg(Y, NIL);
     a.movups(x86::xmm0, x86::xmmword_ptr(registers, 1 * sizeof(Eterm)));
     a.mov(RET, getXRef(3));
     a.movups(x86::xmmword_ptr(registers, 0 * sizeof(Eterm)), x86::xmm0);
     a.mov(getXRef(2), RET);
+
+#ifdef DEBUG
+    Label fvalue_ok = a.newLabel(), assertion_failed = a.newLabel();
+    comment("Start of assertion code");
+    a.cmp(x86::qword_ptr(c_p, offsetof(Process, fvalue)), NIL);
+    a.short_().je(fvalue_ok);
+
+    a.bind(assertion_failed);
+    comment("Assertion c_p->fvalue == NIL && c_p->ftrace == NIL failed");
+    a.ud2();
+
+    a.bind(fvalue_ok);
+    a.cmp(x86::qword_ptr(c_p, offsetof(Process, fvalue)), NIL);
+    a.short_().jne(assertion_failed);
+#endif
 }
 
 void BeamModuleAssembler::emit_try_case_end(const ArgVal &Src) {

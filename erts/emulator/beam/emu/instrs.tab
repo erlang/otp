@@ -1122,8 +1122,8 @@ try_end(Y) {
 try_case(Y) {
     $try_end($Y);
     ASSERT(is_non_value(r(0)));
-    c_p->fvalue = NIL;
-    c_p->ftrace = NIL;
+    ASSERT(c_p->fvalue == NIL);
+    ASSERT(c_p->ftrace == NIL);
     r(0) = x(1);
     x(1) = x(2);
     x(2) = x(3);

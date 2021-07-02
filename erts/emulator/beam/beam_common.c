@@ -509,10 +509,13 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
     /* Get the fully expanded error term */
     Value = expand_error_value(c_p, c_p->freason, Value);
 
-    /* Save final error term and stabilize the exception flags so no
-       further expansion is done. */
-    c_p->fvalue = Value;
+    /* Stabilize the exception flags so no further expansion is
+       done. */
     c_p->freason = PRIMARY_EXCEPTION(c_p->freason);
+
+    /* Clear out error term from process structure to avoid keeping
+       garbage. */
+    c_p->fvalue = NIL;
 
     /* Find a handler or die */
     if ((c_p->catches > 0 || IS_TRACED_FL(c_p, F_EXCEPTION_TRACE))
@@ -553,6 +556,7 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
 	    /* No longer safe to use this position */
             erts_msgq_recv_marker_clear(c_p, erts_old_recv_marker_id);
 #endif
+            c_p->ftrace = NIL;
 	    return new_pc;
 	}
 	if (c_p->catches > 0) erts_exit(ERTS_ERROR_EXIT, "Catch not found");
