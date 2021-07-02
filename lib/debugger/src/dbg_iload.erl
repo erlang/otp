@@ -82,9 +82,9 @@ store_module(Mod, File, Binary, Db) ->
     put(mod_md5, MD5),
 
     Forms1 = interpret_file_attribute(Forms0),
-    Forms  = standard_transforms(Forms1),
+    {Forms,Ctype}  = standard_transforms(Forms1),
+    store_forms(Forms, Mod, Db, #{exp=>Exp, ctype => Ctype}),
 
-    store_forms(Forms, Mod, Db, #{exp=>Exp}),
     erase(mod_md5),
     erase(current_function),
     %% store_funs(Db, Mod),
@@ -97,9 +97,24 @@ store_module(Mod, File, Binary, Db) ->
     dbg_idb:insert(Db, mod_raw, <<Src/binary,0:8>>). %% Add eos
 
 standard_transforms(Forms0) ->
-    Forms = erl_expand_records:module(Forms0, []),
-    erl_internal:add_predefined_functions(Forms).
+    Forms = erl_internal:add_predefined_functions(Forms0),
+    Ctype = init_calltype(Forms),
+    {Forms, Ctype}.
 
+init_calltype(Forms) ->
+    Locals = [{{Name,Arity},local} || {function,_,Name,Arity,_} <- Forms],
+    Ctype = maps:from_list(Locals),
+    init_calltype_imports(Forms, Ctype).
+
+init_calltype_imports([{attribute,_,import,{Mod,Fs}}|T], Ctype0) ->
+    true = is_atom(Mod),
+    Ctype = lists:foldl(fun(FA, Acc) ->
+                                Acc#{FA=>{imported,Mod}}
+                        end, Ctype0, Fs),
+    init_calltype_imports(T, Ctype);
+init_calltype_imports([_|T], Ctype) ->
+    init_calltype_imports(T, Ctype);
+init_calltype_imports([], Ctype) -> Ctype.
 
 %% Adjust line numbers using the file/2 attribute. 
 %% Also take the absolute value of line numbers.
@@ -131,7 +146,8 @@ store_forms([{function,_,Name,Arity,Cs0}|Fs], Mod, Db, #{exp:=Exp} = St) ->
 store_forms([{attribute,_,record,{Name,Defs}}|Fs], Mod, Db, St) ->
     NDefs = normalise_rec_fields(Defs),
     dbg_idb:insert(Db, {Mod,record,Name}, NDefs),
-    store_forms(Fs, Mod, Db, St);
+    Recs = maps:get(recs, St, #{}),
+    store_forms(Fs, Mod, Db, St#{recs => Recs#{Name => NDefs}});
 store_forms([{attribute,_,_Name,_Val}|Fs], Mod, Db, St) ->
     store_forms(Fs, Mod, Db, St);
 store_forms([_|Fs],  Mod, Db, St) ->
@@ -161,6 +177,21 @@ make_lineno(N, P, Acc) ->
 spaces(P, Acc) when P > 0 ->
     spaces(P-1, [$\s|Acc]);
 spaces(_, Acc) -> Acc.
+
+
+%% normalise_rec_fields([RecDef]) -> [Field].
+%%  Normalise the field definitions to always have a default value. If
+%%  none has been given then use 'undefined'.
+
+normalise_rec_fields(Fs) ->
+    lists:map(fun ({record_field,Anno,Field}) ->
+                      {record_field,Anno,Field,{atom,Anno,undefined}};
+                  ({typed_record_field,{record_field,Anno,Field},_Type}) ->
+                      {record_field,Anno,Field,{atom,Anno,undefined}};
+                  ({typed_record_field,Field,_Type}) ->
+                      Field;
+                  (F) -> F
+              end, Fs).
 
 get_nl([10|T],Pos,Head) -> {lists:reverse([10|Head]),T,Pos};
 get_nl([H|T],Pos,Head) ->
@@ -209,6 +240,12 @@ pattern({cons,Anno,H0,T0}, St) ->
 pattern({tuple,Anno,Ps0}, St) ->
     Ps1 = pattern_list(Ps0, St),
     {tuple,ln(Anno),Ps1};
+pattern({record_index,Anno,Name,Field}, St) ->
+    index_expr(Anno, Field, Name, record_fields(Name, Anno, St));
+pattern({record,Anno,Name,Pfs}, St0) ->
+    Fs = record_fields(Name, Anno, St0),
+    TMs = pattern_list(pattern_fields(Fs, Pfs), St0),
+    {tuple,ln(Anno),[{value,ln(Anno),Name} | TMs]};
 pattern({map,Anno,Fs0}, St) ->
     Fs1 = lists:map(fun ({map_field_exact,L,K,V}) ->
                             {map_field_exact,L,gexpr(K, St),pattern(V, St)}
@@ -276,7 +313,21 @@ and_guard([G0|Gs], St) ->
     [G1|and_guard(Gs, St)];
 and_guard([], _St) -> [].
 
+
+guard_test({call,Anno,{atom,_,is_record},[A,{atom,_,Name}]}, St) ->
+    record_test_in_guard(Anno, A, Name, St);
+guard_test({call,Anno,{remote,_,{atom,_,erlang},{atom,_,is_record}}, [A,{atom,_,Name}]},
+           St) ->
+    record_test_in_guard(Anno, A, Name, St);
+guard_test({call,Anno,{tuple,_,[{atom,_,erlang},{atom,_,is_record}]},
+            [A,{atom,_,Name}]}, St) ->
+    record_test_in_guard(Anno, A, Name, St);
 guard_test({call,Anno,{remote,_,{atom,_,erlang},{atom,_,F}},As0}, St) ->
+    As = gexpr_list(As0, St),
+    {safe_bif,ln(Anno),erlang,F,As};
+guard_test({call,Anno,{atom,_, F0},As0}, St) ->
+    F = normalise_test(F0, length(As0)),
+    true = erl_internal:bif(F,length(As0)),
     As = gexpr_list(As0, St),
     {safe_bif,ln(Anno),erlang,F,As};
 guard_test({op,Anno,Op,L0}, St) ->
@@ -295,6 +346,9 @@ guard_test({op,Anno,Op,L0,R0}, St) ->
     L1 = gexpr(L0, St),
     R1 = gexpr(R0, St),				%They see the same variables
     {safe_bif,ln(Anno),erlang,Op,[L1,R1]};
+guard_test({record_field,_A,R,Name,F}, St) ->
+    Anno = erl_parse:first_anno(R),
+    get_record_field_guard(Anno, R, F, Name, St);
 guard_test({var,_,_}=V, _St) ->V;    % Boolean var
 guard_test({atom,Anno,true}, _St) -> {value,ln(Anno),true};
 %% All other constants at this level means false.
@@ -325,11 +379,13 @@ gexpr({cons,Anno,H0,T0}, St) ->
 gexpr({tuple,Anno,Es0}, St) ->
     Es1 = gexpr_list(Es0, St),
     {tuple,ln(Anno),Es1};
+gexpr({record, _, _, _}=Rec, St) ->
+    expr(Rec, false, St);
 gexpr({map,Anno,Fs0}, St) ->
-    new_map(Fs0, Anno, St, fun gexpr/2);
+    new_map(Fs0, Anno, St, fun(F) -> gexpr(F,St) end);
 gexpr({map,Anno,E0,Fs0}, St) ->
     E1 = gexpr(E0, St),
-    Fs1 = map_fields(Fs0, St, fun gexpr/2),
+    Fs1 = map_fields(Fs0, St, fun(F) -> gexpr(F,St) end),
     {map,ln(Anno),E1,Fs1};
 gexpr({bin,Anno,Flds0}, St) ->
     Flds = gexpr_list(bin_expand_strings(Flds0), St),
@@ -339,9 +395,29 @@ gexpr({bin_element,Anno,Expr0,Size0,Type0}, St) ->
     Expr = gexpr(Expr0, St),
     Size = gexpr(Size1, St),
     {bin_element,ln(Anno),Expr,Size,Type};
+gexpr({call,Anno,{atom,_,is_record},[A,{atom,_,Name}]}, St) ->
+    record_test_in_guard(Anno, A, Name, St);
+gexpr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,is_record}}, [A,{atom,_,Name}]},
+      St) ->
+    record_test_in_guard(Anno, A, Name, St);
+gexpr({call,Anno,{tuple,_,[{atom,_,erlang},{atom,_,is_record}]},
+       [A,{atom,_,Name}]}, St) ->
+    record_test_in_guard(Anno, A, Name, St);
+gexpr({record_field,_A,R,Name,F}, St) ->
+    Anno = erl_parse:first_anno(R),
+    get_record_field_guard(Anno, R, F, Name, St);
+gexpr({record_index,Anno,Name,F}, St) ->
+    I = index_expr(Anno, F, Name, record_fields(Name, Anno, St)),
+    gexpr(I, St);
 gexpr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,self}},[]}, _St) ->
     {dbg,ln(Anno),self,[]};
 gexpr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,F}},As0}, St) ->
+    As = gexpr_list(As0, St),
+    {safe_bif,ln(Anno),erlang,F,As};
+gexpr({call,Anno,{atom,_,self},[]}, _St) ->
+    {dbg,ln(Anno),self,[]};
+gexpr({call,Anno,{atom,_, F},As0}, St) ->
+    true = erl_internal:bif(F,length(As0)),
     As = gexpr_list(As0, St),
     {safe_bif,ln(Anno),erlang,F,As};
 gexpr({op,Anno,Op,A0}, St) ->
@@ -392,6 +468,23 @@ expr({cons,Anno,H0,T0}, _Lc, St) ->
 expr({tuple,Anno,Es0}, _Lc, St) ->
     Es1 = expr_list(Es0, St),
     {tuple,ln(Anno),Es1};
+expr({record_index,Anno,Name,F}, Lc, St) ->
+    I = index_expr(Anno, F, Name, record_fields(Name, Anno, St)),
+    expr(I, Lc, St);
+expr({record_field,_A,R,Name,F}, _Lc, St) ->
+    Anno = erl_parse:first_anno(R),
+    get_record_field_body(Anno, R, F, Name, St);
+expr({record,Anno,R,Name,Us}, Lc, St) ->
+    Ue = record_update(R, Name, record_fields(Name, Anno, St), Us, St),
+    expr(Ue, Lc, St);
+expr({record,Anno,Name,Is}, Lc, St) ->
+    expr({tuple,Anno,[{atom,Anno,Name} |
+                      record_inits(record_fields(Name, Anno, St), Is)]},
+         Lc, St);
+expr({record_update, Anno, Es0}, Lc, St) ->
+    %% Unfold block into a sequence.
+    Es1 = exprs(Es0, Lc, St),
+    {record_update,ln(Anno),Es1};
 expr({map,Anno,Fs}, _Lc, St) ->
     new_map(Fs, Anno, St, fun (E) -> expr(E, false, St) end);
 expr({map,Anno,E0,Fs0}, _Lc, St) ->
@@ -454,6 +547,17 @@ expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,raise}},[_,_,_]=As}, _Lc, St) 
 expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,apply}},[_,_,_]=As0}, Lc, St) ->
     As = expr_list(As0, St),
     {apply,ln(Anno),As,Lc};
+expr({call,Anno,{atom,_,is_record},[A,{atom,_,Name}]}, Lc, St) ->
+    record_test_in_body(Anno, A, Name, Lc, St);
+expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,is_record}}, [A,{atom,_,Name}]},
+     Lc, St) ->
+    record_test_in_body(Anno, A, Name, Lc, St);
+expr({call,Anno,{tuple,_,[{atom,_,erlang},{atom,_,is_record}]},
+      [A,{atom,_,Name}]}, Lc, St) ->
+    record_test_in_body(Anno, A, Name, Lc, St);
+expr({call,Anno,{atom,_AnnoA,record_info},[_,_]=As0}, Lc, St) ->
+    As = expr_list(As0, St),
+    expr(record_info_call(Anno, As, St), Lc, St);
 expr({call,Anno,{remote,_,{atom,_,Mod},{atom,_,Func}},As0}, Lc, St) ->
     As = expr_list(As0, St),
     case erlang:is_builtin(Mod, Func, length(As)) of
@@ -471,9 +575,25 @@ expr({call,Anno,{remote,_,Mod0,Func0},As0}, Lc, St) ->
     Func = expr(Func0, false, St),
     As = consify(expr_list(As0, St)),
     {apply,ln(Anno),[Mod,Func,As],Lc};
-expr({call,Anno,{atom,_,Func},As0}, Lc, St) ->
+expr({call,Anno,{atom,_,Func}=F,As0}, Lc, #{ctype:=Ctypes} = St) ->
     As = expr_list(As0, St),
-    {local_call,ln(Anno),Func,As,Lc};
+    Ar = length(As),
+    NA = {Func,Ar},
+    Special = lists:member(Func, [self,throw,error,exit,raise,apply]),
+    case maps:get(NA, Ctypes, undefined) of
+        local ->
+            {local_call,ln(Anno),Func,As,Lc};
+        {imported, Mod} ->
+            {call_remote,ln(Anno),Mod,Func,As,Lc};
+        undefined when Special ->
+            expr({call,Anno,{remote,Anno,{atom,Anno,erlang},F},As0}, Lc, St);
+        undefined ->
+            case erl_internal:bif(Func, Ar) andalso bif_type(erlang, Func, Ar) of
+		false  -> {local_call,ln(Anno),Func,As,Lc};
+                safe   -> {safe_bif,ln(Anno),erlang,Func,As};
+		unsafe -> {bif,ln(Anno),erlang,Func,As}
+	    end
+    end;
 expr({call,Anno,Fun0,As0}, Lc, St) ->
     Fun = expr(Fun0, false, St),
     As = expr_list(As0, St),
@@ -556,9 +676,226 @@ expr_lc_bc({Tag,Anno,E0,Gs0}, St) ->
 		   end, Gs0),
     {Tag,ln(Anno),expr(E0, false, St),Gs}.
 
-is_guard_test(Expr, _St) ->
-    IsOverridden = fun({_,_}) -> true end,
+is_guard_test(Expr, #{ctype:=Ctypes}) ->
+    IsOverridden = fun(NA) ->
+                           case maps:get(NA, Ctypes, undefined) of
+                               local -> true;
+                               {imported,_} -> true;
+                               undefined -> false
+                           end
+                   end,
     erl_lint:is_guard_test(Expr, [], IsOverridden).
+
+normalise_test(atom, 1)      -> is_atom;
+normalise_test(binary, 1)    -> is_binary;
+normalise_test(float, 1)     -> is_float;
+normalise_test(function, 1)  -> is_function;
+normalise_test(integer, 1)   -> is_integer;
+normalise_test(list, 1)      -> is_list;
+normalise_test(number, 1)    -> is_number;
+normalise_test(pid, 1)       -> is_pid;
+normalise_test(port, 1)      -> is_port;
+normalise_test(record, 2)    -> is_record;
+normalise_test(reference, 1) -> is_reference;
+normalise_test(tuple, 1)     -> is_tuple;
+normalise_test(Name, _) -> Name.
+
+%% As Expr may have side effects, we must evaluate it
+%% first and bind the value to a new variable.
+%% We must use also handle the case that Expr does not
+%% evaluate to a tuple properly.
+
+record_test_in_body(Anno, Expr, Name, Lc, St) ->
+    Fs = record_fields(Name, Anno, St),
+    Var = {var, Anno, new_var_name()},
+    expr({block,Anno,
+          [{match,Anno,Var,Expr},
+           {call,Anno,{remote,Anno,{atom,Anno,erlang},
+                       {atom,Anno,is_record}},
+            [Var,{atom,Anno,Name},{integer,Anno,length(Fs)+1}]}]}, Lc, St).
+
+record_test_in_guard(Anno, Term, Name, St) ->
+    Fs = record_fields(Name, Anno, St),
+    expr({call,Anno,{remote,Anno,{atom,Anno,erlang},{atom,Anno,is_record}},
+          [Term,{atom,Anno,Name},{integer,Anno,length(Fs)+1}]}, false, St).
+
+%% Expand a call to record_info/2. We have checked that it is not
+%% shadowed by an import.
+
+record_info_call(Anno, [{value,_AnnoI,Info},{value,_AnnoN,Name}], St) ->
+    case Info of
+        size ->
+            {integer,Anno,1+length(record_fields(Name, Anno, St))};
+        fields ->
+            Fs = lists:map(fun({record_field,_,Field,_Val}) -> Field end,
+                           record_fields(Name, Anno, St)),
+            lists:foldr(fun (H, T) -> {cons,Anno,H,T} end, {nil,Anno}, Fs)
+    end.
+
+record_fields(R, Anno, #{recs := Recs}) ->
+    Fields = maps:get(R, Recs),
+    [{record_field,Anno,{atom,Anno,F},copy_expr(Di, Anno)} ||
+        {record_field,_Anno,{atom,_AnnoA,F},Di} <- Fields].
+
+
+%% record_inits([RecDefField], [Init]) -> [InitExpr].
+%%  Build a list of initialisation expressions for the record tuple
+%%  elements. This expansion must be passed through expr
+%%  again. N.B. We are scanning the record definition field list!
+
+record_inits(Fs, Is) ->
+    WildcardInit = record_wildcard_init(Is),
+    lists:map(fun ({record_field,_,{atom,_,F},D}) ->
+                      case find_field(F, Is) of
+                          {ok,Init} -> Init;
+                          error when WildcardInit =:= none -> D;
+                          error -> WildcardInit
+                      end
+              end, Fs).
+
+record_wildcard_init([{record_field,_,{var,_,'_'},D} | _]) -> D;
+record_wildcard_init([_ | Is]) -> record_wildcard_init(Is);
+record_wildcard_init([]) -> none.
+
+%% copy_expr(Expr, Anno) -> Expr.
+%%  Make a copy of Expr converting all annotations to Anno.
+copy_expr(Expr, Anno) ->
+    erl_parse:map_anno(fun(_A) -> Anno end, Expr).
+
+find_field(F, [{record_field,_,{atom,_,F},Val} | _]) -> {ok,Val};
+find_field(F, [_ | Fs]) -> find_field(F, Fs);
+find_field(_, []) -> error.
+
+%% record_update(Record, RecordName, [RecDefField], [Update], State) ->
+%%      {Expr,State'}
+%%  Build an expression to update fields in a record returning a new
+%%  record.  Try to be smart and optimise this. This expansion must be
+%%  passed through expr again.
+
+record_update(R, Name, Fs, Us0, St) ->
+    Anno = element(2, R),
+    {Pre,Us} = record_exprs(Us0, St),
+    %% We need a new variable for the record expression
+    %% to guarantee that it is only evaluated once.
+    Var = {var, Anno, new_var_name()},
+    Update = record_match(Var, Name, Anno, Fs, Us, St),
+    {record_update,Anno, Pre ++ [{match,Anno,Var,R},Update]}.
+
+%% record_match(Record, RecordName, Anno, [RecDefField], [Update], State)
+%%  Build a 'case' expression to modify record fields.
+
+record_match(R, Name, Anno, Fs, Us, St) ->
+    {Ps,News} = record_upd_fs(Fs, Us, St),
+    {'case',ln(Anno),R,
+     [{clause,ln(Anno),[{tuple,Anno,[{atom,Anno,Name} | Ps]}],[],
+       [{tuple,Anno,[{atom,Anno,Name} | News]}]},
+      {clause,Anno,[{var,Anno,'_'}],[],
+       [call_error(Anno, {tuple,Anno,[{atom,Anno,badrecord},{atom,Anno,Name}]})]}
+     ]}.
+
+record_upd_fs([{record_field,Anno,{atom,_AnnoA,F},_Val} | Fs], Us, St) ->
+    P = {var, Anno, new_var_name()},
+    {Ps,News} = record_upd_fs(Fs, Us, St),
+    case find_field(F, Us) of
+        {ok,New} -> {[P | Ps],[New | News]};
+        error -> {[P | Ps],[P | News]}
+    end;
+record_upd_fs([], _, _) -> {[],[]}.
+
+call_error(Anno, R) ->
+    {call,Anno,{remote,Anno,{atom,Anno,erlang},{atom,Anno,error}},[R]}.
+
+%% Break out expressions from an record update list and bind to new
+%% variables. The idea is that we will evaluate all update expressions
+%% before starting to update the record.
+
+record_exprs(Us, St) ->
+    record_exprs(Us, St, [], []).
+
+record_exprs([{record_field,Anno,{atom,_AnnoA,_F}=Name,Val}=Field0 | Us], St, Pre, Fs) ->
+    case is_simple_val(Val) of
+        true ->
+            record_exprs(Us, St, Pre, [Field0 | Fs]);
+        false ->
+            Var = {var, Anno, new_var_name()},
+            Bind  = {match,ln(Anno),Var,Val},
+            Field = {record_field,ln(Anno),Name,Var},
+            record_exprs(Us, St, [Bind | Pre], [Field | Fs])
+    end;
+record_exprs([], _St, Pre, Fs) ->
+    {lists:reverse(Pre),Fs}.
+
+is_simple_val({var,_,_}) -> true;
+is_simple_val(Val) ->
+    try
+        erl_parse:normalise(Val),
+        true
+    catch error:_ ->
+        false
+    end.
+
+%% pattern_fields([RecDefField], [Match]) -> [Pattern].
+%%  Build a list of match patterns for the record tuple elements.
+%%  This expansion must be passed through pattern again. N.B. We are
+%%  scanning the record definition field list!
+
+pattern_fields(Fs, Ms) ->
+    Wildcard = record_wildcard_init(Ms),
+    lists:map(fun ({record_field,Anno,{atom,_,F},_}) ->
+                      case find_field(F, Ms) of
+                          {ok,Match} -> Match;
+                          error when Wildcard =:= none -> {var,Anno,'_'};
+                          error -> Wildcard
+                      end
+              end, Fs).
+
+%% index_expr(Anno, FieldExpr, Name, Fields) -> IndexExpr.
+%%  Return an expression which evaluates to the index of a
+%%  field. Currently only handle the case where the field is an
+%%  atom. This expansion must be passed through expr again.
+
+index_expr(Anno, {atom,_,F}, _Name, Fs) ->
+    {integer,Anno,index_expr(F, Fs, 2)}.
+
+index_expr(F, [{record_field,_,{atom,_,F},_} | _], I) -> I;
+index_expr(F, [_ | Fs], I) -> index_expr(F, Fs, I+1).
+
+
+%% get_record_field(Anno, RecExpr, FieldExpr, Name, St) -> {Expr,St'}.
+%%  Return an expression which verifies that the type of record
+%%  is correct and then returns the value of the field.
+%%  This expansion must be passed through expr again.
+
+get_record_field_body(Anno, R, {atom,_,F}, Name, St) ->
+    Var = {var, Anno, new_var_name()},
+    Fs = record_fields(Name, Anno, St),
+    I = index_expr(F, Fs, 2),
+    P = record_pattern(2, I, Var, length(Fs)+1, Anno, [{atom,Anno,Name}]),
+    E = {'case',Anno,R,
+         [{clause,Anno,[{tuple,Anno,P}],[],[Var]},
+          {clause,Anno,[{var,Anno,'_'}],[],
+           [{call,Anno,{remote,Anno,
+                         {atom,Anno,erlang},
+                         {atom,Anno,error}},
+             [{tuple,Anno,[{atom,Anno,badrecord},{atom,Anno,Name}]}]}]}]},
+    expr(E, false, St).
+
+get_record_field_guard(Anno, R, {atom,_,F}, Name, St) ->
+    Fs = record_fields(Name, Anno, St),
+    I = index_expr(F, Fs, 2),
+    ExpR = expr(R, false, St),
+    %% Just to make comparison simple:
+    %% A0 = erl_anno:new(0),
+    %% ExpRp = erl_parse:map_anno(fun(_A) -> A0 end, ExpR),
+    %% RA = {{Name,ExpRp},Anno,ExpR,length(Fs)+1},
+    %% St2 = St1#exprec{strict_ra = [RA | St1#exprec.strict_ra]},
+    {safe_bif,ln(Anno),erlang,element,[{value,ln(Anno),I},ExpR]}.
+
+record_pattern(I, I, Var, Sz, Anno, Acc) ->
+    record_pattern(I+1, I, Var, Sz, Anno, [Var | Acc]);
+record_pattern(Cur, I, Var, Sz, Anno, Acc) when Cur =< Sz ->
+    record_pattern(Cur+1, I, Var, Sz, Anno, [{var,Anno,'_'} | Acc]);
+record_pattern(_, _, _, _, _, Acc) -> lists:reverse(Acc).
 
 %% The debugger converts both strings "abc" and lists [67, 68, 69]
 %% into {value, Line, [67, 68, 69]}, making it impossible to later
@@ -612,9 +949,9 @@ map_fields(Fs, St) ->
     map_fields(Fs, St, fun (E) -> expr(E, false, St) end).
 
 map_fields([{map_field_assoc,A,N,V}|Fs], St, F) ->
-    [{map_field_assoc,ln(A),F(N,St),F(V,St)}|map_fields(Fs, St, F)];
+    [{map_field_assoc,ln(A),F(N),F(V)}|map_fields(Fs, St, F)];
 map_fields([{map_field_exact,A,N,V}|Fs], St, F) ->
-    [{map_field_exact,ln(A),F(N,St),F(V, St)}|map_fields(Fs, St, F)];
+    [{map_field_exact,ln(A),F(N),F(V)}|map_fields(Fs, St, F)];
 map_fields([], _St, _) -> [].
 
 %% new_var_name() -> VarName.
