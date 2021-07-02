@@ -182,10 +182,6 @@ help(installed) ->
 	 "  verbose           - Same as {verbose, 1}\n",
 	 "  {vars, Vars}      - Variables in addition to the 'variables' file\n",
 	 "                      Can be any of the install options\n",
-	 "  {trace, TraceSpec}- Start call trace on target and slave nodes\n",
-	 "                      TraceSpec is the name of a file containing\n",
-	 "                      trace specifications or a list of trace\n",
-	 "                      specification elements.\n",
 	 "  {config, Path}    - Specify which directory ts should get it's \n"
 	 "                      config files from. The files should follow\n"
 	 "                      the convention lib/test_server/src/ts*.config.\n"
@@ -195,14 +191,6 @@ help(installed) ->
 	 "                      files are. The default location is\n"
 	 "                      tests/test_server/.\n"
 	 "\n",
-	 "Supported trace information elements:\n\n",
-	 "  {tp | tpl, Mod, [] | match_spec()}\n",
-	 "  {tp | tpl, Mod, Func, [] | match_spec()}\n",
-	 "  {tp | tpl, Mod, Func, Arity, [] | match_spec()}\n",
-	 "  {ctp | ctpl, Mod}\n",
-	 "  {ctp | ctpl, Mod, Func}\n",
-	 "  {ctp | ctpl, Mod, Func, Arity}\n",
-	 "\n\n",
 	 "Support functions:\n\n",
 	 "  ts:tests()\n",
 	 "    Returns all apps available for testing.\n",
