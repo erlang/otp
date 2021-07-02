@@ -33,7 +33,8 @@
 	 init_ack/1, init_ack/2,
 	 init_p/3,init_p/5,format/1,format/2,format/3,report_cb/2,
 	 initial_call/1,
-         translate_initial_call/1,
+   translate_initial_call/1,
+   get_label/1,
 	 stop/1, stop/3]).
 
 %% Internal exports.
@@ -462,6 +463,13 @@ translate_initial_call(DictOrPid) ->
 	false ->
 	    {?MODULE,init_p,5}
     end.
+
+%% add spec
+get_label(Pid) ->
+  case get_dictionary(Pid, '$label') of
+    {'$label', Label} -> Label;
+    undefined -> undefined
+  end.
 
 %% -----------------------------------------------------
 %% Fetch the initial call information exactly as stored

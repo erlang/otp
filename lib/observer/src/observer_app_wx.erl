@@ -497,13 +497,21 @@ middle([{#box{y=Y0},_}|List], _) ->
 
 box(Str0, N2P, FontW) ->
     Pid = gb_trees:get(Str0, N2P),
-    Str = if hd(Str0) =:= $< -> lists:append(io_lib:format("~w", [Pid]));
+    %% This string looks like a pid
+    Str = if hd(Str0) =:= $< -> pid_or_label(Pid);
+       %% Probably a global name
 	     true -> Str0
 	  end,
     {TW,TH} = getTextExtent(FontW, Str),
     Data = #str{text=Str, x=?BX_HE, y=?BY_HE, pid=Pid},
     %% Add pid
     #box{w=round(TW)+?BX_E, h=round(TH)+?BY_E, s1=Data}.
+
+pid_or_label(Pid) ->
+    case rpc:call(node(Pid), proc_lib, get_label, [Pid]) of
+        undefined -> lists:append(io_lib:format("~w", [Pid]));
+        Label -> lists:append(io_lib:format("~w", [Label]))
+    end.
 
 box_to_pid(#box{s1=#str{pid=Pid}}) -> Pid.
 box_to_reg(#box{s1=#str{text=[$<|_], pid=Pid}}) -> Pid;
