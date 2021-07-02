@@ -42,7 +42,7 @@ init_per_testcase(_Case,Config) ->
     init_timetrap(500,Config).
 
 init_timetrap(T,Config) ->
-    Dog = ?t:timetrap(T),
+    Dog = test_server:timetrap(T),
     [{watchdog, Dog}|Config].
 
 end_per_testcase(_Case,Config) ->
@@ -50,7 +50,7 @@ end_per_testcase(_Case,Config) ->
 
 cancel_timetrap(Config) ->
     Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 

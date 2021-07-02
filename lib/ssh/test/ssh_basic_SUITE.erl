@@ -242,12 +242,12 @@ end_per_testcase(_Config) ->
 %%--------------------------------------------------------------------
 %%% Application consistency test.
 app_test(Config) when is_list(Config) ->
-    ?t:app_test(ssh),
+    test_server:app_test(ssh),
     ok.
 %%--------------------------------------------------------------------
 %%% Appup file consistency test.
 appup_test(Config) when is_list(Config) ->
-    ok = ?t:appup_test(ssh).
+    ok = test_server:appup_test(ssh).
 %%--------------------------------------------------------------------
 %%% Test that we can set some misc options not tested elsewhere
 %%% some options not yet present are not decided if we should support or

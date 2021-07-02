@@ -65,7 +65,7 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(2)),
+    Dog = test_server:timetrap(test_server:minutes(2)),
     Config1 = [{watchdog, Dog}|Config],
     case Func of
 	init_per_tc ->
@@ -80,11 +80,11 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
 init_per_testcase(Func, Config) ->
     io:format("Func:~p",[Func]),
     io:format("Config:~p",[Config]),
-    ?t:fail("Arguments to init_per_testcase not correct").
+    test_server:fail("Arguments to init_per_testcase not correct").
 
 end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     case Func of
 	end_per_tc -> io:format("CLEANUP => this test case is ok\n");
 	_Other -> ok
@@ -92,12 +92,12 @@ end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
 end_per_testcase(Func, Config) ->
     io:format("Func:~p",[Func]),
     io:format("Config:~p",[Config]),
-    ?t:fail("Arguments to end_per_testcase not correct").
+    test_server:fail("Arguments to end_per_testcase not correct").
 
 fin_per_testcase(Func, Config) ->
     io:format("Func:~p",[Func]),
     io:format("Config:~p",[Config]),
-    ?t:fail("fin_per_testcase/2 called, should have called end_per_testcase/2").
+    test_server:fail("fin_per_testcase/2 called, should have called end_per_testcase/2").
     
 
 config(suite) -> [];
@@ -117,7 +117,7 @@ config(Config) when is_list(Config) ->
     Dp = ?config(priv_dir,Config),
     ok;
 config(_Config) ->
-    ?t:fail("Config variable is not a list.").
+    test_server:fail("Config variable is not a list.").
 
 is_tuplelist([]) ->
     true;
@@ -137,9 +137,9 @@ is_dir(Dir) ->
 comment(suite) -> [];
 comment(doc) -> ["Print a comment in the HTML log"];
 comment(Config) when is_list(Config) ->
-    ?t:comment("This comment should not occur in the HTML log because a later"
+    test_server:comment("This comment should not occur in the HTML log because a later"
 	       " comment shall overwrite it"),
-    ?t:comment("This comment is printed with the comment/1 function."
+    test_server:comment("This comment is printed with the comment/1 function."
 	       " It should occur in the HTML log").
 
 
@@ -148,32 +148,32 @@ timetrap(suite) -> [];
 timetrap(doc) -> ["Test that timetrap works."];
 timetrap(Config) when is_list(Config) ->
     TrapAfter = 3000,
-    Dog=?t:timetrap(TrapAfter),
+    Dog=test_server:timetrap(TrapAfter),
     process_flag(trap_exit, true),
     TimeOut = TrapAfter * test_server:timetrap_scale_factor() + 1000,
     receive
 	{'EXIT', Dog, {timetrap_timeout, _, _}} ->
 	    ok;
 	{'EXIT', _OtherPid, {timetrap_timeout, _, _}} ->
-	    ?t:fail("EXIT signal from wrong process")
+	    test_server:fail("EXIT signal from wrong process")
     after
 	TimeOut ->
-	    ?t:fail("Timetrap is not working.")
+	    test_server:fail("Timetrap is not working.")
     end,
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 
 timetrap_cancel(suite) -> [];
 timetrap_cancel(doc) -> ["Test that timetrap_cancel works."];
 timetrap_cancel(Config) when is_list(Config) ->
-    Dog=?t:timetrap(1000),
+    Dog=test_server:timetrap(1000),
     receive
     after
 	500 ->
 	    ok
     end,
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     receive
     after 1000 ->
 	    ok
@@ -186,9 +186,9 @@ multiply_timetrap(Config) when is_list(Config) ->
     %% This simulates the call to test_server_ctrl:multiply_timetraps/1:
     put(test_server_multiply_timetraps,{2,true}),
 
-    Dog = ?t:timetrap(500),
+    Dog = test_server:timetrap(500),
     timer:sleep(800),
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
 
     %% Reset
     put(test_server_multiply_timetraps,1),
@@ -227,7 +227,7 @@ end_per_tc(suite) -> [];
 end_per_tc(doc) -> ["Test that end_per_testcase/2 is called even if"
 		    " test case fails"];
 end_per_tc(Config) when is_list(Config) ->
-    ?t:fail("This case should fail! Check that \"CLEANUP\" is"
+    test_server:fail("This case should fail! Check that \"CLEANUP\" is"
 	    " printed in the minor log file.").
 
 
@@ -239,9 +239,9 @@ timeconv(Config) when is_list(Config) ->
     Secs=Val*1000,
     Mins=Secs*60,
     Hrs=Mins*60,
-    Secs=?t:seconds(2),
-    Mins=?t:minutes(2),
-    Hrs=?t:hours(2),
+    Secs=test_server:seconds(2),
+    Mins=test_server:minutes(2),
+    Hrs=test_server:hours(2),
     ok.
 
 
@@ -251,7 +251,7 @@ msgs(Config) when is_list(Config) ->
     self() ! {hej, du},
     self() ! {lite, "data"},
     self() ! en_atom,
-    [{hej, du}, {lite, "data"}, en_atom] = ?t:messages_get(),
+    [{hej, du}, {lite, "data"}, en_atom] = test_server:messages_get(),
     ok.
 
 capture(suite) -> [];
@@ -259,30 +259,30 @@ capture(doc) -> ["Test that the capture functions work properly."];
 capture(Config) when is_list(Config) ->
     String1="abcedfghjiklmnopqrstuvwxyz",
     String2="0123456789",
-    ?t:capture_start(),
+    test_server:capture_start(),
     io:format(String1),
-    [String1]=?t:capture_get(),
+    [String1]=test_server:capture_get(),
     io:format(String2),
-    [String2]=?t:capture_get(),
-    ?t:capture_stop(),
-    []=?t:capture_get(),
+    [String2]=test_server:capture_get(),
+    test_server:capture_stop(),
+    []=test_server:capture_get(),
     io:format(String2),
-    []=?t:capture_get(),
+    []=test_server:capture_get(),
     ok.
 
 timecall(suite) -> [];
 timecall(doc) -> ["Tests that timed calls work."];
 timecall(Config) when is_list(Config) ->
-    {_Time1, liten_apa_e_oxo_farlig} = ?t:timecall(?MODULE, dummy_function, []),
-    {Time2, jag_ar_en_gorilla} = ?t:timecall(?MODULE, dummy_function, [gorilla]),
+    {_Time1, liten_apa_e_oxo_farlig} = test_server:timecall(?MODULE, dummy_function, []),
+    {Time2, jag_ar_en_gorilla} = test_server:timecall(?MODULE, dummy_function, [gorilla]),
     DTime=round(Time2),
     if
 	DTime<1 ->
-	    ?t:fail("Timecall reported a too low time.");
+	    test_server:fail("Timecall reported a too low time.");
 	DTime==1 ->
 	    ok;
 	DTime>1 ->
-	    ?t:fail("Timecall reported a too high time.")
+	    test_server:fail("Timecall reported a too high time.")
     end,
     ok.
 
@@ -299,16 +299,16 @@ do_times(doc) -> ["Test the do_times function."].
 do_times_mfa(suite) -> [];
 do_times_mfa(doc) -> ["Test the do_times function with M,F,A given."];
 do_times_mfa(Config) when is_list(Config) ->
-    ?t:do_times(100, ?MODULE, doer, [self()]),
-    100=length(?t:messages_get()),
+    test_server:do_times(100, ?MODULE, doer, [self()]),
+    100=length(test_server:messages_get()),
     ok.
 
 do_times_fun(suite) -> [];
 do_times_fun(doc) -> ["Test the do_times function with fun given."];
 do_times_fun(Config) when is_list(Config) ->
     Self = self(),
-    ?t:do_times(100, fun() -> doer(Self) end),
-    100=length(?t:messages_get()),
+    test_server:do_times(100, fun() -> doer(Self) end),
+    100=length(test_server:messages_get()),
     ok.
 
 doer(From) ->
@@ -325,7 +325,7 @@ skip_case1(doc) -> ["Test that you can return {skipped, Reason},"
 		    " and that Reason is in the comment field in the HTML log"];
 skip_case1(Config) when is_list(Config) ->
     %% If this comment shows, the case failed!!
-    ?t:comment("ERROR: This case should have been noted as `Skipped'"),
+    test_server:comment("ERROR: This case should have been noted as `Skipped'"),
     %% The Reason in {skipped, Reason} should overwrite a 'comment'
     {skipped, "This case should be noted as `Skipped'"}.
 
@@ -334,7 +334,7 @@ skip_case2(doc) -> ["Test that you can return {skipped, Reason},"
 		    " and that Reason is in the comment field in the HTML log"];
 skip_case2(Config) when is_list(Config) ->
     %% If this comment shows, the case failed!!
-    ?t:comment("ERROR: This case should have been noted as `Skipped'"),
+    test_server:comment("ERROR: This case should have been noted as `Skipped'"),
     %% The Reason in {skipped, Reason} should overwrite a 'comment'
     exit({skipped, "This case should be noted as `Skipped'"}).    
 
@@ -343,7 +343,7 @@ skip_case3(doc) -> ["Test that you can return {skip, Reason},"
 		    " and that Reason is in the comment field in the HTML log"];
 skip_case3(Config) when is_list(Config) ->
     %% If this comment shows, the case failed!!
-    ?t:comment("ERROR: This case should have been noted as `Skipped'"),
+    test_server:comment("ERROR: This case should have been noted as `Skipped'"),
     %% The Reason in {skip, Reason} should overwrite a 'comment'
     {skip, "This case should be noted as `Skipped'"}.
 
@@ -352,7 +352,7 @@ skip_case4(doc) -> ["Test that you can return {skip, Reason},"
 		    " and that Reason is in the comment field in the HTML log"];
 skip_case4(Config) when is_list(Config) ->
     %% If this comment shows, the case failed!!
-    ?t:comment("ERROR: This case should have been noted as `Skipped'"),
+    test_server:comment("ERROR: This case should have been noted as `Skipped'"),
     %% The Reason in {skip, Reason} should overwrite a 'comment'
     exit({skip, "This case should be noted as `Skipped'"}).    
 
@@ -370,7 +370,7 @@ skip_case7(Config) when is_list(Config) ->
     %% This case shall be skipped by adding 
     %% {skip, {test_server_SUITE, skip_case7, Reason}}. 
     %% to the test specification file.
-    ?t:fail("This case should have been Skipped by the .spec file").
+    test_server:fail("This case should have been Skipped by the .spec file").
 
 skip_case8(suite) -> [];
 skip_case8(doc) -> ["Test that {skipped, Reason} works from"
@@ -378,14 +378,14 @@ skip_case8(doc) -> ["Test that {skipped, Reason} works from"
 skip_case8(Config) when is_list(Config) ->
     %% This case shall be skipped by adding a specific clause to 
     %% returning {skipped, Reason} from init_per_testcase/2 for this case. 
-    ?t:fail("This case should have been Skipped by init_per_testcase/2").
+    test_server:fail("This case should have been Skipped by init_per_testcase/2").
 
 skip_case9(suite) -> [];
 skip_case9(doc) -> ["Test that {skip, Reason} works from a init_per_testcase/2"];
 skip_case9(Config) when is_list(Config) ->
     %% This case shall be skipped by adding a specific clause to 
     %% returning {skip, Reason} from init_per_testcase/2 for this case. 
-    ?t:fail("This case should have been Skipped by init_per_testcase/2").
+    test_server:fail("This case should have been Skipped by init_per_testcase/2").
 
 conf_init(doc) -> ["Test successful conf case: Change Config parameter"];
 conf_init(Config) when is_list(Config) ->
@@ -412,7 +412,7 @@ check_old_conf(Config) when is_list(Config) ->
 conf_init_fail(doc) -> ["Test that config members are skipped if"
 			" conf init function fails."];
 conf_init_fail(Config) when is_list(Config) -> 
-    ?t:fail("This case should fail! Check that conf_member_skip and"
+    test_server:fail("This case should fail! Check that conf_member_skip and"
 	    " conf_cleanup_skip are skipped.").
 
 
@@ -420,44 +420,44 @@ conf_init_fail(Config) when is_list(Config) ->
 start_stop_node(suite) -> [];
 start_stop_node(doc) -> ["Test start and stop of slave and peer nodes"];
 start_stop_node(Config) when is_list(Config) ->
-    {ok,Node2} = ?t:start_node(node2,peer,[]),
-    {error, _} = ?t:start_node(node2,peer,[{fail_on_error,false}]),
+    {ok,Node2} = test_server:start_node(node2,peer,[]),
+    {error, _} = test_server:start_node(node2,peer,[{fail_on_error,false}]),
     true = lists:member(Node2,nodes()),
 
-    {ok,Node3} = ?t:start_node(node3,slave,[]),
-    {error, _} = ?t:start_node(node3,slave,[]),
+    {ok,Node3} = test_server:start_node(node3,slave,[]),
+    {error, _} = test_server:start_node(node3,slave,[]),
     true = lists:member(Node3,nodes()),
 
-    {ok,Node4} = ?t:start_node(node4,peer,[{wait,false}]),
+    {ok,Node4} = test_server:start_node(node4,peer,[{wait,false}]),
     case lists:member(Node4,nodes()) of
 	true -> 
-	    ?t:comment("WARNING: Node started with {wait,false}"
+	    test_server:comment("WARNING: Node started with {wait,false}"
 			     " is up faster than expected...");
 	false ->
 	    test_server:wait_for_node(Node4),
 	    true = lists:member(Node4,nodes())
     end,
 
-    true = ?t:stop_node(Node2),
+    true = test_server:stop_node(Node2),
     false = lists:member(Node2,nodes()),
 
-    true = ?t:stop_node(Node3),
+    true = test_server:stop_node(Node3),
     false = lists:member(Node3,nodes()),
     
-    true = ?t:stop_node(Node4),
+    true = test_server:stop_node(Node4),
     false = lists:member(Node4,nodes()),
     timer:sleep(2000),
-    false = ?t:stop_node(Node4),
+    false = test_server:stop_node(Node4),
 
     ok.
 
 cleanup_nodes_init(doc) -> ["Test that nodes are terminated when test case"
 			    " is finished unless {cleanup,false} is given."];
 cleanup_nodes_init(Config) when is_list(Config) ->
-    {ok,DieSlave} = ?t:start_node(die_slave, slave, []),
-    {ok,SurviveSlave} = ?t:start_node(survive_slave, slave, [{cleanup,false}]),
-    {ok,DiePeer} = ?t:start_node(die_peer, peer, []),
-    {ok,SurvivePeer} = ?t:start_node(survive_peer, peer, [{cleanup,false}]),
+    {ok,DieSlave} = test_server:start_node(die_slave, slave, []),
+    {ok,SurviveSlave} = test_server:start_node(survive_slave, slave, [{cleanup,false}]),
+    {ok,DiePeer} = test_server:start_node(die_peer, peer, []),
+    {ok,SurvivePeer} = test_server:start_node(survive_peer, peer, [{cleanup,false}]),
     [{die_slave,DieSlave},
      {survive_slave,SurviveSlave},
      {die_peer,DiePeer},
@@ -482,9 +482,9 @@ cleanup_nodes_fin(Config) when is_list(Config) ->
     Slave = ?config(survive_slave,Config),
     Peer = ?config(survive_peer,Config),
     
-    true = ?t:stop_node(Slave),
+    true = test_server:stop_node(Slave),
     false = lists:member(Slave,nodes()),
-    true = ?t:stop_node(Peer),
+    true = test_server:stop_node(Peer),
     false = lists:member(Peer,nodes()),
     
     C1 = lists:keydelete(die_slave,1,Config),
@@ -493,7 +493,7 @@ cleanup_nodes_fin(Config) when is_list(Config) ->
     lists:keydelete(survive_peer,1,C3).
 
 commercial(Config) when is_list(Config) ->
-    case ?t:is_commercial() of
+    case test_server:is_commercial() of
 	false -> {comment,"Open-source build"};
 	true -> {comment,"Commercial build"}
     end.

@@ -43,9 +43,9 @@ end_per_group(_GroupName, Config) ->
 app() ->
     [{doc, "Test that the parsetools app file is ok"}].
 app(Config) when is_list(Config) ->
-    ok = ?t:app_test(parsetools).
+    ok = test_server:app_test(parsetools).
 
 appup() ->
     [{doc, "Test that the parsetools appup file is ok"}].
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(parsetools).
+    ok = test_server:appup_test(parsetools).

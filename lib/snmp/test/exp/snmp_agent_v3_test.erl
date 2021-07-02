@@ -223,12 +223,12 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) when list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(6)),
+    Dog = test_server:timetrap(test_server:minutes(6)),
     [{watchdog, Dog}|Config].
 
 end_per_testcase(_Case, Config) when list(Config) ->
     Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     Config.
 
 cases() -> 
@@ -4994,14 +4994,14 @@ otp_4394_config(AgentDir, MgrDir, Ip0) ->
     ?line write_community_conf(AgentDir, [C1, C2]),
     ?line update_vacm(Vsn, AgentDir),
     Ta1 = {"shelob v1", 
-	   [134,138,177,177], 5000, 1500, 3, %% Använd Ip och modda
+	   [134,138,177,177], 5000, 1500, 3, %% Anvï¿½nd Ip och modda
 	   "pc1", 
 	   "target_v1", "", 
 	   %% [255,255,255,255,0,0], 
 	   [],
 	   2048},
     Ta2 = {"bifur v1", 
-	   [134,138,177,75], 5000, 1500, 3, %% Använd Ip
+	   [134,138,177,75], 5000, 1500, 3, %% Anvï¿½nd Ip
 	   "pc2", 
 	   "target_v1", "", 
 	   %% [255,255,255,255,0,0],

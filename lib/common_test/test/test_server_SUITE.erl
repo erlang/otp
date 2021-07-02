@@ -300,7 +300,7 @@ check([{Str,Expected,Actual}|T], _) ->
     io:format("~s: expected ~p, actual ~p\n", [Str,Expected,Actual]),
     check(T, error);
 check([], ok) -> ok;
-check([], error) -> ?t:fail().
+check([], error) -> test_server:fail().
 
 until(Fun) ->
     case Fun() of
@@ -393,7 +393,7 @@ create_unicode_test_suite(Dir,Encoding) ->
 	 "    init_timetrap(500,Config).\n"
 	 "\n"
 	 "init_timetrap(T,Config) ->\n"
-	 "    Dog = ?t:timetrap(T),\n"
+	 "    Dog = test_server:timetrap(T),\n"
 	 "    [{watchdog, Dog}|Config].\n"
 	 "\n"
 	 "end_per_testcase(_Case,Config) ->\n"
@@ -401,7 +401,7 @@ create_unicode_test_suite(Dir,Encoding) ->
 	 "\n"
 	 "cancel_timetrap(Config) ->\n"
 	 "    Dog=?config(watchdog, Config),\n"
-	 "    ?t:timetrap_cancel(Dog),\n"
+	 "    test_server:timetrap_cancel(Dog),\n"
 	 "    ok.\n"
 	 "\n"
 	 "tc_äöå(Config) when is_list(Config) ->\n"

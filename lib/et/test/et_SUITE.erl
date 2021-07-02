@@ -28,8 +28,8 @@ all() ->
 
 %% Test that the et app file is ok
 app(Config) when is_list(Config) ->
-    ok = ?t:app_test(et).
+    ok = test_server:app_test(et).
 
 %% Test that the et appup file is ok
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(et).
+    ok = test_server:appup_test(et).

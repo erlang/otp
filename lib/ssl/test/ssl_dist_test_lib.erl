@@ -74,7 +74,7 @@ apply_on_ssl_node(Node, Ref, Msg) ->
 stop_ssl_node(#node_handle{connection_handler = Handler,
 			   socket = Socket,
 			   name = Name}) ->
-    ?t:format("Trying to stop ssl node ~s.~n", [Name]),
+    test_server:format("Trying to stop ssl node ~s.~n", [Name]),
     Mon = erlang:monitor(process, Handler),
     unlink(Handler),
     case gen_tcp:send(Socket, term_to_binary(stop)) of
@@ -100,14 +100,14 @@ start_ssl_node(Name, Args) ->
 				 [binary, {packet, 4}, {active, false}]),
     {ok, ListenPort} = inet:port(LSock),
     CmdLine = mk_node_cmdline(ListenPort, Name, Args),
-    ?t:format("Attempting to start ssl node ~ts: ~ts~n", [Name, CmdLine]),
+    test_server:format("Attempting to start ssl node ~ts: ~ts~n", [Name, CmdLine]),
     case open_port({spawn, CmdLine}, []) of
 	Port when is_port(Port) ->
 	    unlink(Port),
 	    catch erlang:port_close(Port),
 	    case await_ssl_node_up(Name, LSock) of
 		#node_handle{} = NodeHandle ->
-		    ?t:format("Ssl node ~s started.~n", [Name]),
+		    test_server:format("Ssl node ~s started.~n", [Name]),
 		    NodeName = list_to_atom(Name ++ "@" ++ host_name()),
 		    NodeHandle#node_handle{nodename = NodeName};
 		Error ->
@@ -168,7 +168,7 @@ await_ssl_node_up(Name, LSock) ->
 	    end;
 	{error, Error} ->
 	    gen_tcp:close(LSock),
-            ?t:format("Accept failed for ssl node ~s: ~p~n", [Name,Error]),
+            test_server:format("Accept failed for ssl node ~s: ~p~n", [Name,Error]),
 	    exit({accept_failed, Error})
     end.
 
@@ -220,15 +220,15 @@ tstsrvr_con_loop(Name, Socket, Parent) ->
 	{tcp, Socket, Bin} ->
 	    try binary_to_term(Bin) of
 		{format, FmtStr, ArgList} ->
-		    ?t:format(FmtStr, ArgList);
+		    test_server:format(FmtStr, ArgList);
 		{message, Msg} ->
-		    ?t:format("Got message ~p", [Msg]),
+		    test_server:format("Got message ~p", [Msg]),
 		    Parent ! Msg;
 		{apply_res, To, Ref, Res} ->
 		    To ! {Ref, Res};
 		bye ->
                     {error, closed} = gen_tcp:recv(Socket, 0),
-		    ?t:format("Ssl node ~s stopped.~n", [Name]),
+		    test_server:format("Ssl node ~s stopped.~n", [Name]),
 		    gen_tcp:close(Socket),
 		    exit(normal);
 		Unknown ->

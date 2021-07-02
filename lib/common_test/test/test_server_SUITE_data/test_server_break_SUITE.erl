@@ -55,7 +55,7 @@ init_per_testcase(_Case,Config) ->
     init_timetrap(500,Config).
 
 init_timetrap(T,Config) ->
-    Dog = ?t:timetrap(T),
+    Dog = test_server:timetrap(T),
     [{watchdog, Dog}|Config].
 
 end_per_testcase(Case,Config) when Case==break_in_end_tc;
@@ -68,7 +68,7 @@ end_per_testcase(_Case,Config) ->
 
 cancel_timetrap(Config) ->
     Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -86,10 +86,10 @@ break_in_end_tc(Config) when is_list(Config) ->
     ok.
 
 break_in_end_tc_after_fail(Config) when is_list(Config) ->
-    ?t:fail(test_case_should_fail).
+    test_server:fail(test_case_should_fail).
 
 break_in_end_tc_after_abort(Config) when is_list(Config) ->
-    ?t:adjusted_sleep(2000). % will cause a timetrap timeout
+    test_server:adjusted_sleep(2000). % will cause a timetrap timeout
 
 %% This test case checks that all breaks in previous test cases was
 %% also continued, and that the break lasted as long as expected.
@@ -110,24 +110,24 @@ check_all_breaks([{From,Case,T,Start}|Breaks],[{From,End}|Continued]) ->
     DiffSec = round(Diff/1000000),
     TSec = round(T/1000000),
     if DiffSec==TSec ->
-	    ?t:format("Break in ~p successfully continued after ~p second(s)~n",
+	    test_server:format("Break in ~p successfully continued after ~p second(s)~n",
 		      [Case,DiffSec]),
 	    check_all_breaks(Breaks,Continued);
        true ->
-	    ?t:format("Faulty duration of break in ~p: continued after ~p second(s)~n",
+	    test_server:format("Faulty duration of break in ~p: continued after ~p second(s)~n",
 		      [Case,DiffSec]),
-	    ?t:fail({faulty_diff,Case,DiffSec,TSec})
+	    test_server:fail({faulty_diff,Case,DiffSec,TSec})
     end;
 check_all_breaks([],[]) ->
     ok;
 check_all_breaks(Breaks,Continued) ->
     %% This is probably a case of a missing continue - i.e. a break
     %% has been started, but it was never continued.
-    ?t:fail({no_match_in_breaks_and_continued,Breaks,Continued}).
+    test_server:fail({no_match_in_breaks_and_continued,Breaks,Continued}).
 
 break_and_check(Case) ->
     break_and_continue_sup ! {break,Case,1000,self()},
-    ?t:break(atom_to_list(Case)),
+    test_server:break(atom_to_list(Case)),
     break_and_continue_sup ! {continued,self()},
     ok.
 
@@ -139,8 +139,8 @@ break_and_continue_loop(Breaks,Continued) ->
     receive
 	{break,Case,T,From} ->
 	    Start = now(),
-	    {RealT,_} = timer:tc(?t,adjusted_sleep,[T]),
-	    ?t:continue(),
+	    {RealT,_} = timer:tc(test_server,adjusted_sleep,[T]),
+	    test_server:continue(),
 	    break_and_continue_loop([{From,Case,RealT,Start}|Breaks],Continued);
 	{continued,From} ->
 	    break_and_continue_loop(Breaks,[{From,now()}|Continued]);

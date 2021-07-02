@@ -239,14 +239,14 @@ end_per_testcase(_TestCase, _Config) ->
 app() ->
     [{doc, "Test that the public_key app file is ok"}].
 app(Config) when is_list(Config) ->
-    ok = ?t:app_test(public_key).
+    ok = test_server:app_test(public_key).
 
 %%--------------------------------------------------------------------
 
 appup() ->
     [{doc, "Test that the public_key appup file is ok"}].
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(public_key).
+    ok = test_server:appup_test(public_key).
 
 %%--------------------------------------------------------------------
 
