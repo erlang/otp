@@ -173,7 +173,8 @@ typedef struct atom_int {
     struct atom_int *next;
     sokey_t key;
     erts_atomic_t index;
-    UWord hvalue;
+    UWord hvalue;		/* real hash value */
+    erts_atomic_t phash2;	/* legacy hash value for phash2 compatibility */
     Atom atom;			/* this is what client code gets to see */
 } AtomInt;
 
@@ -684,6 +685,7 @@ static AtomInt *atom_alloc(AtomInt *tmpl)
     obj->atom.len = tmpl->atom.len;
     obj->atom.latin1_chars = tmpl->atom.latin1_chars;
     erts_atomic_set_mb(&obj->index, -1);
+    erts_atomic_set_mb(&obj->phash2, 0); /* computed on demand */
 
     /*
      * Precompute ordinal value of first 3 bytes + 7 bits.
@@ -756,6 +758,27 @@ void atom_info(fmtfn_t to, void *to_arg)
 }
 
 /*
+ * Calculate internal atom hash value.
+ * This now uses the "times 33" algorithm instead of PJW since the latter
+ * requires the fibonacci step to get decent distribution, but that drops
+ * low instead of high bits, making it a poor match for split-ordered keys.
+ */
+
+static HashValue atom_hash(const AtomInt *obj)
+{
+    const byte *p = obj->atom.name;
+    int len = obj->atom.len;
+    HashValue h;
+    int i;
+
+    h = 0;
+    for (i = 0; i < len; ++i)
+	h = (h << 5) + h + p[i];
+
+    return h;
+}
+
+/*
  * Calculate atom hash value (using the hash algorithm
  * hashpjw from the Dragon Book).
  *
@@ -763,7 +786,7 @@ void atom_info(fmtfn_t to, void *to_arg)
  */
 
 static HashValue
-atom_hash(AtomInt* obj)
+atom_phash2(AtomInt* obj)
 {
     byte* p = obj->atom.name;
     int len = obj->atom.len;
@@ -1077,7 +1100,16 @@ erts_get_atom_limit(void)
 
 UWord atom_hvalue(Eterm atom)
 {
-    return atom_tab_int(atom_val(atom))->hvalue;
+    AtomInt *p;
+    HashValue phash2;
+
+    p = atom_tab_int(atom_val(atom));
+    phash2 = erts_atomic_read_mb(&p->phash2);
+    if (!phash2) {
+	phash2 = atom_phash2(p);
+	erts_atomic_set_mb(&p->phash2, phash2);
+    }
+    return phash2;
 }
 
 Atom *atom_tab(Uint i)
