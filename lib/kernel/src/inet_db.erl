@@ -609,7 +609,10 @@ res_cache_answer(RRs) ->
       {add_rrs,
        [RR#dns_rr{
           bm = tolower(RR#dns_rr.domain), tm = TM, cnt = TM}
-        || RR <- RRs]}).
+        || #dns_rr{ttl = TTL} = RR <- RRs,
+           %% Do not cache TTL 0 entries - they are only used
+           %% to resolve the current lookup
+           0 < TTL]}).
 
 %%
 %% getbyname (cache version)
@@ -1731,8 +1734,7 @@ lookup_cache_data(LcDomain, Type) ->
 %%
 %% Look up all matching objects.  The still valid ones
 %% should be returned, and updated with a new cnt time.
-%% All expired ones should be deleted.  We count TTL 0
-%% RRs as valid but immediately expired.
+%% All expired ones should be deleted.
 %%
 match_rr(MatchRR) ->
     CacheDb = inet_cache,
@@ -1749,12 +1751,6 @@ match_rr(CacheDb, [RR | RRs], Time, ResultRRs, InsertRRs, DeleteRRs) ->
     %%
     #dns_rr{ttl = TTL, tm = TM, cnt = Cnt} = RR,
     if
-        TTL =:= 0 ->
-            %% Valid, immediately expired; return and delete
-            Key = match_rr_key(RR),
-            match_rr(
-              CacheDb, RRs, Time,
-              ResultRRs#{Key => RR}, InsertRRs, [RR | DeleteRRs]);
         TM + TTL < Time ->
             %% Expired, delete
             match_rr(
