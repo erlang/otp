@@ -76,7 +76,7 @@ message(Config) when is_list(Config) ->
     %% Check with message_receptor that it has been received
     ct:sleep({seconds,1}),
     Msg =
-    case ?t:os_type() of
+    case test_server:os_type() of
         {unix, sunos} ->
             {?TAG, Data};
         {win32, _} ->

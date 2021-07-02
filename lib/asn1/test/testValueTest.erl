@@ -111,7 +111,7 @@ roundtrip(T, V) ->
 roundtrip_error(T, V) ->
     try asn1_test_lib:roundtrip('ValueTest', T, V) of
 	ok ->
-	    test_server:fail()
+	    ct:fail(expected_exception)
     catch _:_ ->
 	    ok
     end.

@@ -27,7 +27,6 @@
 -define(line, put(line, ?LINE), ).
 -define(privdir(_), "./disk_log_SUITE_priv").
 -define(config(X,Y), foo).
--define(t,test_server).
 -else.
 -include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).

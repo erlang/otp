@@ -94,7 +94,7 @@ start_slave(NodeName, Config, Level) ->
     PR = proplists:get_value(printable_range,Config,io:printable_range()),
     case slave:start(Host, NodeName, "+pc " ++ atom_to_list(PR)) of
 	{error,Reason} ->
-	    test_server:fail(Reason);
+	    ct:fail(Reason);
 	{ok,CTNode} ->
 	    test_server:format(0, "Node ~p started~n", [CTNode]),
 	    IsCover = test_server:is_cover(),

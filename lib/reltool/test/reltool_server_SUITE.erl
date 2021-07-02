@@ -2774,7 +2774,7 @@ stop_node(Node) ->
     wait_for_node_down(Node,50).
 
 wait_for_node_down(Node,0) ->
-    test_server:fail({cant_terminate_node,Node});
+    ct:fail({cant_terminate_node,Node});
 wait_for_node_down(Node,N) ->
     case net_adm:ping(Node) of
 	pong ->
@@ -2836,7 +2836,7 @@ wait_for_app(_Node, Name, 0) ->
 wait_for_app(Node, Name, N) when is_integer(N), N > 0 ->
     case rpc:call(Node,application,which_applications,[]) of
 	{badrpc,Reason} ->
-	    test_server:fail({failed_to_get_applications,Reason});
+	    ct:fail({failed_to_get_applications,Reason});
 	Apps ->
 	    case lists:member(Name,Apps) of
 		false ->

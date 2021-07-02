@@ -541,7 +541,7 @@ abnormal1(Config) ->
 	   gen_statem:call(Name, {delayed_answer,2000}, 100),
 	   Reason),
     ok = gen_statem:stop(Name),
-    ?t:sleep(1100),
+    ct:sleep(1100),
     ok = verify_empty_msgq().
 
 %% Check that time outs in calls work
@@ -561,7 +561,7 @@ abnormal1clean(Config) ->
 	     Name, {delayed_answer,1000}, {clean_timeout,10}),
 	   Reason),
     ok = gen_statem:stop(Name),
-    ?t:sleep(1100),
+    ct:sleep(1100),
     ok = verify_empty_msgq().
 
 %% Check that time outs in calls work
@@ -581,7 +581,7 @@ abnormal1dirty(Config) ->
 	     Name, {delayed_answer,1000}, {dirty_timeout,10}),
 	   Reason),
     ok = gen_statem:stop(Name),
-    ?t:sleep(1100),
+    ct:sleep(1100),
     case flush() of
 	[] -> ok
     end.
@@ -2259,7 +2259,7 @@ do_func_test(STM) ->
     ok = do_connect(STM),
     ok = gen_statem:cast(STM, {'alive?',self()}),
     wfor(yes),
-    ?t:do_times(3, ?MODULE, do_msg, [STM]),
+    test_server:do_times(3, ?MODULE, do_msg, [STM]),
     ok = gen_statem:cast(STM, {'alive?',self()}),
     wfor(yes),
     ok = do_disconnect(STM),
@@ -2310,7 +2310,7 @@ do_sync_func_test(STM) ->
     yes = gen_statem:call(STM, 'alive?'),
     ok = do_sync_connect(STM),
     yes = gen_statem:call(STM, 'alive?'),
-    ?t:do_times(3, ?MODULE, do_sync_msg, [STM]),
+    test_server:do_times(3, ?MODULE, do_sync_msg, [STM]),
     yes = gen_statem:call(STM, 'alive?'),
     ok = do_sync_disconnect(STM),
     yes = gen_statem:call(STM, 'alive?'),
@@ -2368,7 +2368,7 @@ init(stop) ->
 init(stop_shutdown) ->
     {stop,shutdown};
 init(sleep) ->
-    ?t:sleep(1000),
+    ct:sleep(1000),
     init_sup({ok,idle,data});
 init(hiber) ->
     init_sup({ok,hiber_idle,[]});

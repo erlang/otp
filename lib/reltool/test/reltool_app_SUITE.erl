@@ -297,4 +297,4 @@ key1search(Key, L) ->
 
 %% Test that the reltool appup file is ok
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(reltool).
+    ok = test_server:appup_test(reltool).

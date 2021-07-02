@@ -35,12 +35,12 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_testcase(_Case,Config) ->
-    Dog = ?t:timetrap({minutes,10}),
+    Dog = test_server:timetrap({minutes,10}),
     [{watchdog, Dog}|Config].
 
 end_per_testcase(_Case,Config) ->
     Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 
