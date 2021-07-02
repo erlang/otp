@@ -773,11 +773,11 @@ gethostbyaddr(Domain, IP) ->
 %% res_gethostbyaddr (newly resolved version)
 %% match data field directly and cache RRs.
 %%
-res_gethostbyaddr(Name, IP, Rec) ->
+res_gethostbyaddr(Domain, IP, Rec) ->
     RRs = res_filter_rrs(?S_PTR, Rec#dns_rec.anlist),
     ?dbg("res_gethostbyaddr: ~p - ~p~n", [IP, RRs]),
     LookupFun = res_lookup_fun(RRs),
-    case resolve_cnames(Name, ?S_PTR, LookupFun) of
+    case resolve_cnames(Domain, ?S_PTR, LookupFun) of
         {error, _} = Error ->
             Error;
         {_D, Domains, _Aliases} ->
@@ -791,30 +791,27 @@ res_gethostbyaddr(Name, IP, Rec) ->
     end.
 
 ent_gethostbyaddr([Domain], IP) ->
-    {IP_1, AddrType, Length} = norm_ip(IP),
-    H =
-        #hostent{
-           h_name = Domain,
-           h_aliases = [],
-           h_addr_list = [IP_1],
-           h_addrtype = AddrType,
-           h_length = Length },
-    {ok, H};
+    HEnt =
+        if
+            tuple_size(IP) =:= 4 ->
+                #hostent{
+                   h_name = Domain,
+                   h_aliases = [],
+                   h_addr_list = [IP],
+                   h_addrtype = inet,
+                   h_length = 4};
+            tuple_size(IP) =:= 8 ->
+                #hostent{
+                   h_name = Domain,
+                   h_aliases = [],
+                   h_addr_list = [IP],
+                   h_addrtype = inet6,
+                   h_length = 16}
+        end,
+    {ok, HEnt};
 ent_gethostbyaddr([_ | _] = _Domains, _IP) ->
     ?dbg("gethostbyaddr duplicate domains=~p~n", [_Domains]),
     {error, nxdomain}.
-
-%% Normalize an IPv4-compatible IPv6 address
-%% into a plain IPv4 address
-%%
-norm_ip(IP) when tuple_size(IP) =:= 4 ->
-    {IP, inet, 4};
-norm_ip({0,0,0,0,0,16#ffff,G,H}) ->
-    A = G bsr 8, B = G band 16#ff, C = H bsr 8, D = H band 16#ff,
-    {{A,B,C,D}, inet, 4};
-norm_ip(IP) when tuple_size(IP) =:= 8 ->
-    {IP, inet6, 16}.
-
 
 
 %%

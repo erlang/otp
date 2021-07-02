@@ -363,7 +363,12 @@ gethostbyaddr_tm(Addr, Timer) when is_list(Addr) ->
 	_Error -> {error, formerr}
     end;
 gethostbyaddr_tm(IP, Timer) ->
-    case dn_ip(IP) of
+    %% The call to norm_ip/1 here translates a lookup of
+    %% ::ffff:A.B.C.D (AAAA in ...ip6.arpa) into a plain
+    %% A.B.C.D (A in ...in-addr.arpa) lookup, and pretends
+    %% the result as if it was from the original IPv6 lookup
+    %%
+    case dn_ip(norm_ip(IP)) of
         {error, _} = Error ->
             Error;
         Name ->
@@ -1202,6 +1207,15 @@ dn_hex(N, Tail) when is_integer(N) ->
         true ->
             [(N - 10) + $a, $. | Tail]
 end.
+
+%% Normalize an IPv4-compatible IPv6 address
+%% into a plain IPv4 address
+%%
+norm_ip({0,0,0,0,0,16#ffff,G,H}) ->
+    A = G bsr 8, B = G band 16#ff, C = H bsr 8, D = H band 16#ff,
+    {A,B,C,D};
+norm_ip(IP) ->
+    IP.
 
 
 
