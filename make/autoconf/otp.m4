@@ -64,6 +64,22 @@ AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
                 target_vendor=
                 target_cpu=
             ])
+
+    AS_IF([test "$cross_compiling" = "yes" -a "$build" = "$host"],
+          [AC_MSG_ERROR([
+           Cross compiling with the same canonicalized 'host' value
+           as the canonicalized 'build' value.
+
+           We are cross compiling since the '--host=$host_alias'
+           and the '--build=$build_alias' arguments differ. When
+           cross compiling Erlang/OTP, also the canonicalized values of
+           the '--build' and the '--host' arguments *must* differ. The
+           canonicalized values of these arguments however both equals:
+           $host
+
+           You can check the canonical value by passing a value as
+           argument to the 'make/autoconf/config.sub' script.
+          ])])
 ])
 
 AC_DEFUN(LM_PRECIOUS_VARS,
