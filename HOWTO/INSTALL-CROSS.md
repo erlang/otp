@@ -128,13 +128,19 @@ be built.
     $ make
 
 `<HOST>` is the host/target system that you build for. It does not have to be
-a full `CPU-VENDOR-OS` triplet, but can be. The full `CPU-VENDOR-OS` triplet
-will be created by executing `$ERL_TOP/erts/autoconf/config.sub <HOST>`. If
-`config.sub` fails, you need to be more specific.
+a full `CPU-VENDOR-OS` triplet, but can be. The full canonicalized
+`CPU-VENDOR-OS` triplet will be created by executing
+`$ERL_TOP/erts/autoconf/config.sub <HOST>`. If `config.sub` fails, you need
+to be more specific.
 
 `<BUILD>` should equal the `CPU-VENDOR-OS` triplet of the system that you
 build on. If you execute `$ERL_TOP/erts/autoconf/config.guess`, it will in
 most cases print the triplet you want to use for this.
+
+The use of `<HOST>` and `<BUILD>` values that differ will trigger cross
+compilation. Note that if `<HOST>` and `<BUILD>` differ, the canonicalized
+values of `<HOST>` and `<BUILD>` must also differ. If they do not, the
+configuration will fail.
 
 Pass the cross compilation variables as command line arguments to `configure`
 using a `<VARIABLE>=<VALUE>` syntax.
