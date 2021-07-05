@@ -389,8 +389,8 @@ ets:select(emp_tab, ets:fun2ms(
       <item>
         <p>The guard BIFs: <c>abs</c>, <c>element</c>,
 	<c>hd</c>, <c>length</c>,
-        <c>node</c>, <c>round</c>, <c>size</c>, <c>tl</c>, <c>trunc</c>,
-        <c>self</c></p>
+        <c>node</c>, <c>round</c>, <c>size</c>, <c>byte_size</c>, <c>tl</c>,
+        <c>trunc</c>, <c>binary_part</c>, <c>self</c></p>
       </item>
     </list>
 
