@@ -977,8 +977,9 @@ is_button(Name) ->
 
 button_area(Parent) -> 
     Sz = wxBoxSizer:new(?wxHORIZONTAL),
-    wx:foreach(fun({Name, Button}) ->
-		       B=wxButton:new(Parent, Button, 
+    wx:foreach(fun({Name0, Button}) ->
+                       Name = [$&|atom_to_list(Name0)],
+		       B=wxButton:new(Parent, Button,
 				      [{label,dbg_wx_win:to_string(Name)}]),
 		       Id = wxWindow:getId(B),
 		       _ = wxSizer:add(Sz,B, []),
