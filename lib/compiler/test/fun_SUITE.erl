@@ -60,7 +60,7 @@ end_per_group(_GroupName, Config) ->
 
 l1() ->
     [
-     ?T((begin A = 3, F = fun(A) -> 1; (_) -> 2 end, F(2) end), 1),
+     ?T((begin _A = 3, F = fun(_A) -> 1; (_) -> 2 end, F(2) end), 1),
      ?T((begin G = fun(1=0) -> ok end, {'EXIT',_} = (catch G(2)), ok end), ok),
      ?T((begin F = fun(_, 1) -> 1; (F, N) -> N * F(F, N-1) end, F(F, 5) end), 120),
      ?T((begin F = fun(_, 1) -> 1; (F, N) -> N * F(F, N-1) end, F(F, 1), ok end), ok)
@@ -224,7 +224,7 @@ bad_external_fun() ->
 eep37(Config) when is_list(Config) ->
     F = fun Fact(N) when N > 0 -> N * Fact(N - 1); Fact(0) -> 1 end,
     Add = fun _(N) -> N + 1 end,
-    UnusedName = fun BlackAdder(N) -> N + 42 end,
+    UnusedName = fun _BlackAdder(N) -> N + 42 end,
     720 = F(6),
     10 = Add(9),
     50 = UnusedName(8),

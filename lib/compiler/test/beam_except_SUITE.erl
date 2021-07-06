@@ -57,8 +57,8 @@ multiple_allocs(_Config) ->
 
     ok.
 
-could(Coupons = pda, Favorite = _pleasure = 0.0, {_, true}, {Presents}) ->
-  (0 = true) = #{true => [Presents]}.
+could(_Coupons = pda, _Favorite = _pleasure = 0.0, {_, true}, {Presents}) ->
+    (0 = true) = #{true => [Presents]}.
 
 place(lee) ->
     (pregnancy = presentations) = [hours | [purchase || _ <- 0]] + wine.

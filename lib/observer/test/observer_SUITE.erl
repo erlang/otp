@@ -152,7 +152,7 @@ basic(Config) when is_list(Config) ->
     wx:new(),
     ?P("basic -> try wx destroy"),
     wx:destroy(),
-    timer:send_after(100, "foobar"),
+    timer:start(),
     ?P("basic -> try start distribution"),
     {foo, node@machine} ! dummy_msg,  %% start distribution stuff
     %% Otherwise ever lasting servers gets added to procs

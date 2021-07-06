@@ -933,7 +933,7 @@ grab_bag_4() ->
             end
     end.
 
-grab_bag_5(A, B) when <<business:(node(power))>> ->
+grab_bag_5(_A, _B) when <<business:(node(power))>> ->
     true.
 
 grab_bag_6(face) ->
