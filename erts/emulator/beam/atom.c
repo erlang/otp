@@ -167,7 +167,7 @@ void erts_atom_get_text_space_sizes(Uint *reserved, Uint *used)
  * Internal view, including hash/index table details.
  */
 
-typedef uint32_t sokey_t;	/* split-ordered list key, must have known width */
+typedef Uint32 sokey_t;	/* split-ordered list key, must have known width */
 
 typedef struct atom_int {
     struct atom_int *next;
@@ -288,7 +288,7 @@ typedef struct {
 #define ATOM_HASH_PAGE_MASK	((1 << ATOM_HASH_PAGE_SHIFT) - 1)
 
 /* reverse the bits in a 32-bit word */
-static uint32_t reverse(uint32_t w)
+static Uint32 reverse(Uint32 w)
 {
     w = ((w & 0x0000FFFF) << 16) |  (w >> 16);
     w = ((w & 0x00FF00FF) << 8)  | ((w >> 8) & 0x00FF00FF);
@@ -309,9 +309,9 @@ static sokey_t so_regularkey(sokey_t key)
 }
 
 /* given a bucket b = p + (1 << i), where p < (1 << i) and i < 32, return p */
-static uint32_t bucket_parent(uint32_t bucket)
+static Uint32 bucket_parent(Uint32 bucket)
 {
-    uint32_t mask;
+    Uint32 mask;
 
     /* given bucket 0...01x...x
        compute mask 0...011...1 */
