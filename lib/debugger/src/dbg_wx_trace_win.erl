@@ -35,7 +35,7 @@
 	 mark_line/3, unmark_line/1,
 	 select_line/2, selected_line/1,
 	 eval_output/3,                               % Evaluator area
-	 update_bindings/2,                           % Bindings area
+	 update_bindings/3,                           % Bindings area
          update_strings/1,
 	 trace_output/2,                              % Trace area
 	 handle_event/2
@@ -205,7 +205,7 @@ create_win(Parent, Title, Windows, Menus) ->
 		put(window, Win),
                 put(strings, [str_on]),
 		Wi
-	end,
+        end,
 
     try wx:batch(Do) 
     catch E:R ->
@@ -561,25 +561,56 @@ selected_line(#winInfo{editor={_,Ed}}) ->
 eval_output(#winInfo{eval=#sub{out=Log}}, Text, _Face) -> 
     wxTextCtrl:appendText(Log, dbg_wx_win:to_string(Text)),
     ok.
-    
+
+%%--------------------------------------------------------------------
+%% eval_width(winInfo{})
+%%   Return size in chars
+%%--------------------------------------------------------------------
+eval_width(#winInfo{eval=#sub{out=Log}}) ->
+    {CW, _, _, _ } = wxTextCtrl:getTextExtent(Log,"w"),
+    {W, _} = wxTextCtrl:getClientSize(Log),
+    W div CW.
+
 %%--------------------------------------------------------------------
 %% update_bindings(Bs)
 %%   Bs = [{Var,Val}]
 %%--------------------------------------------------------------------
-update_bindings(#winInfo{bind=#sub{out=BA}}, Bs) ->
+update_bindings(#winInfo{bind=#sub{out=BA}}, Mod, Bs) ->
     wxListCtrl:deleteAllItems(BA),
     wx:foldl(fun({Var,Val},Row) ->
-		     wxListCtrl:insertItem(BA, Row, ""), 
+		     wxListCtrl:insertItem(BA, Row, ""),
 		     wxListCtrl:setItem(BA, Row, 0, dbg_wx_win:to_string(Var)),
-                     Format = case get(strings) of
-                                  []        -> "~0ltP";
-                                  [str_on]  -> "~0tP"
-                              end,
-		     wxListCtrl:setItem(BA, Row, 1, dbg_wx_win:to_string(Format,[Val, 20])),
+                     Str = format_term_line(Val, Mod),
+                     wxListCtrl:setItem(BA, Row, 1, Str),
 		     Row+1
 	     end, 0, Bs),
-    put(bindings,Bs),
+    put(bindings,{Mod,Bs}),
     ok.
+
+format_term_line(Val, Mod) ->
+    format_term(Val, Mod, 0, 1, 20, 300).
+
+format_term(Val, Mod, LineLenght, Column, Depth, Limit) ->
+    RecFun = fun(Tag,NoFields) -> record_fields(Tag, NoFields, Mod) end,
+    UseStrings = case get(strings) of
+                     [] -> false;
+                     [str_on] -> true
+                 end,
+    Opts = [{line_length,LineLenght}, {depth, Depth}, {chars_limit, Limit}, {column, Column},
+            {strings, UseStrings}, {encoding, unicode}, {record_print_fun, RecFun}],
+    io_lib_pretty:print(Val, Opts).
+
+record_fields(Tag, NoFields, Mod) ->
+    case dbg_iserver:call({get_module_db, Mod}) of
+        not_found -> no;
+        ModDb ->
+            case dbg_idb:lookup(ModDb, {record, Mod, Tag, NoFields}) of
+                {ok, Value} ->
+                    Value;
+                not_found ->
+                    no
+            end
+    end.
 
 update_strings(Strings) ->
     _ = put(strings, Strings),
@@ -863,16 +894,20 @@ handle_event(#wx{id=?EVAL_ENTRY, event=#wxCommand{type=command_text_enter}},
 
 %% Bindings area
 handle_event(#wx{event=#wxList{type=command_list_item_selected, itemIndex=Row}},Wi) ->
-    Bs = get(bindings),
+    {Mod,Bs} = get(bindings),
     {Var,Val} = lists:nth(Row+1, Bs),
-    Str = case get(strings) of
-              []       -> io_lib:format("< ~s = ~ltp~n", [Var, Val]);
-              [str_on] -> io_lib:format("< ~s = ~tp~n", [Var, Val])
-          end,
+
+    LineLength = max(40, eval_width(Wi)),
+
+    Header = io_lib:format("< ~s = ", [Var]),
+    Column = string:length(Header),
+    ValStr = format_term(Val, Mod, LineLength-Column, Column, -1, -1),
+    Str = lists:flatten([Header,ValStr,"\n"]),
+
     eval_output(Wi, Str, bold),
     ignore;
 handle_event(#wx{event=#wxList{type=command_list_item_activated, itemIndex=Row}},_Wi) ->    
-    Bs = get(bindings),
+    {_Mod,Bs} = get(bindings),
     Binding = lists:nth(Row+1, Bs),
     {edit, Binding};
     
@@ -939,7 +974,7 @@ button_area(Parent) ->
 
 search_area(Parent) ->
     HSz = wxBoxSizer:new(?wxHORIZONTAL),
-    _ = wxSizer:add(HSz, wxStaticText:new(Parent, ?wxID_ANY, "Find:"), 
+    _ = wxSizer:add(HSz, wxStaticText:new(Parent, ?wxID_ANY, "Find: "), 
 		[{flag,?wxALIGN_CENTER_VERTICAL}]),
     TC1 = wxTextCtrl:new(Parent, ?SEARCH_ENTRY, [{style, ?wxTE_PROCESS_ENTER}]), 
     _ = wxSizer:add(HSz, TC1,  [{proportion,3}, {flag, ?wxEXPAND}]),
@@ -951,7 +986,7 @@ search_area(Parent) ->
     Cbtn = wxCheckBox:new(Parent, ?wxID_ANY, "Match Case"),
     _ = wxSizer:add(HSz,Cbtn,[{flag,?wxALIGN_CENTER_VERTICAL}]),
     _ = wxSizer:add(HSz, 15,15, [{proportion,1}, {flag, ?wxEXPAND}]),
-    _ = wxSizer:add(HSz, wxStaticText:new(Parent, ?wxID_ANY, "Goto Line:"), 
+    _ = wxSizer:add(HSz, wxStaticText:new(Parent, ?wxID_ANY, "Goto Line: "), 
 		[{flag,?wxALIGN_CENTER_VERTICAL}]),
     TC2 = wxTextCtrl:new(Parent, ?GOTO_ENTRY, [{style, ?wxTE_PROCESS_ENTER}]), 
     _ = wxSizer:add(HSz, TC2,  [{proportion,0}, {flag, ?wxEXPAND}]),
@@ -970,13 +1005,15 @@ eval_area(Parent) ->
     VSz = wxBoxSizer:new(?wxVERTICAL),
     HSz = wxBoxSizer:new(?wxHORIZONTAL),
     
-    _ = wxSizer:add(HSz, wxStaticText:new(Parent, ?wxID_ANY, "Evaluator:"), 
+    _ = wxSizer:add(HSz, wxStaticText:new(Parent, ?wxID_ANY, "Evaluator: "), 
 		[{flag,?wxALIGN_CENTER_VERTICAL}]),
     TC = wxTextCtrl:new(Parent, ?EVAL_ENTRY, [{style, ?wxTE_PROCESS_ENTER}]), 
     _ = wxSizer:add(HSz, TC,  [{proportion,1}, {flag, ?wxEXPAND}]),
     _ = wxSizer:add(VSz, HSz, [{flag, ?wxEXPAND}]),
-    TL = wxTextCtrl:new(Parent, ?EVAL_LOG, [{style, ?wxTE_DONTWRAP bor 
-					  ?wxTE_MULTILINE bor ?wxTE_READONLY}]), 
+    TL = wxTextCtrl:new(Parent, ?EVAL_LOG, [{style, ?wxTE_DONTWRAP bor
+					  ?wxTE_MULTILINE bor ?wxTE_READONLY}]),
+    FixedFont = wxFont:new(10, ?wxFONTFAMILY_TELETYPE, ?wxNORMAL, ?wxNORMAL,[]),
+    wxWindow:setFont(TL, FixedFont),
     _ = wxSizer:add(VSz, TL, [{proportion,5}, {flag, ?wxEXPAND}]),
     
     wxTextCtrl:connect(TC, command_text_enter),

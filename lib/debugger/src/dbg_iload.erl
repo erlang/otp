@@ -145,7 +145,8 @@ store_forms([{function,_,Name,Arity,Cs0}|Fs], Mod, Db, #{exp:=Exp} = St) ->
     store_forms(Fs, Mod, Db, St);
 store_forms([{attribute,_,record,{Name,Defs}}|Fs], Mod, Db, St) ->
     NDefs = normalise_rec_fields(Defs),
-    dbg_idb:insert(Db, {Mod,record,Name}, NDefs),
+    Fields = [F || {record_field, _, {atom, _, F}, _} <- NDefs],
+    dbg_idb:insert(Db, {record,Mod,Name,length(Fields)}, Fields),
     Recs = maps:get(recs, St, #{}),
     store_forms(Fs, Mod, Db, St#{recs => Recs#{Name => NDefs}});
 store_forms([{attribute,_,_Name,_Val}|Fs], Mod, Db, St) ->
