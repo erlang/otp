@@ -1,6 +1,7 @@
 -module(parallel_messages_SUITE).
 
 -export([all/0,
+         suite/0,
          test_throughput_benchmark/1,
          test_message_queue_data_switching/1,
          throughput_benchmark/0,
@@ -8,6 +9,9 @@
 
 all() -> [test_throughput_benchmark,
           test_message_queue_data_switching].
+
+suite() ->
+    [{timetrap, {minutes, 90}}].
 
 get_op([{_,O}], _RandNum) ->
     O;
@@ -435,7 +439,7 @@ large_throughput_benchmark() ->
 test_message_queue_data_switching(_) ->
     throughput_benchmark(
       #parallel_messages_bench_config{
-         benchmark_duration_ms = 500,
+         benchmark_duration_ms = 100,
          recover_time_ms = 500,
          thread_counts = [1,2,4],
          nr_of_repeats = 1,
