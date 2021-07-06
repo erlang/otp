@@ -233,6 +233,14 @@ handle_call({load, Mod, Src, Bin}, _From, State) ->
     {reply, {module, Mod}, State};
 
 %% Module database
+handle_call({get_module_db, Mod}, _From, State) ->
+    Db = State#state.db,
+    Reply = case ets:lookup(Db, {Mod, refs}) of
+		[] -> not_found;
+		[{{Mod, refs}, [ModDb|_ModDbs]}] ->
+		    ModDb
+	    end,
+    {reply, Reply, State};
 handle_call({get_module_db, Mod, Pid}, _From, State) ->
     Db = State#state.db,
     Reply = case ets:lookup(Db, {Mod, refs}) of
