@@ -1737,7 +1737,7 @@ void BeamModuleAssembler::emit_try_case(const ArgVal &Y) {
     a.ud2();
 
     a.bind(fvalue_ok);
-    a.cmp(x86::qword_ptr(c_p, offsetof(Process, fvalue)), NIL);
+    a.cmp(x86::qword_ptr(c_p, offsetof(Process, ftrace)), NIL);
     a.short_().jne(assertion_failed);
 #endif
 }
