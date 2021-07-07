@@ -594,40 +594,36 @@ connection({call, From}, negotiated_protocol,
                                                  negotiated_protocol = undefined}} = State) ->
     hibernate_after(?FUNCTION_NAME, State,
 		    [{reply, From, {ok, SelectedProtocol}}]);
-connection({call, From},
-           {close, {Pid, _Timeout}},
-           #state{connection_env = #connection_env{terminated = closed} = CEnv,
-                 protocol_specific = PS} = State) ->
-    {next_state, downgrade, State#state{connection_env =
-                                            CEnv#connection_env{terminated = true,
-                                                                downgrade = {Pid, From}},
-                                        protocol_specific = PS#{active_n_toggle => true,
-                                                                active_n => 1}
-                                       },
-     [{next_event, internal, ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY)}]};
-connection({call, From},
-           {close,{Pid, Timeout}},
+connection({call, From}, 
+           {close,{NewController, Timeout}},
            #state{connection_states = ConnectionStates,
                   static_env = #static_env{protocol_cb = Connection},
                   protocol_specific = #{sender := Sender} = PS,
-                  connection_env = CEnv
+                  connection_env = #connection_env{socket_tls_closed = PeerClosedTLS} = CEnv
                  } = State0) ->
+    Action = case PeerClosedTLS of
+                 true ->
+                     %%Close Alert already received from peer, "replay" in downgrade state.
+                     [{next_event, internal, ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY)}];
+                 false ->
+                     [{timeout, Timeout, downgrade}]
+             end,
     case tls_sender:downgrade(Sender, Timeout) of
         {ok, Write} ->
             %% User downgrades connection
             %% When downgrading an TLS connection to a transport connection
             %% we must recive the close alert from the peer before releasing the
-            %% transport socket.
+            %% transport socket. Also after sending our close alert nothing 
+            %% more may be sent by the tls_sender process.
             State = Connection:send_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
                                           State0#state{connection_states =
                                                            ConnectionStates#{current_write => Write}}),
             {next_state, downgrade, State#state{connection_env =
-                                                    CEnv#connection_env{downgrade = {Pid, From},
-                                                                        terminated = true},
+                                                    CEnv#connection_env{downgrade = {NewController, From}},
                                                 protocol_specific = PS#{active_n_toggle => true,
                                                                         active_n => 1}
                                                },
-             [{timeout, Timeout, downgrade}]};
+             Action};
         {error, timeout} ->
             {stop_and_reply, {shutdown, downgrade_fail}, [{reply, From, {error, timeout}}]}
     end;
@@ -697,7 +693,7 @@ handle_call({close, _} = Close, From, StateName, #state{connection_env = CEnv} =
     Result = terminate(Close, StateName, State),
     {stop_and_reply,
      {shutdown, normal},
-     {reply, From, Result}, State#state{connection_env = CEnv#connection_env{terminated = true}}};
+     {reply, From, Result}, State#state{connection_env = CEnv#connection_env{socket_terminated = true}}};
 handle_call({shutdown, read_write = How}, From, StateName,
 	    #state{static_env = #static_env{transport_cb = Transport,
                                             socket = Socket},
@@ -708,11 +704,11 @@ handle_call({shutdown, read_write = How}, From, StateName,
             case Transport:shutdown(Socket, How) of
                 ok ->
                     {next_state, StateName, State#state{connection_env =
-                                                            CEnv#connection_env{terminated = true}},
+                                                            CEnv#connection_env{socket_terminated = true}},
                      [{reply, From, ok}]};
                 Error ->
                     {stop_and_reply, {shutdown, normal}, {reply, From, Error},
-                     State#state{connection_env = CEnv#connection_env{terminated = true}}}
+                     State#state{connection_env = CEnv#connection_env{socket_terminated = true}}}
             end
     catch
         throw:Return ->
@@ -1051,13 +1047,13 @@ maybe_invalidate_session({false, first}, server = Role, Host, Port, Session) ->
 maybe_invalidate_session(_, _, _, _, _) ->
     ok.
 
-terminate(_, _, #state{connection_env = #connection_env{terminated = true}}) ->
-    %% Happens when user closes the connection using ssl:close/1
-    %% we want to guarantee that Transport:close has been called
-    %% when ssl:close/1 returns unless it is a downgrade where
-    %% we want to guarantee that close alert is received before
-    %% returning. In both cases terminate has been run manually
-    %% before run by gen_statem which will end up here
+terminate({shutdown, downgrade}, downgrade, State) ->
+    %% Socket shall not be closed as it should be returned to user
+    handle_trusted_certs_db(State);
+terminate(_, _, #state{connection_env = #connection_env{socket_terminated = true}}) ->
+    %% Happens when user closes the connection using ssl:close/1 e.i. terminate
+    %% is called explicitly beforehand to to guarantee that Transport:close has been called
+    %% when ssl:close/1 returns. Or when using ssl:shutdown/2 with read_write
     ok;
 terminate({shutdown, transport_closed} = Reason,
 	  _StateName, #state{static_env = #static_env{protocol_cb = Connection,
@@ -1076,12 +1072,6 @@ terminate({shutdown, own_alert}, _StateName, #state{
 	_ ->
 	    Connection:close({timeout, ?DEFAULT_TIMEOUT}, Socket, Transport, undefined, undefined)
     end;
-terminate({shutdown, downgrade = Reason}, downgrade, #state{static_env = #static_env{protocol_cb = Connection,
-                                                                                     transport_cb = Transport,
-                                                                                     socket = Socket}
-                                                           } = State) ->
-    handle_trusted_certs_db(State),
-    Connection:close(Reason, Socket, Transport, undefined, undefined);
 terminate(Reason, connection, #state{static_env = #static_env{
                                                      protocol_cb = Connection,
                                                      transport_cb = Transport,
@@ -1272,7 +1262,7 @@ handle_active_option(false, connection = StateName, To, Reply, State) ->
     hibernate_after(StateName, State, [{reply, To, Reply}]);
 
 handle_active_option(_, connection = StateName, To, Reply, #state{static_env = #static_env{role = Role},
-                                                                  connection_env = #connection_env{terminated = true},
+                                                                  connection_env = #connection_env{socket_tls_closed = true},
                                                                   user_data_buffer = {_,0,_}} = State) ->
     Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, all_data_delivered),
     handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
