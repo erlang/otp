@@ -46,4 +46,4 @@ $(RYU_LIBRARY): $(RYU_OBJS)
 endif
 
 $(RYU_OBJDIR)/%.o: ryu/%.c
-	$(V_CC) -c $(RYU_CFLAGS) -o $@ $<
+	$(V_CC) -c $(CFLAGS) -o $@ $<
