@@ -454,8 +454,11 @@ connection({call, From}, negotiated_protocol,
 connection(Type, Event, State) ->
     ssl_gen_statem:?FUNCTION_NAME(Type, Event, State).
 
+downgrade(internal, #new_session_ticket{} = NewSessionTicket, State) ->
+    _ = handle_new_session_ticket(NewSessionTicket, State),
+    {next_state, ?FUNCTION_NAME, State};
 downgrade(Type, Event, State) ->
-     tls_connection:?FUNCTION_NAME(Type, Event, State).
+     ssl_gen_statem:?FUNCTION_NAME(Type, Event, State).
 
 %--------------------------------------------------------------------
 %% internal functions
