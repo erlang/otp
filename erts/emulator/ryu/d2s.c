@@ -513,7 +513,7 @@ static inline int to_chars(const floating_decimal_64 v, const bool sign, char* c
     _Scientific_exponent_length = 5;
   } else if (_Scientific_exponent <= -10 || _Scientific_exponent >= 100) { // "e-10" or "e100"
     _Scientific_exponent_length = 4;
-  } else if (_Scientific_exponent > -10 && _Scientific_exponent < 0 || _Scientific_exponent >= 10) { // "e-9" or "e10"
+  } else if ((_Scientific_exponent > -10 && _Scientific_exponent < 0) || _Scientific_exponent >= 10) { // "e-9" or "e10"
     _Scientific_exponent_length = 3;
   } else { // "e1"
     _Scientific_exponent_length = 2;
