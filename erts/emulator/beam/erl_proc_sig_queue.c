@@ -806,6 +806,8 @@ first_last_done:
         erts_proc_sig_queue_try_enqueue_to_buffer(c_p, rp, 0, first,
                                                   &last->next, last_next,
                                                   0, 1)) {
+        if (!is_normal_sched)
+            erts_proc_dec_refc(rp);
         return 1;
     }
 
