@@ -522,15 +522,17 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
 	&& !(c_p->freason & EXF_PANIC)) {
 	ErtsCodePtr new_pc;
         /* The Beam handler code (catch_end or try_end) checks reg[0]
-	   for THE_NON_VALUE to see if the previous code finished
-	   abnormally. If so, reg[1], reg[2] and reg[3] should hold the
-	   exception class, term and trace, respectively. (If the
-	   handler is just a trap to native code, these registers will
-	   be ignored.) */
+         * for THE_NON_VALUE to see if the previous code finished
+         * abnormally. If so, reg[1], reg[2] and reg[3] should hold
+         * the term, trace, and exception class, respectively. Note
+         * that the handler code will only need to move the class
+         * to reg[0] to have all registers correctly set up for the
+         * code that follows.
+         */
 	reg[0] = THE_NON_VALUE;
-	reg[1] = exception_tag[GET_EXC_CLASS(c_p->freason)];
-	reg[2] = Value;
-	reg[3] = c_p->ftrace;
+	reg[1] = Value;
+	reg[2] = c_p->ftrace;
+	reg[3] = exception_tag[GET_EXC_CLASS(c_p->freason)];
         if ((new_pc = next_catch(c_p, reg))) {
 
 #if defined(BEAMASM) && (defined(NATIVE_ERLANG_STACK) || defined(__aarch64__))
@@ -576,6 +578,7 @@ next_catch(Process* c_p, Eterm *reg) {
     ErtsCodePtr return_to_trace_address = NULL;
     int have_return_to_trace = 0;
     Eterm *ptr, *prev;
+    ErtsCodePtr handler;
 
     ptr = prev = c_p->stop;
     ASSERT(ptr <= STACK_START(c_p));
@@ -659,7 +662,14 @@ next_catch(Process* c_p, Eterm *reg) {
         erts_trace_return_to(c_p, return_to_trace_address);
     }
 
-    return catch_pc(*ptr);
+    /* Clear the try_tag or catch_tag in the stack frame so that we
+     * don't have to do it in the JITted code for the try_case
+     * instruction. (Unfortunately, a catch_end will still need to
+     * clear the catch_tag because it is executed even when no
+     * exception has occurred.) */
+    handler = catch_pc(*ptr);
+    *ptr = NIL;
+    return handler;
 }
 
 /*
