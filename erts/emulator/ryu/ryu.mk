@@ -35,6 +35,7 @@ RYU_LIBRARY = $(RYU_OBJDIR)/ryu.lib
 else
 RYU_LIBRARY = $(RYU_OBJDIR)/libryu.a
 endif
+
 ifeq ($(TARGET), win32)
 RYU_CFLAGS = $(CFLAGS)
 else
