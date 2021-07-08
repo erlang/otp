@@ -35,6 +35,11 @@ RYU_LIBRARY = $(RYU_OBJDIR)/ryu.lib
 else
 RYU_LIBRARY = $(RYU_OBJDIR)/libryu.a
 endif
+ifeq ($(TARGET), win32)
+RYU_CFLAGS = $(CFLAGS)
+else
+RYU_CFLAGS = -std=gnu99 $(CFLAGS)
+endif
 
 ifeq ($(TARGET), win32)
 $(RYU_LIBRARY): $(RYU_OBJS)
@@ -45,11 +50,7 @@ $(RYU_LIBRARY): $(RYU_OBJS)
 	-@ ($(RANLIB) $@ || true) 2>/dev/null
 endif
 
-ifeq ($(TARGET), win32)
-	RYU_CFLAGS = $(CFLAGS)
-else
-	RYU_CFLAGS = -std=gnu99 $(CFLAGS)
-endif
+
 
 $(RYU_OBJDIR)/%.o: ryu/%.c
 	$(V_CC) -c $(RYU_CFLAGS) -o $@ $<
