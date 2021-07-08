@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Create initial pre-release tar 
+      - name: Create initial pre-release tar
         run: .github/scripts/init-pre-release.sh
       - name: Upload source tar archive
         uses: actions/upload-artifact@v2
@@ -108,6 +108,53 @@ jobs:
         with:
           name: otp_prebuilt_win32
           path: otp/release/win32/otp*.exe
+
+  build_macos:
+    name: Build Erlang/OTP on macOS
+    runs-on: macos-10.15
+    needs: pack
+    env:
+      WXWIDGETS_VERSION: 3.1.4
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Download source archive
+        uses: actions/download-artifact@v2
+        with:
+          name: otp_git_archive
+
+      - name: Cache wxWidgets
+        id: wxwidgets-cache
+        uses: actions/cache@v2
+        with:
+          path: wxWidgets
+          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}
+
+      - name: Compile wxWidgets
+        if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
+        run: .github/scripts/build-macos-wxwidgets.sh
+
+      - name: Compile Erlang
+        run: |
+          tar -xzf ./otp_src.tar.gz
+          export PATH=$PWD/wxWidgets/release/bin:$PATH
+          cd otp
+          export RELEASE_ROOT=$PWD/otp
+          $GITHUB_WORKSPACE/.github/scripts/build-macos.sh
+          tar -czf otp_macos_$(cat OTP_VERSION)_x86-64.tar.gz otp
+
+      - name: Test Erlang
+        run: |
+          cd otp/otp
+          ./Install -sasl $PWD
+          ./bin/erl -noshell -eval 'ok = crypto:start(), halt().'
+          ./bin/erl -noshell -eval '{wx_ref,_,_,_} = wx:new(), halt().'
+
+      - name: Upload tarball
+        uses: actions/upload-artifact@v2
+        with:
+          name: otp_prebuilt_macos_x86-64
+          path: otp/otp_macos_*_x86-64.tar.gz
 
   build:
     name: Build Erlang/OTP
