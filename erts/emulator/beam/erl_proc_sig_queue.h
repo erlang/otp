@@ -244,8 +244,13 @@ void erl_proc_sig_hdbg_chk_recv_marker_block(struct process *c_p);
 
 void erts_proc_sig_queue_maybe_install_buffers(Process* p, erts_aint32_t state);
 void erts_proc_sig_queue_flush_and_deinstall_buffers(Process* proc);
-ErtsSignalInQueueBufferArray* erts_proc_sig_queue_flush_buffers(Process* proc);
+void erts_proc_sig_queue_flush_buffers(Process* proc);
+ErtsSignalInQueueBufferArray*
+erts_proc_sig_queue_flush_get_buffers(Process* proc, int *need_unget_buffers);
 void erts_proc_sig_queue_lock(Process* proc);
+ErtsSignalInQueueBufferArray*
+erts_proc_sig_queue_get_buffers(Process* p, int *need_unread);
+void erts_proc_sig_queue_unget_buffers(Process* p, int need_unget);
 int erts_proc_sig_queue_try_enqueue_to_buffer(Process* sender, /* is NULL if the sender is not a local process */
                                               Process* receiver,
                                               ErtsProcLocks receiver_locks,
@@ -1563,6 +1568,7 @@ erts_proc_sig_fetch(Process *proc)
     Sint res = 0;
     ErtsSignal *sig;
     ErtsSignalInQueueBufferArray* buffers;
+    int need_unget_buffers;
     ERTS_LC_ASSERT(ERTS_PROC_IS_EXITING(proc)
                    || ((erts_proc_lc_my_proc_locks(proc)
                         & (ERTS_PROC_LOCK_MAIN
@@ -1573,7 +1579,8 @@ erts_proc_sig_fetch(Process *proc)
     ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(proc);
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(proc, !0);
 
-    buffers = erts_proc_sig_queue_flush_buffers(proc);
+    buffers = erts_proc_sig_queue_flush_get_buffers(proc,
+                                                    &need_unget_buffers);
 
     sig = (ErtsSignal *) proc->sig_inq.first;
     if (sig) {
@@ -1596,6 +1603,7 @@ erts_proc_sig_fetch(Process *proc)
                                        ERTS_PSFLG_SIG_IN_Q |
                                        ERTS_PSFLG_ACTIVE);
         }
+        erts_proc_sig_queue_unget_buffers(proc, need_unget_buffers);
     }
     res += proc->sig_qs.len;
 

@@ -7873,9 +7873,11 @@ erts_proc_sig_queue_try_enqueue_to_buffer(Process* sender, /* is NULL if the sen
                                           Uint len,
                                           int is_nonmsg_signal_enqueue)
 {
+    int need_unget_buffers;
     ErtsSignalInQueueBufferArray* buffers;
     if ((receiver_locks & ERTS_PROC_LOCK_MSGQ) ||
-        NULL == (buffers = (ErtsSignalInQueueBufferArray*)erts_atomic_read_acqb(&receiver->sig_inq_buffers))) {
+        NULL == (buffers = erts_proc_sig_queue_get_buffers(receiver, &need_unget_buffers))) {
+        /* We never need to undread the buffers array if we do not get it */
         return 0;
     } else {
         /*
@@ -7903,6 +7905,7 @@ erts_proc_sig_queue_try_enqueue_to_buffer(Process* sender, /* is NULL if the sen
              * means that the buffer array has got uninstalled.
              */
             erts_proc_sig_queue_unlock_buffer(buffer);
+            erts_proc_sig_queue_unget_buffers(receiver, need_unget_buffers);
             return 0;
         }
         /*
@@ -7997,7 +8000,7 @@ erts_proc_sig_queue_try_enqueue_to_buffer(Process* sender, /* is NULL if the sen
         } else {
             erts_proc_notify_new_message(receiver, receiver_locks);
         }
-
+        erts_proc_sig_queue_unget_buffers(receiver, need_unget_buffers);
         return 1;
     }
 }
@@ -8092,12 +8095,11 @@ static Uint erts_proc_sig_queue_flush_buffer(Process* proc,
 
 
 ErtsSignalInQueueBufferArray*
-erts_proc_sig_queue_flush_buffers(Process* proc) {
+erts_proc_sig_queue_flush_get_buffers(Process* proc, int *need_unget_buffers) {
     Uint i;
     ErtsSignalInQueueBufferArray* buffers;
     Uint64 nonempty_slots;
-    buffers =
-        (ErtsSignalInQueueBufferArray*)erts_atomic_read_nob(&proc->sig_inq_buffers);
+    buffers = erts_proc_sig_queue_get_buffers(proc, need_unget_buffers);
     if (NULL == buffers) {
         return NULL;
     }
@@ -8122,9 +8124,11 @@ erts_proc_sig_queue_flush_buffers(Process* proc) {
         ERTS_THR_WRITE_MEMORY_BARRIER;
     }
     buffers->no_of_rounds += 1;
-    if (buffers->no_of_rounds > ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE) {
+    if (buffers->no_of_rounds >
+        ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE) {
         /* Take decision if we should adapt back to the normal state */
-        if(buffers->no_of_enqueues < ERTS_PROC_SIG_INQ_BUFFERED_MIN_NO_ENQUEUES_TO_KEEP) {
+        if(buffers->no_of_enqueues <
+           ERTS_PROC_SIG_INQ_BUFFERED_MIN_NO_ENQUEUES_TO_KEEP) {
             erts_proc_sig_queue_flush_and_deinstall_buffers(proc);
         } else {
             buffers->no_of_rounds = 0;
@@ -8134,7 +8138,15 @@ erts_proc_sig_queue_flush_buffers(Process* proc) {
     return buffers;
 }
 
-static void do_free_erts_signal_in_queue_buffer_array(void *vptr)
+
+void
+erts_proc_sig_queue_flush_buffers(Process* proc) {
+    int need_undread_buffers;
+    erts_proc_sig_queue_flush_get_buffers(proc, &need_undread_buffers);
+    erts_proc_sig_queue_unget_buffers(proc, need_undread_buffers);
+}
+
+static void do_free_sigq_buffer_array(void *vptr)
 {
     int i;
     ErtsSignalInQueueBufferArray* buffers = vptr;
@@ -8144,18 +8156,26 @@ static void do_free_erts_signal_in_queue_buffer_array(void *vptr)
     erts_free(ERTS_ALC_T_SIGQ_BUFFERS, buffers);
 }
 
+
+static void do_schedule_free_sigq_buffer_array(void *buffers_p) {
+    ErtsSignalInQueueBufferArray* buffers = buffers_p;
+    erts_schedule_thr_prgr_later_cleanup_op(do_free_sigq_buffer_array,
+                                            buffers,
+                                            &buffers->free_item,
+                                            sizeof(ErtsSignalInQueueBufferArray));
+}
+
 void erts_proc_sig_queue_flush_and_deinstall_buffers(Process* proc) {
     Uint i;
     ErtsSignalInQueueBufferArray* buffers;
+    int need_unget_buffers;
     ERTS_LC_ASSERT(ERTS_PROC_IS_EXITING(proc) ||
                    (erts_proc_lc_my_proc_locks(proc) & ERTS_PROC_LOCK_MSGQ));
-    buffers =
-        (ErtsSignalInQueueBufferArray*)erts_atomic_read_nob(&proc->sig_inq_buffers);
+    buffers = erts_proc_sig_queue_get_buffers(proc, &need_unget_buffers);
     if (buffers == NULL) {
         return;
     }
     proc->sig_inq_contention_counter = 0;
-    erts_atomic_set_nob(&proc->sig_inq_buffers, (Uint)NULL);
     for (i = 0; i < ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS; i++) {
         erts_proc_sig_queue_lock_buffer(&buffers->slots[i]);
         if (buffers->slots[i].queue.first != NULL) {
@@ -8164,10 +8184,8 @@ void erts_proc_sig_queue_flush_and_deinstall_buffers(Process* proc) {
         buffers->slots[i].alive = 0;
         erts_proc_sig_queue_unlock_buffer(&buffers->slots[i]);
     }
-    erts_schedule_thr_prgr_later_cleanup_op(do_free_erts_signal_in_queue_buffer_array,
-                                            buffers,
-                                            &buffers->free_item,
-                                            sizeof(ErtsSignalInQueueBufferArray));
+    erts_proc_sig_queue_unget_buffers(proc, need_unget_buffers);
+    erts_proc_sig_queue_unget_buffers(proc, 1);
 }
 
 void erts_proc_sig_queue_maybe_install_buffers(Process* p, erts_aint32_t state) {
@@ -8200,5 +8218,75 @@ void erts_proc_sig_queue_maybe_install_buffers(Process* p, erts_aint32_t state) 
         buffers->slots[i].queue.nmsigs.last = NULL;
         buffers->slots[i].no_of_enqueues = 0;
     }
-    erts_atomic_set_relb(&p->sig_inq_buffers, (Uint)buffers);
+    erts_atomic_set_nob(&p->sig_inq_buffers, (Uint)buffers);
+    /*
+     * The next statement allows the unmanaged threads (i.e., dirty
+     * schedulers) to enqueue signals in the buffers
+     */
+    erts_atomic64_set_relb(&p->sig_inq_buffers_refc, 1);
+}
+
+ErtsSignalInQueueBufferArray*
+erts_proc_sig_queue_get_buffers(Process* p, int *need_unread) {
+    ErtsSchedulerData *esdp;
+    ErtsSignalInQueueBufferArray* buffers =
+        (ErtsSignalInQueueBufferArray*)erts_atomic_read_acqb(&p->sig_inq_buffers);
+    Sint64 refc;
+    Sint64 prevrefc;
+    *need_unread = 0;
+    if (buffers == NULL) {
+        return NULL;
+    }
+    esdp = erts_get_scheduler_data();
+    if (esdp != NULL && esdp->type == ERTS_SCHED_NORMAL) {
+        return buffers;
+    }
+    refc = erts_atomic64_read_nob(&p->sig_inq_buffers_refc);
+    while (1) {
+        if (refc == 0) {
+            return NULL;
+        }
+        prevrefc = erts_atomic64_cmpxchg_mb(&p->sig_inq_buffers_refc, refc + 1, refc);
+        if (prevrefc == refc) {
+            *need_unread = 1;
+            /* The buffers array can not be read safely */
+            buffers = (ErtsSignalInQueueBufferArray*)erts_atomic_read_nob(&p->sig_inq_buffers);
+            ASSERT(buffers != NULL);
+            return buffers;
+        }
+        refc = prevrefc;
+    }
+}
+
+void erts_proc_sig_queue_unget_buffers(Process* p, int need_unget) {
+    ErtsSignalInQueueBufferArray* buffers;
+    Sint64 refc;
+    ErtsSchedulerData *esdp;
+    if (!need_unget) {
+        return;
+    }
+    buffers =
+        (ErtsSignalInQueueBufferArray*)erts_atomic_read_nob(&p->sig_inq_buffers);
+    refc = erts_atomic64_dec_read_mb(&p->sig_inq_buffers_refc);
+    if (refc != 0) {
+        return;
+    }
+    /* We should now clear and schedule a free of the buffers array */
+    erts_atomic_set_mb(&p->sig_inq_buffers, (Sint)NULL);
+    esdp = erts_get_scheduler_data();
+    if (esdp != NULL && esdp->type == ERTS_SCHED_NORMAL) {
+        erts_schedule_thr_prgr_later_cleanup_op(do_free_sigq_buffer_array,
+                                                buffers,
+                                                &buffers->free_item,
+                                                sizeof(ErtsSignalInQueueBufferArray));
+    } else {
+        /*
+         * We cannot schedule a thread progress later cleanup
+         * operation from an unmanaged thread so we schedule
+         * that task to be run on a managed thread.
+         */
+        erts_schedule_misc_aux_work(1,
+                                    do_schedule_free_sigq_buffer_array,
+                                    buffers);
+    }
 }
