@@ -8220,12 +8220,12 @@ void erts_proc_sig_queue_maybe_install_buffers(Process* p, erts_aint32_t state) 
         buffers->slots[i].queue.nmsigs.last = NULL;
         buffers->slots[i].no_of_enqueues = 0;
     }
-    erts_atomic_set_nob(&p->sig_inq_buffers, (Uint)buffers);
+    erts_atomic_set_relb(&p->sig_inq_buffers, (Uint)buffers);
     /*
      * The next statement allows the unmanaged threads (i.e., dirty
      * schedulers) to enqueue signals in the buffers
      */
-    erts_atomic64_set_relb(&p->sig_inq_buffers_refc, 1);
+    erts_atomic32_set_relb(&p->sig_inq_buffers_refc, 1);
 }
 
 ErtsSignalInQueueBufferArray*
@@ -8233,8 +8233,8 @@ erts_proc_sig_queue_get_buffers(Process* p, int *need_unread) {
     ErtsSchedulerData *esdp;
     ErtsSignalInQueueBufferArray* buffers =
         (ErtsSignalInQueueBufferArray*)erts_atomic_read_acqb(&p->sig_inq_buffers);
-    Sint64 refc;
-    Sint64 prevrefc;
+    Sint32 refc;
+    Sint32 prevrefc;
     *need_unread = 0;
     if (buffers == NULL) {
         return NULL;
@@ -8243,15 +8243,15 @@ erts_proc_sig_queue_get_buffers(Process* p, int *need_unread) {
     if (esdp != NULL && esdp->type == ERTS_SCHED_NORMAL) {
         return buffers;
     }
-    refc = erts_atomic64_read_nob(&p->sig_inq_buffers_refc);
+    refc = erts_atomic32_read_nob(&p->sig_inq_buffers_refc);
     while (1) {
         if (refc == 0) {
             return NULL;
         }
-        prevrefc = erts_atomic64_cmpxchg_mb(&p->sig_inq_buffers_refc, refc + 1, refc);
+        prevrefc = erts_atomic32_cmpxchg_mb(&p->sig_inq_buffers_refc, refc + 1, refc);
         if (prevrefc == refc) {
             *need_unread = 1;
-            /* The buffers array can not be read safely */
+            /* The buffers array can be read safely */
             buffers = (ErtsSignalInQueueBufferArray*)erts_atomic_read_nob(&p->sig_inq_buffers);
             ASSERT(buffers != NULL);
             return buffers;
@@ -8262,17 +8262,17 @@ erts_proc_sig_queue_get_buffers(Process* p, int *need_unread) {
 
 void erts_proc_sig_queue_unget_buffers(Process* p, int need_unget) {
     ErtsSignalInQueueBufferArray* buffers;
-    Sint64 refc;
+    Sint32 refc;
     ErtsSchedulerData *esdp;
     if (!need_unget) {
         return;
     }
-    buffers =
-        (ErtsSignalInQueueBufferArray*)erts_atomic_read_nob(&p->sig_inq_buffers);
-    refc = erts_atomic64_dec_read_mb(&p->sig_inq_buffers_refc);
+    refc = erts_atomic32_dec_read_mb(&p->sig_inq_buffers_refc);
     if (refc != 0) {
         return;
     }
+    buffers =
+        (ErtsSignalInQueueBufferArray*)erts_atomic_read_nob(&p->sig_inq_buffers);
     /* We should now clear and schedule a free of the buffers array */
     erts_atomic_set_mb(&p->sig_inq_buffers, (Sint)NULL);
     esdp = erts_get_scheduler_data();

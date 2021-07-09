@@ -1119,11 +1119,11 @@ struct process {
     Uint sig_inq_contention_counter;
     ErtsSignalInQueue sig_inq;
     erts_atomic_t sig_inq_buffers;
-    erts_atomic64_t sig_inq_buffers_refc;
-    /* 
-     * sig_inq_buffers_refc is incremented by dirty schedulers that access
-     * sig_inq_buffers to prevent deallocation while they are
-     * accessing the buffer array. This is needed since durty
+    erts_atomic32_t sig_inq_buffers_refc;
+    /*
+     * sig_inq_buffers_refc is incremented by dirty schedulers that
+     * access sig_inq_buffers to prevent deallocation while they are
+     * accessing the buffer array. This is needed since dirty
      * schedulers are not part of the thread progress system.
      */
     ErlTraceMessageQueue *trace_msg_q;
