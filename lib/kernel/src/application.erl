@@ -139,23 +139,31 @@ ensure_all_started(Application, Type) ->
     end.
 
 ensure_all_started([App | Apps], OptionalApps, Type, Started) ->
-    case ensure_loaded(App) of
-	{ok, Name} ->
-	    case ensure_started(Name, App, Type, Started) of
-		{ok, NewStarted} ->
-		    ensure_all_started(Apps, OptionalApps, Type, NewStarted);
-		Error ->
-		    Error
-	    end;
-	{error, {"no such file or directory", _} = Reason} ->
-	    case lists:member(App, OptionalApps) of
-		true ->
-		    ensure_all_started(Apps, OptionalApps, Type, Started);
-		false ->
-		    {error, {App, Reason}, Started}
-	    end;
-	{error, Reason} ->
-	    {error, {App, Reason}, Started}
+    %% In case the app is already running, we just skip it instead
+    %% of attempting to start all of its children - which would
+    %% have already been loaded and started anyway.
+    case application_controller:is_running(App) of
+        false ->
+            case ensure_loaded(App) of
+                {ok, Name} ->
+                    case ensure_started(Name, App, Type, Started) of
+                        {ok, NewStarted} ->
+                            ensure_all_started(Apps, OptionalApps, Type, NewStarted);
+                        Error ->
+                            Error
+                    end;
+                {error, {"no such file or directory", _} = Reason} ->
+                    case lists:member(App, OptionalApps) of
+                        true ->
+                            ensure_all_started(Apps, OptionalApps, Type, Started);
+                        false ->
+                            {error, {App, Reason}, Started}
+                    end;
+                {error, Reason} ->
+                    {error, {App, Reason}, Started}
+            end;
+        true ->
+            ensure_all_started(Apps, OptionalApps, Type, Started)
     end;
 ensure_all_started([], _OptionalApps, _Type, Started) ->
     {ok, Started}.

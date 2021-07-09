@@ -23,7 +23,7 @@
 -export([start/1, 
 	 load_application/1, unload_application/1, 
 	 start_application/2, start_boot_application/2, stop_application/1,
-	 control_application/1,
+	 control_application/1, is_running/1,
 	 change_application_data/2, prep_config_change/0, config_change/1,
 	 which_applications/0, which_applications/1,
 	 loaded_applications/0, info/0, set_env/2,
@@ -236,6 +236,17 @@ unload_application(AppName) ->
 %%-----------------------------------------------------------------
 start_application(AppName, RestartType) ->
     gen_server:call(?AC, {start_application, AppName, RestartType}, infinity).
+
+%%-----------------------------------------------------------------
+%% Func: is_running/1
+%% Args: Application = atom()
+%% Purpose: Checks if an application is running.
+%%          This is used by application to avoid traversing an
+%%          application's child in case it is already running.
+%% Returns: boolean
+%%-----------------------------------------------------------------
+is_running(AppName) when is_atom(AppName) ->
+    gen_server:call(?AC, {is_running, AppName}, infinity).
 
 %%-----------------------------------------------------------------
 %% Func: start_boot_application/2
@@ -625,7 +636,7 @@ check_distributed(_Else) ->
         {'noreply', state()} | {'reply', term(), state()}.
 
 handle_call({load_application, Application}, From, S) ->
-    case catch do_load_application(Application, S) of
+    case catch maybe_load_application(Application, S) of
 	{ok, NewS} ->
 	    AppName = get_appl_name(Application),
 	    case cntrl(AppName, S, {ac_load_application_req, AppName}) of
@@ -698,6 +709,10 @@ handle_call({start_application, AppName, RestartType}, From, S) ->
 	    SS = S#state{start_req = [{AppName, From} | Start_req]},
 	    {noreply, SS}
     end;
+
+handle_call({is_running, AppName}, _From, S) ->
+    #state{running = Running} = S,
+    {reply, lists:keymember(AppName, 1, Running), S};
 
 handle_call({permit_application, AppName, Bool}, From, S) ->
     Control = S#state.control,
@@ -1264,16 +1279,19 @@ get_loaded(App) ->
 	[{_Key, Appl}] -> {true, Appl};
 	_  -> false
     end.
-    
-do_load_application(Application, S) ->
+
+maybe_load_application(Application, S) ->
     case get_loaded(Application) of
 	{true, _} ->
 	    throw({error, {already_loaded, Application}});
 	false ->
-	    case make_appl(Application) of
-		{ok, Appl} -> load(S, Appl);
-		Error -> Error
-	    end
+	    do_load_application(Application, S)
+    end.
+
+do_load_application(Application, S) ->
+    case make_appl(Application) of
+	{ok, Appl} -> load(S, Appl);
+	Error -> Error
     end.
 
 %% Recursively load the application and its included apps.
