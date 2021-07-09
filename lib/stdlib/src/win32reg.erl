@@ -143,9 +143,20 @@ sub_keys({win32reg, Reg}) when is_port(Reg) ->
       ReturnValue :: 'ok' | {'error', ErrorId :: atom()}.
 
 delete_key({win32reg, Reg}) when is_port(Reg) ->
-    Cmd = [?cmd_delete_key],
+    Cmd = [?cmd_get_current],
     Reg ! {self(), {command, Cmd}},
-    get_result(Reg).
+    case get_result(Reg) of
+	{state, _Hkey, []} ->
+	    {error, eperm};
+	{state, _Hkey, Rest} ->
+	    [Name|_] = split_key(Rest),
+	    ok = change_key(Reg, ?cmd_open_key, ".."),
+	    Cmd2 = [?cmd_delete_key],
+	    Reg ! {self(), {command, [Cmd2, Name, 0]}},
+	    get_result(Reg);
+	{error, Erorr} ->
+	    {error, Erorr}
+    end.
 
 -spec set_value(RegHandle, Name, Value) -> ReturnValue when
       RegHandle :: reg_handle(),
@@ -335,11 +346,14 @@ parse_relative(Path, Reg) ->
     Original = split_key(Name),
     Relative = lists:reverse(split_key(Path)),
     case parse_relative1(Relative, Original) of
+	{error,Error} ->
+	    {error,Error};
 	NewPath ->
 	    {ok, RootHandle, NewPath}
-    %% XXX Error handling.
     end.
 
+parse_relative1([".."|_], []) ->
+    {error,enoent};
 parse_relative1([".."|T1], [_|T2]) ->
     parse_relative1(T1, T2);
 parse_relative1([Comp|Rest], Result) ->
