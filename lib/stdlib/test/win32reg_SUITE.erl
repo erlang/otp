@@ -121,7 +121,7 @@ read_write_default_1(Config) when is_list(Config) ->
     ok = win32reg:set_value(Reg, default, Value),
     {ok,Value} = win32reg:value(Reg, default),
     ok = win32reg:delete_value(Reg, default),
-    {ok,[]} = win32reg:value(Reg, default),
+    {error,enoent} = win32reg:value(Reg, default),
     ok.
 
 read_write_default_2(Config) when is_list(Config) ->
@@ -132,7 +132,7 @@ read_write_default_2(Config) when is_list(Config) ->
     ok = win32reg:set_value(Reg, "", Value),
     {ok,Value} = win32reg:value(Reg, ""),
     ok = win32reg:delete_value(Reg, ""),
-    {ok,[]} = win32reg:value(Reg, ""),
+    {error,enoent} = win32reg:value(Reg, ""),
     ok.
 
 delete_key(Config) when is_list(Config) ->
