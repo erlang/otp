@@ -679,7 +679,12 @@ info({'$inet', GenSocketMod, _} = Socket)
 info(Socket) when is_port(Socket) ->
     case port_info(Socket) of
 	#{states := _} = PortInfo ->
-	    PortInfo;
+            case inet:getopts(Socket, [active]) of
+                {ok, [{active, Active}]} ->
+                    PortInfo#{active => Active};
+                _ ->
+                    PortInfo
+            end;
 	PortInfo0 ->
 	    %% Its actually possible to call this function for non-socket ports,
 	    %% but in that case we have no status or statistics.

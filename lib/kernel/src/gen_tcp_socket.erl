@@ -2639,7 +2639,7 @@ state_getopts(P, D, State, [Tag | Tags], Acc) ->
             {error, einval}
     end.
 
-handle_info(Socket, Owner, D) -> 
+handle_info(Socket, Owner, #{active := Active} = D) -> 
     %% Read counters
     Counters_1 = socket_info_counters(Socket),
     %% Check for recent wraps
@@ -2653,7 +2653,7 @@ handle_info(Socket, Owner, D) ->
     Counters_3 = maps:merge(Counters_1, maps:with(Wrapped, Counters_2)),
     %% Go ahead with wrap updated counters
     Counters_4 = maps:from_list(getstat_what(D_1, Counters_3)),
-    {D_1, Info#{counters => Counters_4, owner => Owner}}.
+    {D_1, Info#{counters => Counters_4, owner => Owner, active => Active}}.
     
 getstat(Socket, D, What) ->
     %% Read counters
