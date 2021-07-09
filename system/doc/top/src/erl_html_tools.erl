@@ -383,6 +383,9 @@ subst("#otp_base_vsn#", _Info, _Group) ->
     get(otp_base_vsn);
 subst("#version#", Info, _Group) ->
     get_version(Info);
+subst("#copyrightyear#", _Info, _Group) ->
+    {Year,_,_} = erlang:date(),
+    integer_to_list(Year);
 subst("#copyright#", _Info, _Group) ->
     "copyright  Copyright &copy; 1991-2004";
 subst("#groups#", Info, _Group) ->
