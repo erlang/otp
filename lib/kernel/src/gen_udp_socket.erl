@@ -54,8 +54,15 @@
 
 -include("inet_int.hrl").
 
--define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+%% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 -define(RECBUF, 65536).
+
+%% -define(ESOCK_VERBOSE_BADARG, true).
+-ifdef(ESOCK_VERBOSE_BADARG).
+-define(BADARG(Args), erlang:error(badarg, Args)).
+-else.
+-define(BADARG(_), exit(badarg)).
+-endif.
 
 
 %% -------------------------------------------------------------------------
@@ -63,10 +70,6 @@
 %% Construct a "socket" as in this module's API
 -define(MODULE_socket(Server, Socket),
         {'$inet', ?MODULE, {Server, Socket}}).
-
-%% %% Standard length before data header for packet,1|2|4
-%% -define(header(Packet, Size),
-%%         (Size):(Packet)/unit:8-integer-big-unsigned).
 
 -define(badarg_exit(Error),
         case begin Error end of
@@ -117,12 +120,6 @@ connect(?MODULE_socket(_Server, Socket), Address, Port) ->
 
 %% -- open -----------------------------------------------------------------
 
-%% -spec open(Service, Opts) -> {ok, Socket} | {error, Reason} when
-%%       Socket  :: socket(),
-%%       Service :: inet:port_number() | atom(),
-%%       Opts    :: list(),
-%%       Reason  :: inet:posix().
-
 open(Service, Opts) ->
     open_lookup(Service, Opts).
 
@@ -130,7 +127,7 @@ open(Service, Opts) ->
 %% Helpers -------
 
 open_lookup(Service, Opts0) ->
-    ?DBG(['open lookup', {service, Service}, {opts, Opts0}]),
+    %% ?DBG(['open lookup', {service, Service}, {opts, Opts0}]),
     {EinvalOpts, Opts_1} = setopts_split(einval, Opts0),
     EinvalOpts =:= [] orelse exit(badarg),
     {Mod, Opts_2} = inet:udp_module(Opts_1),
@@ -141,14 +138,15 @@ open_lookup(Service, Opts0) ->
 	begin
 	    %% IPs    = val(ErrRef, Mod:getaddrs(Address, Domain)),
 	    Port   = val(ErrRef, Mod:getserv(Service)),
-	    Opts_4 = [{port, Port}, {buffer, ?RECBUF} | Opts_3],
-	    % Opts_4 = [{port, Port},  | Opts_3],
+	    %% Opts_4 = [{port, Port}, {buffer, ?RECBUF} | Opts_3],
+	    Opts_4 = [{port, Port} | Opts_3],
 	    #udp_opts{fd     = Fd,
 		      ifaddr = BindIP,
 		      port   = BindPort,
 		      opts   = OpenOpts} =
 		val(ErrRef, inet:udp_options(Opts_4, Mod)),
-            ?DBG([{fd, Fd}, {bind_ip, BindIP}, {bind_port, BindPort}, {opts, OpenOpts}]),
+            %% ?DBG([{fd, Fd}, {bind_ip, BindIP}, {bind_port, BindPort},
+            %%       {opts, OpenOpts}]),
             BindAddr = bind_addr(Domain, BindIP, BindPort, Fd),
             ExtraOpts = extra_opts(Fd),
             do_open(Mod, BindAddr, Domain, OpenOpts, StartOpts, ExtraOpts)
@@ -160,7 +158,8 @@ open_lookup(Service, Opts0) ->
 
 do_open(Mod, BindAddr, Domain, OpenOpts, Opts, ExtraOpts) ->
 
-    ?DBG([{mod, Mod}, {bind_addr, BindAddr}, {domain, Domain}, {open_opts, OpenOpts}, {opts, Opts}, {extra_opts, ExtraOpts}]),
+    %% ?DBG([{mod, Mod}, {bind_addr, BindAddr}, {domain, Domain},
+    %%       {open_opts, OpenOpts}, {opts, Opts}, {extra_opts, ExtraOpts}]),
 
     %%
     %% The {netns, File} option is passed in Fd by inet:connect_options/2,
@@ -170,7 +169,7 @@ do_open(Mod, BindAddr, Domain, OpenOpts, Opts, ExtraOpts) ->
     %%
 
     {SocketOpts, StartOpts} = setopts_split(socket, Opts),
-    ?DBG(['try start server', {socket, SocketOpts}, {start, StartOpts}]),
+    %% ?DBG(['try start server', {socket, SocketOpts}, {start, StartOpts}]),
     case start_server(Mod, Domain, start_opts(StartOpts), ExtraOpts) of
         {ok, Server} ->
             {SetOpts0, _} = setopts_split(#{socket       => [],
@@ -183,15 +182,15 @@ do_open(Mod, BindAddr, Domain, OpenOpts, Opts, ExtraOpts) ->
 
             ErrRef = make_ref(),
             try
-                ?DBG(['try setopts',
-                      {socket_opts, SocketOpts}, {set_opts, SetOpts}]),
+                %% ?DBG(['try setopts',
+                %%       {socket_opts, SocketOpts}, {set_opts, SetOpts}]),
                 ok(ErrRef, call(Server, {setopts, SocketOpts ++ SetOpts})),
 
-                ?DBG(['maybe try bind', {bind_addr, BindAddr}]),
+                %% ?DBG(['maybe try bind', {bind_addr, BindAddr}]),
                 ok(ErrRef, call_bind(Server,
                                      default_any(Domain, ExtraOpts, BindAddr))),
 
-                ?DBG(['try get-socket']),
+                %% ?DBG(['try get-socket']),
                 Socket = val(ErrRef, call(Server, get_socket)),
 
                 {ok, ?MODULE_socket(Server, Socket)}
@@ -273,9 +272,7 @@ default_active_true(Opts) ->
 send(?MODULE_socket(_Server, Socket), Data) ->
     socket_send(Socket, Data);
 send(_Socket, _Data) ->
-    %% erlang:error(badarg, [_Socket, _Data]).
-    exit(badarg).
-
+    ?BADARG([_Socket, _Data]).
 
 
 -compile({inline, [make_iov/1]}).
@@ -293,19 +290,25 @@ dest2sockaddr({Addr, Port})
     #{family => inet6,
       port   => Port,
       addr   => Addr};
+dest2sockaddr({local = Fam, Path})
+  when is_binary(Path) orelse is_list(Path) ->
+    #{family => Fam,
+      path   => Path};
 dest2sockaddr({Fam, {Addr, Port}})
-  when is_atom(Fam) andalso is_integer(Port) ->
+  when is_atom(Fam) andalso
+       ((Fam =:= inet) orelse (Fam =:= inet6)) andalso
+       is_integer(Port) ->
     #{family => Fam,
       port   => Port,
       addr   => Addr};
-dest2sockaddr(_) ->
-    exit(badarg).
+dest2sockaddr(_Arg) ->
+    ?BADARG([_Arg]).
 
 -compile({inline, [make_cmsghdrs/1]}).
 make_cmsghdrs(AncData) when is_list(AncData) ->
     [make_cmsghdr(AD) || AD <- AncData];
-make_cmsghdrs(_) ->
-    exit(badarg).
+make_cmsghdrs(_Arg) ->
+    ?BADARG([_Arg]).
 
 make_cmsghdr({tos = Type, Byte}) ->
     #{level => ip, type => Type, data => Byte};
@@ -313,8 +316,8 @@ make_cmsghdr({tclass = Type, Byte}) ->
     #{level => ipv6, type => Type, data => Byte};
 make_cmsghdr({ttl = Type, Byte}) ->
     #{level => ip, type => Type, data => Byte};
-make_cmsghdr(_) ->
-    exit(badarg).
+make_cmsghdr(_Arg) ->
+    ?BADARG([_Arg]).
     
 
 send(Socket, Destination, Data) ->
@@ -360,10 +363,14 @@ send(?MODULE_socket(_, ESock) = Socket,
 	    ERROR
     end;
 send(_Socket, _Arg1, _Arg2, _Arg3) ->
-    %% erlang:error(badarg, [_Socket, _Arg1, _Arg2, _Arg3]).
-    exit(badarg).
+    ?BADARG([_Socket, _Arg1, _Arg2, _Arg3]).
 
 
+send(Socket, Addr, Port, AncData, Data)
+  when is_tuple(Addr) andalso
+       ((size(Addr) =:= 4) orelse (size(Addr) =:= 8)) andalso
+       is_integer(Port) ->
+    send(Socket, {Addr, Port}, AncData, Data);
 send(?MODULE_socket(_, ESock) = Socket,
      Host, Service, AncData, Data) when is_list(Host) orelse is_atom(Host) ->
     case socket:getopt(ESock, {otp, domain}) of
@@ -388,8 +395,7 @@ send(?MODULE_socket(_, ESock) = Socket,
 	    ERROR
     end;
 send(_Socket, _Arg1, _Arg2, _Arg3, _Arg4) ->
-    %% erlang:error(badarg, [_Socket, _Arg1, _Arg2, _Arg3, _Arg4]).
-    exit(badarg).
+    ?BADARG([_Socket, _Arg1, _Arg2, _Arg3, _Arg4]).
 
 
 
@@ -521,7 +527,12 @@ getstat(?MODULE_socket(Server, _Socket), What) when is_list(What) ->
 %% -------------------------------------------------------------------------
 
 info(?MODULE_socket(Server, _Socket)) ->
-    call(Server, info).
+    case call(Server, info) of
+        {error, closed} ->
+            #{rstates => [closed], wstates => [closed]};
+        Other ->
+            Other
+    end.
 
 
 %% -------------------------------------------------------------------------
@@ -561,16 +572,6 @@ which_sockets([Sock|Socks], Acc) ->
 %%% Socket glue code
 %%%
 
-%% -compile({inline, [socket_recv_peek/2]}).
-%% socket_recv_peek(Socket, Length) ->
-%%     Options = [peek],
-%%     Result = socket:recv(Socket, Length, Options, nowait),
-%%     Result.
-
-%% -compile({inline, [socket_recv/2]}).
-%% socket_recv(Socket, Length) ->
-%%     socket:recv(Socket, Length, 0, nowait).
-
 -compile({inline, [socket_recvfrom/2]}).
 socket_recvfrom(Socket, Length) ->
     socket:recvfrom(Socket, Length, nowait).
@@ -598,7 +599,7 @@ socket_sendto(Socket, Dest, Data) ->
 
 -compile({inline, [socket_sendmsg/2]}).
 socket_sendmsg(Socket, MsgHdr) ->
-    socket:send(Socket, MsgHdr).
+    socket:sendmsg(Socket, MsgHdr).
 
 
 -compile({inline, [socket_close/1]}).
@@ -615,7 +616,7 @@ socket_close(Socket) ->
 -compile({inline, [socket_cancel/2]}).
 socket_cancel(Socket, SelectInfo) ->
     case socket:cancel(Socket, SelectInfo) of
-        ok -> ok;
+        ok              -> ok;
         {error, closed} -> ok
     end.
 
@@ -634,22 +635,6 @@ val(_ErrRef, {ok, Val}) -> Val;
 val(ErrRef, {error, Reason}) -> throw({ErrRef, Reason}).
 
 
--ifdef(undefined).
-chain([F | Fs], Fail) ->
-    chain(Fs, Fail, [], F()).
-%%
-chain([F | Fs], Fail, Values) ->
-    chain(Fs, Fail, Values, F(Values)).
-%%
-chain([], _Fail, _Values, Ret) -> Ret;
-chain(Fs, Fail, Values, Ret) ->
-    case Ret of
-        {error, _} -> Fail(Ret);
-        ok -> chain(Fs, Fail, Values);
-        {ok, Value} -> chain(Fs, Fail, [Value | Values])
-    end.
--endif.
-
 %% -------------------------------------------------------------------------
 
 -compile({inline, [domain/1]}).
@@ -660,13 +645,8 @@ domain(Mod) ->
         local_udp -> local
     end.
 
-%% -------------------------------------------------------------------------
 
-%% sockaddr2addr(#{family := Family, addr := IP, port := Port})
-%%   when (Family =:= inet) orelse (Family =:= inet6) ->
-%%     {IP, Port};
-%% sockaddr2addr(#{family := local, path := Path}) ->
-%%     {local, Path}.
+%% -------------------------------------------------------------------------
 
 address(SockAddr) ->
     case SockAddr of
@@ -677,26 +657,18 @@ address(SockAddr) ->
             {local, Path}
     end.
 
-%% -------------------------------------------------------------------------
-
-%% sockaddrs([], _Port, _Domain) -> [];
-%% sockaddrs([{local, Path} | IPs], Port, Domain) when (Domain =:= local) ->
-%%     [#{family => Domain, path => Path}
-%%      | sockaddrs(IPs, Port, Domain)];
-%% sockaddrs([IP | IPs], Port, Domain) ->
-%%     [#{family => Domain, addr => IP, port => Port}
-%%      | sockaddrs(IPs, Port, Domain)].
 
 %% -------------------------------------------------------------------------
 
 setopts_split(FilterTags, Opts) ->
     setopts_split(FilterTags, Opts, [], []).
+
 %%
 setopts_split(_FilterTags, [], True, False) ->
-    ?DBG(['done', {true, True}, {false, False}]),
+    %% ?DBG(['done', {true, True}, {false, False}]),
     {reverse(True), reverse(False)};
 setopts_split(FilterTags, [Opt | Opts], True, False) ->
-    ?DBG([{ftags, FilterTags}, {opt, Opt}]),
+    %% ?DBG([{ftags, FilterTags}, {opt, Opt}]),
     Opt_1 = conv_setopt(Opt),
     case member(FilterTags, setopt_categories(Opt_1)) of
         true ->
@@ -735,48 +707,77 @@ socket_setopt(Socket, {raw, Level, Key, Value}) ->
 socket_setopt(Socket, {raw, {Level, Key, Value}}) ->
     socket:setopt_native(Socket, {Level,Key}, Value);
 socket_setopt(Socket, {Tag, Value}) ->
-    ?DBG({Tag, Value}),
+    %% ?DBG({Tag, Value}),
     case socket_opt() of
         #{Tag := {Domain, _} = Opt} when is_atom(Domain) ->
-            ?DBG(Opt),
-            socket:setopt(Socket, otp, debug, true),
-            Val = socket_setopt_value(Tag, Value),
-            ?DBG(Val),
-            Res = socket:setopt(Socket, Opt, Val),
-            ?DBG(Res),
-            socket:setopt(Socket, otp, debug, false),
-            Res;
+            %% ?DBG(Opt),
+            socket_setopt_opt(Socket, Opt, Tag, Value);
 
-        #{Tag := DomainProps} when is_list(DomainProps) ->
-            %% We need to lookup the domain of the socket,
-            %% so we can select which one to use.                            
-            ?DBG(DomainProps),
-            case socket:getopt(Socket, otp, domain) of
-                {ok, Domain} ->
-                    case lists:keysearch(Domain, 1, DomainProps) of
-                        {value, {Domain, Level, OptKey}} ->
-                            Opt = {Level, OptKey},
-                            _ = socket:setopt(Socket, otp, debug, true),
-                            Res = socket:setopt(Socket,
-                                                Opt,
-                                                socket_setopt_value(Tag,
-                                                                    Value)),
-                            _ = socket:setopt(Socket, otp, debug, false),
-                            Res;
-                        false ->
-                            {error, einval}
-                    end;
-                {error, _} ->
-                    {error, einval}
-            end;
+        #{Tag := Opts} when is_list(Opts) ->
+            %% ?DBG(Opts),
+            socket_setopt_opts(Opts, Socket, Tag, Value);
 
         #{} ->
             {error, einval}
     end.
 
-%% socket_setopt_value(linger, {OnOff, Linger}) ->
-%%     #{onoff => OnOff, linger => Linger};
-socket_setopt_value(_Tag, Value) -> Value.
+socket_setopt_opt(Socket, Opt, Tag, Value) ->
+    %% _ = socket:setopt(Socket, otp, debug, true),
+    Val = socket_setopt_value(Tag, Value, Opt),
+    %% ?DBG(Val),
+    Res = socket:setopt(Socket, Opt, Val),
+    %% ?DBG(Res),
+    %% _ = socket:setopt(Socket, otp, debug, false),
+    Res.
+    
+
+socket_setopt_opts([], _Socket, _Tag, _Value) ->
+    ok;
+
+%% Its possible for *one* option to be mapped to several 'socket' options.
+%% For instance, when *setting* the the option recbuf, we actually set two
+%% 'socket' options: {otp, rcvbuf} and {socket, rcvbuf}.
+socket_setopt_opts([{_Level, _OptKey} = Opt|Opts], Socket, Tag, Value) ->
+    %% _ = socket:setopt(Socket, otp, debug, true),
+    Res = socket:setopt(Socket, Opt, socket_setopt_value(Tag, Value, Opt)),
+    %% _ = socket:setopt(Socket, otp, debug, false),
+    case Res of
+        ok ->
+            socket_setopt_opts(Opts, Socket, Tag, Value);
+        {error, _Reason} ->
+            {error, einval}
+    end;
+
+%% We need to lookup the domain of the socket,
+%% so we can select which one to use.
+socket_setopt_opts(Opts, Socket, Tag, Value) ->
+    case socket:getopt(Socket, otp, domain) of
+        {ok, Domain} ->
+            case lists:keysearch(Domain, 1, Opts) of
+                {value, {Domain, Level, OptKey}} ->
+                    Opt = {Level, OptKey},
+                    %% _ = socket:setopt(Socket, otp, debug, true),
+                    Res = socket:setopt(Socket, Opt,
+                                        socket_setopt_value(Tag, Value, Opt)),
+                    %% _ = socket:setopt(Socket, otp, debug, false),
+                    Res;
+                false ->
+                    {error, einval}
+            end;
+        {error, _} ->
+            {error, einval}
+    end.
+
+
+
+%% This happens when we set the recbuf options.
+%% As a side effect, we also set our internal buffer,
+%% but with a limiter.
+socket_setopt_value(recbuf, Value, {otp, rcvbuf}) 
+  when (Value > ?RECBUF) ->
+    ?RECBUF;
+socket_setopt_value(_Tag, Value, _) ->
+    Value.
 
 socket_getopt(Socket, {raw, Level, Key, ValueSpec}) ->
     socket:getopt_native(Socket, {Level,Key}, ValueSpec);
@@ -785,68 +786,65 @@ socket_getopt(Socket, {raw, {Level, Key, ValueSpec}}) ->
 socket_getopt(Socket, Tag) when is_atom(Tag) ->
     case socket_opt() of
         #{Tag := {Domain, _} = Opt} when is_atom(Domain) ->
-            ?DBG({'socket_getopt - match', Tag}),
-            %% _ = socket:setopt(Socket, otp, debug, true),
-            Res = socket:getopt(Socket, Opt),
-            ?DBG({'socket_getopt - result', Res}),
-            %% _ = socket:setopt(Socket, otp, debug, false),
-            socket_getopt_value(Tag, Res);
+            %% ?DBG(Opt),
+            socket_getopt_opt(Socket, Opt, Tag);
 
-        #{Tag := DomainProps} when is_list(DomainProps) ->
-            %% We need to lookup the domain of the socket,
-            %% so we can select which one to use.                            
-            ?DBG({'socket_getopt - match', Tag, DomainProps}),
-            case socket:getopt(Socket, otp, domain) of
-                {ok, Domain} ->
-                    ?DBG({'socket_getopt - domain', Tag, Domain}),
-                    case lists:keysearch(Domain, 1, DomainProps) of
-                        {value, {Domain, Level, OptKey}} ->
-                            ?DBG({'socket_getopt - ok domain', Tag, Level, OptKey}),
-                            Opt  = {Level, OptKey},
-                            %% _ = socket:setopt(Socket, otp, debug, true),
-                            Res = socket:getopt(Socket, Opt),
-                            %% _ = socket:setopt(Socket, otp, debug, false),
-                            ?DBG({'socket_getopt - result', Res}),
-                            socket_getopt_value(Tag, Res);
-                        false ->
-                            ?DBG({'socket_getopt - invalid domain', Tag, Domain, DomainProps}),
-                            {error, einval}
-                    end;
-                {error, _DReason} ->
-                    ?DBG({'socket_getopt - unknown domain', Tag, _DReason}),
-                    {error, einval}
-            end;
+        #{Tag := Opts} when is_list(Opts) ->
+            %% ?DBG(Opts),
+            socket_getopt_opts(Opts, Socket, Tag);
 
         #{} = __X__ ->
-            ?DBG({'socket_getopt - no match - 2', Tag, __X__}),
+            %% ?DBG({'socket_getopt - no match - 2', Tag, __X__}),
             {error, einval}
     end.
 
-%% socket_getopt_value(linger, {ok, #{onoff := OnOff, linger := Linger}}) ->
-%%     {ok, {OnOff, Linger}};
+
+socket_getopt_opt(Socket, Opt, Tag) ->
+    %% _ = socket:setopt(Socket, otp, debug, true),
+    Res = socket:getopt(Socket, Opt),
+    %% ?DBG([{'socket_getopt - result', Res}]),
+    %% _ = socket:setopt(Socket, otp, debug, false),
+    socket_getopt_value(Tag, Res).
+
+socket_getopt_opts([], _Socket, _Tag) ->
+    {error, einval};
+
+%% Its possible for *one* option to be mapped to several 'socket' options.
+%% But, its *always* the first element in th elist that is the "real"
+%% option. This is the one used when *reading*. The other elemnts in the list
+%% is basically side effect options, which is not used when reading.
+socket_getopt_opts([{_Domain, _} = Opt|_], Socket, Tag) ->
+    socket_getopt_opt(Socket, Opt, Tag);
+
+socket_getopt_opts(Opts, Socket, Tag) ->
+    case socket:getopt(Socket, otp, domain) of
+        {ok, Domain} ->
+            %% ?DBG([{'domain', Domain}]),
+            case lists:keysearch(Domain, 1, Opts) of
+                {value, {Domain, Level, OptKey}} ->
+                    %% ?DBG(['ok domain', {level, Level}, {optkey, OptKey}]),
+                    Opt  = {Level, OptKey},
+                    %% _ = socket:setopt(Socket, otp, debug, true),
+                    Res = socket:getopt(Socket, Opt),
+                    %% _ = socket:setopt(Socket, otp, debug, false),
+                    %% ?DBG([{'result', Res}]),
+                    socket_getopt_value(Tag, Res);
+                false ->
+                    %% ?DBG({'invalid domain', Tag, Domain, Opts}),
+                    {error, einval}
+            end;
+        {error, _DReason} ->
+            %% ?DBG([{'unknown domain', _DReason}]),
+            {error, einval}
+    end.
+
+    
+    
 %% socket_getopt_value(pktoptions, {ok, PktOpts0}) when is_list(PktOpts0) ->
 %%     PktOpts = [{Type, Value} || #{type := Type, value := Value} <- PktOpts0],
 %%     {ok, PktOpts};
 socket_getopt_value(_Tag, {ok, _Value} = Ok) -> Ok;
 socket_getopt_value(_Tag, {error, _} = Error) -> Error.
-
-%% socket_copy_opt(Socket, Tag, TargetSocket) when is_atom(Tag) ->
-%%     case socket_opt() of
-%%         #{Tag := Opt} ->
-%% 	    case socket:is_supported(options, Opt) of
-%% 		true ->
-%% 		    case socket:getopt(Socket, Opt) of
-%% 			{ok, Value} ->
-%% 			    socket:setopt(TargetSocket, Opt, Value);
-%% 			{error, _Reason} = Error ->
-%% 			    Error
-%% 		    end;
-%% 		false ->
-%% 		    ok
-%% 	    end;
-%%         #{} = _X ->
-%% 	    {error, einval}
-%%     end.
 
 start_opts([{sys_debug, D} | Opts]) ->
     [{debug, D} | start_opts(Opts)];
@@ -928,8 +926,17 @@ ignore_opt() ->
 %% Category 'socket'
 %%
 %% Translation to 'level' and 'opt'
+%% The map-values are one of the following:
+%%    {Level, Key} | [{Level, Key}] | [{Domain, Level, Key}]
+%% * The first is the "normal" way
+%% * The second is basically a way to have side effects.
+%%   For example, recbuf is nominally mapped to {socket, rcvbuf}
+%%   but as a side effect our (socket nif) internal buffer is also
+%%   set to the same value, but limited to at most 65536.
+%% * The third is an even more special case, for the non-standard
+%%   option pktoptions, which has different 'level' depending on the
+%%   domain.
 -compile({inline, [socket_opt/0]}).
-%% What about: read_packets
 socket_opt() ->
     #{
       %% Level: otp
@@ -946,7 +953,9 @@ socket_opt() ->
       %% linger         => {socket, linger},
       %% low_watermark  => {socket, rcvlowat},
       priority       => {socket, priority},
-      recbuf         => {socket, rcvbuf},
+      %% Note that its the *first* that is the actual option!
+      %% The second can be seen as a side effect...
+      recbuf         => [{socket, rcvbuf}, {otp, rcvbuf}],
       reuseaddr      => {socket, reuseaddr},
       sndbuf         => {socket, sndbuf},
 
@@ -970,7 +979,7 @@ socket_opt() ->
       %% Level: ipv6
       recvtclass  => {ipv6, recvtclass},
       ipv6_v6only => {ipv6, v6only},
-      tclass      => {ipv6, tclass}
+      tclass      => {ipv6, tclass},
 
       %%
       %% Special cases
@@ -985,7 +994,7 @@ socket_opt() ->
       %% In both cases this is *no longer valid* as the RFC which 
       %% introduced this, RFC 2292, is *obsoleted* by RFC 3542, where
       %% this "feature" *does not exist*...
-      %%pktoptions  => [{inet, ip, pktoptions}, {inet6, ipv6, pktoptions}]
+      pktoptions  => [{inet, ip, pktoptions}, {inet6, ipv6, pktoptions}]
       }.
 
 %% -compile({inline, [socket_inherit_opts/0]}).
@@ -1006,7 +1015,10 @@ server_read_opts() ->
         mode => list,
         header => 0,
         deliver => term,
-	read_packets => 5, %% WHAT DO WE DO ABOUT THIS!!!
+        %% WHAT DO WE DO ABOUT THIS!!!
+        %% This option, read_packets, is *currently* not used,
+        %% but accepted for backward compatibillity reasons.
+	read_packets => 5,
         start_opts => [], % Just to make it settable
         %% XXX not implemented yet
         exit_on_close => true},
@@ -1099,8 +1111,8 @@ callback_mode() -> handle_event_function.
 
 init({Mod, Domain, ExtraOpts, Owner}) ->
 
-    ?DBG([{init, open},
-          {domain, Domain}, {extraopts, ExtraOpts}, {owner, Owner}]),
+    %% ?DBG([{init, open},
+    %%       {domain, Domain}, {extraopts, ExtraOpts}, {owner, Owner}]),
 
     process_flag(trap_exit, true),
     OwnerMon  = erlang:monitor(process, Owner),
@@ -1134,20 +1146,23 @@ socket_open(Domain, Proto, #{fd := FD} = ExtraOpts, Extra) ->
           domain   => Domain,
           type     => dgram,
           protocol => Proto},
-    ?DBG([{fd, FD}, {opts, Opts}]),
+    %% ?DBG([{fd, FD}, {opts, Opts}]),
     case socket:open(FD, Opts) of
         {ok, Socket} = OK ->
+            %% ?DBG(['open ok', {socket, Socket}]),
             case socket:info(Socket) of
                 #{ctype    := fromfd,
                   domain   := Domain,
                   type     := dgram,
-                  protocol := Proto} ->
+                  protocol := _SelectedProto} ->
                     OK;
-                _ ->
+                _INVALID ->
+                    %% ?DBG(['info invalid', {invalid, _INVALID}]),
                     (catch socket:close(Socket)),
                     {error, einval}
             end;
-        {error, _} = ERROR ->
+        {error, _Reason} = ERROR ->
+            %% ?DBG(['open error', {reason, _Reason}]),
             ERROR
     end;
 socket_open(Domain, Proto, ExtraOpts, Extra) ->
@@ -1163,9 +1178,10 @@ terminate(_Reason, State, {_P, _} = P_D) ->
         _ ->
             terminate(State, P_D)
     end.
+
 %%
 terminate(State, {#params{socket = Socket} = P, D}) ->
-    ?DBG(['terminate', {socket, Socket}, {state, State}]),
+    %% ?DBG(['terminate', {socket, Socket}, {state, State}]),
     case State of
         'closed' ->
 	    ok;
@@ -1218,10 +1234,10 @@ handle_event({call, From}, get_server_opts, _State, {_P, D}) ->
 
 %% Event: Owner 'DOWN'
 handle_event(info,
-	     {'DOWN', OwnerMon, _, _, Reason} = DOWN,
+	     {'DOWN', OwnerMon, _, _, Reason} = _DOWN,
 	     _State,
 	     {#params{owner_mon = OwnerMon} = _P, _D} = P_D) ->
-    ?DBG([{event, info}, {down, DOWN}, {state, _State}]),
+    %% ?DBG([{event, info}, {down, _DOWN}, {state, _State}]),
     {stop, {shutdown, Reason}, P_D};
 
 %% Event: ?socket_counter_wrap/2
@@ -1229,21 +1245,21 @@ handle_event(info,
 	     ?socket_counter_wrap(Socket, Counter),
 	     'open' = _State,
 	     {#params{socket = Socket} = P, D}) ->
-    ?DBG([{state, _State}, {counter, Counter}]),
+    %% ?DBG([{state, _State}, {counter, Counter}]),
     {keep_state, {P, wrap_counter(Counter, D)}};
 
 handle_event(info,
 	     ?socket_counter_wrap(Socket, Counter),
 	     #recv{} = _State,
 	     {#params{socket = Socket} = P, D}) ->
-    ?DBG([{state, _State}, {counter, Counter}]),
+    %% ?DBG([{state, _State}, {counter, Counter}]),
     {keep_state, {P, wrap_counter(Counter, D)}};
 
 handle_event(info,
 	     ?socket_counter_wrap(_Socket, _Counter),
 	     _State,
 	     _P_D) ->
-    ?DBG([{state, _State}, {counter, _Counter}]),
+    %% ?DBG([{state, _State}, {counter, _Counter}]),
     {keep_state_and_data, [postpone]};
 
 %% Call: controlling_process/1
@@ -1294,7 +1310,7 @@ handle_event({call, From},
 	     close,
 	     State,
 	     {P, D} = P_D) ->
-    ?DBG([{socket, P#params.socket}, {state, State}]),
+    %% ?DBG([{socket, P#params.socket}, {state, State}]),
     case State of
         'closed_read' ->
             {next_state, 'closed', P_D,
@@ -1320,9 +1336,9 @@ handle_event({call, From},
 	     {getopts, Opts},
 	     State,
 	     {P, D}) ->
-    ?DBG({call, getopts, Opts, State, D}),
+    %% ?DBG({call, getopts, Opts, State, D}),
     Result = state_getopts(P, D, State, Opts),
-    ?DBG({call, getopts_result, Result}),
+    %% ?DBG({call, getopts_result, Result}),
     {keep_state_and_data,
      [{reply, From, Result}]};
 
@@ -1331,9 +1347,9 @@ handle_event({call, From},
 	     {setopts, Opts},
 	     State,
 	     {P, D}) ->
-    ?DBG([{setopts, Opts}, {state, State}, {d, D}]),
+    %% ?DBG([{setopts, Opts}, {state, State}, {d, D}]),
     {Result, {P_1, D_1}} = state_setopts(P, D, State, Opts),
-    ?DBG([{result, Result}, {p1, P_1}, {d1, D_1}]),
+    %% ?DBG([{result, Result}, {p1, P_1}, {d1, D_1}]),
     case Result of
 	{error, einval} ->
 	    %% If we get this error, either the options where crap or
@@ -1347,14 +1363,8 @@ handle_event({call, From},
 	    ok = socket:setopt(P_1#params.socket, {otp,meta}, meta(D_1))
     end,
     Reply = {reply, From, Result},
-    case State of
-        'open' ->
-            handle_reading(P_1, D_1, [Reply]);
-        _ ->
-            {keep_state, {P_1, D_1}, [Reply]}
-    end;
+    handle_reading(State, P_1, D_1, [Reply]);
     
-
 
 %% Call: getstat/2
 handle_event({call, From},
@@ -1376,9 +1386,11 @@ handle_event({call, From},
 	     {P, D}) ->
     case State of
         'closed' ->
-            {keep_state_and_data, [{reply, From, #{}}]};
+            {keep_state_and_data, [{reply, From, #{rstates => [closed],
+                                                   wstates => [closed]}}]};
         _ ->
-            {D_1, Result} = handle_info(P#params.socket, P#params.owner, D),
+            {D_1, Result} =
+                handle_info(State, P#params.socket, P#params.owner, D),
             {keep_state, {P, D_1}, [{reply, From, Result}]}
     end;
 
@@ -1389,22 +1401,21 @@ handle_event(Type, Content, 'closed' = State, P_D) ->
 
 %% Call: shutdown/1
 handle_event({call, From}, {shutdown, How} = _SHUTDOWN, State, {P, D}) ->
-    ?DBG({P#params.socket, _SHUTDOWN, State}),
+    %% ?DBG({P#params.socket, _SHUTDOWN, State}),
     case State of
         'closed_read' when (How =:= read) ->
-            ?DBG('already closed-read'),
+            %% ?DBG('already closed-read'),
             {keep_state_and_data, [{reply, From, ok}]};
         'closed_read_write' when (How =:= read_write) ->
-            ?DBG('already closed-read-write'),
+            %% ?DBG('already closed-read-write'),
             {keep_state_and_data, [{reply, From, ok}]};
         _ ->
-            ?DBG({'handle shutdown', How, State}),
+            %% ?DBG({'handle shutdown', How, State}),
             case handle_shutdown(P, State, How) of
                 {keep, SRes} ->
-                    ?DBG({'shutdown result', SRes, keep}),
+                    %% ?DBG({'shutdown result', SRes, keep}),
                     {keep_state_and_data, [{reply, From, SRes}]};
                 {NextState, SRes} ->
-                    ?DBG({P#params.socket, 'shutdown result', SRes, NextState}),
                     next_state(P,
 			       cleanup_close_read(P,
 						  D#{active := false},
@@ -1426,10 +1437,10 @@ handle_event(Type, Content, State, P_D)
 
 %% Call: bind/1
 handle_event({call, From}, {bind, BindAddr} = _BIND, _State, {P, _D}) ->
-    ?DBG(['try bind',
-          {handle_event, call}, {bind_addr, BindAddr}, {state, _State}]),
+    %% ?DBG(['try bind',
+    %%       {handle_event, call}, {bind_addr, BindAddr}, {state, _State}]),
     Result = socket:bind(P#params.socket, BindAddr),
-    ?DBG([{bind_result, Result}]),
+    %% ?DBG([{bind_result, Result}]),
     {keep_state_and_data, [{reply, From, Result}]};
 
 
@@ -1447,7 +1458,7 @@ handle_event({call, From},
 %% Call: recv/2,3
 handle_event(
   {call, From}, {recv, Length, Timeout}, State, {P, D}) ->
-    ?DBG([recv, {length, Length}, {timeout, Timeout}, {state, State}]),
+    %% ?DBG([recv, {length, Length}, {timeout, Timeout}, {state, State}]),
     case State of
         'open' -> % idle
             handle_recv_start(P, D, From, Length, Timeout);
@@ -1463,7 +1474,6 @@ handle_event(
   info, ?socket_select(Socket, SelectRef),
   #recv{info = ?select_info(SelectRef)},
   {#params{socket = Socket} = P, D}) ->
-    %%
     %% ?DBG([info, {socket, Socket}, {ref, SelectRef}]),
     handle_recv(P, D, []);
 
@@ -1472,7 +1482,6 @@ handle_event(
   info, ?socket_abort(Socket, SelectRef, Reason),
   #recv{info = ?select_info(SelectRef)},
   {#params{socket = Socket} = P, D}) ->
-    %%
     %% ?DBG({abort, Reason}),
     handle_reading(P, cleanup_recv_reply(P, D, [], Reason));
 
@@ -1480,7 +1489,6 @@ handle_event(
 %% Timeout on recv in non-active mode
 handle_event(
   {timeout, recv}, recv, #recv{} = State, {P, D}) ->
-    %%
     %% ?DBG({timeout, recv}),
     handle_reading(P, cleanup_recv(P, D, State, timeout));
 
@@ -1497,7 +1505,7 @@ handle_event(Type, Content, State, P_D) ->
 %% This is done to be "compatible" with the inet-driver!
 
 handle_shutdown(#params{socket = Socket},
-                connected = _State,
+                open = _State,
                 write = How) ->
     {keep, socket:shutdown(Socket, How)};
 handle_shutdown(#params{socket = Socket},
@@ -1505,7 +1513,7 @@ handle_shutdown(#params{socket = Socket},
                 write = How) ->
     {keep, socket:shutdown(Socket, How)};
 handle_shutdown(#params{socket = Socket},
-                connected = _State,
+                open = _State,
                 read = How) ->
     handle_shutdown2(Socket, closed_read, How);
 handle_shutdown(#params{socket = Socket},
@@ -1513,15 +1521,15 @@ handle_shutdown(#params{socket = Socket},
                 read = How) ->
     handle_shutdown2(Socket, closed_read, How);
 handle_shutdown(#params{socket = Socket},
-                connected = _State,
+                open = _State,
                 read_write = How) ->
     handle_shutdown2(Socket, closed_read_write, How);
 handle_shutdown(#params{socket = Socket},
                 #recv{} = _State,
                 read_write = How) ->
     handle_shutdown2(Socket, closed_read_write, How);
-handle_shutdown(_Params, _State, _How) ->
-    {keep, {error, enotconn}}.
+handle_shutdown(_Params, State, _How) ->
+    {keep, {error, {invalid_state, State}}}.
 
 handle_shutdown2(Socket, NextState, How) ->
     case socket:shutdown(Socket, How) of
@@ -1558,56 +1566,33 @@ handle_closed(Type, Content, State, {P, _D}) ->
 
 %% State transition helpers -------
 
-%% handle_connect(
-%%   #params{socket = Socket} = P, D, From, Addr, Timeout) ->
-%%     %%
-%%     %% ?DBG([{d, D}, {addr, Addr}]),
-%%     case socket:connect(Socket, Addr, nowait) of
-%%         ok ->
-%%             handle_connected(
-%%               P, D#{type => connect},
-%%               [{{timeout, connect}, cancel},
-%%                {reply, From, {ok, Socket}}]);
-%%         {select, ?select_info(_) = SelectInfo} ->
-%%             {next_state,
-%%              #connect{info = SelectInfo, from = From, addr = Addr},
-%%              {P, D#{type => connect}},
-%%              [{{timeout, connect}, Timeout, connect}]};
-%%         {error, _} = Error ->
-%%             {next_state,
-%%              'connect', {P, D},
-%%              [{{timeout, connect}, cancel},
-%%               {reply, From, Error}]}
-%%     end.
+%% The socket was "activated" => Start reading
+handle_reading('open' = _State,
+               P,
+               #{active := Active} = D,
+               ActionsR)
+  when (Active =/= false) ->
+    %% ?DBG(['open', {p, P}, {d, D}, {actions_r, ActionsR}]),
+    handle_recv(P, recv_start(D), ActionsR);
 
-%% handle_accept(P, D, From, ListenSocket, Timeout) ->
-%%     %% ?DBG({try_accept, D}),
-%%     case socket:accept(ListenSocket, nowait) of
-%%         {ok, Socket} ->
-%%             %% ?DBG(accept_success),
-%%             ok = socket:setopt(Socket, {otp,iow}, true),
-%%             ok = socket:setopt(Socket, {otp,meta}, meta(D)),
-%%             [ok = socket_copy_opt(ListenSocket, Opt, Socket)
-%%              || Opt <- socket_inherit_opts()],
-%%             handle_connected(
-%%               P#params{socket = Socket}, D#{type => accept},
-%%               [{{timeout, accept}, cancel},
-%%                {reply, From, {ok, Socket}}]);
-%%         {select, ?select_info(_) = SelectInfo} ->
-%%             %% ?DBG({accept_select, SelectInfo}),
-%%             {next_state,
-%%              #accept{
-%%                 info = SelectInfo, from = From,
-%%                 listen_socket = ListenSocket},
-%%              {P, D#{type => accept}},
-%%              [{{timeout, accept}, Timeout, accept}]};
-%%         {error, _Reason} = Error ->
-%%             %% ?DBG({accept_failure, _Reason}),
-%%             {next_state,
-%%              'accept', {P, D},
-%%              [{{timeout, accept}, cancel},
-%%               {reply, From, Error}]}
-%%     end.
+%% The socket was "deactivated" (made passive) => Stop reading
+handle_reading(#recv{info = SelectInfo} = _State,
+               #params{socket = Socket} = P,
+               #{active := Active} = D,
+               ActionsR)
+  when (Active =:= false) ->
+    %% ?DBG(['recv', {select_info, SelectInfo},
+    %%       {p, P}, {d, D}, {actions_r, ActionsR}]),
+    socket_cancel(Socket, SelectInfo),
+    {D2, ActionsR2} = cleanup_recv_reply(P, D, ActionsR, normal),
+    {next_state, 'open',
+     {P, recv_stop(D2#{active := false})}, reverse(ActionsR2)};
+
+%% No state change (either still passive, still reading,
+%% or was "closed" already)
+handle_reading(_State, P, D, ActionsR) ->
+    {keep_state, {P, D}, ActionsR}.
+    
 
 handle_reading(P, {D, ActionsR}) ->
     handle_reading(P, D, ActionsR).
@@ -1618,33 +1603,30 @@ handle_reading(P, D, ActionsR) ->
         #{active := false} ->
             {next_state, 'open', {P, D}, reverse(ActionsR)};
         #{active := _} ->
+            %% ?DBG([{p, P}, {d, D}, {actions_r, ActionsR}]),
             handle_recv(P, recv_start(D), ActionsR)
     end.
 
 handle_recv_start(P, D, From, Length, Timeout) ->
+    %% ?DBG([{length, Length}, {timeout, Timeout}]),
     handle_recv(P,
                 D#{recv_length => Length, recv_from => From},
                 [{{timeout, recv}, Timeout, recv}]).
 
-%% handle_recv(P, #{recv_length := Length} = D, ActionsR) ->
-%%     if
-%%         0 < Length ->
-%%             handle_recv_length(P, D, ActionsR, Length);
-%%         true ->
-%%             handle_recv_packet(P, D, ActionsR)
-%%     end.
 handle_recv(#params{socket = Socket, recv_method = []} = P,
             #{recv_length := Length} = D, ActionsR) ->
+    %% ?DBG(['try recvfrom', {socket, Socket}, {length, Length}]),
     case socket_recvfrom(Socket, Length) of
         {ok, {Source, <<Data/binary>>}} ->
             handle_recv_deliver(P, D, ActionsR, {Source, Data});
         {select, ?select_info(_) = SelectInfo} ->
+            %% ?DBG(['recvfrom select', {socket_info, SelectInfo}]),
             {next_state,
              #recv{info = SelectInfo},
              {P, D},
              reverse(ActionsR)};
         {error, Reason} ->
-            %% ?DBG({'recv error wo rest-data', Reason}),
+            %% ?DBG(['recvfrom error', {reason, Reason}]),
             handle_recv_error(P, D, ActionsR, Reason)
     end;
 handle_recv(#params{socket = Socket} = P,
@@ -1662,197 +1644,10 @@ handle_recv(#params{socket = Socket} = P,
             handle_recv_error(P, D, ActionsR, Reason)
     end.
 
-%% handle_recv_peek(P, D, ActionsR, Packet) ->
-%%     %% Peek Packet bytes
-%%     %% ?DBG({packet, Packet}),
-%%     case D of
-%%         #{buffer := Buffer} when is_list(Buffer) ->
-%% 	    %% ?DBG('buffer is list - condence'),
-%%             Data = condense_buffer(Buffer),
-%%             handle_recv_peek(P, D#{buffer := Data}, ActionsR, Packet);
-%%         #{buffer := <<Data:Packet/binary, _Rest/binary>>} ->
-%% 	    %% ?DBG('buffer contains header'),
-%%             handle_recv_peek(P, D, ActionsR, Packet, Data);
-%%         #{buffer := <<ShortData/binary>>} ->
-%%             N = Packet - byte_size(ShortData),
-%% 	    %% ?DBG({'buffer does not contain complete header',
-%% 	    %% 	  Packet, N, byte_size(ShortData)}),
-%%             case socket_recv_peek(P#params.socket, N) of
-%%                 {ok, <<FinalData/binary>>} ->
-%%                     handle_recv_peek(
-%%                       P, D, ActionsR, Packet,
-%%                       <<ShortData/binary, FinalData/binary>>);
-%%                 {select, Select} ->
-%%                     {next_state,
-%%                      #recv{
-%%                         info =
-%%                             case Select of
-%%                                 {?select_info(_) = SelectInfo, _Data} ->
-%%                                     SelectInfo;
-%%                                 ?select_info(_) = SelectInfo ->
-%%                                     SelectInfo
-%%                             end},
-%%                      {P, D},
-%%                      reverse(ActionsR)};
-%%                 {error, {Reason, <<_Data/binary>>}} ->
-%%                     handle_recv_error(P, D, ActionsR, Reason);
-%%                 {error, Reason} ->
-%%                     handle_recv_error(P, D, ActionsR, Reason)
-%%             end
-%%     end.
-
-%% handle_recv_peek(P, D, ActionsR, Packet, Data) ->
-%%     <<?header(Packet, N)>> = Data,
-%%     #{packet_size := PacketSize} = D,
-%%     %% ?DBG({'packet size', Packet, N, PacketSize}),
-%%     if
-%%         0 < PacketSize, PacketSize < N ->
-%% 	    %% ?DBG({emsgsize}),
-%%             handle_recv_error(P, D, ActionsR, emsgsize);
-%%         true ->
-%% 	    %% ?DBG({'read a message'}),
-%%             handle_recv_length(P, D, ActionsR, Packet + N)
-%%     end.
-
-%% handle_recv_packet(P, D, ActionsR) ->
-%%     case D of
-%%         #{buffer := Buffer} when is_list(Buffer) ->
-%%             Data = condense_buffer(Buffer),
-%%             handle_recv_decode(P, D, ActionsR, Data);
-%%         #{buffer := Data} when is_binary(Data) ->
-%%             handle_recv_more(P, D, ActionsR, Data)
-%%     end.
-
-%% handle_recv_length(#params{socket = Socket, recv_method = []} = P,
-%%                    D, ActionsR, Length) ->
-%%     case socket_recvfrom(Socket, Length) of
-%%         {ok, {Source, <<Data/binary>>}} ->
-%%             handle_recv_deliver(P, D, ActionsR, {Source, Data});
-%%         {select, ?select_info(_) = SelectInfo} ->
-%%             {next_state,
-%%              #recv{info = SelectInfo},
-%%              {P, D},
-%%              reverse(ActionsR)};
-%%         {error, Reason} ->
-%%             %% ?DBG({'recv error wo rest-data', Reason}),
-%%             handle_recv_error(P, D, ActionsR, Reason)
-%%     end;
-%% handle_recv_length(#params{socket = Socket} = P,
-%%                    D, ActionsR, Length) ->
-%%     case socket_recvmsg(Socket, Length) of
-%%         {ok, MsgHdr}} ->
-%%             handle_recv_deliver(P, D, ActionsR, MsgHdr);
-%%         {select, ?select_info(_) = SelectInfo} ->
-%%             {next_state,
-%%              #recv{info = SelectInfo},
-%%              {P, D},
-%%              reverse(ActionsR)};
-%%         {error, Reason} ->
-%%             %% ?DBG({'recv error wo rest-data', Reason}),
-%%             handle_recv_error(P, D, ActionsR, Reason)
-%%     end.
-
-%% handle_recv_decode(P,
-%% 		   #{packet         := line,
-%% 		     line_delimiter := LineDelimiter,
-%% 		     packet_size    := PacketSize} = D,
-%% 		   ActionsR, Data) ->
-%%     DecodeOpts = [{line_delimiter, LineDelimiter},
-%% 		  {line_length,    PacketSize}],
-%%     handle_recv_decode(P, D,
-%% 		       ActionsR, Data, DecodeOpts);
-%% handle_recv_decode(P, D, ActionsR, Data) ->
-%%     handle_recv_decode(P, D, ActionsR, Data, []).
-
-%% handle_recv_decode(P, #{packet_size := PacketSize} = D,
-%% 		   ActionsR, Data, DecocdeOpts0) ->
-%%     %% ?DBG([{packet_sz, PacketSize}, {decode_opts0, DecocdeOpts0}]),
-%%     DecodeOpts = [{packet_size, PacketSize}|DecocdeOpts0], 
-%%     case erlang:decode_packet(decode_packet(D), Data, DecodeOpts) of
-%%         {ok, Decoded, Rest} ->
-%%             %% is_list(Buffer) -> try to decode first
-%%             %% is_binary(Buffer) -> get more data first
-%%             Buffer =
-%%                 case Rest of
-%%                     <<>> -> Rest;
-%%                     <<_/binary>> -> [Rest]
-%%                 end,
-%%             handle_recv_deliver(P, D#{buffer := Buffer}, ActionsR, Decoded);
-%%         {more, undefined} ->
-%%             handle_recv_more(P, D, ActionsR, Data);
-%%         {more, Length} ->
-%%             N = Length - byte_size(Data),
-%%             handle_recv_length(P, D, ActionsR, N, Data);
-%%         {error, Reason} ->
-%%             handle_recv_error(
-%%               P, D#{buffer := Data}, ActionsR,
-%%               case Reason of
-%%                   invalid -> emsgsize;
-%%                   _ -> Reason
-%%               end)
-%%     end.
-
-%% handle_recv_error_decode(
-%%   P, #{packet_size := PacketSize} = D, ActionsR, Reason, Data) ->
-%%     %%
-%%     case
-%%         erlang:decode_packet(
-%%           decode_packet(D), Data,
-%%           [{packet_size, PacketSize},
-%%            {line_length, PacketSize}])
-%%     of
-%%         {ok, Decoded, Rest} ->
-%%             %% is_list(Buffer) -> try to decode first
-%%             %% is_binary(Buffer) -> get more data first
-%%             Buffer =
-%%                 case Rest of
-%%                     <<>> -> Rest;
-%%                     <<_/binary>> -> [Rest]
-%%                 end,
-%%             handle_recv_error(
-%%               P, D#{buffer := Buffer}, ActionsR, Reason, Decoded);
-%%         {more, _} ->
-%%             handle_recv_error(P, D#{buffer := Data}, ActionsR, Reason);
-%%         {error, Reason} ->
-%%             handle_recv_error(
-%%               P, D#{buffer := Data}, ActionsR,
-%%               case Reason of
-%%                   invalid -> emsgsize;
-%%                   _ -> Reason
-%%               end)
-%%     end.
-
-%% handle_recv_more(P, D, ActionsR, BufferedData) ->
-%%     case socket_recv(P#params.socket, 0) of
-%%         {ok, <<MoreData/binary>>} ->
-%% 	    %% ?DBG([{more_data_sz, byte_size(MoreData)}]), 
-%% 	    Data = catbin(BufferedData, MoreData),
-%%             handle_recv_decode(P, D, ActionsR, Data);
-%%         {select, ?select_info(_) = SelectInfo} ->
-%% 	    %% ?DBG([{select_info, SelectInfo}]), 
-%%             {next_state,
-%%              #recv{info = SelectInfo},
-%%              {P, D#{buffer := BufferedData}},
-%%              reverse(ActionsR)};
-%%         {error, {Reason, <<MoreData/binary>>}} ->
-%%             %% ?DBG({P#params.socket, error, Reason, byte_size(MoreData)}),
-%%             Data = catbin(BufferedData, MoreData),
-%%             handle_recv_error_decode(P, D, ActionsR, Reason, Data);
-%%         {error, Reason} ->
-%%             %% ?DBG({P#params.socket, error, Reason}),
-%%             handle_recv_error(
-%%               P, D#{buffer := BufferedData}, ActionsR, Reason)
-%%     end.
-
 
 handle_recv_deliver(P, D, ActionsR, Data) ->
     handle_reading(P, recv_data_deliver(P, D, ActionsR, Data)).
 
-%% handle_recv_error(P, D, ActionsR, Reason, Data) ->
-%%     %% Deliver, then error
-%%     {D_1, ActionsR_1} = recv_data_deliver(P, D, ActionsR, Data),
-%%     handle_recv_error(P, D_1, ActionsR_1, Reason).
-%%
 handle_recv_error(P, D, ActionsR, Reason) ->
     %% ?DBG({P#params.socket, Reason}),
     {D_1, ActionsR_1} = cleanup_recv_reply(P, D, ActionsR, Reason),
@@ -1878,7 +1673,7 @@ cleanup_close_read(P, D, State, Reason) ->
     cleanup_recv(P, D, State, Reason).
 
 cleanup_recv(P, D, State, Reason) ->
-    ?DBG([{socket, P#params.socket}, {state, State}, {reason, Reason}]),    
+    %% ?DBG([{socket, P#params.socket}, {state, State}, {reason, Reason}]),    
     case State of
         #recv{info = SelectInfo} ->
             socket_cancel(P#params.socket, SelectInfo),
@@ -1925,12 +1720,6 @@ recv_start(D) ->
 recv_stop(D) ->
     maps:without([recv_from, recv_length], D).
 
-%% decode_packet(#{packet := Packet} = D) ->
-%%     case D of
-%%         #{packet := http, recv_httph := true} -> httph;
-%%         #{packet := http_bin, recv_httph := true} -> httph_bin;
-%%         #{packet := Packet} -> Packet
-%%     end.
 
 %% Deliver data and update the active state
 %% -> {NewD, NewActionsR}
@@ -1956,13 +1745,6 @@ recv_data_deliver(
             ModuleSocket = module_socket(P),
             deliver_recv_msg(Owner, Active, Deliver,
                              ModuleSocket, IP, Port, AncData, DeliverData),
-            %% Owner !
-            %%     case Deliver of
-            %%         term ->
-            %%             {udp, ModuleSocket, DeliverData};
-            %%         port ->
-            %%             {ModuleSocket, {data, DeliverData}}
-            %%     end,
             %% ?DBG('package delivered'),
             case Active of
                 true ->
@@ -1970,7 +1752,7 @@ recv_data_deliver(
                 once ->
                     {recv_stop(D#{active => false}), ActionsR};
                 1 ->
-                    Owner ! {tcp_passive, ModuleSocket},
+                    Owner ! {udp_passive, ModuleSocket},
                     {recv_stop(D#{active => false}), ActionsR};
                 N when is_integer(N) ->
                     {recv_start(D#{active => Active - 1}), ActionsR}
@@ -1999,74 +1781,35 @@ mk_recv_msg(_Active, _Deliver,
     {udp, Socket, IP, Port, AncData, Data}.
 
 
-%% next_packet(D, Packet, Data) ->
-%%     if
-%%         Packet =:= http;
-%%         Packet =:= http_bin ->
-%%             case Data of
-%%                 {http_request, _HttpMethod, _HttpUri, _HttpVersion} ->
-%%                     D#{recv_httph => true};
-%%                 {http_response, _HttpVersion, _Integer, _HttpString} ->
-%%                     D#{recv_httph => true};
-%%                 {http_header, _Integer, _HttpField, _Reserver, _Value} -> D;
-%%                 http_eoh ->
-%%                     D#{recv_httph => false};
-%%                 {http_error, _HttpString} -> D
-%%             end;
-%%         true -> D
-%%     end.
-
-%% next_packet(D, Packet, Data, Active) ->
-%%     if
-%%         Packet =:= http;
-%%         Packet =:= http_bin ->
-%%             case Data of
-%%                 {http_request, _HttpMethod, _HttpUri, _HttpVersion} ->
-%%                     D#{recv_httph => true, active => Active};
-%%                 {http_response, _HttpVersion, _Integer, _HttpString} ->
-%%                     D#{recv_httph => true, active => Active};
-%%                 {http_header, _Integer, _HttpField, _Reserver, _Value} ->
-%%                     D#{active => Active};
-%%                 http_eoh ->
-%%                     D#{recv_httph => false, active => Active};
-%%                 {http_error, _HttpString} ->
-%%                     D#{active => Active}
-%%             end;
-%%         true ->
-%%             D#{active => Active}
-%%     end.
-
-%% catbin(<<>>, Bin) when is_binary(Bin) -> Bin;
-%% catbin(Bin, <<>>) when is_binary(Bin) -> Bin;
-%% catbin(Bin1, Bin2) when is_binary(Bin1), is_binary(Bin2) ->
-%%     <<Bin1/binary, Bin2/binary>>.
-
-%% unrecv_buffer(Data, Buffer) ->
-%%     case Buffer of
-%%         <<>> ->
-%%             Data;
-%%         _ when is_binary(Buffer) ->
-%%             [Data, Buffer];
-%%         _ ->
-%%             [Data | Buffer]
-%%     end.
-
-%% condense_buffer([Bin]) when is_binary(Bin) -> Bin;
-%% condense_buffer(Buffer) ->
-%%     iolist_to_binary(reverse_improper(Buffer, [])).
-
-
 %% {Source :: sockaddr(), Data :: binary()}
 %% #{addr := SockAddr :: sockaddr(),
 %%   iov  := IOV      :: iovec(),
 %%   ctrl := Ctrl     :: list()}
-deliver_data({#{addr := Addr, port := Port}, <<Data/binary>>}, Mode) ->
+deliver_data({#{family := local = Fam, path := Path}, <<Data/binary>>}, Mode) ->
+    {{Fam, Path}, 0, undefined, deliver_data_mode(Data, Mode)};
+deliver_data({#{family := Fam,
+                addr   := Addr,
+                port   := Port}, <<Data/binary>>}, Mode)
+  when ((Fam =:= inet) orelse (Fam =:= inet6)) ->
     {Addr, Port, undefined, deliver_data_mode(Data, Mode)};
-deliver_data(#{addr := #{addr := Addr, port := Port},
+deliver_data(#{addr := #{family := local = Fam, path := Path},
                iov  := IOV,
                ctrl := Ctrl}, Mode) ->
-    Data = deliver_data_mode(IOV, Mode),
-    {Addr, Port, ctrl2ancdata(Ctrl), Data}.
+    Data  = deliver_data_mode(IOV, Mode),
+    Ctrl2 = ctrl2ancdata(Ctrl),
+    {{Fam, Path}, 0, Ctrl2, Data};
+deliver_data(#{addr := #{family := Fam, addr := Addr, port := Port},
+               iov  := IOV,
+               ctrl := Ctrl}, Mode) 
+  when ((Fam =:= inet) orelse (Fam =:= inet6)) ->
+    Data  = deliver_data_mode(IOV, Mode),
+    Ctrl2 = ctrl2ancdata(Ctrl),
+    {Addr, Port, Ctrl2, Data};
+deliver_data({Unspec, <<Data/binary>>}, Mode) when is_binary(Unspec) ->
+    {{unspec, Unspec}, 0, undefined, deliver_data_mode(Data, Mode)}.
+%% deliver_data(_Arg1, _Arg2) ->
+%%     ?BADARG([_Arg1, _Arg2]).
+
 
 deliver_data_mode(Data, list)   when is_binary(Data) -> binary_to_list(Data);
 deliver_data_mode(Data, binary) when is_binary(Data) -> Data;
@@ -2096,12 +1839,24 @@ ctrl2ancdata(CTRL) ->
 
 ctrl2ancdata([], AncData) ->
    lists:reverse(AncData);
-ctrl2ancdata([#{level := ip, type := recvtos, data := Val}| CTRL], AncData) ->
-    ctrl2ancdata(CTRL, [{tos, erlang:binary_to_integer(Val)}|AncData]);
-ctrl2ancdata([#{level := ip, type := recvttl, data := Val}| CTRL], AncData) ->
-    ctrl2ancdata(CTRL, [{ttl, erlang:binary_to_integer(Val)}|AncData]);
-ctrl2ancdata([#{level := ipv6, type := tclass, data := Val}| CTRL], AncData) ->
-    ctrl2ancdata(CTRL, [{tclass, erlang:binary_to_integer(Val)}|AncData]);
+ctrl2ancdata([#{level := ip,
+                type  := tos,
+                value := TOS,
+                data  := _Data}| CTRL],
+             AncData) ->
+    ctrl2ancdata(CTRL, [{tos, TOS}|AncData]);
+ctrl2ancdata([#{level := ip,
+                type  := ttl,
+                value := TTL,
+                data  := _Data}| CTRL],
+             AncData) ->
+    ctrl2ancdata(CTRL, [{ttl, TTL}|AncData]);
+ctrl2ancdata([#{level := ipv6,
+                type  := tclass,
+                value := TClass,
+                data  := _Data}| CTRL],
+             AncData) ->
+    ctrl2ancdata(CTRL, [{tclass, TClass}|AncData]);
 ctrl2ancdata([_|CTRL], AncData) ->
     ctrl2ancdata(CTRL, AncData).
 
@@ -2110,9 +1865,9 @@ ctrl2ancdata([_|CTRL], AncData) ->
 state_setopts(P, D, _State, []) ->
     {ok, {P, D}};
 state_setopts(P, D, State, [Opt | Opts]) ->
-    ?DBG([{state, State}, {opt, Opt}]),
+    %% ?DBG([{state, State}, {opt, Opt}]),
     Opt_1 = conv_setopt(Opt),
-    ?DBG([{'option converted', Opt_1}]),
+    %% ?DBG([{'option converted', Opt_1}]),
     case setopt_categories(Opt_1) of
         %% This is a special case for options that trigger us to choose 
         %% the recv "method"; either recvfrom or recvmsg.
@@ -2130,7 +1885,7 @@ state_setopts(P, D, State, [Opt | Opts]) ->
             P_1 = P#params{recv_method = RecvMethod2},
             case P_1#params.socket of
                 undefined ->
-                    {{error, closed}, D};
+                    {{error, closed}, {P, D, State}};
                 Socket ->
                     case socket_setopt(Socket, Opt_1) of
                         ok ->
@@ -2144,7 +1899,7 @@ state_setopts(P, D, State, [Opt | Opts]) ->
             %% ?DBG(socket),
             case P#params.socket of
                 undefined ->
-                    {{error, closed}, D};
+                    {{error, closed}, {P, D}};
                 Socket ->
                     case socket_setopt(Socket, Opt_1) of
                         ok ->
@@ -2153,6 +1908,7 @@ state_setopts(P, D, State, [Opt | Opts]) ->
                             {Error, {P, D}}
                     end
             end;
+
         %%
         #{server_write := _} when State =:= 'closed' ->
             %% ?DBG('server write when state closed'),
@@ -2160,6 +1916,7 @@ state_setopts(P, D, State, [Opt | Opts]) ->
         #{server_write := _} ->
             %% ?DBG('server write'),
             state_setopts_server(P, D, State, Opts, Opt_1);
+
         %%
         #{server_read := _} when State =:= 'closed' ->
             %% ?DBG('server read when state closed'),
@@ -2171,6 +1928,7 @@ state_setopts(P, D, State, [Opt | Opts]) ->
         #{server_read := _} ->
             %% ?DBG('server read'),
             state_setopts_server(P, D, State, Opts, Opt_1);
+
         %%
         #{ignore := _} ->
             %% ?DBG(ignore),
@@ -2183,6 +1941,7 @@ state_setopts(P, D, State, [Opt | Opts]) ->
 state_setopts_server(P, D, State, Opts, {Tag, Value}) ->
     case Tag of
         active ->
+	    %% ?DBG(['active', {value, Value}]),
             state_setopts_active(P, D, State, Opts, Value);
         _ ->
 	    %% ?DBG([{tag, Tag}, {value, Value}]),
@@ -2193,16 +1952,20 @@ state_setopts_active(P, D, State, Opts, Active) ->
     if
         Active =:= once;
         Active =:= true ->
+            %% ?DBG(['active', {state, State}, {active, Active}]),
             state_setopts(P, D#{active := Active}, State, Opts);
         Active =:= false ->
+            %% ?DBG(['passive', {state, State}]),
             case D of
                 #{active := OldActive} when is_integer(OldActive) ->
-                    P#params.owner ! {tcp_passive, module_socket(P)},
+                    P#params.owner ! {udp_passive, module_socket(P)},
                     ok;
-                #{active := _OldActive} -> ok
-            end,
+                _ ->
+                    ok
+                end,
             state_setopts(P, D#{active := Active}, State, Opts);
         is_integer(Active), -32768 =< Active, Active =< 32767 ->
+            %% ?DBG(['active', {state, State}, {active, Active}]),
             N =
                 case D of
                     #{active := OldActive} when is_integer(OldActive) ->
@@ -2210,17 +1973,19 @@ state_setopts_active(P, D, State, Opts, Active) ->
                     #{active := _OldActive} ->
                         Active
                 end,
+            %% ?DBG(['active', {'N', N}]),
             if
                 32767 < N ->
-                    {{error, einval}, D};
+                    {{error, einval}, {P, D}};
                 N =< 0 ->
-                    P#params.owner ! {tcp_passive, module_socket(P)},
+                    P#params.owner ! {udp_passive, module_socket(P)},
                     state_setopts(P, D#{active := false}, State, Opts);
                 true ->
                     state_setopts(P, D#{active := N}, State, Opts)
             end;
         true ->
-            {{error, einval}, D}
+            %% ?DBG(['error', {state, State}, {active, Active}]),
+            {{error, einval}, {P, D}}
     end.
 
 %% -> {ok, [Options]} | {error, einval}
@@ -2230,49 +1995,39 @@ state_getopts(P, D, State, Opts) ->
 state_getopts(_P, _D, _State, [], Acc) ->
     {ok, reverse(Acc)};
 state_getopts(P, D, State, [Tag | Tags], Acc) ->
-    %% ?DBG({'categorize option', Tag, State}),
     case getopt_categories(Tag) of
         #{socket := _} ->
-            %% ?DBG(socket),
             case P#params.socket of
                 undefined ->
                     {error, closed};
                 Socket ->
-                    %% ?DBG({'socket getopt', Tag}),
                     case socket_getopt(Socket, Tag) of
                         {ok, Value} ->
-                            %% ?DBG({'socket getopt', ok, Value}),
                             state_getopts(
                               P, D, State, Tags, [{Tag, Value} | Acc]);
                         {error, _Reason} ->
-                            %% ?DBG({'socket getopt', error, _Reason}),
                             state_getopts(P, D, State, Tags, Acc)
                     end
               end;
         #{server_write := _} when State =:= 'closed' ->
-            %% ?DBG('server write when closed'),
             {error, einval};
         #{server_write := _} ->
-            %% ?DBG('server write'),
             Value = maps:get(Tag, D),
             state_getopts(P, D, State, Tags, [{Tag, Value} | Acc]);
         #{server_read := _} when State =:= 'closed' ->
-            %% ?DBG('server read when closed'),
             {error, einval};
         #{server_read := _} when (State =:= 'closed_read') orelse
                                  (State =:= 'closed_read_write') ->
-            %% ?DBG('server read when closed-read or closed-read-write'),
             {error, einval};
         #{server_read := _} ->
-            %% ?DBG('server read'),
             Value = maps:get(Tag, D),
             state_getopts(P, D, State, Tags, [{Tag, Value} | Acc]);
         #{} = _EXTRA -> % extra | einval
-            %% ?DBG({'something else', _EXTRA}),
             {error, einval}
     end.
 
-handle_info(Socket, Owner, D) -> 
+handle_info(State, Socket, Owner, #{active := Active} = D) ->
+    %% ?DBG([{state, State}, {active, Active}]),
     %% Read counters
     Counters_1 = socket_info_counters(Socket),
     %% Check for recent wraps
@@ -2286,7 +2041,17 @@ handle_info(Socket, Owner, D) ->
     Counters_3 = maps:merge(Counters_1, maps:with(Wrapped, Counters_2)),
     %% Go ahead with wrap updated counters
     Counters_4 = maps:from_list(getstat_what(D_1, Counters_3)),
-    {D_1, Info#{counters => Counters_4, owner => Owner}}.
+    SimpleState = simplify_state(State),
+    {D_1, Info#{counters => Counters_4,
+                istate   => SimpleState,
+                owner    => Owner,
+                active   => Active}}.
+
+simplify_state(#recv{}) ->
+    recv;
+simplify_state(State) ->
+    State.
+
     
 getstat(Socket, D, What) ->
     %% Read counters
@@ -2385,12 +2150,6 @@ reverse([], L) -> L;
 reverse([A], L) -> [A | L];
 reverse([A, B], L) -> [B, A | L];
 reverse(L1, L2) -> lists:reverse(L1, L2).
-
-%% Reverse but allow improper list
-%% reverse_improper([H | T], Acc) ->
-%%     reverse_improper(T, [H | Acc]);
-%% reverse_improper([], Acc) -> Acc;
-%% reverse_improper(T, Acc) -> [T | Acc].
 
 
 %% -------------------------------------------------------------------------

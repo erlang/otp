@@ -94,22 +94,22 @@ inet_backend_socket_cases() ->
 
 all_cases() ->
     [
-     %% send_to_closed,
-     %% buffer_size,
-     %% binary_passive_recv,
-     %% max_buffer_size,
-     %% bad_address,
-     %% read_packets,
-     %% recv_poll_after_active_once,
-     open_fd%%,
-     %% connect,
-     %% implicit_inet6,
-     %% active_n,
-     %% recvtos, recvtosttl, recvttl, recvtclass,
-     %% sendtos, sendtosttl, sendttl, sendtclass,
-     %% {group, local},
-     %% recv_close,
-     %% otp_17492
+     send_to_closed,
+     buffer_size,
+     binary_passive_recv,
+     max_buffer_size,
+     bad_address,
+     read_packets,
+     recv_poll_after_active_once,
+     open_fd,
+     connect,
+     implicit_inet6,
+     active_n,
+     recvtos, recvtosttl, recvttl, recvtclass,
+     sendtos, sendtosttl, sendttl, sendtclass,
+     {group, local},
+     recv_close,
+     otp_17492
     ].
 
 local_cases() ->
@@ -382,7 +382,7 @@ buffer_size_server(Client, IP, Port,
     buffer_size_server(Client, IP, Port, Socket, Cnt+1, T);
 buffer_size_server(Client, IP, Port, 
 		   Socket, Cnt, [{B,_}|T]) when is_binary(B) ->
-    ?P("buffer_size_server -> try receive: Cnt=~w and ~w buytes of data",
+    ?P("buffer_size_server -> try receive: Cnt=~w and ~w bytes of data",
        [Cnt, size(B)]),
     Reply = case buffer_size_server_recv(Socket, IP, Port, Cnt) of
                 D when is_binary(D) ->
@@ -453,10 +453,40 @@ max_buffer_size(Config) when is_list(Config) ->
     ?TC_TRY(?FUNCTION_NAME, fun() -> do_max_buffer_size(Config) end).
 
 do_max_buffer_size(Config) when is_list(Config) ->
+    ?P("create socket"),
     {ok, Socket} = ?OPEN(Config, 0, [binary]),
-    ok = inet:setopts(Socket, [{recbuf, 1 bsl 20}]),
-    {ok, [{buffer, 65536}]} = inet:getopts(Socket, [buffer]),
-    gen_udp:close(Socket).
+    ?P("get buffers"),
+    {ok, [{recbuf, RecBuf0}, {buffer, Buffer0}]} =
+        inet:getopts(Socket, [recbuf, buffer]),
+    ?P("buffers: "
+       "~n   RecBuf: ~p"
+       "~n   Buffer: ~p", [RecBuf0, Buffer0]),
+    NewRecBuf = 1 bsl 20,
+    ?P("set recbuf: ~w", [NewRecBuf]),
+    ok = inet:setopts(Socket, [{recbuf, NewRecBuf}]),
+    ?P("get buffers"),
+    case inet:getopts(Socket, [recbuf, buffer]) of
+        {ok, [{recbuf, RecBuf}, {buffer, 65536 = Buffer}]} ->
+            ?P("buffers: expected"
+               "~n   RecBuf: ~p"
+               "~n   Buffer: ~p", [RecBuf, Buffer]),
+            gen_udp:close(Socket),
+            ok;
+        {ok, [{recbuf, RecBuf}, {buffer, Buffer}]} ->
+            ?P("buffers: unexpected"
+               "~n   RecBuf: ~p"
+               "~n   Buffer: ~p", [RecBuf, Buffer]),
+            gen_udp:close(Socket),
+            ct:fail({unexpected_buffer_size, Buffer});
+        {error, Reason} ->
+            ?P("failed extracting buffers"
+               "~n   ~p", [Reason]),
+            (catch gen_udp:close(Socket)),
+            ct:fail({unexpected_getopts_error, Reason})
+    end,
+    ?P("done"),
+    ok.
+            
 
 
 
@@ -555,7 +585,18 @@ do_bad_address(Config) when is_list(Config) ->
 
 %% OTP-6249 UDP option for number of packet reads.
 read_packets(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_read_packets(Config) end).
+    Cond = fun() ->
+		   case ?IS_SOCKET_BACKEND(Config) of
+		       true ->
+                           %% We have not (yet) implemented support for 
+                           %% this option. We accept it but do not use it.
+			   {skip, "Not complient with socket"};
+		       false ->
+			   ok
+		   end
+	   end,
+    TC   = fun() -> do_read_packets(Config) end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, TC).
 
 do_read_packets(Config) when is_list(Config) ->
     N1   = 5,
@@ -806,106 +847,190 @@ do_open_fd(Config) when is_list(Config) ->
     ok.
 
 active_n(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_active_n(Config) end).
+
+do_active_n(Config) when is_list(Config) ->
     N = 3,
+    ?P("create socket (1) with active = ~w", [N]),
     S1 = ok(?OPEN(Config, 0, [{active,N}])),
+    ?P("verify socket active = ~w (~p)", [N, which_info(S1)]),
     [{active,N}] = ok(inet:getopts(S1, [active])),
+
+    ?P("set active = ~w and expect passive", [-N]),
     ok = inet:setopts(S1, [{active,-N}]),
     receive
-        {udp_passive, S1} -> ok
+        {udp_passive, S1} ->
+            ?P("expected passive received"),
+            ok
     after
         5000 ->
+            ?P("ERROR: passive *not* received"),
             exit({error,udp_passive_failure})
     end,
+    ?P("verify socket active passive (=false) (~p)", [which_info(S1)]),
     [{active,false}] = ok(inet:getopts(S1, [active])),
-    ok = inet:setopts(S1, [{active,0}]),
+
+    ?P("set active = 0 and expect passive message"),
+    ok = inet:setopts(S1, [{active, 0}]),
     receive
-        {udp_passive, S1} -> ok
+        {udp_passive, S1} ->
+            ?P("expected passive received"),
+            ok
     after
         5000 ->
+            ?P("ERROR: passive *not* received"),
             exit({error,udp_passive_failure})
     end,
+
+    ?P("set active = 32767 (=max) and expect success"),
     ok = inet:setopts(S1, [{active,32767}]),
-    {error,einval} = inet:setopts(S1, [{active,1}]),
-    {error,einval} = inet:setopts(S1, [{active,-32769}]),
+    ?P("try set active = 1 (already at max) and expect failure (einval)"),
+    {error, einval} = inet:setopts(S1, [{active,1}]),
+    ?P("set active = -32769 (<min) and expect failure (einval)"),
+    {error, einval} = inet:setopts(S1, [{active,-32769}]),
+    ?P("set active = -32768 and expect passive message"),
     ok = inet:setopts(S1, [{active,-32768}]),
     receive
-        {udp_passive, S1} -> ok
+        {udp_passive, S1} ->
+            ?P("expected passive received"),
+            ok
     after
         5000 ->
+            ?P("ERROR: passive *not* received"),
             exit({error,udp_passive_failure})
     end,
+
+    ?P("verify socket active passive (=false), (~p)", [which_info(S1)]),
     [{active,false}] = ok(inet:getopts(S1, [active])),
+    ?P("set active = ~w and expect success", [N]),
     ok = inet:setopts(S1, [{active,N}]),
+    ?P("set active = ~w and expect success", [true]),
     ok = inet:setopts(S1, [{active,true}]),
+    ?P("verify socket active active (=true) (~p)", [which_info(S1)]),
     [{active,true}] = ok(inet:getopts(S1, [active])),
+    ?P("verify nothing in the message queue"),
     receive
-        _ -> exit({error,active_n})
+        Unexpected_1 ->
+            ?P("ERROR: something in the message queue: "
+               "~n   ~p", [Unexpected_1]),
+            exit({error, active_n, Unexpected_1})
     after
         0 ->
+            ?P("nothing in the message queue"),
             ok
     end,
+
+    ?P("set active = ~w and expect success", [N]),
     ok = inet:setopts(S1, [{active,N}]),
+    ?P("set active = ~w and expect success", [once]),
     ok = inet:setopts(S1, [{active,once}]),
+    ?P("verify socket active active (=once) (~p)", [which_info(S1)]),
     [{active,once}] = ok(inet:getopts(S1, [active])),
     receive
-        _ -> exit({error,active_n})
+        Unexpected_2 ->
+            ?P("ERROR: something in the message queue: "
+               "~n   ~p", [Unexpected_2]),
+            exit({error,active_n, Unexpected_2})
     after
         0 ->
+            ?P("nothing in the message queue"),
             ok
     end,
+
+    ?P("set active = ~w and expect failure (einval)", [32768]),
     {error,einval} = inet:setopts(S1, [{active,32768}]),
+    ?P("set active = ~w and expect success", [false]),
     ok = inet:setopts(S1, [{active,false}]),
+    ?P("verify socket active passive (=false) (~p)", [which_info(S1)]),
     [{active,false}] = ok(inet:getopts(S1, [active])),
+
     S1Port = ok(inet:port(S1)),
+    ?P("create socket (2) with active = ~w", [N]),
     S2 = ok(?OPEN(Config, 0, [{active,N}])),
     S2Port = ok(inet:port(S2)),
+    ?P("verify socket (2) active = ~w (~p)", [N, which_info(S2)]),
     [{active,N}] = ok(inet:getopts(S2, [active])),
+    ?P("set socket (1) active = ~w and expect success", [N]),
     ok = inet:setopts(S1, [{active,N}]),
+    ?P("verify socket (1) active = ~w (~p)", [N, which_info(S1)]),
     [{active,N}] = ok(inet:getopts(S1, [active])),
+    ?P("generate ~w message(s) and send them: S1 -> S2 and S2 -> S1 when:"
+       "~n   Socket 1 info: ~p"
+       "~n   Socket 2 info: ~p", [N, inet:info(S1), inet:info(S2)]),
     lists:foreach(
       fun(I) ->
               Msg = "message "++integer_to_list(I),
+              ?P("send message ~w from S2 to S1 (~w):"
+                 "~n   S1: ~p"
+                 "~n   S2: ~p",
+                 [I, S1Port, inet:info(S1), inet:info(S2)]),
               ok = gen_udp:send(S2, "localhost", S1Port, Msg),
+              ?P("expect message on S1"),
               receive
-                  {udp,S1,_,S2Port,Msg} ->
+                  {udp, S1, _, S2Port, Msg} ->
+                      ?P("expected message received on S1 - "
+                         "send message back: from S1 to S2 (~w): "
+                         "~n   ~p", [S2Port, inet:info(S1)]),
                       ok = gen_udp:send(S1, "localhost", S2Port, Msg)
               after
                   5000 ->
+                      ?P("ERROR: received nothing (->S1)"),
                       exit({error,timeout})
               end,
+              ?P("expect message on S2"),
               receive
-                  {udp,S2,_,S1Port,Msg} ->
+                  {udp, S2, _, S1Port, Msg} ->
+                      ?P("expected message received on S2: "
+                         "~n   ~p", [inet:info(S2)]),
                       ok
               after
                   5000 ->
+                      ?P("ERROR: received nothing (->S2)"),
                       exit({error,timeout})
               end
       end, lists:seq(1,N)),
+    ?P("expect passive message for socket (1)"),
     receive
-        {udp_passive,S1} ->
+        {udp_passive, S1} ->
+            ?P("received passive message for socket (1) - "
+               "verify socket active passive (false)"),
             [{active,false}] = ok(inet:getopts(S1, [active]))
     after
         5000 ->
+            ?P("ERROR: received nothing (1)"),
             exit({error,udp_passive})
     end,
+    ?P("expect passive message for socket (2)"),
     receive
         {udp_passive,S2} ->
+            ?P("received passive message for socket (2) - "
+               "verify socket active passive (false)"),
             [{active,false}] = ok(inet:getopts(S2, [active]))
     after
         5000 ->
+            ?P("ERROR: received nothing (2)"),
             exit({error,udp_passive})
     end,
+
+    ?P("create socket (3) with active = ~w and expect passive message", [0]),
     S3 = ok(?OPEN(Config, 0, [{active,0}])),
     receive
         {udp_passive,S3} ->
+            ?P("received passive message for socket (3) - "
+               "verify socket active passive (false)"),
             [{active,false}] = ok(inet:getopts(S3, [active]))
     after
         5000 ->
+            ?P("ERROR: received nothing (3)"),
             exit({error,udp_passive})
     end,
+
+    ?P("cleanup"),
     ok = gen_udp:close(S3),
     ok = gen_udp:close(S2),
     ok = gen_udp:close(S1),
+
+    ?P("done"),
     ok.
 
 
@@ -1119,35 +1244,52 @@ test_recv_opts(Config, Family, Spec, TestSend, _OSType, _OSVer) ->
                 {0,0,0,0,0,0,0,1}
         end,
     %%
-    {ok, S1} = ?OPEN(Config, 0, [Family,binary,{active,false}|TrueRecvOpts]),
+    ?P("try open socket (1) with true opts"),
+    {ok, S1} = ?OPEN(Config, 0, [Family, binary, {active,false}|TrueRecvOpts]),
     {ok, P1} = inet:port(S1),
-    {ok,TrueRecvOpts} = inet:getopts(S1, RecvOpts),
+    ?P("try get (true) socket (1) opts"),
+    {ok, TrueRecvOpts} = inet:getopts(S1, RecvOpts),
+    ?P("try set (false) socket (1) opts"),
     ok = inet:setopts(S1, FalseRecvOpts),
-    {ok,FalseRecvOpts} = inet:getopts(S1, RecvOpts),
+    ?P("verify (false) socket (1) opts"),
+    {ok, FalseRecvOpts} = inet:getopts(S1, RecvOpts),
     ok = inet:setopts(S1, TrueRecvOpts_OptsVals),
     {ok,TrueRecvOpts_OptsVals} = inet:getopts(S1, RecvOpts ++ Opts),
     %%
     %% S1 now has true receive options and set option values
     %%
-    {ok,S2} =
-        ?OPEN(Config, 0, [Family,binary,{active,true}|FalseRecvOpts]),
-    {ok,P2} = inet:port(S2),
-    {ok,FalseRecvOpts_OptsVals2} = inet:getopts(S2, RecvOpts ++ Opts),
+    ?P("try open socket (2) with false opts"),
+    {ok, S2} =
+        ?OPEN(Config, 0, [Family, binary, {active,true} | FalseRecvOpts]),
+    {ok, P2} = inet:port(S2),
+    ?P("try get (false) socket (2) opts"),
+    {ok, FalseRecvOpts_OptsVals2} = inet:getopts(S2, RecvOpts ++ Opts),
     OptsVals2 = FalseRecvOpts_OptsVals2 -- FalseRecvOpts,
+    ?P("info: "
+       "~n   Socket 1:    ~p"
+       "~n   Socket 2:    ~p"
+       "~n   Opts Vals 2: ~p", [inet:info(S1), inet:info(S2), OptsVals2]),
+
     %%
     %% S2 now has false receive options and default option values,
     %% OptsVals2 contains the default option values
     %%
+    ?P("send/3: S2 -> S1"),
     ok = gen_udp:send(S2, {Addr,P1}, <<"abcde">>),
+    ?P("send/4: S1 -> S2"),
     ok = gen_udp:send(S1, Addr, P2, <<"fghij">>),
     TestSend andalso
         begin
+            ?P("send/5: S2 -> S1"
+               "~n   ~p", [OptsVals]),
             case gen_udp:send(S2, Addr, P1, OptsVals, <<"ABCDE">>) of
                 ok ->
                     ok;
                 {error, enoprotoopt = Reason1} ->
                     ?SKIPT(?F("send (1) failed: ~p", [Reason1]))
             end,
+            ?P("send/4: S2 -> S1"
+               "~n   ~p", [OptsVals]),
             case gen_udp:send(S2, {Addr,P1}, OptsVals, <<"12345">>) of
                 ok ->
                     ok;
@@ -1155,17 +1297,28 @@ test_recv_opts(Config, Family, Spec, TestSend, _OSType, _OSVer) ->
                     ?SKIPT(?F("send (2) failed: ~p", [Reason2]))
             end
         end,
-    {ok,{_,P2,OptsVals3,<<"abcde">>}} = gen_udp:recv(S1, 0, Timeout),
+    ?P("try S1 recv"),
+    {ok,{_,P2,OptsVals3, <<"abcde">>}} = gen_udp:recv(S1, 0, Timeout),
+    ?P("S1 recv: "
+       "~n   OptsVals3: ~p", [OptsVals3]),
     verify_sets_eq(OptsVals3, OptsVals2),
     TestSend andalso
         begin
+            ?P("try S1 recv"),
             {ok,{_,P2,OptsVals0,<<"ABCDE">>}} = gen_udp:recv(S1, 0, Timeout),
+            ?P("S1 recv: "
+               "~n   OptsVals0: ~p", [OptsVals0]),
+            ?P("try S1 recv"),
             {ok,{_,P2,OptsVals1,<<"12345">>}} = gen_udp:recv(S1, 0, Timeout),
+            ?P("S1 recv: "
+               "~n   OptsVals1: ~p", [OptsVals1]),
             verify_sets_eq(OptsVals0, OptsVals),
             verify_sets_eq(OptsVals1, OptsVals)
         end,
+    ?P("await message on S2"),
     receive
-        {udp,S2,_,P1,<<"fghij">>} ->
+        {udp, S2, _, P1, <<"fghij">>} ->
+            ?P("S2 received message"),
             ok;
         Other1 ->
             exit({unexpected,Other1})
@@ -1173,42 +1326,61 @@ test_recv_opts(Config, Family, Spec, TestSend, _OSType, _OSVer) ->
             exit(timeout)
     end,
     %%
+    ?P("try set (false) socket (1) opts"),
     ok = inet:setopts(S1, FalseRecvOpts),
-    {ok,FalseRecvOpts} = inet:getopts(S1, RecvOpts),
+    ?P("verify (false) socket (1) opts"),
+    {ok, FalseRecvOpts} = inet:getopts(S1, RecvOpts),
+    ?P("try set (true) socket (1) opts"),
     ok = inet:setopts(S2, TrueRecvOpts),
+    ?P("verify (true) socket (1) opts"),
     {ok,TrueRecvOpts} = inet:getopts(S2, RecvOpts),
     %%
     %% S1 now has false receive options and set option values
     %%
     %% S2 now has true receive options and default option values
     %%
+    ?P("send/4: S2 -> S1"),
     ok = gen_udp:send(S2, {Addr,P1}, [], <<"klmno">>),
+    ?P("send/3: S1 -> S2"),
     ok = gen_udp:send(S1, {Family,{loopback,P2}}, <<"pqrst">>),
     TestSend andalso
         begin
+            ?P("send/4: S1 -> S2"
+               "~n   ~p", [OptsVals]),
             ok = gen_udp:send(S1, {Family,{loopback,P2}}, OptsVals2, <<"PQRST">>)
         end,
+    ?P("try recv data on S1"),
     {ok,{_,P2,<<"klmno">>}} = gen_udp:recv(S1, 0, Timeout),
+    ?P("await message on S2"),
     receive
         {udp,S2,_,P1,OptsVals4,<<"pqrst">>} ->
+            ?P("S2 message received: "
+               "~n   OptsVals4: ~p", [OptsVals4]),
             verify_sets_eq(OptsVals4, OptsVals);
         Other2 ->
             exit({unexpected,Other2})
     after Timeout ->
             exit(timeout)
     end,
+    ?P("(maybe, ~p) await message on S2", [TestSend]),
     TestSend andalso
         receive
-            {udp,S2,_,P1,OptsVals5,<<"PQRST">>} ->
+            {udp, S2, _, P1, OptsVals5, <<"PQRST">>} ->
+                ?P("S2 message received: "
+                   "~n   OptsVals5: ~p", [OptsVals5]),
                 verify_sets_eq(OptsVals5, OptsVals2);
             Other3 ->
                 exit({unexpected,Other3})
         after Timeout ->
                 exit(timeout)
         end,
+
+    ?P("cleanup"),
     ok = gen_udp:close(S1),
     ok = gen_udp:close(S2),
 %%%    exit({{_OSType,_OSVer},success}), % In search for the truth
+
+    ?P("done"),
     ok.
 
 verify_sets_eq(L1, L2) ->
@@ -1217,11 +1389,16 @@ verify_sets_eq(L1, L2) ->
         L ->
             ok;
         _ ->
-            exit({sets_neq,L1,L2})
+            exit({sets_neq, L1, L2})
     end.
 
 
 local_basic(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_local_basic(Config) end).
+
+
+do_local_basic(Config) ->
+    ?P("begin"),
     SFile = local_filename(server),
     SAddr = {local,bin_filename(SFile)},
     CFile = local_filename(client),
@@ -1229,16 +1406,24 @@ local_basic(Config) ->
     _ = file:delete(SFile),
     _ = file:delete(CFile),
     %%
+    ?P("create server socket"),
     S = ok(?OPEN(Config, 0, [{ifaddr,{local,SFile}},{active,false}])),
+    ?P("create client socket"),
     C = ok(?OPEN(Config, 0, [{ifaddr,{local,CFile}},{active,false}])),
     SAddr = ok(inet:sockname(S)),
     CAddr = ok(inet:sockname(C)),
+    ?P("SockName(s):"
+       "~n   Server: ~p"
+       "~n   Client: ~p", [SAddr, CAddr]),
     local_handshake(S, SAddr, C, CAddr),
+
+    ?P("cleanup"),
     ok = gen_udp:close(S),
     ok = gen_udp:close(C),
     %%
     ok = file:delete(SFile),
     ok = file:delete(CFile),
+    ?P("end"),
     ok.
 
 local_unbound(Config) ->
@@ -1257,67 +1442,124 @@ local_unbound(Config) ->
     ok.
 
 local_fdopen(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_local_fdopen(Config) end).
+
+
+do_local_fdopen(Config) ->
+    ?P("begin"),
     SFile = local_filename(server),
     SAddr = {local,bin_filename(SFile)},
     CFile = local_filename(client),
     CAddr = {local,bin_filename(CFile)},
     _ = file:delete(SFile),
     _ = file:delete(CFile),
+
     %%
-    S0 = ok(?OPEN(Config, 0, [{ifaddr,SAddr},{active,false}])),
+    ?P("try create \"dummy\" (server) socket"),
+    {S0, FD} = case ?OPEN(Config, 0, [{ifaddr,SAddr},{active,false}]) of
+                   {ok, Sock0} when is_port(Sock0) ->
+                       ?P("(port) try extract FD"),
+                       Fd = ok(prim_inet:getfd(Sock0)),
+                       {Sock0, Fd};
+                   {ok, Sock0} -> % socket
+                       ?P("(socket) try extract FD"),
+                       {ok, [{fd, Fd}]} =
+                           gen_udp_socket:getopts(Sock0, [fd]),
+                       {Sock0, Fd}
+               end,
+    ?P("try create (client) socket"),
     C  = ok(?OPEN(Config, 0, [{ifaddr,{local,CFile}},{active,false}])),
     SAddr = ok(inet:sockname(S0)),
     CAddr = ok(inet:sockname(C)),
-    Fd = ok(prim_inet:getfd(S0)),
-    S  = ok(?OPEN(Config, 0, [{fd,Fd},local,{active,false}])),
+    ?P("try create (server) socket using fd = ~w", [FD]),
+    S  = ok(?OPEN(Config, 0, [{fd, FD}, local, {active,false}])),
     SAddr = ok(inet:sockname(S)),
+
+    ?P("perform handshake"),
     local_handshake(S, SAddr, C, CAddr),
+
+    ?P("cleanup"),
     ok = gen_udp:close(S),
     ok = gen_udp:close(S0),
     ok = gen_udp:close(C),
     %%
     ok = file:delete(SFile),
     ok = file:delete(CFile),
+    ?P("done"),
     ok.
 
 local_fdopen_unbound(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_local_fdopen_unbound(Config) end).
+
+do_local_fdopen_unbound(Config) ->
+    ?P("begin"),
     SFile = local_filename(server),
     SAddr = {local,bin_filename(SFile)},
     _ = file:delete(SFile),
+
     %%
+    ?P("try create (server) socket"),
     S  = ok(?OPEN(Config, 0, [{ifaddr,SAddr},{active,false}])),
-    C0 = ok(?OPEN(Config, 0, [local,{active,false}])),
+    ?P("try create \"dummy\" (client) socket"),
+    {C0, FD} = case ?OPEN(Config, 0, [local,{active,false}]) of
+                   {ok, Sock0} when is_port(Sock0) ->
+                       ?P("(port) try extract FD"),
+                       Fd = ok(prim_inet:getfd(Sock0)),
+                       {Sock0, Fd};
+                   {ok, Sock0} -> % socket
+                       ?P("(socket) try extract FD"),
+                       {ok, [{fd, Fd}]} =
+                           gen_udp_socket:getopts(Sock0, [fd]),
+                       {Sock0, Fd}
+               end,
     SAddr = ok(inet:sockname(S)),
-    Fd = ok(prim_inet:getfd(C0)),
+    ?P("try create (client) socket using fd = ~w", [FD]),
     C  = ok(?OPEN(Config, 0, [{fd,Fd},local,{active,false}])),
+
+    ?P("perform handshake"),
     local_handshake(S, SAddr, C, undefined),
+
+    ?P("cleanup"),
     ok = gen_udp:close(S),
     ok = gen_udp:close(C),
     ok = gen_udp:close(C0),
     %%
     ok = file:delete(SFile),
+
+    ?P("done"),
     ok.
 
 local_abstract(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_local_abstract(Config) end).
+
+do_local_abstract(Config) ->
     case os:type() of
 	{unix,linux} ->
+            ?P("create server socket"),
 	    S = ok(?OPEN(Config, 0, [{ifaddr,{local,<<>>}},{active,false}])),
+            ?P("create client socket"),
 	    C = ok(?OPEN(Config, 0, [{ifaddr,{local,<<>>}},{active,false}])),
+            ?P("verify sockname(s)"),
 	    {local,_} = SAddr = ok(inet:sockname(S)),
 	    {local,_} = CAddr = ok(inet:sockname(C)),
+            ?P("perform handshake"),
 	    local_handshake(S, SAddr, C, CAddr),
+            ?P("cleanup"),
 	    ok = gen_udp:close(S),
 	    ok = gen_udp:close(C),
+            ?P("done"),
 	    ok;
 	_ ->
-	    {skip,"AF_LOCAL Abstract Addresses only supported on Linux"}
+	    {skip, "AF_LOCAL Abstract Addresses only supported on Linux"}
     end.
 
 
 local_handshake(S, SAddr, C, CAddr) ->
     SData = "9876543210",
     CData = "0123456789",
+    ?P("try (client) send"),
     ok = gen_udp:send(C, SAddr, 0, CData),
+    ?P("try (server) recv"),
     case ok(gen_tcp:recv(S, 112)) of
 	{{unspec,<<>>}, 0, CData} when CAddr =:= undefined ->
 	    ok;
@@ -1379,26 +1621,33 @@ recv_close(Config) when is_list(Config) ->
 
 %% Test that connect/3 has effect.
 connect(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_connect(Config) end).
+
+do_connect(Config) when is_list(Config) ->
+    ?P("begin"),
     Addr = {127,0,0,1},
     ?P("try create first socket"),
-    {ok,S1} = ?OPEN(Config, 0),
-    {ok,P1} = inet:port(S1),
+    {ok, S1} = ?OPEN(Config, 0),
+    {ok, P1} = inet:port(S1),
     ?P("try create second socket"),
-    {ok,S2} = ?OPEN(Config, 0),
-    ?P("try set second socket active: false"),
-    ok = inet:setopts(S2, [{active,false}]),
+    {ok, S2} = ?OPEN(Config, 0),
+    ?P("try set second socket active: false: "
+       "~n   ~p", [inet:info(S2)]),
+    ok = inet:setopts(S2, [{active, false}]),
     ?P("try close first socket"),
     ok = gen_udp:close(S1),
     ?P("try connect second socket to: ~p, ~p", [Addr, P1]),
     ok = gen_udp:connect(S2, Addr, P1),
     ?P("try send on second socket"),
     ok = gen_udp:send(S2, <<16#deadbeef:32>>),
-    ?P("try recv on second socket - expect failure"),
+    ?P("try recv on second socket - expect failure: "
+       "~n   ~p", [inet:info(S2)]),
     ok = case gen_udp:recv(S2, 0, 500) of
 	     {error, econnrefused} -> ok;
 	     {error, econnreset}   -> ok;
 	     Other -> 
-                 ?P("UNEXPECTED failure: ~p", [Other]),
+                 ?P("UNEXPECTED failure: ~p:"
+                    "~n   ~p", [Other, inet:info(S2)]),
                  Other
 	 end,
     ?P("done"),
@@ -1606,6 +1855,20 @@ get_localaddr([Localhost|Ls]) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+which_info(Sock) ->
+    which_info([istate, active], inet:info(Sock), #{}).
+
+which_info([], _Info, Acc) ->
+    Acc;
+which_info([Key|Keys], Info, Acc) ->
+    case maps:find(Key, Info) of
+        {ok, Value} ->
+            which_info(Keys, Info, Acc#{Key => Value});
+        error ->
+            which_info(Keys, Info, Acc)
+    end.
+
 
 pi(Item) ->
     {Item, Val} = process_info(self(), Item),
