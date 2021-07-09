@@ -414,6 +414,8 @@ gexpr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,self}},[]}, _St) ->
 gexpr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,F}},As0}, St) ->
     As = gexpr_list(As0, St),
     {safe_bif,ln(Anno),erlang,F,As};
+gexpr({call,Anno,{atom,_,self},[]}, _St) ->
+    {dbg,ln(Anno),self,[]};
 gexpr({call,Anno,{atom,_, F},As0}, St) ->
     true = erl_internal:bif(F,length(As0)),
     As = gexpr_list(As0, St),
@@ -573,6 +575,9 @@ expr({call,Anno,{remote,_,Mod0,Func0},As0}, Lc, St) ->
     Func = expr(Func0, false, St),
     As = consify(expr_list(As0, St)),
     {apply,ln(Anno),[Mod,Func,As],Lc};
+expr({call,Anno,{atom,_,F}=Atom,As0}, Lc, St)
+  when F =:= self; F =:= throw; F =:= error; F =:= exit; F =:= raise; F == apply ->
+    expr({call,Anno,{remote,Anno,{atom,Anno,erlang},Atom},As0}, Lc, St);
 expr({call,Anno,{atom,_,Func},As0}, Lc, #{ctype:=Ctypes} = St) ->
     As = expr_list(As0, St),
     Ar = length(As),
