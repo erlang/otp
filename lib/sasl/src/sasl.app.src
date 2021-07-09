@@ -42,6 +42,6 @@
     {applications, [kernel, stdlib]},
     {env, []},
     {mod, {sasl, []}},
-    {runtime_dependencies, ["tools-2.6.14","stdlib-3.4","kernel-5.3",
+    {runtime_dependencies, ["tools-2.6.14","stdlib-3.4","kernel-6.0",
 			    "erts-10.2"]}]}.
 

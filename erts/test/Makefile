@@ -84,6 +84,8 @@ release_tests_spec: opt
 	$(INSTALL_DATA) system.spec system.dynspec system_smoke.spec \
 		$(ERL_FILES) $(TARGET_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
+	cp "$(ERL_TOP)/otp_versions.table" "$(ERL_TOP)/erts/test/otp_SUITE_data"
+	cp "$(ERL_TOP)/make/otp_version_tickets" "$(ERL_TOP)/erts/test/otp_SUITE_data"
 	tar cf - *_SUITE_data utils | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:

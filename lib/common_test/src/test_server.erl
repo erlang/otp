@@ -39,7 +39,7 @@
 -export([m_out_of_n/3,do_times/4,do_times/2]).
 -export([call_crash/3,call_crash/4,call_crash/5]).
 -export([temp_name/1]).
--export([start_node/3, stop_node/1, wait_for_node/1, is_release_available/1]).
+-export([start_node/3, stop_node/1, wait_for_node/1, is_release_available/1, find_release/1]).
 -export([app_test/1, app_test/2, appup_test/1]).
 -export([comment/1, make_priv_dir/0]).
 -export([os_type/0]).
@@ -2764,6 +2764,19 @@ is_release_available(Release) ->
     group_leader() ! {sync_apply,
 		      self(),
 		      {test_server_ctrl,is_release_available,[Release]}},
+    receive {sync_result,R} -> R end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% find_release(Release) -> PathToReleaseErlFile | not_available
+%% Release -> string()
+%%
+%% Test if a release (such as "r10b") and if so return the path to the
+%% release's erl file
+
+find_release(Release) ->
+    group_leader() ! {sync_apply,
+		      self(),
+		      {test_server_ctrl,find_release,[Release]}},
     receive {sync_result,R} -> R end.
 
 

@@ -27,7 +27,8 @@
          call_to_size_1/1,call_to_now_0/1,strong_components/1,
          erl_file_encoding/1,xml_file_encoding/1,
          runtime_dependencies_functions/1,
-         runtime_dependencies_modules/1]).
+         runtime_dependencies_modules/1,
+         test_runtime_dependencies_versions/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -35,15 +36,17 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {minutes, 10}}].
+     {timetrap, {minutes, 30}}].
 
-all() -> 
+all() ->
     [undefined_functions, deprecated_not_in_obsolete,
      obsolete_but_not_deprecated, call_to_deprecated,
      call_to_size_1, call_to_now_0, strong_components,
      erl_file_encoding, xml_file_encoding,
      runtime_dependencies_functions,
-     runtime_dependencies_modules].
+     runtime_dependencies_modules,
+     test_runtime_dependencies_versions
+].
 
 init_per_suite(Config) ->
     Server = start_xref_server(daily_xref, functions),
@@ -533,3 +536,319 @@ start_xref_server(Server, Mode) ->
             end
     end,
     Server.
+
+get_suite_data_dir_path() ->
+    filename:join(filename:dirname(code:which(?MODULE)), "otp_SUITE_data").
+
+get_otp_versions_table_path() ->
+    filename:join(get_suite_data_dir_path(), "otp_versions.table").
+
+get_otp_version_tickets_path() ->
+    filename:join(get_suite_data_dir_path(), "otp_version_tickets").
+
+%% Return a map that maps from app versions to the OTP versions they
+%% were last released in. The function makes use of the file
+%% "otp_versions.table" and the current code:get_path() to
+%% find apps.
+get_runtime_dep_to_otp_version_map() ->
+    %% Find apps in "otp_versions.table"
+    VersionsTableFile = get_otp_versions_table_path(),
+    VersionsTableBin =
+        case file:read_file(VersionsTableFile) of
+            {ok, Bin} -> Bin;
+            Error -> ct:fail("Could not read the file ~s which is needed to perform the test. "
+                             "Error: ~p~n",
+                             [VersionsTableFile, Error])
+        end,
+    VersionsTableStr = erlang:binary_to_list(VersionsTableBin),
+    Lines = lists:reverse(string:tokens(VersionsTableStr, "\n")),
+    AddVersionsInString =
+        fun(Map, OTPVersion, AppVersionsString0) ->
+                AppVersionsString =
+                    lists:flatten(string:replace(AppVersionsString0, "#", "", all)),
+                AppVersions = string:tokens(AppVersionsString, " "),
+                lists:foldl(
+                  fun(AppVersion0, MapSoFar) ->
+                          case string:trim(AppVersion0) of
+                              "" ->
+                                  MapSoFar;
+                              AppVersion1 ->
+                                  maps:put(AppVersion1, OTPVersion, MapSoFar)
+                          end
+                  end,
+                  Map,
+                  AppVersions)
+        end,
+    VersionMap0 =
+        lists:foldl(
+          fun(Line, MapSoFar) ->
+                  [OTPVersion, AppVersionsString| _] =
+                      string:tokens(Line, ":"),
+                  AddVersionsInString(MapSoFar,
+                                      string:trim(OTPVersion),
+                                      string:trim(AppVersionsString))
+          end,
+          #{},
+          Lines),
+    %% Find apps in code:get_path()
+    lists:foldl(
+      fun(Path, MapSoFar) ->
+              case filelib:wildcard(filename:join(Path, "*.app")) of
+                  [AppFile] ->
+                      {ok,[{application, App, Info}]} = file:consult(AppFile),
+                      case lists:keyfind(vsn, 1, Info) of
+                          false ->
+                              MapSoFar;
+                          {vsn, VsnStr} ->
+                              AppVsnStr =
+                                  erlang:atom_to_list(App) ++ "-" ++ VsnStr,
+                              maps:put(AppVsnStr, {latest, Path}, MapSoFar)
+                      end;
+                  _ ->
+                      MapSoFar
+              end
+      end,
+      VersionMap0,
+      code:get_path()).
+
+%% Find runtime dependencies for an app
+get_runtime_deps(App) ->
+    AppFile = code:where_is_file(atom_to_list(App) ++ ".app"),
+    {ok,[{application, App, Info}]} = file:consult(AppFile),
+    case lists:keyfind(runtime_dependencies, 1, Info) of
+        {runtime_dependencies, RDeps} ->
+            RDeps;
+        false ->
+            []
+    end.
+
+%% Given a release dir find the path to the given dependency
+find_dep_in_rel_dir(Dep, RelDirRoot) ->
+    %% The dependencies that we have found are cached to avoid
+    %% searching through the file system unecessary many times
+    CacheId = runtime_dep_test_cache,
+    DepCache =
+        case erlang:get(CacheId) of
+            undefined -> #{};
+            M-> M
+        end,
+    case maps:get(Dep, DepCache, none) of
+        none ->
+            DepPaths = filelib:wildcard(filename:join([RelDirRoot, "lib", "**", Dep, "ebin"])),
+            case DepPaths of
+                [Path] ->
+                    erlang:put(CacheId, maps:put(Dep, Path, DepCache)),
+                    Path;
+                _ ->
+                    ErrorMessage =
+                        io_lib:format("ERROR: Could not find ~p in ~p (where it is supposed to be)."
+                                      "Found ~p~n", [Dep, RelDirRoot, DepPaths]),
+                    io:format(ErrorMessage),
+                    ct:fail(ErrorMessage)
+
+            end;
+        Path ->
+            Path
+    end.
+
+%% Get the major OTP version part of an OTP version string
+%% Example: OTP-22.0 gives 22
+get_major_version(OtpVersion) ->
+    [_,MajorVersion|_] = string:tokens(OtpVersion, "-."),
+    MajorVersion.
+
+%% Returns the release directory for the oldest available OTP release
+%% on the current machine
+first_available_otp_rel() ->
+    %% At least one version less than the current version should be available
+    SholdBeAvailable = erlang:list_to_integer(erlang:system_info(otp_release)) - 1,
+    (fun FindOldest(CurrRel, PrevAvailable) ->
+             case test_server:is_release_available(erlang:integer_to_list(CurrRel)) of
+                 false -> PrevAvailable;
+                 true -> FindOldest(CurrRel-1, erlang:integer_to_list(CurrRel))
+             end
+     end)(SholdBeAvailable, none).
+
+%% Searches for the oldest available version of Dep
+get_oldest_available_version_of_dep(Dep) ->
+    [DepName, _Version] = string:tokens(Dep, "-"),
+    FirstAvailableRel = first_available_otp_rel(),
+    (fun Find(LookInRel) ->
+             case test_server:is_release_available(LookInRel) of
+                 true ->
+                     RelRoot = find_rel_root(LookInRel),
+                     Options0 = filelib:wildcard(filename:join([RelRoot, "lib", "**", "ebin"])),
+                     Options1 = [Opt ||
+                                   Opt <- Options0,
+                                   string:find(Opt,
+                                               filename:join("lib", DepName ++ "-")) =/= nomatch],
+                     GetVersionTuple =
+                         fun(Path) ->
+                                 [AppVerStr] =
+                                     [C || C <- filename:split(Path),
+                                           string:find(C, DepName ++ "-") =/= nomatch],
+                                 [_,VerStr] = string:tokens(AppVerStr, "-"),
+                                 erlang:list_to_tuple([erlang:list_to_integer(X) ||
+                                                          X <- string:tokens(VerStr, ".")])
+                         end,
+                     Options2 =
+                         lists:sort(fun(A,B) ->
+                                            GetVersionTuple(A) =< GetVersionTuple(B)
+                                    end,
+                                    Options1),
+                     case Options2 of
+                         [Path|_] ->
+                             Path;
+                         _ ->
+                             NextRelToTry =
+                                 erlang:integer_to_list(erlang:list_to_integer(LookInRel)+1),
+                             Find(NextRelToTry)
+                     end;
+                 false ->
+                     ct:fail({could_not_find_dep_anywhere, DepName})
+             end
+     end)(FirstAvailableRel).
+
+find_rel_root(Rel) ->
+    case test_server:find_release(Rel) of
+        not_available ->
+            not_available;
+        OtpRelErl -> filename:dirname(filename:dirname(OtpRelErl))
+    end.
+
+%% Find the absoulte paths to RuntimeDeps
+get_paths_to_dependencies(App, RuntimeDeps) ->
+    FirstAvailableOTPRel = first_available_otp_rel(),
+    FirstAvailableRel = erlang:list_to_integer(FirstAvailableOTPRel),
+    DepToOtpVerMap = get_runtime_dep_to_otp_version_map(),
+    lists:foldl(
+      fun(Dep, SoFar) ->
+              case maps:get(Dep, DepToOtpVerMap, false) of
+                  false ->
+                      ct:fail(io_lib:format(
+                                "The dependency ~s for ~p could not be found. "
+                                "Have you typed a non-existing version?",
+                                [Dep, App]));
+                  {latest, Path} ->
+                      %% The dependency is in Path (one of the paths returned by code:get_paths())
+                      [Path | SoFar];
+                  OtpVersionWithDep ->
+                      OtpMajorVersionWithDep = get_major_version(OtpVersionWithDep),
+                      OtpMajorVersionWithDepInt = erlang:list_to_integer(OtpMajorVersionWithDep),
+                      case find_rel_root(OtpMajorVersionWithDep) of
+                          not_available when FirstAvailableRel > OtpMajorVersionWithDepInt ->
+                              io:format("Warning: Could not find runtime dependency ~p for ~p. "
+                                        "~p belongs to ~p but ~p is too old to be available on this machine. "
+                                        "Trying to find the oldest available version of ~p...",
+                                        [Dep, App, Dep, OtpVersionWithDep, OtpVersionWithDep, Dep]),
+                              [get_oldest_available_version_of_dep(Dep) | SoFar];
+                          RelDirRoot ->
+                              [find_dep_in_rel_dir(Dep, RelDirRoot) | SoFar]
+                      end
+              end
+      end,
+      [],
+      RuntimeDeps).
+
+test_app_runtime_deps_versions(AppPath, App, IgnoredUndefinedFunctions) ->
+    %% Get a list of all runtime dependencies for app
+    RuntimeDeps = get_runtime_deps(App),
+    %% Get paths to the found runtime dependices
+    DepPaths = get_paths_to_dependencies(App, RuntimeDeps),
+    XRefSName = test_app_runtime_deps_versions_server,
+    %% Start xref server and do the test
+    {ok, _} = xref:start(XRefSName, []),
+    ok = xref:set_library_path(XRefSName, DepPaths),
+    Dir = filename:join(AppPath, "ebin"),
+    {ok, _} = xref:add_directory(XRefSName, Dir),
+    {ok, UndefinedFunctions0} = xref:analyze(XRefSName, undefined_functions),
+    xref:stop(XRefSName),
+    %% Filter out undefined functions that we should ignore
+    UndefinedFunctions1 =
+        [F || F <- UndefinedFunctions0,
+              not maps:get(F, IgnoredUndefinedFunctions, false)],
+    case UndefinedFunctions1 of
+        [] ->
+            ok;
+        UndefinedFunctions ->
+            {error_undefined_functions_in_app, App, UndefinedFunctions}
+    end.
+
+test_runtime_dependencies_versions_rels(IgnoreApps, AppsToIgnoredUndefinedFunctions) ->
+    %% Do for every application:
+    %%    1. Find deps from app file
+    %%    2. Find where the deps are installed
+    %%    3. Run xref tests on the apps with the specified dependencies
+    %%    4. Report error if undefined function
+    Apps0 = [{Path, list_to_atom(AppName)}
+             || {match, [Path, AppName]}
+                    <- [re:run(X,"(" ++ code:lib_dir()++"/"++"([^/-]*).*)/ebin",
+                               [{capture,[1,2],list},unicode]) || X <- code:get_path()]],
+    Apps = [{Path, App} ||
+               {Path, App} <- Apps0,
+               code:where_is_file(atom_to_list(App) ++ ".app") =/= non_existing],
+    Res = [test_app_runtime_deps_versions(AppPath,
+                                          App,
+                                          maps:get(App, AppsToIgnoredUndefinedFunctions, #{})) ||
+              {AppPath, App} <- Apps, not lists:member(App, IgnoreApps)],
+    BadRes = [R || R <- Res, R =/= ok],
+    case BadRes =:= [] of
+        true -> ok;
+        _ ->
+            ct:fail(BadRes)
+    end.
+
+is_development_build() ->
+    {ok, FileContentBin} = file:read_file(get_otp_version_tickets_path()),
+    "DEVELOPMENT" =:= string:trim(erlang:binary_to_list(FileContentBin), both, "\n ").
+
+test_runtime_dependencies_versions(_Config) ->
+    ReleasesDir = "/usr/local/otp/releases",
+    IgnoreApps = [],
+    AppsToIgnoredUndefinedFunctions =
+        #{eunit =>
+              %% Intentional call to nonexisting function
+              #{{eunit_test, nonexisting_function, 0} => true},
+         diameter =>
+              %% The following functions are optional dependencies for diameter
+              #{{dbg,ctp,0} => true,
+                {dbg,p,2} => true,
+                {dbg,stop_clear,0} => true,
+                {dbg,trace_port,2} => true,
+                {dbg,tracer,2} => true,
+                {erl_prettypr,format,1} => true,
+                {erl_syntax,form_list,1} => true},
+         common_test =>
+              %% ftp:start/0 has been part of the ftp application from
+              %% the beginning so it is unclear why xref report this
+              %% as undefined
+              #{{ftp,start,0} => true}},
+    case {erlang:element(1, os:type()) =:= unix,
+          not is_development_build(),
+          filelib:is_dir(ReleasesDir),
+          filelib:is_file(get_otp_versions_table_path()),
+          first_available_otp_rel() =/= none} of
+        {true, true, true, true, true} ->
+            test_runtime_dependencies_versions_rels(IgnoreApps,
+                                                    AppsToIgnoredUndefinedFunctions);
+        {_, _ ,_, false, _} -> {skip,
+                             "Could not find the file \"otp_versions.table\". "
+                             "Check that the test has been built correctly. "
+                             "\"otp_versions.table\" is copied to \"erts/test/otp_SUITE_data\" "
+                             "by the makefile \"erts/test/Makefile\""};
+        {_, false , _, _, _} -> {skip,
+                              "This test case is designed to run in the Erlang/OTP teams "
+                              "test system for nightly tests. The test case depend on that "
+                              "app versions have been set correctly by scripts that "
+                              "are executed before creating builds for the nightly tests."};
+        {_, _ ,false, _, _} -> {skip, "Can not do the tests without a proper releases dir. "
+                             "Check that " ++ ReleasesDir ++ " is set up correctly."};
+        {_, _ , _, _, false} ->
+            PrevRelNr = erlang:list_to_integer(erlang:system_info(otp_release)) - 1,
+            PrevRelNrStr = erlang:integer_to_list(PrevRelNr),
+            {skip,
+             "Seems like the releases dir is not set up correctly. "
+             "Is release " ++ PrevRelNrStr ++ " installed in the releases dir? "
+             "(releases dir = " ++ ReleasesDir ++ ")"};
+        {false, _ ,_, _, _} -> {skip, "This test only runs on Unix systems"}
+    end.

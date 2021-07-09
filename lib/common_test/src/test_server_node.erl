@@ -26,7 +26,7 @@
 %%%
 
 %% Test Controller interface
--export([is_release_available/1]).
+-export([is_release_available/1, find_release/1]).
 -export([start_tracer_node/2,trace_nodes/2,stop_tracer_node/1]).
 -export([start_node/5, stop_node/1]).
 -export([kill_nodes/0, nodedown/1]).
