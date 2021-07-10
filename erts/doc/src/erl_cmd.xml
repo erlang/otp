@@ -310,7 +310,7 @@ $ <input>erl \
           are: <c>emu</c> and <c>jit</c>. You can combine this flag with
           <c>--emu_type</c>. You can get the current flavor at run-time using
           <seeerl marker="erlang#system_info_emu_flavor">
-            <c>erlang:system_info(build_flavor)</c></seeerl>.
+            <c>erlang:system_info(emu_flavor)</c></seeerl>.
           (The emulator with this flavor must be built. You can
           build a specific flavor by doing <c>make FLAVOR=$FLAVOR</c> in the
           Erlang/OTP source repository.)</p>
