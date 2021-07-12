@@ -31,15 +31,16 @@
 -define(SAVE_TRACEOPTS, 305).
 -define(LOAD_TRACEOPTS, 306).
 -define(TOGGLE_TRACE, 307).
--define(ADD_NEW_PROCS, 308).
--define(ADD_NEW_PORTS, 309).
--define(ADD_TP, 310).
--define(TRACE_OUTPUT, 311).
--define(DEF_MS_FUNCS,  312).
--define(DEF_MS_SEND,  313).
--define(DEF_MS_RECV,  314).
--define(DEF_PROC_OPTS,  315).
--define(DEF_PORT_OPTS,  316).
+-define(ADD_ALL, 308).
+-define(ADD_NEW_PROCS, 309).
+-define(ADD_NEW_PORTS, 310).
+-define(ADD_TP, 311).
+-define(TRACE_OUTPUT, 312).
+-define(DEF_MS_FUNCS,  313).
+-define(DEF_MS_SEND,  314).
+-define(DEF_MS_RECV,  315).
+-define(DEF_PROC_OPTS,  316).
+-define(DEF_PORT_OPTS,  317).
 
 -define(NODES_WIN, 330).
 -define(ADD_NODES, 331).
@@ -122,6 +123,9 @@ create_window(Notebook, ParentPid, Config) ->
     wxSizer:add(Buttons, ToggleButton, [{flag, ?wxALIGN_CENTER_VERTICAL}]),
     wxSizer:addSpacer(Buttons, 15),
     wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_NODES, [{label, "Add Nodes"}])),
+    AllButton = wxButton:new(Panel, ?ADD_ALL, [{label, "Add All"}]),
+    wxControl:setToolTip(AllButton, "Trace all processes and ports"),
+    wxSizer:add(Buttons, AllButton),
     wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_NEW_PROCS, [{label, "Add 'new' Processes"}])),
     wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_NEW_PORTS, [{label, "Add 'new' Ports"}])),
     wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_TP, [{label, "Add Trace Pattern"}])),
@@ -290,6 +294,14 @@ handle_event(#wx{obj=Obj, event=#wxSize{size={W,_}}}, State) ->
 	false -> ok
     end,
     {noreply, State};
+
+handle_event(#wx{id=?ADD_ALL}, State = #state{panel=Parent, def_proc_flags=TraceOpts}) ->
+    try
+	Opts = observer_traceoptions_wx:process_trace(Parent, TraceOpts),
+	Process = #titem{id=all, opts=Opts},
+	{noreply, do_add_processes([Process], State#state{def_proc_flags=Opts})}
+    catch cancel -> {noreply, State}
+    end;
 
 handle_event(#wx{id=?ADD_NEW_PROCS}, State = #state{panel=Parent, def_proc_flags=TraceOpts}) ->
     try
@@ -885,15 +897,15 @@ update_functions_view(Funcs, LCtrl) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Trace items are processes and ports
 merge_trace_items([N1=#titem{id=NewP}|Ns], [N2=#titem{id=NewP}|Old])
-  when NewP==new_processes; NewP==new_ports ->
+  when NewP==new_processes; NewP==new_ports; NewP==all ->
     {Ids, New, Changed} = merge_trace_items_1(Ns,Old),
     {[N1|Ids], New, [{N2,N2}|Changed]};
 merge_trace_items([N1=#titem{id=NewP}|Ns], Old)
-  when NewP==new_processes; NewP==new_ports ->
+  when NewP==new_processes; NewP==new_ports; NewP==all ->
     {Ids, New, Changed} = merge_trace_items_1(Ns,Old),
     {[N1|Ids], [N1|New], Changed};
 merge_trace_items(Ns, [N2=#titem{id=NewP}|Old])
-  when NewP==new_processes; NewP==new_ports ->
+  when NewP==new_processes; NewP==new_ports; NewP==all ->
     {Ids, New, Changed} = merge_trace_items_1(Ns,Old),
     {[N2|Ids], New, Changed};
 merge_trace_items(New, Old) ->
