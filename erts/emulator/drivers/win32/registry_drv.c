@@ -318,8 +318,12 @@ reg_from_erlang(ErlDrvData clientData, char* buf, ErlDrvSizeT count)
 	}
 	break;
     case CMD_DELETE_KEY:
-	result = RegDeleteKey(rp->hkey, NULL);
-	reply(rp, result);
+	{
+	    char* key = buf;
+
+	    result = RegDeleteKey(rp->hkey, key);
+	    reply(rp, result);
+	}
 	break;
     case CMD_DELETE_VALUE:
 	result = RegDeleteValue(rp->hkey, buf);
