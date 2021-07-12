@@ -2,7 +2,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2009-2020. All Rights Reserved.
+Copyright Ericsson AB 2009-2021. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -89,22 +89,21 @@ limitations under the License.
     Welcome to Erlang/OTP, a complete development environment for concurrent programming.
     </p>
 
-    <h2>Some hints that may get you started faster</h2>
+<h3>Tutorials and books</h3>
 
-<ul>
-
-<li>
+<p>
 The Erlang language is described in the 
 <a href="reference_manual/users_guide.html">Erlang Reference Manual</a>. 
 An Erlang tutorial can be found in 
 <a href="getting_started/users_guide.html">
-Getting Started With Erlang</a>.
+  Getting Started With Erlang</a>.
+</p>
 <p>
-In addition to the documentation here Erlang is described in several recent books like:
+In addition to the documentation here, Erlang is described in several books like:
 </p>
 <ul>
 <li>
-<a href="http://shop.oreilly.com/product/0636920025818.do">"Introducing Erlang"</a> from O'Reilly.
+<a href="https://www.oreilly.com/library/view/introducing-erlang-2nd/9781491973363/>"Introducing Erlang"</a> from O'Reilly.
 </li>
 <li>
 <a href="http://www.nostarch.com/erlang">"Learn You Some Erlang for Great Good!"</a> from No Starch Press.
@@ -126,13 +125,58 @@ In addition to the documentation here Erlang is described in several recent book
 These books are highly recommended as a start for learning Erlang. 
 </p>
 </li>
-<li>Erlang/OTP is divided into a number of OTP <a
-href="applications.html">applications</a>. An application normally contains
-Erlang <a href="man_index.html">modules</a>. Some OTP applications,
-such as the C interface <em>erl_interface</em>, are written in other languages and have no Erlang
-modules.
-<p></p>
-</li>
+<h3>Applications</h3>
+
+<p>
+  Erlang/OTP is divided into a number of OTP
+  <a href="applications.html">applications</a>.
+  An application normally contains a number of
+  Erlang <a href="man_index.html">modules</a> which implements a specific service or library.
+</p>
+
+<h3>Editors for developing Erlang</h3>
+
+<p>You can of course use any editor you like to write Erlang
+  programs, but it is very helpful to have an editor environment which knows
+  about the language and can provide support for
+indentation, syntax highlighting, electric commands, module name
+verification, comment support including paragraph filling, skeletons,
+  tags support and more.
+  In the Erlang/OTP delivery an Emacs mode for Erlang is included,
+  see the <a href="#tools#/index.html">Tools</a> application for details.
+</p>
+<p>
+  The Language Server Protocol, also known as LSP,
+  is a popular solution which makes it possible to implement the language
+  specifics once and then use it from many different editor frontends which
+  support the
+  Language Server Protocol.
+</p>
+<p>
+  <a href="https://erlang-ls.github.io/">Erlang LS</a> is a language server providing language features for the Erlang programming language. The server works with Emacs, VSCode, Sublime Text 3, Vim, Theia and probably many more text editors and IDEs which adhere to the LSP protocol.
+</p>
+<p>
+There are also Erlang plugins for other code editors
+<a href="http://github.com/vim-erlang">Vim (vim-erlang)</a> ,
+<a href="http://atom.io/packages/language-erlang"> Atom </a> ,
+<a href="http://ignatov.github.io/intellij-erlang/">IntelliJ IDEA</a>.
+<a href="http://erlide.org/index.html">Eclipse (ErlIDE)</a>
+</p>
+
+<h3>The interactive shell</h3>
+<p>When developing with Erlang/OTP you usually test your programs
+from the interactive shell (see <a href="getting_started/users_guide.html">
+Getting Started With Erlang</a>) where you can call individual
+functions. There is also a number of tools available, such as the graphical 
+<a href="#debugger#/index.html" >Debugger</a> and the 
+<a href="#observer#/index.html" >Observer tool</a> for inspection of system information, ets and mnesia tables  etc.
+</p>
+<p> Also note that there are some shell features like history list
+(control-p and control-n), in line editing (Emacs key bindings) and
+module and function name completion (tab).
+</p>
+
+<h3>Documentation</h3>
 
 <li>On a Unix system you can view the manual pages from the command
 line using
@@ -140,48 +184,29 @@ line using
     % erl -man &lt;module&gt;
 </pre>
 </li>
+<li>You can also get the documentation for functions from inside the interactive shell by using:
+<pre>
+    1> h(lists,sort).
+</pre>
+</li> 
 
-<li> You can of course use any editor you like to write Erlang
-programs, but if you use Emacs there exists editing support such as
-indentation, syntax highlighting, electric commands, module name
-verification, comment support including paragraph filling, skeletons,
-tags support and more. See the <a href="#tools#/index.html">
-Tools</a> application for details.  
-<p>
-There are also Erlang plugins for other code editors
-<a href="http://github.com/vim-erlang">Vim (vim-erlang)</a> ,
-<a href="http://atom.io/packages/language-erlang"> Atom </a> ,
-<a href="http://erlide.org/index.html">Eclipse (ErlIDE)</a> and
-<a href="http://ignatov.github.io/intellij-erlang/">IntelliJ IDEA</a>.
-<li>When developing with Erlang/OTP you usually test your programs
-from the interactive shell (see <a href="getting_started/users_guide.html">
-Getting Started With Erlang</a>) where you can call individual
-functions. There is also a number of tools available, such as the graphical <a
-href="#debugger#/index.html" >Debugger</a> and the <a href="#observer#/index.html" >Observer tool</a> for inspection of system information, ets and mnesia tables  etc.
-<p> Also note that there are some shell features like history list
-(control-p and control-n), in line editing (Emacs key bindings) and
-module and function name completion (tab) if the module is loaded.
-<p>
 
-<li>OpenSource users can ask questions
+<h3>Asking questions</h3>
+<p>OpenSource users can ask questions
 and share experiences on the <a href="http://www.erlang.org/static/doc/mailinglist.html">
 Erlang questions mailing list</a>.
-<p></p>
-</li>
+</p>
 
-<li>Before asking a question you can browse the <a
+<p>Before asking a question you can browse the <a
 href="http://www.erlang.org/pipermail/erlang-questions/">
 mailing list archive</a> and read the <a
 href="http://www.erlang.org/faq/faq.html" >Frequently
 Asked Questions</a>.
-<p></p>
-</li>
+</p>
 
-<li>Additional information and links of interest for Erlang programmers can be found on the Erlang Open Source site 
+<p>Additional information and links of interest for Erlang programmers can be found on the Erlang Open Source site 
 <a href="http://www.erlang.org/">http://www.erlang.org</a>.
-</li>
-
-</ul>
+</p>
 
 <center>
 <small>
