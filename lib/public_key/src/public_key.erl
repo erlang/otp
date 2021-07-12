@@ -99,8 +99,8 @@
 	      pki_asn1_type/0, asn1_type/0, ssh_file/0, der_encoded/0,
               key_params/0, digest_type/0, issuer_name/0, cert_id/0, oid/0]).
 
--type public_key()           ::  rsa_public_key() | rsa_pss_public_key() | dsa_public_key() | ec_public_key() | ed_public_key() .
--type private_key()          ::  rsa_private_key() | rsa_pss_private_key() | dsa_private_key() | ec_private_key() | ed_private_key() .
+-type public_key()           ::  rsa_public_key() | rsa_pss_public_key() | dsa_public_key() | ec_public_key() | ed_public_key() | engine_key_ref() .
+-type private_key()          ::  rsa_private_key() | rsa_pss_private_key() | dsa_private_key() | ec_private_key() | ed_private_key() | engine_key_ref() .
 -type rsa_public_key()       ::  #'RSAPublicKey'{}.
 -type rsa_private_key()      ::  #'RSAPrivateKey'{}. 
 -type rsa_pss_public_key()   ::  {#'RSAPublicKey'{}, #'RSASSA-PSS-params'{}}.
@@ -151,6 +151,12 @@
 
 -type cert_id()              :: {SerialNr::integer(), issuer_name()} .
 -type issuer_name()          :: {rdnSequence,[[#'AttributeTypeAndValue'{}]]} .
+-type engine_key_ref()       :: #{algorithm := rsa | dss | ecdsa,
+                                  engine :=   crypto:engine_ref(),
+                                  key_id :=   crypto:key_id(),
+                                  password => crypto:password()
+                                 }.
+
 
 
 
@@ -1493,6 +1499,8 @@ format_sign_key(#'ECPrivateKey'{privateKey = PrivKey, parameters = Param}) ->
     {ecdsa, [PrivKey, ECCurve]};
 format_sign_key({ed_pri, Curve, _Pub, Priv}) ->
     {eddsa, [Priv,Curve]};
+format_sign_key(#{algorithm := Algorithm} = PrivKey) ->
+    {Algorithm, PrivKey};
 format_sign_key(_) ->
     badarg.
 
@@ -1509,6 +1517,8 @@ format_verify_key({Key,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
     {dss, [P, Q, G, Key]};
 format_verify_key({ed_pub, Curve, Key}) ->
     {eddsa, [Key,Curve]};
+format_verify_key(#{algorithm := Algorithm} = Key) ->
+    {Algorithm, Key};
 %% Convert private keys to public keys
 format_verify_key(#'RSAPrivateKey'{modulus = Mod, publicExponent = Exp}) ->
     format_verify_key(#'RSAPublicKey'{modulus = Mod, publicExponent = Exp});
