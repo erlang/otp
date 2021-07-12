@@ -1452,7 +1452,8 @@ handle_event(_, _, State, Data) ->
       </desc>
     </datatype>
     <datatype>
-      <name name="init_result"/>
+      <name name="init_result" arity="1"/>
+      <name name="init_result" arity="2"/>
       <desc>
 	<p>
 	  For a succesful initialization,
@@ -1479,7 +1480,8 @@ handle_event(_, _, State, Data) ->
       </desc>
     </datatype>
     <datatype>
-      <name name="state_enter_result"/>
+      <name name="state_enter_result" arity="1"/>
+      <name name="state_enter_result" arity="2"/>
       <desc>
 	<p>
 	  <c><anno>State</anno></c> is the current state
@@ -1502,7 +1504,8 @@ handle_event(_, _, State, Data) ->
       </desc>
     </datatype>
     <datatype>
-      <name name="event_handler_result"/>
+      <name name="event_handler_result" arity="1"/>
+      <name name="event_handler_result" arity="2"/>
       <desc>
 	<p>
 	  <c><anno>StateType</anno></c> is
@@ -1532,7 +1535,8 @@ handle_event(_, _, State, Data) ->
       </desc>
     </datatype>
     <datatype>
-      <name name="state_callback_result"/>
+      <name name="state_callback_result" arity="1"/>
+      <name name="state_callback_result" arity="2"/>
       <desc>
 	<p>
 	  <c><anno>ActionType</anno></c> is

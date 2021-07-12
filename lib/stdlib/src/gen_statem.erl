@@ -63,8 +63,11 @@
     from/0,
     callback_mode_result/0,
     init_result/1,
+    init_result/2,
     state_enter_result/1,
+    state_enter_result/2,
     event_handler_result/1,
+    event_handler_result/2,
     reply_action/0,
     enter_action/0,
     action/0
@@ -204,9 +207,10 @@
 	{'reply', % Reply to a caller
 	 From :: from(), Reply :: term()}.
 
--type init_result(StateType) ::
-    {ok, State :: StateType, Data :: data()} |
-    {ok, State :: StateType, Data :: data(),
+-type init_result(StateType) :: init_result(StateType, term()).
+-type init_result(StateType, DataType) ::
+    {ok, State :: StateType, Data :: DataType} |
+    {ok, State :: StateType, Data :: DataType,
      Actions :: [action()] | action()} |
     'ignore' |
     {'stop', Reason :: term()}.
@@ -217,38 +221,43 @@
 -type handle_event_result() ::
 	event_handler_result(state()).
 %%
--type state_enter_result(State) ::
+-type state_enter_result(State) :: state_enter_result(State, term()).
+-type state_enter_result(State, Data) ::
 	{'next_state', % {next_state,NextState,NewData,[]}
 	 State,
-	 NewData :: data()} |
+	 NewData :: Data} |
 	{'next_state', % State transition, maybe to the same state
 	 State,
-	 NewData :: data(),
+	 NewData :: Data,
 	 Actions :: [enter_action()] | enter_action()} |
 	state_callback_result(enter_action()).
 -type event_handler_result(StateType) ::
+    event_handler_result(StateType, term()).
+-type event_handler_result(StateType, DataType) ::
 	{'next_state', % {next_state,NextState,NewData,[]}
 	 NextState :: StateType,
-	 NewData :: data()} |
+	 NewData :: DataType} |
 	{'next_state', % State transition, maybe to the same state
 	 NextState :: StateType,
-	 NewData :: data(),
+	 NewData :: DataType,
 	 Actions :: [action()] | action()} |
 	state_callback_result(action()).
 -type state_callback_result(ActionType) ::
+    state_callback_result(ActionType, term()).
+-type state_callback_result(ActionType, DataType) ::
 	{'keep_state', % {keep_state,NewData,[]}
-	 NewData :: data()} |
+	 NewData :: DataType} |
 	{'keep_state', % Keep state, change data
-	 NewData :: data(),
+	 NewData :: DataType,
 	 Actions :: [ActionType] | ActionType} |
 	'keep_state_and_data' | % {keep_state_and_data,[]}
 	{'keep_state_and_data', % Keep state and data -> only actions
 	 Actions :: [ActionType] | ActionType} |
 	%%
 	{'repeat_state', % {repeat_state,NewData,[]}
-	 NewData :: data()} |
+	 NewData :: DataType} |
 	{'repeat_state', % Repeat state, change data
-	 NewData :: data(),
+	 NewData :: DataType,
 	 Actions :: [ActionType] | ActionType} |
 	'repeat_state_and_data' | % {repeat_state_and_data,[]}
 	{'repeat_state_and_data', % Repeat state and data -> only actions
@@ -259,7 +268,7 @@
 	 Reason :: term()} |
 	{'stop', % Stop the server
 	 Reason :: term(),
-	 NewData :: data()} |
+	 NewData :: DataType} |
 	%%
 	{'stop_and_reply', % Reply then stop the server
 	 Reason :: term(),
@@ -267,7 +276,7 @@
 	{'stop_and_reply', % Reply then stop the server
 	 Reason :: term(),
 	 Replies :: [reply_action()] | reply_action(),
-	 NewData :: data()}.
+	 NewData :: DataType}.
 
 -type request_id() :: term().
 
