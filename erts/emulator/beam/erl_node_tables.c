@@ -135,7 +135,8 @@ is_in_de_list(DistEntry *dep, DistEntry *dep_list)
 static HashValue
 dist_table_hash(void *dep)
 {
-    return atom_tab(atom_val(((DistEntry *) dep)->sysname))->slot.bucket.hvalue;
+    Eterm atom = ((DistEntry *) dep)->sysname;
+    return atom_hvalue(atom);
 }
 
 static int
@@ -800,7 +801,8 @@ static HashValue
 node_table_hash(void *venp)
 {
     Uint32 cre = ((ErlNode *) venp)->creation;
-    HashValue h = atom_tab(atom_val(((ErlNode *) venp)->sysname))->slot.bucket.hvalue;
+    Eterm atom = ((ErlNode *) venp)->sysname;
+    HashValue h = atom_hvalue(atom);
 
     return (h + cre) * PRIME0;
 }

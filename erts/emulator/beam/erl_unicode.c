@@ -2024,8 +2024,11 @@ binary_to_atom(Process* proc, Eterm bin, Eterm enc, int must_exist)
 	    }
 
 	    a = make_atom(lix);
-	} else if (!erts_atom_get((char *)bytes, bin_size, &a, ERTS_ATOM_ENC_LATIN1)) {
-	    goto badarg;
+	} else {
+	    a = erts_atom_get((char *)bytes, bin_size, ERTS_ATOM_ENC_LATIN1);
+	    if (is_non_value(a)) {
+		goto badarg;
+	    }
 	}
 
     } else if (enc == am_utf8 || enc == am_unicode) {
@@ -2041,9 +2044,11 @@ binary_to_atom(Process* proc, Eterm bin, Eterm enc, int must_exist)
 	    }
 
 	    a = make_atom(uix);
-	}
-	else if (!erts_atom_get((char*)bytes, bin_size, &a, ERTS_ATOM_ENC_UTF8)) {
-	    goto badarg;
+	} else {
+	    a = erts_atom_get((char *)bytes, bin_size, ERTS_ATOM_ENC_UTF8);
+	    if (is_non_value(a)) {
+		goto badarg;
+	    }
 	}
     } else {
 	goto badarg;
