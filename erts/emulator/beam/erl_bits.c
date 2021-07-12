@@ -78,6 +78,11 @@ typedef Uint16 erlfp16;
 
 static byte get_bit(byte b, size_t a_offs); 
 
+/* If the proc bin is larger than 16 MB,
+   we only increase by 20% instead of doubling */
+#define GROW_PROC_BIN_SIZE(size) \
+    (((size) > (1ull << 24)) ? 1.2*(size) : 2*(size))
+
 /* the state resides in the current process' scheduler data */
 
 #define byte_buf	(ErlBitsState.byte_buf_)
@@ -1448,7 +1453,8 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
      */
     binp = pb->val;
     if (binp->orig_size < pb->size) {
-	Uint new_size = 2*pb->size;
+	Uint new_size = GROW_PROC_BIN_SIZE(pb->size);
+
 	binp = erts_bin_realloc(binp, new_size);
 	pb->val = binp;
 	pb->bytes = (byte *) binp->orig_bytes;
@@ -1527,7 +1533,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
         used_size_in_bytes = NBYTES(used_size_in_bits);
 
         if(used_size_in_bits < (ERTS_UINT_MAX / 2)) {
-            bin_size = 2 * used_size_in_bytes;
+            bin_size = GROW_PROC_BIN_SIZE(used_size_in_bytes);
         } else {
             bin_size = NBYTES(ERTS_UINT_MAX);
         }
@@ -1637,7 +1643,7 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
      */
     binp = pb->val;
     if (binp->orig_size < pb->size) {
-	Uint new_size = 2*pb->size;
+	Uint new_size = GROW_PROC_BIN_SIZE(pb->size);
 
         BUMP_REDS(p, pb->size / BITS_PER_REDUCTION);
 	if (pb->flags & PB_IS_WRITABLE) {
