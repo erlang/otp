@@ -1464,14 +1464,6 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name name="install_fallback" arity="1" since=""/>
-      <fsummary>Installs a backup as fallback.</fsummary>
-      <desc>
-        <p>Calls <c>mnesia:install_fallback(Opaque, Args)</c>, where
-          <c>Args</c> is <c>[{scope, global}, {module, BackupMod}]</c>.</p>
-      </desc>
-    </func>
-    <func>
       <name name="install_fallback" arity="2" since=""/>
       <fsummary>Installs a backup as fallback.</fsummary>
       <desc>
