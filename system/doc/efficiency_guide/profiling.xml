@@ -47,7 +47,7 @@
 
       <item><p><seeerl marker="tools:eprof"><c>eprof</c></seeerl> provides
           time information of each function used in the program. No call graph is
-          produced, but <c>eprof</c> has considerable less impact on the program it
+          produced, but <c>eprof</c> has considerably less impact on the program it
           profiles.</p>
         <p>If the program is too large to be profiled by <c>fprof</c> or
           <c>eprof</c>, <c>cprof</c> can be used to locate code parts that
@@ -96,14 +96,14 @@
       use. When this happens a crash dump is generated that contains information
       about the state of the system as it ran out of memory. Use the
       <seecom marker="observer:cdv"><c>crashdump_viewer</c></seecom> to get a
-      view of the memory is being used. Look for processes with large heaps or
+      view of the memory being used. Look for processes with large heaps or
       many messages, large ets tables, etc.</p>
     <p>When looking at memory usage in a running system the most basic function
       to get information from is <seemfa marker="erts:erlang#memory/0"><c>
       erlang:memory()</c></seemfa>. It returns the current memory usage
       of the system. <seeerl marker="tools:instrument"><c>instrument(3)</c></seeerl>
       can be used to get a more detailed breakdown of where memory is used.</p>
-    <p>Processes, ports and ets tables can then be inspecting using their
+    <p>Processes, ports and ets tables can then be inspected using their
       respective info functions, i.e.
       <seeerl marker="erts:erlang#process_info_memory"><c>erlang:process_info/2
       </c></seeerl>,
@@ -118,7 +118,7 @@
       how memory is allocated can be retrieved using
       <seeerl marker="erts:erlang#system_info_allocator">
         <c>erlang:system_info(allocator)</c></seeerl>.
-      The data you get from that function is very raw and not very plesant to read.
+      The data you get from that function is very raw and not very pleasant to read.
       <url href="http://ferd.github.io/recon/recon_alloc.html">recon_alloc</url>
       can be used to extract useful information from system_info
       statistics counters.</p>
@@ -135,7 +135,7 @@
 
     <p>For a large system, you do not want to run the profiling
       tools on the whole system. Instead you want to concentrate on
-      central processes and modules, which contribute for a big part
+      central processes and modules, which account for a big part
       of the execution.</p>
 
     <p>There are also some tools that can be used to get a view of the
@@ -209,7 +209,7 @@
       <p><c>eprof</c> is based on the Erlang <c>trace_info</c> BIFs.
       <c>eprof</c> shows how much time has been used by each process,
       and in which function calls this time has been spent. Time is
-      shown as percentage of total time and absolute time. For more
+      shown as a percentage of total time and absolute time. For more
       information, see the <seeerl marker="tools:eprof">eprof</seeerl>
       manual page in Tools.</p>
     </section>
@@ -290,7 +290,7 @@
 
     <section>
       <title>lcnt</title>
-      <p><c>lcnt</c> is used to profile interactions inbetween
+      <p><c>lcnt</c> is used to profile interactions in between
         entities that run in parallel. For example if you have
         a process that all other processes in the system needs
         to interact with (maybe it has some global configuration),
@@ -314,7 +314,7 @@
     implementation of a given algorithm or function is the fastest.
     Benchmarking is far from an exact science. Today's operating systems
     generally run background tasks that are difficult to turn off.
-    Caches and multiple CPU cores does not facilitate benchmarking.
+    Caches and multiple CPU cores do not facilitate benchmarking.
     It would be best to run UNIX computers in single-user mode when
     benchmarking, but that is inconvenient to say the least for casual
     testing.</p>
