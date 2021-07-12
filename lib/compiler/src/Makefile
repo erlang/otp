@@ -45,6 +45,9 @@ RELSYSDIR = $(RELEASE_PATH)/lib/compiler-$(VSN)
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
+BEHAVIOUR_MODULES= \
+	parse_transform
+
 MODULES =  \
 	beam_a \
 	beam_asm \
@@ -118,8 +121,14 @@ YRL_FILE = core_parse.yrl
 
 EXTRA_FILES= $(EGEN)/beam_opcodes.hrl
 
-ERL_FILES= $(MODULES:%=%.erl)
-INSTALL_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
+ERL_FILES= \
+	$(BEHAVIOUR_MODULES:%=%.erl) \
+	$(MODULES:%=%.erl)
+INSTALL_FILES= \
+	$(BEHAVIOUR_MODULES:%=$(EBIN)/%.$(EMULATOR)) \
+	$(MODULES:%=$(EBIN)/%.$(EMULATOR)) \
+	$(APP_TARGET) \
+	$(APPUP_TARGET)
 TARGET_FILES= $(INSTALL_FILES)
  
 APP_FILE= compiler.app
