@@ -2579,9 +2579,8 @@ binary_cipher_suites(Versions, [Map|_] = Ciphers0) when is_map(Map) ->
 binary_cipher_suites(Versions, [Tuple|_] = Ciphers0) when is_tuple(Tuple) ->
     Ciphers = [ssl_cipher_format:suite_map_to_bin(tuple_to_map(C)) || C <- Ciphers0],
     binary_cipher_suites(Versions, Ciphers);
-binary_cipher_suites([Version |_] = Versions, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
-    All = ssl_cipher:all_suites(Version) ++ 
-        ssl_cipher:anonymous_suites(Version),
+binary_cipher_suites(Versions, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
+    All = all_suites(Versions),
     case [Cipher || Cipher <- Ciphers0, lists:member(Cipher, All)] of
 	[] ->
 	    %% Defaults to all supported suites that does
@@ -2603,6 +2602,16 @@ default_binary_suites(exclusive, {_, Minor}) ->
     ssl_cipher:filter_suites(tls_v1:exclusive_suites(Minor));
 default_binary_suites(default, Version) ->
     ssl_cipher:filter_suites(ssl_cipher:suites(Version)).
+
+all_suites([{3, 4 = Minor}]) ->
+    tls_v1:exclusive_suites(Minor); 
+all_suites([{3, 4} = Version0, Version1 |_]) ->
+    all_suites([Version0]) ++
+        ssl_cipher:all_suites(Version1) ++
+        ssl_cipher:anonymous_suites(Version1);
+all_suites([Version|_]) ->
+      ssl_cipher:all_suites(Version) ++
+        ssl_cipher:anonymous_suites(Version).
 
 tuple_to_map({Kex, Cipher, Mac}) ->
     #{key_exchange => Kex,
