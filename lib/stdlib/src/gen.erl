@@ -201,6 +201,8 @@ call(Process, Label, Request, Timeout)
 
 -dialyzer({no_improper_lists, do_call/4}).
 
+do_call(Process, _Label, _Request, _Timeout) when Process =:= self() ->
+    exit(calling_self);
 do_call(Process, Label, Request, infinity)
   when (is_pid(Process)
         andalso (node(Process) == node()))

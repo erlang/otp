@@ -417,6 +417,11 @@ format_io_error(_, _, {io, arguments}, true) ->
     [device_arguments];
 format_io_error(_, _, {io, arguments}, false) ->
     [{general,device_arguments}];
+%% calling_self, Io =:= self()
+format_io_error(_, _, {io, calling_self}, true) ->
+    [calling_self];
+format_io_error(_, _, {io, calling_self}, false) ->
+    [{general,calling_self}];
 %% terminated, monitor(Io) failed
 format_io_error(_, _, {io, terminated}, true) ->
     [device_terminated];
@@ -988,6 +993,8 @@ expand_error(bad_update_op) ->
     <<"not a valid update operation">>;
 expand_error(bitstring) ->
     <<"is a bitstring (expected a binary)">>;
+expand_error(calling_self) ->
+    <<"the device is not allowed to be the current process">>;
 expand_error(counter_not_integer) ->
     <<"the value in the given position, in the object, is not an integer">>;
 expand_error(dead_process) ->

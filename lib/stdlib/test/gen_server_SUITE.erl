@@ -28,7 +28,7 @@
 	 init_per_group/2,end_per_group/2]).
 -export([start/1, crash/1, call/1, send_request/1, cast/1, cast_fast/1,
 	 continue/1, info/1, abcast/1, multicall/1, multicall_down/1,
-	 call_remote1/1, call_remote2/1, call_remote3/1,
+	 call_remote1/1, call_remote2/1, call_remote3/1, calling_self/1,
 	 call_remote_n1/1, call_remote_n2/1, call_remote_n3/1, spec_init/1,
 	 spec_init_local_registered_parent/1, 
 	 spec_init_global_registered_parent/1,
@@ -65,7 +65,7 @@ suite() ->
 
 all() -> 
     [start, {group,stop}, crash, call, send_request, cast, cast_fast, info, abcast,
-     continue, multicall, multicall_down, call_remote1, call_remote2,
+     continue, multicall, multicall_down, call_remote1, call_remote2, calling_self,
      call_remote3, call_remote_n1, call_remote_n2,
      call_remote_n3, spec_init,
      spec_init_local_registered_parent,
@@ -718,6 +718,15 @@ call_remote_n3(Config) when is_list(Config) ->
     {'EXIT', {{nodedown, Node}, _}} = (catch gen_server:call({piller, Node},
 							     started_p, infinity)),
 
+    ok.
+
+%% --------------------------------------
+%% Other bad calls
+%% --------------------------------------
+
+calling_self(Config) when is_list(Config) ->
+    {'EXIT', {calling_self, _}} = (catch gen_server:call(self(), oops)),
+    {'EXIT', {calling_self, _}} = (catch gen_server:call(self(), oops, infinity)),
     ok.
 
 %% --------------------------------------
