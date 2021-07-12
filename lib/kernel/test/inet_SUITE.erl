@@ -216,19 +216,38 @@ end_per_testcase2(lookup_bad_search_option, Config) ->
 end_per_testcase2(_Func, _Config) ->
     ok.
 
-t_gethostbyaddr() ->
-    required(v4).
+t_gethostbyaddr() -> required(v4).
 %% Test the inet:gethostbyaddr/1 function.
 t_gethostbyaddr(Config) when is_list(Config) ->
-    {Name,FullName,IPStr,{A,B,C,D}=IP,Aliases,_,_} = ct:get_config(test_host_ipv4_only),
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_gethostbyaddr(Config) end).
+
+do_gethostbyaddr(Config) when is_list(Config) ->
+    ?P("begin - try get config 'test_host_ipv4_only'"),
+    {Name,FullName,IPStr,{A,B,C,D}=IP,Aliases,_,_} =
+        ct:get_config(test_host_ipv4_only),
+    ?P("config 'test_host_ipv4_only': "
+       "~n   Name:      ~p"
+       "~n   Full Name: ~p"
+       "~n   IPStr:     ~p"
+       "~n   (IP) A:    ~p"
+       "~n   (IP) B:    ~p"
+       "~n   (IP) C:    ~p"
+       "~n   (IP) D:    ~p"
+       "~n   Aliases:   ~p",
+       [Name, FullName, IPStr, A, B, C, D,Aliases]),
     Rname = integer_to_list(D) ++ "." ++
 	integer_to_list(C) ++ "." ++
 	integer_to_list(B) ++ "." ++
 	integer_to_list(A) ++ ".in-addr.arpa",
-    {ok,HEnt} = inet:gethostbyaddr(IPStr),
-    {ok,HEnt} = inet:gethostbyaddr(IP),
-    {error,Error} = inet:gethostbyaddr(Name),
-    ok = io:format("Failure reason: ~p: ~s", [error,inet:format_error(Error)]),
+    {ok, HEnt} = inet:gethostbyaddr(IPStr),
+    {ok, HEnt} = inet:gethostbyaddr(IP),
+    ?P("gethostbyaddr for (both):"
+       "~n   IPStr: ~p"
+       "~n   IP:    ~p"
+       "~n   => ~p", [IPStr, IP, HEnt]),
+    {error, Reason} = inet:gethostbyaddr(Name),
+    ok = ?P("Expected error with failure reason: "
+            "~n   (~w) ~s", [Reason, inet:format_error(Reason)]),
     HEnt_ = HEnt#hostent{h_addrtype = inet,
                          h_length = 4,
                          h_addr_list = [IP]},
@@ -237,27 +256,34 @@ t_gethostbyaddr(Config) when is_list(Config) ->
         {{unix,freebsd},{5,0,0}} ->
             %% The alias list seems to be buggy in FreeBSD 5.0.0.
             check_elems([{HEnt#hostent.h_name,[Name,FullName]}]),
-            io:format("Buggy alias list: ~p", [HEnt#hostent.h_aliases]),
+            ?P("Buggy alias list: ~p", [HEnt#hostent.h_aliases]),
             ok;
         _ ->
-            io:format("alias list: ~p", [HEnt#hostent.h_aliases]),
-            io:format(
-	      "check alias list: ~p", [[Aliases,tl(Aliases),[Rname]]]),
-            io:format("name: ~p", [HEnt#hostent.h_name]),
-            io:format("check name: ~p", [[Name,FullName]]),
+            ?P("alias list: "
+               "~n   ~p", [HEnt#hostent.h_aliases]),
+            ?P("check alias list: "
+               "~n   ~p", [[Aliases,tl(Aliases),[Rname]]]),
+            ?P("name:       ~p", [HEnt#hostent.h_name]),
+            ?P("check name: ~p", [[Name,FullName]]),
             check_elems(
 	      [{HEnt#hostent.h_name,[Name,FullName]},
 	       {HEnt#hostent.h_aliases,[[],Aliases,tl(Aliases),[Rname]]}])
     end,
 
+    ?P("try get config 'test_dummy_host'"),
     {_DName, _DFullName, DIPStr, DIP, _, _, _} = ct:get_config(test_dummy_host),
     {error,nxdomain} = inet:gethostbyaddr(DIPStr),
     {error,nxdomain} = inet:gethostbyaddr(DIP),
+
+    ?P("done"),
     ok.
 
 t_gethostbyaddr_v6() -> required(v6).
 %% Test the inet:gethostbyaddr/1 inet6 function.
 t_gethostbyaddr_v6(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_gethostbyaddr_v6(Config) end).
+
+do_gethostbyaddr_v6(Config) when is_list(Config) ->
     {Name6, FullName6, IPStr6, IP6, Aliases6} =
 	ct:get_config(test_host_ipv6_only),
 
@@ -266,11 +292,11 @@ t_gethostbyaddr_v6(Config) when is_list(Config) ->
 	%% looking up the host. DNS lookup will probably fail.
 	{error,nxdomain} ->
 	    {skip, "IPv6 test fails! IPv6 not supported on this host!?"};
-	{ok,HEnt6} ->
-	    {ok,HEnt6} = inet:gethostbyaddr(IP6),
-	    {error,Error6} = inet:gethostbyaddr(Name6),
-	    ok = io:format("Failure reason: ~p: ~s",
-			   [Error6, inet:format_error(Error6)]),
+	{ok, HEnt6} ->
+	    {ok, HEnt6} = inet:gethostbyaddr(IP6),
+	    {error, Reason6} = inet:gethostbyaddr(Name6),
+	    ok = ?P("Expected error with failure reason: "
+                    "~n   (~w) ~s", [Reason6, inet:format_error(Reason6)]),
 	    HEnt6_ = HEnt6#hostent{h_addrtype = inet6,
 				   h_length = 16,
 				   h_addr_list = [IP6]},
@@ -289,6 +315,9 @@ t_gethostbyaddr_v6(Config) when is_list(Config) ->
 t_gethostbyname() -> required(v4).
 %% Test the inet:gethostbyname/1 function.
 t_gethostbyname(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_gethostbyname(Config) end).
+
+do_gethostbyname(Config) when is_list(Config) ->
     {Name,FullName,IPStr,IP,Aliases,IP_46_Str,_} =
 	ct:get_config(test_host_ipv4_only),
     {ok,_} = inet:gethostbyname(IPStr),
@@ -329,6 +358,9 @@ t_gethostbyname(Config) when is_list(Config) ->
 t_gethostbyname_v6() -> required(v6).
 %% Test the inet:gethostbyname/1 inet6 function.
 t_gethostbyname_v6(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_gethostbyname_v6(Config) end).
+
+do_gethostbyname_v6(Config) when is_list(Config) ->
     {Name, FullName, IPStr, IP, Aliases} =
 	ct:get_config(test_host_ipv6_only),
 
@@ -379,6 +411,9 @@ t_gethostbyname_v6(Config) when is_list(Config) ->
     end.
 
 check_elems([{Val,Tests} | Elems]) ->
+    ?P("check_elems -> entry with"
+       "~n   Val:   ~p"
+       "~n   Tests: ~p", [Val, Tests]),
     check_elem(Val, Tests, Tests),
     check_elems(Elems);
 check_elems([]) -> ok.
