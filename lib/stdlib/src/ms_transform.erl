@@ -756,7 +756,12 @@ tg({bin_element,Anno,X,Y,Z},B) ->
 
 tg({bin,Anno,List},B) ->
     {bin,Anno,[tg(X,B) || X <- List]};
-    
+
+tg({map_field_assoc, Anno, Field, Value}, B) ->
+    {map_field_assoc, Anno, tg(Field, B), tg(Value, B)};
+tg({map, Anno, List}, B) ->
+    {map, Anno, [tg(X, B) || X <- List]};
+
 tg(T,B) when is_tuple(T), tuple_size(T) >= 2 ->
     Element = element(1,T),
     Anno = element(2,T),
@@ -858,6 +863,9 @@ th({var,Anno,Name},B,OB) ->
 	Trans ->
 	    {{atom,Anno,Trans},B}
     end;
+th({map_field_exact,Anno,Field,Value},B,OB) ->
+    {[NField, NValue], NB} = th([Field, Value], B, OB),
+    {{map_field_assoc,Anno,NField,NValue}, NB};
 th([H|T],B,OB) ->
     {NH,NB} = th(H,B,OB),
     {NT,NNB} = th(T,NB,OB),
@@ -1131,12 +1139,11 @@ normalise({op,_,'++',A,B}) ->
     normalise(A) ++ normalise(B);
 normalise({tuple,_,Args}) ->
     list_to_tuple(normalise_list(Args));
-normalise({map,_,Pairs0}) ->
-    Pairs1 = lists:map(fun ({map_field_exact,_,K,V}) ->
-                               {normalise(K),normalise(V)}
-                       end,
-                       Pairs0),
-    maps:from_list(Pairs1);
+normalise({map,_,Pairs}) ->
+    maps:from_list(lists:map(fun
+		%% only allow '=>'
+		({map_field_assoc,_,K,V}) -> {normalise(K),normalise(V)}
+	    end, Pairs));
 %% Special case for unary +/-.
 normalise({op,_,'+',{char,_,I}}) -> I;
 normalise({op,_,'+',{integer,_,I}}) -> I;
