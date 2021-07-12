@@ -2469,6 +2469,7 @@ handle_event(_, _, State, Data) ->
 	    in that case be implemented as:
 	  </p>
 	  <pre>
+-spec init(_) -> no_return().
 init(Args) -> erlang:error(not_implemented, [Args]).</pre>
         </note>
       </desc>
