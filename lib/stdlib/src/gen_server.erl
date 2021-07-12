@@ -946,10 +946,15 @@ error_info(_Reason, application_controller, _From, _Msg, _Mod, _State, _Debug) -
     ok;
 error_info(Reason, Name, From, Msg, Mod, State, Debug) ->
     Log = sys:get_log(Debug),
+    Status =
+        limit_status(Mod, #{ opt => terminate,
+                             dictionary => get(),
+                             state => State,
+                             message => Msg }),
     ?LOG_ERROR(#{label=>{gen_server,terminate},
                  name=>Name,
-                 last_message=>Msg,
-                 state=>format_status(terminate, Mod, get(), State),
+                 last_message=>maps:get(message,Status),
+                 state=>maps:get(state,Status),
                  log=>format_log_state(Mod, Log),
                  reason=>Reason,
                  client_info=>client_stacktrace(From)},
@@ -1213,9 +1218,11 @@ format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time, _HibernateAfterTimeout]] = StatusData,
     Header = gen:format_status_header("Status for generic server", Name),
     Log = sys:get_log(Debug),
-    Specific = case format_status(Opt, Mod, PDict, State) of
-		  S when is_list(S) -> S;
-		  S -> [S]
+    Specific = case limit_status(Mod, #{ opt => Opt,
+                                         dictionary => PDict,
+                                         state => State }) of
+		  #{ state := S } when is_list(S) -> S;
+		  #{ state := S } -> [S]
 	      end,
     [{header, Header},
      {data, [{"Status", SysState},
@@ -1226,23 +1233,53 @@ format_status(Opt, StatusData) ->
 format_log_state(Mod, Log) ->
     [case Event of
          {out,Msg,From,State} ->
-             {out,Msg,From,format_status(terminate, Mod, get(), State)};
+             Status = limit_status(Mod, #{ opt => terminate,
+                                           state => State,
+                                           message => Msg }),
+             {out, maps:get(message, Status), From, maps:get(state, Status) };
          {noreply,State} ->
-             {noreply,format_status(terminate, Mod, get(), State)};
+             Status = limit_status(Mod, #{ opt => terminate,
+                                           state => State }),
+             {noreply, maps:get(state, Status)};
+         {in,Msg} ->
+             Status = limit_status(Mod, #{ opt => terminate,
+                                           message => Msg }),
+             {in, maps:get(message, Status)};
          _ -> Event
      end || Event <- Log].
 
-format_status(Opt, Mod, PDict, State) ->
-    DefStatus = case Opt of
-		    terminate -> State;
-		    _ -> [{data, [{"State", State}]}]
-		end,
-    case erlang:function_exported(Mod, format_status, 2) of
-	true ->
-	    case catch Mod:format_status(Opt, [PDict, State]) of
-		{'EXIT', _} -> DefStatus;
-		Else -> Else
-	    end;
-	_ ->
-	    DefStatus
+
+-type format_status() :: #{ opt := terminate | normal,
+                            state => term(),
+                            dictionary => [{term(),term()}],
+                            message => term() }.
+-spec limit_status(Mod :: module(), Status :: format_status()) -> format_status().
+limit_status(Mod, Status) ->
+    DefStatus =
+        case maps:get(opt, Status) of
+            terminate -> Status;
+            _ -> Status#{ state := [{data, [{"State", maps:get(state, Status, undefined)}]}]}
+        end,
+    case erlang:function_exported(Mod, format_status, 1) of
+        true ->
+            try Mod:format_status(Status) of
+                FormatStatus ->
+                    FormatStatus
+            catch _E:_R:_ST ->
+                    ?LOG_ERROR("Calling ~p:format_status/1 failed", [Mod]),
+                    DefStatus
+            end;
+        false ->
+            case erlang:function_exported(Mod, format_status, 2) of
+                true ->
+                    case catch Mod:format_status(maps:get(opt, Status),
+                                                 [maps:get(dictionary, Status, []),
+                                                  maps:get(state, Status)]) of
+                        {'EXIT', _} -> DefStatus;
+                        FormatState ->
+                            Status#{ state := FormatState }
+                    end;
+                false ->
+                    DefStatus
+            end
     end.

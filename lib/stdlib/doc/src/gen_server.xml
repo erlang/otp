@@ -788,6 +788,83 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
+      <name since="OTP @OTP-1234@">Module:format_status(Status) -> Status</name>
+      <fsummary>Optional function for providing a term describing the
+        current <c>gen_server</c> status.</fsummary>
+      <type>
+        <v>Status = #{ opt := Opt, dictionary => PDict,</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        state => State, message => Message }</v>
+        <v>Opt = normal | terminate</v>
+        <v>PDict = [{Key, Value}]</v>
+        <v>State = term()</v>
+        <v>Message = term()</v>
+      </type>
+      <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The <c>gen_server</c> module provides a default
+            implementation of this function that returns the callback
+            module state.</p>
+        </note>
+        <p>This function is called by a <c>gen_server</c> process in the
+          following situations:</p>
+        <list type="bulleted">
+          <item>
+            <p>One of <seemfa marker="sys#get_status/1">
+              <c>sys:get_status/1,2</c></seemfa>
+              is invoked to get the <c>gen_server</c> status. <c>Opt</c> is set
+              to the atom <c>normal</c>.</p>
+          </item>
+          <item>
+            <p>The <c>gen_server</c> process terminates abnormally and logs an
+              error. <c>Opt</c> is set to the atom <c>terminate</c>.</p>
+          </item>
+        </list>
+        <p>This function is useful for changing the form and
+          appearance of the <c>gen_server</c> status for these cases. A
+          callback module wishing to change
+          the <c>sys:get_status/1,2</c> return value, as well as how
+          its status appears in termination error logs, exports an
+          instance of <c>format_status/1</c> that returns a map
+          describing the current status of the <c>gen_server</c> process.</p>
+        <p><c>PDict</c> is the current value of the process dictionary of
+          the <c>gen_server</c> process..</p>
+        <p><c>State</c> is the internal state of the <c>gen_server</c>
+          process.</p>
+        <p><c>Message</c> is a message that the server received or replied.</p>
+        <p>The function is to return <c>Status</c>, a map containing the same
+          associations as the input map. Any of the associations in the returned
+          map can be any term value, however when <c>Opt</c>
+          is <c>normal</c>, the recommended form for
+          the <c>State</c> value is <c>[{data, [{"State",
+          Term}]}]</c>, where <c>Term</c> provides relevant details of
+          the <c>gen_server</c> state. Following this recommendation is not
+          required, but it makes the callback module status
+          consistent with the rest of the <c>sys:get_status/1,2</c>
+          return value.</p>
+        <p>One use for this function is to return compact alternative
+          state representations to avoid that large state terms are
+          printed in log files.</p>
+        <p>Example:</p>
+        <code type="erl"><![CDATA[
+format_status(Status) ->
+  maps:map(
+    fun(state,State) ->
+            case maps:get(opt,Status) of
+                normal -> [{data, [{"State", State}]}];
+                _ -> State
+            end;
+       (message,{password, _Pass}) ->
+            {password, removed};
+       (_,Value) ->
+            Value
+    end, Status).
+]]></code>
+      </desc>
+    </func>
+    
+    <func>
       <name since="OTP R13B04">Module:format_status(Opt, [PDict, State]) -> Status</name>
       <fsummary>Optional function for providing a term describing the
         current <c>gen_server</c> status.</fsummary>
