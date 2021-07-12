@@ -22,7 +22,7 @@
 % Default timetrap timeout (set in init_per_testcase).
 % This should be set relatively high (10-15 times the expected
 % max testcasetime).
--define(default_timeout, ?t:minutes(10)).
+-define(default_timeout, test_server:minutes(10)).
 
 -define(RDBMS, case os:type() of
 		   {unix, sunos} ->

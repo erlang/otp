@@ -727,7 +727,7 @@ otp_14440(_Config) ->
             ok = slave:stop(N);
         _ ->
             _ = slave:stop(N),
-            ?t:fail(Result)
+            test_server:fail(Result)
     end.
 %%
 otp_14440_decode() ->
@@ -1346,7 +1346,7 @@ xref(_Config) ->
 	    ok;
 	{ok,[_|_]=Res} ->
 	    io:format("Exported, but unused: ~p\n", [Res]),
-	    ?t:fail()
+	    test_server:fail()
     end.
 
 %% Ensure that all functions that are implicitly exported by
@@ -1368,7 +1368,7 @@ xref_export_all(_Config) ->
         [_|_] ->
             Msg = [io_lib:format("~p:~p/~p\n", [M,F,A]) || {M,F,A} <- Unused],
             io:format("There are unused functions:\n\n~s\n", [Msg]),
-            ?t:fail(unused_functions)
+            test_server:fail(unused_functions)
     end.
 
 %% Collect all functions that common_test will call in this module.

@@ -27,7 +27,6 @@
 -define(config(X,Y), foo).
 -define(datadir, "yecc_SUITE_data").
 -define(privdir, "yecc_SUITE_priv").
--define(t, test_server).
 -else.
 -include_lib("common_test/include/ct.hrl").
 -define(datadir, ?config(data_dir, Config)).
@@ -52,10 +51,10 @@
          otp_11286/1, otp_14285/1, otp_17023/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
+-define(default_timeout, test_server:minutes(1)).
 
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
+    Dog = test_server:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
 end_per_testcase(_Case, Config) ->
@@ -97,7 +96,7 @@ app_test(doc) ->
 app_test(suite) ->
     [];
 app_test(Config) when is_list(Config) ->
-    ok=?t:app_test(parsetools),
+    ok=test_server:app_test(parsetools),
     ok.
 
 
@@ -1774,7 +1773,7 @@ run(Config, Tests) ->
                     E -> 
                         ok;
                     Bad -> 
-                        ?t:format("~nTest ~p failed. Expected~n  ~p~n"
+                        test_server:format("~nTest ~p failed. Expected~n  ~p~n"
                                   "but got~n  ~p~n", [N, E, Bad]),
 			fail()
                 end
@@ -2253,4 +2252,4 @@ safe_second_element({_,Info}) -> Info;
 safe_second_element(Other) -> Other.
 
 fail() ->
-    ?t:fail().
+    test_server:fail().

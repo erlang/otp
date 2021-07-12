@@ -196,7 +196,7 @@ main(Rule, Opts) ->
 	    ok;
 	[_|_]=R ->
 	    io:format("~p\n", [R]),
-	    ?t:fail()
+	    test_server:fail()
     end.
 
 legacy_filter({_,_}=Keep) ->

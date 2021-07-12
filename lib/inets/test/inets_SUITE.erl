@@ -109,12 +109,12 @@ end_per_testcase(_, Config) ->
 app() ->
     [{doc, "Test that the inets app file is ok"}].
 app(Config) when is_list(Config) ->
-    ok = ?t:app_test(inets).
+    ok = test_server:app_test(inets).
 %%--------------------------------------------------------------------
 appup() ->
     [{doc, "Test that the inets appup file is ok"}].
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(inets).
+    ok = test_server:appup_test(inets).
 
 start_inets() ->
     [{doc, "Test inets API functions"}].

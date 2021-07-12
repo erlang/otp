@@ -26,7 +26,7 @@
 -compile(export_all).
 
 %% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:seconds(30)).
+-define(default_timeout, test_server:seconds(30)).
 
 all() ->
     testcases() ++ [{group,g},  tc2].

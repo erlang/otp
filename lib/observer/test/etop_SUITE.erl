@@ -28,7 +28,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(default_timeout, ?t:minutes(1)).
+-define(default_timeout, test_server:minutes(1)).
 
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(?default_timeout),
@@ -38,7 +38,7 @@ end_per_testcase(Case, Config) ->
     catch error:undef -> ok
     end,
     Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -64,7 +64,7 @@ end_per_group(_GroupName, Config) ->
 
 %% Start etop with text presentation
 text(_) ->
-    ?line {ok,Node} = ?t:start_node(node2,peer,[]),
+    ?line {ok,Node} = test_server:start_node(node2,peer,[]),
 
     %% Must spawn this process, else the test case will never end.
     ?line spawn_link(etop,start,[[{node,Node},{output,text},{interval,3}]]),
@@ -86,14 +86,14 @@ text(cleanup,_Config) ->
     etop:stop(),
     {ok,Host} = inet:gethostname(),
     Node = list_to_atom("node2@"++Host),
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 text_tracing_off(suite) ->
     [];
 text_tracing_off(doc) ->
     ["Start etop with text presentation, and tracing turned off"];
 text_tracing_off(Config) when is_list(Config) ->
-    ?line {ok,Node} = ?t:start_node(node2,peer,[]),
+    ?line {ok,Node} = test_server:start_node(node2,peer,[]),
 
     %% Must spawn this process, else the test case will never end.
     ?line spawn_link(etop,start,[[{node,Node},
@@ -118,5 +118,5 @@ text_tracing_off(cleanup,_Config) ->
     etop:stop(),
     {ok,Host} = inet:gethostname(),
     Node = list_to_atom("node2@"++Host),
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 

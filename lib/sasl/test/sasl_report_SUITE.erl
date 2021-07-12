@@ -192,10 +192,10 @@ check_file(File, Encoding, Min, Max) ->
     if
 	Sz < Min ->
 	    %% Truncated? Other problem?
-	    ?t:fail({too_short,Base});
+	    test_server:fail({too_short,Base});
 	Sz > Max ->
 	    %% Truncation doesn't work?
-	    ?t:fail({too_big,Base});
+	    test_server:fail({too_big,Base});
 	true ->
 	    ok
     end.

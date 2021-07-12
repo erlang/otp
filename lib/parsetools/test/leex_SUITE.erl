@@ -28,7 +28,6 @@
 -define(config(X,Y), foo).
 -define(datadir, "leex_SUITE_data").
 -define(privdir, "leex_SUITE_priv").
--define(t, test_server).
 -else.
 -include_lib("common_test/include/ct.hrl").
 -define(datadir, ?config(data_dir, Config)).
@@ -48,10 +47,10 @@
          otp_17023/1, compiler_warnings/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
+-define(default_timeout, test_server:minutes(1)).
 
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
+    Dog = test_server:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
 end_per_testcase(_Case, Config) ->
@@ -1238,7 +1237,7 @@ run(Config, Tests) ->
                     E -> 
                         ok;
                     Bad -> 
-                        ?t:format("~nTest ~p failed. Expected~n  ~p~n"
+                        test_server:format("~nTest ~p failed. Expected~n  ~p~n"
                                   "but got~n  ~p~n", [N, E, Bad]),
 			fail()
                 end
@@ -1289,4 +1288,4 @@ extract(File, Ts) ->
     lists:append([T || {F, T} <- Ts,  F =:= File]).
 
 fail() ->
-    ?t:fail().
+    test_server:fail().

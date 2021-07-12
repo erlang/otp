@@ -49,11 +49,11 @@ end_per_group(_GroupName, Config) ->
 
 %% Test that the .app file does not contain any `basic' errors
 app(Config) when is_list(Config) ->
-    ok = ?t:app_test(edoc).
+    ok = test_server:app_test(edoc).
 
 %% Test that the .appup file does not contain any `basic' errors
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(edoc).
+    ok = test_server:appup_test(edoc).
 
 build_std(suite) -> [];
 build_std(doc) -> ["Build some documentation using standard EDoc layout"];

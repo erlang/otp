@@ -43,7 +43,7 @@
 
 -import(lists, [foldl/3]).
 
--define(default_timeout, ?t:minutes(20)).
+-define(default_timeout, test_server:minutes(20)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1904,8 +1904,8 @@ app_start_type_relup(Dir2,Name2,Config) ->
     {"LATEST_APP_START_TYPE2",
      [{"LATEST_APP_START_TYPE1",[], UpInstructions}],
      [{"LATEST_APP_START_TYPE1",[], DownInstructions}]} = Release2Relup,
-    %% ?t:format("Up: ~p",[UpInstructions]),
-    %% ?t:format("Dn: ~p",[DownInstructions]),
+    %% test_server:format("Up: ~p",[UpInstructions]),
+    %% test_server:format("Dn: ~p",[DownInstructions]),
     [{load_object_code, {mnesia, _, _}},
      {load_object_code, {runtime_tools, _, _}},
      {load_object_code, {snmp, _, _}},
