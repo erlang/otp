@@ -32,7 +32,7 @@
 	 concat/1, flatten/1, flatten/2, flatlength/1,
 	 keydelete/3, keyreplace/4, keytake/3, keystore/4,
 	 keysort/2, keymerge/3, rkeymerge/3, rukeymerge/3, 
-	 ukeysort/2, ukeymerge/3, keymap/3]).
+	 ukeysort/2, ukeymerge/3, keymap/3, enumerate/1, enumerate/2]).
 
 -export([merge/3, rmerge/3, sort/2, umerge/3, rumerge/3, usort/2]).
 
@@ -956,6 +956,24 @@ keymap(Fun, Index, [Tup|Tail]) ->
    [setelement(Index, Tup, Fun(element(Index, Tup)))|keymap(Fun, Index, Tail)];
 keymap(Fun, Index, []) when is_integer(Index), Index >= 1, 
                             is_function(Fun, 1) -> [].
+
+-spec enumerate(List1) -> List2 when
+      List1 :: [T],
+      List2 :: [{Index, T}],
+      Index :: integer(),
+      T :: term().
+enumerate(List1) ->
+    enumerate(1, List1).
+
+-spec enumerate(Index, List1) -> List2 when
+      List1 :: [T],
+      List2 :: [{Index, T}],
+      Index :: integer(),
+      T :: term().
+enumerate(Index, [H|T]) when is_integer(Index) ->
+    [{Index, H}|enumerate(Index + 1, T)];
+enumerate(Index, []) when is_integer(Index) ->
+    [].
 
 %%% Suggestion from OTP-2948: sort and merge with Fun.
 
