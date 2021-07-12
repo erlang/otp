@@ -310,7 +310,7 @@
 %% while a flat string or binary represents source code containing newlines.
 -type text() :: string() | binary() | [string()] | [binary()].
 
--type location() :: erl_anno:location().
+-type location() :: erl_anno:location() | erl_anno:anno().
 
 
 %% ------------------------------------------------------------------------
@@ -324,7 +324,7 @@ compile(Code) ->
 %% into a binary BEAM object.
 %% @see compile_and_load/2
 %% @see compile/1
-compile(Code, Options) when not is_list(Code)->
+compile(Code, Options) when not is_list(Code) ->
     case type(Code) of
         form_list -> compile(erl_syntax:form_list_elements(Code));
         _ -> compile([Code], Options)
@@ -471,11 +471,11 @@ quote(Text) ->
 %%
 %% @see quote/1
 
-quote({Line, Col}, Text)
-  when is_integer(Line), is_integer(Col) ->
-    quote_1(Line, Col, Text);
-quote(StartPos, Text) when is_integer(StartPos) ->
-    quote_1(StartPos, undefined, Text).
+quote(StartPos, Text) ->
+    Anno = erl_anno:from_term(StartPos),
+    StartLine = erl_anno:line(Anno),
+    StartCol = erl_anno:column(Anno),
+    quote_1(StartLine, StartCol, Text).
 
 quote_1(StartLine, StartCol, Text) ->
     %% be backwards compatible as far as R12, ignoring any starting column
@@ -1247,7 +1247,7 @@ a0() ->
     anno(0).
 
 anno(Location) ->
-    erl_anno:new(Location).
+    erl_anno:from_term(Location).
 
 get_line(Tree) ->
     Anno = erl_syntax:get_pos(Tree),
