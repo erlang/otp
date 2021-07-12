@@ -97,7 +97,8 @@ but you should at least run the tests for the application you have changed.
 See [Running tests](https://github.com/erlang/otp/wiki/Running-tests).
 * Make sure the documentation builds and is according to the dtd. eg. `make xmllint` or `cd lib/stdlib/ && make xmllint`
 * Make sure no new dialyzer warnings have been added. eg. `make dialyzer` or `cd lib/stdlib/ && make dialyzer`
-* Make sure that travis passes, if you go to https://travis-ci.org/$YOUR_GITHUB_USER/otp/ you can enable travis builds for you otp fork.
+* Make sure that github actions passes, if you go to https://github.com/$YOUR_GITHUB_USER/otp/actions you can enable github actions builds for you otp fork.
+  * Note that this only builds Erlang/OTP, it does not run any tests.
 
 Make sure that your branch contains clean commits:
 
