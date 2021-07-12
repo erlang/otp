@@ -2137,7 +2137,7 @@ select_common_groups(ServerGroups, ClientGroups) ->
     Fun = fun(E) -> lists:member(E, ClientGroups) end,
     case lists:filter(Fun, ServerGroups) of
         [] ->
-            {error, {insufficient_security, no_suitable_groups}};
+            select_common_groups(ServerGroups, []);
         L ->
             {ok, L}
     end.
