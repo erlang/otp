@@ -401,25 +401,8 @@ connection(Type, Event, State) ->
 -spec downgrade(gen_statem:event_type(), term(), #state{}) ->
 		       gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-downgrade(internal, #alert{description = ?CLOSE_NOTIFY},
-	  #state{static_env = #static_env{transport_cb = Transport,
-                                          socket = Socket},
-		 connection_env = #connection_env{downgrade = {Pid, From}}} = State) ->
-    tls_socket:setopts(Transport, Socket, [{active, false}, {packet, 0}, {mode, binary}]),
-    Transport:controlling_process(Socket, Pid),
-    {stop_and_reply, {shutdown, downgrade},[{reply, From, {ok, Socket}}], State};
-downgrade(timeout, downgrade, #state{ connection_env = #connection_env{downgrade = {_, From}}} = State) ->
-    {stop_and_reply, {shutdown, normal},[{reply, From, {error, timeout}}], State};
-downgrade(info, {CloseTag, Socket},
-          #state{static_env = #static_env{socket = Socket, 
-                                          close_tag = CloseTag},
-                 connection_env = #connection_env{downgrade = {_, From}}} =
-              State) ->
-    {stop_and_reply, {shutdown, normal},[{reply, From, {error, CloseTag}}], State};
-downgrade(info, Info, State) ->
-    tls_gen_connection:handle_info(Info, ?FUNCTION_NAME, State);
 downgrade(Type, Event, State) ->
-     tls_dtls_connection:?FUNCTION_NAME(Type, Event, State).
+     ssl_gen_statem:?FUNCTION_NAME(Type, Event, State).
 
 %--------------------------------------------------------------------
 %% gen_statem callbacks

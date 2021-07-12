@@ -92,8 +92,9 @@
 
 -record(connection_env, { 
                           user_application      :: {Monitor::reference(), User::pid()},
-                          downgrade,
-                          terminated = false                          ::boolean() | closed,  
+                          downgrade             :: {NewController::pid(), From::gen_statem:from()} | 'undefined',
+                          socket_terminated = false                          ::boolean(),
+                          socket_tls_closed = false                          ::boolean(),
                           negotiated_version    :: ssl_record:ssl_version() | 'undefined',
                           erl_dist_handle = undefined :: erlang:dist_handle() | 'undefined',
                           private_key          :: public_key:private_key() | secret_printout() | 'undefined'
