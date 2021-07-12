@@ -140,6 +140,7 @@ MODULES = \
 	user \
 	user_drv \
 	user_sup \
+	via_registry \
 	raw_file_io \
 	raw_file_io_compressed \
 	raw_file_io_inflate \
