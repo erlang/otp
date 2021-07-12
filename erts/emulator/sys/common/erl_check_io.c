@@ -43,6 +43,9 @@
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
 
+#define fd2event(fd) (ErlDrvEvent)(SWord)(fd)
+#define event2fd(e) (int)(SWord)(e)
+
 #if 0
 #define DEBUG_PRINT(FMT, ...) do { erts_printf(FMT "\r\n", ##__VA_ARGS__); fflush(stdout); } while(0)
 #define DEBUG_PRINT_FD(FMT, STATE, ...)                                 \
@@ -798,7 +801,7 @@ driver_select(ErlDrvPort ix, ErlDrvEvent e, int mode, int on)
     void (*stop_select_fn)(ErlDrvEvent, void*) = NULL;
     Port *prt = erts_drvport2port(ix);
     Eterm id = erts_drvport2id(ix);
-    ErtsSysFdType fd = (ErtsSysFdType) e;
+    ErtsSysFdType fd = (ErtsSysFdType) event2fd(e);
     ErtsPollEvents ctl_events = (ErtsPollEvents) 0;
     ErtsPollEvents old_events;
     ErtsPollEvents new_events;
@@ -1636,7 +1639,7 @@ iready(Eterm id, ErtsDrvEventState *state)
 	if (erts_port_task_schedule(id,
 				    &iotask->task,
 				    ERTS_PORT_TASK_INPUT,
-				    (ErlDrvEvent) state->fd,
+				    fd2event(state->fd),
                                     state->flags & ERTS_EV_FLAG_IN_SCHEDULER) != 0) {
 	    stale_drv_select(id, state, ERL_DRV_READ);
 	} else {
@@ -1655,7 +1658,7 @@ oready(Eterm id, ErtsDrvEventState *state)
 	if (erts_port_task_schedule(id,
 				    &iotask->task,
 				    ERTS_PORT_TASK_OUTPUT,
-				    (ErlDrvEvent) state->fd,
+				    fd2event(state->fd),
                                     0) != 0) {
 	    stale_drv_select(id, state, ERL_DRV_WRITE);
 	} else {
@@ -1932,7 +1935,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
         if (drv_ptr) {
             DTRACE1(driver_stop_select, drv_ptr->name);
             LTTNG1(driver_stop_select, drv_ptr->name);
-            (*drv_ptr->stop_select)((ErlDrvEvent) fd, NULL);
+            (*drv_ptr->stop_select)(fd2event(fd), NULL);
             if (drv_ptr->handle) {
 		erts_ddll_dereference_driver(drv_ptr->handle);
 	    }
@@ -2041,7 +2044,7 @@ bad_fd_in_pollset(ErtsDrvEventState *state, Eterm inport, Eterm outport)
 static void
 stale_drv_select(Eterm id, ErtsDrvEventState *state, int mode)
 {
-    erts_stale_drv_select(id, ERTS_INVALID_ERL_DRV_PORT, (ErlDrvEvent) state->fd, mode, 0);
+    erts_stale_drv_select(id, ERTS_INVALID_ERL_DRV_PORT, fd2event(state->fd), mode, 0);
     deselect(state, mode);
 }
 

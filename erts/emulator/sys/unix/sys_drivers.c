@@ -156,6 +156,9 @@ typedef struct driver_data {
     } while(0)
 #endif
 
+#define fd2event(fd) (ErlDrvEvent)(SWord)(fd)
+#define event2fd(e) (int)(SWord)(e)
+
 /*
  * Decreasing the size of it below 16384 is not allowed.
  */
@@ -406,7 +409,7 @@ create_driver_data(ErlDrvPort port_num,
         driver_data->ifd = (ErtsSysFdData*)data;
         data += sizeof(*driver_data->ifd);
         init_fd_data(driver_data->ifd, ifd);
-        driver_select(port_num, ifd, (ERL_DRV_READ|ERL_DRV_USE), 1);
+        driver_select(port_num, fd2event(ifd), (ERL_DRV_READ|ERL_DRV_USE), 1);
     } else {
         driver_data->ifd = NULL;
     }
@@ -711,7 +714,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
                     res = 0;
                 }
             }
-            driver_select(port_num, ofd[1], ERL_DRV_WRITE|ERL_DRV_USE, 1);
+            driver_select(port_num, fd2event(ofd[1]), ERL_DRV_WRITE|ERL_DRV_USE, 1);
         }
 
         erts_free(ERTS_ALC_T_TMP, environment_block);
@@ -773,10 +776,10 @@ static ErlDrvSSizeT spawn_control(ErlDrvData e, unsigned int cmd, char *buf,
     dd->alive = -1;
 
     if (dd->ifd)
-        driver_select(dd->port_num, abs(dd->ifd->fd), ERL_DRV_READ | ERL_DRV_USE, 1);
+        driver_select(dd->port_num, fd2event(abs(dd->ifd->fd)), ERL_DRV_READ | ERL_DRV_USE, 1);
 
     if (dd->ofd)
-        driver_select(dd->port_num, abs(dd->ofd->fd), ERL_DRV_WRITE | ERL_DRV_USE, 1);
+        driver_select(dd->port_num, fd2event(abs(dd->ofd->fd)), ERL_DRV_WRITE | ERL_DRV_USE, 1);
 
     return 0;
 }
@@ -1039,12 +1042,12 @@ static void fd_stop(ErlDrvData ev)  /* Does not close the fds */
 
     if (dd->ifd) {
         sz += sizeof(ErtsSysFdData);
-        driver_select(prt, abs(dd->ifd->fd), ERL_DRV_USE_NO_CALLBACK|DO_READ|DO_WRITE, 0);
+        driver_select(prt, fd2event(abs(dd->ifd->fd)), ERL_DRV_USE_NO_CALLBACK|DO_READ|DO_WRITE, 0);
         nbio_stop_fd(prt, dd->ifd, 1);
     }
     if (dd->ofd && dd->ofd != dd->ifd) {
         sz += sizeof(ErtsSysFdData);
-        driver_select(prt, abs(dd->ofd->fd), ERL_DRV_USE_NO_CALLBACK|DO_WRITE, 0);
+        driver_select(prt, fd2event(abs(dd->ofd->fd)), ERL_DRV_USE_NO_CALLBACK|DO_WRITE, 0);
         nbio_stop_fd(prt, dd->ofd, 1);
     }
 
@@ -1093,12 +1096,12 @@ static void stop(ErlDrvData ev)
 
     if (dd->ifd) {
         nbio_stop_fd(prt, dd->ifd, 0);
-        driver_select(prt, abs(dd->ifd->fd), ERL_DRV_USE, 0);  /* close(ifd); */
+        driver_select(prt, fd2event(abs(dd->ifd->fd)), ERL_DRV_USE, 0);  /* close(ifd); */
     }
 
     if (dd->ofd && dd->ofd != dd->ifd) {
 	nbio_stop_fd(prt, dd->ofd, 0);
-	driver_select(prt, abs(dd->ofd->fd), ERL_DRV_USE, 0);  /* close(ofd); */
+	driver_select(prt, fd2event(abs(dd->ofd->fd)), ERL_DRV_USE, 0);  /* close(ofd); */
     }
 
     erts_free(ERTS_ALC_T_DRV_TAB, dd);
@@ -1167,7 +1170,7 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
         qsz = ev->size - n;
         if (!dd->busy && qsz >= dd->high_watermark)
             set_busy_port(ix, (dd->busy = !0));
-	driver_select(ix, ofd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
+	driver_select(ix, fd2event(ofd), ERL_DRV_WRITE|ERL_DRV_USE, 1);
     }
     else {
         if (ev->size != 0) {
@@ -1243,7 +1246,7 @@ static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	    n -= pb;
 	    driver_enq(ix, buf+n, len-n);
 	}
-	driver_select(ix, ofd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
+	driver_select(ix, fd2event(ofd), ERL_DRV_WRITE|ERL_DRV_USE, 1);
     }
 
     if (!dd->busy && qsz >= dd->high_watermark)
@@ -1259,7 +1262,7 @@ static int port_inp_failure(ErtsSysDriverData *dd, int res)
 
     ASSERT(res <= 0);
     if (dd->ifd) {
-        driver_select(dd->port_num, dd->ifd->fd, ERL_DRV_READ|ERL_DRV_WRITE, 0);
+        driver_select(dd->port_num, fd2event(dd->ifd->fd), ERL_DRV_READ|ERL_DRV_WRITE, 0);
         clear_fd_data(dd->ifd);
     }
 
@@ -1332,7 +1335,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
         ErtsSysForkerProto proto;
         int res;
 
-        if((res = read(ready_fd, &proto, sizeof(proto))) <= 0) {
+        if((res = read(event2fd(ready_fd), &proto, sizeof(proto))) <= 0) {
             if (res < 0 && (errno == ERRNO_BLOCK || errno == EINTR))
                 return;
             /* hmm, child setup seems to have closed the pipe too early...
@@ -1369,7 +1372,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
             }
 
             if (dd->ifd->fd < 0) {
-                driver_select(port_num, abs(dd->ifd->fd), ERL_DRV_READ|ERL_DRV_USE, 0);
+                driver_select(port_num, fd2event(abs(dd->ifd->fd)), ERL_DRV_READ|ERL_DRV_USE, 0);
                 erts_atomic_add_nob(&sys_misc_mem_sz, -sizeof(ErtsSysFdData));
                 dd->ifd = NULL;
             }
@@ -1377,7 +1380,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
             if (dd->ofd->fd < 0  || driver_sizeq(port_num) > 0)
                 /* we select in order to close fd or write to queue,
                    child setup will close this fd if fd < 0 */
-                driver_select(port_num, abs(dd->ofd->fd), ERL_DRV_WRITE|ERL_DRV_USE, 1);
+                driver_select(port_num, fd2event(abs(dd->ofd->fd)), ERL_DRV_WRITE|ERL_DRV_USE, 1);
 
             erl_drv_set_os_pid(port_num, dd->pid);
             erl_drv_init_ack(port_num, e);
@@ -1387,7 +1390,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
     if (packet_bytes == 0) {
 	byte *read_buf = (byte *) erts_alloc(ERTS_ALC_T_SYS_READ_BUF,
 					     ERTS_SYS_READ_BUF_SZ);
-	res = read(ready_fd, read_buf, ERTS_SYS_READ_BUF_SZ);
+	res = read(event2fd(ready_fd), read_buf, ERTS_SYS_READ_BUF_SZ);
 	if (res < 0) {
 	    if ((errno != EINTR) && (errno != ERRNO_BLOCK))
 		port_inp_failure(dd, res);
@@ -1400,7 +1403,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
     }
     else if (dd->ifd->remain > 0) { /* We try to read the remainder */
 	/* space is allocated in buf */
-	res = read(ready_fd, dd->ifd->cpos,
+	res = read(event2fd(ready_fd), dd->ifd->cpos,
 		   dd->ifd->remain);
 	if (res < 0) {
 	    if ((errno != EINTR) && (errno != ERRNO_BLOCK))
@@ -1423,7 +1426,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 	byte *read_buf = (byte *) erts_alloc(ERTS_ALC_T_SYS_READ_BUF,
 					     ERTS_SYS_READ_BUF_SZ);
 	/* We make one read attempt and see what happens */
-	res = read(ready_fd, read_buf, ERTS_SYS_READ_BUF_SZ);
+	res = read(event2fd(ready_fd), read_buf, ERTS_SYS_READ_BUF_SZ);
 	if (res < 0) {
 	    if ((errno != EINTR) && (errno != ERRNO_BLOCK))
 		port_inp_failure(dd, res);
@@ -1521,7 +1524,7 @@ static void ready_output(ErlDrvData e, ErlDrvEvent ready_fd)
 	return; /* 0; */
     }
     vsize = vsize > MAX_VSIZE ? MAX_VSIZE : vsize;
-    if ((n = writev(ready_fd, iv, vsize)) > 0) {
+    if ((n = writev(event2fd(ready_fd), iv, vsize)) > 0) {
         ErlDrvSizeT qsz = driver_deq(ix, n);
         if (qsz == (ErlDrvSizeT) -1) {
             driver_failure_posix(ix, EINVAL);
@@ -1545,7 +1548,7 @@ static void ready_output(ErlDrvData e, ErlDrvEvent ready_fd)
 
 static void stop_select(ErlDrvEvent fd, void* _)
 {
-    close((int)fd);
+    close(event2fd(fd));
 }
 
 
@@ -1758,7 +1761,7 @@ static void forker_ready_input(ErlDrvData e, ErlDrvEvent fd)
     int res;
     ErtsSysForkerProto proto;
 
-    if ((res = read(fd, &proto, sizeof(proto))) < 0) {
+    if ((res = read(event2fd(fd), &proto, sizeof(proto))) < 0) {
         if (errno == ERRNO_BLOCK || errno == EINTR)
             return;
         erts_exit(ERTS_DUMP_EXIT, "Failed to read from erl_child_setup: %d\n", errno);
@@ -1812,7 +1815,7 @@ static void forker_ready_output(ErlDrvData e, ErlDrvEvent fd)
             } else if (errno == EMFILE) {
                 forker_sigchld(proto->u.start.port_id, errno);
                 if (forker_deq(port_num, proto) == 0)
-                    driver_select(port_num, forker_fd, ERL_DRV_WRITE, 0);
+                    driver_select(port_num, fd2event(forker_fd), ERL_DRV_WRITE, 0);
                 return;
             } else {
                 erts_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
@@ -1820,7 +1823,7 @@ static void forker_ready_output(ErlDrvData e, ErlDrvEvent fd)
         }
 #ifndef FORKER_PROTO_START_ACK
         if (forker_deq(port_num, proto) == 0)
-            driver_select(port_num, forker_fd, ERL_DRV_WRITE, 0);
+            driver_select(port_num, fd2event(forker_fd), ERL_DRV_WRITE, 0);
     }
 #else
     driver_select(port_num, forker_fd, ERL_DRV_WRITE, 0);
@@ -1842,7 +1845,7 @@ static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
         /*
          * Do driver_select here when schedulers and their pollsets have started.
          */
-        driver_select(port_num, forker_fd, ERL_DRV_READ|ERL_DRV_USE, 1);
+        driver_select(port_num, fd2event(forker_fd), ERL_DRV_READ|ERL_DRV_USE, 1);
         first_call = 0;
     }
 
@@ -1854,7 +1857,7 @@ static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
     if ((res = sys_uds_write(forker_fd, (char*)proto, sizeof(*proto),
                              proto->u.start.fds, 3, 0)) < 0) {
         if (errno == ERRNO_BLOCK || errno == EINTR) {
-            driver_select(port_num, forker_fd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
+            driver_select(port_num, fd2event(forker_fd), ERL_DRV_WRITE|ERL_DRV_USE, 1);
             return 0;
         } else if (errno == EMFILE) {
             forker_sigchld(proto->u.start.port_id, errno);
