@@ -331,6 +331,8 @@ pick(#state{options = SvcOpts}
     App = App0#diameter_app{module = ModX ++ Xtra},
     [_,_] = RealmAndHost = diameter_lib:eval([DestF, Dict]),
     case pick_peer(App, RealmAndHost, [Filter | TPids], S) of
+        {error, _} = No ->
+            No;
         {_TPid, _Caps} = TC ->
             {{TC, App}, SvcOpts};
         false = No ->
@@ -1568,8 +1570,8 @@ pick_peer(Local, Remote, Pid, _SvcName, #diameter_app{mutable = true} = App)
             T;
         false = No ->
             No;
-        {error, _} ->
-            false
+        {error, _} = No ->
+            No
     end;
 
 %% App state isn't mutable or it is and we're in the service process:
@@ -1593,13 +1595,20 @@ pick_peer(Local,
         {false = No, ModS} when M ->
             mod_state(Alias, ModS),
             No;
+        {{error, _} = No, ModS} when M ->
+            mod_state(Alias, ModS),
+            No;
         {ok, false = No} ->
             No;
         false = No ->
             No;
+        {error, _} = No ->
+            No;
         {{TPid, #diameter_caps{}} = T, S} when is_pid(TPid) ->
             T;                     %% Accept returned state in the immutable
         {false = No, S} ->         %% case as long it isn't changed.
+            No;
+        {{error, _} = No, S} ->    %% case as long it isn't changed.
             No;
         T when M ->
             ModX = App#diameter_app.module,
