@@ -651,13 +651,15 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         Cipher = Maybe(select_cipher_suite(HonorCipherOrder, ClientCiphers, ServerCiphers)),
         Groups = Maybe(select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_client_key_share(ClientGroups, ClientShares)),
-        {PublicKeyAlgo, SignAlgo, SignHash, RSAKeySize} = get_certificate_params(Cert),
+        {PublicKeyAlgo, SignAlgo, SignHash, RSAKeySize, Curve} = get_certificate_params(Cert),
 
         %% Check if client supports signature algorithm of server certificate
+        %% TODO: We do validate the signature algorithm and signature hash but we could check
+        %%       if the signing cert has a key on a curve supported by the client.
         Maybe(check_cert_sign_algo(SignAlgo, SignHash, ClientSignAlgs, ClientSignAlgsCert)),
 
         %% Select signature algorithm (used in CertificateVerify message).
-        SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, RSAKeySize, ClientSignAlgs, ServerSignAlgs)),
+        SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, RSAKeySize, ClientSignAlgs, ServerSignAlgs, Curve)),
 
         %% Select client public key. If no public key found in ClientShares or
         %% ClientShares is empty, trigger HelloRetryRequest as we were able
@@ -1418,10 +1420,10 @@ process_certificate_request(#certificate_request_1_3{
     ServerSignAlgsCert = get_signature_scheme_list(
                            maps:get(signature_algs_cert, Extensions, undefined)),
 
-    {PublicKeyAlgo, SignAlgo, SignHash, MaybeRSAKeySize} = get_certificate_params(Cert),
+    {PublicKeyAlgo, SignAlgo, SignHash, MaybeRSAKeySize, Curve} = get_certificate_params(Cert),
     {Ref, Maybe} = maybe(),
     try
-        SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, MaybeRSAKeySize, ServerSignAlgs, ClientSignAlgs)),
+        SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, MaybeRSAKeySize, ServerSignAlgs, ClientSignAlgs, Curve)),
         %% Check if server supports signature algorithm of client certificate
         case check_cert_sign_algo(SignAlgo, SignHash, ServerSignAlgs, ServerSignAlgsCert) of
             ok ->
@@ -2303,11 +2305,11 @@ check_cert_sign_algo(SignAlgo, SignHash, _, ClientSignAlgsCert) ->
 
 
 %% DSA keys are not supported by TLS 1.3
-select_sign_algo(dsa, _RSAKeySize, _PeerSignAlgs, _OwnSignAlgs) ->
+select_sign_algo(dsa, _RSAKeySize, _PeerSignAlgs, _OwnSignAlgs, _Curve) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)};
-select_sign_algo(_, _RSAKeySize, [], _) ->
+select_sign_algo(_, _RSAKeySize, [], _, _) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
-select_sign_algo(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs) ->
+select_sign_algo(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs, Curve) ->
     {_, S, _} = ssl_cipher:scheme_to_components(PeerSignAlg),
     %% RSASSA-PKCS1-v1_5 and Legacy algorithms are not defined for use in signed
     %% TLS handshake messages: filter sha-1 and rsa_pkcs1.
@@ -2325,25 +2327,35 @@ select_sign_algo(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignA
         lists:member(PeerSignAlg, OwnSignAlgs) of
         true ->
             validate_key_compatibility(PublicKeyAlgo, RSAKeySize,
-                                       [PeerSignAlg|PeerSignAlgs], OwnSignAlgs);
+                                       [PeerSignAlg|PeerSignAlgs], OwnSignAlgs, Curve);
         false ->
-            select_sign_algo(PublicKeyAlgo, RSAKeySize, PeerSignAlgs, OwnSignAlgs)
+            select_sign_algo(PublicKeyAlgo, RSAKeySize, PeerSignAlgs, OwnSignAlgs, Curve)
     end.
 
-validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs)
+validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs, Curve)
   when PublicKeyAlgo =:= rsa orelse
        PublicKeyAlgo =:= rsa_pss_pss ->
-    case is_rsa_key_compatible(RSAKeySize, PeerSignAlg) of
+    {Hash, Sign, _} = ssl_cipher:scheme_to_components(PeerSignAlg),
+    case (Sign =:= rsa_pss_rsae orelse Sign =:= rsa_pss_pss) andalso
+        is_rsa_key_compatible(RSAKeySize, Hash) of
         true ->
             {ok, PeerSignAlg};
         false ->
-            select_sign_algo(PublicKeyAlgo, RSAKeySize, PeerSignAlgs, OwnSignAlgs)
+            select_sign_algo(PublicKeyAlgo, RSAKeySize, PeerSignAlgs, OwnSignAlgs, Curve)
     end;
-validate_key_compatibility(_, _, [PeerSignAlg|_], _) ->
+validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs, Curve)
+  when PublicKeyAlgo =:= ecdsa ->
+    {_ , Sign, PeerCurve} = ssl_cipher:scheme_to_components(PeerSignAlg),
+    case Sign =:= ecdsa andalso Curve =:= PeerCurve of
+        true ->
+            {ok, PeerSignAlg};
+        false ->
+            select_sign_algo(PublicKeyAlgo, RSAKeySize, PeerSignAlgs, OwnSignAlgs, Curve)
+    end;
+validate_key_compatibility(_, _, [PeerSignAlg|_], _, _) ->
     {ok, PeerSignAlg}.
 
-is_rsa_key_compatible(KeySize, SigAlg) ->
-    {Hash, _, _} = ssl_cipher:scheme_to_components(SigAlg),
+is_rsa_key_compatible(KeySize, Hash) ->
     HashSize = ssl_cipher:hash_size(Hash),
 
     %% OpenSSL crypto lib defines a limit on the size of the random salt
@@ -2365,6 +2377,7 @@ is_rsa_key_compatible(KeySize, SigAlg) ->
 do_check_cert_sign_algo(_, _, []) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
 do_check_cert_sign_algo(SignAlgo, SignHash, [Scheme|T]) ->
+    %% ECDSA: curve is tied to the hash algorithm e.g. ecdsa_secp256r1_sha256
     {Hash, Sign, _Curve} = ssl_cipher:scheme_to_components(Scheme),
     case compare_sign_algos(SignAlgo, SignHash, Sign, Hash) of
         true ->
@@ -2389,11 +2402,11 @@ compare_sign_algos(_, _, _, _) ->
     false.
 
 get_certificate_params(Cert) ->
-    {SignAlgo0, Param, SubjectPublicKeyAlgo0, RSAKeySize} =
+    {SignAlgo0, Param, SubjectPublicKeyAlgo0, RSAKeySize, Curve} =
         ssl_handshake:get_cert_params(Cert),
     {SignHash, SignAlgo} = oids_to_atoms(SignAlgo0, Param),
     SubjectPublicKeyAlgo = public_key_algo(SubjectPublicKeyAlgo0),
-    {SubjectPublicKeyAlgo, SignAlgo, SignHash, RSAKeySize}.
+    {SubjectPublicKeyAlgo, SignAlgo, SignHash, RSAKeySize, Curve}.
 
 oids_to_atoms(?'id-RSASSA-PSS', #'RSASSA-PSS-params'{maskGenAlgorithm = 
                                                         #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',

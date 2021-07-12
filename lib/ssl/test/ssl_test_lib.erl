@@ -158,6 +158,7 @@
          make_dsa_cert/1,
          make_ecdsa_cert/1,
          make_ecdh_rsa_cert/1,
+         make_rsa_ecdsa_cert/2,
          make_rsa_cert_chains/3,
          make_dsa_cert_chains/3,
          make_ecc_cert_chains/3,
@@ -1789,6 +1790,31 @@ make_ecdh_rsa_cert(Config) ->
 	_ ->
 	    Config
     end.
+
+make_rsa_ecdsa_cert(Config, Curve) ->
+    CryptoSupport = crypto:supports(),
+    case proplists:get_bool(ecdh, proplists:get_value(public_keys, CryptoSupport)) of
+	true ->
+            ClientFileBase = filename:join([proplists:get_value(priv_dir, Config),
+                                            "rsa_ecdsa_" ++ atom_to_list(Curve)]),
+            ServerFileBase = filename:join([proplists:get_value(priv_dir, Config),
+                                            "rsa_ecdsa_" ++ atom_to_list(Curve)]),
+            ClientChain = proplists:get_value(client_chain, Config, default_cert_chain_conf()),
+            ServerChain = proplists:get_value(server_chain, Config, default_cert_chain_conf()),
+            CertChainConf = gen_conf(ecdh_rsa, ecdh_rsa, ClientChain, ServerChain, Curve),
+            GenCertData = public_key:pkix_test_data(CertChainConf),
+            [{server_config, ServerConf},
+             {client_config, ClientConf}] =
+                x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
+
+	    [{server_rsa_ecdsa_opts, [{ssl_imp, new},{reuseaddr, true} | ServerConf]},
+	     {server_rsa_ecdsa_verify_opts, [{ssl_imp, new},{reuseaddr, true},
+                                            {verify, verify_peer} | ServerConf]},
+	     {client_rsa_ecdsa_opts, ClientConf} | Config];
+	_ ->
+	    Config
+    end.
+
 
 start_upgrade_server(Args) ->
     Node = proplists:get_value(node, Args),
