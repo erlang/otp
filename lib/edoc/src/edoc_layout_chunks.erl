@@ -155,9 +155,9 @@ doc_visibility(_XPath, Doc, Opts) ->
     end.
 
 doc_contents_(_XPath, Doc, Opts) ->
-    Equiv = xpath_to_chunk("./equiv", Doc),
-    Desc = xpath_to_chunk("./description/fullDescription", Doc),
-    See = xpath_to_chunk("./see", Doc),
+    Equiv = xpath_to_chunk("./equiv", Doc, Opts),
+    Desc = xpath_to_chunk("./description/fullDescription", Doc, Opts),
+    See = xpath_to_chunk("./see", Doc, Opts),
     doc_content(Equiv ++ Desc ++ See, Opts).
 
 meta_deprecated(Doc, Opts) ->
@@ -226,7 +226,7 @@ callback(Cb = #tag{name = callback, origin = code}, Opts) ->
 	 form = Form} = Cb,
     EntryDoc = case MaybeDoc of
 		   none -> none;
-		   _ -> doc_content([xmerl_to_binary(MaybeDoc)], Opts)
+		   _ -> doc_content([xmerl_to_binary(MaybeDoc, Opts)], Opts)
 	       end,
     {source, File} = lists:keyfind(source, 1, Opts),
     Anno = erl_anno:set_file(File, erl_anno:new(Line)),
@@ -477,13 +477,13 @@ xpath_to_text(XPath, Doc, Opts) ->
 	    {_ , Value} = format_attribute(Attr),
 	    hd(shell_docs:normalize([Value]));
 	[#xmlElement{}] = Elements ->
-	    xmerl_to_binary(Elements);
+	    xmerl_to_binary(Elements, Opts);
 	[_|_] ->
 	    erlang:error(multiple_nodes, [XPath, Doc, Opts])
     end.
 
-xmerl_to_binary(XML) ->
-    iolist_to_binary(chunk_to_text(xmerl_to_chunk(XML))).
+xmerl_to_binary(XML, Opts) ->
+    iolist_to_binary(chunk_to_text(xmerl_to_chunk(XML, Opts))).
 
 chunk_to_text([]) -> [];
 chunk_to_text([Node | Nodes]) ->
@@ -498,53 +498,53 @@ xpath_to_atom(XPath, Doc, Opts) ->
 xpath_to_integer(XPath, Doc, Opts) ->
     binary_to_integer(xpath_to_text(XPath, Doc, Opts)).
 
-xpath_to_chunk(XPath, Doc) ->
+xpath_to_chunk(XPath, Doc, Opts) ->
     XmerlDoc = xmerl_xpath:string(XPath, Doc),
-    xmerl_to_chunk(XmerlDoc).
+    xmerl_to_chunk(XmerlDoc, Opts).
 
 %%.
 %%' Xmerl to chunk format
 %%
 
--spec xmerl_to_chunk([xmerl_doc_node()]) -> shell_docs:chunk_elements().
-xmerl_to_chunk(Contents) ->
-    shell_docs:normalize(format_content(Contents)).
+-spec xmerl_to_chunk([xmerl_doc_node()], proplists:proplist()) -> shell_docs:chunk_elements().
+xmerl_to_chunk(Contents, Opts) ->
+    shell_docs:normalize(format_content(Contents, Opts)).
 
--spec format_content([xmerl_doc_node()]) -> shell_docs:chunk_elements().
-format_content(Contents) ->
+-spec format_content([xmerl_doc_node()], proplists:proplist()) -> shell_docs:chunk_elements().
+format_content(Contents, Opts) ->
     {SeeTags, OtherTags} = lists:partition(fun (#xmlElement{name = see}) -> true;
 					       (_) -> false end,
 					   Contents),
-    lists:flatten([ format_content_(T) || T <- OtherTags ] ++ rewrite_see_tags(SeeTags)).
+    lists:flatten([ format_content_(T, Opts) || T <- OtherTags ] ++ rewrite_see_tags(SeeTags, Opts)).
 
--spec format_content_(xmerl_doc_node()) -> shell_docs:chunk_elements().
-format_content_(#xmlPI{})      -> [];
-format_content_(#xmlComment{}) -> [];
+-spec format_content_(xmerl_doc_node(), proplists:proplist()) -> shell_docs:chunk_elements().
+format_content_(#xmlPI{}, _)      -> [];
+format_content_(#xmlComment{}, _) -> [];
 
-format_content_(#xmlText{} = T) ->
+format_content_(#xmlText{} = T, _) ->
     Text = T#xmlText.value,
     case edoc_lib:is_space(Text) of
 	true -> [];
 	false -> [unicode:characters_to_binary(Text)]
     end;
 
-format_content_(#xmlElement{name = equiv} = E) ->
-    format_element(rewrite_equiv_tag(E));
-format_content_(#xmlElement{name = a} = E) ->
-    format_element(rewrite_a_tag(E));
-format_content_(#xmlElement{} = E) ->
-    format_element(E).
+format_content_(#xmlElement{name = equiv} = E, Opts) ->
+    format_element(rewrite_equiv_tag(E), Opts);
+format_content_(#xmlElement{name = a} = E, Opts) ->
+    format_element(rewrite_a_tag(E), Opts);
+format_content_(#xmlElement{} = E, Opts) ->
+    format_element(E, Opts).
 
-format_element(#xmlElement{} = E) ->
+format_element(#xmlElement{} = E, Opts) ->
     #xmlElement{name = Name, content = Content, attributes = Attributes} = E,
     case {is_edoc_tag(Name), is_html_tag(Name)} of
 	{true, _} ->
-	    format_content(Content);
+	    format_content(Content, Opts);
 	{_, false} ->
-	    edoc_report:warning("'~s' is not allowed - skipping tag, extracting content", [Name]),
-	    format_content(Content);
+	    edoc_report:warning(0, source_file(Opts), "'~s' is not allowed - skipping tag, extracting content", [Name]),
+	    format_content(Content, Opts);
 	_ ->
-	    [{Name, format_attributes(Attributes), format_content(Content)}]
+	    [{Name, format_attributes(Attributes), format_content(Content, Opts)}]
     end.
 
 -spec format_attributes([xmerl_attribute()]) -> [shell_docs:chunk_element_attr()].
@@ -575,12 +575,12 @@ rewrite_a_tag(#xmlElement{name = a} = E) ->
     SimpleE = xmerl_lib:simplify_element(E),
     xmerl_lib:normalize_element(rewrite_docgen_link(SimpleE)).
 
-rewrite_see_tags([]) -> [];
-rewrite_see_tags([#xmlElement{name = see} | _] = SeeTags) ->
+rewrite_see_tags([], _Opts) -> [];
+rewrite_see_tags([#xmlElement{name = see} | _] = SeeTags, Opts) ->
     Grouped = [ rewrite_see_tag(T) || T <- SeeTags ],
     NewXML = {p, [], [{em,[],["See also: "]}] ++ lists:join(", ", Grouped) ++ ["."]},
     %% Convert strings to binaries in the entire new tree:
-    [format_content_(xmerl_lib:normalize_element(NewXML))].
+    [format_content_(xmerl_lib:normalize_element(NewXML), Opts)].
 
 rewrite_see_tag(#xmlElement{name = see} = E) ->
     %% TODO: this is not formatted nicely by shell_docs...
