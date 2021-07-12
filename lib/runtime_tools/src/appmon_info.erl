@@ -710,7 +710,15 @@ format(P) when is_pid(P), node(P) /= node() ->
 format(P) when is_pid(P) ->
     case process_info(P, registered_name) of
 	{registered_name, Name} -> atom_to_list(Name);
-	_ -> pid_to_list(P)
+	_ ->
+		case process_info(P, dictionary) of
+			{dictionary, D} ->
+				case proplists:get_value('$process_label', D, undefined) of
+					Label when is_list(Label) -> Label ++ " " ++ pid_to_list(P);
+					_ -> pid_to_list(P)
+				end;
+			_ -> pid_to_list(P)
+		end
     end;
 format(P) when is_port(P) ->
     case erlang:port_info(P, id) of
