@@ -1350,6 +1350,53 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       </datatype>
 
       <datatype>
+	<name name="custom_extensions"/>
+      <desc>
+        <p>Announce custom hello extensions to be encoded/decoded with given module</p>
+        <p>For example, user can implement an extension with this callback module:</p>
+	<code>
+-module(example_ext).
+-export(encode_extension/3, decode_extension/4]).
+
+-spec encode_extension(Type::integer(), CbOpts::any(), Context::map()) ->
+    binary() | {last, binary()} | undefined.
+encode_extension(16#4201, #{custom_01 := V}, _) ->
+    &lt;&lt;V:16&gt;&gt;;
+encode_extension(16#4202, #{custom_02 := V}, #{version := {3,3}) ->
+    {last, &lt;&lt;"test", V:16&gt;&gt;};
+encode_extension(16#4202, _, _} ->
+    undefined.
+
+-spec decode_extension(Type::integer(), ExtData::binary(), Context::map()) ->
+    {Key::atom(), any()} | undefined.
+decode_extension(16#4201, &lt;&lt;V:16&gt;&gt;, _) ->
+    {custom_01, #{custom_01 => V}};
+decode_extension(16#4202, &lt;&lt;_:4/binary, V:16&gt;&gt;, #{version := {3,3}) ->
+    {test, V};
+decode_extension(16#4202, _, _) ->
+    undefined.
+	</code>
+
+	<p>
+	  When hello extensions are encoded, for each given ExtType
+		the <c>CallbackMod:encode_extension/3</c> is called.
+		Third argument, <c>Context</c>, contains <c>version</c>,
+		<c>cipher_suites</c>, <c>ssl_opts</c>, <c>connection_states</c>.
+		Valid return values are <c>ExtData::binary()</c>,
+		<c>{last, ExtData}</c> (when extension must be the last one)
+		and <c>undefined</c> (do not encode this extension).
+	</p>
+	<p>
+	  When hello extensions are decoded, given extension types
+		are decoded only with <c>CallbackMod:decode_extension/3</c>.
+		Valid return values are <c>{Key, Value}</c>
+		(so that extensions contain <c>#{Key => Value})</c>
+    and <c>undefined</c> (to skip this extension).
+	</p>
+	</desc>
+      </datatype>
+
+      <datatype>
         <name name="server_early_data"/>
 	<desc>
           <p>Configures if the server accepts (<c>enabled</c>) or rejects (<c>rejects</c>) early
