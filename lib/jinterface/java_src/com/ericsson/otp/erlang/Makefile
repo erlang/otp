@@ -82,7 +82,7 @@ ifneq ($(V),0)
 JARFLAGS=-cfv
 endif
 
-JAVA_OPTIONS = -Xlint 
+JAVA_OPTIONS = -Xlint -encoding UTF-8
 
 ifeq ($(TESTROOT),)
 RELEASE_PATH="$(ERL_TOP)/release/$(TARGET)"

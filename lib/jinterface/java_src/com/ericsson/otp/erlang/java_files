@@ -60,7 +60,8 @@ COMM = \
 	OtpSocketTransport \
 	OtpSocketTransportFactory \
 	OtpTransport \
-	OtpTransportFactory
+	OtpTransportFactory \
+	OtpNamedTransportFactory
 
 ERL = \
 	OtpErlangAtom \

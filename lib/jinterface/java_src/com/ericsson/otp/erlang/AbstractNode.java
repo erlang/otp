@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -204,7 +204,7 @@ public class AbstractNode implements OtpTransportFactory {
         this.cookie = cookie;
         this.transportFactory = transportFactory;
 
-        final int i = name.indexOf('@', 0);
+        final int i = name.indexOf('@');
         if (i < 0) {
             alive = name;
             host = localHost;
@@ -324,5 +324,45 @@ public class AbstractNode implements OtpTransportFactory {
     public OtpServerTransport createServerTransport(final int port)
             throws IOException {
         return transportFactory.createServerTransport(port);
+    }
+
+    /**
+     * Create a client-side transport for alternative distribution protocols
+     * using a transport factory extending the OtpNamedTransportFactory
+     * abstract class. Connect it to the specified server.
+     *
+     * @param node
+     *            The node name identifying the server to connect to
+     *
+     */
+    public OtpTransport createTransport(final String node)
+            throws IOException {
+        if (transportFactory instanceof OtpNamedTransportFactory) {
+            return ((OtpNamedTransportFactory) transportFactory)
+                .createTransport(node);
+        }
+        throw new IOException("Method createTransport(String) " +
+                              "applicable only for Nodes with a transport " +
+                              "factory instance of OtpNamedTransportFactory");
+    }
+
+    /**
+     * Create a server-side transport for alternative distribution protocols
+     * using a transport factory extending the OtpNamedTransportFactory
+     * abstract class.
+     *
+     * @param node
+     *            The node name identifying the server-side transport to create
+     *
+     */
+    public OtpServerTransport createServerTransport(final String node)
+            throws IOException {
+        if (transportFactory instanceof OtpNamedTransportFactory) {
+            return ((OtpNamedTransportFactory) transportFactory)
+                .createServerTransport(node);
+        }
+        throw new IOException("Method createServerTransport(String) " +
+                              "applicable only for Nodes with a transport " +
+                              "factory instance of OtpNamedTransportFactory");
     }
 }
