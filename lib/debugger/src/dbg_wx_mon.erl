@@ -551,7 +551,7 @@ menus() ->
 	       {'Save Settings...', 2},
 	       separator,
 	       {'Exit', 0}]},
-     {'Edit', [{'Refresh', no},
+     {'Edit', [{'Refresh', 0},
 	       {'Kill All', no}]},
      {'Module', [{'Interpret...', 0},
 		 {'Delete All Modules', no},
