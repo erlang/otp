@@ -39,7 +39,7 @@ endif
 ifeq ($(TARGET), win32)
 RYU_CFLAGS = $(CFLAGS)
 else
-RYU_CFLAGS = -std=gnu99 $(CFLAGS)
+RYU_CFLAGS = $(CFLAGS) -std=gnu99
 endif
 
 ifeq ($(TARGET), win32)
