@@ -2583,7 +2583,7 @@ t_sup(Ts) ->
 
 t_sup1([H1, H2|T], L) ->
   t_sup1(T, [t_sup(H1, H2)|L]);
-t_sup1([T], []) -> subst_all_vars_to_any(T);
+t_sup1([T], []) -> do_not_subst_all_vars_to_any(T);
 t_sup1(Ts, L) ->
   t_sup1(Ts++L, []).
 
@@ -2595,7 +2595,7 @@ t_sup(?none, T) -> T;
 t_sup(T, ?none) -> T;
 t_sup(?unit, T) -> T;
 t_sup(T, ?unit) -> T;
-t_sup(T, T) -> subst_all_vars_to_any(T);
+t_sup(T, T) -> do_not_subst_all_vars_to_any(T);
 t_sup(?var(_), _) -> ?any;
 t_sup(_, ?var(_)) -> ?any;
 t_sup(?atom(Set1), ?atom(Set2)) ->
@@ -2889,15 +2889,15 @@ t_inf(T1, T2) ->
 -spec t_inf(erl_type(), erl_type(), t_inf_opaques()) -> erl_type().
 
 t_inf(?var(_), ?var(_), _Opaques) -> ?any;
-t_inf(?var(_), T, _Opaques) -> subst_all_vars_to_any(T);
-t_inf(T, ?var(_), _Opaques) -> subst_all_vars_to_any(T);
-t_inf(?any, T, _Opaques) -> subst_all_vars_to_any(T);
-t_inf(T, ?any, _Opaques) -> subst_all_vars_to_any(T);
+t_inf(?var(_), T, _Opaques) -> do_not_subst_all_vars_to_any(T);
+t_inf(T, ?var(_), _Opaques) -> do_not_subst_all_vars_to_any(T);
+t_inf(?any, T, _Opaques) -> do_not_subst_all_vars_to_any(T);
+t_inf(T, ?any, _Opaques) -> do_not_subst_all_vars_to_any(T);
 t_inf(?none, _, _Opaques) -> ?none;
 t_inf(_, ?none, _Opaques) -> ?none;
 t_inf(?unit, _, _Opaques) -> ?unit;	% ?unit cases should appear below ?none
 t_inf(_, ?unit, _Opaques) -> ?unit;
-t_inf(T, T, _Opaques) -> subst_all_vars_to_any(T);
+t_inf(T, T, _Opaques) -> do_not_subst_all_vars_to_any(T);
 t_inf(?atom(Set1), ?atom(Set2), _) ->
   case set_intersection(Set1, Set2) of
     ?none ->  ?none;
@@ -3017,13 +3017,13 @@ t_inf(?product(_), _, _Opaques) ->
 t_inf(_, ?product(_), _Opaques) ->
   ?none;
 t_inf(?tuple(?any, ?any, ?any), ?tuple(_, _, _) = T, _Opaques) ->
-  subst_all_vars_to_any(T);
+  do_not_subst_all_vars_to_any(T);
 t_inf(?tuple(_, _, _) = T, ?tuple(?any, ?any, ?any), _Opaques) ->
-  subst_all_vars_to_any(T);
+  do_not_subst_all_vars_to_any(T);
 t_inf(?tuple(?any, ?any, ?any), ?tuple_set(_) = T, _Opaques) ->
-  subst_all_vars_to_any(T);
+  do_not_subst_all_vars_to_any(T);
 t_inf(?tuple_set(_) = T, ?tuple(?any, ?any, ?any), _Opaques) ->
-  subst_all_vars_to_any(T);
+  do_not_subst_all_vars_to_any(T);
 t_inf(?tuple(Elements1, Arity, _Tag1), ?tuple(Elements2, Arity, _Tag2), Opaques) ->
   case t_inf_lists_strict(Elements1, Elements2, Opaques) of
     bottom -> ?none;
@@ -3408,6 +3408,13 @@ findfirst(N1, N2, U1, B1, U2, B2) ->
      Val1 < Val2 ->
       findfirst(N1+1, N2, U1, B1, U2, B2)
   end.
+
+%% Optimization. Before Erlang/OTP 25, subst_all_vars_to_any() was
+%% called. It turned out that variables are not to be substituted for
+%% any() since either there are no variables, or variables are
+%% substituted for any() afterwards.
+do_not_subst_all_vars_to_any(T) ->
+  T.
 
 %%-----------------------------------------------------------------------------
 %% Substitution of variables
