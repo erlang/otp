@@ -2064,7 +2064,14 @@ true</pre>
 > <input>float_to_binary(7.12, [{decimals, 4}, compact]).</input>
 &lt;&lt;"7.12">>
 > <input>float_to_binary(7.12, [{scientific, 3}]).</input>
-&lt;&lt;"7.120e+00">></pre>
+&lt;&lt;"7.120e+00">>
+> <input>float_to_binary(7.12, [short]).</input>
+&lt;&lt;"7.12">>
+> <input>float_to_binary(0.1+0.2, [short]).</input>
+&lt;&lt;"0.30000000000000004">>
+> <input>float_to_binary(0.1+0.2)</input>
+&lt;&lt;"3.00000000000000044409e-01">>
+</pre>
       </desc>
     </func>
 
@@ -2099,6 +2106,16 @@ true</pre>
             formatted using scientific notation with <c>Decimals</c>
             digits of precision.</p>
           </item>
+          <item><p>If option <c>short</c> is specified, the float is formatted
+          with the smallest number of digits that still guarantees that
+          <c>F =:= list_to_float(float_to_list(F, [short]))</c>. When the float
+          is inside the range (-2⁵³, 2⁵³), the notation
+          that yields the smallest number of characters is used (scientific
+          notation or normal decimal notation). Floats outside the range
+          (-2⁵³, 2⁵³) are always formatted using
+          scientific notation to avoid confusing results when doing arithmetic
+          operations.</p>
+          </item>
           <item><p>If <c>Options</c> is <c>[]</c>, the function behaves as
             <seemfa marker="#float_to_list/1">
             <c>float_to_list/1</c></seemfa>.</p>
@@ -2112,6 +2129,10 @@ true</pre>
 "7.12"
 > <input>float_to_list(7.12, [{scientific, 3}]).</input>
 "7.120e+00"
+> <input>float_to_list(7.12, [short]).</input>
+"7.12"
+> <input>float_to_list(0.1+0.2, [short]).</input>
+"0.30000000000000004"
 > <input>float_to_list(0.1+0.2)</input>
 "3.00000000000000044409e-01"
 </pre>

@@ -191,15 +191,75 @@ t_float_to_string(Config) when is_list(Config) ->
     <<NegZero/float>> = <<16#8000000000000000:64>>,
     "-0.0" = float_to_list(NegZero, [{decimals, 1}, compact]),
     "-0.0" = float_to_list(NegZero, [{decimals, 1}]),
+    "-0.0" = float_to_list(NegZero, [short]),
     "-0.0e+00" = float_to_list(NegZero, [{scientific, 1}]),
     "-0.0e+00" = float_to_list(NegZero, [{scientific, 1}, compact]),
     <<"-0.0">> = float_to_binary(NegZero, [{decimals, 1}, compact]),
     <<"-0.0">> = float_to_binary(NegZero, [{decimals, 1}]),
+    <<"-0.0">> = float_to_binary(NegZero, [short]),
     <<"-0.0e+00">> = float_to_binary(NegZero, [{scientific, 1}]),
     <<"-0.0e+00">> = float_to_binary(NegZero, [{scientific, 1}, compact]),
 
     fts_rand_float_decimals(1000),
 
+    % test short option
+
+    % test switch for big integers
+    test_fts("-9007199254740991.0", -float((1 bsl 53) -1), [short]),
+    test_fts("-9.007199254740992e15", -float(1 bsl 53), [short]),
+    test_fts("-9.007199254740992e15", -float((1 bsl 53) +1), [short]),
+    test_fts("9007199254740991.0", float((1 bsl 53) -1), [short]),
+    test_fts("9.007199254740992e15", float(1 bsl 53), [short]),
+    test_fts("9.007199254740992e15", float((1 bsl 53) +1), [short]),
+
+    % test basic
+    test_fts("2.018", 2.018, [short]),
+    test_fts("-2.018", -2.018, [short]),
+
+    % test switching logic between decimal and scientific
+    test_fts("1.0e-6", 1.0e-6, [short]),
+    test_fts("1.0e-5", 1.0e-5, [short]),
+    test_fts("0.0001", 1.0e-4, [short]),
+    test_fts("0.001", 1.0e-3, [short]),
+    test_fts("0.01", 1.0e-2, [short]),
+    test_fts("0.1", 1.0e-1, [short]),
+    test_fts("1.0", 1.0e0, [short]),
+    test_fts("10.0", 1.0e1, [short]),
+    test_fts("100.0", 1.0e2, [short]),
+    test_fts("1.0e3", 1.0e3, [short]),
+    test_fts("1.0e4", 1.0e4, [short]),
+    test_fts("1.0e5", 1.0e5, [short]),
+    test_fts("1.0e6", 1.0e6, [short]),
+    test_fts("1.0e7", 1.0e7, [short]),
+    test_fts("1.234e-6", 1.234e-6, [short]),
+    test_fts("1.234e-5", 1.234e-5, [short]),
+    test_fts("1.234e-4", 1.234e-4, [short]),
+    test_fts("0.001234", 1.234e-3, [short]),
+    test_fts("0.01234", 1.234e-2, [short]),
+    test_fts("0.1234", 1.234e-1, [short]),
+    test_fts("1.234", 1.234e0, [short]),
+    test_fts("12.34", 1.234e1, [short]),
+    test_fts("123.4", 1.234e2, [short]),
+    test_fts("1234.0", 1.234e3, [short]),
+    test_fts("12340.0", 1.234e4, [short]),
+    test_fts("1.234e5", 1.234e5, [short]),
+    test_fts("1.234e6", 1.234e6, [short]),
+
+    % test the switch to subnormals
+    test_fts("2.2250738585072014e-308", 2.2250738585072014e-308, [short]),
+
+    % test lots of trailing zeroes
+    test_fts("2.9802322387695312e-8", 2.98023223876953125e-8, [short]),
+
+    % test some ryu regressions
+    test_fts("-2.109808898695963e16", -2.109808898695963e16, [short]),
+    test_fts("4.940656e-318", 4.940656e-318, [short]),
+    test_fts("1.18575755e-316", 1.18575755e-316, [short]),
+    test_fts("2.989102097996e-312", 2.989102097996e-312, [short]),
+    test_fts("9.0608011534336e15", 9.0608011534336e15, [short]),
+    test_fts("4.708356024711512e18", 4.708356024711512e18, [short]),
+    test_fts("9.409340012568248e18", 9.409340012568248e18, [short]),
+    test_fts("1.2345678", 1.2345678, [short]),
     ok.
 
 test_fts(Expect, Float) ->
