@@ -59,6 +59,8 @@
          tls_closed_in_active_once/1,
          tls_reset_in_active_once/0,
          tls_reset_in_active_once/1,
+         tls_monitor_listener/0,
+         tls_monitor_listener/1,
          tls_tcp_msg/0,
          tls_tcp_msg/1,
          tls_tcp_msg_big/0,
@@ -130,6 +132,7 @@ api_tests() ->
      tls_client_closes_socket,
      tls_closed_in_active_once,
      tls_reset_in_active_once,
+     tls_monitor_listener,
      tls_tcp_msg,
      tls_tcp_msg_big,
      tls_dont_crash_on_handshake_garbage,
@@ -384,6 +387,7 @@ tls_shutdown_error(Config) when is_list(Config) ->
     {error, enotconn} = ssl:shutdown(Listen, read_write),
     ok = ssl:close(Listen),
     {error, closed} = ssl:shutdown(Listen, read_write).
+
 %%--------------------------------------------------------------------
 tls_client_closes_socket() ->
     [{doc,"Test what happens when client closes socket before handshake is compleated"}].
@@ -474,6 +478,57 @@ tls_closed_in_active_once(Config) when is_list(Config) ->
 	ok -> ok;
 	_ -> ct:fail(Result)
     end.
+
+%%--------------------------------------------------------------------
+tls_monitor_listener() ->
+    [{doc, "Check that TLS server processes are shutdown when listner socket is closed."
+      "Note that individual already established connections may live longer."}].
+
+tls_monitor_listener(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    Version = ssl_test_lib:protocol_version(Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server1 = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                         {options, tls_monitor_listen_opts(Version, ServerOpts)}]),
+    Port1 = ssl_test_lib:inet_port(Server1),
+
+    Server2 = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+                                         {options, tls_monitor_listen_opts(Version, ServerOpts)}]),
+    _Port2 = ssl_test_lib:inet_port(Server2),
+
+    ProlistCounts1 = supervisor:count_children(ssl_listen_tracker_sup),
+    2 = proplists:get_value(workers, ProlistCounts1),
+
+    Sessions = session_info(Version),
+
+    true = (Sessions == 2),
+
+    Client1 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port1},
+                                         {host, Hostname},
+                                         {from, self()},
+                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                         {options, tls_monitor_client_opts(Version, ClientOpts)}
+					]),
+
+    ssl_test_lib:check_result(Server1, ok, Client1, ok),
+    Monitor = erlang:monitor(process, Server1),
+    ssl_test_lib:close(Server1),
+    receive
+        {'DOWN', Monitor, _, _, _} ->
+            ct:sleep(1000)
+    end,
+
+    ProlistCounts2 = supervisor:count_children(ssl_listen_tracker_sup),
+
+    Sessions1 = session_info(Version),
+    true = (Sessions1 == 1),
+
+    1 = proplists:get_value(workers, ProlistCounts2).
 
 %%--------------------------------------------------------------------
 tls_tcp_msg() ->
@@ -954,3 +1009,19 @@ active_tcp_recv(Socket, N, Acc) ->
             active_tcp_recv(Socket, N-size(Bytes),  Acc ++ Bytes)
     end.
 
+tls_monitor_listen_opts('tlsv1.3', Opts) ->
+    [{session_tickets, stateful} | Opts];
+tls_monitor_listen_opts(_, Opts) ->
+    Opts.
+
+tls_monitor_client_opts('tlsv1.3', Opts) ->
+    [{session_tickets, auto} | Opts];
+tls_monitor_client_opts(_, Opts) ->
+    Opts.
+
+session_info('tlsv1.3') ->
+    ProlistCounts = supervisor:count_children(tls_server_session_ticket_sup),
+    proplists:get_value(workers, ProlistCounts);
+session_info(_) ->
+    ProlistCounts = supervisor:count_children(ssl_server_session_cache_sup),
+    proplists:get_value(workers, ProlistCounts).
