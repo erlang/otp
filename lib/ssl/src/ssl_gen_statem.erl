@@ -1178,6 +1178,10 @@ call(FsmPid, Event) ->
 	    {error, closed}
     end.
 
+
+check_hostname(_, "") ->
+    ?ALERT_REC(?FATAL, ?UNRECOGNIZED_NAME, empty_sni);
+
 check_hostname(#state{ssl_options = SslOptions}, Hostname) ->
     case is_sni_value(Hostname) of
         true ->
