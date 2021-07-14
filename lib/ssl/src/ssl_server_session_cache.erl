@@ -255,5 +255,5 @@ monitor_listener(ssl_unknown_listener) ->
     %% Backwards compatible Erlang node
     %% global process.
     undefined;
-monitor_listener(Listen) when is_port(Listen) ->
-    erlang:monitor(port, Listen).
+monitor_listener(Listen) ->
+    inet:monitor(Listen).
