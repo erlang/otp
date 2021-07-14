@@ -148,6 +148,9 @@ minor_upgrade(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
+upgrade_init(Ver, Ver, _, State) ->
+    %% No upgrade if to and from version is the same!
+    State#state{skip = true};
 upgrade_init(_, "8.0.2", _, State) ->
     %% Requires stdlib upgrade so it will be a node upgrade!
     State#state{skip = true};
