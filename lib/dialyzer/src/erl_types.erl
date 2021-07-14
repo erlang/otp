@@ -202,7 +202,7 @@
 	 t_tuple_sizes/1,
 	 t_tuple_subtypes/1,
          t_tuple_subtypes/2,
-	 t_unify/2,
+	 t_unify_table_only/2, t_unify/2,
 	 t_unit/0,
 	 t_unopaque/1, t_unopaque/2,
 	 t_var/1,
@@ -3480,6 +3480,119 @@ t_subst_aux(T, _Map) ->
 %%-----------------------------------------------------------------------------
 %% Unification
 %%
+
+-spec t_unify_table_only(erl_type(), erl_type()) -> [{_, erl_type()}].
+
+%% A simplified version of t_unify/2 which returns the variable
+%% bindings only. It is faster, mostly because t_subst() is not
+%% called.
+
+t_unify_table_only(T1, T2) ->
+  VarMap = t_unify_table_only(T1, T2, #{}),
+  lists:keysort(1, maps:to_list(VarMap)).
+
+t_unify_table_only(?var(Id), ?var(Id), VarMap) ->
+  VarMap;
+t_unify_table_only(?var(Id1) = T, ?var(Id2), VarMap) ->
+  case maps:find(Id1, VarMap) of
+    error ->
+      case maps:find(Id2, VarMap) of
+	error -> VarMap#{Id2 => T};
+	{ok, Type} -> t_unify_table_only(T, Type, VarMap)
+      end;
+    {ok, Type1} ->
+      case maps:find(Id2, VarMap) of
+	error -> VarMap#{Id2 => T};
+	{ok, Type2} -> t_unify_table_only(Type1, Type2, VarMap)
+      end
+  end;
+t_unify_table_only(?var(Id), Type, VarMap) ->
+  case maps:find(Id, VarMap) of
+    error -> VarMap#{Id => Type};
+    {ok, VarType} -> t_unify_table_only(VarType, Type, VarMap)
+  end;
+t_unify_table_only(Type, ?var(Id), VarMap) ->
+  case maps:find(Id, VarMap) of
+    error -> VarMap#{Id => Type};
+    {ok, VarType} -> t_unify_table_only(VarType, Type, VarMap)
+  end;
+t_unify_table_only(?function(Domain1, Range1), ?function(Domain2, Range2), VarMap) ->
+  VarMap1 = t_unify_table_only(Domain1, Domain2, VarMap),
+  t_unify_table_only(Range1, Range2, VarMap1);
+t_unify_table_only(?list(Contents1, Termination1, Size),
+	?list(Contents2, Termination2, Size), VarMap) ->
+  VarMap1 = t_unify_table_only(Contents1, Contents2, VarMap),
+  t_unify_table_only(Termination1, Termination2, VarMap1);
+t_unify_table_only(?product(Types1), ?product(Types2), VarMap) ->
+  unify_lists_table_only(Types1, Types2, VarMap);
+t_unify_table_only(?tuple(?any, ?any, ?any), ?tuple(?any, ?any, ?any), VarMap) ->
+  VarMap;
+t_unify_table_only(?tuple(Elements1, Arity, _),
+	?tuple(Elements2, Arity, _), VarMap) when Arity =/= ?any ->
+  unify_lists_table_only(Elements1, Elements2, VarMap);
+t_unify_table_only(?tuple_set([{Arity, _}]) = T1,
+	?tuple(_, Arity, _) = T2, VarMap) when Arity =/= ?any ->
+  unify_tuple_set_and_tuple1_table_only(T1, T2, VarMap);
+t_unify_table_only(?tuple(_, Arity, _) = T1,
+	?tuple_set([{Arity, _}]) = T2, VarMap) when Arity =/= ?any ->
+  unify_tuple_set_and_tuple2_table_only(T1, T2, VarMap);
+t_unify_table_only(?tuple_set(List1) = T1, ?tuple_set(List2) = T2, VarMap) ->
+  try
+    unify_lists_table_only(lists:append([T || {_Arity, T} <- List1]),
+                           lists:append([T || {_Arity, T} <- List2]), VarMap)
+  catch _:_ -> throw({mismatch, T1, T2})
+  end;
+t_unify_table_only(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B, VarMap0) ->
+  VarMap1 = t_unify_table_only(ADefK, BDefK, VarMap0),
+  VarMap2 = t_unify_table_only(ADefV, BDefV, VarMap1),
+  {[], VarMap} =
+    map_pairwise_merge_foldr(
+      fun(_K, MNess, V1, MNess, V2, {Pairs0, VarMap3}) ->
+	  %% We know that the keys unify and do not contain variables, or they
+	  %% would not be singletons
+	  %% TODO: Should V=?none (known missing keys) be handled special?
+	  VarMap4 = t_unify_table_only(V1, V2, VarMap3),
+	  {Pairs0, VarMap4};
+	 (_K, _, V1, _, V2, {Pairs0, VarMap3}) ->
+	  %% One mandatory and one optional; what should be done in this case?
+	  VarMap4 = t_unify_table_only(V1, V2, VarMap3),
+	  {Pairs0, VarMap4}
+      end, {[], VarMap2}, A, B),
+  VarMap;
+t_unify_table_only(?opaque(_) = T1, ?opaque(_) = T2, VarMap) ->
+  t_unify_table_only(t_opaque_structure(T1), t_opaque_structure(T2), VarMap);
+t_unify_table_only(T1, ?opaque(_) = T2, VarMap) ->
+  t_unify_table_only(T1, t_opaque_structure(T2), VarMap);
+t_unify_table_only(?opaque(_) = T1, T2, VarMap) ->
+  t_unify_table_only(t_opaque_structure(T1), T2, VarMap);
+t_unify_table_only(T, T, VarMap) ->
+  VarMap;
+t_unify_table_only(?union(_)=T1, ?union(_)=T2, VarMap) ->
+  {Type1, Type2} = unify_union2(T1, T2),
+  t_unify_table_only(Type1, Type2, VarMap);
+t_unify_table_only(?union(_)=T1, T2, VarMap) ->
+  t_unify_table_only(unify_union1(T1, T1, T2), T2, VarMap);
+t_unify_table_only(T1, ?union(_)=T2, VarMap) ->
+  t_unify_table_only(T1, unify_union1(T2, T1, T2), VarMap);
+t_unify_table_only(T1, T2, _) ->
+  throw({mismatch, T1, T2}).
+
+%% Two functions since t_unify_table_only is not symmetric.
+unify_tuple_set_and_tuple1_table_only(?tuple_set([{Arity, List}]),
+                                      ?tuple(Elements2, Arity, _), VarMap) ->
+  %% Can only work if the single tuple has variables at correct places.
+  unify_lists_table_only(sup_tuple_elements(List), Elements2, VarMap).
+
+unify_tuple_set_and_tuple2_table_only(?tuple(Elements2, Arity, _),
+                                      ?tuple_set([{Arity, List}]), VarMap) ->
+  %% Can only work if the single tuple has variables at correct places.
+  unify_lists_table_only(Elements2, sup_tuple_elements(List), VarMap).
+
+unify_lists_table_only([T1|Left1], [T2|Left2], VarMap) ->
+  NewVarMap = t_unify_table_only(T1, T2, VarMap),
+  unify_lists_table_only(Left1, Left2, NewVarMap);
+unify_lists_table_only([], [], VarMap) ->
+  VarMap.
 
 -type t_unify_ret() :: {erl_type(), [{_, erl_type()}]}.
 
