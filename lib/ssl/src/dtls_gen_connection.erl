@@ -105,30 +105,29 @@ next_record(#state{protocol_buffers =
     CurrentRead = dtls_record:get_connection_state_by_epoch(Epoch, ConnectionStates, read),
     case dtls_record:replay_detect(CT, CurrentRead) of
         false ->
-            decode_cipher_text(State#state{connection_states = ConnectionStates}) ;
+            decode_cipher_text(State) ;
         true ->
             %% Ignore replayed record
-            next_record(State#state{protocol_buffers =
-                                        Buffers#protocol_buffers{dtls_cipher_texts = Rest},
-                                    connection_states = ConnectionStates})
+            next_record(State#state{protocol_buffers = Buffers#protocol_buffers{dtls_cipher_texts = Rest}})
     end;
 next_record(#state{protocol_buffers =
 		       #protocol_buffers{dtls_cipher_texts = [#ssl_tls{epoch = Epoch} | Rest]}
 		   = Buffers,
-		   connection_states = #{current_read := #{epoch := CurrentEpoch}} = ConnectionStates} = State) 
+		   connection_states = #{current_read := #{epoch := CurrentEpoch}}} = State)
   when Epoch > CurrentEpoch ->
     %% TODO Buffer later Epoch message, drop it for now
-    next_record(State#state{protocol_buffers =
-                                Buffers#protocol_buffers{dtls_cipher_texts = Rest},
-                            connection_states = ConnectionStates});
-next_record(#state{protocol_buffers =
-		       #protocol_buffers{dtls_cipher_texts = [ _ | Rest]}
-		   = Buffers,
-		   connection_states = ConnectionStates} = State) ->
-    %% Drop old epoch message
-    next_record(State#state{protocol_buffers =
-                                Buffers#protocol_buffers{dtls_cipher_texts = Rest},
-                            connection_states = ConnectionStates});
+    next_record(State#state{protocol_buffers = Buffers#protocol_buffers{dtls_cipher_texts = Rest}});
+next_record(#state{protocol_buffers = #protocol_buffers{dtls_cipher_texts =
+                                                            [#ssl_tls{epoch = Epoch} | Rest]
+                                                       } = Buffers
+                  } = State) ->
+    case Epoch of
+        0 -> %% A reconnect (client might have rebooted and re-connected)
+            decode_cipher_text(State);
+        _ ->
+            %% Drop old epoch message
+            next_record(State#state{protocol_buffers = Buffers#protocol_buffers{dtls_cipher_texts = Rest}})
+    end;
 next_record(#state{static_env = #static_env{role = server,
                                             socket = {Listener, {Client, _}}}} = State) ->
     dtls_packet_demux:active_once(Listener, Client, self()),
@@ -187,10 +186,11 @@ next_event(StateName, no_record,
 next_event(connection = StateName, Record,
 	   #state{connection_states = #{current_read := #{epoch := CurrentEpoch}}} = State0, Actions) ->
     case Record of
-        #ssl_tls{epoch = CurrentEpoch,
+        #ssl_tls{epoch = Epoch,
                  type = ?HANDSHAKE,
-                 version = Version} = Record ->
-            State = dtls_version(StateName, Version, State0), 
+                 version = Version} = Record
+          when Epoch =:= CurrentEpoch; Epoch =:= 0 ->
+            State = dtls_version(StateName, Version, State0),
 	    {next_state, StateName, State,
 	     [{next_event, internal, {protocol_record, Record}} | Actions]};
 	#ssl_tls{epoch = CurrentEpoch} ->
@@ -330,9 +330,8 @@ handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, Stat
             ssl_gen_statem:hibernate_after(StateName, State, Actions)
     end;
 %%% DTLS record protocol level handshake messages 
-handle_protocol_record(#ssl_tls{type = ?HANDSHAKE,
-				       fragment = Data}, 
-		    StateName, 
+handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, epoch = Epoch, fragment = Data},
+                       StateName,
                        #state{protocol_buffers = Buffers0,
                               connection_env = #connection_env{negotiated_version = Version},
                               ssl_options = Options} = State) ->
@@ -342,12 +341,17 @@ handle_protocol_record(#ssl_tls{type = ?HANDSHAKE,
 		next_event(StateName, no_record, State#state{protocol_buffers = Buffers});
 	    {Packets, Buffers} ->
 		HsEnv = State#state.handshake_env,
-		Events = dtls_handshake_events(Packets),
-                {next_state, StateName, 
+		HSEvents = dtls_handshake_events(Packets),
+                Events = case is_new_connection(Epoch, Packets, State) of
+                             true  -> [{next_event, internal, new_connection} | HSEvents];
+                             false -> HSEvents
+                         end,
+                {next_state, StateName,
                  State#state{protocol_buffers = Buffers,
-                             handshake_env = 
-                                 HsEnv#handshake_env{unprocessed_handshake_events 
-                                                     = unprocessed_events(Events)}}, Events}
+                             handshake_env =
+                                 HsEnv#handshake_env{
+                                   unprocessed_handshake_events = unprocessed_events(HSEvents)}
+                            }, Events}
 	end
     catch throw:#alert{} = Alert ->
 	    handle_own_alert(Alert, StateName, State)
@@ -549,6 +553,15 @@ handle_info(Msg, StateName, State) ->
 %%====================================================================
 %% Internal functions 
 %%====================================================================
+
+is_new_connection(0, [{#client_hello{},_Raw}|_],
+                  #state{
+                     connection_states =
+                         #{current_read := #{epoch := CurrentEpoch}}})
+  when CurrentEpoch > 0 ->
+    true;
+is_new_connection(_, _, _) ->
+    false.
 
 dtls_handshake_events(Packets) ->
     lists:map(fun(Packet) ->

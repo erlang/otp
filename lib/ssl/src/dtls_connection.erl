@@ -541,12 +541,30 @@ connection(internal, #client_hello{}, #state{static_env = #static_env{role = ser
     State1 = dtls_gen_connection:send_alert(Alert, State0),
     {Record, State} = ssl_gen_statem:prepare_connection(State1, Connection),
     dtls_gen_connection:next_event(?FUNCTION_NAME, Record, State);
+connection(internal, new_connection, #state{ssl_options=SSLOptions,
+                                            handshake_env=HsEnv,
+                                            connection_states = OldCs} = State) ->
+    #{beast_mitigation := BeastMitigation} = SSLOptions,
+    ConnectionStates0 = dtls_record:init_connection_states(server, BeastMitigation),
+    #{current_write:=CW, current_read:=CR} = OldCs,
+    ConnectionStates = ConnectionStates0#{saved_write:=CW, saved_read:=CR},
+    {next_state, hello, State#state{handshake_env = HsEnv#handshake_env{renegotiation = {false, first}},
+                                    connection_states = ConnectionStates}};
 connection({call, From}, {application_data, Data}, State) ->
     try
         send_application_data(Data, From, ?FUNCTION_NAME, State)
     catch throw:Error ->
             ssl_gen_statem:hibernate_after(?FUNCTION_NAME, State, [{reply, From, Error}])
     end;
+connection({call, From}, {downgrade, Pid},
+           #state{connection_env = CEnv,
+                  static_env = #static_env{transport_cb = Transport,
+                                           socket = {_Server, Socket} = DTLSSocket}} = State) ->
+    %% For testing purposes, downgrades without noticing the server
+    dtls_socket:setopts(Transport, Socket, [{active, false}, {packet, 0}, {mode, binary}]),
+    Transport:controlling_process(Socket, Pid),
+    {stop_and_reply, {shutdown, normal}, {reply, From, {ok, DTLSSocket}},
+     State#state{connection_env = CEnv#connection_env{socket_terminated = true}}};
 connection(Type, Event, State) ->
     try
         tls_dtls_connection:?FUNCTION_NAME(Type, Event, State)

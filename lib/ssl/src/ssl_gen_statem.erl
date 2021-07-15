@@ -720,6 +720,8 @@ handle_common_event({timeout, recv}, timeout, StateName, #state{start_or_recv_fr
 handle_common_event(internal, {recv, RecvFrom}, StateName, #state{start_or_recv_from = RecvFrom}) when
       StateName =/= connection ->
     {keep_state_and_data, [postpone]};
+handle_common_event(internal, new_connection, StateName, State) ->
+    {next_state, StateName, State};
 handle_common_event(Type, Msg, StateName, State) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, {unexpected_msg, {Type, Msg}}),
     handle_own_alert(Alert, StateName, State).
