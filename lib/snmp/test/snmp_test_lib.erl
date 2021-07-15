@@ -51,6 +51,8 @@
 -export([f/2, formated_timestamp/0]).
 -export([p/2, print1/2, print2/2, print/5]).
 -export([eprint/2, wprint/2, nprint/2, iprint/2]).
+-export([explicit_inet_backend/0, test_inet_backends/0]).
+-export([which_host_ip/2]).
 
 
 -define(SKIP(R), skip(R, ?MODULE, ?LINE)).
@@ -258,6 +260,45 @@ tc_which_name() ->
 %% Misc functions
 %%
 
+explicit_inet_backend() ->
+    %% This is intentional!
+    %% This is a kernel flag, which if set disables
+    %% our own special handling of the inet_backend
+    %% in our test suites.
+    case application:get_all_env(kernel) of
+        Env when is_list(Env) ->
+            case lists:keysearch(inet_backend, 1, Env) of
+                {value, {inet_backend, _}} ->
+                    true;
+                _ ->
+                    false
+            end;
+        _ ->
+            false
+    end.
+
+test_inet_backends() ->
+    case init:get_argument(snmp) of
+        {ok, SnmpArgs} when is_list(SnmpArgs) ->
+            test_inet_backends(SnmpArgs, atom_to_list(?FUNCTION_NAME));
+        error ->
+            false
+    end.
+
+test_inet_backends([], _) ->
+    false;
+test_inet_backends([[Key, Val] | _], Key) ->
+    case list_to_atom(string:to_lower(Val)) of
+        Bool when is_boolean(Bool) ->
+            Bool;
+        _ ->
+            false
+    end;
+test_inet_backends([_|Args], Key) ->
+    test_inet_backends(Args, Key).
+
+
+
 proxy_call(F, Timeout, Default)
   when is_function(F, 0) andalso is_integer(Timeout) andalso (Timeout > 0) ->
     {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
@@ -281,6 +322,29 @@ hostname(Node) ->
         _ ->
             []
     end.
+
+
+which_host_ip(Hostname, Family) ->
+    case snmp_misc:ip(Hostname, Family) of
+        {ok, {A, _, _, _}} = OK
+          when (A =/= 127) ->
+            OK;
+        {ok, {A, _, _, _, _, _, _, _}} = OK 
+          when (A =/= 0) andalso 
+               (A =/= 16#fe80) ->
+            OK;
+        {ok, _} ->
+            try localhost(Family) of
+                Addr ->
+                    {ok, Addr}
+            catch
+                C:E:S ->
+                    {error, {C, E, S}}
+            end;
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
 
 localhost() ->
     localhost(inet).
@@ -314,6 +378,8 @@ localhost(Family) ->
 which_addr(_Family, []) ->
     fail(no_valid_addr, ?MODULE, ?LINE);
 which_addr(Family, [{"lo", _} | IfList]) ->
+    which_addr(Family, IfList);
+which_addr(Family, [{"tun" ++ _, _} | IfList]) ->
     which_addr(Family, IfList);
 which_addr(Family, [{"docker" ++ _, _} | IfList]) ->
     which_addr(Family, IfList);
@@ -781,6 +847,7 @@ init_group_top_dir(GroupName, Config) ->
 	    [{snmp_group_top_dir, GroupTopDir} | Config];
 
 	_ ->
+            %% This is a "top level" group, that is, there is only the suite
 	    case lists:keysearch(snmp_suite_top_dir, 1, Config) of
 		{value, {_Key, Dir}} ->
 		    GroupTopDir = filename:join(Dir, GroupName),

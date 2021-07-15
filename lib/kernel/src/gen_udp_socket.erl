@@ -1142,7 +1142,7 @@ init(Arg) ->
     error_logger:error_report([{badarg, {?MODULE, init, [Arg]}}]),
     error(badarg, [Arg]).
 
-
+                        
 socket_open(Domain, Proto, #{fd := FD} = ExtraOpts, Extra) ->
     Opts =
         (maps:merge(Extra, maps:remove(fd, ExtraOpts)))
@@ -1170,6 +1170,8 @@ socket_open(Domain, Proto, #{fd := FD} = ExtraOpts, Extra) ->
             ERROR
     end;
 socket_open(Domain, Proto, ExtraOpts, Extra) ->
+    %% ?DBG([{domain, Domain}, {proto, Proto},
+    %%       {extra_opts, ExtraOpts}, {extra, Extra}]),
     Opts = maps:merge(Extra, ExtraOpts),
     socket:open(Domain, dgram, Proto, Opts).
 
@@ -1444,7 +1446,18 @@ handle_event({call, From}, {bind, BindAddr} = _BIND, _State, {P, _D}) ->
     %% ?DBG(['try bind',
     %%       {handle_event, call}, {bind_addr, BindAddr}, {state, _State}]),
     Result = socket:bind(P#params.socket, BindAddr),
-    %% ?DBG([{bind_result, Result}]),
+    %% ?DBG([{bind_result, Result}] ++ 
+    %%     case Result of
+    %%         ok ->
+    %%             case socket:sockname(P#params.socket) of
+    %%                 {ok, SockAddr} ->
+    %%                     [{sockaddr, SockAddr}];
+    %%                 {error, SAReason} ->
+    %%                     [{sockaddr_reason, SAReason}]
+    %%             end;
+    %%         {error, BReason} ->
+    %%             [{bind_reason, BReason}]
+    %%     end),
     {keep_state_and_data, [{reply, From, Result}]};
 
 
@@ -1478,7 +1491,7 @@ handle_event(
   info, ?socket_select(Socket, SelectRef),
   #recv{info = ?select_info(SelectRef)},
   {#params{socket = Socket} = P, D}) ->
-    %% ?DBG([info, {socket, Socket}, {ref, SelectRef}]),
+    %% ?DBG(['info socket select', {socket, Socket}, {ref, SelectRef}, {p, P}, {d, D}]),
     handle_recv(P, D, []);
 
 %%
@@ -1486,7 +1499,7 @@ handle_event(
   info, ?socket_abort(Socket, SelectRef, Reason),
   #recv{info = ?select_info(SelectRef)},
   {#params{socket = Socket} = P, D}) ->
-    %% ?DBG({abort, Reason}),
+    %% ?DBG(['socket abort', {reason, Reason}, {p, P}, {d, D}]),
     handle_reading(P, cleanup_recv_reply(P, D, [], Reason));
 
 %%
@@ -1622,6 +1635,8 @@ handle_recv(#params{socket = Socket, recv_method = []} = P,
     %% ?DBG(['try recvfrom', {socket, Socket}, {length, Length}]),
     case socket_recvfrom(Socket, Length) of
         {ok, {Source, <<Data/binary>>}} ->
+            %% ?DBG(['recvfrom ok', {source, Source},
+            %%       {'data sz', byte_size(Data)}]),
             handle_recv_deliver(P, D, ActionsR, {Source, Data});
         {select, ?select_info(_) = SelectInfo} ->
             %% ?DBG(['recvfrom select', {socket_info, SelectInfo}]),
@@ -1635,16 +1650,18 @@ handle_recv(#params{socket = Socket, recv_method = []} = P,
     end;
 handle_recv(#params{socket = Socket} = P,
             #{recv_length := Length} = D, ActionsR) ->
+    %% ?DBG(['try recvmsg', {socket, Socket}, {length, Length}]),
     case socket_recvmsg(Socket, Length) of
         {ok, MsgHdr} ->
             handle_recv_deliver(P, D, ActionsR, MsgHdr);
         {select, ?select_info(_) = SelectInfo} ->
+            %% ?DBG(['recvmsg select', {socket_info, SelectInfo}]),
             {next_state,
              #recv{info = SelectInfo},
              {P, D},
              reverse(ActionsR)};
         {error, Reason} ->
-            %% ?DBG({'recv error wo rest-data', Reason}),
+            %% ?DBG(['recvmsg error', {reason, Reason}]),
             handle_recv_error(P, D, ActionsR, Reason)
     end.
 
@@ -1731,10 +1748,9 @@ recv_data_deliver(
   #params{owner = Owner} = P,
   #{mode := Mode, deliver := Deliver} = D,
   ActionsR, Data) ->
-    %%
-    %% ?DBG([{owner, Owner},
-    %% 	  {mode, Mode},
-    %% 	  {header, Header}, {deliver, Deliver}, {packet, Packet}]), 
+
+    %% ?DBG([{owner, Owner}, {mode, Mode}, {deliver, Deliver}]), 
+
     {IP, Port, AncData, DeliverData} = deliver_data(Data, Mode),
     case D of
         #{recv_from := From} ->
@@ -1769,6 +1785,7 @@ mk_recv_reply(IP, Port, AncData, Data) ->
     {IP, Port, AncData, Data}.
 
 deliver_recv_msg(Pid, Active, Deliver, Socket, IP, Port, AncData, Data) ->
+    %% ?DBG(['deliver packet', {pid, Pid}]),
     Pid ! mk_recv_msg(Active, Deliver, Socket, IP, Port, AncData, Data).
 
 mk_recv_msg(true = _Active, port = _Deliver,
