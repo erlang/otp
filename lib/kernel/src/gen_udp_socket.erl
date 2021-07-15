@@ -806,8 +806,8 @@ socket_getopt_opt(Socket, Opt, Tag) ->
     %% _ = socket:setopt(Socket, otp, debug, false),
     socket_getopt_value(Tag, Res).
 
-socket_getopt_opts([], _Socket, _Tag) ->
-    {error, einval};
+%% socket_getopt_opts([], _Socket, _Tag) ->
+%%     {error, einval};
 
 %% Its possible for *one* option to be mapped to several 'socket' options.
 %% But, its *always* the first element in th elist that is the "real"
