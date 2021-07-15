@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2020</year>
+      <year>1997</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,6 +33,45 @@
   <description>
     <p>This module provides functions for communicating
       with sockets using the UDP protocol.</p>
+
+    <note>
+      <p>
+        Functions that create sockets can take an optional option;
+        <c>{inet_backend,&nbsp;Backend}</c> that, if specified,
+        has to be the first option.  This selects
+        the implementation backend towards the platform's socket API.
+      </p>
+      <p>
+        This is a <em>temporary</em> option
+        that will be ignored in a future release.
+      </p>
+      <p>
+        The default is <c>Backend&nbsp;=&nbsp;inet</c>
+        that selects the traditional <c>inet_drv.c</c> driver.
+        The other choice is <c>Backend&nbsp;=&nbsp;socket</c>
+        that selects the new <seeerl marker="socket"><c>socket</c></seeerl>
+        module and its NIF implementation.
+      </p>
+      <p>
+        The system default can be changed when the node is started
+        with the application <c>kernel</c>'s configuration variable
+        <c>inet_backend</c>.
+      </p>
+      <p>For <c>gen_udp</c> with <c>inet_backend = socket</c> we have tried
+      to be as "compatible" as possible which has sometimes been impossible.
+      Here is a list of cases when the behaviour of inet-backend
+      <c>inet</c> (default) and <c>socket</c> are different: </p>
+      <list type="bulleted">
+	<item>
+	  <p>
+	    The option
+	    <seeerl marker="inet#option-read_packets">read_packets</seeerl>
+	    is currently <em>ignored</em>.
+	  </p>
+	</item>
+      </list>
+    </note>
+
   </description>
 
   <datatypes>
@@ -41,6 +80,9 @@
     </datatype>
     <datatype>
       <name name="option_name"/>
+    </datatype>
+    <datatype>
+      <name name="open_option"/>
     </datatype>
     <datatype>
       <name>socket()</name>

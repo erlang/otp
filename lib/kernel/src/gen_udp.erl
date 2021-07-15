@@ -92,9 +92,18 @@
         pktoptions |
 	ipv6_v6only.
 
+-type open_option() :: {ip, inet:socket_address()}
+                     | {fd, non_neg_integer()}
+                     | {ifaddr, inet:socket_address()}
+                     | inet:address_family()
+                     | {port, inet:port_number()}
+                     | {netns, file:filename_all()}
+                     | {bind_to_device, binary()}
+                     | option().
+
 -type socket() :: inet:socket().
 
--export_type([option/0, option_name/0, socket/0]).
+-export_type([option/0, open_option/0, option_name/0, socket/0]).
 
 
 %% -- open ------------------------------------------------------------------
@@ -108,16 +117,8 @@ open(Port) ->
     open(Port, []).
 
 -spec open(Port, Opts) -> {ok, Socket} | {error, Reason} when
-      Port :: inet:port_number(),
-      Opts :: [Option],
-      Option :: {ip, inet:socket_address()}
-              | {fd, non_neg_integer()}
-              | {ifaddr, inet:socket_address()}
-              | inet:address_family()
-              | {port, inet:port_number()}
-              | {netns, file:filename_all()}
-              | {bind_to_device, binary()}
-              | option(),
+      Port   :: inet:port_number(),
+      Opts   :: [inet:inet_backend() | open_option()],
       Socket :: socket(),
       Reason :: system_limit | inet:posix().
 
