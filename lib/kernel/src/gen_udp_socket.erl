@@ -1743,8 +1743,8 @@ recv_data_deliver(
         #{active := Active} ->
             %% ?DBG({active, Active}),
             ModuleSocket = module_socket(P),
-            deliver_recv_msg(Owner, Active, Deliver,
-                             ModuleSocket, IP, Port, AncData, DeliverData),
+            _ = deliver_recv_msg(Owner, Active, Deliver,
+                                 ModuleSocket, IP, Port, AncData, DeliverData),
             %% ?DBG('package delivered'),
             case Active of
                 true ->
