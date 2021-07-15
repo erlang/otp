@@ -185,6 +185,8 @@ pp({S,_Len,_,_}, _Col, _Ll, _M, _TInd, _Ind, _LD, _W) ->
 
 %%  Print a tagged tuple by indenting the rest of the elements
 %%  differently to the tag. Tuple has size >= 2.
+pp_tag_tuple({dots, _, _, _}, _Col, _Ll, _M, _TInd, _Ind, _LD, _W) ->
+    "...";
 pp_tag_tuple([{Tag,Tlen,_,_} | L], Col, Ll, M, TInd, Ind, LD, W) ->
     %% this uses TInd
     TagInd = Tlen + 2,
@@ -973,7 +975,9 @@ cind_tag_tuple([{_Tag,Tlen,_,_} | L], Col, Ll, M, Ind, LD, W) ->
             cind_list(L, Tcol, Ll, M, Ind, LD, W + Tlen + 1);
         true ->
             throw(no_good)
-    end.
+    end;
+cind_tag_tuple(_, _Col, _Ll, _M, Ind, _LD, _W) ->
+    Ind.
 
 cind_map([P | Ps], Col, Ll, M, Ind, LD, W) ->
     PW = cind_pair(P, Col, Ll, M, Ind, last_depth(Ps, LD), W),
