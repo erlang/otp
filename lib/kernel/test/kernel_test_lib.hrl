@@ -44,6 +44,7 @@
 -define(CONNECT(__C__, __H__, __P__, __O__, __T__),
         ?LIB:connect(__C__, __H__, __P__, __O__, __T__)).
 
+-define(OPEN(C),                 ?LIB:open(C, 0, [])).
 -define(OPEN(C, P),              ?LIB:open(C, P, [])).
 -define(OPEN(C, P, O),           ?LIB:open(C, P, O)).
 
