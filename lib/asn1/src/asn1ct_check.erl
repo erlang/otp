@@ -2490,11 +2490,11 @@ check_ptype(S,Type,Ts) when is_record(Ts,type) ->
     NewDef= 
 	case Def of 
 	    Seq when is_record(Seq,'SEQUENCE') ->
-			Components = prepare_components(S,Seq#'SEQUENCE'.components),			
+			Components = expand_components(S,Seq#'SEQUENCE'.components),			
 			#newt{type=Seq#'SEQUENCE'{pname=get_datastr_name(Type),
 									components = Components}};
 	    Set when is_record(Set,'SET') ->
-			Components = prepare_components(S,Set#'SET'.components),
+			Components = expand_components(S,Set#'SET'.components),
 			#newt{type=Set#'SET'{pname=get_datastr_name(Type),
 				     components = Components}};
 	    _Other ->
@@ -4395,37 +4395,11 @@ check_sequence(S,Type,Comps)  ->
 
 	    NewComps3 = textual_order(CompListWithTblInf),
 	    NewComps4 = simplify_comps(NewComps3),
-	    CompListTuple = complist_as_tuple(NewComps4),
+	    CompListTuple = asn1ct_gen:complist_as_tuple(NewComps4),
 	    {CRelInf,CompListTuple};
 	Dupl ->
 	    asn1_error(S, {duplicate_identifier, error_value(hd(Dupl))})
     end.
-
-complist_as_tuple(CompList) ->
-    complist_as_tuple(CompList, [], [], [], root).
-
-complist_as_tuple([#'EXTENSIONMARK'{}|T], Acc, Ext, Acc2, root) ->
-    complist_as_tuple(T, Acc, Ext, Acc2, ext);
-complist_as_tuple([#'EXTENSIONMARK'{}|T], Acc, Ext, Acc2, ext) ->
-    complist_as_tuple(T, Acc, Ext, Acc2, root2);
-complist_as_tuple([C|T], Acc, Ext, Acc2, root) ->
-    complist_as_tuple(T, [C|Acc], Ext, Acc2, root);
-complist_as_tuple([C|T], Acc, Ext, Acc2, ext) ->
-    complist_as_tuple(T, Acc, [C|Ext], Acc2, ext);
-complist_as_tuple([C|T], Acc, Ext, Acc2, root2) ->
-    complist_as_tuple(T, Acc, Ext, [C|Acc2], root2);
-complist_as_tuple([], Acc, _Ext, _Acc2, root) ->
-    lists:reverse(Acc);
-complist_as_tuple([], Acc, Ext, _Acc2, ext) ->
-    {lists:reverse(Acc),lists:reverse(Ext)};
-complist_as_tuple([], Acc, Ext, Acc2, root2) ->
-    {lists:reverse(Acc),lists:reverse(Ext),lists:reverse(Acc2)}.
-
-prepare_components(_S, Components) when is_tuple(Components) ->
-	Components;
-prepare_components(S, Components) ->
-	Cl = expand_components(S, Components),
-	complist_as_tuple(Cl).
 
 expand_components(S, [{'COMPONENTS OF',Type}|T]) ->
     CompList = expand_components2(S,get_referenced_type(S,Type#type.def)),
@@ -4475,7 +4449,7 @@ take_only_rootset([H|T]) ->
     [H|take_only_rootset(T)].
 
 check_unique_sequence_tags(S,CompList) ->
-    TagComps = case complist_as_tuple(CompList) of
+    TagComps = case asn1ct_gen:complist_as_tuple(CompList) of
 		   {R1,Ext,R2} ->
 		       R1 ++ [C#'ComponentType'{prop='OPTIONAL'}||
 				 C = #'ComponentType'{} <- Ext]++R2;
@@ -4738,7 +4712,7 @@ check_choice(S,Type,Components) when is_list(Components) ->
 				     end,NewComps),
 	    NewComps3 = simplify_comps(NewComps2),
 	    check_unique_tags(S, NewComps3),
-	    complist_as_tuple(NewComps3);
+	    asn1ct_gen:complist_as_tuple(NewComps3);
 	Dupl ->
 	    asn1_error(S, {duplicate_identifier,error_value(hd(Dupl))})
     end;
