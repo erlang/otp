@@ -170,7 +170,9 @@ validate_cookie(Cookie0, #state{ssl_options = #{cookie := true},
             ok;
         false ->
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)}
-    end.
+    end;
+validate_cookie(_,_) ->
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)}.
 
 encrypted_extensions(#state{handshake_env = HandshakeEnv}) ->
     E0 = #{},
