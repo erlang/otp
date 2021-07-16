@@ -885,7 +885,9 @@ do_negotiated({start_handshake, PSK0},
 
     catch
         {Ref, #alert{} = Alert} ->
-            Alert
+            Alert;
+        error:badarg ->
+            ?ALERT_REC(?ILLEGAL_PARAMETER, illegal_parameter_to_compute_key)
     end.
 
 
