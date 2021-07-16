@@ -2640,11 +2640,11 @@ calculate_finished_key(PSK, HKDFAlgo) ->
 
 
 calculate_binder(BinderKey, HKDF, Truncated) ->
-  tls_v1:finished_verify_data(BinderKey, HKDF, [Truncated]).
+    tls_v1:finished_verify_data(BinderKey, HKDF, [Truncated]).
 
 
 update_binders(#client_hello{extensions =
-                                #{pre_shared_key := PreSharedKey0} = Extensions0} = Hello, Binders) ->
+                                 #{pre_shared_key := PreSharedKey0} = Extensions0} = Hello, Binders) ->
     #pre_shared_key_client_hello{
        offered_psks =
            #offered_psks{identities = Identities}} = PreSharedKey0,
@@ -2780,9 +2780,9 @@ maybe_check_early_data_indication(EarlyDataIndication,
                                                      use_ticket := UseTicket,
                                                      early_data := EarlyData}
                                     } = State) when Version =:= {3,4} andalso
-                                                     UseTicket =/= [undefined] andalso
-                                                     EarlyData =/= undefined andalso
-                                                     EarlyDataIndication =/= undefined ->
+                                                    UseTicket =/= [undefined] andalso
+                                                    EarlyData =/= undefined andalso
+                                                    EarlyDataIndication =/= undefined ->
     signal_user_early_data(State, accepted),
     State#state{handshake_env = HsEnv#handshake_env{early_data_accepted = true}};
 maybe_check_early_data_indication(EarlyDataIndication,
@@ -2792,9 +2792,9 @@ maybe_check_early_data_indication(EarlyDataIndication,
                                                      use_ticket := UseTicket,
                                                      early_data := EarlyData} = _SslOpts0
                                     } = State) when Version =:= {3,4} andalso
-                                                     UseTicket =/= [undefined] andalso
-                                                     EarlyData =/= undefined andalso
-                                                     EarlyDataIndication =:= undefined ->
+                                                    UseTicket =/= [undefined] andalso
+                                                    EarlyData =/= undefined andalso
+                                                    EarlyDataIndication =:= undefined ->
     signal_user_early_data(State, rejected),
     %% Use handshake keys if early_data is rejected.
     ssl_record:step_encryption_state_write(State);
