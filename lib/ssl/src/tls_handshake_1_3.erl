@@ -614,10 +614,10 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                                 honor_cipher_order := HonorCipherOrder,
                                 early_data := EarlyDataEnabled}} = State0) ->
     SNI = maps:get(sni, Extensions, undefined),
-    ClientGroups0 = maps:get(elliptic_curves, Extensions, undefined),
     EarlyDataIndication = maps:get(early_data, Extensions, undefined),
     {Ref,Maybe} = maybe(),
     try
+        ClientGroups0 = Maybe(supported_groups_from_extensions(Extensions)),
         ClientGroups = Maybe(get_supported_groups(ClientGroups0)),
         ServerGroups = Maybe(get_supported_groups(ServerGroups0)),
         
@@ -2311,6 +2311,8 @@ select_sign_algo(dsa, _RSAKeySize, _PeerSignAlgs, _OwnSignAlgs, _Curve) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)};
 select_sign_algo(_, _RSAKeySize, [], _, _) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
+select_sign_algo(_, _RSAKeySize, undefined, _OwnSignAlgs, _) ->
+    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)};
 select_sign_algo(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs, Curve) ->
     {_, S, _} = ssl_cipher:scheme_to_components(PeerSignAlg),
     %% RSASSA-PKCS1-v1_5 and Legacy algorithms are not defined for use in signed
@@ -2376,6 +2378,8 @@ is_rsa_key_compatible(KeySize, Hash) ->
             true
     end.
 
+do_check_cert_sign_algo(_, _, undefined) ->
+    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
 do_check_cert_sign_algo(_, _, []) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
 do_check_cert_sign_algo(SignAlgo, SignHash, [Scheme|T]) ->
@@ -2438,6 +2442,8 @@ public_key_algo(?'id-dsa') ->
 
 get_signature_scheme_list(undefined) ->
     undefined;
+get_signature_scheme_list(#hash_sign_algos{}) ->
+    [];
 get_signature_scheme_list(#signature_algorithms_cert{
                         signature_scheme_list = ClientSignatureSchemes}) ->
     ClientSignatureSchemes;
@@ -2452,6 +2458,8 @@ get_supported_groups(undefined = Groups) ->
 get_supported_groups(#supported_groups{supported_groups = Groups}) ->
     {ok, Groups}.
 
+get_key_shares(undefined) ->
+    [];
 get_key_shares(#key_share_client_hello{client_shares = ClientShares}) ->
     ClientShares;
 get_key_shares(#key_share_server_hello{server_share = ServerShare}) ->
@@ -2936,3 +2944,14 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
     Options = [{max_path_length, Depth},
                {verify_fun, ValidationFunAndState}],
     public_key:pkix_path_validation(TrustedCert, Path, Options).
+
+supported_groups_from_extensions(Extensions) ->
+    case maps:get(elliptic_curves, Extensions, undefined) of
+        #supported_groups{} = Groups->
+            {ok, Groups};
+        %% We do not support legacy for TLS-1.2 in TLS-1.3
+        #elliptic_curves{} ->
+           {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
+        undefined ->
+            {ok, undefined}
+    end.
