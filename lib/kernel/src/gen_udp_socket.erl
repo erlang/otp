@@ -281,12 +281,14 @@ make_iov(IOV) when is_list(IOV)   -> IOV.
     
 -compile({inline, [dest2sockaddr/1]}).
 dest2sockaddr({Addr, Port})
-  when is_tuple(Addr) andalso (size(Addr) =:= 4) andalso is_integer(Port) ->
+  when is_tuple(Addr) andalso (tuple_size(Addr) =:= 4) andalso
+       is_integer(Port) ->
     #{family => inet,
       port   => Port,
       addr   => Addr};
 dest2sockaddr({Addr, Port})
-  when is_tuple(Addr) andalso (size(Addr) =:= 8) andalso is_integer(Port) ->
+  when is_tuple(Addr) andalso (tuple_size(Addr) =:= 8) andalso
+       is_integer(Port) ->
     #{family => inet6,
       port   => Port,
       addr   => Addr};
@@ -336,7 +338,7 @@ send(Socket, {_,_} = Destination, AncData, Data) ->
 	       make_cmsghdrs(AncData));
 send(Socket, Addr, Port, Data)
   when is_tuple(Addr) andalso
-       ((size(Addr) =:= 4) orelse (size(Addr) =:= 8)) andalso
+       ((tuple_size(Addr) =:= 4) orelse (tuple_size(Addr) =:= 8)) andalso
        is_integer(Port) ->
     send(Socket, {Addr, Port}, Data);
 send(?MODULE_socket(_, ESock) = Socket,
@@ -368,7 +370,7 @@ send(_Socket, _Arg1, _Arg2, _Arg3) ->
 
 send(Socket, Addr, Port, AncData, Data)
   when is_tuple(Addr) andalso
-       ((size(Addr) =:= 4) orelse (size(Addr) =:= 8)) andalso
+       ((tuple_size(Addr) =:= 4) orelse (tuple_size(Addr) =:= 8)) andalso
        is_integer(Port) ->
     send(Socket, {Addr, Port}, AncData, Data);
 send(?MODULE_socket(_, ESock) = Socket,
