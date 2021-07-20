@@ -202,6 +202,8 @@ get_rc() ->
 -spec close(Socket) -> 'ok' when
       Socket :: socket().
 
+close(?module_socket(GenSocketMod, _) = Socket) when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket);
 close(Socket) ->
     prim_inet:close(Socket),
     receive
