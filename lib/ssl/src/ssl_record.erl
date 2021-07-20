@@ -229,7 +229,11 @@ set_max_fragment_length(#max_frag_enum{enum = MaxFragEnum},
                           current_write := CurrentWrite0,
                           pending_read := PendingRead0,
                           pending_write := PendingWrite0}
-                        = ConnectionStates) ->
+                        = ConnectionStates) when (MaxFragEnum == 1) orelse
+                                                 (MaxFragEnum == 2) orelse
+                                                 (MaxFragEnum == 3) orelse
+                                                 (MaxFragEnum == 4)
+                                                 ->
     MaxFragmentLength = if MaxFragEnum == 1 -> ?MAX_FRAGMENT_LENGTH_BYTES_1;
                            MaxFragEnum == 2 -> ?MAX_FRAGMENT_LENGTH_BYTES_2;
                            MaxFragEnum == 3 -> ?MAX_FRAGMENT_LENGTH_BYTES_3;
