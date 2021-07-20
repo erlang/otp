@@ -216,8 +216,7 @@ handshake_other_started(#hs_data{request_type=ReqType,
     check_dflags(HSData1, EDF),
     ?debug({"MD5 connection from ~p~n", [NodeOrHost]}),
     HSData2 = mark_pending(HSData1),
-    Node = HSData2#hs_data.other_node,
-    {MyCookie,HisCookie} = get_cookies(Node),
+    MyCookie = erlang:get_cookie(),
     ChallengeA = gen_challenge(),
     send_challenge(HSData2, ChallengeA),
     reset_timer(HSData2#hs_data.timer),
@@ -228,7 +227,7 @@ handshake_other_started(#hs_data{request_type=ReqType,
     HSData4 = HSData3#hs_data{this_flags = ChosenFlags,
                               other_flags = ChosenFlags},
     ChallengeB = recv_challenge_reply(HSData4, ChallengeA, MyCookie),
-    send_challenge_ack(HSData4, gen_digest(ChallengeB, HisCookie)),
+    send_challenge_ack(HSData4, gen_digest(ChallengeB, MyCookie)),
     ?debug({dist_util, self(), accept_connection, Node}),
     connection(HSData4);
 
@@ -428,12 +427,11 @@ handshake_we_started(#hs_data{request_type=ReqType,
                                other_creation = Creation},
     check_dflags(HSData2, EDF),
     MyChallenge = gen_challenge(),
-    {MyCookie,HisCookie} = get_cookies(Node),
+    HisCookie = auth:get_cookie(Node),
     send_complement(HSData2, SendNameVersion),
-    send_challenge_reply(HSData2,MyChallenge,
-			 gen_digest(ChallengeA,HisCookie)),
+    send_challenge_reply(HSData2,MyChallenge,gen_digest(ChallengeA,HisCookie)),
     reset_timer(HSData2#hs_data.timer),
-    recv_challenge_ack(HSData2, MyChallenge, MyCookie),
+    recv_challenge_ack(HSData2, MyChallenge, HisCookie),
     connection(HSData2);
 
 handshake_we_started(OldHsData) when element(1,OldHsData) =:= hs_data ->
@@ -521,18 +519,6 @@ gen_challenge() ->
       (B + (C bsl 16)) bxor 
       (D + (H bsl 16)) ) band 16#ffffffff.
 
-%%
-%% Get the cookies for a node from auth
-%%    
-get_cookies(Node) ->
-    case auth:get_cookie(Node) of
-	X when is_atom(X) ->
-	    {X,X}
-%	{Y,Z} when is_atom(Y), is_atom(Z) ->
-%	    {Y,Z};
-%	_ ->
-%	    erlang:error("Corrupt cookie database")
-    end.    
 
 %% No error return; either succeeds or terminates the process.
 do_setnode(#hs_data{other_node = Node, socket = Socket, 

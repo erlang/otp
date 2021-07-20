@@ -48,7 +48,9 @@
          dist_ctrl_proc_smoke/1,
          dist_ctrl_proc_reject/1,
          erl_uds_dist_smoke_test/1,
-         erl_1424/1]).
+         erl_1424/1,
+         simultaneous_remote_linking/1
+]).
 
 %% Performs the test at another node.
 -export([get_socket_priorities/0,
@@ -1980,6 +1982,52 @@ erl_1424(Config) when is_list(Config) ->
     {error, Reason} = erl_epmd:names("."),
     {comment, lists:flatten(io_lib:format("Reason: ~p", [Reason]))}.
 
+%% Connecting Nodes with different cookies
+simultaneous_remote_linking(_Config) ->
+    Node = node(),
+    NodeAName = "nodeA",
+    NodeACookie = nodeAcookie,
+    { ok, NodeA } = start_peer_node("", NodeAName, "-setcookie "++atom_to_list( NodeACookie ) ),
+    NodeBName = "nodeB",
+    NodeBCookie = nodeBcookie,
+    { ok, NodeB } = start_peer_node("", NodeBName, "-setcookie "++atom_to_list( NodeBCookie ) ),
+    
+    timer:sleep(2000),
+    
+    %% Connect to each node using set_cookie. This should work as only the Test node has used set_cookie ETS
+    
+    erlang:set_cookie( NodeA, NodeACookie ),
+    net_adm:ping( NodeA ),
+    
+    [ NodeA ] = nodes(),
+    
+    erlang:set_cookie( NodeB, NodeBCookie ),
+    net_adm:ping( NodeB ),
+    
+    [ NodeA, NodeB ] = nodes(),
+    
+    [ Node ] = rpc:call( NodeA, erlang, nodes, []),
+    [ Node ] = rpc:call( NodeB, erlang, nodes, []),
+    
+    NodeACookie = rpc:call( NodeA, erlang, get_cookie, []),
+    NodeBCookie = rpc:call( NodeB, erlang, get_cookie, []),
+    
+    %% Resolving use case where both nodes use set_cookie ETS before connecting to
+    %% each other ( exposing dist handshake bug )
+    
+    true = rpc:call( NodeA, erlang, set_cookie, [ NodeB, NodeBCookie ]),
+    true = rpc:call( NodeB, erlang, set_cookie, [ NodeA, NodeACookie ]),
+    
+    pong = rpc:call( NodeA, net_adm, ping, [ NodeB ]),
+    pong = rpc:call( NodeB, net_adm, ping, [ NodeA ]),
+    
+    
+    [ Node, NodeB ] = rpc:call( NodeA, erlang, nodes, [] ),
+    [ Node, NodeA ] = rpc:call( NodeB, erlang, nodes, [] ),
+    
+    ok.
+
+
 %% Misc. functions
 
 run_dist_configs(Func, Config) ->
@@ -2134,6 +2182,10 @@ start_node(DCfg, Name, Param, Rel) when is_list(Rel) ->
 start_node(DCfg, Name, Param) ->
     NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)) ++ " " ++ DCfg,
     test_server:start_node(Name, slave, [{args, NewParam}]).
+
+start_peer_node(DCfg, Name, Param) ->
+    NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)) ++ " " ++ DCfg,
+    test_server:start_node(Name, peer, [{args, NewParam}]).
 
 start_node(DCfg, Name) ->
     start_node(DCfg, Name, "").
