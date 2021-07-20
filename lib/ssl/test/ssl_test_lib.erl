@@ -2880,7 +2880,7 @@ active_recv(Socket, N, Acc) ->
 data_length(Bytes) when is_list(Bytes) ->
     length(Bytes);
 data_length(Bytes) when is_binary(Bytes)->
-    size(Bytes).
+    byte_size(Bytes).
 
 filter_openssl_debug_data(Bytes) ->
     re:replace(Bytes,

@@ -287,7 +287,7 @@ handshake_bin(Type, Length, Seq, FragmentData) ->
       FragmentData:Length/binary>>.  
   
 bin_fragments(Bin, Size) ->
-     bin_fragments(Bin, size(Bin), Size, 0, []).
+     bin_fragments(Bin, byte_size(Bin), Size, 0, []).
 bin_fragments(Bin, BinSize,  FragSize, Offset, Fragments) ->
     case (BinSize - Offset - FragSize)  > 0 of
 	true ->
@@ -301,7 +301,7 @@ bin_fragments(Bin, BinSize,  FragSize, Offset, Fragments) ->
 handshake_fragments(_, _, _, [], Acc) ->
     lists:reverse(Acc);
 handshake_fragments(MsgType, Seq, Len, [{Bin, Offset} | Bins], Acc) ->
-    FragLen = size(Bin),
+    FragLen = byte_size(Bin),
     handshake_fragments(MsgType, Seq, Len, Bins, 
       [<<?BYTE(MsgType), Len/binary, Seq/binary, ?UINT24(Offset),
 	 ?UINT24(FragLen), Bin/binary>> | Acc]).

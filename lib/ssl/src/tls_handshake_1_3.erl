@@ -2603,7 +2603,7 @@ truncate_client_hello(HelloBin0) ->
 
     %% Return the truncated ClientHello by cutting of the binders from the original
     %% ClientHello binary.
-    {Truncated, _} = split_binary(HelloBin0, size(HelloBin0) - BindersSize - 2),
+    {Truncated, _} = split_binary(HelloBin0, byte_size(HelloBin0) - BindersSize - 2),
     Truncated.
 
 maybe_add_early_data_indication(#client_hello{
@@ -2612,7 +2612,7 @@ maybe_add_early_data_indication(#client_hello{
                                 Version)
   when Version =:= {3,4} andalso
        is_binary(EarlyData) andalso
-       size(EarlyData) > 0 ->
+       byte_size(EarlyData) > 0 ->
     Extensions = Extensions0#{early_data =>
                                   #early_data_indication{}},
     ClientHello#client_hello{extensions = Extensions};
