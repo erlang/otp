@@ -170,7 +170,9 @@ validate_cookie(Cookie0, #state{ssl_options = #{cookie := true},
             ok;
         false ->
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)}
-    end.
+    end;
+validate_cookie(_,_) ->
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)}.
 
 encrypted_extensions(#state{handshake_env = HandshakeEnv}) ->
     E0 = #{},
@@ -612,10 +614,10 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                                 honor_cipher_order := HonorCipherOrder,
                                 early_data := EarlyDataEnabled}} = State0) ->
     SNI = maps:get(sni, Extensions, undefined),
-    ClientGroups0 = maps:get(elliptic_curves, Extensions, undefined),
     EarlyDataIndication = maps:get(early_data, Extensions, undefined),
     {Ref,Maybe} = maybe(),
     try
+        ClientGroups0 = Maybe(supported_groups_from_extensions(Extensions)),
         ClientGroups = Maybe(get_supported_groups(ClientGroups0)),
         ServerGroups = Maybe(get_supported_groups(ServerGroups0)),
         
@@ -883,7 +885,9 @@ do_negotiated({start_handshake, PSK0},
 
     catch
         {Ref, #alert{} = Alert} ->
-            Alert
+            Alert;
+        error:badarg ->
+            ?ALERT_REC(?ILLEGAL_PARAMETER, illegal_parameter_to_compute_key)
     end.
 
 
@@ -2309,6 +2313,8 @@ select_sign_algo(dsa, _RSAKeySize, _PeerSignAlgs, _OwnSignAlgs, _Curve) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)};
 select_sign_algo(_, _RSAKeySize, [], _, _) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
+select_sign_algo(_, _RSAKeySize, undefined, _OwnSignAlgs, _) ->
+    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)};
 select_sign_algo(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs, Curve) ->
     {_, S, _} = ssl_cipher:scheme_to_components(PeerSignAlg),
     %% RSASSA-PKCS1-v1_5 and Legacy algorithms are not defined for use in signed
@@ -2374,6 +2380,8 @@ is_rsa_key_compatible(KeySize, Hash) ->
             true
     end.
 
+do_check_cert_sign_algo(_, _, undefined) ->
+    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
 do_check_cert_sign_algo(_, _, []) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
 do_check_cert_sign_algo(SignAlgo, SignHash, [Scheme|T]) ->
@@ -2436,6 +2444,8 @@ public_key_algo(?'id-dsa') ->
 
 get_signature_scheme_list(undefined) ->
     undefined;
+get_signature_scheme_list(#hash_sign_algos{}) ->
+    [];
 get_signature_scheme_list(#signature_algorithms_cert{
                         signature_scheme_list = ClientSignatureSchemes}) ->
     ClientSignatureSchemes;
@@ -2450,6 +2460,8 @@ get_supported_groups(undefined = Groups) ->
 get_supported_groups(#supported_groups{supported_groups = Groups}) ->
     {ok, Groups}.
 
+get_key_shares(undefined) ->
+    [];
 get_key_shares(#key_share_client_hello{client_shares = ClientShares}) ->
     ClientShares;
 get_key_shares(#key_share_server_hello{server_share = ServerShare}) ->
@@ -2630,11 +2642,11 @@ calculate_finished_key(PSK, HKDFAlgo) ->
 
 
 calculate_binder(BinderKey, HKDF, Truncated) ->
-  tls_v1:finished_verify_data(BinderKey, HKDF, [Truncated]).
+    tls_v1:finished_verify_data(BinderKey, HKDF, [Truncated]).
 
 
 update_binders(#client_hello{extensions =
-                                #{pre_shared_key := PreSharedKey0} = Extensions0} = Hello, Binders) ->
+                                 #{pre_shared_key := PreSharedKey0} = Extensions0} = Hello, Binders) ->
     #pre_shared_key_client_hello{
        offered_psks =
            #offered_psks{identities = Identities}} = PreSharedKey0,
@@ -2770,9 +2782,9 @@ maybe_check_early_data_indication(EarlyDataIndication,
                                                      use_ticket := UseTicket,
                                                      early_data := EarlyData}
                                     } = State) when Version =:= {3,4} andalso
-                                                     UseTicket =/= [undefined] andalso
-                                                     EarlyData =/= undefined andalso
-                                                     EarlyDataIndication =/= undefined ->
+                                                    UseTicket =/= [undefined] andalso
+                                                    EarlyData =/= undefined andalso
+                                                    EarlyDataIndication =/= undefined ->
     signal_user_early_data(State, accepted),
     State#state{handshake_env = HsEnv#handshake_env{early_data_accepted = true}};
 maybe_check_early_data_indication(EarlyDataIndication,
@@ -2782,9 +2794,9 @@ maybe_check_early_data_indication(EarlyDataIndication,
                                                      use_ticket := UseTicket,
                                                      early_data := EarlyData} = _SslOpts0
                                     } = State) when Version =:= {3,4} andalso
-                                                     UseTicket =/= [undefined] andalso
-                                                     EarlyData =/= undefined andalso
-                                                     EarlyDataIndication =:= undefined ->
+                                                    UseTicket =/= [undefined] andalso
+                                                    EarlyData =/= undefined andalso
+                                                    EarlyDataIndication =:= undefined ->
     signal_user_early_data(State, rejected),
     %% Use handshake keys if early_data is rejected.
     ssl_record:step_encryption_state_write(State);
@@ -2934,3 +2946,14 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
     Options = [{max_path_length, Depth},
                {verify_fun, ValidationFunAndState}],
     public_key:pkix_path_validation(TrustedCert, Path, Options).
+
+supported_groups_from_extensions(Extensions) ->
+    case maps:get(elliptic_curves, Extensions, undefined) of
+        #supported_groups{} = Groups->
+            {ok, Groups};
+        %% We do not support legacy for TLS-1.2 in TLS-1.3
+        #elliptic_curves{} ->
+           {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
+        undefined ->
+            {ok, undefined}
+    end.
