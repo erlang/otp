@@ -293,6 +293,15 @@
 	  other distributed Erlang nodes.
 	  See <seemfa marker="gen_tcp#connect/4"><c>gen_tcp:connect/4</c></seemfa>.</p>
       </item>
+      <tag><c>{net_ticker_spawn_options, Opts}</c></tag>
+      <item>
+        <marker id="net_ticker_spawn_options"></marker>
+        <p>Defines a list of extra spawn options for dist_util:con_loop processes.
+          When there is a large number of dist connections, setting up garbage collection
+          options can be helpful to reduce memory usage. Default is [link, {priority, max}],
+          and these two options cannot be changed.
+          See <seemfa marker="erts:erlang#spawn_opt/2"><c>erlang:spawn_opt/2</c></seemfa>.</p>
+      </item>
       <tag><c>inet_parse_error_log = silent</c></tag>
       <item>
         <p>If set, no log events are issued when erroneous lines are
