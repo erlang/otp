@@ -232,8 +232,9 @@ default_any(Domain, _ExtraOpts, undefined = Undefined) ->
 default_any(_Domain, _ExtraOpts, BindAddr) ->
     BindAddr.
 
-bind_addr(_Domain, BindIP, _BindPort, Fd)
-  when (BindIP =:= undefined) orelse (is_integer(Fd) andalso (0 =< Fd)) ->
+bind_addr(_Domain, BindIP, BindPort, Fd)
+  when ((BindIP =:= undefined)  andalso (BindPort =:= 0)) orelse
+       (is_integer(Fd) andalso (0 =< Fd)) ->
     %% Do not bind!
     undefined;
 bind_addr(local = Domain, BindIP, _BindPort, _Fd) ->
@@ -246,8 +247,9 @@ bind_addr(local = Domain, BindIP, _BindPort, _Fd) ->
     end;
 bind_addr(Domain, BindIP, BindPort, _Fd)
   when (Domain =:= inet) orelse (Domain =:= inet6) ->
+    Addr = if (BindIP =:= undefined) -> any; true -> BindIP end,
     #{family => Domain,
-      addr   => BindIP,
+      addr   => Addr,
       port   => BindPort}.
 
 call_bind(_Server, undefined) ->
