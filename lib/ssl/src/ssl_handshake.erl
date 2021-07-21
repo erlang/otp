@@ -2313,7 +2313,7 @@ encode_server_key(#server_dh_params{dh_p = P, dh_g = G, dh_y = Y}) ->
     <<?UINT16(PLen), P/binary, ?UINT16(GLen), G/binary, ?UINT16(YLen), Y/binary>>;
 encode_server_key(#server_ecdh_params{curve = {namedCurve, ECCurve}, public = ECPubKey}) ->
     %%TODO: support arbitrary keys
-    KLen = size(ECPubKey),
+    KLen = byte_size(ECPubKey),
     <<?BYTE(?NAMED_CURVE), ?UINT16((tls_v1:oid_to_enum(ECCurve))),
       ?BYTE(KLen), ECPubKey/binary>>;
 encode_server_key(#server_psk_params{hint = PskIdentityHint}) ->
@@ -2338,7 +2338,7 @@ encode_server_key(#server_ecdhe_psk_params{
 		       curve = {namedCurve, ECCurve}, public = ECPubKey}}) ->
     %%TODO: support arbitrary keys
     Len = byte_size(PskIdentityHint),
-    KLen = size(ECPubKey),
+    KLen = byte_size(ECPubKey),
     <<?UINT16(Len), PskIdentityHint/binary,
       ?BYTE(?NAMED_CURVE), ?UINT16((tls_v1:oid_to_enum(ECCurve))),
       ?BYTE(KLen), ECPubKey/binary>>;

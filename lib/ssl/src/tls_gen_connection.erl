@@ -735,7 +735,7 @@ effective_version(Version, _, _) ->
 assert_buffer_sanity(<<?BYTE(_Type), ?UINT24(Length), Rest/binary>>, 
                      #{max_handshake_size := Max}) when
       Length =< Max ->  
-    case size(Rest) of
+    case byte_size(Rest) of
         N when N < Length ->
             true;
         N when N > Length ->       
@@ -746,7 +746,7 @@ assert_buffer_sanity(<<?BYTE(_Type), ?UINT24(Length), Rest/binary>>,
                              malformed_handshake_data))  
     end;  
 assert_buffer_sanity(Bin, _) ->
-    case size(Bin) of
+    case byte_size(Bin) of
         N when N < 3 ->
             true;
         _ ->       
