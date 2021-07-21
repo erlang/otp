@@ -331,6 +331,6 @@ basic_verify_test_no_close(Config) ->
 check_cert(Socket, RootCert, File) ->
     {ok, Cert} = ssl:peercert(Socket),
     {ok, Extracted} = ssl_pkix_db:extract_trusted_certs(File),
-    {ok, RootCert, _} = ssl_certificate:certificate_chain(Cert, ets:new(foo, []), Extracted, []),
+    {ok, RootCert, _} = ssl_certificate:certificate_chain(Cert, ets:new(foo, []), Extracted, [], encoded),
     ok.
 
