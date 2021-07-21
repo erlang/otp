@@ -117,9 +117,9 @@ create_info(Label0, Context0, Length) ->
     %%     opaque context<0..255> = Context;
     %% } HkdfLabel;
     Label1 = << <<"tls13 ">>/binary, Label0/binary>>,
-    LabelLen = size(Label1),
+    LabelLen = byte_size(Label1),
     Label = <<?BYTE(LabelLen), Label1/binary>>,
-    ContextLen = size(Context0),
+    ContextLen = byte_size(Context0),
     Context = <<?BYTE(ContextLen),Context0/binary>>,
     Content = <<Label/binary, Context/binary>>,
     <<?UINT16(Length), Content/binary>>.

@@ -1430,7 +1430,7 @@ finished_verify_data(_Config) ->
 
 hexstr2int(S) ->
     B = hexstr2bin(S),
-    Bits = size(B) * 8,
+    Bits = byte_size(B) * 8,
     <<Integer:Bits/integer>> = B,
     Integer.
 

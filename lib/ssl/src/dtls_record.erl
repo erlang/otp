@@ -457,7 +457,7 @@ get_dtls_records_aux(_, <<?BYTE(_), ?BYTE(_MajVer), ?BYTE(_MinVer),
     ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);
 
 get_dtls_records_aux(_, Data, Acc, _) ->
-    case size(Data) =< ?MAX_CIPHER_TEXT_LENGTH + ?INITIAL_BYTES of
+    case byte_size(Data) =< ?MAX_CIPHER_TEXT_LENGTH + ?INITIAL_BYTES of
 	true ->
 	    {lists:reverse(Acc), Data};
 	false ->
