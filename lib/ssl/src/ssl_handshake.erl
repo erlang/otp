@@ -1510,7 +1510,7 @@ select_hashsign({#hash_sign_algos{hash_sign_algos = ClientHashSigns},
                 Cert, KeyExAlgo, SupportedHashSigns, {Major, Minor})
   when Major >= 3 andalso Minor >= 3 ->
     ClientSignatureSchemes = get_signature_scheme(ClientSignatureSchemes0),
-    {SignAlgo0, Param, PublicKeyAlgo0, _} = get_cert_params(Cert),
+    {SignAlgo0, Param, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
     SignAlgo = sign_algo(SignAlgo0),
     PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
 
@@ -1564,7 +1564,7 @@ select_hashsign(#certificate_request{
                 Cert,
                 SupportedHashSigns,
 		{Major, Minor})  when Major >= 3 andalso Minor >= 3->
-    {SignAlgo0, Param, PublicKeyAlgo0, _} = get_cert_params(Cert),
+    {SignAlgo0, Param, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
     SignAlgo = sign_algo(SignAlgo0),
     PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
 
@@ -1587,7 +1587,7 @@ select_hashsign(#certificate_request{
 	    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
     end;
 select_hashsign(#certificate_request{certificate_types = Types}, Cert, _, Version) ->
-    {_, _, PublicKeyAlgo0, _} = get_cert_params(Cert),
+    {_, _, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
     PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
 
     %% Check cert even for TLS 1.0/1.1
@@ -1604,6 +1604,7 @@ select_hashsign(#certificate_request{certificate_types = Types}, Cert, _, Versio
 %% - parameters of the signature algorithm
 %% - public key algorithm (key type)
 %% - RSA key size in bytes
+%% - Elliptic Curve (public key)
 get_cert_params(Cert) ->
     #'OTPCertificate'{tbsCertificate = TBSCert,
 		      signatureAlgorithm =
@@ -1619,7 +1620,98 @@ get_cert_params(Cert) ->
             _ ->
                 undefined
         end,
-    {SignAlgo, Param, PublicKeyAlgo, RSAKeySize}.
+    Curve = get_ec_curve(TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo),
+    {SignAlgo, Param, PublicKeyAlgo, RSAKeySize, Curve}.
+
+get_ec_curve(#'OTPSubjectPublicKeyInfo'{
+                algorithm = #'PublicKeyAlgorithm'{
+                               algorithm = ?'id-ecPublicKey',
+                               parameters = {namedCurve, ?'secp256r1'}}}) ->
+    secp256r1;
+get_ec_curve(#'OTPSubjectPublicKeyInfo'{
+                algorithm = #'PublicKeyAlgorithm'{
+                               algorithm = ?'id-ecPublicKey',
+                               parameters = {namedCurve, ?'secp384r1'}}}) ->
+    secp384r1;
+get_ec_curve(#'OTPSubjectPublicKeyInfo'{
+                algorithm = #'PublicKeyAlgorithm'{
+                               algorithm = ?'id-ecPublicKey',
+                               parameters = {namedCurve, ?'secp521r1'}}}) ->
+    secp521r1;
+get_ec_curve(#'OTPSubjectPublicKeyInfo'{
+                algorithm = #'PublicKeyAlgorithm'{
+                               algorithm = ?'id-ecPublicKey',
+                               parameters = {ecParameters,
+                                             #'ECParameters'{curve = #'Curve'{} = Curve,
+                                                             base = Base,
+                                                             order = Order,
+                                                             cofactor = Cofactor}}}}) ->
+    curve_to_atom(Curve, Base, Order, Cofactor);
+get_ec_curve(_) ->
+    unsupported.
+
+curve_to_atom(#'Curve'{
+                a = <<255,255,255,255,0,0,0,1,0,0,0,0,0,0,0,0,
+                      0,0,0,0,255,255,255,255,255,255,255,255,255,255,255,252>>,
+                b = <<90,198,53,216,170,58,147,231,179,235,189,85,118,152,134,188,
+                      101,29,6,176,204,83,176,246,59,206,60,62,39,210,96,75>>,
+                seed = <<196,157,54,8,134,231,4,147,106,102,120,225,19,157,38,183,
+                         129,159,126,144>>},
+              <<4,107,23,209,242,225,44,66,71,248,188,230,229,99,164,64,
+                242,119,3,125,129,45,235,51,160,244,161,57,69,216,152,194,
+                150,79,227,66,226,254,26,127,155,142,231,235,74,124,15,158,
+                22,43,206,51,87,107,49,94,206,203,182,64,104,55,191,81,
+                245>>,
+              115792089210356248762697446949407573529996955224135760342422259061068512044369,
+              1
+             ) ->
+    secp256r1;
+curve_to_atom(#'Curve'{
+                 a = <<255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+                       255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,254,
+                       255,255,255,255,0,0,0,0,0,0,0,0,255,255,255,252>>,
+                 b = <<179,49,47,167,226, 62,231,228,152,142,5,107,227,248,45,25,
+                       24,29,156,110,254,129,65,18,3,20,8,143,80,19,135,90,
+                       198,86,57,141,138,46,209,157,42,133,200,237,211,236,42,239>>,
+                 seed = <<163,53,146,106,163,25,162,122,29,0,137,106,103,115,164,130,
+                          122,205,172,115>>},
+              <<4,170,135,202,34,190,139,5,55,142,177,199,30,243,32,173,
+                116,110,29,59,98,139,167,155,152,89,247,65,224,130,84,42,
+                56,85,2,242,93,191,85,41,108,58,84,94,56,114,118,10,
+                183,54,23,222,74,150,38,44,111,93,158,152,191,146,146,220,
+                41,248,244,29,189,40,154,20,124,233,218,49,19,181,240,184,
+                192,10,96,177,206,29,126,129,157,122,67,29,124,144,234,14,
+                95>>,
+              39402006196394479212279040100143613805079739270465446667946905279627659399113263569398956308152294913554433653942643,
+              1) ->
+    secp384r1;
+curve_to_atom(#'Curve'{
+                 a = <<1,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+                       255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+                       255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+                       255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+                       255,252>>,
+                 b = <<0,81,149,62,185,97,142,28,154,31,146,154,33,160,182,133,
+                       64,238,162,218,114,91,153,179,21,243,184,180,137,145,142,241,
+                       9,225,86,25,57,81,236,126,147,123,22,82,192,189,59,177,
+                       191,7,53,115,223,136,61,44,52,241,239,69,31,212,107,80,
+                       63,0>>,
+                 seed = <<208,158,136,0,41,28,184,83,150,204,103,23,57,50,132,170,
+                          160,218,100,186>>},
+              <<4,0,198,133,142,6,183,4,4,233,205,158,62,203,102,35,
+                149,180,66,156,100,129,57,5,63,181,33,248,40,175,96,107,
+                77,61,186,161,75,94,119,239,231,89,40,254,29,193,39,162,
+                255,168,222,51,72,179,193,133,106,66,155,249,126,126,49,194,
+                229,189,102,1,24,57,41,106,120,154,59,192,4,92,138,95,
+                180,44,125,27,217,152,245,68,73,87,155,68,104,23,175,189,
+                23,39,62,102,44,151,238,114,153,94,244,38,64,197,80,185,
+                1,63,173,7,97,53,60,112,134,162,114,194,64,136,190,148,
+                118,159,209,102,80>>,
+              6864797660130609714981900799081393217269435300143305409394463459185543183397655394245057746333217197532963996371363321113864768612440380340372808892707005449,
+              1) ->
+    secp521r1;
+curve_to_atom(_, _, _, _) ->
+    unsupported.
 
 select_own_cert([OwnCert| _]) ->
     OwnCert;
