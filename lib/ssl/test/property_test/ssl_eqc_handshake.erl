@@ -605,7 +605,7 @@ certificate_chain(Conf) ->
     CAs = proplists:get_value(cacerts, Conf),
     Cert = proplists:get_value(cert, Conf),
     %% Middle argument are of correct type but will not be used
-    {ok, _, Chain} = ssl_certificate:certificate_chain(Cert, ets:new(foo, []), make_ref(), CAs), 
+    {ok, _, Chain} = ssl_certificate:certificate_chain(Cert, ets:new(foo, []), make_ref(), CAs, encoded), 
     Chain.
 
 cert_conf()->

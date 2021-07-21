@@ -139,9 +139,9 @@ cache_pem_file(File, DbHandle) ->
 
 %%--------------------------------------------------------------------
 -spec lookup_trusted_cert(term(), reference(), serialnumber(), issuer()) ->
-				 undefined | 
-				 {ok, {der_cert(), #'OTPCertificate'{}}}.
-%%				 
+          undefined |
+          {ok, #cert{}}.
+%%
 %% Description: Lookup the trusted cert with Key = {reference(),
 %% serialnumber(), issuer()}.
 %% --------------------------------------------------------------------

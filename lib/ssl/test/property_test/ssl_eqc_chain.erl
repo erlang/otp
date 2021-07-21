@@ -210,7 +210,7 @@ unordered_pem_cert_chain_opts(Version, Alg, PrivDir) ->
 unordered_der_conf(Config) ->
     Cert = proplists:get_value(cert, Config),
     {ok, ExtractedCAs} = ssl_pkix_db:extract_trusted_certs({der, proplists:get_value(cacerts, Config)}),
-    {ok, _, [Cert | Path]} = ssl_certificate:certificate_chain(Cert,  ets:new(foo, []), ExtractedCAs, []),
+    {ok, _, [Cert | Path]} = ssl_certificate:certificate_chain(Cert,  ets:new(foo, []), ExtractedCAs, [], encoded),
     [{cert, [Cert | lists:reverse(Path)]}| proplists:delete(cert, Config)].
 
 unordered_pem_conf(Config) ->
@@ -220,7 +220,7 @@ unordered_pem_conf(Config) ->
     PemCAs =  ssl_test_lib:pem_to_der(CACertFile),
     DerList = [DerCert || {'Certificate', DerCert, not_encrypted} <- PemCAs],
     {ok, ExtractedCAs} = ssl_pkix_db:extract_trusted_certs({der, DerList}),
-    {ok, _, [Cert | Path]} = ssl_certificate:certificate_chain(Cert, ets:new(foo, []), ExtractedCAs, []),
+    {ok, _, [Cert | Path]} = ssl_certificate:certificate_chain(Cert, ets:new(foo, []), ExtractedCAs, [], encoded),
     Unorded = lists:reverse(Path),
     UnordedPemEntries = [{'Certificate', DerCert, not_encrypted} || DerCert <- Unorded],
     PEM = public_key:pem_encode([{'Certificate', Cert, not_encrypted} |UnordedPemEntries]),
@@ -366,7 +366,7 @@ der_cert_chains(Version, CAlg, SAlg) ->
 chain_and_root(Config) ->
     OwnCert = proplists:get_value(cert, Config),
     {ok, ExtractedCAs} = ssl_pkix_db:extract_trusted_certs({der, proplists:get_value(cacerts, Config)}),
-    {ok, Root, Chain} = ssl_certificate:certificate_chain(OwnCert, ets:new(foo, []), ExtractedCAs, []),
+    {ok, Root, Chain} = ssl_certificate:certificate_chain(OwnCert, ets:new(foo, []), ExtractedCAs, [], encoded),
     {Chain, Root}.
 
 extraneous_chain_and_root(Config, Name, 1) ->
