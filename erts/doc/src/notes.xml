@@ -31,6 +31,47 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 11.2.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Microstate accounting (msacc) and
+	    <c>os:perf_counter()</c> unintentionally used system time
+	    instead of monotonic time for time measurements on a lot
+	    of systems. These systems were all non x86/x86_64 systems
+	    or x86/x86_64 systems without a reliable and constant
+	    rdtsc instruction.</p>
+          <p>
+	    The lock counting (lcnt) built runtime system also
+	    unintentionally used system time instead of monotonic
+	    time for time measurements on all systems.</p>
+          <p>
+	    Own Id: OTP-17493</p>
+        </item>
+        <item>
+          <p>
+	    Simultaneous calls to
+	    <c>erlang:system_flag(schedulers_online, _)</c> could
+	    cause callers to end up in a suspended state forever.</p>
+          <p>
+	    Own Id: OTP-17500 Aux Id: GH-4809 </p>
+        </item>
+        <item>
+          <p>
+	    Fix rare race bug in memory management of distribution
+	    entries. Have been seen to cause VM crash when massive
+	    number of repeated concurrent failing connection
+	    attempts.</p>
+          <p>
+	    Own Id: OTP-17513 Aux Id: GH-4964, PR-5015 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 11.2.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
