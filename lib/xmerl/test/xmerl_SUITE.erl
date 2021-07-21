@@ -60,7 +60,8 @@ groups() ->
      {ticket_tests, [],
       [ticket_5998, ticket_7211, ticket_7214, ticket_7430,
        ticket_6873, ticket_7496, ticket_8156, ticket_8697,
-       ticket_9411, ticket_9457, ticket_9664_schema, ticket_9664_dtd]},
+       ticket_9411, ticket_9457, ticket_9664_schema, ticket_9664_dtd,
+       xpath_normalize]},
      {app_test, [], [{xmerl_app_test, all}]},
      {appup_test, [], [{xmerl_appup_test, all}]}].
 
@@ -626,6 +627,17 @@ ticket_9664_dtd(Config) ->
     {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_dtd.xml"]),[{validation, true}]),
     ok.
 
+%% Test that normalize-space() does not cause runtime error
+xpath_normalize(Config) ->
+    {E, _} = xmerl_scan:string(
+               "<table><x>User Name</x><x> User  Name </x><x>foo</x></table>",
+               []
+              ),
+    [ #xmlElement{name=x, content=[#xmlText{value="User Name"}]}
+    , #xmlElement{name=x, content=[#xmlText{value=" User  Name "}]}
+    ]
+        = xmerl_xpath:string("//x[normalize-space() = 'User Name']", E),
+    ok.
 
 %%======================================================================
 %% Support Functions

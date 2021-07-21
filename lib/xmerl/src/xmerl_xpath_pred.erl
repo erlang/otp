@@ -758,8 +758,8 @@ mk_boolean(C, Expr) ->
 normalize([H|T]) when ?whitespace(H) ->
     normalize(T);
 normalize(Str) ->
-    ContF = fun(_ContF, RetF, _S) ->
-		    RetF()
+    ContF = fun(_ContF, RetF, S) ->
+		    RetF(S)
 	    end,
     normalize(Str,
 	      #xmerl_scanner{acc_fun = fun() -> exit(acc_fun) end,
@@ -770,7 +770,7 @@ normalize(Str) ->
 
 
 normalize(Str = [H|_], S, Acc) when ?whitespace(H) ->
-    case xmerl_scan:accumulate_whitespace(Str, S, preserve, Acc) of
+    case xmerl_scan:accumulate_whitespace(Str, S, normalize, Acc) of
 	{" " ++ Acc1, [], _S1} ->
 	    lists:reverse(Acc1);
 	{Acc1, [], _S1} ->
