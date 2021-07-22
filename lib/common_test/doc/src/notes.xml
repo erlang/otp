@@ -86,6 +86,43 @@
 
 </section>
 
+<section><title>Common_Test 1.20.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An incoming NETCONF notification received before a call
+	    to ct_netconfc:create_subscription/* caused the
+	    connection process to fail with badarg. Unexpected
+	    notifications are now logged in the same way as other
+	    unexpected messages.</p>
+          <p>
+	    Own Id: OTP-17506</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add 'receiver' option to ct_netconfc</p>
+          <p>
+	    To allow a destination for incoming NETCONF notifications
+	    to be specified at sessions creation. Previously, a
+	    caller of create_subscription/* became the destination,
+	    but RFC 5277 create-subscription is no longer the only
+	    way in which NETCONF notifications can be ordered.</p>
+          <p>
+	    Own Id: OTP-17509</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.20.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

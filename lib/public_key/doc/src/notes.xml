@@ -71,6 +71,22 @@
 
 </section>
 
+<section><title>Public_Key 1.10.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle cross-signed root certificates when old root
+	    expired as reported in GH-4877.</p>
+          <p>
+	    Own Id: OTP-17475 Aux Id: GH-4877 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
