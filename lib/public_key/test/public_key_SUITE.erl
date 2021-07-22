@@ -568,18 +568,18 @@ rsa_pss_sign_verify() ->
     [{doc, "Checks that we can sign and verify rsa pss signatures."}].
 rsa_pss_sign_verify(Config) when is_list(Config) ->
     CertChainConf  = #{server_chain => 
-                           #{root => [{digest, sha256}, {hardcode_rsa_key(1), pss_params(sha256)}],
-                             intermediates => [[]],
-                             peer => [{digest, sha256}, {hardcode_rsa_key(2), pss_params(sha256)}]},
+                           #{root => [],
+                             intermediates => [],
+                             peer => []},
                        client_chain => 
-                           #{root => [{digest, sha256}, {hardcode_rsa_key(3), pss_params(sha256)}],
-                             intermediates => [[]],
-                             peer => [{digest, sha256}, {hardcode_rsa_key(4), pss_params(sha256)}]}},
+                           #{root => [{key, {hardcode_rsa_key(1), pss_params(sha256)}}],
+                             intermediates => [],
+                             peer => []}},
     #{client_config := ClientConf} = public_key:pkix_test_data(CertChainConf),
     Cert = proplists:get_value(cert, ClientConf),
-    {#'RSAPrivateKey'{modulus=Mod, publicExponent=Exp}, Parms} = {hardcode_rsa_key(4), pss_params(sha256)},
+    {#'RSAPrivateKey'{modulus=Mod, publicExponent=Exp}, Parms} = {hardcode_rsa_key(1), pss_params(sha256)},
            
-    public_key:pkix_verify(Cert, {#'RSAPublicKey'{modulus=Mod, publicExponent=Exp}, Parms}).
+    true = public_key:pkix_verify(Cert, {#'RSAPublicKey'{modulus=Mod, publicExponent=Exp}, Parms}).
     
 %%--------------------------------------------------------------------
 
