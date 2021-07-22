@@ -233,7 +233,7 @@ default_any(_Domain, _ExtraOpts, BindAddr) ->
     BindAddr.
 
 bind_addr(_Domain, BindIP, BindPort, Fd)
-  when ((BindIP =:= undefined)  andalso (BindPort =:= 0)) orelse
+  when ((BindIP =:= undefined) andalso (BindPort =:= 0)) orelse
        (is_integer(Fd) andalso (0 =< Fd)) ->
     %% Do not bind!
     undefined;
