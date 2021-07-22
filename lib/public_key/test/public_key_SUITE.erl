@@ -1373,6 +1373,6 @@ pss_params(sha256) ->
        maskGenAlgorithm = #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
                                               parameters = #'HashAlgorithm'{algorithm = ?'id-sha256'}
                                              },
-       saltLength = 20,
+       saltLength = 32,
        trailerField = 1}.
    
