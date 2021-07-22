@@ -109,6 +109,43 @@
 
 </section>
 
+<section><title>SSL 10.3.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle cross-signed root certificates when old root
+	    expired as reported in GH-4877.</p>
+          <p>
+	    Own Id: OTP-17475 Aux Id: GH-4877 </p>
+        </item>
+        <item>
+          <p>
+	    The signature selection algorithm has been changed to
+	    also verify if the client supports signatures using the
+	    elliptic curve of the server's public/private key pair.
+	    This change fixes #4958.</p>
+          <p>
+	    Own Id: OTP-17529 Aux Id: PR-4979, GH-4958 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Slight optimization of certificate decoding.</p>
+          <p>
+	    Own Id: OTP-17150 Aux Id: GH-4877 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.3.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

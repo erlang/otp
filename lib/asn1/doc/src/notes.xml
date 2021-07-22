@@ -48,6 +48,23 @@
 
 </section>
 
+<section><title>Asn1 5.0.15.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A parameterized type with a SEQUENCE with extension
+	    ("...") made the compiler backend to crash. The previous
+	    fix for this in GH-4514 was not complete.</p>
+          <p>
+	    Own Id: OTP-17522 Aux Id: GH-4902 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.15</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
