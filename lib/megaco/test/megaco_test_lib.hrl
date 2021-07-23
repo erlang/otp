@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -105,6 +105,14 @@
 -define(FTS(),          megaco:format_timestamp(erlang:timestamp())).
 -define(FTS(TS),        megaco:format_timestamp(TS)).
 -define(F(F,A),         lists:flatten(io_lib:format(F, A))).
+
+-define(INET_BACKEND_OPTS(C),    ?LIB:inet_backend_opts(C)).
+-define(EXPLICIT_INET_BACKEND(), ?LIB:explicit_inet_backend()).
+-define(TEST_INET_BACKENDS(),    ?LIB:test_inet_backends()).
+-define(IS_SOCKET_BACKEND(C),    ?LIB:is_socket_backend(C)).
+
+-define(OPEN(C, P, O),            ?LIB:open(C, P, O)).
+
 
 -define(ANNOUNCE_SUITE_INIT(),
 	io:format(user, "~n*** ~s *** suite ~w init~n~n", [?FTS(), ?MODULE])).
