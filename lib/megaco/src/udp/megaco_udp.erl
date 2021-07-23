@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -114,9 +114,15 @@ open(SupPid, Options) ->
 
 	    %%------------------------------------------------------
 	    %% Setup the socket
-	    IpOpts = [binary, {reuseaddr, true}, {active, once} |
-		      UdpRec#megaco_udp.options],
-
+	    IpOpts =
+                case UdpRec#megaco_udp.inet_backend of
+                    default ->
+                        [];
+                    IB ->
+                        [{inet_backend, IB}]
+                end ++
+                [binary, {reuseaddr, true}, {active, once} |
+                 UdpRec#megaco_udp.options],
 	    case (catch gen_udp:open(UdpRec#megaco_udp.port, IpOpts)) of
 		{ok, Socket} ->
 		    ?udp_debug(UdpRec, "udp open", []),
@@ -258,9 +264,9 @@ close(#send_handle{socket = Socket}) ->
     close(Socket);
 close(Socket) ->
     ?udp_debug({socket, Socket}, "udp close", []),
-    case erlang:port_info(Socket, connected) of
-	{connected, ControlPid} ->
-	    megaco_udp_server:stop(ControlPid);
+    case inet:info(Socket) of
+        #{owner := ControlPid} = _Info when is_pid(ControlPid) ->
+	    (catch megaco_udp_server:stop(ControlPid));
 	undefined ->
 	    {error, already_closed}
     end.
@@ -294,8 +300,12 @@ parse_options([{Tag, Val} | T], UdpRec, Mand) ->
 	    parse_options(T, UdpRec#megaco_udp{receive_handle = Val}, Mand2);
 	module when is_atom(Val) ->
 	    parse_options(T, UdpRec#megaco_udp{module = Val}, Mand2);
-	serialize when (Val =:= true) orelse (Val =:= false) ->
+	serialize when is_boolean(Val) ->
 	    parse_options(T, UdpRec#megaco_udp{serialize = Val}, Mand2);
+	inet_backend when (Val =:= default) orelse
+                          (Val =:= inet) orelse
+                          (Val =:= socket)  ->
+	    parse_options(T, UdpRec#megaco_udp{inet_backend = Val}, Mand2);
         Bad ->
 	    {error, {bad_option, Bad}}
     end;
@@ -321,5 +331,19 @@ incNumOutOctets(SH, NumOctets) ->
 incCounter(Key, Inc) ->
     ets:update_counter(megaco_udp_stats, Key, Inc).
 
-% incNumErrors(SH) ->
-%     incCounter({SH, medGwyGatewayNumErrors}, 1).
+%% incNumErrors(SH) ->
+%%     incCounter({SH, medGwyGatewayNumErrors}, 1).
+
+%%-----------------------------------------------------------------
+
+%% formated_timestamp() ->
+%%     format_timestamp(os:timestamp()).
+
+%% format_timestamp(TS) ->
+%%     megaco:format_timestamp(TS).
+
+%% d(F) ->
+%%     d(F, []).
+
+%% d(F, A) ->
+%%     io:format("*** [~s] ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).

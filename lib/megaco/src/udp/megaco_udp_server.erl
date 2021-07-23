@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,9 +29,11 @@
 
 -behaviour(gen_server).
 
+
 %%-----------------------------------------------------------------
 %% Include files
 %%-----------------------------------------------------------------
+
 -include_lib("megaco/src/udp/megaco_udp.hrl").
 -include_lib("megaco/src/app/megaco_internal.hrl"). 
 
@@ -39,6 +41,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
+
 -export([
 	 start_link/1,
 	 stop/1,
@@ -46,9 +49,11 @@
 	 upgrade_receive_handle/2
 	]).
 
+
 %%-----------------------------------------------------------------
 %% Internal exports
 %%-----------------------------------------------------------------
+
 -export([
 	 init/1, 
 	 handle_call/3, 
@@ -59,6 +64,7 @@
 
 	 handle_received_message/5
 	]).
+
 
 %%-----------------------------------------------------------------
 %% External interface functions
@@ -71,6 +77,7 @@
 start_link(Arg) ->
     gen_server:start_link(?MODULE, Arg, []).
 
+
 %%-----------------------------------------------------------------
 %% Func: stop/1
 %% Description: Stops the process that keeps track of an UDP 
@@ -82,6 +89,7 @@ stop(Pid) ->
 
 upgrade_receive_handle(Pid, NewHandle) ->
     call(Pid, {upgrade_receive_handle, NewHandle}).
+
 
 %%-----------------------------------------------------------------
 %% Internal interface functions
@@ -98,6 +106,7 @@ init(Arg) ->
     ?udp_debug(Arg, "udp server starting", [self()]),
     {ok, Arg}.
 
+
 %%-----------------------------------------------------------------
 %% Func: terminate/2
 %% Description: Termination function for the generic server
@@ -105,6 +114,7 @@ init(Arg) ->
 terminate(Reason, State) ->
     ?udp_debug(State, "udp server terminating", [self(), Reason]),
     ok.
+
 
 %%-----------------------------------------------------------------
 %% Func: handle_call/3
@@ -120,6 +130,7 @@ handle_call(Req, From, UdpRec) ->
 		"~n~p", [From, Req]),
     {reply, {error, {invalid_request, Req}}, UdpRec}.
 
+
 %%-----------------------------------------------------------------
 %% Func: handle_cast/2
 %% Description: Handling cast messages (really just stop and garbage)
@@ -132,12 +143,13 @@ handle_cast(Msg, UdpRec) ->
 		"~n~w", [Msg]),
     {noreply, UdpRec}.
 
+
 %%-----------------------------------------------------------------
 %% Func: handle_info/2
 %% Description: Handling non call/cast messages. Incomming messages
 %%              from the socket and exit codes.
 %%-----------------------------------------------------------------
-handle_info({udp, _UdpId, Ip, Port, Msg}, 
+handle_info({udp, _Socket, Ip, Port, Msg}, 
 	    #megaco_udp{serialize = false} = UdpRec) ->
     #megaco_udp{socket = Socket, module = Mod, receive_handle = RH} = UdpRec,
     SH = megaco_udp:create_send_handle(Socket, Ip, Port), 
@@ -150,9 +162,9 @@ handle_info({udp, _UdpId, Ip, Port, Msg},
 	Sz ->
 	    receive_message(Mod, RH, SH, Sz, Msg)
     end,
-    inet:setopts(Socket, [{active, once}]),
+    activate(Socket),
     {noreply, UdpRec};
-handle_info({udp, _UdpId, Ip, Port, Msg}, 
+handle_info({udp, _Socket, Ip, Port, Msg}, 
 	    #megaco_udp{serialize = true} = UdpRec) ->
     #megaco_udp{socket = Socket, module = Mod, receive_handle = RH} = UdpRec,
     SH = megaco_udp:create_send_handle(Socket, Ip, Port), 
@@ -160,7 +172,7 @@ handle_info({udp, _UdpId, Ip, Port, Msg},
     incNumInMessages(SH),
     incNumInOctets(SH, MsgSize),
     process_received_message(Mod, RH, SH, Msg),
-    inet:setopts(Socket, [{active, once}]),
+    activate(Socket),
     {noreply, UdpRec};
 handle_info(Info, UdpRec) ->
     warning_msg("received unexpected info: "
@@ -203,6 +215,11 @@ do_stop(#megaco_udp{socket = Socket}) ->
     gen_udp:close(Socket).
 
 
+-compile({inline, [activate/1]}).
+activate(Socket) ->
+    inet:setopts(Socket, [{active, once}]).
+
+
 %%-----------------------------------------------------------------
 %% Func: incNumInMessages/1, incNumInOctets/2, incNumErrors/1
 %% Description: SNMP counter increment functions
@@ -217,8 +234,8 @@ incNumInOctets(SH, NumOctets) ->
 incCounter(Key, Inc) ->
     ets:update_counter(megaco_udp_stats, Key, Inc).
 
-% incNumErrors(SH) ->
-%     incCounter({SH, medGwyGatewayNumErrors}, 1).
+%% incNumErrors(SH) ->
+%%     incCounter({SH, medGwyGatewayNumErrors}, 1).
 
 
 %% info_msg(F, A) ->
