@@ -2092,7 +2092,7 @@ output_goto(St, [{_Nonterminal, []} | Go], StateInfo) ->
     output_goto(St, Go, StateInfo);
 output_goto(St0, [{Nonterminal, List} | Go], StateInfo) ->
     F = function_name(St0, yeccgoto, Nonterminal),
-    St05 = fwrite(St0, <<"-dialyzer({nowarn_function, ~w/7}).\n">>, [F]),
+    St05 = output_nowarn(St0, F, '', 7),
     St10 = output_goto1(St05, List, F, StateInfo, true),
     St = output_goto_fini(F, Nonterminal, St10),
     output_goto(St, Go, StateInfo);
@@ -2181,8 +2181,7 @@ output_actions(St0, StateJumps, StateInfo) ->
     SelS = [{State,Called} || 
                {{State,_JActions}, {State,Called}} <- 
                    lists:zip(StateJumps, lists:keysort(1, Sel))],
-    St05 =
-        fwrite(St0, <<"-dialyzer({nowarn_function, yeccpars2/7}).\n">>, []),
+    St05 = output_nowarn(St0, yeccpars2, '', 7),
     St10 = foldl(fun({State, Called}, St_0) ->
                          {State, #state_info{state_repr = IState}} = 
                              lookup_state(StateInfo, State),
@@ -2227,13 +2226,8 @@ output_state_actions(St0, State, State, {Actions, Jump}, SI) ->
 output_state_actions(St, State, JState, _XActions, _SI) ->
     fwrite(St, <<"%% yeccpars2_~w: see yeccpars2_~w\n\n">>, [State, JState]).
 
-output_state_actions_begin(St, State, Actions) ->
-    case [yes || {_, #reduce{}} <- Actions] of
-        [] ->
-            fwrite(St, <<"-dialyzer({nowarn_function, yeccpars2_~w/7}).\n">>,
-                   [State]); % Only when yeccerror(T) is output.
-        _ -> St
-    end.
+output_state_actions_begin(St, State, _Actions) ->
+    output_nowarn(St, yeccpars2_, State, 7).
 
 output_state_actions1(St, State, [], IsFirst, normal, _SI) ->
     output_state_actions_fini(State, IsFirst, St);
@@ -2383,7 +2377,8 @@ output_inlined(St0, FunctionName, Reduce, Infile) ->
 
     CodeStartLine = lists:max([0, Line0 - 4]),
     St10 = fwrite(St5, <<"-compile({inline,~w/1}).\n">>, [FunctionName]),
-    St20 = output_file_directive(St10, Infile, CodeStartLine),
+    St15 = output_nowarn(St10, FunctionName, '', 1),
+    St20 = output_file_directive(St15, Infile, CodeStartLine),
     St30 = fwrite(St20, <<"~w(__Stack0) ->\n">>, [FunctionName]),
     %% Currently the (old) inliner emits less code if matching the
     %% stack inside the body rather than in the head...
@@ -2401,6 +2396,13 @@ output_inlined(St0, FunctionName, Reduce, Infile) ->
     St = St40#yecc{line = St40#yecc.line + NLines},
     fwrite(St, <<" [begin\n~ts\n  end | ~s].\n\n">>,
            [pp_tokens(Tokens), Stack]).
+
+output_nowarn(St, Function, Suffix, Arity) ->
+    S = case Suffix of '' -> ""; _ -> integer_to_list(Suffix) end,
+    St1 = fwrite(St, <<"-dialyzer({nowarn_function, ~w~s/~w}).\n">>,
+                 [Function, S, Arity]),
+    fwrite(St1, <<"-compile({nowarn_unused_function,  ~w~s/~w}).\n">>,
+                 [Function, S, Arity]).
 
 inlined_function_name(St, State, Terminal) ->
     End = case Terminal of
