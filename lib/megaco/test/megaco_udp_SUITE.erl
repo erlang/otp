@@ -97,11 +97,6 @@ all() ->
              {group, inet_backend_default}
             ]
     end.
-    %% [
-    %%  {group, start},
-    %%  {group, sending},
-    %%  {group, error}
-    %% ].
 
 groups() -> 
     [
