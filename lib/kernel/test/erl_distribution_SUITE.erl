@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ all() ->
      table_waste, net_setuptime, inet_dist_options_options,
      {group, monitor_nodes},
      erl_uds_dist_smoke_test,
-     erl_1424].
+     erl_1424, simultaneous_remote_linking].
 
 groups() -> 
     [{monitor_nodes, [],

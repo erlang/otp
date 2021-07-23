@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@
               "use erlang:set_cookie/2 and net_adm:ping/1 instead"}]).
 
 %% New interface - meant for internal use within kernel only
--export([get_cookie/0, get_cookie/1,
+-export([get_cookie/0, get_cookies/1,
 	 set_cookie/1, set_cookie/2,
 	 sync_cookie/0,
 	 print/3]).
@@ -104,14 +104,17 @@ node_cookie(Node, Cookie) ->
 -spec get_cookie() -> 'nocookie' | cookie().
 
 get_cookie() ->
-    get_cookie(node()).
+    case node() of
+        nonode@nohost ->
+            nocookie;
+        _ ->
+            gen_server:call(auth, get_cookie, infinity)
+    end.
 
--spec get_cookie(Node :: node()) -> 'nocookie' | cookie().
-
-get_cookie(Node) when Node =:= nonode@nohost ->
-    nocookie;
-get_cookie(Node) ->
-    gen_server:call(auth, {get_cookie, Node}, infinity).
+-spec get_cookies(Node :: node()) ->
+                         {OurCookie :: cookie(), OtherCookie :: cookie()}.
+get_cookies(Node) ->
+    gen_server:call(auth, {get_cookies, Node}, infinity).
 
 -spec set_cookie(Cookie :: cookie()) -> 'true'.
 
@@ -148,33 +151,32 @@ init([]) ->
 %% through as is
 
 -type calls() :: 'echo' | 'sync_cookie'
-               | {'get_cookie', node()}
+               | 'get_cookie' | {'get_cookies', node()}
                | {'set_cookie', node(), term()}.
 
 -spec handle_call(calls(), {pid(), term()}, state()) ->
         {'reply', 'hello' | 'true' | 'nocookie' | cookie(), state()}.
 
-handle_call({get_cookie, Node}, {_From,_Tag}, State) when Node =:= node() ->
+handle_call(get_cookie, {_From,_Tag}, State) ->
     {reply, State#state.our_cookie, State};
-handle_call({get_cookie, Node}, {_From,_Tag}, State) ->
+
+handle_call({get_cookies, Node}, {_From,_Tag}, State) ->
+    OurCookie = State#state.our_cookie,
     case ets:lookup(State#state.other_cookies, Node) of
-	[{Node, Cookie}] ->
-	    {reply, Cookie, State};
+	[{Node, OtherCookie}] ->
+	    {reply, {OurCookie,OtherCookie}, State};
 	[] ->
-	    {reply, State#state.our_cookie, State}
+	    {reply, {OurCookie,OurCookie}, State}
     end;
-handle_call({set_cookie, Node, Cookie}, {_From,_Tag}, State) 
-  when Node =:= node() ->
-    {reply, true, State#state{our_cookie = Cookie}};
 
-%%
-%% Happens when the distribution is brought up and 
-%% someone might have set up the cookie for our new node name.
-%%
-
-handle_call({set_cookie, Node, Cookie}, {_From,_Tag}, State)  ->
-    ets:insert(State#state.other_cookies, {Node, Cookie}),
-    {reply, true, State};
+handle_call({set_cookie, Node, Cookie}, {_From,_Tag}, State) ->
+    case node() of
+        Node ->
+            {reply, true, State#state{our_cookie = Cookie}};
+        _ ->
+            ets:insert(State#state.other_cookies, {Node, Cookie}),
+            {reply, true, State}
+    end;
     
 handle_call(sync_cookie, _From, State) ->
     case ets:lookup(State#state.other_cookies, node()) of
