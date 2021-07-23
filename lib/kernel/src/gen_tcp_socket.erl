@@ -219,21 +219,24 @@ default_any(Domain, undefined = Undefined) ->
 default_any(_Domain, BindAddr) ->
     BindAddr.
 
-bind_addr(_Domain, BindIP, BindPort) when BindIP =:= undefined ->
-    0 = BindPort, % Assert
+bind_addr(_Domain, BindIP, BindPort)
+  when ((BindIP =:= undefined) andalso (BindPort =:= 0)) ->
     %% Do not bind!
     undefined;
-bind_addr(Domain, BindIP, BindPort) ->
+bind_addr(local = Domain, BindIP, _BindPort) ->
     case BindIP of
-        {Domain, Path} when Domain =:= local ->
-            #{family => Domain,
-              path   => Path};
-        _ when Domain =:= inet;
-               Domain =:= inet6 ->
-            #{family => Domain,
-              addr   => BindIP,
-              port   => BindPort}
-    end.
+	any ->
+	    undefined;
+	{local, Path} ->
+	    #{family => Domain,
+	      path   => Path}
+    end;
+bind_addr(Domain, BindIP, BindPort)
+  when (Domain =:= inet) orelse (Domain =:= inet6) ->
+    Addr = if (BindIP =:= undefined) -> any; true -> BindIP end,
+    #{family => Domain,
+      addr   => Addr,
+      port   => BindPort}.
 
 call_bind(_Server, undefined) ->
     ok;
