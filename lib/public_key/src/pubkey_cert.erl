@@ -537,10 +537,10 @@ gen_test_certs(
 
 
 x509_pkix_sign_types(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS',
-                                           parameters = #'RSASSA-PSS-params'{hashAlgorithm = #'HashAlgorithm'{algorithm = Alg}}}) ->
+                                           parameters = #'RSASSA-PSS-params'{saltLength = SaltLen, hashAlgorithm = #'HashAlgorithm'{algorithm = Alg}}}) ->
     Hash = public_key:pkix_hash_type(Alg),
     {Hash, rsa_pss_pss, [{rsa_padding, rsa_pkcs1_pss_padding},
-                         {rsa_pss_saltlen, -1},
+                         {rsa_pss_saltlen, SaltLen},
                          {rsa_mgf1_md, Hash}]};
 x509_pkix_sign_types(#'SignatureAlgorithm'{algorithm = Alg}) ->
     {Hash, Sign} = public_key:pkix_sign_types(Alg),

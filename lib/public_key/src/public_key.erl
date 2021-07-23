@@ -1521,13 +1521,14 @@ format_verify_key(#'DSAPrivateKey'{y=Y, p=P, q=Q, g=G}) ->
 format_verify_key(_) ->
     badarg.
 
-rsa_opts(#'RSASSA-PSS-params'{maskGenAlgorithm = 
+rsa_opts(#'RSASSA-PSS-params'{saltLength = SaltLen, 
+                              maskGenAlgorithm = 
                                   #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
                                                       parameters = #'HashAlgorithm'{algorithm = HashAlgoOid}
                                                      }}) ->
     HashAlgo = pkix_hash_type(HashAlgoOid),
     [{rsa_padding, rsa_pkcs1_pss_padding},
-     {rsa_pss_saltlen, -1},
+     {rsa_pss_saltlen, SaltLen},
      {rsa_mgf1_md, HashAlgo}].
 
 do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password) ->

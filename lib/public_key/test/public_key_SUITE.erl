@@ -776,7 +776,25 @@ pkix_path_validation(Config) when is_list(Config) ->
 
     {error, custom_reason} =
         public_key:pkix_path_validation(selfsigned_peer, [Trusted], [{verify_fun,
-                                                                      VerifyFunAndState2}]).
+                                                                      VerifyFunAndState2}]),
+    % check RSASSA-PSS key
+    % RsaPssKey = {public_key:generate_key({rsa, 1024, 65537}), pss_params(sha256)},
+    RsaPssKey = {hardcode_rsa_key(1), pss_params(sha256)},
+
+    CaKPSS = {TrustedPSSCert,_} = erl_make_certs:make_cert([{key, RsaPssKey},
+                 {subject, [
+                    {name, "RSASSA-PSS Public Key"},
+                    {?'id-at-name', {printableString, "public_key"}},
+                    {?'id-at-pseudonym', {printableString, "pubkey"}},
+                    {city, "Stockholm"},
+                    {country, "SE"},
+                    {org, "erlang"},
+                    {org_unit, "testing dep"}
+                       ]}
+                ]),
+    ChainPSSCert = {CertPSS, _} = erl_make_certs:make_cert([{issuer, {TrustedPSSCert,RsaPssKey}}]),
+    {ok, _} = public_key:pkix_path_validation(TrustedPSSCert, [CertPSS], []).
+
 pkix_path_validation_root_expired() ->
     [{doc, "Test root expiration so that it does not fall between chairs"}].
 pkix_path_validation_root_expired(Config) when is_list(Config) ->
