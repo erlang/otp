@@ -177,8 +177,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">RSASSA-PSS signature schemes</cell>
-	<cell align="left" valign="middle"><em>PC</em></cell>
-	<cell align="left" valign="middle"><em>23</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>@OTP-16590@</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>

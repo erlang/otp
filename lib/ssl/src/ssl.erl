@@ -190,22 +190,29 @@
 
 -type sign_algo()               :: rsa | dsa | ecdsa | eddsa. % exported
 
+-type sign_schemes()            :: [sign_scheme()].
+
 -type sign_scheme()             :: eddsa_ed25519
                                  | eddsa_ed448
                                  | ecdsa_secp256r1_sha256
                                  | ecdsa_secp384r1_sha384
                                  | ecdsa_secp521r1_sha512
-                                 | rsa_pss_rsae_sha256
+                                 | rsassa_pss_scheme()
+                                 | sign_scheme_legacy() . % exported
+
+-type rsassa_pss_scheme()       :: rsa_pss_rsae_sha256
                                  | rsa_pss_rsae_sha384
                                  | rsa_pss_rsae_sha512
                                  | rsa_pss_pss_sha256
                                  | rsa_pss_pss_sha384
-                                 | rsa_pss_pss_sha512
-                                 | rsa_pkcs1_sha256
+                                 | rsa_pss_pss_sha512.
+
+-type sign_scheme_legacy()      :: rsa_pkcs1_sha256
                                  | rsa_pkcs1_sha384
                                  | rsa_pkcs1_sha512
                                  | rsa_pkcs1_sha1
-                                 | ecdsa_sha1. % exported
+                                 | ecdsa_sha1.
+
 
 -type kex_algo()                :: rsa |
                                    dhe_rsa | dhe_dss |
@@ -306,7 +313,8 @@
                                 {password, key_password()} |
                                 {ciphers, cipher_suites()} |
                                 {eccs, [named_curve()]} |
-                                {signature_algs_cert, signature_schemes()} |
+                                {signature_algs, signature_algs()} |
+                                {signature_algs_cert, sign_schemes()} |
                                 {supported_groups, supported_groups()} |
                                 {secure_renegotiate, secure_renegotiation()} |
                                 {keep_secrets, keep_secrets()} |
@@ -359,8 +367,7 @@
 -type hibernate_after()          :: timeout().
 -type root_fun()                 ::  fun().
 -type protocol_versions()        ::  [protocol_version()].
--type signature_algs()           ::  [{hash(), sign_algo()}].
--type signature_schemes()        ::  [sign_scheme()].
+-type signature_algs()           ::  [{hash(), sign_algo()} | sign_scheme()].
 -type supported_groups()         ::  [group()].
 -type custom_user_lookup()       ::  {Lookupfun :: fun(), UserState :: any()}.
 -type padding_check()            :: boolean(). 
@@ -399,7 +406,6 @@
                                 {server_name_indication, sni()} |
                                 {max_fragment_length, max_fragment_length()} |
                                 {customize_hostname_check, customize_hostname_check()} |
-                                {signature_algs, client_signature_algs()} |
                                 {fallback, fallback()} |
                                 {session_tickets, client_session_tickets()} |
                                 {use_ticket, use_ticket()} |
@@ -425,7 +431,6 @@
 -type customize_hostname_check() :: list().
 -type sni()                      :: HostName :: hostname() | disable. 
 -type max_fragment_length()      :: undefined | 512 | 1024 | 2048 | 4096.
--type client_signature_algs()    :: signature_algs().
 -type fallback()                 :: boolean().
 -type ssl_imp()                  :: new | old.
 %% -type ocsp_stapling()            :: boolean().
@@ -450,7 +455,6 @@
                                 {honor_cipher_order, honor_cipher_order()} |
                                 {honor_ecc_order, honor_ecc_order()} |
                                 {client_renegotiation, client_renegotiation()}|
-                                {signature_algs, server_signature_algs()} |
                                 {session_tickets, server_session_tickets()} |
                                 {anti_replay, anti_replay()} |
                                 {cookie, cookie()} |
@@ -465,7 +469,6 @@
 -type dh_file()                  :: file:filename().
 -type server_verify_type()       :: verify_type().
 -type fail_if_no_peer_cert()     :: boolean().
--type server_signature_algs()    :: signature_algs().
 -type server_reuse_session()     :: fun().
 -type server_reuse_sessions()    :: boolean().
 -type sni_hosts()                :: [{hostname(), [server_option() | common_option()]}].
@@ -1782,12 +1785,12 @@ handle_option(session_tickets = Option, Value0, #{versions := Versions} = Option
     assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
     Value = validate_option(Option, Value0, Role),
     OptionsMap#{Option => Value};
-handle_option(signature_algs = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, #{role := Role}) ->
+handle_option(signature_algs = Option, unbound, #{versions := [HighestVersion | _] = Versions} = OptionsMap, #{role := Role}) ->
     Value =
         handle_hashsigns_option(
           default_option_role_sign_algs(
             server,
-            tls_v1:default_signature_algs(HighestVersion),
+            tls_v1:default_signature_algs(Versions),
             Role,
             HighestVersion),
           tls_version(HighestVersion)),
@@ -2434,7 +2437,7 @@ handle_hashsigns_option(Value, Version) when is_list(Value)
 	    Value
     end;
 handle_hashsigns_option(_, Version) when Version =:= {3, 3} ->
-    handle_hashsigns_option(tls_v1:default_signature_algs(Version), Version);
+    handle_hashsigns_option(tls_v1:default_signature_algs([Version]), Version);
 handle_hashsigns_option(_, _Version) ->
     undefined.
 

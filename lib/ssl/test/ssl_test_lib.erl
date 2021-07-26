@@ -35,6 +35,7 @@
          end_per_group/2,
          ct_log_supported_protocol_versions/1,
          ssl_options/2,
+         ssl_options/3,
          run_where/1,
          run_where/2,
          inet_port/1,
@@ -3276,6 +3277,10 @@ ubuntu_legacy_support() ->
         _ ->
             true
     end.       
+
+ssl_options(Extra, Option, Config) ->
+    ExtraOpts = proplists:get_value(Extra, Config, []),
+    ExtraOpts ++ ssl_options(Option, Config).
 
 ssl_options(Option, Config) when is_atom(Option) ->
     ProtocolOpts = proplists:get_value(protocol_opts, Config, []),

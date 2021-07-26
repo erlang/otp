@@ -371,8 +371,8 @@ certificate_verify(_, _, _, undefined, _, _) ->
 
 certificate_verify(Signature, PublicKeyInfo, Version,
 		   HashSign = {HashAlgo, _}, MasterSecret, {_, Handshake}) ->
-    Hash = calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
-    case verify_signature(Version, Hash, HashSign, Signature, PublicKeyInfo) of
+    Msg = calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
+    case verify_signature(Version, Msg, HashSign, Signature, PublicKeyInfo) of
 	true ->
 	    valid;
 	_ ->
@@ -384,39 +384,32 @@ certificate_verify(Signature, PublicKeyInfo, Version,
 %%
 %% Description: Checks that a public_key signature is valid.
 %%--------------------------------------------------------------------
-verify_signature({3, 4}, Hash, {HashAlgo, SignAlgo}, Signature, 
+verify_signature(_, Msg, {HashAlgo, SignAlgo}, Signature,
                  {_, PubKey, PubKeyParams}) when  SignAlgo == rsa_pss_rsae;
                                                   SignAlgo == rsa_pss_pss ->
     Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
-    public_key:verify(Hash, HashAlgo, Signature, PubKey, Options);
-verify_signature({3, 3}, Hash, {HashAlgo, SignAlgo}, Signature, 
-                 {_, PubKey, PubKeyParams}) when  SignAlgo == rsa_pss_rsae;
-                                                  SignAlgo == rsa_pss_pss ->
-    Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
-    public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey, Options);
-verify_signature({3, Minor}, Hash, {HashAlgo, SignAlgo}, Signature, {?rsaEncryption, PubKey, PubKeyParams})
+    public_key:verify(Msg, HashAlgo, Signature, PubKey, Options);
+verify_signature({3, Minor}, Msg, {HashAlgo, SignAlgo}, Signature, {?rsaEncryption, PubKey, PubKeyParams})
   when Minor >= 3 ->
     Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
-    public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey, Options);
-verify_signature({3, Minor}, Hash, _HashAlgo, Signature, {?rsaEncryption, PubKey, _PubKeyParams}) when Minor =< 2 ->
+    public_key:verify(Msg, HashAlgo, Signature, PubKey, Options);
+verify_signature({3, Minor}, {digest, Digest}, _HashAlgo, Signature, {?rsaEncryption, PubKey, _PubKeyParams}) when Minor =< 2 ->
     case public_key:decrypt_public(Signature, PubKey,
 				   [{rsa_pad, rsa_pkcs1_padding}]) of
-	Hash -> true;
+	Digest -> true;
 	_   -> false
     end;
-verify_signature({3, 4}, Hash, {HashAlgo, _SignAlgo}, Signature, {?'id-ecPublicKey', PubKey, PubKeyParams}) ->
-    public_key:verify(Hash, HashAlgo, Signature, {PubKey, PubKeyParams});
 verify_signature({3, 4}, Msg, {_, eddsa}, Signature, {?'id-Ed25519', PubKey, PubKeyParams}) ->
     public_key:verify(Msg, none, Signature, {PubKey, PubKeyParams});
 verify_signature({3, 4}, Msg, {_, eddsa}, Signature, {?'id-Ed448', PubKey, PubKeyParams}) ->
     public_key:verify(Msg, none, Signature, {PubKey, PubKeyParams});
-verify_signature(_, Hash, {HashAlgo, _SignAlg}, Signature,
+verify_signature(_, Msg, {HashAlgo, _SignAlg}, Signature,
 		 {?'id-ecPublicKey', PublicKey, PublicKeyParams}) ->
-    public_key:verify({digest, Hash}, HashAlgo, Signature, {PublicKey, PublicKeyParams});
-verify_signature({3, Minor}, _Hash, {_HashAlgo, anon}, _Signature, _) when Minor =< 3 ->
+    public_key:verify(Msg, HashAlgo, Signature, {PublicKey, PublicKeyParams});
+verify_signature({3, Minor}, _Msg, {_HashAlgo, anon}, _Signature, _) when Minor =< 3 ->
     true;
-verify_signature({3, Minor}, Hash, {HashAlgo, dsa}, Signature, {?'id-dsa', PublicKey, PublicKeyParams})  when Minor =< 3->
-    public_key:verify({digest, Hash}, HashAlgo, Signature, {PublicKey, PublicKeyParams}).
+verify_signature({3, Minor}, Msg, {HashAlgo, dsa}, Signature, {?'id-dsa', PublicKey, PublicKeyParams})  when Minor =< 3->
+    public_key:verify(Msg, HashAlgo, Signature, {PublicKey, PublicKeyParams}).
 
 %%--------------------------------------------------------------------
 -spec master_secret(ssl_record:ssl_version(), #session{} | binary(), ssl_record:connection_states(),
@@ -454,17 +447,18 @@ master_secret(Version, PremasterSecret, ConnectionStates, Role) ->
     end.
 
 %%--------------------------------------------------------------------
--spec server_key_exchange_hash(md5sha | md5 | sha | sha224 |sha256 | sha384 | sha512, binary()) -> binary().
+-spec server_key_exchange_hash(md5sha | sha | sha224 |sha256 | sha384 | sha512, binary()) -> binary() | {digest, binary()}.
 %%
-%% Description: Calculate server key exchange hash
+%% Description: Calculate the digest of the server key exchange hash if it is complex
 %%--------------------------------------------------------------------
 server_key_exchange_hash(md5sha, Value) ->
     MD5 = crypto:hash(md5, Value),
     SHA = crypto:hash(sha, Value),
-    <<MD5/binary, SHA/binary>>;
+    {digest, <<MD5/binary, SHA/binary>>};
 
-server_key_exchange_hash(Hash, Value) ->
-    crypto:hash(Hash, Value).
+server_key_exchange_hash(_, Value) ->
+    %% Optimization: Let crypto calculate the hash in sign/verify call
+    Value.
 
 %%--------------------------------------------------------------------
 -spec verify_connection(ssl_record:ssl_version(), #finished{}, client | server, integer(), binary(),
@@ -509,10 +503,11 @@ verify_server_key(#server_key_params{params_bin = EncParams,
 	ssl_record:pending_connection_state(ConnectionStates, read),
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
+
     Hash = server_key_exchange_hash(HashAlgo,
-				    <<ClientRandom/binary,
-				      ServerRandom/binary,
-				      EncParams/binary>>),
+                                    <<ClientRandom/binary,
+                                      ServerRandom/binary,
+                                      EncParams/binary>>),
     verify_signature(Version, Hash, HashSign, Signature, PubKeyInfo).
 
 select_version(RecordCB, ClientVersion, Versions) ->
@@ -567,8 +562,9 @@ encode_handshake(#certificate_request{certificate_types = CertTypes,
 			    certificate_authorities = CertAuths},
        {Major, Minor})
   when Major == 3, Minor >= 3 ->
-    HashSigns= << <<(ssl_cipher:hash_algorithm(Hash)):8, (ssl_cipher:sign_algorithm(Sign)):8>> ||
-		   {Hash, Sign} <- HashSignAlgos >>,
+
+    HashSigns = << <<(ssl_cipher:signature_scheme(SignatureScheme)):16 >> ||
+		       SignatureScheme <- HashSignAlgos >>,
     CertTypesLen = byte_size(CertTypes),
     HashSignsLen = byte_size(HashSigns),
     CertAuthsLen = byte_size(CertAuths),
@@ -863,13 +859,12 @@ decode_handshake(_Version, ?CERTIFICATE_STATUS, <<?BYTE(?CERTIFICATE_STATUS_TYPE
         response = ASN1OcspResponse};
 decode_handshake(_Version, ?SERVER_KEY_EXCHANGE, Keys) ->
     #server_key_exchange{exchange_keys = Keys};
-decode_handshake({Major, Minor}, ?CERTIFICATE_REQUEST,
+decode_handshake({Major, Minor} = Version, ?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
 	?UINT16(HashSignsLen), HashSigns:HashSignsLen/binary,
 	?UINT16(CertAuthsLen), CertAuths:CertAuthsLen/binary>>)
   when Major >= 3, Minor >= 3 ->
-    HashSignAlgos = [{ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)} ||
-			<<?BYTE(Hash), ?BYTE(Sign)>> <= HashSigns],
+    HashSignAlgos = decode_sign_alg(Version, HashSigns),
     #certificate_request{certificate_types = CertTypes,
 			 hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSignAlgos},
 			 certificate_authorities = CertAuths};
@@ -991,7 +986,12 @@ available_suites(ServerCert, UserSuites, Version, HashSigns, Curve) ->
 available_signature_algs(undefined, _)  ->
     undefined;
 available_signature_algs(SupportedHashSigns, Version) when Version >= {3, 3} ->
-    #hash_sign_algos{hash_sign_algos = SupportedHashSigns};
+    case contains_scheme(SupportedHashSigns) of
+        true ->
+            #signature_algorithms{signature_scheme_list = SupportedHashSigns};
+        false ->
+            #hash_sign_algos{hash_sign_algos = SupportedHashSigns}
+    end;
 available_signature_algs(_, _) ->
     undefined.
 available_signature_algs(undefined, SupportedHashSigns, _, Version) when 
@@ -1003,6 +1003,13 @@ available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, Su
 				   sets:from_list(SupportedHashSigns)));
 available_signature_algs(_, _, _, _) -> 
     undefined.
+
+contains_scheme([]) ->
+    false;
+contains_scheme([Scheme | _]) when is_atom(Scheme) ->
+    true;
+contains_scheme([_| Rest]) ->
+    contains_scheme(Rest).
 
 cipher_suites(Suites, Renegotiation, true) ->
     %% TLS_FALLBACK_SCSV should be placed last -RFC7507
@@ -1505,18 +1512,16 @@ select_hashsign(_, _, KeyExAlgo, _, _Version) when KeyExAlgo == dh_anon;
 %% The signature_algorithms extension was introduced with TLS 1.2. Ignore it if we have
 %% negotiated a lower version.
 select_hashsign({ClientHashSigns, ClientSignatureSchemes},
-                Cert, KeyExAlgo, undefined, {Major, Minor} = Version)
-  when Major >= 3 andalso Minor >= 3->
+                Cert, KeyExAlgo, undefined, {3, 3} = Version) ->
     select_hashsign({ClientHashSigns, ClientSignatureSchemes}, Cert, KeyExAlgo,
-                    tls_v1:default_signature_algs(Version), Version);
+                    tls_v1:default_signature_algs([Version]), Version);
 select_hashsign({#hash_sign_algos{hash_sign_algos = ClientHashSigns},
                  ClientSignatureSchemes0},
-                Cert, KeyExAlgo, SupportedHashSigns, {Major, Minor})
-  when Major >= 3 andalso Minor >= 3 ->
+                Cert, KeyExAlgo, SupportedHashSigns, {3, 3}) ->
     ClientSignatureSchemes = get_signature_scheme(ClientSignatureSchemes0),
     {SignAlgo0, Param, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
-    SignAlgo = sign_algo(SignAlgo0),
-    PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
+    SignAlgo = sign_algo(SignAlgo0, Param),
+    PublicKeyAlgo = ssl_certificate:public_key_type(PublicKeyAlgo0),
 
     %% RFC 5246 (TLS 1.2)
     %% If the client provided a "signature_algorithms" extension, then all
@@ -1536,15 +1541,17 @@ select_hashsign({#hash_sign_algos{hash_sign_algos = ClientHashSigns},
     %% signatures appearing in certificates.
     case is_supported_sign(SignAlgo, Param, ClientHashSigns, ClientSignatureSchemes) of
         true ->
-            case lists:filter(fun({_, S} = Algos) when S == PublicKeyAlgo ->
-                                      is_acceptable_hash_sign(Algos, KeyExAlgo, SupportedHashSigns);
-                                 (_)  ->
-                                      false
-                              end, ClientHashSigns) of
-                [] ->
-                    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm);
-                [HashSign | _] ->
-                    HashSign
+            case
+                (KeyExAlgo == psk) orelse
+                (KeyExAlgo == dhe_psk) orelse
+                (KeyExAlgo == ecdhe_psk) orelse
+                (KeyExAlgo == srp_anon) orelse
+                (KeyExAlgo == dh_anon) orelse
+                (KeyExAlgo == ecdhe_anon) of
+                true ->
+                    ClientHashSigns;
+                false ->
+                    do_select_hashsign(ClientHashSigns, PublicKeyAlgo, SupportedHashSigns)
             end;
         false ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
@@ -1569,30 +1576,19 @@ select_hashsign(#certificate_request{
                 SupportedHashSigns,
 		{Major, Minor})  when Major >= 3 andalso Minor >= 3->
     {SignAlgo0, Param, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
-    SignAlgo = sign_algo(SignAlgo0),
-    PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
-
+    SignAlgo = {_, KeyType} = sign_algo(SignAlgo0, Param),
+    PublicKeyAlgo = ssl_certificate:public_key_type(PublicKeyAlgo0),
+    SignatureSchemes = [Scheme  || Scheme <- HashSigns, is_atom(Scheme), (KeyType == rsa_pss_pss) or (KeyType == rsa)],
     case is_acceptable_cert_type(PublicKeyAlgo, Types) andalso
-        %% certificate_request has no "signature_algorithms_cert"
-        %% extension in TLS 1.2.
-        is_supported_sign(SignAlgo, Param, HashSigns, undefined) of
+        is_supported_sign(SignAlgo, Param, HashSigns, SignatureSchemes) of
 	true ->
-	    case lists:filter(fun({_, S} = Algos) when S == PublicKeyAlgo ->
-				 is_acceptable_hash_sign(Algos, SupportedHashSigns);
-			    (_)  ->
-				      false
-			      end, HashSigns) of
-		[] ->
-		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm);
-		[HashSign | _] ->
-		    HashSign
-	    end;
+            do_select_hashsign(HashSigns, PublicKeyAlgo, SupportedHashSigns);
 	false ->
 	    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
     end;
 select_hashsign(#certificate_request{certificate_types = Types}, Cert, _, Version) ->
     {_, _, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
-    PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
+    PublicKeyAlgo = ssl_certificate:public_key_type(PublicKeyAlgo0),
 
     %% Check cert even for TLS 1.0/1.1
     case is_acceptable_cert_type(PublicKeyAlgo, Types) of
@@ -1600,6 +1596,23 @@ select_hashsign(#certificate_request{certificate_types = Types}, Cert, _, Versio
             select_hashsign(undefined, Cert, undefined, [], Version);
         false ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
+    end.
+
+
+do_select_hashsign(HashSigns, PublicKeyAlgo, SupportedHashSigns) ->
+    case lists:filter(fun({H, rsa_pss_pss = S}) when S == PublicKeyAlgo ->
+                              is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), SupportedHashSigns);
+                         ({H, rsa_pss_rsae = S}) when PublicKeyAlgo == rsa ->
+                              is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), SupportedHashSigns);
+                         ({_, S} = Algos) when S == PublicKeyAlgo ->
+                              is_acceptable_hash_sign(Algos, SupportedHashSigns);
+                         (_A)  ->
+                              false
+                      end, HashSigns) of
+        [] ->
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm);
+        [HashSign | _] ->
+            HashSign
     end.
 
 
@@ -1723,7 +1736,7 @@ select_own_cert(undefined) ->
     undefined.
 
 get_signature_scheme(undefined) ->
-    undefined;
+    [];
 get_signature_scheme(#signature_algorithms_cert{
                         signature_scheme_list = ClientSignatureSchemes}) ->
     ClientSignatureSchemes.
@@ -1751,10 +1764,9 @@ get_signature_scheme(#signature_algorithms_cert{
 %%    ECDHE_ECDSA), behave as if the client had sent value {sha1,ecdsa}.
 
 %%--------------------------------------------------------------------
-select_hashsign_algs(HashSign, _, {Major, Minor}) when HashSign =/= undefined andalso
-						       Major >= 3 andalso Minor >= 3 ->
+select_hashsign_algs(HashSign, _, {3, 3}) when HashSign =/= undefined  ->
     HashSign;
-select_hashsign_algs(undefined, ?rsaEncryption, {Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
+select_hashsign_algs(undefined, ?rsaEncryption, {3,3})  ->
     {sha, rsa};
 select_hashsign_algs(undefined,?'id-ecPublicKey', _) ->
     {sha, ecdsa};
@@ -1989,8 +2001,9 @@ path_validation_alert({bad_cert, unknown_ca}) ->
 path_validation_alert(Reason) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason).
 
-digitally_signed(Version, Hashes, HashAlgo, PrivateKey, SignAlgo) ->
-    try do_digitally_signed(Version, Hashes, HashAlgo, PrivateKey, SignAlgo) of
+
+digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) ->
+    try do_digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) of
 	Signature ->
 	    Signature
     catch
@@ -1998,36 +2011,26 @@ digitally_signed(Version, Hashes, HashAlgo, PrivateKey, SignAlgo) ->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey)))
     end.
 
-do_digitally_signed({3, Minor}, Hash, _, 
-                    #{algorithm := rsa} = Engine, rsa) when Minor =< 2->
-    crypto:private_encrypt(rsa, Hash, maps:remove(algorithm, Engine),
-                           rsa_pkcs1_padding);
-do_digitally_signed({3, Minor}, Hash, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo)
-  when Minor > 3 ->
+do_digitally_signed({3, Minor}, Msg, HashAlgo, {#'RSAPrivateKey'{} = Key,
+                                                 #'RSASSA-PSS-params'{}}, SignAlgo) when Minor >= 3 ->
     Options = signature_options(SignAlgo, HashAlgo),
-    crypto:sign(Alg, HashAlgo, Hash, maps:remove(algorithm, Engine), Options);
-do_digitally_signed({3, Minor}, Hash, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo)
-  when Minor > 3 ->
-    Options = signature_options(SignAlgo, HashAlgo),
-    crypto:sign(Alg, HashAlgo, Hash, maps:remove(algorithm, Engine), Options);
-do_digitally_signed({3, 3}, Hash, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo) ->
-    Options = signature_options(SignAlgo, HashAlgo),
-    crypto:sign(Alg, HashAlgo, {digest, Hash}, maps:remove(algorithm, Engine), Options);
-do_digitally_signed({3, 4}, Hash, HashAlgo, {#'RSAPrivateKey'{} = Key,
-                                             #'RSASSA-PSS-params'{}}, SignAlgo) ->
-    Options = signature_options(SignAlgo, HashAlgo),
-    public_key:sign(Hash, HashAlgo, Key, Options);
-do_digitally_signed({3, 4}, Hash, HashAlgo, Key, SignAlgo) ->
-    Options = signature_options(SignAlgo, HashAlgo),
-    public_key:sign(Hash, HashAlgo, Key, Options);
-do_digitally_signed({3, Minor}, Hash, HashAlgo, Key, SignAlgo) when Minor >= 3 ->
-    Options = signature_options(HashAlgo, SignAlgo),
-    public_key:sign({digest,Hash}, HashAlgo, Key, Options);
-do_digitally_signed({3, Minor}, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa) when  Minor =< 2 ->
-    public_key:encrypt_private(Hash, Key,
+    public_key:sign(Msg, HashAlgo, Key, Options);
+do_digitally_signed({3, Minor}, {digest, Digest}, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa) when Minor =< 2 ->
+    public_key:encrypt_private(Digest, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]);
-do_digitally_signed(_Version, Hash, HashAlgo, Key, _SignAlgo) ->
-    public_key:sign({digest, Hash}, HashAlgo, Key).
+do_digitally_signed({3, Minor}, {digest, Digest}, _,
+                    #{algorithm := rsa} = Engine, rsa) when Minor =< 2->
+    crypto:private_encrypt(rsa, Digest, maps:remove(algorithm, Engine),
+                           rsa_pkcs1_padding);
+do_digitally_signed(_, Msg, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo) ->
+    Options = signature_options(SignAlgo, HashAlgo),
+    crypto:sign(Alg, HashAlgo, Msg, maps:remove(algorithm, Engine), Options);
+do_digitally_signed({3, Minor}, {digest, _} = Msg , HashAlgo, Key, _) when Minor =< 2 ->
+    public_key:sign(Msg, HashAlgo, Key);
+do_digitally_signed(_, Msg, HashAlgo, Key, SignAlgo) ->
+    Options = signature_options(SignAlgo, HashAlgo),
+    public_key:sign(Msg, HashAlgo, Key, Options).
+
     
 signature_options(SignAlgo, HashAlgo) when SignAlgo =:= rsa_pss_rsae orelse
                                            SignAlgo =:= rsa_pss_pss ->
@@ -2401,6 +2404,10 @@ enc_sign(_HashSign, Sign, _Version) ->
 	SignLen = byte_size(Sign),
 	<<?UINT16(SignLen), Sign/binary>>.
 
+enc_hashsign(HashAlgo, SignAlgo) when SignAlgo == rsa_pss_pss;
+                                      SignAlgo == rsa_pss_rsae ->
+    Sign = ssl_cipher:signature_scheme(list_to_existing_atom(atom_to_list(SignAlgo) ++ "_" ++ atom_to_list(HashAlgo))),
+    <<?UINT16(Sign)>>;
 enc_hashsign(HashAlgo, SignAlgo) ->
     Hash = ssl_cipher:hash_algorithm(HashAlgo),
     Sign = ssl_cipher:sign_algorithm(SignAlgo),
@@ -2421,8 +2428,8 @@ enc_server_key_exchange(Version, Params, {HashAlgo, SignAlgo},
 			       signature = <<>>};
 	_ ->
 	    Hash =
-		server_key_exchange_hash(HashAlgo, <<ClientRandom/binary,
-						     ServerRandom/binary,
+                server_key_exchange_hash(HashAlgo, <<ClientRandom/binary,
+                                                     ServerRandom/binary,
 						     EncParams/binary>>),
 	    Signature = digitally_signed(Version, Hash, HashAlgo, PrivateKey, SignAlgo),
 	    #server_key_params{params = Params,
@@ -2729,7 +2736,7 @@ decode_extensions(<<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen),
 
 decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
-  when Version < {3,4} ->
+  when Version < {3,3} ->
     SignAlgoListLen = Len - 2,
     <<?UINT16(SignAlgoListLen), SignAlgoList/binary>> = ExtData,
     HashSignAlgos = [{ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)} ||
@@ -2738,6 +2745,26 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
                       Acc#{signature_algs =>
                                #hash_sign_algos{hash_sign_algos =
                                                     HashSignAlgos}});
+decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
+		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
+  when Version =:= {3,3} ->
+    SignSchemeListLen = Len - 2,
+    <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
+    HashSigns = decode_sign_alg(Version, SignSchemeList),
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{signature_algs =>
+                               #hash_sign_algos{
+                                  hash_sign_algos = HashSigns}});
+decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
+		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
+  when Version =:= {3,4} ->
+    SignSchemeListLen = Len - 2,
+    <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
+    SignSchemes = decode_sign_alg(Version, SignSchemeList),
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{signature_algs =>
+                               #signature_algorithms{
+                                  signature_scheme_list = SignSchemes}});
 
 decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
@@ -2968,8 +2995,56 @@ decode_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len/binary, Rest/binary>>
 decode_extensions(_, _, _, Acc) ->
     Acc.
 
-dec_hashsign(<<?BYTE(HashAlgo), ?BYTE(SignAlgo)>>) ->
-    {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)}.
+decode_sign_alg({3,3}, SignSchemeList) ->
+    %% Ignore unknown signature algorithms
+    Fun = fun(Elem) ->
+                  case ssl_cipher:signature_scheme(Elem) of
+                      unassigned ->
+                          false;
+                      Value when is_atom(Value)->
+                          case ssl_cipher:scheme_to_components(Value) of
+                              {Hash, rsa_pss_rsae = Sign, _} ->
+                                  {true, {Hash, Sign}};
+                              {Hash, rsa_pss_pss = Sign, _} ->
+                                  {true,{Hash, Sign}};
+                              {sha1, rsa_pkcs1, _} ->
+                                  {true,{sha, rsa}};
+                              {Hash, rsa_pkcs1, _} ->
+                                  {true,{Hash, rsa}};
+                              {sha1, ecdsa, _} ->
+                                  {true,{sha, ecdsa}};
+                              {sha512,ecdsa, _} ->
+                                  {true,{sha512, ecdsa}};
+                              {sha384,ecdsa, _} ->
+                                  {true,{sha384, ecdsa}};
+                              {sha256,ecdsa, _}->
+                                  {true,{sha256, ecdsa}};
+                              _ ->
+                                  false
+                          end;
+                      Value ->
+                          {true, Value}
+                  end
+          end,
+    lists:filtermap(Fun, [SignScheme ||
+                             <<?UINT16(SignScheme)>> <= SignSchemeList]);
+decode_sign_alg({3,4}, SignSchemeList) ->
+    %% Ignore unknown signature algorithms
+    Fun = fun(Elem) ->
+                  case ssl_cipher:signature_scheme(Elem) of
+                      unassigned ->
+                          false;
+                      Value ->
+                          {true, Value}
+                  end
+          end,
+    lists:filtermap(Fun, [SignScheme ||
+                             <<?UINT16(SignScheme)>> <= SignSchemeList]).
+
+dec_hashsign(Value) ->
+    [HashSign] = decode_sign_alg({3,3}, Value),
+    HashSign.
+
 
 %% Ignore unknown names (only host_name is supported)
 dec_sni(<<?BYTE(?SNI_NAMETYPE_HOST_NAME), ?UINT16(Len),
@@ -3162,7 +3237,6 @@ handle_psk_identity(_PSKIdentity, LookupFun)
 handle_psk_identity(PSKIdentity, {Fun, UserState}) ->
     Fun(psk, PSKIdentity, UserState).
 
-
 filter_hashsigns([], [], _, _, Acc) ->
     lists:reverse(Acc);
 filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Version,
@@ -3306,18 +3380,6 @@ handle_srp_extension(undefined, Session) ->
 handle_srp_extension(#srp{username = Username}, Session) ->
     Session#session{srp_username = Username}.
 
-is_acceptable_hash_sign( _, KeyExAlgo, _) when 
-      KeyExAlgo == psk;
-      KeyExAlgo == dhe_psk;
-      KeyExAlgo == ecdhe_psk;
-      KeyExAlgo == srp_anon;
-      KeyExAlgo == dh_anon;
-      KeyExAlgo == ecdhe_anon     
-      ->
-    true; 
-is_acceptable_hash_sign(Algos,_, SupportedHashSigns) -> 
-    is_acceptable_hash_sign(Algos, SupportedHashSigns).
-
 is_acceptable_hash_sign(Algos, SupportedHashSigns) ->
     lists:member(Algos, SupportedHashSigns).
 
@@ -3325,7 +3387,7 @@ is_acceptable_cert_type(Sign, Types) ->
     lists:member(sign_type(Sign), binary_to_list(Types)).
 
 %% signature_algorithms_cert = undefined
-is_supported_sign(SignAlgo, _, HashSigns, undefined) ->
+is_supported_sign(SignAlgo, _, HashSigns, []) ->
     lists:member(SignAlgo, HashSigns);
 
 %% {'SignatureAlgorithm',{1,2,840,113549,1,1,11},'NULL'}
@@ -3371,14 +3433,6 @@ is_supported_sign({Hash, Sign}, _Param, _, SignatureSchemes) ->
           end,
     lists:foldl(Fun, false, SignatureSchemes).
 
-%% SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
-%%   dsa | rsa-encryption | dh  | kea  | ec-public-key }
-public_key_algo(?rsaEncryption) ->
-    rsa;
-public_key_algo(?'id-ecPublicKey') ->
-    ecdsa;
-public_key_algo(?'id-dsa') ->
-    dsa.
 
 %% SupportedSignatureAlgorithms SIGNATURE-ALGORITHM-CLASS ::= {
 %%   dsa-with-sha1 | dsaWithSHA1 |  md2-with-rsa-encryption |
@@ -3392,7 +3446,11 @@ public_key_algo(?'id-dsa') ->
 %%   ecdsa-with-sha256 |
 %%   ecdsa-with-sha384 |
 %%   ecdsa-with-sha512 }
-sign_algo(Alg) ->
+sign_algo(?'id-RSASSA-PSS', #'RSASSA-PSS-params'{maskGenAlgorithm =
+                                                     #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                                         parameters = #'HashAlgorithm'{algorithm = HashOid}}}) ->
+    {public_key:pkix_hash_type(HashOid), rsa_pss_pss};
+sign_algo(Alg, _) ->
     public_key:pkix_sign_types(Alg).
 
 sign_type(rsa) ->

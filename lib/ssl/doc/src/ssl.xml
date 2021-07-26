@@ -197,15 +197,19 @@
      </datatype>
      
      <datatype>
-      <name name="signature_algs"/>
-     </datatype>
-
-     <datatype>
       <name name="sign_algo"/>
      </datatype>
      
      <datatype>
        <name name="sign_scheme"/>
+     </datatype>
+
+     <datatype>
+       <name name="rsassa_pss_scheme"/>
+     </datatype>
+
+     <datatype>
+       <name name="sign_scheme_legacy"/>
      </datatype>
 
      <datatype>
@@ -393,9 +397,103 @@
 	</p>
       </desc>
     </datatype>
-    
+
+
+      <datatype>
+	<name name="signature_algs"/>
+	<desc>
+
+	  <p>Explicitly list acceptable signature algorithms for certificates and handshake messages
+	  in the preferred order. The client will send its list as the client hello <c>signature_algorithm</c> extension
+	  introduced in TLS-1.2, see <url href="http://www.ietf.org/rfc/rfc5246.txt">Section 7.4.1.4.1 in RFC 5246</url>.
+	  Previously these algorithms where implicitly chosen and partly derived from the cipher suite. </p>
+
+	  <p>In TLS-1.2 a somewhat more explicit negotiation is made possible using a list of
+	  {<seetype marker="#hash">hash()</seetype>,  <seetype marker="#signature_algs">sign_algo()</seetype>} pairs.
+	  </p>
+
+	  <p>In TLS-1.3 these algorithm pairs are
+	  replaced by so called signature schemes <seetype marker="#sign_scheme">sign_scheme()</seetype>
+	  and completely decoupled from the cipher suite.
+	  </p>
+
+	  <p>Signature algorithms used for certificates may be overridden by the
+	  <seetype marker="#sign_schemes">signature schemes</seetype> (algorithms) supplied by the <c>signature_algs_cert</c> option.</p>
+
+	  <p>TLS-1.2 default is</p> 
+
+	  <p><c>Default_TLS_12_Alg_Pairs =</c></p>
+	  <code>[
+%% SHA2
+{sha512, ecdsa},
+{sha512, rsa},
+{sha384, ecdsa},
+{sha384, rsa},
+{sha256, ecdsa},
+{sha256, rsa},
+{sha224, ecdsa},
+{sha224, rsa},
+%% SHA
+{sha, ecdsa},
+{sha, rsa},
+{sha, dsa}
+]
+	  </code>
+
+	  <p>Support for {md5, rsa} was removed from the the TLS-1.2 default in ssl-8.0 (OTP-22) </p>
+
+
+ <p><c> TLS_13 _Legacy_Schemes =</c></p>
+ <code> [
+ %% Legacy algorithms only applicable to certificate signatures
+rsa_pkcs1_sha512, %% Corresponds to {sha512, rsa}
+rsa_pkcs1_sha384, %% Corresponds to {sha384, rsa}
+rsa_pkcs1_sha256, %% Corresponds to {sha256, rsa}
+ecdsa_sha1,       %% Corresponds to {sha, ecdsa}
+rsa_pkcs1_sha1    %% Corresponds to {sha, rsa}
+]
+</code>
+
+ <p><c> Default_TLS_13_Schemes =</c></p>
+ <code> [
+%% ECDSA
+ecdsa_secp521r1_sha512,
+ecdsa_secp384r1_sha384,
+ecdsa_secp256r1_sha256,
+%% RSASSA-PSS
+rsa_pss_pss_sha512,
+rsa_pss_pss_sha384,
+rsa_pss_pss_sha256,
+rsa_pss_rsae_sha512,
+rsa_pss_rsae_sha384,
+rsa_pss_rsae_sha256,
+%% EDDSA
+eddsa_ed25519,
+eddsa_ed448]
+</code>
+
+<p>TLS-1.3 default is</p>
+<code>Default_TLS_13_Schemes ++ Legacy_TLS_13_Schemes </code>
+
+<p>If both TLS-1.3 and TLS-1.2 are supported the default will be</p>
+<code>Default_TLS_13_Schemes ++ Default_TLS_12_Alg_Pairs </code>
+
+<p>so appropriate algorithms can be chosen for the negotiated
+version.
+</p>
+
+<note> <p> TLS-1.2 algorithms will not be negotiated for TLS-1.3, but TLS-1.3 RSASSA-PSS  <seetype marker="#rsassa_pss_scheme">rsassa_pss_scheme()</seetype>
+	 signature schemes may be negotiated also for TLS-1.2 from @OTP-16590@
+	 However if TLS-1.3 is negotiated when both TLS-1.3 and TLS-1.2 is supported using defaults, the corresponding TLS-1.2 algorithms
+         to the TLS-1.3 legacy signature schemes will be considered as the legacy schemes and applied only to certificate signatures.
+	 </p>
+	</note>
+
+      </desc>
+      </datatype>
+
     <datatype>
-      <name name="signature_schemes"/>
+      <name name="sign_schemes"/>
       <desc>
 	  <p>
 	    In addition to the signature_algorithms extension from TLS 1.2,
@@ -973,43 +1071,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	  </p></warning>
 	</desc>
       </datatype>
-      
-      <datatype>
-	<name name="client_signature_algs"/>
-	<desc>
-	  <p>In addition to the algorithms negotiated by the cipher
-	suite used for key exchange, payload encryption, message
-	authentication and pseudo random calculation, the TLS signature
-	algorithm extension <url
-	href="http://www.ietf.org/rfc/rfc5246.txt">Section 7.4.1.4.1 in RFC 5246</url> may be
-	used, from TLS 1.2, to negotiate which signature algorithm to use during the
-	TLS handshake. If no lower TLS versions than 1.2 are supported,
-	the client will send a TLS signature algorithm extension
-	with the algorithms specified by this option.
-	Defaults to</p>
-	
-	<code>[
-%% SHA2
-{sha512, ecdsa},
-{sha512, rsa},
-{sha384, ecdsa},
-{sha384, rsa},
-{sha256, ecdsa},
-{sha256, rsa},
-{sha224, ecdsa},
-{sha224, rsa},
-%% SHA
-{sha, ecdsa},
-{sha, rsa},
-{sha, dsa},
-]</code>
-<p>
-	The algorithms should be in the preferred order.
-	Selected signature algorithm can restrict which hash functions
-	that may be selected. Default support for {md5, rsa} removed in ssl-8.0
-	</p>
-	</desc>
-      </datatype>
+
 
       <datatype>
 	<name name="client_session_tickets"/>
@@ -1270,19 +1332,6 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	<desc><p>If true, use the server's preference for ECC curve
 	selection. If false (the default), use the client's
 	preference.</p>
-	</desc>
-      </datatype>
-
-      <datatype>
-	<name name="server_signature_algs"/>
-	<desc><p> The algorithms specified by this option will be the
-	ones accepted by the server in a signature algorithm
-	negotiation, introduced in TLS-1.2. The algorithms will also
-	be offered to the client if a client certificate is
-	requested. For more details see the <seetype
-	marker="#client_signature_algs">corresponding client
-	option</seetype>.
-      </p>
 	</desc>
       </datatype>
 
