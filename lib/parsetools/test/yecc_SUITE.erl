@@ -49,7 +49,7 @@
 	 otp_5369/1, otp_6362/1, otp_7945/1, otp_8483/1, otp_8486/1,
 	 
 	 otp_7292/1, otp_7969/1, otp_8919/1, otp_10302/1, otp_11269/1,
-         otp_11286/1, otp_14285/1, otp_17023/1]).
+         otp_11286/1, otp_14285/1, otp_17023/1, otp_17535/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -75,7 +75,7 @@ groups() ->
      {examples, [],
       [empty, prec, yeccpre, lalr, old_yecc, other_examples]},
      {bugs, [],
-      [otp_5369, otp_6362, otp_7945, otp_8483, otp_8486]},
+      [otp_5369, otp_6362, otp_7945, otp_8483, otp_8486, otp_17535]},
      {improvements, [], [otp_7292, otp_7969, otp_8919, otp_10302,
                          otp_11269, otp_11286, otp_14285, otp_17023]}].
 
@@ -342,10 +342,12 @@ syntax(Config) when is_list(Config) ->
     fun() ->
             {error,[{_,[{{5,25},_,["syntax error before: ","bad"]}]},
                     {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}}]}],
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}},
+                        {{_,_},_,{undefined_function,{yeccpars2_2_,1}}},
+                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
              []} = compile:file(Parserfile1, [basic_validation,return]),
-            L1 = 31 + SzYeccPre,
-            L2 = 39 + SzYeccPre
+            L1 = 36 + SzYeccPre,
+            L2 = 45 + SzYeccPre
     end(),
 
     %% Bad macro in action. OTP-7224.
@@ -360,10 +362,12 @@ syntax(Config) when is_list(Config) ->
     fun() ->
             {error,[{_,[{{5,24},_,{undefined,'F',1}}]},
                     {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}}]}],
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}},
+                        {{_,_},_,{undefined_function,{yeccpars2_2_,1}}},
+                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
              []} = compile:file(Parserfile1, [basic_validation,return]),
-            L1 = 31 + SzYeccPre,
-            L2 = 39 + SzYeccPre
+            L1 = 36 + SzYeccPre,
+            L2 = 45 + SzYeccPre
     end(),
 
     %% Check line numbers. OTP-7224.
@@ -1630,11 +1634,13 @@ otp_7292(Config) when is_list(Config) ->
             {error,
                    [{_,[{{5,32},_,["syntax error before: ","bad"]}]},
                     {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}}]}],
-                   [{_,[{{16,20},_,{unused_function,{foo,0}}}]}]} =
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}},
+                        {{_,_},_,{undefined_function,{yeccpars2_2_,1}}},
+                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
+             [{_,[{{16,20},_,{unused_function,{foo,0}}}]}]} =
                 compile:file(Parserfile1, [basic_validation, return]),
-            L1 = 41 + SzYeccPre,
-            L2 = 49 + SzYeccPre
+            L1 = 46 + SzYeccPre,
+            L2 = 55 + SzYeccPre
     end(),
 
     YeccPre = filename:join(Dir, "yeccpre.hrl"),
@@ -1648,11 +1654,13 @@ otp_7292(Config) when is_list(Config) ->
             {error,
                    [{_,[{{5,32},_,["syntax error before: ","bad"]}]},
                     {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}}]}],
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}},
+                        {{_,_},_,{undefined_function,{yeccpars2_2_,1}}},
+                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
                    [{_,[{{16,20},_,{unused_function,{foo,0}}}]}]} =
                 compile:file(Parserfile1, [basic_validation, return]),
-            L1 = 40 + SzYeccPre,
-            L2 = 48 + SzYeccPre
+            L1 = 45 + SzYeccPre,
+            L2 = 54 + SzYeccPre
     end(),
 
     file:delete(YeccPre),
@@ -2167,6 +2175,24 @@ otp_17023(Config) ->
         _ ->
             os:putenv("ERL_COMPILER_OPTIONS", OldEnv)
     end,
+    ok.
+
+otp_17535(doc) ->
+    "GH-5067. Compiler finds unused functions.";
+otp_17535(suite) -> [];
+otp_17535(Config) when is_list(Config) ->
+    Dir = ?privdir,
+    Filename = filename:join(Dir, "OTP-17535.yrl"),
+    Ret = [return, {report, true}],
+    J = <<"Nonterminals start statem.
+          Terminals  'if'.
+          Rootsymbol start.
+          start -> statem : b.
+          statem -> 'if' statem : a.
+          Erlang code.">>,
+    ok = file:write_file(Filename, J),
+    {ok, ErlFile, []} = yecc:file(Filename, Ret),
+    {ok, _, []} = compile:file(ErlFile, [return]),
     ok.
 
 start_node(Name, Args) ->
