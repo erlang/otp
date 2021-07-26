@@ -4265,7 +4265,44 @@ t_unopaque(T, _) ->
 -spec t_limit(erl_type(), integer()) -> erl_type().
 
 t_limit(Term, K) when is_integer(K) ->
-  t_limit_k(Term, K).
+  case is_limited(Term, K) of
+    true -> Term;
+    false -> t_limit_k(Term, K)
+  end.
+
+is_limited(?any, _) -> true;
+is_limited(_, K) when K =< 0 -> false;
+is_limited(?tuple(?any, ?any, ?any), _K) -> true;
+is_limited(?tuple(Elements, _Arity, _), K) ->
+  if K =:= 1 -> false;
+    true ->
+      K1 = K-1,
+      lists:all(fun(E) -> is_limited(E, K1) end, Elements)
+  end;
+is_limited(?tuple_set(_) = T, K) ->
+  lists:all(fun(Tuple) -> is_limited(Tuple, K) end, t_tuple_subtypes(T));
+is_limited(?list(Elements, Termination, _Size), K) ->
+  if K =:= 1 -> is_limited(Termination, K);
+    true -> is_limited(Termination, K - 1)
+  end
+  andalso is_limited(Elements, K - 1);
+is_limited(?function(Domain, Range), K) ->
+  is_limited(Domain, K) andalso is_limited(Range, K-1);
+is_limited(?product(Elements), K) ->
+  K1 = K-1,
+  lists:all(fun(X) -> is_limited(X, K1) end, Elements);
+is_limited(?union(Elements), K) ->
+  lists:all(fun(X) -> is_limited(X, K) end, Elements);
+is_limited(?opaque(Es), K) ->
+  lists:all(fun(#opaque{struct = S}) -> is_limited(S, K) end, set_to_list(Es));
+is_limited(?map(Pairs, DefK, DefV), K) ->
+  %% Use the fact that t_sup() does not increase the depth.
+  K1 = K - 1,
+  lists:all(fun({Key, _, Value}) ->
+                is_limited(Key, K1) andalso is_limited(Value, K1)
+            end, Pairs)
+    andalso is_limited(DefK, K1) andalso is_limited(DefV, K1);
+is_limited(_, _K) -> true.
 
 t_limit_k(_, K) when K =< 0 -> ?any;
 t_limit_k(?tuple(?any, ?any, ?any) = T, _K) -> T;
