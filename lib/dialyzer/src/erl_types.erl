@@ -1567,6 +1567,8 @@ t_maybe_improper_list() ->
 
 t_maybe_improper_list(_Content, ?unit) -> ?none;
 t_maybe_improper_list(?unit, _Termination) -> ?none;
+t_maybe_improper_list(_Content, ?none) -> ?none;
+t_maybe_improper_list(?none, _Termination) -> ?none;
 t_maybe_improper_list(Content, Termination) ->
   %% Safety check: would be nice to have but does not work with remote types
   %% true = t_is_subtype(t_nil(), Termination),
@@ -2630,13 +2632,7 @@ t_sup(?list(Contents1, Termination1, Size1),
     end,
   NewContents = t_sup(Contents1, Contents2),
   NewTermination = t_sup(Termination1, Termination2),
-  TmpList = t_cons(NewContents, NewTermination),
-  case NewSize of
-    ?nonempty_qual -> TmpList;
-    ?unknown_qual ->
-      ?list(FinalContents, FinalTermination, _) = TmpList,
-      ?list(FinalContents, FinalTermination, ?unknown_qual)
-  end;
+  ?list(NewContents, NewTermination, NewSize);
 t_sup(?number(_, _), ?number(?any, ?unknown_qual) = T) -> T;
 t_sup(?number(?any, ?unknown_qual) = T, ?number(_, _)) -> T;
 t_sup(?float, ?float) -> ?float;
@@ -3440,6 +3436,7 @@ t_subst_aux(?var(Id), Map) ->
 t_subst_aux(?list(Contents, Termination, Size), Map) ->
   case t_subst_aux(Contents, Map) of
     ?none -> ?none;
+    ?unit -> ?none;
     NewContents ->
       %% Be careful here to make the termination collapse if necessary.
       case t_subst_aux(Termination, Map) of
@@ -4166,13 +4163,7 @@ t_limit_k(?list(Elements, Termination, Size), K) ->
        true -> t_limit_k(Termination, K - 1)
     end,
   NewElements = t_limit_k(Elements, K - 1),
-  TmpList = t_cons(NewElements, NewTermination),
-  case Size of
-    ?nonempty_qual -> TmpList;
-    ?unknown_qual ->
-      ?list(NewElements1, NewTermination1, _) = TmpList,
-      ?list(NewElements1, NewTermination1, ?unknown_qual)
-  end;
+  ?list(NewElements, NewTermination, Size);
 t_limit_k(?function(Domain, Range), K) ->
   %% The domain is either a product or any() so we do not decrease the K.
   ?function(t_limit_k(Domain, K), t_limit_k(Range, K-1));
@@ -4367,7 +4358,7 @@ t_to_string(?list(Contents, Termination, ?unknown_qual), RecDict) ->
 	  "maybe_improper_list("++ContentString++","
 	    ++t_to_string(Termination, RecDict)++")";
 	false ->
-	  "improper_list("++ContentString++","
+	  "maybe_improper_list("++ContentString++","
 	    ++t_to_string(Termination, RecDict)++")"
       end
   end;
