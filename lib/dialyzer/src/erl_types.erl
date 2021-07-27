@@ -2948,10 +2948,10 @@ t_inf(?nil, ?nonempty_list(_, _), _Opaques) ->
   ?none;
 t_inf(?nonempty_list(_, _), ?nil, _Opaques) ->
   ?none;
-t_inf(?nil, ?list(_Contents, Termination, _), Opaques) ->
-  t_inf(?nil, t_unopaque(Termination), Opaques);
-t_inf(?list(_Contents, Termination, _), ?nil, Opaques) ->
-  t_inf(?nil, t_unopaque(Termination), Opaques);
+t_inf(?nil, ?list(_Contents, _Termination, _), _Opaques) ->
+  ?nil;
+t_inf(?list(_Contents, _Termination, _), ?nil, _Opaques) ->
+  ?nil;
 t_inf(?list(Contents1, Termination1, Size1),
       ?list(Contents2, Termination2, Size2), Opaques) ->
   case t_inf(Termination1, Termination2, Opaques) of
