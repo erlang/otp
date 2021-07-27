@@ -76,7 +76,7 @@ end_per_testcase(Case, Config) ->
 groups() ->
     [].
 
-all() -> 
+all() ->
     [start_stop,
      add_remove_handler,
      multiple_handlers,
@@ -102,7 +102,8 @@ all() ->
      process_metadata,
      app_config,
      kernel_config,
-     pretty_print].
+     pretty_print,
+     pathological].
 
 start_stop(_Config) ->
     S = whereis(logger),
@@ -1219,6 +1220,21 @@ pretty_print(_Config) ->
     IHs = ["Handler configuration: \n"|IHs2],
     ok.
 
+pathological(cleanup,_Config) ->
+    logger:remove_handler(p1),
+    logger:set_primary_config(level,notice),
+    logger:unset_module_level(?MODULE),
+    ok.
+
+pathological(_Config) ->
+    ok = logger:set_primary_config(level,all),
+    ok = logger:add_handler(p1,?MODULE,#{level=>all,filter_default=>log}),
+    logger:notice(string, []),
+    check_logged(notice,"string",[],#{}),
+    logger:notice(report, []),
+    check_logged(notice,"report",[],#{}),
+    ok.
+
 %%%-----------------------------------------------------------------
 %%% Internal
 check_logged(Level,Format,Args,Meta) ->
@@ -1299,7 +1315,7 @@ test_api(Level) ->
     logger:Level("~w: ~w",[Level,fa]),
     ok = check_logged(Level,"~w: ~w",[Level,fa],#{}),
     logger:Level('~w: ~w',[Level,fa]),
-    ok = check_logged(Level,'~w: ~w',[Level,fa],#{}),
+    ok = check_logged(Level,"~w: ~w",[Level,fa],#{}),
     logger:Level(<<"~w: ~w">>,[Level,fa]),
     ok = check_logged(Level,<<"~w: ~w">>,[Level,fa],#{}),
     logger:Level("~w: ~w ~w",[Level,fa,meta],#{my=>meta}),
@@ -1312,7 +1328,7 @@ test_api(Level) ->
     ok = check_logged(Level,<<"~w: ~w ~w">>,[Level,fun_to_fa,meta],#{my=>meta}),
     logger:Level(fun(x) -> {'~w: ~w ~w',[Level,fun_to_fa,meta]} end,x,
                  #{my=>meta}),
-    ok = check_logged(Level,'~w: ~w ~w',[Level,fun_to_fa,meta],#{my=>meta}),
+    ok = check_logged(Level,"~w: ~w ~w",[Level,fun_to_fa,meta],#{my=>meta}),
     logger:Level(fun(x) -> #{Level=>fun_to_r,meta=>true} end,x,
                      #{my=>meta}),
     ok = check_logged(Level,#{Level=>fun_to_r,meta=>true},#{my=>meta}),
@@ -1343,7 +1359,7 @@ test_log_function(Level) ->
     ok = check_logged(Level,<<"~w: ~w ~w">>,[Level,fun_to_fa,meta],#{my=>meta}),
     logger:log(Level,fun(x) -> {'~w: ~w ~w',[Level,fun_to_fa,meta]} end,
                x, #{my=>meta}),
-    ok = check_logged(Level,'~w: ~w ~w',[Level,fun_to_fa,meta],#{my=>meta}),
+    ok = check_logged(Level,"~w: ~w ~w",[Level,fun_to_fa,meta],#{my=>meta}),
     logger:log(Level,fun(x) -> #{Level=>fun_to_r,meta=>true} end,
                x, #{my=>meta}),
     ok = check_logged(Level,#{Level=>fun_to_r,meta=>true},#{my=>meta}),

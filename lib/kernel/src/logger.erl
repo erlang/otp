@@ -1119,12 +1119,13 @@ log_fun_allowed(Location, Level, FunRes, Meta, FunCall) ->
                         Meta)
     end.
 
-do_log_allowed(Level,{Format,Args}=Msg,Meta,Tid,Config)
+do_log_allowed(Level,{Format,Args},Meta,Tid,Config)
   when ?IS_LEVEL(Level),
        ?IS_FORMAT(Format),
        is_list(Args),
        is_map(Meta) ->
-    logger_backend:log_allowed(#{level=>Level,msg=>Msg,meta=>Meta},Tid,Config);
+    logger_backend:log_allowed(#{level=>Level,msg=>{deatomize(Format),Args},meta=>Meta},
+                               Tid,Config);
 do_log_allowed(Level,Report,Meta,Tid,Config)
   when ?IS_LEVEL(Level),
        ?IS_REPORT(Report),
@@ -1139,6 +1140,9 @@ do_log_allowed(Level,String,Meta,Tid,Config)
                                Tid,Config).
 tid() ->
     ets:whereis(?LOGGER_TABLE).
+
+deatomize(Atom) when is_atom(Atom) -> atom_to_list(Atom);
+deatomize(Other) -> Other.
 
 log_remote(Node,Level,{Format,Args},Meta) ->
     log_remote(Node,{log,Level,Format,Args,Meta});
