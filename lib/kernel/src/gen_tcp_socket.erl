@@ -50,7 +50,7 @@
 
 -include("inet_int.hrl").
 
--define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+%% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
 
 %% -------------------------------------------------------------------------
@@ -1127,6 +1127,7 @@ server_opts() ->
 -compile({inline, [meta/1]}).
 meta(D) -> maps:with(maps:keys(server_write_opts()), D).
 
+
 %%% ========================================================================
 %%% State Machine
 %%%
@@ -1249,7 +1250,7 @@ init({prepare, D, Owner}) ->
                        owner_mon = OwnerMon},
     {ok, accept, {P, D#{type => undefined, buffer => <<>>}}};
 init(Arg) ->
-    error_logger:error_report([{badarg, {?MODULE, init, [Arg]}}]),
+    error_report([{badarg, {?MODULE, init, [Arg]}}]),
     error(badarg, [Arg]).
 
 
@@ -1694,17 +1695,15 @@ handle_event(
 %% Handle select done - try recv again
 handle_event(
   info, ?socket_select(Socket, SelectRef),
-  #recv{info = ?select_info(SelectRef)},
+  #recv{info = ?select_info(SelectRef)} = _State,
   {#params{socket = Socket} = P, D}) ->
-    %%
     %% ?DBG([info, {socket, Socket}, {ref, SelectRef}]),
     handle_recv(P, D, []);
 %%
 handle_event(
   info, ?socket_abort(Socket, SelectRef, Reason),
-  #recv{info = ?select_info(SelectRef)},
+  #recv{info = ?select_info(SelectRef)} = _State,
   {#params{socket = Socket} = P, D}) ->
-    %%
     %% ?DBG({abort, Reason}),
     handle_connected(P, cleanup_recv_reply(P, D, [], Reason));
 %%
@@ -1764,9 +1763,9 @@ handle_shutdown2(Socket, NextState, How) ->
 
 
 handle_unexpected(Type, Content, State, {P, _D}) ->
-    error_logger:warning_report(
-      [{module, ?MODULE}, {socket, P#params.socket},
-       {unknown_event, {Type, Content}}, {state, State}]),
+    warning_report([{socket,        P#params.socket},
+                    {unknown_event, {Type, Content}},
+                    {state,         State}]),
     case Type of
         {call, From} ->
             {keep_state_and_data,
@@ -1781,9 +1780,9 @@ handle_closed(Type, Content, State, {P, _D}) ->
             {keep_state_and_data,
              [{reply, From, {error, closed}}]};
         _ ->
-            error_logger:warning_report(
-              [{module, ?MODULE}, {socket, P#params.socket},
-               {unknown_event, {Type, Content}}, {state, State}]),
+            warning_report([{socket,        P#params.socket},
+                            {unknown_event, {Type, Content}},
+                            {state,         State}]),
             keep_state_and_data
     end.
 
@@ -1999,14 +1998,14 @@ handle_buffered(P, #{packet_size := PacketSize} = D,
             %% What do we do here?
             %% Keep the buffer and hope that it will go better with more data?
             %% Or discard it and continue as if nothing happened?
-            error_logger:warning_msg("Failed decoding message"
-                                     "~n   Socket:          ~p"
-                                     "~n   Socket server:   ~p"
-                                     "~n   Packet type:     ~p"
-                                     "~n   byte_size(Data): ~p"
-                                     "~n   Reason:          ~p",
-                                     [P#params.socket, self(),
-                                      Type, byte_size(Data), Reason]),
+            warning_msg("Failed decoding message"
+                        "~n   Socket:          ~p"
+                        "~n   Socket server:   ~p"
+                        "~n   Packet type:     ~p"
+                        "~n   byte_size(Data): ~p"
+                        "~n   Reason:          ~p",
+                        [P#params.socket, self(),
+                         Type, byte_size(Data), Reason]),
             D
     end.
 
@@ -2557,6 +2556,7 @@ state_setopts_server(P, D, State, Opts, {Tag, Value}) ->
     end.
 
 state_setopts_active(P, D, State, Opts, Active) ->
+    %% ?DBG([{active, Active}]),
     if
         Active =:= once;
         Active =:= true ->
@@ -2780,8 +2780,34 @@ timeout(EndTime) ->
 
 -endif.
 
+
 %% -------------------------------------------------------------------------
 
 error_msg(F, A) ->
     error_logger:error_msg(F ++ "~n", A).
 
+warning_msg(F, A) ->
+    error_logger:error_msg(F ++ "~n", A).
+
+error_report(Report) ->
+    error_logger:error_report(Report).
+
+warning_report(Report) ->
+    error_logger:warning_report([{module, ?MODULE}|Report]).
+
+
+
+%% -------------------------------------------------------------------------
+
+%% formated_timestamp() ->
+%%     format_timestamp(os:timestamp()).
+
+%% format_timestamp(TS) ->
+%%     megaco:format_timestamp(TS).
+
+%% d(F) ->
+%%     d(F, []).
+
+%% d(F, A) ->
+%%     io:format("*** [~s] ~p ~w " ++ F ++ "~n",
+%%               [formated_timestamp(), self(), ?MODULE | A]).
