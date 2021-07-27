@@ -65,7 +65,8 @@
          is_socket_backend/1,
          inet_backend_opts/1,
          explicit_inet_backend/0, test_inet_backends/0,
-         open/3
+         open/3,
+         listen/3, connect/3
 
         ]).
 -export([init_per_suite/1,    end_per_suite/1,
@@ -2275,4 +2276,14 @@ open(Config, Pid, Opts)
   when is_list(Config) andalso is_pid(Pid) andalso is_list(Opts) ->
     InetBackendOpts = inet_backend_opts(Config),
     megaco_udp:open(Pid, InetBackendOpts ++ Opts).
+
+listen(Config, Pid, Opts)
+  when is_list(Config) andalso is_pid(Pid) andalso is_list(Opts) ->
+    InetBackendOpts = inet_backend_opts(Config),
+    megaco_tcp:listen(Pid, InetBackendOpts ++ Opts).
+
+connect(Config, Ref, Opts)
+  when is_list(Config) andalso is_list(Opts) ->
+    InetBackendOpts = inet_backend_opts(Config),
+    megaco_tcp:connect(Ref, InetBackendOpts ++ Opts).
 

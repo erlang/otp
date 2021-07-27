@@ -111,7 +111,9 @@
 -define(TEST_INET_BACKENDS(),    ?LIB:test_inet_backends()).
 -define(IS_SOCKET_BACKEND(C),    ?LIB:is_socket_backend(C)).
 
--define(OPEN(C, P, O),            ?LIB:open(C, P, O)).
+-define(OPEN(C, P, O),           ?LIB:open(C, P, O)).
+-define(LISTEN(C, P, O),         ?LIB:listen(C, P, O)).
+-define(CONNECT(C, R, O),        ?LIB:connect(C, R, O)).
 
 
 -define(ANNOUNCE_SUITE_INIT(),
