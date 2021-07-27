@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,6 +65,8 @@
 	 get_stats/0, get_stats/1, get_stats/2,
 	 reset_stats/0, reset_stats/1
 	]).
+
+%% -export([tcp_sockets/0]).
 
 
 %%-----------------------------------------------------------------
@@ -177,11 +179,18 @@ connect(SupPid, Parameters) ->
 	    ?d1("connect -> options parsed: "
 		"~n   Rec: ~p", [Rec]),
 
-	    #megaco_tcp{host    = Host,
-			port    = Port,
-			options = Options} = Rec,
+	    #megaco_tcp{host         = Host,
+			port         = Port,
+			options      = Options,
+                        inet_backend = IB} = Rec,
 	    
-	    IpOpt = [binary, {packet, tpkt}, {active, once} | Options], 
+	    IpOpt =
+                case IB of
+                    default ->
+                        [];
+                    _ ->
+                        [{inet_backend, IB}]
+                end ++ [binary, {packet, tpkt}, {active, once} | Options], 
 
             %%------------------------------------------------------
             %% Connect the other side
@@ -376,7 +385,7 @@ create_snmp_counters(Socket, [Counter|Counters]) ->
 %%-----------------------------------------------------------------
 init({SupPid, _}) ->
     process_flag(trap_exit, true),
-    {ok, #state{supervisor_pid = SupPid}}.
+    {ok, #state{supervisor_pid = SupPid, linkdb = []}}.
 
 %%-----------------------------------------------------------------
 %% Func: terminate/1
@@ -409,7 +418,11 @@ start_tcp_listener(P, State) ->
 	{error, Reason} ->
 	    ?d1("start_tcp_listener -> setup failed"
 		"~n   Reason: ~p", [Reason]),
-	    {reply, {error, {could_not_start_listener, Reason}}, State}
+            DB       = State#state.linkdb,
+            DBStatus = [{LPid, {LRec, LSock}, inet:info(LSock)} || 
+                           {LPid, {LRec, LSock}} <- DB],
+            Reply = {error, {could_not_start_listener, Reason, DBStatus}},
+	    {reply, Reply, State}
     end.
 
 
@@ -480,10 +493,18 @@ setup(SupPid, Options) ->
 
             %%------------------------------------------------------
             %% Setup the listen socket
-	    IpOpts = [binary, {packet, tpkt}, {active, once},
-		      {reuseaddr, true} | TcpRec#megaco_tcp.options],
-	    case catch gen_tcp:listen(TcpRec#megaco_tcp.port, IpOpts) of
-		{ok, Listen} ->
+	    IpOpts =
+                case TcpRec#megaco_tcp.inet_backend of
+                    default ->
+                        [];
+                    IB ->
+                        [{inet_backend, IB}]
+                end ++
+                [binary, {packet, tpkt}, {active, once},
+                 {reuseaddr, true} | TcpRec#megaco_tcp.options],
+            Port = TcpRec#megaco_tcp.port,
+	    case catch gen_tcp:listen(Port, IpOpts) of
+		{ok, LSock} ->
 
 		    ?d1("setup -> listen ok"
 			"~n   Listen: ~p", [Listen]),
@@ -491,14 +512,13 @@ setup(SupPid, Options) ->
 	            %%-----------------------------------------------
 	            %% Startup the accept process that will wait for 
 	            %% connect attempts
-		    case start_accept(SupPid, TcpRec, Listen) of
+		    case start_accept(SupPid, TcpRec, LSock) of
 			{ok, Pid} ->
-
 			    ?d1("setup -> accept process started"
 				"~n   Pid: ~p", [Pid]),
-
 			    ?tcp_debug(TcpRec, "tcp listen setup", []),
-			    {ok, Pid, {TcpRec, Listen}};
+			    {ok, Pid, {TcpRec, LSock}};
+
 			{error, _Reason} = Error ->
 			    ?d1("setup -> failed starting accept process"
 				"~n   Error: ~p", [Error]),
@@ -506,16 +526,17 @@ setup(SupPid, Options) ->
 				       [Error]),
 			    Error
 		    end;
+
 		{error, Reason} ->
 		    ?d1("setup -> listen failed"
 			"~n   Reason: ~p", [Reason]),
-		    Error = {error, {gen_tcp_listen, Reason}},
+		    Error = {error, {gen_tcp_listen, Reason, [Port, IpOpts]}},
 		    ?tcp_debug(TcpRec, "tcp listen setup failed", [Error]),
 		    Error;
 		{'EXIT', _Reason} = Exit ->
 		    ?d1("setup -> listen exited"
 			"~n   Exit: ~p", [Exit]),
-		    Error = {error, {gen_tcp_listen, Exit}},
+		    Error = {error, {gen_tcp_listen, Exit, [Port, IpOpts]}},
 		    ?tcp_debug(TcpRec, "tcp listen setup failed", [Error]),
 		    Error
 	    end;
@@ -642,6 +663,10 @@ parse_options([{Tag, Val} | T], TcpRec, Mand) ->
 	    parse_options(T, TcpRec#megaco_tcp{module = Val}, Mand2);
 	serialize when (Val =:= true) orelse (Val =:= false) ->
 	    parse_options(T, TcpRec#megaco_tcp{serialize = Val}, Mand2);
+	inet_backend when (Val =:= default) orelse
+                          (Val =:= inet) orelse
+                          (Val =:= socket)  ->
+	    parse_options(T, TcpRec#megaco_tcp{inet_backend = Val}, Mand2);
         Bad ->
 	    ?d1("parse_options -> bad option: "
 		"~n   Tag: ~p", [Tag]),
@@ -691,3 +716,37 @@ warning_msg(F, A) ->
 
 call(Pid, Req) ->
     gen_server:call(Pid, Req, infinity).
+
+
+%%-----------------------------------------------------------------
+
+%% formated_timestamp() ->
+%%     format_timestamp(os:timestamp()).
+
+%% format_timestamp(TS) ->
+%%     megaco:format_timestamp(TS).
+
+%% d(F) ->
+%%     d(F, []).
+
+%% d(F, A) ->
+%%     io:format("*** [~s] ~p ~w " ++ F ++ "~n",
+%%               [formated_timestamp(), self(), ?MODULE | A]).
+
+
+%%-----------------------------------------------------------------
+
+%% tcp_sockets() ->
+%%     port_list("tcp_inet") ++ gen_tcp_socket:which_sockets().
+                      
+
+%% %% Return all ports having the name 'Name'
+%% port_list(Name) ->
+%%     lists:filter(
+%%       fun(Port) ->
+%%               case erlang:port_info(Port, name) of
+%%                   {name, Name} -> true;
+%%                   _ -> false
+%%               end
+%%       end, erlang:ports()).
+
