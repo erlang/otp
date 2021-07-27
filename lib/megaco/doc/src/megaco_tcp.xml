@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2020</year>
+      <year>2000</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -56,7 +56,7 @@
       <type>
         <v>TransportRef = pid() | regname()</v>
         <v>OptionListPerPort = [Option]</v>
-        <v>Option = {port, integer()} |{options, list()} |{receive_handle, term()}</v>
+        <v>Option = {port, integer()} | {options, list()} | {receive_handle, term()} | {inet_backend, default | inet | socket}</v>
       </type>
       <desc>
         <p>This function is used for starting new TPKT listening socket
@@ -64,13 +64,14 @@
           definitions.</p>
       </desc>
     </func>
+
     <func>
       <name since="">connect(TransportRef, OptionList) -> {ok, Handle, ControlPid} |  {error, Reason}</name>
       <fsummary></fsummary>
       <type>
         <v>TransportRef = pid() | regname()</v>
         <v>OptionList = [Option]</v>
-        <v>Option = {host, Ipaddr} | {port, integer()}  |{options, list()} |{receive_handle, term()} |{module, atom()}</v>
+        <v>Option = {host, Ipaddr} | {port, integer()}  | {options, list()} | {receive_handle, term()} | {module, atom()} | {inet_backend, default | inet | socket}</v>
         <v>Handle = socket_handle()</v>
         <v>ControlPid = pid()</v>
         <v>Reason = term()</v>
