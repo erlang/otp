@@ -2933,7 +2933,7 @@ t_inf(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B, _Opaques) ->
   %% result in a none result.
   Pairs =
     map_pairwise_merge(
-      %% For optional keys in both maps, when the infinimum is none, we have
+      %% For optional keys in both maps, when the infimum is none, we have
       %% essentially concluded that K must not be a key in the map.
       fun(K, ?opt, V1, ?opt, V2) -> {K, ?opt, t_inf(V1, V2)};
 	 %% When a key is optional in one map, but mandatory in another, it
@@ -3404,9 +3404,11 @@ findfirst(N1, N2, U1, B1, U2, B2) ->
   if Val1 =:= Val2 ->
       Val1;
      Val1 > Val2 ->
-      findfirst(N1, N2+1, U1, B1, U2, B2);
+      N2_1 = N2 + max((Val1 - Val2) div U2, 1),
+      findfirst(N1, N2_1, U1, B1, U2, B2);
      Val1 < Val2 ->
-      findfirst(N1+1, N2, U1, B1, U2, B2)
+      N1_1 = N1 + max((Val2 - Val1) div U1, 1),
+      findfirst(N1_1, N2, U1, B1, U2, B2)
   end.
 
 %% Optimization. Before Erlang/OTP 25, subst_all_vars_to_any() was
@@ -4046,7 +4048,7 @@ t_subtract(?map(APairs, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B) ->
       %%  * The arguments constrain A at least as much as B, i.e. that A so far
       %%    is a subtype of B. In that case they return false
       %%  * That for the particular arguments, A being a subtype of B does not
-      %%    hold, but the infinimum of A and B is nonempty, and by narrowing a
+      %%    hold, but the infimum of A and B is nonempty, and by narrowing a
       %%    pair in A, we can create a type that excludes some elements in the
       %%    infinumum. In that case, they will return that pair.
       %%  * That for the particular arguments, A being a subtype of B does not

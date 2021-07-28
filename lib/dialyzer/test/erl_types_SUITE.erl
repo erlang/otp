@@ -15,7 +15,8 @@
 -module(erl_types_SUITE).
 
 -export([all/0,
-         consistency_and_to_string/1]).
+         consistency_and_to_string/1,
+         misc/1]).
 
 %% Simplify calls into erl_types and avoid importing the entire module.
 -define(M, erl_types).
@@ -23,7 +24,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
-    [consistency_and_to_string].
+    [consistency_and_to_string, misc].
 
 consistency_and_to_string(_Config) ->
     %% Check consistency of types
@@ -195,3 +196,13 @@ consistency_and_to_string(_Config) ->
     "boolean()" = ?M:t_to_string(Union8),
     "{'false',_} | {'true',_}" = ?M:t_to_string(Union10),
     "{'true',integer()}" = ?M:t_to_string(?M:t_inf(Union10, ?M:t_tuple([?M:t_atom(true), ?M:t_integer()]))).
+
+misc(_Config) ->
+    %% Miscellaneous cases which have been fixed.
+
+    %% Used to take "forever".
+    B1_1 = ?M:t_bitstr(6442450944, 1456),
+    B1_2 = ?M:t_bitstr(85, 7),
+    R1_R = ?M:t_bitstr(547608330240, 347892352432),
+    R1_R = ?M:t_inf(B1_1, B1_2),
+    ok.
