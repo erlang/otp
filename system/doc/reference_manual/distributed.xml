@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2017</year>
+      <year>2003</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -272,6 +272,10 @@ dilbert@uab</pre>
       <row>
         <cell align="left" valign="middle"><c>-setcookie Cookie</c></cell>
         <cell align="left" valign="middle">Same as calling <c>erlang:set_cookie(node(), Cookie)</c>.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>-setcookie Node Cookie</c></cell>
+        <cell align="left" valign="middle">Same as calling <c>erlang:set_cookie(Node, Cookie)</c>.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>-sname Name</c></cell>
