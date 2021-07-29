@@ -1985,58 +1985,62 @@ erl_1424(Config) when is_list(Config) ->
 %% Connecting Nodes with different cookies
 simultaneous_remote_linking(_Config) ->
     Node = node(),
+    true = Node =/= nonode@nohost,
     NodeL = atom_to_list(Node),
+    [ _, HostL ] = string:lexemes(NodeL, "@"),
     CookieL = atom_to_list(erlang:get_cookie()),
+
     NodeAName = "nodeA",
+    NodeA = list_to_atom(NodeAName++"@"++HostL),
     NodeACookie = nodeAcookie,
     NodeACookieL = atom_to_list(NodeACookie),
+    erlang:set_cookie( NodeA, NodeACookie ),
     { ok, NodeA } =
-        start_peer_node(
-          "", NodeAName,
+        start_node(
+          "-hidden", NodeAName,
           "-setcookie "++NodeACookieL++
               " -setcookie "++NodeL++" "++CookieL ),
-    NodeBName = "nodeB",
-    NodeBCookie = nodeBcookie,
-    NodeBCookieL = atom_to_list(NodeBCookie),
-    { ok, NodeB } =
-        start_peer_node(
-          "", NodeBName,
-          "-setcookie "++NodeBCookieL++
-              " -setcookie "++NodeL++" "++CookieL ),
+    try
+
+        NodeBName = "nodeB",
+        NodeB = list_to_atom(NodeBName++"@"++HostL),
+        NodeBCookie = nodeBcookie,
+        NodeBCookieL = atom_to_list(NodeBCookie),
+        erlang:set_cookie( NodeB, NodeBCookie ),
+        { ok, NodeB } =
+            start_node(
+              "-hidden", NodeBName,
+              "-setcookie "++NodeBCookieL++
+                  " -setcookie "++NodeL++" "++CookieL ),
+        try
+
+%%%            timer:sleep(2000),
+            [ NodeA, NodeB ] = nodes(hidden),
     
-    timer:sleep(2000),
+            [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden]),
+            [ Node ] = rpc:call( NodeB, erlang, nodes, [hidden]),
     
-    %% Connect to each node using set_cookie
+            NodeACookie = rpc:call( NodeA, erlang, get_cookie, []),
+            NodeBCookie = rpc:call( NodeB, erlang, get_cookie, []),
     
-    erlang:set_cookie( NodeA, NodeACookie ),
-    pong = net_adm:ping( NodeA ),
+            %% Resolving use case where both nodes use set_cookie
+            %% before connecting to each other ( exposing dist handshake bug )
     
-    [ NodeA ] = nodes(),
-    
-    erlang:set_cookie( NodeB, NodeBCookie ),
-    pong = net_adm:ping( NodeB ),
-    
-    [ NodeA, NodeB ] = nodes(),
-    
-    [ Node ] = rpc:call( NodeA, erlang, nodes, []),
-    [ Node ] = rpc:call( NodeB, erlang, nodes, []),
-    
-    NodeACookie = rpc:call( NodeA, erlang, get_cookie, []),
-    NodeBCookie = rpc:call( NodeB, erlang, get_cookie, []),
-    
-    %% Resolving use case where both nodes use set_cookie
-    %% before connecting to each other ( exposing dist handshake bug )
-    
-    true = rpc:call( NodeA, erlang, set_cookie, [ NodeB, NodeBCookie ]),
-    true = rpc:call( NodeB, erlang, set_cookie, [ NodeA, NodeACookie ]),
-    
-    pong = rpc:call( NodeA, net_adm, ping, [ NodeB ]),
-    pong = rpc:call( NodeB, net_adm, ping, [ NodeA ]),
-    
-    
-    [ Node, NodeB ] = rpc:call( NodeA, erlang, nodes, [] ),
-    [ Node, NodeA ] = rpc:call( NodeB, erlang, nodes, [] ),
-    
+            true = rpc:call( NodeA, erlang, set_cookie, [ NodeB, NodeBCookie ]),
+            true = rpc:call( NodeB, erlang, set_cookie, [ NodeA, NodeACookie ]),
+
+            pong = rpc:call( NodeA, net_adm, ping, [ NodeB ]),
+            pong = rpc:call( NodeB, net_adm, ping, [ NodeA ]),
+
+            [ Node, NodeB ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+            [ Node, NodeA ] = rpc:call( NodeB, erlang, nodes, [hidden] )
+
+        after
+            _ = stop_node(NodeB)
+        end
+    after
+        _ = stop_node(NodeA)
+    end,
     ok.
 
 
@@ -2194,10 +2198,6 @@ start_node(DCfg, Name, Param, Rel) when is_list(Rel) ->
 start_node(DCfg, Name, Param) ->
     NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)) ++ " " ++ DCfg,
     test_server:start_node(Name, slave, [{args, NewParam}]).
-
-start_peer_node(DCfg, Name, Param) ->
-    NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)) ++ " " ++ DCfg,
-    test_server:start_node(Name, peer, [{args, NewParam}]).
 
 start_node(DCfg, Name) ->
     start_node(DCfg, Name, "").
