@@ -1985,24 +1985,36 @@ erl_1424(Config) when is_list(Config) ->
 %% Connecting Nodes with different cookies
 simultaneous_remote_linking(_Config) ->
     Node = node(),
+    NodeL = atom_to_list(Node),
+    CookieL = atom_to_list(erlang:get_cookie()),
     NodeAName = "nodeA",
     NodeACookie = nodeAcookie,
-    { ok, NodeA } = start_peer_node("", NodeAName, "-setcookie "++atom_to_list( NodeACookie ) ),
+    NodeACookieL = atom_to_list(NodeACookie),
+    { ok, NodeA } =
+        start_peer_node(
+          "", NodeAName,
+          "-setcookie "++NodeACookieL++
+              " -setcookie "++NodeL++" "++CookieL ),
     NodeBName = "nodeB",
     NodeBCookie = nodeBcookie,
-    { ok, NodeB } = start_peer_node("", NodeBName, "-setcookie "++atom_to_list( NodeBCookie ) ),
+    NodeBCookieL = atom_to_list(NodeBCookie),
+    { ok, NodeB } =
+        start_peer_node(
+          "", NodeBName,
+          "-setcookie "++NodeBCookieL++
+              " -setcookie "++NodeL++" "++CookieL ),
     
     timer:sleep(2000),
     
-    %% Connect to each node using set_cookie. This should work as only the Test node has used set_cookie ETS
+    %% Connect to each node using set_cookie
     
     erlang:set_cookie( NodeA, NodeACookie ),
-    net_adm:ping( NodeA ),
+    pong = net_adm:ping( NodeA ),
     
     [ NodeA ] = nodes(),
     
     erlang:set_cookie( NodeB, NodeBCookie ),
-    net_adm:ping( NodeB ),
+    pong = net_adm:ping( NodeB ),
     
     [ NodeA, NodeB ] = nodes(),
     
@@ -2012,8 +2024,8 @@ simultaneous_remote_linking(_Config) ->
     NodeACookie = rpc:call( NodeA, erlang, get_cookie, []),
     NodeBCookie = rpc:call( NodeB, erlang, get_cookie, []),
     
-    %% Resolving use case where both nodes use set_cookie ETS before connecting to
-    %% each other ( exposing dist handshake bug )
+    %% Resolving use case where both nodes use set_cookie
+    %% before connecting to each other ( exposing dist handshake bug )
     
     true = rpc:call( NodeA, erlang, set_cookie, [ NodeB, NodeBCookie ]),
     true = rpc:call( NodeB, erlang, set_cookie, [ NodeA, NodeACookie ]),
