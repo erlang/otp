@@ -57,6 +57,8 @@
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
 
+-define(NO_ERROR, 'no error').
+
 -define(A4444, ["11111111", "00000000", "00000000"]).
 -define(A4445, ["11111111", "00000000", "11111111"]).
 -define(A5555, ["11111111", "11111111", "00000000"]).
@@ -65,18 +67,19 @@
 -define(valid_actions, 
 	[ignore, pending, pending_ignore, discard_ack, handle_ack, handle_pending_ack, handle_sloppy_ack]).
 
--record(mgc, {parent      = undefined,
-	      tcp_sup     = undefined,
-	      udp_sup     = undefined,
-	      req_action  = discard_ack,
-	      req_timeout = 0,
-	      mid         = undefined,
-	      ack_info    = undefined,
-	      abort_info  = undefined,
-	      req_info    = undefined,
-	      mg          = [],
+-record(mgc, {parent       = undefined,
+              inet_backend = default,
+	      tcp_sup      = undefined,
+	      udp_sup      = undefined,
+	      req_action   = discard_ack,
+	      req_timeout  = 0,
+	      mid          = undefined,
+	      ack_info     = undefined,
+	      abort_info   = undefined,
+	      req_info     = undefined,
+	      mg           = [],
 	      dsi_timer,
-              evs         = []}).
+              evs          = []}).
 
 -define(EVS_MAX, 10).
 
@@ -330,13 +333,14 @@ mgc(Parent, Verbosity, Config) ->
     case (catch init(Config)) of
 	{error, Reason} ->
 	    exit(Reason);
-	{Mid, TcpSup, UdpSup, DSITimer} ->
+	{IB, Mid, TcpSup, UdpSup, DSITimer} ->
 	    notify_started(Parent),
-	    S = #mgc{parent    = Parent, 
-		     tcp_sup   = TcpSup, 
-		     udp_sup   = UdpSup, 
-		     mid       = Mid,
-		     dsi_timer = DSITimer},
+	    S = #mgc{parent       = Parent, 
+		     tcp_sup      = TcpSup, 
+		     udp_sup      = UdpSup, 
+		     mid          = Mid,
+		     dsi_timer    = DSITimer,
+                     inet_backend = IB},
 	    i("mgc -> started"),
 	    display_system_info("at start "),
 	    loop(evs(S, started))
@@ -345,10 +349,15 @@ mgc(Parent, Verbosity, Config) ->
 init(Config) ->
     d("init -> entry"),
     random_init(),
-    Mid = get_conf(local_mid, Config),
+
+    IB  = get_conf(inet_backend, Config, default),
+    Mid = get_conf(local_mid,    Config),
     RI  = get_conf(receive_info, Config),
 
-    d("init -> maybe start the display system info timer"),
+    d("init -> "
+      "~n      Inet Backend: ~p"
+      "~n      Mid:          ~p"
+      "~n      RI:           ~p", [IB, Mid, RI]),
     DSITimer = 
 	case get_conf(display_system_info, Config, undefined) of
 	    Time when is_integer(Time) ->
@@ -358,6 +367,7 @@ init(Config) ->
 		undefined
 	end,
     Conf0 = lists:keydelete(display_system_info, 1, Config),
+    Conf1 = lists:keydelete(inet_backend,        1, Conf0),
 
     d("init -> start megaco"),
     application:start(megaco),
@@ -373,12 +383,12 @@ init(Config) ->
 	_ ->
 	    ok
     end,
-    Conf1 = lists:keydelete(megaco_trace,    1, Conf0),
+    Conf2 = lists:keydelete(megaco_trace,    1, Conf1),
 
     d("init -> start megaco user"),
-    Conf2 = lists:keydelete(local_mid,    1, Conf1),
-    Conf3 = lists:keydelete(receive_info, 1, Conf2),
-    ok = megaco:start_user(Mid, Conf3),
+    Conf3 = lists:keydelete(local_mid,    1, Conf2),
+    Conf4 = lists:keydelete(receive_info, 1, Conf3),
+    ok = megaco:start_user(Mid, Conf4),
 
     d("init -> update user info (user_mod)"),
     ok = megaco:update_user_info(Mid, user_mod,  ?MODULE),
@@ -392,8 +402,8 @@ init(Config) ->
     Transports = parse_receive_info(RI, RH),
 
     d("init -> start transports"),
-    {Tcp, Udp} = start_transports(Transports),
-    {Mid, Tcp, Udp, DSITimer}.
+    {Tcp, Udp} = start_transports(IB, Transports),
+    {IB, Mid, Tcp, Udp, DSITimer}.
     
 loop(S) ->
     d("loop -> await request"),
@@ -722,11 +732,11 @@ parse_receive_info1(RI, RH) ->
 %%         send/receive port (udp). 
 %% The second step *may* need to be repeated!
 %% --------------------------------------------------------
-start_transports([]) ->
+start_transports(_, []) ->
     throw({error, no_transport});
-start_transports(Transports) when is_list(Transports) ->
+start_transports(IB, Transports) when is_list(Transports) ->
     {Tcp, Udp} = start_transports1(Transports, undefined, undefined),
-    ok = start_transports2(Transports, Tcp, Udp),
+    ok = start_transports2(IB, Transports, Tcp, Udp),
     {Tcp, Udp}.
     
 start_transports1([], Tcp, Udp) ->
@@ -760,28 +770,29 @@ start_transports1([{_TO, _Port, RH}|Transports], Tcp, Udp)
 start_transports1([_|Transports], Tcp, Udp) ->
     start_transports1(Transports, Tcp, Udp).
 
-start_transports2([], _, _) ->
+start_transports2(_, [], _, _) ->
     ok;
-start_transports2([{TO, Port, RH}|Transports], Tcp, Udp) 
+start_transports2(IB, [{TO, Port, RH}|Transports], Tcp, Udp) 
   when RH#megaco_receive_handle.send_mod =:= megaco_tcp ->
-    start_tcp(TO, RH, Port, Tcp),
-    start_transports2(Transports, Tcp, Udp);
-start_transports2([{TO, Port, RH}|Transports], Tcp, Udp) 
+    start_tcp(IB, TO, RH, Port, Tcp),
+    start_transports2(IB, Transports, Tcp, Udp);
+start_transports2(IB, [{TO, Port, RH}|Transports], Tcp, Udp) 
   when RH#megaco_receive_handle.send_mod =:= megaco_udp ->
-    start_udp(TO, RH, Port, Udp),
-    start_transports2(Transports, Tcp, Udp).
+    start_udp(IB, TO, RH, Port, Udp),
+    start_transports2(IB, Transports, Tcp, Udp).
 
-start_tcp(TO, RH, Port, Sup) ->
+start_tcp(IB, TO, RH, Port, Sup) ->
     d("start tcp transport"),
-    start_tcp(TO, RH, Port, Sup, 250).
+    start_tcp(IB, TO, RH, Port, Sup, 250).
 
-start_tcp(TO, RH, Port, Sup, Timeout) 
+start_tcp(IB, TO, RH, Port, Sup, Timeout) 
   when is_pid(Sup) andalso is_integer(Timeout) andalso (Timeout > 0) ->
     d("tcp listen on ~p", [Port]),
-    Opts = [{port,           Port}, 
+    Opts = [{inet_backend,   IB},
+            {port,           Port}, 
 	    {receive_handle, RH}, 
 	    {tcp_options,    [{nodelay, true}]}] ++ TO,
-    try_start_tcp(Sup, Opts, Timeout, noError).
+    try_start_tcp(Sup, Opts, Timeout, ?NO_ERROR).
 
 try_start_tcp(Sup, Opts, Timeout, Error0) when (Timeout < 5000) ->
     Sleep = random(Timeout) + 100,
@@ -790,7 +801,7 @@ try_start_tcp(Sup, Opts, Timeout, Error0) when (Timeout < 5000) ->
 	ok ->
 	    d("listen socket created", []),
 	    Sup;
-	Error1 when Error0 =:= noError -> % Keep the first error
+	Error1 when Error0 =:= ?NO_ERROR -> % Keep the first error
 	    d("failed creating listen socket [1]: ~p", [Error1]),
 	    sleep(Sleep),
 	    try_start_tcp(Sup, Opts, Timeout*2, Error1);
@@ -809,14 +820,16 @@ try_start_tcp(Sup, _Opts, _Timeout, Error) ->
     end.
 
 
-start_udp(TO, RH, Port, Sup) ->
+start_udp(IB, TO, RH, Port, Sup) ->
     d("start udp transport"),
-    start_udp(TO, RH, Port, Sup, 250).
+    start_udp(IB, TO, RH, Port, Sup, 250).
 
-start_udp(TO, RH, Port, Sup, Timeout) ->
+start_udp(IB, TO, RH, Port, Sup, Timeout) ->
     d("udp open ~p", [Port]),
-    Opts = [{port, Port}, {receive_handle, RH}] ++ TO,
-    try_start_udp(Sup, Opts, Timeout, noError).
+    Opts = [{inet_backend,   IB},
+            {port,           Port},
+            {receive_handle, RH}] ++ TO,
+    try_start_udp(Sup, Opts, Timeout, ?NO_ERROR).
 
 try_start_udp(Sup, Opts, Timeout, Error0) when (Timeout < 5000) ->
     d("try open udp socket (~p)", [Timeout]),
@@ -824,7 +837,7 @@ try_start_udp(Sup, Opts, Timeout, Error0) when (Timeout < 5000) ->
 	{ok, _SendHandle, _ControlPid} ->
 	    d("port opened", []),
 	    Sup;
-	Error1 when Error0 =:= noError -> % Keep the first error
+	Error1 when Error0 =:= ?NO_ERROR -> % Keep the first error
 	    d("failed open port [1]: ~p", [Error1]),
 	    sleep(Timeout),
 	    try_start_udp(Sup, Opts, Timeout*2, Error1);

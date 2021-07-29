@@ -62,7 +62,7 @@
 
 -define(MGC_START(Node, Mid, ET, Conf, Verb), 
         megaco_test_mgc:start(Node, Mid, ET, 
-			      [{megaco_trace, false}] ++ Conf, Verb)).
+			      Conf ++ [{megaco_trace, false}], Verb)).
 -define(MGC_STOP(Pid), megaco_test_mgc:stop(Pid)).
 -define(MGC_USER_INFO(Pid,Tag), megaco_test_mgc:user_info(Pid,Tag)).
 -define(MGC_CONN_INFO(Pid,Tag), megaco_test_mgc:conn_info(Pid,Tag)).
@@ -70,8 +70,8 @@
 
 -define(MG_START(Pid, Mid, Enc, Transp, Conf, Verb), 
         megaco_test_mg:start(Pid, Mid, Enc, Transp, 
-			     [{megaco_trace, false},
-			      {transport_opts, [{serialize, true}]}] ++ Conf, 
+			     Conf ++ [{megaco_trace, false},
+                                      {transport_opts, [{serialize, true}]}], 
 			     Verb)).
 -define(MG_STOP(Pid), megaco_test_mg:stop(Pid)).
 -define(MG_USER_INFO(Pid,Tag), megaco_test_mg:user_info(Pid,Tag)).
@@ -92,15 +92,47 @@ suite() ->
     [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
-    [
-     {group, single},
-     {group, multi}
-    ].
+    %% This is a temporary messure to ensure that we can 
+    %% test the socket backend without effecting *all*
+    %% applications on *all* machines.
+    %% This flag is set only for *one* host.
+    case ?TEST_INET_BACKENDS() of
+        true ->
+            [
+             {group, inet_backend_default},
+             {group, inet_backend_inet},
+             {group, inet_backend_socket}
+            ];
+        _ ->
+            [
+             {group, inet_backend_default}
+            ]
+    end.
 
 groups() -> 
     [
-     {single, [], single_cases()},
-     {multi,  [], multi_cases()}
+     {inet_backend_default, [], inet_backend_default_cases()},
+     {inet_backend_inet,    [], inet_backend_inet_cases()},
+     {inet_backend_socket,  [], inet_backend_socket_cases()},
+
+     {all,                  [], all_cases()},
+     {single,               [], single_cases()},
+     {multi,                [], multi_cases()}
+    ].
+
+inet_backend_default_cases() ->
+    [{all, [], all_cases()}].
+
+inet_backend_inet_cases() ->
+    [{all, [], all_cases()}].
+
+inet_backend_socket_cases() ->
+    [{all, [], all_cases()}].
+
+all_cases() -> 
+    [
+     {group, single},
+     {group, multi}
     ].
 
 single_cases() ->
@@ -174,10 +206,39 @@ end_per_suite(Config0) when is_list(Config0) ->
 %% -----
 %%
 
-init_per_group(_GroupName, Config) ->
+init_per_group(inet_backend_default = Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    [{socket_create_opts, []} | Config];
+init_per_group(inet_backend_inet = Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            [{socket_create_opts, [{inet_backend, inet}]} | Config]
+    end;
+init_per_group(inet_backend_socket = Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            [{socket_create_opts, [{inet_backend, socket}]} | Config]
+    end;
+init_per_group(Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
     Config.
 
-end_per_group(_GroupName, Config) ->
+end_per_group(Group, Config) when (inet_backend_default =:= Group) orelse
+                                  (inet_backend_init    =:= Group) orelse
+                                  (inet_backend_socket  =:= Group) ->
+    ?SLEEP(?SECS(5)),
+    Config;
+end_per_group(_Group, Config) ->
     Config.
 
 
@@ -397,25 +458,28 @@ try_single_user_load(Name, Config, NumLoaders0) ->
 
 single_user_load(State, Config, NumLoaders) ->
     i("starting with ~w loader(s)", [NumLoaders]),
+    SCO = ?config(socket_create_opts, Config),
     Res = load_controller(Config, 
 			  fun(Env) -> 
 				  populate(Env), 
-				  exit( single_user_load(State, NumLoaders) ) 
+				  exit( do_single_user_load(SCO,
+                                                            State, NumLoaders) ) 
 			  end),
     i("done"),
     Res.
 
-single_user_load([MgcNode, MgNode], NumLoaders) ->
+do_single_user_load(SCO,
+                    [MgcNode, MgNode], NumLoaders) ->
     %% Start the MGC and MGs
     i("[MGC] start"),
     MgcMid = {deviceName, "ctrl"},
     ET     = [{text, tcp, [{serialize, true}]}],
     DSI = maybe_display_system_info(NumLoaders),
-    {ok, Mgc} = ?MGC_START(MgcNode, MgcMid, ET, DSI, ?MGC_VERBOSITY),
+    {ok, Mgc} = ?MGC_START(MgcNode, MgcMid, ET, SCO ++ DSI, ?MGC_VERBOSITY),
 
     i("[MG] start"),
     MgMid = {deviceName, "mg"},
-    {ok, Mg} = ?MG_START(MgNode, MgMid, text, tcp, DSI, ?MG_VERBOSITY),
+    {ok, Mg} = ?MG_START(MgNode, MgMid, text, tcp, SCO ++ DSI, ?MG_VERBOSITY),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
 
@@ -501,17 +565,18 @@ try_multi_user_load(Name, Config, NumUsers, NumLoaders0) ->
 
 multi_user_load(State, Config, NumUsers, NumLoaders) ->
     i("starting with ~w loader(s)", [NumLoaders]),
+    SCO = ?config(socket_create_opts, Config),
     Res = load_controller(
 	    Config, 
 	    fun(Env) -> 
 		    populate(Env), 
-		    exit( multi_user_load(State, NumUsers, NumLoaders) ) 
+		    exit( do_multi_user_load(SCO, State, NumUsers, NumLoaders) ) 
 	    end),
     i("done"),
     Res.
 
 
-multi_user_load([MgcNode | MgNodes], NumUsers, NumLoaders) 
+do_multi_user_load(SCO, [MgcNode | MgNodes], NumUsers, NumLoaders) 
   when (is_integer(NumUsers) andalso (NumUsers > 1) andalso 
 	is_integer(NumLoaders) andalso (NumLoaders >= 1)) ->
     %% Start the MGC and MGs
@@ -519,7 +584,7 @@ multi_user_load([MgcNode | MgNodes], NumUsers, NumLoaders)
     MgcMid = {deviceName, "ctrl"},
     ET     = [{text, tcp, [{serialize, false}]}],
     DSI = maybe_display_system_info(2 * NumUsers * NumLoaders),
-    {ok, Mgc} = ?MGC_START(MgcNode, MgcMid, ET, DSI, ?MGC_VERBOSITY),
+    {ok, Mgc} = ?MGC_START(MgcNode, MgcMid, ET, SCO ++ DSI, ?MGC_VERBOSITY),
 
     megaco_test_mgc:update_user_info(Mgc,reply_timer,1000),
     d("MGC user info: ~p", [?MGC_USER_INFO(Mgc, all)]),
@@ -527,7 +592,7 @@ multi_user_load([MgcNode | MgNodes], NumUsers, NumLoaders)
     MgUsers = make_mids(MgNodes),
 
     d("start MGs, apply the load and stop MGs"),
-    ok = multi_load(MgUsers, DSI, NumLoaders, ?MULTI_USER_LOAD_NUM_REQUESTS),
+    ok = multi_load(MgUsers, SCO ++ DSI, NumLoaders, ?MULTI_USER_LOAD_NUM_REQUESTS),
 
     i("flush the message queue: ~p", [megaco_test_lib:flush()]),
 
@@ -542,14 +607,14 @@ multi_user_load([MgcNode | MgNodes], NumUsers, NumLoaders)
     ok.
 
 
-multi_load(MGs, DSI, NumLoaders, NumReqs) ->
+multi_load(MGs, Conf, NumLoaders, NumReqs) ->
     d("multi_load -> entry with"
       "~n   MGs:        ~p"
-      "~n   DSI:        ~p"
+      "~n   Conf:       ~p"
       "~n   NumLoaders: ~p"
-      "~n   NumReqs:    ~p", [MGs, DSI, NumLoaders, NumReqs]),
+      "~n   NumReqs:    ~p", [MGs, Conf, NumLoaders, NumReqs]),
 
-    Pids = multi_load_collector_start(MGs, DSI, NumLoaders, NumReqs, []),
+    Pids = multi_load_collector_start(MGs, Conf, NumLoaders, NumReqs, []),
     case timer:tc(?MODULE, do_multi_load, [Pids, NumLoaders, NumReqs]) of
 	{Time, {ok, OKs, []}} ->
 	    Sec = Time / 1000000,
@@ -569,13 +634,13 @@ do_multi_load(Pids, _NumLoaders, _NumReqs) ->
     lists:foreach(Fun, Pids),
     await_multi_load_collectors(Pids, [], []).
 
-multi_load_collector_start([], _DSI, _NumLoaders, _NumReqs, Pids) ->
+multi_load_collector_start([], _Conf, _NumLoaders, _NumReqs, Pids) ->
     Pids;
-multi_load_collector_start([{Mid, Node}|MGs], DSI, NumLoaders, NumReqs, Pids) ->
+multi_load_collector_start([{Mid, Node}|MGs], Conf, NumLoaders, NumReqs, Pids) ->
     Env = get(),
     Pid = spawn_link(?MODULE, multi_load_collector, 
-		     [self(), Node, Mid, DSI, NumLoaders, NumReqs, Env]),
-    multi_load_collector_start(MGs, DSI, NumLoaders, NumReqs, [{Pid,Mid}|Pids]).
+		     [self(), Node, Mid, Conf, NumLoaders, NumReqs, Env]),
+    multi_load_collector_start(MGs, Conf, NumLoaders, NumReqs, [{Pid,Mid}|Pids]).
 
 get_env(Key, Env) ->
     case lists:keysearch(Key, 1, Env) of
@@ -585,13 +650,13 @@ get_env(Key, Env) ->
 	    undefined
     end.
 
-multi_load_collector(Parent, Node, Mid, DSI, NumLoaders, NumReqs, Env) ->
+multi_load_collector(Parent, Node, Mid, Conf, NumLoaders, NumReqs, Env) ->
     put(verbosity, get_env(verbosity, Env)),
     put(tc, get_env(tc, Env)),
     put(sname, get_env(sname, Env) ++ "-loader"),
-    case ?MG_START(Node, Mid, text, tcp, DSI, ?MG_VERBOSITY) of
+    case ?MG_START(Node, Mid, text, tcp, Conf, ?MG_VERBOSITY) of
 	{ok, Pid} ->
-	    d("MG ~p user info: ~n~p", [Mid, ?MG_USER_INFO(Pid,all)]),
+	    d("MG ~p user info: ~n~p", [Mid, ?MG_USER_INFO(Pid, all)]),
 	    ServChRes = ?MG_SERV_CHANGE(Pid),
 	    d("service change result: ~p", [ServChRes]),
 	    megaco_test_mg:update_conn_info(Pid,reply_timer,1000),
