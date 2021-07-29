@@ -1153,7 +1153,16 @@ start_server(ServerData, StartOpts) ->
 
 call(Server, Call) ->
     try gen_statem:call(Server, Call)
-    catch exit:{noproc, {gen_statem, call, _Args}} -> {error, closed}
+    catch
+        exit:{noproc, {gen_statem, call, _Args}} -> {error, closed};
+        exit:{{shutdown, _}, _}                  -> {error, closed};
+        C:E:S ->
+            error_msg("~w call failed: "
+                      "~n      Call:  ~p"
+                      "~n      Class: ~p"
+                      "~n      Error: ~p"
+                      "~n      Stack: ~p", [?MODULE, Call, C, E, S]),
+            erlang:raise(C, E, S)
     end.
 
 stop_server(Server) ->
@@ -2770,3 +2779,9 @@ timeout(EndTime) ->
     end.
 
 -endif.
+
+%% -------------------------------------------------------------------------
+
+error_msg(F, A) ->
+    error_logger:error_msg(F ++ "~n", A).
+
