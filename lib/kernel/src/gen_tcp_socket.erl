@@ -219,21 +219,24 @@ default_any(Domain, undefined = Undefined) ->
 default_any(_Domain, BindAddr) ->
     BindAddr.
 
-bind_addr(_Domain, BindIP, BindPort) when BindIP =:= undefined ->
-    0 = BindPort, % Assert
+bind_addr(_Domain, BindIP, BindPort)
+  when ((BindIP =:= undefined) andalso (BindPort =:= 0)) ->
     %% Do not bind!
     undefined;
-bind_addr(Domain, BindIP, BindPort) ->
+bind_addr(local = Domain, BindIP, _BindPort) ->
     case BindIP of
-        {Domain, Path} when Domain =:= local ->
-            #{family => Domain,
-              path   => Path};
-        _ when Domain =:= inet;
-               Domain =:= inet6 ->
-            #{family => Domain,
-              addr   => BindIP,
-              port   => BindPort}
-    end.
+	any ->
+	    undefined;
+	{local, Path} ->
+	    #{family => Domain,
+	      path   => Path}
+    end;
+bind_addr(Domain, BindIP, BindPort)
+  when (Domain =:= inet) orelse (Domain =:= inet6) ->
+    Addr = if (BindIP =:= undefined) -> any; true -> BindIP end,
+    #{family => Domain,
+      addr   => Addr,
+      port   => BindPort}.
 
 call_bind(_Server, undefined) ->
     ok;
@@ -1449,14 +1452,21 @@ handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
 	    ok = socket:setopt(P#params.socket, {otp,meta}, meta(D_1))
     end,
     Reply = {reply, From, Result},
+
+    %% If the socket is deactivated; active: once | true | N > 0 -> false
+    %% we do not cancel any select! Data that arrive during the phase when
+    %% we are in state 'recv' but are inactive is simply stored in the buffer.
+    %% If activated: active: false -> once | true | N > 0
+    %% We need to check if there is something in our buffers, and maybe deliver
+    %% it to its owner. This is what we do here. This should only occure
+    %% if we are in state connected (state 'recv' and in-active when data
+    %% arrives => put data in buffer and then enter state 'connected', since
+    %% we are in-active).
     case State of
         'connected' ->
-            handle_connected(
-              P, D_1,
-              [Reply]);
+            handle_connected(P, handle_buffered(P, D_1), [Reply]);
         _ ->
-            {keep_state, {P, D_1},
-             [Reply]}
+            {keep_state, {P, D_1}, [Reply]}
     end;
 
 %% Call: getstat/2
@@ -1930,6 +1940,95 @@ handle_recv_peek(P, D, ActionsR, Packet, Data) ->
 	    %% ?DBG({'read a message'}),
             handle_recv_length(P, D, ActionsR, Packet + N)
     end.
+
+
+handle_buffered(_P, #{recv_from := _From} = D) ->
+    D;
+handle_buffered(P, #{active := Active} = D) when (Active =/= false) ->
+    case D of
+        #{buffer := Buffer} when is_list(Buffer) andalso (Buffer =/= []) ->
+            Data = condense_buffer(Buffer),
+            handle_buffered(P, D, Data);
+        #{buffer := Data} when is_binary(Data) andalso (byte_size(Data) > 0) ->
+            handle_buffered(P, D, Data);
+        _ ->
+            D
+    end;
+handle_buffered(_P, D) ->
+    D.
+
+handle_buffered(P,
+                #{packet         := line,
+                  line_delimiter := LineDelimiter,
+                  packet_size    := PacketSize} = D,
+                Data) ->
+    DecodeOpts = [{line_delimiter, LineDelimiter},
+		  {line_length,    PacketSize}],
+    handle_buffered(P, D, Data, DecodeOpts);
+handle_buffered(P, D, Data) ->
+    handle_buffered(P, D, Data, []).
+
+handle_buffered(P, #{packet_size := PacketSize} = D,
+                Data, DecocdeOpts0) ->
+    DecodeOpts = [{packet_size, PacketSize}|DecocdeOpts0], 
+    Type       = decode_packet(D),
+    case erlang:decode_packet(Type, Data, DecodeOpts) of
+        {ok, Decoded, Rest} ->
+            D2 = deliver_buffered_data(P, D, Decoded),
+            %% Prepare the rest
+            %% is_list(Buffer) -> try to decode first
+            %% is_binary(Buffer) -> get more data first
+            Buffer =
+                case Rest of
+                    <<>> -> Rest;
+                    <<_/binary>> -> [Rest]
+                end,
+            D2#{buffer := Buffer};
+        {more, _} ->
+            D;
+        {error, Reason} ->
+            %% What do we do here?
+            %% Keep the buffer and hope that it will go better with more data?
+            %% Or discard it and continue as if nothing happened?
+            error_logger:warning_msg("Failed decoding message"
+                                     "~n   Socket:          ~p"
+                                     "~n   Socket server:   ~p"
+                                     "~n   Packet type:     ~p"
+                                     "~n   byte_size(Data): ~p"
+                                     "~n   Reason:          ~p",
+                                     [P#params.socket, self(),
+                                      Type, byte_size(Data), Reason]),
+            D
+    end.
+
+%% If we get this far, we *know* that the socket is 'active'.
+deliver_buffered_data(#params{owner = Owner} = P,
+                      #{active  := Active,
+                        mode    := Mode,
+                        header  := Header,
+                        deliver := Deliver,
+                        packet  := Packet} = D, Data) ->
+    DeliverData  = deliver_data(Data, Mode, Header, Packet),
+    ModuleSocket = module_socket(P),
+    Owner !
+        case Deliver of
+            term ->
+                {tag(Packet), ModuleSocket, DeliverData};
+            port ->
+                {ModuleSocket, {data, DeliverData}}
+        end,
+    case Active of
+        true ->
+            recv_start(next_packet(D, Packet, Data));
+        once ->
+            recv_stop(next_packet(D, Packet, Data, false));
+        1 ->
+            Owner ! {tcp_passive, ModuleSocket},
+            recv_stop(next_packet(D, Packet, Data, false));
+        N when is_integer(N) ->
+            recv_start(next_packet(D, Packet, Data, Active - 1))
+    end.    
+
 
 handle_recv_packet(P, D, ActionsR) ->
     case D of
