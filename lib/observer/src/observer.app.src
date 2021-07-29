@@ -67,7 +67,7 @@
     {registered, []},
     {applications, [kernel, stdlib]},
     {env, []},
-    {runtime_dependencies, ["wx-1.2","stdlib-3.13","runtime_tools-1.8.14",
-			    "kernel-7.0","et-1.5","erts-11.0"]}]}.
+    {runtime_dependencies, ["wx-1.2","stdlib-3.13","runtime_tools-@OTP-17346@",
+			    "kernel-@OTP-17346@","et-1.5","erts-11.0"]}]}.
 
 
