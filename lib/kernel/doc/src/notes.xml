@@ -31,6 +31,27 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>For <c>gen_tcp:connect/3,4</c> it is possible to
+	    specify a specific source port, which should be enough to
+	    bind the socket to an address with that port before
+	    connecting. </p><p>Unfortunately that feature was lost in
+	    OTP-17216 that made it mandatory to specify the source
+	    address to get an address binding, and ignored a
+	    specified source port if no source address was specified.
+	    </p><p>That bug has now been corrected. </p>
+          <p>
+	    Own Id: OTP-17536 Aux Id: OTP-17216, ERIERL-677 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
