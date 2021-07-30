@@ -34,7 +34,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
 
 	 t_connect_timeout/1, t_accept_timeout/1,
-	 t_connect_bad/1,
+	 t_connect_src_port/1, t_connect_bad/1,
 	 t_recv_timeout/1, t_recv_eof/1, t_recv_delim/1,
 	 t_shutdown_write/1, t_shutdown_both/1, t_shutdown_error/1,
 	 t_shutdown_async/1,
@@ -115,6 +115,7 @@ t_accept_cases() ->
 t_connect_cases() ->
     [
      t_connect_timeout,
+     t_connect_src_port,
      t_connect_bad
     ].
 
@@ -303,6 +304,28 @@ do_connect_timeout(Config)->
     TcpPort = 45638,
     ok = ?P("Connecting to ~p, port ~p", [BadAddr, TcpPort]),
     connect_timeout({gen_tcp,connect, [BadAddr,TcpPort, ?INET_BACKEND_OPTS(Config),200]}, 0.2, 5.0).
+
+
+%% Test that setting only the source port for a connection works.
+t_connect_src_port(Config) when is_list(Config) ->
+    Timeout = 1000,
+    Loopback = {127,0,0,1},
+    %% Allocate a port to later use as source port
+    {ok, Tmp} = gen_tcp:listen(0, [{ip,Loopback}, {linger,{true,0}}]),
+    {ok, SrcPort} = inet:port(Tmp),
+    io:format("SrcPort = ~w~n", [SrcPort]),
+    {ok, L} = gen_tcp:listen(0, [{ip,Loopback}]),
+    ok = gen_tcp:close(Tmp),
+    {ok, DstPort} = inet:port(L),
+    io:format("DstPort = ~w~n", [DstPort]),
+    ConnectOpts = [{port,SrcPort}, {linger,{true,0}}],
+    {ok, C} = gen_tcp:connect(Loopback, DstPort, ConnectOpts, Timeout),
+    {ok, A} = gen_tcp:accept(L, Timeout),
+    {ok, {_, SrcPort}} = inet:peername(A),
+    ok = gen_tcp:close(L),
+    ok = gen_tcp:close(C),
+    ok = gen_tcp:close(A).
+
 
 %% Test that gen_tcp:connect/3 handles non-existings hosts, and other
 %% invalid things.

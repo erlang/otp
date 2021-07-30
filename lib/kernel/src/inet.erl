@@ -1569,12 +1569,33 @@ open(Fd, BAddr, BPort, Opts, Protocol, Family, Type, Module)
     open_fd(Fd, BAddr, BPort, Opts, Protocol, Family, Type, Module);
 open(Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
     open_opts(
-      Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module).
+      Fd_or_OpenOpts,
+      if
+          BAddr =:= undefined, BPort =/= 0 ->
+              translate_ip(any, Family);
+          true ->
+              BAddr
+      end, BPort, Opts, Protocol, Family, Type, Module).
 
 %% The only difference between open/8 and open_bind/8 is that
-%% if Fd_O is not a (file descriptor :: non_neg_integer())
-%% the latter translates Addr =:= 'undefined' to 'any',
-%% causing open_setopts/5 to bind to the wildcard address
+%% if Fd_or_OpenOpts is not a FileDescriptor :: non_neg_integer()
+%% i.e option {fd,Fd} has not been used hence we are not handling
+%% an already open socket handle, and also if no bind address
+%% has been specified (BAddr =:= undefined).
+%%
+%% Then open_bind/8 will bind to the wildcard address and the
+%% specified port (BPort, 0 = wildcard port per default),
+%% which is the legacy behaviour by this module when opening a socket.
+%%
+%% In the same situation, open/8 will bind to the wildcard address
+%% and the specified port, only if BPort is not 0, i.e a bind port
+%% has been specified to not be the wildcard port.
+%%
+%% So open/8 per default does not bind to an address, which
+%% is used by TCP connect to let the OS automatically bind to
+%% an address later, during TCP connect operation.  This
+%% gives the OS more freedom in choosing the originating port and
+%% therefore makes far more effective use of the port range.
 
 -spec open_bind(Fd_or_OpenOpts :: integer() | list(),
                 BAddr ::
@@ -1643,6 +1664,8 @@ open_opts(Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
             Error
     end.
 
+%% If BAddr is undefined - do not bind to an address
+%%
 open_setopts(S, BAddr, BPort, Opts, Module) ->
     case prim_inet:setopts(S, Opts) of
         ok when BAddr =:= undefined ->
