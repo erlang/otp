@@ -120,8 +120,8 @@ do_connect(Addr = {A,B,C,D}, Port, Opts, Time)
 	    ifaddr = BAddr,
 	    port = BPort,
 	    opts = SockOpts}}
-          when ?ip(BAddr), ?port(BPort);
-               BAddr =:= undefined ->
+          when ?port(BPort), ?ip(BAddr);
+               ?port(BPort), BAddr =:= undefined ->
 	    case
                 inet:open(
                   Fd, BAddr, BPort, SockOpts,
@@ -149,8 +149,8 @@ listen(Port, Opts) ->
 	    ifaddr = BAddr,
 	    port = BPort,
 	    opts = SockOpts} = R}
-          when ?ip(BAddr), ?port(BPort);
-               BAddr =:= undefined ->
+          when ?port(BPort), ?ip(BAddr);
+               ?port(BPort), BAddr =:= undefined ->
 	    case
                 inet:open_bind(
                   Fd, BAddr, BPort, SockOpts,
