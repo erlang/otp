@@ -4657,6 +4657,7 @@ mod_name(Mod, Name) ->
                       [erl_type()], type_names()}.
 -type mod_type_table() :: ets:tid().
 -type mod_records() :: dict:dict(module(), type_table()).
+-type exported_type_table() :: ets:tid().
 -record(cache,
         {
           types = maps:new() :: #{cache_key() => {erl_type(), expand_limit()}},
@@ -4665,7 +4666,7 @@ mod_name(Mod, Name) ->
 
 -opaque cache() :: #cache{}.
 
--spec t_from_form(parse_form(), sets:set(mfa()), site(), mod_type_table(),
+-spec t_from_form(parse_form(), exported_type_table(), site(), mod_type_table(),
                   var_table(), cache()) -> {erl_type(), cache()}.
 
 t_from_form(Form, ExpTypes, Site, RecDict, VarTab, Cache) ->
@@ -4690,12 +4691,12 @@ t_from_form_without_remote(Form, Site, TypeTable) ->
 -type expand_depth() :: integer().
 
 -record(from_form, {site   :: site(),
-                    xtypes :: sets:set(mfa()) | 'replace_by_none',
+                    xtypes :: exported_type_table() | 'replace_by_none',
                     mrecs  :: 'undefined' | mod_type_table(),
                     vtab   :: var_table(),
                     tnames :: type_names()}).
 
--spec t_from_form_check_remote(parse_form(), sets:set(mfa()), site(),
+-spec t_from_form_check_remote(parse_form(), exported_type_table(), site(),
                                mod_type_table()) -> 'ok'.
 t_from_form_check_remote(Form, ExpTypes, Site, RecDict) ->
   State = #from_form{site   = Site,
@@ -4716,7 +4717,7 @@ t_from_form_check_remote(Form, ExpTypes, Site, RecDict) ->
 %% types balanced (unions will otherwise collapse to any()) by limiting
 %% the depth the same way as t_limit/2 does.
 
--spec t_from_form1(parse_form(), sets:set(mfa()) | 'replace_by_none',
+-spec t_from_form1(parse_form(), exported_type_table() | 'replace_by_none',
                    site(), 'undefined' | mod_type_table(), var_table(),
                    cache()) -> {erl_type(), cache()}.
 
@@ -5067,7 +5068,7 @@ remote_from_form(Anno, RemMod, Name, Args, S, D, L, C) ->
           self() ! {self(), ext_types, ext_types_message(MFA, Anno, Site)},
           {t_any(), L, C};
         {RemDict, C1} ->
-          case sets:is_element(MFA, ET) of
+          case ets:member(ET, MFA) of
             true ->
               RemType = {type, MFA},
               case can_unfold_more(RemType, TypeNames) of
@@ -5338,7 +5339,7 @@ recur_limit(Fun, D, L, TypeName, TypeNames) ->
       Fun(D, L)
   end.
 
--spec t_check_record_fields(parse_form(), sets:set(mfa()), site(),
+-spec t_check_record_fields(parse_form(), exported_type_table(), site(),
                             mod_type_table(), var_table(), cache()) -> cache().
 
 t_check_record_fields(Form, ExpTypes, Site, RecDict, VarTable, Cache) ->
@@ -5569,7 +5570,7 @@ t_form_to_string({type, _Anno, Name, []} = T) ->
      V = var_table__new(),
      C = cache__new(),
      State = #from_form{site   = Site,
-                        xtypes = sets:new(),
+                        xtypes = replace_by_none,
                         mrecs  = 'undefined',
                         vtab   = V,
                         tnames = []},

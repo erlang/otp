@@ -233,7 +233,7 @@ get_record_fields([], _RecDict, Acc) ->
 
 %% The field types are cached. Used during analysis when handling records.
 process_record_remote_types(CServer) ->
-  ExpTypes = dialyzer_codeserver:get_exported_types(CServer),
+  ExpTypes = dialyzer_codeserver:get_exported_types_table(CServer),
   Mods = dialyzer_codeserver:all_temp_modules(CServer),
   process_opaque_types0(Mods, CServer, ExpTypes),
   VarTable = erl_types:var_table__new(),
