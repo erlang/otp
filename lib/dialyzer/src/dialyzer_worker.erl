@@ -67,7 +67,7 @@ init(#state{job = SCC, mode = Mode, init_data = InitData,
   loop(updating, State#state{depends_on = DependsOn});
 init(#state{mode = Mode} = State) when
     Mode =:= 'compile'; Mode =:= 'warnings';
-    Mode =:= 'contract_remote_types' ->
+    Mode =:= 'contract_remote_types'; Mode =:= 'record_remote_types' ->
   loop(running, State).
 
 loop(updating, #state{mode = Mode} = State) when
@@ -84,7 +84,8 @@ loop(waiting, #state{mode = Mode} = State) when
   ?debug("~w: Wait: ~p\n", [self(), State#state.job]),
   NewState = wait_for_success_typings(State),
   loop(updating, NewState);
-loop(running, #state{mode = 'contract_remote_types'} = State) ->
+loop(running, #state{mode = Mode} = State) when
+    Mode =:= 'contract_remote_types'; Mode =:= 'record_remote_types' ->
   request_activation(State),
   ?debug("~w: Remote types: ~p\n", [self(), State#state.job]),
   Result = do_work(State),
@@ -135,7 +136,9 @@ do_work(#state{mode = Mode, job = Job, init_data = InitData}) ->
     typesig -> dialyzer_succ_typings:find_succ_types_for_scc(Job, InitData);
     dataflow -> dialyzer_succ_typings:refine_one_module(Job, InitData);
     contract_remote_types ->
-      dialyzer_contracts:process_contract_remote_types_module(Job, InitData)
+      dialyzer_contracts:process_contract_remote_types_module(Job, InitData);
+    record_remote_types ->
+      dialyzer_utils:process_record_remote_types_module(Job, InitData)
   end.
 
 report_to_coordinator(Result, #state{job = Job, coordinator = Coordinator}) ->
