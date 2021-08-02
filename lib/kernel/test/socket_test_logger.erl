@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,8 +44,38 @@ start(Quiet) ->
         undefined ->
             Self = self(),
             Pid = spawn(fun() -> init(Self, Quiet) end),
-            yes = global:register_name(?LOGGER, Pid),
-            ok
+            %% We have seen some (strange) cases where the call to 
+            %% register (global:register_name/2) takes *a long time*.
+            %% This operation should not take more than a couple of
+            %% seconds in our case (we have no complex test environment).
+            %% So, we give it a bit more, 15 seconds.
+            %% If it has not completed within that time limit, we give up!
+            %% yes = global:register_name(?LOGGER, Pid),
+            {Register, MRef} = spawn_monitor(fun() -> register_logger(Pid) end),
+            await_register_logger(Register, MRef)
+    end.
+
+register_logger(Pid) when is_pid(Pid) ->
+    print("[~s] try register logger (~p)", [?LIB:formated_timestamp(), Pid]),
+    yes = global:register_name(?LOGGER, Pid),
+    exit(ok).
+
+
+await_register_logger(Pid, MRef) ->
+    receive
+        {'DOWN', MRef, process, Pid, ok} ->
+            print("[~s] logger registration done", [?LIB:formated_timestamp()]),
+            ok;
+        {'DOWN', MRef, process, Pid, Reason} ->
+            print("[~s] <ERROR> logger registration failed: "
+                  "~n      ~p", [?LIB:formated_timestamp(), Reason]),
+            {error, Reason}
+    after 15000 ->
+            print("[~s] <ERROR> logger registration failed: timeout",
+                  [?LIB:formated_timestamp()]),
+            erlang:demonitor(MRef, [flush]),
+            exit(Pid, kill),
+            {error, registration_timeout}
     end.
 
 
@@ -95,6 +125,9 @@ loop(#{parent := Parent,
             loop(State)
     end.
 
+
+print(F) ->
+    print(F, []).
 
 print(F, A) ->
     print_str(false, ?LIB:f(F, A)).
