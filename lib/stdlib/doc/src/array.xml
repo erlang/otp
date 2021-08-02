@@ -300,7 +300,7 @@ A3 = array:fix(A2).</pre>
       <fsummary>Create a new array according to the specified options.
       </fsummary>
       <desc>
-        <p>Creates a new array according to the specified otions. By default,
+        <p>Creates a new array according to the specified options. By default,
           the array is extendible and has initial size zero. Array indices
           start at <c>0</c>.</p> 
         <p><c><anno>Options</anno></c> is a single term or a list of terms,
