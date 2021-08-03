@@ -65,6 +65,7 @@ all() ->
      skip_testcase, all_groups, skip_all_groups, group,
      group_path, group_config,
      group_spec, multi_group, multi_group_config,
+     groupspec_path, groupspec_path_2,
      skip_group, group_all_testcases,
      skip_group_all_testcases, group_testcase,
      skip_group_testcase, topgroup, subgroup, skip_subgroup,
@@ -243,6 +244,18 @@ multi_group_config(Config) when is_list(Config) ->
     TestSpec = [{groups,TestDir,groups_11_SUITE, [{test_group_2, [parallel], [{test_group_3, [sequence]}]},
      {test_group_9, [sequence], [{test_group_8, [parallel]}]}]}],
     setup_and_execute(multi_group_config, TestSpec, Config).
+
+groupspec_path(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    TestDir = filename:join(DataDir, "groups_1"),
+    TestSpec = [{groups,TestDir,groups_11_SUITE,[[{test_group_2, []}, {test_group_3,[]}]]}],
+    setup_and_execute(groupspec_path, TestSpec, Config).
+
+groupspec_path_2(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    TestDir = filename:join(DataDir, "groups_1"),
+    TestSpec = [{groups,TestDir,groups_11_SUITE,[[{test_group_2, [parallel]}, {test_group_3,[sequence]}]]}],
+    setup_and_execute(groupspec_path_2, TestSpec, Config).
 
 skip_group(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
@@ -877,6 +890,42 @@ test_events(group_config) ->
      {negative,{?eh,tc_start,'_'},{?eh,stop_logging,'_'}}
     ];
 
+
+test_events(groupspec_path) ->
+    [
+     {?eh,start_logging,'_'},
+     {?eh,tc_start,{groups_11_SUITE,init_per_suite}},
+     {?eh,tc_start,{groups_11_SUITE,{init_per_group,test_group_2,[]}}},
+     {?eh,tc_start,{groups_11_SUITE,{init_per_group,test_group_3,[]}}},
+     {?eh,tc_start,{groups_11_SUITE,testcase_3a}},
+     {?eh,tc_start,{groups_11_SUITE,testcase_3b}},
+     {?eh,test_stats,{2,0,{0,0}}},
+     {?eh,tc_done,{groups_11_SUITE,{end_per_group,test_group_3,[]},'_'}},
+     {?eh,tc_done,{groups_11_SUITE,{end_per_group,test_group_2,[]},'_'}},
+     {?eh,tc_done,{groups_11_SUITE,end_per_suite,'_'}},
+     {negative,{?eh,tc_start,'_'},{?eh,stop_logging,'_'}}
+    ];
+
+test_events(groupspec_path_2) ->
+    [
+     {?eh,start_logging,'_'},
+     {?eh,tc_start,{groups_11_SUITE,init_per_suite}},
+     {parallel, [
+     {?eh,tc_start,{groups_11_SUITE,{init_per_group,test_group_2,[parallel]}}},
+     {?eh,tc_done,{groups_11_SUITE,{init_per_group,test_group_2,[parallel]},ok}},
+     [
+     {?eh,tc_start,{groups_11_SUITE,{init_per_group,test_group_3,[sequence]}}},
+     {?eh,tc_start,{groups_11_SUITE,testcase_3a}},
+     {?eh,tc_start,{groups_11_SUITE,testcase_3b}},
+     {?eh,test_stats,{2,0,{0,0}}},
+     {?eh,tc_done,{groups_11_SUITE,{end_per_group,test_group_3,[sequence]},'_'}}
+     ],
+     {?eh,tc_start,{groups_11_SUITE,{end_per_group,test_group_2,[parallel]}}},
+     {?eh,tc_done,{groups_11_SUITE,{end_per_group,test_group_2,[parallel]},ok}}
+     ]},
+     {?eh,tc_done,{groups_11_SUITE,end_per_suite,'_'}},
+     {negative,{?eh,tc_start,'_'},{?eh,stop_logging,'_'}}
+    ];
 
 test_events(skip_group) ->
     [

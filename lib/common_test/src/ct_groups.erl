@@ -546,15 +546,15 @@ search_and_override([Conf = {conf,Props,Init,Tests,End}], ORSpec, Mod) ->
 		  (GrName, Suite, Ps) ->
 		       [{name,GrName}, {suite,Suite} | Ps]
 	       end,
-    Name = ?val(name, Props),
+	Name = ?val(name, Props),
     Suite = ?val(suite, Props),
     case lists:keysearch(Name, 1, ORSpec) of
 	{value,{Name,default}} ->
-	    [Conf];
+	    [{conf, Props, Init,  search_and_override(Tests, ORSpec, Mod),End}];
 	{value,{Name,ORProps}} ->
-	    [{conf,InsProps(Name,Suite,ORProps),Init,Tests,End}];
+	    [{conf,InsProps(Name,Suite,ORProps),Init, search_and_override(Tests, ORSpec, Mod),End}];
 	{value,{Name,default,[]}} ->
-	    [Conf];
+	     [{conf, Props, Init,  search_and_override(Tests, ORSpec, Mod),End}];
 	{value,{Name,default,SubORSpec}} ->
 	    override_props([Conf], SubORSpec, Name,Mod);
 	{value,{Name,ORProps,SubORSpec}} ->
@@ -562,7 +562,8 @@ search_and_override([Conf = {conf,Props,Init,Tests,End}], ORSpec, Mod) ->
 			    Init,Tests,End}], SubORSpec, Name,Mod);
 	_ ->
 	    [{conf,Props,Init,search_and_override(Tests,ORSpec,Mod),End}]
-    end.
+    end;
+search_and_override(Tests, _, _) -> Tests.
 
 %% Modify the Tests element according to the override specification
 override_props([{conf,Props,Init,Tests,End} | Confs], SubORSpec, Name,Mod) ->

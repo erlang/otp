@@ -956,7 +956,7 @@
  Suites          = atom() | [atom()] | all
  Suite           = atom()
  Groups          = GroupPath | GroupSpec | [GroupSpec] | all
- GroupPath       = [[GroupName]]
+ GroupPath       = [[GroupSpec]]
  GroupSpec       = GroupName | {GroupName,Properties} | {GroupName,Properties,[GroupSpec]}
  GroupName       = atom()
  GroupNames      = GroupName | [GroupName]
