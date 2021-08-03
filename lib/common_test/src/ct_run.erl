@@ -2050,8 +2050,23 @@ final_tests1([{TestDir,Suite,GrsOrCs}|Tests], Final, Skip, Bad) when
 			  [ct_groups:make_conf(TestDir, Suite,
 					       GroupName, Props, TCs)];
 		     ({GroupOrGroups,TCs}) ->
-			  [ct_groups:make_conf(TestDir, Suite,
-					       GroupOrGroups, [], TCs)];
+			  case GroupOrGroups of
+			   [GroupList] when is_list(GroupList) ->
+				   {GrpNames, Props} = lists:foldl(
+				   fun({GrpName,_} = GrSpec, {GrpNames, Props}) -> 
+				      {lists:append(GrpNames, [GrpName]), [GrSpec | Props]};
+				   ({GrpName,_,_} = GrSpec, {GrpNames, Props}) -> 
+				      {lists:append(GrpNames, [GrpName]), [GrSpec | Props]};
+				   (GrpName, {GrpNames, Props}) -> 
+				      {lists:append(GrpNames, [GrpName]), Props} 
+					end,
+					{[], []}, GroupList),
+				   [ct_groups:make_conf(TestDir, Suite,
+				    [GrpNames], [{override, Props}], TCs)];
+			    _ -> 
+				   [ct_groups:make_conf(TestDir, Suite,
+				    GroupOrGroups, [], TCs)]
+			end;
 		     (TC) ->
 			  [TC]
 		  end, GrsOrCs),
