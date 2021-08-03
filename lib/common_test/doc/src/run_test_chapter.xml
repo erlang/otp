@@ -955,9 +955,9 @@
  Dir             = string()
  Suites          = atom() | [atom()] | all
  Suite           = atom()
- Groups          = GroupPath | [GroupPath] | GroupSpec | [GroupSpec] | all
- GroupPath       = [GroupName]
- GroupSpec       = GroupName | {GroupName,Properties} | {GroupName,Properties,GroupSpec}
+ Groups          = GroupPath | GroupSpec | [GroupSpec] | all
+ GroupPath       = [[GroupName]]
+ GroupSpec       = GroupName | {GroupName,Properties} | {GroupName,Properties,[GroupSpec]}
  GroupName       = atom()
  GroupNames      = GroupName | [GroupName]
  Cases           = atom() | [atom()] | all
@@ -1608,5 +1608,3 @@ div.error pre { color:white }</pre>
       
   </section>
 </chapter>
-
-
