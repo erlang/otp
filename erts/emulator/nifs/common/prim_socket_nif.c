@@ -16259,7 +16259,7 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, ErlNifEvent event)
     descP->wCtrlSz          = ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT;
     descP->iow              = FALSE;
     descP->dbg              = ESOCK_DEBUG_DEFAULT; // Overwritten by caller
-    descP->useReg           = ESOCK_CMD_USE_SOCKET_REGISTRY; // Overwritten by caller
+    descP->useReg           = ESOCK_USE_SOCKET_REGISTRY; // Overwritten by caller
     descP->meta.env         = esock_alloc_env("alloc_descriptor - "
                                               "meta-env");
     descP->meta.ref         = esock_atom_undefined;
@@ -18365,7 +18365,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     data.useReg =
         esock_get_bool_from_map(env, load_info,
                                 atom_use_registry,
-                                ESOCK_CMD_USE_SOCKET_REGISTRY);
+                                ESOCK_USE_SOCKET_REGISTRY);
 
     data.iow =
         esock_get_bool_from_map(env, load_info,
