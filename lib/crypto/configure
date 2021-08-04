@@ -5528,7 +5528,20 @@ printf "%s\n" "#define SIZEOF_VOID_P $ac_cv_sizeof_void_p" >>confdefs.h
 
 
 
-std_ssl_locations="/usr/local /usr/sfw /usr /opt/local /usr/pkg /usr/local/openssl /usr/local/opt/openssl /usr/lib/openssl /usr/openssl /usr/local/ssl /usr/lib/ssl /usr/ssl /"
+std_ssl_locations="\
+/usr/local \
+/usr/sfw \
+/usr \
+/opt/local \
+/usr/pkg \
+/usr/local/openssl \
+/usr/local/opt/openssl \
+/usr/lib/openssl \
+/usr/openssl \
+/usr/local/ssl \
+/usr/lib/ssl \
+/usr/ssl \
+/"
 
 
 # Check whether --with-ssl was given.
