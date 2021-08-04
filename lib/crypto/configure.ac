@@ -84,6 +84,7 @@ std_ssl_locations="\
 /usr/pkg \
 /usr/local/openssl \
 /usr/local/opt/openssl \
+/opt/homebrew/opt/openssl \
 /usr/lib/openssl \
 /usr/openssl \
 /usr/local/ssl \
