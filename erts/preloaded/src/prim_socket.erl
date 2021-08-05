@@ -63,6 +63,8 @@
 -define(ESOCK_SOCKADDR_IN6_DEFAULTS,
         (#{port => 0, addr => any,
            flowinfo => 0, scope_id => 0})).
+-define(ESOCK_SOCKADDR_NATIVE_DEFAULTS,
+        (#{addr => <<>>})).
 
 %% ===========================================================================
 %%
@@ -835,6 +837,8 @@ enc_sockaddr(#{family := local, path := Path} = SockAddr) ->
 enc_sockaddr(#{family := local} = SockAddr) ->
     %% Neater than a function clause
     erlang:error({invalid, {sockaddr, path, SockAddr}});
+enc_sockaddr(#{family := Native} = SockAddr) when is_integer(Native) ->
+    maps:merge(?ESOCK_SOCKADDR_NATIVE_DEFAULTS, SockAddr);
 enc_sockaddr(#{family := _} = SockAddr) ->
     SockAddr;
 enc_sockaddr(SockAddr) ->

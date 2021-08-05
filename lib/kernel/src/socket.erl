@@ -102,6 +102,7 @@
               sockaddr_in6/0,
               sockaddr_un/0,
               sockaddr_ll/0,
+              sockaddr_native/0,
 
               msg_flag/0,
 
@@ -307,6 +308,10 @@
           max      := 0..16#ffffffff,
           min      := 0..16#ffffffff}.
 
+-type packet_type() :: host | broadcast | multicast | otherhost |
+                       outgoing | loopback | user | kernel | fastroute |
+                       non_neg_integer().
+
 -type sockaddr_un()  :: #{family := local,
                           path   := binary() | string()}.
 -type sockaddr_in() :: #{family := inet,
@@ -324,18 +329,15 @@
                          pkttype  := packet_type(),
                          hatype   := non_neg_integer(),
                          addr     := binary()}.
--type packet_type() :: host | broadcast | multicast | otherhost |
-                       outgoing | loopback | user | kernel | fastroute |
-                       non_neg_integer().
--type sockaddr() :: sockaddr_in() |
+-type sockaddr_native() :: #{family := integer(), addr := binary()}.
+-type sockaddr() :: sockaddr_in()  |
                     sockaddr_in6() |
                     sockaddr_un()  |
-                    sockaddr_ll().
+                    sockaddr_ll()  |
+                    sockaddr_native().
 
 -type sockaddr_recv() ::
-        sockaddr() |
-        #{family := integer(), addr := binary()} |
-        binary().
+        sockaddr() | binary().
 
 %% (otp)      - This option is internal to our (OTP) implementation.
 %% socket     - The socket layer (SOL_SOCKET).
