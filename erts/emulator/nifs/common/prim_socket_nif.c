@@ -647,10 +647,6 @@ static const struct msg_flag {
 /* We should *eventually* use this instead of hard-coding the size (to 1) */
 #define ESOCK_RECVMSG_IOVEC_SZ 1
 
-#define ESOCK_CMD_DEBUG               0x0001
-#define ESOCK_CMD_SOCKET_DEBUG        0x0002
-#define ESOCK_CMD_USE_SOCKET_REGISTRY 0x0003
-
 
 /* =================================================================== *
  *                                                                     *
@@ -1144,19 +1140,15 @@ ESOCK_NIF_FUNCS
 
 /* And here comes the functions that does the actual work (for the most part) */
 
-static BOOLEAN_T ecommand2command(ErlNifEnv*    env,
-                                  ERL_NIF_TERM  ecommand,
-                                  Uint16*       command,
-                                  ERL_NIF_TERM* edata);
 static ERL_NIF_TERM esock_command(ErlNifEnv*   env,
-                                  Uint16       cmd,
-                                  ERL_NIF_TERM ecdata);
+                                  ERL_NIF_TERM command,
+                                  ERL_NIF_TERM cdata);
 static ERL_NIF_TERM esock_command_debug(ErlNifEnv*   env,
-                                        ERL_NIF_TERM ecdata);
+                                        ERL_NIF_TERM cdata);
 static ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv*   env,
-                                               ERL_NIF_TERM ecdata);
+                                               ERL_NIF_TERM cdata);
 static ERL_NIF_TERM esock_command_use_socket_registry(ErlNifEnv*   env,
-                                                      ERL_NIF_TERM ecdata);
+                                                      ERL_NIF_TERM cdata);
 
 static ERL_NIF_TERM esock_global_info(ErlNifEnv* env);
 static ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
@@ -4449,33 +4441,29 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
 #ifdef __WIN32__
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    ERL_NIF_TERM ecmd, ecdata, result;
-    Uint16       cmd;
+    ERL_NIF_TERM command, cdata, result;
 
     ESOCK_ASSERT( argc == 1 );
 
     SGDBG( ("SOCKET", "nif_command -> entry with %d args\r\n", argc) );
 
-    if (! IS_MAP(env,  argv[0])) {
+    if (! GET_MAP_VAL(env, argv[0], esock_atom_command, &command)) {
+        SGDBG( ("SOCKET",
+                "nif_command -> field not found: command\r\n") );
         return enif_make_badarg(env);
     }
-    ecmd = argv[0];
-
-    SGDBG( ("SOCKET", "nif_command -> "
-            "\r\n   (e) command: %T"
-            "\r\n", ecmd) );
-
-    if (!ecommand2command(env, ecmd, &cmd, &ecdata)) {
-        SGDBG( ("SOCKET", "nif_command -> invalid command\r\n") );
+    if (! GET_MAP_VAL(env, argv[0], esock_atom_data, &cdata)) {
+        SGDBG( ("SOCKET",
+                "nif_command -> field not found: data\r\n") );
         return enif_make_badarg(env);
     }
 
     SGDBG( ("SOCKET", "nif_command -> "
-            "\r\n   command:          %d"
-            "\r\n   (e) command data: %T"
-            "\r\n", cmd, ecdata) );
+            "\r\n   command:  %T"
+            "\r\n   cdata:     %T"
+            "\r\n", command, cdata) );
 
-    result = esock_command(env, cmd, ecdata);
+    result = esock_command(env, command, cdata);
 
     SGDBG( ("SOCKET", "nif_command -> done with result: "
            "\r\n   %T"
@@ -4483,67 +4471,66 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
 
     return result;
 
-#endif
+#endif // #ifdef __WIN32__ #else
 }
 
 
 #ifndef __WIN32__
 static
-ERL_NIF_TERM esock_command(ErlNifEnv* env, Uint16 cmd, ERL_NIF_TERM ecdata)
+ERL_NIF_TERM
+esock_command(ErlNifEnv* env, ERL_NIF_TERM command, ERL_NIF_TERM cdata)
 {
-    ERL_NIF_TERM result;
+    int cmp;
 
-    SGDBG( ("SOCKET", "esock_command -> entry with 0x%lX\r\n", cmd) );
+    SGDBG( ("SOCKET", "esock_command -> entry with %T\r\n", command) );
 
-    switch (cmd) {
-    case ESOCK_CMD_DEBUG:
-        result = esock_command_debug(env, ecdata);
-        break;
-
-    case ESOCK_CMD_SOCKET_DEBUG:
-        result = esock_command_socket_debug(env, ecdata);
-        break;
-
-    case ESOCK_CMD_USE_SOCKET_REGISTRY:
-        result = esock_command_use_socket_registry(env, ecdata);
-        break;
-
-    default:
-        ESOCK_ASSERT(FALSE && "cmd is unknown");
-        break;
+    cmp = COMPARE(command, atom_socket_debug);
+    if (cmp == 0) {
+        return esock_command_socket_debug(env, cdata);
+    } else if (cmp < 0) {
+        if (COMPARE(command, esock_atom_debug) == 0)
+            return esock_command_debug(env, cdata);
+    } else { // 0 < cmp
+        if (COMPARE(command, atom_use_registry) == 0)
+            return esock_command_use_socket_registry(env, cdata);
     }
 
-    return result;
+    SGDBG( ("SOCKET", "esock_command -> invalid command: %T\r\n",
+            command) );
+
+    return esock_raise_invalid(env, MKT2(env, esock_atom_command, command));
 }
 #endif // #ifndef __WIN32__
 
+
 #ifndef __WIN32__
 static
-ERL_NIF_TERM esock_command_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata)
+ERL_NIF_TERM esock_command_debug(ErlNifEnv* env, ERL_NIF_TERM cdata)
 {
     ERL_NIF_TERM result;
 
     /* The data *should* be a boolean() */
-    if (esock_decode_bool(ecdata, &data.dbg))
+    if (esock_decode_bool(cdata, &data.dbg))
         result = esock_atom_ok;
     else
         result =
-            esock_raise_invalid(env, MKT2(env, esock_atom_debug, ecdata));
+            esock_raise_invalid(env, MKT2(env, esock_atom_data, cdata));
 
     return result;
 }
 #endif // #ifndef __WIN32__
 
+
 #ifndef __WIN32__
 static
-ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata)
+ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv* env, ERL_NIF_TERM cdata)
 {
     BOOLEAN_T dbg;
 
     /* The data *should* be a boolean() */
-    if (! esock_decode_bool(ecdata, &dbg))
+    if (! esock_decode_bool(cdata, &dbg))
         return
-            esock_raise_invalid(env, MKT2(env, atom_socket_debug, ecdata));
+            esock_raise_invalid(env, MKT2(env, esock_atom_data, cdata));
 
     MLOCK(data.cntMtx);
     data.sockDbg = dbg;
@@ -4557,14 +4544,14 @@ ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata)
 #ifndef __WIN32__
 static
 ERL_NIF_TERM esock_command_use_socket_registry(ErlNifEnv*   env,
-                                               ERL_NIF_TERM ecdata)
+                                               ERL_NIF_TERM cdata)
 {
     BOOLEAN_T useReg = FALSE;
 
     /* The data *should* be a boolean() */
-    if (! esock_decode_bool(ecdata, &useReg))
+    if (! esock_decode_bool(cdata, &useReg))
         return
-            esock_raise_invalid(env, MKT2(env, atom_use_registry, ecdata));
+            esock_raise_invalid(env, MKT2(env, esock_atom_data, cdata));
 
     MLOCK(data.cntMtx);
     data.useReg = useReg;
@@ -16438,56 +16425,6 @@ BOOLEAN_T ehow2how(ERL_NIF_TERM ehow, int* how)
     return TRUE;
 }
 #endif // #ifndef __WIN32__
-
-
-
-/* ecommand2command - convert erlang command to "native" command (and data)
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T ecommand2command(ErlNifEnv*    env,
-                           ERL_NIF_TERM  ecommand,
-                           Uint16*       command,
-                           ERL_NIF_TERM* edata)
-{
-    ERL_NIF_TERM ecmd;
-
-    if (!IS_MAP(env, ecommand)) {
-        SGDBG( ("SOCKET", "ecommand2command -> (e)command not a map\r\n") );
-        return FALSE;
-    }
-
-    /* Get the command value, and transform into integer
-     * (might as well do that, since theer is no point in
-     *  extracting the data if command is invalid).
-     */
-    if (!GET_MAP_VAL(env, ecommand, esock_atom_command, &ecmd)) {
-        SGDBG( ("SOCKET", "ecommand2command -> command attribute not found\r\n") );
-        return FALSE;
-    }
-    if (COMPARE(ecmd, esock_atom_debug) == 0) {
-        *command = ESOCK_CMD_DEBUG;
-    } else if (COMPARE(ecmd, atom_socket_debug) == 0) {
-        *command = ESOCK_CMD_SOCKET_DEBUG;
-    } else if (COMPARE(ecmd, atom_use_registry) == 0) {
-        *command = ESOCK_CMD_USE_SOCKET_REGISTRY;
-    } else {
-        SGDBG( ("SOCKET", "ecommand2command -> unknown command %T\r\n", ecmd) );
-        return FALSE;
-    }
-
-    /* Get the command data value, we do *not* convert it to 
-     * the native form (here) since it may "in theory" be complex.
-     */
-    if (!GET_MAP_VAL(env, ecommand, esock_atom_data, edata)) {
-        SGDBG( ("SOCKET", "ecommand2command -> (command) data not found\r\n") );
-        return FALSE;
-    }
-
-    return TRUE;
-}
-#endif // #ifndef __WIN32__
-
 
 
 
