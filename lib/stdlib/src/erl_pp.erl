@@ -681,6 +681,12 @@ lexpr({match,_,Lhs,Rhs}, Prec, Opts) ->
     Rl = lexpr(Rhs, R, Opts),
     El = {list,[{cstep,[Pl,' ='],Rl}]},
     maybe_paren(P, Prec, El);
+lexpr({op,_,Op,Arg}, Prec, Opts) when Op =:= '+';
+                                      Op =:= '-' ->
+    {P,R} = preop_prec(Op),
+    Ol = {reserved, leaf(atom_to_list(Op))},
+    El = [Ol,lexpr(Arg, R, Opts)],
+    maybe_paren(P, Prec, El);
 lexpr({op,_,Op,Arg}, Prec, Opts) ->
     {P,R} = preop_prec(Op),
     Ol = {reserved, leaf(format("~s ", [Op]))},

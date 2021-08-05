@@ -48,13 +48,13 @@
 	  neg_indent/1,
 	  maps_syntax/1,
 	  format_options/1,
-          quoted_atom_types/1,
+	  quoted_atom_types/1,
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
           otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1, pr_1014/1,
           otp_13662/1, otp_14285/1, otp_15592/1, otp_15751/1, otp_15755/1,
-          otp_16435/1]).
+          otp_16435/1, gh_5093/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -85,7 +85,8 @@ groups() ->
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
        otp_10302, otp_10820, otp_11100, otp_11861, pr_1014, otp_13662,
-       otp_14285, otp_15592, otp_15751, otp_15755, otp_16435]}].
+       otp_14285, otp_15592, otp_15751, otp_15755, otp_16435,
+       gh_5093]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1335,6 +1336,18 @@ otp_16435(_Config) ->
 
     ok.
 
+gh_5093(_Config) ->
+  assert_same("f() ->\n    -1.\n"),
+  assert_same("f() ->\n    +1.\n"),
+  assert_same("f() ->\n    +1.1.\n"),
+  assert_same("f() ->\n    +(+1).\n"),
+  assert_same("f(X) ->\n    -X.\n"),
+  assert_same("f(X) ->\n    +X.\n"),
+  assert_same("f(X, Y) ->\n    X + Y.\n"),
+  assert_same("f(X, Y) ->\n    X + +Y.\n"),
+  assert_same("f(X, Y) ->\n    X - Y.\n"),
+  ok.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 compile(Config, Tests) ->
@@ -1518,3 +1531,10 @@ fail() ->
 start_node(Name, Xargs) ->
     PA = filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, peer, [{args, "-pa " ++ PA ++ " " ++ Xargs}]).
+
+assert_same(Expected) when is_list(Expected) ->
+    Actual = binary_to_list(iolist_to_binary(parse_and_pp_forms(Expected, []))),
+    case Expected == Actual of
+      true -> ok;
+      false -> error({Expected, Actual})
+    end.
