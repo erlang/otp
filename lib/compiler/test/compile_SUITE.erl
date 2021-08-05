@@ -33,7 +33,7 @@
 	 other_output/1, kernel_listing/1, encrypted_abstr/1,
 	 strict_record/1, utf8_atoms/1, utf8_functions/1, extra_chunks/1,
 	 cover/1, env/1, core_pp/1, tuple_calls/1,
-	 core_roundtrip/1, asm/1,
+	 core_roundtrip/1, asm/1, asm_labels/1,
 	 sys_pre_attributes/1, dialyzer/1, no_core_prepare/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
          bc_options/1, deterministic_include/1, deterministic_paths/1,
@@ -52,7 +52,7 @@ all() ->
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, kernel_listing, encrypted_abstr, tuple_calls,
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
-     cover, env, core_pp, core_roundtrip, asm, no_core_prepare,
+     cover, env, core_pp, core_roundtrip, asm, asm_labels, no_core_prepare,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options,
      custom_compile_info, deterministic_include, deterministic_paths,
@@ -1282,6 +1282,26 @@ do_asm(Beam, Outdir) ->
 	    io:format("~p: ~p ~p\n~p\n", [M,Class,Error,Stk]),
 	    error
     end.
+
+%% Compile a crafted file which produces the three call instructions
+%% which should have a comment with the called function in clear
+%% text. We check that the expected functions and comments occur in
+%% the listing.
+
+asm_labels(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    InFile = filename:join(DataDir, "asm_labels.erl"),
+    OutDir = filename:join(PrivDir, "asm_labels"),
+    OutFile = filename:join(OutDir, "asm_labels.S"),
+    ok = file:make_dir(OutDir),
+    {ok,asm_labels} = compile:file(InFile, ['S',{outdir,OutDir}]),
+    {ok,Listing} = file:read_file(OutFile),
+    Os = [global,multiline,{capture,all_but_first,list}],
+    {match,[_]} = re:run(Listing, "({call,.+,{f,.+}}\\. % foo/1)", Os),
+    {match,[_]} = re:run(Listing, "({call_only,.+,{f,.+}}\\. % foo/1)", Os),
+    {match,[_]} = re:run(Listing, "({call_last,.+,{f,.+},.+}\\. % bar/1)", Os),
+    ok = file:del_dir_r(OutDir).
 
 sys_pre_attributes(Config) ->
     DataDir = proplists:get_value(data_dir, Config),

@@ -26,7 +26,7 @@
 -include("beam_ssa.hrl").
 -include("beam_disasm.hrl").
 
--import(lists, [foreach/2]).
+-import(lists, [foldl/3, foreach/2]).
 
 -type code() :: cerl:c_module()
               | beam_utils:module_code()
@@ -55,18 +55,29 @@ module(Stream, {Mod,Exp,Attr,Code,NumLabels}) ->
     io:format(Stream, "\n{exports, ~p}.\n", [Exp]),
     io:format(Stream, "\n{attributes, ~p}.\n", [Attr]),
     io:format(Stream, "\n{labels, ~p}.\n", [NumLabels]),
+    Lbl2Fun = foldl(fun({function,Name,Arity,Entry,_}, Map) ->
+                            Map#{ Entry => {Name,Arity} }
+                    end, #{}, Code),
     foreach(
       fun ({function,Name,Arity,Entry,Asm}) ->
 	      io:format(Stream, "\n\n{function, ~w, ~w, ~w}.\n",
 			[Name, Arity, Entry]),
-	      io:put_chars(Stream, format_asm(Asm))
+	      io:put_chars(Stream, format_asm(Asm, Lbl2Fun))
       end, Code);
 module(Stream, [_|_]=Fs) ->
     %% Form-based abstract format.
     foreach(fun (F) -> io:format(Stream, "~p.\n", [F]) end, Fs).
 
-format_asm([{label,L}|Is]) ->
-    [io_lib:format("  {label,~p}.\n", [L])|format_asm(Is)];
-format_asm([I|Is]) ->
-    [io_lib:format("    ~p", [I]),".\n"|format_asm(Is)];
-format_asm([]) -> [].
+format_asm([{label,L}|Is], Lbl2Fun) ->
+    [io_lib:format("  {label,~p}.\n", [L])|format_asm(Is, Lbl2Fun)];
+format_asm([I={Call,_,L}|Is], Lbl2Fun) when Call =:= call; Call =:= call_only ->
+    format_asm_call(L, I, Is, Lbl2Fun);
+format_asm([I={call_last,_,L,_}|Is], Lbl2Fun) ->
+    format_asm_call(L, I, Is, Lbl2Fun);
+format_asm([I|Is], Lbl2Fun) ->
+    [io_lib:format("    ~p", [I]),".\n"|format_asm(Is, Lbl2Fun)];
+format_asm([], _) -> [].
+
+format_asm_call({f,L}, I, Is, Lbl2Fun) ->
+    {N,A} = map_get(L, Lbl2Fun),
+    [io_lib:format("    ~p. % ~p/~p\n", [I, N, A])|format_asm(Is, Lbl2Fun)].
