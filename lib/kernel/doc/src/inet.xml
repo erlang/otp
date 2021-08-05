@@ -985,6 +985,7 @@ get_tcpi_sacked(Sock) ->
               mode with values of <c>N</c> appropriate for the application
               provides flow control. The other side cannot send
               faster than the receiver can read.</p>
+            <marker id="option-broadcast"></marker>
           </item>
           <tag><c>{broadcast, Boolean}</c> (UDP sockets)</tag>
           <item>
@@ -1393,6 +1394,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
 	      option <c>packet_size</c> also guarantees that lines up to the
 	      indicated length are accepted and not considered invalid
 	      because of internal buffer limitations.</p>
+            <marker id="option-line_delimiter"></marker>
           </item>
           <tag><c>{line_delimiter, Char}</c>(TCP/IP sockets)</tag>
           <item>
@@ -1402,6 +1404,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
           <tag><c>{raw, Protocol, OptionNum, ValueBin}</c></tag>
           <item>
             <p>See below.</p>
+            <marker id="option-read_packets"></marker>
           </item>
           <tag><c>{read_packets, Integer}</c>(UDP sockets)</tag>
           <item>
@@ -1413,6 +1416,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
               Defaults to <c>5</c>. If this parameter is set too
               high, the system can become unresponsive because of
               UDP packet flooding.</p>
+            <marker id="option-recbuf"></marker>
           </item>
           <tag><c>{recbuf, Size}</c></tag>
           <item>

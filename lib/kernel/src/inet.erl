@@ -40,7 +40,7 @@
 
 -export([connect_options/2, listen_options/2, udp_options/2, sctp_options/2]).
 -export([udp_module/1, tcp_module/1, tcp_module/2, sctp_module/1]).
--export([gen_tcp_module/1]).
+-export([gen_tcp_module/1, gen_udp_module/1]).
 
 -export([i/0, i/1, i/2]).
 
@@ -679,7 +679,12 @@ info({'$inet', GenSocketMod, _} = Socket)
 info(Socket) when is_port(Socket) ->
     case port_info(Socket) of
 	#{states := _} = PortInfo ->
-	    PortInfo;
+            case inet:getopts(Socket, [active]) of
+                {ok, [{active, Active}]} ->
+                    PortInfo#{active => Active};
+                _ ->
+                    PortInfo
+            end;
 	PortInfo0 ->
 	    %% Its actually possible to call this function for non-socket ports,
 	    %% but in that case we have no status or statistics.
@@ -1073,15 +1078,19 @@ gen_tcp_module(Opts, inet) ->
 gen_tcp_module(Opts, socket) ->
     {gen_tcp_socket, Opts}.
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Available options for udp:open
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 udp_options() ->
-    [tos, tclass, priority, reuseaddr, sndbuf, recbuf, header, active, buffer, mode,
+    [
+     tos, tclass,
+     priority, reuseaddr, sndbuf, recbuf, header, active, buffer, mode,
      recvtos, recvtclass, ttl, recvttl, deliver, ipv6_v6only,
      broadcast, dontroute, multicast_if, multicast_ttl, multicast_loop,
-     add_membership, drop_membership, read_packets,raw,
-     high_msgq_watermark, low_msgq_watermark, bind_to_device].
+     add_membership, drop_membership, read_packets, raw,
+     high_msgq_watermark, low_msgq_watermark, bind_to_device
+    ].
 
 
 udp_options(Opts, Mod) ->
@@ -1132,6 +1141,20 @@ udp_module(Opts) ->
     mod(
       Opts, udp_module, undefined,
       #{inet => inet_udp, inet6 => inet6_udp, local => local_udp}).
+
+gen_udp_module([{inet_backend, Flag}|Opts]) ->
+    gen_udp_module(Opts, Flag);
+gen_udp_module(Opts) ->
+    gen_udp_module(
+      Opts,
+      persistent_term:get(
+        {kernel, inet_backend}, ?DEFAULT_KERNEL_INET_BACKEND)).
+%%
+gen_udp_module(Opts, inet) ->
+    {gen_udp, Opts};
+gen_udp_module(Opts, socket) ->
+    {gen_udp_socket, Opts}.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Available options for sctp:open
@@ -1971,8 +1994,8 @@ fmt_port(N, Proto) ->
     end.
 
 %% Return a list of all tcp sockets
-tcp_sockets() -> port_list("tcp_inet") ++ gen_tcp_socket:which_sockets().
-udp_sockets() -> port_list("udp_inet").
+tcp_sockets()  -> port_list("tcp_inet") ++ gen_tcp_socket:which_sockets().
+udp_sockets()  -> port_list("udp_inet") ++ gen_udp_socket:which_sockets().
 sctp_sockets() -> port_list("sctp_inet").
 
 %% Return all ports having the name 'Name'
@@ -1984,6 +2007,7 @@ port_list(Name) ->
 		  _ -> false
 	      end
       end, erlang:ports()).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  utils
