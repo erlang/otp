@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-Autoconf-*
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1997-2020. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2021. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -1469,23 +1469,20 @@ AC_CHECK_FUNC([gethostname],
 
 
 dnl *** ESOCK_USE_SOCKET_REGISTRY ***
-dnl At this time we *enable* use of the socket regstry by default
+dnl At this time we *enable* use of the socket registry by default
 dnl since we want to be able to have as much debug info as possible.
 
-AC_ARG_ENABLE(esock_use_socket_registry,
-AS_HELP_STRING([--enable-esock-socket-registry], [enable use of the socket registry by default (default)])
-AS_HELP_STRING([--disable-esock-socket-registry], [disable use of the socket registry by default]))
+AC_ARG_ENABLE(esock-socket-registry,
+    AS_HELP_STRING([--enable-esock-socket-registry],
+        [enable use of the socket registry by default (default)])
+    AS_HELP_STRING([--disable-esock-socket-registry],
+        [disable use of the socket registry by default]))
 
-if test "x$enable_esock_socket_registry" = "xyes"; then
-    AC_DEFINE(ESOCK_USE_SOCKET_REGISTRY, [1], [Use socket registry by default])
-else
-    if test "x$disable_esock_socket_registry" = "xyes"; then
-        AC_DEFINE(ESOCK_USE_SOCKET_REGISTRY, [0], [Don't use socket registry by default])
-    else
-        # TEMPORARY default (enabled)
-        AC_DEFINE(ESOCK_USE_SOCKET_REGISTRY, [1], [Use socket registry by default])
-    fi
-fi
+AS_IF([test "x$enable_esock_socket_registry" = "xno"], [
+    AC_DEFINE(ESOCK_USE_SOCKET_REGISTRY, [0],
+        [Don't use socket registry by default])], [
+    AC_DEFINE(ESOCK_USE_SOCKET_REGISTRY, [1],
+        [Use socket registry by default])])
 
 
 
