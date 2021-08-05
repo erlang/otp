@@ -495,16 +495,15 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     do_listing(Simple, TargetDir, to_pp, ".P"),
     do_listing(Simple, TargetDir, to_exp, ".E"),
     do_listing(Simple, TargetDir, to_core0, ".core"),
-    Listings = filename:join(PrivDir, listings),
-    ok = file:delete(filename:join(Listings, File ++ ".core")),
+    ok = file:delete(filename:join(TargetDir, File ++ ".core")),
     do_listing(Simple, TargetDir, to_core, ".core"),
     do_listing(Simple, TargetDir, to_kernel, ".kernel"),
     do_listing(Simple, TargetDir, to_dis, ".dis"),
 
     %% Final clean up.
     lists:foreach(fun(F) -> ok = file:delete(F) end,
-	filelib:wildcard(filename:join(Listings, "*"))),
-    ok = file:del_dir(Listings),
+	filelib:wildcard(filename:join(TargetDir, "*"))),
+    ok = file:del_dir(TargetDir),
 
     do_file_listings(DataDir,PrivDir,Files).
 
