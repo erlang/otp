@@ -424,7 +424,7 @@
 	  ifaddr,
 	  port   = 0,
 	  fd     = -1,
-	  opts   = [{active,true}]
+	  opts   = [{active, true}]
 	 }).
 
 -define(SCTP_DEF_BUFSZ, 65536).

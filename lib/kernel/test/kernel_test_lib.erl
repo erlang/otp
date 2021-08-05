@@ -26,6 +26,7 @@
 -export([socket_type/1,
 	 listen/3,
          connect/4, connect/5,
+         open/3,
          is_socket_backend/1,
          inet_backend_opts/1,
          explicit_inet_backend/0,
@@ -1735,6 +1736,8 @@ socket_type(Config) ->
 	    port
     end.
 
+%% gen_tcp wrappers
+
 listen(Config, Port, Opts) ->
     InetBackendOpts = inet_backend_opts(Config),
     gen_tcp:listen(Port, InetBackendOpts ++ Opts).
@@ -1746,6 +1749,13 @@ connect(Config, Host, Port, Opts) ->
 connect(Config, Host, Port, Opts, Timeout) ->
     InetBackendOpts = inet_backend_opts(Config),
     gen_tcp:connect(Host, Port, InetBackendOpts ++ Opts, Timeout).
+
+
+%% gen_udp wrappers
+
+open(Config, Port, Opts) ->
+    InetBackendOpts = inet_backend_opts(Config),
+    gen_udp:open(Port, InetBackendOpts ++ Opts).
 
 
 inet_backend_opts(Config) when is_list(Config) ->
