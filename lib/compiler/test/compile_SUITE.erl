@@ -38,7 +38,7 @@
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
          bc_options/1, deterministic_include/1, deterministic_paths/1,
          compile_attribute/1, message_printing/1, other_options/1,
-         transforms/1, erl_compile_api/1
+         transforms/1, erl_compile_api/1, types_pp/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -57,7 +57,7 @@ all() ->
      env_compiler_options, custom_debug_info, bc_options,
      custom_compile_info, deterministic_include, deterministic_paths,
      compile_attribute, message_printing, other_options, transforms,
-     erl_compile_api].
+     erl_compile_api, types_pp].
 
 groups() -> 
     [].
@@ -1871,6 +1871,94 @@ erl_compile_api(Config) ->
     ok = file:delete(filename:join(PrivDir, "needs_defines.beam")),
 
     ok.
+
+%% Check that an ssa dump contains the pretty printed types we expect.
+%% The module we compile and dump, types_pp, is crafted so it contains
+%% calls to functions which have the result types we want to check the
+%% pretty printer for. We check all types except for bs_context,
+%% bs_matchable and the interval form of float as the first two never
+%% seem to appear in result types and the latter doesn't appear in any
+%% module compiled by diffable.
+types_pp(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    TargetDir = filename:join(PrivDir, types_pp),
+    File = filename:join(DataDir, "types_pp.erl"),
+    Listing = filename:join(TargetDir, "types_pp.ssaopt"),
+    ok = file:make_dir(TargetDir),
+
+    {ok,_} = compile:file(File, [dssaopt, {outdir, TargetDir}]),
+    {ok, Data} = file:read_file(Listing),
+    Lines = string:split(binary_to_list(Data), "\n", all),
+    ResultTypes = get_result_types(Lines),
+    io:format("Calls: ~p~n", [ResultTypes]),
+
+    TypesToCheck = [{make_atom, "'an_atom'"},
+                    {make_number, "number()"},
+                    {make_float, "3.14"},
+                    {make_integer, "17"},
+                    {make_integer_range, "0..3"},
+                    {make_nil, "nil()"},
+                    {make_list, "list(any())"},
+                    {make_list_of_ints, "list(integer())"},
+                    {make_maybe_improper_list,
+                     "maybe_improper_list(any(), any())"},
+                    {make_nonempty_list, "nonempty_list(any())"},
+                    {make_nonempty_improper_list,
+                     "nonempty_improper_list(any(), ''end'')"},
+                    {make_empty_map, "#{}"},
+                    {make_map, "map()"},
+                    {make_map_known_types, "#{integer()=>float()}"},
+                    {make_fun_unknown_arity_known_type,
+                     "fun((...) -> number())"},
+                    {make_fun_known_arity_known_type,
+                     "fun((_, _) -> number())"},
+                    {make_fun_unknown_arity_unknown_type,
+                     "fun()"},
+                    {make_fun_known_arity_unknown_type,
+                     "fun((_, _))"},
+                    {make_unconstrained_tuple, "{...}"},
+                    {make_known_size_tuple,
+                     "{any(), any(), any(), any(), any()}"},
+                    {make_inexact_tuple, "{any(), any(), any(), ...}"},
+                    {make_union,
+                     "'foo' | nonempty_list(1..3) | number() |"
+                     " {'tag0', 1, 2} | {'tag1', 3, 4} | bitstring(24)"},
+                    {make_bitstring, "bitstring(24)"},
+                    {make_none, "none()"}],
+    lists:foreach(fun({FunName, Expected}) ->
+                          Actual = map_get(atom_to_list(FunName), ResultTypes),
+                          case Actual of
+                              Expected ->
+                                  ok;
+                              _ ->
+                                  ct:fail("Expected type of ~p is ~s, found ~s",
+                                          [FunName, Expected, Actual])
+                          end
+                  end, TypesToCheck),
+    ok = file:del_dir_r(TargetDir),
+    ok.
+
+%% We assume that a call starts with a "Result type:"-line followed by
+%% a type line, which is followed by an optional annotation before the
+%% actual call.
+get_result_types(Lines) ->
+    get_result_types(Lines, #{}).
+
+get_result_types(["  %% Result type:"++_,"  %%    "++TypeLine|Lines], Acc) ->
+    get_result_types(Lines, TypeLine, Acc);
+get_result_types([_|Lines], Acc) ->
+    get_result_types(Lines, Acc);
+get_result_types([], Acc) ->
+    Acc.
+
+get_result_types(["  %% Anno: "++_|Lines], TypeLine, Acc) ->
+    get_result_types(Lines, TypeLine, Acc);
+get_result_types([CallLine|Lines], TypeLine, Acc) ->
+    [_,Callee,_] = string:split(CallLine, "`", all),
+    get_result_types(Lines, Acc#{ Callee => TypeLine }).
+
+
 
 %%%
 %%% Utilities.
