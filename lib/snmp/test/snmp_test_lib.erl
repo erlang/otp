@@ -690,6 +690,17 @@ old_is_ipv6_host(Hostname) ->
 
 init_per_suite(Config) ->
 
+    iprint("snmp environment: "
+           "~n   (snmp) app:  ~p"
+           "~n   (all)  init: ~p"
+           "~n   (snmp) init: ~p",
+           [application:get_all_env(snmp),
+            init:get_arguments(),
+            case init:get_argument(snmp) of
+                {ok, Args} -> Args;
+                error -> undefined
+            end]),
+
     ct:timetrap(minutes(2)),
 
     try analyze_and_print_host_info() of
