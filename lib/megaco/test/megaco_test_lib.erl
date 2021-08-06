@@ -481,6 +481,17 @@ pprint(F, A) ->
 
 init_per_suite(Config) ->
 
+    p("megaco environment: "
+      "~n   (megaco) app:  ~p"
+      "~n   (all)    init: ~p"
+      "~n   (megaco) init: ~p",
+      [application:get_all_env(megaco),
+       init:get_arguments(),
+       case init:get_argument(megaco) of
+           {ok, Args} -> Args;
+           error -> undefined
+       end]),
+
     ct:timetrap(minutes(3)),
 
     try analyze_and_print_host_info() of
@@ -2214,6 +2225,7 @@ p(F, A) ->
 
 print(Pre, F, A) ->
     io:format("*** [~s] [~s] ~p " ++ F ++ "~n", [?FTS(), Pre, self() | A]).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
