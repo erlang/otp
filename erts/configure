@@ -830,7 +830,7 @@ enable_builtin_zlib
 enable_esock
 enable_esock_use_rcvsndtimeo
 with_esock_counter_size
-enable_esock_use_socket_registry
+enable_esock_socket_registry
 with_clock_resolution
 with_clock_gettime_realtime_id
 with_clock_gettime_monotonic_id
@@ -1572,7 +1572,7 @@ Optional Features:
   --enable-esock-socket-registry
                           enable use of the socket registry by default
                           (default)
-  --disable-esock-socket-registry
+      --disable-esock-socket-registry
                           disable use of the socket registry by default
   --enable-prefer-elapsed-monotonic-time-during-suspend
                           Prefer an OS monotonic time source with elapsed time
@@ -14083,27 +14083,22 @@ fi
 
 
 
-# Check whether --enable-esock_use_socket_registry was given.
-if test "${enable_esock_use_socket_registry+set}" = set; then :
-  enableval=$enable_esock_use_socket_registry;
+# Check whether --enable-esock-socket-registry was given.
+if test "${enable_esock_socket_registry+set}" = set; then :
+  enableval=$enable_esock_socket_registry;
 fi
 
 
-if test "x$enable_esock_socket_registry" = "xyes"; then
+if test "x$enable_esock_socket_registry" = "xno"; then :
 
-$as_echo "#define ESOCK_USE_SOCKET_REGISTRY 1" >>confdefs.h
-
-else
-    if test "x$disable_esock_socket_registry" = "xyes"; then
 
 $as_echo "#define ESOCK_USE_SOCKET_REGISTRY 0" >>confdefs.h
 
-    else
-        # TEMPORARY default (enabled)
+else
+
 
 $as_echo "#define ESOCK_USE_SOCKET_REGISTRY 1" >>confdefs.h
 
-    fi
 fi
 
 
