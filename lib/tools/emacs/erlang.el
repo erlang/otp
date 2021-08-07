@@ -5581,6 +5581,15 @@ future, a new shell on an already running host will be started."
   (interactive)
   (call-interactively erlang-next-error-function))
 
+(defconst erlang-edoc-error-regexp
+  "^\\(.*\\), function \\(.*\\): at line \\([0-9]+\\):"
+  "Regexp matching Edoc error message.")
+
+(add-to-list 'compilation-error-regexp-alist-alist
+             `(erlang-edoc
+               ,erlang-edoc-error-regexp
+               1 3 nil 1 nil (2 font-lock-function-name-face)))
+
 
 
 ;;;
