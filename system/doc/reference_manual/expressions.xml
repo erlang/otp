@@ -1085,6 +1085,10 @@ handle_call(change, From, #{ state := start } = S) ->
 			   in the <c>erlang</c> module
 		  </item>
 		  <item>
+			  <seemfa marker="erts:erlang#is_map_key/2">is_map_key/2</seemfa>
+			   in the <c>erlang</c> module
+		  </item>
+		  <item>
 			  <seemfa marker="erts:erlang#map_get/2">map_get/2</seemfa>
 			   in the <c>erlang</c> module
 		  </item>
@@ -1756,6 +1760,9 @@ end</pre>
       </row>
       <row>
         <cell align="left" valign="middle"><c>hd(List)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_map_key(Key, Map)</c></cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>length(List)</c></cell>
