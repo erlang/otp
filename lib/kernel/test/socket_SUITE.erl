@@ -1985,6 +1985,9 @@ otp16359_cases() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) ->
+    io:format("init_per_suite -> entry with"
+              "~n   Config: ~p"
+              "~n", [Config]),
     ct:timetrap(?MINS(2)),
     Factor = analyze_and_print_host_info(),
     try socket:info() of
@@ -1992,12 +1995,26 @@ init_per_suite(Config) ->
             socket:use_registry(false),
             case quiet_mode(Config) of
                 default ->
-                    ?LOGGER:start(),
-                    [{esock_factor, Factor} | Config];
+                    case ?LOGGER:start() of
+                        ok ->
+                            [{esock_factor, Factor} | Config];
+                        {error, Reason} ->
+                            io:format("init_per_suite -> Failed starting logger"
+                                      "~n   Reason: ~p"
+                                      "~n", [Reason]),
+                            {skip, "Failed starting logger"}
+                    end;
                 Quiet ->
-                    ?LOGGER:start(Quiet),
-                    [{esock_factor,     Factor},
-                     {esock_test_quiet, Quiet} | Config]
+                    case ?LOGGER:start(Quiet) of
+                        ok ->
+                            [{esock_factor,     Factor},
+                             {esock_test_quiet, Quiet} | Config];
+                        {error, Reason} ->
+                            io:format("init_per_suite -> Failed starting logger"
+                                      "~n   Reason: ~p"
+                                      "~n", [Reason]),
+                            {skip, "Failed starting logger"}
+                    end
             end
     catch
         error : notsup ->

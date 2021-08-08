@@ -117,10 +117,12 @@
 
 -define(NODES, [node()|nodes()]).
 
--define(UNTIL(Seq), loop_until_true(fun() -> Seq end, Config)).
+-define(UNTIL(Seq), loop_until_true(fun() -> Seq end, Config, 1)).
 
 %% The resource used by the global module.
 -define(GLOBAL_LOCK, global).
+
+%% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
 
 suite() ->
@@ -448,7 +450,9 @@ init_high_level_trace(Time) ->
     os:putenv("GLOBAL_HIGH_LEVEL_TRACE", "TRUE"),
     put(?nodes_tag, []).
 
-loop_until_true(Fun, Config) ->
+loop_until_true(Fun, Config, N) ->
+    %% ?DBG([{n, N}]),
+    put(n, N),
     case Fun() of
 	true ->
 	    true;
@@ -456,7 +460,7 @@ loop_until_true(Fun, Config) ->
             case get(?end_tag) of
                 undefined ->
                     timer:sleep(?UNTIL_LOOP),
-                    loop_until_true(Fun, Config);
+                    loop_until_true(Fun, Config, N+1);
                 EndAt ->
                     Left = EndAt - msec(),
                     case Left < 6000 of
@@ -466,7 +470,7 @@ loop_until_true(Fun, Config) ->
                             receive Ref -> ok end;
                         false ->
                             timer:sleep(?UNTIL_LOOP),
-                            loop_until_true(Fun, Config)
+                            loop_until_true(Fun, Config, N+1)
                     end
             end
     end.
@@ -4375,8 +4379,13 @@ wait_for_ready_net_loop(Pid, MRef) ->
                "~n   Regarding: ~p"
                "~n   Waiter:    ~p"
                "~n      Current Location: ~p"
+               "~n      Dictionary:       ~p"
                "~n      Mesages:          ~p",
-               [ParentPid, Pid, pi(Pid, current_location), pi(Pid, messages)]),
+               [ParentPid, Pid,
+                pi(Pid, current_location),
+                pi(Pid, dictionary),
+                pi(Pid, messages)]),
+            exit(Pid, kill),
             ct:fail("Timeout waiting for ready network")
 
     end.
@@ -4414,8 +4423,9 @@ wait_for_ready_net(Nodes0, Config) ->
                                                 [ERes]),
                                              ERes;
                                          BadRes ->
-                                             ?P("failed get remote nodes: "
-                                                "~n      ~p", [BadRes]),
+                                             ?P("failed get nodes for ~p"
+                                                "~n      ~p",
+                                                [N, BadRes]),
                                              false
                                      end
 			     end,
