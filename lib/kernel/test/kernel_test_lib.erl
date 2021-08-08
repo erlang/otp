@@ -51,6 +51,17 @@ init_per_suite(Config) ->
 
 init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
 
+    print("kernel environment: "
+          "~n   (kernel) app:  ~p"
+          "~n   (all)    init: ~p"
+          "~n   (kernel) init: ~p",
+          [application:get_all_env(kernel),
+           init:get_arguments(),
+           case init:get_argument(kernel) of
+               {ok, Args} -> Args;
+               error -> undefined
+           end]),
+
     ct:timetrap(timer:minutes(2)),
 
     try analyze_and_print_host_info() of
