@@ -28,7 +28,7 @@
 	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1,
 	 printable_range/1, bad_printable_range/1,
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
-         otp_10836/1, io_lib_width_too_small/1,
+         otp_10836/1, io_lib_width_too_small/1, calling_self/1,
          io_with_huge_message_queue/1, format_string/1, format_neg_zero/1,
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
          otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1, otp_15076/1,
@@ -63,7 +63,7 @@ all() ->
      io_fread_newlines, otp_8989, io_lib_fread_literal,
      printable_range, bad_printable_range, format_neg_zero,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
-     io_lib_width_too_small, io_with_huge_message_queue,
+     io_lib_width_too_small, io_with_huge_message_queue, calling_self,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
      otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
      otp_15639, otp_15705, otp_15847, otp_15875, github_4801, chars_limit,
@@ -208,6 +208,10 @@ float_w(Config) when is_list(Config) ->
      "9.007199254740992e15"] =
         [begin g_t(X), fmt("~w", [X]) end || X <- Nums],
 
+    ok.
+
+calling_self(Config) when is_list(Config) ->
+    {'EXIT', {calling_self, _}} = (catch io:format(self(), "~p", [oops])),
     ok.
 
 %% OTP-5403. ~s formats I/O lists and a single binary.
@@ -3034,6 +3038,8 @@ error_info(Config) ->
          {put_chars,[a], [{1,"not valid character data"}]},
          {put_chars,[UnknownDev(),"test"], [{general,"unknown error: 'Спутник-1'"}]},
          {put_chars,["test"], [{gl,UnknownDev()},{general,"unknown error: 'Спутник-1'"}]},
+         {put_chars,[self(),"test"],[{1,"the device is not allowed to be the current process"}]},
+         {put_chars,["test"],[{gl,self()},{general,"the device is not allowed to be the current process"}]},
 
          {write,[DeadDev,"test"],[{1,"terminated"}]},
          {write,["test"],[{gl,DeadDev},{general,"terminated"}]},
