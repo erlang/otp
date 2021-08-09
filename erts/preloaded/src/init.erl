@@ -463,7 +463,7 @@ new_kernelpid({_Name,ignore},BootPid,State) ->
     State;
 new_kernelpid({Name,What},BootPid,State) ->
     erlang:display({"could not start kernel pid",Name,What}),
-    clear_system(BootPid,State),
+    clear_system(false,BootPid,State),
     crash("could not start kernel pid", [Name, What]).
 
 %% Here is the main loop after the system has booted.
@@ -604,7 +604,7 @@ set_flag(_,_,_) ->
 
 %%% -------------------------------------------------
 %%% Stop the system. 
-%%% Reason is: restart | reboot | stop
+%%% Reason is: restart | {restart, Mode} | reboot | stop
 %%% According to reason terminate emulator or restart
 %%% system using the same init process again.
 %%% -------------------------------------------------
@@ -613,7 +613,8 @@ stop(Reason,State) ->
     BootPid = State#state.bootpid,
     {_,Progress} = State#state.status,
     State1 = State#state{status = {stopping, Progress}},
-    clear_system(BootPid,State1),
+    %% There is no need to unload code if the system is shutting down
+    clear_system(Reason=/=stop,BootPid,State1),
     do_stop(Reason,State1).
 
 do_stop({restart,Mode},#state{start=Start, flags=Flags0, args=Args}) ->
@@ -635,11 +636,11 @@ do_restart(Start,Flags,Args) ->
     erl_init:restart(),
     boot(Start,Flags,Args).
 
-clear_system(BootPid,State) ->
+clear_system(Unload,BootPid,State) ->
     Heart = get_heart(State#state.kernel),
     Logger = get_logger(State#state.kernel),
     shutdown_pids(Heart,Logger,BootPid,State),
-    unload(Heart),
+    Unload andalso unload(Heart),
     kill_em([Logger]),
     do_unload([logger_server]).
 
