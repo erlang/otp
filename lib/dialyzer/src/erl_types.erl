@@ -4743,6 +4743,9 @@ initial_typenames({type, MTA, _File}) -> [{type, MTA}];
 initial_typenames({spec, _MFA, _File}) -> [];
 initial_typenames({record, _MRA, _File}) -> [].
 
+%% 5 is the maximal depth used by any Dialyzer module.
+-define(TYPE_LIMIT, 5).
+
 from_form_loop(Form, State, D, Limit, C, T0) ->
   {T1, L1, C1} = from_form(Form, State, D, Limit, C),
   Delta = Limit - L1,
@@ -4751,6 +4754,9 @@ from_form_loop(Form, State, D, Limit, C, T0) ->
       {T0, C1};
     Delta * 8 > Limit ->
       %% Save some time by assuming next depth will exceed the limit.
+      {T1, C1};
+    D =:= ?TYPE_LIMIT ->
+      %% No need to go deeper than necessary.
       {T1, C1};
     true ->
       D1 = D + 1,
