@@ -1661,6 +1661,7 @@ erts_hibernate(Process* c_p, Eterm* reg)
         ASSERT(c_p->stop[0] == make_cp(beam_normal_exit));
         break;
     case ERTS_FRAME_LAYOUT_FP_RA:
+        FRAME_POINTER(c_p) = &c_p->stop[0];
         ASSERT(c_p->stop[0] == make_cp(NULL));
         ASSERT(c_p->stop[1] == make_cp(beam_normal_exit));
         break;
