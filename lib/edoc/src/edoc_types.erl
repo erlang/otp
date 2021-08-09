@@ -39,9 +39,9 @@
 -include("edoc_types.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
-%-type t_spec() :: #t_spec{name :: t_name(),
-%                          type :: t_type(),
-%                          defs :: [t_def()]}.
+-type t_spec() :: #t_spec{name :: t_name(),
+                          type :: t_fun(),
+                          defs :: [t_def()]}.
 %% Function specification.
 
 -type type() :: t_atom() | t_binary() | t_float() | t_fun() | t_integer()
@@ -49,18 +49,18 @@
 	      | t_record() | t_tuple() | t_type() | t_union() | t_var()
 	      | t_paren().
 
-%-type t_typedef() :: #t_typedef{name :: t_name(),
-%                                args :: [type()],
-%                                type :: type() | undefined,
-%                                defs :: [t_def()]}.
+-type t_typedef() :: #t_typedef{name :: t_name(),
+                               args :: [type()],
+                               type :: type() | undefined,
+                               defs :: [t_def()]}.
 %% Type declaration/definition.
 
-%-type t_throws() :: #t_throws{type :: type(),
-%                              defs :: [t_def()]}.
+-type t_throws() :: #t_throws{type :: type(),
+                             defs :: [t_def()]}.
 %% Exception declaration.
 
-%-type t_def() :: #t_def{name :: t_type() | t_var(),
-%            type :: type()}.
+-type t_def() :: #t_def{name :: t_type() | t_var(),
+           type :: type()}.
 %% Local definition `name = type'.
 
 -type t_name() :: #t_name{app :: [] | atom(),
@@ -139,6 +139,7 @@ is_predefined(F, A) -> erl_internal:is_type(F, A).
 
 is_new_predefined(_, _) -> false.
 
+-spec to_ref(t_typedef() | t_def() | t_type() | t_name()) -> edoc_refs:t().
 to_ref(#t_typedef{name = N}) ->
     to_ref(N);
 to_ref(#t_def{name = N}) ->
@@ -169,6 +170,7 @@ infer_module_app(#t_name{app = [], module = M} = TName) when is_atom(M) ->
 infer_module_app(Other) ->
     Other.
 
+-spec to_xml(type() | t_spec() | t_typedef() | t_def() | t_throws(), term()) -> term().
 to_xml(#t_var{name = N}, _Env) ->
     {typevar, [{name, atom_to_list(N)}], []};
 to_xml(#t_name{module = [], name = N}, _Env) ->
