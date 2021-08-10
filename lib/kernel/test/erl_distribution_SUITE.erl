@@ -48,7 +48,8 @@
          dist_ctrl_proc_smoke/1,
          dist_ctrl_proc_reject/1,
          erl_uds_dist_smoke_test/1,
-         erl_1424/1, differing_cookies/1]).
+         erl_1424/1, differing_cookies/1,
+         cmdline_setcookie_2/1, connection_cookie/1]).
 
 %% Performs the test at another node.
 -export([get_socket_priorities/0,
@@ -94,7 +95,8 @@ all() ->
      table_waste, net_setuptime, inet_dist_options_options,
      {group, monitor_nodes},
      erl_uds_dist_smoke_test,
-     erl_1424, differing_cookies].
+     erl_1424, differing_cookies,
+     cmdline_setcookie_2, connection_cookie].
 
 groups() -> 
     [{monitor_nodes, [],
@@ -1985,18 +1987,18 @@ differing_cookies(Config) when is_list(Config) ->
     true = Node =/= nonode@nohost,
     NodeL = atom_to_list(Node),
     [ _, HostL ] = string:lexemes(NodeL, "@"),
+    BaseName = atom_to_list(?FUNCTION_NAME),
 
     %% Use -hidden nodes to avoid global connecting all nodes
 
     %% Start node A with different cookie
-    NodeAName = "nodeA",
+    NodeAName = BaseName++"_nodeA",
     NodeA = list_to_atom(NodeAName++"@"++HostL),
-    NodeACookie = nodeAcookie,
+    NodeACookieL = BaseName++"_cookieA",
+    NodeACookie = list_to_atom(NodeACookieL),
     true = erlang:set_cookie( NodeA, NodeACookie ),
     { ok, NodeA } =
-        start_node(
-          "-hidden", NodeAName,
-          "-setcookie "++atom_to_list(NodeACookie) ),
+        start_node( "-hidden", NodeAName, "-setcookie "++NodeACookieL ),
     try
 
         %% Verify the cluster
@@ -2004,14 +2006,13 @@ differing_cookies(Config) when is_list(Config) ->
         [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
 
         %% Start node B with another different cookie
-        NodeBName = "nodeB",
+        NodeBName = BaseName++"_nodeB",
         NodeB = list_to_atom(NodeBName++"@"++HostL),
-        NodeBCookie = nodeBcookie,
+        NodeBCookieL = BaseName++"_cookieB",
+        NodeBCookie = list_to_atom(NodeBCookieL),
         true = erlang:set_cookie( NodeB, NodeBCookie ),
         { ok, NodeB } =
-            start_node(
-              "-hidden", NodeBName,
-              "-setcookie "++atom_to_list(NodeBCookie) ),
+            start_node( "-hidden", NodeBName, "-setcookie "++NodeBCookieL ),
         try
 
             %% Verify the cluster
@@ -2063,6 +2064,116 @@ differing_cookies(Config) when is_list(Config) ->
     end,
     [] = nodes(hidden),
     ok.
+
+cmdline_setcookie_2(Config) when is_list(Config) ->
+    Node = node(),
+    true = Node =/= nonode@nohost,
+    NodeL = atom_to_list(Node),
+    [ _, HostL ] = string:lexemes(NodeL, "@"),
+    BaseName = atom_to_list(?FUNCTION_NAME),
+    NodeCookie = erlang:get_cookie(),
+    NodeCookieL = atom_to_list(NodeCookie),
+
+    %% Use -hidden nodes to avoid global connecting all nodes
+
+    %% Start node A with different cookie
+    %% and cookie configuration of mother node
+    NodeAName = BaseName++"_nodeA",
+    NodeA = list_to_atom(NodeAName++"@"++HostL),
+    NodeACookieL = BaseName++"_cookieA",
+    NodeACookie = list_to_atom(NodeACookieL),
+    { ok, NodeA } =
+        start_node(
+          "-hidden", NodeAName,
+          "-setcookie "++NodeACookieL++" "
+          "-setcookie "++NodeL++" "++NodeCookieL ),
+
+    try
+
+        %% Verify the cluster
+        [ NodeA ] = nodes(hidden),
+        [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+
+        %% Start node B with different cookie
+        %% and cookie configuration of mother node and node A
+        NodeBName = BaseName++"_nodeB",
+        NodeB = list_to_atom(NodeBName++"@"++HostL),
+        NodeBCookieL = BaseName++"_cookieB",
+        NodeBCookie = list_to_atom(NodeBCookieL),
+        { ok, NodeB } =
+            start_node(
+              "-hidden", NodeBName,
+              "-setcookie "++NodeBCookieL++" "
+              "-setcookie "++NodeL++" "++NodeCookieL++" "
+              "-setcookie "++atom_to_list(NodeA)++" "++NodeACookieL ),
+
+        try
+
+            %% Verify the cluster
+            NodeACookie = rpc:call( NodeA, erlang, get_cookie, []),
+            NodeBCookie = rpc:call( NodeB, erlang, get_cookie, []),
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+            [ Node ] = rpc:call( NodeB, erlang, nodes, [hidden] ),
+
+            %% Connect the nodes
+            pong = rpc:call( NodeA, net_adm, ping, [NodeB] ),
+
+            %% Verify the cluster
+            NodeACookie = rpc:call( NodeA, erlang, get_cookie, []),
+            NodeBCookie = rpc:call( NodeB, erlang, get_cookie, []),
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            equal_sets( [Node, NodeB],
+                        rpc:call( NodeA, erlang, nodes, [hidden] )),
+            equal_sets( [Node, NodeA],
+                        rpc:call( NodeB, erlang, nodes, [hidden] ))
+
+        after
+            _ = stop_node(NodeB)
+        end
+    after
+        _ = stop_node(NodeA)
+    end,
+    [] = nodes(hidden),
+    ok.
+
+connection_cookie(Config) when is_list(Config) ->
+    Node = node(),
+    true = Node =/= nonode@nohost,
+    NodeL = atom_to_list(Node),
+    [ _, HostL ] = string:lexemes(NodeL, "@"),
+    BaseName = atom_to_list(?FUNCTION_NAME),
+
+    %% Start node A with dedicated connection cookie
+    NodeAName = BaseName++"_nodeA",
+    NodeA = list_to_atom(NodeAName++"@"++HostL),
+    NodeACookieL = BaseName++"_cookieA",
+    NodeACookie = list_to_atom(NodeACookieL),
+    true = NodeACookie =/= erlang:get_cookie(),
+    ConnectionCookieL = BaseName++"_connectionCookie",
+    ConnectionCookie = list_to_atom(ConnectionCookieL),
+    true = erlang:set_cookie( NodeA, ConnectionCookie ),
+    { ok, NodeA } =
+        start_node(
+          "", NodeAName,
+          "-setcookie "++NodeACookieL++" "
+          "-setcookie "++NodeL++" "++ConnectionCookieL ),
+
+    try
+
+        %% Verify the cluster
+        [ NodeA ] = nodes(),
+        [ Node ] = rpc:call( NodeA, erlang, nodes, [] ),
+        NodeACookie = rpc:call( NodeA, erlang, get_cookie, []),
+        ConnectionCookie = rpc:call( NodeA, auth, get_cookie, [Node]),
+        ConnectionCookie = auth:get_cookie(NodeA)
+
+    after
+        _ = stop_node(NodeA)
+    end,
+    [] = nodes(),
+    ok.
+
 
 %% Misc. functions
 
