@@ -39,6 +39,7 @@
          is_process_alive/1,
          process_info_blast/1,
          os_env_case_sensitivity/1,
+         verify_middle_queue_save/1,
          test_length/1,
          fixed_apply_badarg/1,
          external_fun_apply3/1]).
@@ -57,7 +58,8 @@ all() ->
      error_stacktrace, error_stacktrace_during_call_trace,
      group_leader_prio, group_leader_prio_dirty,
      is_process_alive, process_info_blast, os_env_case_sensitivity,
-     test_length,fixed_apply_badarg,external_fun_apply3].
+     verify_middle_queue_save, test_length,fixed_apply_badarg,
+     external_fun_apply3].
 
 init_per_testcase(guard_bifs_in_erl_bif_types, Config) when is_list(Config) ->
     skip_missing_erl_bif_types(Config);
@@ -1275,6 +1277,52 @@ consume_msgs() ->
             consume_msgs()
     after 0 ->
               ok
+    end.
+
+
+%% Test that process_info(Pid, [message_queue_len]) works correctly when
+%%  fetching part of the middle signal queue into inner queue.
+verify_middle_queue_save(Config) when is_list(Config) ->
+    Control = self(),
+    ProcessToHang = spawn_link(
+        fun () ->
+            Single = self(),
+            put(count, 0),
+            Doubles = [spawn_link(fun () -> message_queue_len_retrievers(Single, 0) end) || _ <- lists:seq(1, 2)],
+            Control ! {doubles, Doubles},
+            process_that_hangs(Control, 0, Doubles)
+        end),
+    ensure_not_hanging(ProcessToHang, [], 50000).
+
+process_that_hangs(Control, Total, Doubles) ->
+    put(count, Total),
+    %% fetch something innocent, like 'priority' of the process
+    [process_info(Pid, [priority]) || Pid <- Doubles],
+    Control ! alive,
+    process_that_hangs(Control, Total + 1, Doubles).
+
+message_queue_len_retrievers(Control, PrevCount) ->
+    %% need to fetch dictionary for test reasons, but actual trigger is 'message_queue_len',
+    %%  or 'memory', or 'total_heap_size' - anything that needs to fetch external message queue
+    %%  via ERTS_PI_FLAG_NEED_MSGQ_LEN internal flag to process_info
+    [_, {dictionary, [{count, Count}]}] = erlang:process_info(Control, [message_queue_len, dictionary]),
+    Count > PrevCount andalso begin Control ! count end,
+    message_queue_len_retrievers(Control, Count).
+
+ensure_not_hanging(Proc, _Doubles, 0) ->
+    unlink(Proc),
+    exit(Proc, kill);
+ensure_not_hanging(Proc, Doubles, Remaining) ->
+    receive
+        alive ->
+            ensure_not_hanging(Proc, Doubles, Remaining - 1);
+        {doubles, NewDoubles} ->
+            ensure_not_hanging(Proc, NewDoubles, Remaining)
+    after 1000 ->
+        Reason = {Proc, "hung", erlang:process_info(Proc, backtrace)},
+        unlink(Proc),
+        exit(Proc, kill),
+        ct:fail(Reason)
     end.
 
 %% Test that length/1 returns the correct result after trapping, and
