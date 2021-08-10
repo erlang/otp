@@ -618,7 +618,7 @@ next_catch(Process* c_p, Eterm *reg) {
                     tracer = ERTS_TRACER_FROM_ETERM(&frame[1]);
 
                     ASSERT_MFA(mfa);
-                    erts_trace_exception(c_p, mfa, reg[1], reg[2], tracer);
+                    erts_trace_exception(c_p, mfa, reg[3], reg[1], tracer);
                 }
 
                 ptr += CP_SIZE + 2;
