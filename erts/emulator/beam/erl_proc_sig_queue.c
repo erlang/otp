@@ -4120,6 +4120,8 @@ handle_process_info(Process *c_p, ErtsSigRecvTracing *tracing,
             ASSERT(tracing);
 
             if (*next_nm_sig != &c_p->sig_qs.cont) {
+                if (c_p->sig_qs.save == &c_p->sig_qs.cont)
+                    c_p->sig_qs.save = c_p->sig_qs.last;
                 if (ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.cont)) {
                     ErtsRecvMarker *markp = (ErtsRecvMarker *) c_p->sig_qs.cont;
                     markp->prev_next = c_p->sig_qs.last;

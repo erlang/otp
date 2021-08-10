@@ -1456,7 +1456,25 @@ define etp-sig-int
 	printf "!DIST_SPAWN_REPLY[%d]", $etp_sig_type
       else
       if $etp_sig_op == 15
+	printf "!ALIAS[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 16
 	printf "!RECV_MARKER[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 17
+	printf "!UNLINK_ACK[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 18
+	printf "!ADJUST_MSGQ[%d]", $etp_sig_type
+      else
+      if $etp_sig_op == 255
+	printf "->OFFSET_MARKER"
+      else
+	printf "UNKNOWN SIGNAL %d [%d]", $etp_sig_op, $etp_sig_type
+      end
+      end
+      end
+      end
       end
       end
       end
@@ -1511,6 +1529,9 @@ define etp-sigq-int
     end
     set $etp_sig = $etp_sig_next
   end
+  if $etp_sig_save && $etp_sig_save == ($arg2)
+    printf "\n     %% <== SAVE"
+  end
   printf "]\n\n"
   printf "    Message signals: %d\n", $etp_sigq_msig_len
   printf "    Non-message signals: %d\n\n", $etp_sigq_nmsig_len
@@ -1526,10 +1547,10 @@ define etp-sigq-flags-int
     printf "delayed-sigq-len "
   end
   if ($arg0 & (1 << 5))
-    printf "deferred-save "
+    printf "wait-handle-sig "
   end
   if ($arg0 & (1 << 4))
-    printf "deferred-saved-last "
+    printf "handling-sig "
   end
   if ($arg0 & (1 << 3))
     printf "local-signals-only "
@@ -1566,11 +1587,11 @@ define etp-sigqs
   printf "  Msgq Flags: "
   etp-sigq-flags $proc_int
   printf "  --- Inner signal queue (message queue) ---\n"
-  etp-sigq-int ($proc_int)->sig_qs.first ($proc_int)->sig_qs.save
+  etp-sigq-int ($proc_int)->sig_qs.first ($proc_int)->sig_qs.save ($proc_int)->sig_qs.last
   printf "  --- Middle signal queue ---\n"
-  etp-sigq-int ($proc_int)->sig_qs.cont ($proc_int)->sig_qs.save
+  etp-sigq-int ($proc_int)->sig_qs.cont ($proc_int)->sig_qs.save ($proc_int)->sig_qs.cont_last
   printf "  --- Outer queue ---\n"
-  etp-sigq-int ($proc_int)->sig_inq.first ($proc_int)->sig_qs.save
+  etp-sigq-int ($proc_int)->sig_inq.first ($proc_int)->sig_qs.save ($proc_int)->sig_inq.last
 end
 
 define etp-msgq
