@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@
          dist_ctrl_proc_smoke/1,
          dist_ctrl_proc_reject/1,
          erl_uds_dist_smoke_test/1,
-         erl_1424/1]).
+         erl_1424/1, differing_cookies/1]).
 
 %% Performs the test at another node.
 -export([get_socket_priorities/0,
@@ -94,7 +94,7 @@ all() ->
      table_waste, net_setuptime, inet_dist_options_options,
      {group, monitor_nodes},
      erl_uds_dist_smoke_test,
-     erl_1424].
+     erl_1424, differing_cookies].
 
 groups() -> 
     [{monitor_nodes, [],
@@ -1980,7 +1980,100 @@ erl_1424(Config) when is_list(Config) ->
     {error, Reason} = erl_epmd:names("."),
     {comment, lists:flatten(io_lib:format("Reason: ~p", [Reason]))}.
 
+differing_cookies(Config) when is_list(Config) ->
+    Node = node(),
+    true = Node =/= nonode@nohost,
+    NodeL = atom_to_list(Node),
+    [ _, HostL ] = string:lexemes(NodeL, "@"),
+
+    %% Use -hidden nodes to avoid global connecting all nodes
+
+    %% Start node A with different cookie
+    NodeAName = "nodeA",
+    NodeA = list_to_atom(NodeAName++"@"++HostL),
+    NodeACookie = nodeAcookie,
+    true = erlang:set_cookie( NodeA, NodeACookie ),
+    { ok, NodeA } =
+        start_node(
+          "-hidden", NodeAName,
+          "-setcookie "++atom_to_list(NodeACookie) ),
+    try
+
+        %% Verify the cluster
+        [ NodeA ] = nodes(hidden),
+        [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+
+        %% Start node B with another different cookie
+        NodeBName = "nodeB",
+        NodeB = list_to_atom(NodeBName++"@"++HostL),
+        NodeBCookie = nodeBcookie,
+        true = erlang:set_cookie( NodeB, NodeBCookie ),
+        { ok, NodeB } =
+            start_node(
+              "-hidden", NodeBName,
+              "-setcookie "++atom_to_list(NodeBCookie) ),
+        try
+
+            %% Verify the cluster
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+            [ Node ] = rpc:call( NodeB, erlang, nodes, [hidden] ),
+
+            %% Verify that the nodes can not connect
+            %% before correcting the cookie configuration
+            pang = rpc:call( NodeA, net_adm, ping, [NodeB] ),
+            pang = rpc:call( NodeB, net_adm, ping, [NodeA] ),
+
+            %% Configure cookie and connect node A -> B
+            true = rpc:call( NodeA, erlang, set_cookie, [NodeB, NodeBCookie] ),
+            pong = rpc:call( NodeA, net_adm, ping, [NodeB] ),
+
+            %% Verify the cluster
+            NodeACookie = rpc:call( NodeA, erlang, get_cookie, []),
+            NodeBCookie = rpc:call( NodeB, erlang, get_cookie, []),
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            equal_sets( [Node, NodeB],
+                        rpc:call( NodeA, erlang, nodes, [hidden] )),
+            equal_sets( [Node, NodeA],
+                        rpc:call( NodeB, erlang, nodes, [hidden] )),
+
+            %% Disconnect node A from B
+            true = rpc:call( NodeB, net_kernel, disconnect, [NodeA] ),
+
+            %% Verify the cluster
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+            [ Node ] = rpc:call( NodeB, erlang, nodes, [hidden] ),
+
+            %% Reconnect, now node B -> A
+            pong = rpc:call( NodeB, net_adm, ping, [NodeA] ),
+
+            %% Verify the cluster
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            equal_sets( [Node, NodeB],
+                        rpc:call( NodeA, erlang, nodes, [hidden] )),
+            equal_sets( [Node, NodeA],
+                        rpc:call( NodeB, erlang, nodes, [hidden] ))
+
+        after
+            _ = stop_node(NodeB)
+        end
+    after
+        _ = stop_node(NodeA)
+    end,
+    [] = nodes(hidden),
+    ok.
+
 %% Misc. functions
+
+equal_sets(A, B) ->
+    S = lists:sort(A),
+    case lists:sort(B) of
+        S ->
+            ok;
+        _ ->
+            erlang:error({not_equal_sets, A, B})
+    end.
 
 run_dist_configs(Func, Config) ->
     GetOptProlog = "-proto_dist gen_tcp -gen_tcp_dist_output_loop "
