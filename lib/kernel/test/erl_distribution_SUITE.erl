@@ -49,7 +49,8 @@
          dist_ctrl_proc_reject/1,
          erl_uds_dist_smoke_test/1,
          erl_1424/1, differing_cookies/1,
-         cmdline_setcookie_2/1, connection_cookie/1]).
+         cmdline_setcookie_2/1, connection_cookie/1,
+         dyn_differing_cookies/1]).
 
 %% Performs the test at another node.
 -export([get_socket_priorities/0,
@@ -59,7 +60,8 @@
          dyn_node_name_do/2,
          epmd_reconnect_do/2,
 	 setopts_do/2,
-	 keep_conn/1, time_ping/1]).
+	 keep_conn/1, time_ping/1,
+         dyn_differing_cookies/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -95,8 +97,8 @@ all() ->
      table_waste, net_setuptime, inet_dist_options_options,
      {group, monitor_nodes},
      erl_uds_dist_smoke_test,
-     erl_1424, differing_cookies,
-     cmdline_setcookie_2, connection_cookie].
+     erl_1424,
+     {group, differing_cookies}].
 
 groups() -> 
     [{monitor_nodes, [],
@@ -106,7 +108,12 @@ groups() ->
        monitor_nodes_otp_6481, monitor_nodes_errors,
        monitor_nodes_combinations, monitor_nodes_cleanup,
        monitor_nodes_many,
-       monitor_nodes_down_up]}].
+       monitor_nodes_down_up]},
+     {differing_cookies, [],
+      [differing_cookies,
+       cmdline_setcookie_2,
+       connection_cookie,
+       dyn_differing_cookies]}].
 
 init_per_suite(Config) ->
     start_gen_tcp_dist_test_type_server(),
@@ -698,9 +705,14 @@ opt_from_nr("2") -> {nodelay, false}.
 change_val(true)  -> false;
 change_val(false) -> true.
 
+
 start_node_unconnected(DCfg, Name, Mod, Func, Args) ->
+    start_node_unconnected(DCfg, Name, erlang:get_cookie(), Mod, Func, Args).
+
+start_node_unconnected(DCfg, Name, Cookie, Mod, Func, Args) ->
     FullName = full_node_name(Name),
-    CmdLine = mk_node_cmdline(DCfg, Name,Mod,Func,Args),
+    CmdLine =
+        mk_node_cmdline(DCfg, Name, Cookie, Mod, Func, Args),
     io:format("Starting node ~p: ~s~n", [FullName, CmdLine]),
     case open_port({spawn, CmdLine}, [exit_status]) of
 	Port when is_port(Port) ->
@@ -709,12 +721,14 @@ start_node_unconnected(DCfg, Name, Mod, Func, Args) ->
 	    exit({failed_to_start_node, FullName, Error})
     end.
 
-full_node_name(PreName) ->
+full_node_name(PreName) when is_atom(PreName) ->
+    full_node_name(atom_to_list(PreName));
+full_node_name(PreNameL) when is_list(PreNameL) ->
     HostSuffix = lists:dropwhile(fun ($@) -> false; (_) -> true end,
 				 atom_to_list(node())),
-    list_to_atom(atom_to_list(PreName) ++ HostSuffix).
+    list_to_atom(PreNameL ++ HostSuffix).
 
-mk_node_cmdline(DCfg, Name,Mod,Func,Args) ->
+mk_node_cmdline(DCfg, Name, Cookie, Mod, Func, Args) ->
     Static = "-noinput",
     Pa = filename:dirname(code:which(?MODULE)),
     Prog = case catch init:get_argument(progname) of
@@ -734,7 +748,7 @@ mk_node_cmdline(DCfg, Name,Mod,Func,Args) ->
         ++ " " ++ DCfg
 	++ " -pa " ++ Pa
 	++ " -env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ NameStr
-	++ " -setcookie " ++ atom_to_list(erlang:get_cookie())
+	++ " -setcookie " ++ atom_to_list(Cookie)
 	++ " -run " ++ atom_to_list(Mod) ++ " " ++ atom_to_list(Func)
 	++ " " ++ string:join(Args, " ").
 
@@ -1983,17 +1997,17 @@ erl_1424(Config) when is_list(Config) ->
     {comment, lists:flatten(io_lib:format("Reason: ~p", [Reason]))}.
 
 differing_cookies(Config) when is_list(Config) ->
+    test_server:timetrap({minutes, 1}),
     Node = node(),
     true = Node =/= nonode@nohost,
-    NodeL = atom_to_list(Node),
-    [ _, HostL ] = string:lexemes(NodeL, "@"),
+    [] = nodes(),
     BaseName = atom_to_list(?FUNCTION_NAME),
 
     %% Use -hidden nodes to avoid global connecting all nodes
 
     %% Start node A with different cookie
     NodeAName = BaseName++"_nodeA",
-    NodeA = list_to_atom(NodeAName++"@"++HostL),
+    NodeA = full_node_name(NodeAName),
     NodeACookieL = BaseName++"_cookieA",
     NodeACookie = list_to_atom(NodeACookieL),
     true = erlang:set_cookie( NodeA, NodeACookie ),
@@ -2007,7 +2021,7 @@ differing_cookies(Config) when is_list(Config) ->
 
         %% Start node B with another different cookie
         NodeBName = BaseName++"_nodeB",
-        NodeB = list_to_atom(NodeBName++"@"++HostL),
+        NodeB = full_node_name(NodeBName),
         NodeBCookieL = BaseName++"_cookieB",
         NodeBCookie = list_to_atom(NodeBCookieL),
         true = erlang:set_cookie( NodeB, NodeBCookie ),
@@ -2066,10 +2080,11 @@ differing_cookies(Config) when is_list(Config) ->
     ok.
 
 cmdline_setcookie_2(Config) when is_list(Config) ->
+    test_server:timetrap({minutes, 1}),
     Node = node(),
     true = Node =/= nonode@nohost,
+    [] = nodes(),
     NodeL = atom_to_list(Node),
-    [ _, HostL ] = string:lexemes(NodeL, "@"),
     BaseName = atom_to_list(?FUNCTION_NAME),
     NodeCookie = erlang:get_cookie(),
     NodeCookieL = atom_to_list(NodeCookie),
@@ -2079,7 +2094,7 @@ cmdline_setcookie_2(Config) when is_list(Config) ->
     %% Start node A with different cookie
     %% and cookie configuration of mother node
     NodeAName = BaseName++"_nodeA",
-    NodeA = list_to_atom(NodeAName++"@"++HostL),
+    NodeA = full_node_name(NodeAName),
     NodeACookieL = BaseName++"_cookieA",
     NodeACookie = list_to_atom(NodeACookieL),
     { ok, NodeA } =
@@ -2099,7 +2114,7 @@ cmdline_setcookie_2(Config) when is_list(Config) ->
         %% Start node B with different cookie
         %% and cookie configuration of mother node and node A
         NodeBName = BaseName++"_nodeB",
-        NodeB = list_to_atom(NodeBName++"@"++HostL),
+        NodeB = full_node_name(NodeBName),
         NodeBCookieL = BaseName++"_cookieB",
         NodeBCookie = list_to_atom(NodeBCookieL),
         { ok, NodeB } =
@@ -2140,15 +2155,16 @@ cmdline_setcookie_2(Config) when is_list(Config) ->
     ok.
 
 connection_cookie(Config) when is_list(Config) ->
+    test_server:timetrap({minutes, 1}),
     Node = node(),
     true = Node =/= nonode@nohost,
+    [] = nodes(),
     NodeL = atom_to_list(Node),
-    [ _, HostL ] = string:lexemes(NodeL, "@"),
     BaseName = atom_to_list(?FUNCTION_NAME),
 
     %% Start node A with dedicated connection cookie
     NodeAName = BaseName++"_nodeA",
-    NodeA = list_to_atom(NodeAName++"@"++HostL),
+    NodeA = full_node_name(NodeAName),
     NodeACookieL = BaseName++"_cookieA",
     NodeACookie = list_to_atom(NodeACookieL),
     true = NodeACookie =/= erlang:get_cookie(),
@@ -2175,6 +2191,77 @@ connection_cookie(Config) when is_list(Config) ->
     end,
     [] = nodes(),
     ok.
+
+dyn_differing_cookies(Config) when is_list(Config) ->
+    test_server:timetrap({minutes, 1}),
+    MotherNode = node(),
+    true = MotherNode =/= nonode@nohost,
+    [] = nodes(hidden),
+    MotherNodeL = atom_to_list(MotherNode),
+    BaseName = atom_to_list(?FUNCTION_NAME),
+    MotherNodeCookie = erlang:get_cookie(),
+    MotherNodeCookieL = atom_to_list(MotherNodeCookie),
+    register(?FUNCTION_NAME, self()),
+
+    %% Start node A with different cookie
+    %% and cookie configuration of mother node
+    DynNodeCookieL = BaseName++"_cookieA",
+    DynNodeCookie = list_to_atom(DynNodeCookieL),
+    {_NF, Port} =
+        start_node_unconnected(
+          "-setcookie "++MotherNodeL++" "++MotherNodeCookieL,
+          undefined, DynNodeCookie,
+          ?MODULE, run_remote_test,
+          [atom_to_list(?FUNCTION_NAME), MotherNodeL] ),
+
+    dyn_differing_cookies(MotherNode, MotherNodeCookie, DynNodeCookie, Port).
+
+dyn_differing_cookies(MotherNode, MotherNodeCookie, DynNodeCookie, Port) ->
+    receive
+        { MotherNode, MotherNodeCookie, DynNodeCookie, DynNode } ->
+            [ DynNode ] = nodes(hidden),
+            [ MotherNode ] = rpc:call( DynNode, erlang, nodes, [hidden] ),
+            DynNodeCookie = rpc:call( DynNode, erlang, get_cookie, [] ),
+            MotherNodeCookie =
+                rpc:call( DynNode, erlang, get_cookie, [MotherNode] ),
+            {?FUNCTION_NAME, DynNode} !
+                {MotherNode, MotherNodeCookie, DynNode},
+
+            0 = wait_for_port_exit(Port),
+
+            [] = nodes(hidden),
+            ok;
+        {Port, {data, Data}} ->
+            io:format("~p: ~s", [Port, Data]),
+            dyn_differing_cookies(
+              MotherNode, MotherNodeCookie, DynNodeCookie, Port);
+        Other ->
+            error({unexpected, Other})
+    end.
+
+dyn_differing_cookies(MotherNode, _Args) ->
+    nonode@nohost = node(),
+    [] = nodes(hidden),
+    true = net_kernel:connect_node( MotherNode ),
+    [ MotherNode ] = nodes(hidden),
+    DynNode = node(),
+    [ DynNode ] = rpc:call( MotherNode, erlang, nodes, [hidden] ),
+    MotherNodeCookie = erlang:get_cookie( MotherNode ),
+    MotherNodeCookie = rpc:call( MotherNode, erlang, get_cookie, [] ),
+    %% Here we get the mother node's default cookie
+    MotherNodeCookie = rpc:call( MotherNode, erlang, get_cookie, [DynNode] ),
+    DynNodeCookie = erlang:get_cookie(),
+    register( ?FUNCTION_NAME, self() ),
+    {?FUNCTION_NAME, MotherNode} !
+        {MotherNode, MotherNodeCookie, DynNodeCookie, DynNode},
+    receive
+        { MotherNode, MotherNodeCookie, DynNode } ->
+            true = disconnect_node( MotherNode ),
+            [] = nodes(hidden),
+            ok;
+        Other ->
+            error({unexpected, Other})
+    end.
 
 
 %% Misc. functions
