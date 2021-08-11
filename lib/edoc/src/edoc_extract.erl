@@ -41,6 +41,7 @@
 
 -type filename() :: file:filename().
 -type proplist() :: proplists:proplist().
+-type context() :: module | footer | function | overview | single.
 
 %% @doc Like {@link source/5}, but reads the syntax tree and the
 %% comments from the specified file.
@@ -233,7 +234,7 @@ add_macro_defs(Defs0, Opts, Env) ->
 
 -spec file(File, Context, Env, Opts) -> {ok, Tags} | {error, Reason} when
       File :: filename(),
-      Context :: edoc_tags:tag_flag(),
+      Context :: context(),
       Env :: edoc:env(),
       Opts :: proplist(),
       Tags :: [term()],
@@ -264,7 +265,7 @@ file(File, Context, Env, Opts) ->
 
 -spec text(Text, Context, Env, Opts) -> Tags when
       Text :: string(),
-      Context :: overview,
+      Context :: context(),
       Env :: edoc:env(),
       Opts :: proplist(),
       Tags :: [term()].
