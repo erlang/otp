@@ -111,7 +111,6 @@ cp -p "$ERL_ROOT/erts-%I_VSN%/bin/to_erl" .
 cp -p "$ERL_ROOT/erts-%I_VSN%/bin/start" .
 sed -e "s;%EMU%;%EMULATOR%%EMULATOR_NUMBER%;" "$ERL_ROOT/erts-%I_VSN%/bin/start_erl.src" > start_erl
 chmod 755 start_erl
-echo ""
 
 echo %I_VSN% %I_SYSTEM_VSN% > "$ERL_ROOT/releases/start_erl.data"
 sed -e "s;%ERL_ROOT%;$TARGET_ERL_ROOT;" "$ERL_ROOT/releases/RELEASES.src" > "$ERL_ROOT/releases/RELEASES"
