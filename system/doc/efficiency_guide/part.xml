@@ -32,6 +32,7 @@
   <xi:include href="myths.xml"/>
   <xi:include href="commoncaveats.xml"/>
   <xi:include href="binaryhandling.xml"/>
+  <xi:include href="maps.xml"/>
   <xi:include href="listhandling.xml"/>
   <xi:include href="functions.xml"/>
   <xi:include href="tablesDatabases.xml"/>
