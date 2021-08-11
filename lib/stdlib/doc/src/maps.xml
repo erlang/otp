@@ -30,7 +30,10 @@
   <module since="OTP 17.0">maps</module>
   <modulesummary>Maps processing functions.</modulesummary>
   <description>
-    <p>This module contains functions for maps processing.</p>
+    <p>This module contains functions for maps processing. The
+    Efficiency Guide contains a chapter that describes <seeguide
+    marker="system/efficiency_guide:maps">how to use maps
+    efficiently</seeguide>.</p>
   </description>
 
   <datatypes>

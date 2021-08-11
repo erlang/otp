@@ -24,7 +24,8 @@ EFF_GUIDE_CHAPTER_FILES = \
 	functions.xml \
 	introduction.xml \
 	listhandling.xml \
-	myths.xml \
+	maps.xml \
+        myths.xml \
 	part.xml \
 	processes.xml \
 	profiling.xml \
