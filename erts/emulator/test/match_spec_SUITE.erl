@@ -918,6 +918,27 @@ maps(Config) when is_list(Config) ->
     ok = maps_check_loop(M0),
     M2 = maps:from_list([{integer_to_list(K),V} || {K,V} <- Ls0]),
     ok = maps_check_loop(M2),
+
+    %% Maps in guards
+    {ok,#{a:=1},[],[]} = erlang:match_spec_test(#{a=>1}, [{'$1',[{'==','$1',#{a=>1}}],['$1']}], table),
+    {ok,#{a:='$1'},[],[]} = erlang:match_spec_test(#{a=>'$1'}, [{'$1',[{'==','$1',#{a=>{const,'$1'}}}],['$1']}], table),
+    {ok,false,[],[]} = erlang:match_spec_test(#{a=>1}, [{'$1',[{'==','$1',#{{const,a}=>1}}],['$1']}], table),
+    {ok,#{a:=1,b:=2},[],[]} = erlang:match_spec_test({11,#{a=>1,b=>2}},[{{'$1','$2'},[{'==','$2',#{a=>{'-','$1',10},b=>{const,2}}}],['$2']}], table),
+    {ok,#{a:=1,b:=2},[],[]} = erlang:match_spec_test(#{a=>1},[{#{a=>'$1'},[],[#{a=>'$1',b=>{const,2}}]}], table),
+
+    %% Large maps in guards
+    {ok,#{a:=1},[],[]} = erlang:match_spec_test(M0#{a=>1}, [{'$1',[{'==','$1',M0#{a=>1}}],['$1']}], table),
+    {ok,#{a:='$1'},[],[]} = erlang:match_spec_test(M0#{a=>'$1'}, [{'$1',[{'==','$1',M0#{a=>{const,'$1'}}}],['$1']}], table),
+    {ok,#{a:=1,b:=2},[],[]} = erlang:match_spec_test({11,M0#{a=>1,b=>2}},[{{'$1','$2'},[{'==','$2',M0#{a=>{'-','$1',10},b=>{const,2}}}],['$2']}], table),
+
+    %% Maps in body
+    {ok,#{a:=1,b:=#{a:='$1'}},[],[]} = erlang:match_spec_test(#{a=>1},[{#{a=>'$1'},[],[#{a=>'$1',b=>#{a=>{const,'$1'}}}]}], table),
+    {ok,#{a:=1,{const,b}:=#{a:='$1'}},[],[]} = erlang:match_spec_test(#{a=>1},[{#{a=>'$1'},[],[#{a=>'$1',{const,b}=>#{a=>{const,'$1'}}}]}], table),
+
+    %% Large maps in body
+    {ok,#{a:=1,b:=#{a:='$1'}},[],[]} = erlang:match_spec_test(M0#{a=>1},[{#{a=>'$1'},[],[M0#{a=>'$1',b=>M0#{a=>{const,'$1'}}}]}], table),
+    {ok,#{a:=1,{const,b}:=#{a:='$1'}},[],[]} = erlang:match_spec_test(M0#{a=>1},[{#{a=>'$1'},[],[M0#{a=>'$1',{const,b}=>M0#{a=>{const,'$1'}}}]}], table),
+
     ok.
 
 maps_check_loop(M) ->

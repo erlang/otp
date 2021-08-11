@@ -3920,6 +3920,10 @@ dmc_tuple(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
     return retOk;
 }
 
+/*
+ * For maps we only expand the values of the map. The keys remain as they are.
+ * So the map #{ {const,a} => {const,b} } will be transformed to #{ {const,a} => b }.
+ */
 static DMCRet
 dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
         Eterm t, int *constant)
@@ -3941,6 +3945,7 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
             *constant = 1;
             return retOk;
         }
+        /* Only copy the keys */
         DMC_PUSH2(*text, matchPushC, dmc_private_copy(context, m->keys));
         if (++context->stack_used > context->stack_need) {
             context->stack_need = context->stack_used;
@@ -3981,13 +3986,10 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
 
         while ((kv=hashmap_iterator_prev(&wstack)) != NULL) {
             /* push key */
-            if ((ret = dmc_expr(context, heap, text, CAR(kv), &c)) != retOk) {
-                DESTROY_WSTACK(wstack);
-                return ret;
-            }
-            if (c) {
-                do_emit_constant(context, text, CAR(kv));
-            }
+            DMC_PUSH2(*text, matchPushC, dmc_private_copy(context, CAR(kv)));
+            if (++context->stack_used > context->stack_need)
+                context->stack_need = context->stack_used;
+
             /* push value */
             if ((ret = dmc_expr(context, heap, text, CDR(kv), &c)) != retOk) {
                 DESTROY_WSTACK(wstack);
@@ -5159,8 +5161,8 @@ static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info)
 }
 
 /*
-** Simple size object that takes care of function calls and constant tuples
-*/
+ ** Simple size object that takes care of function calls and constant tuples
+ */
 static Uint my_size_object(Eterm t) 
 {
     Uint sum = 0;
@@ -5172,30 +5174,65 @@ static Uint my_size_object(Eterm t)
 	    my_size_object(CDR(list_val(t)));
 	break;
     case TAG_PRIMARY_BOXED:
-	if ((((*boxed_val(t)) & 
-	      _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) !=
-	    (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE)) {
-	    goto simple_term;
-	}
+        if (is_tuple(t)) {
+            if (tuple_val(t)[0] == make_arityval(1) && is_tuple(tmp = tuple_val(t)[1])) {
+                Uint i,n;
+                p = tuple_val(tmp);
+                n = arityval(p[0]);
+                sum += 1 + n;
+                for (i = 1; i <= n; ++i)
+                    sum += my_size_object(p[i]);
+            } else if (tuple_val(t)[0] == make_arityval(2) &&
+                       is_atom(tmp = tuple_val(t)[1]) &&
+                       tmp == am_const) {
+                sum += size_object(tuple_val(t)[2]);
+            } else {
+                erts_exit(ERTS_ERROR_EXIT,"Internal error, sizing unrecognized object in "
+                          "(d)ets:match compilation.");
+            }
+            break;
+        } else if (is_map(t)) {
+            if (is_flatmap(t)) {
+                Uint n;
+                flatmap_t *mp;
+                mp  = (flatmap_t*)flatmap_val(t);
 
-	if (tuple_val(t)[0] == make_arityval(1) && is_tuple(tmp = tuple_val(t)[1])) {
-	    Uint i,n;
-	    p = tuple_val(tmp);
-	    n = arityval(p[0]);
-	    sum += 1 + n;
-	    for (i = 1; i <= n; ++i)
-		sum += my_size_object(p[i]);
-	} else if (tuple_val(t)[0] == make_arityval(2) &&
-		   is_atom(tmp = tuple_val(t)[1]) &&
-		   tmp == am_const) {
-	    sum += size_object(tuple_val(t)[2]);
-	} else {
-	    erts_exit(ERTS_ERROR_EXIT,"Internal error, sizing unrecognized object in "
-		     "(d)ets:match compilation.");
-	}
-	break;
+                /* Calculate size of keys */
+                sum += size_object(mp->keys);
+
+                /* Calculate size of values */
+                p = (Eterm *)mp;
+                n   = flatmap_get_size(mp);
+                sum += n + 3;
+                p += 3; /* hdr + size + keys words */
+                while (n--) {
+                    sum += my_size_object(*p++);
+                }
+            } else {
+                Eterm *head = (Eterm *)hashmap_val(t);
+                Eterm hdr = *head;
+                Uint sz;
+                sz    = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                sum  += 1 + sz + header_arity(hdr);
+                head += 1 + header_arity(hdr);
+
+                while(sz-- > 0) {
+                    Eterm obj = head[sz];
+                    if (is_list(obj)) {
+                        Eterm key = CAR(list_val(obj));
+                        Eterm val = CDR(list_val(obj));
+                        sum += 2;
+                        sum += size_object(key);
+                        sum += my_size_object(val);
+                    } else {
+                        sum += my_size_object(obj);
+                    }
+                }
+            }
+            break;
+        }
+        /* fall through */
     default:
-    simple_term:
 	sum += size_object(t);
 	break;
     }
@@ -5225,7 +5262,7 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
 		n = arityval(p[0]);
 		*hp += n + 1;
 		*savep++ = make_arityval(n);
-		for(i = 1; i <= n; ++i) 
+		for(i = 1; i <= n; ++i)
 		    *savep++ = my_copy_struct(p[i], hp, off_heap);
 	    }
             else if (tuple_val(t)[0] == make_arityval(2) &&
@@ -5238,6 +5275,58 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
 		erts_exit(ERTS_ERROR_EXIT, "Trying to constant-copy non constant expression "
 			 "0x%bex in (d)ets:match compilation.", t);
 	    }
+        } else if (is_map(t)) {
+            if (is_flatmap(t)) {
+                Uint i,n;
+                flatmap_t *mp;
+                Eterm *savep;
+                Eterm keys;
+
+                mp  = (flatmap_t*)flatmap_val(t);
+
+                /* Copy keys */
+                keys = copy_struct(mp->keys,size_object(mp->keys),hp,off_heap);
+
+                savep = *hp;
+                ret = make_flatmap(savep);
+                n = flatmap_get_size(mp);
+                p = (Eterm *)mp;
+                *hp += n + 3;
+                *savep++ = mp->thing_word;
+                *savep++ = mp->size;
+                *savep++ = keys;
+                p += 3; /* hdr + size + keys words */
+                for (i = 0; i < n; i++)
+                    *savep++ = my_copy_struct(p[i], hp, off_heap);
+            } else {
+                Eterm *head = hashmap_val(t);
+                Eterm hdr = *head;
+                Uint sz;
+                Eterm *savep = *hp;
+                sz   = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                *hp += 1 + sz + header_arity(hdr);
+
+                ret = make_hashmap(savep);
+
+                *savep++ = *head++; /* map header */
+                if (header_arity(hdr) == 1)
+                    *savep++ = *head++;  /* map size */
+
+                for (int i = 0; i < sz; i++) {
+                    Eterm obj = head[i];
+                    if (is_list(obj)) {
+                        Eterm key = CAR(list_val(obj));
+                        Eterm val = CDR(list_val(obj));
+                        Eterm *kv = *hp;
+                        *hp += 2;
+                        *savep++ = make_list(kv);
+                        CAR(kv) = copy_struct(key,size_object(key),hp,off_heap);
+                        CDR(kv) = my_copy_struct(val,hp,off_heap);
+                    } else {
+                        *savep++ = my_copy_struct(obj,hp,off_heap);
+                    }
+                }
+            }
 	} else {
 	    sz = size_object(t);
 	    ret = copy_struct(t,sz,hp,off_heap);
