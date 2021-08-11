@@ -136,7 +136,7 @@ unsafe_create_external(Tab, Alias, Mod, Cs) ->
 disconnect(Node) ->
     cast({disconnect, Node}).
 
-%% Returns GoodNoodes
+%% Returns GoodNodes
 %% Creates a link to each compatible monitor and
 %% protocol_version to agreed version upon success
 
