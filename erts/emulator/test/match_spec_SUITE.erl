@@ -922,22 +922,47 @@ maps(Config) when is_list(Config) ->
     %% Maps in guards
     {ok,#{a:=1},[],[]} = erlang:match_spec_test(#{a=>1}, [{'$1',[{'==','$1',#{a=>1}}],['$1']}], table),
     {ok,#{a:='$1'},[],[]} = erlang:match_spec_test(#{a=>'$1'}, [{'$1',[{'==','$1',#{a=>{const,'$1'}}}],['$1']}], table),
-    {ok,false,[],[]} = erlang:match_spec_test(#{a=>1}, [{'$1',[{'==','$1',#{{const,a}=>1}}],['$1']}], table),
-    {ok,#{a:=1,b:=2},[],[]} = erlang:match_spec_test({11,#{a=>1,b=>2}},[{{'$1','$2'},[{'==','$2',#{a=>{'-','$1',10},b=>{const,2}}}],['$2']}], table),
-    {ok,#{a:=1,b:=2},[],[]} = erlang:match_spec_test(#{a=>1},[{#{a=>'$1'},[],[#{a=>'$1',b=>{const,2}}]}], table),
+    {ok,#{a:=1},[],[]} = erlang:match_spec_test(#{a=>1}, [{'$1',[{'==','$1',#{{const,a}=>1}}],['$1']}], table),
+    {ok,#{20:=1,b:=2},[],[]} = erlang:match_spec_test({11,#{20=>1,b=>2}},[{{'$1','$2'},[{'==','$2',#{{'+','$1',9}=>{'-','$1',10},b=>{const,2}}}],['$2']}], table),
+    %% Test that maps with duplicate keys work. This depends on the iteration order of small maps.
+    true = lists:any(
+             fun(N) ->
+                     {ok,#{1=>1,2=>N},[],[]} ==
+                         erlang:match_spec_test(#{1=>1,2=>N},[{'$1',[{'==','$1',#{1=>1,2=>2,{const,2}=>3,{'+',1,1}=>4,{'+',2,0}=>5}}],['$1']}],table)
+             end,[2,3,4,5]),
+    %% Test what happens when a map is collapsed from hash to flatmap
+    {ok,#{0:=1},[],[]} = erlang:match_spec_test(#{0=>1},[{'$1',[{'==','$1',maps:from_list([{{'-',I,I},1} || I <- lists:seq(1,100)])}],['$1']}], table),
 
     %% Large maps in guards
     {ok,#{a:=1},[],[]} = erlang:match_spec_test(M0#{a=>1}, [{'$1',[{'==','$1',M0#{a=>1}}],['$1']}], table),
     {ok,#{a:='$1'},[],[]} = erlang:match_spec_test(M0#{a=>'$1'}, [{'$1',[{'==','$1',M0#{a=>{const,'$1'}}}],['$1']}], table),
-    {ok,#{a:=1,b:=2},[],[]} = erlang:match_spec_test({11,M0#{a=>1,b=>2}},[{{'$1','$2'},[{'==','$2',M0#{a=>{'-','$1',10},b=>{const,2}}}],['$2']}], table),
+    {ok,#{520:=1,b:=2},[],[]} = erlang:match_spec_test({11,M0#{520=>1,b=>2}},[{{'$1','$2'},[{'==','$2',M0#{{'+','$1',509}=>{'-','$1',10},b=>{const,2}}}],['$2']}], table),
+    %% Test that maps with duplicate keys work. This depends on the iteration order of hash maps.
+    true = lists:any(
+             fun(N) ->
+                     {ok,M0#{1:=1,2:=N},[],[]} == erlang:match_spec_test(M0#{1=>1,2=>N},[{'$1',[{'==','$1',M0#{1=>1,2=>2,{const,2}=>3,{'+',1,1}=>4,{'+',2,0}=>5}}],['$1']}], table)
+             end, [2,3,4,5]),
 
     %% Maps in body
+    {ok,#{a:=1,b:=2},[],[]} = erlang:match_spec_test(#{a=>1},[{#{a=>'$1'},[],[#{a=>'$1',b=>{const,2}}]}], table),
     {ok,#{a:=1,b:=#{a:='$1'}},[],[]} = erlang:match_spec_test(#{a=>1},[{#{a=>'$1'},[],[#{a=>'$1',b=>#{a=>{const,'$1'}}}]}], table),
-    {ok,#{a:=1,{const,b}:=#{a:='$1'}},[],[]} = erlang:match_spec_test(#{a=>1},[{#{a=>'$1'},[],[#{a=>'$1',{const,b}=>#{a=>{const,'$1'}}}]}], table),
+    {ok,#{a:=1,b:=#{a:='$1'}},[],[]} = erlang:match_spec_test(#{a=>1},[{#{a=>'$1'},[],[#{a=>'$1',{const,b}=>#{a=>{const,'$1'}}}]}], table),
+    %% Test that maps with duplicate keys work. This depends on the iteration order of small maps.
+    true = lists:any(
+             fun(N) ->
+                     {ok,#{2=>N},[],[]} == erlang:match_spec_test(#{a=>1},[{#{a=>'$1'},[],[#{{'+',3,-1}=>1,2=>2,{const,2}=>3,{'+',1,'$1'}=>4,{'+',2,0}=>5}]}], table)
+             end,[1,2,3,4,5]),
+    %% Test what happens when a map is collapsed from hash to flatmap
+    {ok,#{0:=1},[],[]} = erlang:match_spec_test(#{0=>1},[{'$1',[],[maps:from_list([{{'-',I,I},1} || I <- lists:seq(1,100)])]}], table),
 
     %% Large maps in body
     {ok,#{a:=1,b:=#{a:='$1'}},[],[]} = erlang:match_spec_test(M0#{a=>1},[{#{a=>'$1'},[],[M0#{a=>'$1',b=>M0#{a=>{const,'$1'}}}]}], table),
-    {ok,#{a:=1,{const,b}:=#{a:='$1'}},[],[]} = erlang:match_spec_test(M0#{a=>1},[{#{a=>'$1'},[],[M0#{a=>'$1',{const,b}=>M0#{a=>{const,'$1'}}}]}], table),
+    {ok,#{a:=1,b:=#{a:='$1'}},[],[]} = erlang:match_spec_test(M0#{a=>1},[{#{a=>'$1'},[],[M0#{a=>'$1',{const,b}=>M0#{a=>{const,'$1'}}}]}], table),
+    %% Test that maps with duplicate keys work. This depends on the iteration order of hash maps.
+    true = lists:any(
+             fun(N) ->
+                     {ok,M0#{1:=1,2:=N},[],[]} == erlang:match_spec_test(M0#{1=>1,2=>5},[{'$1',[],[M0#{1=>1,2=>2,{const,2}=>3,{'+',1,1}=>4,{'*',2,1}=>5}]}], table)
+             end,[2,3,4,5]),
 
     ok.
 
