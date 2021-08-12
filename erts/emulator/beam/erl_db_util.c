@@ -2029,6 +2029,9 @@ Eterm db_prog_match(Process *c_p,
     BIF_RETTYPE (*bif)(BIF_ALIST);
     Eterm bif_args[3];
     int fail_label;
+#ifdef DEBUG
+    Eterm *orig_esp;
+#endif
 #ifdef DMC_DEBUG
     Uint *heap_fence;
     Uint *stack_fence;
@@ -2082,6 +2085,7 @@ restart:
         esdp->current_process = psp;
 
 #ifdef DEBUG
+    orig_esp = esp;
     ASSERT(variables == mpsp->u.variables);
     for (i=0; i<prog->num_bindings; i++) {
 	variables[i].term = THE_NON_VALUE;
@@ -2767,6 +2771,7 @@ fail:
     }
     ret = THE_NON_VALUE;
 success:
+    ASSERT(ret == THE_NON_VALUE || esp == orig_esp);
 
 #ifdef DMC_DEBUG
     if (*heap_fence != FENCE_PATTERN) {
