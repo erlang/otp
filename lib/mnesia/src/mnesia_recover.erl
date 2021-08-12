@@ -130,7 +130,7 @@ allow_garb() ->
     cast(allow_garb).
 
 
-%% The transaction log has either been swiched (latest -> previous) or
+%% The transaction log has either been switched (latest -> previous) or
 %% there is nothing to be dumped. This means that the previous
 %% transaction log only may contain commit records which refers to
 %% transactions noted in the last two of the 'Prev' tables. All other
