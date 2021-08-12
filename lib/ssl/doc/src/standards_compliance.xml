@@ -703,7 +703,7 @@
 	</cell>
         <cell align="left" valign="middle"><em>Client</em></cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
-	<cell align="left" valign="middle"><em>23</em></cell>
+	<cell align="left" valign="middle"><em>24</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -762,12 +762,14 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">ed25519</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
 	<cell align="left" valign="middle"><em>24</em></cell>
 	<cell align="left" valign="middle"></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">ed448</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
 	<cell align="left" valign="middle"><em>24</em></cell>
 	<cell align="left" valign="middle"></cell>
       </row>
@@ -805,8 +807,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>Server</em></cell>
-	<cell align="left" valign="middle"><em>PC</em></cell>
-	<cell align="left" valign="middle"><em>22</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>24</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -865,12 +867,14 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">ed25519</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
 	<cell align="left" valign="middle"><em>24</em></cell>
 	<cell align="left" valign="middle"></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">ed448</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
 	<cell align="left" valign="middle"><em>24</em></cell>
 	<cell align="left" valign="middle"></cell>
       </row>
