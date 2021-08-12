@@ -676,6 +676,24 @@ static DMCGuardBif guard_tab[] =
 	DBIF_ALL
     },
     {
+	am_byte_size,
+	&byte_size_1,
+	1,
+	DBIF_ALL
+    },
+    {
+	am_binary_part,
+	&binary_part_2,
+	2,
+	DBIF_ALL
+    },
+    {
+	am_binary_part,
+	&binary_part_3,
+	3,
+	DBIF_ALL
+    },
+    {
 	am_tl,
 	&tl_1,
 	1,
