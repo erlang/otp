@@ -111,7 +111,6 @@ static ErlNifFunc nif_funcs[] = {
 
     {"engine_by_id_nif", 1, engine_by_id_nif, 0},
     {"engine_init_nif", 1, engine_init_nif, 0},
-    {"engine_finish_nif", 1, engine_finish_nif, 0},
     {"engine_free_nif", 1, engine_free_nif, 0},
     {"engine_load_dynamic_nif", 0, engine_load_dynamic_nif, 0},
     {"engine_ctrl_cmd_strings_nif", 3, engine_ctrl_cmd_strings_nif, 0},
