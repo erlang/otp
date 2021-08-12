@@ -3963,6 +3963,7 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
         DECLARE_WSTACK(wstack);
         Eterm *kv;
         int c;
+        int textpos = DMC_STACK_NUM(*text);
 
         ASSERT(is_hashmap(t));
 
@@ -3980,10 +3981,14 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
         }
 
         if (constant_values) {
+            ASSERT(DMC_STACK_NUM(*text) == textpos);
             *constant = 1;
             DESTROY_WSTACK(wstack);
             return retOk;
         }
+
+        /* reset the program to the original position and re-emit everything */
+        DMC_STACK_NUM(*text) = textpos;
 
         *constant = 0;
 
