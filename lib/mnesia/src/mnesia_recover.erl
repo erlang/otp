@@ -674,7 +674,7 @@ handle_call({connect_nodes, Ns}, From, State) ->
 	    erlang:send_after(2, self(), {connect_nodes,Ns,From}),
 	    {noreply, State};
 	[] ->
-	    %% No good noodes to connect to!
+	    %% No good nodes to connect to!
 	    %% We can't use reply here because this function can be
 	    %% called from handle_info
 	    gen_server:reply(From, {[], AlreadyConnected}),
