@@ -1073,7 +1073,10 @@ void erts_factory_proc_init(ErtsHeapFactory* factory, Process* p)
     factory->p        = p;
     factory->hp_start = HEAP_TOP(p);
     factory->hp       = factory->hp_start;
-    factory->hp_end   = HEAP_LIMIT(p);
+    if (factory->hp)
+        factory->hp_end   = HEAP_LIMIT(p);
+    else
+        factory->hp_end = NULL;
     factory->off_heap = &p->off_heap;
     factory->message  = NULL;
     factory->off_heap_saved.first    = p->off_heap.first;
@@ -1083,7 +1086,8 @@ void erts_factory_proc_init(ErtsHeapFactory* factory, Process* p)
     factory->heap_frags = NULL; /* not used */
     factory->alloc_type = 0; /* not used */
 
-    HEAP_TOP(p) = HEAP_LIMIT(p);
+    if (HEAP_TOP(p))
+        HEAP_TOP(p) = HEAP_LIMIT(p);
 }
 
 void erts_factory_proc_prealloc_init(ErtsHeapFactory* factory,
