@@ -1086,28 +1086,39 @@ catch(Y, Fail) {
 }
 
 catch_end(Y) {
+    /*
+     * At entry:
+     *
+     *    x0 = Result of expression or THE_NON_VALUE
+     *
+     * If x0 is THE_NON_VALUE, the following registers are also set:
+     *
+     *    x1 = Error reason/thrown value
+     *    x2 = Stacktrace
+     *    x3 = Exception class
+     */
     $try_end($Y);
     if (is_non_value(r(0))) {
-        c_p->fvalue = NIL;
-        c_p->ftrace = NIL;
-        if (x(1) == am_throw) {
-            r(0) = x(2);
+        ASSERT(c_p->fvalue == NIL);
+        ASSERT(c_p->ftrace == NIL);
+        if (x(3) == am_throw) {
+            r(0) = x(1);
         } else {
-            if (x(1) == am_error) {
+            if (x(3) == am_error) {
                 SWAPOUT;
-                x(2) = add_stacktrace(c_p, x(2), x(3));
+                x(1) = add_stacktrace(c_p, x(1), x(2));
                 SWAPIN;
             }
-            /* only x(2) is included in the rootset here */
+            /* only x(1) is included in the rootset here */
             if ((E - HTOP) < (3 + S_RESERVED)) {
                 $GC_SWAPOUT();
                 PROCESS_MAIN_CHK_LOCKS(c_p);
-                FCALLS -= erts_garbage_collect_nobump(c_p, 3, reg+2, 1, FCALLS);
+                FCALLS -= erts_garbage_collect_nobump(c_p, 3, reg+1, 1, FCALLS);
                 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
                 PROCESS_MAIN_CHK_LOCKS(c_p);
                 SWAPIN;
             }
-            r(0) = TUPLE2(HTOP, am_EXIT, x(2));
+            r(0) = TUPLE2(HTOP, am_EXIT, x(1));
             HTOP += 3;
         }
     }
@@ -1124,9 +1135,7 @@ try_case(Y) {
     ASSERT(is_non_value(r(0)));
     ASSERT(c_p->fvalue == NIL);
     ASSERT(c_p->ftrace == NIL);
-    r(0) = x(1);
-    x(1) = x(2);
-    x(2) = x(3);
+    r(0) = x(3);
 }
 
 try_case_end(Src) {

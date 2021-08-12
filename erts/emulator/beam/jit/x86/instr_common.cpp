@@ -1609,6 +1609,14 @@ void BeamModuleAssembler::emit_catch(const ArgVal &Y, const ArgVal &Fail) {
     catches.push_back({{patch_addr, 0x1, 0}, labels[Fail.getValue()]});
 }
 
+/*
+ * At entry:
+ *
+ *    x0 = THE_NON_VALUE
+ *    x1 = Term
+ *    x2 = Stacktrace
+ *    x3 = Exception class
+ */
 void BeamGlobalAssembler::emit_catch_end_shared() {
     Label not_throw = a.newLabel(), not_error = a.newLabel(),
           after_gc = a.newLabel();
@@ -1616,9 +1624,9 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
     emit_enter_frame();
 
     /* Load thrown value / reason into ARG2 for add_stacktrace */
-    a.mov(ARG2, getXRef(2));
+    a.mov(ARG2, getXRef(1));
 
-    a.cmp(getXRef(1), imm(am_throw));
+    a.cmp(getXRef(3), imm(am_throw));
     a.short_().jne(not_throw);
 
     /* Thrown value, return it in x0 */
@@ -1629,7 +1637,7 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
 
     a.bind(not_throw);
     {
-        a.cmp(getXRef(1), imm(am_error));
+        a.cmp(getXRef(3), imm(am_error));
         /* NOTE: Short won't reach if JIT_HARD_DEBUG is defined. */
         a.jne(not_error);
 
@@ -1638,7 +1646,7 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
 
         a.mov(ARG1, c_p);
         /* ARG2 set above. */
-        a.mov(ARG3, getXRef(3));
+        a.mov(ARG3, getXRef(2));
         runtime_call<3>(add_stacktrace);
 
         emit_leave_runtime<Update::eStack | Update::eHeap>();
@@ -1694,12 +1702,11 @@ void BeamModuleAssembler::emit_try_end(const ArgVal &Y) {
 }
 
 void BeamModuleAssembler::emit_try_case(const ArgVal &Y) {
+    /* The try_tag in the Y slot in the stack frame has already been
+     * cleared. */
     a.dec(x86::qword_ptr(c_p, offsetof(Process, catches)));
-    mov_arg(Y, NIL);
-    a.movups(x86::xmm0, x86::xmmword_ptr(registers, 1 * sizeof(Eterm)));
     a.mov(RET, getXRef(3));
-    a.movups(x86::xmmword_ptr(registers, 0 * sizeof(Eterm)), x86::xmm0);
-    a.mov(getXRef(2), RET);
+    a.mov(getXRef(0), RET);
 
 #ifdef DEBUG
     Label fvalue_ok = a.newLabel(), assertion_failed = a.newLabel();

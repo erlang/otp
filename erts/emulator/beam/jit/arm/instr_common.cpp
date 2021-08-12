@@ -1377,12 +1377,13 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
           after_gc = a.newLabel();
 
     /* XREG0 = THE_NON_VALUE
-     * XREG1 = class
-     * XREG2 = error reason/thrown value
-     * XREG3 = raw stacktrace. */
+     * XREG1 = error reason/thrown value
+     * XREG2 = raw stacktrace.
+     * XREG3 = class
+     */
 
-    a.mov(XREG0, XREG2);
-    a.cmp(XREG1, imm(am_throw));
+    a.mov(XREG0, XREG1);
+    a.cmp(XREG3, imm(am_throw));
 
     a.cond_ne().b(not_throw);
 
@@ -1395,11 +1396,11 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
 
         a.mov(ARG1, XREG0);
 
-        a.cmp(XREG1, imm(am_error));
+        a.cmp(XREG3, imm(am_error));
         a.cond_ne().b(not_error);
 
         a.mov(ARG2, XREG0);
-        a.mov(ARG3, XREG3);
+        a.mov(ARG3, XREG2);
 
         /* This is an error, attach a stacktrace to the reason. */
         ERTS_CT_ASSERT(ERTS_HIGHEST_CALLEE_SAVE_XREG >= 2);
@@ -1467,20 +1468,17 @@ void BeamModuleAssembler::emit_try_end(const ArgVal &Y) {
 
 void BeamModuleAssembler::emit_try_case(const ArgVal &Y) {
     /* XREG0 = THE_NON_VALUE
-     * XREG1 = class
-     * XREG2 = error reason/thrown value
-     * XREG3 = raw stacktrace.
-     *
-     * These need to be shifted down one step. */
-    a.mov(XREG0, XREG1);
-    a.mov(XREG1, XREG2);
-    a.mov(XREG2, XREG3);
+     * XREG1 = error reason/thrown value
+     * XREG2 = raw stacktrace.
+     * XREG3 = class */
 
     a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, catches)));
+    a.mov(XREG0, XREG3);
     a.sub(TMP1, TMP1, imm(1));
     a.str(TMP1, arm::Mem(c_p, offsetof(Process, catches)));
-    mov_imm(TMP1, NIL);
-    mov_arg(Y, TMP1);
+
+    /* The try_tag in the Y slot in the stack frame has already been
+     * cleared. */
 
 #ifdef DEBUG
     Label ok = a.newLabel();
