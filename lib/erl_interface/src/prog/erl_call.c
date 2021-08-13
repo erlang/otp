@@ -733,7 +733,9 @@ int main(int argc, char *argv[])
       ei_x_new(&e);		/* No version to ei_rpc() */
       
       if (ei_x_format_wo_ver(&e, args) < 0) {
-	  /* FIXME no error message and why -1 ? */
+          fprintf(stderr, "erl_call: Failed to parse arguments,\n"
+                  "see the documentation for allowed term types.\n"
+                  "Arguments: %s\n", args);
           free(mod);
           free(fun);
           free(args);
