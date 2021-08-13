@@ -57,8 +57,14 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
     emit_assert_erlang_stack();
 
 #ifdef NATIVE_ERLANG_STACK
-    /* Since we've entered here on the Erlang stack, we need to stash our return
-     * addresses in case `erts_generic_breakpoint` pushes any trace frames. */
+    /* Since we've entered here on the Erlang stack, we need to stash our
+     * return addresses in case `erts_generic_breakpoint` pushes any trace
+     * frames.
+     *
+     * Note that both of these are return addresses even when frame pointers
+     * are enabled due to the way the breakpoint trampoline works. They must
+     * not be restored until we're ready to return to module code, lest we
+     * leave the stack in an inconsistent state. */
     a.pop(TMP_MEM2q);
     a.pop(ARG2);
 #else
@@ -100,13 +106,16 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
      * corresponding comment in `generic_bp_global` */
     emit_leave_frame();
 
+    a.cmp(RET, imm(BeamOpCodeAddr(op_i_debug_breakpoint)));
+    a.je(labels[debug_bp]);
+
+    /* Note that we don't restore our return addresses in the `debug_bp` case
+     * above, since it tail calls the error handler and thus never returns to
+     * module code or `call_nif_early`. */
 #ifdef NATIVE_ERLANG_STACK
     a.push(TMP_MEM1q);
     a.push(TMP_MEM2q);
 #endif
-
-    a.cmp(RET, imm(BeamOpCodeAddr(op_i_debug_breakpoint)));
-    a.je(labels[debug_bp]);
 
     a.ret();
 }
@@ -135,12 +144,6 @@ void BeamGlobalAssembler::emit_debug_bp() {
 
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
     emit_leave_frame();
-
-    /* Skip two return addresses so we can make a direct jump to the error
-     * handler. This makes it so that if we are to do a call_nif_early, we skip
-     * that and call the error handler's code instead, mirroring the way the
-     * interpreter works. */
-    a.add(x86::rsp, imm(16));
 
     a.test(RET, RET);
     a.je(error);

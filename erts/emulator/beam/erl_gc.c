@@ -3738,8 +3738,10 @@ void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
         return;
     }
 
-    ASSERT(next_fp);
-    do {
+    /* We must have a frame pointer or an empty stack, but not both. */
+    ASSERT((next_fp != NULL) ^ (stack_top == stack_bottom));
+
+    while (next_fp) {
         ASSERT(next_fp >= stack_top && next_fp <= stack_bottom);
 
         /* We may not skip any frames. */
@@ -3765,7 +3767,7 @@ void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
         }
 
         scanner += CP_SIZE;
-    } while(next_fp);
+    }
 }
 #endif
 
