@@ -494,26 +494,43 @@ version.
 
     <datatype>
       <name name="sign_schemes"/>
+
       <desc>
-	  <p>
-	    In addition to the signature_algorithms extension from TLS 1.2,
-	    <url href="http://www.ietf.org/rfc/rfc8446.txt#section-4.2.3">TLS 1.3
-	    (RFC 5246 Section 4.2.3)</url>adds the signature_algorithms_cert extension
-	    which enables having special requirements on the signatures used in the
-	    certificates that differs from the requirements on digital signatures as a whole.
-	    If this is not required this extension is not needed.
-	  </p>
-	  <p>
-	    The client will send a signature_algorithms_cert extension (ClientHello),
-	    if TLS version 1.3 or later is used, and the signature_algs_cert option is
-	    explicitly specified. By default, only the signature_algs extension is sent.
-	  </p>
-	  <p>
-	    The signature schemes shall be ordered according to the client's preference
-	    (favorite choice first).
-	  </p>
+	<p>Explicitly list acceptable signature schemes (algorithms),
+	in prefered ordered, for certificates, overrides the
+	algorithms supplied in  <seetype
+	marker="#signature_algs"><c>signature_algs</c></seetype> option for
+	certificates.</p>
+
+	<p>
+	  In addition to the <c>signature_algorithms</c> extension from TLS
+	  1.2, <url
+	  href="http://www.ietf.org/rfc/rfc8446.txt#section-4.2.3">TLS
+	  1.3 (RFC 5246 Section 4.2.3)</url> adds the
+	  <c>signature_algorithms_cert</c> extension which enables having
+	  special requirements on the signatures used in the
+	  certificates that differs from the requirements on digital
+	  signatures as a whole.  If this is not required this
+	  extension is not need.
+	</p>
+
+	<p>
+	  The client will send a <c>signature_algorithms_cert</c> extension
+	  (in the client hello message), if TLS version 1.2
+	  (back-ported to TLS 1.2 in @OTP-16590@) or later is used, and
+	  the signature_algs_cert option is explicitly specified. By
+	  default, only the <seetype
+	  marker="#signature_algs">signature_algs</seetype> extension
+	  is sent. </p>
+
+	  <note> <p> Note that supported signature schemes for TLS-1.2
+	  are <seetype
+	  marker="#sign_scheme_legacy">sign_scheme_legacy()</seetype>
+	  and <seetype
+	  marker="#rsassa_pss_scheme">rsassa_pss_scheme()</seetype>
+	  </p></note>
       </desc>
-     </datatype>
+    </datatype>
 
      <datatype>
        <name name="supported_groups"/>

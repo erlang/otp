@@ -151,7 +151,7 @@ groups() ->
      {dsa, [], all_version_tests()},
      {rsa_1_3, [], all_version_tests() ++ rsa_tests() ++
           tls_1_3_tests() ++ tls_1_3_rsa_tests() ++ [basic_rsa_1024]},
-     {rsa_pss_rsae, [], all_version_tests()},
+     {rsa_pss_rsae, [], all_version_tests() ++ tls_1_2_rsa_tests()},
      {rsa_pss_rsae_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
      {rsa_pss_pss, [], all_version_tests()},
      {rsa_pss_pss_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
@@ -204,6 +204,12 @@ rsa_tests() ->
    ].
 
 tls_1_3_rsa_tests() ->
+     [
+      unsupported_sign_algo_client_auth,
+      unsupported_sign_algo_cert_client_auth
+     ].
+
+tls_1_2_rsa_tests() ->
      [
       unsupported_sign_algo_client_auth,
       unsupported_sign_algo_cert_client_auth
@@ -1129,33 +1135,35 @@ custom_groups(Config) ->
 %% of CertificateRequest does not contain the algorithm of the client certificate).
 %% ssl client sends an empty certificate.
 unsupported_sign_algo_cert_client_auth() ->
-     [{doc,"TLS 1.3: Test client authentication with unsupported signature_algorithm_cert"}].
+     [{doc,"TLS 1.3 (backported to TLS-1.2) : Test client authentication with unsupported signature_algorithm_cert"}].
 
 unsupported_sign_algo_cert_client_auth(Config) ->
-    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_cert_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
-    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
-                  {verify, verify_peer},
+    ServerOpts = [{verify, verify_peer},
                   {signature_algs, [rsa_pkcs1_sha256, rsa_pkcs1_sha384, rsa_pss_rsae_sha256, rsa_pss_pss_sha256]},
                   %% Skip rsa_pkcs1_sha256!
                   {signature_algs_cert, [rsa_pkcs1_sha384, rsa_pkcs1_sha512]},
                   {fail_if_no_peer_cert, true}|ServerOpts0],
-    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
-    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required).
+    Version = proplists:get_value(version, Config),
+    case Version of
+        'tlsv1.3' ->
+            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required);
+        _  ->
+            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, insufficient_security)
+    end.
 
 %%--------------------------------------------------------------------
 unsupported_sign_algo_client_auth() ->
-     [{doc,"TLS 1.3: Test client authentication with unsupported signature_algorithm"}].
+     [{doc,"TLS 1.3 (backported to TLS-1.2): Test client authentication with unsupported signature_algorithm"}].
 
 unsupported_sign_algo_client_auth(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
-    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
-                  {verify, verify_peer},
-                  %% Skip rsa_pkcs1_sha256!
-                  {signature_algs, [rsa_pkcs1_sha384, rsa_pkcs1_sha512]},
+    ClientOpts = [{signature_algs, [rsa_pkcs1_sha256, rsa_pss_rsae_sha256]} | ClientOpts0],
+    ServerOpts = [{verify, verify_peer},
+                  {signature_algs, [ecdsa_sha1, rsa_pss_pss_sha256]},
                   {fail_if_no_peer_cert, true}|ServerOpts0],
-    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, insufficient_security).
 %%--------------------------------------------------------------------
 hello_retry_client_auth() ->

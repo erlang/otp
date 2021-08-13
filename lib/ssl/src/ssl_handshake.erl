@@ -1181,18 +1181,22 @@ add_common_extensions({3,4},
                       _CipherSuites,
                       #{eccs := SupportedECCs,
                         supported_groups := Groups,
-                        signature_algs := SignatureSchemes}) ->
+                        signature_algs := SignatureSchemes,
+                        signature_algs_cert := SignatureCertSchemes}) ->
     {EcPointFormats, _} =
         client_ecc_extensions(SupportedECCs),
     HelloExtensions#{ec_point_formats => EcPointFormats,
                      elliptic_curves => Groups,
-                     signature_algs => signature_algs_ext(SignatureSchemes)};
+                     signature_algs => signature_algs_ext(SignatureSchemes),
+                     signature_algs_cert =>
+                         signature_algs_cert(SignatureCertSchemes)};
 
 add_common_extensions(Version,
                       HelloExtensions,
                       CipherSuites,
                       #{eccs := SupportedECCs,
-                        signature_algs := SupportedHashSigns}) ->
+                        signature_algs := SupportedHashSigns,
+                        signature_algs_cert := SignatureCertSchemes}) ->
 
     {EcPointFormats, EllipticCurves} =
         case advertises_ec_ciphers(
@@ -1205,20 +1209,18 @@ add_common_extensions(Version,
         end,
     HelloExtensions#{ec_point_formats => EcPointFormats,
                      elliptic_curves => EllipticCurves,
-                     signature_algs => available_signature_algs(SupportedHashSigns, Version)}.
-
+                     signature_algs => available_signature_algs(SupportedHashSigns, Version),
+                     signature_algs_cert =>
+                         signature_algs_cert(SignatureCertSchemes)}.
 
 maybe_add_tls13_extensions({3,4},
                            HelloExtensions0,
-                           #{signature_algs_cert := SignatureSchemes,
-                                        versions := SupportedVersions},
+                           #{versions := SupportedVersions},
                            KeyShare,
                            TicketData) ->
     HelloExtensions1 =
         HelloExtensions0#{client_hello_versions =>
-                              #client_hello_versions{versions = SupportedVersions},
-                          signature_algs_cert =>
-                              signature_algs_cert(SignatureSchemes)},
+                              #client_hello_versions{versions = SupportedVersions}},
     HelloExtensions = maybe_add_key_share(HelloExtensions1, KeyShare),
     maybe_add_pre_shared_key(HelloExtensions, TicketData);
 maybe_add_tls13_extensions(_, HelloExtensions, _, _, _) ->
@@ -3750,6 +3752,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                   crl_check := CrlCheck,
                   log_level := Level,
                   signature_algs := SignAlgos,
+                  signature_algs_cert := SignAlgosCert,
                   depth := Depth}, 
                 #{cert_ext := CertExt,
                   ocsp_responder_certs := OcspResponderCerts,
@@ -3762,7 +3765,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                                               customize_hostname_check =>
                                                   CustomizeHostnameCheck,
                                               signature_algs => SignAlgos,
-                                              signature_algs_cert => undefined,
+                                              signature_algs_cert => SignAlgosCert,
                                               version => Version,
                                               crl_check => CrlCheck,
                                               crl_db => CRLDbHandle,
