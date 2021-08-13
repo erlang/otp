@@ -1998,12 +1998,20 @@ ensure_engine_unloaded(Engine) ->
                                                 EngineMethods :: [engine_method_type()],
                                                 Result :: ok | {error, Reason::term()}.
 ensure_engine_unloaded(Engine, EngineMethods) ->
-    case engine_remove(Engine) of
-        ok ->
-            engine_unload(Engine, EngineMethods);
-        {error, E} ->
-            {error, E}
+    List = crypto:engine_list(),
+    EngineId = crypto:engine_get_id(Engine),
+    case lists:member(EngineId, List) of
+        true ->
+            case engine_remove(Engine) of
+                ok ->
+                    engine_unload(Engine, EngineMethods);
+                {error, Error} ->
+                    {error, Error}
+            end;
+        false ->
+            engine_unload(Engine, EngineMethods)
     end.
+
 
 %%--------------------------------------------------------------------
 %%% On load
