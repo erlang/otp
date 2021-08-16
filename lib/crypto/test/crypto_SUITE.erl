@@ -173,11 +173,11 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [app,
+    [%%crypto_load,
+     %%crypto_load_and_call,
+     app,
      {group, api_errors},
      appup,
-     crypto_load,
-     crypto_load_and_call,
      all_ciphers,
      {group, fips},
      {group, non_fips},

@@ -308,6 +308,25 @@ fun:thr_wrapper
 fun:start_thread
 }
 {
+Crypto Internal.. OpenSSL Error handling again
+Memcheck:Leak
+fun:malloc
+fun:CRYPTO_malloc
+fun:lh_new
+fun:
+fun:
+fun:ERR_get_state
+fun:ERR_put_error
+fun:EVP_CIPHER_CTX_set_key_length
+fun:get_init_args
+fun:ng_crypto_init_nif
+fun:process_main
+fun:sched_thread_func
+fun:thr_wrapper
+fun:start_thread
+fun:
+}
+{
 Prebuilt constant terms in os_info_init (PossiblyLost)
 Memcheck:Leak
 fun:malloc
