@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -888,6 +888,7 @@ error_info(_Config) ->
 
          {gather_gc_info_result, 1},            %Internal BIF.
 
+         {get_cookie, [{not_node}]},
          {get_keys, [value], [no_fail]},
          {get_module_info, 1},
          {get_module_info, 2},
@@ -1143,7 +1144,9 @@ error_info(_Config) ->
          {seq_trace_info, 1},
          {seq_trace_print, 1},
          {seq_trace_print, 2},
-         {set_cookie, 2},
+         {set_cookie, [{not_cookie}]},
+         {set_cookie, [{not_node}, {not_cookie}]},
+         {set_cookie, [nonode@nohost, {not_cookie}]},
          {set_cpu_topology, 1},
 
          {setelement, [a, b, c]},

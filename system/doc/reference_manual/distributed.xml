@@ -186,15 +186,14 @@ dilbert@uab</pre>
       400 (read-only by user) and its content is a random string. An
       atom <c>Cookie</c> is created from the contents of the file and
       the cookie of the local node is set to this using
-      <c>erlang:set_cookie(node(), Cookie)</c>. This is
-      the default cookie that the local node will use towards
-      all other nodes.</p>
+      <c>erlang:set_cookie(Cookie)</c>. This sets the default cookie
+      that the local node will use for all other nodes.</p>
     <p>Thus, groups of users with identical cookie files get Erlang
-      nodes that can communicate freely since they have the same
+      nodes that can communicate freely since they use the same
       magic cookie. Users who want to run nodes
       where the cookie files are on different file systems
       must make certain that their cookie files are identical.</p>
-    <p>For a node <c>Node1</c> with magic cookie <c>Cookie</c> to be
+    <p>For a node <c>Node1</c> using magic cookie <c>Cookie</c> to be
       able to connect to, and to accept a connection from, another node
       <c>Node2</c> that uses a different cookie <c>DiffCookie</c>,
       the function <c>erlang:set_cookie(Node2, DiffCookie)</c> must
@@ -203,7 +202,7 @@ dilbert@uab</pre>
       can be handled in this way.</p>
     <note>
       <p>With this setup <c>Node1</c> and <c>Node2</c> agree
-        on which cookie to use:  <c>Node1</c> uses its explicitly
+        on which cookie to use: <c>Node1</c> uses its explicitly
         configured <c>DiffCookie</c> for <c>Node2</c>,
         and <c>Node2</c> uses its default cookie <c>DiffCookie</c>.</p>
       <p>You can also use a <c>DiffCookie</c> that neither
@@ -211,8 +210,8 @@ dilbert@uab</pre>
         if you also call <c>erlang:set_cookie(Node1, DiffCookie)</c>
         in <c>Node2</c> before establishing connection</p>
       <p>Because node names are exchanged during connection setup
-        before cookies are selected, the setup works regardless
-        of which node that initiates the connection</p>
+        before cookies are selected, connection setup works regardless
+        of which node that initiates it.</p>
       <p>Note that to configure <c>Node1</c> to use <c>Node2</c>'s
         default cookie when communicating with <c>Node2</c>,
         <em>and vice versa</em> results in a broken configuration
@@ -228,7 +227,7 @@ dilbert@uab</pre>
       and the command-line flag <c>-connect_all false</c> must be set,
       see the <seecom marker="erts:erl">erl(1)</seecom>
       manual page in ERTS.</p>
-    <p>The magic cookie of the local node is retrieved by calling
+    <p>The magic cookie of the local node can be retrieved by calling
       <c>erlang:get_cookie()</c>.</p>
   </section>
 
@@ -249,6 +248,11 @@ dilbert@uab</pre>
       <row>
         <cell align="left" valign="middle"><c>erlang:get_cookie()</c></cell>
         <cell align="left" valign="middle">Returns the magic cookie of the current node.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>erlang:get_cookie(Node)</c></cell>
+        <cell align="left" valign="middle">Returns the magic cookie
+        for node <c>Node</c>.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>is_alive()</c></cell>
@@ -279,11 +283,18 @@ dilbert@uab</pre>
         but also hidden nodes and previously known nodes, and so on.</cell>
       </row>
       <row>
+        <cell align="left" valign="middle"><c>erlang:set_cookie(Cookie)</c></cell>
+        <cell align="left" valign="middle">Sets the magic cookie,
+        <c>Cookie</c> to use when connecting all nodes
+        that have no explicit cookie set with
+        <c>erlang:set_cookie/2</c>.</cell>
+      </row>
+      <row>
         <cell align="left" valign="middle"><c>erlang:set_cookie(Node, Cookie)</c></cell>
         <cell align="left" valign="middle">Sets the magic cookie used
-        when connecting to <c>Node</c>. If <c>Node</c> is the
-        current node, <c>Cookie</c> is used when connecting to
-        all new nodes.</cell>
+        when connecting <c>Node</c>. If <c>Node</c> is the
+        current node, <c>Cookie</c> is used when connecting
+        all nodes that have no explicit cookie set with this function.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>spawn[_link|_opt](Node, Fun)</c></cell>
@@ -322,7 +333,7 @@ dilbert@uab</pre>
       </row>
       <row>
         <cell align="left" valign="middle"><c>-setcookie Cookie</c></cell>
-        <cell align="left" valign="middle">Same as calling <c>erlang:set_cookie(node(), Cookie)</c>.</cell>
+        <cell align="left" valign="middle">Same as calling <c>erlang:set_cookie(Cookie)</c>.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>-setcookie Node Cookie</c></cell>

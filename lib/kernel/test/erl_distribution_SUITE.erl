@@ -2085,7 +2085,6 @@ cmdline_setcookie_2(Config) when is_list(Config) ->
     { ok, NodeA } =
         start_node(
           "-hidden", NodeAName,
-          "-setcookie "++NodeACookieL++" "
           "-setcookie "++NodeL++" "++NodeCookieL ),
 
     try
@@ -2093,6 +2092,9 @@ cmdline_setcookie_2(Config) when is_list(Config) ->
         %% Verify the cluster
         [ NodeA ] = nodes(hidden),
         [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+        NodeCookie = rpc:call( NodeA, erlang, get_cookie, []),
+
+        true = rpc:call( NodeA, erlang, set_cookie, [NodeACookie] ),
 
         %% Start node B with different cookie
         %% and cookie configuration of mother node and node A
@@ -2166,7 +2168,7 @@ connection_cookie(Config) when is_list(Config) ->
         [ Node ] = rpc:call( NodeA, erlang, nodes, [] ),
         NodeACookie = rpc:call( NodeA, erlang, get_cookie, []),
         ConnectionCookie = rpc:call( NodeA, auth, get_cookie, [Node]),
-        ConnectionCookie = auth:get_cookie(NodeA)
+        ConnectionCookie = erlang:get_cookie( NodeA )
 
     after
         _ = stop_node(NodeA)
