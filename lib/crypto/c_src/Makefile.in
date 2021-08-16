@@ -230,11 +230,11 @@ CLEAN_LIBS_SO = $(patsubst %.debug.@DED_EXT@,%.@DED_EXT@,$(CLEAN_LIBS_RAW:.valgr
 
 clean_dynamic_libs:
 	rm -f $(CLEAN_LIBS_SO)
-	rm -f $(foreach T,.valgrind.@DED_EXT@ .debug.@DED_EXT@,$(CLEAN_LIBS_SO:.@DED_EXT@=$T))
+	rm -f $(foreach T,.valgrind.@DED_EXT@ .debug.@DED_EXT@ .asan.@DED_EXT@,$(CLEAN_LIBS_SO:.@DED_EXT@=$T))
 
 clean_objs:
 	rm -f $(CLEAN_OBJS_O)
-	rm -f $(foreach T,.valgrind.o .debug.o,$(CLEAN_OBJS_O:.o=$T))
+	rm -f $(foreach T,.valgrind.o .debug.o .asan.o,$(CLEAN_OBJS_O:.o=$T))
 
 clean: clean_objs clean_dynamic_libs
 	rm -f core *~
