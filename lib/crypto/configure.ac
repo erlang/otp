@@ -76,7 +76,21 @@ dnl use "PATH/include" and "PATH/lib".
 
 AC_CHECK_SIZEOF(void *)
 
-std_ssl_locations="/usr/local /usr/sfw /usr /opt/local /usr/pkg /usr/local/openssl /usr/local/opt/openssl /usr/lib/openssl /usr/openssl /usr/local/ssl /usr/lib/ssl /usr/ssl /"
+std_ssl_locations="\
+/usr/local \
+/usr/sfw \
+/usr \
+/opt/local \
+/usr/pkg \
+/usr/local/openssl \
+/usr/local/opt/openssl \
+/opt/homebrew/opt/openssl \
+/usr/lib/openssl \
+/usr/openssl \
+/usr/local/ssl \
+/usr/lib/ssl \
+/usr/ssl \
+/"
 			
 AC_ARG_WITH(ssl,
 AS_HELP_STRING([--with-ssl=PATH], [base location of OpenSSL include and lib directories])
