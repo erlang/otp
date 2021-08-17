@@ -32,4 +32,6 @@ void error_handler(void* null, const char* errstr);
 
 ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
+ERL_NIF_TERM info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
 #endif /* E_INFO_H__ */

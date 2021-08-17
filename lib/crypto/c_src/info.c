@@ -20,17 +20,35 @@
 
 #include "info.h"
 
+#if defined(DEBUG)
+#  define CB_NAME "crypto_callback.debug"
+#  define COMPILE_TYPE "debug"
+
+#elif defined(VALGRIND)
+#  define CB_NAME "crypto_callback.valgrind"
+#  define COMPILE_TYPE "valgrind"
+
+#elif defined(ADDRESS_SANITIZER)
+#  define CB_NAME "crypto_callback.asan"
+#  define COMPILE_TYPE "asan"
+
+#else
+#  define CB_NAME "crypto_callback"
+#  define COMPILE_TYPE "normal"
+
+#endif
+
+
+#if defined(HAVE_DYNAMIC_CRYPTO_LIB)
+#  define LINK_TYPE "dynamic"
+#else
+#  define LINK_TYPE "static"
+#endif
+
+
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
 
-# if defined(DEBUG)
-char *crypto_callback_name = "crypto_callback.debug";
-# elif defined(VALGRIND)
-char *crypto_callback_name = "crypto_callback.valgrind";
-# elif defined(ADDRESS_SANITIZER)
-char *crypto_callback_name = "crypto_callback.asan";
-# else
-char *crypto_callback_name = "crypto_callback";
-# endif
+char *crypto_callback_name = CB_NAME;
 
 int change_basename(ErlNifBinary* bin, char* buf, size_t bufsz, const char* newfile)
 {
@@ -63,6 +81,27 @@ void error_handler(void* null, const char* errstr)
     PRINTF_ERR1("CRYPTO LOADING ERROR: '%s'", errstr);
 }
 #endif /* HAVE_DYNAMIC_CRYPTO_LIB */
+
+
+ERL_NIF_TERM info_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{/* () */
+    ERL_NIF_TERM  ret;
+
+    ret = enif_make_new_map(env);
+    
+    enif_make_map_put(env, ret,
+                      enif_make_atom(env,"compile_type"),
+                      enif_make_atom(env, COMPILE_TYPE),
+                      &ret);
+
+    enif_make_map_put(env, ret,
+                      enif_make_atom(env, "link_type"),
+                      enif_make_atom(env, LINK_TYPE),
+                      &ret);
+
+    return ret;
+}
+
 
 ERL_NIF_TERM info_lib(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {/* () */
