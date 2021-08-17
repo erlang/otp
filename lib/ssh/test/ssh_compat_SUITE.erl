@@ -99,6 +99,7 @@ init_per_suite(Config) ->
            _ ->
                ssh:start(),
                ct:log("Crypto info: ~p",[crypto:info_lib()]),
+               ct:log("ssh image versions: ~p",[ssh_image_versions()]),
                Config
        end).
 
