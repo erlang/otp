@@ -176,7 +176,7 @@ exec_with_io_in_sshc(Config) when is_list(Config) ->
                                              {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
 
-    PrivDir = proplists:get_value(priv_dir, Config),
+    _PrivDir = proplists:get_value(priv_dir, Config),
     ExecStr = "\"io:read('% ').\"",
     Cmd =  "echo howdy. | " ++ ssh_test_lib:open_sshc_cmd(Host, Port,
                                                           [" -o UserKnownHostsFile=", "/dev/null",
@@ -209,7 +209,7 @@ exec_direct_with_io_in_sshc(Config) when is_list(Config) ->
                                             ]),
     ct:sleep(500),
 
-    PrivDir = proplists:get_value(priv_dir, Config),
+    _PrivDir = proplists:get_value(priv_dir, Config),
     Cmd =  "echo ciao. | " ++ ssh_test_lib:open_sshc_cmd(Host, Port,
                                                           [" -o UserKnownHostsFile=", "/dev/null",
                                                            " -o CheckHostIP=no"
@@ -289,7 +289,7 @@ erlang_server_openssh_client_renegotiate(Config) ->
 %%--------------------------------------------------------------------
 tunnel_out_non_erlclient_erlserver(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
+    _PrivDir = proplists:get_value(priv_dir, Config),
 
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_out, true},
                                              {system_dir, SystemDir},
@@ -318,7 +318,7 @@ tunnel_out_non_erlclient_erlserver(Config) ->
 %%--------------------------------------------------------------------
 tunnel_in_non_erlclient_erlserver(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
-    UserDir = proplists:get_value(priv_dir, Config),
+    _UserDir = proplists:get_value(priv_dir, Config),
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, true},
                                               {system_dir, SystemDir},
                                               {failfun, fun ssh_test_lib:failfun/2}]),
@@ -530,7 +530,7 @@ extra_logout() ->
 %%%----------------------------------------------------------------
 no_forwarding(Config) ->
     %%% Check if the ssh of the OS has tunneling enabled
-    UserDir = proplists:get_value(priv_dir, Config),
+    _UserDir = proplists:get_value(priv_dir, Config),
     Cmnd = ["ssh "
             " -o UserKnownHostsFile=", "/dev/null",
             " -o CheckHostIP=no"

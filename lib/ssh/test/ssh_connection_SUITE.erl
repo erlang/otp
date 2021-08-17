@@ -1327,7 +1327,7 @@ no_sensitive_leak(Config) ->
     %% Install the test handler:
     Hname = no_sensitive_leak,
     ok = ssh_log_h:add_fun(Hname,
-                           fun(#{msg := {report, R=#{report := Rep}}}, Pid) ->
+                           fun(#{msg := {report,#{report := Rep}}}, Pid) ->
                                    true = (erlang:process_info(Pid, status) =/= undefined), % remove handler if we are dead
                                    Pid ! {Ref,ssh_log_h:sensitive_in_opt(Rep),Rep};
                               (_,Pid) ->
@@ -1336,12 +1336,12 @@ no_sensitive_leak(Config) ->
                            end,
                            self()),
 
-    {Pid0, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+    {_Pid0, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					      {user_dir, UserDir},
 					      {password, "morot"},
 					      {exec, fun ssh_exec_echo/1}]),
 
-    ConnectionRef0 = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+    _ConnectionRef0 = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 						       {user, "foo"},
 						       {password, "morot"},
 						       {user_interaction, true},
