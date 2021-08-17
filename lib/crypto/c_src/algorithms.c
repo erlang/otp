@@ -31,9 +31,10 @@ static unsigned int algo_pubkey_cnt, algo_pubkey_fips_cnt;
 static ERL_NIF_TERM algo_pubkey[12]; /* increase when extending the list */
 void init_pubkey_types(ErlNifEnv* env);
 
-static unsigned int algo_curve_cnt, algo_curve_fips_cnt;
 static ERL_NIF_TERM algo_curve[2][89]; /* increase when extending the list */
+static ErlNifMutex* mtx_init_curve_types;
 void init_curve_types(ErlNifEnv* env);
+int get_curve_cnt(ErlNifEnv* env, int fips);
 
 static unsigned int algo_rsa_opts_cnt, algo_rsa_opts_fips_cnt;
 static ERL_NIF_TERM algo_rsa_opts[11]; /* increase when extending the list */
@@ -44,6 +45,7 @@ void init_rsa_opts_types(ErlNifEnv* env);
 
 void init_algorithms_types(ErlNifEnv* env)
 {
+    mtx_init_curve_types =  enif_mutex_create("init_curve_types");
     init_hash_types(env);
     init_pubkey_types(env);
     init_curve_types(env);
@@ -51,7 +53,10 @@ void init_algorithms_types(ErlNifEnv* env)
     /* ciphers and macs are initiated statically */
 }
 
-
+void cleanup_algorithms_types(ErlNifEnv* env)
+{
+    enif_mutex_destroy(mtx_init_curve_types);
+}
 
 /*================================================================
   Hash algorithms
@@ -190,12 +195,14 @@ ERL_NIF_TERM mac_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    int fips_mode = 0;
+    int algo_curve_cnt = 0;
+
 #ifdef FIPS_SUPPORT
-    if (FIPS_mode())
-        return enif_make_list_from_array(env, algo_curve[1], algo_curve_fips_cnt);
-    else
+    fips_mode = FIPS_mode();
 #endif
-    return enif_make_list_from_array(env, algo_curve[0], algo_curve_cnt);
+    algo_curve_cnt = get_curve_cnt(env, fips_mode);
+    return enif_make_list_from_array(env, algo_curve[fips_mode], algo_curve_cnt);
 }
 
 #if defined(HAVE_EC)
@@ -203,30 +210,64 @@ int init_curves(ErlNifEnv* env, int fips);
 int valid_curve(int nid);
 #endif
 
-void init_curve_types(ErlNifEnv* env) {
-    algo_curve_cnt = algo_curve_fips_cnt = 0;
+int get_curve_cnt(ErlNifEnv* env, int fips) {
+    static unsigned int algo_curve_cnt, algo_curve_cnt_initialized;
+    static unsigned int algo_curve_fips_cnt, algo_curve_fips_cnt_initialized;
+    int cnt = 0;
+    if (0 == fips  && 1 == algo_curve_cnt_initialized) {
+        return algo_curve_cnt;
+    }
+
+    if (1 == fips  && 1 == algo_curve_fips_cnt_initialized) {
+        return algo_curve_fips_cnt;
+    }
+
+    enif_mutex_lock(mtx_init_curve_types);
+    if (1 == fips) {
+        if (1 == algo_curve_fips_cnt_initialized) {
+            return algo_curve_fips_cnt;
+        }
+
 #if defined(HAVE_EC)
+        algo_curve_fips_cnt = init_curves(env, 1);
+#endif /* defined(HAVE_EC) */
+        cnt = algo_curve_fips_cnt;
+        algo_curve_fips_cnt_initialized = 1;
+    } else {
+        if (1 == algo_curve_cnt_initialized) {
+            return algo_curve_cnt;
+        }
+
+#if defined(HAVE_EC)
+        algo_curve_cnt = init_curves(env, 0);
+#endif /* defined(HAVE_EC) */
+        cnt = algo_curve_cnt ;
+        algo_curve_cnt_initialized = 1;
+    }
+    enif_mutex_unlock(mtx_init_curve_types);
+
+    return cnt;
+}
+
+void init_curve_types(ErlNifEnv* env) {
+    int curve_cnt = 0;
+#if defined(HAVE_EC)
+
 #ifdef FIPS_SUPPORT
     if (FIPS_mode()) {
         // enabled
-        algo_curve_fips_cnt = init_curves(env, 1);
-        FIPS_mode_set(0); // disable
-        algo_curve_cnt = init_curves(env, 0);
-        FIPS_mode_set(1); // re-enable
+        curve_cnt = get_curve_cnt(env, 1);
     } else {
         // disabled
-        algo_curve_cnt = init_curves(env, 0);
-        FIPS_mode_set(1); // enable
-        algo_curve_fips_cnt = init_curves(env, 1);
-        FIPS_mode_set(0); // re-disable
+        curve_cnt = get_curve_cnt(env, 0);
     }
 #else
     // No fips support
-    algo_curve_cnt = algo_curve_fips_cnt = init_curves(env, 0);
+    curve_cnt = get_curve_cnt(env, 0);
 #endif   
 #endif /* defined(HAVE_EC) */
 
-    ASSERT(algo_curve_cnt+algo_curve_fips_cnt <= sizeof(algo_curve)/sizeof(ERL_NIF_TERM));
+    ASSERT(curve_cnt <= sizeof(algo_curve)/sizeof(ERL_NIF_TERM));
 }
 
 
@@ -684,4 +725,5 @@ void init_rsa_opts_types(ErlNifEnv* env) {
 
     ASSERT(algo_rsa_opts_cnt <= sizeof(algo_rsa_opts)/sizeof(ERL_NIF_TERM));
 }
+
 
