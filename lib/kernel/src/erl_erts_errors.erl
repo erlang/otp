@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -375,6 +375,8 @@ format_erlang_error(garbage_collect, [Pid,_], Cause) ->
          bad_option -> bad_option;
          _ -> []
      end];
+format_erlang_error(get_cookie, [Node], _) ->
+    [must_be_atom(Node)];
 format_erlang_error(group_leader, [Pid1,Pid2], _) ->
     [must_be_pid(Pid1),must_be_pid(Pid2)];
 format_erlang_error(halt, [_], _) ->
@@ -723,6 +725,10 @@ format_erlang_error(send_nosuspend, [_,_,Options], Cause) ->
         _ ->
             [bad_destination]
     end;
+format_erlang_error(set_cookie, [Cookie], _) ->
+    [must_be_atom(Cookie)];
+format_erlang_error(set_cookie, [Node, Cookie], _) ->
+    [must_be_live_node(Node), must_be_atom(Cookie)];
 format_erlang_error(setelement, [Index,Tuple,_], Cause) ->
     format_erlang_error(element, [Index,Tuple], Cause);
 format_erlang_error(size, [_], _) ->
@@ -1027,6 +1033,10 @@ must_be_adler32(N) ->
 must_be_atom(A) when is_atom(A) -> [];
 must_be_atom(_) -> not_atom.
 
+must_be_live_node(nonode@nohost) -> not_live_node;
+must_be_live_node(A) when is_atom(A) -> [];
+must_be_live_node(_) -> not_atom.
+
 must_be_base(N) when is_integer(N), 2 =< N, N =< 36 -> [];
 must_be_base(_) -> bad_base.
 
@@ -1326,6 +1336,8 @@ expand_error(not_iolist) ->
     <<"not an iolist term">>;
 expand_error(not_list) ->
     <<"not a list">>;
+expand_error(not_live_node) ->
+    <<"the node name is not part of a distributed system">>;
 expand_error(not_local_pid) ->
     <<"not a local pid">>;
 expand_error(not_local_port) ->

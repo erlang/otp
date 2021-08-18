@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2017</year>
+      <year>2003</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -140,44 +140,94 @@ dilbert@uab</pre>
 
   <section>
     <title>Security</title>
+    <note>
+      <p>
+        "Security" here does <em>not</em> mean
+        cryptographically secure, but rather
+        security against accidental misuse,
+        such as preventing a node from connecting
+        to a cluster with which it is not intended to communicate.
+      </p>
+      <p>
+        Furthermore, the communication between nodes
+        is per default in clear text.
+        If you need strong security, please see
+        <seeguide marker="ssl:ssl_distribution">
+          Using TLS for Erlang Distribution
+        </seeguide>
+        in the SSL application's User's Guide.
+      </p>
+      <p>
+        Also, the default random cookie mentioned
+        in the following text is not very unpredictable.
+        A better one can be generated using primitives
+        in the <c>crypto</c> module, though this still does not make
+        the inital handshake  cryptographically secure.
+        And inter-node communication is still in clear text.
+      </p>
+    </note>
     <p>Authentication determines which nodes are allowed to communicate
       with each other. In a network of different Erlang nodes, it is
-      built into the system at the lowest possible level. Each node has
-      its own <em>magic cookie</em>, which is an Erlang atom.</p>
-    <p>When a node tries to connect to another node, the magic cookies
-      are compared. If they do not match, the connected node rejects
-      the connection.</p>
-    <p>At start-up, a node has a random atom assigned as its magic
-      cookie and the cookie of other nodes is assumed to be
+      built into the system at the lowest possible level.
+      All nodes use a <em>magic cookie</em>,
+      which is an Erlang atom, when connecting another node.</p>
+    <p>During the connection setup, after node names have been exchanged,
+      the magic cookies the nodes present to each other are compared.
+      If they do not match, the connection is rejected.
+      The cookies themselves are never transferred,
+      instead they are compared using hashed challenges,
+      although not in a cryptographically secure manner.</p>
+    <p>At start-up, a node has a random atom assigned as its default
+      magic cookie and the cookie of other nodes is assumed to be
       <c>nocookie</c>. The first action of the Erlang network
       authentication server (<c>auth</c>) is then to read a file named
       <c>$HOME/.erlang.cookie</c>. If the file does not exist, it is
       created. The UNIX permissions mode of the file is set to octal
-      400 (read-only by user) and its contents are a random string. An
+      400 (read-only by user) and its content is a random string. An
       atom <c>Cookie</c> is created from the contents of the file and
       the cookie of the local node is set to this using
-      <c>erlang:set_cookie(node(), Cookie)</c>. This also makes
-      the local node assume that all other nodes have the same cookie
-      <c>Cookie</c>.</p>
+      <c>erlang:set_cookie(Cookie)</c>. This sets the default cookie
+      that the local node will use for all other nodes.</p>
     <p>Thus, groups of users with identical cookie files get Erlang
-      nodes that can communicate freely and without interference from
-      the magic cookie system. Users who want to run nodes on separate
-      file systems must make certain that their cookie files are
-      identical on the different file systems.</p>
-    <p>For a node <c>Node1</c> with magic cookie <c>Cookie</c> to be
-      able to connect to, or accept a connection from, another node
-      <c>Node2</c> with a different cookie <c>DiffCookie</c>,
+      nodes that can communicate freely since they use the same
+      magic cookie. Users who want to run nodes
+      where the cookie files are on different file systems
+      must make certain that their cookie files are identical.</p>
+    <p>For a node <c>Node1</c> using magic cookie <c>Cookie</c> to be
+      able to connect to, and to accept a connection from, another node
+      <c>Node2</c> that uses a different cookie <c>DiffCookie</c>,
       the function <c>erlang:set_cookie(Node2, DiffCookie)</c> must
       first be called at <c>Node1</c>. Distributed systems with
-      multiple user IDs can be handled in this way.</p>
+      multiple home directories (differing cookie files)
+      can be handled in this way.</p>
+    <note>
+      <p>With this setup <c>Node1</c> and <c>Node2</c> agree
+        on which cookie to use: <c>Node1</c> uses its explicitly
+        configured <c>DiffCookie</c> for <c>Node2</c>,
+        and <c>Node2</c> uses its default cookie <c>DiffCookie</c>.</p>
+      <p>You can also use a <c>DiffCookie</c> that neither
+        <c>Node1</c> nor <c>Node2</c> has as its default cookie,
+        if you also call <c>erlang:set_cookie(Node1, DiffCookie)</c>
+        in <c>Node2</c> before establishing connection</p>
+      <p>Because node names are exchanged during connection setup
+        before cookies are selected, connection setup works regardless
+        of which node that initiates it.</p>
+      <p>Note that to configure <c>Node1</c> to use <c>Node2</c>'s
+        default cookie when communicating with <c>Node2</c>,
+        <em>and vice versa</em> results in a broken configuration
+        (if the cookies are different) because then both nodes
+        use the other node's (differing) cookie.</p>
+    </note>
     <p>The default when a connection is established between two nodes,
       is to immediately connect all other visible nodes as well. This
       way, there is always a fully connected network. If there are
       nodes with different cookies, this method can be inappropriate
+      (since it may not be feasible to configure
+      different cookies for all possible nodes)
       and the command-line flag <c>-connect_all false</c> must be set,
       see the <seecom marker="erts:erl">erl(1)</seecom>
       manual page in ERTS.</p>
-    <p>The magic cookie of the local node is retrieved by calling
+    <p>The magic cookie of the local node can be retrieved by calling
       <c>erlang:get_cookie()</c>.</p>
   </section>
 
@@ -198,6 +248,11 @@ dilbert@uab</pre>
       <row>
         <cell align="left" valign="middle"><c>erlang:get_cookie()</c></cell>
         <cell align="left" valign="middle">Returns the magic cookie of the current node.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>erlang:get_cookie(Node)</c></cell>
+        <cell align="left" valign="middle">Returns the magic cookie
+        for node <c>Node</c>.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>is_alive()</c></cell>
@@ -228,11 +283,18 @@ dilbert@uab</pre>
         but also hidden nodes and previously known nodes, and so on.</cell>
       </row>
       <row>
+        <cell align="left" valign="middle"><c>erlang:set_cookie(Cookie)</c></cell>
+        <cell align="left" valign="middle">Sets the magic cookie,
+        <c>Cookie</c> to use when connecting all nodes
+        that have no explicit cookie set with
+        <c>erlang:set_cookie/2</c>.</cell>
+      </row>
+      <row>
         <cell align="left" valign="middle"><c>erlang:set_cookie(Node, Cookie)</c></cell>
         <cell align="left" valign="middle">Sets the magic cookie used
-        when connecting to <c>Node</c>. If <c>Node</c> is the
-        current node, <c>Cookie</c> is used when connecting to
-        all new nodes.</cell>
+        when connecting <c>Node</c>. If <c>Node</c> is the
+        current node, <c>Cookie</c> is used when connecting
+        all nodes that have no explicit cookie set with this function.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>spawn[_link|_opt](Node, Fun)</c></cell>
@@ -271,7 +333,11 @@ dilbert@uab</pre>
       </row>
       <row>
         <cell align="left" valign="middle"><c>-setcookie Cookie</c></cell>
-        <cell align="left" valign="middle">Same as calling <c>erlang:set_cookie(node(), Cookie)</c>.</cell>
+        <cell align="left" valign="middle">Same as calling <c>erlang:set_cookie(Cookie)</c>.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>-setcookie Node Cookie</c></cell>
+        <cell align="left" valign="middle">Same as calling <c>erlang:set_cookie(Node, Cookie)</c>.</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>-sname Name</c></cell>

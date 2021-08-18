@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2020</year>
+      <year>1996</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -2497,6 +2497,16 @@ uncompiled code with the same arity are mapped to the same list by
       <desc>
         <p>Returns the magic cookie of the local node if the node is
           alive, otherwise the atom <c>nocookie</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_cookie" arity="1" since="OTP @OTP-17538@"/>
+      <fsummary>Get the magic cookie for a node.</fsummary>
+      <desc>
+        <p>Returns the magic cookie for node <c><anno>Node</anno></c>
+          if the local node is alive,
+          otherwise the atom <c>nocookie</c>.</p>
       </desc>
     </func>
 
@@ -6932,13 +6942,30 @@ true</pre>
     </func>
 
     <func>
-      <name name="set_cookie" arity="2" since=""/>
-      <fsummary>Set the magic cookie of a node.</fsummary>
+      <name name="set_cookie" arity="1" since="OTP @OTP-17538@"/>
+      <fsummary>Set the magic cookie of the local node.</fsummary>
       <desc>
-        <p>Sets the magic cookie of <c><anno>Node</anno></c> to the atom
+        <p>Sets the magic cookie of the local node to the atom
+          <c><anno>Cookie</anno></c>, which is also
+          the cookie for all nodes that have no explicit cookie set with
+          <seemfa marker="#set_cookie/2"><c>set_cookie/2</c></seemfa>
+          <c><anno>Cookie</anno></c> (see section
+          <seeguide marker="system/reference_manual:distributed">
+          Distributed Erlang</seeguide>
+          in the Erlang Reference Manual in System Documentation).</p>
+        <p>Failure: <c>function_clause</c> if the local node is not
+          alive.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_cookie" arity="2" since=""/>
+      <fsummary>Set the magic cookie for a node.</fsummary>
+      <desc>
+        <p>Sets the magic cookie for <c><anno>Node</anno></c> to the atom
           <c><anno>Cookie</anno></c>. If <c><anno>Node</anno></c> is the
-          local node, the function
-          also sets the cookie of all other unknown nodes to
+          local node, the function sets the cookie of all other nodes
+          (that have no explicit cookie set with this function) to
           <c><anno>Cookie</anno></c> (see section
           <seeguide marker="system/reference_manual:distributed">
           Distributed Erlang</seeguide>
