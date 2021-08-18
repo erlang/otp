@@ -639,16 +639,21 @@ transform_datatype(Dom,_Acc) ->
 
 transform_see({See,[{marker,Marker}],Content}) ->
     AbsMarker =
-        case string:lexemes(Marker,"#") of
-            [Link] -> [get(application),":",get(module),"#",Link];
-            [AppMod, Link] ->
-                case string:lexemes(AppMod,":") of
-                    [Mod] -> [get(application),":",Mod,"#",Link];
-                    [App, Mod] -> [App,":",Mod,"#",Link]
-                end
+        case string:split(Marker, "#") of
+            [AppFile] -> marker_defaults(AppFile);
+            [AppFile, Anchor] -> [marker_defaults(AppFile), "#", Anchor]
         end,
+
     {a, [{href,iolist_to_binary(AbsMarker)},
          {rel,<<"https://erlang.org/doc/link/",(atom_to_binary(See))/binary>>}], Content}.
+
+marker_defaults("") ->
+    [get(application), ":", get(module)];
+marker_defaults(AppFile) ->
+    case string:split(AppFile, ":") of
+        [File] -> [get(application), ":", File];
+        [App, File] -> [App, ":", File]
+    end.
 
 to_chunk(Dom, Source, Module, AST) ->
     [{module,MAttr,Mcontent}] = Dom,
