@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -26,7 +26,7 @@
     <docno></docno>
     <date>2001-08-08</date>
     <rev></rev>
-    <file>commoncaveats.xml</file>
+    <file>commoncaveats.xmlsrc</file>
   </header>
 
   <p>This section lists a few modules and BIFs to watch out for, not only
@@ -48,6 +48,75 @@
      <p>The functions in the <c>timer</c> module that do not manage timers
      (such as <c>timer:tc/3</c> or <c>timer:sleep/1</c>), do not call the
      timer-server process and are therefore harmless.</p>
+  </section>
+
+  <section>
+    <title>Accidental Copying and Loss of Sharing</title>
+
+    <p>When spawning a new process using a fun, one can accidentally
+    copy more data to the process than intended. For example:</p>
+
+    <p><em>DO NOT</em></p>
+    <codeinclude file="efficiency_guide.erl" tag="%%acc1" type="erl"/>
+
+    <p>The code in the fun will extract one element from the record
+    and print it. The rest of the <c>state</c> record is not used.
+    However, when the <c>spawn/1</c> function is executed, the entire
+    record is copied to the newly created process.</p>
+
+    <p>The same kind of problem can happen with a map:</p>
+    <p><em>DO NOT</em></p>
+    <codeinclude file="efficiency_guide.erl" tag="%%acc2" type="erl"/>
+
+    <p>In the following example (part of a module implementing the
+    <seeerl marker="stdlib:gen_server">gen_server</seeerl> behavior)
+    the created fun is sent to another process:</p>
+
+    <p><em>DO NOT</em></p>
+    <codeinclude file="efficiency_guide.erl" tag="%%handle_call" type="erl"/>
+
+    <p>How bad that unnecessary copy is depends on the contents of
+    the record or the map.</p>
+
+    <p>For example, if the <c>state</c> record is initialized like
+    this:</p>
+    <codeinclude file="efficiency_guide.erl" tag="%%init1" type="erl"/>
+
+    <p>a list with 10000 elements (or about 20000 heap words) will be
+    copied to the newly created process.</p>
+
+    <p>An unncessary copy of 10000 element list can be bad enough, but it
+    can get even worse if the <c>state</c> record contains <em>shared subterms</em>.
+    Here is a simple example of a term with a shared subterm:</p>
+
+    <code type="erl"><![CDATA[
+{SubTerm, SubTerm}]]></code>
+
+    <p>When a term is copied to another process, sharing of subterms
+    will be lost and the copied term can be many times larger than the
+    original term. For example:</p>
+
+    <codeinclude file="efficiency_guide.erl" tag="%%init2" type="erl"/>
+
+    <p>In the process that calls <c>init2/0</c>, the size of the
+    <c>data</c> field in the <c>state</c> record will be 32 heap
+    words. When the record is copied to the newly created process,
+    sharing will be lost and the size of the copied <c>data</c> field
+    will be 131070 heap words. More details about <seeguide
+    marker="processes#loss-of-sharing">loss off sharing</seeguide> are
+    found in a later section.</p>
+
+    <p>To avoid the problem, outside of the fun extract only the
+    fields of the record that are actually used:</p>
+
+    <p><em>DO</em></p>
+    <codeinclude file="efficiency_guide.erl" tag="%%fixed_acc1" type="erl"/>
+
+    <p>Similarly, outside of the fun extract only the map elements
+    that are actually used:</p>
+
+    <p><em>DO</em></p>
+    <codeinclude file="efficiency_guide.erl" tag="%%fixed_acc2" type="erl"/>
   </section>
 
   <section>
@@ -89,12 +158,12 @@ apply(list_to_atom("some_prefix"++Var), foo, Args)</code>
     For example, the following code:</p>
     <code type="erl">
 foo(L) when length(L) >= 3 ->
-    ...</code>    
+    ...</code>
 
     <p>can be rewritten to:</p>
     <code type="erl">
 foo([_,_,_|_]=L) ->
-   ...</code>    
+   ...</code>
 
    <p>One slight difference is that <c>length(L)</c> fails if <c>L</c>
    is an improper list, while the pattern in the second code fragment
@@ -107,7 +176,7 @@ foo([_,_,_|_]=L) ->
     <p><seemfa marker="erts:erlang#setelement/3">setelement/3</seemfa>
     copies the tuple it modifies. Therefore, updating a tuple in a loop
     using <c>setelement/3</c> creates a new copy of the tuple every time.</p>
-    
+
     <p>There is one exception to the rule that the tuple is copied.
     If the compiler clearly can see that destructively updating the tuple would
     give the same result as if the tuple was copied, the call to
@@ -118,7 +187,7 @@ foo([_,_,_|_]=L) ->
 multiple_setelement(T0) ->
     T1 = setelement(9, T0, bar),
     T2 = setelement(7, T1, foobar),
-    setelement(5, T2, new_value).</code>    
+    setelement(5, T2, new_value).</code>
 
     <p>The two following <c>setelement/3</c> calls modify
     the tuple in place.</p>
@@ -166,6 +235,4 @@ multiple_setelement(T0) ->
         <code type="none">
         {Bin1,Bin2} = split_binary(Bin, Num)</code>
    </section>
-
 </chapter>
-

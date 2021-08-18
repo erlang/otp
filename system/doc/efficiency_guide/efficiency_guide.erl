@@ -117,6 +117,7 @@ append([H|T], Tail) ->
 append([], Tail) ->
     Tail.
 
+%%kilo_byte
 kilo_byte() ->
     kilo_byte(10, [42]).
 
@@ -124,7 +125,8 @@ kilo_byte(0, Acc) ->
     Acc;
 kilo_byte(N, Acc) ->
     kilo_byte(N-1, [Acc|Acc]).
-    
+%%kilo_byte
+
 recursive_sum([H|T]) ->
     H+recursive_sum(T);
 recursive_sum([]) -> 0.
@@ -226,3 +228,54 @@ cross_function_receive(Ref) ->
 handle_reply(_) -> ok.
 handle_error(_) -> ok.
 handle_msg(_) -> ok.
+
+%%rec
+-record(state, {info,size,data}).
+%%rec
+
+%%init1
+init1() ->
+    #state{data=lists:seq(1, 10000)}.
+%%init1
+
+%%init2
+init2() ->
+    SharedSubTerms = lists:foldl(fun(_, A) -> [A|A] end, [0], lists:seq(1, 15)),
+    #state{data=Shared}.
+%%init2
+
+%%acc1
+accidental1(State) ->
+    spawn(fun() ->
+                  io:format("~p\n", [State#state.info])
+          end).
+%%acc1
+
+%%acc2
+accidental2(State) ->
+    spawn(fun() ->
+                  io:format("~p\n", [map_get(info, State)])
+          end).
+%%acc2
+
+%%fixed_acc1
+fixed_accidental1(State) ->
+    Info = State#state.info,
+    spawn(fun() ->
+                  io:format("~p\n", [Info])
+          end).
+%%fixed_acc1
+
+%%fixed_acc2
+fixed_accidental2(State) ->
+    Info = map_get(info, State),
+    spawn(fun() ->
+                  io:format("~p\n", [Info])
+          end).
+%%fixed_acc2
+
+%%handle_call
+handle_call(give_me_a_fun, _From, State) ->
+    Fun = fun() -> State#state.size =:= 42 end,
+    {reply, Fun, State}.
+%%handle_call
