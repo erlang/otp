@@ -58,13 +58,15 @@
 %% Defaults
 %%
 
--define(ESOCK_SOCKADDR_IN4_DEFAULTS,
-        (#{port => 0, addr => any})).
+-define(ESOCK_SOCKADDR_IN_DEFAULTS,
+        (#{family => inet, port => 0, addr => any})).
 -define(ESOCK_SOCKADDR_IN6_DEFAULTS,
-        (#{port => 0, addr => any,
+        (#{family => inet6, port => 0, addr => any,
            flowinfo => 0, scope_id => 0})).
+-define(ESOCK_SOCKADDR_LOCAL_DEFAULTS,
+        (#{family => local, path => <<"">>})).
 -define(ESOCK_SOCKADDR_NATIVE_DEFAULTS,
-        (#{addr => <<>>})).
+        (#{family => 0, addr => <<>>})).
 
 %% ===========================================================================
 %%
@@ -820,31 +822,50 @@ enc_protocol(Proto) ->
 
 
 enc_sockaddr(#{family := inet} = SockAddr) ->
-    maps:merge(?ESOCK_SOCKADDR_IN4_DEFAULTS, SockAddr);
+    merge_sockaddr(?ESOCK_SOCKADDR_IN_DEFAULTS, SockAddr);
 enc_sockaddr(#{family := inet6} = SockAddr) ->
-    maps:merge(?ESOCK_SOCKADDR_IN6_DEFAULTS, SockAddr);
+    merge_sockaddr(?ESOCK_SOCKADDR_IN6_DEFAULTS, SockAddr);
 enc_sockaddr(#{family := local, path := Path} = SockAddr) ->
   if
       is_list(Path), 0 =< length(Path), length(Path) =< 255 ->
           BinPath = enc_path(Path),
           enc_sockaddr(SockAddr#{path => BinPath});
       is_binary(Path), 0 =< byte_size(Path), byte_size(Path) =< 255 ->
-          SockAddr;
+          merge_sockaddr(?ESOCK_SOCKADDR_LOCAL_DEFAULTS, SockAddr);
       true ->
           %% Neater than an if clause
-          erlang:error({invalid, {sockaddr, path, SockAddr}})
+          throw({invalid, {sockaddr, path, SockAddr}})
   end;
 enc_sockaddr(#{family := local} = SockAddr) ->
     %% Neater than a function clause
-    erlang:error({invalid, {sockaddr, path, SockAddr}});
+    throw({invalid, {sockaddr, path, SockAddr}});
 enc_sockaddr(#{family := Native} = SockAddr) when is_integer(Native) ->
-    maps:merge(?ESOCK_SOCKADDR_NATIVE_DEFAULTS, SockAddr);
+    merge_sockaddr(?ESOCK_SOCKADDR_NATIVE_DEFAULTS, SockAddr);
 enc_sockaddr(#{family := _} = SockAddr) ->
     SockAddr;
+enc_sockaddr(#{} = SockAddr) ->
+    throw({invalid, {sockaddr, family, SockAddr}});
 enc_sockaddr(SockAddr) ->
     %% Neater than a function clause
-    erlang:error({invalid, {sockaddr, map_or_family, SockAddr}}).
+    erlang:error({invalid, {sockaddr, SockAddr}}).
 
+merge_sockaddr(Default, SockAddr) ->
+    case
+        maps:fold(
+          fun (Key, _, Acc) ->
+                  if
+                      is_map_key(Key, Default) ->
+                          Acc;
+                      true ->
+                          [Key | Acc]
+                  end
+          end, [], SockAddr)
+    of
+        [] ->
+            maps:merge(Default, SockAddr);
+        InvalidKeys ->
+            throw({invalid, {sockaddr, {keys,InvalidKeys}, SockAddr}})
+    end.
 
 %% File names has to be encoded according to
 %% the native file encoding
@@ -896,6 +917,7 @@ enc_msg(#{} = M) ->
       end,
       M);
 enc_msg(M) ->
+    %% Neater than a function clause
     erlang:error({invalid, {msg, M}}).
 
 enc_cmsgs(Cmsgs, Protocols) ->
