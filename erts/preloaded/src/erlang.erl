@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@
 -export([min/2, max/2]).
 -export([dmonitor_node/3]).
 -export([delay_trap/2]).
--export([set_cookie/2, get_cookie/0]).
+-export([set_cookie/1, set_cookie/2, get_cookie/0, get_cookie/1]).
 -export([nodes/0]).
 
 -export([integer_to_list/2]).
@@ -3781,28 +3781,37 @@ dmonitor_node(Node, Flag, Opts) ->
 delay_trap(Result, 0) -> erlang:yield(), Result;
 delay_trap(Result, Timeout) -> receive after Timeout -> Result end.
 
-%%
-%% The business with different in and out cookies represented
-%% everywhere is discarded.
-%% A node has a cookie, connections/messages to that node use that cookie.
-%% Messages to us use our cookie. IF we change our cookie, other nodes 
-%% have to reflect that, which we cannot forsee.
-%%
+
+-spec erlang:set_cookie(Cookie) -> true when
+      Cookie :: atom().
+set_cookie(C) when erlang:is_atom(C) ->
+    auth:set_cookie(C);
+set_cookie(C) ->
+    badarg_with_info([C]).
+
 -spec erlang:set_cookie(Node, Cookie) -> true when
       Node :: node(),
       Cookie :: atom().
-set_cookie(Node, C) when Node =/= nonode@nohost, erlang:is_atom(Node) ->
-    case erlang:is_atom(C) of
-	true ->
-	    auth:set_cookie(Node, C);
-	false ->
-	    erlang:error(badarg)
-    end.
+set_cookie(Node, C)
+  when Node =/= nonode@nohost, erlang:is_atom(Node), erlang:is_atom(C) ->
+    auth:set_cookie(Node, C);
+set_cookie(Node, C) ->
+    badarg_with_info([Node, C]).
+
 
 -spec erlang:get_cookie() -> Cookie | nocookie when
       Cookie :: atom().
 get_cookie() ->
     auth:get_cookie().
+
+-spec erlang:get_cookie(Node) -> Cookie | nocookie when
+      Node :: node(),
+      Cookie :: atom().
+get_cookie(Node) when erlang:is_atom(Node) ->
+    auth:get_cookie(Node);
+get_cookie(Node) ->
+    badarg_with_info([Node]).
+
 
 -spec integer_to_list(Integer, Base) -> string() when
       Integer :: integer(),

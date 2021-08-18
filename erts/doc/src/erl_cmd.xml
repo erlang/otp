@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>1996</year><year>2020</year>
+      <year>1996</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -626,6 +626,13 @@ $ <input>erl \
       <tag><c><![CDATA[-setcookie Cookie]]></c></tag>
       <item>
         <p>Sets the magic cookie of the node to <c><![CDATA[Cookie]]></c>; see
+          <seemfa marker="erlang#set_cookie/2">
+          <c>erlang:set_cookie/2</c></seemfa>.</p>
+      </item>
+      <tag><c><![CDATA[-setcookie Node Cookie]]></c></tag>
+      <item>
+        <p>Sets the magic cookie for <c><![CDATA[Node]]></c>
+          to <c><![CDATA[Cookie]]></c>; see
           <seemfa marker="erlang#set_cookie/2">
           <c>erlang:set_cookie/2</c></seemfa>.</p>
       </item>
