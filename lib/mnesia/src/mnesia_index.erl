@@ -139,22 +139,15 @@ del_object_index(#index{pos_list = PosL, setorbag = SorB}, Storage, Tab, K, Obj)
     del_object_index2(PosL, SorB, Storage, Tab, K, Obj).
 
 del_object_index2([], _, _Storage, _Tab, _K, _Obj) -> ok;
-del_object_index2([{{Pos, Type}, Ixt} | Tail], SoB, Storage, Tab, K, Obj) ->
+del_object_index2([{{Pos, Type}, Ixt} | Tail], SoB, Storage, Tab, Key, Obj) ->
     ValsF = index_vals_f(Storage, Tab, Pos),
-    case SoB of
-	bag ->
-	    del_object_bag(Type, ValsF, Tab, K, Obj, Ixt);
-	_ -> %% If set remove the tuple in index table
-	    del_ixes(Type, Ixt, ValsF, Obj, K)
-    end,
-    del_object_index2(Tail, SoB, Storage, Tab, K, Obj).
-
-del_object_bag(Type, ValsF, Tab, Key, Obj, Ixt) ->
-    IxKeys = ValsF(Obj),
     Found = [{X, ValsF(X)} || X <- mnesia_lib:db_get(Tab, Key)],
-    del_object_bag_(IxKeys, Found, Type, Tab, Key, Obj, Ixt).
+    IxKeys = ValsF(Obj),
+    del_object_index3(IxKeys, Found, Type, Tab, Key, Obj, Ixt),
+    del_object_index2(Tail, SoB, Storage, Tab, Key, Obj).
 
-del_object_bag_([IxK|IxKs], Found, Type, Tab, Key, Obj, Ixt) ->
+
+del_object_index3([IxK|IxKs], Found, Type, Tab, Key, Obj, Ixt) ->
     case [X || {X, Ixes} <- Found, lists:member(IxK, Ixes)] of
         [Old] when Old =:= Obj ->
 	    case Type of
@@ -166,8 +159,8 @@ del_object_bag_([IxK|IxKs], Found, Type, Tab, Key, Obj, Ixt) ->
         _ ->
 	    ok
     end,
-    del_object_bag_(IxKs, Found, Type, Tab, Key, Obj, Ixt);
-del_object_bag_([], _, _, _, _, _, _) ->
+    del_object_index3(IxKs, Found, Type, Tab, Key, Obj, Ixt);
+del_object_index3([], _, _, _, _, _, _) ->
     ok.
 
 clear_index(Index, Tab, K, Obj) ->
