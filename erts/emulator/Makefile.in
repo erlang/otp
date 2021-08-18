@@ -275,7 +275,7 @@ ifeq ($(FLAVOR),jit)
 CFLAGS  += -DBEAMASM=1
 ENABLE_ALLOC_TYPE_VARS += beamasm
 endif
-CXXFLAGS = $(filter-out -Werror=implicit -Wstrict-prototypes -Wmissing-prototypes -Wdeclaration-after-statement,$(CFLAGS)) @CXXFLAGS@
+CXXFLAGS = $(filter-out -Werror=implicit -Wstrict-prototypes -Wmissing-prototypes,$(CFLAGS)) @CXXFLAGS@
 HCC     = @HCC@
 LD      = @LD@
 DEXPORT = @DEXPORT@

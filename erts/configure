@@ -7984,31 +7984,6 @@ fi
       WFLAGS="$WFLAGS -Wmissing-prototypes";;
   esac
 
-  saved_CFLAGS=$CFLAGS
-  CFLAGS="$CFLAGS -Wdeclaration-after-statement"
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  warn_decl_after_st=true
-else $as_nop
-  warn_decl_after_st=false
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-  if test "X$warn_decl_after_st" = "Xtrue"; then
-    WFLAGS="$WFLAGS -Wdeclaration-after-statement"
-  fi
-  CFLAGS=$saved_CFLAGS
-
   # Use -fno-common for gcc, that is link error if multiple definitions of
   # global variables are encountered. This is ISO C compliant.
   # Until version 10, gcc has had -fcommon as default, which allows and merges

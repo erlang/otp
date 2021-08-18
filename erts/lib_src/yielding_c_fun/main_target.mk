@@ -26,7 +26,7 @@ YCF_SOURCES = $(sort $(wildcard $(YCF_SOURCE_DIR)/*.c) $(YCF_EXTRA_SOURCES))
 
 YCF_OBJECTS = $(addprefix $(YCF_OBJ_DIR)/,$(notdir $(YCF_SOURCES:.c=.o)))
 
-YCF_CFLAGS = $(filter-out -Wstrict-prototypes -Wdeclaration-after-statement -Wmissing-prototypes,$(CFLAGS))
+YCF_CFLAGS = $(filter-out -Wstrict-prototypes -Wmissing-prototypes,$(CFLAGS))
 
 $(YCF_EXECUTABLE): $(YCF_OBJECTS)
 	$(V_LD) $(YCF_CFLAGS) $(LDFLAGS) $(YCF_OBJECTS) -o $@

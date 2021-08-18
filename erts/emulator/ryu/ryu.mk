@@ -36,11 +36,7 @@ else
 RYU_LIBRARY = $(RYU_OBJDIR)/libryu.a
 endif
 
-ifeq ($(TARGET), win32)
 RYU_CFLAGS = $(CFLAGS)
-else
-RYU_CFLAGS = $(filter-out -Wdeclaration-after-statement,$(CFLAGS))
-endif
 
 ifeq ($(TARGET), win32)
 $(RYU_LIBRARY): $(RYU_OBJS)

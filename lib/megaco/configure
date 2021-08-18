@@ -5012,44 +5012,6 @@ case "$host_cpu" in
 esac
 
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wdeclaration-after-statement to DED_WARN_FLAGS (via CFLAGS)" >&5
-printf %s "checking if we can add -Wdeclaration-after-statement to DED_WARN_FLAGS (via CFLAGS)... " >&6; }
-    saved_CFLAGS=$CFLAGS;
-    CFLAGS="-Wdeclaration-after-statement $DED_WARN_FLAGS";
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-return 0;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  can_enable_flag=true
-else $as_nop
-  can_enable_flag=false
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-    CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"
-then :
-
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-        DED_WARN_FLAGS="-Wdeclaration-after-statement $DED_WARN_FLAGS"
-
-else $as_nop
-
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-
-fi
-
-
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=return-type to DED_WERRORFLAGS (via CFLAGS)" >&5
 printf %s "checking if we can add -Werror=return-type to DED_WERRORFLAGS (via CFLAGS)... " >&6; }

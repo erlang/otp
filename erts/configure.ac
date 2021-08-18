@@ -645,14 +645,6 @@ AS_IF([test "x$GCC" = xyes],
       WFLAGS="$WFLAGS -Wmissing-prototypes";;
   esac
 
-  saved_CFLAGS=$CFLAGS
-  CFLAGS="$CFLAGS -Wdeclaration-after-statement"
-  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[;]])],[warn_decl_after_st=true],[warn_decl_after_st=false])
-  if test "X$warn_decl_after_st" = "Xtrue"; then
-    WFLAGS="$WFLAGS -Wdeclaration-after-statement"
-  fi
-  CFLAGS=$saved_CFLAGS
-
   # Use -fno-common for gcc, that is link error if multiple definitions of
   # global variables are encountered. This is ISO C compliant.
   # Until version 10, gcc has had -fcommon as default, which allows and merges

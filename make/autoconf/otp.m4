@@ -3023,7 +3023,6 @@ case "$host_cpu" in
     DED_WARN_FLAGS="$DED_WARN_FLAGS -Wmissing-prototypes";;
 esac
   
-LM_TRY_ENABLE_CFLAG([-Wdeclaration-after-statement], [DED_WARN_FLAGS])
 
 LM_TRY_ENABLE_CFLAG([-Werror=return-type], [DED_WERRORFLAGS])
 LM_TRY_ENABLE_CFLAG([-Werror=implicit], [DED_WERRORFLAGS])
