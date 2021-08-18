@@ -28,7 +28,8 @@
 %%-import(helper, %% 'helper' could be any module doing sanity checks...
 -import(erl_types,
         [t_has_var/1, t_inf/2, t_is_equal/2, t_is_subtype/2,
-        t_subtract/2, t_subtract_list/2, t_sup/1, t_sup/2,t_unify/2]).
+        t_subtract/2, t_subtract_list/2, t_sup/1, t_sup/2,
+        t_unify_table_only/2]).
 
 -import(erl_types,
 	[t_any/0, t_atom/0, t_atom_vals/1,
@@ -2505,8 +2506,13 @@ solve_subtype(Type, Inf, Map) ->
   %%	false -> error
   %%     end;
   %%   false ->
-      try t_unify(Type, Inf) of
-	{_, List} -> {ok, enter_type_list(List, Map)}
+      %% t_unify_table_only() is somewhat faster than t_unify(). The
+      %% fact that all variables occur in Type (no variables in Inf)
+      %% is not used in any way.
+      %% try t_unify(Type, Inf) of
+      %%   {_, List} -> {ok, enter_type_list(List, Map)}
+      try t_unify_table_only(Type, Inf) of
+          List -> {ok, enter_type_list(List, Map)}
       catch
 	throw:{mismatch, _T1, _T2} ->
 	  ?debug("Mismatch between ~ts and ~ts\n",

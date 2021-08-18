@@ -43,34 +43,53 @@
 -type timing() :: dialyzer_timing:timing_server().
 
 -type scc()     :: [mfa_or_funlbl()].
--type mode()    :: 'typesig' | 'dataflow' | 'compile' | 'warnings'.
+-type mode()    :: 'typesig' | 'dataflow' | 'compile' | 'warnings' |
+                   'contract_remote_types' | 'record_remote_types'.
 
 -type compile_job()  :: file:filename().
 -type typesig_job()  :: scc().
 -type dataflow_job() :: module().
 -type warnings_job() :: module().
+-type contract_remote_types_job() :: module().
+-type record_remote_types_job() :: module().
 
--type job() :: compile_job() | typesig_job() | dataflow_job() | warnings_job().
+-type job() :: compile_job() | typesig_job() | dataflow_job() |
+               warnings_job() | contract_remote_types_job() |
+               record_remote_types_job().
 
 -type compile_init_data()  :: dialyzer_analysis_callgraph:compile_init_data().
 -type typesig_init_data()  :: dialyzer_succ_typings:typesig_init_data().
 -type dataflow_init_data() :: dialyzer_succ_typings:dataflow_init_data().
 -type warnings_init_data() :: dialyzer_succ_typings:warnings_init_data().
+-type contract_remote_types_init_data() ::
+                      dialyzer_contracts:contract_remote_types_init_data().
+-type record_remote_types_init_data() ::
+                      dialyzer_utils:record_remote_types_init_data().
 
 -type compile_result()  :: dialyzer_analysis_callgraph:compile_result().
 -type typesig_result()  :: [mfa_or_funlbl()].
 -type dataflow_result() :: [mfa_or_funlbl()].
 -type warnings_result() :: [dial_warning()].
+-type contract_remote_types_result() ::
+        dialyzer_contracts:contract_remote_types_result().
+-type record_remote_types_result() ::
+        dialyzer_utils:record_remote_types_result().
 
 -type init_data() :: compile_init_data() | typesig_init_data() |
-		     dataflow_init_data() | warnings_init_data().
+		     dataflow_init_data() | warnings_init_data() |
+                     contract_remote_types_init_data() |
+                     record_remote_types_init_data().
 
 -type result() :: compile_result() | typesig_result() |
-		  dataflow_result() | warnings_result().
+		  dataflow_result() | warnings_result() |
+                  contract_remote_types_result() |
+                  record_remote_types_result().
 
 -type job_result() :: dialyzer_analysis_callgraph:one_file_mid_error() |
                       dialyzer_analysis_callgraph:one_file_result_ok() |
-                      typesig_result() | dataflow_result() | warnings_result().
+                      typesig_result() | dataflow_result() |
+                      warnings_result() | contract_remote_types_result() |
+                      record_remote_types_result().
 
 -record(state, {mode           :: mode(),
 		active     = 0 :: integer(),
@@ -94,7 +113,13 @@
 		  ('dataflow', [dataflow_job()], dataflow_init_data(),
 		   timing()) -> dataflow_result();
 		  ('warnings', [warnings_job()], warnings_init_data(),
-		   timing()) -> warnings_result().
+		   timing()) -> warnings_result();
+                  ('contract_remote_types', [contract_remote_types_job()],
+                   contract_remote_types_init_data(), timing()) ->
+                      contract_remote_types_result();
+                  ('record_remote_types', [record_remote_types_job()],
+                   record_remote_types_init_data(), timing()) ->
+                      record_remote_types_result().
 
 parallel_job(Mode, Jobs, InitData, Timing) ->
   State = spawn_jobs(Mode, Jobs, InitData, Timing),
@@ -158,7 +183,11 @@ collect_result(#state{mode = Mode, active = Active, result = Result,
 	      ets:delete(SCCtoPID),
 	      NewResult;
 	    'warnings' ->
-	      NewResult
+	      NewResult;
+            'contract_remote_types' ->
+              NewResult;
+            'record_remote_types' ->
+              NewResult
 	  end;
 	N ->
           case TypesigOrDataflow of
@@ -187,6 +216,8 @@ update_result(Mode, InitData, Job, Data, Result) ->
     X when X =:= 'typesig'; X =:= 'dataflow' ->
       dialyzer_succ_typings:lookup_names(Data, InitData) ++ Result;
     'warnings' ->
+      Data ++ Result;
+    X when X =:= 'contract_remote_types'; X =:= 'record_remote_types' ->
       Data ++ Result
   end.
 

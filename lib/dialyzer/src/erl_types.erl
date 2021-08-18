@@ -202,7 +202,7 @@
 	 t_tuple_sizes/1,
 	 t_tuple_subtypes/1,
          t_tuple_subtypes/2,
-	 t_unify/2,
+	 t_unify_table_only/2, t_unify/2,
 	 t_unit/0,
 	 t_unopaque/1, t_unopaque/2,
 	 t_var/1,
@@ -2583,7 +2583,7 @@ t_sup(Ts) ->
 
 t_sup1([H1, H2|T], L) ->
   t_sup1(T, [t_sup(H1, H2)|L]);
-t_sup1([T], []) -> subst_all_vars_to_any(T);
+t_sup1([T], []) -> do_not_subst_all_vars_to_any(T);
 t_sup1(Ts, L) ->
   t_sup1(Ts++L, []).
 
@@ -2595,7 +2595,7 @@ t_sup(?none, T) -> T;
 t_sup(T, ?none) -> T;
 t_sup(?unit, T) -> T;
 t_sup(T, ?unit) -> T;
-t_sup(T, T) -> subst_all_vars_to_any(T);
+t_sup(T, T) -> do_not_subst_all_vars_to_any(T);
 t_sup(?var(_), _) -> ?any;
 t_sup(_, ?var(_)) -> ?any;
 t_sup(?atom(Set1), ?atom(Set2)) ->
@@ -2889,15 +2889,15 @@ t_inf(T1, T2) ->
 -spec t_inf(erl_type(), erl_type(), t_inf_opaques()) -> erl_type().
 
 t_inf(?var(_), ?var(_), _Opaques) -> ?any;
-t_inf(?var(_), T, _Opaques) -> subst_all_vars_to_any(T);
-t_inf(T, ?var(_), _Opaques) -> subst_all_vars_to_any(T);
-t_inf(?any, T, _Opaques) -> subst_all_vars_to_any(T);
-t_inf(T, ?any, _Opaques) -> subst_all_vars_to_any(T);
+t_inf(?var(_), T, _Opaques) -> do_not_subst_all_vars_to_any(T);
+t_inf(T, ?var(_), _Opaques) -> do_not_subst_all_vars_to_any(T);
+t_inf(?any, T, _Opaques) -> do_not_subst_all_vars_to_any(T);
+t_inf(T, ?any, _Opaques) -> do_not_subst_all_vars_to_any(T);
 t_inf(?none, _, _Opaques) -> ?none;
 t_inf(_, ?none, _Opaques) -> ?none;
 t_inf(?unit, _, _Opaques) -> ?unit;	% ?unit cases should appear below ?none
 t_inf(_, ?unit, _Opaques) -> ?unit;
-t_inf(T, T, _Opaques) -> subst_all_vars_to_any(T);
+t_inf(T, T, _Opaques) -> do_not_subst_all_vars_to_any(T);
 t_inf(?atom(Set1), ?atom(Set2), _) ->
   case set_intersection(Set1, Set2) of
     ?none ->  ?none;
@@ -2933,7 +2933,7 @@ t_inf(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B, _Opaques) ->
   %% result in a none result.
   Pairs =
     map_pairwise_merge(
-      %% For optional keys in both maps, when the infinimum is none, we have
+      %% For optional keys in both maps, when the infimum is none, we have
       %% essentially concluded that K must not be a key in the map.
       fun(K, ?opt, V1, ?opt, V2) -> {K, ?opt, t_inf(V1, V2)};
 	 %% When a key is optional in one map, but mandatory in another, it
@@ -3017,13 +3017,13 @@ t_inf(?product(_), _, _Opaques) ->
 t_inf(_, ?product(_), _Opaques) ->
   ?none;
 t_inf(?tuple(?any, ?any, ?any), ?tuple(_, _, _) = T, _Opaques) ->
-  subst_all_vars_to_any(T);
+  do_not_subst_all_vars_to_any(T);
 t_inf(?tuple(_, _, _) = T, ?tuple(?any, ?any, ?any), _Opaques) ->
-  subst_all_vars_to_any(T);
+  do_not_subst_all_vars_to_any(T);
 t_inf(?tuple(?any, ?any, ?any), ?tuple_set(_) = T, _Opaques) ->
-  subst_all_vars_to_any(T);
+  do_not_subst_all_vars_to_any(T);
 t_inf(?tuple_set(_) = T, ?tuple(?any, ?any, ?any), _Opaques) ->
-  subst_all_vars_to_any(T);
+  do_not_subst_all_vars_to_any(T);
 t_inf(?tuple(Elements1, Arity, _Tag1), ?tuple(Elements2, Arity, _Tag2), Opaques) ->
   case t_inf_lists_strict(Elements1, Elements2, Opaques) of
     bottom -> ?none;
@@ -3404,10 +3404,19 @@ findfirst(N1, N2, U1, B1, U2, B2) ->
   if Val1 =:= Val2 ->
       Val1;
      Val1 > Val2 ->
-      findfirst(N1, N2+1, U1, B1, U2, B2);
+      N2_1 = N2 + max((Val1 - Val2) div U2, 1),
+      findfirst(N1, N2_1, U1, B1, U2, B2);
      Val1 < Val2 ->
-      findfirst(N1+1, N2, U1, B1, U2, B2)
+      N1_1 = N1 + max((Val2 - Val1) div U1, 1),
+      findfirst(N1_1, N2, U1, B1, U2, B2)
   end.
+
+%% Optimization. Before Erlang/OTP 25, subst_all_vars_to_any() was
+%% called. It turned out that variables are not to be substituted for
+%% any() since either there are no variables, or variables are
+%% substituted for any() afterwards.
+do_not_subst_all_vars_to_any(T) ->
+  T.
 
 %%-----------------------------------------------------------------------------
 %% Substitution of variables
@@ -3473,6 +3482,119 @@ t_subst_aux(T, _Map) ->
 %%-----------------------------------------------------------------------------
 %% Unification
 %%
+
+-spec t_unify_table_only(erl_type(), erl_type()) -> [{_, erl_type()}].
+
+%% A simplified version of t_unify/2 which returns the variable
+%% bindings only. It is faster, mostly because t_subst() is not
+%% called.
+
+t_unify_table_only(T1, T2) ->
+  VarMap = t_unify_table_only(T1, T2, #{}),
+  lists:keysort(1, maps:to_list(VarMap)).
+
+t_unify_table_only(?var(Id), ?var(Id), VarMap) ->
+  VarMap;
+t_unify_table_only(?var(Id1) = T, ?var(Id2), VarMap) ->
+  case maps:find(Id1, VarMap) of
+    error ->
+      case maps:find(Id2, VarMap) of
+	error -> VarMap#{Id2 => T};
+	{ok, Type} -> t_unify_table_only(T, Type, VarMap)
+      end;
+    {ok, Type1} ->
+      case maps:find(Id2, VarMap) of
+	error -> VarMap#{Id2 => T};
+	{ok, Type2} -> t_unify_table_only(Type1, Type2, VarMap)
+      end
+  end;
+t_unify_table_only(?var(Id), Type, VarMap) ->
+  case maps:find(Id, VarMap) of
+    error -> VarMap#{Id => Type};
+    {ok, VarType} -> t_unify_table_only(VarType, Type, VarMap)
+  end;
+t_unify_table_only(Type, ?var(Id), VarMap) ->
+  case maps:find(Id, VarMap) of
+    error -> VarMap#{Id => Type};
+    {ok, VarType} -> t_unify_table_only(VarType, Type, VarMap)
+  end;
+t_unify_table_only(?function(Domain1, Range1), ?function(Domain2, Range2), VarMap) ->
+  VarMap1 = t_unify_table_only(Domain1, Domain2, VarMap),
+  t_unify_table_only(Range1, Range2, VarMap1);
+t_unify_table_only(?list(Contents1, Termination1, Size),
+	?list(Contents2, Termination2, Size), VarMap) ->
+  VarMap1 = t_unify_table_only(Contents1, Contents2, VarMap),
+  t_unify_table_only(Termination1, Termination2, VarMap1);
+t_unify_table_only(?product(Types1), ?product(Types2), VarMap) ->
+  unify_lists_table_only(Types1, Types2, VarMap);
+t_unify_table_only(?tuple(?any, ?any, ?any), ?tuple(?any, ?any, ?any), VarMap) ->
+  VarMap;
+t_unify_table_only(?tuple(Elements1, Arity, _),
+	?tuple(Elements2, Arity, _), VarMap) when Arity =/= ?any ->
+  unify_lists_table_only(Elements1, Elements2, VarMap);
+t_unify_table_only(?tuple_set([{Arity, _}]) = T1,
+	?tuple(_, Arity, _) = T2, VarMap) when Arity =/= ?any ->
+  unify_tuple_set_and_tuple1_table_only(T1, T2, VarMap);
+t_unify_table_only(?tuple(_, Arity, _) = T1,
+	?tuple_set([{Arity, _}]) = T2, VarMap) when Arity =/= ?any ->
+  unify_tuple_set_and_tuple2_table_only(T1, T2, VarMap);
+t_unify_table_only(?tuple_set(List1) = T1, ?tuple_set(List2) = T2, VarMap) ->
+  try
+    unify_lists_table_only(lists:append([T || {_Arity, T} <- List1]),
+                           lists:append([T || {_Arity, T} <- List2]), VarMap)
+  catch _:_ -> throw({mismatch, T1, T2})
+  end;
+t_unify_table_only(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B, VarMap0) ->
+  VarMap1 = t_unify_table_only(ADefK, BDefK, VarMap0),
+  VarMap2 = t_unify_table_only(ADefV, BDefV, VarMap1),
+  {[], VarMap} =
+    map_pairwise_merge_foldr(
+      fun(_K, MNess, V1, MNess, V2, {Pairs0, VarMap3}) ->
+	  %% We know that the keys unify and do not contain variables, or they
+	  %% would not be singletons
+	  %% TODO: Should V=?none (known missing keys) be handled special?
+	  VarMap4 = t_unify_table_only(V1, V2, VarMap3),
+	  {Pairs0, VarMap4};
+	 (_K, _, V1, _, V2, {Pairs0, VarMap3}) ->
+	  %% One mandatory and one optional; what should be done in this case?
+	  VarMap4 = t_unify_table_only(V1, V2, VarMap3),
+	  {Pairs0, VarMap4}
+      end, {[], VarMap2}, A, B),
+  VarMap;
+t_unify_table_only(?opaque(_) = T1, ?opaque(_) = T2, VarMap) ->
+  t_unify_table_only(t_opaque_structure(T1), t_opaque_structure(T2), VarMap);
+t_unify_table_only(T1, ?opaque(_) = T2, VarMap) ->
+  t_unify_table_only(T1, t_opaque_structure(T2), VarMap);
+t_unify_table_only(?opaque(_) = T1, T2, VarMap) ->
+  t_unify_table_only(t_opaque_structure(T1), T2, VarMap);
+t_unify_table_only(T, T, VarMap) ->
+  VarMap;
+t_unify_table_only(?union(_)=T1, ?union(_)=T2, VarMap) ->
+  {Type1, Type2} = unify_union2(T1, T2),
+  t_unify_table_only(Type1, Type2, VarMap);
+t_unify_table_only(?union(_)=T1, T2, VarMap) ->
+  t_unify_table_only(unify_union1(T1, T1, T2), T2, VarMap);
+t_unify_table_only(T1, ?union(_)=T2, VarMap) ->
+  t_unify_table_only(T1, unify_union1(T2, T1, T2), VarMap);
+t_unify_table_only(T1, T2, _) ->
+  throw({mismatch, T1, T2}).
+
+%% Two functions since t_unify_table_only is not symmetric.
+unify_tuple_set_and_tuple1_table_only(?tuple_set([{Arity, List}]),
+                                      ?tuple(Elements2, Arity, _), VarMap) ->
+  %% Can only work if the single tuple has variables at correct places.
+  unify_lists_table_only(sup_tuple_elements(List), Elements2, VarMap).
+
+unify_tuple_set_and_tuple2_table_only(?tuple(Elements2, Arity, _),
+                                      ?tuple_set([{Arity, List}]), VarMap) ->
+  %% Can only work if the single tuple has variables at correct places.
+  unify_lists_table_only(Elements2, sup_tuple_elements(List), VarMap).
+
+unify_lists_table_only([T1|Left1], [T2|Left2], VarMap) ->
+  NewVarMap = t_unify_table_only(T1, T2, VarMap),
+  unify_lists_table_only(Left1, Left2, NewVarMap);
+unify_lists_table_only([], [], VarMap) ->
+  VarMap.
 
 -type t_unify_ret() :: {erl_type(), [{_, erl_type()}]}.
 
@@ -3926,7 +4048,7 @@ t_subtract(?map(APairs, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B) ->
       %%  * The arguments constrain A at least as much as B, i.e. that A so far
       %%    is a subtype of B. In that case they return false
       %%  * That for the particular arguments, A being a subtype of B does not
-      %%    hold, but the infinimum of A and B is nonempty, and by narrowing a
+      %%    hold, but the infimum of A and B is nonempty, and by narrowing a
       %%    pair in A, we can create a type that excludes some elements in the
       %%    infinumum. In that case, they will return that pair.
       %%  * That for the particular arguments, A being a subtype of B does not
@@ -4145,7 +4267,44 @@ t_unopaque(T, _) ->
 -spec t_limit(erl_type(), integer()) -> erl_type().
 
 t_limit(Term, K) when is_integer(K) ->
-  t_limit_k(Term, K).
+  case is_limited(Term, K) of
+    true -> Term;
+    false -> t_limit_k(Term, K)
+  end.
+
+is_limited(?any, _) -> true;
+is_limited(_, K) when K =< 0 -> false;
+is_limited(?tuple(?any, ?any, ?any), _K) -> true;
+is_limited(?tuple(Elements, _Arity, _), K) ->
+  if K =:= 1 -> false;
+    true ->
+      K1 = K-1,
+      lists:all(fun(E) -> is_limited(E, K1) end, Elements)
+  end;
+is_limited(?tuple_set(_) = T, K) ->
+  lists:all(fun(Tuple) -> is_limited(Tuple, K) end, t_tuple_subtypes(T));
+is_limited(?list(Elements, Termination, _Size), K) ->
+  if K =:= 1 -> is_limited(Termination, K);
+    true -> is_limited(Termination, K - 1)
+  end
+  andalso is_limited(Elements, K - 1);
+is_limited(?function(Domain, Range), K) ->
+  is_limited(Domain, K) andalso is_limited(Range, K-1);
+is_limited(?product(Elements), K) ->
+  K1 = K-1,
+  lists:all(fun(X) -> is_limited(X, K1) end, Elements);
+is_limited(?union(Elements), K) ->
+  lists:all(fun(X) -> is_limited(X, K) end, Elements);
+is_limited(?opaque(Es), K) ->
+  lists:all(fun(#opaque{struct = S}) -> is_limited(S, K) end, set_to_list(Es));
+is_limited(?map(Pairs, DefK, DefV), K) ->
+  %% Use the fact that t_sup() does not increase the depth.
+  K1 = K - 1,
+  lists:all(fun({Key, _, Value}) ->
+                is_limited(Key, K1) andalso is_limited(Value, K1)
+            end, Pairs)
+    andalso is_limited(DefK, K1) andalso is_limited(DefV, K1);
+is_limited(_, _K) -> true.
 
 t_limit_k(_, K) when K =< 0 -> ?any;
 t_limit_k(?tuple(?any, ?any, ?any) = T, _K) -> T;
@@ -4504,6 +4663,7 @@ mod_name(Mod, Name) ->
                       [erl_type()], type_names()}.
 -type mod_type_table() :: ets:tid().
 -type mod_records() :: dict:dict(module(), type_table()).
+-type exported_type_table() :: ets:tid().
 -record(cache,
         {
           types = maps:new() :: #{cache_key() => {erl_type(), expand_limit()}},
@@ -4512,7 +4672,7 @@ mod_name(Mod, Name) ->
 
 -opaque cache() :: #cache{}.
 
--spec t_from_form(parse_form(), sets:set(mfa()), site(), mod_type_table(),
+-spec t_from_form(parse_form(), exported_type_table(), site(), mod_type_table(),
                   var_table(), cache()) -> {erl_type(), cache()}.
 
 t_from_form(Form, ExpTypes, Site, RecDict, VarTab, Cache) ->
@@ -4537,12 +4697,12 @@ t_from_form_without_remote(Form, Site, TypeTable) ->
 -type expand_depth() :: integer().
 
 -record(from_form, {site   :: site(),
-                    xtypes :: sets:set(mfa()) | 'replace_by_none',
+                    xtypes :: exported_type_table() | 'replace_by_none',
                     mrecs  :: 'undefined' | mod_type_table(),
                     vtab   :: var_table(),
                     tnames :: type_names()}).
 
--spec t_from_form_check_remote(parse_form(), sets:set(mfa()), site(),
+-spec t_from_form_check_remote(parse_form(), exported_type_table(), site(),
                                mod_type_table()) -> 'ok'.
 t_from_form_check_remote(Form, ExpTypes, Site, RecDict) ->
   State = #from_form{site   = Site,
@@ -4563,7 +4723,7 @@ t_from_form_check_remote(Form, ExpTypes, Site, RecDict) ->
 %% types balanced (unions will otherwise collapse to any()) by limiting
 %% the depth the same way as t_limit/2 does.
 
--spec t_from_form1(parse_form(), sets:set(mfa()) | 'replace_by_none',
+-spec t_from_form1(parse_form(), exported_type_table() | 'replace_by_none',
                    site(), 'undefined' | mod_type_table(), var_table(),
                    cache()) -> {erl_type(), cache()}.
 
@@ -4592,6 +4752,10 @@ initial_typenames({type, MTA, _File}) -> [{type, MTA}];
 initial_typenames({spec, _MFA, _File}) -> [];
 initial_typenames({record, _MRA, _File}) -> [].
 
+%% 4 is the maximal depth used by any Dialyzer module
+%% (5 is used internally).
+-define(TYPE_LIMIT, 4).
+
 from_form_loop(Form, State, D, Limit, C, T0) ->
   {T1, L1, C1} = from_form(Form, State, D, Limit, C),
   Delta = Limit - L1,
@@ -4600,6 +4764,9 @@ from_form_loop(Form, State, D, Limit, C, T0) ->
       {T0, C1};
     Delta * 8 > Limit ->
       %% Save some time by assuming next depth will exceed the limit.
+      {T1, C1};
+    D =:= ?TYPE_LIMIT ->
+      %% No need to go deeper than necessary.
       {T1, C1};
     true ->
       D1 = D + 1,
@@ -4908,7 +5075,7 @@ remote_from_form(Anno, RemMod, Name, Args, S, D, L, C) ->
           self() ! {self(), ext_types, ext_types_message(MFA, Anno, Site)},
           {t_any(), L, C};
         {RemDict, C1} ->
-          case sets:is_element(MFA, ET) of
+          case ets:member(ET, MFA) of
             true ->
               RemType = {type, MFA},
               case can_unfold_more(RemType, TypeNames) of
@@ -5179,7 +5346,7 @@ recur_limit(Fun, D, L, TypeName, TypeNames) ->
       Fun(D, L)
   end.
 
--spec t_check_record_fields(parse_form(), sets:set(mfa()), site(),
+-spec t_check_record_fields(parse_form(), exported_type_table(), site(),
                             mod_type_table(), var_table(), cache()) -> cache().
 
 t_check_record_fields(Form, ExpTypes, Site, RecDict, VarTable, Cache) ->
@@ -5410,7 +5577,7 @@ t_form_to_string({type, _Anno, Name, []} = T) ->
      V = var_table__new(),
      C = cache__new(),
      State = #from_form{site   = Site,
-                        xtypes = sets:new(),
+                        xtypes = replace_by_none,
                         mrecs  = 'undefined',
                         vtab   = V,
                         tnames = []},

@@ -47,8 +47,20 @@
          family/1
 	]).
 
+%% For dialyzer_worker.
+-export([process_record_remote_types_module/2]).
+
+-export_type([record_remote_types_init_data/0,
+              record_remote_types_result/0]).
+
 -include("dialyzer.hrl").
 -include("../../compiler/src/core_parse.hrl").
+
+-type ext_types_message() :: {pid(), 'ext_types',
+                              {mfa(), {file:filename(), erl_anno:location()}}}
+                           | {'error', io_lib:chars()}.
+-type record_remote_types_init_data() :: codeserver().
+-type record_remote_types_result() :: [ext_types_message()].
 
 %%-define(DEBUG, true).
 
@@ -233,60 +245,104 @@ get_record_fields([], _RecDict, Acc) ->
 
 %% The field types are cached. Used during analysis when handling records.
 process_record_remote_types(CServer) ->
-  ExpTypes = dialyzer_codeserver:get_exported_types(CServer),
-  Mods = dialyzer_codeserver:all_temp_modules(CServer),
-  process_opaque_types0(Mods, CServer, ExpTypes),
+  case dialyzer_codeserver:all_temp_modules(CServer) of
+    [] ->
+      CServer;
+    Mods ->
+      ExpTypes = dialyzer_codeserver:get_exported_types_table(CServer),
+      process_opaque_types0(Mods, CServer, ExpTypes),
+      %% CodeServer is updated by each worker, but is still valid
+      %% after updates. Workers call
+      %% process_record_remote_types_module/2 below.
+      Return =
+        dialyzer_coordinator:parallel_job(record_remote_types,
+                                          Mods,
+                                          _InitData=CServer,
+                                          _Timing=none),
+      %% We need to pass on messages and thrown errors from erl_types:
+      _ = [self() ! {self(), ext_types, ExtType} ||
+            {_, ext_types, ExtType} <- Return],
+      case [Error || {error, _} = Error <- Return] of
+        [] ->
+          check_record_fields(Mods, CServer, ExpTypes),
+          dialyzer_codeserver:finalize_records(CServer);
+        [Error | _] ->
+          throw(Error)
+      end
+  end.
+
+-spec process_record_remote_types_module(module(),
+                                         dialyzer_codeserver:codeserver()) ->
+                                            [ext_types_message()].
+
+process_record_remote_types_module(Module, CServer) ->
+
+  ExpTypes = dialyzer_codeserver:get_exported_types_table(CServer),
   VarTable = erl_types:var_table__new(),
   RecordTable = dialyzer_codeserver:get_temp_records_table(CServer),
-  ModuleFun =
-    fun(Module) ->
-        RecordMap = dialyzer_codeserver:lookup_temp_mod_records(Module, CServer),
-        RecordFun =
-          fun({Key, Value}, C2) ->
-              case Key of
-                {record, Name} ->
-                  {FileLocation, Fields} = Value,
-                  {File, _Location} = FileLocation,
-                  FieldFun =
-                    fun({Arity, Fields0}, C4) ->
-                        MRA = {Module, Name, Arity},
-                        Site = {record, MRA, File},
-                        {Fields1, C7} =
-                          lists:mapfoldl(fun({FieldName, Field, _}, C5) ->
-                                             check_remote(Field, ExpTypes, MRA,
-                                                          File, RecordTable),
-                                             {FieldT, C6} =
-                                               erl_types:t_from_form
-                                                 (Field, ExpTypes, Site,
-                                                  RecordTable, VarTable,
-                                                  C5),
-                                          {{FieldName, Field, FieldT}, C6}
-                                      end, C4, Fields0),
-                        {{Arity, Fields1}, C7}
-                    end,
-                  {FieldsList, C3} =
-                    lists:mapfoldl(FieldFun, C2, orddict:to_list(Fields)),
-                  {{Key, {FileLocation, orddict:from_list(FieldsList)}}, C3};
-                {_TypeOrOpaque, Name, NArgs} ->
-                  %% Make sure warnings about unknown types are output
-                  %% also for types unused by specs.
-                  MTA = {Module, Name, NArgs},
-                  {{_Module, FileLocation, Form, _ArgNames}, _Type} = Value,
-                  {File, _Location} = FileLocation,
-                  check_remote(Form, ExpTypes, MTA, File, RecordTable),
-                  {{Key, Value}, C2}
-              end
-          end,
-        Cache = erl_types:cache__new(),
-        {RecordList, _NewCache} =
-          lists:mapfoldl(RecordFun, Cache, maps:to_list(RecordMap)),
-        dialyzer_codeserver:store_temp_records(Module,
-                                               maps:from_list(RecordList),
-                                               CServer)
+  RecordMap = dialyzer_codeserver:lookup_temp_mod_records(Module, CServer),
+  RecordFun =
+    fun({Key, Value}, C2) ->
+        case Key of
+          {record, Name} ->
+            {FileLocation, Fields} = Value,
+            {File, _Location} = FileLocation,
+            FieldFun =
+              fun({Arity, Fields0}, C4) ->
+                  MRA = {Module, Name, Arity},
+                  Site = {record, MRA, File},
+                  {Fields1, C7} =
+                    lists:mapfoldl(fun({FieldName, Field, _}, C5) ->
+                                       check_remote(Field, ExpTypes, MRA,
+                                                    File, RecordTable),
+                                       {FieldT, C6} =
+                                         erl_types:t_from_form
+                                           (Field, ExpTypes, Site,
+                                            RecordTable, VarTable,
+                                            C5),
+                                       {{FieldName, Field, FieldT}, C6}
+                                   end, C4, Fields0),
+                  {{Arity, Fields1}, C7}
+              end,
+            {FieldsList, C3} =
+              lists:mapfoldl(FieldFun, C2, orddict:to_list(Fields)),
+            {{Key, {FileLocation, orddict:from_list(FieldsList)}}, C3};
+          {_TypeOrOpaque, Name, NArgs} ->
+            %% Make sure warnings about unknown types are output
+            %% also for types unused by specs.
+            MTA = {Module, Name, NArgs},
+            {{_Module, FileLocation, Form, _ArgNames}, _Type} = Value,
+            {File, _Location} = FileLocation,
+            check_remote(Form, ExpTypes, MTA, File, RecordTable),
+            {{Key, Value}, C2}
+        end
     end,
-  lists:foreach(ModuleFun, Mods),
-  check_record_fields(Mods, CServer, ExpTypes),
-  dialyzer_codeserver:finalize_records(CServer).
+  Cache = erl_types:cache__new(),
+  try
+    {RecordList, _NewCache} =
+      lists:mapfoldl(RecordFun, Cache, maps:to_list(RecordMap)),
+    _NewCodeServer =
+      dialyzer_codeserver:store_temp_records(Module,
+                                             maps:from_list(RecordList),
+                                             CServer),
+    rcv_ext_types()
+  catch
+    throw:{error, _}=Error ->
+      [Error] ++ rcv_ext_types()
+  end.
+
+rcv_ext_types() ->
+  Self = self(),
+  Self ! {Self, done},
+  rcv_ext_types(Self, []).
+
+rcv_ext_types(Self, ExtTypes) ->
+  receive
+    {Self, ext_types, _} = ExtType ->
+      rcv_ext_types(Self, [ExtType | ExtTypes]);
+    {Self, done} ->
+      lists:usort(ExtTypes)
+  end.
 
 %% erl_types:t_from_form() substitutes the declaration of opaque types
 %% for the expanded type in some cases. To make sure the initial type,

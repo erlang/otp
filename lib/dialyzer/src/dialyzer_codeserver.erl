@@ -29,7 +29,7 @@
 	 finalize_records/1,
 	 get_contracts/1,
 	 get_callbacks/1,
-         get_exported_types/1,
+         get_exported_types_table/1,
          extract_exported_types/1,
 	 get_exports/1,
 	 get_records_table/1,
@@ -132,12 +132,15 @@ new() ->
   CodeOptions = [compressed, public, {read_concurrency, true}],
   Code = ets:new(dialyzer_codeserver_code, CodeOptions),
   ReadOptions = [compressed, {read_concurrency, true}],
-  [Contracts, Callbacks, Records, ExportedTypes] =
+  [Records, ExportedTypes] =
     [ets:new(Name, ReadOptions) ||
-      Name <- [dialyzer_codeserver_contracts,
-               dialyzer_codeserver_callbacks,
-               dialyzer_codeserver_records,
+      Name <- [dialyzer_codeserver_records,
                dialyzer_codeserver_exported_types]],
+  ReadWriteOptions = [public | ReadOptions],
+  [Contracts, Callbacks] =
+    [ets:new(Name, ReadWriteOptions) ||
+      Name <- [dialyzer_codeserver_contracts,
+               dialyzer_codeserver_callbacks]],
   TempOptions = [public, {write_concurrency, true}],
   [Exports, FunMetaInfo, TempExportedTypes, TempRecords, TempContracts,
    TempCallbacks] =
@@ -211,10 +214,10 @@ insert_fun_meta_info(List, #codeserver{fun_meta_info = FunMetaInfo} = CS) ->
 is_exported(MFA, #codeserver{exports = Exports}) ->
   ets_set_is_element(MFA, Exports).
 
--spec get_exported_types(codeserver()) -> sets:set(mfa()).
+-spec get_exported_types_table(codeserver()) -> map_ets().
 
-get_exported_types(#codeserver{exported_types = ExpTypes}) ->
-  ets_set_to_set(ExpTypes).
+get_exported_types_table(#codeserver{exported_types = ExpTypes}) ->
+  ExpTypes.
 
 -spec extract_exported_types(codeserver()) -> {codeserver(), set_ets()}.
 

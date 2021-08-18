@@ -27,11 +27,22 @@
 	 process_contract_remote_types/1,
 	 store_tmp_contract/6]).
 
--export_type([file_contract/0, plt_contracts/0]).
+%% For dialyzer_worker.
+-export([process_contract_remote_types_module/2]).
+
+-export_type([file_contract/0, plt_contracts/0,
+              contract_remote_types_init_data/0,
+              contract_remote_types_result/0]).
 
 %%-----------------------------------------------------------------------
 
 -include("dialyzer.hrl").
+
+-type ext_types_message() :: {pid(), 'ext_types',
+                              {mfa(), {file:filename(), erl_anno:location()}}}
+                           | {'error', io_lib:chars()}.
+-type contract_remote_types_init_data() :: dialyzer_codeserver:codeserver().
+-type contract_remote_types_result() :: [ext_types_message()].
 
 %%-----------------------------------------------------------------------
 %% Types used in other parts of the system below
@@ -143,35 +154,76 @@ sequence([H|T], Delimiter) -> H ++ Delimiter ++ sequence(T, Delimiter).
                                        dialyzer_codeserver:codeserver().
 
 process_contract_remote_types(CodeServer) ->
-  Mods = dialyzer_codeserver:all_temp_modules(CodeServer),
+  case dialyzer_codeserver:all_temp_modules(CodeServer) of
+    [] ->
+      CodeServer;
+    Mods ->
+      %% CodeServer is updated by each worker, but is still valid
+      %% after updates. Workers call
+      %% process_contract_remote_types_module/2 below.
+      Return =
+        dialyzer_coordinator:parallel_job(contract_remote_types,
+                                          Mods,
+                                          _InitData=CodeServer,
+                                          _Timing=none),
+      %% We need to pass on messages and thrown errors from erl_types:
+      _ = [self() ! {self(), ext_types, ExtType} ||
+            {_, ext_types, ExtType} <- Return],
+      case [Error || {error, _} = Error <- Return] of
+        [] ->
+          dialyzer_codeserver:finalize_contracts(CodeServer);
+        [Error | _] ->
+          throw(Error)
+      end
+  end.
+
+-spec process_contract_remote_types_module(module(),
+                                           dialyzer_codeserver:codeserver()) -> [ext_types_message()].
+
+process_contract_remote_types_module(ModuleName, CodeServer) ->
   RecordTable = dialyzer_codeserver:get_records_table(CodeServer),
-  ExpTypes = dialyzer_codeserver:get_exported_types(CodeServer),
-  ModuleFun =
-    fun(ModuleName) ->
-        ContractFun =
-          fun({MFA, {File, TmpContract, Xtra}}, C0) ->
-              #tmp_contract{contract_funs = CFuns, forms = Forms} = TmpContract,
-              {NewCs, C2} = lists:mapfoldl(fun(CFun, C1) ->
-                                               CFun(ExpTypes, RecordTable, C1)
-                                           end, C0, CFuns),
-              Args = general_domain(NewCs),
-              Contract = #contract{contracts = NewCs, args = Args, forms = Forms},
-              {{MFA, {File, Contract, Xtra}}, C2}
-          end,
-        Cache = erl_types:cache__new(),
-        {ContractMap, CallbackMap} =
-          dialyzer_codeserver:get_temp_contracts(ModuleName, CodeServer),
-        {NewContractList, Cache1} =
-          lists:mapfoldl(ContractFun, Cache, maps:to_list(ContractMap)),
-        {NewCallbackList, _NewCache} =
-          lists:mapfoldl(ContractFun, Cache1, maps:to_list(CallbackMap)),
-        dialyzer_codeserver:store_contracts(ModuleName,
-                                            maps:from_list(NewContractList),
-                                            maps:from_list(NewCallbackList),
-                                            CodeServer)
+  ExpTypes = dialyzer_codeserver:get_exported_types_table(CodeServer),
+  ContractFun =
+    fun({MFA, {File, TmpContract, Xtra}}, C0) ->
+        #tmp_contract{contract_funs = CFuns, forms = Forms} = TmpContract,
+        {NewCs, C2} = lists:mapfoldl(fun(CFun, C1) ->
+                                         CFun(ExpTypes, RecordTable, C1)
+                                     end, C0, CFuns),
+        Args = general_domain(NewCs),
+        Contract = #contract{contracts = NewCs, args = Args, forms = Forms},
+        {{MFA, {File, Contract, Xtra}}, C2}
     end,
-  lists:foreach(ModuleFun, Mods),
-  dialyzer_codeserver:finalize_contracts(CodeServer).
+  Cache = erl_types:cache__new(),
+  {ContractMap, CallbackMap} =
+    dialyzer_codeserver:get_temp_contracts(ModuleName, CodeServer),
+  try
+    {NewContractList, Cache1} =
+      lists:mapfoldl(ContractFun, Cache, maps:to_list(ContractMap)),
+    {NewCallbackList, _NewCache} =
+      lists:mapfoldl(ContractFun, Cache1, maps:to_list(CallbackMap)),
+    _NewCodeServer =
+      dialyzer_codeserver:store_contracts(ModuleName,
+                                          maps:from_list(NewContractList),
+                                          maps:from_list(NewCallbackList),
+                                          CodeServer),
+    rcv_ext_types()
+  catch
+    throw:{error, _}=Error ->
+      [Error] ++ rcv_ext_types()
+  end.
+
+rcv_ext_types() ->
+  Self = self(),
+  Self ! {Self, done},
+  rcv_ext_types(Self, []).
+
+rcv_ext_types(Self, ExtTypes) ->
+  receive
+    {Self, ext_types, _} = ExtType ->
+      rcv_ext_types(Self, [ExtType | ExtTypes]);
+    {Self, done} ->
+      lists:usort(ExtTypes)
+  end.
 
 -type fun_types() :: orddict:orddict(label(), erl_types:type_table()).
 
