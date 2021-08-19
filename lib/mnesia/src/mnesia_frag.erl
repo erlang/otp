@@ -1103,7 +1103,7 @@ make_add_node(Tab, Node) ->
     mnesia:abort({bad_type, Tab, Node}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Delet a node from the node pool of a fragmented table
+%% Delete a node from the node pool of a fragmented table
 
 make_multi_del_node(Tab, Node)  ->
     verify_multi(Tab),
