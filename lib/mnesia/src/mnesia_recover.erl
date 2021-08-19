@@ -428,7 +428,7 @@ check_what_happened([H | T], Aborts, Commits) ->
 check_what_happened([], Aborts, Commits) ->
     if
 	Aborts == 0, Commits == 0 -> aborted;  % None of the active nodes knows
-	Aborts > 0 -> aborted;                 % Someody has aborted
+	Aborts > 0 -> aborted;                 % Somebody has aborted
 	Aborts == 0, Commits > 0 -> committed  % All has committed
     end.
 
