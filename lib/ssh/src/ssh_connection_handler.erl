@@ -2008,12 +2008,14 @@ update_inet_buffers(Socket) ->
 %%%# Tracing
 %%%#
 
-ssh_dbg_trace_points() -> [terminate, disconnect, connections, connection_events, renegotiation].
+ssh_dbg_trace_points() -> [terminate, disconnect, connections, connection_events, renegotiation,
+                           tcp].
 
 ssh_dbg_flags(connections) -> [c | ssh_dbg_flags(terminate)];
 ssh_dbg_flags(renegotiation) -> [c];
 ssh_dbg_flags(connection_events) -> [c];
 ssh_dbg_flags(terminate) -> [c];
+ssh_dbg_flags(tcp) -> [c];
 ssh_dbg_flags(disconnect) -> [c].
 
 ssh_dbg_on(connections) -> dbg:tp(?MODULE,  init, 1, x),
@@ -2025,11 +2027,22 @@ ssh_dbg_on(renegotiation) -> dbg:tpl(?MODULE,   init_renegotiate_timers, 3, x),
                              dbg:tpl(?MODULE,   start_rekeying, 2, x),
                              dbg:tp(?MODULE,   renegotiate, 1, x);
 ssh_dbg_on(terminate) -> dbg:tp(?MODULE,  terminate, 3, x);
+ssh_dbg_on(tcp) -> dbg:tp(?MODULE, handle_event, 4,
+                          [{[info, {tcp,'_','_'},       '_', '_'], [], []},
+                           {[info, {tcp_error,'_','_'}, '_', '_'], [], []},
+                           {[info, {tcp_closed,'_'},    '_', '_'], [], []}
+                          ]),
+                   dbg:tp(?MODULE, send_bytes, 2, x),
+                   dbg:tpl(?MODULE, close_transport, 1, x);
+                          
 ssh_dbg_on(disconnect) -> dbg:tpl(?MODULE,  send_disconnect, 7, x).
 
 
 ssh_dbg_off(disconnect) -> dbg:ctpl(?MODULE, send_disconnect, 7);
 ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 3);
+ssh_dbg_off(tcp) -> dbg:ctpg(?MODULE, handle_event, 4), % How to avoid cancelling 'connection_events' ?
+                    dbg:ctpl(?MODULE, send_bytes, 2),
+                    dbg:ctpg(?MODULE, close_transport, 1);
 ssh_dbg_off(renegotiation) -> dbg:ctpl(?MODULE,   init_renegotiate_timers, 3),
                               dbg:ctpl(?MODULE,   pause_renegotiate_timers, 3),
                               dbg:ctpl(?MODULE,   check_data_rekeying_dbg, 2),
@@ -2074,6 +2087,43 @@ ssh_dbg_format(connection_events, {return_from, {?MODULE,handle_event,4}, Ret}) 
     ["Connection event result\n",
      io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret, #data{})])
     ];
+
+ssh_dbg_format(tcp, {call, {?MODULE,handle_event, [info, {tcp,Sock,TcpData}, State, _Data]}}) ->
+    ["TCP stream data arrived\n",
+     io_lib:format("State: ~p~n"
+                   "Socket: ~p~n"
+                   "TcpData:~n~s", [State, Sock, ssh_dbg:hex_dump(TcpData, [{max_bytes,48}])])
+    ];
+ssh_dbg_format(tcp, {call, {?MODULE,handle_event, [info, {tcp_error,Sock,Msg}, State, _Data]}}) ->
+    ["TCP stream data ERROR arrived\n",
+     io_lib:format("State: ~p~n"
+                   "Socket: ~p~n"
+                   "ErrorMsg:~p~n", [State, Sock, Msg])
+    ];
+ssh_dbg_format(tcp, {call, {?MODULE,handle_event, [info, {tcp_closed,Sock}, State, _Data]}}) ->
+    ["TCP stream closed\n",
+     io_lib:format("State: ~p~n"
+                   "Socket: ~p~n", [State, Sock])
+    ];
+ssh_dbg_format(tcp, {return_from, {?MODULE,handle_event,4}, _Ret}) ->
+    skip;
+
+ssh_dbg_format(tcp, {call, {?MODULE, send_bytes, ["",_D]}}) ->
+    skip;
+ssh_dbg_format(tcp, {call, {?MODULE, send_bytes, [TcpData, #data{socket=Sock}]}}) ->
+    ["TCP send stream data\n",
+     io_lib:format("Socket: ~p~n"
+                   "TcpData:~n~s", [Sock, ssh_dbg:hex_dump(TcpData, [{max_bytes,48}])])
+    ];
+ssh_dbg_format(tcp, {return_from, {?MODULE,send_bytes,2}, _R}) ->
+    skip;
+
+ssh_dbg_format(tcp, {call, {?MODULE, close_transport, [#data{socket=Sock}]}}) ->
+    ["TCP close stream\n",
+     io_lib:format("Socket: ~p~n", [Sock])
+    ];
+ssh_dbg_format(tcp, {return_from, {?MODULE,close_transport,1}, _R}) ->
+    skip;
 
 ssh_dbg_format(renegotiation, {call, {?MODULE,init_renegotiate_timers,[OldState,NewState,D]}}) ->
     ["Renegotiation: start timer (init_renegotiate_timers)\n",
