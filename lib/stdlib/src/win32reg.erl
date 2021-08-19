@@ -180,10 +180,17 @@ set_value({win32reg, Reg}, Name0, Value) when is_port(Reg) ->
       Name :: name(),
       ReturnValue :: {'ok', Value :: value()} | {'error', ErrorId :: atom()}.
 
-value({win32reg, Reg}, Name) when is_port(Reg) ->
+value({win32reg, Reg}, Name0) when is_port(Reg) ->
+    Name =
+	case Name0 of
+	    default -> [];
+	    _ -> Name0
+	end,
     Cmd = [?cmd_get_value, Name, 0],
     Reg ! {self(), {command, Cmd}},
     case get_result(Reg) of
+	{value, {default, Value}} when Name =:= [] ->
+	    {ok, Value};
 	{value, {Name, Value}} ->
 	    {ok, Value};
 	{error, Reason} ->
