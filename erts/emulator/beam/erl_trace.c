@@ -1362,6 +1362,7 @@ trace_gc(Process *p, Eterm what, Uint size, Eterm msg)
     Eterm* hp;
     Uint sz = 0;
     Eterm tup;
+    ErtsThrPrgrDelayHandle dhndl = erts_thr_progress_unmanaged_delay();
 
     if (is_tracer_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common, &tnif,
                           TRACE_FUN_E_GC, what)) {
@@ -1381,6 +1382,7 @@ trace_gc(Process *p, Eterm what, Uint size, Eterm msg)
         if (o_hp)
             erts_free(ERTS_ALC_T_TMP, o_hp);
     }
+    erts_thr_progress_unmanaged_continue(dhndl);
 }
 
 void 
@@ -2631,6 +2633,7 @@ lookup_tracer_nif(const ErtsTracer tracer)
     ErtsTracerNif tnif_tmpl;
     ErtsTracerNif *tnif;
     tnif_tmpl.module = ERTS_TRACER_MODULE(tracer);
+    ERTS_LC_ASSERT(erts_thr_progress_lc_is_delaying() || erts_get_scheduler_id() > 0);
     erts_rwmtx_rlock(&tracer_mtx);
     if ((tnif = hash_get(tracer_hash, &tnif_tmpl)) == NULL) {
         erts_rwmtx_runlock(&tracer_mtx);
