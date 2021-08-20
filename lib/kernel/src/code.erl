@@ -859,7 +859,7 @@ get_doc_chunk(Filename, Mod) when is_atom(Mod) ->
                 Error ->
                     Error
             end;
-        {error,beam_lib,{file_error,_Filename,enoent}} ->
+        {error,beam_lib,{file_error,_Filename,_Err}} ->
             get_doc_chunk(Filename, atom_to_list(Mod));
         {ok, {Mod, [{"Docs",Bin}]}} ->
             {ok,binary_to_term(Bin)}
