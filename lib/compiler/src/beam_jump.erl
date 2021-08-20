@@ -597,21 +597,9 @@ find_fixpoint(OptFun, Is0) ->
 	Is -> find_fixpoint(OptFun, Is)
     end.
 
-opt([{test,_,{f,L}=Lbl,_}=I|[{jump,{f,L}}|_]=Is], Acc, St) ->
-    %% We have
-    %%    Test Label Ops
-    %%    jump Label
-    %% The test instruction is not needed if the test is pure
-    %% (it modifies neither registers nor bit syntax state).
-    case beam_utils:is_pure_test(I) of
-	false ->
-	    %% Test is not pure; we must keep it.
-	    opt(Is, [I|Acc], label_used(Lbl, St));
-	true ->
-	    %% The test is pure and its failure label is the same
-	    %% as in the jump that follows -- thus it is not needed.
-	    opt(Is, Acc, St)
-    end;
+opt([{test,is_eq_exact,{f,L},_}|[{jump,{f,L}}|_]=Is], Acc, St) ->
+    %% The is_eq_exact test is not needed.
+    opt(Is, Acc, St);
 opt([{test,Test0,{f,L}=Lbl,Ops}=I|[{jump,To}|Is]=Is0], Acc, St) ->
     case is_label_defined(Is, L) of
 	false ->
