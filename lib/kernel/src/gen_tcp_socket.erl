@@ -87,6 +87,10 @@
 
 -define(CLOSED_SOCKET, #{rstates => [closed], wstates => [closed]}).
 
+%% Options that are inherited by accept/2
+-compile({inline, [socket_inherit_opts/0]}).
+socket_inherit_opts() ->
+    [priority].
 
 %%% ========================================================================
 %%% API
@@ -103,12 +107,10 @@ connect(Address, Port, Opts, Timeout) ->
 %% Helpers -------
 
 connect_lookup(Address, Port, Opts, Timer) ->
-    %% ?DBG({Address, Port, Opts, Timer}),
-    {EinvalOpts, Opts_1} = setopts_split(einval, Opts),
-    EinvalOpts =:= [] orelse exit(badarg),
+    Opts_1 = normalize_setopts(Opts),
     {Mod, Opts_2} = inet:tcp_module(Opts_1, Address),
     Domain = domain(Mod),
-    {StartOpts, Opts_3} = setopts_split(start, Opts_2),
+    {StartOpts, Opts_3} = split_start_opts(Opts_2),
     ErrRef = make_ref(),
     try
         IPs = val(ErrRef, Mod:getaddrs(Address, Timer)),
@@ -134,38 +136,29 @@ connect_lookup(Address, Port, Opts, Timer) ->
             ?badarg_exit({error, Reason})
     end.
 
-connect_open(Addrs, Domain, ConnectOpts, Opts, ExtraOpts, Timer, BindAddr) ->
-    %% ?DBG({Addrs, Domain, ConnectOpts, Opts, ExtraOpts, Timer, BindAddr}),
-
+connect_open(
+  Addrs, Domain, ConnectOpts, StartOpts, ExtraOpts, Timer, BindAddr) ->
     %%
     %% The {netns, File} option is passed in Fd by inet:connect_options/2,
     %% and then over to ExtraOpts.
-    %% The {debug, Bool} option is passed in Opts since it is
-    %% subversively classified as both start and socket option.
     %%
-
-    {SocketOpts, StartOpts} = setopts_split(socket, Opts),
-    %% ?DBG([{socket, SocketOpts}, {start, StartOpts}]),
     case
         start_server(
           Domain,
-	  [{timeout, inet:timeout(Timer)} | start_opts(StartOpts)],
+	  [{timeout, inet:timeout(Timer)} | StartOpts],
 	  ExtraOpts)
     of
         {ok, Server} ->
-            {Setopts_1, _} =
-                setopts_split(
-                  #{socket => [], server_read => [], server_write => []},
-                  ConnectOpts),
-            Setopts =
-                default_active_true(
-                  [{start_opts, StartOpts}] ++ SocketOpts ++ Setopts_1),
             ErrRef = make_ref(),
             try
-                ok(ErrRef, call_bind(Server, BindAddr)),
+                Setopts =
+                    default_active_true(
+                      [{start_opts, StartOpts} |
+                       setopts_opts(ErrRef, ConnectOpts)]),
                 ok(ErrRef, call(Server, {setopts, Setopts})),
+                ok(ErrRef, call_bind(Server, BindAddr)),
                 DefaultError = {error, einval},
-                Socket =  
+                Socket =
                     val(ErrRef,
                         connect_loop(Addrs, Server, DefaultError, Timer)),
                 {ok, ?MODULE_socket(Server, Socket)}
@@ -178,7 +171,6 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, ExtraOpts, Timer, BindAddr) ->
             ?badarg_exit(Error)
     end.
 
-    
 connect_loop([], _Server, Error, _Timer) -> Error;
 connect_loop([Addr | Addrs], Server, _Error, Timer) ->
     Result = call(Server, {connect, Addr, inet:timeout(Timer)}),
@@ -255,14 +247,9 @@ default_active_true(Opts) ->
 %% -------------------------------------------------------------------------
 
 listen(Port, Opts) ->
-    %% ?DBG({Port, Opts}),
-    {EinvalOpts, Opts_1} = setopts_split(einval, Opts),
-    %% ?DBG([{opts1, Opts_1}]),
-    EinvalOpts =:= [] orelse exit(badarg),
+    Opts_1 = normalize_setopts(Opts),
     {Mod, Opts_2} = inet:tcp_module(Opts_1),
-    %% ?DBG([{mod, Mod}, {opts2, Opts_2}]),
-    {StartOpts, Opts_3} = setopts_split(start, Opts_2),
-    %% ?DBG([{start_opts, StartOpts}, {opts3, Opts_3}]),
+    {StartOpts, Opts_3} = split_start_opts(Opts_2),
     case Mod:getserv(Port) of
         {ok, TP} ->
             case inet:listen_options([{port, TP} | Opts_3], Mod) of
@@ -291,33 +278,19 @@ listen(Port, Opts) ->
 
 %% Helpers -------
 
-listen_open(Domain, ListenOpts, Opts, ExtraOpts, Backlog, BindAddr) ->
-    %% ?DBG([{domain,      Domain},
-    %%  	  {listen_opts, ListenOpts},
-    %%  	  {opts,        Opts},
-    %%  	  {extra_opts,  ExtraOpts},
-    %%  	  {backlog,     Backlog},
-    %%  	  {bind_addr,   BindAddr}]),
-
-    {SocketOpts, StartOpts0} = setopts_split(socket, Opts),
-    %% ?DBG([{socket_opts, SocketOpts}, {start_opts0, StartOpts0}]),
-    StartOpts = [{timeout, infinity} | start_opts(StartOpts0)],
-    %% ?DBG([{start_opts, StartOpts}]),
-    case start_server(Domain, StartOpts, ExtraOpts) of
+listen_open(Domain, ListenOpts, StartOpts, ExtraOpts, Backlog, BindAddr) ->
+    case
+        start_server(Domain, [{timeout, infinity} | StartOpts], ExtraOpts)
+    of
         {ok, Server} ->
-	    %% ?DBG([{server_started, Server}]),
-            {Setopts_1, _} =
-                setopts_split(
-                  #{socket => [], server_read => [], server_write => []},
-                  ListenOpts),
-	    %% ?DBG([{setopts, Setopts_1}]),
-            Setopts =
-                default_active_true(
-                  [{start_opts, StartOpts}] ++ SocketOpts ++ Setopts_1),
             ErrRef = make_ref(),
             try
-                ok(ErrRef, call_bind(Server, default_any(Domain, BindAddr))),
+                Setopts =
+                    default_active_true(
+                      [{start_opts, StartOpts} |
+                       setopts_opts(ErrRef, ListenOpts)]),
                 ok(ErrRef, call(Server, {setopts, Setopts})),
+                ok(ErrRef, call_bind(Server, default_any(Domain, BindAddr))),
                 Socket = val(ErrRef, call(Server, {listen, Backlog})),
                 {ok, ?MODULE_socket(Server, Socket)}
             catch
@@ -392,7 +365,7 @@ send_result(Server, Meta, Result) ->
     case Result of
 	%% We should really return the rest data rather then just ignoring it.
 	%% In the case we get a timeout when sending and 'send_timeout_close'
-	%% is set true, we close the connection and only returns the timeout.
+	%% is set true, we close the connection and only return the timeout.
 	%% Otherwise we return the full error.
         {error, {timeout = Reason, RestData}} = E when is_binary(RestData) ->
 	    case maps:get(send_timeout_close, Meta) of
@@ -410,7 +383,8 @@ send_result(Server, Meta, Result) ->
             %% Since send data may have been lost, and there is no room
             %% in this API to inform the caller, we at least close
             %% the socket in the write direction
-%%%    ?DBG(Result),
+            %%
+            %% ?DBG(Result),
             case Reason of
                 econnreset ->
                     case maps:get(show_econnreset, Meta) of
@@ -543,13 +517,13 @@ cancel_monitor(MRef) ->
 %% -------------------------------------------------------------------------
 
 setopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
-    call(Server, {setopts, Opts}).
+    call(Server, {setopts, normalize_setopts(Opts)}).
 
 
 %% -------------------------------------------------------------------------
 
 getopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
-    call(Server, {getopts, Opts}).
+    call(Server, {getopts, normalize_getopts(Opts)}).
 
 %% -------------------------------------------------------------------------
 
@@ -637,28 +611,19 @@ unrecv(?MODULE_socket(_Server, _Socket), _Data) ->
     {error, enotsup}.
 
 fdopen(Fd, Opts) when is_integer(Fd), 0 =< Fd, is_list(Opts) ->
-    %% ?DBG({Fd, Opts}),
-    {EinvalOpts, Opts_1} = setopts_split(einval, Opts),
-    EinvalOpts =:= [] orelse exit(badarg),
+    Opts_1 = normalize_setopts(Opts),
     {Mod, Opts_2} = inet:tcp_module(Opts_1),
     Domain = domain(Mod),
-    {StartOpts_1, Opts_3} = setopts_split(start, Opts_2),
-    {SocketOpts, StartOpts} = setopts_split(socket, StartOpts_1),
+    {StartOpts, Opts_3} = split_start_opts(Opts_2),
     ExtraOpts = extra_opts(Fd),
     case
-        start_server(
-          Domain,
-          [{timeout, infinity} | start_opts(StartOpts)],
-          ExtraOpts)
+        start_server(Domain, [{timeout, infinity} | StartOpts], ExtraOpts)
     of
         {ok, Server} ->
-            {Setopts_1, _} =
-                setopts_split(
-                  #{socket => [], server_read => [], server_write => []},
-                  Opts_3),
-            Setopts = [{start_opts, StartOpts}] ++ SocketOpts ++ Setopts_1,
             ErrRef = make_ref(),
             try
+                Setopts =
+                    [{start_opts, StartOpts} | setopts_opts(ErrRef, Opts_3)],
                 ok(ErrRef, call(Server, {setopts, Setopts})),
                 Socket = val(ErrRef, call(Server, fdopen)),
                 {ok, ?MODULE_socket(Server, Socket)}
@@ -718,12 +683,12 @@ socket_send(Socket, Data, Timeout) ->
 socket_recv_peek(Socket, Length) ->
     Options = [peek],
     Result = socket:recv(Socket, Length, Options, nowait),
-%%%    ?DBG({Socket, Length, Options, Result}),
+    %% ?DBG({Socket, Length, Options, Result}),
     Result.
 -compile({inline, [socket_recv/2]}).
 socket_recv(Socket, Length) ->
     Result = socket:recv(Socket, Length, nowait),
-%%%    ?DBG({Socket, Length, Result}),
+    %% ?DBG({Socket, Length, Result}),
     Result.
 
 -compile({inline, [socket_close/1]}).
@@ -803,147 +768,250 @@ sockaddrs([IP | IPs], TP, Domain) ->
      | sockaddrs(IPs, TP, Domain)].
 
 %% -------------------------------------------------------------------------
-
-setopts_split(FilterTags, Opts) ->
-    setopts_split(FilterTags, Opts, [], []).
+%% Make all options 2-tuple options.
+%% Convert special options i.e {raw, Level, Key, Value}.
+%% Pass through 2-tuple options with atom tag.
+%% Reject all other terms by exit(badarg).
 %%
-setopts_split(_FilterTags, [], True, False) ->
-    {reverse(True), reverse(False)};
-setopts_split(FilterTags, [Opt | Opts], True, False) ->
-    %% ?DBG({FilterTags, Opt}),
-    Opt_1 = conv_setopt(Opt),
-    case member(FilterTags, setopt_categories(Opt_1)) of
-        true ->
-            setopts_split(FilterTags, Opts, [Opt_1 | True], False);
-        false ->
-            setopts_split(FilterTags, Opts, True, [Opt_1 | False])
+
+normalize_setopts(Opts) ->
+    filtermap_opts(fun normalize_setopt/1, Opts).
+
+normalize_setopt(Opt) ->
+    case Opt of
+        {Tag, _Val} when is_atom(Tag) ->
+            true;
+        %%
+        binary  -> {mode, binary};
+        list    -> {mode, list};
+        inet    -> {tcp_module, inet_tcp};
+        inet6   -> {tcp_module, inet6_tcp};
+        local   -> {tcp_module, local_tcp};
+        {raw, Level, Key, Value} ->
+            {raw, {Level, Key, Value}};
+        %%
+        _ ->
+            exit(badarg)
     end.
 
+normalize_getopts(Opts) ->
+    filtermap_opts(fun normalize_getopt/1, Opts).
 
-%% Set operation on atom sets that are atoms or maps with atom tags.
-%% Returns true if sets have at least one common member, false otherwise.
-%% X is atom() or map(), Y is map().
-member(X, Y) when is_atom(X), is_map(Y) ->
-    case Y of
-        #{X := _} -> true;
-        #{} -> false
+normalize_getopt(Opt) ->
+    case Opt of
+        Tag when is_boolean(Tag) -> exit(badarg);
+        Tag when is_atom(Tag)    -> true;
+        {raw, _}                 -> true;
+        {raw, Level, Key, Value} -> {raw, {Level, Key, Value}};
+        _                        -> exit(badarg)
+    end.
+
+%%
+%% -------
+%% Split options into server start options and other options.
+%% Convert our {sys_debug, _} option into {debug, _} (the
+%% sys_debug option is how to pass a debug option to
+%% gen_statem:start/3).  A {debug,VaL} opion is later
+%% transformed into the socket option {{otp,debug}, Val}.
+%%
+
+split_start_opts(Opts) ->
+    splitmap_opts(fun split_start_opt/1, Opts).
+
+split_start_opt(Opt) ->
+    case Opt of
+        {sys_debug, Val} -> {debug, Val};
+        _                -> false
+    end.
+
+%%
+%% -------
+%% Verify that all options can be set with setopts/2 after
+%% opening the socket.  They should be known socket options,
+%% options handled by the server, or options we should ignore.
+%% filter out the ignored options and fail for unknown options
+%% by throwing {ErrRef, badarg}.
+%%
+setopts_opts(ErrRef, Opts) ->
+    filtermap_opts(setopts_opt(ErrRef), Opts).
+
+setopts_opt(ErrRef) ->
+    SocketOpts = socket_opts(),
+    ServerOpts = server_opts(),
+    fun ({Tag,_Val}) ->
+            if
+                is_map_key(Tag, SocketOpts) -> true;
+                is_map_key(Tag, ServerOpts) -> true;
+                true ->
+                    case ignore_optname(Tag) of
+                        true  -> false; % ignore -> filter out
+                        false ->
+                            throw({ErrRef, badarg})
+                    end
+            end
+    end.
+%%
+%% -------
+%% Pseudo-general option list functions
+%%
+
+%% FilterMap(Opt) ->
+%%     true  | % keep
+%%     false | % delete
+%%     Opt_1 | % keep Opt_1
+%%
+filtermap_opts(FilterMap, Opts) ->
+    case filtermap_opts_1(FilterMap, Opts) of
+        ok     -> Opts;
+        Opts_1 -> Opts_1
+    end.
+%%
+filtermap_opts_1(FilterMap, [Opt | Opts]) ->
+    Opts_1 = filtermap_opts_1(FilterMap, Opts),
+    case FilterMap(Opt) of
+        true  when Opts_1 =:= ok -> ok;
+        true                     -> [Opt | Opts_1];
+        false when Opts_1 =:= ok -> Opts;
+        false                    -> Opts_1;
+        Opt_1 when Opts_1 =:= ok -> [Opt_1 | Opts];
+        Opt_1                    -> [Opt_1 | Opts_1]
     end;
-member(X, Y) when is_map(X), is_map(Y) ->
-    maps:fold(
-      fun (_, _, true) -> true;
-          (Key, _, false) -> maps:is_key(Key, Y)
-      end, false, X).
+filtermap_opts_1(_FilterMap, []) -> ok.
 
 
-conv_setopt(binary) -> {mode, binary};
-conv_setopt(list) -> {mode, list};
-conv_setopt(inet) -> {tcp_module, inet_tcp};
-conv_setopt(inet6) -> {tcp_module, inet6_tcp};
-conv_setopt(local) -> {tcp_module, local_tcp};
-conv_setopt(Other) -> Other.
+%% splitmap_opts(SplitMap, Opts) ->
+%%     {SplitOpts, OtherOpts}
+%%
+%% SplitMap(Opt) ->
+%%     true  -> % to be split
+%%     false -> % not to split
+%%     Opt_1 -> % split Opt_1
+%%
+splitmap_opts(SplitMap, Opts) ->
+    case splitmap_opts_1(SplitMap, Opts) of
+        ok                    -> {[], Opts};
+        [SplitOptsR | Opts_1] -> {lists:reverse(SplitOptsR), Opts_1}
+    end.
+%%
+splitmap_opts_1(SplitMap, [Opt | Opts]) ->
+    case splitmap_opts_1(SplitMap, Opts) of
+        ok ->
+            case SplitMap(Opt) of
+                false -> ok;
+                true  -> [[]      | Opts];
+                Opt_1 -> [[Opt_1] | Opts]
+            end;
+        [SplitOptsR | Opts_1] ->
+            case SplitMap(Opt) of
+                false -> [SplitOptsR           | [Opt | Opts_1]];
+                true  -> [[Opt   | SplitOptsR] | Opts_1];
+                Opt_1 -> [[Opt_1 | SplitOptsR] | Opts_1]
+            end
+    end;
+splitmap_opts_1(_SplitMap, []) -> ok.
+
+%%
+%% -------
+
+
+
+
+
 
 %% Socket options
 
-socket_setopt(Socket, {raw, Level, Key, Value}) ->
-    socket:setopt_native(Socket, {Level,Key}, Value);
-socket_setopt(Socket, {raw, {Level, Key, Value}}) ->
-    socket:setopt_native(Socket, {Level,Key}, Value);
-socket_setopt(Socket, {Tag, Value}) ->
-    %% ?DBG({Tag, Value}),
-    case socket_opt() of
-        #{Tag := {Domain, _} = Opt} when is_atom(Domain) ->
-            %% ?DBG(Opt),
-            %% socket:setopt(Socket, otp, debug, true),
-            Res = socket:setopt(Socket, Opt, socket_setopt_value(Tag, Value)),
-            %% socket:setopt(Socket, otp, debug, false),
-            Res;
-
-        #{Tag := DomainProps} when is_list(DomainProps) ->
-            %% We need to lookup the domain of the socket,
-            %% so we can select which one to use.                            
-            %% ?DBG(Opt0),
-            case socket:getopt(Socket, otp, domain) of
-                {ok, Domain} ->
-                    case lists:keysearch(Domain, 1, DomainProps) of
-                        {value, {Domain, Level, OptKey}} ->
-                            Opt = {Level, OptKey},
-                            %% _ = socket:setopt(Socket, otp, debug, true),
-                            Res = socket:setopt(Socket,
-                                                Opt,
-                                                socket_setopt_value(Tag,
-                                                                    Value)),
-                            %% _ = socket:setopt(Socket, otp, debug, false),
-                            Res;
-                        false ->
-                            {error, einval}
-                    end;
-                {error, _} ->
+socket_setopt(Socket, raw, Value) ->
+    case Value of
+        {Level, Key, Val} ->
+            socket:setopt_native(Socket, {Level,Key}, Val);
+        _ ->
+            {error, einval}
+    end;
+socket_setopt(Socket, {Domain, _} = Opt, Value) when is_atom(Domain) ->
+    %% ?DBG(Opt),
+    %% socket:setopt(Socket, otp, debug, true),
+    Res = socket:setopt(Socket, Opt, socket_setopt_value(Opt, Value)),
+    %% socket:setopt(Socket, otp, debug, false),
+    Res;
+socket_setopt(Socket, DomainProps, Value) when is_list(DomainProps) ->
+    %% We need to lookup the domain of the socket,
+    %% so we can select which one to use.
+    %% ?DBG(Opt0),
+    case socket:getopt(Socket, otp, domain) of
+        {ok, Domain} ->
+            case lists:keysearch(Domain, 1, DomainProps) of
+                {value, {Domain, Opt}} ->
+                    %% _ = socket:setopt(Socket, otp, debug, true),
+                    Res =
+                        socket:setopt(
+                          Socket, Opt,
+                          socket_setopt_value(Opt, Value)),
+                    %% _ = socket:setopt(Socket, otp, debug, false),
+                    Res;
+                false ->
                     {error, einval}
             end;
-
-        #{} ->
+        {error, _} ->
             {error, einval}
     end.
 
-socket_setopt_value(linger, {OnOff, Linger}) ->
+socket_setopt_value({socket,linger}, {OnOff, Linger}) ->
     #{onoff => OnOff, linger => Linger};
-socket_setopt_value(_Tag, Value) -> Value.
+socket_setopt_value(_Opt, Value) -> Value.
 
-socket_getopt(Socket, {raw, Level, Key, ValueSpec}) ->
-    socket:getopt_native(Socket, {Level,Key}, ValueSpec);
-socket_getopt(Socket, {raw, {Level, Key, ValueSpec}}) ->
-    socket:getopt_native(Socket, {Level,Key}, ValueSpec);
-socket_getopt(Socket, Tag) when is_atom(Tag) ->
-    case socket_opt() of
-        #{Tag := {Domain, _} = Opt} when is_atom(Domain) ->
-            %% ?DBG({'socket_getopt - match', Tag}),
-            %% _ = socket:setopt(Socket, otp, debug, true),
-            Res = socket:getopt(Socket, Opt),
-            %% ?DBG({'socket_getopt - result', Res}),
-            %% _ = socket:setopt(Socket, otp, debug, false),
-            socket_getopt_value(Tag, Res);
 
-        #{Tag := DomainProps} when is_list(DomainProps) ->
-            %% We need to lookup the domain of the socket,
-            %% so we can select which one to use.                            
-            %% ?DBG({'socket_getopt - match', Tag, DomainProps}),
-            case socket:getopt(Socket, otp, domain) of
-                {ok, Domain} ->
-                    %% ?DBG({'socket_getopt - domain', Tag, Domain}),
-                    case lists:keysearch(Domain, 1, DomainProps) of
-                        {value, {Domain, Level, OptKey}} ->
-                            %% ?DBG({'socket_getopt - ok domain', Tag, Level, OptKey}),
-                            Opt  = {Level, OptKey},
-                            %% _ = socket:setopt(Socket, otp, debug, true),
-                            Res = socket:getopt(Socket, Opt),
-                            %% _ = socket:setopt(Socket, otp, debug, false),
-                            %% ?DBG({'socket_getopt - result', Res}),
-                            socket_getopt_value(Tag, Res);
-                        false ->
-                            %% ?DBG({'socket_getopt - invalid domain', Tag, Domain, DomainProps}),
-                            {error, einval}
-                    end;
-                {error, _DReason} ->
-                    %% ?DBG({'socket_getopt - unknown domain', Tag, _DReason}),
+socket_getopt(Socket, raw, Val) ->
+    case Val of
+        {Level, Key, ValueSpec} ->
+            socket:getopt_native(Socket, {Level,Key}, ValueSpec);
+        _ ->
+            {error, einval}
+    end;
+socket_getopt(Socket, {Domain, _} = Opt, _) when is_atom(Domain) ->
+    %% ?DBG({'socket_getopt - match', Opt}),
+    %% _ = socket:setopt(Socket, otp, debug, true),
+    Res = socket:getopt(Socket, Opt),
+    %% ?DBG({'socket_getopt - result', Res}),
+    %% _ = socket:setopt(Socket, otp, debug, false),
+    socket_getopt_value(Opt, Res);
+socket_getopt(Socket, DomainProps, _) when is_list(DomainProps) ->
+    %% We need to lookup the domain of the socket,
+    %% so we can select which one to use.
+    %% ?DBG({'socket_getopt - match', Tag, DomainProps}),
+    case socket:getopt(Socket, otp, domain) of
+        {ok, Domain} ->
+            %% ?DBG({'socket_getopt - domain', Tag, Domain}),
+            case lists:keysearch(Domain, 1, DomainProps) of
+                {value, {Domain, Opt}} ->
+                    %% ?DBG({'socket_getopt - ok domain', Tag, Level, OptKey}),
+                    %% _ = socket:setopt(Socket, otp, debug, true),
+                    Res = socket:getopt(Socket, Opt),
+                    %% _ = socket:setopt(Socket, otp, debug, false),
+                    %% ?DBG({'socket_getopt - result', Res}),
+                    socket_getopt_value(Opt, Res);
+                false ->
+                    %% ?DBG({'socket_getopt - invalid domain', Tag, Domain, DomainProps}),
                     {error, einval}
             end;
-
-        #{} = __X__ ->
-            %% ?DBG({'socket_getopt - no match - 2', Tag, __X__}),
+        {error, _DReason} ->
+            %% ?DBG({'socket_getopt - unknown domain', Tag, _DReason}),
             {error, einval}
     end.
 
-socket_getopt_value(linger, {ok, #{onoff := OnOff, linger := Linger}}) ->
+socket_getopt_value(
+  {socket,linger}, {ok, #{onoff := OnOff, linger := Linger}}) ->
     {ok, {OnOff, Linger}};
-socket_getopt_value(pktoptions, {ok, PktOpts0}) when is_list(PktOpts0) ->
-    PktOpts = [{Type, Value} || #{type := Type, value := Value} <- PktOpts0],
-    {ok, PktOpts};
+socket_getopt_value({Level,pktoptions}, {ok, PktOpts})
+  when Level =:= ip,   is_list(PktOpts);
+       Level =:= ipv6, is_list(PktOpts) ->
+    {ok, [{Type, Value} || #{type := Type, value := Value} <- PktOpts]};
 socket_getopt_value(_Tag, {ok, _Value} = Ok) -> Ok;
 socket_getopt_value(_Tag, {error, _} = Error) -> Error.
 
+
 socket_copy_opt(Socket, Tag, TargetSocket) when is_atom(Tag) ->
-    case socket_opt() of
-        #{Tag := Opt} ->
+    case socket_opts() of
+        #{Tag := {_Level,_Key} = Opt} ->
 	    case socket:is_supported(options, Opt) of
 		true ->
 		    case socket:getopt(Socket, Opt) of
@@ -966,74 +1034,26 @@ start_opts([Opt | Opts]) ->
 start_opts([]) -> [].
 
 
-%% Categories: socket, ignore, start, server_read, server_write, einval
-%% returns a maps set
-
-setopt_categories(Opt) ->
-    case Opt of
-        {raw, _, _, _} -> #{socket => []};
-        {raw, {_, _, _}} -> #{socket => []};
-        {Tag, _} -> opt_categories(Tag);
-        _ -> ignore
-    end.
-
-getopt_categories(Opt) ->
-    case Opt of
-        {raw, _, _, _} -> #{socket => []};
-        {raw, {_, _, _}} -> #{socket => []};
-        _ -> opt_categories(Opt)
-    end.
-
-%% setopt and getopt category
-opt_categories(Tag) when is_atom(Tag) ->
+-compile({inline, [ignore_optname/1]}).
+ignore_optname(Tag) ->
     case Tag of
-        sys_debug -> #{start => []};
-        debug -> #{socket => [], start => []};
-        _ ->
-            case maps:is_key(Tag, socket_opt()) of
-                true -> #{socket => []};
-                false ->
-                    case maps:is_key(Tag, ignore_opt()) of
-                        true ->
-                            #{ignore => []};
-                        false ->
-                            maps:merge(
-                              case maps:is_key(Tag, server_read_opts()) of
-                                  true ->
-                                      #{server_read => []};
-                                  false ->
-                                      #{}
-                              end,
-                              case maps:is_key(Tag, server_write_opts()) of
-                                  true ->
-                                      #{server_write => []};
-                                  false ->
-                                      #{}
-                              end)
-                    end
-            end
+        %% Handled by inet:tcp_module/2
+        tcp_module -> true;
+        %% Handled by inet:connect_options/2 and inet:listen_options/2
+        ip      -> true;
+        backlog -> true;
+        %% XXX Some of these must probably be handled one day...
+        high_msgq_watermark -> true;
+        high_watermark      -> true;
+        low_msgq_watermark  -> true;
+        nopush              -> true;
+        _ -> false
     end.
 
--compile({inline, [ignore_opt/0]}).
-ignore_opt() ->
-    #{
-      %% Handled by inet:tcp_module/2
-      tcp_module => [],
-      %% Handled by inet:connect_options/2 and inet:listen_options/2
-      ip => [],
-      backlog => [],
-      %% XXX Some of these must probably be handled one day...
-      high_msgq_watermark => [],
-      high_watermark => [],
-      low_msgq_watermark => [],
-      nopush => []
-      }.
-
-%% Category 'socket'
+%% 'socket' options; translation to 'level' and 'opt'
 %%
-%% Translation to 'level' and 'opt'
--compile({inline, [socket_opt/0]}).
-socket_opt() ->
+-compile({inline, [socket_opts/0]}).
+socket_opts() ->
     #{
       %% Level: otp
       buffer => {otp, rcvbuf},
@@ -1070,6 +1090,10 @@ socket_opt() ->
       tclass      => {ipv6, tclass},
 
       %%
+      %% Raw
+      raw => raw,
+
+      %%
       %% Special cases
       %% These are options that cannot be mapped as above,
       %% as they, for instance, "belong to" several domains.
@@ -1082,12 +1106,9 @@ socket_opt() ->
       %% In both cases this is *no longer valid* as the RFC which 
       %% introduced this, RFC 2292, is *obsoleted* by RFC 3542, where
       %% this "feature" *does not exist*...
-      pktoptions  => [{inet, ip, pktoptions}, {inet6, ipv6, pktoptions}]
+      pktoptions  =>
+           [{inet, {ip, pktoptions}}, {inet6, {ipv6, pktoptions}}]
       }.
-
--compile({inline, [socket_inherit_opts/0]}).
-socket_inherit_opts() ->
-    [priority].
 
 -compile({inline, [server_read_write_opts/0]}).
 server_read_write_opts() ->
@@ -1229,11 +1250,17 @@ init({open, Domain, ExtraOpts, Owner}) ->
     case socket_open(Domain, Proto, ExtraOpts, Extra) of
         {ok, Socket} ->
             D  = server_opts(),
-            ok = socket:setopt(Socket, {otp,iow},    true),
-            ok = socket:setopt(Socket, {otp,meta},   meta(D)),
-            P  = #params{socket    = Socket,
-                         owner     = Owner,
-                         owner_mon = OwnerMon},
+            ok = socket:setopt(Socket, {otp,iow}, true),
+            %%
+            %% meta(server_opts()) is an expensive way to write
+            %% server_write_opts(), so, meta(D) is redundant code
+            %% until someone decides to change D
+            ok = socket:setopt(Socket, {otp,meta}, meta(D)),
+            P  =
+                #params{
+                   socket    = Socket,
+                   owner     = Owner,
+                   owner_mon = OwnerMon},
             {ok, connect, {P, D#{type => undefined, buffer => <<>>}}};
         {error, Reason} ->
 	    %% ?DBG({open_failed, Reason}),
@@ -2482,55 +2509,76 @@ tag(Packet) ->
             tcp
     end.
 
+%% -------
+%% setopts in server
+%%
+
 %% -> {ok, NewD} | {{error, Reason}, D}
 state_setopts(_P, D, _State, []) ->
     {ok, D};
-state_setopts(P, D, State, [Opt | Opts]) ->
-    %% ?DBG([{state, State}, {opt, Opt}]),
-    Opt_1 = conv_setopt(Opt),
-    %% ?DBG({'option converted', Opt_1}),
-    case setopt_categories(Opt_1) of
-        #{socket := _} ->
-            %% ?DBG(socket),
+state_setopts(P, D, State, [{Tag,Val} | Opts]) ->
+    %% ?DBG([{state, State}, {opt, {Tag,Val}}]),
+    SocketOpts = socket_opts(),
+    case maps:is_key(Tag, SocketOpts) of
+        true ->
+            %% options for the 'socket' module
+            %%
             case P#params.socket of
                 undefined ->
                     {{error, closed}, D};
                 Socket ->
-                    case socket_setopt(Socket, Opt_1) of
+                    case
+                        socket_setopt(
+                          Socket, maps:get(Tag, SocketOpts), Val)
+                    of
                         ok ->
                             state_setopts(P, D, State, Opts);
                         {error, _} = Error ->
                             {Error, D}
                     end
             end;
-        %%
-        #{server_write := _} when State =:= 'closed' ->
-            %% ?DBG('server write when state closed'),
-            {{error, einval}, D};
-        #{server_write := _} ->
-            %% ?DBG('server write'),
-            state_setopts_server(P, D, State, Opts, Opt_1);
-        %%
-        #{server_read := _} when State =:= 'closed' ->
-            %% ?DBG('server read when state closed'),
-            {{error, einval}, D};
-        #{server_read := _} when (State =:= 'closed_read') orelse
-                                 (State =:= 'closed_read_write') ->
-            %% ?DBG('server read when state closed-read or closed-read-write'),
-            {{error, einval}, D};
-        #{server_read := _} ->
-            %% ?DBG('server read'),
-            state_setopts_server(P, D, State, Opts, Opt_1);
-        %%
-        #{ignore := _} ->
-            %% ?DBG(ignore),
-            state_setopts(P, D, State, Opts);
-        #{} = _EXTRA -> % extra | einval
-            %% ?DBG({extra, _EXTRA}),
-            {{error, einval}, D}
+        false ->
+            case maps:is_key(Tag, server_write_opts()) of
+                %% server options for socket send hence
+                %% duplicated in {opt,meta}
+                %%
+                true when State =:= 'closed' ->
+                    %% ?DBG('server write when state closed'),
+                    {{error, einval}, D};
+                true ->
+                    %% ?DBG('server write'),
+                    state_setopts_server(
+                      P, D, State, Opts, Tag, Val);
+                false ->
+                    case maps:is_key(Tag, server_read_opts()) of
+                        %% server options for receive
+                        %%
+                        true
+                          when State =:= 'closed';
+                               State =:= 'closed_read';
+                               State =:= 'closed_read_write' ->
+                            %% ?DBG('server read when state closed*'),
+                            {{error, einval}, D};
+                        true ->
+                            %% ?DBG('server read'),
+                            state_setopts_server(
+                              P, D, State, Opts, Tag, Val);
+                        false ->
+                            %% ignored and invalid options
+                            %%
+                            case ignore_optname(Tag) of
+                                true ->
+                                    %% ?DBG(ignore),
+                                    state_setopts(P, D, State, Opts);
+                                false ->
+                                    %% ?DBG({extra, Tag}),
+                                    {{error, einval}, D}
+                            end
+                    end
+            end
     end.
 
-state_setopts_server(P, D, State, Opts, {Tag, Value}) ->
+state_setopts_server(P, D, State, Opts, Tag, Value) ->
     case Tag of
         active ->
             state_setopts_active(P, D, State, Opts, Value);
@@ -2590,6 +2638,11 @@ state_setopts_active(P, D, State, Opts, Active) ->
             {{error, einval}, D}
     end.
 
+%%
+%% -------
+%% getopts in server
+%%
+
 %% -> {ok, [Options]} | {error, einval}
 state_getopts(P, D, State, Opts) ->
     state_getopts(P, D, State, Opts, []).
@@ -2597,47 +2650,78 @@ state_getopts(P, D, State, Opts) ->
 state_getopts(_P, _D, _State, [], Acc) ->
     {ok, reverse(Acc)};
 state_getopts(P, D, State, [Tag | Tags], Acc) ->
-    %% ?DBG({'categorize option', Tag, State}),
-    case getopt_categories(Tag) of
-        #{socket := _} ->
-            %% ?DBG(socket),
+    SocketOpts = socket_opts(),
+    {Key, Val} =
+        case Tag of
+            {_, _} -> Tag; % E.g the raw option
+            _ when is_atom(Tag) -> {Tag, Tag}
+        end,
+    case maps:is_key(Key, SocketOpts) of
+        true ->
+            %% options for the socket module
+            %%
             case P#params.socket of
                 undefined ->
                     {error, closed};
                 Socket ->
                     %% ?DBG({'socket getopt', Tag}),
-                    case socket_getopt(Socket, Tag) of
+                    case
+                        socket_getopt(
+                          Socket, maps:get(Tag, SocketOpts), Val)
+                    of
                         {ok, Value} ->
                             %% ?DBG({'socket getopt', ok, Value}),
                             state_getopts(
-                              P, D, State, Tags, [{Tag, Value} | Acc]);
+                              P, D, State, Tags, [{Key, Value} | Acc]);
                         {error, _Reason} ->
                             %% ?DBG({'socket getopt', error, _Reason}),
                             state_getopts(P, D, State, Tags, Acc)
                     end
               end;
-        #{server_write := _} when State =:= 'closed' ->
-            %% ?DBG('server write when closed'),
-            {error, einval};
-        #{server_write := _} ->
-            %% ?DBG('server write'),
-            Value = maps:get(Tag, D),
-            state_getopts(P, D, State, Tags, [{Tag, Value} | Acc]);
-        #{server_read := _} when State =:= 'closed' ->
-            %% ?DBG('server read when closed'),
-            {error, einval};
-        #{server_read := _} when (State =:= 'closed_read') orelse
-                                 (State =:= 'closed_read_write') ->
-            %% ?DBG('server read when closed-read or closed-read-write'),
-            {error, einval};
-        #{server_read := _} ->
-            %% ?DBG('server read'),
-            Value = maps:get(Tag, D),
-            state_getopts(P, D, State, Tags, [{Tag, Value} | Acc]);
-        #{} = _EXTRA -> % extra | einval
-            %% ?DBG({'something else', _EXTRA}),
-            {error, einval}
+        false ->
+            case maps:is_key(Key, server_write_opts()) of
+                %% server options for socket send hence
+                %% duplicated in {opt,meta}
+                %%
+                true when State =:= 'closed' ->
+                    %% ?DBG('server write when closed'),
+                    {error, einval};
+                true ->
+                    %% ?DBG('server write'),
+                    Value = maps:get(Key, D),
+                    state_getopts(P, D, State, Tags, [{Key, Value} | Acc]);
+                false ->
+                    case maps:is_key(Key, server_read_opts()) of
+                        %% server options for receive
+                        %%
+                        true
+                          when State =:= 'closed';
+                               State =:= 'closed_read';
+                               State =:= 'closed_read_write' ->
+                            %% ?DBG('server read when closed*'),
+                            {error, einval};
+                        true ->
+                            %% ?DBG('server read'),
+                            Value = maps:get(Key, D),
+                            state_getopts(
+                              P, D, State, Tags, [{Key, Value} | Acc]);
+                        false ->
+                            %% ignored and invalid options
+                            %%
+                            case ignore_optname(Key) of
+                                true ->
+                                    %% ?DBG({ignore, Tag}),
+                                    state_getopts(P, D, State, Tags, Acc);
+                                false ->
+                                    %% ?DBG({extra, Tag}),
+                                    {error, einval}
+                            end
+                    end
+            end
     end.
+
+%%
+%% -------
 
 handle_info(Socket, Owner, #{active := Active} = D) -> 
     %% Read counters
