@@ -91,6 +91,7 @@ Eterm  erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
 			      Uint upsz, struct ErtsEStack_ *sp);
 
 int    erts_validate_and_sort_flatmap(flatmap_t* map);
+void   erts_usort_flatmap(flatmap_t* map);
 void   hashmap_iterator_init(struct ErtsWStack_* s, Eterm node, int reverse);
 Eterm* hashmap_iterator_next(struct ErtsWStack_* s);
 Eterm* hashmap_iterator_prev(struct ErtsWStack_* s);

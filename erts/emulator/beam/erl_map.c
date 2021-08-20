@@ -3018,6 +3018,44 @@ int erts_validate_and_sort_flatmap(flatmap_t* mp)
     return 1;
 }
 
+void erts_usort_flatmap(flatmap_t* mp)
+{
+    Eterm *ks  = flatmap_get_keys(mp);
+    Eterm *vs  = flatmap_get_values(mp);
+    Uint   sz  = flatmap_get_size(mp);
+    Uint   ix,jx;
+    Eterm  tmp;
+    Sint c;
+
+    /* sort and shrink */
+
+    for (ix = 1; ix < sz; ix++) {
+	jx = ix;
+	while( jx > 0 && (c = CMP_TERM(ks[jx],ks[jx-1])) <= 0 ) {
+	    /* identical key -> remove it */
+	    if (c == 0) {
+                sys_memmove(ks+jx-1,ks+jx,(sz-ix)*sizeof(Eterm));
+                sys_memmove(vs+jx-1,vs+jx,(sz-ix)*sizeof(Eterm));
+                sz--;
+                ix--;
+                break;
+            }
+
+	    tmp = ks[jx];
+	    ks[jx] = ks[jx - 1];
+	    ks[jx - 1] = tmp;
+
+	    tmp = vs[jx];
+	    vs[jx] = vs[jx - 1];
+	    vs[jx - 1] = tmp;
+
+	    jx--;
+	}
+    }
+    mp->size = sz;
+    *tuple_val(mp->keys) = make_arityval(sz);
+}
+
 #if 0 /* Can't get myself to remove this beautiful piece of code
          for probabilistic overestimation of nr of nodes in a hashmap */
 
