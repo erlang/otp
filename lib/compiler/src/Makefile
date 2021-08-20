@@ -58,7 +58,6 @@ MODULES =  \
 	beam_jump \
 	beam_listing \
 	beam_opcodes \
-	beam_peep \
 	beam_ssa \
 	beam_ssa_bc_size \
 	beam_ssa_bool \

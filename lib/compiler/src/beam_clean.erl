@@ -22,7 +22,6 @@
 -module(beam_clean).
 
 -export([module/2]).
--export([clean_labels/1]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -97,9 +96,6 @@ add_to_work_list(F, {Fs,Used}=Sets) ->
 	     entry :: beam_asm:label(),   %Number of entry label.
 	     lc :: non_neg_integer()      %Label counter
 	     }).
-
--spec clean_labels([beam_utils:instruction()]) ->
-                          {[beam_utils:instruction()],pos_integer()}.
 
 clean_labels(Fs0) ->
     St0 = #st{lmap=[],entry=1,lc=1},
