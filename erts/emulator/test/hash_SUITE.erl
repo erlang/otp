@@ -557,38 +557,41 @@ last_byte(Bin) ->
     <<_:NotLastByteSize/bitstring, LastByte:8>> = Bin,
     LastByte.
 
+
+%% This testcase needs 8-10 GB of free memory. If not enough is available
+%% the testcase will fail with {erpc,noconnection}
 test_phash2_4GB_plus_bin(Config) when is_list(Config) ->
     run_when_enough_resources(
       fun() ->
               {ok, N} = start_node(?FUNCTION_NAME),
               erpc:call(N,
                         fun() ->
-                                erts_debug:set_internal_state(available_internal_state, true),
-                                %% Created Bin4GB here so it only needs to be created once
-                                erts_debug:set_internal_state(force_gc, self()),
-                                Bin4GB = get_4GB_bin(),
-                                test_phash2_plus_bin_helper1(Bin4GB, <<>>, <<>>, 13708901),
-                                erts_debug:set_internal_state(force_gc, self()),
-                                test_phash2_plus_bin_helper1(Bin4GB, <<>>, <<3:5>>, 66617678),
-                                erts_debug:set_internal_state(force_gc, self()),
-                                test_phash2_plus_bin_helper1(Bin4GB, <<13>>, <<>>, 31308392),
-                                erts_debug:set_internal_state(force_gc, self()),
-                                erts_debug:set_internal_state(available_internal_state, false)
+                                test_phash2_4GB_plus_bin_tc()
                         end),
               stop_node(N)
       end).
 
+test_phash2_4GB_plus_bin_tc() ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    test_phash2_gc(),
+    test_phash2_plus_bin_helper(fun get_4GB_bin/0, <<>>, <<>>, 13708901),
+    test_phash2_gc(),
+    test_phash2_plus_bin_helper(fun get_4GB_bin/0, <<>>, <<3:5>>, 66617678),
+    test_phash2_gc(),
+    test_phash2_plus_bin_helper(fun get_4GB_bin/0, <<13>>, <<>>, 31308392),
+    test_phash2_gc(),
+    erts_debug:set_internal_state(available_internal_state, false),
+    ok.
 
 test_phash2_10MB_plus_bin(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
-    erts_debug:set_internal_state(force_gc, self()),
-    Bin10MB = get_10MB_bin(),
-    test_phash2_plus_bin_helper1(Bin10MB, <<>>, <<>>, 22776267),
-    erts_debug:set_internal_state(force_gc, self()),
-    test_phash2_plus_bin_helper1(Bin10MB, <<>>, <<3:5>>, 124488972),
-    erts_debug:set_internal_state(force_gc, self()),
-    test_phash2_plus_bin_helper1(Bin10MB, <<13>>, <<>>, 72958346),
-    erts_debug:set_internal_state(force_gc, self()),
+    test_phash2_gc(),
+    test_phash2_plus_bin_helper(fun get_10MB_bin/0, <<>>, <<>>, 22776267),
+    test_phash2_gc(),
+    test_phash2_plus_bin_helper(fun get_10MB_bin/0, <<>>, <<3:5>>, 124488972),
+    test_phash2_gc(),
+    test_phash2_plus_bin_helper(fun get_10MB_bin/0, <<13>>, <<>>, 72958346),
+    test_phash2_gc(),
     erts_debug:set_internal_state(available_internal_state, false).
 
 get_10MB_bin() ->
@@ -612,39 +615,86 @@ duplicate_iolist(IOList, 0) ->
 duplicate_iolist(IOList, NrOfTimes) ->
     duplicate_iolist([IOList, IOList], NrOfTimes - 1).
 
-test_phash2_plus_bin_helper1(Bin4GB, ExtraBytes, ExtraBits, ExpectedHash) ->
-    test_phash2_plus_bin_helper2(Bin4GB, fun id/1, ExtraBytes, ExtraBits, ExpectedHash),
-    test_phash2_plus_bin_helper2(Bin4GB, fun make_unaligned_sub_bitstring/1, ExtraBytes, ExtraBits, ExpectedHash).
 
-test_phash2_plus_bin_helper2(Bin, TransformerFun, ExtraBytes, ExtraBits, ExpectedHash) ->
+%% This functions is written very carefully so that the binaries
+%% created are released as quickly as possible. If they are not released
+%% then the memory consumption going through the roof and systems will need
+%% lots of memory.
+test_phash2_plus_bin_helper(Bin4GB, ExtraBytes, ExtraBits, ExpectedHash) ->
+    ct:log("Test with ~p extra bytes and ~p extra bits",
+          [ExtraBytes, ExtraBits]),
+    test_phash2_plus_bin_helper(Bin4GB, fun id/1, ExtraBytes, ExtraBits, ExpectedHash),
+    ct:log("Test as unaligned sub bitstring"),
+    test_phash2_plus_bin_helper(Bin4GB, fun make_unaligned_sub_bitstring/1,
+                                ExtraBytes, ExtraBits, ExpectedHash).
+test_phash2_plus_bin_helper(Bin, TransformerFun, ExtraBytes, ExtraBits, ExpectedHash) ->
+    %% GC to free any binaries used by previous test cases
+    test_phash2_gc(),
     ExtraBitstring = << ExtraBytes/binary, ExtraBits/bitstring >>,
     LargerBitstring = << ExtraBytes/binary,
                          ExtraBits/bitstring,
-                         Bin/bitstring >>,
+                         (Bin())/bitstring >>,
+    %% GC to free binary created by Bin()
+    test_phash2_gc(),
     LargerTransformedBitstring = TransformerFun(LargerBitstring),
+    %% GC to free binary LargerBitstring
+    test_phash2_gc(),
     ExtraBitstringHash = erlang:phash2(ExtraBitstring),
     ExpectedHash =
         case size(LargerTransformedBitstring) < 4294967296 of
             true ->
-                erts_debug:set_internal_state(force_gc, self()),
                 erts_debug:set_internal_state(reds_left, 1),
                 Hash = erlang:phash2(LargerTransformedBitstring),
                 Hash = erlang:phash2(LargerTransformedBitstring),
                 Hash;
             false ->
-                erts_debug:set_internal_state(force_gc, self()),
                 erts_debug:set_internal_state(reds_left, 1),
                 ExtraBitstringHash = erlang:phash2(LargerTransformedBitstring),
                 ExtraBitstringHash = erlang:phash2(LargerTransformedBitstring),
                 ExtraBitstringHash
         end.
 
+test_phash2_gc() ->
+    erts_debug:set_internal_state(force_gc, self()),
+    wait_for_mseg_cache(10).
+
+%% We want to wait for the mseg cache to clear as otherwise the
+%% extra refc binaries may still use memory and cause the system
+%% to run out when it should not.
+wait_for_mseg_cache(0) ->
+    io:format("Cached segments never became zero, continue anyways.");
+wait_for_mseg_cache(N) ->
+    case get_cached_segments() of
+        0 ->
+            %% We sleep an extra second in order for the OS to catch up
+            timer:sleep(1000);
+        NotZero ->
+            io:format("Cached segments = ~p, sleeping for 1 second~n",
+                      [NotZero]),
+            timer:sleep(1000),
+            wait_for_mseg_cache(N-1)
+    end.
+
+get_cached_segments() ->
+    case erlang:system_info({allocator,mseg_alloc}) of
+        false ->
+            0;
+        MsegInfo ->
+            lists:foldl(
+              fun({instance,_,Info}, Acc) ->
+                      Kind = proplists:get_value(memkind, Info),
+                      Status = proplists:get_value(status, Kind),
+                      {cached_segments,Cached} = lists:keyfind(cached_segments, 1, Status),
+                      Acc + Cached
+              end, 0, MsegInfo)
+    end.
+
 run_when_enough_resources(Fun) ->
     Bits = 8 * erlang:system_info({wordsize,external}),
     Mem = total_memory(),
     Build = erlang:system_info(build_type),
 
-    if Bits =:= 64, is_integer(Mem), Mem >= 31,
+    if Bits =:= 64, is_integer(Mem), Mem >= 16,
        Build =/= valgrind, Build =/= asan ->
             Fun();
 
@@ -1257,9 +1307,18 @@ make_unaligned_sub_binary(Bin0) when is_binary(Bin0) ->
     <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
     Bin.
 
+%% This functions is written very carefully so that the bitstrings
+%% created are released as quickly as possible. If they are not released
+%% then the memory consumption going through the roof and systems will need
+%% lots of memory.
 make_unaligned_sub_bitstring(Bin0) ->
-    Bin1 = <<0:3,Bin0/bitstring,31:5>>,
     Sz = erlang:bit_size(Bin0),
+    Bin1 = <<0:3,Bin0/bitstring,31:5>>,
+    make_unaligned_sub_bitstring2(Sz, Bin1).
+
+make_unaligned_sub_bitstring2(Sz, Bin1) ->
+    %% Make sure to release Bin0 if possible
+    erlang:garbage_collect(),
     <<0:3,Bin:Sz/bitstring,31:5>> = id(Bin1),
     Bin.
 
