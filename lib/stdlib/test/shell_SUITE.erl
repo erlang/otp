@@ -702,7 +702,7 @@ otp_5195(Config) when is_list(Config) ->
     {'EXIT',{undef,_}} = (catch evaluate(Ugly, [])),
 
     V_1 = <<"qlc:e(qlc:q([X || X <- qlc:append([[1,2,3],v(-1)])])).">>,
-    "- 1: command not found" = comm_err(V_1),
+    "-1: command not found" = comm_err(V_1),
     {'EXIT', {undef,_}} = (catch evaluate(V_1, [])),
 
     "1\n2\n3\n3.\n" =
