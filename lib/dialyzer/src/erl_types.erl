@@ -96,7 +96,7 @@
 	 t_integer/0,
 	 t_integer/1,
 	 t_non_neg_integer/0,
-	 t_pos_integer/0,
+	 t_pos_integer/0, t_neg_integer/0,
 	 t_integers/1,
 	 t_iodata/0,
 	 t_iolist/0,
@@ -1713,12 +1713,12 @@ t_map(Pairs0, DefK0, DefV0) ->
       true  -> {?none, ?none};
       false -> {DefK1, DefV0}
     end,
-  {Pairs1, DefK, DefV}
+  {Pairs1, DefK3, DefV}
     = case is_singleton_type(DefK2) of
 	true  -> {mapdict_insert({DefK2, ?opt, DefV1}, Pairs0), ?none, ?none};
 	false -> {Pairs0,                                       DefK2, DefV1}
       end,
-  Pairs = normalise_map_optionals(Pairs1, DefK, DefV),
+  {Pairs, DefK} = normalise_map_optionals(Pairs1, DefK3, DefV),
   %% Validate invariants of the map representation.
   %% Since we needed to iterate over the arguments in order to normalise anyway,
   %% we might as well save us some future pain and do this even without
@@ -1732,20 +1732,66 @@ t_map(Pairs0, DefK0, DefV0) ->
     false -> ?map(Pairs, DefK, DefV)
   end.
 
-normalise_map_optionals([], _, _) -> [];
-normalise_map_optionals([E={K,?opt,?none}|T], DefK, DefV) ->
+normalise_map_optionals(Pairs, DefK, DefV) ->
+  case normalise_map_optionals(Pairs, DefK, DefV, [], defk_unchanged) of
+    {Pairs1, DefK1, defk_changed} ->
+      normalise_map_optionals(Pairs1, DefK1, DefV);
+    {Pairs1, DefK1, defk_unchanged} ->
+      {Pairs1, DefK1}
+  end.
+
+normalise_map_optionals([], DefK, _, Es, F) -> {lists:reverse(Es), DefK, F};
+normalise_map_optionals([E={K,?opt,?none}|T], DefK, DefV, Es, F) ->
   Diff = t_subtract(DefK, K),
   case t_is_subtype(K, DefK) andalso DefK =:= Diff of
-    true -> [E|normalise_map_optionals(T, DefK, DefV)];
-    false -> normalise_map_optionals(T, Diff, DefV)
+    true -> normalise_map_optionals(T, DefK, DefV, [E|Es], F);
+    false -> normalise_map_optionals(T, Diff, DefV, Es, F)
   end;
-normalise_map_optionals([E={K,?opt,V}|T], DefK, DefV) ->
-  case t_is_equal(V, DefV) andalso t_is_subtype(K, DefK) of
-    true -> normalise_map_optionals(T, DefK, DefV);
-    false -> [E|normalise_map_optionals(T, DefK, DefV)]
+normalise_map_optionals([E={K,?opt,V}|T], DefK, DefV, Es, F) ->
+  HowToHandleE =
+    case t_is_equal(V, DefV) of
+      true ->
+        case t_is_subtype(K, DefK) of
+          true -> skip;
+          false ->
+            case needs_to_be_merged(K, DefK) of
+              true -> add_to_default_key;
+              false -> keep
+            end
+        end;
+      false -> keep
+    end,
+  case HowToHandleE of
+    skip ->
+      normalise_map_optionals(T, DefK, DefV, Es, F);
+    keep ->
+      normalise_map_optionals(T, DefK, DefV, [E|Es], F);
+    add_to_default_key ->
+      normalise_map_optionals(T, t_sup(K, DefK), DefV, Es, defk_changed)
   end;
-normalise_map_optionals([E|T], DefK, DefV) ->
-  [E|normalise_map_optionals(T, DefK, DefV)].
+normalise_map_optionals([E|T], DefK, DefV, Es, F) ->
+  normalise_map_optionals(T, DefK, DefV, [E|Es], F).
+
+%% Return `true' if the first argument (a singleton) cannot be
+%% separated from the second argument (the default key) as that would
+%% represent equal map types by unequal terms. An example:
+%% `#{0 => t(), pos_integer() => t()}' is to be represented by
+%% `#{non_neg_integer() => t()}'.
+needs_to_be_merged(?int_set(Set), DefK) ->
+  [I] = set_to_list(Set),
+  Iplus = t_integer(I + 1),
+  Iminus = t_integer(I - 1),
+  InfPlus = t_inf(Iplus, DefK),
+  InfMinus = t_inf(Iminus, DefK),
+  not (t_is_none(InfPlus) andalso t_is_none(InfMinus));
+needs_to_be_merged(?atom(_Set), DefK) ->
+  InfAtom = t_inf(t_atom(), DefK),
+  not t_is_none(InfAtom);
+needs_to_be_merged(?nil, DefK) ->
+  InfNonEmpty = t_inf(t_nonempty_list(), DefK),
+  t_is_cons(InfNonEmpty);
+needs_to_be_merged(_, _) ->
+  false.
 
 validate_map_elements([{K1,_,_}|Rest=[{K2,_,_}|_]]) ->
   case is_singleton_type(K1) andalso K1 < K2 of
@@ -5584,7 +5630,7 @@ is_singleton_type(?nil) -> true;
 is_singleton_type(?atom(?any)) -> false;
 is_singleton_type(?atom(Set)) ->
   ordsets:size(Set) =:= 1;
-is_singleton_type(?int_range(V, V)) -> true;
+is_singleton_type(?int_range(V, V)) -> true; % cannot happen
 is_singleton_type(?int_set(Set)) ->
   ordsets:size(Set) =:= 1;
 is_singleton_type(_) ->
