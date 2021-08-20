@@ -629,6 +629,28 @@ opt([{test,_,{f,_}=Lbl,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], label_used(Lbl, St));
 opt([{test,_,{f,_}=Lbl,_,_,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], label_used(Lbl, St));
+opt([{select,select_val,R,F,Vls0}|Is], Acc, St) ->
+    case prune_redundant_values(Vls0, F) of
+        [] ->
+            %% No values left. Must convert to plain jump.
+            I = {jump,F},
+            opt([I|Is], Acc, St);
+        [{atom,_}=Value,Lbl] ->
+            %% Single value left. Convert to regular test.
+            Is1 = [{test,is_eq_exact,F,[R,Value]},{jump,Lbl}|Is],
+            opt(Is1, Acc, St);
+        [{integer,_}=Value,Lbl] ->
+            %% Single value left. Convert to regular test.
+            Is1 = [{test,is_eq_exact,F,[R,Value]},{jump,Lbl}|Is],
+            opt(Is1, Acc, St);
+        [{atom,B1},Lbl,{atom,B2},Lbl] when B1 =:= not B2 ->
+            %% Replace with is_boolean test.
+            Is1 = [{test,is_boolean,F,[R]},{jump,Lbl}|Is],
+            opt(Is1, Acc, St);
+        [_|_]=Vls ->
+            I = {select,select_val,R,F,Vls},
+            skip_unreachable(Is, [I|Acc], label_used([F|Vls], St))
+    end;
 opt([{select,_,_R,Fail,Vls}=I|Is], Acc, St) ->
     skip_unreachable(Is, [I|Acc], label_used([Fail|Vls], St));
 opt([{label,From}=I,{label,To}|Is], Acc, #st{replace=Replace}=St) ->
@@ -663,6 +685,12 @@ opt([], Acc, #st{replace=Replace0}) when Replace0 =/= #{} ->
     beam_utils:replace_labels(Acc, [], Replace, fun(Old) -> Old end);
 opt([], Acc, #st{replace=Replace}) when Replace =:= #{} ->
     reverse(Acc).
+
+prune_redundant_values([_Val,F|Vls], F) ->
+    prune_redundant_values(Vls, F);
+prune_redundant_values([Val,Lbl|Vls], F) ->
+    [Val,Lbl|prune_redundant_values(Vls, F)];
+prune_redundant_values([], _) -> [].
 
 normalize_replace([{From,To0}|Rest], Replace, Acc) ->
     case Replace of
