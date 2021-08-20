@@ -213,6 +213,13 @@ minor_major_gc_option_self(_Config) ->
             Pid ! {gc, Ref, major}
         end, [gc_major_start, gc_major_end]),
 
+    %% Try as major dirty, the test process will self-trigger GC
+    check_gc_tracing_around(
+        fun(Pid, Ref) ->
+            Pid ! {gc, Ref, major}
+        end, [gc_major_start, gc_major_end],
+      lists:seq(1,128 * 1024)),
+
     %% Try as minor, the test process will self-trigger GC
     check_gc_tracing_around(
         fun(Pid, Ref) ->
@@ -293,19 +300,23 @@ gc_dirty_exec_proc(Config) when is_list(Config) ->
 %% it results in any unexpected messages or if the expected trace tags are not
 %% received.
 check_gc_tracing_around(Fun, ExpectedTraceTags) ->
+    check_gc_tracing_around(Fun, ExpectedTraceTags, []).
+check_gc_tracing_around(Fun, ExpectedTraceTags, State) ->
     Ref = erlang:make_ref(),
     Pid = spawn(
-        fun Endless() ->
-            receive
-                {gc, Ref, Type} ->
-                    erlang:garbage_collect(self(), [{type, Type}]);
-		{dirty_exec, Time} ->
-		    erts_debug:dirty_io(wait, 1000)
-            after 100 ->
-                ok
-            end,
-            Endless()
-        end),
+            fun() ->
+                    (fun Endless(S) ->
+                             receive
+                                 {gc, Ref, Type} ->
+                                     erlang:garbage_collect(self(), [{type, Type}]);
+                                 {dirty_exec, Time} ->
+                                     erts_debug:dirty_io(wait, Time)
+                             after 100 ->
+                                     ok
+                             end,
+                             Endless(S)
+                     end)(State)
+            end),
     erlang:garbage_collect(Pid, []),
     erlang:trace(Pid, true, [garbage_collection]),
     Fun(Pid, Ref),
