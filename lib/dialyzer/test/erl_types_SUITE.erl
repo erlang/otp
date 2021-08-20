@@ -16,7 +16,8 @@
 
 -export([all/0,
          consistency_and_to_string/1,
-         misc/1]).
+         misc/1,
+         map_multiple_representations/1]).
 
 %% Simplify calls into erl_types and avoid importing the entire module.
 -define(M, erl_types).
@@ -24,7 +25,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
-    [consistency_and_to_string, misc].
+    [consistency_and_to_string, misc, map_multiple_representations].
 
 consistency_and_to_string(_Config) ->
     %% Check consistency of types
@@ -205,4 +206,120 @@ misc(_Config) ->
     B1_2 = ?M:t_bitstr(85, 7),
     R1_R = ?M:t_bitstr(547608330240, 347892352432),
     R1_R = ?M:t_inf(B1_1, B1_2),
+    ok.
+
+%% OTP-17537.
+map_multiple_representations(_Config) ->
+    DefV = erl_types:t_atom(),
+    fun() ->
+            P2 = {erl_types:t_integer(0), optional, DefV},
+            Ps = [P2],
+            DefK = erl_types:t_pos_integer(),
+            T = erl_types:t_map(Ps, DefK, DefV),
+            "#{non_neg_integer()=>atom()}" = erl_types:t_to_string(T)
+    end(),
+    fun() ->
+            P1 = {erl_types:t_integer(-1), optional, DefV},
+            P2 = {erl_types:t_integer(0), optional, DefV},
+            Ps = [P1, P2],
+            DefK = erl_types:t_pos_integer(),
+            T = erl_types:t_map(Ps, DefK, DefV),
+            "#{integer()=>atom()}" = erl_types:t_to_string(T)
+    end(),
+    fun() ->
+            P1 = {erl_types:t_integer(0), optional, DefV}, % integer()
+            P2 = {erl_types:t_integer(1), optional, DefV}, % extra
+            Ps = [P1, P2],
+            DefK = erl_types:t_neg_integer(),
+            T = erl_types:t_map(Ps, DefK, DefV),
+            "#{integer()=>atom()}" = erl_types:t_to_string(T)
+    end(),
+    fun() ->
+            P1 = {erl_types:t_nil(), optional, DefV},
+            Ps = [P1],
+            DefK = erl_types:t_nonempty_list(),
+            T = erl_types:t_map(Ps, DefK, DefV),
+            "#{[any()]=>atom()}" = erl_types:t_to_string(T)
+    end(),
+    fun() ->
+            P1 = {erl_types:t_nil(), optional, DefV},
+            Ps = [P1],
+            DefK = erl_types:t_nonempty_string(),
+            T = erl_types:t_map(Ps, DefK, DefV),
+            "#{string()=>atom()}" = erl_types:t_to_string(T)
+    end(),
+    fun() ->
+            P1 = {erl_types:t_nil(), optional, DefV},
+            Ps = [P1],
+            DefK = erl_types:t_sup(erl_types:t_nonempty_string(),
+                                   erl_types:t_nil()),
+            T = erl_types:t_map(Ps, DefK, DefV),
+            "#{string()=>atom()}" = erl_types:t_to_string(T)
+    end(),
+    fun() ->
+            P1 = {erl_types:t_nil(), optional, DefV},
+            Ps = [P1],
+            DefK = erl_types:t_sup(erl_types:t_nonempty_string(),
+                                   erl_types:t_atom()),
+            T = erl_types:t_map(Ps, DefK, DefV),
+            "#{atom() | string()=>atom()}" = erl_types:t_to_string(T)
+    end(),
+    fun() ->
+            P1 = {erl_types:t_integer(0), optional, DefV},
+            Ps = [P1],
+            DefK = erl_types:t_sup(erl_types:t_pos_integer(),
+                                   erl_types:t_atom()),
+            T = erl_types:t_map(Ps, DefK, DefV),
+            "#{atom() | non_neg_integer()=>atom()}" = erl_types:t_to_string(T)
+    end(),
+    fun() ->
+            P1 = {erl_types:t_integer(8), optional, DefV},
+            Ps = [P1],
+            DefK = erl_types:t_from_range(9, 12),
+            T = erl_types:t_map(Ps, DefK, DefV),
+            "#{8 | 9 | 10 | 11 | 12=>atom()}" = erl_types:t_to_string(T)
+
+    end(),
+    fun() ->
+            P1 = {erl_types:t_integer(13), optional, DefV},
+            Ps = [P1],
+            DefK = erl_types:t_from_range(9, 12),
+            T = erl_types:t_map(Ps, DefK, DefV),
+            "#{9 | 10 | 11 | 12 | 13=>atom()}" = erl_types:t_to_string(T)
+
+    end(),
+    fun() ->
+            P1 = {erl_types:t_atom(a), optional, DefV},
+            Ps = [P1],
+            DefK = erl_types:t_sup([erl_types:t_atom(a01),
+                                    erl_types:t_atom(a02),
+                                    erl_types:t_atom(a03),
+                                    erl_types:t_atom(a04),
+                                    erl_types:t_atom(a05),
+                                    erl_types:t_atom(a06),
+                                    erl_types:t_atom(a07),
+                                    erl_types:t_atom(a08),
+                                    erl_types:t_atom(a09),
+                                    erl_types:t_atom(a10),
+                                    erl_types:t_atom(a11),
+                                    erl_types:t_atom(a12),
+                                    erl_types:t_atom(a13)]),
+            T = erl_types:t_map(Ps, DefK, DefV),
+            "#{atom()=>atom()}" = erl_types:t_to_string(T)
+    end(),
+    fun() ->
+            P1 = {erl_types:t_atom(a), optional, DefV},
+            Ps = [P1],
+            DefK = erl_types:t_sup([erl_types:t_atom(b),
+                                    erl_types:t_atom(c)]),
+            T = erl_types:t_map(Ps, DefK, DefV),
+            "#{'a' | 'b' | 'c'=>atom()}" = erl_types:t_to_string(T)
+    end(),
+    fun() ->
+            P1 = {erl_types:t_atom(a), optional, DefV},
+            Ps = [P1],
+            DefK = erl_types:t_atom(b),
+            T = erl_types:t_map(Ps, DefK, DefV),
+            "#{'a'=>atom(), 'b'=>atom()}" = erl_types:t_to_string(T)
+    end(),
     ok.
