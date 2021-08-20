@@ -1424,7 +1424,9 @@ rel_op_combinations(Config) when is_list(Config) ->
     Red = gb_trees:from_orddict(Red0),
     rel_op_combinations_3(100, Red),
 
-    rel_op_combinations_4().
+    rel_op_combinations_4(),
+
+    rel_op_combinations_5().
 
 rel_op_combinations_1(0, _) ->
     ok;
@@ -1676,6 +1678,145 @@ rel_op_vars_1(X, N) when X =< N -> le.
 
 rel_op_vars_2(X, N) when X =/= N -> ne;
 rel_op_vars_2(X, N) when X >= N -> ge.
+
+rel_op_combinations_5() ->
+    lt = lt_gt_eq(a, b),
+    lt = lt_gt_eq(1.0, 42),
+    lt = lt_gt_eq(1, 42.0),
+
+    eq = lt_gt_eq(a, a),
+    eq = lt_gt_eq(42, 42),
+    eq = lt_gt_eq(42.0, 42),
+    eq = lt_gt_eq(42, 42.0),
+    eq = lt_gt_eq(42.0, 42.0),
+
+    gt = lt_gt_eq(b, a),
+    gt = lt_gt_eq(42.0, 1),
+    gt = lt_gt_eq(42, 1.0),
+
+    lt = eq_exact_lt_gt(a, b),
+    lt = eq_exact_lt_gt(1.0, 42),
+    lt = eq_exact_lt_gt(1, 42.0),
+
+    eq = eq_exact_lt_gt(a, a),
+    eq = eq_exact_lt_gt(42, 42),
+    none = eq_exact_lt_gt(42, 42.0),
+
+    gt = eq_exact_lt_gt(b, a),
+    gt = eq_exact_lt_gt(42.0, 1),
+    gt = eq_exact_lt_gt(42, 1.0),
+
+    ok.
+
+lt_gt_eq(A, B) ->
+    Res = lt_gt_eq_1(A, B),
+    Res = lt_gt_eq_2(A, B),
+    Res = lt_gt_eq_3(A, B),
+    Res = lt_gt_eq_4(A, B),
+    Res = lt_gt_eq_5(A, B),
+    lt_gt_eq_6(A, B).
+
+%% The last test in each 'if' is unnecessary.
+lt_gt_eq_1(A, B) ->
+    if
+        A < B -> lt;
+        A == B -> eq;
+        A > B -> gt
+    end.
+
+lt_gt_eq_2(A, B) ->
+    if
+        A > B -> gt;
+        A == B -> eq;
+        A < B -> lt
+    end.
+
+lt_gt_eq_3(A, B) ->
+    if
+        A == B -> eq;
+        A < B -> lt;
+        A > B -> gt
+    end.
+
+lt_gt_eq_4(A, B) ->
+    if
+        A == B -> eq;
+        A > B -> gt;
+        A < B -> lt
+    end.
+
+lt_gt_eq_5(A, B) ->
+    if
+        A < B -> lt;
+        A > B -> gt;
+        A == B -> eq
+    end.
+
+lt_gt_eq_6(A, B) ->
+    if
+        A > B -> gt;
+        A < B -> lt;
+        A == B -> eq
+    end.
+
+eq_exact_lt_gt(A, B) ->
+    Res = eq_exact_lt_gt_1(A, B),
+    Res = eq_exact_lt_gt_2(A, B),
+    Res = eq_exact_lt_gt_3(A, B),
+    Res = eq_exact_lt_gt_4(A, B),
+    Res = eq_exact_lt_gt_5(A, B),
+    Res = eq_exact_lt_gt_6(A, B).
+
+%% Not possible to optimize (unless we have type information so we
+%% know that A == B and A =:= B produces the same result).
+
+eq_exact_lt_gt_1(A, B) ->
+    if
+        A < B -> lt;
+        A =:= B -> eq;
+        A > B -> gt;
+        true -> none
+    end.
+
+eq_exact_lt_gt_2(A, B) ->
+    if
+        A > B -> gt;
+        A =:= B -> eq;
+        A < B -> lt;
+        true -> none
+    end.
+
+eq_exact_lt_gt_3(A, B) ->
+    if
+        A =:= B -> eq;
+        A < B -> lt;
+        A > B -> gt;
+        true -> none
+    end.
+
+eq_exact_lt_gt_4(A, B) ->
+    if
+        A =:= B -> eq;
+        A > B -> gt;
+        A < B -> lt;
+        true -> none
+    end.
+
+eq_exact_lt_gt_5(A, B) ->
+    if
+        A < B -> lt;
+        A > B -> gt;
+        A =:= B -> eq;
+        true -> none
+    end.
+
+eq_exact_lt_gt_6(A, B) ->
+    if
+        A > B -> gt;
+        A < B -> lt;
+        A =:= B -> eq;
+        true -> none
+    end.
 
 %% Exhaustively test all combinations of relational operators
 %% to ensure the correctness of the optimizations in beam_ssa_dead.
