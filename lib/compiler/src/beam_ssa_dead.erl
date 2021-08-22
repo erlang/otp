@@ -35,16 +35,16 @@
 -type basic_type_test() :: atom() | {'is_tagged_tuple',pos_integer(),atom()}.
 -type type_test() :: basic_type_test() | {'not',basic_type_test()}.
 -type op_name() :: atom().
--type basic_rel_op() :: {op_name(),beam_ssa:b_var(),beam_ssa:value()} |
-                         {basic_type_test(),beam_ssa:value()}.
--type rel_op() :: {op_name(),beam_ssa:b_var(),beam_ssa:value()} |
-                  {type_test(),beam_ssa:value()}.
+-type basic_test() :: {op_name(),beam_ssa:b_var(),beam_ssa:value()} |
+                      {basic_type_test(),beam_ssa:value()}.
+-type test() :: {op_name(),beam_ssa:b_var(),beam_ssa:value()} |
+                {type_test(),beam_ssa:value()}.
 
 -record(st,
         {bs :: beam_ssa:block_map(),
          us :: used_vars(),
          skippable :: #{beam_ssa:label():='true'},
-         rel_op=none :: 'none' | rel_op(),
+         test=none :: 'none' | test(),
          target=any :: 'any' | 'one_way' | beam_ssa:label()
         }).
 
@@ -116,20 +116,20 @@ shortcut_opt([], St) -> St.
 
 shortcut_terminator(#b_br{bool=#b_literal{val=true},succ=Succ0},
                     _Is, From, St0) ->
-    St = St0#st{rel_op=none},
+    St = St0#st{test=none},
     shortcut(Succ0, From, #{}, St);
 shortcut_terminator(#b_br{bool=#b_var{}=Bool,succ=Succ0,fail=Fail0}=Br,
                     Is, From, St0) ->
     St = St0#st{target=one_way},
-    RelOp = get_rel_op(Bool, Is),
+    Test = get_test(Bool, Is),
 
     %% The boolean in a `br` is seldom used by the successors. By
     %% not binding its value unless it is actually used we might be able
     %% to skip some work in shortcut/4 and sub/2.
     SuccBs = bind_var_if_used(Succ0, Bool, #b_literal{val=true}, St),
-    BrSucc = shortcut(Succ0, From, SuccBs, St#st{rel_op=RelOp}),
+    BrSucc = shortcut(Succ0, From, SuccBs, St#st{test=Test}),
     FailBs = bind_var_if_used(Fail0, Bool, #b_literal{val=false}, St),
-    BrFail = shortcut(Fail0, From, FailBs, St#st{rel_op=invert_op(RelOp)}),
+    BrFail = shortcut(Fail0, From, FailBs, St#st{test=invert_test(Test)}),
 
     case {BrSucc,BrFail} of
         {#b_br{bool=#b_literal{val=true},succ=Succ},
@@ -158,8 +158,8 @@ shortcut_sw_fail(Fail0, List, Bool, From, St0) ->
     case List of
         [{#b_literal{val=false},_},
          {#b_literal{val=true},_}] ->
-            RelOp = {{'not',is_boolean},Bool},
-            St = St0#st{rel_op=RelOp,target=one_way},
+            Test = {{'not',is_boolean},Bool},
+            St = St0#st{test=Test,target=one_way},
             #b_br{bool=#b_literal{val=true},succ=Fail} =
                 shortcut(Fail0, From, #{}, St),
             Fail;
@@ -168,18 +168,19 @@ shortcut_sw_fail(Fail0, List, Bool, From, St0) ->
     end.
 
 shortcut_sw_list([{Lit,L0}|T], Bool, From, St0) ->
-    RelOp = {'=:=',Bool,Lit},
-    St = St0#st{rel_op=RelOp},
+    Test = {'=:=',Bool,Lit},
+    St = St0#st{test=Test},
     #b_br{bool=#b_literal{val=true},succ=L} =
         shortcut(L0, From, bind_var(Bool, Lit, #{}), St#st{target=one_way}),
     [{Lit,L}|shortcut_sw_list(T, Bool, From, St0)];
 shortcut_sw_list([], _, _, _) -> [].
 
-shortcut(L, _From, Bs, #st{rel_op=none,target=one_way}) when map_size(Bs) =:= 0 ->
-    %% There is no way that we can find a suitable branch, because there is no
-    %% relational operator stored, there are no bindings, and the block L can't
-    %% have any phi nodes from which we could pick bindings because when the target
-    %% is `one_way`, it implies the From block has a two-way `br` terminator.
+shortcut(L, _From, Bs, #st{test=none,target=one_way}) when map_size(Bs) =:= 0 ->
+    %% There is no way that we can find a suitable branch, because
+    %% there are no stored tests, there are no bindings, and the block
+    %% L can't have any phi nodes from which we could pick bindings
+    %% because when the target is `one_way`, it implies that the From
+    %% block has a two-way `br` terminator.
     #b_br{bool=#b_literal{val=true},succ=L,fail=L};
 shortcut(L, From, Bs, St) ->
     shortcut_1(L, From, Bs, sets:new([{version, 2}]), St).
@@ -463,7 +464,7 @@ eval_is([#b_set{op={bif,_},dst=Dst}=I0|Is], From, Bs, St) ->
 eval_is([#b_set{op=Op,dst=Dst}=I|Is], From, Bs, St)
   when Op =:= is_tagged_tuple; Op =:= is_nonempty_list ->
     #b_set{args=Args} = sub(I, Bs),
-    case eval_rel_op(Op, Args, St) of
+    case eval_test(Op, Args, St) of
         #b_literal{}=Val ->
             eval_is(Is, From, bind_var(Dst, Val, Bs), St);
         none ->
@@ -524,7 +525,7 @@ eval_terminator(#b_switch{arg=Arg,fail=Fail,list=List}=Sw, Bs, St) ->
 eval_terminator(#b_ret{}, _Bs, _St) ->
     none.
 
-eval_switch(List, Arg, #st{rel_op={_,Arg,_}=PrevOp}, Fail) ->
+eval_switch(List, Arg, #st{test={_,Arg,_}=PrevOp}, Fail) ->
     %% There is a previous relational operator testing the same variable.
     %% Optimization may be possible.
     eval_switch_1(List, Arg, PrevOp, Fail);
@@ -534,8 +535,8 @@ eval_switch(_, _, _, _) ->
     none.
 
 eval_switch_1([{Lit,Lbl}|T], Arg, PrevOp, Fail) ->
-    RelOp = {'=:=',Arg,Lit},
-    case will_succeed(PrevOp, RelOp) of
+    Test = {'=:=',Arg,Lit},
+    case will_succeed(PrevOp, Test) of
         yes ->
             %% Success. This branch will always be taken.
             Lbl;
@@ -577,7 +578,7 @@ eval_bif(#b_set{op={bif,Bif},args=Args}, St) ->
                 none ->
                     %% Not literal arguments. Try to evaluate
                     %% it based on a previous relational operator.
-                    eval_rel_op({bif,Bif}, Args, St);
+                    eval_test({bif,Bif}, Args, St);
                 LitArgs ->
                     try apply(erlang, Bif, LitArgs) of
                         Val -> #b_literal{val=Val}
@@ -602,61 +603,61 @@ get_lit_args(_) -> none.
 %%% Handling of relational operators.
 %%%
 
-get_rel_op(Bool, [_|_]=Is) ->
+get_test(Bool, [_|_]=Is) ->
     case last(Is) of
         #b_set{op=Op,dst=Bool,args=Args} ->
-            normalize_op(Op, Args);
+            normalize_test(Op, Args);
         #b_set{} ->
             none
     end;
-get_rel_op(_, []) -> none.
+get_test(_, []) -> none.
 
-%% normalize_op(Instruction) -> {Normalized,FailLabel} | error
+%% normalize_test(Instruction) -> {Normalized,FailLabel} | error
 %%    Normalized = {Operator,Variable,Variable|Literal} |
 %%                 {TypeTest,Variable}
-%%    Operation = '<' | '=<' | '=:=' | '=/=' | '>=' | '>'
+%%    Operation = '<' | '=<' | '=:=' | '=/=' | '>=' | '>' | '==' | '/='
 %%    TypeTest = is_atom | is_integer ...
 %%    Variable = #b_var{}
 %%    Literal = #b_literal{}
 %%
-%%  Normalize a relational operator to facilitate further
-%%  comparisons between operators. Always make the register
-%%  operand the first operand. If there are two registers,
-%%  order the registers in lexical order.
+%%  Normalize type tests and relational operators to facilitate
+%%  further comparisons between test. Always make the register
+%%  operand the first operand. If there are two registers, order the
+%%  registers in lexical order.
 %%
 %%  For example, this instruction:
 %%
-%%    #b_set{op={bif,=<},args=[#b_literal{}, #b_var{}}
+%%    #b_set{op={bif,'<'},args=[#b_literal{}, #b_var{}}
 %%
 %%  will be normalized to:
 %%
-%%    {'=<',#b_var{},#b_literal{}}
+%%    {'>',#b_var{},#b_literal{}}
 
--spec normalize_op(Op, Args) -> NormalizedOp | 'none' when
+-spec normalize_test(Op, Args) -> NormalizedTest | 'none' when
       Op :: beam_ssa:op(),
       Args :: [beam_ssa:value()],
-      NormalizedOp :: basic_rel_op().
+      NormalizedTest :: basic_test().
 
-normalize_op(is_tagged_tuple, [Arg,#b_literal{val=Size},#b_literal{val=Tag}])
+normalize_test(is_tagged_tuple, [Arg,#b_literal{val=Size},#b_literal{val=Tag}])
   when is_integer(Size), is_atom(Tag) ->
     {{is_tagged_tuple,Size,Tag},Arg};
-normalize_op(is_nonempty_list, [Arg]) ->
+normalize_test(is_nonempty_list, [Arg]) ->
     {is_nonempty_list,Arg};
-normalize_op({bif,Bif}, [Arg]) ->
+normalize_test({bif,Bif}, [Arg]) ->
     case erl_internal:new_type_test(Bif, 1) of
         true -> {Bif,Arg};
         false -> none
     end;
-normalize_op({bif,Bif}, [_,_]=Args) ->
+normalize_test({bif,Bif}, [_,_]=Args) ->
     case erl_internal:comp_op(Bif, 2) of
         true ->
-            normalize_op_1(Bif, Args);
+            normalize_test_1(Bif, Args);
         false ->
             none
     end;
-normalize_op(_, _) -> none.
+normalize_test(_, _) -> none.
 
-normalize_op_1(Bif, Args) ->
+normalize_test_1(Bif, Args) ->
     case Args of
         [#b_literal{}=Arg1,#b_var{}=Arg2] ->
             {turn_op(Bif),Arg2,Arg1};
@@ -670,22 +671,22 @@ normalize_op_1(Bif, Args) ->
             none
     end.
 
--spec invert_op(basic_rel_op() | 'none') -> rel_op() | 'none'.
+-spec invert_test(basic_test() | 'none') -> test() | 'none'.
 
-invert_op({Op,Arg1,Arg2}) ->
-    {invert_op_1(Op),Arg1,Arg2};
-invert_op({TypeTest,Arg}) ->
+invert_test({Op,Arg1,Arg2}) ->
+    {invert_op(Op),Arg1,Arg2};
+invert_test({TypeTest,Arg}) ->
     {{'not',TypeTest},Arg};
-invert_op(none) -> none.
+invert_test(none) -> none.
 
-invert_op_1('>=') -> '<';
-invert_op_1('<') -> '>=';
-invert_op_1('=<') -> '>';
-invert_op_1('>') -> '=<';
-invert_op_1('=:=') -> '=/=';
-invert_op_1('=/=') -> '=:=';
-invert_op_1('==') -> '/=';
-invert_op_1('/=') -> '=='.
+invert_op('>=') -> '<';
+invert_op('<') -> '>=';
+invert_op('=<') -> '>';
+invert_op('>') -> '=<';
+invert_op('=:=') -> '=/=';
+invert_op('=/=') -> '=:=';
+invert_op('==') -> '/=';
+invert_op('/=') -> '=='.
 
 turn_op('<') -> '>';
 turn_op('=<') -> '>=';
@@ -696,14 +697,14 @@ turn_op('=/='=Op) -> Op;
 turn_op('=='=Op) -> Op;
 turn_op('/='=Op) -> Op.
 
-eval_rel_op(_Bif, _Args, #st{rel_op=none}) ->
+eval_test(_Bif, _Args, #st{test=none}) ->
     none;
-eval_rel_op(Bif, Args, #st{rel_op=Prev}) ->
-    case normalize_op(Bif, Args) of
+eval_test(Bif, Args, #st{test=Prev}) ->
+    case normalize_test(Bif, Args) of
         none ->
             none;
-        RelOp ->
-            case will_succeed(Prev, RelOp) of
+        Test ->
+            case will_succeed(Prev, Test) of
                 yes -> #b_literal{val=true};
                 no -> #b_literal{val=false};
                 maybe -> none
