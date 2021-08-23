@@ -988,6 +988,13 @@ f.txt:  {person, "kalle", 25}.
           An <c><anno>IoDevice</anno></c> returned from this call can be used
           as an argument to the I/O functions (see
           <seeerl marker="stdlib:io"><c>io(3)</c></seeerl>).</p>
+        <warning>
+          <p>While this function can be used to open any file, we recommend
+            against using it for NFS-mounted files, FIFOs, devices, or
+            similar since they can cause IO threads to hang forever.</p>
+          <p>If your application needs to interact with these kinds of files we
+            recommend breaking out those parts to a port program instead.</p>
+        </warning>
         <note>
           <p>In previous versions of <c>file</c>, modes were specified
             as one of the atoms <c>read</c>, <c>write</c>, or
