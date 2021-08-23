@@ -2811,11 +2811,7 @@ link_live_proc_bin(struct shrink_cand_data *shrink,
 
     *currpp = pbp->next;
     if (pbp->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE)) {
-	ASSERT(((pbp->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE))
-		== (PB_ACTIVE_WRITER|PB_IS_WRITABLE))
-	       || ((pbp->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE))
-		   == PB_IS_WRITABLE));
-
+	ASSERT(pbp->flags & PB_IS_WRITABLE);
 
 	if (pbp->flags & PB_ACTIVE_WRITER) {
             pbp->flags &= ~PB_ACTIVE_WRITER;
