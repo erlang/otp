@@ -650,7 +650,7 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello, State
                                                         connection_env = CEnv#connection_env{negotiated_version = Version},
                                                         handshake_env = HsEnv#handshake_env{
                                                                           hashsign_algorithm = HashSign,
-                                                                  client_hello_version = ClientVersion,
+                                                                          client_hello_version = ClientVersion,
                                                                           negotiated_protocol = Protocol},
                                                         session = Session}),
                     {next_state, hello, State, [{next_event, internal, {common_client_hello, Type, ServerHelloExt}}]}

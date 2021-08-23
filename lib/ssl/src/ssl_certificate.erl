@@ -263,16 +263,21 @@ extensions_list(Extensions) ->
     Extensions.
 
 %%--------------------------------------------------------------------
--spec public_key_type(term()) -> rsa | dsa | ec.
+-spec public_key_type(term()) -> rsa | rsa_pss_pss | dsa | ecdsa | eddsa.
 %%
 %% Description:
 %%--------------------------------------------------------------------
+public_key_type(?'id-RSASSA-PSS') ->
+    rsa_pss_pss;
 public_key_type(?'rsaEncryption') ->
     rsa;
 public_key_type(?'id-dsa') ->
     dsa;
 public_key_type(?'id-ecPublicKey') ->
-    ec.
+    ecdsa;
+public_key_type(Oid) ->
+    {_, Sign} = public_key:pkix_sign_types(Oid),
+    Sign.
 
 %%--------------------------------------------------------------------
 -spec foldl_db(fun(), db_handle() | {extracted, list()}, list()) ->
@@ -519,21 +524,34 @@ verify_cert_extensions(Cert, UserState, [_|Exts], Context) ->
 verify_sign(_, #{version := {_, Minor}}) when Minor < 3 ->
     %% This verification is not applicable pre TLS-1.2 
     true; 
-verify_sign(Cert, #{signature_algs := SignAlgs,
+verify_sign(Cert, #{version := {3, 3},
+                    signature_algs := SignAlgs,
                     signature_algs_cert := undefined}) ->
-    is_supported_signature_algorithm(Cert, SignAlgs); 
-verify_sign(Cert, #{signature_algs_cert := SignAlgs}) ->
-    is_supported_signature_algorithm(Cert, SignAlgs).
+    is_supported_signature_algorithm_1_2(Cert, SignAlgs);
+verify_sign(Cert, #{version := {3, 3},
+                    signature_algs_cert := SignAlgs}) ->
+    is_supported_signature_algorithm_1_2(Cert, SignAlgs);
+verify_sign(Cert, #{version := {3, 4},
+                     signature_algs := SignAlgs,
+                     signature_algs_cert := undefined}) ->
+    is_supported_signature_algorithm_1_3(Cert, SignAlgs);
+verify_sign(Cert, #{version := {3, 4},
+                    signature_algs_cert := SignAlgs}) ->
+    is_supported_signature_algorithm_1_3(Cert, SignAlgs).
 
-is_supported_signature_algorithm(#'OTPCertificate'{signatureAlgorithm = 
-                                                       #'SignatureAlgorithm'{algorithm = ?'id-dsa-with-sha1'}},
-                                 [{_,_}|_] = SignAlgs) ->
+is_supported_signature_algorithm_1_2(#'OTPCertificate'{signatureAlgorithm =
+                                                           #'SignatureAlgorithm'{algorithm = ?'id-dsa-with-sha1'}},
+                                     SignAlgs) ->
     lists:member({sha, dsa}, SignAlgs);
-is_supported_signature_algorithm(#'OTPCertificate'{signatureAlgorithm = SignAlg}, [{_,_}|_] = SignAlgs) ->   
+is_supported_signature_algorithm_1_2(#'OTPCertificate'{signatureAlgorithm =
+                                                           #'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS'}} = Cert,
+                                     SignAlgs) ->
+    is_supported_signature_algorithm_1_3(Cert, SignAlgs);
+is_supported_signature_algorithm_1_2(#'OTPCertificate'{signatureAlgorithm = SignAlg}, SignAlgs) ->
     Scheme = ssl_cipher:signature_algorithm_to_scheme(SignAlg),
     {Hash, Sign, _ } = ssl_cipher:scheme_to_components(Scheme),
-    lists:member({pre_1_3_hash(Hash), pre_1_3_sign(Sign)}, SignAlgs);
-is_supported_signature_algorithm(#'OTPCertificate'{signatureAlgorithm = SignAlg}, SignAlgs) ->   
+    lists:member({pre_1_3_hash(Hash), pre_1_3_sign(Sign)}, SignAlgs).
+is_supported_signature_algorithm_1_3(#'OTPCertificate'{signatureAlgorithm = SignAlg}, SignAlgs) ->
     Scheme = ssl_cipher:signature_algorithm_to_scheme(SignAlg),
     lists:member(Scheme, SignAlgs).
 

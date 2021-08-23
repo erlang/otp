@@ -555,11 +555,15 @@ filter(DerCert, Ciphers0, Version) ->
     SigAlg = OtpCert#'OTPCertificate'.signatureAlgorithm,
     PubKeyInfo = OtpCert#'OTPCertificate'.tbsCertificate#'OTPTBSCertificate'.subjectPublicKeyInfo,
     PubKeyAlg = PubKeyInfo#'OTPSubjectPublicKeyInfo'.algorithm,
-
-    Ciphers = filter_suites_pubkey(
-                ssl_certificate:public_key_type(PubKeyAlg#'PublicKeyAlgorithm'.algorithm),
-                Ciphers0, Version, OtpCert),
-    {_, Sign} = public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm),
+    Type =  case ssl_certificate:public_key_type(PubKeyAlg#'PublicKeyAlgorithm'.algorithm) of
+                rsa_pss_pss ->
+                    rsa;
+                Other ->
+                    Other
+            end,
+    Ciphers = filter_suites_pubkey(Type, Ciphers0, Version, OtpCert),
+    SigAlgo = SigAlg#'SignatureAlgorithm'.algorithm,
+    Sign = ssl_certificate:public_key_type(SigAlgo),
     filter_suites_signature(Sign, Ciphers, Version).
 
 %%--------------------------------------------------------------------
@@ -1174,7 +1178,7 @@ filter_suites_pubkey(dsa, Ciphers, _, OtpCert) ->
     NotECRSAKeyed =  (Ciphers -- rsa_keyed_suites(Ciphers)) -- ec_keyed_suites(Ciphers),
     filter_keyuse_suites(digitalSignature, KeyUses, NotECRSAKeyed,
                          dss_dhe_suites(Ciphers));
-filter_suites_pubkey(ec, Ciphers, _, OtpCert) ->
+filter_suites_pubkey(ecdsa, Ciphers, _, OtpCert) ->
     Uses = key_uses(OtpCert),
     NotRSADSAKeyed = (Ciphers -- rsa_keyed_suites(Ciphers)) -- dss_keyed_suites(Ciphers),
     CiphersSuites = filter_keyuse_suites(digitalSignature, Uses, NotRSADSAKeyed,

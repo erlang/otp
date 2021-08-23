@@ -44,8 +44,8 @@
          enum_to_oid/1, 
 	 default_signature_algs/1, 
          signature_algs/2,
-         default_signature_schemes/1, 
          signature_schemes/2,
+         rsa_schemes/0,
          groups/1, 
          groups/2, 
          group_to_enum/1, 
@@ -196,12 +196,15 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
 certificate_verify(md5sha, _Version, Handshake) ->
     MD5 = crypto:hash(md5, Handshake),
     SHA = crypto:hash(sha, Handshake),
-    <<MD5/binary, SHA/binary>>;
+    {digest, <<MD5/binary, SHA/binary>>};
 %% TLS 1.0 -1.1  ---------------------------------------------------
 
 %% TLS 1.2 ---------------------------------------------------
-certificate_verify(HashAlgo, _Version, Handshake) ->
-    crypto:hash(HashAlgo, Handshake).
+certificate_verify(_HashAlgo, _Version, Handshake) ->
+    %% crypto:hash(HashAlgo, Handshake).
+    %% Optimization: Let crypto calculate the hash in sign/verify call
+    Handshake.
+
 %% TLS 1.2 ---------------------------------------------------
 
 -spec setup_keys(integer(), integer(), binary(), binary(), binary(), integer(),
@@ -585,6 +588,7 @@ signature_algs({3, 3}, HashSigns) ->
     CryptoSupports =  crypto:supports(),
     Hashes = proplists:get_value(hashs, CryptoSupports),
     PubKeys = proplists:get_value(public_keys, CryptoSupports),
+    Schemes =  rsa_schemes(),
     Supported = lists:foldl(fun({Hash, dsa = Sign} = Alg, Acc) ->
 				    case proplists:get_bool(dss, PubKeys) 
 					andalso proplists:get_bool(Hash, Hashes)
@@ -604,15 +608,23 @@ signature_algs({3, 3}, HashSigns) ->
 					    [Alg | Acc];
 					false ->
 					    Acc
+				    end;
+                               (Alg, Acc) when is_atom(Alg) ->
+                                    case lists:member(Alg, Schemes) of
+                                        true ->
+                                            [NewAlg] = signature_schemes({3,4}, [Alg]),
+                                            [NewAlg| Acc];
+					false ->
+					    Acc
 				    end
 			    end, [], HashSigns),
     lists:reverse(Supported).
 
-default_signature_algs({3, 4} = Version) ->
-    %% TLS 1.3 servers shall be prepared to process TLS 1.2 ClientHellos
-    %% containing legacy hash-sign tuples.
-    default_signature_schemes(Version) ++ default_signature_algs({3,3});
-default_signature_algs({3, 3} = Version) ->
+default_signature_algs([{3, 4} = Version]) ->
+    default_signature_schemes(Version) ++ legacy_signature_schemes(Version);
+default_signature_algs([{3, 4}, {3,3} | _]) ->
+    default_signature_schemes({3,4}) ++ default_signature_algs([{3,3}]);
+default_signature_algs([{3, 3} = Version |_]) ->
     Default = [%% SHA2
 	       {sha512, ecdsa},
 	       {sha512, rsa},
@@ -631,7 +643,7 @@ default_signature_algs(_) ->
     undefined.
 
 
-signature_schemes(Version, SignatureSchemes) when is_tuple(Version)
+signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
                                                   andalso Version >= {3, 3} ->
     CryptoSupports =  crypto:supports(),
     Hashes = proplists:get_value(hashs, CryptoSupports),
@@ -710,22 +722,42 @@ default_signature_schemes(Version) ->
                rsa_pss_rsae_sha384,
                rsa_pss_rsae_sha256,
                eddsa_ed25519,
-               eddsa_ed448,
-
-               %% These values refer solely to signatures
-               %% which appear in certificates (see Section 4.4.2.2) and are not
-               %% defined for use in signed TLS handshake messages, although they
-               %% MAY appear in "signature_algorithms" and
-               %% "signature_algorithms_cert" for backward compatibility with
-               %% TLS 1.2.
-               rsa_pkcs1_sha512,
-               rsa_pkcs1_sha384,
-               rsa_pkcs1_sha256,
-               ecdsa_sha1,
-               rsa_pkcs1_sha1
+               eddsa_ed448
               ],
     signature_schemes(Version, Default).
 
+legacy_signature_schemes(Version) ->
+    %% These values refer solely to signatures
+    %% which appear in certificates (see Section 4.4.2.2) and are not
+    %% defined for use in signed TLS handshake messages, although they
+    %% MAY appear in "signature_algorithms" and
+    %% "signature_algorithms_cert" for backward compatibility with
+    %% TLS 1.2.
+    LegacySchemes = 
+        [rsa_pkcs1_sha512,
+         rsa_pkcs1_sha384,
+         rsa_pkcs1_sha256,
+         ecdsa_sha1,
+         rsa_pkcs1_sha1],
+    signature_schemes(Version, LegacySchemes).
+
+rsa_schemes() ->
+    Supports = crypto:supports(),
+    RSAOpts = proplists:get_value(rsa_opts, Supports),
+
+    case lists:member(rsa_pkcs1_pss_padding, RSAOpts)
+        andalso lists:member(rsa_pss_saltlen, RSAOpts)
+        andalso lists:member(rsa_mgf1_md, RSAOpts) of
+        true ->
+            [rsa_pss_pss_sha512,
+             rsa_pss_pss_sha384,
+             rsa_pss_pss_sha256,
+             rsa_pss_rsae_sha512,
+             rsa_pss_rsae_sha384,
+             rsa_pss_rsae_sha256];
+        false ->
+            []
+    end.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
