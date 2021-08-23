@@ -148,7 +148,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <name since="">h() -> ok </name>
       <fsummary>Give a list of available help items on standard output.</fsummary>
       <desc>
-        <p>Gives a list of items for brief online help.</p>
+        <p><c>h</c> stands for <em>h</em>elp. Gives a list of items for brief online help. </p>
       </desc>
     </func>
     <func>
@@ -158,8 +158,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <v>Item = atom()</v>
       </type>
       <desc>
-        <p>Gives a brief help text for functions in the dbg module. The
-          available items can be listed with <c>dbg:h/0</c></p>
+        <p><c>h</c> stands for <em>h</em>elp. Gives a brief help text for functions in the dbg module. The
+          available items can be listed with <c>dbg:h/0</c>.</p>
       </desc>
     </func>
     <func>
@@ -178,7 +178,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <v>RPCError = term()</v>
       </type>
       <desc>
-        <p>Traces <c>Item</c> in accordance to the value specified
+        <p><c>p</c> stands for <em>p</em>rocess. Traces <c>Item</c> in accordance to the value specified
           by <c>Flags</c>. The variation of <c>Item</c> is listed below:</p>
         <taglist>
           <tag><c>pid()</c> or <c>port()</c></tag>
@@ -313,7 +313,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <name since="">c(Mod, Fun, Args, Flags)</name>
       <fsummary>Evaluate <c>apply(M,F,Args)</c>with <c>Flags</c>trace flags set.</fsummary>
       <desc>
-        <p>Evaluates the expression <c>apply(Mod, Fun, Args)</c> with the trace
+        <p><c>c</c> stands for <em>c</em>all. Evaluates the expression <c>apply(Mod, Fun, Args)</c> with the trace
           flags in <c>Flags</c> set. This is a convenient way to trace processes 
           from the Erlang shell.</p>
       </desc>
@@ -322,7 +322,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <name since="">i() -> ok</name>
       <fsummary>Display information about all traced processes and ports.</fsummary>
       <desc>
-        <p>Displays information about all traced processes and ports.</p>
+        <p><c>i</c> stands for <em>i</em>nformation. Displays information about all traced processes and ports.</p>
       </desc>
     </func>
     <func>
@@ -360,7 +360,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <v>MatchNum = {matched, node(), integer()} | {matched, node(), 0, RPCError}</v>
       </type>
       <desc>
-        <p>This function enables call trace for one or more
+        <p><c>tp</c> stands for <em>t</em>race <em>p</em>attern. This function enables call trace for one or more
           functions. All exported functions matching the <c>{Module, Function, Arity}</c>
           argument will be concerned, but the
           <c>match_spec()</c> may further narrow down the set of function
@@ -434,7 +434,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <name since="">tpl({Module, Function, Arity}, MatchSpec) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Set pattern for traced local (as well as global) function calls</fsummary>
       <desc>
-          <p>This function works as <seemfa marker="#tp/2"><c>tp/2</c></seemfa>, but enables
+          <p><c>tpl</c> stands for <em>t</em>race <em>p</em>attern <em>l</em>ocal. This function works as <seemfa marker="#tp/2"><c>tp/2</c></seemfa>, but enables
           tracing for local calls (and local functions) as well as for
           global calls (and functions).</p>
       </desc>
@@ -453,7 +453,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <v>MatchNum = {matched, node(), 1} | {matched, node(), 0, RPCError}</v>
       </type>
       <desc>
-        <p>This function associates a match specification with trace event
+        <p><c>tpe</c> stands for <em>t</em>race <em>p</em>attern <em>e</em>vent.
+          This function associates a match specification with trace event
 	  <c>send</c> or <c>'receive'</c>. By default all executed <c>send</c>
 	  and <c>'receive'</c> events are traced if enabled for a process.
 	  A match specification can be used to filter traced events
@@ -522,7 +523,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <v>MatchNum = {matched, node(), integer()} | {matched, node(), 0, RPCError}</v>
       </type>
       <desc>
-        <p>This function disables call tracing on the specified
+        <p><c>ctp</c> stands for <em>c</em>lear <em>t</em>race <em>p</em>attern.
+          This function disables call tracing on the specified
           functions. The semantics of the parameter is the same
           as for the corresponding function specification in
           <seemfa marker="#tp/2"><c>tp/2</c></seemfa> or <seemfa marker="#tpl/2"><c>tpl/2</c></seemfa>. Both local and global call trace
@@ -564,7 +566,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <name since="">ctpl({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
-          <p>This function works as <seemfa marker="#ctp/1"><c>ctp/1</c></seemfa>, but only disables
+        <p><c>ctpl</c> stands for <em>c</em>lear <em>t</em>race <em>p</em>attern <em>l</em>ocal.
+          This function works as <seemfa marker="#ctp/1"><c>ctp/1</c></seemfa>, but only disables
               tracing set up with <seemfa marker="#tpl/2"><c>tpl/2</c></seemfa>
               (not with <seemfa marker="#tp/2"><c>tp/2</c></seemfa>).</p>
       </desc>
@@ -601,7 +604,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <name since="">ctpg({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
-          <p>This function works as <seemfa marker="#ctp/1"><c>ctp/1</c></seemfa>, but only disables
+        <p><c>ctpg</c> stands for <em>c</em>lear <em>t</em>race <em>p</em>attern <em>g</em>lobal.
+          This function works as <seemfa marker="#ctp/1"><c>ctp/1</c></seemfa>, but only disables
               tracing set up with <seemfa marker="#tp/2"><c>tp/2</c></seemfa>
               (not with <seemfa marker="#tpl/2"><c>tpl/2</c></seemfa>).</p>
       </desc>
@@ -615,7 +619,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <v>MatchNum = {matched, node(), 1} | {matched, node(), 0, RPCError}</v>
       </type>
       <desc>
-        <p>This function clears match specifications for the specified
+        <p><c>ctpe</c> stands for <em>c</em>lear <em>t</em>race <em>p</em>attern <em>e</em>vent.
+          This function clears match specifications for the specified
 	  trace event (<c>send</c> or <c>'receive'</c>). It will revert back
 	  to the default behavior of tracing all triggered events.</p>
         <p>The return value follow the same style as for
@@ -626,7 +631,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <name since="">ltp() -> ok</name>
       <fsummary>List saved and built-in match specifications on the console.</fsummary>
       <desc>
-        <p>Use this function to recall all match specifications previously
+        <p><c>ltp</c> stands for <em>l</em>ist <em>t</em>race <em>p</em>atterns.
+          Use this function to recall all match specifications previously
           used in the session (i. e. previously saved during calls
           to <seemfa marker="#tp/2"><c>tp/2</c></seemfa>, and built-in match specifications.
           This is very useful, as a complicated
@@ -657,7 +663,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <name since="">dtp() -> ok</name>
       <fsummary>Delete all saved match specifications.</fsummary>
       <desc>
-        <p>Use this function to "forget" all match specifications
+        <p><c>dtp</c> stands for <em>d</em>elete <em>t</em>race <em>p</em>atterns.
+            Use this function to "forget" all match specifications
             saved during calls to <seemfa marker="#tp/2"><c>tp/2</c></seemfa>.
             This is useful when one wants to restore other match
             specifications from a file with <seemfa marker="#rtp/1"><c>rtp/1</c></seemfa>. Use
@@ -671,7 +678,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <v>N = integer()</v>
       </type>
       <desc>
-        <p>Use this function to "forget" a specific match specification
+        <p><c>dtp</c> stands for <em>d</em>elete <em>t</em>race <em>p</em>attern.
+            Use this function to "forget" a specific match specification
             saved during calls to <seemfa marker="#tp/2"><c>tp/2</c></seemfa>.</p>
       </desc>
     </func>
@@ -683,7 +691,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <v>IOError = term()</v>
       </type>
       <desc>
-        <p>This function will save all match specifications saved
+        <p><c>wtp</c> stands for <em>w</em>rite <em>t</em>race <em>p</em>atterns.
+          This function will save all match specifications saved
             during the session (during calls to <seemfa marker="#tp/2"><c>tp/2</c></seemfa>)
           and built-in match specifications in a text
           file with the name designated by <c>Name</c>. The format
@@ -706,7 +715,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <v>Error = term()</v>
       </type>
       <desc>
-        <p>This function reads match specifications from a file
+        <p><c>rtp</c> stands for <em>r</em>ead <em>t</em>race <em>p</em>atterns.
+           This function reads match specifications from a file
            (possibly) generated by the <seemfa marker="#wtp/1"><c>wtp/1</c></seemfa>
            function. It checks
           the syntax of all match specifications and verifies that
@@ -735,7 +745,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>The <c>dbg</c> server keeps a list of nodes where tracing
+        <p><c>n</c> stands for <em>n</em>ode.
+            The <c>dbg</c> server keeps a list of nodes where tracing
             should be performed. Whenever a <seemfa marker="#tp/2"><c>tp/2</c></seemfa> call or a
             <seemfa marker="#p/2"><c>p/2</c></seemfa> call is made, it is executed for all nodes in this
             list including the local node (except for <seemfa marker="#p/2"><c>p/2</c></seemfa> with a
@@ -773,7 +784,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <v>Nodename = atom()</v>
       </type>
       <desc>
-        <p>Clears a node from the list of traced nodes. Subsequent
+        <p><c>cn</c> stands for <em>c</em>lear <em>n</em>ode.
+            Clears a node from the list of traced nodes. Subsequent
             calls to <seemfa marker="#tp/2"><c>tp/2</c></seemfa> and
             <seemfa marker="#p/2"><c>p/2</c></seemfa> will not consider that
             node, but tracing already activated on the node will continue
@@ -785,7 +797,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <name since="">ln() -> ok</name>
       <fsummary>Show the list of traced nodes on the console.</fsummary>
       <desc>
-        <p>Shows the list of traced nodes on the console.</p>
+        <p><c>ln</c> stands for <em>l</em>ist <em>n</em>odes.
+           Shows the list of traced nodes on the console.</p>
       </desc>
     </func>
     <func>
