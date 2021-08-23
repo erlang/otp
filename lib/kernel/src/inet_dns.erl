@@ -500,6 +500,13 @@ decode_data(<<Flags:8,Data0/binary>>, _, ?S_CAA, _) ->
         orelse throw(?DECODE_ERROR),
     Value = binary_to_list(Data1),
     {Flags,inet_db:tolower(Tag),Value};
+%% malformed known RR in inet domain
+decode_data(_, in, T, _) when T == ?S_A; T == ?S_AAAA; T == ?S_WKS ->
+    throw(?DECODE_ERROR);
+%% malormed known RR in any domain
+decode_data(_, _, T, _) when T == ?S_HINFO; T == ?S_MX; T == ?S_SRV;
+    T == ?S_NAPTR; T == ?S_URI; T == ?S_CAA ->
+    throw(?DECODE_ERROR);
 %% sofar unknown or non standard
 decode_data(Data, _, _, _) ->
     Data.
