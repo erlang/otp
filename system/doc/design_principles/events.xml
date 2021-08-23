@@ -224,7 +224,7 @@ ok</pre>
     <title>Handling Other Messages</title>
     <p>If the <c>gen_event</c> is to be able to receive other messages
       than events, the callback function
-      <c>handle_info(Info, StateName, StateData)</c>
+      <c>handle_info(Info, State)</c>
       must be implemented to handle them. Examples of other
       messages are exit messages, if the <c>gen_event</c> is linked to
       other processes (than the supervisor) and trapping exit signals.</p>
