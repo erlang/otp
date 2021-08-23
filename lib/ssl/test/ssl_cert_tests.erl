@@ -78,8 +78,8 @@ no_auth() ->
      [{doc,"Test connection without authentication"}].
 
 no_auth(Config) ->
-    ClientOpts = [{verify, verify_none} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
-    ServerOpts =  [{verify, verify_none} | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+    ClientOpts = [{verify, verify_none} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)],
+    ServerOpts =  [{verify, verify_none} | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
     
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 %%--------------------------------------------------------------------
@@ -87,8 +87,8 @@ auth() ->
      [{doc,"Test connection with mutual authentication"}].
 
 auth(Config) ->
-    ClientOpts = [{verify, verify_peer} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
-    ServerOpts =  [{verify, verify_peer} | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+    ClientOpts = [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)],
+    ServerOpts =  [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
     
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
@@ -100,8 +100,8 @@ client_auth_empty_cert_accepted() ->
 client_auth_empty_cert_accepted(Config) ->
     ClientOpts = proplists:delete(keyfile,
                                   proplists:delete(certfile, 
-                                                   ssl_test_lib:ssl_options(client_cert_opts, Config))),
-    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+                                                   ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config))),
+    ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
     ServerOpts = [{verify, verify_peer},
                   {fail_if_no_peer_cert, false} | ServerOpts0],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
@@ -112,8 +112,8 @@ client_auth_empty_cert_rejected() ->
 
 client_auth_empty_cert_rejected(Config) ->
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
-		  | ssl_test_lib:ssl_options(server_cert_opts, Config)],
-    ClientOpts0 = ssl_test_lib:ssl_options([], Config),
+		  | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
+    ClientOpts0 = ssl_test_lib:ssl_options(extra_client, [], Config),
     %% Delete Client Cert and Key
     ClientOpts1 = proplists:delete(certfile, ClientOpts0),
     ClientOpts = proplists:delete(keyfile, ClientOpts1),
@@ -131,8 +131,8 @@ client_auth_partial_chain() ->
 
 client_auth_partial_chain(Config) when is_list(Config) ->
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
-		  | ssl_test_lib:ssl_options(server_cert_opts, Config)],
-    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+		  | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
+    ClientOpts0 = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
     {ok, ClientCAs} = file:read_file(proplists:get_value(cacertfile, ClientOpts0)),
     [{_,RootCA,_} | _] = public_key:pem_decode(ClientCAs),
     ClientOpts =  [{cacerts, [RootCA]} |
@@ -145,8 +145,8 @@ client_auth_allow_partial_chain() ->
 
 client_auth_allow_partial_chain(Config) when is_list(Config) ->
     ServerOpts0 = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
-		  | ssl_test_lib:ssl_options(server_cert_opts, Config)],
-    ClientOpts = ssl_test_lib:ssl_options(client_cert_opts, Config),
+		  | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
+    ClientOpts = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
     {ok, ClientCAs} = file:read_file(proplists:get_value(cacertfile, ClientOpts)),
     [{_,_,_}, {_, IntermidiateCA, _} | _] = public_key:pem_decode(ClientCAs),
 
@@ -171,8 +171,8 @@ client_auth_do_not_allow_partial_chain() ->
 
 client_auth_do_not_allow_partial_chain(Config) when is_list(Config) ->
     ServerOpts0 = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
-		  | ssl_test_lib:ssl_options(server_cert_opts, Config)],
-    ClientOpts = ssl_test_lib:ssl_options(client_cert_opts, Config),
+		  | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
+    ClientOpts = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
     {ok, ServerCAs} = file:read_file(proplists:get_value(cacertfile, ServerOpts0)),
     [{_,_,_}, {_, IntermidiateCA, _} | _] = public_key:pem_decode(ServerCAs),
 
@@ -190,8 +190,8 @@ client_auth_partial_chain_fun_fail() ->
 
 client_auth_partial_chain_fun_fail(Config) when is_list(Config) ->
     ServerOpts0 = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
-                   | ssl_test_lib:ssl_options(server_cert_opts, Config)],
-    ClientOpts = ssl_test_lib:ssl_options(client_cert_opts, Config),
+                   | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
+    ClientOpts = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
 
     {ok, ServerCAs} = file:read_file(proplists:get_value(cacertfile, ServerOpts0)),
     [{_,_,_}, {_, IntermidiateCA, _} | _] = public_key:pem_decode(ServerCAs),
@@ -209,7 +209,7 @@ client_auth_partial_chain_fun_fail(Config) when is_list(Config) ->
 client_auth_sni() ->
     [{doc, "Check that sni check works with user verify_fun"}].
 client_auth_sni(Config) when is_list(Config) ->
-    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
 
     FunAndState = {fun(valid_peer, {bad_cert, unknown_ca}, UserState) ->
                            {valid_peer, UserState};
@@ -223,7 +223,7 @@ client_auth_sni(Config) when is_list(Config) ->
                            {valid, UserState}
                    end, []},
 
-    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
     ClientOpts = [{verify, verify_peer}, {verify_fun, FunAndState
                                          }, {server_name_indication, "localhost"} | ClientOpts0], 
 
@@ -247,16 +247,16 @@ client_auth_seelfsigned_peer(Config) when is_list(Config) ->
       key := Key} = public_key:pkix_test_root_cert("OTP test server ROOT", [{key, ssl_test_lib:hardcode_rsa_key(6)},
                                                                             {extensions, Ext}]),
     DerKey = public_key:der_encode('RSAPrivateKey', Key),
-    ssl_test_lib:basic_alert(ssl_test_lib:ssl_options([{verify, verify_peer}, {cacerts , [Cert]}], Config),
-                             ssl_test_lib:ssl_options([{cert, Cert},
-                                                       {key, {'RSAPrivateKey', DerKey}}], Config), Config, bad_certificate).
+    ssl_test_lib:basic_alert(ssl_test_lib:ssl_options(extra_client, [{verify, verify_peer}, {cacerts , [Cert]}], Config),
+                             ssl_test_lib:ssl_options(extra_server, [{cert, Cert},
+                                                                     {key, {'RSAPrivateKey', DerKey}}], Config), Config, bad_certificate).
 %%--------------------------------------------------------------------
 missing_root_cert_no_auth() ->
      [{doc,"Test that the client succeds if the ROOT CA is unknown in verify_none mode"}].
 
 missing_root_cert_no_auth(Config) ->
-    ClientOpts = [{verify, verify_none} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
-    ServerOpts =  [{verify, verify_none} | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+    ClientOpts = [{verify, verify_none} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)],
+    ServerOpts =  [{verify, verify_none} | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
     
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
@@ -265,8 +265,8 @@ invalid_signature_client() ->
     [{doc,"Test server with invalid signature"}].
 
 invalid_signature_client(Config) when is_list(Config) ->
-    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
-    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
 
     KeyFile =  proplists:get_value(keyfile, ClientOpts0),
@@ -289,8 +289,8 @@ invalid_signature_server() ->
     [{doc,"Test client with invalid signature"}].
 
 invalid_signature_server(Config) when is_list(Config) ->
-    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
-    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
 
     KeyFile =  proplists:get_value(keyfile, ServerOpts0),

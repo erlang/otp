@@ -232,9 +232,21 @@ add_signature_algorithms_cert(Extensions, SignAlgsCert) ->
 
 filter_tls13_algs(undefined) -> undefined;
 filter_tls13_algs(Algo) ->
-    lists:filter(fun is_atom/1, Algo).
-
-
+    lists:foldl(fun(Atom, Acc) when is_atom(Atom) -> 
+                        [Atom | Acc];
+                   ({sha512, rsa}, Acc) ->
+                        [rsa_pkcs1_sha512 | Acc];
+                   ({sha384, rsa}, Acc) ->
+                        [rsa_pkcs1_sha384 | Acc];
+                   ({sha256, rsa}, Acc) ->
+                        [rsa_pkcs1_sha256 | Acc];                   
+                   ({sha, rsa}, Acc) ->
+                        [rsa_pkcs1_sha1 | Acc];
+                   ({sha, ecdsa}, Acc) ->
+                        [ecdsa_sha1| Acc];
+                   (_, Acc) ->
+                        Acc
+                end, [], Algo).
 %% enum {
 %%     X509(0),
 %%     RawPublicKey(2),

@@ -146,7 +146,7 @@ tls13_client_tls12_server(Config) when is_list(Config) ->
     
 tls13_client_with_ext_tls12_server() ->
      [{doc,"Test basic connection between TLS 1.2 server and TLS 1.3 client when " 
-       "client has TLS 1.3 specsific extensions"}].
+       "client has TLS 1.3 specific extensions"}].
 
 tls13_client_with_ext_tls12_server(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),

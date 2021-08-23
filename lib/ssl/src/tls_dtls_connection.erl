@@ -425,19 +425,29 @@ certify(internal, #certificate_request{},
 certify(internal, #certificate_request{} = CertRequest,
 	#state{static_env = #static_env{role = client,
                                        protocol_cb = Connection},
-               handshake_env = HsEnv,
+               handshake_env = #handshake_env{hashsign_algorithm = NegotiatedHashSign} = HsEnv,
                connection_env = #connection_env{negotiated_version = Version},
                session = #session{own_certificates = [Cert|_]},
                ssl_options = #{signature_algs := SupportedHashSigns}} = State) ->
-    case ssl_handshake:select_hashsign(CertRequest, Cert, 
-                                       SupportedHashSigns, ssl:tls_version(Version)) of
-	#alert {} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
-	NegotiatedHashSign -> 	
-	    Connection:next_event(?FUNCTION_NAME, no_record,
-				  State#state{client_certificate_requested = true,
-                                              handshake_env = HsEnv#handshake_env{cert_hashsign_algorithm = NegotiatedHashSign}})
-    end;
+
+    TLSVersion = ssl:tls_version(Version),
+    case NegotiatedHashSign of
+        {Hash, Sign} when TLSVersion == {3,3} andalso Hash =/= undefined andalso
+                          Sign =/= undefined ->
+           Connection:next_event(?FUNCTION_NAME, no_record,
+                                 State#state{client_certificate_requested = true,
+                                             handshake_env = HsEnv#handshake_env{cert_hashsign_algorithm = NegotiatedHashSign}});
+       _ ->
+           case ssl_handshake:select_hashsign(CertRequest, Cert,
+                                              SupportedHashSigns, TLSVersion) of
+               #alert {} = Alert ->
+                   ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
+               SelectedHashSign ->
+                   Connection:next_event(?FUNCTION_NAME, no_record,
+                                         State#state{client_certificate_requested = true,
+                                                     handshake_env = HsEnv#handshake_env{cert_hashsign_algorithm = SelectedHashSign}})
+           end
+   end;
 %% PSK and RSA_PSK might bypass the Server-Key-Exchange
 certify(internal, #server_hello_done{},
 	#state{static_env = #static_env{role = client,
@@ -682,10 +692,10 @@ gen_handshake(StateName, Type, Event,
 	Result ->
 	    Result
     catch
-	_:_ ->
-	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
-                                        malformed_handshake_data),
-                             Version, StateName, State)
+        _:_ ->
+            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
+                                                       malformed_handshake_data),
+                                            Version, StateName, State)
     end.
 
 %%--------------------------------------------------------------------
@@ -899,7 +909,6 @@ verify_client_cert(#state{static_env = #static_env{role = client},
                           client_certificate_requested = true,
 			  session = #session{master_secret = MasterSecret,
 					     own_certificates = OwnCerts}} = State, Connection) ->
-
     case ssl_handshake:client_certificate_verify(OwnCerts, MasterSecret,
 						 ssl:tls_version(Version), HashSign, PrivateKey, Hist) of
         #certificate_verify{} = Verified ->
