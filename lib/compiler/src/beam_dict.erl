@@ -299,7 +299,7 @@ my_term_to_binary(Term) ->
     %% options for the compiler. (When this comment was written, some time
     %% after the release of OTP 22, the default minor version was 1.)
 
-    term_to_binary(Term, [{minor_version,2}]).
+    term_to_binary(Term, [{minor_version,2},deterministic]).
 
 %% Return the line table.
 -spec line_table(bdict()) ->

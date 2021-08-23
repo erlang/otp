@@ -1426,6 +1426,7 @@ parse_t2b_opts(Eterm opts, Uint *flagsp, int *levelp, int *iovecp, Uint *fsizep)
     int level = 0;
     int iovec = 0;
     Uint flags = TERM_TO_BINARY_DFLAGS;
+    int deterministic = 0;
     Uint fsize = ~((Uint) 0); /* one fragment */
 
     while (is_list(opts)) {
@@ -1436,6 +1437,8 @@ parse_t2b_opts(Eterm opts, Uint *flagsp, int *levelp, int *iovecp, Uint *fsizep)
         }
         else if (iovecp && arg == am_iovec) {
             iovec = !0;
+        } else if (arg == am_deterministic) {
+            deterministic = 1;
 	} else if (is_tuple(arg) && *(tp = tuple_val(arg)) == make_arityval(2)) {
 	    if (tp[1] == am_minor_version && is_small(tp[2])) {
 		switch (signed_val(tp[2])) {
@@ -1475,6 +1478,10 @@ parse_t2b_opts(Eterm opts, Uint *flagsp, int *levelp, int *iovecp, Uint *fsizep)
     }
     if (is_not_nil(opts)) {
         return 0; /* badarg */
+    }
+
+    if (deterministic) {
+        flags |= DFLAG_DETERMINISTIC;
     }
 
     *flagsp = flags;
@@ -2296,6 +2303,10 @@ static int ttb_context_destructor(Binary *context_bin)
 		erts_bin_free(context->s.ec.result_bin);
 		context->s.ec.result_bin = NULL;
 	    }
+            if (context->s.ec.map_array)
+                erts_free(ERTS_ALC_T_T2B_DETERMINISTIC, context->s.ec.map_array);
+            if (context->s.ec.ycf_yield_state)
+                erts_qsort_ycf_gen_destroy(context->s.ec.ycf_yield_state);
             if (context->s.ec.iov)
                 erts_free(ERTS_ALC_T_T2B_VEC, context->s.ec.iov);
 	    break;
@@ -3024,7 +3035,43 @@ dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, const byte* ep,
 #define ENC_BIN_COPY ((Eterm) 3)
 #define ENC_MAP_PAIR ((Eterm) 4)
 #define ENC_HASHMAP_NODE ((Eterm) 5)
-#define ENC_LAST_ARRAY_ELEMENT ((Eterm) 6)
+#define ENC_STORE_MAP_ELEMENT ((Eterm) 6)
+#define ENC_START_SORTING_MAP ((Eterm) 7)
+#define ENC_CONTINUE_SORTING_MAP ((Eterm) 8)
+#define ENC_PUSH_SORTED_MAP ((Eterm) 9)
+#define ENC_LAST_ARRAY_ELEMENT ((Eterm) 10)
+
+static Eterm* alloc_map_array(Uint size)
+{
+    return (Eterm *) erts_alloc(ERTS_ALC_T_T2B_DETERMINISTIC,
+                                size * 2 * sizeof(Eterm));
+}
+
+static int map_key_compare(Eterm *a, Eterm *b)
+{
+    Sint c = CMP_TERM(*a, *b);
+    if (c < 0) {
+        return -1;
+    } else if (c > 0) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static void*
+ycf_yield_alloc(size_t size, void* context)
+{
+    (void) context;
+    return (void *) erts_alloc(ERTS_ALC_T_T2B_DETERMINISTIC, size);
+}
+
+static void
+ycf_yield_free(void* block, void* context)
+{
+    (void) context;
+    erts_free(ERTS_ALC_T_T2B_DETERMINISTIC, block);
+}
 
 static byte*
 enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint64 dflags,
@@ -3047,8 +3094,13 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
     Uint* ptr;
     Eterm val;
     FloatDef f;
-    Sint r = 0;
+    register Sint r = 0;
     int use_iov = 0;
+
+    /* The following variables are only used during encoding of
+     * a map when the `deterministic` option is active. */
+    Eterm* map_array = NULL;
+    Eterm* next_map_element = NULL;
 
     if (ctx) {
 	WSTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
@@ -3059,6 +3111,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    WSTACK_RESTORE(s, &ctx->wstack);
 	    ep = ctx->ep;
 	    obj = ctx->obj;
+            map_array = ctx->map_array;
+            next_map_element = ctx->next_map_element;
 	    if (is_non_value(obj)) {
 		goto outer_loop;
 	    }
@@ -3143,6 +3197,88 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		obj = CAR(ptr);
 	    }
 	    break;
+	case ENC_STORE_MAP_ELEMENT:  /* option `deterministic` */
+	    if (is_list(obj)) { /* leaf node [K|V] */
+		ptr = list_val(obj);
+                *next_map_element++ = CAR(ptr);
+                *next_map_element++ = CDR(ptr);
+                goto outer_loop;
+	    }
+	    break;
+	case ENC_START_SORTING_MAP: /* option `deterministic` */
+            {
+                long num_reductions = r;
+
+                n = next_map_element - map_array;
+                ASSERT(n > MAP_SMALL_MAP_LIMIT);
+                if (ctx == NULL) {
+                    /* No context means that the external representation of term
+                     * being encoded will fit in a heap binary (64 bytes). This
+                     * can only happen in the DEBUG build of the runtime system
+                     * where maps with more than 3 elements are large maps. */
+                    ASSERT(n < 64); /* Conservative assertion. */
+                    qsort(map_array, n/2, 2*sizeof(Eterm),
+                          (int (*)(const void *, const void *)) map_key_compare);
+                    WSTACK_PUSH2(s, ENC_PUSH_SORTED_MAP, THE_NON_VALUE);
+                    goto outer_loop;
+                } else {
+                    /* Use yieldable qsort since the number of elements
+                     * in the map could be huge. */
+                    num_reductions = r;
+                    ctx->ycf_yield_state = NULL;
+                    erts_qsort_ycf_gen_yielding(&num_reductions,
+                                                &ctx->ycf_yield_state,
+                                                NULL,
+                                                ycf_yield_alloc,
+                                                ycf_yield_free,
+                                                NULL,
+                                                0,
+                                                NULL,
+                                                map_array, n/2, 2*sizeof(Eterm),
+                                                (int (*)(const void *, const void *)) map_key_compare);
+                    if (ctx->ycf_yield_state) {
+                        r = 0;
+                        WSTACK_PUSH2(s, ENC_CONTINUE_SORTING_MAP, THE_NON_VALUE);
+                        break;
+                    } else {
+                        WSTACK_PUSH2(s, ENC_PUSH_SORTED_MAP, THE_NON_VALUE);
+                        r = num_reductions;
+                        goto outer_loop;
+                    }
+                }
+            }
+        case ENC_CONTINUE_SORTING_MAP: /* option `deterministic` */
+            {
+                long num_reductions = r;
+
+                erts_qsort_ycf_gen_continue(&num_reductions,
+                                            &ctx->ycf_yield_state,
+                                            NULL);
+                if (ctx->ycf_yield_state) {
+                    r = 0;
+                    WSTACK_PUSH2(s, ENC_CONTINUE_SORTING_MAP, THE_NON_VALUE);
+                    break;
+                } else {
+                    WSTACK_PUSH2(s, ENC_PUSH_SORTED_MAP, THE_NON_VALUE);
+                    r = num_reductions;
+                    goto outer_loop;
+                }
+            }
+        case ENC_PUSH_SORTED_MAP: /* option `deterministic` */
+            {
+                n = next_map_element - map_array;
+                WSTACK_RESERVE(s, 2*n);
+                ptr = next_map_element - 1;
+                do {
+                    WSTACK_FAST_PUSH(s, ENC_TERM);
+                    WSTACK_FAST_PUSH(s, *ptr);
+                    ptr--;
+                } while (ptr > map_array);
+                obj = *ptr;
+                erts_free(ERTS_ALC_T_T2B_DETERMINISTIC, map_array);
+                map_array = next_map_element = NULL;
+                break;
+            }
 	case ENC_LAST_ARRAY_ELEMENT:
 	    /* obj is the tuple */
 	    {
@@ -3163,6 +3299,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    *reds = 0;
 	    ctx->obj = obj;
 	    ctx->ep = ep;
+            ctx->map_array = map_array;
+            ctx->next_map_element = next_map_element;
 	    WSTACK_SAVE(s, &ctx->wstack);
 	    return -1;
 	}
@@ -3350,20 +3488,42 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    } else {
 		Eterm hdr;
 		Uint node_sz;
+                Eterm node_processor;
 		ptr = boxed_val(obj);
 		hdr = *ptr;
 		ASSERT(is_header(hdr));
+
 		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
 		case HAMT_SUBTAG_HEAD_ARRAY:
 		    *ep++ = MAP_EXT;
 		    ptr++;
 		    put_int32(*ptr, ep); ep += 4;
+                    if (dflags & DFLAG_DETERMINISTIC) {
+                        /* Option `deterministic`: Note that we
+                         * process large maps in a breadth-first
+                         * order, that is, we push all keys and values
+                         * to the stack and deallocate the map array
+                         * before encoding any of the keys and
+                         * values. That means that when we find a
+                         * large map in key or value of an outer map,
+                         * the map array for the outer map has already
+                         * been deallocated. */
+
+                        ASSERT(map_array == NULL);
+                        next_map_element = map_array = alloc_map_array(*ptr);
+                        WSTACK_PUSH2(s, ENC_START_SORTING_MAP, THE_NON_VALUE);
+                    }
 		    node_sz = 16;
 		    break;
 		case HAMT_SUBTAG_HEAD_BITMAP:
 		    *ep++ = MAP_EXT;
 		    ptr++;
 		    put_int32(*ptr, ep); ep += 4;
+                    if (dflags & DFLAG_DETERMINISTIC) {
+                        ASSERT(map_array == NULL);
+                        next_map_element = map_array = alloc_map_array(*ptr);
+                        WSTACK_PUSH2(s, ENC_START_SORTING_MAP, THE_NON_VALUE);
+                    }
 		    /*fall through*/
 		case HAMT_SUBTAG_NODE_BITMAP:
 		    node_sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
@@ -3374,9 +3534,11 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		}
 
 		ptr++;
+                node_processor = (dflags & DFLAG_DETERMINISTIC) ?
+                    ENC_STORE_MAP_ELEMENT : ENC_HASHMAP_NODE;
 		WSTACK_RESERVE(s, node_sz*2);
 		while(node_sz--) {
-		    WSTACK_FAST_PUSH(s, ENC_HASHMAP_NODE);
+                    WSTACK_FAST_PUSH(s, node_processor);
 		    WSTACK_FAST_PUSH(s, *ptr++);
 		}
 	    }
