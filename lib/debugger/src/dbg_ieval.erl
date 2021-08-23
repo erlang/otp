@@ -87,11 +87,13 @@ exit_info(Int, AttPid, OrigPid, Reason, ExitInfo) ->
 %% Evalute a shell expression in the real process.
 %% Called (dbg_icmd) in response to a user request.
 %%--------------------------------------------------------------------
-eval_expr(Expr, Bs, Ieval) ->
+eval_expr(Expr0, Bs, Ieval) ->
 
     %% Save current exit info
     ExitInfo = get(exit_info),
     Stacktrace = get(stacktrace),
+
+    Expr = expand_records(Expr0, Ieval#ieval.module),
 
     %% Emulate a surrounding catch
     try debugged_cmd({eval,Expr,Bs}, Bs, Ieval)
@@ -664,6 +666,16 @@ expr({map,Line,E0,Fs0}, Bs0, Ieval0) ->
 			    ({map_exact,K,V}, Mi) -> maps:update(K,V,Mi)
 			end, E, Fs),
     {value,Value,merge_bindings(Bs2, Bs1, Ieval)};
+
+%% Record update
+expr({record_update,Line,Es},Bs,#ieval{level=Le}=Ieval0) ->
+    %% Incr Level, we don't need to step (next) trough temp
+    %% variables creation and matching
+    Ieval = Ieval0#ieval{top=false, line=Line, level=Le+1},
+    Seq = fun(E, {_, _, Bs1}) -> expr(E, Bs1, Ieval) end,
+    {value,Value,Bs1} = lists:foldl(Seq, {value, true, Bs}, Es),
+    {value,Value,remove_temporary_bindings(Bs1)};
+
 %% A block of statements
 expr({block,Line,Es},Bs,Ieval) ->
     seq(Es, Bs, Ieval#ieval{line=Line});
@@ -1732,6 +1744,9 @@ add_binding(N,Val,[B1|Bs]) ->
 add_binding(N,Val,[]) ->
     [{N,Val}].
 
+remove_temporary_bindings(Bs0) ->
+    [{Var,Val} || {Var, Val} <- Bs0, hd(atom_to_list(Var)) =/= $%].
+
 %% get_stacktrace() -> Stacktrace
 %%  Return the latest stacktrace for the process.
 get_stacktrace() ->
@@ -1747,3 +1762,92 @@ get_stacktrace() ->
 	Stk when is_list(Stk) ->
 	    Stk
     end.
+
+%%% eval record exprs
+%%% copied from stdlib/src/shell.erl
+
+expand_records(Expr, Mod) ->
+    try
+        expand_records_1(used_record_defs(Expr, Mod), Expr)
+    catch _:_Err:_ST ->
+            Expr
+    end.
+
+expand_records_1([], Expr) ->
+    Expr;
+expand_records_1(UsedRecords, Expr) ->
+    A = erl_anno:new(1),
+    RecordDefs = [{attribute, A, record,
+                   {Name, [{record_field,A,{atom,A,F}} || F <- Fields]}
+                  } || {Name,Fields} <- UsedRecords],
+    Forms0 = RecordDefs ++ [{function,A,foo,0,[{clause,A,[],[],[Expr]}]}],
+    Forms = erl_expand_records:module(Forms0, [strict_record_tests]),
+    {function,A,foo,0,[{clause,A,[],[],[NE]}]} = lists:last(Forms),
+    NE.
+
+used_record_defs(E, Mod) ->
+    case mod_recs(Mod) of
+        [] -> [];
+        Recs0 ->
+            Recs = [{Name, Fields} || {{_,_,Name,_}, Fields} <- Recs0],
+            L0 = used_record_defs(E, maps:from_list(Recs), [], []),
+            L1 = lists:zip(L0, lists:seq(1, length(L0))),
+            L2 = lists:keysort(2, lists:ukeysort(1, L1)),
+            [R || {R, _} <- L2]
+    end.
+
+used_record_defs(E, Recs, Skip, Used) ->
+    case used_records(E) of
+        {name,Name,E1} ->
+            case lists:member(Name, Skip) of
+                true ->
+                    used_record_defs(E1, Recs, Skip, Used);
+                false ->
+                    case maps:get(Name, Recs, undefined) of
+                        undefined ->
+                            used_record_defs(E1, Recs, [Name|Skip], Used);
+                        Fields ->
+                            used_record_defs(E1, Recs, [Name|Skip], [{Name, Fields}|Used])
+                    end
+            end;
+        {expr,[E1 | Es]} ->
+            used_record_defs(Es, Recs, Skip, used_record_defs(E1, Recs, Skip, Used));
+        _ ->
+            Used
+    end.
+
+mod_recs(Mod) ->
+    case db_ref(Mod) of
+        not_found ->
+            [];
+        ModDb ->
+            dbg_idb:match_object(ModDb, {{record, Mod, '_', '_'}, '_'})
+    end.
+
+used_records({record_index,_,Name,F}) ->
+    {name, Name, F};
+used_records({record,_,Name,Is}) ->
+    {name, Name, Is};
+used_records({record_field,_,R,Name,F}) ->
+    {name, Name, [R | F]};
+used_records({record,_,R,Name,Ups}) ->
+    {name, Name, [R | Ups]};
+used_records({record_field,_,R,F}) -> % illegal
+    {expr, [R | F]};
+used_records({call,_,{atom,_,record},[A,{atom,_,Name}]}) ->
+    {name, Name, A};
+used_records({call,_,{atom,_,is_record},[A,{atom,_,Name}]}) ->
+    {name, Name, A};
+used_records({call,_,{remote,_,{atom,_,erlang},{atom,_,is_record}},
+              [A,{atom,_,Name}]}) ->
+    {name, Name, A};
+used_records({call,_,{atom,_,record_info},[A,{atom,_,Name}]}) ->
+    {name, Name, A};
+used_records({call,A,{tuple,_,[M,F]},As}) ->
+    used_records({call,A,{remote,A,M,F},As});
+used_records({type,_,record,[{atom,_,Name}|Fs]}) ->
+  {name, Name, Fs};
+used_records(T) when is_tuple(T) ->
+    {expr, tuple_to_list(T)};
+used_records(E) ->
+    {expr, E}.

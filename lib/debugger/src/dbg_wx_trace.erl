@@ -312,7 +312,7 @@ gui_cmd('Where', State) ->
     {_Status, Mod, Line} = State#state.status,
     Win = gui_show_module(State#state.win, Mod, Line,
 			  State#state.cm, State#state.pid, break),
-    gui_update_bindings(State#state.win, State#state.meta),
+    gui_update_bindings(State#state.win, Mod, State#state.meta),
     gui_enable_updown(State#state.stack_trace, Stack),
     dbg_wx_trace_win:display(State#state.win,State#state.status),
     State#state{win=Win, cm=Mod, stack=Stack};
@@ -330,10 +330,7 @@ gui_cmd('Messages', State) ->
 	    lists:foldl(
 	      fun(Msg, N) ->
 		      Str1 = io_lib:format(" ~w:", [N]),
-		      dbg_wx_trace_win:eval_output(State#state.win,Str1, bold),
-                      Str2 = pretty(Msg, State),
-		      Str3 = io_lib:format(" ~ts~n",[Str2]),
-		      dbg_wx_trace_win:eval_output(State#state.win,Str3, normal),
+		      dbg_wx_trace_win:eval_output(State#state.win,Str1, Msg, normal),
 		      N+1
 	      end,
 	      1,
@@ -363,7 +360,7 @@ gui_cmd('Up', State) ->
 	{New, {undefined,-1}, _Bs} -> % call from non-interpreted code
 	    Stack = {New, Max},
 	    Win = dbg_wx_trace_win:show_no_code(State#state.win),
-	    dbg_wx_trace_win:update_bindings(State#state.win,[]),
+	    dbg_wx_trace_win:update_bindings(State#state.win,undefined,[]),
 	    gui_enable_updown(State#state.stack_trace, Stack),
 	    dbg_wx_trace_win:display(State#state.win,{New,null,null}),
 	    State#state{win=Win, cm=null, stack=Stack};
@@ -373,7 +370,7 @@ gui_cmd('Up', State) ->
 	    Win = gui_show_module(State#state.win, Mod, Line,
 				  State#state.cm, State#state.pid,
 				  where),
-	    dbg_wx_trace_win:update_bindings(State#state.win,Bs),
+	    dbg_wx_trace_win:update_bindings(State#state.win,Mod,Bs),
 	    gui_enable_updown(State#state.stack_trace, Stack),
 	    dbg_wx_trace_win:display(State#state.win,{New,Mod,Line}),
 	    State#state{win=Win, cm=Mod, stack=Stack};
@@ -387,7 +384,7 @@ gui_cmd('Down', State) ->
 	{New, {undefined,-1}, _Bs} -> % call from non-interpreted code
 	    Stack = {New, Max},
 	    Win = dbg_wx_trace_win:show_no_code(State#state.win),
-	    dbg_wx_trace_win:update_bindings(State#state.win, []),
+	    dbg_wx_trace_win:update_bindings(State#state.win,undefined,[]),
 	    gui_enable_updown(State#state.stack_trace, Stack),
 	    dbg_wx_trace_win:display(State#state.win, {New,null,null}),
 	    State#state{win=Win, cm=null, stack=Stack};
@@ -397,7 +394,7 @@ gui_cmd('Down', State) ->
 	    Win = gui_show_module(State#state.win, Mod, Line,
 				  State#state.cm, State#state.pid,
 				  where),
-	    dbg_wx_trace_win:update_bindings(State#state.win, Bs),
+	    dbg_wx_trace_win:update_bindings(State#state.win, Mod, Bs),
 	    gui_enable_updown(State#state.stack_trace, Stack),
 	    dbg_wx_trace_win:display(State#state.win, {New,Mod,Line}),
 	    State#state{win=Win, cm=Mod, stack=Stack};
@@ -511,7 +508,7 @@ gui_cmd({user_command, Cmd}, State) ->
 	    int:meta(State#state.meta, eval, Arg);
 	true ->
 	    Str = "Commands not allowed",
-	    dbg_wx_trace_win:eval_output(State#state.win, [$<,Str,10], normal)
+	    dbg_wx_trace_win:eval_output(State#state.win, [$<,Str,10], bold)
     end,
     State;
 
@@ -633,7 +630,7 @@ meta_cmd({exit_at, {Mod,Line}, Reason, Cur}, State) ->
     gui_enable_functions(exit),
     gui_enable_updown(State#state.stack_trace, Stack),
     gui_enable_btrace(State#state.trace, State#state.stack_trace),
-    gui_update_bindings(State#state.win, State#state.meta),
+    gui_update_bindings(State#state.win, Mod, State#state.meta),
     dbg_wx_trace_win:display(State#state.win, {exit, {Mod,Line}, Reason}),
     State#state{win=Win, cm=Mod,status={exit,{Mod,Line},Reason},
 		stack=Stack};
@@ -645,7 +642,7 @@ meta_cmd({break_at, Mod, Line, Cur}, State) ->
     gui_enable_functions(break),
     gui_enable_updown(State#state.stack_trace, Stack),
     gui_enable_btrace(State#state.trace, State#state.stack_trace),
-    gui_update_bindings(State#state.win, State#state.meta),
+    gui_update_bindings(State#state.win, Mod, State#state.meta),
     dbg_wx_trace_win:display(State#state.win, {break, Mod, Line}),
     State#state{win=Win, cm=Mod, status={break,Mod,Line}, stack=Stack};
 meta_cmd({func_at, Mod, Line, Cur}, State) ->
@@ -668,7 +665,7 @@ meta_cmd({wait_at, Mod, Line, Cur}, State) ->
     gui_enable_functions(wait_break),
     gui_enable_updown(State#state.stack_trace, Stack),
     gui_enable_btrace(State#state.trace, State#state.stack_trace),
-    gui_update_bindings(State#state.win, State#state.meta),
+    gui_update_bindings(State#state.win, Mod, State#state.meta),
     dbg_wx_trace_win:display(State#state.win, {wait, Mod, Line}),
     State#state{win=Win, cm=Mod, status={wait_break,Mod,Line},
 		stack=Stack};
@@ -677,14 +674,14 @@ meta_cmd({wait_after_at, Mod, Line, Sp}, State) ->
 meta_cmd(running, State) ->
     Win = dbg_wx_trace_win:unmark_line(State#state.win),
     gui_enable_functions(running),
-    dbg_wx_trace_win:update_bindings(State#state.win, []),
+    dbg_wx_trace_win:update_bindings(State#state.win, undefined, []),
     dbg_wx_trace_win:display(State#state.win, {running, State#state.cm}),
     State#state{win=Win, status={running,null,null}};
 
 meta_cmd(idle, State) ->
     Win = dbg_wx_trace_win:show_no_code(State#state.win),
     gui_enable_functions(idle),
-    dbg_wx_trace_win:update_bindings(State#state.win, []),
+    dbg_wx_trace_win:update_bindings(State#state.win, undefined, []),
     dbg_wx_trace_win:display(State#state.win, idle),
     State#state{win=Win, status={idle,null,null}, cm=undefined};
 
@@ -713,16 +710,8 @@ meta_cmd({trace_output, StrFun}, State) ->
 
 %% Reply on a user command
 meta_cmd({eval_rsp, Res}, State) ->
-    Str = pretty(Res, State),
-    dbg_wx_trace_win:eval_output(State#state.win, [$<,Str,10], normal),
+    dbg_wx_trace_win:eval_output(State#state.win, [$<], Res, normal),
     State.
-
-pretty(Term, State) ->
-    Strings = case State#state.strings of
-                  [str_on] -> true;
-                  []       -> false
-              end,
-    io_lib_pretty:print(Term,[{encoding,unicode},{strings,Strings}]).
 
 %%====================================================================
 %% GUI auxiliary functions
@@ -841,9 +830,9 @@ gui_load_module(Win, Mod, _Pid) ->
 	    dbg_wx_trace_win:show_no_code(Win)
     end.
 
-gui_update_bindings(Win,Meta) ->
+gui_update_bindings(Win,Mod,Meta) ->
     Bs = int:meta(Meta, bindings, nostack),
-    dbg_wx_trace_win:update_bindings(Win,Bs).
+    dbg_wx_trace_win:update_bindings(Win,Mod,Bs).
 
 gui_enable_functions(Status) ->
     Enable = enable(Status),

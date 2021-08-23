@@ -115,6 +115,10 @@ code_area(Parent) ->
 
     ?stc:connect(Ed, stc_doubleclick),
     ?stc:setReadOnly(Ed, true),
+    %% STC steals keyboard shortcuts on linux for some reason
+    ?stc:cmdKeyClearAll(Ed),
+    ?stc:cmdKeyAssign(Ed, ?wxSTC_KEY_DOWN, ?wxSTC_KEYMOD_NORM, ?wxSTC_CMD_LINEDOWN),
+    ?stc:cmdKeyAssign(Ed, ?wxSTC_KEY_UP, ?wxSTC_KEYMOD_NORM, ?wxSTC_CMD_LINEUP),
     Ed.
 
 load_code(Ed, Code) ->

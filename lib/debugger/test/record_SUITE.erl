@@ -30,6 +30,8 @@
 	 init_per_suite/1,end_per_suite/1,
 	 errors/1,record_test/1,eval_once/1]).
 
+-export([debug/0]).
+
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
@@ -228,7 +230,35 @@ record_test(Config) when is_list(Config) ->
     [x,[],{a,b}] = [X || X <- MyList,
 			 begin not is_record(X, foo) or
 				   is_reference(X) end],
+
+    {_R, 2} = check_bindings(#foo{}, 4),
+
+    [a,b,c,d] = record_info(fields, foo),
+    5 = record_info(size, foo),
+    Foo2 = id(#foo{a=v1, b=true, c=false, d=v4}),
+    2 = #foo.a,
+    5 = #foo.d,
+    v1 = Foo2#foo.a,
+    v4 = Foo2#foo.d,
+
+    ?FalseGuard(Foo2#foo.a == baz),
+    ?FalseGuard(Foo2#foo.c),
+    ?FalseGuard(Foo2#foo.a),
+
+    ?TrueGuard(Foo2#foo.b),
+    ?TrueGuard(Foo2#foo.d == v4),
+
+    ?FalseGuard(element(#foo.d, Foo2) == baz),
+    ?FalseGuard(element(#foo.d, Foo2)),
+    ?FalseGuard(element(#foo.c, Foo2)),
+
+    ?TrueGuard(element(#foo.a, Foo2) == v1),
+    ?TrueGuard(element(#foo.b, Foo2)),
     ok.
+
+check_bindings(R0, Int) ->
+    R = R0#foo{a=(X=Int div 2)},
+    {R, X}.
 
 eval_once(Config) when is_list(Config) ->
     once(fun(GetRec) ->
@@ -263,4 +293,16 @@ once(Test, Record) ->
     end,
     Result.
 
-id(I) -> I.
+id(I) ->
+    I.
+
+debug() ->
+    %% Used for interactive debugger to see that step and next behaves
+    %% decent
+    _A00 = #foo{},
+    A0 = #foo{a=d1, c=d3},
+    A1  = A0#foo{a=1},
+    A2 = A1#foo{a=A1#foo.a+1, b=1, d=id(1)},
+    A2#foo{a=1,
+           b=2,
+           c=3}.
