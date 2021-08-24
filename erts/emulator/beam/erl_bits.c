@@ -1636,7 +1636,6 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 
     pos_in_bits_after_build = erts_bin_offset + build_size_in_bits;
     pb->size = (pos_in_bits_after_build+7) >> 3;
-    pb->flags |= PB_ACTIVE_WRITER;
 
     /*
      * Reallocate the binary if it is too small.
@@ -1666,12 +1665,13 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 	     */
 	    Binary* bptr = erts_bin_nrml_alloc(new_size);
 	    sys_memcpy(bptr->orig_bytes, binp->orig_bytes, binp->orig_size);
-	    pb->flags |= PB_IS_WRITABLE | PB_ACTIVE_WRITER;
 	    pb->val = bptr;
 	    pb->bytes = (byte *) bptr->orig_bytes;
             erts_bin_release(binp);
 	}
     }
+    pb->flags |= PB_IS_WRITABLE | PB_ACTIVE_WRITER;
+
     erts_current_bin = pb->bytes;
 
     sb->size = pos_in_bits_after_build >> 3;
