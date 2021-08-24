@@ -354,7 +354,7 @@ get_doc(Module, Function, Arity) ->
                              false
                      end, Docs),
 
-    [{F,A,S,get_local_doc({F,A},Dc,D),M} || {F,A,S,Dc,M} <- FnFunctions].
+    [{F,A,S,get_local_doc(F,Dc,D),M} || {F,A,S,Dc,M} <- FnFunctions].
 
 -spec render(Module, Docs) -> unicode:chardata() when
       Module :: module(),
@@ -565,7 +565,10 @@ render_callback(_Module, Callback, Arity, #docs_v1{ docs = Docs } = D, Config) -
 get_local_doc(MissingMod, Docs, D) when is_atom(MissingMod) ->
     get_local_doc(atom_to_binary(MissingMod), Docs, D);
 get_local_doc({F,A}, Docs, D) ->
-    get_local_doc(unicode:characters_to_binary(io_lib:format("~tp/~p",[F,A])), Docs, D);
+    get_local_doc(unicode:characters_to_binary(
+                    io_lib:format("~tp/~p",[F,A])), Docs, D);
+get_local_doc({_Type,F,A}, Docs, D) ->
+    get_local_doc({F,A}, Docs, D);
 get_local_doc(_Missing, #{ <<"en">> := Docs }, D) ->
     %% English if it exists
     normalize_format(Docs, D);
@@ -598,19 +601,22 @@ render_function(FDocs, #docs_v1{ docs = Docs } = D, Config) ->
                   Acc#{ Group => [Func|Members] }
           end, #{}, lists:sort(FDocs)),
     lists:map(
-      fun({{_,F,A} = Group,Members}) ->
+      fun({Group,Members}) ->
               Signatures = lists:flatmap(fun render_signature/1,lists:reverse(Members)),
               case lists:search(fun({_,_,_,Doc,_}) ->
                                         Doc =/= #{}
                                 end, Members) of
                   {value, {_,_,_,Doc,_Meta}} ->
-                      render_headers_and_docs(Signatures, get_local_doc({F,A},Doc,D), D, Config);
+                      render_headers_and_docs(
+                        Signatures, get_local_doc(Group, Doc, D), D, Config);
                   false ->
                       case lists:keyfind(Group, 1, Docs) of
                           false ->
-                              render_headers_and_docs(Signatures, get_local_doc({F,A},none,D), D, Config);
+                              render_headers_and_docs(
+                                Signatures, get_local_doc(Group, none, D), D, Config);
                           {_,_,_,Doc,_} ->
-                              render_headers_and_docs(Signatures, get_local_doc({F,A},Doc,D), D, Config)
+                              render_headers_and_docs(
+                                Signatures, get_local_doc(Group, Doc, D), D, Config)
                       end
               end
       end, maps:to_list(Grouping)).
@@ -691,8 +697,8 @@ render_typecb_docs([], _C) ->
     {error,type_missing};
 render_typecb_docs(TypeCBs, #config{} = C) when is_list(TypeCBs) ->
     [render_typecb_docs(TypeCB, C) || TypeCB <- TypeCBs];
-render_typecb_docs({{_,F,A},_,_Sig,Docs,_Meta} = TypeCB, #config{docs = D} = C) ->
-    render_headers_and_docs(render_signature(TypeCB), get_local_doc({F,A},Docs,D), C).
+render_typecb_docs({F,_,_Sig,Docs,_Meta} = TypeCB, #config{docs = D} = C) ->
+    render_headers_and_docs(render_signature(TypeCB), get_local_doc(F,Docs,D), C).
 render_typecb_docs(Docs, D, Config) ->
     render_typecb_docs(Docs, init_config(D, Config)).
 
