@@ -29,7 +29,7 @@
 -import(lists, [foldl/3,foldr/3,reverse/1,keysearch/3,map/2,filter/2,droplast/1]).
 -import(proplists, [get_value/2,get_value/3]).
 
--compile([export_all, no_warn_export_all]).
+-compile([export_all, nowarn_export_all]).
 
 -define(DBGCF(Class, Func, Format, Args),
 	case {get(current_class), get(current_func)} of
@@ -63,7 +63,7 @@ gen_code() ->
     put(class_id, 10), %% Start from 10 using the other as special
     Defs1 = init_defs(Defs0),
     Tab   = ets:new(defs, [bag, named_table]),   %% Also used to lookup functions in wx_gen_doc.
-    Docs  = ets:new(docs, [bag, named_table]),   %% Used to lookup docs in wx_gen_doc.
+    _Doc  = ets:new(docs, [bag, named_table]),   %% Used to lookup docs in wx_gen_doc.
     Defs2 = parse_defs(Defs1, Tab, []),
     parse_enums([File || {{include, File},_} <- get()]),
     Defs = translate_enums(Defs2),
@@ -1061,7 +1061,10 @@ add_compat([]) ->
 
 %% We must fix sort order so that merge works
 sort_m({A,{L,In1,Out1},M1}, {A,{L,In2,Out2},M2}) ->
-    Mod = fun({class, _} = C) -> C; (Term) -> {base, Term} end,
+    Mod = fun({class, _} = C) -> C;
+             (color) -> {int, int, int, int};  %% Keep sort order
+             (Term) -> {base, Term}
+          end,
 
     if
         In1 =:= In2, Out1 =:= Out2 ->
@@ -1255,15 +1258,28 @@ types_differ([_|R1], [{term,_}|R2]) ->
     types_differ(R1,R2);
 types_differ([{class,C1}|R1], [{class,C2}|R2]) ->
     case types_differ(R1,R2) of
-	true -> 
-	    true;
-	false -> 
-	    {class,C1,C2};
-	{class,C1,C2} -> 
-	    {class,C1,C2};
-	{class, _,_} -> 
-	    false
+	true ->  true;
+	false -> {class,C1,C2};
+	{class,C1,C2} -> {class,C1,C2};
+	{class, _,_} -> false
     end;
+types_differ([{class,_}|_R1], [{_,_,_,_}|_R2]) ->
+    %%types_differ(R1,R2);  should match on rec name
+    true;
+types_differ( [{_,_,_,_}|R1], [{class,_C1}|R2]) ->
+    types_differ(R1,R2);
+types_differ([color|R1], [{IsInt,_,_}|R2]) ->
+    (IsInt =/= int) orelse types_differ(R1,R2);
+types_differ([color|R1], [{IsInt,_,_,_}|R2]) ->
+    (IsInt =/= int) orelse types_differ(R1,R2);
+types_differ([{IsInt,_,_}|R1], [color|R2]) ->
+    (IsInt =/= int) orelse types_differ(R1,R2);
+types_differ([{IsInt,_,_,_}|R1], [color|R2]) ->
+    (IsInt =/= int) orelse types_differ(R1,R2);
+
+types_differ([color|_], _) -> true;
+types_differ(_, [color|_]) -> true;
+
 types_differ([int|_], _) -> true;
 types_differ(_, [int|_]) -> true;
 types_differ([{class,_}|_], _) -> true;
@@ -1339,6 +1355,8 @@ type_foot_print(voidp) -> int;
 %%     type_foot_print(Type);
 type_foot_print(#type{base={comp,_,R={record,_}}}) ->
     R;
+type_foot_print(#type{base={comp,"wxColour",_}}) ->
+    color;
 type_foot_print(#type{base={comp,_,Types}}) ->
     TFL = map(fun({T,N}) when is_list(N) ->
 		      case T of

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -375,7 +375,7 @@ endPage(#wx_ref{type=ThisT}=This) ->
 	This::wxDC(), Pt::{X::integer(), Y::integer()}, Col::wx:wx_colour().
 
 floodFill(This,{PtX,PtY} = Pt,Col)
- when is_record(This, wx_ref),is_integer(PtX),is_integer(PtY),tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
+ when is_record(This, wx_ref),is_integer(PtX),is_integer(PtY),?is_colordata(Col) ->
   floodFill(This,Pt,Col, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdc.html#wxdcfloodfill">external documentation</a>.
@@ -384,7 +384,7 @@ floodFill(This,{PtX,PtY} = Pt,Col)
 	This::wxDC(), Pt::{X::integer(), Y::integer()}, Col::wx:wx_colour(),
 	Option :: {'style', wx:wx_enum()}.
 floodFill(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt,Col, Options)
- when is_integer(PtX),is_integer(PtY),tuple_size(Col) =:= 3; tuple_size(Col) =:= 4,is_list(Options) ->
+ when is_integer(PtX),is_integer(PtY),?is_colordata(Col),is_list(Options) ->
   ?CLASS(ThisT,wxDC),
   MOpts = fun({style, _style} = Arg) -> Arg;
           (BadOpt) -> erlang:error({badoption, BadOpt}) end,
@@ -606,7 +606,7 @@ getUserScale(#wx_ref{type=ThisT}=This) ->
 -spec gradientFillConcentric(This, Rect, InitialColour, DestColour) -> 'ok' when
 	This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, InitialColour::wx:wx_colour(), DestColour::wx:wx_colour().
 gradientFillConcentric(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect,InitialColour,DestColour)
- when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),tuple_size(InitialColour) =:= 3; tuple_size(InitialColour) =:= 4,tuple_size(DestColour) =:= 3; tuple_size(DestColour) =:= 4 ->
+ when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),?is_colordata(InitialColour),?is_colordata(DestColour) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,Rect,wxe_util:color(InitialColour),wxe_util:color(DestColour),?get_env(),?wxDC_GradientFillConcentric_3).
 
@@ -614,7 +614,7 @@ gradientFillConcentric(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect
 -spec gradientFillConcentric(This, Rect, InitialColour, DestColour, CircleCenter) -> 'ok' when
 	This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, InitialColour::wx:wx_colour(), DestColour::wx:wx_colour(), CircleCenter::{X::integer(), Y::integer()}.
 gradientFillConcentric(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect,InitialColour,DestColour,{CircleCenterX,CircleCenterY} = CircleCenter)
- when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),tuple_size(InitialColour) =:= 3; tuple_size(InitialColour) =:= 4,tuple_size(DestColour) =:= 3; tuple_size(DestColour) =:= 4,is_integer(CircleCenterX),is_integer(CircleCenterY) ->
+ when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),?is_colordata(InitialColour),?is_colordata(DestColour),is_integer(CircleCenterX),is_integer(CircleCenterY) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,Rect,wxe_util:color(InitialColour),wxe_util:color(DestColour),CircleCenter,?get_env(),?wxDC_GradientFillConcentric_4).
 
@@ -623,7 +623,7 @@ gradientFillConcentric(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect
 	This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, InitialColour::wx:wx_colour(), DestColour::wx:wx_colour().
 
 gradientFillLinear(This,{RectX,RectY,RectW,RectH} = Rect,InitialColour,DestColour)
- when is_record(This, wx_ref),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),tuple_size(InitialColour) =:= 3; tuple_size(InitialColour) =:= 4,tuple_size(DestColour) =:= 3; tuple_size(DestColour) =:= 4 ->
+ when is_record(This, wx_ref),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),?is_colordata(InitialColour),?is_colordata(DestColour) ->
   gradientFillLinear(This,Rect,InitialColour,DestColour, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdc.html#wxdcgradientfilllinear">external documentation</a>.
@@ -632,7 +632,7 @@ gradientFillLinear(This,{RectX,RectY,RectW,RectH} = Rect,InitialColour,DestColou
 	This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, InitialColour::wx:wx_colour(), DestColour::wx:wx_colour(),
 	Option :: {'nDirection', wx:wx_enum()}.
 gradientFillLinear(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect,InitialColour,DestColour, Options)
- when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),tuple_size(InitialColour) =:= 3; tuple_size(InitialColour) =:= 4,tuple_size(DestColour) =:= 3; tuple_size(DestColour) =:= 4,is_list(Options) ->
+ when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),?is_colordata(InitialColour),?is_colordata(DestColour),is_list(Options) ->
   ?CLASS(ThisT,wxDC),
   MOpts = fun({nDirection, _nDirection} = Arg) -> Arg;
           (BadOpt) -> erlang:error({badoption, BadOpt}) end,
@@ -833,7 +833,7 @@ setPen(#wx_ref{type=ThisT}=This,#wx_ref{type=PenT}=Pen) ->
 -spec setTextBackground(This, Colour) -> 'ok' when
 	This::wxDC(), Colour::wx:wx_colour().
 setTextBackground(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxDC_SetTextBackground).
 
@@ -841,7 +841,7 @@ setTextBackground(#wx_ref{type=ThisT}=This,Colour)
 -spec setTextForeground(This, Colour) -> 'ok' when
 	This::wxDC(), Colour::wx:wx_colour().
 setTextForeground(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxDC_SetTextForeground).
 

@@ -1606,8 +1606,8 @@
 -define(wxListItemAttr_destroy, 1764).
 -define(wxImageList_new_0, 1765).
 -define(wxImageList_new_3, 1766).
--define(wxImageList_Add_2_1, 1767).
--define(wxImageList_Add_2_0, 1769).
+-define(wxImageList_Add_2_0, 1767).
+-define(wxImageList_Add_2_1, 1769).
 -define(wxImageList_Add_1, 1770).
 -define(wxImageList_Create, 1771).
 -define(wxImageList_Draw, 1772).

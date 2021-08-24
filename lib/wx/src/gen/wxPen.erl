@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ new() ->
 	Pen::wxPen().
 
 new(Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   new(Colour, []);
 new(#wx_ref{type=PenT}=Pen) ->
   ?CLASS(PenT,wxPen),
@@ -64,7 +64,7 @@ new(#wx_ref{type=PenT}=Pen) ->
 	Option :: {'width', integer()}
 		 | {'style', wx:wx_enum()}.
 new(Colour, Options)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4,is_list(Options) ->
+ when ?is_colordata(Colour),is_list(Options) ->
   MOpts = fun({width, _width} = Arg) -> Arg;
           ({style, _style} = Arg) -> Arg;
           (BadOpt) -> erlang:error({badoption, BadOpt}) end,
@@ -136,7 +136,7 @@ setCap(#wx_ref{type=ThisT}=This,CapStyle)
 -spec setColour(This, Colour) -> 'ok' when
 	This::wxPen(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxPen),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxPen_SetColour_1).
 

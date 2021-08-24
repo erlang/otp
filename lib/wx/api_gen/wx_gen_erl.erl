@@ -672,7 +672,7 @@ guard_test(#param{name=_N,type=#type{base={class,_}}}) ->
 guard_test(#param{name=_N,type={merged,_}}) ->
     skip;
 guard_test(#param{name=N,type=#type{base={comp,"wxColour",_Tup}}}) ->
-    "tuple_size(" ++ erl_arg_name(N) ++ ") =:= 3; tuple_size(" ++ erl_arg_name(N) ++ ") =:= 4";
+    "?is_colordata(" ++ erl_arg_name(N) ++ ")";
 guard_test(#param{name=N,type=#type{base={comp,_,Tup}}}) ->
     Doc = fun({int,V}) -> "is_integer("++erl_arg_name(N)++V ++")";
 	     ({int64,V}) -> "is_integer("++erl_arg_name(N)++V ++")";
@@ -1242,6 +1242,7 @@ gen_api_footprint(All) ->
                      _ ->
                          case wx_gen:type_foot_print(Type) of
                              {class, C} -> list_to_atom(C);
+                             color -> {int,int,int,int};
                              T -> T
                          end
                  end

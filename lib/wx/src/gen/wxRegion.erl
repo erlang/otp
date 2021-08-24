@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -242,7 +242,7 @@ union(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
 	This::wxRegion(), Bmp::wxBitmap:wxBitmap(), TransColour::wx:wx_colour().
 
 union(This,Bmp,TransColour)
- when is_record(This, wx_ref),is_record(Bmp, wx_ref),tuple_size(TransColour) =:= 3; tuple_size(TransColour) =:= 4 ->
+ when is_record(This, wx_ref),is_record(Bmp, wx_ref),?is_colordata(TransColour) ->
   union(This,Bmp,TransColour, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxregion.html#wxregionunion">external documentation</a>.
@@ -250,7 +250,7 @@ union(This,Bmp,TransColour)
 	This::wxRegion(), Bmp::wxBitmap:wxBitmap(), TransColour::wx:wx_colour(),
 	Option :: {'tolerance', integer()}.
 union(#wx_ref{type=ThisT}=This,#wx_ref{type=BmpT}=Bmp,TransColour, Options)
- when tuple_size(TransColour) =:= 3; tuple_size(TransColour) =:= 4,is_list(Options) ->
+ when ?is_colordata(TransColour),is_list(Options) ->
   ?CLASS(ThisT,wxRegion),
   ?CLASS(BmpT,wxBitmap),
   MOpts = fun({tolerance, _tolerance} = Arg) -> Arg;

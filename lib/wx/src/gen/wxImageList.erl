@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,24 +77,24 @@ add(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistadd">external documentation</a>.
 %% <br /> Also:<br />
-%% add(This, Bitmap, Mask) -> integer() when<br />
-%% 	This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), Mask::wxBitmap:wxBitmap().<br />
+%% add(This, Bitmap, MaskColour) -> integer() when<br />
+%% 	This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), MaskColour::wx:wx_colour().<br />
 %% 
--spec add(This, Bitmap, MaskColour) -> integer() when
-	This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), MaskColour::wx:wx_colour();
-      (This, Bitmap, Mask) -> integer() when
-	This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), Mask::wxBitmap:wxBitmap().
-add(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap,MaskColour)
- when tuple_size(MaskColour) =:= 3; tuple_size(MaskColour) =:= 4 ->
-  ?CLASS(ThisT,wxImageList),
-  ?CLASS(BitmapT,wxBitmap),
-  wxe_util:queue_cmd(This,Bitmap,wxe_util:color(MaskColour),?get_env(),?wxImageList_Add_2_0),
-  wxe_util:rec(?wxImageList_Add_2_0);
+-spec add(This, Bitmap, Mask) -> integer() when
+	This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), Mask::wxBitmap:wxBitmap();
+      (This, Bitmap, MaskColour) -> integer() when
+	This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), MaskColour::wx:wx_colour().
 add(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap,#wx_ref{type=MaskT}=Mask) ->
   ?CLASS(ThisT,wxImageList),
   ?CLASS(BitmapT,wxBitmap),
   ?CLASS(MaskT,wxBitmap),
-  wxe_util:queue_cmd(This,Bitmap,Mask,?get_env(),?wxImageList_Add_2_1),
+  wxe_util:queue_cmd(This,Bitmap,Mask,?get_env(),?wxImageList_Add_2_0),
+  wxe_util:rec(?wxImageList_Add_2_0);
+add(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap,MaskColour)
+ when ?is_colordata(MaskColour) ->
+  ?CLASS(ThisT,wxImageList),
+  ?CLASS(BitmapT,wxBitmap),
+  wxe_util:queue_cmd(This,Bitmap,wxe_util:color(MaskColour),?get_env(),?wxImageList_Add_2_1),
   wxe_util:rec(?wxImageList_Add_2_1).
 
 %% @equiv create(This,Width,Height, [])

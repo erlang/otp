@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -625,7 +625,7 @@ scrollList(#wx_ref{type=ThisT}=This,Dx,Dy)
 -spec setBackgroundColour(This, Col) -> boolean() when
 	This::wxListCtrl(), Col::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT}=This,Col)
- when tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
+ when ?is_colordata(Col) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,wxe_util:color(Col),?get_env(),?wxListCtrl_SetBackgroundColour),
   wxe_util:rec(?wxListCtrl_SetBackgroundColour).
@@ -693,7 +693,7 @@ setItem(#wx_ref{type=ThisT}=This,Index,Column,Label, Options)
 -spec setItemBackgroundColour(This, Item, Col) -> 'ok' when
 	This::wxListCtrl(), Item::integer(), Col::wx:wx_colour().
 setItemBackgroundColour(#wx_ref{type=ThisT}=This,Item,Col)
- when is_integer(Item),tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
+ when is_integer(Item),?is_colordata(Col) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,Item,wxe_util:color(Col),?get_env(),?wxListCtrl_SetItemBackgroundColour).
 
@@ -784,7 +784,7 @@ setItemText(#wx_ref{type=ThisT}=This,Item,Text)
 -spec setItemTextColour(This, Item, Col) -> 'ok' when
 	This::wxListCtrl(), Item::integer(), Col::wx:wx_colour().
 setItemTextColour(#wx_ref{type=ThisT}=This,Item,Col)
- when is_integer(Item),tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
+ when is_integer(Item),?is_colordata(Col) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,Item,wxe_util:color(Col),?get_env(),?wxListCtrl_SetItemTextColour).
 
@@ -812,7 +812,7 @@ setSingleStyle(#wx_ref{type=ThisT}=This,Style, Options)
 -spec setTextColour(This, Col) -> 'ok' when
 	This::wxListCtrl(), Col::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT}=This,Col)
- when tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
+ when ?is_colordata(Col) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,wxe_util:color(Col),?get_env(),?wxListCtrl_SetTextColour).
 

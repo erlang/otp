@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -162,7 +162,7 @@ setColour(#wx_ref{type=ThisT}=This,Colname)
   Colname_UC = unicode:characters_to_binary(Colname),
   wxe_util:queue_cmd(This,Colname_UC,?get_env(),?wxColourPickerCtrl_SetColour_1_0);
 setColour(#wx_ref{type=ThisT}=This,Col)
- when tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
+ when ?is_colordata(Col) ->
   ?CLASS(ThisT,wxColourPickerCtrl),
   wxe_util:queue_cmd(This,wxe_util:color(Col),?get_env(),?wxColourPickerCtrl_SetColour_1_1).
 

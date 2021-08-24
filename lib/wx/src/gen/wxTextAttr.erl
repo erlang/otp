@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ new() ->
 	Attr::wxTextAttr().
 
 new(ColText)
- when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4 ->
+ when ?is_colordata(ColText) ->
   new(ColText, []);
 new(#wx_ref{type=AttrT}=Attr) ->
   ?CLASS(AttrT,wxTextAttr),
@@ -68,7 +68,7 @@ new(#wx_ref{type=AttrT}=Attr) ->
 		 | {'font', wxFont:wxFont()}
 		 | {'alignment', wx:wx_enum()}.
 new(ColText, Options)
- when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4,is_list(Options) ->
+ when ?is_colordata(ColText),is_list(Options) ->
   MOpts = fun({colBack, ColBack}) -> {colBack,wxe_util:color(ColBack)};
           ({font, #wx_ref{type=FontT}} = Arg) ->   ?CLASS(FontT,wxFont),Arg;
           ({alignment, _alignment} = Arg) -> Arg;
@@ -195,7 +195,7 @@ setAlignment(#wx_ref{type=ThisT}=This,Alignment)
 -spec setBackgroundColour(This, ColBack) -> 'ok' when
 	This::wxTextAttr(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT}=This,ColBack)
- when tuple_size(ColBack) =:= 3; tuple_size(ColBack) =:= 4 ->
+ when ?is_colordata(ColBack) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,wxe_util:color(ColBack),?get_env(),?wxTextAttr_SetBackgroundColour).
 
@@ -268,7 +268,7 @@ setTabs(#wx_ref{type=ThisT}=This,Tabs)
 -spec setTextColour(This, ColText) -> 'ok' when
 	This::wxTextAttr(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT}=This,ColText)
- when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4 ->
+ when ?is_colordata(ColText) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,wxe_util:color(ColText),?get_env(),?wxTextAttr_SetTextColour).
 

@@ -1780,8 +1780,8 @@ extern void wxListItemAttr_SetTextColour(WxeApp *app, wxeMemEnv *memenv, wxeComm
 extern void wxListItemAttr_destroy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImageList_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImageList_new_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-extern void wxImageList_Add_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImageList_Add_2_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxImageList_Add_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImageList_Add_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImageList_Create(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImageList_Draw(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -6248,9 +6248,9 @@ wxe_fns_t wxe_fns[] =
   {wxListItemAttr_destroy, "wxListItemAttr", "'Destroy'", 1}, // 1764
   {wxImageList_new_0, "wxImageList", "new", 0}, // 1765
   {wxImageList_new_3, "wxImageList", "new", 3}, // 1766
-  {wxImageList_Add_2_1, "wxImageList", "add", 3}, // 1767
+  {wxImageList_Add_2_0, "wxImageList", "add", 3}, // 1767
   {NULL, "", "", 0}, // 1768
-  {wxImageList_Add_2_0, "wxImageList", "add", 3}, // 1769
+  {wxImageList_Add_2_1, "wxImageList", "add", 3}, // 1769
   {wxImageList_Add_1, "wxImageList", "add", 2}, // 1770
   {wxImageList_Create, "wxImageList", "create", 4}, // 1771
   {wxImageList_Draw, "wxImageList", "draw", 6}, // 1772
