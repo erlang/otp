@@ -216,7 +216,7 @@ client_unique_session(Config) when is_list(Config) ->
 				   {tcp_options, [{active, false}]},
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    LastClient = clients_start(Server, ClientNode, Hostname, Port, ClientOpts, 20),
+    LastClient = clients_start(Server, ClientNode, Hostname, Port, ClientOpts, 20, []),
     receive 
 	{LastClient, {ok, _}} ->
 	    ok
@@ -370,18 +370,17 @@ max_table_size(Config) when is_list(Config) ->
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     LastClient = clients_start(Server, 
-			    ClientNode, Hostname, Port, ClientOpts, 20),
+                               ClientNode, Hostname, Port, ClientOpts, 20, [{reuse_sessions, save}]),
     receive 
-	{LastClient, {ok, _}} ->
-	    ok
+        {LastClient, {ok, _}} ->
+            ok
     end,
-    ct:sleep(1000),
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
     ClientCache = element(2, State),	
     M = ?CLIENT_CB:size(ClientCache),
-    ct:pal("~p",[M]),
+    ct:pal("Cache size ~p",[M]),
     ssl_test_lib:close(Server, 500),
     ssl_test_lib:close(LastClient),
     true = M =< ?MAX_TABLE_SIZE.
@@ -551,22 +550,21 @@ session_cache_process(_Type,Config) when is_list(Config) ->
     ssl_test_lib:reuse_session(ClientOpts, ServerOpts, Config).
 
 
-clients_start(_Server, ClientNode, Hostname, Port, ClientOpts, 0) ->
-    %% Make sure session is registered
-    ct:sleep(?SLEEP * 2),
+clients_start(_Server, ClientNode, Hostname, Port, ClientOpts, 0, Opts) ->
     ssl_test_lib:start_client([{node, ClientNode},
 			       {port, Port}, {host, Hostname},
 			       {mfa, {?MODULE, connection_info_result, []}},
-			       {from, self()},  {options, ClientOpts}]);
-clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N) ->
+                               %% Make sure session is registered    
+			       {from, self()},  {options, Opts ++ ClientOpts}]);
+clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N, Opts) ->
     spawn_link(ssl_test_lib, start_client, 
 	       [[{node, ClientNode},
 		 {port, Port}, {host, Hostname},
 		 {mfa, {ssl_test_lib, no_result, []}},
-		 {from, self()},  {options, ClientOpts}]]),
+		 {from, self()},  {options, Opts ++ ClientOpts}]]),
     Server ! listen,
     wait_for_server(),
-    clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N-1).
+    clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N-1, Opts).
 	
 
 check_timer(Timer) ->
