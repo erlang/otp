@@ -413,7 +413,7 @@ erts_bin_nrml_alloc_fnf(Uint size)
 
     if (!IS_BINARY_SIZE_OK(size))
         return NULL;
-    bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
+    bsize = ERTS_SIZEOF_Binary(size);
 
     res = (Binary *)erts_alloc_fnf(ERTS_ALC_T_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
@@ -430,7 +430,7 @@ erts_bin_nrml_alloc_fnf(Uint size)
 ERTS_GLB_INLINE Binary *
 erts_bin_nrml_alloc(Uint size)
 {
-    Binary *res = erts_bin_drv_alloc_fnf(size);
+    Binary *res = erts_bin_nrml_alloc_fnf(size);
 
     if (res) {
         return res;
@@ -446,13 +446,18 @@ erts_bin_realloc_fnf(Binary *bp, Uint size)
     Binary *nbp;
     Uint bsize;
     
-    type = (bp->intern.flags & BIN_FLAG_DRV) ? ERTS_ALC_T_DRV_BINARY
-                                             : ERTS_ALC_T_BINARY;
     ASSERT((bp->intern.flags & BIN_FLAG_MAGIC) == 0);
     if (!IS_BINARY_SIZE_OK(size))
         return NULL;
+    bsize = ERTS_SIZEOF_Binary(size);
 
-    bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
+    if (bp->intern.flags & BIN_FLAG_DRV) {
+        type = ERTS_ALC_T_DRV_BINARY;
+        bsize += CHICKEN_PAD;
+    }
+    else {
+        type = ERTS_ALC_T_BINARY;
+    }
 
     nbp = (Binary *)erts_realloc_fnf(type, (void *) bp, bsize);
     ERTS_CHK_BIN_ALIGNMENT(nbp);
