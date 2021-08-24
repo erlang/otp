@@ -358,12 +358,8 @@ erts_free_aligned_binary_bytes(byte* buf)
  *
  * This check also ensures, indirectly, that there won't be an overflow when
  * the size is bumped by CHICKEN_PAD and the binary struct itself. */
-#define BINARY_OVERFLOW_CHECK(BYTE_SIZE) \
-    do { \
-         if (ERTS_UNLIKELY(BYTE_SIZE > ERTS_UWORD_MAX / CHAR_BIT)) { \
-             return NULL; \
-         } \
-    } while(0)
+#define IS_BINARY_SIZE_OK(BYTE_SIZE) \
+    ERTS_LIKELY(BYTE_SIZE <= ERTS_UWORD_MAX / CHAR_BIT)
 
 /* Explicit extra bytes allocated to counter buggy drivers.
 ** These extra bytes where earlier (< R13B04) added by an alignment-bug
@@ -381,7 +377,8 @@ erts_bin_drv_alloc_fnf(Uint size)
     Binary *res;
     Uint bsize;
 
-    BINARY_OVERFLOW_CHECK(size);
+    if (!IS_BINARY_SIZE_OK(size))
+        return NULL;
     bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
 
     res = (Binary *)erts_alloc_fnf(ERTS_ALC_T_DRV_BINARY, bsize);
@@ -414,7 +411,8 @@ erts_bin_nrml_alloc_fnf(Uint size)
     Binary *res;
     Uint bsize;
 
-    BINARY_OVERFLOW_CHECK(size);
+    if (!IS_BINARY_SIZE_OK(size))
+        return NULL;
     bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
 
     res = (Binary *)erts_alloc_fnf(ERTS_ALC_T_BINARY, bsize);
@@ -451,8 +449,9 @@ erts_bin_realloc_fnf(Binary *bp, Uint size)
     type = (bp->intern.flags & BIN_FLAG_DRV) ? ERTS_ALC_T_DRV_BINARY
                                              : ERTS_ALC_T_BINARY;
     ASSERT((bp->intern.flags & BIN_FLAG_MAGIC) == 0);
+    if (!IS_BINARY_SIZE_OK(size))
+        return NULL;
 
-    BINARY_OVERFLOW_CHECK(size);
     bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
 
     nbp = (Binary *)erts_realloc_fnf(type, (void *) bp, bsize);
