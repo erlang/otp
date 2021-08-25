@@ -61,6 +61,7 @@
 #include <wx/listbook.h>
 #include <wx/treebook.h>
 #include <wx/taskbar.h>
+#include <wx/textctrl.h>
 #include <wx/popupwin.h>
 #include <wx/html/htmlwin.h>
 #include <wx/html/htmlcell.h>

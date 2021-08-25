@@ -533,6 +533,90 @@ void wxTextAttr_GetFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 
 }
 
+// wxTextAttr::GetFontEncoding
+void wxTextAttr_GetFontEncoding(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  int Result = This->GetFontEncoding();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_int(Result));
+
+}
+
+// wxTextAttr::GetFontFaceName
+void wxTextAttr_GetFontFaceName(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  const wxString Result = This->GetFontFaceName();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make(Result));
+
+}
+
+// wxTextAttr::GetFontSize
+void wxTextAttr_GetFontSize(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  int Result = This->GetFontSize();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_int(Result));
+
+}
+
+// wxTextAttr::GetFontStyle
+void wxTextAttr_GetFontStyle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  int Result = This->GetFontStyle();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_int(Result));
+
+}
+
+// wxTextAttr::GetFontUnderlined
+void wxTextAttr_GetFontUnderlined(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  bool Result = This->GetFontUnderlined();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
+}
+
+// wxTextAttr::GetFontWeight
+void wxTextAttr_GetFontWeight(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
+  int Result = This->GetFontWeight();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_int(Result));
+
+}
+
 // wxTextAttr::GetLeftIndent
 void wxTextAttr_GetLeftIndent(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
@@ -749,6 +833,134 @@ void wxTextAttr_SetFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   };
   if(!This) throw wxe_badarg("This");
   This->SetFont(*font,flags);
+
+}
+
+// wxTextAttr::SetFontEncoding
+void wxTextAttr_SetFontEncoding(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  wxFontEncoding encoding;
+  if(!enif_get_int(env, argv[1], (int *) &encoding)) Badarg("encoding"); // enum
+  if(!This) throw wxe_badarg("This");
+  This->SetFontEncoding(encoding);
+
+}
+
+// wxTextAttr::SetFontFaceName
+void wxTextAttr_SetFontFaceName(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  ErlNifBinary faceName_bin;
+  wxString faceName;
+  if(!enif_inspect_binary(env, argv[1], &faceName_bin)) Badarg("faceName");
+  faceName = wxString(faceName_bin.data, wxConvUTF8, faceName_bin.size);
+  if(!This) throw wxe_badarg("This");
+  This->SetFontFaceName(faceName);
+
+}
+
+// wxTextAttr::SetFontFamily
+void wxTextAttr_SetFontFamily(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  wxFontFamily family;
+  if(!enif_get_int(env, argv[1], (int *) &family)) Badarg("family"); // enum
+  if(!This) throw wxe_badarg("This");
+  This->SetFontFamily(family);
+
+}
+
+// wxTextAttr::SetFontSize
+void wxTextAttr_SetFontSize(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  int pointSize;
+  if(!enif_get_int(env, argv[1], &pointSize)) Badarg("pointSize"); // int
+  if(!This) throw wxe_badarg("This");
+  This->SetFontSize(pointSize);
+
+}
+
+// wxTextAttr::SetFontPointSize
+void wxTextAttr_SetFontPointSize(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  int pointSize;
+  if(!enif_get_int(env, argv[1], &pointSize)) Badarg("pointSize"); // int
+  if(!This) throw wxe_badarg("This");
+  This->SetFontPointSize(pointSize);
+
+}
+
+// wxTextAttr::SetFontPixelSize
+void wxTextAttr_SetFontPixelSize(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  int pixelSize;
+  if(!enif_get_int(env, argv[1], &pixelSize)) Badarg("pixelSize"); // int
+  if(!This) throw wxe_badarg("This");
+  This->SetFontPixelSize(pixelSize);
+
+}
+
+// wxTextAttr::SetFontStyle
+void wxTextAttr_SetFontStyle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  wxFontStyle fontStyle;
+  if(!enif_get_int(env, argv[1], (int *) &fontStyle)) Badarg("fontStyle"); // enum
+  if(!This) throw wxe_badarg("This");
+  This->SetFontStyle(fontStyle);
+
+}
+
+// wxTextAttr::SetFontUnderlined
+void wxTextAttr_SetFontUnderlined(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  bool underlined;
+  underlined = enif_is_identical(argv[1], WXE_ATOM_true);
+  if(!This) throw wxe_badarg("This");
+  This->SetFontUnderlined(underlined);
+
+}
+
+// wxTextAttr::SetFontWeight
+void wxTextAttr_SetFontWeight(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  wxTextAttr *This;
+  This = (wxTextAttr *) memenv->getPtr(env, argv[0], "This");
+  wxFontWeight fontWeight;
+  if(!enif_get_int(env, argv[1], (int *) &fontWeight)) Badarg("fontWeight"); // enum
+  if(!This) throw wxe_badarg("This");
+  This->SetFontWeight(fontWeight);
 
 }
 
