@@ -47,7 +47,7 @@
 	 lookup_bad_search_option/1,
 	 getif/1,
 	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1,
-	 parse_strict_address/1, ipv4_mapped_ipv6_address/1,
+	 parse_strict_address/1, ipv4_mapped_ipv6_address/1, ntoa/1,
          simple_netns/1, simple_netns_open/1,
          add_del_host/1, add_del_host_v6/1,
          simple_bind_to_device/1, simple_bind_to_device_open/1
@@ -76,7 +76,8 @@ all() ->
      gethostnative_debug_level, gethostnative_soft_restart,
      lookup_bad_search_option,
      getif, getif_ifr_name_overflow, getservbyname_overflow,
-     getifaddrs, parse_strict_address, simple_netns, simple_netns_open,
+     getifaddrs, parse_strict_address, ipv4_mapped_ipv6_address, ntoa,
+     simple_netns, simple_netns_open,
      add_del_host, add_del_host_v6,
      simple_bind_to_device, simple_bind_to_device_open
     ].
@@ -824,6 +825,51 @@ ipv4_mapped_ipv6_address(Config) when is_list(Config) ->
          rand:uniform(65536) - 1, E7, E8},
     IPv4Address = inet:ipv4_mapped_ipv6_address(IPv6Address),
     ok.
+
+
+ntoa(Config) when is_list(Config) ->
+    M8 = 1 bsl 8,
+    M16 = 1 bsl 16,
+    V4Xs = rand_tuple(4, M8),
+    V6Xs = rand_tuple(4, M16),
+    ntoa(
+      [{A, B, C, D} ||
+          A <- [0, element(1, V4Xs), M8-1, -1, 256],
+          B <- [0, element(2, V4Xs), M8-1, -1, 256],
+          C <- [0, element(3, V4Xs), M8-1, -1, 256],
+          D <- [0, element(4, V4Xs), M8-1, -1, 256]], M8-1),
+    ntoa(
+      [{E, F, G, H, G, G, E, F} ||
+          E <- [0, element(1, V6Xs), M16-1, -1, M16],
+          F <- [0, element(2, V6Xs), M16-1, -1, M16],
+          G <- [0, element(3, V6Xs), M16-1, -1, M16],
+          H <- [0, element(4, V6Xs), M16-1, -1, M16]], M16-1).
+
+ntoa([A | As], Max) ->
+    case
+        lists:all(
+          fun (X) when 0 =< X, X =< Max -> true;
+              (_) -> false
+          end, tuple_to_list(A))
+    of
+        true ->
+            S = inet:ntoa(A),
+            {ok, A} = inet:parse_address(S);
+        false ->
+            {error, einval} = inet:ntoa(A)
+    end,
+    ntoa(As, Max);
+ntoa([], _Max) ->
+    ok.
+
+rand_tuple(N, M) ->
+    rand_tuple(N, M, []).
+%%
+rand_tuple(0, _M, Acc) ->
+    list_to_tuple(Acc);
+rand_tuple(N, M, Acc) ->
+    rand_tuple(N - 1, M, [rand:uniform(M) - 1 | Acc]).
+
 
 t_gethostnative(Config) when is_list(Config) ->
     %% this will result in 26 bytes sent which causes problem in Windows
