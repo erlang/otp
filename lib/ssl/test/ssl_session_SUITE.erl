@@ -63,6 +63,7 @@
 
 -define(SLEEP, 500).
 -define(EXPIRE, 10).
+-define(CLIENT_CB, ssl_client_session_cache_db).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -453,22 +454,36 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
 
 
 client_max_session_table() ->
-      [{doc, "Check that max session table limit handling set max to 1 in init_per_testcase"}].
+      [{doc, "Check that max session table limit is not exceeded, set max to 2 in init_per_testcase"}].
 
 client_max_session_table(Config) when is_list(Config)->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
-    test_max_session_limit(ClientOpts,ServerOpts,ClientNode, ServerNode, HostName).
+    test_max_session_limit(ClientOpts,ServerOpts,ClientNode, ServerNode, HostName),    
+    %% Explicit check table size
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    ClientCache = element(2, State),	
+    2 = ?CLIENT_CB:size(ClientCache).
     
 server_max_session_table() ->
-      [{doc, "Check that max session table limit handling set max to 1 in init_per_testcase"}].
+      [{doc, "Check that max session table limit exceeded, set max to 2 in init_per_testcase"}].
 
 server_max_session_table(Config) when is_list(Config)->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
-    test_max_session_limit(ClientOpts,ServerOpts,ClientNode, ServerNode, HostName).
+    test_max_session_limit(ClientOpts,ServerOpts,ClientNode, ServerNode, HostName),
+    %% Explicit check table size
+    SupName = sup_name(ServerOpts),
+    Sup = whereis(SupName),
+    %% Will only be one process, that is one server, in our test senario
+    [{_, SessionCachePid, worker,[ssl_server_session_cache]}] = supervisor:which_children(Sup),
+    {SessionCacheCb, SessionCacheDb} = session_cachce_info(SessionCachePid),
+    N = SessionCacheCb:size(SessionCacheDb),
+    true = N == 2.
 
 session_table_stable_size_on_tcp_close() ->
       [{doc, "Check that new sessions are cleanup when connection is closed abruptly during first handshake"}].
@@ -702,3 +717,13 @@ test_max_session_limit(ClientOpts, ServerOpts, ClientNode, ServerNode, HostName)
         Other  ->
             ct:fail({{expected, SID2}, {got,Other}})
     end.
+
+
+sup_name(Opts) ->
+   case proplists:get_value(protocol, Opts, tls) of
+       tls ->
+           ssl_server_session_cache_sup;
+       dtls ->
+           dtls_server_session_cache_sup
+   end.
+
