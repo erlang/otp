@@ -898,13 +898,13 @@ splitmap_opts_1(SplitMap, [Opt | Opts]) ->
         ok ->
             case SplitMap(Opt) of
                 false -> ok;
-                true  -> [[]      | Opts];
+                %% true  -> [[]      | Opts]; % not used now
                 Opt_1 -> [[Opt_1] | Opts]
             end;
         [SplitOptsR | Opts_1] ->
             case SplitMap(Opt) of
                 false -> [SplitOptsR           | [Opt | Opts_1]];
-                true  -> [[Opt   | SplitOptsR] | Opts_1];
+                %% true  -> [[Opt   | SplitOptsR] | Opts_1]; % not used now
                 Opt_1 -> [[Opt_1 | SplitOptsR] | Opts_1]
             end
     end;
