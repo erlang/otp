@@ -248,6 +248,8 @@ erts_flush_dirty_shadow_proc(Process *sproc)
     }
 
     c_p->off_heap.overhead += sproc->off_heap.overhead;
+
+    ASSERT(sproc->wrt_bins == NULL);
 }
 
 ERTS_GLB_INLINE void
@@ -272,6 +274,7 @@ erts_cache_dirty_shadow_proc(Process *sproc)
     sproc->mbuf = NULL;
     sproc->mbuf_sz = 0;
     ERTS_INIT_OFF_HEAP(&sproc->off_heap);
+    sproc->wrt_bins = NULL;
 }
 
 ERTS_GLB_INLINE Process *

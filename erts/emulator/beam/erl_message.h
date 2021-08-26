@@ -485,6 +485,7 @@ void erts_link_mbuf_to_proc(Process *proc, ErlHeapFragment *bp);
 
 Uint erts_msg_attached_data_size_aux(ErtsMessage *msg);
 
+void erts_cleanup_offheap_list(struct erl_off_heap_header* first);
 void erts_cleanup_offheap(ErlOffHeap *offheap);
 void erts_save_message_in_proc(Process *p, ErtsMessage *msg);
 Sint erts_move_messages_off_heap(Process *c_p);

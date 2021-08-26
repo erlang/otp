@@ -12021,6 +12021,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
      */
     p->off_heap.first = NULL;
     p->off_heap.overhead = 0;
+    p->wrt_bins = NULL;
 
     if (is_not_immed(group_leader))
         heap_need += NC_HEAP_SIZE(group_leader);
@@ -12597,6 +12598,7 @@ void erts_init_empty_process(Process *p)
     p->next = NULL;
     p->off_heap.first = NULL;
     p->off_heap.overhead = 0;
+    p->wrt_bins = NULL;
     p->common.u.alive.reg = NULL;
     p->heap_sz = 0;
     p->high_water = NULL;
@@ -12719,6 +12721,7 @@ erts_debug_verify_clean_empty_process(Process* p)
 
     ASSERT(p->off_heap.first == NULL);
     ASSERT(p->off_heap.overhead == 0);
+    ASSERT(p->wrt_bins == NULL);
 
     ASSERT(p->mbuf == NULL);
 }
@@ -12730,9 +12733,11 @@ erts_cleanup_empty_process(Process* p)
 {
     /* We only check fields that are known to be used... */
 
-    erts_cleanup_offheap(&p->off_heap);
+    erts_cleanup_offheap_list(p->off_heap.first);
     p->off_heap.first = NULL;
     p->off_heap.overhead = 0;
+    erts_cleanup_offheap_list(p->wrt_bins);
+    p->wrt_bins = NULL;
 
     if (p->mbuf != NULL) {
 	free_message_buffer(p->mbuf);
@@ -12786,6 +12791,7 @@ delete_process(Process* p)
 
     /* Clean binaries and funs */
     erts_cleanup_offheap(&p->off_heap);
+    erts_cleanup_offheap_list(p->wrt_bins);
 
     /*
      * The mso list should not be used anymore, but if it is, make sure that

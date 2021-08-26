@@ -463,14 +463,11 @@ erts_gc_after_bif_call(Process* p, Eterm result, Eterm* regs, Uint arity)
 static ERTS_INLINE void assert_no_active_writers(Process *p)
 {
 #ifdef DEBUG
-    struct erl_off_heap_header* ptr;
-    ptr = MSO(p).first;
-    while (ptr) {
-	if (ptr->thing_word == HEADER_PROC_BIN) {	
-	    ProcBin *pbp = (ProcBin*) ptr;
-	    ERTS_ASSERT(!(pbp->flags & PB_ACTIVE_WRITER));
-	}
-	ptr = ptr->next;
+    ProcBin *pb = (ProcBin*) p->wrt_bins;
+    while (pb) {
+	ASSERT(pb->thing_word == HEADER_PROC_BIN);
+        ERTS_ASSERT(!(pb->flags & PB_ACTIVE_WRITER));
+	pb = (ProcBin*) pb->next;
     }
 #endif
 }
@@ -1744,7 +1741,7 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
     OLD_HTOP(p) = old_htop;
     HIGH_WATER(p) = n_htop;
 
-    if (MSO(p).first) {
+    if (MSO(p).first || p->wrt_bins) {
 	sweep_off_heap(p, 0);
     }
 
@@ -1979,7 +1976,7 @@ full_sweep_heaps(Process *p,
 
     n_htop = sweep_heaps(n_heap, n_htop, oh, oh_size);
 
-    if (MSO(p).first) {
+    if (MSO(p).first || p->wrt_bins) {
 	sweep_off_heap(p, 1);
     }
 
@@ -2881,55 +2878,21 @@ next_vheap_size(Process* p, Uint64 vheap, Uint64 vheap_sz) {
     return new_vheap_sz < p->min_vheap_size ? p->min_vheap_size : new_vheap_sz;
 }
 
-struct shrink_cand_data {
-    struct erl_off_heap_header* new_candidates;
-    struct erl_off_heap_header* new_candidates_end;
-    struct erl_off_heap_header* old_candidates;
-    Uint no_of_candidates;
-    Uint no_of_active;
-};
-
 static ERTS_INLINE void
-link_live_proc_bin(struct shrink_cand_data *shrink,
-		   struct erl_off_heap_header*** prevppp,
-		   struct erl_off_heap_header** currpp,
-		   int new_heap)
+shrink_writable_bin(ProcBin *pb, Uint leave_unused)
 {
-    ProcBin *pbp = (ProcBin*) *currpp;
-    ASSERT(**prevppp == *currpp);
+    Uint new_size = pb->size;
 
-    *currpp = pbp->next;
-    if (pbp->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE)) {
-	ASSERT(pbp->flags & PB_IS_WRITABLE);
-
-	if (pbp->flags & PB_ACTIVE_WRITER) {
-            pbp->flags &= ~PB_ACTIVE_WRITER;
-	    shrink->no_of_active++;
-	}
-	else { /* inactive */
-	    Uint unused = pbp->val->orig_size - pbp->size;
-	    /* Our allocators are 8 byte aligned, i.e., shrinking with
-	       less than 8 bytes will have no real effect */
-	    if (unused >= 8) { /* A shrink candidate; save in candidate list */
-		**prevppp = pbp->next;
-		if (new_heap) {
-		    if (!shrink->new_candidates)
-			shrink->new_candidates_end = (struct erl_off_heap_header*)pbp;
-		    pbp->next = shrink->new_candidates;
-		    shrink->new_candidates = (struct erl_off_heap_header*)pbp;
-		}
-		else {
-		    pbp->next = shrink->old_candidates;
-		    shrink->old_candidates = (struct erl_off_heap_header*)pbp;
-		}
-		shrink->no_of_candidates++;
-		return;
-	    }
-	}
+    if (leave_unused) {
+        new_size += (new_size * 100) / leave_unused;
+        /* Our allocators are 8 byte aligned, i.e., shrinking with
+           less than 8 bytes will have no real effect */
+        if (new_size + 8 >= pb->val->orig_size)
+            return;
     }
-
-    /* Not a shrink candidate; keep in original mso list */ 
-    *prevppp = &pbp->next;
+    ASSERT(erts_refc_read(&pb->val->intern.refc, 1) == 1);
+    pb->val = erts_bin_realloc(pb->val, new_size);
+    pb->bytes = (byte *) pb->val->orig_bytes;
 }
 
 #ifdef ERTS_MAGIC_REF_THING_HEADER
@@ -2946,22 +2909,25 @@ link_live_proc_bin(struct shrink_cand_data *shrink,
 static void
 sweep_off_heap(Process *p, int fullsweep)
 {
-    struct shrink_cand_data shrink = {0};
     struct erl_off_heap_header* ptr;
     struct erl_off_heap_header** prev;
+    struct erl_off_heap_header** insert_old_here;
     char* oheap = NULL;
     Uint oheap_sz = 0;
     Uint64 bin_vheap = 0;
 #ifdef DEBUG
+    Uint64 orig_bin_old_vheap = BIN_OLD_VHEAP(p);
     int seen_mature = 0;
 #endif
+    Uint shrink_ncandidates;
+    Uint shrink_nactive;
+    ProcBin* shrink_unresolved_end;
+    ProcBin* pb;
 
     if (fullsweep == 0) {
 	oheap = (char *) OLD_HEAP(p);
 	oheap_sz = (char *) OLD_HEND(p) - oheap;
     }
-
-    BIN_OLD_VHEAP(p) = 0;
 
     prev = &MSO(p).first;
     ptr = MSO(p).first;
@@ -2986,9 +2952,9 @@ sweep_off_heap(Process *p, int fullsweep)
 		if (to_new_heap) {
 		    bin_vheap += ptr->size / sizeof(Eterm);
 		} else {
-		    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
-		}		
-		link_live_proc_bin(&shrink, &prev, &ptr, to_new_heap);
+		    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm);
+		}
+                ASSERT(!(((ProcBin*)ptr)->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE)));
                 break;
             }
             case ERTS_USED_MAGIC_REF_THING_HEADER__: {
@@ -3009,19 +2975,24 @@ sweep_off_heap(Process *p, int fullsweep)
                                        make_boxed(&ptr->thing_word),
                                        ERL_NODE_INC, __FILE__, __LINE__);
                 }
-		prev = &ptr->next;
-		ptr = ptr->next;
 	    }
+            prev = &ptr->next;
+            ptr = ptr->next;
 	}
-	else if (ErtsInArea(ptr, oheap, oheap_sz))
-            break; /* and let old-heap loop continue */
+	else if (ErtsInArea(ptr, oheap, oheap_sz)) {
+            /*
+             * The rest of the list resides on the old heap and needs no
+             * attention during a minor gc.
+             */
+            ASSERT(!fullsweep);
+            break;
+        }
         else {
 	    /* garbage */
 	    switch (thing_subtag(ptr->thing_word)) {
 	    case REFC_BINARY_SUBTAG:
 		{
-		    Binary* bptr = ((ProcBin*)ptr)->val;	
-                    erts_bin_release(bptr);
+                    erts_bin_release(((ProcBin*)ptr)->val);
 		    break;
 		}
 	    case FUN_SUBTAG:
@@ -3049,94 +3020,163 @@ sweep_off_heap(Process *p, int fullsweep)
 	}
     }
 
-    /* The rest of the list resides on old-heap, and we just did a
-     * generational collection - keep objects in list.
-     */
-    while (ptr) {
-	ASSERT(ErtsInArea(ptr, oheap, oheap_sz));
-	ASSERT(!IS_MOVED_BOXED(ptr->thing_word));       
-        switch (ptr->thing_word) {
-        case HEADER_PROC_BIN:
-	    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
-	    link_live_proc_bin(&shrink, &prev, &ptr, 0);
-            break;
-        case ERTS_USED_MAGIC_REF_THING_HEADER__:
-            ASSERT(is_magic_ref_thing(ptr));
-            BIN_OLD_VHEAP(p) +=
-                (((Uint) ((ErtsMRefThing *) ptr)->mb->orig_size)
-                 / sizeof(Eterm)); /* for binary gc (words)*/
-            /* fall through... */
-        default:
-            ASSERT(is_fun_header(ptr->thing_word) ||
-                   is_external_header(ptr->thing_word)
-                   || is_magic_ref_thing(ptr));
-            prev = &ptr->next;
+    insert_old_here = prev;
+
+#ifdef DEBUG
+    if (fullsweep) {
+        ASSERT(ptr == NULL);
+        ASSERT(BIN_OLD_VHEAP(p) == orig_bin_old_vheap);
+    }
+    else {
+        /* The rest of the list resides on the old heap and needs no
+         * attention during a minor gc. In a DEBUG build, verify
+         * that the binaries in the list are not writable and that
+         * the other terms are of the allowed types.
+         */
+        while (ptr) {
+            ASSERT(ErtsInArea(ptr, oheap, oheap_sz));
+            ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
+            switch (ptr->thing_word) {
+            case HEADER_PROC_BIN:
+                ASSERT(!(((ProcBin*)ptr)->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE)));
+                break;
+            default:
+                ASSERT(is_fun_header(ptr->thing_word) ||
+                       is_external_header(ptr->thing_word) ||
+                       is_magic_ref_thing(ptr));
+                break;
+            }
             ptr = ptr->next;
-            break;
+        }
+    }
+#endif /* DEBUG */
+
+    /*
+     * Traverse writable binaries.
+     * As writable binaries may reside on the old heap we traverse
+     * the entire wrt_bins list even during minor gc.
+     */
+    shrink_nactive = 0;             /* number of active writable binaries */
+    shrink_ncandidates = 0;         /* number of candidates for shrinking */
+    shrink_unresolved_end = NULL;   /* end marker for second traversal */
+
+    pb = (ProcBin*) p->wrt_bins;
+    prev = &p->wrt_bins;
+    while (pb) {
+        int on_old_heap;
+        if (IS_MOVED_BOXED(pb->thing_word)) {
+            ASSERT(!ErtsInArea(pb, oheap, oheap_sz));
+            pb = (ProcBin*) boxed_val(pb->thing_word);
+            *prev = (struct erl_off_heap_header*) pb;
+            ASSERT(pb->thing_word == HEADER_PROC_BIN);
+            on_old_heap = ErtsInArea(pb, oheap, oheap_sz);
+            if (!on_old_heap) {
+                bin_vheap += pb->size / sizeof(Eterm);
+            } else {
+                BIN_OLD_VHEAP(p) += pb->size / sizeof(Eterm);
+            }
+        }
+        else {
+            ASSERT(pb->thing_word == HEADER_PROC_BIN);
+            on_old_heap = ErtsInArea(pb, oheap, oheap_sz);
+            if (!on_old_heap) {
+                /* garbage */
+                erts_bin_release(pb->val);
+                pb = (ProcBin*) pb->next;
+                *prev = (struct erl_off_heap_header*) pb;
+                continue;
+            }
+        }
+        if (pb->flags) {
+            ASSERT(pb->flags & PB_IS_WRITABLE);
+
+            /*
+             * How to shrink writable binaries. There are two distinct cases:
+             *
+             * + There are one or more active writers. We will shrink all
+             *   writable binaries without active writers down to their
+             *   original sizes.
+             *
+             * + There are no active writers. We will shrink all writable
+             *   binaries, but not fully. How much margin we will leave
+             *   depends on the number of writable binaries.
+             *
+             * That is, we don't know how to shrink the binaries before either
+             * + finding the first active writer, or
+             * + finding more than ERTS_INACT_WR_PB_LEAVE_LIMIT
+             *   shrink candidates
+             */
+
+            if (pb->flags & PB_ACTIVE_WRITER) {
+                pb->flags &= ~PB_ACTIVE_WRITER;
+                shrink_nactive++;
+                if (!shrink_unresolved_end)
+                    shrink_unresolved_end = pb;
+            }
+            else { /* inactive */
+                Uint unused = pb->val->orig_size - pb->size;
+                /* Our allocators are 8 byte aligned, i.e., shrinking with
+                   less than 8 bytes will have no real effect */
+                if (unused >= 8) { /* A shrink candidate */
+                    if (shrink_unresolved_end) {
+                        shrink_writable_bin(pb, 0);
+                    }
+                    else if (++shrink_ncandidates > ERTS_INACT_WR_PB_LEAVE_LIMIT) {
+                        shrink_unresolved_end = pb;
+                        shrink_writable_bin(pb, 0);
+                    }
+                    /* else unresolved, handle in second traversal below */
+                }
+            }
+            prev = &pb->next;
+            pb = (ProcBin*) pb->next;
+        }
+        else {   /* emasculated, move to regular off-heap list */
+            struct erl_off_heap_header* next = pb->next;
+            if (on_old_heap) {
+                pb->next = *insert_old_here;
+                *insert_old_here = (struct erl_off_heap_header*)pb;
+            }
+            else {
+                pb->next = p->off_heap.first;
+                p->off_heap.first = (struct erl_off_heap_header*)pb;
+                if (insert_old_here == &p->off_heap.first)
+                    insert_old_here = &pb->next;
+            }
+            pb = (ProcBin*) next;
+            *prev = next;
+        }
+    }
+
+    /*
+     * Handle any unresolved shrink candidates left at the head of wrt_bins.
+     */
+    if (shrink_ncandidates) {
+	Uint leave_unused = 0;
+
+        if (shrink_nactive == 0) {
+	    if (shrink_ncandidates <= ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT)
+		leave_unused = ERTS_INACT_WR_PB_LEAVE_MUCH_PERCENTAGE;
+	    else if (shrink_ncandidates <= ERTS_INACT_WR_PB_LEAVE_LIMIT)
+                leave_unused = ERTS_INACT_WR_PB_LEAVE_PERCENTAGE;
+	}
+
+        for (pb = (ProcBin *)p->wrt_bins;
+             pb != shrink_unresolved_end;
+             pb = (ProcBin *)pb->next) {
+            ASSERT(pb);
+            ASSERT(pb->flags == PB_IS_WRITABLE);
+            shrink_writable_bin(pb, leave_unused);
 	}
     }
 
     if (fullsweep) {
-	BIN_OLD_VHEAP_SZ(p) = next_vheap_size(p, BIN_OLD_VHEAP(p) + MSO(p).overhead, BIN_OLD_VHEAP_SZ(p));
+        ASSERT(BIN_OLD_VHEAP(p) == orig_bin_old_vheap);
+        BIN_OLD_VHEAP(p) = 0;
+        BIN_OLD_VHEAP_SZ(p) = next_vheap_size(p, MSO(p).overhead, BIN_OLD_VHEAP_SZ(p));
     }
     BIN_VHEAP_SZ(p)     = next_vheap_size(p, bin_vheap, BIN_VHEAP_SZ(p));
     MSO(p).overhead     = bin_vheap;
-
-    /*
-     * If we got any shrink candidates, check them out.
-     */
-
-    if (shrink.no_of_candidates) {
-	ProcBin *candlist[] = { (ProcBin*)shrink.new_candidates,
-	                        (ProcBin*)shrink.old_candidates };
-	Uint leave_unused = 0;
-	int i;
-
-	if (shrink.no_of_active == 0) {
-	    if (shrink.no_of_candidates <= ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT)
-		leave_unused = ERTS_INACT_WR_PB_LEAVE_MUCH_PERCENTAGE;
-	    else if (shrink.no_of_candidates <= ERTS_INACT_WR_PB_LEAVE_LIMIT)
-		leave_unused = ERTS_INACT_WR_PB_LEAVE_PERCENTAGE;
-	}
-
-	for (i = 0; i < sizeof(candlist)/sizeof(candlist[0]); i++) {
-	    ProcBin* pb;
-	    for (pb = candlist[i]; pb; pb = (ProcBin*)pb->next) {
-		Uint new_size = pb->size;
-
-		if (leave_unused) {
-		    new_size += (new_size * 100) / leave_unused;
-		    /* Our allocators are 8 byte aligned, i.e., shrinking with
-		       less than 8 bytes will have no real effect */
-		    if (new_size + 8 >= pb->val->orig_size)
-			continue;
-		}
-
-		pb->val = erts_bin_realloc(pb->val, new_size);
-		pb->bytes = (byte *) pb->val->orig_bytes;
-	    }
-	}
-
-
-	/*
-	 * We now potentially have the mso list divided into three lists:
-	 * - shrink candidates on new heap (inactive writable with unused data)
-	 * - shrink candidates on old heap (inactive writable with unused data)
-	 * - other binaries (read only + active writable ...) + funs and externals
-	 *
-	 * Put them back together: new candidates -> other -> old candidates
-	 * This order will ensure that the list only refers from new
-	 * generation to old and never from old to new *which is important*.
-	 */
-	if (shrink.new_candidates) {
-	    if (prev == &MSO(p).first) /* empty other binaries list */
-		prev = &shrink.new_candidates_end->next;
-	    else
-		shrink.new_candidates_end->next = MSO(p).first;
-	    MSO(p).first = shrink.new_candidates;
-	}
-    }
-    *prev = shrink.old_candidates;
 }
 
 /*
@@ -3280,6 +3320,10 @@ offset_off_heap(Process* p, Sint offs, char* area, Uint area_size)
 {
     if (MSO(p).first && ErtsInArea((Eterm *)MSO(p).first, area, area_size)) {
         Eterm** uptr = (Eterm**) (void *) &MSO(p).first;
+        *uptr += offs;
+    }
+    if (p->wrt_bins && ErtsInArea(p->wrt_bins, area, area_size)) {
+        Eterm** uptr = (Eterm**) (void *) &p->wrt_bins;
         *uptr += offs;
     }
 }
@@ -3841,11 +3885,13 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 {
     Eterm *oheap = (Eterm *) OLD_HEAP(p);
     Eterm *ohtop = (Eterm *) OLD_HTOP(p);
-    int old;
+    enum { NEW_PART, OLD_PART, WRT_BIN_PART} part;
     union erl_off_heap_ptr u;
 
-    old = 0;
-    for (u.hdr = MSO(p).first; u.hdr; u.hdr = u.hdr->next) {
+    part = NEW_PART;
+    u.hdr = MSO(p).first;
+repeat:
+    for (; u.hdr; u.hdr = u.hdr->next) {
 	erts_aint_t refc;
 	switch (thing_subtag(u.hdr->thing_word)) {
 	case REFC_BINARY_SUBTAG:
@@ -3871,19 +3917,26 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 	ERTS_CHK_OFFHEAP_ASSERT(!(u.hdr->thing_word & ERTS_OFFHEAP_VISITED_BIT));
 	u.hdr->thing_word |= ERTS_OFFHEAP_VISITED_BIT;
 #endif
-	if (old) {
-	    ERTS_CHK_OFFHEAP_ASSERT(oheap <= u.ep && u.ep < ohtop);
-	}
-	else if (oheap <= u.ep && u.ep < ohtop)
-	    old = 1;
-	else {
-	    ERTS_CHK_OFFHEAP_ASSERT(erts_dbg_within_proc(u.ep, p, htop));
-	}
+        if (part == OLD_PART)
+            ERTS_CHK_OFFHEAP_ASSERT(oheap <= u.ep && u.ep < ohtop);
+        else if (part == NEW_PART && oheap <= u.ep && u.ep < ohtop)
+            part = OLD_PART;
+        else
+            ERTS_CHK_OFFHEAP_ASSERT(erts_dbg_within_proc(u.ep, p, htop));
     }
+
+    if (part != WRT_BIN_PART) {
+        part = WRT_BIN_PART;
+        u.hdr = p->wrt_bins;
+        goto repeat;
+    }
+
 
 #ifdef ERTS_OFFHEAP_DEBUG_CHK_CIRCULAR_LIST
     for (u.hdr = MSO(p).first; u.hdr; u.hdr = u.hdr->next)
 	u.hdr->thing_word &= ~ERTS_OFFHEAP_VISITED_BIT;
+    for (u.hdr = p->wrt_bins; u.hdr; u.hdr = u.hdr->next)
+        u.hdr->thing_word &= ~ERTS_OFFHEAP_VISITED_BIT;
 #endif
 }
 
