@@ -593,7 +593,7 @@ server(Pid, Name, Options) ->
 init_server(Pid, FileName, Options, St0) ->
     SourceName = proplists:get_value(source_name, Options, FileName),
     Pdm = proplists:get_value(macros, Options, []),
-    Ms0 = predef_macros(FileName),
+    Ms0 = predef_macros(SourceName),
     case user_predef(Pdm, Ms0) of
 	{ok,Ms1} ->
             DefEncoding = proplists:get_value(default_encoding, Options,
@@ -1915,4 +1915,3 @@ interpret_file_attr([Form0 | Forms], Delta, Fs) ->
     [Form | interpret_file_attr(Forms, Delta, Fs)];
 interpret_file_attr([], _Delta, _Fs) ->
     [].
-

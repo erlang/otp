@@ -51,31 +51,80 @@
 
     <func>
       <name name="c" arity="1" since=""/>
+      <fsummary>Compile and load a file or module.</fsummary>
+      <desc>
+        <p>Works like <c>c(Module, [])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="c" arity="2" since=""/>
-      <name name="c" arity="3" since="OTP 20.0"/>
       <fsummary>Compile and load a file or module.</fsummary>
       <desc>
         <p>Compiles and then purges and loads the code for a module.
-          <c><anno>Module</anno></c> can be either a module name or a source
-          file path, with or without <c>.erl</c> extension.
-          <c><anno>Options</anno></c> defaults to <c>[]</c>.</p>
-        <p>If <c><anno>Module</anno></c> is an atom and is not the path of a
-          source file, then the code path is searched to locate the object
-          file for the module and extract its original compiler options and
-          source path. If the source file is not found in the original
-          location, <seemfa
-          marker="filelib#find_source/1"><c>filelib:find_source/1</c></seemfa>
-          is used to search for it relative to the directory of the object
-          file.</p>
+        <c><anno>Module</anno></c> can be either a module name or a source
+        file path, with or without <c>.erl</c> extension.</p>
+
+        <p>If <c><anno>Module</anno></c> is a string, it is assumed to
+        be a source file path, and the compiler will attempt to compile
+        the source file with the options <c><anno>Options</anno></c>.
+        If compilation fails, the old object file (if any) is deleted.</p>
+
+        <p>If <c><anno>Module</anno></c> is an atom, a source file
+        with that exact name or with <c>.erl</c> extension will be
+        looked for. If found, the source file is compiled with the
+        options <c><anno>Options</anno></c>. If compilation fails, the
+        old object file (if any) is deleted.</p>
+
+        <p>If <c><anno>Module</anno></c> is an atom and is not the
+        path of a source file, then the code path is searched to
+        locate the object file for the module and extract its original
+        compiler options and source path. If the source file is not
+        found in the original location, <seemfa
+        marker="filelib#find_source/1"><c>filelib:find_source/1</c></seemfa>
+        is used to search for it relative to the directory of the
+        object file.</p>
+
         <p>The source file is compiled with the the original
-          options appended to the given <c><anno>Options</anno></c>, the
-          output replacing the old object file if and only if compilation
-          succeeds. A function <c><anno>Filter</anno></c> can be specified
-          for removing elements from from the original compiler options
-          before the new options are added.</p>
+        options appended to the given <c><anno>Options</anno></c>, the
+        output replacing the old object file if and only if compilation
+        succeeds.</p>
+
         <p>Notice that purging the code means that any processes
-          lingering in old code for the module are killed without
-          warning. For more information, see <c>code/3</c>.</p>
+        lingering in old code for the module are killed without
+        warning. For more information, see the <seeerl
+        marker="kernel:code">code</seeerl> module.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="c" arity="3" since="OTP 20.0"/>
+      <fsummary>Compile and load a file or module.</fsummary>
+      <desc>
+        <p>Compiles and then purges and loads the code for module
+        <c><anno>Module</anno></c>, which must be an atom.</p>
+
+        <p>The code path is searched to locate the object file for
+        module <c><anno>Module</anno></c> and extract its original
+        compiler options and source path. If the source file is not
+        found in the original location, <seemfa
+        marker="filelib#find_source/1"><c>filelib:find_source/1</c></seemfa>
+        is used to search for it relative to the directory of the
+        object file.</p>
+
+        <p>The source file is compiled with the the original
+        options appended to the given <c><anno>Options</anno></c>, the
+        output replacing the old object file if and only if compilation
+        succeeds. The function <c><anno>Filter</anno></c> specifies
+        which elements to remove from the original compiler options
+        before the new options are added. The <c><anno>Filter</anno></c> fun
+        should return <c>true</c> for options to keep, and <c>false</c> for
+        options to remove.</p>
+
+        <p>Notice that purging the code means that any processes
+        lingering in old code for the module are killed without
+        warning. For more information, see the <seeerl
+        marker="kernel:code">code</seeerl> module.</p>
       </desc>
     </func>
 

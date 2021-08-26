@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 
 -module(epp_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 
 -export([rec_1/1, include_local/1, predef_mac/1,
@@ -29,7 +29,7 @@
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
 	 test_error/1, test_warning/1, otp_14285/1,
-	 test_if/1,source_name/1,otp_16978/1,otp_16824/1,scan_file/1]).
+	 test_if/1,source_name/1,otp_16978/1,otp_16824/1,scan_file/1,file_macro/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -63,16 +63,16 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
+all() ->
     [rec_1, {group, upcase_mac}, include_local, predef_mac,
      {group, variable}, otp_4870, otp_4871, otp_5362, pmod,
      not_circular, skip_header, otp_6277, gh_4995, otp_7702, otp_8130,
      overload_mac, otp_8388, otp_8470, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
      encoding, extends, function_macro, test_error, test_warning,
-     otp_14285, test_if, source_name, otp_16978, otp_16824, scan_file].
+     otp_14285, test_if, source_name, otp_16978, otp_16824, scan_file, file_macro].
 
-groups() -> 
+groups() ->
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
      {variable, [], [variable_1]}].
 
@@ -111,6 +111,17 @@ include_local(Config) when is_list(Config) ->
 	lists:keysearch(a,3,List),
     [{File,1},{FooHrl,1},{BarHrl,1},{FooHrl,5},{File,5}] =
         [ FileLine || {attribute,_,file,FileLine} <- List ],
+    ok.
+
+file_macro(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "file_macro.erl"),
+    {ok, List} = epp:parse_file(File, [{includes, [DataDir]},
+                                       {source_name, "Other source"}]),
+    %% Both attribute a and b are defined as ?FILE, they should be the same
+    {attribute,_,a,FileA} = lists:keyfind(a, 3, List),
+    {attribute,_,b,FileB} = lists:keyfind(b, 3, List),
+    "Other source" = FileA = FileB,
     ok.
 
 %%% Here is a little reimplementation of epp:parse_file, which times out
