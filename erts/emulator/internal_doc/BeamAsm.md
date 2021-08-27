@@ -431,6 +431,11 @@ we have found useful:
     Create an archive with all the artifacts needed to inspect the data
     on another host. In early version of perf this command does not work,
     instead you can use [this bash script](https://github.com/torvalds/linux/blob/master/tools/perf/perf-archive.sh).
+* `perf report` gives "failed to process sample" and/or "failed to process type: 68"
+    This probably means that you are running a bugge version of perf. We have
+    seen this when running Ubuntu 18.04 with kernel version 4. If you update
+    to Ubuntu 20.04 or use Ubuntu 18.04 with kernel version 5 the problem
+    should go away.
 
 ## FAQ
 
