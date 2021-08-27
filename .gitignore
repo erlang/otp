@@ -221,11 +221,13 @@ JAVADOC-GENERATED
 
 /lib/*/test/*_SUITE_make.erl
 /lib/*/test/*_SUITE_data/Makefile
+/lib/*/make_test_dir/
 /erts/emulator/test/*_SUITE_make.erl
 /erts/emulator/test/*_native_SUITE.erl
 /erts/emulator/test/*_SUITE_data/Makefile
 /erts/test/install_SUITE_data/install_bin
 /erts/test/autoimport_SUITE_data/erlang.xml
+/erts/emulator/make_test_dir/
 
 # common_test
 
