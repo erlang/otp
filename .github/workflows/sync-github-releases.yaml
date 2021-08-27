@@ -12,6 +12,7 @@ jobs:
 
   # Wait for up to a minute for previous runs to complete, abort if not done by then
   pre-ci:
+    if: github.repository == 'erlang/otp'
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
