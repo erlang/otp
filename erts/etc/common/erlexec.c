@@ -119,6 +119,7 @@ static char *plusM_other_switches[] = {
     "Ytt",
     "Iscs",
     "Xscs",
+    "dai",
     NULL
 };
 

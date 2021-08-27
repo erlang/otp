@@ -839,6 +839,27 @@
             condition if the user limit on the amount of locked memory is
             reached.</p>
         </item>
+        <tag><marker id="Mdai"/><c><![CDATA[+Mdai max|<amount>]]></c></tag>
+        <item>
+          <p>
+            Set amount of dirty allocator instances used. Defaults to
+            <c>0</c>. That is, by default no instances will be used.
+            The maximum amount of instances equals the amount of dirty
+            CPU schedulers on the system.
+          </p>
+          <p>
+            By default, each normal scheduler thread has its own allocator
+            instance for each allocator. All other threads in the system,
+            including dirty schedulers, share one instance for each allocator.
+            By enabling dirty allocator instances, dirty schedulers will
+            get and use their own set of allocator instances. Note that these
+            instances are not exclusive to each dirty scheduler, but instead
+            shared among dirty schedulers. The more instances used the less
+            risk of lock contention on these allocator instances. Memory
+            consumption do however increase with increased amount of dirty
+            allocator instances.
+          </p>
+        </item>
       </taglist>
     </section>
   </section>

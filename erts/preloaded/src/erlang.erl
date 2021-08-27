@@ -4167,7 +4167,7 @@ receive_emd(Ref, EMD, N) ->
     end.
 
 receive_emd(Ref) ->
-    receive_emd(Ref, #memory{}, erlang:system_info(schedulers)).
+    receive_emd(Ref, #memory{}, erts_internal:no_aux_work_threads()-1).
 
 aa_mem_data(#memory{total = Tot} = Mem,
 	    [{external_alloc, Sz} | Rest]) ->
@@ -4237,7 +4237,7 @@ get_alloc_info(Type, AList) when erlang:is_list(AList) ->
     Ref = erlang:make_ref(),
     erlang:system_info({Type, Ref, AList}),
     receive_allocator(Ref,
-		      erlang:system_info(schedulers),
+		      erts_internal:no_aux_work_threads()-1,
 		      mk_res_list(AList)).
 
 mk_res_list([]) ->

@@ -78,9 +78,7 @@ typedef struct {
 } DbTableRelease;
 
 struct ErtsSchedulerData_;
-int erts_handle_yielded_ets_all_request(struct ErtsSchedulerData_ *esdp,
-                                        ErtsEtsAllYieldData *eadp);
-
+int erts_handle_yielded_ets_all_request(ErtsAuxWorkData *awdp);
 void erts_ets_sched_spec_data_init(struct ErtsSchedulerData_ *esdp);
 
 /*
