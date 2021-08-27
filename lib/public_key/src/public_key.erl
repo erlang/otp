@@ -342,17 +342,19 @@ der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
     EcPrivKey#'ECPrivateKey'{parameters = der_decode('EcpkParameters', Parameters)};
 der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
                                       privateKeyAlgorithm =#'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = CurveOId},
-                                      privateKey = PrivKey}) when
+                                      privateKey = CurvePrivKey}) when
       CurveOId == ?'id-Ed25519'orelse
       CurveOId == ?'id-Ed448' ->
+    PrivKey = der_decode('CurvePrivateKey', CurvePrivKey),
     #'ECPrivateKey'{version = 1, parameters = {namedCurve, CurveOId}, privateKey = PrivKey};
 der_priv_key_decode(#'OneAsymmetricKey'{
                        privateKeyAlgorithm = #'OneAsymmetricKey_privateKeyAlgorithm'{algorithm = CurveOId},
-                       privateKey = PrivKey,
+                       privateKey = CurvePrivKey,
                        attributes = Attr,
                        publicKey = PubKey}) when
       CurveOId == ?'id-Ed25519'orelse
       CurveOId == ?'id-Ed448' ->
+    PrivKey = der_decode('CurvePrivateKey', CurvePrivKey),
     #'ECPrivateKey'{version = 2, parameters = {namedCurve, CurveOId}, privateKey = PrivKey,
                     attributes = Attr,
                     publicKey = PubKey};
@@ -415,10 +417,11 @@ der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = {namedCurve, CurveOId}
                                              privateKey = Key}) when
       CurveOId == ?'id-Ed25519' orelse
       CurveOId == ?'id-Ed448' ->
+    CurvePrivKey = der_encode('CurvePrivateKey', Key),
     Alg = #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = CurveOId},
     der_encode('PrivateKeyInfo', #'PrivateKeyInfo'{version = v1,
                                                    privateKeyAlgorithm = Alg,
-                                                   privateKey = Key});
+                                                   privateKey = CurvePrivKey});
 der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = Parameters} = PrivKey) ->
     Params = der_encode('EcpkParameters', Parameters),
     Alg = #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
@@ -428,6 +431,20 @@ der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = Parameters} = PrivKey)
                #'PrivateKeyInfo'{version = v1,
                                  privateKeyAlgorithm = Alg,
                                  privateKey = Key});
+der_encode('OneAsymmetricKey', #'ECPrivateKey'{parameters = {namedCurve, CurveOId},
+                                               privateKey = Key,
+                                               attributes = Attr,
+                                               publicKey = PubKey}) when
+      CurveOId == ?'id-Ed25519' orelse
+      CurveOId == ?'id-Ed448' ->
+    CurvePrivKey = der_encode('CurvePrivateKey', Key),
+    Alg = #'OneAsymmetricKey_privateKeyAlgorithm'{algorithm = CurveOId},
+    der_encode('OneAsymmetricKey',
+               #'OneAsymmetricKey'{version = 1,
+                                   privateKeyAlgorithm = Alg,
+                                   privateKey = CurvePrivKey,
+                                   attributes = Attr,
+                                   publicKey = PubKey});
 der_encode('OneAsymmetricKey', #'ECPrivateKey'{parameters = {namedCurve, CurveOId},
                                                privateKey = Key,
                                                attributes = Attr,
