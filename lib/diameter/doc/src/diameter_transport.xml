@@ -2,7 +2,7 @@
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
   <!ENTITY message '<seeerl marker="#message">message()</seeerl>'>
   <!ENTITY MESSAGES '<seeerl marker="#MESSAGES">MESSAGES</seeerl>'>
-  <!ENTITY start '<seemfa marker="#Mod:start/3">start/3</seemfa>'>
+  <!ENTITY start '<seemfa marker="#Module:start/3">start/3</seemfa>'>
   <!ENTITY ip_address
   '<seetype marker="kernel:inet#ip_address">inet:ip_address()</seetype>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
@@ -95,7 +95,7 @@ and has the binary() to send in its <c>bin</c> field.</p>
 <funcs>
 
 <func>
-<name since="OTP R14B03">Mod:start({Type, Ref}, Svc, Config)
+<name since="OTP R14B03">Module:start({Type, Ref}, Svc, Config)
          -> {ok, Pid}
           | {ok, Pid, LAddrs}
           | {error, Reason}</name>
