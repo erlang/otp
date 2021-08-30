@@ -53,6 +53,9 @@
 %%% Internal export
 -export([is_host/2]).
 
+-behaviour(ssh_dbg).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2, ssh_dbg_format/3]).
+
 %%% "Deprecated" types export:
 -export_type([ssh_daemon_ref/0, ssh_connection_ref/0, ssh_channel_id/0]).
 -opaque ssh_daemon_ref()     :: daemon_ref().
@@ -173,8 +176,7 @@ connect(Host0, Port, UserOptions, NegotiationTimeout) when is_integer(Port),
             SocketOpts = [{active,false} | ?GET_OPT(socket_options,Options)],
             Host = mangle_connect_address(Host0, Options),
             try 
-                {_, Callback, _} = ?GET_OPT(transport, Options),
-                Callback:connect(Host, Port, SocketOpts, ?GET_OPT(connect_timeout,Options))
+                transport_connect(Host, Port, SocketOpts, Options)
             of
                 {ok, Socket} ->
                     continue_connect(Socket, Options, NegotiationTimeout);
@@ -351,8 +353,7 @@ daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535,
                 {ok,DaemonRef} ->
                     receive
                         {request_control, ListenSocket, ReqPid} ->
-                            {_, Callback, _} = ?GET_OPT(transport, Options1),
-                            ok = Callback:controlling_process(ListenSocket, ReqPid),
+                            ok = controlling_process(ListenSocket, ReqPid, Options1),
                             ReqPid ! {its_yours,ListenSocket}
                     end,
                     {ok,DaemonRef};
@@ -864,6 +865,14 @@ close_listen_socket(ListenSocket, Options) ->
         _C:_E -> ok
     end.
 
+controlling_process(ListenSocket, ReqPid, Options) ->
+    {_, Callback, _} = ?GET_OPT(transport, Options),
+    Callback:controlling_process(ListenSocket, ReqPid).
+
+transport_connect(Host, Port, SocketOpts, Options) ->
+    {_, Callback, _} = ?GET_OPT(transport, Options),
+    Callback:connect(Host, Port, SocketOpts, ?GET_OPT(connect_timeout,Options)).
+    
 %%%----------------------------------------------------------------
 is_host(X, Opts) ->
     try is_host1(mangle_connect_address(X, Opts))
@@ -912,3 +921,58 @@ mangle_tunnel_address(X) when is_list(X) -> case catch inet:parse_address(X) of
                                      {ok, {0,0,0,0,0,0,0,0}} -> <<"">>;
                                      _ -> list_to_binary(X)
                                  end.
+
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+
+ssh_dbg_trace_points() -> [tcp].
+
+ssh_dbg_flags(tcp) -> [c].
+
+ssh_dbg_on(tcp) -> dbg:tpl(?MODULE, controlling_process, 3, x),
+                   dbg:tpl(?MODULE, transport_connect, 4, x),
+                   dbg:tpl(?MODULE, close_listen_socket, 2, x).
+                   
+ssh_dbg_off(tcp) ->dbg:ctpl(?MODULE, controlling_process, 3),
+                   dbg:ctpl(?MODULE, transport_connect, 4),
+                   dbg:ctpl(?MODULE, close_listen_socket, 2).
+
+ssh_dbg_format(tcp, {call, {?MODULE,controlling_process, [ListenSocket, ReqPid, _Opts]}}) ->
+    ["TCP socket transferred to\n",
+     io_lib:format("Sock: ~p~n"
+                   "ToPid: ~p~n", [ListenSocket, ReqPid])
+    ];
+ssh_dbg_format(tcp, {return_from, {?MODULE,controlling_process,3}, _Result}) ->
+    skip;
+
+ssh_dbg_format(tcp, {call, {?MODULE,close_listen_socket, [ListenSocket, _Opts]}}) ->
+    ["TCP socket listening closed\n",
+     io_lib:format("Sock: ~p~n", [ListenSocket])
+    ];
+ssh_dbg_format(tcp, {return_from, {?MODULE,close_listen_socket,2}, _Result}) ->
+    skip.
+
+
+ssh_dbg_format(tcp, {call, {?MODULE,transport_connect, [Host,Port,SockOpts,_Opts]}}, Stack) ->
+    {skip, [{transport_connect,Host,Port,SockOpts}|Stack]};
+ssh_dbg_format(tcp, {return_from, {?MODULE,transport_connect,4}, {ok,Sock}},
+               [{transport_connect,Host,Port,SockOpts}|Stack]) ->
+    {["TCP connected to\n",
+      io_lib:format("Host: ~p~n"
+                    "Port: ~p~n"
+                    "SockOpts: ~p~n"
+                    "Socket: ~p~n", [Host,Port,SockOpts,Sock])
+     ],
+     Stack};
+ssh_dbg_format(tcp, {return_from, {?MODULE,transport_connect,4}, Result},
+               [{transport_connect,Host,Port,SockOpts}|Stack]) ->
+    {["TCP connected FAILED to\n",
+      io_lib:format("Host: ~p~n"
+                    "Port: ~p~n"
+                    "SockOpts: ~p~n"
+                    "Result: ~p~n", [Host,Port,SockOpts,Result])
+     ],
+     Stack}.
