@@ -371,7 +371,7 @@ fun:erts_print_scheduler_info
 fun:erts_exit
 fun:broken_halt_test
 fun:erts_debug_set_internal_state_2
-fun:process_main
+...
 }
 
 {
