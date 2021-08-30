@@ -7023,7 +7023,7 @@ if (extra_data != NULL)
     {
         md->loop_limit = extra_data->loop_limit;
         if (extra_data->restart_data)
-          md->loop_limit -= extra_data->loop_limit - exec_context->valid_utf_ystate.cnt;
+            md->loop_limit -= exec_context->valid_utf_ystate.cnt;
         if (md->loop_limit < 10)
             md->loop_limit = 10; /* At least do something if we've come this far... */
     }
