@@ -30,10 +30,10 @@
 	 listen/2]).
 
 %% spawn export  
--export([acceptor_init/4, acceptor_loop/7]).
+-export([acceptor_init/4, acceptor_loop/6]).
 
 -behaviour(ssh_dbg).
--export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2, ssh_dbg_format/3]).
 
 -define(SLEEP_TIME, 200).
 
@@ -59,6 +59,14 @@ listen(Port, Options) ->
 	    Other
     end.
 
+accept(ListenSocket, AcceptTimeout, Options) ->
+    {_, Callback, _} = ?GET_OPT(transport, Options),
+    Callback:accept(ListenSocket, AcceptTimeout).
+
+close(Socket, Options) ->
+    {_, Callback, _} = ?GET_OPT(transport, Options),
+    Callback:close(Socket).
+    
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -66,7 +74,6 @@ acceptor_init(Parent, SystemSup,
               #address{address=Address, port=Port, profile=_Profile},
               Opts) ->
     AcceptTimeout = ?GET_INTERNAL_OPT(timeout, Opts, ?DEFAULT_TIMEOUT),
-    {_, Callback, _} =  ?GET_OPT(transport, Opts),
     case ?GET_INTERNAL_OPT(lsocket, Opts, undefined) of
         {LSock, SockOwner} ->
             %% A listening socket (or fd option) was provided in the ssh:daemon call
@@ -75,7 +82,7 @@ acceptor_init(Parent, SystemSup,
                     %% A usable, open LSock
                     proc_lib:init_ack(Parent, {ok, self()}),
                     request_ownership(LSock, SockOwner),
-                    acceptor_loop(Callback, Port, Address, Opts, LSock, AcceptTimeout, SystemSup);
+                    acceptor_loop(Port, Address, Opts, LSock, AcceptTimeout, SystemSup);
 
                 {error,_Error} ->
                     %% Not open, a restart
@@ -84,7 +91,7 @@ acceptor_init(Parent, SystemSup,
                         {ok,NewLSock} ->
                             proc_lib:init_ack(Parent, {ok, self()}),
                             Opts1 = ?DELETE_INTERNAL_OPT(lsocket, Opts),
-                            acceptor_loop(Callback, Port, Address, Opts1, NewLSock, AcceptTimeout, SystemSup);
+                            acceptor_loop(Port, Address, Opts1, NewLSock, AcceptTimeout, SystemSup);
                         {error,Error} ->
                             proc_lib:init_ack(Parent, {error,Error})
                     end
@@ -95,7 +102,7 @@ acceptor_init(Parent, SystemSup,
             case listen(Port, Opts) of
                 {ok,LSock} ->
                     proc_lib:init_ack(Parent, {ok, self()}),
-                    acceptor_loop(Callback, Port, Address, Opts, LSock, AcceptTimeout, SystemSup);
+                    acceptor_loop(Port, Address, Opts, LSock, AcceptTimeout, SystemSup);
                 {error,Error} ->
                     proc_lib:init_ack(Parent, {error,Error})
             end
@@ -122,13 +129,13 @@ request_ownership(LSock, SockOwner) ->
     end.
     
 %%%----------------------------------------------------------------    
-acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup) ->
-    case Callback:accept(ListenSocket, AcceptTimeout) of
+acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup) ->
+    case accept(ListenSocket, AcceptTimeout, Opts) of
         {ok,Socket} ->
             {ok, {FromIP,FromPort}} = inet:peername(Socket), % Just in case of error in next line:
             case handle_connection(SystemSup, Address, Port, Opts, Socket) of
                 {error,Error} ->
-                    catch Callback:close(Socket),
+                    catch close(Socket, Opts),
                     handle_error(Error, Address, Port, FromIP, FromPort);
                 _ ->
                     ok
@@ -136,7 +143,7 @@ acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout, System
         {error,Error} ->
             handle_error(Error, Address, Port)
     end,
-    ?MODULE:acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup).
+    ?MODULE:acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup).
 
 %%%----------------------------------------------------------------
 handle_connection(SystemSup, Address, Port, Options0, Socket) ->
@@ -210,15 +217,60 @@ number_of_connections(SysSupPid) ->
 %%%# Tracing
 %%%#
 
-ssh_dbg_trace_points() -> [connections].
+ssh_dbg_trace_points() -> [connections, tcp].
 
+ssh_dbg_flags(tcp) -> [c];
 ssh_dbg_flags(connections) -> [c].
 
+ssh_dbg_on(tcp) -> dbg:tp(?MODULE, listen, 2, x),
+                   dbg:tpl(?MODULE, accept, 3, x),
+                   dbg:tpl(?MODULE, close, 2, x);
+                   
 ssh_dbg_on(connections) -> dbg:tp(?MODULE,  acceptor_init, 4, x),
-                           dbg:tpl(?MODULE, handle_connection, 4, x).
+                           dbg:tpl(?MODULE, handle_connection, 5, x).
+
+ssh_dbg_off(tcp) -> dbg:ctpg(?MODULE, listen, 2),
+                    dbg:ctpl(?MODULE, accept, 3),
+                    dbg:ctpl(?MODULE, close, 2);
 
 ssh_dbg_off(connections) -> dbg:ctp(?MODULE, acceptor_init, 4),
-                            dbg:ctp(?MODULE, handle_connection, 4).
+                            dbg:ctp(?MODULE, handle_connection, 5).
+
+ssh_dbg_format(tcp, {call, {?MODULE,listen, [Port,_Opts]}}, Stack) ->
+    {skip, [{port,Port}|Stack]};
+ssh_dbg_format(tcp, {return_from, {?MODULE,listen,2}, {ok,Sock}}, [{port,Port}|Stack]) ->
+    {["TCP listener started\n",
+      io_lib:format("Port: ~p~n"
+                    "ListeningSocket: ~p~n", [Port,Sock])
+     ],
+     Stack};
+ssh_dbg_format(tcp, {return_from, {?MODULE,listen,2}, Result}, [{port,Port}|Stack]) ->
+    {["TCP listener start ERROR\n",
+      io_lib:format("Port: ~p~n"
+                    "Return: ~p~n", [Port,Result])
+     ],
+     Stack};
+
+ssh_dbg_format(tcp, {call, {?MODULE,accept, [ListenSocket, _AcceptTimeout, _Options]}}, Stack) ->
+    {skip, [{lsock,ListenSocket}|Stack]};
+ssh_dbg_format(tcp, {return_from, {?MODULE,accept,3}, {ok,Sock}}, [{lsock,ListenSocket}|Stack]) ->
+    {["TCP accept\n",
+      io_lib:format("ListenSock: ~p~n"
+                    "New Socket: ~p~n", [ListenSocket,Sock])
+     ], Stack};
+ssh_dbg_format(tcp, {return_from, {?MODULE,accept,3}, {error,timeout}}, [{lsock,_ListenSocket}|Stack]) ->
+    {skip, Stack};
+ssh_dbg_format(tcp, {return_from, {?MODULE,accept,3}, Return}, [{lsock,ListenSocket}|Stack]) ->
+    {["TCP accept returned\n",
+      io_lib:format("ListenSock: ~p~n"
+                    "Return: ~p~n", [ListenSocket,Return])
+     ], Stack}.
+
+ssh_dbg_format(tcp, {call, {?MODULE,close, [Socket, _Options]}}) ->
+    ["TCP close listen socket\n",
+     io_lib:format("Socket: ~p~n", [Socket])];
+ssh_dbg_format(tcp, {return_from, {?MODULE,close,2}, _Return}) ->
+    skip;
 
 ssh_dbg_format(connections, {call, {?MODULE,acceptor_init, [_Parent, _SysSup, Address, _Opts]}}) ->
     [io_lib:format("Starting LISTENER on ~s\n", [ssh_lib:format_address(Address)])
@@ -226,9 +278,9 @@ ssh_dbg_format(connections, {call, {?MODULE,acceptor_init, [_Parent, _SysSup, Ad
 ssh_dbg_format(connections, {return_from, {?MODULE,acceptor_init,4}, _Ret}) ->
     skip;
 
-ssh_dbg_format(connections, {call, {?MODULE,handle_connection,[_,_,_,_]}}) ->
+ssh_dbg_format(connections, {call, {?MODULE,handle_connection,[_SystemSup,_Address,_Port,_Options,_Sock]}}) ->
     skip;
-ssh_dbg_format(connections, {return_from, {?MODULE,handle_connection,4}, {error,Error}}) ->
+ssh_dbg_format(connections, {return_from, {?MODULE,handle_connection,5}, {error,Error}}) ->
     ["Starting connection to server failed:\n",
      io_lib:format("Error = ~p", [Error])
     ].
