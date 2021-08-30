@@ -2688,6 +2688,7 @@ wait_for_node(Slave) ->
     end,
     Result.
 
+-compile([{nowarn_deprecated_function, [{slave, stop, 1}]}]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% stop_node(Name) -> true|false

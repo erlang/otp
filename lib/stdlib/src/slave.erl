@@ -19,6 +19,8 @@
 %%
 -module(slave).
 
+-deprecated([{'_','_',"use the 'peer' module instead"}]).
+
 %% If the macro DEBUG is defined during compilation, 
 %% debug printouts are done through erlang:display/1.
 %% Activate this feature by starting the compiler 

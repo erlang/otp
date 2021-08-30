@@ -83,8 +83,6 @@ obsolete(net, cast, 4) ->
     {deprecated, "use rpc:cast/4 instead"};
 obsolete(net, ping, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
-obsolete(net, relay, 1) ->
-    {deprecated, "use slave:relay/1 instead"};
 obsolete(net, sleep, 1) ->
     {deprecated, "use 'receive after T -> ok end' instead"};
 obsolete(public_key, ssh_decode, 2) ->
@@ -191,6 +189,8 @@ obsolete(httpd_conf, is_file, 1) ->
     {removed, "use filelib:is_file/1 instead"};
 obsolete(httpd_conf, make_integer, 1) ->
     {removed, "use erlang:list_to_integer/1 instead"};
+obsolete(net, relay, 1) ->
+    {removed, "use fun Relay(Pid) -> receive X -> Pid ! X end, Relay(Pid) instead"};
 obsolete(rpc, safe_multi_server_call, 2) ->
     {removed, "use rpc:multi_server_call/2 instead"};
 obsolete(rpc, safe_multi_server_call, 3) ->
@@ -225,6 +225,8 @@ obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(random, _, _) ->
     {deprecated, "use the 'rand' module instead"};
+obsolete(slave, _, _) ->
+    {deprecated, "use the 'peer' module instead", "OTP 27"};
 obsolete(os_mon_mib, _, _) ->
     {removed, "this module was removed in OTP 22.0"};
 obsolete(pg2, _, _) ->

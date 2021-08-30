@@ -182,6 +182,9 @@ next(Tests) ->
 	    none
     end.
 
+%% Temporary suppression
+-compile([{nowarn_deprecated_function,[{slave,start_link,3},{slave,stop,1}]}]).
+
 %% this returns either a #test{} or #group{} record, or {data, T} to
 %% signal that T has been substituted for the given representation
 
