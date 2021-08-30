@@ -289,58 +289,19 @@ cipher_suites() ->
       " and prepend|append_cipher_suites/2"}].
 
 cipher_suites(Config) when is_list(Config) -> 
-    MandatoryCipherSuiteTLS1_0TLS1_1 = #{key_exchange => rsa,
-                                         cipher => '3des_ede_cbc',
-                                         mac => sha,
-                                         prf => default_prf},
-    MandatoryCipherSuiteTLS1_0TLS1_2 = #{key_exchange =>rsa,
-                                         cipher => 'aes_128_cbc',
-                                         mac => sha,
-                                         prf => default_prf}, 
-    Version = tls_record:highest_protocol_version([]),
-    All = [_|_] = ssl:cipher_suites(all, Version),
-    Default = [_|_] = ssl:cipher_suites(default, Version),
-    Anonymous = [_|_] = ssl:cipher_suites(anonymous, Version),
-    true = length(Default) < length(All),
-    Filters = [{key_exchange, 
-                fun(dhe_rsa) -> 
-                        true;
-                   (_) -> 
-                        false
-                end
-               }, 
-               {cipher, 
-                fun(aes_256_cbc) ->
-                        true;
-                   (_) -> 
-                        false
-                end
-               },
-               {mac, 
-                fun(sha) ->
-                        true;
-                   (_) -> 
-                        false
-                end
-               }
-              ],
-    Cipher = #{cipher => aes_256_cbc,
-               key_exchange => dhe_rsa,
-               mac => sha,
-               prf => default_prf},
-    [Cipher] = ssl:filter_cipher_suites(All, Filters),    
-    [Cipher | Rest0] = ssl:prepend_cipher_suites([Cipher], Default),
-    [Cipher | Rest0] = ssl:prepend_cipher_suites(Filters, Default),
-    true = lists:member(Cipher, Default), 
-    false = lists:member(Cipher, Rest0), 
-    [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites([Cipher], Default)),
-    [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites(Filters, Default)),
-    true = lists:member(Cipher, Default),
-    false = lists:member(Cipher, Rest1),
-    [] = lists:dropwhile(fun(X) -> not lists:member(X, Default) end, Anonymous),
-    [] = lists:dropwhile(fun(X) -> not lists:member(X, All) end, Anonymous),        
-    true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_1, All),
-    true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_2, All).
+    chipher_suite_checks('tlsv1.3'),
+    chipher_suite_checks('tlsv1.2'),
+    chipher_suite_checks('tlsv1.1'),
+    chipher_suite_checks('tlsv1'),
+    chipher_suite_checks('dtlsv1.2'),
+    chipher_suite_checks('dtlsv1'),
+    anon_chipher_suite_checks('tlsv1.3'),
+    anon_chipher_suite_checks('tlsv1.2'),
+    anon_chipher_suite_checks('tlsv1.1'),
+    anon_chipher_suite_checks('tlsv1'),
+    anon_chipher_suite_checks('dtlsv1.2'),
+    anon_chipher_suite_checks('dtlsv1').
+
 
 %%--------------------------------------------------------------------
 cipher_suites_mix() ->
@@ -927,7 +888,76 @@ test_fake_root(Hostname, ServerNode, ClientNode, ServerConf, ClientConf, FakeCer
     
     ssl_test_lib:close(FakeServer1).
 
+anon_chipher_suite_checks('tlsv1.3' = Version) ->
+    [] = ssl:cipher_suites(anonymous, Version),
+    [] = ssl:cipher_suites(exclusive_anonymous, Version);
+anon_chipher_suite_checks(Version) ->
+    [_|_] = ssl:cipher_suites(anonymous, Version),
+    [_|_] = ssl:cipher_suites(exclusive_anonymous, Version).
 
-
-    
+chipher_suite_checks(Version) ->
+    MandatoryCipherSuiteTLS1_0TLS1_1 = #{key_exchange => rsa,
+                                         cipher => '3des_ede_cbc',
+                                         mac => sha,
+                                         prf => default_prf},
+    MandatoryCipherSuiteTLS1_0TLS1_2 = #{key_exchange =>rsa,
+                                         cipher => 'aes_128_cbc',
+                                         mac => sha,
+                                         prf => default_prf},
+    All = [_|_] = ssl:cipher_suites(all, Version),
+    Default = [_|_] = ssl:cipher_suites(default, Version),
+    Anonymous = ssl:cipher_suites(anonymous, Version),
+    true = length(Default) < length(All),
+    Filters = [{key_exchange,
+                fun(dhe_rsa) ->
+                        true;
+                   (_) ->
+                        false
+                end
+               },
+               {cipher,
+                fun(aes_256_cbc) ->
+                        true;
+                   (_) ->
+                        false
+                end
+               },
+               {mac,
+                fun(sha) ->
+                        true;
+                   (_) ->
+                        false
+                end
+               }
+              ],
+    Cipher = #{cipher => aes_256_cbc,
+               key_exchange => dhe_rsa,
+               mac => sha,
+               prf => default_prf},
+    [Cipher] = ssl:filter_cipher_suites(All, Filters),
+    [Cipher | Rest0] = ssl:prepend_cipher_suites([Cipher], Default),
+    [Cipher | Rest0] = ssl:prepend_cipher_suites(Filters, Default),
+    true = lists:member(Cipher, Default),
+    false = lists:member(Cipher, Rest0),
+    [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites([Cipher], Default)),
+    [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites(Filters, Default)),
+    true = lists:member(Cipher, Default),
+    false = lists:member(Cipher, Rest1),
+    [] = lists:dropwhile(fun(X) -> not lists:member(X, Default) end, Anonymous),
+    [] = lists:dropwhile(fun(X) -> not lists:member(X, All) end, Anonymous),
+    case Version of
+        tlsv1 ->
+            true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_1, All);
+        'tlsv1.1' ->
+            true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_1, All),
+            true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_2, All);
+        'tlsv1.2' ->
+            ok;
+        'tlsv1.3' ->
+            ok;
+        'dtlsv1' ->
+            true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_2, All);
+        'dtlsv1.2' ->
+            ok
+    end.
    
