@@ -26,7 +26,7 @@
 	 arity_checks/1,elixir_binaries/1,find_best/1,
          test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
-         container_subtraction/1]).
+         container_subtraction/1,is_list_opt/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -58,7 +58,8 @@ groups() ->
        none_argument,
        success_type_oscillation,
        type_subtraction,
-       container_subtraction
+       container_subtraction,
+       is_list_opt
       ]}].
 
 init_per_suite(Config) ->
@@ -660,6 +661,20 @@ cs_1({_,_}=Other) ->
 
 cs_2({bar,baz}) ->
     ok.
+
+is_list_opt(_Config) ->
+    true = is_list_opt_1(id(<<"application/a2l">>)),
+    false = is_list_opt_1(id(<<"">>)),
+    ok.
+
+is_list_opt_1(Type) ->
+    %% The call to is_list/1 would be optimized to an is_nonempty_list
+    %% instruction, which is illegal in a return context. That would
+    %% crash beam_ssa_codegen.
+    is_list(is_list_opt_2(Type)).
+
+is_list_opt_2(<<"application/a2l">>) -> [<<"a2l">>];
+is_list_opt_2(_Type) -> nil.
 
 id(I) ->
     I.
