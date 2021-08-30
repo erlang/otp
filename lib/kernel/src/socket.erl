@@ -1349,13 +1349,18 @@ open(FD) ->
       Socket   :: socket(),
       Reason   :: posix() | 'protocol'.
 
-open(FD, Opts) when is_integer(FD), is_map(Opts) ->
-    case prim_socket:open(FD, Opts) of
-        {ok, SockRef} ->
-            Socket = ?socket(SockRef),
-            {ok, Socket};
-        {error, _} = ERROR ->
-            ERROR
+open(FD, Opts) when is_map(Opts) ->
+    if
+        is_integer(FD) ->
+            case prim_socket:open(FD, Opts) of
+                {ok, SockRef} ->
+                    Socket = ?socket(SockRef),
+                    {ok, Socket};
+                {error, _} = ERROR ->
+                    ERROR
+            end;
+        true ->
+            erlang:error(badarg, [FD, Opts])
     end;
 open(Domain, Type) ->
     open(Domain, Type, 0).
@@ -1415,11 +1420,8 @@ open(Domain, Type, Protocol, Opts) ->
       Addr      :: sockaddr() | 'any' | 'broadcast' | 'loopback',
       Reason    :: posix() | 'closed' | invalid().
 
-bind(?socket(SockRef) = Socket, Addr) when is_reference(SockRef) ->
+bind(?socket(SockRef), Addr) when is_reference(SockRef) ->
     if
-        is_map(Addr) ->
-            prim_socket:bind(SockRef, Addr);
-        %%
         Addr =:= any;
         Addr =:= broadcast;
         Addr =:= loopback ->
@@ -1434,9 +1436,10 @@ bind(?socket(SockRef) = Socket, Addr) when is_reference(SockRef) ->
                 {error, _} = ERROR ->
                     ERROR
             end;
-        %%
+        is_atom(Addr) ->
+            {error, {invalid, {sockaddr, Addr}}};
         true ->
-            erlang:error(badarg, [Socket, Addr])
+            prim_socket:bind(SockRef, Addr)
     end;
 bind(Socket, Addr) ->
     erlang:error(badarg, [Socket, Addr]).
