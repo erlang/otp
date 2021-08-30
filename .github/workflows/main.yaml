@@ -173,7 +173,7 @@ jobs:
 
         ## Documentation checks
       - if: matrix.type == 'documentation'
-        name: Run xmllimt
+        name: Run xmllint
         run: docker run otp "make xmllint"
       - if: matrix.type == 'documentation'
         name: Run html link check
