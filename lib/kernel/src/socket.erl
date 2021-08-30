@@ -232,7 +232,7 @@
 
 -type ip_mreq() ::
         #{multiaddr := in_addr(),
-          address   := in_addr()}.
+          interface := in_addr()}.
 
 -type ip_mreq_source() ::
         #{multiaddr  := in_addr(),
