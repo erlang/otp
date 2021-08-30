@@ -1245,31 +1245,22 @@ bs_get_tail.fetch(Src) {
 
 bs_get_tail.execute(Dst, Live) {
     ErlBinMatchBuffer* mb;
-    Uint size, offs;
-    ErlSubBin* sb;
+    Eterm bin, *htop;
 
     ASSERT(header_is_bin_matchstate(*boxed_val(context)));
 
-    $GC_TEST_PRESERVE(ERL_SUB_BIN_SIZE, $Live, context);
+    $GC_TEST_PRESERVE(EXTRACT_SUB_BIN_HEAP_NEED, $Live, context);
+
+    htop = HTOP;
 
     mb = ms_matchbuffer(context);
 
-    offs = mb->offset;
-    size = mb->size - offs;
-
-    sb = (ErlSubBin *) HTOP;
-    HTOP += ERL_SUB_BIN_SIZE;
-
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->size = BYTE_OFFSET(size);
-    sb->bitsize = BIT_OFFSET(size);
-    sb->offs = BYTE_OFFSET(offs);
-    sb->bitoffs = BIT_OFFSET(offs);
-    sb->is_writable = 0;
-    sb->orig = mb->orig;
+    bin = erts_extract_sub_binary(&htop,mb->orig,mb->base,
+                                  mb->offset,mb->size - mb->offset);
+    HTOP = htop;
 
     $REFRESH_GEN_DEST();
-    $Dst = make_binary(sb);
+    $Dst = bin;
 }
 
 
