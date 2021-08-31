@@ -1782,7 +1782,7 @@ engine_load_2(Engine, PostCmds, EngineMethods) ->
     catch
        throw:Error ->
           %% The engine registration failed, release the functional reference
-          ok = engine_finish_nif(Engine),
+          ok = engine_free_nif(Engine),
           throw(Error)
     end.
 
@@ -1801,9 +1801,7 @@ engine_unload(Engine, EngineMethods) ->
     try
         [ok = engine_nif_wrapper(engine_unregister_nif(Engine, engine_method_atom_to_int(Method))) ||
             Method <- EngineMethods],
-        %% Release the functional reference from engine_init_nif
-        ok = engine_nif_wrapper(engine_finish_nif(Engine)),
-        %% Release the structural reference from engine_by_id_nif
+        %% Release the reference from engine_by_id_nif
         ok = engine_nif_wrapper(engine_free_nif(Engine))
     catch
        throw:Error ->
@@ -1982,7 +1980,7 @@ ensure_engine_loaded_2(Engine, Methods) ->
     catch
        throw:Error ->
           %% The engine registration failed, release the functional reference
-          ok = engine_finish_nif(Engine),
+          ok = engine_free_nif(Engine),
           throw(Error)
     end.
 %%----------------------------------------------------------------------
@@ -2001,12 +1999,20 @@ ensure_engine_unloaded(Engine) ->
                                                 EngineMethods :: [engine_method_type()],
                                                 Result :: ok | {error, Reason::term()}.
 ensure_engine_unloaded(Engine, EngineMethods) ->
-    case engine_remove(Engine) of
-        ok ->
-            engine_unload(Engine, EngineMethods);
-        {error, E} ->
-            {error, E}
+    List = crypto:engine_list(),
+    EngineId = crypto:engine_get_id(Engine),
+    case lists:member(EngineId, List) of
+        true ->
+            case engine_remove(Engine) of
+                ok ->
+                    engine_unload(Engine, EngineMethods);
+                {error, Error} ->
+                    {error, Error}
+            end;
+        false ->
+            engine_unload(Engine, EngineMethods)
     end.
+
 
 %%--------------------------------------------------------------------
 %%% On load
@@ -2405,7 +2411,6 @@ packed_openssl_version(MAJ, MIN, FIX, P0) ->
 %% Engine nifs
 engine_by_id_nif(_EngineId) -> ?nif_stub.
 engine_init_nif(_Engine) -> ?nif_stub.
-engine_finish_nif(_Engine) -> ?nif_stub.
 engine_free_nif(_Engine) -> ?nif_stub.
 engine_load_dynamic_nif() -> ?nif_stub.
 engine_ctrl_cmd_strings_nif(_Engine, _Cmds, _Optional) -> ?nif_stub.
