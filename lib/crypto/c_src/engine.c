@@ -208,44 +208,27 @@ ERL_NIF_TERM engine_free_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     // Get Engine
     ASSERT(argc == 1);
 
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)
-        || ctx->is_functional)
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
         goto bad_arg;
 
-    if (!ENGINE_free(ctx->engine))
-        goto err;
-    ctx->engine = NULL;
+    if (ctx->engine) {
+        if (ctx->is_functional) {
+            if (!ENGINE_finish(ctx->engine))
+                goto err;
+            ctx->is_functional = 0;
+        }
+        if (!ENGINE_free(ctx->engine))
+            goto err;
+        ctx->engine = NULL;
+    }
+    else {
+        ASSERT(!ctx->is_functional);
+    }
     return atom_ok;
 
  bad_arg:
  err:
     return enif_make_badarg(env);
-#else
-    return atom_notsup;
-#endif
-}
-
-ERL_NIF_TERM engine_finish_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Engine) */
-#ifdef HAS_ENGINE_SUPPORT
-    struct engine_ctx *ctx;
-
-    // Get Engine
-    ASSERT(argc == 1);
-
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)
-        || !ctx->is_functional)
-        goto bad_arg;
-
-    if (!ENGINE_finish(ctx->engine))
-        goto err;
-    ctx->is_functional = 0;
-    return atom_ok;
-
- bad_arg:
- err:
-    return enif_make_badarg(env);
-
 #else
     return atom_notsup;
 #endif
@@ -645,6 +628,10 @@ ERL_NIF_TERM engine_get_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         || !ctx->engine)
         goto bad_arg;
 
+    if (ctx->is_functional) {
+        ENGINE_finish(ctx->engine);
+        ctx->is_functional = 0;
+    }
     engine = ENGINE_get_next(ctx->engine);
     ctx->engine = NULL;
 

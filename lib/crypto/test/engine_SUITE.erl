@@ -715,8 +715,8 @@ ensure_load(Config) when is_list(Config) ->
                 Md5Hash1 = crypto:hash(md5, "Don't panic"),
                 Md5Hash2 =  <<0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
                 case crypto:ensure_engine_loaded(<<"MD5">>, Engine) of
-                    {ok, E} ->
-                        {ok, _E1} = crypto:ensure_engine_loaded(<<"MD5">>, Engine),
+                    {ok, E1} ->
+                        {ok, E2} = crypto:ensure_engine_loaded(<<"MD5">>, Engine),
                         case crypto:hash(md5, "Don't panic") of
                             Md5Hash1 ->
                                 ct:fail(fail_to_load_still_original_engine);
@@ -725,11 +725,37 @@ ensure_load(Config) when is_list(Config) ->
                             _ ->
                                 ct:fail(fail_to_load_engine)
                         end,
-                        ok = crypto:ensure_engine_unloaded(E),
+
+                        {ok, E3} = crypto:engine_by_id(<<"MD5">>),
+
+                        ok = crypto:ensure_engine_unloaded(E3),
+                        case crypto:hash(md5, "Don't panic") of
+                            Md5Hash1 ->
+                                ok;
+                            Md5Hash2 ->
+                                ct:fail(fail_to_unload_still_test_engine);
+                            _ ->
+                                ct:fail(load_engine)
+                        end,
+
+                        %% ToDo: Why doesn't this work?
+                        %% {ok, E4} = crypto:ensure_engine_loaded(<<"MD5">>, Engine),
+                        %% case crypto:hash(md5, "Don't panic") of
+                        %%     Md5Hash1 ->
+                        %%         ct:fail(fail_to_load_still_original_engine);
+                        %%     Md5Hash2 ->
+                        %%         ok;
+                        %%     _ ->
+                        %%         ct:fail(fail_to_load_engine)
+                        %% end,
+
+                        ok = crypto:ensure_engine_unloaded(E1),
                         case crypto:hash(md5, "Don't panic") of
                             Md5Hash2 ->
                                 ct:fail(fail_to_unload_still_test_engine);
                             Md5Hash1 ->
+                                ok = crypto:ensure_engine_unloaded(E2),
+                                %% ok = crypto:ensure_engine_unloaded(E4);
                                 ok;
                             _ ->
                                 ct:fail(fail_to_unload_engine)
@@ -742,6 +768,7 @@ ensure_load(Config) when is_list(Config) ->
                   {skip, "Engine not supported on this SSL version"}
            end
     end.
+
 
 %%%----------------------------------------------------------------
 %%% Pub/priv key storage tests.  Those are for testing the crypto.erl
