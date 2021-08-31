@@ -885,15 +885,19 @@ simplify(#b_set{op={bif,'=:='},args=[LHS,RHS]}=I, Ts) ->
                 {_,_} ->
                     eval_bif(I, Ts)
             end
-    end;
-simplify(#b_set{op={bif,is_list},args=[Src]}=I, Ts) ->
+   end;
+simplify(#b_set{op={bif,is_list},args=[Src]}=I0, Ts) ->
     case raw_type(Src, Ts) of
         #t_union{list=#t_cons{}} ->
-            I#b_set{op=is_nonempty_list,args=[Src]};
+            I = I0#b_set{op=is_nonempty_list,args=[Src]},
+            %% We might need to convert back to is_list/1 if it turns
+            %% out that this instruction is followed by a #b_ret{}
+            %% terminator.
+            beam_ssa:add_anno(was_bif_is_list, true, I);
         #t_union{list=nil} ->
-            I#b_set{op={bif,'=:='},args=[Src,#b_literal{val=[]}]};
+            I0#b_set{op={bif,'=:='},args=[Src,#b_literal{val=[]}]};
         _ ->
-            eval_bif(I, Ts)
+            eval_bif(I0, Ts)
     end;
 simplify(#b_set{op={bif,Op},args=Args}=I, Ts) ->
     Types = normalized_types(Args, Ts),

@@ -1679,6 +1679,14 @@ cg_instr(bs_get_position, [Ctx], Dst, Set) ->
 cg_instr(put_map, [{atom,assoc},SrcMap|Ss], Dst, Set) ->
     Live = get_live(Set),
     [{put_map_assoc,{f,0},SrcMap,Dst,Live,{list,Ss}}];
+cg_instr(is_nonempty_list, Ss, Dst, Set) ->
+    #cg_set{anno=#{was_bif_is_list := true}} = Set, %Assertion.
+
+    %% This instruction was a call to is_list/1, which was rewritten
+    %% to an is_nonempty_list test by beam_ssa_type. BEAM has no
+    %% is_nonempty_list instruction that will return a boolean, so
+    %% we must revert it to an is_list/1 call.
+    [{bif,is_list,{f,0},Ss,Dst}];
 cg_instr(Op, Args, Dst, _Set) ->
     cg_instr(Op, Args, Dst).
 
