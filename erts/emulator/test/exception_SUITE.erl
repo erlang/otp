@@ -680,7 +680,7 @@ do_error_3(Reason, Args, Options) ->
 
 error_info(_Config) ->
     DeadProcess = dead_process(),
-    NewAtom = non_existing_atom(),
+    {NewAtom,NewAtomExt} = non_existing_atom(),
     Eons = 1 bsl 50,
 
     %% We'll need an incorrect memory type for erlang:memory/1. We want to test an
@@ -767,9 +767,14 @@ error_info(_Config) ->
          {binary_to_list, [<<1,2,3>>, 4, 5]},
 
          {binary_to_term, [abc]},
-         {binary_to_term, [<<"abc">>]},
+         {binary_to_term, [<<"bad">>]},
+
          {binary_to_term, [term_to_binary(a), abc]},
          {binary_to_term, [<<"bad">>, abc]},
+         {binary_to_term, [<<"bad">>, [bad]]},
+         {binary_to_term, [<<"bad">>, []]},
+         {binary_to_term, [<<"bad">>, [safe]]},
+         {binary_to_term, [NewAtomExt, [safe]]},
 
          {bit_size, [abc]},
          {bitstring_to_list, [abc]},
@@ -1322,7 +1327,9 @@ non_existing_atom(Atom) ->
             non_existing_atom([Char|Atom])
     catch
         error:badarg ->
-            Atom
+            AtomBin = list_to_binary(Atom),
+            AtomExt = <<131,100,(byte_size(AtomBin)):16,AtomBin/binary>>,
+            {Atom,AtomExt}
     end.
 
 do_error_info(L0) ->
