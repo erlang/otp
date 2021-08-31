@@ -316,8 +316,7 @@ accept(?MODULE_socket(ListenServer, ListenSocket), Timeout) ->
         Server =
             val(ErrRef,
                 start_server(
-                 ServerData,
-                 [{timeout, inet:timeout(Timer)} | start_opts(StartOpts)])),
+                 ServerData, [{timeout, inet:timeout(Timer)} | StartOpts])),
         Socket =
             val({ErrRef, Server},
                 call(Server, {accept, ListenSocket, inet:timeout(Timer)})),
@@ -745,7 +744,7 @@ chain(Fs, Fail, Values, Ret) ->
         ok -> chain(Fs, Fail, Values);
         {ok, Value} -> chain(Fs, Fail, [Value | Values])
     end.
--endif.
+-endif. % -ifdef(undefined).
 
 %% -------------------------------------------------------------------------
 
@@ -775,54 +774,49 @@ sockaddrs([IP | IPs], TP, Domain) ->
 %%
 
 normalize_setopts(Opts) ->
-    filtermap_opts(fun normalize_setopt/1, Opts).
-
-normalize_setopt(Opt) ->
-    case Opt of
-        {Tag, _Val} when is_atom(Tag) ->
-            true;
-        %%
-        binary  -> {mode, binary};
-        list    -> {mode, list};
-        inet    -> {tcp_module, inet_tcp};
-        inet6   -> {tcp_module, inet6_tcp};
-        local   -> {tcp_module, local_tcp};
-        {raw, Level, Key, Value} ->
-            {raw, {Level, Key, Value}};
-        %%
+    [case Opt of
+         binary                     -> {mode, binary};
+         list                       -> {mode, list};
+         inet                       -> {tcp_module, inet_tcp};
+         inet6                      -> {tcp_module, inet6_tcp};
+         local                      -> {tcp_module, local_tcp};
+         {Tag, _} when is_atom(Tag) -> Opt;
+         {raw, Level, Key, Value}   -> {raw, {Level, Key, Value}};
         _ ->
             exit(badarg)
-    end.
+     end || Opt <- Opts].
 
 normalize_getopts(Opts) ->
-    filtermap_opts(fun normalize_getopt/1, Opts).
-
-normalize_getopt(Opt) ->
-    case Opt of
-        Tag when is_boolean(Tag) -> exit(badarg);
-        Tag when is_atom(Tag)    -> true;
-        {raw, _}                 -> true;
-        {raw, Level, Key, Value} -> {raw, {Level, Key, Value}};
-        _                        -> exit(badarg)
-    end.
+    [case Opt of
+         Tag when is_atom(Tag)    -> Opt;
+         {raw, _}                 -> Opt;
+         {raw, Level, Key, Value} -> {raw, {Level, Key, Value}};
+         _                        -> exit(badarg)
+     end || Opt <- Opts].
 
 %%
 %% -------
 %% Split options into server start options and other options.
 %% Convert our {sys_debug, _} option into {debug, _} (the
 %% sys_debug option is how to pass a debug option to
-%% gen_statem:start/3).  A {debug,VaL} opion is later
-%% transformed into the socket option {{otp,debug}, Val}.
+%% gen_statem:start/3).  A {debug,Val} option is
+%% on the other hand a socket option and is later,
+%% through socket_opts(),  transformed into the module
+%% 'socket' option {{otp,debug}, Val}.
 %%
 
 split_start_opts(Opts) ->
-    splitmap_opts(fun split_start_opt/1, Opts).
-
-split_start_opt(Opt) ->
-    case Opt of
-        {sys_debug, Val} -> {debug, Val};
-        _                -> false
-    end.
+    {StartOpts,
+     NonStartOpts} =
+        lists:partition(
+          fun ({sys_debug, _}) -> true;
+              (_)              -> false
+          end, Opts),
+    {[case Opt of
+          {sys_debug, Val} -> {debug, Val};
+          _                -> Opt
+      end || Opt <- StartOpts],
+     NonStartOpts}.
 
 %%
 %% -------
@@ -833,88 +827,20 @@ split_start_opt(Opt) ->
 %% by throwing {ErrRef, badarg}.
 %%
 setopts_opts(ErrRef, Opts) ->
-    filtermap_opts(setopts_opt(ErrRef), Opts).
-
-setopts_opt(ErrRef) ->
     SocketOpts = socket_opts(),
     ServerOpts = server_opts(),
-    fun ({Tag,_Val}) ->
-            if
-                is_map_key(Tag, SocketOpts) -> true;
-                is_map_key(Tag, ServerOpts) -> true;
-                true ->
-                    case ignore_optname(Tag) of
-                        true  -> false; % ignore -> filter out
-                        false ->
-                            throw({ErrRef, badarg})
-                    end
-            end
-    end.
-%%
-%% -------
-%% Pseudo-general option list functions
-%%
-
-%% FilterMap(Opt) ->
-%%     true  | % keep
-%%     false | % delete
-%%     Opt_1 | % keep Opt_1
-%%
-filtermap_opts(FilterMap, Opts) ->
-    case filtermap_opts_1(FilterMap, Opts) of
-        ok     -> Opts;
-        Opts_1 -> Opts_1
-    end.
-%%
-filtermap_opts_1(FilterMap, [Opt | Opts]) ->
-    Opts_1 = filtermap_opts_1(FilterMap, Opts),
-    case FilterMap(Opt) of
-        true  when Opts_1 =:= ok -> ok;
-        true                     -> [Opt | Opts_1];
-        false when Opts_1 =:= ok -> Opts;
-        false                    -> Opts_1;
-        Opt_1 when Opts_1 =:= ok -> [Opt_1 | Opts];
-        Opt_1                    -> [Opt_1 | Opts_1]
-    end;
-filtermap_opts_1(_FilterMap, []) -> ok.
-
-
-%% splitmap_opts(SplitMap, Opts) ->
-%%     {SplitOpts, OtherOpts}
-%%
-%% SplitMap(Opt) ->
-%%     true  -> % to be split
-%%     false -> % not to split
-%%     Opt_1 -> % split Opt_1
-%%
-splitmap_opts(SplitMap, Opts) ->
-    case splitmap_opts_1(SplitMap, Opts) of
-        ok                    -> {[], Opts};
-        [SplitOptsR | Opts_1] -> {lists:reverse(SplitOptsR), Opts_1}
-    end.
-%%
-splitmap_opts_1(SplitMap, [Opt | Opts]) ->
-    case splitmap_opts_1(SplitMap, Opts) of
-        ok ->
-            case SplitMap(Opt) of
-                false -> ok;
-                %% true  -> [[]      | Opts]; % not used now
-                Opt_1 -> [[Opt_1] | Opts]
-            end;
-        [SplitOptsR | Opts_1] ->
-            case SplitMap(Opt) of
-                false -> [SplitOptsR           | [Opt | Opts_1]];
-                %% true  -> [[Opt   | SplitOptsR] | Opts_1]; % not used now
-                Opt_1 -> [[Opt_1 | SplitOptsR] | Opts_1]
-            end
-    end;
-splitmap_opts_1(_SplitMap, []) -> ok.
-
-%%
-%% -------
-
-
-
+    [Opt ||
+        {Tag,_} = Opt <- Opts,
+        if
+            is_map_key(Tag, SocketOpts) -> true;
+            is_map_key(Tag, ServerOpts) -> true;
+            true ->
+                case ignore_optname(Tag) of
+                    true  -> false; % ignore -> filter out
+                    false ->
+                        throw({ErrRef, badarg})
+                end
+        end].
 
 
 
@@ -1026,12 +952,6 @@ socket_copy_opt(Socket, Tag, TargetSocket) when is_atom(Tag) ->
         #{} = _X ->
 	    {error, einval}
     end.
-
-start_opts([{sys_debug, D} | Opts]) ->
-    [{debug, D} | start_opts(Opts)];
-start_opts([Opt | Opts]) ->
-    [Opt | start_opts(Opts)];
-start_opts([]) -> [].
 
 
 -compile({inline, [ignore_optname/1]}).
@@ -1245,9 +1165,8 @@ init({open, Domain, ExtraOpts, Owner}) ->
 
     process_flag(trap_exit, true),
     OwnerMon  = monitor(process, Owner),
-    Proto     = if (Domain =:= local) -> default; true -> tcp end,
     Extra = #{}, % #{debug => true},
-    case socket_open(Domain, Proto, ExtraOpts, Extra) of
+    case socket_open(Domain, ExtraOpts, Extra) of
         {ok, Socket} ->
             D  = server_opts(),
             ok = socket:setopt(Socket, {otp,iow}, true),
@@ -1280,19 +1199,26 @@ init(Arg) ->
     error(badarg, [Arg]).
 
 
-socket_open(Domain, Proto, #{fd := FD} = ExtraOpts, Extra) ->
+socket_open(Domain, #{fd := FD} = ExtraOpts, Extra) ->
     Opts =
         (maps:merge(Extra, maps:remove(fd, ExtraOpts)))
         #{dup      => false,
           domain   => Domain,
           type     => stream,
-          protocol => Proto},
+          protocol => proto(Domain)},
     %% ?DBG([{fd, FD}, {opts, Opts}]),
     socket:open(FD, Opts);
-socket_open(Domain, Proto, ExtraOpts, Extra) ->
+socket_open(Domain, ExtraOpts, Extra) ->
     Opts = maps:merge(Extra, ExtraOpts),
     %% ?DBG([{netns, NS}, {opts, Opts}]),
-    socket:open(Domain, stream, Proto, Opts).
+    socket:open(Domain, stream, proto(Domain), Opts).
+
+proto(Domain) ->
+    case Domain of
+        inet  -> tcp;
+        inet6 -> tcp;
+        _     -> default
+    end.
 
 
 terminate(_Reason, State, {_P, _} = P_D) ->
@@ -2862,7 +2788,7 @@ timeout(EndTime) ->
         true -> 0
     end.
 
--endif.
+-endif. % -ifdef(undefined).
 
 %% -------------------------------------------------------------------------
 
