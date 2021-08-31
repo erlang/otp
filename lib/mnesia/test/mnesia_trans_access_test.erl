@@ -32,7 +32,7 @@
          basic_nested/1, mix_of_nested_activities/1,
          nested_trans_both_ok/1, nested_trans_child_dies/1,
          nested_trans_parent_dies/1, nested_trans_both_dies/1,
-         index_match_object/1, index_read/1,index_write/1,
+         index_match_object/1, index_read/1,index_write/1, index_delete_object/1,
          index_update_set/1, index_update_bag/1,
          add_table_index_ram/1, add_table_index_disc/1,
          add_table_index_disc_only/1, create_live_table_index_ram/1,
@@ -78,7 +78,7 @@ groups() ->
        nested_trans_parent_dies, nested_trans_both_dies]},
      {index_tabs, [],
       [index_match_object, index_read, {group, index_update},
-       index_write]},
+       index_write, index_delete_object]},
      {index_update, [],
       [index_update_set, index_update_bag]},
      {index_lifecycle, [],
@@ -1164,6 +1164,36 @@ index_write(Config)when is_list(Config) ->
     ?verify_mnesia(Nodes, []).
 
 
+index_delete_object(suite) -> [];
+index_delete_object(doc) -> ["See issue: GH-5040"];
+index_delete_object(Config) when is_list(Config) ->
+    Nodes = ?acquire_nodes(1, Config),
+    {atomic, ok} = mnesia:create_table(ram_set,[{index, [ix]}, {attributes, [key, ix, val]},
+                                                {ram_copies, Nodes}]),
+    {atomic, ok} = mnesia:create_table(do_set, [{index, [ix]}, {attributes, [key, ix, val]},
+                                                {disc_only_copies, Nodes}]),
+    {atomic, ok} = mnesia:create_table(ram_bag,[{index, [ix]}, {attributes, [key, ix, val]},
+                                                {ram_copies, Nodes}]),
+    {atomic, ok} = mnesia:create_table(do_bag, [{index, [ix]}, {attributes, [key, ix, val]},
+                                                {disc_only_copies, Nodes}]),
+    Test = fun(Tab) ->
+                   io:format("Testing: ~p~n",[Tab]),
+                   Rec = {Tab, 2, 4, data},
+                   Rec2 = {Tab, 3, 5, data},
+                   ok = mnesia:dirty_write(Rec),
+                   ok = mnesia:dirty_write(Rec2),
+                   [Rec] = mnesia:dirty_index_read(Tab, 4, ix),
+                   ?match(ok, mnesia:dirty_delete_object({Tab, 2, 4, does_not_exist})),
+                   [Rec] = mnesia:dirty_read(Tab, 2),
+                   [Rec] = mnesia:dirty_index_read(Tab, 4, ix),
+                   ?match(ok, mnesia:dirty_delete_object(Rec)),
+                   [] = mnesia:dirty_read(Tab, 2),
+                   [] = mnesia:dirty_index_read(Tab, 4, ix),
+                   [Rec2] = mnesia:dirty_read(Tab, 3),
+                   [Rec2] = mnesia:dirty_index_read(Tab, 5, ix)
+           end,
+    [Test(Tab) || Tab <- [ram_set,do_set,ram_bag,do_bag]],
+    ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Add and drop indecies
