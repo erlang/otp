@@ -335,10 +335,13 @@ void original_fun_name_ycf_gen_destroy(void * ycf_yield_state);
 ```
 
 The `_gen_destroy` function frees the state of a yieldable function
-that has been suspended. Note that the parameter `ycf_yield_state`
-points directly to the yield state, unlike the parameter of the
-`_ycf_gen_yielding` and `_ycf_gen_continue` functions with the same
-name.
+that has been suspended. This function should only be called when one
+wants to cancel a yielded call before completion. Notice that the
+parameter `ycf_yield_state` points directly to the yield state, unlike
+the parameter of the `_ycf_gen_yielding` and `_ycf_gen_continue`
+functions with the same name. The `_gen_destroy` function
+automatically calls the destroy function for active subcalls to
+yieldable functions.
 
 
 
