@@ -487,7 +487,7 @@
 
   <!-- Datatype -->
   <xsl:template match="datatype">
-    <div class="data-types-body">
+    <article class="data-types-body">
       <xsl:choose>
         <xsl:when test="string-length(name/@name) > 0">
           <xsl:variable name="apostrophe">'</xsl:variable>
@@ -524,7 +524,7 @@
         </xsl:otherwise>
       </xsl:choose>
       <div class="data-type-desc"><xsl:apply-templates select="desc"/></div>
-    </div>
+    </article>
   </xsl:template>
 
   <!-- The "mode" attribute of apply has been used to separate the case
@@ -1104,37 +1104,39 @@
   <!-- *ref/Section -->
   <xsl:template match="erlref/section|cref/section|comref/section|fileref/section|appref/section|funcs/fsdescription">
     <xsl:param name="chapnum"/>
-    <div class="innertube">
-    <h3>
-      <xsl:for-each select="marker">
-	<xsl:call-template name="marker-before-title"/>
-      </xsl:for-each>
-      <xsl:call-template name="title_link">
-        <xsl:with-param name="title">
-          <xsl:value-of select="title"/>
-        </xsl:with-param>
-      </xsl:call-template>
-    </h3>
-    <div class="REFBODY rb-3">
-    <xsl:apply-templates>
-      <xsl:with-param name="chapnum" select="$chapnum"/>
-    </xsl:apply-templates>
-    </div>
-    </div>
+    <section class="innertube">
+      <h3>
+        <xsl:for-each select="marker">
+	  <xsl:call-template name="marker-before-title"/>
+        </xsl:for-each>
+        <xsl:call-template name="title_link">
+          <xsl:with-param name="title">
+            <xsl:value-of select="title"/>
+          </xsl:with-param>
+        </xsl:call-template>
+      </h3>
+      <div class="REFBODY rb-3">
+        <xsl:apply-templates>
+          <xsl:with-param name="chapnum" select="$chapnum"/>
+        </xsl:apply-templates>
+      </div>
+    </section>
   </xsl:template>
 
   <!-- *ref/Subsection -->
   <xsl:template match="erlref/section/section|cref/section/section|comref/section/section|fileref/section/section|appref/section/section">
     <xsl:param name="chapnum"/>
     <xsl:param name="sectnum"/>
-    <h4>
-      <xsl:value-of select="title"/>
-    </h4>
-    <div class="REFBODY rb-4">
-    <xsl:apply-templates>
-      <xsl:with-param name="chapnum" select="$chapnum"/>
-    </xsl:apply-templates>
-    </div>
+    <section>
+      <h4>
+        <xsl:value-of select="title"/>
+      </h4>
+      <div class="REFBODY rb-4">
+        <xsl:apply-templates>
+          <xsl:with-param name="chapnum" select="$chapnum"/>
+        </xsl:apply-templates>
+      </div>
+    </section>
   </xsl:template>
 
 
@@ -2264,18 +2266,20 @@
   <xsl:template match="description">
     <xsl:param name="partnum"/>
 
-    <div class="innertube">
-    <xsl:call-template name="h3_title_link">
-      <xsl:with-param name="title">Description</xsl:with-param>
-    </xsl:call-template>
-    <div class="REFBODY description-body">
-      <p>
-        <xsl:apply-templates>
-          <xsl:with-param name="partnum" select="$partnum"/>
-        </xsl:apply-templates>
-      </p>
-    </div>
-    </div>
+    <section class="description">
+      <div class="innertube">
+        <xsl:call-template name="h3_title_link">
+          <xsl:with-param name="title">Description</xsl:with-param>
+        </xsl:call-template>
+        <div class="REFBODY description-body">
+          <p>
+            <xsl:apply-templates>
+              <xsl:with-param name="partnum" select="$partnum"/>
+            </xsl:apply-templates>
+          </p>
+        </div>
+      </div>
+    </section>
   </xsl:template>
 
   <!-- Funcs -->
@@ -2303,18 +2307,18 @@
   <!-- Func -->
   <xsl:template match="func">
     <xsl:param name="partnum"/>
+    <article class="func">
+      <xsl:apply-templates select="name"/>
+      <xsl:apply-templates
+          select="name[string-length(@arity) > 0 and position()=last()]"
+          mode="types"/>
 
-    <xsl:apply-templates select="name"/>
-    <xsl:apply-templates
-        select="name[string-length(@arity) > 0 and position()=last()]"
-        mode="types"/>
-
-    <div class="exports-tube">
-    <xsl:apply-templates select="fsummary|type|desc">
-      <xsl:with-param name="partnum" select="$partnum"/>
-    </xsl:apply-templates>
-    </div>
-
+      <div class="exports-tube">
+        <xsl:apply-templates select="fsummary|type|desc">
+          <xsl:with-param name="partnum" select="$partnum"/>
+        </xsl:apply-templates>
+      </div>
+    </article>
   </xsl:template>
 
   <xsl:template match="name">
