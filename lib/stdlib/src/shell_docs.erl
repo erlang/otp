@@ -75,8 +75,8 @@
 -type chunk_element_attrs() :: [chunk_element_attr()].
 -type chunk_element_attr() :: {atom(),unicode:chardata()}.
 -type chunk_element_type() :: chunk_element_inline_type() | chunk_element_block_type().
--type chunk_element_inline_type() :: a | code | em | strong | i | b.
--type chunk_element_block_type() :: p | 'div' | br | pre | ul |
+-type chunk_element_inline_type() :: a | code | em | strong | i | b | br.
+-type chunk_element_block_type() :: p | 'div' | pre | ul |
                                     ol | li | dl | dt | dd |
                                     h1 | h2 | h3 | h4 | h5 | h6.
 
