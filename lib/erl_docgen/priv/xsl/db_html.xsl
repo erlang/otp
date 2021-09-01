@@ -2558,11 +2558,9 @@
   <xsl:template match="desc">
     <xsl:param name="partnum"/>
     <div class="REFBODY rb-7">
-      <p>
-        <xsl:apply-templates>
-          <xsl:with-param name="partnum" select="$partnum"/>
-        </xsl:apply-templates>
-      </p>
+      <xsl:apply-templates>
+        <xsl:with-param name="partnum" select="$partnum"/>
+      </xsl:apply-templates>
     </div>
   </xsl:template>
 
