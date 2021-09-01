@@ -102,7 +102,7 @@ and warnings in the non-transformed source.
 
 The convention is to place the non-transformed source for the functions
 that are transformed by YCF in the source file where they naturally
-belong. For example, the functions for the maps BIFs are placed in
+belong. For example, the functions for the map BIFs are placed in
 `erl_map.c` together with the other maps related functions. When
 building, YCF is invoked to generate the transformed versions of the
 functions into a header file that is included in the source file that
