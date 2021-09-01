@@ -1391,9 +1391,13 @@ void erts_qsort(void *base,
                 size_t nr_of_items,
                 size_t item_size,
                 erts_void_ptr_cmp_t compare);
-/* YCF generated functions for yielding of erts_qsort
-   See: $ERL_TOP/erts/emulator/internal_doc/AutomaticYieldingOfCCode.md 
+/* YCF generated functions for yielding of erts_qsort. This means that
+   the following three functions can be used when one needs a yieldable
+   sorting function. See
+   $ERL_TOP/erts/emulator/internal_doc/AutomaticYieldingOfCCode.md for
+   information about using YCF generated functions.
 
+   
    !!!!
    Note that the erts_qsort_swap that is used by erts_qsort does
    not have yielding enabled. If the array items are large erts_qsort
@@ -1404,15 +1408,16 @@ void erts_qsort(void *base,
 void erts_qsort_ycf_gen_destroy(void* ycf_my_trap_state);
 void  erts_qsort_ycf_gen_continue(long* ycf_number_of_reduction_param,
                                   void** ycf_trap_state,
-                                  void* ycf_extra_context);
+                                  void* ycf_extra_context /* Not used, can be NULL */);
 void erts_qsort_ycf_gen_yielding(long* ycf_nr_of_reductions_param,
                                  void** ycf_trap_state,
-                                 void* ycf_extra_context,
+                                 void* ycf_extra_context, /* Not used, can be NULL */
                                  void* (*ycf_yield_alloc_fun) (size_t,void*),
                                  void (*ycf_yield_free_fun) (void*,void*),
                                  void* ycf_yield_alloc_free_context,
-                                 size_t ycf_stack_alloc_size_or_max_size,
-                                 void* ycf_stack_alloc_data,void *base,
+                                 size_t ycf_stack_alloc_size_or_max_size,  /* Not used, can be 0 */
+                                 void* ycf_stack_alloc_data, /* Not used, can be NULL */
+                                 void *base,
                                  size_t nr_of_items,
                                  size_t item_size,
                                  erts_void_ptr_cmp_t compare);
