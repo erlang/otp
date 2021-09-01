@@ -2445,6 +2445,24 @@ foo\Kbar</code>
     </list>
 
     <p>However, escaping other non-alphanumeric characters does no harm.</p>
+	
+	<p>Character classes have ability to use union, intersection and subtraction.</p>
+	
+	<p>The union of the character class allows to match a character from one of 
+	  the specified ranges i.e. the expression  [a-f[A-F[0-9]]] matches a single 
+	  character which is either a small alphabet set (a-f), a big alphabet set 
+	  (A-F) or a digit (0-9).</p> 
+	  
+	<p>An intersection relation between ranges is defined using <c>&&</c>. The syntax 
+	  for it is <c>[class&&[intersect]]</c>. You can use the full character class syntax within 
+	  the intersected character classes. The expression [\\w&&[a-fA-F0-9\\s]] matches 
+	  a single hex-character.</p>
+    
+	<p>Character class subtraction makes it easy to match a character that is in a certain 
+	  list, but not in another list. E.g. [a-z-[aeiou]] matches an English consonant. 
+	  It is particularly handy when working with Unicode properties. E.g. [\\p{Thai}-[\\P{N}]] 
+	  matches any Thai numbers.</p>
+	  
   </section>
 
   <section>
