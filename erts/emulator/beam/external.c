@@ -2101,7 +2101,8 @@ BIF_RETTYPE binary_to_term_2(BIF_ALIST_2)
     return binary_to_term_int(BIF_P, BIF_ARG_1, &ctx);
 
 error:
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_P->fvalue = am_badopt;
+    BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
 }
 
 Eterm
