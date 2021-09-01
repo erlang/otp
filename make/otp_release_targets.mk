@@ -187,8 +187,11 @@ local_docs: local_copy_of_topdefs docs
 local_html: TOPDOCDIR=.
 local_html: local_copy_of_topdefs html
 
-local_copy_of_topdefs:
-	$(INSTALL) $(DOCGEN)/priv/css/otp_doc.css $(HTMLDIR)
+$(HTMLDIR)/otp_doc.css:
+	ln -s $(DOCGEN)/priv/css/otp_doc.css $(HTMLDIR)/otp_doc.css
+
+local_copy_of_topdefs: $(HTMLDIR)/otp_doc.css
+	cd $(ERL_TOP) && make mod2app
 	$(INSTALL) $(DOCGEN)/priv/images/erlang-logo.png $(HTMLDIR)
 	$(INSTALL) $(DOCGEN)/priv/images/erlang-logo.gif $(HTMLDIR)
 	$(INSTALL_DIR) $(HTMLDIR)/js/flipmenu
