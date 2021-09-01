@@ -264,9 +264,25 @@ format_erlang_error(binary_to_list, [Bin,Start,Stop], _) ->
     end;
 format_erlang_error(binary_to_term, [Bin], _) ->
     [must_be_binary(Bin, bad_ext_term)];
-format_erlang_error(binary_to_term, [Bin,Options], _) ->
+format_erlang_error(binary_to_term, [Bin,Options], Cause) ->
     Arg1 = must_be_binary(Bin),
-    [Arg1,maybe_option_list_error(Options, Arg1)];
+    Arg2 = case Cause of
+               badopt ->
+                   must_be_list(Options, bad_option);
+               _ ->
+                   []
+           end,
+    case {Arg1,Arg2} of
+        {[],[]} ->
+            case lists:member(safe, Options) of
+                true ->
+                    [bad_or_unsafe_ext_term];
+                false ->
+                    [bad_ext_term]
+            end;
+        {_,_} ->
+            [Arg1,Arg2]
+    end;
 format_erlang_error(bitstring_to_list, [_], _) ->
     [not_bitstring];
 format_erlang_error(bump_reductions, [Int], _) ->
@@ -1290,6 +1306,8 @@ expand_error(bad_encode_option) ->
     <<"not one of the atoms: latin1, utf8, or unicode">>;
 expand_error(bad_ext_term) ->
     <<"invalid external representation of a term">>;
+expand_error(bad_or_unsafe_ext_term) ->
+    <<"invalid or unsafe external representation of a term">>;
 expand_error(bad_isdst) ->
     <<"not 'true', 'false', or 'undefined'">>;
 expand_error(bad_localtime) ->
