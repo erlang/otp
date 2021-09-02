@@ -6459,7 +6459,7 @@ otp_12242(Config, Addr) when (tuple_size(Addr) =:= 4) ->
 			  ?P("close order received - close accepted socket"),
                           ok = gen_tcp:close(A)
                   end
-          end, [monitor]),
+          end, [link, monitor]),
     ?P("await listen port"),
     LPort = receive {Listener,port,P} -> P end,
     ?P("try connect to ~w", [LPort]),
@@ -6481,12 +6481,25 @@ otp_12242(Config, Addr) when (tuple_size(Addr) =:= 4) ->
     ok.
     
 
-otp_12242_2(C, Blob, Datasize) when is_port(C) ->
+otp_12242_2(C, Blob, Datasize) ->
     %% Fill the buffers
     ?P("sending ~p bytes", [Datasize]),
-    ok = gen_tcp:send(C, Blob),
-    ?P("sent ~p bytes", [Datasize]),
+    case gen_tcp:send(C, Blob) of
+        ok ->
+            ?P("sent ~p bytes", [Datasize]),
+            otp_12242_3(C, Blob, Datasize);
+        {error, {timeout, _RestData}} ->
+            %% We filled the buffers and timed out;
+            %% this is probably the socket backend - give up.
+            ok;
+        {error, timeout} ->
+            %% The same as the previous clause
+            ok
+    end,
+    _ = gen_tcp:close(C),
+    ok.
 
+otp_12242_3(C, Blob, Datasize) ->
     %% Try to ensure that the close call is in progress
     %% before the owner proceeds with sending
     CloserMRef = otp_12242_closer(C),
