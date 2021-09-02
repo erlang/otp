@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -561,20 +561,18 @@ parse_address(BinHostent, DefaultName) ->
 	    case BinHostent of
 		<<?UNIT_ERROR, Errstring/binary>> -> 
 		    {error, list_to_atom(listify(Errstring))};
-		<<?UNIT_IPV4, Naddr:32, T0/binary>> ->
+		<<Length, Naddr:32, T0/binary>>
+                  when Length =:= ?UNIT_IPV4 ->
 		    {T1, Addresses} = pick_addresses_v4(Naddr, T0),
 		    {Name, Names} =
 			expand_default_name(pick_names(T1), DefaultName),
-		    {ok, #hostent{h_addr_list = Addresses, h_addrtype = inet,
-				  h_aliases = Names, h_length = ?UNIT_IPV4, 
-				  h_name = Name}};
-		<<?UNIT_IPV6, Naddr:32, T0/binary>> ->
+                    return_hostent(Length, Addresses, Name, Names);
+		<<Length, Naddr:32, T0/binary>>
+                  when Length =:= ?UNIT_IPV6 ->
 		    {T1, Addresses} = pick_addresses_v6(Naddr, T0),
 		    {Name, Names} =
 			expand_default_name(pick_names(T1), DefaultName),
-		    {ok, #hostent{h_addr_list = Addresses, h_addrtype = inet6,
-				  h_aliases = Names, h_length = ?UNIT_IPV6, 
-				  h_name = Name}};
+                    return_hostent(Length, Addresses, Name, Names);
 		_Else ->
 		    {error, {internal_error, {malformed_response, BinHostent}}}
 	    end
@@ -583,6 +581,24 @@ parse_address(BinHostent, DefaultName) ->
 	    Reason;
 	Normal ->
 	    Normal
+    end.
+
+return_hostent(Length, Addresses, Name, Aliases) ->
+    case Addresses of
+        [] ->
+            {error, nxdomain};
+        [_|_] ->
+            Addrtype =
+                case Length of
+                    ?UNIT_IPV4 -> inet;
+                    ?UNIT_IPV6 -> inet6
+                end,
+            Hostent =
+                #hostent{
+                   h_length = Length,       h_addrtype = Addrtype,
+                   h_name = Name,           h_aliases = Aliases,
+                   h_addr_list = Addresses},
+            {ok, Hostent}
     end.
 
 expand_default_name([], DefaultName) when is_list(DefaultName) ->
