@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -70,6 +70,11 @@
 -define(CH,             megaco_test_command_handler).
 -define(TEST_VERBOSITY, debug).
 
+%% We have some strange reuseaddr issue (*some* times we eaddrinuse),
+%% so this is intended to "ensure" we get no conflict.
+-define(SERVER_PORT(C, I),
+        2944 + proplists:get_value(adjust_server_port, C) + (I-1)).
+
 
 %%----------------------------------------------------------------------
 %% Records
@@ -84,18 +89,51 @@ suite() ->
     [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
+    %% This is a temporary messure to ensure that we can 
+    %% test the socket backend without effecting *all*
+    %% applications on *all* machines.
+    %% This flag is set only for *one* host.
+    case ?TEST_INET_BACKENDS() of
+        true ->
+            [
+             {group, inet_backend_default},
+             {group, inet_backend_inet},
+             {group, inet_backend_socket}
+            ];
+        _ ->
+            [
+             {group, inet_backend_default}
+            ]
+    end.
+
+groups() -> 
+    [
+     {inet_backend_default,          [], inet_backend_default_cases()},
+     {inet_backend_inet,             [], inet_backend_inet_cases()},
+     {inet_backend_socket,           [], inet_backend_socket_cases()},
+
+     {all,                           [], all_cases()},
+     {start,                         [], start_cases()},
+     {sending,                       [], sending_cases()},
+     {error,                         [], error_cases()}
+    ].
+
+inet_backend_default_cases() ->
+    [{all, [], all_cases()}].
+
+inet_backend_inet_cases() ->
+    [{all, [], all_cases()}].
+
+inet_backend_socket_cases() ->
+    [{all, [], all_cases()}].
+
+all_cases() -> 
     [
      {group, start},
      {group, sending},
      {group, error}
     ].
 
-groups() -> 
-    [
-     {start,   [], start_cases()},
-     {sending, [], sending_cases()},
-     {error,   [], error_cases()}
-    ].
 
 start_cases() ->
     [
@@ -173,10 +211,41 @@ end_per_suite(Config0) when is_list(Config0) ->
 %% -----
 %%
 
+init_per_group(inet_backend_default = Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    [{adjust_server_port, 0},
+     {socket_create_opts, []} | Config];
+init_per_group(inet_backend_inet = Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            [{adjust_server_port, 100},
+             {socket_create_opts, [{inet_backend, inet}]} | Config]
+    end;
+init_per_group(inet_backend_socket = Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            [{adjust_server_port, 200},
+             {socket_create_opts, [{inet_backend, socket}]} | Config]
+    end;
 init_per_group(Group, Config) ->
     ?ANNOUNCE_GROUP_INIT(Group),
     Config.
 
+end_per_group(GroupName, Config) when (inet_backend_default =:= GroupName) orelse
+                                      (inet_backend_init    =:= GroupName) orelse
+                                      (inet_backend_socket  =:= GroupName) ->
+    ?SLEEP(?SECS(5)),
+    Config;
 end_per_group(_GroupName, Config) ->
     Config.
 
@@ -198,8 +267,9 @@ init_per_testcase(Case, Config) ->
 end_per_testcase(Case, Config) ->
 
     p("end_per_testcase -> entry with"
-      "~n   Config: ~p"
-      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+      "~n   Config:  ~p"
+      "~n   Nodes:   ~p",
+      [Config, erlang:nodes()]),
 
     p("system events during test: "
       "~n   ~p", [megaco_test_global_sys_monitor:events()]),
@@ -219,7 +289,7 @@ start_normal(Config) when is_list(Config) ->
     put(sname, "start_normal"),
     p("BEGIN TEST-CASE"), 
     Options = [{port, 20000}, {receive_handle, apa}],
-    {ok, Pid} = start_case(Options, ok),
+    {ok, Pid} = start_case(Config, Options, ok),
     megaco_tcp:stop_transport(Pid),
     p("done"),
     ok.
@@ -233,7 +303,7 @@ start_invalid_opt(Config) when is_list(Config) ->
     put(sname, "start_invalid_opt"),
     p("BEGIN TEST-CASE"), 
     Options = [{port, 20000}, {receivehandle, apa}],
-    ok = start_case(Options, error),
+    ok = start_case(Config, Options, error),
     p("done"),
     ok.
 
@@ -254,20 +324,28 @@ start_and_stop(Config) when is_list(Config) ->
 		  ok = ?START_NODES(Nodes),
 		  Nodes
 	  end,
-    Case = fun do_start_and_stop/1,
+    Case = fun(X) -> do_start_and_stop(Config, X) end,
+    %% Case = fun(X) -> do_start_and_stop(Config, X, 10) end,
     Post = fun(Nodes) ->
                    p("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(start_and_stop, Pre, Case, Post).
 
-do_start_and_stop([ServerNode, ClientNode]) ->
+
+%% do_start_and_stop(_Config, _Nodes, 0) ->
+%%     ok;
+%% do_start_and_stop(Config, Nodes, N) ->
+%%     do_start_and_stop(Config, Nodes),
+%%     do_start_and_stop(Config, Nodes, N-1).
+
+do_start_and_stop(Config, [ServerNode, ClientNode]) ->
     %% Create command sequences
     p("create command sequences"),
-    ServerPort = 2944, 
-    ServerCmds = start_and_stop_server_commands(ServerPort),
+    ServerPort = ?SERVER_PORT(Config, 1),  % 2944,
+    ServerCmds = start_and_stop_server_commands(Config, ServerPort),
     {ok, ServerHost} = inet:gethostname(),
-    ClientCmds = start_and_stop_client_commands(ServerPort, ServerHost),
+    ClientCmds = start_and_stop_client_commands(Config, ServerPort, ServerHost),
 
     %% Start the test procs used in the test-case, one for each node
     p("start command handlers"),
@@ -283,7 +361,7 @@ do_start_and_stop([ServerNode, ClientNode]) ->
     ok.
 
 
-start_and_stop_server_commands(Port) ->
+start_and_stop_server_commands(Config, Port) ->
     Opts = [{port, Port}], 
     Self = self(),
     [
@@ -302,7 +380,7 @@ start_and_stop_server_commands(Port) ->
      #{id   => 3,
        desc => "Listen",
        cmd  => fun(State) -> 
-		      server_listen(State, Opts) 
+                       server_listen(Config, State, Opts) 
 	      end},
 
      #{id   => 4,
@@ -326,7 +404,7 @@ start_and_stop_server_commands(Port) ->
     ].
 
 
-start_and_stop_client_commands(ServerPort, ServerHost) ->
+start_and_stop_client_commands(Config, ServerPort, ServerHost) ->
     Opts = [{port, ServerPort}, {host, ServerHost}], 
     Self = self(),
     [
@@ -351,7 +429,7 @@ start_and_stop_client_commands(ServerPort, ServerHost) ->
      #{id   => 4,
        desc => "Connect",
        cmd  => fun(State) -> 
-		      client_connect(State, Opts) 
+		      client_connect(Config, State, Opts) 
 	      end},
 
      #{id   => 5,
@@ -389,20 +467,20 @@ sendreceive(Config) when is_list(Config) ->
 		  ok = ?START_NODES(Nodes),
 		  Nodes
 	  end,
-    Case = fun do_sendreceive/1,
+    Case = fun(X) -> do_sendreceive(Config, X) end,
     Post = fun(Nodes) ->
                    p("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(sendreceive, Pre, Case, Post).
 
-do_sendreceive([ServerNode, ClientNode]) ->
+do_sendreceive(Config, [ServerNode, ClientNode]) ->
     %% Create command sequences
     p("create command sequences"),
-    ServerPort = 2944, 
-    ServerCmds = sendreceive_server_commands(ServerPort),
+    ServerPort = ?SERVER_PORT(Config, 2), % 2944,
+    ServerCmds = sendreceive_server_commands(Config, ServerPort),
     {ok, ServerHost} = inet:gethostname(),
-    ClientCmds = sendreceive_client_commands(ServerPort, ServerHost),
+    ClientCmds = sendreceive_client_commands(Config, ServerPort, ServerHost),
 
     %% Start the test procs used in the test-case, one for each node
     p("start command handlers"),
@@ -418,7 +496,7 @@ do_sendreceive([ServerNode, ClientNode]) ->
     ok.
 
 
-sendreceive_server_commands(Port) ->
+sendreceive_server_commands(Config, Port) ->
     Opts = [{port, Port}], 
     Self = self(),
     [
@@ -437,7 +515,7 @@ sendreceive_server_commands(Port) ->
      #{id   => 3,
        desc => "Listen",
        cmd  => fun(State) -> 
-		       server_listen(State, Opts) 
+		       server_listen(Config, State, Opts) 
 	       end},
 
      #{id   => 4,
@@ -502,7 +580,7 @@ sendreceive_server_commands(Port) ->
 
     ].
 
-sendreceive_client_commands(ServerPort, ServerHost) ->
+sendreceive_client_commands(Config, ServerPort, ServerHost) ->
     Opts = [{port, ServerPort}, {host, ServerHost}], 
     Self = self(),
     [
@@ -527,7 +605,7 @@ sendreceive_client_commands(ServerPort, ServerHost) ->
      #{id   => 4,
        desc => "Connect",
        cmd  => fun(State) -> 
-		       client_connect(State, Opts) 
+		       client_connect(Config, State, Opts) 
 	       end},
 
      #{id   => 5,
@@ -594,20 +672,20 @@ block_unblock(Config) when is_list(Config) ->
 		  ok = ?START_NODES(Nodes),
 		  Nodes
 	  end,
-    Case = fun do_block_unblock/1,
+    Case = fun(X) -> do_block_unblock(Config, X) end,
     Post = fun(Nodes) ->
                    p("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(block_unblock, Pre, Case, Post).
 
-do_block_unblock([ServerNode, ClientNode]) ->
+do_block_unblock(Config, [ServerNode, ClientNode]) ->
     %% Create command sequences
     p("create command sequences"),
-    ServerPort = 2944, 
-    ServerCmds = block_unblock_server_commands(ServerPort),
+    ServerPort = ?SERVER_PORT(Config, 3), % 2944, 
+    ServerCmds = block_unblock_server_commands(Config, ServerPort),
     {ok, ServerHost} = inet:gethostname(),
-    ClientCmds = block_unblock_client_commands(ServerPort, ServerHost),
+    ClientCmds = block_unblock_client_commands(Config, ServerPort, ServerHost),
 
     %% Start the test procs used in the test-case, one for each node
     p("start command handlers"),
@@ -625,8 +703,8 @@ do_block_unblock([ServerNode, ClientNode]) ->
     ok.
 
 
-block_unblock_server_commands(Port) ->
-    Opts = [{port, Port}], 
+block_unblock_server_commands(Config, Port) ->
+    Opts = [{port, Port}],
     Self = self(),
     [
      #{id   => 1,
@@ -644,7 +722,7 @@ block_unblock_server_commands(Port) ->
      #{id   => 3,
        desc => "Listen",
        cmd  => fun(State) -> 
-		       server_listen(State, Opts) 
+		       server_listen(Config, State, Opts) 
 	       end},
 
      #{id   => 4,
@@ -671,11 +749,11 @@ block_unblock_server_commands(Port) ->
 		       server_await_continue_signal(State, 5000) 
 	       end},
 
-     #{id   => 9,
-       desc => "Await nothing before sending a message (hejsan)",
-       cmd  => fun(State) -> 
-		       server_await_nothing(State, 1000) 
-	       end},
+     %% #{id   => 9,
+     %%   desc => "Await nothing before sending a message (hejsan)",
+     %%   cmd  => fun(State) -> 
+     %%    	       server_await_nothing(State, 1000) 
+     %%           end},
 
      #{id   => 10,
        desc => "Send message (hejsan)",
@@ -715,7 +793,7 @@ block_unblock_server_commands(Port) ->
 
     ].
 
-block_unblock_client_commands(ServerPort, ServerHost) ->
+block_unblock_client_commands(Config, ServerPort, ServerHost) ->
     Opts = [{port, ServerPort}, {host, ServerHost}], 
     Self = self(),
     [
@@ -740,7 +818,7 @@ block_unblock_client_commands(ServerPort, ServerHost) ->
      #{id   => 4,
        desc => "Connect",
        cmd  => fun(State) -> 
-		       client_connect(State, Opts) 
+		       client_connect(Config, State, Opts) 
 	       end},
 
      #{id   => 5,
@@ -788,7 +866,7 @@ block_unblock_client_commands(ServerPort, ServerHost) ->
      #{id   => 12,
        desc => "Await message (hejsan)",
        cmd  => fun(State) -> 
-		       client_await_message(State, "hejsan", 100) 
+		       client_await_message(State, "hejsan", 500) 
 	       end},
 
      #{id   => 13,
@@ -895,33 +973,37 @@ tcp_server(Config) when is_list(Config) ->
 %% Test functions
 %%======================================================================
 
-start_case(Options, Expect) ->
+start_case(Config, Options, Expect) ->
     p("start transport"),
     case (catch megaco_tcp:start_transport()) of
 	{ok, Pid} ->
 	    p("create listen socket"),
-	    case (catch megaco_tcp:listen(Pid, Options)) of
+	    case (catch ?LISTEN(Config, Pid, Options)) of
 		ok when Expect =:= ok ->
 		    p("extected listen result [ok]"),
 		    {ok, Pid};
 		ok ->
-		    p("unextected listen result [ok] - stop transport"),
+		    p("unexpected listen result [ok] - stop transport"),
 		    megaco_tcp:stop_transport(Pid),
 		    ?ERROR(unexpected_start_sucesss);
-		{error, _Reason} when Expect =:= error ->
-		    p("extected listen result [error] - stop transport"),
+		{error, Reason} when Expect =:= error ->
+		    p("expected listen result [error] - stop transport: "
+                      "~n      Reason: ~p", [Reason]),
 		    megaco_tcp:stop_transport(Pid),
 		    ok;
 		{error, Reason} ->
-		    p("unextected listen result [error] - stop transport"),
+		    p("unexpected listen result [error] - stop transport: "
+                      "~n      Reason: ~p", [Reason]),
 		    megaco_tcp:stop_transport(Pid),
 		    ?ERROR({unexpected_start_failure, Reason});
 		Error ->
-		    p("unextected listen result"),
+		    p("unexpected listen result: "
+                      "~n      Error: ~p", [Error]),
+		    megaco_tcp:stop_transport(Pid),
 		    ?ERROR({unexpected_result, Error})
 	    end;
 	{error, Reason} ->
-	    p("unextected start_transport result"),
+	    p("unexpected start_transport result"),
 	    ?ERROR({failed_starting_transport, Reason})
     end.
 
@@ -1019,10 +1101,11 @@ server_start_transport(State) when is_map(State) ->
 	    Error
     end.
 
-server_listen(#{transport_ref := Ref} = State, Options) 
+server_listen(Config, #{transport_ref := Ref} = State, Options) 
   when is_list(Options) ->
+    ?SLEEP(1000),
     Opts = [{receive_handle, self()}, {module, ?MODULE} | Options], 
-    case (catch megaco_tcp:listen(Ref, Opts)) of
+    case (catch ?LISTEN(Config, Ref, Opts)) of
 	ok ->
 	    {ok, State};
 	Error ->
@@ -1110,10 +1193,10 @@ client_start_transport(State) when is_map(State) ->
 	    Error
     end.
 
-client_connect(#{transport_ref := Ref} = State, Options) 
+client_connect(Config, #{transport_ref := Ref} = State, Options) 
   when is_list(Options) ->
     Opts = [{receive_handle, self()}, {module, ?MODULE} | Options], 
-    case (catch megaco_tcp:connect(Ref, Opts)) of
+    case (catch ?CONNECT(Config, Ref, Opts)) of
 	{ok, Handle, ControlPid} ->
 	    {ok, State#{control_pid => ControlPid, 
 			handle      => Handle}};

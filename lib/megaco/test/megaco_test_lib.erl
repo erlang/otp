@@ -60,7 +60,13 @@
          start_node/3,  start_node/4,
 
          stop_nodes/3,
-         stop_node/3
+         stop_node/3,
+
+         is_socket_backend/1,
+         inet_backend_opts/1,
+         explicit_inet_backend/0, test_inet_backends/0,
+         open/3,
+         listen/3, connect/3
 
         ]).
 -export([init_per_suite/1,    end_per_suite/1,
@@ -474,6 +480,17 @@ pprint(F, A) ->
 %% Test server callbacks
 
 init_per_suite(Config) ->
+
+    p("megaco environment: "
+      "~n   (megaco) app:  ~p"
+      "~n   (all)    init: ~p"
+      "~n   (megaco) init: ~p",
+      [application:get_all_env(megaco),
+       init:get_arguments(),
+       case init:get_argument(megaco) of
+           {ok, Args} -> Args;
+           error -> undefined
+       end]),
 
     ct:timetrap(minutes(3)),
 
@@ -2208,4 +2225,77 @@ p(F, A) ->
 
 print(Pre, F, A) ->
     io:format("*** [~s] [~s] ~p " ++ F ++ "~n", [?FTS(), Pre, self() | A]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+explicit_inet_backend() ->
+    %% This is intentional!
+    %% This is a kernel flag, which if set disables
+    %% our own special handling of the inet_backend
+    %% in our test suites.
+    case application:get_all_env(kernel) of
+        Env when is_list(Env) ->
+            case lists:keysearch(inet_backend, 1, Env) of
+                {value, {inet_backend, _}} ->
+                    true;
+                _ ->
+                    false
+            end;
+        _ ->
+            false
+    end.
+
+test_inet_backends() ->
+    case init:get_argument(megaco) of
+        {ok, SnmpArgs} when is_list(SnmpArgs) ->
+            test_inet_backends(SnmpArgs, atom_to_list(?FUNCTION_NAME));
+        error ->
+            false
+    end.
+
+test_inet_backends([], _) ->
+    false;
+test_inet_backends([[Key, Val] | _], Key) ->
+    case list_to_atom(string:to_lower(Val)) of
+        Bool when is_boolean(Bool) ->
+            Bool;
+        _ ->
+            false
+    end;
+test_inet_backends([_|Args], Key) ->
+    test_inet_backends(Args, Key).
+
+
+inet_backend_opts(Config) when is_list(Config) ->
+    case lists:keysearch(socket_create_opts, 1, Config) of
+        {value, {socket_create_opts, InetBackendOpts}} ->
+            InetBackendOpts;
+        false ->
+            []
+    end.
+
+is_socket_backend(Config) when is_list(Config) ->
+    case lists:keysearch(socket_create_opts, 1, Config) of
+        {value, {socket_create_opts, [{inet_backend, socket}]}} ->
+            true;
+        _ ->
+            false
+    end.
+
+
+open(Config, Pid, Opts)
+  when is_list(Config) andalso is_pid(Pid) andalso is_list(Opts) ->
+    InetBackendOpts = inet_backend_opts(Config),
+    megaco_udp:open(Pid, InetBackendOpts ++ Opts).
+
+listen(Config, Pid, Opts)
+  when is_list(Config) andalso is_pid(Pid) andalso is_list(Opts) ->
+    InetBackendOpts = inet_backend_opts(Config),
+    megaco_tcp:listen(Pid, InetBackendOpts ++ Opts).
+
+connect(Config, Ref, Opts)
+  when is_list(Config) andalso is_list(Opts) ->
+    InetBackendOpts = inet_backend_opts(Config),
+    megaco_tcp:connect(Ref, InetBackendOpts ++ Opts).
 
