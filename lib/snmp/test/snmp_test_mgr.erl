@@ -262,7 +262,7 @@ init({Options, CallerPid}) ->
 			   Addr;
 		       {value, Host} when is_list(Host) ->
                            ?IPRINT("init -> Host: ~p", [Host]),
-			   {ok, Ip} = snmp_misc:ip(Host, IpFamily),
+			   {ok, Ip} = ?LIB:which_host_ip(Host, IpFamily),
 			   Ip
 		   end,
 	    ?IPRINT("init -> AgIp: ~p", [AgIp]),

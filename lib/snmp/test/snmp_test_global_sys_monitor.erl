@@ -240,13 +240,13 @@ call(Req, Timeout1, Timeout2) ->
                     NamePid when is_pid(NamePid) ->
                         receive
                             {?MODULE, Ref, Rep} ->
-                                Rep
+                                exit(Rep)
                         after Timeout2 ->
-                                {error, timeout}
+                                exit({error, timeout})
                         end
                 catch
                     C:E:_ ->
-                        {error, {catched, C, E}}
+                        exit({error, {catched, C, E}})
                 end
         end,
     {Pid, Mon} = spawn_monitor(F),

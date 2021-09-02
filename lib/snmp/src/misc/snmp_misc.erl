@@ -455,7 +455,7 @@ bits_to_int([],_Kibbles,Res) -> Res;
 bits_to_int([Kibble|Ks],Kibbles,Res) ->
     case snmp_misc:assq(Kibble,Kibbles) of
 	{value,V} ->
-	    bits_to_int(Ks,Kibbles,Res + round(math:pow(2,V)));
+	    bits_to_int(Ks, Kibbles, Res + round(math:pow(2,V)));
 	_ ->
 	    error
     end.

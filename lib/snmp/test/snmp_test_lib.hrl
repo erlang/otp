@@ -41,6 +41,9 @@
 -define(OSTYPE(),                 ?LIB:os_type()).
 -define(DISPLAY_SUITE_INFO(),     ?LIB:display_suite_info(?MODULE)).
 
+-define(EXPLICIT_INET_BACKEND(),  ?LIB:explicit_inet_backend()).
+-define(TEST_INET_BACKENDS(),     ?LIB:test_inet_backends()).
+
 
 %% - Test case macros - 
 
