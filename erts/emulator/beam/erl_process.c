@@ -10067,8 +10067,11 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 static void
 trace_schedule_in(Process *p, erts_aint32_t state)
 {
+    ErtsThrPrgrDelayHandle dhndl;
     ASSERT(IS_TRACED(p));
     ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(p) == ERTS_PROC_LOCK_MAIN);
+
+    dhndl = erts_thr_progress_unmanaged_delay();
 
     /* Clear tracer if it has been removed */
     if (erts_is_tracer_proc_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common)) {
@@ -10085,14 +10088,17 @@ trace_schedule_in(Process *p, erts_aint32_t state)
         if (IS_TRACED_FL(p, F_TRACE_CALLS))
             erts_schedule_time_break(p, ERTS_BP_CALL_TIME_SCHEDULE_IN);
     }
-
+    erts_thr_progress_unmanaged_continue(dhndl);
 }
 
 static void
 trace_schedule_out(Process *p, erts_aint32_t state)
 {
+    ErtsThrPrgrDelayHandle dhndl;
     ASSERT(IS_TRACED(p));
     ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(p) == ERTS_PROC_LOCK_MAIN);
+
+    dhndl = erts_thr_progress_unmanaged_delay();
     
     if (IS_TRACED_FL(p, F_TRACE_CALLS) && !(state & ERTS_PSFLG_FREE))
         erts_schedule_time_break(p, ERTS_BP_CALL_TIME_SCHEDULE_OUT);
@@ -10106,6 +10112,7 @@ trace_schedule_out(Process *p, erts_aint32_t state)
             ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED_PROCS))
             trace_sched(p, ERTS_PROC_LOCK_MAIN, am_out);
     }
+    erts_thr_progress_unmanaged_continue(dhndl);
 }
 
 static int
