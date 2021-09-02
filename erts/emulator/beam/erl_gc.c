@@ -456,17 +456,19 @@ erts_gc_after_bif_call(Process* p, Eterm result, Eterm* regs, Uint arity)
                                       result, regs, arity);
 }
 
-static ERTS_INLINE void reset_active_writer(Process *p)
+static ERTS_INLINE void assert_no_active_writers(Process *p)
 {
+#ifdef DEBUG
     struct erl_off_heap_header* ptr;
     ptr = MSO(p).first;
     while (ptr) {
 	if (ptr->thing_word == HEADER_PROC_BIN) {	
 	    ProcBin *pbp = (ProcBin*) ptr;
-	    pbp->flags &= ~PB_ACTIVE_WRITER;
+	    ERTS_ASSERT(!(pbp->flags & PB_ACTIVE_WRITER));
 	}
 	ptr = ptr->next;
     }
+#endif
 }
 
 #define ERTS_DELAY_GC_EXTRA_FREE 40
@@ -771,7 +773,7 @@ do_major_collection:
         ERTS_MSACC_SET_STATE_CACHED_X(ERTS_MSACC_STATE_GC);
     }
 
-    reset_active_writer(p);
+    assert_no_active_writers(p);
 
     /*
      * Finish.
@@ -2809,13 +2811,10 @@ link_live_proc_bin(struct shrink_cand_data *shrink,
 
     *currpp = pbp->next;
     if (pbp->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE)) {
-	ASSERT(((pbp->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE))
-		== (PB_ACTIVE_WRITER|PB_IS_WRITABLE))
-	       || ((pbp->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE))
-		   == PB_IS_WRITABLE));
-
+	ASSERT(pbp->flags & PB_IS_WRITABLE);
 
 	if (pbp->flags & PB_ACTIVE_WRITER) {
+            pbp->flags &= ~PB_ACTIVE_WRITER;
 	    shrink->no_of_active++;
 	}
 	else { /* inactive */
