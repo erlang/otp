@@ -1,1 +1,1 @@
-KERNEL_VSN = 7.3.1.2
+KERNEL_VSN = 7.3.1.3
