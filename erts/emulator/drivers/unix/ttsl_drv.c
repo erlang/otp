@@ -1105,7 +1105,7 @@ static int insert_buf(byte *s, int n)
                 if (ch == '\n')
                     outc('\n');
 	    if (llen > lpos) {
-		memcpy(lbuf, lbuf + lpos, llen - lpos);
+		memmove(lbuf, lbuf + lpos, llen - lpos);
 	    }
 	    llen -= lpos;
 	    lpos = buffpos = 0;
