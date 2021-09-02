@@ -1467,6 +1467,22 @@ test_terms(Test_Func) ->
     Test_Func(FF = fun binary_SUITE:all/0),
     Test_Func(lists:duplicate(32, FF)),
 
+    %% Maps.
+    SmallMap = #{a => 1, b => 2, c => 3},
+    LargeMap1 = maps:from_list([{list_to_atom(integer_to_list(36#cafe+N*N*N, 36)),N} ||
+                                   N <- lists:seq(1, 33)]),
+    LargeMap2 = maps:from_list([{list_to_atom(integer_to_list(36#dead+N, 36)),N} ||
+                                   N <- lists:seq(1, 50)]),
+    MapWithMap = LargeMap1#{SmallMap => a, LargeMap1 => LargeMap2, LargeMap2 => LargeMap1,
+                            [LargeMap1,LargeMap2] => LargeMap1,
+                            <<"abc">> => SmallMap, <<"qrs">> => LargeMap1,
+                            <<"xyz">> => LargeMap2 },
+    Test_Func(#{}),
+    Test_Func(SmallMap),
+    Test_Func(LargeMap1),
+    Test_Func(LargeMap2),
+    Test_Func(MapWithMap),
+
     ok.
 
 test_floats(Test_Func) ->
