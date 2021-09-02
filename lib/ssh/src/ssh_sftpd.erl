@@ -564,7 +564,10 @@ get_attrs(RelPath, [F | Rest], FileMod, FS0, Vsn, Acc) ->
 	     end,
 	    Attrs = ssh_sftp:info_to_attr(Info),
 	    get_attrs(RelPath, Rest, FileMod, FS1, Vsn, [{Name, Attrs} | Acc]);
-	{{error, enoent}, FS1} ->
+	{{error, Msg}, FS1} when 
+              Msg == enoent ;   % The item has disappeared after reading the list of items to check
+              Msg == eacces ->  % You are not allowed to read this
+            %% Skip this F and check the remaining Rest
 	    get_attrs(RelPath, Rest, FileMod, FS1, Vsn, Acc);
 	{Error, FS1} ->
 	    {Error, FS1}
