@@ -3116,7 +3116,7 @@ void wxImageList_new_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 // wxImageList::Add
-void wxImageList_Add_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImageList_Add_2_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;
@@ -3134,7 +3134,7 @@ void wxImageList_Add_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 // wxImageList::Add
-void wxImageList_Add_2_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImageList_Add_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;

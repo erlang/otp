@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ new() ->
 	Brush::wxBrush:wxBrush() | wxBitmap:wxBitmap().
 
 new(Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   new(Colour, []);
 new(#wx_ref{type=BrushT}=Brush) ->
   IswxBrush = ?CLASS_T(BrushT,wxBrush),
@@ -68,7 +68,7 @@ new(#wx_ref{type=BrushT}=Brush) ->
 	Colour::wx:wx_colour(),
 	Option :: {'style', wx:wx_enum()}.
 new(Colour, Options)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4,is_list(Options) ->
+ when ?is_colordata(Colour),is_list(Options) ->
   MOpts = fun({style, _style} = Arg) -> Arg;
           (BadOpt) -> erlang:error({badoption, BadOpt}) end,
   Opts = lists:map(MOpts, Options),
@@ -120,7 +120,7 @@ isOk(#wx_ref{type=ThisT}=This) ->
 -spec setColour(This, Colour) -> 'ok' when
 	This::wxBrush(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxBrush),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxBrush_SetColour_1).
 

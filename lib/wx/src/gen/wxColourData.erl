@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ setChooseFull(#wx_ref{type=ThisT}=This,Flag)
 -spec setColour(This, Colour) -> 'ok' when
 	This::wxColourData(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxColourData),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxColourData_SetColour).
 
@@ -82,7 +82,7 @@ setColour(#wx_ref{type=ThisT}=This,Colour)
 -spec setCustomColour(This, I, Colour) -> 'ok' when
 	This::wxColourData(), I::integer(), Colour::wx:wx_colour().
 setCustomColour(#wx_ref{type=ThisT}=This,I,Colour)
- when is_integer(I),tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when is_integer(I),?is_colordata(Colour) ->
   ?CLASS(ThisT,wxColourData),
   wxe_util:queue_cmd(This,I,wxe_util:color(Colour),?get_env(),?wxColourData_SetCustomColour).
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ setSelectedFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
 -spec setColour(This, Colour) -> 'ok' when
 	This::wxAuiTabArt(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxAuiTabArt),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxAuiTabArt_SetColour).
 
@@ -75,7 +75,7 @@ setColour(#wx_ref{type=ThisT}=This,Colour)
 -spec setActiveColour(This, Colour) -> 'ok' when
 	This::wxAuiTabArt(), Colour::wx:wx_colour().
 setActiveColour(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxAuiTabArt),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxAuiTabArt_SetActiveColour).
 

@@ -57,8 +57,8 @@
     <name name="add" arity="3" clause_i="1" since=""/>
   
     <name name="add" arity="3" clause_i="2" since=""/>
-    <fsummary>Adds a new image or images using a bitmap and optional mask bitmap. </fsummary>
-    <desc><p>Adds a new image or images using a bitmap and optional mask bitmap. 
+    <fsummary>Adds a new image or images using a bitmap and mask colour. </fsummary>
+    <desc><p>Adds a new image or images using a bitmap and mask colour. 
       </p><p>Return: The new zero-based image index.
       </p><p>Remark: The original bitmap or icon is not affected by the <seemfa marker="#add/3"><c>add/3</c></seemfa> operation, and can be deleted afterwards. If the bitmap is wider than the images in the list, then the bitmap will automatically be split into smaller images, each matching the dimensions of the image list. This does not apply when adding icons. 
       </p></desc>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -708,7 +708,7 @@ setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
 -spec setItemBackgroundColour(This, Item, Col) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer(), Col::wx:wx_colour().
 setItemBackgroundColour(#wx_ref{type=ThisT}=This,Item,Col)
- when is_integer(Item),tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
+ when is_integer(Item),?is_colordata(Col) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:queue_cmd(This,Item,wxe_util:color(Col),?get_env(),?wxTreeCtrl_SetItemBackgroundColour).
 
@@ -823,7 +823,7 @@ setItemText(#wx_ref{type=ThisT}=This,Item,Text)
 -spec setItemTextColour(This, Item, Col) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer(), Col::wx:wx_colour().
 setItemTextColour(#wx_ref{type=ThisT}=This,Item,Col)
- when is_integer(Item),tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
+ when is_integer(Item),?is_colordata(Col) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:queue_cmd(This,Item,wxe_util:color(Col),?get_env(),?wxTreeCtrl_SetItemTextColour).
 

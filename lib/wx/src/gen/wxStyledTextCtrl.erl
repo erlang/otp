@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -550,7 +550,7 @@ markerDefine(#wx_ref{type=ThisT}=This,MarkerNumber,MarkerSymbol, Options)
 -spec markerSetForeground(This, MarkerNumber, Fore) -> 'ok' when
 	This::wxStyledTextCtrl(), MarkerNumber::integer(), Fore::wx:wx_colour().
 markerSetForeground(#wx_ref{type=ThisT}=This,MarkerNumber,Fore)
- when is_integer(MarkerNumber),tuple_size(Fore) =:= 3; tuple_size(Fore) =:= 4 ->
+ when is_integer(MarkerNumber),?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,MarkerNumber,wxe_util:color(Fore),?get_env(),?wxStyledTextCtrl_MarkerSetForeground).
 
@@ -558,7 +558,7 @@ markerSetForeground(#wx_ref{type=ThisT}=This,MarkerNumber,Fore)
 -spec markerSetBackground(This, MarkerNumber, Back) -> 'ok' when
 	This::wxStyledTextCtrl(), MarkerNumber::integer(), Back::wx:wx_colour().
 markerSetBackground(#wx_ref{type=ThisT}=This,MarkerNumber,Back)
- when is_integer(MarkerNumber),tuple_size(Back) =:= 3; tuple_size(Back) =:= 4 ->
+ when is_integer(MarkerNumber),?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,MarkerNumber,wxe_util:color(Back),?get_env(),?wxStyledTextCtrl_MarkerSetBackground).
 
@@ -718,7 +718,7 @@ styleClearAll(#wx_ref{type=ThisT}=This) ->
 -spec styleSetForeground(This, Style, Fore) -> 'ok' when
 	This::wxStyledTextCtrl(), Style::integer(), Fore::wx:wx_colour().
 styleSetForeground(#wx_ref{type=ThisT}=This,Style,Fore)
- when is_integer(Style),tuple_size(Fore) =:= 3; tuple_size(Fore) =:= 4 ->
+ when is_integer(Style),?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,Style,wxe_util:color(Fore),?get_env(),?wxStyledTextCtrl_StyleSetForeground).
 
@@ -726,7 +726,7 @@ styleSetForeground(#wx_ref{type=ThisT}=This,Style,Fore)
 -spec styleSetBackground(This, Style, Back) -> 'ok' when
 	This::wxStyledTextCtrl(), Style::integer(), Back::wx:wx_colour().
 styleSetBackground(#wx_ref{type=ThisT}=This,Style,Back)
- when is_integer(Style),tuple_size(Back) =:= 3; tuple_size(Back) =:= 4 ->
+ when is_integer(Style),?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,Style,wxe_util:color(Back),?get_env(),?wxStyledTextCtrl_StyleSetBackground).
 
@@ -806,7 +806,7 @@ styleSetHotSpot(#wx_ref{type=ThisT}=This,Style,Hotspot)
 -spec setSelForeground(This, UseSetting, Fore) -> 'ok' when
 	This::wxStyledTextCtrl(), UseSetting::boolean(), Fore::wx:wx_colour().
 setSelForeground(#wx_ref{type=ThisT}=This,UseSetting,Fore)
- when is_boolean(UseSetting),tuple_size(Fore) =:= 3; tuple_size(Fore) =:= 4 ->
+ when is_boolean(UseSetting),?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,UseSetting,wxe_util:color(Fore),?get_env(),?wxStyledTextCtrl_SetSelForeground).
 
@@ -814,7 +814,7 @@ setSelForeground(#wx_ref{type=ThisT}=This,UseSetting,Fore)
 -spec setSelBackground(This, UseSetting, Back) -> 'ok' when
 	This::wxStyledTextCtrl(), UseSetting::boolean(), Back::wx:wx_colour().
 setSelBackground(#wx_ref{type=ThisT}=This,UseSetting,Back)
- when is_boolean(UseSetting),tuple_size(Back) =:= 3; tuple_size(Back) =:= 4 ->
+ when is_boolean(UseSetting),?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,UseSetting,wxe_util:color(Back),?get_env(),?wxStyledTextCtrl_SetSelBackground).
 
@@ -838,7 +838,7 @@ setSelAlpha(#wx_ref{type=ThisT}=This,Alpha)
 -spec setCaretForeground(This, Fore) -> 'ok' when
 	This::wxStyledTextCtrl(), Fore::wx:wx_colour().
 setCaretForeground(#wx_ref{type=ThisT}=This,Fore)
- when tuple_size(Fore) =:= 3; tuple_size(Fore) =:= 4 ->
+ when ?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,wxe_util:color(Fore),?get_env(),?wxStyledTextCtrl_SetCaretForeground).
 
@@ -942,7 +942,7 @@ indicatorGetStyle(#wx_ref{type=ThisT}=This,Indicator)
 -spec indicatorSetForeground(This, Indicator, Fore) -> 'ok' when
 	This::wxStyledTextCtrl(), Indicator::integer(), Fore::wx:wx_colour().
 indicatorSetForeground(#wx_ref{type=ThisT}=This,Indicator,Fore)
- when is_integer(Indicator),tuple_size(Fore) =:= 3; tuple_size(Fore) =:= 4 ->
+ when is_integer(Indicator),?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,Indicator,wxe_util:color(Fore),?get_env(),?wxStyledTextCtrl_IndicatorSetForeground).
 
@@ -959,7 +959,7 @@ indicatorGetForeground(#wx_ref{type=ThisT}=This,Indicator)
 -spec setWhitespaceForeground(This, UseSetting, Fore) -> 'ok' when
 	This::wxStyledTextCtrl(), UseSetting::boolean(), Fore::wx:wx_colour().
 setWhitespaceForeground(#wx_ref{type=ThisT}=This,UseSetting,Fore)
- when is_boolean(UseSetting),tuple_size(Fore) =:= 3; tuple_size(Fore) =:= 4 ->
+ when is_boolean(UseSetting),?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,UseSetting,wxe_util:color(Fore),?get_env(),?wxStyledTextCtrl_SetWhitespaceForeground).
 
@@ -967,7 +967,7 @@ setWhitespaceForeground(#wx_ref{type=ThisT}=This,UseSetting,Fore)
 -spec setWhitespaceBackground(This, UseSetting, Back) -> 'ok' when
 	This::wxStyledTextCtrl(), UseSetting::boolean(), Back::wx:wx_colour().
 setWhitespaceBackground(#wx_ref{type=ThisT}=This,UseSetting,Back)
- when is_boolean(UseSetting),tuple_size(Back) =:= 3; tuple_size(Back) =:= 4 ->
+ when is_boolean(UseSetting),?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,UseSetting,wxe_util:color(Back),?get_env(),?wxStyledTextCtrl_SetWhitespaceBackground).
 
@@ -1032,7 +1032,7 @@ getCaretLineBackground(#wx_ref{type=ThisT}=This) ->
 -spec setCaretLineBackground(This, Back) -> 'ok' when
 	This::wxStyledTextCtrl(), Back::wx:wx_colour().
 setCaretLineBackground(#wx_ref{type=ThisT}=This,Back)
- when tuple_size(Back) =:= 3; tuple_size(Back) =:= 4 ->
+ when ?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,wxe_util:color(Back),?get_env(),?wxStyledTextCtrl_SetCaretLineBackground).
 
@@ -1891,7 +1891,7 @@ callTipSetHighlight(#wx_ref{type=ThisT}=This,HighlightStart,HighlightEnd)
 -spec callTipSetBackground(This, Back) -> 'ok' when
 	This::wxStyledTextCtrl(), Back::wx:wx_colour().
 callTipSetBackground(#wx_ref{type=ThisT}=This,Back)
- when tuple_size(Back) =:= 3; tuple_size(Back) =:= 4 ->
+ when ?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,wxe_util:color(Back),?get_env(),?wxStyledTextCtrl_CallTipSetBackground).
 
@@ -1899,7 +1899,7 @@ callTipSetBackground(#wx_ref{type=ThisT}=This,Back)
 -spec callTipSetForeground(This, Fore) -> 'ok' when
 	This::wxStyledTextCtrl(), Fore::wx:wx_colour().
 callTipSetForeground(#wx_ref{type=ThisT}=This,Fore)
- when tuple_size(Fore) =:= 3; tuple_size(Fore) =:= 4 ->
+ when ?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,wxe_util:color(Fore),?get_env(),?wxStyledTextCtrl_CallTipSetForeground).
 
@@ -1907,7 +1907,7 @@ callTipSetForeground(#wx_ref{type=ThisT}=This,Fore)
 -spec callTipSetForegroundHighlight(This, Fore) -> 'ok' when
 	This::wxStyledTextCtrl(), Fore::wx:wx_colour().
 callTipSetForegroundHighlight(#wx_ref{type=ThisT}=This,Fore)
- when tuple_size(Fore) =:= 3; tuple_size(Fore) =:= 4 ->
+ when ?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,wxe_util:color(Fore),?get_env(),?wxStyledTextCtrl_CallTipSetForegroundHighlight).
 
@@ -2311,7 +2311,7 @@ linesSplit(#wx_ref{type=ThisT}=This,PixelWidth)
 -spec setFoldMarginColour(This, UseSetting, Back) -> 'ok' when
 	This::wxStyledTextCtrl(), UseSetting::boolean(), Back::wx:wx_colour().
 setFoldMarginColour(#wx_ref{type=ThisT}=This,UseSetting,Back)
- when is_boolean(UseSetting),tuple_size(Back) =:= 3; tuple_size(Back) =:= 4 ->
+ when is_boolean(UseSetting),?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,UseSetting,wxe_util:color(Back),?get_env(),?wxStyledTextCtrl_SetFoldMarginColour).
 
@@ -2319,7 +2319,7 @@ setFoldMarginColour(#wx_ref{type=ThisT}=This,UseSetting,Back)
 -spec setFoldMarginHiColour(This, UseSetting, Fore) -> 'ok' when
 	This::wxStyledTextCtrl(), UseSetting::boolean(), Fore::wx:wx_colour().
 setFoldMarginHiColour(#wx_ref{type=ThisT}=This,UseSetting,Fore)
- when is_boolean(UseSetting),tuple_size(Fore) =:= 3; tuple_size(Fore) =:= 4 ->
+ when is_boolean(UseSetting),?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,UseSetting,wxe_util:color(Fore),?get_env(),?wxStyledTextCtrl_SetFoldMarginHiColour).
 
@@ -2824,7 +2824,7 @@ getEdgeColour(#wx_ref{type=ThisT}=This) ->
 -spec setEdgeColour(This, EdgeColour) -> 'ok' when
 	This::wxStyledTextCtrl(), EdgeColour::wx:wx_colour().
 setEdgeColour(#wx_ref{type=ThisT}=This,EdgeColour)
- when tuple_size(EdgeColour) =:= 3; tuple_size(EdgeColour) =:= 4 ->
+ when ?is_colordata(EdgeColour) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,wxe_util:color(EdgeColour),?get_env(),?wxStyledTextCtrl_SetEdgeColour).
 
@@ -3076,7 +3076,7 @@ getPrintWrapMode(#wx_ref{type=ThisT}=This) ->
 -spec setHotspotActiveForeground(This, UseSetting, Fore) -> 'ok' when
 	This::wxStyledTextCtrl(), UseSetting::boolean(), Fore::wx:wx_colour().
 setHotspotActiveForeground(#wx_ref{type=ThisT}=This,UseSetting,Fore)
- when is_boolean(UseSetting),tuple_size(Fore) =:= 3; tuple_size(Fore) =:= 4 ->
+ when is_boolean(UseSetting),?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,UseSetting,wxe_util:color(Fore),?get_env(),?wxStyledTextCtrl_SetHotspotActiveForeground).
 
@@ -3084,7 +3084,7 @@ setHotspotActiveForeground(#wx_ref{type=ThisT}=This,UseSetting,Fore)
 -spec setHotspotActiveBackground(This, UseSetting, Back) -> 'ok' when
 	This::wxStyledTextCtrl(), UseSetting::boolean(), Back::wx:wx_colour().
 setHotspotActiveBackground(#wx_ref{type=ThisT}=This,UseSetting,Back)
- when is_boolean(UseSetting),tuple_size(Back) =:= 3; tuple_size(Back) =:= 4 ->
+ when is_boolean(UseSetting),?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,UseSetting,wxe_util:color(Back),?get_env(),?wxStyledTextCtrl_SetHotspotActiveBackground).
 

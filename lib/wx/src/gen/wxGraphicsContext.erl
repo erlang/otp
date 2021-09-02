@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ createRadialGradientBrush(#wx_ref{type=ThisT}=This,StartX,StartY,EndX,EndY,Radiu
 -spec createRadialGradientBrush(This, StartX, StartY, EndX, EndY, Radius, OColor, CColor) -> wxGraphicsBrush:wxGraphicsBrush() when
 	This::wxGraphicsContext(), StartX::number(), StartY::number(), EndX::number(), EndY::number(), Radius::number(), OColor::wx:wx_colour(), CColor::wx:wx_colour().
 createRadialGradientBrush(#wx_ref{type=ThisT}=This,StartX,StartY,EndX,EndY,Radius,OColor,CColor)
- when is_number(StartX),is_number(StartY),is_number(EndX),is_number(EndY),is_number(Radius),tuple_size(OColor) =:= 3; tuple_size(OColor) =:= 4,tuple_size(CColor) =:= 3; tuple_size(CColor) =:= 4 ->
+ when is_number(StartX),is_number(StartY),is_number(EndX),is_number(EndY),is_number(Radius),?is_colordata(OColor),?is_colordata(CColor) ->
   ?CLASS(ThisT,wxGraphicsContext),
   wxe_util:queue_cmd(This,StartX,StartY,EndX,EndY,Radius,wxe_util:color(OColor),wxe_util:color(CColor),?get_env(),?wxGraphicsContext_CreateRadialGradientBrush_7),
   wxe_util:rec(?wxGraphicsContext_CreateRadialGradientBrush_7).
@@ -114,7 +114,7 @@ createLinearGradientBrush(#wx_ref{type=ThisT}=This,X1,Y1,X2,Y2,#wx_ref{type=Stop
 -spec createLinearGradientBrush(This, X1, Y1, X2, Y2, C1, C2) -> wxGraphicsBrush:wxGraphicsBrush() when
 	This::wxGraphicsContext(), X1::number(), Y1::number(), X2::number(), Y2::number(), C1::wx:wx_colour(), C2::wx:wx_colour().
 createLinearGradientBrush(#wx_ref{type=ThisT}=This,X1,Y1,X2,Y2,C1,C2)
- when is_number(X1),is_number(Y1),is_number(X2),is_number(Y2),tuple_size(C1) =:= 3; tuple_size(C1) =:= 4,tuple_size(C2) =:= 3; tuple_size(C2) =:= 4 ->
+ when is_number(X1),is_number(Y1),is_number(X2),is_number(Y2),?is_colordata(C1),?is_colordata(C2) ->
   ?CLASS(ThisT,wxGraphicsContext),
   wxe_util:queue_cmd(This,X1,Y1,X2,Y2,wxe_util:color(C1),wxe_util:color(C2),?get_env(),?wxGraphicsContext_CreateLinearGradientBrush_6),
   wxe_util:rec(?wxGraphicsContext_CreateLinearGradientBrush_6).
@@ -480,7 +480,7 @@ setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
 -spec setFont(This, Font, Colour) -> 'ok' when
 	This::wxGraphicsContext(), Font::wxFont:wxFont(), Colour::wx:wx_colour().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGraphicsContext),
   ?CLASS(FontT,wxFont),
   wxe_util:queue_cmd(This,Font,wxe_util:color(Colour),?get_env(),?wxGraphicsContext_SetFont_2).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ getMetric(#wx_ref{type=ThisT}=This,Id)
 -spec setColour(This, Id, Colour) -> 'ok' when
 	This::wxAuiDockArt(), Id::integer(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT}=This,Id,Colour)
- when is_integer(Id),tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when is_integer(Id),?is_colordata(Colour) ->
   ?CLASS(ThisT,wxAuiDockArt),
   wxe_util:queue_cmd(This,Id,wxe_util:color(Colour),?get_env(),?wxAuiDockArt_SetColour).
 
