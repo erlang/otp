@@ -5013,7 +5013,7 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
 		"\r\n   eopts:   %T"
 		"\r\n", argv[0], argv[1], argv[2], eopts) );
 
-	if (! esock_decode_domain(env, edomain, &domain)) {
+	if (esock_decode_domain(env, edomain, &domain) == 0) {
 	    SGDBG( ("SOCKET",
 		    "nif_open -> invalid domain: %d\r\n", edomain) );
 	    return esock_make_invalid(env, esock_atom_domain);
@@ -5229,7 +5229,7 @@ BOOLEAN_T esock_open2_get_domain(ErlNifEnv* env,
 		     esock_atom_domain, &edomain))
       return FALSE;
 
-    if (! esock_decode_domain(env, edomain, domain))
+    if (esock_decode_domain(env, edomain, domain) == 0)
       return FALSE;
 
     return TRUE;
@@ -10032,7 +10032,7 @@ ERL_NIF_TERM esock_setopt_addrform(ErlNifEnv*       env,
             "\r\n   eVal: %T"
             "\r\n", eVal) );
 
-    if (! esock_decode_domain(env, eVal, &domain))
+    if (esock_decode_domain(env, eVal, &domain) == 0)
         return esock_make_invalid(env, atom_value);
 
     SSDBG( descP, ("SOCKET",

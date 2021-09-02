@@ -71,6 +71,8 @@
          %% *** API Misc ***
          api_m_info/1,
          api_m_debug/1,
+         api_m_error_open/1,
+         api_m_error_bind/1,
 
          %% *** API Basic ***
          api_b_open_and_info_udp4/1,
@@ -849,7 +851,9 @@ api_cases() ->
 api_misc_cases() ->
     [
      api_m_info,
-     api_m_debug
+     api_m_debug,
+     api_m_error_open,
+     api_m_error_bind
     ].
 
 api_basic_cases() ->
@@ -2239,6 +2243,101 @@ api_m_debug() ->
     i("ok"),
     ok.
     
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Some tests for API misuses
+
+-define(
+   EXCEPTION(Code),
+   exception(fun () -> begin Code end end)).
+
+exception(Fun) ->
+    try Fun() of
+        Result ->
+            error({unexpected_return, Result})
+    catch
+        Class : Reason ->
+            {Class, Reason}
+    end.
+
+
+api_m_error_open(Config) when is_list(Config) ->
+    %%
+    %% open/1
+    {error, badarg} =
+        ?EXCEPTION(
+           socket:open(should_be_fd) ),
+    %%
+    %% open/2
+    {error, badarg} =
+        ?EXCEPTION(
+           socket:open(should_be_fd, #{}) ),
+    %%
+    %% A non-atom, non-integer protocol causes an exception
+    %% in prim_socket, whilst a non-atom, non-integer type
+    %% or domain causes an error return tuple from the NIF
+    %% code.  This is a bit inconsistent.  Should we change
+    %% that, if so - how, and consolidate in tests?
+    %%
+    {error,{invalid,{domain,should_be_domain}}} =
+        socket:open(should_be_domain, dgram),
+    {error,{invalid,{type,should_be_type}}} =
+        socket:open(inet, should_be_type),
+    %%
+    %% open/3
+    {error,{invalid,{domain,should_be_domain}}} =
+        socket:open(should_be_domain, dgram, #{}),
+    {error,{invalid,{type,should_be_type}}} =
+        socket:open(inet, should_be_type, #{}),
+    {error,{invalid,{protocol,should_be_protocol}}} =
+        socket:open(inet, dgram, should_be_protocol),
+    %%
+    %% open/4
+    {error,{invalid,{domain,should_be_domain}}} =
+        socket:open(should_be_domain, dgram, default, #{}),
+    {error,{invalid,{type,should_be_type}}} =
+        socket:open(inet, should_be_type, default, #{}),
+    {error,{invalid,{protocol,should_be_protocol}}} =
+        socket:open(inet, dgram, should_be_protocol, #{}),
+    {error, badarg} =
+        ?EXCEPTION(
+           socket:open(inet, dgram, default, should_be_options) ).
+
+
+api_m_error_bind(Config) when is_list(Config) ->
+    {ok, S} = socket:open(inet, dgram),
+    try
+        %%
+        %% bind/2
+        {error, badarg} =
+            ?EXCEPTION(
+               socket:bind(should_be_socket, any) ),
+        {error, badarg} =
+            ?EXCEPTION(
+               socket:bind(make_ref(), any) ),
+        %%
+        %% A non-map, non-atom Addr causes an {invalid,_}
+        %% exception.  Should that instead be an error
+        %% return?
+        %%
+        {error,{invalid,{sockaddr,should_be_sockaddr}}} =
+            socket:bind(S, should_be_sockaddr),
+        EmptyMap = #{},
+        {error,{invalid,{sockaddr,family,EmptyMap}}} =
+            socket:bind(S, EmptyMap),
+        InvalidKey = #{family => inet, invalid_key => []},
+        {error,{invalid,{sockaddr,{keys,[invalid_key]},InvalidKey}}} =
+            socket:bind(S, InvalidKey),
+        InvalidFamily = #{family => invalid_family},
+        {error,{invalid,{sockaddr,InvalidFamily}}} =
+            socket:bind(S, InvalidFamily)
+    after
+        _ = socket:close(S)
+    end,
+    ok.
+
+
+%% XXX Lots of missing error tests here, for all other API functions...
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

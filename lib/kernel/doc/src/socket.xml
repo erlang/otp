@@ -250,6 +250,10 @@
       <desc></desc>
     </datatype>
     <datatype>
+      <name name="sockaddr_recv"/>
+      <desc></desc>
+    </datatype>
+    <datatype>
       <name name="sockaddr_in"/>
       <desc></desc>
     </datatype>
@@ -288,7 +292,7 @@
       <desc></desc>
     </datatype>
     <datatype>
-      <name name="sockaddr_recv"/>
+      <name name="sockaddr_native"/>
       <desc></desc>
     </datatype>
     <datatype>

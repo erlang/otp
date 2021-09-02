@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2020. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1660,7 +1660,9 @@ static void *realloc_wrapper(void *current, ErlDrvSizeT size){
 #endif
 #   define ANC_BUFF_SIZE   INET_DEF_BUFFER/2 /* XXX: not very good... */
 
+
 #ifdef HAVE_UDP
+
 static int load_address(ErlDrvTermData* spec, int i, char* buf)
 {
     int n;
@@ -1722,7 +1724,11 @@ static int load_address(ErlDrvTermData* spec, int i, char* buf)
     }
     return i;
  }
-#endif
+
+static struct sockaddr disassoc_sa;
+static size_t          disassoc_sa_size;
+
+#endif /* #ifdef HAVE_UDP */
 
 
 #ifdef HAVE_SCTP
@@ -12345,6 +12351,12 @@ static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
 #ifdef HAVE_UDP
 static int packet_inet_init()
 {
+    sys_memzero((char *)&disassoc_sa, sizeof(disassoc_sa));
+#ifdef AF_UNSPEC
+    disassoc_sa.sa_family = AF_UNSPEC;
+#endif /* #ifdef AF_UNSPEC */
+    disassoc_sa_size = disassoc_sa.sa_data - (char *)&disassoc_sa;
+
     return 0;
 }
 
@@ -12599,8 +12611,7 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 #endif
 	/* UDP */
 	if (len == 0) {
-	    /* What does it mean???  NULL sockaddr??? */
-	    sock_connect(desc->s, (struct sockaddr*) NULL, 0);
+            sock_connect(desc->s, &disassoc_sa, disassoc_sa_size);
 	    desc->state &= ~INET_F_ACTIVE;
 	    enq_async(desc, tbuf, INET_REQ_CONNECT);
 	    async_ok (desc);
@@ -12616,10 +12627,18 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 		 (desc->sfamily, &desc->remote, &buf, &len)) != NULL)
 	        return ctl_xerror(xerror, rbuf, rsize);
 	    
+#ifdef __linux__
+            /* Workaround for Linux's misbehaviour to not
+             * change the source address when connecting
+             * a datagram socket to a new destination
+             */
+            sock_connect(desc->s, &disassoc_sa, disassoc_sa_size);
+#endif /* #ifdef __linux__ */
+
 	    code = sock_connect(desc->s,
 				(struct sockaddr*) &desc->remote, len);
 	    if (IS_SOCKET_ERROR(code)) {
-		sock_connect(desc->s, (struct sockaddr*) NULL, 0);
+                sock_connect(desc->s, &disassoc_sa, disassoc_sa_size);
 		desc->state &= ~INET_F_ACTIVE;
 		return ctl_error(sock_errno(), rbuf, rsize);
 	    }
