@@ -4894,7 +4894,6 @@ dec_term_atom_common:
 
             (void) PSTACK_POP(hamt_array);
         } while (!PSTACK_IS_EMPTY(hamt_array));
-        PSTACK_DESTROY(hamt_array);
     }
 
     /* Iterate through all the (flat)maps and check for validity and sort keys
@@ -4906,6 +4905,9 @@ dec_term_atom_common:
         if (!erts_validate_and_sort_flatmap((flatmap_t*)next))
             goto error;
     }
+
+    /* Now that no more errors can occur, the stacks can be destroyed safely. */
+    PSTACK_DESTROY(hamt_array);
     WSTACK_DESTROY(flat_maps);
 
     ASSERT((Eterm*)*dbg_resultp != NULL);
@@ -5619,6 +5621,7 @@ init_done:
             if (n <= MAP_SMALL_MAP_LIMIT) {
                 heap_size += 3 + n + 1 + n;
             } else {
+                CHKSIZE(2*n);   /* Conservative size check */
                 heap_size += HASHMAP_ESTIMATED_HEAP_SIZE(n);
             }
 	    break;
