@@ -358,12 +358,8 @@ erts_free_aligned_binary_bytes(byte* buf)
  *
  * This check also ensures, indirectly, that there won't be an overflow when
  * the size is bumped by CHICKEN_PAD and the binary struct itself. */
-#define BINARY_OVERFLOW_CHECK(BYTE_SIZE) \
-    do { \
-         if (ERTS_UNLIKELY(BYTE_SIZE > ERTS_UWORD_MAX / CHAR_BIT)) { \
-             return NULL; \
-         } \
-    } while(0)
+#define IS_BINARY_SIZE_OK(BYTE_SIZE) \
+    ERTS_LIKELY(BYTE_SIZE <= ERTS_UWORD_MAX / CHAR_BIT)
 
 /* Explicit extra bytes allocated to counter buggy drivers.
 ** These extra bytes where earlier (< R13B04) added by an alignment-bug
@@ -381,7 +377,8 @@ erts_bin_drv_alloc_fnf(Uint size)
     Binary *res;
     Uint bsize;
 
-    BINARY_OVERFLOW_CHECK(size);
+    if (!IS_BINARY_SIZE_OK(size))
+        return NULL;
     bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
 
     res = (Binary *)erts_alloc_fnf(ERTS_ALC_T_DRV_BINARY, bsize);
@@ -414,8 +411,9 @@ erts_bin_nrml_alloc_fnf(Uint size)
     Binary *res;
     Uint bsize;
 
-    BINARY_OVERFLOW_CHECK(size);
-    bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
+    if (!IS_BINARY_SIZE_OK(size))
+        return NULL;
+    bsize = ERTS_SIZEOF_Binary(size);
 
     res = (Binary *)erts_alloc_fnf(ERTS_ALC_T_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
@@ -432,7 +430,7 @@ erts_bin_nrml_alloc_fnf(Uint size)
 ERTS_GLB_INLINE Binary *
 erts_bin_nrml_alloc(Uint size)
 {
-    Binary *res = erts_bin_drv_alloc_fnf(size);
+    Binary *res = erts_bin_nrml_alloc_fnf(size);
 
     if (res) {
         return res;
@@ -448,12 +446,18 @@ erts_bin_realloc_fnf(Binary *bp, Uint size)
     Binary *nbp;
     Uint bsize;
     
-    type = (bp->intern.flags & BIN_FLAG_DRV) ? ERTS_ALC_T_DRV_BINARY
-                                             : ERTS_ALC_T_BINARY;
     ASSERT((bp->intern.flags & BIN_FLAG_MAGIC) == 0);
+    if (!IS_BINARY_SIZE_OK(size))
+        return NULL;
+    bsize = ERTS_SIZEOF_Binary(size);
 
-    BINARY_OVERFLOW_CHECK(size);
-    bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
+    if (bp->intern.flags & BIN_FLAG_DRV) {
+        type = ERTS_ALC_T_DRV_BINARY;
+        bsize += CHICKEN_PAD;
+    }
+    else {
+        type = ERTS_ALC_T_BINARY;
+    }
 
     nbp = (Binary *)erts_realloc_fnf(type, (void *) bp, bsize);
     ERTS_CHK_BIN_ALIGNMENT(nbp);
