@@ -168,7 +168,16 @@ init_per_group(engine_stored_key, Config) ->
 init_per_group(engine_fakes_rsa, Config) ->
     case crypto:info_lib() of
         [{<<"OpenSSL">>,LibVer,_}] when is_integer(LibVer), LibVer >= 16#10100000 ->
-            group_load_engine(Config,  []);
+            CryptoInfo = crypto:info(),
+            ct:log("~p:~p  crypto:info() = ~p",[?MODULE,?LINE,CryptoInfo]),
+            case CryptoInfo of
+                #{link_type := static} ->
+                    ct:log("~p:~p  Statically linked",[?MODULE,?LINE]),
+                    {skip, "Statically linked"};
+                Info ->
+                    %% Dynamically linked; use fake engine rsa implementation
+                    group_load_engine(Config,  [])
+            end;
         _ ->
             {skip, "Too low OpenSSL cryptolib version"}
     end;
@@ -180,6 +189,7 @@ group_load_engine(Config, ExcludeMthds) ->
     case load_storage_engine(Config, ExcludeMthds) of
         {ok, E} ->
             KeyDir = key_dir(Config),
+            ct:log("storage engine ~p loaded.~nKeyDir = ~p", [E,KeyDir]),
             [{storage_engine,E}, {storage_dir,KeyDir} | Config];
         {error, notexist} ->
             {skip, "OTP Test engine not found"};
@@ -1044,6 +1054,8 @@ sign_verify(Alg, Sha, KeySign, KeyVerify) ->
 
 %%% Use fake engine rsa implementation
 sign_verify_fake(Alg, Sha, KeySign, KeyVerify) ->
+    ct:log("~p:~p  sign_verify_fake ~p~n Sha = ~p~n KeySign = ~p~n KeyVerify = ~p~n",
+           [?MODULE, ?LINE, Alg, Sha, KeySign, KeyVerify]),
     case pubkey_alg_supported(Alg) of
         true ->
             PlainText = <<"Fake me!">>,
