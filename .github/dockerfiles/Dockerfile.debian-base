@@ -2,14 +2,16 @@
 ## This docker file will build a base image for building Erlang/OTP
 ##
 ARG BASE=debian
-FROM $BASE
+FROM $BASE:bullseye
 ## Need to have a second arg here as the first does not expose the $BASE in the script below
 ARG BASE=debian
 
 ARG HOST_TRIP=x86_64-linux-gnu
 ENV HOST_TRIP=$HOST_TRIP
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
-ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssh-dev unixodbc-dev libgmp3-dev libwxbase3.0-dev libwxgtk3.0-dev libwxgtk-webview3.0-gtk3-dev libsctp-dev lksctp-tools"
+ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssl-dev unixodbc-dev libgmp3-dev libwxgtk3.0-gtk3-dev libwxgtk-webview3.0-gtk3-dev libsctp-dev lksctp-tools"
 
 ## See https://wiki.debian.org/Multiarch/HOWTO for details on how to install things
 ##
@@ -28,7 +30,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y build-essential &
         apt-get install -y build-essential m4 autoconf fop xsltproc default-jdk libxml2-utils \
           $INSTALL_LIBS && \
         if [ "$HOST_TRIP" != "$BUILD_TRIP" ]; then \
-          apt-get install -y \
+          apt-get install -y -f \
           crossbuild-essential-$HOST_ARCH \
           $(for LIB in $INSTALL_LIBS; do echo "$LIB:$HOST_ARCH"; done) && \
           for dir in `find / -type d -name $HOST_TRIP`; do \
