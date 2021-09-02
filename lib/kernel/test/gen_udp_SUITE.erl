@@ -39,7 +39,7 @@
 	 send_to_closed/1, active_n/1,
 	 buffer_size/1, binary_passive_recv/1, max_buffer_size/1, bad_address/1,
 	 read_packets/1, recv_poll_after_active_once/1,
-         open_fd/1, connect/1, implicit_inet6/1,
+         open_fd/1, connect/1, reconnect/1, implicit_inet6/1,
          recvtos/1, recvtosttl/1, recvttl/1, recvtclass/1,
          sendtos/1, sendtosttl/1, sendttl/1, sendtclass/1,
 	 local_basic/1, local_unbound/1,
@@ -111,6 +111,7 @@ all_cases() ->
      recv_poll_after_active_once,
      open_fd,
      connect,
+     reconnect,
      implicit_inet6,
      active_n,
      recvtos, recvtosttl, recvttl, recvtclass,
@@ -1674,6 +1675,64 @@ do_connect(Config) when is_list(Config) ->
     ok.
 
 
+
+reconnect(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun () -> do_reconnect(Config) end).
+
+do_reconnect(Config) ->
+    LoopAddr = {127,0,0,1},
+    XtrnAddr = {8,8,8,8},
+    DestPort = 53,
+    {S, Port} = open_port_0(Config, []),
+    ?P("Socket: ~w", [S]),
+    %% Connect to a loopback destination
+    ok = gen_udp:connect(S, LoopAddr, DestPort),
+    {ok, {LoopAddr,DestPort}} = inet:peername(S),
+    {ok, {LocalAddr,Port}} = inet:sockname(S),
+    ?P("Socket addr: ~w", [LocalAddr]),
+    %% Reconnect to external destination
+    ok = gen_udp:connect(S, XtrnAddr, DestPort),
+    {ok, {XtrnAddr,DestPort}} = inet:peername(S),
+    {ok, {RoutableAddr,Port}} = inet:sockname(S),
+    %% We should have a non-loopback address here
+    true = RoutableAddr =/= LocalAddr,
+    %% Reconnect to loopback
+    ok = gen_udp:connect(S, LoopAddr, DestPort),
+    {ok, {LoopAddr,DestPort}} = inet:peername(S),
+    {ok, {LocalAddr,Port}} = inet:sockname(S),
+    ok = inet:close(S).
+
+%% For Linux to behave predictably we need to bind
+%% to a specific port; when we bind to port 0
+%% and get an ephemeral port - it apparently can change
+%% when we reconnect to a different destination.
+%%
+%% I consider this a workaround for a Linux bug,
+%% ironically in a test case that tests
+%% a workaround for another Linux bug (related)...
+%%
+open_port_0(Config, Opts) ->
+open_port_0(Config, 0, Opts, 10).
+%%
+open_port_0(Config, Port, Opts, N) ->
+    case ?OPEN(Config, Port, Opts) of
+        {ok, S} ->
+            if
+                Port =:= 0 ->
+                    {ok, Port_1} = inet:port(S),
+                    ok = gen_udp:close(S),
+                    %% Speculate that we can open a socket with that port
+                    open_port_0(Config, Port_1, Opts, N);
+                true ->
+                    ?P("Socket port: ~w", [Port]),
+                    {S, Port}
+            end;
+        {error, eaddrinuse} when Port =/= 0 ->
+            open_port_0(Config, 0, Opts, N - 1);
+        {error, _} = Error ->
+            Error
+    end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 implicit_inet6(Config) when is_list(Config) ->
@@ -1698,7 +1757,7 @@ implicit_inet6(Config, Host, Addr) ->
     Active = {active,false},
     Loopback = {0,0,0,0,0,0,0,1},
     ?P("try 1 with explit inet6 on loopback"),
-    S1 = case ?OPEN(Config, 0, [inet6, Active, {ip, Loopback}]) of
+    S1 = case open_port_0(Config, [inet6, Active, {ip, Loopback}]) of
              {ok, Sock1} ->
                  Sock1;
              {error, eaddrnotavail = Reason1} ->
@@ -1711,7 +1770,7 @@ implicit_inet6(Config, Host, Addr) ->
     %%
     Localaddr = ok(get_localaddr()),
     ?P("try 2 on local addr (~p)", [Localaddr]),
-    S2 = case ?OPEN(Config, 0, [{ip, Localaddr}, Active]) of
+    S2 = case open_port_0(Config, [{ip, Localaddr}, Active]) of
              {ok, Sock2} ->
                  Sock2;
              {error, eaddrnotavail = Reason2} ->
@@ -1721,7 +1780,7 @@ implicit_inet6(Config, Host, Addr) ->
     ok = gen_udp:close(S2),
     %%
     ?P("try 3 on addr ~p (~p)", [Addr, Host]),
-    S3 = case ?OPEN(Config, 0, [{ifaddr, Addr}, Active]) of
+    S3 = case open_port_0(Config, [{ifaddr, Addr}, Active]) of
              {ok, Sock3} ->
                  Sock3;
              {error, eaddrnotavail = Reason3} ->

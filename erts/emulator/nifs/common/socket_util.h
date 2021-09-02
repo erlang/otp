@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -152,9 +152,9 @@ void esock_encode_domain(ErlNifEnv*    env,
                          int           domain,
                          ERL_NIF_TERM* eDomain);
 extern
-BOOLEAN_T esock_decode_domain(ErlNifEnv*   env,
-                              ERL_NIF_TERM eDomain,
-                              int*         domain);
+int esock_decode_domain(ErlNifEnv*   env,
+                        ERL_NIF_TERM eDomain,
+                        int*         domain);
 
 extern
 BOOLEAN_T esock_decode_type(ErlNifEnv*   env,
