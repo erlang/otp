@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -157,7 +157,7 @@ setAlign(#wx_ref{type=ThisT}=This,Align)
 -spec setBackgroundColour(This, ColBack) -> 'ok' when
 	This::wxListItem(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT}=This,ColBack)
- when tuple_size(ColBack) =:= 3; tuple_size(ColBack) =:= 4 ->
+ when ?is_colordata(ColBack) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:queue_cmd(This,wxe_util:color(ColBack),?get_env(),?wxListItem_SetBackgroundColour).
 
@@ -230,7 +230,7 @@ setText(#wx_ref{type=ThisT}=This,Text)
 -spec setTextColour(This, ColText) -> 'ok' when
 	This::wxListItem(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT}=This,ColText)
- when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4 ->
+ when ?is_colordata(ColText) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:queue_cmd(This,wxe_util:color(ColText),?get_env(),?wxListItem_SetTextColour).
 

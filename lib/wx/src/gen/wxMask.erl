@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ new(#wx_ref{type=BitmapT}=Bitmap,Index)
   wxe_util:queue_cmd(Bitmap,Index,?get_env(),?wxMask_new_2_0),
   wxe_util:rec(?wxMask_new_2_0);
 new(#wx_ref{type=BitmapT}=Bitmap,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(BitmapT,wxBitmap),
   wxe_util:queue_cmd(Bitmap,wxe_util:color(Colour),?get_env(),?wxMask_new_2_1),
   wxe_util:rec(?wxMask_new_2_1).
@@ -89,7 +89,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap,Index)
   wxe_util:queue_cmd(This,Bitmap,Index,?get_env(),?wxMask_Create_2_0),
   wxe_util:rec(?wxMask_Create_2_0);
 create(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxMask),
   ?CLASS(BitmapT,wxBitmap),
   wxe_util:queue_cmd(This,Bitmap,wxe_util:color(Colour),?get_env(),?wxMask_Create_2_1),

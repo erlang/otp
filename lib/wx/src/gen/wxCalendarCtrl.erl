@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -222,7 +222,7 @@ enableHolidayDisplay(#wx_ref{type=ThisT}=This, Options)
 -spec setHeaderColours(This, ColFg, ColBg) -> 'ok' when
 	This::wxCalendarCtrl(), ColFg::wx:wx_colour(), ColBg::wx:wx_colour().
 setHeaderColours(#wx_ref{type=ThisT}=This,ColFg,ColBg)
- when tuple_size(ColFg) =:= 3; tuple_size(ColFg) =:= 4,tuple_size(ColBg) =:= 3; tuple_size(ColBg) =:= 4 ->
+ when ?is_colordata(ColFg),?is_colordata(ColBg) ->
   ?CLASS(ThisT,wxCalendarCtrl),
   wxe_util:queue_cmd(This,wxe_util:color(ColFg),wxe_util:color(ColBg),?get_env(),?wxCalendarCtrl_SetHeaderColours).
 
@@ -246,7 +246,7 @@ getHeaderColourBg(#wx_ref{type=ThisT}=This) ->
 -spec setHighlightColours(This, ColFg, ColBg) -> 'ok' when
 	This::wxCalendarCtrl(), ColFg::wx:wx_colour(), ColBg::wx:wx_colour().
 setHighlightColours(#wx_ref{type=ThisT}=This,ColFg,ColBg)
- when tuple_size(ColFg) =:= 3; tuple_size(ColFg) =:= 4,tuple_size(ColBg) =:= 3; tuple_size(ColBg) =:= 4 ->
+ when ?is_colordata(ColFg),?is_colordata(ColBg) ->
   ?CLASS(ThisT,wxCalendarCtrl),
   wxe_util:queue_cmd(This,wxe_util:color(ColFg),wxe_util:color(ColBg),?get_env(),?wxCalendarCtrl_SetHighlightColours).
 
@@ -270,7 +270,7 @@ getHighlightColourBg(#wx_ref{type=ThisT}=This) ->
 -spec setHolidayColours(This, ColFg, ColBg) -> 'ok' when
 	This::wxCalendarCtrl(), ColFg::wx:wx_colour(), ColBg::wx:wx_colour().
 setHolidayColours(#wx_ref{type=ThisT}=This,ColFg,ColBg)
- when tuple_size(ColFg) =:= 3; tuple_size(ColFg) =:= 4,tuple_size(ColBg) =:= 3; tuple_size(ColBg) =:= 4 ->
+ when ?is_colordata(ColFg),?is_colordata(ColBg) ->
   ?CLASS(ThisT,wxCalendarCtrl),
   wxe_util:queue_cmd(This,wxe_util:color(ColFg),wxe_util:color(ColBg),?get_env(),?wxCalendarCtrl_SetHolidayColours).
 

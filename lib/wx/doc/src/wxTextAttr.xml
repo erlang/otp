@@ -70,6 +70,48 @@
   </func>
   
   <func>
+    <name name="getFontEncoding" arity="1" clause_i="1" since=""/>
+    <fsummary>Returns the font encoding. </fsummary>
+    <desc><p>Returns the font encoding. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="getFontFaceName" arity="1" clause_i="1" since=""/>
+    <fsummary>Returns the font face name. </fsummary>
+    <desc><p>Returns the font face name. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="getFontSize" arity="1" clause_i="1" since=""/>
+    <fsummary>Returns the font size in points. </fsummary>
+    <desc><p>Returns the font size in points. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="getFontStyle" arity="1" clause_i="1" since=""/>
+    <fsummary>Returns the font style. </fsummary>
+    <desc><p>Returns the font style. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="getFontUnderlined" arity="1" clause_i="1" since=""/>
+    <fsummary>Returns true if the font is underlined. </fsummary>
+    <desc><p>Returns true if the font is underlined. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="getFontWeight" arity="1" clause_i="1" since=""/>
+    <fsummary>Returns the font weight. </fsummary>
+    <desc><p>Returns the font weight. 
+      </p></desc>
+  </func>
+  
+  <func>
     <name name="getLeftIndent" arity="1" clause_i="1" since=""/>
     <fsummary>Returns the left indent in tenths of a millimetre. </fsummary>
     <desc><p>Returns the left indent in tenths of a millimetre. 
@@ -175,6 +217,69 @@
     <fsummary>Sets the attributes for the given font. </fsummary>
     <desc><p>Sets the attributes for the given font. 
       </p><p>Note that <seeerl marker="wxTextAttr"><c>wxTextAttr</c></seeerl> does not store an actual <seeerl marker="wxFont"><c>wxFont</c></seeerl> object. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="setFontEncoding" arity="2" clause_i="1" since=""/>
+    <fsummary>Sets the font encoding. </fsummary>
+    <desc><p>Sets the font encoding. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="setFontFaceName" arity="2" clause_i="1" since=""/>
+    <fsummary>Sets the font face name. </fsummary>
+    <desc><p>Sets the font face name. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="setFontFamily" arity="2" clause_i="1" since=""/>
+    <fsummary>Sets the font family. </fsummary>
+    <desc><p>Sets the font family. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="setFontSize" arity="2" clause_i="1" since=""/>
+    <fsummary>Sets the font size in points. </fsummary>
+    <desc><p>Sets the font size in points. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="setFontPointSize" arity="2" clause_i="1" since=""/>
+    <fsummary>Sets the font size in points. </fsummary>
+    <desc><p>Sets the font size in points. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="setFontPixelSize" arity="2" clause_i="1" since=""/>
+    <fsummary>Sets the font size in pixels. </fsummary>
+    <desc><p>Sets the font size in pixels. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="setFontStyle" arity="2" clause_i="1" since=""/>
+    <fsummary>Sets the font style (normal, italic or slanted). </fsummary>
+    <desc><p>Sets the font style (normal, italic or slanted). 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="setFontUnderlined" arity="2" clause_i="1" since=""/>
+    <fsummary>Sets the font underlining (solid line, text colour). </fsummary>
+    <desc><p>Sets the font underlining (solid line, text colour). 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="setFontWeight" arity="2" clause_i="1" since=""/>
+    <fsummary>Sets the font weight. </fsummary>
+    <desc><p>Sets the font weight. 
       </p></desc>
   </func>
   

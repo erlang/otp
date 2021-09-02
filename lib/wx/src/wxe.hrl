@@ -53,6 +53,8 @@
 -define(F,  float-native).
 
 -define(is_chardata(String), (is_list(String) orelse is_binary(String))).
+-define(is_colordata(Col), ( (tuple_size(Col) =:= 3 orelse tuple_size(Col) =:= 4)
+                             andalso is_integer(element(1, Col)) ) ).
 
 -define(BATCH_BEGIN,    5).
 -define(BATCH_END,      6).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1244,7 +1244,7 @@ setAutoLayout(#wx_ref{type=ThisT}=This,AutoLayout)
 -spec setBackgroundColour(This, Colour) -> boolean() when
 	This::wxWindow(), Colour::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxWindow_SetBackgroundColour),
   wxe_util:rec(?wxWindow_SetBackgroundColour).
@@ -1330,7 +1330,7 @@ setMinSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
 -spec setOwnBackgroundColour(This, Colour) -> 'ok' when
 	This::wxWindow(), Colour::wx:wx_colour().
 setOwnBackgroundColour(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxWindow_SetOwnBackgroundColour).
 
@@ -1346,7 +1346,7 @@ setOwnFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
 -spec setOwnForegroundColour(This, Colour) -> 'ok' when
 	This::wxWindow(), Colour::wx:wx_colour().
 setOwnForegroundColour(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxWindow_SetOwnForegroundColour).
 
@@ -1393,7 +1393,7 @@ setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
 -spec setForegroundColour(This, Colour) -> boolean() when
 	This::wxWindow(), Colour::wx:wx_colour().
 setForegroundColour(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxWindow_SetForegroundColour),
   wxe_util:rec(?wxWindow_SetForegroundColour).

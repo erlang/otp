@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ getCount(#wx_ref{type=ThisT}=This) ->
 -spec setStartColour(This, Col) -> 'ok' when
 	This::wxGraphicsGradientStops(), Col::wx:wx_colour().
 setStartColour(#wx_ref{type=ThisT}=This,Col)
- when tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
+ when ?is_colordata(Col) ->
   ?CLASS(ThisT,wxGraphicsGradientStops),
   wxe_util:queue_cmd(This,wxe_util:color(Col),?get_env(),?wxGraphicsGradientStops_SetStartColour).
 
@@ -87,7 +87,7 @@ getStartColour(#wx_ref{type=ThisT}=This) ->
 -spec setEndColour(This, Col) -> 'ok' when
 	This::wxGraphicsGradientStops(), Col::wx:wx_colour().
 setEndColour(#wx_ref{type=ThisT}=This,Col)
- when tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
+ when ?is_colordata(Col) ->
   ?CLASS(ThisT,wxGraphicsGradientStops),
   wxe_util:queue_cmd(This,wxe_util:color(Col),?get_env(),?wxGraphicsGradientStops_SetEndColour).
 
@@ -103,7 +103,7 @@ getEndColour(#wx_ref{type=ThisT}=This) ->
 -spec add(This, Col, Pos) -> 'ok' when
 	This::wxGraphicsGradientStops(), Col::wx:wx_colour(), Pos::number().
 add(#wx_ref{type=ThisT}=This,Col,Pos)
- when tuple_size(Col) =:= 3; tuple_size(Col) =:= 4,is_number(Pos) ->
+ when ?is_colordata(Col),is_number(Pos) ->
   ?CLASS(ThisT,wxGraphicsGradientStops),
   wxe_util:queue_cmd(This,wxe_util:color(Col),Pos,?get_env(),?wxGraphicsGradientStops_Add).
 

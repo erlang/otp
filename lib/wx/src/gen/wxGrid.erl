@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1471,7 +1471,7 @@ setCellAlignment(#wx_ref{type=ThisT}=This,Row,Col,Horiz,Vert)
 -spec setCellBackgroundColour(This, Row, Col, Colour) -> 'ok' when
 	This::wxGrid(), Row::integer(), Col::integer(), Colour::wx:wx_colour().
 setCellBackgroundColour(#wx_ref{type=ThisT}=This,Row,Col,Colour)
- when is_integer(Row),is_integer(Col),tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when is_integer(Row),is_integer(Col),?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,Row,Col,wxe_util:color(Colour),?get_env(),?wxGrid_SetCellBackgroundColour).
 
@@ -1506,7 +1506,7 @@ setCellRenderer(#wx_ref{type=ThisT}=This,Row,Col,#wx_ref{type=RendererT}=Rendere
 -spec setCellTextColour(This, Row, Col, Colour) -> 'ok' when
 	This::wxGrid(), Row::integer(), Col::integer(), Colour::wx:wx_colour().
 setCellTextColour(#wx_ref{type=ThisT}=This,Row,Col,Colour)
- when is_integer(Row),is_integer(Col),tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when is_integer(Row),is_integer(Col),?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,Row,Col,wxe_util:color(Colour),?get_env(),?wxGrid_SetCellTextColour).
 
@@ -1645,7 +1645,7 @@ setDefaultCellAlignment(#wx_ref{type=ThisT}=This,Horiz,Vert)
 -spec setDefaultCellBackgroundColour(This, Colour) -> 'ok' when
 	This::wxGrid(), Colour::wx:wx_colour().
 setDefaultCellBackgroundColour(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxGrid_SetDefaultCellBackgroundColour).
 
@@ -1661,7 +1661,7 @@ setDefaultCellFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
 -spec setDefaultCellTextColour(This, Colour) -> 'ok' when
 	This::wxGrid(), Colour::wx:wx_colour().
 setDefaultCellTextColour(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxGrid_SetDefaultCellTextColour).
 
@@ -1741,7 +1741,7 @@ setGridCursor(#wx_ref{type=ThisT}=This,Row,Col)
 -spec setGridLineColour(This, Colour) -> 'ok' when
 	This::wxGrid(), Colour::wx:wx_colour().
 setGridLineColour(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxGrid_SetGridLineColour).
 
@@ -1749,7 +1749,7 @@ setGridLineColour(#wx_ref{type=ThisT}=This,Colour)
 -spec setLabelBackgroundColour(This, Colour) -> 'ok' when
 	This::wxGrid(), Colour::wx:wx_colour().
 setLabelBackgroundColour(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxGrid_SetLabelBackgroundColour).
 
@@ -1765,7 +1765,7 @@ setLabelFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
 -spec setLabelTextColour(This, Colour) -> 'ok' when
 	This::wxGrid(), Colour::wx:wx_colour().
 setLabelTextColour(#wx_ref{type=ThisT}=This,Colour)
- when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
+ when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,wxe_util:color(Colour),?get_env(),?wxGrid_SetLabelTextColour).
 
@@ -1875,7 +1875,7 @@ setScrollLineY(#wx_ref{type=ThisT}=This,Y)
 -spec setSelectionBackground(This, C) -> 'ok' when
 	This::wxGrid(), C::wx:wx_colour().
 setSelectionBackground(#wx_ref{type=ThisT}=This,C)
- when tuple_size(C) =:= 3; tuple_size(C) =:= 4 ->
+ when ?is_colordata(C) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,wxe_util:color(C),?get_env(),?wxGrid_SetSelectionBackground).
 
@@ -1883,7 +1883,7 @@ setSelectionBackground(#wx_ref{type=ThisT}=This,C)
 -spec setSelectionForeground(This, C) -> 'ok' when
 	This::wxGrid(), C::wx:wx_colour().
 setSelectionForeground(#wx_ref{type=ThisT}=This,C)
- when tuple_size(C) =:= 3; tuple_size(C) =:= 4 ->
+ when ?is_colordata(C) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,wxe_util:color(C),?get_env(),?wxGrid_SetSelectionForeground).
 
