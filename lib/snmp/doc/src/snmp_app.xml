@@ -294,13 +294,15 @@ in the snmp_config file!
       <tag><marker id="agent_ni_opts"></marker>
         <c><![CDATA[agent_net_if_options() = [agent_net_if_option()] <optional>]]></c></tag>
       <item>
-        <p><c>agent_net_if_option() = {bind_to, bind_to()} |  
+	<p><c>agent_net_if_option() =
+	{bind_to,         bind_to()} |  
 	{sndbuf,          sndbuf()} |  
 	{recbuf,          recbuf()} |  
 	{no_reuse,        no_reuse()} |  
 	{req_limit,       req_limit()} |
 	{filter,          agent_net_if_filter_options()} |
-	{extra_sock_opts, extra_socket_options()}</c></p>
+	{extra_sock_opts, extra_socket_options()} |
+	{inet_backend,    inet | socket}</c></p>
 	<p>These options are actually specific to the used module.
 	The ones shown here are applicable to the default 
 	<c>agent_net_if_module()</c>.</p>
@@ -796,12 +798,14 @@ in the snmp_config file!
       <tag><marker id="manager_ni_opts"></marker>
         <c><![CDATA[manager_net_if_options() = [manager_net_if_option()] <optional>]]></c></tag>
       <item>
-        <p><c>manager_net_if_option() = {bind_to, bind_to()} | 
-	{sndbuf,          sndbuf()} |  
-	{recbuf,          recbuf()} | 
-	{no_reuse,        no_reuse()} |
+	<p><c>manager_net_if_option() =
+	{bind_to,         bind_to()}    | 
+	{sndbuf,          sndbuf()}     |  
+	{recbuf,          recbuf()}     | 
+	{no_reuse,        no_reuse()}   |
 	{filter,          manager_net_if_filter_options()} |
-	{extra_sock_opts, extra_socket_options()}</c></p>
+	{extra_sock_opts, extra_socket_options()} |
+	{inet_backend,    inet | socket}</c></p>
         <p>These options are actually specific to the used module.
 	The ones shown here are applicable to the default 
 	<c>manager_net_if_module()</c>.</p>

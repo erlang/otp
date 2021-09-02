@@ -26,12 +26,12 @@
 	 init_per_group/2,    end_per_group/2, 
 	 init_per_testcase/2, end_per_testcase/2, 
 
-	 %% all_tcs - misc
+	 %% major_tcs - misc
 	 app_info/1, 
 	 info_test/1, 
          create_local_db_dir/1,
 
-	 %% all_tcs - test_v1
+	 %% major_tcs - test_v1
 	 simple/1, 
 	 db_notify_client/1, 
 	 v1_processing/1, 
@@ -51,7 +51,7 @@
 	 opaque/1, 
 	 change_target_addr_config/1, 
 
-	 %% all_tcs - test_v1 - multiple_reqs
+	 %% major_tcs - test_v1 - multiple_reqs
 	 mul_get/1, 
 	 mul_get_err/1, 
 	 mul_next/1, 
@@ -59,7 +59,7 @@
 	 mul_set/1, 
 	 mul_set_err/1, 
 
-	 %% all_tcs - test_v1 - reported_bugs
+	 %% major_tcs - test_v1 - reported_bugs
 	 otp_1128/1, 
 	 otp_1129/1, 
 	 otp_1131/1, 
@@ -75,7 +75,7 @@
 	 otp_3187/1, 
 	 otp_3725/1, 
 
-	 %% all_tcs - test_v1 - standard_mibs
+	 %% major_tcs - test_v1 - standard_mibs
 	 snmp_standard_mib/1, 
 	 snmp_community_mib/1,
 	 snmp_framework_mib/1, 
@@ -83,7 +83,7 @@
 	 snmp_notification_mib/1, 
 	 snmp_view_based_acm_mib/1, 
 
-	 %% all_tcs - test_v2
+	 %% major_tcs - test_v2
 	 simple_2/1, 
 	 v2_processing/1, 
 	 big_2/1, 
@@ -104,7 +104,7 @@
 	 opaque_2/1, 
 	 v2_caps/1,
 
-	 %% all_tcs - test_v2 - multiple_reqs_2
+	 %% major_tcs - test_v2 - multiple_reqs_2
 	 mul_get_2/1, 
 	 mul_get_err_2/1, 
 	 mul_next_2/1, 
@@ -112,10 +112,10 @@
 	 mul_set_2/1, 
 	 mul_set_err_2/1, 
 
-	 %% all_tcs - test_v2 - v2_inform
+	 %% major_tcs - test_v2 - v2_inform
 	 v2_inform_i/1, 
 
-	 %% all_tcs - test_v2 - reported_bugs_2
+	 %% major_tcs - test_v2 - reported_bugs_2
 	 otp_1128_2/1, 
 	 otp_1129_2/1, 
 	 otp_1131_2/1, 
@@ -130,7 +130,7 @@
 	 otp_2979_2/1, 
 	 otp_3187_2/1, 
 
-	 %% all_tcs - test_v2 - standard_mibs_2
+	 %% major_tcs - test_v2 - standard_mibs_2
 	 snmpv2_mib_2/1, 
 	 snmp_community_mib_2/1,
 	 snmp_framework_mib_2/1, 
@@ -138,10 +138,10 @@
 	 snmp_notification_mib_2/1, 
 	 snmp_view_based_acm_mib_2/1,
 
-	 %% all_tcs - test_v1_v2
+	 %% major_tcs - test_v1_v2
 	 simple_bi/1, 
 
-	 %% all_tcs - test_v3
+	 %% major_tcs - test_v3
 	 simple_3/1, 
 	 v3_processing/1, 
 	 big_3/1, 
@@ -162,7 +162,7 @@
 	 opaque_3/1, 
 	 v2_caps_3/1, 
 
-	 %% all_tcs - test_v3 - multiple_reqs_3
+	 %% major_tcs - test_v3 - multiple_reqs_3
 	 mul_get_3/1, 
 	 mul_get_err_3/1, 
 	 mul_next_3/1, 
@@ -170,10 +170,10 @@
 	 mul_set_3/1,
 	 mul_set_err_3/1,
 
-	 %% all_tcs - test_v3 - v3_inform
+	 %% major_tcs - test_v3 - v3_inform
 	 v3_inform_i/1, 
 
-	 %% all_tcs - test_v3 - reported_bugs_3
+	 %% major_tcs - test_v3 - reported_bugs_3
 	 otp_1128_3/1, 
 	 otp_1129_3/1, 
 	 otp_1131_3/1, 
@@ -189,7 +189,7 @@
 	 otp_3187_3/1,
 	 otp_3542/1,
 
-	 %% all_tcs - test_v3 - standard_mibs_3
+	 %% major_tcs - test_v3 - standard_mibs_3
 	 snmpv2_mib_3/1, 
 	 snmp_framework_mib_3/1, 
 	 snmp_mpd_mib_3/1,
@@ -198,17 +198,17 @@
 	 snmp_view_based_acm_mib_3/1, 
 	 snmp_user_based_sm_mib_3/1,
 
-	 %% all_tcs - test_v3 - v3_security
+	 %% major_tcs - test_v3 - v3_security
 	 v3_crypto_basic/1, 
 	 v3_md5_auth/1, 
 	 v3_sha_auth/1,
 	 v3_des_priv/1, 
 
-	 %% all_tcs - test_multi_threaded, test_multi_threaded_ext
+	 %% major_tcs - test_multi_threaded, test_multi_threaded_ext
 	 multi_threaded/1, 
 	 mt_trap/1, 
 	 
-	 %% all_tcs - mib_storage - mib_storage_ets
+	 %% major_tcs - mib_storage - mib_storage_ets
 	 mse_simple/1, 
 	 mse_v1_processing/1, 
 	 mse_big/1, 
@@ -230,7 +230,7 @@
 	 mse_me_of/1,
 	 mse_mib_of/1, 
 
-	 %% all_tcs - mib_storage - mib_storage_dets
+	 %% major_tcs - mib_storage - mib_storage_dets
 	 msd_simple/1, 
 	 msd_v1_processing/1, 
 	 msd_big/1, 
@@ -252,7 +252,7 @@
 	 msd_me_of/1,
 	 msd_mib_of/1, 
 
-	 %% all_tcs - mib_storage - mib_storage_mnesia
+	 %% major_tcs - mib_storage - mib_storage_mnesia
 	 msm_simple/1, 
 	 msm_v1_processing/1, 
 	 msm_big/1, 
@@ -274,28 +274,28 @@
 	 msm_me_of/1,
 	 msm_mib_of/1, 
 
-	 %% all_tcs - mib_storage - mse_size_check
+	 %% major_tcs - mib_storage - mse_size_check
 	 mse_size_check/1, 
 
-	 %% all_tcs - mib_storage - msd_size_check
+	 %% major_tcs - mib_storage - msd_size_check
 	 msd_size_check/1, 
 
-	 %% all_tcs - mib_storage - msm_size_check
+	 %% major_tcs - mib_storage - msm_size_check
 	 msm_size_check/1, 
 
-	 %% all_tcs - mib_storage - varm_mib_storage_dets
+	 %% major_tcs - mib_storage - varm_mib_storage_dets
 	 msd_varm_mib_start/1, 
 
-	 %% all_tcs - mib_storage - varm_mib_storage_mnesia
+	 %% major_tcs - mib_storage - varm_mib_storage_mnesia
 	 msm_varm_mib_start/1, 
 
-	 %% all_tcs - tickets1 - otp4394
+	 %% major_tcs - tickets1 - otp4394
 	 otp_4394/1, 
 
-	 %% all_tcs - tickets1 - otp7157
+	 %% major_tcs - tickets1 - otp7157
 	 otp_7157/1,
 
-         %% all_tcs - tickets1 - otp16092
+         %% major_tcs - tickets1 - otp16092
          otp_16092_simple_start_and_stop1/1,
          otp_16092_simple_start_and_stop2/1,
          otp_16092_simple_start_and_stop3/1,
@@ -526,14 +526,31 @@ suite() ->
     [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
-    %% Reqs  = [mnesia, distribution, {local_slave_nodes, 2}, {time, 360}],
-    Conf1 = [{group, all_tcs}],
-    Conf2 = [{group, tickets2}],
-    Conf1 ++ Conf2.
+    %% This is a temporary messure to ensure that we can 
+    %% test the socket backend without effecting *all*
+    %% applications on *all* machines.
+    %% This flag is set only for *one* host.
+    case ?TEST_INET_BACKENDS() of
+        true ->
+            [
+             {group, inet_backend_default},
+             {group, inet_backend_inet},
+             {group, inet_backend_socket}
+            ];
+        _ ->
+            [
+             {group, inet_backend_default}
+            ]
+    end.
 
 groups() -> 
     [
-     {all_tcs,                       [], all_cases()},
+     {inet_backend_default,          [], inet_backend_default_cases()},
+     {inet_backend_inet,             [], inet_backend_inet_cases()},
+     {inet_backend_socket,           [], inet_backend_socket_cases()},
+
+     {all,                           [], all_cases()},
+     {major_tcs,                     [], major_cases()},
      {mib_storage,                   [], mib_storage_cases()}, 
      {mib_storage_ets,               [], mib_storage_ets_cases()},
      {mib_storage_dets,              [], mib_storage_dets_cases()},
@@ -568,17 +585,32 @@ groups() ->
      {reported_bugs_2,               [], reported_bugs2_cases()}, 
      {reported_bugs_3,               [], reported_bugs3_cases()}, 
      {tickets1,                      [], tickets1_cases()}, 
-     {tickets2,                      [], tickets2_cases()}, 
      {otp4394,                       [], [otp_4394]},
      {otp7157,                       [], [otp_7157]},
      {otp16092,                      [], otp16092_cases()},
+
+     %% These all belong to group 'tickets2'
+     {tickets2,                      [], tickets2_cases()}, 
      {otp16649,                      [], otp16649_cases()},
      {otp16649_ipv4,                 [], otp16649_gen_cases()},
      {otp16649_ipv6,                 [], otp16649_gen_cases()}
     ].
 
 
-all_cases() -> 
+inet_backend_default_cases() ->
+    [{all, [], all_cases()}].
+
+inet_backend_inet_cases() ->
+    [{all, [], all_cases()}].
+
+inet_backend_socket_cases() ->
+    [{all, [], all_cases()}].
+
+
+%% The agent and the nodes of the agent and manager
+%% is started at group init and then lives until
+%% group end!
+major_cases() ->
     [
      {group, misc}, 
      {group, test_v1}, 
@@ -594,6 +626,53 @@ all_cases() ->
      {group, mib_storage},
      {group, tickets1}
     ].
+    
+all_cases() -> 
+    [
+     %% The agent and the nodes of the agent and manager
+     %% is started at group init and then lives until
+     %% group end!
+     {group, major_tcs},
+
+     %% The test cases in the 'tickets2' group
+     %% require control of start and stop of agents and inodes!
+     {group, tickets2}
+    ].
+
+
+tickets1_cases() ->
+    [
+     {group, otp4394}, 
+     {group, otp7157}, 
+     {group, otp16092}
+    ].
+
+
+tickets2_cases() ->
+    [
+     otp8395, 
+     otp9884,
+     {group, otp16649}
+    ].
+
+otp16649_cases() ->
+    [
+     {group, otp16649_ipv4},
+     {group, otp16649_ipv6}
+    ].
+
+otp16649_gen_cases() ->
+    [
+     otp16649_1,
+     otp16649_2,
+     otp16649_3,
+     otp16649_4,
+     otp16649_5,
+     otp16649_6,
+     otp16649_7
+    ].
+
+
 
 %%
 %% -----
@@ -603,7 +682,12 @@ init_per_suite(Config0) when is_list(Config0) ->
 
     ?IPRINT("init_per_suite -> entry with"
             "~n   Config: ~p"
-            "~n   Nodes:  ~p", [Config0, erlang:nodes()]),
+            "~n   Nodes:  ~p"
+            "~n   explicit inet backend: ~p"
+            "~n   test inet backends:    ~p",
+            [Config0, erlang:nodes(),
+             ?EXPLICIT_INET_BACKEND(),
+             ?TEST_INET_BACKENDS()]),
 
     case ?LIB:init_per_suite(Config0) of
         {skip, _} = SKIP ->
@@ -660,125 +744,133 @@ end_per_suite(Config0) when is_list(Config0) ->
 %% -----
 %%
 
-init_per_group(all_tcs = GroupName, Config) ->
+init_per_group(GroupName, Config0) ->
+    ?IPRINT("init_per_group -> entry with"
+            "~n      GroupName: ~p"
+            "~n      Config:    ~p"
+            "~n   when"
+            "~n      Nodes:     ~p",
+            [GroupName, Config0, nodes()]),
+
+    Config1 = init_per_group2(GroupName, Config0),
+
+    ?IPRINT("init_per_group -> done when"
+            "~n      GroupName: ~p"
+            "~n      Config:    ~p"
+            "~n      Nodes:     ~p",
+            [GroupName, Config1, nodes()]),
+
+    Config1.
+
+
+init_per_group2(inet_backend_default = _GroupName, Config) ->
+    snmp_test_lib:init_group_top_dir(default, [{socket_create_opts, []} | Config]);
+init_per_group2(inet_backend_inet = _GroupName, Config) ->
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            snmp_test_lib:init_group_top_dir(inet, [{socket_create_opts, [{inet_backend, inet}]} | Config])
+    end;
+init_per_group2(inet_backend_socket = _GroupName, Config) ->
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            snmp_test_lib:init_group_top_dir(socket, [{socket_create_opts, [{inet_backend, socket}]} | Config])
+    end;
+init_per_group2(major_tcs = GroupName, Config) ->
     init_all(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(otp7157 = GroupName, Config) -> 
+init_per_group2(otp7157 = GroupName, Config) -> 
     otp_7157_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(otp4394 = GroupName, Config) -> 
+init_per_group2(otp4394 = GroupName, Config) -> 
     otp_4394_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(v2_inform = GroupName, Config) -> 
+init_per_group2(v2_inform = GroupName, Config) -> 
     init_v2_inform(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(v3_inform = GroupName, Config) -> 
+init_per_group2(v3_inform = GroupName, Config) -> 
     init_v3_inform(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(multiple_reqs = GroupName, Config) -> 
+init_per_group2(multiple_reqs = GroupName, Config) -> 
     init_mul(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(multiple_reqs_2 = GroupName, Config) -> 
+init_per_group2(multiple_reqs_2 = GroupName, Config) -> 
     init_mul(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(multiple_reqs_3 = GroupName, Config) -> 
+init_per_group2(multiple_reqs_3 = GroupName, Config) -> 
     init_mul(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(test_multi_threaded = GroupName, Config) -> 
+init_per_group2(test_multi_threaded = GroupName, Config) -> 
     init_mt(snmp_test_lib:init_group_top_dir(GroupName, Config), true);
-init_per_group(test_multi_threaded_ext = GroupName, Config) -> 
+init_per_group2(test_multi_threaded_ext = GroupName, Config) -> 
     init_mt(snmp_test_lib:init_group_top_dir(GroupName, Config), extended);
-init_per_group(test_v3 = GroupName, Config) -> 
+init_per_group2(test_v3 = GroupName, Config) -> 
     case snmp_test_lib:crypto_start() of
         ok ->
             init_v3(snmp_test_lib:init_group_top_dir(GroupName, Config));
         _ ->
             {skip, "Crypto did not start"}
     end;
-init_per_group(test_v1_v2 = GroupName, Config) -> 
+init_per_group2(test_v1_v2 = GroupName, Config) -> 
     init_v1_v2(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(test_v2 = GroupName, Config) -> 
+init_per_group2(test_v2 = GroupName, Config) -> 
     init_v2(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(test_v1 = GroupName, Config) -> 
+init_per_group2(test_v1 = GroupName, Config) -> 
     init_v1(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(test_v1_ipv6 = GroupName, Config) ->
+init_per_group2(test_v1_ipv6 = GroupName, Config) ->
     init_per_group_ipv6(GroupName, Config, fun init_v1/1);
-init_per_group(test_v2_ipv6 = GroupName, Config) ->
+init_per_group2(test_v2_ipv6 = GroupName, Config) ->
     init_per_group_ipv6(GroupName, Config, fun init_v2/1);
-init_per_group(test_v1_v2_ipv6 = GroupName, Config) ->
+init_per_group2(test_v1_v2_ipv6 = GroupName, Config) ->
     init_per_group_ipv6(GroupName, Config, fun init_v1_v2/1);
-init_per_group(test_v3_ipv6 = GroupName, Config) ->
+init_per_group2(test_v3_ipv6 = GroupName, Config) ->
     init_per_group_ipv6(GroupName, Config, fun init_v3/1);
-init_per_group(misc = GroupName, Config) -> 
+init_per_group2(misc = GroupName, Config) -> 
     init_misc(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(mib_storage_varm_mnesia = GroupName, Config) -> 
+init_per_group2(mib_storage_varm_mnesia = GroupName, Config) -> 
     init_varm_mib_storage_mnesia(snmp_test_lib:init_group_top_dir(GroupName, 
 								  Config));
-init_per_group(mib_storage_varm_dets = GroupName, Config) -> 
-    ?DBG("init_per_group(mib_storage_varm_dets) -> entry with"
-	 "~n   Config: ~p", [Config]),    
+init_per_group2(mib_storage_varm_dets = GroupName, Config) -> 
     init_varm_mib_storage_dets(
       snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(mib_storage_size_check_mnesia = GroupName, Config) -> 
+init_per_group2(mib_storage_size_check_mnesia = GroupName, Config) -> 
        case snmp_test_lib:crypto_start() of
            ok ->
                init_size_check_msm(snmp_test_lib:init_group_top_dir(GroupName, Config));
            _ ->
                {skip, "Crypto did not start"}
        end;
-init_per_group(mib_storage_size_check_dets = GroupName, Config) -> 
+init_per_group2(mib_storage_size_check_dets = GroupName, Config) -> 
        case snmp_test_lib:crypto_start() of
            ok ->
                init_size_check_msm(snmp_test_lib:init_group_top_dir(GroupName, Config));
            _ ->
                {skip, "Crypto did not start"}
        end;
-init_per_group(mib_storage_size_check_ets = GroupName, Config) -> 
-           case snmp_test_lib:crypto_start() of
-           ok ->
-               init_size_check_msm(snmp_test_lib:init_group_top_dir(GroupName, Config));
-           _ ->
-               {skip, "Crypto did not start"}
-       end;
-init_per_group(mib_storage_mnesia = GroupName, Config) -> 
+init_per_group2(mib_storage_size_check_ets = GroupName, Config) -> 
+    case snmp_test_lib:crypto_start() of
+        ok ->
+            init_size_check_msm(snmp_test_lib:init_group_top_dir(GroupName, Config));
+        _ ->
+            {skip, "Crypto did not start"}
+    end;
+init_per_group2(mib_storage_mnesia = GroupName, Config) -> 
     init_mib_storage_mnesia(snmp_test_lib:init_group_top_dir(GroupName, 
 							     Config));
-init_per_group(mib_storage_dets = GroupName, Config) -> 
+init_per_group2(mib_storage_dets = GroupName, Config) -> 
     init_mib_storage_dets(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(mib_storage_ets = GroupName, Config) -> 
+init_per_group2(mib_storage_ets = GroupName, Config) -> 
     init_mib_storage_ets(snmp_test_lib:init_group_top_dir(GroupName, Config));
-init_per_group(otp16649_ipv4 = GroupName, Config) -> 
+init_per_group2(otp16649_ipv4 = GroupName, Config) -> 
     Config2 = [{ip,       ?LOCALHOST(inet)},
                {ipfamily, inet},
                {tdomain,  transportDomainUdpIpv4} |
                lists:keydelete(ip, 1, Config)],
     snmp_test_lib:init_group_top_dir(GroupName, Config2);
-init_per_group(otp16649_ipv6 = GroupName, Config) ->
+init_per_group2(otp16649_ipv6 = GroupName, Config) ->
     init_per_group_ipv6(GroupName,
                         [{tdomain,  transportDomainUdpIpv6} | Config],
                         fun(C) -> C end);
-    %% SupportsIPv6 =
-    %%     case ?HAS_SUPPORT_IPV6() of
-    %%         true ->
-    %%             case os:type() of
-    %%                 {unix, netbsd} ->
-    %%                     {false, "Host *may* not *properly* support IPV6"};
-    %%                 {unix, darwin} ->
-    %%                     case os:version() of
-    %%                         V > {9, 8, 0} ->
-    %%                             true;
-    %%                         _ ->
-    %%                             {false, "Host *may* not *properly* support IPV6"};
-    %%                     end;
-    %%                 _ ->
-    %%                     true
-    %%             end;
-    %%         false ->
-    %%             {false, "Host does not support IPv6"}
-    %%     end,
-    %% case SupportsIPv6 of
-    %%     true ->
-    %%         Config2 = [{ip,       ?LOCALHOST(inet6)},
-    %%                    {ipfamily, inet6},
-    %%                    {tdomain,  transportDomainUdpIpv6} |
-    %%                    lists:keydelete(ip, 1, Config)],
-    %%         snmp_test_lib:init_group_top_dir(GroupName, Config2);
-    %%     {false, SkipReason} ->
-    %%         {skip, SkipReason}
-    %% end;
-init_per_group(GroupName, Config) ->
+init_per_group2(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
 
 init_per_group_ipv6(GroupName, Config, Init) ->
@@ -820,61 +912,78 @@ init_per_group_ipv6(GroupName, Config, Init) ->
             end
     end.
 
-end_per_group(all_tcs, Config) ->
+
+end_per_group(GroupName, Config) ->
+    ?IPRINT("end_per_group -> entry with"
+            "~n      GroupName: ~p"
+            "~n      Config:    ~p"
+            "~n   when"
+            "~n      Nodes:     ~p",
+            [GroupName, Config, nodes()]),
+
+    Config1 = end_per_group2(GroupName, Config),
+
+    ?IPRINT("end_per_group -> done when"
+            "~n      Nodes:     ~p",
+            [nodes()]),
+
+    Config1.
+
+end_per_group2(major_tcs, Config) ->
     finish_all(Config);
-end_per_group(otp7157, Config) -> 
+end_per_group2(otp7157, Config) -> 
     otp_7157_finish(Config);
-end_per_group(otp4394, Config) -> 
+end_per_group2(otp4394, Config) -> 
     otp_4394_finish(Config);
-end_per_group(v2_inform, Config) -> 
+end_per_group2(v2_inform, Config) -> 
     finish_v2_inform(Config);
-end_per_group(v3_inform, Config) -> 
+end_per_group2(v3_inform, Config) -> 
     finish_v3_inform(Config);
-end_per_group(multiple_reqs, Config) -> 
+end_per_group2(multiple_reqs, Config) -> 
     finish_mul(Config);
-end_per_group(multiple_reqs_2, Config) -> 
+end_per_group2(multiple_reqs_2, Config) -> 
     finish_mul(Config);
-end_per_group(multiple_reqs_3, Config) -> 
+end_per_group2(multiple_reqs_3, Config) -> 
     finish_mul(Config);
-end_per_group(test_multi_threaded, Config) -> 
+end_per_group2(test_multi_threaded, Config) -> 
     finish_mt(Config);
-end_per_group(test_multi_threaded_ext, Config) -> 
+end_per_group2(test_multi_threaded_ext, Config) -> 
     finish_mt(Config);
-end_per_group(test_v3_ipv6, Config) ->
+end_per_group2(test_v3_ipv6, Config) ->
     finish_v3(Config);
-end_per_group(test_v1_v2_ipv6, Config) ->
+end_per_group2(test_v1_v2_ipv6, Config) ->
     finish_v1_v2(Config);
-end_per_group(test_v2_ipv6, Config) ->
+end_per_group2(test_v2_ipv6, Config) ->
     finish_v2(Config);
-end_per_group(test_v1_ipv6, Config) ->
+end_per_group2(test_v1_ipv6, Config) ->
     finish_v1(Config);
-end_per_group(test_v3, Config) ->
+end_per_group2(test_v3, Config) ->
     finish_v3(Config);
-end_per_group(test_v1_v2, Config) ->
+end_per_group2(test_v1_v2, Config) ->
     finish_v1_v2(Config);
-end_per_group(test_v2, Config) ->
+end_per_group2(test_v2, Config) ->
     finish_v2(Config);
-end_per_group(test_v1, Config) ->
+end_per_group2(test_v1, Config) ->
     finish_v1(Config);
-end_per_group(misc, Config) ->
+end_per_group2(misc, Config) ->
     finish_misc(Config);
-end_per_group(mib_storage_varm_mnesia, Config) ->
+end_per_group2(mib_storage_varm_mnesia, Config) ->
     finish_varm_mib_storage_mnesia(Config);
-end_per_group(mib_storage_varm_dets, Config) ->
+end_per_group2(mib_storage_varm_dets, Config) ->
     finish_varm_mib_storage_dets(Config);
-end_per_group(mib_storage_size_check_mnesia, Config) ->
+end_per_group2(mib_storage_size_check_mnesia, Config) ->
     finish_size_check_msm(Config);
-end_per_group(mib_storage_size_check_dets, Config) ->
+end_per_group2(mib_storage_size_check_dets, Config) ->
     finish_size_check_msd(Config);
-end_per_group(mib_storage_size_check_ets, Config) ->
+end_per_group2(mib_storage_size_check_ets, Config) ->
     finish_size_check_mse(Config);
-end_per_group(mib_storage_mnesia, Config) ->
+end_per_group2(mib_storage_mnesia, Config) ->
     finish_mib_storage_mnesia(Config);
-end_per_group(mib_storage_dets, Config) ->
+end_per_group2(mib_storage_dets, Config) ->
     finish_mib_storage_dets(Config);
-end_per_group(mib_storage_ets, Config) ->
+end_per_group2(mib_storage_ets, Config) ->
     finish_mib_storage_ets(Config);
-end_per_group(_GroupName, Config) ->
+end_per_group2(_GroupName, Config) ->
     Config.
 
 
@@ -7025,14 +7134,6 @@ otp_3725_test(MaNode) ->
 %% Slogan: Target mib tag list check invalid
 %%-----------------------------------------------------------------
 
-tickets1_cases() ->
-    [
-     {group, otp4394}, 
-     {group, otp7157}, 
-     {group, otp16092}
-    ].
-
-
 otp_4394_init(Config) when is_list(Config) ->
     ?DBG("otp_4394_init -> entry with"
 	   "~n   Config: ~p", [Config]),
@@ -7398,31 +7499,6 @@ otp16092_try_start_and_stop_agent(Node, Opts, Expected) ->
 %% These cases are started in the new way
 %%-----------------------------------------------------------------
 
-tickets2_cases() ->
-    [
-     otp8395, 
-     otp9884,
-     {group, otp16649}
-    ].
-
-otp16649_cases() ->
-    [
-     {group, otp16649_ipv4},
-     {group, otp16649_ipv6}
-    ].
-
-otp16649_gen_cases() ->
-    [
-     otp16649_1,
-     otp16649_2,
-     otp16649_3,
-     otp16649_4,
-     otp16649_5,
-     otp16649_6,
-     otp16649_7
-    ].
-
-
 otp8395({init, Config}) when is_list(Config) ->
     ?DBG("otp8395(init) -> entry with"
 	 "~n   Config: ~p", [Config]),
@@ -7430,9 +7506,9 @@ otp8395({init, Config}) when is_list(Config) ->
     %% --
     %% Start nodes
     %%
-
-    {ok, AgentNode}    = start_node(agent),
-    {ok, ManagerNode}  = start_node(manager),
+    FName              = ?FUNCTION_NAME,
+    {ok, AgentNode}    = start_node(mk_node_name(FName, agent)),
+    {ok, ManagerNode}  = start_node(mk_node_name(FName, manager)),
 
     %% -- 
     %% Mnesia init
@@ -7580,7 +7656,7 @@ otp8395(Config) when is_list(Config) ->
 otp9884({init, Config}) when is_list(Config) ->
     ?DBG("otp9884(init) -> entry with"
 	 "~n   Config: ~p", [Config]),
-    init_v1_agent([{ipfamily, inet} | Config]);
+    init_v1_agent([{fname, otp9884}, {ipfamily, inet} | Config]);
 
 otp9884({fin, Config}) when is_list(Config) ->
     ?DBG("otp9884(fin) -> entry with"
@@ -8024,8 +8100,12 @@ otp16649_init(N, AgentPreTransports, Config) ->
          "~n   Config2: ~p", [Config3]),
     [{agent_raw_transports, AgentPreTransports} | Config3].
 
+mk_node_name(FName, Post) when is_atom(FName) andalso is_atom(Post) ->
+    list_to_atom(?F("~w_~w", [FName, Post])).
+
 otp16649_mk_name(N, Post) when is_integer(N) andalso is_atom(Post) ->
-    list_to_atom(?F("otp16649_~w_~w", [N, Post])).
+    mk_node_name(otp16649, list_to_atom(?F("~w_~w", [N, Post]))).
+%% list_to_atom(?F("otp16649_~w_~w", [N, Post])).
 
 
 otp16649_fin(N, Config) when is_integer(N) ->
@@ -8241,13 +8321,15 @@ start_agent(Config) ->
 start_agent(Config, Opts) ->
 
     %% Directories
-    ConfDir = ?config(agent_conf_dir, Config),
-    DbDir   = ?config(agent_db_dir,   Config),
-    LogDir  = ?config(agent_log_dir,  Config),
+    ConfDir     = ?config(agent_conf_dir,     Config),
+    DbDir       = ?config(agent_db_dir,       Config),
+    LogDir      = ?config(agent_log_dir,      Config),
+    InetBackend = ?config(socket_create_opts, Config),
  
     Vsns = [v1], 
 
-    AgentConfig = process_agent_options(ConfDir, DbDir, LogDir, Vsns, Opts),
+    AgentConfig = process_agent_options(ConfDir, DbDir, LogDir, Vsns,
+                                        InetBackend, Opts),
     
     %% Nodes
     AgentNode = ?config(agent_node, Config),
@@ -8259,7 +8341,15 @@ start_agent(Config, Opts) ->
     [{agent_sup, AgentTopSup} | Config].
     
 
-process_agent_options(ConfDir, DbDir, LogDir, Vsns, Opts) ->
+process_agent_options(ConfDir, DbDir, LogDir, Vsns, InetBackend, Opts) ->
+    ?IPRINT("process_agent_options ->"
+            "~n   ConfDir:     ~p"
+            "~n   DbDir:       ~p"
+            "~n   LogDir:      ~p"
+            "~n   Vsns:        ~p"
+            "~n   InetBackend: ~p"
+            "~n   Opts:        ~p",
+            [ConfDir, DbDir, LogDir, Vsns, InetBackend, Opts]),
     Defaults = 
 	[{agent_type,      master},
 	 {agent_verbosity, trace},
@@ -8283,9 +8373,9 @@ process_agent_options(ConfDir, DbDir, LogDir, Vsns, Opts) ->
 	 {note_store, [{timeout,30000}, {verbosity,log}]},
 	 {net_if, [{module,    snmpa_net_if},
 		   {verbosity, trace},
-		   {options,   [{bind_to,   false},
-				{no_reuse,  false},
-				{req_limit, infinity}]}]},
+		   {options,   InetBackend ++ [{bind_to,   false},
+                                               {no_reuse,  false},
+                                               {req_limit, infinity}]}]},
 	 {audit_trail_log, [{type,   read_write},
 			    {dir,    LogDir},
 			    {size,   {10240,20}},
@@ -8699,11 +8789,12 @@ init_v1_agent(Config) ->
     %% Start nodes
     %% 
 
-    {ok, AgentNode}   = start_node(agent),
+    FName             = ?config(fname, Config),
+    {ok, AgentNode}   = start_node(mk_node_name(FName, agent)),
 
     %% We don't use a manager in this test but the (common) config 
     %% function takes an argument that is derived from this
-    {ok, ManagerNode} = start_node(manager), 
+    {ok, ManagerNode} = start_node(mk_node_name(FName, manager)), 
 
     %% -- 
     %% Mnesia init
@@ -8758,7 +8849,11 @@ init_v1_agent(Config) ->
 			   {agent_node,        AgentNode}, 
 			   {agent_host,        AgentHost}, 
 			   {agent_ip,          AgentIP}, 
-			   {agent_backup_dirs, AgentBkpDirs}|Config]),
+			   {agent_backup_dirs, AgentBkpDirs},
+                           
+                           %% We need this here since without it
+                           %% fin_v1_agent will not be able to stop!
+                           {manager_node, ManagerNode}|Config]),
 
     %% -- 
     %% Create watchdog 
@@ -8786,7 +8881,7 @@ fin_v1_agent(Config) ->
 
     %% - 
     %% Stop the agent node
-    %% 
+    %%
     stop_node(AgentNode),
 
 

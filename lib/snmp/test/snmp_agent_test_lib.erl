@@ -123,7 +123,8 @@
 init_all(Config) when is_list(Config) ->
 
     ?IPRINT("init_all -> entry with"
-            "~n   Config: ~p", [Config]),
+            "~n   Config: ~p"
+            "~n   Nodes:  ~p", [Config, nodes()]),
 
     %% --
     %% Start nodes
@@ -140,12 +141,12 @@ init_all(Config) when is_list(Config) ->
     %% Create necessary files ( and dirs ) 
     %% 
 
-    ?IPRINT("init_all -> create suite top dir"),
-    SuiteTopDir = ?config(snmp_suite_top_dir, Config),
-    ?DBG("init_all -> SuiteTopDir ~p", [SuiteTopDir]),
+    ?IPRINT("init_all -> lookup group top dir"),
+    GroupTopDir = ?config(snmp_group_top_dir, Config),
+    ?DBG("init_all -> GroupTopDir ~p", [GroupTopDir]),
 
     ?IPRINT("init_all -> create agent dir"),
-    AgentDir = join(SuiteTopDir, "agent/"), 
+    AgentDir = join(GroupTopDir, "agent/"), 
     ?line ok = file:make_dir(AgentDir),
     ?DBG("init_all -> AgentDir ~p", [AgentDir]),
 
@@ -165,12 +166,12 @@ init_all(Config) when is_list(Config) ->
     ?DBG("init_all -> AgentConfDir ~p", [AgentConfDir]),
 
     ?IPRINT("init_all -> create manager dir"),
-    MgrDir   = join(SuiteTopDir, "mgr/"), 
+    MgrDir   = join(GroupTopDir, "mgr/"), 
     ?line ok = file:make_dir(MgrDir),
     ?DBG("init_all -> MgrDir ~p", [MgrDir]),
 
     ?IPRINT("init_all -> create sub-agent dir"),
-    SaDir    = join(SuiteTopDir, "sa/"), 
+    SaDir    = join(GroupTopDir, "sa/"), 
     ?line ok = file:make_dir(SaDir),
     ?DBG("init_all -> SaDir ~p", [SaDir]),
 
@@ -213,7 +214,8 @@ init_all(Config) when is_list(Config) ->
     ?IPRINT("init_all -> get localhost"),
     Ip = ?LOCALHOST(),
 
-    ?IPRINT("init_all -> done"),
+    ?IPRINT("init_all -> done when"
+            "~n   Nodes: ~p", [nodes()]),
     [{snmp_sa,        SaNode}, 
      {snmp_mgr,       MgrNode}, 
      {snmp_master,    node()}, 
@@ -232,7 +234,8 @@ init_all(Config) when is_list(Config) ->
 finish_all(Config) when is_list(Config) ->
 
     ?IPRINT("finish_all -> entry with"
-            "~n   Config: ~p", [Config]),
+            "~n   Config: ~p"
+            "~n   Nodes:  ~p", [Config, nodes()]),
 
     SaNode  = ?config(snmp_sa, Config),
     MgrNode = ?config(snmp_mgr, Config),
@@ -246,7 +249,11 @@ finish_all(Config) when is_list(Config) ->
     ?IPRINT("finish_all -> stop mnesia application"),
     application:stop(mnesia),
 
-    ?IPRINT("finish_all -> stop"),
+    ?IPRINT("finish_all -> unload mnesia application"),
+    application:unload(mnesia),
+
+    ?IPRINT("finish_all -> stop when"
+            "~n   Nodes: ~p", [nodes()]),
     ok.
 
 
@@ -266,9 +273,18 @@ init_case(Config) when is_list(Config) ->
     SaHost         = ?HOSTNAME(SaNode),
     MgrHost        = ?HOSTNAME(MgrNode),
     MasterHost     = ?HOSTNAME(MasterNode),
-    {ok, MasterIP} = snmp_misc:ip(MasterHost, IpFamily),
-    {ok, MIP}      = snmp_misc:ip(MgrHost, IpFamily),
-    {ok, SIP}      = snmp_misc:ip(SaHost, IpFamily),
+    {ok, MasterIP} = ?LIB:which_host_ip(MasterHost, IpFamily),
+    {ok, MIP}      = ?LIB:which_host_ip(MgrHost,    IpFamily),
+    {ok, SIP}      = ?LIB:which_host_ip(SaHost,     IpFamily),
+
+    ?IPRINT("init_case -> "
+            "~n   SaHost:     ~p"
+            "~n   MgrHost:    ~p"
+            "~n   MasterHost: ~p"
+            "~n   MasterIP:   ~p"
+            "~n   MIP:        ~p"
+            "~n   SIP:        ~p",
+            [SaHost, MgrHost, MasterHost, MasterIP, MIP, SIP]),
 
     put(mgr_node,    MgrNode),
     put(sa_node,     SaNode),
@@ -296,6 +312,7 @@ init_case(Config) when is_list(Config) ->
             "~n   SaNode:     ~p"
             "~n   MgrNode:    ~p"
             "~n   MibDir:     ~p", [MasterNode, SaNode, MgrNode, MibDir]),
+
     {SaNode, MgrNode, MibDir}.
 
 
@@ -646,10 +663,11 @@ start_agent(Config, Vsns, Opts) ->
             "~n   Vsns:   ~p"
             "~n   Opts:   ~p", [node(), Config, Vsns, Opts]),
     
-    ?line AgentLogDir  = ?config(agent_log_dir,  Config),
-    ?line AgentConfDir = ?config(agent_conf_dir, Config),
-    ?line AgentDbDir   = ?config(agent_db_dir,   Config),
-    ?line SaNode       = ?config(snmp_sa,        Config),
+    ?line AgentLogDir  = ?config(agent_log_dir,      Config),
+    ?line AgentConfDir = ?config(agent_conf_dir,     Config),
+    ?line AgentDbDir   = ?config(agent_db_dir,       Config),
+    ?line SaNode       = ?config(snmp_sa,            Config),
+    ?line InetBackend  = ?config(socket_create_opts, Config),
 
     Env = app_agent_env_init(
 	    [{versions,         Vsns}, 
@@ -668,7 +686,8 @@ start_agent(Config, Vsns, Opts) ->
 	     {mib_server,       [{verbosity, log}]},
 	     {symbolic_store,   [{verbosity, log}]},
 	     {note_store,       [{verbosity, log}]},
-	     {net_if,           [{verbosity, trace}]}],
+	     {net_if,           [{verbosity, trace},
+                                 {options,   InetBackend}]}],
 	    Opts),
     
 
