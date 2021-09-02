@@ -1285,7 +1285,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
     }
 
     /*  Optimized - if already in binary off heap, keep that and avoid
-       copying, also binary returns can be sub binaries in that case */
+        copying, also binary returns can be sub binaries in that case. */
 
     restart.flags = 0;
     if (is_binary(arg1)) {
@@ -1300,7 +1300,10 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 
 	slength = binary_size(arg1);
 	bptr = binary_val(real_bin);
-	if (bitsize != 0 || bitoffs != 0 ||  (*bptr != HEADER_PROC_BIN)) {
+	if (bitsize != 0 || bitoffs != 0 || slength <= ERL_ONHEAP_BIN_LIMIT) {
+            /* If this is an unaligned subbinary,
+               or the binary is smaller than the ERL_ONHEAP_BIN_LIMIT
+               we make a copy of the binary. */
 	    goto handle_iolist;
 	}
 	pb = (ProcBin *) bptr;
