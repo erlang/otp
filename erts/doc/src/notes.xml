@@ -2265,6 +2265,99 @@
 
 </section>
 
+<section><title>Erts 10.7.2.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in <c>zlib</c> where decompression would
+	    crash with <c>data_error</c> on some valid inputs. The
+	    bug could also cause extraction from a zip archive using
+	    <c>zip:extract()</c> to fail.</p>
+          <p>
+	    Own Id: OTP-17470 Aux Id: ERIERL-657 </p>
+        </item>
+        <item>
+          <p>
+	    A call to <c>erlang:cancel_timer(_, [{info, false}])</c>
+	    could cause the calling process to block forever in the
+	    call. Note that only the synchronous version of the call
+	    (that is, the <c>async</c> option is <c>false</c>) in
+	    combination with the <c>info</c> option set to
+	    <c>false</c> was effected by this bug.</p>
+          <p>
+	    Own Id: OTP-17472 Aux Id: PR-4932 </p>
+        </item>
+        <item>
+          <p>
+	    Microstate accounting (msacc) and
+	    <c>os:perf_counter()</c> unintentionally used system time
+	    instead of monotonic time for time measurements on a lot
+	    of systems. These systems were all non x86/x86_64 systems
+	    or x86/x86_64 systems without a reliable and constant
+	    rdtsc instruction.</p>
+          <p>
+	    The lock counting (lcnt) built runtime system also
+	    unintentionally used system time instead of monotonic
+	    time for time measurements on all systems.</p>
+          <p>
+	    Own Id: OTP-17493</p>
+        </item>
+        <item>
+          <p>
+	    Simultaneous calls to
+	    <c>erlang:system_flag(schedulers_online, _)</c> could
+	    cause callers to end up in a suspended state forever.</p>
+          <p>
+	    Own Id: OTP-17500 Aux Id: GH-4809 </p>
+        </item>
+        <item>
+          <p>
+	    Fix rare race bug in memory management of distribution
+	    entries. Have been seen to cause VM crash when massive
+	    number of repeated concurrent failing connection
+	    attempts.</p>
+          <p>
+	    Own Id: OTP-17513 Aux Id: GH-4964, PR-5015 </p>
+        </item>
+        <item>
+          <p>
+	    Fix buffer overrun problem in the tty driver. The problem
+	    happens on some platforms when using the CTRL+R
+	    functionality of newshell with very long strings in the
+	    history.</p>
+          <p>
+	    Own Id: OTP-17560 Aux Id: GH-5116 </p>
+        </item>
+        <item>
+          <p>
+	    Fix race-condition that could cause a crash when tracing
+	    scheduling or garbage collections on a process that was
+	    running on a dirty scheduler.</p>
+          <p>
+	    Own Id: OTP-17568 Aux Id: PR-4940 </p>
+        </item>
+        <item>
+          <p>
+	    Fix rare bug where re:run would crash/return invalid
+	    results when given a subbinary as subject.</p>
+          <p>
+	    This bug has existed since Erlang/OTP 20.0.</p>
+          <p>
+	    Own Id: OTP-17585 Aux Id: GH-5150 </p>
+        </item>
+        <item>
+	    <p><c>binary_to_term/1,2</c> is now more resilient
+	    against corrupted binaries containing maps in the
+	    external format.</p>
+          <p>
+	    Own Id: OTP-17594</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
