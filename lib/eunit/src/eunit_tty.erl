@@ -253,6 +253,9 @@ format_cancel(undefined, _) ->
     "*skipped*\n";
 format_cancel(timeout, _) ->
     "*timed out*\n";
+format_cancel({timeout, #{stacktrace := Stack}}, _) ->
+    ["*timed out*\n",
+     eunit_lib:format_stacktrace(Stack)];
 format_cancel({startup, Reason}, Depth) ->
     io_lib:fwrite("*could not start test process*\n::~tP\n\n",
 		  [Reason, Depth]);

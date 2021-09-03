@@ -395,6 +395,10 @@ format_testcase_result({skipped, {abort, Error}}) when is_tuple(Error) ->
     [?INDENT, ?INDENT, <<"<skipped type=\"">>, escape_attr(atom_to_list(element(1, Error))), <<"\">">>, ?NEWLINE,
     escape_text(eunit_lib:format_error(Error)),
     ?INDENT, ?INDENT, <<"</skipped>">>, ?NEWLINE];
+format_testcase_result({skipped, {timeout, #{stacktrace := Stack}}}) ->
+    [?INDENT, ?INDENT, <<"<skipped type=\"timeout\">">>, ?NEWLINE,
+    escape_text(eunit_lib:format_stacktrace(Stack)),
+    ?INDENT, ?INDENT, <<"</skipped>">>, ?NEWLINE];
 format_testcase_result({skipped, {Type, Term}}) when is_atom(Type) ->
     [?INDENT, ?INDENT, <<"<skipped type=\"">>, escape_attr(atom_to_list(Type)), <<"\">">>, ?NEWLINE,
     escape_text(io_lib:write(Term)),

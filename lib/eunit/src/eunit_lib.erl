@@ -36,7 +36,7 @@
 	 command/2, command/3, trie_new/0, trie_store/2, trie_match/2,
 	 split_node/1, consult_file/1, list_dir/1, format_exit_term/1,
 	 format_exception/1, format_exception/2, format_error/1, format_error/2,
-         is_not_test/1]).
+         format_stacktrace/1, is_not_test/1]).
 
 -define(DEFAULT_DEPTH, 20).
 
