@@ -1097,11 +1097,7 @@ format_log_multi(#{label:={gen_server,terminate},
     Args =
         case Depth of
             unlimited ->
-                [Name, Msg, State, Reason1] ++
-                    case Log of
-                        [] -> [];
-                        _ -> Log
-                    end ++ ClientArgs;
+                [Name, Msg, State, Reason1] ++ Log ++ ClientArgs;
             _ ->
                 [Name, Depth, Msg, Depth, State, Depth, Reason1, Depth] ++
                     case Log of
