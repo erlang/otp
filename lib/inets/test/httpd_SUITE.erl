@@ -132,7 +132,8 @@ groups() ->
      {http_1_1, [],
       [host, chunked, expect, cgi, cgi_chunked_encoding_test,
        trace, range, if_modified_since, mod_esi_chunk_timeout,
-       esi_put, esi_patch, esi_post, esi_proagate, esi_atom_leak] ++ http_head() ++ http_get() ++ load()},
+       esi_put, esi_patch, esi_post, esi_proagate, esi_atom_leak, esi_headers]
+      ++ http_head() ++ http_get() ++ load()},
      {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
      {http_rel_path_script_alias, [], [cgi]},
      {not_sup, [], [put_not_sup]}
@@ -990,6 +991,16 @@ esi_atom_leak(Config) when is_list(Config) ->
     AtomCount3 = [GetFun("GET /cgi-bin/erl/httpd_example:get ", H, [{statuscode, 200}])
                   || H <- NotExistingHdr],
     true = IsStable(AtomCount3).
+
+%%-------------------------------------------------------------------------
+esi_headers() ->
+    [{doc, "Test mod_esi HTTP headers support"}].
+
+esi_headers(Config) when is_list(Config) ->
+    ok = http_status("GET /cgi-bin/erl/httpd_example:get_reply_headers ",
+                     {"Accept-Encoding: gzip \r\nNotExistingHeader_1: 100 \r\n", ""},
+                     Config, [{statuscode, 200}, {header, "notexistingheader_1", "100"},
+                              {header, "accept-encoding", "gzip"}]).
 
 %%-------------------------------------------------------------------------
 cgi() ->
