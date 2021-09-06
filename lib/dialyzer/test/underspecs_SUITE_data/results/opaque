@@ -1,0 +1,2 @@
+
+opaque.erl:5:2: The specification for opaque:accidental_supertype/0 states that the function might also return {_,_} but the inferred return is 'other' | gb_sets:set(_)

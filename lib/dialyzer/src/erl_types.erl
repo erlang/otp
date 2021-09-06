@@ -63,6 +63,7 @@
          t_contains_opaque/1, t_contains_opaque/2,
          t_decorate_with_opaque/3,
 	 t_elements/1,
+	 t_elements/2,
 	 t_find_opaque_mismatch/3,
          t_find_unknown_opaque/3,
 	 t_fixnum/0,
@@ -2863,23 +2864,26 @@ force_union(T = ?union(_)) ->         T.
 %%-----------------------------------------------------------------------------
 %% An attempt to write the inverse operation of t_sup/1 -- XXX: INCOMPLETE !!
 %%
-
 -spec t_elements(erl_type()) -> [erl_type()].
+t_elements(T) ->
+  t_elements(T, 'universe').
 
-t_elements(?none) -> [];
-t_elements(?unit) -> [];
-t_elements(?any = T) -> [T];
-t_elements(?nil = T) -> [T];
-t_elements(?atom(?any) = T) -> [T];
-t_elements(?atom(Atoms)) ->
+-spec t_elements(erl_type(), opaques()) -> [erl_type()].
+
+t_elements(?none, _Opaques) -> [];
+t_elements(?unit, _Opaques) -> [];
+t_elements(?any = T, _Opaques) -> [T];
+t_elements(?nil = T, _Opaques) -> [T];
+t_elements(?atom(?any) = T, _Opaques) -> [T];
+t_elements(?atom(Atoms), _Opaques) ->
   [t_atom(A) || A <- Atoms];
-t_elements(?bitstr(_, _) = T) -> [T];
-t_elements(?function(_, _) = T) -> [T];
-t_elements(?identifier(?any) = T) -> [T];
-t_elements(?identifier(IDs)) ->
+t_elements(?bitstr(_, _) = T, _Opaques) -> [T];
+t_elements(?function(_, _) = T, _Opaques) -> [T];
+t_elements(?identifier(?any) = T, _Opaques) -> [T];
+t_elements(?identifier(IDs), _Opaques) ->
   [?identifier([T]) || T <- IDs];
-t_elements(?list(_, _, _) = T) -> [T];
-t_elements(?number(_, _) = T) ->
+t_elements(?list(_, _, _) = T, _Opaques) -> [T];
+t_elements(?number(_, _) = T, _Opaques) ->
   case T of
     ?number(?any, ?unknown_qual) ->
       [?float, ?integer(?any)];
@@ -2889,25 +2893,30 @@ t_elements(?number(_, _) = T) ->
     ?int_set(Set) ->
       [t_integer(I) || I <- Set]
   end;
-t_elements(?opaque(_) = T) ->
-  do_elements(T);
-t_elements(?map(_,_,_) = T) -> [T];
-t_elements(?tuple(_, _, _) = T) -> [T];
-t_elements(?tuple_set(_) = TS) ->
+t_elements(?opaque(_) = T, Opaques) ->
+  do_elements(T, Opaques);
+t_elements(?map(_,_,_) = T, _Opaques) -> [T];
+t_elements(?tuple(_, _, _) = T, _Opaques) -> [T];
+t_elements(?tuple_set(_) = TS, _Opaques) ->
   case t_tuple_subtypes(TS) of
     unknown -> [];
     Elems -> Elems
   end;
-t_elements(?union(_) = T) ->
-  do_elements(T);
-t_elements(?var(_)) -> [?any].  %% yes, vars exist -- what else to do here?
+t_elements(?union(_) = T, Opaques) ->
+  do_elements(T, Opaques);
+t_elements(?var(_), _Opaques) -> [?any].  %% yes, vars exist -- what else to do here?
 %% t_elements(T) ->
 %%   io:format("T_ELEMENTS => ~p\n", [T]).
 
-do_elements(Type0) ->
-  case do_opaque(Type0, 'universe', fun(T) -> T end) of
-    ?union(List) -> lists:append([t_elements(T) || T <- List]);
-    Type -> t_elements(Type)
+do_elements(Type0, Opaques) ->
+  case do_opaque(Type0, Opaques, fun(T) -> T end) of
+    ?union(List) ->
+        lists:append([t_elements(T, Opaques) || T <- List]);
+    ?opaque(_)=Type ->
+        %% We lack insight into this opaque type, return it as-is.
+        [Type];
+    Type ->
+        t_elements(Type, Opaques)
   end.
 
 %%-----------------------------------------------------------------------------
