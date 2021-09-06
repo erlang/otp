@@ -149,6 +149,11 @@
 %% Options specific to the above module
 -type mib_storage_options() :: list().
 
+-type mib_module()    :: atom().
+-type table_name()    :: atom().
+-type variable_name() :: atom().
+-type mib_info()      :: {mib_module(), [table_name()], [variable_name()]}.
+
 
 %%-----------------------------------------------------------------
 %% This utility function is used to convert an old SNMP application
@@ -340,11 +345,11 @@ unload_mib(Agent, Mib) ->
     end.
 
 unload_mibs(Mibs) ->
-    unload_mibs(snmp_master_agent, Mibs, false).
+    unload_mibs(snmp_master_agent, Mibs).
 unload_mibs(Agent, Mibs) when is_list(Mibs) -> 
-    snmpa_agent:unload_mibs(Agent, Mibs);
+    unload_mibs(Agent, Mibs, false);
 unload_mibs(Mibs, Force) 
-  when is_list(Mibs) andalso ((Force =:= true) orelse (Force =:= false)) ->
+  when is_list(Mibs) andalso is_boolean(Force) ->
     unload_mibs(snmp_master_agent, Mibs, Force).
 
 -spec unload_mibs(Agent :: pid() | atom(), 
@@ -353,7 +358,7 @@ unload_mibs(Mibs, Force)
     ok | {error, {'unload aborted at', MibName :: string(), InternalReason :: not_loaded | term()}}.
 
 unload_mibs(Agent, Mibs, Force) 
-  when is_list(Mibs) andalso ((Force =:= true) orelse (Force =:= false)) ->
+  when is_list(Mibs) andalso is_boolean(Force) ->
     snmpa_agent:unload_mibs(Agent, Mibs, Force).
 
 
@@ -368,6 +373,8 @@ whereis_mib(Agent, Mib) when is_atom(Mib) ->
 
 
 %% -
+
+-spec mibs_info() -> [mib_info()].
 
 mibs_info() ->
     [
