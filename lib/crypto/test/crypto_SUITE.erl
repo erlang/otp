@@ -78,6 +78,7 @@
          hash/1,
          hash_info/0,
          hash_info/1,
+         info/1,
          mod_pow/0,
          mod_pow/1,
          no_aead_ng/0,
@@ -188,6 +189,7 @@ all() ->
      rand_threads,
      rand_plugin,
      rand_plugin_s,
+     info,
      cipher_info,
      hash_info
     ].
@@ -1271,6 +1273,27 @@ rand_plugin_s() ->
     [{doc, "crypto rand plugin testing (explicit state)"}].
 rand_plugin_s(Config) when is_list(Config) ->
     rand_plugin_aux(explicit_state).
+
+%%--------------------------------------------------------------------
+info(_Config) ->
+    [{_,_,VerBin}] = crypto:info_lib(),
+    Ver = binary:bin_to_list(VerBin),
+    try
+        crypto:info()
+    of
+        #{cryptolib_version_compiled := Ver,
+          cryptolib_version_linked := Ver,
+          compile_type := Tc,
+          link_type := Tl} when is_atom(Tc), is_atom(Tl) ->
+            ok;
+        Other ->
+            ct:log("Ver = ~p~ncrypto:info() -> ~p", [Ver,Other]),
+            ct:fail("Version missmatch", [])
+    catch
+        C:E ->
+            ct:log("Exception ~p:~p", [C,E]),
+            ct:fail("Exception when calling crypto:info/0", [])
+    end.
 
 %%--------------------------------------------------------------------
 cipher_info() ->
