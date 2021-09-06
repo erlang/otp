@@ -2346,7 +2346,8 @@ t_map_encode_decode(Config) when is_list(Config) ->
 			M1 = M0#{Key => Key},
 			case Key rem 17 of
 			    0 ->
-				M1 = binary_to_term(term_to_binary(M1));
+				M1 = binary_to_term(term_to_binary(M1)),
+                                M1 = binary_to_term(term_to_binary(M1, [deterministic]));
 			    _ ->
 				ok
 			end,
@@ -2884,6 +2885,7 @@ t_erts_internal_order(_Config) when is_list(_Config) ->
 
     M = #{0 => 0,2147483648 => 0},
     true = M =:= binary_to_term(term_to_binary(M)),
+    true = M =:= binary_to_term(term_to_binary(M, [deterministic])),
 
     F1 = fun(_, _) -> 0 end,
     F2 = fun(_, _) -> 1 end,

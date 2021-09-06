@@ -49,7 +49,7 @@
 	 bad_list_to_binary/1, bad_binary_to_list/1,
 	 t_split_binary/1, bad_split/1,
 	 terms/1, terms_float/1, float_middle_endian/1,
-         b2t_used_big/1,
+         b2t_used_big/1, t2b_deterministic/1,
 	 external_size/1, t_iolist_size/1,
          t_iolist_size_huge_list/1,
          t_iolist_size_huge_bad_arg_list/1,
@@ -90,7 +90,7 @@ all() ->
      t_iolist_size_huge_list,
      t_iolist_size_huge_bad_arg_list,
      {group, iolist_size_benchmarks},
-     b2t_used_big,
+     b2t_used_big, t2b_deterministic,
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
      sub_bin_copy, bad_term_to_binary, t2b_system_limit,
@@ -579,18 +579,28 @@ terms(Config) when is_list(Config) ->
     TestFun = fun(Term) ->
                       S = io_lib:format("~p", [Term]),
                       io:put_chars(S),
+
 		      Bin = term_to_binary(Term),
 		      case erlang:external_size(Bin) of
 			  Sz when is_integer(Sz), size(Bin) =< Sz ->
 			      ok
 		      end,
+
                       Bin1 = term_to_binary(Term, [{minor_version, 1}]),
                       case erlang:external_size(Bin1, [{minor_version, 1}]) of
                           Sz1 when is_integer(Sz1), size(Bin1) =< Sz1 ->
                               ok
                       end,
+
+                      BinDet = term_to_binary(Term, [deterministic]),
+                      case erlang:external_size(Bin) of
+                          DetSz when is_integer(DetSz), byte_size(Bin) =< DetSz ->
+                              ok
+                      end,
+
 		      Term = binary_to_term_stress(Bin),
 		      Term = binary_to_term_stress(Bin, [safe]),
+		      Term = binary_to_term_stress(BinDet),
                       Bin_sz = byte_size(Bin),
 		      {Term,Bin_sz} = binary_to_term_stress(Bin, [used]),
 
@@ -675,6 +685,156 @@ float_middle_endian(Config) when is_list(Config) ->
     %% Testing for roundtrip is not enough.
     <<131,70,63,240,0,0,0,0,0,0>> = term_to_binary(1.0, [{minor_version,1}]),
     1.0 = binary_to_term_stress(<<131,70,63,240,0,0,0,0,0,0>>).
+
+%% Test term_to_binary(Term, [deterministic]).
+t2b_deterministic(_Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+    Map0 = t2b_deterministic_1(100, #{1 => a, 1.0 => b}),
+
+    Map1 = maps:merge(make_map(10000), Map0),
+    test_deterministic(Map1),
+
+    case total_memory() of
+        Amount when Amount > 15 ->
+            t2b_deterministic_heavy(Map0);
+        _ ->
+            {comment,"heavy tests skipped"}
+    end.
+
+t2b_deterministic_heavy(Map0) ->
+    Map1 = maps:merge(make_map(1_000_000), Map0),
+    test_deterministic(Map1),
+
+    %% If the external representation of the term to be encoded is
+    %% estimated to fit in a heap binary (64 bytes), the internal
+    %% enc_term_int() function that does the actual encoding will be
+    %% called without an context and thus is unable to trap. In the
+    %% DEBUG build of the runtime system, maps with more than 3
+    %% elements will be large maps, and depending on the keys and
+    %% values, it is possible that a large map can fit in 64
+    %% bytes. Therefore, the encoding code for deterministic maps must
+    %% cannot assume that there always exists a context.
+
+    lists:foreach(fun(N) ->
+                          Map = maps:from_list([{E,E} || E <- lists:seq(1, N)]),
+                          test_deterministic(Map)
+                  end, lists:seq(4, 16)),
+
+    %% Test that terminating a process that is encoding a huge map
+    %% will neither crash the runtime system nor leak memory. (Run the
+    %% test with memory sanitizer or valgrind to catch potential memory
+    %% leaks.)
+    erlang:trace_pattern({erlang, term_to_binary, 2}, true, []),
+    Map = huge_map(1_000_000, []),
+    rinse_and_repeat(2, Map).
+
+rinse_and_repeat(Wait, Map) ->
+    {Pid,Ref} = spawn_monitor(fun() ->
+                                      receive go -> ok end,
+                                      term_to_binary(Map, [deterministic])
+                              end),
+    erlang:trace(Pid, true, [call,arity]),
+
+    Pid ! go,
+    receive
+        {trace,Pid,call,{erlang,term_to_binary,2}} ->
+            %% Wait a short period to avoid killing term_to_binary/2 during
+            %% size calculation part.
+            receive after Wait -> ok end,
+            exit(Pid, kill);
+        Other ->
+            error(Other)
+    end,
+
+    receive
+        {'DOWN',Ref,process,Pid,Reason} ->
+            case Reason of
+                normal ->
+                    %% The encoding operation finished before the process
+                    %% was forcefully killed. Done.
+                    ok;
+                killed ->
+                    %% The process was killed in term_to_binary/2. We
+                    %% can't know whether it was killed too early, so
+                    %% we will try again with a slightly longer time.
+                    rinse_and_repeat(Wait + Wait div 2, Map)
+            end;
+        Other2 ->
+            error(Other2)
+    end.
+
+huge_map(0, Acc) ->
+    maps:from_list(Acc);
+huge_map(N, Acc) ->
+    %% Create awkward keys to slow down the sorting.
+    Key = <<N:127/big>>,
+    huge_map(N-1, [{Key,N}|Acc]).
+
+t2b_deterministic_1(0, Map) ->
+    Map;
+t2b_deterministic_1(N, Map0) ->
+    test_deterministic(Map0),
+    Map = Map0#{random_term() => N},
+    t2b_deterministic_1(N - 1, Map).
+
+test_deterministic(Map) ->
+    Bin = term_to_binary(Map, [deterministic]),
+    Map = binary_to_term(Bin),
+
+    %% Make sure that the keys for the map are ordered.
+    List0 = maps:to_list(Map),
+    List = lists:sort(fun(A, B) -> erts_internal:cmp_term(A, B) =< 0 end, List0),
+    List = decode_ext_map(Bin),
+    ok.
+
+decode_ext_map(MapBin) ->
+    MapTag = 116,
+    ListTag = 108,
+    NilTag = 106,
+
+    %% Rewrite the map to a list before decoding to preserve the order
+    %% the map elements.
+    <<131,MapTag,Size:32,Bin0/binary>> = MapBin,
+    ListBin = <<131,ListTag,(2*Size):32,Bin0/binary,NilTag>>,
+    List = binary_to_term(ListBin),
+    decode_ext_map_1(List).
+
+decode_ext_map_1([Key,Val|T]) ->
+    [{Key,Val}|decode_ext_map_1(T)];
+decode_ext_map_1([]) -> [].
+
+make_map(N) ->
+    maps:from_list([{I,I*I} || I <- lists:seq(1, N)]).
+
+random_term() ->
+    case rand:uniform(11) of
+        1 ->
+            list_to_atom(integer_to_list(36#aaaa + rand:uniform(100) * 23, 36));
+        2 ->
+            rand:uniform();
+        3 ->
+            rand:uniform(10000000);
+        4 ->
+            (1 bsl rand:uniform(128)) + rand:uniform(10000000);
+        5 ->
+            self();
+        6 ->
+            make_ref();
+        7 ->
+            random_list();
+        8 ->
+            list_to_tuple(random_list());
+        9 ->
+            [];
+        10 ->
+            make_map(33);
+        11 ->
+            make_map(rand:uniform(10))
+    end.
+
+random_list() ->
+    [random_term() || _ <- lists:seq(1, rand:uniform(10)-1)].
 
 external_size(Config) when is_list(Config) ->
     %% Build a term whose external size only fits in a big num (on 32-bit CPU).
