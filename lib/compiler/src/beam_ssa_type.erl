@@ -60,35 +60,37 @@
         { func_id :: func_id(),
           limit_return :: boolean(),
           params :: [beam_ssa:b_var()],
-          used_once :: sets:set(beam_ssa:b_var()) }).
+          used_once :: #{beam_ssa:b_var() => _ } }).
 
+-type metadata() :: #metadata{}.
+-type meta_cache() :: #{ func_id() => metadata() }.
 -type type_db() :: #{ beam_ssa:var_name() := type() }.
 
 %%
 
 -spec opt_start(term(), term()) -> term().
 opt_start(StMap, FuncDb0) when FuncDb0 =/= #{} ->
-    {ArgDb, FuncDb} = signatures(StMap, FuncDb0),
+    {ArgDb, MetaCache, FuncDb} = signatures(StMap, FuncDb0),
 
-    opt_start_1(maps:keys(StMap), ArgDb, StMap, FuncDb);
+    opt_start_1(maps:keys(StMap), ArgDb, StMap, FuncDb, MetaCache);
 opt_start(StMap, FuncDb) ->
     %% Module-level analysis is disabled, likely because of a call to
     %% load_nif/2 or similar. opt_continue/4 will assume that all arguments and
     %% return types are 'any'.
     {StMap, FuncDb}.
 
-opt_start_1([Id | Ids], ArgDb, StMap0, FuncDb0) ->
+opt_start_1([Id | Ids], ArgDb, StMap0, FuncDb0, MetaCache) ->
     case ArgDb of
         #{ Id := ArgTypes } ->
             #opt_st{ssa=Linear0,args=Args} = St0 = map_get(Id, StMap0),
 
             Ts = maps:from_list(zip(Args, ArgTypes)),
-            {Linear, FuncDb} = opt_function(Linear0, Args, Id, Ts, FuncDb0),
+            {Linear, FuncDb} = opt_function(Linear0, Args, Id, Ts, FuncDb0, MetaCache),
 
             St = St0#opt_st{ssa=Linear},
             StMap = StMap0#{ Id := St },
 
-            opt_start_1(Ids, ArgDb, StMap, FuncDb);
+            opt_start_1(Ids, ArgDb, StMap, FuncDb, MetaCache);
         #{} ->
             %% Unreachable functions must be removed so that opt_continue/4
             %% won't process them and potentially taint the argument types of
@@ -96,9 +98,9 @@ opt_start_1([Id | Ids], ArgDb, StMap0, FuncDb0) ->
             StMap = maps:remove(Id, StMap0),
             FuncDb = maps:remove(Id, FuncDb0),
 
-            opt_start_1(Ids, ArgDb, StMap, FuncDb)
+            opt_start_1(Ids, ArgDb, StMap, FuncDb, MetaCache)
     end;
-opt_start_1([], _CommittedArgs, StMap, FuncDb) ->
+opt_start_1([], _CommittedArgs, StMap, FuncDb, _MetaCache) ->
     {StMap, FuncDb}.
 
 %%
@@ -124,12 +126,13 @@ opt_start_1([], _CommittedArgs, StMap, FuncDb) ->
 -record(sig_st,
         { wl = wl_new() :: worklist(),
           committed = #{} :: #{ func_id() => [type()] },
-          updates = #{} :: #{ func_id() => [type()] }}).
+          updates = #{} :: #{ func_id() => [type()] },
+          meta_cache = #{} :: meta_cache()}).
 
 signatures(StMap, FuncDb0) ->
     State0 = init_sig_st(StMap, FuncDb0),
     {State, FuncDb} = signatures_1(StMap, FuncDb0, State0),
-    {State#sig_st.committed, FuncDb}.
+    {State#sig_st.committed, State#sig_st.meta_cache, FuncDb}.
 
 signatures_1(StMap, FuncDb0, State0) ->
     case wl_next(State0#sig_st.wl) of
@@ -203,11 +206,11 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
     Ls = #{ ?EXCEPTION_BLOCK => {incoming, Ts},
             0 => {incoming, Ts} },
 
-    Meta = init_metadata(Id, Linear, Args),
+    {Meta, State2} = sig_init_metadata(Id, Linear, Args, State1),
 
     Wl0 = State1#sig_st.wl,
 
-    {State, SuccTypes} = sig_bs(Linear, Ds, Ls, FuncDb, #{}, [], Meta, State1),
+    {State, SuccTypes} = sig_bs(Linear, Ds, Ls, FuncDb, #{}, [], Meta, State2),
 
     WlChanged = wl_changed(Wl0, State#sig_st.wl),
     #{ Id := #func_info{succ_types=SuccTypes0}=Entry0 } = FuncDb,
@@ -218,6 +221,17 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
         SuccTypes0 =/= SuccTypes ->
             Entry = Entry0#func_info{succ_types=SuccTypes},
             {true, WlChanged, State, FuncDb#{ Id := Entry }}
+    end.
+
+%% Get the metadata for a function. If this function has been analysed
+%% previously, retrieve the previously calculated metadata.
+sig_init_metadata(Id, Linear, Args, #sig_st{meta_cache=MetaCache} = State) ->
+    case MetaCache of
+        #{Id := Meta} ->
+            {Meta, State};
+        #{} ->
+            Meta = init_metadata(Id, Linear, Args),
+            {Meta, State#sig_st{meta_cache=MetaCache#{Id => Meta}}}
     end.
 
 sig_bs([{L, #b_blk{is=Is,last=Last0}} | Bs],
@@ -413,23 +427,28 @@ join_arg_types([], [], Ts) ->
 
 %%
 %% Optimizes a function based on the type information inferred by signatures/2
-%% and earlier runs of opt_function/5.
+%% and earlier runs of opt_function/5,6.
 %%
 %% This is pretty straightforward as it only walks through each function once,
 %% and because it only makes types narrower it's safe to optimize the functions
 %% in any order or not at all.
 %%
 
--spec opt_function(Linear, Args, Id, Ts, FuncDb) -> Result when
+opt_function(Linear, Args, Id, Ts, FuncDb) ->
+    MetaCache = #{},
+    opt_function(Linear, Args, Id, Ts, FuncDb, MetaCache).
+
+-spec opt_function(Linear, Args, Id, Ts, FuncDb, MetaCache) -> Result when
       Linear :: [{non_neg_integer(), beam_ssa:b_blk()}],
       Args :: [beam_ssa:b_var()],
       Id :: func_id(),
       Ts :: type_db(),
       FuncDb :: func_info_db(),
-      Result :: {Linear, FuncDb}.
-opt_function(Linear, Args, Id, Ts, FuncDb) ->
+      Result :: {Linear, FuncDb},
+      MetaCache :: meta_cache().
+opt_function(Linear, Args, Id, Ts, FuncDb, MetaCache) ->
     try
-        do_opt_function(Linear, Args, Id, Ts, FuncDb)
+        do_opt_function(Linear, Args, Id, Ts, FuncDb, MetaCache)
     catch
         Class:Error:Stack ->
             #b_local{name=#b_literal{val=Name},arity=Arity} = Id,
@@ -437,7 +456,7 @@ opt_function(Linear, Args, Id, Ts, FuncDb) ->
             erlang:raise(Class, Error, Stack)
     end.
 
-do_opt_function(Linear0, Args, Id, Ts, FuncDb0) ->
+do_opt_function(Linear0, Args, Id, Ts, FuncDb0, MetaCache) ->
     FakeCall = #b_set{op=call,args=[#b_remote{mod=#b_literal{val=unknown},
                                               name=#b_literal{val=unknown},
                                               arity=0}]},
@@ -448,7 +467,12 @@ do_opt_function(Linear0, Args, Id, Ts, FuncDb0) ->
     Ls = #{ ?EXCEPTION_BLOCK => {incoming, Ts},
             0 => {incoming, Ts} },
 
-    Meta = init_metadata(Id, Linear0, Args),
+    Meta = case MetaCache of
+               #{Id := Meta0} ->
+                   Meta0;
+               #{} ->
+                   init_metadata(Id, Linear0, Args)
+           end,
 
     {Linear, FuncDb, SuccTypes} =
         opt_bs(Linear0, Ds, Ls, FuncDb0, #{}, [], Meta, []),
@@ -1621,7 +1645,7 @@ update_successors(#b_br{bool=#b_literal{val=true},succ=Succ}=Last,
     {Last, update_successor(Succ, Ts, Ls)};
 update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}=Last0,
                   Ts, Ds, Ls0, UsedOnce) ->
-    IsTempVar = sets:is_element(Bool, UsedOnce),
+    IsTempVar = is_map_key(Bool, UsedOnce),
     case infer_types_br(Bool, Ts, IsTempVar, Ds) of
         {#{}=SuccTs, #{}=FailTs} ->
             Ls1 = update_successor(Succ, SuccTs, Ls0),
@@ -1636,7 +1660,7 @@ update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}=Last0,
     end;
 update_successors(#b_switch{arg=#b_var{}=V,fail=Fail0,list=List0}=Last0,
                   Ts, Ds, Ls0, UsedOnce) ->
-    IsTempVar = sets:is_element(V, UsedOnce),
+    IsTempVar = is_map_key(V, UsedOnce),
 
     {List1, FailTs, Ls1} =
         update_switch(List0, V, raw_type(V, Ts), Ts, Ds, Ls0, IsTempVar, []),
@@ -2205,9 +2229,8 @@ gcd(A, B) ->
 %%%
 
 init_metadata(FuncId, Linear, Params) ->
-    {RetCounter, Map0} = init_metadata_1(reverse(Linear), 0, #{}),
-    Map = maps:without(Params, Map0),
-    UsedOnce = sets:from_list(maps:keys(Map), [{version, 2}]),
+    {RetCounter, UsedOnce0} = init_metadata_1(reverse(Linear), 0, #{}),
+    UsedOnce = maps:without(Params, UsedOnce0),
 
     #metadata{ func_id = FuncId,
                limit_return = (RetCounter >= ?RETURN_LIMIT),
@@ -2222,11 +2245,11 @@ init_metadata_1([{L,#b_blk{is=Is,last=Last}} | Bs], RetCounter0, Uses0) ->
                      _ -> RetCounter0
                  end,
 
-    %% Calculate the set of variables that are only used once in the terminator
-    %% of the block that defines them. That will allow us to discard type
-    %% information discard type information for variables that will never be
-    %% referenced by the successor blocks, potentially improving compilation
-    %% times.
+    %% Calculate the set of variables that are only used once in the
+    %% terminator of the block that defines them. That will allow us
+    %% to discard type information for variables that will never be
+    %% referenced by the successor blocks, potentially improving
+    %% compilation times.
 
     Uses1 = used_once_last_uses(beam_ssa:used(Last), L, Uses0),
     Uses = used_once_2(reverse(Is), L, Uses1),
@@ -2237,7 +2260,7 @@ init_metadata_1([], RetCounter, Uses) ->
 used_once_2([#b_set{dst=Dst}=I|Is], L, Uses0) ->
     Uses = used_once_uses(beam_ssa:used(I), L, Uses0),
     case Uses of
-        #{Dst:=[L]} ->
+        #{Dst:=L} ->
             used_once_2(Is, L, Uses);
         #{} ->
             %% Used more than once or used once in
@@ -2259,15 +2282,15 @@ used_once_uses([], _, Uses) -> Uses.
 
 used_once_last_uses([V|Vs], L, Uses) ->
     case Uses of
-        #{V:=[_]} ->
-            %% Second time this variable is used.
-            used_once_last_uses(Vs, L, Uses#{V:=more_than_once});
         #{V:=more_than_once} ->
             %% Used at least twice before.
             used_once_last_uses(Vs, L, Uses);
+        #{V:=_} ->
+            %% Second time this variable is used.
+            used_once_last_uses(Vs, L, Uses#{V:=more_than_once});
         #{} ->
             %% First time this variable is used.
-            used_once_last_uses(Vs, L, Uses#{V=>[L]})
+            used_once_last_uses(Vs, L, Uses#{V=>L})
     end;
 used_once_last_uses([], _, Uses) -> Uses.
 
