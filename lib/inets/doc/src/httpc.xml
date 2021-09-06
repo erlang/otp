@@ -350,7 +350,7 @@
 
           <tag><c><![CDATA[ssl]]></c></tag>
           <item>
-            <p>This is the <c>SSL/TLS</c> connectin configuration option.</p>
+            <p>This is the <c>SSL/TLS</c> connecting configuration option.</p>
             <p>Defaults to <c>[]</c>. See <seeerl marker="ssl:ssl">ssl:connect/[2,3,4]</seeerl>  for available options.</p>
 	  </item>
 

@@ -11131,6 +11131,11 @@ hello
 	      systems as of R16B can decode this representation.</p>
 	    </item>
 	  </taglist>
+          <p>Option <c>deterministic</c> (introduced in OTP 24.1) can
+          be used to ensure that within the same major release of Erlang/OTP,
+          the same encoded representation is returned for the same
+          term. There is still no guarantee that the encoded representation
+          remains the same between major releases of Erlang/OTP.</p>
         <p>See also <seemfa marker="#binary_to_term/1">
           <c>binary_to_term/1</c></seemfa>.</p>
       </desc>

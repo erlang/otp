@@ -64,6 +64,12 @@
 #define DFLAG_V4_NC            (((Uint64)0x4) << 32)
 #define DFLAG_ALIAS            (((Uint64)0x8) << 32)
 
+/*
+ * In term_to_binary/2, we will use DFLAG_ATOM_CACHE to mean
+ * DFLAG_DETERMINISTIC.
+ */
+
+#define DFLAG_DETERMINISTIC            DFLAG_ATOM_CACHE
 
 /* Mandatory flags for distribution in OTP 25. */
 #define DFLAG_DIST_MANDATORY_25 (DFLAG_EXTENDED_REFERENCES        \
@@ -261,6 +267,9 @@ typedef struct TTBEncodeContext_ {
     byte* ep;
     Eterm obj;
     ErtsWStack wstack;
+    Eterm* map_array;
+    Eterm* next_map_element;
+    void* ycf_yield_state;
     Binary *result_bin;
     byte *cptr;
     Sint vlen;
@@ -283,8 +292,10 @@ typedef struct TTBEncodeContext_ {
 #define ERTS_INIT_TTBEncodeContext(Ctx, Flags)                  \
     do {                                                        \
         (Ctx)->wstack.wstart = NULL;                            \
-        (Ctx)->dflags = (Flags);                                 \
+        (Ctx)->dflags = (Flags);                                \
         (Ctx)->level = 0;                                       \
+        (Ctx)->map_array = 0;                                   \
+        (Ctx)->ycf_yield_state = 0;                             \
         (Ctx)->vlen = 0;                                        \
         (Ctx)->size = 0;                                        \
         (Ctx)->termv = NULL;                                    \

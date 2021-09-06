@@ -302,6 +302,8 @@ type	FP_EXCEPTION	LONG_LIVED	SYSTEM		fp_exception
 type	LL_MPATHS	LONG_LIVED	SYSTEM		ll_migration_paths
 type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
 
+type	T2B_DETERMINISTIC SHORT_LIVED	PROCESSES	term_to_binary_deterministic
+
 #
 # Types used for special emulators
 #

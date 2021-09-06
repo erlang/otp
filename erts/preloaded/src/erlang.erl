@@ -2681,6 +2681,7 @@ term_to_binary(_Term) ->
       Term :: term(),
       Options :: [compressed |
          {compressed, Level :: 0..9} |
+         deterministic |
          {minor_version, Version :: 0..2} ].
 term_to_binary(_Term, _Options) ->
     erlang:nif_error(undefined).
@@ -2694,6 +2695,7 @@ term_to_iovec(_Term) ->
       Term :: term(),
       Options :: [compressed |
          {compressed, Level :: 0..9} |
+         deterministic |
          {minor_version, Version :: 0..2} ].
 term_to_iovec(_Term, _Options) ->
     erlang:nif_error(undefined).

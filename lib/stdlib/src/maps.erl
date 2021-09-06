@@ -119,18 +119,18 @@ intersect_with(Combiner, Map1, Map2) ->
 
 intersect_with_small_map_first(Combiner, SmallMap, BigMap) ->
     Next = maps:next(maps:iterator(SmallMap)),
-    intersect_with_iterate(Next, [], SmallMap, BigMap, Combiner).
+    intersect_with_iterate(Next, [], BigMap, Combiner).
 
-intersect_with_iterate({K, V1, Iterator}, Keep, Map1, Map2, Combiner) ->
+intersect_with_iterate({K, V1, Iterator}, Keep, BigMap, Combiner) ->
     Next = maps:next(Iterator),
-    case Map2 of
+    case BigMap of
         #{ K := V2 } ->
             V = Combiner(K, V1, V2),
-            intersect_with_iterate(Next, [{K,V}|Keep], Map1, Map2, Combiner);
+            intersect_with_iterate(Next, [{K,V}|Keep], BigMap, Combiner);
         _ ->
-            intersect_with_iterate(Next, Keep, Map1, Map2, Combiner)
+            intersect_with_iterate(Next, Keep, BigMap, Combiner)
     end;
-intersect_with_iterate(none, Keep, _Map1, _Map2, _Combiner) ->
+intersect_with_iterate(none, Keep, _BigMap2, _Combiner) ->
     maps:from_list(Keep).
 
 %% Shadowed by erl_bif_types: maps:is_key/2
