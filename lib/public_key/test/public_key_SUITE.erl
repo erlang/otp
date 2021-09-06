@@ -413,6 +413,7 @@ eddsa_priv_pkcs8(Config) when is_list(Config) ->
     ECPrivKey = public_key:pem_entry_decode(PKCS8Key),
     true = check_entry_type(ECPrivKey, 'ECPrivateKey'),
     true = ECPrivKey#'ECPrivateKey'.parameters == {namedCurve, ?'id-Ed25519'},
+    true = size(ECPrivKey#'ECPrivateKey'.privateKey) == 32,
     PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', ECPrivKey),
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
@@ -426,6 +427,7 @@ eddsa_priv_rfc5958(Config) when is_list(Config) ->
     ECPrivKey = public_key:pem_entry_decode(PKCS8Key),
     true = check_entry_type(ECPrivKey, 'ECPrivateKey'),
     true = ECPrivKey#'ECPrivateKey'.parameters == {namedCurve, ?'id-Ed25519'},
+    true = size(ECPrivKey#'ECPrivateKey'.privateKey) == 32,
     PrivEntry0 = public_key:pem_entry_encode('OneAsymmetricKey', ECPrivKey),
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
