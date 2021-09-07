@@ -22,7 +22,7 @@
 
 -module(crypto).
 
--export([start/0, stop/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
+-export([start/0, stop/0, info/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
          version/0, bytes_to_integer/1]).
 -export([cipher_info/1, hash_info/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
@@ -506,6 +506,11 @@ supports(rsa_opts)    -> rsa_opts_algorithms().
                                                 VerNum :: integer(),
                                                 VerStr :: binary() .
 info_lib() -> ?nif_stub.
+
+%% info/0 and info_nif/0 are experimental. May disapear or change without warning.
+info() -> info_nif().
+info_nif() -> ?nif_stub.
+
 
 -spec info_fips() -> not_supported | not_enabled | enabled.
 
