@@ -142,4 +142,4 @@
   {applications, [kernel, stdlib]},
   {mod, {snmp_app, []}},
   {runtime_dependencies, ["stdlib-2.5","runtime_tools-1.8.14","mnesia-4.12",
-			  "kernel-3.0","erts-6.0","crypto-3.3"]}]}.
+			  "kernel-8.0","erts-12.0","crypto-3.3"]}]}.
