@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson 2017-2018. All Rights Reserved.
+ * Copyright Ericsson 2017-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,8 @@ enum efile_modes_t {
     EFILE_MODE_NO_TRUNCATE = (1 << 6), /* Special for reopening on VxWorks. */
 
     EFILE_MODE_DIRECTORY = (1 << 7),
+
+    EFILE_MODE_FROM_ALREADY_OPEN_FD = (1 << 8),
 
     EFILE_MODE_READ_WRITE = EFILE_MODE_READ | EFILE_MODE_WRITE
 };
@@ -129,6 +131,12 @@ posix_errno_t efile_marshal_path(ErlNifEnv *env, ERL_NIF_TERM path, efile_path_t
  * operations like sendfile(2). */
 ERL_NIF_TERM efile_get_handle(ErlNifEnv *env, efile_data_t *d);
 
+/** @brief Returns the underlying handle as an implementation-defined term.
+ *
+ * This is an internal function intended to support tests and tricky
+ * operations like sendfile(2). */
+posix_errno_t efile_dup_handle(ErlNifEnv *env, efile_data_t *d, ErlNifEvent *handle);
+
 /** @brief Read until EOF or the given iovec has been filled.
  *
  * @return -1 on failure, or the number of bytes read on success. The return
@@ -159,6 +167,10 @@ int efile_truncate(efile_data_t *d);
 
 posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
         ErlNifResourceType *nif_type, efile_data_t **d);
+
+posix_errno_t efile_from_fd(int fd,
+                            ErlNifResourceType *nif_type,
+                            efile_data_t **d);
 
 /** @brief Closes a file. The file must have entered the CLOSED state prior to
  * calling this to prevent double close.

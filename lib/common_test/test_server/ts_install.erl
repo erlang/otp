@@ -314,8 +314,9 @@ platform(Vars) ->
     AsyncThreads = async_threads(),
     OffHeapMsgQ = off_heap_msgq(),
     Debug = debug(),
+    Jit = jit(),
     CpuBits = word_size(),
-    Common = lists:concat([Hostname,"/",OsType,"/",CpuType,CpuBits,LinuxDist,
+    Common = lists:concat([Hostname,"/",OsType,"/",CpuType,CpuBits,Jit,LinuxDist,
 			   Schedulers,BindType,KP,IOTHR,LC,MT,AsyncThreads,
 			   OffHeapMsgQ,Debug,ExtraLabel]),
     PlatformId = lists:concat([ErlType, " ", Version, Common]),
@@ -407,12 +408,21 @@ bind_type() ->
 	no_spread -> "/sbtns";
 	_ -> ""
     end.
-					
+
+jit() ->
+    case catch atom_to_list(erlang:system_info(emu_flavor)) of
+        "jit" ++ _ -> "/JIT";
+	_ -> ""
+    end.
 
 debug() ->
-    case string:find(erlang:system_info(system_version), "debug") of
-	nomatch -> "";
-	_ -> "/Debug"
+    case catch erlang:system_info(emu_type) of
+	debug -> "/Debug";
+        _ ->
+            case erlang:system_info(build_type) of
+                debug -> "/Debug";
+                _ -> ""
+            end
     end.
 
 lock_checking() ->

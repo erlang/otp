@@ -27,51 +27,56 @@
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
--export([trusted_cert_and_path/3]).
+-export([trusted_cert_and_path/4]).
 
-trusted_cert_and_path(CRL, {SerialNumber, Issuer},{_, {Db, DbRef}} = DbHandle) -> 
+trusted_cert_and_path(CRL, {SerialNumber, Issuer}, CertPath, {Db, DbRef}) ->
+    %% CRL issuer cert ID is known
     case ssl_pkix_db:lookup_trusted_cert(Db, DbRef, SerialNumber, Issuer) of
 	undefined ->
-	    trusted_cert_and_path(CRL, issuer_not_found, DbHandle);
-	{ok, {_, OtpCert}}  ->
+            %% But not found in our database
+	    search_certpath(CRL, CertPath, Db, DbRef);
+	{ok, #cert{otp=OtpCert}}  ->
 	    {ok, Root, Chain} = ssl_certificate:certificate_chain(OtpCert, Db, DbRef),
 	    {ok, Root,  lists:reverse(Chain)}
     end;
-trusted_cert_and_path(CRL, issuer_not_found, {CertPath, {Db, DbRef}}) -> 
-    case find_issuer(CRL, {certpath, 
-                           [{Der, public_key:pkix_decode_cert(Der,otp)} || Der <-  CertPath]}) of
+trusted_cert_and_path(CRL, issuer_not_found, CertPath, {Db, DbRef}) ->
+    case search_certpath(CRL, CertPath, Db, DbRef) of
+	{error, unknown_ca} ->
+            Issuer = public_key:pkix_normalize_name(public_key:pkix_crl_issuer(CRL)),
+            IsIssuerFun =
+                fun({_Key, #cert{otp=ErlCertCandidate}}, Acc) ->
+                        verify_crl_issuer(CRL, ErlCertCandidate, Issuer, Acc);
+                   (_, Acc) ->
+                        Acc
+                end,
+            case search_db(IsIssuerFun, Db, DbRef) of
+                {ok, OtpCert} ->
+                    {ok, Root, Chain} = ssl_certificate:certificate_chain(OtpCert, Db, DbRef),
+                    {ok, Root, lists:reverse(Chain)};
+                {error, issuer_not_found} ->
+                    {error, unknown_ca}
+            end;
+        Result ->
+            Result
+    end.
+
+search_certpath(CRL, CertPath, Db, DbRef) ->
+    Issuer = public_key:pkix_normalize_name(public_key:pkix_crl_issuer(CRL)),
+    IsIssuerFun =
+	fun(ErlCertCandidate, Acc) ->
+		verify_crl_issuer(CRL, ErlCertCandidate, Issuer, Acc)
+	end,
+    case find_issuer(IsIssuerFun, certpath, CertPath) of
 	{ok, OtpCert} ->
 	    {ok, Root, Chain} = ssl_certificate:certificate_chain(OtpCert, Db, DbRef),
 	    {ok, Root, lists:reverse(Chain)};
 	{error, issuer_not_found} ->
-	    trusted_cert_and_path(CRL, issuer_not_found, {Db, DbRef}) 
-    end;
-trusted_cert_and_path(CRL, issuer_not_found, {Db, DbRef} = DbInfo) -> 
-    case find_issuer(CRL, DbInfo) of
-	{ok, OtpCert} ->
-            {ok, Root, Chain} = ssl_certificate:certificate_chain(OtpCert, Db, DbRef),
-	    {ok, Root, lists:reverse(Chain)};
-         {error, issuer_not_found} ->
-             {error, unknown_ca}
-     end.
+            {error, unknown_ca}
+    end.
 
-find_issuer(CRL, {certpath = Db, DbRef}) ->
-    Issuer = public_key:pkix_normalize_name(public_key:pkix_crl_issuer(CRL)),
-    IsIssuerFun =
-	fun({_Der,ErlCertCandidate}, Acc) ->
-		verify_crl_issuer(CRL, ErlCertCandidate, Issuer, Acc);
-	   (_, Acc) ->
-		Acc
-	end,
-    find_issuer(IsIssuerFun, Db, DbRef);
-find_issuer(CRL, {Db, DbRef}) ->
-    Issuer = public_key:pkix_normalize_name(public_key:pkix_crl_issuer(CRL)),
-    IsIssuerFun =
-	fun({_Key, {_Der,ErlCertCandidate}}, Acc) ->
-		verify_crl_issuer(CRL, ErlCertCandidate, Issuer, Acc);
-	   (_, Acc) ->
-		Acc
-	end,
+search_db(IsIssuerFun, _, {extracted, ExtractedCerts})->
+    find_issuer(IsIssuerFun, extracted, ExtractedCerts);
+search_db(IsIssuerFun, Db, DbRef) ->
     find_issuer(IsIssuerFun, Db, DbRef).
 
 find_issuer(IsIssuerFun, certpath, Certs) ->

@@ -56,6 +56,7 @@
 #define FUN_EXT           'u'
 #define ATOM_UTF8_EXT     'v'
 #define SMALL_ATOM_UTF8_EXT 'w'
+#define V4_PORT_EXT       'x'
 
 #define DIST_HEADER       'D'
 #define DIST_FRAG_HEADER  'E'
@@ -144,6 +145,7 @@ typedef struct erl_dist_external {
     Uint32 flags;
     Uint32 connection_id;
     ErtsDistExternalData *data;
+    struct ErtsMonLnkDist__ *mld;   /* copied from DistEntry.mld */
     ErtsAtomTranslationTable attab;
 } ErtsDistExternal;
 
@@ -209,10 +211,10 @@ ErtsPrepDistExtRes erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint, struc
 Sint erts_decode_dist_ext_size(ErtsDistExternal *, int, int);
 Eterm erts_decode_dist_ext(ErtsHeapFactory*, ErtsDistExternal *, int);
 
-Sint erts_decode_ext_size(byte*, Uint);
-Sint erts_decode_ext_size_ets(byte*, Uint);
-Eterm erts_decode_ext(ErtsHeapFactory*, byte**, Uint32 flags);
-Eterm erts_decode_ext_ets(ErtsHeapFactory*, byte*);
+Sint erts_decode_ext_size(const byte*, Uint);
+Sint erts_decode_ext_size_ets(const byte*, Uint);
+Eterm erts_decode_ext(ErtsHeapFactory*, const byte**, Uint32 flags);
+Eterm erts_decode_ext_ets(ErtsHeapFactory*, const byte*);
 
 Eterm erts_term_to_binary(Process* p, Eterm Term, int level, Uint64 flags);
 Eterm erts_debug_term_to_binary(Process *p, Eterm term, Eterm opts);

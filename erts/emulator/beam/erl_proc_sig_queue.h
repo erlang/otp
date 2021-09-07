@@ -30,6 +30,7 @@
  *              - Persistent monitor message
  *              - Link
  *              - Unlink
+ *              - Unlink Ack
  *              - Group leader
  *              - Is process alive
  *              - Process info request
@@ -87,6 +88,9 @@
 #if 0
 #  define ERTS_PROC_SIG_HARD_DEBUG_SIGQ_MSG_LEN
 #endif
+#if 0
+#  define ERTS_PROC_SIG_HARD_DEBUG_RECV_MARKER
+#endif
 
 struct erl_mesg;
 struct erl_dist_external;
@@ -99,8 +103,102 @@ typedef struct {
     } specific;
     Eterm tag;
 } ErtsSignalCommon;
+/*
+ * Note that not all signal are handled using this functionality!
+ */
+
+#define ERTS_SIG_Q_OP_MAX 18
+
+#define ERTS_SIG_Q_OP_EXIT                      0  /* Exit signal due to bif call */
+#define ERTS_SIG_Q_OP_EXIT_LINKED               1  /* Exit signal due to link break*/
+#define ERTS_SIG_Q_OP_MONITOR_DOWN              2
+#define ERTS_SIG_Q_OP_MONITOR                   3
+#define ERTS_SIG_Q_OP_DEMONITOR                 4
+#define ERTS_SIG_Q_OP_LINK                      5
+#define ERTS_SIG_Q_OP_UNLINK                    6
+#define ERTS_SIG_Q_OP_GROUP_LEADER              7
+#define ERTS_SIG_Q_OP_TRACE_CHANGE_STATE        8
+#define ERTS_SIG_Q_OP_PERSISTENT_MON_MSG        9
+#define ERTS_SIG_Q_OP_IS_ALIVE                  10
+#define ERTS_SIG_Q_OP_PROCESS_INFO              11
+#define ERTS_SIG_Q_OP_SYNC_SUSPEND              12
+#define ERTS_SIG_Q_OP_RPC                       13
+#define ERTS_SIG_Q_OP_DIST_SPAWN_REPLY          14
+#define ERTS_SIG_Q_OP_ALIAS_MSG                 15
+#define ERTS_SIG_Q_OP_RECV_MARK                 16
+#define ERTS_SIG_Q_OP_UNLINK_ACK                17
+#define ERTS_SIG_Q_OP_ADJ_MSGQ                  ERTS_SIG_Q_OP_MAX
+
+#define ERTS_SIG_Q_TYPE_MAX (ERTS_MON_LNK_TYPE_MAX + 10)
+
+#define ERTS_SIG_Q_TYPE_UNDEFINED \
+    (ERTS_MON_LNK_TYPE_MAX + 1)
+#define ERTS_SIG_Q_TYPE_DIST_LINK \
+    (ERTS_MON_LNK_TYPE_MAX + 2)
+#define ERTS_SIG_Q_TYPE_GEN_EXIT \
+    (ERTS_MON_LNK_TYPE_MAX + 3)
+#define ERTS_SIG_Q_TYPE_DIST_PROC_DEMONITOR \
+    (ERTS_MON_LNK_TYPE_MAX + 4)
+#define ERTS_SIG_Q_TYPE_ADJUST_TRACE_INFO \
+    (ERTS_MON_LNK_TYPE_MAX + 5)
+#define ERTS_SIG_Q_TYPE_DIST \
+    (ERTS_MON_LNK_TYPE_MAX + 6)
+#define ERTS_SIG_Q_TYPE_HEAP \
+    (ERTS_MON_LNK_TYPE_MAX + 7)
+#define ERTS_SIG_Q_TYPE_OFF_HEAP \
+    (ERTS_MON_LNK_TYPE_MAX + 8)
+#define ERTS_SIG_Q_TYPE_HEAP_FRAG \
+    (ERTS_MON_LNK_TYPE_MAX + 9)
+#define ERTS_SIG_Q_TYPE_CLA \
+    ERTS_SIG_Q_TYPE_MAX
+
+#define ERTS_SIG_IS_DIST_ALIAS_MSG_TAG(Tag)                          \
+    ((Tag) == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,        \
+                                     ERTS_SIG_Q_TYPE_DIST,           \
+                                     0))
+#define ERTS_SIG_IS_DIST_ALIAS_MSG(sig)                              \
+    ERTS_SIG_IS_DIST_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+
+#define ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG_TAG(Tag)                      \
+    ((Tag) == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,        \
+                                     ERTS_SIG_Q_TYPE_OFF_HEAP,       \
+                                     0))
+#define ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG(sig)                          \
+    ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+
+#define ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(Tag)                          \
+    ((Tag) == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,        \
+                                     ERTS_SIG_Q_TYPE_HEAP,           \
+                                     0))
+#define ERTS_SIG_IS_HEAP_ALIAS_MSG(sig)                              \
+    ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+
+#define ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG_TAG(Tag)                     \
+    ((Tag) == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,        \
+                                     ERTS_SIG_Q_TYPE_HEAP_FRAG,      \
+                                     0))
+#define ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG(sig)                         \
+    ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+
+#define ERTS_RECV_MARKER_TAG                                         \
+    (ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_RECV_MARK,		     \
+                            ERTS_SIG_Q_TYPE_UNDEFINED, 0))
+#define ERTS_SIG_IS_RECV_MARKER(Sig)                                 \
+    (((ErtsSignal *) (Sig))->common.tag == ERTS_RECV_MARKER_TAG)
+
+#define ERTS_RECV_MARKER_PASS_MAX 4
+
+typedef struct {
+    ErtsSignalCommon common;
+    Eterm from;
+    Uint64 id;
+} ErtsSigUnlinkOp;
 
 #define ERTS_SIG_HANDLE_REDS_MAX_PREFERED (CONTEXT_REDS/40)
+
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+extern Eterm erts_old_recv_marker_id;
+#endif
 
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
 #  define ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(P)       \
@@ -123,10 +221,22 @@ void erts_proc_sig_hdbg_check_in_queue(struct process *c_p, char *what,
 #define ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__(P, QL, What)
 #endif
 
+#ifdef ERTS_PROC_SIG_HARD_DEBUG_RECV_MARKER
+#define ERTS_HDBG_CHK_RECV_MRKS(P) \
+    erl_proc_sig_hdbg_chk_recv_marker_block((P))
+struct process;
+void erl_proc_sig_hdbg_chk_recv_marker_block(struct process *c_p);
+#else
+#define ERTS_HDBG_CHK_RECV_MRKS(P)
+#endif
+
 #endif
 
 #if !defined(ERTS_PROC_SIG_QUEUE_H__) && !defined(ERTS_PROC_SIG_QUEUE_TYPE_ONLY)
 #define ERTS_PROC_SIG_QUEUE_H__
+
+#include "erl_process.h"
+#include "erl_bif_unique.h"
 
 #define ERTS_SIG_Q_OP_BITS      8                      
 #define ERTS_SIG_Q_OP_SHIFT     0
@@ -180,6 +290,10 @@ void erts_proc_sig_hdbg_check_in_queue(struct process *c_p, char *what,
     ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_MSGQ_LEN_OFFS_MARK,0,0)
 
 struct dist_entry_;
+
+#define ERTS_PROC_HAS_INCOMING_SIGNALS(P)                               \
+    (!!(erts_atomic32_read_nob(&(P)->state)                             \
+        & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)))
 
 /*
  * Send operations of currently supported process signals follow...
@@ -295,19 +409,97 @@ erts_proc_sig_send_link(Process *c_p, Eterm to, ErtsLink *lnk);
 
 /**
  *
+ * @brief Create a new unlink identifier
+ *
+ * The newly created unlink identifier is to be used in an
+ * unlink operation.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @return                      A new 64-bit unlink identifier
+ *                              unique in context of the
+ *                              calling process. The identifier
+ *                              may be any value but zero.
+ */
+ERTS_GLB_INLINE Uint64 erts_proc_sig_new_unlink_id(Process *c_p);
+
+/**
+ *
+ * @brief Create an unlink op signal structure
+ *
+ * The structure will contain a newly created unlink
+ * identifier to be used in the operation.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process
+ *                              ('from' is a process
+ *                              identifier), or NULL if not
+ *                              called in the context of an
+ *                              executing process ('from' is
+ *                              a port identifier).
+ *
+ * @param[in]     from          Id (as an erlang term) of
+ *                              entity sending the unlink
+ *                              signal.
+ *
+ * @return                      A pointer to the unlink op
+ *                              structure.
+ */
+ErtsSigUnlinkOp *
+erts_proc_sig_make_unlink_op(Process *c_p, Eterm from);
+
+/**
+ *
+ * @brief Destroy an unlink op signal structure
+ *
+ * @param[in]     sulnk         A pointer to the unlink op
+ *                              structure.
+ */
+void
+erts_proc_sig_destroy_unlink_op(ErtsSigUnlinkOp *sulnk);
+
+/**
+ *
  * @brief Send an unlink signal to a process.
  *
  *
  * @param[in]     c_p           Pointer to process struct of
  *                              currently executing process.
  *
+ * @param[in]     from          Id (as an erlang term) of
+ *                              entity sending the unlink
+ *                              signal.
+ *
  * @param[in]     lnk           Pointer to link structure from
  *                              the sending side. It should
  *                              contain information about
  *                              receiver.
  */
+Uint64
+erts_proc_sig_send_unlink(Process *c_p, Eterm from, ErtsLink *lnk);
+
+/**
+ *
+ * @brief Send an unlink acknowledgment signal to a process.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     from          Id (as an erlang term) of
+ *                              entity sending the unlink
+ *                              signal.
+ *
+ * @param[in]     sulnk         A pointer to the unlink op
+ *                              structure. This structure
+ *                              was typically received by
+ *                              the caller in an unlink
+ *                              signal.
+ */
 void
-erts_proc_sig_send_unlink(Process *c_p, ErtsLink *lnk);
+erts_proc_sig_send_unlink_ack(Process *c_p, Eterm from,
+                              ErtsSigUnlinkOp *sulnk);
 
 /**
  *
@@ -343,11 +535,10 @@ erts_proc_sig_send_dist_link_exit(struct dist_entry_ *dep,
 
 /**
  *
- * @brief Send an unlink signal to a process.
+ * @brief Send an unlink signal to a local process.
  *
  * This function is used instead of erts_proc_sig_send_unlink()
- * when the signal arrives via the distribution and
- * therefore no link structure is available.
+ * when the signal arrives via the distribution.
  *
  * @param[in]     dep           Distribution entry of channel
  *                              that the signal arrived on.
@@ -356,10 +547,37 @@ erts_proc_sig_send_dist_link_exit(struct dist_entry_ *dep,
  *
  * @param[in]     to            Identifier of receiver.
  *
+ * @param[in]     id            Identifier of unlink operation.
  */
 void
-erts_proc_sig_send_dist_unlink(struct dist_entry_ *dep,
-                               Eterm from, Eterm to);
+erts_proc_sig_send_dist_unlink(DistEntry *dep, Uint32 conn_id,
+                               Eterm from, Eterm to, Uint64 id);
+
+/**
+ *
+ * @brief Send an unlink acknowledgment signal to a local process.
+ *
+ * This function is used instead of erts_proc_sig_send_unlink_ack()
+ * when the signal arrives via the distribution.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process or
+ *                              NULL if not called in the context
+ *                              of an executing process.
+ *
+ * @param[in]     dep           Distribution entry of channel
+ *                              that the signal arrived on.
+ *
+ * @param[in]     from          Identifier of sender.
+ *
+ * @param[in]     to            Identifier of receiver.
+ *
+ * @param[in]     id            Identifier of unlink operation.
+ */
+void
+erts_proc_sig_send_dist_unlink_ack(Process *c_p, DistEntry *dep,
+                                   Uint32 conn_id, Eterm from, Eterm to,
+                                   Uint64 id);
 
 /**
  *
@@ -553,8 +771,12 @@ erts_proc_sig_send_group_leader(Process *c_p, Eterm to, Eterm gl,
  *                              message to the sending
  *                              process (i.e., c_p).
  *
+ * @returns                     A value != 0 if the request
+ *                              was sent; otherwise, 0. If
+ *                              the request was not sent the
+ *                              process was non-existing.
  */
-void
+int
 erts_proc_sig_send_is_alive_request(Process *c_p, Eterm to,
                                     Eterm ref);
 
@@ -713,6 +935,46 @@ erts_proc_sig_send_dist_spawn_reply(Eterm node,
                                     ErtsLink *lnk,
                                     Eterm result,
                                     Eterm token);
+
+/**
+ *
+ * @brief Send a 'copy literal area request' signal to
+ *        a process.
+ *
+ * The receiver will scan its message queue and then the rest
+ * of the process. After the operation has bee performed it will
+ * reply with a '{copy_literals, ReqID, Res}' message to the
+ * sender where 'Res' equals 'ok' if the receiver is clean or
+ * 'need_gc' if a literal GC is needed.
+ *
+ * Should only be called by the literal-area-collector process!
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     to            Identifier of receiver.
+ *
+ * @param[in]     req_id        Request ID (RegID) term.
+ */
+void
+erts_proc_sig_send_cla_request(Process *c_p, Eterm to, Eterm req_id);
+
+
+/**
+ *
+ * @brief Send a 'move message queue off heap' signal to
+ *        a the sending process itself.
+ *
+ * When received, all on heap messages will be moved off heap.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     to            Identifier of receiver.
+ *
+ */
+void
+erts_proc_sig_send_move_msgq_off_heap(Process *c_p, Eterm to);
 
 /*
  * End of send operations of currently supported process signals.
@@ -920,6 +1182,15 @@ erts_enqueue_signals(Process *rp, ErtsMessage *first,
 void
 erts_proc_sig_send_pending(ErtsSchedulerData* esdp);
 
+
+void
+erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to,
+                            Eterm msg, Eterm token);
+
+void
+erts_proc_sig_send_dist_to_alias(Eterm alias, ErtsDistExternal *edep,
+                                 ErlHeapFragment *hfrag, Eterm token);
+
 /**
  *
  * @brief Schedule process to handle enqueued signal(s).
@@ -1046,6 +1317,180 @@ erts_proc_sig_decode_dist(Process *proc, ErtsProcLocks proc_locks,
 ErtsDistExternal *
 erts_proc_sig_get_external(ErtsMessage *msgp);
 
+void
+erts_proc_sig_cleanup_non_msg_signal(ErtsMessage *sig);
+
+
+/**
+ *
+ * @brief Create and insert a receive marker at the end of the
+ *        signal queue of the calling process unless the
+ *        signal queue is empty.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @return                      A process unique integer
+ *                              identifying the unbound
+ *                              receive marker, or the atom
+ *                              'undefined' if no marker was
+ *                              inserted.
+ */
+ERTS_GLB_INLINE Eterm erts_msgq_recv_marker_insert(Process *c_p);
+
+/**
+ *
+ * @brief Bind a previously inserted receive marker to a
+ *        reference.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     insert_id     Receive marker identifier returned
+ *                              by erts_msgq_recv_marker_insert().
+ *
+ * @param[in]     bind_id       An internal reference to bind
+ *                     	        the receive marker to. Other
+ *                              terms are allowed, but will
+ *                              cause the receive marker
+ *                              identified by insert_id to be
+ *                              cleared. Note that the special
+ *                              literal internal reference
+ *                              'erts_old_recv_marker_id' is
+ *                              *not* allowed to be passed here!
+ */
+ERTS_GLB_INLINE void erts_msgq_recv_marker_bind(Process *c_p,
+						Eterm insert_id,
+						Eterm bind_id);
+
+/**
+ *
+ * @brief Create, insert, and bind a receive marker at the end
+ *        of the signal queue of the calling process and unless
+ *        the signal queue is empty.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     id            An internal reference to bind
+ *                     	        the receive marker to. Other
+ *                              terms are allowed, but will
+ *                              be ignored.
+ */
+ERTS_GLB_INLINE void erts_msgq_recv_marker_insert_bind(Process *c_p,
+						       Eterm id);
+
+
+/**
+ *
+ * @brief Set the message queue save pointer to the position
+ *        identified by the previously inserted receive marker.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     id            Internal reference bound to
+ *                              a receive marker. Other terms
+ *                              are allowed but will be
+ *                              ignored.
+ */
+ERTS_GLB_INLINE void erts_msgq_recv_marker_set_save(Process *c_p, Eterm id);
+
+/**
+ *
+ * @brief Clear receive marker corresponding to the argument
+ *        id.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     id            Internal reference bound to
+ *                              a receive marker or an insert
+ *                              id. Other terms are allowed
+ *                              but will be ignored.
+ */
+ERTS_GLB_INLINE void erts_msgq_recv_marker_clear(Process *c_p, Eterm id);
+
+
+/**
+ *
+ * @brief Peek on next message (identified by save pointer) in
+ *	  message queue.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ */
+ERTS_GLB_INLINE ErtsMessage *erts_msgq_peek_msg(Process *c_p);
+
+/**
+ *
+ * @brief Remove a message from the message queue.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     msgp          A pointer to the message to
+ *                              remove from the message queue.
+ *
+ */
+ERTS_GLB_INLINE void erts_msgq_unlink_msg(Process *c_p,
+					  ErtsMessage *msgp);
+
+/**
+ *
+ * @brief Set the save pointer to the start of the message queue.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ */
+ERTS_GLB_INLINE void erts_msgq_set_save_first(Process *c_p);
+
+/**
+ *
+ * @brief Advance the save pointer to the next message in the
+ *        message queue.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ */
+ERTS_GLB_INLINE void erts_msgq_set_save_next(Process *c_p);
+
+/**
+ *
+ * @brief Set the save pointer to the end of the message queue.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ */
+ERTS_GLB_INLINE void erts_msgq_set_save_end(Process *c_p);
+
+/**
+ *
+ * @brief Cleanup private signal queues at termination of
+ *        process.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ */
+void erts_proc_sig_cleanup_queues(Process *c_p);
+
+
 /**
  * @brief Initialize this functionality
  */
@@ -1064,10 +1509,36 @@ extern Process *erts_dirty_process_signal_handler;
 extern Process *erts_dirty_process_signal_handler_high;
 extern Process *erts_dirty_process_signal_handler_max;
 
+/* Helpers... */
 void erts_proc_sig_fetch__(Process *proc);
 Sint erts_proc_sig_fetch_msgq_len_offs__(Process *proc);
+ERTS_GLB_INLINE int erts_msgq_eq_recv_mark_id__(Eterm term1, Eterm term2);
+ERTS_GLB_INLINE void erts_msgq_recv_marker_set_save__(Process *c_p,
+				 ErtsRecvMarkerBlock *blkp,
+				 ErtsRecvMarker *markp,
+				 int ix);
+Eterm erts_msgq_recv_marker_create_insert(Process *c_p, Eterm id);
+void erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm id);
+ErtsMessage **erts_msgq_pass_recv_markers(Process *c_p,
+					  ErtsMessage **markpp);
+void erts_msgq_remove_leading_recv_markers(Process *c_p);
+
+#define ERTS_RECV_MARKER_IX__(BLKP, MRKP) \
+    ((int) ((MRKP) - &(BLKP)->marker[0]))
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE Uint64
+erts_proc_sig_new_unlink_id(Process *c_p)
+{
+    Uint64 id;
+    ASSERT(c_p);
+
+    id = (Uint64) c_p->uniq++;
+    if (id == 0)
+        id = (Uint64) c_p->uniq++;
+    return id;
+}
 
 ERTS_GLB_INLINE Sint
 erts_proc_sig_fetch(Process *proc)
@@ -1134,6 +1605,299 @@ erts_proc_notify_new_sig(Process* rp, erts_aint32_t state,
         erts_make_dirty_proc_handled(rp->common.id, state, -1);
     }
 }
+
+#undef ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__
+#define ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__(BLKP) 		\
+    do {								\
+	if ((BLKP)->pending_set_save_ix >= 0) {				\
+	    int clr_ix__ = (BLKP)->pending_set_save_ix;			\
+	    ErtsRecvMarker *clr_markp__ = &(BLKP)->marker[clr_ix__];	\
+	    ASSERT(!clr_markp__->in_msgq);				\
+	    ASSERT(clr_markp__->in_sigq);				\
+	    ASSERT(clr_markp__->set_save);				\
+	    clr_markp__->set_save = 0;					\
+	    (BLKP)->pending_set_save_ix = -1;				\
+	}								\
+    } while (0)
+
+#undef ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+
+#define ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__(BLKP)			\
+    do {								\
+	if ((BLKP)->old_recv_marker_ix >= 0) {				\
+	    int ix__ = (BLKP)->old_recv_marker_ix;			\
+	    ASSERT((BLKP)->ref[ix__] == erts_old_recv_marker_id);	\
+	    ASSERT((BLKP)->marker[ix__].in_sigq);			\
+	    ASSERT(!(BLKP)->marker[ix__].set_save);			\
+	    (BLKP)->unused++;						\
+	    (BLKP)->ref[ix__] = am_undefined;				\
+	    (BLKP)->marker[ix__].pass = ERTS_RECV_MARKER_PASS_MAX;	\
+	    (BLKP)->old_recv_marker_ix = -1;				\
+	}								\
+    } while (0)
+
+#endif
+
+ERTS_GLB_INLINE int
+erts_msgq_eq_recv_mark_id__(Eterm term1, Eterm term2)
+{
+    int ix, arity;
+    Eterm *tp1, *tp2;
+
+    ASSERT(term1 == am_free || term1 == am_undefined || term1 == NIL
+	   || is_small(term1) || is_big(term1) || is_internal_ref(term1));
+    ASSERT(term2 == am_free || term2 == am_undefined || term2 == NIL
+	   || is_small(term2) || is_big(term2) || is_internal_ref(term2));
+
+    if (term1 == term2)
+	return !0;
+
+    if (!is_boxed(term1) || !is_boxed(term2))
+	return 0;
+
+    tp1 = boxed_val(term1);
+    tp2 = boxed_val(term2);
+
+    if (*tp1 != *tp2)
+	return 0;
+
+    arity = (int) thing_arityval(*tp1);
+    for (ix = 1; ix <= arity; ix++) {
+	if (tp1[ix] != tp2[ix])
+	    return 0;
+    }
+    return !0;
+}
+
+ERTS_GLB_INLINE void
+erts_msgq_recv_marker_set_save__(Process *c_p,
+				 ErtsRecvMarkerBlock *blkp,
+				 ErtsRecvMarker *markp,
+				 int ix)
+{
+    ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__(blkp);
+
+    ASSERT(markp->proc == c_p);
+    ASSERT(!markp->set_save);
+    ASSERT(markp->in_sigq);
+
+    if (markp->in_msgq) {
+        ErtsMessage **sigpp = &markp->sig.common.next;
+	if (*sigpp && ERTS_SIG_IS_RECV_MARKER(*sigpp))
+	    sigpp = erts_msgq_pass_recv_markers(c_p, sigpp);
+        c_p->sig_qs.save = sigpp;
+    }
+    else {
+        /*
+         * Marker is in the middle queue of signals not
+         * processed yet. Trigger handling of signals in loop_rec
+         * by setting save pointer to the end of message queue
+         * (inner queue). This in order to get the recv marker
+         * into the message queue.
+         */
+        c_p->sig_qs.save = c_p->sig_qs.last;
+        ASSERT(!(*c_p->sig_qs.save));
+        /*
+         * Set save pointer when marker enters message queue...
+         */
+        markp->set_save = !0;
+        ASSERT(blkp->pending_set_save_ix == -1);
+	ASSERT(ix == ERTS_RECV_MARKER_IX__(blkp, markp));
+        blkp->pending_set_save_ix = ix;
+    }
+}
+
+ERTS_GLB_INLINE void
+erts_msgq_recv_marker_clear(Process *c_p, Eterm id)
+{
+    ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
+    int ix;
+
+    if (!is_small(id) && !is_big(id) && !is_internal_ref(id))
+	return;
+
+    if (!blkp)
+	return;
+    
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+    if (id == erts_old_recv_marker_id) {
+	ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__(blkp);
+	return;
+    }
+#endif
+
+    for (ix = 0; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
+	if (erts_msgq_eq_recv_mark_id__(blkp->ref[ix], id)) {
+	    blkp->unused++;
+	    blkp->ref[ix] = am_undefined;
+	    blkp->marker[ix].pass = ERTS_RECV_MARKER_PASS_MAX;
+	    break;
+	}
+    }
+}
+
+ERTS_GLB_INLINE Eterm
+erts_msgq_recv_marker_insert(Process *c_p)
+{
+    erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+    erts_proc_sig_fetch(c_p);
+    erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+
+    if (c_p->sig_qs.cont || c_p->sig_qs.first)
+	return erts_msgq_recv_marker_create_insert(c_p, am_new_uniq);
+    return am_undefined;
+}
+
+ERTS_GLB_INLINE void erts_msgq_recv_marker_bind(Process *c_p,
+						Eterm insert_id,
+						Eterm bind_id)
+{
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+    ASSERT(bind_id != erts_old_recv_marker_id);
+#endif
+
+    if (is_small(insert_id) || is_big(insert_id)) {
+	ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
+
+	if (blkp) {
+	    int ix;
+	    for (ix = 0; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
+		if (erts_msgq_eq_recv_mark_id__(blkp->ref[ix], insert_id)) {
+		    if (is_internal_ref(bind_id))
+			blkp->ref[ix] = bind_id;
+		    else {
+			blkp->unused++;
+			blkp->ref[ix] = am_undefined;
+			blkp->marker[ix].pass = ERTS_RECV_MARKER_PASS_MAX;
+		    }
+		    break;
+		}
+	    }
+	}
+    }
+}
+
+
+ERTS_GLB_INLINE void
+erts_msgq_recv_marker_insert_bind(Process *c_p, Eterm id)
+{
+    if (is_internal_ref(id)) {
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+	ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
+	if (blkp && erts_old_recv_marker_id == id)
+	    ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__(blkp);
+#endif
+
+	erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+	erts_proc_sig_fetch(c_p);
+	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+
+	if (c_p->sig_qs.cont || c_p->sig_qs.first)
+	    (void) erts_msgq_recv_marker_create_insert(c_p, id);
+    }
+}
+
+ERTS_GLB_INLINE void
+erts_msgq_recv_marker_set_save(Process *c_p, Eterm id)
+{
+    if (is_internal_ref(id)) {
+	ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
+
+	if (blkp) {
+	    int ix;
+	    for (ix = 0; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
+		if (erts_msgq_eq_recv_mark_id__(blkp->ref[ix], id)) {
+		    ErtsRecvMarker *markp = &blkp->marker[ix];
+		    erts_msgq_recv_marker_set_save__(c_p, blkp, markp, ix);
+		    break;
+		}
+	    }
+	}
+
+    }
+}
+
+ERTS_GLB_INLINE ErtsMessage *
+erts_msgq_peek_msg(Process *c_p)
+{
+    ASSERT(!(*c_p->sig_qs.save) || ERTS_SIG_IS_MSG(*c_p->sig_qs.save));
+    return *c_p->sig_qs.save;
+}
+
+ERTS_GLB_INLINE void
+erts_msgq_unlink_msg(Process *c_p, ErtsMessage *msgp)
+{
+    ErtsMessage *sigp = msgp->next;
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__(c_p, 0, "before");
+    *c_p->sig_qs.save = sigp;
+    c_p->sig_qs.len--;
+    if (sigp && ERTS_SIG_IS_RECV_MARKER(sigp)) {
+        ErtsMessage **sigpp = c_p->sig_qs.save;
+        ((ErtsRecvMarker *) sigp)->prev_next = sigpp;
+        c_p->sig_qs.save = erts_msgq_pass_recv_markers(c_p, sigpp);
+	sigp = *c_p->sig_qs.save;
+    }
+    if (!sigp)
+        c_p->sig_qs.last = c_p->sig_qs.save;
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__(c_p, 0, "after");
+}
+
+ERTS_GLB_INLINE void
+erts_msgq_set_save_first(Process *c_p)
+{
+    ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
+    if (blkp) {
+	ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__(blkp);
+#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+	ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__(blkp);
+#endif
+    }    
+
+    /*
+     * Remove any receive markers at the front of the
+     * message queue, since they don't have any purpose
+     * anymore...
+     */
+    if (c_p->sig_qs.first && ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.first))
+	erts_msgq_remove_leading_recv_markers(c_p);
+    c_p->sig_qs.save = &c_p->sig_qs.first;
+}
+
+ERTS_GLB_INLINE void
+erts_msgq_set_save_next(Process *c_p)
+{
+    ErtsMessage *sigp = (*c_p->sig_qs.save)->next;
+    ErtsMessage **sigpp = &(*c_p->sig_qs.save)->next;
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+    if (sigp && ERTS_SIG_IS_RECV_MARKER(sigp))
+        sigpp = erts_msgq_pass_recv_markers(c_p, sigpp);
+    c_p->sig_qs.save = sigpp;
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+}
+
+ERTS_GLB_INLINE void
+erts_msgq_set_save_end(Process *c_p)
+{
+    /* Set save pointer to end of message queue... */
+
+    erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+    erts_proc_sig_fetch(c_p);
+    erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+
+    if (!c_p->sig_qs.cont)
+        c_p->sig_qs.save = c_p->sig_qs.last;
+    else {
+        /*
+         * Unhandled signals in middle queue; we need to
+         * pass a receive marker through it...
+         */
+	erts_msgq_recv_marker_create_insert_set_save(c_p, NIL);
+    }
+}
+
+#undef ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__
+#undef ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 

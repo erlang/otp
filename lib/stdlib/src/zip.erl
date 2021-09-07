@@ -159,7 +159,8 @@
 			    comp_size,
 			    uncomp_size,
 			    file_name_length,
-			    extra_field_length}).
+			    extra_field_length,
+                            type}).
 
 -define(CENTRAL_FILE_HEADER_SZ,(4+2+2+2+2+2+2+4+4+4+2+2+2+2+2+4+4)).
 
@@ -167,8 +168,8 @@
 -define(CENTRAL_DIR_SZ, (4+2+2+2+2+4+4+2)).
 -define(CENTRAL_DIR_DIGITAL_SIG_MAGIC, 16#05054b50).
 -define(CENTRAL_DIR_DIGITAL_SIG_SZ, (4+2)).
-
--define(CENTRAL_FILE_EXT_ATTRIBUTES, 8#644 bsl 16).
+-define(CENTRAL_REGULAR_FILE_EXT_ATTRIBUTES, 8#644 bsl 16).
+-define(CENTRAL_DIRECTORY_FILE_EXT_ATTRIBUTES, 8#744 bsl 16).
 -define(CENTRAL_FILE_MAGIC, 16#02014b50).
 
 -record(cd_file_header, {version_made_by,
@@ -910,22 +911,21 @@ put_z_file(_Method, Sz, Out, _F, Pos, _Input, _Output, _OpO, _Z, directory) ->
     {Out, Pos + Sz, 0};
 put_z_file(_Method, 0, Out, _F, Pos, _Input, _Output, _OpO, _Z, regular) ->
     {Out, Pos, 0};
-put_z_file(?STORED, UncompSize, Out0, F, Pos0, Input, Output, OpO, Z, regular) ->
+put_z_file(?STORED, UncompSize, Out0, F, Pos0, Input, Output, OpO, _Z, regular) ->
     In0 = [],
     In1 = Input({open, F, OpO -- [write]}, In0),
-    CRC0 = zlib:crc32(Z, <<>>),
     {Data, In2} = Input({read, UncompSize}, In1),
     Out1 = Output({write, Data}, Out0),
-    CRC = zlib:crc32(Z, CRC0, Data),
+    CRC = erlang:crc32(Data),
     Input(close, In2),
     {Out1, Pos0+erlang:iolist_size(Data), CRC};
 put_z_file(?DEFLATED, UncompSize, Out0, F, Pos0, Input, Output, OpO, Z, regular) ->
     In0 = [],
     In1 = Input({open, F, OpO -- [write]}, In0),
     ok = zlib:deflateInit(Z, default, deflated, -?MAX_WBITS, 8, default),
-    {Out1, Pos1} =
-	put_z_data_loop(UncompSize, In1, Out0, Pos0, Input, Output, Z),
-    CRC = zlib:crc32(Z),
+    CRC0 = 0,
+    {Out1, Pos1, CRC} =
+        put_z_data_loop(UncompSize, In1, Out0, Pos0, Input, Output, CRC0, Z),
     ok = zlib:deflateEnd(Z),
     Input(close, In1),
     {Out1, Pos1, CRC}.
@@ -935,19 +935,20 @@ get_sync(N, N) -> finish;
 get_sync(_, _) -> full.
 
 %% compress data
-put_z_data_loop(0, _In, Out, Pos, _Input, _Output, _Z) ->
-    {Out, Pos};
-put_z_data_loop(UncompSize, In0, Out0, Pos0, Input, Output, Z) ->
+put_z_data_loop(0, _In, Out, Pos, _Input, _Output, CRC0, _Z) ->
+    {Out, Pos, CRC0};
+put_z_data_loop(UncompSize, In0, Out0, Pos0, Input, Output, CRC0, Z) ->
     N = erlang:min(?WRITE_BLOCK_SIZE, UncompSize),
     case Input({read, N}, In0) of
-	{eof, _In1} ->
-	    {Out0, Pos0};
-	{Uncompressed, In1} ->
-	    Compressed = zlib:deflate(Z, Uncompressed, get_sync(N, UncompSize)),
-	    Sz = erlang:iolist_size(Compressed),
-	    Out1 = Output({write, Compressed}, Out0),
-	    put_z_data_loop(UncompSize - N, In1, Out1, Pos0 + Sz,
-			      Input, Output, Z)
+        {eof, _In1} ->
+            {Out0, Pos0};
+        {Uncompressed, In1} ->
+            CRC1 = erlang:crc32(CRC0, Uncompressed),
+            Compressed = zlib:deflate(Z, Uncompressed, get_sync(N, UncompSize)),
+            Sz = erlang:iolist_size(Compressed),
+            Out1 = Output({write, Compressed}, Out0),
+            put_z_data_loop(UncompSize - N, In1, Out1, Pos0 + Sz,
+                Input, Output, CRC1, Z)
     end.
 
 %% raw iterators over central dir
@@ -1029,7 +1030,8 @@ cd_file_header_from_lh_and_pos(LH, Pos) ->
 		       comp_size = CompSize,
 		       uncomp_size = UncompSize,
 		       file_name_length = FileNameLength,
-		       extra_field_length = ExtraFieldLength} = LH,
+		       extra_field_length = ExtraFieldLength,
+                       type = Type} = LH,
     #cd_file_header{version_made_by = ?VERSION_MADE_BY,
 		    version_needed = VersionNeeded,
 		    gp_flag = GPFlag,
@@ -1044,7 +1046,11 @@ cd_file_header_from_lh_and_pos(LH, Pos) ->
 		    file_comment_length = 0, % FileCommentLength,
 		    disk_num_start = 0, % DiskNumStart,
 		    internal_attr = 0, % InternalAttr,
-		    external_attr = ?CENTRAL_FILE_EXT_ATTRIBUTES, % ExternalAttr,
+		    external_attr = % ExternalAttr
+                        case Type of
+                            regular -> ?CENTRAL_REGULAR_FILE_EXT_ATTRIBUTES;
+                            directory -> ?CENTRAL_DIRECTORY_FILE_EXT_ATTRIBUTES
+                        end,
 		    local_header_offset = Pos}.
 
 cd_file_header_to_bin(
@@ -1119,7 +1125,7 @@ eocd_to_bin(#eocd{disk_num = DiskNum,
      ZipCommentLength:16/little>>.
 
 %% put together a local file header
-local_file_header_from_info_method_name(#file_info{mtime = MTime},
+local_file_header_from_info_method_name(#file_info{mtime = MTime, type = Type},
 					UncompSize,
 					CompMethod, Name, GPFlag) ->
     {ModDate, ModTime} = dos_date_time_from_datetime(MTime),
@@ -1132,7 +1138,8 @@ local_file_header_from_info_method_name(#file_info{mtime = MTime},
 		       comp_size = -1,
 		       uncomp_size = UncompSize,
 		       file_name_length = length(Name),
-		       extra_field_length = 0}.
+		       extra_field_length = 0,
+                       type = Type}.
 
 server_init(Parent) ->
     %% we want to know if our parent dies
@@ -1534,45 +1541,46 @@ get_file_name_extra(FileNameLen, ExtraLen, B, GPFlag) ->
 get_z_data(?DEFLATED, In0, FileName, CompSize, Input, Output, OpO, Z) ->
     ok = zlib:inflateInit(Z, -?MAX_WBITS),
     Out0 = Output({open, FileName, [write | OpO]}, []),
-    {In1, Out1, UncompSize} = get_z_data_loop(CompSize, 0, In0, Out0, Input, Output, Z),
-    CRC = zlib:crc32(Z),
+    CRC0 = 0,
+    {In1, Out1, UncompSize, CRC} = get_z_data_loop(CompSize, 0, In0, Out0, Input, Output, CRC0, Z),
     ?CATCH zlib:inflateEnd(Z),
     Out2 = Output({close, FileName}, Out1),
     {Out2, In1, CRC, UncompSize};
-get_z_data(?STORED, In0, FileName, CompSize, Input, Output, OpO, Z) ->
+get_z_data(?STORED, In0, FileName, CompSize, Input, Output, OpO, _Z) ->
     Out0 = Output({open, FileName, [write | OpO]}, []),
-    CRC0 = zlib:crc32(Z, <<>>),
-    {In1, Out1, CRC} = copy_data_loop(CompSize, In0, Out0, Input, Output,
-				      CRC0, Z),
+    CRC0 = 0,
+    {In1, Out1, CRC} = copy_data_loop(CompSize, In0, Out0, Input, Output, CRC0),
     Out2 = Output({close, FileName}, Out1),
     {Out2, In1, CRC, CompSize};
 get_z_data(_, _, _, _, _, _, _, _) ->
     throw(bad_file_header).
 
-copy_data_loop(0, In, Out, _Input, _Output, CRC, _Z) ->
+copy_data_loop(0, In, Out, _Input, _Output, CRC) ->
     {In, Out, CRC};
-copy_data_loop(CompSize, In0, Out0, Input, Output, CRC0, Z) ->
+copy_data_loop(CompSize, In0, Out0, Input, Output, CRC0) ->
     N = erlang:min(?READ_BLOCK_SIZE, CompSize),
     case Input({read, N}, In0) of
-	{eof, In1} -> {Out0, In1};
-	{Uncompressed, In1} ->
-	    CRC1 = zlib:crc32(Z, CRC0, Uncompressed),
-	    Out1 = Output({write, Uncompressed}, Out0),
-	    copy_data_loop(CompSize-N, In1, Out1, Input, Output, CRC1, Z)
+        {eof, In1} ->
+            {Out0, In1};
+        {Uncompressed, In1} ->
+            CRC1 = erlang:crc32(CRC0, Uncompressed),
+            Out1 = Output({write, Uncompressed}, Out0),
+            copy_data_loop(CompSize-N, In1, Out1, Input, Output, CRC1)
     end.
 
-get_z_data_loop(0, UncompSize, In, Out, _Input, _Output, _Z) ->
-    {In, Out, UncompSize};
-get_z_data_loop(CompSize, UncompSize, In0, Out0, Input, Output, Z) ->
+get_z_data_loop(0, UncompSize, In, Out, _Input, _Output, CRC0, _Z) ->
+    {In, Out, UncompSize, CRC0};
+get_z_data_loop(CompSize, UncompSize, In0, Out0, Input, Output, CRC0, Z) ->
     N = erlang:min(?READ_BLOCK_SIZE, CompSize),
     case Input({read, N}, In0) of
-	{eof, In1} ->
-	    {Out0, In1};
-	{Compressed, In1} ->
-	    Uncompressed = zlib:inflate(Z, Compressed),
-	    Out1 = Output({write, Uncompressed}, Out0),
-	    get_z_data_loop(CompSize-N, UncompSize + iolist_size(Uncompressed),
-			    In1, Out1, Input, Output, Z)
+        {eof, In1} ->
+            {Out0, In1};
+        {Compressed, In1} ->
+            Uncompressed = zlib:inflate(Z, Compressed),
+            CRC1 = erlang:crc32(CRC0, Uncompressed),
+            Out1 = Output({write, Uncompressed}, Out0),
+            get_z_data_loop(CompSize-N, UncompSize + iolist_size(Uncompressed),
+                In1, Out1, Input, Output, CRC1, Z)
     end.
 
 

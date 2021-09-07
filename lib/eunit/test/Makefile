@@ -24,7 +24,8 @@ MODULES =  \
 	eunit_SUITE \
 	tc0 \
 	tlatin \
-	tutf8
+	tutf8 \
+	ttimesout
 
 ERL_FILES= $(MODULES:%=%.erl)
 

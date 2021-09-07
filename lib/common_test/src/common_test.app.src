@@ -63,7 +63,8 @@
 	     test_server_gl,
 	     test_server_io,
 	     test_server_node,
-	     test_server_sup
+	     test_server_sup,
+	     ct_suite
 	    ]},
   {registered, [ct_logs,
 		ct_util_server,

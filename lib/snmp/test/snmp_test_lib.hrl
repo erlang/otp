@@ -41,6 +41,9 @@
 -define(OSTYPE(),                 ?LIB:os_type()).
 -define(DISPLAY_SUITE_INFO(),     ?LIB:display_suite_info(?MODULE)).
 
+-define(EXPLICIT_INET_BACKEND(),  ?LIB:explicit_inet_backend()).
+-define(TEST_INET_BACKENDS(),     ?LIB:test_inet_backends()).
+
 
 %% - Test case macros - 
 
@@ -85,6 +88,8 @@
 %% - Process utility macros - 
 
 -define(FLUSH(),        ?LIB:flush_mqueue()).
+-define(MQUEUE(),       ?LIB:mqueue()).
+-define(MQUEUE(P),      ?LIB:mqueue(P)).
 -define(ETRAP_GET(),    ?LIB:trap_exit()).
 -define(ETRAP_SET(O),   ?LIB:trap_exit(O)).
 -define(PINFO(__P__),   try process_info(__P__)

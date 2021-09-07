@@ -21,7 +21,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Macros
 #
 
-SUB_DIRECTORIES = src include priv doc/src
+SUB_DIRECTORIES = bin src include priv doc/src
 
 include vsn.mk
 VSN = $(EDOC_VSN)

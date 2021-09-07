@@ -375,6 +375,10 @@ disasm_instr(B, Bs, Atoms, Literals) ->
 	    disasm_map_inst(has_map_fields, Arity, Bs, Atoms, Literals);
 	put_tuple2 ->
 	    disasm_put_tuple2(Bs, Atoms, Literals);
+	make_fun3 ->
+	    disasm_make_fun3(Bs, Atoms, Literals);
+	init_yregs ->
+	    disasm_init_yregs(Bs, Atoms, Literals);
 	_ ->
 	    try decode_n_args(Arity, Bs, Atoms, Literals) of
 		{Args, RestBs} ->
@@ -422,6 +426,22 @@ disasm_put_tuple2(Bs, Atoms, Literals) ->
     {u, Len} = U,
     {List, RestBs} = decode_n_args(Len, Bs3, Atoms, Literals),
     {{put_tuple2, [X,{Z,U,List}]}, RestBs}.
+
+disasm_make_fun3(Bs, Atoms, Literals) ->
+    {Fun, Bs1} = decode_arg(Bs, Atoms, Literals),
+    {Dst, Bs2} = decode_arg(Bs1, Atoms, Literals),
+    {Z, Bs3} = decode_arg(Bs2, Atoms, Literals),
+    {U, Bs4} = decode_arg(Bs3, Atoms, Literals),
+    {u, Len} = U,
+    {List, RestBs} = decode_n_args(Len, Bs4, Atoms, Literals),
+    {{make_fun3, [Fun,Dst,{Z,U,List}]}, RestBs}.
+
+disasm_init_yregs(Bs1, Atoms, Literals) ->
+    {Z, Bs2} = decode_arg(Bs1, Atoms, Literals),
+    {U, Bs3} = decode_arg(Bs2, Atoms, Literals),
+    {u, Len} = U,
+    {List, RestBs} = decode_n_args(Len, Bs3, Atoms, Literals),
+    {{init_yregs, [{Z,U,List}]}, RestBs}.
 
 %%-----------------------------------------------------------------------
 %% decode_arg([Byte]) -> {Arg, [Byte]}
@@ -578,7 +598,7 @@ decode_alloc_list_1(N, Literals, Bs0, Acc) ->
     Res = case Type of
 	      0 -> {words,Val};
 	      1 -> {floats,Val};
-	      2 -> {literal,gb_trees:get(Val, Literals)}
+              2 -> {funs,Val}
 	  end,
     decode_alloc_list_1(N-1, Literals, Bs, [Res|Acc]).
 
@@ -667,6 +687,12 @@ resolve_inst({make_fun2,Args}, _, _, _, Lambdas, _, M) ->
     {OldIndex,{F,A,_Lbl,_Index,NumFree,OldUniq}} =
 	lists:keyfind(OldIndex, 1, Lambdas),
     {make_fun2,{M,F,A},OldIndex,OldUniq,NumFree};
+resolve_inst({make_fun3,[Fun,Dst,{{z,1},{u,_},Env0}]}, _, _, _, Lambdas, _, M) ->
+    OldIndex = resolve_arg(Fun),
+    Env1 = resolve_args(Env0),
+    {OldIndex,{F,A,_Lbl,_Index,_NumFree,OldUniq}} =
+	lists:keyfind(OldIndex, 1, Lambdas),
+    {make_fun3,{M,F,A},OldIndex,OldUniq,Dst,{list,Env1}};
 resolve_inst(Instr, Imports, Str, Lbls, _Lambdas, _Literals, _M) ->
     %% io:format(?MODULE_STRING":resolve_inst ~p.~n", [Instr]),
     resolve_inst(Instr, Imports, Str, Lbls).
@@ -1105,7 +1131,13 @@ resolve_inst({get_hd,[Src,Dst]},_,_,_) ->
 resolve_inst({get_tl,[Src,Dst]},_,_,_) ->
     {get_tl,Src,Dst};
 
-%% OTP 22
+%%
+%% OTP 22.
+%%
+
+resolve_inst({put_tuple2,[Dst,{{z,1},{u,_},List0}]},_,_,_) ->
+    List = resolve_args(List0),
+    {put_tuple2,Dst,{list,List}};
 resolve_inst({bs_start_match3,[Fail,Bin,Live,Dst]},_,_,_) ->
     {bs_start_match3,Fail,Bin,Live,Dst};
 resolve_inst({bs_get_tail,[Src,Dst,Live]},_,_,_) ->
@@ -1116,20 +1148,31 @@ resolve_inst({bs_set_position,[Src,Dst]},_,_,_) ->
     {bs_set_position,Src,Dst};
 
 %%
-%% OTP 22.
-%%
-resolve_inst({put_tuple2,[Dst,{{z,1},{u,_},List0}]},_,_,_) ->
-    List = resolve_args(List0),
-    {put_tuple2,Dst,{list,List}};
-
-%%
 %% OTP 23.
 %%
+
 resolve_inst({bs_start_match4,[Fail,Live,Src,Dst]},_,_,_) ->
     {bs_start_match4,Fail,Live,Src,Dst};
 resolve_inst({swap,[_,_]=List},_,_,_) ->
     [R1,R2] = resolve_args(List),
     {swap,R1,R2};
+
+%%
+%% OTP 24.
+%%
+
+resolve_inst({init_yregs,[{{z,1},{u,_},List0}]},_,_,_) ->
+    List = resolve_args(List0),
+    {init_yregs,{list,List}};
+resolve_inst({recv_marker_bind,[Mark,Ref]},_,_,_) ->
+    {recv_marker_bind,Mark,Ref};
+resolve_inst({recv_marker_clear,[Reg]},_,_,_) ->
+    {recv_marker_clear,Reg};
+resolve_inst({recv_marker_reserve,[Reg]},_,_,_) ->
+    {recv_marker_reserve,Reg};
+resolve_inst({recv_marker_use,[Reg]},_,_,_) ->
+    {recv_marker_use,Reg};
+
 
 %%
 %% Catches instructions that are not yet handled.

@@ -24,32 +24,25 @@
 
 #include "wxe_impl.h"
 
-// Until fixed in emulator
-#ifndef _WIN32
-extern "C" {
-  extern void erts_thread_disable_fpe(void);
-}
-#endif
+ErlNifTid wxe_thread;
 
-ErlDrvTid wxe_thread;
-
-ErlDrvMutex *wxe_status_m;
-ErlDrvCond  *wxe_status_c;
+ErlNifMutex *wxe_status_m;
+ErlNifCond  *wxe_status_c;
 
 int wxe_status = WXE_NOT_INITIATED;
 
-ErlDrvMutex * wxe_batch_locker_m;
-ErlDrvCond  * wxe_batch_locker_c;
-ErlDrvTermData  init_caller = 0;
+ErlNifMutex * wxe_batch_locker_m;
+ErlNifCond  * wxe_batch_locker_c;
+ErlNifPid init_caller;
 
 #ifdef __DARWIN__
 extern "C" {
-  int erl_drv_stolen_main_thread_join(ErlDrvTid tid, void **respp);
+  int erl_drv_stolen_main_thread_join(ErlNifTid tid, void **respp);
   int erl_drv_steal_main_thread(char *name,
-				ErlDrvTid *dtid,
+				ErlNifTid *dtid,
 				void* (*func)(void*),
 				void* arg,
-				ErlDrvThreadOpts *opts);
+				ErlNifThreadOpts *opts);
 }
 #endif
 
@@ -59,32 +52,32 @@ void *wxe_main_loop(void * );
  *  START AND STOP of driver thread
  * ************************************************************/
 
-int start_native_gui(wxe_data *sd)
+int start_native_gui(ErlNifEnv *env)
 {
   int res;
-  wxe_status_m = erl_drv_mutex_create((char *) "wxe_status_m");
-  wxe_status_c = erl_drv_cond_create((char *)"wxe_status_c");
+  wxe_status_m = enif_mutex_create((char *) "wxe_status_m");
+  wxe_status_c = enif_cond_create((char *)"wxe_status_c");
 
-  wxe_batch_locker_m = erl_drv_mutex_create((char *)"wxe_batch_locker_m");
-  wxe_batch_locker_c = erl_drv_cond_create((char *)"wxe_batch_locker_c");
-  init_caller = driver_connected(sd->port_handle);
+  wxe_batch_locker_m = enif_mutex_create((char *)"wxe_batch_locker_m");
+  wxe_batch_locker_c = enif_cond_create((char *)"wxe_batch_locker_c");
+  enif_self(env, &init_caller);
 
 #ifdef __DARWIN__
   res = erl_drv_steal_main_thread((char *)"wxwidgets",
-				  &wxe_thread,wxe_main_loop,(void *) sd->pdl,NULL);
+				  &wxe_thread,wxe_main_loop,(void *) NULL,NULL);
 #else
-  ErlDrvThreadOpts *opts = erl_drv_thread_opts_create((char *)"wx thread");
+  ErlNifThreadOpts *opts = enif_thread_opts_create((char *)"wx thread");
   opts->suggested_stack_size = 8192;
-  res = erl_drv_thread_create((char *)"wxwidgets",
-			      &wxe_thread,wxe_main_loop,(void *) sd->pdl,opts);
-  erl_drv_thread_opts_destroy(opts);
+  res = enif_thread_create((char *)"wxwidgets",
+                           &wxe_thread,wxe_main_loop,(void *) NULL,opts);
+  enif_thread_opts_destroy(opts);
 #endif
   if(res == 0) {
-    erl_drv_mutex_lock(wxe_status_m);
+    enif_mutex_lock(wxe_status_m);
     for(;wxe_status == WXE_NOT_INITIATED;) {
-      erl_drv_cond_wait(wxe_status_c, wxe_status_m);
+      enif_cond_wait(wxe_status_c, wxe_status_m);
     }
-    erl_drv_mutex_unlock(wxe_status_m);
+    enif_mutex_unlock(wxe_status_m);
     return wxe_status;
   } else {
     wxString msg;
@@ -94,41 +87,47 @@ int start_native_gui(wxe_data *sd)
   }
 }
 
-void stop_native_gui(wxe_data *sd)
+void stop_native_gui(ErlNifEnv* env)
 {
   if(wxe_status == WXE_INITIATED) {
-    meta_command(WXE_SHUTDOWN, sd);
+    meta_command(env, WXE_SHUTDOWN, NULL);
   }
 #ifdef __DARWIN__
   erl_drv_stolen_main_thread_join(wxe_thread, NULL);
 #else
-  erl_drv_thread_join(wxe_thread, NULL);
+  enif_thread_join(wxe_thread, NULL);
 #endif
-  erl_drv_mutex_destroy(wxe_status_m);
-  erl_drv_cond_destroy(wxe_status_c);
-  erl_drv_mutex_destroy(wxe_batch_locker_m);
-  erl_drv_cond_destroy(wxe_batch_locker_c);
+  enif_mutex_destroy(wxe_status_m);
+  enif_cond_destroy(wxe_status_c);
+  enif_mutex_destroy(wxe_batch_locker_m);
+  enif_cond_destroy(wxe_batch_locker_c);
 }
 
 /* ************************************************************
  *  wxWidgets Thread
  * ************************************************************/
 
-void *wxe_main_loop(void *vpdl)
+void *wxe_main_loop(void * _unused)
 {
   int result;
   int  argc = 1;
-  const wxChar temp[10] = L"Erlang";
+  wxChar temp[128] = L"Erlang";
+
+  size_t app_len = 127;
+  char app_title_buf[128];
+  int res = enif_getenv("WX_APP_TITLE", app_title_buf, &app_len);
+  if (res == 0) {
+    wxString title = wxString::FromUTF8(app_title_buf);
+    int size = title.Length() < 127 ? title.Length() : 126;
+    for(int i = 0; i < size; i++) {
+      temp[i] = title[i];
+    }
+    temp[size] = 0;
+  }
+
   wxChar * argv[] = {(wxChar *)temp, NULL};
-  ErlDrvPDL pdl = (ErlDrvPDL) vpdl;
 
-  driver_pdl_inc_refc(pdl);
-
-  // Disable floating point execption if they are on.
-  // This should be done in emulator but it's not in yet.
-#ifndef _WIN32
-  erts_thread_disable_fpe();
-#else
+#ifdef _WIN32
   // Setup that wxWidgets should look for cursors and icons in
   // this dll and not in werl.exe (which is the default)
   HMODULE WXEHandle = GetModuleHandle(_T("wxe_driver"));
@@ -141,17 +140,16 @@ void *wxe_main_loop(void *vpdl)
   if(result >= 0 && wxe_status == WXE_INITIATED) {
     /* We are done try to make a clean exit */
     wxe_status = WXE_EXITED;
-    driver_pdl_dec_refc(pdl);
 #ifndef __DARWIN__
-    erl_drv_thread_exit(NULL);
+    enif_thread_exit(NULL);
 #endif
     return NULL;
   } else {
-    erl_drv_mutex_lock(wxe_status_m);
+    enif_mutex_lock(wxe_status_m);
     wxe_status = WXE_ERROR;
-    erl_drv_cond_signal(wxe_status_c);
-    erl_drv_mutex_unlock(wxe_status_m);
-    driver_pdl_dec_refc(pdl);
+    enif_cond_signal(wxe_status_c);
+    enif_mutex_unlock(wxe_status_m);
+    // driver_pdl_dec_refc(pdl);
     return NULL;
   }
 }

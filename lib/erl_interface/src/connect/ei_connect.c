@@ -104,7 +104,7 @@ static int send_challenge(ei_cnode *ec, void *ctx, int pkt_sz,
                           unsigned challenge,
                           DistFlags version, unsigned ms);
 static int recv_challenge(ei_socket_callbacks *cbs, void *ctx, int pkt_sz,
-                          unsigned *challenge, unsigned *version,
+                          unsigned *challenge,
 			  DistFlags *flags, char *namebuf, unsigned ms);
 static int send_challenge_reply(ei_socket_callbacks *cbs, void *ctx,
                                 int pkt_sz, unsigned char digest[16], 
@@ -143,10 +143,10 @@ dyn_gethostbyname_r(const char *name, struct hostent *hostp, char **buffer_p,
 static void abort_connection(ei_socket_callbacks *cbs, void *ctx);
 static int close_connection(ei_socket_callbacks *cbs, void *ctx, int fd);
 
-static char *
+static const char *
 estr(int e)
 {
-    char *str = strerror(e);
+    const char *str = strerror(e);
     if (!str)
         return "unknown error";
     return str;
@@ -770,6 +770,8 @@ int ei_make_ref(ei_cnode *ec, erlang_ref *ref)
     ref->n[0] = ref_count[0];
     ref->n[1] = ref_count[1];
     ref->n[2] = ref_count[2];
+    ref->n[3] = 0;
+    ref->n[4] = 0;
     
     ref_count[0]++;
     ref_count[0] &= 0x3ffff;
@@ -1027,9 +1029,7 @@ int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name,
 	return ERL_ERROR;
     }
 
-    if (this_node_name == NULL) {
-	sprintf(thisalivename, "c%d", (int) getpid());
-    } else if (strlen(this_node_name) >= sizeof(thisalivename)) {
+    if (strlen(this_node_name) >= sizeof(thisalivename)) {
 	EI_TRACE_ERR0("ei_connect_init","ERROR: this_node_name too long");
 	return ERL_ERROR;
     } else {
@@ -1298,7 +1298,7 @@ static int ei_connect_helper(ei_cnode* ec,
         goto error;
     if (recv_status(ec, ctx, pkt_sz, tmo))
         goto error;
-    if (recv_challenge(cbs, ctx, pkt_sz, &her_challenge, &her_version,
+    if (recv_challenge(cbs, ctx, pkt_sz, &her_challenge,
                        &her_flags, NULL, tmo))
         goto error;
     her_version = (her_flags & DFLAG_HANDSHAKE_23) ? EI_DIST_6 : EI_DIST_5;
@@ -1851,18 +1851,26 @@ int ei_xreceive_msg_tmo(int fd, erlang_msg *msg, ei_x_buff *x, unsigned ms)
     return ei_do_receive_msg(fd, 0, msg, x, ms);
 }
 
-/* 
-* The RPC consists of two parts, send and receive.
-* Here is the send part ! 
-* { PidFrom, { call, Mod, Fun, Args, user }} 
-*/
 /*
-* Now returns non-negative number for success, negative for failure.
+* A remote process call consists of two parts, sending a request and
+* receiving a response. This function sends the request and the
+* ei_rpc_from function receives the response.
+*
+* Here is the term that is sent when (flags & EI_RPC_FETCH_STDOUT) != 0:
+*
+* { PidFrom, { call, Mod, Fun, Args, send_stdout_to_caller }}
+*
+* Here is the term that is sent otherwise:
+*
+* { PidFrom, { call, Mod, Fun, Args, user }}
+*
+* Returns a non-negative number for success and a negative number for
+* failure.
+*
 */
-int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun,
-	      const char *buf, int len)
+int ei_xrpc_to(ei_cnode *ec, int fd, char *mod, char *fun,
+               const char *buf, int len, int flags)
 {
-
     ei_x_buff x;
     erlang_pid *self = ei_self(ec);
     int err = ERL_ERROR;
@@ -1872,10 +1880,10 @@ int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun,
         goto einval;
     if (ei_x_encode_tuple_header(&x, 2) < 0)  /* A */
         goto einval;
-    
+
     if (ei_x_encode_pid(&x, self) < 0)	      /* A 1 */
         goto einval;
-    
+
     if (ei_x_encode_tuple_header(&x, 5) < 0)  /* B A 2 */
         goto einval;
     if (ei_x_encode_atom(&x, "call") < 0)     /* B 1 */
@@ -1886,14 +1894,19 @@ int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun,
         goto einval;
     if (ei_x_append_buf(&x, buf, len) < 0)    /* B 4 */
         goto einval;
-    if (ei_x_encode_atom(&x, "user") < 0)     /* B 5 */
-        goto einval;
-    
+    if (flags & EI_RPC_FETCH_STDOUT) {
+        if (ei_x_encode_atom(&x, "send_stdout_to_caller") < 0)     /* B 5 */
+            goto einval;
+    } else {
+        if (ei_x_encode_atom(&x, "user") < 0)     /* B 5 */
+            goto einval;
+    }
+
     err = ei_send_reg_encoded(fd, self, "rex", x.buff, x.index);
     if (err)
         goto error;
-    
-    ei_x_free(&x);	
+
+    ei_x_free(&x);
 
     return 0;
 
@@ -1904,6 +1917,13 @@ error:
     if (x.buff != NULL)
         ei_x_free(&x);
     return err;
+} /* xrpc_to */
+
+
+int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun,
+	      const char *buf, int len)
+{
+    return ei_xrpc_to(ec, fd, mod, fun, buf, len, 0);
 } /* rpc_to */
 
   /*
@@ -2137,7 +2157,7 @@ static int send_status(ei_socket_callbacks *cbs, void *ctx,
     char *buf, *s;
     char dbuf[DEFBUF_SIZ];
     int siz = strlen(status) + 1 + pkt_sz;
-    int err;
+    int err, ret;
     ssize_t len;
 
     buf = (siz > DEFBUF_SIZ) ? malloc(siz) : dbuf;
@@ -2154,7 +2174,8 @@ static int send_status(ei_socket_callbacks *cbs, void *ctx,
         put32be(s,siz - 4);
         break;
     default:
-        return -1;
+        ret = -1;
+        goto done;
     }
     put8(s, 's');
     memcpy(s, status, strlen(status));
@@ -2165,16 +2186,17 @@ static int send_status(ei_socket_callbacks *cbs, void *ctx,
     if (err) {
 	EI_TRACE_ERR2("send_status","-> SEND_STATUS socket write failed: %s (%d)",
                       estr(err), err);
-	if (buf != dbuf)
-	    free(buf);        
         EI_CONN_SAVE_ERRNO__(err);
-	return -1;
+	ret = -1;
     }
-    EI_TRACE_CONN1("send_status","-> SEND_STATUS (%s)",status);
-
+    else {
+        EI_TRACE_CONN1("send_status","-> SEND_STATUS (%s)",status);
+        ret =  0;
+    }
+done:
     if (buf != dbuf)
 	free(buf);
-    return 0;
+    return ret;
 }
 
 static int recv_status(ei_cnode *ec, void *ctx,
@@ -2260,7 +2282,9 @@ static DistFlags preferred_flags(void)
         | DFLAG_BIG_CREATION
         | DFLAG_EXPORT_PTR_TAG
         | DFLAG_BIT_BINARIES
-        | DFLAG_HANDSHAKE_23;
+        | DFLAG_HANDSHAKE_23
+        | DFLAG_V4_NC
+        | DFLAG_UNLINK_ID;
     if (ei_internal_use_21_bitstr_expfun()) {
         flags &= ~(DFLAG_EXPORT_PTR_TAG
                    | DFLAG_BIT_BINARIES);
@@ -2280,7 +2304,7 @@ static int send_name(ei_cnode *ec,
     const char* name_ptr;
     unsigned int name_len;
     int siz;
-    int err;
+    int err, ret;
     ssize_t len;
     DistFlags flags = preferred_flags();
     char tag;
@@ -2317,7 +2341,8 @@ static int send_name(ei_cnode *ec,
         put32be(s,siz - 4);
         break;
     default:
-        return -1;
+        ret = -1;
+        goto done;
     }
 
     put8(s, tag);
@@ -2337,15 +2362,16 @@ static int send_name(ei_cnode *ec,
         err = EIO;
     if (err) {
 	EI_TRACE_ERR0("send_name", "SEND_NAME -> socket write failed");
-	if (buf != dbuf)
-	    free(buf);
         EI_CONN_SAVE_ERRNO__(err);
-	return -1;
+	ret = -1;
     }
-
+    else {
+        ret = 0;
+    }
+done:
     if (buf != dbuf)
 	free(buf);
-    return 0;
+    return ret;
 }
 
 static int send_challenge(ei_cnode *ec,
@@ -2360,7 +2386,7 @@ static int send_challenge(ei_cnode *ec,
     char dbuf[DEFBUF_SIZ];
     const unsigned int nodename_len = strlen(ec->thisnodename);
     int siz;
-    int err;
+    int err, ret;
     ssize_t len;
     DistFlags flags;
     const char tag = (her_flags & DFLAG_HANDSHAKE_23) ? 'N' : 'n';
@@ -2384,7 +2410,8 @@ static int send_challenge(ei_cnode *ec,
         put32be(s,siz - 4);
         break;
     default:
-        return -1;
+        ret = -1;
+        goto done;
     }
 
     flags = preferred_flags();
@@ -2407,19 +2434,19 @@ static int send_challenge(ei_cnode *ec,
         err = EIO;
     if (err) {
 	EI_TRACE_ERR0("send_challenge", "-> SEND_CHALLENGE socket write failed");
-	if (buf != dbuf)
-	    free(buf);
         EI_CONN_SAVE_ERRNO__(err);
-	return -1;
+	ret = -1;
     }
-    
+    else
+        ret = 0;
+done:
     if (buf != dbuf)
 	free(buf);
-    return 0;
+    return ret;
 }
 
 static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
-                          int pkt_sz, unsigned *challenge, unsigned *version,
+                          int pkt_sz, unsigned *challenge,
 			  DistFlags *flags, char *namebuf, unsigned ms)
 {
     char dbuf[DEFBUF_SIZ];
@@ -2427,6 +2454,7 @@ static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
     int is_static = 1;
     int buflen = DEFBUF_SIZ;
     int rlen, nodename_len;
+    unsigned version;
     char *s;
     char tag;
     char tmp_nodename[MAXNODELEN+1];
@@ -2448,7 +2476,6 @@ static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
 	goto error;
     }
     if (tag == 'n') { /* OLD */
-        unsigned int version;
         if (rlen < 1+2+4+4) {
             EI_TRACE_ERR1("recv_challenge","<- RECV_CHALLENGE 'n' packet too short (%d)",
                           rlen)
@@ -2472,7 +2499,7 @@ static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
                           rlen)
             goto error;
         }
-        *version = EI_DIST_6;
+        version = EI_DIST_6;
         *flags = get64be(s);
         *challenge = get32be(s);
         s += 4; /* ignore peer 'creation' */
@@ -2523,7 +2550,7 @@ static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
 	    "flags = %u, "
 	    "challenge = %d",
 	    namebuf,
-	    *version,
+	    version,
 	    *flags,
 	    *challenge
 	    );
@@ -2542,6 +2569,7 @@ static int send_complement(ei_cnode *ec,
                             DistFlags her_flags,
                             unsigned ms)
 {
+    int ret = 0;
     if (epmd_says_version == EI_DIST_5 && (her_flags & DFLAG_HANDSHAKE_23)) {
         char *buf;
         unsigned char *s;
@@ -2565,7 +2593,8 @@ static int send_complement(ei_cnode *ec,
             put32be(s,siz - 4);
             break;
         default:
-            return -1;
+            ret = -1;
+            goto done;
         }
         flagsHigh = preferred_flags() >> 32;
 
@@ -2579,16 +2608,14 @@ static int send_complement(ei_cnode *ec,
             err = EIO;
         if (err) {
             EI_TRACE_ERR0("send_name", "SEND_NAME -> socket write failed");
-            if (buf != dbuf)
-                free(buf);
             EI_CONN_SAVE_ERRNO__(err);
-            return -1;
+            ret = -1;
         }
-
+    done:
         if (buf != dbuf)
             free(buf);
     }
-    return 0;
+    return ret;
 }
 
 

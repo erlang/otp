@@ -59,7 +59,7 @@ list_to_binary([Compressed|Last])</pre>
     <p>In all functions errors, <c>{'EXIT',{Reason,Backtrace}}</c>,
       can be thrown, where <c>Reason</c> describes the error.</p>
 
-    <p>Typical <c>Reasons</c>s:</p>
+    <p>Typical <c>Reason</c>s:</p>
 
     <taglist>
       <tag><c>badarg</c></tag>
@@ -326,9 +326,10 @@ list_to_binary([B1,B2])</pre>
         <p><c><anno>Level</anno></c> decides the compression level to be
           used:</p>
         <list type="bulleted">
-          <item>0 (<c>none</c>), gives no compression</item>
-          <item>1 (<c>best_speed</c>) gives best speed</item>
-          <item>9 (<c>best_compression</c>) gives best compression</item>
+          <item><c>default</c> gives default compromise between speed and compression</item>
+          <item><c>none</c> (0) gives no compression</item>
+          <item><c>best_speed</c> (1) gives best speed</item>
+          <item><c>best_compression</c> (9) gives best compression</item>
         </list>
       </desc>
     </func>
@@ -343,9 +344,10 @@ list_to_binary([B1,B2])</pre>
           <item>
             <p>Compression level to use:</p>
             <list type="bulleted">
-              <item>0 (<c>none</c>), gives no compression</item>
-              <item>1 (<c>best_speed</c>) gives best speed</item>
-              <item>9 (<c>best_compression</c>) gives best compression</item>
+              <item><c>default</c> gives default compromise between speed and compression</item>
+              <item><c>none</c> (0) gives no compression</item>
+              <item><c>best_speed</c> (1) gives best speed</item>
+              <item><c>best_compression</c> (9) gives best compression</item>
             </list>
           </item>
           <tag><c><anno>Method</anno></c></tag>

@@ -401,7 +401,8 @@ create_release_sort(Config) ->
     RelVsn = "1.0",
     %% Application z (.app file):
     %%     includes [tools, mnesia]
-    %%     uses [kernel, stdlib, sasl, inets]
+    %%     uses [kernel, stdlib, sasl, inets, unknown]
+    %% where unknown is optional dependency
     Sys =
         {sys,
          [
@@ -623,7 +624,8 @@ create_script_sort(Config) ->
     LibDir = filename:join(DataDir,"sort_apps"),
     %% Application z (.app file):
     %%     includes [tools, mnesia]
-    %%     uses [kernel, stdlib, sasl, inets]
+    %%     uses [kernel, stdlib, sasl, inets, unknown]
+    %% where unknown is optional dependency
     Sys =
         {sys,
          [

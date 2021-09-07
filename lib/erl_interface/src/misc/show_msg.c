@@ -447,7 +447,7 @@ static void show_term(const char *termbuf, int *index, FILE *stream)
     case ERL_PORT_EXT:
     case ERL_NEW_PORT_EXT:
 	ei_decode_port(termbuf,index,&port);
-	fprintf(stream,"#Port<%s.%u.%u>",port.node,port.id,port.creation);
+	fprintf(stream,"#Port<%s.%llu.%u>",port.node,port.id,port.creation);
 	break;
       
     case ERL_BINARY_EXT:

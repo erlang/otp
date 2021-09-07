@@ -370,6 +370,7 @@ static int zlib_flush_queue(int (*codec)(z_stream*, int), ErlNifEnv *env,
         d->s.next_in = input_vec[vec_idx].iov_base;
         d->s.avail_in = block_size;
 
+        /* We don't flush until reaching the end of our input. */
         res = codec(&d->s, Z_NO_FLUSH);
 
         ASSERT(d->s.avail_in == 0 || d->s.avail_out == 0 || res != Z_OK);
@@ -395,7 +396,12 @@ static int zlib_flush_queue(int (*codec)(z_stream*, int), ErlNifEnv *env,
         res = Z_BUF_ERROR;
     }
 
-    if(res == Z_OK && flush != Z_NO_FLUSH && (*bytes_remaining == 0)) {
+    if(res == Z_OK && (*bytes_remaining == 0) && d->s.avail_out > 0) {
+        /* We've reached the end of our input and need to flush the zlib state.
+         *
+         * Note that we do this even when the flush parameter is Z_NO_FLUSH as
+         * we may have filled our output buffer on the previous call. It will
+         * nop when there's nothing left to flush. */
         d->s.next_in = NULL;
         d->s.avail_in = 0;
 

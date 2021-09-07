@@ -45,8 +45,8 @@ typedef struct bp_data_time {     /* Call time */
 } BpDataTime;
 
 typedef struct {
+    const ErtsCodeInfo *ci;
     ErtsMonotonicTime time;
-    ErtsCodeInfo *ci;
 } process_breakpoint_time_t; /* used within psd */
 
 typedef struct {
@@ -144,20 +144,22 @@ BeamInstr erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *ci, Eterm* reg);
 BeamInstr erts_trace_break(Process *p, ErtsCodeInfo *ci, Eterm *args,
                            Uint32 *ret_flags, ErtsTracer *tracer);
 
-int erts_is_trace_break(ErtsCodeInfo *ci, Binary **match_spec_ret, int local);
-int erts_is_mtrace_break(ErtsCodeInfo *ci, Binary **match_spec_ret,
+int erts_is_trace_break(const ErtsCodeInfo *ci, Binary **match_spec_ret, int local);
+int erts_is_mtrace_break(const ErtsCodeInfo *ci, Binary **match_spec_ret,
 			 ErtsTracer *tracer_ret);
-int erts_is_native_break(ErtsCodeInfo *ci);
-int erts_is_count_break(ErtsCodeInfo *ci, Uint *count_ret);
-int erts_is_time_break(Process *p, ErtsCodeInfo *ci, Eterm *call_time);
 
-ErtsCodeInfo* erts_trace_time_call(Process* c_p, ErtsCodeInfo *ci, BpDataTime* bdt);
-void erts_trace_time_return(Process* c_p, ErtsCodeInfo *ci);
+int erts_is_count_break(const ErtsCodeInfo *ci, Uint *count_ret);
+int erts_is_time_break(Process *p, const ErtsCodeInfo *ci, Eterm *call_time);
+
+const ErtsCodeInfo* erts_trace_time_call(Process* c_p,
+                                         const ErtsCodeInfo *ci,
+                                         BpDataTime* bdt);
+void erts_trace_time_return(Process* c_p, const ErtsCodeInfo *ci);
 void erts_schedule_time_break(Process *p, Uint out);
 void erts_set_time_break(BpFunctions *f, enum erts_break_op);
 void erts_clear_time_break(BpFunctions *f);
 
-ErtsCodeInfo *erts_find_local_func(ErtsCodeMFA *mfa);
+const ErtsCodeInfo *erts_find_local_func(const ErtsCodeMFA *mfa);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

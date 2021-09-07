@@ -71,6 +71,7 @@ MODULES= \
 	erl_posix_msg \
 	erl_pp \
 	erl_scan \
+	erl_stdlib_errors \
 	erl_tar \
 	error_logger_file_h \
 	error_logger_tty_h \
@@ -90,6 +91,7 @@ MODULES= \
 	io \
 	io_lib \
 	io_lib_format \
+	io_lib_format_ryu_table \
 	io_lib_fread \
 	io_lib_pretty \
 	lists \
@@ -160,11 +162,7 @@ endif
 # FLAGS
 # ----------------------------------------------------
 
-ifeq ($(NATIVE_LIBS_ENABLED),yes)
-ERL_COMPILE_FLAGS += +native
-else
 ERL_COMPILE_FLAGS += -Werror
-endif
 ERL_COMPILE_FLAGS += -I../include -I../../kernel/include
 
 # ----------------------------------------------------

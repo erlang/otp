@@ -27,14 +27,16 @@
          random_cnode_name/1,
          test_connect_to_host_port/1,
          unresolvable_hostname/1,
-         timeout/1]).
+         timeout/1,
+         test_fetch_stdout/1]).
 
 all() ->
     [smoke,
      random_cnode_name,
      test_connect_to_host_port,
      unresolvable_hostname,
-     timeout].
+     timeout,
+     test_fetch_stdout].
 
 smoke(Config) when is_list(Config) ->
     Name = atom_to_list(?MODULE)
@@ -127,6 +129,113 @@ test_connect_to_host_port_do(Name) ->
         nomatch -> ct:fail("Incorrect error message");
         _ -> ok
     end,
+    ok.
+
+test_fetch_stdout(Config) when is_list(Config) ->
+    Name = atom_to_list(?MODULE)
+        ++ "-"
+        ++ "fetch_stdout"
+        ++ "-"
+        ++ integer_to_list(erlang:system_time(microsecond)),
+    try
+        test_fetch_stdout_do(Name)
+    after
+        halt_node(Name)
+    end,
+    ok.
+
+
+test_fetch_stdout_do(Name) ->
+    Port = start_node_and_get_port(Name),
+    %% Test that the -fetch_stdout option works
+    "hejok" = get_erl_call_result(["-address",
+                                   erlang:integer_to_list(Port),
+                                   "-a",
+                                   "io format [[104,101,106]]",
+                                   "-fetch_stdout"]),
+    %% Test that the -fetch_stdout option works together with
+    %% -no_result_term
+    "hej" = get_erl_call_result(["-address",
+                                 erlang:integer_to_list(Port),
+                                 "-a",
+                                 "io format [[104,101,106]]",
+                                 "-fetch_stdout",
+                                 "-no_result_term"]),
+    %% Test that we can print several times
+    MultiPrintCodeStr =
+        "io:format(\"hej\"),io:format(\"hej\"),io:format(\"hej\").\n",
+    "hejhejhej" = get_erl_call_result(["-address",
+                                   erlang:integer_to_list(Port),
+                                   "-a",
+                                   erlang_eval_call_string(MultiPrintCodeStr),
+                                   "-fetch_stdout",
+                                   "-no_result_term"]),
+    %% Test that we can print from a sub-process
+    SubProcPrintStr =
+        "begin\n"
+        "    P = self(),\n"
+        "    Printer = fun() ->\n"
+        "                      io:format(\"subhej\"),\n"
+        "                      receive\n"
+        "                          hej -> P ! hej\n"
+        "                      end\n"
+        "              end,\n"
+        "    PrinterPid = spawn(Printer),\n"
+        "    PrinterPid ! hej,\n"
+        "    receive\n"
+        "        hej -> ok\n"
+        "    end\n"
+        "end.\n",
+    "subhej" = get_erl_call_result(["-address",
+                                    erlang:integer_to_list(Port),
+                                    "-a",
+                                    erlang_eval_call_string(SubProcPrintStr),
+                                    "-fetch_stdout",
+                                    "-no_result_term"]),
+    %% Test that the remote group leader supports the multi-requests
+    %% request
+    TriggerMultiRequestsRequestStr =
+        "begin\n"
+        "    %% Create multi request\n"
+        "    MultiReqCollectGL =\n"
+        "        spawn(\n"
+        "          fun() ->\n"
+        "                  (fun GL(ReqList) ->\n"
+        "                           receive\n"
+        "                               {io_request, From, ReplyAs, Req} ->\n"
+        "                                   From ! {io_reply, ReplyAs, ok},\n"
+        "                                   GL([Req | ReqList]);\n"
+        "                               {get_reqs, Pid} ->\n"
+        "                                   Pid ! {multi_req,\n"
+        "                                          {requests, lists:reverse(ReqList)}}\n"
+        "                           end\n"
+        "                   end)([])\n"
+        "          end),\n"
+        "    OldGL = erlang:group_leader(),\n"
+        "    erlang:group_leader(MultiReqCollectGL, self()),\n"
+        "    io:format(\"test1\"),\n"
+        "    io:format(\"test2\"),\n"
+        "    io:format(\"test3\"),\n"
+        "    MultiReqCollectGL ! {get_reqs, self()},\n"
+        "    MultiReqsRequest =\n"
+        "        receive\n"
+        "            {multi_req, R} -> R\n"
+        "        end,\n"
+        "    erlang:group_leader(OldGL, self()),\n"
+        "    %% Send multi request\n"
+        "    erlang:group_leader() ! {io_request,self(), self(), MultiReqsRequest},\n"
+        "    Me = self(),\n"
+        "    receive {io_reply, Me, ok} -> ok end,\n"
+        "    %% Send normal request\n"
+        "    io:format(\"test4\")\n"
+        "end.\n",
+    "test1test2test3test4" =
+        get_erl_call_result(["-address",
+                             erlang:integer_to_list(Port),
+                             "-a",
+                             erlang_eval_call_string(TriggerMultiRequestsRequestStr),
+                             "-fetch_stdout",
+                             "-no_result_term"]),
     ok.
 
 %% OTP-16604: Tests that erl_call works even when the local hostname cannot be
@@ -261,4 +370,6 @@ get_port_res(Port, Acc) when is_port(Port) ->
         {Port, eof} ->
             lists:flatten(Acc)
     end.
-            
+
+erlang_eval_call_string(CodeStr) ->
+    lists:flatten(io_lib:format("erl_eval eval_str [~w]",[CodeStr])).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2010-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@
 -include_lib("kernel/include/file.hrl").
 
 -ifdef(debug).
--define(line, put(line, ?LINE), ).
 -define(config(X,Y), foo).
 -define(datadir, "leex_SUITE_data").
 -define(privdir, "leex_SUITE_priv").
@@ -45,13 +44,14 @@
 	 
 	 pt/1, man/1, ex/1, ex2/1, not_yet/1,
 	 line_wrap/1,
-	 otp_10302/1, otp_11286/1, unicode/1, otp_13916/1, otp_14285/1]).
+	 otp_10302/1, otp_11286/1, unicode/1, otp_13916/1, otp_14285/1,
+         otp_17023/1, compiler_warnings/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
+    Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
 end_per_testcase(_Case, Config) ->
@@ -67,7 +67,8 @@ all() ->
 groups() -> 
     [{checks, [], [file, compile, syntax]},
      {examples, [], [pt, man, ex, ex2, not_yet, unicode]},
-     {tickets, [], [otp_10302, otp_11286, otp_13916, otp_14285]},
+     {tickets, [], [otp_10302, otp_11286, otp_13916, otp_14285, otp_17023,
+                    compiler_warnings]},
      {bugs, [], [line_wrap]}].
 
 init_per_suite(Config) ->
@@ -90,31 +91,31 @@ file(suite) -> [];
 file(Config) when is_list(Config) ->
     Dir = ?privdir,
     Ret = [return, {report, false}],
-    ?line {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
+    {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
         leex:file("not_a_file", Ret),
-    ?line {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
+    {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
         leex:file("not_a_file", [{return,true}]),
-    ?line {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
+    {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
         leex:file("not_a_file", [{report,false},return_errors]),
-    ?line error = leex:file("not_a_file"),
-    ?line error = leex:file("not_a_file", [{return,false},report]),
-    ?line error = leex:file("not_a_file", [return_warnings,{report,false}]),
+    error = leex:file("not_a_file"),
+    error = leex:file("not_a_file", [{return,false},report]),
+    error = leex:file("not_a_file", [return_warnings,{report,false}]),
 
     Filename = filename:join(Dir, "file.xrl"),
     file:delete(Filename),
 
-    ?line {'EXIT', {badarg, _}} = (catch leex:file({foo})),
-    ?line {'EXIT', {badarg, _}} = 
+    {'EXIT', {badarg, _}} = (catch leex:file({foo})),
+    {'EXIT', {badarg, _}} = 
         (catch leex:file(Filename, {parserfile,{foo}})),
-    ?line {'EXIT', {badarg, _}} = 
+    {'EXIT', {badarg, _}} = 
         (catch leex:file(Filename, {includefile,{foo}})),
 
-    ?line {'EXIT', {badarg, _}} = (catch leex:file(Filename, no_option)),
-    ?line {'EXIT', {badarg, _}} = 
+    {'EXIT', {badarg, _}} = (catch leex:file(Filename, no_option)),
+    {'EXIT', {badarg, _}} = 
         (catch leex:file(Filename, [return | report])),
-    ?line {'EXIT', {badarg, _}} = 
+    {'EXIT', {badarg, _}} = 
         (catch leex:file(Filename, {return,foo})),
-    ?line {'EXIT', {badarg, _}} = 
+    {'EXIT', {badarg, _}} = 
         (catch leex:file(Filename, includefile)),
 
     Mini = <<"Definitions.\n"
@@ -122,35 +123,35 @@ file(Config) when is_list(Config) ->
              "Rules.\n"
              "{L}+  : {token,{word,TokenLine,TokenChars}}.\n"
              "Erlang code.\n">>,
-    ?line ok = file:write_file(Filename, Mini),
-    ?line {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
+    ok = file:write_file(Filename, Mini),
+    {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
         leex:file(Filename, [{includefile,"/ /"} | Ret]),
 
     LeexPre = filename:join(Dir, "leexinc.hrl"),
-    ?line ok = file:write_file(LeexPre, <<"syntax error.\n">>),
+    ok = file:write_file(LeexPre, <<"syntax error.\n">>),
     PreErrors = run_test(Config, Mini, LeexPre),
-    ?line {errors,
-           [{1,_,["syntax error before: ","error"]},
-            {3,_,undefined_module}],
+    {errors,
+           [{{1,8},_,["syntax error before: ","error"]},
+            {{3,1},_,undefined_module}],
            []} =
         extract(LeexPre, PreErrors),
     file:delete(LeexPre),
 
     Ret2 = [return, report_errors, report_warnings, verbose],
     Scannerfile = filename:join(Dir, "file.erl"),
-    ?line ok = file:write_file(Scannerfile, <<"nothing">>),
-    ?line unwritable(Scannerfile),
-    ?line {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
+    ok = file:write_file(Scannerfile, <<"nothing">>),
+    unwritable(Scannerfile),
+    {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
         leex:file(Filename, Ret2),
-    ?line writable(Scannerfile),
+    writable(Scannerfile),
     file:delete(Scannerfile),
 
     Dotfile = filename:join(Dir, "file.dot"),
-    ?line ok = file:write_file(Dotfile, <<"nothing">>),
-    ?line unwritable(Dotfile),
-    ?line {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
+    ok = file:write_file(Dotfile, <<"nothing">>),
+    unwritable(Dotfile),
+    {error,[{_,[{none,leex,{file_error,_}}]}],[]} = 
         leex:file(Filename, [dfa_graph | Ret2]),
-    ?line writable(Dotfile),
+    writable(Dotfile),
     file:delete(Dotfile),
 
     ok = file:delete(Scannerfile),
@@ -186,8 +187,8 @@ compile(Config) when is_list(Config) ->
              "Rules.\n"
              "{L}+  : {token,{word,TokenLine,TokenChars}}.\n"
              "Erlang code.\n">>,
-    ?line ok = file:write_file(Filename, Mini),
-    ?line ok = leex:compile(Filename, Scannerfile, #options{}),
+    ok = file:write_file(Filename, Mini),
+    ok = leex:compile(Filename, Scannerfile, #options{}),
     file:delete(Scannerfile),
     file:delete(Filename),
     ok.
@@ -199,94 +200,94 @@ syntax(Config) when is_list(Config) ->
     Dir = ?privdir,
     Filename = filename:join(Dir, "file.xrl"),
     Ret = [return, {report, true}],
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "%% comment\n"
                                  "Rules.\n"
                                  "{L}+  : {token,{word,TokenLine,TokenChars}}.\n
                                  ">>),
-    ?line {error,[{_,[{7,leex,missing_code}]}],[]} = leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename, 
+    {error,[{_,[{7,leex,missing_code}]}],[]} = leex:file(Filename, Ret),
+    ok = file:write_file(Filename, 
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "{L}+  : \n">>),
-    ?line {error,[{_,[{5,leex,missing_code}]}],[]} = leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename, 
+    {error,[{_,[{5,leex,missing_code}]}],[]} = leex:file(Filename, Ret),
+    ok = file:write_file(Filename, 
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "[] :">>),
-    ?line {error,[{_,[{4,leex,{regexp,_}}]}],[]} = 
+    {error,[{_,[{4,leex,{regexp,_}}]}],[]} = 
         leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "{L}+ : .\n"
                                  "[] : ">>),
-    ?line {error,[{_,[{5,leex,{regexp,_}}]}],[]} = 
+    {error,[{_,[{5,leex,{regexp,_}}]}],[]} = 
         leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "[] : .\n">>),
-    ?line {error,[{_,[{4,leex,{regexp,_}}]}],[]} = 
+    {error,[{_,[{4,leex,{regexp,_}}]}],[]} = 
         leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "{L}+ ">>),
-    ?line {error,[{_,[{5,leex,bad_rule}]}],[]} = 
+    {error,[{_,[{5,leex,bad_rule}]}],[]} = 
         leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "{L}+ ; ">>),
-    ?line {error,[{_,[{4,leex,bad_rule}]}],[]} = 
+    {error,[{_,[{4,leex,bad_rule}]}],[]} = 
         leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename, 
+    ok = file:write_file(Filename, 
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "[] : '99\n">>),
-    ?line {error,[{_,[{4,erl_scan,_}]}],[]} = leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename, 
+    {error,[{_,[{4,erl_scan,_}]}],[]} = leex:file(Filename, Ret),
+    ok = file:write_file(Filename, 
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n">>),
-    ?line {error,[{_,[{3,leex,empty_rules}]}],[]} = leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename, 
+    {error,[{_,[{3,leex,empty_rules}]}],[]} = leex:file(Filename, Ret),
+    ok = file:write_file(Filename, 
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "Erlang code.\n">>),
-    ?line {error,[{_,[{4,leex,empty_rules}]}],[]} = leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename, 
+    {error,[{_,[{4,leex,empty_rules}]}],[]} = leex:file(Filename, Ret),
+    ok = file:write_file(Filename, 
                                <<"Definitions.\n"
                                  "D  = [0-9]\n">>),
-    ?line {error,[{_,[{2,leex,missing_rules}]}],[]} = leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename, 
+    {error,[{_,[{2,leex,missing_rules}]}],[]} = leex:file(Filename, Ret),
+    ok = file:write_file(Filename, 
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Erlang code.\n">>),
-    ?line {error,[{_,[{3,leex,missing_rules}]}],[]} = leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename, 
+    {error,[{_,[{3,leex,missing_rules}]}],[]} = leex:file(Filename, Ret),
+    ok = file:write_file(Filename, 
                                <<"">>),
     %% This is a weird line:
-    ?line {error,[{_,[{0,leex,missing_defs}]}],[]} = leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename, 
+    {error,[{_,[{0,leex,missing_defs}]}],[]} = leex:file(Filename, Ret),
+    ok = file:write_file(Filename, 
                                <<"Rules.\n">>),
-    ?line {error,[{_,[{1,leex,missing_defs}]}],[]} = leex:file(Filename, Ret),
+    {error,[{_,[{1,leex,missing_defs}]}],[]} = leex:file(Filename, Ret),
 
     %% Check that correct line number is used in messages.
     ErlFile = filename:join(Dir, "file.erl"),
     Ret1 = [{scannerfile,ErlFile}|Ret],
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
@@ -295,74 +296,74 @@ syntax(Config) when is_list(Config) ->
                                  "          DDDD}}.\n" % unbound
                                  "Erlang code.\n"
                                  "an error.\n">>),     % syntax error
-    ?line {ok, _, []} = leex:file(Filename, Ret1),
-    ?line {error, 
-           [{_,[{8,_,["syntax error before: ","error"]}]},
-            {_,[{6,_,{unbound_var,'DDDD'}}]}],
+    {ok, _, []} = leex:file(Filename, Ret1),
+    {error, 
+           [{_,[{{8,4},_,["syntax error before: ","error"]}]},
+            {_,[{{6,6},_,{unbound_var,'DDDD'}}]}],
            []} =
         compile:file(ErlFile, [basic_validation, return]),
 
     %% Ignored characters
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
                                <<"Definitions. D = [0-9]\n"
                                  "Rules. [a-z] : .\n"
                                  "1 : skip_token.\n"
                                  "Erlang code. f() -> a.\n">>),
-    ?line {ok,_,[{_,
+    {ok,_,[{_,
                   [{1,leex,ignored_characters},
                    {2,leex,ignored_characters},
                    {4,leex,ignored_characters}]}]} = 
         leex:file(Filename, Ret),
 
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "{L}+\\  : token.\n">>),
-    ?line {error,[{_,[{4,leex,{regexp,{unterminated,"\\"}}}]}],[]} =
+    {error,[{_,[{4,leex,{regexp,{unterminated,"\\"}}}]}],[]} =
         leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "{L}+\\x  : token.\n">>),
-    ?line {error,[{_,[{4,leex,{regexp,{illegal_char,"\\x"}}}]}],[]} =
+    {error,[{_,[{4,leex,{regexp,{illegal_char,"\\x"}}}]}],[]} =
         leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "{L}+\\x{  : token.\n">>),
-    ?line {error,[{_,[{4,leex,{regexp,{unterminated,"\\x{"}}}]}],[]} =
+    {error,[{_,[{4,leex,{regexp,{unterminated,"\\x{"}}}]}],[]} =
         leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "[^ab : token.\n">>),
-    ?line {error,[{_,[{4,leex,{regexp,{unterminated,"["}}}]}],[]} =
+    {error,[{_,[{4,leex,{regexp,{unterminated,"["}}}]}],[]} =
         leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "(a : token.\n">>),
-    ?line {error,[{_,[{4,leex,{regexp,{unterminated,"("}}}]}],[]} =
+    {error,[{_,[{4,leex,{regexp,{unterminated,"("}}}]}],[]} =
         leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "[b-a] : token.\n">>),
-    ?line {error,[{_,[{4,leex,{regexp,{char_class,"b-a"}}}]}],[]} =
+    {error,[{_,[{4,leex,{regexp,{char_class,"b-a"}}}]}],[]} =
         leex:file(Filename, Ret),
 
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
                                <<"Definitions.\n"
                                  "D  = [0-9]\n"
                                  "Rules.\n"
                                  "\\x{333333333333333333333333} : token.\n">>),
-    ?line {error,[{_,[{4,leex,{regexp,
+    {error,[{_,[{4,leex,{regexp,
                                 {illegal_char,
                                  "\\x{333333333333333333333333}"}}}]}],[]} =
         leex:file(Filename, Ret),
@@ -394,7 +395,7 @@ pt(Config) when is_list(Config) ->
            default,
            ok}],
 
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
 
 unicode(suite) ->
@@ -412,7 +413,7 @@ unicode(Config) when is_list(Config) ->
            default,
            ok}],
 
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
 
 man(doc) ->
@@ -456,7 +457,7 @@ man(Config) when is_list(Config) ->
            default,
            ok}],
     
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
 
 ex(doc) ->
@@ -576,7 +577,7 @@ ex(Config) when is_list(Config) ->
           default,
           ok}],
     
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
 
 ex2(doc) ->
@@ -736,10 +737,10 @@ escape_char(C) -> C.
       ">>,
     Dir = ?privdir,
     XrlFile = filename:join(Dir, "erlang_scan.xrl"),
-    ?line ok = file:write_file(XrlFile, Xrl),
+    ok = file:write_file(XrlFile, Xrl),
     ErlFile = filename:join(Dir, "erlang_scan.erl"),
-    ?line {ok, _} = leex:file(XrlFile, []),
-    ?line {ok, _} = compile:file(ErlFile, [{outdir,Dir}]),
+    {ok, _} = leex:file(XrlFile, []),
+    {ok, _} = compile:file(ErlFile, [{outdir,Dir}]),
     code:purge(erlang_scan),
     AbsFile = filename:rootname(ErlFile, ".erl"),
     code:load_abs(AbsFile, erlang_scan),
@@ -882,7 +883,7 @@ Erlang code.
       ">>,
     Dir = ?privdir,
     XrlFile = filename:join(Dir, "test_line_wrap.xrl"),
-    ?line ok = file:write_file(XrlFile, Xrl),
+    ok = file:write_file(XrlFile, Xrl),
     ErlFile = filename:join(Dir, "test_line_wrap.erl"),
     {ok, _} = leex:file(XrlFile, []),
     {ok, _} = compile:file(ErlFile, [{outdir,Dir}]),
@@ -917,19 +918,19 @@ not_yet(Config) when is_list(Config) ->
     Dir = ?privdir,
     Filename = filename:join(Dir, "file.xrl"),
     Ret = [return, {report, true}],
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
                                <<"Definitions.\n"
                                  "Rules.\n"
                                  "$ : .\n"
                                  "Erlang code.\n">>),
-    ?line {error,[{_,[{3,leex,{regexp,_}}]}],[]} = 
+    {error,[{_,[{3,leex,{regexp,_}}]}],[]} = 
         leex:file(Filename, Ret),
-    ?line ok = file:write_file(Filename,
+    ok = file:write_file(Filename,
                                <<"Definitions.\n"
                                  "Rules.\n"
                                  "^ : .\n"
                                  "Erlang code.\n">>),
-    ?line {error,[{_,[{3,leex,{regexp,_}}]}],[]} = 
+    {error,[{_,[{3,leex,{regexp,_}}]}],[]} = 
         leex:file(Filename, Ret),
 
     ok.
@@ -988,7 +989,7 @@ otp_10302(Config) when is_list(Config) ->
              "{L}+  : {token,{word,TokenLine,TokenChars}}.\n"
              "Erlang code.\n">>,
     LeexPre = filename:join(Dir, "leexinc.hrl"),
-    ?line ok = file:write_file(LeexPre, <<"%% coding: UTF-8\n ä">>),
+    ok = file:write_file(LeexPre, <<"%% coding: UTF-8\n ä">>),
     PreErrors = run_test(Config, Mini, LeexPre),
     {error,[{IncludeFile,[{2,leex,cannot_parse}]}],[]} = PreErrors,
     "leexinc.hrl" = filename:basename(IncludeFile),
@@ -1123,12 +1124,11 @@ otp_13916(Config) when is_list(Config) ->
              "    ok.\n">>,
            default,
            ok}],
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
 
 otp_14285(Config) ->
     Dir = ?privdir,
-    Filename = filename:join(Dir, "file.xrl"),
 
     Ts = [{otp_14285_1,
            <<"%% encoding: latin-1\n"
@@ -1163,6 +1163,52 @@ otp_14285(Config) ->
            default,
            ok}],
     run(Config, Ts),
+    ok.
+
+otp_17023(Config) ->
+    Dir = ?privdir,
+    Filename = filename:join(Dir, "file.xrl"),
+    Ret = [return, {report, true}],
+
+    {'EXIT', {badarg, _}} = (catch leex:file(Filename, [{noopt,true}])),
+    OldEnv = os:getenv("ERL_COMPILER_OPTIONS"),
+    true = os:putenv("ERL_COMPILER_OPTIONS", "strong_validation"),
+    ok = file:write_file(Filename,
+                               <<"Definitions.\n"
+                                 "Rules.\n"
+                                 "^ : .\n"
+                                 "Erlang code.\n">>),
+    {error,[{_,[{3,leex,{regexp,_}}]}],[]} = 
+        leex:file(Filename, Ret),
+    true = os:putenv("ERL_COMPILER_OPTIONS", "{return, false}"),
+    error = leex:file(Filename, Ret),
+    error = leex:file(Filename, [return | Ret]), % overridden
+    case OldEnv of
+        false ->
+            os:unsetenv("ERL_COMPILER_OPTIONS");
+        _ ->
+            os:putenv("ERL_COMPILER_OPTIONS", OldEnv)
+    end,
+    ok.
+
+%% OTP-17499. GH-4918.
+compiler_warnings(Config) ->
+    Xrl =
+        <<"
+Definitions.
+Rules.
+/(\\\\.|[^\\\\/]|\\[(/|\\\\.|[^\\\\/])+\\]|\\((\\\\.|/|[^\\\\/])+\\)+)*/ : a.
+/\\*([^*][\\r\\n]|(\\*+([^*/]|[\\r\\n])))*\\*+/ : b.
+Erlang code.
+         ">>,
+    Dir = ?privdir,
+    XrlFile = filename:join(Dir, "compiler_warnings.xrl"),
+    ok = file:write_file(XrlFile, Xrl),
+    ErlFile = filename:join(Dir, "compiler_warnings.erl"),
+erlang:display({xrlfile,XrlFile}),
+    {ok, _} = leex:file(XrlFile, []),
+erlang:display({erlfile,ErlFile}),
+    {ok, compiler_warnings, []} = compile:file(ErlFile, [return]),
     ok.
 
 start_node(Name, Args) ->

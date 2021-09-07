@@ -98,10 +98,6 @@ EXAMPLES = \
 # FLAGS
 # ----------------------------------------------------
 
-ifeq ($(USE_ASN1_HIPE),true)
-ERL_COMPILE_FLAGS += +native
-endif
-
 ERL_COMPILE_FLAGS += \
 	-I$(ERL_TOP)/lib/stdlib \
 	-Werror

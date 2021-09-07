@@ -392,6 +392,9 @@ in_guard(Config) when is_list(Config) ->
 
     ok = in_guard_4(<<15:4>>, 255),
     nope = in_guard_4(<<15:8>>, 255),
+
+    nope = catch in_guard_5(),
+
     ok.
 
 in_guard_1(Bin, A, B) when <<A:13,B:3>> == Bin -> 1;
@@ -411,6 +414,10 @@ in_guard_3(_, _) -> nope.
 
 in_guard_4(Bin, A) when <<A:4>> =:= Bin -> ok;
 in_guard_4(_, _) -> nope.
+
+%% Would crash beam_ssa_recv when the no_copt option was given.
+in_guard_5() when 0; <<'':32,<<42/native>>>> -> ok;
+in_guard_5() -> nope.
 
 in_catch(Config) when is_list(Config) ->
     <<42,0,5>> = small(42, 5),
@@ -488,6 +495,16 @@ nasty_literals(Config) when is_list(Config) ->
 
 -define(COF(Int0),
 	(fun(Int) ->
+		 true = <<Int:16/float>> =:= <<(float(Int)):16/float>>,
+		 true = <<Int:32/float>> =:= <<(float(Int)):32/float>>,
+		 true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
+	 end)(nonliteral(Int0)),
+	true = <<Int0:16/float>> =:= <<(float(Int0)):16/float>>,
+	true = <<Int0:32/float>> =:= <<(float(Int0)):32/float>>,
+	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
+
+-define(COF32(Int0),
+	(fun(Int) ->
 		 true = <<Int:32/float>> =:= <<(float(Int)):32/float>>,
 		 true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
 	 end)(nonliteral(Int0)),
@@ -510,8 +527,10 @@ coerce_to_float(Config) when is_list(Config) ->
     ?COF(255),
     ?COF(-255),
     ?COF(38474),
-    ?COF(387498738948729893849444444443),
-    ?COF(-37489378937773899999999999999993),
+    ?COF(65504),
+    ?COF(-65504),
+    ?COF32(387498738948729893849444444443),
+    ?COF32(-37489378937773899999999999999993),
     ?COF64(298748888888888888888888888883478264866528467367364766666666666666663),
     ?COF64(-367546729879999999999947826486652846736736476555566666663),
     ok.
@@ -536,7 +555,6 @@ opt(Config) when is_list(Config) ->
     <<1,65,136,0,0>> = id(<<1,17.0:32/float>>),
     <<1,64,8,0,0,0,0,0,0>> = id(<<1,3.0:N/float-unit:4>>),
     <<1,0,0,0,0,0,0,8,64>> = id(<<1,3.0:N/little-float-unit:4>>),
-    {'EXIT',{badarg,_}} = (catch id(<<3.1416:N/float>>)),
 
     B = <<1,2,3,4,5>>,
     <<0,1,2,3,4,5>> = id(<<0,B/binary>>),
@@ -663,8 +681,10 @@ bad_size(_Config) ->
     {'EXIT',{badarg,_}} = (catch bad_float_size(<<"abc">>)),
     {'EXIT',{badarg,_}} = (catch bad_integer_size()),
     {'EXIT',{badarg,_}} = (catch bad_integer_size(<<"xyz">>)),
+    {'EXIT',{badarg,_}} = (catch bad_integer_size2()),
     {'EXIT',{badarg,_}} = (catch bad_binary_size()),
     {'EXIT',{badarg,_}} = (catch bad_binary_size(<<"xyz">>)),
+    {'EXIT',{badarg,_}} = (catch bad_binary_size2()),
     ok.
 
 bad_float_size() ->
@@ -679,8 +699,18 @@ bad_integer_size() ->
 bad_integer_size(Bin) ->
     <<Bin/binary,0:case 0 of 0 -> art end/integer>>.
 
+bad_integer_size2() ->
+    <<
+      <<(id(42))>>:[ <<>> || <<123:true>> <= <<>> ],
+      <<(id(100))>>:7>>.
+
 bad_binary_size() ->
     <<<<"abc">>:case 0 of 0 -> art end/binary>>.
 
 bad_binary_size(Bin) ->
     <<Bin/binary,<<"abc">>:case 0 of 0 -> art end/binary>>.
+
+bad_binary_size2() ->
+    <<
+      <<(id(42))>>:[ <<>> || <<123:true>> <= <<>> ]/binary,
+      <<(id(100))>>:7>>.

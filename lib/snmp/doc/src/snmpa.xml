@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2020</year>
+      <year>2004</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -502,6 +502,24 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
       </type>
       <desc>
         <p>Retrieve all tables known to the agent.</p>
+
+        <marker id="which_transports"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 23.3">which_transports() -> Result</name>
+      <fsummary>Get all configured transports</fsummary>
+      <type>
+        <v>Result = [{TDomain, TAddress} | {TDomain, TAddress, Kind}]</v>
+        <v>TDomain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
+        <v>TAddress = {IpAddr, IpPort}</v>
+        <v>IpAddr = inet:ip_address()</v>
+        <v>IpPort = pos_integer()</v>
+        <v>Kind = req_responder | trap_sender</v>
+      </type>
+      <desc>
+        <p>Retrieve all configured transports.</p>
 
         <marker id="which_variables"></marker>
       </desc>

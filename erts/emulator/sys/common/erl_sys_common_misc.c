@@ -182,7 +182,7 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
     if (decimals < 0)
         return -1;
 
-    if (f < 0) {
+    if (signbit(f)) {
         neg = 1;
         af = -f;
     }

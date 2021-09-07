@@ -1076,50 +1076,6 @@ erts_alcu_mmapper_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
 }
 #endif /* ARCH_64 && ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION */
 
-#if defined(ERTS_ALC_A_EXEC)
-
-/*
- * For exec_alloc that need memory with PROT_EXEC
- */
-void*
-erts_alcu_exec_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
-{
-    void* res = erts_alcu_mseg_alloc(allctr, size_p, flags);
-
-    if (res) {
-        int r = mprotect(res, *size_p, PROT_EXEC | PROT_READ | PROT_WRITE);
-        ASSERT(r == 0); (void)r;
-    }
-    return res;
-}
-
-void*
-erts_alcu_exec_mseg_realloc(Allctr_t *allctr, void *seg,
-                            Uint old_size, Uint *new_size_p)
-{
-    void *res;
-
-    if (seg && old_size) {
-        int r = mprotect(seg, old_size, PROT_READ | PROT_WRITE);
-        ASSERT(r == 0); (void)r;
-    }
-    res = erts_alcu_mseg_realloc(allctr, seg, old_size, new_size_p);
-    if (res) {
-        int r = mprotect(res, *new_size_p, PROT_EXEC | PROT_READ | PROT_WRITE);
-        ASSERT(r == 0); (void)r;
-    }
-    return res;
-}
-
-void
-erts_alcu_exec_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size, Uint flags)
-{
-    int r = mprotect(seg, size, PROT_READ | PROT_WRITE);
-    ASSERT(r == 0); (void)r;
-    erts_alcu_mseg_dealloc(allctr, seg, size, flags);
-}
-#endif /* ERTS_ALC_A_EXEC */
-
 #endif /* HAVE_ERTS_MSEG */
 
 static void*
@@ -6959,7 +6915,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     }
 #endif
 
-    if (allctr->main_carrier_size) {
+    if (allctr->main_carrier_size && (allctr->ix != 0 || init->mmbc0)) {
 	Block_t *blk;
 
 	blk = create_carrier(allctr,
@@ -7082,9 +7038,6 @@ erts_alcu_init(AlcUInit_t *init)
     allocator_char_str[ERTS_ALC_A_ETS] = "E";
     allocator_char_str[ERTS_ALC_A_FIXED_SIZE] = "F";
     allocator_char_str[ERTS_ALC_A_LITERAL] = "I";
-#ifdef ERTS_ALC_A_EXEC
-    allocator_char_str[ERTS_ALC_A_EXEC] = "X";
-#endif
     allocator_char_str[ERTS_ALC_A_BINARY] = "B";
     allocator_char_str[ERTS_ALC_A_DRIVER] = "R";
     allocator_char_str[ERTS_ALC_A_TEST] = "Z";

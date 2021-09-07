@@ -373,6 +373,14 @@ erlang:'!'            -----> Module:StateName/3
       <seemfa marker="#enter_loop/4"><c>enter_loop/4,5,6</c></seemfa>,
       that may be used to automatically hibernate the server.
     </p>
+    <p>
+      If the <c>gen_statem</c> process terminates, e.g. as a result of a
+      function in the callback module returning <c>{stop,Reason}</c>, an exit
+      signal with this <c>Reason</c> is sent to linked processes and ports. See
+      <seeguide marker="system/reference_manual:processes#errors">
+      Processes</seeguide> in the Reference Manual for details regarding error
+      handling using exit signals.
+    </p>
   </description>
 
   <section>
@@ -1575,6 +1583,9 @@ handle_event(_, _, State, Data) ->
 	      <seemfa marker="#Module:terminate/3"><c>Module:terminate/3</c></seemfa>
 	      with <c>Reason</c> and
 	      <c><anno>NewData</anno></c>, if specified.
+              An exit signal with this reason is sent to linked processes and
+              ports.
+              The default <c>Reason</c> is <c>normal</c>.
 	    </p>
 	  </item>
 	  <tag><c>stop_and_reply</c></tag>
@@ -1585,6 +1596,8 @@ handle_event(_, _, State, Data) ->
 	      <seemfa marker="#Module:terminate/3"><c>Module:terminate/3</c></seemfa>
 	      with <c>Reason</c> and
 	      <c><anno>NewData</anno></c>, if specified.
+              An exit signal with this reason is sent to linked processes and
+              ports.
 	    </p>
 	  </item>
 	</taglist>
@@ -1831,6 +1844,53 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
+      <name name="receive_response" arity="1" since="OTP 24.0"/>
+      <name name="receive_response" arity="2" since="OTP 24.0"/>
+      <fsummary>Receive for a reply from a server.</fsummary>
+      <desc>
+	<p>
+	  This function is used to receive for a reply of a request made with
+	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>
+	  to the <c>gen_statem</c> process. This function must be called
+	  from the same process from which
+	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>
+	  was made.
+	</p>
+	<p>
+	  <c>Timeout</c> is an integer greater then or equal to zero
+	  that specifies how many milliseconds to wait for an reply, or
+	  the atom <c>infinity</c> to wait indefinitely. Defaults to
+	  <c>infinity</c>.
+	  If no reply is received within the specified
+	  time, the function returns <c>timeout</c>. Assuming that the
+	  server executes on a node supporting aliases (introduced in
+	  OTP 24) no response will be received after a timeout. Otherwise,
+	  a garbage response might be received at a later time.
+	</p>
+	<p>
+	  The return value <c><anno>Reply</anno></c> is generated when a
+	  <seeerl marker="#state callback"><em>state callback</em></seeerl>
+	  returns with
+	  <c>{reply,From,<anno>Reply</anno>}</c> as one
+	  <seetype marker="#action"><c>action()</c></seetype>,
+	  and that <c><anno>Reply</anno></c> becomes the return value
+	  of this function.
+	</p>
+	<p>
+	  The function returns an error if the <c>gen_statem</c>
+	  dies before or during this function call.
+	</p>
+	<p>
+	  The difference between
+	  <seemfa marker="#wait_response/2"><c>wait_response()</c></seemfa>
+	  and <c>receive_response()</c> is that <c>receive_response()</c>
+	  abandons the request at timeout so that a potential future
+	  response is ignored, while <c>wait_response()</c> does not.
+	</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="reply" arity="1" since="OTP 19.0"/>
       <name name="reply" arity="2" since="OTP 19.0"/>
       <fsummary>Reply to a caller.</fsummary>
@@ -1874,7 +1934,8 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<p>
 	  The return value <c><anno>RequestId</anno></c> shall later be used with
-          <seemfa marker="#wait_response/2"> <c>wait_response/1,2</c></seemfa> or
+          <seemfa marker="#receive_response/2"> <c>receive_response/1,2</c></seemfa>,
+          <seemfa marker="#wait_response/2"> <c>wait_response/1,2</c></seemfa>, or
 	  <seemfa marker="#check_response/2"> <c>check_response/2</c></seemfa>
 	  to fetch the actual result of the request.
 	</p>
@@ -1899,7 +1960,8 @@ handle_event(_, _, State, Data) ->
 	  <c>{reply,From,Reply}</c> as one
 	  <seetype marker="#action"><c>action()</c></seetype>,
 	  and that <c>Reply</c> becomes the return value
-	  of <seemfa marker="#wait_response/2"> <c>wait_response/1,2</c></seemfa> or
+	  of <seemfa marker="#receive_response/2"> <c>receive_response/1,2</c></seemfa>,
+	  <seemfa marker="#wait_response/2"> <c>wait_response/1,2</c></seemfa>, or
 	  <seemfa marker="#check_response/2"> <c>check_response/2</c></seemfa> function.
 	</p>
       </desc>
@@ -2044,6 +2106,9 @@ handle_event(_, _, State, Data) ->
 	  or
 	  <seetype marker="#start_ret"><c>ignore</c></seetype>,
 	  respectively.
+          An exit signal with the same <c>Reason</c> (or <c>normal</c> if
+          <c>Module:init/1</c> returns <c>ignore</c>) is set to linked processes
+          and ports, including the process calling <c>start_link/3,4</c>.
 	</p>
       </desc>
     </func>
@@ -2107,6 +2172,8 @@ handle_event(_, _, State, Data) ->
 	  <c>shutdown</c>, or <c>{shutdown,Term}</c> causes an
 	  error report to be issued through
 	  <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.
+          An exit signal with the same reason is sent to linked processes
+          and ports.
 	  The default <c><anno>Reason</anno></c> is <c>normal</c>.
 	</p>
 	<p>
@@ -2125,14 +2192,14 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="wait_response" arity="1" since="OTP-23"/>
-      <name name="wait_response" arity="2" since="OTP-23"/>
+      <name name="wait_response" arity="1" since="OTP 23.0"/>
+      <name name="wait_response" arity="2" since="OTP 23.0"/>
       <fsummary>Wait for a reply from a server.</fsummary>
       <desc>
 	<p>
 	  This function is used to wait for a reply of a request made with
 	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>
-	  from the <c>gen_statem</c> process. This function must be called
+	  to the <c>gen_statem</c> process. This function must be called
 	  from the same process from which
 	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>
 	  was made.
@@ -2159,6 +2226,13 @@ handle_event(_, _, State, Data) ->
 	<p>
 	  The function returns an error if the <c>gen_statem</c>
 	  dies before or during this function call.
+	</p>
+	<p>
+	  The difference between
+	  <seemfa marker="#receive_response/2"><c>receive_response()</c></seemfa>
+	  and <c>wait_response()</c> is that <c>receive_response()</c>
+	  abandons the request at timeout so that a potential future
+	  response is ignored, while <c>wait_response()</c> does not.
 	</p>
       </desc>
     </func>
@@ -2395,6 +2469,7 @@ handle_event(_, _, State, Data) ->
 	    in that case be implemented as:
 	  </p>
 	  <pre>
+-spec init(_) -> no_return().
 init(Args) -> erlang:error(not_implemented, [Args]).</pre>
         </note>
       </desc>
@@ -2701,6 +2776,10 @@ init(Args) -> erlang:error(not_implemented, [Args]).</pre>
 	  and an error report is issued using
           <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.
 	</p>
+        <p>
+          When the <c>gen_statem</c> process exits, an exit signal with the
+          same reason is sent to linked processes and ports.
+        </p>
       </desc>
     </func>
   </funcs>

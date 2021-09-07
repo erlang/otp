@@ -21,24 +21,23 @@ ERLC = erlc
 ERL  = erl
 EBIN = .
 
-# make WXGTK_DIR=/wxWidgets-2.8.5/include
-WXGTK_DIR = /usr/include/wx-2.8
-#WXGTK_DIR = /opt/wxgtk2.8.9/include/wx-2.8
+# make GL_DIR=/usr/include/GL WX_DIR=/src/wxWidgets
 GL_DIR = /usr/include/GL
+WX_DIR = $(ERL_TOP)/../wxWidgets
 
 ERL_COMPILE_FLAGS=+debug_info +warn_unused_vars
 
-COMPILER = gen_util wx_gen wx_gen_erl wx_gen_cpp
+COMPILER = gen_util wx_gen wx_gen_erl wx_gen_nif wx_gen_doc
 COMPILER_T = $(COMPILER:%=$(EBIN)/%.beam)
 
-GL_COMP = gl_gen gl_gen_erl gl_gen_c gl_scan_doc
+GL_COMP = gl_gen gl_gen_erl gl_gen_nif gl_gen_doc gl_scan_doc
 GL_COMP_T = $(GL_COMP:%=$(EBIN)/%.beam)
 
 TARGET_EDIR = ../src/gen
 TARGET_CDIR = ../c_src/gen
 
 C_TARGETS   = wxe_funcs.cpp
-GL_C_TARGETS = gl_funcs.cpp
+GL_C_TARGETS = gl_nif.c
 
 WX = wx_code_generated
 
@@ -49,9 +48,8 @@ opt:  $(WX) $(GL)
 $(WX): wxxml_generated $(COMPILER_T) wxapi.conf $(wildcard wx_extra/wx*.c_src) $(wildcard wx_extra/wx*.erl)
 	erl -noshell -run wx_gen code && touch wx_code_generated
 
-wxxml_generated:  wx_doxygen.conf wx_extra/bugs.h wx_extra/wxe_evth.h wx_extra/added_func.h
-	sed -e 's|@WXGTK_DIR@|$(WXGTK_DIR)|g' wx_doxygen.conf > wx_doxygen
-	doxygen wx_doxygen && touch wxxml_generated
+wxxml_generated:  wx_doxygen.conf wx_extra/wxe_evth.h wx_extra/added_func.h
+	WX_DIR=$(WX_DIR) doxygen wx_doxygen.conf > wx_doxygen.log && touch wxxml_generated
 
 glxml_generated: gl_doxygen.conf
 	sed -e 's|@GL_DIR@|$(GL_DIR)|g' gl_doxygen.conf > gl_doxygen
@@ -65,10 +63,10 @@ $(GL): glxml_generated $(GL_COMP_T) glapi.conf
 
 # TODO split cleans into separate targets?
 complete_clean:
-	rm -f gl_doxygen wx_doxygen wx_xml/*.x* gl_xml/*.x* 
+	rm -f gl_doxygen wx_doxygen wx_xml/*.x* gl_xml/*.x*
 	rm -f *_generated
 	$(MAKE) clean
-clean: 
+clean:
 	rm -f *~
 	rm -f $(COMPILER_T) $(GL_COMP_T)
 	rm -f wx_extra/*~

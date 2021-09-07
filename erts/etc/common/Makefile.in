@@ -26,26 +26,18 @@ ERTS_LIB_TYPEMARKER=.$(TYPE)
 USING_VC=@MIXED_VC@
 
 ifeq ($(TYPE),debug)
-PURIFY =
 TYPEMARKER = .debug
 TYPE_FLAGS = -DDEBUG @DEBUG_FLAGS@
 else
 
-ifeq ($(TYPE),purify)
-PURIFY = purify
-TYPEMARKER =
-TYPE_FLAGS = -g -O2 -DPURIFY
-else
-
 override TYPE=opt
-PURIFY =
 TYPEMARKER =
 ERTS_LIB_TYPEMARKER=
 TYPE_FLAGS =
 endif
-endif
 
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
+include $(ERL_TOP)/make/$(TARGET)/otp_ded.mk
 include ../../vsn.mk
 
 ERTS_INCL = -I$(ERL_TOP)/erts/include \
@@ -213,6 +205,7 @@ INSTALL_MISC = $(UXETC)/format_man_pages $(UXETC)/makewhatis
 INSTALL_SRC = $(UXETC)/setuid_socket_wrap.c #delivered as an example
 ERLEXECDIR = .
 INSTALL_LIBS =
+EXTRA_LIBS = $(BINDIR)/jit-reader.so
 INSTALL_OBJS =
 INSTALL_INCLUDES =
 TEXTFILES = Install erl.src
@@ -224,7 +217,7 @@ INSTALL_PROGS =              \
 endif
 
 .PHONY: etc
-etc:	$(ENTRY_OBJ) $(INSTALL_PROGS) $(INSTALL_LIBS) $(TEXTFILES) $(INSTALL_TOP_BIN)
+etc:	$(ENTRY_OBJ) $(INSTALL_PROGS) $(EXTRA_LIBS) $(INSTALL_LIBS) $(TEXTFILES) $(INSTALL_TOP_BIN)
 
 # erlexec needs the erts_internal library...
 $(ERTS_LIB):
@@ -411,14 +404,14 @@ $(OBJDIR)/heart.o: heart.c $(RC_GENERATED)
 #	$(V_CC) $(CFLAGS) -o $@ -c $<
 #
 #$(BINDIR)/%: $(OBJDIR)/%.o
-#	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $< $(LIBS)
+#	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $< $(LIBS)
 
 $(OBJDIR)/inet_gethost.o: inet_gethost.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c inet_gethost.c
 
 # inet_gethost
 $(BINDIR)/inet_gethost@EXEEXT@: $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose) $(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 # run_erl
 $(BINDIR)/run_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o
@@ -446,43 +439,47 @@ $(BINDIR)/erl_call@EXEEXT@: $(ERL_TOP)/lib/erl_interface/bin/$(TARGET)/erl_call@
 
 ifneq ($(TARGET),win32)
 $(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/$(ERLEXEC).o $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/$(ERLEXEC).o $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/$(ERLEXEC).o: $(ERLEXECDIR)/$(ERLEXEC).c $(RC_GENERATED)
 	$(V_CC) -I$(EMUDIR) $(CFLAGS) -o $@ -c $(ERLEXECDIR)/$(ERLEXEC).c
 endif
 
 $(BINDIR)/erlc@EXEEXT@: $(OBJDIR)/erlc.o $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS) $(EI_LIB)
+	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS) $(EI_LIB)
 
 $(OBJDIR)/erlc.o: erlc.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) $(THR_DEFS) $(EI_INCL) $(MT_FLAG) -o $@ -c erlc.c
 
 $(BINDIR)/dialyzer@EXEEXT@: $(OBJDIR)/dialyzer.o $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/dialyzer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/dialyzer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/dialyzer.o: dialyzer.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c dialyzer.c
 
 $(BINDIR)/typer@EXEEXT@: $(OBJDIR)/typer.o $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/typer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/typer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/typer.o: typer.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c typer.c
 
 $(BINDIR)/escript@EXEEXT@: $(OBJDIR)/escript.o $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/escript.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/escript.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/escript.o: escript.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c escript.c
 
 $(BINDIR)/ct_run@EXEEXT@: $(OBJDIR)/ct_run.o $(ERTS_LIB)
-	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/ct_run.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
+	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/ct_run.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/ct_run.o: ct_run.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c ct_run.c
 
+$(OBJDIR)/jit-reader.o: $(ETC)/jit-reader.c $(ETC)/jit-reader.h
+	$(V_CC) $(DED_CFLAGS) -I$(ETC) -o $@ -c $<
 
+$(BINDIR)/jit-reader.so: $(OBJDIR)/jit-reader.o
+	$(V_LD) $(DED_LDFLAGS) -o $@ $^
 
 Install:	$(UXETC)/Install.src ../../vsn.mk $(TARGET)/Makefile
 	$(vsn_verbose)sed -e 's;%I_VSN%;$(VSN);' \

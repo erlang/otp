@@ -66,8 +66,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [cfg_error, lib_error, no_compile, timetrap_end_conf,
      timetrap_normal, timetrap_extended, timetrap_parallel,
-     timetrap_fun, timetrap_fun_group, misc_errors,
-     config_restored, config_func_errors].
+     timetrap_fun, timetrap_fun_group, timetrap_with_float_mult,
+     misc_errors, config_restored, config_func_errors].
 
 groups() -> 
     [].
@@ -271,6 +271,28 @@ timetrap_fun_group(Config) when is_list(Config) ->
 			       Opts),
 
     TestEvents = events_to_check(timetrap_fun_group),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
+%%%-----------------------------------------------------------------
+%%%
+timetrap_with_float_mult(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
+    Suite = Join(DataDir, "timetrap_9_SUITE"),
+    {Opts,ERPid} = setup([{suite,Suite},
+			  {multiply_timetraps,0.5},
+			  {userconfig,{ct_userconfig_callback,
+				       "multiply 0.5"}}],
+			 Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(timetrap_with_float_mult,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
+
+    TestEvents = events_to_check(timetrap_with_float_mult),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
@@ -1446,6 +1468,21 @@ test_events(timetrap_fun_group) ->
 
      {?eh,tc_start,{timetrap_8_SUITE,end_per_suite}},
      {?eh,tc_done,{timetrap_8_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(timetrap_with_float_mult) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,1}},
+     {?eh,tc_start,{timetrap_9_SUITE,init_per_suite}},
+     {?eh,tc_done,{timetrap_9_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{timetrap_9_SUITE,tc0}},
+     {?eh,tc_done,
+      {timetrap_9_SUITE,tc0,{failed,{timetrap_timeout,1500}}}},
+     {?eh,test_stats,{0,1,{0,0}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];

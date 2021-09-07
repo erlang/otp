@@ -1,8 +1,7 @@
     <section>
       <title>Crypto Old API</title>
-      <p>The <seeguide marker="crypto:new_api#the-old-api">Old API</seeguide> is now deprecated
-      and has also been
-      <seeguide marker="scheduled_for_removal#otp-24">scheduled for removal</seeguide>.</p>
+      <p>The <seeguide marker="crypto:new_api#the-old-api">Old API</seeguide> is deprecated
+      as of OTP 23 and has been <seeguide marker="removed#otp-24">removed in OTP 24</seeguide>.</p>
       <p>For replacement functions see the
       <seeguide marker="crypto:new_api#the-new-api">New API</seeguide>.</p>
     </section>
@@ -30,41 +29,20 @@
     </section>
 
     <section>
-      <title>pg2</title>
-      <p>
-	As of OTP 23, a new process group implementation
-	<seeerl marker="kernel:pg">pg</seeerl> is introduced.
-	<c>pg</c> is similar to <seeerl marker="kernel:pg2">pg2</seeerl>,
-	but with much better scalability properties. However, the API and behavior
-	are not compatible.
-      </p>
-      <p>
-	<c>pg2</c> is now deprecated and has also been
-	<seeguide marker="scheduled_for_removal#otp-24">scheduled for removal</seeguide>
-	in OTP 24.
-      </p>
-    </section>
-
-    <section>
       <title>Distributed Disk Logs</title>
       <p>
 	As of OTP 23, the distributed
 	<seeerl marker="kernel:disk_log"><c>disk_log</c></seeerl>
 	feature has been deprecated and it has also been
-	<seeguide marker="scheduled_for_removal#otp-24">scheduled for removal</seeguide>
-	in OTP 24.
+	<seeguide marker="removed#otp-24">removed in OTP 24</seeguide>.
       </p>
     </section>
 
     <section>
       <title>erl_interface registry</title>
       <p>
-	As of OTP 23, the
-	<seecref marker="erl_interface:registry"><c>registry</c></seecref>
-	functionality part of
-	<seeapp marker="erl_interface:index"><c>erl_interface</c></seeapp>
-	has been deprecated and it has also been
-	<seeguide marker="scheduled_for_removal#otp-24">scheduled for removal</seeguide>
-	in OTP 24.
+	As of OTP 23, the <c>registry</c> functionality part of
+	<c>erl_interface</c> has been deprecated and it has also been
+	<seeguide marker="removed#otp-24">removed in OTP 24</seeguide>.
       </p>
     </section>

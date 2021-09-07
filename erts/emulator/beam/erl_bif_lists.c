@@ -307,12 +307,12 @@ static Eterm append(Export *bif_entry, BIF_ALIST_2) {
 Eterm
 ebif_plusplus_2(BIF_ALIST_2)
 {
-    return append(&bif_trap_export[BIF_ebif_plusplus_2], BIF_CALL_ARGS);
+    return append(BIF_TRAP_EXPORT(BIF_ebif_plusplus_2), BIF_CALL_ARGS);
 }
 
 BIF_RETTYPE append_2(BIF_ALIST_2)
 {
-    return append(&bif_trap_export[BIF_append_2], BIF_CALL_ARGS);
+    return append(BIF_TRAP_EXPORT(BIF_append_2), BIF_CALL_ARGS);
 }
 
 /* erlang:'--'/2
@@ -963,7 +963,12 @@ static int subtract_start(Process *p, Eterm lhs, Eterm rhs,
 
     context->lhs_original = lhs;
     context->rhs_original = rhs;
-
+#ifdef DEBUG
+    /* Silence CodeChecker in subtract_ctx_move() */
+    context->lhs_remaining = 17;
+    context->rhs_remaining = 42;
+    context->result = 99;
+#endif
     return subtract_continue(p, context);
 }
 
@@ -1036,11 +1041,11 @@ static Eterm subtract(Export *bif_entry, BIF_ALIST_2) {
 }
 
 BIF_RETTYPE ebif_minusminus_2(BIF_ALIST_2) {
-    return subtract(&bif_trap_export[BIF_ebif_minusminus_2], BIF_CALL_ARGS);
+    return subtract(BIF_TRAP_EXPORT(BIF_ebif_minusminus_2), BIF_CALL_ARGS);
 }
 
 BIF_RETTYPE subtract_2(BIF_ALIST_2) {
-    return subtract(&bif_trap_export[BIF_subtract_2], BIF_CALL_ARGS);
+    return subtract(BIF_TRAP_EXPORT(BIF_subtract_2), BIF_CALL_ARGS);
 }
 
 
@@ -1065,7 +1070,7 @@ BIF_RETTYPE lists_member_2(BIF_ALIST_2)
     while (is_list(list)) {
 	if (--max_iter < 0) {
 	    BUMP_ALL_REDS(BIF_P);
-	    BIF_TRAP2(&bif_trap_export[BIF_lists_member_2], BIF_P, term, list);
+	    BIF_TRAP2(BIF_TRAP_EXPORT(BIF_lists_member_2), BIF_P, term, list);
 	}
 	item = CAR(list_val(list));
 	if ((item == term) || (non_immed_key && eq(item, term))) {
@@ -1127,7 +1132,7 @@ static BIF_RETTYPE lists_reverse_alloc(Process *c_p,
     }
 
     ASSERT(is_list(tail) && cells_left == 0);
-    BIF_TRAP2(&bif_trap_export[BIF_lists_reverse_2], c_p, list, tail);
+    BIF_TRAP2(BIF_TRAP_EXPORT(BIF_lists_reverse_2), c_p, list, tail);
 }
 
 static BIF_RETTYPE lists_reverse_onheap(Process *c_p,
@@ -1176,7 +1181,7 @@ static BIF_RETTYPE lists_reverse_onheap(Process *c_p,
         }
 
         BUMP_ALL_REDS(c_p);
-        BIF_TRAP2(&bif_trap_export[BIF_lists_reverse_2], c_p, list, tail);
+        BIF_TRAP2(BIF_TRAP_EXPORT(BIF_lists_reverse_2), c_p, list, tail);
     }
 
     BIF_ERROR(c_p, BADARG);
@@ -1206,7 +1211,7 @@ lists_keymember_3(BIF_ALIST_3)
 {
     Eterm res;
 
-    res = keyfind(&bif_trap_export[BIF_lists_keymember_3], BIF_P,
+    res = keyfind(BIF_TRAP_EXPORT(BIF_lists_keymember_3), BIF_P,
 		  BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     if (is_value(res) && is_tuple(res)) {
 	return am_true;
@@ -1220,7 +1225,7 @@ lists_keysearch_3(BIF_ALIST_3)
 {
     Eterm res;
     
-    res = keyfind(&bif_trap_export[BIF_lists_keysearch_3], BIF_P,
+    res = keyfind(BIF_TRAP_EXPORT(BIF_lists_keysearch_3), BIF_P,
 		  BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     if (is_non_value(res) || is_not_tuple(res)) {
 	return res;
@@ -1233,7 +1238,7 @@ lists_keysearch_3(BIF_ALIST_3)
 BIF_RETTYPE
 lists_keyfind_3(BIF_ALIST_3)
 {
-    return keyfind(&bif_trap_export[BIF_lists_keyfind_3], BIF_P,
+    return keyfind(BIF_TRAP_EXPORT(BIF_lists_keyfind_3), BIF_P,
 		   BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 }
 

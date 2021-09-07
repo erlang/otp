@@ -566,6 +566,10 @@ types(maps, fold, [Fun, Init, _Map]) ->
                       any
               end,
     sub_unsafe(RetType, [#t_fun{arity=3}, any, #t_map{}]);
+types(maps, from_keys, [Keys, Value]) ->
+    RetType = #t_map{super_key=erlang_hd_type(Keys),
+                     super_value=Value},
+    sub_unsafe(RetType, [proper_list(), any]);
 types(maps, from_list, [Pairs]) ->
     PairType = erlang_hd_type(Pairs),
     RetType = case beam_types:normalize(PairType) of
@@ -730,7 +734,7 @@ erlang_band_type_1(LHS, Int) ->
             {Intersection, Union} = range_masks(Min0, Max0),
 
             Min = Intersection band Int,
-            Max = min(Max0, Union band Int),
+            Max = max(Min, min(Max0, Union band Int)),
 
             #t_integer{elements={Min,Max}};
         #t_integer{} when Int >= 0 ->

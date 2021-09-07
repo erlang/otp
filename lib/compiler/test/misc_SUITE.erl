@@ -210,6 +210,9 @@ silly_coverage(Config) when is_list(Config) ->
                    BadSSABlocks,0}]},
     expect_error(fun() -> beam_ssa_opt:module(BadSSAOpt, []) end),
 
+    %% beam_ssa_bc_size
+    cover_beam_ssa_bc_size(1),
+
     %% beam_ssa_lint, beam_ssa_pp
     {error,[{_,Errors}]} = beam_ssa_lint:module(bad_ssa_lint_input(), []),
     _ = [io:put_chars(Mod:format_error(Reason)) ||
@@ -281,6 +284,15 @@ silly_coverage(Config) when is_list(Config) ->
     expect_error(fun() -> beam_validator:validate(BeamValInput, strong) end),
 
     ok.
+
+cover_beam_ssa_bc_size(20) ->
+    ok;
+cover_beam_ssa_bc_size(N) ->
+    BcSizeKey = {b_local,{b_literal,name},1},
+    %% Try different sizes for the opt_st record.
+    OptSt = erlang:make_tuple(N, #{}, [{1,opt_st}]),
+    expect_error(fun() -> beam_ssa_bc_size:opt(#{BcSizeKey => OptSt}) end),
+    cover_beam_ssa_bc_size(N + 1).
 
 bad_ssa_lint_input() ->
     {b_module,#{},t,

@@ -35,7 +35,8 @@
 	 index2suffix/1,
 	 get_record_name_prefix/1,
 	 conform_value/2,
-	 named_bitstring_value/2]).
+	 named_bitstring_value/2,
+         complist_as_tuple/1]).
 -export([pgen/3,
 	 mk_var/1, 
 	 un_hyphen_var/1]).
@@ -104,7 +105,7 @@ pgen_typeorval(Erules, N2nConvEnums, Code) ->
     pgen_objects(Rtmod,Erules,Module,Objects),
     pgen_objectsets(Rtmod,Erules,Module,ObjectSets),
     pgen_partial_decode(Rtmod,Erules,Module),
-        %% If the encoding rule is ber, per or uper and jer is also given as option
+    %% If the encoding rule is ber, per or uper and jer is also given as option
     %% then we generate "extra" support for jer in the same file
     case Erules#gen.jer of 
         true ->
@@ -1138,17 +1139,17 @@ pgen_hrl(#gen{pack=record}=Gen, Code) ->
 		X
 	end,
     case Ret of
-	0 ->
-	    0;
-	Y ->
-	    Protector = hrl_protector(get(outfile)),
-	    emit(["-endif. %% ",Protector,"\n"]),
-	    close_output_file(),
-	    asn1ct:verbose("--~p--~n",
-			   [{generated,lists:concat([get(outfile),".hrl"])}],
-			   Gen),
-	    Y
-    end;
+        0 ->
+            0;
+        Y ->
+            Protector = hrl_protector(get(outfile)),
+            emit(["-endif. %% ",Protector,"\n"]),
+            close_output_file(),
+            asn1ct:verbose("--~p--~n",
+                           [{generated,lists:concat([get(outfile),".hrl"])}],
+                           Gen),
+            Y
+    end;    
 pgen_hrl(#gen{pack=map}, _) ->
     0.
 
@@ -1252,19 +1253,24 @@ gen_record(Gen, TorPtype, Name, #type{}=Type, Num) ->
 gen_record(_, _, _, _, NumRecords) ->        % skip CLASS etc for now.
      NumRecords.
 
+do_gen_record(Gen, Name, CL0) when is_list(CL0) ->
+    do_gen_record_0(Gen, Name, complist_as_tuple(CL0));
 do_gen_record(Gen, Name, CL0) ->
+    do_gen_record_0(Gen, Name, CL0).
+
+do_gen_record_0(Gen, Name, CL0) ->
     CL = case CL0 of
              {Root,[]} ->
                  Root ++ [{comment,"with extension mark"}];
              {Root,Ext} ->
-                 Root ++ [{comment,"with exensions"}] ++
+                 Root ++ [{comment,"with extensions"}] ++
                      only_components(Ext);
              {Root1,Ext,Root2} ->
-                 Root1 ++ [{comment,"with exensions"}] ++
+                 Root1 ++ [{comment,"with extensions"}] ++
                      only_components(Ext) ++
                      [{comment,"end of extensions"}] ++ Root2;
              _ when is_list(CL0) ->
-                 CL0
+                 only_components(CL0)
          end,
     Prefix = get_record_name_prefix(Gen),
     emit(["-record('",Prefix,list2name(Name),"', {"] ++
@@ -1593,6 +1599,27 @@ list2rname1([H|_T]) ->
 list2rname1([]) ->
     [].
 
+%%
+%% convert a complist to a [Components] or a {Root,Ext} or a {Root,Ext,Ext2}
+complist_as_tuple(CompList) ->
+    complist_as_tuple(CompList, [], [], [], root).
+
+complist_as_tuple([#'EXTENSIONMARK'{}|T], Acc, Ext, Acc2, root) ->
+    complist_as_tuple(T, Acc, Ext, Acc2, ext);
+complist_as_tuple([#'EXTENSIONMARK'{}|T], Acc, Ext, Acc2, ext) ->
+    complist_as_tuple(T, Acc, Ext, Acc2, root2);
+complist_as_tuple([C|T], Acc, Ext, Acc2, root) ->
+    complist_as_tuple(T, [C|Acc], Ext, Acc2, root);
+complist_as_tuple([C|T], Acc, Ext, Acc2, ext) ->
+    complist_as_tuple(T, Acc, [C|Ext], Acc2, ext);
+complist_as_tuple([C|T], Acc, Ext, Acc2, root2) ->
+    complist_as_tuple(T, Acc, Ext, [C|Acc2], root2);
+complist_as_tuple([], Acc, _Ext, _Acc2, root) ->
+    lists:reverse(Acc);
+complist_as_tuple([], Acc, Ext, _Acc2, ext) ->
+    {lists:reverse(Acc),lists:reverse(Ext)};
+complist_as_tuple([], Acc, Ext, Acc2, root2) ->
+    {lists:reverse(Acc),lists:reverse(Ext),lists:reverse(Acc2)}.
 
 
 constructed_suffix(_,#'SEQUENCE'{pname=Ptypename}) when Ptypename =/= false ->

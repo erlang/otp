@@ -77,7 +77,7 @@ static void os_getenv_foreach(Process *process, Eterm *result, Eterm key, Eterm 
     (*result) = CONS(hp, kvp_term, (*result));
 }
 
-BIF_RETTYPE os_list_env_vars_0(BIF_ALIST_0)
+BIF_RETTYPE os_env_0(BIF_ALIST_0)
 {
     const erts_osenv_t *global_env;
     Eterm result = NIL;
@@ -89,7 +89,7 @@ BIF_RETTYPE os_list_env_vars_0(BIF_ALIST_0)
     return result;
 }
 
-BIF_RETTYPE os_get_env_var_1(BIF_ALIST_1)
+BIF_RETTYPE os_getenv_1(BIF_ALIST_1)
 {
     const erts_osenv_t *global_env;
     Eterm out_term;
@@ -108,7 +108,7 @@ BIF_RETTYPE os_get_env_var_1(BIF_ALIST_1)
     return out_term;
 }
 
-BIF_RETTYPE os_set_env_var_2(BIF_ALIST_2)
+BIF_RETTYPE os_putenv_2(BIF_ALIST_2)
 {
     erts_osenv_t *global_env;
     int error;
@@ -124,7 +124,7 @@ BIF_RETTYPE os_set_env_var_2(BIF_ALIST_2)
     BIF_RET(am_true);
 }
 
-BIF_RETTYPE os_unset_env_var_1(BIF_ALIST_1)
+BIF_RETTYPE os_unsetenv_1(BIF_ALIST_1)
 {
     erts_osenv_t *global_env;
     int error;
@@ -141,15 +141,18 @@ BIF_RETTYPE os_unset_env_var_1(BIF_ALIST_1)
 }
 
 BIF_RETTYPE os_set_signal_2(BIF_ALIST_2) {
-    if (is_atom(BIF_ARG_1) && ((BIF_ARG_2 == am_ignore) ||
-                               (BIF_ARG_2 == am_default) ||
-                               (BIF_ARG_2 == am_handle))) {
-        if (!erts_set_signal(BIF_ARG_1, BIF_ARG_2))
-            goto error;
-
-        BIF_RET(am_ok);
+    if (! ( (BIF_ARG_2 == am_ignore) ||
+            (BIF_ARG_2 == am_default) ||
+            (BIF_ARG_2 == am_handle) )) {
+        BIF_P->fvalue = am_badopt;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     }
 
-error:
+    if (is_atom(BIF_ARG_1)) {
+        if (erts_set_signal(BIF_ARG_1, BIF_ARG_2)) {
+            BIF_RET(am_ok);
+        }
+    }
+
     BIF_ERROR(BIF_P, BADARG);
 }

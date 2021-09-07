@@ -46,6 +46,7 @@ interpreter_size_bench(_Config) ->
                            data=[{value,Size}]}),
     {comment,integer_to_list(Size)++" bytes"}.
 
+%% White box testing of term heap sizes
 test_size(Config) when is_list(Config) ->
     ConsCell1 = id([a|b]),
     ConsCell2 = id(ConsCell1),
@@ -67,13 +68,12 @@ test_size(Config) when is_list(Config) ->
     true = do_test_size(maps:from_list([{I,I}||I<-lists:seq(1,254)])) >= map_size_lower_bound(254),
     true = do_test_size(maps:from_list([{I,I}||I<-lists:seq(1,239)])) >= map_size_lower_bound(239),
 
-    %% Test internal consistency of sizes, but without testing
-    %% exact sizes.
     Const = id(42),
     AnotherConst = id(7),
 
     %% Fun environment size = 0 (the smallest fun possible)
     SimplestFun = fun() -> ok end,
+    FunSz0 = 6,
     FunSz0 = do_test_size(SimplestFun),
 
     %% Fun environment size = 1
@@ -85,6 +85,36 @@ test_size(Config) when is_list(Config) ->
     FunSz2 = FunSz1 + 1,
 
     FunSz1 = do_test_size(fun() -> ConsCell1 end) - do_test_size(ConsCell1),
+
+    2 = do_test_size(fun lists:sort/1),
+
+    Arch = 8 * erlang:system_info({wordsize, external}),
+    case {Arch, do_test_size(mk_ext_pid({a@b, 1}, 17, 42))} of
+	{32, 5} -> ok;
+	{64, 4} -> ok
+    end,
+    case {Arch, do_test_size(mk_ext_port({a@b, 1}, 1742))} of
+	{32, 5} -> ok;
+	{64, 4} -> ok
+    end,
+    case {Arch, do_test_size(make_ref())} of
+	{32, 4} -> ok;
+	{64, 3} -> ok
+    end,
+    case {Arch, do_test_size(mk_ext_ref({a@b, 1}, [42,43,44]))} of
+	{32, 6} -> ok;
+	{64, 5} -> ok
+    end,
+    3 = do_test_size(atomics:new(1,[])), % Magic ref
+
+    3 = do_test_size(<<1,2,3>>),       % ErlHeapBin
+    case {Arch, do_test_size(<<0:(8*64)>>)} of   % ERL_ONHEAP_BIN_LIMIT
+	{32, 18} -> ok;
+	{64, 10} -> ok
+    end,
+    6 = do_test_size(<<0:(8*65)>>),    % ProcBin
+    8 = do_test_size(<<5:7>>),         % ErlSubBin + ErlHeapBin
+    11 = do_test_size(<<0:(8*80+1)>>), % ErlSubBin + ProcBin
 
     %% Test shared data structures.
     do_test_size([ConsCell1|ConsCell1],
@@ -202,6 +232,7 @@ stack_check(Config) when is_list(Config) ->
     %% by PCRE). VM will crash if it doesn't work...
     Size = erts_debug:get_internal_state(stack_check),
     erts_debug:set_internal_state(available_internal_state,false),
+    true = (is_integer(Size) and (Size > 0)),
     {comment, "Stack size: "++integer_to_list(Size)++" bytes"}.
 
 df_smoke([M|Ms]) ->
@@ -229,7 +260,10 @@ alloc_blocks_size(Config) when is_list(Config) ->
                 ok = rpc:call(Node, ?MODULE, do_alloc_blocks_size, []),
                 true = test_server:stop_node(Node)
         end,
-    F("+Meamax"),
+    case test_server:is_asan() of
+	false -> F("+Meamax");
+	true -> skip
+    end,
     F("+Meamin"),
     F(""),
     ok.
@@ -248,3 +282,12 @@ start_slave(Args) ->
 
 id(I) ->
     I.
+
+mk_ext_pid({NodeName, Creation}, Number, Serial) ->
+    erts_test_utils:mk_ext_pid({NodeName, Creation}, Number, Serial).
+
+mk_ext_port({NodeName, Creation}, Number) ->
+    erts_test_utils:mk_ext_port({NodeName, Creation}, Number).
+
+mk_ext_ref({NodeName, Creation}, Numbers) ->
+    erts_test_utils:mk_ext_ref({NodeName, Creation}, Numbers).

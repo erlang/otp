@@ -168,7 +168,7 @@
       <fsummary>Return the components of a digraph.</fsummary>
       <desc>
         <p>Returns a list
-          of <seeerl marker="#components">connected components.</seeerl>.
+          of <seeerl marker="#components">connected components</seeerl>.
           Each component is represented by its
           vertices. The order of the vertices and the order of the
           components are arbitrary. Each vertex of digraph

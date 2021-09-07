@@ -22,6 +22,8 @@
 
 -module(ssl_session_cache_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 %% Callback functions
@@ -61,6 +63,7 @@
 -define(SLEEP, 1000).
 -define(TIMEOUT, {seconds, 20}).
 -define(MAX_TABLE_SIZE, 5).
+-define(CLIENT_CB, ssl_client_session_cache_db).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -213,7 +216,7 @@ client_unique_session(Config) when is_list(Config) ->
 				   {tcp_options, [{active, false}]},
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    LastClient = clients_start(Server, ClientNode, Hostname, Port, ClientOpts, 20),
+    LastClient = clients_start(Server, ClientNode, Hostname, Port, ClientOpts, 20, []),
     receive 
 	{LastClient, {ok, _}} ->
 	    ok
@@ -223,7 +226,7 @@ client_unique_session(Config) when is_list(Config) ->
     State = ssl_test_lib:state(Prop),
     ClientCache = element(2, State),
 
-    1 = ssl_session_cache:size(ClientCache),
+    1 = ?CLIENT_CB:size(ClientCache),
   
     ssl_test_lib:close(Server, 500),
     ssl_test_lib:close(LastClient).
@@ -261,7 +264,7 @@ session_cleanup(Config) when is_list(Config) ->
     SessionTimer = element(6, State),
 
     Id = proplists:get_value(session_id, SessionInfo),
-    CSession = ssl_session_cache:lookup(ClientCache, {{Hostname, Port}, Id}),
+    CSession = ?CLIENT_CB:lookup(ClientCache, {{Hostname, Port}, Id}),
 
     true = CSession =/= undefined,
 
@@ -270,7 +273,7 @@ session_cleanup(Config) when is_list(Config) ->
     
     ct:sleep(?SLEEP),  %% Make sure clean has had time to run
     
-    undefined = ssl_session_cache:lookup(ClientCache, {{Hostname, Port}, Id}),
+    undefined = ?CLIENT_CB:lookup(ClientCache, {{Hostname, Port}, Id}),
 
     process_flag(trap_exit, false),
     ssl_test_lib:close(Server),
@@ -333,7 +336,7 @@ save_specific_session(Config) when is_list(Config) ->
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
     ClientCache = element(2, State),
-    2 = ssl_session_cache:size(ClientCache),
+    2 = ?CLIENT_CB:size(ClientCache),
 
     Server ! listen,
 
@@ -367,18 +370,17 @@ max_table_size(Config) when is_list(Config) ->
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     LastClient = clients_start(Server, 
-			    ClientNode, Hostname, Port, ClientOpts, 20),
+                               ClientNode, Hostname, Port, ClientOpts, 20, [{reuse_sessions, save}]),
     receive 
-	{LastClient, {ok, _}} ->
-	    ok
+        {LastClient, {ok, _}} ->
+            ok
     end,
-    ct:sleep(1000),
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
     ClientCache = element(2, State),	
-    M = ssl_session_cache:size(ClientCache),
-    ct:pal("~p",[M]),
+    M = ?CLIENT_CB:size(ClientCache),
+    ct:pal("Cache size ~p",[M]),
     ssl_test_lib:close(Server, 500),
     ssl_test_lib:close(LastClient),
     true = M =< ?MAX_TABLE_SIZE.
@@ -548,22 +550,21 @@ session_cache_process(_Type,Config) when is_list(Config) ->
     ssl_test_lib:reuse_session(ClientOpts, ServerOpts, Config).
 
 
-clients_start(_Server, ClientNode, Hostname, Port, ClientOpts, 0) ->
-    %% Make sure session is registered
-    ct:sleep(?SLEEP * 2),
+clients_start(_Server, ClientNode, Hostname, Port, ClientOpts, 0, Opts) ->
     ssl_test_lib:start_client([{node, ClientNode},
 			       {port, Port}, {host, Hostname},
 			       {mfa, {?MODULE, connection_info_result, []}},
-			       {from, self()},  {options, ClientOpts}]);
-clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N) ->
+                               %% Make sure session is registered    
+			       {from, self()},  {options, Opts ++ ClientOpts}]);
+clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N, Opts) ->
     spawn_link(ssl_test_lib, start_client, 
 	       [[{node, ClientNode},
 		 {port, Port}, {host, Hostname},
 		 {mfa, {ssl_test_lib, no_result, []}},
-		 {from, self()},  {options, ClientOpts}]]),
+		 {from, self()},  {options, Opts ++ ClientOpts}]]),
     Server ! listen,
     wait_for_server(),
-    clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N-1).
+    clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N-1, Opts).
 	
 
 check_timer(Timer) ->

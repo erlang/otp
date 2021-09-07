@@ -64,9 +64,7 @@ config(data_dir, _) ->
     "cprof_SUITE_data".
 -else.
 %% When run in test server.
--export([all/0, suite/0,
-         init_per_testcase/2, end_per_testcase/2,
-         not_run/1]).
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, on_load/1, modules/1]).
 
 init_per_testcase(_Case, Config) ->
@@ -82,15 +80,8 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{seconds,30}}].
 
-all() -> 
-    case test_server:is_native(cprof_SUITE) of
-        true -> [not_run];
-        false -> [basic, on_load, modules]
-    end.
-
-
-not_run(Config) when is_list(Config) -> 
-    {skipped,"Native code"}.
+all() ->
+    [basic, on_load, modules].
 
 %% Tests basic profiling
 basic(Config) when is_list(Config) ->

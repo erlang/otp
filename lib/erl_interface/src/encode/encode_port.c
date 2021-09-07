@@ -31,16 +31,30 @@ int ei_encode_port(char *buf, int *index, const erlang_port *p)
 			    ERLANG_LATIN1|ERLANG_UTF8) < 0) {
       return -1;
   }
-  if (buf) {
-    put8(s, ERL_NEW_PORT_EXT);
+  if (p->id > 0x0fffffff /* 28 bits */) {
+      if (buf) {
+          put8(s, ERL_V4_PORT_EXT);
 
-    s = buf + *index;
+          s = buf + *index;
 
-    /* now the integers */
-    put32be(s,p->id & 0x0fffffff /* 28 bits */);
-    put32be(s, p->creation);
+          /* now the integers */
+          put64be(s,p->id);
+          put32be(s, p->creation);
+      }
+      *index += 8 + 4;
   }
-  *index += 4 + 4;
+  else {
+      if (buf) {
+          put8(s, ERL_NEW_PORT_EXT);
+
+          s = buf + *index;
+
+          /* now the integers */
+          put32be(s,p->id);
+          put32be(s, p->creation);
+      }
+      *index += 4 + 4;
+  }
   return 0;
 }
 

@@ -53,7 +53,7 @@ encode_jer({sequence_tab,Simple,Sname,Arity,CompInfos},Value)
 encode_jer({sequence,Sname,Arity,CompInfos},Value) 
   when tuple_size(Value) == Arity+1 ->
     [Sname|Clist] = tuple_to_list(Value),
-    encode_jer_component(CompInfos,Clist,#{});
+    encode_jer_component(CompInfos,Clist,[]);
 encode_jer(string,Str) when is_list(Str) ->
     list_to_binary(Str);
 encode_jer({string,_Prop},Str) when is_list(Str) ->
@@ -168,15 +168,17 @@ encode_jer_component_tab([{Name, Type, _OptOrDefault} | CompInfos], [Value | Res
 encode_jer_component_tab([], _, _Simple, MapAcc) ->
     MapAcc.
 
-encode_jer_component([{_Name, _Type, 'OPTIONAL'} | CompInfos], [asn1_NOVALUE | Rest], MapAcc) ->
-    encode_jer_component(CompInfos, Rest, MapAcc);
-encode_jer_component([{_Name, _Type, {'DEFAULT',_}} | CompInfos], [asn1_DEFAULT | Rest], MapAcc) ->
-    encode_jer_component(CompInfos, Rest, MapAcc);
-encode_jer_component([{Name, Type, _OptOrDefault} | CompInfos], [Value | Rest], MapAcc) ->
+encode_jer_component([{_Name, _Type, 'OPTIONAL'} | CompInfos], [asn1_NOVALUE | Rest], Acc) ->
+    encode_jer_component(CompInfos, Rest, Acc);
+encode_jer_component([{_Name, _Type, {'DEFAULT',_}} | CompInfos], [asn1_DEFAULT | Rest], Acc) ->
+    encode_jer_component(CompInfos, Rest, Acc);
+encode_jer_component([{Name, Type, _OptOrDefault} | CompInfos], [Value | Rest], Acc) ->
     Enc = encode_jer(Type, Value),
-    encode_jer_component(CompInfos, Rest, MapAcc#{Name => Enc});
-encode_jer_component([], _, MapAcc) ->
-    MapAcc.
+    encode_jer_component(CompInfos, Rest, [{Name,Enc}|Acc]);
+encode_jer_component([], _, []) ->
+    #{}; % ensure that it is encoded as an empty object in JSON
+encode_jer_component([], _, Acc) ->
+    lists:reverse(Acc).
 
 decode_jer(Module,InfoFunc,Val) ->
     Info = Module:InfoFunc(),
@@ -218,6 +220,8 @@ decode_jer({string,_Prop},Str) when is_binary(Str) ->
     binary_to_list(Str);
 decode_jer('INTEGER',Int) when is_integer(Int) ->
     Int;
+decode_jer({'INTEGER',{Min,Max}},Int) when is_integer(Int),Max >=Int, Int >= Min ->
+    Int;
 decode_jer({Type = {'INTEGER_NNL',_NNList},_},Int) ->
     decode_jer(Type,Int);
 decode_jer({'INTEGER_NNL',NNList},Int) ->
@@ -227,8 +231,6 @@ decode_jer({'INTEGER_NNL',NNList},Int) ->
         _ ->
             Int
     end;
-decode_jer({'INTEGER',_Prop},Int) when is_integer(Int) ->
-    Int;
 decode_jer('BOOLEAN',Bool) when is_boolean(Bool) ->
     Bool;
 decode_jer({'BOOLEAN',_Prop},Bool) when is_boolean(Bool) ->
@@ -278,7 +280,9 @@ decode_jer('RELATIVE-OID',OidBin) when is_binary(OidBin) ->
 decode_jer({'ObjClassFieldType',_,_},Bin) when is_binary(Bin) ->
     Bin;
 decode_jer('ASN1_OPEN_TYPE',Bin) when is_binary(Bin) ->
-    Bin.
+    Bin;
+decode_jer(Type,Val) ->
+    exit({error,{asn1,{{decode,Type},Val}}}).
 
 decode_jer_component([{Name, Type, _OptOrDefault} | CompInfos], VMap, Acc)
     when is_map_key(Name, VMap) ->

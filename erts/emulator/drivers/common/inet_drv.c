@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2020. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,6 +82,32 @@
 /* All platforms fail on malloc errors. */
 #define FATAL_MALLOC
 
+/* The linux kernel sctp include files have an alignment bug
+   that causes warnings of this type to appear:
+
+   drivers/common/inet_drv.c:3196:47: error: taking address of packed member of 'struct sctp_paddr_change' may result in an unaligned pointer value [-Werror=address-of-packed-member]
+   3196 |      i = load_inet_get_address(spec, i, desc, &sptr->spc_aaddr);
+
+   So we need to suppress those, without disabling all warning
+   diagnostics of that type.
+
+   See https://lore.kernel.org/patchwork/patch/1108122/ for the
+   patch that fixes this bug. In a few years we should be able to
+   remove this suppression. */
+#ifdef HAVE_GCC_DIAG_IGNORE_WADDRESS_OF_PACKED_MEMBER
+#define PUSH_SUPPRESS_ADDRESS_OF_PACKED_MEMBER()                        \
+    _Pragma("GCC diagnostic push")                                      \
+    _Pragma("GCC diagnostic ignored \"-Waddress-of-packed-member\"")    \
+    do { } while(0)
+#define POP_SUPPRESS_ADDRESS_OF_PACKED_MEMBER() \
+    _Pragma("GCC diagnostic pop")               \
+    do { } while(0)
+#else
+#define PUSH_SUPPRESS_ADDRESS_OF_PACKED_MEMBER() \
+    do { } while(0)
+#define POP_SUPPRESS_ADDRESS_OF_PACKED_MEMBER() \
+    do { } while(0)
+#endif
 
 #include "erl_driver.h"
 
@@ -600,15 +626,6 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #endif
 
 #include "packet_parser.h"
-
-#define get_int24(s) ((((unsigned char*) (s))[0] << 16) | \
-                      (((unsigned char*) (s))[1] << 8)  | \
-                      (((unsigned char*) (s))[2]))
-
-#define get_little_int32(s) ((((unsigned char*) (s))[3] << 24) | \
-			     (((unsigned char*) (s))[2] << 16)  | \
-			     (((unsigned char*) (s))[1] << 8) | \
-			     (((unsigned char*) (s))[0]))
 
 #if defined(HAVE_SYS_UN_H) || defined(SO_BINDTODEVICE)
 
@@ -1155,9 +1172,24 @@ typedef struct {
 
 #define TCP_MAX_PACKET_SIZE 0x4000000  /* 64 M */
 
-#define MAX_VSIZE 16		/* Max number of entries allowed in an I/O
-				 * vector sock_sendv().
-				 */
+/* Max number of entries allowed in an I/O vector sock_sendv(). */
+#if defined(__WIN32__)
+/* 
+ * Windows 95, 98, and ME is limited to 16, but we do not
+ * support those. Documentation unfortunately does not say
+ * anything about newer windows, so we guess 1024 which
+ * seems to be what most systems use...
+ */
+#define MAX_VSIZE 1024
+#elif !defined(NO_SYSCONF)
+static int iov_max;
+#define MAX_VSIZE iov_max
+#elif defined(IOV_MAX)
+#define MAX_VSIZE IOV_MAX
+#else
+/* POSIX require at least 16 */
+#define MAX_VSIZE 16
+#endif
 
 static int tcp_inet_init(void);
 static void tcp_inet_stop(ErlDrvData);
@@ -1501,7 +1533,7 @@ static const struct in6_addr in6addr_loopback =
 #endif /* HAVE_IN6 */
 
 /* XXX: is this a driver interface function ??? */
-void erts_exit(int n, char*, ...);
+void erts_exit(int n, const char*, ...);
 
 /*
  * Malloc wrapper,
@@ -1628,7 +1660,9 @@ static void *realloc_wrapper(void *current, ErlDrvSizeT size){
 #endif
 #   define ANC_BUFF_SIZE   INET_DEF_BUFFER/2 /* XXX: not very good... */
 
+
 #ifdef HAVE_UDP
+
 static int load_address(ErlDrvTermData* spec, int i, char* buf)
 {
     int n;
@@ -1690,7 +1724,11 @@ static int load_address(ErlDrvTermData* spec, int i, char* buf)
     }
     return i;
  }
-#endif
+
+static struct sockaddr disassoc_sa;
+static size_t          disassoc_sa_size;
+
+#endif /* #ifdef HAVE_UDP */
 
 
 #ifdef HAVE_SCTP
@@ -1981,7 +2019,11 @@ static ErlDrvSSizeT ctl_reply(int rep, char* buf, ErlDrvSizeT len,
     else
 	ptr = *rbuf;
     *ptr++ = rep;
-    memcpy(ptr, buf, len);
+    if (buf) {
+        memcpy(ptr, buf, len);
+    } else {
+        ASSERT(len == 0);
+    }
     return len+1;
 }
 
@@ -3178,7 +3220,9 @@ static int sctp_parse_async_event
 	    ASSERT(sptr->spc_length <= sz);  /* No buffer overrun */
 
 	    i = LOAD_ATOM	(spec, i, am_sctp_paddr_change);
+            PUSH_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
 	    i = load_inet_get_address(spec, i, desc, &sptr->spc_aaddr);
+            POP_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
 
 	    switch (sptr->spc_state)
 	    {
@@ -3514,6 +3558,7 @@ inet_async_binary_data
         struct msghdr *mptr;
 
         mptr = mp;
+        ASSERT (mptr);
 	ASSERT (hsz == phsz && hsz != 0);
 	sz = len - hsz;  /* Size of the msg data proper, w/o the addr */
 
@@ -4127,6 +4172,18 @@ static int inet_init()
     if (!sock_init())
 	goto error;
 
+#if !defined(__WIN32__) && !defined(NO_SYSCONF)
+    iov_max = (int) sysconf(_SC_IOV_MAX);
+    if (iov_max < 0) {
+#ifdef IOV_MAX
+        iov_max = IOV_MAX;
+#else
+        iov_max = 16; /* min value required by POSIX */
+#endif
+    }
+    ASSERT(iov_max >= 16);
+#endif
+
     if (0 != erl_drv_tsd_key_create("inet_buffer_stack_key", &buffer_stack_key))
 	goto error;
 
@@ -4714,20 +4771,24 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 	if (new_ns == INVALID_SOCKET) {
 	    save_errno = sock_errno();
 	    while (close(current_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	    return ctl_error(save_errno, rbuf, rsize);
 	}
 	if (setns(new_ns, CLONE_NEWNET) != 0) {
 	    save_errno = sock_errno();
 	    while (close(new_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	    while (close(current_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	    return ctl_error(save_errno, rbuf, rsize);
 	}
 	else {
 	    while (close(new_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	}
     }
 #endif
@@ -4749,15 +4810,18 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 	    if (desc->s != INVALID_SOCKET)
 		save_errno = sock_errno();
 	    while (close(desc->s) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	    desc->s = INVALID_SOCKET;
 	    while (close(current_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	    return ctl_error(save_errno, rbuf, rsize);
 	}
 	else {
 	    while (close(current_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	}
     }
 #endif
@@ -4767,7 +4831,8 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
     if ((desc->event = sock_create_event(desc)) == INVALID_EVENT) {
 	save_errno = sock_errno();
 	while (close(desc->s) == INVALID_SOCKET &&
-	       sock_errno() == EINTR);
+	       sock_errno() == EINTR)
+	    ;
 	desc->s = INVALID_SOCKET;
 	return ctl_error(save_errno, rbuf, rsize);
     }
@@ -5298,26 +5363,35 @@ static int call_getifaddrs(inet_descriptor* desc_p, struct ifaddrs **ifa_pp)
 	 * over the getifaddrs() call
 	 */
 	current_ns = open("/proc/self/ns/net", O_RDONLY);
-	if (current_ns == INVALID_SOCKET)
-	    return sock_errno();
+	if (current_ns == INVALID_SOCKET) {
+            save_errno = sock_errno();
+            ASSERT(save_errno != 0);
+	    return save_errno;
+        }
 	new_ns = open(desc_p->netns, O_RDONLY);
 	if (new_ns == INVALID_SOCKET) {
 	    save_errno = sock_errno();
 	    while (close(current_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
+            ASSERT(save_errno != 0);
 	    return save_errno;
 	}
 	if (setns(new_ns, CLONE_NEWNET) != 0) {
 	    save_errno = sock_errno();
 	    while (close(new_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	    while (close(current_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
+            ASSERT(save_errno != 0);
 	    return save_errno;
 	}
 	else {
 	    while (close(new_ns) == INVALID_SOCKET &&
-		   sock_errno() == EINTR);
+		   sock_errno() == EINTR)
+		;
 	}
     }
 #endif
@@ -5337,11 +5411,13 @@ static int call_getifaddrs(inet_descriptor* desc_p, struct ifaddrs **ifa_pp)
             if (result >= 0) {
                 /* We got a result but have to waste it */
                 save_errno = sock_errno();
+                ASSERT(save_errno != 0);
                 freeifaddrs(*ifa_pp);
             }
 	}
         while (close(current_ns) == INVALID_SOCKET &&
-               sock_errno() == EINTR);
+               sock_errno() == EINTR)
+	    ;
     }
 #endif
     return save_errno;
@@ -8123,7 +8199,9 @@ static int load_paddrinfo (ErlDrvTermData * spec, int i,
 {
     i = LOAD_ATOM	(spec, i, am_sctp_paddrinfo);
     i = LOAD_ASSOC_ID	(spec, i, pai->spinfo_assoc_id);
+    PUSH_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
     i = load_inet_get_address(spec, i, desc, &pai->spinfo_address);
+    POP_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
     switch(pai->spinfo_state)
     {
     case SCTP_ACTIVE:
@@ -8643,7 +8721,9 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 		ASSERT(0);
 	    }
 	    i = LOAD_ASSOC_ID	(spec, i, sp.sspp_assoc_id);
+            PUSH_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
 	    i = load_inet_get_address(spec, i, desc, &sp.sspp_addr);
+            POP_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
 	    i = LOAD_TUPLE	(spec, i, 3);
 	    i = LOAD_TUPLE	(spec, i, 2);
 	    break;
@@ -8703,7 +8783,9 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    i = LOAD_ATOM	(spec, i, am_sctp_peer_addr_params);
 	    i = LOAD_ATOM	(spec, i, am_sctp_paddrparams);
 	    i = LOAD_ASSOC_ID	(spec, i, ap.spp_assoc_id);
+            PUSH_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
 	    i = load_inet_get_address(spec, i, desc, &ap.spp_address);
+            POP_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
 	    i = LOAD_INT	(spec, i, ap.spp_hbinterval);
 	    i = LOAD_INT	(spec, i, ap.spp_pathmaxrxt);
 	    
@@ -10018,6 +10100,15 @@ static void tcp_inet_stop(ErlDrvData e)
     tcp_close_check(desc);
     tcp_clear_input(desc);
 
+#ifdef HAVE_SENDFILE
+    if(desc->tcp_add_flags & TCP_ADDF_SENDFILE) {
+        desc->tcp_add_flags &= ~TCP_ADDF_SENDFILE;
+        close(desc->sendfile.dup_file_fd);
+        DEBUGF(("tcp_inet_stop(%p): SENDFILE dup closed %d\r\n",
+                desc->inet.port, desc->sendfile.dup_file_fd));
+    }
+#endif
+
     DEBUGF(("tcp_inet_stop(%p) }\r\n", desc->inet.port));
     inet_stop(INETP(desc));
 }
@@ -10033,12 +10124,6 @@ static void tcp_inet_stop(ErlDrvData e)
  * will be freed through tcp_inet_stop later on. */
 static void tcp_desc_close(tcp_descriptor* desc)
 {
-#ifdef HAVE_SENDFILE
-    if(desc->tcp_add_flags & TCP_ADDF_SENDFILE) {
-        desc->tcp_add_flags &= ~TCP_ADDF_SENDFILE;
-        close(desc->sendfile.dup_file_fd);
-    }
-#endif
 
     tcp_clear_input(desc);
     tcp_clear_output(desc);
@@ -10413,12 +10498,22 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
             return ctl_error(EINVAL, rbuf, rsize);
         } else if (!IS_CONNECTED(INETP(desc))) {
             return ctl_error(ENOTCONN, rbuf, rsize);
+        } else if (desc->tcp_add_flags & TCP_ADDF_SENDFILE) {
+            /* This should not happen as prim_inet.erl makes
+               sure that only the controlling process can
+               use the sendfile operation. But we add this
+               check here anyways just in case that prim_inet
+               is changed... */
+            return ctl_error(EINVAL, rbuf, rsize);
         }
 
         sys_memcpy(&raw_file_fd, buf, sizeof(raw_file_fd));
         buf += sizeof(raw_file_fd);
 
         desc->sendfile.dup_file_fd = dup(raw_file_fd);
+
+        DEBUGF(("tcp_inet_ctl(%p): SENDFILE dup %d\r\n",
+                desc->inet.port, desc->sendfile.dup_file_fd));
 
         if(desc->sendfile.dup_file_fd == -1) {
             return ctl_error(errno, rbuf, rsize);
@@ -10472,6 +10567,11 @@ static void tcp_inet_send_timeout(ErlDrvData e, ErlDrvTermData dummy)
     if (desc->send_timeout_close) {
         tcp_desc_close(desc);
     }
+    /* Q: Why not keep port busy as send queue may still be full (ERL-1390)?
+     *
+     * A: If kept busy, a following send call would hang without a timeout
+     *    as it would get suspended in erlang:port_command waiting on busy port.
+     */
 }
 
 /*
@@ -10598,11 +10698,9 @@ static void tcp_inet_flush(ErlDrvData e)
 
 #ifdef HAVE_SENDFILE
     /* The old file driver aborted when it was stopped during sendfile, so
-     * we'll clear the flag and discard all output. */
+     * we'll clear the flag and discard all output. It is the job of
+     * tcp_inet_stop to close the extra sendfile fd. */
     if(desc->tcp_add_flags & TCP_ADDF_SENDFILE) {
-        desc->tcp_add_flags &= ~TCP_ADDF_SENDFILE;
-        close(desc->sendfile.dup_file_fd);
-
         discard_output = 1;
     }
 #endif
@@ -11763,6 +11861,9 @@ static int tcp_sendfile_completed(tcp_descriptor* desc) {
     desc->tcp_add_flags &= ~TCP_ADDF_SENDFILE;
     close(desc->sendfile.dup_file_fd);
 
+    DEBUGF(("tcp_sendfile_completed(%p): SENDFILE dup closed %d\r\n",
+            desc->inet.port, desc->sendfile.dup_file_fd));
+
     /* While we flushed the output queue prior to sending the file, we've
      * deferred clearing busy status until now as there's no point in doing so
      * while we still have a file to send.
@@ -12250,6 +12351,12 @@ static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
 #ifdef HAVE_UDP
 static int packet_inet_init()
 {
+    sys_memzero((char *)&disassoc_sa, sizeof(disassoc_sa));
+#ifdef AF_UNSPEC
+    disassoc_sa.sa_family = AF_UNSPEC;
+#endif /* #ifdef AF_UNSPEC */
+    disassoc_sa_size = disassoc_sa.sa_data - (char *)&disassoc_sa;
+
     return 0;
 }
 
@@ -12504,8 +12611,7 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 #endif
 	/* UDP */
 	if (len == 0) {
-	    /* What does it mean???  NULL sockaddr??? */
-	    sock_connect(desc->s, (struct sockaddr*) NULL, 0);
+            sock_connect(desc->s, &disassoc_sa, disassoc_sa_size);
 	    desc->state &= ~INET_F_ACTIVE;
 	    enq_async(desc, tbuf, INET_REQ_CONNECT);
 	    async_ok (desc);
@@ -12521,10 +12627,18 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 		 (desc->sfamily, &desc->remote, &buf, &len)) != NULL)
 	        return ctl_xerror(xerror, rbuf, rsize);
 	    
+#ifdef __linux__
+            /* Workaround for Linux's misbehaviour to not
+             * change the source address when connecting
+             * a datagram socket to a new destination
+             */
+            sock_connect(desc->s, &disassoc_sa, disassoc_sa_size);
+#endif /* #ifdef __linux__ */
+
 	    code = sock_connect(desc->s,
 				(struct sockaddr*) &desc->remote, len);
 	    if (IS_SOCKET_ERROR(code)) {
-		sock_connect(desc->s, (struct sockaddr*) NULL, 0);
+                sock_connect(desc->s, &disassoc_sa, disassoc_sa_size);
 		desc->state &= ~INET_F_ACTIVE;
 		return ctl_error(sock_errno(), rbuf, rsize);
 	    }

@@ -131,11 +131,12 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     Uint freason = BADARG;
 
     if (!erts_try_seize_code_write_permission(p)) {
-	ERTS_BIF_YIELD3(&bif_trap_export[BIF_erts_internal_trace_pattern_3], p, MFA, Pattern, flaglist);
+	ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_erts_internal_trace_pattern_3), p, MFA, Pattern, flaglist);
     }
     finish_bp.current = -1;
 
     UseTmpHeap(3,p);
+
     /*
      * Check and compile the match specification.
      */
@@ -157,11 +158,13 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	if (match_prog_set) {
 	    MatchSetRef(match_prog_set);
 	    on = 1;
-	} else{
+	} else {
+            p->fvalue = am_match_spec;
 	    goto error;
 	}
     }
-    
+
+    p->fvalue = am_badopt;
     is_global = 0;
     for(l = flaglist; is_list(l); l = CDR(list_val(l))) {
 	if (is_tuple(CAR(list_val(l)))) {
@@ -219,9 +222,12 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     if (l != NIL) {
 	goto error;
     }
-    
+
+    p->fvalue = am_none;
+
     if (match_prog_set && !flags.local && !flags.meta && (flags.call_count || flags.call_time)) {
 	/* A match prog is not allowed with just call_count or call_time*/
+        p->fvalue = am_call_count;
 	goto error;
     }
 
@@ -356,7 +362,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	return make_small(matches);
     }
     else {
-	BIF_ERROR(p, freason);    
+	BIF_ERROR(p, freason | EXF_HAS_EXT_INFO);
     }
 }
 
@@ -465,19 +471,25 @@ erts_trace_flags(Eterm List,
 	    cpu_timestamp = !0;
 #endif
 	} else if (is_tuple(item)) {
+            ERTS_TRACER_CLEAR(&tracer);
             tracer = erts_term_to_tracer(am_tracer, item);
             if (tracer == THE_NON_VALUE)
                 goto error;
 	} else goto error;
 	list = CDR(list_val(list));
     }
-    if (is_not_nil(list)) goto error;
+    if (is_not_nil(list)) {
+        goto error;
+    }
     
-    if (pMask && mask)                           *pMask         = mask;
-    if (pTracer && !ERTS_TRACER_IS_NIL(tracer))  *pTracer       = tracer;
-    if (pCpuTimestamp && cpu_timestamp)          *pCpuTimestamp = cpu_timestamp;
+    if (mask)                        *pMask         = mask;
+    if (!ERTS_TRACER_IS_NIL(tracer)) *pTracer       = tracer;
+    if (cpu_timestamp)               *pCpuTimestamp = cpu_timestamp;
     return !0;
+
  error:
+    if (tracer != THE_NON_VALUE)
+	ERTS_TRACER_CLEAR(&tracer);
     return 0;
 }
 
@@ -537,11 +549,13 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
     int system_blocked = 0;
 
     if (! erts_trace_flags(list, &mask, &tracer, &cpu_ts)) {
-	BIF_ERROR(p, BADARG);
+        p->fvalue = am_badopt;
+	BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD3(&bif_trap_export[BIF_erts_internal_trace_3],
+	ERTS_TRACER_CLEAR(&tracer);
+	ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_erts_internal_trace_3),
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 
@@ -791,7 +805,7 @@ Eterm trace_info_2(BIF_ALIST_2)
     Eterm res;
 
     if (!erts_try_seize_code_write_permission(p)) {
-	ERTS_BIF_YIELD2(&bif_trap_export[BIF_trace_info_2], p, What, Key);
+	ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_trace_info_2), p, What, Key);
     }
 
     if (What == am_on_load) {
@@ -803,8 +817,9 @@ Eterm trace_info_2(BIF_ALIST_2)
     } else if (is_tuple(What)) {
 	res = trace_info_func(p, What, Key);
     } else {
+        p->fvalue = am_badopt;
 	erts_release_code_write_permission();
-	BIF_ERROR(p, BADARG);
+        BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     }
     erts_release_code_write_permission();
 
@@ -980,8 +995,8 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
 	       && external_pid_dist_entry(pid_spec) == erts_this_dist_entry) {
 	    return am_undefined;
     } else {
-    error:
-	BIF_ERROR(p, BADARG);
+        p->fvalue = am_badopt;
+        BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     }
 
     if (key == am_flags) {
@@ -1002,7 +1017,8 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
         hp = HAlloc(p, 3);
         return TUPLE2(hp, key, tracer);
     } else {
-	goto error;
+    error:
+        BIF_ERROR(p, BADARG);
     }
 }
 
@@ -1035,23 +1051,21 @@ static int function_is_traced(Process *p,
 			      Uint       *count,           /* out */
 			      Eterm      *call_time)       /* out */
 {
+    const ErtsCodeInfo *ci;
     Export e;
     Export* ep;
-    BeamInstr* pc;
-    ErtsCodeInfo *ci;
 
     /* First look for an export entry */
     e.info.mfa.module = mfa[0];
     e.info.mfa.function = mfa[1];
     e.info.mfa.arity = mfa[2];
     if ((ep = export_get(&e)) != NULL) {
-	pc = ep->trampoline.raw;
-	if (ep->addressv[erts_active_code_ix()] == pc &&
-	    ! BeamIsOpCode(*pc, op_call_error_handler)) {
+	if (erts_is_export_trampoline_active(ep, erts_active_code_ix()) &&
+	    ! BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler)) {
 
 	    int r = 0;
 
-	    ASSERT(BeamIsOpCode(*pc, op_i_generic_breakpoint));
+	    ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_i_generic_breakpoint));
 
 	    if (erts_is_trace_break(&ep->info, ms, 0)) {
 		return FUNC_TRACE_GLOBAL_TRACE;
@@ -1429,30 +1443,30 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 
     for (i = 0; i < n; i++) {
         ErtsCodeInfo *ci = fp[i].ci;
-        BeamInstr* pc;
         Export* ep;
 
-        pc = erts_codeinfo_to_code(ci);
         ep = ErtsContainerStruct(ci, Export, info);
 
         if (ep->bif_number != -1) {
             ep->is_bif_traced = !!on;
         }
 
-	if (on && !flags.breakpoint) {
-	    /* Turn on global call tracing */
-	    if (ep->addressv[code_ix] != pc) {
-		fp[i].mod->curr.num_traced_exports++;
+        if (on && !flags.breakpoint) {
+            /* Turn on global call tracing */
+            if (!erts_is_export_trampoline_active(ep, code_ix)) {
+                fp[i].mod->curr.num_traced_exports++;
 #ifdef DEBUG
-		ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
+                ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
 #endif
-                ep->trampoline.op = BeamOpCodeAddr(op_trace_jump_W);
-                ep->trampoline.trace.address = (BeamInstr) ep->addressv[code_ix];
-	    }
-	    erts_set_export_trace(ci, match_prog_set, 0);
-	    if (ep->addressv[code_ix] != pc) {
-                ep->trampoline.op = BeamOpCodeAddr(op_i_generic_breakpoint);
-	    }
+                ep->trampoline.common.op = BeamOpCodeAddr(op_trace_jump_W);
+                ep->trampoline.trace.address = (BeamInstr) ep->addresses[code_ix];
+            }
+
+            erts_set_export_trace(ci, match_prog_set, 0);
+
+            if (!erts_is_export_trampoline_active(ep, code_ix)) {
+                ep->trampoline.common.op = BeamOpCodeAddr(op_i_generic_breakpoint);
+            }
 	} else if (!on && flags.breakpoint) {
 	    /* Turn off breakpoint tracing -- nothing to do here. */
 	} else {
@@ -1461,8 +1475,8 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 	     * before turning on breakpoint tracing.
 	     */
 	    erts_clear_export_trace(ci, 0);
-            if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
-                ep->trampoline.op = BeamOpCodeAddr(op_trace_jump_W);
+            if (BeamIsOpCode(ep->trampoline.common.op, op_i_generic_breakpoint)) {
+                ep->trampoline.common.op = BeamOpCodeAddr(op_trace_jump_W);
 	    }
 	}
     }
@@ -1471,6 +1485,7 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
     ** So, now for breakpoint tracing
     */
     erts_bp_match_functions(&finish_bp.f, mfa, specified);
+
     if (on) {
 	if (! flags.breakpoint) {
 	    erts_clear_all_breaks(&finish_bp.f);
@@ -1654,9 +1669,8 @@ install_exp_breakpoints(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-	Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
-
-	ep->addressv[code_ix] = ep->trampoline.raw;
+        Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
+        erts_activate_export_trampoline(ep, code_ix);
     }
 }
 
@@ -1669,14 +1683,12 @@ uninstall_exp_breakpoints(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-	Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
+        Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
 
-        if (ep->addressv[code_ix] != ep->trampoline.raw) {
-            continue;
+        if (erts_is_export_trampoline_active(ep, code_ix)) {
+            ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_trace_jump_W));
+            ep->addresses[code_ix] = (ErtsCodePtr)ep->trampoline.trace.address;
         }
-
-        ASSERT(BeamIsOpCode(ep->trampoline.op, op_trace_jump_W));
-        ep->addressv[code_ix] = (BeamInstr *) ep->trampoline.trace.address;
     }
 }
 
@@ -1689,14 +1701,14 @@ clean_export_entries(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-	Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
+        Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
 
-        if (ep->addressv[code_ix] == ep->trampoline.raw) {
+        if (erts_is_export_trampoline_active(ep, code_ix)) {
             continue;
         }
 
-        if (BeamIsOpCode(ep->trampoline.op, op_trace_jump_W)) {
-            ep->trampoline.op = (BeamInstr) 0;
+        if (BeamIsOpCode(ep->trampoline.common.op, op_trace_jump_W)) {
+            ep->trampoline.common.op = (BeamInstr) 0;
             ep->trampoline.trace.address = (BeamInstr) 0;
         }
     }
@@ -1841,10 +1853,13 @@ new_seq_trace_token(Process* p, int ensure_new_heap)
 				    make_small(p->seq_trace_lastcnt));
     }
     else if (ensure_new_heap) {
+        Eterm *mature = p->abandoned_heap ? p->abandoned_heap : p->heap;
+        Uint mature_size = p->high_water - mature;
         Eterm* tpl = tuple_val(SEQ_TRACE_TOKEN(p));
         ASSERT(arityval(tpl[0]) == 5);
         if (ErtsInArea(tpl, OLD_HEAP(p),
-                       (OLD_HEND(p) - OLD_HEAP(p))*sizeof(Eterm))) {
+                       (OLD_HEND(p) - OLD_HEAP(p))*sizeof(Eterm)) ||
+            ErtsInArea(tpl, mature, mature_size*sizeof(Eterm))) {
             hp = HAlloc(p, 6);
             sys_memcpy(hp, tpl, 6*sizeof(Eterm));
             SEQ_TRACE_TOKEN(p) = make_tuple(hp);

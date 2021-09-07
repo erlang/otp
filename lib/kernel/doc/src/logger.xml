@@ -156,7 +156,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 	  the field named <c>config</c>. See
 	  the <seeerl marker="logger_std_h"><c>logger_std_h(3)</c></seeerl>
 	  and <seeerl marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c></seeerl>
-	  manual pages for information about the specifc configuration
+	  manual pages for information about the specific configuration
 	  for these handlers.</p>
 	<p>See the <seetype marker="logger_formatter#config">
 	    <c>logger_formatter(3)</c></seetype> manual page for
@@ -199,17 +199,28 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 	  <item><c>file => ?FILE</c></item>
 	  <item><c>line => ?LINE</c></item>
 	</list>
-	<p>You can add custom metadata, either by specifying a map as
-	  the last parameter to any of the log macros or the API
-	  functions, or by setting process metadata
-	  with <seemfa marker="#set_process_metadata/1">
+	<p>You can add custom metadata, either by:</p>
+        <list>
+          <item>specifying a map as the last parameter to any of the
+            log macros or the logger API functions.</item>
+          <item>setting process metadata with <seemfa marker="#set_process_metadata/1">
 	    <c>set_process_metadata/1</c></seemfa>
-	  or <seemfa marker="#update_process_metadata/1">
-	    <c>update_process_metadata/1</c></seemfa>.</p>
+	    or <seemfa marker="#update_process_metadata/1">
+	  <c>update_process_metadata/1</c></seemfa>.</item>
+          <item>setting primary metadata with <seemfa marker="#set_primary_config/1">
+            <c>set_primary_config/1</c></seemfa> or through the kernel
+            configuration parameter <seeapp marker="kernel_app#logger_metadata">
+            logger_metadata</seeapp></item>
+        </list>
+        <note>
+          <p>When adding custom metadata, make sure not to use any of the keys
+            mentioned above as that may cause a lot of confusion about the log
+            events.</p>
+        </note>
 	<p>Logger merges all the metadata maps before forwarding the
 	  log event to the handlers. If the same keys occur, values
-	  from the log call overwrite process metadata, which in turn
-	  overwrite values set by Logger.</p>
+	  from the log call overwrite process metadata, which overwrites
+          the primary metadata, which in turn overwrite values set by Logger.</p>
 	<p>The following custom metadata keys have special meaning:</p>
 	<taglist>
 	  <tag><c>domain</c></tag>
@@ -242,6 +253,12 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <name name="msg_fun"/>
       <desc>
 	<p></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="msg_fun_return"/>
+      <desc>
+        <p></p>
       </desc>
     </datatype>
     <datatype>
@@ -444,12 +461,44 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <type variable="FunArgs" name_i="4"/>
       <type variable="Metadata"/>
       <desc>
-        <p>Log the given message.</p>
+        <p>Create a log event at the given
+          <seeguide marker="logger_chapter#log_level">log level</seeguide>,
+          with the given <seeguide marker="logger_chapter#log_message">message</seeguide>
+          to be logged and
+          <seeguide marker="logger_chapter#metadata"><em>metadata</em></seeguide>.
+        Examples:</p>
+        <code>
+%% A plain string
+logger:log(info, "Hello World").
+%% A plain string with metadata
+logger:log(debug, "Hello World", #{ meta => data }).
+%% A format string with arguments
+logger:log(warning, "The roof is on ~ts",[Cause]).
+%% A report
+logger:log(warning, #{ what => roof, cause => Cause }).
+        </code>
+        <p>The message and metadata can either be given directly in the arguments,
+          or returned from a fun. Passing a fun instead of the message/metadata directly is
+          useful in scenarios when the message/metadata is very expensive to compute.
+          This is because the fun is only evaluted when the message/metadata is
+          actually needed, which may be not at all if the log event is not
+          to be logged. Examples:</p>
+        <code>
+%% A plain string with expensive metadata
+logger:info(fun([]) -> {"Hello World", #{ meta => expensive() }} end,[]).
+%% An expensive report
+logger:debug(fun(What) -> #{ what => What, cause => expensive() } end,roof).
+%% A plain string with expensive metadata and normal metadata
+logger:debug(fun([]) -> {"Hello World", #{ meta => expensive() }} end,[],
+             #{ meta => data }).
+        </code>
+        <p>When metadata is given both as an argument and returned from the fun they
+          are merged. If equal keys exists the values are taken from the metadata
+          returned by the fun.</p>
       </desc>
     </func>
   </funcs>
 
- 
   <funcs>
     <fsdescription>
       <marker id="configuration_API"/>
@@ -816,10 +865,12 @@ start(_, []) ->
       <name name="set_primary_config" arity="2" clause_i="1" since="OTP 21.0"/>
       <name name="set_primary_config" arity="2" clause_i="2" since="OTP 21.0"/>
       <name name="set_primary_config" arity="2" clause_i="3" since="OTP 21.0"/>
+      <name name="set_primary_config" arity="2" clause_i="4" since="OTP 24.0"/>
       <fsummary>Add or update primary configuration data for Logger.</fsummary>
       <type variable="Level" name_i="1"/>
       <type variable="FilterDefault" name_i="2"/>
       <type variable="Filters" name_i="3"/>
+      <type variable="Meta" name_i="4"/>
       <desc>
         <p>Add or update primary configuration data for Logger. If the
           given <c><anno>Key</anno></c> already exists, its associated
@@ -913,7 +964,7 @@ start(_, []) ->
       <fsummary>Unset the log level for all modules in the specified application.</fsummary>
       <desc>
         <p>Unset the log level for all the modules of the specified application.</p>
-        <p>This function is a convinience function that calls
+        <p>This function is a utility function that calls
           <seemfa marker="#unset_module_level/1">logger:unset_module_level/2</seemfa>
           for each module associated with an application.</p>
       </desc>
@@ -1160,7 +1211,7 @@ logger:set_proxy_config(maps:merge(Old, Config)).
       </type>
       <desc>
 	<p>This callback function is optional.</p>
-	<p>The function is called on a temporary process when an new
+	<p>The function is called on a temporary process when a new
 	  handler is about to be added. The purpose is to verify the
 	  configuration and initiate all resources needed by the
 	  handler.</p>
@@ -1199,7 +1250,7 @@ logger:set_proxy_config(maps:merge(Old, Config)).
 	    <c>set_handler_config/2,3</c></seemfa>, and <c>update</c>
 	  if it originates from <seemfa marker="#update_handler_config/2">
 	    <c>update_handler_config/2,3</c></seemfa>. The handler can
-	  use this parameteter to decide how to update the value of
+	  use this parameter to decide how to update the value of
 	  the <c>config</c> field, that is, the handler specific
 	  configuration data. Typically, if <c>SetOrUpdate</c>
 	  equals <c>set</c>, values that are not specified must be

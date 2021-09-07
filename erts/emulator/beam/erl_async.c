@@ -137,6 +137,7 @@ static void *async_main(void *);
 static ERTS_INLINE ErtsAsyncQ *
 async_q(int i)
 {
+    ASSERT(async != NULL);
     return &async->queue[i].aq;
 }
 

@@ -1154,7 +1154,7 @@ handle_data(verbosity,Node,VLvls,_Spec) when is_list(VLvls) ->
     VLvls1 = lists:map(fun(VLvl = {_Cat,_Lvl}) -> VLvl;
 			  (Lvl) -> {'$unspecified',Lvl} end, VLvls),
     [{Node,VLvls1}];
-handle_data(multiply_timetraps,Node,Mult,_Spec) when is_integer(Mult) ->
+handle_data(multiply_timetraps,Node,Mult,_Spec) when is_number(Mult) ->
     [{Node,Mult}];
 handle_data(scale_timetraps,Node,Scale,_Spec) when Scale == true;
                                                    Scale == false ->

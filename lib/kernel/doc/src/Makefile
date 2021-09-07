@@ -64,7 +64,6 @@ XML_REF3_FILES = application.xml \
 	net_kernel.xml \
 	os.xml \
 	pg.xml \
-	pg2.xml \
 	rpc.xml \
 	seq_trace.xml \
 	socket.xml \

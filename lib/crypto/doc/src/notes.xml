@@ -31,6 +31,305 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 5.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    EC keys are now zero-padded to the expected length if
+	    needed.</p>
+          <p>
+	    Own Id: OTP-17442 Aux Id: GH-4861 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 5.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed a risk for coredump.</p>
+          <p>
+	    Own Id: OTP-17391 Aux Id: GH-4810 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed and documented the <c>DED_LDFLAGS_CONFTEST</c>
+	    configuration variable in
+	    <c>$ERL_TOP/HOWTO/INSTALL.md</c>.</p>
+          <p>
+	    Own Id: OTP-17419 Aux Id: GH-4821 </p>
+        </item>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 5.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>/usr/local/opt/openssl</c> to the openssl
+	    configure search path. This path is where some tools on
+	    OS X place openssl.</p>
+          <p>
+	    Own Id: OTP-16882</p>
+        </item>
+        <item>
+          <p>
+	    Fix compiler warnings produced by the clang compiler.</p>
+          <p>
+	    Own Id: OTP-17105 Aux Id: PR-2872 </p>
+        </item>
+        <item>
+	    <p> The <c>configure</c> scripts in <c>crypto</c> and
+	    <c>erts</c> now fail if a requested feature cannot be
+	    enabled. </p> <p> Large parts of the <c>configure</c>
+	    script of <c>crypto</c> have been rewritten with various
+	    improvements and bug fixes. It is now better at finding
+	    usable OpenSSL libraries, but will in the following cases
+	    fail to detect OpenSSL libraries where it previously
+	    sometimes detected the libraries by chance: </p> <list>
+	    <item> OpenSSL installations with <c>include</c>
+	    directory and <c>lib</c> directory parts installed in
+	    different base directories. In order to detect such
+	    installations after this change, the user must explicitly
+	    specify the locations using the <seeguide
+	    marker="system/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring"><c>--with-ssl=&lt;path&gt;</c></seeguide>
+	    and the <seeguide
+	    marker="system/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring"><c>--with-ssl-incl=&lt;path&gt;</c></seeguide>
+	    <c>configure</c> command line arguments. </item> <item>
+	    When building with old <c>gcc</c> compilers or other
+	    compilers on Debian derivatives with multiarch
+	    directories under the <c>lib</c> directory. In order to
+	    detect such installations after this change, the user
+	    must explicitly specify the multiarch directory name
+	    using the <seeguide
+	    marker="system/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring"><c>--with-ssl-lib-subdir=lib/&lt;multiarch-dir&gt;</c></seeguide>
+	    <c>configure</c> command line argument. </item> </list>
+          <p>
+	    Own Id: OTP-17254 Aux Id: ERIERL-618, GH-4230 </p>
+        </item>
+        <item>
+          <p>
+	    The value 'none' was missing in the specs of
+	    crypto:sign/4 and crypto:verify/6.</p>
+          <p>
+	    Own Id: OTP-17312 Aux Id: PR-4723 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The functions and cipher names that were deprecated in
+	    OTP-23.0 are now removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16656</p>
+        </item>
+        <item>
+          <p>
+	    Removed installed directory priv/obj/ containing
+	    superfluous object files.</p>
+          <p>
+	    Own Id: OTP-17001 Aux Id: PR-2852 </p>
+        </item>
+        <item>
+          <p>
+	    TLS connections now support EdDSA certificates.</p>
+          <p>
+	    Own Id: OTP-17142 Aux Id: PR-4756, GH-4637, GH-4650 </p>
+        </item>
+        <item>
+          <p>
+	    Add prop_aead attribute to map from crypto:cipher_info/1.</p>
+          <p>
+	    Own Id: OTP-17313 Aux Id: PR-4686 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.9.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    EC keys are now zero-padded to the expected length if
+	    needed.</p>
+          <p>
+	    Own Id: OTP-17442 Aux Id: GH-4861 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.9.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed a risk for coredump.</p>
+          <p>
+	    Own Id: OTP-17391 Aux Id: GH-4810 </p>
+        </item>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix minor memory leaks in crypto ENGINE and robustify the
+	    code.</p>
+          <p>
+	    Own Id: OTP-17212</p>
+        </item>
+        <item>
+          <p>
+	    The otp_test_engine no longer fails if NO_EC* is set in
+	    the OpenSSL configuration.</p>
+          <p>
+	    Own Id: OTP-17256 Aux Id: PR-4580, GH-4573 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Various address sanitizer support.</p>
+          <p>
+	    Own Id: OTP-16959 Aux Id: PR-2965 </p>
+        </item>
+        <item>
+          <p>
+	    EVP is now disabled for OpenSSL cryptolib versions up to
+	    and including 1.0.2</p>
+          <p>
+	    Own Id: OTP-17116 Aux Id: PR-2972 </p>
+        </item>
+        <item>
+          <p>
+	    Warning for unused C function removed</p>
+          <p>
+	    Own Id: OTP-17145 Aux Id: OTP-17105, PR-2872 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Adding missing flag in BN-calls in SRP.</p>
+          <p>
+	    Own Id: OTP-17107</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed usage of <c>AC_CONFIG_AUX_DIRS()</c> macros in
+	    configure script sources.</p>
+          <p>
+	    Own Id: OTP-17093 Aux Id: ERL-1447, PR-2948 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Build the supported curves cache in the NIF when crypto
+	    is loaded, no matter how it is loaded.</p>
+          <p>
+	    This prevents a possible problem with different processes
+	    starting the crypto application concurrently.</p>
+          <p>
+	    Own Id: OTP-16819 Aux Id: PR-2720 </p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to build with crypto and openssl
+	    gprof-enabled and statically link them into the VM.</p>
+          <p>
+	    Own Id: OTP-17029</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed performance loss in HMAC when using older OpenSSL
+	    due to mutex issues.</p>
+          <p>
+	    A workaround is implemented to allow fallback from using
+	    the EVP API for HMAC operations. On some architectures
+	    this may improve the performance, especially with old
+	    OpenSSL versions. This fallback to low-level functions is
+	    always enabled for openssl versions before 1.0.2.</p>
+          <p>
+	    Own Id: OTP-17025 Aux Id: ERL-1400, PR-2877 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -160,6 +459,58 @@
 	    marker="crypto:crypto#supports/1">crypto:supports(public_keys)</seemfa>.</p>
           <p>
 	    Own Id: OTP-16583</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.6.5.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    EC keys are now zero-padded to the expected length if
+	    needed.</p>
+          <p>
+	    Own Id: OTP-17442 Aux Id: GH-4861 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.6.5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed a risk for coredump.</p>
+          <p>
+	    Own Id: OTP-17391 Aux Id: GH-4810 </p>
+        </item>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.6.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Adding missing flag in BN-calls in SRP.</p>
+          <p>
+	    Own Id: OTP-17107</p>
         </item>
       </list>
     </section>
@@ -472,6 +823,21 @@
 	    api.</p>
           <p>
 	    Own Id: OTP-15771</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.4.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Adding missing flag in BN-calls in SRP.</p>
+          <p>
+	    Own Id: OTP-17107</p>
         </item>
       </list>
     </section>

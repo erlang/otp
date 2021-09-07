@@ -65,25 +65,22 @@ close() ->
 	    io:format("Closing twice ~s~n",[File]);
 	{Fd,File} ->
 	    file:close(Fd),
-	    case os:cmd("diff " ++ File ++ " " ++ File ++ ".temp" ++ "| head -30") of
+            Prefix = case os:getenv("WSLENV") of
+                         false -> "";
+                         _ -> "wsl.exe "
+                     end,
+	    case os:cmd(Prefix ++ "diff " ++ File ++ " " ++ File ++ ".temp") of
 		[] ->
-		    ok = file:delete(File ++ ".temp"),
-		    %% So that make understands that we have made this
-		    %% case os:getenv("CLEARCASE_ROOT") of
-		    %% 	false -> os:cmd("touch " ++ File);
-		    %% 	_ ->  ignore
-		    %% end,
-		    ok;
+		    ok = file:delete(File ++ ".temp");
 		Diff ->
 		    case check_diff(Diff) of
 			copyright -> %% We ignore copyright changes only
 			    ok = file:delete(File ++ ".temp");
 			_ ->
-			    io:format("Diff in ~s~n~s ~n", [File, Diff]),
+			    io:format("Diff in ~s~n~.1000s ~n", [File, string:trim(Diff)]),
 			    case file:rename(File ++ ".temp", File) of
 				ok -> ok;
-				_ ->
-				    io:format("*****  Failed to save file ~p ~n",[File])
+				_ ->  io:format("*****  Failed to save file ~p ~n",[File])
 			    end
 		    end
 	    end,
@@ -103,7 +100,7 @@ check_diff(Diff) ->
 	copyright(D2),
 	copyright
     catch
-	throw:_ ->  diff;
+	throw:diff -> diff;
 	error:{badmatch,_} ->
 	    diff;
 	_:What:Stacktrace ->
@@ -138,7 +135,7 @@ args(Fun, Limit, [H|R], Max, Pos) ->
 	skip -> args(Fun,Limit,R, Max, Pos);
 	Str  ->
 	    {NL, NewPos} =
-		case length(Str) + Pos of
+		case string:length(Str) + Pos of
 		    Curr when Curr > Max ->
 			{"\n  ", 0};
 		    Curr ->
@@ -263,7 +260,7 @@ c_copyright() ->
     w(" * See the License for the specific language governing permissions and~n",[]),
     w(" * limitations under the License.~n",[]),
     w(" *~n",[]),
-    w(" * %CopyrightEnd% ~n",[]),
+    w(" * %CopyrightEnd%~n",[]),
     w("*/~n",[]).
 
 start_year("wxAuiManagerEvent") -> 2009;

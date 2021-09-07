@@ -397,7 +397,10 @@ cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent,
   end,
   if RealExtCalls =:= [] -> ok;
      true ->
-      send_ext_calls(Parent, lists:usort([To || {_From, To} <- RealExtCalls]))
+      ExtCallsWithFileAndLocation =
+        [{To, find_call_file_and_location(From, To, CodeServer)} ||
+          {From, To} <- RealExtCalls],
+      send_ext_calls(Parent, ExtCallsWithFileAndLocation)
   end,
   Callgraph1.
 
@@ -580,7 +583,7 @@ filter_warnings(Warnings, Codeserver) ->
 
 is_ok_fun({_F, _L, Module}, _Codeserver) when is_atom(Module) ->
   true;
-is_ok_fun({_Filename, _Line, {_M, _F, _A} = MFA}, Codeserver) ->
+is_ok_fun({_Filename, _Loc, {_M, _F, _A} = MFA}, Codeserver) ->
   not dialyzer_utils:is_suppressed_fun(MFA, Codeserver).
 
 is_ok_tag(Tag, {_F, _L, MorMFA}, Codeserver) ->
@@ -618,16 +621,16 @@ format_bad_calls([{{_, _, _}, {_, module_info, A}}|Left], CodeServer, Acc)
   when A =:= 0; A =:= 1 ->
   format_bad_calls(Left, CodeServer, Acc);
 format_bad_calls([{FromMFA, {M, F, A} = To}|Left], CodeServer, Acc) ->
-  {_Var, FunCode} = dialyzer_codeserver:lookup_mfa_code(FromMFA, CodeServer),
   Msg = {call_to_missing, [M, F, A]},
-  {File, Line} = find_call_file_and_line(FromMFA, FunCode, To, CodeServer),
-  WarningInfo = {File, Line, FromMFA},
+  {File, Loc} = find_call_file_and_location(FromMFA, To, CodeServer),
+  WarningInfo = {File, Loc, FromMFA},
   NewAcc = [{?WARN_CALLGRAPH, WarningInfo, Msg}|Acc],
   format_bad_calls(Left, CodeServer, NewAcc);
 format_bad_calls([], _CodeServer, Acc) ->
   Acc.
 
-find_call_file_and_line({Module, _, _}, Tree, MFA, CodeServer) ->
+find_call_file_and_location({Module, _, _} = FromMFA, ToMFA, CodeServer) ->
+  {_Var, FunCode} = dialyzer_codeserver:lookup_mfa_code(FromMFA, CodeServer),
   Fun =
     fun(SubTree, Acc) ->
 	case cerl:is_c_call(SubTree) of
@@ -638,9 +641,11 @@ find_call_file_and_line({Module, _, _}, Tree, MFA, CodeServer) ->
 	    case cerl:is_c_atom(M) andalso cerl:is_c_atom(F) of
 	      true ->
 		case {cerl:concrete(M), cerl:concrete(F), A} of
-		  MFA ->
+		  ToMFA ->
 		    Ann = cerl:get_ann(SubTree),
-		    [{get_file(CodeServer, Module, Ann), get_line(Ann)}|Acc];
+                    File = get_file(CodeServer, Module, Ann),
+                    Location = get_location(SubTree),
+		    [{File, Location}|Acc];
 		  {erlang, make_fun, 3} ->
 		    [CA1, CA2, CA3] = cerl:call_args(SubTree),
 		    case
@@ -654,10 +659,10 @@ find_call_file_and_line({Module, _, _}, Tree, MFA, CodeServer) ->
 			   cerl:concrete(CA2),
 			   cerl:concrete(CA3)}
 			of
-			  MFA ->
+			  ToMFA ->
 			    Ann = cerl:get_ann(SubTree),
 			    [{get_file(CodeServer, Module, Ann),
-                              get_line(Ann)}|Acc];
+                              get_location(SubTree)}|Acc];
 			  _ ->
 			    Acc
 			end;
@@ -671,11 +676,10 @@ find_call_file_and_line({Module, _, _}, Tree, MFA, CodeServer) ->
 	  false -> Acc
 	end
     end,
-  hd(cerl_trees:fold(Fun, [], Tree)).
+  hd(cerl_trees:fold(Fun, [], FunCode)).
 
-get_line([Line|_]) when is_integer(Line) -> Line;
-get_line([_|Tail]) -> get_line(Tail);
-get_line([]) -> -1.
+get_location(Tree) ->
+  dialyzer_utils:get_location(Tree, 0).
 
 get_file(Codeserver, Module, [{file, FakeFile}|_]) ->
   dialyzer_codeserver:translate_fake_file(Codeserver, Module, FakeFile);

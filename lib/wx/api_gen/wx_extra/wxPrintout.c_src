@@ -1,30 +1,97 @@
-<<wxPrintout
-case ~s: { // wxPrintout::wxPrintout taylormade
+<<wxPrintout_class
+class EwxPrintout : public wxPrintout
+{
+ public:
+ EwxPrintout(wxString Title, int onPrintP, int onPrepareP,
+	     int onBeginP, int onEndP,
+	     int onBeginD, int onEndD,
+	     int hasP, int getPageI) :
+    wxPrintout(Title),
+	onPrintPage(onPrintP), onPreparePrinting(onPrepareP),
+	onBeginPrinting(onBeginP), onEndPrinting(onEndP),
+	onBeginDocument(onBeginD), onEndDocument(onEndD), hasPage(hasP), getPageInfo(getPageI)
+	{ } ;
+
+    ~EwxPrintout();
+
+    bool OnBeginDocument(int startPage, int endPage);
+    void OnEndDocument();
+    void OnBeginPrinting();
+    void OnEndPrinting();
+
+    void OnPreparePrinting();
+
+    bool HasPage(int page);
+    bool OnPrintPage(int page);
+    void GetPageInfo(int *minPage, int *maxPage, int *pageFrom, int *pageTo);
+
+    int onPrintPage;
+    int onPreparePrinting;
+    int onBeginPrinting;
+    int onEndPrinting;
+    int onBeginDocument;
+    int onEndDocument;
+    int hasPage;
+    int getPageInfo;
+
+    wxe_me_ref * me_ref;
+};
+
+wxPrintout_class>>
+
+
+<<wxPrintout_new
+// wxPrintout::wxPrintout taylormade
+void ~s(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
   int onPreparePrinting=0,onBeginPrinting=0,onEndPrinting=0,onBeginDocument=0,
     onEndDocument=0,hasPage=0,getPageInfo=0;
-  int * titleLen = (int *) bp; bp += 4;
-  wxString title = wxString(bp, wxConvUTF8);
-  bp += *titleLen+((8-((4+ *titleLen) & 7)) & 7);
-  int onPrintPage=*(int *) bp; bp += 4;
-  while( * (int*) bp) { 
-    switch (* (int*) bp) { 
-    case 1: {bp += 4; onPreparePrinting = *(int *) bp; bp += 4;} break;
-    case 2: {bp += 4; onBeginPrinting = *(int *) bp; bp += 4;} break;
-    case 3: {bp += 4; onEndPrinting = *(int *) bp; bp += 4;} break;
-    case 4: {bp += 4; onBeginDocument = *(int *) bp; bp += 4;} break;
-    case 5: {bp += 4; onEndDocument = *(int *) bp; bp += 4;} break;
-    case 6: {bp += 4; hasPage = *(int *) bp; bp += 4;} break;
-    case 7: {bp += 4; getPageInfo = *(int *) bp; bp += 4;} break;
-    }
-  }
-  wxEPrintout *Result = new wxEPrintout(title,onPrintPage,
-					onPreparePrinting,
-					onBeginPrinting,onEndPrinting,
-					onBeginDocument,onEndDocument,
-					hasPage,getPageInfo, Ecmd.port);
 
-  rt.addRef(getRef((void *)Result,memenv), "wxPrintout");
-  break;
+  wxString title= wxT("Printout");
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  ErlNifBinary title_bin;
+  int onPrintPage;
+  if(!enif_inspect_binary(env, argv[0], &title_bin)) Badarg("title")
+  wxString(title_bin.data, wxConvUTF8, title_bin.size);
+  if(!enif_get_int(env, argv[1], &onPrintPage)) Badarg("onPrintPage");
+
+  ERL_NIF_TERM lstHead, lstTail;
+  lstTail = argv[2];
+  if(!enif_is_list(env, lstTail)) Badarg("Options");
+  const ERL_NIF_TERM *tpl;
+  int tpl_sz;
+
+  while(!enif_is_empty_list(env, lstTail)) {
+    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
+    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
+    if(enif_is_identical(tpl[0], enif_make_atom(env, "onPreparePrinting"))) {
+      if(!enif_get_int(env, tpl[1], &onPreparePrinting)) Badarg("onPreparePrinting");
+    } else if(enif_is_identical(tpl[0], enif_make_atom(env, "onBeginPrinting"))) {
+      if(!enif_get_int(env, tpl[1], &onBeginPrinting)) Badarg("onBeginPrinting");
+    } else if(enif_is_identical(tpl[0], enif_make_atom(env, "onEndPrinting"))) {
+      if(!enif_get_int(env, tpl[1], &onEndPrinting)) Badarg("onEndPrinting");
+    } else if(enif_is_identical(tpl[0], enif_make_atom(env, "onBeginDocument"))) {
+      if(!enif_get_int(env, tpl[1], &onBeginDocument)) Badarg("onBeginDocument");
+    } else if(enif_is_identical(tpl[0], enif_make_atom(env, "onEndDocument"))) {
+      if(!enif_get_int(env, tpl[1], &onEndDocument)) Badarg("onEndDocument");
+    } else if(enif_is_identical(tpl[0], enif_make_atom(env, "hasPage"))) {
+      if(!enif_get_int(env, tpl[1], &hasPage)) Badarg("hasPage");
+    } else if(enif_is_identical(tpl[0], enif_make_atom(env, "getPageInfo"))) {
+      if(!enif_get_int(env, tpl[1], &getPageInfo)) Badarg("getPageInfo");
+    } else        Badarg("Options");
+  };
+  EwxPrintout * Result = new EwxPrintout(title,
+					 onPrintPage,
+					 onPreparePrinting,
+					 onBeginPrinting,onEndPrinting,
+					 onBeginDocument,onEndDocument,
+					 hasPage,getPageInfo);
+  Result->me_ref = memenv->me_ref;
+  app->newPtr((void *) Result, 1, memenv);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxPrintout"));
 }
-wxPrintout>>
+
+wxPrintout_new>>
 

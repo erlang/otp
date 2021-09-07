@@ -30,6 +30,398 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.12.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Filter out sensitive data (passwords etc) from progress
+	    reports and supervisor reports.</p>
+          <p>
+	    Own Id: OTP-17468 Aux Id: ERIERL-656 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.12.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid an extra blank line in the ssh known_hosts file</p>
+          <p>
+	    Own Id: OTP-17427</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.12.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add missing <c>known_hosts</c> and <c>authorized_keys</c>
+	    file types to <c>ssh_file:decode/2</c> and
+	    <c>ssh_file:encode/2</c>.</p>
+          <p>
+	    Own Id: OTP-17397</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Missing runtime dependencies has been added to this
+	    application.</p>
+          <p>
+	    Own Id: OTP-17243 Aux Id: PR-4557 </p>
+        </item>
+        <item>
+          <p>
+	    The send window handling is changed to not initialize a
+	    too large window on some occasions.</p>
+          <p>
+	    Own Id: OTP-17353</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Removed usage of <c>erlang:is_port/1</c> from the SSH
+	    implementation.</p>
+          <p>
+	    Own Id: OTP-16750</p>
+        </item>
+        <item>
+          <p>
+	    Internal connection setup refactoring.</p>
+          <p>
+	    Own Id: OTP-17051</p>
+        </item>
+        <item>
+          <p>
+	    Refactor SSH fsm into a (hopefully) more comprehensible
+	    set of gen_statem callback-files.</p>
+          <p>
+	    Own Id: OTP-17140</p>
+        </item>
+        <item>
+          <p>
+	    The RSA SHA1 sign/verify variants are disabled by
+	    default. That is, ssh-rsa is disabled by default as well
+	    as the SHA1 sign/verify with RSA keys from id_rsa and
+	    ssh_host_rsa_key. All SHA2 sign/verify are enabled by
+	    default.</p>
+          <p>
+	    The reason is that SHA1 is now considered easy to break.</p>
+          <p>
+	    To enable RSA with SHA1, for example for a very old and
+	    unsafe peer, see <seeguide
+	    marker="configure_algos#example-9">Example 9</seeguide>
+	    in the User's Guide chapter <seeguide
+	    marker="configure_algos">Configuring algorithms in
+	    SSH</seeguide>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17259 Aux Id: OTP-16511, ERIERL-619 </p>
+        </item>
+        <item>
+          <p>
+	    Adapt ssh supervisors to the new 'significant' and
+	    'auto_shutdown' flags in supervisor.</p>
+          <p>
+	    Own Id: OTP-17322 Aux Id: PR-4638, EEP-56, OTP-17334 </p>
+        </item>
+        <item>
+          <p>
+	    The functions public_key:ssh_encode/2,
+	    public_key:ssh_decode/2,
+	    public_key:ssh_hostkey_fingerprint/1 and
+	    public_key:ssh_hostkey_fingerprint/2 are deprecated.</p>
+          <p>
+	    Replacement functions are available in SSH, see the
+	    <seeguide
+	    marker="system/general_info:deprecations#otp-24">Deprecations</seeguide>
+	    chapter in the Erlang/OTP documentation.</p>
+          <p>
+	    Own Id: OTP-17352</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.11.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Filter out sensitive data (passwords etc) from progress
+	    reports and supervisor reports.</p>
+          <p>
+	    Own Id: OTP-17468 Aux Id: ERIERL-656 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The "Key exchange failed" Info Report is now more
+	    informative.</p>
+          <p>
+	    Own Id: OTP-17450 Aux Id: ERIERL-655 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.11.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid an extra blank line in the ssh known_hosts file</p>
+          <p>
+	    Own Id: OTP-17427</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.11.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed that a slow start (>30s) of a client subsystem
+	    could cause a log entry with the password.</p>
+          <p>
+	    Own Id: OTP-17390 Aux Id: ERIERL-648 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The idle_time timer was not cancelled when a channel was
+	    opened within the timeout time on an empty connection
+	    that have had channels previously.</p>
+          <p>
+	    Own Id: OTP-17279</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The long name field in SSH_FXP_NAME responses to display
+	    file information in sftp version 3 now contains the
+	    expanded format defined in the sftp draft. It is similar
+	    to what is returned by "ls -l" on Unix systems.</p>
+          <p>
+	    Own Id: OTP-17197 Aux Id: PR- 3049 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.10.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Don't timeout slow connection setups and tear-downs. A
+	    rare crash risk for the controller is also removed.</p>
+          <p>
+	    Own Id: OTP-17173 Aux Id: ERIERL-581 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.10.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The SSH daemon erroneously replaced LF with CRLF also
+	    when there was no pty requested from the server.</p>
+          <p>
+	    Own Id: OTP-17108 Aux Id: ERL-1442 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.10.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed problems in the ssh cli/shell handling. Most
+	    important are:</p>
+          <p>
+	    1) the ssh:shell function did sometimes cause the input
+	    to be echoed twice,</p>
+          <p>
+	    2) the ssh:shell function didn't transfer the LANG and
+	    LC_ALL shell variables to the connected server which
+	    sometimes made Unicode handling erroneous,</p>
+          <p>
+	    3) Unicode was not always transferred correctly to and
+	    from the peer.</p>
+          <p>
+	    Own Id: OTP-16799</p>
+        </item>
+        <item>
+          <p>
+	    The SSH protocol message SSH_MSG_DISCONNECT was sometimes
+	    sent instead of SSH_MSG_CHANNEL_FAILURE</p>
+          <p>
+	    Own Id: OTP-16900</p>
+        </item>
+        <item>
+          <p>
+	    The ssh_cli module now always sends the exit-status to
+	    connected clients so they can use that to check for
+	    successful command execution.</p>
+          <p>
+	    Own Id: OTP-16908 Aux Id: PR-2753 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new option <seeerl
+	    marker="ssh:ssh#option-pk_check_user"><c>pk_check_user</c></seeerl>
+	    enables checking of the client's user name in the server
+	    when doing public key authentication.</p>
+          <p>
+	    Own Id: OTP-16889</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.10.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An ssh-client can take an accepted socket from a
+	    listening socket and do an ssh:connect/2 on it.</p>
+          <p>
+	    Multiple clients on sockets accepted from the same
+	    listening socket had stopped working. This is corrected
+	    now.</p>
+          <p>
+	    Own Id: OTP-17021 Aux Id: ERIERL-567 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.10.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Filter out sensitive data (passwords etc) from progress
+	    reports and supervisor reports.</p>
+          <p>
+	    Own Id: OTP-17468 Aux Id: ERIERL-656 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.10.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The inet option raw was not passed on from the ssh option
+	    list to inet.</p>
+          <p>
+	    Own Id: OTP-17016 Aux Id: ERIERL-562 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.10.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A supervisor sub-tree could be left if the connection
+	    handler process is brutally killed. This will make the
+	    max_sessions checking option to count the existing
+	    sessions erroneously and could finally block further
+	    sessions.</p>
+          <p>
+	    Own Id: OTP-17006 Aux Id: ERIERL-556 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.10.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -337,6 +729,23 @@
 	    marker="ssh:ssh#pwdfun_4">pwdfun_4()</seetype>.</p>
           <p>
 	    Own Id: OTP-16622 Aux Id: PR-2604 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.9.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The idle_time timer was not cancelled when a channel was
+	    opened within the timeout time on an empty connection
+	    that have had channels previously.</p>
+          <p>
+	    Own Id: OTP-17279</p>
         </item>
       </list>
     </section>
@@ -674,6 +1083,23 @@
 	    SSH uses the new crypto API.</p>
           <p>
 	    Own Id: OTP-15673</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.7.6.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The idle_time timer was not cancelled when a channel was
+	    opened within the timeout time on an empty connection
+	    that have had channels previously.</p>
+          <p>
+	    Own Id: OTP-17279</p>
         </item>
       </list>
     </section>

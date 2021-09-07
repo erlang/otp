@@ -57,7 +57,10 @@
       for calculating new states.
     </p>
 
-    <p>The following algorithms are provided:</p>
+    <p>
+      <marker id="algorithms"/>
+      The following algorithms are provided:
+    </p>
 
     <taglist>
       <tag><c>exsss</c></tag>
@@ -79,8 +82,11 @@
 	</p>
 	<p>
 	  Alas, this combination is about 10% slower than <c>exrop</c>,
-	  but is despite that the default algorithm thanks to its
-	  statistical qualities.
+	  but is despite that the
+          <seeerl marker="#default-algorithm">
+            <em>default algorithm</em>
+          </seeerl>
+          thanks to its statistical qualities.
 	</p>
       </item>
       <tag><c>exro928ss</c></tag>
@@ -93,10 +99,13 @@
 	  <url href="http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf">
 	    Scrambled Linear Pseudorandom Number Generators
 	  </url>
-	  that on a 64 bit Erlang system executes only about 40% slower than
-	  the default <c>exsss</c> algorithm but with much longer period
-	  and better statistical properties, and on the flip side
-	  a larger state.
+	  that on a 64 bit Erlang system executes only
+          about 40% slower than the
+          <seeerl marker="#default-algorithm">
+            <em>default</em> <c>exsss</c> <em>algorithm</em>
+          </seeerl>
+          but with much longer period and better statistical properties,
+          but on the flip side a larger state.
 	</p>
 	<p>
 	  Many thanks to Sebastiano Vigna for his help with
@@ -118,7 +127,10 @@
         <p>Xorshift116+, 58 bits precision and period of 2^116-1</p>
         <p>Jump function: equivalent to 2^64 calls</p>
 	<p>
-	  This is a corrected version of the previous default algorithm,
+	  This is a corrected version of the previous
+          <seeerl marker="#default-algorithm">
+            <em>default algorithm</em>,
+          </seeerl>
 	  that now has been superseded by Xoroshiro116+ (<c>exrop</c>).
 	  Since there is no native 58 bit rotate instruction this
 	  algorithm executes a little (say &lt; 15%) faster than <c>exrop</c>.
@@ -129,10 +141,19 @@
     </taglist>
 
     <p>
-      The default algorithm is <c>exsss</c> (Xorshift116**).
+      <marker id="default-algorithm"/>
+      The current <em>default algorithm</em> is
+      <seeerl marker="#algorithms">
+      <c>exsss</c> (Xorshift116**).
+      </seeerl>
       If a specific algorithm is
       required, ensure to always use <seemfa marker="#seed/1">
       <c>seed/1</c></seemfa> to initialize the state.
+    </p>
+    <p>
+      Which algorithm that is the default may change between
+      Erlang/OTP releases, and is selected to be one with high
+      speed, small state and "good enough" statistical properties.
     </p>
 
     <p>
@@ -183,15 +204,23 @@
       <seemfa marker="#uniform/1"><c>uniform/1</c></seemfa> or
       <seemfa marker="#uniform_real/0"><c>uniform_real/0</c></seemfa> without
       setting a seed first, <seemfa marker="#seed/1"><c>seed/1</c></seemfa>
-      is called automatically with the default algorithm and creates a
-      non-constant seed.</p>
+      is called automatically with the
+      <seeerl marker="#default-algorithm">
+        <em>default algorithm</em>
+      </seeerl>
+      and creates a non-constant seed.</p>
 
     <p>The functions with explicit state never use the process dictionary.</p>
 
     <p><em>Examples:</em></p>
 
-    <p>Simple use; creates and seeds the default algorithm
-      with a non-constant seed if not already done:</p>
+    <p>
+      Simple use; creates and seeds the
+      <seeerl marker="#default-algorithm">
+        <em>default algorithm</em>
+      </seeerl>
+      with a non-constant seed if not already done:
+    </p>
 
     <pre>
 R0 = rand:uniform(),
@@ -310,6 +339,8 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 	  A list of integers sets the generator's internal state directly,
 	  after algorithm-dependent checks of the value
 	  and masking to the proper word size.
+          The number of integers must be equal to the
+          number of state words in the generator.
 	</p>
 	<p>
 	  An integer is used as the initial state for a SplitMix64 generator.
@@ -348,6 +379,35 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
   </datatypes>
 
   <funcs>
+    <func>
+      <name name="bytes" arity="1" since="OTP 24.0"/>
+      <fsummary>Return a random binary.</fsummary>
+      <desc><marker id="bytes-1"/>
+      <p>
+        Returns, for a specified integer <c><anno>N</anno> >= 0</c>,
+        a <c>binary()</c> with that number of random bytes.
+        Generates as many random numbers as required using
+        the selected algorithm to compose the binary,
+        and updates the state in the process dictionary accordingly.
+      </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="bytes_s" arity="2" since="OTP 24.0"/>
+      <fsummary>Return a random binary.</fsummary>
+      <desc><marker id="bytes-1"/>
+      <p>
+        Returns, for a specified integer <c><anno>N</anno> >= 0</c>
+        and a state, a <c>binary()</c> with that number of random bytes,
+        and a new state.
+        Generates as many random numbers as required using
+        the selected algorithm to compose the binary,
+        and the new state.
+      </p>
+      </desc>
+    </func>
+
     <func>
       <name name="export_seed" arity="0" since="OTP 18.0"/>
       <fsummary>Export the random number generation state.</fsummary>
@@ -432,7 +492,8 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="seed" arity="1" since="OTP 18.0"/>
+      <name name="seed" arity="1" clause_i="1" since="OTP 18.0"/>
+      <name name="seed" arity="1" clause_i="2" since="OTP 24.0"/>
       <fsummary>Seed random number generator.</fsummary>
       <desc>
         <marker id="seed-1"/>
@@ -440,6 +501,11 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 	  Seeds random number generation with the specifed algorithm and
           time-dependent data if <c><anno>AlgOrStateOrExpState</anno></c>
 	  is an algorithm.
+          <c><anno>Alg</anno>&nbsp;=&nbsp;default</c>
+          is an alias for the
+          <seeerl marker="#default-algorithm">
+            <em>default algorithm</em>.
+          </seeerl>
 	</p>
         <p>Otherwise recreates the exported seed in the process dictionary,
           and returns the state. See also
@@ -448,22 +514,36 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="seed" arity="2" since="OTP 18.0"/>
+      <name name="seed" arity="2" clause_i="1" since="OTP 18.0"/>
+      <name name="seed" arity="2" clause_i="2" since="OTP 24.0"/>
       <fsummary>Seed the random number generation.</fsummary>
       <desc>
-        <p>Seeds random number generation with the specified algorithm and
-          integers in the process dictionary and returns the state.</p>
+        <p>
+          Seeds random number generation with the specified algorithm and
+          integers in the process dictionary and returns the state.
+          <c><anno>Alg</anno>&nbsp;=&nbsp;default</c>
+          is an alias for the
+          <seeerl marker="#default-algorithm">
+            <em>default algorithm</em>.
+          </seeerl>
+        </p>
       </desc>
     </func>
 
     <func>
-      <name name="seed_s" arity="1" since="OTP 18.0"/>
+      <name name="seed_s" arity="1" clause_i="1" since="OTP 18.0"/>
+      <name name="seed_s" arity="1" clause_i="2" since="OTP 24.0"/>
       <fsummary>Seed random number generator.</fsummary>
       <desc>
         <p>
 	  Seeds random number generation with the specifed algorithm and
           time-dependent data if <c><anno>AlgOrStateOrExpState</anno></c>
 	  is an algorithm.
+          <c><anno>Alg</anno>&nbsp;=&nbsp;default</c>
+          is an alias for the
+          <seeerl marker="#default-algorithm">
+            <em>default algorithm</em>.
+          </seeerl>
 	</p>
         <p>Otherwise recreates the exported seed and returns the state.
           See also <seemfa marker="#export_seed/0">
@@ -472,11 +552,19 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="seed_s" arity="2" since="OTP 18.0"/>
+      <name name="seed_s" arity="2" clause_i="1" since="OTP 18.0"/>
+      <name name="seed_s" arity="2" clause_i="2" since="OTP 24.0"/>
       <fsummary>Seed the random number generation.</fsummary>
       <desc>
-        <p>Seeds random number generation with the specified algorithm and
-          integers and returns the state.</p>
+        <p>
+          Seeds random number generation with the specified algorithm and
+          integers and returns the state.
+          <c><anno>Alg</anno>&nbsp;=&nbsp;default</c>
+          is an alias for the
+          <seeerl marker="#default-algorithm">
+            <em>default algorithm</em>.
+          </seeerl>
+        </p>
       </desc>
     </func>
 

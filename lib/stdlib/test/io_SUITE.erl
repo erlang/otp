@@ -21,7 +21,7 @@
 
 -export([all/0, suite/0]).
 
--export([error_1/1, float_g/1, otp_5403/1, otp_5813/1, otp_6230/1, 
+-export([error_1/1, float_g/1, float_w/1, otp_5403/1, otp_5813/1, otp_6230/1, 
          otp_6282/1, otp_6354/1, otp_6495/1, otp_6517/1, otp_6502/1,
          manpage/1, otp_6708/1, otp_7084/0, otp_7084/1, otp_7421/1,
 	 io_lib_collect_line_3_wb/1, cr_whitespace_in_string/1,
@@ -29,10 +29,11 @@
 	 printable_range/1, bad_printable_range/1,
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
          otp_10836/1, io_lib_width_too_small/1,
-         io_with_huge_message_queue/1, format_string/1,
+         io_with_huge_message_queue/1, format_string/1, format_neg_zero/1,
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
          otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1, otp_15076/1,
-         otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1]).
+         otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1,
+         github_4801/1, chars_limit/1, error_info/1, otp_17525/1]).
 
 -export([pretty/2, trf/3]).
 
@@ -55,17 +56,18 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [error_1, float_g, otp_5403, otp_5813, otp_6230,
+    [error_1, float_g, float_w, otp_5403, otp_5813, otp_6230,
      otp_6282, otp_6354, otp_6495, otp_6517, otp_6502,
      manpage, otp_6708, otp_7084, otp_7421,
      io_lib_collect_line_3_wb, cr_whitespace_in_string,
      io_fread_newlines, otp_8989, io_lib_fread_literal,
-     printable_range, bad_printable_range,
+     printable_range, bad_printable_range, format_neg_zero,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
      otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
-     otp_15639, otp_15705, otp_15847, otp_15875].
+     otp_15639, otp_15705, otp_15847, otp_15875, github_4801, chars_limit,
+     error_info, otp_17525].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -86,6 +88,14 @@ error_1(Config) when is_list(Config) ->
 
     file:close(F1),
     {'EXIT', _} = (catch io:format(F1, "~p", ["hej"])),
+    ok.
+
+format_neg_zero(Config) when is_list(Config) ->
+    <<NegZero/float>> = <<16#8000000000000000:64>>,
+    "-0.000000" = io_lib:format("~f", [NegZero]),
+    "-0.00000e+0" = io_lib:format("~g", [NegZero]),
+    "-0.00000e+0" = io_lib:format("~e", [NegZero]),
+    "-0.0" = io_lib_format:fwrite_g(NegZero),
     ok.
 
 float_g(Config) when is_list(Config) ->
@@ -164,10 +174,41 @@ float_g(Config) when is_list(Config) ->
      "-5000.00",
      "-5.00000e+4",
      "-5.00000e+5"] = float_g_1("~g", -4.9999950001, -2, 5),
+
     ok.
 
 float_g_1(Fmt, V, Min, Max) ->
     [fmt(Fmt, [V*math:pow(10, E)]) || E <- lists:seq(Min, Max)].
+
+float_w(Config) when is_list(Config) ->
+    %% All floats that are >= float(1 bsl 53) or <= -float(1 bsl 53)
+    %% should be printed with scientific notation to make it clear
+    %% that the integer part can have lost precision, for example if
+    %% the float was created from a float literal.
+    %%
+    %% All integers in the range [-2^53, 2^53] can be stored without
+    %% loss of precision in an IEEE 754 64-bit double but 2^53+1
+    %% cannot be stored in an IEEE 754 64-bit double without loss of
+    %% precision (float((1 bsl 53)+1) =:= float(1 bsl 53)).
+    %%
+    %% https://stackoverflow.com/questions/1848700/biggest-integer-that-can-be-stored-in-a-double?answertab=votes#tab-top
+    Nums = [-float((1 bsl 53) -1),
+            -float(1 bsl 53),
+            -float((1 bsl 53) + 1),
+            float((1 bsl 53) -1),
+            float(1 bsl 53),
+            float((1 bsl 53) + 1)],
+
+
+    ["-9007199254740991.0",
+     "-9.007199254740992e15",
+     "-9.007199254740992e15",
+     "9007199254740991.0",
+     "9.007199254740992e15",
+     "9.007199254740992e15"] =
+        [begin g_t(X), fmt("~w", [X]) end || X <- Nums],
+
+    ok.
 
 %% OTP-5403. ~s formats I/O lists and a single binary.
 otp_5403(Config) when is_list(Config) ->
@@ -946,15 +987,12 @@ otp_7084(Config) when is_list(Config) ->
          {g_denormalized, fun g_denormalized/0},
          {g_normalized, fun g_normalized/0},
          {g_choice, fun g_choice/0},
+         {g_ryu, fun g_ryu/0},
+         {g_anomalous, fun g_anomalous/0},
          {g_misc, fun g_misc/0}],
     F = fun({M,T}) -> io:format("~p~n", [M]), T() end,
-    R = try 
-            lists:foreach(fun(T) -> F(T) end, L),
-            ok
-        catch throw:Reason -> 
-            Reason
-        end,
-    R.
+    lists:foreach(fun(T) -> F(T) end, L),
+    ok.
 
 g_warm_up() ->
     g_t(0.5),
@@ -1002,12 +1040,187 @@ g_normalized() ->
 g_choice() ->
     %% Exponent should be used when and only when the string is shorter.
     %% (g_misc/0 checks this too, and probably more throughly).
-    L = [0.0003, 3.0e-5, 3.3e-5,    3.3e-4,
-         314.0,  314.1,  310.0,     3.1e6,   -100.0,
-         3.34e4, 3.0e3,  3.34333e9, 3.3433323e10, 33433323700.0,
+    L = [0.0003, 3.0e-5, 3.3e-5, 3.3e-4,
+         314.0, 314.1, 310.0, 3.1e6, -100.0,
+         3.34e4, 3.0e3, 3.34333e9, 3.3433323e10, 33433323700.0,
          0.00197963, 1.97963e-4],
     lists:foreach(fun(V) -> g_t(V) end, L),
     ok.
+
+g_anomalous() ->
+    %% These test cases come from https://github.com/microsoft/STL/blob/f1515e04fd00876137e762c08b90d9aa450859e0/tests/std/tests/P0067R5_charconv/double_to_chars_test_cases.hpp
+
+    %% https://www.exploringbinary.com/the-shortest-decimal-string-that-round-trips-may-not-be-the-nearest/
+    %% This is an exhaustive list of anomalous values
+    %% Because math, these values have shortest-round-trip decimal representations containing 16 significant digits,
+    %% but those decimal digits aren't what would be printed by "%.15e". For ordinary values, shortest-round-trip
+    %% behaves as if it can magically pick a precision for "%.*e", finding the smallest precision that round-trips.
+    %% (That is, start with the exact decimal representation, and then round it as much as possible.) These anomalous
+    %% values demonstrate an exception to that mental model. They aren't being "incorrectly rounded"; instead, having
+    %% the shortest output that round-trips is being prioritized. (This differs by 1 in the least significant decimal
+    %% digit printed, so it's a very small difference.)
+
+    L_anom = [6.386688990511104e+293, 5.282945311356653e+269,
+              6.150157786156811e+259, 5.334411546303884e+241,
+              5.386379163185535e+213, 6.483618076376552e+178,
+              6.183260036827614e+172, 5.896816288783659e+166,
+              5.758609657015292e+163, 5.623642243178996e+160,
+              6.243497100631985e+144, 8.263199609878108e+121,
+              6.455624695217272e+119, 6.156563468186638e+113,
+              7.167183174968974e+103, 6.518515124270356e+91,
+              6.070840288205404e+82, 6.129982163463556e+54,
+              5.986310706507379e+51, 5.444517870735016e+39,
+              5.316911983139664e+36, 6.189700196426902e+26,
+              5.960464477539063e-08, 5.684341886080802e-14,
+              6.617444900424222e-24, 6.310887241768095e-30,
+              7.174648137343064e-43, 7.854549544476363e-90,
+              6.653062250012736e-111, 5.075883674631299e-116,
+              6.256509672447191e-148, 4.887898181599368e-150,
+              5.966672584960166e-154, 5.426657103235053e-166,
+              5.351097043477547e-197, 5.225680706521042e-200,
+              6.083493012144512e-210, 5.940911144672375e-213,
+              6.290184345309701e-235, 6.142758149716505e-238,
+              7.678447687145631e-239, 5.858190679279809e-244,
+              5.641232424577593e-278, 8.209073602596753e-289,
+              7.291122019556398e-304, 7.120236347223045e-307],
+    lists:foreach(fun(V) -> g_t(V) end, L_anom),
+
+    %% This is an exhaustive list of almost-but-not-quite-anomalous values.
+    L_quasi_anom = [6.237000967296e+290, 6.090821257125e+287,
+                    8.25460204899477e+267, 5.78358058743443e+222,
+                    7.1362384635298e+44, 6.10987272699921e-151,
+                    5.17526350329881e-172, 6.84940421565126e-195],
+    lists:foreach(fun(V) -> g_t(V) end, L_quasi_anom),
+
+    ok.
+
+g_ryu() ->
+    %% specific white box tests that should trigger specific edge cases
+    %% to the ryu algorithm see: 
+    %% https://github.com/ulfjack/ryu/blob/master/ryu/tests/d2s_test.cc
+
+    %% this list is regression tests from the ryu C ref implementation
+    L_regression = [-2.109808898695963e16, 4.940656e-318, 1.18575755E-316,
+                    2.989102097996e-312, 9.0608011534336e15,
+                    4.708356024711512e18, 9.409340012568248e18,
+                    1.2345678],
+    lists:foreach(fun(V) -> g_t(V) end, L_regression),
+
+    %% These numbers have a mantissa that is a multiple of the largest power of 5 that fits,
+    %% and an exponent that causes the computation for q to result in 22, which is a corner
+    %% case for Ryu.
+    L_pow5 = [16#4830F0CF064DD592, 16#4840F0CF064DD592, 
+              16#4850F0CF064DD592],
+    lists:foreach(fun(V) -> g_t(i_2_d(V)) end, L_pow5),
+
+    %% Test 32-bit chunking 2^32 +- 1/2
+    L_32bits = [4.294967294, 4.294967295, 4.294967296, 4.294967297,
+                4.294967298],
+    lists:foreach(fun(V) -> g_t(V) end, L_32bits),
+
+    %% Test 32-bit chunking 2^32 +- 1/2
+    L_32bits = [4.294967294, 4.294967295, 4.294967296, 4.294967297,
+                4.294967298],
+    lists:foreach(fun(V) -> g_t(V) end, L_32bits),
+
+    L = [1.2e+1, 1.23e+2, 1.234e+3, 1.2345e+4, 1.23456e+5, 1.234567e+6,
+        1.2345678e+7, 1.23456789e+8, 1.23456789e+9, 1.234567895e+9,
+        1.2345678901e+10, 1.23456789012e+11, 1.234567890123e+12,
+        1.2345678901234e+13, 1.23456789012345e+14, 1.234567890123456e+15],
+    lists:foreach(fun(V) -> g_t(V) end, L),
+
+    %% power of 2
+    L_pow2 = [8.0, 64.0, 512.0, 8192.0, 65536.0, 524288.0, 8388608.0,
+             67108864.0, 536870912.0, 8589934592.0, 68719476736.0,
+             549755813888.0, 8796093022208.0, 70368744177664.0,
+             562949953421312.0, 9007199254740992.0],
+    lists:foreach(fun(V) -> g_t(V) end, L_pow2),
+
+    %% 1000 * power of 2
+    L_pow2_1000 = [8.0e+3, 64.0e+3, 512.0e+3, 8192.0e+3, 65536.0e+3,
+                  524288.0e+3, 8388608.0e+3, 67108864.0e+3, 536870912.0e+3,
+                  8589934592.0e+3, 68719476736.0e+3, 549755813888.0e+3,
+                  8796093022208.0e+3],
+    lists:foreach(fun(V) -> g_t(V) end, L_pow2_1000),
+
+    %% 10^15 + 10^i
+    L_pow10_plus = [1.0e+15 + 1.0e+0, 1.0e+15 + 1.0e+1, 1.0e+15 + 1.0e+2,
+                   1.0e+15 + 1.0e+3, 1.0e+15 + 1.0e+4, 1.0e+15 + 1.0e+5,
+                   1.0e+15 + 1.0e+6, 1.0e+15 + 1.0e+7, 1.0e+15 + 1.0e+8,
+                   1.0e+15 + 1.0e+9, 1.0e+15 + 1.0e+10, 1.0e+15 + 1.0e+11,
+                   1.0e+15 + 1.0e+12, 1.0e+15 + 1.0e+13, 1.0e+15 + 1.0e+14],
+    lists:foreach(fun(V) -> g_t(V) end, L_pow10_plus),
+
+    %% min and max
+    g_t(i_2_d(1)),
+    g_t(i_2_d(16#7fefffffffffffff)),
+
+    %% lots of trailing zeroes
+    g_t(2.98023223876953125e-8),
+
+    %% Switch to Subnormal
+    g_t(2.2250738585072014e-308),
+
+    %% special case to check for the shift to the right by 128
+    L_shift = [parts_2_f(0, 4,0), parts_2_f(0, 6, (1 bsl 53) - 1),
+               parts_2_f(0, 41, 0), parts_2_f(0, 40, (1 bsl 53) - 1),
+               parts_2_f(0, 1077, 0), parts_2_f(0, 1076, (1 bsl 53) - 1),
+               parts_2_f(0, 307, 0), parts_2_f(0, 306, (1 bsl 53) - 1),
+               parts_2_f(0, 934, 16#000FA7161A4D6E0C)],
+    lists:foreach(fun(V) -> g_t(V) end, L_shift),
+
+    %% following test cases come from https://github.com/microsoft/STL/blob/f1515e04fd00876137e762c08b90d9aa450859e0/tests/std/tests/P0067R5_charconv/double_to_chars_test_cases.hpp
+    %% These numbers have odd mantissas (unaffected by shifting)
+    %% that are barely within the "max shifted mantissa" limit.
+
+    L_mantissas_within_limit = [
+        1801439850948197.0e1, 360287970189639.0e2, 72057594037927.0e3,
+        14411518807585.0e4, 2882303761517.0e5, 576460752303.0e6,
+        115292150459.0e7, 23058430091.0e8, 4611686017.0e9, 922337203.0e10,
+        184467439.0e11, 36893487.0e12, 7378697.0e13, 1475739.0e14,
+        295147.0e15, 59029.0e16, 11805.0e17, 2361.0e18, 471.0e19, 93.0e20,
+        17.0e21, 3.0e22],
+    lists:foreach(fun(V) -> g_t(V) end, L_mantissas_within_limit),
+
+    %% These numbers have odd mantissas (unaffected by shifting)
+    %% that are barely above the "max shifted mantissa" limit.
+    L_mantissas_above_limit = [
+        1801439850948199.0e1, 360287970189641.0e2, 72057594037929.0e3,
+        14411518807587.0e4, 2882303761519.0e5, 576460752305.0e6,
+        115292150461.0e7, 23058430093.0e8, 4611686019.0e9, 922337205.0e10,
+        184467441.0e11, 36893489.0e12, 7378699.0e13, 1475741.0e14,
+        295149.0e15, 59031.0e16, 11807.0e17, 2363.0e18, 473.0e19, 95.0e20,
+        19.0e21, 5.0e22],
+    lists:foreach(fun(V) -> g_t(V) end, L_mantissas_above_limit),
+
+    L_switch = [1801439850948197.0e1, 360287970189639.0e2, 72057594037927.0e3,
+                14411518807585.0e4, 2882303761517.0e5, 576460752303.0e6,
+                115292150459.0e7, 23058430091.0e8, 4611686017.0e9,
+                922337203.0e10, 184467439.0e11, 36893487.0e12, 7378697.0e13,
+                1475739.0e14, 295147.0e15, 59029.0e16, 11805.0e17, 2361.0e18,
+                471.0e19, 93.0e20, 17.0e21, 3.0e22, 1801439850948199.0e1,
+                360287970189641.0e2, 72057594037929.0e3, 14411518807587.0e4,
+                2882303761519.0e5, 576460752305.0e6, 115292150461.0e7,
+                23058430093.0e8, 4611686019.0e9, 922337205.0e10,
+                184467441.0e11, 36893489.0e12, 7378699.0e13, 1475741.0e14,
+                295149.0e15, 59031.0e16, 11807.0e17, 2363.0e18, 473.0e19,
+                95.0e20, 19.0e21, 5.0e22, 302230528.0e15, 302232576.0e15,
+                81123342286848.0e18, 81192061763584.0e18],
+    lists:foreach(fun(V) -> g_t(V) end, L_switch),
+
+    L_edge = [123456789012345683968.0, 1.9156918820264798e-56,
+              6.6564021122018745e+264, 4.91e-6, 5.547e-6],
+    lists:foreach(fun(V) -> g_t(V) end, L_edge),
+
+    ok.
+
+i_2_d(Int) ->
+    <<F:64/float>> = <<Int:64/unsigned-integer>>,
+    F.
+
+parts_2_f(S, E, M) ->
+    <<F:64/float>> = <<S:1, E:11, M:52>>,
+    F.
 
 g_misc() -> 
     L_0_308 = lists:seq(0, 308),
@@ -1063,13 +1276,20 @@ g_t(V) when is_float(V) ->
 %% Note: in a few cases the least significant digit has been
 %% incremented by one, namely when the correctly rounded string
 %% converts to another floating point number.
-g_t(0.0, "0.0") ->
-    ok;
-g_t(V, Sv) ->
+g_t(V, Sv) when V > 0.0; V < 0.0 ->
     try
         g_t_1(V, Sv)
     catch throw:Reason ->
         throw({Reason, V, Sv})
+    end;
+g_t(Zero, Format) ->
+    case <<Zero/float>> of
+        <<1:1,_:63>> ->
+            "-0.0" = Format,
+            ok;
+        <<0:1,_:63>> ->
+            "0.0" = Format,
+            ok
     end.
 
 g_t_1(V, Sv) ->
@@ -1404,11 +1624,26 @@ gcd(A, B) -> gcd(B, A rem B).
 
 %%% End of rational numbers.
 
+%% Check that there is an exponent if and only if characters are saved
+%% when abs(list_to_float(S)) < float(1 bsl 53) and that there is an
+%% exponent when abs(list_to_float(S)) >= float(1 bsl 53).
+g_choice(S) when is_list(S) ->
+    ShouldAlwaysHaveExponent = abs(list_to_float(S)) >= float(1 bsl 53),
+    HasExponent = lists:member($e, S) orelse lists:member($E, S),
+    case ShouldAlwaysHaveExponent of
+        true ->
+            case HasExponent of
+                true -> ok;
+                false -> throw(should_have_exponent)
+            end;
+        false -> g_choice_small(S)
+    end.
+
 %% Check that there is an exponent if and only if characters are
 %% saved. Note: this assumes floating point numbers "Erlang style"
 %% (with a single zero before and after the dot, and no extra leading
 %% zero in the exponent).
-g_choice(S) when is_list(S) ->
+g_choice_small(S) when is_list(S) ->
     [MS | ES0] = string:tokens(S, "eE"),
     [IS, FS] = string:tokens(MS, "."),
     Il = length(IS),
@@ -1981,14 +2216,10 @@ io_lib_width_too_small(_Config) ->
 %% Test that the time for a huge message queue is not
 %% significantly slower than with an empty message queue.
 io_with_huge_message_queue(Config) when is_list(Config) ->
-    case {test_server:is_native(gen),test_server:is_cover()} of
-	{true,_} ->
-	    {skip,
-	     "gen is native - huge message queue optimization "
-	     "is not implemented"};
-	{_,true} ->
+    case test_server:is_cover() of
+	true ->
 	    {skip,"Running under cover"};
-	{false,false} ->
+	false ->
 	    do_io_with_huge_message_queue(Config)
     end.
 
@@ -2545,7 +2776,7 @@ trunc_depth(D, Fun) ->
     "#{{...} => {...},...}" = Fun(M, D, 7),
     "#{{[...],...} => {[...],...},...}" = Fun(M, D, 22),
     "#{{[...],...} => {[...],...},[...] => [...]}" = Fun(M, D, 31),
-    "#{{[...],...} => {[...],...},[...] => [...]}" = Fun(M, D, 33),
+    "#{{[...],...} => {[...],...},[1|...] => [...]}" = Fun(M, D, 33),
     "#{{[1|...],[...]} => {[1|...],[...]},[1,2|...] => [...]}" =
         Fun(M, D, 50),
 
@@ -2716,5 +2947,204 @@ otp_15847(_Config) ->
     ok.
 
 otp_15875(_Config) ->
+    %% This test is moot due to the fix in GH-4842.
     S = io_lib:format("~tp", [[{0, [<<"00">>]}]], [{chars_limit, 18}]),
-    "[{0,[<<48,...>>]}]" = lists:flatten(S).
+    "[{0,[<<\"00\">>]}]" = lists:flatten(S).
+
+
+github_4801(_Config) ->
+	  <<"{[81.6]}">> = iolist_to_binary(io_lib:format("~p", [{[81.6]}], [{chars_limit,40}])).
+
+%% GH-4824, GH-4842, OTP-17459.
+chars_limit(_Config) ->
+    List = fun R(I) ->
+                   case I =:= 0 of true -> 0; false -> [I, R(I-1)] end
+           end,
+    Tuple = fun R(I) ->
+                   case I =:= 0 of true -> 0; false -> {I, R(I-1)} end
+           end,
+    Map = fun R(I) ->
+                   case I =:= 0 of true -> 0; false -> #{I => R(I-1)} end
+           end,
+    Record = fun R(I) ->
+                   case I =:= 0 of true -> 0; false -> {b, R(I-1)} end
+           end,
+    Test = fun (F, N, Lim) ->
+                   Opts = [{chars_limit, Lim},
+                           {record_print_fun, fun rfd/2}],
+                   [_|_] = io_lib_pretty:print(F(N), Opts)
+           end,
+    %% Used to loop:
+    Test(List, 1000, 1000),
+    Test(Tuple, 1000, 1000),
+    Test(Map, 1000, 1000),
+    Test(Record, 1000, 1000),
+
+    %% Misc sizes and char limits:
+    _ = [Test(What, N, CL) ||
+            N <- lists:seq(1, 50),
+            CL <- lists:seq(N, N*3),
+            What <- [List, Tuple, Map, Record]
+        ],
+    ok.
+
+error_info(Config) ->
+
+    PrivDir = proplists:get_value(priv_dir, Config),
+    TmpFile = filename:join(PrivDir,?FUNCTION_NAME),
+
+    FullDev =
+        fun() ->
+                case file:read_file_info("/dev/full") of
+                    {ok, _} ->
+                        {ok, Dev} = file:open("/dev/full", [write]),
+                        Dev;
+                    _ ->
+                        dummy_full_device()
+                end
+        end,
+
+    UnknownDev = fun dummy_unknown_error_device/0,
+
+    Latin1Dev = fun() ->
+                        {ok, Dev} = file:open(TmpFile, [read, write, {encoding, latin1}]),
+                        Dev
+                end,
+
+    DeadDev = spawn(fun() -> ok end),
+
+    UserDev = fun() -> whereis(user) end,
+    FileDev = FullDev,
+    TestServerDev = fun() -> group_leader() end,
+    ApplicationMasterDev =
+        fun() ->
+                {_,GL} = process_info(whereis(kernel_sup),group_leader),
+                GL
+        end,
+    GroupDev = TestServerDev,
+    StandardError = fun() -> whereis(standard_error) end,
+
+    L = [
+         {put_chars,[DeadDev,"test"],[{1,"terminated"}]},
+         {put_chars,["test"],[{gl,DeadDev},{general,"terminated"}]},
+         {put_chars,[?MODULE,"test"],[{1,"does not exist"}]},
+         {put_chars,[FullDev(),"test"], [{1,"no space left on device"}]},
+         {put_chars,["test"], [{gl,FullDev()},{general,"no space left on device"}]},
+         {put_chars,[Latin1Dev(),"Спутник-1"], [{1,"transcode"}]},
+         {put_chars,[a], [{1,"not valid character data"}]},
+         {put_chars,[UnknownDev(),"test"], [{general,"unknown error: 'Спутник-1'"}]},
+         {put_chars,["test"], [{gl,UnknownDev()},{general,"unknown error: 'Спутник-1'"}]},
+
+         {write,[DeadDev,"test"],[{1,"terminated"}]},
+         {write,["test"],[{gl,DeadDev},{general,"terminated"}]},
+         {write,[?MODULE,"test"],[{1,"does not exist"}]},
+         {write,[FullDev(),"test"], [{1,"no space left on device"}]},
+         {write,["test"], [{gl,FullDev()},{general,"no space left on device"}]},
+         {write,[UnknownDev(),"test"], [{general,"unknown error: 'Спутник-1'"}]},
+         {write,["test"], [{gl,UnknownDev()},{general,"unknown error: 'Спутник-1'"}]},
+
+         {nl,[DeadDev],[{1,"terminated"}]},
+         {nl,[?MODULE],[{1,"does not exist"}]},
+         {nl,[],[{gl,DeadDev},{general,"terminated"}]},
+         {nl,[FullDev()], [{1,"no space left on device"}]},
+         {nl,[], [{gl,FullDev()},{general,"no space left on device"}]},
+         {nl,[UnknownDev()], [{general,"unknown error: 'Спутник-1'"}]},
+         {nl,[], [{gl,UnknownDev()},{general,"unknown error: 'Спутник-1'"}]},
+
+         [[{Format,[DeadDev,"test",[]],   [{1,"terminated"}]},
+           {Format,["test",[{gl,DeadDev},  {general,"terminated"}]]},
+           {Format,[?MODULE,"test",[]],   [{1,"does not exist"}]},
+           {Format,[FullDev(),"test",[]], [{1,"no space left on device"}]},
+           {Format,["test"], [{gl,FullDev()},{general,"no space left on device"}]},
+           {Format,[standard_io,"test"],  [{1,"wrong number of arguments"},
+                                           {general,"possibly missing argument list"}]},
+           {Format,[UnknownDev(),"test",[]], [{general,"unknown error: 'Спутник-1'"}]},
+
+           %% Test a latin1 device
+           {Format,[Latin1Dev(), "~ts", [<<"Спутник-1"/utf8>>]],[{1,"transcode"}]},
+           {Format,["~ts", [<<"Спутник-1"/utf8>>]],[{gl,Latin1Dev()},{general,"transcode"}]},
+
+           %% The format error is reported differently
+           %% depending on the current group_leader.
+           %% The different group leaders we test are:
+           %%  * file_io_server
+           %%  * standard_error
+           %%  * test_server_gl
+           %%  * user
+           %%  * application_master
+           %%  * ssh_cli (TODO)
+           %%  * eunit (TODO)
+           %%  * group (TODO)
+           [ [{Format,[Device(),make_ref(),[]],    [{2,"format string"}]},
+              {Format,[Device(),"~p",make_ref()],  [{3, "not a list"}]},
+              {Format,[make_ref(),[]],[{gl,Device()},{1,"format string"}]},
+              {Format,["~p",make_ref()],[{gl,Device()},{2, "not a list"}]}]
+             || Device <- [UserDev, FileDev, TestServerDev, StandardError,
+                           GroupDev, ApplicationMasterDev]],
+
+           %% Test number of arguments
+           {Format,["~p",["Sputnik-1","Laika"]],[{1,"wrong number of arguments"}]},
+           {Format,[standard_io, "~p",["Sputnik-1","Laika"]],[{2,"wrong number of arguments"}]},
+
+           %% Test different formatting strings
+           {Format,["~B",["Sputnik-1"]],[{2,"1 must be of type integer"}]},
+           {Format,[standard_io, "~B",["Sputnik-1"]],[{3,"1 must be of type integer"}]},
+           {Format,["~b",["Sputnik-1"]],[{2,"1 must be of type integer"}]},
+           {Format,["~*b",["Sputnik-1",16]],[{2,"1 must be of type integer"}]},
+           {Format,["~*f",[1.0,1]],[{2,"1 must be of type integer\\n.*2 must be of type float"}]},
+           {Format,["~1.*f",[1.0,1]],[{2,"1 must be of type integer\\n.*2 must be of type float"}]},
+           {Format,["~*.*f",[a,b,c]],[{2,"1 must be of type integer\\n.*"
+                                       "2 must be of type integer\\n.*"
+                                       "3 must be of type float"}]},
+           {Format,["~s",["Спутник-1"]],[{1,"failed to format string"}]},
+           {Format,["~s",[1]],[{2,"1 must be of type string"}]},
+           {Format,["~s~s",[a,1]],[{2,"2 must be of type string"}]},
+           {Format,["~s",[[a]]],[{2,"1 must be of type string"}]}] || Format <- [format,fwrite]]
+
+        ],
+
+    error_info_lib:test_error_info(io, lists:flatten(L), [allow_nyi]).
+
+dummy_full_device() ->
+    dummy_device(enospc).
+dummy_unknown_error_device() ->
+    dummy_device('Спутник-1').
+
+dummy_device(Error) ->
+    spawn_link(
+      fun() ->
+              receive
+                  {io_request, From, ReplyAs, {put_chars, _Encoding, _Chars}} ->
+                      From ! {io_reply, ReplyAs, {error, Error}};
+                  {io_request, From, ReplyAs, {put_chars, _Encoding, M, F, As}} ->
+                      try apply(M, F, As) of
+                          _ ->
+                              From ! {io_reply, ReplyAs, {error, Error}}
+                      catch _:_ ->
+                              From ! {io_reply, ReplyAs, {error, format}}
+                      end
+              end
+      end).
+
+%% GH-5053. 'chars_limit' bug.
+otp_17525(_Config) ->
+    L = [{xxxxxxxxx,aaaa},
+         {yyyyyyyyyyyy,1},
+         {eeeeeeeeeeeee,bbbb},
+         {ddddddddd,1111111111},
+         {gggggggggggggggggggg,cccc},
+         {uuuuuuuuuuuu,11}],
+    S = io_lib:format("aaaaaaaaaaaaaaaaaa ~p bbbbbbbbbbb ~p",
+                      ["cccccccccccccccccccccccccccccccccccccc", L],
+                      [{chars_limit, 155}]),
+    "aaaaaaaaaaaaaaaaaa \"cccccccccccccccccccccccccccccccccccccc\" bbbbbbbbbbb [{xxxxxxxxx,\n"
+    "                                                                          aaaa},\n"
+    "                                                                         {yyyyyyyyyyyy,\n"
+    "                                                                          1},\n"
+    "                                                                         {eeeeeeeeeeeee,\n"
+    "                                                                          bbbb},\n"
+    "                                                                         {ddddddddd,\n"
+    "                                                                          1111111111},\n"
+    "                                                                         {...}|...]" =
+    lists:flatten(S),
+    ok.

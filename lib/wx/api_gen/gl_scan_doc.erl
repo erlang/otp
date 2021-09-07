@@ -63,7 +63,7 @@ gen_output({characters, String0}, #state{gen_output=true, type=Type, str=Str} = 
 				"=" -> String;
 				{fenced,_,_} -> String;
 				_ ->
-				    [$ |String]
+				    [$\s|String]
 			    end;
 		      constant -> {constant, String};
 		      emphasis -> {emphasis, String};
@@ -213,9 +213,9 @@ gen_output({endElement, _Uri, "para", _QName}, #state{gen_output=true, str=Str} 
     %% Pick only the first paragraph in the descriptions
     State#state{gen_output=false};
 
-%% gen_output({startElement, _Uri, What, _QName, _Attributes}, State) ->
-%%     io:format("Skipped ~s~n",[What]),
-%%     State;
+gen_output({startElement, _Uri, What, _QName, _Attributes}, State) ->
+    %% io:format("Skipped ~s~n",[What]),
+    State;
 
 gen_output(_E, State) ->
     State.
@@ -280,6 +280,8 @@ fix_str("&times;"++Str) ->
 %%     [$*|fix_str(Str)];
 fix_str("&Prime;"++Str) ->
     [$"|fix_str(Str)];
+fix_str("&Delta;"++Str) ->
+    [$ð|fix_str(Str)];
 fix_str("&CenterDot;"++Str) ->
     [$.|fix_str(Str)];
 fix_str("&af;"++Str) ->

@@ -22,8 +22,7 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 basic_atomic_load/1,basic_errors/1,sticky_dir/1,
-	 on_load_failing/1,ensure_modules_loaded/1,
-	 native_code/1]).
+	 on_load_failing/1,ensure_modules_loaded/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("syntax_tools/include/merl.hrl").
@@ -34,7 +33,7 @@ suite() ->
 
 all() ->
     [basic_atomic_load,basic_errors,sticky_dir,on_load_failing,
-     ensure_modules_loaded,native_code].
+     ensure_modules_loaded].
 
 groups() ->
     [].
@@ -259,13 +258,7 @@ do_ensure_modules_loaded(Dir) ->
     ok = file:write_file(filename:absname(BadFile, Dir), <<"bad_code">>),
     BadOLMod = make_module_file(Dir, fun failing_on_load_module/1),
     BadEgg = bad__egg,
-    NativeMod = a_native_module,
-    NativeModFile = atom_to_list(NativeMod) ++ ".beam",
-    {NativeMod,_,NativeCode} = make_module(NativeMod, NativeModFile,
-					   fun basic_module/1, [native]),
-    ok = file:write_file(filename:absname(NativeModFile, Dir), NativeCode),
-    ModulesToLoad = [OLMod,?MODULE,Mod,BadOLMod,NativeMod,
-		     BadEgg,BadMod,lists],
+    ModulesToLoad = [OLMod,?MODULE,Mod,BadOLMod,BadEgg,BadMod,lists],
     {error,Error0} = code:ensure_modules_loaded(ModulesToLoad),
     Error = lists:sort([{BadEgg,nofile},
 			{BadMod,badfile},
@@ -273,13 +266,6 @@ do_ensure_modules_loaded(Dir) ->
     Error = lists:sort(Error0),
     true = is_loaded(Mod),
     true = is_loaded(OLMod),
-    true = is_loaded(NativeMod),
-
-    ModuleNative = case erlang:system_info(hipe_architecture) of
-		       undefined -> false;
-		       _ -> true
-		   end,
-    ModuleNative = NativeMod:module_info(native),
 
     ok.
 
@@ -287,62 +273,6 @@ failing_on_load_module(Mod) ->
     ?Q(["-module('@Mod@').\n",
 	"-on_load(f/0).\n",
 	"f() -> fail.\n"]).
-
-native_code(_Config) ->
-    case erlang:system_info(hipe_architecture) of
-	undefined ->
-	    {skip,"No native support"};
-	_ ->
-	    do_native_code()
-    end.
-
-do_native_code() ->
-    CalledMod = native_called_module,
-    CallingMod = native_calling_module,
-
-    %% Create a module in native code that calls another module.
-    CallingMod = make_and_load(CallingMod,
-			       calling_module_fun(CalledMod),
-			       [native]),
-
-    %% Create a threaded-code module.
-    _ = make_and_load(CalledMod, called_module_fun(42), []),
-    42 = CallingMod:call(),
-
-    %% Now replace it with a changed module in native code.
-    code:purge(CalledMod),
-    make_and_load(CalledMod, called_module_fun(43), [native]),
-    true = test_server:is_native(CalledMod),
-    43 = CallingMod:call(),
-
-    %% Reload the called module and call it.
-    code:purge(CalledMod),
-    ModVer3 = make_module(CalledMod, "", called_module_fun(changed)),
-    ok = code:atomic_load([ModVer3]),
-    false = test_server:is_native(CalledMod),
-    changed = CallingMod:call(),
-    code:purge(CalledMod),
-
-    ok.
-
-make_and_load(Mod, Fun, Opts) ->
-    {Mod,_,Code} = make_module(Mod, "", Fun, Opts),
-    {module,Mod} = code:load_binary(Mod, "", Code),
-    Mod.
-
-calling_module_fun(Called) ->
-    fun(Mod) ->
-	    ?Q(["-module('@Mod@').\n",
-		"-export([call/0]).\n",
-		"call() -> _@Called@:f().\n"])
-    end.
-
-called_module_fun(Ret) ->
-    fun(Mod) ->
-	    ?Q(["-module('@Mod@').\n",
-		"-export([f/0]).\n",
-		"f() -> _@Ret@.\n"])
-    end.
 
 %%%
 %%% Common utilities

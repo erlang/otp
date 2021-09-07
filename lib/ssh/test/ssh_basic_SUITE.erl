@@ -430,43 +430,40 @@ exec_compressed(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-%%% Idle timeout test, client 
-idle_time_client(Config) ->
+%%% Idle timeout test
+idle_time_client(Config) -> idle_time_common([], [{idle_time, 2000}], Config).
+
+idle_time_server(Config) -> idle_time_common([{idle_time, 2000}], [], Config).
+
+
+idle_time_common(DaemonExtraOpts, ClientExtraOpts, Config) ->
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
+					     {failfun, fun ssh_test_lib:failfun/2}
+                                             | DaemonExtraOpts
+                                            ]),
     ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
-					  {user_interaction, false},
-					  {idle_time, 2000}]),
-    {ok, Id} = ssh_connection:session_channel(ConnectionRef, 1000),
-    ssh_connection:close(ConnectionRef, Id),
-    receive
-    after 10000 ->
-	    {error, closed} = ssh_connection:session_channel(ConnectionRef, 1000)
-    end,
-    ssh:stop_daemon(Pid).
-
-%%--------------------------------------------------------------------
-%%% Idle timeout test, server
-idle_time_server(Config) ->
-    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
-    UserDir = proplists:get_value(priv_dir, Config),
-
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {user_dir, UserDir},
-                                             {idle_time, 2000},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
-    ConnectionRef =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-					  {user_dir, UserDir},
-					  {user_interaction, false}]),
-    {ok, Id} = ssh_connection:session_channel(ConnectionRef, 1000),
-    ssh_connection:close(ConnectionRef, Id),
+					  {user_interaction, false}
+                                          | ClientExtraOpts
+                                         ]),
+    {ok, Id1} = ssh_sftp:start_channel(ConnectionRef),
+    {ok, Id2} = ssh_sftp:start_channel(ConnectionRef),
+    ssh_sftp:stop_channel(Id2),
+    timer:sleep(2500),
+    {ok, Id3} = ssh_sftp:start_channel(ConnectionRef),
+    ssh_sftp:stop_channel(Id1),
+    ssh_sftp:stop_channel(Id3),
+    timer:sleep(1000),
+    {ok, Id4} = ssh_sftp:start_channel(ConnectionRef),
+    timer:sleep(2500),
+    {ok, Id5} = ssh_sftp:start_channel(ConnectionRef),
+    ssh_sftp:stop_channel(Id4),
+    ssh_sftp:stop_channel(Id5),
     receive
     after 10000 ->
 	    {error, closed} = ssh_connection:session_channel(ConnectionRef, 1000)
@@ -553,7 +550,7 @@ shell_ssh_conn(Config) when is_list(Config) ->
     ct:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
-    {ok,C} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+    C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                       {user_dir, UserDir},
                                       {user_interaction, false}]),
     Shell = ssh_test_lib:start_shell(C, IO, undefined),
@@ -631,27 +628,7 @@ cli_exit_normal(Config) when is_list(Config) ->
 
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     ssh_connection:shell(ConnectionRef, ChannelId),
-
-    receive
-        {ssh_cm, ConnectionRef,{eof, ChannelId}} ->
-            ok
-    after
-    30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end,
-
-    receive
-        {ssh_cm, ConnectionRef,{exit_status,ChannelId,0}} ->
-            ok
-    after
-    30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end,
-
-    receive
-        {ssh_cm, ConnectionRef,{closed, ChannelId}} ->
-            ok
-    after
-    30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.
+    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId, _ExpectedExitStatus = 0).
 
 %%---------------------------------------------------------
 %%% Test that SSH client receives user provided exit-status
@@ -659,10 +636,13 @@ cli_exit_status(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
+    NonZeroExitStatus = 7,
 
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
                            {password, "morot"},
-                           {ssh_cli, {ssh_cli, [fun (_) -> spawn(fun () -> exit({exit_status, 7}) end) end]}},
+                           {ssh_cli, {ssh_cli, [fun (_) ->
+                                                        spawn(fun () -> exit({exit_status, NonZeroExitStatus}) end)
+                                                end]}},
                            {subsystems, []},
                            {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
@@ -675,27 +655,7 @@ cli_exit_status(Config) when is_list(Config) ->
 
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     ssh_connection:shell(ConnectionRef, ChannelId),
-
-    receive
-        {ssh_cm, ConnectionRef,{eof, ChannelId}} ->
-            ok
-    after
-    30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end,
-
-    receive
-        {ssh_cm, ConnectionRef,{exit_status,ChannelId,7}} ->
-            ok
-    after
-    30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end,
-
-    receive
-        {ssh_cm, ConnectionRef,{closed, ChannelId}} ->
-            ok
-    after
-    30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.
+    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId, NonZeroExitStatus).
 
 %%--------------------------------------------------------------------
 %%% Test that get correct error message if you try to start a daemon
@@ -756,7 +716,9 @@ known_hosts(Config) when is_list(Config) ->
     ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{user_dir, PrivDir},
 					  {user_interaction, false},
-					  silently_accept_hosts]),
+					  {silently_accept_hosts, true},
+                                          {save_accepted_host, true}
+                                         ]),
     {ok, _Channel} = ssh_connection:session_channel(ConnectionRef, infinity),
     ok = ssh:close(ConnectionRef),
     {ok, Binary} = file:read_file(KnownHosts),
@@ -785,7 +747,9 @@ known_hosts(Config) when is_list(Config) ->
     _ConnectionRef2 =
 	ssh_test_lib:connect(Host, Port, [{user_dir, PrivDir},
 					  {user_interaction, false},
-					  silently_accept_hosts]),
+					  {silently_accept_hosts, true},
+                                          {save_accepted_host, true}
+                                         ]),
     {ok, Binary2} = file:read_file(KnownHosts),
     case Binary of
         Binary2 -> ok;
@@ -798,7 +762,9 @@ known_hosts(Config) when is_list(Config) ->
      _ConnectionRef3 =
 	ssh_test_lib:connect(Host, Port, [{user_dir, PrivDir},
 					  {user_interaction, false},
-					  silently_accept_hosts]),
+					  {silently_accept_hosts, true},
+                                          {save_accepted_host, true}
+                                         ]),
     ct:log("New known_hosts:~n~p",[Binary3]),
     {ok, Binary4} = file:read_file(KnownHosts),
     case Binary3 of
@@ -1019,6 +985,7 @@ internal_error(Config) when is_list(Config) ->
 
     {error, Error} =
         ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
                                  {user_dir, UserDir},
                                  {user_interaction, false}]),
     check_error(Error),
@@ -1131,7 +1098,7 @@ double_close(Config) when is_list(Config) ->
 					     {user_dir, UserDir},
 					     {user_passwords, [{"vego", "morot"}]},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
-    {ok, CM} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+    CM = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					   {user_dir, UserDir},
 					    {user, "vego"},
 					    {password, "morot"},
@@ -1148,6 +1115,8 @@ daemon_opt_fd(Config) ->
     file:make_dir(UserDir),
 
     {ok,S1} = gen_tcp:listen(0,[]),
+    ct:log("Socket S1 = ~p", [S1]),
+    
     {ok,Fd1} = prim_inet:getfd(S1),
     
     {ok,Pid1} = ssh:daemon(0, [{system_dir, SystemDir},
@@ -1157,7 +1126,7 @@ daemon_opt_fd(Config) ->
 			       {failfun, fun ssh_test_lib:failfun/2}]),
     
     {ok,{_Host1,Port1}} = inet:sockname(S1),
-    {ok, C1} = ssh:connect("localhost", Port1, [{silently_accept_hosts, true},
+    C1 = ssh_test_lib:connect(Port1, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
 					  {user, "vego"},
 					  {password, "morot"},
@@ -1177,6 +1146,7 @@ multi_daemon_opt_fd(Config) ->
     Test = 
 	fun() ->
 		{ok,S} = gen_tcp:listen(0,[]),
+                ct:log("Socket S = ~p", [S]),
 		{ok,Fd} = prim_inet:getfd(S),
 
 		{ok,Pid} = ssh:daemon(0, [{system_dir, SystemDir},
@@ -1186,7 +1156,7 @@ multi_daemon_opt_fd(Config) ->
 					  {failfun, fun ssh_test_lib:failfun/2}]),
 
 		{ok,{_Host,Port}} = inet:sockname(S),
-		{ok, C} = ssh:connect("localhost", Port, [{silently_accept_hosts, true},
+		C = ssh_test_lib:connect(Port, [{silently_accept_hosts, true},
 							  {user_dir, UserDir},
 							  {user, "vego"},
 							  {password, "morot"},
@@ -1507,7 +1477,7 @@ basic_test(Config) ->
     ServerOpts = proplists:get_value(server_opts, Config),
     
     {Pid, Host, Port} = ssh_test_lib:daemon(ServerOpts),
-    {ok, CM} = ssh:connect(Host, Port, ClientOpts),
+    CM = ssh_test_lib:connect(Host, Port, ClientOpts),
     ok = ssh:close(CM),
     ssh:stop_daemon(Pid).
 

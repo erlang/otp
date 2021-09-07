@@ -29,7 +29,8 @@
 	 whole_body/2, 
 	 validate/3, 
 	 update_mod_data/5,
-	 body_data/2
+	 body_data/2,
+	 default_version/0
 	]).
 
 %% Callback API - used for example if the header/body is received a
@@ -91,10 +92,6 @@ body_data(Headers, Body) ->
 %%------------------------------------------------------------------------- 
 validate("HEAD", Uri, "HTTP/1." ++ _N) ->
     validate_uri(Uri);
-validate("GET", Uri, []) -> %% Simple HTTP/0.9 
-    validate_uri(Uri);
-validate("GET", Uri, "HTTP/0.9") ->
-    validate_uri(Uri);
 validate("GET", Uri, "HTTP/1." ++ _N) ->
     validate_uri(Uri);
 validate("PUT", Uri, "HTTP/1." ++ _N) ->
@@ -146,23 +143,22 @@ parse_method(_, _, _, Max, _, _) ->
     %% We do not know the version of the client as it comes after the
     %% method send the lowest version in the response so that the client
     %% will be able to handle it.
-    {error, {size_error, Max, 413, "Method unreasonably long"}, lowest_version()}.
+    {error, {size_error, Max, 413, "Method unreasonably long"}, default_version()}.
 
-parse_uri(_, _, Current, MaxURI, _, _) 
+parse_uri(_, _, Current, MaxURI, _, _)
   when (Current > MaxURI) andalso (MaxURI =/= nolimit) -> 
     %% We do not know the version of the client as it comes after the
     %% uri send the lowest version in the response so that the client
     %% will be able to handle it.
-    {error, {size_error, MaxURI, 414, "URI unreasonably long"},lowest_version()};
+    {error, {size_error, MaxURI, 414, "URI unreasonably long"}, default_version()};
 parse_uri(<<>>, URI, Current, Max, Options, Result) ->
     {?MODULE, parse_uri, [URI, Current, Max, Options, Result]};
 parse_uri(<<?SP, Rest/binary>>, URI, _, _, Options, Result) -> 
     parse_version(Rest, [], 0, proplists:get_value(max_version, Options), Options, 
 		  [string:strip(lists:reverse(URI)) | Result]);
 %% Can happen if it is a simple HTTP/0.9 request e.i "GET /\r\n\r\n"
-parse_uri(<<?CR, _Rest/binary>> = Data, URI, _, _, Options, Result) ->
-    parse_version(Data, [], 0, proplists:get_value(max_version, Options), Options, 
-		  [string:strip(lists:reverse(URI)) | Result]);
+parse_uri(<<?CR, _Rest/binary>>, _, _, _, _, _) ->
+    {error, {version_error, 505, "HTTP Version not supported"}, default_version()};
 parse_uri(<<Octet, Rest/binary>>, URI, Current, Max, Options, Result) ->
     parse_uri(Rest, [Octet | URI], Current + 1, Max, Options, Result).
 
@@ -179,7 +175,7 @@ parse_version(<<?CR>> = Data, Version, Current, Max, Options, Result) ->
 parse_version(<<Octet, Rest/binary>>, Version, Current, Max, Options, Result)  when Current =< Max ->
     parse_version(Rest, [Octet | Version], Current + 1, Max, Options, Result);
 parse_version(_, _, _, Max,_,_) ->
-    {error, {size_error, Max, 413, "Version string unreasonably long"}, lowest_version()}.
+    {error, {size_error, Max, 413, "Version string unreasonably long"}, default_version()}.
 
 parse_headers(_, _, _, Current, Max, _, Result) 
   when Max =/= nolimit andalso Current > Max -> 
@@ -351,10 +347,9 @@ validate_version("HTTP/1.1") ->
     true;
 validate_version("HTTP/1.0") ->
     true;
-validate_version("HTTP/0.9") ->
-    true;
 validate_version(_) ->
     false.
+
 %%----------------------------------------------------------------------
 %% There are 3 possible forms of the reuqest URI 
 %%
@@ -429,8 +424,10 @@ get_persistens(HTTPVersion,ParsedHeader,ConfigDB)->
 	    false
     end.
 
-lowest_version()->    
-    "HTTP/0.9".
+%% rfc2145, an HTTP server SHOULD send a response version equal to the highest
+%% version for which the server is at least conditionally compliant
+default_version()->
+    "HTTP/1.1".
 
 check_header({"content-length", Value}, Maxsizes) ->
     Max = proplists:get_value(max_content_length, Maxsizes),

@@ -3,47 +3,59 @@
 ##
 FROM docker.pkg.github.com/erlang/otp/i386-debian-base as build
 
-ARG HOST_ARCH=amd64
-ARG HOST_TRIP=x86_64-linux-gnu
-
 ARG MAKEFLAGS=-j4
 ENV MAKEFLAGS=$MAKEFLAGS \
         ERLC_USE_SERVER=yes \
-        ERL_TOP=/buildroot/otp
+        ERL_TOP=/buildroot/bootstrap/otp
+
+WORKDIR /buildroot/bootstrap
 
 ARG ARCHIVE=./otp.tar.gz
 COPY $ARCHIVE /buildroot/otp.tar.gz
-RUN cd /buildroot && tar xzf ./otp.tar.gz
-
-WORKDIR /buildroot/otp/
+RUN tar xzf ../otp.tar.gz
 
 ## Build the bootstrap system
-RUN ./configure && make && make install
+RUN cd $ERL_TOP && CFLAGS="-Wall -O2 -g" ./configure && make && make install
 
 ## Build pre-build tar ball
-RUN scripts/build-otp-tar -o /buildroot/otp_clean_src.tar.gz /buildroot/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz
+RUN cd $ERL_TOP && scripts/build-otp-tar -o /buildroot/otp_clean_src.tar.gz /buildroot/otp_src.tar.gz \
+        -b /buildroot/bootstrap/otp/ /buildroot/otp.tar.gz
 
 ## Prepare for a new build using pre-built tar ball
-RUN cd .. && rm -rf otp && tar -xzf ./otp_src.tar.gz
+RUN cd ../ && tar -xzf ./otp_src.tar.gz
 
 ENV HOST=$HOST_TRIP \
         CC=$HOST_TRIP-gcc \
+        CPPFLAGS="--sysroot=/buildroot/sysroot" \
+        CFLAGS="--sysroot=/buildroot/sysroot -O2 -g -Werror" \
         CPP=$HOST_TRIP-cpp \
         CXX=$HOST_TRIP-g++ \
         LD=$CC \
-        DED_LDFLAGS="-shared -Wl,-Bsymbolic" \
+        LD_FLAGS="--sysroot=/buildroot/sysroot" \
+        DED_CFLAGS="$CFLAGS" \
+        DED_LDFLAGS="$LDFLAGS -shared -Wl,-Bsymbolic" \
         RANLIB=$HOST_TRIP-ranlib \
         AR=$HOST_TRIP-ar \
-        erl_xcomp_sysroot=/buildroot/sysroot
+        erl_xcomp_sysroot=/buildroot/sysroot \
+        ERL_TOP=/buildroot/otp
+
+WORKDIR /buildroot/otp
 
 ## Build the cross system
-RUN ./configure --prefix=/otp/ --host=$HOST --build=`erts/autoconf/config.guess` && \
-        make && make install
+# We cannot use config.guess for --build since its value clashes with the
+# canonical value of host...
+RUN ./configure --prefix=/otp/ --host=$HOST --build=x86-pc-linux-gnu
+RUN OTP_SMALL_BUILD=true V=1 make
+
+RUN make odbc && make install
 
 ## Build the cross tests
+ENV CFLAGS="--sysroot=/buildroot/sysroot -O2 -g"
 RUN ./otp_build tests
 RUN cd release/tests/test_server && \
-        erl -sname test@docker -noshell -eval "ts:install([{cross,\"yes\"},{crossflags,[{\"host\",\"$HOST\"}]},{crossroot,\"/$ERL_TOP\"}])." -s ts compile_testcases -s init stop
+        erl -sname test@docker -noshell \
+        -eval "ts:install([{cross,\"yes\"},{crossflags,[{\"host\",\"$HOST\"}]},{crossroot,\"/$ERL_TOP\"}])." \
+        -s ts compile_testcases -s init stop
 
 FROM debian as install
 

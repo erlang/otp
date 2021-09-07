@@ -290,9 +290,9 @@ foreach_baserel_up(TopRel, TopApps, [BaseRelDc|BaseRelDcs], Path, Opts,
     %%
     {RUs1, Ws1} = collect_appup_scripts(up, TopApps, BaseRel, Ws0++Ws, []),
 
-    {RUs2, Ws2} = create_add_app_scripts(BaseRel, TopRel, RUs1, Ws1),
+    {RUs2, Ws2} = prepend_add_app_scripts(BaseRel, TopRel, RUs1, Ws1),
 
-    {RUs3, Ws3} = create_remove_app_scripts(BaseRel, TopRel, RUs2, Ws2),
+    {RUs3, Ws3} = append_remove_app_scripts(BaseRel, TopRel, RUs2, Ws2),
 
     {RUs4, Ws4} = check_for_emulator_restart(TopRel, BaseRel, RUs3, Ws3, Opts),
 
@@ -342,9 +342,9 @@ foreach_baserel_dn(TopRel, TopApps, [BaseRelDc|BaseRelDcs], Path, Opts,
     %%
     {RUs1, Ws1} = collect_appup_scripts(dn, TopApps, BaseRel, Ws0++Ws, []),
 
-    {RUs2, Ws2} = create_add_app_scripts(TopRel, BaseRel, RUs1, Ws1),
+    {RUs2, Ws2} = prepend_add_app_scripts(TopRel, BaseRel, RUs1, Ws1),
 
-    {RUs3, Ws3} = create_remove_app_scripts(TopRel, BaseRel, RUs2, Ws2),
+    {RUs3, Ws3} = append_remove_app_scripts(TopRel, BaseRel, RUs2, Ws2),
 
     {RUs4, Ws4} = check_for_emulator_restart(TopRel, BaseRel, RUs3, Ws3, Opts),
 
@@ -439,7 +439,7 @@ collect_appup_scripts(_, [], _, Ws, RUs) -> {RUs, Ws}.
 %% FromRel = ToRel = #release
 %% ToApps = [#application]
 %%
-create_add_app_scripts(FromRel, ToRel, RU0s, W0s) -> 
+prepend_add_app_scripts(FromRel, ToRel, RU0s, W0s) -> 
     AddedNs = [{N, T} || {N, _V, T} <- ToRel#release.applications,
 		    not lists:keymember(N, 1, FromRel#release.applications)],
     %% io:format("Added apps: ~p~n", [AddedNs]),
@@ -454,12 +454,12 @@ create_add_app_scripts(FromRel, ToRel, RU0s, W0s) ->
 %%
 %% XXX ToApps not used.
 %%
-create_remove_app_scripts(FromRel, ToRel, RU0s, W0s) -> 
+append_remove_app_scripts(FromRel, ToRel, RU0s, W0s) -> 
     RemovedNs = [N || {N, _V, _T} <- FromRel#release.applications,
 		      not lists:keymember(N, 1, ToRel#release.applications)],
     %% io:format("Removed apps: ~p~n", [RemovedNs]),
     RUs = [[{remove_application, N}] || N <- RemovedNs],
-    {RUs ++ RU0s, W0s}.
+    { RU0s ++ RUs, W0s}.
 
 %% get_script_from_appup(Mode, TopApp, BaseVsn, Ws, RUs) -> {NRUs, NWs}
 %% Mode = up | dn

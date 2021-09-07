@@ -35,6 +35,129 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle cross-signed root certificates when old root
+	    expired as reported in GH-4877.</p>
+          <p>
+	    Own Id: OTP-17475 Aux Id: GH-4877 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    TLS connections now support EdDSA certificates.</p>
+          <p>
+	    Own Id: OTP-17142 Aux Id: PR-4756, GH-4637, GH-4650 </p>
+        </item>
+        <item>
+          <p>
+	    The functions public_key:ssh_encode/2,
+	    public_key:ssh_decode/2,
+	    public_key:ssh_hostkey_fingerprint/1 and
+	    public_key:ssh_hostkey_fingerprint/2 are deprecated.</p>
+          <p>
+	    Replacement functions are available in SSH, see the
+	    <seeguide
+	    marker="system/general_info:deprecations#otp-24">Deprecations</seeguide>
+	    chapter in the Erlang/OTP documentation.</p>
+          <p>
+	    Own Id: OTP-17352</p>
+        </item>
+        <item>
+          <p>
+	    Enhance documentation and logging of certificate
+	    handling.</p>
+          <p>
+	    Own Id: OTP-17384 Aux Id: GH-4800 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.10.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle cross-signed root certificates when old root
+	    expired as reported in GH-4877.</p>
+          <p>
+	    Own Id: OTP-17475 Aux Id: GH-4877 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed case insensitive hostname check.</p>
+          <p>
+	    Own Id: OTP-17242 Aux Id: GH-4500 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add sanity check of trusted anchor certificate expiration
+	    to pkix_path_validation/3. Although the anchor is
+	    considered a trusted input this sanity check does provide
+	    extra security for the users of the public_key
+	    application as this property needs to be checked at time
+	    of usage and fits very well with the other checks
+	    performed here.</p>
+          <p>
+	    Own Id: OTP-16907</p>
+        </item>
+        <item>
+          <p>
+	    Adjust generation of test certificates to conform to RFC
+	    5280 rules for formatting of the certificates validity</p>
+          <p>
+	    Own Id: OTP-17111</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.9.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Corrected dialyzer spec for pkix_path_validation/3</p>
+          <p>
+	    Own Id: OTP-17069</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

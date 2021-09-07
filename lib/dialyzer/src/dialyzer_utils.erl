@@ -33,12 +33,14 @@
          get_fun_meta_info/3,
          is_suppressed_fun/2,
          is_suppressed_tag/3,
+         is_compiler_generated/1,
 	 pp_hook/0,
 	 process_record_remote_types/1,
          merge_types/2,
          sets_filter/2,
 	 src_compiler_opts/0,
 	 refold_pattern/1,
+         get_location/2,
          ets_tab2list/1,
          ets_move/2,
 	 parallelism/0,
@@ -58,15 +60,15 @@ print_types(RecDict) ->
 print_types1([], _) ->
   ok;
 print_types1([{type, _Name, _NArgs} = Key|T], RecDict) ->
-  {ok, {{_Mod, _FileLine, _Form, _Args}, Type}} = dict:find(Key, RecDict),
+  {ok, {{_Mod, _FileLocation, _Form, _Args}, Type}} = dict:find(Key, RecDict),
   io:format("\n~tw: ~tw\n", [Key, Type]),
   print_types1(T, RecDict);
 print_types1([{opaque, _Name, _NArgs} = Key|T], RecDict) ->
-  {ok, {{_Mod, _FileLine, _Form, _Args}, Type}} = dict:find(Key, RecDict),
+  {ok, {{_Mod, _FileLocation, _Form, _Args}, Type}} = dict:find(Key, RecDict),
   io:format("\n~tw: ~tw\n", [Key, Type]),
   print_types1(T, RecDict);
 print_types1([{record, _Name} = Key|T], RecDict) ->
-  {ok, {_FileLine, [{_Arity, _Fields} = AF]}} = dict:find(Key, RecDict),
+  {ok, {_FileLocation, [{_Arity, _Fields} = AF]}} = dict:find(Key, RecDict),
   io:format("~tw: ~tw\n\n", [Key, AF]),
   print_types1(T, RecDict).
 -define(debug(D_), print_types(D_)).
@@ -141,35 +143,35 @@ get_record_and_type_info(Core) ->
   Tuples = core_to_attr_tuples(Core),
   get_record_and_type_info(Tuples, Module, maps:new(), "nofile").
 
-get_record_and_type_info([{record, Line, [{Name, Fields0}]}|Left],
+get_record_and_type_info([{record, Location, [{Name, Fields0}]}|Left],
 			 Module, RecDict, File) ->
   {ok, Fields} = get_record_fields(Fields0, RecDict),
   Arity = length(Fields),
-  FN = {File, Line},
+  FN = {File, Location},
   NewRecDict = maps:put({record, Name}, {FN, [{Arity,Fields}]}, RecDict),
   get_record_and_type_info(Left, Module, NewRecDict, File);
-get_record_and_type_info([{type, Line, [{{record, Name}, Fields0, []}]}
+get_record_and_type_info([{type, Location, [{{record, Name}, Fields0, []}]}
 			  |Left], Module, RecDict, File) ->
   %% This overrides the original record declaration.
   {ok, Fields} = get_record_fields(Fields0, RecDict),
   Arity = length(Fields),
-  FN = {File, Line},
+  FN = {File, Location},
   NewRecDict = maps:put({record, Name}, {FN, [{Arity, Fields}]}, RecDict),
   get_record_and_type_info(Left, Module, NewRecDict, File);
-get_record_and_type_info([{Attr, Line, [{Name, TypeForm}]}|Left],
+get_record_and_type_info([{Attr, Location, [{Name, TypeForm}]}|Left],
 			 Module, RecDict, File)
                when Attr =:= 'type'; Attr =:= 'opaque' ->
-  FN = {File, Line},
+  FN = {File, Location},
   try add_new_type(Attr, Name, TypeForm, [], Module, FN, RecDict) of
     NewRecDict ->
       get_record_and_type_info(Left, Module, NewRecDict, File)
   catch
     throw:{error, _} = Error -> Error
   end;
-get_record_and_type_info([{Attr, Line, [{Name, TypeForm, Args}]}|Left],
+get_record_and_type_info([{Attr, Location, [{Name, TypeForm, Args}]}|Left],
 			 Module, RecDict, File)
                when Attr =:= 'type'; Attr =:= 'opaque' ->
-  FN = {File, Line},
+  FN = {File, Location},
   try add_new_type(Attr, Name, TypeForm, Args, Module, FN, RecDict) of
     NewRecDict ->
       get_record_and_type_info(Left, Module, NewRecDict, File)
@@ -212,15 +214,15 @@ get_record_fields([{typed_record_field, OrdRecField, TypeForm}|Left],
 		  RecDict, Acc) ->
   Name =
     case OrdRecField of
-      {record_field, _Line, Name0} -> erl_parse:normalise(Name0);
-      {record_field, _Line, Name0, _Init} -> erl_parse:normalise(Name0)
+      {record_field, _Location, Name0} -> erl_parse:normalise(Name0);
+      {record_field, _Location, Name0, _Init} -> erl_parse:normalise(Name0)
     end,
   get_record_fields(Left, RecDict, [{Name, TypeForm}|Acc]);
-get_record_fields([{record_field, _Line, Name}|Left], RecDict, Acc) ->
+get_record_fields([{record_field, _Location, Name}|Left], RecDict, Acc) ->
   A = erl_anno:set_generated(true, erl_anno:new(1)),
   NewAcc = [{erl_parse:normalise(Name), {var, A, '_'}}|Acc],
   get_record_fields(Left, RecDict, NewAcc);
-get_record_fields([{record_field, _Line, Name, _Init}|Left], RecDict, Acc) ->
+get_record_fields([{record_field, _Location, Name, _Init}|Left], RecDict, Acc) ->
   A = erl_anno:set_generated(true, erl_anno:new(1)),
   NewAcc = [{erl_parse:normalise(Name), {var, A, '_'}}|Acc],
   get_record_fields(Left, RecDict, NewAcc);
@@ -243,33 +245,35 @@ process_record_remote_types(CServer) ->
           fun({Key, Value}, C2) ->
               case Key of
                 {record, Name} ->
+                  {FileLocation, Fields} = Value,
+                  {File, _Location} = FileLocation,
                   FieldFun =
-                    fun({Arity, Fields}, C4) ->
+                    fun({Arity, Fields0}, C4) ->
                         MRA = {Module, Name, Arity},
-                        Site = {record, MRA},
+                        Site = {record, MRA, File},
                         {Fields1, C7} =
                           lists:mapfoldl(fun({FieldName, Field, _}, C5) ->
-                                             check_remote(Field, ExpTypes,
-                                                          MRA, RecordTable),
+                                             check_remote(Field, ExpTypes, MRA,
+                                                          File, RecordTable),
                                              {FieldT, C6} =
                                                erl_types:t_from_form
                                                  (Field, ExpTypes, Site,
                                                   RecordTable, VarTable,
                                                   C5),
                                           {{FieldName, Field, FieldT}, C6}
-                                      end, C4, Fields),
+                                      end, C4, Fields0),
                         {{Arity, Fields1}, C7}
                     end,
-                  {FileLine, Fields} = Value,
                   {FieldsList, C3} =
                     lists:mapfoldl(FieldFun, C2, orddict:to_list(Fields)),
-                  {{Key, {FileLine, orddict:from_list(FieldsList)}}, C3};
+                  {{Key, {FileLocation, orddict:from_list(FieldsList)}}, C3};
                 {_TypeOrOpaque, Name, NArgs} ->
                   %% Make sure warnings about unknown types are output
                   %% also for types unused by specs.
                   MTA = {Module, Name, NArgs},
-                  {{_Module, _FileLine, Form, _ArgNames}, _Type} = Value,
-                  check_remote(Form, ExpTypes, MTA, RecordTable),
+                  {{_Module, FileLocation, Form, _ArgNames}, _Type} = Value,
+                  {File, _Location} = FileLocation,
+                  check_remote(Form, ExpTypes, MTA, File, RecordTable),
                   {{Key, Value}, C2}
               end
           end,
@@ -302,8 +306,9 @@ process_opaque_types(AllModules, CServer, TempExpTypes) ->
           fun({Key, Value}, C2) ->
               case Key of
                 {opaque, Name, NArgs} ->
-                  {{_Module, _FileLine, Form, _ArgNames}=F, _Type} = Value,
-                  Site = {type, {Module, Name, NArgs}},
+                  {{_Module, FileLocation, Form, _ArgNames}=F, _Type} = Value,
+                  {File, _Location} = FileLocation,
+                  Site = {type, {Module, Name, NArgs}, File},
                   {Type, C3} =
                     erl_types:t_from_form(Form, TempExpTypes, Site,
                                           RecordTable, VarTable, C2),
@@ -338,21 +343,23 @@ check_record_fields(AllModules, CServer, TempExpTypes) ->
           fun({Key, Value}, C2) ->
               case Key of
                 {record, Name} ->
+                  {FileLocation, Fields} = Value,
+                  {File, _Location} = FileLocation,
                   FieldFun =
-                    fun({Arity, Fields}, C3) ->
-                        Site = {record, {Module, Name, Arity}},
+                    fun({Arity, Fields0}, C3) ->
+                        Site = {record, {Module, Name, Arity}, File},
                         lists:foldl(fun({_, Field, _}, C4) ->
                                         CheckForm(Field, Site, C4)
-                                    end, C3, Fields)
+                                    end, C3, Fields0)
                     end,
-                  {FileLine, Fields} = Value,
                   Fun = fun() -> lists:foldl(FieldFun, C2, Fields) end,
-                  msg_with_position(Fun, FileLine);
+                  msg_with_position(Fun, FileLocation);
                 {_OpaqueOrType, Name, NArgs} ->
-                  Site = {type, {Module, Name, NArgs}},
-                  {{_Module, FileLine, Form, _ArgNames}, _Type} = Value,
+                  {{_Module, FileLocation, Form, _ArgNames}, _Type} = Value,
+                  {File, _Location} = FileLocation,
+                  Site = {type, {Module, Name, NArgs}, File},
                   Fun = fun() -> CheckForm(Form, Site, C2) end,
-                  msg_with_position(Fun, FileLine)
+                  msg_with_position(Fun, FileLocation)
               end
           end,
         C0 = erl_types:cache__new(),
@@ -360,18 +367,19 @@ check_record_fields(AllModules, CServer, TempExpTypes) ->
     end,
   lists:foreach(CheckFun, AllModules).
 
-msg_with_position(Fun, FileLine) ->
+msg_with_position(Fun, FileLocation) ->
   try Fun()
   catch
     throw:{error, Msg} ->
-      {File, Line} = FileLine,
+      {File, Location} = FileLocation,
       BaseName = filename:basename(File),
-      NewMsg = io_lib:format("~ts:~p: ~ts", [BaseName, Line, Msg]),
+      NewMsg = io_lib:format("~ts:~s: ~ts", [BaseName, pos(Location), Msg]),
       throw({error, NewMsg})
   end.
 
-check_remote(Form, ExpTypes, What, RecordTable) ->
-  erl_types:t_from_form_check_remote(Form, ExpTypes, What, RecordTable).
+check_remote(Form, ExpTypes, What, File, RecordTable) ->
+  Site = {check, What, File},
+  erl_types:t_from_form_check_remote(Form, ExpTypes, Site, RecordTable).
 
 -spec merge_types(codeserver(), dialyzer_plt:plt()) -> codeserver().
 
@@ -485,12 +493,13 @@ get_spec_info([], SpecMap, CallbackMap,
   {ok, SpecMap, CallbackMap}.
 
 core_to_attr_tuples(Core) ->
-  [{cerl:concrete(Key), get_core_line(cerl:get_ann(Key)), cerl:concrete(Value)} ||
+  [{cerl:concrete(Key), get_core_location(cerl:get_ann(Key)), cerl:concrete(Value)} ||
    {Key, Value} <- cerl:module_attrs(Core)].
 
-get_core_line([L | _As]) when is_integer(L) -> L;
-get_core_line([_ | As]) -> get_core_line(As);
-get_core_line([]) -> undefined.
+get_core_location([L | _As]) when is_integer(L) -> L;
+get_core_location([{L, C} | _As]) when is_integer(L), is_integer(C) -> {L, C};
+get_core_location([_ | As]) -> get_core_location(As);
+get_core_location([]) -> undefined.
 
 -spec get_fun_meta_info(module(), cerl:c_module(), [dial_warn_tag()]) ->
                 dialyzer_codeserver:fun_meta_info() | {'error', string()}.
@@ -551,12 +560,12 @@ get_func_suppressions(M, Core, Functions) ->
   AttrFile = collect_attribute(Core, dialyzer),
   TagsFAs = check_fa_list(AttrFile, '*', Functions),
   %% Check the options:
-  Fun = fun({{[nowarn_function], _L, _File}, _FA}) -> ok;
+  Fun = fun({{[nowarn_function], _Loc, _File}, _FA}) -> ok;
            ({OptLFile, _FA}) ->
             _ = get_options1([OptLFile], ordsets:new())
         end,
   lists:foreach(Fun, TagsFAs),
-  [{{M, F, A}, W} || {{Warnings, _L, _File}, {F, A}} <- TagsFAs, W <- Warnings].
+  [{{M, F, A}, W} || {{Warnings, _Loc, _File}, {F, A}} <- TagsFAs, W <- Warnings].
 
 -spec get_options(cerl:c_module(), [dial_warn_tag()]) ->
                      ordsets:ordset(dial_warn_tag()).
@@ -565,21 +574,21 @@ get_options(Core, LegalWarnings) ->
   AttrFile = collect_attribute(Core, dialyzer),
   get_options1(AttrFile, LegalWarnings).
 
-get_options1([{Args, L, File}|Left], Warnings) ->
+get_options1([{Args, Loc, File}|Left], Warnings) ->
   Opts = [O || O <- Args, is_atom(O)],
   try dialyzer_options:build_warnings(Opts, Warnings) of
     NewWarnings ->
       get_options1(Left, NewWarnings)
   catch
     throw:{dialyzer_options_error, Msg} ->
-      Msg1 = flat_format("  ~ts:~w: ~ts", [File, L, Msg]),
+      Msg1 = flat_format("  ~ts:~s: ~ts", [File, pos(Loc), Msg]),
       throw({error, Msg1})
   end;
 get_options1([], Warnings) ->
   Warnings.
 
 -type collected_attribute() ::
-        {Args :: [term()], erl_anno:line(), file:filename()}.
+        {Args :: [term()], erl_anno:location(), file:filename()}.
 
 collect_attribute(Core, Tag) ->
   collect_attribute(cerl:module_attrs(Core), Tag, "nofile").
@@ -587,7 +596,7 @@ collect_attribute(Core, Tag) ->
 collect_attribute([{Key, Value}|T], Tag, File) ->
   case cerl:concrete(Key) of
     Tag ->
-      [{cerl:concrete(Value), get_core_line(cerl:get_ann(Key)), File} |
+      [{cerl:concrete(Value), get_core_location(cerl:get_ann(Key)), File} |
        collect_attribute(T, Tag, File)];
     file ->
       [{IncludeFile, _}] = cerl:concrete(Value),
@@ -659,11 +668,16 @@ src_compiler_opts() ->
 
 format_errors([{Mod, Errors}|Left]) ->
   FormatedError =
-    [io_lib:format("~ts:~w: ~ts\n", [Mod, Line, M:format_error(Desc)])
-     || {Line, M, Desc} <- Errors],
+    [io_lib:format("~ts:~s: ~ts\n", [Mod, pos(Location), M:format_error(Desc)])
+     || {Location, M, Desc} <- Errors],
   [lists:flatten(FormatedError) | format_errors(Left)];
 format_errors([]) ->
   [].
+
+pos({Line,Col}) ->
+    io_lib:format("~w:~w", [Line,Col]);
+pos(Line) ->
+    io_lib:format("~w", [Line]).
 
 -spec format_sig(erl_types:erl_type()) -> string().
 
@@ -695,8 +709,8 @@ check_fa_list(AttrFile, Tag, Functions) ->
   FuncTab = gb_sets:from_list(Functions),
   check_fa_list1(AttrFile, Tag, FuncTab).
 
-check_fa_list1([{Args, L, File}|Left], Tag, Funcs) ->
-  TermsL = [{{[Tag0], L, File}, Term} ||
+check_fa_list1([{Args, Loc, File}|Left], Tag, Funcs) ->
+  TermsL = [{{[Tag0], Loc, File}, Term} ||
              {Tags, Terms0} <- Args,
              Tag0 <- lists:flatten([Tags]),
              Tag =:= '*' orelse Tag =:= Tag0,
@@ -704,15 +718,15 @@ check_fa_list1([{Args, L, File}|Left], Tag, Funcs) ->
   case lists:dropwhile(fun({_, T}) -> is_fa(T) end, TermsL) of
     [] -> ok;
     [{_, Bad}|_] ->
-      Msg1 = flat_format("  Bad function ~tw in line ~ts:~w",
-                         [Bad, File, L]),
+      Msg1 = flat_format("  Bad function ~tw at location ~ts:~s",
+                         [Bad, File, pos(Loc)]),
       throw({error, Msg1})
   end,
   case lists:dropwhile(fun({_, FA}) -> is_known(FA, Funcs) end, TermsL) of
     [] -> ok;
     [{_, {F, A}}|_] ->
-      Msg2 = flat_format("  Unknown function ~tw/~w in line ~ts:~w",
-                         [F, A, File, L]),
+      Msg2 = flat_format("  Unknown function ~tw/~w at location ~ts:~s",
+                         [F, A, File, pos(Loc)]),
       throw({error, Msg2})
   end,
   TermsL ++ check_fa_list1(Left, Tag, Funcs);
@@ -732,6 +746,16 @@ is_fa_list(_) -> false.
 is_fa({FuncName, Arity})
   when is_atom(FuncName), is_integer(Arity), Arity >= 0 -> true;
 is_fa(_) -> false.
+
+-spec is_compiler_generated([term()]) -> boolean().
+
+is_compiler_generated(Ann) ->
+  lists:member(compiler_generated, Ann) orelse (get_line(Ann) < 1).
+
+get_line([Line|_]) when is_integer(Line) -> Line;
+get_line([{Line, _Column} | _Tail]) when is_integer(Line) -> Line;
+get_line([_|Tail]) -> get_line(Tail);
+get_line([]) -> -1.
 
 %%-------------------------------------------------------------------
 %% Author      : Per Gustafsson <pergu@it.uu.se>
@@ -964,6 +988,40 @@ label(Tree) ->
       %% Sigh
       Label = -erlang:unique_integer([positive]),
       cerl:set_ann(Tree, [{label, Label}]).
+
+-spec get_location(cerl:cerl(), -1 | erl_anno:location()) ->
+                      erl_anno:location().
+
+%% Get the location of Tree, if Tree is a leaf, or the location of the
+%% leftmost subtree of Tree, if Tree is not a leaf. If there is no
+%% location to be found in Tree, Default is returned.
+get_location(Tree, Default) ->
+  case get_all_locations(Tree) of
+    [] ->
+      Default;
+    Locations ->
+      LF = fun({_L,_C}=Loc) -> Loc;
+              (Line) -> {Line, 1}
+           end,
+      F = fun(Loc1, Loc2) -> LF(Loc1) =< LF(Loc2) end,
+      [Location|_] = lists:sort(F, Locations),
+      Location
+  end.
+
+get_all_locations(Tree) ->
+  SubTrees = lists:append(cerl:subtrees(Tree)),
+  Ann = cerl:get_ann(Tree),
+  [get_location(Ann) || not is_compiler_generated(Ann)]
+  ++
+  lists:append([get_all_locations(T) || T <- SubTrees]).
+
+get_location([Line|_]) when is_integer(Line) ->
+  Line;
+get_location([{Line, Column}=Loc|_Tail]) when is_integer(Line),
+                                              is_integer(Column) ->
+  Loc;
+get_location([_|Tail]) ->
+  get_location(Tail).
 
 %%------------------------------------------------------------------------------
 

@@ -179,7 +179,7 @@ build_dom({endElement, _Uri, LocalName, _QName},
             MappedCName =
                 case CName of
                     title ->
-                        lists:nth(SectionDepth+1,[h1,h2,h3]);
+                        lists:nth(SectionDepth+1,[h1,h2,h3,h4,h5,h6]);
                     section when SectionDepth > 0 ->
                         'div';
                     CName -> CName
@@ -228,7 +228,7 @@ build_dom({ignorableWhitespace, String},
           #state{dom=[{Name,_,_} = _E|_]} = State) ->
     case lists:member(Name,
                       [p,pre,input,code,quote,warning,
-                       note,dont,do,c,i,em,strong,
+                       note,dont,do,c,b,i,em,strong,
                        seemfa,seeerl,seetype,seeapp,
                        seecom,seecref,seefile,seeguide,
                        tag,item]) of
@@ -354,8 +354,6 @@ transform([{datatype_title,_Attr,_Content}|T],Acc) ->
 %% transform <desc>Content</desc> to Content
 transform([{desc,_Attr,Content}|T],Acc) ->
     transform(T,[transform(Content,[])|Acc]);
-transform([{strong,Attr,Content}|T],Acc) ->
-    transform([{em,Attr,Content}|T],Acc);
 %% transform <marker id="name"/>  to <a id="name"/>....
 transform([{marker,Attrs,Content}|T],Acc) ->
     transform(T,[{a,a2b(Attrs),transform(Content,[])}|Acc]);
@@ -641,16 +639,21 @@ transform_datatype(Dom,_Acc) ->
 
 transform_see({See,[{marker,Marker}],Content}) ->
     AbsMarker =
-        case string:lexemes(Marker,"#") of
-            [Link] -> [get(application),":",get(module),"#",Link];
-            [AppMod, Link] ->
-                case string:lexemes(AppMod,":") of
-                    [Mod] -> [get(application),":",Mod,"#",Link];
-                    [App, Mod] -> [App,":",Mod,"#",Link]
-                end
+        case string:split(Marker, "#") of
+            [AppFile] -> marker_defaults(AppFile);
+            [AppFile, Anchor] -> [marker_defaults(AppFile), "#", Anchor]
         end,
+
     {a, [{href,iolist_to_binary(AbsMarker)},
          {rel,<<"https://erlang.org/doc/link/",(atom_to_binary(See))/binary>>}], Content}.
+
+marker_defaults("") ->
+    [get(application), ":", get(module)];
+marker_defaults(AppFile) ->
+    case string:split(AppFile, ":") of
+        [File] -> [get(application), ":", File];
+        [App, File] -> [App, ":", File]
+    end.
 
 to_chunk(Dom, Source, Module, AST) ->
     [{module,MAttr,Mcontent}] = Dom,
@@ -694,16 +697,19 @@ to_chunk(Dom, Source, Module, AST) ->
                       end,
 
                   MetaDepr
-                      = case otp_internal:obsolete_type(Module, TypeName, TypeArity) of
+                      = case apply(otp_internal,obsolete_type,[Module, TypeName, TypeArity]) of
+                            %% apply/3 in order to silence dialyzer
                             {deprecated, Text} ->
                                 MetaSig#{ deprecated =>
                                               unicode:characters_to_binary(
                                                 erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Text})) };
-                            %% Commented out to make dialyzer happy
-                            %% {deprecated, Replacement, Rel} ->
-                            %%     MetaSig#{ deprecated =>
-                            %%                   unicode:characters_to_binary(
-                            %%                     erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Replacement, Rel})) };
+                            {deprecated, Replacement, Rel} ->
+                                MetaSig#{ deprecated =>
+                                              unicode:characters_to_binary(
+                                                erl_lint:format_error({deprecated_type,{Module,TypeName,TypeArity}, Replacement, Rel})) };
+                            {removed, _Text} ->
+                                %% Just skip
+                                MetaSig;
                             no ->
                                 MetaSig
                         end,
@@ -722,7 +728,8 @@ to_chunk(Dom, Source, Module, AST) ->
                   FMeta = proplists:get_value(meta,Attr),
                   MetaWSpec = add_spec(AST,FMeta),
                   MetaDepr
-                      = case otp_internal:obsolete(Module, Name, Arity) of
+                      = case apply(otp_internal,obsolete,[Module, Name, Arity]) of
+                            %% apply/3 in order to silence dialyzer
                             {deprecated, Text} ->
                                 MetaWSpec#{ deprecated =>
                                                 unicode:characters_to_binary(

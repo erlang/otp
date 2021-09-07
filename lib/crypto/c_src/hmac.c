@@ -28,7 +28,7 @@
  *
  ****************************************************************/
 
-#ifndef HAS_EVP_PKEY_CTX
+#if !defined(HAS_EVP_PKEY_CTX) || DISABLE_EVP_HMAC
 
 #include "hmac.h"
 #include "digest.h"
@@ -233,18 +233,19 @@ int hmac_low_level(ErlNifEnv* env, const EVP_MD *md,
 {
     unsigned int size_int;
     size_t size;
+    unsigned char buff[EVP_MAX_MD_SIZE];
 
-    /* Find the needed space */
     if (HMAC(md,
              key_bin.data, (int)key_bin.size,
              text.data, text.size,
-             NULL, &size_int) == NULL)
+             buff, &size_int) == NULL)
         {
-            *return_term = EXCP_ERROR(env, "Get HMAC size failed");
+            *return_term = EXCP_ERROR(env, "HMAC sign failed");
             return 0;
         }
 
     size = (size_t)size_int; /* Otherwise "size" is unused in 0.9.8.... */
+    ASSERT(0 < size && size <= EVP_MAX_MD_SIZE);
     if (!enif_alloc_binary(size, ret_bin))
         {
             *return_term = EXCP_ERROR(env, "Alloc binary");
@@ -252,15 +253,7 @@ int hmac_low_level(ErlNifEnv* env, const EVP_MD *md,
         }
     *ret_bin_alloc = 1;
 
-    /* And do the real HMAC calc */
-    if (HMAC(md,
-             key_bin.data, (int)key_bin.size,
-             text.data, text.size,
-             ret_bin->data, &size_int) == NULL)
-        {
-            *return_term = EXCP_ERROR(env, "HMAC sign failed");
-            return 0;
-        }
+    memcpy(ret_bin->data, buff, size);
                     
     return 1;
 }

@@ -21,9 +21,17 @@
 
 -include("ssl_cipher.hrl").
 
--export([suites/1, all_suites/1, anonymous_suites/1,hmac_hash/3, ecc_curves/1, 
-         corresponding_tls_version/1, corresponding_dtls_version/1,
-         cookie_secret/0, cookie_timeout/0]).
+-export([suites/1,
+         all_suites/1,
+         anonymous_suites/1,
+         exclusive_suites/1,
+         exclusive_anonymous_suites/1,
+         hmac_hash/3,
+         ecc_curves/1,
+         corresponding_tls_version/1,
+         corresponding_dtls_version/1,
+         cookie_secret/0,
+         cookie_timeout/0]).
 
 -define(COOKIE_BASE_TIMEOUT, 30000).
 
@@ -45,7 +53,20 @@ anonymous_suites(Version) ->
                          is_acceptable_cipher(ssl_cipher_format:suite_bin_to_map(Cipher)) 
                  end, 
                  ssl_cipher:anonymous_suites(corresponding_tls_version(Version))).
-                 
+
+exclusive_suites(Minor) ->
+    lists:filter(fun(Cipher) ->
+                         is_acceptable_cipher(ssl_cipher_format:suite_bin_to_map(Cipher))
+                 end,
+                 tls_v1:exclusive_suites(corresponding_minor_tls_version(Minor))).
+
+exclusive_anonymous_suites(Minor) ->
+    lists:filter(fun(Cipher) ->
+                         is_acceptable_cipher(ssl_cipher_format:suite_bin_to_map(Cipher))
+                 end,
+                 tls_v1:exclusive_anonymous_suites(corresponding_minor_tls_version(Minor))).
+
+
 hmac_hash(MacAlg, MacSecret, Value) ->
     tls_v1:hmac_hash(MacAlg, MacSecret, Value).
 

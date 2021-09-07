@@ -477,8 +477,7 @@ handicap() ->
         opt ->
             X0;
         ReallySlow when ReallySlow == debug;
-                        ReallySlow == valgrind;
-                        ReallySlow == purify ->
+                        ReallySlow == valgrind ->
             X0*3;
         _Slow ->
             X0*2

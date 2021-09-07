@@ -219,12 +219,12 @@ int ERTS_SELECT(int nfds, ERTS_fd_set *readfds, ERTS_fd_set *writefds,
 
 #else
 
-#define ERTS_POLLSET_SET_HAVE_UPDATE_REQUESTS(PS)
-#define ERTS_POLLSET_UNSET_HAVE_UPDATE_REQUESTS(PS)
+#define ERTS_POLLSET_SET_HAVE_UPDATE_REQUESTS(PS) do {} while(0)
+#define ERTS_POLLSET_UNSET_HAVE_UPDATE_REQUESTS(PS) do {} while(0)
 #define ERTS_POLLSET_HAVE_UPDATE_REQUESTS(PS) 0
 
-#define ERTS_POLLSET_LOCK(PS)
-#define ERTS_POLLSET_UNLOCK(PS)
+#define ERTS_POLLSET_LOCK(PS) do {} while(0)
+#define ERTS_POLLSET_UNLOCK(PS) do {} while(0)
 
 #endif
 
@@ -646,12 +646,13 @@ int erts_poll_new_table_len(int old_len, int need_len)
     }
     else {
         new_len = old_len;
+        if (new_len < ERTS_FD_TABLE_MIN_LENGTH)
+            new_len = ERTS_FD_TABLE_MIN_LENGTH;
         do {
             if (new_len < ERTS_FD_TABLE_EXP_THRESHOLD)
                 new_len *= 2;
             else
                 new_len += ERTS_FD_TABLE_EXP_THRESHOLD;
-
         } while (new_len < need_len);
     }
     ASSERT(new_len >= need_len);
@@ -749,7 +750,8 @@ grow_fds_status(ErtsPollSet *ps, int min_fd)
 
 #if ERTS_POLL_USE_EPOLL
 static int
-update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op, ErtsPollEvents events)
+concurrent_update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op,
+                          ErtsPollEvents events)
 {
     int res;
     int epoll_op = EPOLL_CTL_MOD;
@@ -865,7 +867,8 @@ update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op, ErtsPollEvents events)
     } while(0)
 
 static int
-update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op, ErtsPollEvents events)
+concurrent_update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op,
+                          ErtsPollEvents events)
 {
     int res = 0, len = 0;
     struct kevent evts[2];
@@ -1153,6 +1156,8 @@ static int update_pollset(ErtsPollSet *ps, ErtsPollResFd pr[], int fd)
 	int last_pix;
 
         if (reset) {
+            /* pr is only null during poll initialization and then no reset should happen */
+            ASSERT(pr != NULL);
             /* When a fd has been reset, we tell the caller of erts_poll_wait
                this by setting the fd as ERTS_POLL_EV_NONE */
             ERTS_POLL_RES_SET_FD(&pr[res], fd);
@@ -1358,7 +1363,7 @@ poll_control(ErtsPollSet *ps, int fd, ErtsPollOp op,
 
     if (fd < ps->internal_fd_limit || fd >= max_fds) {
 	if (fd < 0 || fd >= max_fds) {
-	    new_events = ERTS_POLL_EV_ERR;
+	    new_events = ERTS_POLL_EV_NVAL;
 	    goto done;
 	}
 #if ERTS_POLL_USE_KERNEL_POLL
@@ -1381,7 +1386,7 @@ poll_control(ErtsPollSet *ps, int fd, ErtsPollOp op,
 
 #if ERTS_POLL_USE_CONCURRENT_UPDATE
 
-    new_events = update_pollset(ps, fd, op, events);
+    new_events = concurrent_update_pollset(ps, fd, op, events);
 
 #else /* !ERTS_POLL_USE_CONCURRENT_UPDATE */
     if (fd >= ps->fds_status_len)
@@ -2061,6 +2066,21 @@ ERTS_POLL_EXPORT(erts_poll_init)(int *concurrent_updates)
 #else
     max_fds = OPEN_MAX;
 #endif
+
+    if (max_fds < 0 && errno == 0) {
+        /* On macOS 11 and higher, it possible to have an unlimited
+         * number of open files per process.  ERTS will need an actual
+         * limit, though, so we will set it to a largish value.  The
+         * number below is the hard number of file descriptors per
+         * process as returned by `sysctl kern.maxfilesperproc`, which
+         * seems to be the limit in practice.
+         *
+         * Note: The size of the port table will be based on max_fds,
+         * so we don't want to set it to a huge value such as
+         * MAX_INT.
+         */
+        max_fds = 24576;
+    }
 
 #if ERTS_POLL_USE_SELECT && defined(FD_SETSIZE) && \
 	!defined(_DARWIN_UNLIMITED_SELECT)

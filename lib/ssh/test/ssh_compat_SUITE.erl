@@ -99,6 +99,7 @@ init_per_suite(Config) ->
            _ ->
                ssh:start(),
                ct:log("Crypto info: ~p",[crypto:info_lib()]),
+               ct:log("ssh image versions: ~p",[ssh_image_versions()]),
                Config
        end).
 
@@ -228,6 +229,7 @@ login_otp_is_client(Config) ->
                                                  {user,?USER},
                                                  {user_dir, Dir},
                                                  {silently_accept_hosts,true},
+                                                 {save_accepted_host, false},
                                                  {user_interaction,false}
                                                  | Opts
                                                 ])
@@ -296,6 +298,7 @@ all_algorithms_sftp_exec_reneg_otp_is_client(Config) ->
                                            {user_dir, new_dir(Config)},
                                            {preferred_algorithms, [{Tag,[Alg]} | PrefAlgs]},
                                            {silently_accept_hosts,true},
+                                           {save_accepted_host, false},
                                            {user_interaction,false}
                                           ])  ,
                           test_erl_client_reneg(ConnRes, % Seems that max 10 channels may be open in sshd
@@ -310,6 +313,7 @@ all_algorithms_sftp_exec_reneg_otp_is_client(Config) ->
 %%--------------------------------------------------------------------
 renegotiation_otp_is_server(Config) ->
     PublicKeyAlgs = [A || {public_key,A} <- proplists:get_value(common_remote_client_algs, Config, [])],
+    ct:log("PublicKeyAlgs = ~p", [PublicKeyAlgs]),
     UserDir = setup_remote_priv_and_local_auth_keys(hd(PublicKeyAlgs), Config),
     SftpRootDir = new_dir(Config),
     ct:log("Rootdir = ~p",[SftpRootDir]),
@@ -321,6 +325,7 @@ renegotiation_otp_is_server(Config) ->
                              {user_dir, UserDir},
                              {user_passwords, [{?USER,?PASSWD}]},
                              {failfun, fun ssh_test_lib:failfun/2},
+                             {modify_algorithms, [{append, [{public_key,PublicKeyAlgs}]}]},
                              {connectfun,
                               fun(_,_,_) ->
                                       HostConnRef = self(),
@@ -364,7 +369,7 @@ reneg_tester_loop(Parent, Ref, HostConnRef, Kex1) ->
 send_recv_big_with_renegotiate_otp_is_client(Config) ->
     %% Connect to the remote openssh server:
     {IP,Port} = ip_port(Config),
-    {ok,C} = ssh:connect(IP, Port, [{user,?USER},
+    C = ssh_test_lib:connect(IP, Port, [{user,?USER},
                                     {password,?PASSWD},
                                     {user_dir, setup_remote_auth_keys_and_local_priv('ssh-rsa', Config)},
                                     {silently_accept_hosts,true},
@@ -473,7 +478,7 @@ loop_until(CondFun, DoFun, Acc) ->
 exec_from_docker(Config, HostIP, HostPort, Command, Expects, ExtraSshArg) when is_binary(hd(Expects)),
                                                                                is_list(Config) ->
     {DockerIP,DockerPort} = ip_port(Config),
-    {ok,C} = ssh:connect(DockerIP, DockerPort,
+    C = ssh_test_lib:connect(DockerIP, DockerPort,
                          [{user,?USER},
                           {password,?PASSWD},
                           {user_dir, new_dir(Config)},
@@ -634,6 +639,7 @@ setup_remote_auth_keys_and_local_priv(KeyAlg, IP, Port, UserDir, Config) ->
                                                    {password, ?PASSWD   },
                                                    {auth_methods, "password"},
                                                    {silently_accept_hosts,true},
+                                                   {save_accepted_host, false},
                                                    {preferred_algorithms, ssh_transport:supported_algorithms()},
                                                    {user_interaction,false}
                                                   ]),
@@ -1182,7 +1188,7 @@ do_check_local_directory(ServerRootDir) ->
 call_sftp_in_docker(Config, ServerIP, ServerPort, Cmnds, UserDir, Ref) ->
     {DockerIP,DockerPort} = ip_port(Config),
     ct:log("Going to connect ~p:~p", [DockerIP, DockerPort]),
-    {ok,C} = ssh:connect(DockerIP, DockerPort,
+    C = ssh_test_lib:connect(DockerIP, DockerPort,
                          [{user,?USER},
                           {password,?PASSWD},
                           {user_dir, UserDir},
@@ -1237,13 +1243,13 @@ call_sftp_in_docker(Config, ServerIP, ServerPort, Cmnds, UserDir, Ref) ->
 recv_log_msgs(C, Ch) ->
     receive
         {ssh_cm,C,{closed,Ch}} ->
-            %% ct:log("Channel closed ~p",[{closed,1}]),
+            ct:log("Channel closed ~p",[{closed,1}]),
             ok;
         {ssh_cm,C,{data,Ch,1,Msg}} ->
             ct:log("*** ERROR from docker:~n~s",[Msg]),
             recv_log_msgs(C, Ch);
         {ssh_cm,C,_Msg} ->
-            %% ct:log("Got ~p",[_Msg]),
+            ct:log("Got ~p",[_Msg]),
             recv_log_msgs(C, Ch)
     after
         30000 ->

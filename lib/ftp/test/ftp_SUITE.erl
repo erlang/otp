@@ -51,12 +51,19 @@ all() ->
     [
      {group, ftp_passive},
      {group, ftp_active},
+     {group, ftpes_passive},
+     {group, ftpes_active},
      {group, ftps_passive},
      {group, ftps_active},
+     {group, ftpes_passive_reuse},
+     {group, ftpes_active_reuse},
+     {group, ftps_passive_reuse},
+     {group, ftps_active_reuse},
      {group, ftp_sup},
      app,
      appup,
      error_ehost,
+     error_datafail,
      clean_shutdown
     ].
 
@@ -64,8 +71,14 @@ groups() ->
     [
      {ftp_passive, [], ftp_tests()},
      {ftp_active, [], ftp_tests()},
-     {ftps_passive, [], ftp_tests()},
-     {ftps_active, [], ftp_tests()},
+     {ftpes_passive, [], ftp_tests_smoke()},
+     {ftpes_active, [], ftp_tests_smoke()},
+     {ftps_passive, [], ftp_tests_smoke()},
+     {ftps_active, [], ftp_tests_smoke()},
+     {ftpes_passive_reuse, [], ftp_tests_smoke()},
+     {ftpes_active_reuse, [], ftp_tests_smoke()},
+     {ftps_passive_reuse, [], ftp_tests_smoke()},
+     {ftps_active_reuse, [], ftp_tests_smoke()},
      {ftp_sup, [], ftp_sup_tests()}
     ].
 
@@ -108,9 +121,13 @@ ftp_tests()->
      unexpected_bang
     ].
 
+ftp_tests_smoke() ->
+    [
+     ls
+    ].
+
 ftp_sup_tests() ->
     [
-     start_ftp,
      ftp_worker
     ].
 
@@ -144,28 +161,83 @@ ftp_sup_tests() ->
                   ConfFile = filename:join(DataDir, "vsftpd.conf"),
                   PrivDir = proplists:get_value(priv_dir,__CONF__),
                   AnonRoot = PrivDir,
-                  Cmd = [AbsName ++" "++filename:join(DataDir,"vsftpd.conf"),
-                         " -oftpd_banner=erlang_otp_testing",
-                         " -oanon_root=\"",AnonRoot,"\"",
-                         " -orsa_cert_file=\"",filename:join(DataDir,"server-cert.pem"),"\"",
-                         " -orsa_private_key_file=\"",filename:join(DataDir,"server-key.pem"),"\""
-                        ],
-                  Result = os:cmd(Cmd),
-                  ct:log("Config file:~n~s~n~nServer start command:~n  ~s~nResult:~n  ~p",
-                         [case file:read_file(ConfFile) of
-                              {ok,X} -> X;
-                              _ -> ""
+                  Cmd0 = AbsName,
+                  Args0 = [filename:join(DataDir,"vsftpd.conf"),
+                           "-oftpd_banner=erlang_otp_testing",
+                           "-oanon_root=\"" ++ AnonRoot ++ "\""
+                          ],
+                  Args1 = lists:append(Args0, case proplists:get_value(name, proplists:get_value(tc_group_properties,__CONF__,[])) of
+                      ftp_active -> ["-opasv_enable=NO"];
+                      ftp_passive -> ["-oport_enable=NO"];
+                      _ -> []
+                  end),
+                  Args = case proplists:get_value(ftpd_ssl,__CONF__) of
+                      true ->
+                          A0 = [
+                                "-ossl_enable=YES",
+                                "-orsa_cert_file=\"" ++ filename:join(DataDir,"server-cert.pem") ++ "\"",
+                                "-orsa_private_key_file=\"" ++ filename:join(DataDir,"server-key.pem") ++ "\"",
+                                "-oforce_anon_logins_ssl=YES",
+                                "-oforce_anon_data_ssl=YES"
+                               ],
+                          A1 = case proplists:get_value(ftpd_ssl_reuse,__CONF__) of
+                              true -> ["-orequire_ssl_reuse=YES"];
+                              _ -> []
                           end,
-                          Cmd, Result
-                         ]),
-                  case Result of
-                      [] -> {ok,'dont care'};
-                      [Msg] -> {error,Msg}
+                          A2 = case proplists:get_value(ftpd_ssl_implicit,__CONF__) of
+                              true -> ["-oimplicit_ssl=YES"];
+                              _ -> []
+                          end,
+                          lists:append([Args1, A0, A1, A2]);
+                      _ ->
+                          Args1
+                  end,
+                  % eof on stdin does not kill vsftpd
+                  Cmd = "script -qefc '" ++ "stty -echo intr ^D && exec " ++ string:join([Cmd0|Args], " ") ++ "' /dev/null",
+                  Parent = self(),
+                  Helper = spawn(fun() ->
+                      case os:cmd("ps ax | grep erlang_otp_testing | awk '/vsftpd/{print $1}'") of
+                          [] ->
+                              % OpenSSL system_default_sect CipherString may reject the SHA1 signed testing certificates
+                              case open_port({spawn,Cmd},[{env,[{"OPENSSL_CONF","/dev/null"}]},exit_status]) of
+                                  Port when is_port(Port) ->
+                                      timer:sleep(500),        % give it a chance to actually open the listening socket
+                                      Parent ! {ok,Port},
+                                      receive {From,close} ->
+                                          true = erlang:port_command(Port, [4]),
+                                          receive {Port,{exit_status,Status}} ->
+                                              ct:log("vsftpd exit with status ~b", [Status - 128])
+                                          after 500 ->
+                                              ct:log("vsftpd requires violence", []),
+                                              os:cmd("kill -9 `ps ax | grep erlang_otp_testing | awk '/vsftpd/{print $1}'`")
+                                          end,
+                                          From ! ok
+                                      end;
+                                  _Else ->
+                                      Parent ! {error,open_port}
+                              end;
+                          OSPids ->
+                              Parent ! {error,{existing,OSPids}}
+                      end
+                  end),
+                  receive
+                      {ok,Port} ->
+                          ct:log("Config file:~n~s~n~nServer start command:~n  ~s~nResult:~n  ~p",
+                                  [case file:read_file(ConfFile) of
+                                      {ok,X} -> X;
+                                      _ -> ""
+                                  end,
+                                  Cmd, erlang:port_info(Port)
+                          ]),
+                          {ok, {Helper, Port}};
+                      {error,_} = Error ->
+                          ct:fail("open_port: ~p", [Error]),
+                          Error
                   end
           end,
-          fun(_StartResult) -> os:cmd("ps ax | grep erlang_otp_testing | grep -v grep")
+          fun(_StartResult = {_Helper, Port}) -> erlang:port_info(Port)
           end,
-          fun(_StartResult) -> os:cmd("kill `ps ax | grep erlang_otp_testing | awk '/vsftpd/{print $1}'`")
+          fun(_StartResult = {Helper, _Port}) -> Helper ! {self(), close}, receive ok -> ok end
           end,
           fun(__CONF__) ->
                   AnonRoot = proplists:get_value(priv_dir,__CONF__),
@@ -180,73 +252,84 @@ ftp_sup_tests() ->
 
 
 init_per_suite(Config) ->
+    % remove anything defunct from previoused crashed runs
+    os:cmd("kill -9 `ps ax | grep erlang_otp_testing | awk '/vsftpd/{print $1}'`"),
+
     case find_executable(Config) of
         false ->
             {skip, "No ftp server found"};
         {ok,Data} ->
             TstDir = filename:join(proplists:get_value(priv_dir,Config), "test"),
             file:make_dir(TstDir),
-            %% make_cert_files(dsa, rsa, "server-", proplists:get_value(data_dir,Config)),
             ftp_test_lib:make_cert_files(proplists:get_value(data_dir,Config)),
-            start_ftpd([{test_dir,TstDir},
-                        {ftpd_data,Data}
-                        | Config])
+            [{test_dir,TstDir},{ftpd_data,Data} | Config]
     end.
 
-end_per_suite(Config) ->
-    ps_ftpd(Config),
-    stop_ftpd(Config),
-    ps_ftpd(Config),
+end_per_suite(_Config) ->
     ok.
 
 %%--------------------------------------------------------------------
-init_per_group(Group, Config) when Group == ftps_active,
-                                   Group == ftps_passive ->
+init_per_group(Group, Config) when Group == ftpes_passive;
+                                   Group == ftpes_active;
+                                   Group == ftps_passive;
+                                   Group == ftps_active;
+                                   Group == ftpes_passive_reuse;
+                                   Group == ftpes_active_reuse;
+                                   Group == ftps_passive_reuse;
+                                   Group == ftps_active_reuse ->
     catch crypto:stop(),
     try crypto:start() of
-        ok ->
-            Config
+        ok when Group == ftpes_passive; Group == ftpes_active ->
+            start_ftpd([{ftpd_ssl,true}|Config]);
+        ok when Group == ftps_passive; Group == ftps_active ->
+            start_ftpd([{ftpd_ssl,true},{ftpd_ssl_implicit,true}|Config]);
+        ok when Group == ftpes_passive_reuse; Group == ftpes_active_reuse ->
+            start_ftpd([{ftpd_ssl,true},{ftpd_ssl_reuse,true}|Config]);
+        ok when Group == ftps_passive_reuse; Group == ftps_active_reuse ->
+            start_ftpd([{ftpd_ssl,true},{ftpd_ssl_reuse,true},{ftpd_ssl_implicit,true}|Config])
     catch
         _:_ ->
             {skip, "Crypto did not start"}
     end;
-init_per_group(ftp_sup, Config) ->
-    try ftp:start() of
-        ok ->
-            Config
-    catch
-        _:_ ->
-            {skip, "Ftp did not start"}
-    end;
+
 init_per_group(_Group, Config) ->
-    Config.
+    start_ftpd(Config).
 
-
-end_per_group(ftp_sup, Config) ->
-    ftp:stop(),
-    Config;
 end_per_group(_Group, Config) ->
+    stop_ftpd(Config),
     Config.
 
 %%--------------------------------------------------------------------
 init_per_testcase(T, Config0) when T =:= app; T =:= appup ->
     Config0;
 init_per_testcase(Case, Config0) ->
+    application:ensure_started(ftp),
+    case Case of
+        error_datafail ->
+            catch crypto:stop(),
+            try crypto:start() of
+                ok ->
+                    Config = start_ftpd([{ftpd_ssl,true},{ftpd_ssl_reuse,true}|Config0]),
+                    init_per_testcase2(Case, Config)
+            catch
+                _:_ ->
+                    {skip, "Crypto did not start"}
+            end;
+        clean_shutdown ->
+            Config = start_ftpd(Config0),
+            init_per_testcase2(Case, Config);
+        _ ->
+            init_per_testcase2(Case, Config0)
+    end.
+
+init_per_testcase2(Case, Config0) ->
     Group = proplists:get_value(name, proplists:get_value(tc_group_properties,Config0)),
 
-    %% Workaround for interoperability issues with vsftpd =< 3.0.2:
-    %%
-    %% vsftpd =< 3.0.2 does not support ECDHE ciphers and the ssl application
-    %% removed ciphers with RSA key exchange from its default cipher list.
-    %% To allow interoperability with old versions of vsftpd, cipher suites
-    %% with RSA key exchange are appended to the default cipher list.
-    All = ssl:cipher_suites(all, 'tlsv1.2'),
-    Default = ssl:cipher_suites(default, 'tlsv1.2'),
-    RSASuites =
-        ssl:filter_cipher_suites(All, [{key_exchange, fun(rsa) -> true;
-                                                         (_) -> false end}]),
-    Suites = ssl:append_cipher_suites(RSASuites, Default),
-    TLS = [{tls,[{reuse_sessions,true},{ciphers, Suites}]}],
+    TLSB = vsftpd_tls(),
+    TLS = [{tls,TLSB}],
+    SSL = [{tls_sec_method,ftps}|TLS],
+    TLSReuse = [{tls_ctrl_session_reuse,true}|TLS],
+    SSLReuse = [{tls_sec_method,ftps}|TLSReuse],
     ACTIVE = [{mode,active}],
     PASSIVE = [{mode,passive}],
     CaseOpts = case Case of
@@ -257,12 +340,18 @@ init_per_testcase(Case, Config0) ->
     ExtraOpts = [{verbose,true} | CaseOpts],
     Config =
         case Group of
-            ftp_active   -> ftp__open(Config0,       ACTIVE  ++ ExtraOpts);
-            ftps_active  -> ftp__open(Config0, TLS++ ACTIVE  ++ ExtraOpts);
-            ftp_passive  -> ftp__open(Config0,      PASSIVE  ++ ExtraOpts);
-            ftps_passive -> ftp__open(Config0, TLS++PASSIVE  ++ ExtraOpts);
-            ftp_sup      -> ftp_start_service(Config0, ACTIVE  ++ ExtraOpts);
-            undefined    -> Config0
+            ftp_active          -> ftp__open(Config0,              ACTIVE ++ ExtraOpts);
+            ftpes_active        -> ftp__open(Config0, TLS      ++  ACTIVE ++ ExtraOpts);
+            ftps_active         -> ftp__open(Config0, SSL      ++  ACTIVE ++ ExtraOpts);
+            ftp_passive         -> ftp__open(Config0,             PASSIVE ++ ExtraOpts);
+            ftpes_passive       -> ftp__open(Config0, TLS      ++ PASSIVE ++ ExtraOpts);
+            ftps_passive        -> ftp__open(Config0, SSL      ++ PASSIVE ++ ExtraOpts);
+            ftpes_passive_reuse -> ftp__open(Config0, TLSReuse ++ PASSIVE ++ ExtraOpts);
+            ftpes_active_reuse  -> ftp__open(Config0, TLSReuse ++  ACTIVE ++ ExtraOpts);
+            ftps_passive_reuse  -> ftp__open(Config0, SSLReuse ++ PASSIVE ++ ExtraOpts);
+            ftps_active_reuse   -> ftp__open(Config0, SSLReuse ++  ACTIVE ++ ExtraOpts);
+            ftp_sup             -> ftp__open(Config0, ACTIVE ++ ExtraOpts);
+            undefined           -> Config0
         end,
     case Case of
         user           -> Config;
@@ -271,18 +360,27 @@ init_per_testcase(Case, Config0) ->
         error_ehost    -> Config;
         clean_shutdown -> Config;
         _ ->
-            Pid = proplists:get_value(ftp,Config),
+            ConfigN = if
+                Case == error_datafail ->
+                    ftp__open(Config, TLS++PASSIVE++ExtraOpts);
+                true ->
+                    Config
+            end,
+            Pid = proplists:get_value(ftp,ConfigN),
             ok = ftp:user(Pid, ?FTP_USER, ?FTP_PASS(atom_to_list(Group)++"-"++atom_to_list(Case)) ),
-            ok = ftp:cd(Pid, proplists:get_value(priv_dir,Config)),
-            Config
+            ok = ftp:cd(Pid, proplists:get_value(priv_dir,ConfigN)),
+            ConfigN
     end.
 
-end_per_testcase(T, _Config) when  T =:= app; T =:= appup -> ok;
+end_per_testcase(T, _Config) when T =:= app; T =:= appup -> ok;
 end_per_testcase(user, _Config) -> ok;
 end_per_testcase(bad_user, _Config) -> ok;
 end_per_testcase(error_elogin, _Config) -> ok;
 end_per_testcase(error_ehost, _Config) -> ok;
-end_per_testcase(clean_shutdown, _Config) -> ok;
+end_per_testcase(T, Config) when T =:= error_datafail; T =:= clean_shutdown ->
+    T == error_datafail andalso ftp__close(Config),
+    stop_ftpd(Config),
+    ok;
 end_per_testcase(_Case, Config) ->
     case proplists:get_value(tc_status,Config) of
         ok -> ok;
@@ -301,6 +399,25 @@ end_per_testcase(_Case, Config) ->
         _Else ->
             ftp__close(Config)
     end.
+
+vsftpd_tls() ->
+    %% Workaround for interoperability issues with vsftpd =< 3.0.2:
+    %%
+    %% vsftpd =< 3.0.2 does not support ECDHE ciphers and the ssl application
+    %% removed ciphers with RSA key exchange from its default cipher list.
+    %% To allow interoperability with old versions of vsftpd, cipher suites
+    %% with RSA key exchange are appended to the default cipher list.
+    All = ssl:cipher_suites(all, 'tlsv1.2'),
+    Default = ssl:cipher_suites(default, 'tlsv1.2'),
+    RSASuites =
+        ssl:filter_cipher_suites(All, [{key_exchange, fun(rsa) -> true;
+                                                         (_) -> false end}]),
+    Suites = ssl:append_cipher_suites(RSASuites, Default),
+    [
+        {ciphers,Suites},
+        %% vsftpd =< 3.0.3 gets upset with anything later than tlsv1.2
+        {versions,['tlsv1.2']}
+    ].
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -490,7 +607,7 @@ send_bin(Config0) ->
     {error, enotbinary} = ftp:send_bin(Pid, "some string", id2ftp(File,Config)),
     ok = ftp:send_bin(Pid, BinContents, id2ftp(File,Config)),
     chk_file(File, BinContents, Config),
-    {error, efnamena} = ftp:send_bin(Pid, BinContents, "/nothere"),
+    {error, efnamena} = ftp:send_bin(Pid, BinContents, "/nothere/nohere"),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -890,31 +1007,11 @@ clean_shutdown(Config) ->
             exit(HelperPid, shutdown),
             timer:sleep(2000),
             error_logger:logfile(close),
-            case is_error_report_6035(LogFile) of
-                true ->  ok;
-                false -> {fail, "Bad logfile"}
+            case unwanted_error_report(LogFile) of
+                true ->  {fail, "Bad logfile"};
+                false -> ok
             end
     end.
-
-%%-------------------------------------------------------------------------
-start_ftp() ->
-    [{doc, "Start/stop of ftp service"}].
-start_ftp(Config) ->
-    Pid0 = proplists:get_value(ftp,Config),
-    Pids0 = [ServicePid || {_, ServicePid} <- ftp:services()],
-    true = lists:member(Pid0, Pids0),
-    {ok, [_|_]} = ftp:service_info(Pid0),
-    ftp:stop_service(Pid0),
-    ct:sleep(100),
-    Pids1 =  [ServicePid || {_, ServicePid} <- ftp:services()],
-    false = lists:member(Pid0, Pids1),
-
-    Host = proplists:get_value(ftpd_host,Config),
-    Port = proplists:get_value(ftpd_port,Config),
-
-    {ok, Pid1} = ftp:start_standalone([{host, Host},{port, Port}]),
-    Pids2 =  [ServicePid || {_, ServicePid} <- ftp:services()],
-    false = lists:member(Pid1, Pids2).
 
 %%-------------------------------------------------------------------------
 ftp_worker() ->
@@ -924,7 +1021,7 @@ ftp_worker(Config) ->
     Pid = proplists:get_value(ftp,Config),
     case supervisor:which_children(ftp_sup) of
         [{_,_, worker, [ftp]}] ->
-            ftp:stop_service(Pid),
+            ftp:close(Pid),
             ct:sleep(5000),
             [] = supervisor:which_children(ftp_sup),
             ok;
@@ -961,6 +1058,39 @@ error_elogin(Config0) ->
 error_ehost(_Config) ->
     {error, ehost} = ftp:open("nohost.nodomain"),
     ok.
+
+%%%----------------------------------------------------------------
+error_datafail() ->
+    [{doc, "Test that failure to open data channel captures "
+     "error emitted on ctrl chanenel"}].
+
+error_datafail(Config) ->
+    Self = self(),
+    Pid = proplists:get_value(ftp, Config),
+    % ftp:latest_ctrl_response/1 returns {error,eclosed}
+    % and erlang:group_leader/2 does not work under ct
+    dbg:start(),
+    dbg:tracer(process, {fun
+        ({trace,P,call,{ftp,verbose,[M,_,'receive']}}, ok) when P == Pid -> Self ! M, ok;
+        (_, ok) -> ok
+    end, ok}),
+    dbg:tpl(ftp, verbose, []),
+    dbg:p(Pid, [call]),
+    {error,_} = ftp:ls(Pid),
+    dbg:stop_clear(),
+    Recv = fun(Recv) ->
+        receive
+            Msg when is_list(Msg) ->
+                case string:find(Msg, "session reuse required") of
+                    nomatch -> Recv(Recv);
+                    _ -> ok
+                end
+            after 2000 ->
+                {fail, "missing error stating 'session reuse required'"}
+        end
+    end,
+    Result = Recv(Recv),
+    Result.
 
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
@@ -1072,16 +1202,21 @@ start_ftpd(Config0) ->
             Config = [{ftpd_host,Host},
                       {ftpd_port,Port},
                       {ftpd_start_result,StartResult} | ConfigRewrite(Config0)],
+            Options = case proplists:get_value(ftpd_ssl_implicit, Config) of
+                true -> [{tls,vsftpd_tls()},{tls_sec_method,ftps}];
+                _ -> [] % we do not need to test AUTH TLS
+            end,
             try
-                ftp__close(ftp__open(Config,[{verbose,true}]))
+                ftp__close(ftp__open(Config,[{verbose,true}|Options]))
             of
                 Config1 when is_list(Config1) ->
-                    ct:log("Usuable ftp server ~p started on ~p:~p",[AbsName,Host,Port]),
+                    ct:log("Usable ftp server ~p started on ~p:~p",[AbsName,Host,Port]),
                     Config
             catch
                 Class:Exception ->
                     ct:log("Ftp server ~p started on ~p:~p but is unusable:~n~p:~p",
                            [AbsName,Host,Port,Class,Exception]),
+                    catch stop_ftpd(Config),
                     {skip, [AbsName," started but unusuable"]}
             end;
         {error,Msg} ->
@@ -1092,16 +1227,12 @@ stop_ftpd(Config) ->
     {_Name,_StartCmd,_ChkUp,StopCommand,_ConfigUpd,_Host,_Port} = proplists:get_value(ftpd_data, Config),
     StopCommand(proplists:get_value(ftpd_start_result,Config)).
 
-ps_ftpd(Config) ->
-    {_Name,_StartCmd,ChkUp,_StopCommand,_ConfigUpd,_Host,_Port} = proplists:get_value(ftpd_data, Config),
-    ct:log( ChkUp(proplists:get_value(ftpd_start_result,Config)) ).
-
-
 ftpd_running(Config) ->
     {_Name,_StartCmd,ChkUp,_StopCommand,_ConfigUpd,_Host,_Port} = proplists:get_value(ftpd_data, Config),
-    ChkUp(proplists:get_value(ftpd_start_result,Config)).
+    undefined =/= ChkUp(proplists:get_value(ftpd_start_result,Config)).
 
 ftp__open(Config, Options) ->
+    application:ensure_started(ftp),
     Host = proplists:get_value(ftpd_host,Config),
     Port = proplists:get_value(ftpd_port,Config),
     ct:log("Host=~p, Port=~p",[Host,Port]),
@@ -1264,11 +1395,11 @@ progress_report_receiver_loop(Parent, N) ->
 %%%----------------------------------------------------------------
 %%% Help functions for bug OTP-6035
 
-is_error_report_6035(LogFile) ->
+unwanted_error_report(LogFile) ->
     case file:read_file(LogFile) of
         {ok, Bin} ->
             nomatch =/= binary:match(Bin, <<"=ERROR REPORT====">>);
         _ ->
-            false
+            ct:fail({no_logfile, LogFile})
     end.
 

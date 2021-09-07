@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,6 +29,9 @@
 
 -include("inet_int.hrl").
 -include("file.hrl").
+
+-define(module_socket(Handler, Handle),
+        {'$inet', (Handler), (Handle)}).
 
 -type option() ::
         {active,          true | false | once | -32768..32767} |
@@ -88,7 +91,6 @@
         nodelay |
         packet |
         packet_size |
-        pktoptions |
         priority |
         {raw,
          Protocol :: non_neg_integer(),
@@ -153,7 +155,7 @@ connect(Address, Port, Opts) ->
                      {ok, Socket} | {error, Reason} when
       Address :: inet:socket_address() | inet:hostname(),
       Port :: inet:port_number(),
-      Options :: [connect_option()],
+      Options :: [inet:inet_backend() | connect_option()],
       Timeout :: timeout(),
       Socket :: socket(),
       Reason :: timeout | inet:posix().
@@ -204,7 +206,7 @@ try_connect([], _Port, _Opts, _Timer, _Mod, Err) ->
 
 -spec listen(Port, Options) -> {ok, ListenSocket} | {error, Reason} when
       Port :: inet:port_number(),
-      Options :: [listen_option()],
+      Options :: [inet:inet_backend() | listen_option()],
       ListenSocket :: socket(),
       Reason :: system_limit | inet:posix().
 
@@ -232,7 +234,7 @@ listen(Port, Opts0) ->
       Socket :: socket(),
       Reason :: closed | system_limit | inet:posix().
 
-accept({'$inet', GenTcpMod, _} = S) when is_atom(GenTcpMod) ->
+accept(?module_socket(GenTcpMod, _) = S) when is_atom(GenTcpMod) ->
     GenTcpMod:?FUNCTION_NAME(S, infinity);
 accept(S) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -248,7 +250,7 @@ accept(S) when is_port(S) ->
       Socket :: socket(),
       Reason :: closed | timeout | system_limit | inet:posix().
 
-accept({'$inet', GenTcpMod, _} = S, Time) when is_atom(GenTcpMod) ->
+accept(?module_socket(GenTcpMod, _) = S, Time) when is_atom(GenTcpMod) ->
     GenTcpMod:?FUNCTION_NAME(S, Time);
 accept(S, Time) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -267,7 +269,7 @@ accept(S, Time) when is_port(S) ->
       How :: read | write | read_write,
       Reason :: inet:posix().
 
-shutdown({'$inet', GenTcpMod, _} = S, How) when is_atom(GenTcpMod) ->
+shutdown(?module_socket(GenTcpMod, _) = S, How) when is_atom(GenTcpMod) ->
     GenTcpMod:?FUNCTION_NAME(S, How);
 shutdown(S, How) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -284,7 +286,7 @@ shutdown(S, How) when is_port(S) ->
 -spec close(Socket) -> ok when
       Socket :: socket().
 
-close({'$inet', GenTcpMod, _} = S) when is_atom(GenTcpMod) ->
+close(?module_socket(GenTcpMod, _) = S) when is_atom(GenTcpMod) ->
     GenTcpMod:?FUNCTION_NAME(S);
 close(S) ->
     inet:tcp_close(S).
@@ -296,9 +298,10 @@ close(S) ->
 -spec send(Socket, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
       Packet :: iodata(),
-      Reason :: closed | inet:posix().
+      Reason :: closed | {timeout, RestData} | inet:posix(),
+      RestData :: binary().
 
-send({'$inet', GenTcpMod, _} = S, Packet) when is_atom(GenTcpMod) ->
+send(?module_socket(GenTcpMod, _) = S, Packet) when is_atom(GenTcpMod) ->
     GenTcpMod:?FUNCTION_NAME(S, Packet);
 send(S, Packet) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -319,7 +322,7 @@ send(S, Packet) when is_port(S) ->
       Reason :: closed | inet:posix(),
       HttpPacket :: term().
 
-recv({'$inet', GenTcpMod, _} = S, Length) when is_atom(GenTcpMod) ->
+recv(?module_socket(GenTcpMod, _) = S, Length) when is_atom(GenTcpMod) ->
     GenTcpMod:?FUNCTION_NAME(S, Length, infinity);
 recv(S, Length) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -337,7 +340,7 @@ recv(S, Length) when is_port(S) ->
       Reason :: closed | timeout | inet:posix(),
       HttpPacket :: term().
 
-recv({'$inet', GenTcpMod, _} = S, Length, Time) when is_atom(GenTcpMod) ->
+recv(?module_socket(GenTcpMod, _) = S, Length, Time) when is_atom(GenTcpMod) ->
     GenTcpMod:?FUNCTION_NAME(S, Length, Time);
 recv(S, Length, Time) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -347,7 +350,7 @@ recv(S, Length, Time) when is_port(S) ->
 	    Error
     end.
 
-unrecv({'$inet', GenTcpMod, _} = S, Data) when is_atom(GenTcpMod) ->
+unrecv(?module_socket(GenTcpMod, _) = S, Data) when is_atom(GenTcpMod) ->
     GenTcpMod:?FUNCTION_NAME(S, Data);
 unrecv(S, Data) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -366,7 +369,7 @@ unrecv(S, Data) when is_port(S) ->
       Pid :: pid(),
       Reason :: closed | not_owner | badarg | inet:posix().
 
-controlling_process({'$inet', GenTcpMod, _} = S, NewOwner)
+controlling_process(?module_socket(GenTcpMod, _) = S, NewOwner)
   when is_atom(GenTcpMod) ->
     GenTcpMod:?FUNCTION_NAME(S, NewOwner);
 controlling_process(S, NewOwner) ->

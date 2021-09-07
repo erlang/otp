@@ -189,7 +189,7 @@ init_per_testcase2(size_check_mnesia, Config) when is_list(Config) ->
     Config;
 init_per_testcase2(cache_test, Config) when is_list(Config) ->
     Factor = ?config(snmp_factor, Config),
-    ct:timetrap(?MINS(5 + (Factor div 2))),
+    ct:timetrap(?MINS(10 + (Factor div 2))),
     Config;
 init_per_testcase2(_Case, Config) when is_list(Config) ->
     Factor = ?config(snmp_factor, Config),
@@ -206,8 +206,6 @@ end_per_testcase1(size_check_mnesia, Config) when is_list(Config) ->
     mnesia_stop(),
     Config;
 end_per_testcase1(cache_test, Config) when is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
     Config;
 end_per_testcase1(_Case, Config) when is_list(Config) ->
     Config.
@@ -552,9 +550,10 @@ cache_test(Config) when is_list(Config) ->
            fun() -> do_cache_test(Config) end).
 
 do_cache_test(Config) ->
-    ?DBG("do_cache_test -> start", []),
+    ?IPRINT("cache_test -> start"),
     Prio       = normal,
-    Verbosity  = trace,
+    %% Verbosity  = trace,
+    Verbosity  = info,
     MibStorage = [{module, snmpa_mib_storage_ets}],
     MibDir     = ?config(data_dir, Config),
     StdMibDir  = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
@@ -565,77 +564,213 @@ do_cache_test(Config) ->
 		  "SNMP-MPD-MIB",
 		  "SNMP-NOTIFICATION-MIB",
 		  "SNMP-TARGET-MIB",
-		  %% "SNMP-USER-BASED-SM-MIB",
+		  "SNMP-USER-BASED-SM-MIB",
 		  "SNMP-VIEW-BASED-ACM-MIB",
 		  "SNMPv2-MIB",
 		  "SNMPv2-TC",
 		  "SNMPv2-TM"],
 
-    ?DBG("cache_test -> start symbolic store", []),
-    ?line sym_start(Prio, MibStorage, Verbosity),
+    ?IPRINT("cache_test -> start symbolic store"),
+    ?line sym_start(Prio, MibStorage, silence), % Verbosity),
 
-    ?DBG("cache_test -> start mib server", []),
-    GcLimit   = 2, 
-    Age       = timer:seconds(10), 
-    CacheOpts = [{autogc, false}, {age, Age}, {gclimit, GcLimit}],
+    ?IPRINT("cache_test -> start mib server"),
+    GcLimit   = 3,
+    Age       = timer:seconds(10),
+    CacheOpts = [{autogc,    false},
+                 {age,       Age},
+                 {gclimit,   GcLimit},
+                 {gcverbose, true}],
     ?line MibsPid = mibs_start(Prio, MibStorage, [], Verbosity, CacheOpts), 
     
-    ?DBG("cache_test -> load mibs", []),
+    ?NPRINT("Info before load mibs: "
+            "~n      ~p", [snmpa_mib:info(MibsPid)]),
+
+    ?IPRINT("cache_test -> load mibs"),
     ?line load_mibs(MibsPid, MibDir, Mibs),
-    ?DBG("cache_test -> load std mibs", []),
+
+    ?NPRINT("Info before load std mibs: "
+            "~n      ~p", [snmpa_mib:info(MibsPid)]),
+
+    ?IPRINT("cache_test -> load std mibs"),
     ?line load_mibs(MibsPid, StdMibDir, StdMibs),
 
-    ?DBG("cache_test -> do a simple walk to populate the cache", []),
-    ?line ok = walk(MibsPid),
-     
-    {ok, Sz1} = snmpa_mib:which_cache_size(MibsPid),
-    ?DBG("cache_test -> Size1: ~p", [Sz1]),
+    ?NPRINT("Info (after mibs load but) before populate: "
+            "~n      ~p", [snmpa_mib:info(MibsPid)]),
 
-    ?DBG("cache_test -> sleep 5 secs", []),
+    ?IPRINT("cache_test -> populate the cache"),
+    ?line ok = populate(MibsPid),
+
+    ?NPRINT("Info after populate: "
+            "~n      ~p", [snmpa_mib:info(MibsPid)]),
+
+    Sz1 = cache_sz_verify(1, MibsPid, any),
+
+    ?IPRINT("cache_test -> sleep 5 secs"),
     ?SLEEP(timer:seconds(5)),
 
-    ?DBG("cache_test -> perform gc, expect nothing", []),
-    {ok, 0} = snmpa_mib:gc_cache(MibsPid),
+    _ = cache_gc_verify(1, MibsPid),
 
-    ?DBG("cache_test -> sleep 10 secs", []),
+    ?NPRINT("Info after 5 sec sleep: "
+            "~n      ~p", [snmpa_mib:info(MibsPid)]),
+
+    ?IPRINT("cache_test -> sleep 10 secs"),
     ?SLEEP(timer:seconds(10)),
 
-    ?DBG("cache_test -> perform gc, expect GcLimit", []),
-    GcLimit1 = GcLimit + 1, 
-    {ok, GcLimit1} = snmpa_mib:gc_cache(MibsPid, Age, GcLimit1),
+    ?NPRINT("Info after 10 sec sleep: "
+            "~n      ~p", [snmpa_mib:info(MibsPid)]),
 
-    Sz2 = Sz1 - GcLimit1, 
-    {ok, Sz2} = snmpa_mib:which_cache_size(MibsPid),
-    ?DBG("cache_test -> Size2: ~p", [Sz2]),
+    GcLimit1 = cache_gc_verify(2, MibsPid, Age, GcLimit + 1),
 
-    ?DBG("cache_test -> enable cache autogc", []),
+    Sz2 = cache_sz_verify(2, MibsPid, Sz1 - GcLimit1),
+
+
+    ?IPRINT("cache_test -> subscribe to GC events"),
+    ?line ok = snmpa_mib:subscribe_gc_events(MibsPid),
+
+    ?IPRINT("cache_test -> enable cache autogc"),
     ?line ok = snmpa_mib:enable_cache_autogc(MibsPid),
 
-    ?DBG("cache_test -> wait 65 seconds to allow gc to happen", []),
+    ?IPRINT("cache_test -> wait 65 seconds to allow gc to happen"),
     ?SLEEP(timer:seconds(65)),
-    Sz3 = Sz2 - GcLimit, 
-    {ok, Sz3} = snmpa_mib:which_cache_size(MibsPid),
-    ?DBG("cache_test -> Size3: ~p", [Sz3]),
 
-    ?DBG("cache_test -> "
-	 "wait 2 minutes to allow gc to happen, expect empty cache", []),
+    ?NPRINT("Info after 65 sec sleep: "
+            "~n      ~p", [snmpa_mib:info(MibsPid)]),
+
+    ?IPRINT("cache_test -> [1] flush expected GC events"),
+    {NumEvents1, TotGC1} = cache_flush_gc_events(MibsPid),
+    ?IPRINT("cache_test -> GC events: "
+            "~n      Number of Events:    ~p"
+            "~n      Total elements GCed: ~p", [NumEvents1, TotGC1]),
+
+    _ = cache_sz_verify(3, MibsPid, Sz2 - GcLimit),
+
+    ?IPRINT("cache_test -> "
+            "wait 2 minutes to allow gc to happen, expect empty cache"),
     ?SLEEP(timer:minutes(2)),
-    {ok, 0} = snmpa_mib:which_cache_size(MibsPid),
 
-    ?DBG("cache_test -> stop mib server", []),
+    ?NPRINT("Info after 2 min sleep: "
+            "~n      ~p", [snmpa_mib:info(MibsPid)]),
+
+    _ = cache_sz_verify(4, MibsPid, 0),
+
+
+    ?IPRINT("cache_test -> change gclimit to infinity"),
+    snmpa_mib:update_cache_gclimit(MibsPid, infinity),
+
+    ?IPRINT("cache_test -> change age to ~w mins", [3]),
+    snmpa_mib:update_cache_age(MibsPid, ?MINS(3)),
+
+    ?IPRINT("cache_test -> [2] flush expected GC events"),
+    {NumEvents2, TotGC2} = cache_flush_gc_events(MibsPid),
+    ?IPRINT("cache_test -> GC events: "
+            "~n      Number of Events:    ~p"
+            "~n      Total elements GCed: ~p", [NumEvents2, TotGC2]),
+
+    ?IPRINT("cache_test -> populate the cache again"),
+    populate(MibsPid),
+
+    ?IPRINT("cache_test -> validate cache size"),
+    {ok, Sz4} = snmpa_mib:which_cache_size(MibsPid),
+    if (Sz4 > 0) ->
+            ?IPRINT("cache_test -> expected cache size: ~w > 0", [Sz4]);
+       true      ->
+            ?EPRINT("cache_test -> cache *not* populated"),
+            ?FAIL(cache_not_populated)
+    end,    
+
+    ?NPRINT("Info after poulated: "
+            "~n      ~p", [snmpa_mib:info(MibsPid)]),
+
+    ?IPRINT("cache_test -> wait 2 mins - before tuching some entries"),
+    ?SLEEP(?MINS(2)),
+
+    %% There should not be anything GC:ed
+
+    receive
+        {MibsPid, gc_result, {ok, NGC1}} ->
+            ?EPRINT("cache_test -> unexpected GC of ~w elements", [NGC1]),
+            exit({unexpected_gc_result, NGC1})
+    after 0 ->
+            ok
+    end,
+
+    ?IPRINT("cache_test -> touch some elements again (update the cache)"),
+    populate_lookup(MibsPid),
+
+    ?IPRINT("cache_test -> await partial GC"),
+    NumGC2 =
+        receive
+            {MibsPid, gc_result, {ok, NGC2}} 
+              when (NGC2 > 0) andalso (Sz4 > NGC2) ->
+                ?NPRINT("cache_test -> "
+                        "received partial GC result of ~w elements", [NGC2]),
+                NGC2
+        end,
+
+    ?NPRINT("Info after partial GC: "
+            "~n      ~p", [snmpa_mib:info(MibsPid)]),
+
+
+    ?IPRINT("cache_test -> await final GC"),
+    receive
+        {MibsPid, gc_result, {ok, NGC3}} 
+          when (NGC3 > 0) andalso ((Sz4 - NumGC2) =:= NGC3) ->
+            ?NPRINT("cache_test -> "
+                    "received final GC result of ~w elements", [NGC3]),
+            NGC3;
+        Any ->
+            ?EPRINT("cache_test -> unexpected message: "
+                    "~n      ~p", [Any]),
+            ?FAIL({unexpected, Any})
+    end,
+
+    ?NPRINT("Info after final GC: "
+            "~n      ~p", [snmpa_mib:info(MibsPid)]),
+
+    ?IPRINT("cache_test -> validate cache size (expect empty)"),
+    {ok, Sz5} = snmpa_mib:which_cache_size(MibsPid),
+    if (Sz5 =:= 0) ->
+            ?IPRINT("cache_test -> expected cache size: 0");
+       true      ->
+            ?EPRINT("cache_test -> cache *not* empty (~w)", [Sz5]),
+            ?FAIL({cache_populated, Sz5})
+    end,
+
+
+    ?IPRINT("cache_test -> stop mib server"),
     ?line mibs_stop(MibsPid),
 
-    ?DBG("cache_test -> stop symbolic store", []),
+    ?IPRINT("cache_test -> stop symbolic store"),
     ?line sym_stop(),
+
+    ?IPRINT("cache_test -> end"),
     ok.
 
-walk(MibsPid) ->
+populate(MibsPid) ->
+    %% Make some lookups
+    populate_lookup(MibsPid),
+    %% Make some walk's
+    populate_walk(MibsPid).
+
+populate_lookup(MibsPid) ->    
+    {variable, _} = snmpa_mib:lookup(MibsPid, ?snmpTrapCommunity_instance),
+    {variable, _} = snmpa_mib:lookup(MibsPid, ?vacmViewSpinLock_instance),
+    {variable, _} = snmpa_mib:lookup(MibsPid, ?usmStatsNotInTimeWindows_instance),
+    {variable, _} = snmpa_mib:lookup(MibsPid, ?tDescr_instance),
+    ok.
+
+populate_walk(MibsPid) ->
     MibView = snmpa_acm:get_root_mib_view(),
-    do_walk(MibsPid, ?snmpTrapCommunity_instance, MibView),
-    do_walk(MibsPid, ?vacmViewSpinLock_instance, MibView),
-    do_walk(MibsPid, ?usmStatsNotInTimeWindows_instance, MibView),
-    do_walk(MibsPid, ?tDescr_instance, MibView).
-    
+    walk(MibsPid, ?snmpTrapCommunity_instance,        MibView),
+    walk(MibsPid, ?vacmViewSpinLock_instance,         MibView),
+    walk(MibsPid, ?usmStatsNotInTimeWindows_instance, MibView),
+    walk(MibsPid, ?tDescr_instance,                   MibView),
+    ok.
+
+walk(MibsPid, Oid, MibView) ->
+    ?IPRINT("walk -> entry with"
+            "~n      Oid: ~p", [Oid]),
+    do_walk(MibsPid, Oid, MibView).
 
 do_walk(MibsPid, Oid, MibView) ->
     ?IPRINT("do_walk -> entry with"
@@ -646,12 +781,86 @@ do_walk(MibsPid, Oid, MibView) ->
             ?IPRINT("do_walk -> done for table (~p)", [Oid]),
 	    ok;
 	{table, _, _, #me{oid = Next}} ->
+            ?IPRINT("do_walk -> table next ~p", [Next]),
 	    do_walk(MibsPid, Next, MibView);
 	{variable, #me{oid = Oid}, _} ->
             ?IPRINT("do_walk -> done for variable (~p)", [Oid]),
 	    ok;
 	{variable, #me{oid = Next}, _} ->
+            ?IPRINT("do_walk -> variable next ~p", [Next]),
 	    do_walk(MibsPid, Next, MibView)
+    end.
+
+
+cache_gc_verify(ID, MibsPid) ->
+    GC = fun() -> snmpa_mib:gc_cache(MibsPid) end,
+    cache_gc_verify(ID, GC, 0).
+
+cache_gc_verify(ID, MibsPid, Age, ExpectedGcLimit) ->
+    GC = fun() -> snmpa_mib:gc_cache(MibsPid, Age, ExpectedGcLimit) end,
+    cache_gc_verify(ID, GC, ExpectedGcLimit).
+
+cache_gc_verify(ID, GC, ExpectedGc) ->
+    ?IPRINT("cache_gc_verify -> [~w] perform gc, expect ~w", [ID, ExpectedGc]),
+    case GC() of
+        {ok, ExpectedGc} ->
+            ?IPRINT("cache_gc_verify -> [~w] gc => ok", [ID]),
+            ExpectedGc;
+        {ok, OtherGc} ->
+            ?IPRINT("cache_gc_verify -> [~w] invalid GC limit: "
+                    "~n      Expected: ~p"
+                    "~n      Got:      ~p"
+                    "~n      ~p",
+                    [ID, 0, OtherGc]),
+            exit({ID, invalid_gc_limit, {ExpectedGc, OtherGc}});
+        Unexpected ->
+            ?IPRINT("cache_gc_verify -> [~w] unexpected: "
+                    "~n      ~p",
+                    [ID, Unexpected]),
+            exit({ID, unexpected, Unexpected})
+    end.
+
+
+cache_sz_verify(ID, MibsPid, ExpectedSz) ->
+    ?IPRINT("cache_sz_verify -> [~w] expect size ~w", [ID, ExpectedSz]),
+    case snmpa_mib:which_cache_size(MibsPid) of
+        {ok, ExpectedSz} ->
+            ?IPRINT("cache_sz_verify -> [~w] sz => ok", [ID]),
+            ExpectedSz;
+        {ok, UnexpectedSz} when (ExpectedSz =:= any) ->
+            ?IPRINT("cache_sz_verify -> [~w] sz => ok (~w)", [ID, UnexpectedSz]),
+            UnexpectedSz;
+        {ok, UnexpectedSz} ->
+            ?IPRINT("cache_sz_verify -> [~w] invalid size: "
+                    "~n      Expected: ~p"
+                    "~n      Got:      ~p",
+                    [ID, ExpectedSz, UnexpectedSz]),
+            exit({ID, invalid_size, {ExpectedSz, UnexpectedSz}});
+        Unexpected ->
+            ?IPRINT("cache_sz_verify -> [~w] unexpected: "
+                    "~n      ~p",
+                    [ID, Unexpected]),
+            exit({ID, unexpected, Unexpected})
+    end.
+
+
+cache_flush_gc_events(MibServer) ->
+    cache_flush_gc_events(MibServer, 0, 0).
+
+cache_flush_gc_events(MibServer, NumEvents, TotGC) ->
+    receive
+        {MibServer, gc_result, {ok, NumGC}} ->
+            ?IPRINT("cache_flush_gc_events -> GC event ~w (~w)",
+                    [NumGC, NumEvents]),
+            cache_flush_gc_events(MibServer, NumEvents+1, TotGC+NumGC)
+    after 0 ->
+            if
+                (NumEvents =:= 0) andalso (TotGC =:= 0) ->
+                    ?IPRINT("cache_flush_gc_events -> no GC events"),
+                    exit(no_gc_events);
+                true ->
+                    {NumEvents, TotGC}
+            end
     end.
 
 

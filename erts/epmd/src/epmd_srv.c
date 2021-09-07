@@ -26,6 +26,12 @@
 #include "epmd_int.h"
 #include "erl_printf.h" /* erts_snprintf */
 
+#ifdef __clang_analyzer__
+   /* CodeChecker does not seem to understand inline asm in FD_ZERO */
+#  undef FD_ZERO
+#  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
+#endif
+
 #ifndef INADDR_NONE
 #  define INADDR_NONE 0xffffffff
 #endif
@@ -1047,9 +1053,11 @@ static void do_request(g, fd, s, buf, bsize)
 	      }
 	    dbg_tty_printf(g,1,"** sent STOP_RESP NOEXIST");
 	  }
-
-	conn_close_fd(g,node_fd);
-	dbg_tty_printf(g,1,"epmd connection stopped");
+        else
+          {
+            conn_close_fd(g,node_fd);
+            dbg_tty_printf(g,1,"epmd connection stopped");
+          }
 
 	if (!reply(g, fd,"STOPPED",7))
 	  {
@@ -1162,6 +1170,10 @@ static int conn_local_peer_check(EpmdVars *g, int fd)
 #endif
 
   st = sizeof(si);
+#ifdef __clang_analyzer__
+  /* CodeChecker does not seem to understand getpeername writes to 'si' */
+  memset(&si, 0, sizeof(si));
+#endif
 
   /* Determine if connection is from localhost */
   if (getpeername(fd,(struct sockaddr*) &si,&st) ||
@@ -1434,6 +1446,7 @@ static Node *node_reg2(EpmdVars *g,
 	  (g->debug && (g->nodes.unreg_count > DEBUG_MAX_UNREG_COUNT)))
 	{
 	  /* MAX_UNREG_COUNT > 1 so no need to check unreg_tail */
+          ASSERT(g->nodes.unreg != NULL);
 	  node = g->nodes.unreg;	/* Take first == oldest */
 	  g->nodes.unreg = node->next; /* Link out */
 	  g->nodes.unreg_count--;

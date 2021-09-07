@@ -92,7 +92,7 @@ try_inline(Mod, Config) ->
     %% Normal compilation.
     io:format("Compiling: ~s\n", [Src]),
     {ok,Mod} = compile:file(Src, [{outdir,Out},report,
-                                  bin_opt_info,clint,ssalint]),
+                                  bin_opt_info,recv_opt_info,clint,ssalint]),
 
     ct:timetrap({minutes,10}),
     NormalResult = load_and_call(Out, Mod),
@@ -100,7 +100,7 @@ try_inline(Mod, Config) ->
     %% Inlining.
     io:format("Compiling with old inliner: ~s\n", [Src]),
     {ok,Mod} = compile:file(Src, [{outdir,Out},report,bin_opt_info,
-                                  {inline,1000},clint,ssalint]),
+                                  recv_opt_info,{inline,1000},clint,ssalint]),
 
     %% Run inlined code.
     ct:timetrap({minutes,10}),
@@ -112,8 +112,8 @@ try_inline(Mod, Config) ->
 
     %% Inlining.
     io:format("Compiling with new inliner: ~s\n", [Src]),
-    {ok,Mod} = compile:file(Src, [{outdir,Out},report,
-					bin_opt_info,inline,clint,ssalint]),
+    {ok,Mod} = compile:file(Src, [{outdir,Out},report,bin_opt_info,
+                                  inline,recv_opt_info,clint,ssalint]),
 
     %% Run inlined code.
     ct:timetrap({minutes,10}),

@@ -66,7 +66,7 @@ static void erts_erts_pcre_stack_free(void *ptr) {
 
 #define ERTS_PCRE_STACK_MARGIN (10*1024)
 
-#  define ERTS_STACK_LIMIT ((char *) ethr_get_stacklimit())
+#  define ERTS_STACK_LIMIT ((char *) erts_get_stacklimit())
 
 static int
 stack_guard_downwards(void)
@@ -534,13 +534,14 @@ re_compile(Process* p, Eterm arg1, Eterm arg2)
     int unicode = 0;
     int buffres;
 
-    if (parse_options(arg2,&options,NULL,&pflags,NULL,NULL,NULL,NULL)
-	< 0) {
-	BIF_ERROR(p,BADARG);
+    if (parse_options(arg2,&options,NULL,&pflags,NULL,NULL,NULL,NULL) < 0) {
+    opt_error:
+        p->fvalue = am_badopt;
+	BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     }
 
     if (pflags & PARSE_FLAG_UNIQUE_EXEC_OPT) {
-	BIF_ERROR(p,BADARG);
+        goto opt_error;
     }
 
     unicode = (pflags & PARSE_FLAG_UNICODE) ? 1 : 0;
@@ -1041,6 +1042,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 						    (tmpbsiz = ap->len + 1));
 			    }
 			}
+                        ASSERT(tmpb != NULL);
 			sys_memcpy(tmpb,ap->name,ap->len);
 			tmpb[ap->len] = '\0';
 		    } else {
@@ -1058,7 +1060,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 						    (tmpbsiz = slen + 1));
 			    }
 			}
-
+                        ASSERT(tmpb != NULL);
 			buffres = erts_iolist_to_buf(val, tmpb, slen);
 			ASSERT(buffres >= 0); (void)buffres;
 			tmpb[slen] = '\0';
@@ -1118,7 +1120,8 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
     if (parse_options(arg3,&comp_options,&options,&pflags,&startoffset,capture,
 		      &match_limit,&match_limit_recursion)
 	< 0) {
-	BIF_ERROR(p,BADARG);
+        p->fvalue = am_badopt;
+	BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     }
     if (!first) {
         /*
@@ -1282,7 +1285,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
     }
 
     /*  Optimized - if already in binary off heap, keep that and avoid
-       copying, also binary returns can be sub binaries in that case */
+        copying, also binary returns can be sub binaries in that case. */
 
     restart.flags = 0;
     if (is_binary(arg1)) {
@@ -1297,7 +1300,10 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 
 	slength = binary_size(arg1);
 	bptr = binary_val(real_bin);
-	if (bitsize != 0 || bitoffs != 0 ||  (*bptr != HEADER_PROC_BIN)) {
+	if (bitsize != 0 || bitoffs != 0 || slength <= ERL_ONHEAP_BIN_LIMIT) {
+            /* If this is an unaligned subbinary,
+               or the binary is smaller than the ERL_ONHEAP_BIN_LIMIT
+               we make a copy of the binary. */
 	    goto handle_iolist;
 	}
 	pb = (ProcBin *) bptr;
@@ -1356,7 +1362,7 @@ handle_iolist:
             ERTS_VBUMP_ALL_REDS(p);
             hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
             magic_ref = erts_mk_magic_ref(&hp, &MSO(p), mbp);
-            BIF_TRAP3(&re_exec_trap_export, 
+            BIF_TRAP3(&re_exec_trap_export,
                       p,
                       arg1,
                       arg2 /* To avoid GC of precompiled code, XXX: not utilized yet */,
@@ -1502,7 +1508,7 @@ re_inspect_2(BIF_ALIST_2)
     tp = tuple_val(BIF_ARG_1);
     if (tp[1] != am_re_pattern || is_not_small(tp[2]) || 
 	is_not_small(tp[3]) || is_not_small(tp[4]) || 
-	is_not_binary(tp[5])) {
+	is_not_binary(tp[5]) || binary_size(tp[5]) < 4) {
 	goto error;
     }
     if (BIF_ARG_2 != am_namelist) {

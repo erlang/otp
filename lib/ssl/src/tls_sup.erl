@@ -45,10 +45,10 @@ start_link() ->
 
 init([]) ->    
   
-    TLSConnetionManager = tls_connection_manager_child_spec(),
+    TLSConnetionSup = tls_connection_child_spec(),
     ServerInstanceSup = server_instance_child_spec(), 
 
-    {ok, {{one_for_one, 10, 3600}, [TLSConnetionManager, 
+    {ok, {{one_for_one, 10, 3600}, [TLSConnetionSup, 
 				    ServerInstanceSup
 				   ]}}.
 
@@ -57,7 +57,7 @@ init([]) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-tls_connection_manager_child_spec() ->
+tls_connection_child_spec() ->
     Name = tls_connection,  
     StartFunc = {tls_connection_sup, start_link, []},
     Restart = permanent, 

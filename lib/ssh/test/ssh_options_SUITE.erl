@@ -80,6 +80,7 @@
 	 hostkey_fingerprint_check_sha512/1,
 	 hostkey_fingerprint_check_list/1,
          save_accepted_host_option/1,
+         raw_option/1,
          config_file/1,
          config_file_modify_algorithms_order/1
 	]).
@@ -139,6 +140,7 @@ all() ->
      id_string_own_string_server_trail_space,
      id_string_random_server,
      save_accepted_host_option,
+     raw_option,
      config_file,
      config_file_modify_algorithms_order,
      {group, hardening_tests}
@@ -256,6 +258,7 @@ server_password_option(Config) when is_list(Config) ->
     
     {error, Reason} =
 	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
 				 {user, "vego"},
 				 {password, "foo"},
 				 {user_interaction, false},
@@ -288,12 +291,14 @@ server_userpassword_option(Config) when is_list(Config) ->
 
     {error, Reason} =
 	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
 				 {user, "foo"},
 				 {password, "morot"},
 				 {user_interaction, false},
 				 {user_dir, UserDir}]),
     {error, Reason} =
 	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
 				 {user, "vego"},
 				 {password, "foo"},
 				 {user_interaction, false},
@@ -323,12 +328,14 @@ server_pwdfun_option(Config) ->
     
     {error, Reason} =
 	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
 				 {user, "foo"},
 				 {password, "morot"},
 				 {user_interaction, false},
 				 {user_dir, UserDir}]),
     {error, Reason} =
 	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
 				 {user, "vego"},
 				 {password, "foo"},
 				 {user_interaction, false},
@@ -369,12 +376,14 @@ server_pwdfun_4_option(Config) ->
     
     {error, Reason} =
 	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
 				 {user, "foo"},
 				 {password, "morot"},
 				 {user_interaction, false},
 				 {user_dir, UserDir}]),
     {error, Reason} =
 	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
 				 {user, "fie"},
 				 {password, "morot"},
 				 {user_interaction, false},
@@ -388,6 +397,7 @@ server_pwdfun_4_option(Config) ->
 
     {error, Reason} =
 	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
 				 {user, "bandit"},
 				 {password, "pwd breaking"},
 				 {user_interaction, false},
@@ -591,14 +601,16 @@ user_dir_option(Config) ->
     %% Any port will do (beware, implementation knowledge!):
     Port = 65535,
 
-    case ssh:connect("localhost", Port, [{user_dir, DirUnread}]) of
+    case ssh:connect("localhost", Port, [{user_dir, DirUnread},
+                                         {save_accepted_host, false}]) of
 	{error,{eoptions,{{user_dir,DirUnread},eacces}}} ->
 	    ok;
 	{error,econnrefused} ->
 	    ct:fail("Didn't detect that dir is unreadable", [])
     end,
 
-    case ssh:connect("localhost", Port, [{user_dir, FileRead}]) of
+    case ssh:connect("localhost", Port, [{user_dir, FileRead},
+                                         {save_accepted_host, false}]) of
 	{error,{eoptions,{{user_dir,FileRead},enotdir}}} ->
 	    ok;
 	{error,econnrefused} ->
@@ -968,13 +980,13 @@ do_hostkey_fingerprint_check(Config, HashAlg) ->
 	true ->
 	    really_do_hostkey_fingerprint_check(Config, HashAlg);
 	false when HashAlg == old ->
-	    {skip,{unsupported_hash,md5}};% Happen to know that public_key:ssh_hostkey_fingerprint/1 uses md5...
+	    {skip,{unsupported_hash,md5}};% Happen to know that ssh:hostkey_fingerprint/1 uses md5...
 	false ->
 	    {skip,{unsupported_hash,HashAlg}}
     end.
 
 supported_hash(old) ->
-    supported_hash(md5); % Happen to know that public_key:ssh_hostkey_fingerprint/1 uses md5...
+    supported_hash(md5); % Happen to know that ssh:hostkey_fingerprint/1 uses md5...
 supported_hash(HashAlg) ->
     Hs = if is_atom(HashAlg) -> [HashAlg];
             is_list(HashAlg) -> HashAlg
@@ -986,11 +998,11 @@ really_do_hostkey_fingerprint_check(Config, HashAlg) ->
     UserDir = proplists:get_value(user_dir, Config),
     SysDir = proplists:get_value(data_dir, Config),
 
-    %% All host key fingerprints.  Trust that public_key has checked the ssh_hostkey_fingerprint
+    %% All host key fingerprints.  Trust that public_key has checked the hostkey_fingerprint
     %% function since that function is used by the ssh client...
     FPs0 = [case HashAlg of
-	       old -> public_key:ssh_hostkey_fingerprint(Key);
-	       _ -> public_key:ssh_hostkey_fingerprint(HashAlg, Key)
+	       old -> ssh:hostkey_fingerprint(Key);
+	       _ -> ssh:hostkey_fingerprint(HashAlg, Key)
 	   end
 	   || FileCandidate <- begin
 				   {ok,KeyFileCands} = file:list_dir(SysDir),
@@ -999,7 +1011,7 @@ really_do_hostkey_fingerprint_check(Config, HashAlg) ->
 	      nomatch =/= re:run(FileCandidate, ".*\\.pub", []),
 	      {Key,_Cmnts} <- begin
 				  {ok,Bin} = file:read_file(filename:join(SysDir, FileCandidate)),
-				  try public_key:ssh_decode(Bin, public_key)
+				  try ssh_file:decode(Bin, public_key)
 				  catch
 				      _:_ -> []
 				  end
@@ -1046,6 +1058,7 @@ ssh_connect_timeout(_Config) ->
     {error,{faked_transport,connect,TimeoutToTransport}} = 
 	ssh:connect("localhost", 12345, 
 		    [{transport,{tcp,?MODULE,tcp_closed}},
+                     {save_accepted_host, false},
 		     {connect_timeout,ConnTimeout}],
 		    1000),
     case TimeoutToTransport of
@@ -1084,7 +1097,7 @@ ssh_connect_arg4_timeout(_Config) ->
     %% try to connect with a timeout, but "supervise" it
     Client = spawn(fun() ->
 			   T0 = erlang:monotonic_time(),
-			   Rc = ssh:connect("localhost",Port,[],Timeout),
+			   Rc = ssh:connect("localhost",Port,[{save_accepted_host, false}],Timeout),
 			   ct:log("Client ssh:connect got ~p",[Rc]),
 			   Parent ! {done,self(),Rc,T0}
 		   end),
@@ -1152,7 +1165,7 @@ ssh_daemon_minimal_remote_max_packet_size_option(Config) ->
 %% This test try every algorithm by connecting to an Erlang server
 id_string_no_opt_client(Config) ->
     {Server, _Host, Port} = fake_daemon(Config),
-    {error,_} = ssh:connect("localhost", Port, [], 1000),
+    {error,_} = ssh:connect("localhost", Port, [{save_accepted_host, false}], 1000),
     receive
 	{id,Server,"SSH-2.0-Erlang/"++Vsn} ->
 	    true = expected_ssh_vsn(Vsn);
@@ -1165,7 +1178,9 @@ id_string_no_opt_client(Config) ->
 %%--------------------------------------------------------------------
 id_string_own_string_client(Config) ->
     {Server, _Host, Port} = fake_daemon(Config),
-    {error,_} = ssh:connect("localhost", Port, [{id_string,"Pelle"}], 1000),
+    {error,_} = ssh:connect("localhost", Port, [{id_string,"Pelle"},
+                                                {save_accepted_host, false}
+                                               ], 1000),
     receive
 	{id,Server,"SSH-2.0-Pelle\r\n"} ->
 	    ok;
@@ -1178,7 +1193,8 @@ id_string_own_string_client(Config) ->
 %%--------------------------------------------------------------------
 id_string_own_string_client_trail_space(Config) ->
     {Server, _Host, Port} = fake_daemon(Config),
-    {error,_} = ssh:connect("localhost", Port, [{id_string,"Pelle "}], 1000),
+    {error,_} = ssh:connect("localhost", Port, [{id_string,"Pelle "},
+                                                {save_accepted_host, false}], 1000),
     receive
 	{id,Server,"SSH-2.0-Pelle \r\n"} ->
 	    ok;
@@ -1191,7 +1207,8 @@ id_string_own_string_client_trail_space(Config) ->
 %%--------------------------------------------------------------------
 id_string_random_client(Config) ->
     {Server, _Host, Port} = fake_daemon(Config),
-    {error,_} = ssh:connect("localhost", Port, [{id_string,random}], 1000),
+    {error,_} = ssh:connect("localhost", Port, [{id_string,random},
+                                                {save_accepted_host, false}], 1000),
     receive
 	{id,Server,Id="SSH-2.0-Erlang"++_} ->
 	    ct:fail("Unexpected id: ~s.",[Id]);
@@ -1363,6 +1380,7 @@ connect_fun(ssh_sftp__start_channel, _Config) ->
 	    {ok,_Pid,ConnRef} =
 		ssh_sftp:start_channel(Host, Port, 
 				       [{silently_accept_hosts, true},
+                                        {save_accepted_host, false},
 					{user, "carni"},
 					{password, "meat"}
 				       ]),
@@ -1444,15 +1462,15 @@ try_to_connect(Connect, Host, Port, Pid, Tref, N) ->
 
 %%--------------------------------------------------------------------
 max_sessions_drops_tcp_connects() ->
-    [{timetrap,{minutes,5}}].
+    [{timetrap,{minutes,20}}].
 
 max_sessions_drops_tcp_connects(Config) ->
     MaxSessions = 20,
     UseSessions = 2, % Must be =< MaxSessions
     FloodSessions = 1000,
     ParallelLogin = true,
-    NegTimeOut = 10*1000,
-    HelloTimeOut = 1*1000,
+    NegTimeOut = 8*1000,
+    HelloTimeOut = 200,
 
     %% Start a test daemon
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
@@ -1468,19 +1486,20 @@ max_sessions_drops_tcp_connects(Config) ->
                              {max_sessions, MaxSessions}
                             ]),
     Host = ssh_test_lib:mangle_connect_address(Host0),
-    ct:pal("~p Listen ~p:~p for max ~p sessions. Mangled Host = ~p",
-           [Pid,Host0,Port,MaxSessions,Host]),
+    ct:log("~p:~p ~p Listen ~p:~p for max ~p sessions. Mangled Host = ~p",
+           [?MODULE,?LINE,Pid,Host0,Port,MaxSessions,Host]),
     
     %% Log in UseSessions connections
     SSHconnect = fun(N) ->
                          R = ssh:connect(Host, Port, 
                                          [{silently_accept_hosts, true},
+                                          {save_accepted_host, false},
                                           {user_dir, proplists:get_value(priv_dir,Config)},
                                           {user_interaction, false},
                                           {user, "carni"},
                                           {password, "meat"}
                                          ]),
-                         ct:pal("~p: ssh:connect -> ~p", [N,R]),
+                         ct:log("~p:~p ~p: ssh:connect -> ~p", [?MODULE,?LINE,N,R]),
                          R
                  end,
 
@@ -1489,18 +1508,18 @@ max_sessions_drops_tcp_connects(Config) ->
         UseSessions ->
             %% As expected
             %% Try gen_tcp:connect
-            [ct:pal("~p: gen_tcp:connect -> ~p", 
-                    [N, gen_tcp:connect(Host, Port, [])])
+            [ct:log("~p:~p ~p: gen_tcp:connect -> ~p", 
+                    [?MODULE,?LINE, N, gen_tcp:connect(Host, Port, [])])
              || N <- lists:seq(UseSessions+1, MaxSessions)
             ],
 
-            ct:pal("Now try ~p gen_tcp:connect to be rejected", [FloodSessions]),
-            [ct:pal("~p: gen_tcp:connect -> ~p", 
-                    [N, gen_tcp:connect(Host, Port, [])])
+            ct:log("~p:~p Now try ~p gen_tcp:connect to be rejected", [?MODULE,?LINE,FloodSessions]),
+            [ct:log("~p:~p ~p: gen_tcp:connect -> ~p", 
+                    [?MODULE,?LINE, N, gen_tcp:connect(Host, Port, [])])
              || N <- lists:seq(MaxSessions+1, MaxSessions+1+FloodSessions)
             ],
             
-            ct:pal("try ~p ssh:connect", [MaxSessions - UseSessions]),
+            ct:log("~p:~p try ~p ssh:connect", [?MODULE,?LINE, MaxSessions - UseSessions]),
             try_ssh_connect(MaxSessions - UseSessions, NegTimeOut, SSHconnect);
 
         Len1 ->
@@ -1537,10 +1556,10 @@ save_accepted_host_option(Config) ->
     {error,enoent} = file:read_file(KnownHosts),
 
     {ok,_C1} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                        {save_accepted_host, false},
                                         {user, "vego"},
                                         {password, "morot"},
                                         {user_interaction, false},
-                                        {save_accepted_host, false},
                                         {user_dir, UserDir}]),
     {error,enoent} = file:read_file(KnownHosts),
     
@@ -1553,6 +1572,12 @@ save_accepted_host_option(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
+raw_option(_Config) ->
+    Opts = [{raw,1,2,3,4}],
+    #{socket_options := Opts} = ssh_options:handle_options(client, Opts),
+    #{socket_options := Opts} = ssh_options:handle_options(server, Opts).
+
+%%--------------------------------------------------------------------
 config_file(Config) ->
     %% First find common algs:
     ServerAlgs = ssh_test_lib:default_algorithms(sshd),
@@ -1560,6 +1585,18 @@ config_file(Config) ->
     CommonAlgs = ssh_test_lib:intersection(ServerAlgs, OurAlgs),
     ct:log("ServerAlgs =~n~p~n~nOurAlgs =~n~p~n~nCommonAlgs =~n~p",[ServerAlgs,OurAlgs,CommonAlgs]),   
     Nkex = length(proplists:get_value(kex, CommonAlgs, [])),
+
+    %% Adjust for very old ssh daemons that only supports ssh-rsa and ssh-dss:
+    AdjustClient =
+        case proplists:get_value(public_key,ServerAlgs,[]) -- ['ssh-rsa','ssh-dss'] of
+            [] ->
+                %% Old, let the client support them also:
+                ct:log("Adjust the client's public_key set", []),
+                [{public_key, ['ssh-rsa','ssh-dss']}];
+            [_|_] ->
+                %% Ok, let the client be un-modified:
+                []
+        end,
 
     case {ServerAlgs, ssh_test_lib:some_empty(CommonAlgs)} of
         {[],_} ->
@@ -1578,7 +1615,7 @@ config_file(Config) ->
                 [{ssh, [{preferred_algorithms,
                          [{cipher, [Ch1]},
                           {kex,    [K1a]}
-                         ]},
+                         ] ++ AdjustClient},
                         {client_options,
                          [{modify_algorithms,
                            [{rm,     [{kex, [K1a]}]},
@@ -1614,9 +1651,11 @@ config_file(Config) ->
                       {_,[Ch1]}]} | _] = R1,
 
             %% First connection. The client_options should be applied:
-            {ok,C1} = rpc:call(Node, ssh, connect, [loopback, 22, [{silently_accept_hosts, true},
-                                                                   {user_interaction, false}
-                                                                  ]]),
+            {ok,C1} = rpc:call(Node, ssh, connect, [loopback, ?SSH_DEFAULT_PORT,
+                                                    [{silently_accept_hosts, true},
+                                                     {save_accepted_host, false},
+                                                     {user_interaction, false}
+                                                    ]]),
             ct:log("C1 = ~n~p", [C1]),
             {algorithms,As1} = rpc:call(Node, ssh, connection_info, [C1, algorithms]),
             K1b = proplists:get_value(kex, As1),
@@ -1629,9 +1668,10 @@ config_file(Config) ->
             C2_Opts = [{modify_algorithms,[{rm,[{kex,[K1b]}]}, % N.B.
                                            {append, [{kex,[K2a]}]}]},
                        {silently_accept_hosts, true},
+                       {save_accepted_host, false},
                        {user_interaction, false}
                       ],
-            {ok,C2} = rpc:call(Node, ssh, connect, [loopback, 22, C2_Opts]),
+            {ok,C2} = rpc:call(Node, ssh, connect, [loopback, ?SSH_DEFAULT_PORT, C2_Opts]),
             {algorithms,As2} = rpc:call(Node, ssh, connection_info, [C2, algorithms]),
             K2a = proplists:get_value(kex, As2),
             Ch1 = proplists:get_value(encrypt, As2),

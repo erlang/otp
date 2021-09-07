@@ -126,7 +126,7 @@ int ei_decode_my_ref(const char *buf, int *index, struct my_obj* obj)
 }
 
 struct Type ref_type = {
-    "ref", "erlang_ref", (decodeFT*)ei_decode_ref,
+    "ref", "erlang_ref", (decodeFT*)ei_decode_my_ref,
     (encodeFT*)ei_encode_ref, (x_encodeFT*)ei_x_encode_ref
 };
 
@@ -611,11 +611,24 @@ TESTCASE(test_ei_decode_encode)
     decode_encode_big(&big_type);
 
     /* Test large node containers... */
-    for (i=0; i<6; i++) {
+    decode_encode_one(&pid_type);
+    decode_encode_one(&port_type);
+    decode_encode_one(&ref_type);
+
+    for (i=0; i<5; i++) {
         decode_encode_one(&pid_type);
         decode_encode_one(&port_type);
         decode_encode_one(&ref_type);
+        decode_encode_one(&ref_type);
     }
+
+    /* Full 64-bit pids */
+    for (i=16; i<=32; i++)
+        decode_encode_one(&pid_type);
+
+    /* Full 64-bit pids */
+    for (i=24; i<=40; i++)
+        decode_encode_one(&port_type);
 
     /* Unicode atoms */
     for (i=0; i<24; i++) {

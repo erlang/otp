@@ -30,13 +30,7 @@ suite() ->
      {ct_hooks, [{cth_conn_log,[{ct_netconfc,[{log_type,html}]}]}]}].
 
 all() ->
-    case os:find_executable("ssh") of
-	false ->
-	    {skip, "SSH not installed on host"};
-	_ ->
-	    [remote_crash
-	    ]
-    end.
+    [remote_crash].
 
 groups() ->
     [].

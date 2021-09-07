@@ -167,12 +167,13 @@ extern erts_tsd_key_t ERTS_WRITE_UNLIKELY(erts_msacc_key);
 extern int ERTS_WRITE_UNLIKELY(erts_msacc_enabled);
 #endif
 
-#define ERTS_MSACC_TSD_GET() erts_tsd_get(erts_msacc_key)
+#define ERTS_MSACC_TSD_GET() ((ErtsMsAcc *)erts_tsd_get(erts_msacc_key))
 #define ERTS_MSACC_TSD_SET(tsd) erts_tsd_set(erts_msacc_key,tsd)
 
 void erts_msacc_early_init(void);
 void erts_msacc_init(void);
 void erts_msacc_init_thread(char *type, int id, int liberty);
+void erts_msacc_update_cache(ErtsMsAcc **cache);
 
 /* The defines below are used to instrument the vm code
  * with different state changes. There are two variants
@@ -369,47 +370,47 @@ void erts_msacc_set_state_m__(ErtsMsAcc *msacc, Uint new_state, int increment) {
 #else
 
 #define ERTS_MSACC_IS_ENABLED() 0
-#define erts_msacc_early_init()
-#define erts_msacc_init()
-#define erts_msacc_init_thread(type, id, liberty)
-#define ERTS_MSACC_PUSH_STATE()
-#define ERTS_MSACC_PUSH_STATE_CACHED()
-#define ERTS_MSACC_POP_STATE()
-#define ERTS_MSACC_SET_STATE(state)
-#define ERTS_MSACC_SET_STATE_CACHED(state)
-#define ERTS_MSACC_PUSH_AND_SET_STATE(state)
-#define ERTS_MSACC_PUSH_AND_SET_STATE_CACHED(state)
-#define ERTS_MSACC_UPDATE_CACHE()
-#define ERTS_MSACC_IS_ENABLED_CACHED()
-#define ERTS_MSACC_DECLARE_CACHE()
-#define ERTS_MSACC_PUSH_STATE_M()
-#define ERTS_MSACC_PUSH_STATE_CACHED_M()
-#define ERTS_MSACC_SET_STATE_CACHED_M(state)
-#define ERTS_MSACC_POP_STATE_M()
-#define ERTS_MSACC_PUSH_AND_SET_STATE_M(state)
-#define ERTS_MSACC_SET_BIF_STATE_CACHED_X(Mod,Addr)
+#define erts_msacc_early_init() do {} while(0)
+#define erts_msacc_init() do {} while(0)
+#define erts_msacc_init_thread(type, id, liberty) do {} while(0)
+#define ERTS_MSACC_PUSH_STATE() do {} while(0)
+#define ERTS_MSACC_PUSH_STATE_CACHED() do {} while(0)
+#define ERTS_MSACC_POP_STATE() do {} while(0)
+#define ERTS_MSACC_SET_STATE(state) do {} while(0)
+#define ERTS_MSACC_SET_STATE_CACHED(state) do {} while(0)
+#define ERTS_MSACC_PUSH_AND_SET_STATE(state) do {} while(0)
+#define ERTS_MSACC_PUSH_AND_SET_STATE_CACHED(state) do {} while(0)
+#define ERTS_MSACC_UPDATE_CACHE() do {} while(0)
+#define ERTS_MSACC_IS_ENABLED_CACHED() do {} while(0)
+#define ERTS_MSACC_DECLARE_CACHE() 
+#define ERTS_MSACC_PUSH_STATE_M() do {} while(0)
+#define ERTS_MSACC_PUSH_STATE_CACHED_M() do {} while(0)
+#define ERTS_MSACC_SET_STATE_CACHED_M(state) do {} while(0)
+#define ERTS_MSACC_POP_STATE_M() do {} while(0)
+#define ERTS_MSACC_PUSH_AND_SET_STATE_M(state) do {} while(0)
+#define ERTS_MSACC_SET_BIF_STATE_CACHED_X(Mod,Addr) do {} while(0)
 
 #endif /* ERTS_ENABLE_MSACC */
 
 #ifndef ERTS_MSACC_EXTENDED_STATES
 
-#define ERTS_MSACC_PUSH_STATE_X()
-#define ERTS_MSACC_POP_STATE_X()
-#define ERTS_MSACC_SET_STATE_X(state)
-#define ERTS_MSACC_SET_STATE_M_X(state)
-#define ERTS_MSACC_SET_STATE_CACHED_X(state)
-#define ERTS_MSACC_PUSH_AND_SET_STATE_X(state)
-#define ERTS_MSACC_PUSH_AND_SET_STATE_CACHED_X(state)
-#define ERTS_MSACC_UPDATE_CACHE_X()
+#define ERTS_MSACC_PUSH_STATE_X() do {} while(0)
+#define ERTS_MSACC_POP_STATE_X() do {} while(0)
+#define ERTS_MSACC_SET_STATE_X(state) do {} while(0)
+#define ERTS_MSACC_SET_STATE_M_X(state) do {} while(0)
+#define ERTS_MSACC_SET_STATE_CACHED_X(state) do {} while(0)
+#define ERTS_MSACC_PUSH_AND_SET_STATE_X(state) do {} while(0)
+#define ERTS_MSACC_PUSH_AND_SET_STATE_CACHED_X(state) do {} while(0)
+#define ERTS_MSACC_UPDATE_CACHE_X() do {} while(0)
 #define ERTS_MSACC_IS_ENABLED_CACHED_X() 0
 #define ERTS_MSACC_DECLARE_CACHE_X()
-#define ERTS_MSACC_PUSH_STATE_M_X()
-#define ERTS_MSACC_PUSH_STATE_CACHED_M_X()
+#define ERTS_MSACC_PUSH_STATE_M_X() do {} while(0)
+#define ERTS_MSACC_PUSH_STATE_CACHED_M_X() do {} while(0)
 #define ERTS_MSACC_SET_STATE_CACHED_M_X(state)
-#define ERTS_MSACC_POP_STATE_M_X()
-#define ERTS_MSACC_PUSH_AND_SET_STATE_M_X(state)
-#define ERTS_MSACC_PUSH_AND_SET_STATE_CACHED_M_X(state)
-#define ERTS_MSACC_SET_BIF_STATE_CACHED_X(Mod,Addr)
+#define ERTS_MSACC_POP_STATE_M_X() do {} while(0)
+#define ERTS_MSACC_PUSH_AND_SET_STATE_M_X(state) do {} while(0)
+#define ERTS_MSACC_PUSH_AND_SET_STATE_CACHED_M_X(state) do {} while(0)
+#define ERTS_MSACC_SET_BIF_STATE_CACHED_X(Mod,Addr) do {} while(0)
 
 #else
 

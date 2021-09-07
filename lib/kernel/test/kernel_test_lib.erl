@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2020-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,11 +23,17 @@
 -export([init_per_suite/1,
          end_per_suite/1]).
 -export([tc_try/3]).
--export([listen/3,
+-export([socket_type/1,
+	 listen/3,
          connect/4, connect/5,
+         open/3,
+         is_socket_backend/1,
          inet_backend_opts/1,
          explicit_inet_backend/0,
          test_inet_backends/0]).
+-export([start_slave_node/2, start_slave_node/3,
+         start_node/3, start_node/4,
+         stop_node/1]).
 -export([f/2,
          print/1, print/2]).
 -export([good_hosts/1,
@@ -45,6 +51,17 @@ init_per_suite(Config) ->
 
 init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
 
+    print("kernel environment: "
+          "~n   (kernel) app:  ~p"
+          "~n   (all)    init: ~p"
+          "~n   (kernel) init: ~p",
+          [application:get_all_env(kernel),
+           init:get_arguments(),
+           case init:get_argument(kernel) of
+               {ok, Args} -> Args;
+               error -> undefined
+           end]),
+
     ct:timetrap(timer:minutes(2)),
 
     try analyze_and_print_host_info() of
@@ -54,7 +71,8 @@ init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
                 true ->
                     {skip, "Unstable host and/or os (or combo thererof)"};
                 false ->
-                    [{gen_inet_factor, Factor} | Config]
+                    kernel_test_global_sys_monitor:start(),
+                    [{kernel_factor, Factor} | Config]
             catch
                 throw:{skip, _} = SKIP ->
                     SKIP
@@ -62,7 +80,7 @@ init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
 
         {Factor, _HostInfo} when (AllowSkip =:= false) andalso
                                  is_integer(Factor) ->
-            [{gen_inet_factor, Factor} | Config]
+            [{kernel_factor, Factor} | Config]
 
     catch
         throw:{skip, _} = SKIP ->
@@ -71,6 +89,7 @@ init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
 
 
 end_per_suite(Config) when is_list(Config) ->
+    kernel_test_global_sys_monitor:stop(),
     Config.
 
 analyze_and_print_host_info() ->
@@ -1383,7 +1402,7 @@ linux_info_lookup_collect(Key1, [Key2, Value|Rest], Values) ->
 linux_info_lookup_collect(_, _, Values) ->
     lists:reverse(Values).
 
-maybe_skip(HostInfo) ->
+maybe_skip(_HostInfo) ->
 
     %% We have some crap machines that causes random test case failures
     %% for no obvious reason. So, attempt to identify those without actually
@@ -1442,14 +1461,19 @@ maybe_skip(HostInfo) ->
                 true
         end,
     SkipWindowsOnVirtual =
+        %% fun() ->
+        %%         SysMan = win_sys_info_lookup(system_manufacturer, HostInfo),
+        %%         case string:to_lower(SysMan) of
+        %%             "vmware" ++ _ ->
+        %%                 true;
+        %%             _ ->
+        %%                 false
+        %%         end
+        %% end,
         fun() ->
-                SysMan = win_sys_info_lookup(system_manufacturer, HostInfo),
-                case string:to_lower(SysMan) of
-                    "vmware" ++ _ ->
-                        true;
-                    _ ->
-                        false
-                end
+                %% The host has been replaced and the VM has been reinstalled
+                %% so for now we give it a chance...
+                false
         end,
     COND = [{unix,  [{linux, LinuxVersionVerify}, 
                      {darwin, DarwinVersionVerify}]},
@@ -1658,6 +1682,36 @@ tc_which_name() ->
     end.
     
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+start_slave_node(Name, Args) ->
+    start_slave_node(Name, Args, []).
+
+start_slave_node(Name, Args, Opts) ->
+    start_node(Name, slave, Args, Opts).
+
+
+start_node(Name, Type, Args) ->
+    start_node(Name, Type, Args, []).
+
+start_node(Name, Type, Args, Opts) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    A = Args ++
+        " -pa " ++ Pa ++ 
+        " -s " ++ atom_to_list(kernel_test_sys_monitor) ++ " start" ++ 
+        " -s global sync",
+    case test_server:start_node(Name, Type, [{args, A}|Opts]) of
+        {ok, _Node} = OK ->
+            global:sync(),
+	    OK;
+        ERROR ->
+            ERROR
+    end.
+
+stop_node(Node) ->
+    test_server:stop_node(Node).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 timetrap_scale_factor() ->
@@ -1685,6 +1739,16 @@ proxy_call(F, Timeout, Default)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+socket_type(Config) ->
+    case is_socket_backend(Config) of
+	true ->
+	    socket;
+	false ->
+	    port
+    end.
+
+%% gen_tcp wrappers
+
 listen(Config, Port, Opts) ->
     InetBackendOpts = inet_backend_opts(Config),
     gen_tcp:listen(Port, InetBackendOpts ++ Opts).
@@ -1698,12 +1762,27 @@ connect(Config, Host, Port, Opts, Timeout) ->
     gen_tcp:connect(Host, Port, InetBackendOpts ++ Opts, Timeout).
 
 
+%% gen_udp wrappers
+
+open(Config, Port, Opts) ->
+    InetBackendOpts = inet_backend_opts(Config),
+    gen_udp:open(Port, InetBackendOpts ++ Opts).
+
+
 inet_backend_opts(Config) when is_list(Config) ->
     case lists:keysearch(socket_create_opts, 1, Config) of
         {value, {socket_create_opts, InetBackendOpts}} ->
             InetBackendOpts;
         false ->
             []
+    end.
+
+is_socket_backend(Config) when is_list(Config) ->
+    case lists:keysearch(socket_create_opts, 1, Config) of
+        {value, {socket_create_opts, [{inet_backend, socket}]}} ->
+            true;
+        _ ->
+            false
     end.
 
 

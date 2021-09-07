@@ -234,6 +234,9 @@ static int pquotedatom(const char** fmt, ei_x_buff* x)
 static int pformat(const char** fmt, union arg** args, ei_x_buff* x)
 {
     int res = 0;
+
+    ASSERT(args && *args);
+
     ++(*fmt);	/* skip tilde */
     switch (*(*fmt)++) {
     case 'a': 

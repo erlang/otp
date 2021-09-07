@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 
 all() ->
-    [{group,unicode},{group,base64},{group,binary},
+    [{group,unicode},{group,base64},{group,binary},{group, io},
      {group,gen_server},{group,gen_statem},
      {group,gen_server_comparison},{group,gen_statem_comparison}].
 
@@ -52,6 +52,7 @@ groups() ->
        encode_list, encode_list_to_string,
        mime_binary_decode, mime_binary_decode_to_string,
        mime_list_decode, mime_list_decode_to_string]},
+     {io, [{repeat, 5}], [double_random_to_list]},
      {gen_server, [{repeat,5}], cases(gen_server)},
      {gen_statem, [{repeat,3}], cases(gen_statem)},
      {gen_server_comparison, [],
@@ -279,6 +280,59 @@ mbb(N, Acc) ->
     B = list_to_binary(lists:seq(0, N-1)),
     lists:reverse(Acc, B).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(MAX_DOUBLE, (1 bsl 62) - 1).
+-define(DOUBLE_SAMPLE, 10000).
+-define(SMALL_DIGITS, 6).
+
+double_random_to_list(_Config) ->
+    comment(test_double(io_lib_format, fwrite_g, 0)).
+
+double_small_digit_to_list(_Config) ->
+    comment(test_double(io_lib_format, fwrite_g, ?SMALL_DIGITS)).
+
+double(0) ->
+    Int = rand:uniform(?MAX_DOUBLE),
+    <<F:64/float>> = <<Int:64/unsigned-integer>>,
+    F;
+% Example:
+% SmallDigits is 3
+% Lower is 100
+% Upper is 1000
+% R % (1000 - 100) + 100;
+% R % 900 + 100;
+% R1 is [0, 899] + 100
+% R1 is [100, 999]
+% R1 / 100 is [1.00, 9.99]
+double(SmallDigits) ->
+    F = double(0),
+    Lower = exp10(SmallDigits),
+    Upper = Lower * 10,
+    F1 = (F rem (Upper - Lower)) + Lower,
+    F1 / float(Lower).
+
+exp10(X) ->
+    exp10(1, X).
+exp10(Acc, 0) ->
+    Acc;
+exp10(Acc, X) ->
+    exp10(Acc, X - 1).
+
+test_double(Mod, Fun, SmallDigits) ->
+    test_double(?DOUBLE_SAMPLE, Mod, Fun, SmallDigits).
+test_double(Iter, Mod, Fun, SmallDigits) ->
+    F = fun() -> loop_double(Iter, Mod, Fun, SmallDigits) end,
+    {Time, ok} = timer:tc(fun() -> lspawn(F) end),
+    report_mfa(Iter, Time, Mod).
+
+loop_double(0, _M, _F, _SmallDigits) -> garbage_collect(), ok;
+loop_double(N, M, F, SmallDigits) ->
+    _ = apply(M, F, [double(SmallDigits)]),
+    loop_double(N - 1, M, F, SmallDigits).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 simple(Config) when is_list(Config) ->
     comment(do_tests(simple, single_small, Config)).
 
@@ -377,7 +431,7 @@ norm(T, Ref) ->
             "---"
     end.
 
--define(MAX_TIME_SECS, 3).   % s
+-define(MAX_TIME_SECS, 1).   % s
 -define(MAX_TIME, 1000 * ?MAX_TIME_SECS). % ms
 -define(CALLS_PER_LOOP, 5).
 

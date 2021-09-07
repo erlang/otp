@@ -98,13 +98,12 @@ format(#{alert := Alert, alerter := ignored} = Report) ->
     %% Happens in DTLS
     {Fmt, Args} = ssl_alert:own_alert_format(ProtocolName, Role, StateName, Alert),
     {"~s " ++ Fmt, ["Ignored alert to mitigate DoS attacks", Args]};
-format(#{description := Desc} = Report) ->
-    #{reason := Reason}  = Report,
-    {"~s11:~p"
-    "~n"
-     "~s11:~p"
-    "~n",
-     ["Description", Desc, "Reason", Reason]
+format(#{description := Desc, reason := Reason}) ->
+    {"~12s ~p"
+     "~n"
+     "~12s ~p"
+     "~n",
+     ["Description:", Desc, "Reason:", Reason]
     }.
 
 %%-------------------------------------------------------------------------
@@ -254,8 +253,12 @@ parse_handshake(Direction, #key_update{} = KeyUpdate) ->
     Header = io_lib:format("~s Post-Handshake, KeyUpdate",
                            [header_prefix(Direction)]),
     Message = io_lib:format("~p", [?rec_info(key_update, KeyUpdate)]),
+    {Header, Message};
+parse_handshake(Direction, #end_of_early_data{} = EndOfEarlyData) ->
+    Header = io_lib:format("~s Handshake, EndOfEarlyData",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(end_of_early_data, EndOfEarlyData)]),
     {Header, Message}.
-
 
 parse_cipher_suites([_|_] = Ciphers) ->
     [format_cipher(C) || C <- Ciphers].

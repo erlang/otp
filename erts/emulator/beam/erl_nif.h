@@ -56,9 +56,10 @@
 **                enif_vfprintf, enif_vsnprintf, enif_make_map_from_arrays
 ** 2.15: 22.0 ERL_NIF_SELECT_CANCEL, enif_select_(read|write)
 **            enif_term_type
+** 2.16: 24.0 enif_init_resource_type, enif_dynamic_resource_call
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 15
+#define ERL_NIF_MINOR_VERSION 16
 
 /*
  * WHEN CHANGING INTERFACE VERSION, also replace erts version below with
@@ -69,7 +70,7 @@
  * If you're not on the OTP team, you should use a placeholder like
  * erts-@MyName@ instead.
  */
-#define ERL_NIF_MIN_ERTS_VERSION "erts-10.4"
+#define ERL_NIF_MIN_ERTS_VERSION "erts-12.0"
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -96,7 +97,7 @@ typedef ErlNapiSInt64 ErlNifSInt64;
 typedef ErlNapiUInt ErlNifUInt;
 typedef ErlNapiSInt ErlNifSInt;
 
-#  define ERL_NIF_VM_VARIANT "beam.vanilla" 
+#define ERL_NIF_VM_VARIANT "beam.vanilla"
 typedef ErlNifUInt ERL_NIF_TERM;
 
 typedef ERL_NIF_TERM ERL_NIF_UINT;
@@ -174,6 +175,8 @@ typedef int ErlNifEvent;
 #define ERL_NIF_SELECT_FAILED         (1 << 3)
 #define ERL_NIF_SELECT_READ_CANCELLED (1 << 4)
 #define ERL_NIF_SELECT_WRITE_CANCELLED (1 << 5)
+#define ERL_NIF_SELECT_ERROR_CANCELLED (1 << 6)
+#define ERL_NIF_SELECT_NOTSUP          (1 << 7)
 
 typedef enum
 {
@@ -202,11 +205,14 @@ typedef struct enif_resource_type_t ErlNifResourceType;
 typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
 typedef void ErlNifResourceStop(ErlNifEnv*, void*, ErlNifEvent, int is_direct_call);
 typedef void ErlNifResourceDown(ErlNifEnv*, void*, ErlNifPid*, ErlNifMonitor*);
+typedef void ErlNifResourceDynCall(ErlNifEnv*, void* obj, void* call_data);
 
 typedef struct {
     ErlNifResourceDtor* dtor;
     ErlNifResourceStop* stop;  /* at ERL_NIF_SELECT_STOP event */
     ErlNifResourceDown* down;  /* enif_monitor_process */
+    int members;
+    ErlNifResourceDynCall* dyncall;
 } ErlNifResourceTypeInit;
 
 typedef ErlDrvSysInfo ErlNifSysInfo;

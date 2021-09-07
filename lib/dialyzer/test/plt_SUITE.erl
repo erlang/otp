@@ -10,7 +10,7 @@
          local_fun_same_as_callback/1,
          remove_plt/1, run_plt_check/1, run_succ_typings/1,
          bad_dialyzer_attr/1, merge_plts/1, bad_record_type/1,
-         letrec_rvals/1]).
+         letrec_rvals/1, missing_plt_file/1]).
 
 suite() ->
   [{timetrap, ?plt_timeout}].
@@ -18,7 +18,7 @@ suite() ->
 all() -> [build_plt, beam_tests, update_plt, run_plt_check,
           remove_plt, run_succ_typings, local_fun_same_as_callback,
           bad_dialyzer_attr, merge_plts, bad_record_type,
-          letrec_rvals].
+          letrec_rvals, missing_plt_file].
 
 build_plt(Config) ->
   OutDir = ?config(priv_dir, Config),
@@ -285,7 +285,7 @@ bad_dialyzer_attr(Config) ->
     {dialyzer_error,
      "Analysis failed with error:\n" ++ Str1} =
         (catch dialyzer:run(Opts)),
-    S1 = string:find(Str1, "dial.erl:2: function undef/0 undefined"),
+    S1 = string:find(Str1, "dial.erl:2:17: function undef/0 undefined"),
     true = is_list(S1),
 
     Prog2 = <<"-module(dial).
@@ -294,7 +294,7 @@ bad_dialyzer_attr(Config) ->
     {dialyzer_error,
      "Analysis failed with error:\n" ++ Str2} =
         (catch dialyzer:run(Opts)),
-    S2 = string:find(Str2, "dial.erl:2: badly formed dialyzer "
+    S2 = string:find(Str2, "dial.erl:2:17: badly formed dialyzer "
                            "attribute: {no_return,{undef,1,2}}"),
     true = is_list(S2),
 
@@ -393,7 +393,7 @@ bad_record_type(Config) ->
      "Analysis failed with error:\n" ++ Str} =
         (catch dialyzer:run(Opts)),
     P = string:str(Str,
-                    "bad_record_type.erl:4: Illegal declaration of #r{f}"),
+                    "bad_record_type.erl:4:16: Illegal declaration of #r{f}"),
     true = P > 0,
     ok.
 
@@ -412,10 +412,82 @@ demo_fun(_Arg) ->
             [ ok || _ <- [] ]
     end,
     _Res.
+
+handle_info() ->
+    case chids_to_audit() of
+        {ChIds, St2} ->
+            [ ChId || ChId <- ChIds ],
+            ok
+    end,
+    check_done(St2).
+
+chids_to_audit() ->
+    some_module:get_audit_list().
+
+check_done(_) ->
+    ok.
     ">>,
     {ok, BeamFile} = compile(Config, Prog, letrec_rvals, []),
     [] = run_dialyzer(plt_build, [BeamFile], [{output_plt, Plt}]),
     ok.
+
+%% GH-4501
+missing_plt_file(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    PltFile = filename:join(PrivDir, "missing_plt_file.plt"),
+    Prog2 = <<"-module(missing_plt_file2).
+              t() -> foo.">>,
+    {ok, BeamFile2} = compile(Config, Prog2, missing_plt_file2, []),
+
+    true = missing_plt_file_1(Config, PltFile, BeamFile2),
+    true = missing_plt_file_2(Config, PltFile, BeamFile2),
+    true = missing_plt_file_3(),
+    ok.
+
+missing_plt_file_1(Config, PltFile, BeamFile2) ->
+    BeamFile = create(Config, PltFile),
+    ok = file:delete(BeamFile),
+    try succ(PltFile, BeamFile2), false
+    catch throw:{dialyzer_error, _} -> true
+    end.
+
+missing_plt_file_2(Config, PltFile, BeamFile2) ->
+    BeamFile = create(Config, PltFile),
+    ok = file:delete(BeamFile),
+
+    Cmd = "dialyzer -q --plt " ++ PltFile ++ " " ++ BeamFile2,
+    io:format("Cmd `~p'\n", [Cmd]),
+    "\ndialyzer: File not found: " ++ _ = os:cmd(Cmd),
+
+    try check(PltFile, BeamFile2), false
+    catch throw:{dialyzer_error, _} -> true
+    end.
+
+missing_plt_file_3() ->
+    try dialyzer_plt:from_file("no_such_file"), false
+    catch throw:{dialyzer_error, _} -> true
+    end.
+
+create(Config, PltFile) ->
+    Prog = <<"-module(missing_plt_file).
+              t() -> foo.">>,
+    {ok, BeamFile} = compile(Config, Prog, missing_plt_file, []),
+    Files = [BeamFile],
+    _ = file:delete(PltFile),
+    [] = dialyzer:run([{files,Files},
+                       {output_plt, PltFile},
+                       {analysis_type, plt_build}]),
+    BeamFile.
+
+succ(PltFile, BeamFile2) ->
+    Files = [BeamFile2],
+    dialyzer:run([{files, Files},
+                  {plts,[PltFile]},
+                  {analysis_type, succ_typings}]).
+
+check(PltFile, BeamFile2) ->
+    dialyzer:run([{plts,[PltFile]},
+                  {analysis_type, plt_check}]).
 
 erlang_beam() ->
     case code:where_is_file("erlang.beam") of

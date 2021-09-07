@@ -26,6 +26,9 @@
 #if ERL_NIF_MAJOR_VERSION*100 + ERL_NIF_MINOR_VERSION >= 215
 # define HAVE_ENIF_MONITOR_PROCESS
 #endif
+#if ERL_NIF_MAJOR_VERSION*100 + ERL_NIF_MINOR_VERSION >= 216
+# define HAVE_ENIF_DYNAMIC_RESOURCE_CALL
+#endif
 
 #define CHECK(X) ((void)((X) || (check_abort(__LINE__),1)))
 #ifdef __GNUC__
@@ -47,6 +50,7 @@ static ERL_NIF_TERM am_resource_type;
 static ERL_NIF_TERM am_resource_dtor_A;
 static ERL_NIF_TERM am_resource_dtor_B;
 static ERL_NIF_TERM am_resource_down_D;
+static ERL_NIF_TERM am_resource_dyncall;
 static ERL_NIF_TERM am_return;
 
 static NifModPrivData* priv_data(ErlNifEnv* env)
@@ -62,6 +66,7 @@ static void init(ErlNifEnv* env)
     am_resource_dtor_A = enif_make_atom(env, "resource_dtor_A");
     am_resource_dtor_B = enif_make_atom(env, "resource_dtor_B");
     am_resource_down_D = enif_make_atom(env, "resource_down_D");
+    am_resource_dyncall = enif_make_atom(env, "resource_dyncall");
     am_return = enif_make_atom(env, "return");
 }
 
@@ -123,6 +128,15 @@ static void resource_down_D(ErlNifEnv* env, void* a, ErlNifPid* pid, ErlNifMonit
 }
 #endif
 
+#ifdef HAVE_ENIF_DYNAMIC_RESOURCE_CALL
+static void resource_dyncall(ErlNifEnv* env, void* obj, void* call_data)
+{
+    int* p = (int*)call_data;
+    *p += NIF_LIB_VER;
+}
+#endif
+
+
 
 /* {resource_type,
     Ix|null,
@@ -161,15 +175,31 @@ static void open_resource_type(ErlNifEnv* env, int arity, const ERL_NIF_TERM* ar
         ErlNifResourceTypeInit init;
         init.dtor = dtor;
         init.stop = NULL;
-        if (enif_is_identical(arr[6], am_null)) {
-            init.down = NULL;
+	init.down = NULL;
+
+#  ifdef HAVE_ENIF_DYNAMIC_RESOURCE_CALL
+	init.members = 0xdead;
+	init.dyncall = (ErlNifResourceDynCall*) 0xdeadbeaf;
+
+	if (enif_is_identical(arr[6], am_resource_dyncall)) {
+            init.dyncall = resource_dyncall;
+	    init.members = 4;
+	    got_ptr = enif_init_resource_type(env, rt_name, &init,
+					      flags.e, &got_res.e);
         }
-        else {
-            CHECK(enif_is_identical(arr[6], am_resource_down_D));
-            init.down = resource_down_D;
-        }
-        got_ptr = enif_open_resource_type_x(env, rt_name, &init,
-                                            flags.e, &got_res.e);
+	else
+#  endif
+	{
+	    if (enif_is_identical(arr[6], am_resource_down_D)) {
+		init.down = resource_down_D;
+	    }
+	    else {
+		CHECK(enif_is_identical(arr[6], am_null));
+	    }
+	    got_ptr = enif_open_resource_type_x(env, rt_name, &init,
+						flags.e, &got_res.e);
+
+	}
     }
     else
 #endif

@@ -220,7 +220,6 @@ notebook(Config) ->
 staticBoxSizer(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 staticBoxSizer(Config) ->
     Wx = wx:new(),
-    wx:debug(2),
     Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
     Panel = wxPanel:new(Frame, []),
     InclSizer = ?mt(wxStaticBoxSizer,
@@ -374,7 +373,7 @@ listCtrlSort(Config) ->
     wx:foreach(Add, lists:seq(0,50)),
     wxWindow:show(Frame),
 
-    timer:sleep(2000),
+    timer:sleep(1000),
 
     Sort = fun() ->
 		   wxListCtrl:sortItems(LC, fun(A, B) ->
@@ -419,8 +418,15 @@ listCtrlVirtual(Config) ->
     Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
     IA = wxListItemAttr:new(),
     wxListItemAttr:setTextColour(IA, {190, 25, 25}),
+    Style = ?wxLC_SINGLE_SEL bor ?wxLC_REPORT bor ?wxLC_VIRTUAL bor
+        ?wxLC_HRULES bor ?wxHSCROLL bor ?wxVSCROLL,
+    %% Assert signed consts (wxVSCROLL)
+    Style = wxe_util:get_const(wxLC_SINGLE_SEL) bor wxe_util:get_const(wxLC_REPORT) bor
+        wxe_util:get_const(wxLC_VIRTUAL) bor wxe_util:get_const(wxLC_HRULES) bor wxe_util:get_const(wxHSCROLL)
+        bor wxe_util:get_const(wxVSCROLL),
+
     LC = wxListCtrl:new(Frame,
-			[{style, ?wxLC_REPORT bor ?wxLC_VIRTUAL},
+			[{style, Style},
 			 {onGetItemText, fun(_This, Item, 0) ->
 						 "Row " ++ integer_to_list(Item);
 					    (_, Item, 1) when Item rem 5 == 0 ->
@@ -663,21 +669,22 @@ modal(Config) ->
 
 modal_dialog(Parent, Level, Tester) when Level < 3 ->
     M1 = wxTextEntryDialog:new(Parent, "Dialog " ++ integer_to_list(Level)),
+    Id = wxWindow:getId(M1),
     io:format("Creating dialog ~p ~p~n",[Level, M1]),
-    wxDialog:connect(M1, show, [{callback, fun(#wx{event=Ev},_) ->
-						   case Ev of
-						       #wxShow{show=true} ->
-							   Tester ! {dialog, M1, Level};
-						       _ -> ignore
-						   end
-					   end}]),
+    ok = wxDialog:connect(M1, show, [{callback, fun(#wx{event=Ev},_) ->
+                                                        case Ev of
+                                                            #wxShow{show=true} ->
+                                                                Tester ! {dialog, M1, Level};
+                                                            _ -> ignore
+                                                        end
+                                                end}]),
     DoOnce = fun(_,_) ->
 		     case ets:take(test_state, M1) of
 			 [] -> ignore;
 			 [_] -> modal_dialog(M1, Level+1, Tester)
 		     end
 	     end,
-    wxDialog:connect(M1, update_ui, [{callback, DoOnce}]),
+    ok = wxDialog:connect(M1, update_ui, [{callback, DoOnce}, {id,Id}]),
     ?wxID_OK = wxDialog:showModal(M1),
     wxDialog:destroy(M1),
     case Level > 1 of

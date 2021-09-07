@@ -45,6 +45,7 @@ XML_REF3_FILES = \
 	digraph_utils.xml \
 	epp.xml \
 	erl_anno.xml \
+	erl_error.xmlsrc \
 	erl_eval.xml \
 	erl_expand_records.xml \
 	erl_id_trans.xml \
@@ -101,7 +102,7 @@ XML_REF6_FILES = stdlib_app.xml
 
 XML_PART_FILES = part.xml
 XML_CHAPTER_FILES = introduction.xml io_protocol.xml unicode_usage.xml \
-	notes.xml assert_hrl.xml
+	uri_string_usage.xml notes.xml assert_hrl.xml
 
 BOOK_FILES = book.xml
 

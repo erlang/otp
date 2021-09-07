@@ -162,7 +162,7 @@ prop_ftp() -&gt;
     </func>
 
     <func>
-      <name since="">present_result(Module, Cmds, Triple, Config) -> Result</name>
+      <name since="OTP 22.3">present_result(Module, Cmds, Triple, Config) -> Result</name>
       <fsummary>Presents the result of statem property testing</fsummary>
       <desc>
       <p>Same as <seemfa marker="#present_result/5"><c>present_result(Module, Cmds, Triple, Config, [])</c></seemfa>
@@ -171,7 +171,7 @@ prop_ftp() -&gt;
     </func>
 
     <func>
-      <name since="">present_result(Module, Cmds, Triple, Config, Options) -> Result</name>
+      <name since="OTP 22.3">present_result(Module, Cmds, Triple, Config, Options) -> Result</name>
       <fsummary>Presents the result of statem property testing</fsummary>
       <type>
 	<v>Module = module()</v>
@@ -186,7 +186,7 @@ prop_ftp() -&gt;
 	<d>the output from for example proper:run_commands/2 or proper:run_parallel_commands/2</d>
 
 	<v>Config =</v>
-	<d>the Common Test <seemfa marker="common_test#Module:Testcase/1">Config</seemfa> in test cases.</d>
+	<d>the Common Test <seemfa marker="ct_suite#Module:Testcase/1">Config</seemfa> in test cases.</d>
 
 	<v>Options = [present_option()]</v>
 	<v>present_option() = {print_fun, fun(Format,Args)}</v>

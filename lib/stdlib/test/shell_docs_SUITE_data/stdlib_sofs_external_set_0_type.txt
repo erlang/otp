@@ -1,0 +1,4 @@
+
+  [;1m-type external_set() :: term().[0m
+
+  An external set.

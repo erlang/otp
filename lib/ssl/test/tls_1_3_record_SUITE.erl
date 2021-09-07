@@ -90,20 +90,25 @@ encode_decode(_Config) ->
                 client_verify_data => undefined,compression_state => undefined,
                 mac_secret => undefined,secure_renegotiation => undefined,
                 security_parameters =>
-                    {security_parameters,
-                     <<19,2>>,
-                     0,8,2,undefined,undefined,undefined,undefined,undefined,
-                     sha384,undefined,undefined,
-                     {handshake_secret,
-                      <<128,229,186,211,62,127,182,20,62,166,233,23,135,64,121,
-                        3,104,251,214,161,253,31,3,2,232,37,8,221,189,72,64,218,
-                        121,41,112,148,254,34,68,164,228,60,161,201,132,55,56,
-                        157>>}, undefined, undefined,
-                     undefined,
-                     <<92,24,205,75,244,60,136,212,250,32,214,20,37,3,213,87,61,207,
-                       147,61,168,145,177,118,160,153,33,53,48,108,191,174>>,
-                     undefined},
-                sequence_number => 0,server_verify_data => undefined},
+                    #security_parameters{
+                       cipher_suite          = <<19,2>>,
+                       connection_end        = 0,
+                       bulk_cipher_algorithm = 8,
+                       cipher_type           = 2,
+                       prf_algorithm         = sha384,
+                       master_secret         =
+                           {handshake_secret,
+                            <<128,229,186,211,62,127,182,20,62,166,233,23,135,64,121,
+                              3,104,251,214,161,253,31,3,2,232,37,8,221,189,72,64,218,
+                              121,41,112,148,254,34,68,164,228,60,161,201,132,55,56,
+                              157>>},
+                       server_random         =
+                           <<92,24,205,75,244,60,136,212,250,32,214,20,37,3,213,87,61,207,
+                             147,61,168,145,177,118,160,153,33,53,48,108,191,174>>},
+                sequence_number => 0,server_verify_data => undefined,
+                max_early_data_size => 0,
+                trial_decryption => false,
+                early_data_limit => false},
           current_write =>
               #{beast_mitigation => one_n_minus_one,
                 cipher_state =>
@@ -116,19 +121,21 @@ encode_decode(_Config) ->
                 client_verify_data => undefined,compression_state => undefined,
                 mac_secret => undefined,secure_renegotiation => undefined,
                 security_parameters =>
-                    {security_parameters,
-                     <<19,2>>,
-                     0,8,2,undefined,undefined,undefined,undefined,undefined,
-                     sha384,undefined,undefined,
-                     {handshake_secret,
-                      <<128,229,186,211,62,127,182,20,62,166,233,23,135,64,121,
-                        3,104,251,214,161,253,31,3,2,232,37,8,221,189,72,64,218,
-                        121,41,112,148,254,34,68,164,228,60,161,201,132,55,56,
-                        157>>}, undefined, undefined,
-                     undefined,
-                     <<92,24,205,75,244,60,136,212,250,32,214,20,37,3,213,87,61,207,
-                       147,61,168,145,177,118,160,153,33,53,48,108,191,174>>,
-                     undefined},
+                    #security_parameters{
+                       cipher_suite          = <<19,2>>,
+                       connection_end        = 0,
+                       bulk_cipher_algorithm = 8,
+                       cipher_type           = 2,
+                       prf_algorithm         = sha384,
+                       master_secret         =
+                           {handshake_secret,
+                            <<128,229,186,211,62,127,182,20,62,166,233,23,135,64,121,
+                              3,104,251,214,161,253,31,3,2,232,37,8,221,189,72,64,218,
+                              121,41,112,148,254,34,68,164,228,60,161,201,132,55,56,
+                              157>>},
+                     server_random         =
+                           <<92,24,205,75,244,60,136,212,250,32,214,20,37,3,213,87,61,207,
+                             147,61,168,145,177,118,160,153,33,53,48,108,191,174>>},
                 sequence_number => 0,server_verify_data => undefined},max_fragment_length => undefined},
 
     PlainText = [11,
@@ -544,7 +551,8 @@ encode_decode(_Config) ->
     %% TODO: remove hardcoded IV size
     WriteIVInfo = tls_v1:create_info(<<"iv">>, <<>>,  12),
 
-    {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, SHSTrafficSecret),
+    KeyLength = ssl_cipher:key_material(Cipher),
+    {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, SHSTrafficSecret),
 
     %% {server}  construct an EncryptedExtensions handshake message:
     %%
@@ -824,7 +832,7 @@ encode_decode(_Config) ->
     SWIV =
         hexstr2bin("cf 78 2b 88 dd 83 54 9a ad f1 e9 84"),
 
-    {SWKey, SWIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, SAPTrafficSecret),
+    {SWKey, SWIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, SAPTrafficSecret),
 
     %% {server}  derive read traffic keys for handshake data:
     %%
@@ -849,7 +857,7 @@ encode_decode(_Config) ->
     SRIV =
         hexstr2bin("5b d3 c7 1b 83 6e 0b 76 bb 73 26 5f"),
 
-    {SRKey, SRIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, CHSTrafficSecret),
+    {SRKey, SRIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, CHSTrafficSecret),
 
     %% {client}  calculate finished "tls13 finished":
     %%
@@ -926,7 +934,7 @@ encode_decode(_Config) ->
     CWIV =
         hexstr2bin("5b 78 92 3d ee 08 57 90 33 e5 23 d9"),
 
-    {CWKey, CWIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, CAPTrafficSecret),
+    {CWKey, CWIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, CAPTrafficSecret),
 
     %% {client}  derive secret "tls13 res master":
     %%
@@ -1422,7 +1430,7 @@ finished_verify_data(_Config) ->
 
 hexstr2int(S) ->
     B = hexstr2bin(S),
-    Bits = size(B) * 8,
+    Bits = byte_size(B) * 8,
     <<Integer:Bits/integer>> = B,
     Integer.
 

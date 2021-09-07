@@ -57,6 +57,7 @@ handle_ssh_msg({ssh_cm, CM, {data, ChannelId, 0, Data}}, #state{n = N} = State) 
     case M > 0 of
 	true ->
 	    ?DBG(State, "ssh_cm data Cid=~p size(Data)=~p M=~p",[ChannelId,size(Data),M]),
+            ssh_connection:adjust_window(CM, ChannelId, size(Data)),
 	    ssh_connection:send(CM, ChannelId, Data),
 	    {ok, State#state{n = M}};
 	false ->

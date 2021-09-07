@@ -1026,6 +1026,7 @@ std_connect(Host, Port, Config, Opts) ->
 		%% Prefere User's Opts to the default opts
 		[O || O = {Tag,_} <- [{user,User},{password,Pwd},
 				      {silently_accept_hosts, true},
+                                      {save_accepted_host, false},
 				      {user_dir, user_dir(Config)},
 				      {user_interaction, false}],
 		      not lists:keymember(Tag, 1, Opts)

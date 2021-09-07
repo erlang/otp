@@ -58,8 +58,8 @@ int main( int argc, const char* argv[] )
 #endif
   int ret = 0;
   int nr_of_yields = 0;
-  long nr_of_reductions;
 #ifdef YCF_YIELD_CODE_GENERATED
+  long nr_of_reductions;
   do{
     nr_of_reductions = 101;
     ret = fun_ycf_gen_yielding(&nr_of_reductions,&wb,NULL,allocator,freer,NULL,0,NULL,1);

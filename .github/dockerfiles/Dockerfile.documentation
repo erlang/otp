@@ -12,8 +12,7 @@ RUN cd /buildroot && tar -xzf ./otp.tar.gz
 
 WORKDIR /buildroot/otp/
 
-## We don't build pdf in order to save some time
-ENV RELEASE_ROOT=/otp DOC_TARGETS="html man chunks"
+ENV RELEASE_ROOT=/otp
 
 RUN ./configure --prefix=/otp && make && make release
 

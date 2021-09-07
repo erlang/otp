@@ -1,0 +1,45 @@
+
+  [;1m-spec erlang:port_info(Port) -> Result[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              ResultItem ::[0m
+  [;1m                                  {registered_name,[0m
+  [;1m                                   RegisteredName :: atom()} |[0m
+  [;1m                                  {id, Index :: non_neg_integer()} |[0m
+  [;1m                                  {connected, Pid :: pid()} |[0m
+  [;1m                                  {links, Pids :: [pid()]} |[0m
+  [;1m                                  {name, String :: string()} |[0m
+  [;1m                                  {input, Bytes :: non_neg_integer()} |[0m
+  [;1m                                  {output, Bytes :: non_neg_integer()} |[0m
+  [;1m                                  {os_pid,[0m
+  [;1m                                   OsPid ::[0m
+  [;1m                                       non_neg_integer() | undefined},[0m
+  [;1m                              Result :: [ResultItem] | undefined.[0m
+
+  Returns a list containing tuples with information about [;;4mPort[0m, or [;;4m[0m
+  [;;4mundefined[0m if the port is not open. The order of the tuples is
+  undefined, and all the tuples are not mandatory. If the port is
+  closed and the calling process was previously linked to the port,
+  the exit signal from the port is guaranteed to be delivered before [;;4m[0m
+  [;;4mport_info/1[0m returns [;;4mundefined[0m.
+
+  The result contains information about the following [;;4mItem[0ms:
+
+   • [;;4mregistered_name[0m (if the port has a registered name)
+
+   • [;;4mid[0m
+
+   • [;;4mconnected[0m
+
+   • [;;4mlinks[0m
+
+   • [;;4mname[0m
+
+   • [;;4minput[0m
+
+   • [;;4moutput[0m
+
+  For more information about the different [;;4mItem[0ms, see [;;4mport_info/2[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.

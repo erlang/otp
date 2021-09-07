@@ -54,7 +54,7 @@ end_per_testcase(_Case, Config) ->
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,1}}].
+     {timetrap,{minutes,10}}].
 
 all() -> 
     [interpret, guards, {group, list_suite}, interpretable].

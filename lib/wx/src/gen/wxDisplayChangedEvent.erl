@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,18 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdisplaychangedevent.html">wxDisplayChangedEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>display_changed</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxDisplayChanged(). #wxDisplayChanged{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxDisplayChangedEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxDisplayChangedEvent).
 -include("wxe.hrl").
 -export([]).
@@ -38,12 +26,14 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxDisplayChangedEvent/0]).
+-type wxDisplayChangedEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxDisplayChangedEventType() :: 'display_changed'.
+-export_type([wxDisplayChangedEvent/0, wxDisplayChanged/0, wxDisplayChangedEventType/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxDisplayChangedEvent() :: wx:wx_object().
  %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).

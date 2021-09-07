@@ -356,9 +356,9 @@ array:new([{size,10},{fixed,false},{default,-1}])</pre>
           Notice that any size specifications in <c><anno>Options</anno></c>
           override parameter <c><anno>Size</anno></c>.</p>
         <p>If <c><anno>Options</anno></c> is a list, this is equivalent to
-          <c>new([{size, <anno>Size</anno>} | <anno>Options</anno>]</c>,
+          <c>new([{size, <anno>Size</anno>} | <anno>Options</anno>])</c>,
           otherwise it is equivalent to <c>new([{size, <anno>Size</anno>} |
-          [<anno>Options</anno>]]</c>. However, using this function directly is
+          [<anno>Options</anno>]])</c>. However, using this function directly is
           more efficient.</p>
         <p><em>Example:</em></p>
         <pre>

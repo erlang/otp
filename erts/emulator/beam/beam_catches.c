@@ -28,7 +28,7 @@
 /* R14B04 has about 380 catches when starting erlang */
 #define DEFAULT_TABSIZE (1024)
 typedef struct {
-    BeamInstr *cp;
+    ErtsCodePtr cp;
     unsigned cdr;
 } beam_catch_t;
 
@@ -61,7 +61,7 @@ void beam_catches_init(void)
     bccix[0].tabsize   = DEFAULT_TABSIZE;
     bccix[0].free_list = -1;
     bccix[0].high_mark = 0;
-    bccix[0].beam_catches = erts_alloc(ERTS_ALC_T_CODE,
+    bccix[0].beam_catches = erts_alloc(ERTS_ALC_T_CATCHES,
 				     sizeof(beam_catch_t)*DEFAULT_TABSIZE);
     IF_DEBUG(bccix[0].is_staging = 0);
     for (i=1; i<ERTS_NUM_CODE_IX; i++) {
@@ -80,7 +80,7 @@ static void gc_old_vec(beam_catch_t* vec)
 	    return;
 	}
     }
-    erts_free(ERTS_ALC_T_CODE, vec);
+    erts_free(ERTS_ALC_T_CATCHES, vec);
 }
 
 
@@ -102,7 +102,7 @@ void beam_catches_end_staging(int commit)
     IF_DEBUG(bccix[erts_staging_code_ix()].is_staging = 0);
 }
 
-unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr)
+unsigned beam_catches_cons(ErtsCodePtr cp, unsigned cdr, ErtsCodePtr **cppp)
 {
     int i;
     struct bc_pool* p = &bccix[erts_staging_code_ix()];
@@ -122,7 +122,7 @@ unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr)
 	    beam_catch_t* prev_vec = p->beam_catches;
 	    unsigned newsize = p->tabsize*2;
 
-	    p->beam_catches = erts_alloc(ERTS_ALC_T_CODE,
+	    p->beam_catches = erts_alloc(ERTS_ALC_T_CATCHES,
 					 newsize*sizeof(beam_catch_t));
 	    sys_memcpy(p->beam_catches, prev_vec,
 		       p->tabsize*sizeof(beam_catch_t));
@@ -134,11 +134,14 @@ unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr)
 
     p->beam_catches[i].cp  = cp;
     p->beam_catches[i].cdr = cdr;
+    if (cppp) {
+        *cppp = &p->beam_catches[i].cp;
+    }
 
     return i;
 }
 
-BeamInstr *beam_catches_car(unsigned i)
+ErtsCodePtr beam_catches_car(unsigned i)
 {
     struct bc_pool* p = &bccix[erts_active_code_ix()];
 
@@ -148,27 +151,51 @@ BeamInstr *beam_catches_car(unsigned i)
     return p->beam_catches[i].cp;
 }
 
-void beam_catches_delmod(unsigned head, BeamInstr *code, unsigned code_bytes,
-			 ErtsCodeIndex code_ix)
+ErtsCodePtr beam_catches_car_staging(unsigned i)
+{
+    struct bc_pool* p = &bccix[erts_staging_code_ix()];
+
+    if (i >= p->tabsize ) {
+	erts_exit(ERTS_ERROR_EXIT, "beam_catches_delmod: index %#x is out of range\r\n", i);
+    }
+    return p->beam_catches[i].cp;
+}
+
+void beam_catches_delmod(unsigned head,
+                         const BeamCodeHeader *hdr,
+                         unsigned code_bytes,
+                         ErtsCodeIndex code_ix)
 {
     struct bc_pool* p = &bccix[code_ix];
+    const char *code_start;
     unsigned i, cdr;
 
+    code_start = (const char*)hdr;
+
     ASSERT((code_ix == erts_active_code_ix()) != bccix[erts_staging_code_ix()].is_staging);
+
     for(i = head; i != (unsigned)-1;) {
-	if (i >= p->tabsize) {
-	    erts_exit(ERTS_ERROR_EXIT, "beam_catches_delmod: index %#x is out of range\r\n", i);
-	}
-	if( (char*)p->beam_catches[i].cp - (char*)code >= code_bytes ) {
-	    erts_exit(ERTS_ERROR_EXIT,
-		    "beam_catches_delmod: item %#x has cp %p which is not "
-		    "in module's range [%p,%p[\r\n",
-		    i, p->beam_catches[i].cp, code, ((char*)code + code_bytes));
-	}
-	p->beam_catches[i].cp = 0;
-	cdr = p->beam_catches[i].cdr;
-	p->beam_catches[i].cdr = p->free_list;
-	p->free_list = i;
-	i = cdr;
+        const char *catch_addr = (char*)p->beam_catches[i].cp;
+
+        if (i >= p->tabsize) {
+            erts_exit(ERTS_ERROR_EXIT,
+                      "beam_catches_delmod: index %#x is out of range\r\n", i);
+        }
+
+        if (!ErtsInArea(catch_addr, code_start, code_bytes)) {
+            erts_exit(ERTS_ERROR_EXIT,
+                      "beam_catches_delmod: item %#x has cp %p which is not "
+                      "in module's range [%p,%p[\r\n",
+                      i,
+                      p->beam_catches[i].cp,
+                      code_start,
+                      &code_start[code_bytes]);
+        }
+
+        p->beam_catches[i].cp = NULL;
+        cdr = p->beam_catches[i].cdr;
+        p->beam_catches[i].cdr = p->free_list;
+        p->free_list = i;
+        i = cdr;
     }
 }

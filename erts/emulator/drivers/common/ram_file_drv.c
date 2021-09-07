@@ -40,12 +40,12 @@
 
 /* other operations */
 #define RAM_FILE_GET           30
-#define RAM_FILE_SET           31
-#define RAM_FILE_GET_CLOSE     32  /* get_file/close */
-#define RAM_FILE_COMPRESS      33  /* compress file */
-#define RAM_FILE_UNCOMPRESS    34  /* uncompress file */
-#define RAM_FILE_UUENCODE      35  /* uuencode file */
-#define RAM_FILE_UUDECODE      36  /* uudecode file */
+// #define RAM_FILE_SET           31
+// #define RAM_FILE_GET_CLOSE     32  /* get_file/close */
+// #define RAM_FILE_COMPRESS      33  /* compress file */
+// #define RAM_FILE_UNCOMPRESS    34  /* uncompress file */
+// #define RAM_FILE_UUENCODE      35  /* uuencode file */
+// #define RAM_FILE_UUDECODE      36  /* uudecode file */
 #define RAM_FILE_SIZE          37  /* get file size */
 #define RAM_FILE_ADVISE        38  /* predeclare the access
                                     * pattern for file data */
@@ -86,8 +86,6 @@
 
 #include "sys.h"
 #include "erl_driver.h"
-#include "zlib.h"
-#include "gzio.h"
 
 #ifndef NULL
 #define NULL ((void*)0)
@@ -393,173 +391,6 @@ static ErlDrvSSizeT ram_file_seek(RamFile *f, ErlDrvSSizeT offset, int whence,
     return f->cur = pos;
 }
 
-#define UUMASK(x)     ((x)&0x3F)
-#define uu_encode(x)  (UUMASK(x)+32)
-
-/* calculate max number of quadrauple bytes given max line length */
-#define UULINE(n) ( (((n)-1) / 4) * 3)
-
-#define UNIX_LINE 61  /* 61 character lines =>  45 uncoded => 60 coded */
-
-#define uu_pack(p, c1, c2, c3) \
-        (p)[0] = uu_encode((c1) >> 2), \
-        (p)[1] = uu_encode(((c1) << 4) | ((c2) >> 4)), \
-        (p)[2] = uu_encode(((c2) << 2) | ((c3) >> 6)), \
-        (p)[3] = uu_encode(c3)
-
-static int ram_file_uuencode(RamFile *f)
-{
-    ErlDrvSSizeT code_len = UULINE(UNIX_LINE);
-    ErlDrvSSizeT len = f->end;
-    ErlDrvSSizeT usize = 4*((len+2)/3) + 2*((len+code_len-1)/code_len) + 2;
-    ErlDrvBinary* bin;
-    uchar* inp;
-    uchar* outp;
-    ErlDrvSSizeT count = 0;
-
-    if ((bin = driver_alloc_binary(usize)) == NULL)
-	return error_reply(f, ENOMEM);
-    outp = (uchar*)bin->orig_bytes;
-    inp = (uchar*)f->buf;
-
-    while(len > 0) {
-        int c1, c2, c3;
-        int n = (len >= code_len) ? code_len : len;
-
-        len -= n;
-        *outp++ = uu_encode(UUMASK(n));
-        count++;
-        while (n >= 3) {
-            c1 = inp[0];
-            c2 = inp[1];
-            c3 = inp[2];
-	    uu_pack(outp, c1, c2, c3);
-            inp += 3; n -= 3;
-            outp += 4; count += 4;
-        }
-        if (n == 2) {
-            c1 = inp[0];
-            c2 = inp[1];
-	    uu_pack(outp, c1, c2, 0);
-	    inp += 2;
-            outp += 4; count += 4;
-        }
-        else if (n == 1) {
-            c1 = inp[0];
-	    uu_pack(outp, c1, 0, 0);
-	    inp += 1;
-            outp += 4; count += 4;
-        }
-        *outp++ = '\n';
-        count++;
-    }
-    *outp++ = ' ';   /* this end of file 0 length !!! */
-    *outp++ = '\n';
-    count += 2;
-    ASSERT(count == usize);
-    driver_free_binary(f->bin);
-    ram_file_set(f, bin, usize, count);
-    return numeric_reply(f, count);
-}
-
-
-#define uu_decode(x)  ((x)-32)
-
-static int ram_file_uudecode(RamFile *f)
-{
-    ErlDrvSSizeT len = f->end;
-    ErlDrvSSizeT usize = ( (len+3) / 4 ) * 3;
-    ErlDrvBinary* bin;
-    uchar* inp;
-    uchar* outp;
-    int count = 0;
-    int n;
-
-    if ((bin = driver_alloc_binary(usize)) == NULL)
-	return error_reply(f, ENOMEM);
-    outp = (uchar*)bin->orig_bytes;
-    inp  = (uchar*)f->buf;
-
-    while(len > 0) {
-	if ((n = uu_decode(*inp++)) < 0)
-	    goto error;
-        len--;
-	if ((n == 0) && (*inp == '\n'))
-	    break;
-        count += n;     /* count characters */
-        while((n > 0) && (len >= 4)) {
-            int c1, c2, c3, c4;
-            c1 = uu_decode(inp[0]);
-            c2 = uu_decode(inp[1]);
-            c3 = uu_decode(inp[2]);
-            c4 = uu_decode(inp[3]);
-	    inp += 4;
-            len -= 4;
-
-            switch(n) {
-            case 1:
-                *outp++ = (c1 << 2) | (c2 >> 4);
-		n = 0;
-                break;
-            case 2:
-                *outp++ = (c1 << 2) | (c2 >> 4);
-                *outp++ = (c2 << 4) | (c3 >> 2);
-		n = 0;
-                break;
-            default:
-                *outp++ = (c1 << 2) | (c2 >> 4);
-                *outp++ = (c2 << 4) | (c3 >> 2);
-                *outp++ = (c3 << 6) | c4;
-                n -= 3;
-                break;
-            }
-        }
-	if ((n != 0) || (*inp++ != '\n'))
-	    goto error;
-        len--;
-    }
-    driver_free_binary(f->bin);
-    ram_file_set(f, bin, usize, count);
-    return numeric_reply(f, count);
-
- error:
-    driver_free_binary(bin);
-    return error_reply(f, EINVAL);
-}
-
-
-static int ram_file_compress(RamFile *f)
-{
-    ErlDrvSSizeT size = f->end;
-    ErlDrvBinary* bin;
-
-    if ((bin = erts_gzdeflate_buffer(f->buf, size)) == NULL) {
-	return error_reply(f, EINVAL);
-    }
-    driver_free_binary(f->bin);
-    size = bin->orig_size;
-    ram_file_set(f, bin, size, size);
-    return numeric_reply(f, size);
-}
-
-/* Tricky since we dont know the expanded size !!! */
-/* First attempt is to double the size of input */
-/* loop until we don't get Z_BUF_ERROR */
-
-static int ram_file_uncompress(RamFile *f)
-{
-    ErlDrvSSizeT size = f->end;
-    ErlDrvBinary* bin;
-
-    if ((bin = erts_gzinflate_buffer(f->buf, size)) == NULL) {
-	return error_reply(f, EINVAL);
-    }
-    driver_free_binary(f->bin);
-    size = bin->orig_size;
-    ram_file_set(f, bin, size, size);
-    return numeric_reply(f, size);
-}
-
 
 static void rfile_command(ErlDrvData e, char* buf, ErlDrvSizeT count)
 {
@@ -677,43 +508,8 @@ static void rfile_command(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	driver_free_binary(bin);
 	break;
 
-    case RAM_FILE_GET_CLOSE:  /* return the file and close driver */
-	n = f->end;  /* length */
-	bin = f->bin;
-	f->bin = NULL;  /* NUKE IT */
-	header[0] = RAM_FILE_RESP_DATA;
-	put_int32(n, header+1);
-	driver_output_binary(f->port, header, sizeof(header),
-			     bin, 0, n);
-	driver_free_binary(bin);
-	driver_failure(f->port, 0);
-	break;
-
     case RAM_FILE_SIZE:
 	numeric_reply(f, f->end);
-	break;
-	
-    case RAM_FILE_SET:        /* re-init file with new data */
-	if ((n = ram_file_init(f, buf, count, &error)) < 0)
-	    error_reply(f, error);
-	else
-	    numeric_reply(f, n); /* 0 is not used */
-	break;
-	
-    case RAM_FILE_COMPRESS:   /* inline compress the file */
-	ram_file_compress(f);
-	break;
-
-    case RAM_FILE_UNCOMPRESS: /* inline uncompress file */
-	ram_file_uncompress(f);
-	break;
-
-    case RAM_FILE_UUENCODE:   /* uuencode file */
-	ram_file_uuencode(f);
-	break;
-	
-    case RAM_FILE_UUDECODE:   /* uudecode file */
-	ram_file_uudecode(f);
 	break;
 
     case RAM_FILE_ADVISE:

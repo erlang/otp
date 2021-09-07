@@ -32,6 +32,60 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.16.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The experimental HiPE application has been removed,
+	    together with all related functionality in other
+	    applications.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16963</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.16.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The function <c>dbg:n/1</c> used a local fun to set up a
+	    tracer on a remote node. This works fine as long as the
+	    remote node is running exactly the same version of
+	    Erlang/OTP but does not work at all otherwise. This is
+	    fixed by exporting the relevant function and by calling
+	    this function on the remote node to set up remote
+	    tracing.</p>
+          <p>
+	    Own Id: OTP-16930 Aux Id: ERL-1371, GH-4396 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.16</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Clarify documentation of module 'scheduler'.</p>
+          <p>
+	    Own Id: OTP-17208 Aux Id: GH-4502, PR-4532 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.15.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -73,6 +127,27 @@
 
 </section>
 
+<section><title>Runtime_Tools 1.14.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The function <c>dbg:n/1</c> used a local fun to set up a
+	    tracer on a remote node. This works fine as long as the
+	    remote node is running exactly the same version of
+	    Erlang/OTP but does not work at all otherwise. This is
+	    fixed by exporting the relevant function and by calling
+	    this function on the remote node to set up remote
+	    tracing.</p>
+          <p>
+	    Own Id: OTP-16930 Aux Id: ERL-1371, GH-4396 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.14</title>
 
     <section><title>Improvements and New Features</title>
@@ -99,6 +174,27 @@
 	    configuration of <c>crypto</c> application.</p>
           <p>
 	    Own Id: OTP-15262 Aux Id: OTP-15129 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.13.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The function <c>dbg:n/1</c> used a local fun to set up a
+	    tracer on a remote node. This works fine as long as the
+	    remote node is running exactly the same version of
+	    Erlang/OTP but does not work at all otherwise. This is
+	    fixed by exporting the relevant function and by calling
+	    this function on the remote node to set up remote
+	    tracing.</p>
+          <p>
+	    Own Id: OTP-16930 Aux Id: ERL-1371, GH-4396 </p>
         </item>
       </list>
     </section>
@@ -1466,4 +1562,3 @@
     </section>
   </section>
 </chapter>
-

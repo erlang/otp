@@ -42,12 +42,10 @@
       to active FTP mode if this fails. This default behavior can be 
       changed by start option <seeerl marker="#mode">mode</seeerl>.</p>
 
-    <marker id="two_start"></marker>
-
-    <p>An FTP client can be started in two ways. One is using the 
-      <seeerl marker="#service_start">service_start</seeerl> function,
-      the other is to start it directly as a standalone process
-      using function <seeerl marker="#open">open</seeerl>.</p>
+      <p>An FTP client is always started as part of the ftp application
+      and legacy 
+      <seeerl marker="#service_start">start_service</seeerl> function,
+      is deprecated in OTP-24 </p>
 
     <p>For a simple example of an FTP session, see 
       <seeguide marker="ftp_client">FTP User's Guide</seeguide>.</p>
@@ -74,16 +72,16 @@
       error if the request is a listing of the contents of a directory
       that exists but is empty.</p>
 
-    <marker id="service_start"></marker>
+      <marker id="service_start"></marker>
   </description>
 
   <section>
-    <title>FTP CLIENT SERVICE START/STOP</title>
+    <title>FTP CLIENT START/STOP</title>
     
     <p>The FTP client can be started and stopped dynamically in runtime by
       calling the <c>ftp</c> application API
-      <c>ftp:start_service(ServiceConfig)</c> and
-      <c>ftp:stop_service(Pid)</c>.</p>
+      <c>ftp:open(Host, Options)</c> and
+      <c>ftp:close(Client)</c>.</p>
 
     <p>The available configuration options are as follows:</p>
     
@@ -98,7 +96,8 @@
       <item>
         <marker id="port"></marker>
 	<p>Port = <c>integer() > 0</c></p>
-	<p>Default is <c>21</c>.</p>
+	<p>Default is <c>0</c> which aliases to <c>21</c> or <c>990</c> when used with
+	   <seeerl marker="#open"><c>{tls_sec_method,ftps}</c></seeerl>).</p>
       </item>
 
       <tag>{mode, Mode}</tag>
@@ -238,7 +237,7 @@
     </note>
     
     <p>The file transfer type is set to the default of the FTP server
-      when the session is opened. This is usually ASCCI mode.
+      when the session is opened. This is usually ASCII mode.
     </p>
     
     <p>The current local working directory (compare <c>lpwd/1</c>) is set 
@@ -537,7 +536,7 @@
     <func>
       <name since="">open(Host) -> {ok, Pid} | {error, Reason}</name>
       <name since="">open(Host, Opts) -> {ok, Pid} | {error, Reason}</name>
-      <fsummary>Starts a standalone FTP client.</fsummary>
+      <fsummary>Starts a FTP client.</fsummary>
       <type>
 	<v>Host = string() | ip_address()</v>
 	<v>Opts = options()</v>
@@ -546,15 +545,16 @@
 	<v>start_option() = {verbose, verbose()} | {debug, debug()}</v>
 	<v>verbose() = boolean() (default is false)</v>
 	<v>debug() = disable | debug | trace (default is disable)</v>
-	<v>open_option() = {ipfamily, ipfamily()} | {port, port()} | {mode, mode()} | {tls, tls_options()} | {timeout, timeout()} | {dtimeout, dtimeout()} | {progress, progress() | {sock_ctrl, sock_opts()} | {sock_data_act, sock_opts()} | {sock_data_pass, sock_opts()} }</v>
+	<v>open_option() = {ipfamily, ipfamily()} | {port, port()} | {mode, mode()} | {tls, tls_options()} | {tls_sec_method, tls_sec_method()} | {tls_ctrl_session_reuse, boolean() (default is false)} | {timeout, timeout()} | {dtimeout, dtimeout()} | {progress, progress()} | {sock_ctrl, sock_opts()} | {sock_data_act, sock_opts()} | {sock_data_pass, sock_opts()}</v>
 	<v>ipfamily() = inet | inet6 | inet6fb4 (default is inet)</v>
-	<v>port() = integer() > 0 (default is 21)</v>
+	<v>port() = non_neg_integer() (default is 0 which aliases to 21 or 990 when used with {tls_sec_method,ftps})</v>
 	<v>mode() = active | passive (default is passive)</v>
 	<v>tls_options() = [<seetype marker="ssl:ssl#tls_option">ssl:tls_option()</seetype>]</v>
+	<v>tls_sec_method() = ftps | ftpes (default is ftpes)</v>
 	<v>sock_opts() = [<seetype marker="kernel:gen_tcp#option">gen_tcp:option()</seetype> except for ipv6_v6only, active, packet, mode, packet_size and header</v>
 	<v>timeout() = integer() > 0 (default is 60000 milliseconds)</v>
 	<v>dtimeout() = integer() > 0 | infinity (default is infinity)</v>
-	<v>pogress() = ignore | {module(), function(), initial_data()} (default is ignore)</v>
+	<v>progress() = ignore | {module(), function(), initial_data()} (default is ignore)</v>
 	<v>module() = atom()</v>
 	<v>function() = atom()</v>
 	<v>initial_data() = term()</v>
@@ -562,8 +562,7 @@
       </type>
 
       <desc>
-	<p>Starts a standalone FTP client process 
-          (without the <c>ftp</c> service framework) and
+	<p>Starts a FTP client process and
           opens a session with the FTP server at <c>Host</c>. </p>
 
 	<p>If option <c>{tls, tls_options()}</c> is present, the FTP session 
@@ -572,6 +571,18 @@
 	The list <c>tls_options()</c> can be empty. The function 
 	<seemfa marker="ssl:ssl#connect/3"><c>ssl:connect/3</c></seemfa> 
 	is used for securing both the control connection and the data sessions.
+	</p>
+
+	<p>The suboption <c>{tls_sec_method, tls_sec_method()}</c> (defaults to
+	<c>ftpes</c>) when set to <c>ftps</c> will connect immediately with SSL
+	instead of upgrading with STARTTLS.  This suboption is ignored unless
+	the suboption <c>tls</c> is also set.
+	</p>
+
+	<p>The option <c>{tls_ctrl_session_reuse, boolean()}</c> (defaults to
+	<c>false</c>) when set to <c>true</c> the client will re-use the
+	TLS session from the control channel on the data channel as enforced by
+	many FTP servers as (<url href="https://scarybeastsecurity.blogspot.com/2009/02/vsftpd-210-released.html">proposed and implemented first by vsftpd</url>).
 	</p>
 
 	<p>The options <c>sock_ctrl</c>, <c>sock_data_act</c> and <c>sock_data_pass</c> passes options down to 
@@ -885,7 +896,7 @@
       <type>
         <v>Pid = pid()</v>
         <v>Command = string()</v>
-        <v>FTPLine = string(</v>
+        <v>FTPLine = string()</v>
       </type>
       <desc><note><p>The telnet end of line characters, from the FTP 
       protocol definition, CRLF, for example, "\\r\\n" has been removed.</p></note>

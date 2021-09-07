@@ -182,7 +182,7 @@ void erts_lcnt_lock_post(erts_lcnt_ref_t *ref);
  * @param file The name of the file where the lock was acquired.
  * @param line The line at which the lock was acquired. */
 ERTS_GLB_FORCE_INLINE
-void erts_lcnt_lock_post_x(erts_lcnt_ref_t *ref, char *file, unsigned int line);
+void erts_lcnt_lock_post_x(erts_lcnt_ref_t *ref, const char *file, unsigned int line);
 
 /** @brief Records that a lock has been released. */
 ERTS_GLB_FORCE_INLINE
@@ -225,7 +225,7 @@ void erts_lcnt_lock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, e
 ERTS_GLB_INLINE
 void erts_lcnt_lock_post_idx(erts_lcnt_lock_info_carrier_t *carrier, int index);
 ERTS_GLB_INLINE
-void erts_lcnt_lock_post_x_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, char *file, unsigned int line);
+void erts_lcnt_lock_post_x_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, const char *file, unsigned int line);
 
 ERTS_GLB_INLINE
 void erts_lcnt_lock_unacquire_idx(erts_lcnt_lock_info_carrier_t *carrier, int index);
@@ -409,7 +409,7 @@ ERTS_GLB_INLINE
 void lcnt_update_stats__(erts_lcnt_lock_stats_t *stats, int lock_in_conflict, erts_lcnt_time_t *time_waited);
 
 ERTS_GLB_INLINE
-erts_lcnt_lock_stats_t *lcnt_get_lock_stats__(erts_lcnt_lock_info_t *info, char *file, unsigned int line);
+erts_lcnt_lock_stats_t *lcnt_get_lock_stats__(erts_lcnt_lock_info_t *info, const char *file, unsigned int line);
 
 ERTS_GLB_INLINE
 void lcnt_dec_lock_state__(ethr_atomic_t *l_state);
@@ -542,7 +542,7 @@ void lcnt_dec_lock_state__(ethr_atomic_t *l_state) {
 }
 
 ERTS_GLB_INLINE
-erts_lcnt_lock_stats_t *lcnt_get_lock_stats__(erts_lcnt_lock_info_t *info, char *file, unsigned int line) {
+erts_lcnt_lock_stats_t *lcnt_get_lock_stats__(erts_lcnt_lock_info_t *info, const char *file, unsigned int line) {
     unsigned int i;
 
     ASSERT(info->location_count >= 1 && info->location_count <= ERTS_LCNT_MAX_LOCK_LOCATIONS);
@@ -671,7 +671,7 @@ void erts_lcnt_lock_post(erts_lcnt_ref_t *ref) {
 }
 
 ERTS_GLB_FORCE_INLINE
-void erts_lcnt_lock_post_x(erts_lcnt_ref_t *ref, char *file, unsigned int line) {
+void erts_lcnt_lock_post_x(erts_lcnt_ref_t *ref, const char *file, unsigned int line) {
     erts_lcnt_lock_info_carrier_t *carrier;
     int handle;
 
@@ -795,7 +795,7 @@ void erts_lcnt_lock_post_idx(erts_lcnt_lock_info_carrier_t *carrier, int index) 
 }
 
 ERTS_GLB_INLINE
-void erts_lcnt_lock_post_x_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, char *file, unsigned int line) {
+void erts_lcnt_lock_post_x_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, const char *file, unsigned int line) {
     erts_lcnt_lock_info_t *info = &carrier->entries[index];
 
     lcnt_thread_data_t__ *eltd = lcnt_get_thread_data__();

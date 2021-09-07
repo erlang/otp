@@ -69,7 +69,7 @@ send_response(_Socket, _SocketType, Path, Info)->
     case file:open(Path,[raw,binary]) of
 	{ok, FileDescriptor} ->
 	    {FileInfo, LastModified} = get_modification_date(Path),
-	    Suffix = httpd_util:suffix(Path),
+	    Suffix = httpd_util:strip_extension_dot(Path),
 	    MimeType = httpd_util:lookup_mime_default(Info#mod.config_db,
 						      Suffix,"text/plain"),
 	    %% FileInfo = file:read_file_info(Path),
@@ -81,7 +81,7 @@ send_response(_Socket, _SocketType, Path, Info)->
 			       {content_length, Size}|LastModified];
 			  %% OTP-4935
 			 _ ->
-			     %% i.e http/1.0 and http/0.9
+			     %% i.e http/1.0
 			      [{content_type, MimeType},
 			       {content_length, Size}|LastModified]
 			  end,

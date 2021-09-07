@@ -23,7 +23,7 @@
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2,end_per_testcase/2]).
 -export([start_timer_1/1, send_after_1/1, send_after_2/1, send_after_3/1,
-	 cancel_timer_1/1,
+	 cancel_timer_1/1, cancel_timer_sync/1,
 	 start_timer_big/1, send_after_big/1,
 	 start_timer_e/1, send_after_e/1, cancel_timer_e/1,
 	 read_timer_trivial/1, read_timer/1, read_timer_async/1,
@@ -31,7 +31,8 @@
 	 same_time_yielding_with_cancel/1, same_time_yielding_with_cancel_other/1,
 %	 same_time_yielding_with_cancel_other_accessor/1,
 	 auto_cancel_yielding/1,
-         suspended_scheduler_timeout/1]).
+         suspended_scheduler_timeout/1,
+         multizero_timeout_in_timeout/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -62,7 +63,7 @@ suite() ->
 
 all() -> 
     [start_timer_1, send_after_1, send_after_2,
-     cancel_timer_1, start_timer_e, send_after_e,
+     cancel_timer_1, cancel_timer_sync, start_timer_e, send_after_e,
      cancel_timer_e, start_timer_big, send_after_big,
      read_timer_trivial, read_timer, read_timer_async,
      cleanup, evil_timers, registered_process,
@@ -70,7 +71,8 @@ all() ->
      same_time_yielding_with_cancel_other,
 %     same_time_yielding_with_cancel_other_accessor,
      auto_cancel_yielding,
-     suspended_scheduler_timeout].
+     suspended_scheduler_timeout,
+     multizero_timeout_in_timeout].
 
 
 %% Basic start_timer/3 functionality
@@ -162,6 +164,60 @@ cancel_timer_1(Config) when is_list(Config) ->
     false = erlang:cancel_timer(make_ref()),
 
     ok.
+
+cancel_timer_sync(Config) when is_list(Config) ->
+    cancel_timer_sync_test(true),
+    cancel_timer_sync_test(false).
+
+cancel_timer_sync_test(SameSched) ->
+    process_flag(scheduler, 1),
+
+    R1 = erlang:send_after(1000, self(), cling),
+    R2 = erlang:send_after(1000, self(), clong),
+    R3 = erlang:send_after(1000, self(), clang),
+    TsSet = erlang:monotonic_time(),
+    R4 = erlang:send_after(0, self(), pling),
+    R5 = erlang:send_after(0, self(), plong),
+    R6 = erlang:send_after(0, self(), plang),
+    R7 = make_ref(),
+    R8 = make_ref(),
+    R9 = make_ref(),
+
+    case SameSched of
+	true ->
+	    %% Cancel from the same scheduler...
+	    ok;
+	false->
+	    %% Cancel from different scheduler...
+	    process_flag(scheduler, erlang:system_info(schedulers_online))
+    end,
+
+    C1 = erlang:cancel_timer(R1),
+    true = is_integer(C1),
+    C2 = erlang:cancel_timer(R2, [{info, true}]),
+    true = is_integer(C2),
+    ok = erlang:cancel_timer(R3, [{info, false}]),
+
+    receive pling -> ok end,
+    receive plong -> ok end,
+    receive plang -> ok end,
+
+    false = erlang:cancel_timer(R4),
+    false = erlang:cancel_timer(R5, [{info, true}]),
+    ok = erlang:cancel_timer(R6, [{info, false}]),
+    
+    false = erlang:cancel_timer(R7),
+    false = erlang:cancel_timer(R8, [{info, true}]),
+    ok = erlang:cancel_timer(R9, [{info, false}]),
+    
+    Wait = 1500 - erlang:convert_time_unit(erlang:monotonic_time() - TsSet,
+					   native, millisecond),
+
+    receive TMO when TMO == cling; TMO == clang; TMO == clong ->
+	    ct:fail({unexpected_timeout, TMO})
+    after Wait ->
+	    ok
+    end.
 
 %% Error cases for start_timer/3
 start_timer_e(Config) when is_list(Config) ->
@@ -491,19 +547,36 @@ registered_process(Config) when is_list(Config) ->
 same_time_yielding(Config) when is_list(Config) ->
     Mem = mem(),
     Ref = make_ref(),
-    SchdlrsOnln = erlang:system_info(schedulers_online),
-    Tmo = erlang:monotonic_time(millisecond) + 6000,
+    SchdlrsOnline = erlang:system_info(schedulers_online),
+    SchdlrsToUse = erlang:max(1, erlang:min(8, SchdlrsOnline) - 1),
+    StartTime = erlang:monotonic_time(millisecond),
+    Tmo = StartTime + 20000,
+    NrOfTimeouts = (?TIMEOUT_YIELD_LIMIT*3+1) * SchdlrsToUse,
+    NrOfTimeoutsPerScheduler = NrOfTimeouts div SchdlrsToUse,
     Tmrs = lists:map(fun (I) ->
-                             process_flag(scheduler, (I rem SchdlrsOnln) + 1),
-                             erlang:start_timer(Tmo, self(), Ref, [{abs, true}])
+                             SchedulerId =
+                                 case SchdlrsOnline of
+                                     1 -> 1;
+                                     _ ->
+                                         ((I div NrOfTimeoutsPerScheduler) rem SchdlrsToUse)  + 2
+                                 end,
+                             process_flag(scheduler, SchedulerId),
+                             erlang:start_timer(Tmo, self(), Ref, [{abs, true}]),
+                             SchedulerId
                      end,
-                     lists:seq(1, (?TIMEOUT_YIELD_LIMIT*3+1)*SchdlrsOnln)),
+                     lists:seq(1, NrOfTimeouts)),
+    process_flag(scheduler, 1),
+    AllTimersStartedTime = erlang:monotonic_time(millisecond),
     true = mem_larger_than(Mem),
-    receive_all_timeouts(length(Tmrs), Ref),
+    {TimeToReceive, TimeUntilFirst} = receive_all_timeouts(length(Tmrs), Ref),
     Done = erlang:monotonic_time(millisecond),
     true = Done >= Tmo,
     MsAfterTmo = Done - Tmo,
-    io:format("Done ~p ms after Tmo\n", [MsAfterTmo]),
+    io:format("Done ~p ms after Tmo\nInfo: ~p\n",
+              [MsAfterTmo,
+               {'TimeToStartAllTimers', AllTimersStartedTime - StartTime,
+                'TimeInReceiveUntilFirst',TimeUntilFirst,
+                'TimeToReceive', TimeToReceive}]),
     case erlang:system_info(build_type) of
         opt ->
             true = MsAfterTmo < 200;
@@ -516,12 +589,26 @@ same_time_yielding(Config) when is_list(Config) ->
 %% Read out all timeouts in receive queue order. This is efficient
 %% even if there are very many messages.
 
-receive_all_timeouts(0, _Ref) ->
-    ok;
 receive_all_timeouts(N, Ref) ->
+    receive_all_timeouts(N, Ref, not_set).
+
+receive_all_timeouts(0, _Ref, {FirstTime, TimeUntilFirst}) ->
+    {erlang:monotonic_time(millisecond) - FirstTime, TimeUntilFirst};
+receive_all_timeouts(N, Ref, Timings) ->
+    StartTime = case Timings of
+        not_set -> erlang:monotonic_time(millisecond);
+        _ -> ok
+    end,
     receive
         {timeout, _Tmr, Ref} ->
-            receive_all_timeouts(N-1, Ref)
+            NewTimings =
+                case Timings of
+                    not_set ->
+                        FirstMessageAtTime = erlang:monotonic_time(millisecond),
+                        {FirstMessageAtTime, FirstMessageAtTime - StartTime};
+                    _ -> Timings
+                end,
+            receive_all_timeouts(N-1, Ref, NewTimings)
     end.
 
 same_time_yielding_with_cancel(Config) when is_list(Config) ->
@@ -552,7 +639,10 @@ do_cancel_tmrs(Tmo, Tmrs, Tester) ->
 
 same_time_yielding_with_cancel_test(Other, Accessor) ->
     Mem = mem(),
-    SchdlrsOnln = erlang:system_info(schedulers_online),
+    SchdlrsOnline = erlang:system_info(schedulers_online),
+    SchdlrsToUse = erlang:max(1, erlang:min(8, SchdlrsOnline) - 1),
+    NrOfTimeouts = (?TIMEOUT_YIELD_LIMIT*3+1) * SchdlrsToUse,
+    NrOfTimeoutsPerScheduler = NrOfTimeouts div SchdlrsToUse,
     Tmo = erlang:monotonic_time(millisecond) + 6000,
     Tester = self(),
     Cancelor = case Other of
@@ -571,10 +661,17 @@ same_time_yielding_with_cancel_test(Other, Accessor) ->
                true -> [{accessor, Cancelor}, {abs, true}]
            end,
     Tmrs = lists:map(fun (I) ->
-                             process_flag(scheduler, (I rem SchdlrsOnln) + 1),
+                             SchedulerId =
+                                 case SchdlrsOnline of
+                                     1 -> 1;
+                                     _ ->
+                                         ((I div NrOfTimeoutsPerScheduler) rem SchdlrsToUse)  + 2
+                                 end,
+                             process_flag(scheduler, SchedulerId),
                              erlang:start_timer(Tmo, self(), hej, Opts)
                      end,
-                     lists:seq(1, (?TIMEOUT_YIELD_LIMIT*3+1)*SchdlrsOnln)),
+                     lists:seq(1, NrOfTimeouts)),
+    process_flag(scheduler, 1),
     true = mem_larger_than(Mem),
     case Other of
         false ->
@@ -656,6 +753,26 @@ suspended_scheduler_timeout(Config) when is_list(Config) ->
         erlang:system_flag(schedulers_online, SchdlrsOnln)
     end,
     ok.
+
+multizero_timeout_in_timeout(Config) when is_list(Config) ->
+    Timeout = 500,
+    MaxTimeoutDiff = 1000,
+
+    %% We want to operate on the same timer wheel all the time...
+    process_flag(scheduler, erlang:system_info(schedulers_online)),
+
+    erlang:send_after(5*(Timeout+MaxTimeoutDiff), self(), pling),
+    erlang:yield(),
+    Start = erlang:monotonic_time(),
+    erts_debug:set_internal_state(multizero_timeout_in_timeout, Timeout),
+    receive multizero_timeout_in_timeout_done -> ok end,
+    End = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(End-Start, native, millisecond),
+    io:format("Time=~p~n", [Time]),
+    true = Time < Timeout + MaxTimeoutDiff,
+    ok.
+            
+        
 
 process_is_cleaned_up(P) when is_pid(P) ->
     undefined == erts_debug:get_internal_state({process_status, P}).

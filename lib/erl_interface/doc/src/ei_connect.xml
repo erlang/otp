@@ -1047,6 +1047,7 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
     <func>
       <name since=""><ret>int</ret><nametext>ei_rpc(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen, ei_x_buff *x)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen)</nametext></name>
+      <name since="OTP 24.0"><ret>int</ret><nametext>ei_xrpc_to(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen, int flags)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_rpc_from(ei_cnode *ec, int fd, int timeout, erlang_msg *msg, ei_x_buff *x)</nametext></name>
       <fsummary>Remote Procedure Call from C to Erlang.</fsummary>
       <type>
@@ -1055,13 +1056,27 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
 	<v><seecref marker="#erlang_msg"><c>erlang_msg</c></seecref></v>
       </type>
       <desc>
-        <p>Supports calling Erlang functions on remote nodes.
-          <c>ei_rpc_to()</c> sends an RPC request to a remote node
-          and <c>ei_rpc_from()</c> receives the results of such a
-          call. <c>ei_rpc()</c> combines the functionality of these
-          two functions by sending an RPC request and waiting for the results.
-          See also <seemfa marker="kernel:rpc#call/4">
-          <c>rpc:call/4</c></seemfa> in Kernel.</p>
+        <p>
+          Supports calling Erlang functions on remote nodes.
+          <c>ei_rpc_to()</c> sends an RPC request to a remote node and
+          <c>ei_rpc_from()</c> receives the results of such a
+          call. <c>ei_rpc()</c> combines the functionality of these two
+          functions by sending an RPC request and waiting for the
+          results.
+        </p>
+        <p>
+          The <c>ei_xrpc_to()</c> function is equivalent to
+          <c>ei_rpc_to()</c> when its <c>flags</c> parameter is set to
+          <c>0</c>. When the flags parameter of <c>ei_xrpc_to()</c> is
+          set to <c>EI_RPC_FETCH_STDOUT</c>, stdout (standard output)
+          data are forwarded. See the documentation for the flags
+          parameter for more information about the
+          <c>EI_RPC_FETCH_STDOUT</c> flag.
+        </p>
+        <p>
+        <seemfa marker="kernel:rpc#call/4"><c>rpc:call/4</c></seemfa>
+        in Kernel.
+        </p>
         <list type="bulleted">
           <item>
             <p><c>ec</c> is the C-node structure previously
@@ -1104,21 +1119,75 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
               <c>ei_receive_msg</c></seecref>.</p>
           </item>
           <item>
-            <p><c>x</c> points to the dynamic buffer that receives
-              the result. For <c>ei_rpc()</c> this is the result
-              without the version magic number. For
-              <c>ei_rpc_from()</c> the result returns a version
-              magic number and a 2-tuple <c>{rex,Reply}</c>.</p>
+            <p><c>x</c> points to the dynamic buffer that receives the
+            result. For <c>ei_rpc()</c> this is the result without the
+            version magic number. For an <c>ei_rpc_from()</c> call the
+            result consists of a version magic number and a 2-tuple.
+            The 2-tuple can be in one of the following two forms:</p>
+            <taglist>
+              <tag><c>{rex,Reply}</c></tag>
+              <item>
+                This response value means that the RPC has
+                completed. The result value is the <c>Reply</c>
+                term. This is the only type of response that one can
+                get from an RPC triggered by a call to
+                <c>ei_rpc_to()</c> or <c>ei_xrpc_to()</c> without the
+                <c>EI_RPC_FETCH_STDOUT</c> flag. If the RPC was
+                triggered by a call to <c>ei_xrpc_to()</c> with the
+                <c>EI_RPC_FETCH_STDOUT</c> flag set, then all forwarded
+                stdout data has been received.
+              </item>
+              <tag><c>{rex_stdout,StdOutUTF8Binary}</c></tag>
+              <item>
+                This response value can only be obtained if the RPC
+                call was triggered by a call to <c>ei_xrpc_to()</c>
+                with the <c>EI_RPC_FETCH_STDOUT</c> flag set. This
+                response value means that forwarded stdout data has
+                been received. The stdout data is stored in a binary
+                and is UTF-8 encoded. One may need to call
+                <c>ei_rpc_from()</c> multiple times to read all the
+                stdout data. The stdout data is received in the same
+                order as it was written. All forwarded stdout data have
+                been received when a <c>{rex,Reply}</c> tuple has been
+                obtained from an <c>ei_rpc_from()</c> call.
+              </item>
+            </taglist>
+          </item>
+           <item>
+            <p><c>flags</c> The flag <c>EI_RPC_FETCH_STDOUT</c> is
+            currently the only flag that is supported by
+            <c>ei_xrpc_to()</c>. When <c>EI_RPC_FETCH_STDOUT</c> is
+            set, the called function is executed in a new process with
+            a <seemfa marker="erts:erlang#group_leader/0">group
+            leader</seemfa> that forwards all stdout data. This means
+            that stdout data that are written during the execution of
+            the called function, by the called function and by
+            descendant processes, will be forwarded (given that the
+            group leader has not been changed by a call to <seemfa
+            marker="erts:erlang#group_leader/2"><c>erlang:group_leader/2</c></seemfa>).
+            The forwarded stdout data need to be collected by a
+            sequence of calls to <c>ei_rpc_from()</c>. See the
+            description of the <c>x</c> parameter for how
+            <c>ei_rpc_from()</c> is used to receive stdout data. See
+            the documentation of the <seeguide
+            marker="stdlib:io_protocol">the I/O protocol</seeguide>,
+            for more information about the group leader concept.</p>
+            <note>
+              <p>
+                The flag <c>EI_RPC_FETCH_STDOUT</c> only works when
+                interacting with a node with a version greater or
+                equal to OTP-24.
+              </p>
+            </note>
           </item>
         </list>
-        <p><c>ei_rpc()</c> returns the number of bytes in the
-          result on success and <c>-1</c> on failure.
-          <c>ei_rpc_from()</c> returns the
-          number of bytes, otherwise one of <c>ERL_TICK</c>,
-          <c>ERL_TIMEOUT</c>,
-          and <c>ERL_ERROR</c>. When failing, all three
-          functions set <c>erl_errno</c> to one of the
-          following:</p>
+        <p><c>ei_rpc()</c> returns the number of bytes in the result
+        on success and <c>-1</c> on failure.  <c>ei_rpc_from()</c>
+        returns the number of bytes, otherwise one of <c>ERL_TICK</c>,
+        <c>ERL_TIMEOUT</c>, and <c>ERL_ERROR</c>. The functions
+        <c>ei_rpc_to()</c> and <c>ei_xrpc_to()</c> returns 0 if
+        successful, otherwise -1. When failing, all four functions set
+        <c>erl_errno</c> to one of the following:</p>
         <taglist>
           <tag><c>EIO</c></tag>
           <item>I/O error.</item>
@@ -1255,7 +1324,7 @@ if (ei_decode_version(result.buff, &index) < 0
     </func>
 
     <func>
-      <name since=""><ret>int</ret><nametext>ei_send_reg_encoded_tmo(int fd, const erlang_pid *from, const char *to, const char *buf, int len)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_send_reg_encoded_tmo(int fd, const erlang_pid *from, const char *to, const char *buf, int len, unsigned timeout_ms)</nametext></name>
       <fsummary>Obsolete function to send a message to a registered name with
         time-out.</fsummary>
       <type>

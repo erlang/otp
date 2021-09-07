@@ -1,0 +1,15 @@
+
+  [;1m-spec erlang:bump_reductions(Reductions) -> true[0m
+  [;1m                                when Reductions :: pos_integer().[0m
+
+  This implementation-dependent function increments the reduction
+  counter for the calling process. In the Beam emulator, the
+  reduction counter is normally incremented by one for each function
+  and BIF call. A context switch is forced when the counter reaches
+  the maximum number of reductions for a process (4000 reductions in
+  Erlang/OTP 19.2 and later).
+
+  Warning:
+    This BIF can be removed in a future version of the Beam
+    machine without prior warning. It is unlikely to be
+    implemented in other Erlang implementations.

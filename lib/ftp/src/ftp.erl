@@ -23,16 +23,14 @@
 
 -behaviour(gen_server).
 
+-deprecated([{start_service, 1, "use ftp:open/2 instead"},
+             {stop_service, 1,  "use ftp:close/1 instead"}]).
+
 -export([start/0,
          start_service/1,
          stop/0,
-         stop_service/1,
-         services/0,
-         service_info/1
+         stop_service/1
         ]).
-
-%% Added for backward compatibility
--export([start_standalone/1]).
 
 -export([start_link/1, start_link/2]).
 
@@ -67,6 +65,7 @@
 
 %% Internal Constants
 -define(FTP_PORT, 21).
+-define(FTPS_PORT, 990).
 -define(FILE_BUFSIZE, 4096).
 
 
@@ -106,6 +105,7 @@
           sockopts_data_active = [],
           progress = ignore, % ignore | pid()
           dtimeout = ?DATA_ACCEPT_TIMEOUT, % non_neg_integer() | infinity
+          tls_ctrl_session_reuse = false, % boolean()
           tls_upgrading_data_connection = false,
           ftp_extension = ?FTP_EXT_DEFAULT
          }).
@@ -134,30 +134,16 @@
 start() ->
     application:start(ftp).
 
-start_standalone(Options) ->
-    try
-        {ok, StartOptions} = start_options(Options),
-        {ok, OpenOptions}  = open_options(Options),
-        {ok, SocketOptions}  = socket_options(Options),
-        case start_link(StartOptions, []) of
-            {ok, Pid} ->
-                call(Pid, {open, ip_comm, OpenOptions, SocketOptions}, plain);
-            Error1 ->
-                Error1
-        end
-    catch
-        throw:Error2 ->
-            Error2
-    end.
-
+%% This should be made an internal function when we remove the deprecation
+%% ftp client processes should always be part of ftp supervisor tree.
+%% We consider it a bug that the "standalone" concept of inets was 
+%% not removed when ftp was broken out, and it is now fixed.
 start_service(Options) ->
     try
         {ok, StartOptions} = start_options(Options),
-        {ok, OpenOptions}  = open_options(Options),
-        {ok, SocketOptions}  = socket_options(Options),
         case ftp_sup:start_child([[[{client, self()} | StartOptions], []]]) of
             {ok, Pid} ->
-                call(Pid, {open, ip_comm, OpenOptions, SocketOptions}, plain);
+                call(Pid, {open, ip_comm, Options}, plain);
             Error1 ->
                 Error1
         end
@@ -171,17 +157,6 @@ stop() ->
 
 stop_service(Pid) ->
     close(Pid).
-
-services() ->
-    [{ftpc, Pid} || {_, Pid, _, _} <-
-                        supervisor:which_children(ftp_sup)].
-service_info(Pid) ->
-    {ok, Info} = call(Pid, info, list),
-    {ok, [proplists:lookup(mode, Info),
-          proplists:lookup(local_port, Info),
-          proplists:lookup(peer, Info),
-          proplists:lookup(peer_port, Info)]}.
-
 
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
@@ -202,20 +177,7 @@ service_info(Pid) ->
 
 %% <BACKWARD-COMPATIBILLITY>
 open({option_list, Options}) when is_list(Options) ->
-    try
-        {ok, StartOptions} = start_options(Options),
-        {ok, OpenOptions}  = open_options(Options),
-        {ok, SockOpts}  = socket_options(Options),
-        case ftp_sup:start_child([[[{client, self()} | StartOptions], []]]) of
-            {ok, Pid} ->
-                call(Pid, {open, ip_comm, OpenOptions, SockOpts}, plain);
-            Error1 ->
-                Error1
-        end
-    catch
-        throw:Error2 ->
-            Error2
-    end;
+    start_service(Options);
 %% </BACKWARD-COMPATIBILLITY>
 
 open(Host) ->
@@ -229,29 +191,9 @@ open(Host, Port) when is_integer(Port) ->
     open(Host, [{port, Port}]);
 %% </BACKWARD-COMPATIBILLITY>
 
-open(Host, Opts) when is_list(Opts) ->
-    try
-        {ok, StartOptions} = start_options(Opts),
-        {ok, OpenOptions}  = open_options([{host, Host}|Opts]),
-        {ok, SocketOptions}  = socket_options(Opts),
-        case start_link(StartOptions, []) of
-            {ok, Pid} ->
-                do_open(Pid, OpenOptions, SocketOptions, tls_options(Opts));
-            Error1 ->
-                Error1
-        end
-    catch
-        throw:Error2 ->
-            Error2
-    end.
+open(Host, Options) when is_list(Options) ->
+    start_service([{host,Host}|Options]).
 
-do_open(Pid, OpenOptions, SocketOptions, TLSOpts) ->
-    case call(Pid, {open, ip_comm, OpenOptions, SocketOptions}, plain) of
-        {ok, Pid} ->
-            maybe_tls_upgrade(Pid, TLSOpts);
-        Error ->
-            Error
-    end.
 %%--------------------------------------------------------------------------
 %% user(Pid, User, Pass, <Acc>) -> ok | {error, euser} | {error, econn}
 %%                                    | {error, eacct}
@@ -1033,18 +975,26 @@ handle_call({_,latest_ctrl_response}, _, #state{latest_ctrl_response=Resp} = Sta
 handle_call({Pid, _}, _, #state{owner = Owner} = State) when Owner =/= Pid ->
     {reply, {error, not_connection_owner}, State};
 
-handle_call({_, {open, ip_comm, Opts, {CtrlOpts, DataPassOpts, DataActOpts}}}, From, State) ->
+handle_call({_, {open, ip_comm, Options}}, From, State) ->
+    {ok, Opts} = open_options(Options),
+
     case key_search(host, Opts, undefined) of
         undefined ->
             {stop, normal, {error, ehost}, State};
         Host ->
+            TLSSecMethod = key_search(tls_sec_method, Opts, undefined),
+            TLSOpts  = key_search(tls,      Opts, undefined),
+            TLSReuse = key_search(tls_ctrl_session_reuse, Opts, false),
             Mode     = key_search(mode,     Opts, ?DEFAULT_MODE),
-            Port     = key_search(port,     Opts, ?FTP_PORT),
+            Port0    = key_search(port,     Opts, 0),
+            Port     = if Port0 == 0, TLSSecMethod == ftps -> ?FTPS_PORT; Port0 == 0 -> ?FTP_PORT; true -> Port0 end,
             Timeout  = key_search(timeout,  Opts, ?CONNECTION_TIMEOUT),
             DTimeout = key_search(dtimeout, Opts, ?DATA_ACCEPT_TIMEOUT),
             Progress = key_search(progress, Opts, ignore),
             IpFamily = key_search(ipfamily, Opts, inet),
             FtpExt   = key_search(ftp_extension, Opts, ?FTP_EXT_DEFAULT),
+
+            {ok, {CtrlOpts, DataPassOpts, DataActOpts}} = socket_options(Options),
 
             State2 = State#state{client   = From,
                                  mode     = Mode,
@@ -1053,10 +1003,18 @@ handle_call({_, {open, ip_comm, Opts, {CtrlOpts, DataPassOpts, DataActOpts}}}, F
                                  sockopts_ctrl = CtrlOpts,
                                  sockopts_data_passive =  DataPassOpts,
                                  sockopts_data_active = DataActOpts,
+                                 timeout = Timeout,
                                  dtimeout = DTimeout,
                                  ftp_extension = FtpExt},
 
             case setup_ctrl_connection(Host, Port, Timeout, State2) of
+                {ok, State3, WaitTimeout} when is_list(TLSOpts), TLSSecMethod == ftps ->
+                    handle_ctrl_result({tls_upgrade, TLSSecMethod},
+                                       State3#state{tls_options = TLSOpts,
+						    tls_ctrl_session_reuse = TLSReuse,
+						    timeout = WaitTimeout });
+                {ok, State3, WaitTimeout} when is_list(TLSOpts) ->
+                    {noreply, State3#state{tls_options = TLSOpts, tls_ctrl_session_reuse = TLSReuse }, WaitTimeout};
                 {ok, State3, WaitTimeout} ->
                     {noreply, State3, WaitTimeout};
                 {error, _Reason} ->
@@ -1064,11 +1022,6 @@ handle_call({_, {open, ip_comm, Opts, {CtrlOpts, DataPassOpts, DataActOpts}}}, F
                     {stop, normal, State2#state{client = undefined}}
             end
     end;
-
-handle_call({_, {open, tls_upgrade, TLSOptions}}, From, State0) ->
-    _ = send_ctrl_message(State0, mk_cmd("AUTH TLS", [])),
-    State = activate_ctrl_connection(State0),
-    {noreply, State#state{client = From, caller = open, tls_options = TLSOptions}};
 
 handle_call({_, {user, User, Password}}, From,
             #state{csock = CSock} = State) when (CSock =/= undefined) ->
@@ -1144,7 +1097,6 @@ handle_call({_,{type, Type}}, From, #state{chunk = false} = State0) ->
         _ ->
             {reply, {error, etype}, State0}
     end;
-
 handle_call({_,{recv, RemoteFile, LocalFile}}, From,
             #state{chunk = false, ldir = LocalDir} = State) ->
     progress_report({remote_file, RemoteFile}, State),
@@ -1159,12 +1111,10 @@ handle_call({_,{recv, RemoteFile, LocalFile}}, From,
         {error, _What} ->
             {reply, {error, epath}, State}
     end;
-
 handle_call({_, {recv_bin, RemoteFile}}, From, #state{chunk = false} =
             State) ->
     setup_data_connection(State#state{caller = {recv_bin, RemoteFile},
                                       client = From});
-
 handle_call({_,{recv_chunk_start, RemoteFile}}, From, #state{chunk = false}
             = State) ->
     setup_data_connection(State#state{caller = {start_chunk_transfer,
@@ -1173,18 +1123,40 @@ handle_call({_,{recv_chunk_start, RemoteFile}}, From, #state{chunk = false}
 
 handle_call({_, recv_chunk}, _, #state{chunk = false} = State) ->
     {reply, {error, "ftp:recv_chunk_start/2 not called"}, State};
-
+handle_call({_, recv_chunk}, _From, #state{chunk = true,
+                                           data = Bin,
+                                           caller = #recv_chunk_closing{dconn_closed       = true,
+                                                                        pos_compl_received = true,
+                                                                        client_called_us = true
+                                                                       } 
+                                          } = State0) ->
+    case Bin of
+        <<>> ->
+            {reply, ok, State0#state{caller = undefined,
+                                     chunk = false,
+                                     client = undefined}};
+        Data ->
+            {reply, Data, State0#state{caller = undefined,
+                                       chunk = false,
+                                       client = undefined}}
+    end;
 handle_call({_, recv_chunk}, _From, #state{chunk = true,
                                            caller = #recv_chunk_closing{dconn_closed       = true,
                                                                         pos_compl_received = true
                                                                        }
                                           } = State0) ->
     %% The ftp:recv_chunk call was the last event we waited for, finnish and clean up
-    ?DBG("recv_chunk_closing ftp:recv_chunk, last event",[]),
+    ?DBG("Data connection closed recv_chunk_closing ftp:recv_chunk, last event",[]),
     State = activate_ctrl_connection(State0),
     {reply, ok, State#state{caller = undefined,
                              chunk = false,
                              client = undefined}};
+handle_call({_, recv_chunk}, From, #state{chunk = true,
+                                          caller = #recv_chunk_closing{pos_compl_received = true
+                                                                      } = R
+                                         } = State0) ->
+    State = activate_data_connection(State0),
+    {noreply, State#state{client = From, caller = R#recv_chunk_closing{client_called_us=true}}};
 
 handle_call({_, recv_chunk}, From, #state{chunk = true,
                                           caller = #recv_chunk_closing{} = R
@@ -1316,7 +1288,7 @@ handle_info({Trpt, Socket, Data}, #state{dsock = {Trpt,Socket}, client = From,
             = State) when Trpt==tcp;Trpt==ssl ->
     ?DBG('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State]),
     gen_server:reply(From, {ok, Data}),
-    {noreply, State#state{client = undefined, data = <<>>}};
+    {noreply, State#state{client = undefined, caller = undefined, data = <<>>}};
 
 handle_info({Trpt, Socket, Data}, #state{dsock = {Trpt,Socket}} = State0) when Trpt==tcp;Trpt==ssl ->
     ?DBG('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State0]),
@@ -1343,6 +1315,13 @@ handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
                           caller = #recv_chunk_closing{dconn_closed     =  true,
                                                        client_called_us =  Client =/= undefined}
                          }};
+handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
+                                  caller = #recv_chunk_closing{client_called_us = true,
+                                                               pos_compl_received = true} = R} = State)
+  when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+    %% Maybe handle unprocessed chunk message before acking final chunk
+    self() ! {Cls, Socket}, 
+    {noreply, State#state{caller = R#recv_chunk_closing{dconn_closed = true}}};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, caller = recv_bin,
                                          data = Data} = State0)
@@ -1378,7 +1357,7 @@ handle_info({Transport, Socket, Data}, #state{csock = {Transport, Socket},
                                               ctrl_data = {BinCtrlData, AccLines,
                                                            LineStatus}}
             = State0) ->
-    ?DBG('--ctrl ~p ----> ~s~p~n',[Socket,<<BinCtrlData/binary, Data/binary>>,State]),
+    ?DBG('--ctrl ~p ----> ~s~p~n',[Socket,<<BinCtrlData/binary, Data/binary>>,State0]),
     case ftp_response:parse_lines(<<BinCtrlData/binary, Data/binary>>,
                                   AccLines, LineStatus) of
         {ok, Lines, NextMsgData} ->
@@ -1544,8 +1523,7 @@ code_change(_Vsn, State, _Extra) ->
 %% start_link([Opts, GenServerOptions]) -> {ok, Pid} | {error, Reason}
 %%
 %% Description: Callback function for the ftp supervisor. It is called
-%%            : when start_service/1 calls ftp_sup:start_child/1 to start an
-%%            : instance of the ftp process. Also called by start_standalone/1
+%%            : when open or legacy is called. 
 %%--------------------------------------------------------------------------
 start_link([Opts, GenServerOptions]) ->
     start_link(Opts, GenServerOptions).
@@ -1590,24 +1568,41 @@ handle_user_account(Acc, State0) ->
 %%--------------------------------------------------------------------------
 %% handle_ctrl_result
 %%--------------------------------------------------------------------------
-handle_ctrl_result({tls_upgrade, _}, #state{csock = {tcp, Socket},
+handle_ctrl_result({pos_compl, _}, #state{csock = {tcp, _Socket},
+                                          tls_options = TLSOptions,
+                                          timeout = Timeout,
+                                          caller = open}
+                   = State0) when is_list(TLSOptions) ->
+    _ = send_ctrl_message(State0, mk_cmd("AUTH TLS", [])),
+    State = activate_ctrl_connection(State0),
+    {noreply, State, Timeout};
+
+handle_ctrl_result({tls_upgrade, S}, #state{csock = {tcp, Socket},
                                             tls_options = TLSOptions,
                                             timeout = Timeout,
                                             caller = open, client = From}
-                   = State0) ->
+                   = State0) when is_list(TLSOptions) ->
     ?DBG('<--ctrl ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State0]),
+    catch ssl:start(),
     case ssl:connect(Socket, TLSOptions, Timeout) of
+        {ok, TLSSocket} when S == ftps ->
+            State1 = State0#state{csock = {ssl,TLSSocket}},
+            State = activate_ctrl_connection(State1),
+            {noreply, State#state{tls_upgrading_data_connection = pending}, Timeout};
         {ok, TLSSocket} ->
             State1 = State0#state{csock = {ssl,TLSSocket}},
-            _ = send_ctrl_message(State1, mk_cmd("PBSZ 0", [])),
-            State = activate_ctrl_connection(State1),
-            {noreply, State#state{tls_upgrading_data_connection = {true, pbsz}} };
+            handle_ctrl_result({pos_compl, S}, State1#state{tls_upgrading_data_connection = pending});
         {error, _} = Error ->
-            gen_server:reply(From, {Error, self()}),
+            gen_server:reply(From, Error),
             {stop, normal, State0#state{client = undefined,
                                         caller = undefined,
                                         tls_upgrading_data_connection = false}}
     end;
+
+handle_ctrl_result({pos_compl, _}, #state{tls_upgrading_data_connection = pending} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("PBSZ 0", [])),
+    State = activate_ctrl_connection(State0),
+    {noreply, State#state{tls_upgrading_data_connection = {true, pbsz}}};
 
 handle_ctrl_result({pos_compl, _}, #state{tls_upgrading_data_connection = {true, pbsz}} = State0) ->
     _ = send_ctrl_message(State0, mk_cmd("PROT P", [])),
@@ -1755,14 +1750,8 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {dir, Dir}} = State0) ->
         {ok, State1} ->
             State = activate_data_connection(State1),
             {noreply, State#state{caller = {handle_dir_result, Dir}}};
-        {error, _Reason} = ERROR ->
-            case State0#state.client of
-                undefined ->
-                    {stop, ERROR, State0};
-                From ->
-                    gen_server:reply(From, ERROR),
-                    {stop, normal, State0#state{client = undefined}}
-            end
+        {error, _Reason} = Error ->
+            ctrl_result_response(error, State0, Error)
     end;
 
 handle_ctrl_result({pos_compl, _}, #state{caller = {handle_dir_result, Dir,
@@ -1864,14 +1853,8 @@ handle_ctrl_result({pos_prel, _}, #state{caller = recv_bin} = State0) ->
         {ok, State1} ->
             State = activate_data_connection(State1),
             {noreply, State};
-        {error, _Reason} = ERROR ->
-            case State0#state.client of
-                undefined ->
-                    {stop, ERROR, State0};
-                From ->
-                    gen_server:reply(From, ERROR),
-                    {stop, normal, State0#state{client = undefined}}
-            end
+        {error, _Reason} = Error ->
+            ctrl_result_response(error, State0, Error)
     end;
 
 handle_ctrl_result({pos_compl, _}, #state{caller = {recv_bin, Data},
@@ -1891,21 +1874,14 @@ handle_ctrl_result({Status, _}, #state{caller = {recv_bin, _}} = State) ->
                          {error, epath});
 %%--------------------------------------------------------------------------
 %% File handling - start_chunk_transfer
-handle_ctrl_result({pos_prel, _}, #state{client = From,
-                                         caller = start_chunk_transfer}
+handle_ctrl_result({pos_prel, _}, #state{caller = start_chunk_transfer}
                    = State0) ->
     case accept_data_connection(State0) of
         {ok, State1} ->
             State = start_chunk(State1),
             {noreply, State};
-        {error, _Reason} = ERROR ->
-            case State0#state.client of
-                undefined ->
-                    {stop, ERROR, State0};
-                From ->
-                    gen_server:reply(From, ERROR),
-                    {stop, normal, State0#state{client = undefined}}
-            end
+        {error, _Reason} = Error ->
+            ctrl_result_response(error, State0, Error)
     end;
 
 %%--------------------------------------------------------------------------
@@ -1931,6 +1907,10 @@ handle_ctrl_result({pos_compl, _}, #state{caller = #recv_chunk_closing{}=R}
     ?DBG("recv_chunk_closing pos_compl, wait more",[]),
     {noreply, State0#state{caller = R#recv_chunk_closing{pos_compl_received=true}}};
 
+handle_ctrl_result({pos_compl, _}, #state{caller = undefined, chunk = true}
+                   = State0) ->
+    %% Waiting for user to call recv_chunk
+    {noreply, State0#state{caller = #recv_chunk_closing{pos_compl_received=true}}};
 
 %%--------------------------------------------------------------------------
 %% File handling - recv_file
@@ -1939,14 +1919,8 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {recv_file, _}} = State0) ->
         {ok, State1} ->
             State = activate_data_connection(State1),
             {noreply, State};
-        {error, _Reason} = ERROR ->
-            case State0#state.client of
-                undefined ->
-                    {stop, ERROR, State0};
-                From ->
-                    gen_server:reply(From, ERROR),
-                    {stop, normal, State0#state{client = undefined}}
-            end
+        {error, _Reason} = Error ->
+            ctrl_result_response(error, State0, Error)
     end;
 
 handle_ctrl_result({Status, _}, #state{caller = {recv_file, Fd}} = State) ->
@@ -1961,14 +1935,8 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {transfer_file, Fd}}
     case accept_data_connection(State0) of
         {ok, State1} ->
             send_file(State1, Fd);
-        {error, _Reason} = ERROR ->
-            case State0#state.client of
-                undefined ->
-                    {stop, ERROR, State0};
-                From ->
-                    gen_server:reply(From, ERROR),
-                    {stop, normal, State0#state{client = undefined}}
-            end
+        {error, _Reason} = Error ->
+            ctrl_result_response(error, State0, Error)
     end;
 
 handle_ctrl_result({pos_prel, _}, #state{caller = {transfer_data, Bin}}
@@ -1976,14 +1944,8 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {transfer_data, Bin}}
     case accept_data_connection(State0) of
         {ok, State} ->
             send_bin(State, Bin);
-        {error, _Reason} = ERROR ->
-            case State0#state.client of
-                undefined ->
-                    {stop, ERROR, State0};
-                From ->
-                    gen_server:reply(From, ERROR),
-                    {stop, normal, State0#state{client = undefined}}
-            end
+        {error, _Reason} = Error ->
+            ctrl_result_response(error, State0, Error)
     end;
 
 %%--------------------------------------------------------------------------
@@ -2003,13 +1965,22 @@ ctrl_result_response(enofile, #state{client = From} = State, _) ->
     gen_server:reply(From, {error, enofile}),
     {noreply, State#state{client = undefined, caller = undefined}};
 
+ctrl_result_response(error, State0, {error, _Reason} = Error) ->
+    case State0#state.client of
+        undefined ->
+            {stop, Error, State0};
+        From ->
+            gen_server:reply(From, Error),
+            State = activate_ctrl_connection(State0),
+            {noreply, State}
+    end;
+
 ctrl_result_response(Status, #state{client = From} = State, _)
   when (Status =:= etnospc)  orelse
        (Status =:= epnospc)  orelse
        (Status =:= efnamena) orelse
        (Status =:= econn) ->
     gen_server:reply(From, {error, Status}),
-%%    {stop, normal, {error, Status}, State#state{client = undefined}};
     {stop, normal, State#state{client = undefined}};
 
 ctrl_result_response(_, #state{client = From} = State, ErrorMsg) ->
@@ -2191,14 +2162,21 @@ connect2(Host, Port, IpFam, SockOpts, Timeout) ->
             Error
     end.
 
+accept_data_connection_tls_options(#state{ csock = {ssl,Socket}, tls_options = TO0, tls_ctrl_session_reuse = true }) ->
+	TO = lists:keydelete(reuse_sessions, 1, TO0),
+	{ok, [{session_id,SSLSessionId},{session_data,SSLSessionData}]} = ssl:connection_information(Socket, [session_id, session_data]),
+	lists:keystore(reuse_session, 1, TO, {reuse_session,{SSLSessionId,SSLSessionData}});
+accept_data_connection_tls_options(#state{ tls_options = TO }) ->
+	TO.
 
 accept_data_connection(#state{mode     = active,
                               dtimeout = DTimeout,
-                              tls_options = TLSOptions,
+                              tls_options = TLSOptions0,
                               dsock    = {lsock, LSock}} = State0) ->
     case gen_tcp:accept(LSock, DTimeout) of
-        {ok, Socket} when  is_list(TLSOptions) ->
+        {ok, Socket} when is_list(TLSOptions0) ->
             gen_tcp:close(LSock),
+            TLSOptions = accept_data_connection_tls_options(State0),
             ?DBG('<--data ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State0]),
             case ssl:connect(Socket, TLSOptions, DTimeout) of
                 {ok, TLSSocket} ->
@@ -2216,7 +2194,8 @@ accept_data_connection(#state{mode     = active,
 accept_data_connection(#state{mode = passive,
                               dtimeout = DTimeout,
                               dsock = {tcp,Socket},
-                              tls_options = TLSOptions} = State) when is_list(TLSOptions) ->
+                              tls_options = TLSOptions0} = State) when is_list(TLSOptions0) ->
+    TLSOptions = accept_data_connection_tls_options(State),
     ?DBG('<--data ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State]),
     case ssl:connect(Socket, TLSOptions, DTimeout) of
         {ok, TLSSocket} ->
@@ -2350,6 +2329,8 @@ call(GenServer, Msg, Format, Timeout) ->
     case (catch gen_server:call(GenServer, Req, Timeout)) of
         {ok, Bin} when is_binary(Bin) andalso (Format =:= string) ->
             {ok, binary_to_list(Bin)};
+        {'EXIT', _, _} ->
+            {error, eclosed};
         {'EXIT', _} ->
             {error, eclosed};
         Result ->
@@ -2427,12 +2408,6 @@ peername({ssl, Socket}) -> ssl:peername(Socket).
 
 sockname({tcp, Socket}) -> inet:sockname(Socket);
 sockname({ssl, Socket}) -> ssl:sockname(Socket).
-
-maybe_tls_upgrade(Pid, undefined) ->
-    {ok, Pid};
-maybe_tls_upgrade(Pid, TLSOptions) ->
-    catch ssl:start(),
-    call(Pid, {open, tls_upgrade, TLSOptions}, plain).
 
 start_chunk(#state{tls_upgrading_data_connection = {true, CTRL, _}} = State) ->
     State#state{tls_upgrading_data_connection = {true, CTRL, ?MODULE, start_chunk, undefined}};
@@ -2520,13 +2495,27 @@ open_options(Options) ->
                 false
         end,
     ValidatePort =
-        fun(Port) when is_integer(Port) andalso (Port > 0) -> true;
+        fun(Port) when is_integer(Port) andalso (Port >= 0) -> true;
            (_) -> false
         end,
     ValidateIpFamily =
         fun(inet) -> true;
            (inet6) -> true;
            (inet6fb4) -> true;
+           (_) -> false
+        end,
+    ValidateTLS =
+        fun(TLS) when is_list(TLS) -> true;
+           (undefined) -> true;
+           (_) -> false
+        end,
+    ValidateTLSSecMethod =
+        fun(ftpes) -> true;
+           (ftps) -> true;
+           (_) -> false
+        end,
+    ValidateTLSCtrlSessionReuse =
+        fun(Reuse) when is_boolean(Reuse) -> true;
            (_) -> false
         end,
     ValidateTimeout =
@@ -2555,8 +2544,11 @@ open_options(Options) ->
     ValidOptions =
         [{mode,     ValidateMode,     false, ?DEFAULT_MODE},
          {host,     ValidateHost,     true,  ehost},
-         {port,     ValidatePort,     false, ?FTP_PORT},
+         {port,     ValidatePort,     false, 0},
          {ipfamily, ValidateIpFamily, false, inet},
+         {tls,      ValidateTLS,      false, undefined},
+         {tls_sec_method, ValidateTLSSecMethod, false, ftpes},
+         {tls_ctrl_session_reuse, ValidateTLSCtrlSessionReuse, false, false},
          {timeout,  ValidateTimeout,  false, ?CONNECTION_TIMEOUT},
          {dtimeout, ValidateDTimeout, false, ?DATA_ACCEPT_TIMEOUT},
          {progress, ValidateProgress, false, ?PROGRESS_DEFAULT},
@@ -2588,10 +2580,6 @@ valid_socket_option({header,_}      ) -> false;
 valid_socket_option({packet_size,_} ) -> false;
 valid_socket_option(_) -> true.
 
-
-tls_options(Options) ->
-    %% Options will be validated by ssl application
-    proplists:get_value(tls, Options, undefined).
 
 validate_options([], [], Acc) ->
     {ok, lists:reverse(Acc)};

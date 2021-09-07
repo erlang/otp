@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>1996</year><year>2020</year>
+      <year>1996</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -175,7 +175,7 @@
           and lets the shell start in parallel with the rest of
           the system.</p>
       </item>
-      <tag><c><![CDATA[-boot File]]></c></tag>
+      <tag><marker id="boot" /><c><![CDATA[-boot File]]></c></tag>
       <item>
         <p>Specifies the name of the boot file, <c><![CDATA[File.boot]]></c>,
           which is used to start the system; see
@@ -207,14 +207,79 @@
         <p>Not recommended; use <seecom marker="erlc"><c>erlc</c></seecom>
           instead.</p>
       </item>
-      <tag><c><![CDATA[-config Config [Config]]]></c></tag>
+      <tag><marker id="config" /><c><![CDATA[-config Config [Config ...]]]></c></tag>
       <item>
         <p>Specifies the name of one or more configuration files,
           <c><![CDATA[Config.config]]></c>, which is used to configure
           applications; see
           <seefile marker="kernel:app"><c>app(4)</c></seefile> and
           <seeerl marker="kernel:application">
-          <c>application(3)</c></seeerl>.</p>
+          <c>application(3)</c></seeerl>. See the documentation for
+          the <seefile marker="kernel:config">configuration file
+          format</seefile> for a description of the configuration
+          format and the order in which configuration parameters are
+          read.</p>
+      </item>
+      <tag><marker id="configfd" /><c><![CDATA[-configfd FD [FD ...]]]></c></tag>
+      <item>
+        <p>Specifies the name of one or more file descriptors (called
+        configuration file descriptors from here on) with
+        configuration data for applications; see <seefile
+        marker="kernel:app"><c>app(4)</c></seefile> and
+        <seeerl marker="kernel:application">
+          <c>application(3)</c></seeerl>. See the documentation for
+          the <seefile marker="kernel:config">configuration file
+          format</seefile> for a description of the configuration
+          format and the order in which configuration parameters are
+          read.
+        </p>
+        <p>
+          A configuration file descriptor will be read until its end
+          and will then be closed.
+        </p>
+        <p>
+          The content of a configuration file
+          descriptor is stored so that it can be reused when <seemfa
+          marker="erts:init#restart/0"><c>init:restart/0</c></seemfa>
+          or <seemfa
+          marker="erts:init#restart/1"><c>init:restart/1</c></seemfa>
+          is called.
+        </p>
+        <p>
+          The parameter <c><![CDATA[-configfd 0]]></c> implies <c><![CDATA[-noinput]]></c>.
+        </p>
+        <note>
+          <p>
+            It is not recommended to use file descriptors 1 (standard
+            output), and 2 (standard error) together with
+            <c><![CDATA[-configfd]]></c> as these file descriptors are
+            typically used to print information to the console the program
+            is running in.
+          </p>
+        </note>
+        <p>Examples (Unix shell):</p>
+<pre>
+$ <input>erl \
+-noshell \
+-configfd 3 \
+-eval \
+'io:format("~p~n",[application:get_env(kernel, logger_level)]),erlang:halt()' 3&lt; \
+&lt;(echo '[{kernel, [{logger_level, warning}]}].')</input>
+{ok,warning}
+</pre>
+<pre>
+$ <input>echo '[{kernel, [{logger_level, warning}]}].' > test1.config</input>
+$ <input>echo '[{kernel, [{logger_level, error}]}].' > test2.config</input>
+$ <input>erl \
+-noshell \
+-configfd 3 \
+-configfd 4 \
+-eval \
+'io:format("~p~n",[application:get_env(kernel, logger_level)]),erlang:halt()' \
+3&lt; test1.config 4&lt; test2.config</input>
+{ok,error}
+</pre>
+
       </item>
       <tag><marker id="connect_all"/><c><![CDATA[-connect_all false]]></c></tag>
       <item>
@@ -239,12 +304,30 @@
       <item>
         <p>Useful for debugging. Prints the arguments sent to the emulator.</p>
       </item>
+      <tag><c><![CDATA[-emu_flavor emu|jit|smp]]></c></tag>
+      <item>
+        <p>Start an emulator of a different flavor. Normally only one flavor is
+          available, more can be added by building specific flavors. The currently
+          available flavors are: <c>emu</c> and <c>jit</c>.
+          The <c>smp</c> flavor is an alias for the current default flavor.
+          You can combine this flag with
+          <c>--emu_type</c>. You can get the current flavor at run-time using
+          <seeerl marker="erlang#system_info_emu_flavor">
+            <c>erlang:system_info(emu_flavor)</c></seeerl>.
+          (The emulator with this flavor must be built. You can
+          build a specific flavor by doing <c>make FLAVOR=$FLAVOR</c> in the
+          Erlang/OTP source repository.)</p>
+      </item>
       <tag><c><![CDATA[-emu_type Type]]></c></tag>
       <item>
         <p>Start an emulator of a different type. For example, to start
-	the lock-counter emualator, use <c>-emu_type lcnt</c>. (The emulator
-	must already be built. Use the <c>configure</c> option
-	<c>--enable-lock-counter</c> to build the lock-counter emulator.)</p>
+	  the lock-counter emulator, use <c>-emu_type lcnt</c>.
+          You can get the current type at run-time using
+          <seeerl marker="erlang#system_info_emu_type">
+            <c>erlang:system_info(build_type)</c></seeerl>.
+          (The emulator of this type must already be built.
+          Use the <c>configure</c> option <c>--enable-lock-counter</c> to
+          build the lock-counter emulator.)</p>
       </item>
       <tag><c><![CDATA[-env Variable Value]]></c></tag>
       <item>
@@ -371,7 +454,7 @@
           the default. In <c><![CDATA[embedded]]></c> mode modules are not auto
           loaded. The latter is recommended when the boot script preloads all
           modules, as conventionally happens in OTP releases. See
-          <seeerl marker="kernel:code"><c>code(3)</c></seeerl></p>.
+          <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </item>
       <tag><marker id="name"/><c><![CDATA[-name Name]]></c></tag>
       <item>
@@ -380,7 +463,7 @@
           become distributed; see <seeerl marker="kernel:net_kernel">
           <c>net_kernel(3)</c></seeerl>. It is also ensured that
           <c><![CDATA[epmd]]></c> runs on the current host before Erlang is
-          started; see <seecom marker="epmd"><c>epmd(1)</c></seecom>.and the
+          started; see <seecom marker="epmd"><c>epmd(1)</c></seecom> and the
           <seecom marker="#start_epmd"><c>-start_epmd</c></seecom> option.</p>
         <p>The node name will be <c><![CDATA[Name@Host]]></c>, where
           <c><![CDATA[Host]]></c> is the fully qualified host name of the
@@ -421,6 +504,22 @@
             network is configured to keep potential attackers out.
           </p>
         </warning>
+      </item>
+      <tag><c><![CDATA[-no_epmd]]></c></tag>
+      <item>
+        <p>Specifies that the distributed node does not need
+          <seecom marker="epmd">epmd</seecom> at all.</p>
+        <p>This option ensures that the Erlang runtime system does not
+          start <seecom marker="epmd">epmd</seecom> and does not start
+          the <seeerl marker="kernel:erl_epmd">erl_epmd</seeerl> process
+          for distribution either.</p>
+        <p>This option only works if Erlang is started as a distributed node
+          with the <seecom marker="#proto_dist">-proto_dist</seecom> option
+          using an alternative protocol for Erlang distribution which
+          does not rely on epmd for node registration and discovery.
+          For more information, see <seeguide marker="erts:alt_dist">How
+          to implement an Alternative Carrier for the Erlang
+          Distribution</seeguide>.</p>
       </item>
       <tag><c><![CDATA[-noinput]]></c></tag>
       <item>
@@ -533,6 +632,13 @@
           <seemfa marker="erlang#set_cookie/2">
           <c>erlang:set_cookie/2</c></seemfa>.</p>
       </item>
+      <tag><c><![CDATA[-setcookie Node Cookie]]></c></tag>
+      <item>
+        <p>Sets the magic cookie for <c><![CDATA[Node]]></c>
+          to <c><![CDATA[Cookie]]></c>; see
+          <seemfa marker="erlang#set_cookie/2">
+          <c>erlang:set_cookie/2</c></seemfa>.</p>
+      </item>
       <tag><c><![CDATA[-shutdown_time Time]]></c></tag>
       <item>
         <p>Specifies how long time (in milliseconds) the <c><![CDATA[init]]></c>
@@ -540,7 +646,7 @@
           <c><![CDATA[Time]]></c> milliseconds have elapsed, all processes still
           existing are killed. Defaults to <c><![CDATA[infinity]]></c>.</p>
       </item>
-      <tag><c><![CDATA[-sname Name]]></c></tag>
+      <tag><marker id="sname"/><c><![CDATA[-sname Name]]></c></tag>
       <item>
         <p>Makes the Erlang runtime system into a distributed node, similar to
           <seecom marker="#name"><c><![CDATA[-name]]></c></seecom>, but the host
@@ -824,9 +930,9 @@
       </item>
       <tag><marker id="+hmqd"/><c>+hmqd off_heap|on_heap</c></tag>
       <item>
-        <p>Sets the default value for process flag <c>message_queue_data</c>.
+        <p>Sets the default value of the <c>message_queue_data</c> process flag.
           Defaults to <c>on_heap</c>. If <c>+hmqd</c> is not
-	  passed, <c>on_heap</c> will be the default. For more information, see
+          passed, <c>on_heap</c> will be the default. For more information, see
           <seeerl marker="erlang#process_flag_message_queue_data">
           <c>process_flag(message_queue_data, MQD)</c></seeerl>.</p>
       </item>
@@ -863,6 +969,15 @@
           percentages to set the number of IO poll threads to create, based on
           the number of schedulers configured. If both <c>+IOPt</c> and
           <c>+IOt</c> are used, <c>+IOPt</c> is ignored.
+        </p>
+      </item>
+      <tag><marker id="+JPperf"/><c>+JPperf true|false</c></tag>
+      <item>
+        <p>Enables or disables support for the `perf` profiler when running
+          with the JIT on Linux. Defaults to false.</p>
+        <p>For more details about how to run perf see the
+          <seeguide marker="erts:BeamAsm#linux-perf-support">perf support</seeguide>
+          section in the BeamAsm internal documentation.
         </p>
       </item>
       <tag><c><![CDATA[+L]]></c></tag>
@@ -1406,8 +1521,8 @@
             <note>
               <p>This feature has been introduced as a temporary workaround
                 for long-executing native code, and native code that does not
-                bump reductions properly in OTP. When these bugs have be fixed,
-                this flag will be removed.</p>
+                bump reductions properly in OTP. When these bugs have been
+                fixed, this flag will be removed.</p>
             </note>
           </item>
           <tag><marker id="+spp"/><c>+spp Bool</c></tag>
@@ -1424,7 +1539,7 @@
               <seeerl marker="erlang#open_port_parallelism">
               <c>parallelism</c></seeerl> to
               <seemfa marker="erlang#open_port/2">
-              <c>erlang:open_port/2</c></seemfa></p>.
+              <c>erlang:open_port/2</c></seemfa>.</p>
           </item>
           <tag><marker id="sched_thread_stack_size"/>
             <c><![CDATA[+sss size]]></c></tag>

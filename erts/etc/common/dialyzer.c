@@ -177,11 +177,11 @@ int main(int argc, char** argv)
     int eargc_base;		/* How many arguments in the base of eargv. */
     char* emulator;
     char *env;
-    int i;
     int need_shell = 0;
 
 #ifdef __WIN32__
     int len;
+    int i;
     /* Convert argv to utf8 */
     argv = emalloc((argc+1) * sizeof(char*));
     for (i=0; i<argc; i++) {
@@ -214,6 +214,9 @@ int main(int argc, char** argv)
     eargv = eargv_base;
     eargc = 0;
     push_words(emulator);
+    if (emulator != env) {
+        free(emulator);
+    }
     eargc_base = eargc;
     eargv = eargv + eargv_size/2;
     eargc = 0;
@@ -223,13 +226,6 @@ int main(int argc, char** argv)
     /*
      * Push initial arguments.
      */
-
-    for (i = 1; i < argc; i++) {
-       if (strcmp(argv[i], "--wx") == 0) {
-           PUSH("-smp"); /* wx currently requires SMP enabled */
-           break;
-       }
-    }
 
     if (argc > 1 && strcmp(argv[1], "-smp") == 0) {
 	PUSH("-smpauto");
@@ -492,7 +488,7 @@ get_default_emulator(char* progname)
     char* s;
 
     if (strlen(progname) >= sizeof(sbuf))
-        return ERL_NAME;
+        return strsave(ERL_NAME);
 
     strcpy(sbuf, progname);
     for (s = sbuf+strlen(sbuf); s >= sbuf; s--) {
@@ -503,7 +499,7 @@ get_default_emulator(char* progname)
 	    break;
 	}
     }
-    return ERL_NAME;
+    return strsave(ERL_NAME);
 }
 
 #ifdef __WIN32__

@@ -57,6 +57,7 @@ extern ERL_NIF_TERM atom_type;
 extern ERL_NIF_TERM atom_size;
 extern ERL_NIF_TERM atom_block_size;
 extern ERL_NIF_TERM atom_key_length;
+extern ERL_NIF_TERM atom_prop_aead;
 extern ERL_NIF_TERM atom_iv_length;
 extern ERL_NIF_TERM atom_mode;
 extern ERL_NIF_TERM atom_encrypt;
@@ -82,9 +83,11 @@ extern ERL_NIF_TERM atom_ppbasis;
 extern ERL_NIF_TERM atom_onbasis;
 #endif
 
+extern ERL_NIF_TERM atom_aes_cbc;
+extern ERL_NIF_TERM atom_aes_ecb;
+extern ERL_NIF_TERM atom_aes_ctr;
 extern ERL_NIF_TERM atom_aes_cfb8;
 extern ERL_NIF_TERM atom_aes_cfb128;
-extern ERL_NIF_TERM atom_aes_ige256;
 #ifdef HAVE_GCM
 extern ERL_NIF_TERM atom_aes_gcm;
 #endif

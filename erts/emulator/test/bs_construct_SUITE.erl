@@ -28,7 +28,7 @@
 	 huge_float_field/1, system_limit/1, badarg/1,
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
 	 otp_7422/1, zero_width/1, bad_append/1, bs_append_overflow/1,
-         reductions/1]).
+         reductions/1, fp16/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -41,7 +41,7 @@ all() ->
      in_guard, mem_leak, coerce_to_float, bjorn, append_empty_is_same,
      huge_float_field, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
-     bad_append, bs_append_overflow, reductions].
+     bad_append, bs_append_overflow, reductions, fp16].
 
 init_per_suite(Config) ->
     Config.
@@ -463,17 +463,27 @@ make_bin(N, Acc) -> make_bin(N-1, <<Acc/binary,Acc/binary>>).
 
 -define(COF(Int0),
 	(fun(Int) ->
-		       true = <<Int:32/float>> =:= <<(float(Int)):32/float>>,
-		       true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
-			   end)(nonliteral(Int0)),
- 	true = <<Int0:32/float>> =:= <<(float(Int0)):32/float>>,
- 	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
+		 true = <<Int:16/float>> =:= <<(float(Int)):16/float>>,
+		 true = <<Int:32/float>> =:= <<(float(Int)):32/float>>,
+		 true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
+	 end)(nonliteral(Int0)),
+	true = <<Int0:16/float>> =:= <<(float(Int0)):16/float>>,
+	true = <<Int0:32/float>> =:= <<(float(Int0)):32/float>>,
+	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
+
+-define(COF32(Int0),
+	(fun(Int) ->
+		 true = <<Int:32/float>> =:= <<(float(Int)):32/float>>,
+		 true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
+	 end)(nonliteral(Int0)),
+	true = <<Int0:32/float>> =:= <<(float(Int0)):32/float>>,
+	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
 
 -define(COF64(Int0),
 	(fun(Int) ->
-		       true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
-			   end)(nonliteral(Int0)),
- 	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
+		 true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
+	 end)(nonliteral(Int0)),
+	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
 
 nonliteral(X) -> X.
     
@@ -485,8 +495,10 @@ coerce_to_float(Config) when is_list(Config) ->
     ?COF(255),
     ?COF(-255),
     ?COF(38474),
-    ?COF(387498738948729893849444444443),
-    ?COF(-37489378937773899999999999999993),
+    ?COF(65504),
+    ?COF(-65504),
+    ?COF32(387498738948729893849444444443),
+    ?COF32(-37489378937773899999999999999993),
     ?COF64(298748888888888888888888888883478264866528467367364766666666666666663),
     ?COF64(-367546729879999999999947826486652846736736476555566666663),
     ok.
@@ -582,10 +594,11 @@ system_limit_32() ->
     ok.
 
 badarg(Config) when is_list(Config) ->
-    {'EXIT',{badarg,_}} = (catch <<0:(id(1 bsl 100)),0:(id(-1))>>),
-    {'EXIT',{badarg,_}} = (catch <<0:(id(1 bsl 100)),0:(id(-(1 bsl 70)))>>),
-    {'EXIT',{badarg,_}} = (catch <<0:(id(-(1 bsl 70))),0:(id(1 bsl 100))>>),
-    {'EXIT',{badarg,_}} = (catch <<(id(<<>>))/binary,0:(id(-(1 bsl 100)))>>),
+    <<3:2>> = <<1:(id(1)),1:(id(1))>>,
+    {'EXIT',{badarg,_}} = (catch <<0:(id(1)),0:(id(-1))>>),
+    {'EXIT',{badarg,_}} = (catch <<0:(id(1)),0:(id(-(1 bsl 70)))>>),
+    {'EXIT',{badarg,_}} = (catch <<0:(id(-(1 bsl 70))),0:(id(1))>>),
+    {'EXIT',{badarg,_}} = (catch <<(id(<<>>))/binary,0:(id(-(1)))>>),
     ok.
 
 copy_writable_binary(Config) when is_list(Config) ->
@@ -743,7 +756,6 @@ bs_add(Config) when is_list(Config) ->
     %% Find smallest positive bignum.
     SmallestBig = smallest_big(),
     io:format("~p\n", [SmallestBig]),
-    Expected = SmallestBig + N,
     DoTest = fun() ->
 		     exit(Mod:bs_add(SmallestBig, -SmallestBig))
 	     end,
@@ -751,7 +763,14 @@ bs_add(Config) when is_list(Config) ->
     receive
 	{'DOWN',Mref,process,Pid,Res} -> ok
     end,
-    Expected = Res,
+
+    case erlang:system_info(wordsize) of
+        8 ->
+            %% bignum-sized binaries must system_limit on 64-bit platforms
+            {system_limit, _} = Res;
+        4 ->
+            Res = SmallestBig + N
+    end,
 
     %% Clean up.
     ok = file:delete(AsmFile),
@@ -923,3 +942,45 @@ memsize() ->
     application:ensure_all_started(os_mon),
     {Tot,_Used,_}  = memsup:get_memory_data(),
     Tot.
+
+-define(FP16(EncodedInt, Float),
+        (fun(NlInt, NlFloat) ->
+                 {0, true} = {0, <<NlInt:16>> =:= <<NlFloat:16/float>>},
+                 {1, true} = {1, <<(NlInt+16#8000):16>> =:= <<-NlFloat:16/float>>},
+                 {2, true} = {2, <<NlInt:16/little>> =:= <<NlFloat:16/float-little>>},
+                 {3, true} = {3, <<(NlInt+16#8000):16/little>> =:= <<-NlFloat:16/float-little>>},
+                 {4, true} = {4, <<NlInt:16/native>> =:= <<NlFloat:16/float-native>>},
+                 {5, true} = {5, <<(NlInt+16#8000):16/native>> =:= <<-NlFloat:16/float-native>>}
+         end)(nonliteral(EncodedInt), nonliteral(Float)),
+        {a, true} = {a, <<EncodedInt:16>> =:= <<Float:16/float>>},
+        {b, true} = {b, <<(EncodedInt+16#8000):16>> =:= <<-Float:16/float>>},
+        {c, true} = {c, <<EncodedInt:16/little>> =:= <<Float:16/float-little>>},
+        {d, true} = {d, <<(EncodedInt+16#8000):16/little>> =:= <<-Float:16/float-little>>},
+        {e, true} = {e, <<EncodedInt:16/native>> =:= <<Float:16/float-native>>},
+        {f, true} = {f, <<(EncodedInt+16#8000):16/native>> =:= <<-Float:16/float-native>>}).
+
+fp16(_Config) ->
+    %% smallest positive subnormal number
+    ?FP16(16#0001, 0.000000059604645),
+    %% largest positive subnormal number
+    ?FP16(16#03ff, 0.000060975552),
+    %% smallest positive normal number
+    ?FP16(16#0400, 0.00006103515625),
+    %% largest normal number
+    ?FP16(16#7bff, 65504),
+    ?FP16(16#7bff, 65504.0),
+    %% largest number less than one
+    ?FP16(16#3bff, 0.99951172),
+    %% zero
+    ?FP16(16#0000, 0.0),
+    %% one
+    ?FP16(16#3c00, 1),
+    ?FP16(16#3c00, 1.0),
+    %% smallest number larger than one
+    ?FP16(16#3c01, 1.00097656),
+    %% rounding of 1/3 to nearest
+    ?FP16(16#3555, 0.33325195),
+    %% others
+    ?FP16(16#4000, 2),
+    ?FP16(16#4000, 2.0),
+    ok.

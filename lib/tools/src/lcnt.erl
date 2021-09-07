@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -124,10 +124,18 @@
 %%
 %% -------------------------------------------------------------------- %%
 
-start()  -> gen_server:start({local, ?MODULE}, ?MODULE, [], []).
-stop()   -> gen_server:stop(?MODULE, normal, infinity).
+-spec start() -> {'ok', Pid} | {'error', {'already_started', Pid}} when
+      Pid :: pid().
+
+start() -> gen_server:start({local, ?MODULE}, ?MODULE, [], []).
+
+-spec stop() -> 'ok'.
+
+stop()-> gen_server:stop(?MODULE, normal, infinity).
+
 init([]) -> {ok, #state{ locks = [], duration = 0 } }.
 
+-dialyzer({no_match, start_internal/0}).
 start_internal() ->
     case start() of
         {ok,_} -> ok;
@@ -141,12 +149,22 @@ start_internal() ->
 %%
 %% -------------------------------------------------------------------- %%
 
+-spec rt_mask(Node, Categories) ->  'ok' | {'error', 'copy_save_enabled'} when
+      Node :: node(),
+      Categories :: [category_atom()].
+
 rt_mask(Node, Categories) when is_atom(Node), is_list(Categories) ->
     rpc:call(Node, lcnt, rt_mask, [Categories]).
 
+-type category_atom() :: atom().
+
+-spec rt_mask(Node) -> [category_atom()] when
+                  Node :: node();
+             (Categories) -> 'ok' | {'error', 'copy_save_enabled'} when
+                  Categories :: [category_atom()].
+
 rt_mask(Node) when is_atom(Node) ->
     rpc:call(Node, lcnt, rt_mask, []);
-
 rt_mask(Categories) when is_list(Categories) ->
     case erts_debug:lcnt_control(copy_save) of
         false ->
@@ -155,21 +173,46 @@ rt_mask(Categories) when is_list(Categories) ->
             {error, copy_save_enabled}
     end.
 
+-spec rt_mask() -> [category_atom()].
+
 rt_mask() ->
     erts_debug:lcnt_control(mask).
 
+-type lock_counter_data() :: term().
+
+-spec rt_collect(Node) -> [lock_counter_data()] when
+      Node :: node().
+
 rt_collect(Node) ->
     rpc:call(Node, lcnt, rt_collect, []).
+
+-spec rt_collect() -> [lock_counter_data()].
+
 rt_collect() ->
     erts_debug:lcnt_collect().
 
+-spec rt_clear(Node) -> 'ok' when
+      Node :: node().
+
 rt_clear(Node) ->
     rpc:call(Node, lcnt, rt_clear, []).
+
+-spec rt_clear() -> 'ok'.
+
 rt_clear() ->
     erts_debug:lcnt_clear().
 
+-spec rt_opt(Node, Option) -> boolean() when
+      Node :: node(),
+      Option :: {Type, Value :: boolean()},
+      Type :: 'copy_save' | 'process_locks'.
+
 rt_opt(Node, Arg) ->
     rpc:call(Node, lcnt, rt_opt, [Arg]).
+
+-spec rt_opt(Option) -> boolean() when
+      Option :: {Type, Value :: boolean()},
+      Type :: 'copy_save' | 'process_locks'.
 
 %% Compatibility shims for the "process/port_locks" options mentioned in the
 %% manual.
@@ -177,7 +220,6 @@ rt_opt({process_locks, Enable}) ->
     toggle_category(process, Enable);
 rt_opt({port_locks, Enable}) ->
     toggle_category(io, Enable);
-
 rt_opt({Type, NewVal}) ->
     PreviousVal = erts_debug:lcnt_control(Type),
     erts_debug:lcnt_control(Type, NewVal),
@@ -199,25 +241,99 @@ toggle_category(Category, false) ->
 %%
 %% -------------------------------------------------------------------- %%
 
-clear()              -> rt_clear().
-clear(Node)          -> rt_clear(Node).
-collect()            -> call({collect, rt_collect()}).
-collect(Node)        -> call({collect, rt_collect(Node)}).
+-spec clear() -> 'ok'.
 
-locations()          -> call({locations,[]}).
-locations(Opts)      -> call({locations, Opts}).
-conflicts()          -> call({conflicts, []}).
+clear() -> rt_clear().
+
+-spec clear(Node) -> 'ok' when
+      Node :: node().
+
+clear(Node) -> rt_clear(Node).
+
+-spec collect() -> 'ok'.
+
+collect() -> call({collect, rt_collect()}).
+
+-spec collect(Node) -> 'ok' when
+      Node :: node().
+
+collect(Node) -> call({collect, rt_collect(Node)}).
+
+-spec locations() -> 'ok'.
+
+locations() -> call({locations,[]}).
+
+-spec locations(Options) -> 'ok' when
+      Options :: [option()].
+
+locations(Opts) -> call({locations, Opts}).
+
+-spec conflicts() -> 'ok'.
+
+conflicts() -> call({conflicts, []}).
+
+-type sort() :: 'colls' | 'entry' | 'id' | 'name' | 'ratio' | 'time' |
+                'tries' | 'type'.
+
+-type threshold() :: {'colls', non_neg_integer()}
+                   | {'time', non_neg_integer()}
+                   | {'tries', non_neg_integer()}.
+
+-type print() :: 'colls' | 'duration' | 'entry' | 'id' | 'name' |
+                 'ratio' | 'time' | 'tries' | 'type'.
+
+-type option() :: {'sort', Sort :: sort()}
+                | {'reverse', boolean()}
+                | {'locations', boolean()}
+                | {'thresholds', Thresholds :: [threshold()]}
+                | {'print',
+                   PrintOptions :: [print() | {print(), non_neg_integer()}]}
+                | {'max_locks', MaxLocks :: non_neg_integer() | 'none'}
+                | {'combine', boolean()}.
+
+-spec conflicts(Options) -> 'ok' when
+      Options :: [option()].
+
 conflicts(Opts)      -> call({conflicts, Opts}).
+
+-spec inspect(Lock) -> 'ok' when
+      Lock :: Name | {Name, Id | [Id]},
+      Name :: atom() | pid() | port(),
+      Id :: atom() | integer() | pid() | port().
+
 inspect(Lock)        -> call({inspect, Lock, []}).
+
+-spec inspect(Lock, Options) -> 'ok' when
+      Lock :: Name | {Name, Id | [Id]},
+      Name :: atom() | pid() | port(),
+      Id :: atom() | integer() | pid() | port(),
+      Options :: [option()].
+
 inspect(Lock, Opts)  -> call({inspect, Lock, Opts}).
+
 histogram(Lock)      -> call({histogram, Lock, []}).
 histogram(Lock, Opts)-> call({histogram, Lock, Opts}).
+
+-spec information() -> 'ok'.
+
 information()        -> call(information).
+
+-spec swap_pid_keys() -> 'ok'.
+
 swap_pid_keys()      -> call(swap_pid_keys).
+
 raw()                -> call(raw).
 set(Option, Value)   -> call({set, Option, Value}).
 set({Option, Value}) -> call({set, Option, Value}).
+
+-spec save(Filename) -> 'ok' when
+      Filename :: file:filename().
+
 save(Filename)       -> call({save, Filename}).
+
+-spec load(Filename) -> 'ok' when
+      Filename :: file:filename().
+
 load(Filename)       -> call({load, Filename}).
 
 call(Msg) ->
@@ -230,13 +346,25 @@ call(Msg) ->
 %%
 %% -------------------------------------------------------------------- %%
 
+-spec apply(Module, Function, Args) -> term() when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
+
 apply(M,F,As) when is_atom(M), is_atom(F), is_list(As) ->
     apply(fun() ->
         erlang:apply(M,F,As)
     end).
 
+-spec apply(Fun) -> term() when
+      Fun :: fun().
+
 apply(Fun) when is_function(Fun) ->
     lcnt:apply(Fun, []).
+
+-spec apply(Fun, Args) -> term() when
+      Fun :: fun(),
+      Args :: [term()].
 
 apply(Fun, As) when is_function(Fun) ->
     Opt = lcnt:rt_opt({copy_save, true}),
@@ -252,14 +380,32 @@ all_conflicts() -> all_conflicts(time).
 all_conflicts(Sort) ->
     conflicts([{max_locks, none}, {thresholds, []},{combine,false}, {sort, Sort}, {reverse, true}]).
 
+-spec pid(Id, Serial) -> pid() when
+      Id :: integer(),
+      Serial :: integer().
+
 pid(Id, Serial) -> pid(node(), Id, Serial).
+
+-spec pid(Node, Id, Serial) -> pid() when
+      Node :: node(),
+      Id :: integer(),
+      Serial :: integer().
+
 pid(Node, Id, Serial) when is_atom(Node) ->
     Header   = <<131,103,100>>,
     String   = atom_to_list(Node),
     L        = length(String),
     binary_to_term(list_to_binary([Header, bytes16(L), String, bytes32(Id), bytes32(Serial),0])).
 
+-spec port(Id) -> port() when
+      Id :: integer().
+
 port(Id) -> port(node(), Id).
+
+-spec port(Node, Id) -> port() when
+      Node :: node(),
+      Id :: integer().
+
 port(Node, Id ) when is_atom(Node) ->
     Header   = <<131,102,100>>,
     String   = atom_to_list(Node),
@@ -828,7 +974,7 @@ stat2stat(Stat,_) ->
 %% print_lock_information
 %% In:
 %%	Locks :: [#lock{}]
-%%	Print :: [Type | {Type, integer()}]
+%%	Print :: [Type | {Type, non_neg_integer()}]
 %%
 %% Out:
 %%	ok

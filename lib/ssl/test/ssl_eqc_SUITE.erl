@@ -20,6 +20,7 @@
 
 -module(ssl_eqc_SUITE).
 
+-behaviour(ct_suite).
 
 %% Common test
 -export([all/0,
@@ -32,7 +33,14 @@
 %% Test cases
 -export([tls_handshake_encoding/1,
          tls_cipher_suite_names/1,
-         tls_cipher_openssl_suite_names/1
+         tls_cipher_openssl_suite_names/1,
+         tls_anon_cipher_suite_names/1,
+         tls_anon_cipher_openssl_suite_names/1,
+         tls_unorded_chains/1,
+         tls_extraneous_chain/1,
+         tls_extraneous_chains/1,
+         tls_extraneous_and_unorder_chains/1,
+         tls_client_cert_auth/1
          ]).
 
 %%--------------------------------------------------------------------
@@ -43,7 +51,14 @@ all() ->
     [
      tls_handshake_encoding,
      tls_cipher_suite_names,
-     tls_cipher_openssl_suite_names
+     tls_cipher_openssl_suite_names,
+     tls_anon_cipher_suite_names,
+     tls_anon_cipher_openssl_suite_names,
+     tls_unorded_chains,
+     tls_extraneous_chain,
+     tls_extraneous_chains,
+     tls_extraneous_and_unorder_chains,
+     tls_client_cert_auth
     ].
 
 %%--------------------------------------------------------------------
@@ -76,3 +91,43 @@ tls_cipher_openssl_suite_names(Config) when is_list(Config) ->
     %% manual test:  proper:quickcheck(ssl_eqc_handshake:prop_tls_cipher_suite_openssl_name()).
     true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_openssl_name(),
                                         Config).
+tls_anon_cipher_suite_names(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_rfc_name()).
+    true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_anon_cipher_suite_rfc_name(),
+                                        Config).
+
+tls_anon_cipher_openssl_suite_names(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_handshake:prop_tls_cipher_suite_openssl_name()).
+    true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_anon_cipher_suite_openssl_name(),
+                                        Config).
+
+tls_unorded_chains(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_tls_ordered_path("/tmp")
+    ssl:start(),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    true =  ct_property_test:quickcheck(ssl_eqc_chain:prop_tls_unordered_path(PrivDir),
+                                        Config).
+
+tls_extraneous_chain(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_tls_ordered_path("/tmp")
+    ssl:start(),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    true = ct_property_test:quickcheck(ssl_eqc_chain:prop_tls_extraneous_path(PrivDir),
+                                        Config).
+
+tls_extraneous_chains(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_tls_ordered_path()
+    ssl:start(),
+    true = ct_property_test:quickcheck(ssl_eqc_chain:prop_tls_extraneous_paths(),
+                                       Config).
+tls_extraneous_and_unorder_chains(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_tls_ordered_path()
+    ssl:start(),
+    true = ct_property_test:quickcheck(ssl_eqc_chain:prop_tls_extraneous_and_unordered_path(),
+                                       Config).
+
+tls_client_cert_auth(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_client_cert_auth()
+    ssl:start(),
+    true = ct_property_test:quickcheck(ssl_eqc_chain:prop_client_cert_auth(),
+                                       Config).

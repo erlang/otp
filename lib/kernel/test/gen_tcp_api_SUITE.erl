@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
 
 	 t_connect_timeout/1, t_accept_timeout/1,
-	 t_connect_bad/1,
+	 t_connect_src_port/1, t_connect_bad/1,
 	 t_recv_timeout/1, t_recv_eof/1, t_recv_delim/1,
 	 t_shutdown_write/1, t_shutdown_both/1, t_shutdown_error/1,
 	 t_shutdown_async/1,
@@ -115,6 +115,7 @@ t_accept_cases() ->
 t_connect_cases() ->
     [
      t_connect_timeout,
+     t_connect_src_port,
      t_connect_bad
     ].
 
@@ -173,6 +174,9 @@ init_per_suite(Config0) ->
             ?P("init_per_suite -> end when "
                "~n      Config: ~p", [Config1]),
             
+            %% We need a monitor on this node also
+            kernel_test_sys_monitor:start(),
+
             Config1
     end.
 
@@ -183,10 +187,13 @@ end_per_suite(Config0) ->
        "~n      Config: ~p"
        "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
+    %% Stop the local monitor
+    kernel_test_sys_monitor:stop(),
+
     Config1 = ?LIB:end_per_suite(Config0),
 
     ?P("end_per_suite -> "
-            "~n      Nodes: ~p", [erlang:nodes()]),
+       "~n      Nodes: ~p", [erlang:nodes()]),
 
     Config1.
 
@@ -212,86 +219,18 @@ init_per_group(inet_backend_socket = _GroupName, Config) ->
             [{socket_create_opts, [{inet_backend, socket}]} | Config]
     end;
 init_per_group(t_local = _GroupName, Config) ->
-    %% A specific inet-backend can be enabled by the environment
-    case lists:keysearch(socket_create_opts, 1, Config) of
-        {value, {socket_create_opts, []}} ->
-            %% Default
-            %% Currently, default is inet, so unless the user has set
-            %% the environment variable ERL_FLAGS to use socket, we
-            %% use inet.
-            case application:get_all_env(kernel) of
-                Env when is_list(Env) ->
-                    case lists:keysearch(inet_backend, 1, Env) of
-                        {value, {inet_backend, socket}} ->
-                            try is_local_socket_supported() of
-                                true ->
-                                    Config;
-                                false ->
-                                    {skip, "AF_LOCAL not supported"}
-                            catch
-                                _:_:_ ->
-                                    {skip, "AF_LOCAL not supported"}
-                            end;
-                        _ ->
-                            try is_local_inet_supported() of
-                                true ->
-                                    Config;
-                                false ->
-                                    {skip, "AF_LOCAL not supported"}
-                            catch
-                                _:_:_ ->
-                                    {skip, "AF_LOCAL not supported"}
-                            end
-                    end;
-                _ ->
-                    try is_local_inet_supported() of
-                        true ->
-                            Config;
-                        false ->
-                            {skip, "AF_LOCAL not supported"}
-                    catch
-                        _:_:_ ->
-                            {skip, "AF_LOCAL not supported"}
-                    end
-            end;
-
-         {value, {socket_create_opts, [{inet_backend, inet}]}} ->
-            try is_local_inet_supported() of
-                true ->
-                    Config;
-                false ->
-                    {skip, "AF_LOCAL not supported"}
-            catch
-                _:_:_ ->
-                    {skip, "AF_LOCAL not supported"}
-            end;
-
-         {value, {socket_create_opts, [{inet_backend, socket}]}} ->
-            try is_local_socket_supported() of
-                true ->
-                    Config;
-                false ->
-                    {skip, "AF_LOCAL not supported"}
-            catch
-                _:_:_ ->
-                    {skip, "AF_LOCAL not supported"}
-            end
+    try gen_tcp:connect({local,<<"/">>}, 0, []) of
+	{error, eafnosupport} ->
+            {skip, "AF_LOCAL not supported"};
+	{error,_} ->
+	    Config
+    catch
+        _C:_E:_S ->
+            {skip, "AF_LOCAL not supported"}
     end;
 init_per_group(_GroupName, Config) ->
     Config.
 
-
-is_local_socket_supported() ->
-    socket:is_supported(local).
-
-is_local_inet_supported() ->
-    case gen_tcp:connect({local,<<"/">>}, 0, []) of
-	{error, eafnosupport} ->
-	    false;
-	{error,_} ->
-	    true
-    end.
-    
 end_per_group(t_local, _Config) ->
     delete_local_filenames();
 end_per_group(_, _Config) ->
@@ -308,10 +247,40 @@ init_per_testcase(Func, Config)
     dbg:tpl(gen_tcp, cx),
     Config;
 init_per_testcase(_Func, Config) ->
+    ?P("init_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), pi(links), pi(monitors)]),
+
+    kernel_test_global_sys_monitor:reset_events(),
+
+    ?P("init_per_testcase -> done when"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), pi(links), pi(monitors)]),
     Config.
 
-end_per_testcase(_Func, _Config) ->
-    dbg:stop().
+end_per_testcase(Func, _Config)
+  when Func =:= undefined -> % Insert your testcase name here
+    dbg:stop();
+end_per_testcase(_Func, Config) ->
+    ?P("end_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), pi(links), pi(monitors)]),
+
+    ?P("system events during test: "
+       "~n   ~p", [kernel_test_global_sys_monitor:events()]),
+
+    ?P("end_per_testcase -> done with"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), pi(links), pi(monitors)]),
+    ok.
 
 %%% gen_tcp:accept/1,2
 
@@ -326,12 +295,37 @@ t_accept_timeout(Config) when is_list(Config) ->
 
 %% Test that gen_tcp:connect/4 (with timeout) works.
 t_connect_timeout(Config) when is_list(Config) ->
+    ?TC_TRY(t_connect_timeout, fun() -> do_connect_timeout(Config) end).
+
+do_connect_timeout(Config)->
     %%BadAddr = {134,138,177,16},
     %%TcpPort = 80,
     {ok, BadAddr} =  unused_ip(),
     TcpPort = 45638,
     ok = ?P("Connecting to ~p, port ~p", [BadAddr, TcpPort]),
-    connect_timeout({gen_tcp,connect,[BadAddr,TcpPort,?INET_BACKEND_OPTS(Config),200]}, 0.2, 5.0).
+    connect_timeout({gen_tcp,connect, [BadAddr,TcpPort, ?INET_BACKEND_OPTS(Config),200]}, 0.2, 5.0).
+
+
+%% Test that setting only the source port for a connection works.
+t_connect_src_port(Config) when is_list(Config) ->
+    Timeout = 1000,
+    Loopback = {127,0,0,1},
+    %% Allocate a port to later use as source port
+    {ok, Tmp} = gen_tcp:listen(0, [{ip,Loopback}, {linger,{true,0}}]),
+    {ok, SrcPort} = inet:port(Tmp),
+    io:format("SrcPort = ~w~n", [SrcPort]),
+    {ok, L} = gen_tcp:listen(0, [{ip,Loopback}]),
+    ok = gen_tcp:close(Tmp),
+    {ok, DstPort} = inet:port(L),
+    io:format("DstPort = ~w~n", [DstPort]),
+    ConnectOpts = [{port,SrcPort}, {linger,{true,0}}],
+    {ok, C} = gen_tcp:connect(Loopback, DstPort, ConnectOpts, Timeout),
+    {ok, A} = gen_tcp:accept(L, Timeout),
+    {ok, {_, SrcPort}} = inet:peername(A),
+    ok = gen_tcp:close(L),
+    ok = gen_tcp:close(C),
+    ok = gen_tcp:close(A).
+
 
 %% Test that gen_tcp:connect/3 handles non-existings hosts, and other
 %% invalid things.
@@ -376,17 +370,43 @@ t_recv_eof(Config) when is_list(Config) ->
 
 %% Test using message delimiter $X.
 t_recv_delim(Config) when is_list(Config) ->
+    ?TC_TRY(t_recv_delim, fun() -> do_recv_delim(Config) end).
+
+do_recv_delim(Config) ->
+    ?P("init"),
     {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
     {ok, Port} = inet:port(L),
     Opts = ?INET_BACKEND_OPTS(Config) ++
         [{active,false}, {packet,line}, {line_delimiter,$X}],
     {ok, Client} = gen_tcp:connect(localhost, Port, Opts),
     {ok, A} = gen_tcp:accept(L),
+
+    ?P("send the data"),
     ok = gen_tcp:send(A, "abcXefgX"),
-    {ok, "abcX"} = gen_tcp:recv(Client, 0, 200),
-    {ok, "efgX"} = gen_tcp:recv(Client, 0, 200),
+
+    %% Why do we need a timeout?
+    %% Sure, normally there would be no delay,
+    %% but this testcase has nothing to do with timeouts?
+    ?P("read the first chunk"),
+    {ok, "abcX"} = gen_tcp:recv(Client, 0), % 200),
+    ?P("read the second chunk"),
+    {ok, "efgX"} = gen_tcp:recv(Client, 0), % 200),
+
+    ?P("set active = 2"),
+    ok = inet:setopts(Client, [{active,2}]),
+
+    ?P("send the data again"),
+    ok = gen_tcp:send(A, "abcXefgX"),
+
+    ?P("await the first chunk"),
+    receive {tcp, Client, "abcX"} -> ?P("received first chunck") end,
+    ?P("await the second chunk"),
+    receive {tcp, Client, "efgX"} -> ?P("received second chunck") end,
+
+    ?P("cleanup"),
     ok = gen_tcp:close(Client),
     ok = gen_tcp:close(A),
+    ?P("done"),
     ok.
 
 %%% gen_tcp:shutdown/2
@@ -414,36 +434,69 @@ t_shutdown_both(Config) when is_list(Config) ->
     ok.
 
 t_shutdown_error(Config) when is_list(Config) ->
+    ?TC_TRY(t_shutdown_error, fun() -> do_shutdown_error(Config) end).
+
+do_shutdown_error(Config) ->
+    ?P("create listen socket"),
     {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
+    ?P("shutdown socket (with How = read_write)"),
     {error, enotconn} = gen_tcp:shutdown(L, read_write),
+    ?P("close socket"),
     ok = gen_tcp:close(L),
+    ?P("shutdown socket again (with How = read_write)"),
     {error, closed} = gen_tcp:shutdown(L, read_write),
+    ?P("done"),
     ok.
 
 t_shutdown_async(Config) when is_list(Config) ->
-    {OS, _} = os:type(),
+    ?TC_TRY(t_shutdown_async, fun() -> do_shutdown_async(Config) end).
+
+do_shutdown_async(Config) ->
+    ?P("create listen socket"),
     {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++ [{sndbuf, 4096}]),
+    if
+        is_port(L) ->
+            do_shutdown_async2(Config, L);
+        true ->
+            (catch gen_tcp:close(L)),
+            exit({skip, "inet-only testcase"})
+    end.
+
+do_shutdown_async2(Config, L) ->
+    {OS, _} = os:type(),
     {ok, Port} = inet:port(L),
+    ?P("connect"),
     {ok, Client} = gen_tcp:connect(localhost, Port,
 				   ?INET_BACKEND_OPTS(Config) ++
                                        [{recbuf, 4096},
                                         {active, false}]),
+    ?P("accept connection"),
     {ok, S} = gen_tcp:accept(L),
+    ?P("create payload"),
     PayloadSize = 1024 * 1024,
     Payload = lists:duplicate(PayloadSize, $.),
+    ?P("send payload"),
     ok = gen_tcp:send(S, Payload),
+    ?P("verify queue size"),
     case erlang:port_info(S, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
 	{queue_size, 0} = T -> ct:fail({unexpected, T})
     end,
 
+    ?P("shutdown(write) accepted socket"),
     ok = gen_tcp:shutdown(S, write),
+    ?P("recv from connected socket"),
     {ok, Buf} = gen_tcp:recv(Client, PayloadSize),
+    ?P("recv(0) from connected socket (expect closed)"),
     {error, closed} = gen_tcp:recv(Client, 0),
+    ?P("verify recv data"),
     case length(Buf) of
-	PayloadSize -> ok;
-	Sz -> ct:fail({payload_size,
+	PayloadSize -> ?P("done"), ok;
+	Sz -> ?P("ERROR: "
+                 "~n   extected: ~p"
+                 "~n   received: ~p", [PayloadSize, Sz]),
+              ct:fail({payload_size,
 		       {expected, PayloadSize},
 		       {received, Sz}})
     end.
@@ -475,7 +528,7 @@ t_fdopen(Config) when is_list(Config) ->
     ?P("fdopen -> accepted: "
        "~n   A:  ~p"
        "~n   FD: ~p", [A, FD]),
-    {ok, Server}    = gen_tcp:fdopen(FD, []),
+    {ok, Server}    = gen_tcp:fdopen(FD, ?INET_BACKEND_OPTS(Config)),
     ok              = gen_tcp:send(Client, Question),
     {ok, Question}  = gen_tcp:recv(Server, length(Question), 2000),
     ok              = gen_tcp:send(Client, Question1),
@@ -496,17 +549,21 @@ t_fdconnect(Config) when is_list(Config) ->
     ?TC_TRY(t_fdconnect, fun() -> do_t_fdconnect(Config) end).
 
 do_t_fdconnect(Config) ->
-    Question = "Aaaa... Long time ago in a small town in Germany,",
+    Question  = "Aaaa... Long time ago in a small town in Germany,",
     Question1 = list_to_binary(Question),
     Question2 = [<<"Aaaa">>, "... ", $L, <<>>, $o, "ng time ago ",
 		 ["in ", [], <<"a small town">>, [" in Germany,", <<>>]]],
     Question1 = iolist_to_binary(Question2),
-    Answer = "there was a shoemaker, Schumacher was his name.",
-    Path = proplists:get_value(data_dir, Config),
-    Lib = "gen_tcp_api_SUITE",
+    Answer    = "there was a shoemaker, Schumacher was his name.",
+    Path      = proplists:get_value(data_dir, Config),
+    Lib       = "gen_tcp_api_SUITE",
     ?P("try load util nif lib"),
-    case erlang:load_nif(filename:join(Path,Lib), []) of
+    case erlang:load_nif(filename:join(Path, Lib), []) of
         ok ->
+            ok;
+        {error, {reload, ReasonStr}} ->
+            ?P("already loaded: "
+               "~n   ~s", [ReasonStr]),
             ok;
         {error, Reason} ->
             ?P("UNEXPECTED - failed loading util nif lib: "
@@ -514,19 +571,20 @@ do_t_fdconnect(Config) ->
             ?SKIPT("failed loading util nif lib")
     end,
     ?P("try create listen socket"),
-    L = case gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++ [{active, false}]) of
+    L = case gen_tcp:listen(0,
+                            ?INET_BACKEND_OPTS(Config) ++ [{active, false}]) of
             {ok, LSock} ->
                 LSock;
             {error, eaddrnotavail = LReason} ->
                 ?SKIPT(listen_failed_str(LReason))
         end,            
     {ok, Port} = inet:port(L),
-    ?P("try create file descriptor (fd)"),
+    ?P("try create file descriptor"),
     FD = gen_tcp_api_SUITE:getsockfd(),
-    ?P("try connect to using file descriptor (~w)", [FD]),
-    Client = case gen_tcp:connect(localhost, Port, ?INET_BACKEND_OPTS(Config) ++
+    ?P("try connect using file descriptor ~w", [FD]),
+    Client = case gen_tcp:connect(localhost, Port,
+                                  ?INET_BACKEND_OPTS(Config) ++
                                       [{fd,     FD},
-                                       {port,   20002},
                                        {active, false}]) of
                  {ok, CSock} ->
                      CSock;
@@ -554,9 +612,10 @@ do_t_fdconnect(Config) ->
     {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
     ok = gen_tcp:send(Server, Answer),
     {ok, Answer} = gen_tcp:recv(Client, length(Answer), 2000),
+    ?P("cleanup"),
     ok = gen_tcp:close(Client),
     FD = gen_tcp_api_SUITE:closesockfd(FD),
-    {error,closed} = gen_tcp:recv(Server, 1, 2000),
+    {error, closed} = gen_tcp:recv(Server, 1, 2000),
     ok = gen_tcp:close(Server),
     ok = gen_tcp:close(L),
     ?P("done"),
@@ -698,66 +757,150 @@ t_local_basic(Config) ->
 
 
 t_local_unbound(Config) ->
+    ?TC_TRY(t_local_unbound, fun() -> do_local_unbound(Config) end).
+
+do_local_unbound(Config) ->
+    ?P("create local (server) filename"),
     SFile = local_filename(server),
     SAddr = {local,bin_filename(SFile)},
     _ = file:delete(SFile),
     %%
     InetBackendOpts = ?INET_BACKEND_OPTS(Config),
+    ?P("create listen socket with ifaddr ~p", [SAddr]),
     L = ok(gen_tcp:listen(0, InetBackendOpts ++
                               [{ifaddr,SAddr},{active,false}])),
+    ?P("listen socket created: ~p"
+       "~n   => try connect", [L]),
     C = ok(gen_tcp:connect(SAddr, 0,
                            InetBackendOpts ++ [{active,false}])),
+    ?P("connected: ~p"
+       "~n   => try accept", [C]),
     S = ok(gen_tcp:accept(L)),
+    ?P("accepted: ~p"
+       "~n   => sockname", [S]),
     SAddr = ok(inet:sockname(L)),
-    {error,enotconn} = inet:peername(L),
+    ?P("sockname: ~p"
+       "~n   => peername (expect enotconn)", [SAddr]),
+    {error, enotconn} = inet:peername(L),
+    ?P("try local handshake"),
     local_handshake(S, SAddr, C, {local,<<>>}),
+    ?P("close listen socket"),
     ok = gen_tcp:close(L),
+    ?P("close accepted socket"),
     ok = gen_tcp:close(S),
+    ?P("close connected socket"),
     ok = gen_tcp:close(C),
+    ?P("delete (local) file"),
     ok = file:delete(SFile),
+    ?P("done"),
     ok.
 
 
 t_local_fdopen(Config) ->
+    ?TC_TRY(t_local_fdopen, fun() -> do_local_fdopen(Config) end).
+
+do_local_fdopen(Config) ->
+    ?P("create local (server) filename"),
     SFile = local_filename(server),
     SAddr = {local,bin_filename(SFile)},
     _ = file:delete(SFile),
     %%
     InetBackendOpts = ?INET_BACKEND_OPTS(Config),
-    L = ok(gen_tcp:listen(0, InetBackendOpts ++ [{ifaddr,SAddr},{active,false}])),
-    C0 = ok(gen_tcp:connect(SAddr, 0, InetBackendOpts ++ [{active,false}])),
-    Fd = ok(prim_inet:getfd(C0)),
-    ok = prim_inet:ignorefd(C0, true),
-    C = ok(gen_tcp:fdopen(Fd, [local])),
+    ListenOpts = InetBackendOpts ++ [{ifaddr,SAddr},{active,false}],
+    ?P("create listen socket with ListenOpts ~p", [ListenOpts]),
+    L = ok(gen_tcp:listen(0, ListenOpts)),
+    ConnectOpts = InetBackendOpts ++ [{active,false}],
+    ?P("listen socket created: ~p"
+       "~n   => try connect ~p", [L, ConnectOpts]),
+    C0 = ok(gen_tcp:connect(SAddr, 0, ConnectOpts)),
+    ?P("connected: ~p"
+       "~n   => get fd", [C0]),
+    Fd = if
+             is_port(C0) ->
+                 FD0 = ok(prim_inet:getfd(C0)),
+                 ?P("FD: ~p"
+                    "~n   => ignore fd", [FD0]),
+                 %% Turn off C0, so it does not generate any events!
+                 ok = prim_inet:ignorefd(C0, true),
+                 FD0;
+             true ->
+                 [{fd, FD0}] = ok(inet:getopts(C0, [fd])),
+                 ?P("FD: ~p", [FD0]),
+                 FD0
+         end,
+    ?P("ignored fd:"
+       "~n   => try fdopen (local)"),
+    C = ok(gen_tcp:fdopen(Fd, ?INET_BACKEND_OPTS(Config) ++ [local])),
+    ?P("fd open: ~p"
+       "~n   => try accept", [C]),
     S = ok(gen_tcp:accept(L)),
+    ?P("accepted: ~p"
+       "~n   => get sockname", [S]),
     SAddr = ok(inet:sockname(L)),
+    ?P("sockname: ~p"
+       "~n   => try get peername (expect enotconn)", [SAddr]),
     {error,enotconn} = inet:peername(L),
+    ?P("try local handshake"),
     local_handshake(S, SAddr, C, {local,<<>>}),
+    ?P("close listen socket"),
     ok = gen_tcp:close(L),
+    ?P("close accepted socket"),
     ok = gen_tcp:close(S),
+    ?P("close connected socket (final)"),
     ok = gen_tcp:close(C),
+    ?P("close connected socket (pre)"),
     ok = gen_tcp:close(C0),
+    ?P("delete (local) file"),
     ok = file:delete(SFile),
+    ?P("done"),
     ok.
 
 t_local_fdopen_listen(Config) ->
+    ?TC_TRY(t_local_fdopen_listen, fun() -> do_local_fdopen_listen(Config) end).
+
+do_local_fdopen_listen(Config) ->
+    ?P("create local (server) filename"),
     SFile = local_filename(server),
     SAddr = {local,bin_filename(SFile)},
     _ = file:delete(SFile),
     InetBackendOpts = ?INET_BACKEND_OPTS(Config),
-    L0 = ok(gen_tcp:listen(0, InetBackendOpts ++ [{ifaddr,SAddr},{active,false}])),
-    Fd = ok(prim_inet:getfd(L0)),
-    L = ok(gen_tcp:listen(0, InetBackendOpts ++ [{fd,Fd},local,{active,false}])),
+    ?P("create dummy listen socket with ifaddr ~p", [SAddr]),
+    L0 = ok(gen_tcp:listen(0, InetBackendOpts ++
+                               [{ifaddr,SAddr},{active,false}])),
+    ?P("dummy listen socket created: ~p"
+       "~n   => try get FD", [L0]),
+    Fd = if
+             is_port(L0) ->
+                 ok(prim_inet:getfd(L0));
+             true ->
+                 [{fd, FD0}] = ok(inet:getopts(L0, [fd])),
+                 FD0
+         end,
+    ?P("FD: ~p"
+       "~n   => try create proper listen socket (using fd)", [Fd]),
+    L = ok(gen_tcp:listen(0, InetBackendOpts ++
+                              [{fd,Fd},local,{active,false}])),
+    ?P("try connect"),
     C = ok(gen_tcp:connect(SAddr, 0, InetBackendOpts ++ [{active,false}])),
+    ?P("try accept (connection)"),
     S = ok(gen_tcp:accept(L)),
+    ?P("verify (proper) listen socket sockname"),
     SAddr = ok(inet:sockname(L)),
-    {error,enotconn} = inet:peername(L),
+    ?P("verify (proper) listen socket peername (expect enotconn)"),
+    {error, enotconn} = inet:peername(L),
+    ?P("perform handshake"),
     local_handshake(S, SAddr, C, {local,<<>>}),
+    ?P("close (proper) listen socket"),
     ok = gen_tcp:close(L),
+    ?P("close (dummy) listen socket"),
     ok = gen_tcp:close(L0),
+    ?P("close accepted socket"),
     ok = gen_tcp:close(S),
+    ?P("close connected socket"),
     ok = gen_tcp:close(C),
+    ?P("delete file (used for socket)"),
     ok = file:delete(SFile),
+    ?P("done"),
     ok.
 
 t_local_fdopen_listen_unbound(Config) ->
@@ -829,32 +972,54 @@ t_local_fdopen_connect_unbound(Config) ->
     ok.
 
 t_local_abstract(Config) ->
+    ?TC_TRY(t_local_abstract, fun() -> do_local_abstract(Config) end).
+
+do_local_abstract(Config) ->
+    ?P("only run on linux"),
     case os:type() of
-	{unix,linux} ->
+	{unix, linux} ->
 	    AbstAddr = {local,<<>>},
             InetBackendOpts = ?INET_BACKEND_OPTS(Config),
+            ?P("create listen socket"),
 	    L =
 		ok(gen_tcp:listen(
 		     0, InetBackendOpts ++ [{ifaddr,AbstAddr},{active,false}])),
-	    {local,_} = SAddr = ok(inet:sockname(L)),
+            ?P("listen socket created: ~p"
+               "~n      => sockname", [L]),
+	    {local, _} = SAddr = ok(inet:sockname(L)),
+            ?P("(listen socket) sockname verified"
+               "~n      => try connect"),
 	    C =
 		ok(gen_tcp:connect(
 		     SAddr, 0,
                      InetBackendOpts ++ [{ifaddr,AbstAddr},{active,false}])),
+            ?P("connected: ~p"
+               "~n      => sockname", [C]),
 	    {local,_} = CAddr = ok(inet:sockname(C)),
+            ?P("(connected socket) sockname verified"
+               "~n      => try accept"),
 	    S = ok(gen_tcp:accept(L)),
+            ?P("accepted: ~p"
+               "~n   => peername (expect enotconn)", [S]),
 	    {error,enotconn} = inet:peername(L),
+            ?P("try local handshake"),
 	    local_handshake(S, SAddr, C, CAddr),
+            ?P("close listen socket"),
 	    ok = gen_tcp:close(L),
+            ?P("close accepted socket"),
 	    ok = gen_tcp:close(S),
+            ?P("close connected socket"),
 	    ok = gen_tcp:close(C),
+            ?P("done"),
 	    ok;
 	_ ->
+            ?P("skip (unless linux)"),
 	    {skip,"AF_LOCAL Abstract Addresses only supported on Linux"}
     end.
 
 
 local_handshake(S, SAddr, C, CAddr) ->
+    ?P("~w(~p, ~p, ~p, ~p)~n", [?FUNCTION_NAME, S, SAddr, C, CAddr]),
     SData = "9876543210",
     CData = "0123456789",
     SAddr = ok(inet:sockname(S)),
@@ -868,19 +1033,38 @@ local_handshake(S, SAddr, C, CAddr) ->
     ok.
 
 t_accept_inet6_tclass(Config) when is_list(Config) ->
-    TClassOpt = {tclass,8#56 bsl 2}, % Expedited forwarding
-    Loopback = {0,0,0,0,0,0,0,1},
-    case gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++ [inet6, {ip, Loopback}, TClassOpt]) of
-	{ok,L} ->
+    ?TC_TRY(t_accept_inet6_tclass, fun() -> do_accept_inet6_tclass(Config) end).
+
+do_accept_inet6_tclass(Config) ->
+    TClassOpt = {tclass, 8#56 bsl 2}, % Expedited forwarding
+    Loopback  = {0,0,0,0,0,0,0,1},
+    ?P("create listen socket with tclass: ~p", [TClassOpt]),
+    case gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++
+                            [inet6, {ip, Loopback}, TClassOpt]) of
+	{ok, L} ->
+            ?P("listen socket created: "
+               "~n      ~p", [L]),
 	    LPort = ok(inet:port(L)),
-	    Sa = ok(gen_tcp:connect(Loopback, LPort, ?INET_BACKEND_OPTS(Config))),
+            ?P("try to connect to port ~p", [LPort]),
+	    Sa = ok(gen_tcp:connect(Loopback, LPort,
+                                    ?INET_BACKEND_OPTS(Config))),
+            ?P("connected: ~p"
+               "~n   => accept connection", [Sa]),
 	    Sb = ok(gen_tcp:accept(L)),
+            ?P("accepted: ~p"
+               "~n   => getopts (tclass)", [Sb]),
 	    [TClassOpt] = ok(inet:getopts(Sb, [tclass])),
+            ?P("tclass verified => close accepted socket"),
 	    ok = gen_tcp:close(Sb),
+            ?P("close connected socket"),
 	    ok = gen_tcp:close(Sa),
+            ?P("close listen socket"),
 	    ok = gen_tcp:close(L),
+            ?P("done"),
 	    ok;
-	{error,_} ->
+	{error, _Reason} ->
+            ?P("ERROR: Failed create listen socket"
+               "~n   ~p", [_Reason]),
 	    {skip,"IPv6 TCLASS not supported"}
     end.
 
@@ -940,6 +1124,8 @@ connect_timeout({M,F,A}, Lower, Upper) ->
 		    {skip, "Not tested -- got error " ++ atom_to_list(E)};
 		{error, enetunreach = E} ->
 		    {skip, "Not tested -- got error " ++ atom_to_list(E)};
+                {error, ehostunreach = E} ->
+		    {skip, "Not tested -- got error " ++ atom_to_list(E)};
 		{ok, Socket} -> % What the...
 		    Pinfo = erlang:port_info(Socket),
 		    Db = inet_db:lookup_socket(Socket),
@@ -971,18 +1157,20 @@ unused_ip() ->
             %% This is not supported on all platforms (yet), so...
             try net:getifaddrs() of
                 {ok, IfAddrs} ->
-                    io:format("we        = ~p,"
-                              "unused_ip = ~p"
-                              "            ~p"
-                              "~n", [Hent, IP, IfAddrs]);
+                    ?P("~n   we        = ~p"
+                       "~n   unused_ip = ~p"
+                       "~n   ~p", [Hent, IP, IfAddrs]);
                 {error, _} ->
-                    io:format("we = ~p, unused_ip = ~p~n", [Hent, IP])
+                    ?P("~n   we:        ~p"
+                       "~n   unused_ip: ~p", [Hent, IP])
             catch
                 _:_:_ ->
-                    io:format("we = ~p, unused_ip = ~p~n", [Hent, IP])
+                    ?P("~n   we:        ~p"
+                       "~n   unused_ip: ~p", [Hent, IP])
             end;
         true ->
-            io:format("we = ~p, unused_ip = ~p~n", [Hent, IP])
+            ?P("~n   we:        ~p"
+               "~n   unused_ip: ~p", [Hent, IP])
     end,
     IP.
 
@@ -1036,6 +1224,13 @@ delete_local_filenames() ->
 		  "/tmp/" ?MODULE_STRING "_" ++ os:getpid() ++ "_*")],
     ok.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+pi(Item) ->
+    {Item, Val} = process_info(self(), Item),
+    Val.
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

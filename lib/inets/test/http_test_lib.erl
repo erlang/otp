@@ -78,8 +78,7 @@ dummy_server_init(Caller, ssl, Inet, Extra) ->
     ContentCb = proplists:get_value(content_cb, Extra),
     SSLOptions = proplists:get_value(ssl, Extra),
     Conf = proplists:get_value(conf, Extra),
-    BaseOpts = [binary, {reuseaddr,true}, {active, false}, {nodelay, true} |
-	        SSLOptions], 
+    BaseOpts = [binary, {active, false}, {nodelay, true} | SSLOptions], 
     dummy_ssl_server_init(Caller, BaseOpts, Inet, ContentCb, Conf).
 
 dummy_ssl_server_init(Caller, BaseOpts, Inet, ContentCb, Conf) ->
@@ -132,16 +131,16 @@ dummy_ssl_server_loop(MFA, Handlers, ContentCb, Conf, ListenSocket) ->
 dummy_request_handler(MFA, Socket, ContentCb, Conf) ->
     spawn(?MODULE, dummy_request_handler_init, [MFA, Socket, ContentCb, Conf]).
 
-dummy_request_handler_init(MFA, Socket, ContentCb, Conf) ->
-    SockType = 
+dummy_request_handler_init(MFA, Socket0, ContentCb, Conf) ->
+    {SockType, Socket} = 
 	receive 
 	    ipcomm_controller ->
-		inet:setopts(Socket, [{active, true}]),
-		ip_comm;
+		inet:setopts(Socket0, [{active, true}]),
+		{ip_comm, Socket0};
 	    ssl_controller ->
-		ok = ssl:ssl_accept(Socket, infinity),
-		ssl:setopts(Socket, [{active, true}]),
-		ssl
+		{ok, Socket1} = ssl:handshake(Socket0, infinity),
+		ssl:setopts(Socket0, [{active, true}]),
+		{ssl, Socket1}
 	end,
     dummy_request_handler_loop(MFA, SockType, Socket, ContentCb, Conf).
     

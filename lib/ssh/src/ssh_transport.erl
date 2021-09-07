@@ -52,7 +52,9 @@
 	 extract_public_key/1,
 	 ssh_packet/2, pack/2,
          valid_key_sha_alg/3,
-	 sha/1, sign/3, verify/5,
+	 sign/3, sign/4,
+         verify/5,
+	 sha/1,
          get_host_key/2,
          call_KeyCb/3,
          public_algo/1]).
@@ -166,6 +168,7 @@ default_algorithms1(mac) ->
 
 default_algorithms1(public_key) ->
     supported_algorithms(public_key, [
+                                      'ssh-rsa',
                                       %% Gone in OpenSSH 7.3.p1:
                                       'ssh-dss'
                                      ]);
@@ -281,7 +284,7 @@ is_valid_mac(_, _ , #ssh{recv_mac_size = 0}) ->
     true;
 is_valid_mac(Mac, Data, #ssh{recv_mac = Algorithm,
 			     recv_mac_key = Key, recv_sequence = SeqNum}) ->
-    crypto:equal_const_time(Mac, mac(Algorithm, Key, SeqNum, Data)).
+    ssh_lib:comp(Mac, mac(Algorithm, Key, SeqNum, Data)).
 
 handle_hello_version(Version) ->
     try
@@ -375,11 +378,9 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 				   Ssh#ssh{algorithms = Algos})
     catch
         Class:Error ->
-            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                        io_lib:format("Kexinit failed in client: ~p:~p",
-                                      [Class,Error])
-                       )
-    end;
+            Msg = kexinit_error(Class, Error, client, Own, CounterPart),
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Msg)
+        end;
 
 handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
                    #ssh{role = server} = Ssh) ->
@@ -392,11 +393,57 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
             {ok, Ssh#ssh{algorithms = Algos}}
     catch
         Class:Error ->
-            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                        io_lib:format("Kexinit failed in server: ~p:~p",
-                                      [Class,Error])
-                       )
+            Msg = kexinit_error(Class, Error, server, Own, CounterPart),
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Msg)
     end.
+
+kexinit_error(Class, Error, Role, Own, CounterPart) ->
+    {Fmt,Args} =
+        case {Class,Error} of
+            {error, {badmatch,{false,Alg}}} ->
+                {Txt,W,C} = alg_info(Role, Alg),
+                {"No common ~s algorithm,~n"
+                 "  we have:~n    ~s~n"
+                 "  peer have:~n    ~s~n",
+                 [Txt,
+                  lists:join(", ", element(W,Own)),
+                  lists:join(", ", element(C,CounterPart))
+                 ]};
+            _ ->
+                {"Kexinit failed in ~p: ~p:~p", [Role,Class,Error]}
+        end,
+    io_lib:format(Fmt, Args).
+
+alg_info(client, Alg) ->
+    alg_info(Alg);
+alg_info(server, Alg) ->
+    {Txt,C2s,S2c} = alg_info(Alg),
+    {Txt,S2c,C2s}.
+
+alg_info("kex") ->        {"key exchange",
+                           #ssh_msg_kexinit.kex_algorithms,
+                           #ssh_msg_kexinit.kex_algorithms};
+alg_info("hkey") ->       {"key",
+                           #ssh_msg_kexinit.server_host_key_algorithms,
+                           #ssh_msg_kexinit.server_host_key_algorithms};
+alg_info("send_mac") ->    {"mac",
+                           #ssh_msg_kexinit.mac_algorithms_client_to_server,
+                           #ssh_msg_kexinit.mac_algorithms_server_to_client};
+alg_info("recv_mac") ->    {"mac",
+                           #ssh_msg_kexinit.mac_algorithms_client_to_server,
+                           #ssh_msg_kexinit.mac_algorithms_server_to_client};
+alg_info("encrypt") ->   {"cipher",
+                           #ssh_msg_kexinit.encryption_algorithms_client_to_server,
+                           #ssh_msg_kexinit.encryption_algorithms_server_to_client};
+alg_info("decrypt") ->   {"cipher",
+                           #ssh_msg_kexinit.encryption_algorithms_client_to_server,
+                           #ssh_msg_kexinit.encryption_algorithms_server_to_client};
+alg_info("compress") ->   {"compress",
+                           #ssh_msg_kexinit.compression_algorithms_client_to_server,
+                           #ssh_msg_kexinit.compression_algorithms_server_to_client};
+alg_info("decompress") -> {"compress",
+                           #ssh_msg_kexinit.compression_algorithms_client_to_server,
+                           #ssh_msg_kexinit.compression_algorithms_server_to_client}.
 
 
 verify_algorithm(#alg{kex = undefined})       ->  {false, "kex"};
@@ -488,17 +535,22 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
 	    MyPrivHostKey = get_host_key(SignAlg, Opts),
 	    MyPubHostKey = extract_public_key(MyPrivHostKey),
             H = kex_hash(Ssh0, MyPubHostKey, sha(Kex), {E,Public,K}),
-            H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
-	    {SshPacket, Ssh1} = 
-		ssh_packet(#ssh_msg_kexdh_reply{public_host_key = {MyPubHostKey,SignAlg},
-						f = Public,
-						h_sig = H_SIG
-					       }, Ssh0),
-	    {ok, SshPacket, Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}},
-				     shared_secret = ssh_bits:mpint(K),
-				     exchanged_hash = H,
-				     session_id = sid(Ssh1, H)}};
-
+            case sign(H, SignAlg, MyPrivHostKey, Ssh0) of
+                {ok,H_SIG} ->
+                    {SshPacket, Ssh1} =
+                        ssh_packet(#ssh_msg_kexdh_reply{public_host_key = {MyPubHostKey,SignAlg},
+                                                        f = Public,
+                                                        h_sig = H_SIG
+                                                       }, Ssh0),
+                    {ok, SshPacket, Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}},
+                                             shared_secret = ssh_bits:mpint(K),
+                                             exchanged_hash = H,
+                                             session_id = sid(Ssh1, H)}};
+                {error,unsupported_sign_alg} ->
+                    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                io_lib:format("Unsupported algorithm ~p", [SignAlg])
+                               )
+            end;
 	true ->
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                         io_lib:format("Kexdh init failed, received 'e' out of bounds~n  E=~p~n  P=~p",
@@ -635,15 +687,21 @@ handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
 		    MyPrivHostKey = get_host_key(SignAlg, Opts),
 		    MyPubHostKey = extract_public_key(MyPrivHostKey),
                     H = kex_hash(Ssh0, MyPubHostKey, sha(Kex), {Min,NBits,Max,P,G,E,Public,K}),
-                    H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
-		    {SshPacket, Ssh} = 
-			ssh_packet(#ssh_msg_kex_dh_gex_reply{public_host_key = {MyPubHostKey,SignAlg},
-							     f = Public,
-							     h_sig = H_SIG}, Ssh0),
-		    {ok, SshPacket, Ssh#ssh{shared_secret = ssh_bits:mpint(K),
-					    exchanged_hash = H,
-					    session_id = sid(Ssh, H)
-					   }};
+                    case sign(H, SignAlg, MyPrivHostKey, Ssh0) of
+                        {ok,H_SIG} ->
+                            {SshPacket, Ssh} =
+                                ssh_packet(#ssh_msg_kex_dh_gex_reply{public_host_key = {MyPubHostKey,SignAlg},
+                                                                     f = Public,
+                                                                     h_sig = H_SIG}, Ssh0),
+                            {ok, SshPacket, Ssh#ssh{shared_secret = ssh_bits:mpint(K),
+                                                    exchanged_hash = H,
+                                                    session_id = sid(Ssh, H)
+                                                   }};
+                        {error,unsupported_sign_alg} ->
+                            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                        io_lib:format("Unsupported algorithm ~p", [SignAlg])
+                                       )
+                    end;
 		true ->
                     ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                                 "Kexdh init failed, received 'k' out of bounds"
@@ -712,16 +770,22 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 	    MyPrivHostKey = get_host_key(SignAlg, Opts),
 	    MyPubHostKey = extract_public_key(MyPrivHostKey),
             H = kex_hash(Ssh0, MyPubHostKey, sha(Curve), {PeerPublic, MyPublic, K}),
-            H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
-	    {SshPacket, Ssh1} = 
-		ssh_packet(#ssh_msg_kex_ecdh_reply{public_host_key = {MyPubHostKey,SignAlg},
-						   q_s = MyPublic,
-						   h_sig = H_SIG},
-			   Ssh0),
-    	    {ok, SshPacket, Ssh1#ssh{keyex_key = {{MyPublic,MyPrivate},Curve},
-				     shared_secret = ssh_bits:mpint(K),
-				     exchanged_hash = H,
-				     session_id = sid(Ssh1, H)}}
+            case sign(H, SignAlg, MyPrivHostKey, Ssh0) of
+                {ok,H_SIG} ->
+                    {SshPacket, Ssh1} =
+                        ssh_packet(#ssh_msg_kex_ecdh_reply{public_host_key = {MyPubHostKey,SignAlg},
+                                                           q_s = MyPublic,
+                                                           h_sig = H_SIG},
+                                   Ssh0),
+                    {ok, SshPacket, Ssh1#ssh{keyex_key = {{MyPublic,MyPrivate},Curve},
+                                             shared_secret = ssh_bits:mpint(K),
+                                             exchanged_hash = H,
+                                             session_id = sid(Ssh1, H)}};
+                {error,unsupported_sign_alg} ->
+                    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                io_lib:format("Unsupported algorithm ~p", [SignAlg])
+                               )
+            end
     catch
         Class:Error ->
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
@@ -839,7 +903,7 @@ get_host_key(SignAlg, Opts) ->
 
 call_KeyCb(F, Args, Opts) ->
     {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
-    UserOpts = ?GET_OPT(user_options, Opts),
+    UserOpts = ?GET_OPT(key_cb_options, Opts),
     apply(KeyCb, F, Args ++ [[{key_cb_private,KeyCbOpts}|UserOpts]]).
 
 extract_public_key(#'RSAPrivateKey'{modulus = N, publicExponent = E}) ->
@@ -864,7 +928,7 @@ extract_public_key(#{engine:=_, key_id:=_, algorithm:=Alg} = M) ->
 verify_host_key(#ssh{algorithms=Alg}=SSH, PublicKey, Digest, {AlgStr,Signature}) ->
     case atom_to_list(Alg#alg.hkey) of
         AlgStr ->
-            case verify(Digest, sha(Alg#alg.hkey), Signature, PublicKey, SSH) of
+            case verify(Digest, Alg#alg.hkey, Signature, PublicKey, SSH) of
                 false ->
                     {error, bad_signature};
                 true ->
@@ -894,31 +958,31 @@ accepted_host(Ssh, PeerName, Port, Public, Opts) ->
                                    "~s host key fingerprint is ~s.~n"
                                    "New host ~p~p accept",
                                    [fmt_hostkey(HostKeyAlg),
-                                    public_key:ssh_hostkey_fingerprint(Alg,Public),
+                                    ssh:hostkey_fingerprint(Alg,Public),
                                     PeerName, PortStr]),
             yes == yes_no(Ssh, Prompt);
 
         %% Call-back alternatives: A user provided fun is called for the decision:
         F when is_function(F,2) ->
-            case catch F(PeerName, public_key:ssh_hostkey_fingerprint(Public)) of
+            case catch F(PeerName, ssh:hostkey_fingerprint(Public)) of
                 true -> true;
                 _ -> {error, fingerprint_check_failed}
             end;
 
         F when is_function(F,3) ->
-            case catch F(PeerName, Port, public_key:ssh_hostkey_fingerprint(Public)) of
+            case catch F(PeerName, Port, ssh:hostkey_fingerprint(Public)) of
                 true -> true;
                 _ -> {error, fingerprint_check_failed}
             end;
 
 	{DigestAlg,F} when is_function(F,2) ->
-            case catch F(PeerName, public_key:ssh_hostkey_fingerprint(DigestAlg,Public)) of
+            case catch F(PeerName, ssh:hostkey_fingerprint(DigestAlg,Public)) of
                 true -> true;
                 _ -> {error, {fingerprint_check_failed,DigestAlg}}
             end;
 
 	{DigestAlg,F} when is_function(F,3) ->
-            case catch F(PeerName, Port, public_key:ssh_hostkey_fingerprint(DigestAlg,Public)) of
+            case catch F(PeerName, Port, ssh:hostkey_fingerprint(DigestAlg,Public)) of
                 true -> true;
                 _ -> {error, {fingerprint_check_failed,DigestAlg}}
             end
@@ -1402,6 +1466,19 @@ payload(<<PacketLen:32, PaddingLen:8, PayloadAndPadding/binary>>) ->
     Payload.
 
 %%%----------------------------------------------------------------
+%% sign(SigData, SignAlg, Key, Opts) when is_list(SignAlg) ->
+%%     sign(SigData, list_to_existing_atom(SignAlg), Key, Opts);
+
+sign(SigData, SignAlg, Key, #ssh{opts=Opts}) when is_atom(SignAlg) ->
+    case lists:member(SignAlg,
+                      proplists:get_value(public_key,
+                                          ?GET_OPT(preferred_algorithms,Opts,[]))) of
+        true ->
+            {ok, sign(SigData, sha(SignAlg), Key)};
+        false ->
+            {error, unsupported_sign_alg}
+    end.
+
 sign(SigData, HashAlg, #{algorithm:=dss} = Key) ->
     mk_dss_sig(crypto:sign(dss, HashAlg, SigData, Key));
 sign(SigData, HashAlg, #{algorithm:=SigAlg} = Key) ->
@@ -1421,7 +1498,11 @@ mk_dss_sig(DerSignature) ->
     <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>.
 
 %%%----------------------------------------------------------------
-verify(PlainText, HashAlg, Sig, {_,  #'Dss-Parms'{}} = Key, _) ->
+verify(PlainText, Alg, Sig, Key, Ssh) ->
+    do_verify(PlainText, sha(Alg), Sig, Key, Ssh).
+
+
+do_verify(PlainText, HashAlg, Sig, {_,  #'Dss-Parms'{}} = Key, _) ->
     case Sig of
         <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>> ->
             Signature = public_key:der_encode('Dss-Sig-Value', #'Dss-Sig-Value'{r = R, s = S}),
@@ -1429,7 +1510,7 @@ verify(PlainText, HashAlg, Sig, {_,  #'Dss-Parms'{}} = Key, _) ->
         _ ->
             false
     end;
-verify(PlainText, HashAlg, Sig, {#'ECPoint'{},_} = Key, _) ->
+do_verify(PlainText, HashAlg, Sig, {#'ECPoint'{},_} = Key, _) ->
     case Sig of
         <<?UINT32(Rlen),R:Rlen/big-signed-integer-unit:8,
           ?UINT32(Slen),S:Slen/big-signed-integer-unit:8>> ->
@@ -1440,14 +1521,14 @@ verify(PlainText, HashAlg, Sig, {#'ECPoint'{},_} = Key, _) ->
             false
     end;
 
-verify(PlainText, HashAlg, Sig, #'RSAPublicKey'{}=Key, #ssh{role = server,
-                                                            c_version = "SSH-2.0-OpenSSH_7."++_})
+do_verify(PlainText, HashAlg, Sig, #'RSAPublicKey'{}=Key, #ssh{role = server,
+                                                               c_version = "SSH-2.0-OpenSSH_7."++_})
   when HashAlg == sha256; HashAlg == sha512 ->
     %% Public key signing bug in in OpenSSH >= 7.2
     public_key:verify(PlainText, HashAlg, Sig, Key)
         orelse public_key:verify(PlainText, sha, Sig, Key);
 
-verify(PlainText, HashAlg, Sig, Key, _) ->
+do_verify(PlainText, HashAlg, Sig, Key, _) ->
     public_key:verify(PlainText, HashAlg, Sig, Key).
 
 
@@ -1697,7 +1778,7 @@ decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
             %% The length is already decrypted and used to divide the input
             %% Check the mac (important that it is timing-safe):
             PolyKey = crypto:crypto_one_time(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>, <<0:32/unit:8>>, false),
-            case crypto:equal_const_time(Ctag, crypto:mac(poly1305, PolyKey, <<AAD/binary,Ctext/binary>>)) of
+            case ssh_lib:comp(Ctag, crypto:mac(poly1305, PolyKey, <<AAD/binary,Ctext/binary>>)) of
                 true ->
                     %% MAC is ok, decode
                     IV2 = <<1:8/little-unit:8, Seq:8/unit:8>>,

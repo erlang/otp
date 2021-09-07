@@ -148,6 +148,7 @@ struct erts_nif_select_event {
 typedef struct {
     struct erts_nif_select_event in;
     struct erts_nif_select_event out;
+    struct erts_nif_select_event err;
 } ErtsNifSelectDataState;
 
 #endif /* #ifndef ERL_CHECK_IO_INTERNAL__ */

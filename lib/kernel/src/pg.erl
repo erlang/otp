@@ -281,19 +281,7 @@ handle_info({leave, Peer, PidOrPids, Groups}, #state{scope = Scope, nodes = Node
     case maps:get(Peer, Nodes, []) of
         {MRef, RemoteMap} ->
             _ = leave_remote(Scope, PidOrPids, Groups),
-            NewRemoteMap = lists:foldl(
-                fun (Group, Acc) ->
-                    case maps:get(Group, Acc) of
-                        PidOrPids ->
-                            Acc;
-                        [PidOrPids] ->
-                            Acc;
-                        Existing when is_pid(PidOrPids) ->
-                            Acc#{Group => lists:delete(PidOrPids, Existing)};
-                        Existing ->
-                            Acc#{Group => Existing-- PidOrPids}
-                    end
-                end, RemoteMap, Groups),
+            NewRemoteMap = leave_update_remote_map(PidOrPids, RemoteMap, Groups),
             {noreply, State#state{nodes = Nodes#{Peer => {MRef, NewRemoteMap}}}};
         [] ->
             %% Handle race condition: remote node disconnected, but scope process
@@ -306,8 +294,8 @@ handle_info({leave, Peer, PidOrPids, Groups}, #state{scope = Scope, nodes = Node
     end;
 
 %% we're being discovered, let's exchange!
-handle_info({discover, Peer}, #state{scope = Scope, nodes = Nodes} = State) ->
-    gen_server:cast(Peer, {sync, self(), all_local_pids(Scope)}),
+handle_info({discover, Peer}, #state{nodes = Nodes, monitors = Monitors} = State) ->
+    gen_server:cast(Peer, {sync, self(), all_local_pids(Monitors)}),
     %% do we know who is looking for us?
     case maps:is_key(Peer, Nodes) of
         true ->
@@ -334,7 +322,7 @@ handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, monitors 
 %% handle remote node down or leaving overlay network
 handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, nodes = Nodes} = State)  ->
     {{MRef, RemoteMap}, NewNodes} = maps:take(Pid, Nodes),
-    _ = maps:map(fun (Group, Pids) -> leave_remote(Scope, Pids, [Group]) end, RemoteMap),
+    maps:foreach(fun (Group, Pids) -> leave_remote(Scope, Pids, [Group]) end, RemoteMap),
     {noreply, State#state{nodes = NewNodes}};
 
 %% nodedown: ignore, and wait for 'DOWN' signal for monitored process
@@ -524,9 +512,33 @@ leave_remote(Scope, Pids, Groups) ->
         end ||
         Group <- Groups].
 
-all_local_pids(Scope) ->
-    %% selector: ets:fun2ms(fun({N,_,L}) when L =/=[] -> {N,L}end).
-    ets:select(Scope, [{{'$1','_','$2'},[{'=/=','$2',[]}],[{{'$1','$2'}}]}]).
+leave_update_remote_map(Pid, RemoteMap, Groups) when is_pid(Pid) ->
+    leave_update_remote_map([Pid], RemoteMap, Groups);
+leave_update_remote_map(Pids, RemoteMap, Groups) ->
+    lists:foldl(
+        fun (Group, Acc) ->
+            case maps:get(Group, Acc) -- Pids of
+                [] ->
+                    maps:remove(Group, Acc);
+                Remaining ->
+                    Acc#{Group => Remaining}
+            end
+        end, RemoteMap, Groups).
+
+all_local_pids(Monitors) ->
+    maps:to_list(maps:fold(
+        fun(Pid, {_Ref, Groups}, Acc) ->
+            lists:foldl(
+                fun(Group, Acc1) ->
+                    Acc1#{Group => [Pid | maps:get(Group, Acc1, [])]}
+                end,
+                Acc,
+                Groups
+            )
+        end,
+        #{},
+        Monitors
+    )).
 
 %% Works as gen_server:abcast(), but accepts a list of processes
 %%   instead of nodes list.

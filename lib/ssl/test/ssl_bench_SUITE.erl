@@ -19,6 +19,8 @@
 %%
 -module(ssl_bench_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct_event.hrl").
 
 %% Callback functions

@@ -31,7 +31,7 @@ module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     Order = [Lbl || {function,_,_,Lbl,_} <- Fs0],
     All = maps:from_list([{Lbl,Func} || {function,_,_,Lbl,_}=Func <- Fs0]),
     WorkList = rootset(Fs0, Exp, Attr),
-    Used = find_all_used(WorkList, All, cerl_sets:from_list(WorkList)),
+    Used = find_all_used(WorkList, All, sets:from_list(WorkList, [{version, 2}])),
     Fs1 = remove_unused(Order, Used, All),
     {Fs2,Lc} = clean_labels(Fs1),
     Fs3 = fix_swap(Fs2, Opts),
@@ -54,7 +54,7 @@ rootset(Fs, Root0, Attr) ->
 %% Remove the unused functions.
 
 remove_unused([F|Fs], Used, All) ->
-    case cerl_sets:is_element(F, Used) of
+    case sets:is_element(F, Used) of
 	false -> remove_unused(Fs, Used, All);
 	true -> [map_get(F, All)|remove_unused(Fs, Used, All)]
     end;
@@ -72,14 +72,16 @@ update_work_list([{call,_,{f,L}}|Is], Sets) ->
     update_work_list(Is, add_to_work_list(L, Sets));
 update_work_list([{make_fun2,{f,L},_,_,_}|Is], Sets) ->
     update_work_list(Is, add_to_work_list(L, Sets));
+update_work_list([{make_fun3,{f,L},_,_,_,_}|Is], Sets) ->
+    update_work_list(Is, add_to_work_list(L, Sets));
 update_work_list([_|Is], Sets) ->
     update_work_list(Is, Sets);
 update_work_list([], Sets) -> Sets.
 
 add_to_work_list(F, {Fs,Used}=Sets) ->
-    case cerl_sets:is_element(F, Used) of
+    case sets:is_element(F, Used) of
 	true -> Sets;
-	false -> {[F|Fs],cerl_sets:add_element(F, Used)}
+	false -> {[F|Fs],sets:add_element(F, Used)}
     end.
 
 

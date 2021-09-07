@@ -25,7 +25,6 @@
 -define(DEFAULT_PACKET_SIZE, 65536).
 -define(DEFAULT_WINDOW_SIZE, 10*?DEFAULT_PACKET_SIZE).
 
--define(DEFAULT_TIMEOUT, 5000).
 -define(MAX_PROTO_VERSION, 255).      % Max length of the hello string
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -206,6 +205,7 @@
 -define(IXANY,39).      %% Any char will restart after stop.
 -define(IXOFF,40).      %% Enable input flow control.
 -define(IMAXBEL,41).    %% Ring bell on input queue full.
+-define(IUTF8,42).      %% Terminal input and output is assumed to be encoded in UTF-8.
 -define(ISIG,50).       %% Enable signals INTR, QUIT, [D]SUSP.
 -define(ICANON,51).     %% Canonicalize input lines.
 -define(XCASE,52).      %% Enable input and output of uppercase characters by
@@ -266,8 +266,8 @@
 	  channel_id_seed,
 	  cli_spec,
 	  options,
+          suggest_window_size,
+          suggest_packet_size,
 	  exec,
-	  system_supervisor,
-	  sub_system_supervisor,
-	  connection_supervisor
+	  sub_system_supervisor
 	 }).

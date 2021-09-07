@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2020</year>
+      <year>2000</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -56,20 +56,36 @@
       <type>
         <v>TransportRef = pid() | regname()</v>
         <v>OptionList = [option()]</v>
-        <v>option() = {port, integer()} |{options, list()} |{receive_handle, receive_handle()} |{module, atom()}</v>
+	<v>option() = {port,           integer()} |
+	              {options,        list()} |
+	              {receive_handle, receive_handle()} |
+	              {module,         atom()}  |
+	              {inet_backend,   default | inet | socket}</v>
         <v>Handle = socket_handle()</v>
         <v>receive_handle() = term()</v>
         <v>ControlPid = pid()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>This function is used to open an UDP/IP socket.</p>
-        <p>The <c><![CDATA[module]]></c> option makes it possible for the user to provide
-          their own callback module. The functions <c><![CDATA[receive_message/4]]></c> or
-          <c><![CDATA[process_received_message/4]]></c> of this module is called when a new 
-          message is received (which one depends on the size of the message; 
-          small - receive_message, large - process_received_message). 
-          Default value is <em>megaco</em>.</p>
+	<p>This function is used to open an UDP/IP socket.</p>
+	<taglist>
+	  <tag><c><![CDATA[module]]></c></tag>
+	  <item>
+	    <p>The option makes it possible for the user to provide
+	    their own callback module.
+	    The functions <c><![CDATA[receive_message/4]]></c> or
+	    <c><![CDATA[process_received_message/4]]></c>
+	    of this module is called when a new message is received.
+	    Which one depends on the size of the message: </p>
+	    <taglist>
+	      <tag><c><![CDATA[small]]></c></tag>
+	      <item><p>receive_message</p></item>
+	      <tag><c><![CDATA[large]]></c></tag>
+	      <item><p>process_received_message</p></item>
+	    </taglist>
+	    <p>Default value is <em>megaco</em>.</p>
+	  </item>
+	</taglist>
       </desc>
     </func>
     <func>

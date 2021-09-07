@@ -47,3 +47,5 @@ IMAGE_FILES =
 TOP_SPECS_FILE = specs.xml
 
 include $(ERL_TOP)/make/doc.mk
+
+valgrind asan:

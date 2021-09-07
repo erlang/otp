@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@
 	 lookup_bad_search_option/1,
 	 getif/1,
 	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1,
-	 parse_strict_address/1, ipv4_mapped_ipv6_address/1,
+	 parse_strict_address/1, ipv4_mapped_ipv6_address/1, ntoa/1,
          simple_netns/1, simple_netns_open/1,
          add_del_host/1, add_del_host_v6/1,
          simple_bind_to_device/1, simple_bind_to_device_open/1
@@ -76,7 +76,8 @@ all() ->
      gethostnative_debug_level, gethostnative_soft_restart,
      lookup_bad_search_option,
      getif, getif_ifr_name_overflow, getservbyname_overflow,
-     getifaddrs, parse_strict_address, simple_netns, simple_netns_open,
+     getifaddrs, parse_strict_address, ipv4_mapped_ipv6_address, ntoa,
+     simple_netns, simple_netns_open,
      add_del_host, add_del_host_v6,
      simple_bind_to_device, simple_bind_to_device_open
     ].
@@ -147,13 +148,33 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(gethostnative_debug_level, Config) ->
+
+init_per_testcase(Case, Config0) ->
+    ?P("init_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config0, erlang:nodes(), pi(links), pi(monitors)]),
+
+    kernel_test_global_sys_monitor:reset_events(),
+
+    Config1 = init_per_testcase2(Case, Config0),
+
+    ?P("init_per_testcase -> done when"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [Config1, erlang:nodes(), pi(links), pi(monitors)]),
+    Config1.
+
+init_per_testcase2(gethostnative_debug_level, Config) ->
     ?TT(?MINS(2)),
     Config;
-init_per_testcase(gethostnative_soft_restart, Config) ->
+init_per_testcase2(gethostnative_soft_restart, Config) ->
     ?TT(?MINS(2)),
     Config;
-init_per_testcase(lookup_bad_search_option, Config) ->
+init_per_testcase2(lookup_bad_search_option, Config) ->
     Db = inet_db,
     Key = res_lookup,
     %% The bad option cannot enter through inet_db:set_lookup/1,
@@ -163,32 +184,71 @@ init_per_testcase(lookup_bad_search_option, Config) ->
     ets:insert(Db, {Key,[lookup_bad_search_option]}),
     ?P("init_per_testcase -> Misconfigured resolver lookup order"),
     [{Key,Prev}|Config];
-init_per_testcase(_Func, Config) ->
+init_per_testcase2(_Func, Config) ->
     Config.
 
-end_per_testcase(lookup_bad_search_option, Config) ->
-    Db = inet_db,
-    Key = res_lookup,
+end_per_testcase(Case, Config) ->
+    ?P("end_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), pi(links), pi(monitors)]),
+
+    ?P("system events during test: "
+       "~n   ~p", [kernel_test_global_sys_monitor:events()]),
+
+    end_per_testcase2(Case, Config),
+
+    ?P("end_per_testcase -> done with"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), pi(links), pi(monitors)]),
+    ok.
+
+end_per_testcase2(lookup_bad_search_option, Config) ->
+    ?P("end_per_testcase2 -> restore resolver lookup order"),
+    Db   = inet_db,
+    Key  = res_lookup,
     Prev = proplists:get_value(Key, Config),
     ets:delete(Db, Key),
     ets:insert(Db, Prev),
-    ?P("end_per_testcase -> Restored resolver lookup order");
-end_per_testcase(_Func, _Config) ->
+    ?P("end_per_testcase2 -> resolver lookup order restored");
+end_per_testcase2(_Func, _Config) ->
     ok.
 
-t_gethostbyaddr() ->
-    required(v4).
+t_gethostbyaddr() -> required(v4).
 %% Test the inet:gethostbyaddr/1 function.
 t_gethostbyaddr(Config) when is_list(Config) ->
-    {Name,FullName,IPStr,{A,B,C,D}=IP,Aliases,_,_} = ct:get_config(test_host_ipv4_only),
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_gethostbyaddr(Config) end).
+
+do_gethostbyaddr(Config) when is_list(Config) ->
+    ?P("begin - try get config 'test_host_ipv4_only'"),
+    {Name,FullName,IPStr,{A,B,C,D}=IP,Aliases,_,_} =
+        ct:get_config(test_host_ipv4_only),
+    ?P("config 'test_host_ipv4_only': "
+       "~n   Name:      ~p"
+       "~n   Full Name: ~p"
+       "~n   IPStr:     ~p"
+       "~n   (IP) A:    ~p"
+       "~n   (IP) B:    ~p"
+       "~n   (IP) C:    ~p"
+       "~n   (IP) D:    ~p"
+       "~n   Aliases:   ~p",
+       [Name, FullName, IPStr, A, B, C, D,Aliases]),
     Rname = integer_to_list(D) ++ "." ++
 	integer_to_list(C) ++ "." ++
 	integer_to_list(B) ++ "." ++
 	integer_to_list(A) ++ ".in-addr.arpa",
-    {ok,HEnt} = inet:gethostbyaddr(IPStr),
-    {ok,HEnt} = inet:gethostbyaddr(IP),
-    {error,Error} = inet:gethostbyaddr(Name),
-    ok = io:format("Failure reason: ~p: ~s", [error,inet:format_error(Error)]),
+    {ok, HEnt} = inet:gethostbyaddr(IPStr),
+    {ok, HEnt} = inet:gethostbyaddr(IP),
+    ?P("gethostbyaddr for (both):"
+       "~n   IPStr: ~p"
+       "~n   IP:    ~p"
+       "~n   => ~p", [IPStr, IP, HEnt]),
+    {error, Reason} = inet:gethostbyaddr(Name),
+    ok = ?P("Expected error with failure reason: "
+            "~n   (~w) ~s", [Reason, inet:format_error(Reason)]),
     HEnt_ = HEnt#hostent{h_addrtype = inet,
                          h_length = 4,
                          h_addr_list = [IP]},
@@ -197,27 +257,34 @@ t_gethostbyaddr(Config) when is_list(Config) ->
         {{unix,freebsd},{5,0,0}} ->
             %% The alias list seems to be buggy in FreeBSD 5.0.0.
             check_elems([{HEnt#hostent.h_name,[Name,FullName]}]),
-            io:format("Buggy alias list: ~p", [HEnt#hostent.h_aliases]),
+            ?P("Buggy alias list: ~p", [HEnt#hostent.h_aliases]),
             ok;
         _ ->
-            io:format("alias list: ~p", [HEnt#hostent.h_aliases]),
-            io:format(
-	      "check alias list: ~p", [[Aliases,tl(Aliases),[Rname]]]),
-            io:format("name: ~p", [HEnt#hostent.h_name]),
-            io:format("check name: ~p", [[Name,FullName]]),
+            ?P("alias list: "
+               "~n   ~p", [HEnt#hostent.h_aliases]),
+            ?P("check alias list: "
+               "~n   ~p", [[Aliases,tl(Aliases),[Rname]]]),
+            ?P("name:       ~p", [HEnt#hostent.h_name]),
+            ?P("check name: ~p", [[Name,FullName]]),
             check_elems(
 	      [{HEnt#hostent.h_name,[Name,FullName]},
 	       {HEnt#hostent.h_aliases,[[],Aliases,tl(Aliases),[Rname]]}])
     end,
 
+    ?P("try get config 'test_dummy_host'"),
     {_DName, _DFullName, DIPStr, DIP, _, _, _} = ct:get_config(test_dummy_host),
     {error,nxdomain} = inet:gethostbyaddr(DIPStr),
     {error,nxdomain} = inet:gethostbyaddr(DIP),
+
+    ?P("done"),
     ok.
 
 t_gethostbyaddr_v6() -> required(v6).
 %% Test the inet:gethostbyaddr/1 inet6 function.
 t_gethostbyaddr_v6(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_gethostbyaddr_v6(Config) end).
+
+do_gethostbyaddr_v6(Config) when is_list(Config) ->
     {Name6, FullName6, IPStr6, IP6, Aliases6} =
 	ct:get_config(test_host_ipv6_only),
 
@@ -226,11 +293,11 @@ t_gethostbyaddr_v6(Config) when is_list(Config) ->
 	%% looking up the host. DNS lookup will probably fail.
 	{error,nxdomain} ->
 	    {skip, "IPv6 test fails! IPv6 not supported on this host!?"};
-	{ok,HEnt6} ->
-	    {ok,HEnt6} = inet:gethostbyaddr(IP6),
-	    {error,Error6} = inet:gethostbyaddr(Name6),
-	    ok = io:format("Failure reason: ~p: ~s",
-			   [Error6, inet:format_error(Error6)]),
+	{ok, HEnt6} ->
+	    {ok, HEnt6} = inet:gethostbyaddr(IP6),
+	    {error, Reason6} = inet:gethostbyaddr(Name6),
+	    ok = ?P("Expected error with failure reason: "
+                    "~n   (~w) ~s", [Reason6, inet:format_error(Reason6)]),
 	    HEnt6_ = HEnt6#hostent{h_addrtype = inet6,
 				   h_length = 16,
 				   h_addr_list = [IP6]},
@@ -249,6 +316,9 @@ t_gethostbyaddr_v6(Config) when is_list(Config) ->
 t_gethostbyname() -> required(v4).
 %% Test the inet:gethostbyname/1 function.
 t_gethostbyname(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_gethostbyname(Config) end).
+
+do_gethostbyname(Config) when is_list(Config) ->
     {Name,FullName,IPStr,IP,Aliases,IP_46_Str,_} =
 	ct:get_config(test_host_ipv4_only),
     {ok,_} = inet:gethostbyname(IPStr),
@@ -289,6 +359,9 @@ t_gethostbyname(Config) when is_list(Config) ->
 t_gethostbyname_v6() -> required(v6).
 %% Test the inet:gethostbyname/1 inet6 function.
 t_gethostbyname_v6(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_gethostbyname_v6(Config) end).
+
+do_gethostbyname_v6(Config) when is_list(Config) ->
     {Name, FullName, IPStr, IP, Aliases} =
 	ct:get_config(test_host_ipv6_only),
 
@@ -339,6 +412,9 @@ t_gethostbyname_v6(Config) when is_list(Config) ->
     end.
 
 check_elems([{Val,Tests} | Elems]) ->
+    ?P("check_elems -> entry with"
+       "~n   Val:   ~p"
+       "~n   Tests: ~p", [Val, Tests]),
     check_elem(Val, Tests, Tests),
     check_elems(Elems);
 check_elems([]) -> ok.
@@ -750,6 +826,51 @@ ipv4_mapped_ipv6_address(Config) when is_list(Config) ->
     IPv4Address = inet:ipv4_mapped_ipv6_address(IPv6Address),
     ok.
 
+
+ntoa(Config) when is_list(Config) ->
+    M8 = 1 bsl 8,
+    M16 = 1 bsl 16,
+    V4Xs = rand_tuple(4, M8),
+    V6Xs = rand_tuple(4, M16),
+    ntoa(
+      [{A, B, C, D} ||
+          A <- [0, element(1, V4Xs), M8-1, -1, 256],
+          B <- [0, element(2, V4Xs), M8-1, -1, 256],
+          C <- [0, element(3, V4Xs), M8-1, -1, 256],
+          D <- [0, element(4, V4Xs), M8-1, -1, 256]], M8-1),
+    ntoa(
+      [{E, F, G, H, G, G, E, F} ||
+          E <- [0, element(1, V6Xs), M16-1, -1, M16],
+          F <- [0, element(2, V6Xs), M16-1, -1, M16],
+          G <- [0, element(3, V6Xs), M16-1, -1, M16],
+          H <- [0, element(4, V6Xs), M16-1, -1, M16]], M16-1).
+
+ntoa([A | As], Max) ->
+    case
+        lists:all(
+          fun (X) when 0 =< X, X =< Max -> true;
+              (_) -> false
+          end, tuple_to_list(A))
+    of
+        true ->
+            S = inet:ntoa(A),
+            {ok, A} = inet:parse_address(S);
+        false ->
+            {error, einval} = inet:ntoa(A)
+    end,
+    ntoa(As, Max);
+ntoa([], _Max) ->
+    ok.
+
+rand_tuple(N, M) ->
+    rand_tuple(N, M, []).
+%%
+rand_tuple(0, _M, Acc) ->
+    list_to_tuple(Acc);
+rand_tuple(N, M, Acc) ->
+    rand_tuple(N - 1, M, [rand:uniform(M) - 1 | Acc]).
+
+
 t_gethostnative(Config) when is_list(Config) ->
     %% this will result in 26 bytes sent which causes problem in Windows
     %% if the port-program has not assured stdin to be read in BINARY mode
@@ -1013,6 +1134,7 @@ hosts_file_quirks(Config) when is_list(Config) ->
     %% ensure it has our RC
     Rc = rpc:call(TestNode, inet_db, get_rc, []),
     {hosts_file, HostsFile} = lists:keyfind(hosts_file, 1, Rc),
+    false = lists:keyfind(host, 1, Rc),
     %%
     %% check entries
     io:format("Check hosts file contents~n", []),
@@ -1031,14 +1153,13 @@ hosts_file_quirks(Config) when is_list(Config) ->
     hosts_file_quirks_verify(TestNode, V1),
     %%
     %% test add and del
-    ok =
-        rpc:call(
-          TestNode, inet_db, add_host,
-          [inet_ex(1), [h_ex("a"), h_ex("B")]]),
+    A1 = inet_ex(1),
+    Hs1 = [h_ex("a"), h_ex("B")],
+    ok = rpc:call(TestNode, inet_db, add_host, [A1, Hs1]),
     io:format("Check after add host~n", []),
     hosts_file_quirks_verify(
       TestNode,
-      [{R1, inet_ex(1)},
+      [{R1, A1},
        {R2, inet_ex(2)},
        {R3, inet6_ex(3)},
        {R5, inet_ex(5)},
@@ -1049,6 +1170,8 @@ hosts_file_quirks(Config) when is_list(Config) ->
        {R3, h_ex("a"), inet6},
        {R3, h_ex("c"), inet6}
       ]),
+    {host, A1, Hs1} =
+        lists:keyfind(host, 1, rpc:call(TestNode, inet_db, get_rc, [])),
     ok = rpc:call(TestNode, inet_db, del_host, [inet_ex(1)]),
     io:format("Check after del host~n", []),
     hosts_file_quirks_verify(TestNode, V1),
@@ -1130,7 +1253,7 @@ gethostnative_debug_level(Config) when is_list(Config) ->
     gethostnative_control(Config, Opts).
 
 gethostnative_adjusted_opts(Config, CtrlSeq) ->
-    Factor = ?config(gen_inet_factor, Config),
+    Factor = ?config(kernel_factor, Config),
     gethostnative_adjusted_opts2(Factor, CtrlSeq).
 
 gethostnative_adjusted_opts2(1, CtrlSeq) ->
@@ -1754,4 +1877,12 @@ add_del_host_v6(_Config) ->
     {error, nxdomain} = inet_hosts:gethostbyname(Alias, inet6),
     ok = inet_db:add_host(Ip, [Name, Alias]),
     {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet6).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+pi(Item) ->
+    {Item, Val} = process_info(self(), Item),
+    Val.
+    
 

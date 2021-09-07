@@ -640,13 +640,18 @@ test_phash2_plus_bin_helper2(Bin, TransformerFun, ExtraBytes, ExtraBits, Expecte
         end.
 
 run_when_enough_resources(Fun) ->
-    case {total_memory(), erlang:system_info(wordsize)} of
-        {Mem, 8} when is_integer(Mem) andalso Mem >= 31 ->
+    Bits = 8 * erlang:system_info({wordsize,external}),
+    Mem = total_memory(),
+    Build = erlang:system_info(build_type),
+
+    if Bits =:= 64, is_integer(Mem), Mem >= 31,
+       Build =/= valgrind, Build =/= asan ->
             Fun();
-        {Mem, WordSize} ->
+
+       true ->
             {skipped,
-             io_lib:format("Not enough resources (System Memory >= ~p, Word Size = ~p)",
-                           [Mem, WordSize])}
+             io_lib:format("Not enough resources (System Memory = ~p, Bits = ~p, Build = ~p)",
+                           [Mem, Bits, Build])}
     end.
 
 %% Total memory in GB

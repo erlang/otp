@@ -7,7 +7,7 @@ int empty_fun(){
   return 1;
 }
 
-#include "tmp.inc"
+#include "tmp.ycf.h"
 
 static int fun(char x){
   x = x + 1; /* x == 2*/

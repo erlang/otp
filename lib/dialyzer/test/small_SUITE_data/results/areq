@@ -1,2 +1,2 @@
 
-areq.erl:11: The test float() =:= 3 can never evaluate to 'true'
+areq.erl:11:18: The test float() =:= 3 can never evaluate to 'true'

@@ -292,7 +292,7 @@ update_password(Port, Dir, Old, New, New)->
 update_password(Addr, Port, Dir, Old, New, New) when is_list(New) ->
     mod_auth_server:update_password(Addr, Port, Dir, Old, New);
 
-update_password(_Addr, _Port, _Dir, _Old, _New, _New) ->
+update_password(_Addr, _Port, _Dir, _Old, New, New) ->
     {error, badtype};
 update_password(_Addr, _Port, _Dir, _Old, _New, _New1) ->
     {error, notqeual}.

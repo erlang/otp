@@ -59,8 +59,3 @@ int strn_catf(char* dst, size_t size, const char* format, ...);
  * without regard to '\0' characters.
  */
 char* find_str(const char* haystack, int size, const char* needle);
-
-#ifndef HAVE_MEMMOVE
-void* memmove(void *dest, const void *src, size_t n);
-#endif
-

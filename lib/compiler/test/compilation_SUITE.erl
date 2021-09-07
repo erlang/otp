@@ -176,9 +176,9 @@ try_it(Module, Conf) ->
     Out = proplists:get_value(priv_dir,Conf),
     io:format("Compiling: ~s\n", [Src]),
     CompRc0 = compile:file(Src, [clint0,clint,ssalint,{outdir,Out},report,
-				 bin_opt_info|OtherOpts]),
+				 bin_opt_info,recv_opt_info|OtherOpts]),
     io:format("Result: ~p\n",[CompRc0]),
-    {ok,_Mod} = CompRc0,
+    {ok,Mod} = CompRc0,
 
     load_and_call(Out, Module),
 
@@ -189,16 +189,16 @@ try_it(Module, Conf) ->
 			    {outdir,Out},report|OtherOpts]),
 
     io:format("Result: ~p\n",[CompRc1]),
-    {ok,_Mod} = CompRc1,
+    {ok,Mod} = CompRc1,
     load_and_call(Out, Module),
 
     ct:timetrap(Timetrap),
     io:format("Compiling (with old inliner): ~s\n", [Src]),
     CompRc2 = compile:file(Src, [clint,ssalint,
 				 {outdir,Out},report,bin_opt_info,
-				 {inline,1000}|OtherOpts]),
+				 recv_opt_info,{inline,1000}|OtherOpts]),
     io:format("Result: ~p\n",[CompRc2]),
-    {ok,_Mod} = CompRc2,
+    {ok,Mod} = CompRc2,
     load_and_call(Out, Module),
 
     ct:timetrap(Timetrap),
@@ -362,6 +362,7 @@ compile_compiler(Files, OutDir, Version, InlineOpts) ->
     Opts = [report,
 	    clint0,clint,ssalint,
 	    bin_opt_info,
+            recv_opt_info,
 	    {outdir,OutDir},
 	    {d,'COMPILER_VSN',"\""++Version++"\""},
 	    nowarn_shadow_vars,

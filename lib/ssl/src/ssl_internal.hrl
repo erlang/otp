@@ -115,6 +115,8 @@
 %% 2^24.5 * 2^14 = 2^38.5
 -define(KEY_USAGE_LIMIT_AES_GCM, 388736063997).
 
+-define(DEFAULT_MAX_EARLY_DATA_SIZE, 16384).
+
 %% This map stores all supported options with default values and
 %% list of dependencies:
 %%   #{<option> => {<default_value>, [<option>]},
@@ -137,9 +139,12 @@
           crl_cache                  => {{ssl_crl_cache, {internal, []}}, [versions]},
           crl_check                  => {false,     [versions]},
           customize_hostname_check   => {[],        [versions]},
-          depth                      => {1,         [versions]},
+          depth                      => {10,         [versions]},
           dh                         => {undefined, [versions]},
           dhfile                     => {undefined, [versions]},
+          early_data                 => {undefined, [versions,
+                                                     session_tickets,
+                                                     use_ticket]},
           eccs                       => {undefined, [versions]},
           erl_dist                   => {false,     [versions]},
           fail_if_no_peer_cert       => {false,     [versions]},
@@ -175,6 +180,7 @@
           reuse_session              => {undefined, [versions]},
           reuse_sessions             => {true,      [versions]},
           secure_renegotiate         => {true,      [versions]},
+          keep_secrets               => {false,     [versions]},
           server_name_indication     => {undefined, [versions]},
           session_tickets            => {disabled,     [versions]},
           signature_algs             => {undefined, [versions]},
@@ -234,6 +240,19 @@
 				{next_state, state_name(), any(), timeout()} |
 				{stop, any(), any()}.
 -type ssl_options()          :: map().
+
+%% Internal ticket data record holding pre-processed ticket data.
+-record(ticket_data,
+        {key,                  %% key in client ticket store
+         pos,                  %% ticket position in binders list
+         identity,             %% opaque ticket binary
+         psk,                  %% pre-shared key
+         nonce,                %% ticket nonce
+         cipher_suite,         %% cipher suite - hash, bulk cipher algorithm
+         max_size              %% max early data size allowed by this ticket
+        }).
+
+-record(cert, {der, otp}).
 
 -endif. % -ifdef(ssl_internal).
 

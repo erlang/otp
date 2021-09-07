@@ -140,6 +140,21 @@ $> erl
         However, unused local stub functions will be optimized
         away by the compiler, causing loading of the NIF library to fail.</p>
     </note>
+    <warning>
+      <p>
+	There is a known limitation for Erlang fallback functions of NIFs. Avoid
+	functions involved in traversal of binaries by matching and
+	recursion. If a NIF is loaded over such function, binary arguments to
+	the NIF may get corrupted and cause VM crash or other misbehavior.
+      </p>
+      <p>Example of such bad fallback function:</p>
+	<code type="none">
+skip_until(Byte, &lt;&lt;Byte, Rest/binary&gt;&gt;) ->
+    Rest;
+skip_until(Byte, &lt;&lt;_, Rest/binary&gt;&gt;) ->
+    skip_until(Byte, Rest).
+</code>
+    </warning>
   </section>
 
   <section>
@@ -481,17 +496,6 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
           </item>
           <tag><marker id="dirty_nifs"/>Dirty NIF</tag>
           <item>
-            <note>
-              <p>Dirty NIF support is available only when the emulator is
-	        configured with dirty scheduler support. As of ERTS version
-		9.0, dirty scheduler support is enabled by default on the
-		runtime system with SMP support. The Erlang runtime without
-		SMP support does <em>not</em> support dirty schedulers even
-		when the dirty scheduler support is explicitly enabled. To
-		check at runtime for the presence of dirty scheduler threads,
-		code can use the <seecref marker="#enif_system_info">
-                <c>enif_system_info()</c></seecref> API function.</p>
-            </note>
             <p>A NIF that cannot be split and cannot execute in a millisecond
               or less is called a "dirty NIF", as it performs work that the
               ordinary schedulers of the Erlang runtime system cannot handle cleanly.
@@ -660,7 +664,7 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
           it can only be passed on to API functions. Three types of environments
           exist:</p>
         <taglist>
-          <tag>Process bound environment</tag>
+          <tag><marker id="proc_bound_env"/>Process bound environment</tag>
           <item>
             <p>Passed as the first argument to all NIFs. All function arguments
               passed to a NIF belong to that environment. The return value from
@@ -671,21 +675,22 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
               returns. It is thus useless and dangerous to store pointers to
               process bound environments between NIF calls.</p>
           </item>
-	  <tag>Callback environment</tag>
+	  <tag><marker id="callback_env"/>Callback environment</tag>
           <item>
             <p>Passed as the first argument to all the non-NIF callback functions
 	    (<seecref marker="#load"><c>load</c></seecref>,
 	    <seecref marker="#upgrade"><c>upgrade</c></seecref>,
 	    <seecref marker="#unload"><c>unload</c></seecref>,
 	    <seecref marker="#ErlNifResourceDtor"><c>dtor</c></seecref>,
-	    <seecref marker="#ErlNifResourceDown"><c>down</c></seecref> and
-	    <seecref marker="#ErlNifResourceStop"><c>stop</c></seecref>).
+	    <seecref marker="#ErlNifResourceDown"><c>down</c></seecref>,
+	    <seecref marker="#ErlNifResourceStop"><c>stop</c></seecref> and
+	    <seecref marker="#ErlNifResourceDynCall"><c>dyncall</c></seecref>).
 	    Works like a process bound environment but with a temporary
 	    pseudo process that "terminates" when the callback has
 	    returned. Terms may be created in this environment but they will
 	    only be accessible during the callback.</p>
           </item>
-          <tag>Process independent environment</tag>
+          <tag><marker id="proc_indep_env"/>Process independent environment</tag>
           <item>
             <p>Created by calling <seecref marker="#enif_alloc_env">
               <c>enif_alloc_env</c></seecref>. This environment can be
@@ -808,12 +813,15 @@ typedef struct {
       <item>
         <code type="none">
 typedef struct {
-    ErlNifResourceDtor* dtor;
-    ErlNifResourceStop* stop;
-    ErlNifResourceDown* down;
+    ErlNifResourceDtor* dtor;       // #1 Destructor
+    ErlNifResourceStop* stop;       // #2 Select stop
+    ErlNifResourceDown* down;       // #3 Monitor down
+    int members;
+    ErlNifResourceDynCall* dyncall; // #4 Dynamic call
 } ErlNifResourceTypeInit;</code>
-        <p>Initialization structure read by <seecref marker="#enif_open_resource_type_x">
-	enif_open_resource_type_x</seecref>.</p>
+        <p>Initialization structure read by
+	<seecref marker="#enif_open_resource_type_x">enif_open_resource_type_x</seecref>
+	<seecref marker="#enif_init_resource_type">enif_init_resource_type</seecref>.</p>
       </item>
       <tag><marker id="ErlNifResourceDtor"/><c>ErlNifResourceDtor</c></tag>
       <item>
@@ -845,6 +853,18 @@ typedef void ErlNifResourceStop(ErlNifEnv* caller_env, void* obj, ErlNifEvent ev
 	  enif_select</seecref>. <c>obj</c> is the resource, <c>event</c> is OS event,
 	  <c>is_direct_call</c> is true if the call is made directly from <c>enif_select</c>
 	  or false if it is a scheduled call (potentially from another thread).</p>
+      </item>
+      <tag><marker id="ErlNifResourceDynCall"/><c>ErlNifResourceDynCall</c></tag>
+      <item>
+        <code type="none">
+typedef void ErlNifResourceDynCall(ErlNifEnv* caller_env, void* obj, void* call_data);</code>
+        <p>
+	  The function prototype of a dynamic resource call function, called by
+	  <seecref marker="#enif_dynamic_resource_call">
+	  enif_dynamic_resource_call</seecref>. Argument <c>obj</c> is the
+	  resource object and <c>call_data</c> is the last argument to
+	  <c>enif_dynamic_resource_call</c> passed through.
+	</p>
       </item>
       <tag><marker id="ErlNifCharEncoding"/><c>ErlNifCharEncoding</c></tag>
       <item>
@@ -1006,7 +1026,9 @@ typedef struct {
       <name since="OTP R14B"><ret>ErlNifEnv *</ret><nametext>enif_alloc_env()</nametext></name>
       <fsummary>Create a new environment.</fsummary>
       <desc>
-        <p>Allocates a new process independent environment. The environment can
+        <p>
+	  Allocates a new <seecref marker="#proc_indep_env">process
+	  independent environment</seecref>. The environment can
           be used to hold terms that are not bound to any process. Such terms
           can later be copied to a process environment with
           <seecref marker="#enif_make_copy"><c>enif_make_copy</c></seecref> or
@@ -1253,8 +1275,12 @@ typedef struct {
 	<c>enif_monitor_process</c></seecref>. Argument <c>obj</c> is a pointer
 	to the resource holding the monitor and	<c>*mon</c> identifies the
 	monitor.</p>
-	<p>Argument <c>caller_env</c> is the environment of the calling process
-	or callback. Must only be NULL if calling from a custom thread.</p>
+	<p>
+	  Argument <c>caller_env</c> is the environment of the calling thread
+	  (<seecref marker="#proc_bound_env">process bound</seecref> or
+	  <seecref marker="#callback_env">callback</seecref> environment) or
+	  <c>NULL</c> if calling from a custom thread not spawned by ERTS.
+	</p>
         <p>Returns <c>0</c> if the monitor was successfully identified and removed.
 	Returns	a non-zero value if the monitor could not be identified, which means
 	it was either</p>
@@ -1264,9 +1290,39 @@ typedef struct {
           <item>already triggered</item>
           <item>just about to be triggered by a concurrent thread</item>
         </list>
-        <p>This function is only thread-safe when the emulator with SMP support
-          is used. It can only be used in a non-SMP emulator from a NIF-calling
-          thread.</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 24.0"><ret>int</ret>
+        <nametext>enif_dynamic_resource_call(ErlNifEnv* caller_env,
+	ERL_NIF_MODULE rt_module, ERL_NIF_MODULE rt_name, ERL_NIF_TERM resource,
+	void* call_data)</nametext>
+      </name>
+      <fsummary>Call a resource in another module.</fsummary>
+      <desc>
+        <p>
+	  Call code of a resource type implemented by another NIF module. The
+	  atoms <c>rt_module</c> and <c>rt_name</c> identifies the resource type
+	  to be called. Argument <c>resource</c> identifies a resource object of
+	  that type.
+	</p>
+	<p>
+	  The callback <seecref marker="#ErlNifResourceDynCall"><c>dyncall</c></seecref>
+	  of the identified resource type will be called with a pointer to the
+	  resource objects <c>obj</c> and the argument <c>call_data</c> passed
+	  through. The <c>call_data</c> argument is typically a pointer to a
+	  struct used to passed both arguments to the <c>dyncall</c> function as
+	  well as results back to the caller.
+	</p>
+	<p>
+	  Returns 0 if the <c>dyncall</c> callback function was called.
+	  Returns a non-zero value if no call was made, which happens if <c>rt_module</c>
+	  and <c>rt_name</c> did not identify a resource type with a
+	  <c>dyncall</c> callback or if <c>resource</c> was not a resource
+	  object of that type.
+	</p>
       </desc>
     </func>
 
@@ -1922,9 +1978,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
       <fsummary>Determine if a local port is alive.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c>port_id</c> is alive.</p>
-        <p>This function is only thread-safe when the emulator with SMP support
-          is used. It can only be used in a non-SMP emulator from a NIF-calling
-          thread.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -1934,9 +1988,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
       <fsummary>Determine if a local process is alive.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c>pid</c> is alive.</p>
-        <p>This function is only thread-safe when the emulator with SMP support
-          is used. It can only be used in a non-SMP emulator from a NIF-calling
-          thread.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -2659,15 +2711,17 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	<seecref marker="#enif_compare_monitors"><c>enif_compare_monitors</c></seecref>.
 	A monitor is automatically removed when it triggers or when
 	the resource is deallocated.</p>
-	<p>Argument <c>caller_env</c> is the environment of the calling process
-	or callback. Must only be NULL if calling from a custom thread.</p>
+	<p>
+	  Argument <c>caller_env</c> is the environment of the calling thread
+	  (<seecref marker="#proc_bound_env">process bound</seecref> or
+	  <seecref marker="#callback_env">callback</seecref> environment) or
+	  <c>NULL</c> if calling from a custom thread not spawned by ERTS.
+	</p>
         <p>Returns <c>0</c> on success, &lt; 0 if no <c>down</c> callback is
           provided, and &gt; 0 if the process is no longer alive or if
 	  <c>target_pid</c> is <seecref marker="#enif_set_pid_undefined">
 	  undefined</seecref>.</p>
-        <p>This function is only thread-safe when the emulator with SMP support
-          is used. It can only be used in a non-SMP emulator from a NIF-calling
-          thread.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -2817,7 +2871,41 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	<p>Argument <c>init</c> is a pointer to an
 	  <seecref marker="#ErlNifResourceTypeInit"><c>ErlNifResourceTypeInit</c></seecref>
 	  structure that contains the function pointers for destructor, down and stop callbacks
-	  for the resource type.</p>
+	  for the resource type.
+	</p>
+	<note>
+	  <p>
+	    Only members <c>dtor</c>, <c>down</c> and <c>stop</c> in <seecref
+	    marker="#ErlNifResourceTypeInit"><c>ErlNifResourceTypeInit</c></seecref>
+	    are read by <c>enif_open_resource_type_x</c>. To implement the new
+	    <c>dyncall</c> callback use <seecref
+	    marker="#enif_init_resource_type"><c>enif_init_resource_type</c></seecref>.
+	  </p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 24.0"><ret>ErlNifResourceType *</ret>
+        <nametext>enif_init_resource_type(ErlNifEnv* env, const char* name,
+	const ErlNifResourceTypeInit* init,
+        ErlNifResourceFlags flags, ErlNifResourceFlags* tried)</nametext>
+      </name>
+      <fsummary>Create or takeover a resource type.</fsummary>
+      <desc>
+	<p>Same as <seecref marker="#enif_open_resource_type_x"><c>enif_open_resource_type_x</c></seecref>
+	  except it accepts an additional callback function for resource types that are
+	  used together with <seecref marker="#enif_dynamic_resource_call">
+	  <c>enif_dynamic_resource_call</c></seecref>.</p>
+	<p>Argument <c>init</c> is a pointer to an
+	  <seecref marker="#ErlNifResourceTypeInit"><c>ErlNifResourceTypeInit</c></seecref>
+	  structure that contains the callback function pointers <c>dtor</c>,
+	  <c>down</c>, <c>stop</c> and the new <c>dyncall</c>. The struct also
+	  contains the field <c>members</c> that must be set to the number of initialized
+	  callbacks counted from the top of the struct. For example, to
+	  initialize all callbacks including <c>dyncall</c>, <c>members</c>
+	  should be set to 4. All callbacks are optional and may be set to <c>NULL</c>.
+	</p>
       </desc>
     </func>
 
@@ -3051,10 +3139,11 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name since="OTP 17.3"><ret>ERL_NIF_TERM</ret><nametext>enif_schedule_nif(ErlNifEnv* env,
-        const char* fun_name, int flags, ERL_NIF_TERM (*fp)(ErlNifEnv* env, int
-        argc, const ERL_NIF_TERM argv[]), int argc, const ERL_NIF_TERM
-        argv[])</nametext></name>
+      <name since="OTP 17.3"><ret>ERL_NIF_TERM</ret><nametext>enif_schedule_nif(
+        ErlNifEnv* caller_env, const char* fun_name, int flags,
+	ERL_NIF_TERM (*fp)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]),
+	int argc, const ERL_NIF_TERM argv[])</nametext>
+      </name>
       <fsummary>Schedule a NIF for execution.</fsummary>
       <desc>
         <p>Schedules NIF <c>fp</c> to execute. This function allows an
@@ -3062,6 +3151,13 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           calls or to schedule a <seecref marker="#dirty_nifs">
           dirty NIF</seecref> to execute on a dirty scheduler thread.</p>
         <taglist>
+	  <tag><c>caller_env</c></tag>
+          <item>
+	    <p>
+	      Must be <seecref marker="#proc_bound_env">process bound</seecref>
+	      environment of the calling NIF.
+	    </p>
+          </item>
           <tag><c>fun_name</c></tag>
           <item>
             <p>Provides a name for the NIF that is scheduled for execution.
@@ -3263,7 +3359,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
         <p>Initializes the <seecref marker="#ErlNifPid"><c>ErlNifPid</c></seecref>
 	variable at <c>*pid</c> to represent the calling process.</p>
         <p>Returns <c>pid</c> if successful, or NULL if <c>caller_env</c> is not
-	a <seecref marker="#ErlNifEnv">process bound environment</seecref>.</p>
+	a <seecref marker="#proc_bound_env">process bound environment</seecref>.</p>
       </desc>
     </func>
 
@@ -3275,8 +3371,12 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
         <p>Sends a message to a process.</p>
         <taglist>
           <tag><c>caller_env</c></tag>
-          <item>The environment of the calling process or callback. Must be <c>NULL</c>
-            only if calling from a custom thread not spawned by ERTS.</item>
+	  <item>
+	    The environment of the calling thread
+	    (<seecref marker="#proc_bound_env">process bound</seecref> or
+	    <seecref marker="#callback_env">callback</seecref> environment) or
+	    <c>NULL</c> if calling from a custom thread not spawned by ERTS.
+	  </item>
           <tag><c>*to_pid</c></tag>
           <item>The pid of the receiving process. The pid is to refer to a
             process on the local node.</item>
@@ -3305,9 +3405,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
         <p>If <c>msg_env</c> is set to <c>NULL</c>, the <c>msg</c> term is
           copied and the original term and its environment is still valid after
           the call.</p>
-        <p>This function is only thread-safe when the emulator with SMP support
-          is used. It can only be used in a non-SMP emulator from a NIF-calling
-          thread.</p>
+        <p>This function is thread-safe.</p>
         <note>
           <p>Passing <c>msg_env</c> as <c>NULL</c> is only supported as from
             ERTS 8.0 (Erlang/OTP 19).</p>
@@ -3604,15 +3702,18 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
 
     <func>
       <name since="OTP 20.0"><ret>int</ret>
-        <nametext>enif_whereis_pid(ErlNifEnv *env,
+        <nametext>enif_whereis_pid(ErlNifEnv *caller_env,
           ERL_NIF_TERM name, ErlNifPid *pid)</nametext></name>
       <fsummary>Looks up a process by its registered name.</fsummary>
       <desc>
         <p>Looks up a process by its registered name.</p>
         <taglist>
-          <tag><c>env</c></tag>
-          <item>The environment of the calling process. Must be <c>NULL</c>
-            only if calling from a created thread.</item>
+          <tag><c>caller_env</c></tag>
+          <item>The environment of the calling thread
+	  (<seecref marker="#proc_bound_env">process bound</seecref> or
+	  <seecref marker="#callback_env">callback</seecref> environment) or
+	  <c>NULL</c> if calling from a custom thread not spawned by
+	  ERTS.</item>
           <tag><c>name</c></tag>
           <item>The name of a registered process, as an atom.</item>
           <tag><c>*pid</c></tag>
@@ -3632,15 +3733,18 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
 
     <func>
       <name since="OTP 20.0"><ret>int</ret>
-        <nametext>enif_whereis_port(ErlNifEnv *env,
+        <nametext>enif_whereis_port(ErlNifEnv *caller_env,
           ERL_NIF_TERM name, ErlNifPort *port)</nametext></name>
       <fsummary>Looks up a port by its registered name.</fsummary>
       <desc>
         <p>Looks up a port by its registered name.</p>
         <taglist>
-          <tag><c>env</c></tag>
-          <item>The environment of the calling process. Must be <c>NULL</c>
-            only if calling from a created thread.</item>
+          <tag><c>caller_env</c></tag>
+	  <item>The environment of the calling thread
+	  (<seecref marker="#proc_bound_env">process bound</seecref> or
+	  <seecref marker="#callback_env">callback</seecref> environment) or
+	  <c>NULL</c> if calling from a custom thread not spawned by
+	  ERTS.</item>
           <tag><c>name</c></tag>
           <item>The name of a registered port, as an atom.</item>
           <tag><c>*port</c></tag>

@@ -684,7 +684,7 @@ trace_sched_aux(Process *p, ErtsProcLocks locks, Eterm what)
 	curr_func = 0;
     else {
 	if (!p->current)
-	    p->current = find_function_from_pc(p->i);
+	    p->current = erts_find_function_from_pc(p->i);
 	curr_func = p->current != NULL;
     }
 
@@ -948,11 +948,10 @@ seq_trace_output_generic(Eterm token, Eterm msg, Uint type,
  * or   {trace, Pid, return_to, {Mod, Func, Arity}}
  */
 void 
-erts_trace_return_to(Process *p, BeamInstr *pc)
+erts_trace_return_to(Process *p, ErtsCodePtr pc)
 {
+    const ErtsCodeMFA *cmfa = erts_find_function_from_pc(pc);
     Eterm mfa;
-
-    ErtsCodeMFA *cmfa = find_function_from_pc(pc);
 
     if (!cmfa) {
 	mfa = am_undefined;
@@ -1363,6 +1362,7 @@ trace_gc(Process *p, Eterm what, Uint size, Eterm msg)
     Eterm* hp;
     Uint sz = 0;
     Eterm tup;
+    ErtsThrPrgrDelayHandle dhndl = erts_thr_progress_unmanaged_delay();
 
     if (is_tracer_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common, &tnif,
                           TRACE_FUN_E_GC, what)) {
@@ -1382,11 +1382,12 @@ trace_gc(Process *p, Eterm what, Uint size, Eterm msg)
         if (o_hp)
             erts_free(ERTS_ALC_T_TMP, o_hp);
     }
+    erts_thr_progress_unmanaged_continue(dhndl);
 }
 
 void 
-monitor_long_schedule_proc(Process *p, ErtsCodeMFA *in_fp,
-                           ErtsCodeMFA *out_fp, Uint time)
+monitor_long_schedule_proc(Process *p, const ErtsCodeMFA *in_fp,
+                           const ErtsCodeMFA *out_fp, Uint time)
 {
     ErlHeapFragment *bp;
     ErlOffHeap *off_heap;
@@ -1939,7 +1940,7 @@ profile_runnable_proc(Process *p, Eterm status){
     Eterm *hp, msg;
     Eterm where = am_undefined;
     ErlHeapFragment *bp = NULL;
-    ErtsCodeMFA *cmfa = NULL;
+    const ErtsCodeMFA *cmfa = NULL;
 
     ErtsThrPrgrDelayHandle dhndl;
     Uint hsz = 4 + 6 + patch_ts_size(erts_system_profile_ts_type)-1;
@@ -1953,7 +1954,7 @@ profile_runnable_proc(Process *p, Eterm status){
         if (p->current) {
             cmfa = p->current;
         } else {
-            cmfa = find_function_from_pc(p->i);
+            cmfa = erts_find_function_from_pc(p->i);
         }
     }
 
@@ -2632,6 +2633,7 @@ lookup_tracer_nif(const ErtsTracer tracer)
     ErtsTracerNif tnif_tmpl;
     ErtsTracerNif *tnif;
     tnif_tmpl.module = ERTS_TRACER_MODULE(tracer);
+    ERTS_LC_ASSERT(erts_thr_progress_lc_is_delaying() || erts_get_scheduler_id() > 0);
     erts_rwmtx_rlock(&tracer_mtx);
     if ((tnif = hash_get(tracer_hash, &tnif_tmpl)) == NULL) {
         erts_rwmtx_runlock(&tracer_mtx);
@@ -2861,6 +2863,8 @@ is_tracer_enabled(Process* c_p, ErtsProcLocks c_p_locks,
                   ErtsTracerNif **tnif_ret,
                   enum ErtsTracerOpt topt, Eterm tag) {
     Eterm nif_result;
+
+    ASSERT(t_p);
 
 #if defined(ERTS_ENABLE_LOCK_CHECK)
     if (c_p)

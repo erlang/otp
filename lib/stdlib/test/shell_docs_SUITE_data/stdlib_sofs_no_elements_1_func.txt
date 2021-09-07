@@ -1,0 +1,8 @@
+
+  [;1m-spec no_elements(ASet) -> NoElements[0m
+  [;1m                     when[0m
+  [;1m                         ASet :: a_set() | ordset(),[0m
+  [;1m                         NoElements :: non_neg_integer().[0m
+
+  Returns the number of elements of the ordered or unordered set [;;4m[0m
+  [;;4mASet[0m.

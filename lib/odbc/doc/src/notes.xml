@@ -32,7 +32,84 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.13.1</title>
+  <section><title>ODBC 2.13.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.13.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix compiler warnings produced by the clang compiler.</p>
+          <p>
+	    Own Id: OTP-17105 Aux Id: PR-2872 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>ODBC 2.13.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.13.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure odbc c-process exits when erlang process orders
+	    it to shutdown.</p>
+          <p>
+	    Own Id: OTP-17188 Aux Id: ERL-1448 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.13.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed usage of <c>AC_CONFIG_AUX_DIRS()</c> macros in
+	    configure script sources.</p>
+          <p>
+	    Own Id: OTP-17093 Aux Id: ERL-1447, PR-2948 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.13.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>
@@ -71,6 +148,21 @@
 	    functions.</p>
           <p>
 	    Own Id: OTP-16544 Aux Id: OTP-16328 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>ODBC 2.12.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
         </item>
       </list>
     </section>

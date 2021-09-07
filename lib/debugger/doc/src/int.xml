@@ -316,7 +316,7 @@ spawn(Module, Name, [Pid | Args])</pre>
 	    tail recursive calls. This is the default.</p></item>
 
 	  <tag><c>false</c></tag>
-	  <item><p>Save no information about currentcalls.</p></item>
+	  <item><p>Save no information about current calls.</p></item>
 	</taglist>
       </desc>
     </func>

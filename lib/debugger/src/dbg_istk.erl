@@ -32,6 +32,7 @@
 	{level,					%Level
 	 mfa,					%{Mod,Func,Args|Arity}|{Fun,Args}
 	 line,					%Line called from
+         error_info=[],                         %[{error_info,Map}] | []
 	 bindings,
 	 lc					%Last call (true|false)
 	 }).
@@ -125,8 +126,9 @@ delayed_stacktrace() ->
     end.
 
 delayed_stacktrace(include_args, Ieval) ->
-    #ieval{module=Mod,function=Name,arguments=As,line=Li} = Ieval,
-    Stack0 = [#e{mfa={Mod,Name,As},line=Li}|get(?STACK)],
+    #ieval{module=Mod,function=Name,arguments=As,
+           line=Li,error_info=ErrorInfo} = Ieval,
+    Stack0 = [#e{mfa={Mod,Name,As},line=Li,error_info=ErrorInfo}|get(?STACK)],
     fun(NumEntries) ->
 	    case stacktrace(NumEntries, Stack0, []) of
 		[] ->
@@ -158,18 +160,22 @@ stacktrace(N, [E|T], [{P,_}|_]=Acc) when N > 0 ->
 stacktrace(_, _, Acc) ->
     lists:reverse(Acc).
 
-normalize(#e{mfa={M,Fun,As},line=Li}) when is_function(Fun) ->
-    Loc = {M,Li},
+normalize(#e{mfa={M,Fun,As},line=Li,error_info=ErrorInfo}) when is_function(Fun) ->
+    Loc = {M,Li,ErrorInfo},
     {{Fun,length(As),Loc},{Fun,As,Loc}};
-normalize(#e{mfa={M,F,As},line=Li}) ->
-    Loc = {M,Li},
+normalize(#e{mfa={M,F,As},line=Li,error_info=ErrorInfo}) ->
+    Loc = {M,Li,ErrorInfo},
     {{M,F,length(As),Loc},{M,F,As,Loc}}.
 
 finalize({M,F,A,Loc}) -> {M,F,A,line(Loc)};
 finalize({Fun,A,Loc}) -> {Fun,A,line(Loc)}.
 
-line({Mod,Line}) when Line > 0 ->
-    [{file,atom_to_list(Mod)++".erl"},{line,Line}];
+line({Mod,Line,ErrorInfo}) ->
+    if Line > 0 ->
+            [{file,atom_to_list(Mod)++".erl"},{line,Line}|ErrorInfo];
+       true ->
+            ErrorInfo
+    end;
 line(_) -> [].
 
 %% bindings(SP) -> Bs

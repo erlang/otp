@@ -57,7 +57,7 @@ typedef struct {
 
 void erts_lc_init(void);
 void erts_lc_late_init(void);
-Sint16 erts_lc_get_lock_order_id(char *name);
+Sint16 erts_lc_get_lock_order_id(const char *name);
 void erts_lc_check(erts_lc_lock_t *have, int have_len,
 		   erts_lc_lock_t *have_not, int have_not_len);
 void erts_lc_check_exact(erts_lc_lock_t *have, int have_len);
@@ -66,38 +66,45 @@ void erts_lc_have_lock_ids(int *resv, int *ids, int len);
 void erts_lc_check_no_locked_of_type(erts_lock_flags_t flags);
 int erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, erts_lock_options_t options);
 void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, erts_lock_options_t options,
-			   char *file, unsigned int line);
+			   const char *file, unsigned int line);
 void erts_lc_lock_flg_x(erts_lc_lock_t *lck, erts_lock_options_t options,
-			char *file, unsigned int line);
+			const char *file, unsigned int line);
 void erts_lc_unlock_flg(erts_lc_lock_t *lck, erts_lock_options_t options);
 void erts_lc_might_unlock_flg(erts_lc_lock_t *lck, erts_lock_options_t options);
 int erts_lc_trylock_force_busy(erts_lc_lock_t *lck);
 void erts_lc_trylock_x(int locked, erts_lc_lock_t *lck,
-		     char* file, unsigned int line);
-void erts_lc_lock_x(erts_lc_lock_t *lck, char* file, unsigned int line);
+                       const char* file, unsigned int line);
+void erts_lc_lock_x(erts_lc_lock_t *lck, const char* file, unsigned int line);
 void erts_lc_unlock(erts_lc_lock_t *lck);
 void erts_lc_might_unlock(erts_lc_lock_t *lck);
-void erts_lc_init_lock(erts_lc_lock_t *lck, char *name, erts_lock_flags_t flags);
-void erts_lc_init_lock_x(erts_lc_lock_t *lck, char *name, erts_lock_flags_t flags, Eterm extra);
+void erts_lc_init_lock(erts_lc_lock_t *lck, const char *name, erts_lock_flags_t flags);
+void erts_lc_init_lock_x(erts_lc_lock_t *lck, const char *name, erts_lock_flags_t flags, Eterm extra);
 void erts_lc_destroy_lock(erts_lc_lock_t *lck);
-void erts_lc_fail(char *fmt, ...);
-int erts_lc_assert_failed(char *file, int line, char *assertion);
+__decl_noreturn void __noreturn erts_lc_fail(char *fmt, ...);
+__decl_noreturn int __noreturn erts_lc_assert_failed(const char *file, int line,
+                                                     const char *assertion);
 void erts_lc_set_thread_name(char *thread_name);
 void erts_lc_pll(void);
 
 void erts_lc_require_lock_flg(erts_lc_lock_t *lck, erts_lock_options_t options,
-			      char *file, unsigned int line);
+			      const char *file, unsigned int line);
 void erts_lc_unrequire_lock_flg(erts_lc_lock_t *lck, erts_lock_options_t options);
 
-void erts_lc_require_lock(erts_lc_lock_t *lck, char *file, unsigned int line);
+void erts_lc_require_lock(erts_lc_lock_t *lck, const char *file, unsigned int line);
 void erts_lc_unrequire_lock(erts_lc_lock_t *lck);
 
 int erts_lc_is_emu_thr(void);
 
 Eterm erts_lc_dump_graph(void);
 
+/*
+ * ERTS_LC_ASSERT should only be used to check expected locks or other
+ * thread synchronization primitives are held.
+ * Do not use it for data invariants like function contracts
+ * as it contains an exception for crash dumping thread.
+ */
 #define ERTS_LC_ASSERT(A) \
-    ((void) (((A) || ERTS_SOMEONE_IS_CRASH_DUMPING) ? 1 : erts_lc_assert_failed(__FILE__, __LINE__, #A)))
+    ((void) (((A) || ERTS_IS_CRASH_DUMPING) ? 1 : erts_lc_assert_failed(__FILE__, __LINE__, #A)))
 #else /* #ifdef ERTS_ENABLE_LOCK_CHECK */
 #define ERTS_LC_ASSERT(A) ((void) 1)
 #endif /* #ifdef ERTS_ENABLE_LOCK_CHECK */

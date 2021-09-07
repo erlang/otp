@@ -52,7 +52,7 @@ end_per_group(_GroupName, Config) ->
 multiple_allocs(_Config) ->
     {'EXIT',{{badmatch,#{true:=[p]}},_}} =
 	 (catch could(pda, 0.0, {false,true}, {p})),
-    {'EXIT',{function_clause,_}} = (catch place(lee)),
+    {'EXIT',{{bad_generator,0},_}} = (catch place(lee)),
     {'EXIT',{{badmatch,wanted},_}} = (catch conditions()),
 
     ok.
@@ -111,8 +111,8 @@ coverage(_) ->
                 (catch fc([a,b,c]))
     end,
 
-    {'EXIT',{undef,[{erlang,error,[a,b,c],_}|_]}} =
-	(catch erlang:error(a, b, c)),
+    {'EXIT',{undef,[{erlang,error,[a,b,c,d],_}|_]}} =
+	(catch erlang:error(a, b, c, d)),
 
     {'EXIT',{badarith,[{?MODULE,bar,1,[File,{line,9}]}|_]}} =
 	(catch bar(x)),

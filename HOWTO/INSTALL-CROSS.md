@@ -128,13 +128,19 @@ be built.
     $ make
 
 `<HOST>` is the host/target system that you build for. It does not have to be
-a full `CPU-VENDOR-OS` triplet, but can be. The full `CPU-VENDOR-OS` triplet
-will be created by executing `$ERL_TOP/erts/autoconf/config.sub <HOST>`. If
-`config.sub` fails, you need to be more specific.
+a full `CPU-VENDOR-OS` triplet, but can be. The full canonicalized
+`CPU-VENDOR-OS` triplet will be created by executing
+`$ERL_TOP/erts/autoconf/config.sub <HOST>`. If `config.sub` fails, you need
+to be more specific.
 
 `<BUILD>` should equal the `CPU-VENDOR-OS` triplet of the system that you
 build on. If you execute `$ERL_TOP/erts/autoconf/config.guess`, it will in
 most cases print the triplet you want to use for this.
+
+The use of `<HOST>` and `<BUILD>` values that differ will trigger cross
+compilation. Note that if `<HOST>` and `<BUILD>` differ, the canonicalized
+values of `<HOST>` and `<BUILD>` must also differ. If they do not, the
+configuration will fail.
 
 Pass the cross compilation variables as command line arguments to `configure`
 using a `<VARIABLE>=<VALUE>` syntax.
@@ -355,65 +361,11 @@ cross compilation using `$ERL_TOP/otp_build configure`.
 
 If the cross compilation tools are prefixed by `<HOST>-` you probably do
 not need to set these variables (where `<HOST>` is what has been passed as
-`--host=<HOST>` argument to `configure`).
-
-All variables in this section can also be used when native compiling.
-
-*   `CC` - C compiler.
-
-*   `CFLAGS` - C compiler flags.
-
-*   `STATIC_CFLAGS` - Static C compiler flags.
-
-*   `CFLAG_RUNTIME_LIBRARY_PATH` - This flag should set runtime library
-    search path for the shared libraries. Note that this actually is a
-    linker flag, but it needs to be passed via the compiler.
-
-*   `CPP` - C pre-processor.
-
-*   `CPPFLAGS` - C pre-processor flags.
-
-*   `CXX` - C++ compiler.
-
-*   `CXXFLAGS` - C++ compiler flags.
-
-*   `LD` - Linker.
-
-*   `LDFLAGS` - Linker flags.
-
-*   `LIBS` - Libraries.
-
-#### Dynamic Erlang Driver Linking ####
-
-> *NOTE*: Either set all or none of the `DED_LD*` variables.
-
-*   `DED_LD` - Linker for Dynamically loaded Erlang Drivers.
-
-*   `DED_LDFLAGS` - Linker flags to use with `DED_LD`.
-
-*   `DED_LD_FLAG_RUNTIME_LIBRARY_PATH` - This flag should set runtime library
-    search path for shared libraries when linking with `DED_LD`.
-
-#### Large File Support ####
-
-> *NOTE*: Either set all or none of the `LFS_*` variables.
-
-*   `LFS_CFLAGS` - Large file support C compiler flags.
-
-*   `LFS_LDFLAGS` - Large file support linker flags.
-
-*   `LFS_LIBS` - Large file support libraries.
-
-#### Other Tools ####
-
-*   `RANLIB` - `ranlib` archive index tool.
-
-*   `AR` - `ar` archiving tool.
-
-*   `GETCONF` - `getconf` system configuration inspection tool. `getconf` is
-    currently used for finding out large file support flags to use, and
-    on Linux systems for finding out if we have an NPTL thread library or
-    not.
+`--host=<HOST>` argument to `configure`). Compiler and other tools can
+otherwise be identified via variables passed as arguments on the command
+line to `configure`, in then xcomp file, or as environment variables. For
+more information see the [Important Variables Inspected by configure][]
+section of the [$ERL_TOP/HOWTO/INSTALL.md][] document.
 
 ### Cross System Root Locations ###
 
@@ -529,6 +481,7 @@ When a variable has been set, no warning will be issued.
    [$ERL_TOP/HOWTO/INSTALL.md]: INSTALL.md
    [Building in Git]: INSTALL.md#How-to-Build-and-Install-ErlangOTP
    [How to Build the Documentation]: INSTALL.md#How-to-Build-and-Install-ErlangOTP_How-to-Build-the-Documentation
+   [Important Variables Inspected by configure]: INSTALL.md#Advanced-configuration-and-build-of-ErlangOTP_Configuring_Important-Variables-Inspected-by-configure
    [cross configuration variables]: #Currently-Used-Configuration-Variables
    [DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
    [?TOC]: true

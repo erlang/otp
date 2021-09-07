@@ -175,9 +175,6 @@ send_header(#mod{socket_type  = Type,
     Headers = create_header(ConfigDb, 
 			    lists:map(fun transform/1, KeyValueTupleHeaders)),
     NewVer = case {Ver, StatusCode} of
-		 {[], _} ->
-		     %% May be implicit!
-		     "HTTP/0.9";
 		 {unknown, 408} ->
 		     %% This will proably never happen! It means the
 		     %% server has timed out the request without
@@ -185,9 +182,9 @@ send_header(#mod{socket_type  = Type,
 		     %% lowest version so to ensure that the client
 		     %% will be able to handle it, probably the
 		     %% sensible thing to do!
-		     "HTTP/0.9";
+		     httpd_request:default_version();
 		 {undefined,_} ->
-		     "HTTP/1.0"; %% See rfc2145 2.3 last paragraph
+		     httpd_request:default_version(); %% See rfc2145 2.3 last paragraph
 		 _ ->
 		     Ver
 	     end,
@@ -414,7 +411,7 @@ send_response_old(#mod{socket_type = Type,
     end.
 
 content_length(Body)->
-    integer_to_list(httpd_util:flatlength(Body)).
+    integer_to_list(erlang:iolist_size(Body)).
 
 handle_headers([], NewHeaders) ->
     {ok, NewHeaders};

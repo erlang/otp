@@ -95,9 +95,10 @@
 
 %% Variable value info.
 -record(sub, {v=[],                                 %Variable substitutions
-              s=cerl_sets:new() :: cerl_sets:set(), %Variables in scope
+              s=sets:new([{version, 2}]) :: sets:set(), %Variables in scope
               t=#{} :: map(),                       %Types
-              in_guard=false}).                     %In guard or not.
+              in_guard=false,                       %In guard or not.
+              top=true}).                           %Not inside a term.
 
 -spec module(cerl:c_module(), [compile:option()]) ->
 	{'ok', cerl:c_module(), [_]}.
@@ -176,7 +177,7 @@ expr(#c_var{}=V, Ctxt, Sub) ->
 	effect -> void();
 	value -> sub_get_var(V, Sub)
     end;
-expr(#c_literal{val=Val}=L, Ctxt, _Sub) ->
+expr(#c_literal{val=Val}=L, Ctxt, Sub) ->
     case Ctxt of
 	effect ->
 	    case Val of
@@ -188,35 +189,36 @@ expr(#c_literal{val=Val}=L, Ctxt, _Sub) ->
 		    void();
 		_ ->
 		    %% Warn and replace with void().
-		    add_warning(L, useless_building),
+                    warn_useless_building(L, Sub),
 		    void()
 	    end;
 	value -> L
     end;
 expr(#c_cons{anno=Anno,hd=H0,tl=T0}=Cons, Ctxt, Sub) ->
-    H1 = expr(H0, Ctxt, Sub),
-    T1 = expr(T0, Ctxt, Sub),
+    DeeperSub = descend(Cons, Sub),
+    H1 = expr(H0, Ctxt, DeeperSub),
+    T1 = expr(T0, Ctxt, DeeperSub),
     case Ctxt of
 	effect ->
-	    add_warning(Cons, useless_building),
+            warn_useless_building(Cons, Sub),
 	    make_effect_seq([H1,T1], Sub);
 	value ->
 	    ann_c_cons(Anno, H1, T1)
     end;
 expr(#c_tuple{anno=Anno,es=Es0}=Tuple, Ctxt, Sub) ->
-    Es = expr_list(Es0, Ctxt, Sub),
+    Es = expr_list(Es0, Ctxt, descend(Tuple, Sub)),
     case Ctxt of
 	effect ->
-	    add_warning(Tuple, useless_building),
+            warn_useless_building(Tuple, Sub),
 	    make_effect_seq(Es, Sub);
 	value ->
 	    ann_c_tuple(Anno, Es)
     end;
 expr(#c_map{anno=Anno,arg=V0,es=Es0}=Map, Ctxt, Sub) ->
-    Es = pair_list(Es0, Ctxt, Sub),
+    Es = pair_list(Es0, Ctxt, descend(Map, Sub)),
     case Ctxt of
 	effect ->
-	    add_warning(Map, useless_building),
+            warn_useless_building(Map, Sub),
 	    make_effect_seq(Es, Sub);
 	value ->
 	    V = expr(V0, Ctxt, Sub),
@@ -226,15 +228,15 @@ expr(#c_binary{segments=Ss}=Bin0, Ctxt, Sub) ->
     %% Warn for useless building, but always build the binary
     %% anyway to preserve a possible exception.
     case Ctxt of
-	effect -> add_warning(Bin0, useless_building);
+	effect -> warn_useless_building(Bin0, Sub);
 	value -> ok
     end,
     Bin1 = Bin0#c_binary{segments=bitstr_list(Ss, Sub)},
     Bin = bin_un_utf(Bin1),
     eval_binary(Bin);
-expr(#c_fun{}=Fun, effect, _) ->
+expr(#c_fun{}=Fun, effect, Sub) ->
     %% A fun is created, but not used. Warn, and replace with the void value.
-    add_warning(Fun, useless_building),
+    warn_useless_building(Fun, Sub),
     void();
 expr(#c_fun{vars=Vs0,body=B0}=Fun, Ctxt0, Sub0) ->
     {Vs1,Sub1} = var_list(Vs0, Sub0),
@@ -272,7 +274,7 @@ expr(#c_let{}=Let0, Ctxt, Sub) ->
 	    %% The argument for the let is "simple", i.e. has no
 	    %% complex structures such as let or seq that can be entered.
 	    ?ASSERT(verify_scope(Let, Sub)),
-	    opt_simple_let(Let, Ctxt, Sub);
+	    opt_fun_call(opt_simple_let(Let, Ctxt, Sub));
 	Expr ->
 	    %% The let body was successfully moved into the let argument.
 	    %% Now recursively re-process the new expression.
@@ -280,7 +282,7 @@ expr(#c_let{}=Let0, Ctxt, Sub) ->
     end;
 expr(#c_letrec{body=#c_var{}}=Letrec, effect, _Sub) ->
     %% This is named fun in an 'effect' context. Warn and ignore.
-    add_warning(Letrec, useless_building),
+    add_warning(Letrec, {ignored,useless_building}),
     void();
 expr(#c_letrec{defs=Fs0,body=B0}=Letrec, Ctxt, Sub) ->
     Fs1 = map(fun ({Name,Fb}) ->
@@ -343,7 +345,7 @@ expr(#c_apply{anno=Anno,op=Op0,args=As0}=Apply0, _, Sub) ->
             Apply = Apply0#c_apply{op=Op1,args=As1},
             fold_apply(Apply, Op1, As1);
 	true ->
-	    add_warning(Apply0, invalid_call),
+	    add_warning(Apply0, {failed,bad_call}),
 	    Err = #c_call{anno=Anno,
 			  module=#c_literal{val=erlang},
 			  name=#c_literal{val=error},
@@ -601,7 +603,7 @@ eval_binary(#c_binary{anno=Anno,segments=Ss}=Bin) ->
 	throw:impossible ->
 	    Bin;
 	  throw:{badarg,Warning} ->
-	    add_warning(Bin, Warning),
+	    add_warning(Bin, {failed,Warning}),
 	    #c_call{anno=Anno,
 		    module=#c_literal{val=erlang},
 		    name=#c_literal{val=error},
@@ -646,6 +648,7 @@ eval_binary_1([#c_bitstr{val=#c_literal{val=Val},size=#c_literal{val=Sz},
 	float when is_float(Val) ->
 	    %% Bad float size.
 	    try Sz*Unit of
+		16 -> ok;
 		32 -> ok;
 		64 -> ok;
 		_ ->
@@ -758,12 +761,15 @@ useless_call(effect, #c_call{module=#c_literal{val=Mod},
     case erl_bifs:is_safe(Mod, Name, A) of
 	false ->
 	    case erl_bifs:is_pure(Mod, Name, A) of
-		true -> add_warning(Call, result_ignored);
-		false -> ok
+		true ->
+                    Classified = classify_call(Call),
+                    add_warning(Call, {ignored,{result,Classified}});
+		false ->
+                    ok
 	    end,
 	    no;
 	true ->
-	    add_warning(Call, {no_effect,{Mod,Name,A}}),
+	    add_warning(Call, {ignored,{no_effect,{Mod,Name,A}}}),
 	    {yes,make_effect_seq(Args, sub_new())}
     end;
 useless_call(_, _) -> no.
@@ -957,7 +963,8 @@ eval_append(Call, X, Y) ->
 %%  a call to erlang:error(Reason).
 %%
 eval_failure(Call, Reason) ->
-    add_warning(Call, {eval_failure,Reason}),
+    Classified = classify_call(Call),
+    add_warning(Call, {failed,{eval_failure,Classified,Reason}}),
     Call#c_call{module=#c_literal{val=erlang},
 		name=#c_literal{val=error},
 		args=[#c_literal{val=Reason}]}.
@@ -1067,23 +1074,13 @@ let_substs_1(Vs, #c_values{es=As}, Sub) ->
 let_substs_1([V], A, Sub) -> let_subst_list([V], [A], Sub);
 let_substs_1(Vs, A, _) -> {Vs,A,[]}.
 
-let_subst_list([V|Vs0], [A0|As0], Sub) ->
+let_subst_list([V|Vs0], [A|As0], Sub) ->
     {Vs1,As1,Ss} = let_subst_list(Vs0, As0, Sub),
-    case is_subst(A0) of
+    case is_subst(A) of
 	true ->
-	    A = case is_compiler_generated(V) andalso
-		    not is_compiler_generated(A0) of
-		    true ->
-			%% Propagate the 'compiler_generated' annotation
-			%% along with the value.
-			Ann = [compiler_generated|cerl:get_ann(A0)],
-			cerl:set_ann(A0, Ann);
-		    false ->
-			A0
-		end,
 	    {Vs1,As1,sub_subst_var(V, A, Sub) ++ Ss};
 	false ->
-	    {[V|Vs1],[A0|As1],Ss}
+	    {[V|Vs1],[A|As1],Ss}
     end;
 let_subst_list([], [], _) -> {[],[],[]}.
 
@@ -1197,9 +1194,9 @@ bin_pat_warn(#c_bitstr{type=#c_literal{val=Type},
 	{_,_} ->
             case member(size_was_all, SizeAnno) of
                 true ->
-                    add_warning(Pat, {nomatch_bit_syntax_size,all});
+                    add_warning(Pat, {nomatch,{bit_syntax_size,all}});
                 false ->
-                    add_warning(Pat, {nomatch_bit_syntax_size,Sz})
+                    add_warning(Pat, {nomatch,{bit_syntax_size,Sz}})
             end,
 	    throw(nomatch)
     end,
@@ -1217,7 +1214,7 @@ bin_pat_warn(#c_bitstr{type=#c_literal{val=Type},
 	{utf32,#c_literal{val=Val}} when is_integer(Val) ->
 	    bit_pat_warn_unicode(Val, Pat);
 	{_,#c_literal{val=Val}} ->
-	    add_warning(Pat, {nomatch_bit_syntax_type,Val,Type}),
+            add_warning(Pat, {nomatch,{bit_syntax_type,Val,Type}}),
 	    throw(nomatch);
 	{_,_} ->
 	    ok
@@ -1228,7 +1225,7 @@ bin_pat_warn(#c_bitstr{type=#c_literal{val=Type},val=Val0,flags=Fl}=Pat) ->
 	{integer,#c_literal{val=Val}} when is_integer(Val) ->
 	    case signedness(Fl) of
 		unsigned when Val < 0 ->
-		    add_warning(Pat, {nomatch_bit_syntax_unsigned,Val}),
+                    add_warning(Pat, {nomatch,{bit_syntax_unsigned,Val}}),
 		    throw(nomatch);
 		_ ->
 		    ok
@@ -1236,7 +1233,7 @@ bin_pat_warn(#c_bitstr{type=#c_literal{val=Type},val=Val0,flags=Fl}=Pat) ->
 	{float,#c_literal{val=Val}} when is_float(Val) ->
 	    ok;
 	{_,#c_literal{val=Val}} ->
-	    add_warning(Pat, {nomatch_bit_syntax_type,Val,Type}),
+            add_warning(Pat, {nomatch,{bit_syntax_type,Val,Type}}),
 	    throw(nomatch);
 	{_,_} ->
 	    ok
@@ -1247,36 +1244,36 @@ bit_pat_warn_int(Val, 0, signed, Pat) ->
 	Val =:= 0 ->
 	    ok;
 	true ->
-	    add_warning(Pat, {nomatch_bit_syntax_truncated,signed,Val,0}),
+            add_warning(Pat, {nomatch,{bit_syntax_truncated,signed,Val,0}}),
 	    throw(nomatch)
     end;
 bit_pat_warn_int(Val, Sz, signed, Pat) ->
     if
 	Val < 0, Val bsr (Sz - 1) =/= -1 ->
-	    add_warning(Pat, {nomatch_bit_syntax_truncated,signed,Val,Sz}),
+            add_warning(Pat, {nomatch,{bit_syntax_truncated,signed,Val,Sz}}),
 	    throw(nomatch);
 	Val > 0, Val bsr (Sz - 1) =/= 0 ->
-	    add_warning(Pat, {nomatch_bit_syntax_truncated,signed,Val,Sz}),
+            add_warning(Pat, {nomatch,{bit_syntax_truncated,signed,Val,Sz}}),
 	    throw(nomatch);
 	true ->
 	    ok
     end;
 bit_pat_warn_int(Val, _Sz, unsigned, Pat) when Val < 0 ->
-    add_warning(Pat, {nomatch_bit_syntax_unsigned,Val}),
+    add_warning(Pat, {nomatch,{bit_syntax_unsigned,Val}}),
     throw(nomatch);
 bit_pat_warn_int(Val, Sz, unsigned, Pat) ->
     if
 	Val bsr Sz =:= 0 ->
 	    ok;
 	true ->
-	    add_warning(Pat, {nomatch_bit_syntax_truncated,unsigned,Val,Sz}),
+            add_warning(Pat, {nomatch,{bit_syntax_truncated,unsigned,Val,Sz}}),
 	    throw(nomatch)
     end.
 
 bit_pat_warn_unicode(U, _Pat) when 0 =< U, U =< 16#10FFFF ->
     ok;
 bit_pat_warn_unicode(U, Pat) ->
-    add_warning(Pat, {nomatch_bit_syntax_unicode,U}),
+    add_warning(Pat, {nomatch,{bit_syntax_unicode,U}}),
     throw(nomatch).
 
 signedness(#c_literal{val=Flags}) ->
@@ -1319,15 +1316,17 @@ is_subst(_) -> false.
 %%  to force renaming if variables in the scope occurs as pattern
 %%  variables.
 
-sub_new() -> #sub{v=orddict:new(),s=cerl_sets:new(),t=#{}}.
+sub_new() -> #sub{v=orddict:new(),s=sets:new([{version, 2}]),t=#{}}.
 
 sub_new(#sub{}=Sub) ->
     Sub#sub{v=orddict:new(),t=#{}}.
 
 sub_get_var(#c_var{name=V}=Var, #sub{v=S}) ->
     case orddict:find(V, S) of
-	{ok,Val} -> Val;
-	error -> Var
+	{ok,Val} ->
+            propagate_compiler_generated(Var, Val);
+	error ->
+            Var
     end.
 
 sub_set_var(#c_var{name=V}, Val, Sub) ->
@@ -1336,15 +1335,17 @@ sub_set_var(#c_var{name=V}, Val, Sub) ->
 sub_set_name(V, Val, #sub{v=S,s=Scope,t=Tdb0}=Sub) ->
     Tdb1 = kill_types(V, Tdb0),
     Tdb = copy_type(V, Val, Tdb1),
-    Sub#sub{v=orddict:store(V, Val, S),s=cerl_sets:add_element(V, Scope),t=Tdb}.
+    Sub#sub{v=orddict:store(V, Val, S),s=sets:add_element(V, Scope),t=Tdb}.
 
-sub_subst_var(#c_var{name=V}, Val, #sub{v=S0}) ->
+sub_subst_var(#c_var{name=V}=Var, Val0, #sub{v=S0}) ->
+    Val = propagate_compiler_generated(Var, Val0),
+
     %% Fold chained substitutions.
-    [{V,Val}] ++ [ {K,Val} || {K,#c_var{name=V1}} <- S0, V1 =:= V].
+    [{V,Val}] ++ [{K,Val} || {K,#c_var{name=V1}} <- S0, V1 =:= V].
 
 sub_add_scope(Vs, #sub{s=Scope0}=Sub) ->
     Scope = foldl(fun(V, S) when is_integer(V); is_atom(V) ->
-			  cerl_sets:add_element(V, S)
+			  sets:add_element(V, S)
 		  end, Scope0, Vs),
     Sub#sub{s=Scope}.
 
@@ -1355,7 +1356,7 @@ sub_subst_scope(#sub{v=S0,s=Scope}=Sub) ->
                   _ ->
                       -1
               end,
-    S = sub_subst_scope_1(cerl_sets:to_list(Scope), Initial, S0),
+    S = sub_subst_scope_1(sets:to_list(Scope), Initial, S0),
     Sub#sub{v=orddict:from_list(S)}.
 
 %% The keys in an orddict must be unique. Make them so!
@@ -1364,7 +1365,19 @@ sub_subst_scope_1([H|T], Key, Acc) ->
 sub_subst_scope_1([], _, Acc) -> Acc.
 
 sub_is_in_scope(#c_var{name=V}, #sub{s=Scope}) ->
-    cerl_sets:is_element(V, Scope).
+    sets:is_element(V, Scope).
+
+%% Propagate the 'compiler_generated' annotation (if any)
+%% from From to To.
+propagate_compiler_generated(From, To) ->
+    case is_compiler_generated(From) andalso
+        not is_compiler_generated(To) of
+        true ->
+            Ann = [compiler_generated|cerl:get_ann(To)],
+            cerl:set_ann(To, Ann);
+        false ->
+            To
+    end.
 
 %% warn_no_clause_match(CaseOrig, CaseOpt) -> ok
 %%  Generate a warning if none of the user-specified clauses
@@ -1379,7 +1392,7 @@ warn_no_clause_match(CaseOrig, CaseOpt) ->
 	    %% The original list of clauses did contain at least one
 	    %% user-specified clause, but none of them will match.
 	    %% That is probably a mistake.
-	    add_warning(CaseOrig, no_clause_match);
+	    add_warning(CaseOrig, {nomatch,no_clause});
 	false ->
 	    %% Either there were user-specified clauses left in
 	    %% the transformed clauses, or else none of the original
@@ -1408,7 +1421,7 @@ clauses(E, [C0|Cs], Ctxt, Sub, LitExpr, Anno) ->
 	    end,
 	    [C1];				%Skip the rest
 	{_Mat,no} ->				%Guard fails.
-	    add_warning(C1, nomatch_guard),
+            add_warning(C1, {nomatch,guard}),
 	    clauses(E, Cs, Ctxt, Sub, LitExpr, Anno);	%Skip this clause
 	{_Mat,_Suc} ->
 	    [C1|clauses(E, Cs, Ctxt, Sub, LitExpr, Anno)]
@@ -1416,14 +1429,14 @@ clauses(E, [C0|Cs], Ctxt, Sub, LitExpr, Anno) ->
 clauses(_, [], _, _, _, _) -> [].
 
 shadow_warning([C|Cs], none, Anno) ->
-    add_warning(C, nomatch_shadow),
+    add_warning(C, {nomatch,shadow}),
     shadow_warning(Cs, none, Anno);
 shadow_warning([C|Cs], Line, Anno) ->
     case keyfind(function, 1, Anno) of
 	{function, {Name, Arity}} ->
-	    add_warning(C, {nomatch_shadow, Line, {Name, Arity}});
+            add_warning(C, {nomatch,{shadow,Line,{Name,Arity}}});
 	_ ->
-	    add_warning(C, {nomatch_shadow, Line})
+            add_warning(C, {nomatch,{shadow,Line}})
     end,
     shadow_warning(Cs, Line, Anno);
 shadow_warning([], _, _) -> ok.
@@ -1508,7 +1521,7 @@ opt_bool_clauses([#c_clause{pats=[#c_literal{val=Lit}],
     case is_boolean(Lit) of
 	false ->
 	    %% Not a boolean - this clause can't match.
-	    add_warning(C, nomatch_clause_type),
+            add_warning(C, {nomatch,clause_type}),
 	    opt_bool_clauses(Cs, SeenT, SeenF);
 	true ->
 	    %% This clause will match.
@@ -1518,7 +1531,7 @@ opt_bool_clauses([#c_clause{pats=[#c_literal{val=Lit}],
                 {true,false,_} ->
                     [C|opt_bool_clauses(Cs, true, SeenF)];
                 _ ->
-                    add_warning(C, nomatch_shadow),
+                    add_warning(C, {nomatch,shadow}),
                     opt_bool_clauses(Cs, SeenT, SeenF)
 	    end
     end;
@@ -1533,7 +1546,7 @@ opt_bool_clauses([#c_clause{pats=Ps,guard=#c_literal{val=true}}=C|Cs], SeenT, Se
 	_ ->
 	    %% The clause cannot possible match a boolean.
 	    %% We can remove it.
-	    add_warning(C, nomatch_clause_type),
+	    add_warning(C, {nomatch,clause_type}),
 	    opt_bool_clauses(Cs, SeenT, SeenF)
     end;
 opt_bool_clauses([_|_], _, _) ->
@@ -1661,9 +1674,9 @@ eval_case_warn(#c_primop{anno=Anno,
     case keyfind(eval_failure, 1, Anno) of
 	false ->
 	    ok;
-	{eval_failure,Reason} ->
+	{eval_failure,badmap} ->
 	    %% Example: M = not_map, M#{k:=v}
-	    add_warning(Core, {eval_failure,Reason})
+	    add_warning(Core, {failed,bad_map_update})
     end;
 eval_case_warn(_) -> ok.
 
@@ -1808,7 +1821,7 @@ case_opt_nomatch(E, [{[P|_],C,_,_}=Current|Cs], LitExpr) ->
             %% the clause.  Unless the entire case expression is a
             %% literal, also emit a warning.
             case LitExpr of
-                false -> add_warning(C, nomatch_clause_type);
+                false -> add_warning(C, {nomatch,clause_type});
                 true -> ok
             end,
             case_opt_nomatch(E, Cs, LitExpr);
@@ -2116,7 +2129,7 @@ is_bool_expr_list([]) -> true.
 %%  (i.e. it cannot fail).
 %%
 is_safe_bool_expr(Core) ->
-    is_safe_bool_expr_1(Core, cerl_sets:new()).
+    is_safe_bool_expr_1(Core, sets:new([{version, 2}])).
 
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
                             name=#c_literal{val=is_function},
@@ -2146,7 +2159,7 @@ is_safe_bool_expr_1(#c_let{vars=Vars,arg=Arg,body=B}, BoolVars) ->
 	true ->
 	    case {is_safe_bool_expr_1(Arg, BoolVars),Vars} of
 		{true,[#c_var{name=V}]} ->
-		    is_safe_bool_expr_1(B, cerl_sets:add_element(V, BoolVars));
+		    is_safe_bool_expr_1(B, sets:add_element(V, BoolVars));
 		{false,_} ->
 		    is_safe_bool_expr_1(B, BoolVars)
 	    end;
@@ -2155,7 +2168,7 @@ is_safe_bool_expr_1(#c_let{vars=Vars,arg=Arg,body=B}, BoolVars) ->
 is_safe_bool_expr_1(#c_literal{val=Val}, _BoolVars) ->
     is_boolean(Val);
 is_safe_bool_expr_1(#c_var{name=V}, BoolVars) ->
-    cerl_sets:is_element(V, BoolVars);
+    sets:is_element(V, BoolVars);
 is_safe_bool_expr_1(_, _) -> false.
 
 is_safe_bool_expr_list([C|Cs], BoolVars) ->
@@ -2164,6 +2177,43 @@ is_safe_bool_expr_list([C|Cs], BoolVars) ->
 	false -> false
     end;
 is_safe_bool_expr_list([], _) -> true.
+
+opt_fun_call(#c_let{vars=[#c_var{name=V}],arg=#c_fun{}=FunDef,body=Body}=Let) ->
+    try do_opt_fun_call(V, FunDef, Body) of
+        impossible -> Let;
+        Expr -> Expr
+    catch
+        throw:impossible ->
+            Let
+    end;
+opt_fun_call(Expr) -> Expr.
+
+do_opt_fun_call(V, FunDef, #c_apply{op=#c_var{name=V},args=CallArgs}) ->
+    Values = core_lib:make_values(CallArgs),
+    simplify_fun_call(V, Values, FunDef, CallArgs);
+do_opt_fun_call(V, FunDef, #c_let{arg=#c_apply{op=#c_var{name=V},args=CallArgs},
+                                  body=Rest}=Let) ->
+    Values = core_lib:make_values([Rest|CallArgs]),
+    Inlined = simplify_fun_call(V, Values, FunDef, CallArgs),
+    Let#c_let{arg=Inlined};
+do_opt_fun_call(V, FunDef, #c_seq{arg=#c_apply{op=#c_var{name=V},args=CallArgs},
+                                  body=Rest}=Seq) ->
+    Values = core_lib:make_values([Rest|CallArgs]),
+    Inlined = simplify_fun_call(V, Values, FunDef, CallArgs),
+    Seq#c_seq{arg=Inlined};
+do_opt_fun_call(_, _, _) -> impossible.
+
+simplify_fun_call(V, Values, #c_fun{vars=Vars,body=FunBody}, CallArgs) ->
+    case not core_lib:is_var_used(V, Values) andalso length(Vars) =:= length(CallArgs) of
+        true ->
+            %% Safe to inline.
+            #c_let{vars=Vars,
+                   arg=core_lib:make_values(CallArgs),
+                   body=FunBody};
+        false ->
+            %% The fun is used more than once or there is an arity mismatch.
+            throw(impossible)
+    end.
 
 %% simplify_let(Let, Sub) -> Expr | impossible
 %%  If the argument part of an let contains a complex expression, such
@@ -2228,7 +2278,7 @@ move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
 		    B1 = body(B0, ScopeSub),
 
 		    {Lvs,B2,Sub1} = let_substs(Lvs0, B1, Sub0),
-		    Sub2 = Sub1#sub{s=cerl_sets:union(ScopeSub#sub.s,
+		    Sub2 = Sub1#sub{s=sets:union(ScopeSub#sub.s,
 						      Sub1#sub.s)},
 		    Lbody = body(Lbody0, Sub2),
 		    B = Let#c_let{vars=Lvs,
@@ -2488,7 +2538,7 @@ opt_simple_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
     %% Optimise let and add new substitutions.
     {Vs,Args,Sub1} = let_substs(Vs0, Arg0, Sub0),
     BodySub = update_let_types(Vs, Args, Sub1),
-    Sub = Sub1#sub{v=[],s=cerl_sets:new()},
+    Sub = Sub1#sub{v=[],s=sets:new([{version, 2}])},
     B = body(B0, Ctxt, BodySub),
     Arg = core_lib:make_values(Args),
     opt_simple_let_2(Let, Vs, Arg, B, B0, Sub).
@@ -2712,6 +2762,63 @@ copy_type(_, _, Tdb) -> Tdb.
 
 void() -> #c_literal{val=ok}.
 
+%%%
+%%% Handling of the `useless_building` warning (building a term that
+%%% is never used).
+%%%
+%%% Consider this code fragment:
+%%%
+%%%     [ {ok,Term} ],
+%%%     ok
+%%%
+%%% The list that is ignored contains a tuple that is also ignored.
+%%% While optimizing this code fragment, two warnings for useless
+%%% building will be generated: one for the list and one for the tuple
+%%% inside. Before the introduction of column numbers, those two warnings
+%%% would be coalesced to one becuase they had the same line number.
+%%%
+%%% With column numbers, we will need a more sophisticated solution to
+%%% avoid emitting annoying duplicate warnings.
+%%%
+%%% Note that if two separate terms are being built on the same line, we
+%%% do expect to get two warnings:
+%%%
+%%%     [ {ok,Term} ],   [ {error,BadTerm} ], ok
+%%%     ^                ^
+%%%
+%%% (The carets mark the expected columns for the warnings.)
+%%%
+%%% To handle those requirements, we will use the #sub{} record to keep
+%%% track of whether we are at the top level or have descended into
+%%% a sub expression.
+%%%
+
+%% Note in the Sub record that we have are no longer at the top level.
+descend(_Core, #sub{top=false}=Sub) ->
+    Sub;
+descend(Core, #sub{top=true}=Sub) ->
+    case should_suppress_warning(Core) of
+        true ->
+            %% In a list comprehension being ignored such as:
+            %%
+            %%   [{error,Z} || Z <- List], ok
+            %%
+            %% the warning for ignoring the cons cell should be
+            %% suppressed, but there should still be a warning for
+            %% ignoring the {error,Z} tuple. Therefore, pretend that
+            %% we are still at the top level.
+            Sub;
+        false ->
+            %% No longer at top level. Warnings for useless building
+            %% should now be suppressed.
+            Sub#sub{top=false}
+    end.
+
+warn_useless_building(Core, #sub{top=Top}) ->
+    case Top of
+        true -> add_warning(Core, {ignored,useless_building});
+        false -> ok
+    end.
 
 %%%
 %%% Handling of warnings.
@@ -2719,28 +2826,37 @@ void() -> #c_literal{val=ok}.
 
 init_warnings() ->
     put({?MODULE,warnings}, []).
-
 add_warning(Core, Term) ->
     case should_suppress_warning(Core) of
 	true ->
 	    ok;
 	false ->
 	    Anno = cerl:get_ann(Core),
-	    Line = get_line(Anno),
+	    Location = get_location(Anno),
 	    File = get_file(Anno),
 	    Key = {?MODULE,warnings},
 	    case get(Key) of
-		[{File,[{Line,?MODULE,Term}]}|_] ->
+		[{File,[{Location,?MODULE,Term}]}|_] ->
 		    ok;				%We already have
 						%an identical warning.
 		Ws ->
-		    put(Key, [{File,[{Line,?MODULE,Term}]}|Ws])
+		    put(Key, [{File,[{Location,?MODULE,Term}]}|Ws])
 	    end
     end.
 
 get_line([Line|_]) when is_integer(Line) -> Line;
+get_line([{Line, _Column} | _T]) when is_integer(Line) -> Line;
 get_line([_|T]) -> get_line(T);
 get_line([]) -> none.
+
+get_location([Line|_]) when is_integer(Line) ->
+    Line;
+get_location([{Line, Column} | _T]) when is_integer(Line), is_integer(Column) ->
+    {Line,Column};
+get_location([_|T]) ->
+    get_location(T);
+get_location([]) ->
+    none.
 
 get_file([{file,File}|_]) -> File;
 get_file([_|T]) -> get_file(T);
@@ -2761,48 +2877,49 @@ is_result_unwanted(Core) ->
 get_warnings() ->
     ordsets:from_list((erase({?MODULE,warnings}))).
 
--type error() :: 'bad_unicode' | 'bin_argument_order'
-	       | 'bin_left_var_used_in_guard' | 'bin_opt_alias'
-	       | 'bin_partition' | 'bin_var_used' | 'bin_var_used_in_guard'
-	       | 'embedded_binary_size' | 'nomatch_clause_type'
-	       | 'nomatch_guard' | 'nomatch_shadow' | 'no_clause_match'
-	       | 'orig_bin_var_used_in_guard' | 'result_ignored'
-	       | 'useless_building'
-	       | {'eval_failure', term()}
-	       | {'no_effect', {'erlang',atom(),arity()}}
-	       | {'nomatch_shadow', integer()}
-	       | {'embedded_unit', _, _}.
+classify_call(Call) ->
+    Mod = cerl:concrete(cerl:call_module(Call)),
+    Name = cerl:concrete(cerl:call_name(Call)),
+    Arity = cerl:call_arity(Call),
+    {Mod, Name, Arity}.
+
+-type error() :: {'failed' | 'nomatch' | 'ignored', term()}.
 
 -spec format_error(error()) -> nonempty_string().
 
-format_error({eval_failure,Reason}) ->
-    flatten(io_lib:format("this expression will fail with a '~p' exception", [Reason]));
-format_error(embedded_binary_size) ->
+format_error({failed,{eval_failure,Call,Reason}}) ->
+    flatten(io_lib:format("~ts will fail with a '~p' exception",
+                          [format_call(Call, false),Reason]));
+format_error({failed,embedded_binary_size}) ->
     "binary construction will fail with a 'badarg' exception "
 	"(field size for binary/bitstring greater than actual size)";
-format_error({embedded_unit,Unit,Size}) ->
+format_error({failed,{embedded_unit,Unit,Size}}) ->
     M = io_lib:format("binary construction will fail with a 'badarg' exception "
 		      "(size ~p cannot be evenly divided by unit ~p)", [Size,Unit]),
     flatten(M);
-format_error(bad_unicode) ->
+format_error({failed,bad_unicode}) ->
     "binary construction will fail with a 'badarg' exception "
 	"(invalid Unicode code point in a utf8/utf16/utf32 segment)";
-format_error(bad_float_size) ->
+format_error({failed,bad_float_size}) ->
     "binary construction will fail with a 'badarg' exception "
 	"(invalid size for a float segment)";
-format_error({nomatch_shadow,Line,{Name, Arity}}) ->
+format_error({failed,bad_map_update}) ->
+    "map update will fail with a 'badmap' exception";
+format_error({failed,bad_call}) ->
+    "invalid function call";
+format_error({nomatch,{shadow,Line,{Name, Arity}}}) ->
     M = io_lib:format("this clause for ~ts/~B cannot match because a previous "
 		      "clause at line ~p always matches", [Name, Arity, Line]),
     flatten(M);
-format_error({nomatch_shadow,Line}) ->
+format_error({nomatch,{shadow,Line}}) ->
     M = io_lib:format("this clause cannot match because a previous clause at line ~p "
 		      "always matches", [Line]),
     flatten(M);
-format_error(nomatch_shadow) ->
+format_error({nomatch,shadow}) ->
     "this clause cannot match because a previous clause always matches";
-format_error(nomatch_guard) ->
-    "the guard for this clause evaluates to 'false'";
-format_error({nomatch_bit_syntax_truncated,Signess,Val,Sz}) ->
+format_error({nomatch,guard}) ->
+    "this clause cannot match because its guard evaluates to 'false'";
+format_error({nomatch,{bit_syntax_truncated,Signess,Val,Sz}}) ->
     S = case Signess of
 	    signed -> "a 'signed'";
 	    unsigned -> "an 'unsigned'"
@@ -2810,26 +2927,26 @@ format_error({nomatch_bit_syntax_truncated,Signess,Val,Sz}) ->
     F = "this clause cannot match because the value ~P"
 	" will not fit in ~s binary segment of size ~p",
     flatten(io_lib:format(F, [Val,10,S,Sz]));
-format_error({nomatch_bit_syntax_unsigned,Val}) ->
+format_error({nomatch,{bit_syntax_unsigned,Val}}) ->
     F = "this clause cannot match because the negative value ~P"
 	" will never match the value of an 'unsigned' binary segment",
     flatten(io_lib:format(F, [Val,10]));
-format_error({nomatch_bit_syntax_size,Sz}) ->
+format_error({nomatch,{bit_syntax_size,Sz}}) ->
     F = "this clause cannot match because '~P' is not a valid size for a binary segment",
     flatten(io_lib:format(F, [Sz,10]));
-format_error({nomatch_bit_syntax_type,Val,Type}) ->
+format_error({nomatch,{bit_syntax_type,Val,Type}}) ->
     F = "this clause cannot match because '~P' is not of the"
 	" expected type '~p'",
     flatten(io_lib:format(F, [Val,10,Type]));
-format_error({nomatch_bit_syntax_unicode,Val}) ->
+format_error({nomatch,{bit_syntax_unicode,Val}}) ->
     F = "this clause cannot match because the value ~p"
 	" is not a valid Unicode code point",
     flatten(io_lib:format(F, [Val]));
-format_error(no_clause_match) ->
+format_error({nomatch,no_clause}) ->
     "no clause will ever match";
-format_error(nomatch_clause_type) ->
+format_error({nomatch,clause_type}) ->
     "this clause cannot match because of different types/sizes";
-format_error({no_effect,{erlang,F,A}}) ->
+format_error({ignored,{no_effect,{erlang,F,A}}}) ->
     {Fmt,Args} = case erl_internal:comp_op(F, A) of
 		     true ->
 			 {"use of operator ~p has no effect",[F]};
@@ -2842,13 +2959,49 @@ format_error({no_effect,{erlang,F,A}}) ->
 			 end
 		 end,
     flatten(io_lib:format(Fmt, Args));
-format_error(result_ignored) ->
-    "the result of the expression is ignored "
-	"(suppress the warning by assigning the expression to the _ variable)";
-format_error(invalid_call) ->
-    "invalid function call";
-format_error(useless_building) ->
+format_error({ignored,{result,Call}}) ->
+    Fmt = "the result of ~ts is ignored "
+	"(suppress the warning by assigning the expression to the _ variable)",
+    flatten(io_lib:format(Fmt, [format_call(Call, true)]));
+format_error({ignored,useless_building}) ->
     "a term is constructed, but never used".
+
+format_call({erlang,make_fun,3}, _) ->
+    "fun construction";
+format_call({Mod, Name, Arity}, UseProgressiveForm) ->
+    case is_operator(Mod, Name, Arity) of
+        true ->
+            Str = case UseProgressiveForm of
+                      true -> "evaluating";
+                      false -> "evaluation of"
+                  end,
+            [Str, io_lib:format(" operator ~p/~p", [Name,Arity])];
+        false ->
+            Str = case UseProgressiveForm of
+                      true -> "calling";
+                      false -> "the call to"
+                  end,
+            case is_auto_imported(Mod, Name, Arity) of
+                true ->
+                    [Str, io_lib:format(" ~p/~p", [Name,Arity])];
+                false ->
+                    [Str, io_lib:format(" ~p:~p/~p", [Mod,Name,Arity])]
+            end
+    end.
+
+is_operator(erlang, Name, Arity) ->
+    try
+        _ = erl_internal:op_type(Name, Arity),
+        true
+    catch
+        error:_ ->
+            false
+    end;
+is_operator(_, _, _) -> false.
+
+is_auto_imported(erlang, Name, Arity) ->
+    erl_internal:bif(Name, Arity);
+is_auto_imported(_, _, _) -> false.
 
 -ifdef(DEBUG).
 %% In order for simplify_let/2 to work correctly, the list of
@@ -2865,12 +3018,12 @@ verify_scope(E, #sub{s=Scope}) ->
 	false ->
 	    io:format("~p\n", [E]),
 	    io:format("~p\n", [Free]),
-	    io:format("~p\n", [ordsets:from_list(cerl_sets:to_list(Scope))]),
+	    io:format("~p\n", [ordsets:from_list(sets:to_list(Scope))]),
 	    false
     end.
 
 is_subset_of_scope([V|Vs], Scope) ->
-    cerl_sets:is_element(V, Scope) andalso is_subset_of_scope(Vs, Scope);
+    sets:is_element(V, Scope) andalso is_subset_of_scope(Vs, Scope);
 is_subset_of_scope([], _) -> true.
 
 -endif.

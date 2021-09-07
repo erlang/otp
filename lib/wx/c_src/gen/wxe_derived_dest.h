@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * %CopyrightEnd% 
+ * %CopyrightEnd%
 */
 
 /***** This file is generated do not edit ****/
@@ -41,12 +41,10 @@ class EwxMiniFrame : public wxMiniFrame {
 class EwxSplashScreen : public wxSplashScreen {
  public: ~EwxSplashScreen() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxSplashScreen(const wxBitmap& bitmap,long splashStyle,int milliseconds,wxWindow * parent,wxWindowID id,const wxPoint& pos,const wxSize& size,long style) : wxSplashScreen(bitmap,splashStyle,milliseconds,parent,id,pos,size,style) {};
- EwxSplashScreen() : wxSplashScreen() {};
 };
 
 class EwxPanel : public wxPanel {
  public: ~EwxPanel() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxPanel(wxWindow * parent,int x,int y,int width,int height,long style) : wxPanel(parent,x,y,width,height,style) {};
  EwxPanel(wxWindow * parent,wxWindowID winid,const wxPoint& pos,const wxSize& size,long style) : wxPanel(parent,winid,pos,size,style) {};
  EwxPanel() : wxPanel() {};
 };
@@ -71,7 +69,6 @@ class EwxSashLayoutWindow : public wxSashLayoutWindow {
 
 class EwxGrid : public wxGrid {
  public: ~EwxGrid() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxGrid(wxWindow * parent,int x,int y,int w,int h,long style) : wxGrid(parent,x,y,w,h,style) {};
  EwxGrid(wxWindow * parent,wxWindowID id,const wxPoint& pos,const wxSize& size,long style) : wxGrid(parent,id,pos,size,style) {};
  EwxGrid() : wxGrid() {};
 };
@@ -96,26 +93,17 @@ class EwxPostScriptDC : public wxPostScriptDC {
 
 class EwxWindowDC : public wxWindowDC {
  public: ~EwxWindowDC() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxWindowDC(wxWindow * win) : wxWindowDC(win) {};
-#if !wxCHECK_VERSION(2,9,0)
- EwxWindowDC() : wxWindowDC() {};
-#endif
+ EwxWindowDC(wxWindow * window) : wxWindowDC(window) {};
 };
 
 class EwxClientDC : public wxClientDC {
  public: ~EwxClientDC() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxClientDC(wxWindow * win) : wxClientDC(win) {};
-#if !wxCHECK_VERSION(2,9,0)
- EwxClientDC() : wxClientDC() {};
-#endif
+ EwxClientDC(wxWindow * window) : wxClientDC(window) {};
 };
 
 class EwxPaintDC : public wxPaintDC {
  public: ~EwxPaintDC() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxPaintDC(wxWindow * win) : wxPaintDC(win) {};
-#if !wxCHECK_VERSION(2,9,0)
- EwxPaintDC() : wxPaintDC() {};
-#endif
+ EwxPaintDC(wxWindow * window) : wxPaintDC(window) {};
 };
 
 class EwxMemoryDC : public wxMemoryDC {
@@ -150,6 +138,13 @@ class EwxGraphicsContext : public wxGraphicsContext {
 };
 #endif // wxUSE_GRAPHICS_CONTEXT
 
+#if wxUSE_GRAPHICS_CONTEXT
+class EwxGraphicsGradientStops : public wxGraphicsGradientStops {
+ public: ~EwxGraphicsGradientStops() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ EwxGraphicsGradientStops(wxColour startCol,wxColour endCol) : wxGraphicsGradientStops(startCol,endCol) {};
+};
+#endif // wxUSE_GRAPHICS_CONTEXT
+
 class EwxMenuBar : public wxMenuBar {
  public: ~EwxMenuBar() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxMenuBar(long style) : wxMenuBar(style) {};
@@ -160,6 +155,7 @@ class EwxMenu : public wxMenu {
  public: ~EwxMenu() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxMenu(const wxString& title,long style) : wxMenu(title,style) {};
  EwxMenu(long style) : wxMenu(style) {};
+ EwxMenu() : wxMenu() {};
 };
 
 class EwxMenuItem : public wxMenuItem {
@@ -175,35 +171,44 @@ class EwxStatusBar : public wxStatusBar {
 
 class EwxBitmap : public wxBitmap {
  public: ~EwxBitmap() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxBitmap(const char * bits,int width,int height,int depth) : wxBitmap(bits,width,height,depth) {};
+ EwxBitmap(char * bits,int width,int height,int depth) : wxBitmap(bits,width,height,depth) {};
  EwxBitmap(int width,int height,int depth) : wxBitmap(width,height,depth) {};
- EwxBitmap(const wxString& filename,wxBitmapType type) : wxBitmap(filename,type) {};
- EwxBitmap(const wxImage& image,int depth) : wxBitmap(image,depth) {};
+ EwxBitmap(const wxString& name,wxBitmapType type) : wxBitmap(name,type) {};
+ EwxBitmap(const wxSize& sz,int depth) : wxBitmap(sz,depth) {};
+ EwxBitmap(const wxImage& img,int depth) : wxBitmap(img,depth) {};
+ EwxBitmap(const wxImage& img) : wxBitmap(img) {};
+ EwxBitmap(const wxBitmap& img) : wxBitmap(img) {};
  EwxBitmap() : wxBitmap() {};
- EwxBitmap(wxBitmap copy) : wxBitmap(copy) {};
 };
 
 class EwxIcon : public wxIcon {
  public: ~EwxIcon() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxIcon(const wxString& filename,wxBitmapType type,int desiredWidth,int desiredHeight) : wxIcon(filename,type,desiredWidth,desiredHeight) {};
- EwxIcon(const wxIconLocation& loc) : wxIcon(loc) {};
+ EwxIcon(const wxString& name,wxBitmapType type,int desiredWidth,int desiredHeight) : wxIcon(name,type,desiredWidth,desiredHeight) {};
+ EwxIcon(const wxIcon& icon) : wxIcon(icon) {};
  EwxIcon() : wxIcon() {};
- EwxIcon(wxIcon copy) : wxIcon(copy) {};
+};
+
+class EwxIconBundle : public wxIconBundle {
+ public: ~EwxIconBundle() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ EwxIconBundle(const wxString& file,wxBitmapType type) : wxIconBundle(file,type) {};
+ EwxIconBundle(const wxIconBundle& ic) : wxIconBundle(ic) {};
+ EwxIconBundle(const wxIcon& ic) : wxIconBundle(ic) {};
+ EwxIconBundle(const wxString& file) : wxIconBundle(file) {};
+ EwxIconBundle() : wxIconBundle() {};
 };
 
 class EwxCursor : public wxCursor {
  public: ~EwxCursor() {((WxeApp *)wxTheApp)->clearPtr(this);};
-#if !wxCHECK_VERSION(2,9,0)
- EwxCursor(const char * bits,int width,int height,int hotSpotX,int hotSpotY) : wxCursor(bits,width,height,hotSpotX,hotSpotY) {};
-#endif
- EwxCursor(int cursorId) : wxCursor(cursorId) {};
+ EwxCursor(const wxString& cursorName,wxBitmapType type,int hotSpotX,int hotSpotY) : wxCursor(cursorName,type,hotSpotX,hotSpotY) {};
  EwxCursor(const wxImage& image) : wxCursor(image) {};
+ EwxCursor(const wxCursor& image) : wxCursor(image) {};
+ EwxCursor(wxStockCursor cursorId) : wxCursor(cursorId) {};
  EwxCursor() : wxCursor() {};
 };
 
 class EwxMask : public wxMask {
  public: ~EwxMask() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxMask(const wxBitmap& bitmap,int paletteIndex) : wxMask(bitmap,paletteIndex) {};
+ EwxMask(const wxBitmap& bitmap,int index) : wxMask(bitmap,index) {};
  EwxMask(const wxBitmap& bitmap,const wxColour& colour) : wxMask(bitmap,colour) {};
  EwxMask(const wxBitmap& bitmap) : wxMask(bitmap) {};
  EwxMask() : wxMask() {};
@@ -213,32 +218,37 @@ class EwxImage : public wxImage {
  public: ~EwxImage() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxImage(int width,int height,unsigned char * data,unsigned char * alpha,bool static_data) : wxImage(width,height,data,alpha,static_data) {};
  EwxImage(int width,int height,unsigned char * data,bool static_data) : wxImage(width,height,data,static_data) {};
+ EwxImage(const wxSize& sz,unsigned char * data,unsigned char * alpha,bool static_data) : wxImage(sz,data,alpha,static_data) {};
  EwxImage(int width,int height,bool clear) : wxImage(width,height,clear) {};
  EwxImage(const wxString& name,const wxString& mimetype,int index) : wxImage(name,mimetype,index) {};
- EwxImage(const wxString& name,long type,int index) : wxImage(name,type,index) {};
+ EwxImage(const wxSize& sz,unsigned char * data,bool static_data) : wxImage(sz,data,static_data) {};
+ EwxImage(const wxString& name,wxBitmapType type,int index) : wxImage(name,type,index) {};
+ EwxImage(const wxSize& sz,bool clear) : wxImage(sz,clear) {};
  EwxImage() : wxImage() {};
  EwxImage(wxImage copy) : wxImage(copy) {};
 };
 
 class EwxBrush : public wxBrush {
  public: ~EwxBrush() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxBrush(const wxColour& colour,int style) : wxBrush(colour,style) {};
- EwxBrush(const wxBitmap& stippleBitmap) : wxBrush(stippleBitmap) {};
+ EwxBrush(const wxColour& colour,wxBrushStyle style) : wxBrush(colour,style) {};
+ EwxBrush(const wxBrush& brush) : wxBrush(brush) {};
+ EwxBrush(const wxBitmap& brush) : wxBrush(brush) {};
  EwxBrush() : wxBrush() {};
 };
 
 class EwxPen : public wxPen {
  public: ~EwxPen() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxPen(const wxColour& colour,int width,int style) : wxPen(colour,width,style) {};
+ EwxPen(const wxColour& colour,int width,wxPenStyle style) : wxPen(colour,width,style) {};
+ EwxPen(const wxPen& pen) : wxPen(pen) {};
  EwxPen() : wxPen() {};
 };
 
 class EwxRegion : public wxRegion {
  public: ~EwxRegion() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxRegion(wxCoord x,wxCoord y,wxCoord w,wxCoord h) : wxRegion(x,y,w,h) {};
+ EwxRegion(wxCoord x,wxCoord y,wxCoord width,wxCoord height) : wxRegion(x,y,width,height) {};
  EwxRegion(const wxPoint& topLeft,const wxPoint& bottomRight) : wxRegion(topLeft,bottomRight) {};
- EwxRegion(const wxBitmap& bmp) : wxRegion(bmp) {};
  EwxRegion(const wxRect& rect) : wxRegion(rect) {};
+ EwxRegion(const wxBitmap& bmp) : wxRegion(bmp) {};
  EwxRegion() : wxRegion() {};
 };
 
@@ -248,21 +258,13 @@ class EwxAcceleratorTable : public wxAcceleratorTable {
  EwxAcceleratorTable() : wxAcceleratorTable() {};
 };
 
-class EwxCaret : public wxCaret {
- public: ~EwxCaret() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxCaret(wxWindow * window,int width,int height) : wxCaret(window,width,height) {};
- EwxCaret(wxWindow * window,const wxSize& size) : wxCaret(window,size) {};
-};
-
 class EwxSizerItem : public wxSizerItem {
  public: ~EwxSizerItem() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxSizerItem(int width,int height,int proportion,int flag,int border,wxObject * userData) : wxSizerItem(width,height,proportion,flag,border,userData) {};
- EwxSizerItem(wxWindow * window,int proportion,int flag,int border,wxObject * userData) : wxSizerItem(window,proportion,flag,border,userData) {};
- EwxSizerItem(wxSizer * window,int proportion,int flag,int border,wxObject * userData) : wxSizerItem(window,proportion,flag,border,userData) {};
- EwxSizerItem(int width,int height,const wxSizerFlags& flags) : wxSizerItem(width,height,flags) {};
  EwxSizerItem(wxWindow * window,const wxSizerFlags& flags) : wxSizerItem(window,flags) {};
  EwxSizerItem(wxSizer * window,const wxSizerFlags& flags) : wxSizerItem(window,flags) {};
- EwxSizerItem() : wxSizerItem() {};
+ EwxSizerItem(wxWindow * window,int proportion,int flag,int border,wxObject * userData) : wxSizerItem(window,proportion,flag,border,userData) {};
+ EwxSizerItem(wxSizer * window,int proportion,int flag,int border,wxObject * userData) : wxSizerItem(window,proportion,flag,border,userData) {};
 };
 
 class EwxBoxSizer : public wxBoxSizer {
@@ -272,7 +274,7 @@ class EwxBoxSizer : public wxBoxSizer {
 
 class EwxStaticBoxSizer : public wxStaticBoxSizer {
  public: ~EwxStaticBoxSizer() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxStaticBoxSizer(int orient,wxWindow * win,const wxString& label) : wxStaticBoxSizer(orient,win,label) {};
+ EwxStaticBoxSizer(int orient,wxWindow * parent,const wxString& label) : wxStaticBoxSizer(orient,parent,label) {};
  EwxStaticBoxSizer(wxStaticBox * box,int orient) : wxStaticBoxSizer(box,orient) {};
 };
 
@@ -280,12 +282,16 @@ class EwxGridSizer : public wxGridSizer {
  public: ~EwxGridSizer() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxGridSizer(int rows,int cols,int vgap,int hgap) : wxGridSizer(rows,cols,vgap,hgap) {};
  EwxGridSizer(int cols,int vgap,int hgap) : wxGridSizer(cols,vgap,hgap) {};
+ EwxGridSizer(int rows,int cols,const wxSize& gap) : wxGridSizer(rows,cols,gap) {};
+ EwxGridSizer(int cols,const wxSize& gap) : wxGridSizer(cols,gap) {};
 };
 
 class EwxFlexGridSizer : public wxFlexGridSizer {
  public: ~EwxFlexGridSizer() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxFlexGridSizer(int rows,int cols,int vgap,int hgap) : wxFlexGridSizer(rows,cols,vgap,hgap) {};
  EwxFlexGridSizer(int cols,int vgap,int hgap) : wxFlexGridSizer(cols,vgap,hgap) {};
+ EwxFlexGridSizer(int rows,int cols,const wxSize& gap) : wxFlexGridSizer(rows,cols,gap) {};
+ EwxFlexGridSizer(int cols,const wxSize& gap) : wxFlexGridSizer(cols,gap) {};
 };
 
 class EwxGridBagSizer : public wxGridBagSizer {
@@ -300,10 +306,11 @@ class EwxStdDialogButtonSizer : public wxStdDialogButtonSizer {
 
 class EwxFont : public wxFont {
  public: ~EwxFont() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxFont(int size,wxFontFamily family,wxFontStyle style,int weight,bool underlined,const wxString& face,wxFontEncoding encoding) : wxFont(size,family,style,weight,underlined,face,encoding) {};
- EwxFont(const wxString& fontname) : wxFont(fontname) {};
+ EwxFont(int pointSize,wxFontFamily family,wxFontStyle style,wxFontWeight weight,bool underlined,const wxString& face,wxFontEncoding encoding) : wxFont(pointSize,family,style,weight,underlined,face,encoding) {};
+ EwxFont(const wxSize& pixelSize,wxFontFamily family,wxFontStyle style,wxFontWeight weight,bool underline,const wxString& faceName,wxFontEncoding encoding) : wxFont(pixelSize,family,style,weight,underline,faceName,encoding) {};
+ EwxFont(const wxString& nativeInfoString) : wxFont(nativeInfoString) {};
+ EwxFont(const wxFont& font) : wxFont(font) {};
  EwxFont() : wxFont() {};
- EwxFont(wxFont copy) : wxFont(copy) {};
 };
 
 class EwxToolTip : public wxToolTip {
@@ -367,7 +374,7 @@ class EwxGauge : public wxGauge {
 
 class EwxGenericDirCtrl : public wxGenericDirCtrl {
  public: ~EwxGenericDirCtrl() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxGenericDirCtrl(wxWindow * parent,const wxWindowID id,const wxString& dir,const wxPoint& pos,const wxSize& size,long style,const wxString& filter,int defaultFilter) : wxGenericDirCtrl(parent,id,dir,pos,size,style,filter,defaultFilter) {};
+ EwxGenericDirCtrl(wxWindow * parent,wxWindowID id,const wxString& dir,const wxPoint& pos,const wxSize& size,long style,const wxString& filter,int defaultFilter) : wxGenericDirCtrl(parent,id,dir,pos,size,style,filter,defaultFilter) {};
  EwxGenericDirCtrl() : wxGenericDirCtrl() {};
 };
 
@@ -398,7 +405,7 @@ class EwxListCtrl : public wxListCtrl {
  int onGetItemText;
  int onGetItemAttr;
  int onGetItemColumnImage;
- ErlDrvTermData port;
+ wxe_me_ref *me_ref;
 
  private:
  virtual wxString OnGetItemText(long item, long col) const;
@@ -427,7 +434,7 @@ class EwxTextCtrl : public wxTextCtrl {
 
 class EwxNotebook : public wxNotebook {
  public: ~EwxNotebook() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxNotebook(wxWindow * parent,wxWindowID winid,const wxPoint& pos,const wxSize& size,long style) : wxNotebook(parent,winid,pos,size,style) {};
+ EwxNotebook(wxWindow * parent,wxWindowID id,const wxPoint& pos,const wxSize& size,long style) : wxNotebook(parent,id,pos,size,style) {};
  EwxNotebook() : wxNotebook() {};
 };
 
@@ -493,7 +500,7 @@ class EwxStaticBitmap : public wxStaticBitmap {
 
 class EwxRadioBox : public wxRadioBox {
  public: ~EwxRadioBox() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxRadioBox(wxWindow * parent,wxWindowID id,const wxString& title,const wxPoint& pos,const wxSize& size,const wxArrayString& choices,int majorDim,long style,const wxValidator& val) : wxRadioBox(parent,id,title,pos,size,choices,majorDim,style,val) {};
+ EwxRadioBox(wxWindow * parent,wxWindowID id,const wxString& label,const wxPoint& pos,const wxSize& size,const wxArrayString& choices,int majorDim,long style,const wxValidator& val) : wxRadioBox(parent,id,label,pos,size,choices,majorDim,style,val) {};
 };
 
 class EwxRadioButton : public wxRadioButton {
@@ -522,13 +529,13 @@ class EwxColourDialog : public wxColourDialog {
 
 class EwxColourData : public wxColourData {
  public: ~EwxColourData() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxColourData(const wxColourData& data) : wxColourData(data) {};
  EwxColourData() : wxColourData() {};
 };
 
 class EwxPalette : public wxPalette {
  public: ~EwxPalette() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxPalette(int n,const unsigned char * red,const unsigned char * green,const unsigned char * blue) : wxPalette(n,red,green,blue) {};
+ EwxPalette(int n,unsigned const char * red,unsigned const char * green,unsigned const char * blue) : wxPalette(n,red,green,blue) {};
+ EwxPalette(const wxPalette& palette) : wxPalette(palette) {};
  EwxPalette() : wxPalette() {};
 };
 
@@ -581,24 +588,22 @@ class EwxFindReplaceDialog : public wxFindReplaceDialog {
 class EwxFindReplaceData : public wxFindReplaceData {
  public: ~EwxFindReplaceData() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxFindReplaceData(unsigned int flags) : wxFindReplaceData(flags) {};
- EwxFindReplaceData() : wxFindReplaceData() {};
 };
 
 class EwxMultiChoiceDialog : public wxMultiChoiceDialog {
  public: ~EwxMultiChoiceDialog() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxMultiChoiceDialog(wxWindow * parent,const wxString& message,const wxString& caption,const wxArrayString& choices,long style,const wxPoint& pos) : wxMultiChoiceDialog(parent,message,caption,choices,style,pos) {};
- EwxMultiChoiceDialog() : wxMultiChoiceDialog() {};
 };
 
 class EwxSingleChoiceDialog : public wxSingleChoiceDialog {
  public: ~EwxSingleChoiceDialog() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxSingleChoiceDialog(wxWindow * parent,const wxString& message,const wxString& caption,const wxArrayString& choices,char ** clientData,long style,const wxPoint& pos) : wxSingleChoiceDialog(parent,message,caption,choices,clientData,style,pos) {};
- EwxSingleChoiceDialog() : wxSingleChoiceDialog() {};
+ EwxSingleChoiceDialog(wxWindow * parent,const wxString& message,const wxString& caption,const wxArrayString& choices,void ** clientData,long style,const wxPoint& pos) : wxSingleChoiceDialog(parent,message,caption,choices,clientData,style,pos) {};
 };
 
 class EwxTextEntryDialog : public wxTextEntryDialog {
  public: ~EwxTextEntryDialog() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxTextEntryDialog(wxWindow * parent,const wxString& message,const wxString& caption,const wxString& value,long style,const wxPoint& pos) : wxTextEntryDialog(parent,message,caption,value,style,pos) {};
+ EwxTextEntryDialog() : wxTextEntryDialog() {};
 };
 
 class EwxPasswordEntryDialog : public wxPasswordEntryDialog {
@@ -655,7 +660,7 @@ class EwxPrintDialogData : public wxPrintDialogData {
 
 class EwxPrintData : public wxPrintData {
  public: ~EwxPrintData() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxPrintData(const wxPrintData& printData) : wxPrintData(printData) {};
+ EwxPrintData(const wxPrintData& data) : wxPrintData(data) {};
  EwxPrintData() : wxPrintData() {};
 };
 
@@ -691,12 +696,19 @@ class EwxHtmlEasyPrinting : public wxHtmlEasyPrinting {
  EwxHtmlEasyPrinting(const wxString& name,wxWindow * parentWindow) : wxHtmlEasyPrinting(name,parentWindow) {};
 };
 
+#if wxUSE_GLCANVAS
 class EwxGLCanvas : public wxGLCanvas {
  public: ~EwxGLCanvas() {deleteActiveGL(this);((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxGLCanvas(wxWindow * parent,const wxGLContext * shared,wxWindowID id,const wxPoint& pos,const wxSize& size,long style,const wxString& name,int * attribList,const wxPalette& palette) : wxGLCanvas(parent,shared,id,pos,size,style,name,attribList,palette) {};
- EwxGLCanvas(wxWindow * parent,const wxGLCanvas * shared,wxWindowID id,const wxPoint& pos,const wxSize& size,long style,const wxString& name,int * attribList,const wxPalette& palette) : wxGLCanvas(parent,shared,id,pos,size,style,name,attribList,palette) {};
- EwxGLCanvas(wxWindow * parent,wxWindowID id,const wxPoint& pos,const wxSize& size,long style,const wxString& name,int * attribList,const wxPalette& palette) : wxGLCanvas(parent,id,pos,size,style,name,attribList,palette) {};
+ EwxGLCanvas(wxWindow * parent,wxWindowID id,const int * attribList,const wxPoint& pos,const wxSize& size,long style,const wxString& name,const wxPalette& palette) : wxGLCanvas(parent,id,attribList,pos,size,style,name,palette) {};
 };
+#endif // wxUSE_GLCANVAS
+
+#if wxUSE_GLCANVAS
+class EwxGLContext : public wxGLContext {
+ public: ~EwxGLContext() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ EwxGLContext(wxGLCanvas * win,wxGLContext * other) : wxGLContext(win,other) {};
+};
+#endif // wxUSE_GLCANVAS
 
 #if wxUSE_AUI
 class EwxAuiManager : public wxAuiManager {
@@ -727,9 +739,6 @@ class EwxMDIChildFrame : public wxMDIChildFrame {
 
 class EwxMDIClientWindow : public wxMDIClientWindow {
  public: ~EwxMDIClientWindow() {((WxeApp *)wxTheApp)->clearPtr(this);};
-#if !wxCHECK_VERSION(2,9,0)
- EwxMDIClientWindow(wxMDIParentFrame * parent,long style) : wxMDIClientWindow(parent,style) {};
-#endif
  EwxMDIClientWindow() : wxMDIClientWindow() {};
 };
 
@@ -738,10 +747,45 @@ class EwxLayoutAlgorithm : public wxLayoutAlgorithm {
  EwxLayoutAlgorithm() : wxLayoutAlgorithm() {};
 };
 
-class EwxPrintout : public wxPrintout {
- public: ~EwxPrintout() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxPrintout(const wxString& title) : wxPrintout(title) {};
+
+class EwxPrintout : public wxPrintout
+{
+ public:
+ EwxPrintout(wxString Title, int onPrintP, int onPrepareP,
+	     int onBeginP, int onEndP,
+	     int onBeginD, int onEndD,
+	     int hasP, int getPageI) :
+    wxPrintout(Title),
+	onPrintPage(onPrintP), onPreparePrinting(onPrepareP),
+	onBeginPrinting(onBeginP), onEndPrinting(onEndP),
+	onBeginDocument(onBeginD), onEndDocument(onEndD), hasPage(hasP), getPageInfo(getPageI)
+	{ } ;
+
+    ~EwxPrintout();
+
+    bool OnBeginDocument(int startPage, int endPage);
+    void OnEndDocument();
+    void OnBeginPrinting();
+    void OnEndPrinting();
+
+    void OnPreparePrinting();
+
+    bool HasPage(int page);
+    bool OnPrintPage(int page);
+    void GetPageInfo(int *minPage, int *maxPage, int *pageFrom, int *pageTo);
+
+    int onPrintPage;
+    int onPreparePrinting;
+    int onBeginPrinting;
+    int onEndPrinting;
+    int onBeginDocument;
+    int onEndDocument;
+    int hasPage;
+    int getPageInfo;
+
+    wxe_me_ref * me_ref;
 };
+
 
 class EwxStyledTextCtrl : public wxStyledTextCtrl {
  public: ~EwxStyledTextCtrl() {((WxeApp *)wxTheApp)->clearPtr(this);};
@@ -766,14 +810,22 @@ class EwxHtmlWindow : public wxHtmlWindow {
  EwxHtmlWindow() : wxHtmlWindow() {};
 };
 
+
 class EwxTaskBarIcon : public wxTaskBarIcon {
  public: ~EwxTaskBarIcon() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxTaskBarIcon() : wxTaskBarIcon() {};
+ EwxTaskBarIcon(wxTaskBarIconType iconType) : wxTaskBarIcon(iconType) { createPopupMenu = 0; };
+
+ int createPopupMenu;
+ wxe_me_ref *me_ref;
+
+ private:
+ virtual wxMenu* CreatePopupMenu();
 };
 
 class EwxLocale : public wxLocale {
  public: ~EwxLocale() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxLocale(int language,int flags) : wxLocale(language,flags) {};
+ EwxLocale(const wxString& name,const wxString& shortName,const wxString& locale,bool bLoadDefault) : wxLocale(name,shortName,locale,bLoadDefault) {};
  EwxLocale() : wxLocale() {};
 };
 
@@ -795,15 +847,23 @@ class EwxPopupTransientWindow : public wxPopupTransientWindow {
 
 class EwxDCOverlay : public wxDCOverlay {
  public: ~EwxDCOverlay() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxDCOverlay(wxOverlay& overlay,wxWindowDC * dc,int x,int y,int width,int height) : wxDCOverlay(overlay,dc,x,y,width,height) {};
- EwxDCOverlay(wxOverlay& overlay,wxWindowDC * dc) : wxDCOverlay(overlay,dc) {};
+ EwxDCOverlay(wxOverlay& overlay,wxDC * dc,int x,int y,int width,int height) : wxDCOverlay(overlay,dc,x,y,width,height) {};
+ EwxDCOverlay(wxOverlay& overlay,wxDC * dc) : wxDCOverlay(overlay,dc) {};
 };
 
 #if wxUSE_GRAPHICS_CONTEXT
 class EwxGCDC : public wxGCDC {
  public: ~EwxGCDC() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxGCDC(const wxWindowDC& dc) : wxGCDC(dc) {};
+ EwxGCDC(const wxWindowDC& windowDC) : wxGCDC(windowDC) {};
+ EwxGCDC(const wxMemoryDC& windowDC) : wxGCDC(windowDC) {};
+ EwxGCDC(wxGraphicsContext * windowDC) : wxGCDC(windowDC) {};
  EwxGCDC() : wxGCDC() {};
 };
 #endif // wxUSE_GRAPHICS_CONTEXT
+
+class EwxNotificationMessage : public wxNotificationMessage {
+ public: ~EwxNotificationMessage() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ EwxNotificationMessage(const wxString& title,const wxString& message,wxWindow * parent,int flags) : wxNotificationMessage(title,message,parent,flags) {};
+ EwxNotificationMessage() : wxNotificationMessage() {};
+};
 

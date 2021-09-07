@@ -229,7 +229,7 @@
               <list type="bulleted">
 	        <item><c>PeerName</c> - a string with the name or address of the remote host.</item>
                 <item><c>FingerPrint</c> - the fingerprint of the Host Key as 
-                <seemfa marker="public_key:public_key#ssh_hostkey_fingerprint/1">public_key:ssh_hostkey_fingerprint/1</seemfa>
+                <seemfa marker="#hostkey_fingerprint/1">hostkey_fingerprint/1</seemfa>
                 calculates it.
                 </item>
               </list>
@@ -239,7 +239,7 @@
               shall be used to calculate the fingerprint used in the call of the <c>accept_callback()</c>.
 	      The <c>HashALgoSpec</c>
               is either an atom or a list of atoms as the first argument in
-              <seemfa marker="public_key:public_key#ssh_hostkey_fingerprint/2">public_key:ssh_hostkey_fingerprint/2</seemfa>.
+              <seemfa marker="#hostkey_fingerprint/2">hostkey_fingerprint/2</seemfa>.
               If it is a list of hash algorithm names, the <c>FingerPrint</c> argument in the
 	      <c>accept_callback()</c> will be 
               a list of fingerprints in the same order as the corresponding name in the <c>HashAlgoSpec</c> list.
@@ -563,6 +563,13 @@
 	    to connect to the server and public key user-authentication fails. The option provides
 	    a list of valid usernames and the corresponding passwords.
 	    </p>
+	    <warning>
+	      <p>Note that this is very insecure due to the plain-text passwords;
+	      it is intended for test purposes.
+	      Use the <seeerl marker="#option-pwdfun"><c>pwdfun</c></seeerl> option
+	      to handle the password checking instead.
+	      </p>
+	    </warning>
           </item>
 
 	  <tag><marker id="option-pk_check_user"/><c>pk_check_user</c></tag>
@@ -1276,7 +1283,7 @@
 
 <!-- CONNECTION_INFO/1, CONNECTION_INFO/2 -->
    <func>
-     <name name="connection_info" arity="1" since=""/>
+     <name name="connection_info" arity="1" since="OTP 22.1"/>
      <name name="connection_info" arity="2" since=""/>
      <fsummary>Retrieves information about a connection.</fsummary>
      <desc>
@@ -1289,7 +1296,7 @@
 
 <!-- SET_SOCK_OPTS/2 -->
    <func>
-     <name name="set_sock_opts" arity="2" since=""/>
+     <name name="set_sock_opts" arity="2" since="OTP 22.3"/>
      <fsummary>Set tcp socket options on connections</fsummary>
      <desc>
        <p>Sets tcp socket options on the tcp-socket below an ssh connection.</p>
@@ -1321,7 +1328,7 @@
 
 <!-- GET_SOCK_OPTS/2 -->
    <func>
-     <name name="get_sock_opts" arity="2" since=""/>
+     <name name="get_sock_opts" arity="2" since="OTP 22.3"/>
      <fsummary>Get tcp socket options on connections</fsummary>
      <desc>
        <p>Get tcp socket option values of the tcp-socket below an ssh connection.</p>
@@ -1380,7 +1387,7 @@
 <!-- DAEMON_INFO/1 -->   
    <func>
      <name name="daemon_info" arity="1" since="OTP 19.0"/>
-     <name name="daemon_info" arity="2" since=""/>
+     <name name="daemon_info" arity="2" since="OTP 22.1"/>
      <fsummary>Get info about a daemon</fsummary>
      <desc>
        <p>Returns information about a daemon intended for e.g debugging or logging.
@@ -1477,8 +1484,8 @@
     </func>
 
     <func>
-      <name name="tcpip_tunnel_from_server" arity="5" since=""/>
-      <name name="tcpip_tunnel_from_server" arity="6" since=""/>
+      <name name="tcpip_tunnel_from_server" arity="5" since="OTP 23.0"/>
+      <name name="tcpip_tunnel_from_server" arity="6" since="OTP 23.0"/>
       <fsummary>TCP/IP tunneling from a server to a client ("tcpip-forward")</fsummary>
       <desc>
 	<p>Asks the remote server of <c>ConnectionRef</c> to listen to <c>ListenHost:ListenPort</c>.
@@ -1499,8 +1506,8 @@
     </func>
     
     <func>
-      <name name="tcpip_tunnel_to_server" arity="5" since=""/>
-      <name name="tcpip_tunnel_to_server" arity="6" since=""/>
+      <name name="tcpip_tunnel_to_server" arity="5" since="OTP 23.0"/>
+      <name name="tcpip_tunnel_to_server" arity="6" since="OTP 23.0"/>
       <fsummary>TCP/IP tunneling from a client to a server ("direct-tcpip")</fsummary>
       <desc>
 	<p>Tells the local client to listen to <c>ListenHost:ListenPort</c>.  When someone
@@ -1518,6 +1525,43 @@
 	</p>
       </desc>
     </func>
+
+    <func>
+      <name since="OTP 24.0">hostkey_fingerprint(HostKey) -> string()</name>
+      <name since="OTP 24.0">hostkey_fingerprint(DigestType, HostKey) -> string()</name>
+      <name since="OTP 24.0">hostkey_fingerprint([DigestType], HostKey) -> [string()]</name>
+      <fsummary>Calculates a ssh fingerprint for a hostkey.</fsummary>
+      <type>
+	<v>HostKey = <seetype marker="public_key:public_key#public_key">public_key:public_key()</seetype></v>
+	<v>DigestType = <seetype marker="public_key:public_key#digest_type">public_key:digest_type()</seetype></v>
+      </type>
+      <desc>
+	<p>Calculates a ssh fingerprint from a public host key as openssh does.</p>
+	<p>The algorithm in <c>hostkey_fingerprint/1</c> is md5 to be compatible with older
+	ssh-keygen commands. The string from the second variant is prepended by the algorithm name
+	in uppercase as in newer ssh-keygen commands.</p>
+	<p>Examples:</p>
+      <code>
+ 2> ssh:hostkey_fingerprint(Key).    
+ "f5:64:a6:c1:5a:cb:9f:0a:10:46:a2:5c:3e:2f:57:84"
+
+ 3> ssh:hostkey_fingerprint(md5,Key).
+ "MD5:f5:64:a6:c1:5a:cb:9f:0a:10:46:a2:5c:3e:2f:57:84"
+
+ 4> ssh:hostkey_fingerprint(sha,Key).
+ "SHA1:bSLY/C4QXLDL/Iwmhyg0PGW9UbY"
+
+ 5> ssh:hostkey_fingerprint(sha256,Key).
+ "SHA256:aZGXhabfbf4oxglxltItWeHU7ub3Dc31NcNw2cMJePQ"
+
+ 6> ssh:hostkey_fingerprint([sha,sha256],Key).
+ ["SHA1:bSLY/C4QXLDL/Iwmhyg0PGW9UbY",
+  "SHA256:aZGXhabfbf4oxglxltItWeHU7ub3Dc31NcNw2cMJePQ"]
+    </code>
+      </desc>
+    </func>
+
+
 
   </funcs>
   

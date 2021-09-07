@@ -82,7 +82,8 @@ XML_INTERNAL_FILES = \
 	PortSignals.xml		\
 	ProcessManagementOptimizations.xml \
 	SuperCarrier.xml        \
-	CountingInstructions.xml
+	CountingInstructions.xml\
+	BeamAsm.xml
 
 XML_CHAPTER_FILES = \
 	introduction.xml \
@@ -112,7 +113,8 @@ XML_FILES = \
 	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_REF1_FILES) $(XML_APPLICATION_FILES)
 
 HTML_EXTRA_FILES = $(ERL_TOP)/erts/example/time_compat.erl \
-	$(ERL_TOP)/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl
+	$(ERL_TOP)/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl \
+	$(ERL_TOP)/lib/kernel/examples/erl_uds_dist/src/erl_uds_dist.erl
 
 XML_GEN_FILES = $(XML_INTERNAL_FILES:%=$(XMLDIR)/%)
 
@@ -126,9 +128,9 @@ TOP_SPECS_FILE = specs.xml
 
 XML_FIGURE_DIR = $(XMLDIR)/figures
 
-INTERNAL_DOC_PNG_FILES = $(wildcard ../../emulator/internal_doc/figures/*.png)
-PNG_FILES = $(notdir $(INTERNAL_DOC_PNG_FILES))
-XMLDIR_PNG_FILES = $(PNG_FILES:%=$(XML_FIGURE_DIR)/%)
+INTERNAL_DOC_FIGURES = $(wildcard ../../emulator/internal_doc/figures/*.png) $(wildcard ../../emulator/internal_doc/figures/*.svg)
+FIGURES = $(notdir $(INTERNAL_DOC_FIGURES))
+XMLDIR_FIGURES = $(FIGURES:%=$(XML_FIGURE_DIR)/%)
 
 # ----------------------------------------------------
 # Targets
@@ -137,7 +139,7 @@ include $(ERL_TOP)/make/doc.mk
 
 _create_dirs := $(shell mkdir -p $(XML_FIGURE_DIR))
 
-$(XML_FIGURE_DIR)/%.png: ../../emulator/internal_doc/figures/%.png
+$(XML_FIGURE_DIR)/%: ../../emulator/internal_doc/figures/%
 	$(INSTALL_DATA) $< $@
 
 html: figures
@@ -145,7 +147,7 @@ html: figures
 $(INFO_FILE): $(INFO_FILE_SRC) $(ERL_TOP)/make/$(TARGET)/otp.mk
 	sed -e 's;%RELEASE%;$(SYSTEM_VSN);' $(INFO_FILE_SRC) > $(INFO_FILE)
 
-figures: $(XMLDIR_PNG_FILES)
+figures: $(XMLDIR_FIGURES)
 
 ## This rule generate dummy specs for all XML_REF3_CREF's
 $(XML_REF3_CREF:%.xml=$(SPECDIR)/specs_%.xml): $(@:%.xml=%.xml)
@@ -160,7 +162,7 @@ $(XMLDIR)/%.xml: ../../emulator/internal_doc/%.md $(ERL_TOP)/make/emd2exml
 # Release Target
 # ----------------------------------------------------
 
-release_html_spec: release_figures
+release_html_spec: html release_figures
 
 release_figures:
 	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html/figures"

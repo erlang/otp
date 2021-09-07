@@ -122,9 +122,12 @@ set(Tid,proxy,Config) ->
     ok;
 set(Tid,What,Config) ->
     LevelInt = level_to_int(maps:get(level,Config)),
+    %% Put either primary or handler level in pt cache
     ok = persistent_term:put({?MODULE,table_key(What)}, LevelInt),
     case What of
         primary ->
+            %% If we change primary level, then we need to flush
+            %% the module level cache.
             [persistent_term:put(Key,?PRIMARY_TO_CACHE(LevelInt))
              || {{?MODULE,Module} = Key,Level} <- persistent_term:get(),
                 ?IS_MODULE(Module), ?IS_CACHED(Level)],

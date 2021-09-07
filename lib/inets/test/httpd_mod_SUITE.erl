@@ -45,10 +45,9 @@ all() ->
 groups() ->
     [
      {http, [], all_version_groups()},
-     {https, [], all_version_groups()}
+     {https, [], all_version_groups()},
      {http_1_1, [], []},
      {http_1_0, [], []},
-     {http_0_9, [], []},
      {mod_alias, [], []},
      {mod_actions, [], []},
      {mod_security, [], []},

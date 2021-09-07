@@ -33,12 +33,15 @@ void erts_sched_bif_unique_init(ErtsSchedulerData *esdp);
 
 /* reference */
 Eterm erts_make_ref(Process *);
+Eterm erts_make_pid_ref(Process *);
 Eterm erts_make_ref_in_buffer(Eterm buffer[ERTS_REF_THING_SIZE]);
 void erts_make_ref_in_array(Uint32 ref[ERTS_REF_NUMBERS]);
 void erts_make_magic_ref_in_array(Uint32 ref[ERTS_REF_NUMBERS]);
 void erts_magic_ref_remove_bin(Uint32 refn[ERTS_REF_NUMBERS]);
 void erts_magic_ref_save_bin__(Eterm ref);
 ErtsMagicBinary *erts_magic_ref_lookup_bin__(Uint32 refn[ERTS_REF_NUMBERS]);
+void erts_pid_ref_delete(Eterm ref);
+Eterm erts_pid_ref_lookup__(Uint32 refn[ERTS_REF_NUMBERS]);
 
 
 /* strict monotonic counter */
@@ -76,30 +79,38 @@ Eterm erts_debug_make_unique_integer(Process *c_p,
 				     Eterm etval1);
 
 
-ERTS_GLB_INLINE void erts_set_ref_numbers(Uint32 ref[ERTS_REF_NUMBERS],
-					  Uint32 thr_id, Uint64 value);
-ERTS_GLB_INLINE Uint32 erts_get_ref_numbers_thr_id(Uint32 ref[ERTS_REF_NUMBERS]);
-ERTS_GLB_INLINE int erts_is_ref_numbers_magic(Uint32 ref[ERTS_REF_NUMBERS]);
-ERTS_GLB_INLINE Uint64 erts_get_ref_numbers_value(Uint32 ref[ERTS_REF_NUMBERS]);
+ERTS_GLB_INLINE void erts_set_ref_numbers(Uint32 *ref, Uint32 thr_id, Uint64 value);
+ERTS_GLB_INLINE Uint32 erts_get_ref_numbers_thr_id(Uint32 *ref);
+ERTS_GLB_INLINE int erts_is_ref_numbers_magic(Uint32 *ref);
+ERTS_GLB_INLINE int erts_is_pid_ref_numbers(Uint32 *ref);
+ERTS_GLB_INLINE int erts_is_ordinary_ref_numbers(Uint32 *ref);
+ERTS_GLB_INLINE Uint64 erts_get_ref_numbers_value(Uint32 *ref);
 ERTS_GLB_INLINE void erts_sched_make_ref_in_array(ErtsSchedulerData *esdp,
 						  Uint32 ref[ERTS_REF_NUMBERS]);
 ERTS_GLB_INLINE void erts_sched_make_magic_ref_in_array(ErtsSchedulerData *esdp,
 							Uint32 ref[ERTS_REF_NUMBERS]);
 ERTS_GLB_INLINE Eterm erts_sched_make_ref_in_buffer(ErtsSchedulerData *esdp,
 						    Eterm buffer[ERTS_REF_THING_SIZE]);
+ERTS_GLB_INLINE Eterm erts_mk_magic_ref_get_refc(Eterm * *hpp, ErlOffHeap * ohp, Binary*, erts_aint_t*);
 ERTS_GLB_INLINE Eterm erts_mk_magic_ref(Eterm **hpp, ErlOffHeap *ohp, Binary *mbp);
 ERTS_GLB_INLINE Binary *erts_magic_ref2bin(Eterm mref);
 ERTS_GLB_INLINE void erts_magic_ref_save_bin(Eterm ref);
 ERTS_GLB_INLINE ErtsMagicBinary *erts_magic_ref_lookup_bin(Uint32 ref[ERTS_REF_NUMBERS]);
+ERTS_GLB_INLINE Eterm erts_pid_ref_lookup(Uint32 *refn);
+ERTS_GLB_INLINE Eterm erts_get_pid_of_ref(Eterm ref);
 
 #define ERTS_REF1_MAGIC_MARKER_BIT_NO__ \
     (_REF_NUM_SIZE-1)
 #define ERTS_REF1_MAGIC_MARKER_BIT__ \
     (((Uint32) 1) << ERTS_REF1_MAGIC_MARKER_BIT_NO__)
+#define ERTS_REF1_PID_MARKER_BIT_NO__ \
+    (_REF_NUM_SIZE-2)
+#define ERTS_REF1_PID_MARKER_BIT__ \
+    (((Uint32) 1) << ERTS_REF1_PID_MARKER_BIT_NO__)
 #define ERTS_REF1_THR_ID_MASK__ \
-    (ERTS_REF1_MAGIC_MARKER_BIT__-1)
+    (ERTS_REF1_PID_MARKER_BIT__-1)
 #define ERTS_REF1_NUM_MASK__ \
-    (~(ERTS_REF1_THR_ID_MASK__|ERTS_REF1_MAGIC_MARKER_BIT__))
+    (~(ERTS_REF1_THR_ID_MASK__|ERTS_REF1_MAGIC_MARKER_BIT__|ERTS_REF1_PID_MARKER_BIT__))
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -120,19 +131,32 @@ erts_set_ref_numbers(Uint32 ref[ERTS_REF_NUMBERS], Uint32 thr_id, Uint64 value)
 }
 
 ERTS_GLB_INLINE Uint32
-erts_get_ref_numbers_thr_id(Uint32 ref[ERTS_REF_NUMBERS])
+erts_get_ref_numbers_thr_id(Uint32 *ref)
 {
     return ref[1] & ((Uint32) ERTS_REF1_THR_ID_MASK__);
 }
 
 ERTS_GLB_INLINE int
-erts_is_ref_numbers_magic(Uint32 ref[ERTS_REF_NUMBERS])
+erts_is_ref_numbers_magic(Uint32 *ref)
 {
     return !!(ref[1] & ERTS_REF1_MAGIC_MARKER_BIT__);
 }
 
+ERTS_GLB_INLINE int
+erts_is_pid_ref_numbers(Uint32 *ref)
+{
+    return !!(ref[1] & ERTS_REF1_PID_MARKER_BIT__);
+}
+
+ERTS_GLB_INLINE int
+erts_is_ordinary_ref_numbers(Uint32 *ref)
+{
+    return !(ref[1] & (ERTS_REF1_MAGIC_MARKER_BIT__
+                       | ERTS_REF1_PID_MARKER_BIT__));
+}
+
 ERTS_GLB_INLINE Uint64
-erts_get_ref_numbers_value(Uint32 ref[ERTS_REF_NUMBERS])
+erts_get_ref_numbers_value(Uint32 *ref)
 {
     ERTS_CT_ASSERT((ERTS_REF1_NUM_MASK__ | REF_MASK) == 0xffffffff);
     ERTS_CT_ASSERT((ERTS_REF1_NUM_MASK__ & REF_MASK) == 0);
@@ -175,15 +199,24 @@ erts_sched_make_ref_in_buffer(ErtsSchedulerData *esdp,
 }
 
 ERTS_GLB_INLINE Eterm
-erts_mk_magic_ref(Eterm **hpp, ErlOffHeap *ohp, Binary *bp)
+erts_mk_magic_ref_get_refc(Eterm **hpp, ErlOffHeap *ohp, Binary *bp, erts_aint_t* refcp)
 {
     Eterm *hp = *hpp;
     ASSERT(bp->intern.flags & BIN_FLAG_MAGIC);
     write_magic_ref_thing(hp, ohp, (ErtsMagicBinary *) bp);
     *hpp += ERTS_MAGIC_REF_THING_SIZE;
-    erts_refc_inc(&bp->intern.refc, 1);
+    if (refcp)
+        *refcp = erts_refc_inctest(&bp->intern.refc, 1);
+    else
+        erts_refc_inc(&bp->intern.refc, 1);
     OH_OVERHEAD(ohp, bp->orig_size / sizeof(Eterm));
     return make_internal_ref(hp);
+}
+
+ERTS_GLB_INLINE Eterm
+erts_mk_magic_ref(Eterm **hpp, ErlOffHeap *ohp, Binary *bp)
+{
+    return erts_mk_magic_ref_get_refc(hpp, ohp, bp, NULL);
 }
 
 ERTS_GLB_INLINE Binary *
@@ -218,6 +251,27 @@ erts_magic_ref_lookup_bin(Uint32 ref[ERTS_REF_NUMBERS])
     return erts_magic_ref_lookup_bin__(ref);
 }
 
+/*
+ * Look up pid of a pid ref when the ref comes
+ * from the outside world...
+ */
+ERTS_GLB_INLINE Eterm
+erts_pid_ref_lookup(Uint32 *refn)
+{
+    if (!erts_is_pid_ref_numbers(refn))
+	return THE_NON_VALUE;
+    return erts_pid_ref_lookup__(refn);
+}
+
+ERTS_GLB_INLINE Eterm erts_get_pid_of_ref(Eterm ref)
+{
+    if (is_internal_pid_ref(ref))
+        return pid_ref_thing_get_pid(internal_ref_val(ref));
+    if (is_ref(ref))
+        return am_undefined;
+    return THE_NON_VALUE;
+}
+
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
@@ -232,14 +286,13 @@ erts_magic_ref_lookup_bin(Uint32 ref[ERTS_REF_NUMBERS])
 #  error fix this...
 #endif
 
-ERTS_GLB_INLINE int erts_internal_ref_number_cmp(Uint32 num1[ERTS_REF_NUMBERS],
-						 Uint32 num2[ERTS_REF_NUMBERS]);
+ERTS_GLB_INLINE int erts_internal_ref_number_cmp(Uint32 *num1, Uint32 *num2);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE int
-erts_internal_ref_number_cmp(Uint32 num1[ERTS_REF_NUMBERS],
-			     Uint32 num2[ERTS_REF_NUMBERS])
+erts_internal_ref_number_cmp(Uint32 *num1,
+			     Uint32 *num2)
 {
     if (num1[2] != num2[2])
 	return num1[2] > num2[2] ? 1 : -1;
@@ -254,10 +307,11 @@ erts_internal_ref_number_cmp(Uint32 num1[ERTS_REF_NUMBERS],
 
 /* Iref storage for all internal references... */ 
 typedef struct {
-    Uint32 is_magic;
+    Uint16 is_magic;
+    Uint16 is_pid_ref;
     union {
 	ErtsMagicBinary *mb;
-	Uint32 num[ERTS_REF_NUMBERS];
+	Uint32 num[ERTS_MAX_INTERNAL_REF_NUMBERS];
     } u;
 } ErtsIRefStorage;
 
@@ -285,12 +339,34 @@ erts_iref_storage_save(ErtsIRefStorage *iref, Eterm ref)
 
     hp = boxed_val(ref);
 
+    iref->is_magic = 0;
+    iref->is_pid_ref = 0;
     if (is_ordinary_ref_thing(hp)) {
 	ErtsORefThing *rtp = (ErtsORefThing *) hp;
-	iref->is_magic = 0;
 	iref->u.num[0] = rtp->num[0];
 	iref->u.num[1] = rtp->num[1];
 	iref->u.num[2] = rtp->num[2];
+    }
+    else if (is_pid_ref_thing(hp)) {
+	ErtsPRefThing *prtp = (ErtsPRefThing *) hp;
+	iref->is_pid_ref = 1;
+	iref->u.num[0] = prtp->num[0];
+	iref->u.num[1] = prtp->num[1];
+	iref->u.num[2] = prtp->num[2];
+	iref->u.num[3] = prtp->num[3];
+#if defined(ARCH_64)
+	iref->u.num[4] = prtp->num[4];
+
+# if ERTS_PID_REF_NUMBERS != 5
+#  error fix this
+# endif
+
+#else /* ARCH_32 */
+
+# if ERTS_PID_REF_NUMBERS != 4
+#  error fix this
+# endif
+#endif
     }
     else {
 	ErtsMRefThing *mrtp = (ErtsMRefThing *) hp;
@@ -314,7 +390,11 @@ erts_iref_storage_clean(ErtsIRefStorage *iref)
 ERTS_GLB_INLINE Uint
 erts_iref_storage_heap_size(ErtsIRefStorage *iref)
 {
-    return iref->is_magic ? ERTS_MAGIC_REF_THING_SIZE : ERTS_REF_THING_SIZE;
+    if (iref->is_magic)
+        return ERTS_MAGIC_REF_THING_SIZE;
+    if (iref->is_pid_ref)
+        return ERTS_PID_REF_THING_SIZE;
+    return ERTS_REF_THING_SIZE;
 }
 
 ERTS_GLB_INLINE Eterm
@@ -323,10 +403,19 @@ erts_iref_storage_make_ref(ErtsIRefStorage *iref,
 			   int clean_storage)
 {
     Eterm *hp = *hpp;
-    if (!iref->is_magic) {
+    if (!iref->is_magic && !iref->is_pid_ref) {
 	write_ref_thing(hp, iref->u.num[0], iref->u.num[1],
 			iref->u.num[2]);
 	*hpp += ERTS_REF_THING_SIZE;
+    }
+    else if (iref->is_pid_ref) {
+        Eterm pid = (Eterm) iref->u.num[3];
+#if defined(ARCH_64)
+        pid |= ((Eterm) iref->u.num[4]) << 32;
+#endif
+	write_pid_ref_thing(hp, iref->u.num[0], iref->u.num[1],
+                            iref->u.num[2], pid);
+	*hpp += ERTS_PID_REF_THING_SIZE;        
     }
     else {
 	write_magic_ref_thing(hp, ohp, iref->u.mb);
@@ -409,14 +498,14 @@ erts_oiref_storage_cmp(ErtsOIRefStorage *oiref1,
 
 
 ERTS_GLB_INLINE Eterm
-erts_proc_store_ref(Process *c_p, Uint32 ref[ERTS_MAX_REF_NUMBERS]);
+erts_proc_store_ref(Process *c_p, Uint32 *ref);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE Eterm
-erts_proc_store_ref(Process *c_p, Uint32 ref[ERTS_MAX_REF_NUMBERS])
+erts_proc_store_ref(Process *c_p, Uint32 *ref)
 {
-    Eterm *hp = HAlloc(c_p, ERTS_REF_THING_SIZE);
+    Eterm *hp = HAlloc(c_p, (Sint)ERTS_REF_THING_SIZE);
     write_ref_thing(hp, ref[0], ref[1], ref[2]);
     return make_internal_ref(hp);
 }
@@ -436,5 +525,11 @@ typedef struct {
     ErtsMagicBinary *mb;
     Uint64 value;
 } ErtsNSchedMagicRefTableEntry;
+
+typedef struct {
+    HashBucket hash;
+    Eterm pid;
+    Uint64 value;
+} ErtsNSchedPidRefTableEntry;
 
 #endif

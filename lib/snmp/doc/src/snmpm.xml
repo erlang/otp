@@ -1516,7 +1516,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name since="">restart(Ref) -> void()</name>
+      <name since="OTP 22.3">restart(Ref) -> void()</name>
       <fsummary>Restart the indicated process</fsummary>
       <type>
         <v>Ref = net_if</v>

@@ -310,7 +310,7 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
     long iterations_until_trap;
     long max_iterations;
 #define PUT_TRAP_CODE                                                   \
-    BIF_TRAP2(&bif_trap_export[BIF_persistent_term_put_2], BIF_P, state_mref, BIF_ARG_2)
+    BIF_TRAP2(BIF_TRAP_EXPORT(BIF_persistent_term_put_2), BIF_P, state_mref, BIF_ARG_2)
 #define TRAPPING_COPY_TABLE_PUT(TABLE_DEST, OLD_TABLE, NEW_SIZE, COPY_TYPE, LOC_NAME) \
     TRAPPING_COPY_TABLE(TABLE_DEST, OLD_TABLE, NEW_SIZE, COPY_TYPE, LOC_NAME, PUT_TRAP_CODE)
 
@@ -351,7 +351,7 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
 
 
     if (!try_seize_update_permission(BIF_P)) {
-	ERTS_BIF_YIELD2(&bif_trap_export[BIF_persistent_term_put_2],
+	ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_persistent_term_put_2),
                         BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
     ctx->hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
@@ -439,7 +439,7 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
 
 BIF_RETTYPE persistent_term_get_0(BIF_ALIST_0)
 {
-    HashTable* hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
+    HashTable* hash_table;
     TrapData* trap_data;
     Eterm res = NIL;
     Eterm magic_ref;
@@ -447,8 +447,10 @@ BIF_RETTYPE persistent_term_get_0(BIF_ALIST_0)
 
     /* Prevent concurrent updates to get a consistent view */
     if (!try_seize_update_permission(BIF_P)) {
-        ERTS_BIF_YIELD0(&bif_trap_export[BIF_persistent_term_get_0], BIF_P);
+        ERTS_BIF_YIELD0(BIF_TRAP_EXPORT(BIF_persistent_term_get_0), BIF_P);
     }
+
+    hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
 
     magic_ref = alloc_trap_data(BIF_P);
     mbp = erts_magic_ref2bin(magic_ref);
@@ -535,7 +537,7 @@ BIF_RETTYPE persistent_term_erase_1(BIF_ALIST_1)
             ITERATIONS_PER_RED * ERTS_BIF_REDS_LEFT(BIF_P);
 #endif
 #define ERASE_TRAP_CODE                                                 \
-        BIF_TRAP1(&bif_trap_export[BIF_persistent_term_erase_1], BIF_P, state_mref);
+        BIF_TRAP1(BIF_TRAP_EXPORT(BIF_persistent_term_erase_1), BIF_P, state_mref);
 #define TRAPPING_COPY_TABLE_ERASE(TABLE_DEST, OLD_TABLE, NEW_SIZE, REHASH, LOC_NAME) \
         TRAPPING_COPY_TABLE(TABLE_DEST, OLD_TABLE, NEW_SIZE, REHASH, LOC_NAME, ERASE_TRAP_CODE)
     if (is_internal_magic_ref(BIF_ARG_1) &&
@@ -570,7 +572,7 @@ BIF_RETTYPE persistent_term_erase_1(BIF_ALIST_1)
         ctx->tmp_table = NULL;
     }
     if (!try_seize_update_permission(BIF_P)) {
-	ERTS_BIF_YIELD1(&bif_trap_export[BIF_persistent_term_erase_1],
+	ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_persistent_term_erase_1),
                         BIF_P, BIF_ARG_1);
     }
 
@@ -659,7 +661,7 @@ BIF_RETTYPE erts_internal_erase_persistent_terms_0(BIF_ALIST_0)
     HashTable* new_table;
 
     if (!try_seize_update_permission(BIF_P)) {
-	ERTS_BIF_YIELD0(&bif_trap_export[BIF_erts_internal_erase_persistent_terms_0],
+	ERTS_BIF_YIELD0(BIF_TRAP_EXPORT(BIF_erts_internal_erase_persistent_terms_0),
                         BIF_P);
     }
     old_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
@@ -673,7 +675,7 @@ BIF_RETTYPE erts_internal_erase_persistent_terms_0(BIF_ALIST_0)
 
 BIF_RETTYPE persistent_term_info_0(BIF_ALIST_0)
 {
-    HashTable* hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
+    HashTable* hash_table;
     TrapData* trap_data;
     Eterm res = NIL;
     Eterm magic_ref;
@@ -681,8 +683,10 @@ BIF_RETTYPE persistent_term_info_0(BIF_ALIST_0)
 
     /* Prevent concurrent updates to get a consistent view */
     if (!try_seize_update_permission(BIF_P)) {
-        ERTS_BIF_YIELD0(&bif_trap_export[BIF_persistent_term_info_0], BIF_P);
+        ERTS_BIF_YIELD0(BIF_TRAP_EXPORT(BIF_persistent_term_info_0), BIF_P);
     }
+
+    hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
 
     magic_ref = alloc_trap_data(BIF_P);
     mbp = erts_magic_ref2bin(magic_ref);
@@ -1479,5 +1483,19 @@ erts_debug_foreach_persistent_term_off_heap(void (*func)(ErlOffHeap *, void *),
     accessed_no_literal_areas = 0;
     accessed_literal_areas_size = 0;
     accessed_literal_areas = NULL;
+}
+
+Eterm erts_debug_persistent_term_xtra_info(Process* c_p)
+{
+    HashTable* hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
+    Uint hsz = MAP_SZ(1);
+    Eterm *hp;
+    Eterm buckets, res;
+
+    (void) erts_bld_uint(NULL, &hsz, hash_table->allocated);
+    hp = HAlloc(c_p, hsz);
+    buckets = erts_bld_uint(&hp, NULL, hash_table->allocated);
+    res = MAP1(hp, am_table, buckets);
+    BIF_RET(res);
 }
 

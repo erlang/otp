@@ -21,7 +21,7 @@
 -define(DEFAULT_TIMETRAP_SECS, 60).
 
 %%% TEST_SERVER_CTRL INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--export([run_test_case_apply/1,init_target_info/0,init_valgrind/0]).
+-export([run_test_case_apply/1,init_target_info/0,init_memory_checker/0]).
 -export([cover_compile/1,cover_analyse/2]).
 
 %%% TEST_SERVER_SUP INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -41,17 +41,14 @@
 -export([temp_name/1]).
 -export([start_node/3, stop_node/1, wait_for_node/1, is_release_available/1]).
 -export([app_test/1, app_test/2, appup_test/1]).
--export([is_native/1]).
 -export([comment/1, make_priv_dir/0]).
 -export([os_type/0]).
 -export([run_on_shielded_node/2]).
 -export([is_cover/0,is_debug/0,is_commercial/0]).
 
 -export([break/1,break/2,break/3,continue/0,continue/1]).
+-export([memory_checker/0, is_valgrind/0, is_asan/0]).
 
-%%% DEBUGGER INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--export([valgrind_new_leaks/0, valgrind_format/2,
-	 is_valgrind/0]).
 
 %%% PRIVATE EXPORTED %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([]).
@@ -59,6 +56,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -include("test_server_internal.hrl").
 -include_lib("kernel/include/file.hrl").
+
 
 init_target_info() ->
     [$.|Emu] = code:objfile_extension(),
@@ -73,8 +71,8 @@ init_target_info() ->
 		 username=test_server_sup:get_username(),
 		 cookie=atom_to_list(erlang:get_cookie())}.
 
-init_valgrind() ->
-    valgrind_new_leaks().
+init_memory_checker() ->
+    check_memory_leaks().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -367,19 +365,50 @@ stick_all_sticky(Node,Sticky) ->
 %% cover.
 
 run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,TimetrapData}) ->
-    case is_valgrind() of
-	false ->
-	    ok;
-	true ->
-            valgrind_format("Test case #~w ~w:~w/1", [CaseNum, Mod, Func]),
-	    os:putenv("VALGRIND_LOGFILE_INFIX",atom_to_list(Mod)++"."++
-		      atom_to_list(Func)++"-")
-    end,
+    MC = case {Func, memory_checker()} of
+             {init_per_suite, _} -> none;  % skip init/end_per_suite/group
+             {init_per_group, _} -> none;  % as CaseNum is always 0
+             {end_per_group, _} -> none;
+             {end_per_suite, _} -> none;
+             {_, valgrind} ->
+                 valgrind_format("Test case #~w ~w:~w/1", [CaseNum, Mod, Func]),
+                 os:putenv("VALGRIND_LOGFILE_INFIX",atom_to_list(Mod)++"."++
+                               atom_to_list(Func)++"-"),
+                 valgrind;
+             {_, asan} ->
+                 %% Address sanitizer does not support printf in log file
+                 %% but it lets us change the log file on the fly. So we use
+                 %% that to give each test case its own log file.
+                 case asan_take_logpath() of
+                     false -> false;
+                     {LogPath, OtherOpts} ->
+                         LogDir = filename:dirname(LogPath),
+                         LogFile = filename:basename(LogPath),
+                         [Exe, App | _ ] = string:lexemes(LogFile, "-"),
+                         NewLogFile = io_lib:format("~s-~s-tc-~4..0w-~w-~w",
+                                                    [Exe,App,CaseNum, Mod, Func]),
+                         NewLogPath = filename:join(LogDir, NewLogFile),
+
+                         %% Do leak check and then change asan log file
+                         %% for this running beam executable.
+                         erlang:system_info({memory_checker, check_leaks}),
+                         _PrevLog = erlang:system_info({memory_checker, log, NewLogPath}),
+
+                         %% Set log file name for subnodes
+                         %% that may be created by this test case
+                         NewOpts = asan_make_opts(["log_path="++NewLogPath++".subnode"
+                                                   | OtherOpts]),
+                         os:putenv("ASAN_OPTIONS", NewOpts)
+                 end,
+                 asan;
+             {_, none} ->
+                 node
+         end,
     ProcBef = erlang:system_info(process_count),
     Result = run_test_case_apply(Mod, Func, Args, Name, RunInit,
 				 TimetrapData),
     ProcAft = erlang:system_info(process_count),
-    valgrind_new_leaks(),
+    check_memory_leaks(MC),
     DetFail = get(test_server_detected_fail),
     {Result,DetFail,ProcBef,ProcAft}.
 
@@ -2053,7 +2082,8 @@ timetrap_scale_factor() ->
 	{ 3, fun() -> has_superfluous_schedulers() end},
 	{ 6, fun() -> is_debug() end},
 	{10, fun() -> is_cover() end},
-        {10, fun() -> is_valgrind() end}
+        {10, fun() -> is_valgrind() end},
+        {2,  fun() -> is_asan() end}
     ]).
 
 timetrap_scale_factor(Scales) ->
@@ -2851,14 +2881,6 @@ appup_test(App) ->
     test_server_sup:appup_test(App).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% is_native(Mod) -> true | false
-%%
-%% Checks wether the module is natively compiled or not.
-
-is_native(Mod) ->
-    (catch Mod:module_info(native)) =:= true.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% comment(String) -> ok
 %%
 %% The given String will occur in the comment field
@@ -2962,10 +2984,19 @@ is_commercial() ->
 %%
 %% Returns true if valgrind is running, else false
 is_valgrind() ->
-    case catch erlang:system_info({valgrind, running}) of
-	{'EXIT', _} -> false;
-	Res -> Res
+    memory_checker() =:= valgrind.
+
+%% Returns true if address-sanitizer is running, else false
+is_asan() ->
+    memory_checker() =:= asan.
+
+%% Returns the error checker running (valgrind | asan | none).
+memory_checker() ->
+    case catch erlang:system_info({memory_checker, running}) of
+	{'EXIT', _} -> none;
+        EC -> EC
     end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                     DEBUGGER INTERFACE                    %%
@@ -2973,11 +3004,16 @@ is_valgrind() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% valgrind_new_leaks() -> ok
+%% check_memory_leaks() -> ok
 %%
-%% Checks for new memory leaks if Valgrind is active.
-valgrind_new_leaks() ->
-    catch erlang:system_info({valgrind, memory}),
+%% Checks for memory leaks if Valgrind or Address-sanitizer is active.
+check_memory_leaks() ->
+    check_memory_leaks(memory_checker()).
+
+check_memory_leaks(valgrind) ->
+    catch erlang:system_info({memory_checker, check_leaks}),
+    ok;
+check_memory_leaks(_) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2987,9 +3023,31 @@ valgrind_new_leaks() ->
 %%
 %% Outputs the formatted string to Valgrind's logfile,if Valgrind is active.
 valgrind_format(Format, Args) ->
-    (catch erlang:system_info({valgrind, io_lib:format(Format, Args)})),
+    (catch erlang:system_info({memory_checker, print, io_lib:format(Format, Args)})),
     ok.
 
+asan_take_logpath() ->
+    case os:getenv("ASAN_OPTIONS") of
+        false -> false;
+        S ->
+            Opts = string:lexemes(S, ":"),
+            asan_take_logpath_loop(Opts, [])
+    end.
+
+asan_take_logpath_loop(["log_path="++LogPath | T], Acc) ->
+    {LogPath, T ++ Acc};
+asan_take_logpath_loop([Opt | T], Acc) ->
+    asan_take_logpath_loop(T, [Opt | Acc]);
+asan_take_logpath_loop([], _) ->
+    false.
+
+asan_make_opts([A|T]) ->
+    asan_make_opts(T, A).
+
+asan_make_opts([], Acc) ->
+    Acc;
+asan_make_opts([A|T], Acc) ->
+    asan_make_opts(T, A ++ [$: | Acc]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -328,8 +328,7 @@
     <c>segmentation package</c> was introduced.
     Simply, this package defines a procedure to segment 
     megaco messages (transaction replies) when using a transport that 
-    does not automatically do this (e.g. UDP). See also
-    <seeguide marker="megaco_encode#handling_versions">version3</seeguide>.</p>
+    does not automatically do this (e.g. UDP).</p>
     <p>Although it would be both pointless and counterproductive to use
     segmentation on a transport that already does this (e.g. TCP), the 
     megaco application does not check this. Instead, it is up to the 

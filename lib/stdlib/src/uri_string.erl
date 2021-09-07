@@ -226,10 +226,21 @@
 %%-------------------------------------------------------------------------
 %% External API
 %%-------------------------------------------------------------------------
--export([compose_query/1, compose_query/2,
-         dissect_query/1, normalize/1, normalize/2, parse/1,
-         recompose/1, resolve/2, resolve/3, transcode/2]).
--export_type([error/0, uri_map/0, uri_string/0]).
+-export([allowed_characters/0,
+         compose_query/1,
+         compose_query/2,
+         dissect_query/1,
+         normalize/1,
+         normalize/2,
+         percent_decode/1,
+         parse/1,
+         recompose/1,
+         resolve/2,
+         resolve/3,
+         transcode/2]).
+-export_type([error/0,
+              uri_map/0,
+              uri_string/0]).
 
 
 %%-------------------------------------------------------------------------
@@ -286,7 +297,7 @@
     port => non_neg_integer() | undefined,
     query => unicode:chardata(),
     scheme => unicode:chardata(),
-    userinfo => unicode:chardata()} | #{}.
+    userinfo => unicode:chardata()}.
 
 
 %%-------------------------------------------------------------------------
@@ -451,6 +462,61 @@ transcode(URIString, Options) when is_list(URIString) ->
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end.
 
+
+%%-------------------------------------------------------------------------
+%% Misc
+%%-------------------------------------------------------------------------
+-spec allowed_characters() -> [{atom(), list()}].
+allowed_characters() ->
+    Input = lists:seq(0,127),
+    Scheme = lists:filter(fun is_scheme/1, Input),
+    UserInfo = lists:filter(fun is_userinfo/1, Input),
+    Host = lists:filter(fun is_host/1, Input),
+    IPv4 = lists:filter(fun is_ipv4/1, Input),
+    IPv6 = lists:filter(fun is_ipv6/1, Input),
+    RegName = lists:filter(fun is_reg_name/1, Input),
+    Path = lists:filter(fun is_path/1, Input),
+    Query = lists:filter(fun is_query/1, Input),
+    Fragment = lists:filter(fun is_fragment/1, Input),
+    Reserved = lists:filter(fun is_reserved/1, Input),
+    Unreserved = lists:filter(fun is_unreserved/1, Input),
+    [{scheme, Scheme},
+     {userinfo, UserInfo},
+     {host, Host},
+     {ipv4, IPv4},
+     {ipv6, IPv6},
+     {regname,RegName},
+     {path,Path},
+     {query, Query},
+     {fragment,Fragment},
+     {reserved, Reserved},
+     {unreserved, Unreserved}].
+
+-spec percent_decode(URI) -> Result when
+      URI :: uri_string() | uri_map(),
+      Result :: uri_string() |
+                uri_map() |
+                {error, {invalid, {atom(), {term(), term()}}}}.
+percent_decode(URIMap) when is_map(URIMap)->
+    Fun = fun (K,V) when K =:= userinfo; K =:= host; K =:= path;
+                         K =:= query; K =:= fragment ->
+                  case raw_decode(V) of
+                      {error, Reason, Input} ->
+                          throw({error, {invalid, {K, {Reason, Input}}}});
+                      Else ->
+                          Else
+                  end;
+              %% Handle port and scheme
+              (_,V) ->
+                  V
+          end,
+    try maps:map(Fun, URIMap)
+    catch throw:Return ->
+            Return
+    end;
+percent_decode(URI) when is_list(URI) orelse
+                         is_binary(URI) ->
+    raw_decode(URI).
 
 %%-------------------------------------------------------------------------
 %% Functions for working with the query part of a URI as a list
@@ -1421,8 +1487,15 @@ decode(<<$%,C0,C1,Cs/binary>>, Acc) ->
     case is_hex_digit(C0) andalso is_hex_digit(C1) of
         true ->
             B = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
-            case is_reserved(B) of
-                true ->
+            %% [2.4] When a URI is dereferenced, the components and subcomponents
+            %% significant to the scheme-specific dereferencing process (if any)
+            %% must be parsed and separated before the percent-encoded octets within
+            %% those components can be safely decoded, as otherwise the data may be
+            %% mistaken for component delimiters.  The only exception is for
+            %% percent-encoded octets corresponding to characters in the unreserved
+            %% set, which can be decoded at any time.
+            case is_unreserved(B) of
+                false ->
                     %% [2.2] Characters in the reserved set are protected from
                     %% normalization.
                     %% [2.1] For consistency, URI producers and normalizers should
@@ -1431,7 +1504,7 @@ decode(<<$%,C0,C1,Cs/binary>>, Acc) ->
                     H0 = hex_to_upper(C0),
                     H1 = hex_to_upper(C1),
                     decode(Cs, <<Acc/binary,$%,H0,H1>>);
-                false ->
+                true ->
                     decode(Cs, <<Acc/binary, B>>)
             end;
         false -> throw({error,invalid_percent_encoding,<<$%,C0,C1>>})
@@ -1439,6 +1512,32 @@ decode(<<$%,C0,C1,Cs/binary>>, Acc) ->
 decode(<<C,Cs/binary>>, Acc) ->
     decode(Cs, <<Acc/binary, C>>);
 decode(<<>>, Acc) ->
+    check_utf8(Acc).
+
+-spec raw_decode(list()|binary()) -> list() | binary() | error().
+raw_decode(Cs) ->
+    raw_decode(Cs, <<>>).
+%%
+raw_decode(L, Acc) when is_list(L) ->
+    try
+        B0 = unicode:characters_to_binary(L),
+        B1 = raw_decode(B0, Acc),
+        unicode:characters_to_list(B1)
+    catch
+        throw:{error, Atom, RestData} ->
+            {error, Atom, RestData}
+    end;
+raw_decode(<<$%,C0,C1,Cs/binary>>, Acc) ->
+    case is_hex_digit(C0) andalso is_hex_digit(C1) of
+        true ->
+            B = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
+            raw_decode(Cs, <<Acc/binary, B>>);
+        false ->
+            throw({error,invalid_percent_encoding,<<$%,C0,C1>>})
+    end;
+raw_decode(<<C,Cs/binary>>, Acc) ->
+    raw_decode(Cs, <<Acc/binary, C>>);
+raw_decode(<<>>, Acc) ->
     check_utf8(Acc).
 
 %% Returns Cs if it is utf8 encoded.
@@ -1681,7 +1780,8 @@ update_path(#{path := Path}, empty) ->
     encode_path(Path);
 update_path(#{host := _, path := Path0}, URI) ->
     %% When host is present in a URI the path must begin with "/" or be empty.
-    Path = make_path_absolute(Path0),
+    Path1 = maybe_flatten_list(Path0),
+    Path = make_path_absolute(Path1),
     concat(URI,encode_path(Path));
 update_path(#{path := Path}, URI) ->
     concat(URI,encode_path(Path));
@@ -1784,6 +1884,11 @@ make_path_absolute(Path) when is_binary(Path) ->
     concat(<<$/>>, Path);
 make_path_absolute(Path) when is_list(Path) ->
     concat("/", Path).
+
+maybe_flatten_list(Path) when is_binary(Path) ->
+    Path;
+maybe_flatten_list(Path) ->
+    unicode:characters_to_list(Path).
 
 %%-------------------------------------------------------------------------
 %% Helper functions for resolve
@@ -1897,7 +2002,7 @@ transcode_pct([], Acc, B, InEncoding, OutEncoding) ->
     OutBinary = convert_to_binary(B, InEncoding, OutEncoding),
     PctEncUtf8 = percent_encode_segment(OutBinary),
     Out = convert_to_list(PctEncUtf8, utf8),
-    lists:reverse(Acc) ++ Out.
+    lists:reverse(Acc, Out).
 
 
 %% Convert to binary
@@ -1932,7 +2037,7 @@ flatten_list(L, InEnc) ->
 %%
 flatten_list([H|T], InEnc, Acc) when is_binary(H) ->
     L = convert_to_list(H, InEnc),
-    flatten_list(T, InEnc, lists:reverse(L) ++ Acc);
+    flatten_list(T, InEnc, lists:reverse(L, Acc));
 flatten_list([H|T], InEnc, Acc) when is_list(H) ->
     flatten_list(H ++ T, InEnc, Acc);
 flatten_list([H|T], InEnc, Acc) ->
@@ -1952,7 +2057,7 @@ percent_encode_segment(Segment) ->
 %%-------------------------------------------------------------------------
 
 %% Returns separator to be used between key-value pairs
-get_separator(L) when length(L) =:= 0 ->
+get_separator([]) ->
     <<>>;
 get_separator(_L) ->
     <<"&">>.

@@ -188,22 +188,46 @@ in the snmp_config file!
       <tag><marker id="agent_orig_disco_opts"></marker>
         <c><![CDATA[agent_originating_discovery_opts() = [agent_originating_discovery_opt()] <optional>]]></c></tag>
       <item>
-        <p><c>agent_originating_discovery_opt() = 
-          {enable, boolean()}</c></p>
-        <p>These are options effecting discovery <c>originating</c> in this
-          agent. </p>
-        <p>The default values for the <c>originating</c> 
-          discovery options are: </p>
-        <list type="bulleted">
-          <item>enable: <c>true</c></item>
+	<p><c>agent_originating_discovery_opt() = {enable, boolean()}</c></p>
+	<p>These are options effecting discovery <c>originating</c> in this
+	agent. </p>
+	<p>The default values for the <c>originating</c>
+	discovery options are: </p>
+	<list type="bulleted">
+	  <item>enable: <c>true</c></item>
         </list>
       </item>
 
       <tag><marker id="agent_mt"></marker>
-        <c><![CDATA[multi_threaded() = bool() <optional>]]></c></tag>
+        <c><![CDATA[multi_threaded() = bool() | extended <optional>]]></c></tag>
       <item>
-        <p>If <c>true</c>, the agent is multi-threaded, with one
-          thread for each get request. </p>
+	<p>If <c>true</c> (or <c>extended</c>), the agent is multi-threaded,
+	with one thread for each get request.</p>
+	<p>The value <c>extended</c> means that a special 'process'
+	is also created intended to handle <em>all</em> notifications. </p>
+        <list>
+	  <item>
+	    <p><c>true</c> - One worker dedicated to 'set-requests' and one
+	    (main) worker for all other requests ('get-request' and
+	    notifications).</p>
+	    <p>If the 'main' worker is busy, a temporary process is
+	    spawned to handle that job ('get-request' or notification). </p>
+	  </item>
+	  <item>
+	    <p><c>extended</c> - One worker dedicated to 'set-requests',
+	    one worker dedicated to notifications and one
+	    (main) worker for all 'get-requests'. </p>
+	    <p>If the 'main' worker is busy, a temporary process is
+	    spawned to handle that 'get-request'. </p>
+	  </item>
+	</list>
+	<note>
+	  <p>Even with multi-threaded set to <c>extended</c>
+	  there is still a risk for 'reorder' when sending inform-requsts,
+	  which require a response (and may therefor require resending). </p>
+	  <p>Also, there is of  course no way to guarantee order once the
+	  package is on the network. </p>
+	</note>
         <p>Default is <c>false</c>.</p>
       </item>
 
@@ -270,17 +294,26 @@ in the snmp_config file!
       <tag><marker id="agent_ni_opts"></marker>
         <c><![CDATA[agent_net_if_options() = [agent_net_if_option()] <optional>]]></c></tag>
       <item>
-        <p><c>agent_net_if_option() = {bind_to, bind_to()} |  
-            {sndbuf,          sndbuf()} |  
-            {recbuf,          recbuf()} |  
-            {no_reuse,        no_reuse()} |  
-	    {req_limit,       req_limit()} |
-            {filter,          agent_net_if_filter_options()} |
-	    {extra_sock_opts, extra_socket_options()}</c></p>
-        <p>These options are actually specific to the used module.
-          The ones shown here are applicable to the default 
-          <c>agent_net_if_module()</c>.</p>
-        <p>For defaults see the options in <c>agent_net_if_option()</c>.</p>
+	<p><c>agent_net_if_option() =
+	{bind_to,         bind_to()} |  
+	{sndbuf,          sndbuf()} |  
+	{recbuf,          recbuf()} |  
+	{no_reuse,        no_reuse()} |  
+	{req_limit,       req_limit()} |
+	{filter,          agent_net_if_filter_options()} |
+	{extra_sock_opts, extra_socket_options()} |
+	{inet_backend,    inet | socket}</c></p>
+	<p>These options are actually specific to the used module.
+	The ones shown here are applicable to the default 
+	<c>agent_net_if_module()</c>.</p>
+	<note>
+	  <p>If the user has configured transports <em>with</em> options
+	  then those will take precedence over these options.
+	  See
+	  <seeguide marker="snmp_agent_config_files#agent_information">agent information</seeguide>
+	  for more info. </p>
+	</note>
+	<p>For defaults see the options in <c>agent_net_if_option()</c>.</p>
       </item>
 
       <tag><marker id="agent_ni_req_limit"></marker>
@@ -526,14 +559,20 @@ in the snmp_config file!
       </item>
 
       <tag><marker id="agent_ms_cache_gclimit"></marker>
-        <c><![CDATA[mibs_cache_gclimit() = integer() > 0 | infinity <optional>]]></c></tag>
+        <c><![CDATA[mibs_cache_gclimit() = infinity | integer() > 0 <optional>]]></c></tag>
       <item>
         <p>When performing a GC, this is the max number of cache entries 
 	that will be deleted from the cache. </p>
-        <p>The reason for having this limit is that if the cache is 
+
+	<p>The reason why its possible to set a limit, is that if the cache is 
 	large, the GC can potentially take a long time, during which 
-	the agent is locked. </p>
-	<p>Default is <c>100</c>.</p>
+	the agent is "busy".
+	<em>But</em> on a heavily loaded system, we also risk not removing
+	enough elements in the cache, instead causing it to grow over time.
+	This is the reason the default value is <c>infinity</c>, which will
+	ensure that <em>all</em> candidates are removed as soon as possible. </p>
+
+	<p>Default is <c>infinity</c>.</p>
       </item>
 
       <tag><marker id="agent_error_report_mod"></marker>
@@ -759,12 +798,14 @@ in the snmp_config file!
       <tag><marker id="manager_ni_opts"></marker>
         <c><![CDATA[manager_net_if_options() = [manager_net_if_option()] <optional>]]></c></tag>
       <item>
-        <p><c>manager_net_if_option() = {bind_to, bind_to()} | 
-	{sndbuf,          sndbuf()} |  
-	{recbuf,          recbuf()} | 
-	{no_reuse,        no_reuse()} |
+	<p><c>manager_net_if_option() =
+	{bind_to,         bind_to()}    | 
+	{sndbuf,          sndbuf()}     |  
+	{recbuf,          recbuf()}     | 
+	{no_reuse,        no_reuse()}   |
 	{filter,          manager_net_if_filter_options()} |
-	{extra_sock_opts, extra_socket_options()}</c></p>
+	{extra_sock_opts, extra_socket_options()} |
+	{inet_backend,    inet | socket}</c></p>
         <p>These options are actually specific to the used module.
 	The ones shown here are applicable to the default 
 	<c>manager_net_if_module()</c>.</p>

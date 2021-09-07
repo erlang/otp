@@ -31,6 +31,8 @@
 
 -export([create/1, create_pem_cache/1, 
 	 add_crls/3, remove_crls/2, remove/1, add_trusted_certs/3, 
+         refresh_trusted_certs/1,
+         refresh_trusted_certs/2,
 	 extract_trusted_certs/1,
 	 remove_trusted_certs/2, insert/3, remove/2, clear/1, db_size/1,
 	 ref_count/3, lookup_trusted_cert/4, foldl/3, select_cert_by_issuer/2,
@@ -94,7 +96,7 @@ remove(Dbs) ->
 
 %%--------------------------------------------------------------------
 -spec lookup_trusted_cert(db_handle(), certdb_ref(), serialnumber(), issuer()) ->
-				 undefined | {ok, {der_cert(), #'OTPCertificate'{}}}.
+				 undefined | {ok, #cert{}}.
 
 %%
 %% Description: Retrives the trusted certificate identified by 
@@ -144,7 +146,25 @@ add_trusted_certs(_Pid, File, [ _, {RefDb, FileMapDb} | _] = Db) ->
 	    new_trusted_cert_entry(File, Db)
     end.
 
+refresh_trusted_certs(File, [CertsDb, {_, FileMapDb} | _]) ->
+    case lookup(File, FileMapDb) of
+        [Ref] ->
+            {ok, Content} = decode_pem_file(File),
+            remove_trusted_certs(Ref, CertsDb),
+            add_certs_from_pem(Content, Ref, CertsDb);
+        undefined ->
+            ok
+    end.
+refresh_trusted_certs([_, {_, FileMapDb} | _] = Db) ->
+    Refresh = fun({File, _}, Acc) ->
+                      refresh_trusted_certs(File, Db),
+                      Acc
+              end,
+    foldl(Refresh, refresh, FileMapDb).
+
 extract_trusted_certs({der, DerList}) ->
+    {ok, {extracted, certs_from_der(DerList)}};
+extract_trusted_certs({der_otp, DerList}) ->
     {ok, {extracted, certs_from_der(DerList)}};
 extract_trusted_certs(File) ->
     case file:read_file(File) of
@@ -301,15 +321,17 @@ add_certs(Cert, Ref, CertsDb) ->
 	    ok
     end.
 
-decode_certs(Ref, Cert) ->
-    try  ErlCert = public_key:pkix_decode_cert(Cert, otp),
-	 TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
-	 SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
-	 Issuer = public_key:pkix_normalize_name(
-		    TBSCertificate#'OTPTBSCertificate'.issuer),
-	 {decoded, {{Ref, SerialNumber, Issuer}, {Cert, ErlCert}}}
-    catch
-	error:_ ->
+decode_certs(Ref, #cert{otp=ErlCert} = Cert) ->
+    TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
+    SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
+    Issuer = public_key:pkix_normalize_name(
+               TBSCertificate#'OTPTBSCertificate'.issuer),
+    {decoded, {{Ref, SerialNumber, Issuer}, Cert}};
+decode_certs(Ref, Der) ->
+    try public_key:pkix_decode_cert(Der, otp) of
+        ErlCert ->
+            decode_certs(Ref, #cert{der=Der, otp=ErlCert})
+    catch error:_ ->
 	    ?LOG_NOTICE("SSL WARNING: Ignoring a CA cert as "
                         "it could not be correctly decoded.~n"),
 	    undefined
@@ -338,7 +360,7 @@ add_crls(CRL, Mapping) ->
 
 remove_crls([_,_,_, {_, Mapping} | _], {?NO_DIST_POINT, CRLs}) ->
     [rm_crls(CRL, Mapping) || CRL <- CRLs];
-	
+
 remove_crls([_,_,_, {Cache, Mapping} | _], Path) ->
     case lookup(Path, Cache) of
 	undefined ->

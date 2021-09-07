@@ -113,6 +113,12 @@
 #  endif
 #endif
 
+#ifdef __clang_analyzer__
+   /* CodeChecker does not seem to understand inline asm in FD_ZERO */
+#  undef FD_ZERO
+#  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
+#endif
+
 #define HEART_COMMAND_ENV          "HEART_COMMAND"
 #define ERL_CRASH_DUMP_SECONDS_ENV "ERL_CRASH_DUMP_SECONDS"
 #define HEART_KILL_SIGNAL          "HEART_KILL_SIGNAL"
@@ -283,8 +289,8 @@ free_env_val(char *value)
  */
 static void get_arguments(int argc, char** argv) {
     int i = 1;
-    int h;
-    unsigned long p;
+    int h = -1;
+    unsigned long p = 0;
 
     while (i < argc) {
 	switch (argv[i][0]) {

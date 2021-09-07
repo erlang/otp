@@ -233,12 +233,18 @@ handle_info({Proto, Socket, Data},
 	{error, {size_error, MaxSize, ErrCode, ErrStr}, Version} ->
 	    NewModData =  ModData#mod{http_version = Version},
 	    httpd_response:send_status(NewModData, ErrCode, ErrStr, {max_size, MaxSize}),
-	    {stop, normal, State#state{response_sent = true, 
+	    {stop, normal, State#state{response_sent = true,
 				       mod = NewModData}};
-        
-        {http_chunk = Module, Function, Args} when ChunkState =/= undefined ->
-            NewState = handle_chunk(Module, Function, Args, State),
-            {noreply, NewState};
+
+    {error, {version_error, ErrCode, ErrStr}, Version} ->
+        NewModData =  ModData#mod{http_version = Version},
+	    httpd_response:send_status(NewModData, ErrCode, ErrStr),
+	    {stop, normal, State#state{response_sent = true,
+				                   mod = NewModData}};
+
+    {http_chunk = Module, Function, Args} when ChunkState =/= undefined ->
+        NewState = handle_chunk(Module, Function, Args, State),
+        {noreply, NewState};
 	NewMFA ->
         setopts(Socket, SockType, [{active, once}]),
 	    case NewDataSize of
@@ -422,7 +428,9 @@ handle_http_msg({Method, Uri, Version, {RecordHeaders, Headers}, Body},
 				       400, URI, {malformed_syntax, URI}),
 	    {stop, normal, State#state{response_sent = true}};
 	{error, {bad_version, Ver}} ->
-	    httpd_response:send_status(ModData#mod{http_version = "HTTP/0.9"}, 400, Ver, {malformed_syntax, Ver}),
+	    httpd_response:send_status(
+            ModData#mod{http_version = httpd_request:default_version()},
+            400, Ver, {malformed_syntax, Ver}),
 	    {stop, normal, State#state{response_sent = true}}
     end;
 handle_http_msg(Body, State) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -313,6 +313,9 @@ handle_parse({megaco_callback, Verifiers0} = _Instruction, State)
 handle_parse({trigger, Trigger} = Instruction, State)
   when is_function(Trigger) ->
     {ok, Instruction, State};
+handle_parse({trigger, Desc, Trigger} = Instruction, State)
+  when is_list(Desc) andalso is_function(Trigger) ->
+    {ok, Instruction, State};
 
 handle_parse(Instruction, _State) ->
     error({invalid_instruction, Instruction}).
@@ -426,7 +429,7 @@ handle_exec({megaco_start_user, Mid, RecvInfo, Conf}, State) ->
     {ok, State1};
 
 handle_exec(megaco_stop_user, #state{mid = Mid} = State)
-  when Mid /= undefined ->
+  when Mid =/= undefined ->
     p("stop megaco user: ~p", [Mid]),
     megaco_cleanup(State),
     ok = megaco:stop_user(Mid),
@@ -435,7 +438,7 @@ handle_exec(megaco_stop_user, #state{mid = Mid} = State)
 handle_exec(start_transport,
             #state{recv_handle = #megaco_receive_handle{send_mod = TM}} = State) ->
     p("start transport ~p", [TM]),
-    case (catch TM:start_transport()) of
+    try TM:start_transport() of
 	{ok, Sup} -> 
 	    d("transport started: Sup: ~p", [Sup]),
 	    {ok, State#state{transport_sup = Sup}};
@@ -447,6 +450,13 @@ handle_exec(start_transport,
 	    e("failed starting transport (~w): "
 	      "~n   ~p", [TM, Crap]),
 	    error({failed_starting_transport, TM, Crap})
+    catch
+        C:E:S ->
+	    e("failed starting transport (~w) - catched: "
+	      "~n   C: ~p"
+	      "~n   E: ~p"
+	      "~n   S: ~p", [TM, C, E, S]),
+	    error({failed_starting_transport, TM, {E, E, S}})
     end;
 
 handle_exec({listen, Opts0, MaybeRetry},
@@ -457,33 +467,63 @@ handle_exec({listen, Opts0, MaybeRetry},
 	    {port,           Port}, 
 	    {receive_handle, RH},
 	    {tcp_options,    [{nodelay, true}]} | Opts0],
-    case (catch handle_exec_listen_tcp(Pid, Opts, MaybeRetry)) of
+    try  handle_exec_listen_tcp(Pid, Opts, MaybeRetry) of
         ok ->
+            p("listen(tcp) -> ok"),
             {ok, State};
         Else ->
+	    e("failed tcp listen: "
+	      "~n   Else: ~p", [Else]),
             error({tcp_listen_failed, Opts0, Else})
+    catch
+        C:E:S ->
+	    e("failed starting transport (~w) - catched: "
+	      "~n   C: ~p"
+	      "~n   E: ~p"
+	      "~n   S: ~p", [C, E, S]),
+	    error({tc_listen_failed, Opts0, {E, E, S}})
     end;
 handle_exec({listen, Opts0, _MaybeRetry},
      #state{recv_handle = RH, port = Port, transport_sup = Pid} = State)
   when RH#megaco_receive_handle.send_mod =:= megaco_udp ->
     p("listen(udp) - open"),
     Opts = [{module, ?DELIVER_MOD}, {port, Port}, {receive_handle, RH}|Opts0],
-    case (catch megaco_udp:open(Pid, Opts)) of
+    try megaco_udp:open(Pid, Opts) of
         {ok, _SH, _CtrlPid} ->
+            p("listen(udp) -> ok"),
             {ok, State};
         Else ->
+	    e("[listen] failed udp open: "
+	      "~n   Else: ~p", [Else]),
             error({udp_open, Opts0, Else})
+    catch
+        C:E:S ->
+	    e("[listen] failed udp open - catched: "
+	      "~n   C: ~p"
+	      "~n   E: ~p"
+	      "~n   S: ~p", [C, E, S]),
+            error({udp_open, Opts0, {C, E, S}})
     end;
 handle_exec({listen, Opts0, _MaybeRetry},
             #state{recv_handle = RH, port = Port, transport_sup = Pid} = State)
   when RH#megaco_receive_handle.send_mod =:= megaco_test_generic_transport ->
     p("listen(generic)"),
     Opts = [{module, ?DELIVER_MOD}, {port, Port}, {receive_handle, RH}|Opts0],
-    case (catch megaco_test_generic_transport:listen(Pid, Opts)) of
+    try megaco_test_generic_transport:listen(Pid, Opts) of
         {ok, _SH, _CtrlPid} ->
+            p("listen(generic) -> ok"),
             {ok, State};
         Else ->
-            error({udp_open, Opts0, Else})
+	    e("[listen] failed generic: "
+	      "~n   Else: ~p", [Else]),
+            error({generic_listen, Opts0, Else})
+    catch
+        C:E:S ->
+	    e("[listen] failed generic - catched: "
+	      "~n   C: ~p"
+	      "~n   E: ~p"
+	      "~n   S: ~p", [C, E, S]),
+            error({generic_listen, Opts0, {C, E, S}})
     end;
 
 handle_exec({connect, Host, Opts0, MaybeRetry},
@@ -497,14 +537,23 @@ handle_exec({connect, Host, Opts0, MaybeRetry},
 	    {port,           Port}, 
 	    {receive_handle, RH},
 	    {tcp_options,    [{nodelay, true}]} | Opts0],
-    case (catch handle_exec_connect_tcp(Host, Opts, Sup, MaybeRetry)) of
+    try handle_exec_connect_tcp(Host, Opts, Sup, MaybeRetry) of
 	{ok, SH, ControlPid} ->
-	    d("connected(tcp): ~p, ~p", [SH, ControlPid]),
+	    p("connected(tcp): ~p, ~p", [SH, ControlPid]),
 	    megaco_connector_start(RH, PrelMid, SH, ControlPid),
 	    {ok, State#state{send_handle = SH,
 			      ctrl_pid    = ControlPid}};
 	Error ->
+	    e("tcp connect failed: "
+	      "~n   Error: ~p", [Error]),
 	    error({tcp_connect_failed, Host, Opts0, Error})
+    catch
+        C:E:S ->
+	    e("tcp connect failed - catched: "
+	      "~n   C: ~p"
+	      "~n   E: ~p"
+	      "~n   S: ~p", [C, E, S]),
+            error({tcp_connect_failed, Host, Opts0, {C, E, S}})
     end;
 
 handle_exec({connect, Host, Opts0, _MaybeRetry},
@@ -516,7 +565,7 @@ handle_exec({connect, Host, Opts0, _MaybeRetry},
     PrelMid = preliminary_mid,
     Opts = [{port, 0}, {receive_handle, RH}|Opts0],
     d("udp open", []),
-    case (catch megaco_udp:open(Sup, Opts)) of
+    try megaco_udp:open(Sup, Opts) of
 	{ok, Handle, ControlPid} ->
 	    d("opened(udp): ~p, ~p", [Handle, ControlPid]),
 	    SH = megaco_udp:create_send_handle(Handle, Host, Port),
@@ -524,7 +573,16 @@ handle_exec({connect, Host, Opts0, _MaybeRetry},
 	    {ok, State#state{send_handle = SH,
 			      ctrl_pid    = ControlPid}};
 	Error ->
+	    e("udp connect (open) failed: "
+	      "~n   Error: ~p", [Error]),
 	    error({udp_connect_failed, Host, Opts0, Error})
+    catch
+        C:E:S ->
+	    e("udp connect (open) failed - catched: "
+	      "~n   C: ~p"
+	      "~n   E: ~p"
+	      "~n   S: ~p", [C, E, S]),
+            error({tcp_connect_failed, Host, Opts0, {C, E, S}})
     end;
 
 handle_exec({connect, Host, Opts0, _MaybeRetry},
@@ -535,14 +593,23 @@ handle_exec({connect, Host, Opts0, _MaybeRetry},
     p("connect(generic) to ~p", [Host]),
     PrelMid = preliminary_mid,
     Opts = [{host, Host}, {port, Port}, {receive_handle, RH}|Opts0],
-    case (catch megaco_test_generic_transport:connect(Sup, Opts)) of
+    try megaco_test_generic_transport:connect(Sup, Opts) of
 	{ok, SH, ControlPid} ->
 	    d("connected(generic): ~p, ~p", [SH, ControlPid]),
 	    megaco_connector_start(RH, PrelMid, SH, ControlPid),
 	    {ok, State#state{send_handle = SH,
 			      ctrl_pid    = ControlPid}};
 	Error ->
+	    e("generic connect failed: "
+	      "~n   Error: ~p", [Error]),
 	    error({generic_connect_failed, Host, Opts0, Error})
+    catch
+        C:E:S ->
+	    e("generic connect failed - catched: "
+	      "~n   C: ~p"
+	      "~n   E: ~p"
+	      "~n   S: ~p", [C, E, S]),
+            error({generic_connect_failed, Host, Opts0, {C, E, S}})
     end;
 
 handle_exec(megaco_connect, State) ->
@@ -553,8 +620,8 @@ handle_exec(megaco_connect, State) ->
             {ok, State#state{conn_handle = CH}};
         {megaco_connect_result, Error} ->
             p("received failed megaco_connect: ~p", [Error]),
-            #state{result = Res} = State,
-            {ok, State#state{result = [Error|Res]}}
+            #state{result = AccRes} = State,
+            {ok, State#state{result = [Error|AccRes]}}
     end;
 
 handle_exec({megaco_connect, Mid}, 
@@ -565,12 +632,12 @@ handle_exec({megaco_connect, Mid},
     megaco_connector_start(RH, Mid, SH, ControlPid),
     {ok, State};
 
-handle_exec({megaco_user_info, Tag}, #state{mid = Mid, result = Res} = State)
+handle_exec({megaco_user_info, Tag}, #state{mid = Mid, result = AccRes} = State)
   when Mid /= undefined ->
     p("megaco user-info: ~w", [Tag]),
     Val = (catch megaco:user_info(Mid, Tag)),
     d("megaco_user_info: ~p", [Val]),
-    {ok, State#state{result = [Val|Res]}};
+    {ok, State#state{result = [Val|AccRes]}};
 
 handle_exec({megaco_update_user_info, Tag, Val}, #state{mid = Mid} = State)
   when Mid /= undefined ->
@@ -590,28 +657,53 @@ handle_exec({megaco_update_conn_info, Tag, Val},
      #state{conn_handle = CH} = State)
   when CH /= undefined ->
     p("update megaco conn-info: ~w -> ~p", [Tag, Val]),
-    case megaco:update_conn_info(CH, Tag, Val) of
+    try megaco:update_conn_info(CH, Tag, Val) of
         ok ->
             {ok, State};
         Error ->
+            e("failed updating connection info: "
+              "~n      Tag:   ~p"
+              "~n      Val:   ~p"
+              "~n      CH:    ~p"
+              "~n      Error: ~p", [Tag, Val, CH, Error]),
             error({failed_updating_conn_info, Tag, Val, Error})
+    catch
+        C:E:S ->
+            e("failed updating connection info: "
+              "~n      Tag: ~p"
+              "~n      Val: ~p"
+              "~n      CH:  ~p"
+              "~n      C:   ~p"
+              "~n      E:   ~p"
+              "~n      S:   ~p", [Tag, Val, CH, C, E, S]),
+            error({failed_updating_conn_info, Tag, Val, {C, E, S}})
     end;
 
-handle_exec(megaco_info, #state{result = Res} = State) ->
+handle_exec(megaco_info, #state{result = AccRes} = State) ->
     p("megaco info", []),
     Val = (catch megaco:info()),
     d("megaco_info: ~p", [Val]),
-    {ok, State#state{result = [Val|Res]}};
+    {ok, State#state{result = [Val|AccRes]}};
 
-handle_exec({megaco_system_info, Tag, Verify}, #state{result = Res} = State) ->
+handle_exec({megaco_system_info, Tag, Verify},
+            #state{result = AccRes} = State) ->
     p("megaco system-info: ~w", [Tag]),
     Val = (catch megaco:system_info(Tag)),
     d("megaco system-info: ~p", [Val]),
-    case Verify(Val) of
+    try Verify(Val) of
 	ok ->
-	    {ok, State#state{result = [Val|Res]}};
+	    {ok, State#state{result = [Val|AccRes]}};
 	Error ->
-	    {error, State#state{result = [Error|Res]}}
+            e("verification failed: "
+              "~n      Error: ~p", [Error]),
+	    {error, State#state{result = [Error|AccRes]}}
+    catch
+        C:E:S ->
+            e("verification failed - catched: "
+              "~n      C: ~p"
+              "~n      E: ~p"
+              "~n      S: ~p", [C, E, S]),
+            {error, State#state{result = [{catched, {C, E, S}}|AccRes]}}
     end;
 
 %% This is either a MG or a MGC which is only connected to one MG
@@ -640,21 +732,32 @@ handle_exec({megaco_call, RemoteMid, ARs, Opts}, #state{mid = Mid} = State) ->
     {ok, State};
 
 %% This is either a MG or a MGC which is only connected to one MG
-handle_exec({megaco_cast, ARs, Opts}, #state{conn_handle = CH} = State)
+handle_exec({megaco_cast, ARs, Opts}, #state{conn_handle = CH,
+                                             result      = AccRes} = State)
   when CH =/= undefined ->
     p("megaco_cast: "
       "~n      CH:  ~p"
       "~n      ARs: ~p", [CH, ARs]),
-    case megaco:cast(CH, ARs, Opts) of
+    try megaco:cast(CH, ARs, Opts) of
         ok ->
+            p("megaco cast ok"),
             {ok, State};
         Error ->
-            e("failed sending (cast) message: ~n~p", [Error]),
-            #state{result = Acc} = State,
-            {error, State#state{result = [Error|Acc]}}
+            e("failed sending (cast) message: "
+              "~n      Error: ~p", [Error]),
+            {error, State#state{result = [Error|AccRes]}}
+    catch
+        C:E:S ->
+            e("failed sending (cast) message - catched: "
+              "~n      C: ~p"
+              "~n      E: ~p"
+              "~n      S: ~p", [C, E, S]),
+            {error, State#state{result = [{catched, {C, E, S}}|AccRes]}}
     end;
 
-handle_exec({megaco_cast, RemoteMid, ARs, Opts}, #state{mid = Mid} = State) ->
+handle_exec({megaco_cast, RemoteMid, ARs, Opts},
+            #state{mid    = Mid,
+                   result = AccRes} = State) ->
     p("megaco_cast with ~p", [RemoteMid]),
     %% First we have to find the CH for this Mid
     Conns = megaco:user_info(Mid, connections),
@@ -670,8 +773,7 @@ handle_exec({megaco_cast, RemoteMid, ARs, Opts}, #state{mid = Mid} = State) ->
         Error ->
             e("failed sending (cast) message: "
               "~n      ~p", [Error]),
-            #state{result = Acc} = State,
-            {error, State#state{result = [Error|Acc]}}
+            {error, State#state{result = [Error|AccRes]}}
     end;
 
 %% Nothing shall happen for atleast Timeout time
@@ -680,9 +782,9 @@ handle_exec({megaco_callback, nocall, Timeout}, State) ->
     receive
         {handle_megaco_callback, Type, Msg, Pid} ->
             e("received unexpected megaco callback: ~n~p", [Msg]),
-            #state{result = Res} = State,
+            #state{result = AccRes} = State,
             Err = {unexpected_callback, Type, Msg, Pid},
-            {error, State#state{result = [Err|Res]}}
+            {error, State#state{result = [Err|AccRes]}}
     after Timeout ->
             p("got no callback (~p) as expected", [Timeout]),
             {ok, State}
@@ -694,7 +796,7 @@ handle_exec({megaco_callback, Tag, Verify}, State) when is_function(Verify) ->
         {handle_megaco_callback, Type, Msg, Pid} ->
             d("received megaco callback:"
               "~n      ~p", [Msg]),
-            case Verify(Msg) of
+            try Verify(Msg) of
                 {VRes, Res, Reply} ->
                     d("megaco_callback [~w] ~w", [Tag, VRes]),
                     handle_megaco_callback_reply(Pid, Type, Reply),
@@ -703,6 +805,13 @@ handle_exec({megaco_callback, Tag, Verify}, State) when is_function(Verify) ->
                     d("megaco_callback [~w] ~w, ~w", [Tag,Delay,VRes]),
                     handle_megaco_callback_reply(Pid, Type, Delay, Reply),
                     validate(VRes, Tag, Res, State)
+            catch
+                C:E:S ->
+                    e("megaco callback - verification failed - catched: "
+                      "~n      C: ~p"
+                      "~n      E: ~p"
+                      "~n      S: ~p", [C, E, S]),
+                    error({megaco_callback_verification_failed, Tag, {C, E, S}})
             end
     end;
 
@@ -715,7 +824,7 @@ handle_exec({megaco_callback, Tag, {VMod, VFunc, VArgs}}, State)
               "~n   VMod:  ~w"
               "~n   VFunc: ~w"
               "~n   VArgs: ~p", [Msg, VMod, VFunc, VArgs]),
-            case apply(VMod, VFunc, [Msg|VArgs]) of
+            try apply(VMod, VFunc, [Msg|VArgs]) of
                 {VRes, Res, Reply} ->
                     d("megaco_callback [~w] ~w",[Tag, VRes]),
                     handle_megaco_callback_reply(Pid, Type, Reply),
@@ -724,17 +833,25 @@ handle_exec({megaco_callback, Tag, {VMod, VFunc, VArgs}}, State)
                     d("megaco_callback [~w] ~w, ~w",[Tag,Delay,VRes]),
                     handle_megaco_callback_reply(Pid, Type, Delay, Reply),
                     validate(VRes, Tag, Res, State)
+            catch
+                C:E:S ->
+                    e("megaco callback - verification failed - catched: "
+                      "~n      C: ~p"
+                      "~n      E: ~p"
+                      "~n      S: ~p", [C, E, S]),
+                    error({megaco_callback_verification_failed, Tag, {C, E, S}})
             end
     end;
 
-handle_exec({megaco_callback, Tag, Verify, Timeout}, State)
+handle_exec({megaco_callback, Tag, Verify, Timeout},
+            #state{result = AccRes} = State)
   when (is_function(Verify) andalso 
 	(is_integer(Timeout) andalso (Timeout > 0))) ->
     p("expect megaco_callback ~w (with ~w)", [Tag, Timeout]),
     receive
         {handle_megaco_callback, Type, Msg, Pid} ->
             d("received megaco callback: ~n~p", [Msg]),
-            case Verify(Msg) of
+            try Verify(Msg) of
                 {VRes, Res, Reply} ->
                     d("megaco_callback [~w] ~w",[Tag,VRes]),
                     handle_megaco_callback_reply(Pid, Type, Reply),
@@ -743,12 +860,18 @@ handle_exec({megaco_callback, Tag, Verify, Timeout}, State)
                     d("megaco_callback [~w] ~w, ~w",[Tag,Delay,VRes]),
                     handle_megaco_callback_reply(Pid, Type, Delay, Reply),
                     validate(VRes, Tag, Res, State)
+            catch
+                C:E:S ->
+                    e("megaco callback - verification failed - catched: "
+                      "~n      C: ~p"
+                      "~n      E: ~p"
+                      "~n      S: ~p", [C, E, S]),
+                    error({megaco_callback_verification_failed, Tag, {C, E, S}})
             end
     after Timeout ->
             e("megaco_callback ~w timeout", [Tag]),
-            #state{result = Res} = State,
             Err = {callback_timeout, Tag, Timeout},
-            {error, State#state{result = [Err|Res]}}
+            {error, State#state{result = [Err|AccRes]}}
     end;
 
 handle_exec({megaco_callback, Verifiers}, State) ->
@@ -762,12 +885,16 @@ handle_exec({megaco_cancel, Reason}, #state{conn_handle = CH} = State) ->
             {ok, State};
         Error ->
             e("failed cancel: ~n~p", [Error]),
-            #state{result = Acc} = State,
-            {error, State#state{result = [Error|Acc]}}
+            #state{result = AccRes} = State,
+            {error, State#state{result = [Error|AccRes]}}
     end;
 
 handle_exec({trigger, Trigger}, State) when is_function(Trigger) ->
     p("trigger"),
+    (catch Trigger()),
+    {ok, State};
+handle_exec({trigger, Desc, Trigger}, State) when is_function(Trigger) ->
+    p("trigger: ~s", [Desc]),
     (catch Trigger()),
     {ok, State};
 

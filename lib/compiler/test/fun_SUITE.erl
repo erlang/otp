@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1,
          external/1,eep37/1,eep37_dup/1,badarity/1,badfun/1,
-         duplicated_fun/1,unused_fun/1]).
+         duplicated_fun/1,unused_fun/1,coverage/1]).
 
 %% Internal exports.
 -export([call_me/1,dup1/0,dup2/0]).
@@ -38,7 +38,8 @@ all() ->
 groups() ->
     [{p,[parallel],
       [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,
-       eep37_dup,badarity,badfun,duplicated_fun,unused_fun]}].
+       eep37_dup,badarity,badfun,duplicated_fun,unused_fun,
+       coverage]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -55,12 +56,14 @@ end_per_group(_GroupName, Config) ->
 
 %%% The help functions below are copied from emulator:bs_construct_SUITE.
 
--define(T(B, L), {B, ??B, L}).
+-define(T(B, L), {fun() -> B end(), ??B, L}).
 
 l1() ->
     [
      ?T((begin A = 3, F = fun(A) -> 1; (_) -> 2 end, F(2) end), 1),
-     ?T((begin G = fun(1=0) -> ok end, {'EXIT',_} = (catch G(2)), ok end), ok)
+     ?T((begin G = fun(1=0) -> ok end, {'EXIT',_} = (catch G(2)), ok end), ok),
+     ?T((begin F = fun(_, 1) -> 1; (F, N) -> N * F(F, N-1) end, F(F, 5) end), 120),
+     ?T((begin F = fun(_, 1) -> 1; (F, N) -> N * F(F, N-1) end, F(F, 1), ok end), ok)
     ].
 
 test1(Config) when is_list(Config) ->
@@ -206,10 +209,17 @@ external(Config) when is_list(Config) ->
     {'EXIT',{{badarity,_},_}} = (catch (id(fun lists:sum/1))(1, 2, 3)),
     {'EXIT',{{badarity,_},_}} = (catch apply(fun lists:sum/1, [1,2,3])),
 
+    {'EXIT',{badarg,_}} = (catch bad_external_fun()),
+
     ok.
 
 call_me(I) ->
     {ok,I}.
+
+bad_external_fun() ->
+    V0 = idea,
+    fun V0:V0/V0,                               %Should fail.
+    never_reached.
 
 eep37(Config) when is_list(Config) ->
     F = fun Fact(N) when N > 0 -> N * Fact(N - 1); Fact(0) -> 1 end,
@@ -233,6 +243,7 @@ dup2() ->
 
 badarity(Config) when is_list(Config) ->
     {'EXIT',{{badarity,{_,[]}},_}} = (catch (fun badarity/1)()),
+    {'EXIT',{{badarity,_},_}} = (catch fun() -> 42 end(0)),
     ok.
 
 badfun(_Config) ->
@@ -284,6 +295,20 @@ unused_fun(_Config) ->
         _ -> fun() -> ok end
     catch _ -> ok end,
     ok.
+
+coverage(_Config) ->
+    ok = coverage_1(),
+    ok.
+
+coverage_1() ->
+    %% Cover a line in beam_ssa_pre_codegen:need_frame_1/2 when the
+    %% no_make_fun3 option is given.
+    catch
+        fun(whatever) -> 0;
+           ("abc") -> party
+        end,
+        ok.
+
 
 id(I) ->
     I.

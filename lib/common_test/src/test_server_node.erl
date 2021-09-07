@@ -645,7 +645,38 @@ find_release(latest) ->
 find_release(previous) ->
     "kaka";
 find_release(Rel) ->
-    find_release(os:type(), Rel).
+    case find_release(os:type(), Rel) of
+        none ->
+            find_release_path(Rel);
+        Else ->
+            Else
+    end.
+
+find_release_path(Rel) ->
+    Paths = string:lexemes(os:getenv("PATH"), ":"),
+    find_release_path(Paths, Rel).
+find_release_path([Path|T], Rel) ->
+    case os:find_executable("erl", Path) of
+        false ->
+            find_release_path(T, Rel);
+        ErlExec ->
+            Pattern = filename:join([Path,"..","releases","*","OTP_VERSION"]),
+            case filelib:wildcard(Pattern) of
+                [VersionFile] ->
+                    {ok, VsnBin} = file:read_file(VersionFile),
+                    [MajorVsn|_] = string:lexemes(VsnBin, "."),
+                    case unicode:characters_to_list(MajorVsn) of
+                        Rel ->
+                            ErlExec;
+                        _Else ->
+                            find_release_path(T, Rel)
+                    end;
+                _Else ->
+                    find_release_path(T, Rel)
+            end
+    end;
+find_release_path([], _) ->
+    none.
 
 find_release({unix,sunos}, Rel) ->
     case os:cmd("uname -p") of

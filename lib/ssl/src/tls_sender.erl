@@ -272,13 +272,13 @@ connection({call, From}, dist_get_tls_socket,
                                   socket = Socket,
                                   connection_pid = Pid,
                                   trackers = Trackers}} = StateData) ->
-    TLSSocket = tls_connection:socket([Pid, self()], Transport, Socket, Trackers),
+    TLSSocket = tls_gen_connection:socket([Pid, self()], Transport, Socket, Trackers),
     {next_state, ?FUNCTION_NAME, StateData, [{reply, From, {ok, TLSSocket}}]};
 connection({call, From}, {dist_handshake_complete, _Node, DHandle},
            #data{static = #static{connection_pid = Pid} = Static} = StateData) ->
     false = erlang:dist_ctrl_set_opt(DHandle, get_size, true),
     ok = erlang:dist_ctrl_input_handler(DHandle, Pid),
-    ok = ssl_connection:dist_handshake_complete(Pid, DHandle),
+    ok = ssl_gen_statem:dist_handshake_complete(Pid, DHandle),
     %% From now on we execute on normal priority
     process_flag(priority, normal),
     {keep_state, StateData#data{static = Static#static{dist_handle = DHandle}},
@@ -454,7 +454,7 @@ send_application_data(Data, From, StateName,
                                    {next_event, internal, {key_update, From}},
                                    {next_event, internal, {application_packets, From, Data}}]};
 	renegotiate ->
-	    ssl_connection:internal_renegotiation(Pid, ConnectionStates0),
+	    tls_dtls_connection:internal_renegotiation(Pid, ConnectionStates0),
             {next_state, handshake, StateData0, 
              [{next_event, internal, {application_packets, From, Data}}]};
         chunk_and_key_update ->
@@ -513,7 +513,7 @@ send_post_handshake_data(Handshake, From, StateName,
 
 maybe_update_cipher_key(#data{connection_states = ConnectionStates0,
                               static = Static0} = StateData, #key_update{}) ->
-    ConnectionStates = tls_connection:update_cipher_key(current_write, ConnectionStates0),
+    ConnectionStates = tls_connection_1_3:update_cipher_key(current_write, ConnectionStates0),
     Static = Static0#static{bytes_sent = 0},
     StateData#data{connection_states = ConnectionStates,
                    static = Static};

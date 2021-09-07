@@ -171,7 +171,7 @@ ERTS_GLB_INLINE void erts_port_task_pre_init_sched(ErtsPortTaskSched *ptsp,
 ERTS_GLB_INLINE void
 erts_port_task_init_sched(ErtsPortTaskSched *ptsp, Eterm instr_id)
 {
-    char *lock_str = "port_sched_lock";
+    const char *lock_str = "port_sched_lock";
     ptsp->next = NULL;
     ptsp->taskq.local.busy.first = NULL;
     ptsp->taskq.local.busy.last = NULL;

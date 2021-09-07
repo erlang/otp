@@ -1057,14 +1057,11 @@ invalid_chunk_size(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 emulate_lower_versions(doc) ->
-    [{doc, "Perform request as 0.9 and 1.0 clients."}];
+    [{doc, "Perform request as 1.0 clients."}];
 emulate_lower_versions(Config) when is_list(Config) ->
 
     URL = url(group_name(Config), "/dummy.html", Config),
 
-    {ok, Body0} =
-	httpc:request(get, {URL, []}, [{version, "HTTP/0.9"}], []),
-    inets_test_lib:check_body(Body0),
     {ok, {{"HTTP/1.0", 200, _}, [_ | _], Body1 = [_ | _]}} =
 	httpc:request(get, {URL, []}, [{version, "HTTP/1.0"}], []),
     inets_test_lib:check_body(Body1),
@@ -2073,10 +2070,10 @@ dummy_ssl_server_loop(MFA, Handlers, ListenSocket) ->
 	    lists:foreach(Stopper, Handlers),
 	    From ! {stopped, self()}
     after 0 ->
-	    {ok, Socket} = ssl:transport_accept(ListenSocket),
-	    ok = ssl:ssl_accept(Socket, infinity),
-	    HandlerPid  = dummy_request_handler(MFA, Socket),
-	    ssl:controlling_process(Socket, HandlerPid),
+	    {ok, Tsocket} = ssl:transport_accept(ListenSocket),
+	    {ok, Ssocket} = ssl:handshake(Tsocket, infinity),
+	    HandlerPid  = dummy_request_handler(MFA, Ssocket),
+	    ssl:controlling_process(Ssocket, HandlerPid),
 	    HandlerPid ! ssl_controller,
 	    dummy_ssl_server_loop(MFA, [HandlerPid | Handlers],
 				  ListenSocket)
@@ -2216,7 +2213,7 @@ dummy_ssl_server_hang_init(Caller, Inet, SslOpt) ->
     dummy_ssl_server_hang_loop(AcceptSocket).
 
 dummy_ssl_server_hang_loop(_) ->
-    %% Do not do ssl:ssl_accept as we
+    %% Do not do ssl:handshake as we
     %% want to time out the underlying gen_tcp:connect
     receive
 	stop ->

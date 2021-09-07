@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboard.html">wxClipboard</a>.
-%% @type wxClipboard().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxClipboard).
 -include("wxe.hrl").
 -export([addData/2,clear/1,close/1,destroy/1,flush/1,get/0,getData/2,isOpened/1,
@@ -31,83 +26,81 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-type wxClipboard() :: wx:wx_object().
 -export_type([wxClipboard/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxClipboard() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboard.html#wxclipboardwxclipboard">external documentation</a>.
 -spec new() -> wxClipboard().
 new() ->
-  wxe_util:construct(?wxClipboard_new,
-  <<>>).
+  wxe_util:queue_cmd(?get_env(), ?wxClipboard_new),
+  wxe_util:rec(?wxClipboard_new).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboard.html#wxclipboardadddata">external documentation</a>.
 -spec addData(This, Data) -> boolean() when
 	This::wxClipboard(), Data::wxDataObject:wxDataObject().
-addData(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DataT,ref=DataRef}) ->
+addData(#wx_ref{type=ThisT}=This,#wx_ref{type=DataT}=Data) ->
   ?CLASS(ThisT,wxClipboard),
   ?CLASS(DataT,wxDataObject),
-  wxe_util:call(?wxClipboard_AddData,
-  <<ThisRef:32/?UI,DataRef:32/?UI>>).
+  wxe_util:queue_cmd(This,Data,?get_env(),?wxClipboard_AddData),
+  wxe_util:rec(?wxClipboard_AddData).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboard.html#wxclipboardclear">external documentation</a>.
 -spec clear(This) -> 'ok' when
 	This::wxClipboard().
-clear(#wx_ref{type=ThisT,ref=ThisRef}) ->
+clear(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxClipboard),
-  wxe_util:cast(?wxClipboard_Clear,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxClipboard_Clear).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboard.html#wxclipboardclose">external documentation</a>.
 -spec close(This) -> 'ok' when
 	This::wxClipboard().
-close(#wx_ref{type=ThisT,ref=ThisRef}) ->
+close(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxClipboard),
-  wxe_util:cast(?wxClipboard_Close,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxClipboard_Close).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboard.html#wxclipboardflush">external documentation</a>.
 -spec flush(This) -> boolean() when
 	This::wxClipboard().
-flush(#wx_ref{type=ThisT,ref=ThisRef}) ->
+flush(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxClipboard),
-  wxe_util:call(?wxClipboard_Flush,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxClipboard_Flush),
+  wxe_util:rec(?wxClipboard_Flush).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboard.html#wxclipboardgetdata">external documentation</a>.
 -spec getData(This, Data) -> boolean() when
 	This::wxClipboard(), Data::wxDataObject:wxDataObject().
-getData(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DataT,ref=DataRef}) ->
+getData(#wx_ref{type=ThisT}=This,#wx_ref{type=DataT}=Data) ->
   ?CLASS(ThisT,wxClipboard),
   ?CLASS(DataT,wxDataObject),
-  wxe_util:call(?wxClipboard_GetData,
-  <<ThisRef:32/?UI,DataRef:32/?UI>>).
+  wxe_util:queue_cmd(This,Data,?get_env(),?wxClipboard_GetData),
+  wxe_util:rec(?wxClipboard_GetData).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboard.html#wxclipboardisopened">external documentation</a>.
 -spec isOpened(This) -> boolean() when
 	This::wxClipboard().
-isOpened(#wx_ref{type=ThisT,ref=ThisRef}) ->
+isOpened(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxClipboard),
-  wxe_util:call(?wxClipboard_IsOpened,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxClipboard_IsOpened),
+  wxe_util:rec(?wxClipboard_IsOpened).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboard.html#wxclipboardopen">external documentation</a>.
 -spec open(This) -> boolean() when
 	This::wxClipboard().
-open(#wx_ref{type=ThisT,ref=ThisRef}) ->
+open(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxClipboard),
-  wxe_util:call(?wxClipboard_Open,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxClipboard_Open),
+  wxe_util:rec(?wxClipboard_Open).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboard.html#wxclipboardsetdata">external documentation</a>.
 -spec setData(This, Data) -> boolean() when
 	This::wxClipboard(), Data::wxDataObject:wxDataObject().
-setData(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DataT,ref=DataRef}) ->
+setData(#wx_ref{type=ThisT}=This,#wx_ref{type=DataT}=Data) ->
   ?CLASS(ThisT,wxClipboard),
   ?CLASS(DataT,wxDataObject),
-  wxe_util:call(?wxClipboard_SetData,
-  <<ThisRef:32/?UI,DataRef:32/?UI>>).
+  wxe_util:queue_cmd(This,Data,?get_env(),?wxClipboard_SetData),
+  wxe_util:rec(?wxClipboard_SetData).
 
 %% @equiv usePrimarySelection(This, [])
 -spec usePrimarySelection(This) -> 'ok' when
@@ -121,34 +114,33 @@ usePrimarySelection(This)
 -spec usePrimarySelection(This, [Option]) -> 'ok' when
 	This::wxClipboard(),
 	Option :: {'primary', boolean()}.
-usePrimarySelection(#wx_ref{type=ThisT,ref=ThisRef}, Options)
+usePrimarySelection(#wx_ref{type=ThisT}=This, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxClipboard),
-  MOpts = fun({primary, Primary}, Acc) -> [<<1:32/?UI,(wxe_util:from_bool(Primary)):32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:cast(?wxClipboard_UsePrimarySelection,
-  <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
+  MOpts = fun({primary, _primary} = Arg) -> Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(This, Opts,?get_env(),?wxClipboard_UsePrimarySelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboard.html#wxclipboardissupported">external documentation</a>.
 %%<br /> Format = ?wxDF_INVALID | ?wxDF_TEXT | ?wxDF_BITMAP | ?wxDF_METAFILE | ?wxDF_SYLK | ?wxDF_DIF | ?wxDF_TIFF | ?wxDF_OEMTEXT | ?wxDF_DIB | ?wxDF_PALETTE | ?wxDF_PENDATA | ?wxDF_RIFF | ?wxDF_WAVE | ?wxDF_UNICODETEXT | ?wxDF_ENHMETAFILE | ?wxDF_FILENAME | ?wxDF_LOCALE | ?wxDF_PRIVATE | ?wxDF_HTML | ?wxDF_MAX
 -spec isSupported(This, Format) -> boolean() when
 	This::wxClipboard(), Format::wx:wx_enum().
-isSupported(#wx_ref{type=ThisT,ref=ThisRef},Format)
+isSupported(#wx_ref{type=ThisT}=This,Format)
  when is_integer(Format) ->
   ?CLASS(ThisT,wxClipboard),
-  wxe_util:call(?wxClipboard_IsSupported,
-  <<ThisRef:32/?UI,Format:32/?UI>>).
+  wxe_util:queue_cmd(This,Format,?get_env(),?wxClipboard_IsSupported),
+  wxe_util:rec(?wxClipboard_IsSupported).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclipboard.html#wxclipboardget">external documentation</a>.
 -spec get() -> wxClipboard().
 get() ->
-  wxe_util:call(?wxClipboard_Get,
-  <<>>).
+  wxe_util:queue_cmd(?get_env(), ?wxClipboard_Get),
+  wxe_util:rec(?wxClipboard_Get).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxClipboard()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxClipboard),
-  wxe_util:destroy(?DESTROY_OBJECT,Obj),
+  wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),
   ok.

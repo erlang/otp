@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,19 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollevent.html">wxScrollEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>scroll_top</em>, <em>scroll_bottom</em>, <em>scroll_lineup</em>, <em>scroll_linedown</em>, <em>scroll_pageup</em>, <em>scroll_pagedown</em>, <em>scroll_thumbtrack</em>, <em>scroll_thumbrelease</em>, <em>scroll_changed</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxScroll(). #wxScroll{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxCommandEvent}
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxScrollEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxScrollEvent).
 -include("wxe.hrl").
 -export([getOrientation/1,getPosition/1]).
@@ -41,34 +28,36 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxScrollEvent/0]).
+-type wxScrollEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxScrollEventType() :: 'scroll_top' | 'scroll_bottom' | 'scroll_lineup' | 'scroll_linedown' | 'scroll_pageup' | 'scroll_pagedown' | 'scroll_thumbtrack' | 'scroll_thumbrelease' | 'scroll_changed'.
+-export_type([wxScrollEvent/0, wxScroll/0, wxScrollEventType/0]).
 %% @hidden
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxScrollEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollevent.html#wxscrolleventgetorientation">external documentation</a>.
 -spec getOrientation(This) -> integer() when
 	This::wxScrollEvent().
-getOrientation(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getOrientation(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxScrollEvent),
-  wxe_util:call(?wxScrollEvent_GetOrientation,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxScrollEvent_GetOrientation),
+  wxe_util:rec(?wxScrollEvent_GetOrientation).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollevent.html#wxscrolleventgetposition">external documentation</a>.
 -spec getPosition(This) -> integer() when
 	This::wxScrollEvent().
-getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxScrollEvent),
-  wxe_util:call(?wxScrollEvent_GetPosition,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxScrollEvent_GetPosition),
+  wxe_util:rec(?wxScrollEvent_GetPosition).
 
  %% From wxCommandEvent
 %% @hidden
-setString(This,S) -> wxCommandEvent:setString(This,S).
+setString(This,String) -> wxCommandEvent:setString(This,String).
 %% @hidden
-setInt(This,I) -> wxCommandEvent:setInt(This,I).
+setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
 %% @hidden
 isSelection(This) -> wxCommandEvent:isSelection(This).
 %% @hidden

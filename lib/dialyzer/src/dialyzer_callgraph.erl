@@ -765,7 +765,7 @@ to_dot(#callgraph{digraph = DG, esc = Esc} = CG, File) ->
   Escaping = [{Fun(L), {color, red}} 
 	      || L <- [E || {E} <- ets:tab2list(Esc)], L =/= external],
   Vertices = digraph_edges(DG),
-  hipe_dot:translate_list(Vertices, File, "CG", Escaping).
+  dialyzer_dot:translate_list(Vertices, File, "CG", Escaping).
 
 -spec to_ps(callgraph(), file:filename(), string()) -> 'ok'.
 

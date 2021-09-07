@@ -29,7 +29,8 @@
 	 re_backwards_accented/1,opt_dupnames/1,opt_all_names/1,inspect/1,
 	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1,
 	 match_limit/1,sub_binaries/1,copt/1,global_unicode_validation/1,
-         yield_on_subject_validation/1, bad_utf8_subject/1]).
+         yield_on_subject_validation/1, bad_utf8_subject/1,
+         error_info/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -47,7 +48,8 @@ all() ->
      re_backwards_accented, opt_dupnames, opt_all_names, 
      inspect, opt_no_start_optimize,opt_never_utf,opt_ucp,
      match_limit, sub_binaries, re_version, global_unicode_validation,
-     yield_on_subject_validation, bad_utf8_subject].
+     yield_on_subject_validation, bad_utf8_subject,
+     error_info].
 
 groups() -> 
     [].
@@ -499,15 +501,6 @@ split_specials(Config) when is_list(Config) ->
 
 %% Test that errors are handled correctly by the erlang code.
 error_handling(_Config) ->
-    case test_server:is_native(re) of
-	true ->
-	    %% Exceptions from native code look too different.
-	    {skip,"re is native"};
-	false ->
-	    error_handling()
-    end.
-
-error_handling() ->
     %% This test checks the exception tuples manufactured in the erlang
     %% code to hide the trapping from the user at least when it comes to errors
 
@@ -515,14 +508,14 @@ error_handling() ->
     %% the trap to re:grun from grun, in the grun function clause
     %% that handles precompiled expressions
     {'EXIT',{badarg,[{re,run,["apa",{1,2,3,4},[global]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:run("apa",{1,2,3,4},[global])),
     %% An invalid capture list will also cause a badarg late,
     %% but with a non pre compiled RE, the exception should be thrown by the
     %% grun function clause that handles RE's compiled implicitly by
     %% the run/3 BIF before trapping.
     {'EXIT',{badarg,[{re,run,["apa","p",[{capture,[1,{a}]},global]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:run("apa","p",[{capture,[1,{a}]},global])),
     %% And so the case of a precompiled expression together with
     %% a compile-option (binary and list subject):
@@ -533,13 +526,13 @@ error_handling() ->
 		      [<<"apa">>,
 		       {re_pattern,1,0,_,_},
 		       [global,unicode]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:run(<<"apa">>,RE,[global,unicode])),
     {'EXIT',{badarg,[{re,run,
 		      ["apa",
 		       {re_pattern,1,0,_,_},
 		       [global,unicode]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:run("apa",RE,[global,unicode])),
     {'EXIT',{badarg,_}} = (catch re:run("apa","(p",[])),
     {error, {compile, {_,_}}} = re:run("apa","(p",[report_errors]),
@@ -574,84 +567,84 @@ error_handling() ->
     {match,[{1,1},{1,1}]} = re:run(Temp,<<"(p)">>,[]), % Unaligned works 
     %% The replace errors:
     {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:replace("apa",{1,2,3,4},"X",[])),
     {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[global]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:replace("apa",{1,2,3,4},"X",[global])),
     {'EXIT',{badarg,[{re,replace,
 		      ["apa",
 		       {re_pattern,1,0,_,_},
 		       "X",
 		       [unicode]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:replace("apa",RE,"X",[unicode])),
     <<"aXa">> = iolist_to_binary(re:replace("apa","p","X",[])),
     {'EXIT',{badarg,[{re,replace,
 		      ["apa","p","X",[report_errors]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","p","X",
 					   [report_errors]))),
     {'EXIT',{badarg,[{re,replace,
 		      ["apa","p","X",[{capture,all,binary}]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","p","X",
 					   [{capture,all,binary}]))),
     {'EXIT',{badarg,[{re,replace,
 		      ["apa","p","X",[{capture,all}]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","p","X",
 					   [{capture,all}]))),
     {'EXIT',{badarg,[{re,replace,
 		      ["apa","p","X",[{return,banana}]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","p","X",
 					   [{return,banana}]))),
     {'EXIT',{badarg,_}} = (catch re:replace("apa","(p","X",[])),
     %% Badarg, not compile error.
     {'EXIT',{badarg,[{re,replace,
 		      ["apa","(p","X",[{return,banana}]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","(p","X",
 					   [{return,banana}]))),
     %% And the split errors:
     [<<"a">>,<<"a">>] = (catch re:split("apa","p",[])),
     [<<"a">>,<<"p">>,<<"a">>] = (catch re:split("apa",RE,[])),
     {'EXIT',{badarg,[{re,split,["apa","p",[report_errors]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:split("apa","p",[report_errors])),
     {'EXIT',{badarg,[{re,split,["apa","p",[global]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:split("apa","p",[global])),
     {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all}]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:split("apa","p",[{capture,all}])),
     {'EXIT',{badarg,[{re,split,["apa","p",[{capture,all,binary}]],_},
-		     {?MODULE, error_handling,0,_} | _]}} =
+                     {?MODULE, ?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:split("apa","p",[{capture,all,binary}])),
-    {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+    {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4}],_},
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:split("apa",{1,2,3,4})),
     {'EXIT',{badarg,[{re,split,["apa",{1,2,3,4},[]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:split("apa",{1,2,3,4},[])),
     {'EXIT',{badarg,[{re,split,
 		      ["apa",
 		       RE,
 		       [unicode]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:split("apa",RE,[unicode])),
     {'EXIT',{badarg,[{re,split,
 		      ["apa",
 		       RE,
 		       [{return,banana}]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:split("apa",RE,[{return,banana}])),
     {'EXIT',{badarg,[{re,split,
 		      ["apa",
 		       RE,
 		       [banana]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:split("apa",RE,[banana])),
     {'EXIT',{badarg,_}} = (catch re:split("apa","(p")),
     %%Exception on bad argument, not compilation error
@@ -659,7 +652,7 @@ error_handling() ->
 		      ["apa",
 		       "(p",
 		       [banana]],_},
-		     {?MODULE,error_handling,0,_} | _]}} =
+                     {?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,_} | _]}} =
 	(catch re:split("apa","(p",[banana])),
     ok.
 
@@ -1008,3 +1001,51 @@ bad_utf8_subject(Config) when is_list(Config) ->
             ok
     end.
 
+error_info(_Config) ->
+    BadRegexp = {re_pattern,0,0,0,<<"xyz">>},
+    {ok,GoodRegexp} = re:compile(".*"),
+
+    L = [{compile, [not_iodata]},
+         {compile, [not_iodata, not_list],[{1,".*"},{2,".*"}]},
+         {compile, [<<".*">>, [a|b]]},
+         {compile, [<<".*">>, [bad_option]]},
+         {compile, [{a,b}, [bad_option]],[{1,".*"},{2,".*"}]},
+
+         {grun, 3},                             %Internal.
+
+         {inspect,[BadRegexp, namelist]},
+         {inspect,["", namelist]},
+         {inspect,[GoodRegexp, 999]},
+         {inspect,[GoodRegexp, bad_inspect_item]},
+
+         {internal_run, 4},                     %Internal.
+
+         {replace, [{a,b}, {x,y}, {z,z}],[{1,".*"},{2,".*"},{3,".*"}]},
+         {replace, [{a,b}, BadRegexp, {z,z}],[{1,".*"},{2,".*"},{3,".*"}]},
+
+         {replace, [{a,b}, {x,y}, {z,z}, [a|b]],[{1,".*"},{2,".*"},{3,".*"},{4,".*"}]},
+         {replace, [{a,b}, BadRegexp, [bad_option]],[{1,".*"},{2,".*"},{3,".*"}]},
+         {replace, ["", "", {z,z}, not_a_list],[{3,".*"},{4,".*"}]},
+
+         {run, [{a,b}, {x,y}],[{1,".*"},{2,".*"}]},
+         {run, [{a,b}, ".*"]},
+         {run, ["abc", {x,y}]},
+         {run, ["abc", BadRegexp]},
+
+         {run, [{a,b}, {x,y}, []],[{1,".*"},{2,".*"}]},
+         {run, ["abc", BadRegexp, []]},
+         {run, [{a,b}, {x,y}, [a|b]],[{1,".*"},{2,".*"},{3,".*"}]},
+         {run, [{a,b}, ".*", bad_options],[{1,".*"},{3,".*"}]},
+         {run, ["abc", {x,y}, [bad_option]],[{2,".*"},{3,".*"}]},
+         {run, ["abc", BadRegexp, 9999],[{2,".*"},{3,".*"}]},
+
+         {split, ["abc", BadRegexp]},
+         {split, [{a,b}, ".*"]},
+
+         {split, ["abc", BadRegexp, [a|b]],[{2,".*"},{3,".*"}]},
+         {split, [{a,b}, ".*", [bad_option]]},
+
+         {ucompile, 2},                         %Internal.
+         {urun, 3}                              %Internal.
+        ],
+    error_info_lib:test_error_info(re, L).

@@ -43,12 +43,28 @@
 -include("core_parse.hrl").
 
 -define(NOTSET, 0).
+-define(HAS_SUBS(Sub), Sub#sub.t =/= none).
 
 -record(sub, {p=#{} :: #{term() => ?NOTSET | atom()},              %% Found pattern substitutions
-              v=cerl_sets:new() :: cerl_sets:set(cerl:var_name()), %% Variables used by patterns
-              t=undefined :: term()}).                             %% Temporary information from pre to post
+              v=sets:new([{version, 2}]) :: sets:set(cerl:var_name()), %% Variables used by patterns
+              t=none :: temp()}).                                  %% Temporary information from pre to post
 
 -type sub() :: #sub{}.
+
+%% temp keeps the stack of substitutions.
+%%
+%% 1. none is the root
+%% 2. temp stores the previous temp value - this is used when
+%%    we update the existing sub instead of replacing it
+%% 3. sub is the previous substitution - this is used when
+%%    we replace the current sub
+%% 4. clause is used when there are clauses with patterns
+%%
+-type temp() ::
+        none
+        | {temp, temp()}
+        | {sub, sub()}
+        | {clause, [term()], [term()], sets:set(cerl:var_name()), temp()}.
 
 -spec module(cerl:c_module(), [compile:option()]) ->
         {'ok',cerl:c_module(),[]}.
@@ -60,7 +76,7 @@ module(#c_module{defs=Ds0}=Mod, _Opts) ->
 def({#c_var{name={F,Arity}}=Name,B0}) ->
     try
         put(new_var_num, 0),
-        {B1,_} = cerl_trees:mapfold(fun pre/2, fun post/2, sub_new(undefined), B0),
+        {B1,_} = cerl_trees:mapfold(fun pre/2, fun post/2, sub_new(none), B0),
         erase(new_var_num),
         {Name,B1}
     catch
@@ -69,51 +85,66 @@ def({#c_var{name={F,Arity}}=Name,B0}) ->
             erlang:raise(Class, Error, Stack)
     end.
 
-pre(#c_let{vars=Vars}=Node, Sub) ->
-    {Node,sub_fold(get_variables(Vars), Sub)};
-
-pre(#c_fun{vars=Vars}=Node, Sub) ->
-    {Node,sub_fold(get_variables(Vars), Sub)};
-
 pre(#c_clause{pats=Pats}=Node, Sub0) ->
-    VarNames = get_variables(Pats),
-    Sub1 = sub_fold(VarNames, Sub0),
-    Keys = get_pattern_keys(Pats),
-    Sub2 = sub_add_keys(Keys, Sub1),
-
-    #sub{v=SubNames,t=Temp} = Sub2,
-    Sub3 = Sub2#sub{v=merge_variables(VarNames, SubNames),
-                    t={clause,Pats,Keys,SubNames,Temp}},
-
-    {Node#c_clause{pats=[]},Sub3};
-
-pre(Node, Sub0) ->
-    %% We cache only tuples and cons.
-    case cerl:is_data(Node) andalso not cerl:is_literal(Node) of
-        false ->
+    case get_pattern_keys(Pats) of
+        [] when ?HAS_SUBS(Sub0) ->
+            VarNames = get_variables(Pats),
+            {Node,sub_fold(VarNames, Sub0)};
+        [] ->
             {Node,Sub0};
+        Keys ->
+            VarNames = get_variables(Pats),
+            Sub1 = sub_fold(VarNames, Sub0),
+            Sub2 = sub_add_keys(Keys, Sub1),
+            #sub{v=SubNames,t=Temp} = Sub2,
+            Sub3 = Sub2#sub{v=merge_variables(VarNames, SubNames),
+                            t={clause,Pats,Keys,SubNames,Temp}},
+            {Node#c_clause{pats=[]},Sub3}
+    end;
+
+pre(#c_let{vars=Vars}=Node, Sub) when ?HAS_SUBS(Sub) ->
+    {Node,sub_fold(get_variables(Vars), Sub)};
+
+pre(#c_fun{vars=Vars}=Node, Sub) when ?HAS_SUBS(Sub) ->
+    {Node,sub_fold(get_variables(Vars), Sub)};
+
+pre(Node, Sub0) when ?HAS_SUBS(Sub0) ->
+    case cerl:is_literal(Node) of
         true ->
-            Kind = cerl:data_type(Node),
-            Es = cerl:data_es(Node),
-            case sub_cache_nodes(Kind, Es, Sub0) of
-                {Name,Sub1} ->
-                    {cerl:ann_c_var(cerl:get_ann(Node), Name),Sub1};
-                error ->
-                    {Node,Sub0}
+            skip;
+        false ->
+            %% We cache only tuples and cons.
+            case cerl:is_data(Node) of
+                false ->
+                    {Node,Sub0};
+                true ->
+                    Kind = cerl:data_type(Node),
+                    Es = cerl:data_es(Node),
+                    case sub_cache_nodes(Kind, Es, Sub0) of
+                        {Name,Sub1} ->
+                            {cerl:ann_c_var(cerl:get_ann(Node), Name),Sub1};
+                        error ->
+                            {Node,Sub0}
+                    end
             end
-    end.
+    end;
 
-post(#c_let{}=Node, Sub) ->
-    {Node,sub_unfold(Sub)};
-
-post(#c_fun{}=Node, Sub) ->
-    {Node,sub_unfold(Sub)};
+pre(Node, Sub) -> {Node, Sub}.
 
 post(#c_clause{}=Node, #sub{t={clause,Pats0,Keys,V,T}}=Sub0) ->
     {Sub1,PostKeys} = sub_take_keys(Keys, Sub0),
     Pats1 = put_pattern_keys(Pats0, PostKeys),
     Sub2 = sub_unfold(Sub1#sub{v=V,t=T}),
     {Node#c_clause{pats=Pats1},Sub2};
+
+post(#c_clause{}=Node, Sub) ->
+    {Node,sub_unfold(Sub)};
+
+post(#c_let{}=Node, Sub) ->
+    {Node,sub_unfold(Sub)};
+
+post(#c_fun{}=Node, Sub) ->
+    {Node,sub_unfold(Sub)};
 
 post(Node, Sub) ->
     {Node,Sub}.
@@ -130,14 +161,20 @@ post(Node, Sub) ->
 sub_new(Temp) ->
     #sub{t=Temp}.
 
-%% Folds the sub into a new one if the variables in nodes are not disjoint
+%% Folds the sub into a new one.
+%% If the variables are disjoint, it means we can continue reusing
+%% the patterns collected so far. Otherwise, it means a variable
+%% was reassigned, so we build a new sub with fresh patterns.
 sub_fold(VarNames, #sub{v=SubNames}=Sub) ->
     case is_disjoint_variables(VarNames, SubNames) of
         true  -> Sub#sub{t={temp,Sub#sub.t}};
         false -> sub_new({sub,Sub})
     end.
 
-%% Unfolds the sub in case one was folded in the previous step
+%% Unfolds the sub in case one was folded in the previous step,
+%% otherwise returns the (root) Sub itself.
+sub_unfold(#sub{t=none}=Sub) ->
+    Sub;
 sub_unfold(#sub{t={temp,Temp}}=Sub) ->
     Sub#sub{t=Temp};
 sub_unfold(#sub{t={sub,Sub}}) ->
@@ -200,13 +237,13 @@ new_var_name(Key, #sub{p=Pat}=Sub) ->
 %% merge_variables/2
 
 get_variables(NodesList) ->
-    cerl_sets:from_list([Var || Node <- NodesList, Var <- cerl_trees:variables(Node)]).
+    sets:from_list([Var || Node <- NodesList, Var <- cerl_trees:variables(Node)], [{version, 2}]).
 
 is_disjoint_variables(Vars1, Vars2) ->
-    cerl_sets:is_disjoint(Vars1, Vars2).
+    sets:is_disjoint(Vars1, Vars2).
 
 merge_variables(Vars1, Vars2) ->
-    cerl_sets:union(Vars1, Vars2).
+    sets:union(Vars1, Vars2).
 
 %% get_pattern_keys/2
 %% put_pattern_keys/2

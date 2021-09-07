@@ -57,7 +57,8 @@
 	 filter_partition/1, 
 	 join/1,
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
-	 suffix/1, subtract/1, droplast/1, search/1, hof/1]).
+	 suffix/1, subtract/1, droplast/1, search/1, hof/1,
+         error_info/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -121,7 +122,7 @@ groups() ->
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, suffix, subtract, join,
-			 hof, droplast, search]}
+			 hof, droplast, search, error_info]}
     ].
 
 init_per_suite(Config) ->
@@ -2741,3 +2742,28 @@ hof(Config) when is_list(Config) ->
     false = lists:all(fun(N) -> N rem 2 =:= 0 end, L),
 
     ok.
+
+error_info(_Config) ->
+    L = [{keyfind, [whatever, bad_position, bad_list], [{2,".*"},{3,".*"}]},
+         {keymember, [key, 0, bad_list], [{2,".*"}, {3,".*"}]},
+         {keysearch, [key, bad_position, {no,list}], [{2,".*"}, {3,".*"}]},
+         {member, [whatever, not_a_list]},
+         {member, [whatever, [a|b]]},
+         {reverse, [not_a_list, whatever]}
+        ],
+    do_error_info(L).
+
+do_error_info(L0) ->
+    L1 = lists:foldl(fun({_,A}, Acc) when is_integer(A) -> Acc;
+                        ({F,A}, Acc) -> [{F,A,[]}|Acc];
+                        ({F,A,Opts}, Acc) -> [{F,A,Opts}|Acc]
+                     end, [], L0),
+    Tests = ordsets:from_list([{F,length(A)} || {F,A,_} <- L1] ++
+                                  [{F,A} || {F,A} <- L0, is_integer(A)]),
+    Bifs0 = [{F,A} || {M,F,A} <- erlang:system_info(snifs),
+                      M =:= lists,
+                      A =/= 0],
+    Bifs = ordsets:from_list(Bifs0),
+    NYI = [{F,lists:duplicate(A, '*'),nyi} || {F,A} <- Bifs -- Tests],
+    L = lists:sort(NYI ++ L1),
+    error_info_lib:test_error_info(lists, L, [snifs_only]).

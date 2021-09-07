@@ -41,7 +41,8 @@
              break=0 :: label(),    %Break label
              recv=0 :: label(),     %Receive label
              ultimate_failure=0 :: label(), %Label for ultimate match failure.
-             labels=#{} :: #{atom() => label()}
+             labels=#{} :: #{atom() => label()},
+             no_make_fun3=false :: boolean()
             }).
 
 %% Internal records.
@@ -54,21 +55,22 @@
 
 -spec module(#k_mdef{}, [compile:option()]) -> {'ok',#b_module{}}.
 
-module(#k_mdef{name=Mod,exports=Es,attributes=Attr,body=Forms}, _Opts) ->
-    Body = functions(Forms, Mod),
+module(#k_mdef{name=Mod,exports=Es,attributes=Attr,body=Forms}, Opts) ->
+    NoMakeFun3 = proplists:get_bool(no_make_fun3, Opts),
+    Body = functions(Forms, Mod, NoMakeFun3),
     Module = #b_module{name=Mod,exports=Es,attributes=Attr,body=Body},
     {ok,Module}.
 
-functions(Forms, Mod) ->
-    [function(F, Mod) || F <- Forms].
+functions(Forms, Mod, NoMakeFun3) ->
+    [function(F, Mod, NoMakeFun3) || F <- Forms].
 
 function(#k_fdef{anno=Anno0,func=Name,arity=Arity,
-                 vars=As0,body=Kb}, Mod) ->
+                 vars=As0,body=Kb}, Mod, NoMakeFun3) ->
     try
         #k_match{} = Kb,                   %Assertion.
 
         %% Generate the SSA form immediate format.
-        St0 = #cg{},
+        St0 = #cg{no_make_fun3=NoMakeFun3},
         {As,St1} = new_ssa_vars(As0, St0),
         {Asm,St} = cg_fun(Kb, St1),
         Anno1 = line_anno(Anno0),
@@ -213,16 +215,10 @@ select_cg(#k_type_clause{type=Type,values=Scs}, Var, Tf, Vf, St0) ->
 select_val_cg(k_atom, {bool,Dst}, Vls, _Tf, _Vf, Sis, St) ->
     %% Generate a br instruction for a known boolean value from
     %% the `wait_timeout` instruction.
+    #b_var{} = Dst,                             %Assertion.
     [{#b_literal{val=false},Fail},{#b_literal{val=true},Succ}] = sort(Vls),
-    case Dst of
-        #b_var{} ->
-            Br = #b_br{bool=Dst,succ=Succ,fail=Fail},
-            {[Br|Sis],St};
-        #b_literal{val=true}=Bool ->
-            %% A `wait_timeout 0` instruction was optimized away.
-            Br = #b_br{bool=Bool,succ=Succ,fail=Succ},
-            {[Br|Sis],St}
-    end;
+    Br = #b_br{bool=Dst,succ=Succ,fail=Fail},
+    {[Br|Sis],St};
 select_val_cg(k_atom, {succeeded,Dst}, Vls, _Tf, _Vf, Sis, St0) ->
     [{#b_literal{val=false},Fail},{#b_literal{val=true},Succ}] = sort(Vls),
     #b_var{} = Dst,                             %Assertion.
@@ -695,8 +691,8 @@ enter_cg(Func, As0, Le, St0) ->
 %% bif_cg(#k_bif{}, Le,State) -> {[Ainstr],State}.
 %%  Generate code for a guard BIF or primop.
 
-bif_cg(#k_bif{op=#k_internal{name=Name},args=As,ret=Rs}, _Le, St) ->
-    internal_cg(Name, As, Rs, St);
+bif_cg(#k_bif{anno=A,op=#k_internal{name=Name},args=As,ret=Rs}, _Le, St) ->
+    internal_cg(line_anno(A), Name, As, Rs, St);
 bif_cg(#k_bif{op=#k_remote{mod=#k_literal{val=erlang},name=#k_literal{val=Name}},
               args=As,ret=Rs}, Le, St) ->
     bif_cg(Name, As, Rs, Le, St).
@@ -704,83 +700,81 @@ bif_cg(#k_bif{op=#k_remote{mod=#k_literal{val=erlang},name=#k_literal{val=Name}}
 %% internal_cg(Bif, [Arg], [Ret], Le, State) ->
 %%      {[Ainstr],State}.
 
-internal_cg(raise, As, [#k_var{name=Dst0}], St0) ->
+internal_cg(_Anno, Op0, As, [#k_var{name=Dst0}], St0)
+  when Op0 =:= raise; Op0 =:= raw_raise ->
     Args = ssa_args(As, St0),
+    Op = fix_op(Op0, St0),
     {Dst,St} = new_ssa_var(Dst0, St0),
-    Resume = #b_set{op=resume,dst=Dst,args=Args},
+    Set = #b_set{op=Op,dst=Dst,args=Args},
     case fail_context(St) of
         {no_catch,_Fail} ->
-            %% No current catch in this function. Follow the resume
-            %% instruction by a return (instead of a branch to
-            %% ?EXCEPTION_MARKER) to ensure that the trim optimization
-            %% can be applied. (Allowing control to pass through to
-            %% the next instruction would mean that the type for the
-            %% try/catch construct would be `any`.)
-            Is = [Resume,#b_ret{arg=Dst},#cg_unreachable{}],
+            %% No current catch in this function. Follow the raw_raise/resume
+            %% instruction by a return (instead of branching to
+            %% ?EXCEPTION_MARKER) to ensure that the trim optimization can be
+            %% applied. (Allowing control to pass through to the next
+            %% instruction would mean that the type for the try/catch construct
+            %% would be `any`.)
+            Is = [Set,#b_ret{arg=Dst},#cg_unreachable{}],
             {Is,St};
         {in_catch,Fail} ->
-            Is = [Resume,make_uncond_branch(Fail),#cg_unreachable{}],
+            Is = [Set,make_uncond_branch(Fail),#cg_unreachable{}],
             {Is,St}
     end;
-internal_cg(recv_peek_message, [], [#k_var{name=Succeeded0},
-                                    #k_var{name=Dst0}], St0) ->
+internal_cg(Anno, recv_peek_message, [], [#k_var{name=Succeeded0},
+                                          #k_var{name=Dst0}], St0) ->
     {Dst,St1} = new_ssa_var(Dst0, St0),
     St = new_succeeded_value(Succeeded0, Dst, St1),
-    Set = #b_set{op=peek_message,dst=Dst,args=[]},
+    Set = #b_set{ anno=Anno,
+                  op=peek_message,
+                  dst=Dst,
+                  args=[#b_literal{val=none}] },
     {[Set],St};
-internal_cg(recv_wait_timeout, As, [#k_var{name=Succeeded0}], St0) ->
-    case ssa_args(As, St0) of
-        [#b_literal{val=0}] ->
-            %% If beam_ssa_opt is run (which is default), the
-            %% `wait_timeout` instruction will be removed if the
-            %% operand is a literal 0.  However, if optimizations have
-            %% been turned off, we must not not generate a
-            %% `wait_timeout` instruction with a literal 0 timeout,
-            %% because the BEAM instruction will not handle it
-            %% correctly.
-            St = new_bool_value(Succeeded0, #b_literal{val=true}, St0),
-            {[],St};
-        Args ->
-            %% Note that the `wait_timeout` instruction can
-            %% potentially branch in three different directions:
-            %%
-            %% * A new message is available in the message queue.
-            %%   wait_timeout branches to the given label.
-            %%
-            %% * The timeout expired. wait_timeout transfers control
-            %%   to the next instruction.
-            %%
-            %% * The value for timeout duration is invalid (either not
-            %%   an integer or negative or too large). A timeout_value
-            %%   exception will be raised.
-            %%
-            %% wait_timeout will be represented like this in SSA code:
-            %%
-            %%       WaitBool = wait_timeout TimeoutValue
-            %%       Succeeded = succeeded:body WaitBool
-            %%       br Succeeded, ^good_timeout_value, ^bad_timeout_value
-            %%
-            %%   good_timeout_value:
-            %%       br WaitBool, ^timeout_expired, ^new_message_received
-            %%
-            {Wait,St1} = new_ssa_var('@ssa_wait', St0),
-            {Succ,St2} = make_succeeded(Wait, fail_context(St1), St1),
-            St = new_bool_value(Succeeded0, Wait, St2),
-            Set = #b_set{op=wait_timeout,dst=Wait,args=Args},
-            {[Set|Succ],St}
-    end;
-internal_cg(Op, As, [#k_var{name=Dst0}], St0) when is_atom(Op) ->
+internal_cg(_Anno, recv_wait_timeout, As, [#k_var{name=Succeeded0}], St0) ->
+    %% Note that the `wait_timeout` instruction can potentially branch in three
+    %% different directions:
+    %%
+    %% * A new message is available in the message queue. `wait_timeout`
+    %%   branches to the given label.
+    %%
+    %% * The timeout expired. `wait_timeout` transfers control to the next
+    %%   instruction.
+    %%
+    %% * The value for timeout duration is invalid (either not an integer or
+    %%   negative or too large). A `timeout_value` exception will be raised.
+    %%
+    %% `wait_timeout` will be represented like this in SSA code:
+    %%
+    %%       WaitBool = wait_timeout TimeoutValue
+    %%       Succeeded = succeeded:body WaitBool
+    %%       br Succeeded, ^good_timeout_value, ^bad_timeout_value
+    %%
+    %%   good_timeout_value:
+    %%       br WaitBool, ^timeout_expired, ^new_message_received
+    %%
+    Args = ssa_args(As, St0),
+    {Wait,St1} = new_ssa_var('@ssa_wait', St0),
+    {Succ,St2} = make_succeeded(Wait, fail_context(St1), St1),
+    St = new_bool_value(Succeeded0, Wait, St2),
+    Set = #b_set{op=wait_timeout,dst=Wait,args=Args},
+    {[Set|Succ],St};
+internal_cg(Anno, Op0, As, [#k_var{name=Dst0}], St0) when is_atom(Op0) ->
     %% This behaves like a function call.
     {Dst,St} = new_ssa_var(Dst0, St0),
     Args = ssa_args(As, St),
-    Set = #b_set{op=Op,dst=Dst,args=Args},
+    Op = fix_op(Op0, St),
+    Set = #b_set{anno=Anno,op=Op,dst=Dst,args=Args},
     {[Set],St};
-internal_cg(Op, As, [], St0) when is_atom(Op) ->
+internal_cg(Anno, Op0, As, [], St0) when is_atom(Op0) ->
     %% This behaves like a function call.
     {Dst,St} = new_ssa_var('@ssa_ignored', St0),
     Args = ssa_args(As, St),
-    Set = #b_set{op=Op,dst=Dst,args=Args},
+    Op = fix_op(Op0, St),
+    Set = #b_set{anno=Anno,op=Op,dst=Dst,args=Args},
     {[Set],St}.
+
+fix_op(make_fun, #cg{no_make_fun3=true}) -> old_make_fun;
+fix_op(raise, _) -> resume;
+fix_op(Op, _) -> Op.
 
 bif_cg(Bif, As0, [#k_var{name=Dst0}], Le, St0) ->
     {Dst,St1} = new_ssa_var(Dst0, St0),
@@ -1058,7 +1052,8 @@ cg_binary(Dst, Segs0, FailCtx, Le, St0) ->
     LineAnno = line_anno(Le),
     Anno = Le,
     case PutCode0 of
-        [#b_set{op=bs_put,dst=Bool,args=[_,_,Src,#b_literal{val=all}|_]},
+        [#b_set{op=bs_put,dst=Bin,args=[_,_,Src,#b_literal{val=all}|_]},
+         #b_set{op={succeeded,_},dst=Bool,args=[Bin]},
          #b_br{bool=Bool},
          {label,_}|_] ->
             #k_bin_seg{unit=Unit0,next=Segs} = Segs0,
@@ -1146,6 +1141,8 @@ cg_size_bif({Name,Src}, FailCtx, St0) ->
 
 cg_size_add(#b_literal{val=0}, Val, #b_literal{val=1}, _FailCtx, St) ->
     {Val,[],St};
+cg_size_add(#b_literal{val=A}, #b_literal{val=B}, #b_literal{val=U}, _FailCtx, St) ->
+    {#b_literal{val=A+B*U},[],St};
 cg_size_add(A, B, Unit, FailCtx, St0) ->
     {Dst,St1} = new_ssa_var('@ssa_sum', St0),
     {TestIs,St} = make_succeeded(Dst, FailCtx, St1),
@@ -1166,10 +1163,9 @@ cg_bin_put_1(#k_bin_seg{size=Size0,unit=U,type=T,flags=Fs,seg=Src0,next=Next},
                true -> [TypeArg,Flags,Src,Size,Unit];
                false -> [TypeArg,Flags,Src]
            end,
-    %% bs_put has its own 'succeeded' logic, and should always jump directly to
-    %% the fail label regardless of whether it's in a catch or not.
-    {_, FailLbl} = FailCtx,
-    {Is,St} = make_cond_branch(bs_put, Args, FailLbl, St0),
+    {Dst,St1} = new_ssa_var('@ssa_bs_put', St0),
+    {TestIs,St} = make_succeeded(Dst, FailCtx, St1),
+    Is = [#b_set{op=bs_put,dst=Dst,args=Args}|TestIs],
     SzCalc = bin_size_calc(T, Src, Size, U),
     cg_bin_put_1(Next, FailCtx, reverse(Is, Acc), [SzCalc|SzCalcAcc], St);
 cg_bin_put_1(#k_bin_end{}, _, Acc, SzCalcAcc, St) ->
@@ -1277,6 +1273,9 @@ new_label(#cg{lcount=Next}=St) ->
 
 line_anno([Line,{file,Name}]) when is_integer(Line) ->
     line_anno_1(Name, Line);
+line_anno([{Line,Column},{file,Name}]) when is_integer(Line),
+                                            is_integer(Column) ->
+    line_anno_1(Name, Line);
 line_anno([_|_]=A) ->
     {Name,Line} = find_loc(A, no_file, 0),
     line_anno_1(Name, Line);
@@ -1292,6 +1291,9 @@ line_anno_1(Name, Line) ->
     #{location=>{Name,Line}}.
 
 find_loc([Line|T], File, _) when is_integer(Line) ->
+    find_loc(T, File, Line);
+find_loc([{Line, Column}|T], File, _) when is_integer(Line),
+                                           is_integer(Column) ->
     find_loc(T, File, Line);
 find_loc([{file,File}|T], _, Line) ->
     find_loc(T, File, Line);
@@ -1377,28 +1379,21 @@ drop_upto_label([_|Is]) -> drop_upto_label(Is).
 %%  (For convenience, for instructions that don't have a useful return value,
 %%  the code generator would set #b_set.dst to `none`.)
 
-fix_sets([#b_set{op=Op,dst=Dst}=Set,#b_ret{arg=Dst}=Ret|Is], Acc, St) ->
-    NoValue = case Op of
-                  remove_message -> true;
-                  timeout -> true;
-                  _ -> false
-              end,
-    case NoValue of
-        true ->
-            %% An instruction without value was used in effect
-            %% context in `after` block. Example:
-            %%
-            %%   try
-            %%       ...
-            %%   after
-            %%       receive _ -> ignored end
-            %%   end,
-            %%   ok.
-            %%
-            fix_sets(Is, [Ret#b_ret{arg=#b_literal{val=ok}},Set|Acc], St);
-        false ->
-            fix_sets(Is, [Ret,Set|Acc], St)
-    end;
+fix_sets([#b_set{op=remove_message,dst=Dst}=Set,#b_ret{arg=Dst}=Ret|Is], Acc, St) ->
+    %% The remove_message instruction, which is an instruction without
+    %% value, was used in effect context in an `after` block. Example:
+    %%
+    %%   try
+    %%       . . .
+    %%   after
+    %%       .
+    %%       .
+    %%       .
+    %%       receive _ -> ignored end
+    %%   end,
+    %%   ok.
+    %%
+    fix_sets(Is, [Ret#b_ret{arg=#b_literal{val=ok}},Set|Acc], St);
 fix_sets([#b_set{dst=none}=Set|Is], Acc, St0) ->
     {Dst,St} = new_ssa_var('@ssa_ignored', St0),
     I = Set#b_set{dst=Dst},

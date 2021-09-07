@@ -31,6 +31,11 @@
 
 #define YCF_YIELD()
 
+int fun2(int x){
+    YCF_YIELD();
+    return x;
+}
+
 int fun(char x){
   int y = 10;
   /*special_code_start:ON_SAVE_YIELD_STATE*/
@@ -46,7 +51,14 @@ int fun(char x){
   /*special_code_end*/
   /*special_code_start:ON_DESTROY_STATE_OR_RETURN*/
   if(0){
-    printf("I got destroyed or returned y=%d\n", y);
+    int hej = 123;
+    printf("I got destroyed or returned y=%d hej=%d\n", y, hej);
+  }
+  /*special_code_end*/
+  /*special_code_start:ON_DESTROY_STATE*/
+  if(0){
+    int hej = 321;
+    printf("I got destroyed y=%d call_in_special_code=%d hej=%d\n", y, fun2(42), hej);
   }
   /*special_code_end*/
   /*special_code_start:ON_RESTORE_YIELD_STATE*/
@@ -107,6 +119,11 @@ int main( int argc, const char* argv[] )
   int ret = 0;
   long nr_of_reductions = 1;
 #ifdef YCF_YIELD_CODE_GENERATED
+  ret = fun_ycf_gen_yielding(&nr_of_reductions,&wb,NULL,allocator,freer,NULL,0,NULL,1);
+  printf("CALLING DESTROY\n");
+  fun_ycf_gen_destroy(wb);
+  wb = NULL;
+  printf("DESTROY ENDED\n");
   do{
     ret = fun_ycf_gen_yielding(&nr_of_reductions,&wb,NULL,allocator,freer,NULL,0,NULL,1);
     if(wb != NULL){

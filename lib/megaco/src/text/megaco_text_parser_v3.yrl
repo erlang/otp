@@ -760,12 +760,13 @@ auditReturnParameter -> signalsDescriptor         : {signalsDescriptor, '$1'} .
 auditReturnParameter -> digitMapDescriptor        : {digitMapDescriptor, '$1'} .
 auditReturnParameter -> observedEventsDescriptor  : {observedEventsDescriptor, '$1'} .
 auditReturnParameter -> eventBufferDescriptor     : {eventBufferDescriptor, '$1'} .
-auditReturnParameter -> statisticsDescriptor      : {statisticsDescriptor, '$1'} .
+%% Conflict with 'empty' statisticsDescriptor and auditReturnItem (see below)
+auditReturnParameter -> statisticsDescriptor      : ensure_arp_statisticsDescriptor('$1') .
 auditReturnParameter -> packagesDescriptor        : {packagesDescriptor, '$1'} .
 auditReturnParameter -> errorDescriptor           : {errorDescriptor, '$1'} .
 auditReturnParameter -> auditReturnItem           : {auditReturnItem, '$1'} .
 
-auditDescriptor      -> 'AuditToken' 'LBRKT' auditDescriptorBody 'RBRKT' : 
+auditDescriptor      -> 'AuditToken' 'LBRKT' auditDescriptorBody 'RBRKT' :
                         merge_auditDescriptor('$3') .
 
 auditDescriptorBody  -> auditItem auditItemList : ['$1' | '$2'].
@@ -780,13 +781,16 @@ auditReturnItem      -> 'MuxToken'             : muxToken .
 auditReturnItem      -> 'ModemToken'           : modemToken .
 auditReturnItem      -> 'MediaToken'           : mediaToken .
 auditReturnItem      -> 'DigitMapToken'        : digitMapToken .
-auditReturnItem      -> 'StatsToken'           : statsToken .
+%% Conflict with 'empty' statisticsDescriptor:
+%% auditReturnItem      -> 'StatsToken'           : statsToken .
 auditReturnItem      -> 'ObservedEventsToken'  : observedEventsToken .
 auditReturnItem      -> 'PackagesToken'        : packagesToken .
 
 %% at-most-once, and DigitMapToken and PackagesToken are not allowed 
 %% in AuditCapabilities command 
 auditItem          -> auditReturnItem        : '$1' .
+%% Moved from ari above (conflict with 'empty' statisticsDescriptor)
+auditItem          -> 'StatsToken'           : statsToken.
 auditItem          -> 'SignalsToken'         : signalsToken.
 auditItem          -> 'EventBufferToken'     : eventBufferToken.
 auditItem          -> 'EventsToken'          : eventsToken .
@@ -1095,11 +1099,13 @@ localParmList        -> '$empty': [] .
 
 terminationStateDescriptor -> 'TerminationStateToken'
                               'LBRKT' terminationStateParm 
-                                      terminationStateParms 'RBRKT'
-		              : merge_terminationStateDescriptor(['$3' | '$4']) .
+                                      terminationStateParms 'RBRKT' :
+                              merge_terminationStateDescriptor(['$3' | '$4']) .
 
-terminationStateParms -> 'COMMA' terminationStateParm terminationStateParms : ['$2' | '$3'] .
-terminationStateParms -> '$empty' : [] .
+terminationStateParms -> 'COMMA' terminationStateParm terminationStateParms :
+                         ['$2' | '$3'] .
+terminationStateParms -> '$empty' :
+                         [] .
 
 %% at-most-once per item except for propertyParm
 localParm            -> 'ReservedGroupToken' 'EQUAL' onOrOff : {group, '$3'} .
@@ -1504,6 +1510,7 @@ statisticsDescriptor -> 'StatsToken'
                         'LBRKT' statisticsParameter 
                                 statisticsParameters 'RBRKT'
                         : ['$3' | '$4'] .
+statisticsDescriptor -> 'StatsToken' : [] .
 
 statisticsParameters -> 'COMMA' statisticsParameter statisticsParameters  : ['$2' | '$3'] .
 statisticsParameters -> '$empty' : [] .
@@ -1671,10 +1678,6 @@ safeToken2           -> 'V91Token'              : '$1' .
 safeToken2           -> 'VersionToken'          : '$1' .
 
 Erlang code.
-
-%% The following directive is needed for (significantly) faster compilation
-%% of the generated .erl file by the HiPE compiler.  Please do not remove.
--compile([{hipe,[{regalloc,linear_scan}]}]).
 
 -include("megaco_text_parser_v3.hrl").
 

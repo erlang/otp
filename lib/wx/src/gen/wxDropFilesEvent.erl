@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,18 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdropfilesevent.html">wxDropFilesEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>drop_files</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxDropFiles(). #wxDropFiles{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxDropFilesEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxDropFilesEvent).
 -include("wxe.hrl").
 -export([getFiles/1,getNumberOfFiles/1,getPosition/1]).
@@ -38,35 +26,37 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxDropFilesEvent/0]).
+-type wxDropFilesEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxDropFilesEventType() :: 'drop_files'.
+-export_type([wxDropFilesEvent/0, wxDropFiles/0, wxDropFilesEventType/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxDropFilesEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdropfilesevent.html#wxdropfileseventgetposition">external documentation</a>.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
 	This::wxDropFilesEvent().
-getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDropFilesEvent),
-  wxe_util:call(?wxDropFilesEvent_GetPosition,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxDropFilesEvent_GetPosition),
+  wxe_util:rec(?wxDropFilesEvent_GetPosition).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdropfilesevent.html#wxdropfileseventgetnumberoffiles">external documentation</a>.
 -spec getNumberOfFiles(This) -> integer() when
 	This::wxDropFilesEvent().
-getNumberOfFiles(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getNumberOfFiles(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDropFilesEvent),
-  wxe_util:call(?wxDropFilesEvent_GetNumberOfFiles,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxDropFilesEvent_GetNumberOfFiles),
+  wxe_util:rec(?wxDropFilesEvent_GetNumberOfFiles).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdropfilesevent.html#wxdropfileseventgetfiles">external documentation</a>.
 -spec getFiles(This) -> [unicode:charlist()] when
 	This::wxDropFilesEvent().
-getFiles(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getFiles(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDropFilesEvent),
-  wxe_util:call(?wxDropFilesEvent_GetFiles,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxDropFilesEvent_GetFiles),
+  wxe_util:rec(?wxDropFilesEvent_GetFiles).
 
  %% From wxEvent
 %% @hidden

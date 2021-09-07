@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,11 +24,18 @@
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/src/inet_dns.hrl").
 
+-include("kernel_test_lib.hrl").
+
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2, end_per_testcase/2]).
+	 init_per_testcase/2, end_per_testcase/2
+        ]).
 -export([basic/1, resolve/1, edns0/1, txt_record/1, files_monitor/1,
-	 last_ms_answer/1, intermediate_error/1]).
+	 nxdomain_reply/1, last_ms_answer/1, intermediate_error/1,
+         servfail_retry_timeout_default/1, servfail_retry_timeout_1000/1,
+         label_compression_limit/1
+        ]).
 -export([
 	 gethostbyaddr/0, gethostbyaddr/1,
 	 gethostbyaddr_v6/0, gethostbyaddr_v6/1,
@@ -40,9 +47,10 @@
 	 host_and_addr/0, host_and_addr/1
 	]).
 
--define(RUN_NAMED, "run-named").
+-define(RUN_NS, "run-ns").
+-define(LOG_FILE, "ns.log").
 
-%% This test suite use a script ?RUN_NAMED that tries to start
+%% This test suite use a script ?RUN_NS that tries to start
 %% a temporary local nameserver BIND 8 or 9 that must be installed
 %% on your machine.
 %%
@@ -64,7 +72,10 @@ suite() ->
 
 all() -> 
     [basic, resolve, edns0, txt_record, files_monitor,
-     last_ms_answer, intermediate_error,
+     nxdomain_reply, last_ms_answer,
+     intermediate_error,
+     servfail_retry_timeout_default, servfail_retry_timeout_1000,
+     label_compression_limit,
      gethostbyaddr, gethostbyaddr_v6, gethostbyname,
      gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
      host_and_addr].
@@ -72,11 +83,37 @@ all() ->
 groups() -> 
     [].
 
-init_per_suite(Config) ->
-    Config.
+init_per_suite(Config0) ->
 
-end_per_suite(_Config) ->
-    ok.
+    ?P("init_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            ?P("init_per_suite -> end when "
+               "~n      Config: ~p", [Config1]),
+
+            Config1
+    end.
+
+end_per_suite(Config0) ->
+
+    ?P("end_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    ?P("end_per_suite -> "
+       "~n      Nodes: ~p", [erlang:nodes()]),
+
+    Config1. %% We don't actually need to update or return config
+
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -86,36 +123,57 @@ end_per_group(_GroupName, Config) ->
 
 zone_dir(TC) ->
     case TC of
-	basic -> otptest;
-	resolve -> otptest;
-	edns0 -> otptest;
-	files_monitor -> otptest;
-	last_ms_answer -> otptest;
+	basic              -> otptest;
+	resolve            -> otptest;
+	edns0              -> otptest;
+	files_monitor      -> otptest;
+	nxdomain_reply     -> otptest;
+	last_ms_answer     -> otptest;
         intermediate_error ->
             {internal,
              #{rcode => ?REFUSED}};
+        servfail_retry_timeout_default ->
+            {internal,
+             #{rcode => ?SERVFAIL, etd => 1500}};
+        servfail_retry_timeout_1000 ->
+            {internal,
+             #{rcode => ?SERVFAIL, etd => 1000}};
 	_ -> undefined
     end.
 
 init_per_testcase(Func, Config) ->
+
+    ?P("init_per_testcase -> entry with"
+       "~n      Func:   ~p"
+       "~n      Config: ~p", [Func, Config]),
+
     PrivDir = proplists:get_value(priv_dir, Config),
     DataDir = proplists:get_value(data_dir, Config),
     try ns_init(zone_dir(Func), PrivDir, DataDir) of
 	NsSpec ->
+            ?P("init_per_testcase -> get resolver lookup"),
 	    Lookup = inet_db:res_option(lookup),
+            ?P("init_per_testcase -> set file:dns"),
 	    inet_db:set_lookup([file,dns]),
 	    case NsSpec of
 		{_,{IP,Port},_} ->
+                    ?P("init_per_testcase -> insert alt nameserver ~p:~w",
+                       [IP, Port]),
 		    inet_db:ins_alt_ns(IP, Port);
 		_ -> ok
 	    end,
             %% dbg:tracer(),
             %% dbg:p(all, c),
             %% dbg:tpl(inet_res, query_nss_res, cx),
-	    [{nameserver,NsSpec},{res_lookup,Lookup}|Config]
+            ?P("init_per_testcase -> done:"
+               "~n      NsSpec: ~p"
+               "~n      Lookup: ~p", [NsSpec, Lookup]),
+	    [{nameserver, NsSpec}, {res_lookup, Lookup} | Config]
     catch
 	SkipReason ->
-	    {skip,SkipReason}
+            ?P("init_per_testcase -> catched:"
+               "~n      SkipReason: ~p", [SkipReason]),
+	    {skip, SkipReason}
     end.
 
 end_per_testcase(_Func, Config) ->
@@ -129,6 +187,7 @@ end_per_testcase(_Func, Config) ->
     %% dbg:stop(),
     ns_end(NsSpec, proplists:get_value(priv_dir, Config)).
 
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Nameserver control
 
@@ -137,12 +196,20 @@ ns(Config) ->
     NS.
 
 ns_init(ZoneDir, PrivDir, DataDir) ->
+
+    ?P("ns_init -> entry with"
+       "~n      ZoneDir: ~p"
+       "~n      PrivDir: ~p"
+       "~n      DataDir: ~p", [ZoneDir, PrivDir, DataDir]),
+
     case {os:type(),ZoneDir} of
         {_,{internal,ServerSpec}} ->
             ns_start_internal(ServerSpec);
 	{{unix,_},undefined} ->
+            ?P("ns_init -> nothing"),
             undefined;
 	{{unix,_},otptest} ->
+            ?P("ns_init -> prepare start"),
 	    PortNum = case {os:type(),os:version()} of
 			  {{unix,solaris},{M,V,_}} when M =< 5, V < 10 ->
 			      11895 + rand:uniform(100);
@@ -152,8 +219,11 @@ ns_init(ZoneDir, PrivDir, DataDir) ->
 			      gen_udp:close(S),
 			      PNum
 		      end,
-	    RunNamed = filename:join(DataDir, ?RUN_NAMED),
+            ?P("ns_init -> use port number ~p", [PortNum]),
+	    RunNamed = filename:join(DataDir, ?RUN_NS),
+            ?P("ns_init -> use named ~p", [RunNamed]),
 	    NS = {{127,0,0,1},PortNum},
+            ?P("ns_init -> try open port (exec)"),
 	    P = erlang:open_port({spawn_executable,RunNamed},
 				 [{cd,PrivDir},
 				  {line,80},
@@ -162,25 +232,39 @@ ns_init(ZoneDir, PrivDir, DataDir) ->
 					 atom_to_list(ZoneDir)]},
 				  stderr_to_stdout,
 				  eof]),
+            ?P("ns_init -> port ~p", [P]),
 	    ns_start(ZoneDir, PrivDir, NS, P);
 	_ ->
 	    throw("Only run on Unix")
     end.
 
 ns_start(ZoneDir, PrivDir, NS, P) ->
+
+    ?P("ns_start -> await message"),
+
     case ns_collect(P) of
 	eof ->
+            ?P("ns_start -> eof"),
 	    erlang:error(eof);
 	"Running: "++_ ->
+            ?P("ns_start -> running"),
 	    {ZoneDir,NS,P};
 	"Error: "++Error ->
-	    ns_printlog(filename:join([PrivDir,ZoneDir,"named.log"])),
+            ?P("ns_start -> error: "
+               "~n      ~p", [Error]),
+	    ns_printlog(filename:join([PrivDir,ZoneDir,?LOG_FILE])),
 	    throw(Error);
-	_ ->
+	_X ->
+            ?P("ns_start -> retry"),
 	    ns_start(ZoneDir, PrivDir, NS, P)
     end.
 
+
 ns_start_internal(ServerSpec) ->
+
+    ?P("ns_start_internal -> entry with"
+       "~n      ServerSpec: ~p", [ServerSpec]),
+
     Parent = self(),
     Tag = make_ref(),
     {P,Mref} =
@@ -197,9 +281,12 @@ ns_start_internal(ServerSpec) ->
           end),
     receive
         {Tag,_NS,P} = NsSpec ->
+            ?P("ns_start_internal -> ~p started", [P]),
             demonitor(Mref, [flush]),
             NsSpec;
         {'DOWN',Mref,_,_,Reason} ->
+            ?P("ns_start_internal -> failed start:"
+               "~n      ~p", [Reason]),
             exit({ns_start_internal,Reason})
     end.
 
@@ -207,7 +294,7 @@ ns_end(undefined, _PrivDir) -> undefined;
 ns_end({ZoneDir,_NS,P}, PrivDir) when is_port(P) ->
     port_command(P, ["quit",io_lib:nl()]),
     ns_stop(P),
-    ns_printlog(filename:join([PrivDir,ZoneDir,"named.log"])),
+    ns_printlog(filename:join([PrivDir,ZoneDir,"ns.log"])),
     ok;
 ns_end({Tag,_NS,P}, _PrivDir) when is_pid(P) ->
     Mref = erlang:monitor(process, P),
@@ -232,7 +319,7 @@ ns_collect(P, Buf) ->
     receive
 	{P,{data,{eol,L}}} ->
 	    Line = lists:flatten(lists:reverse(Buf, [L])),
-	    io:format("~s", [Line]),
+	    ?P("collected: ~s", [Line]),
 	    Line;
 	{P,{data,{noeol,L}}} ->
 	    ns_collect(P, [L|Buf]);
@@ -241,7 +328,7 @@ ns_collect(P, Buf) ->
     end.
 
 ns_printlog(Fname) ->
-    io:format("Name server log file contents:~n", []),
+    ?P("Name server log file contents:"),
     case file:read_file(Fname) of
 	{ok,Bin} ->
 	    io:format("~s~n", [Bin]);
@@ -253,39 +340,81 @@ ns_printlog(Fname) ->
 %% Internal name server
 
 ns_internal(ServerSpec, Mref, Tag, S) ->
+    ?P("ns-internal -> await message"),
     receive
         {'DOWN',Mref,_,_,Reason} ->
+            ?P("ns-internal -> received DOWN: "
+               "~n      ~p", [Reason]),
             exit(Reason);
         Tag ->
+            ?P("ns-internal -> received tag: done"),
             ok;
         {udp,S,IP,Port,Data} ->
+            ?P("ns-internal -> received UDP message"),
             Req = ok(inet_dns:decode(Data)),
-            Resp = ns_internal(ServerSpec, Req),
+            {Resp, ServerSpec2} = ns_internal(ServerSpec, Req),
             RespData = inet_dns:encode(Resp),
             _ = ok(gen_udp:send(S, IP, Port, RespData)),
             _ = ok(inet:setopts(S, [{active,once}])),
-            ns_internal(ServerSpec, Mref, Tag, S)
+            ns_internal(ServerSpec2, Mref, Tag, S)
     end.
 
-ns_internal(#{rcode := Rcode}, Req) ->
-    Hdr = inet_dns:msg(Req, header),
+ns_internal(#{rcode := Rcode,
+              ts    := TS0,
+              etd   := ETD} = ServerSpec, Req) ->
+    ?P("ns-internal -> request received (time validation)"),
+    TS1    = timestamp(),
+    Hdr    = inet_dns:msg(Req, header),
     Opcode = inet_dns:header(Hdr, opcode),
-    Id = inet_dns:header(Hdr, id),
-    Rd = inet_dns:header(Hdr, rd),
+    Id     = inet_dns:header(Hdr, id),
+    Rd     = inet_dns:header(Hdr, rd),
     %%
     Qdlist = inet_dns:msg(Req, qdlist),
-    inet_dns:make_msg(
-       [{header,
-         inet_dns:make_header(
-           [{id,Id},
-            {qr,true},
-            {opcode,Opcode},
-            {aa,true},
-            {tc,false},
-            {rd,Rd},
-            {ra,false},
-            {rcode,Rcode}])},
-         {qdlist,Qdlist}]).
+    ?P("ns-internal -> time validation: "
+       "~n      ETD:       ~w"
+       "~n      TS1 - TS0: ~w", [ETD, TS1 - TS0]),
+    RC = if ((TS1 - TS0) >= ETD) ->
+                 ?P("ns-internal -> time validated"),
+                 ?NOERROR;
+            true ->
+                 ?P("ns-internal -> time validation failed"),
+                 Rcode
+         end,
+    Resp   = inet_dns:make_msg(
+               [{header,
+                 inet_dns:make_header(
+                   [{id,     Id},
+                    {qr,     true},
+                    {opcode, Opcode},
+                    {aa,     true},
+                    {tc,     false},
+                    {rd,     Rd},
+                    {ra,     false},
+                    {rcode,  RC}])},
+                {qdlist, Qdlist}]),
+    {Resp, ServerSpec#{ts => timestamp()}};
+ns_internal(#{rcode := Rcode} = ServerSpec, Req) ->
+    ?P("ns-internal -> request received"),
+    Hdr    = inet_dns:msg(Req, header),
+    Opcode = inet_dns:header(Hdr, opcode),
+    Id     = inet_dns:header(Hdr, id),
+    Rd     = inet_dns:header(Hdr, rd),
+    %%
+    Qdlist = inet_dns:msg(Req, qdlist),
+    Resp   = inet_dns:make_msg(
+               [{header,
+                 inet_dns:make_header(
+                   [{id,Id},
+                    {qr,true},
+                    {opcode,Opcode},
+                    {aa,true},
+                    {tc,false},
+                    {rd,Rd},
+                    {ra,false},
+                    {rcode,Rcode}])},
+                {qdlist,Qdlist}]),
+    {Resp, ServerSpec#{ts => timestamp()}}.
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Behaviour modifying nameserver proxy
@@ -297,10 +426,13 @@ proxy_start(TC, {NS,P}) ->
 	spawn_link(
 	  fun () ->
 		  try proxy_start(TC, NS, P, Parent, Tag)
-		  catch C:X:Stacktrace ->
-			  io:format(
-			    "~w: ~w:~p ~p~n",
-			    [self(),C,X,Stacktrace])
+		  catch
+                      C:X:Stacktrace ->
+			  ?P("~p Failed starting proxy: "
+                             "~n      Class:      ~w"
+                             "~n      Error:      ~p"
+                             "~n      Stacktrace: ~p",
+                             [self(), C, X, Stacktrace])
 		  end
 	  end),
     receive {started,Tag,Port} ->
@@ -369,11 +501,13 @@ proxy_wait({proxy,Pid,_,_}) ->
 
 proxy_ns({proxy,_,_,ProxyNS}) -> ProxyNS.
 
+
 %%
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Lookup an A record with different API functions.
 basic(Config) when is_list(Config) ->
+    ?P("begin"),
     NS = ns(Config),
     Name = "ns.otptest",
     NameC = caseflip(Name),
@@ -381,7 +515,7 @@ basic(Config) when is_list(Config) ->
     %%
     %% nslookup
     {ok,Msg1} = inet_res:nslookup(Name, in, a, [NS]),
-    io:format("~p~n", [Msg1]),
+    ?P("nslookup with ~p: ~n      ~p", [Name, Msg1]),
     [RR1] = inet_dns:msg(Msg1, anlist),
     IP = inet_dns:rr(RR1, data),
     Bin1 = inet_dns:encode(Msg1),
@@ -389,7 +523,7 @@ basic(Config) when is_list(Config) ->
     {ok,Msg1} = inet_dns:decode(Bin1),
     %% Now with scrambled case
     {ok,Msg1b} = inet_res:nslookup(NameC, in, a, [NS]),
-    io:format("~p~n", [Msg1b]),
+    ?P("nslookup with ~p: ~n      ~p", [NameC, Msg1b]),
     [RR1b] = inet_dns:msg(Msg1b, anlist),
     IP = inet_dns:rr(RR1b, data),
     Bin1b = inet_dns:encode(Msg1b),
@@ -401,7 +535,7 @@ basic(Config) when is_list(Config) ->
     %%
     %% resolve
     {ok,Msg2} = inet_res:resolve(Name, in, a, [{nameservers,[NS]},verbose]),
-    io:format("~p~n", [Msg2]),
+    ?P("resolve with ~p: ~n      ~p", [Name, Msg2]),
     [RR2] = inet_dns:msg(Msg2, anlist),
     IP = inet_dns:rr(RR2, data),
     Bin2 = inet_dns:encode(Msg2),
@@ -409,7 +543,7 @@ basic(Config) when is_list(Config) ->
     {ok,Msg2} = inet_dns:decode(Bin2),
     %% Now with scrambled case
     {ok,Msg2b} = inet_res:resolve(NameC, in, a, [{nameservers,[NS]},verbose]),
-    io:format("~p~n", [Msg2b]),
+    ?P("resolve with ~p: ~n      ~p", [NameC, Msg2b]),
     [RR2b] = inet_dns:msg(Msg2b, anlist),
     IP = inet_dns:rr(RR2b, data),
     Bin2b = inet_dns:encode(Msg2b),
@@ -420,22 +554,28 @@ basic(Config) when is_list(Config) ->
 	  =:= tolower(inet_dns:rr(RR2b, domain))),
     %%
     %% lookup
+    ?P("lookup"),
     [IP] = inet_res:lookup(Name, in, a, [{nameservers,[NS]},verbose]),
     [IP] = inet_res:lookup(NameC, in, a, [{nameservers,[NS]},verbose]),
     %%
     %% gethostbyname
+    ?P("gethostbyname"),
     {ok,#hostent{h_addr_list=[IP]}} = inet_res:gethostbyname(Name),
     {ok,#hostent{h_addr_list=[IP]}} = inet_res:gethostbyname(NameC),
     %%
     %% getbyname
+    ?P("getbyname"),
     {ok,#hostent{h_addr_list=[IP]}} = inet_res:getbyname(Name, a),
     {ok,#hostent{h_addr_list=[IP]}} = inet_res:getbyname(NameC, a),
+    ?P("end"),
     ok.
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Lookup different records using resolve/2..4.
 resolve(Config) when is_list(Config) ->
+    ?P("begin"),
     Class = in,
     NS = ns(Config),
     Domain = "otptest",
@@ -447,7 +587,9 @@ resolve(Config) when is_list(Config) ->
 	 {cname,"cname."++Name,[{cname,Name}],undefined},
 	 {a,"cname."++Name,[{cname,Name},{a,{127,0,0,28}}],undefined},
 	 {ns,"ns."++Name,[],[{ns,Name}]},
-	 {soa,Domain,[],[{soa,{"ns.otptest","lsa.otptest",1,60,10,300,30}}]},
+	 {soa,Domain,
+          undefined,
+          [{soa,{"ns.otptest","lsa\\.soa.otptest",1,60,10,300,30}}]},
 	 %% WKS: protocol TCP (6), services (bits) TELNET (23) and SMTP (25)
 	 {wks,"wks."++Name,[{wks,{{127,0,0,28},6,<<0,0,1,64>>}}],undefined},
 	 {ptr,"28."++RDomain4,[{ptr,Name}],undefined},
@@ -462,28 +604,41 @@ resolve(Config) when is_list(Config) ->
 	  [{txt,["Hej ","du ","glade "]},{txt,["ta ","en ","spade!"]}],
 	  undefined},
 	 {mb,"mb."++Name,[{mb,"mx."++Name}],undefined},
-	 {mg,"mg."++Name,[{mg,"Lsa."++Domain}],undefined},
-	 {mr,"mr."++Name,[{mr,"LSA."++Domain}],undefined},
+	 {mg,"mg."++Name,[{mg,"lsa\\.mg."++Domain}],undefined},
+	 {mr,"mr."++Name,[{mr,"lsa\\.mr."++Domain}],undefined},
 	 {minfo,"minfo."++Name,
-	  [{minfo,{"minfo-OWNER."++Name,"MinfoBounce."++Name}}],
+	  [{minfo,{"minfo-owner."++Name,"minfo-bounce."++Name}}],
 	  undefined},
+         {uri,"uri."++Name,[{uri,{10,3,"http://erlang.org"}}],undefined},
+         {caa,"caa."++Name,
+          [{caa,{1,"iodef","http://iodef.erlang.org"}}],
+          undefined},
 	 {any,"cname."++Name,[{cname,Name}],undefined},
 	 {any,Name,
-	  [{a,{127,0,0,28}},
-	   {aaaa,{0,0,0,0,0,0,32512,28}},
-	   {hinfo,{"BEAM","Erlang/OTP"}}],
+	  #{ {a,{127,0,0,28}} => [],
+             {aaaa,{0,0,0,0,0,0,32512,28}} => [],
+             {hinfo,{"BEAM","Erlang/OTP"}} => [] },
 	  undefined}
 	],
+    ?P("resolve -> with edns 0"),
     resolve(Class, [{edns,0},{nameservers,[NS]}], L),
+    ?P("resolve -> with edns false"),
     resolve(Class, [{edns,false},{nameservers,[NS]}], L),
     %% Again, to see ensure the cache does not mess things up
+    ?P("resolve -> with edns 0 (again)"),
     resolve(Class, [{edns,0},{nameservers,[NS]}], L),
-    resolve(Class, [{edns,false},{nameservers,[NS]}], L).
+    ?P("resolve -> with edns false (again)"),
+    Res = resolve(Class, [{edns,false},{nameservers,[NS]}], L),
+    ?P("resolve -> done: ~p", [Res]),
+    Res.
 
 resolve(_Class, _Opts, []) ->
+    ?P("resolve -> done"),
     ok;
 resolve(Class, Opts, [{Type,Nm,Answers,Authority}=Q|Qs]) ->
-    io:format("Query: ~p~nOptions: ~p~n", [Q,Opts]),
+    ?P("resolve ->"
+       "~n      Query:   ~p"
+       "~n      Options: ~p", [Q, Opts]),
     {Name,NameC} =
 	case erlang:phash2(Q) band 4 of
 	    0 ->
@@ -491,81 +646,113 @@ resolve(Class, Opts, [{Type,Nm,Answers,Authority}=Q|Qs]) ->
 	    _ ->
 		{caseflip(Nm),Nm}
 	end,
-    AnList =
-	if
-	    Answers =/= undefined ->
-		normalize_answers(Answers);
-	    true ->
-		undefined
-	end,
-    NsList =
-	if
-	    Authority =/= undefined ->
-		normalize_answers(Authority);
-	    true ->
-		undefined
-	end,
+    NormAnswers = normalize_rrs(Answers),
+    NormNSs = normalize_rrs(Authority),
+    ?P("resolve -> resolve with ~p", [Name]),
     {ok,Msg} = inet_res:resolve(Name, Class, Type, Opts),
-    check_msg(Class, Type, Msg, AnList, NsList),
+    check_msg(Class, Type, Msg, NormAnswers, NormNSs),
+    ?P("resolve -> resolve with ~p", [NameC]),
     {ok,MsgC} = inet_res:resolve(NameC, Class, Type, Opts),
-    check_msg(Class, Type, MsgC, AnList, NsList),
+    check_msg(Class, Type, MsgC, NormAnswers, NormNSs),
+    ?P("resolve -> next"),
     resolve(Class, Opts, Qs).
 
 
 
-normalize_answers(AnList) ->
-    lists:sort([normalize_answer(Answer) || Answer <- AnList]).
+normalize_rrs(undefined = RRs) -> RRs;
+normalize_rrs(RRList) when is_list(RRList) ->
+    lists:sort([normalize_rr(RR) || RR <- RRList]);
+normalize_rrs(RRs) when is_map(RRs) ->
+    maps:fold(
+      fun (RR, V, NormRRs) ->
+              NormRRs#{(normalize_rr(RR)) => V}
+      end, #{}, RRs).
 
-normalize_answer({soa,{NS,HM,Ser,Ref,Ret,Exp,Min}}) ->
+normalize_rr({soa,{NS,HM,Ser,Ref,Ret,Exp,Min}}) ->
     {tolower(NS),tolower_email(HM),Ser,Ref,Ret,Exp,Min};
-normalize_answer({mx,{Prio,DN}}) ->
+normalize_rr({mx,{Prio,DN}}) ->
     {Prio,tolower(DN)};
-normalize_answer({srv,{Prio,Weight,Port,DN}}) ->
+normalize_rr({srv,{Prio,Weight,Port,DN}}) ->
     {Prio,Weight,Port,tolower(DN)};
-normalize_answer({naptr,{Order,Pref,Flags,Service,RE,Repl}}) ->
+normalize_rr({naptr,{Order,Pref,Flags,Service,RE,Repl}}) ->
     {Order,Pref,Flags,Service,RE,tolower(Repl)};
-normalize_answer({minfo,{RespM,ErrM}}) ->
+normalize_rr({minfo,{RespM,ErrM}}) ->
     {tolower_email(RespM),tolower_email(ErrM)};
-normalize_answer({T,MN}) when T =:= mg; T =:= mr ->
+normalize_rr({T,MN}) when T =:= mg; T =:= mr ->
     tolower_email(MN);
-normalize_answer({T,DN}) when T =:= cname; T =:= ns; T =:= ptr; T =:= mb ->
+normalize_rr({T,DN}) when T =:= cname; T =:= ns; T =:= ptr; T =:= mb ->
     tolower(DN);
-normalize_answer(Answer) ->
-    Answer.
+normalize_rr(RR) ->
+    RR.
 
-check_msg(Class, Type, Msg, AnList, NsList) ->
-    io:format("check_msg Type: ~p, Msg: ~p~n.", [Type,Msg]),
-    case {normalize_answers(
-	    [begin
-		 Class = inet_dns:rr(RR, class),
-		 {inet_dns:rr(RR, type),inet_dns:rr(RR, data)}
-	     end || RR <- inet_dns:msg(Msg, anlist)]),
-	  normalize_answers(
-	    [begin
-		 Class = inet_dns:rr(RR, class),
-		 {inet_dns:rr(RR, type),inet_dns:rr(RR, data)}
-	     end || RR <- inet_dns:msg(Msg, nslist)])} of
-	{AnList,NsList} ->
-	    ok;
-	{NsList,AnList} when Type =:= ns ->
-	    %% This whole case statement is kind of inside out just
-	    %% to accept this case when some legacy DNS resolvers
-	    %% return the answer to a NS query in the answer section
-	    %% instead of in the authority section.
-	    ok;
-	{AnList,_} when NsList =:= undefined ->
-	    ok;
-	{_,NsList} when AnList =:= undefined ->
-	    ok
+check_msg(Class, Type, Msg, ExpectedAnswers, ExpectedNSs) ->
+    ?P("check_msg ->"
+       "~n      Type: ~p"
+       "~n      Msg:  ~p", [Type,Msg]),
+    NormAnList =
+        normalize_rrs(
+          [begin
+               Class = inet_dns:rr(RR, class),
+               {inet_dns:rr(RR, type),inet_dns:rr(RR, data)}
+           end || RR <- inet_dns:msg(Msg, anlist)]),
+    NormNsList =
+           normalize_rrs(
+             [begin
+                  Class = inet_dns:rr(RR, class),
+                  {inet_dns:rr(RR, type),inet_dns:rr(RR, data)}
+              end || RR <- inet_dns:msg(Msg, nslist)]),
+    case
+        check_msg(ExpectedAnswers, NormAnList) andalso
+        check_msg(ExpectedNSs, NormNsList)
+    of
+        true ->
+            ok;
+        false
+          when Type =:= ns;
+               Type =:= soa ->
+            %% Some resolvers return the answer to a NS query
+            %% in the answer section instead of in the authority section,
+            %% and some do the same for a SOA query
+            case
+                check_msg(ExpectedAnswers, NormNsList) andalso
+                check_msg(ExpectedNSs, NormAnList)
+            of
+                true ->
+                    ok;
+                false ->
+                    error({Type,
+                           {expected,ExpectedAnswers,ExpectedNSs},
+                           {got,NormAnList,NormNsList}})
+            end;
+        false ->
+            error({Type,
+                   {expected,ExpectedAnswers,ExpectedNSs},
+                   {got,NormAnList,NormNsList}})
     end,
+    %% Test the encoder against the decoder; the least we can do
     Buf = inet_dns:encode(Msg),
     {ok,Msg} = inet_dns:decode(Buf),
     ok.
+
+check_msg(undefined, RRs) when is_list(RRs)-> true;
+check_msg(RRs1, RRs2) when is_list(RRs1), is_list(RRs2) ->
+    RRs1 =:= RRs2;
+check_msg(Expected, [RR|RRs]) when is_map(Expected) ->
+    case Expected of
+        #{RR := _} ->
+            case RRs of
+                []    -> true;
+                [_|_] -> check_msg(Expected, RRs)
+            end;
+        #{} -> false
+    end;
+check_msg(#{}, []) -> false. % At least one has to be ok
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Test EDNS and truncation.
 edns0(Config) when is_list(Config) ->
+    ?P("begin"),
     NS = ns(Config),
     Domain = "otptest",
     Filler = "-5678901234567890123456789012345678.",
@@ -600,52 +787,66 @@ edns0(Config) when is_list(Config) ->
     MXs = lists:sort(inet_res_filter(inet_dns:msg(Msg2, anlist), in, mx)),
     Buf2 = inet_dns:encode(Msg2),
     {ok,Msg2} = inet_dns:decode(Buf2),
-    case [RR || RR <- inet_dns:msg(Msg2, arlist),
-		inet_dns:rr(RR, type) =:= opt] of
-	[OptRR] ->
-	    io:format("~p~n", [inet_dns:rr(OptRR)]),
-	    ok;
-	[] ->
-	    case os:type() of
-		{unix,sunos} ->
-		    case os:version() of
-			{M,V,_} when M < 5;  M == 5, V =< 8 ->
-			    %% In our test park only known platform
-			    %% with an DNS resolver that cannot do
-			    %% EDNS0.
-			    {comment,"No EDNS0"}
-		    end
-	    end
-    end.
+    Res = case [RR || RR <- inet_dns:msg(Msg2, arlist),
+                      inet_dns:rr(RR, type) =:= opt] of
+              [OptRR] ->
+                  ?P("opt rr:"
+                     "~n      ~p", [inet_dns:rr(OptRR)]),
+                  ok;
+              [] ->
+                  case os:type() of
+                      {unix,sunos} ->
+                          case os:version() of
+                              {M,V,_} when M < 5;  M == 5, V =< 8 ->
+                                  %% In our test park only known platform
+                                  %% with an DNS resolver that cannot do
+                                  %% EDNS0.
+                                  {comment,"No EDNS0"}
+                          end;
+                      _ ->
+                          ok
+                  end
+          end,
+    ?P("done"),
+    Res.
 
 inet_res_filter(Anlist, Class, Type) ->
     [inet_dns:rr(RR, data) || RR <- Anlist,
 			      inet_dns:rr(RR, type) =:= Type,
 			      inet_dns:rr(RR, class) =:= Class].
 
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Tests TXT records.
 txt_record(Config) when is_list(Config) ->
+    ?P("begin"),
     D1 = "cslab.ericsson.net",
     D2 = "mail1.cslab.ericsson.net",
+    ?P("try nslookup of ~p", [D1]),
     {ok,#dns_rec{anlist=[RR1]}} = 
 	inet_res:nslookup(D1, in, txt),
-    io:format("~p~n", [RR1]),
+    ?P("RR1:"
+       "~n      ~p", [RR1]),
+    ?P("try nslookup of ~p", [D2]),
     {ok,#dns_rec{anlist=[RR2]}} =
 	inet_res:nslookup(D2, in, txt),
-    io:format("~p~n", [RR2]),
+    ?P("RR2:"
+       "~n      ~p", [RR2]),
     #dns_rr{domain=D1, class=in, type=txt, data=A1} = RR1,
     #dns_rr{domain=D2, class=in, type=txt, data=A2} = RR2,
     case [lists:flatten(A2)] of
 	A1 = [[_|_]] -> ok
     end,
+    ?P("done"),
     ok.
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Tests monitoring of /etc/hosts and /etc/resolv.conf, but not them.
 files_monitor(Config) when is_list(Config) ->
+    ?P("begin"),
     Search = inet_db:res_option(search),
     HostsFile = inet_db:res_option(hosts_file),
     ResolvConf = inet_db:res_option(resolv_conf),
@@ -656,12 +857,14 @@ files_monitor(Config) when is_list(Config) ->
         inet_db:res_option(resolv_conf, ResolvConf),
 	inet_db:res_option(hosts_file, HostsFile),
 	inet_db:res_option(inet6, Inet6)
-    end.
+    end,
+    ?P("done"),
+    ok.
 
 do_files_monitor(Config) ->
     Dir = proplists:get_value(priv_dir, Config),
     {ok,Hostname} = inet:gethostname(),
-    io:format("Hostname = ~p.~n", [Hostname]),
+    ?P("Hostname: ~p", [Hostname]),
     FQDN =
 	case inet_db:res_option(domain) of
 	    "" ->
@@ -669,7 +872,7 @@ do_files_monitor(Config) ->
 	    _ ->
 		Hostname++"."++inet_db:res_option(domain)
 	end,
-    io:format("FQDN = ~p.~n", [FQDN]),
+    ?P("FQDN: ~p", [FQDN]),
     HostsFile = filename:join(Dir, "files_monitor_hosts"),
     ResolvConf = filename:join(Dir, "files_monitor_resolv.conf"),
     ok = inet_db:res_option(resolv_conf, ResolvConf),
@@ -732,6 +935,26 @@ do_files_monitor(Config) ->
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Get full DNS answer on nxdomain (when option set)
+%% Check that we get the error code from the first server.
+
+nxdomain_reply(Config) when is_list(Config) ->
+    NS    = ns(Config),
+    Name  = "nxdomain.otptest",
+    Class = in,
+    Type  = a,
+    Opts  =
+        [{nameservers,[NS]}, {servfail_retry_timeout, 1000}, verbose],
+    ?P("try resolve"),
+    {error, nxdomain} = inet_res:resolve(Name, Class, Type, Opts),
+    {error, {nxdomain, Rec}} =
+        inet_res:resolve(Name, Class, Type, [nxdomain_reply|Opts]),
+    ?P("resolved: "
+       "~n      ~p", [Rec]),
+    ok.
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Answer just when timeout is triggered (OTP-9221).
 last_ms_answer(Config) when is_list(Config) ->
@@ -750,22 +973,137 @@ last_ms_answer(Config) when is_list(Config) ->
     proxy_wait(PSpec),
     ok.
 
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% First name server answers ?REFUSED, second does not answer.
 %% Check that we get the error code from the first server.
 
 intermediate_error(Config) when is_list(Config) ->
-    NS = ns(Config),
-    Name = "ns.otptest",
-    IP = {127,0,0,1},
+    NS      = ns(Config),
+    Name    = "ns.otptest",
+    Class   = in,
+    Type    = a,
+    IP      = {127,0,0,1},
     %% A "name server" that does not respond
-    S = ok(gen_udp:open(0, [{ip,IP},{active,false}])),
-    Port = ok(inet:port(S)),
-    NSs = [NS,{IP,Port}],
-    {error,{refused,_}} =
-        inet_res:resolve(Name, in, a, [{nameservers,NSs},verbose], 500),
+    S       = ok(gen_udp:open(0, [{ip,IP},{active,false}])),
+    Port    = ok(inet:port(S)),
+    NSs     = [NS,{IP,Port}],
+    Opts    = [{nameservers, NSs}, verbose],
+    Timeout = 500,
+    {error, {refused,_}} = inet_res:resolve(Name, Class, Type, Opts, Timeout),
     _ = gen_udp:close(S),
     ok.
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% A name server that firstanswers ?SERVFAIL, the second try *if* the retry
+%% is not received *too soon* (etd) answers noerror.
+
+servfail_retry_timeout_default(Config) when is_list(Config) ->
+    NS        = ns(Config),
+    Name      = "ns.otptest",
+    Class     = in,
+    Type      = a,
+    Opts      = [{nameservers,[NS]}, verbose],
+    ?P("try resolve"),
+    {ok, Rec} = inet_res:resolve(Name, Class, Type, Opts),
+    ?P("resolved: "
+       "~n      ~p", [Rec]),
+    ok.
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% A name server that firstanswers ?SERVFAIL, the second try *if* the retry
+%% is not received *too soon* (etd) answers noerror.
+
+servfail_retry_timeout_1000(Config) when is_list(Config) ->
+    NS        = ns(Config),
+    Name      = "ns.otptest",
+    Class     = in,
+    Type      = a,
+    Opts      = [{nameservers,[NS]}, {servfail_retry_timeout, 1000}, verbose],
+    ?P("try resolve"),
+    {ok, Rec} = inet_res:resolve(Name, Class, Type, Opts),
+    ?P("resolved: "
+       "~n      ~p", [Rec]),
+    ok.
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that label encoding compression limits at 14 bits pointer size
+
+label_compression_limit(Config) when is_list(Config) ->
+    FirstSz = 8,
+    Count = 512,
+    Sz = 20,
+    %% We create a DNS message with an answer list containing
+    %% 1+512+1 RR:s.  The first label is 8 chars that with message
+    %% and RR overhead places the second label on offset 32.
+    %% All other labels are 20 chars that with RR overhead
+    %% places them on offsets of N * 32.
+    %%
+    %% The labels are: "ZZZZZZZZ", then; "AAAAAAAAAAAAAAAAAAAA",
+    %% "AAAAAAAAAAAAAAAAAAAB", incrementing, so no one is
+    %% equal and can not be compressed, until the last one
+    %% that refers to the second to last one, so it could be compressed.
+    %%
+    %% However, the second to last label lands on offset 512 * 32 = 16384
+    %% which is out of reach for compression since compression uses
+    %% a 14 bit reference from the start of the message.
+    %%
+    %% The last label can only be compressed when we instead
+    %% generate a message with one less char in the first label,
+    %% placing the second to last label on offset 16383.
+    %%
+    %% So, MsgShort can use compression for the last RR
+    %% by referring to the second to last RR, but MsgLong can not.
+    %%
+    %% Disclaimer:
+    %%    All offsets and overheads are deduced
+    %%    through trial and observation
+    %%
+    [D | Domains] = gen_domains(Count, lists:duplicate(Sz, $A), []),
+    LastD = "Y." ++ D,
+    DomainsShort =
+        [lists:duplicate(FirstSz-1, $Z) |
+         lists:reverse(Domains, [D, LastD])],
+    DomainsLong =
+        [lists:duplicate(FirstSz, $Z) |
+         lists:reverse(Domains, [D, LastD])],
+    MsgShort = gen_msg(DomainsShort),
+    MsgLong = gen_msg(DomainsLong),
+    DataShort = inet_dns:encode(MsgShort),
+    DataShortSz = byte_size(DataShort),
+    ?P("DataShort[~w]:~n    ~p~n", [DataShortSz, DataShort]),
+    DataLong = inet_dns:encode(MsgLong),
+    DataLongSz = byte_size(DataLong),
+    ?P("DataLong[~w]:~n    ~p~n", [DataLongSz, DataLong]),
+    %% When we increase the first RR size by 1, the compressed
+    %% label that occupied a 2 bytes reference instead becomes
+    %% a label with 1 byte size and a final empty label size 1
+    0 = DataLongSz - (DataShortSz+1 - 2 + 1+Sz+1),
+    ok.
+
+gen_msg(Domains) ->
+    inet_dns:make_msg(
+      [{header, inet_dns:make_header()},
+       {anlist, gen_rrs(Domains)}]).
+
+gen_rrs(Domains) ->
+    [inet_dns:make_rr([{class,in},{type,a},{domain,D}]) ||
+        D <- Domains].
+
+gen_domains(0, _Domain, Acc) ->
+    Acc;
+gen_domains(N, Domain, Acc) ->
+    gen_domains(
+      N - 1, incr_domain(Domain), [lists:reverse(Domain) | Acc]).
+
+incr_domain([$Z | Domain]) ->
+    [$A | incr_domain(Domain)];
+incr_domain([Char | Domain]) ->
+    [Char+1 | Domain].
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Compatibility tests. Call the inet_SUITE tests, but with
@@ -788,6 +1126,9 @@ ipv4_to_ipv6(Config) -> inet_SUITE:ipv4_to_ipv6(Config).
 host_and_addr() -> inet_SUITE:host_and_addr().
 host_and_addr(Config) -> inet_SUITE:host_and_addr(Config).
 
+
+timestamp() ->
+    erlang:monotonic_time(milli_seconds).
 
 
 %% Case flip helper

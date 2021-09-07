@@ -196,8 +196,6 @@ same(_, _) ->
                            (re_loop_limit, non_neg_integer()) -> non_neg_integer();
                            (unicode_loop_limit, default) -> -1;
                            (unicode_loop_limit, non_neg_integer()) -> non_neg_integer();
-                           (hipe_test_reschedule_suspend, term()) -> nil();
-                           (hipe_test_reschedule_resume, pid() | port()) -> boolean();
                            (test_long_gc_sleep, non_neg_integer()) -> true;
                            (kill_dist_connection, port()) -> boolean();
                            (not_running_optimization, boolean()) -> boolean();

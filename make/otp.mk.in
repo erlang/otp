@@ -48,6 +48,8 @@ CROSS_COMPILING = @CROSS_COMPILING@
 DEFAULT_TARGETS =  opt debug release release_docs clean docs
 
 TYPES = @TYPES@
+FLAVORS = @FLAVORS@
+PRIMARY_FLAVOR= @PRIMARY_FLAVOR@
 
 USE_PGO = @USE_PGO@
 
@@ -59,13 +61,6 @@ USE_ESOCK = @USE_ESOCK@
 # contain space, and we want to use $(findstring ...) to
 # search the list.
 DUBIOUS_ORIGINS = /undefined/environment/
-
-# ----------------------------------------------------
-#	HiPE
-# ----------------------------------------------------
-
-HIPE_ENABLED = @HIPE_ENABLED@
-NATIVE_LIBS_ENABLED = @NATIVE_LIBS_ENABLED@
 
 # ----------------------------------------------------
 #	Command macros
@@ -81,6 +76,7 @@ CC = @CC@
 GCC = @GCC@
 HCC = @HCC@
 CC32 = @CC32@
+CXX = @CXX@
 CFLAGS32 = @CFLAGS32@
 BASIC_CFLAGS = @CFLAGS@
 DEBUG_FLAGS =  @DEBUG_FLAGS@
@@ -136,11 +132,6 @@ $(EBIN)/%.beam: $(EGEN)/%.erl
 $(EBIN)/%.beam: $(ESRC)/%.erl
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
-ifeq ($(NATIVE_LIBS_ENABLED),yes)
-# Special rule for the HIPE bootstrap w/ native libs
-../boot_ebin/%.beam: $(ESRC)/%.erl
-	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o../boot_ebin $<
-endif
 
 .erl.beam:
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(dir $@) $<

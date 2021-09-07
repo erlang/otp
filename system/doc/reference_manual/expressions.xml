@@ -92,9 +92,9 @@ _Height</pre>
     <pre>
 [H|_] = [1,2,3]</pre>
     <p>Variables starting with underscore (_), for example,
-      <c>_Height</c>, are normal variables, not anonymous. They are
-      however ignored by the compiler in the sense that they do not
-      generate any warnings for unused variables.</p>
+      <c>_Height</c>, are normal variables, not anonymous. However,
+      they are ignored by the compiler in the sense that they do not
+      generate warnings.</p>
       <p><em>Example:</em></p>
       <p>The following code:</p>
     <pre>
@@ -402,12 +402,15 @@ Expr1 ! Expr2</pre>
     <p>Sends the value of <c>Expr2</c> as a message to the process
       specified by <c>Expr1</c>. The value of <c>Expr2</c> is also
       the return value of the expression.</p>
-    <p><c>Expr1</c> must evaluate to a pid, a registered name (atom), or
+    <p><c>Expr1</c> must evaluate to a pid, an alias (reference),
+      a port, a registered name (atom), or
       a tuple <c>{Name,Node}</c>. <c>Name</c> is an atom and
       <c>Node</c> is a node name, also an atom.</p>
     <list type="bulleted">
       <item>If <c>Expr1</c> evaluates to a name, but this name is not
        registered, a <c>badarg</c> run-time error occurs.</item>
+      <item>Sending a message to a reference never fails, even if the
+       reference is no longer (or never was) an alias.</item>
       <item>Sending a message to a pid never fails, even if the pid
        identifies a non-existing process.</item>
       <item>Distributed message sending, that is, if <c>Expr1</c>
@@ -427,14 +430,19 @@ receive
     PatternN [when GuardSeqN] ->
         BodyN
 end</pre>
-    <p>Receives messages sent to the process using the send operator
-      (!). The patterns <c>Pattern</c> are sequentially matched
-      against the first message in time order in the mailbox, then
-      the second, and so on. If a match succeeds and the optional
-      guard sequence <c>GuardSeq</c> is true, the corresponding
-      <c>Body</c> is evaluated. The matching message is consumed, that
-      is, removed from the mailbox, while any other messages in
-      the mailbox remain unchanged.</p>
+    <p>
+      Fetches a received message present in the message queue of
+      the process. The first message in the message queue is matched
+      sequentially against the patterns from top to bottom. If no
+      match was found, the matching sequence is repeated for the second
+      message in the queue, and so on. Messages are queued in the
+      <seeguide marker="processes#message-queue-order">order they were
+      received</seeguide>. If a match succeeds, that
+      is, if the <c>Pattern</c> matches and the optional guard sequence
+      <c>GuardSeq</c> is true, then the message is removed from the message
+      queue and the corresponding <c>Body</c> is evaluated. All other
+      messages in the message queue remain unchanged.
+    </p>
     <p>The return value of <c>Body</c> is the return value of
       the <c>receive</c> expression.</p>
     <p><c>receive</c> never fails. The execution is suspended, possibly
@@ -464,13 +472,21 @@ after
     ExprT ->
         BodyT
 end</pre>
-    <p><c>ExprT</c> is to evaluate to an integer. The highest allowed
-      value is 16#FFFFFFFF, that is, the value must fit in 32 bits.
-      <c>receive..after</c> works exactly as <c>receive</c>, except
+    <p><c>receive..after</c> works exactly as <c>receive</c>, except
       that if no matching message has arrived within <c>ExprT</c>
       milliseconds, then <c>BodyT</c> is evaluated instead. The
       return value of <c>BodyT</c> then becomes the return value
-      of the <c>receive..after</c> expression.</p>
+      of the <c>receive..after</c> expression. <c>ExprT</c> is to
+      evaluate to an integer, or the atom <c>infinity</c>. The allowed
+      integer range is from 0 to 4294967295, that is, the longest possible
+      timeout is almost 50 days. With a zero value the timeout occurs
+      immediately if there is no matching message in the message queue.
+    </p>
+    <p>
+      The atom <c>infinity</c> will make the process wait indefinitely for a
+      matching message. This is the same as not using a timeout. It can be
+      useful for timeout values that are calculated at runtime.
+    </p>
     <p><em>Example:</em></p>
     <pre>
 wait_for_onhook() ->
@@ -508,16 +524,6 @@ timer(Pid) ->
         5000 ->
             Pid ! timeout
     end.</pre>
-    <p>There are two special cases for the timeout value <c>ExprT</c>:</p>
-    <taglist>
-      <tag><c>infinity</c></tag>
-      <item>The process is to wait indefinitely for a matching message;
-       this is the same as not using a timeout. This can be
-       useful for timeout values that are calculated at runtime.</item>
-      <tag>0</tag>
-      <item>If there is no matching message in the mailbox, the timeout
-       occurs immediately.</item>
-    </taglist>
   </section>
 
   <section>
@@ -828,10 +834,6 @@ Expr1 -- Expr2</pre>
 2> <input>[1,2,3,2,1,2]--[2,1,2].</input>
 [3,1,2]</pre>
 
-     <warning><p>The complexity of <c>A -- B</c> is
-     proportional to <c>length(A)*length(B)</c>. That is, it
-     becomes very slow if both <c>A</c> and <c>B</c> are
-     long lists.</p></warning>
    </section>
 
   <section>
@@ -1083,6 +1085,10 @@ handle_call(change, From, #{ state := start } = S) ->
 			   in the <c>erlang</c> module
 		  </item>
 		  <item>
+			  <seemfa marker="erts:erlang#is_map_key/2">is_map_key/2</seemfa>
+			   in the <c>erlang</c> module
+		  </item>
+		  <item>
 			  <seemfa marker="erts:erlang#map_get/2">map_get/2</seemfa>
 			   in the <c>erlang</c> module
 		  </item>
@@ -1181,7 +1187,7 @@ Ei = Value |
     <p>The value of <c>Size</c> multiplied with the unit gives
       the number of bits. A segment of type <c>binary</c> must have 
       a size that is evenly divisible by 8. For a segment of type <c>float</c>
-      the size must be either 64 or 32.</p>
+      the size must be either 64, 32, or 16.</p>
 
     <note><p>When constructing binaries, if the size <c>N</c> of an integer
     segment is too small to contain the given integer, the most significant
@@ -1348,14 +1354,6 @@ catch Expr</code>
 3
 2> <input>catch 1+a.</input>
 {'EXIT',{badarith,[...]}}</pre>
-    <p>Notice that <c>catch</c> has low precedence and catch
-      subexpressions often needs to be enclosed in a block
-      expression or in parentheses:</p>
-    <pre>
-3> <input>A = catch 1+2.</input>
-** 1: syntax error before: 'catch' **
-4> <input>A = (catch 1+2).</input>
-3</pre>
     <p>The BIF <c>throw(Any)</c> can be used for non-local return from
       a function. It must be evaluated within a <c>catch</c>, which
       returns the value <c>Any</c>.</p>
@@ -1579,11 +1577,12 @@ end</pre>
       <item>A <em>filter</em> is an expression, which evaluates to
       <c>true</c> or <c>false</c>.</item>
     </list>
-    <p>The variables in the generator patterns, shadow variables in the function
-    clause, surrounding the list comprehensions.</p> <p>A list comprehension
-    returns a list, where the elements are the result of evaluating <c>Expr</c>
-    for each combination of generator list elements and bit string generator
-    elements, for which all filters are true.</p>
+    <p>The variables in the generator patterns shadow previously bound variables,
+    including variables bound in a previous generator pattern.</p>
+    <p>A list comprehension returns a list, where the elements are the
+    result of evaluating <c>Expr</c> for each combination of generator
+    list elements and bit string generator elements, for which all
+    filters are true.</p>
     <p><em>Example:</em></p>
     <pre>
 1> <input>[X*2 || X &lt;- [1,2,3]].</input>
@@ -1630,8 +1629,8 @@ end</pre>
       <item>A <em>filter</em> is an expression that evaluates to
       <c>true</c> or <c>false</c>.</item>
     </list>
-    <p>The variables in the generator patterns, shadow variables in
-      the function clause, surrounding the bit string comprehensions.</p>
+    <p>The variables in the generator patterns shadow previously bound variables,
+    including variables bound in a previous generator pattern.</p>
     <p>A bit string comprehension returns a bit string, which is 
       created by concatenating the results of evaluating <c>BitString</c> 
       for each combination of bit string generator elements, for which all
@@ -1761,6 +1760,9 @@ end</pre>
       </row>
       <row>
         <cell align="left" valign="middle"><c>hd(List)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_map_key(Key, Map)</c></cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>length(List)</c></cell>

@@ -41,7 +41,7 @@
 
 text_plain() -> iolist().
 
-cipher() -> oneof( non_aead_ciphers() -- [aes_ige256] ).
+cipher() -> oneof(non_aead_ciphers()).
 
 key(Cipher) ->
     %% Can't be shrinked

@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 undefined_label/1,ambiguous_catch_try_state/1,
          unsafe_move_elimination/1,build_tuple/1,
-         coverage/1,call_sharing/1]).
+         coverage/1,call_sharing/1,undecided_allocation/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -38,7 +38,8 @@ groups() ->
        unsafe_move_elimination,
        build_tuple,
        coverage,
-       call_sharing
+       call_sharing,
+       undecided_allocation
       ]}].
 
 init_per_suite(Config) ->
@@ -315,6 +316,29 @@ cs_1(Key) ->
     id(A).
 
 cs_2(I) -> I.
+
+undecided_allocation(_Config) ->
+    ok = catch undecided_allocation_1(<<10:(3*7)>>),
+    {'EXIT',{{badrecord,rec},_}} = catch undecided_allocation_1(8),
+    ok.
+
+-record(rec, {}).
+undecided_allocation_1(<<10:3/integer-unit:7>>) ->
+    ok;
+undecided_allocation_1(V) ->
+    %% The record update operation would be duplicated by the beam_ssa_bssm
+    %% pass, and beam_jump would incorrectly share the resulting calls to
+    %% error/1, causing beam_validator to issue the following diagnostic
+    %% when this module was compiled with the no_type_opt option:
+    %%
+    %%  Internal consistency check failed - please report this bug.
+    %%  Instruction: {call_ext,1,{extfunc,erlang,error,1}}
+    %%  Error:       {allocated,undecided}:
+
+    <<
+      <<0>> || <<0:V>> <= <<0>>
+    >>#rec{},
+    if whatever -> [] end.
 
 
 id(I) ->

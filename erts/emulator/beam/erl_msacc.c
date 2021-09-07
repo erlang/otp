@@ -120,6 +120,14 @@ void erts_msacc_init_thread(char *type, int id, int managed) {
 #endif
 }
 
+void erts_msacc_update_cache(ErtsMsAcc **cache) {
+    if (erts_msacc_enabled) {
+        *cache = ERTS_MSACC_TSD_GET();
+    } else {
+        *cache = NULL;
+    }
+}
+
 #ifdef ERTS_MSACC_EXTENDED_STATES
 
 void erts_msacc_set_bif_state(ErtsMsAcc *__erts_msacc_cache, Eterm mod, void *fn) {

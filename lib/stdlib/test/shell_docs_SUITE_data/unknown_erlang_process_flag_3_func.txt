@@ -1,0 +1,14 @@
+
+  [;1m-spec process_flag(Pid, Flag, Value) -> OldValue[0m
+  [;1m                      when[0m
+  [;1m                          Pid :: pid(),[0m
+  [;1m                          Flag :: save_calls,[0m
+  [;1m                          Value :: non_neg_integer(),[0m
+  [;1m                          OldValue :: non_neg_integer().[0m
+
+  Sets certain flags for the process [;;4mPid[0m, in the same manner as [;;4m[0m
+  [;;4mprocess_flag/2[0m. Returns the old value of the flag. The valid
+  values for [;;4mFlag[0m are only a subset of those allowed in [;;4m[0m
+  [;;4mprocess_flag/2[0m, namely [;;4msave_calls[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPid[0m is not a local process.

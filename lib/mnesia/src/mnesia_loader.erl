@@ -189,9 +189,6 @@ do_get_disc_copy2(Tab, Reason, Storage = {ext, Alias, Mod}, _Type) ->
 %%                                      Release read lock on table
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(MAX_TRANSFER_SIZE, 7500).
--define(MAX_RAM_FILE_SIZE, 1000000).
--define(MAX_RAM_TRANSFERS, (?MAX_RAM_FILE_SIZE div ?MAX_TRANSFER_SIZE) + 1).
 -define(MAX_NOPACKETS, 20).
 
 net_load_table(Tab, {dumper,{add_table_copy, _}}=Reason, Ns, Cs) ->
@@ -320,6 +317,11 @@ start_remote_sender(Node,Tab,Storage) ->
 
 table_init_fun(SenderPid, Storage) ->
     fun(read) ->
+	    % We want to store subscribed mnesia table events received during
+	    % table copying for later processing to not let receiver message queue
+	    % to grow too much (which in consequence would slow down the whole copying process)
+	    SubscrCache = ets:new(subscr_cache, [private, ordered_set]),
+	    put(mnesia_table_receiver_subscr_cache, SubscrCache),
 	    Receiver = self(),
 	    SenderPid ! {Receiver, more},
 	    get_data(SenderPid, Receiver, Storage);
@@ -471,6 +473,10 @@ get_data(Pid, TabRec, Storage) ->
 	    end;
 	{'EXIT', Pid, Reason} ->
 	    handle_exit(Pid, Reason),
+	    get_data(Pid, TabRec, Storage);
+	{mnesia_table_event, _} = SubscrEvent ->
+	    SubscrCache = get(mnesia_table_receiver_subscr_cache),
+	    ets:insert(SubscrCache, {erlang:unique_integer([monotonic]), SubscrEvent}),
 	    get_data(Pid, TabRec, Storage)
     end.
 
@@ -542,7 +548,7 @@ init_table(Tab, _, Fun, _DetsInfo,_) ->
 
 finish_copy(Storage,Tab,Cs,SenderPid,DatBin,OrigTabRec) ->
     TabRef = {Storage, Tab},
-    subscr_receiver(TabRef, Cs#cstruct.record_name),
+    subscr_postprocess(TabRef, Cs#cstruct.record_name),
     case handle_last(TabRef, Cs#cstruct.type, DatBin) of
 	ok ->
 	    mnesia_index:init_index(Tab, Storage),
@@ -558,25 +564,26 @@ finish_copy(Storage,Tab,Cs,SenderPid,DatBin,OrigTabRec) ->
 	    down(Tab, Storage)
     end.
 
+subscr_postprocess(TabRef, RecName) ->
+    % process events received during table copying
+    case get(mnesia_table_receiver_subscr_cache) of
+	undefined ->
+	    ok;
+	SubscrCache ->
+	    ets:foldl(
+		fun({_, Event}, _Acc) ->
+		    handle_subscr_event(Event, TabRef, RecName)
+		end, ok, SubscrCache),
+	    ets:delete(SubscrCache)
+    end,
+    % and all remaining events
+    subscr_receiver(TabRef, RecName).
+
 subscr_receiver(TabRef = {_, Tab}, RecName) ->
     receive
-	{mnesia_table_event, {Op, Val, _Tid}}
-	  when element(1, Val) =:= Tab ->
-	    if
-		Tab == RecName ->
-		    handle_event(TabRef, Op, Val);
-		true ->
-		    handle_event(TabRef, Op, setelement(1, Val, RecName))
-	    end,
-	    subscr_receiver(TabRef, RecName);
-
-	{mnesia_table_event, {Op, Val, _Tid}} when element(1, Val) =:= schema ->
-	    %% clear_table is faked via two schema events
-	    %% a schema record delete and a write
-	    case Op of
-		delete -> handle_event(TabRef, clear_table, {Tab, all});
-		_ -> ok
-	    end,
+	{mnesia_table_event, {_Op, Val, _Tid}} = Event
+	  when element(1, Val) =:= Tab; element(1, Val) =:= schema ->
+	    handle_subscr_event(Event, TabRef, RecName),
 	    subscr_receiver(TabRef, RecName);
 
 	{'EXIT', Pid, Reason} ->
@@ -584,6 +591,26 @@ subscr_receiver(TabRef = {_, Tab}, RecName) ->
 	    subscr_receiver(TabRef, RecName)
     after 0 ->
 	    ok
+    end.
+
+handle_subscr_event(Event, TabRef = {_, Tab}, RecName) ->
+    case Event of
+	{mnesia_table_event, {Op, Val, _Tid}}
+	  when element(1, Val) =:= Tab ->
+	    if
+		Tab == RecName ->
+		    handle_event(TabRef, Op, Val);
+		true ->
+		    handle_event(TabRef, Op, setelement(1, Val, RecName))
+	    end;
+
+	{mnesia_table_event, {Op, Val, _Tid}} when element(1, Val) =:= schema ->
+	    %% clear_table is faked via two schema events
+	    %% a schema record delete and a write
+	    case Op of
+		delete -> handle_event(TabRef, clear_table, {Tab, all});
+		_ -> ok
+	    end
     end.
 
 handle_event(TabRef, write, Rec) ->
@@ -710,6 +737,15 @@ db_put({disc_only_copies, Tab}, Val) ->
 db_put({{ext, Alias, Mod}, Tab}, Val) ->
     ok = Mod:insert(Alias, Tab, Val).
 
+max_transfer_size() ->
+    MaxTransferSize = 64000,
+    case ?catch_val(max_transfer_size) of
+	{'EXIT', _} ->
+	    mnesia_lib:set(max_transfer_size, MaxTransferSize),
+	    MaxTransferSize;
+	Val -> Val
+    end.
+
 %% This code executes at the remote site where the data is
 %% executes in a special copier process.
 
@@ -718,7 +754,7 @@ calc_nokeys(Storage, Tab) ->
     Key = mnesia_lib:db_first(Storage, Tab),
     Recs = mnesia_lib:db_get(Storage, Tab, Key),
     BinSize = size(term_to_binary(Recs)),
-    (?MAX_TRANSFER_SIZE div BinSize) + 1.
+    (max_transfer_size() div BinSize) + 1.
 
 send_table(Pid, Tab, RemoteS) ->
     case ?catch_val({Tab, storage_type}) of

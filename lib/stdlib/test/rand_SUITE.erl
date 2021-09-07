@@ -33,6 +33,7 @@ suite() ->
 
 all() ->
     [seed, interval_int, interval_float,
+     bytes_count,
      api_eq,
      reference,
      {group, basic_stats},
@@ -45,7 +46,7 @@ all() ->
 
 groups() ->
     [{basic_stats, [parallel],
-      [basic_stats_uniform_1, basic_stats_uniform_2,
+      [basic_stats_uniform_1, basic_stats_uniform_2, basic_stats_bytes,
        basic_stats_standard_normal]},
      {distr_stats, [parallel],
       [stats_standard_normal_box_muller,
@@ -81,11 +82,22 @@ test() ->
 algs() ->
     [exsss, exrop, exsp, exs1024s, exs64, exsplus, exs1024, exro928ss].
 
+crypto_support() ->
+    try crypto:strong_rand_bytes(1) of
+        <<_>> ->
+            ok
+    catch
+        error : low_entropy ->
+            low_entropy;
+        error : undef ->
+            no_crypto
+    end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Test that seed and seed_s and export_seed/0 is working.
 seed(Config) when is_list(Config) ->
-    Algs = algs(),
+    Algs = [default|algs()],
     Test = fun(Alg) ->
 		   try seed_1(Alg)
 		   catch _:Reason:Stacktrace ->
@@ -93,6 +105,13 @@ seed(Config) when is_list(Config) ->
 		   end
 	   end,
     [Test(Alg) || Alg <- Algs],
+    %%
+    %% Check that export_seed/1 returns 'undefined' if there is no seed
+    erase(rand_seed),
+    undefined = rand:export_seed(),
+    %%
+    %% Other seed terms shall not work
+    {'EXIT', _} = (catch rand:seed_s(foobar, os:timestamp())),
     ok.
 
 seed_1(Alg) ->
@@ -121,22 +140,26 @@ seed_1(Alg) ->
     false = (S1 =:= rand:seed_s(Alg)),
     %% Negative integers works
     _ = rand:seed_s(Alg, {-1,-1,-1}),
-    %% Check that export_seed/1 returns 'undefined' if there is no seed
-    erase(rand_seed),
-    undefined = rand:export_seed(),
-
-    %% Other term do not work
-    {'EXIT', _} = (catch rand:seed_s(foobar, os:timestamp())),
+    %%
+    %% Other seed terms shall not work
     {'EXIT', _} = (catch rand:seed_s(Alg, {asd, 1, 1})),
     {'EXIT', _} = (catch rand:seed_s(Alg, {0, 234.1234, 1})),
     {'EXIT', _} = (catch rand:seed_s(Alg, {0, 234, [1, 123, 123]})),
+    {'EXIT', _} = (catch rand:seed_s(Alg, asd)),
+    {'EXIT', _} = (catch rand:seed_s(Alg, make_ref())),
+    {'EXIT', _} = (catch rand:seed_s(Alg, fun () -> 0 end)),
+    {'EXIT', _} = (catch rand:seed_s(Alg, self())),
+    {'EXIT', _} = (catch rand:seed_s(Alg, {1,2})),
+    {'EXIT', _} = (catch rand:seed_s(Alg, {1,2,3,4})),
+    {'EXIT', _} = (catch rand:seed_s(Alg, #{})),
+    {'EXIT', _} = (catch rand:seed_s(Alg, [1|2])),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Check that both APIs are consistent with each other.
 api_eq(_Config) ->
-    Algs = algs(),
+    Algs = [default|algs()],
     Small = fun(Alg) ->
 		    Seed = rand:seed(Alg),
 		    io:format("Seed ~p~n",[rand:export_seed_s(Seed)]),
@@ -153,7 +176,9 @@ api_eq_1(S00) ->
 		    V1 = rand:uniform(1000000),
 		    {V2, S2} = rand:normal_s(S1),
 		    V2 = rand:normal(),
-		    S2
+                    B3 = rand:bytes(64),
+                    {B3, S3} = rand:bytes_s(64, S2),
+		    S3
 	    end,
     S1 = lists:foldl(Check, S00, lists:seq(1, 200)),
     S1 = get(rand_seed),
@@ -182,7 +207,7 @@ api_eq_1(S00) ->
 
 %% Check that uniform/1 returns values within the proper interval.
 interval_int(Config) when is_list(Config) ->
-    Algs = algs(),
+    Algs = [default|algs()],
     Small = fun(Alg) ->
 		    Seed = rand:seed(Alg),
 		    io:format("Seed ~p~n",[rand:export_seed_s(Seed)]),
@@ -216,7 +241,7 @@ interval_int_1(N, Top, Max) ->
 
 %% Check that uniform/0 returns values within the proper interval.
 interval_float(Config) when is_list(Config) ->
-    Algs = algs(),
+    Algs = [default|algs()],
     Test = fun(Alg) ->
 		   _ = rand:seed(Alg),
 		   interval_float_1(100000)
@@ -237,6 +262,25 @@ interval_float_1(N) ->
 	    exit({X, rand:export_seed()})
     end,
     interval_float_1(N-1).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Check that bytes/1 and bytes_s/2 generates
+%% the right number of bytes
+
+bytes_count(Config) when is_list(Config) ->
+    Algs = [default|algs()],
+    Counts = lists:seq(0, 255),
+    [begin
+         _ = rand:seed(Alg),
+         [begin
+              ExportState = rand:export_seed(),
+              B = rand:bytes(N),
+              {B, _NewState} = rand:bytes_s(N, rand:seed_s(ExportState)),
+              N = byte_size(B)
+          end || N <- Counts]
+     end || Alg <- Algs],
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -307,13 +351,20 @@ gen(_, _, _, Acc) -> lists:reverse(Acc).
 basic_stats_uniform_1(Config) when is_list(Config) ->
     ct:timetrap({minutes,15}), %% valgrind needs a lot of time
     [basic_uniform_1(?LOOP, rand:seed_s(Alg), 0.0, array:new([{default, 0}]))
-     || Alg <- algs()],
+     || Alg <- [default|algs()]],
     ok.
 
 basic_stats_uniform_2(Config) when is_list(Config) ->
     ct:timetrap({minutes,15}), %% valgrind needs a lot of time
     [basic_uniform_2(?LOOP, rand:seed_s(Alg), 0, array:new([{default, 0}]))
-     || Alg <- algs()],
+     || Alg <- [default|algs()]],
+    ok.
+
+basic_stats_bytes(Config) when is_list(Config) ->
+    ct:timetrap({minutes,15}), %% valgrind needs a lot of time
+    [basic_bytes(
+       ?LOOP div 100, rand:seed_s(Alg), 0, array:new(256, [{default, 0}]))
+     || Alg <- [default|algs()]],
     ok.
 
 basic_stats_standard_normal(Config) when is_list(Config) ->
@@ -323,7 +374,7 @@ basic_stats_standard_normal(Config) when is_list(Config) ->
     IntendedVariance = 1,
     [basic_normal_1(?LOOP, IntendedMean, IntendedVariance,
                     rand:seed_s(Alg), 0, 0)
-     || Alg <- algs()],
+     || Alg <- [default|algs()]],
     ok.
 
 basic_stats_normal(Config) when is_list(Config) ->
@@ -342,9 +393,10 @@ basic_stats_normal(Config) when is_list(Config) ->
                 [float(IntendedMean), float(IntendedVariance)]),
               [basic_normal_1(?LOOP, IntendedMean, IntendedVariance,
                               rand:seed_s(Alg), 0, 0)
-               || Alg <- algs()]
+               || Alg <- [default|algs()]]
       end,
       IntendedMeanVariancePairs).
+
 
 basic_uniform_1(N, S0, Sum, A0) when N > 0 ->
     {X,S} =
@@ -358,38 +410,77 @@ basic_uniform_1(N, S0, Sum, A0) when N > 0 ->
     A = array:set(I, 1+array:get(I,A0), A0),
     basic_uniform_1(N-1, S, Sum+X, A);
 basic_uniform_1(0, {#{type:=Alg}, _}, Sum, A) ->
-    AverN = Sum / ?LOOP,
-    io:format("~.12w: Average: ~.4f~n", [Alg, AverN]),
+    Loop = ?LOOP,
+    AverExp = 1.0 / 2,
+    Buckets = 100,
     Counters = array:to_list(A),
     Min = lists:min(Counters),
     Max = lists:max(Counters),
-    io:format("~.12w: Min: ~p Max: ~p~n", [Alg, Min, Max]),
-
-    %% Verify that the basic statistics are ok
-    %% be gentle we don't want to see to many failing tests
-    abs(0.5 - AverN) < 0.005 orelse ct:fail({average, Alg, AverN}),
-    abs(?LOOP div 100 - Min) < 1000 orelse ct:fail({min, Alg, Min}),
-    abs(?LOOP div 100 - Max) < 1000 orelse ct:fail({max, Alg, Max}),
-    ok.
+    basic_verify(Alg, Loop, Sum, AverExp, Buckets, Min, Max).
 
 basic_uniform_2(N, S0, Sum, A0) when N > 0 ->
     {X,S} = rand:uniform_s(100, S0),
     A = array:set(X-1, 1+array:get(X-1,A0), A0),
     basic_uniform_2(N-1, S, Sum+X, A);
 basic_uniform_2(0, {#{type:=Alg}, _}, Sum, A) ->
-    AverN = Sum / ?LOOP,
-    io:format("~.12w: Average: ~.4f~n", [Alg, AverN]),
+    Loop = ?LOOP,
+    AverExp = ((100 - 1) / 2) + 1,
+    Buckets = 100,
     Counters = tl(array:to_list(A)),
     Min = lists:min(Counters),
     Max = lists:max(Counters),
-    io:format("~.12w: Min: ~p Max: ~p~n", [Alg, Min, Max]),
+    basic_verify(Alg, Loop, Sum, AverExp, Buckets, Min, Max).
 
+basic_bytes(N, S0, Sum0, A0) when N > 0 ->
+    ByteSize = 100,
+    {Bin,S} = rand:bytes_s(ByteSize, S0),
+    {Sum,A} = basic_bytes_incr(Bin, Sum0, A0),
+    basic_bytes(N-1, S, Sum, A);
+basic_bytes(0, {#{type:=Alg}, _}, Sum, A) ->
+    ByteSize = 100,
+    Loop = (?LOOP * ByteSize) div 100,
+    Buckets = 256,
+    AverExp = (Buckets - 1) / 2,
+    Counters = array:to_list(A),
+    Min = lists:min(Counters),
+    Max = lists:max(Counters),
+    basic_verify(Alg, Loop, Sum, AverExp, Buckets, Min, Max).
+
+basic_bytes_incr(Bin, Sum, A) ->
+    basic_bytes_incr(Bin, Sum, A, 0).
+%%
+basic_bytes_incr(Bin, Sum, A, N) ->
+    case Bin of
+        <<_:N/binary, B, _/binary>> ->
+            basic_bytes_incr(
+              Bin, Sum+B, array:set(B, array:get(B, A)+1, A), N+1);
+        <<_/binary>> ->
+            {Sum,A}
+    end.
+
+basic_verify(Alg, Loop, Sum, AverExp, Buckets, Min, Max) ->
+    AverDiff = AverExp * 0.01,
+    Aver = Sum / Loop,
+    io:format(
+      "~.12w: Expected Average: ~.4f, Allowed Diff: ~.4f, Average: ~.4f~n",
+      [Alg, AverExp, AverDiff, Aver]),
+    %%
+    CountExp = Loop / Buckets,
+    CountDiff = CountExp * 0.1,
+    io:format(
+      "~.12w: Expected Count: ~p, Allowed Diff: ~p, Min: ~p, Max: ~p~n",
+      [Alg, CountExp, CountDiff, Min, Max]),
+    %%
     %% Verify that the basic statistics are ok
     %% be gentle we don't want to see to many failing tests
-    abs(50.5 - AverN) < 0.5 orelse ct:fail({average, Alg, AverN}),
-    abs(?LOOP div 100 - Min) < 1000 orelse ct:fail({min, Alg, Min}),
-    abs(?LOOP div 100 - Max) < 1000 orelse ct:fail({max, Alg, Max}),
+    abs(Aver - AverExp) < AverDiff orelse
+        ct:fail({average, Alg, Aver, AverExp, AverDiff}),
+    abs(Min - CountExp) < CountDiff orelse
+        ct:fail({min, Alg, Min, CountExp, CountDiff}),
+    abs(Max - CountExp) < CountDiff orelse
+        ct:fail({max, Alg, Max, CountExp, CountDiff}),
     ok.
+
 
 basic_normal_1(N, IntendedMean, IntendedVariance, S0, StandardSum, StandardSq) when N > 0 ->
     {X,S} = normal_s(IntendedMean, IntendedVariance, S0),
@@ -406,6 +497,7 @@ basic_normal_1(0, _IntendedMean, _IntendedVariance, {#{type:=Alg}, _}, StandardS
     StandardStdDev =  math:sqrt(StandardVariance),
     io:format("~.12w: Standardised Average: ~7.4f, Standardised StdDev ~6.4f~n",
               [Alg, StandardMean, StandardStdDev]),
+    %%
     %% Verify that the basic statistics are ok
     %% be gentle we don't want to see to many failing tests
     abs(StandardMean) < 0.005 orelse ct:fail({average, Alg, StandardMean}),
@@ -768,8 +860,8 @@ rand_state(Gen) ->
 
 %% Test that the user can write algorithms.
 plugin(Config) when is_list(Config) ->
-    try crypto:strong_rand_bytes(1) of
-        <<_>> ->
+    case crypto_support() of
+        ok ->
             _ = lists:foldl(
                   fun(_, S0) ->
                           {V1, S1} = rand:uniform_s(10000, S0),
@@ -778,12 +870,9 @@ plugin(Config) when is_list(Config) ->
                           true = is_float(V2),
                           S2
                   end, crypto64_seed(), lists:seq(1, 200)),
-            ok
-    catch
-        error:low_entropy ->
-            {skip,low_entropy};
-        error:undef ->
-            {skip,no_crypto}
+            ok;
+        Problem ->
+            {skip,Problem}
     end.
 
 %% Test implementation
@@ -844,16 +933,19 @@ measure(Config) ->
             {(X), (St)} when is_float(X) ->
                 St
         end).
+-define(CHECK_BYTE_SIZE(Gen, Size, Bin, St),
+        case (Gen) of
+            {(Bin), (St)} when byte_size(Bin) =:= (Size) ->
+                St
+        end).
 
 do_measure(_Config) ->
     Algs =
-        algs() ++
-        try crypto:strong_rand_bytes(1) of
-            <<_>> ->
-		[crypto64, crypto_cache, crypto_aes, crypto]
-        catch
-            error:low_entropy -> [];
-            error:undef -> []
+        case crypto_support() of
+            ok ->
+                algs() ++ [crypto64, crypto_cache, crypto_aes, crypto];
+            _ ->
+                algs()
         end,
     %%
     ct:pal("~nRNG uniform integer range 10000 performance~n",[]),
@@ -1010,6 +1102,27 @@ do_measure(_Config) ->
           end,
           Algs),
     %%
+    ByteSize = 16, % At about 100 bytes crypto_bytes breaks even to exsss
+    ct:pal("~nRNG ~w bytes performance~n",[ByteSize]),
+    _ =
+        measure_1(
+          fun (_) -> ByteSize end,
+          fun (State, Size, Mod) ->
+                  measure_loop(
+                    fun (St0) ->
+                            ?CHECK_BYTE_SIZE(
+                               Mod:bytes_s(Size, St0), Size,
+                               Bin, St1)
+                    end,
+                    State)
+          end,
+          case crypto_support() of
+              ok ->
+                  Algs ++ [crypto_bytes, crypto_bytes_cached];
+              _ ->
+                  Algs
+          end),
+    %%
     ct:pal("~nRNG uniform float performance~n",[]),
     _ =
         measure_1(
@@ -1105,6 +1218,10 @@ measure_1(RangeFun, Fun, Alg, TMark) ->
 		   crypto_aes, crypto:strong_rand_bytes(256))};
             random ->
                 {random, random:seed(os:timestamp()), get(random_seed)};
+            crypto_bytes ->
+                {?MODULE, ignored_state};
+            crypto_bytes_cached ->
+                {?MODULE, <<>>};
             _ ->
                 {rand, rand:seed_s(Alg)}
         end,
@@ -1127,6 +1244,21 @@ measure_1(RangeFun, Fun, Alg, TMark) ->
     receive
 	{Pid, Msg} -> Msg
     end.
+
+%% Comparison algorithm for rand:bytes_s/2 vs. crypto:strong_rand_bytes/1
+bytes_s(N, Cache) when is_binary(Cache) ->
+    %% crypto_bytes_cached
+    case Cache of
+        <<Bytes:N/binary, Rest/binary>> ->
+            {Bytes, Rest};
+        <<Part/binary>> ->
+            <<Bytes:N/binary, Rest/binary>> =
+                <<Part/binary, (crypto:strong_rand_bytes(N * 16))/binary>>,
+            {Bytes, Rest}
+    end;
+bytes_s(N, ignored_state = St) ->
+    %% crypto_bytes
+    {crypto:strong_rand_bytes(N), St}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% The jump sequence tests has two parts
@@ -1257,16 +1389,16 @@ short_jump(Config) when is_list(Config) ->
       fun ({Alg,AlgState}) ->
 	      {Alg,rand:exro928_jump_2pow20(AlgState)}
       end),
-    try crypto:strong_rand_bytes(1) of
-        _ ->
+    case crypto_support() of
+        ok ->
             short_jump(
               crypto:rand_seed_alg_s(crypto_aes, integer_to_list(Seed)),
               fun ({Alg,AlgState}) ->
                       {Alg,crypto:rand_plugin_aes_jump_2pow20(AlgState)}
               end),
-            ok
-    catch error:undef ->
-            {skip,no_crypto}
+            ok;
+        Problem ->
+            {skip,Problem}
     end.
 
 short_jump({#{bits := Bits},_} = State_0, Jump2Pow20) ->

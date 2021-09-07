@@ -34,15 +34,15 @@
 #               You have to start beam in gdb using "run".
 #   -rgdb       Run the debug compiled emulator in gdb.
 #               You have to start beam in gdb using "run".
+#   -lldb       Run the debug compiled emulator in lldb.
+#               You have to start beam in lldb using "run".
 #   -dump       Dump the bt of all threads in a core.
 #   -break F    Run the debug compiled emulator in emacs and gdb and set break.
 #               The session is started, i.e. "run" is already don for you.
 #   -xxgdb      FIXME currently disabled
-#   -purify     Run emulator compiled for purify
-#   -quantify   Run emulator compiled for quantify
-#   -purecov    Run emulator compiled for purecov
 #   -gcov       Run emulator compiled for gcov
 #   -valgrind   Run emulator compiled for valgrind
+#   -asan       Run emulator compiled for address-sanitizer
 #   -lcnt	Run emulator compiled for lock counting
 #   -icount	Run emulator compiled for instruction counting
 #   -rr         Run emulator under "rr record"
@@ -75,8 +75,9 @@ GDB=
 GDBBP=
 GDBARGS=
 TYPE=
-debug=
+FLAVOR=
 run_valgrind=no
+run_asan=no
 run_rr=no
 skip_erlexec=no
 
@@ -171,6 +172,10 @@ while [ $# -gt 0 ]; do
 	    shift
 	    GDB=gdb
 	    ;;
+    "-lldb")
+        shift
+        GDB=lldb
+        ;;
 	"-break")
 	    shift
 	    GDB=gdb
@@ -193,21 +198,6 @@ while [ $# -gt 0 ]; do
 #	    shift
 #	    GDB=xxgdb
 #	    ;;
-	"-purify")
-	    shift
-	    cargs="$cargs -purify"
-	    TYPE=.purify
-	    ;;
-	"-quantify")
-	    shift
-	    cargs="$cargs -quantify"
-	    TYPE=.quantify
-	    ;;
-	"-purecov")
-	    shift
-	    cargs="$cargs -purecov"
-	    TYPE=.purecov
-	    ;;
 	"-gcov")
 	    shift
 	    cargs="$cargs -gcov"
@@ -220,10 +210,22 @@ while [ $# -gt 0 ]; do
 	    run_valgrind=yes
 	    skip_erlexec=yes
 	    ;;
+	"-asan")
+	    shift
+	    cargs="$cargs -asan"
+	    run_asan=yes
+	    TYPE=.asan
+	    ;;
         "-emu_type")
             shift
-            cargs="$cargs -$1"
+            cargs="$cargs -emu_type $1"
             TYPE=.$1
+            shift
+            ;;
+        "-emu_flavor")
+            shift
+            cargs="$cargs -emu_flavor $1"
+            FLAVOR=$1
             shift
             ;;
 	"-rr")
@@ -256,7 +258,12 @@ EXEC=$BINDIR/erlexec
 
 PROGNAME="$PROGNAME$cargs"
 EMU="$EMU$TYPE"
-EMU_NAME=`$EXEC -emu_name_exit`
+if [ "x$FLAVOR" = "x" ]; then
+   EMU_NAME=`$EXEC -emu_name_exit`
+else
+    EMU_NAME=`$EXEC -emu_name_exit -emu_flavor $FLAVOR`
+    xargs="$xargs -emu_flavor $FLAVOR"
+fi
 
 if [ $skip_erlexec = yes ]; then
     emu_xargs=`echo $xargs | sed "s|+|-|g"`
@@ -270,6 +277,28 @@ if [ $skip_erlexec = yes ]; then
 '
     set -- $beam_args
     IFS="$SAVE_IFS"
+fi
+if [ $run_asan = yes ]; then
+    # Leak sanitizer options
+    if [ "x${LSAN_OPTIONS#*suppressions=}" = "x$LSAN_OPTIONS" ]; then
+	export LSAN_OPTIONS
+	if [ "x$ERL_TOP" != "x" ]; then
+	    LSAN_OPTIONS="$LSAN_OPTIONS:suppressions=$ERL_TOP/erts/emulator/asan/suppress"
+	else
+	    echo "No leak-sanitizer suppression file found in \$LSAN_OPTIONS"
+	    echo "and \$ERL_TOP not set."
+	fi
+    fi
+    # Address sanitizer options
+    export ASAN_OPTIONS
+    if [ "x$ASAN_LOG_DIR" != "x" ]; then
+	if [ "x${ASAN_OPTIONS#*log_path=}" = "x$ASAN_OPTIONS" ]; then
+            ASAN_OPTIONS="$ASAN_OPTIONS:log_path=$ASAN_LOG_DIR/$EMU_NAME-$ASAN_LOGFILE_PREFIX-0"
+	fi
+    fi
+    if [ "x${ASAN_OPTIONS#*halt_on_error=}" = "x$ASAN_OPTIONS" ]; then
+        ASAN_OPTIONS="$ASAN_OPTIONS:halt_on_error=false"
+    fi
 fi
 if [ "x$GDB" = "x" ]; then
     if [ $run_valgrind = yes ]; then
@@ -293,10 +322,11 @@ if [ "x$GDB" = "x" ]; then
 	    valgrind_log=
 	else
 	    if [ $valint -gt 3004 ]; then
-		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log.$$"
+                valgrind_log_file="$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log.$$"
 	    else
-		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log"
+                valgrind_log_file="$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log"
 	    fi
+	    valgrind_log="$log_file_prefix$valgrind_log_file"
 	fi
 	# Add default flags
 	vgflags=$VALGRIND_MISC_FLAGS
@@ -329,9 +359,22 @@ if [ "x$GDB" = "x" ]; then
 	    taskset1=
 	    sched_arg=
 	fi
-
-	exec $taskset1 valgrind $valgrind_xml $valgrind_log $vgflags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@"
-
+        if [ $EMU_NAME = "beam.valgrind.asm" ]; then
+            # Always enable `perf` support as we use the same symbol map
+            emu_xargs="$emu_xargs -JPperf true "
+            set -m
+	    $taskset1 valgrind $valgrind_xml $valgrind_log $vgflags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@" &
+            VG_PID=$!
+            fg
+            VG_EXIT=$?
+            set +m
+            if [ -f /tmp/perf-$VG_PID.map ]; then
+                $ERL_TOP/scripts/valgrind_beamasm_update.escript $valgrind_log_file /tmp/perf-$VG_PID.map
+            fi
+            exit $VG_EXIT
+        else
+            exec $taskset1 valgrind $valgrind_xml $valgrind_log $vgflags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@"
+        fi
     elif [ $run_rr = yes ]; then
         if [ $1 = replay ]; then
             shift
@@ -351,7 +394,14 @@ if [ "x$GDB" = "x" ]; then
             done
             exit 0
         else
-	    exec rr record --ignore-nested $BINDIR/$EMU_NAME $emu_xargs "$@"
+	    # RR version >= 5.4 has replaced the `--ignore-nested`
+	    # flag with `--nested=ignore`, so try to auto detect this.
+	    if rr help record | grep -q -- '--nested=ignore'; then
+		RR_IGNORE_NESTED="--nested=ignore"
+	    else
+		RR_IGNORE_NESTED="--ignore-nested"
+	    fi
+	    exec rr record $RR_IGNORE_NESTED $BINDIR/$EMU_NAME $emu_xargs "$@"
         fi
     else
 	exec $EXEC $xargs ${1+"$@"}
@@ -377,6 +427,20 @@ elif [ "x$GDB" = "xgdb" ]; then
     echo "source $ROOTDIR/erts/etc/unix/etp-commands" > $cmdfile
     # Fire up gdb in emacs...
     exec gdb $GDBBP -x $cmdfile $gdbcmd
+elif [ "x$GDB" = "xlldb" ]; then
+    case "x$core" in
+        x)
+            beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
+            lldbcmd="-- $beam_args"
+            ;;
+        *)
+            lldbcmd="--core ${core}"
+            ;;
+    esac
+    cmdfile="/tmp/.cerllldb.$$"
+    echo "env TERM=dumb" > $cmdfile
+    echo "command script import $ROOTDIR/erts/etc/unix/etp.py" >> $cmdfile
+    exec lldb -s $cmdfile $EMU_NAME $lldbcmd
 elif [ "x$GDB" = "xegdb" ]; then
     if [ "x$EMACS" = "x" ]; then
 	EMACS=emacs

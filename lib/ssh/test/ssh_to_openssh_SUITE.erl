@@ -50,7 +50,6 @@
 
         ]).
 
--define(SSH_DEFAULT_PORT, 22).
 -define(REKEY_DATA_TMO, 65000).
 
 %%--------------------------------------------------------------------
@@ -66,7 +65,7 @@ all() ->
 	    {skip, "openSSH not installed on host"};
 	_ ->
 	    [{group, erlang_client},
-	     {group, erlang_server}
+             {group, erlang_server}
 	     ]
     end.
 
@@ -82,14 +81,15 @@ groups() ->
                           erlang_server_openssh_client_renegotiate,
                           exec_with_io_in_sshc,
                           exec_direct_with_io_in_sshc
-			 ]},
+                         ]
+     },
      {tunnel_distro_client, [], [tunnel_in_non_erlclient_erlserver,
                                  tunnel_out_non_erlclient_erlserver]}
     ].
 
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(
-       case gen_tcp:connect("localhost", 22, []) of
+       case gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, []) of
 	   {error,econnrefused} ->
 	       {skip,"No openssh deamon (econnrefused)"};
 	   _ ->
@@ -107,7 +107,7 @@ init_per_group(erlang_server, Config) ->
     Config;
 init_per_group(G, Config) when G==tunnel_distro_server ;
                                G==tunnel_distro_client ->
-    case no_forwarding() of
+    case no_forwarding(Config) of
         true ->
             {skip, "port forwarding disabled in external ssh"};
         false ->
@@ -176,11 +176,10 @@ exec_with_io_in_sshc(Config) when is_list(Config) ->
                                              {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
 
-    PrivDir = proplists:get_value(priv_dir, Config),
-    KnownHosts = filename:join(PrivDir, "known_hosts"),
+    _PrivDir = proplists:get_value(priv_dir, Config),
     ExecStr = "\"io:read('% ').\"",
     Cmd =  "echo howdy. | " ++ ssh_test_lib:open_sshc_cmd(Host, Port,
-                                                          [" -o UserKnownHostsFile=", KnownHosts,
+                                                          [" -o UserKnownHostsFile=", "/dev/null",
                                                            " -o CheckHostIP=no"
                                                            " -o StrictHostKeyChecking=no"
                                                            " -q"
@@ -210,10 +209,9 @@ exec_direct_with_io_in_sshc(Config) when is_list(Config) ->
                                             ]),
     ct:sleep(500),
 
-    PrivDir = proplists:get_value(priv_dir, Config),
-    KnownHosts = filename:join(PrivDir, "known_hosts"),
+    _PrivDir = proplists:get_value(priv_dir, Config),
     Cmd =  "echo ciao. | " ++ ssh_test_lib:open_sshc_cmd(Host, Port,
-                                                          [" -o UserKnownHostsFile=", KnownHosts,
+                                                          [" -o UserKnownHostsFile=", "/dev/null",
                                                            " -o CheckHostIP=no"
                                                            " -o StrictHostKeyChecking=no"
                                                            " -q"
@@ -246,9 +244,8 @@ erlang_server_openssh_client_renegotiate(Config) ->
     Data =  lists:duplicate(trunc(1.1*RenegLimitK*1024), $a),
     ok = file:write_file(DataFile, Data),
 
-    KnownHosts = filename:join(PrivDir, "known_hosts"),
     Cmd = ssh_test_lib:open_sshc_cmd(Host, Port,
-                                     [" -o UserKnownHostsFile=", KnownHosts,
+                                     [" -o UserKnownHostsFile=", "/dev/null",
                                       " -o CheckHostIP=no"
                                       " -o StrictHostKeyChecking=no"
                                       " -q"
@@ -292,7 +289,7 @@ erlang_server_openssh_client_renegotiate(Config) ->
 %%--------------------------------------------------------------------
 tunnel_out_non_erlclient_erlserver(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
+    _PrivDir = proplists:get_value(priv_dir, Config),
 
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_out, true},
                                              {system_dir, SystemDir},
@@ -302,9 +299,8 @@ tunnel_out_non_erlclient_erlserver(Config) ->
     ListenHost = {127,0,0,1},
     ListenPort = 2345,
 
-    KnownHosts = filename:join(PrivDir, "known_hosts"),
     Cmd = ssh_test_lib:open_sshc_cmd(Host, Port,
-                                     [" -o UserKnownHostsFile=", KnownHosts,
+                                     [" -o UserKnownHostsFile=", "/dev/null",
                                       " -o CheckHostIP=no"
                                       " -o StrictHostKeyChecking=no"
                                       " -q"
@@ -322,7 +318,7 @@ tunnel_out_non_erlclient_erlserver(Config) ->
 %%--------------------------------------------------------------------
 tunnel_in_non_erlclient_erlserver(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
-    UserDir = proplists:get_value(priv_dir, Config),
+    _UserDir = proplists:get_value(priv_dir, Config),
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, true},
                                               {system_dir, SystemDir},
                                               {failfun, fun ssh_test_lib:failfun/2}]),
@@ -331,10 +327,9 @@ tunnel_in_non_erlclient_erlserver(Config) ->
     ListenHost = {127,0,0,1},
     ListenPort = 2345,
 
-    KnownHosts = filename:join(UserDir, "known_hosts"),
     Cmd =
         ssh_test_lib:open_sshc_cmd(Host, Port,
-                                   [" -o UserKnownHostsFile=", KnownHosts,
+                                   [" -o UserKnownHostsFile=", "/dev/null",
                                     " -o CheckHostIP=no"
                                     " -o StrictHostKeyChecking=no"
                                     " -q"
@@ -370,8 +365,7 @@ tunnel_in_erlclient_erlserver(Config) ->
 
 %%--------------------------------------------------------------------
 tunnel_in_erlclient_openssh_server(_Config) ->
-    C = ssh_test_lib:connect(loopback, 22, [{silently_accept_hosts, true},
-                                            {user_interaction, false}]),
+    C = ssh_test_lib:connect(?SSH_DEFAULT_PORT, []),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
     
     ListenHost = {127,0,0,1},
@@ -401,8 +395,7 @@ tunnel_out_erlclient_erlserver(Config) ->
 
 %%--------------------------------------------------------------------
 tunnel_out_erlclient_openssh_server(_Config) ->
-    C = ssh_test_lib:connect(loopback, 22, [{silently_accept_hosts, true},
-                                            {user_interaction, false}]),
+    C = ssh_test_lib:connect(?SSH_DEFAULT_PORT, []),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
     
     ListenHost = {127,0,0,1},
@@ -535,9 +528,14 @@ extra_logout() ->
     end.
 
 %%%----------------------------------------------------------------
-no_forwarding() ->
+no_forwarding(Config) ->
     %%% Check if the ssh of the OS has tunneling enabled
-    Cmnd = "ssh -R 0:localhost:4567 localhost exit",
+    _UserDir = proplists:get_value(priv_dir, Config),
+    Cmnd = ["ssh "
+            " -o UserKnownHostsFile=", "/dev/null",
+            " -o CheckHostIP=no"
+            " -o StrictHostKeyChecking=no"
+            " -R 0:localhost:4567 localhost exit"],
     FailRegExp =
         "Port forwarding is disabled"
         "|remote port forwarding failed"

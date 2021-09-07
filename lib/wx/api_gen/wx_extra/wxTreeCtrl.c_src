@@ -20,10 +20,15 @@
 
 
 <<wxTreeCtrl_IsTreeItemIdOk
-case ~s: { // wxTreeCtrl::IsTreeItemIdOk
- wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
- bool Result = item.IsOk();
- rt.addBool(Result);
- break;
+// wxTreeCtrl::IsTreeItemIdOk
+void ~s(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifUInt64 tmp;
+  if(!enif_get_uint64(Ecmd.env, Ecmd.args[0], &tmp)) Badarg("item");
+  wxTreeItemId item = wxTreeItemId((void *) tmp);
+  bool Result = item.IsOk();
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller,true);
+  rt.send(  rt.make_bool(Result));
 }
+
 wxTreeCtrl_IsTreeItemIdOk>>

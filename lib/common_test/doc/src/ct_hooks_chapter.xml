@@ -84,10 +84,10 @@
 
     <p>CTHs can also be added within a test suite. This is done by returning
     <c>{ct_hooks,[CTH]}</c> in the configuration list from 
-    <seemfa marker="common_test#Module:suite/0">suite/0</seemfa>,
-    <seemfa marker="common_test#Module:init_per_suite/1">
+    <seemfa marker="ct_suite#Module:suite/0">suite/0</seemfa>,
+    <seemfa marker="ct_suite#Module:init_per_suite/1">
       init_per_suite/1</seemfa>, or
-      <seemfa marker="common_test#Module:init_per_group/2">
+      <seemfa marker="ct_suite#Module:init_per_group/2">
     init_per_group/2</seemfa>.</p>
 
     <p>In this case, <c>CTH</c> can either be only the module name of the CTH 
@@ -157,7 +157,7 @@
 	<cell>the last test suite has been run</cell>
       </row>
       <row>
-	<cell><seemfa marker="common_test#Module:suite/0">suite/0
+	<cell><seemfa marker="ct_suite#Module:suite/0">suite/0
 	</seemfa></cell>
 	<cell><seemfa marker="ct_hooks#Module:pre_init_per_suite/3">
 	    pre_init_per_suite/3</seemfa> is called</cell>
@@ -165,7 +165,7 @@
 	  post_end_per_suite/4</seemfa> has been called for that test suite</cell>
       </row>
       <row>
-	<cell><seemfa marker="common_test#Module:init_per_suite/1">
+	<cell><seemfa marker="ct_suite#Module:init_per_suite/1">
 	  init_per_suite/1</seemfa></cell>
 	<cell><seemfa marker="ct_hooks#Module:post_init_per_suite/4">
 	    post_init_per_suite/4</seemfa> is called</cell>
@@ -173,7 +173,7 @@
 	  post_end_per_suite/4</seemfa> has been called for that test suite</cell>
       </row>
       <row>
-	<cell><seemfa marker="common_test#Module:init_per_group/2">
+	<cell><seemfa marker="ct_suite#Module:init_per_group/2">
 	  init_per_group/2</seemfa></cell>
 	<cell><seemfa marker="ct_hooks#Module:post_init_per_group/5">
 	    post_init_per_group/5</seemfa> is called</cell>
@@ -236,12 +236,12 @@
 	In a CTH, the behavior can be hooked in before the following functions:</p>
 
      <list type="bulleted">
-       <item><seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite</c></seemfa></item>
-       <item><seemfa marker="common_test#Module:init_per_group/2"><c>init_per_group</c></seemfa></item>
-       <item><seemfa marker="common_test#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa></item>
-       <item><seemfa marker="common_test#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa></item>
-       <item><seemfa marker="common_test#Module:end_per_group/2"><c>end_per_group</c></seemfa></item>
-       <item><seemfa marker="common_test#Module:end_per_suite/1"><c>end_per_suite</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:init_per_group/2"><c>init_per_group</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:end_per_group/2"><c>end_per_group</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:end_per_suite/1"><c>end_per_suite</c></seemfa></item>
      </list>
 
         <p>
@@ -282,12 +282,12 @@
       <title>Post Hooks</title>
       <p>In a CTH, behavior can be hooked in after the following functions:</p>
       <list type="bulleted">
-       <item><seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite</c></seemfa></item>
-       <item><seemfa marker="common_test#Module:init_per_group/2"><c>init_per_group</c></seemfa></item>
-       <item><seemfa marker="common_test#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa></item>
-       <item><seemfa marker="common_test#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa></item>
-       <item><seemfa marker="common_test#Module:end_per_group/2"><c>end_per_group</c></seemfa></item>
-       <item><seemfa marker="common_test#Module:end_per_suite/1"><c>end_per_suite</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:init_per_group/2"><c>init_per_group</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:init_per_testcase/2"><c>init_per_testcase</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:end_per_testcase/2"><c>end_per_testcase</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:end_per_group/2"><c>end_per_group</c></seemfa></item>
+       <item><seemfa marker="ct_suite#Module:end_per_suite/1"><c>end_per_suite</c></seemfa></item>
      </list>
 
      <p>

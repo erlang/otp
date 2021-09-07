@@ -378,7 +378,7 @@ off by default, put the following lines in a header file:
 ```-define(NOTEST, true).
    -include_lib("eunit/include/eunit.hrl").'''
 and then make sure that every module of your application includes that
-header file. This means that you have a only a single place to modify in
+header file. This means that you have a single place to modify in
 order to change the default setting for testing. To override the `NOTEST'
 setting without modifying the code, you can define `TEST' in a compiler
 option, like this:
@@ -614,7 +614,7 @@ Examples:
 
 === Macros for checking output ===
 
-The following macro can be used within a test case to retreive the
+The following macro can be used within a test case to retrieve the
 output written to standard output.
 
 <dl>

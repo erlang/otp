@@ -1,0 +1,7 @@
+
+  [;1m-type timestamp() ::[0m
+  [;1m          {MegaSecs :: non_neg_integer(),[0m
+  [;1m           Secs :: non_neg_integer(),[0m
+  [;1m           MicroSecs :: non_neg_integer()}.[0m
+
+  See [;;4merlang:timestamp/0[0m.

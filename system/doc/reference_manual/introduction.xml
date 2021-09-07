@@ -97,6 +97,8 @@
     <p><c>after and andalso band begin bnot bor bsl bsr bxor case catch
       cond div end fun if let not of or orelse receive rem try
       when xor</c></p>
+    <p><strong>Note</strong>: <c>cond</c> and <c>let</c>, while reserved,
+      are currently not used by the language.</p>
   </section>
 
 </chapter>

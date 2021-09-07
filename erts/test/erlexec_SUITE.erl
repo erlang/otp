@@ -27,13 +27,29 @@
 %%%-------------------------------------------------------------------
 -module(erlexec_SUITE).
 
--export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
+         init_per_testcase/2, end_per_testcase/2]).
 
--export([args_file/1, evil_args_file/1, env/1, args_file_env/1,
-         otp_7461/1, otp_7461_remote/1, argument_separation/1,
+-export([args_file/1, evil_args_file/1, missing_args_file/1, env/1, args_file_env/1,
+         otp_7461/1, otp_7461_remote/1, argument_separation/1, argument_with_option/1,
          zdbbl_dist_buf_busy_limit/1]).
 
 -include_lib("common_test/include/ct.hrl").
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
+
+all() -> 
+    [args_file, evil_args_file, missing_args_file, env, args_file_env,
+     otp_7461, argument_separation, argument_with_option, zdbbl_dist_buf_busy_limit].
+
+init_per_suite(Config) ->
+    [{suite_erl_flags, save_env()} | Config].
+
+end_per_suite(Config) ->
+    SavedEnv = proplists:get_value(suite_erl_flags, Config),
+    restore_env(SavedEnv).
 
 init_per_testcase(Case, Config) ->
     SavedEnv = save_env(),
@@ -44,14 +60,6 @@ end_per_testcase(_Case, Config) ->
     restore_env(SavedEnv),
     cleanup_nodes(),
     ok.
-
-suite() ->
-    [{ct_hooks,[ts_install_cth]},
-     {timetrap, {minutes, 1}}].
-
-all() -> 
-    [args_file, evil_args_file, env, args_file_env,
-     otp_7461, argument_separation, zdbbl_dist_buf_busy_limit].
 
 %% Test that plain first argument does not
 %% destroy -home switch [OTP-8209] or interact with environments
@@ -113,6 +121,66 @@ flush() ->
     after 10 ->
             ok
     end.
+
+%% Test that giving an invalid argument to an option that needs
+%% an argument will always fail.
+argument_with_option(Config) when is_list(Config) ->
+    ErlSingle = ["emu_flavor", "emu_type", "configfd", "epmd",
+                 "name", "sname", "start_epmd"] ++
+        case os:type() of
+            {win32,_} -> ["boot","config","service_event"];
+            _ -> []
+        end,
+
+    MissingCheck =
+        fun(CmdLine, Prefix, Postfix) ->
+                InvalidArg = emu_args("-s init stop " ++ Prefix ++ CmdLine ++ Postfix,
+                                      [return_output]),
+                case re:run(InvalidArg, "Missing argument\\(s\\) for '\\" ++ Prefix ++ CmdLine ++ "'.") of
+                    nomatch ->
+                        ct:log("Output: ~ts",[InvalidArg]),
+                        ct:fail("Failed to fail on ~ts",[Prefix ++ CmdLine ++ Postfix]);
+                    {match,_} ->
+                        ok
+                end
+        end,
+    
+    [begin
+         MissingCheck(CmdLine,"-",""),
+
+         %% We test what happens when ERL_FLAGS is set
+         os:putenv("ERL_FLAGS","-test"),
+         MissingCheck(CmdLine,"-", ""),
+         os:unsetenv("ERL_FLAGS")
+     end || CmdLine <- ErlSingle],
+
+    EmuSingle = ["a", "A", "C", "e", "i", "n", "P", "Q", "t",
+                 "T", "R", "W", "K", "IOt", "IOp", "IOPt", "IOPp",
+                 "J", "SP", "SDcpu", "SDPcpu", "SDio",
+                 "hms", "rg", "sbt", "zdbbl"],
+
+    [begin
+         MissingCheck(CmdLine,"+",""),
+
+         %% We test what happens when ERL_FLAGS is set
+         os:putenv("ERL_FLAGS","-test"),
+         MissingCheck(CmdLine,"+", ""),
+         os:unsetenv("ERL_FLAGS")
+     end || CmdLine <- EmuSingle],
+
+    ErlDouble = ["env"],
+    
+    [begin
+         MissingCheck(CmdLine,"-",""),
+         MissingCheck(CmdLine,"-"," a"),
+
+         %% We test what happens when ERL_FLAGS is set
+         os:putenv("ERL_FLAGS","-test"),
+         MissingCheck(CmdLine,"-", ""),
+         MissingCheck(CmdLine,"-", " a"),
+         os:unsetenv("ERL_FLAGS")
+     end || CmdLine <- ErlDouble],
+    ok.
 
 args_file(Config) when is_list(Config) ->
     AFN1 = privfile("1", Config),
@@ -230,6 +298,22 @@ evil_args_file(Config) when is_list(Config) ->
 		      Misc),
     ok.
 
+missing_args_file(Config) when is_list(Config) ->
+    % supply an unexisting args file as parameter
+    CmdLine = "-args_file "++ "missing_vm_args_file",
+    % we're expecting a failure, capture the output
+    % and check for the correct error message
+    Output = emu_args(CmdLine, [return_output]),
+    % the output message format in case of failure can be consulted
+    % at read_args_file@erts/etc/common/erlexec.c
+    case re:run(Output, "Failed to open arguments file [^ ]+ at [^ ]+: No such file or directory.*") of
+        {match,[{0, MatchEnd}]} when MatchEnd > 0 ->
+            % a simple match on the regex is sufficient to decide
+            % that the output is properly formatted
+            ok;
+        Error ->
+            exit({unexpected_args_output, Output, Error})
+    end.
 
 env(Config) when is_list(Config) ->
     os:putenv("ERL_AFLAGS", "-MiscArg1 +#100 -extra +XtraArg1 +XtraArg2"),
@@ -423,11 +507,19 @@ verify_not_args(Xs, Ys) ->
 		  end, Xs).
 
 emu_args(CmdLineArgs) ->
-    io:format("CmdLineArgs = ~ts~n", [CmdLineArgs]),
+    emu_args(CmdLineArgs, []).
+
+emu_args(CmdLineArgs, Opts) ->
+    io:format("CmdLineArgs = ~ts, Opts = ~p~n", [CmdLineArgs, Opts]),
     {ok,[[Erl]]} = init:get_argument(progname),
     EmuCL = os:cmd(Erl ++ " -emu_qouted_cmd_exit " ++ CmdLineArgs),
-    ct:pal("EmuCL = ~ts", [EmuCL]),
-    split_emu_clt(string:split(string:trim(EmuCL,both,"\n \""), "\" \"", all)).
+%    ct:pal("EmuCL = ~ts", [EmuCL]),
+    case lists:member(return_output, Opts) of
+        true ->
+            EmuCL;
+        false ->
+            split_emu_clt(string:split(string:trim(EmuCL,both,"\n \""), "\" \"", all))
+    end.
 
 split_emu_clt(EmuCLT) ->
     split_emu_clt(EmuCLT, [], [], [], emu).

@@ -1,0 +1,18 @@
+
+  [;1m-spec symmetric_partition(Set1, Set2) -> {Set3, Set4, Set5}[0m
+  [;1m                             when[0m
+  [;1m                                 Set1 :: a_set(),[0m
+  [;1m                                 Set2 :: a_set(),[0m
+  [;1m                                 Set3 :: a_set(),[0m
+  [;1m                                 Set4 :: a_set(),[0m
+  [;1m                                 Set5 :: a_set().[0m
+
+  Returns a triple of sets:
+
+   • [;;4mSet3[0m contains the elements of [;;4mSet1[0m that do not belong to [;;4m[0m
+     [;;4mSet2[0m.
+
+   • [;;4mSet4[0m contains the elements of [;;4mSet1[0m that belong to [;;4mSet2[0m.
+
+   • [;;4mSet5[0m contains the elements of [;;4mSet2[0m that do not belong to [;;4m[0m
+     [;;4mSet1[0m.

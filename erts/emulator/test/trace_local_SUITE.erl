@@ -22,8 +22,7 @@
 
 -export([basic_test/0, bit_syntax_test/0, return_test/0,
 	 on_and_off_test/0, stack_grow_test/0,
-	 info_test/0, delete_test/1, exception_test/1,
-	 not_run/1]).
+	 info_test/0, delete_test/1, exception_test/1]).
 
 -export([exported/1, exported_wrap/1, loop/4, apply_slave_async/5,
 	 match/2, clause/2, id/1, undef/1, lists_reverse/2]).
@@ -78,27 +77,19 @@ suite() ->
      {timetrap, {minutes, 2}}].
 
 all() ->
-    case test_server:is_native(trace_local_SUITE) of
-        true -> [not_run];
-        false ->
-            [basic, bit_syntax, return, on_and_off, systematic_on_off,
-             stack_grow,
-             info, delete, exception, exception_apply,
-             exception_function, exception_apply_function,
-             exception_nocatch, exception_nocatch_apply,
-             exception_nocatch_function,
-             exception_nocatch_apply_function, exception_meta,
-             exception_meta_apply, exception_meta_function,
-             exception_meta_apply_function, exception_meta_nocatch,
-             exception_meta_nocatch_apply,
-             exception_meta_nocatch_function,
-             exception_meta_nocatch_apply_function,
-             concurrency]
-    end.
-
-
-not_run(Config) when is_list(Config) ->
-    {skipped,"Native code"}.
+    [basic, bit_syntax, return, on_and_off, systematic_on_off,
+     stack_grow,
+     info, delete, exception, exception_apply,
+     exception_function, exception_apply_function,
+     exception_nocatch, exception_nocatch_apply,
+     exception_nocatch_function,
+     exception_nocatch_apply_function, exception_meta,
+     exception_meta_apply, exception_meta_function,
+     exception_meta_apply_function, exception_meta_nocatch,
+     exception_meta_nocatch_apply,
+     exception_meta_nocatch_function,
+     exception_meta_nocatch_apply_function,
+     concurrency].
 
 %% Tests basic local call-trace
 basic(Config) when is_list(Config) ->
@@ -298,7 +289,6 @@ basic_test() ->
     setup([call]),
     NumMatches = erlang:trace_pattern({?MODULE,'_','_'},[],[local]),
     NumMatches = erlang:trace_pattern({?MODULE,'_','_'},[],[local]),
-    false = code:is_module_native(?MODULE), % got fooled by local trace
     erlang:trace_pattern({?MODULE,slave,'_'},false,[local]),
     [1,1,1,997] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported_wrap,[1]),

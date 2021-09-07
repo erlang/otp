@@ -1,0 +1,11 @@
+
+  [;1m-spec get() -> [{Key, Val}] when Key :: term(), Val :: term().[0m
+
+  Returns the process dictionary as a list of [;;4m{Key, Val}[0m tuples.
+  The items in the returned list can be in any order. Example:
+
+    > put(key1, merry),
+    put(key2, lambs),
+    put(key3, {are, playing}),
+    get().
+    [{key1,merry},{key2,lambs},{key3,{are,playing}}]

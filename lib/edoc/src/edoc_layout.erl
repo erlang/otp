@@ -34,6 +34,9 @@
 
 -export([module/2, overview/2, type/1]).
 
+-callback module(edoc:edoc_module(), _) -> binary().
+%% Layout entrypoint.
+
 -import(edoc_report, [report/2]).
 
 -include_lib("xmerl/include/xmerl.hrl").
@@ -100,17 +103,16 @@ module(Element, Options) ->
 
 % Put layout options in a data structure for easier access.
 
-%% %Commented out until it can be made private
-%% %@type opts() = #opts{root = string(),
-%% %                     stylesheet = string(),
-%% %                     index_columns = integer()}
-
 -record(opts, {root,
                stylesheet,
                index_columns,
                sort_functions,
                encoding,
                pretty_printer}).
+
+%-type opts() :: #opts{root :: string(),
+%                      stylesheet :: string(),
+%                      index_columns :: integer()}.
 
 init_opts(Element, Options) ->
     Encoding = case get_attrval(encoding, Element) of

@@ -59,6 +59,7 @@ static int library_refc = 0; /* number of users of this dynamic library */
 static int library_initialized = 0;
 
 static ErlNifFunc nif_funcs[] = {
+    {"info_nif", 0, info_nif, 0},
     {"info_lib", 0, info_lib, 0},
     {"info_fips", 0, info_fips, 0},
     {"enable_fips_mode_nif", 1, enable_fips_mode_nif, 0},
@@ -78,7 +79,6 @@ static ErlNifFunc nif_funcs[] = {
     {"mac_update_nif", 2, mac_update_nif, 0},
     {"mac_final_nif", 1, mac_final_nif, 0},
     {"cipher_info_nif", 1, cipher_info_nif, 0},
-    {"aes_ige_crypt_nif", 4, aes_ige_crypt_nif, 0},
     {"ng_crypto_init_nif", 5, ng_crypto_init_nif, 0},
     {"ng_crypto_update_nif", 2, ng_crypto_update_nif, 0},
     {"ng_crypto_update_nif", 3, ng_crypto_update_nif, 0},
@@ -108,11 +108,10 @@ static ErlNifFunc nif_funcs[] = {
 
     {"rand_seed_nif", 1, rand_seed_nif, 0},
 
-    {"aead_cipher", 7, aead_cipher, 0},
+    {"aead_cipher_nif", 7, aead_cipher_nif, 0},
 
     {"engine_by_id_nif", 1, engine_by_id_nif, 0},
     {"engine_init_nif", 1, engine_init_nif, 0},
-    {"engine_finish_nif", 1, engine_finish_nif, 0},
     {"engine_free_nif", 1, engine_free_nif, 0},
     {"engine_load_dynamic_nif", 0, engine_load_dynamic_nif, 0},
     {"engine_ctrl_cmd_strings_nif", 3, engine_ctrl_cmd_strings_nif, 0},
@@ -163,8 +162,8 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     const ERL_NIF_TERM* tpl_array;
     int vernum;
     ErlNifBinary lib_bin;
-    char lib_buf[1000];
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
+    char lib_buf[1000];
     void *handle;
 #endif
 
@@ -250,6 +249,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 #ifdef OPENSSL_THREADS
     if (nlocks > 0) {
+	CRYPTO_set_add_lock_callback(ccb->add_lock_function);
 	CRYPTO_set_locking_callback(ccb->locking_function);
 	CRYPTO_set_id_callback(ccb->id_function);
 	CRYPTO_set_dynlock_create_callback(ccb->dyn_create_function);

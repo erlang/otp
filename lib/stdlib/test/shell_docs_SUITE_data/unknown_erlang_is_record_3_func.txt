@@ -1,0 +1,18 @@
+
+  [;1m-spec is_record(Term, RecordTag, Size) -> boolean()[0m
+  [;1m                   when[0m
+  [;1m                       Term :: term(),[0m
+  [;1m                       RecordTag :: atom(),[0m
+  [;1m                       Size :: non_neg_integer().[0m
+
+  [;;4mRecordTag[0m must be an atom.
+
+  Returns [;;4mtrue[0m if [;;4mTerm[0m is a tuple, its first element is [;;4m[0m
+  [;;4mRecordTag[0m, and its size is [;;4mSize[0m. Otherwise returns [;;4mfalse[0m.
+
+  Allowed in guard tests if [;;4mRecordTag[0m is a literal atom and [;;4mSize[0m
+  is a literal integer.
+
+  Note:
+    This BIF is documented for completeness. Usually [;;4mis_record/2[0m
+    is to be used.

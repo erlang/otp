@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -600,7 +600,7 @@ transaction_id_counter_mg(Config) when is_list(Config) ->
 
     %% Await the counter worker procs termination
     i("await the counter working procs completion"),
-    await_completion_counter_working_procs(Pids),
+    ok = await_completion_counter_working_procs(Pids),
 
     %% Verify result
     i("verify counter result"),
@@ -656,15 +656,147 @@ start_counter_working_procs([Pid | Pids]) ->
     Pid ! start,
     start_counter_working_procs(Pids).
 
-await_completion_counter_working_procs([]) ->
-    ok;
 await_completion_counter_working_procs(Pids) ->
+    await_completion_counter_working_procs(0, ts(), Pids, [], []).
+
+await_completion_counter_working_procs(MaxTSD, _TS, [], _OKs, [] = _ERRs) ->
+    i("done when ok with max TS-diff: ~p", [MaxTSD]),
+    ok;
+await_completion_counter_working_procs(MaxTSD, _TS, [], _OKs, ERRs) ->
+    i("done when error (~w) with max TS-diff: ~p", [length(ERRs), MaxTSD]),
+    {error, ERRs};
+await_completion_counter_working_procs(MaxTSD, TS, Pids, OKs, ERRs) ->
     receive
 	{'EXIT', Pid, normal} ->
+            %% i("counter working process completion[~w, ~w, ~w] -> "
+            %%   "Expected exit from counter process: "
+            %%   "~n      Time since last event: ~s"
+            %%   "~n      Pid: ~p",
+            %%   [length(Pids), length(OKs), length(ERRs), tsd(TS), Pid]),
+            TSD = ts() - TS,
+            MaxTSD2 =
+                if (TSD > MaxTSD) ->
+                        i("counter working process completion[~w, ~w, ~w] -> "
+                          "Expected exit from counter process: "
+                          "~n      New max time since last event: ~s"
+                          "~n      Pid: ~p",
+                          [length(Pids),
+                           length(OKs),
+                           length(ERRs),
+                           tsd(TSD),
+                           Pid]),
+                        TSD;
+                   true ->
+                        MaxTSD
+                end,
 	    Pids2 = lists:delete(Pid, Pids),
-	    await_completion_counter_working_procs(Pids2);
-	_Any ->
-	    await_completion_counter_working_procs(Pids)
+	    await_completion_counter_working_procs(MaxTSD2, ts(),
+                                                   Pids2, [Pid | OKs], ERRs);
+
+	{'EXIT', Pid, {timetrap_timeout, _Timeout, Stack} = _Reason} ->
+            TSD = ts() - TS,
+            MaxTSD2 =
+                if (TSD > MaxTSD) ->
+                        TSD;
+                   true ->
+                        MaxTSD
+                end,
+            e("counter working process completion[~w, ~w, ~w] -> "
+              "Test case timeout timetrap"
+              "~n      Time since last event: ~s (max ~s)"
+              "~n      Pid:                   ~p (~p)"
+              "~n      Stack:                 ~p",
+              [length(Pids), length(OKs), length(ERRs),
+               tsd(TSD), tsd(MaxTSD2),
+               Pid, lists:member(Pid, Pids),
+               Stack]),
+            %% The test case (timetrap) has timed out, which either means
+            %% we are running on very slow hw or some system functions
+            %% are slowing us down (this test case should never normally
+            %% time out).
+            case megaco_test_global_sys_monitor:events(?SECS(5)) of
+                {error, timeout} ->
+                    i("counter working process completion[~w, ~w, ~w] -> "
+                      "idle:sys-mon timeout",
+                      [length(Pids), length(OKs), length(ERRs)]),
+                    ?SKIP("TC idle; sys-monitor evs timeout");
+                [] ->
+                    i("counter working process completion[~w, ~w, ~w] -> idle",
+                      [length(Pids), length(OKs), length(ERRs)]),
+                    ?SKIP("TC idle");
+                SysEvs ->
+                    e("counter working process completion[~w, ~w, ~w] -> "
+                      "system event(s): "
+                      "~n      ~p",
+                      [length(Pids), length(OKs), length(ERRs), SysEvs]),
+                    ?SKIP("TC system events")
+            end;
+
+	{'EXIT', Pid, Reason} ->
+            TSD = ts() - TS,
+            MaxTSD2 =
+                if (TSD > MaxTSD) ->
+                        TSD;
+                   true ->
+                        MaxTSD
+                end,
+            e("counter working process completion[~w, ~w, ~w] -> "
+              "Unexpected exit from counter process: "
+              "~n      Time since last event: ~s (max ~s)"
+              "~n      Pid:                   ~p"
+              "~n      Reason:                ~p",
+              [length(Pids), length(OKs), length(ERRs),
+               tsd(TSD), tsd(MaxTSD2),
+               Pid, Reason]),
+	    Pids2 = lists:delete(Pid, Pids),
+	    await_completion_counter_working_procs(MaxTSD2, ts(),
+                                                   Pids2, OKs, [Pid | ERRs]);
+
+	Any ->
+            TSD = ts() - TS,
+            MaxTSD2 =
+                if (TSD > MaxTSD) ->
+                        TSD;
+                   true ->
+                        MaxTSD
+                end,
+            e("counter working process completion[~w, ~w, ~w] -> "
+              "Unexpected message: "
+              "~n      Time since last event: ~s (max ~s)"
+              "~n      ~p",
+              [length(Pids), length(OKs), length(ERRs),
+               tsd(TSD), tsd(MaxTSD2),
+               Any]),
+	    await_completion_counter_working_procs(MaxTSD2, TS,
+                                                   Pids, OKs, ERRs)
+
+    after 1000 ->
+            %% If nothing has happened for this long, something is wrong:
+            %% Check system events
+            TS2 = ts(),
+            TSD = TS2 - TS,
+            case megaco_test_global_sys_monitor:events() of
+                [] ->
+                    TS3 = ts(),
+                    i("counter working process completion[~w, ~w, ~w] -> idle"
+                      "~n      Time since last event:       ~s"
+                      "~n      (global) sys monitor events: ~s",
+                      [length(Pids), length(OKs), length(ERRs),
+                       tsd(TSD), tsd(TS3 - TS2)]),
+                    await_completion_counter_working_procs(MaxTSD, TS,
+                                                           Pids, OKs, ERRs);
+                SysEvs ->
+                    TS3 = ts(),
+                    e("counter working process completion[~w, ~w, ~w] -> "
+                      "system event(s): "
+                      "~n      Time since last event:       ~s"
+                      "~n      (global) sys monitor events: ~s"
+                      "~n      ~p",
+                      [length(Pids), length(OKs), length(ERRs),
+                       tsd(TSD), tsd(TS3 - TS2),
+                       SysEvs]),
+                    ?SKIP("TC idle with system events")
+            end
     end.
     
 
@@ -677,119 +809,123 @@ transaction_id_counter_mgc(doc) ->
      "transaction counter handling of the application "
      "in with several connections (MGC). "];
 transaction_id_counter_mgc(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        transaction_id_counter_mgc),
-    process_flag(trap_exit, true),
+    Name = transaction_id_counter_mgc,
+    Pre = fun() ->
+                  i("starting config server"),
+                  {ok, _ConfigPid} = megaco_config:start_link(),
 
-    i("starting"),
+                  %% Basic user data
+                  UserMid = {deviceName, "mgc"},
+                  UserConfig = [
+                                {min_trans_id, 1}
+                               ],
 
-    {ok, _ConfigPid} = megaco_config:start_link(),
-
-    %% Basic user data
-    UserMid = {deviceName, "mgc"},
-    UserConfig = [
-		  {min_trans_id, 1}
-		 ],
-
-    %% Basic connection data
-    RemoteMids = 
-	[
-	 {deviceName, "mg01"},
-	 {deviceName, "mg02"},
-	 {deviceName, "mg03"},
-	 {deviceName, "mg04"},
-	 {deviceName, "mg05"},
-	 {deviceName, "mg06"},
-	 {deviceName, "mg07"},
-	 {deviceName, "mg08"},
-	 {deviceName, "mg09"},
-	 {deviceName, "mg10"}
-	], 
-    RecvHandles = 
-	[
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-	 			encoding_mod    = ?MODULE,
-	 			encoding_config = [],
-	 			send_mod        = ?MODULE},
-	 #megaco_receive_handle{local_mid     = UserMid,
-				encoding_mod    = ?MODULE,
-				encoding_config = [],
-				send_mod        = ?MODULE}
-	],
-    SendHandle = dummy_send_handle,
-    ControlPid = self(), 
+                  %% Basic connection data
+                  RemoteMids = 
+                      [
+                       {deviceName, "mg01"},
+                       {deviceName, "mg02"},
+                       {deviceName, "mg03"},
+                       {deviceName, "mg04"},
+                       {deviceName, "mg05"},
+                       {deviceName, "mg06"},
+                       {deviceName, "mg07"},
+                       {deviceName, "mg08"},
+                       {deviceName, "mg09"},
+                       {deviceName, "mg10"}
+                      ], 
+                  RecvHandles = 
+                      [
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE},
+                       #megaco_receive_handle{local_mid     = UserMid,
+                                              encoding_mod    = ?MODULE,
+                                              encoding_config = [],
+                                              send_mod        = ?MODULE}
+                      ],
+                  SendHandle = dummy_send_handle,
+                  ControlPid = self(),
     
-    %% Start user
-    i("start user"),
-    ok = megaco_config:start_user(UserMid, UserConfig),
+                  %% Start user
+                  i("start user"),
+                  ok = megaco_config:start_user(UserMid, UserConfig),
 
-    %% Create connection
-    i("create connection(s)"),
-    CDs = create_connections(RecvHandles, RemoteMids, SendHandle, ControlPid),
+                  %% Create connection
+                  i("create connection(s)"),
+                  CDs = create_connections(RecvHandles,
+                                           RemoteMids,
+                                           SendHandle,
+                                           ControlPid),
 
-    %% Set counter limits
-    i("set counter max limit(s)"),
-    set_counter_max_limits(CDs, 1000),
+                  %% Set counter limits
+                  i("set counter max limit(s)"),
+                  set_counter_max_limits(CDs, 1000),
 
-    %% Create the counter worker procs
-    i("create counter working procs"),
-    Pids = create_counter_working_procs(CDs, ?NUM_CNT_PROCS),
+                  {UserMid, CDs}
+          end,
+    Case = fun({_, CDs}) ->
+                   %% Create the counter worker procs
+                   i("create counter working procs"),
+                   Pids = create_counter_working_procs(CDs, ?NUM_CNT_PROCS),
 
-    %% Start the counter worker procs
-    i("release the counter working procs"),
-    start_counter_working_procs(Pids),
+                   %% Start the counter worker procs
+                   i("release the counter working procs"),
+                   start_counter_working_procs(Pids),
 
-    %% Await the counter worker procs termination
-    i("await the counter working procs completion"),
-    await_completion_counter_working_procs(Pids),
+                   %% Await the counter worker procs termination
+                   i("await the counter working procs completion"),
+                   ok = await_completion_counter_working_procs(Pids),
 
-    %% Verify result
-    i("verify counter result"),
-    verify_counter_results(CDs),
+                   %% Verify result
+                   i("verify counter result"),
+                   verify_counter_results(CDs)
+           end,
 
-    %% Stop test
-    i("disconnect"),
-    delete_connections(CDs), 
-    i("stop user"),
-    ok = megaco_config:stop_user(UserMid),
-    i("stop megaco_config"),
-    ok = megaco_config:stop(),
+    Post = fun({UserMid, CDs}) ->
+                   %% Stop test
+                   i("disconnect"),
+                   delete_connections(CDs), 
+                   i("stop user"),
+                   ok = megaco_config:stop_user(UserMid),
+                   i("stop megaco_config"),
+                   ok = megaco_config:stop()
+           end,
+    try_tc(Name, Pre, Case, Post).
 
-    i("done"),
-    ok.
 
 create_connections(RecvHandles, RemoteMids, SendHandle, ControlPid) ->
     create_connections(RecvHandles, RemoteMids, SendHandle, ControlPid, []).
@@ -823,17 +959,28 @@ create_counter_working_procs2([#conn_data{conn_handle = CH} | CDs],
      create_counter_working_procs2(CDs, NumCntProcs)].
 
 
-verify_counter_results([]) ->
+verify_counter_results(CDs) ->
+    verify_counter_results(CDs, [], []).
+
+verify_counter_results([], _OKs, [] = _Errors) ->
+    i("counter verification success"),
     ok;
-verify_counter_results([#conn_data{conn_handle = CH} | CDs]) ->
+verify_counter_results([], OKs, Errors) ->
+    e("counter verification failed: "
+      "~n      Num OKs:    ~p"
+      "~n      Num Errors: ~p", [length(OKs), length(Errors)]),
+    error;
+verify_counter_results([#conn_data{conn_handle = CH} = CD| CDs], OKs, Errors) ->
     TransId = megaco_config:conn_info(CH, trans_id),
     if
 	(TransId =:= 1) ->
-	    ok;
+	    verify_counter_results(CDs, [CD|OKs], Errors);
 	true ->
-	    ?ERROR({trans_id_verification_failed, CH, TransId})
-    end,
-    verify_counter_results(CDs).
+            e("invalid transaction is for connection: "
+              "~n      CD:      ~p"
+              "~n      TransId: ~p", [CD, TransId]),
+            verify_counter_results(CDs, OKs, [{CD, TransId}|Errors])
+    end.
 
 
 delete_connections([]) ->
@@ -1218,6 +1365,32 @@ otp_8183(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ts() ->
+    erlang:monotonic_time(milli_seconds).
+
+tsd(TSD) ->
+    if (TSD < 1000) ->
+            ?F("~w ms", [TSD]);
+       (TSD < 60000) ->
+            ?F("~w secs", [TSD div 1000]);
+       true ->
+            ?F("~w mins", [TSD div 60000])
+    end.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 p(F) ->
     p(F, []).
 
@@ -1234,7 +1407,10 @@ i(F) ->
     i(F, []).
 
 i(F, A) ->
-    print(info, get(verbosity), get(tc), "INF", F, A).
+    print(info, get(verbosity), get(tc), "INFO", F, A).
+
+e(F, A) ->
+    print(info, get(verbosity), get(tc), "ERROR", F, A).
 
 printable(_, debug)   -> true;
 printable(info, info) -> true;

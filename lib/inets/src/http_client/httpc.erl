@@ -501,10 +501,7 @@ service_info(Pid) ->
 %%% Internal functions
 %%%========================================================================
 normalize_and_parse_url(Url) ->
-    case uri_string:normalize(Url) of
-        {error, _, _} = Error -> Error;
-        UriString -> uri_string:parse(unicode:characters_to_list(UriString))
-    end.
+    uri_string:normalize(unicode:characters_to_list(Url), [return_map]).
 
 handle_request(Method, Url, 
                URI,
@@ -638,10 +635,6 @@ handle_answer(RequestId, true, Options) ->
 	    {error, Reason}
     end.
 
-return_answer(Options, {{"HTTP/0.9",_,_}, _, BinBody}) ->
-    Body = maybe_format_body(BinBody, Options),
-    {ok, Body};
-   
 return_answer(Options, {StatusLine, Headers, BinBody}) ->
     Body = maybe_format_body(BinBody, Options),
     case proplists:get_value(full_result, Options, true) of

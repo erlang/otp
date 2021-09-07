@@ -1,0 +1,8 @@
+
+  [;1m-spec difference(Set1, Set2) -> Set3[0m
+  [;1m                    when[0m
+  [;1m                        Set1 :: a_set(),[0m
+  [;1m                        Set2 :: a_set(),[0m
+  [;1m                        Set3 :: a_set().[0m
+
+  Returns the difference of the sets [;;4mSet1[0m and [;;4mSet2[0m.

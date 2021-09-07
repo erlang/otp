@@ -112,7 +112,7 @@ verbose(Format, Args, File, Line) ->
     end.
 
 error(Format, Args, File, Line) ->
-    global:send(wx_global_logger, {failed, File, Line}),
+    catch global:send(wx_global_logger, {failed, File, Line}),
     Fail = {filename:basename(File),Line,Args},
     case global:whereis_name(wx_test_case_sup) of
 	undefined -> ignore;

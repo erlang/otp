@@ -78,10 +78,13 @@
          otp_9302/1,
          thr_free_drv/1,
          async_blast/1,
+         thr_msg_blast/0,
          thr_msg_blast/1,
          consume_timeslice/1,
          env/1,
          poll_pipe/1,
+         lots_of_used_fds_on_boot/1,
+         lots_of_used_fds_on_boot_slave/1,
          z_test/1]).
 
 -export([bin_prefix/2]).
@@ -159,7 +162,9 @@ groups() ->
       [a_test, use_fallback_pollset,
        bad_fd_in_pollset, fd_change,
        steal_control, smp_select,
-       driver_select_use, z_test]},
+       driver_select_use,
+       lots_of_used_fds_on_boot,
+       z_test]},
      {ioq_exit, [],
       [ioq_exit_ready_input, ioq_exit_ready_output,
        ioq_exit_timeout, ioq_exit_ready_async,
@@ -572,12 +577,6 @@ try_change_timer(Port, Timeout) ->
 %% 1) Queue up data in a driver that uses the full driver_queue API to do this.
 %% 2) Get the data back, a random amount at a time.
 queue_echo(Config) when is_list(Config) ->
-    case test_server:is_native(?MODULE) of
-        true -> exit(crashes_native_code);
-        false -> queue_echo_1(Config)
-    end.
-
-queue_echo_1(Config) ->
     ct:timetrap({minutes, 10}),
     Name = 'queue_drv',
     P = start_driver(Config, Name, true),
@@ -1859,6 +1858,79 @@ driver_select_use0(Config) ->
     ok = erl_ddll:stop(),
     ok.
 
+lots_of_used_fds_on_boot(Config) ->
+    case os:type() of
+        {unix, _} -> lots_of_used_fds_on_boot_test(Config);
+        _ -> {skipped, "Unix only test"}
+    end.
+
+lots_of_used_fds_on_boot_test(Config) ->
+    %% Start a node in a wrapper which have lots of fds
+    %% open. This used to hang the whole VM at boot in
+    %% an eternal loop trying to figure out how to size
+    %% arrays in erts_poll() implementation.
+    Name = lots_of_used_fds_on_boot,
+    HostSuffix = lists:dropwhile(fun ($@) -> false; (_) -> true end,
+				 atom_to_list(node())),
+    FullName = list_to_atom(atom_to_list(Name) ++ HostSuffix),
+    Pa = filename:dirname(code:which(?MODULE)),
+    Prog = case catch init:get_argument(progname) of
+	       {ok,[[P]]} -> P;
+	       _ -> exit(no_progname_argument_found)
+	   end,
+    NameSw = case net_kernel:longnames() of
+		 false -> "-sname ";
+		 true -> "-name ";
+		 _ -> exit(not_distributed_node)
+	     end,
+    {ok, Pwd} = file:get_cwd(),
+    NameStr = atom_to_list(Name),
+    DataDir = proplists:get_value(data_dir, Config),
+    Wrapper = filename:join(DataDir, "lots_of_fds_used_wrapper"),
+    CmdLine = Wrapper ++ " " ++ Prog ++ " -noshell -noinput "
+	++ NameSw ++ " " ++ NameStr ++ " "
+	++ "-pa " ++ Pa ++ " "
+	++ "-env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ NameStr ++ " "
+	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()) ++ " "
+        ++ "-s " ++ atom_to_list(?MODULE) ++ " lots_of_used_fds_on_boot_slave "
+        ++ atom_to_list(node()),
+    io:format("Starting node ~p: ~s~n", [FullName, CmdLine]),
+    net_kernel:monitor_nodes(true),
+    Port = case open_port({spawn, CmdLine}, [exit_status]) of
+               Prt when is_port(Prt) ->
+                   Prt;
+               OPError ->
+                   exit({failed_to_start_node, {open_port_error, OPError}})
+           end,
+    receive
+        {Port, {exit_status, 17}} ->
+            {skip, "Cannot open enough fds to test this"};
+        {Port, {exit_status, Error}} ->
+            exit({failed_to_start_node, {exit_status, Error}});
+        {nodeup, FullName} ->
+            io:format("~p connected!~n", [FullName]),
+            FullName = rpc:call(FullName, erlang, node, []),
+            rpc:cast(FullName, erlang, halt, []),
+            receive
+                {Port, {exit_status, 0}} ->
+                    ok;
+                {Port, {exit_status, Error}} ->
+                    exit({unexpected_exit_status, Error})
+            after 5000 ->
+                    exit(missing_exit_status)
+            end
+    after 5000 ->
+            exit(connection_timeout)
+    end.
+
+lots_of_used_fds_on_boot_slave([Master]) ->
+    erlang:monitor_node(Master, true),
+    receive
+        {nodedown, Master} ->
+            erlang:halt()
+    end,
+    ok.
+
 thread_mseg_alloc_cache_clean(Config) when is_list(Config) ->
     case {erlang:system_info(threads),
           erlang:system_info({allocator,mseg_alloc}),
@@ -2085,6 +2157,9 @@ thr_msg_blast_receiver_proc(Port, Max, Parent, Done) ->
         "done" ->
             Parent ! Done
     end.
+
+thr_msg_blast() ->
+    [{timetrap, {minutes, 10}}].
 
 thr_msg_blast(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),

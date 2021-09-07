@@ -43,7 +43,7 @@
     <title>DATA TYPES</title>
     <p>Type definitions that are used more than once in
       this module:</p>
-    <p><c>service() = ftpc | tftp | httpc | httpd</c></p>
+    <p><c>service() = httpc | httpd</c></p>
     <p><c>property() = atom()</c></p>
     <marker id="functions"></marker>
     <marker id="services"></marker>

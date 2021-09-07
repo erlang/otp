@@ -87,6 +87,8 @@
 
 -include("core_parse.hrl").
 -include("v3_kernel.hrl").
+
+%% Matches collapse max segment in v3_core.
 -define(EXPAND_MAX_SIZE_SEGMENT, 1024).
 
 %% These are not defined in v3_kernel.hrl.
@@ -113,12 +115,12 @@ copy_anno(Kdst, Ksrc) ->
                fargs=[] :: [#k_var{}],          %Arguments for current function
 	       vcount=0,			%Variable counter
 	       fcount=0,			%Fun counter
-               ds=cerl_sets:new() :: cerl_sets:set(), %Defined variables
+               ds=sets:new([{version, 2}]) :: sets:set(), %Defined variables
 	       funs=[],				%Fun functions
 	       free=#{},			%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
                no_shared_fun_wrappers=false :: boolean(),
-               labels=cerl_sets:new()
+               labels=sets:new([{version, 2}])
               }).
 
 -spec module(cerl:c_module(), [compile:option()]) ->
@@ -163,7 +165,7 @@ function({#c_var{name={F,Arity}=FA},Body}, St0) ->
         %% the function. We use integers as variable names to avoid
         %% filling up the atom table when compiling huge functions.
         Count = cerl_trees:next_free_variable_name(Body),
-	St1 = St0#kern{func=FA,vcount=Count,fcount=0,ds=cerl_sets:new()},
+	St1 = St0#kern{func=FA,vcount=Count,fcount=0,ds=sets:new([{version, 2}])},
 	{#ifun{anno=Ab,vars=Kvs,body=B0},[],St2} = expr(Body, new_sub(), St1),
 	{B1,_,St3} = ubody(B0, return, St2),
 	%%B1 = B0, St3 = St2,				%Null second pass
@@ -275,8 +277,8 @@ expr(#c_binary{anno=A,segments=Cv}, Sub, St0) ->
 	{Kv,Ep,St1} ->
 	    {#k_binary{anno=A,segs=Kv},Ep,St1}
     catch
-	throw:bad_element_size ->
-	    St1 = add_warning(get_line(A), bad_segment_size, A, St0),
+	throw:{bad_segment_size,Location} ->
+	    St1 = add_warning(Location, {failed,bad_segment_size}, A, St0),
 	    Erl = #c_literal{val=erlang},
 	    Name = #c_literal{val=error},
 	    Args = [#c_literal{val=badarg}],
@@ -336,7 +338,7 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
         error ->
             %% Invalid call (e.g. M:42/3). Issue a warning, and let
             %% the generated code use the old explict apply.
-            St = add_warning(get_line(A), bad_call, A, St0),
+            St = add_warning(get_location(A), {failed,bad_call}, A, St0),
 	    Call = #c_call{anno=A,
 			   module=#c_literal{val=erlang},
 			   name=#c_literal{val=apply},
@@ -392,7 +394,7 @@ letrec_local_function(A, Cfs, Cb, Sub0, St0) ->
 
 letrec_goto([{#c_var{name={Label,0}},Cfail}], Cb, Sub0,
             #kern{labels=Labels0}=St0) ->
-    Labels = cerl_sets:add_element(Label, Labels0),
+    Labels = sets:add_element(Label, Labels0),
     {Kb,Pb,St1} = body(Cb, Sub0, St0#kern{labels=Labels}),
     #c_fun{body=FailBody} = Cfail,
     {Kfail,Fb,St2} = body(FailBody, Sub0, St1),
@@ -557,7 +559,7 @@ match_vars(Ka, St0) ->
 %%  Transform application.
 
 c_apply(A, #c_var{anno=Ra,name={F0,Ar}}, Cargs, Sub, #kern{labels=Labels}=St0) ->
-    case Ar =:= 0 andalso cerl_sets:is_element(F0, Labels) of
+    case Ar =:= 0 andalso sets:is_element(F0, Labels) of
         true ->
             %% This is a goto to a label in a letrec_goto construct.
             {#k_goto{label=F0},[],St0};
@@ -604,7 +606,7 @@ atomic_bin([#c_bitstr{anno=A,val=E0,size=S0,unit=U0,type=T,flags=Fs0}|Es0],
 	   Sub, St0) ->
     {E,Ap1,St1} = atomic(E0, Sub, St0),
     {S1,Ap2,St2} = atomic(S0, Sub, St1),
-    validate_bin_element_size(S1),
+    validate_bin_element_size(S1, A),
     U1 = cerl:concrete(U0),
     Fs1 = cerl:concrete(Fs0),
     {Es,Ap3,St3} = atomic_bin(Es0, Sub, St2),
@@ -616,13 +618,13 @@ atomic_bin([#c_bitstr{anno=A,val=E0,size=S0,unit=U0,type=T,flags=Fs0}|Es0],
      Ap1++Ap2++Ap3,St3};
 atomic_bin([], _Sub, St) -> {#k_bin_end{},[],St}.
 
-validate_bin_element_size(#k_var{}) -> ok;
-validate_bin_element_size(#k_literal{val=Val}) ->
+validate_bin_element_size(#k_var{}, _Anno) -> ok;
+validate_bin_element_size(#k_literal{val=Val}, Anno) ->
     case Val of
         all -> ok;
         undefined -> ok;
         _ when is_integer(Val), Val >= 0 -> ok;
-        _ -> throw(bad_element_size)
+        _ -> throw({bad_segment_size,get_location(Anno)})
     end.
 
 %% atomic_list([Cexpr], Sub, State) -> {[Kexpr],[PreKexpr],State}.
@@ -664,15 +666,15 @@ force_variable(Ke, St0) ->
 %%  handling.
 
 pattern(#c_var{anno=A,name=V}, _Isub, Osub, St0) ->
-    case cerl_sets:is_element(V, St0#kern.ds) of
+    case sets:is_element(V, St0#kern.ds) of
 	true ->
 	    {New,St1} = new_var_name(St0),
 	    {#k_var{anno=A,name=New},
 	     set_vsub(V, New, Osub),
-	     St1#kern{ds=cerl_sets:add_element(New, St1#kern.ds)}};
+	     St1#kern{ds=sets:add_element(New, St1#kern.ds)}};
 	false ->
 	    {#k_var{anno=A,name=V},Osub,
-	     St0#kern{ds=cerl_sets:add_element(V, St0#kern.ds)}}
+	     St0#kern{ds=sets:add_element(V, St0#kern.ds)}}
     end;
 pattern(#c_literal{anno=A,val=Val}, _Isub, Osub, St) ->
     {#k_literal{anno=A,val=Val},Osub,St};
@@ -1064,16 +1066,26 @@ maybe_add_warning(Ke, MatchAnno, St) ->
 	    St;
 	false ->
 	    Anno = get_kanno(Ke),
-	    Line = get_line(Anno),
+	    Line = get_location(Anno),
 	    MatchLine = get_line(MatchAnno),
 	    Warn = case MatchLine of
-		       none -> nomatch_shadow;
-		       _ -> {nomatch_shadow,MatchLine}
+		       none -> {nomatch,shadow};
+		       _ -> {nomatch,{shadow,MatchLine}}
 		   end,
 	    add_warning(Line, Warn, Anno, St)
     end.
-    
+
+get_location([Line|_]) when is_integer(Line) ->
+    Line;
+get_location([{Line, Column} | _T]) when is_integer(Line), is_integer(Column) ->
+    {Line,Column};
+get_location([_|T]) ->
+    get_location(T);
+get_location([]) ->
+    none.
+
 get_line([Line|_]) when is_integer(Line) -> Line;
+get_line([{Line, _Column} | _T]) when is_integer(Line) -> Line;
 get_line([_|T]) -> get_line(T);
 get_line([]) -> none.
 
@@ -1444,7 +1456,7 @@ partition_intersection(_, Us, Cs, St) ->
 
 partition_keys(#k_map{es=Pairs}=Map, Ks) ->
     F = fun(#k_map_pair{key=Key}) ->
-                cerl_sets:is_element(map_key_clean(Key), Ks)
+                sets:is_element(map_key_clean(Key), Ks)
         end,
     {Ps1,Ps2} = partition(F, Pairs),
     {Map#k_map{es=Ps1},Map#k_map{es=Ps2}};
@@ -1454,12 +1466,12 @@ partition_keys(#ialias{pat=Map}=Alias, Ks) ->
     {Map1,Alias#ialias{pat=Map2}}.
 
 find_key_intersection(Ps) ->
-    Sets = [cerl_sets:from_list(Ks) || Ks <- Ps],
-    Intersection = cerl_sets:intersection(Sets),
-    case cerl_sets:size(Intersection) of
-        0 ->
+    Sets = [sets:from_list(Ks, [{version, 2}]) || Ks <- Ps],
+    Intersection = sets:intersection(Sets),
+    case sets:is_empty(Intersection) of
+        true ->
             none;
-        _ ->
+        false ->
             All = all(fun (Kset) -> Kset =:= Intersection end, Sets),
             case All of
                 true ->
@@ -2175,20 +2187,20 @@ integers(_, _) -> [].
 %%% Handling of errors and warnings.
 %%%
 
--type error() :: 'bad_call' | 'nomatch_shadow' | {'nomatch_shadow', integer()}.
+-type error() :: {'failed' | 'nomatch', term()}.
 
 -spec format_error(error()) -> string().
 
-format_error({nomatch_shadow,Line}) ->
+format_error({nomatch,{shadow,Line}}) ->
     M = io_lib:format("this clause cannot match because a previous clause at line ~p "
 		      "always matches", [Line]),
     flatten(M);
-format_error(nomatch_shadow) ->
+format_error({nomatch,shadow}) ->
     "this clause cannot match because a previous clause always matches";
-format_error(bad_call) ->
+format_error({failed,bad_call}) ->
     "invalid module and/or function name; this call will always fail";
-format_error(bad_segment_size) ->
-    "binary construction will fail because of a type mismatch".
+format_error({failed,bad_segment_size}) ->
+    "binary construction will fail because the size of a segment is invalid".
 
 add_warning(none, Term, Anno, #kern{ws=Ws}=St) ->
     File = get_file(Anno),

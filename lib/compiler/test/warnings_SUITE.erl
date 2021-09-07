@@ -41,8 +41,9 @@
          files/1,effect/1,bin_opt_info/1,bin_construction/1,
 	 comprehensions/1,maps/1,maps_bin_opt_info/1,
          redundant_boolean_clauses/1,
-	 latin1_fallback/1,underscore/1,no_warnings/1,
-	 bit_syntax/1,inlining/1,tuple_calls/1]).
+	 underscore/1,no_warnings/1,
+	 bit_syntax/1,inlining/1,tuple_calls/1,
+         recv_opt_info/1,opportunistic_warnings/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -63,9 +64,9 @@ groups() ->
        bad_arith,bool_cases,bad_apply,files,effect,
        bin_opt_info,bin_construction,comprehensions,maps,
        maps_bin_opt_info,
-       redundant_boolean_clauses,latin1_fallback,
+       redundant_boolean_clauses,
        underscore,no_warnings,bit_syntax,inlining,
-       tuple_calls]}].
+       tuple_calls,recv_opt_info,opportunistic_warnings]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -96,11 +97,12 @@ pattern(Config) when is_list(Config) ->
               foo(X) ->
                  a = {nisse,b} = X.
            ">>,
-	   [warn_unused_vars],
-	   {warnings,
-	    [{2,v3_core,nomatch},
-	     {6,v3_core,nomatch},
-	     {11,v3_core,nomatch} ] }}],
+           [warn_unused_vars],
+           {warnings,
+            [{{2,15},v3_core,{nomatch,pattern}},
+             {{6,20},v3_core,{nomatch,pattern}},
+             {{11,18},v3_core,{nomatch,pattern}}
+            ]}}],
     [] = run(Config, Ts),
     ok.
 
@@ -109,22 +111,29 @@ pattern2(Config) when is_list(Config) ->
     %% If we disable Core Erlang optimizations, we expect that
     %% v3_kernel should generate some of the warnings.
     Source = <<"f(A) -> ok;
-              f(B) -> error.
-	      t(A, B, C) ->
-	        case {A,B,C} of
-	          {a,B} -> ok;
-	          {_,B} -> ok
-                end.
+                f(B) -> error.
+                t(A, B, C) ->
+                  case {A,B,C} of
+                    {a,B} -> ok;
+                    {_,B} -> ok
+                  end.
+                c(E) ->
+                  case E of
+                    _ -> ok;
+                    _ -> ok
+                  end.
            ">>,
 
     %% Test warnings from sys_core_fold.
     Ts = [{pattern2,
 	   Source,
 	   [nowarn_unused_vars],
-	   {warnings,[{2,sys_core_fold,{nomatch_shadow,1,{f,1}}},
-		      {4,sys_core_fold,no_clause_match},
-		      {5,sys_core_fold,nomatch_clause_type},
-		      {6,sys_core_fold,nomatch_clause_type}]}}],
+           {warnings,[{{2,17},sys_core_fold,{nomatch,{shadow,1,{f,1}}}},
+                      {{4,19},sys_core_fold,{nomatch,no_clause}},
+                      {{5,21},sys_core_fold,{nomatch,clause_type}},
+                      {{6,21},sys_core_fold,{nomatch,clause_type}},
+                      {{11,21},sys_core_fold,{nomatch,{shadow,10}}}
+                     ]}}],
     [] = run(Config, Ts),
 
     %% Disable Core Erlang optimizations. v3_kernel should produce
@@ -133,7 +142,9 @@ pattern2(Config) when is_list(Config) ->
 	    Source,
 	    [nowarn_unused_vars,no_copt],
 	    {warnings,
-	     [{2,v3_kernel,{nomatch_shadow,1}}]}}],
+	     [{{2,17},v3_kernel,{nomatch,{shadow,1}}},
+              {{11,21},v3_kernel,{nomatch,{shadow,10}}}
+             ]}}],
     [] = run(Config, Ts2),
     ok.
 
@@ -143,13 +154,13 @@ pattern3(Config) when is_list(Config) ->
 
     Ts = [{pattern3,
 	   <<"
-	    f({A,_}) -> {ok,A};
-	    f([_|_]=B) -> {ok,B};
-	    f({urk,nisse}) -> urka_glurka.
+            f({A,_}) -> {ok,A};
+            f([_|_]=B) -> {ok,B};
+            f({urk,nisse}) -> urka_glurka.
            ">>,
 	   [nowarn_unused_vars],
 	   {warnings,
-	    [{4,v3_kernel,{nomatch_shadow,2}}]}}],
+            [{{4,13},v3_kernel,{nomatch,{shadow,2}}}]}}],
     [] = run(Config, Ts),
 
     ok.
@@ -204,12 +215,12 @@ pattern4(Config) when is_list(Config) ->
            ">>,
 	   [nowarn_unused_vars],
 	   {warnings,
-	    [{9,sys_core_fold,no_clause_match},
-             {11,sys_core_fold,nomatch_shadow},
-             {15,sys_core_fold,nomatch_shadow},
-	     {18,sys_core_fold,no_clause_match},
-	     {23,sys_core_fold,no_clause_match},
-	     {33,sys_core_fold,no_clause_match}
+            [{{9,16},sys_core_fold,{nomatch,no_clause}},
+             {{11,18},sys_core_fold,{nomatch,shadow}},
+             {{15,18},sys_core_fold,{nomatch,shadow}},
+             {{18,16},sys_core_fold,{nomatch,no_clause}},
+             {{23,16},sys_core_fold,{nomatch,no_clause}},
+             {{33,16},sys_core_fold,{nomatch,no_clause}}
 	    ]}}],
     [] = run(Config, Ts),
 
@@ -233,14 +244,21 @@ guard(Config) when is_list(Config) ->
            ">>,
 	   [nowarn_unused_vars],
 	   {warnings,
-	    [{2,sys_core_fold,no_clause_match},
-	     {2,sys_core_fold,nomatch_guard},
-	     {2,sys_core_fold,{eval_failure,badarg}},
-	     {4,sys_core_fold,no_clause_match},
-	     {4,sys_core_fold,nomatch_guard},
-	     {6,sys_core_fold,no_clause_match},
-	     {6,sys_core_fold,nomatch_guard},
-	     {6,sys_core_fold,{eval_failure,badarg}}
+            [{{2,15},sys_core_fold,{nomatch,guard}},
+             {{2,15},sys_core_fold,{nomatch,no_clause}},
+             {{2,28},sys_core_fold,
+              {failed,{eval_failure,
+                       {erlang,element,2},
+                       badarg}}},
+             {{4,15},sys_core_fold,{nomatch,guard}},
+             {{4,15},sys_core_fold,{nomatch,no_clause}},
+             {{6,15},sys_core_fold,{nomatch,guard}},
+             {{6,15},sys_core_fold,{nomatch,no_clause}},
+             {{6,26},sys_core_fold,
+              {failed,
+               {eval_failure,
+                {erlang,element,2},
+                badarg}}}
 	    ]}}],
     [] = run(Config, Ts),
 
@@ -251,14 +269,14 @@ bad_arith(Config) when is_list(Config) ->
            <<"f() ->
                 if
                   a + 3 > 3 -> ok;
-          	 true -> error
+                 true -> error
               end.
 
               g(A) ->
                 if
                   is_integer(A), a + 3 > 3 -> ok;
                   a + 3 > 42, is_integer(A) -> ok;
-          	 true -> error
+                 true -> error
               end.
 
               h(A) ->
@@ -266,14 +284,27 @@ bad_arith(Config) when is_list(Config) ->
            ">>,
 	   [],
 	   {warnings,
-	    [{3,sys_core_fold,nomatch_guard},
-	     {3,sys_core_fold,{eval_failure,badarith}},
-	     {9,sys_core_fold,nomatch_guard},
-	     {9,sys_core_fold,{eval_failure,badarith}},
-	     {9,sys_core_fold,{no_effect,{erlang,is_integer,1}}},
-	     {10,sys_core_fold,nomatch_guard},
-	     {10,sys_core_fold,{eval_failure,badarith}},
-	     {15,sys_core_fold,{eval_failure,badarith}}
+            [{{3,19},sys_core_fold,{nomatch,guard}},
+             {{3,21},sys_core_fold,
+              {failed,{eval_failure,
+                       {erlang,'+',2},
+                       badarith}}},
+             {{9,19},sys_core_fold,
+              {ignored,{no_effect,{erlang,is_integer,1}}}},
+             {{9,19},sys_core_fold,{nomatch,guard}},
+             {{9,36},sys_core_fold,
+              {failed,{eval_failure,
+                       {erlang,'+',2},
+                       badarith}}},
+             {{10,19},sys_core_fold,{nomatch,guard}},
+             {{10,21},sys_core_fold,
+              {failed,{eval_failure,
+                       {erlang,'+',2},
+                       badarith}}},
+             {{15,19},sys_core_fold,
+              {failed,{eval_failure,
+                       {erlang,'+',2},
+                       badarith}}}
 	    ] }}],
     [] = run(Config, Ts),
     ok.
@@ -295,18 +326,18 @@ bool_cases(Config) when is_list(Config) ->
                  Other -> {error,not_bool}
                end.
 
-	    h(Bool) ->
-              case not Bool of
-	        maybe -> strange;
-	        false -> ok;
-	        true -> error
-            end.
+            h(Bool) ->
+               case not Bool of
+                 maybe -> strange;
+                 false -> ok;
+                 true -> error
+               end.
            ">>,
-	   [nowarn_unused_vars],
-	   {warnings,
-	    [{6,sys_core_fold,nomatch_shadow},
-	     {13,sys_core_fold,nomatch_shadow},
-	     {18,sys_core_fold,nomatch_clause_type} ]} }],
+           [nowarn_unused_vars],
+           {warnings,
+            [{{6,18},sys_core_fold,{nomatch,shadow}},
+             {{13,18},sys_core_fold,{nomatch,shadow}},
+             {{18,18},sys_core_fold,{nomatch,clause_type}} ]} }],
     [] = run(Config, Ts),
     ok.
 
@@ -317,15 +348,18 @@ bad_apply(Config) when is_list(Config) ->
              t(2) -> erlang:42();
              t(3) -> 42:start();
              t(4) -> []:start();
-             t(5) -> erlang:[]().
+             t(5) -> erlang:[]();
+             t(6) -> [a,b,c]().
            ">>,
-	   [],
-	   {warnings,
-	    [{2,v3_kernel,bad_call},
-	     {3,v3_kernel,bad_call},
-	     {4,v3_kernel,bad_call},
-	     {5,v3_kernel,bad_call},
-	     {6,v3_kernel,bad_call}]}}],
+           [],
+           {warnings,
+            [{{2,22},v3_kernel,{failed,bad_call}},
+             {{3,22},v3_kernel,{failed,bad_call}},
+             {{4,22},v3_kernel,{failed,bad_call}},
+             {{5,22},v3_kernel,{failed,bad_call}},
+             {{6,22},v3_kernel,{failed,bad_call}},
+             {{7,22},sys_core_fold,{failed,bad_call}}
+            ]}}],
     [] = run(Config, Ts),
 
     %% Also verify that the generated code generates the correct error.
@@ -351,108 +385,69 @@ files(Config) when is_list(Config) ->
            ">>,
            [],
            {warnings,
-            [{"file1",[{17,sys_core_fold,{eval_failure,badarith}}]},
-             {"file2",[{10,sys_core_fold,{eval_failure,badarith}}]}]}}],
+            [{"file1",[{{17,20},sys_core_fold,
+                        {failed,{eval_failure,
+                                 {erlang,'/',2},
+                                 badarith}}}]},
+             {"file2",[{{10,20},sys_core_fold,
+                        {failed,{eval_failure,
+                                 {erlang,'/',2},
+                                 badarith}}}]}]}}],
 
     [] = run(Config, Ts),
     ok.
 
 %% Test warnings for term construction and BIF calls in effect context.
 effect(Config) when is_list(Config) ->
-    Ts = [{effect,
-	   <<"
-             t(X) ->
-               case X of
-              	warn_lc ->
-              	    [is_integer(Z) || Z <- [1,2,3]];
-              	warn_lc_2 ->
-              	    [{error,Z} || Z <- [1,2,3]];
-              	warn_lc_3 ->
-              	    [{error,abs(Z)} || Z <- [1,2,3]];
-              	no_warn_lc ->
-              	    [put(last_integer, Z) || Z <- [1,2,3]]; %no warning
-              	unused_tuple_literal ->
-              	    {a,b,c};
-              	unused_list_literal ->
-              	    [1,2,3,4];
-              	unused_integer ->
-              	    42;
-              	unused_arith ->
-              	    X*X;
-              	nested ->
-              	    [{ok,node(),?MODULE:foo(),self(),[time(),date()],time()},
-              	     is_integer(X)];
-              	unused_bit_syntax ->
-              	    <<X:8>>;
-              	unused_fun ->
-              	    fun() -> {ok,X} end;
-		unused_named_fun ->
-		    fun F(0) -> 1;
-                        F(N) -> N*F(N-1)
-                    end;
-              	unused_atom ->
-              	    ignore;				%no warning
-              	unused_nil ->
-              	    [];					%no warning
-                comp_op ->
-                    X =:= 2;
-                cookie ->
-                    erlang:get_cookie();
-		result_ignore ->
-                    _ = list_to_integer(X);
-                warn_lc_4 ->
-                    %% No warning because of assignment to _.
-                    [_ = abs(Z) || Z <- [1,2,3]]
-               end,
-               ok.
-
-             %% No warnings should be generated in the following functions.
+    Ts = [{no_warnings,
+           %% No warnings should be generated in the following functions.
+           <<"
              m1(X, Sz) ->
                 if
-             	  Sz =:= 0 -> X = 0;
-             	  true -> ok
+                  Sz =:= 0 -> X = 0;
+                  true -> ok
                 end,
                 ok.
 
              m2(X, Sz) ->
                 if
-             	  Sz =:= 0 -> X = {a,Sz};
-             	  true -> ok
+                  Sz =:= 0 -> X = {a,Sz};
+                  true -> ok
                 end,
                 ok.
 
              m3(X, Sz) ->
                 if
-             	  Sz =:= 0 -> X = [a,Sz];
-             	  true -> ok
+                  Sz =:= 0 -> X = [a,Sz];
+                  true -> ok
                 end,
                 ok.
 
              m4(X, Sz, Var) ->
                 if
-             	  Sz =:= 0 -> X = Var;
-             	  true -> ok
+                  Sz =:= 0 -> X = Var;
+                  true -> ok
                 end,
                 ok.
 
              m5(X, Sz) ->
                 if
-             	   Sz =:= 0 -> X = {a,b,c};
-             	   true -> ok
+                   Sz =:= 0 -> X = {a,b,c};
+                   true -> ok
                 end,
                 ok.
 
              m6(X, Sz) ->
                 if
-             	  Sz =:= 0 -> X = {a,Sz,[1,2,3]};
-             	  true -> ok
+                  Sz =:= 0 -> X = {a,Sz,[1,2,3]};
+                  true -> ok
                 end,
                 ok.
 
              m7(X, Sz) ->
                 if
-             	  Sz =:= 0 -> X = {a,Sz,[1,2,3],abs(Sz)};
-             	  true -> ok
+                  Sz =:= 0 -> X = {a,Sz,[1,2,3],abs(Sz)};
+                  true -> ok
                 end,
                 ok.
 
@@ -472,34 +467,117 @@ effect(Config) when is_list(Config) ->
                    CurrentConfig = {id(camel_phase3),id(sms)},
                    case CurrentConfig of
                      {apa, bepa} -> ok;
-		     _ -> ok
-	           end
+                     _ -> ok
+                   end
                end,
                ok.
 
              id(I) -> I.
              ">>,
-	   [],
-	   {warnings,[{5,sys_core_fold,{no_effect,{erlang,is_integer,1}}},
-		      {7,sys_core_fold,useless_building},
-		      {9,sys_core_fold,result_ignored},
-		      {9,sys_core_fold,useless_building},
-		      {13,sys_core_fold,useless_building},
-		      {15,sys_core_fold,useless_building},
-		      {17,sys_core_fold,useless_building},
-		      {19,sys_core_fold,result_ignored},
-		      {21,sys_core_fold,useless_building},
-		      {21,sys_core_fold,{no_effect,{erlang,date,0}}},
-		      {21,sys_core_fold,{no_effect,{erlang,node,0}}},
-		      {21,sys_core_fold,{no_effect,{erlang,self,0}}},
-		      {21,sys_core_fold,{no_effect,{erlang,time,0}}},
-		      {22,sys_core_fold,useless_building},
-		      {22,sys_core_fold,{no_effect,{erlang,is_integer,1}}},
-		      {24,sys_core_fold,useless_building},
-		      {26,sys_core_fold,useless_building},
-		      {28,sys_core_fold,useless_building},
-		      {36,sys_core_fold,{no_effect,{erlang,'=:=',2}}},
-		      {38,sys_core_fold,{no_effect,{erlang,get_cookie,0}}}]}}],
+           [],[]},
+
+          {basic,
+           <<"
+             t(X) ->
+               case X of
+                warn_lc ->
+                    [is_integer(Z) || Z <- [1,2,3]];
+                warn_lc_2 ->
+                    [{error,Z} || Z <- [1,2,3]];
+                warn_lc_3 ->
+                    [{error,abs(Z)} || Z <- [1,2,3]];
+                no_warn_lc ->
+                    [put(last_integer, Z) || Z <- [1,2,3]]; %no warning
+                unused_tuple_literal ->
+                    {a,b,c};
+                unused_list_literal ->
+                    [1,2,3,4];
+                unused_integer ->
+                    42;
+                unused_arith ->
+                    X*X
+               end,
+               ok.
+             ">>,
+           [],
+           {warnings,[{{5,22},sys_core_fold,{ignored,{no_effect,{erlang,is_integer,1}}}},
+                      {{7,22},sys_core_fold,{ignored,useless_building}},
+                      {{9,22},sys_core_fold,{ignored,useless_building}},
+                      {{9,29},sys_core_fold,{ignored,{result,{erlang,abs,1}}}},
+                      {{13,21},sys_core_fold,{ignored,useless_building}},
+                      {{15,21},sys_core_fold,{ignored,useless_building}},
+                      {{17,21},sys_core_fold,{ignored,useless_building}},
+                      {{19,22},sys_core_fold,{ignored,{result, {erlang,'*',2}}}}
+                     ]}},
+
+          {nested,
+            <<"
+             t(X) ->
+               case X of
+                nested ->
+                    [{ok,node(),module:foo(),self(),[time(),date()],time()},
+                     is_integer(X)];
+                unused_bit_syntax ->
+                    <<X:8>>;
+                unused_fun ->
+                    fun() -> {ok,X} end;
+                unused_named_fun ->
+                    fun F(0) -> 1;
+                        F(N) -> N*F(N-1)
+                    end;
+                unused_atom ->
+                    ignore;                             %no warning
+                unused_nil ->
+                    [];                                 %no warning
+                comp_op ->
+                    X =:= 2;
+                cookie ->
+                    erlang:get_cookie();
+                result_ignore ->
+                    _ = list_to_integer(X);
+                warn_lc_4 ->
+                    %% No warning because of assignment to _.
+                    [_ = abs(Z) || Z <- [1,2,3]]
+               end,
+               ok.
+             ">>,
+           [],
+           {warnings,[{{5,21},sys_core_fold,{ignored,useless_building}},
+                      {{5,26},sys_core_fold,{ignored,{no_effect,{erlang,node,0}}}},
+                      {{5,46},sys_core_fold,{ignored,{no_effect,{erlang,self,0}}}},
+                      {{5,54},sys_core_fold,{ignored,{no_effect,{erlang,time,0}}}},
+                      {{5,61},sys_core_fold,{ignored,{no_effect,{erlang,date,0}}}},
+                      {{5,69},sys_core_fold,{ignored,{no_effect,{erlang,time,0}}}},
+                      {{6,22},sys_core_fold,{ignored,{no_effect,{erlang,is_integer,1}}}},
+                      {{8,21},sys_core_fold,{ignored,useless_building}},
+                      {{10,21},sys_core_fold,{ignored,useless_building}},
+                      {{12,21},sys_core_fold,{ignored,useless_building}},
+                      {{20,23},sys_core_fold,{ignored,{no_effect,{erlang,'=:=',2}}}},
+                      {{22,21},sys_core_fold,{ignored,{no_effect,{erlang,get_cookie,0}}}}
+                      ]}},
+
+          {seq,
+           <<"
+             t(T) ->
+               [ {a,b,T} ],  [ {x,y,T} ],
+               ok.
+             ">>,
+           [],
+           {warnings,[{{3,16},sys_core_fold,{ignored,useless_building}},
+                      {{3,30},sys_core_fold,{ignored,useless_building}}]}},
+
+          {propagated_literal,
+           <<"
+            foo(X) ->
+                Y = [$.],
+                %% There must not be a warning for constructing a term that
+                %% is never used.
+                fun() -> X = Y ++ [$.] end(),
+                ok.
+             ">>,
+           [],
+           []}
+         ],
     [] = run(Config, Ts),
     ok.
 
@@ -507,9 +585,9 @@ bin_opt_info(Config) when is_list(Config) ->
     Code = <<"
              t1(Bin) ->
                case Bin of
-	         _ when byte_size(Bin) > 20 -> erlang:error(too_long);
+                 _ when byte_size(Bin) > 20 -> erlang:error(too_long);
                  <<_,T/binary>> -> t1(T);
-	         <<>> -> ok
+                 <<>> -> ok
              end.
 
              %% We use a tail in a BIF instruction, remote call, function
@@ -532,17 +610,17 @@ bin_opt_info(Config) when is_list(Config) ->
     %% to run.
     {warnings,
      [{5,beam_ssa_bsm,{unsuitable_call,
-                        {{b_local,{b_literal,t1},1},
-                         {used_before_match,
-                            {b_set,_,_,{bif,byte_size},[_]}}}}},
+                       {{b_local,{b_literal,t1},1},
+                        {used_before_match,
+                         {b_set,_,_,{bif,byte_size},[_]}}}}},
       {5,beam_ssa_bsm,{binary_created,_,_}},
       {11,beam_ssa_bsm,{binary_created,_,_}}, %% A =< B -> T
       {13,beam_ssa_bsm,context_reused},       %% A > B -> t2(T);
       {16,beam_ssa_bsm,{binary_created,_,_}}, %% when byte_size(T) < 4 ->
       {19,beam_ssa_bsm,{remote_call,
-                         {b_remote,
-                          {b_literal,erlang},
-                           {b_literal,split_binary},2}}},
+                        {b_remote,
+                         {b_literal,erlang},
+                         {b_literal,split_binary},2}}},
       {19,beam_ssa_bsm,{binary_created,_,_}}  %% split_binary(T, 4)
      ]} = Ws,
 
@@ -561,12 +639,25 @@ bin_construction(Config) when is_list(Config) ->
              x() ->
                  Bin = <<1,2,3,7:4>>,
                  <<Bin/binary>>.
+
+             y() -> <<0.5>>.
+             z() -> <<99999999999999/utf8>>.
+             w() -> <<0.5:1/float>>.
+
+             a() ->
+               Size = bad_size,
+               <<1:Size>>.
            ">>,
-	   [],
-	   {warnings,[{4,sys_core_fold,embedded_binary_size},
-		      {8,sys_core_fold,{embedded_unit,8,28}}]}}],
+           [],
+           {warnings,[{{4,18},sys_core_fold,{failed,embedded_binary_size}},
+                      {{8,18},sys_core_fold,{failed,{embedded_unit,8,28}}},
+                      {{10,21},v3_core,{failed,bad_binary}},
+                      {{11,21},sys_core_fold,{failed,bad_unicode}},
+                      {{12,21},sys_core_fold,{failed,bad_float_size}},
+                      {{16,18},v3_kernel,{failed,bad_segment_size}}
+                     ]}}],
     [] = run(Config, Ts),
-    
+
     ok.
 
 comprehensions(Config) when is_list(Config) ->
@@ -594,17 +685,17 @@ maps(Config) when is_list(Config) ->
                  end.
            ">>,
            [],
-           {warnings,[{3,sys_core_fold,no_clause_match},
-                      {9,sys_core_fold,nomatch_clause_type}]}},
+           {warnings,[{{3,18},sys_core_fold,{nomatch,no_clause}},
+                      {{9,22},sys_core_fold,{nomatch,clause_type}}]}},
 	   {bad_map_src1,
            <<"
              t() ->
-		 M = {a,[]},
-		 {'EXIT',{badarg,_}} = (catch(M#{ a => 1 })),
-		 ok.
+                 M = {a,[]},
+                 {'EXIT',{badarg,_}} = (catch(M#{ a => 1 })),
+                 ok.
            ">>,
            [],
-	   {warnings,[{4,sys_core_fold,{eval_failure,badmap}}]}},
+           {warnings,[{{4,48},sys_core_fold,{failed,bad_map_update}}]}},
 	   {bad_map_src2,
            <<"
              t() ->
@@ -618,11 +709,11 @@ maps(Config) when is_list(Config) ->
 	   {bad_map_src3,
            <<"
              t() ->
-		 {'EXIT',{badarg,_}} = (catch <<>>#{ a := 1}),
-		 ok.
+                 {'EXIT',{badarg,_}} = (catch <<>>#{ a := 1}),
+                 ok.
            ">>,
            [],
-	   {warnings,[{3,sys_core_fold,{eval_failure,badmap}}]}},
+           {warnings,[{{3,51},sys_core_fold,{failed,bad_map_update}}]}},
            {ok_map_literal_key,
            <<"
              t() ->
@@ -671,15 +762,16 @@ maps(Config) when is_list(Config) ->
                  M#{<<\"a\">>=>1, <<\"b\">>=> 2, <<\"a\">>:=3}.
            ">>,
            [],
-           {warnings,[{3,v3_core,{map_key_repeated,a}},
-                      {8,v3_core,{map_key_repeated,a}},
-                      {11,v3_core,{map_key_repeated,a}},
-                      {14,v3_core,{map_key_repeated,"a"}},
-                      {17,v3_core,{map_key_repeated,"a"}},
-                      {20,v3_core,{map_key_repeated,"a"}},
-                      {23,v3_core,{map_key_repeated,"a"}},
-                      {28,v3_core,{map_key_repeated,"a"}},
-                      {31,v3_core,{map_key_repeated,<<"a">>}}]}},
+           {warnings,[{{3,20},v3_core,{map_key_repeated,a}},
+                      {{8,21},v3_core,{map_key_repeated,a}},
+                      {{11,21},v3_core,{map_key_repeated,a}},
+                      {{14,20},v3_core,{map_key_repeated,"a"}},
+                      {{17,21},v3_core,{map_key_repeated,"a"}},
+                      {{20,21},v3_core,{map_key_repeated,"a"}},
+                      {{23,20},v3_core,{map_key_repeated,"a"}},
+                      {{28,21},v3_core,{map_key_repeated,"a"}},
+                      {{31,21},v3_core,{map_key_repeated,<<"a">>}}
+                     ]}},
            {repeated_keys2,
            <<"
              foo4(K) ->
@@ -732,15 +824,16 @@ maps(Config) when is_list(Config) ->
                  M1#{#{<<\"a\">>=>1}:=3,K=>2}.
           ">>,
            [],
-           {warnings,[{3,v3_core,{map_key_repeated,"a"}},
-                      {6,v3_core,{map_key_repeated,a}},
-                      {9,v3_core,{map_key_repeated,<<"a">>}},
-                      {14,v3_core,{map_key_repeated,{"a",1}}},
-                      {17,v3_core,{map_key_repeated,{"a",<<"b">>}}},
-                      {21,v3_core,{map_key_repeated,{<<"a">>,1}}},
-                      {25,v3_core,{map_key_repeated,#{"a" => 1}}},
-                      {28,v3_core,{map_key_repeated,#{"a" => <<"b">>}}},
-                      {32,v3_core,{map_key_repeated,#{<<"a">> => 1}}}]}}
+           {warnings,[{{3,20},v3_core,{map_key_repeated,"a"}},
+                      {{6,21},v3_core,{map_key_repeated,a}},
+                      {{9,21},v3_core,{map_key_repeated,<<"a">>}},
+                      {{14,20},v3_core,{map_key_repeated,{"a",1}}},
+                      {{17,21},v3_core,{map_key_repeated,{"a",<<"b">>}}},
+                      {{21,21},v3_core,{map_key_repeated,{<<"a">>,1}}},
+                      {{25,20},v3_core,{map_key_repeated,#{"a" => 1}}},
+                      {{28,21},v3_core,{map_key_repeated,#{"a" => <<"b">>}}},
+                      {{32,21},v3_core,{map_key_repeated,#{<<"a">> => 1}}}
+                     ]}}
          ],
     run(Config, Ts),
     ok.
@@ -769,91 +862,65 @@ redundant_boolean_clauses(Config) when is_list(Config) ->
                  end.
            ">>,
            [],
-           {warnings,[{5,sys_core_fold,nomatch_shadow}]}}],
+           {warnings,[{{5,22},sys_core_fold,{nomatch,shadow}}]}}],
     run(Config, Ts),
     ok.
 
-latin1_fallback(Conf) when is_list(Conf) ->
-    DataDir = ?privdir,
-    IncFile = filename:join(DataDir, "include_me.hrl"),
-    file:write_file(IncFile, <<"%% ",246," in include file\n">>),
-    Ts1 = [{latin1_fallback1,
-	    %% Test that the compiler fall backs to latin-1 with
-	    %% a warning if a file has no encoding and does not
-	    %% contain correct UTF-8 sequences.
-	    <<"%% Bj",246,"rn
-              t(_) -> \"",246,"\";
-              t(x) -> ok.
-              ">>,
-	    [],
-	    {warnings,[{1,compile,reparsing_invalid_unicode},
-		       {3,sys_core_fold,{nomatch_shadow,2,{t,1}}}]}}],
-    [] = run(Conf, Ts1),
-
-    Ts2 = [{latin1_fallback2,
-	    %% Test that the compiler fall backs to latin-1 with
-	    %% a warning if a file has no encoding and does not
-	    %% contain correct UTF-8 sequences.
-	    <<"
-
-	      -include(\"include_me.hrl\").
-              ">>,
-	    [],
-	    {warnings,[{1,compile,reparsing_invalid_unicode}]}
-	   }],
-    [] = run(Conf, Ts2),
-
-    Ts3 = [{latin1_fallback3,
-	    %% Test that the compiler fall backs to latin-1 with
-	    %% a warning if a file has no encoding and does not
-	    %% contain correct UTF-8 sequences.
-	    <<"-ifdef(NOTDEFINED).
-              t(_) -> \"",246,"\";
-              t(x) -> ok.
-              -endif.
-              ">>,
-	    [],
-	    {warnings,[{2,compile,reparsing_invalid_unicode}]}}],
-    [] = run(Conf, Ts3),
-
-    ok.
-
 underscore(Config) when is_list(Config) ->
-    S0 = <<"f(A) ->
+    %% The code template.
+    S0 = <<"
+            f(A) ->
               _VAR1 = <<A>>,
               _VAR2 = {ok,A},
               _VAR3 = [A],
               ok.
-	    g(A) ->
+            g(A) ->
               _VAR1 = A/0,
               _VAR2 = date(),
-	      ok.
+              ok.
             h() ->
                _VAR1 = fun() -> ok end,
-	      ok.
+              ok.
             i(A) ->
                _VAR1 = #{A=>42},
-	      ok.
+              ok.
 	 ">>,
-    Ts0 = [{underscore0,
-	    S0,
-	    [],
-	    {warnings,[{2,sys_core_fold,useless_building},
-		       {3,sys_core_fold,useless_building},
-		       {4,sys_core_fold,useless_building},
-		       {7,sys_core_fold,result_ignored},
-		       {8,sys_core_fold,{no_effect,{erlang,date,0}}},
-		       {11,sys_core_fold,useless_building},
-		       {14,sys_core_fold,useless_building}
-		      ]}}],
+
+    %% Define all possible warnings.
+    Warnings = [{{3,23},sys_core_fold,{ignored,useless_building}},
+                {{4,23},sys_core_fold,{ignored,useless_building}},
+                {{5,23},sys_core_fold,{ignored,useless_building}},
+                {{8,24},sys_core_fold,{ignored,{result,{erlang,'/',2}}}},
+                {{9,23},sys_core_fold,{ignored,{no_effect,{erlang,date,0}}}},
+                {{12,24},sys_core_fold,{ignored,useless_building}},
+                {{15,24},sys_core_fold,{ignored,useless_building}}],
+
+
+    %% Compile the unmodified template. Assigning to variable that
+    %% begins with '_' should suppress all warnings.
+    Ts0 = [{underscore0,S0,[],[]}],
     [] = run(Config, Ts0),
 
     %% Replace all "_VAR<digit>" variables with a plain underscore.
-    %% Now there should be no warnings.
+    %% There should still be no warnings.
     S1 = re:replace(S0, "_VAR\\d+", "_", [global]),
     io:format("~s\n", [S1]),
     Ts1 = [{underscore1,S1,[],[]}],
     [] = run(Config, Ts1),
+
+    %% Make sure that we get warnings if we remove "_VAR<digit> = ".
+    S2 = re:replace(S0, "_VAR\\d = ", "        ", [global]),
+    io:format("~s\n", [S2]),
+    Ts2 = [{underscore2,S2,[],{warnings,Warnings}}],
+    [] = run(Config, Ts2),
+
+    %% We should also get warnings if we assign to a variables that don't
+    %% begin with underscore (as well as warnings for unused variables from
+    %% erl_lint).
+    S3 = re:replace(S0, "_(?=VAR\\d+)", " ", [global]),
+    io:format("~s\n", [S3]),
+    Ts3 = [{underscore2,S3,[],{warnings,Warnings}}],
+    [] = run(Config, Ts3),
 
     ok.
 
@@ -894,7 +961,8 @@ no_warnings(Config) when is_list(Config) ->
 
 bit_syntax(Config) ->
     Ts = [{?FUNCTION_NAME,
-	   <<"a(<<-1>>) -> ok;
+           <<"
+              a(<<-1>>) -> ok;
               a(<<1023>>) -> ok;
               a(<<777/signed>>) -> ok;
               a(<<a/binary>>) -> ok;
@@ -911,27 +979,30 @@ bit_syntax(Config) ->
                   <<42:Sz/float>> -> ok;
                   <<42:Sz/binary>> -> ok
                 end.
+              d(<<16#110000/utf8>>) -> error;
+              d(_) -> ok.
              ">>,
 	   [],
-	   {warnings,[{1,sys_core_fold,no_clause_match},
-		      {1,sys_core_fold,{nomatch_bit_syntax_unsigned,-1}},
-		      {2,sys_core_fold,{nomatch_bit_syntax_truncated,
-					unsigned,1023,8}},
-		      {3,sys_core_fold,{nomatch_bit_syntax_truncated,
-					signed,777,8}},
-		      {4,sys_core_fold,{nomatch_bit_syntax_type,a,binary}},
-		      {5,sys_core_fold,{nomatch_bit_syntax_type,a,integer}},
-		      {6,sys_core_fold,{nomatch_bit_syntax_type,a,float}},
-		      {7,sys_core_fold,{nomatch_bit_syntax_type,a,utf8}},
-		      {8,sys_core_fold,{nomatch_bit_syntax_type,a,utf16}},
-		      {9,sys_core_fold,{nomatch_bit_syntax_type,a,utf32}},
-		      {10,sys_core_fold,{nomatch_bit_syntax_type,a,utf32}},
-		      {11,sys_core_fold,no_clause_match},
-		      {11,sys_core_fold,{nomatch_bit_syntax_size,bad}},
-		      {14,sys_core_fold,{nomatch_bit_syntax_unsigned,-42}},
-		      {16,sys_core_fold,{nomatch_bit_syntax_type,42,binary}}
-		     ]}
-	  }],
+           {warnings,[{{2,15},sys_core_fold,{nomatch,no_clause}},
+                      {{2,19},sys_core_fold,{nomatch,{bit_syntax_unsigned,-1}}},
+                      {{3,19},sys_core_fold,{nomatch,{bit_syntax_truncated,
+                                             unsigned,1023,8}}},
+                      {{4,19},sys_core_fold,{nomatch,{bit_syntax_truncated,
+                                             signed,777,8}}},
+                      {{5,19},sys_core_fold,{nomatch,{bit_syntax_type,a,binary}}},
+                      {{6,19},sys_core_fold,{nomatch,{bit_syntax_type,a,integer}}},
+                      {{7,19},sys_core_fold,{nomatch,{bit_syntax_type,a,float}}},
+                      {{8,19},sys_core_fold,{nomatch,{bit_syntax_type,a,utf8}}},
+                      {{9,19},sys_core_fold,{nomatch,{bit_syntax_type,a,utf16}}},
+                      {{10,19},sys_core_fold,{nomatch,{bit_syntax_type,a,utf32}}},
+                      {{11,19},sys_core_fold,{nomatch,{bit_syntax_type,a,utf32}}},
+                      {{12,35},sys_core_fold,{nomatch,no_clause}},
+                      {{12,37},sys_core_fold,{nomatch,{bit_syntax_size,bad}}},
+                      {{15,21},sys_core_fold,{nomatch,{bit_syntax_unsigned,-42}}},
+                      {{17,21},sys_core_fold,{nomatch,{bit_syntax_type,42,binary}}},
+                      {{19,19},sys_core_fold,{nomatch,{bit_syntax_unicode,1114112}}}
+                     ]}
+          }],
     run(Config, Ts),
     ok.
 
@@ -974,12 +1045,166 @@ tuple_calls(Config) ->
     run(Config, Ts),
     ok.
 
+recv_opt_info(Config) when is_list(Config) ->
+    Code = <<"
+                simple_receive() ->
+                    receive
+                        Message -> handle:msg(Message)
+                    end.
+
+                selective_receive(Tag, Message) ->
+                    receive
+                        {Tag, Message} -> handle:msg(Message)
+                    end.
+
+                cross_function_receive() ->
+                    cross_function_receive_1(make_ref()).
+
+                cross_function_receive_1(Tag) ->
+                    receive
+                        {Tag, Message} -> handle:msg(Message)
+                    end.
+
+                optimized_receive(Process, Request) ->
+                    MRef = monitor(process, Process),
+                    Process ! {self(), MRef, Request},
+                    receive
+                        {MRef, Reply} ->
+                            erlang:demonitor(MRef, [flush]),
+                            handle:reply(Reply);
+                        {'DOWN', MRef, _, _, Reason} ->
+                            handle:error(Reason)
+                    end.
+           ">>,
+
+    Ws = (catch run_test(Config, Code, [recv_opt_info])),
+
+    %% This is an inexact match since the pass reports exact instructions as
+    %% part of the warnings, which may include annotations that vary from run
+    %% to run.
+    {warnings,
+        [%% simple_receive/0
+         {3,beam_ssa_recv,matches_any_message},
+         %% selective_receive/2
+         {8,beam_ssa_recv,unoptimized_selective_receive},
+         {13,beam_ssa_recv,reserved_receive_marker},
+         %% cross_function_receive/0
+         {13,beam_ssa_recv,{passed_marker,_}},
+         %% cross_function_receive_1/1
+         {16,beam_ssa_recv,{used_receive_marker,{parameter,1}}},
+         %% optimized_receive/2
+         {21,beam_ssa_recv,reserved_receive_marker},
+         {23,beam_ssa_recv,{used_receive_marker,_}}]} = Ws,
+
+    %% For coverage: don't give the recv_opt_info option.
+    [] = (catch run_test(Config, Code, [])),
+
+    ok.
+
+%% OTP-17260: Test that opportunistic warnings can be disabled.
+opportunistic_warnings(Config) ->
+    Source = <<"m(_) -> ok;
+                m(_) -> error.
+
+                a() -> <<0.5>>.
+                b() -> Bin = <<1,2,3,7:4>>, <<Bin/binary>>.
+                c() -> Size = bad_size, <<1:Size>>.
+
+                i() -> {a,b,c}, ok.
+           ">>,
+
+    %% Don't disable any warnings.
+    Ts1 = [{nothing_disabled,
+            Source,
+            [],
+            {warnings,[{{2,17},sys_core_fold,{nomatch,{shadow,1,{m,1}}}},
+                       {{4,24},v3_core,{failed,bad_binary}},
+                       {{5,45},sys_core_fold,{failed,{embedded_unit,8,28}}},
+                       {{6,43},v3_kernel,{failed,bad_segment_size}},
+                       {{8,24},sys_core_fold,{ignored,useless_building}}
+                      ]}}],
+    [] = run(Config, Ts1),
+
+    %% Disable all opportunistic warnings.
+    Ts2 = [{all_disabled,
+            Source,
+            [nowarn_opportunistic],
+            []}],
+    [] = run(Config, Ts2),
+
+    %% Disable warnings for patterns that don't match.
+    Ts3 = [{nomatch_disabled,
+            Source,
+            [nowarn_nomatch],
+            {warnings,[{{4,24},v3_core,{failed,bad_binary}},
+                       {{5,45},sys_core_fold,{failed,{embedded_unit,8,28}}},
+                       {{6,43},v3_kernel,{failed,bad_segment_size}},
+                       {{8,24},sys_core_fold,{ignored,useless_building}}
+                      ]}}],
+    [] = run(Config, Ts3),
+
+    %% Disable warnings for failures.
+    Ts4 = [{failures_disabled,
+            Source,
+            [nowarn_failed],
+            {warnings,[{{2,17},sys_core_fold,{nomatch,{shadow,1,{m,1}}}},
+                       {{8,24},sys_core_fold,{ignored,useless_building}}
+                      ]}}],
+    [] = run(Config, Ts4),
+
+    %% Disable warnings for useless building.
+    Ts5 = [{disabled_useless_building,
+            Source,
+            [nowarn_ignored],
+            {warnings,[{{2,17},sys_core_fold,{nomatch,{shadow,1,{m,1}}}},
+                       {{4,24},v3_core,{failed,bad_binary}},
+                       {{5,45},sys_core_fold,{failed,{embedded_unit,8,28}}},
+                       {{6,43},v3_kernel,{failed,bad_segment_size}}
+                      ]}}],
+    [] = run(Config, Ts5),
+
+    %% Disable warnings for useless building and failures.
+    Ts6 = [{disabled_combination,
+            Source,
+            [nowarn_ignored,nowarn_failed],
+            {warnings,[{{2,17},sys_core_fold,{nomatch,{shadow,1,{m,1}}}}
+                      ]}}],
+    [] = run(Config, Ts6),
+
+
+    ok.
+
 %%%
 %%% End of test cases.
 %%%
 
-run(Config, Tests) ->
+run(Config, Tests0) ->
+    do_run(Config, Tests0),
+
+    %% Now test without column numbers.
+    Tests = [lines_only(T) || T <- Tests0],
+    do_run(Config, Tests).
+
+lines_only({Name,Test,Opts,{warnings,Result0}}) ->
+    Result1 = lists:map(fun lines_only_1/1, Result0),
+    Result = {warnings,lists:usort(Result1)},
+    {Name,Test,[{error_location,line}|Opts],Result};
+lines_only(NoWarnings) -> NoWarnings.
+
+lines_only_1({File,Es0}) when is_list(Es0) ->
+    Es = [lines_only_1(E) || E <- Es0],
+    {File,Es};
+lines_only_1({Loc,Mod,Error}) ->
+    case Loc of
+        {Line,_Col} ->
+            {Line,Mod,Error};
+        Line when is_integer(Line) ->
+            {Line,Mod,Error}
+    end.
+
+do_run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
+                io:format("### ~s\n", [N]),
                 case catch run_test(Config, P, Ws) of
                     E -> 
                         BadL;
@@ -994,15 +1219,16 @@ run(Config, Tests) ->
 %% Compiles a test module and returns the list of errors and warnings.
 
 run_test(Conf, Test0, Warnings) ->
-    Module = "warnings_"++test_lib:uniq(),
+    Module = "warnings" ++ test_lib:uniq(),
     Filename = Module ++ ".erl",
     DataDir = ?privdir,
-    Test = ["-module(", Module, "). ", Test0],
+    Test1 = ["-module(", Module, "). -file( \"", Filename, "\", 1). ", Test0],
+    Test = iolist_to_binary(Test1),
     File = filename:join(DataDir, Filename),
     Opts = [binary,export_all,return|Warnings],
     ok = file:write_file(File, Test),
 
-    %% Compile once just to print all warnings.
+    %% Compile once just to print all warnings (and cover more code).
     compile:file(File, [binary,export_all,report|Warnings]),
 
     %% Test result of compilation.
@@ -1016,12 +1242,33 @@ run_test(Conf, Test0, Warnings) ->
 				  Mod =/= erl_lint]} ||
 			    {F,Ws} <- Ws0],
 		  case WsL of
-		      [{_File,Ws}] -> {warnings, Ws};
-		      _ -> list_to_tuple([warnings, WsL])
+		      [{_File,Ws}] ->
+                          print_warnings(Ws, Test),
+                          {warnings, Ws};
+		      _ ->
+                          list_to_tuple([warnings, WsL])
 		  end
 	  end,
     file:delete(File),
     Res.
+
+print_warnings(Warnings, Source) ->
+    Lines = binary:split(Source, <<"\n">>, [global]),
+    Cs = [print_warning(W, Lines) || W <- Warnings],
+    io:put_chars(Cs),
+    ok.
+
+print_warning({{LineNum,Column},Mod,Data}, Lines) ->
+    Line0 = lists:nth(LineNum, Lines),
+    <<Line1:(Column-1)/binary,_/binary>> = Line0,
+    Spaces = re:replace(Line1, <<"[^\t]">>, <<" ">>, [global]),
+    CaretLine = [Spaces,"^"],
+    [io_lib:format("~p:~p: ~ts\n",
+                   [LineNum,Column,Mod:format_error(Data)]),
+     Line0, "\n",
+     CaretLine, "\n\n"];
+print_warning(_, _) ->
+    [].
 
 fail() ->
     ct:fail(failed).

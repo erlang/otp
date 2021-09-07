@@ -84,7 +84,8 @@
 -define(MG,  megaco_test_mg).
 -define(MGC, megaco_test_mgc).
 
--define(MGC_START(Pid, Mid, ET, Verb), ?MGC:start(Pid, Mid, ET, Verb)).
+-define(MGC_START(Pid, Mid, ET, Verb),
+        mgc_start(Pid, Mid, ET, Verb)).
 -define(MGC_STOP(Pid),                 ?MGC:stop(Pid)).
 -define(MGC_GET_STATS(Pid, No),        ?MGC:get_stats(Pid, No)).
 -define(MGC_RESET_STATS(Pid),          ?MGC:reset_stats(Pid)).
@@ -99,8 +100,8 @@
 -define(MGC_ACK_INFO(Pid,To),          ?MGC:ack_info(Pid,To)).
 -define(MGC_REQ_INFO(Pid,To),          ?MGC:req_info(Pid,To)).
 
--define(MG_START(Pid, Mid, Enc, Transp, Conf, Verb), 
-	?MG:start(Pid, Mid, Enc, Transp, Conf, Verb)).
+-define(MG_START(Pid, Mid, Enc, Transp, Conf, Verb),
+        mg_start(Pid, Mid, Enc, Transp, Conf, Verb)).
 -define(MG_STOP(Pid),                ?MG:stop(Pid)).
 -define(MG_GET_STATS(Pid),           ?MG:get_stats(Pid)).
 -define(MG_RESET_STATS(Pid),         ?MG:reset_stats(Pid)).
@@ -330,14 +331,13 @@ do_single_ack([MgcNode, MgNode]) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
+    Mgc = ?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
 
     i("[MG] start"),    
     %% MgConf0 = [{MgNode, "mg", text, tcp, ?MG_VERBOSITY}],
     MgMid = {deviceName, "mg"},
     MgConfig = [{auto_ack, true}, {trans_timer, 5000}, {trans_ack, true}],
-    {ok, Mg} = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
+    Mg = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
 
@@ -412,8 +412,7 @@ do_multi_ack_timeout([MgcNode, MgNode]) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
+    Mgc = ?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
 
     i("[MG] start"),    
     %% MgConf0 = [{MgNode, "mg", text, tcp, ?MG_VERBOSITY}],
@@ -422,7 +421,7 @@ do_multi_ack_timeout([MgcNode, MgNode]) ->
 		{trans_ack,          true},
 		{trans_timer,        10000}, 
 		{trans_ack_maxcount, MaxCount + 10}],
-    {ok, Mg} = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
+    Mg = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
 
@@ -496,8 +495,7 @@ do_multi_ack_maxcount([MgcNode, MgNode]) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
+    Mgc = ?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
 
     i("[MG] start"),    
     %% MgConf0 = [{MgNode, "mg", text, tcp, ?MG_VERBOSITY}],
@@ -506,7 +504,7 @@ do_multi_ack_maxcount([MgcNode, MgNode]) ->
 		%% {trans_timer,    120000}, 
 		%% {trans_ack_maxcount, MaxCount}
 	       ],
-    {ok, Mg} = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
+    Mg = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
 
@@ -9528,15 +9526,20 @@ cre_serviceChangeProf(Name, Ver) when is_list(Name) andalso is_integer(Ver) ->
 await_ack(_User, 0, Timeout, _Expected) ->
     d("await_ack -> done when Timeout = ~p", [Timeout]),
     ok;
-await_ack(User, N, Timeout, Expected) when (N > 0) andalso is_integer(Timeout) ->
-    d("await_ack -> entry with N: ~p, Timeout: ~p", [N,Timeout]),
+await_ack(User, N, Timeout, Expected)
+  when (N > 0) andalso is_integer(Timeout) ->
+    d("await_ack -> entry with N: ~p, Timeout: ~p", [N, Timeout]),
     T = tim(),
     receive
 	{ack_received, User, Expected} ->
 	    d("await_ack -> received another expected ack"),
 	    await_ack(User, N-1, Timeout - (tim() - T), Expected);
 	{ack_received, User, UnExpected} ->
-	    e("await_ack -> received unexpected ack result: ~p", [UnExpected]),
+	    e("await_ack -> received unexpected ack result: ~p"
+              "~n   when"
+              "~n      N:         ~p"
+              "~n      Remaining: ~p",
+              [UnExpected, N, Timeout - (tim() - T)]),
 	    exit({unexpected_ack_result, UnExpected, Expected})
     after Timeout ->
 	    exit({await_ack_timeout, N})
@@ -9548,7 +9551,9 @@ await_ack(User, N, infinity, Expected) when N > 0 ->
 	    d("await_ack -> received another ack"),
 	    await_ack(User, N-1, infinity, Expected);
 	{ack_received, User, UnExpected} ->
-	    e("await_ack -> unexpected ack result: ~p", [UnExpected]),
+	    e("await_ack -> unexpected ack result: ~p"
+              "~n   when"
+              "~n      N: ~p", [UnExpected, N]),
 	    exit({unexpected_ack_result, UnExpected, Expected})
     end.
 
@@ -9595,6 +9600,46 @@ await_completion(Ids, Timeout) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+mgc_start(Pid, Mid, ET, Verb) ->
+    try ?MGC:start(Pid, Mid, ET, Verb) of
+        {ok, MGC} ->
+            MGC;
+        {error, StartReason} ->
+            e("failed starting mgc (error): "
+              "~n      ~p", [StartReason]),
+            ?SKIP({failed_starting, mgc, StartReason})
+    catch
+        exit:{error, timeout} ->
+            e("failed starting mgc (exit): timeout"),
+            ?SKIP({failed_starting, mgc, timeout});
+        exit:{failed_starting, _, StartExitReason} ->
+            e("failed starting mgc (exit): "
+              "~n      ~p", [StartExitReason]),
+            ?SKIP({failed_starting, mgc, StartExitReason})
+    end.
+    
+
+mg_start(Pid, Mid, Enc, Transp, Conf, Verb) ->
+    try ?MG:start(Pid, Mid, Enc, Transp, Conf, Verb) of
+        {ok, MG} ->
+            MG; 
+        {error, Reason} ->
+            e("failed starting mg (error): "
+              "~n      ~p", [Reason]),
+            ?SKIP({failed_starting, mgc, Reason})
+    catch
+        exit:{error, timeout} ->
+            e("failed starting mg (exit): timeout"),
+            ?SKIP({failed_starting, mg, timeout});
+        exit:{failed_starting, _, ExitReason} ->
+            e("failed starting mg (exit): "
+              "~n      ~p", [ExitReason]),
+            ?SKIP({failed_starting, mg, ExitReason})
+    end.
+
+    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 try_tc(TCName, Pre, Case, Post) ->
     try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
 
@@ -9617,8 +9662,8 @@ p(F, A) ->
 	      "~n   " ++ F ++ "~n", 
 	      [?FTS(), self() | A]).
 
-%% e(F) ->
-%%     e(F, []).
+e(F) ->
+    e(F, []).
 
 e(F, A) ->
     print(error, "ERROR", F, A).

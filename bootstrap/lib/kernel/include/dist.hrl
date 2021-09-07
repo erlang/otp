@@ -49,6 +49,8 @@
 -define(DFLAG_RESERVED,     16#fe000000).
 -define(DFLAG_SPAWN,       16#100000000).
 -define(DFLAG_NAME_ME,     16#200000000).
+-define(DFLAG_V4_NC,       16#400000000).
+-define(DFLAG_ALIAS,       16#800000000).
 
 %% Also update dflag2str() in ../src/dist_util.erl
 %% when adding flags...

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -243,7 +243,9 @@
       <tag><c><![CDATA[{cache_size, Size}.]]></c></tag>
       <item>
         <p><c><![CDATA[Size = integer()]]></c></p>
-        <p>Set the resolver cache size. Defaults to 100 DNS records.</p>
+	<p>Set the resolver cache size for <c>dns</c> lookups.
+	  <c>native</c> lookups are not cached. Defaults to 100 DNS records.
+	</p>
       </item>
       <tag><c><![CDATA[{cache_refresh, Time}.]]></c></tag>
         <item>
@@ -268,6 +270,17 @@
           <seeerl marker="kernel:inet_res"><c>inet_res(3)</c></seeerl>
           will try before giving up. Defaults to 3.</p>
       </item>
+
+      <tag><c><![CDATA[{servfail_retry_timeout, Time}.]]></c></tag>
+      <item>
+        <p><c><![CDATA[Time = non_neg_integer()]]></c></p>
+	<p>After all name servers have been tried, there is a timeout
+	before the name servers are tried again. This is to prevent
+	the server from answering the query with what's in the servfail cache,
+	<seeerl marker="kernel:inet_res#servfail_retry_timeout"><c>inet_res(3)</c></seeerl>.
+	Defaults to 1500 milli seconds .</p>
+      </item>
+
       <tag><c><![CDATA[{inet6, Bool}.]]></c></tag>
       <item>
         <p><c><![CDATA[Bool = true | false]]></c></p>

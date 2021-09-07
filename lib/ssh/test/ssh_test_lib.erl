@@ -30,6 +30,7 @@ daemon/2,
 daemon/3,
 daemon_port/1,
 daemon_port/2,
+gen_tcp_connect/2,
 gen_tcp_connect/3,
 open_sshc/3,
 open_sshc/4,
@@ -55,6 +56,7 @@ rcv_lingering/1,
 receive_exec_result/1,
 receive_exec_result_or_fail/1,
 receive_exec_end/2,
+receive_exec_end/3,
 receive_exec_result/3,
 failfun/2,
 hostname/0,
@@ -133,11 +135,42 @@ connect(Port, Options) when is_integer(Port) ->
 
 connect(any, Port, Options) ->
     connect(hostname(), Port, Options);
-connect(Host, Port, Options) ->
+
+connect(Host, ?SSH_DEFAULT_PORT, Options0) ->
+    Options =
+        set_opts_if_not_set([{silently_accept_hosts, true},
+                             {save_accepted_host, false},
+                             {user_interaction, false}
+                            ], Options0),
+    do_connect(Host, ?SSH_DEFAULT_PORT, Options);
+
+connect(Host, Port, Options0) ->
+    Options =
+        case proplists:get_value(user_dir,Options0) of
+            undefined ->
+                %% Avoid uppdating the known_hosts if it is the default one
+                set_opts_if_not_set([{save_accepted_host, false}], Options0);
+            _ ->
+                Options0
+        end,
+    do_connect(Host, Port, Options).
+
+
+do_connect(Host, Port, Options) ->
     R = ssh:connect(Host, Port, Options),
     ct:log("~p:~p ssh:connect(~p, ~p, ~p)~n -> ~p",[?MODULE,?LINE,Host, Port, Options, R]),
     {ok, ConnectionRef} = R,
     ConnectionRef.
+
+set_opts_if_not_set(OptsToSet, Options0) ->
+    lists:foldl(fun({K,V}, Opts) ->
+                        case proplists:get_value(K, Opts) of
+                            undefined ->
+                                [{K,V} | Opts];
+                            _ ->
+                                Opts
+                        end
+                end, Options0, OptsToSet).
 
 %%%----------------------------------------------------------------
 daemon(Options) ->
@@ -173,6 +206,9 @@ daemon_port(0, Pid) -> {ok,Dinf} = ssh:daemon_info(Pid),
 daemon_port(Port, _) -> Port.
 
 %%%----------------------------------------------------------------
+gen_tcp_connect(Port, Options) ->
+    gen_tcp_connect("localhost", Port, Options).
+
 gen_tcp_connect(Host0, Port, Options) ->
     Host = ssh_test_lib:ntoa(ssh_test_lib:mangle_connect_address(Host0)),
     ct:log("~p:~p gen_tcp:connect(~p, ~p, ~p)~nHost0 = ~p",
@@ -243,8 +279,7 @@ std_simple_sftp(Host, Port, Config, Opts) ->
     Data = crypto:strong_rand_bytes(proplists:get_value(std_simple_sftp_size,Config,10)),
     ok = ssh_sftp:write_file(ChannelRef, DataFile, Data),
     {ok,ReadData} = file:read_file(DataFile),
-    ok = ssh:close(ConnectionRef),
-    Data == ReadData.
+    {Data == ReadData, ConnectionRef}.
 
 %%%----------------------------------------------------------------
 std_simple_exec(Host, Port, Config) ->
@@ -283,7 +318,9 @@ start_shell(Port, IOServer, ExtraOptions) ->
               ct:log("~p:~p:~p ssh_test_lib:start_shell(~p, ~p, ~p)",
                      [?MODULE,?LINE,self(), Port, IOServer, ExtraOptions]),
 	      Options = [{user_interaction, false},
-			 {silently_accept_hosts,true} | ExtraOptions],
+			 {silently_accept_hosts,true},
+                         {save_accepted_host,false}
+                         | ExtraOptions],
               try
                   group_leader(IOServer, self()),
                   case Port of
@@ -297,17 +334,17 @@ start_shell(Port, IOServer, ExtraOptions) ->
                           ct:log("is_integer(Port) Call ssh:shell(~p, ~p, ~p)",
                                  [Host, Port, Options]),
                           ssh:shell(Host, Port, Options);
-                      Socket when is_port(Socket) ->
-                          receive
-                              start -> ok
-                          end,
-                          ct:log("is_port(Socket) Call ssh:shell(~p, ~p)",
-                                 [Socket, Options]),
-                          ssh:shell(Socket, Options);
                       ConnRef when is_pid(ConnRef) ->
                           ct:log("is_pid(ConnRef) Call ssh:shell(~p)",
                                  [ConnRef]),
-                          ssh:shell(ConnRef) % Options were given in ssh:connect
+                          ssh:shell(ConnRef); % Options were given in ssh:connect
+                      Socket ->
+                          receive
+                              start -> ok
+                          end,
+                          ct:log("Socket Call ssh:shell(~p, ~p)",
+                                 [Socket, Options]),
+                          ssh:shell(Socket, Options)
                   end
               of
                   R ->
@@ -443,10 +480,10 @@ receive_exec_result(Msgs) when is_list(Msgs) ->
                 false ->
                     case Msg of
                         {ssh_cm,_,{data,_,1, Data}} ->
-                            ct:log("~p:~p StdErr: ~p~n", [?MODULE,?FUNCTION_NAME,Data]),
+                            ct:log("~p:~p unexpected StdErr: ~p~n~p~n", [?MODULE,?FUNCTION_NAME,Data,Msg]),
                             receive_exec_result(Msgs);
                         Other ->
-                            ct:log("~p:~p Other ~p", [?MODULE,?FUNCTION_NAME,Other]),
+                            ct:log("~p:~p unexpected Other ~p", [?MODULE,?FUNCTION_NAME,Other]),
                             {unexpected_msg, Other}
                     end
             end
@@ -474,9 +511,12 @@ receive_exec_result_or_fail(Msg) ->
     end.
 
 receive_exec_end(ConnectionRef, ChannelId) ->
+    receive_exec_end(ConnectionRef, ChannelId, 0).
+
+receive_exec_end(ConnectionRef, ChannelId, ExitStatus) ->
     receive_exec_result(
       [{ssh_cm, ConnectionRef, {eof, ChannelId}},
-       {optional, {ssh_cm, ConnectionRef, {exit_status, ChannelId, 0}}},
+       {optional, {ssh_cm, ConnectionRef, {exit_status, ChannelId, ExitStatus}}},
        {ssh_cm, ConnectionRef, {closed, ChannelId}}
       ]).
 
@@ -525,10 +565,12 @@ do_del_files(Dir, Files) ->
 
 openssh_sanity_check(Config) ->
     ssh:start(),
-    case ssh:connect("localhost", 22, [{password,""},
-                                       {silently_accept_hosts, true},
-                                       {user_interaction, false}
-                                      ]) of
+    case ssh:connect("localhost", ?SSH_DEFAULT_PORT,
+                     [{password,""},
+                      {silently_accept_hosts, true},
+                      {save_accepted_host, false},
+                      {user_interaction, false}
+                     ]) of
 	{ok, Pid} ->
 	    ssh:close(Pid),
 	    ssh:stop(),
@@ -552,6 +594,7 @@ default_algorithms(sshd, Host, Port) ->
     try run_fake_ssh(
 	  ssh_trpt_test_lib:exec(
 	    [{connect,Host,Port, [{silently_accept_hosts, true},
+                                  {save_accepted_host, false},
 				  {user_interaction, false}]}]))
     catch
 	_C:_E ->

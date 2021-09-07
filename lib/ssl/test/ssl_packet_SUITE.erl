@@ -21,6 +21,8 @@
 %%
 -module(ssl_packet_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 %% Callback functions
@@ -216,7 +218,7 @@
 -define(UINT24(X),   X:24/unsigned-big-integer).
 -define(UINT32(X),   X:32/unsigned-big-integer).
 -define(UINT64(X),   X:64/unsigned-big-integer).
--define(STRING(X),   ?UINT32((size(X))), (X)/binary).
+-define(STRING(X),   ?UINT32((byte_size(X))), (X)/binary).
 
 -define(byte(X),   << ?BYTE(X) >> ).
 -define(uint16(X), << ?UINT16(X) >> ).
@@ -2244,7 +2246,7 @@ send_incomplete(Socket, _Data, 0, Prev) ->
     ssl:send(Socket, [?uint32(0)]),
     no_result_msg;
 send_incomplete(Socket, Data, N, Prev) ->
-    Length = size(Data),
+    Length = byte_size(Data),
     <<Part1:42/binary, Rest/binary>> = Data,
     ssl:send(Socket, [Prev, ?uint32(Length), Part1]),
     send_incomplete(Socket, Data, N-1, Rest).
@@ -2434,11 +2436,11 @@ client_line_packet_decode(Socket, P1, P2, L1, L2) ->
     end.
 
 add_tpkt_header(Data) when is_binary(Data) ->
-    L = size(Data) + 4,
+    L = byte_size(Data) + 4,
     [3, 0, ((L) bsr 8) band 16#ff, (L) band 16#ff ,Data];
 add_tpkt_header(IOList) when is_list(IOList) ->
     Binary = list_to_binary(IOList),
-    L = size(Binary) + 4,
+    L = byte_size(Binary) + 4,
     [3, 0, ((L) bsr 8) band 16#ff, (L) band 16#ff , Binary].
 
 

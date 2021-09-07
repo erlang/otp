@@ -195,17 +195,30 @@ append_index(RealName, [Index | Rest]) ->
 
 %% path
 
-path(Data, ConfigDB, RequestURI) ->
+path(Data, ConfigDB, RequestURI0) ->
     case proplists:get_value(real_name, Data) of
 	undefined ->
-            {Prefix, DocumentRoot} = which_document_root(ConfigDB), 
-            {Path, _AfterPath} = 
+            {Prefix, DocumentRoot} = which_document_root(ConfigDB),
+            RequestURI = percent_decode_path(RequestURI0),
+            {Path, _AfterPath} =    
                 httpd_util:split_path(DocumentRoot ++ RequestURI),
             Prefix ++ Path;
 	{Path, _AfterPath} ->
 	    Path
     end.
 
+percent_decode_path(InitPath) ->
+    case uri_string:percent_decode(InitPath) of
+        {error, _} ->
+            InitPath;
+        Path0 -> %% Protect against vulnerabilities
+            case uri_string:normalize(Path0) of
+                {error, _, _} ->
+                    InitPath;
+                Path ->
+                    Path
+            end
+    end.
 %%
 %% Configuration
 %%

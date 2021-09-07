@@ -454,10 +454,6 @@ Header
 
 Erlang code.
 
-%% The following directive is needed for (significantly) faster compilation
-%% of the generated .erl file by the HiPE compiler.  Please do not remove.
--compile([{hipe,[{regalloc,linear_scan}]}]).
-
 -include("core_parse.hrl").
 
 -import(cerl, [ann_c_map/3,ann_c_map_pattern/2,c_cons/2,c_map/1,

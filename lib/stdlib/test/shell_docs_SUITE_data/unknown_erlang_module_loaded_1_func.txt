@@ -1,0 +1,9 @@
+
+  [;1m-spec module_loaded(Module) -> boolean() when Module :: module().[0m
+
+  Returns [;;4mtrue[0m if the module [;;4mModule[0m is loaded, otherwise [;;4mfalse[0m.
+  It does not attempt to load the module.
+
+  Warning:
+    This BIF is intended for the code server (see [;;4mcode(3)[0m) and
+    is not to be used elsewhere.

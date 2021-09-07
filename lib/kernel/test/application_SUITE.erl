@@ -31,7 +31,7 @@
 	 otp_3002/1, otp_3184/1, otp_4066/1, otp_4227/1, otp_5363/1,
 	 otp_5606/1,
 	 start_phases/1, get_key/1, get_env/1,
-	 set_env/1, set_env_persistent/1, set_env_errors/1,
+	 set_env/1, set_env_persistent/1, set_env_errors/1, optional_applications/1,
 	 permit_false_start_local/1, permit_false_start_dist/1, script_start/1, 
 	 nodedown_start/1, init2973/0, loop2973/0, loop5606/1, otp_16504/1]).
 
@@ -40,7 +40,8 @@
 	 ensure_started/1, ensure_all_started/1,
 	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1, shutdown_deadlock/1,
          config_relative_paths/1, handle_many_config_files/1,
-         format_log_1/1, format_log_2/1]).
+         format_log_1/1, format_log_2/1,
+         configfd_bash/1, configfd_port_program/1]).
 
 -define(TESTCASE, testcase_name).
 -define(testcase, proplists:get_value(?TESTCASE, Config)).
@@ -59,8 +60,9 @@ all() ->
      permit_false_start_dist, get_key, get_env, ensure_all_started,
      set_env, set_env_persistent, set_env_errors,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
-     shutdown_deadlock, config_relative_paths,
-     persistent_env, handle_many_config_files, format_log_1, format_log_2].
+     shutdown_deadlock, config_relative_paths, optional_applications,
+     persistent_env, handle_many_config_files, format_log_1, format_log_2,
+     configfd_bash, configfd_port_program].
 
 groups() -> 
     [{reported_bugs, [],
@@ -968,7 +970,7 @@ ensure_all_started(_Conf) ->
     w_app9(Fd9),
     file:close(Fd9),
     {ok, Fd10} = file:open("app10.app", [write]),
-    w_app10_dep9(Fd10),
+    w_app10(Fd10, [app9], []),
     file:close(Fd10),
     {ok, FdErr} = file:open("app_chain_error.app", [write]),
     w_app(FdErr, app_chain_error()),
@@ -1035,6 +1037,60 @@ ensure_all_started(_Conf) ->
     ok = application:unload(app10),
     ok = application:unload(app_chain_error2),
     ok = application:unload(app_chain_error),
+    ok.
+
+optional_applications(_Conf) ->
+    {ok, Fd10} = file:open("app10.app", [write]),
+    w_app10(Fd10, [app9], []),
+    file:close(Fd10),
+
+    {error,{not_started,app9}} = application:start(app10),
+    {ok, []} = application:get_key(app10, optional_applications),
+    ok = application:unload(app10),
+
+    %% List app9 as an optional application and app10 starts
+    {ok, Fd10Opt} = file:open("app10.app", [write]),
+    w_app10(Fd10Opt, [app9], [app9]),
+    file:close(Fd10Opt),
+
+    ok = application:start(app10),
+    {ok, [app9]} = application:get_key(app10, optional_applications),
+    false = lists:keymember(app9,1,application:which_applications()),
+
+    ok = application:stop(app10),
+    ok = application:unload(app10),
+
+    %% If app9 is defined, we can still start app10 without app9
+    {ok, Fd9} = file:open("app9.app", [write]),
+    w_app9(Fd9),
+    file:close(Fd9),
+
+    ok = application:start(app10),
+    false = lists:keymember(app9,1,application:which_applications()),
+
+    ok = application:stop(app10),
+    ok = application:unload(app10),
+
+    %% But if we use ensure all started, then app9 is started too
+    {ok, [app9, app10]} = application:ensure_all_started(app10, temporary),
+    true = lists:keymember(app9,1,application:which_applications()),
+
+    ok = application:stop(app9),
+    ok = application:unload(app9),
+    ok = application:stop(app10),
+    ok = application:unload(app10),
+
+    %% Finally, let's have an optional dependency with a start error
+    {ok, Fd10Error} = file:open("app10.app", [write]),
+    w_app10(Fd10Error, [app_start_error], [app_start_error]),
+    file:close(Fd10Error),
+
+    {ok, FdAppError} = file:open("app_start_error.app", [write]),
+    w_app_start_error(FdAppError),
+    file:close(FdAppError),
+
+    {error,{app_start_error,_}} = application:ensure_all_started(app10, temporary),
+    ok = application:unload(app10),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -1428,7 +1484,7 @@ otp_4227(Conf) when is_list(Conf) ->
         rpc:multicall(Cps, application, load, [app9()]),
     ?UNTIL(is_loaded(app9, Cps)),
     {[ok,ok],[]} = 
-        rpc:multicall(Cps, application, load, [app10_dep9()]),
+        rpc:multicall(Cps, application, load, [app10([app9], [])]),
     {error, {not_started, app9}} = 
 	rpc:call(Cp1, application, start, [app10]),
 
@@ -1640,6 +1696,7 @@ get_key(Conf) when is_list(Conf) ->
 		{maxT, infinity}, 
 		{registered, []}, 
 		{included_applications, [appinc1, appinc2]}, 
+		{optional_applications, []},
 		{applications, [kernel]}, 
 		{env, Env}, 
 		{mod, {application_starter, [ch_sup, {appinc, 41, 43}] }}, 
@@ -1684,6 +1741,7 @@ get_key(Conf) when is_list(Conf) ->
 		{maxT, infinity}, 
 		{registered, []}, 
 		{included_applications, [appinc1, appinc2]}, 
+		{optional_applications, []},
 		{applications, [kernel]}, 
 		{env, Env}, 
 		{mod, {application_starter, [ch_sup, {appinc, 41, 43}] }}, 
@@ -1892,6 +1950,293 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
     ok = file:delete("dc.script"),
 
     ok.
+
+get_relative_path(AbsolutePath, RelativeTo) ->
+    AbsolutePathList = filename:split(AbsolutePath),
+    RelativeToList = filename:split(RelativeTo),
+    CommonPath =
+        (fun GetCommonPath([], _, Acc) ->
+                 lists:reverse(Acc);
+             GetCommonPath(_, [], Acc) ->
+                 lists:reverse(Acc);
+             GetCommonPath([A | _], [B | _], Acc)
+               when A =/= B ->
+                 lists:reverse(Acc);
+             GetCommonPath([N | Rest1], [N | Rest2], Acc) ->
+                 GetCommonPath(Rest1, Rest2, [N | Acc])
+         end)(AbsolutePathList, RelativeToList, []),
+    CommonPathLength = length(CommonPath),
+    RelPathEnd = lists:nthtail(CommonPathLength, AbsolutePathList),
+    NrOfDowns = length(RelativeToList) - CommonPathLength,
+    filename:join(lists:duplicate(NrOfDowns, "..") ++ RelPathEnd).
+
+do_configfd_test_port_program(ErlProgram) ->
+    PrintLogLevelString =
+        "io_lib:format(\"~p\",[element(2, application:get_env(kernel, logger_level))])",
+    DataDir = filename:join(filename:dirname(code:which(?MODULE)), "application_SUITE_data"),
+    OutFilePath = filename:join(DataDir, "do_configfd_test_port.out"),
+    ToEval =
+        lists:flatten(
+          io_lib:format("file:write_file(\"~s\", ~s),erlang:halt()",
+                        [OutFilePath,
+                         PrintLogLevelString])),
+    Port = erlang:open_port(
+             {spawn_executable, ErlProgram},
+             [{args, ["-configfd",
+                      "0",
+                      "-eval",
+                      ToEval]},
+              use_stdio,
+              stderr_to_stdout]),
+    Port ! {self(),{command,"[{kernel, [{logger_level, warning}]}]."}},
+    Port ! {self(),close},
+    (fun Read() ->
+             receive
+                 {Port,closed} -> ok;
+                 {Port, Message} ->
+                     io:format("Got unexpected message: ~p", Message),
+                     Read()
+             end
+     end)(),
+    %% Check that the config file was read correctly in the port
+    %% program
+    ok =
+        (fun TryRead(0) ->
+                 cannot_find_file;
+             TryRead(TriesLeft) ->
+                 case file:read_file(OutFilePath) of
+                     {ok, <<"warning">>} -> ok;
+                     Error ->
+                         %% It might take some time for the file to be
+                         %% written to disk after we have closed the
+                         %% config file descriptor
+                         io:format("INFO: File not written yet, trying again (~p)", [Error]),
+                         timer:sleep(250),
+                         TryRead(TriesLeft -1)
+                 end
+         end)(40),
+    ok = file:delete(OutFilePath).
+
+quote_sub_strings(String) ->
+    lists:flatmap(
+      fun($") ->
+              "\\\"";
+         (C) -> [C]
+      end,
+      lists:flatten(String)).
+
+do_configfd_test_bash() ->
+    DataDir = filename:join(filename:dirname(code:which(?MODULE)), "application_SUITE_data"),
+    TestConfigPath1 = filename:join(DataDir, "testconfigfd1.config"),
+    TestConfigPath2 = filename:join(DataDir, "testconfigfd2.config"),
+    RunInBash =
+        fun(String) ->
+                Command =
+                    lists:flatten(io_lib:format("bash -c \"~s\"",
+                                                [quote_sub_strings(String)])),
+                Res = os:cmd(Command),
+                io:format("Command:~n"),
+                io:format("~s~n", [Command]),
+                io:format("Result:~n"),
+                io:format("~s~n", [Res]),
+                Res
+        end,
+    PrintLogLevelString =
+        "io:format(\"~p\",[element(2, application:get_env(kernel, logger_level))])",
+    %% Single config from file descriptor
+    "warning" =
+        RunInBash(
+          io_lib:format(
+            "erl "
+            "-noshell "
+            "-configfd 3 "
+            "-eval "
+            "'~s,erlang:halt()' "
+            "3< \"~s\"",
+            [PrintLogLevelString,
+             TestConfigPath1])),
+    %% Single config with .config sufix
+    "warning" =
+        RunInBash(
+          io_lib:format(
+            "erl "
+            "-noshell "
+            "-configfd 3.config "
+            "-eval "
+            "'~s,erlang:halt()' "
+            "3< \"~s\"",
+            [PrintLogLevelString,
+             TestConfigPath1])),
+    %% Single config from file descriptor (stdin)
+    %% This should automatically turn on -noinput
+    "warning" =
+        RunInBash(
+          io_lib:format(
+            "erl "
+            "-configfd 0 "
+            "-eval "
+            "'~s,erlang:halt()' "
+            "0< \"~s\"",
+            [PrintLogLevelString,
+             TestConfigPath1])),
+    %% Configs from two different file descriptors
+    "error" =
+        RunInBash(
+          io_lib:format(
+            "erl "
+            "-noshell "
+            "-configfd 4 "
+            "-configfd 5 "
+            "-eval "
+            "'~s,erlang:halt()' "
+            "4< \"~s\" "
+            "5< \"~s\" ",
+            [PrintLogLevelString,
+             TestConfigPath1,
+             TestConfigPath2])),
+    %% Configs from two different file descriptors single parameter
+    "error" =
+        RunInBash(
+          io_lib:format(
+            "erl "
+            "-noshell "
+            "-configfd 4 5 "
+            "-eval "
+            "'~s,erlang:halt()' "
+            "4< \"~s\" "
+            "5< \"~s\" ",
+            [PrintLogLevelString,
+             TestConfigPath1,
+             TestConfigPath2])),
+    lists:foreach(
+      fun(Path) ->
+              "warning" =
+                  RunInBash(
+                    io_lib:format(
+                      "erl "
+                      "-noshell "
+                      "-configfd 3 "
+                      "-eval "
+                      "'~s,erlang:halt()' "
+                      "3< <(echo '[\"~s\"].') ",
+                      [PrintLogLevelString,
+                       Path]))
+      end,
+      [%% Absolute paths
+       TestConfigPath1,
+       %% Without suffix
+       filename:join(filename:dirname(TestConfigPath1),
+                     filename:basename(TestConfigPath1, ".config")),
+       %% Relative To CWD
+       get_relative_path(TestConfigPath1, erlang:element(2, file:get_cwd()))
+      ] ++
+          case filename:pathtype(init:script_name()) of
+              absolute ->
+                  %% Relative to the boot script directory
+                  [get_relative_path(TestConfigPath1,
+                                     filename:dirname(init:script_name()))];
+              _ ->
+                  io:format("Skip include relative to boot script dir test. "
+                            "init:script_name() returned a relative path."
+                            "init:script_name() can return a relative path if"
+                            "prim_file:get_pwd() fails during boot."),
+                  []
+          end
+     ),
+    %% init:restart() should work
+    "errorerror" =
+        RunInBash(
+          io_lib:format(
+            "erl "
+            "-noshell "
+            "-configfd 3 "
+            "-eval "
+            "'~s,init:restart(),~s,erlang:halt()' "
+            "3< \"~s\" ",
+            [PrintLogLevelString,
+             PrintLogLevelString,
+             TestConfigPath2])),
+    %% Check that invalid file descriptor gives error
+    true =
+        ("magic42" =/=
+             RunInBash(
+               "erl "
+               "-noshell "
+               "-configfd invalid "
+               "-eval "
+               "'io:format(\"magic42\"),erlang:halt()' ")),
+    %% Check that an incorrect suffix gives error
+    true =
+        ("magic42" =/=
+             RunInBash(
+               io_lib:format(
+                 "erl "
+                 "-noshell "
+                 "-configfd 3.badsuffix "
+                 "-eval "
+                 "'io:format(\"magic42\"),erlang:halt()' "
+                 "3< \"~s\"",
+                 [TestConfigPath1]))),
+    %% Check that an output only file descriptor gives error
+    true =
+        ("magic42" =/=
+             RunInBash("erl "
+                       "-noshell "
+                       "-configfd 3 "
+                       "-eval "
+                       "'io:format(\"magic42\"),erlang:halt()' "
+                       "3> /dev/null ")),
+    %% Check that file descriptor with a huge amount of data fails
+    case application:start(os_mon) of
+        ok -> case proplists:get_value(system_total_memory,
+                                       memsup:get_system_memory_data()) of
+                  Memory when is_integer(Memory),
+                              Memory > 16*1024*1024*1024 ->
+                      application:stop(os_mon),
+                      true =
+                          ("magic42" =/=
+                               RunInBash(
+                                 "erl "
+                                 "-noshell "
+                                 "-configfd 3 "
+                                 "-eval "
+                                 "'io:format(\"magic42\"),erlang:halt()' "
+                                 "3< <(erl -noshell -eval '(fun W(D) -> io:put_chars(D), W([D,D]) end)(<<\"00000000000000000\">>)') "));
+                  _ ->
+                      io:format("Skipped huge file check to avoid flaky test on machine with less than 8GB of memory")
+              end;
+        _ ->
+            io:format("Skipped because we could not start os_mon")
+    end,
+    ok.
+
+%% Test that one can get configuration from file descriptor with the
+%% -configfd option
+configfd_bash(Conf) when is_list(Conf) ->
+    case os:type() of
+    	{unix,_} ->
+            case os:cmd("bash -c \"echo -n yes_bash_shell_exists\"") of
+                "yes_bash_shell_exists" ->
+                    do_configfd_test_bash();
+                _ ->
+                    {skip,"Runs only when there is a bash shell"}
+            end;
+        _ -> {skip,"Runs only on UNIX systems"}
+    end.
+
+%% This test should work on all platforms
+configfd_port_program(Conf) when is_list(Conf) ->
+    ErlProgram =
+        case os:find_executable("erl") of
+            false -> os:find_executable("erl.exe");
+            Path -> Path
+        end,
+    case ErlProgram of
+        false ->
+            {skip,"Cannot find erl program"};
+        ErlProgramPath ->
+            do_configfd_test_port_program(ErlProgramPath)
+    end.
 
 
 
@@ -2334,13 +2679,14 @@ app9() ->
       {applications, [kernel]},
       {mod, {ch_sup, {app9, 19, 19}}}]}.
 
-app10_dep9() ->
+app10(Apps, OptionalApps) ->
     {application, app10,
      [{description, "ERTS  CXC 138 10"},
       {vsn, "2.0"},
       {modules, []},
       {registered, []},
-      {applications, [kernel, app9]},
+      {applications, [kernel] ++ Apps},
+      {optional_applications, OptionalApps},
       {mod, {ch_sup, {app10, 20, 20}}}]}.
 
 appinc() ->
@@ -2664,8 +3010,8 @@ w_app8(Fd) ->
 w_app9(Fd) ->
     io:format(Fd, "~p.\n", [app9()]).
 
-w_app10_dep9(Fd) ->
-    io:format(Fd, "~p.\n", [app10_dep9()]).
+w_app10(Fd, Deps, Optional) ->
+    io:format(Fd, "~p.\n", [app10(Deps, Optional)]).
 
 w_app_start_error(Fd) ->
     io:format(Fd, "~p.\n", [app_start_error()]).

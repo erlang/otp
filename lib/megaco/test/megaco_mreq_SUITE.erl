@@ -36,6 +36,7 @@
 
         ]).
 
+-include_lib("common_test/include/ct.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
 -include("megaco_test_lib.hrl").
@@ -50,8 +51,8 @@
 -define(A5555, ["11111111", "11111111", "00000000"]).
 -define(A5556, ["11111111", "11111111", "11111111"]).
 
--define(MGC_START(Pid, Mid, ET, Verb), 
-	megaco_test_mgc:start(Pid, Mid, ET, Verb)).
+-define(MGC_START(Pid, Mid, ET, Conf, Verb), 
+	megaco_test_mgc:start(Pid, Mid, ET, Conf, Verb)).
 -define(MGC_STOP(Pid), megaco_test_mgc:stop(Pid)).
 -define(MGC_GET_STATS(Pid, No), megaco_test_mgc:get_stats(Pid, No)).
 -define(MGC_RESET_STATS(Pid), megaco_test_mgc:reset_stats(Pid)).
@@ -59,8 +60,8 @@
 -define(MGC_REQ_PEND(Pid,To), megaco_test_mgc:request_pending(Pid,To)).
 -define(MGC_REQ_HAND(Pid), megaco_test_mgc:request_handle(Pid)).
 
--define(MG_START(Pid, Mid, Enc, Transp, Verb), 
-	megaco_test_mg:start(Pid, Mid, Enc, Transp, Verb)).
+-define(MG_START(Pid, Mid, Enc, Transp, Conf, Verb), 
+	megaco_test_mg:start(Pid, Mid, Enc, Transp, Conf, Verb)).
 -define(MG_STOP(Pid),                megaco_test_mg:stop(Pid)).
 -define(MG_GET_STATS(Pid),           megaco_test_mg:get_stats(Pid)).
 -define(MG_RESET_STATS(Pid),         megaco_test_mg:reset_stats(Pid)).
@@ -80,14 +81,47 @@ suite() ->
     [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
+    %% This is a temporary messure to ensure that we can 
+    %% test the socket backend without effecting *all*
+    %% applications on *all* machines.
+    %% This flag is set only for *one* host.
+    case ?TEST_INET_BACKENDS() of
+        true ->
+            [
+             {group, inet_backend_default},
+             {group, inet_backend_inet},
+             {group, inet_backend_socket}
+            ];
+        _ ->
+            [
+             {group, inet_backend_default}
+            ]
+    end.
+
+groups() -> 
+    [
+     {inet_backend_default, [], inet_backend_default_cases()},
+     {inet_backend_inet,    [], inet_backend_inet_cases()},
+     {inet_backend_socket,  [], inet_backend_socket_cases()},
+
+     {all,                  [], all_cases()}
+    ].
+
+inet_backend_default_cases() ->
+    [{all, [], all_cases()}].
+
+inet_backend_inet_cases() ->
+    [{all, [], all_cases()}].
+
+inet_backend_socket_cases() ->
+    [{all, [], all_cases()}].
+
+all_cases() -> 
     [
      req_and_rep,
      req_and_pending,
      req_and_cancel
     ].
-
-groups() -> 
-    [].
 
 
 
@@ -144,10 +178,34 @@ end_per_suite(Config0) when is_list(Config0) ->
 %% -----
 %%
 
-init_per_group(_GroupName, Config) ->
+init_per_group(inet_backend_default = Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    [{socket_create_opts, []} | Config];
+init_per_group(inet_backend_inet = Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            [{socket_create_opts, [{inet_backend, inet}]} | Config]
+    end;
+init_per_group(inet_backend_socket = Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            [{socket_create_opts, [{inet_backend, socket}]} | Config]
+    end;
+init_per_group(Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
     Config.
 
-end_per_group(_GroupName, Config) ->
+end_per_group(_Group, Config) ->
     Config.
 
 
@@ -200,7 +258,10 @@ req_and_rep(Config) when is_list(Config) ->
                   ok    = ?START_NODES(Nodes),
                   Nodes
           end,
-    Case = fun do_req_and_rep/1,
+    Case = fun(X) ->
+                   SCO = ?config(socket_create_opts, Config),
+                   do_req_and_rep(SCO, X)
+           end,
     Post = fun(Nodes) ->
                    d("stop nodes (in the reverse order):"
                      "~n       ~p", [Nodes]),
@@ -208,19 +269,19 @@ req_and_rep(Config) when is_list(Config) ->
            end,
     try_tc(req_and_rep, Pre, Case, Post).
 
-do_req_and_rep([MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]) ->
+do_req_and_rep(SCO, [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]) ->
     %% Start the MGC and MGs
     i("start the MGC"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
     {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
+	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, SCO, ?MGC_VERBOSITY),
 
     i("start and connect the MGs"),    
     MgConf0 = [{Mg1Node, "mg1", text,   tcp, ?MG_VERBOSITY},
 	       {Mg2Node, "mg2", text,   udp, ?MG_VERBOSITY},
 	       {Mg3Node, "mg3", binary, tcp, ?MG_VERBOSITY},
 	       {Mg4Node, "mg4", binary, udp, ?MG_VERBOSITY}],
-    MgConf = rar_connect_mg(MgConf0, []),
+    MgConf = rar_connect_mg(SCO, MgConf0, []),
 
     %% Collect the (initial) MGs statistics
     Stats1 = rar_get_mg_stats(MgConf, []),
@@ -309,19 +370,19 @@ do_req_and_rep([MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]) ->
     ok.
 
 
-rar_connect_mg([], Acc) ->
+rar_connect_mg(_, [], Acc) ->
     lists:reverse(Acc);
-rar_connect_mg([{Node, Name, Coding, Trans, Verb}|Mg], Acc) ->
-    Pid = rar_connect_mg(Node, Name, Coding, Trans, Verb),
-    rar_connect_mg(Mg, [{Name, Pid}|Acc]).
+rar_connect_mg(SCO, [{Node, Name, Coding, Trans, Verb}|Mg], Acc) ->
+    Pid = rar_connect_mg(SCO, Node, Name, Coding, Trans, Verb),
+    rar_connect_mg(SCO, Mg, [{Name, Pid}|Acc]).
 
-rar_connect_mg(Node, Name, Coding, Trans, Verb) ->
+rar_connect_mg(SCO, Node, Name, Coding, Trans, Verb) ->
     Mid = {deviceName, Name}, 
-    {ok, Pid} = ?MG_START(Node, Mid, Coding, Trans, Verb),
+    {ok, Pid} = ?MG_START(Node, Mid, Coding, Trans, SCO, Verb),
 
     %% Ask the MGs to do a service change
     Res = ?MG_SERV_CHANGE(Pid),
-    d("rar_connect_mg -> (~s) service change result: ~p", [Name,Res]),
+    d("rar_connect_mg -> (~s) service change result: ~p", [Name, Res]),
 
     Pid.
 
@@ -396,7 +457,10 @@ req_and_pending(Config) when is_list(Config) ->
                   ok    = ?START_NODES(Nodes),
                   Nodes
           end,
-    Case = fun do_req_and_pending/1,
+    Case = fun(X) ->
+                   SCO = ?config(socket_create_opts, Config),
+                   do_req_and_pending(SCO, X)
+           end,
     Post = fun(Nodes) ->
                    d("stop nodes (in the reverse order):"
                      "~n       ~p", [Nodes]),
@@ -404,17 +468,17 @@ req_and_pending(Config) when is_list(Config) ->
            end,
     try_tc(req_and_pending, Pre, Case, Post).
 
-do_req_and_pending([MgcNode, MgNode]) ->
+do_req_and_pending(SCO, [MgcNode, MgNode]) ->
 
     %% Start the MGC and MGs
     i("try start the MGC"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
     {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
+	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, SCO, ?MGC_VERBOSITY),
 
     i("try start the MG"),
     {ok, Mg} = 
-	?MG_START(MgNode, {deviceName, "mg"}, text, tcp, ?MG_VERBOSITY),
+	?MG_START(MgNode, {deviceName, "mg"}, text, tcp, SCO, ?MG_VERBOSITY),
 
     i("connect MG (to MFC)"),
     Res1 = ?MG_SERV_CHANGE(Mg),
@@ -462,7 +526,10 @@ req_and_cancel(Config) when is_list(Config) ->
                   ok    = ?START_NODES(Nodes),
                   Nodes
           end,
-    Case = fun do_req_and_cancel/1,
+    Case = fun(X) ->
+                   SCO = ?config(socket_create_opts, Config),
+                   do_req_and_cancel(SCO, X)
+           end,
     Post = fun(Nodes) ->
                    d("stop nodes (in the reverse order):"
                      "~n       ~p", [Nodes]),
@@ -470,16 +537,16 @@ req_and_cancel(Config) when is_list(Config) ->
            end,
     try_tc(req_and_cancel, Pre, Case, Post).
 
-do_req_and_cancel([MgcNode, MgNode]) ->
+do_req_and_cancel(SCO, [MgcNode, MgNode]) ->
     %% Start the MGC and MGs
     i("start the MGC"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
     {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
+	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, SCO, ?MGC_VERBOSITY),
 
     i("start the MG"),
     {ok, Mg} =
-	?MG_START(MgNode, {deviceName, "mg"}, text, tcp, ?MG_VERBOSITY),
+	?MG_START(MgNode, {deviceName, "mg"}, text, tcp, SCO, ?MG_VERBOSITY),
 
     i("connect the MG"),
     Res1 = ?MG_SERV_CHANGE(Mg),

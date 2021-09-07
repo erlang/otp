@@ -96,6 +96,23 @@
 %%
 %% 3: Error.
 %%   ...
+%%
+%% Attempts have been made to simplify this pass and replace it with
+%% simpler transforms in the hope of avoiding much of the work
+%% performed by bool_opt/3. Targeting boolean expressions in guards
+%% and rewriting them along the patterns shown in the examples above
+%% can achieve the same results in many cases, but does not by any
+%% means reach the level of quality achieved by bool_opt/3.
+%%
+%% An analysis of the instances where the simpler transforms fail to
+%% reach parity with bool_opt/3 indicates that the information they
+%% lack in order to improve their result would require more or less
+%% the same control flow graph analysis and simplification as
+%% bool_opt/3 already does.
+%%
+%% This optimization pass must be first to be run after conversion
+%% to SSA code, both for correctness and effectiveness reasons.
+%%
 
 -module(beam_ssa_bool).
 -export([module/2]).
@@ -133,10 +150,11 @@ opt_function(#b_function{bs=Blocks0,cnt=Count0}=F) ->
     DefVars = interesting_defs(Blocks1),
     if
         map_size(DefVars) > 1 ->
-            Dom = beam_ssa:dominators(Blocks1),
-            Uses = beam_ssa:uses(Blocks1),
+            RPO = beam_ssa:rpo(Blocks1),
+            Dom = beam_ssa:dominators(RPO, Blocks1),
+            Uses = beam_ssa:uses(RPO, Blocks1),
             St0 = #st{defs=DefVars,count=Count1,dom=Dom,uses=Uses},
-            {Blocks2,St} = bool_opt(Blocks1, St0),
+            {Blocks2,St} = bool_opt(RPO, Blocks1, St0),
             Count = St#st.count,
 
             %% When merging blocks, phi nodes must have the same
@@ -144,7 +162,7 @@ opt_function(#b_function{bs=Blocks0,cnt=Count0}=F) ->
             %% To ensure that, trim before merging.
 
             Blocks3 = beam_ssa:trim_unreachable(Blocks2),
-            Blocks = beam_ssa:merge_blocks(Blocks3),
+            Blocks = beam_ssa:merge_blocks(beam_ssa:rpo(Blocks3), Blocks3),
             F#b_function{bs=Blocks,cnt=Count};
         true ->
             %% There are no boolean operators that can be optimized in
@@ -179,7 +197,7 @@ opt_function(#b_function{bs=Blocks0,cnt=Count0}=F) ->
         {'true_or_any',beam_ssa:label()} |
         '=:='.
 
--type pre_sub_map() :: #{'uses' => {'uses',beam_ssa:block_map() | list()},
+-type pre_sub_map() :: #{'uses' => {'uses',[beam_ssa:label()],beam_ssa:block_map() | list()},
                          var() => pre_sub_val()}.
 
 pre_opt(Blocks, Count) ->
@@ -187,12 +205,12 @@ pre_opt(Blocks, Count) ->
 
     %% Collect information to help the pre_opt pass to optimize
     %% `switch` instructions.
-    Sub0 = #{uses => {uses,Blocks}},
+    Sub0 = #{uses => {uses,Top,Blocks}},
     Sub1 = get_phi_info(Top, Blocks, Sub0),
     Sub = maps:remove(uses, Sub1),
 
     %% Now do the actual optimizations.
-    Reached = cerl_sets:from_list([hd(Top)]),
+    Reached = sets:from_list([hd(Top)], [{version, 2}]),
     pre_opt(Top, Sub, Reached, Count, Blocks).
 
 -spec get_phi_info(Ls, Blocks, Sub0) -> Sub when
@@ -265,14 +283,14 @@ get_phi_info_single_use(Var, Sub) ->
                  #{Var:=[_]} -> true;
                  #{Var:=[_|_]} -> false
              end,Sub};
-        {uses,Blocks} ->
-            Uses = beam_ssa:uses(Blocks),
+        {uses,Top,Blocks} ->
+            Uses = beam_ssa:uses(Top, Blocks),
             get_phi_info_single_use(Var, Sub#{uses => Uses})
     end.
 
 -spec pre_opt(Ls, Sub, Reached, Count0, Blocks0) -> {Blocks,Count} when
       Ls :: [beam_ssa:label()],
-      Reached :: cerl_sets:set(beam_ssa:label()),
+      Reached :: sets:set(beam_ssa:label()),
       Count0 :: beam_ssa:label(),
       Blocks0 :: beam_ssa:block_map(),
       Sub :: pre_sub_map(),
@@ -280,7 +298,7 @@ get_phi_info_single_use(Var, Sub) ->
       Blocks :: beam_ssa:block_map().
 
 pre_opt([L|Ls], Sub0, Reached0, Count0, Blocks) ->
-    case cerl_sets:is_element(L, Reached0) of
+    case sets:is_element(L, Reached0) of
         false ->
             %% This block will never be reached.
             pre_opt(Ls, Sub0, Reached0, Count0, maps:remove(L, Blocks));
@@ -297,14 +315,14 @@ pre_opt([L|Ls], Sub0, Reached0, Count0, Blocks) ->
                     Br = beam_ssa:normalize(Br0#b_br{bool=Bool}),
                     Blk = Blk0#b_blk{is=Is++[Test],last=Br},
                     Successors = beam_ssa:successors(Blk),
-                    Reached = cerl_sets:union(Reached0,
-                                              cerl_sets:from_list(Successors)),
+                    Reached = sets:union(Reached0,
+                                              sets:from_list(Successors, [{version, 2}])),
                     pre_opt(Ls, Sub, Reached, Count, Blocks#{L:=Blk});
                 Last ->
                     Blk = Blk0#b_blk{is=Is,last=Last},
                     Successors = beam_ssa:successors(Blk),
-                    Reached = cerl_sets:union(Reached0,
-                                              cerl_sets:from_list(Successors)),
+                    Reached = sets:union(Reached0,
+                                              sets:from_list(Successors, [{version, 2}])),
                     pre_opt(Ls, Sub, Reached, Count0, Blocks#{L:=Blk})
             end
     end;
@@ -313,7 +331,7 @@ pre_opt([], _, _, Count, Blocks) ->
 
 pre_opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
     Args1 = [{Val,From} || {Val,From} <- Args0,
-                           cerl_sets:is_element(From, Reached)],
+                           sets:is_element(From, Reached)],
     Args = sub_args(Args1, Sub0),
     case all_same(Args) of
         true ->
@@ -550,9 +568,6 @@ interesting_defs_is([], _L, Acc) -> Acc.
 %%% interior '=:=' instruction we will visit the blocks in postorder.
 %%%
 
-bool_opt(Blocks, St) ->
-    bool_opt(beam_ssa:rpo(Blocks), Blocks, St).
-
 bool_opt([L|Ls], Blocks0, St0) ->
     {Blocks,St1} = bool_opt(Ls, Blocks0, St0),
     case Blocks of
@@ -738,7 +753,7 @@ split_dom_block_is([], PreAcc) ->
 
 collect_digraph_blocks(FirstL, LastL, #b_br{succ=Succ,fail=Fail}, Blocks) ->
     Ws = gb_sets:singleton(FirstL),
-    Seen = cerl_sets:from_list([Succ,Fail]),
+    Seen = sets:from_list([Succ,Fail], [{version, 2}]),
     collect_digraph_blocks(Ws, LastL, Blocks, Seen, []).
 
 collect_digraph_blocks(Ws0, LastL, Blocks, Seen0, Acc0) ->
@@ -747,7 +762,7 @@ collect_digraph_blocks(Ws0, LastL, Blocks, Seen0, Acc0) ->
             Acc0;
         false ->
             {L,Ws1} = gb_sets:take_smallest(Ws0),
-            Seen = cerl_sets:add_element(L, Seen0),
+            Seen = sets:add_element(L, Seen0),
             Blk = map_get(L, Blocks),
             Acc = [{L,Blk}|Acc0],
             Ws = cdb_update_workset(L, Blk, LastL, Seen, Ws1),
@@ -761,7 +776,7 @@ cdb_update_workset(_L, Blk, _LastL, Seen, Ws) ->
     cdb_update_workset(Successors, Seen, Ws).
 
 cdb_update_workset([L|Ls], Seen, Ws) ->
-    case cerl_sets:is_element(L, Seen) of
+    case sets:is_element(L, Seen) of
         true ->
             cdb_update_workset(Ls, Seen, Ws);
         false ->
@@ -954,11 +969,13 @@ ensure_single_use_1(Bool, Vtx, Uses, G) ->
                       (_) -> false
                    end, Uses) of
         {[_],[_]} ->
-            case beam_digraph:vertex(G, Fail) of
-                {external,Bs0} ->
+            case {beam_digraph:vertex(G, Fail),
+                  beam_digraph:in_edges(G, Fail)} of
+                {{external,Bs0}, [_]} ->
                     %% The only other use of the variable Bool
-                    %% is in the failure block. It can be
-                    %% replaced with the literal `false`
+                    %% is in the failure block and it can only
+                    %% be reached through this test, so we can
+                    %% replace it with the literal `false`
                     %% in that block.
                     Bs = Bs0#{Bool => #b_literal{val=false}},
                     beam_digraph:add_vertex(G, Fail, {external,Bs});
@@ -1489,21 +1506,21 @@ join_inits_1([], VarMap) ->
 %%%
 %%% We don't try merge blocks during the conversion because it would
 %%% be difficult to keep phi nodes up to date. We will call
-%%% beam_ssa:merge_blocks/1 before returning from this pass to do all
+%%% beam_ssa:merge_blocks/2 before returning from this pass to do all
 %%% block merging.
 %%%
 
 digraph_to_ssa(Ls, G, Blocks0) ->
-    Seen = cerl_sets:new(),
+    Seen = sets:new([{version, 2}]),
     {Blocks,_} = digraph_to_ssa(Ls, G, Blocks0, Seen),
     Blocks.
 
 digraph_to_ssa([L|Ls], G, Blocks0, Seen0) ->
-    Seen1 = cerl_sets:add_element(L, Seen0),
+    Seen1 = sets:add_element(L, Seen0),
     {Blk,Successors0} = digraph_to_ssa_blk(L, G, Blocks0, []),
     Blocks1 = Blocks0#{L=>Blk},
     Successors = [S || S <- Successors0,
-                       not cerl_sets:is_element(S, Seen1)],
+                       not sets:is_element(S, Seen1)],
     {Blocks,Seen} = digraph_to_ssa(Successors, G, Blocks1, Seen1),
     digraph_to_ssa(Ls, G, Blocks, Seen);
 digraph_to_ssa([], _G, Blocks, Seen) ->
@@ -1614,16 +1631,16 @@ del_out_edges(V, G) ->
     beam_digraph:del_edges(G, beam_digraph:out_edges(G, V)).
 
 covered(From, To, G) ->
-    Seen0 = cerl_sets:new(),
+    Seen0 = sets:new([{version, 2}]),
     {yes,Seen} = covered_1(From, To, G, Seen0),
-    cerl_sets:to_list(Seen).
+    sets:to_list(Seen).
 
 covered_1(To, To, _G, Seen) ->
     {yes,Seen};
 covered_1(From, To, G, Seen0) ->
     Vs0 = beam_digraph:out_neighbours(G, From),
-    Vs = [V || V <- Vs0, not cerl_sets:is_element(V, Seen0)],
-    Seen = cerl_sets:union(cerl_sets:from_list(Vs), Seen0),
+    Vs = [V || V <- Vs0, not sets:is_element(V, Seen0)],
+    Seen = sets:union(sets:from_list(Vs, [{version, 2}]), Seen0),
     case Vs of
         [] ->
             no;

@@ -132,7 +132,7 @@
           <seeerl marker="erl_parse"><c>erl_parse(3)</c></seeerl> module).
           The returned errors and warnings have the following format:</p>
         <code type="none">
-[{<anno>FileName2</anno>,[<anno>ErrorInfo</anno>]}]</code>
+[{<anno>SourceFile</anno>,[<anno>ErrorInfo</anno>]}]</code>
         <p>The errors and warnings are listed in the order in which they are
           encountered in the forms. The errors from one file can therefore be
           split into different entries in the list of errors.</p>

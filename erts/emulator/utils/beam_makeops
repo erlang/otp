@@ -23,6 +23,7 @@ use vars qw($BEAM_FORMAT_NUMBER $GC_REGEXP);
 use constant COLD => 0;
 use constant WARM => 1;
 use constant HOT => 2;
+use constant JIT => 3;
 
 # Instructions for packing
 use constant PACK_JUMP => 1;
@@ -46,6 +47,7 @@ my $num_file_opcodes = 0;
 my $wordsize = 32;
 my $code_pointers_are_short = 0; # Whether code pointers (to C code) are short.
 my $code_model = 'unknown';
+my $jit = 'no';
 my %defs;                        # Defines (from command line).
 
 # This is shift counts and mask for the packer.
@@ -61,12 +63,16 @@ my @extended_pack_options = @basic_pack_options;
 # are those executed by the VM interpreter during run-time.
 
 # Maximum number of operands for a generic instruction.
-# In beam_load.c the MAX_OPARGS refers to the maximum
+# In beam_load.c the ERTS_BEAM_MAX_OPARGS refers to the maximum
 # number of operands for generic instructions.
 my $max_gen_operands = 8;
 
-# Maximum number of operands for a specific instruction.
-# Must be even. The beam_load.c file must be updated, too.
+# Maximum number of operands for a generic instruction that has more than
+# one associated specific instruction. This limit does not apply if there
+# is only a single associated specific instruction.
+#
+# This value must be even. If it is ever to be changed, erl_vm.h and
+# beam_load.c file must be updated.
 my $max_spec_operands = 6;
 
 # The maximum number of primitive genop_types.
@@ -97,6 +103,7 @@ my @obsolete;
 # Instructions and micro instructions implemented in C.
 my %c_code;                     # C code block, location, arguments.
 my %c_code_used;                # Used or not.
+my %c_param_types;              # Types for predicates and generators.
 
 # Definitions for instructions combined from micro instructions.
 my %combined_instrs;
@@ -108,7 +115,6 @@ my @unnumbered_generic;
 my %unnumbered;
 
 my %is_transformed;
-
 
 #
 # Pre-processor.
@@ -136,18 +142,24 @@ my $loader_types = "nprvlqo";
 my $genop_types = $compiler_types . $loader_types;
 
 #
-# Define the operand types and their loaded size assuming no packing.
+# Define the operand types for specific instructions and their loaded
+# size assuming no packing.
 #
-# Those are the types that can be used in the definition of a specific
-# instruction.
+# These are the types that can be used in the definition of a specific
+# instruction. Note that there may be more types depending on which emulator is
+# being built, for example the 'r' type in beam_emu, which are filled in later
+# on.
 #
-my %arg_size = ('r' => 0,	# x(0) - x register zero
+# Note that the 'i' type is NOT defined, because it does not make
+# sense; instructions that accept small operands invariably also accept other
+# literals.
+#
+my %arg_size = ('r' => 0,	# x(0) - x register zero,
 		'x' => 1,	# x(N), N > 0 - x register
 		'y' => 1,	# y(N) - y register
-		'i' => 1,	# tagged integer
 		'a' => 1,	# tagged atom
 		'n' => 0,	# NIL (implicit)
-		'c' => 1,	# tagged constant (integer, atom, nil)
+		'c' => 1,	# tagged constant (integer, atom, nil, other literals)
 		's' => 1,	# tagged source; any of the above
                 'S' => 1,       # tagged source register (x or y)
 		'd' => 1,	# tagged destination register (r, x, y)
@@ -159,6 +171,7 @@ my %arg_size = ('r' => 0,	# x(0) - x register zero
 		'I' => 1,	# untagged integer (32 bits) -- can be packed
                 'W' => 1,       # untagged integer/pointer (one word)
 		'b' => 1,	# pointer to bif
+		'F' => 1,	# pointer to function entry
 		'A' => 1,	# arity value
 		'P' => 1,	# byte offset into tuple or stack
 		'Q' => 1,	# like 'P', but packable
@@ -166,6 +179,12 @@ my %arg_size = ('r' => 0,	# x(0) - x register zero
 		'l' => 1,	# float reg
 		'q' => 1,	# literal term
 	     );
+
+#
+# Types that are forbidden to use for specific operations.
+#
+
+my %forbidden_type;
 
 #
 # Define the types that may be used in a transformation rule.
@@ -233,9 +252,10 @@ sub define_type_bit {
     define_type_bit('A', $type_bit{'u'});
     define_type_bit('L', $type_bit{'u'});
     define_type_bit('b', $type_bit{'u'});
+    define_type_bit('F', $type_bit{'u'});
     define_type_bit('e', $type_bit{'u'});
-    define_type_bit('P', $type_bit{'u'});
     define_type_bit('Q', $type_bit{'u'});
+    define_type_bit('P', $type_bit{'u'});
 }
 
 #
@@ -280,9 +300,11 @@ while (@ARGV && $ARGV[0] =~ /^-(.*)/) {
     ($wordsize = shift), next if /^wordsize/;
     ($code_model = shift), next if /^code-model/;
     ($verbose = 1), next if /^v/;
+    ($jit = shift), next if /^jit/;
     ($defs{$1} = $2), next if /^D(\w+)=(\w+)/;
     die "$0: Bad option: -$_\n";
 }
+
 
 if ($wordsize == 32) {
     $defs{'ARCH_32'} = 1;
@@ -341,7 +363,7 @@ while (<>) {
             $in_c_code = '';
             $block =~ s/^    //mg;
             chomp $block;
-            $c_code{$name} = [$block,$c_code_loc,@c_args];
+	    $c_code{$name} = [$block,$c_code_loc,@c_args];
         } else {
             $c_code_block .= $_;
         }
@@ -396,11 +418,19 @@ while (<>) {
     # Handle assignments.
     #
     if (/^([\w_][\w\d_]+)=(.*)/) {
-	no strict 'refs';
 	my $name = $1;
         my $value = $2;
-        $value =~ s/;\s*$//;
-	$$name = $value;
+	$value =~ s/;\s*$//;
+	if ($name eq 'FORBIDDEN_TYPES') {
+	    for my $type (split('', $value)) {
+		error("'$type' is not a recognized type")
+		    unless defined $arg_size{$type};
+		$forbidden_type{$type} = 1;
+	    }
+	} else {
+	    no strict 'refs';
+	    $$name = $value;
+	}
 	next;
     }
 
@@ -535,6 +565,48 @@ $num_file_opcodes = @gen_opname;
 }
 
 #
+# Now verify that specific instructions don't have too many operands
+# or use forbidden types.
+#
+
+my $any_errors;
+foreach my $key (keys %specific_op) {
+    my($arity) = (split('/', $key))[1];
+    my @specific_ops = @{$specific_op{$key}};
+    my $num_specific_ops = scalar(@{$specific_op{$key}});
+    if ($arity > $max_spec_operands and $num_specific_ops > 1) {
+	my($first) = @specific_ops;
+	my $name = $first->[0];
+	my $loc = $specific_op_arity{$name}->[1];
+	my $error = join("\n*** ",
+			 "$loc: too many operands",
+			 "When a generic instruction has more than one associated specific instruction,",
+			 "it must not have more than $max_spec_operands operands.",
+			 "",
+			 "$key has $num_specific_ops specific instructions.");
+	$error .= "\n";
+	error($error);
+    }
+
+    foreach my $op (@specific_ops) {
+	my($name, $hotness, $varargs, @args) = @$op;
+	for my $arg (@args) {
+	    my $cleaned_arg = $arg;
+	    $cleaned_arg =~ s/[?]$//;
+	    if ($jit ne 'no' and $cleaned_arg eq 'r') {
+		warn "specific instruction '$name @args' uses type 'r' which is is not supported for BeamAsm\n";
+		$any_errors = 1;
+	    } elsif ($forbidden_type{$cleaned_arg}) {
+		warn "specific instruction '$name @args' uses forbidden type '$arg'\n";
+		$any_errors = 1;
+	    }
+	}
+    }
+}
+
+error("there were previous type errors") if $any_errors;
+
+#
 # Produce output for the chosen target.
 #
 
@@ -561,35 +633,100 @@ sub emulator_output {
     my $name;
     my $key;			# Loop variable.
 
-    #
-    # Generate code and meta information for all instructions.
-    #
+    # Initialize common information always needed.
     foreach $key (keys %specific_op) {
 	foreach (@{$specific_op{$key}}) {
-	    my($name, $hotness, @args) = @$_;
+	    my($name, $hotness, $varargs, @args) = @$_;
 	    my $print_name = print_name($name, @args);
-
-	    my($size, $code, $pack_spec) = cg_basic(name => $name, args => \@args);
-	    if (defined $code) {
-                $code = "OpCase($print_name):\n$code";
-                push @generated_code, [$hotness,$code,($print_name)];
-	    }
-
-            # Note: Some of the information below will be modified
-            # for combined instructions.
-            my %info = ('size' => $size,
-                        'pack_spec' => $pack_spec,
-                        'adj' => 0,
-                        'args' => \@args);
+            my %info = ('args' => \@args);
             $spec_op_info{$print_name} = \%info;
 	}
     }
 
-    #
-    # Combine micro instruction into instruction blocks and generate
-    # code for them.
-    #
-    combine_micro_instructions();
+    if ($jit eq 'no') {
+	#
+	# Generate code and meta information for all instructions.
+	#
+	foreach $key (keys %specific_op) {
+	    foreach (@{$specific_op{$key}}) {
+		my($name, $hotness, $varargs, @args) = @$_;
+		my $print_name = print_name($name, @args);
+		my $pack_spec = '';
+		my $size = 0;
+
+		($size, my $code, $pack_spec) = cg_basic(name => $name, args => \@args);
+		if (defined $code) {
+		    $code = "OpCase($print_name):\n$code";
+		    push @generated_code, [$hotness,$code,($print_name)];
+		}
+
+		# Note: Some of the information below will be modified
+		# for combined instructions.
+		my %info = ('size' => $size,
+			    'pack_spec' => $pack_spec,
+			    'adj' => 0,
+			    'args' => \@args);
+		$spec_op_info{$print_name} = \%info;
+	    }
+	}
+
+	#
+	# Combine micro instruction into instruction blocks and generate
+	# code for them.
+	#
+        combine_micro_instructions();
+    } elsif ($jit eq 'yes') {
+	#
+	# Generate the code for the BeamAsm glue files.
+	#
+        foreach $key (keys %specific_op) {
+            foreach (@{$specific_op{$key}}) {
+                my($name, $hotness, $varargs, @args) = @$_;
+                my $print_name = print_name($name, @args);
+                my $body = "emit_$name(";
+		my $sep = "";
+
+		for (my $i = 0; $i < @args; $i++) {
+                    $body .= "${sep}args[$i]";
+		    $sep = ", ";
+                }
+
+		if ($varargs) {
+		    # We pass variable argument lists as a vector of ArgVal,
+		    # slicing our argument vector after the argument count.
+		    $body .= $sep .
+			"std::vector<ArgVal>(" .
+			"args.cbegin() + " . scalar(@args) . ", args.cend())";
+		}
+
+                $body .= ");";
+                push @generated_code, [JIT,"case op_$print_name: {\n$body\n\tbreak;\n}\n\n",($print_name)];
+            }
+        }
+
+        $name = "$outdir/beamasm_emit.h";
+        open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
+        comment('C');
+        print_code(JIT);
+
+        $name = "$outdir/beamasm_protos.h";
+        open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
+        comment('C');
+
+        foreach $key (keys %specific_op) {
+            foreach (@{$specific_op{$key}}) {
+                my($name, $hotness, $varargs, @args) = @$_;
+
+		@args = ("const ArgVal&") x @args;
+		if ($varargs) {
+		    push @args, "const std::vector<ArgVal>&";
+		}
+
+                print "void emit_$name(", join(", ", @args), ");\n";
+                last; # We only want to print one prototype
+            }
+        }
+    }
 
     #
     # Information about opcodes (beam_opcodes.c).
@@ -597,17 +734,7 @@ sub emulator_output {
     $name = "$outdir/beam_opcodes.c";
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
     comment('C');
-    print "#ifdef HAVE_CONFIG_H\n";
-    print "#  include \"config.h\"\n";
-    print "#endif\n\n";
-    print '#include "sys.h"', "\n";
-    print '#include "erl_vm.h"', "\n";
-    print '#include "export.h"', "\n";
-    print '#include "erl_process.h"', "\n";
-    print '#include "bif.h"', "\n";
-    print '#include "erl_atom_table.h"', "\n";
-    print '#include "beam_load.h"', "\n";
-    print "\n";
+    include_files();
 
     print "const char tag_to_letter[] = {\n  ";
     for ($i = 0; $i < length($genop_types); $i++) {
@@ -635,7 +762,7 @@ sub emulator_output {
 	#
 	my(%items) = ();
 	foreach (@{$specific_op{$key}}) {
-	    my($name, $hot, @args) = @{$_};
+	    my($name, $hotness, $varargs, @args) = @{$_};
 	    my($sign) = join('', @args);
             $sign =~ s/[?]//g;
 
@@ -678,18 +805,29 @@ sub emulator_output {
 	    }
 
 	    printf "/* %3d */  ", $spec_opnum;
-	    my $init = "{";
-	    my $sep = "";
-	    foreach (@bits) {
-		$init .= sprintf("%s0x%X", $sep, $_);
-		$sep = ",";
+
+	    # If there is only one specific instruction, output a dummy mask
+	    # to make it clear for human readers that there is only one.
+	    # The mask will not be used by the loader.
+	    my $init = "{0,0,0}";
+	    if ($num_specific{$key} > 1) {
+		$init = "{";
+		my $sep = "";
+		foreach (@bits) {
+		    $init .= sprintf("%s0x%X", $sep, $_);
+		    $sep = ",";
+		}
+		$init .= "}";
 	    }
-	    $init .= "}";
             my $adj = $info->{'adj'};
             my $size = $info->{'size'};
             my $pack_spec = $info->{'pack_spec'};
             my $sign = join '', @args;
-	    init_item($print_name, $init, $involves_r, $size, $adj, $pack_spec, $sign);
+	    if ($jit eq 'no') {
+		init_item($print_name, $init, $involves_r, $size, $adj, $pack_spec, $sign);
+	    } else {
+		init_item($print_name, $init, $sign);
+	    }
 	    $op_to_name[$spec_opnum] = $print_name;
 	    $spec_opnum++;
 	}
@@ -864,33 +1002,39 @@ sub emulator_output {
     # Extension of transform engine.
     #
 
-    $name = "$outdir/beam_tr_funcs.h";
+    $name = "$outdir/beam_transform.c";
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
     comment('C');
-    tr_gen_call(@call_table);
-
-    $name = "$outdir/beam_pred_funcs.h";
-    open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
-    comment('C');
-    tr_gen_call(@pred_table);
+    include_files();
+    print '#include "erl_term.h"', "\n";
+    print '#include "erl_map.h"', "\n";
+    print '#include "big.h"', "\n";
+    print '#include "beam_transform_helpers.h"', "\n";
+    print "\n";
+    gen_tr_code('pred.');
+    gen_tr_func('int', 'erts_beam_eval_predicate', @pred_table);
+    gen_tr_code('gen.');
+    gen_tr_func('BeamOp*', 'erts_beam_execute_transform', @call_table);
 
     #
     # Implementation of operations for emulator.
     #
-    $name = "$outdir/beam_hot.h";
-    open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
-    comment('C');
-    print_code(HOT);
+    if ($jit eq 'no') {
+	$name = "$outdir/beam_hot.h";
+	open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
+	comment('C');
+	print_code(HOT);
 
-    $name = "$outdir/beam_warm.h";
-    open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
-    comment('C');
-    print_code(WARM);
+	$name = "$outdir/beam_warm.h";
+	open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
+	comment('C');
+	print_code(WARM);
 
-    $name = "$outdir/beam_cold.h";
-    open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
-    comment('C');
-    print_code(COLD);
+	$name = "$outdir/beam_cold.h";
+	open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
+	comment('C');
+	print_code(COLD);
+    }
 }
 
 sub print_name {
@@ -1021,16 +1165,25 @@ sub compiler_output {
 sub parse_specific_op {
     my($name, @args) = split " ", shift;
     my $arity = @args;
+    my $varargs = 0;
 
     # Check for various errors.
     error("Bad opcode name '$name'")
 	unless $name =~ /^[a-z][\w\d_]*$/;
-    error("too many operands")
-	if @args > $max_spec_operands;
     for (my $i = 0; $i < $arity; $i++) {
         my $arg = $args[$i];
+	if ($arg eq '*') {
+	    $i == $arity - 1 or error("'*' must be the last operand");
+	    pop @args;
+	    $arity--;
+	    $varargs = 1;
+	    last;
+	}
         $arg =~ s/[?]$//;
         foreach my $type (split(//, $arg)) {
+	    if ($type eq 'i') {
+		error("Argument " . ($i+1) . ": the 'i' type is not supported in specific instructions (use 'c')")
+	    }
             error("Argument " . ($i+1) . ": invalid type '$type'")
                 unless defined $arg_size{$type};
         }
@@ -1075,7 +1228,7 @@ sub parse_specific_op {
                   $print_name{$print_name});
         }
         $print_name{$print_name} = $loc;
-        push @{$specific_op{$key}}, [$name,$hotness,@args];
+        push @{$specific_op{$key}}, [$name,$hotness,$varargs,@args];
     }
 
     # Done.
@@ -1217,7 +1370,7 @@ sub combine_instruction_group {
         error("no $specific_key instruction")
             unless defined $specific_op_ref;
         foreach my $specific_op (@$specific_op_ref) {
-            my($name, $hotness, @args) = @{$specific_op};
+            my($name, $hotness, $varargs, @args) = @{$specific_op};
             $group_hotness = $hotness unless $group_hotness >= $hotness;
             my $offset = 0;
             my @rest = @args;
@@ -1747,7 +1900,6 @@ sub needs_do_wrapper {
     return 0 if /^do/;
     return 0 if /^SET_I/;
     return 0 if /^SET_CP/;
-    return 0 if /^ERTS_NO_FPE_CHECK_INIT/;
     return 0 if /^ASSERT/;
     return 0 if /^DTRACE/;
     return 0 if /^[A-Za-z_]*\s*=/;
@@ -2469,10 +2621,12 @@ sub tr_gen_from {
 	    my $var;
 	    my @args;
             my @vars;
+            my @param_types;
 
 	    foreach $var (@ops) {
                 if ($var =~ /^-?\d+$/) {
                     push @args, $var;
+                    push @param_types, 'Uint';
                     next;
                 }
 		error($where, "'$var' unbound")
@@ -2480,11 +2634,16 @@ sub tr_gen_from {
                 push @vars, $var;
 		if ($var_type{$var} eq 'scalar') {
 		    push(@args, "var[$var{$var}]");
+                    push @param_types, 'BeamOpArg';
 		} else {
 		    push(@args, "rest_args");
+                    push @param_types, 'BeamOpArg*';
 		}
 	    }
-	    my $pi = tr_next_index(\@{pred_table}, \%pred_table, $name, @args);
+            my $c_name = "pred.$name";
+            $c_param_types{$c_name} = \@param_types;
+            $c_code_used{$c_name} = 1;
+	    my $pi = next_tr_index(\@{pred_table}, \%pred_table, $name, @args);
             my $op = make_op("$name()", 'pred', $pi);
             my @slots = grep(/^\d+/, map { $var{$_} } @vars);
 	    op_slot_usage($op, @slots);
@@ -2654,18 +2813,24 @@ sub tr_gen_to {
 	    $name = $1;
 	    my $var;
 	    my(@args);
+            my @param_types;
 
 	    foreach $var (@ops) {
 		error($where, "variable '$var' unbound")
 		    unless defined $var{$var};
 		if ($var_type{$var} eq 'scalar') {
-		    push(@args, "var[$var{$var}]");
+		    push @args, "var[$var{$var}]";
+                    push @param_types, 'BeamOpArg';
 		} else {
-		    push(@args, "rest_args");
+		    push @args, "rest_args";
+                    push @param_types, 'BeamOpArg*';
 		}
 	    }
+            my $c_name = "gen.$name";
+            $c_param_types{$c_name} = \@param_types;
+            $c_code_used{$c_name} = 1;
 	    pop(@code);	# Get rid of 'commit' instruction
-	    my $index = tr_next_index(\@call_table, \%call_table,
+	    my $index = next_tr_index(\@call_table, \%call_table,
 				      $name, @args);
 	    my $op = make_op("$name()", 'call_end', $index);
 	    my @slots = grep(/^\d+/, map { $var{$_} } @ops);
@@ -3027,6 +3192,39 @@ sub tr_remove_unused {
     }
 }
 
+sub gen_tr_code {
+    my($prefix) = @_;
+
+    foreach my $name (sort keys %c_code) {
+        if (index($name, $prefix) == 0) {
+            my $func_name = $name;
+            $func_name =~ s/^$prefix//;
+            my($block,$where,@params) = @{$c_code{$name}};
+            my %bindings;
+            $block = eval { expand_all($block, \%bindings) };
+            unless (defined $block) {
+                warn $@;
+                error("... from the body of $name at $where");
+            }
+            my $head = 'static ';
+            $head .= $prefix eq 'pred.' ? 'int' : 'BeamOp*';
+            $head .= " $func_name(LoaderState* S";
+            my(@param_types);
+            if (defined $c_param_types{$name}) {
+                @param_types = @{$c_param_types{$name}};
+            } else {
+                @param_types = ('BeamOpArg') x @params;
+            }
+            for (my $i = 0; $i < @params; $i++) {
+                $head .= ", $param_types[$i] $params[$i]";
+            }
+            $head .= ") {\n";
+            my $code = $head . "$block;\n}\n";
+            print_indented_code($code);
+        }
+    }
+}
+
 sub code_len {
     my($sum) = 0;
     my($ref);
@@ -3063,9 +3261,9 @@ sub starred_comment {
     "\n/*" . join("\n * ", '', @_) . "\n */\n\n";
 }
 
-sub tr_next_index {
+sub next_tr_index {
     my($lref,$href,$name,@args) = @_;
-    my $code = "RVAL = $name(" . join(', ', 'st', @args) . "); break;\n";
+    my $code = "return $name(" . join(', ', 'st', @args) . ");\n";
     my $index;
 
     if (defined $$href{$code}) {
@@ -3078,11 +3276,29 @@ sub tr_next_index {
     $index;
 }
 
-sub tr_gen_call {
-    my(@call_table) = @_;
-    my($i);
+sub gen_tr_func {
+    my($type,$name,@call_table) = @_;
 
-    for ($i = 0; $i < @call_table; $i++) {
-	print "case $i: $call_table[$i]";
+    print "$type $name(unsigned int op, LoaderState* st, BeamOpArg var[], BeamOpArg* rest_args) {\n";
+    print "  switch (op) {\n";
+    for (my $i = 0; $i < @call_table; $i++) {
+	print "    case $i: $call_table[$i]";
     }
+    print qq[    default: erts_exit(ERTS_ABORT_EXIT, "$name: invalid op %d\\n", op);];
+    print "  }\n";
+    print "}\n\n";
+}
+
+sub include_files() {
+    print "#ifdef HAVE_CONFIG_H\n";
+    print "#  include \"config.h\"\n";
+    print "#endif\n\n";
+    print '#include "sys.h"', "\n";
+    print '#include "erl_vm.h"', "\n";
+    print '#include "export.h"', "\n";
+    print '#include "erl_process.h"', "\n";
+    print '#include "bif.h"', "\n";
+    print '#include "erl_atom_table.h"', "\n";
+    print '#include "beam_load.h"', "\n";
+    print "\n";
 }

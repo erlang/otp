@@ -19,10 +19,6 @@
 %%
 -module(heart). 
 
--compile(no_native).
-% 'no_native' as part of a crude fix to make init:restart/0 work by clearing
-% all hipe inter-module information (hipe_mfa_info's in hipe_bif0.c).
-
 %%%--------------------------------------------------------------------
 %%% This is a rewrite of pre_heart from BS.3.
 %%%

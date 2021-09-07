@@ -76,9 +76,6 @@ allocator	EHEAP		true		eheap_alloc
 allocator	ETS		true		ets_alloc
 allocator	FIXED_SIZE	true		fix_alloc
 allocator	LITERAL 	true		literal_alloc
-+if exec_alloc
-allocator	EXEC     	true	        exec_alloc
-+endif
 
 allocator	BINARY		true		binary_alloc
 allocator	DRIVER		true		driver_alloc
@@ -127,6 +124,7 @@ type	HEAP		EHEAP		PROCESSES	heap
 type	OLD_HEAP	EHEAP		PROCESSES	old_heap
 type	HEAP_FRAG	EHEAP		PROCESSES	heap_frag
 type	TMP_HEAP	TEMPORARY	PROCESSES	tmp_heap
+type	RECV_MARK_BLK	FIXED_SIZE	PROCESSES	receive_marker_block
 type	MSG_REF		FIXED_SIZE	PROCESSES	msg_ref
 type	MSG		EHEAP		PROCESSES	message
 type	MSGQ_CHNG	SHORT_LIVED	PROCESSES	messages_queue_change
@@ -144,7 +142,6 @@ type	FUN_TABLE	STANDARD	CODE		fun_tab
 type	DIST_TABLE	STANDARD	SYSTEM		dist_tab
 type	NODE_TABLE	STANDARD	SYSTEM		node_tab
 type	ATOM_TABLE	LONG_LIVED	ATOM		atom_tab
-type	EXPORT_TABLE	LONG_LIVED	CODE		export_tab
 type	MODULE_TABLE	LONG_LIVED	CODE		module_tab
 type	TAINT		LONG_LIVED	CODE		taint_list
 type	MODULE_REFS	STANDARD	CODE		module_refs
@@ -248,6 +245,10 @@ type    MREF_NSCHED_ENT	FIXED_SIZE	SYSTEM		nsched_magic_ref_entry
 type    MREF_ENT	STANDARD	SYSTEM		magic_ref_entry
 type	MREF_TAB_BKTS	STANDARD	SYSTEM		magic_ref_table_buckets
 type	MREF_TAB	LONG_LIVED	SYSTEM		magic_ref_table
+type    PREF_NSCHED_ENT	FIXED_SIZE	SYSTEM		nsched_pid_ref_entry
+type    PREF_ENT	STANDARD	SYSTEM		pid_ref_entry
+type	PREF_TAB_BKTS	STANDARD	SYSTEM		pid_ref_table_buckets
+type	PREF_TAB	LONG_LIVED	SYSTEM		pid_ref_table
 type	MINDIRECTION	FIXED_SIZE	SYSTEM		magic_indirection
 type	BINARY_FIND	SHORT_LIVED	PROCESSES	binary_find
 type	CRASH_DUMP	STANDARD	SYSTEM		crash_dump
@@ -282,6 +283,7 @@ type    LIST_TRAP       SHORT_LIVED     PROCESSES       list_bif_trap_state
 type    CONT_EXIT_TRAP  SHORT_LIVED     PROCESSES       continue_exit_trap_state
 type    SEQ_YIELD_STATE SHORT_LIVED     SYSTEM          dist_seq_yield_state
 type    PHASH2_TRAP     SHORT_LIVED     PROCESSES       phash2_trap_state
+type    MAP_TRAP        SHORT_LIVED     PROCESSES       map_bif_trap_state
 
 type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 
@@ -290,10 +292,6 @@ type	PERSISTENT_LOCK_Q SHORT_LIVED	SYSTEM		persistent_lock_q
 type	PERSISTENT_TERM_TMP SHORT_LIVED	SYSTEM		persistent_term_tmp_table
 
 type	T2B_VEC	  	SHORT_LIVED	PROCESSES	term_to_binary_vector 
-
-#
-# Types used for special emulators
-#
 
 type	ETHR_STD	STANDARD	SYSTEM		ethread_standard
 type	ETHR_SL		SHORT_LIVED	SYSTEM		ethread_short_lived
@@ -304,16 +302,18 @@ type	FP_EXCEPTION	LONG_LIVED	SYSTEM		fp_exception
 type	LL_MPATHS	LONG_LIVED	SYSTEM		ll_migration_paths
 type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
 
-+if hipe
+type	T2B_DETERMINISTIC SHORT_LIVED	PROCESSES	term_to_binary_deterministic
 
-type	HIPE_LL		LONG_LIVED	SYSTEM		hipe_long_lived
-type	HIPE_SL		SHORT_LIVED	SYSTEM		hipe_short_lived
-type	HIPE_STK	STANDARD	SYSTEM		hipe_nstack
+#
+# Types used for special emulators
+#
 
-+if exec_alloc
-type	HIPE_EXEC	EXEC            CODE		hipe_code
-+endif
+type	EXPORT_TABLE	LONG_LIVED	CODE		export_tab
+type	EXPORT		LONG_LIVED	CODE		export_entry
+type	CATCHES		LONG_LIVED	CODE		catches
 
++ifnot beamasm
+type	CODE		LONG_LIVED	CODE		code
 +endif
 
 +if lcnt
@@ -328,7 +328,6 @@ type	DEBUG	        SHORT_LIVED	SYSTEM          debugging
 type	DDLL_PROCESS	STANDARD	SYSTEM		ddll_processes
 type	MONITOR_EXT	STANDARD	PROCESSES	monitor_extended
 type	LINK_EXT	STANDARD	PROCESSES	link_extended
-type	CODE		LONG_LIVED	CODE		code
 type	LITERAL		LITERAL 	CODE		literal
 type	LITERAL_REF	SHORT_LIVED	CODE		literal_area_ref
 type	PURGE_DATA	SHORT_LIVED	CODE		purge_data
@@ -337,8 +336,9 @@ type	DB_MS_PSDO_PROC	LONG_LIVED	ETS		db_match_pseudo_proc
 type	SCHDLR_DATA	LONG_LIVED	SYSTEM		scheduler_data
 
 type	NFUNC_TRAP_WRAPPER	STANDARD	PROCESSES	nfunc_trap_wrapper
-type	EXPORT		LONG_LIVED	CODE		export_entry
 type	MONITOR		FIXED_SIZE	PROCESSES	monitor
+type	MONITOR_TAG	STANDARD	PROCESSES	monitor_tag
+type	ALIAS		STANDARD	PROCESSES	alias
 type	MONITOR_SUSPEND	STANDARD	PROCESSES	monitor_suspend
 type	LINK		FIXED_SIZE	PROCESSES	link
 type	AINFO_REQ	SHORT_LIVED	SYSTEM		alloc_info_request

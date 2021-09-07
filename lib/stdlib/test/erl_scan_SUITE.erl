@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([error_1/1, error_2/1, iso88591/1, otp_7810/1, otp_10302/1,
-	 otp_10990/1, otp_10992/1, otp_11807/1, otp_16480/1]).
+	 otp_10990/1, otp_10992/1, otp_11807/1, otp_16480/1, otp_17024/1]).
 
 -import(lists, [nth/2,flatten/1]).
 -import(io_lib, [print/1]).
@@ -58,7 +58,7 @@ suite() ->
 
 all() -> 
     [{group, error}, iso88591, otp_7810, otp_10302, otp_10990, otp_10992,
-     otp_11807, otp_16480].
+     otp_11807, otp_16480, otp_17024].
 
 groups() -> 
     [{error, [], [error_1, error_2]}].
@@ -1200,6 +1200,16 @@ otp_11807(Config) when is_list(Config) ->
 otp_16480(Config) when is_list(Config) ->
     F = fun mod:func/19,
     F = erl_parse:normalise(erl_parse_abstract(F)),
+    ok.
+
+otp_17024(Config) when is_list(Config) ->
+    Line = 17,
+    Opts1 = [{location,Line}],
+    {integer,Line,1} = erl_parse_abstract(1, Opts1),
+    Location = {17, 42},
+    {integer,Location,1} = erl_parse_abstract(1, Location),
+    Opts2 = [{location,Location}],
+    {integer,Location,1} = erl_parse_abstract(1, Opts2),
     ok.
 
 test_string(String, ExpectedWithCol) ->

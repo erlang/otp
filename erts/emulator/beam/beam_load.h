@@ -22,10 +22,18 @@
 #  define _BEAM_LOAD_H
 
 #include "beam_opcodes.h"
+#include "beam_file.h"
+
 #include "erl_process.h"
+#include "erl_fun.h"
+#include "export.h"
+#include "bif.h"
+
+#include "erl_bif_table.h"
+#include "beam_code.h"
 
 Eterm beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks,
-			    Eterm module);
+                            Eterm module);
 
 typedef struct gen_op_entry {
    char* name;
@@ -37,139 +45,77 @@ typedef struct gen_op_entry {
 
 extern const GenOpEntry gen_opc[];
 
-struct ErtsLiteralArea_;
+typedef struct LoaderState_ LoaderState;
 
-/*
- * The following variables keep a sorted list of address ranges for
- * each module.  It allows us to quickly find a function given an
- * instruction pointer.
- */
-
-/* Total code size in bytes */
-extern Uint erts_total_code_size;
-
-typedef struct BeamCodeLineTab_ BeamCodeLineTab;
-
-/*
- * Header of code chunks which contains additional information
- * about the loaded module.
- */
-typedef struct beam_code_header {
-    /*
-     * Number of functions.
-     */
-    UWord num_functions;
-
-    /*
-     * The attributes retrieved by Mod:module_info(attributes).
-     */
-    byte* attr_ptr;
-    UWord attr_size;
-    UWord attr_size_on_heap;
-
-    /*
-     * The compilation information retrieved by Mod:module_info(compile).
-     */
-    byte* compile_ptr;
-    UWord compile_size;
-    UWord compile_size_on_heap;
-
-    /*
-     * Literal area (constant pool).
-     */
-    struct ErtsLiteralArea_ *literal_area;
-
-    /*
-     * Pointer to the on_load function (or NULL if none).
-     */
-    BeamInstr* on_load_function_ptr;
-
-    /*
-     * Pointer to the line table (or NULL if none).
-     */
-    BeamCodeLineTab* line_table;
-
-    /*
-     * Pointer to the module MD5 sum (16 bytes)
-     */
-    byte* md5_ptr;
-
-    /*
-     * Start of function pointer table.  This table contains pointers to
-     * all functions in the module plus an additional pointer just beyond
-     * the end of the last function.
-     *
-     * The actual loaded code (for the first function) start just beyond
-     * this table.
-     */
-    ErtsCodeInfo* functions[1];
-
-}BeamCodeHeader;
-
-#  define BEAM_NATIVE_MIN_FUNC_SZ 4
-
-void erts_release_literal_area(struct ErtsLiteralArea_* literal_area);
-int erts_is_module_native(BeamCodeHeader* code);
-int erts_is_function_native(ErtsCodeInfo*);
-void erts_beam_bif_load_init(void);
-struct erl_fun_entry;
-void erts_purge_state_add_fun(struct erl_fun_entry *fe);
-Export *erts_suspend_process_on_pending_purge_lambda(Process *c_p,
-                                                     struct erl_fun_entry*);
-
-/*
- * Layout of the line table.
- */
-struct BeamCodeLineTab_ {
-    Eterm* fname_ptr;
-    int loc_size;
-    union {
-        Uint16* p2;
-        Uint32* p4;
-    }loc_tab;
-    const BeamInstr** func_tab[1];
-};
-
-#define LINE_INVALID_LOCATION (0)
-
-/*
- * Macros for manipulating locations.
- */
-
-#define IS_VALID_LOCATION(File, Line) \
-    ((unsigned) (File) < 255 && (unsigned) (Line) < ((1 << 24) - 1))
-#define MAKE_LOCATION(File, Line) (((File) << 24) | (Line))
-#define LOC_FILE(Loc) ((Loc) >> 24)
-#define LOC_LINE(Loc) ((Loc) & ((1 << 24)-1))
-
-
-/*
- * MFA event debug "tracing" usage:
- *
- * #define ENABLE_DBG_TRACE_MFA
- * call dbg_set_traced_mfa("mymod","myfunc",arity)
- * for the function(s) to trace, in some init function.
- *
- * Run and get stderr printouts when interesting things happen to your MFA.
- */
-#ifdef  ENABLE_DBG_TRACE_MFA
-
-void dbg_set_traced_mfa(const char* m, const char* f, Uint a);
-int dbg_is_traced_mfa(Eterm m, Eterm f, Uint a);
-void dbg_vtrace_mfa(unsigned ix, const char* format, ...);
-#define DBG_TRACE_MFA(M,F,A,FMT, ...) do {\
-    unsigned ix;\
-    if ((ix=dbg_is_traced_mfa(M,F,A))) \
-        dbg_vtrace_mfa(ix, FMT"\n", ##__VA_ARGS__);\
-  }while(0)
-
-#define DBG_TRACE_MFA_P(MFA, FMT, ...) \
-        DBG_TRACE_MFA((MFA)->module, (MFA)->function, (MFA)->arity, FMT, ##__VA_ARGS__)
-
+#ifdef BEAMASM
+#include "jit/load.h"
 #else
-#  define dbg_set_traced_mfa(M,F,A)
-#  define DBG_TRACE_MFA(M,F,A,FMT, ...)
-#  define DBG_TRACE_MFA_P(MFA,FMT, ...)
-#endif /* ENABLE_DBG_TRACE_MFA */
+#include "emu/load.h"
+#endif
+
+int beam_load_prepared_dtor(Binary *magic);
+void beam_load_prepared_free(Binary *magic);
+
+void beam_load_prepare_emit(LoaderState *stp);
+int beam_load_emit_op(LoaderState *stp, BeamOp *op);
+int beam_load_finish_emit(LoaderState *stp);
+
+struct erl_module_instance;
+void beam_load_finalize_code(LoaderState *stp,
+                             struct erl_module_instance* inst_p);
+
+void beam_load_new_genop(LoaderState* stp);
+
+#ifndef BEAMASM
+int beam_load_new_label(LoaderState* stp);
+#endif
+
+#define BeamLoadError0(Stp, Fmt) \
+    do { \
+        beam_load_report_error(__LINE__, Stp, Fmt); \
+        goto load_error; \
+    } while (0)
+
+#define BeamLoadError1(Stp, Fmt, Arg1) \
+    do { \
+        beam_load_report_error(__LINE__, stp, Fmt, Arg1); \
+        goto load_error; \
+    } while (0)
+
+#define BeamLoadError2(Stp, Fmt, Arg1, Arg2) \
+    do { \
+        beam_load_report_error(__LINE__, Stp, Fmt, Arg1, Arg2); \
+        goto load_error; \
+    } while (0)
+
+#define BeamLoadError3(Stp, Fmt, Arg1, Arg2, Arg3) \
+    do { \
+        beam_load_report_error(__LINE__, stp, Fmt, Arg1, Arg2, Arg3); \
+        goto load_error; \
+    } while (0)
+
+#define BeamLoadVerifyTag(Stp, Actual, Expected) \
+    if (Actual != Expected) { \
+       BeamLoadError2(Stp, "bad tag %d; expected %d", Actual, Expected); \
+    } else {}
+
+void beam_load_report_error(int line, LoaderState* context, char *fmt,...);
+
+/*
+ * The transform engine.
+ */
+
+int erts_transform_engine(LoaderState* st);
+
+#define TE_OK 0
+#define TE_FAIL (-1)
+#define TE_SHORT_WINDOW (-2)
+
+int erts_beam_eval_predicate(unsigned int op, LoaderState* st,
+                             BeamOpArg var[], BeamOpArg* rest_args);
+BeamOp* erts_beam_execute_transform(unsigned int op, LoaderState* st,
+                                    BeamOpArg var[], BeamOpArg* rest_args);
+
+void erts_beam_bif_load_init(void);
 
 #endif /* _BEAM_LOAD_H */

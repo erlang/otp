@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,6 +37,10 @@
 -export([nslookup/3, nslookup/4]).
 -export([nnslookup/4, nnslookup/5]).
 
+-export_type([res_option/0,
+              res_error/0,
+              nameserver/0]).
+
 -include_lib("kernel/include/inet.hrl").
 -include("inet_res.hrl").
 -include("inet_dns.hrl").
@@ -57,7 +61,8 @@
       | {retry, integer()}
       | {timeout, integer()}
       | {udp_payload_size, integer()}
-      | {usevc, boolean()}.
+      | {usevc, boolean()}
+      | {nxdomain_reply, boolean()}.
 
 -type nameserver() :: {inet:ip_address(), Port :: 1..65535}.
 
@@ -66,9 +71,9 @@
 
 -type dns_name() :: string().
 
--type rr_type() :: a | aaaa | cname | gid | hinfo | ns | mb | md | mg | mf
-                 | minfo | mx | naptr | null | ptr | soa | spf | srv | txt
-                 | uid | uinfo | unspec | wks.
+-type rr_type() :: a | aaaa | caa | cname | gid | hinfo | ns | mb | md | mg
+                 | mf | minfo | mx | naptr | null | ptr | soa | spf | srv
+                 | txt | uid | uinfo | unspec | uri | wks.
 
 -type dns_class() :: in | chaos | hs | any.
 
@@ -258,8 +263,10 @@ do_nslookup(Name, Class, Type, Opts, Timeout) ->
 %% options record
 %%
 -record(options, { % These must be sorted!
-	  alt_nameservers,edns,inet6,nameservers,recurse,
-	  retry,timeout,udp_payload_size,usevc,
+	  alt_nameservers,edns,inet6,nameservers,
+          nxdomain_reply, % this is a local option, not in inet_db
+          recurse,retry,servfail_retry_timeout,timeout,
+          udp_payload_size,usevc,
 	  verbose}). % this is a local option, not in inet_db
 %%
 %% Opts when is_list(Opts) -> #options{}
@@ -294,7 +301,9 @@ make_options(Opts0) ->
 make_options([_|_]=Opts0, []=Names0) ->
     erlang:error(badarg, [Opts0,Names0]);
 make_options([], []) -> [];
-make_options([{verbose,Val}|Opts]=Opts0, [verbose|Names]=Names0) ->
+make_options([{Opt,Val}|Opts]=Opts0, [Opt|Names]=Names0)
+  when Opt =:= nxdomain_reply;
+       Opt =:= verbose ->
     if is_boolean(Val) ->
 	    [Val|make_options(Opts, Names)];
        true ->
@@ -307,6 +316,9 @@ make_options([{Opt,Val}|Opts]=Opts0, [Opt|Names]=Names0) ->
 	false ->
 	    erlang:error(badarg, [Opts0,Names0])
     end;
+%% Handling default values (for options not in Opts)
+make_options(Opts, [nxdomain_reply|Names]) ->
+    [false|make_options(Opts, Names)];
 make_options(Opts, [verbose|Names]) ->
     [false|make_options(Opts, Names)];
 make_options(Opts, [Name|Names]) ->
@@ -487,7 +499,7 @@ type_p(Type) ->
 		        ?S_MD, ?S_MF, ?S_CNAME, ?S_SOA,
 		        ?S_MB, ?S_MG, ?S_MR, ?S_NULL,
 		        ?S_WKS, ?S_HINFO, ?S_TXT, ?S_SRV, ?S_NAPTR, ?S_SPF,
-		        ?S_UINFO, ?S_UID, ?S_GID]).
+		        ?S_UINFO, ?S_UID, ?S_GID, ?S_URI, ?S_CAA]).
 
 
 
@@ -525,31 +537,41 @@ type_p(Type) ->
 %%
 res_getbyname(Name, Type, Timer) ->
     {EmbeddedDots, TrailingDot} = inet_parse:dots(Name),
-    Dot = if TrailingDot -> ""; true -> "." end,
-    if  TrailingDot ->
-	    res_getby_query(Name, Type, Timer);
+    if
+        TrailingDot ->
+	    res_getby_query(lists:droplast(Name), Type, Timer);
 	EmbeddedDots =:= 0 ->
-	    res_getby_search(Name, Dot,
-			     inet_db:get_searchlist(),
+	    res_getby_search(Name, inet_db:get_searchlist(),
 			     nxdomain, Type, Timer);
 	true ->
 	    case res_getby_query(Name, Type, Timer) of
 		{error,_Reason}=Error ->
-		    res_getby_search(Name, Dot,
-				     inet_db:get_searchlist(),
+		    res_getby_search(Name, inet_db:get_searchlist(),
 				     Error, Type, Timer);
 		Other -> Other
 	    end
     end.
 
-res_getby_search(Name, Dot, [Dom | Ds], _Reason, Type, Timer) ->
-    case res_getby_query(Name++Dot++Dom, Type, Timer,
+res_getby_search(Name, [Dom | Ds], _Reason, Type, Timer) ->
+    QueryName =
+        %% Join Name and Dom with a single dot.
+        %% Allow Dom to be "." or "", but not to lead with ".".
+        %% Do not allow Name to be "".
+        if
+            Name =/= "" andalso (Dom =:= "." orelse Dom =:= "") ->
+                Name;
+            Name =/= "" andalso hd(Dom) =/= $. ->
+                Name++"."++Dom;
+            true ->
+                erlang:error({if_clause, Name, Dom})
+        end,
+    case res_getby_query(QueryName, Type, Timer,
 			 inet_db:res_option(nameservers)) of
 	{ok, HEnt}         -> {ok, HEnt};
 	{error, NewReason} ->
-	    res_getby_search(Name, Dot, Ds, NewReason, Type, Timer)
+	    res_getby_search(Name, Ds, NewReason, Type, Timer)
     end;
-res_getby_search(_Name, _, [], Reason,_,_) ->
+res_getby_search(_Name, [], Reason,_,_) ->
     {error, Reason}.
 
 res_getby_query(Name, Type, Timer) ->
@@ -692,15 +714,15 @@ udp_send(#sock{inet=I}, {A,B,C,D}=IP, Port, Buffer)
 
 udp_recv(#sock{inet6=I}, {A,B,C,D,E,F,G,H}=IP, Port, Timeout, Decode)
   when ?ip6(A,B,C,D,E,F,G,H), ?port(Port), 0 =< Timeout ->
-    do_udp_recv(I, IP, Port, Timeout, Decode, deadline(Timeout), Timeout);
+    do_udp_recv(I, IP, Port, Timeout, Decode, time(Timeout), Timeout);
 udp_recv(#sock{inet=I}, {A,B,C,D}=IP, Port, Timeout, Decode)
   when ?ip(A,B,C,D), ?port(Port), 0 =< Timeout ->
-    do_udp_recv(I, IP, Port, Timeout, Decode, deadline(Timeout), Timeout).
+    do_udp_recv(I, IP, Port, Timeout, Decode, time(Timeout), Timeout).
 
-do_udp_recv(_I, _IP, _Port, 0, _Decode, _Deadline, PollCnt)
+do_udp_recv(_I, _IP, _Port, 0, _Decode, _Time, PollCnt)
   when PollCnt =< 0 ->
     timeout;
-do_udp_recv(I, IP, Port, Timeout, Decode, Deadline, PollCnt) ->
+do_udp_recv(I, IP, Port, Timeout, Decode, Time, PollCnt) ->
     case gen_udp:recv(I, 0, Timeout) of
 	{ok,Reply} ->
 	    case Decode(Reply) of
@@ -716,10 +738,10 @@ do_udp_recv(I, IP, Port, Timeout, Decode, Deadline, PollCnt) ->
 		    %% an infinite loop here.
                     %%
 		    do_udp_recv(
-                      I, IP, Port, Timeout, Decode, Deadline, PollCnt-50);
+                      I, IP, Port, Timeout, Decode, Time, PollCnt-50);
 		false ->
-                    T = timeout(Deadline),
-		    do_udp_recv(I, IP, Port, T, Decode, Deadline, PollCnt);
+		    do_udp_recv(
+                      I, IP, Port, timeout(Time), Decode, Time, PollCnt);
 		Result ->
 		    Result
 	    end;
@@ -763,36 +785,45 @@ do_query(#q{options=#options{retry=Retry}}=Q, NSs, Timer) ->
     %% so a failure will be a timeout,
     %% unless a name server says otherwise
     Reason = timeout,
+    %% Verify that the nameservers list contains only 2-tuples
+    %% to protect our internal servfail_retry mechanism from surprises
+    lists:all(
+      fun (NS) when tuple_size(NS) =:= 2 -> true;
+          (_) -> false
+      end, NSs) orelse
+        erlang:error(badarg, [Q,NSs,Timer]),
     query_retries(Q, NSs, Timer, Retry, 0, #sock{}, Reason).
 
-%% Loop until out of name servers or retries
+%% Loop until out of retries or name servers
 %%
-query_retries(_Q, _NSs, _Timer, Retry, Retry, S, Reason) ->
-    query_retries_error(S, Reason);
-query_retries(_Q, [], _Timer, _Retry, _I, S, Reason) ->
-    query_retries_error(S, Reason);
-query_retries(Q, NSs, Timer, Retry, I, S_0, Reason) ->
-    query_nss(Q, NSs, Timer, Retry, I, S_0, Reason, NSs).
+query_retries(Q, _NSs, _Timer, Retry, I, S, Reason) when Retry =:= I ->
+    query_retries_error(Q, S, Reason);
+query_retries(Q, [], _Timer, _Retry, _I, S, Reason) ->
+    query_retries_error(Q, S, Reason);
+query_retries(Q, NSs, Timer, Retry, I, S, Reason) ->
+    query_nss(Q, NSs, Timer, Retry, I, S, Reason, []).
 
-%% Loop for all name servers, for each:
+%% For each name server:
 %%     If EDNS is enabled, try that first,
 %%     and for selected failures fall back to plain DNS.
 %%
-query_nss(Q, NSs, Timer, Retry, I, S, Reason, []) ->
+query_nss(Q, [], Timer, Retry, I, S, Reason, RetryNSs) ->
     %% End of name servers list, do a new retry
-    query_retries(Q, NSs, Timer, Retry, I+1, S, Reason);
-query_nss(#q{edns = undefined}=Q, NSs, Timer, Retry, I, S, Reason, TryNSs) ->
-    query_nss_dns(Q, NSs, Timer, Retry, I, S, Reason, TryNSs);
-query_nss(Q, NSs, Timer, Retry, I, S, Reason, TryNSs) ->
-    query_nss_edns(Q, NSs, Timer, Retry, I, S, Reason, TryNSs).
+    %% with the remaining name servers
+    query_retries(Q, lists:reverse(RetryNSs), Timer, Retry, I+1, S, Reason);
+query_nss(#q{edns = undefined}=Q, NSs, Timer, Retry, I, S, Reason, RetryNSs) ->
+    query_nss_dns(Q, NSs, Timer, Retry, I, S, Reason, RetryNSs);
+query_nss(Q, NSs, Timer, Retry, I, S, Reason, RetryNSs) ->
+    query_nss_edns(Q, NSs, Timer, Retry, I, S, Reason, RetryNSs).
 
 query_nss_edns(
   #q{options =
          #options{
             udp_payload_size = PSz}=Options,
      edns = {Id,Buffer}}=Q,
-  NSs, Timer, Retry, I, S_0, Reason, [{IP,Port}=NS|TryNSs]=TryNSs_0) ->
+  [NsSpec|NSs], Timer, Retry, I, S_0, Reason, RetryNSs) ->
     %%
+    {IP,Port} = NS = servfail_retry_wait(NsSpec),
     {S,Result} =
 	query_ns(
           S_0, Id, Buffer, IP, Port, Timer, Retry, I, Options, PSz),
@@ -802,19 +833,25 @@ query_nss_edns(
                E =:= notimp;
                E =:= servfail;
                E =:= badvers ->
-            %% The server did not like that,
-            %% ignore that error and try plain DNS
+            %% The server did not like that.
+            %% Ignore that error and try plain DNS.
+            %%
+            %% We ignore the servfail_retry_timeout here,
+            %% assuming that if the servfail was due to us using EDNS,
+            %% a DNS query might work, therefore we do not
+            %% count this failure as a try.
 	    query_nss_dns(
-              Q, NSs, Timer, Retry, I, S, Reason, TryNSs_0);
+              Q, [NS|NSs], Timer, Retry, I, S, Reason, RetryNSs);
         _ ->
 	    query_nss_result(
-              Q, NSs, Timer, Retry, I, S, Reason, TryNSs, NS, Result)
+              Q, NSs, Timer, Retry, I, S, Reason, RetryNSs, NS, Result)
     end.
 
 query_nss_dns(
   #q{dns = Qdns}=Q_0,
-  NSs, Timer, Retry, I, S_0, Reason, [{IP,Port}=NS|TryNSs]) ->
+  [NsSpec|NSs], Timer, Retry, I, S_0, Reason, RetryNSs) ->
     %%
+    {IP,Port} = NS = servfail_retry_wait(NsSpec),
     #q{options = Options,
        dns = {Id,Buffer}}=Q =
 	if
@@ -825,47 +862,90 @@ query_nss_dns(
 	query_ns(
 	  S_0, Id, Buffer, IP, Port, Timer, Retry, I, Options, ?PACKETSZ),
     query_nss_result(
-      Q, NSs, Timer, Retry, I, S, Reason, TryNSs, NS, Result).
+      Q, NSs, Timer, Retry, I, S, Reason, RetryNSs, NS, Result).
 
-query_nss_result(Q, NSs, Timer, Retry, I, S, Reason, TryNSs, NS, Result) ->
+
+%% servfail_retry NsSpec handling.
+%%
+%% A NsSpec is either a NS = {IP, Port},
+%% or for a servfail_retry_timeout, the nameserver wrapped
+%% in a tuple with the earliest time to contact
+%% the nameserver again.
+%%
+%% When unwrapping; wait until it is time before returning
+%% the nameserver.
+
+%% Wrap with retry time
+servfail_retry_time(RetryTimeout, NS) ->
+    {servfail_retry, time(RetryTimeout), NS}.
+
+%% Unwrap and wait
+servfail_retry_wait(NsSpec) ->
+    case NsSpec of
+        {servfail_retry, Time, NS} ->
+            wait(timeout(Time)),
+            NS;
+        {_IP,_Port} = NS->
+            NS
+    end.
+
+
+query_nss_result(Q, NSs, Timer, Retry, I, S, Reason, RetryNSs, NS, Result) ->
     case Result of
 	{ok,_} ->
             _ = udp_close(S),
             Result;
 	timeout -> % Out of total time timeout
-            query_retries_error(S, Reason); % The best reason we have
-	{error,timeout} -> % Query timeout
-            %% Try next server, may retry this server later
-	    query_nss(Q, NSs, Timer, Retry, I, S, Reason, TryNSs);
-	{error,{nxdomain,_}=NewReason} ->
-            query_retries_error(S, NewReason); % Definite answer
+            query_retries_error(Q, S, Reason); % The best reason we have
+	{error,{nxdomain,_} = E} ->
+            query_retries_error(Q, S, E); % Definite answer
 	{error,{E,_}=NewReason}
           when E =:= qfmterror;
                E =:= notimp;
                E =:= refused;
-               E =:= badvers ->
+               E =:= badvers;
+               E =:= unknown ->
             %% The server did not like that.
-            %% Remove this server from retry list since
+            %% Do not retry this server since
             %% it will not answer differently on the next retry.
-            NewNSs = lists:delete(NS, NSs),
-	    query_nss(Q, NewNSs, Timer, Retry, I, S, NewReason, TryNSs);
+	    query_nss(Q, NSs, Timer, Retry, I, S, NewReason, RetryNSs);
 	{error,E=NewReason}
           when E =:= formerr;
                E =:= enetunreach;
                E =:= econnrefused ->
             %% Could not decode answer, or network problem.
-            %% Remove this server from retry list.
-            NewNSs = lists:delete(NS, NSs),
-	    query_nss(Q, NewNSs, Timer, Retry, I, S, NewReason, TryNSs);
+            %% Do not retry this server.
+	    query_nss(Q, NSs, Timer, Retry, I, S, NewReason, RetryNSs);
+	{error,timeout} -> % Query timeout
+            %% Try next server, may retry this server
+	    query_nss(Q, NSs, Timer, Retry, I, S, Reason, [NS|RetryNSs]);
+        {error,{servfail,_}=NewReason} ->
+            RetryTimeout = Q#q.options#options.servfail_retry_timeout,
+            case inet:timeout(RetryTimeout, Timer) of
+                RetryTimeout ->
+                    NsSpec = servfail_retry_time(RetryTimeout, NS),
+                    query_nss(
+                      Q, NSs, Timer, Retry, I, S, NewReason,
+                      [NsSpec|RetryNSs]);
+                _ ->
+                    %% No time for a new retry with this server
+                    %% - do not retry this server
+                    query_nss(
+                      Q, NSs, Timer, Retry, I, S, NewReason, RetryNSs)
+            end;
 	{error,NewReason} ->
-            %% Try next server, may retry this server later
-	    query_nss(Q, NSs, Timer, Retry, I, S, NewReason, TryNSs)
+            %% NewReason =
+            %%     {error,badid} |
+            %%     {error,{noquery,Msg}} |
+            %%     {error,OtherSocketError}
+            %% Try next server, may retry this server
+	    query_nss(Q, NSs, Timer, Retry, I, S, NewReason, [NS|RetryNSs])
     end.
 
-query_retries_error(S, Reason) ->
+query_retries_error(#q{options=#options{nxdomain_reply=NxReply}}, S, Reason) ->
     _ = udp_close(S),
     case Reason of
-        {nxdomain, _} ->
+        {nxdomain, _} when not NxReply ->
             {error, nxdomain};
         _ ->
             {error, Reason}
@@ -878,18 +958,22 @@ query_ns(S0, Id, Buffer, IP, Port, Timer, Retry, I,
     case UseVC orelse iolist_size(Buffer) > PSz of
 	true ->
 	    TcpTimeout = inet:timeout(Tm*5, Timer),
-	    {S0,query_tcp(TcpTimeout, Id, Buffer, IP, Port, Verbose)};
+	    {S0,
+             query_tcp(TcpTimeout, Id, Buffer, IP, Port, Verbose)};
 	false ->
 	    case udp_open(S0, IP) of
 		{ok,S} ->
-		    Timeout =
+		    UdpTimeout =
 			inet:timeout( (Tm * (1 bsl I)) div Retry, Timer),
-		     case query_udp(
-			    S, Id, Buffer, IP, Port, Timeout, Verbose) of
+		     case
+                         query_udp(
+                           S, Id, Buffer, IP, Port, UdpTimeout, Verbose)
+                     of
 			 {ok,#dns_rec{header=H}} when H#dns_header.tc ->
 			     TcpTimeout = inet:timeout(Tm*5, Timer),
-			     {S, query_tcp(
-			       TcpTimeout, Id, Buffer, IP, Port, Verbose)};
+			     {S,
+                              query_tcp(
+                                TcpTimeout, Id, Buffer, IP, Port, Verbose)};
 			{error, econnrefused} = Err ->
                             ok = udp_close(S),
 	                    {#sock{}, Err};
@@ -1003,10 +1087,10 @@ decode_answer(Answer, Id, Verbose) ->
 		?NOTIMP   -> {error,{notimp,Msg}};
 		?REFUSED  -> {error,{refused,Msg}};
 		?BADVERS  -> {error,{badvers,Msg}};
-		_ -> {error,{unknown,Msg}}
+		_ ->         {error,{unknown,Msg}}
 	    end;
-	Error ->
-	    ?verbose(Verbose, "Got reply: ~p~n", [Error]),
+	{error, formerr} = Error ->
+	    ?verbose(Verbose, "Got reply: decode format error~n", []),
 	    Error
     end.
 
@@ -1084,11 +1168,32 @@ dns_msg(Msg) ->
 	    {Type,dns_msg(Fields)}
     end.
 
--compile({inline, [deadline/1, timeout/1]}).
-deadline(Timeout) -> % When is the deadline? [ms]
+
+
+-compile({inline, [time/1, timeout/1, wait/1]}).
+
+%% What Time is the Timeout? [ms]
+%%
+time(Timeout) ->
     erlang:monotonic_time(1000) + Timeout.
-timeout(Deadline) -> % How long to deadline? [ms] >= 0
-    case Deadline - erlang:monotonic_time(1000) of
-        Timeout when 0 =< Timeout -> Timeout;
-        _ -> 0
+
+%% How long Timeout to Time? [ms] >= 0
+%%
+timeout(Time) ->
+    TimeNow = erlang:monotonic_time(1000),
+    if
+        TimeNow < Time ->
+            Time - TimeNow;
+        true ->
+            0
+    end.
+
+%% receive after Timeout but do not yield for 0
+%%
+wait(0) ->
+    ok;
+wait(Timeout) ->
+    receive
+    after Timeout ->
+            ok
     end.

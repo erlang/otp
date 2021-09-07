@@ -395,10 +395,13 @@ erts_build_dhandle(Eterm **hpp, ErlOffHeap* ohp,
 {
     Binary *bin = ErtsDistEntry2Bin(dep);
     Eterm mref, dhandle;
+    erts_aint_t refc;
     ASSERT(bin);
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == erts_dist_entry_destructor);
-    erts_refc_inc_if(&bin->intern.refc, 0, 0); /* inc for pending delete */
-    mref = erts_mk_magic_ref(hpp, ohp, bin);
+    mref = erts_mk_magic_ref_get_refc(hpp, ohp, bin, &refc);
+    if (refc < 2) {
+        erts_refc_inc(&bin->intern.refc, 2); /* inc for pending delete */
+    }
     dhandle = TUPLE2(*hpp, make_small(conn_id), mref);
     *hpp += 3;
     return dhandle;
@@ -1641,18 +1644,21 @@ clear_visited_dist_monitors(DistEntry *dep)
 
 static void insert_link_data(ErtsLink *lnk, int type, Eterm id)
 {
-    ErtsLinkData *ldp = erts_link_to_data(lnk);
-    if ((ldp->a.flags & (ERTS_ML_FLG_DBG_VISITED
-                         | ERTS_ML_FLG_EXTENDED)) == ERTS_ML_FLG_EXTENDED) {
-        ErtsLinkDataExtended *ldep = (ErtsLinkDataExtended *) ldp;
-        if (ldep->ohhp) {
+    if ((lnk->flags & (ERTS_ML_FLG_DBG_VISITED
+                       | ERTS_ML_FLG_EXTENDED)) != ERTS_ML_FLG_EXTENDED) {
+        lnk->flags |= ERTS_ML_FLG_DBG_VISITED;
+    }
+    else {
+        ErtsELink *elnk = erts_link_to_elink(lnk);
+        if (elnk->ohhp) {
             ErlOffHeap oh;
             ERTS_INIT_OFF_HEAP(&oh);
-            oh.first = ldep->ohhp;
+            oh.first = elnk->ohhp;
             insert_offheap(&oh, type, id);
         }
+        elnk->ld.proc.flags |= ERTS_ML_FLG_DBG_VISITED;
+        elnk->ld.dist.flags |= ERTS_ML_FLG_DBG_VISITED;
     }
-    ldp->a.flags |= ERTS_ML_FLG_DBG_VISITED;
 }
 
 static int insert_link(ErtsLink *lnk, void *idp, Sint reds)
@@ -1664,8 +1670,13 @@ static int insert_link(ErtsLink *lnk, void *idp, Sint reds)
 
 static int clear_visited_link(ErtsLink *lnk, void *p, Sint reds)
 {
-    ErtsLinkData *ldp = erts_link_to_data(lnk);
-    ldp->a.flags &= ~ERTS_ML_FLG_DBG_VISITED;
+    if (!(lnk->flags & ERTS_ML_FLG_EXTENDED))
+        lnk->flags &= ~ERTS_ML_FLG_DBG_VISITED;
+    else {
+        ErtsELink *elnk = erts_link_to_elink(lnk);
+        elnk->ld.proc.flags &= ~ERTS_ML_FLG_DBG_VISITED;
+        elnk->ld.dist.flags &= ~ERTS_ML_FLG_DBG_VISITED;
+    }
     return 1;
 }
 

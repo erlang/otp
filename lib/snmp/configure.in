@@ -4,12 +4,7 @@ define([AC_CACHE_SAVE], )dnl
 
 AC_INIT(vsn.mk)
 
-if test -z "$ERL_TOP" || test ! -d $ERL_TOP ; then
-  AC_CONFIG_AUX_DIRS(autoconf)
-else
-  erl_top=${ERL_TOP}
-  AC_CONFIG_AUX_DIRS($erl_top/erts/autoconf)
-fi
+AC_CONFIG_AUX_DIRS(${ERL_TOP}/erts/autoconf)
 
 if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
     AC_CANONICAL_HOST

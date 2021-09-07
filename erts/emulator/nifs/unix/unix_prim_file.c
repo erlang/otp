@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson 2017-2020. All Rights Reserved.
+ * Copyright Ericsson 2017-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,14 +97,25 @@ posix_errno_t efile_marshal_path(ErlNifEnv *env, ERL_NIF_TERM path, efile_path_t
 
 ERL_NIF_TERM efile_get_handle(ErlNifEnv *env, efile_data_t *d) {
     efile_unix_t *u = (efile_unix_t*)d;
-
-    ERL_NIF_TERM result;
+    int fd = u->fd;
+    ERL_NIF_TERM handle;
     unsigned char *bits;
 
-    bits = enif_make_new_binary(env, sizeof(u->fd), &result);
-    memcpy(bits, &u->fd, sizeof(u->fd));
+    bits = enif_make_new_binary(env, sizeof(fd), &handle);
+    memcpy(bits, &fd, sizeof(fd));
 
-    return result;
+    return handle;
+}
+
+posix_errno_t efile_dup_handle(ErlNifEnv *env, efile_data_t *d, ErlNifEvent *handle) {
+    efile_unix_t *u = (efile_unix_t*)d;
+    int fd;
+
+    if ((fd = dup(u->fd)) < 0)
+        return errno;
+
+    *handle = fd;
+    return 0;
 }
 
 static int open_file_is_dir(const efile_path_t *path, int fd) {
@@ -123,13 +134,8 @@ static int open_file_is_dir(const efile_path_t *path, int fd) {
     return error == 0 && S_ISDIR(file_info.st_mode);
 }
 
-posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
-        ErlNifResourceType *nif_type, efile_data_t **d) {
-
-    int mode, flags, fd;
-
-    flags = 0;
-
+static int get_flags(enum efile_modes_t modes) {
+    int flags = 0;
     if(modes & EFILE_MODE_READ && !(modes & EFILE_MODE_WRITE)) {
         flags |= O_RDONLY;
     } else if(modes & EFILE_MODE_WRITE && !(modes & EFILE_MODE_READ)) {
@@ -160,6 +166,15 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
         flags |= O_SYNC;
 #endif
     }
+    return flags;
+}
+
+posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
+        ErlNifResourceType *nif_type, efile_data_t **d) {
+
+    int mode, flags, fd;
+
+    flags = get_flags(modes);
 
     if(modes & EFILE_MODE_DIRECTORY) {
         mode = DIR_MODE;
@@ -205,6 +220,24 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
         return 0;
     }
 
+    (*d) = NULL;
+    return errno;
+}
+
+posix_errno_t efile_from_fd(int fd,
+                            ErlNifResourceType *nif_type,
+                            efile_data_t **d) {
+    if (fcntl(fd, F_GETFL) != -1 || errno != EBADF) {
+        efile_unix_t *u;
+
+        u = (efile_unix_t*)enif_alloc_resource(nif_type, sizeof(efile_unix_t));
+        u->fd = fd;
+
+        EFILE_INIT_RESOURCE(&u->common, EFILE_MODE_FROM_ALREADY_OPEN_FD);
+        (*d) = &u->common;
+
+        return 0;
+    }
     (*d) = NULL;
     return errno;
 }

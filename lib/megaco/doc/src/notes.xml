@@ -37,7 +37,93 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 3.19.3</title>
+  <section><title>Megaco 4.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    All the pre-v3 codec(s) (prev3a, prev3b and prev3c) was
+	    deprecated in OTP-23.0. They have now been removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16560</p>
+        </item>
+        <item>
+          <p>
+	    Removed deprecated functions marked for removal.</p>
+          <p>
+	    Own Id: OTP-17049</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Megaco 3.19.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed usage of <c>AC_CONFIG_AUX_DIRS()</c> macros in
+	    configure script sources.</p>
+          <p>
+	    Own Id: OTP-17093 Aux Id: ERL-1447, PR-2948 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Empty statistics descriptor (now) allowed in both encode
+	    and decode for version 3.</p>
+          <p>
+	    Own Id: OTP-17012 Aux Id: ERL-1405 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.19.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -103,6 +189,37 @@
 	    to work until OTP 24.</p>
           <p>
 	    Own Id: OTP-16531</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Megaco 3.18.8.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Megaco 3.18.8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Empty statistics descriptor (now) allowed in both encode
+	    and decode for version 3.</p>
+          <p>
+	    Own Id: OTP-17012 Aux Id: ERL-1405 </p>
         </item>
       </list>
     </section>

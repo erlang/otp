@@ -39,6 +39,7 @@
 %% We processes the load request queue as a "background" job..
 
 -module(mnesia_controller).
+-compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
 -behaviour(gen_server).
 
@@ -460,8 +461,6 @@ connect_nodes(Ns) ->
 
 connect_nodes(Ns, UserFun) ->
     case mnesia:system_info(is_running) of
-	no ->
-	    {error, {node_not_running, node()}};
 	yes ->
 	    Pid = spawn_link(?MODULE,connect_nodes2,[self(),Ns, UserFun]),
 	    receive
@@ -478,7 +477,9 @@ connect_nodes(Ns, UserFun) ->
 		    end;
 		{'EXIT', Pid, Reason} ->
 		    {error, Reason}
-	    end
+	    end;
+        _ -> %% no, starting or stopping not ready to make a connection yet
+	    {error, {node_not_running, node()}}
     end.
 
 connect_nodes2(Father, Ns, UserFun) ->

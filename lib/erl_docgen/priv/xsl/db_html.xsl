@@ -54,6 +54,27 @@
     <func:result select="$result"/>
   </func:function>
 
+  <!-- This is a XSLT 1.0 version of replace for string -->
+  <xsl:template name="string-replace-all">
+    <xsl:param name="text" />
+    <xsl:param name="replace" />
+    <xsl:param name="by" />
+    <xsl:choose>
+      <xsl:when test="contains($text, $replace)">
+        <xsl:value-of select="substring-before($text,$replace)" />
+        <xsl:value-of select="$by" />
+        <xsl:call-template name="string-replace-all">
+          <xsl:with-param name="text" select="substring-after($text,$replace)" />
+          <xsl:with-param name="replace" select="$replace" />
+          <xsl:with-param name="by" select="$by" />
+        </xsl:call-template>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:value-of select="$text" />
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
   <func:function name="erl:lower-case">
     <xsl:param name="str"/>
 
@@ -227,10 +248,10 @@
 	<xsl:variable name="local_types"
 		      select="../type[string-length(@name) > 0]"/>
 	  <xsl:apply-templates select="$spec/contract/clause/head">
-          <xsl:with-param name="ghlink" select="ancestor-or-self::*[@ghlink]/@ghlink"/>
-	  <xsl:with-param name="local_types" select="$local_types"/>
-	  <xsl:with-param name="global_types" select="$global_types"/>
-	  <xsl:with-param name="since" select="$since"/>
+            <xsl:with-param name="ghlink" select="ancestor-or-self::*[@ghlink]/@ghlink"/>
+	    <xsl:with-param name="local_types" select="$local_types"/>
+	    <xsl:with-param name="global_types" select="$global_types"/>
+	    <xsl:with-param name="since" select="$since"/>
 	  </xsl:apply-templates>
       </xsl:when>
     </xsl:choose>
@@ -241,7 +262,8 @@
     <xsl:param name="local_types"/>
     <xsl:param name="global_types"/>
     <xsl:param name="since"/>
-    <xsl:variable name="id" select="concat(concat(concat(concat(../../../name,'-'),../../../arity),'-'),generate-id(.))"/>
+    <xsl:variable name="mfa" select="concat(concat(../../../name,'-'),../../../arity)"/>
+    <xsl:variable name="id" select="concat(concat($mfa,'-'),generate-id(.))"/>
     <table class="func-table">
     <tr class="func-tr">
     <td class="func-td">
@@ -249,6 +271,7 @@
            onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
            onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
 	<xsl:call-template name="ghlink">
+          <xsl:with-param name="mfa" select="$mfa"/>
           <xsl:with-param name="ghlink" select="$ghlink"/>
           <xsl:with-param name="id" select="$id"/>
 	</xsl:call-template>
@@ -469,15 +492,32 @@
     <div class="data-types-body">
       <xsl:choose>
         <xsl:when test="string-length(name/@name) > 0">
-            <xsl:variable name="id" select="concat('type-',name/@name)"/>
-            <div class="data-type-name"
-                 onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
-                 onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
-              <xsl:call-template name="ghlink">
-                <xsl:with-param name="id" select="$id"/>
+          <xsl:variable name="apostrophe">'</xsl:variable>
+          <xsl:variable name="slash">/</xsl:variable>
+          <xsl:variable name="slash_encoded">%2f</xsl:variable>
+          <xsl:variable name="id">
+            <xsl:variable name="id-no-apostrophe">
+              <xsl:call-template name="string-replace-all">
+                <xsl:with-param name="text" select="concat('type-',name/@name)" />
+                <xsl:with-param name="replace" select="$apostrophe" />
+                <xsl:with-param name="by" select="''"/>
               </xsl:call-template>
-              <xsl:apply-templates select="name"/>
-            </div>
+            </xsl:variable>
+            <xsl:call-template name="string-replace-all">
+              <xsl:with-param name="text" select="$id-no-apostrophe" />
+              <xsl:with-param name="replace" select="$slash" />
+              <xsl:with-param name="by" select="$slash_encoded" />
+            </xsl:call-template>
+          </xsl:variable>
+          <div class="data-type-name"
+               onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
+               onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
+            <xsl:call-template name="ghlink">
+              <xsl:with-param name="mfa" select="$id"/>
+              <xsl:with-param name="id" select="$id"/>
+            </xsl:call-template>
+            <xsl:apply-templates select="name"/>
+          </div>
         </xsl:when>
         <xsl:otherwise>
           <div class="data-type-name">
@@ -879,18 +919,26 @@
         <xsl:with-param name="chapnum" select="$chapnum"/>
       </xsl:call-template>
     </xsl:if>
-    <xsl:if test="(local-name() = 'internal' and descendant::chapter) or ((local-name() = 'chapter') and ancestor::internal)">
-      <!-- .../internal or .../internal/chapter  -->
-      <xsl:call-template name="menu.internal.ug">
-        <xsl:with-param name="chapnum" select="$chapnum"/>
-      </xsl:call-template>
-    </xsl:if>
-    <xsl:if test="(local-name() = 'internal' and descendant::erlref) or (((local-name() = 'erlref') or (local-name() = 'comref') or (local-name() = 'cref') or (local-name() = 'fileref') or (local-name() = 'appref')) and ancestor::internal)">
-      <!-- .../internal,.../internal/erlref, .../internal/comref or .../internal/cref  or .../internal/fileref or .../internal/appref -->
-      <xsl:call-template name="menu.internal.ref">
-        <xsl:with-param name="curModule" select="$curModule"/>
-      </xsl:call-template>
-    </xsl:if>
+
+    <xsl:choose>
+      <!-- Ugly hack to avoid two menus when we have internal documentation covering both modules and chapters -->
+      <xsl:when test="((local-name() = 'internal' and descendant::chapter) or ((local-name() = 'chapter') and ancestor::internal)) and ((local-name() = 'internal' and descendant::erlref) or (((local-name() = 'erlref') or (local-name() = 'comref') or (local-name() = 'cref') or (local-name() = 'fileref') or (local-name() = 'appref')) and ancestor::internal))">
+	<xsl:call-template name="menu.internal.ug_ref">
+	</xsl:call-template>
+      </xsl:when>
+      <xsl:when test="(local-name() = 'internal' and descendant::chapter) or ((local-name() = 'chapter') and ancestor::internal)">
+	<!-- .../internal or .../internal/chapter  -->
+	<xsl:call-template name="menu.internal.ug">
+          <xsl:with-param name="chapnum" select="$chapnum"/>
+	</xsl:call-template>
+      </xsl:when>
+      <xsl:when test="(local-name() = 'internal' and descendant::erlref) or (((local-name() = 'erlref') or (local-name() = 'comref') or (local-name() = 'cref') or (local-name() = 'fileref') or (local-name() = 'appref')) and ancestor::internal)">
+	<!-- .../internal,.../internal/erlref, .../internal/comref or .../internal/cref  or .../internal/fileref or .../internal/appref -->
+	<xsl:call-template name="menu.internal.ref">
+          <xsl:with-param name="curModule" select="$curModule"/>
+	</xsl:call-template>
+      </xsl:when>
+    </xsl:choose>
     <xsl:if test="(local-name() = 'application') or (((local-name() = 'erlref') or (local-name() = 'comref') or (local-name() = 'cref') or (local-name() = 'fileref') or (local-name() = 'appref')) and ancestor::application)">
       <!-- .../application,.../application/erlref, .../application/comref or .../application/cref  or .../application/fileref or .../application/appref -->
       <xsl:call-template name="menu.ref">
@@ -1029,7 +1077,9 @@
       </xsl:for-each>
       <!-- xsl:value-of select="$partnum"/>.<xsl:value-of select="$chapnum"/>.<xsl:value-of select="$sectnum"/>.<xsl:number/ -->
       <xsl:call-template name="title_link">
-        <xsl:with-param name="title" select="title"/>
+        <xsl:with-param name="title">
+          <xsl:value-of select="title"/>
+        </xsl:with-param>
       </xsl:call-template>
     </h4>
     <xsl:apply-templates>
@@ -1062,7 +1112,9 @@
 	<xsl:call-template name="marker-before-title"/>
       </xsl:for-each>
       <xsl:call-template name="title_link">
-        <xsl:with-param name="title" select="title"/>
+        <xsl:with-param name="title">
+          <xsl:value-of select="title"/>
+        </xsl:with-param>
       </xsl:call-template>
     </h3>
     <div class="REFBODY rb-3">
@@ -1089,6 +1141,15 @@
 
 
   <!-- Lists -->
+  <xsl:template match="list[@type='ordered']">
+    <xsl:param name="chapnum"/>
+    <ol>
+      <xsl:apply-templates>
+        <xsl:with-param name="chapnum" select="$chapnum"/>
+      </xsl:apply-templates>
+    </ol>
+  </xsl:template>
+
   <xsl:template match="list">
     <xsl:param name="chapnum"/>
     <ul>
@@ -1319,6 +1380,10 @@
 
     <div class="doc-image-wrapper">
       <xsl:choose>
+        <xsl:when test="substring(@file, (string-length(@file) - string-length('.svg')) + 1) = '.svg'">
+          <object alt="IMAGE MISSING" data="{@file}" class="doc-svg doc-image">
+          </object>
+        </xsl:when>
 	<xsl:when test="@width">
 	  <img alt="IMAGE MISSING" width="{@width}" src="{@file}" class="doc-image"/>
 	</xsl:when>
@@ -1435,6 +1500,39 @@
     </div>
   </xsl:template>
 
+  <!-- Menu.internal.chapter combined when we have both modules and free-form chapters -->
+  <xsl:template name="menu.internal.ug_ref">
+    <div id="leftnav">
+      <div class="leftnav-tube">
+
+        <xsl:call-template name="erlang_logo"/>
+        <p class="section-title"><xsl:value-of select="/book/header/title"/></p>
+        <p class="section-subtitle">Internal Documentation</p>
+        <p class="section-version">Version <xsl:value-of select="$appver"/></p>
+
+        <xsl:call-template name="menu_top"/>
+
+        <xsl:call-template name="menu_middle"/>
+
+        <h3>Chapters</h3>
+
+        <ul class="flipMenu" imagepath="{$topdocdir}/js/flipmenu">
+          <xsl:call-template name="menu.chapter">
+            <xsl:with-param name="entries" select="/book/internals/internal/chapter[header/title]"/>
+          </xsl:call-template>
+        </ul>
+
+        <h3>Modules</h3>
+
+        <ul class="flipMenu">
+          <xsl:call-template name="menu.ref2">
+            <xsl:with-param name="entries" select="/book/internals/internal/erlref[module]|/book/internals/internal/cref[lib]|/book/internals/internal/comref[com]|/book/internals/internal/fileref[file]|/book/internals/internal/appref[app]"/>
+            <!--xsl:with-param name="genFuncMenu" select="true"/-->
+          </xsl:call-template>
+        </ul>
+      </div>
+    </div>
+  </xsl:template>
 
   <!--Users Guide -->
 
@@ -2278,6 +2376,7 @@
               <span class="bold_code bc-7">
 		<xsl:call-template name="title_link">
 		  <xsl:with-param name="link" select="substring-before(nametext, '(')"/>
+                  <xsl:with-param name="where" select="'before'"/>
 		</xsl:call-template>
               </span>
 	    </td>
@@ -2311,6 +2410,7 @@
             <div class="bold_code bc-8">
               <xsl:call-template name="title_link">
                 <xsl:with-param name="link" select="concat('type-',$fname)"/>
+                <xsl:with-param name="where" select="'before'"/>
                 <xsl:with-param name="title">
                   <xsl:apply-templates/>
                 </xsl:with-param>
@@ -2324,6 +2424,7 @@
 		<div class="bold_code fun-type">
 		  <xsl:call-template name="title_link">
                     <xsl:with-param name="link" select="concat(concat($fname,'-'),$arity)"/>
+                    <xsl:with-param name="where" select="'before'"/>
                     <xsl:with-param name="title">
                       <xsl:apply-templates/>
                     </xsl:with-param>
@@ -2402,43 +2503,63 @@
   <xsl:template name="title_link">
     <xsl:param name="title" select="'APPLY'"/>
     <xsl:param name="link" select="erl:to-link(title)"/>
+    <xsl:param name="where" select="'after'"/>
     <xsl:param name="ghlink" select="ancestor-or-self::*[@ghlink][position() = 1]/@ghlink"/>
     <xsl:variable name="id" select="concat(concat($link,'-'), generate-id(.))"/>
     <span onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
           onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
-      <xsl:call-template name="ghlink">
-          <xsl:with-param name="id" select="$id"/>
-          <xsl:with-param name="ghlink" select="$ghlink"/>
-      </xsl:call-template>
-      <a class="title_link" name="{$link}" href="#{$link}">
-	<xsl:choose>
+      <xsl:choose>
+	<xsl:when test="$where = 'before'">
+          <xsl:call-template name="ghlink">
+            <xsl:with-param name="mfa" select="$link"/>
+            <xsl:with-param name="id" select="$id"/>
+            <xsl:with-param name="ghlink" select="$ghlink"/>
+            <xsl:with-param name="where" select="$where"/>
+          </xsl:call-template>
+        </xsl:when>
+      </xsl:choose>
+      <a class="title_link" name="{$link}">
+        <xsl:choose>
 	  <xsl:when test="$title = 'APPLY'">
 	    <xsl:apply-templates/>   <!-- like <ret> and <nametext> -->
 	  </xsl:when>
 	  <xsl:otherwise>
-	    <xsl:value-of select="$title"/>
+            <xsl:copy-of select="$title"/>
 	  </xsl:otherwise>
-	</xsl:choose>
+        </xsl:choose>
       </a>
+      <xsl:choose>
+	<xsl:when test="$where = 'after'">
+          <xsl:call-template name="ghlink">
+            <xsl:with-param name="mfa" select="$link"/>
+            <xsl:with-param name="id" select="$id"/>
+            <xsl:with-param name="ghlink" select="$ghlink"/>
+            <xsl:with-param name="where" select="$where"/>
+          </xsl:call-template>
+        </xsl:when>
+      </xsl:choose>
     </span>
   </xsl:template>
 
   <xsl:template name="ghlink">
+    <xsl:param name="mfa"/>
     <xsl:param name="id"/>
     <xsl:param name="ghlink" select="ancestor-or-self::*[@ghlink][position() = 1]/@ghlink"/>
-    <xsl:choose>
-      <xsl:when test="string-length($ghlink) > 0">
-        <span id="ghlink-{$id}" class="ghlink">
+    <xsl:param name="where" select="'before'"/>
+    <xsl:variable name="escaped_mfa" select="$mfa"/>
+    <span id="ghlink-{$id}" class="ghlink-{$where}">
+      <a href="#{$mfa}" title="Link to this place!">
+        <span class="paperclip-{$where}"/>
+      </a>
+      <xsl:choose>
+        <xsl:when test="string-length($ghlink) > 0">
           <a href="https://github.com/erlang/otp/edit/{$ghlink}"
              title="Found an issue with the documentation? Fix it by clicking here!">
-            <span class="pencil"/>
+            <span class="pencil-{$where}"/>
           </a>
-        </span>
-      </xsl:when>
-      <xsl:otherwise>
-        <span id="ghlink-{$id}"/>
-      </xsl:otherwise>
-    </xsl:choose>
+        </xsl:when>
+      </xsl:choose>
+    </span>
   </xsl:template>
 
   <!-- Desc -->
@@ -2531,6 +2652,17 @@
       </xsl:choose>
     </xsl:variable>
 
+    <xsl:variable name="extension">
+      <xsl:choose>
+        <xsl:when test="substring($mod_part, (string-length($mod_part) - string-length('.svg')) + 1) = '.svg'">
+          <xsl:text></xsl:text>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:text>.html</xsl:text>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+
     <xsl:choose>
       <xsl:when test="starts-with(@marker,'#')">
 	<!-- "#Linkpart" -->
@@ -2541,7 +2673,7 @@
         <xsl:choose>
           <xsl:when test="string-length($app_part) > 0">
             <!-- "AppPart:ModPart#Linkpart" -->
-            <span class="bold_code bc-13"><a href="javascript:erlhref('{$topdocdir}/../','{$app_part}','{$mod_part}.html#{$linkpart}');"><xsl:apply-templates/></a></span>
+            <span class="bold_code bc-13"><a href="javascript:erlhref('{$topdocdir}/../','{$app_part}','{$mod_part}{$extension}#{$linkpart}');"><xsl:apply-templates/></a></span>
           </xsl:when>
           <xsl:otherwise>
             <!-- "Filepart#Linkpart (there is no ':' in Filepart) -->
@@ -2561,7 +2693,7 @@
                   <xsl:variable name="app" select="key('mod2app', $mod_part)"/>
 		  <xsl:choose>
 		    <xsl:when test="string-length($app) > 0">
-		      <span class="bold_code bc-14"><a href="javascript:erlhref('{$topdocdir}/../','{$app}','{$mod_part}.html#{$linkpart}');"><xsl:value-of select="$this"/></a></span>
+		      <span class="bold_code bc-14"><a href="javascript:erlhref('{$topdocdir}/../','{$app}','{$mod_part}{$extension}#{$linkpart}');"><xsl:value-of select="$this"/></a></span>
 		    </xsl:when>
 		    <xsl:otherwise>
 		      <!-- Unknown application -->
@@ -2576,11 +2708,11 @@
               </xsl:when>
               <xsl:when test="string-length($linkpart) > 0">
                 <!-- Still Filepart#Linkpart (there is no ':' in Filepart) -->
-                <span class="bold_code bc-15"><a href="{$mod_part}.html#{$linkpart}"><xsl:apply-templates/></a></span>
+                <span class="bold_code bc-15"><a href="{$mod_part}{$extension}#{$linkpart}"><xsl:apply-templates/></a></span>
               </xsl:when>
               <xsl:otherwise>
                 <!-- "Filepart#" (there is no ':' in Filepart) -->
-                <span class="bold_code bc-16"><a href="{$mod_part}.html"><xsl:apply-templates/></a></span>
+                <span class="bold_code bc-16"><a href="{$mod_part}{$extension}"><xsl:apply-templates/></a></span>
               </xsl:otherwise>
             </xsl:choose>
           </xsl:otherwise>
@@ -2592,11 +2724,11 @@
 	<xsl:choose>
 	  <xsl:when test="string-length($app_part) > 0">
 	    <!-- "App:Mod" -->
-	    <span class="bold_code bc-18"><a href="javascript:erlhref('{$topdocdir}/../','{$app_part}','{$mod_part}.html');"><xsl:apply-templates/></a></span>
+	    <span class="bold_code bc-18"><a href="javascript:erlhref('{$topdocdir}/../','{$app_part}','{$mod_part}{$extension}');"><xsl:apply-templates/></a></span>
 	  </xsl:when>
 	  <xsl:otherwise>
 	    <!-- "Mod" -->
-	    <span class="bold_code bc-19"><a href="{$mod_part}.html"><xsl:apply-templates/></a></span>
+	    <span class="bold_code bc-19"><a href="{$mod_part}{$extension}"><xsl:apply-templates/></a></span>
 	  </xsl:otherwise>
 	</xsl:choose>
       </xsl:otherwise>

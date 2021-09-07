@@ -87,7 +87,7 @@
       directory described above, except that directories without
       an <c>ebin</c> directory are ignored.</p>
     <p>All application directories found in the additional directories
-      appears before the standard OTP applications, except for the
+      appear before the standard OTP applications, except for the
       Kernel and STDLIB applications, which are placed before
       any additional applications. In other words, modules found in any
       of the additional library directories override modules with
@@ -779,8 +779,8 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
           <c>{error,missing}</c>.
         </p>
         <p>For more information about the documentation chunk see
-          <seeguide marker="erl_docgen:doc_storage">Documentation Storage</seeguide>
-          in Erl_Docgen's User's Guide.</p>
+          <seeguide marker="kernel:eep48_chapter">Documentation Storage and Format</seeguide>
+          in Kernel's User's Guide.</p>
       </desc>
     </func>
     <func>
@@ -968,12 +968,6 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
         <c>removed</c> otherwise. Modules whose load path is an empty string
         (which is the convention for auto-generated code) will only be
         reported as <c>loaded</c> or <c>not_loaded</c>.</p>
-        <p>For modules that have native code loaded (see
-        <seemfa marker="#is_module_native/1"><c>is_module_native/1</c></seemfa>),
-        the MD5 sum of the native code in the object file is used for the
-        comparison, if it exists; the Beam code in the file is ignored.
-        Reversely, for modules that do not currently have native code
-        loaded, any native code in the file will be ignored.</p>
         <p>See also <seemfa marker="#modified_modules/0"><c>modified_modules/0</c></seemfa>.</p>
       </desc>
     </func>
@@ -990,17 +984,10 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       <name name="is_module_native" arity="1" since=""/>
       <fsummary>Test if a module has native code.</fsummary>
       <desc>
-	<p>Returns:</p>
-	<taglist>
-	<tag><c>true</c></tag>
-	<item><p>If <c><anno>Module</anno></c> is the
-	name of a loaded module that has native code loaded</p></item>
-        <tag><c>false</c></tag>
-	<item><p>If <c><anno>Module</anno></c> is loaded but does not have
-	native code</p></item>
-	<tag><c>undefined</c></tag>
-	<item><p>If <c><anno>Module</anno></c> is not loaded</p></item>
-	</taglist>
+        <p>Returns <c>false</c> if the given <c><anno>Module</anno></c> is
+          loaded, and <c>undefined</c> if it is not.</p>
+        <warning><p>This function is deprecated and will be removed in a future
+          release.</p></warning>
       </desc>
     </func>
 

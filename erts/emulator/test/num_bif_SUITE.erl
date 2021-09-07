@@ -187,6 +187,17 @@ t_float_to_string(Config) when is_list(Config) ->
     test_fts("1.2300000000e+20",1.23e20, [{scientific, 10}, compact]),
     test_fts("1.23000000000000000000e+20",1.23e20, []),
 
+    %% Negative zero
+    <<NegZero/float>> = <<16#8000000000000000:64>>,
+    "-0.0" = float_to_list(NegZero, [{decimals, 1}, compact]),
+    "-0.0" = float_to_list(NegZero, [{decimals, 1}]),
+    "-0.0e+00" = float_to_list(NegZero, [{scientific, 1}]),
+    "-0.0e+00" = float_to_list(NegZero, [{scientific, 1}, compact]),
+    <<"-0.0">> = float_to_binary(NegZero, [{decimals, 1}, compact]),
+    <<"-0.0">> = float_to_binary(NegZero, [{decimals, 1}]),
+    <<"-0.0e+00">> = float_to_binary(NegZero, [{scientific, 1}]),
+    <<"-0.0e+00">> = float_to_binary(NegZero, [{scientific, 1}, compact]),
+
     fts_rand_float_decimals(1000),
 
     ok.
@@ -544,7 +555,7 @@ t_string_to_integer(Config) when is_list(Config) ->
     test_sti(268435455),
     test_sti(-268435455),
 
-    % Interesting values around 2-pows, such as MIN_SMALL and MAX_SMALL.
+    %% Interesting values around 2-pows, such as MIN_SMALL and MAX_SMALL.
     lists:foreach(fun(Bits) ->
 			  N = 1 bsl Bits,
 			  test_sti(N - 1),
@@ -553,11 +564,11 @@ t_string_to_integer(Config) when is_list(Config) ->
 		  end,
 		  lists:seq(16, 130)),
 
-    %% Bignums.
+    %% Bignums
     test_sti(123456932798748738738,16),
     test_sti(list_to_integer(lists:duplicate(2000, $1))),
 
-    %% unalign string
+    %% Unaligned string
     Str = <<"10">>,
     UnalignStr = <<0:3, (id(Str))/binary, 0:5>>,
     <<_:3, SomeStr:2/binary, _:5>> = id(UnalignStr),
@@ -568,32 +579,39 @@ t_string_to_integer(Config) when is_list(Config) ->
 			  {'EXIT', {badarg, _}} =
 			      (catch binary_to_integer(Value)),
 			  {'EXIT', {badarg, _}} =
-			      (catch erlang:list_to_integer(Value))
+			      (catch list_to_integer(Value))
 		  end,[atom,1.2,0.0,[$1,[$2]]]),
 
-    % Default base error cases
+    %% Default base error cases
     lists:foreach(fun(Value) ->
 			  {'EXIT', {badarg, _}} =
-			      (catch erlang:binary_to_integer(
-				       list_to_binary(Value))),
+			      (catch binary_to_integer(list_to_binary(Value))),
 			  {'EXIT', {badarg, _}} =
-			      (catch erlang:list_to_integer(Value))
+			      (catch list_to_integer(Value))
 		  end,["1.0"," 1"," -1","","+"]),
 
-    % Custom base error cases
+    %% Custom base error cases
     lists:foreach(fun({Value,Base}) ->
 			  {'EXIT', {badarg, _}} =
-			      (catch binary_to_integer(
-				       list_to_binary(Value),Base)),
+			      (catch binary_to_integer(list_to_binary(Value), Base)),
 			  {'EXIT', {badarg, _}} =
-			      (catch erlang:list_to_integer(Value,Base))
-		  end,[{" 1",1},{" 1",37},{"2",2},{"B",11},{"b",11},{":", 16},
-		       {"1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111z",16},
-		       {"1z111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",16},
-		       {"111z11111111",16}]),
+			      (catch list_to_integer(Value, Base))
+		  end,
+                  [{" 1",1},{" 1",37},{"2",2},{"B",11},{"b",11},{":", 16},
+                   {"1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111z",16},
+                   {"1z111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",16},
+                   {"111z11111111",16},
+                   %% Untagging atoms at the beginning of atom.names
+                   %% would produce a base in the valid range.
+                   {"10",true},                 %Base 4
+                   {"10",'_'},                  %Base 8
+                   {"10",nonode@nohost},        %Base 12
+                   {"10",'$end_of_table'},      %Base 16
+                   {"10",''}                    %Base 20
+                  ]),
 
-    %% log2 calculation overflow bug in do_integer_to_list (OTP-12624)
-    %% Would crash with segv
+    %% log2 calculation overflow bug in do_integer_to_list (OTP-12624).
+    %% Would crash with segementation fault.
     0 = list_to_integer(lists:duplicate(10000000,$0)),
 
     ok.

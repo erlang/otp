@@ -45,6 +45,16 @@ format_error({{_M,F,A},Error}) ->
 format_instr(I) ->
     [$',beam_ssa_pp:format_instr(I),$'].
 
+format_vars(Vs) ->
+    [$[, format_vars_1(Vs), $]].
+
+format_vars_1([V]) ->
+    [beam_ssa_pp:format_var(V)];
+format_vars_1([V | Vs]) ->
+    [beam_ssa_pp:format_var(V), $, | format_vars_1(Vs)];
+format_vars_1([]) ->
+    [].
+
 format_var(V) ->
     beam_ssa_pp:format_var(V).
 
@@ -61,31 +71,35 @@ validate_function(F) ->
             erlang:raise(Class, Error, Stack)
     end.
 
--type defined_vars() :: gb_sets:set(beam_ssa:argument()).
+-type variables() :: gb_sets:set(beam_ssa:argument()).
+-type try_tags() :: gb_sets:set(beam_ssa:b_var()).
+-type branch() :: {variables(), try_tags()}.
 
 -record(vvars,
-        {blocks :: #{ beam_ssa:label() => beam_ssa:b_blk() },
-         branch_def_vars :: #{
-                              %% Describes the variable state at the time of
-                              %% this exact branch (phi node validation).
-                              {From :: beam_ssa:label(),
-                               To :: beam_ssa:label()} => defined_vars(),
-                              %% Describes the variable state common to all
-                              %% branches leading to this label (un/redefined
-                              %% variable validation).
-                              beam_ssa:label() => defined_vars() },
-         defined_vars :: defined_vars()}).
+        { blocks :: #{ beam_ssa:label() => beam_ssa:b_blk() },
+          branches :: #{ %% Describes the variable state at the time of
+                         %% this exact branch (phi node validation).
+                         {From :: beam_ssa:label(),
+                          To :: beam_ssa:label()} => branch(),
+                         %% Describes the variable state common to all
+                         %% branches leading to this label (un/redefined
+                         %% variable validation).
+                         beam_ssa:label() => branch() },
+          variables :: variables(),
+          try_tags :: try_tags() }).
 
 -spec validate_variables(beam_ssa:b_function()) -> ok.
 validate_variables(#b_function{ args = Args, bs = Blocks }) ->
     %% Prefill the mapping with function arguments.
     Args = vvars_get_variables(Args),
-    DefVars = gb_sets:from_list(Args),
+    Vars = gb_sets:from_list(Args),
+    TryTags = gb_sets:new(),
     Entry = 0,
 
     State = #vvars{blocks = Blocks,
-                   branch_def_vars = #{ Entry => DefVars },
-                   defined_vars = DefVars},
+                   branches = #{ Entry => {Vars, TryTags} },
+                   variables = Vars,
+                   try_tags = TryTags },
     ok = vvars_assert_unique(Blocks, Args),
     vvars_phi_nodes(vvars_block(Entry, State)).
 
@@ -143,7 +157,7 @@ vvars_phi_nodes_1([], _Id, _State) ->
       I :: beam_ssa:b_set(),
       State :: #vvars{}.
 vvars_assert_phi_paths(Phis, I, Id, State) ->
-    BranchKeys = maps:keys(State#vvars.branch_def_vars),
+    BranchKeys = maps:keys(State#vvars.branches),
     RequiredPaths = ordsets:from_list([From || {From, To} <- BranchKeys, To =:= Id]),
     ProvidedPaths = ordsets:from_list([From || {_Value, From} <- Phis]),
     case ordsets:subtract(RequiredPaths, ProvidedPaths) of
@@ -165,21 +179,19 @@ vvars_assert_phi_paths(Phis, I, Id, State) ->
       Id :: beam_ssa:label(),
       I :: beam_ssa:b_set(),
       State :: #vvars{}.
-vvars_assert_phi_vars(Phis, I, Id, #vvars{blocks=Blocks,
-                                          branch_def_vars=BranchDefVars}) ->
-    Vars = [{Var, From} || {#b_var{}=Var, From} <- Phis],
+vvars_assert_phi_vars(Phis, I, Id, #vvars{blocks=Blocks,branches=Branches}) ->
+    PhiVars = [{Var, From} || {#b_var{}=Var, From} <- Phis],
     foreach(fun({Var, From}) ->
-                    BranchKey = {From, Id},
-                    case BranchDefVars of
-                        #{BranchKey:=DefVars} ->
-                            case gb_sets:is_member(Var, DefVars) of
+                    case Branches of
+                        #{ {From, Id} := {Vars, _TryTags} } ->
+                            case gb_sets:is_member(Var, Vars) of
                                 true -> ok;
                                 false -> throw({unknown_variable, Var, I})
                             end;
                         #{} ->
-                            throw({unknown_phi_variable, Var, BranchKey, I})
+                            throw({unknown_phi_variable, Var, {From, Id}, I})
                     end
-            end, Vars),
+            end, PhiVars),
     Labels = [From || {#b_literal{},From} <- Phis],
     foreach(fun(Label) ->
                     case Blocks of
@@ -195,9 +207,9 @@ vvars_assert_phi_vars(Phis, I, Id, #vvars{blocks=Blocks,
       State :: #vvars{}.
 vvars_block(Id, State0) ->
     #{ Id := #b_blk{ is = Is, last = Terminator} } = State0#vvars.blocks,
-    #{ Id := DefVars } = State0#vvars.branch_def_vars,
+    #{ Id := {Vars, TryTags} } = State0#vvars.branches,
     validate_normalized(Terminator),
-    State = State0#vvars{ defined_vars = DefVars },
+    State = State0#vvars{ variables = Vars, try_tags = TryTags },
     vvars_terminator(Terminator, Id, vvars_block_1(Is, Terminator, State)).
 
 validate_normalized(I) ->
@@ -248,6 +260,24 @@ vvars_block_1([#b_set{ dst = Dst, op = phi } | Is], Terminator, State) ->
     %% visited their definition yet. They'll be handled later on in
     %% vvars_phi_nodes/1 after all blocks are processed.
     vvars_block_1(Is, Terminator, vvars_save_var(Dst, State));
+vvars_block_1([#b_set{ op = new_try_tag, dst = Dst, args = Args }=I | Is],
+              Terminator, State) ->
+    ok = vvars_assert_args(Args, I, State),
+    vvars_block_1(Is, Terminator, vvars_save_try_tag(Dst, State));
+vvars_block_1([#b_set{ op = kill_try_tag,
+                       dst = Dst,
+                       args = [Tag] }=I | Is],
+              Terminator, State0) ->
+    ok = vvars_assert_args([Tag], I, State0),
+    State = vvars_kill_try_tag(Tag, State0),
+    vvars_block_1(Is, Terminator, vvars_save_var(Dst, State));
+vvars_block_1([#b_set{ op = catch_end,
+                       dst = Dst,
+                       args = [Tag, Kind] }=I | Is],
+              Terminator, State0) ->
+    ok = vvars_assert_args([Kind], I, State0),
+    State = vvars_kill_try_tag(Tag, State0),
+    vvars_block_1(Is, Terminator, vvars_save_var(Dst, State));
 vvars_block_1([#b_set{ dst = Dst, args = Args }=I | Is], Terminator, State) ->
     ok = vvars_assert_args(Args, I, State),
     vvars_block_1(Is, Terminator, vvars_save_var(Dst, State));
@@ -258,9 +288,20 @@ vvars_block_1([], _Terminator, State) ->
       Terminator :: beam_ssa:terminator(),
       From :: beam_ssa:label(),
       State :: #vvars{}.
-vvars_terminator(#b_ret{ arg = Arg }=I, _From, State) ->
+vvars_terminator(#b_ret{ arg = Arg }=I, From, State) ->
     ok = vvars_assert_args([Arg], I, State),
-    State;
+    TryTags = State#vvars.try_tags,
+    case {gb_sets:is_empty(TryTags),From} of
+        {false,?EXCEPTION_BLOCK} ->
+            %% Plain guards sometimes branch off to ?EXCEPTION_BLOCK even
+            %% though they cannot actually throw exceptions. This ought to be
+            %% fixed at the source, but we'll ignore this for now.
+            State;
+        {false,_} ->
+            throw({active_try_tags_on_return, TryTags, I});
+        {true,_} ->
+            State
+    end;
 vvars_terminator(#b_switch{arg=Arg,fail=Fail,list=Switch}=I, From, State) ->
     ok = vvars_assert_args([Arg], I, State),
     ok = vvars_assert_args([A || {A,_Lbl} <- Switch], I, State),
@@ -269,10 +310,6 @@ vvars_terminator(#b_switch{arg=Arg,fail=Fail,list=Switch}=I, From, State) ->
     vvars_terminator_1(Labels, From, State);
 vvars_terminator(#b_br{bool=#b_literal{val=true},succ=Succ}=I, From, State) ->
     Labels = [Succ],
-    ok = vvars_assert_labels(Labels, I, State),
-    vvars_terminator_1(Labels, From, State);
-vvars_terminator(#b_br{bool=#b_literal{val=false},fail=Fail}=I, From, State) ->
-    Labels = [Fail],
     ok = vvars_assert_labels(Labels, I, State),
     vvars_terminator_1(Labels, From, State);
 vvars_terminator(#b_br{ bool = Arg, succ = Succ, fail = Fail }=I, From, State) ->
@@ -285,11 +322,11 @@ vvars_terminator(#b_br{ bool = Arg, succ = Succ, fail = Fail }=I, From, State) -
       Labels :: list(beam_ssa:label()),
       From :: beam_ssa:label(),
       State :: #vvars{}.
-vvars_terminator_1(Labels0, From, State0) ->
+vvars_terminator_1(Labels0, From, #vvars{branches=Branches}=State0) ->
     %% Filter out all branches that have already been taken. This should result
     %% in either all of Labels0 or an empty list.
     Labels = [To || To <- Labels0,
-                    not maps:is_key({From, To}, State0#vvars.branch_def_vars)],
+                    not maps:is_key({From, To}, Branches)],
     true = Labels =:= Labels0 orelse Labels =:= [], %Assertion
     State1 = foldl(fun(To, State) ->
                            vvars_save_branch(From, To, State)
@@ -310,11 +347,11 @@ vvars_get_variables(Args) ->
       Args :: list(beam_ssa:argument()),
       I :: beam_ssa:terminator() | beam_ssa:b_set(),
       State :: #vvars{}.
-vvars_assert_args(Args, I, #vvars{defined_vars=DefVars}=State) ->
+vvars_assert_args(Args, I, #vvars{variables=Vars}=State) ->
     foreach(fun(#b_remote{mod=Mod,name=Name}) ->
                     vvars_assert_args([Mod,Name], I, State);
                (#b_var{}=Var) ->
-                    case gb_sets:is_member(Var, DefVars) of
+                    case gb_sets:is_member(Var, Vars) of
                         true -> ok;
                         false -> throw({unknown_variable,Var,I})
                     end;
@@ -339,33 +376,59 @@ vvars_assert_labels(Labels, I, #vvars{blocks=Blocks}) ->
       To :: beam_ssa:label(),
       State :: #vvars{}.
 vvars_save_branch(From, To, State) ->
-    DefVars = State#vvars.defined_vars,
-    Branches0 = State#vvars.branch_def_vars,
+    Vars = State#vvars.variables,
+    TryTags = State#vvars.try_tags,
+    Branches0 = State#vvars.branches,
     case Branches0 of
-        #{ To := LblDefVars } ->
-            MergedVars = vvars_merge_branches(DefVars, LblDefVars),
+        #{ To := {LblVars, LblTryTags} } ->
+            MergedVars = vvars_merge_variables(Vars, LblVars),
+            MergedTags = vvars_merge_try_tags(TryTags, LblTryTags),
 
-            Branches = Branches0#{ To => MergedVars, {From, To} => DefVars },
-            State#vvars { branch_def_vars = Branches };
+            Merged = {MergedVars, MergedTags},
+            Branch = {Vars, TryTags},
+
+            Branches = Branches0#{ To => Merged, {From, To} => Branch },
+            State#vvars { branches = Branches };
         _ ->
-            Branches = Branches0#{ To => DefVars, {From, To} => DefVars },
-            State#vvars { branch_def_vars = Branches }
+            Branch = {Vars, TryTags},
+            Branches = Branches0#{ To => Branch, {From, To} => Branch },
+            State#vvars { branches = Branches }
     end.
 
--spec vvars_merge_branches(New, Existing) -> defined_vars() when
-      New :: defined_vars(),
-      Existing :: defined_vars().
-vvars_merge_branches(New, Existing) ->
+-spec vvars_merge_variables(New, Existing) -> variables() when
+      New :: variables(),
+      Existing :: variables().
+vvars_merge_variables(New, Existing) ->
     gb_sets:intersection(New, Existing).
+
+-spec vvars_merge_try_tags(New, Existing) -> try_tags() when
+      New :: try_tags(),
+      Existing :: try_tags().
+vvars_merge_try_tags(New, Existing) ->
+    gb_sets:union(New, Existing).
 
 -spec vvars_save_var(Var, State) -> #vvars{} when
       Var :: #b_var{},
       State :: #vvars{}.
 vvars_save_var(Var, State0) ->
     %% vvars_assert_unique guarantees that variables are never set twice.
-    DefVars = gb_sets:insert(Var, State0#vvars.defined_vars),
-    State0#vvars{ defined_vars = DefVars }.
+    Vars = gb_sets:insert(Var, State0#vvars.variables),
+    State0#vvars{ variables = Vars }.
 
+-spec vvars_save_try_tag(Var, State) -> #vvars{} when
+      Var :: #b_var{},
+      State :: #vvars{}.
+vvars_save_try_tag(Var, State0) ->
+    Vars = gb_sets:insert(Var, State0#vvars.variables),
+    TryTags = gb_sets:insert(Var, State0#vvars.try_tags),
+    State0#vvars{ variables = Vars, try_tags = TryTags }.
+
+-spec vvars_kill_try_tag(Var, State) -> #vvars{} when
+      Var :: #b_var{},
+      State :: #vvars{}.
+vvars_kill_try_tag(Var, State0) ->
+    TryTags = gb_sets:delete(Var, State0#vvars.try_tags),
+    State0#vvars{ try_tags = TryTags }.
 
 format_error_1({redefined_variable, Name, Old, I}) ->
     io_lib:format("Variable ~ts (~ts) redefined by ~ts",
@@ -405,4 +468,8 @@ format_error_1({not_normalized, I}) ->
                   [format_instr(I)]);
 format_error_1({succeeded_not_followed_by_two_way_br, I}) ->
     io_lib:format("~ts not followed by a two-way branch",
-                  [format_instr(I)]).
+                  [format_instr(I)]);
+format_error_1({active_try_tags_on_return, TryTags0, I}) ->
+    TryTags = format_vars(gb_sets:to_list(TryTags0)),
+    io_lib:format("Try tags ~ts are still active on ~ts",
+                  [TryTags, format_instr(I)]).

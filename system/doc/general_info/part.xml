@@ -30,5 +30,7 @@
     <file>part.xml</file>
   </header>
   <xi:include href="deprecations.xml"/>
+  <xi:include href="removed.xml"/>
   <xi:include href="scheduled_for_removal.xml"/>
+  <xi:include href="upcoming_incompatibilities.xml"/>
 </part>

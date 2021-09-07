@@ -43,7 +43,7 @@
 
 -type ssl_handshake() :: #server_hello{} | #server_hello_done{} | #certificate{} | #certificate_request{} |
 			 #client_key_exchange{} | #finished{} | #certificate_verify{} |
-			 #hello_request{} | #next_protocol{}.
+			 #hello_request{} | #next_protocol{} | #end_of_early_data{}.
 
 %% Create handshake messages
 -export([hello_request/0, server_hello/4, server_hello_done/0,
@@ -81,9 +81,12 @@
 	]).
 
 -export([get_cert_params/1,
+         select_own_cert/1,
          server_name/3,
+         path_validate/9,
+         path_validation/10,
          validation_fun_and_state/4,
-         handle_path_validation_error/7]).
+         path_validation_alert/1]).
 
 %%====================================================================
 %% Create handshake messages 
@@ -125,30 +128,20 @@ server_hello_done() ->
     #server_hello_done{}.
 
 %%--------------------------------------------------------------------
--spec certificate(der_cert(), db_handle(), certdb_ref(), client | server) -> #certificate{} | #alert{}.
+-spec certificate([der_cert()] | undefined, db_handle(), certdb_ref(), client | server) -> #certificate{} | #alert{}.
 %%
 %% Description: Creates a certificate message.
 %%--------------------------------------------------------------------
-certificate(OwnCert, CertDbHandle, CertDbRef, client) ->
-    Chain =
-	case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
-	    {ok, _,  CertChain} ->
-		CertChain;
-	    {error, _} ->
-		%% If no suitable certificate is available, the client
-		%% SHOULD send a certificate message containing no
-		%% certificates. (chapter 7.4.6. RFC 4346)
-		[]
-	end,
-    #certificate{asn1_certificates = Chain};
-
-certificate(OwnCert, CertDbHandle, CertDbRef, server) ->
-    case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
-	{ok, _, Chain} ->
-	    #certificate{asn1_certificates = Chain};
-	{error, Error} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {server_has_no_suitable_certificates, Error})
-    end.
+certificate(undefined, _, _, client) ->
+    %% If no suitable certificate is available, the client
+    %% SHOULD send a certificate message containing no
+    %% certificates. (chapter 7.4.6. RFC 4346)
+    #certificate{asn1_certificates = []};
+certificate([OwnCert], CertDbHandle, CertDbRef, _) ->
+    {ok, _,  CertChain} = ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef),
+    #certificate{asn1_certificates = CertChain};
+certificate([_, _ |_] = Chain, _, _, _) ->
+    #certificate{asn1_certificates = Chain}.
 
 %%--------------------------------------------------------------------
 -spec client_certificate_verify(undefined | der_cert(), binary(),
@@ -162,7 +155,7 @@ client_certificate_verify(undefined, _, _, _, _, _) ->
     ignore;
 client_certificate_verify(_, _, _, _, undefined, _) ->
     ignore;
-client_certificate_verify(OwnCert, MasterSecret, Version,
+client_certificate_verify([OwnCert|_], MasterSecret, Version,
 			  {HashAlgo, SignAlgo},
 			  PrivateKey, {Handshake, _}) ->
     case public_key:pkix_is_fixed_dh_cert(OwnCert) of
@@ -344,50 +337,25 @@ next_protocol(SelectedProtocol) ->
 %%--------------------------------------------------------------------
 certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
         #{server_name_indication := ServerNameIndication,
-          partial_chain := PartialChain,
-          verify_fun := VerifyFun,
-          customize_hostname_check := CustomizeHostnameCheck,
-          crl_check := CrlCheck,
-          log_level := Level,
-          signature_algs := SignAlgos,
-          depth := Depth} = Opts, CRLDbHandle, Role, Host, Version,
-          #{cert_ext := CertExt,
-            ocsp_responder_certs := OcspResponderCerts,
-            ocsp_state := OcspState}) ->
+          partial_chain := PartialChain} = SSlOptions, 
+        CRLDbHandle, Role, Host, Version, CertExt) ->
     ServerName = server_name(ServerNameIndication, Host, Role),
-    [PeerCert | ChainCerts ] = ASN1Certs,
+    [PeerCert | _ChainCerts ] = ASN1Certs,
     try
-	{TrustedCert, CertPath}  =
-	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef,
-                                                  PartialChain),
-        ValidationFunAndState = validation_fun_and_state(VerifyFun, #{role => Role,
-                                                                      certdb => CertDbHandle,
-                                                                      certdb_ref => CertDbRef,
-                                                                      server_name => ServerName,
-                                                                      customize_hostname_check =>
-                                                                          CustomizeHostnameCheck,
-                                                                      signature_algs => SignAlgos,
-                                                                      signature_algs_cert => undefined,
-                                                                      version => Version,
-                                                                      crl_check => CrlCheck,
-                                                                      crl_db => CRLDbHandle,
-                                                                      cert_ext => CertExt,
-                                                                      issuer => TrustedCert,
-                                                                      ocsp_responder_certs => OcspResponderCerts,
-                                                                      ocsp_state => OcspState},
-                                                         CertPath, Level),
-        Options = [{max_path_length, Depth},
-                   {verify_fun, ValidationFunAndState}],
-	case public_key:pkix_path_validation(TrustedCert, CertPath, Options) of
+	PathsAndAnchors  =
+	    ssl_certificate:trusted_cert_and_paths(ASN1Certs, CertDbHandle, CertDbRef,
+                                                   PartialChain),
+        
+	case path_validate(PathsAndAnchors, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+                           Version, SSlOptions, CertExt) of
 	    {ok, {PublicKeyInfo, _}} ->
                 {PeerCert, PublicKeyInfo};
 	    {error, Reason} ->
-		    handle_path_validation_error(Reason, PeerCert, ChainCerts, Opts, Options,
-                                         CertDbHandle, CertDbRef)
+                path_validation_alert(Reason)
 	end
     catch
-	error:{_,{error, {asn1, Asn1Reason}}} ->
-	    %% ASN-1 decode of certificate somehow failed
+        error:{_,{error, {asn1, Asn1Reason}}} ->
+            %% ASN-1 decode of certificate somehow failed
             ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason});
         error:OtherReason ->
             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {unexpected_error, OtherReason})
@@ -403,8 +371,8 @@ certificate_verify(_, _, _, undefined, _, _) ->
 
 certificate_verify(Signature, PublicKeyInfo, Version,
 		   HashSign = {HashAlgo, _}, MasterSecret, {_, Handshake}) ->
-    Hash = calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
-    case verify_signature(Version, Hash, HashSign, Signature, PublicKeyInfo) of
+    Msg = calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
+    case verify_signature(Version, Msg, HashSign, Signature, PublicKeyInfo) of
 	true ->
 	    valid;
 	_ ->
@@ -416,35 +384,32 @@ certificate_verify(Signature, PublicKeyInfo, Version,
 %%
 %% Description: Checks that a public_key signature is valid.
 %%--------------------------------------------------------------------
-verify_signature({3, 4}, Hash, {HashAlgo, SignAlgo}, Signature, 
+verify_signature(_, Msg, {HashAlgo, SignAlgo}, Signature,
                  {_, PubKey, PubKeyParams}) when  SignAlgo == rsa_pss_rsae;
                                                   SignAlgo == rsa_pss_pss ->
     Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
-    public_key:verify(Hash, HashAlgo, Signature, PubKey, Options);
-verify_signature({3, 3}, Hash, {HashAlgo, SignAlgo}, Signature, 
-                 {_, PubKey, PubKeyParams}) when  SignAlgo == rsa_pss_rsae;
-                                                  SignAlgo == rsa_pss_pss ->
-    Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
-    public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey, Options);
-verify_signature({3, Minor}, Hash, {HashAlgo, SignAlgo}, Signature, {?rsaEncryption, PubKey, PubKeyParams})
+    public_key:verify(Msg, HashAlgo, Signature, PubKey, Options);
+verify_signature({3, Minor}, Msg, {HashAlgo, SignAlgo}, Signature, {?rsaEncryption, PubKey, PubKeyParams})
   when Minor >= 3 ->
     Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
-    public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey, Options);
-verify_signature({3, Minor}, Hash, _HashAlgo, Signature, {?rsaEncryption, PubKey, _PubKeyParams}) when Minor =< 2 ->
+    public_key:verify(Msg, HashAlgo, Signature, PubKey, Options);
+verify_signature({3, Minor}, {digest, Digest}, _HashAlgo, Signature, {?rsaEncryption, PubKey, _PubKeyParams}) when Minor =< 2 ->
     case public_key:decrypt_public(Signature, PubKey,
 				   [{rsa_pad, rsa_pkcs1_padding}]) of
-	Hash -> true;
+	Digest -> true;
 	_   -> false
     end;
-verify_signature({3, 4}, Hash, {HashAlgo, _SignAlgo}, Signature, {?'id-ecPublicKey', PubKey, PubKeyParams}) ->
-    public_key:verify(Hash, HashAlgo, Signature, {PubKey, PubKeyParams});
-verify_signature(_, Hash, {HashAlgo, _SignAlg}, Signature,
+verify_signature({3, 4}, Msg, {_, eddsa}, Signature, {?'id-Ed25519', PubKey, PubKeyParams}) ->
+    public_key:verify(Msg, none, Signature, {PubKey, PubKeyParams});
+verify_signature({3, 4}, Msg, {_, eddsa}, Signature, {?'id-Ed448', PubKey, PubKeyParams}) ->
+    public_key:verify(Msg, none, Signature, {PubKey, PubKeyParams});
+verify_signature(_, Msg, {HashAlgo, _SignAlg}, Signature,
 		 {?'id-ecPublicKey', PublicKey, PublicKeyParams}) ->
-    public_key:verify({digest, Hash}, HashAlgo, Signature, {PublicKey, PublicKeyParams});
-verify_signature({3, Minor}, _Hash, {_HashAlgo, anon}, _Signature, _) when Minor =< 3 ->
+    public_key:verify(Msg, HashAlgo, Signature, {PublicKey, PublicKeyParams});
+verify_signature({3, Minor}, _Msg, {_HashAlgo, anon}, _Signature, _) when Minor =< 3 ->
     true;
-verify_signature({3, Minor}, Hash, {HashAlgo, dsa}, Signature, {?'id-dsa', PublicKey, PublicKeyParams})  when Minor =< 3->
-    public_key:verify({digest, Hash}, HashAlgo, Signature, {PublicKey, PublicKeyParams}).
+verify_signature({3, Minor}, Msg, {HashAlgo, dsa}, Signature, {?'id-dsa', PublicKey, PublicKeyParams})  when Minor =< 3->
+    public_key:verify(Msg, HashAlgo, Signature, {PublicKey, PublicKeyParams}).
 
 %%--------------------------------------------------------------------
 -spec master_secret(ssl_record:ssl_version(), #session{} | binary(), ssl_record:connection_states(),
@@ -482,17 +447,18 @@ master_secret(Version, PremasterSecret, ConnectionStates, Role) ->
     end.
 
 %%--------------------------------------------------------------------
--spec server_key_exchange_hash(md5sha | md5 | sha | sha224 |sha256 | sha384 | sha512, binary()) -> binary().
+-spec server_key_exchange_hash(md5sha | sha | sha224 |sha256 | sha384 | sha512, binary()) -> binary() | {digest, binary()}.
 %%
-%% Description: Calculate server key exchange hash
+%% Description: Calculate the digest of the server key exchange hash if it is complex
 %%--------------------------------------------------------------------
 server_key_exchange_hash(md5sha, Value) ->
     MD5 = crypto:hash(md5, Value),
     SHA = crypto:hash(sha, Value),
-    <<MD5/binary, SHA/binary>>;
+    {digest, <<MD5/binary, SHA/binary>>};
 
-server_key_exchange_hash(Hash, Value) ->
-    crypto:hash(Hash, Value).
+server_key_exchange_hash(_, Value) ->
+    %% Optimization: Let crypto calculate the hash in sign/verify call
+    Value.
 
 %%--------------------------------------------------------------------
 -spec verify_connection(ssl_record:ssl_version(), #finished{}, client | server, integer(), binary(),
@@ -537,10 +503,11 @@ verify_server_key(#server_key_params{params_bin = EncParams,
 	ssl_record:pending_connection_state(ConnectionStates, read),
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
+
     Hash = server_key_exchange_hash(HashAlgo,
-				    <<ClientRandom/binary,
-				      ServerRandom/binary,
-				      EncParams/binary>>),
+                                    <<ClientRandom/binary,
+                                      ServerRandom/binary,
+                                      EncParams/binary>>),
     verify_signature(Version, Hash, HashSign, Signature, PubKeyInfo).
 
 select_version(RecordCB, ClientVersion, Versions) ->
@@ -595,8 +562,9 @@ encode_handshake(#certificate_request{certificate_types = CertTypes,
 			    certificate_authorities = CertAuths},
        {Major, Minor})
   when Major == 3, Minor >= 3 ->
-    HashSigns= << <<(ssl_cipher:hash_algorithm(Hash)):8, (ssl_cipher:sign_algorithm(Sign)):8>> ||
-		   {Hash, Sign} <- HashSignAlgos >>,
+
+    HashSigns = << <<(ssl_cipher:signature_scheme(SignatureScheme)):16 >> ||
+		       SignatureScheme <- HashSignAlgos >>,
     CertTypesLen = byte_size(CertTypes),
     HashSignsLen = byte_size(HashSigns),
     CertAuthsLen = byte_size(CertAuths),
@@ -789,7 +757,13 @@ encode_extensions([#cookie{cookie = Cookie} | Rest], Acc) ->
     CookieLen = byte_size(Cookie),
     Len = CookieLen + 2,
     encode_extensions(Rest, <<?UINT16(?COOKIE_EXT), ?UINT16(Len), ?UINT16(CookieLen),
-				    Cookie/binary, Acc/binary>>).
+                              Cookie/binary, Acc/binary>>);
+encode_extensions([#early_data_indication{} | Rest], Acc) ->
+    encode_extensions(Rest, <<?UINT16(?EARLY_DATA_EXT),
+                              ?UINT16(0), Acc/binary>>);
+encode_extensions([#early_data_indication_nst{indication = MaxSize} | Rest], Acc) ->
+    encode_extensions(Rest, <<?UINT16(?EARLY_DATA_EXT),
+                              ?UINT16(4), ?UINT32(MaxSize), Acc/binary>>).
 
 encode_cert_status_req(
     StatusType,
@@ -885,13 +859,12 @@ decode_handshake(_Version, ?CERTIFICATE_STATUS, <<?BYTE(?CERTIFICATE_STATUS_TYPE
         response = ASN1OcspResponse};
 decode_handshake(_Version, ?SERVER_KEY_EXCHANGE, Keys) ->
     #server_key_exchange{exchange_keys = Keys};
-decode_handshake({Major, Minor}, ?CERTIFICATE_REQUEST,
+decode_handshake({Major, Minor} = Version, ?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
 	?UINT16(HashSignsLen), HashSigns:HashSignsLen/binary,
 	?UINT16(CertAuthsLen), CertAuths:CertAuthsLen/binary>>)
   when Major >= 3, Minor >= 3 ->
-    HashSignAlgos = [{ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)} ||
-			<<?BYTE(Hash), ?BYTE(Sign)>> <= HashSigns],
+    HashSignAlgos = decode_sign_alg(Version, HashSigns),
     #certificate_request{certificate_types = CertTypes,
 			 hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSignAlgos},
 			 certificate_authorities = CertAuths};
@@ -1013,7 +986,12 @@ available_suites(ServerCert, UserSuites, Version, HashSigns, Curve) ->
 available_signature_algs(undefined, _)  ->
     undefined;
 available_signature_algs(SupportedHashSigns, Version) when Version >= {3, 3} ->
-    #hash_sign_algos{hash_sign_algos = SupportedHashSigns};
+    case contains_scheme(SupportedHashSigns) of
+        true ->
+            #signature_algorithms{signature_scheme_list = SupportedHashSigns};
+        false ->
+            #hash_sign_algos{hash_sign_algos = SupportedHashSigns}
+    end;
 available_signature_algs(_, _) ->
     undefined.
 available_signature_algs(undefined, SupportedHashSigns, _, Version) when 
@@ -1025,6 +1003,13 @@ available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, Su
 				   sets:from_list(SupportedHashSigns)));
 available_signature_algs(_, _, _, _) -> 
     undefined.
+
+contains_scheme([]) ->
+    false;
+contains_scheme([Scheme | _]) when is_atom(Scheme) ->
+    true;
+contains_scheme([_| Rest]) ->
+    contains_scheme(Rest).
 
 cipher_suites(Suites, Renegotiation, true) ->
     %% TLS_FALLBACK_SCSV should be placed last -RFC7507
@@ -1196,18 +1181,22 @@ add_common_extensions({3,4},
                       _CipherSuites,
                       #{eccs := SupportedECCs,
                         supported_groups := Groups,
-                        signature_algs := SignatureSchemes}) ->
+                        signature_algs := SignatureSchemes,
+                        signature_algs_cert := SignatureCertSchemes}) ->
     {EcPointFormats, _} =
         client_ecc_extensions(SupportedECCs),
     HelloExtensions#{ec_point_formats => EcPointFormats,
                      elliptic_curves => Groups,
-                     signature_algs => signature_algs_ext(SignatureSchemes)};
+                     signature_algs => signature_algs_ext(SignatureSchemes),
+                     signature_algs_cert =>
+                         signature_algs_cert(SignatureCertSchemes)};
 
 add_common_extensions(Version,
                       HelloExtensions,
                       CipherSuites,
                       #{eccs := SupportedECCs,
-                        signature_algs := SupportedHashSigns}) ->
+                        signature_algs := SupportedHashSigns,
+                        signature_algs_cert := SignatureCertSchemes}) ->
 
     {EcPointFormats, EllipticCurves} =
         case advertises_ec_ciphers(
@@ -1220,20 +1209,18 @@ add_common_extensions(Version,
         end,
     HelloExtensions#{ec_point_formats => EcPointFormats,
                      elliptic_curves => EllipticCurves,
-                     signature_algs => available_signature_algs(SupportedHashSigns, Version)}.
-
+                     signature_algs => available_signature_algs(SupportedHashSigns, Version),
+                     signature_algs_cert =>
+                         signature_algs_cert(SignatureCertSchemes)}.
 
 maybe_add_tls13_extensions({3,4},
                            HelloExtensions0,
-                           #{signature_algs_cert := SignatureSchemes,
-                                        versions := SupportedVersions},
+                           #{versions := SupportedVersions},
                            KeyShare,
                            TicketData) ->
     HelloExtensions1 =
         HelloExtensions0#{client_hello_versions =>
-                              #client_hello_versions{versions = SupportedVersions},
-                          signature_algs_cert =>
-                              signature_algs_cert(SignatureSchemes)},
+                              #client_hello_versions{versions = SupportedVersions}},
     HelloExtensions = maybe_add_key_share(HelloExtensions1, KeyShare),
     maybe_add_pre_shared_key(HelloExtensions, TicketData);
 maybe_add_tls13_extensions(_, HelloExtensions, _, _, _) ->
@@ -1330,7 +1317,9 @@ get_identities_binders(TicketData) ->
 %%
 get_identities_binders([], {Identities, Binders}, _) ->
     {lists:reverse(Identities), lists:reverse(Binders)};
-get_identities_binders([{Key, _, Identity, _, _, HKDF}|T], {I0, B0}, N) ->
+get_identities_binders([#ticket_data{key = Key,
+                                     identity = Identity,
+                                     cipher_suite = {_, HKDF}}|T], {I0, B0}, N) ->
     %% Use dummy binder for proper calculation of packet size when creating
     %% the real binder value.
     Binder = dummy_binder(HKDF),
@@ -1525,18 +1514,16 @@ select_hashsign(_, _, KeyExAlgo, _, _Version) when KeyExAlgo == dh_anon;
 %% The signature_algorithms extension was introduced with TLS 1.2. Ignore it if we have
 %% negotiated a lower version.
 select_hashsign({ClientHashSigns, ClientSignatureSchemes},
-                Cert, KeyExAlgo, undefined, {Major, Minor} = Version)
-  when Major >= 3 andalso Minor >= 3->
+                Cert, KeyExAlgo, undefined, {3, 3} = Version) ->
     select_hashsign({ClientHashSigns, ClientSignatureSchemes}, Cert, KeyExAlgo,
-                    tls_v1:default_signature_algs(Version), Version);
+                    tls_v1:default_signature_algs([Version]), Version);
 select_hashsign({#hash_sign_algos{hash_sign_algos = ClientHashSigns},
                  ClientSignatureSchemes0},
-                Cert, KeyExAlgo, SupportedHashSigns, {Major, Minor})
-  when Major >= 3 andalso Minor >= 3 ->
+                Cert, KeyExAlgo, SupportedHashSigns, {3, 3}) ->
     ClientSignatureSchemes = get_signature_scheme(ClientSignatureSchemes0),
-    {SignAlgo0, Param, PublicKeyAlgo0, _} = get_cert_params(Cert),
-    SignAlgo = sign_algo(SignAlgo0),
-    PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
+    {SignAlgo0, Param, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
+    SignAlgo = sign_algo(SignAlgo0, Param),
+    PublicKeyAlgo = ssl_certificate:public_key_type(PublicKeyAlgo0),
 
     %% RFC 5246 (TLS 1.2)
     %% If the client provided a "signature_algorithms" extension, then all
@@ -1556,15 +1543,17 @@ select_hashsign({#hash_sign_algos{hash_sign_algos = ClientHashSigns},
     %% signatures appearing in certificates.
     case is_supported_sign(SignAlgo, Param, ClientHashSigns, ClientSignatureSchemes) of
         true ->
-            case lists:filter(fun({_, S} = Algos) when S == PublicKeyAlgo ->
-                                      is_acceptable_hash_sign(Algos, KeyExAlgo, SupportedHashSigns);
-                                 (_)  ->
-                                      false
-                              end, ClientHashSigns) of
-                [] ->
-                    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm);
-                [HashSign | _] ->
-                    HashSign
+            case
+                (KeyExAlgo == psk) orelse
+                (KeyExAlgo == dhe_psk) orelse
+                (KeyExAlgo == ecdhe_psk) orelse
+                (KeyExAlgo == srp_anon) orelse
+                (KeyExAlgo == dh_anon) orelse
+                (KeyExAlgo == ecdhe_anon) of
+                true ->
+                    ClientHashSigns;
+                false ->
+                    do_select_hashsign(ClientHashSigns, PublicKeyAlgo, SupportedHashSigns)
             end;
         false ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
@@ -1588,31 +1577,20 @@ select_hashsign(#certificate_request{
                 Cert,
                 SupportedHashSigns,
 		{Major, Minor})  when Major >= 3 andalso Minor >= 3->
-    {SignAlgo0, Param, PublicKeyAlgo0, _} = get_cert_params(Cert),
-    SignAlgo = sign_algo(SignAlgo0),
-    PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
-
+    {SignAlgo0, Param, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
+    SignAlgo = {_, KeyType} = sign_algo(SignAlgo0, Param),
+    PublicKeyAlgo = ssl_certificate:public_key_type(PublicKeyAlgo0),
+    SignatureSchemes = [Scheme  || Scheme <- HashSigns, is_atom(Scheme), (KeyType == rsa_pss_pss) or (KeyType == rsa)],
     case is_acceptable_cert_type(PublicKeyAlgo, Types) andalso
-        %% certificate_request has no "signature_algorithms_cert"
-        %% extension in TLS 1.2.
-        is_supported_sign(SignAlgo, Param, HashSigns, undefined) of
+        is_supported_sign(SignAlgo, Param, HashSigns, SignatureSchemes) of
 	true ->
-	    case lists:filter(fun({_, S} = Algos) when S == PublicKeyAlgo ->
-				 is_acceptable_hash_sign(Algos, SupportedHashSigns);
-			    (_)  ->
-				      false
-			      end, HashSigns) of
-		[] ->
-		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm);
-		[HashSign | _] ->
-		    HashSign
-	    end;
+            do_select_hashsign(HashSigns, PublicKeyAlgo, SupportedHashSigns);
 	false ->
 	    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
     end;
 select_hashsign(#certificate_request{certificate_types = Types}, Cert, _, Version) ->
-    {_, _, PublicKeyAlgo0, _} = get_cert_params(Cert),
-    PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
+    {_, _, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
+    PublicKeyAlgo = ssl_certificate:public_key_type(PublicKeyAlgo0),
 
     %% Check cert even for TLS 1.0/1.1
     case is_acceptable_cert_type(PublicKeyAlgo, Types) of
@@ -1623,11 +1601,29 @@ select_hashsign(#certificate_request{certificate_types = Types}, Cert, _, Versio
     end.
 
 
+do_select_hashsign(HashSigns, PublicKeyAlgo, SupportedHashSigns) ->
+    case lists:filter(fun({H, rsa_pss_pss = S}) when S == PublicKeyAlgo ->
+                              is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), SupportedHashSigns);
+                         ({H, rsa_pss_rsae = S}) when PublicKeyAlgo == rsa ->
+                              is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), SupportedHashSigns);
+                         ({_, S} = Algos) when S == PublicKeyAlgo ->
+                              is_acceptable_hash_sign(Algos, SupportedHashSigns);
+                         (_A)  ->
+                              false
+                      end, HashSigns) of
+        [] ->
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm);
+        [HashSign | _] ->
+            HashSign
+    end.
+
+
 %% Gets the relevant parameters of a certificate:
 %% - signature algorithm
 %% - parameters of the signature algorithm
 %% - public key algorithm (key type)
 %% - RSA key size in bytes
+%% - Elliptic Curve (public key)
 get_cert_params(Cert) ->
     #'OTPCertificate'{tbsCertificate = TBSCert,
 		      signatureAlgorithm =
@@ -1643,10 +1639,106 @@ get_cert_params(Cert) ->
             _ ->
                 undefined
         end,
-    {SignAlgo, Param, PublicKeyAlgo, RSAKeySize}.
+    Curve = get_ec_curve(TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo),
+    {SignAlgo, Param, PublicKeyAlgo, RSAKeySize, Curve}.
+
+get_ec_curve(#'OTPSubjectPublicKeyInfo'{
+                algorithm = #'PublicKeyAlgorithm'{
+                               algorithm = ?'id-ecPublicKey',
+                               parameters = {namedCurve, ?'secp256r1'}}}) ->
+    secp256r1;
+get_ec_curve(#'OTPSubjectPublicKeyInfo'{
+                algorithm = #'PublicKeyAlgorithm'{
+                               algorithm = ?'id-ecPublicKey',
+                               parameters = {namedCurve, ?'secp384r1'}}}) ->
+    secp384r1;
+get_ec_curve(#'OTPSubjectPublicKeyInfo'{
+                algorithm = #'PublicKeyAlgorithm'{
+                               algorithm = ?'id-ecPublicKey',
+                               parameters = {namedCurve, ?'secp521r1'}}}) ->
+    secp521r1;
+get_ec_curve(#'OTPSubjectPublicKeyInfo'{
+                algorithm = #'PublicKeyAlgorithm'{
+                               algorithm = ?'id-ecPublicKey',
+                               parameters = {ecParameters,
+                                             #'ECParameters'{curve = #'Curve'{} = Curve,
+                                                             base = Base,
+                                                             order = Order,
+                                                             cofactor = Cofactor}}}}) ->
+    curve_to_atom(Curve, Base, Order, Cofactor);
+get_ec_curve(_) ->
+    unsupported.
+
+curve_to_atom(#'Curve'{
+                a = <<255,255,255,255,0,0,0,1,0,0,0,0,0,0,0,0,
+                      0,0,0,0,255,255,255,255,255,255,255,255,255,255,255,252>>,
+                b = <<90,198,53,216,170,58,147,231,179,235,189,85,118,152,134,188,
+                      101,29,6,176,204,83,176,246,59,206,60,62,39,210,96,75>>,
+                seed = <<196,157,54,8,134,231,4,147,106,102,120,225,19,157,38,183,
+                         129,159,126,144>>},
+              <<4,107,23,209,242,225,44,66,71,248,188,230,229,99,164,64,
+                242,119,3,125,129,45,235,51,160,244,161,57,69,216,152,194,
+                150,79,227,66,226,254,26,127,155,142,231,235,74,124,15,158,
+                22,43,206,51,87,107,49,94,206,203,182,64,104,55,191,81,
+                245>>,
+              115792089210356248762697446949407573529996955224135760342422259061068512044369,
+              1
+             ) ->
+    secp256r1;
+curve_to_atom(#'Curve'{
+                 a = <<255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+                       255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,254,
+                       255,255,255,255,0,0,0,0,0,0,0,0,255,255,255,252>>,
+                 b = <<179,49,47,167,226, 62,231,228,152,142,5,107,227,248,45,25,
+                       24,29,156,110,254,129,65,18,3,20,8,143,80,19,135,90,
+                       198,86,57,141,138,46,209,157,42,133,200,237,211,236,42,239>>,
+                 seed = <<163,53,146,106,163,25,162,122,29,0,137,106,103,115,164,130,
+                          122,205,172,115>>},
+              <<4,170,135,202,34,190,139,5,55,142,177,199,30,243,32,173,
+                116,110,29,59,98,139,167,155,152,89,247,65,224,130,84,42,
+                56,85,2,242,93,191,85,41,108,58,84,94,56,114,118,10,
+                183,54,23,222,74,150,38,44,111,93,158,152,191,146,146,220,
+                41,248,244,29,189,40,154,20,124,233,218,49,19,181,240,184,
+                192,10,96,177,206,29,126,129,157,122,67,29,124,144,234,14,
+                95>>,
+              39402006196394479212279040100143613805079739270465446667946905279627659399113263569398956308152294913554433653942643,
+              1) ->
+    secp384r1;
+curve_to_atom(#'Curve'{
+                 a = <<1,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+                       255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+                       255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+                       255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+                       255,252>>,
+                 b = <<0,81,149,62,185,97,142,28,154,31,146,154,33,160,182,133,
+                       64,238,162,218,114,91,153,179,21,243,184,180,137,145,142,241,
+                       9,225,86,25,57,81,236,126,147,123,22,82,192,189,59,177,
+                       191,7,53,115,223,136,61,44,52,241,239,69,31,212,107,80,
+                       63,0>>,
+                 seed = <<208,158,136,0,41,28,184,83,150,204,103,23,57,50,132,170,
+                          160,218,100,186>>},
+              <<4,0,198,133,142,6,183,4,4,233,205,158,62,203,102,35,
+                149,180,66,156,100,129,57,5,63,181,33,248,40,175,96,107,
+                77,61,186,161,75,94,119,239,231,89,40,254,29,193,39,162,
+                255,168,222,51,72,179,193,133,106,66,155,249,126,126,49,194,
+                229,189,102,1,24,57,41,106,120,154,59,192,4,92,138,95,
+                180,44,125,27,217,152,245,68,73,87,155,68,104,23,175,189,
+                23,39,62,102,44,151,238,114,153,94,244,38,64,197,80,185,
+                1,63,173,7,97,53,60,112,134,162,114,194,64,136,190,148,
+                118,159,209,102,80>>,
+              6864797660130609714981900799081393217269435300143305409394463459185543183397655394245057746333217197532963996371363321113864768612440380340372808892707005449,
+              1) ->
+    secp521r1;
+curve_to_atom(_, _, _, _) ->
+    unsupported.
+
+select_own_cert([OwnCert| _]) ->
+    OwnCert;
+select_own_cert(undefined) ->
+    undefined.
 
 get_signature_scheme(undefined) ->
-    undefined;
+    [];
 get_signature_scheme(#signature_algorithms_cert{
                         signature_scheme_list = ClientSignatureSchemes}) ->
     ClientSignatureSchemes.
@@ -1674,10 +1766,9 @@ get_signature_scheme(#signature_algorithms_cert{
 %%    ECDHE_ECDSA), behave as if the client had sent value {sha1,ecdsa}.
 
 %%--------------------------------------------------------------------
-select_hashsign_algs(HashSign, _, {Major, Minor}) when HashSign =/= undefined andalso
-						       Major >= 3 andalso Minor >= 3 ->
+select_hashsign_algs(HashSign, _, {3, 3}) when HashSign =/= undefined  ->
     HashSign;
-select_hashsign_algs(undefined, ?rsaEncryption, {Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
+select_hashsign_algs(undefined, ?rsaEncryption, {3,3})  ->
     {sha, rsa};
 select_hashsign_algs(undefined,?'id-ecPublicKey', _) ->
     {sha, ecdsa};
@@ -1753,6 +1844,7 @@ handle_ocsp_extension(false = Stapling, Extensions) ->
         _Else -> %% unsolicited status_request
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unexpected_status_request)
     end.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -1810,6 +1902,13 @@ certificate_authorities_from_db(_CertDbHandle, {extracted, CertDbData}) ->
 		[], CertDbData).
 
 %%-------------Handle handshake messages --------------------------------
+path_validate(TrustedAndPath, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+              Version, SslOptions, CertExt) ->
+    InitialPotentialError = {error, {bad_cert, unknown_ca}},
+    InitialInvalidated = [],
+    path_validate(TrustedAndPath, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+                  Version, SslOptions, CertExt, InitialInvalidated, InitialPotentialError).
+
 validation_fun_and_state({Fun, UserState0}, VerifyState, CertPath, LogLevel) ->
     {fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
 	     case ssl_certificate:validate(OtpCert,
@@ -1881,58 +1980,6 @@ maybe_check_hostname(OtpCert, valid_peer, SslState) ->
 maybe_check_hostname(_, valid, _) ->
     valid.
 
-handle_path_validation_error({bad_cert, unknown_ca} = Reason, PeerCert, Chain,  
-                             Opts, Options, CertDbHandle, CertsDbRef) ->
-    handle_incomplete_chain(PeerCert, Chain, Opts, Options, CertDbHandle, CertsDbRef, Reason);
-handle_path_validation_error({bad_cert, invalid_issuer} = Reason, PeerCert, Chain0, 
-			     Opts, Options, CertDbHandle, CertsDbRef) ->
-    handle_unordered_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, Reason);
-handle_path_validation_error(Reason, _, _, _, _,_, _) ->
-    path_validation_alert(Reason).
-
-handle_incomplete_chain(PeerCert, Chain0,
-                        #{partial_chain := PartialChain} = Opts, Options, CertDbHandle, CertsDbRef, Reason) ->
-    case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, CertsDbRef) of
-        {ok, _, [PeerCert | _] = Chain} when Chain =/= Chain0 -> %% Chain candidate found          
-            case ssl_certificate:trusted_cert_and_path(Chain,
-                                                       CertDbHandle, CertsDbRef,
-                                                       PartialChain) of
-                {unknown_ca, []} ->
-                    path_validation_alert(Reason);
-                {Trusted, Path} ->
-                    case public_key:pkix_path_validation(Trusted, Path, Options) of
-                        {ok, {PublicKeyInfo,_}} ->
-                            {PeerCert, PublicKeyInfo};
-                        {error, PathError} ->
-                            handle_unordered_chain(PeerCert, Chain0, Opts, Options, 
-                                                   CertDbHandle, CertsDbRef, PathError)
-                    end
-            end;
-        _ ->
-            handle_unordered_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, Reason)
-    end.
-
-handle_unordered_chain(PeerCert, Chain0,
-                     #{partial_chain := PartialChain}, Options, CertDbHandle, CertsDbRef, Reason) ->
-    {ok,  ExtractedCerts} = ssl_pkix_db:extract_trusted_certs({der, Chain0}),
-    case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, ExtractedCerts, Chain0) of
-        {ok, _, Chain} when  Chain =/= Chain0 -> %% Chain appaears to be unordered 
-            case ssl_certificate:trusted_cert_and_path(Chain,
-                                                       CertDbHandle, CertsDbRef,
-                                                       PartialChain) of
-                {unknown_ca, []} ->
-                    path_validation_alert(Reason);
-                {Trusted, Path} ->
-                    case public_key:pkix_path_validation(Trusted, Path, Options) of
-                        {ok, {PublicKeyInfo,_}} ->
-                            {PeerCert, PublicKeyInfo};
-                        {error, PathError} ->
-                            path_validation_alert(PathError)
-                    end
-            end;
-        _ ->
-            path_validation_alert(Reason)
-    end.
 
 path_validation_alert({bad_cert, cert_expired}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_EXPIRED);
@@ -1956,8 +2003,9 @@ path_validation_alert({bad_cert, unknown_ca}) ->
 path_validation_alert(Reason) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason).
 
-digitally_signed(Version, Hashes, HashAlgo, PrivateKey, SignAlgo) ->
-    try do_digitally_signed(Version, Hashes, HashAlgo, PrivateKey, SignAlgo) of
+
+digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) ->
+    try do_digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) of
 	Signature ->
 	    Signature
     catch
@@ -1965,36 +2013,26 @@ digitally_signed(Version, Hashes, HashAlgo, PrivateKey, SignAlgo) ->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey)))
     end.
 
-do_digitally_signed({3, Minor}, Hash, _, 
-                    #{algorithm := rsa} = Engine, rsa) when Minor =< 2->
-    crypto:private_encrypt(rsa, Hash, maps:remove(algorithm, Engine),
-                           rsa_pkcs1_padding);
-do_digitally_signed({3, Minor}, Hash, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo)
-  when Minor > 3 ->
+do_digitally_signed({3, Minor}, Msg, HashAlgo, {#'RSAPrivateKey'{} = Key,
+                                                 #'RSASSA-PSS-params'{}}, SignAlgo) when Minor >= 3 ->
     Options = signature_options(SignAlgo, HashAlgo),
-    crypto:sign(Alg, HashAlgo, Hash, maps:remove(algorithm, Engine), Options);
-do_digitally_signed({3, Minor}, Hash, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo)
-  when Minor > 3 ->
-    Options = signature_options(SignAlgo, HashAlgo),
-    crypto:sign(Alg, HashAlgo, Hash, maps:remove(algorithm, Engine), Options);
-do_digitally_signed({3, 3}, Hash, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo) ->
-    Options = signature_options(SignAlgo, HashAlgo),
-    crypto:sign(Alg, HashAlgo, {digest, Hash}, maps:remove(algorithm, Engine), Options);
-do_digitally_signed({3, 4}, Hash, HashAlgo, {#'RSAPrivateKey'{} = Key,
-                                             #'RSASSA-PSS-params'{}}, SignAlgo) ->
-    Options = signature_options(SignAlgo, HashAlgo),
-    public_key:sign(Hash, HashAlgo, Key, Options);
-do_digitally_signed({3, 4}, Hash, HashAlgo, Key, SignAlgo) ->
-    Options = signature_options(SignAlgo, HashAlgo),
-    public_key:sign(Hash, HashAlgo, Key, Options);
-do_digitally_signed({3, Minor}, Hash, HashAlgo, Key, SignAlgo) when Minor >= 3 ->
-    Options = signature_options(HashAlgo, SignAlgo),
-    public_key:sign({digest,Hash}, HashAlgo, Key, Options);
-do_digitally_signed({3, Minor}, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa) when  Minor =< 2 ->
-    public_key:encrypt_private(Hash, Key,
+    public_key:sign(Msg, HashAlgo, Key, Options);
+do_digitally_signed({3, Minor}, {digest, Digest}, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa) when Minor =< 2 ->
+    public_key:encrypt_private(Digest, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]);
-do_digitally_signed(_Version, Hash, HashAlgo, Key, _SignAlgo) ->
-    public_key:sign({digest, Hash}, HashAlgo, Key).
+do_digitally_signed({3, Minor}, {digest, Digest}, _,
+                    #{algorithm := rsa} = Engine, rsa) when Minor =< 2->
+    crypto:private_encrypt(rsa, Digest, maps:remove(algorithm, Engine),
+                           rsa_pkcs1_padding);
+do_digitally_signed(_, Msg, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo) ->
+    Options = signature_options(SignAlgo, HashAlgo),
+    crypto:sign(Alg, HashAlgo, Msg, maps:remove(algorithm, Engine), Options);
+do_digitally_signed({3, Minor}, {digest, _} = Msg , HashAlgo, Key, _) when Minor =< 2 ->
+    public_key:sign(Msg, HashAlgo, Key);
+do_digitally_signed(_, Msg, HashAlgo, Key, SignAlgo) ->
+    Options = signature_options(SignAlgo, HashAlgo),
+    public_key:sign(Msg, HashAlgo, Key, Options).
+
     
 signature_options(SignAlgo, HashAlgo) when SignAlgo =:= rsa_pss_rsae orelse
                                            SignAlgo =:= rsa_pss_pss ->
@@ -2031,22 +2069,30 @@ cert_status_check(_, #{ocsp_state := #{ocsp_stapling := true,
     valid; %% OCSP staple will now be checked by ssl_certifcate:verify_cert_extensions/2 in ssl_certifcate:validate
 cert_status_check(OtpCert, #{ocsp_state := #{ocsp_stapling := false}} = SslState, VerifyResult, CertPath, LogLevel) ->
     maybe_check_crl(OtpCert, SslState, VerifyResult, CertPath, LogLevel);
-cert_status_check(OtpCert, #{ocsp_state := #{ocsp_stapling := best_effort, %%TODO should we support
+cert_status_check(_OtpCert, #{ocsp_state := #{ocsp_stapling := true,
+                                              ocsp_expect := undetermined}},
+                  _VerifyResult, _CertPath, _LogLevel) ->
+    {bad_cert, {revocation_status_undetermined, not_stapled}};
+cert_status_check(OtpCert, #{ocsp_state := #{ocsp_stapling := best_effort, %% TODO support this ?
                                              ocsp_expect := undetermined}} = SslState, 
                   VerifyResult, CertPath, LogLevel) ->
-    maybe_check_crl(OtpCert, SslState, VerifyResult, CertPath, LogLevel).
+    maybe_check_crl(OtpCert, SslState, VerifyResult, CertPath, LogLevel);
+cert_status_check(_OtpCert, #{ocsp_state := #{ocsp_stapling := true,
+                                              ocsp_expect := no_staple}},
+                  _VerifyResult, _CertPath, _LogLevel) ->
+    {bad_cert, {revocation_status_undetermined, not_stapled}}.
 
 maybe_check_crl(_, #{crl_check := false}, _, _, _) ->
     valid;
-maybe_check_crl(_, #{crl_check := peer}, _, valid, _) -> %% Do not check CAs with this option.
+maybe_check_crl(_, #{crl_check := peer}, valid, _, _) -> %% Do not check CAs with this option.
     valid;
 maybe_check_crl(OtpCert, #{crl_check := Check, 
                      certdb := CertDbHandle,
                      certdb_ref := CertDbRef,
                      crl_db := {Callback, CRLDbHandle}}, _, CertPath, LogLevel) ->
     Options = [{issuer_fun, {fun(_DP, CRL, Issuer, DBInfo) ->
-				     ssl_crl:trusted_cert_and_path(CRL, Issuer, {CertPath,
-                                                                                 DBInfo})
+				     ssl_crl:trusted_cert_and_path(CRL, Issuer, CertPath,
+                                                                   DBInfo)
 			     end, {CertDbHandle, CertDbRef}}}, 
 	       {update_crl, fun(DP, CRL) ->
                                     case Callback:fresh_crl(DP, CRL) of
@@ -2272,7 +2318,7 @@ encode_server_key(#server_dh_params{dh_p = P, dh_g = G, dh_y = Y}) ->
     <<?UINT16(PLen), P/binary, ?UINT16(GLen), G/binary, ?UINT16(YLen), Y/binary>>;
 encode_server_key(#server_ecdh_params{curve = {namedCurve, ECCurve}, public = ECPubKey}) ->
     %%TODO: support arbitrary keys
-    KLen = size(ECPubKey),
+    KLen = byte_size(ECPubKey),
     <<?BYTE(?NAMED_CURVE), ?UINT16((tls_v1:oid_to_enum(ECCurve))),
       ?BYTE(KLen), ECPubKey/binary>>;
 encode_server_key(#server_psk_params{hint = PskIdentityHint}) ->
@@ -2297,7 +2343,7 @@ encode_server_key(#server_ecdhe_psk_params{
 		       curve = {namedCurve, ECCurve}, public = ECPubKey}}) ->
     %%TODO: support arbitrary keys
     Len = byte_size(PskIdentityHint),
-    KLen = size(ECPubKey),
+    KLen = byte_size(ECPubKey),
     <<?UINT16(Len), PskIdentityHint/binary,
       ?BYTE(?NAMED_CURVE), ?UINT16((tls_v1:oid_to_enum(ECCurve))),
       ?BYTE(KLen), ECPubKey/binary>>;
@@ -2360,6 +2406,10 @@ enc_sign(_HashSign, Sign, _Version) ->
 	SignLen = byte_size(Sign),
 	<<?UINT16(SignLen), Sign/binary>>.
 
+enc_hashsign(HashAlgo, SignAlgo) when SignAlgo == rsa_pss_pss;
+                                      SignAlgo == rsa_pss_rsae ->
+    Sign = ssl_cipher:signature_scheme(list_to_existing_atom(atom_to_list(SignAlgo) ++ "_" ++ atom_to_list(HashAlgo))),
+    <<?UINT16(Sign)>>;
 enc_hashsign(HashAlgo, SignAlgo) ->
     Hash = ssl_cipher:hash_algorithm(HashAlgo),
     Sign = ssl_cipher:sign_algorithm(SignAlgo),
@@ -2380,8 +2430,8 @@ enc_server_key_exchange(Version, Params, {HashAlgo, SignAlgo},
 			       signature = <<>>};
 	_ ->
 	    Hash =
-		server_key_exchange_hash(HashAlgo, <<ClientRandom/binary,
-						     ServerRandom/binary,
+                server_key_exchange_hash(HashAlgo, <<ClientRandom/binary,
+                                                     ServerRandom/binary,
 						     EncParams/binary>>),
 	    Signature = digitally_signed(Version, Hash, HashAlgo, PrivateKey, SignAlgo),
 	    #server_key_params{params = Params,
@@ -2688,7 +2738,7 @@ decode_extensions(<<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen),
 
 decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
-  when Version < {3,4} ->
+  when Version < {3,3} ->
     SignAlgoListLen = Len - 2,
     <<?UINT16(SignAlgoListLen), SignAlgoList/binary>> = ExtData,
     HashSignAlgos = [{ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)} ||
@@ -2697,6 +2747,26 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
                       Acc#{signature_algs =>
                                #hash_sign_algos{hash_sign_algos =
                                                     HashSignAlgos}});
+decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
+		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
+  when Version =:= {3,3} ->
+    SignSchemeListLen = Len - 2,
+    <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
+    HashSigns = decode_sign_alg(Version, SignSchemeList),
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{signature_algs =>
+                               #hash_sign_algos{
+                                  hash_sign_algos = HashSigns}});
+decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
+		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
+  when Version =:= {3,4} ->
+    SignSchemeListLen = Len - 2,
+    <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
+    SignSchemes = decode_sign_alg(Version, SignSchemeList),
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{signature_algs =>
+                               #signature_algorithms{
+                                  signature_scheme_list = SignSchemes}});
 
 decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
@@ -2881,6 +2951,7 @@ decode_extensions(<<?UINT16(?COOKIE_EXT), ?UINT16(Len), ?UINT16(CookieLen),
   when Len == CookieLen + 2 ->
     decode_extensions(Rest, Version, MessageType,
                       Acc#{cookie => #cookie{cookie = Cookie}});
+
 %% RFC6066, if a server returns a "CertificateStatus" message, then
 %% the server MUST have included an extension of type "status_request"
 %% with empty "extension_data" in the extended server hello.
@@ -2906,6 +2977,18 @@ decode_extensions(<<?UINT16(?STATUS_REQUEST), ?UINT16(Len),
             decode_extensions(Rest, Version, MessageType, Acc)
     end;
 
+decode_extensions(<<?UINT16(?EARLY_DATA_EXT), ?UINT16(0), Rest/binary>>,
+                  Version, MessageType, Acc) ->
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{early_data => #early_data_indication{}});
+
+decode_extensions(<<?UINT16(?EARLY_DATA_EXT), ?UINT16(4), ?UINT32(MaxSize),
+                    Rest/binary>>,
+                  Version, MessageType, Acc) ->
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{early_data =>
+                               #early_data_indication_nst{indication = MaxSize}});
+
 %% Ignore data following the ClientHello (i.e.,
 %% extensions) if not understood.
 decode_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
@@ -2914,8 +2997,56 @@ decode_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len/binary, Rest/binary>>
 decode_extensions(_, _, _, Acc) ->
     Acc.
 
-dec_hashsign(<<?BYTE(HashAlgo), ?BYTE(SignAlgo)>>) ->
-    {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)}.
+decode_sign_alg({3,3}, SignSchemeList) ->
+    %% Ignore unknown signature algorithms
+    Fun = fun(Elem) ->
+                  case ssl_cipher:signature_scheme(Elem) of
+                      unassigned ->
+                          false;
+                      Value when is_atom(Value)->
+                          case ssl_cipher:scheme_to_components(Value) of
+                              {Hash, rsa_pss_rsae = Sign, _} ->
+                                  {true, {Hash, Sign}};
+                              {Hash, rsa_pss_pss = Sign, _} ->
+                                  {true,{Hash, Sign}};
+                              {sha1, rsa_pkcs1, _} ->
+                                  {true,{sha, rsa}};
+                              {Hash, rsa_pkcs1, _} ->
+                                  {true,{Hash, rsa}};
+                              {sha1, ecdsa, _} ->
+                                  {true,{sha, ecdsa}};
+                              {sha512,ecdsa, _} ->
+                                  {true,{sha512, ecdsa}};
+                              {sha384,ecdsa, _} ->
+                                  {true,{sha384, ecdsa}};
+                              {sha256,ecdsa, _}->
+                                  {true,{sha256, ecdsa}};
+                              _ ->
+                                  false
+                          end;
+                      Value ->
+                          {true, Value}
+                  end
+          end,
+    lists:filtermap(Fun, [SignScheme ||
+                             <<?UINT16(SignScheme)>> <= SignSchemeList]);
+decode_sign_alg({3,4}, SignSchemeList) ->
+    %% Ignore unknown signature algorithms
+    Fun = fun(Elem) ->
+                  case ssl_cipher:signature_scheme(Elem) of
+                      unassigned ->
+                          false;
+                      Value ->
+                          {true, Value}
+                  end
+          end,
+    lists:filtermap(Fun, [SignScheme ||
+                             <<?UINT16(SignScheme)>> <= SignSchemeList]).
+
+dec_hashsign(Value) ->
+    [HashSign] = decode_sign_alg({3,3}, Value),
+    HashSign.
+
 
 %% Ignore unknown names (only host_name is supported)
 dec_sni(<<?BYTE(?SNI_NAMETYPE_HOST_NAME), ?UINT16(Len),
@@ -3108,7 +3239,6 @@ handle_psk_identity(_PSKIdentity, LookupFun)
 handle_psk_identity(PSKIdentity, {Fun, UserState}) ->
     Fun(psk, PSKIdentity, UserState).
 
-
 filter_hashsigns([], [], _, _, Acc) ->
     lists:reverse(Acc);
 filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Version,
@@ -3252,18 +3382,6 @@ handle_srp_extension(undefined, Session) ->
 handle_srp_extension(#srp{username = Username}, Session) ->
     Session#session{srp_username = Username}.
 
-is_acceptable_hash_sign( _, KeyExAlgo, _) when 
-      KeyExAlgo == psk;
-      KeyExAlgo == dhe_psk;
-      KeyExAlgo == ecdhe_psk;
-      KeyExAlgo == srp_anon;
-      KeyExAlgo == dh_anon;
-      KeyExAlgo == ecdhe_anon     
-      ->
-    true; 
-is_acceptable_hash_sign(Algos,_, SupportedHashSigns) -> 
-    is_acceptable_hash_sign(Algos, SupportedHashSigns).
-
 is_acceptable_hash_sign(Algos, SupportedHashSigns) ->
     lists:member(Algos, SupportedHashSigns).
 
@@ -3271,7 +3389,7 @@ is_acceptable_cert_type(Sign, Types) ->
     lists:member(sign_type(Sign), binary_to_list(Types)).
 
 %% signature_algorithms_cert = undefined
-is_supported_sign(SignAlgo, _, HashSigns, undefined) ->
+is_supported_sign(SignAlgo, _, HashSigns, []) ->
     lists:member(SignAlgo, HashSigns);
 
 %% {'SignatureAlgorithm',{1,2,840,113549,1,1,11},'NULL'}
@@ -3317,14 +3435,6 @@ is_supported_sign({Hash, Sign}, _Param, _, SignatureSchemes) ->
           end,
     lists:foldl(Fun, false, SignatureSchemes).
 
-%% SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
-%%   dsa | rsa-encryption | dh  | kea  | ec-public-key }
-public_key_algo(?rsaEncryption) ->
-    rsa;
-public_key_algo(?'id-ecPublicKey') ->
-    ecdsa;
-public_key_algo(?'id-dsa') ->
-    dsa.
 
 %% SupportedSignatureAlgorithms SIGNATURE-ALGORITHM-CLASS ::= {
 %%   dsa-with-sha1 | dsaWithSHA1 |  md2-with-rsa-encryption |
@@ -3338,7 +3448,11 @@ public_key_algo(?'id-dsa') ->
 %%   ecdsa-with-sha256 |
 %%   ecdsa-with-sha384 |
 %%   ecdsa-with-sha512 }
-sign_algo(Alg) ->
+sign_algo(?'id-RSASSA-PSS', #'RSASSA-PSS-params'{maskGenAlgorithm =
+                                                     #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                                         parameters = #'HashAlgorithm'{algorithm = HashOid}}}) ->
+    {public_key:pkix_hash_type(HashOid), rsa_pss_pss};
+sign_algo(Alg, _) ->
     public_key:pkix_sign_types(Alg).
 
 sign_type(rsa) ->
@@ -3599,3 +3713,77 @@ empty_extensions(_, server_hello) ->
 
 handle_log(Level, {LogLevel, ReportMap, Meta}) ->
     ssl_logger:log(Level, LogLevel, ReportMap, Meta).
+
+%%% Recurse over possible paths until we find a valid one
+%%% or run out of alternatives.
+path_validate([], _, _, _, _, _, _, _, _, _, {error, {bad_cert, root_cert_expired}}) ->
+    %% ROOT cert expired and no alternative ROOT certs could be found
+    %% to validate this path or shorter variant of this path. So fail it
+    %% with normal certificate expire reason.
+    {error, {bad_cert, cert_expired}};
+path_validate([], _, _, _, _, _, _, _, _, _, Error) ->
+    Error;
+path_validate([{TrustedCert, Path} | Rest], ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+              Version, SslOptions, CertExt, InvalidatedList, Error) ->
+    CB = path_validation_cb(Version),
+    case CB:path_validation(TrustedCert, Path, ServerName,
+                         Role, CertDbHandle, CertDbRef, CRLDbHandle,
+                         Version, SslOptions, CertExt) of
+        {error, {bad_cert, root_cert_expired}} = NewError ->
+            NewInvalidatedList = [TrustedCert | InvalidatedList],
+            Alt = ssl_certificate:find_cross_sign_root_paths(Path, CertDbHandle, CertDbRef, NewInvalidatedList),
+            path_validate(Alt ++ Rest, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+                          Version, SslOptions, CertExt, NewInvalidatedList, NewError);
+        {error, {bad_cert, unknown_ca}} = NewError ->
+            Alt = ssl_certificate:find_cross_sign_root_paths(Path, CertDbHandle, CertDbRef, InvalidatedList),
+            path_validate(Alt ++ Rest, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+                          Version, SslOptions, CertExt, InvalidatedList,  error_to_propagate(Error, NewError));
+        {error, _} when Rest =/= []->
+            path_validate(Rest, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
+                          Version, SslOptions, CertExt, InvalidatedList, Error);
+        Result ->
+            Result
+    end.
+
+%% Call basic path validation algorithm in public_key pre TLS-1.3
+path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle, Version,
+                #{verify_fun := VerifyFun,
+                  customize_hostname_check := CustomizeHostnameCheck,
+                  crl_check := CrlCheck,
+                  log_level := Level,
+                  signature_algs := SignAlgos,
+                  signature_algs_cert := SignAlgosCert,
+                  depth := Depth}, 
+                #{cert_ext := CertExt,
+                  ocsp_responder_certs := OcspResponderCerts,
+                  ocsp_state := OcspState}) ->
+    ValidationFunAndState = 
+        validation_fun_and_state(VerifyFun, #{role => Role,
+                                              certdb => CertDbHandle,
+                                              certdb_ref => CertDbRef,
+                                              server_name => ServerName,
+                                              customize_hostname_check =>
+                                                  CustomizeHostnameCheck,
+                                              signature_algs => SignAlgos,
+                                              signature_algs_cert => SignAlgosCert,
+                                              version => Version,
+                                              crl_check => CrlCheck,
+                                              crl_db => CRLDbHandle,
+                                              cert_ext => CertExt,
+                                              issuer => TrustedCert,
+                                              ocsp_responder_certs => OcspResponderCerts,
+                                              ocsp_state => OcspState},
+                                 Path, Level),
+    Options = [{max_path_length, Depth},
+               {verify_fun, ValidationFunAndState}],
+    public_key:pkix_path_validation(TrustedCert, Path, Options).
+
+error_to_propagate({error, {bad_cert, root_cert_expired}} = Error, _) ->
+    Error;
+error_to_propagate(_, Error) ->
+    Error.
+
+path_validation_cb({3,4}) ->
+    tls_handshake_1_3;
+path_validation_cb(_) ->
+    ?MODULE.

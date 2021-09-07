@@ -112,9 +112,8 @@
       the port. (Although in the latest Erlang versions there is
       the binary syntax, which enables you to match on the beginning of
       a binary.)</p>
-    <p><marker id="smp_support"></marker>In the runtime system with
-      SMP support, drivers are locked either on driver level
-      or port level (driver instance level). By default
+      <p><marker id="smp_support"></marker>Drivers are locked either on
+      driver level or port level (driver instance level). By default
       driver level locking will be used, that is, only one emulator thread
       will execute code in the driver at a time. If port level locking
       is used, multiple emulator threads can execute code in the driver
@@ -139,18 +138,6 @@
         communication" is strongly discouraged.</p>
     </note>
 
-    <p>Previously, in the runtime system without SMP support,
-      specific driver callbacks were always called from the same
-      thread. This is <em>not</em> the case in the runtime system
-      with SMP support. Regardless of locking scheme used, calls
-      to driver callbacks can be made from different threads. For example,
-      two consecutive calls to exactly the same callback for exactly
-      the same port can be made from two different threads. This
-      is for <em>most</em> drivers not a problem, but it can be.
-      Drivers that depend on all callbacks that are called in the
-      same thread, <em>must</em> be rewritten before they are used
-      in the runtime system with SMP support.</p>
-
     <note>
       <p>Regardless of locking scheme used, calls to driver
         callbacks can be made from different threads.</p>
@@ -167,9 +154,7 @@
 
     <warning>
       <p>Functions not explicitly documented as thread-safe are
-        <em>not</em> thread safe. Also notice that some functions
-        are <em>only</em> thread-safe when used in a runtime
-        system with SMP support.</p>
+        <em>not</em> thread safe.</p>
       <p>A function not explicitly documented as thread-safe can, at
         some point in time, have a thread-safe implementation in the
         runtime system. Such an implementation can however change to
@@ -287,19 +272,8 @@
           omitted it from the Erlang driver thread API. In the Erlang driver
           case, time-outs can and are to be handled with the timer functionality
           of the Erlang driver API.</p>
-        <p>In order for the Erlang driver thread API to function, thread
-          support must be enabled in the runtime system. An Erlang driver
-          can check if thread support is enabled by use of
-          <seecref marker="#driver_system_info">
-          <c>driver_system_info</c></seecref>.
-          Notice that some functions in the Erlang driver API are thread-safe
-          only when the runtime system has SMP support, also this
-          information can be retrieved through
-          <seecref marker="#driver_system_info">
-          <c>driver_system_info</c></seecref>.
-          Also notice that many functions in the Erlang driver API are
-          <em>not</em> thread-safe, regardless of whether SMP support is
-          enabled or not. If a function is not documented as thread-safe, it
+        <p>Notice that many functions in the Erlang driver API are
+          <em>not</em> thread-safe. If a function is not documented as thread-safe, it
           is <em>not</em> thread-safe.</p>
         <note>
           <p>When executing in an emulator thread, it is
@@ -1177,8 +1151,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
           <item>Called from <seemfa marker="erlang#port_call/3">
             <c>erlang:port_call/3</c></seemfa>.</item>
         </taglist>
-        <p>Notice that this function is <em>not</em> thread-safe, not
-          even when the emulator with SMP support is used.</p>
+        <p>Notice that this function is <em>not</em> thread-safe.</p>
       </desc>
     </func>
 
@@ -1217,8 +1190,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
       <desc>
         <marker id="driver_connected"></marker>
         <p>Returns the port owner process.</p>
-        <p>Notice that this function is <em>not</em> thread-safe, not
-          even when the emulator with SMP support is used.</p>
+        <p>Notice that this function is <em>not</em> thread-safe.</p>
       </desc>
     </func>
 
@@ -1495,8 +1467,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
           <c>string</c>. The atom is created and does not change, so the
           return value can be saved and reused, which is faster than
           looking up the atom several times.</p>
-        <p>Notice that this function is <em>not</em> thread-safe, not
-          even when the emulator with SMP support is used.</p>
+        <p>Notice that this function is <em>not</em> thread-safe.</p>
       </desc>
     </func>
 
@@ -1511,8 +1482,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
           <c>erl_drv_output_term</c></seecref> and 
           <seecref marker="#erl_drv_send_term">
           <c>erl_drv_send_term</c></seecref>.</p>
-        <p>Notice that this function is <em>not</em> thread-safe, not
-          even when the emulator with SMP support is used.</p>
+        <p>Notice that this function is <em>not</em> thread-safe.</p>
       </desc>
     </func>
 
@@ -1602,8 +1572,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
         <p>Parameters <c>term</c> and <c>n</c> work as in
           <seecref marker="#erl_drv_output_term">
           <c>erl_drv_output_term</c></seecref>.</p>
-        <p>Notice that this function is <em>not</em> thread-safe, not
-          even when the emulator with SMP support is used.</p>
+        <p>Notice that this function is <em>not</em> thread-safe.</p>
       </desc>
     </func>
 
@@ -1905,8 +1874,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
             value of <c>mode</c>.</p>
         </note>
         <p><c>ERL_DRV_USE</c> specifies if we are using the event object or
-          if we want to close it.
-          On an emulator with SMP support, it is not safe to clear all events
+          if we want to close it. It is not safe to clear all events
           and then close the event object after <c>driver_select</c> has
           returned. Another thread can still be using the event object
           internally. To safely close an event object, call
@@ -1952,8 +1920,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
         <p>Parameters <c>term</c> and <c>n</c> work as in
           <seecref marker="#erl_drv_output_term">
           <c>erl_drv_output_term</c></seecref>.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -2647,8 +2614,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
         <p>The <c>ERL_DRV_UINT</c>, <c>ERL_DRV_BUF2BINARY</c>, and
           <c>ERL_DRV_EXT2TERM</c> term types were introduced in
           ERTS 5.6.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -2853,8 +2819,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
         <p>Parameters <c>port</c>, <c>term</c>, and <c>n</c> work as in
           <seecref marker="#erl_drv_output_term">
           <c>erl_drv_output_term</c></seecref>.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 

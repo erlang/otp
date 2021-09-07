@@ -1,0 +1,8 @@
+
+  [;1m-spec is_a_function(BinRel) -> Bool[0m
+  [;1m                       when[0m
+  [;1m                           Bool :: boolean(),[0m
+  [;1m                           BinRel :: binary_relation().[0m
+
+  Returns [;;4mtrue[0m if the binary relation [;;4mBinRel[0m is a function or
+  the untyped empty set, otherwise [;;4mfalse[0m.

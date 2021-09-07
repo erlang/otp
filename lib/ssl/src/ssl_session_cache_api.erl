@@ -40,3 +40,5 @@
 -callback foldl(fun(), term(), session_cache_ref()) -> term().
 -callback select_session(session_cache_ref(), {ssl:host(), inet:port_number()} | inet:port_number()) -> [#session{}].
 -callback size(session_cache_ref()) -> integer().
+
+-optional_callbacks([select_session/2, foldl/3]).

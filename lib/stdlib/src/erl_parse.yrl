@@ -26,12 +26,8 @@ form
 attribute attr_val
 function function_clauses function_clause
 clause_args clause_guard clause_body
-expr expr_100 expr_150 expr_160 expr_200 expr_300 expr_400 expr_500
-expr_600 expr_650 expr_700 expr_800
-expr_max
-pat_expr pat_expr_200 pat_expr_300 pat_expr_400 pat_expr_500
-pat_expr_600 pat_expr_650 pat_expr_700 pat_expr_800
-pat_expr_max map_pat_expr record_pat_expr
+expr expr_max expr_remote
+pat_expr pat_expr_max map_pat_expr record_pat_expr
 pat_argument_list pat_exprs
 list tail
 list_comprehension lc_expr lc_exprs
@@ -48,11 +44,11 @@ atomic strings
 prefix_op mult_op add_op list_op comp_op
 binary bin_elements bin_element bit_expr
 opt_bit_size_expr bit_size_expr opt_bit_type_list bit_type_list bit_type
-top_type top_type_100 top_types type typed_expr typed_attr_val
-type_sig type_sigs type_guard type_guards fun_type fun_type_100 binary_type
+top_type top_types type typed_expr typed_attr_val
+type_sig type_sigs type_guard type_guards fun_type binary_type
 type_spec spec_fun typed_exprs typed_record_fields field_types field_type
 map_pair_types map_pair_type
-bin_base_type bin_unit_type type_200 type_300 type_400 type_500.
+bin_base_type bin_unit_type.
 
 Terminals
 char integer float atom string var
@@ -73,6 +69,27 @@ dot.
 Expect 0.
 
 Rootsymbol form.
+
+%% Expressions
+
+Unary 0 'catch'.
+Right 100 '=' '!'.
+Right 150 'orelse'.
+Right 160 'andalso'.
+Nonassoc 200 comp_op.
+Right 300 list_op.
+Left 400 add_op.
+Left 500 mult_op.
+Unary 600 prefix_op.
+Nonassoc 700 '#'.
+Nonassoc 800 ':'.
+
+%% Types
+
+Right 150 '::'.
+Left 170 '|'.
+Nonassoc 200 '..'.
+Nonassoc 500 '*'. % for binary expressions
 
 form -> attribute dot : '$1'.
 form -> function dot : '$1'.
@@ -117,25 +134,14 @@ type_guard -> var '::' top_type        : build_constraint('$1', '$3').
 top_types -> top_type                     : ['$1'].
 top_types -> top_type ',' top_types       : ['$1'|'$3'].
 
-top_type -> var '::' top_type_100         : {ann_type, ?anno('$1'), ['$1','$3']}.
-top_type -> top_type_100                  : '$1'.
+top_type -> var '::' top_type             : {ann_type, ?anno('$1'), ['$1','$3']}.
+top_type -> type '|' top_type             : lift_unions('$1','$3').
+top_type -> type                          : '$1'.
 
-top_type_100 -> type_200                  : '$1'.
-top_type_100 -> type_200 '|' top_type_100 : lift_unions('$1','$3').
-
-type_200 -> type_300 '..' type_300        : {type, ?anno('$1'), range,
-                                             ['$1', '$3']}.
-type_200 -> type_300                      : '$1'.
-
-type_300 -> type_300 add_op type_400      : ?mkop2('$1', '$2', '$3').
-type_300 -> type_400                      : '$1'.
-
-type_400 -> type_400 mult_op type_500     : ?mkop2('$1', '$2', '$3').
-type_400 -> type_500                      : '$1'.
-
-type_500 -> prefix_op type                : ?mkop1('$1', '$2').
-type_500 -> type                          : '$1'.
-
+type -> type '..' type                    : {type, ?anno('$1'), range, ['$1', '$3']}.
+type -> type add_op type                  : ?mkop2('$1', '$2', '$3').
+type -> type mult_op type                 : ?mkop2('$1', '$2', '$3').
+type -> prefix_op type                    : ?mkop1('$1', '$2').
 type -> '(' top_type ')'                  : '$2'.
 type -> var                               : '$1'.
 type -> atom                              : '$1'.
@@ -160,13 +166,10 @@ type -> binary_type                       : '$1'.
 type -> integer                           : '$1'.
 type -> char                              : '$1'.
 type -> 'fun' '(' ')'                     : {type, ?anno('$1'), 'fun', []}.
-type -> 'fun' '(' fun_type_100 ')'        : '$3'.
+type -> 'fun' '(' fun_type ')'            : '$3'.
 
-fun_type_100 -> '(' '...' ')' '->' top_type
-                                          : {type, ?anno('$1'), 'fun',
+fun_type -> '(' '...' ')' '->' top_type   : {type, ?anno('$1'), 'fun',
                                              [{type, ?anno('$1'), any}, '$5']}.
-fun_type_100 -> fun_type                  : '$1'.
-
 fun_type -> '(' ')' '->' top_type  : {type, ?anno('$1'), 'fun',
                                       [{type, ?anno('$1'), product, []}, '$4']}.
 fun_type -> '(' top_types ')' '->' top_type
@@ -223,48 +226,22 @@ clause_body -> '->' exprs: '$2'.
 
 
 expr -> 'catch' expr : {'catch',?anno('$1'),'$2'}.
-expr -> expr_100 : '$1'.
+expr -> expr '=' expr : {match,first_anno('$1'),'$1','$3'}.
+expr -> expr '!' expr : ?mkop2('$1', '$2', '$3').
+expr -> expr 'orelse' expr : ?mkop2('$1', '$2', '$3').
+expr -> expr 'andalso' expr : ?mkop2('$1', '$2', '$3').
+expr -> expr comp_op expr : ?mkop2('$1', '$2', '$3').
+expr -> expr list_op expr : ?mkop2('$1', '$2', '$3').
+expr -> expr add_op expr : ?mkop2('$1', '$2', '$3').
+expr -> expr mult_op expr : ?mkop2('$1', '$2', '$3').
+expr -> prefix_op expr : ?mkop1('$1', '$2').
+expr -> map_expr : '$1'.
+expr -> function_call : '$1'.
+expr -> record_expr : '$1'.
+expr -> expr_remote : '$1'.
 
-expr_100 -> expr_150 '=' expr_100 : {match,?anno('$2'),'$1','$3'}.
-expr_100 -> expr_150 '!' expr_100 : ?mkop2('$1', '$2', '$3').
-expr_100 -> expr_150 : '$1'.
-
-expr_150 -> expr_160 'orelse' expr_150 : ?mkop2('$1', '$2', '$3').
-expr_150 -> expr_160 : '$1'.
-
-expr_160 -> expr_200 'andalso' expr_160 : ?mkop2('$1', '$2', '$3').
-expr_160 -> expr_200 : '$1'.
-
-expr_200 -> expr_300 comp_op expr_300 :
-	?mkop2('$1', '$2', '$3').
-expr_200 -> expr_300 : '$1'.
-
-expr_300 -> expr_400 list_op expr_300 :
-	?mkop2('$1', '$2', '$3').
-expr_300 -> expr_400 : '$1'.
-
-expr_400 -> expr_400 add_op expr_500 :
-	?mkop2('$1', '$2', '$3').
-expr_400 -> expr_500 : '$1'.
-
-expr_500 -> expr_500 mult_op expr_600 :
-	?mkop2('$1', '$2', '$3').
-expr_500 -> expr_600 : '$1'.
-
-expr_600 -> prefix_op expr_600 :
-	?mkop1('$1', '$2').
-expr_600 -> expr_650 : '$1'.
-
-expr_650 -> map_expr : '$1'.
-expr_650 -> expr_700 : '$1'.
-
-expr_700 -> function_call : '$1'.
-expr_700 -> record_expr : '$1'.
-expr_700 -> expr_800 : '$1'.
-
-expr_800 -> expr_max ':' expr_max :
-	{remote,?anno('$2'),'$1','$3'}.
-expr_800 -> expr_max : '$1'.
+expr_remote -> expr_max ':' expr_max : {remote,?anno('$2'),'$1','$3'}.
+expr_remote -> expr_max : '$1'.
 
 expr_max -> var : '$1'.
 expr_max -> atomic : '$1'.
@@ -281,36 +258,15 @@ expr_max -> receive_expr : '$1'.
 expr_max -> fun_expr : '$1'.
 expr_max -> try_expr : '$1'.
 
-pat_expr -> pat_expr_200 '=' pat_expr : {match,?anno('$2'),'$1','$3'}.
-pat_expr -> pat_expr_200 : '$1'.
-
-pat_expr_200 -> pat_expr_300 comp_op pat_expr_300 :
-	?mkop2('$1', '$2', '$3').
-pat_expr_200 -> pat_expr_300 : '$1'.
-
-pat_expr_300 -> pat_expr_400 list_op pat_expr_300 :
-	?mkop2('$1', '$2', '$3').
-pat_expr_300 -> pat_expr_400 : '$1'.
-
-pat_expr_400 -> pat_expr_400 add_op pat_expr_500 :
-	?mkop2('$1', '$2', '$3').
-pat_expr_400 -> pat_expr_500 : '$1'.
-
-pat_expr_500 -> pat_expr_500 mult_op pat_expr_600 :
-	?mkop2('$1', '$2', '$3').
-pat_expr_500 -> pat_expr_600 : '$1'.
-
-pat_expr_600 -> prefix_op pat_expr_600 :
-	?mkop1('$1', '$2').
-pat_expr_600 -> pat_expr_650 : '$1'.
-
-pat_expr_650 -> map_pat_expr : '$1'.
-pat_expr_650 -> pat_expr_700 : '$1'.
-
-pat_expr_700 -> record_pat_expr : '$1'.
-pat_expr_700 -> pat_expr_800 : '$1'.
-
-pat_expr_800 -> pat_expr_max : '$1'.
+pat_expr -> pat_expr '=' pat_expr : {match,first_anno('$1'),'$1','$3'}.
+pat_expr -> pat_expr comp_op pat_expr : ?mkop2('$1', '$2', '$3').
+pat_expr -> pat_expr list_op pat_expr : ?mkop2('$1', '$2', '$3').
+pat_expr -> pat_expr add_op pat_expr : ?mkop2('$1', '$2', '$3').
+pat_expr -> pat_expr mult_op pat_expr : ?mkop2('$1', '$2', '$3').
+pat_expr -> prefix_op pat_expr : ?mkop1('$1', '$2').
+pat_expr -> map_pat_expr : '$1'.
+pat_expr -> record_pat_expr : '$1'.
+pat_expr -> pat_expr_max : '$1'.
 
 pat_expr_max -> var : '$1'.
 pat_expr_max -> atomic : '$1'.
@@ -336,7 +292,7 @@ list -> '[' expr tail : {cons,?anno('$1'),'$2','$3'}.
 
 tail -> ']' : {nil,?anno('$1')}.
 tail -> '|' expr ']' : '$2'.
-tail -> ',' expr tail : {cons,?anno('$2'),'$2','$3'}.
+tail -> ',' expr tail : {cons,first_anno('$2'),'$2','$3'}.
 
 
 binary -> '<<' '>>' : {bin,?anno('$1'),[]}.
@@ -346,7 +302,7 @@ bin_elements -> bin_element : ['$1'].
 bin_elements -> bin_element ',' bin_elements : ['$1'|'$3'].
 
 bin_element -> bit_expr opt_bit_size_expr opt_bit_type_list :
-	{bin_element,?anno('$1'),'$1','$2','$3'}.
+	{bin_element,first_anno('$1'),'$1','$2','$3'}.
 
 bit_expr -> prefix_op expr_max : ?mkop1('$1', '$2').
 bit_expr -> expr_max : '$1'.
@@ -397,15 +353,15 @@ map_field -> map_field_assoc : '$1'.
 map_field -> map_field_exact : '$1'.
 
 map_field_assoc -> map_key '=>' expr :
-	{map_field_assoc,?anno('$1'),'$1','$3'}.
+	{map_field_assoc,?anno('$2'),'$1','$3'}.
 
 map_field_exact -> map_key ':=' expr :
-	{map_field_exact,?anno('$1'),'$1','$3'}.
+	{map_field_exact,?anno('$2'),'$1','$3'}.
 
 map_key -> expr : '$1'.
 
 
-%% N.B. This is called from expr_700.
+%% N.B. This is called from expr.
 %% N.B. Field names are returned as the complete object, even if they are
 %% always atoms for the moment, this might change in the future.
 
@@ -431,10 +387,10 @@ record_fields -> record_field ',' record_fields : ['$1' | '$3'].
 record_field -> var '=' expr : {record_field,?anno('$1'),'$1','$3'}.
 record_field -> atom '=' expr : {record_field,?anno('$1'),'$1','$3'}.
 
-%% N.B. This is called from expr_700.
+%% N.B. This is called from expr.
 
-function_call -> expr_800 argument_list :
-	{call,?anno('$1'),'$1',element(1, '$2')}.
+function_call -> expr_remote argument_list :
+	{call,first_anno('$1'),'$1',element(1, '$2')}.
 
 
 if_expr -> 'if' if_clauses 'end' : {'if',?anno('$1'),'$2'}.
@@ -443,7 +399,7 @@ if_clauses -> if_clause : ['$1'].
 if_clauses -> if_clause ';' if_clauses : ['$1' | '$3'].
 
 if_clause -> guard clause_body :
-	{clause,?anno(hd(hd('$1'))),[],'$1','$2'}.
+	{clause,first_anno(hd(hd('$1'))),[],'$1','$2'}.
 
 
 case_expr -> 'case' expr 'of' cr_clauses 'end' :
@@ -457,7 +413,7 @@ cr_clauses -> cr_clause ';' cr_clauses : ['$1' | '$3'].
 %% should be a better way.
 
 cr_clause -> expr clause_guard clause_body :
-	{clause,?anno('$1'),['$1'],'$2','$3'}.
+	{clause,first_anno('$1'),['$1'],'$2','$3'}.
 
 receive_expr -> 'receive' cr_clauses 'end' :
 	{'receive',?anno('$1'),'$2'}.
@@ -488,7 +444,7 @@ fun_clause -> pat_argument_list clause_guard clause_body :
 	{clause,Anno,'fun',Args,'$2','$3'}.
 
 fun_clause -> var pat_argument_list clause_guard clause_body :
-	{clause,element(2, '$1'),element(3, '$1'),element(1, '$2'),'$3','$4'}.
+	{clause,?anno('$1'),element(3, '$1'),element(1, '$2'),'$3','$4'}.
 
 try_expr -> 'try' exprs 'of' cr_clauses try_catch :
 	build_try(?anno('$1'),'$2','$4','$5').
@@ -506,16 +462,19 @@ try_clauses -> try_clause : ['$1'].
 try_clauses -> try_clause ';' try_clauses : ['$1' | '$3'].
 
 try_clause -> pat_expr clause_guard clause_body :
-	A = ?anno('$1'),
-	{clause,A,[{tuple,A,[{atom,A,throw},'$1',{var,A,'_'}]}],'$2','$3'}.
+	A = first_anno('$1'),
+        Az = last_anno('$1'), % Good enough...
+	{clause,A,[{tuple,A,[{atom,A,throw},'$1',{var,Az,'_'}]}],'$2','$3'}.
 try_clause -> atom ':' pat_expr try_opt_stacktrace clause_guard clause_body :
 	A = ?anno('$1'),
-	{clause,A,[{tuple,A,['$1','$3',{var,A,'$4'}]}],'$5','$6'}.
+	T = case '$4' of '_' -> {var,last_anno('$3'),'_'}; V -> V end,
+	{clause,A,[{tuple,A,['$1','$3',T]}],'$5','$6'}.
 try_clause -> var ':' pat_expr try_opt_stacktrace clause_guard clause_body :
 	A = ?anno('$1'),
-	{clause,A,[{tuple,A,['$1','$3',{var,A,'$4'}]}],'$5','$6'}.
+	T = case '$4' of '_' -> {var,last_anno('$3'),'_'}; V -> V end,
+	{clause,A,[{tuple,A,['$1','$3',T]}],'$5','$6'}.
 
-try_opt_stacktrace -> ':' var : element(3, '$2').
+try_opt_stacktrace -> ':' var : '$2'.
 try_opt_stacktrace -> '$empty' : '_'.
 
 argument_list -> '(' ')' : {[],?anno('$1')}.
@@ -602,9 +561,7 @@ Erlang code.
 -export([map_anno/2, fold_anno/3, mapfold_anno/3,
          new_anno/1, anno_to_term/1, anno_from_term/1]).
 
-%% The following directive is needed for (significantly) faster compilation
-%% of the generated .erl file by the HiPE compiler.  Please do not remove.
--compile([{hipe,[{regalloc,linear_scan}]}]).
+-export([first_anno/1]). % Internal export.
 
 -export_type([abstract_clause/0, abstract_expr/0, abstract_form/0,
               abstract_type/0, form_info/0, error_info/0]).
@@ -1032,7 +989,7 @@ Erlang code.
 
 -type type_name() :: atom().
 
--type form_info() :: {'eof', erl_anno:line()}
+-type form_info() :: {'eof', erl_anno:location()}
                    | {'error', erl_scan:error_info() | error_info()}
                    | {'warning', erl_scan:error_info() | error_info()}.
 
@@ -1040,7 +997,7 @@ Erlang code.
 
 %% XXX. To be refined.
 -type error_description() :: term().
--type error_info() :: {erl_anno:line(), module(), error_description()}.
+-type error_info() :: {erl_anno:location(), module(), error_description()}.
 -type token() :: erl_scan:token().
 
 %% mkop(Op, Arg) -> {op,Anno,Op,Arg}.
@@ -1099,7 +1056,7 @@ parse_exprs(Tokens) ->
     ?ANNO_CHECK(Tokens),
     A = erl_anno:new(0),
     case parse([{atom,A,f},{'(',A},{')',A},{'->',A}|Tokens]) of
-	{ok,{function,_Lf,f,0,[{clause,_Lc,[],[],Exprs}]}} ->
+	{ok,{function,_Af,f,0,[{clause,_Ac,[],[],Exprs}]}} ->
 	    {ok,Exprs};
 	{error,_} = Err -> Err
     end.
@@ -1116,10 +1073,10 @@ parse_term(Tokens) ->
 	    try normalise(Expr) of
 		Term -> {ok,Term}
 	    catch
-		_:_R -> {error,{location(?anno(Expr)),?MODULE,"bad term"}}
+		_:_R -> {error,{first_location(Expr),?MODULE,"bad term"}}
 	    end;
-	{ok,{function,_Af,f,A,[{clause,_Ac,[],[],[_E1,E2|_Es]}]}} ->
-	    {error,{location(?anno(E2)),?MODULE,"bad term"}};
+	{ok,{function,_Af,f,0,[{clause,_Ac,[],[],[_E1,E2|_Es]}]}} ->
+	    {error,{first_location(E2),?MODULE,"bad term"}};
 	{error,_} = Err -> Err
     end.
 
@@ -1135,17 +1092,16 @@ build_typed_attribute({atom,Aa,Attr},
     lists:foreach(fun({var, A, '_'}) -> ret_err(A, "bad type variable");
                      (_)             -> ok
                   end, Args),
-    case lists:all(fun({var, _, _}) -> true;
-                      (_)           -> false
-                   end, Args) of
-        true -> {attribute,Aa,Attr,{TypeName,Type,Args}};
-        false -> error_bad_decl(Aa, Attr)
-    end;
-build_typed_attribute({atom,Aa,Attr},_) ->
+    lists:foreach(fun({var, _, _}) -> true;
+                     (Other)       -> ret_abstr_err(Other,
+                                                    "bad type variable")
+                   end, Args),
+    {attribute,Aa,Attr,{TypeName,Type,Args}};
+build_typed_attribute({atom,Aa,Attr}=Abstr,_) ->
     case Attr of
-        record -> error_bad_decl(Aa, record);
-        type   -> error_bad_decl(Aa, type);
-	opaque -> error_bad_decl(Aa, opaque);
+        record -> error_bad_decl(Abstr, record);
+        type   -> error_bad_decl(Abstr, type);
+	opaque -> error_bad_decl(Abstr, opaque);
         _      -> ret_err(Aa, "bad attribute")
     end.
 
@@ -1175,7 +1131,7 @@ find_arity_from_specs([Spec|_]) ->
 build_compat_constraint({atom, _, is_subtype}, [{var, _, _}=LHS, Type]) ->
     build_constraint(LHS, Type);
 build_compat_constraint({atom, _, is_subtype}, [LHS, _Type]) ->
-    ret_err(?anno(LHS), "bad type variable");
+    ret_abstr_err(LHS, "bad type variable");
 build_compat_constraint({atom, A, Atom}, _Types) ->
     ret_err(A, io_lib:format("unsupported constraint ~tw", [Atom])).
 
@@ -1186,13 +1142,14 @@ build_constraint({atom, A, Atom}, _Foo) ->
 build_constraint({var, A, '_'}, _Types) ->
     ret_err(A, "bad type variable");
 build_constraint(LHS, Type) ->
-    IsSubType = {atom, ?anno(LHS), is_subtype},
-    {type, ?anno(LHS), constraint, [IsSubType, [LHS, Type]]}.
+    Anno = first_anno(LHS),
+    IsSubType = {atom, Anno, is_subtype},
+    {type, Anno, constraint, [IsSubType, [LHS, Type]]}.
 
 lift_unions(T1, {type, _Aa, union, List}) ->
-    {type, ?anno(T1), union, [T1|List]};
+    {type, first_anno(T1), union, [T1|List]};
 lift_unions(T1, T2) ->
-    {type, ?anno(T1), union, [T1, T2]}.
+    {type, first_anno(T1), union, [T1, T2]}.
 
 build_gen_type({atom, Aa, tuple}) ->
     {type, Aa, tuple, any};
@@ -1237,46 +1194,45 @@ build_attribute({atom,Aa,module}, Val) ->
 	    {attribute,Aa,module,Module};
 	[{atom,_Am,Module},ExpList] ->
 	    {attribute,Aa,module,{Module,var_list(ExpList)}};
-	_Other ->
-	    error_bad_decl(Aa, module)
+	[Other|_] -> error_bad_decl(Other, module)
     end;
 build_attribute({atom,Aa,export}, Val) ->
     case Val of
 	[ExpList] ->
 	    {attribute,Aa,export,farity_list(ExpList)};
-	_Other -> error_bad_decl(Aa, export)
+        [_,Other|_] -> error_bad_decl(Other, export)
     end;
 build_attribute({atom,Aa,import}, Val) ->
     case Val of
 	[{atom,_Am,Mod},ImpList] ->
 	    {attribute,Aa,import,{Mod,farity_list(ImpList)}};
-	_Other -> error_bad_decl(Aa, import)
+        [_,Other|_] -> error_bad_decl(Other, import)
     end;
 build_attribute({atom,Aa,record}, Val) ->
     case Val of
 	[{atom,_An,Record},RecTuple] ->
 	    {attribute,Aa,record,{Record,record_tuple(RecTuple)}};
-	_Other -> error_bad_decl(Aa, record)
+        [Other|_] -> error_bad_decl(Other, record)
     end;
 build_attribute({atom,Aa,file}, Val) ->
     case Val of
 	[{string,_An,Name},{integer,_Al,Line}] ->
 	    {attribute,Aa,file,{Name,Line}};
-	_Other -> error_bad_decl(Aa, file)
+        [Other|_] -> error_bad_decl(Other, file)
     end;
 build_attribute({atom,Aa,Attr}, Val) ->
     case Val of
 	[Expr0] ->
 	    Expr = attribute_farity(Expr0),
 	    {attribute,Aa,Attr,term(Expr)};
-	_Other -> ret_err(Aa, "bad attribute")
+	[_,Other|_] -> ret_abstr_err(Other, "bad attribute")
     end.
 
 var_list({cons,_Ac,{var,_,V},Tail}) ->
     [V|var_list(Tail)];
 var_list({nil,_An}) -> [];
 var_list(Other) ->
-    ret_err(?anno(Other), "bad variable list").
+    ret_abstr_err(Other, "bad variable list").
 
 attribute_farity({cons,A,H,T}) ->
     {cons,A,attribute_farity(H),attribute_farity(T)};
@@ -1297,21 +1253,25 @@ attribute_farity_list(Args) ->
 attribute_farity_map(Args) ->
     [{Op,A,K,attribute_farity(V)} || {Op,A,K,V} <- Args].
 
--spec error_bad_decl(erl_anno:anno(), attributes()) -> no_return().
+-spec error_bad_decl(erl_parse_tree(), attributes()) -> no_return().
 
-error_bad_decl(Anno, S) ->
-    ret_err(Anno, io_lib:format("bad ~tw declaration", [S])).
+error_bad_decl(Abstr, S) ->
+    ret_abstr_err(Abstr, io_lib:format("bad ~tw declaration", [S])).
 
 farity_list({cons,_Ac,{op,_Ao,'/',{atom,_Aa,A},{integer,_Ai,I}},Tail}) ->
     [{A,I}|farity_list(Tail)];
+farity_list({cons,_Ac,{op,_Ao,'/',{atom,_Aa,_A},Other},_Tail}) ->
+    ret_abstr_err(Other, "bad function arity");
+farity_list({cons,_Ac,{op,_Ao,'/',Other,_},_Tail}) ->
+    ret_abstr_err(Other, "bad function name");
 farity_list({nil,_An}) -> [];
 farity_list(Other) ->
-    ret_err(?anno(Other), "bad function arity").
+    ret_abstr_err(Other, "bad Name/Arity").
 
 record_tuple({tuple,_At,Fields}) ->
     record_fields(Fields);
 record_tuple(Other) ->
-    ret_err(?anno(Other), "bad record declaration").
+    ret_abstr_err(Other, "bad record declaration").
 
 record_fields([{atom,Aa,A}|Fields]) ->
     [{record_field,Aa,{atom,Aa,A}}|record_fields(Fields)];
@@ -1321,12 +1281,12 @@ record_fields([{typed,Expr,TypeInfo}|Fields]) ->
     [Field] = record_fields([Expr]),
     [{typed_record_field,Field,TypeInfo}|record_fields(Fields)];
 record_fields([Other|_Fields]) ->
-    ret_err(?anno(Other), "bad record field");
+    ret_abstr_err(Other, "bad record field");
 record_fields([]) -> [].
 
 term(Expr) ->
     try normalise(Expr)
-    catch _:_R -> ret_err(?anno(Expr), "bad attribute")
+    catch _:_R -> ret_abstr_err(Expr, "bad attribute")
     end.
 
 %% build_function([Clause]) -> {function,Anno,Name,Arity,[Clause]}
@@ -1363,6 +1323,60 @@ build_try(A,Es,Scs,{Ccs,As}) ->
 -spec ret_err(_, _) -> no_return().
 ret_err(Anno, S) ->
     return_error(location(Anno), S).
+
+-spec ret_abstr_err(_, _) -> no_return().
+ret_abstr_err(Abstract, S) ->
+    return_error(first_location(Abstract), S).
+
+first_location(Abstract) ->
+    Anno = first_anno(Abstract),
+    erl_anno:location(Anno).
+
+%% Use the fact that fold_anno() visits nodes from left to right.
+%% Could be a bit slow on deeply nested code without column numbers
+%% even though only the left-most branch is traversed.
+first_anno(Abstract) ->
+    Anno0 = element(2, Abstract),
+    F = fun(Anno, Anno1) ->
+                Loc = erl_anno:location(Anno),
+                Loc1 = erl_anno:location(Anno1),
+                case loc_lte(Loc, Loc1) of
+                    true ->
+                        Anno;
+                    false ->
+                        throw(Anno1)
+                end
+        end,
+    catch fold_anno(F, Anno0, Abstract).
+
+last_anno(Abstract) ->
+    Fun = fun(Anno, '*') ->
+                  Anno;
+             (Anno, Anno0) ->
+                  case loc_lte(Anno, Anno0) of
+                      true ->
+                          Anno0;
+                      false ->
+                          Anno
+                  end
+          end,
+    Anno = find_anno(Abstract, Fun),
+    case erl_anno:end_location(Anno) of
+        undefined ->
+            Anno;
+        EndLocation ->
+            erl_anno:set_location(EndLocation, Anno)
+    end.
+
+find_anno(Abstract, Fun) ->
+    fold_anno(Fun, '*', Abstract).
+
+loc_lte(Line1, Location2) when is_integer(Line1) ->
+    loc_lte({Line1, 1}, Location2);
+loc_lte(Location1, Line2) when is_integer(Line2) ->
+    loc_lte(Location1, {Line2, 1});
+loc_lte(Location1, Location2) ->
+    Location1 =< Location2.
 
 location(Anno) ->
     erl_anno:location(Anno).
@@ -1423,21 +1437,30 @@ abstract(T) ->
 %%% abstract/2 takes line and encoding options
 -spec abstract(Data, Options) -> AbsTerm when
       Data :: term(),
-      Options :: Line | [Option],
-      Option :: {line, Line} | {encoding, Encoding},
+      Options :: Location | [Option],
+      Option :: {encoding, Encoding}
+              | {line, Line}
+              | {location, Location},
       Encoding :: 'latin1' | 'unicode' | 'utf8' | 'none' | encoding_func(),
       Line :: erl_anno:line(),
+      Location :: erl_anno:location(),
       AbsTerm :: abstract_expr().
 
-abstract(T, Line) when is_integer(Line) ->
-    Anno = erl_anno:new(Line),
-    abstract(T, Anno, enc_func(epp:default_encoding()));
 abstract(T, Options) when is_list(Options) ->
-    Line = proplists:get_value(line, Options, 0),
     Encoding = proplists:get_value(encoding, Options,epp:default_encoding()),
     EncFunc = enc_func(Encoding),
-    Anno = erl_anno:new(Line),
-    abstract(T, Anno, EncFunc).
+    Location =
+        case proplists:get_value(location, Options) of
+            undefined ->
+                proplists:get_value(line, Options, 0);
+            Loc ->
+                Loc
+        end,
+    Anno = erl_anno:new(Location),
+    abstract(T, Anno, EncFunc);
+abstract(T, Location) ->
+    Anno = erl_anno:new(Location),
+    abstract(T, Anno, enc_func(epp:default_encoding())).
 
 -define(UNICODE(C),
          (C < 16#D800 orelse
@@ -1535,7 +1558,13 @@ tokens({cons,A,Head,Tail}, More) ->
 tokens({tuple,A,[]}, More) ->
     [{'{',A},{'}',A}|More];
 tokens({tuple,A,[E|Es]}, More) ->
-    [{'{',A}|tokens(E, tokens_tuple(Es, ?anno(E), More))].
+    [{'{',A}|tokens(E, tokens_tuple(Es, ?anno(E), More))];
+tokens({map,A,[]}, More) ->
+    [{'#',A},{'{',A},{'}',A}|More];
+tokens({map,A,[P|Ps]}, More) ->
+    [{'#',A},{'{',A}|tokens(P, tokens_tuple(Ps, ?anno(P), More))];
+tokens({map_field_assoc,A,K,V}, More) ->
+    tokens(K, [{'=>',A}|tokens(V, More)]).
 
 tokens_tail({cons,A,Head,Tail}, More) ->
     [{',',A}|tokens(Head, tokens_tail(Tail, More))];
@@ -1588,7 +1617,7 @@ inop_prec('.') -> {900,900,1000}.
 
 -spec preop_prec(pre_op()) -> {0 | 600 | 700, 100 | 700 | 800}.
 
-preop_prec('catch') -> {0,100};
+preop_prec('catch') -> {700,100};
 preop_prec('+') -> {600,700};
 preop_prec('-') -> {600,700};
 preop_prec('bnot') -> {600,700};

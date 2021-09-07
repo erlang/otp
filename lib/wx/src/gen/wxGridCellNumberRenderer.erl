@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,15 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellnumberrenderer.html">wxGridCellNumberRenderer</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxGridCellStringRenderer}
-%% <br />{@link wxGridCellRenderer}
-%% </p>
-%% @type wxGridCellNumberRenderer().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGridCellNumberRenderer).
 -include("wxe.hrl").
 -export([destroy/1,new/0]).
@@ -34,24 +25,24 @@
 %% inherited exports
 -export([draw/8,getBestSize/6,parent_class/1]).
 
+-type wxGridCellNumberRenderer() :: wx:wx_object().
 -export_type([wxGridCellNumberRenderer/0]).
 %% @hidden
 parent_class(wxGridCellStringRenderer) -> true;
 parent_class(wxGridCellRenderer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGridCellNumberRenderer() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellnumberrenderer.html#wxgridcellnumberrendererwxgridcellnumberrenderer">external documentation</a>.
 -spec new() -> wxGridCellNumberRenderer().
 new() ->
-  wxe_util:construct(?wxGridCellNumberRenderer_new,
-  <<>>).
+  wxe_util:queue_cmd(?get_env(), ?wxGridCellNumberRenderer_new),
+  wxe_util:rec(?wxGridCellNumberRenderer_new).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxGridCellNumberRenderer()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellNumberRenderer),
-  wxe_util:destroy(?wxGridCellNumberRenderer_destroy,Obj),
+  wxe_util:queue_cmd(Obj, ?get_env(), ?wxGridCellNumberRenderer_destroy),
   ok.
  %% From wxGridCellStringRenderer
  %% From wxGridCellRenderer

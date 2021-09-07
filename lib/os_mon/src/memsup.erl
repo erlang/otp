@@ -57,7 +57,6 @@
 	 ext_wd_timer,        % undefined | TimerRef
 	 pending = [],        % [reg | {reg,From} | {ext,From}]
 	 ext_pending = []     % [{ext,From}]
-%%%         ismd = false         % Improved system memory data enabled?
 	}).
 
 -define(EXT_MEM_MAP, memsup_ext_memory_type_map__).
@@ -149,7 +148,6 @@ dummy_reply(get_memory_data, true) ->
 dummy_reply(get_memory_data, false) ->
     {0,0,{self(),0}}.
 
-param_type(memsup_improved_system_memory_data, Val) when Val==true; Val==false -> true;
 param_type(memsup_system_only, Val) when Val==true; Val==false -> true;
 param_type(memory_check_interval, Val) when is_integer(Val),
                                             Val>0 -> true;
@@ -163,7 +161,6 @@ param_type(process_memory_high_watermark, Val) when is_number(Val),
 						    Val=<1 -> true;
 param_type(_Param, _Val) -> false.
 
-param_default(memsup_improved_system_memory_data) -> false;
 param_default(memsup_system_only) -> false;
 param_default(memory_check_interval) -> 1;
 param_default(memsup_helper_timeout) -> 30;
@@ -195,11 +192,9 @@ init([]) ->
 		       exit({unsupported_os, OS})
 	       end,
 
-    ISMD = os_mon:get_env(memsup, memsup_improved_system_memory_data),
-
     Pid = if
 	      PortMode ->
-		  spawn_link(fun() -> port_init(ISMD) end);
+		  spawn_link(fun() -> port_init() end);
 	      not PortMode ->
 		  undefined
 	  end,
@@ -236,7 +231,6 @@ init([]) ->
 		helper_timeout     = sec_to_ms(HelperTimeout),
 		sys_mem_watermark  = SysMem,
 		proc_mem_watermark = ProcMem,
-%%%                ismd               = ISMD,
 
 		pid=Pid}}.
 
@@ -581,7 +575,8 @@ get_os_wordsize_with_uname() ->
 	"ppc64"   -> 64;
 	"ppc64le" -> 64;
 	"s390x"   -> 64;
-        "aarch64" -> 64;
+        "aarch64" -> 64;                        %Linux
+        "arm64"   -> 64;                        %macOS
 	_         -> 32
     end.
 
@@ -648,10 +643,10 @@ get_ext_memory_usage(OS, {Alloc, Total}) ->
 
 %%--Collect memory data, using port-------------------------------------
 
-port_init(ISMD) ->
+port_init() ->
     process_flag(trap_exit, true),
     Port = start_portprogram(),
-    port_idle(Port, ISMD).
+    port_idle(Port).
 
 start_portprogram() ->
     os_mon:open_port("memsup",[{packet,1}]).
@@ -664,20 +659,20 @@ start_portprogram() ->
 %%      should still wait for port response (which should come
 %%      eventually!) but not receive any requests or cancellations
 %%      meanwhile to prevent getting out of synch.
-port_idle(Port, ISMD) ->
+port_idle(Port) ->
     receive
 	{Memsup, collect_sys} ->
 	    Port ! {self(), {command, [?SHOW_MEM]}},
-	    get_memory_usage(Port, undefined, Memsup, ISMD);
+	    get_memory_usage(Port, undefined, Memsup);
 	{Memsup, collect_ext_sys} ->
 	    Port ! {self(), {command, [?SHOW_SYSTEM_MEM]}},
-	    get_ext_memory_usage(Port, #{}, Memsup, ISMD);
+	    get_ext_memory_usage(Port, #{}, Memsup);
 	cancel ->
 	    %% Received after reply already has been delivered...
-	    port_idle(Port, ISMD);
+	    port_idle(Port);
 	ext_cancel ->
 	    %% Received after reply already has been delivered...
-	    port_idle(Port, ISMD);
+	    port_idle(Port);
 	close ->
 	    port_close(Port);
 	{Port, {data, Data}} ->
@@ -688,16 +683,16 @@ port_idle(Port, ISMD) ->
 	    port_close(Port)
     end.
 
-get_memory_usage(Port, Alloc, Memsup, ISMD) ->
+get_memory_usage(Port, Alloc, Memsup) ->
     receive
 	{Port, {data, Data}} when Alloc==undefined ->
-	    get_memory_usage(Port, erlang:list_to_integer(Data, 16), Memsup, ISMD);
+	    get_memory_usage(Port, erlang:list_to_integer(Data, 16), Memsup);
 	{Port, {data, Data}} ->
 	    Total = erlang:list_to_integer(Data, 16),
 	    Memsup ! {collected_sys, {Alloc, Total}},
-	    port_idle(Port, ISMD);
+	    port_idle(Port);
 	cancel ->
-	    get_memory_usage_cancelled(Port, Alloc, ISMD);
+	    get_memory_usage_cancelled(Port, Alloc);
 	close ->
 	    port_close(Port);
 	{'EXIT', Port, Reason} ->
@@ -705,12 +700,12 @@ get_memory_usage(Port, Alloc, Memsup, ISMD) ->
 	{'EXIT', _Memsup, _Reason} ->
 	    port_close(Port)
     end.
-get_memory_usage_cancelled(Port, Alloc, ISMD) ->
+get_memory_usage_cancelled(Port, Alloc) ->
     receive
 	{Port, {data, _Data}} when Alloc==undefined ->
-	    get_memory_usage_cancelled(Port, 0, ISMD);
+	    get_memory_usage_cancelled(Port, 0);
 	{Port, {data, _Data}} ->
-	    port_idle(Port, ISMD);
+	    port_idle(Port);
 	close ->
 	    port_close(Port);
 	{'EXIT', Port, Reason} ->
@@ -728,24 +723,16 @@ tag2atag(Port, Tag) ->
             exit({memsup_port_error, {Port,[Tag]}})
     end.
 
-get_ext_memory_usage(Port, Accum, Memsup, ISMD) ->
+get_ext_memory_usage(Port, Accum, Memsup) ->
     receive
 	{Port, {data, [?SHOW_SYSTEM_MEM_END]}} ->
 	    Memsup ! {collected_ext_sys, maps:to_list(Accum)},
-	    port_idle(Port, ISMD);
-	{Port, {data, [?MEM_CACHED_X]}} when ISMD == false ->
-            %% Improved system memory data not enabled; drop value...
-            get_ext_memory_usage(tag2atag(Port, ?MEM_CACHED_X), Port,
-                                 Accum, Memsup, ISMD, true);
-	{Port, {data, [?MEM_AVAIL]}} when ISMD == false ->
-            %% Improved system memory data not enabled; drop value...
-            get_ext_memory_usage(tag2atag(Port, ?MEM_AVAIL), Port,
-                                 Accum, Memsup, ISMD, true);
+	    port_idle(Port);
 	{Port, {data, [Tag]}} ->
             get_ext_memory_usage(tag2atag(Port, Tag), Port, Accum,
-                                 Memsup, ISMD, false);
+                                 Memsup);
 	ext_cancel ->
-	    get_ext_memory_usage_cancelled(Port, ISMD);
+	    get_ext_memory_usage_cancelled(Port);
 	close ->
 	    port_close(Port);
 	{'EXIT', Port, Reason} ->
@@ -753,13 +740,13 @@ get_ext_memory_usage(Port, Accum, Memsup, ISMD) ->
 	{'EXIT', _Memsup, _Reason} ->
 	    port_close(Port)
     end.
-get_ext_memory_usage_cancelled(Port, ISMD) ->
+get_ext_memory_usage_cancelled(Port) ->
     receive
 	{Port, {data, [?SHOW_SYSTEM_MEM_END]}} ->
-	    port_idle(Port, ISMD);
+	    port_idle(Port);
 	{Port, {data, [Tag]}} ->
             get_ext_memory_usage_cancelled(tag2atag(Port, Tag),
-                                           Port, ISMD);
+                                           Port);
 	close ->
 	    port_close(Port);
 	{'EXIT', Port, Reason} ->
@@ -768,11 +755,9 @@ get_ext_memory_usage_cancelled(Port, ISMD) ->
 	    port_close(Port)
     end.
 
-get_ext_memory_usage(ATag, Port, Accum0, Memsup, ISMD, Drop) ->
+get_ext_memory_usage(ATag, Port, Accum0, Memsup) ->
     receive
-	{Port, {data, _Data}} when Drop == true ->
-	    get_ext_memory_usage(Port, Accum0, Memsup, ISMD);
-	{Port, {data, Data}} when Drop == false ->
+	{Port, {data, Data}} ->
             Value = erlang:list_to_integer(Data, 16),
             Accum = case maps:get(ATag, Accum0, undefined) of
                         undefined ->
@@ -780,9 +765,9 @@ get_ext_memory_usage(ATag, Port, Accum0, Memsup, ISMD, Drop) ->
                         PrevValue ->
                             maps:put(ATag, Value + PrevValue, Accum0)
                     end,
-	    get_ext_memory_usage(Port, Accum, Memsup, ISMD);
+	    get_ext_memory_usage(Port, Accum, Memsup);
 	cancel ->
-	    get_ext_memory_usage_cancelled(ATag, Port, ISMD);
+	    get_ext_memory_usage_cancelled(ATag, Port);
 	close ->
 	    port_close(Port);
 	{'EXIT', Port, Reason} ->
@@ -790,10 +775,10 @@ get_ext_memory_usage(ATag, Port, Accum0, Memsup, ISMD, Drop) ->
 	{'EXIT', _Memsup, _Reason} ->
 	    port_close(Port)
     end.
-get_ext_memory_usage_cancelled(_ATag, Port, ISMD) ->
+get_ext_memory_usage_cancelled(_ATag, Port) ->
     receive
 	{Port, {data, _Data}} ->
-	    get_ext_memory_usage_cancelled(Port, ISMD);
+	    get_ext_memory_usage_cancelled(Port);
 	close ->
 	    port_close(Port);
 	{'EXIT', Port, Reason} ->

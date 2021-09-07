@@ -57,6 +57,7 @@ ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         goto err;
 
     /* g^b % N */
+    BN_set_flags(bn_exponent, BN_FLG_CONSTTIME);
     if (!BN_mod_exp(bn_result, bn_generator, bn_exponent, bn_prime, bn_ctx))
         goto err;
 
@@ -154,6 +155,7 @@ ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     /* (B - (k * g^x)) */
     if ((bn_base = BN_new()) == NULL)
         goto err;
+    BN_set_flags(bn_exponent, BN_FLG_CONSTTIME);
     if (!BN_mod_exp(bn_result, bn_generator, bn_exponent, bn_prime, bn_ctx))
         goto err;
     if (!BN_mod_mul(bn_result, bn_multiplier, bn_result, bn_prime, bn_ctx))
@@ -170,6 +172,7 @@ ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         goto err;
 
     /* (B - (k * g^x)) ^ (a + (u * x)) % N */
+    BN_set_flags(bn_exp2, BN_FLG_CONSTTIME);
     if (!BN_mod_exp(bn_result, bn_base, bn_exp2, bn_prime, bn_ctx))
         goto err;
 
@@ -258,12 +261,14 @@ ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     /* (A * v^u) */
     if ((bn_base = BN_new()) == NULL)
         goto err;
+    BN_set_flags(bn_u, BN_FLG_CONSTTIME);
     if (!BN_mod_exp(bn_base, bn_verifier, bn_u, bn_prime, bn_ctx))
         goto err;
     if (!BN_mod_mul(bn_base, bn_A, bn_base, bn_prime, bn_ctx))
         goto err;
 
     /* (A * v^u) ^ b % N */
+    BN_set_flags(bn_b, BN_FLG_CONSTTIME);
     if (!BN_mod_exp(bn_result, bn_base, bn_b, bn_prime, bn_ctx))
         goto err;
 

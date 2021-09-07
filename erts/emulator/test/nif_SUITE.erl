@@ -37,6 +37,7 @@
          t_call_nif_early/1,
          load_traced_nif/1,
          select/1, select_steal/1,
+	 select_error/1,
          monitor_process_a/1,
          monitor_process_b/1,
          monitor_process_c/1,
@@ -44,12 +45,12 @@
          monitor_process_purge/1,
          demonitor_process/1,
          monitor_frenzy/1,
-         hipe/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1,
 	 maps/1,
 	 api_macros/1,
 	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1,
 	 resource_takeover/1,
+	 t_dynamic_resource_call/1,
 	 threading/1, send/1, send2/1, send3/1, send_threaded/1,
          send_trace/1, send_seq_trace/1,
          neg/1, is_checks/1,
@@ -92,10 +93,10 @@ all() ->
     [{group, G} || G <- api_groups()]
         ++
     [reload_error, heap_frag, types, many_args,
-     select, select_steal,
+     {group, select},
      {group, monitor},
      monitor_frenzy,
-     hipe,
+     t_dynamic_resource_call,
      t_load_race,
      t_call_nif_early,
      load_traced_nif,
@@ -137,7 +138,10 @@ groups() ->
                     monitor_process_c,
                     monitor_process_d,
                     monitor_process_purge,
-                    demonitor_process]}].
+                    demonitor_process]},
+     {select, [], [select,
+		   select_error,
+		   select_steal]}].
 
 api_groups() -> [api_latest, api_2_4, api_2_0].
 
@@ -160,11 +164,6 @@ end_per_group(_,_) -> ok.
 init_per_testcase(t_on_load, Config) ->
     ets:new(nif_SUITE, [named_table]),
     Config;
-init_per_testcase(hipe, Config) ->
-    case erlang:system_info(hipe_architecture) of
-	undefined -> {skip, "HiPE is disabled"};
-	_ -> Config
-    end;
 init_per_testcase(nif_whereis_threaded, Config) ->
     case erlang:system_info(threads) of
         true -> Config;
@@ -646,6 +645,7 @@ load_traced_nif(Config) when is_list(Config) ->
 -define(ERL_NIF_SELECT_STOP, (1 bsl 2)).
 -define(ERL_NIF_SELECT_CANCEL, (1 bsl 3)).
 -define(ERL_NIF_SELECT_CUSTOM_MSG, (1 bsl 4)).
+-define(ERL_NIF_SELECT_ERROR, (1 bsl 5)).
 
 -define(ERL_NIF_SELECT_STOP_CALLED, (1 bsl 0)).
 -define(ERL_NIF_SELECT_STOP_SCHEDULED, (1 bsl 1)).
@@ -653,6 +653,8 @@ load_traced_nif(Config) when is_list(Config) ->
 -define(ERL_NIF_SELECT_FAILED, (1 bsl 3)).
 -define(ERL_NIF_SELECT_READ_CANCELLED, (1 bsl 4)).
 -define(ERL_NIF_SELECT_WRITE_CANCELLED, (1 bsl 5)).
+-define(ERL_NIF_SELECT_ERROR_CANCELLED, (1 bsl 6)).
+-define(ERL_NIF_SELECT_NOTSUP, (1 bsl 7)).
 
 select(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
@@ -787,6 +789,79 @@ receive_ready(R, Ref, IOatom) when is_reference(Ref) ->
 receive_ready(_, Msg, _) ->
     [Got] = flush(),
     {true,_,_} = {Got=:=Msg, Got, Msg}.
+
+
+select_error(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    case os:type() of
+	{unix,linux} ->
+	    select_error_do();
+	_ ->
+	    {skipped, "not Linux"}
+    end.
+
+select_error_do() ->
+    RefBin = list_to_binary(lists:duplicate(100, $x)),
+
+    select_error_do1(0, make_ref(), null),
+    select_error_do1(?ERL_NIF_SELECT_CUSTOM_MSG, [a, "list", RefBin], null),
+    select_error_do1(?ERL_NIF_SELECT_CUSTOM_MSG, [a, "list", RefBin], alloc_env),
+    ok.
+
+select_error_do1(Flag, Ref, MsgEnv) ->
+    {{R, _R_ptr}, {W, W_ptr}} = pipe_nif(),
+    ok = write_nif(W, <<"hej">>),
+    <<"hej">> = read_nif(R, 3),
+
+    %% Wait for error on write end when read end is closed
+    0 = select_nif(W, ?ERL_NIF_SELECT_ERROR bor Flag, W, null, Ref, MsgEnv),
+    [] = flush(0),
+    0 = close_nif(R),
+    receive_ready(W, Ref, ready_error),
+
+    check_stop_ret(select_nif(W, ?ERL_NIF_SELECT_STOP, W, null, Ref, null)),
+    [{fd_resource_stop, W_ptr, _}] = flush(),
+    {1, {W_ptr,_}} = last_fd_stop_call(),
+    true = is_closed_nif(W),
+    select_error_do2(Flag, Ref, MsgEnv).
+
+select_error_do2(Flag, Ref, MsgEnv) ->
+    {{R, _R_ptr}, {W, W_ptr}} = pipe_nif(),
+    ok = write_nif(W, <<"hej">>),
+    <<"hej">> = read_nif(R, 3),
+
+    %% Same again but test cancel of error works
+    0 = select_nif(W, ?ERL_NIF_SELECT_ERROR bor Flag, W, null, Ref, MsgEnv),
+    ?ERL_NIF_SELECT_ERROR_CANCELLED =
+	select_nif(W, ?ERL_NIF_SELECT_ERROR bor ?ERL_NIF_SELECT_CANCEL, W, null, Ref, null),
+    0 = close_nif(R),
+    [] = flush(0),
+    0 = select_nif(W, ?ERL_NIF_SELECT_ERROR bor Flag, W, null, Ref, MsgEnv),
+    receive_ready(W, Ref, ready_error),
+
+    check_stop_ret(select_nif(W, ?ERL_NIF_SELECT_STOP, W, null, Ref, null)),
+    [{fd_resource_stop, W_ptr, _}] = flush(),
+    {1, {W_ptr,_}} = last_fd_stop_call(),
+    true = is_closed_nif(W),
+    ok.
+
+-ifdef(NOT_DEFINED).
+check_select_error_supported() ->
+    {{_R, _R_ptr}, {W, W_ptr}} = pipe_nif(),
+    Ref = make_ref(),
+    case select_nif(W, ?ERL_NIF_SELECT_ERROR, W, null, Ref, null) of
+	0 ->
+	    check_stop_ret(select_nif(W, ?ERL_NIF_SELECT_STOP, W, null, Ref, null)),
+	    [{fd_resource_stop, W_ptr, _}] = flush(),
+	    {1, {W_ptr,_}} = last_fd_stop_call(),
+	    true = is_closed_nif(W),
+	    true;
+
+	Err when Err < 0, (Err band ?ERL_NIF_SELECT_NOTSUP) =/= 0 ->
+	    false
+    end.
+-endif.
 
 %% @doc The stealing child process for the select_steal test. Duplicates given
 %% W/RFds and runs select on them to steal
@@ -1166,16 +1241,65 @@ gc_and_return(RetVal) ->
     erlang:garbage_collect(),
     RetVal.
 
-hipe(Config) when is_list(Config) ->
+t_dynamic_resource_call(Config) ->
+    ensure_lib_loaded(Config),
     Data = proplists:get_value(data_dir, Config),
-    Priv = proplists:get_value(priv_dir, Config),
-    Src = filename:join(Data, "hipe_compiled"),
-    {ok,hipe_compiled} = c:c(Src, [{outdir,Priv},native]),
-    true = code:is_module_native(hipe_compiled),
-    {error, {notsup,_}} = hipe_compiled:try_load_nif(),
-    true = code:delete(hipe_compiled),
-    false = code:purge(hipe_compiled),
+    File = filename:join(Data, "nif_mod"),
+    {ok,nif_mod,NifModBin} = compile:file(File, [binary,return_errors]),
+
+    dynamic_resource_call_do(Config, NifModBin),
+    erlang:garbage_collect(),
+
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+
+    receive after 10 -> ok end,
+    [{{resource_dtor_A_v1,_},1,2,102},
+     {unload,1,3,103}] = nif_mod_call_history(),
+
     ok.
+
+
+dynamic_resource_call_do(Config, NifModBin) ->
+    {module,nif_mod} = erlang:load_module(nif_mod,NifModBin),
+
+    ok = nif_mod:load_nif_lib(Config, 1,
+			      [{resource_type, 0, ?RT_CREATE, "with_dyncall",
+				resource_dtor_A, ?RT_CREATE, resource_dyncall}]),
+
+    hold_nif_mod_priv_data(nif_mod:get_priv_data_ptr()),
+    [{load,1,1,101},
+     {get_priv_data_ptr,1,2,102}] = nif_mod_call_history(),
+
+    R = nif_mod:make_new_resource(0, <<>>),
+
+    {0, 1001} = dynamic_resource_call(nif_mod, with_dyncall, R, 1000),
+    {1, 1000} = dynamic_resource_call(wrong, with_dyncall, R, 1000),
+    {1, 1000} = dynamic_resource_call(nif_mod, wrong, R, 1000),
+
+    %% Upgrade resource type with new dyncall implementation.
+    {module,nif_mod} = erlang:load_module(nif_mod,NifModBin),
+    ok = nif_mod:load_nif_lib(Config, 2,
+                              [{resource_type, 0, ?RT_TAKEOVER, "with_dyncall",
+				resource_dtor_A, ?RT_TAKEOVER, resource_dyncall}]),
+    [{upgrade,2,1,201}] = nif_mod_call_history(),
+
+    {0, 1002} = dynamic_resource_call(nif_mod, with_dyncall, R, 1000),
+    true = erlang:purge_module(nif_mod),
+    [{unload,1,3,103}] = nif_mod_call_history(),
+
+    %% Upgrade resource type with missing dyncall implementation.
+    {module,nif_mod} = erlang:load_module(nif_mod,NifModBin),
+    ok = nif_mod:load_nif_lib(Config, 1,
+                              [{resource_type, 0, ?RT_TAKEOVER, "with_dyncall",
+				resource_dtor_A, ?RT_TAKEOVER, null}]),
+    [{upgrade,1,1,101}] = nif_mod_call_history(),
+
+    {1, 1000} = dynamic_resource_call(nif_mod, with_dyncall, R, 1000),
+    true = erlang:purge_module(nif_mod),
+    [{unload,2,2,202}] = nif_mod_call_history(),
+    ok.
+
 
 
 %% Test NIF building heap fragments
@@ -2536,29 +2660,52 @@ consume_timeslice_test(Config) when is_list(Config) ->
               end),
     erlang:yield(),
 
-    erlang:trace_pattern(DummyMFA, [], [local]),
+    erlang:trace_pattern(DummyMFA, [{'_', [], [{return_trace}]}], [local]),
     1 = erlang:trace(P, true, [call, running, procs, {tracer, self()}]),
 
     P ! Go,
 
     %% receive Go -> ok end,
     {trace, P, in, _} = next_tmsg(P),
-    
+
     %% consume_timeslice_nif(100),
     %% dummy_call(111)
-    {trace, P, out, _} = next_tmsg(P),
-    {trace, P, in, _} = next_tmsg(P),
-    {trace, P, call, {?MODULE,dummy_call,[111]}} = next_tmsg(P),
+    %%
+    %% Note that we may be scheduled out immediately before or immediately
+    %% "after" dummy_call(111) depending on when the emulator tests reductions.
+    %%
+    %% In either case, we should be rescheduled before the function returns.
+    Dummy_111 = {?MODULE,dummy_call,[111]},
+    case next_tmsg(P) of
+        {trace, P, out, _} ->
+            %% See dummy_call(111) above
+            {trace, P, in, _} = next_tmsg(P),
+            {trace, P, call, Dummy_111} = next_tmsg(P);
+        {trace, P, call, Dummy_111} ->
+            {trace, P, out, _} = next_tmsg(P),
+            {trace, P, in, _} = next_tmsg(P)
+    end,
+    {trace, P, return_from, DummyMFA, ok} = next_tmsg(P),
 
     %% consume_timeslice_nif(90),
     %% dummy_call(222)
-    {trace, P, call, {?MODULE,dummy_call,[222]}} = next_tmsg(P),
+    Dummy_222 = {?MODULE,dummy_call,[222]},
+    {trace, P, call, Dummy_222} = next_tmsg(P),
+    {trace, P, return_from, DummyMFA, ok} = next_tmsg(P),
 
     %% consume_timeslice_nif(10),
     %% dummy_call(333)
-    {trace, P, out, _} = next_tmsg(P),
-    {trace, P, in, _} = next_tmsg(P),
-    {trace, P, call, {?MODULE,dummy_call,[333]}} = next_tmsg(P),
+    Dummy_333 = {?MODULE,dummy_call,[333]},
+    case next_tmsg(P) of
+        {trace, P, out, _} ->
+            %% See dummy_call(111) above
+            {trace, P, in, _} = next_tmsg(P),
+            {trace, P, call, Dummy_333} = next_tmsg(P);
+        {trace, P, call, Dummy_333} ->
+            {trace, P, out, _} = next_tmsg(P),
+            {trace, P, in, _} = next_tmsg(P)
+    end,
+    {trace, P, return_from, DummyMFA, ok} = next_tmsg(P),
 
     %% 25,25,25,25, 25
     {trace, P, out, {?MODULE,consume_timeslice_nif,2}} = next_tmsg(P),
@@ -2566,9 +2713,17 @@ consume_timeslice_test(Config) when is_list(Config) ->
 
     %% consume_timeslice(1,true)
     %% dummy_call(444)
-    {trace, P, out, DummyMFA} = next_tmsg(P),
-    {trace, P, in, DummyMFA} = next_tmsg(P),
-    {trace, P, call, {?MODULE,dummy_call,[444]}} = next_tmsg(P),
+    Dummy_444 = {?MODULE,dummy_call,[444]},
+    case next_tmsg(P) of
+        {trace, P, out, DummyMFA} ->
+            %% See dummy_call(111) above
+            {trace, P, in, DummyMFA} = next_tmsg(P),
+            {trace, P, call, Dummy_444} = next_tmsg(P);
+        {trace, P, call, Dummy_444} ->
+            {trace, P, out, DummyMFA} = next_tmsg(P),
+            {trace, P, in, DummyMFA} = next_tmsg(P)
+    end,
+    {trace, P, return_from, DummyMFA, ok} = next_tmsg(P),
 
     %% exit(Done)
     {trace, P, exit, Done} = next_tmsg(P),
@@ -3718,6 +3873,7 @@ dupe_resource_nif(_) -> ?nif_stub.
 pipe_nif() -> ?nif_stub.
 write_nif(_,_) -> ?nif_stub.
 read_nif(_,_) -> ?nif_stub.
+close_nif(_) -> ?nif_stub.
 is_closed_nif(_) -> ?nif_stub.
 clear_select_nif(_) -> ?nif_stub.
 last_fd_stop_call() -> ?nif_stub.
@@ -3763,6 +3919,8 @@ is_pid_undefined_nif(_) -> ?nif_stub.
 compare_pids_nif(_, _) -> ?nif_stub.
 
 term_type_nif(_) -> ?nif_stub.
+
+dynamic_resource_call(_,_,_,_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

@@ -50,7 +50,8 @@ XML_REF3_FILES = ct.xml \
 	ct_property_test.xml \
 	ct_netconfc.xml \
 	ct_hooks.xml \
-        ct_testspec.xml
+        ct_testspec.xml \
+        ct_suite.xml
 XML_REF6_FILES = common_test_app.xml
 
 XML_PART_FILES = part.xml
@@ -86,7 +87,7 @@ XML_FILES=$(XML_APPLICATION_FILES) $(XML_REF1_FILES)  $(XML_REF3_FILES) $(XML_RE
 
 TOP_SPECS_FILE = specs.xml
 
-NO_CHUNKS = ct_hooks.xml
+NO_CHUNKS = ct_hooks.xml ct_suite.xml
 
 # ----------------------------------------------------
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@
 -export([get_request_limit/1, set_request_limit/2]).
 -export([invalidate_ca_cache/0]).
 -export([increment_counter/3]).
--export([restart_worker/1, restart_set_worker/1]).
+-export([restart_worker/1, restart_set_worker/1, restart_notif_worker/1]).
 
 %% For backward compatibillity
 -export([send_trap/6, send_trap/7]).
@@ -71,7 +71,7 @@
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3, tr_var/2, tr_varbind/1,
-	 handle_pdu/8, worker/2, worker_loop/1, 
+	 handle_pdu/8, worker/4, worker_loop/2, 
 	 do_send_trap/7, do_send_trap/8]).
 %% <BACKWARD-COMPAT>
 -export([handle_pdu/7, 
@@ -177,6 +177,7 @@
 		worker, 
 		worker_state = ready,
 		set_worker, 
+		notif_worker, 
 		multi_threaded, 
 		ref, 
 		vsns,
@@ -248,6 +249,9 @@ restart_worker(Agent) ->
 
 restart_set_worker(Agent) ->
     call(Agent, restart_set_worker).
+
+restart_notif_worker(Agent) ->
+    call(Agent, restart_notif_worker).
 
 get_log_type(Agent) ->
     call(Agent, get_log_type).
@@ -391,11 +395,12 @@ do_init(Prio, Parent, Ref, Options) ->
     put(net_if, NetIfPid),
     put(mibserver, MibPid),
     process_flag(trap_exit, true),
-    {Worker, SetWorker} = workers_start(MultiT),
+    {Worker, SetWorker, NotifWorker} = workers_start(MultiT),
     {ok, #state{type           = Type, 
 		parent         = Parent, 
 		worker         = Worker,
 		set_worker     = SetWorker,
+		notif_worker   = NotifWorker,
 		multi_threaded = MultiT, 
 		ref            = Ref,
 		vsns           = Vsns,
@@ -975,9 +980,13 @@ handle_info({'EXIT', Pid, Reason}, #state{worker = Pid} = S) ->
     NewWorker = worker_start(), 
     {noreply, S#state{worker = NewWorker}};
 handle_info({'EXIT', Pid, Reason}, #state{set_worker = Pid} = S) ->
-    ?vlog("set-worker (~p) exited -> create new ~n   ~p", [Pid,Reason]),
+    ?vlog("set-worker (~p) exited -> create new ~n   ~p", [Pid, Reason]),
     NewWorker = set_worker_start(), 
     {noreply, S#state{set_worker = NewWorker}};
+handle_info({'EXIT', Pid, Reason}, #state{notif_worker = Pid} = S) ->
+    ?vlog("notif-worker (~p) exited -> create new ~n   ~p", [Pid, Reason]),
+    NewWorker = notif_worker_start(), 
+    {noreply, S#state{notif_worker = NewWorker}};
 handle_info({'EXIT', Pid, Reason}, #state{parent = Pid} = S) ->
     ?vlog("parent (~p) exited for reason ~n~p", [Pid,Reason]),
     {stop, {parent_died, Reason}, S};
@@ -1415,11 +1424,15 @@ handle_cast({verbosity, Verbosity}, S) ->
     ?vlog("verbosity: ~p -> ~p",[get(verbosity), Verbosity]),
     put(verbosity,snmp_verbosity:validate(Verbosity)),
     case S#state.worker of
-	Pid when is_pid(Pid) -> Pid ! ?mk_verbosity_wreq(Verbosity);
+	Pid1 when is_pid(Pid1) -> Pid1 ! ?mk_verbosity_wreq(Verbosity);
 	_ -> ok
     end,
     case S#state.set_worker of
 	Pid2 when is_pid(Pid2) -> Pid2 ! ?mk_verbosity_wreq(Verbosity);
+	_ -> ok
+    end,
+    case S#state.notif_worker of
+	Pid3 when is_pid(Pid3) -> Pid3 ! ?mk_verbosity_wreq(Verbosity);
 	_ -> ok
     end,
     {noreply, S};
@@ -1447,14 +1460,16 @@ handle_cast(Msg, S) ->
     {noreply, S}.
 
     
-terminate(shutdown, #state{worker     = Worker,
-			   set_worker = SetWorker,
-			   backup     = Backup, 
+terminate(shutdown, #state{worker       = Worker,
+			   set_worker   = SetWorker,
+			   notif_worker = NotifWorker,
+			   backup       = Backup, 
 			   ref = Ref}) ->
     %% Ordered shutdown - stop misc-workers, net_if, mib-server and note-store.
     backup_server_stop(Backup), 
     worker_stop(Worker, 100),
     worker_stop(SetWorker, 100),
+    worker_stop(NotifWorker, 100),
     snmpa_misc_sup:stop_net_if(Ref), 
     snmpa_misc_sup:stop_mib_server(Ref);
 terminate(_Reason, _S) ->
@@ -1600,20 +1615,26 @@ backup_server_stop(_) ->
     ok.
 
 
+workers_start(extended) ->
+    ?vdebug("start worker, set-worker and notif-worker", []),
+    {worker_start(), set_worker_start(), notif_worker_start()};
 workers_start(true) ->
-    ?vdebug("start worker and set-worker",[]),
-    {worker_start(), set_worker_start()};
+    ?vdebug("start worker and set-worker", []),
+    {worker_start(), set_worker_start(), undefined};
 workers_start(_) ->
-    {undefined, undefined}.
+    {undefined, undefined, undefined}.
 
 worker_start() ->
-    worker_start(get()).
+    worker_start(mw, true, get()).
 
 set_worker_start() ->
-    worker_start([{master, self()} | get()]).
+    worker_start(sw, false, [{master, self()} | get()]).
 
-worker_start(Dict) ->
-    proc_lib:spawn_link(?MODULE, worker, [self(), Dict]).
+notif_worker_start() ->
+    worker_start(nw, false, [{master, self()} | get()]).
+
+worker_start(SName, Report, Dict) ->
+    proc_lib:spawn_link(?MODULE, worker, [self(), SName, Report, Dict]).
 
 %% worker_stop(Pid) ->
 %%     worker_stop(Pid, infinity).
@@ -1783,13 +1804,13 @@ do_send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs,
     snmpa_trap:send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
 			 LocalEngineID, ExtraInfo, get(net_if)).
 
-worker(Master, Dict) ->
+worker(Master, SName, Report, Dict) ->
     lists:foreach(fun({Key, Val}) -> put(Key, Val) end, Dict),
-    put(sname, worker_short_name(get(sname))),
+    put(sname, worker_short_name(get(sname), SName)),
     ?vlog("starting",[]),
-    worker_loop(Master).
+    worker_loop(Master, Report).
 
-worker_loop(Master) ->
+worker_loop(Master, Report) ->
     Res = 
 	receive
 	    #wrequest{cmd  = handle_pdu, 
@@ -1813,7 +1834,7 @@ worker_loop(Master) ->
 			C:E:S ->
 			    exit({worker_crash, Req, C, E, S})
 		    end,
-		Master ! worker_available,
+                worker_maybe_announce_available(Master, Report),
 		HandlePduRes; % For debugging...
 	    
 	    
@@ -1840,7 +1861,7 @@ worker_loop(Master) ->
 			C:E:S ->
 			    exit({worker_crash, Req, C, E, S})
 		    end,
-		Master ! worker_available, 
+                worker_maybe_announce_available(Master, Report),
 		SendTrapRes; % For debugging...
 	    
 	    
@@ -1853,8 +1874,10 @@ worker_loop(Master) ->
 	    #wrequest{cmd  = terminate} ->
 		?vtrace("worker_loop -> received terminate request", []),
 		exit(normal);
-	    
-	    
+
+
+
+
 	    %% *************************************************************
 	    %% 
 	    %%         Kept for backward compatibillity reasons
@@ -1904,7 +1927,12 @@ worker_loop(Master) ->
 	end,
     ?vtrace("worker_loop -> wrap with"
 	    "~n   ~p", [Res]),
-    ?MODULE:worker_loop(Master).
+    ?MODULE:worker_loop(Master, Report).
+
+worker_maybe_announce_available(Master, true) ->
+    Master ! worker_available;
+worker_maybe_announce_available(_Master, _Report) ->
+    ok.
 
 
 %%-----------------------------------------------------------------
@@ -2186,6 +2214,13 @@ do_handle_send_trap(S, TrapRec, NotifyName, ContextName, Recv, Varbinds,
 				 Recv, Vbs, LocalEngineID, ExtraInfo, 
 				 get(net_if)),
 	    {ok, S};
+	master_agent when (S#state.multi_threaded =:= extended) ->
+	    %% Send to main worker
+	    ?vtrace("do_handle_send_trap -> send to notif-worker",[]),
+	    S#state.notif_worker ! ?mk_send_trap_wreq(TrapRec, NotifyName, 
+                                                      ContextName, Recv, Vbs,
+                                                      LocalEngineID, ExtraInfo),
+	    {ok, S};
 	master_agent when S#state.worker_state =:= busy ->
 	    %% Main worker busy => create new worker
 	    ?vtrace("do_handle_send_trap -> main worker busy: "
@@ -2195,7 +2230,7 @@ do_handle_send_trap(S, TrapRec, NotifyName, ContextName, Recv, Varbinds,
 	    {ok, S};
 	master_agent ->
 	    %% Send to main worker
-	    ?vtrace("do_handle_send_trap -> send to main worker",[]),
+	    ?vtrace("do_handle_send_trap -> send to main worker", []),
 	    S#state.worker ! ?mk_send_trap_wreq(TrapRec, NotifyName, 
 						ContextName, Recv, Vbs,
 						LocalEngineID, ExtraInfo),
@@ -3225,8 +3260,10 @@ mapfoldl(_F, _Eas, Accu, []) -> {Accu,[]}.
 short_name(none) -> ma;
 short_name(_Pid) -> sa.
 
-worker_short_name(ma) -> maw;
-worker_short_name(_)  -> saw.
+worker_short_name(ma, mw) -> mamw;
+worker_short_name(ma, sw) -> masw;
+worker_short_name(ma, nw) -> manw;
+worker_short_name(_,  _)  -> saw.
 
 trap_sender_short_name(ma) -> mats;
 trap_sender_short_name(_)  -> sats.
@@ -3318,27 +3355,33 @@ handle_set_request_limit(_, _) ->
     {error, not_supported}.
 
 
-agent_info(#state{worker = W, set_worker = SW}) -> 
-    case (catch get_agent_info(W, SW)) of
+agent_info(#state{worker = W, set_worker = SW, notif_worker = NW}) -> 
+    case (catch get_agent_info(W, SW, NW)) of
 	Info when is_list(Info) ->
 	    Info;
 	E ->
 	    [{error, E}]
     end.
 
-get_agent_info(W, SW) ->
+get_agent_info(W, SW, NW) ->
     MASz   = proc_mem(self()),
-    WSz    = proc_mem(W),
-    SWSz   = proc_mem(SW),
     ATSz   = tab_mem(snmp_agent_table),
     CCSz   = tab_mem(snmp_community_cache),
     VacmSz = tab_mem(snmpa_vacm),
-    [{process_memory, [{master_agent, MASz}, 
-		       {worker,       WSz}, 
-		       {set_worker,   SWSz}]}, 
-     {db_memory, [{agent,           ATSz}, 
-		  {community_cache, CCSz}, 
-		  {vacm,            VacmSz}]}].
+    [{process_memory,
+      [{master_agent, MASz}] ++
+          process_memory(worker,       W) ++
+          process_memory(set_worker,   SW) ++
+          process_memory(notif_worker, NW)},
+     {db_memory,
+      [{agent,           ATSz},
+       {community_cache, CCSz},
+       {vacm,            VacmSz}]}].
+
+process_memory(Tag, P) when is_pid(P) ->
+    [{Tag, proc_mem(P)}];
+process_memory(_, _) ->
+    [].
 
 proc_mem(P) when is_pid(P) ->
     case (catch erlang:process_info(P, memory)) of

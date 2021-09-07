@@ -38,7 +38,7 @@ recompile(Mod) when is_atom(Mod) ->
 	    %% Re-compile the test suite if the cover server is running.
 	    Beam = code:which(Mod),
 	    Src = filename:rootname(Beam, ".beam") ++ ".erl",
-	    Opts = [bin_opt_info|opt_opts(Mod)],
+	    Opts = [bin_opt_info,recv_opt_info|opt_opts(Mod)],
 	    io:format("Recompiling ~p (~p)\n", [Mod,Opts]),
 	    c:c(Src, [{outdir,filename:dirname(Src)}|Opts])
     end,
@@ -53,7 +53,7 @@ recompile_core(Mod) when is_atom(Mod) ->
             %% Re-compile the test suite if the cover server is running.
             Beam = code:which(Mod),
             Src = filename:rootname(Beam, ".beam"),
-            Opts = [bin_opt_info|opt_opts(Mod)],
+            Opts = [bin_opt_info,recv_opt_info|opt_opts(Mod)],
             io:format("Recompiling ~p (~p)\n", [Mod,Opts]),
             c:c(Src, [from_core,{outdir,filename:dirname(Src)}|Opts])
     end,
@@ -91,6 +91,8 @@ opt_opts(Mod) ->
                      (no_bsm_opt) -> true;
                      (no_copt) -> true;
                      (no_fun_opt) -> true;
+                     (no_init_yregs) -> true;
+                     (no_make_fun3) -> true;
                      (no_module_opt) -> true;
                      (no_postopt) -> true;
                      (no_put_tuple2) -> true;

@@ -100,27 +100,29 @@
       </row>
       <row>
         <cell>Pid</cell>
-        <cell>1 word for a process identifier from the current local node
-	+ 5 words for a process identifier from another node.<br></br>
+        <cell>1 word for a process identifier from the current local node.<br/>
+	On 32-bit: 6 words for a process identifier from another node.<br/>
+	On 64-bit: 5 words for a process identifier from another node.<br/>
 	A process identifier refers into a process table and a node table,
 	which also consumes memory.</cell>
       </row>
       <row>
         <cell>Port</cell>
-        <cell>1 word for a port identifier from the current local node
-	+ 5 words for a port identifier from another node.<br></br>
+        <cell>1 word for a port identifier from the current local node.<br/>
+	5 words for a port identifier from another node.<br/>
 	A port identifier refers into a port table and a node table,
 	which also consumes memory.</cell>
       </row>
       <row>
         <cell>Reference</cell>
-        <cell>On 32-bit architectures: 5 words for a reference from the
-	current local node + 7 words for a reference from another
-	node.<br></br>
-	On 64-bit architectures: 4 words for a reference from the current
-	local node + 6 words for a reference from another node.<br></br>
-	A reference refers into a node table, which also consumes
-	memory.</cell>
+        <cell>On 32-bit architectures: 4-7 words for a reference from the
+	current local node, and 7-9 words for a reference from another
+	node.<br/>
+	On 64-bit architectures: 4-6 words for a reference from the current
+	local node, and 6-7 words for a reference from another node.<br/>
+	A reference also refers into more or less emulator internal data
+	structures which also consumes memory. At a minimum it
+	refers into the node tables.</cell>
       </row>
       <row>
         <cell>Fun</cell>

@@ -19,6 +19,8 @@
 %%
 -module(ssl_dist_bench_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct_event.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
@@ -100,7 +102,7 @@ init_per_suite(Config) ->
             throw(
               {skipped,
                "SSL does not support " ++ term_to_string(ECCurve)}),
-        lists:member(TLSCipher, ssl:cipher_suites()) orelse
+        lists:member(TLSCipher, ssl:cipher_suites(default, TLSVersion)) orelse
             throw(
               {skipped,
                "SSL does not support " ++ term_to_string(TLSCipher)})

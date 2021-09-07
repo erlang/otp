@@ -89,6 +89,12 @@
 #define DEBUG_PRINT(fmt, ...)
 #endif
 
+#ifdef __clang_analyzer__
+   /* CodeChecker does not seem to understand inline asm in FD_ZERO */
+#  undef FD_ZERO
+#  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
+#endif
+
 static char abort_reason[200]; /* for core dump inspection */
 
 static void ABORT(const char* fmt, ...)
@@ -422,7 +428,7 @@ main(int argc, char *argv[])
 #endif
     struct sigaction sa;
 
-    if (argc < 1 || sscanf(argv[1],"%d",&max_files) != 1) {
+    if (argc < 2 || sscanf(argv[1],"%d",&max_files) != 1) {
         ABORT("Invalid arguments to child_setup");
     }
 

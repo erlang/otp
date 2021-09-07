@@ -60,37 +60,6 @@
 	 set_trace/1, reset_trace/1, 
 	 set_trace/2, set_trace/3]).
 
-%% Compiler exports
--export([c/1, c/2, is_consistent/1, mib_to_hrl/1, 
-	 compile/3]).
-
-%% Agent exports (Dont use these, they will be removed in OTP 24)
--export([current_request_id/0, current_community/0, current_address/0,
-	 current_context/0, current_net_if_data/0, 
-
-	 get_symbolic_store_db/0,
-	 name_to_oid/1, name_to_oid/2, 
-	 oid_to_name/1, oid_to_name/2,
-	 int_to_enum/2, int_to_enum/3, 
-	 enum_to_int/2, enum_to_int/3,
-
-	 get/2,
-	 info/1, 
-	 load_mibs/2, unload_mibs/2, dump_mibs/0, dump_mibs/1,
-
-	 register_subagent/3, unregister_subagent/2, 
-
-	 send_notification/3, send_notification/4, send_notification/5,
-	 send_notification/6,
-	 send_trap/3, send_trap/4,
-
-	 add_agent_caps/2, del_agent_caps/1, get_agent_caps/0,
-
-	 log_to_txt/2, log_to_txt/3, log_to_txt/4, 
-	 change_log_size/1
-
-	]).
-
 -export_type([
 	      dir/0, 
 	      snmp_timer/0, 
@@ -129,56 +98,9 @@
 
 
 %% This is for XREF
--deprecated(
-   [
-    {c,                     1, "use snmpa:c/1 instead."},
-    {c,                     2, "use snmpa:c/2 instead."},
-    {compile,               3, "use snmpa:compile/3 instead."},
-    {is_consistent,         1, "use snmpa:is_consistent/1 instead."},
-    {mib_to_hrl,            1, "use snmpa:mib_to_hrl/1 instead."},
-
-    {change_log_size,       1, "use snmpa:change_log_size/1 instead."},
-    {log_to_txt,            2, "use snmpa:log_to_txt/2 instead."},
-    {log_to_txt,            3, "use snmpa:log_to_txt/3 instead."},
-    {log_to_txt,            4, "use snmpa:log_to_txt/4 instead."},
-
-    {current_request_id,    0, "use snmpa:current_request_id/0 instead."},
-    {current_community,     0, "use snmpa:current_community/0 instead."},
-    {current_address,       0, "use snmpa:current_address/0 instead."},
-    {current_context,       0, "use snmpa:current_context/0 instead."},
-    {current_net_if_data,   0, "use snmpa:current_net_if_data/0 instead."},
-
-    {get_symbolic_store_db, 0, "use snmpa:get_symbolic_store_db/0 instead."},
-    {name_to_oid,           1, "use snmpa:name_to_oid/1 instead."},
-    {name_to_oid,           2, "use snmpa:name_to_oid/2 instead."},
-    {oid_to_name,           1, "use snmpa:oid_to_name/1 instead."},
-    {oid_to_name,           2, "use snmpa:oid_to_name/2 instead."},
-    {int_to_enum,           2, "use snmpa:int_to_enum/2 instead."},
-    {int_to_enum,           3, "use snmpa:int_to_enum/3 instead."},
-    {enum_to_int,           2, "use snmpa:enum_to_int/2 instead."},
-    {enum_to_int,           3, "use snmpa:enum_to_int/3 instead."},
-
-    {get,                   2, "use snmpa:get/2 instead."},
-    {info,                  1, "use snmpa:info/1 instead."},
-    {load_mibs,             2, "use snmpa:load_mibs/2 instead."},
-    {unload_mibs,           2, "use snmpa:unload_mibs/2 instead."},
-    {dump_mibs,             0, "use snmpa:dump_mibs/0 instead."},
-    {dump_mibs,             1, "use snmpa:dump_mibs/1 instead."},
-
-    {register_subagent,     3, "use snmpa:register_subagent/3 instead."},
-    {unregister_subagent,   2, "use snmpa:unregister_subagent/2 instead."},
-
-    {send_notification,     3, "use snmpa:send_notification/3 instead."},
-    {send_notification,     4, "use snmpa:send_notification/4 instead."},
-    {send_notification,     5, "use snmpa:send_notification/5 instead."},
-    {send_notification,     6, "use snmpa:send_notification/6 instead."},
-    {send_trap,             3, "use snmpa:send_trap/3 instead."},
-    {send_trap,             4, "use snmpa:send_trap/4 instead."},
-
-    {add_agent_caps,        2, "use snmpa:add_agent_caps/2 instead."},
-    {del_agent_caps,        1, "use snmpa:del_agent_caps/1 instead."},
-    {get_agent_caps,        0, "use snmpa:get_agent_caps/0 instead."}
-   ]).
+%% -deprecated(
+%%    [
+%%    ]).
  
 
 -define(APPLICATION, snmp).
@@ -1032,78 +954,5 @@ to_erlang_term(String) ->
     {ok, Tokens, _} = erl_scan:string(lists:append([String, ". "])),
     {ok, Term}      = erl_parse:parse_term(Tokens),
     Term.
-
-
-%%%-----------------------------------------------------------------
-%%% BACKWARD COMPATIBILLITY CRAP
-%%%-----------------------------------------------------------------
-
-c(File) -> snmpc:compile(File).
-c(File, Options) -> snmpc:compile(File, Options).
-
-is_consistent(Filenames) ->
-    snmpc:is_consistent(Filenames).
-
-mib_to_hrl(MibName) ->
-    snmpc:mib_to_hrl(MibName).
-
-compile(Input, Output, Options) ->
-    snmpc:compile(Input, Output, Options).
-
-get_symbolic_store_db() -> snmpa:get_symbolic_store_db().
-
-name_to_oid(Name)           -> snmpa:name_to_oid(Name).
-name_to_oid(Db, Name)       -> snmpa:name_to_oid(Db, Name).
-oid_to_name(OID)            -> snmpa:oid_to_name(OID).
-oid_to_name(Db, OID)        -> snmpa:oid_to_name(Db, OID).
-enum_to_int(Name, Enum)     -> snmpa:enum_to_int(Name, Enum).
-enum_to_int(Db, Name, Enum) -> snmpa:enum_to_int(Db, Name, Enum).
-int_to_enum(Name, Int)      -> snmpa:int_to_enum(Name, Int).
-int_to_enum(Db, Name, Int)  -> snmpa:int_to_enum(Db, Name, Int).
-
-current_request_id()  -> snmpa:current_request_id().
-current_context()     -> snmpa:current_context().
-current_community()   -> snmpa:current_community().
-current_address()     -> snmpa:current_address().
-current_net_if_data() -> snmpa:current_net_if_data().
-
-get(Agent, Vars) -> snmpa:get(Agent, Vars).
-info(Agent) -> snmpa:info(Agent).
-dump_mibs()     -> snmpa:dump_mibs().
-dump_mibs(File) -> snmpa:dump_mibs(File).
-load_mibs(Agent, Mibs) -> snmpa:load_mibs(Agent, Mibs).
-unload_mibs(Agent, Mibs) -> snmpa:unload_mibs(Agent, Mibs).
-send_notification(Agent, Notification, Recv) -> 
-    snmpa:send_notification(Agent, Notification, Recv).
-send_notification(Agent, Notification, Recv, Varbinds) ->
-    snmpa:send_notification(Agent, Notification, Recv, Varbinds).
-send_notification(Agent, Notification, Recv, NotifyName, Varbinds) ->
-    snmpa:send_notification(Agent, Notification, Recv, NotifyName, Varbinds).
-send_notification(Agent, Notification, Recv, NotifyName, 
-		  ContextName, Varbinds) ->
-    snmpa:send_notification(Agent, Notification, Recv, NotifyName, 
-			    ContextName, Varbinds).
-send_trap(Agent, Trap, Community) ->
-    snmpa:send_trap(Agent, Trap, Community).
-send_trap(Agent, Trap, Community, Varbinds) ->
-    snmpa:send_trap(Agent, Trap, Community, Varbinds).
-register_subagent(Agent, SubTree, SubAgent) ->
-    snmpa:register_subagent(Agent, SubTree, SubAgent).
-unregister_subagent(Agent, SubOidOrPid) ->
-    snmpa:unregister_subagent(Agent, SubOidOrPid).
-
-add_agent_caps(Oid, Descr) -> snmpa:add_agent_caps(Oid, Descr).
-del_agent_caps(Index) -> snmpa:del_agent_caps(Index).
-get_agent_caps() -> snmpa:get_agent_caps().
-
-log_to_txt(LogDir, Mibs) -> 
-    snmpa:log_to_txt(LogDir, Mibs).
-log_to_txt(LogDir, Mibs, OutFile) -> 
-    snmpa:log_to_txt(LogDir, Mibs, OutFile).
-log_to_txt(LogDir, Mibs, OutFile, LogName) -> 
-    snmpa:log_to_txt(LogDir, Mibs, OutFile, LogName).
-change_log_size(NewSize) -> 
-    snmpa:change_log_size(NewSize).
-
 
 

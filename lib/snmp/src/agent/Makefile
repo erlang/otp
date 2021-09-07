@@ -76,14 +76,25 @@ ifeq ($(SNMP_EXT_VERBOSITY),true)
   SNMP_FLAGS += -Dsnmp_extended_verbosity
 endif
 
-
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/snmp/ebin
 
-ifeq ($(WARN_UNUSED_VARS),true)
-ERL_COMPILE_FLAGS += +warn_unused_vars
+ifeq ($(SNMP_WARNING_AS_ERROR),)
+  ERL_COMPILE_FLAGS += -Werror
+else
+  ifeq ($(SNMP_WARNING_AS_ERROR),true)
+    ERL_COMPILE_FLAGS += -Werror
+  endif
+endif
+
+ifeq ($(WARN_UNUSED_VARS),)
+  ERL_COMPILE_FLAGS += +warn_unused_vars
+else
+  ifeq ($(WARN_UNUSED_VARS),true)
+    ERL_COMPILE_FLAGS += +warn_unused_vars
+  endif
 endif
 
 ERL_COMPILE_FLAGS += -I../../include \

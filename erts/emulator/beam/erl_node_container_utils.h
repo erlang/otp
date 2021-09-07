@@ -176,11 +176,11 @@ extern ErtsPTab erts_proc;
  */
 
 #define ERTS_MAX_PROCESSES		(ERTS_PTAB_MAX_SIZE-1)
-#define ERTS_MAX_PID_DATA		((1 << _PID_DATA_SIZE) - 1)
-#define ERTS_MAX_PID_NUMBER		((1 << _PID_NUM_SIZE) - 1)
-#define ERTS_MAX_PID_SERIAL		((1 << _PID_SER_SIZE) - 1)
+#define ERTS_MAX_INTERNAL_PID_DATA	((1 << _PID_DATA_SIZE) - 1)
+#define ERTS_MAX_INTERNAL_PID_NUMBER	((1 << _PID_NUM_SIZE) - 1)
+#define ERTS_MAX_INTERNAL_PID_SERIAL	((1 << _PID_SER_SIZE) - 1)
 
-#define ERTS_PROC_BITS			(_PID_SER_SIZE + _PID_NUM_SIZE)
+#define ERTS_INTERNAL_PROC_BITS		(_PID_SER_SIZE + _PID_NUM_SIZE)
 
 #define ERTS_INVALID_PID		ERTS_PTAB_INVALID_ID(_TAG_IMMED1_PID)
 
@@ -200,7 +200,7 @@ extern ErtsPTab erts_port;
 #define internal_port_data(PRT)		(ASSERT(is_internal_port((PRT))), \
 					 erts_ptab_id2data(&erts_port, (PRT)))
 
-#define internal_port_number(x) _GET_PORT_NUM(internal_port_data((x)))
+#define internal_port_number(x) ((Uint64) _GET_PORT_NUM(internal_port_data((x))))
 
 #define internal_port_node_name(x)	(internal_port_node((x))->sysname)
 #define external_port_node_name(x)	(external_port_node((x))->sysname)
@@ -245,7 +245,8 @@ extern ErtsPTab erts_port;
 */
 #define ERTS_MAX_PORTS			(ERTS_PTAB_MAX_SIZE-1)
 #define ERTS_MAX_PORT_DATA		((1 << _PORT_DATA_SIZE) - 1)
-#define ERTS_MAX_PORT_NUMBER		((1 << _PORT_NUM_SIZE) - 1)
+#define ERTS_MAX_INTERNAL_PORT_NUMBER	((1 << _PORT_NUM_SIZE) - 1)
+#define ERTS_MAX_V3_PORT_NUMBER		((1 << _PORT_NUM_SIZE) - 1)
 
 #define ERTS_PORTS_BITS			(_PORT_NUM_SIZE)
 
@@ -256,10 +257,11 @@ extern ErtsPTab erts_port;
 \*                                                                         */
 
 #define internal_ref_no_numbers(x)	ERTS_REF_NUMBERS
-#define internal_ref_numbers(x)		(is_internal_ordinary_ref((x)) \
-					 ? internal_ordinary_ref_numbers((x)) \
-					 : (ASSERT(is_internal_magic_ref((x))), \
-					    internal_magic_ref_numbers((x))))
+#define internal_ref_numbers(x)		(is_internal_magic_ref((x))     \
+					 ? internal_magic_ref_numbers((x)) \
+                                         : internal_non_magic_ref_numbers((x)))
+
+
 #if defined(ARCH_64)
 
 #define external_ref_no_numbers(x)					\

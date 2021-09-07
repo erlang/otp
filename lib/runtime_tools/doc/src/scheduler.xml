@@ -63,7 +63,10 @@
 	<taglist>
 	  <tag><c>{normal, SchedulerId, Util, Percent}</c></tag>
 	  <item>Scheduler utilization of a normal scheduler with number
-	    <c>SchedulerId</c>.</item>
+	    <c>SchedulerId</c>. Schedulers that are not online will also be
+	    included.
+	    <seeerl marker="erts:erlang#system_info_schedulers_online">Online
+	    schedulers</seeerl> have the lowest <c>SchedulerId</c>.</item>
 	  <tag><c>{cpu, SchedulerId, Util, Percent}</c></tag>
 	  <item>Scheduler utilization of a dirty-cpu scheduler with number
 	    <c>SchedulerId</c>.</item>
@@ -117,6 +120,29 @@
         <p>Calculate scheduler utilizations for the time interval from when
 	<c><anno>Sample</anno></c> was taken and "now". The same as calling
 	<c>scheduler:utilization(Sample, scheduler:sample_all())</c>.</p>
+	<note>
+	  <p>
+	    Scheduler utilization is measured as an average value over a time
+	    interval, calculated as the difference between two samples. To get
+	    good useful utilization values at least a couple of seconds should
+	    have passed between the two samples. For this reason, you should not
+	    do
+	  </p>
+<pre>
+scheduler:utilization(scheduler:sample()). % DO NOT DO THIS!
+</pre>
+          <p>
+            The above example takes two samples in rapid succession and calculates
+	    the scheduler utilization between them. The resulting values will
+	    probably be more misleading than informative.
+	  </p>
+	  <p>
+	    Instead use <seemfa marker="#utilization/1">
+	    <c>scheduler:utilization(Seconds)</c></seemfa> or let some time pass
+	    between <c>Sample=scheduler:sample()</c> and
+	    <c>scheduler:utilization(Sample)</c>.
+	  </p>
+	</note>
       </desc>
     </func>
 

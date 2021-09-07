@@ -169,12 +169,28 @@ lambda(Lbl, NumFree, #asm{wrappers=Wrappers0,
 %%    literal(Literal, Dict) -> {Index,Dict'}
 -spec literal(term(), bdict()) -> {non_neg_integer(), bdict()}.
 
-literal(Lit, #asm{literals=Tab0,next_literal=NextIndex}=Dict) ->
+-dialyzer({no_improper_lists, literal/2}).
+
+literal(Lit, Dict) when is_float(Lit) ->
+    %% A literal 0.0 actually has two representations: 0.0 and -0.0.
+    %% While they are equal, they must be encoded differently (the bit sign).
+    if
+        %% We do not explicitly match on 0.0 because a buggy compiler
+        %% could replace Lit by 0.0, which would discard its sign.
+        Lit > 0.0; Lit < 0.0 ->
+            literal1([term|Lit], Dict);
+        true ->
+            literal1([binary|my_term_to_binary(Lit)], Dict)
+    end;
+literal(Lit, Dict) ->
+    literal1([term|Lit], Dict).
+
+literal1(Key, #asm{literals=Tab0,next_literal=NextIndex}=Dict) ->
     case Tab0 of
-        #{Lit:=Index} ->
+        #{Key:=Index} ->
 	    {Index,Dict};
         #{} ->
-	    Tab = Tab0#{Lit=>NextIndex},
+	    Tab = Tab0#{Key=>NextIndex},
 	    {NextIndex,Dict#asm{literals=Tab,next_literal=NextIndex+1}}
     end.
 
@@ -267,8 +283,11 @@ lambda_table(#asm{locals=Loc0,lambdas={NumLambdas,Lambdas0}}) ->
 -spec literal_table(bdict()) -> {non_neg_integer(), [[binary(),...]]}.
 
 literal_table(#asm{literals=Tab,next_literal=NumLiterals}) ->
-    L0 = maps:fold(fun(Lit, Num, Acc) ->
-			   [{Num,my_term_to_binary(Lit)}|Acc]
+    L0 = maps:fold(fun
+			([term|Lit], Num, Acc) ->
+			   [{Num,my_term_to_binary(Lit)}|Acc];
+			([binary|Lit], Num, Acc) ->
+			   [{Num,Lit}|Acc]
 		   end, [], Tab),
     L1 = lists:sort(L0),
     L = [[<<(byte_size(Term)):32>>,Term] || {_,Term} <- L1],
@@ -280,7 +299,7 @@ my_term_to_binary(Term) ->
     %% options for the compiler. (When this comment was written, some time
     %% after the release of OTP 22, the default minor version was 1.)
 
-    term_to_binary(Term, [{minor_version,2}]).
+    term_to_binary(Term, [{minor_version,2},deterministic]).
 
 %% Return the line table.
 -spec line_table(bdict()) ->

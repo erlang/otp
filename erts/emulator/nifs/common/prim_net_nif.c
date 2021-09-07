@@ -215,12 +215,6 @@
  * =================================================================== */
 
 
-#ifdef HAVE_SOCKLEN_T
-#  define SOCKLEN_T socklen_t
-#else
-#  define SOCKLEN_T size_t
-#endif
-
 /* Debug stuff... */
 #define NET_NIF_DEBUG_DEFAULT FALSE
 
@@ -340,24 +334,24 @@ static ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env,
 static ERL_NIF_TERM enet_getifaddrs_process(ErlNifEnv*      env,
                                             struct ifaddrs* ifap);
 static unsigned int enet_getifaddrs_length(struct ifaddrs* ifap);
-static BOOLEAN_T encode_ifaddrs(ErlNifEnv*      env,
-                                struct ifaddrs* ifap,
-                                ERL_NIF_TERM*   eifa);
+static void encode_ifaddrs(ErlNifEnv*      env,
+                           struct ifaddrs* ifap,
+                           ERL_NIF_TERM*   eifa);
 static ERL_NIF_TERM encode_ifaddrs_name(ErlNifEnv* env,
                                         char*      name);
 static ERL_NIF_TERM encode_ifaddrs_flags(ErlNifEnv*   env,
                                          unsigned int flags);
 static ERL_NIF_TERM encode_ifaddrs_addr(ErlNifEnv*       env,
                                         struct sockaddr* sa);
-static char* make_ifaddrs(ErlNifEnv*    env,
-                          ERL_NIF_TERM  name,
-                          ERL_NIF_TERM  flags,
-                          ERL_NIF_TERM  addr,
-                          ERL_NIF_TERM  netmask,
-                          ERL_NIF_TERM  ifu_key,
-                          ERL_NIF_TERM  ifu_value,
-                          ERL_NIF_TERM  data,
-                          ERL_NIF_TERM* ifAddrs);
+static void make_ifaddrs(ErlNifEnv*    env,
+                         ERL_NIF_TERM  name,
+                         ERL_NIF_TERM  flags,
+                         ERL_NIF_TERM  addr,
+                         ERL_NIF_TERM  netmask,
+                         ERL_NIF_TERM  ifu_key,
+                         ERL_NIF_TERM  ifu_value,
+                         ERL_NIF_TERM  data,
+                         ERL_NIF_TERM* ifAddrs);
 #ifdef HAVE_SETNS
 static BOOLEAN_T enet_getifaddrs_netns(ErlNifEnv*   env,
                                        ERL_NIF_TERM map,
@@ -388,18 +382,16 @@ static ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
                                          int        family);
 static ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
                                        int        socktype);
-static ERL_NIF_TERM encode_address_info_proto(ErlNifEnv* env,
-                                        int        proto);
 
-static char* make_address_info(ErlNifEnv*    env,
-                               ERL_NIF_TERM  fam,
-                               ERL_NIF_TERM  sockType,
-                               ERL_NIF_TERM  proto,
-                               ERL_NIF_TERM  addr,
-                               ERL_NIF_TERM* ai);
+static void make_address_info(ErlNifEnv*    env,
+                              ERL_NIF_TERM  fam,
+                              ERL_NIF_TERM  sockType,
+                              ERL_NIF_TERM  proto,
+                              ERL_NIF_TERM  addr,
+                              ERL_NIF_TERM* ai);
 
-static BOOLEAN_T extract_debug(ErlNifEnv*   env,
-                               ERL_NIF_TERM map);
+static BOOLEAN_T get_debug(ErlNifEnv*   env,
+                           ERL_NIF_TERM map);
 static int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 
 
@@ -721,7 +713,6 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
     int          flags = 0; // Just in case...
     ESockAddress sa;
     SOCKLEN_T    saLen = 0; // Just in case...
-    char*        xres;
 
     NDBG( ("NET", "nif_getnameinfo -> entry (%d)\r\n", argc) );
 
@@ -736,9 +727,9 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
            "\r\n   Flags:    %T"
            "\r\n", eSockAddr, eFlags) );
 
-    if ((xres = esock_decode_sockaddr(env, eSockAddr, &sa, &saLen)) != NULL) {
-        NDBG( ("NET", "nif_getnameinfo -> failed decode sockaddr: %s\r\n", xres) );
-        return esock_make_error_str(env, xres);
+    if (! esock_decode_sockaddr(env, eSockAddr, &sa, &saLen)) {
+        NDBG( ("NET", "nif_getnameinfo -> failed decode sockaddr\r\n") );
+        return esock_make_error(env, esock_atom_einval);
     }
 
     NDBG( ("NET", "nif_getnameinfo -> (try) decode flags\r\n") );
@@ -786,16 +777,13 @@ ERL_NIF_TERM enet_getnameinfo(ErlNifEnv*          env,
     switch (res) {
     case 0:
         {
-            ERL_NIF_TERM keys[] = {atom_host,      atom_service};
-            ERL_NIF_TERM vals[] = {MKS(env, host), MKS(env, serv)};
+            ERL_NIF_TERM keys[]  = {atom_host,      atom_service};
+            ERL_NIF_TERM vals[]  = {MKS(env, host), MKS(env, serv)};
+            size_t       numKeys = NUM(keys);
             ERL_NIF_TERM info;
-            unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
-            unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
 
-            ESOCK_ASSERT( (numKeys == numVals) );
-
-            if (!MKMA(env, keys, vals, numKeys, &info))
-                return enif_make_badarg(env);
+            ESOCK_ASSERT( numKeys == NUM(vals) );
+            ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &info) );
 
             result = esock_make_ok2(env, info);
         }
@@ -1238,11 +1226,7 @@ ERL_NIF_TERM enet_getifaddrs_process(ErlNifEnv* env, struct ifaddrs* ifap)
         while (i < len) {
             ERL_NIF_TERM entry;
 
-            if (!encode_ifaddrs(env, p, &entry)) {
-                /* If this fail, we are f*ed, so give up */
-                FREE(array);
-                return esock_make_error(env, esock_atom_einval);
-            }
+            encode_ifaddrs(env, p, &entry);
 
             NDBG( ("NET", "enet_getifaddrs_process -> entry: %T\r\n", entry) );
 
@@ -1296,11 +1280,10 @@ unsigned int enet_getifaddrs_length(struct ifaddrs* ifap)
 
 
 static
-BOOLEAN_T encode_ifaddrs(ErlNifEnv*      env,
-                         struct ifaddrs* ifap,
-                         ERL_NIF_TERM*   eifa)
+void encode_ifaddrs(ErlNifEnv*      env,
+                    struct ifaddrs* ifap,
+                    ERL_NIF_TERM*   eifa)
 {
-    char*        xres;
     ERL_NIF_TERM ename, eflags, eaddr, enetmask, eifu_key, eifu_value, edata;
     ERL_NIF_TERM eifAddrs;
 
@@ -1331,38 +1314,13 @@ BOOLEAN_T encode_ifaddrs(ErlNifEnv*      env,
      */
     edata = esock_atom_undefined;
 
-    if ((xres = make_ifaddrs(env,
-                             ename, eflags, eaddr, enetmask,
-                             eifu_key, eifu_value, edata,
-                             &eifAddrs)) == NULL) {
-        NDBG( ("NET", "encode_ifaddrs -> encoded ifAddrs: %T\r\n", eifAddrs) );
-        *eifa = eifAddrs;
+    make_ifaddrs(env,
+                 ename, eflags, eaddr, enetmask,
+                 eifu_key, eifu_value, edata,
+                 &eifAddrs);
 
-        return TRUE;
-
-    } else {
-
-        /* *** Ouch ***
-         * 
-         * Failed to construct the ifaddrs map => try for a minumum map 
-         * 
-         */
-        ERL_NIF_TERM keys[]  = {atom_name};
-        ERL_NIF_TERM vals[]  = {ename};
-        unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
-
-        esock_warning_msg("Failed constructing IfAddr map for %s: %s",
-                          ifap->ifa_name, xres);
-
-        if (!MKMA(env, keys, vals, numKeys, eifa)) {
-            // We are in a bad way, give up */
-            *eifa = esock_atom_undefined;
-            return FALSE;
-        } else {
-            return TRUE;
-        }  
-
-    }
+    NDBG( ("NET", "encode_ifaddrs -> encoded ifAddrs: %T\r\n", eifAddrs) );
+    *eifa = eifAddrs;
 }
 
 
@@ -1468,12 +1426,11 @@ ERL_NIF_TERM encode_ifaddrs_addr(ErlNifEnv* env, struct sockaddr* sa)
     ERL_NIF_TERM esa;
 
     if (sa != NULL) {
+        
         unsigned int sz = sizeof(ESockAddress);
-        if (esock_encode_sockaddr(env, (ESockAddress*) sa, sz, &esa) != NULL) {
-            NDBG( ("NET", "encode_ifaddrs_addr -> "
-                   "encoding address field 0x%lX failed => use default\r\n", sa) );
-            esa = esock_atom_undefined;
-        }
+
+        esock_encode_sockaddr(env, (ESockAddress*) sa, sz, &esa);
+        
     } else {
         esa = esock_atom_undefined;
     }
@@ -1483,23 +1440,23 @@ ERL_NIF_TERM encode_ifaddrs_addr(ErlNifEnv* env, struct sockaddr* sa)
 
 
 static
-char* make_ifaddrs(ErlNifEnv*    env,
-                   ERL_NIF_TERM  ename,
-                   ERL_NIF_TERM  eflags,
-                   ERL_NIF_TERM  eaddr,
-                   ERL_NIF_TERM  enetmask,
-                   ERL_NIF_TERM  eifu_key,
-                   ERL_NIF_TERM  eifu_value,
-                   ERL_NIF_TERM  edata,
-                   ERL_NIF_TERM* eifAddrs)
+void make_ifaddrs(ErlNifEnv*    env,
+                  ERL_NIF_TERM  ename,
+                  ERL_NIF_TERM  eflags,
+                  ERL_NIF_TERM  eaddr,
+                  ERL_NIF_TERM  enetmask,
+                  ERL_NIF_TERM  eifu_key,
+                  ERL_NIF_TERM  eifu_value,
+                  ERL_NIF_TERM  edata,
+                  ERL_NIF_TERM* eifAddrs)
 {
     /* Several of these values can be (the atom) undefined, which
      * means that they should *not* be included in the result map.
      */
     ERL_NIF_TERM keys[6]; // There are only (at most) siz (6) fields...
     ERL_NIF_TERM vals[6];
-    unsigned int len = sizeof(keys) / sizeof(ERL_NIF_TERM); // Just in case...
-    unsigned int idx = 0;
+    size_t       len = NUM(keys); // Just in case...
+    size_t       idx = 0;
 
     /* *** Name *** */
     NDBG( ("NET", "make_ifaddrs -> name: %T\r\n", ename) );
@@ -1558,14 +1515,8 @@ char* make_ifaddrs(ErlNifEnv*    env,
            "\r\n   len: %d"
            "\r\n"
            ) );
-    if (!MKMA(env, keys, vals, len, eifAddrs)) {
-        NDBG( ("NET", "make_ifaddrs -> "
-               "failed contructing interface adress map\r\n") );
-        *eifAddrs = esock_atom_undefined;
-        return ESOCK_STR_EINVAL;
-    } else {
-        return NULL;
-    }
+
+    ESOCK_ASSERT( MKMA(env, keys, vals, len, eifAddrs) );
 }
 
 #endif // HAVE_GETIFADDRS
@@ -2084,17 +2035,14 @@ ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
 
     fam   = encode_address_info_family(env, addrInfoP->ai_family);
     type  = encode_address_info_type(env,   addrInfoP->ai_socktype);
-    proto = encode_address_info_proto(env,  addrInfoP->ai_protocol);
+    proto = MKI(env, addrInfoP->ai_protocol);
     esock_encode_sockaddr(env,
                           (ESockAddress*) addrInfoP->ai_addr,
                           addrInfoP->ai_addrlen,
                           &addr);
     
-    if (make_address_info(env, fam, type, proto, addr, &addrInfo) == NULL)
-        return addrInfo;
-    else
-        return esock_atom_undefined; // We should do better...
-
+    make_address_info(env, fam, type, proto, addr, &addrInfo);
+    return addrInfo;
 }
 
 
@@ -2109,9 +2057,7 @@ ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
 {
     ERL_NIF_TERM efam;
 
-    if (NULL != esock_encode_domain(env, family, &efam))
-        efam = MKI(env, family);
-
+    esock_encode_domain(env, family, &efam);
     return efam;
 }
 
@@ -2128,57 +2074,29 @@ ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
 {
     ERL_NIF_TERM etype;
 
-    if (NULL != esock_encode_type(env, socktype, &etype))
-        etype = MKI(env, socktype);
-
+    esock_encode_type(env, socktype, &etype);
     return etype;
 }
 
 
 
-/* Convert an "native" protocol to an erlang protocol.
- * Note that this is not currently exhaustive, but only supports
- * tcp and udp. Other values will be returned as is, that is
- * in the form of an integer.
- */
 static
-ERL_NIF_TERM encode_address_info_proto(ErlNifEnv* env,
-                                       int        proto)
+void make_address_info(ErlNifEnv*    env,
+                       ERL_NIF_TERM  fam,
+                       ERL_NIF_TERM  sockType,
+                       ERL_NIF_TERM  proto,
+                       ERL_NIF_TERM  addr,
+                       ERL_NIF_TERM* ai)
 {
-    ERL_NIF_TERM eproto;
-
-    if (NULL != esock_encode_protocol(env, proto, &eproto))
-        eproto = MKI(env, proto);
-
-    return eproto;
-}
-
-
-
-static
-char* make_address_info(ErlNifEnv*    env,
-                        ERL_NIF_TERM  fam,
-                        ERL_NIF_TERM  sockType,
-                        ERL_NIF_TERM  proto,
-                        ERL_NIF_TERM  addr,
-                        ERL_NIF_TERM* ai)
-{
-    ERL_NIF_TERM keys[] = {esock_atom_family,
-                           esock_atom_type,
-                           esock_atom_protocol,
-                           esock_atom_addr};
-    ERL_NIF_TERM vals[] = {fam, sockType, proto, addr};
-    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
-    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    ERL_NIF_TERM keys[]  = {esock_atom_family,
+                            esock_atom_type,
+                            esock_atom_protocol,
+                            esock_atom_addr};
+    ERL_NIF_TERM vals[]  = {fam, sockType, proto, addr};
+    size_t       numKeys = NUM(keys);
     
-    ESOCK_ASSERT( (numKeys == numVals) );
-    
-    if (!MKMA(env, keys, vals, numKeys, ai)) {
-        *ai = esock_atom_undefined;
-        return ESOCK_STR_EINVAL;
-    } else {
-        return NULL;
-    }
+    ESOCK_ASSERT( numKeys == NUM(vals) );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, ai) );
 }
 #endif // if !defined(__WIN32__)
 
@@ -2361,8 +2279,8 @@ ErlNifFunc net_funcs[] =
 
 #if !defined(__WIN32__)
 static
-BOOLEAN_T extract_debug(ErlNifEnv*   env,
-                        ERL_NIF_TERM map)
+BOOLEAN_T get_debug(ErlNifEnv*   env,
+                    ERL_NIF_TERM map)
 {
     /*
      * We need to do this here since the "proper" atom has not been
@@ -2370,7 +2288,7 @@ BOOLEAN_T extract_debug(ErlNifEnv*   env,
      */
     ERL_NIF_TERM debug = MKA(env, "debug");
     
-    return esock_extract_bool_from_map(env, map, debug, NET_NIF_DEBUG_DEFAULT);
+    return esock_get_bool_from_map(env, map, debug, NET_NIF_DEBUG_DEFAULT);
 }
 #endif
 
@@ -2384,7 +2302,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
 #if !defined(__WIN32__)    
     // We should make it possible to use load_info to get default values
-    data.debug = extract_debug(env, load_info);
+    data.debug = get_debug(env, load_info);
 
     NDBG( ("NET", "on_load -> entry\r\n") );
 #endif

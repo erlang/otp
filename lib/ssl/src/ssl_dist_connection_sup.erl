@@ -42,48 +42,20 @@ start_link() ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-
 init([]) ->    
-  
-    TLSConnetionManager = tls_connection_manager_child_spec(),
-    %% Handles emulated options so that they inherited by the accept
-    %% socket, even when setopts is performed on the listen socket
-    ListenOptionsTracker = listen_options_tracker_child_spec(), 
-    Pre_1_3SessionTracker = ssl_server_session_child_spec(),
-
-    {ok, {{one_for_one, 10, 3600}, [TLSConnetionManager, 
-				    ListenOptionsTracker,
-                                    Pre_1_3SessionTracker
-				   ]}}.
+    TLSSup = tls_sup_child_spec(),
+    {ok, {{one_for_one, 10, 3600}, [TLSSup]}}.
 
     
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-tls_connection_manager_child_spec() ->
-    Name = dist_tls_connection,  
-    StartFunc = {tls_connection_sup, start_link_dist, []},
+tls_sup_child_spec() ->
+    Name = dist_tls_sup,  
+    StartFunc = {tls_dist_sup, start_link, []},
     Restart = permanent, 
     Shutdown = 4000,
-    Modules = [tls_connection_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-listen_options_tracker_child_spec() ->
-    Name = dist_tls_socket,  
-    StartFunc = {ssl_listen_tracker_sup, start_link_dist, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [tls_socket],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-ssl_server_session_child_spec() ->
-    Name = dist_ssl_server_session_cache_sup,
-    StartFunc = {ssl_server_session_cache_sup, start_link_dist, []},
-    Restart = permanent,
-    Shutdown = 4000,
-    Modules = [ssl_server_session_cache_sup],
+    Modules = [tls_dist_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.

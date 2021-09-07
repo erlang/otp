@@ -40,6 +40,9 @@ RELSYSDIR = $(RELEASE_PATH)/lib/common_test-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 
+BEHAVIOUR_MODULES= \
+	ct_suite
+
 MODULES= \
 	ct \
 	ct_logs \
@@ -88,9 +91,13 @@ MODULES= \
 
 
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
-BEAM_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+BEAM_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) \
+			$(BEHAVIOUR_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-ERL_FILES= $(MODULES:=.erl)
+ERL_FILES= \
+	$(MODULES:=.erl) \
+	$(BEHAVIOUR_MODULES:%=%.erl)
+
 HRL_FILES = \
 	ct_util.hrl \
 	ct_netconfc.hrl

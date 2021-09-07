@@ -29,7 +29,8 @@
 -export([start/5, start/6, debug_options/2, hibernate_after/1,
 	 name/1, unregister_name/1, get_proc_name/1, get_parent/0,
 	 call/3, call/4, reply/2,
-         send_request/3, wait_response/2, check_response/2,
+         send_request/3, wait_response/2,
+         receive_response/2, check_response/2,
          stop/1, stop/3]).
 
 -export([init_it/6, init_it/7]).
@@ -45,7 +46,7 @@
                     | {'global', term()}
                     | {'via', Module :: module(), Name :: term()}.
 
--type start_ret()  :: {'ok', pid()} | 'ignore' | {'error', term()}.
+-type start_ret()  :: {'ok', pid()} | {'ok', {pid(), reference()}} | 'ignore' | {'error', term()}.
 
 -type debug_flag() :: 'trace' | 'log' | 'statistics' | 'debug'
                     | {'logfile', string()}.
@@ -71,7 +72,7 @@
 %%    Options = [{timeout, Timeout} | {debug, [Flag]} | {spawn_opt, OptionList}]
 %%      Flag = trace | log | {logfile, File} | statistics | debug
 %%          (debug == log && statistics)
-%% Returns: {ok, Pid} | ignore |{error, Reason} |
+%% Returns: {ok, Pid} | {ok, Pid, Reference} | ignore |{error, Reason} |
 %%          {error, {already_started, Pid}} |
 %%    The 'already_started' is returned only if Name is given 
 %%-----------------------------------------------------------------
@@ -112,7 +113,7 @@ do_spawn(GenMod, monitor, Mod, Args, Options) ->
 do_spawn(GenMod, _, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start(?MODULE, init_it,
-		   [GenMod, self(), self, Mod, Args, Options], 
+		   [GenMod, self(), 'self', Mod, Args, Options],
 		   Time,
 		   spawn_opts(Options)).
 
@@ -132,7 +133,7 @@ do_spawn(GenMod, monitor, Name, Mod, Args, Options) ->
 do_spawn(GenMod, _, Name, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start(?MODULE, init_it,
-		   [GenMod, self(), self, Name, Mod, Args, Options], 
+		   [GenMod, self(), 'self', Name, Mod, Args, Options],
 		   Time,
 		   spawn_opts(Options)).
 
@@ -198,17 +199,41 @@ call(Process, Label, Request, Timeout)
     Fun = fun(Pid) -> do_call(Pid, Label, Request, Timeout) end,
     do_for_proc(Process, Fun).
 
-do_call(Process, Label, Request, Timeout) when is_atom(Process) =:= false ->
+-dialyzer({no_improper_lists, do_call/4}).
+
+do_call(Process, Label, Request, infinity)
+  when (is_pid(Process)
+        andalso (node(Process) == node()))
+       orelse (element(2, Process) == node()
+               andalso is_atom(element(1, Process))
+               andalso (tuple_size(Process) =:= 2)) ->
     Mref = erlang:monitor(process, Process),
-
-    %% OTP-21:
-    %% Auto-connect is asynchronous. But we still use 'noconnect' to make sure
-    %% we send on the monitored connection, and not trigger a new auto-connect.
-    %%
-    erlang:send(Process, {Label, {self(), Mref}, Request}, [noconnect]),
-
+    %% Local without timeout; no need to use alias since we unconditionally
+    %% will wait for either a reply or a down message which corresponds to
+    %% the process being terminated (as opposed to 'noconnection')...
+    Process ! {Label, {self(), Mref}, Request},
     receive
         {Mref, Reply} ->
+            erlang:demonitor(Mref, [flush]),
+            {ok, Reply};
+        {'DOWN', Mref, _, _, Reason} ->
+            exit(Reason)
+    end;
+do_call(Process, Label, Request, Timeout) when is_atom(Process) =:= false ->
+    Mref = erlang:monitor(process, Process, [{alias,demonitor}]),
+
+    Tag = [alias | Mref],
+
+    %% OTP-24:
+    %% Using alias to prevent responses after 'noconnection' and timeouts.
+    %% We however still may call nodes responding via process identifier, so
+    %% we still use 'noconnect' on send in order to try to send on the
+    %% monitored connection, and not trigger a new auto-connect.
+    %%
+    erlang:send(Process, {Label, {self(), Tag}, Request}, [noconnect]),
+
+    receive
+        {[alias | Mref], Reply} ->
             erlang:demonitor(Mref, [flush]),
             {ok, Reply};
         {'DOWN', Mref, _, _, noconnection} ->
@@ -218,7 +243,12 @@ do_call(Process, Label, Request, Timeout) when is_atom(Process) =:= false ->
             exit(Reason)
     after Timeout ->
             erlang:demonitor(Mref, [flush]),
-            exit(timeout)
+            receive
+                {[alias | Mref], Reply} ->
+                    {ok, Reply}
+            after 0 ->
+                    exit(timeout)
+            end
     end.
 
 get_node(Process) ->
@@ -246,9 +276,11 @@ send_request(Process, Label, Request) ->
             Mref
     end.
 
+-dialyzer({no_improper_lists, do_send_request/3}).
+
 do_send_request(Process, Label, Request) ->
-    Mref = erlang:monitor(process, Process),
-    erlang:send(Process, {Label, {self(), {'$gen_request_id', Mref}}, Request}, [noconnect]),
+    Mref = erlang:monitor(process, Process, [{alias, demonitor}]),
+    erlang:send(Process, {Label, {self(), [alias|Mref]}, Request}, [noconnect]),
     Mref.
 
 %%
@@ -257,10 +289,9 @@ do_send_request(Process, Label, Request) ->
 
 -spec wait_response(RequestId::request_id(), timeout()) ->
         {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
-wait_response(Mref, Timeout)
-  when is_reference(Mref) ->
+wait_response(Mref, Timeout) when is_reference(Mref) ->
     receive
-        {{'$gen_request_id', Mref}, Reply} ->
+        {[alias|Mref], Reply} ->
             erlang:demonitor(Mref, [flush]),
             {reply, Reply};
         {'DOWN', Mref, _, Object, Reason} ->
@@ -269,12 +300,30 @@ wait_response(Mref, Timeout)
             timeout
     end.
 
+-spec receive_response(RequestId::request_id(), timeout()) ->
+        {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
+receive_response(Mref, Timeout) when is_reference(Mref) ->
+    receive
+        {[alias|Mref], Reply} ->
+            erlang:demonitor(Mref, [flush]),
+            {reply, Reply};
+        {'DOWN', Mref, _, Object, Reason} ->
+            {error, {Reason, Object}}
+    after Timeout ->
+            erlang:demonitor(Mref, [flush]),
+            receive
+                {[alias|Mref], Reply} ->
+                    {reply, Reply}
+            after 0 ->
+                    timeout
+            end
+    end.
+
 -spec check_response(RequestId::term(), Key::request_id()) ->
         {reply, Reply::term()} | 'no_reply' | {error, {term(), server_ref()}}.
-check_response(Msg, Mref)
-  when is_reference(Mref) ->
+check_response(Msg, Mref) when is_reference(Mref) ->
     case Msg of
-        {{'$gen_request_id', Mref}, Reply} ->
+        {[alias|Mref], Reply} ->
             erlang:demonitor(Mref, [flush]),
             {reply, Reply};
         {'DOWN', Mref, _, Object, Reason} ->
@@ -286,9 +335,12 @@ check_response(Msg, Mref)
 %%
 %% Send a reply to the client.
 %%
+reply({_To, [alias|Alias] = Tag}, Reply) when is_reference(Alias) ->
+    Alias ! {Tag, Reply}, ok;
+reply({_To, [[alias|Alias] | _] = Tag}, Reply) when is_reference(Alias) ->
+    Alias ! {Tag, Reply}, ok;
 reply({To, Tag}, Reply) ->
-    Msg = {Tag, Reply},
-    try To ! Msg catch _:_ -> Msg end.
+    try To ! {Tag, Reply}, ok catch _:_ -> ok end.
 
 %%-----------------------------------------------------------------
 %% Syncronously stop a generic process

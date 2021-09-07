@@ -203,7 +203,7 @@ static int test_engine_digest_selector(ENGINE *e, const EVP_MD **digest,
     if (!digest) {
         *nids = test_digest_ids;
         fprintf(stderr, "Digest is empty! Nid:%d\r\n", nid);
-        return 2;
+        return sizeof(test_digest_ids) / sizeof(*test_digest_ids);
     }
     fprintf(stderr, "Digest no %d requested\r\n",nid);
     if (nid == NID_md5) {
@@ -375,8 +375,6 @@ int pem_passwd_cb_fun(char *buf, int size, int rwflag, void *password)
     return 0;
 }
 
-#endif
-
 #if defined(FAKE_RSA_IMPL)
 /* RSA sign. This returns a fixed string so the test case can test that it was called
    instead of the cryptolib default RSA sign */
@@ -454,3 +452,5 @@ static int test_rsa_free(RSA *rsa)
 }
 
 #endif /* if defined(FAKE_RSA_IMPL) */
+
+#endif /* if defined(HAVE_EC) */

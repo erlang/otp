@@ -44,7 +44,7 @@
 
 %%% Internal API
 -export([start_link/5,
-         get_print_info/1
+         get_print_info/1, get_print_info/2
         ]).
 
 start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
@@ -53,3 +53,6 @@ start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
 
 get_print_info(Pid) ->
     ssh_client_channel:get_print_info(Pid).
+
+get_print_info(Pid, Arg) ->
+    ssh_client_channel:get_print_info(Pid, Arg).

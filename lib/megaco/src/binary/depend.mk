@@ -37,19 +37,9 @@ endif
 
 BER_V1_FLAGS             = $(ASN1_CT_OPTS) +asn1config
 BER_V2_FLAGS             = $(ASN1_CT_OPTS) +asn1config
-# <DEPRECATED>
-BER_PREV3A_FLAGS         = $(ASN1_CT_OPTS) +asn1config
-BER_PREV3B_FLAGS         = $(ASN1_CT_OPTS) +asn1config
-BER_PREV3C_FLAGS         = $(ASN1_CT_OPTS) +asn1config
-# </DEPRECATED>
 BER_V3_FLAGS             = $(ASN1_CT_OPTS) +asn1config
 PER_V1_FLAGS             = $(ASN1_CT_OPTS)
 PER_V2_FLAGS             = $(ASN1_CT_OPTS)
-# <DEPRECATED>
-PER_PREV3A_FLAGS         = $(ASN1_CT_OPTS)
-PER_PREV3B_FLAGS         = $(ASN1_CT_OPTS)
-PER_PREV3C_FLAGS         = $(ASN1_CT_OPTS)
-# </DEPRECATED>
 PER_V3_FLAGS             = $(ASN1_CT_OPTS)
 
 
@@ -96,75 +86,6 @@ $(EBIN)/$(PER_ASN1_V2_SPEC).$(EMULATOR): \
 
 # --- Version 3 ---
 
-# -- (prev3a) --
-
-# <DEPRECATED>
-$(BER_ASN1_PREV3A_SPEC).erl: \
-	$(BER_ASN1_PREV3A_SPEC).set.asn \
-	$(ASN1_PREV3A_SPEC).asn
-	$(V_colon)@echo "$(BER_ASN1_PREV3A_SPEC):"
-	$(asn_verbose)$(ERLC) -bber $(BER_PREV3A_FLAGS) $(BER_ASN1_PREV3A_SPEC).set.asn
-
-$(EBIN)/$(BER_ASN1_PREV3A_SPEC).$(EMULATOR): \
-	$(BER_ASN1_PREV3A_SPEC).erl
-
-$(PER_ASN1_PREV3A_SPEC).erl: \
-	$(PER_ASN1_PREV3A_SPEC).set.asn \
-	$(ASN1_PREV3A_SPEC).asn
-	$(V_colon)@echo "$(PER_ASN1_PREV3A_SPEC):"
-	$(asn_verbose)$(ERLC) -bper $(PER_PREV3A_FLAGS) $(PER_ASN1_PREV3A_SPEC).set.asn
-
-$(EBIN)/$(PER_ASN1_PREV3A_SPEC).$(EMULATOR): \
-	$(PER_ASN1_PREV3A_SPEC).erl
-# </DEPRECATED>
-
-
-# -- (prev3b) --
-
-# <DEPRECATED>
-$(BER_ASN1_PREV3B_SPEC).erl: \
-	$(BER_ASN1_PREV3B_SPEC).set.asn \
-	$(ASN1_PREV3B_SPEC).asn
-	$(V_colon)@echo "$(BER_ASN1_PREV3B_SPEC):"
-	$(asn_verbose)$(ERLC) -bber $(BER_PREV3B_FLAGS) $(BER_ASN1_PREV3B_SPEC).set.asn
-
-$(EBIN)/$(BER_ASN1_PREV3B_SPEC).$(EMULATOR): \
-	$(BER_ASN1_PREV3B_SPEC).erl
-
-$(PER_ASN1_PREV3B_SPEC).erl: \
-	$(PER_ASN1_PREV3B_SPEC).set.asn \
-	$(ASN1_PREV3B_SPEC).asn
-	$(V_colon)@echo "$(PER_ASN1_PREV3B_SPEC):"
-	$(asn_verbose)$(ERLC) -bper $(PER_PREV3B_FLAGS) $(PER_ASN1_PREV3B_SPEC).set.asn
-
-$(EBIN)/$(PER_ASN1_PREV3B_SPEC).$(EMULATOR): \
-	$(PER_ASN1_PREV3B_SPEC).erl
-# </DEPRECATED>
-
-
-# -- (prev3c) --
-
-# <DEPRECATED>
-$(BER_ASN1_PREV3C_SPEC).erl: \
-	$(BER_ASN1_PREV3C_SPEC).set.asn \
-	$(ASN1_PREV3C_SPEC).asn
-	$(V_colon)@echo "$(BER_ASN1_PREV3C_SPEC):"
-	$(asn_verbose)$(ERLC) -bber $(BER_PREV3C_FLAGS) $(BER_ASN1_PREV3C_SPEC).set.asn
-
-$(EBIN)/$(BER_ASN1_PREV3C_SPEC).$(EMULATOR): \
-	$(BER_ASN1_PREV3C_SPEC).erl
-
-$(PER_ASN1_PREV3C_SPEC).erl: \
-	$(PER_ASN1_PREV3C_SPEC).set.asn \
-	$(ASN1_PREV3C_SPEC).asn
-	$(V_colon)@echo "$(PER_ASN1_PREV3C_SPEC):"
-	$(asn_verbose)$(ERLC) -bper $(PER_PREV3C_FLAGS) $(PER_ASN1_PREV3C_SPEC).set.asn
-
-$(EBIN)/$(PER_ASN1_PREV3C_SPEC).$(EMULATOR): \
-	$(PER_ASN1_PREV3C_SPEC).erl
-# </DEPRECATED>
-
-
 # -- (v3) --
 
 $(BER_ASN1_V3_SPEC).erl: \
@@ -208,20 +129,6 @@ $(EBIN)/megaco_binary_name_resolver_v2.$(EMULATOR): \
 	megaco_binary_name_resolver_v2.erl \
 	../app/megaco_internal.hrl
 
-# <DEPRECATED>
-$(EBIN)/megaco_binary_name_resolver_prev3a.$(EMULATOR): \
-	megaco_binary_name_resolver_prev3a.erl \
-	../app/megaco_internal.hrl
-
-$(EBIN)/megaco_binary_name_resolver_prev3b.$(EMULATOR): \
-	megaco_binary_name_resolver_prev3b.erl \
-	../app/megaco_internal.hrl
-
-$(EBIN)/megaco_binary_name_resolver_prev3c.$(EMULATOR): \
-	megaco_binary_name_resolver_prev3c.erl \
-	../app/megaco_internal.hrl
-# </DEPRECATED>
-
 $(EBIN)/megaco_binary_name_resolver_v3.$(EMULATOR): \
 	megaco_binary_name_resolver_v3.erl
 
@@ -240,26 +147,6 @@ $(EBIN)/megaco_binary_transformer_v2.$(EMULATOR): \
 	../app/megaco_internal.hrl \
         $(MEGACO_INCLUDEDIR)/megaco.hrl \
         $(MEGACO_INCLUDEDIR)/megaco_message_v2.hrl
-
-# <DEPRECATED>
-$(EBIN)/megaco_binary_transformer_prev3a.$(EMULATOR): \
-	megaco_binary_transformer_prev3a.erl \
-	../app/megaco_internal.hrl \
-        $(MEGACO_INCLUDEDIR)/megaco.hrl \
-        $(MEGACO_INCLUDEDIR)/megaco_message_prev3a.hrl
-
-$(EBIN)/megaco_binary_transformer_prev3b.$(EMULATOR): \
-	megaco_binary_transformer_prev3b.erl \
-	../app/megaco_internal.hrl \
-        $(MEGACO_INCLUDEDIR)/megaco.hrl \
-        $(MEGACO_INCLUDEDIR)/megaco_message_prev3b.hrl
-
-$(EBIN)/megaco_binary_transformer_prev3c.$(EMULATOR): \
-	megaco_binary_transformer_prev3c.erl \
-	../app/megaco_internal.hrl \
-        $(MEGACO_INCLUDEDIR)/megaco.hrl \
-        $(MEGACO_INCLUDEDIR)/megaco_message_prev3c.hrl
-# </DEPRECATED>
 
 $(EBIN)/megaco_binary_transformer_v3.$(EMULATOR): \
 	megaco_binary_transformer_v3.erl \

@@ -30,7 +30,10 @@
   <module since="OTP 17.0">maps</module>
   <modulesummary>Maps processing functions.</modulesummary>
   <description>
-    <p>This module contains functions for maps processing.</p>
+    <p>This module contains functions for maps processing. The
+    Efficiency Guide contains a chapter that describes <seeguide
+    marker="system/efficiency_guide:maps">how to use maps
+    efficiently</seeguide>.</p>
   </description>
 
   <datatypes>
@@ -69,6 +72,33 @@
   Pred = fun(K,V) -> is_atom(K) andalso (V rem 2) =:= 0 end,
   maps:filter(Pred,M).
 #{a => 2,c => 4}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="filtermap" arity="2" since="OTP 24.0"/>
+      <fsummary>Filter and map a map.</fsummary>
+      <desc>
+        <p>Returns a map <c><anno>Map</anno></c> that is the result of calling
+          <c><anno>Fun</anno>(<anno>Key</anno>, <anno>Value1</anno>)</c> for
+          every <c><anno>Key</anno></c> to value <c><anno>Value1</anno></c>
+          association in <c><anno>MapOrIter</anno></c> in any order.</p>
+        <p>If <c><anno>Fun</anno>(<anno>Key</anno>, <anno>Value1</anno>)</c>
+          returns <c>true</c>, the association is copied to the result map. If
+          it returns <c>false</c>, the association is not copied. If it returns
+          <c>{true, NewValue}</c>, the value for <c><anno>Key</anno></c> is
+          replaced with <c>NewValue</c>at this position is replaced in the
+          result map.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
+          or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
+          function of arity 3.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Fun = fun(K,V) when is_atom(K) -> {true, V*2}; (_,V) -> (V rem 2) =:= 0 end,
+  Map = #{k1 => 1, "k2" => 2, "k3" => 3},
+  maps:filtermap(Fun,Map).
+#{k1 => 2,"k2" => 2}</code>
       </desc>
     </func>
 
@@ -112,6 +142,34 @@
   Map = #{"k1" => 1, "k2" => 2, "k3" => 3},
   maps:fold(Fun,0,Map).
 6</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="foreach" arity="2" since="OTP 24.0"/>
+      <fsummary>Apply a function to each element of a map.</fsummary>
+      <desc>
+        <p>Calls <c>fun F(Key, Value)</c> for every <c><anno>Key</anno></c>
+          to value <c><anno>Value</anno></c> association in
+          <c><anno>MapOrIter</anno></c> in any order.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
+          or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
+          function of arity 2.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="from_keys" arity="2" since="OTP 24.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Takes a list of keys and a value and builds a map where all keys
+          point to the same value. The key can be in any order, and keys
+          and value can be of any term.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Keys = ["a", "b", "c"], maps:from_keys(Keys, ok).
+#{"a" => ok,"b" => ok,"c" => ok}</code>
       </desc>
     </func>
 
@@ -169,6 +227,53 @@
 val1
 > maps:get(key3, Map, "Default value").
 "Default value"</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="intersect" arity="2" since="OTP 24.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Intersects two maps into a single map
+        <c><anno>Map3</anno></c>. If a key exists in both maps, the
+        value in <c><anno>Map1</anno></c> is superseded by the value
+        in <c><anno>Map2</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+        <c><anno>Map1</anno></c> or <c><anno>Map2</anno></c> is not a
+        map.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map1 = #{a => "value_one", b => "value_two"},
+  Map2 = #{a => 1, c => 2},
+  maps:intersect(Map1,Map2).
+#{a => 1}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="intersect_with" arity="3" since="OTP 24.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Intersects two maps into a single map
+        <c><anno>Map3</anno></c>. If a key exists in both maps, the
+        value in <c><anno>Map1</anno></c> is combined with the value
+        in <c><anno>Map2</anno></c> by the
+        <c><anno>Combiner</anno></c> fun. When
+        <c><anno>Combiner</anno></c> is applied the key that exists in
+        both maps is the first parameter, the value from
+        <c><anno>Map1</anno></c> is the second parameter, and the value
+        from <c><anno>Map2</anno></c> is the third parameter.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+        <c><anno>Map1</anno></c> or <c><anno>Map2</anno></c> is not a
+        map. The call fails with a <c>badarg</c> exception if
+        <c><anno>Combiner</anno></c> is not a fun that takes three
+        arguments.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map1 = #{a => "value_one", b => "value_two"},
+  Map2 = #{a => 1, c => 2},
+  maps:intersect_with(fun(_Key, Value1, Value2) -> {Value1, Value2} end, Map1, Map2).
+#{a => {"value_one",1}}</code>
       </desc>
     </func>
 
@@ -273,6 +378,33 @@ none</code>
   Map2 = #{a => 1, c => 2},
   maps:merge(Map1,Map2).
 #{a => 1,b => "value_two",c => 2}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="merge_with" arity="3" since="OTP 24.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Merges two maps into a single map
+        <c><anno>Map3</anno></c>. If a key exists in both maps, the
+        value in <c><anno>Map1</anno></c> is combined with the value
+        in <c><anno>Map2</anno></c> by the
+        <c><anno>Combiner</anno></c> fun. When
+        <c><anno>Combiner</anno></c> is applied the key that exists in
+        both maps is the first parameter, the value from
+        <c><anno>Map1</anno></c> is the second parameter, and the value
+        from <c><anno>Map2</anno></c> is the third parameter.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+        <c><anno>Map1</anno></c> or <c><anno>Map2</anno></c> is not a
+        map. The call fails with a <c>badarg</c> exception if
+        <c><anno>Combiner</anno></c> is not a fun that takes three
+        arguments.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+> Map1 = #{a => "value_one", b => "value_two"},
+  Map2 = #{a => 1, c => 2},
+  maps:merge_with(fun(_Key, Value1, Value2) -> {Value1, Value2} end, Map1, Map2).
+#{a => {"value_one",1},b => "value_two",c => 2}</code>
       </desc>
     </func>
 

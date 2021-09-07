@@ -28,7 +28,8 @@
 	 wait/1,recv_in_try/1,double_recv/1,receive_var_zero/1,
          match_built_terms/1,elusive_common_exit/1,
          return_before_receive/1,trapping/1,
-         after_expression/1,in_after/1]).
+         after_expression/1,in_after/1,
+         type_optimized_markers/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -51,7 +52,8 @@ groups() ->
        recv_in_try,double_recv,receive_var_zero,
        match_built_terms,elusive_common_exit,
        return_before_receive,trapping,
-       after_expression,in_after]},
+       after_expression,in_after,
+       type_optimized_markers]},
      {slow,[],[ref_opt]}].
 
 init_per_suite(Config) ->
@@ -150,7 +152,75 @@ coverage(Config) when is_list(Config) ->
     smoke_receive(fun no_clauses_left_2/0),
     smoke_receive(fun no_clauses_left_3/0),
 
+    receive_in_called_function(),
+
+    %% Make we haven't broken `timeout_locked` by inserting recv_marker_clear
+    %% in the wrong place.
+    Ref = make_ref(),
+    receive Ref -> ok after 0 -> ok end,
+
+    %% Cover handling of critical edges in beam_ssa_pre_codegen.
+    self() ! ok, ok = mc_fail_requests(),
+    self() ! {error, true}, ok = mc_fail_requests(),
+    self() ! {error, false}, self() ! {'DOWN', false}, ok = mc_fail_requests(),
+
+    Tid = {commit,[]},
+    self() ! {Tid, pre_commit},
+    self() ! {Tid, committed},
+    ok = commit_participant(whatever, Tid),
+
+    %% Cover handling in beam_kernel_to_ssa of a `receive` at the end of
+    %% an `after` block.
+    X = id(fun() -> ok end),
+    self() ! whatever,
+    try
+        X()
+    after
+        %% Smallish `after` blocks are not moved out to a wrapper
+        %% function, so we will need some filler code to force it
+        %% to move out.
+        length([X]), length([X]), length([X]), length([X]), length([X]),
+        length([X]), length([X]), length([X]), length([X]), length([X]),
+        length([X]), length([X]), length([X]), length([X]), length([X]),
+        length([X]), length([X]), length([X]), length([X]), length([X]),
+        receive _ -> ignored end
+    end,
+
+    %% Cover code for handling a non-boolean `br` in beam_ssa_dead.
+    self() ! whatever,
+    {'EXIT',{{badmatch,_},_}} = (catch [a || other = receive whatever -> false end]),
+
     ok.
+
+receive_in_called_function() ->
+    RefA = make_ref(),
+    RefB = make_ref(),
+
+    self() ! hello,
+    self() ! RefA,
+
+    ricf_1(hello, RefA),
+
+    self() ! RefB,
+    self() ! hello,
+
+    ricf_1(RefB, hello),
+
+    Foo = id(gurka),
+    Bar = id(gaffel),
+
+    self() ! Foo,
+    self() ! Bar,
+
+    ricf_1(Foo, Bar),
+
+    ok.
+
+ricf_1(A, B) ->
+    %% Both A and B are fed a reference at least once, so both of these loops
+    %% ought to be optimized.
+    receive A -> ok end,
+    receive B -> ok end.
 
 monitor_plus_badmap(Pid) ->
     monitor(process, Pid) + []#{}.
@@ -235,6 +305,55 @@ receive_sink_tuple({Line,Pattern}) ->
             id({Pattern,Line})
     end.
 
+%% Cover handling of critical edges in beam_ssa_pre_codegen.
+mc_fail_requests() ->
+    receive
+        ok ->
+            ok;
+        {error, ReqId} ->
+            case id(ReqId) of
+                true ->
+                    ok;
+                false ->
+                    receive
+                        {'DOWN', ReqId} ->
+                            ok
+                    after 0 ->
+                            ct:fail(failed)
+                    end
+            end
+    after 0 ->
+            ct:fail(failed)
+    end,
+    ok.
+
+%% Cover handling of critical edges in beam_ssa_pre_codegen.
+-record(commit, {schema_ops}).
+commit_participant(Coord, Tid) ->
+    try id(Tid) of
+        C ->
+            receive
+                {Tid, pre_commit} ->
+                    ExpectAck = C#commit.schema_ops /= [],
+                    receive
+                        {Tid, committed} ->
+                            case ExpectAck of
+                                false ->
+                                    ignore;
+                                true ->
+                                    id(Coord)
+                            end;
+                        Other ->
+                            Other
+                    end
+            after 0 ->
+                    ct:fail(failed)
+            end
+    catch
+        _:_ ->
+            ok
+    end,
+    ok.
 
 %% OTP-7980. Thanks to Vincent de Phily. The following code would
 %% be inccorrectly optimized by beam_jump.
@@ -279,8 +398,26 @@ do_ref_opt(Source, PrivDir) ->
 	    "no_"++_ ->
 		[] = collect_recv_opt_instrs(Code);
 	    "yes_"++_ ->
-		[{recv_mark,{f,L}},{recv_set,{f,L}}] =
-		    collect_recv_opt_instrs(Code)
+                Instrs = collect_recv_opt_instrs(Code),
+
+                %% At least one of each marker instruction must be present in
+                %% the module.
+                true = lists:any(fun
+                                     ({recv_marker_reserve,_}) -> true;
+                                     (_) -> false
+                                end, Instrs),
+                true = lists:any(fun
+                                     ({recv_marker_bind,_,_}) -> true;
+                                     (_) -> false
+                                end, Instrs),
+                true = lists:any(fun
+                                     ({recv_marker_clear,_}) -> true;
+                                     (_) -> false
+                                end, Instrs),
+                true = lists:any(fun
+                                     ({recv_marker_use,_}) -> true;
+                                     (_) -> false
+                                end, Instrs)
 	end,
 	ok
     catch Class:Error:Stk ->
@@ -292,15 +429,17 @@ collect_recv_opt_instrs(Code) ->
     L = [ [I || I <- Is,
 		begin
 		    case I of
-			{recv_mark,{f,_}} -> true;
-			{recv_set,{f,_}} -> true;
+			{recv_marker_bind,_,_} -> true;
+			{recv_marker_clear,_} -> true;
+			{recv_marker_reserve,_} -> true;
+			{recv_marker_use,_} -> true;
 			_ -> false
 		    end
 		end] || {function,_,_,_,Is} <- Code],
     lists:append(L).
 
 cover_recv_instructions() ->
-    %% We want to cover the handling of recv_mark and recv_set in beam_utils.
+    %% We want to cover the handling of receive markers in beam_utils.
     %% Since those instructions are introduced in a late optimization pass,
     %% beam_utils:live_opt() will not see them unless the compilation is
     %% started from a .S file. The compile_SUITE:asm/1 test case will
@@ -375,6 +514,7 @@ recv_in_try(_Config) ->
     smoke_receive(fun recv_in_try_2/0),
     smoke_receive(fun recv_in_try_3/0),
     smoke_receive(fun recv_in_try_4/0),
+    smoke_receive(fun recv_in_try_5/0),
     smoke_receive(fun recv_in_catch_1/0),
 
     ok.
@@ -444,6 +584,19 @@ recv_in_try_4() ->
                                         [] when false ->
                                                 ok
                                         end})}.
+recv_in_try_5() ->
+    try [] of
+        [] ->
+            <<
+              << <<0>> || <<3:4>> <= <<3:4>> >>:(get()),
+              receive
+              after
+                  infinity -> ok
+              end
+            >>
+    after
+        ok
+    end.
 
 recv_in_catch_1() ->
     catch
@@ -689,6 +842,60 @@ do_in_after(E) ->
         end
     end,
     ok.
+
+type_optimized_markers(_Config) ->
+    Ref = make_ref(),
+
+    self() ! foobar,
+    gurka = tom_1(id(undefined)),
+
+    self() ! Ref,
+    gaffel = tom_1(Ref),
+
+    self() ! foobar,
+    self() ! undefined,
+    gurka = tom_2(id(undefined)),
+
+    self() ! Ref,
+    gaffel = tom_2(Ref),
+
+    ok.
+
+tom_1(Ref) ->
+    receive
+        foobar ->
+            case Ref of
+                undefined ->
+                    %% Type optimization might replace the reference with
+                    %% 'undefined' here, passing an illegal literal argument
+                    %% to 'recv_marker_clear'.
+                    gurka;
+                _ ->
+                    demonitor(Ref, [flush]),
+                    gaffel
+            end;
+        Ref ->
+            gaffel
+    end.
+
+tom_2(Ref) ->
+    receive
+        foobar ->
+            case Ref of
+                undefined ->
+                    %% As tom_1/1 but with 'recv_marker_use'
+                    %% instead.
+                    receive
+                        Ref ->
+                            gurka
+                    end;
+                _ ->
+                    demonitor(Ref, [flush]),
+                    gaffel
+            end;
+        Ref ->
+            gaffel
+    end.
 
 %%%
 %%% Common utilities.

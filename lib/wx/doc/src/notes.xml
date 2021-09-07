@@ -32,6 +32,158 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 2.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix build problems when wxWidgets are built with
+	    -enable-std.</p>
+          <p>
+	    Own Id: OTP-17407 Aux Id: GH-4834 </p>
+        </item>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 2.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix compiler warnings produced by the clang compiler.</p>
+          <p>
+	    Own Id: OTP-17105 Aux Id: PR-2872 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The application has been completely rewritten in order
+	    to use wxWidgets version 3 as its base.</p> <p>Add basic
+	    documentation generated from the wxWidgets project.</p>
+          <p>
+	    Own Id: OTP-16800</p>
+        </item>
+        <item>
+	    <p>The experimental HiPE application has been removed,
+	    together with all related functionality in other
+	    applications.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16963</p>
+        </item>
+        <item>
+          <p>
+	    Added support for wxWebView.</p>
+          <p>
+	    Own Id: OTP-17213 Aux Id: PR-3027 </p>
+        </item>
+        <item>
+	    <p>Due to the support of the new backend versions some
+	    API incompatibilities have been introduced. Examples of
+	    changes are:<br/> <br/> wxWindowDC default creators have
+	    been removed <br/> wxClientDC default creators have been
+	    removed <br/> wxPaintDC default creators have been
+	    removed <br/> wxWindow:setVirtualSizeHints() has been
+	    deprecated in wxWidgets and removed <br/>
+	    wxWindow:makeModal() has been deprecated in wxWidgets and
+	    removed <br/> wxToolBar:add/insertTool without label have
+	    been deprecated in wxWidgets and removed <br/>
+	    wxStyledTextCtrl some functions have changed arguments
+	    from boolean to int <br/> wxSizerItem:new() Some
+	    arguments have become options <br/> Removed deprecated
+	    wxSizerItem:setWindow() use assignWindow() <br/> Removed
+	    deprecated wxSizerItem:setSpacer() use assignSpacer()
+	    <br/> Removed deprecated wxSizerItem:setSpacer() use
+	    assignSpacer() <br/> Removed deprecated
+	    wxSizerItem:setSizer() use assignSizer() <br/> wxMenu
+	    append/insert/prepend have changed return value and lost
+	    IsCheckable argument <br/> wxListCtrl:setItem/4 changed
+	    return value <br/> wxImage:convertToGreyscale() options
+	    have changed <br/> wxGridSizer:wxGridSizer() options have
+	    changed <br/> wxGrid API have many changes <br/>
+	    wxGraphicsRenderer:create*GradientBrush() uses
+	    GradientStops now <br/> wxGraphicsRenderer:createPen()
+	    have been removed <br/>
+	    wxGraphicsRenderer:create*GradientBrush() uses
+	    GradientStops now <br/> wxGLCanvas API is incompatible
+	    <br/> wxFlexGridSizer:wxFlexGridSizer() options have
+	    changed <br/> wxDisplay:new() options have changed <br/>
+	    wxCalendarDateAttr:new(ColText [,OptList]) have been
+	    removed <br/> wxBitmapButton:set/getBitmapSelected() have
+	    been removed </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17219 Aux Id: OTP-16800 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.9.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.9.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed wx initialization on mac, top level menus did not
+	    always work on newer MacOS versions. The menues will not
+	    work until wxWidgets-3.1.5 is released and used on these
+	    MacOS versions.</p>
+          <p>
+	    Own Id: OTP-17187</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add popup menu callback to <c>wxTaskBarIcon:new/1</c>.</p>
+          <p>
+	    Own Id: OTP-16983 Aux Id: PR-2743 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -53,6 +205,21 @@
 	    removed functions.</p>
           <p>
 	    Own Id: OTP-16469</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.9.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Commit of generated <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-17420 Aux Id: OTP-17398, GH-4821 </p>
         </item>
       </list>
     </section>
@@ -1040,4 +1207,3 @@
 </section>
 
 </chapter>
-

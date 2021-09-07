@@ -32,6 +32,78 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 5.0.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug in the <c>asn1</c> compiler that potentially
+	    could cause it to fail to open a file.</p>
+          <p>
+	    Own Id: OTP-17387 Aux Id: OTP-17123 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.15.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A parameterized type with a SEQUENCE with extension
+	    ("...") made the compiler backend to crash. The previous
+	    fix for this in GH-4514 was not complete.</p>
+          <p>
+	    Own Id: OTP-17522 Aux Id: GH-4902 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A parameterized type with a SEQUENCE with extension
+	    ("...") made the compiler backend to crash.</p>
+          <p>
+	    Own Id: OTP-17227 Aux Id: GH-4514 </p>
+        </item>
+        <item>
+          <p>
+	    For JER encoding rules an INTEGER value outside the
+	    declared range is now reported as error during decode.</p>
+          <p>
+	    Own Id: OTP-17306 Aux Id: ERIERL-506 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    For the JER encoding rules, the declared order of the
+	    fields in a SEQUENCE is now maintained in the resulting
+	    JSON object. Previously a map was used which caused an
+	    undefined order of the fields which was not friendly for
+	    debugging.</p>
+          <p>
+	    Own Id: OTP-17297 Aux Id: ERIERL-607 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.14</title>
 
     <section><title>Improvements and New Features</title>

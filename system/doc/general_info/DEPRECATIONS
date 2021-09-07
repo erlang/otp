@@ -17,6 +17,37 @@
 # is scheduled to be removed in OTP 25.
 #
 
+#
+# Added in OTP 24.
+#
+
+public_key:ssh_hostkey_fingerprint/1 since=24 remove=26
+public_key:ssh_hostkey_fingerprint/2 since=24 remove=26
+public_key:ssh_decode/2 since=24 remove=26
+public_key:ssh_encode/2 since=24 remove=26
+ftp:start_service/1 since=24 remove=26
+ftp:stop_service/1 since=24 remove=26
+httpd_util:flatlength/1 since=24 remove=26
+httpd_util:hexlist_to_integer/1 since=24 remove=26
+httpd_util:integer_to_hexlist/1 since=24 remove=26
+httpd_util:strip/1 since=24 remove=26
+httpd_util:suffix/1 since=24 remove=26
+disk_log:accessible_logs/0 since=24 remove=26
+disk_log:lclose/1 since=24 remove=26
+disk_log:lclose/2 since=24 remove=26
+erlang:phash/2 since=24
+code:is_module_native/1 since=24 remove=26
+zlib:inflateChunk/1 since=24 remove=27
+zlib:inflateChunk/2 since=24 remove=27
+zlib:getBufSize/1 since=24 remove=27
+zlib:setBufSize/2 since=24 remove=27
+zlib:crc32/1 since=24 remove=27
+zlib:crc32/2 since=24 remove=27
+zlib:crc32/3 since=24 remove=27
+zlib:adler32/2 since=24 remove=27
+zlib:adler32/3 since=24 remove=27
+zlib:crc32_combine/4 since=24 remove=27
+zlib:adler32_combine/4 since=24 remove=27
 
 #
 # Added in OTP 23.
@@ -101,6 +132,7 @@ sys:get_debug/3 since=22
 # Added in OTP 21.
 #
 
+erlang:get_stacktrace/0 since=21 remove=23
 ssl:ssl_accept/_ since=21 remove=24
 
 #
@@ -108,7 +140,6 @@ ssl:ssl_accept/_ since=21 remove=24
 #
 
 crypto:rand_uniform/2 since=20
-erlang:get_stacktrace/0 since=20 remove=24
 filename:find_src/_ since=20 remove=24
 gen_fsm:_/_ since=20
 
@@ -116,7 +147,7 @@ gen_fsm:_/_ since=20
 # Added in OTP 19.
 #
 
-code:rehash/0 since=19
+code:rehash/0 since=19 remove=26
 crypto:rand_bytes/1 since=19
 queue:lait/1 since=19
 random:_/_ since=19
@@ -125,7 +156,40 @@ random:_/_ since=19
 # Added in OTP 18.
 #
 
+core_lib:literal_value/1 since=18 remove=19
+core_lib:is_literal_list/1 since=18 remove=19
+core_lib:is_literal/1 since=18 remove=19
+core_lib:set_anno/2 since=18 remove=19
+core_lib:get_anno/1 since=18 remove=19
+
 erlang:now/0 since=18
+
+erl_lint:modify_line/2 since=18 remove=19
+
+erl_parse:get_attribute/2 since=18 remove=19
+erl_parse:get_attributes/1 since=18 remove=19
+erl_parse:set_line/2 since=18 remove=19
+
+erl_scan:token_info/_ since=18 remove=19
+erl_scan:attributes_info/_ since=18 remove=19
+erl_scan:set_attribute/3 since=18 remove=19
+
+ssl:connection_info/1 since=18 remove=20
+ssl:negotiated_next_protocol/1 since=18 remove=20
+
+httpd_conf:make_integer/1 since=18 remove=23
+httpd_conf:is_file/1 since=18 remove=23
+httpd_conf:is_directory/1 since=18 remove=23
+httpd_conf:custom_clean/3 since=18 remove=23
+httpd_conf:clean/1 since=18 remove=23
+httpd_conf:check_enum/2 since=18 remove=23
+
+#
+# Added in OTP 17.
+#
+
+asn1ct:encode/_ since=17 remove=20
+asn1ct:decode/_ since=17 remove=20
 
 #
 # Added in OTP 16.
@@ -153,6 +217,14 @@ wxCursor:new/3 since=16
 wxCursor:new/4 since=16
 
 #
+# Added in OTP R13B03 or earlier. We don't know exactly when these were
+# deprecated.
+#
+
+os_mon_mib:_/_ since=13 remove=22
+erlang:hash/2 since=13 remove=20
+
+#
 # Added in OTP 12.
 #
 
@@ -162,6 +234,9 @@ auth:cookie/1 since=12
 auth:node_cookie/_ since=12
 
 calendar:local_time_to_universal_time/1 since=12
+
+rpc:safe_multi_server_call/3 since=12 remove=19
+rpc:safe_multi_server_call/2 since=12 remove=19
 
 #
 # Added in OTP 10.

@@ -120,8 +120,7 @@ do_send_body(SocketType, Socket, Method, Uri, Version, Headers,
 do_send_body(SocketType, Socket, Method, Uri, Version, Headers, Body) ->
     ?hcrt("create message", [{body, Body}]),
     Message = [method(Method), " ", Uri, " ",
-	       version(Version), ?CRLF,
-	       headers(Headers, Version), ?CRLF, Body],
+	       Version, ?CRLF, Headers, ?CRLF, Body],
     ?hcrd("send", [{message, Message}]),
     http_transport:send(SocketType, Socket, Message).
 
@@ -255,20 +254,6 @@ handle_content_type(Headers, ContentType) ->
 
 method(Method) ->
     http_util:to_upper(atom_to_list(Method)).
-
-version("HTTP/0.9") ->
-    "";
-version(Version) ->
-    Version.
-
-headers(_, "HTTP/0.9") ->
-    "";
-%% HTTP 1.1 headers not present in HTTP 1.0 should be
-%% consider as unknown extension headers that should be
-%% ignored. 
-headers(Headers, _) ->
-    Headers.
-
 
 http_headers([], Headers) ->
     lists:flatten(Headers);

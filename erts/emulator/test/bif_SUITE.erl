@@ -23,8 +23,9 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([all/0, suite/0,
-	 display/1, display_huge/0, display_string/1,
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
+
+-export([display/1, display_huge/0, display_string/1,
 	 erl_bif_types/1,guard_bifs_in_erl_bif_types/1,
 	 shadow_comments/1,list_to_utf8_atom/1,
 	 specs/1,improper_bif_stubs/1,auto_imports/1,
@@ -38,6 +39,7 @@
          is_process_alive/1,
          process_info_blast/1,
          os_env_case_sensitivity/1,
+         verify_middle_queue_save/1,
          test_length/1,
          fixed_apply_badarg/1,
          external_fun_apply3/1]).
@@ -56,7 +58,30 @@ all() ->
      error_stacktrace, error_stacktrace_during_call_trace,
      group_leader_prio, group_leader_prio_dirty,
      is_process_alive, process_info_blast, os_env_case_sensitivity,
-     test_length,fixed_apply_badarg,external_fun_apply3].
+     verify_middle_queue_save, test_length,fixed_apply_badarg,
+     external_fun_apply3].
+
+init_per_testcase(guard_bifs_in_erl_bif_types, Config) when is_list(Config) ->
+    skip_missing_erl_bif_types(Config);
+init_per_testcase(erl_bif_types, Config) when is_list(Config) ->
+    skip_missing_erl_bif_types(Config);
+init_per_testcase(shadow_comments, Config) when is_list(Config) ->
+    skip_missing_erl_bif_types(Config);
+init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+    Config.
+
+end_per_testcase(_Func, _Config) ->
+    ok.
+
+%% erl_bif_types comes from dialyzer which some test runs skip building, so
+%% we'll skip the tests that use it as the result shouldn't vary based on
+%% platform. The majority build it so we'll have plenty coverage either way.
+skip_missing_erl_bif_types(Config) ->
+    c:l(erl_bif_types),
+    case erlang:function_exported(erl_bif_types, module_info, 0) of
+        false -> {skip, "erl_bif_types not compiled"};
+        true -> Config
+    end.
 
 %% Uses erlang:display to test that erts_printf does not do deep recursion
 display(Config) when is_list(Config) ->
@@ -101,12 +126,7 @@ display_string(Config) when is_list(Config) ->
     ok.
 
 erl_bif_types(Config) when is_list(Config) ->
-    ensure_erl_bif_types_compiled(),
-
-    List0 = erlang:system_info(snifs),
-
-    %% Ignore missing type information for hipe BIFs.
-    List = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs],
+    List = erlang:system_info(snifs),
 
     KnownTypes = [MFA || MFA <- List, known_types(MFA)],
     io:format("There are ~p BIFs with type information in erl_bif_types.",
@@ -153,8 +173,6 @@ erl_bif_types_3(List) ->
     end.
 
 guard_bifs_in_erl_bif_types(_Config) ->
-    ensure_erl_bif_types_compiled(),
-
     List0 = erlang:system_info(snifs),
     List = [{F,A} || {erlang,F,A} <- List0,
 		     erl_internal:guard_bif(F, A)],
@@ -174,12 +192,10 @@ guard_bifs_in_erl_bif_types(_Config) ->
     end.
 
 shadow_comments(_Config) ->
-    ensure_erl_bif_types_compiled(),
-
     ErlangList = [{erlang,F,A} || {F,A} <- erlang:module_info(exports),
 				  not is_operator(F,A)],
     List0 = erlang:system_info(snifs),
-    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs, M =/= erlang],
+    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= erlang],
     List = List1 ++ ErlangList,
     HasTypes = [MFA || {M,F,A}=MFA <- List,
 		       erl_bif_types:is_known(M, F, A)],
@@ -243,27 +259,14 @@ extract_comments(Mod, Path) ->
 	 {list_to_atom(M),list_to_atom(F),list_to_integer(A)}
      end || L <- Lines].
 
-ensure_erl_bif_types_compiled() ->
-    c:l(erl_bif_types),
-    case erlang:function_exported(erl_bif_types, module_info, 0) of
-	false ->
-	    %% Fail cleanly.
-	    ct:fail("erl_bif_types not compiled");
-	true ->
-	    ok
-    end.
-
 known_types({M,F,A}) ->
     erl_bif_types:is_known(M, F, A).
 
 specs(_) ->
     List0 = erlang:system_info(snifs),
 
-    %% Ignore missing type information for hipe BIFs.
-    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs],
-
     %% Ignore all operators.
-    List = [MFA || MFA <- List1, not is_operator(MFA)],
+    List = [MFA || MFA <- List0, not is_operator(MFA)],
 
     %% Extract specs from the abstract code for all BIFs.
     Path = get_code_path(),
@@ -307,8 +310,7 @@ make_mfa(M, {F,A}) -> {M,F,A};
 make_mfa(M, {M,_,_}=MFA) -> MFA.
 
 improper_bif_stubs(_) ->
-    Bifs0 = erlang:system_info(snifs),
-    Bifs = [MFA || {M,_,_}=MFA <- Bifs0, M =/= hipe_bifs],
+    Bifs = erlang:system_info(snifs),
     Path = get_code_path(),
     BifRel = sofs:relation(Bifs, [{m,f,a}]),
     BifModules = sofs:to_external(sofs:projection(1, BifRel)),
@@ -790,7 +792,12 @@ erlang_halt(Config) when is_list(Config) ->
 
     % This test triggers a segfault when dumping a crash dump
     % to make sure that we can handle it properly.
+
+    %% Prevent address sanitizer from catching SEGV in slave node
+    AsanOpts = add_asan_opt("handle_segv=0"),
     {ok,N4} = slave:start(H, halt_node4),
+    reset_asan_opts(AsanOpts),
+
     CrashDump = filename:join(proplists:get_value(priv_dir,Config),
                               "segfault_erl_crash.dump"),
     true = rpc:call(N4, os, putenv, ["ERL_CRASH_DUMP",CrashDump]),
@@ -807,6 +814,25 @@ erlang_halt(Config) when is_list(Config) ->
         {_,_} ->
             ok
     end.
+
+add_asan_opt(Opt) ->
+    case test_server:is_asan() of
+	true ->
+	    case os:getenv("ASAN_OPTIONS") of
+		false ->
+		    os:putenv("ASAN_OPTIONS", Opt),
+		    undefined;
+		AO ->
+		    os:putenv("ASAN_OPTIONS", AO ++ [$: | Opt]),
+		    AO
+	    end;
+	_ ->
+	    false
+    end.
+
+reset_asan_opts(false) -> ok;
+reset_asan_opts(undefined) -> os:unsetenv("ASAN_OPTIONS");
+reset_asan_opts(AO) -> os:putenv("ASAN_OPTIONS", AO).
 
 wait_until_stable_size(_File,-10) ->
     {error,enoent};
@@ -1253,6 +1279,52 @@ consume_msgs() ->
               ok
     end.
 
+
+%% Test that process_info(Pid, [message_queue_len]) works correctly when
+%%  fetching part of the middle signal queue into inner queue.
+verify_middle_queue_save(Config) when is_list(Config) ->
+    Control = self(),
+    ProcessToHang = spawn_link(
+        fun () ->
+            Single = self(),
+            put(count, 0),
+            Doubles = [spawn_link(fun () -> message_queue_len_retrievers(Single, 0) end) || _ <- lists:seq(1, 2)],
+            Control ! {doubles, Doubles},
+            process_that_hangs(Control, 0, Doubles)
+        end),
+    ensure_not_hanging(ProcessToHang, [], 50000).
+
+process_that_hangs(Control, Total, Doubles) ->
+    put(count, Total),
+    %% fetch something innocent, like 'priority' of the process
+    [process_info(Pid, [priority]) || Pid <- Doubles],
+    Control ! alive,
+    process_that_hangs(Control, Total + 1, Doubles).
+
+message_queue_len_retrievers(Control, PrevCount) ->
+    %% need to fetch dictionary for test reasons, but actual trigger is 'message_queue_len',
+    %%  or 'memory', or 'total_heap_size' - anything that needs to fetch external message queue
+    %%  via ERTS_PI_FLAG_NEED_MSGQ_LEN internal flag to process_info
+    [_, {dictionary, [{count, Count}]}] = erlang:process_info(Control, [message_queue_len, dictionary]),
+    Count > PrevCount andalso begin Control ! count end,
+    message_queue_len_retrievers(Control, Count).
+
+ensure_not_hanging(Proc, _Doubles, 0) ->
+    unlink(Proc),
+    exit(Proc, kill);
+ensure_not_hanging(Proc, Doubles, Remaining) ->
+    receive
+        alive ->
+            ensure_not_hanging(Proc, Doubles, Remaining - 1);
+        {doubles, NewDoubles} ->
+            ensure_not_hanging(Proc, NewDoubles, Remaining)
+    after 1000 ->
+        Reason = {Proc, "hung", erlang:process_info(Proc, backtrace)},
+        unlink(Proc),
+        exit(Proc, kill),
+        ct:fail(Reason)
+    end.
+
 %% Test that length/1 returns the correct result after trapping, and
 %% also that the argument is correct in the stacktrace for a badarg
 %% exception.
@@ -1304,14 +1376,14 @@ test_length(_, _, _, _, _) -> ok.
 fixed_apply_badarg(Config) when is_list(Config) ->
     Bad = id({}),
 
-    {'EXIT',{badarg, [{erlang,apply,[{},baz,[a,b]],[]} | _]}} =
+    {'EXIT',{badarg, [{erlang,apply,[{},baz,[a,b]],[{error_info,_}]} | _]}} =
         (catch Bad:baz(a,b)),
-    {'EXIT',{badarg, [{erlang,apply,[baz,{},[c,d]],[]} | _]}} =
+    {'EXIT',{badarg, [{erlang,apply,[baz,{},[c,d]],[{error_info,_}]} | _]}} =
         (catch baz:Bad(c,d)),
 
-    {'EXIT',{badarg, [{erlang,apply,[{},baz,[e,f]],[]} | _]}} =
+    {'EXIT',{badarg, [{erlang,apply,[{},baz,[e,f]],[{error_info,_}]} | _]}} =
         (catch apply(Bad,baz,[e,f])),
-    {'EXIT',{badarg, [{erlang,apply,[baz,{},[g,h]],[]} | _]}} =
+    {'EXIT',{badarg, [{erlang,apply,[baz,{},[g,h]],[{error_info,_}]} | _]}} =
         (catch apply(baz,Bad,[g,h])),
 
     ok.
@@ -1333,9 +1405,9 @@ id(I) -> I.
 
 %% Get code path, including the path for the erts application.
 get_code_path() ->
-    case code:lib_dir(erts) of
-	{error,bad_name} ->
-	    Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
+    Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
+    case filelib:is_dir(Erts) of
+	true->
 	    [Erts|code:get_path()];
 	_ ->
 	    code:get_path()

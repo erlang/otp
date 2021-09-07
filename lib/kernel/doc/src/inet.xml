@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2020</year>
+      <year>1997</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -184,6 +184,23 @@ fe80::204:acff:fe17:bf38
       </desc>
     </datatype>
     <datatype>
+      <name name="inet_backend"/>
+      <desc>
+        <p>
+          Select the implementation backend for sockets.
+          The current default is <c>inet</c> which at the bottom uses
+          <c>inet_drv.c</c> to call the platform's socket API.
+          The value <c>socket</c> instead at the bottom uses the
+          <seeerl marker="socket"><c>socket</c></seeerl>
+          module and its NIF implementation.
+        </p>
+        <p>
+          This is a <em>temporary</em> option
+          that will be ignored in a future release.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="socket_address"/>
     </datatype>
     <datatype>
@@ -347,6 +364,36 @@ fe80::204:acff:fe17:bf38
       <fsummary>Close a socket of any type.</fsummary>
       <desc>
         <p>Closes a socket of any type.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cancel_monitor" arity="1" since="OTP 24.0"/>
+      <fsummary>Stop socket monitoring</fsummary>
+      <desc>
+	<p>If <c><anno>MRef</anno></c> is a reference that the
+	calling process obtained by calling
+	<seemfa marker="#monitor/1"><c>monitor/1</c></seemfa>, 
+	this monitor is turned off.
+	If the monitoring is already turned off, nothing happens.</p>
+	<p>The returned value is one of the following:</p>
+	<taglist>
+	  <tag><c>true</c></tag>
+	  <item>
+	    <p>The monitor was found and removed. In this case,
+	    no <c>'DOWN'</c> message corresponding to this
+	    monitor has been delivered and will not be delivered. </p>
+	  </item>
+	  <tag><c>false</c></tag>
+	  <item>
+	    <p>The monitor was not found and could not be removed.
+	    This probably because a <c>'DOWN'</c> message corresponding
+	    to this monitor has already been placed in the caller
+	    message queue.</p>
+	  </item>
+	</taglist>
+	<p>Failure: It is an error if <c><anno>MRef</anno></c> refers to a
+	monitor started by another process. </p>
       </desc>
     </func>
 
@@ -686,6 +733,49 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
+      <name name="info" arity="1"  since="OTP 24.0"/>
+      <fsummary>Retreive miscellaneous information about a socket</fsummary>
+      <desc>
+        <p>
+          Produces a term containg miscellaneous information about a socket.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="monitor" arity="1" since="OTP 24.0"/>
+      <fsummary>Start socket monitoring</fsummary>
+      <desc>
+	<p>Start monitor the socket <c><anno>Socket</anno></c>. </p>
+	<p>If the monitored socket does not exist or when the
+	monitor is triggered, a <c>'DOWN'</c> message is sent
+	that has the following pattern:</p>
+	<code type="none">
+	    {'DOWN', MonitorRef, socket, Object, Info}
+	  </code>
+        <p>In the monitor message <c>MonitorRef</c> and <c>Type</c> are the
+          same as described earlier, and:</p>
+        <taglist>
+          <tag><c>Object</c></tag>
+          <item>
+	    <p>The monitored entity, socket, which triggered the event. </p>
+          </item>
+          <tag><c>Info</c></tag>
+          <item>
+	    <p>Either the termination reason of the socket or <c>nosock</c>
+	    (socket <c><anno>Socket</anno></c> did not exist at the time
+	    of monitor creation). </p>
+	  </item>
+        </taglist>
+
+        <p>Making several calls to <c>inet:monitor/1</c> for the same
+	<c><anno>Socket</anno></c> is not an error; it results in
+	as many independent monitoring instances. </p>
+
+      </desc>
+    </func>
+
+    <func>
       <name name="ntoa" arity="1"  since="OTP R16B02"/>
       <fsummary>Convert IPv6/IPV4 address to ASCII.</fsummary>
       <desc>
@@ -895,6 +985,7 @@ get_tcpi_sacked(Sock) ->
               mode with values of <c>N</c> appropriate for the application
               provides flow control. The other side cannot send
               faster than the receiver can read.</p>
+            <marker id="option-broadcast"></marker>
           </item>
           <tag><c>{broadcast, Boolean}</c> (UDP sockets)</tag>
           <item>
@@ -1048,7 +1139,7 @@ get_tcpi_sacked(Sock) ->
               socket when no other data is exchanged. If
               the other end does not respond, the connection is
               considered broken and an error message is sent to
-              the controlling process. Defaults to <c>disabled</c>.</p>
+              the controlling process. Defaults to <c>false</c>.</p>
             <marker id="option-linger"></marker>
           </item>
           <tag><c>{linger, {true|false, Seconds}}</c></tag>
@@ -1206,12 +1297,16 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
           <tag><c>binary</c></tag>
           <item>
             <p>Received <c>Packet</c> is delivered as a binary.</p>
+            <marker id="option-nodelay"></marker>
           </item>
           <tag><c>{nodelay, Boolean}</c>(TCP/IP sockets)</tag>
           <item>
             <p>If <c>Boolean == true</c>, option <c>TCP_NODELAY</c>
-              is turned on for the socket, which means that also small
-              amounts of data are sent immediately.</p>
+            is turned on for the socket, which means that also small
+            amounts of data are sent immediately.</p>
+	    <p>This option is <em>not</em> supported for
+	    <c>domain = local</c>, but if <c>inet_backend =/= socket</c>
+	    this error will be <em>ignored</em>. </p>
           </item>
           <tag><c>{nopush, Boolean}</c>(TCP/IP sockets)</tag>
           <item>
@@ -1299,6 +1394,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
 	      option <c>packet_size</c> also guarantees that lines up to the
 	      indicated length are accepted and not considered invalid
 	      because of internal buffer limitations.</p>
+            <marker id="option-line_delimiter"></marker>
           </item>
           <tag><c>{line_delimiter, Char}</c>(TCP/IP sockets)</tag>
           <item>
@@ -1308,6 +1404,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
           <tag><c>{raw, Protocol, OptionNum, ValueBin}</c></tag>
           <item>
             <p>See below.</p>
+            <marker id="option-read_packets"></marker>
           </item>
           <tag><c>{read_packets, Integer}</c>(UDP sockets)</tag>
           <item>
@@ -1319,6 +1416,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
               Defaults to <c>5</c>. If this parameter is set too
               high, the system can become unresponsive because of
               UDP packet flooding.</p>
+            <marker id="option-recbuf"></marker>
           </item>
           <tag><c>{recbuf, Size}</c></tag>
           <item>
@@ -1445,9 +1543,9 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
               returns <c>{error,timeout}</c>. The recommended setting is
               <c>true</c>, which automatically closes the socket.
               Defaults to <c>false</c> because of backward compatibility.</p>
-            <marker id="option-sndbuf"></marker>
+            <marker id="option-show_econnreset"></marker>
           </item>
-          <tag><c>{show_econnreset, Boolean}</c>(TCP/IP sockets)</tag>
+          <tag><c>{show_econnreset, Boolean}</c> (TCP/IP sockets) </tag>
           <item>
             <p>When this option is set to <c>false</c>, which is
               default, an RST received from the TCP peer is treated
@@ -1474,7 +1572,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
               <seemfa marker="gen_tcp#accept/1"><c>gen_tcp:accept/1</c></seemfa>
               inherits the <c>show_econnreset</c> setting from the
               listening socket.</p>
-            <marker id="option-show_econnreset"></marker>
+            <marker id="option-sndbuf"></marker>
           </item>
           <tag><c>{sndbuf, Size}</c></tag>
           <item>

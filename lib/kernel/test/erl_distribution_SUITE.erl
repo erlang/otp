@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@
          nodenames/1, hostnames/1,
          illegal_nodenames/1, hidden_node/1,
          dyn_node_name/1,
+         epmd_reconnect/1,
 	 setopts/1,
 	 table_waste/1, net_setuptime/1,
 	 inet_dist_options_options/1,
@@ -45,7 +46,11 @@
 	 monitor_nodes_many/1,
          monitor_nodes_down_up/1,
          dist_ctrl_proc_smoke/1,
-         dist_ctrl_proc_reject/1]).
+         dist_ctrl_proc_reject/1,
+         erl_uds_dist_smoke_test/1,
+         erl_1424/1, differing_cookies/1,
+         cmdline_setcookie_2/1, connection_cookie/1,
+         dyn_differing_cookies/1]).
 
 %% Performs the test at another node.
 -export([get_socket_priorities/0,
@@ -53,8 +58,10 @@
 	 tick_serv_test/2, tick_serv_test1/1,
 	 run_remote_test/1,
          dyn_node_name_do/2,
+         epmd_reconnect_do/2,
 	 setopts_do/2,
-	 keep_conn/1, time_ping/1]).
+	 keep_conn/1, time_ping/1,
+         dyn_differing_cookies/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -62,7 +69,11 @@
 
 -export([pinger/1]).
 
+-export([start_uds_rpc_server/1]).
+
 -define(DUMMY_NODE,dummy@test01).
+-define(ALT_EPMD_PORT, "12321").
+-define(ALT_EPMD_CMD, "epmd -port "++?ALT_EPMD_PORT).
 
 %%-----------------------------------------------------------------
 %% The distribution is mainly tested in the big old test_suite.
@@ -81,9 +92,13 @@ all() ->
      tick, tick_change, nodenames, hostnames, illegal_nodenames,
      connect_node,
      dyn_node_name,
+     epmd_reconnect,
      hidden_node, setopts,
      table_waste, net_setuptime, inet_dist_options_options,
-     {group, monitor_nodes}].
+     {group, monitor_nodes},
+     erl_uds_dist_smoke_test,
+     erl_1424,
+     {group, differing_cookies}].
 
 groups() -> 
     [{monitor_nodes, [],
@@ -93,7 +108,12 @@ groups() ->
        monitor_nodes_otp_6481, monitor_nodes_errors,
        monitor_nodes_combinations, monitor_nodes_cleanup,
        monitor_nodes_many,
-       monitor_nodes_down_up]}].
+       monitor_nodes_down_up]},
+     {differing_cookies, [],
+      [differing_cookies,
+       cmdline_setcookie_2,
+       connection_cookie,
+       dyn_differing_cookies]}].
 
 init_per_suite(Config) ->
     start_gen_tcp_dist_test_type_server(),
@@ -115,9 +135,15 @@ init_per_testcase(TC, Config) when TC == hostnames;
     file:make_dir("hostnames_nodedir"),
     file:write_file("hostnames_nodedir/ignore_core_files",""),
     Config;
+init_per_testcase(epmd_reconnect, Config) ->
+    [] = os:cmd(?ALT_EPMD_CMD++" -relaxed_command_check -daemon"),
+    Config;
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Config.
 
+end_per_testcase(epmd_reconnect, _Config) ->
+    os:cmd(?ALT_EPMD_CMD++" -kill"),
+    ok;
 end_per_testcase(_Func, _Config) ->
     ok.
 
@@ -425,6 +451,83 @@ tick_cli_test1(Node) ->
 	    end
     end.
 
+epmd_reconnect(Config) when is_list(Config) ->
+    NodeNames = [N1,N2,N3] = get_nodenames(3, ?FUNCTION_NAME),
+    Nodes = [atom_to_list(full_node_name(NN)) || NN <- NodeNames],
+
+    DCfg = "-epmd_port "++?ALT_EPMD_PORT,
+
+    {_N1F,Port1} = start_node_unconnected(DCfg, N1, ?MODULE, run_remote_test,
+					["epmd_reconnect_do", atom_to_list(node()), "1" | Nodes]),
+    {_N2F,Port2} = start_node_unconnected(DCfg, N2, ?MODULE, run_remote_test,
+					["epmd_reconnect_do", atom_to_list(node()), "2" | Nodes]),
+    {_N3F,Port3} = start_node_unconnected(DCfg, N3, ?MODULE, run_remote_test,
+					["epmd_reconnect_do", atom_to_list(node()), "3" | Nodes]),
+    Ports = [Port1, Port2, Port3],
+
+    ok = reap_ports(Ports),
+   
+    ok.
+
+reap_ports([]) ->
+    ok;
+reap_ports(Ports) ->
+    case (receive M -> M end) of
+	{Port, Message} ->
+            case lists:member(Port, Ports) andalso Message of
+                {data,String} ->
+                    io:format("~p: ~s\n", [Port, String]),
+                    reap_ports(Ports);
+                {exit_status,0} ->
+                    reap_ports(Ports -- [Port])
+            end
+    end.
+    
+epmd_reconnect_do(_Node, ["1", Node1, Node2, Node3]) ->
+    Names = [Name || Name <- [hd(string:tokens(Node, "@")) || Node <- [Node1, Node2, Node3]]],
+    %% wait until all nodes are registered
+    ok = wait_for_names(Names),
+    "Killed" ++_ = os:cmd(?ALT_EPMD_CMD++" -kill"),
+    open_port({spawn, ?ALT_EPMD_CMD}, []),
+    %% check that all nodes reregister with epmd
+    ok = wait_for_names(Names),
+    lists:foreach(fun(Node) ->
+                          ANode = list_to_atom(Node),
+                          pong = net_adm:ping(ANode),
+                          {epmd_reconnect_do, ANode} ! {stop, Node1, Node}
+                  end, [Node2, Node3]),
+    ok;
+epmd_reconnect_do(_Node, ["2", Node1, Node2, _Node3]) ->
+    register(epmd_reconnect_do, self()),
+    receive {stop, Node1, Node2} ->
+            ok
+    after 7000 ->
+            exit(timeout)
+    end;
+epmd_reconnect_do(_Node, ["3", Node1, _Node2, Node3]) ->
+    register(epmd_reconnect_do, self()),
+    receive {stop, Node1, Node3} ->
+            ok
+    after 7000 ->
+            exit(timeout)
+    end.
+
+wait_for_names(Names) ->
+    %% wait for up to 3 seconds (the current retry timer in erl_epmd is 2s)
+    wait_for_names(lists:sort(Names), 30, 100).
+
+wait_for_names(Names, N, Wait) when N > 0 ->
+    try
+        {ok, Info} = erl_epmd:names(),
+        Names = lists:sort([Name || {Name, _Port} <- Info]),
+        ok
+    catch
+        error:{badmatch, _} ->
+            timer:sleep(Wait),
+            wait_for_names(Names, N-1, Wait)
+    end.
+
+
 dyn_node_name(Config) when is_list(Config) ->
     %%run_dist_configs(fun dyn_node_name/2, Config).
     dyn_node_name("", Config).
@@ -602,9 +705,14 @@ opt_from_nr("2") -> {nodelay, false}.
 change_val(true)  -> false;
 change_val(false) -> true.
 
+
 start_node_unconnected(DCfg, Name, Mod, Func, Args) ->
+    start_node_unconnected(DCfg, Name, erlang:get_cookie(), Mod, Func, Args).
+
+start_node_unconnected(DCfg, Name, Cookie, Mod, Func, Args) ->
     FullName = full_node_name(Name),
-    CmdLine = mk_node_cmdline(DCfg, Name,Mod,Func,Args),
+    CmdLine =
+        mk_node_cmdline(DCfg, Name, Cookie, Mod, Func, Args),
     io:format("Starting node ~p: ~s~n", [FullName, CmdLine]),
     case open_port({spawn, CmdLine}, [exit_status]) of
 	Port when is_port(Port) ->
@@ -613,12 +721,14 @@ start_node_unconnected(DCfg, Name, Mod, Func, Args) ->
 	    exit({failed_to_start_node, FullName, Error})
     end.
 
-full_node_name(PreName) ->
+full_node_name(PreName) when is_atom(PreName) ->
+    full_node_name(atom_to_list(PreName));
+full_node_name(PreNameL) when is_list(PreNameL) ->
     HostSuffix = lists:dropwhile(fun ($@) -> false; (_) -> true end,
 				 atom_to_list(node())),
-    list_to_atom(atom_to_list(PreName) ++ HostSuffix).
+    list_to_atom(PreNameL ++ HostSuffix).
 
-mk_node_cmdline(DCfg, Name,Mod,Func,Args) ->
+mk_node_cmdline(DCfg, Name, Cookie, Mod, Func, Args) ->
     Static = "-noinput",
     Pa = filename:dirname(code:which(?MODULE)),
     Prog = case catch init:get_argument(progname) of
@@ -638,7 +748,7 @@ mk_node_cmdline(DCfg, Name,Mod,Func,Args) ->
         ++ " " ++ DCfg
 	++ " -pa " ++ Pa
 	++ " -env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ NameStr
-	++ " -setcookie " ++ atom_to_list(erlang:get_cookie())
+	++ " -setcookie " ++ atom_to_list(Cookie)
 	++ " -run " ++ atom_to_list(Mod) ++ " " ++ atom_to_list(Func)
 	++ " " ++ string:join(Args, " ").
 
@@ -1703,7 +1813,467 @@ smoke_communicate(Node, OLoopMod, OLoopFun) ->
     exit(Pid, kill),
     ok.
 
+
+erl_uds_dist_smoke_test(Config) when is_list(Config) ->
+    case os:type() of
+        {win32,_} ->
+            {skipped, "Not on Windows"};
+        _ ->
+            do_erl_uds_dist_smoke_test()
+    end.
+
+do_erl_uds_dist_smoke_test() ->
+    [Node1, Node2] = lists:map(fun (Name) ->
+                                       list_to_atom(atom_to_list(Name) ++ "@localhost")
+                               end,
+                               get_nodenames(2, erl_uds_dist_smoke_test)),
+    {LPort, Acceptor} = uds_listen(),
+    start_uds_node(Node1, LPort),
+    start_uds_node(Node2, LPort),
+    receive
+        {uds_nodeup, N1} ->
+            io:format("~p is up~n", [N1])
+    end,
+    receive
+        {uds_nodeup, N2} ->
+            io:format("~p is up~n", [N2])
+    end,
+    
+    io:format("Testing ping net_adm:ping(~p) on ~p~n", [Node2, Node1]),
+    Node1 ! {self(), {net_adm, ping, [Node2]}},
+    receive
+        {Node1, PingRes} ->
+            io:format("~p~n", [PingRes]),
+            pong = PingRes
+    end,
+
+    io:format("Testing nodes() on ~p~n", [Node1]),
+    Node1 ! {self(), {erlang, nodes, []}},
+    receive
+        {Node1, N1List} ->
+            io:format("~p~n", [N1List]),
+            [Node2] = N1List
+    end,
+
+    io:format("Testing nodes() on ~p~n", [Node2]),
+    Node2 ! {self(), {erlang, nodes, []}},
+    receive
+        {Node2, N2List} ->
+            io:format("~p~n", [N2List]),
+            [Node1] = N2List
+    end,
+
+    io:format("Shutting down~n", []),
+
+    Node1 ! {self(), close},
+    Node2 ! {self(), close},
+
+    receive {Node1, C1} -> ok = C1 end,
+    receive {Node2, C2} -> ok = C2 end,
+
+    unlink(Acceptor),
+    exit(Acceptor, kill),
+
+    io:format("ok~n", []),
+
+    ok.
+
+%% Helpers for testing the erl_uds_dist example
+
+uds_listen() ->
+    Me = self(),
+    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 4}, {active, false}]),
+    {ok, LPort} = inet:port(LSock),
+    {LPort, spawn_link(fun () ->
+                               uds_accept_loop(LSock, Me)
+                       end)}.
+
+uds_accept_loop(LSock, TestProc) ->
+    {ok, Sock} = gen_tcp:accept(LSock),
+    _ = spawn_link(fun () ->
+                           uds_rpc_client_init(Sock, TestProc)
+                   end),
+    uds_accept_loop(LSock, TestProc).
+
+uds_rpc(Sock, MFA) ->
+    ok = gen_tcp:send(Sock, term_to_binary(MFA)),
+    case gen_tcp:recv(Sock, 0) of
+        {error, Reason} ->
+            error({recv_failed, Reason});
+        {ok, Packet} ->
+            binary_to_term(Packet)
+    end.
+
+uds_rpc_client_init(Sock, TestProc) ->
+    case uds_rpc(Sock, {erlang, node, []}) of
+        nonode@nohost ->
+            %% Wait for distribution to come up...
+            receive after 100 -> ok end,
+            uds_rpc_client_init(Sock, TestProc);
+        Node when is_atom(Node) ->
+            register(Node, self()),
+            TestProc ! {uds_nodeup, Node},
+            uds_rpc_client_loop(Sock, Node)
+    end.
+
+uds_rpc_client_loop(Sock, Node) ->
+    receive
+        {From, close} ->
+            ok = gen_tcp:send(Sock, term_to_binary(close)),
+            From ! {Node, gen_tcp:close(Sock)},
+            exit(normal);
+        {From, ApplyData} ->
+            From ! {Node, uds_rpc(Sock, ApplyData)},
+            uds_rpc_client_loop(Sock, Node)
+    end.
+
+uds_rpc_server_loop(Sock) ->
+    case gen_tcp:recv(Sock, 0) of
+        {error, Reason} ->
+            error({recv_failed, Reason});
+        {ok, Packet} ->
+            case binary_to_term(Packet) of
+                {M, F, A} when is_atom(M), is_atom(F), is_list(A) ->
+                    ok = gen_tcp:send(Sock, term_to_binary(apply(M, F, A)));
+                {F, A} when is_function(F), is_list(A) ->
+                    ok = gen_tcp:send(Sock, term_to_binary(apply(F, A)));
+                close ->
+                    ok = gen_tcp:close(Sock),
+                    exit(normal);
+                Other ->
+                    error({unexpected_data, Other})
+            end
+    end,
+    uds_rpc_server_loop(Sock).
+
+start_uds_rpc_server([PortString]) ->
+    Port = list_to_integer(PortString),
+    {Pid, Mon} = spawn_monitor(fun () ->
+                                       {ok, Sock} = gen_tcp:connect({127,0,0,1}, Port,
+                                                                    [binary, {packet, 4},
+                                                                     {active, false}]),
+                                       uds_rpc_server_loop(Sock)
+                               end),
+    receive
+        {'DOWN', Mon, process, Pid, Reason} ->
+            if Reason == normal ->
+                    halt();
+               true ->
+                    EStr = lists:flatten(io_lib:format("uds rpc server crashed: ~p", [Reason])),
+                    (catch file:write_file("uds_rpc_server_crash."++os:getpid(), EStr)),
+                    halt(EStr)
+            end
+    end.
+
+start_uds_node(NodeName, LPort) ->
+    Static = "-detached -noinput -proto_dist erl_uds",
+    Pa = filename:dirname(code:which(?MODULE)),
+    Prog = case catch init:get_argument(progname) of
+	       {ok,[[P]]} -> P;
+	       _ -> error(no_progname_argument_found)
+	   end,
+    {ok, Pwd} = file:get_cwd(),
+    NameStr = atom_to_list(NodeName),
+    CmdLine = Prog ++ " "
+	++ Static
+	++ " -sname " ++ NameStr
+	++ " -pa " ++ Pa
+	++ " -env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ NameStr
+	++ " -setcookie " ++ atom_to_list(erlang:get_cookie())
+        ++ " -run " ++ atom_to_list(?MODULE) ++ " start_uds_rpc_server "
+        ++ integer_to_list(LPort),
+    io:format("Starting: ~p~n", [CmdLine]),
+    case open_port({spawn, CmdLine}, []) of
+	Port when is_port(Port) ->
+	    unlink(Port),
+	    erlang:port_close(Port);
+	Error ->
+	    error({open_port_failed, Error})
+    end,
+    ok.
+
+erl_1424(Config) when is_list(Config) ->
+    {error, Reason} = erl_epmd:names("."),
+    {comment, lists:flatten(io_lib:format("Reason: ~p", [Reason]))}.
+
+differing_cookies(Config) when is_list(Config) ->
+    test_server:timetrap({minutes, 1}),
+    Node = node(),
+    true = Node =/= nonode@nohost,
+    [] = nodes(),
+    BaseName = atom_to_list(?FUNCTION_NAME),
+
+    %% Use -hidden nodes to avoid global connecting all nodes
+
+    %% Start node A with different cookie
+    NodeAName = BaseName++"_nodeA",
+    NodeA = full_node_name(NodeAName),
+    NodeACookieL = BaseName++"_cookieA",
+    NodeACookie = list_to_atom(NodeACookieL),
+    true = erlang:set_cookie( NodeA, NodeACookie ),
+    { ok, NodeA } =
+        start_node( "-hidden", NodeAName, "-setcookie "++NodeACookieL ),
+    try
+
+        %% Verify the cluster
+        [ NodeA ] = nodes(hidden),
+        [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+
+        %% Start node B with another different cookie
+        NodeBName = BaseName++"_nodeB",
+        NodeB = full_node_name(NodeBName),
+        NodeBCookieL = BaseName++"_cookieB",
+        NodeBCookie = list_to_atom(NodeBCookieL),
+        true = erlang:set_cookie( NodeB, NodeBCookie ),
+        { ok, NodeB } =
+            start_node( "-hidden", NodeBName, "-setcookie "++NodeBCookieL ),
+        try
+
+            %% Verify the cluster
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+            [ Node ] = rpc:call( NodeB, erlang, nodes, [hidden] ),
+
+            %% Verify that the nodes can not connect
+            %% before correcting the cookie configuration
+            pang = rpc:call( NodeA, net_adm, ping, [NodeB] ),
+            pang = rpc:call( NodeB, net_adm, ping, [NodeA] ),
+
+            %% Configure cookie and connect node A -> B
+            true = rpc:call( NodeA, erlang, set_cookie, [NodeB, NodeBCookie] ),
+            pong = rpc:call( NodeA, net_adm, ping, [NodeB] ),
+
+            %% Verify the cluster
+            NodeACookie = rpc:call( NodeA, erlang, get_cookie, []),
+            NodeBCookie = rpc:call( NodeB, erlang, get_cookie, []),
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            equal_sets( [Node, NodeB],
+                        rpc:call( NodeA, erlang, nodes, [hidden] )),
+            equal_sets( [Node, NodeA],
+                        rpc:call( NodeB, erlang, nodes, [hidden] )),
+
+            %% Disconnect node A from B
+            true = rpc:call( NodeB, net_kernel, disconnect, [NodeA] ),
+
+            %% Verify the cluster
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+            [ Node ] = rpc:call( NodeB, erlang, nodes, [hidden] ),
+
+            %% Reconnect, now node B -> A
+            pong = rpc:call( NodeB, net_adm, ping, [NodeA] ),
+
+            %% Verify the cluster
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            equal_sets( [Node, NodeB],
+                        rpc:call( NodeA, erlang, nodes, [hidden] )),
+            equal_sets( [Node, NodeA],
+                        rpc:call( NodeB, erlang, nodes, [hidden] ))
+
+        after
+            _ = stop_node(NodeB)
+        end
+    after
+        _ = stop_node(NodeA)
+    end,
+    [] = nodes(hidden),
+    ok.
+
+cmdline_setcookie_2(Config) when is_list(Config) ->
+    test_server:timetrap({minutes, 1}),
+    Node = node(),
+    true = Node =/= nonode@nohost,
+    [] = nodes(),
+    NodeL = atom_to_list(Node),
+    BaseName = atom_to_list(?FUNCTION_NAME),
+    NodeCookie = erlang:get_cookie(),
+    NodeCookieL = atom_to_list(NodeCookie),
+
+    %% Use -hidden nodes to avoid global connecting all nodes
+
+    %% Start node A with different cookie
+    %% and cookie configuration of mother node
+    NodeAName = BaseName++"_nodeA",
+    NodeA = full_node_name(NodeAName),
+    NodeACookieL = BaseName++"_cookieA",
+    NodeACookie = list_to_atom(NodeACookieL),
+    { ok, NodeA } =
+        start_node(
+          "-hidden", NodeAName,
+          "-setcookie "++NodeL++" "++NodeCookieL ),
+
+    try
+
+        %% Verify the cluster
+        [ NodeA ] = nodes(hidden),
+        [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+        NodeCookie = rpc:call( NodeA, erlang, get_cookie, []),
+
+        true = rpc:call( NodeA, erlang, set_cookie, [NodeACookie] ),
+
+        %% Start node B with different cookie
+        %% and cookie configuration of mother node and node A
+        NodeBName = BaseName++"_nodeB",
+        NodeB = full_node_name(NodeBName),
+        NodeBCookieL = BaseName++"_cookieB",
+        NodeBCookie = list_to_atom(NodeBCookieL),
+        { ok, NodeB } =
+            start_node(
+              "-hidden", NodeBName,
+              "-setcookie "++NodeBCookieL++" "
+              "-setcookie "++NodeL++" "++NodeCookieL++" "
+              "-setcookie "++atom_to_list(NodeA)++" "++NodeACookieL ),
+
+        try
+
+            %% Verify the cluster
+            NodeACookie = rpc:call( NodeA, erlang, get_cookie, []),
+            NodeBCookie = rpc:call( NodeB, erlang, get_cookie, []),
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+            [ Node ] = rpc:call( NodeB, erlang, nodes, [hidden] ),
+
+            %% Connect the nodes
+            pong = rpc:call( NodeA, net_adm, ping, [NodeB] ),
+
+            %% Verify the cluster
+            NodeACookie = rpc:call( NodeA, erlang, get_cookie, []),
+            NodeBCookie = rpc:call( NodeB, erlang, get_cookie, []),
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            equal_sets( [Node, NodeB],
+                        rpc:call( NodeA, erlang, nodes, [hidden] )),
+            equal_sets( [Node, NodeA],
+                        rpc:call( NodeB, erlang, nodes, [hidden] ))
+
+        after
+            _ = stop_node(NodeB)
+        end
+    after
+        _ = stop_node(NodeA)
+    end,
+    [] = nodes(hidden),
+    ok.
+
+connection_cookie(Config) when is_list(Config) ->
+    test_server:timetrap({minutes, 1}),
+    Node = node(),
+    true = Node =/= nonode@nohost,
+    [] = nodes(),
+    NodeL = atom_to_list(Node),
+    BaseName = atom_to_list(?FUNCTION_NAME),
+
+    %% Start node A with dedicated connection cookie
+    NodeAName = BaseName++"_nodeA",
+    NodeA = full_node_name(NodeAName),
+    NodeACookieL = BaseName++"_cookieA",
+    NodeACookie = list_to_atom(NodeACookieL),
+    true = NodeACookie =/= erlang:get_cookie(),
+    ConnectionCookieL = BaseName++"_connectionCookie",
+    ConnectionCookie = list_to_atom(ConnectionCookieL),
+    true = erlang:set_cookie( NodeA, ConnectionCookie ),
+    { ok, NodeA } =
+        start_node(
+          "", NodeAName,
+          "-setcookie "++NodeACookieL++" "
+          "-setcookie "++NodeL++" "++ConnectionCookieL ),
+
+    try
+
+        %% Verify the cluster
+        [ NodeA ] = nodes(),
+        [ Node ] = rpc:call( NodeA, erlang, nodes, [] ),
+        NodeACookie = rpc:call( NodeA, erlang, get_cookie, []),
+        ConnectionCookie = rpc:call( NodeA, auth, get_cookie, [Node]),
+        ConnectionCookie = erlang:get_cookie( NodeA )
+
+    after
+        _ = stop_node(NodeA)
+    end,
+    [] = nodes(),
+    ok.
+
+dyn_differing_cookies(Config) when is_list(Config) ->
+    test_server:timetrap({minutes, 1}),
+    MotherNode = node(),
+    true = MotherNode =/= nonode@nohost,
+    [] = nodes(hidden),
+    MotherNodeL = atom_to_list(MotherNode),
+    BaseName = atom_to_list(?FUNCTION_NAME),
+    MotherNodeCookie = erlang:get_cookie(),
+    MotherNodeCookieL = atom_to_list(MotherNodeCookie),
+    register(?FUNCTION_NAME, self()),
+
+    %% Start node A with different cookie
+    %% and cookie configuration of mother node
+    DynNodeCookieL = BaseName++"_cookieA",
+    DynNodeCookie = list_to_atom(DynNodeCookieL),
+    {_NF, Port} =
+        start_node_unconnected(
+          "-setcookie "++MotherNodeL++" "++MotherNodeCookieL,
+          undefined, DynNodeCookie,
+          ?MODULE, run_remote_test,
+          [atom_to_list(?FUNCTION_NAME), MotherNodeL] ),
+
+    dyn_differing_cookies(MotherNode, MotherNodeCookie, DynNodeCookie, Port).
+
+dyn_differing_cookies(MotherNode, MotherNodeCookie, DynNodeCookie, Port) ->
+    receive
+        { MotherNode, MotherNodeCookie, DynNodeCookie, DynNode } ->
+            [ DynNode ] = nodes(hidden),
+            [ MotherNode ] = rpc:call( DynNode, erlang, nodes, [hidden] ),
+            DynNodeCookie = rpc:call( DynNode, erlang, get_cookie, [] ),
+            MotherNodeCookie =
+                rpc:call( DynNode, erlang, get_cookie, [MotherNode] ),
+            {?FUNCTION_NAME, DynNode} !
+                {MotherNode, MotherNodeCookie, DynNode},
+
+            0 = wait_for_port_exit(Port),
+
+            [] = nodes(hidden),
+            ok;
+        {Port, {data, Data}} ->
+            io:format("~p: ~s", [Port, Data]),
+            dyn_differing_cookies(
+              MotherNode, MotherNodeCookie, DynNodeCookie, Port);
+        Other ->
+            error({unexpected, Other})
+    end.
+
+dyn_differing_cookies(MotherNode, _Args) ->
+    nonode@nohost = node(),
+    [] = nodes(hidden),
+    true = net_kernel:connect_node( MotherNode ),
+    [ MotherNode ] = nodes(hidden),
+    DynNode = node(),
+    [ DynNode ] = rpc:call( MotherNode, erlang, nodes, [hidden] ),
+    MotherNodeCookie = erlang:get_cookie( MotherNode ),
+    MotherNodeCookie = rpc:call( MotherNode, erlang, get_cookie, [] ),
+    %% Here we get the mother node's default cookie
+    MotherNodeCookie = rpc:call( MotherNode, erlang, get_cookie, [DynNode] ),
+    DynNodeCookie = erlang:get_cookie(),
+    register( ?FUNCTION_NAME, self() ),
+    {?FUNCTION_NAME, MotherNode} !
+        {MotherNode, MotherNodeCookie, DynNodeCookie, DynNode},
+    receive
+        { MotherNode, MotherNodeCookie, DynNode } ->
+            true = disconnect_node( MotherNode ),
+            [] = nodes(hidden),
+            ok;
+        Other ->
+            error({unexpected, Other})
+    end.
+
+
 %% Misc. functions
+
+equal_sets(A, B) ->
+    S = lists:sort(A),
+    case lists:sort(B) of
+        S ->
+            ok;
+        _ ->
+            erlang:error({not_equal_sets, A, B})
+    end.
 
 run_dist_configs(Func, Config) ->
     GetOptProlog = "-proto_dist gen_tcp -gen_tcp_dist_output_loop "

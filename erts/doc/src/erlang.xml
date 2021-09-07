@@ -4,14 +4,14 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2020</year>
+      <year>1996</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -79,6 +79,12 @@
       <desc>
         <p>See <seeerl marker="#process_flag_message_queue_data">
           <c>process_flag(message_queue_data, MQD)</c></seeerl>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="monitor_option"></name>
+      <desc>
+        <p>See <seemfa marker="#monitor/3"><c>monitor/3</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
@@ -237,12 +243,20 @@
     <datatype>
       <name name="message_queue_data"></name>
       <desc>
-        <p>Process message queue data configuration. For more info see
+        <p>Process message queue data configuration. For more information, see
         <seeerl marker="#process_flag_message_queue_data"><c>process_flag(message_queue_data,
 	MQD)</c></seeerl> </p>
       </desc>
     </datatype>
-    
+
+    <datatype>
+      <name name="stacktrace"/>
+      <name name="stacktrace_extrainfo"/>
+      <desc><p>An Erlang stacktrace as described by
+      <seeguide marker="system/reference_manual:errors#stacktrace">Errors and Error Handling</seeguide>
+      section in the Erlang Reference Manual.
+      </p></desc>
+    </datatype>
 
   </datatypes>
 
@@ -277,7 +291,7 @@
       <name name="adler32" arity="2" since=""/>
       <fsummary>Compute adler32 checksum.</fsummary>
       <desc>
-        <p>Continues computing the adler32 checksum by combining 
+        <p>Continues computing the adler32 checksum by combining
           the previous checksum, <c><anno>OldAdler</anno></c>, with
           the checksum of <c><anno>Data</anno></c>.</p>
         <p>The following code:</p>
@@ -306,6 +320,75 @@ Z = erlang:adler32(Y,Data2).</code>
 X = erlang:adler32(Data1),
 Y = erlang:adler32(Data2),
 Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="alias" arity="0" since="OTP 24.0"/>
+      <name name="alias" arity="1" since="OTP 24.0"/>
+      <fsummary>Create an alias.</fsummary>
+      <desc>
+	<p>
+	  Create an alias which can be used when sending messages
+	  to the process that created the alias. When the alias
+	  has been deactivated, messages sent using the alias will
+	  be dropped. An alias can be deactivated using
+	  <seemfa marker="erlang#unalias/1"><c>unalias/1</c></seemfa>.
+	  Currently available options for <c>alias/1</c>:
+	</p>
+	<taglist>
+	  <tag><c>explicit_unalias</c></tag>
+	  <item><p>
+	    The alias can only be deactivated via a
+	    call to <c>unalias/1</c>. This is also the
+	    default behaviour if no options are passed
+	    or if <c>alias/0</c> is called.
+	  </p></item>
+	  <tag><c>reply</c></tag>
+	  <item><p>
+	    The alias will be automatically deactivated
+	    when a reply message sent via the alias is
+	    received. The alias can also still be
+	    deactivated via a call to <c>unalias/1</c>.
+	  </p></item>
+	</taglist>
+	<p>Example:</p>
+        <code>
+server() ->
+    receive
+        {request, AliasReqId, Request} ->
+            Result = perform_request(Request),
+            AliasReqId ! {reply, AliasReqId, Result}
+    end,
+    server().
+
+client(ServerPid, Request) ->
+    AliasReqId = alias([reply]),
+    ServerPid ! {request, AliasReqId, Request},
+    %% Alias will be automatically deactivated if we receive a reply
+    %% since we used the 'reply' option...
+    receive
+        {reply, AliasReqId, Result} -> Result
+    after 5000 ->
+            unalias(AliasReqId),
+            %% Flush message queue in case the reply arrived
+            %% just before the alias was deactivated...
+            receive {reply, AliasReqId, Result} -> Result
+            after 0 -> exit(timeout)
+            end
+    end.
+	</code>
+	<p>
+	  Note that both the server and the client in this example
+	  must be executing on at least OTP 24 systems in order
+	  for this to work.
+	</p>
+	<p>
+	  For more information on process aliases see the
+	  <seeguide marker="system/reference_manual:processes#process-aliases"><i>Process
+	  Aliases</i></seeguide> section of the <i>Erlang
+	  Reference Manual</i>.
+	</p>
       </desc>
     </func>
 
@@ -413,11 +496,17 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
       <name name="atom_to_list" arity="1" since=""/>
       <fsummary>Text representation of an atom.</fsummary>
       <desc>
-        <p>Returns a string corresponding to the text
+        <p>Returns a list of unicode code points corresponding to the text
           representation of <c><anno>Atom</anno></c>, for example:</p>
         <pre>
 > <input>atom_to_list('Erlang').</input>
 "Erlang"</pre>
+        <pre>
+> <input>atom_to_list('你好').</input>
+[20320,22909]</pre>
+      <p>See <seeerl
+      marker="stdlib:unicode"><c>unicode(3)</c></seeerl> for how to
+      convert the resulting list to different formats.</p>
       </desc>
     </func>
 
@@ -483,10 +572,27 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
             encoded atoms</seeguide>
             in section "External Term Format" in the User's Guide.</p>
         </note>
+        <note>
+          <p>The number of characters that are permitted in an atom
+          name is limited. The default limits can be found in the
+          <seeguide marker="system/efficiency_guide:advanced">
+          efficiency guide (section Advanced)</seeguide>.</p>
+        </note>
+        <note>
+          <p>There is configurable limit on how many atoms that can
+          exist and atoms are not garbage collected. Therefore, it is
+          recommended to consider whether
+          <c>binary_to_existing_atom/2</c> is a better option
+          than <c>binary_to_atom/2</c>. The default limits can
+          be found in <seeguide
+          marker="system/efficiency_guide:advanced">efficiency guide
+          (section Advanced)</seeguide>.</p>
+        </note>
         <p>Examples:</p>
         <pre>
 > <input>binary_to_atom(&lt;&lt;"Erlang"&gt;&gt;, latin1).</input>
-'Erlang'
+'Erlang'</pre>
+        <pre>
 > <input>binary_to_atom(&lt;&lt;1024/utf8&gt;&gt;, utf8).</input>
 'Ѐ'</pre>
       </desc>
@@ -507,9 +613,26 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
       <name name="binary_to_existing_atom" arity="2" since=""/>
       <fsummary>Convert from text representation to an atom.</fsummary>
       <desc>
-        <p>As
-          <seemfa marker="#binary_to_atom/2"><c>binary_to_atom/2</c></seemfa>,
+        <p>As <seemfa marker="#binary_to_atom/2"><c>binary_to_atom/2</c></seemfa>,
           but the atom must exist.</p>
+
+        <p>The Erlang system has a <seeguide marker="system/efficiency_guide:advanced">
+          configurable limit</seeguide> for the total number of atoms that can
+          exist, and atoms are not garbage collected. Therefore, it is not safe
+          to create many atoms from binaries that come from an untrusted
+          source (for example, a file fetched from the Internet), for
+          example, using <seemfa marker="#binary_to_atom/2">
+          <c>binary_to_atom/2</c></seemfa>. This function is thus the
+          appropriate option when the input binary comes from an untrusted
+          source.</p>
+
+        <p>An atom exists in an Erlang system when included in a
+          loaded Erlang module or when created programmatically (for
+          example, by <c>binary_to_atom/2</c>). See the next note for an
+          example of when an atom exists in the source code for an
+          Erlang module but not in the compiled version of the same
+          module.</p>
+
         <p>Failure: <c>badarg</c> if the atom does not exist.</p>
 	<note>
 	  <p>Note that the compiler may optimize away atoms. For
@@ -521,6 +644,12 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
 	  to <c>binary_to_existing_atom(&lt;&lt;"some_atom"&gt;&gt;, utf8)</c>
 	  will fail.</p>
 	</note>
+        <note>
+          <p>The number of characters that are permitted in an atom
+            name is limited. The default limits can be found in the
+            <seeguide marker="system/efficiency_guide:advanced">
+            efficiency guide (section Advanced)</seeguide>.</p>
+        </note>
       </desc>
     </func>
 
@@ -533,6 +662,10 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
         <pre>
 > <input>binary_to_float(&lt;&lt;"2.2017764e+0">>).</input>
 2.2017764</pre>
+        <p>The float string format is the same as the format for
+        <seeguide marker="system/reference_manual:data_types">Erlang
+        float literals</seeguide> except for that underscores are not
+        permitted.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Binary</anno></c> contains a bad
           representation of a float.</p>
       </desc>
@@ -547,6 +680,9 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
         <pre>
 > <input>binary_to_integer(&lt;&lt;"123"&gt;&gt;).</input>
 123</pre>
+        <p><c>binary_to_integer/1</c> accepts the same string formats
+        as <seemfa
+        marker="#list_to_integer/1"><c>list_to_integer/1</c></seemfa>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Binary</anno></c> contains a bad
           representation of an integer.</p>
       </desc>
@@ -562,6 +698,9 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
         <pre>
 > <input>binary_to_integer(&lt;&lt;"3FF"&gt;&gt;, 16).</input>
 1023</pre>
+        <p><c>binary_to_integer/2</c> accepts the same string formats
+        as <seemfa
+        marker="#list_to_integer/2"><c>list_to_integer/2</c></seemfa>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>Binary</anno></c> contains a bad
           representation of an integer.</p>
       </desc>
@@ -614,8 +753,11 @@ hello
 </pre>
         <warning>
           <p>When decoding binaries from untrusted sources,
-            consider using <c>binary_to_term/2</c> to prevent Denial
-            of Service attacks.</p>
+            the untrusted source may submit data in a way to
+            create resources, such as atoms and remote references,
+            that cannot be garbage collected and lead to Denial
+            of Service attack. In such cases, consider using
+            <c>binary_to_term/2</c> with the <c>safe</c> option.</p>
         </warning>
         <p>See also
           <seemfa marker="#term_to_binary/1"><c>term_to_binary/1</c></seemfa>
@@ -635,7 +777,7 @@ hello
             <p>Use this option when receiving binaries from an untrusted
               source.</p>
             <p>When enabled, it prevents decoding data that can be used to
-              attack the Erlang system. In the event of receiving unsafe
+              attack the Erlang runtime. In the event of receiving unsafe
               data, decoding fails with a <c>badarg</c> error.</p>
             <p>This prevents creation of new atoms directly,
               creation of new atoms indirectly (as they are embedded in
@@ -652,6 +794,15 @@ hello
 > <input>binary_to_term(&lt;&lt;131,100,0,5,"hello">>, [safe]).</input>
 hello
 </pre>
+	    <warning>
+	      <p>The <c>safe</c> option ensures the data is safely
+                processed by the Erlang runtime but it does not
+                guarantee the data is safe to your application.
+                You must always validate data from untrusted sources.
+                If the binary is stored or transits through untrusted
+                sources, you should also consider cryptographically
+                signing it.</p>
+            </warning>
           </item>
           <tag><c>used</c></tag>
           <item>
@@ -700,7 +851,13 @@ hello
         <p>Returns a list of integers corresponding to the bytes of
           <c><anno>Bitstring</anno></c>. If the number of bits in the binary
           is not divisible by 8, the last element of the list is a bitstring
-          containing the remaining 1-7 bits.</p>
+        containing the remaining 1-7 bits. Examples:</p>
+                <pre>
+> <input>bitstring_to_list(&lt;&lt;433:16&gt;&gt;).</input>
+[1,177]</pre>
+                <pre>
+> <input>bitstring_to_list(&lt;&lt;433:16,3:3&gt;&gt;).</input>
+[1,177,&lt;&lt;3:3&gt;&gt;]</pre>
       </desc>
     </func>
 
@@ -713,7 +870,7 @@ hello
           emulator, the reduction counter is normally incremented by
           one for each function and BIF call. A context switch is
           forced when the counter reaches the maximum number of
-          reductions for a process (2000 reductions in Erlang/OTP R12B).</p>
+          reductions for a process (4000 reductions in Erlang/OTP 19.2 and later).</p>
         <warning>
           <p>This BIF can be removed in a future version of the Beam
             machine without prior warning. It is unlikely to be
@@ -848,10 +1005,10 @@ hello
       <name name="check_old_code" arity="1" since="OTP R14B04"/>
       <fsummary>Check if a module has old code.</fsummary>
       <desc>
-        <p>Returns <c>true</c> if <c><anno>Module</anno></c> has old code,
+        <p>Returns <c>true</c> if <c><anno>Module</anno></c> has
+          <seeguide marker="system/reference_manual:code_loading#code-replacement">old code</seeguide>,
           otherwise <c>false</c>.</p>
-        <p>See also <seeerl marker="kernel:code">
-          <c>code(3)</c></seeerl>.</p>
+        <p>See also <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </desc>
     </func>
 
@@ -1038,7 +1195,9 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
       <desc>
         <p>Returns the current date as <c>{Year, Month, Day}</c>.</p>
         <p>The time zone and Daylight Saving Time correction depend on
-          the underlying OS. Example:</p>
+          the underlying OS. The return value is based on the <seeguide
+        marker="time_correction#os-system-time">OS System
+        Time</seeguide>. Example:</p>
         <pre>
 > <input>date().</input>
 {1995,2,19}</pre>
@@ -1090,7 +1249,7 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
           <item>
             <p>The header is <em>not</em> stripped off.</p>
             <p>The meanings of the packet types are as follows:</p>
-            <taglist>     
+            <taglist>
               <tag><c>asn1</c> - ASN.1 BER</tag><item></item>
               <tag><c>sunrm</c> - Sun's RPC encoding</tag><item></item>
               <tag><c>cdr</c> - CORBA (GIOP 1.1)</tag><item></item>
@@ -1120,7 +1279,7 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
               The following calls are to use <c>httph</c> to get
               <c><anno>HttpHeader</anno></c>s until
               <c>http_eoh</c> is returned, which marks the end of the
-              headers and the beginning of any following message body.</p> 
+              headers and the beginning of any following message body.</p>
             <p>The variants <c>http_bin</c> and <c>httph_bin</c> return
               strings (<c>HttpString</c>) as binaries instead of lists.</p>
           </item>
@@ -1308,7 +1467,12 @@ end</code>
           protocols.</p>
         <p>Returns <c>true</c> if disconnection succeeds,
           otherwise <c>false</c>. If the local node is not alive,
-          <c>ignored</c> is returned.</p>
+        <c>ignored</c> is returned.</p>
+        <note>
+          <p>This function may return before <seemfa
+          marker="#monitor_node/2"> <c>nodedown</c> messages</seemfa>
+          have been delivered.</p>
+        </note>
       </desc>
     </func>
 
@@ -1544,7 +1708,7 @@ end</code>
 	</p>
       </desc>
     </func>
-    
+
     <func>
       <name name="element" arity="2" since=""/>
       <fsummary>Return the Nth element of a tuple.</fsummary>
@@ -1579,9 +1743,13 @@ b</pre>
       </fsummary>
       <desc>
         <p>Returns the value <c><anno>Val</anno></c> associated with
-          <c><anno>Key</anno></c> and deletes it from the process dictionary.
-          Returns <c>undefined</c> if no value is associated with
-          <c><anno>Key</anno></c>. Example:</p>
+        <c><anno>Key</anno></c> and deletes it from the process
+        dictionary.  Returns <c>undefined</c> if no value is
+        associated with <c><anno>Key</anno></c>. The average time
+        complexity for the current implementation of this function is
+        O(<c>1</c>) and the worst case time complexity is O(<c>N</c>),
+        where <c>N</c> is the number of items in the process
+        dictionary. Example:</p>
         <pre>
 > <input>put(key1, {merry, lambs, are, playing}),</input>
 <input>X = erase(key1),</input>
@@ -1592,15 +1760,17 @@ b</pre>
 
     <func>
       <name name="error" arity="1" since=""/>
-      <fsummary>Stop execution with a specified reason.</fsummary>
+      <fsummary>Raise an exception of class error.</fsummary>
       <desc>
-        <p>Stops the execution of the calling process with the reason
-          <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
-          is any term. The exit reason is
-          <c>{<anno>Reason</anno>, Where}</c>, where <c>Where</c>
-          is a list of the functions most recently called (the current
-          function first). As evaluating this function causes
-          the process to terminate, it has no return value. Example:</p>
+        <p>Raises an exception of class <c>error</c> with the reason
+          <c><anno>Reason</anno></c>. As evaluating this function causes
+          an exception to be thrown, it has no return value.</p>
+        <p>The intent of the exception class <c>error</c> is to
+          signal that an unexpected error has happened (for example, a
+          function is called with a parameter that has an incorrect
+          type). See the guide about <seeguide
+          marker="system/reference_manual:errors">errors and error
+          handling</seeguide> for additional information. Example:</p>
         <pre>
 > <input>catch error(foobar).</input>
 {'EXIT',{foobar,[{shell,apply_fun,3,
@@ -1616,35 +1786,109 @@ b</pre>
 
     <func>
       <name name="error" arity="2" since=""/>
-      <fsummary>Stop execution with a specified reason.</fsummary>
+      <fsummary>Raise an exception of class <c>error</c></fsummary>
       <desc>
-        <p>Stops the execution of the calling process with the reason
-          <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
-          is any term. The exit reason is
-          <c>{<anno>Reason</anno>, Where}</c>, where <c>Where</c>
-          is a list of the functions most recently called (the current
-          function first). <c><anno>Args</anno></c> is expected to be the
-          list of arguments for the current function; in Beam it is used
-          to provide the arguments for the current function in
-          the term <c>Where</c>. As evaluating this function causes
-          the process to terminate, it has no return value.</p>
+        <p>Raises an exception of class <c>error</c> with the reason
+          <c><anno>Reason</anno></c>. <c><anno>Args</anno></c> is expected to be the
+          list of arguments for the current function or the atom <c>none</c>.
+          If it is a list, it is used to provide the arguments for the current
+          function in the stack back-trace. If it is <c>none</c>, the arity of
+          the calling function is used in the stacktrace. As evaluating this
+          function causes an exception to be raised, it has no return value.</p>
+        <p>The intent of the exception class <c>error</c> is to
+          signal that an unexpected error has happened (for example, a
+          function is called with a parameter that has an incorrect
+          type). See the guide about <seeguide
+          marker="system/reference_manual:errors">errors and error
+          handling</seeguide> for additional information. Example:</p>
+          <p><c>test.erl</c>:</p>
+<code>
+-module(test).
+-export([example_fun/2]).
+
+example_fun(A1, A2) ->
+    erlang:error(my_error, [A1, A2]).
+</code>
+<p>Erlang shell:</p>
+<pre>
+<input>6> c(test).</input>
+{ok,test}
+<input>7> test:example_fun(arg1,"this is the second argument").</input>
+** exception error: my_error
+     in function  test:example_fun/2
+         called as test:example_fun(arg1,"this is the second argument")
+ </pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="error" arity="3" since="OTP 24.0"/>
+      <fsummary>Raise an exception of class <c>error</c></fsummary>
+      <desc>
+        <p>Raises an exception of class <c>error</c> with the reason
+          <c><anno>Reason</anno></c>. <c><anno>Args</anno></c> is expected to be the
+          list of arguments for the current function or the atom <c>none</c>.
+          If it is a list, it is used to provide the arguments for the current
+          function in the stack back-trace. If it is <c>none</c>, the arity of
+          the calling function is used in the stacktrace. As evaluating this
+          function causes an exception to be raised, it has no return value.</p>
+        <p>If the <c>error_info</c> option is given, the <c><anno>ErrorInfoMap</anno></c>
+          will be inserted into the stacktrace. The information given in the
+          <c><anno>ErrorInfoMap</anno></c> is to be used by error formatters such as
+          <seemfa marker="stdlib:erl_error#format_exception/4"><c>erl_error</c></seemfa>
+          to provide more context around an error.</p>
+        <p>The default <c>module</c> of the <c><anno>ErrorInfoMap</anno></c> is the
+          module that the call to <seemfa marker="#error/3"><c>error/3</c></seemfa>
+          is made. The default <c>function</c> is <c>format_error</c>. See
+          <seeerl marker="stdlib:erl_error#format_error"><c>format_error/2</c></seeerl>
+          for more details on how this Module:Function/2 is to be used</p>
+        <p>The intent of the exception class <c>error</c> is to signal that
+          an unexpected error has happened (for example, a function is called
+          with a parameter that has an incorrect type). See the guide about <seeguide
+	  marker="system/reference_manual:errors">errors and error
+	  handling</seeguide> for additional information.</p>
       </desc>
     </func>
 
     <func>
       <name name="exit" arity="1" since=""/>
-      <fsummary>Stop execution with a specified reason.</fsummary>
+      <fsummary>Raise an exception of class <c>exit</c> with a specified reason.</fsummary>
       <desc>
-        <p>Stops the execution of the calling process with exit reason
-          <c><anno>Reason</anno></c>, where <c><anno>Reason</anno></c>
-          is any term. As
-          evaluating this function causes the process to terminate, it
-          has no return value. Example:</p>
+        <p>Raises an exception of class <c>exit</c> with exit reason
+          <c><anno>Reason</anno></c>. As evaluating this function causes
+          an exception to be raised, it has no return value.</p>
+        <p>The intent of the exception class <c>exit</c> is that the current
+          process should be stopped (for example when a message telling a process
+          to stop is received).</p>
+        <p>This function differ from <seemfa
+          marker="#error/1"><c>error/1,2,3</c></seemfa> by causing an
+          exception of a different class and by having a reason that
+          does not include the list of functions from the call
+          stack.</p>
+        <p>See the guide about <seeguide
+        marker="system/reference_manual:errors">errors and error
+        handling</seeguide> for additional information.</p>
+        <p>
+          Example:
+        </p>
         <pre>
 > <input>exit(foobar).</input>
 ** exception exit: foobar
 > <input>catch exit(foobar).</input>
 {'EXIT',foobar}</pre>
+        <note>
+          <p>If a process calls <c>exit(kill)</c> and does not catch
+          the exception, it will terminate with exit reason
+          <c>kill</c> and also emit exit signals with exit reason
+          <c>kill</c> (not <c>killed</c>) to all linked
+          processes. Such exit signals with exit reason <c>kill</c> can be
+          trapped by the linked processes. Note that this means that
+          signals with exit reason <c>kill</c> behave differently
+          depending on how they are sent because the signal will be
+          untrappable if a process sends such a signal to another
+          process with <seemfa
+          marker="#exit/2"><c>erlang:exit/2</c></seemfa>.</p>
+        </note>
       </desc>
     </func>
 
@@ -1654,33 +1898,83 @@ b</pre>
       <desc>
         <p>Sends an exit signal with exit reason <c><anno>Reason</anno></c> to
           the process or port identified by <c><anno>Pid</anno></c>.</p>
-        <p>The following behavior applies if <c><anno>Reason</anno></c>
-          is any term, except <c>normal</c> or <c>kill</c>:</p>
+        <p>The following behavior applies if
+        <c><anno>Reason</anno></c> is any term, except <c>normal</c>
+        or <c>kill</c>, and <c>P</c> is the process or port identified
+        by <c><anno>Pid</anno></c>:</p>
         <list type="bulleted">
-          <item><p>If <c><anno>Pid</anno></c> is not trapping exits,
-            <c><anno>Pid</anno></c>
-            itself exits with exit reason <c><anno>Reason</anno></c>.</p>
+          <item><p>If <c>P</c> is not <seemfa marker="#process_flag/2">trapping exits</seemfa>,
+            <c>P</c> exits with exit reason <c><anno>Reason</anno></c>.</p>
           </item>
-          <item><p>If <c><anno>Pid</anno></c> is trapping exits, the exit
-            signal is transformed into a message
-            <c>{'EXIT', From, <anno>Reason</anno>}</c>
-            and delivered to the message queue of <c><anno>Pid</anno></c>.</p>
-          </item>
-          <item><p><c>From</c> is the process identifier of the process
-            that sent the exit signal. See also
-            <seemfa marker="#process_flag/2">
-            <c>process_flag/2</c></seemfa>.</p>
+          <item><p>If <c>P</c> is <seemfa
+          marker="#process_flag/2">trapping exits</seemfa>, the exit
+          signal is transformed into a message <c>{'EXIT', From,
+          <anno>Reason</anno>}</c>, where <c>From</c> is the process
+          identifier of the process that sent the exit signal, and
+          delivered to the message queue of <c>P</c>.</p>
           </item>
         </list>
-        <p>If <c><anno>Reason</anno></c> is the atom <c>normal</c>,
-          <c><anno>Pid</anno></c>
-          does not exit. If it is trapping exits, the exit signal is
-          transformed into a message <c>{'EXIT', From, normal}</c>
-          and delivered to its message queue.</p>
-        <p>If <c><anno>Reason</anno></c> is the atom <c>kill</c>,
-          that is, if <c>exit(<anno>Pid</anno>, kill)</c> is called,
-          an untrappable exit signal is sent to <c><anno>Pid</anno></c>,
-          which unconditionally exits with exit reason <c>killed</c>.</p>
+        <p>The following behavior applies if
+        <c><anno>Reason</anno></c> is the term <c>normal</c> and
+        <c><anno>Pid</anno></c> is the identifier of a process
+        <c>P</c> which is not the same as the process that invoked
+        <c>erlang:exit(Pid, normal)</c> (the behavior when a process
+        sends a signal with the <c>normal</c> reason to itself is
+        described in the warning):</p>
+        <list type="bulleted">
+          <item>If <c>P</c> is <seemfa
+          marker="#process_flag/2">trapping exits</seemfa>, the exit signal is
+          transformed into a message <c>{'EXIT', From, normal}</c>,
+          where <c>From</c> is the process identifier of the process
+          that sent the exit signal, and delivered to <c>P</c>'s
+          message queue.</item>
+          <item>The signal has no effect if <c>P</c> is not trapping
+          exits.</item>
+        </list>
+        <p>If <c><anno>Reason</anno></c> is the atom <c>kill</c>, that
+        is, if <c>exit(<anno>Pid</anno>, kill)</c> is called, an
+        untrappable exit signal is sent to the process that is
+        identified by <c><anno>Pid</anno></c>, which unconditionally
+        exits with exit reason <c>killed</c>. The exit reason is
+        changed from <c>kill</c> to <c>killed</c> to hint to linked
+        processes that the killed process got killed by
+        a call to <c>exit(Pid, kill)</c>.
+        </p>
+        <note>
+          <p>The functions <seemfa
+          marker="#exit/1"><c>erlang:exit/1</c></seemfa> and <seemfa
+          marker="#exit/2"><c>erlang:exit/2</c></seemfa> are named
+          similarly but provide very different functionalities. The
+          <c>erlang:exit/1</c> function should be used when the intent
+          is to stop the current process while <c>erlang:exit/2</c>
+          should be used when the intent is to send an exit signal to
+          another process. Note also that <c>erlang:exit/1</c> raises
+          an exception that can be caught while <c>erlang:exit/2</c>
+          does not cause any exception to be raised.</p>
+        </note>
+        <warning>
+          <p>The only scenario that has not been covered by the
+          description above is when a process <c>P</c> sends an exit
+          signal with reason <c>normal</c> to itself, that is
+          <c>erlang:exit(self(), normal)</c>. The behavior in this
+          scenario is as follows:</p>
+          <list type="bulleted">
+            <item>If <c>P</c> is <seemfa
+          marker="#process_flag/2">trapping exits</seemfa>, the exit signal is
+            transformed into a message <c>{'EXIT', From, normal}</c>,
+            where <c>From</c> is <c>P</c>'s process identifier, and
+            delivered to <c>P</c>'s message queue.</item>
+            <item><c>P</c> exits with reason <c>normal</c> if <c>P</c>
+            is not trapping exits.</item>
+          </list>
+          <p>
+            Note that the behavior described above is different from
+            when a process sends an exit signal with reason
+            <c>normal</c> to another process. This is arguably strange
+            but this behavior is kept for backward compatibility
+            reasons.
+          </p>
+        </warning>
       </desc>
     </func>
 
@@ -1760,7 +2054,7 @@ true</pre>
         options.</fsummary>
       <desc>
         <p>Returns a binary corresponding to the text
-          representation of <c><anno>Float</anno></c> using fixed decimal 
+          representation of <c><anno>Float</anno></c> using fixed decimal
           point formatting. <c><anno>Options</anno></c> behaves in the same
           way as <seemfa marker="#float_to_list/2">
           <c>float_to_list/2</c></seemfa>. Examples:</p>
@@ -1768,7 +2062,9 @@ true</pre>
 > <input>float_to_binary(7.12, [{decimals, 4}]).</input>
 &lt;&lt;"7.1200">>
 > <input>float_to_binary(7.12, [{decimals, 4}, compact]).</input>
-&lt;&lt;"7.12">></pre>
+&lt;&lt;"7.12">>
+> <input>float_to_binary(7.12, [{scientific, 3}]).</input>
+&lt;&lt;"7.120e+00">></pre>
       </desc>
     </func>
 
@@ -1813,7 +2109,17 @@ true</pre>
 > <input>float_to_list(7.12, [{decimals, 4}]).</input>
 "7.1200"
 > <input>float_to_list(7.12, [{decimals, 4}, compact]).</input>
-"7.12"</pre>
+"7.12"
+> <input>float_to_list(7.12, [{scientific, 3}]).</input>
+"7.120e+00"
+> <input>float_to_list(0.1+0.2)</input>
+"3.00000000000000044409e-01"
+</pre>
+<p>In the last example, <c>float_to_list(0.1+0.2)</c> evaluates to
+<c>"3.00000000000000044409e-01"</c>. The reason for this is explained
+in <seeguide
+marker="system/reference_manual:data_types#float_representation_problem">Representation
+of Floating Point Numbers</seeguide>.</p>
       </desc>
     </func>
 
@@ -1960,8 +2266,88 @@ true</pre>
       <name name="fun_to_list" arity="1" since=""/>
       <fsummary>Text representation of a fun.</fsummary>
       <desc>
-        <p>Returns a string corresponding to the text
-          representation of <c><anno>Fun</anno></c>.</p>
+        <p>Returns <c><anno>String</anno></c> that represents the code
+        that created <c><anno>Fun</anno></c>.</p>
+
+
+        <p><c><anno>String</anno></c> has the following form, if
+        <c><anno>Fun</anno></c> was created by a <seeguide
+        marker="system/reference_manual:expressions#fun-expressions">fun
+        expression</seeguide> of the form <c>fun
+        ModuleName:FuncName/Arity</c>:</p>
+
+        <p><c>"fun ModuleName:FuncName/Arity"</c></p>
+
+        <p>The form of <c><anno>String</anno></c> when
+        <c><anno>Fun</anno></c> is created from other types of <seeguide
+        marker="system/reference_manual:expressions#fun-expressions">fun
+        expressions</seeguide> differs depending on if the fun
+        expression was executed while executing compiled code or if
+        the fun expression was executed while executing uncompiled
+        code (uncompiled escripts, the Erlang shell, and other code
+        executed by the erl_eval module):</p>
+
+        <taglist>
+          <tag>compiled code</tag>
+          <item><p><c>"#Fun&lt;M.I.U>"</c>, where M, I and U
+          correspond to the values named <c>module</c>, <c>index</c>
+          and <c>uniq</c> in the result of <seemfa
+          marker="#fun_info/1"><c>erlang:fun_info(Fun)</c></seemfa>.</p></item>
+          <tag>uncompiled code</tag>
+
+          <item>All funs created from fun expressions in uncompiled
+          code with the same arity are mapped to the same list by
+          <c>fun_to_list/1</c>.</item>
+        </taglist>
+
+
+        <note>
+        <p>Generally, one can not use <c>fun_to_list/1</c> to check if
+        two funs are equal as <c>fun_to_list/1</c> does not take the
+        fun's environment into account. See <seemfa
+        marker="#fun_info/1"><c>erlang:fun_info/1</c></seemfa> for how
+        to get the environment of a fun.</p>
+        </note>
+        <note>
+          <p>The output of <c>fun_to_list/1</c> can differ between
+          Erlang implementations and may change in future
+          versions.</p>
+        </note>
+        <p>Examples:</p>
+        <code>
+-module(test).
+-export([add/1, add2/0, fun_tuple/0]).
+add(A) -> fun(B) -> A + B end.
+add2() -> fun add/1.
+fun_tuple() -> {fun() -> 1 end, fun() -> 1 end}.
+        </code>
+<pre>
+> <input>{fun test:add/1, test:add2()}.</input>
+{fun test:add/1,#Fun&lt;test.1.107738983>}
+</pre>
+<p>
+  Explanation: <c>fun test:add/1</c> is upgradable but <c>test:add2()</c> is not upgradable.
+</p>
+<pre>
+> <input>{test:add(1), test:add(42)}.</input>
+{#Fun&lt;test.0.107738983>,#Fun&lt;test.0.107738983>}
+</pre>
+<p>Explanation: <c>test:add(1)</c> and <c>test:add(42)</c> has the
+same string representation as the environment is not taken into
+account.</p>
+<pre>
+><input>test:fun_tuple().</input>
+{#Fun&lt;test.2.107738983>,#Fun&lt;test.3.107738983>}
+</pre>
+<p>Explanation: The string representations differ because the funs
+come from different fun experssions.</p>
+<pre>
+> <input>{fun() -> 1 end, fun() -> 1 end}.</input> > <input></input>
+{#Fun&lt;erl_eval.45.97283095>,#Fun&lt;erl_eval.45.97283095>}
+</pre>
+<p>Explanation: All funs created from fun expressions of this form in
+uncompiled code with the same arity are mapped to the same list by
+<c>fun_to_list/1</c>.</p>
       </desc>
     </func>
 
@@ -1970,14 +2356,10 @@ true</pre>
       <fsummary>Check if a function is exported and loaded.</fsummary>
       <desc>
         <p>Returns <c>true</c> if the module <c><anno>Module</anno></c> is
-          loaded and contains an exported function
-          <c><anno>Function</anno>/<anno>Arity</anno></c>,
+          <seeguide marker="system/reference_manual:code_loading#code-replacement">current</seeguide>
+          and contains an exported function <c><anno>Function</anno>/<anno>Arity</anno></c>,
           or if there is a BIF (a built-in function implemented in C)
           with the specified name, otherwise returns <c>false</c>.</p>
-        <note>
-          <p>This function used to return <c>false</c> for BIFs
-            before Erlang/OTP 18.0.</p>
-        </note>
       </desc>
     </func>
 
@@ -2077,7 +2459,9 @@ true</pre>
       <fsummary>Return the process dictionary.</fsummary>
       <desc>
         <p>Returns the process dictionary as a list of
-          <c>{<anno>Key</anno>, <anno>Val</anno>}</c> tuples, for example:</p>
+        <c>{<anno>Key</anno>, <anno>Val</anno>}</c> tuples.
+        The items in the returned list can be in any order.
+        Example:</p>
         <pre>
 > <input>put(key1, merry),</input>
 <input>put(key2, lambs),</input>
@@ -2093,7 +2477,11 @@ true</pre>
       <desc>
         <p>Returns the value <c><anno>Val</anno></c> associated with
           <c><anno>Key</anno></c> in the process dictionary, or <c>undefined</c>
-          if <c><anno>Key</anno></c> does not exist. Example:</p>
+          if <c><anno>Key</anno></c> does not exist. The expected time
+          complexity for the current implementation of this function is
+          O(<c>1</c>) and the worst case time complexity is O(<c>N</c>),
+          where <c>N</c> is the number of items in the process
+          dictionary. Example:</p>
         <pre>
 > <input>put(key1, merry),</input>
 <input>put(key2, lambs),</input>
@@ -2113,12 +2501,23 @@ true</pre>
     </func>
 
     <func>
+      <name name="get_cookie" arity="1" since="OTP @OTP-17538@"/>
+      <fsummary>Get the magic cookie for a node.</fsummary>
+      <desc>
+        <p>Returns the magic cookie for node <c><anno>Node</anno></c>
+          if the local node is alive,
+          otherwise the atom <c>nocookie</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="get_keys" arity="0" since="OTP 18.0"/>
       <fsummary>Return a list of all keys from the process dictionary.
       </fsummary>
       <desc>
-        <p>Returns a list of all keys present in the process dictionary,
-          for example:</p>
+        <p>Returns a list of all keys present in the process dictionary.
+        The items in the returned list can be in any order.
+        Example:</p>
         <pre>
 > <input>put(dog, {animal,1}),</input>
 <input>put(cow, {animal,2}),</input>
@@ -2133,7 +2532,9 @@ true</pre>
       <fsummary>Return a list of keys from the process dictionary.</fsummary>
       <desc>
         <p>Returns a list of keys that are associated with the value
-          <c><anno>Val</anno></c> in the process dictionary, for example:</p>
+        <c><anno>Val</anno></c> in the process dictionary.
+        The items in the returned list can be in any order.
+        Example:</p>
         <pre>
 > <input>put(mary, {1, 2}),</input>
 <input>put(had, {1, 2}),</input>
@@ -2143,25 +2544,6 @@ true</pre>
 <input>put(lamb, {1, 2}),</input>
 <input>get_keys({1, 2}).</input>
 [mary,had,a,little,lamb]</pre>
-      </desc>
-    </func>
-
-    <func>
-      <name name="get_stacktrace" arity="0" since=""/>
-      <fsummary>Get the call stack back-trace of the last exception.</fsummary>
-      <type name="stack_item"/>
-      <desc>
-	<warning><p><c>erlang:get_stacktrace/0</c> is deprecated and
-	will be removed in OTP 24. Starting from OTP 23,
-	<c>erlang:get_stacktrace/0</c> returns <c>[]</c>.</p></warning>
-      <p>Instead of using <c>erlang:get_stacktrace/0</c> to retrieve
-      the call stack back-trace, use the following syntax:</p>
-<pre>
-try Expr
-catch
-  Class:Reason:Stacktrace ->
-   {Class,Reason,Stacktrace}
-end</pre>
       </desc>
     </func>
 
@@ -2193,6 +2575,10 @@ end</pre>
           applications with a supervision tree, because OTP
           assumes the group leader of their processes is
           their application master.</p>
+        <p>Setting the group leader follows the signal ordering guarentees
+          described in the
+          <seeguide marker="system/reference_manual:processes#signals">
+          Processes Chapter</seeguide> in the <i>Erlang Reference Manual</i>.</p>
         <p>See also
           <seemfa marker="#group_leader/0"><c>group_leader/0</c></seemfa>
           and <seeguide marker="system/design_principles:applications#stopping">OTP
@@ -2298,7 +2684,10 @@ os_prompt%</pre>
           the arguments specified by <c><anno>Args</anno></c> with the call
           stack emptied, meaning that the process terminates when that
           function returns. Thus <c>erlang:hibernate/3</c> never
-          returns to its caller.</p>
+          returns to its caller. The resume function
+	  <c><anno>Module</anno>:<anno>Function</anno>/Arity</c> must be
+	  exported (<c>Arity</c> =:= <c>length(<anno>Args</anno>)</c>).
+	</p>
         <p>If the process has any message in its message queue,
           the process is awakened immediately in the same way as
           described earlier.</p>
@@ -2429,8 +2818,36 @@ os_prompt%</pre>
       <name name="iolist_to_iovec" arity="1" since="OTP 20.1"/>
       <fsummary>Converts an iolist to a iovec.</fsummary>
       <desc>
-        <p>Returns an iovec that is made from the integers and binaries in
-          <c><anno>IoListOrBinary</anno></c>.</p>
+        <p>Returns an <seetype marker="#iovec">iovec</seetype> that is made from
+          the integers and binaries in <c><anno>IoListOrBinary</anno></c>.
+          This function is useful when you want to flatten an iolist but you do
+          not need a single binary. This can be useful for passing the data
+          to nif functions such as
+          <seecref marker="erl_nif#enif_inspect_iovec"><c>enif_inspect_iovec</c></seecref>
+          or do more efficient message passing. The advantage of using this
+          function over
+          <seemfa marker="#iolist_to_binary/1"><c>iolist_to_binary/1</c></seemfa>
+          is that it does not have to copy
+          <seeguide marker="system/efficiency_guide:binaryhandling#refc_binary">
+            off-heap binaries</seeguide>. Example:</p>
+        <pre>
+> <input>Bin1 = &lt;&lt;1,2,3&gt;&gt;.</input>
+&lt;&lt;1,2,3&gt;&gt;
+> <input>Bin2 = &lt;&lt;4,5&gt;&gt;.</input>
+&lt;&lt;4,5&gt;&gt;
+> <input>Bin3 = &lt;&lt;6&gt;&gt;.</input>
+&lt;&lt;6&gt;&gt;
+%% If you pass small binaries and integers it works as iolist_to_binary
+> <input>erlang:iolist_to_iovec([Bin1,1,[2,3,Bin2],4|Bin3]).</input>
+[&lt;&lt;1,2,3,1,2,3,4,5,4,6&gt;&gt;]
+%% If you pass larger binaries, they are split and returned in a form
+%% optimized for calling the C function writev.
+> <input>erlang:iolist_to_iovec([&lt;&lt;1&gt;&gt;,&lt;&lt;2:8096&gt;&gt;,&lt;&lt;3:8096&gt;&gt;]).</input>
+[&lt;&lt;1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,...&gt;&gt;,
+ &lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   ...&gt;&gt;,
+ &lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,...&gt;&gt;]</pre>
       </desc>
     </func>
 
@@ -2439,8 +2856,17 @@ os_prompt%</pre>
       <fsummary>Check whether the local node is alive.</fsummary>
       <desc>
         <p>Returns <c>true</c> if the local node is alive (that is, if
-          the node can be part of a distributed system), otherwise
-          <c>false</c>.</p>
+        the node can be part of a distributed system), otherwise
+        <c>false</c>. A node is alive if it is started with:</p>
+        <list type="ordered">
+          <item><seecom marker="erl#name"><c>"erl -name LONGNAME"</c></seecom> or,</item>
+          <item><seecom marker="erl#sname"><c>"erl -sname SHORTNAME"</c></seecom>.</item>
+        </list>
+        <p>A node
+        can also be alive if it has got a name from a call to <seemfa
+        marker="kernel:net_kernel#start/1"><c>net_kernel:start/1</c></seemfa>
+        and has not been stopped by a call to <seemfa
+        marker="kernel:net_kernel#stop/0"><c>net_kernel:stop/0</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -2618,7 +3044,27 @@ false</code>
           node.</p>
         <p>Returns <c>true</c> if the process exists and is alive, that
           is, is not exiting and has not exited. Otherwise returns
-          <c>false</c>.</p>
+        <c>false</c>.</p>
+        <p>If process <c>P1</c> calls <c>is_process_alive(P2Pid)</c>
+        it is guaranteed that all signals, sent from <c>P1</c> to
+        <c>P2</c> (<c>P2</c> is the process with identifier
+        <c>P2Pid</c>) before the call, will be delivered to <c>P2</c>
+        before the aliveness of <c>P2</c> is checked. This guarantee
+        means that one can use <c>is_process_alive/1</c> to let a
+        process <c>P1</c> wait until a process <c>P2</c>, which has
+        got an exit signal with reason <c>kill</c> from P1, is
+        killed. Example:
+        </p>
+<pre>
+exit(P2Pid, kill),
+% P2 might not be killed
+is_process_alive(P2Pid),
+% P2 is not alive (the call above always return false)
+</pre>
+       <p>See the documentation about
+        <seeguide marker="system/reference_manual:processes#signals">signals</seeguide>
+       and <seemfa marker="#exit/2">erlang:exit/2</seemfa> for more
+       information about signals and exit singnals.</p>
       </desc>
     </func>
 
@@ -2696,39 +3142,85 @@ false</code>
 
     <func>
       <name name="link" arity="1" since=""/>
-      <fsummary>Create a link to another process (or port).</fsummary>
+      <fsummary>Create a link to another process or port.</fsummary>
       <desc>
 
-        <p>Creates a link between the calling process and another process (or
-          port) <c><anno>PidOrPort</anno></c>. If the link already exists or a
-          process attempts to create a link to itself, nothing is done. Returns
-          <c>true</c> if the link is set up.</p>
+	<p>
+	  Sets up and activates a link between the calling process and
+	  another process or a port identified by
+	  <c><anno>PidOrPort</anno></c>. We will from here on call the
+	  identified process or port linkee. If the linkee is a port, it
+	  must reside on the same node as the caller.
+	</p>
 
-        <p>If <c><anno>PidOrPort</anno></c> does not exist and checking it is
-          cheap, a <c>noproc</c> error is raised. Currently, checking is cheap
-          if the <c><anno>PidOrPort</anno></c> is local and the caller does not
-          trap exits (see <seemfa marker="#process_flag/2"><c>process_flag/2
-          </c></seemfa>).</p>
+	<p>
+	  If one of the participants of a link terminates, it will
+	  <seeguide marker="system/reference_manual:processes#sending_exit_signals">send
+	  an exit signal</seeguide> to the other participant. The exit
+	  signal will contain the
+	  <seeguide marker="system/reference_manual:processes#link_exit_signal_reason">exit
+	  reason</seeguide> of the terminated participant. Other cases when
+	  exit signals are triggered due to a link are when no linkee exist
+	  (<c>noproc</c> exit reason) and when the connection between linked
+	  processes on different nodes is lost or cannot be established
+	  (<c>noconnection</c> exit reason).
+	</p>
 
-        <p>Apart from any exit signals from the linked process itself, two
-          special exit signals may be sent to the calling process:</p>
+	<p>
+	  An existing link can be removed by calling
+	  <seemfa marker="#unlink/1"><c>unlink/1</c></seemfa>.
+	  For more information on links and exit signals due to links, see
+	  the <i>Processes</i> chapter in the <i>Erlang Reference Manual</i>:
+	</p>
+	<list>
+	  <item>
+            <seeguide marker="system/reference_manual:processes#links">Links</seeguide>
+	  </item>
+	  <item>
+	    <seeguide marker="system/reference_manual:processes#sending_exit_signals">Sending
+	    Exit Signals</seeguide>
+	  </item>
+	  <item>
+	    <seeguide marker="system/reference_manual:processes#receiving_exit_signals">Receiving
+	    Exit Signals</seeguide>
+	  </item>
+	</list>
 
-        <list type="bulleted">
+	<p>
+	  For historical reasons, <c>link/1</c> has a strange
+	  semi-synchronous behavior when it is "cheap" to check if the
+	  linkee exists or not, and the caller does not
+	  <seeerl marker="erlang#process_flag_trap_exit">trap exits</seeerl>.
+	  If the above is true and the linkee does not exist, <c>link/1</c>
+	  will raise a <c>noproc</c> error <em>exception</em>. The expected
+	  behavior would instead have been that <c>link/1</c> returned
+	  <c>true</c>, and the caller later was sent an exit signal
+	  with <c>noproc</c> exit reason, but this is unfortunately not the
+	  case. The <c>noproc</c>
+	  <seeguide marker="system/reference_manual:errors#exceptions">
+	  exception</seeguide> is not to be confused with an
+	  <seeguide marker="system/reference_manual:processes#sending_exit_signals">exit
+	  signal</seeguide> with exit reason <c>noproc</c>. Currently it is "cheap"
+	  to check if the linkee exists when it is supposed to reside on
+	  the same node as the calling process.
+	</p>
 
-          <item><p><c>noproc</c> is sent immediately if
-            <c><anno>PidOrPort</anno></c> does not exist at the time of linking
-            (if the caller is trapping exits or <c><anno>PidOrPort</anno></c> is
-            remote).</p></item>
+	<p>
+	  The link setup and activation is performed asynchronously. If the
+	  link already exists, or if the caller attempts to create a link
+	  to itself, nothing is done. A detailed description of the
+	  <seeguide marker="erts:erl_dist_protocol#link_protocol">link
+	  protocol</seeguide> can be found in the <i>Distribution Protocol</i>
+	  chapter of the <i>ERTS User's Guide</i>.
+	</p>
 
-          <item><p><c>noconnection</c> if <c><anno>PidOrPort</anno></c> is
-            remote and a connection between the nodes could not be established
-            or was severed.</p></item>
-
-        </list>
-
-        <p>See <seeguide marker="system/reference_manual:processes#links">Processes
-          ➜ Links</seeguide> in the Erlang Reference Manual for more details.</p>
-
+	<p>Failure:</p>
+	<list>
+	  <item><c>badarg</c> if <c><anno>PidOrPort</anno></c> does not identify
+	  a process or a node local port.</item>
+	  <item><c>noproc</c> linkee does not exist and it is "cheap" to check
+	  if it exists as described above.</item>
+	</list>
       </desc>
     </func>
 
@@ -2744,7 +3236,23 @@ false</code>
           above 255. For more information on Unicode support in atoms, see
           <seeguide marker="erl_ext_dist#utf8_atoms">note on UTF-8
           encoded atoms</seeguide>
-          in section "External Term Format" in the User's Guide.</p>
+        in section "External Term Format" in the User's Guide.</p>
+        <note>
+          <p>The number of characters that are permitted in an atom
+          name is limited. The default limits can be found in the
+          <seeguide marker="system/efficiency_guide:advanced">
+          efficiency guide (section Advanced)</seeguide>.</p>
+        </note>
+        <note>
+          <p>There is configurable limit on how many atoms that can
+          exist and atoms are not garbage collected. Therefore, it is
+          recommended to consider if
+          <seemfa marker="#list_to_existing_atom/1"><c>list_to_existing_atom/1</c></seemfa> is a better option
+          than <c>list_to_atom/1</c>. The default limits can
+          be found in the <seeguide
+          marker="system/efficiency_guide:advanced">efficiency guide
+          (section Advanced)</seeguide>.</p>
+        </note>
         <p>Example:</p>
         <pre>
 > <input>list_to_atom("Erlang").</input>
@@ -2797,7 +3305,9 @@ false</code>
       <desc>
         <p>Returns the atom whose text representation is
           <c><anno>String</anno></c>,
-          but only if there already exists such atom.</p>
+          but only if there already exists such atom. An atom exists if it has
+          been created by the run-time system by either loading code or creating
+          a term in which the atom is part.</p>
         <p>Failure: <c>badarg</c> if there does not already exist an atom
           whose text representation is <c><anno>String</anno></c>.</p>
 	<note>
@@ -2821,6 +3331,10 @@ false</code>
         <pre>
 > <input>list_to_float("2.2017764e+0").</input>
 2.2017764</pre>
+        <p>The float string format is the same as the format for
+        <seeguide marker="system/reference_manual:data_types">Erlang
+        float literals</seeguide> except for that underscores are not
+        permitted.</p>
         <p>Failure: <c>badarg</c> if <c><anno>String</anno></c> contains a bad
           representation of a float.</p>
       </desc>
@@ -2835,6 +3349,17 @@ false</code>
         <pre>
 > <input>list_to_integer("123").</input>
 123</pre>
+        <pre>
+> <input>list_to_integer("-123").</input>
+-123</pre>
+        <pre>
+> <input>list_to_integer("+123234982304982309482093833234234").</input>
+123234982304982309482093833234234</pre>
+        <p><c><anno>String</anno></c> must contain at least one digit
+        character and can have an optional prefix consisting of a
+        single "<c>+</c>" or "<c>-</c>" character (that is,
+        <c><anno>String</anno></c> must match the regular
+        expression <c>"^[+-]?[0-9]+$"</c>).</p>
         <p>Failure: <c>badarg</c> if <c><anno>String</anno></c> contains a bad
           representation of an integer.</p>
       </desc>
@@ -2850,6 +3375,21 @@ false</code>
         <pre>
 > <input>list_to_integer("3FF", 16).</input>
 1023</pre>
+        <pre>
+> <input>list_to_integer("+3FF", 16).</input>
+1023</pre>
+        <pre>
+> <input>list_to_integer("3ff", 16).</input>
+1023</pre>
+        <pre>
+> <input>list_to_integer("3fF", 16).</input>
+1023</pre>
+        <pre>
+> <input>list_to_integer("-3FF", 16).</input>
+-1023</pre>
+        <p>For example, when <c><anno>Base</anno></c> is 16,
+        <c><anno>String</anno></c> must match the regular
+        expression <c>"^[+-]?([0-9]|[A-F]|[a-f])+$"</c>.</p>
         <p>Failure: <c>badarg</c> if <c><anno>String</anno></c> contains a bad
           representation of an integer.</p>
       </desc>
@@ -2859,7 +3399,7 @@ false</code>
       <name name="list_to_pid" arity="1" since=""/>
       <fsummary>Convert from text representation to a pid.</fsummary>
       <desc>
-        <p>Returns a process identifier whose text representation is a 
+        <p>Returns a process identifier whose text representation is a
           <c><anno>String</anno></c>, for example:</p>
         <pre>
 > <input>list_to_pid("&lt;0.4.1>").</input>
@@ -2946,6 +3486,13 @@ false</code>
           <item><c><anno>Binary</anno></c> contains a module that cannot be
             loaded because old code for this module already exists.
           </item>
+          <tag><c>on_load</c></tag>
+          <item>The code in <c><anno>Binary</anno></c> contains an
+          <c>on_load</c> declaration that must be executed before
+          <c><anno>Binary</anno></c> can become the current code. Any
+          previous current code for <c><anno>Module</anno></c> will remain
+          until the <c>on_load</c> call has finished.
+          </item>
         </taglist>
         <warning>
           <p>This BIF is intended for the code server (see
@@ -3000,10 +3547,6 @@ false</code>
             code of a module that has been upgraded; this is not
             allowed.
           </item>
-	  <tag><c>notsup</c></tag>
-          <item>Lack of support. Such as loading NIF library for a
-	    HiPE compiled module.
-	  </item>
         </taglist>
       </desc>
     </func>
@@ -3029,8 +3572,10 @@ false</code>
         <pre>
 > <input>erlang:localtime().</input>
 {{1996,11,6},{14,45,17}}</pre>
-        <p>The time zone and Daylight Saving Time correction depend
-          on the underlying OS.</p>
+        <p>The time zone and Daylight Saving Time correction depend on
+        the underlying OS. The return value is based on the <seeguide
+        marker="time_correction#os-system-time">OS System
+        Time</seeguide>.</p>
       </desc>
     </func>
 
@@ -3086,7 +3631,7 @@ false</code>
           unique reference</seeguide>. The reference is unique among
           connected nodes.</p>
         <warning>
-          <p>Known issue: When a node is restarted multiple
+          <p>Before OTP-23 when a node is restarted multiple
             times with the same node name, references created
             on a newer node can be mistaken for a reference
             created on an older node with the same node name.</p>
@@ -3200,8 +3745,27 @@ false</code>
       <fsummary>Return the largest of two terms.</fsummary>
       <desc>
         <p>Returns the largest of <c><anno>Term1</anno></c> and
-          <c><anno>Term2</anno></c>.
-          If the terms are equal, <c><anno>Term1</anno></c> is returned.</p>
+        <c><anno>Term2</anno></c>. If the terms compare equal with
+        the <c>==</c> operator, <c><anno>Term1</anno></c> is
+        returned.</p>
+        <p>The
+        <seeguide
+            marker="system/reference_manual:expressions#term-comparisons">
+          Expressions section</seeguide> contains descriptions of the
+          <c>==</c> operator and how terms are ordered.</p>
+        <p>Examples:</p>
+        <pre>
+> <input>max(1, 2).</input>
+2</pre>
+          <pre>
+> <input>max(1.0, 1).</input>
+1.0</pre>
+          <pre>
+> <input>max(1, 1.0).</input>
+1</pre>
+          <pre>
+> <input>max("abc", "b").</input>
+"b"</pre>
       </desc>
     </func>
 
@@ -3322,15 +3886,6 @@ false</code>
               tables. This memory is part of the memory presented as
               <c>system</c> memory.</p>
           </item>
-          <tag><c>low</c></tag>
-          <item>
-            <p>Only on 64-bit halfword emulator.
-              The total amount of memory allocated in low memory areas
-              that are restricted to &lt; 4 GB, although
-              the system can have more memory.</p>
-            <p>Can be removed in a future release of the halfword
-              emulator.</p>
-          </item>
           <tag><c>maximum</c></tag>
           <item>
             <p>The maximum total amount of memory allocated since
@@ -3442,8 +3997,27 @@ RealSystem = system + MissedSystem</code>
       <fsummary>Return the smallest of two terms.</fsummary>
       <desc>
         <p>Returns the smallest of <c><anno>Term1</anno></c> and
-          <c><anno>Term2</anno></c>.
-          If the terms are equal, <c><anno>Term1</anno></c> is returned.</p>
+          <c><anno>Term2</anno></c>. If the terms compare equal with
+        the <c>==</c> operator, <c><anno>Term1</anno></c> is
+        returned.</p>
+        <p>The
+        <seeguide
+            marker="system/reference_manual:expressions#term-comparisons">
+          Expressions section</seeguide> contains descriptions of the
+          <c>==</c> operator and how terms are ordered.</p>
+        <p>Examples:</p>
+        <pre>
+> <input>min(1, 2).</input>
+1</pre>
+          <pre>
+> <input>min(1.0, 1).</input>
+1.0</pre>
+          <pre>
+> <input>min(1, 1.0).</input>
+1</pre>
+          <pre>
+> <input>min("abc", "b").</input>
+"abc"</pre>
       </desc>
     </func>
 
@@ -3472,7 +4046,9 @@ RealSystem = system + MissedSystem</code>
       <type name="monitor_process_identifier"/>
       <type name="monitor_port_identifier"/>
       <desc>
-	<p>Sends a monitor request of type <c><anno>Type</anno></c> to the
+	<p>
+	  <marker id="monitor_message"/>
+	  Sends a monitor request of type <c><anno>Type</anno></c> to the
 	  entity identified by <c><anno>Item</anno></c>. If the monitored entity
           does not exist or it changes monitored state, the caller of
           <c>monitor/2</c> is notified by a message on the following format:</p>
@@ -3511,7 +4087,7 @@ RealSystem = system + MissedSystem</code>
           <tag><c>Object</c></tag>
           <item>
             <p>The monitored entity, which triggered the event. When monitoring
-              a local process or port, <c>Object</c> will be equal to the
+              a process or a local port, <c>Object</c> will be equal to the
               <c>pid()</c> or <c>port()</c> that was being monitored. When
               monitoring process or port by name, <c>Object</c> will have format
               <c>{RegisteredName, Node}</c> where <c>RegisteredName</c> is the
@@ -3637,6 +4213,172 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
+      <name name="monitor" arity="3" clause_i="1" since="OTP 24.0"/>
+      <name name="monitor" arity="3" clause_i="2" since="OTP 24.0"/>
+      <name name="monitor" arity="3" clause_i="3" since="OTP 24.0"/>
+      <fsummary>Start monitoring with options.</fsummary>
+      <type name="registered_name"/>
+      <type name="registered_process_identifier"/>
+      <type name="monitor_process_identifier"/>
+      <type name="monitor_port_identifier"/>
+      <desc>
+	<p>
+	  Provides an option list for modification of monitoring
+	  functionality provided by
+	  <seemfa marker="#monitor/2"><c>monitor/2</c></seemfa>.
+	  The <c><anno>Type</anno></c> and <c><anno>Item</anno></c>
+	  arguments have the same meaning as when passed to
+	  <c>monitor/2</c>. Currently available options:
+	</p>
+	<taglist>
+	  <tag><c>{alias, UnaliasOpt}</c></tag>
+	  <item>
+	    <p>
+	      The returned monitor reference will also become
+	      an alias for the calling process. That is, the
+	      returned reference can be used for sending messages
+	      to the calling process. See also
+	      <seemfa marker="erlang#alias/0"><c>alias/0</c></seemfa>.
+	      The <c>UnaliasOpt</c> determines how the alias
+	      should be deactivated.
+	    </p>
+	    <taglist>
+	      <tag><c>explicit_unalias</c></tag>
+	      <item><p>
+		Only an explicit call to
+		<seemfa marker="erlang#unalias/1"><c>unalias/1</c></seemfa>
+		will deactivate the alias.
+	      </p></item>
+	      <tag><c>demonitor</c></tag>
+	      <item><p>
+		The alias will be automatically deactivated when
+		the monitor is removed. This either via an explicit
+		call to
+		<seemfa marker="#demonitor/1"><c>demonitor/1</c></seemfa>
+		or when it is automatically removed at the same time
+		as a <c>'DOWN'</c> message is delivered due to the
+		monitor. The alias can also still be deactivated
+		via a call to <c>unalias/1</c>.
+	      </p></item>
+	      <tag><c>reply_demonitor</c></tag>
+	      <item><p>
+		The alias will be automatically deactivated when
+		the monitor is removed (see <c>demonitor</c> option
+		above) or a reply message sent via the alias is
+		received. When a reply message is received via the
+		alias the monitor will also be automatically
+		removed. This is useful in client/server scenarios
+		when a client monitors the server and will get
+		the reply via the alias. Once the response is
+		received both the alias and the monitor will be
+		automatically removed regardless of whether the
+		response is a reply or a <c>'DOWN'</c> message. The
+		alias can also still be deactivated via a call to
+		<c>unalias/1</c>. Note that if the alias is removed
+		using the <c>unalias/1</c> BIF, the monitor will
+		still be left active.
+	      </p></item>
+	    </taglist>
+	    <p>Example:</p>
+            <code>
+server() ->
+    receive
+        {request, AliasReqId, Request} ->
+            Result = perform_request(Request),
+            AliasReqId ! {reply, AliasReqId, Result}
+    end,
+    server().
+
+client(ServerPid, Request) ->
+    AliasMonReqId = monitor(process, ServerPid, [{alias, reply_demonitor}]),
+    ServerPid ! {request, AliasMonReqId, Request},
+    %% Alias as well as monitor will be automatically deactivated if we
+    %% receive a reply or a 'DOWN' message since we used 'reply_demonitor'
+    %% as unalias option...
+    receive
+        {reply, AliasMonReqId, Result} ->
+            Result;
+        {'DOWN', AliasMonReqId, process, ServerPid, ExitReason} ->
+            error(ExitReason)
+    end.
+	    </code>
+	    <p>
+	      Note that both the server and the client in this example
+	      must be executing on at least OTP 24 systems in order
+	      for this to work.
+	    </p>
+	    <p>
+	      For more information on process aliases see the
+	      <seeguide marker="system/reference_manual:processes#process-aliases"><i>Process
+	      Aliases</i></seeguide> section of the <i>Erlang Reference
+	      Manual</i>.
+	    </p>
+	  </item>
+	  <tag><c>{tag, UserDefinedTag}</c></tag>
+	  <item>
+	    <p>
+	      Replace the default <c>Tag</c> with <c>UserDefinedTag</c>
+	      in the <seeerl marker="#monitor_message">monitor message</seeerl>
+	      delivered when the monitor is triggered. For example, when
+	      monitoring a process, the <c>'DOWN'</c> tag in the down message
+	      will be replaced by <c>UserDefinedTag</c>.
+	    </p>
+	    <p>
+	      An example of how the <c>{tag, UserDefinedTag}</c> option can
+	      be used in order to enable the new
+	      <seeguide marker="system/efficiency_guide:processes#receiving-messages">selective
+	      receive optimization</seeguide>, introduced in OTP 24, when making
+	      multiple requests to different servers:
+	    </p>
+            <code>
+server() ->
+    receive
+        {request, From, ReqId, Request} ->
+            Result = perform_request(Request),
+            From ! {reply, self(), ReqId, Result}
+    end,
+    server().
+
+client(ServerPids, Request) when is_list(ServerPids) ->
+    ReqId = make_ref(),
+    lists:foreach(fun (ServerPid) ->
+                          _ = monitor(process, ServerPid,
+                                      [{tag, {'DOWN', ReqId}}]),
+                          ServerPid ! {request, self(), ReqId, Request}
+                  end,
+                  ServerPids),
+    receive_replies(ReqId, length(ServerPids), []).
+
+receive_replies(_ReqId, 0, Acc) ->
+    Acc;
+receive_replies(ReqId, N, Acc) ->
+    %% The compiler will detect that we match on the 'ReqId'
+    %% reference in all clauses, and will enable the selective
+    %% receive optimization which makes the receive able to
+    %% skip past all messages present in the message queue at
+    %% the time when the 'ReqId' reference was created...
+    Res = receive
+              {reply, ServerPid, ReqId, Result} ->
+                  %% Here we typically would have deactivated the
+                  %% monitor by a call to demonitor(Mon, [flush]) but
+                  %% we ignore this in this example for simplicity...
+                  {ok, ServerPid, Result};
+              {{'DOWN', ReqId}, _Mon, process, ServerPid, ExitReason} ->
+                  {error, ServerPid, ExitReason}
+          end,
+    receive_replies(ReqId, N-1, [Res | Acc]).
+	    </code>
+	    <p>
+	      In order for this example to work as intended, the client
+	      must be executing on at least an OTP 24 system, but the
+	      servers may execute on older systems.
+	    </p>
+	  </item>
+	</taglist>
+      </desc>
+    </func>
+
+    <func>
       <name name="monitor_node" arity="2" since=""/>
       <fsummary>Monitor the status of a node.</fsummary>
       <desc>
@@ -3654,9 +4396,15 @@ RealSystem = system + MissedSystem</code>
           are delivered to the process. If there is no connection to
           <c><anno>Node</anno></c>, an attempt is made to create one.
           If this fails, a <c>nodedown</c> message is delivered.</p>
+        <p>The delivery of the <c>nodedown</c> signal is not ordered with respect to other
+          link or monitor signals from the node that goes down. If you need a
+          guarantee that all signals from the remote node has been delivered before
+          the <c>nodedown</c> signal is sent, you should use
+          <seemfa marker="kernel:net_kernel#monitor_nodes/1">
+            <c>net_kernel:monitor_nodes/1</c></seemfa>.</p>
         <p>Nodes connected through hidden connections can be monitored
           as any other nodes.</p>
-        <p>Failure: <c>badarg</c> if the local node is not alive.</p>
+        <p>Failure: <c>notalive</c> if the local node is not alive.</p>
       </desc>
     </func>
 
@@ -3781,7 +4529,7 @@ RealSystem = system + MissedSystem</code>
         <p>Returns the node where <c><anno>Arg</anno></c> originates.
           <c><anno>Arg</anno></c> can
           be a process identifier, a reference, or a port.
-          If the local node is not
+          If <c><anno>Arg</anno></c> originates from the local node and the local node is not
           alive, <c>nonode@nohost</c> is returned.</p>
         <p>Allowed in guard tests.</p>
       </desc>
@@ -3791,8 +4539,11 @@ RealSystem = system + MissedSystem</code>
       <name name="nodes" arity="0" since=""/>
       <fsummary>All visible nodes in the system.</fsummary>
       <desc>
-        <p>Returns a list of all visible nodes in the system, except
-          the local node. Same as <c>nodes(visible)</c>.</p>
+        <p>Returns a list of all nodes connected to this node through
+        normal connections (that is, <seeguide
+        marker="system/reference_manual:distributed#hidden-nodes">hidden
+        nodes</seeguide> are not listed). Same as <seeerl
+        marker="#nodes_visible">nodes(visible)</seeerl>.</p>
       </desc>
     </func>
 
@@ -3805,7 +4556,7 @@ RealSystem = system + MissedSystem</code>
           of nodes satisfying the disjunction(s) of the list elements.</p>
         <p><c><anno>NodeType</anno></c>s:</p>
         <taglist>
-          <tag><c>visible</c></tag>
+          <tag><marker id="nodes_visible"/><c>visible</c></tag>
           <item>
             <p>Nodes connected to this node through normal connections.</p>
           </item>
@@ -4067,7 +4818,7 @@ RealSystem = system + MissedSystem</code>
               on some OSs, be desirable. How the program
               responds to this is highly system-dependent and no specific
               effect is guaranteed.</p>
-          </item> 
+          </item>
           <tag><c>exit_status</c></tag>
           <item>
             <p>Only valid for <c>{spawn, <anno>Command</anno>}</c>, where
@@ -4279,6 +5030,13 @@ RealSystem = system + MissedSystem</code>
       <fsummary>Portable hash function.</fsummary>
       <type_desc variable="Range">Range = 1..2^32, Hash = 1..Range</type_desc>
       <desc>
+        <warning>
+          <p>This function is deprecated as <seemfa
+          marker="erlang#phash2/2"><c>erlang:phash2/2</c></seemfa>
+          should be used for new code. Note that
+          <c>erlang:phash(X,N)</c> is not necessary equal to
+          <c>erlang:phash2(X,N)</c></p>
+        </warning>
         <p>Portable hash function that gives the same hash for
           the same Erlang term regardless of machine architecture and
           ERTS version (the BIF was introduced in ERTS 4.9.1.1).
@@ -4319,7 +5077,17 @@ RealSystem = system + MissedSystem</code>
       <fsummary>Text representation of a pid.</fsummary>
       <desc>
         <p>Returns a string corresponding to the text
-          representation of <c><anno>Pid</anno></c>.</p>
+        representation of <c><anno>Pid</anno></c>. Example:</p>
+         <pre>
+> <input>erlang:pid_to_list(self()).</input>
+"&lt;0.85.0>"</pre>
+<note>
+  <p>The <seeguide marker="erl_dist_protocol">creation</seeguide> for
+  the node is not included in the list representation of
+  <c><anno>Pid</anno></c>. This means that processes in different
+  incarnations of a node with a specific name can get the same list
+  representation.</p>
+</note>
       </desc>
     </func>
 
@@ -4387,7 +5155,7 @@ RealSystem = system + MissedSystem</code>
           (the connected process). If the calling process is linked to
           the port identified by <c><anno>Port</anno></c>, the exit
           signal from the port is guaranteed to be delivered before
-          <c>port_close/1</c> returns.</p> 
+          <c>port_close/1</c> returns.</p>
         <p>For comparison: <c><anno>Port</anno> ! {self(), close}</c>
           only fails with <c>badarg</c> if <c><anno>Port</anno></c> does
           not refer to a port or a process. If <c><anno>Port</anno></c>
@@ -4396,7 +5164,7 @@ RealSystem = system + MissedSystem</code>
           the port replies with <c>{Port, closed}</c> when all buffers
           have been flushed and the port really closes. If the calling
           process is not the port owner, the <em>port owner</em> fails
-          with <c>badsig</c>.</p> 
+          with <c>badsig</c>.</p>
         <p>Notice that any process can close a port using
           <c><anno>Port</anno> ! {PortOwner, close}</c> as if it itself was
           the port owner, but the reply always goes to the port owner.</p>
@@ -4427,7 +5195,7 @@ RealSystem = system + MissedSystem</code>
         <p>For comparison: <c><anno>Port</anno> ! {PortOwner, {command,
           Data}}</c> only fails with <c>badarg</c> if <c><anno>Port</anno></c>
           does not refer to a port or a process. If <c><anno>Port</anno></c> is
-          a closed port, the data message disappears 
+          a closed port, the data message disappears
           without a sound. If <c><anno>Port</anno></c> is open and the calling
           process is not the port owner, the <em>port owner</em> fails
           with <c>badsig</c>. The port owner fails with <c>badsig</c>
@@ -4491,7 +5259,7 @@ RealSystem = system + MissedSystem</code>
           <tag><c>nosuspend</c></tag>
           <item>The calling process is not suspended if the port is
             busy, instead the port command is aborted and
-            <c>false</c> is returned. 
+            <c>false</c> is returned.
           </item>
         </taglist>
         <note>
@@ -4934,9 +5702,10 @@ RealSystem = system + MissedSystem</code>
       <fsummary>List all preloaded modules.</fsummary>
       <desc>
         <p>Returns a list of Erlang modules that are preloaded in
-          the system. As all loading of code is done through the file
-          system, the file system must have been loaded previously.
-          Hence, at least the module <c>init</c> must be preloaded.</p>
+          the run-time system. Pre-loaded modules are Erlang modules
+          that are needed to bootstrap the system to load the first
+          Erlang modules from either disk or by using <seeerl marker="kernel:erl_boot_server">
+          <c>erl_boot_server</c></seeerl>.</p>
       </desc>
     </func>
 
@@ -4955,7 +5724,8 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="1" since=""/>
+      <name name="process_flag" arity="2" clause_i="1"
+	    anchor="process_flag_trap_exit" since=""/>
       <fsummary>Set process flag trap_exit for the calling process.</fsummary>
       <desc>
         <p>When <c>trap_exit</c> is set to <c>true</c>, exit signals
@@ -4986,7 +5756,18 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="3"
+      <name name="process_flag" arity="2" clause_i="3" since="OTP 24.0"/>
+      <fsummary>Set process flag fullsweep_after for the calling process.
+      </fsummary>
+      <desc>
+        <p>Changes the maximum number of generational collections
+          before forcing a fullsweep for the calling process.</p>
+        <p>Returns the old value of the flag.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="process_flag" arity="2" clause_i="4"
 	    anchor="process_flag_min_heap_size" since=""/>
       <fsummary>Set process flag min_heap_size for the calling process.
       </fsummary>
@@ -4997,7 +5778,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="4" since="OTP R13B04"/>
+      <name name="process_flag" arity="2" clause_i="5" since="OTP R13B04"/>
       <fsummary>Set process flag min_bin_vheap_size for the calling process.
       </fsummary>
       <desc>
@@ -5008,7 +5789,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="5"
+      <name name="process_flag" arity="2" clause_i="6"
 	    anchor="process_flag_max_heap_size" since="OTP 19.0"/>
       <fsummary>Set process flag max_heap_size for the calling process.
       </fsummary>
@@ -5027,7 +5808,7 @@ RealSystem = system + MissedSystem</code>
               <c>min_heap_size</c></seeerl>. The size check is only done when
               a garbage collection is triggered.</p>
             <p><c>size</c> is the entire heap of the process when garbage collection
-              is triggered. This includes all generational heaps, the process stack, 
+              is triggered. This includes all generational heaps, the process stack,
               any <seeerl marker="#process_flag_message_queue_data">
               messages that are considered to be part of the heap</seeerl>, and any
               extra memory that the garbage collector needs during collection.</p>
@@ -5082,49 +5863,49 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="6"
+      <name name="process_flag" arity="2" clause_i="7"
 	    anchor="process_flag_message_queue_data" since="OTP 19.0"/>
       <fsummary>Set process flag message_queue_data for the calling process.
       </fsummary>
       <type name="message_queue_data"/>
       <desc>
-        <p>This flag determines how messages in the message queue
+        <p>Determines how messages in the message queue
           are stored, as follows:</p>
         <taglist>
           <tag><c>off_heap</c></tag>
           <item>
             <p><em>All</em> messages in the message queue will be stored
-              outside of the process heap. This implies that <em>no</em>
+              outside the process heap. This implies that <em>no</em>
               messages in the message queue will be part of a garbage
               collection of the process.</p>
           </item>
           <tag><c>on_heap</c></tag>
           <item>
             <p>All messages in the message queue will eventually be
-              placed on heap. They can however temporarily be stored
-              off heap. This is how messages always have been stored
+              placed on the process heap. They can, however, be temporarily
+              stored off the heap. This is how messages have always been stored
               up until ERTS 8.0.</p>
           </item>
         </taglist>
-        <p>The default <c>message_queue_data</c> process flag is determined
-          by command-line argument <seecom marker="erl#+hmqd">
+        <p>The default value of the <c>message_queue_data</c> process flag is
+          determined by the command-line argument <seecom marker="erl#+hmqd">
           <c>+hmqd</c></seecom> in <c>erl(1)</c>.</p>
-        <p>If the process potentially can get many messages in its queue,
-          you are advised to set the flag to <c>off_heap</c>. This
-          because a garbage collection with many messages placed on
-          the heap can become extremely expensive and the process can
-          consume large amounts of memory. Performance of the
-          actual message passing is however generally better when not
-          using flag <c>off_heap</c>.</p>
-        <p>When changing this flag messages will be moved. This work
-          has been initiated but not completed when this function
-          call returns.</p>
+        <p>If the process may potentially accumulate a large number of messages
+          in its queue it is recommended to set the flag value to <c>off_heap</c>.
+          This is due to the fact that the garbage collection of a process that
+          has a large number of messages stored on the heap can become extremely
+          expensive and the process can consume large amounts of memory.
+          The performance of the actual message passing is, however, generally
+          better when the flag value is <c>on_heap</c>.</p>
+        <p>Changing the flag value causes any existing messages to be moved.
+          The move operation is initiated, but not necessarily completed,
+          by the time the function returns.</p>
         <p>Returns the old value of the flag.</p>
       </desc>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="7"
+      <name name="process_flag" arity="2" clause_i="8"
 	    anchor="process_flag_priority" since=""/>
       <fsummary>Set process flag priority for the calling process.</fsummary>
       <type name="priority_level"/>
@@ -5197,7 +5978,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="8" since=""/>
+      <name name="process_flag" arity="2" clause_i="9" since=""/>
       <fsummary>Set process flag save_calls for the calling process.</fsummary>
       <desc>
         <p><c><anno>N</anno></c> must be an integer in the interval 0..10000.
@@ -5228,7 +6009,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="9" since=""/>
+      <name name="process_flag" arity="2" clause_i="10" since=""/>
       <fsummary>Set process flag sensitive for the calling process.</fsummary>
       <desc>
         <p>Sets or clears flag <c>sensitive</c> for the current process.
@@ -5356,6 +6137,10 @@ RealSystem = system + MissedSystem</code>
           <c><anno>Item</anno></c>s were included
           in <c><anno>ItemList</anno></c>. Valid <c><anno>Item</anno></c>s can
           be included multiple times in <c><anno>ItemList</anno></c>.</p>
+        <p>Getting process informations follows the signal ordering guarantees
+          described in the
+          <seeguide marker="system/reference_manual:processes#signals">
+          Processes Chapter</seeguide> in the <i>Erlang Reference Manual</i>.</p>
         <note>
           <p>If <c>registered_name</c> is part of <c><anno>ItemList</anno></c>
             and the process has no name registered, a
@@ -5386,9 +6171,10 @@ RealSystem = system + MissedSystem</code>
               removed without prior notice. In the current implementation
               <c><anno>BinInfo</anno></c> is a list of tuples. The tuples
               contain; <c>BinaryId</c>, <c>BinarySize</c>, <c>BinaryRefcCount</c>.</p>
-            <p>The message queue is on the heap depending on the
-              process flag <seeerl marker="#process_flag_message_queue_data">
-            <c>message_queue_data</c></seeerl>.</p>
+            <p>Depending on the value of the
+              <seeerl marker="#process_flag_message_queue_data">
+              <c>message_queue_data</c></seeerl> process flag the message queue
+              may be stored on the heap.</p>
           </item>
           <tag><c>{catchlevel, <anno>CatchLevel</anno>}</c></tag>
           <item>
@@ -5542,8 +6328,8 @@ RealSystem = system + MissedSystem</code>
           </item>
           <tag><c>{message_queue_data, <anno>MQD</anno>}</c></tag>
           <item>
-            <p>Returns the current state of process flag
-              <c>message_queue_data</c>. <c><anno>MQD</anno></c> is either
+            <p><c><anno>MQD</anno></c> is the current value of the
+              <c>message_queue_data</c> process flag, which can be either
               <c>off_heap</c> or <c>on_heap</c>. For more
               information, see the documentation of
               <seeerl marker="#process_flag_message_queue_data">
@@ -5715,7 +6501,11 @@ RealSystem = system + MissedSystem</code>
           associated with the value <c><anno>Val</anno></c>, and returns
           <c>undefined</c>. If <c><anno>Key</anno></c> exists, the old
           value is deleted and replaced by <c><anno>Val</anno></c>, and
-          the function returns the old value. Example:</p>
+          the function returns the old value. The average time
+          complexity for the current implementation of this function is
+          O(<c>1</c>) and the worst case time complexity is O(<c>N</c>),
+          where <c>N</c> is the number of items in the process
+          dictionary. Example:</p>
         <pre>
 > <input>X = put(name, walrus), Y = put(name, carpenter),</input>
 <input>Z = get(name),</input>
@@ -5731,18 +6521,18 @@ RealSystem = system + MissedSystem</code>
 
     <func>
       <name name="raise" arity="3" since=""/>
-      <fsummary>Stop execution with an exception of specified class, reason,
+      <fsummary>Raises an exception of specified class, reason,
         and call stack backtrace.</fsummary>
       <type name="raise_stacktrace"/>
       <desc>
-        <p>Stops the execution of the calling process with an
-          exception of the specified class, reason, and call stack backtrace
+        <p>Raises an exception of the specified class, reason, and call stack backtrace
           (<em>stacktrace</em>).</p>
         <p><c><anno>Class</anno></c> is <c>error</c>, <c>exit</c>, or
-          <c>throw</c>. So, if it were not for the stacktrace,
+        <c>throw</c>. So, if it were not for the stacktrace,
           <c>erlang:raise(<anno>Class</anno>, <anno>Reason</anno>,
           <anno>Stacktrace</anno>)</c> is equivalent to
-          <c>erlang:<anno>Class</anno>(<anno>Reason</anno>)</c>.</p>
+          <c>erlang:<anno>Class</anno>(<anno>Reason</anno>)</c> (given that <c><anno>Class</anno></c>
+        is a valid class).</p>
         <p><c><anno>Reason</anno></c> can be any term.</p>
         <p><c><anno>Stacktrace</anno></c> is a list as provided in a try-catch
 	  clause.</p>
@@ -5754,12 +6544,12 @@ catch Class:Reason:Stacktrace ->
 end</pre>
         <p>That is, a list of
           four-tuples <c>{Module, Function, Arity | Args,
-          Location}</c>, where <c>Module</c> and <c>Function</c>
+          ExtraInfo}</c>, where <c>Module</c> and <c>Function</c>
           are atoms, and the third element is an integer arity or an
           argument list. The stacktrace can also contain <c>{Fun,
-          Args, Location}</c> tuples, where <c>Fun</c> is a local
+          Args, ExtraInfo}</c> tuples, where <c>Fun</c> is a local
           fun and <c>Args</c> is an argument list.</p>
-        <p>Element <c>Location</c> at the end is optional.
+        <p>Element <c>ExtraInfo</c> at the end is optional.
           Omitting it is equivalent to specifying an empty list.</p>
         <p>The stacktrace is used as the exception stacktrace for the
           calling process; it is truncated to the current
@@ -5772,6 +6562,10 @@ end</pre>
           <c>error(erlang:raise(<anno>Class</anno>, <anno>Reason</anno>,
           <anno>Stacktrace</anno>))</c>
           and hope to distinguish exceptions later.</p>
+        <p>See the reference manual about <seeguide
+        marker="system/reference_manual:errors">errors and error
+        handling</seeguide> for more information about exception
+        classes and how to catch exceptions.</p>
       </desc>
     </func>
 
@@ -5832,7 +6626,7 @@ end</pre>
             If using option <c>{async, false}</c>, the calling
             process is blocked until the operation has been performed.</p>
          </note>
-        <p>See also 
+        <p>See also
           <seemfa marker="#send_after/4"><c>erlang:send_after/4</c></seemfa>,
           <seemfa marker="#start_timer/4">
           <c>erlang:start_timer/4</c></seemfa>, and
@@ -5858,14 +6652,21 @@ end</pre>
       <name name="register" arity="2" since=""/>
       <fsummary>Register a name for a pid (or port).</fsummary>
       <desc>
-        <p>Associates the name <c><anno>RegName</anno></c> with a process
-          identifier (pid) or a port identifier.
+        <p>Registers the name <c><anno>RegName</anno></c> with a process
+          identifier (pid) or a port identifier in the
+          <seeguide marker="system/reference_manual:processes#runtime-service">
+            <c>name registry</c></seeguide>.
           <c><anno>RegName</anno></c>, which must be an atom, can be used
           instead of the pid or port identifier in send operator
-          (<c><anno>RegName</anno> ! Message</c>). Example:</p>
+          (<c><anno>RegName</anno> ! Message</c>) and most other BIFs that
+          take a pid or port identifies as an argument. Example:</p>
         <pre>
 > <input>register(db, Pid).</input>
 true</pre>
+        <p>The registered name is considered a
+          <seeguide marker="system/reference_manual:processes#visible-resources">
+            Directly Visible Erlang Resource</seeguide> and is automatically
+            unregistered when the process terminates.</p>
         <p>Failures:</p>
         <taglist>
           <tag><c>badarg</c></tag>
@@ -5944,8 +6745,26 @@ true</pre>
         <p>Returns an integer by rounding <c><anno>Number</anno></c>,
           for example:</p>
         <pre>
+<input>round(42.1).</input>
+42</pre>
+        <pre>
 <input>round(5.5).</input>
 6</pre>
+        <pre>
+<input>round(-5.5).</input>
+-6</pre>
+        <pre>
+<input>round(36028797018963969.0).</input>
+36028797018963968</pre>
+      <p>In the last example, <c>round(36028797018963969.0)</c>
+      evaluates to <c>36028797018963968</c>. The reason for this is
+      that the number <c>36028797018963969.0</c> cannot be represented
+      exactly as a float value. Instead, the float literal is
+      represented as <c>36028797018963968.0</c>, which is the closest number
+      that can be represented exactly as a float value. See <seeguide
+      marker="system/reference_manual:data_types#float_representation_problem">Representation
+      of Floating Point Numbers</seeguide> for additional
+      information.</p>
         <p>Allowed in guard tests.</p>
       </desc>
     </func>
@@ -5973,7 +6792,7 @@ true</pre>
 	send operator</seeguide>:
 	<c><anno>Dest</anno> ! <anno>Msg</anno></c>.</p>
         <p><c><anno>Dest</anno></c> can be a remote or local process identifier,
-          a (local) port, a locally registered name, or a tuple
+          an alias, a (local) port, a locally registered name, or a tuple
           <c>{<anno>RegName</anno>, <anno>Node</anno>}</c>
         for a registered name at another node.</p>
 	<p>The function fails with a <c>badarg</c> run-time error if
@@ -6123,13 +6942,30 @@ true</pre>
     </func>
 
     <func>
-      <name name="set_cookie" arity="2" since=""/>
-      <fsummary>Set the magic cookie of a node.</fsummary>
+      <name name="set_cookie" arity="1" since="OTP @OTP-17538@"/>
+      <fsummary>Set the magic cookie of the local node.</fsummary>
       <desc>
-        <p>Sets the magic cookie of <c><anno>Node</anno></c> to the atom
+        <p>Sets the magic cookie of the local node to the atom
+          <c><anno>Cookie</anno></c>, which is also
+          the cookie for all nodes that have no explicit cookie set with
+          <seemfa marker="#set_cookie/2"><c>set_cookie/2</c></seemfa>
+          <c><anno>Cookie</anno></c> (see section
+          <seeguide marker="system/reference_manual:distributed">
+          Distributed Erlang</seeguide>
+          in the Erlang Reference Manual in System Documentation).</p>
+        <p>Failure: <c>function_clause</c> if the local node is not
+          alive.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_cookie" arity="2" since=""/>
+      <fsummary>Set the magic cookie for a node.</fsummary>
+      <desc>
+        <p>Sets the magic cookie for <c><anno>Node</anno></c> to the atom
           <c><anno>Cookie</anno></c>. If <c><anno>Node</anno></c> is the
-          local node, the function
-          also sets the cookie of all other unknown nodes to
+          local node, the function sets the cookie of all other nodes
+          (that have no explicit cookie set with this function) to
           <c><anno>Cookie</anno></c> (see section
           <seeguide marker="system/reference_manual:distributed">
           Distributed Erlang</seeguide>
@@ -6435,7 +7271,19 @@ true</pre>
           <tag><c>monitor</c></tag>
           <item>
             <p>Monitors the new process (like
-              <seemfa marker="#monitor/2"><c>monitor/2</c></seemfa> does).</p>
+            <seemfa marker="#monitor/2"><c>monitor(process, Pid)</c></seemfa> does).
+	    A <c>{Pid, MonitorRef}</c> tuple will be returned instead
+	    of just a <c>Pid</c>.
+	    </p>
+          </item>
+          <tag><c>{monitor, MonitorOpts}</c></tag>
+          <item>
+            <p>Monitors the new process with options (like
+            <seemfa marker="#monitor/3"><c>monitor(process, Pid,
+	    MonitorOpts)</c></seemfa> does).
+	    A <c>{Pid, MonitorRef}</c> tuple will be returned instead
+	    of just a <c>Pid</c>.
+	    </p>
           </item>
           <tag><c>{priority, <anno>Level</anno>}</c></tag>
           <item>
@@ -6531,11 +7379,11 @@ true</pre>
           </item>
           <tag><c>{message_queue_data, <anno>MQD</anno>}</c></tag>
           <item>
-            <p>Sets the state of the <c>message_queue_data</c> process
-              flag. <c><anno>MQD</anno></c> is to be either <c>off_heap</c>
-              or <c>on_heap</c>. The default
+            <p>Sets the value of the <c>message_queue_data</c> process
+              flag. <c><anno>MQD</anno></c> can be either <c>off_heap</c>
+              or <c>on_heap</c>. The default value of the
               <c>message_queue_data</c> process flag is determined by
-              command-line argument <seecom marker="erl#+hmqd">
+              the command-line argument <seecom marker="erl#+hmqd">
               <c>+hmqd</c></seecom> in <c>erl(1)</c>.
               For more information, see the documentation of
               <seeerl marker="#process_flag_message_queue_data">
@@ -6649,7 +7497,7 @@ true</pre>
 	</p>
       </desc>
     </func>
-        
+
     <func>
       <name name="spawn_request" arity="4" clause_i="2" since="OTP 23.0"/>
       <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
@@ -6670,7 +7518,7 @@ true</pre>
 	  Asynchronously send a spawn request. Returns a request
 	  identifier <c><anno>ReqId</anno></c>.
 	</p>
-	
+
 	<marker id="spawn_request_success_message"/>
 	<p>
 	  If the spawn operation succeeds, a new process is
@@ -6772,6 +7620,26 @@ true</pre>
 	      may or may not have been created.
 	    </p>
 	  </item>
+	  <tag><c>{monitor, MonitorOpts}</c></tag>
+	  <item>
+	    <p>
+	      In the absence of spawn operation failures, atomically
+	      sets up a monitor to the newly created process. That
+	      is, as if the calling process had called
+	      <seemfa marker="#monitor/2"><c>monitor(process,
+	      Pid, MonitorOpts)</c></seemfa> where <c>Pid</c> is
+	      the process identifier of the newly created process.
+	      See the <c>monitor</c> option above for more
+	      information.
+	    </p>
+	    <p>
+	      Note that the monitor will not be activated for the
+	      calling process until the spawn operation has
+	      succeeded. For example, in the case that an
+	      alias is created using the monitor option, the alias
+	      will not be active until the monitor is activated.
+	    </p>
+	  </item>
 	  <tag><c>link</c></tag>
 	  <item>
 	    <p>
@@ -6818,7 +7686,7 @@ true</pre>
 		option is set to <c>yes</c>, the caller is
 		guaranteed to be delivered either a
 		<seeerl marker="#spawn_request_success_message"><i>success
-		message</i></seeerl> or an 
+		message</i></seeerl> or an
 		<seeerl marker="#spawn_request_error_message"><i>error
 		message</i></seeerl>. The <c>reply</c> option is by
 		default set to <c>yes</c>.
@@ -6898,7 +7766,7 @@ true</pre>
 	</p>
       </desc>
     </func>
-    
+
     <func>
       <name name="spawn_request_abandon" arity="1" since="OTP 23.0"/>
       <fsummary>Abandon a previously issued spawn request.</fsummary>
@@ -6964,7 +7832,7 @@ true</pre>
 	<c><anno>ReqId</anno></c> is not a reference.</p>
       </desc>
     </func>
-    
+
     <func>
       <name name="split_binary" arity="2" since=""/>
       <fsummary>Split a binary into two.</fsummary>
@@ -7026,11 +7894,13 @@ true</pre>
         </taglist>
         <p>More <c><anno>Option</anno></c>s can be added in the future.</p>
         <p>The absolute point in time, the timer is set to expire on,
-          must be in the interval
-          <c>[</c><seeerl marker="#system_info_start_time">
-          <c>erlang:system_info(start_time)</c></seeerl><c>,
-          </c><seeerl marker="#system_info_end_time">
-          <c>erlang:system_info(end_time)</c></seeerl><c>]</c>.
+        must be in the interval <c>[ </c><seemfa
+        marker="#convert_time_unit/3">erlang:convert_time_unit</seemfa><c>(</c><seeerl
+        marker="#system_info_start_time">erlang:system_info</seeerl><c>(start_time),
+        native, millisecond), </c><seemfa
+        marker="#convert_time_unit/3">erlang:convert_time_unit</seemfa><c>(</c><seeerl
+        marker="#system_info_end_time">erlang:system_info</seeerl><c>(end_time),
+        native, millisecond) ]</c>.
           If a relative time is specified, the <c><anno>Time</anno></c>
           value is not allowed to be negative.</p>
         <p>If <c><anno>Dest</anno></c> is a <c>pid()</c>, it must
@@ -7178,9 +8048,9 @@ true</pre>
         <p><c>statistics(microstate_accounting)</c> returns a list of maps
           representing some of the OS threads within ERTS. Each map
           contains <c>type</c> and <c>id</c> fields that can be used to
-          identify what
-          thread it is, and also a counters field that contains data about how
-          much time has been spent in the various states.</p>
+          identify what thread it is, and also a counters field that
+          contains data about how much time has been spent in the various
+          states.</p>
         <p>Example:</p>
         <pre>
 > <input>erlang:statistics(microstate_accounting).</input>
@@ -7421,28 +8291,20 @@ lists:map(
 	    anchor="statistics_scheduler_wall_time" since="OTP R15B01"/>
       <fsummary>Information about each schedulers work time.</fsummary>
       <desc>
-        <p>Returns a list of tuples with
-          <c>{<anno>SchedulerId</anno>, <anno>ActiveTime</anno>,
-          <anno>TotalTime</anno>}</c>, where
-          <c><anno>SchedulerId</anno></c> is an integer ID of the scheduler,
-          <c><anno>ActiveTime</anno></c> is
-          the duration the scheduler has been busy, and
-          <c><anno>TotalTime</anno></c> is the total time duration since
-          <seeerl marker="#system_flag_scheduler_wall_time">
-          <c>scheduler_wall_time</c></seeerl>
-          activation for the specific scheduler. Note that
-	  activation time can differ significantly between
-	  schedulers. Currently dirty schedulers are activated
-	  at system start while normal schedulers are activated
-	  some time after the <c>scheduler_wall_time</c>
-	  functionality is enabled. The time unit is undefined
-	  and can be subject to change between releases, OSs,
-	  and system restarts. <c>scheduler_wall_time</c> is only
-	  to be used to calculate relative values for scheduler
-	  utilization. <c><anno>ActiveTime</anno></c> can never
-	  exceed <c><anno>TotalTime</anno></c>.</p>
+        <p>Returns information describing how much time
+          <seeerl marker="#system_info_schedulers">normal</seeerl>
+          and <seeerl marker="#system_info_dirty_cpu_schedulers">dirty CPU</seeerl>
+          schedulers in the system have been busy. This value is normally a
+          better indicator of how much load an Erlang node is under instead of
+          looking at the CPU utilization privided by tools such as <c>top</c> or
+          <c>sysstat</c>. This is because <c>scheduler_wall_time</c> also includes
+          time where the scheduler is waiting for some other reasource (such as an internal
+          mutex) to be available but does not use the CPU. In order to better
+          understand what a scheduler is busy doing you can use
+          <seeerl marker="#statistics_microstate_accounting">microstate accounting</seeerl>.</p>
+
         <p>The definition of a busy scheduler is when it is not idle
-          and is not scheduling (selecting) a process or port,
+          and not <seecom marker="erl#+sbwt">busy waiting</seecom> for new work,
           that is:</p>
         <list type="bulleted">
           <item>Executing process code</item>
@@ -7453,38 +8315,65 @@ lists:map(
         </list>
         <p>Notice that a scheduler can also be busy even if the
           OS has scheduled out the scheduler thread.</p>
-        <p>Returns <c>undefined</c> if system flag
+
+        <note><p>It is recommended to use the module
+          <seeerl marker="runtime_tools:scheduler"><c>scheduler</c></seeerl>
+          instead of this function directly as it provides an easier way to
+          get the information that you usually want.</p></note>
+
+        <p>If <seeerl marker="#system_flag_scheduler_wall_time">enabled</seeerl>
+          this function returns a list of tuples with
+          <c>{<anno>SchedulerId</anno>, <anno>ActiveTime</anno>,
+          <anno>TotalTime</anno>}</c>, where <c><anno>SchedulerId</anno></c>
+          is an integer ID of the scheduler, <c><anno>ActiveTime</anno></c> is
+          the duration the scheduler has been busy, and
+          <c><anno>TotalTime</anno></c> is the total time duration since
           <seeerl marker="#system_flag_scheduler_wall_time">
-          <c>scheduler_wall_time</c></seeerl> is turned off.</p>
-        <p>The list of scheduler information is unsorted and can
-          appear in different order between calls.</p>
-	<p>As of ERTS version 9.0, also dirty CPU schedulers will
-	be included in the result. That is, all scheduler threads
-	that are expected to handle CPU bound work. If you also
-	want information about dirty I/O schedulers, use
-	<seeerl marker="#statistics_scheduler_wall_time_all">
-        <c>statistics(scheduler_wall_time_all)</c></seeerl>
-	instead.</p>
-	
+          <c>scheduler_wall_time</c></seeerl> activation for the specific scheduler.
+          The time unit returned is undefined and can be subject to change between
+          releases, OSs, and system restarts. <c>scheduler_wall_time</c> is
+	  only to be used to calculate relative values for scheduler
+	  utilization. The <c><anno>ActiveTime</anno></c> can never
+	  exceed <c><anno>TotalTime</anno></c>. The list of scheduler information
+          is unsorted and can appear in different order between calls.</p>
+
+        <p>The <seeerl marker="#system_flag_scheduler_wall_time">disabled</seeerl>
+          this function returns <c>undefined</c>.</p>
+
+        <p>The activation time can differ significantly between
+	  schedulers. Currently dirty schedulers are activated
+	  at system start while normal schedulers are activated
+	  some time after the <c>scheduler_wall_time</c>
+	  functionality is enabled.</p>
+
+	<p>Only information about schedulers that are expected to handle
+          CPU bound work is included in the return values from this function.
+          If you also want information about
+          <seeerl marker="#system_info_dirty_io_schedulers">dirty I/O schedulers</seeerl>,
+          use <seeerl marker="#statistics_scheduler_wall_time_all">
+          <c>statistics(scheduler_wall_time_all)</c></seeerl>
+	  instead.</p>
+
 	<p>Normal schedulers will have scheduler identifiers in
-	the range <c>1 =&lt; <anno>SchedulerId</anno> =&lt;
-	</c><seeerl marker="#system_info_schedulers">
-        <c>erlang:system_info(schedulers)</c></seeerl>.
-	Dirty CPU schedulers will have scheduler identifiers in
-	the range <c>erlang:system_info(schedulers) &lt;
-	<anno>SchedulerId</anno> =&lt; erlang:system_info(schedulers)
-	+
-	</c><seeerl marker="#system_info_dirty_cpu_schedulers">
-        <c>erlang:system_info(dirty_cpu_schedulers)</c></seeerl>.
+	  the range <c>1 =&lt; <anno>SchedulerId</anno> =&lt;
+	  </c><seeerl marker="#system_info_schedulers">
+          <c>erlang:system_info(schedulers)</c></seeerl>.
+	  Dirty CPU schedulers will have scheduler identifiers in
+	  the range <c>erlang:system_info(schedulers) &lt;
+	  <anno>SchedulerId</anno> =&lt; erlang:system_info(schedulers)
+	  +
+	  </c><seeerl marker="#system_info_dirty_cpu_schedulers">
+          <c>erlang:system_info(dirty_cpu_schedulers)</c></seeerl>.
 	</p>
 	<note><p>The different types of schedulers handle
-	specific types of jobs. Every job is assigned to a specific
-	scheduler type. Jobs can migrate between different schedulers
-	of the same type, but never between schedulers of different
-	types. This fact has to be taken under consideration when
-	evaluating the result returned.</p></note>
-        <p>Using <c>scheduler_wall_time</c> to calculate
-          scheduler utilization:</p>
+	  specific types of jobs. Every job is assigned to a specific
+	  scheduler type. Jobs can migrate between different schedulers
+	  of the same type, but never between schedulers of different
+	  types. This fact has to be taken under consideration when
+	  evaluating the result returned.</p></note>
+        <p>You can use <c>scheduler_wall_time</c> to calculate
+          scheduler utilization. First you take a sample of the values
+          returned by <c>erlang:statistics(scheduler_wall_time)</c>.</p>
         <pre>
 > <input>erlang:system_flag(scheduler_wall_time, true).</input>
 false
@@ -7535,7 +8424,9 @@ ok
         <note>
           <p><c>scheduler_wall_time</c> is by default disabled. To
             enable it, use
-            <c>erlang:system_flag(scheduler_wall_time, true)</c>.</p>
+            <seeerl marker="#system_flag_scheduler_wall_time">
+              <c>erlang:system_flag(scheduler_wall_time, true)</c></seeerl>.
+          </p>
         </note>
       </desc>
     </func>
@@ -7649,7 +8540,7 @@ ok
           scheduled for execution until the process has been resumed.</p>
         <p>A process can be suspended by multiple processes and can
           be suspended multiple times by a single process. A suspended
-          process does not leave the suspended state until its suspend 
+          process does not leave the suspended state until its suspend
           count reaches zero. The suspend count of
           <c><anno>Suspendee</anno></c> is decreased when
           <seemfa marker="#resume_process/1">
@@ -8275,7 +9166,7 @@ Metadata = #{ pid => pid(),
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="77" since=""/>
+      <name name="system_info" arity="1" clause_i="76" since=""/>
       <fsummary>System info overview.</fsummary>
       <desc>
         <p>Returns information about the current system.
@@ -8289,8 +9180,7 @@ Metadata = #{ pid => pid(),
               <seeerl marker="#system_info_allocated_areas"><c>allocated_areas</c></seeerl>,
               <seeerl marker="#system_info_allocator"><c>allocator</c></seeerl>,
               <seeerl marker="#system_info_alloc_util_allocators"><c>alloc_util_allocators</c></seeerl>,
-              <seeerl marker="#system_info_allocator_sizes"><c>allocator_sizes</c></seeerl>,
-              <seeerl marker="#system_info_elib_malloc"><c>elib_malloc</c></seeerl>
+              <seeerl marker="#system_info_allocator_sizes"><c>allocator_sizes</c></seeerl>
             </p>
           </item>
           <tag><seeerl marker="#system_info_cpu_topology">
@@ -8379,7 +9269,6 @@ Metadata = #{ pid => pid(),
            <c>System Information</c></seeerl></tag>
           <item>
             <p>
-              <seeerl marker="#system_info_build_type"><c>build_type</c></seeerl>,
               <seeerl marker="#system_info_c_compiler_used"><c>c_compiler_used</c></seeerl>,
               <seeerl marker="#system_info_check_io"><c>check_io</c></seeerl>,
               <seeerl marker="#system_info_compat_rel"><c>compat_rel</c></seeerl>,
@@ -8387,6 +9276,8 @@ Metadata = #{ pid => pid(),
               <seeerl marker="#system_info_driver_version"><c>driver_version</c></seeerl>,
               <seeerl marker="#system_info_dynamic_trace"><c>dynamic_trace</c></seeerl>,
               <seeerl marker="#system_info_dynamic_trace_probes"><c>dynamic_trace_probes</c></seeerl>,
+              <seeerl marker="#system_info_emu_flavor"><c>emu_flavor</c></seeerl>,
+              <seeerl marker="#system_info_emu_type"><c>emu_type</c></seeerl>,
               <seeerl marker="#system_info_info"><c>info</c></seeerl>,
               <seeerl marker="#system_info_kernel_poll"><c>kernel_poll</c></seeerl>,
               <seeerl marker="#system_info_loaded"><c>loaded</c></seeerl>,
@@ -8414,7 +9305,6 @@ Metadata = #{ pid => pid(),
       <name name="system_info" arity="1" clause_i="3" since=""/>   <!-- {allocator, _} -->
       <name name="system_info" arity="1" clause_i="4" since=""/>   <!-- alloc_util_allocators -->
       <name name="system_info" arity="1" clause_i="5" since=""/>   <!-- {allocator_sizes, _} -->
-      <name name="system_info" arity="1" clause_i="27" since=""/>  <!-- elib_malloc -->
       <fsummary>Information about the system allocators.</fsummary>
       <type variable="Allocator" name_i="2"/>
       <type variable="Version" name_i="2"/>
@@ -8553,13 +9443,6 @@ Metadata = #{ pid => pid(),
               <c>erlang:system_info({allocator,
               <anno>Alloc</anno>})</c></seeerl>.</p>
           </item>
-          <tag><marker id="system_info_elib_malloc"/>
-            <c>elib_malloc</c></tag>
-          <item>
-            <p>This option will be removed in a future release.
-              The return value will always be <c>false</c>, as the
-              <c>elib_malloc</c> allocator has been removed.</p>
-          </item>
         </taglist>
       </desc>
     </func>
@@ -8568,8 +9451,8 @@ Metadata = #{ pid => pid(),
       <name name="system_info" arity="1" clause_i="12"
 	    anchor="system_info_cpu_topology" since=""/>           <!-- cpu_topology -->
       <name name="system_info" arity="1" clause_i="13" since=""/>  <!-- {cpu_topology, _} -->
-      <name name="system_info" arity="1" clause_i="38" since=""/>  <!-- logical_processors -->
-      <name name="system_info" arity="1" clause_i="74" since="OTP R14B"/>  <!-- update_cpu_info -->
+      <name name="system_info" arity="1" clause_i="39" since=""/>  <!-- logical_processors -->
+      <name name="system_info" arity="1" clause_i="75" since="OTP R14B"/>  <!-- update_cpu_info -->
       <fsummary>Information about the CPU topology of the system.</fsummary>
       <type name="cpu_topology"/>
       <type name="level_entry"/>
@@ -8730,16 +9613,16 @@ Metadata = #{ pid => pid(),
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="31"
+      <name name="system_info" arity="1" clause_i="32"
 	    anchor="system_info_process" since=""/>  <!-- fullsweep_after -->
-      <name name="system_info" arity="1" clause_i="32" since=""/>  <!-- garbage_collection -->
-      <name name="system_info" arity="1" clause_i="33" since=""/>  <!-- heap_sizes -->
-      <name name="system_info" arity="1" clause_i="34" since=""/>  <!-- heap_type -->
-      <name name="system_info" arity="1" clause_i="40" since="OTP 19.0"/>  <!-- max_heap_size -->
-      <name name="system_info" arity="1" clause_i="41" since="OTP 19.0"/>  <!-- message_queue_data -->
-      <name name="system_info" arity="1" clause_i="42" since="OTP R13B04"/>  <!-- min_heap_size -->
-      <name name="system_info" arity="1" clause_i="43" since="OTP R13B04"/>  <!-- min_bin_vheap_size -->
-      <name name="system_info" arity="1" clause_i="57" since=""/>  <!-- procs -->
+      <name name="system_info" arity="1" clause_i="33" since=""/>  <!-- garbage_collection -->
+      <name name="system_info" arity="1" clause_i="34" since=""/>  <!-- heap_sizes -->
+      <name name="system_info" arity="1" clause_i="35" since=""/>  <!-- heap_type -->
+      <name name="system_info" arity="1" clause_i="41" since="OTP 19.0"/>  <!-- max_heap_size -->
+      <name name="system_info" arity="1" clause_i="42" since="OTP 19.0"/>  <!-- message_queue_data -->
+      <name name="system_info" arity="1" clause_i="43" since="OTP R13B04"/>  <!-- min_heap_size -->
+      <name name="system_info" arity="1" clause_i="44" since="OTP R13B04"/>  <!-- min_bin_vheap_size -->
+      <name name="system_info" arity="1" clause_i="58" since=""/>  <!-- procs -->
       <fsummary>Information about the default process heap settings.</fsummary>
       <type name="message_queue_data"/>
       <type name="max_heap_size"/>
@@ -8772,7 +9655,7 @@ Metadata = #{ pid => pid(),
           <tag><marker id="system_info_heap_sizes"/>
             <c>heap_sizes</c></tag>
           <item>
-            <p>Returns a list of integers representing valid heap sizes 
+            <p>Returns a list of integers representing valid heap sizes
               in words. All Erlang heaps are sized from sizes in this
               list.</p>
           </item>
@@ -8812,11 +9695,10 @@ Metadata = #{ pid => pid(),
             <c>message_queue_data</c></tag>
           <item>
             <p>Returns the default value of the <c>message_queue_data</c>
-              process flag, which is either <c>off_heap</c> or <c>on_heap</c>.
-              This default is set by command-line argument
+              process flag, which can be either <c>off_heap</c> or <c>on_heap</c>.
+              The default value is set by the command-line argument
               <seecom marker="erl#+hmqd"><c>+hmqd</c></seecom> in
-              <c>erl(1)</c>. For more information on the
-              <c>message_queue_data</c> process flag, see documentation of
+              <c>erl(1)</c>. For more information, see the documentation of
               <seeerl marker="#process_flag_message_queue_data">
               <c>process_flag(message_queue_data, MQD)</c></seeerl>.</p>
           </item>
@@ -8851,12 +9733,12 @@ Metadata = #{ pid => pid(),
     <func>
       <name name="system_info" arity="1" clause_i="6" anchor="system_info_limits" since="OTP 20.0"/>   <!-- atom_count -->
       <name name="system_info" arity="1" clause_i="7" since="OTP 20.0"/>   <!-- atom_limit -->
-      <name name="system_info" arity="1" clause_i="29" since="OTP 21.1"/>  <!-- ets_count -->
-      <name name="system_info" arity="1" clause_i="30" since="OTP R16B03"/>  <!-- ets_limit -->
-      <name name="system_info" arity="1" clause_i="53" since="OTP R16B"/>  <!-- port_count -->
-      <name name="system_info" arity="1" clause_i="54" since="OTP R16B"/>  <!-- port_limit -->
-      <name name="system_info" arity="1" clause_i="55" since=""/>  <!-- process_count -->
-      <name name="system_info" arity="1" clause_i="56" since=""/>  <!-- process_limit -->
+      <name name="system_info" arity="1" clause_i="30" since="OTP 21.1"/>  <!-- ets_count -->
+      <name name="system_info" arity="1" clause_i="31" since="OTP R16B03"/>  <!-- ets_limit -->
+      <name name="system_info" arity="1" clause_i="54" since="OTP R16B"/>  <!-- port_count -->
+      <name name="system_info" arity="1" clause_i="55" since="OTP R16B"/>  <!-- port_limit -->
+      <name name="system_info" arity="1" clause_i="56" since=""/>  <!-- process_count -->
+      <name name="system_info" arity="1" clause_i="57" since=""/>  <!-- process_limit -->
       <fsummary>Information about various system limits.</fsummary>
       <desc>
         <marker id="system_info_limits"/>
@@ -8929,15 +9811,15 @@ Metadata = #{ pid => pid(),
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="26"
+      <name name="system_info" arity="1" clause_i="29"
 	    anchor="system_info_time" since="OTP 18.0"/>  <!-- end_time -->
-      <name name="system_info" arity="1" clause_i="50" since="OTP 18.0"/>  <!-- os_monotonic_time_source -->
-      <name name="system_info" arity="1" clause_i="51" since="OTP 18.0"/>  <!-- os_system_time_source -->
-      <name name="system_info" arity="1" clause_i="63" since="OTP 18.0"/>  <!-- start_time -->
-      <name name="system_info" arity="1" clause_i="69" since="OTP 18.0"/>  <!-- time_correction -->
-      <name name="system_info" arity="1" clause_i="70" since="OTP 18.0"/>  <!-- time_offset -->
-      <name name="system_info" arity="1" clause_i="71" since="OTP 18.0"/>  <!-- time_warp_mode -->
-      <name name="system_info" arity="1" clause_i="72" since="OTP 17.1"/>  <!-- tolerant_timeofday -->
+      <name name="system_info" arity="1" clause_i="51" since="OTP 18.0"/>  <!-- os_monotonic_time_source -->
+      <name name="system_info" arity="1" clause_i="52" since="OTP 18.0"/>  <!-- os_system_time_source -->
+      <name name="system_info" arity="1" clause_i="64" since="OTP 18.0"/>  <!-- start_time -->
+      <name name="system_info" arity="1" clause_i="70" since="OTP 18.0"/>  <!-- time_correction -->
+      <name name="system_info" arity="1" clause_i="71" since="OTP 18.0"/>  <!-- time_offset -->
+      <name name="system_info" arity="1" clause_i="72" since="OTP 18.0"/>  <!-- time_warp_mode -->
+      <name name="system_info" arity="1" clause_i="73" since="OTP 17.1"/>  <!-- tolerant_timeofday -->
       <fsummary>Information about system time.</fsummary>
       <desc>
         <marker id="system_info_time_tags"/>
@@ -9161,16 +10043,16 @@ Metadata = #{ pid => pid(),
 	    anchor="system_info_scheduler" since="OTP 17.0"/>  <!-- dirty_cpu_schedulers -->
       <name name="system_info" arity="1" clause_i="18" since="OTP 17.0"/>  <!-- dirty_cpu_schedulers_online -->
       <name name="system_info" arity="1" clause_i="19" since="OTP 17.0"/>  <!-- dirty_io_schedulers -->
-      <name name="system_info" arity="1" clause_i="45" since=""/>  <!-- multi_scheduling -->
-      <name name="system_info" arity="1" clause_i="46" since=""/>  <!-- multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="46" since=""/>  <!-- multi_scheduling -->
+      <name name="system_info" arity="1" clause_i="47" since=""/>  <!-- multi_scheduling_blockers -->
       <name name="system_info" arity="1" clause_i="49" since="OTP 19.0"/>  <!-- normal_multi_scheduling_blockers -->
-      <name name="system_info" arity="1" clause_i="58" since=""/>  <!-- scheduler_bind_type -->
-      <name name="system_info" arity="1" clause_i="59" since=""/>  <!-- scheduler_bindings -->
-      <name name="system_info" arity="1" clause_i="60" since=""/>  <!-- scheduler_id -->
-      <name name="system_info" arity="1" clause_i="61" since=""/>  <!-- schedulers -->
-      <name name="system_info" arity="1" clause_i="62" since=""/>  <!-- smp_support -->
-      <name name="system_info" arity="1" clause_i="67" since=""/>  <!-- threads -->
-      <name name="system_info" arity="1" clause_i="68" since=""/>  <!-- thread_pool_size -->
+      <name name="system_info" arity="1" clause_i="59" since=""/>  <!-- scheduler_bind_type -->
+      <name name="system_info" arity="1" clause_i="60" since=""/>  <!-- scheduler_bindings -->
+      <name name="system_info" arity="1" clause_i="61" since=""/>  <!-- scheduler_id -->
+      <name name="system_info" arity="1" clause_i="62" since=""/>  <!-- schedulers -->
+      <name name="system_info" arity="1" clause_i="63" since=""/>  <!-- smp_support -->
+      <name name="system_info" arity="1" clause_i="68" since=""/>  <!-- threads -->
+      <name name="system_info" arity="1" clause_i="69" since=""/>  <!-- thread_pool_size -->
       <fsummary>Information about system schedulers.</fsummary>
       <desc>
         <marker id="system_info_scheduler_tags"/>
@@ -9535,9 +10417,9 @@ Metadata = #{ pid => pid(),
       <!-- <name name="system_info" arity="1" clause_i="5"/>   {allocator_sizes, _} -->
       <!-- <name name="system_info" arity="1" clause_i="6"/>   atom_count -->
       <!-- <name name="system_info" arity="1" clause_i="7"/>   atom_limit -->
-      <name name="system_info" arity="1" clause_i="8"
-	    anchor="system_info_misc" since="OTP R14B"/>   <!-- build_type -->
-      <name name="system_info" arity="1" clause_i="9" since=""/>   <!-- c_compiler_used -->
+      <!-- <name name="system_info" arity="1" clause_i="8"/>   build_type, removed -->
+      <name name="system_info" arity="1" clause_i="9" since=""
+            anchor="system_info_misc"/>   <!-- c_compiler_used -->
       <name name="system_info" arity="1" clause_i="10" since=""/>  <!-- check_io -->
       <name name="system_info" arity="1" clause_i="11" since=""/>  <!-- compat_rel -->
       <!-- <name name="system_info" arity="1" clause_i="12"/>  cpu_topology -->
@@ -9554,58 +10436,59 @@ Metadata = #{ pid => pid(),
       <name name="system_info" arity="1" clause_i="23" since=""/>  <!-- driver_version -->
       <name name="system_info" arity="1" clause_i="24" since="OTP R15B01"/>  <!-- dynamic_trace -->
       <name name="system_info" arity="1" clause_i="25" since="OTP R15B01"/>  <!-- dynamic_trace_probes -->
-      <!-- <name name="system_info" arity="1" clause_i="26"/>  end_time -->
-      <!-- <name name="system_info" arity="1" clause_i="27"/>  elib_malloc -->
-      <!-- <name name="system_info" arity="1" clause_i="28"/>  eager_check_io, removed -->
-      <!-- <name name="system_info" arity="1" clause_i="29"/>  ets_count -->
-      <!-- <name name="system_info" arity="1" clause_i="30"/>  ets_limit -->
-      <!-- <name name="system_info" arity="1" clause_i="31"/>  fullsweep_after -->
-      <!-- <name name="system_info" arity="1" clause_i="32"/>  garbage_collection -->
-      <!-- <name name="system_info" arity="1" clause_i="33"/>  heap_sizes -->
-      <!-- <name name="system_info" arity="1" clause_i="34"/>  heap_type -->
-      <name name="system_info" arity="1" clause_i="35" since=""/>  <!-- info -->
-      <name name="system_info" arity="1" clause_i="36" since=""/>  <!-- kernel_poll -->
-      <name name="system_info" arity="1" clause_i="37" since=""/>  <!-- loaded -->
-      <!-- <name name="system_info" arity="1" clause_i="38"/>  logical_processors -->
-      <name name="system_info" arity="1" clause_i="39" since=""/>  <!-- machine -->
-      <!-- <name name="system_info" arity="1" clause_i="40"/>  max_heap_size -->
-      <!-- <name name="system_info" arity="1" clause_i="41"/>  message_queue_data -->
-      <!-- <name name="system_info" arity="1" clause_i="42"/>  min_heap_size -->
-      <!-- <name name="system_info" arity="1" clause_i="43"/>  min_bin_vheap_size -->
-      <name name="system_info" arity="1" clause_i="44" since=""/>  <!-- modified_timing_level -->
-      <!-- <name name="system_info" arity="1" clause_i="45"/>  multi_scheduling -->
-      <!-- <name name="system_info" arity="1" clause_i="46"/>  multi_scheduling_blockers -->
-      <name name="system_info" arity="1" clause_i="47" since="OTP 17.4"/>  <!-- nif_version -->
-      <!-- n<name name="system_info" arity="1" clause_i="48"/>  ormal_multi_scheduling_blockers -->
-      <name name="system_info" arity="1" clause_i="49" since=""/>  <!-- otp_release -->
-      <!-- <name name="system_info" arity="1" clause_i="50"/>  os_monotonic_time_source -->
-      <!-- <name name="system_info" arity="1" clause_i="51"/>  os_system_time_source -->
-      <name name="system_info" arity="1" clause_i="52" since="OTP R16B"/>  <!-- port_parallelism -->
-      <!-- <name name="system_info" arity="1" clause_i="53"/>  port_count -->
-      <!-- <name name="system_info" arity="1" clause_i="54"/>  port_limit -->
-      <!-- <name name="system_info" arity="1" clause_i="55"/>  process_count -->
-      <!-- <name name="system_info" arity="1" clause_i="56"/>  process_limit -->
-      <!-- <name name="system_info" arity="1" clause_i="57"/>  procs -->
-      <!-- <name name="system_info" arity="1" clause_i="58"/>  scheduler_bind_type -->
-      <!-- <name name="system_info" arity="1" clause_i="59"/>  scheduler_bindings -->
-      <!-- <name name="system_info" arity="1" clause_i="60"/>  scheduler_id -->
-      <!-- <name name="system_info" arity="1" clause_i="61"/>  schedulers -->
-      <!-- <name name="system_info" arity="1" clause_i="62"/>  smp_support -->
-      <!-- <name name="system_info" arity="1" clause_i="63"/>  start_time -->
-      <name name="system_info" arity="1" clause_i="64" since=""/>  <!-- system_architecture -->
-      <name name="system_info" arity="1" clause_i="65" since="OTP 21.3"/>  <!-- system_logger -->
-      <name name="system_info" arity="1" clause_i="66" since=""/>  <!-- system_version -->
-      <!-- <name name="system_info" arity="1" clause_i="67"/>  threads -->
-      <!-- <name name="system_info" arity="1" clause_i="68"/>  thread_pool_size -->
-      <!-- <name name="system_info" arity="1" clause_i="69"/>  time_correction -->
-      <!-- <name name="system_info" arity="1" clause_i="70"/>  time_offset -->
-      <!-- <name name="system_info" arity="1" clause_i="71"/>  time_warp_mode -->
-      <!-- <name name="system_info" arity="1" clause_i="72"/>  tolerant_timeofday -->
-      <name name="system_info" arity="1" clause_i="73" since=""/>  <!-- trace_control_word -->
-      <!-- <name name="system_info" arity="1" clause_i="74"/>  update_cpu_info -->
-      <name name="system_info" arity="1" clause_i="75" since=""/>  <!-- version -->
-      <name name="system_info" arity="1" clause_i="76" since=""/>  <!-- wordsize -->
-      <!-- <name name="system_info" arity="1" clause_i="77"/>  overview -->
+      <!-- <name name="system_info" arity="1" clause_i="26"/>  eager_check_io, removed -->
+      <name name="system_info" arity="1" clause_i="27" since="OTP 24.0"/>  <!-- emu_flavor -->
+      <name name="system_info" arity="1" clause_i="28" since="OTP 24.0"/>  <!-- emu_type -->
+      <!-- <name name="system_info" arity="1" clause_i="29"/>  end_time -->
+      <!-- <name name="system_info" arity="1" clause_i="30"/>  ets_count -->
+      <!-- <name name="system_info" arity="1" clause_i="31"/>  ets_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="32"/>  fullsweep_after -->
+      <!-- <name name="system_info" arity="1" clause_i="33"/>  garbage_collection -->
+      <!-- <name name="system_info" arity="1" clause_i="34"/>  heap_sizes -->
+      <!-- <name name="system_info" arity="1" clause_i="35"/>  heap_type -->
+      <name name="system_info" arity="1" clause_i="36" since=""/>  <!-- info -->
+      <name name="system_info" arity="1" clause_i="37" since=""/>  <!-- kernel_poll -->
+      <name name="system_info" arity="1" clause_i="38" since=""/>  <!-- loaded -->
+      <!-- <name name="system_info" arity="1" clause_i="39"/>  logical_processors -->
+      <name name="system_info" arity="1" clause_i="40" since=""/>  <!-- machine -->
+      <!-- <name name="system_info" arity="1" clause_i="41"/>  max_heap_size -->
+      <!-- <name name="system_info" arity="1" clause_i="42"/>  message_queue_data -->
+      <!-- <name name="system_info" arity="1" clause_i="43"/>  min_heap_size -->
+      <!-- <name name="system_info" arity="1" clause_i="44"/>  min_bin_vheap_size -->
+      <name name="system_info" arity="1" clause_i="45" since=""/>  <!-- modified_timing_level -->
+      <!-- <name name="system_info" arity="1" clause_i="46"/>  multi_scheduling -->
+      <!-- <name name="system_info" arity="1" clause_i="47"/>  multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="48" since="OTP 17.4"/>  <!-- nif_version -->
+      <!-- n<name name="system_info" arity="1" clause_i="49"/> normal_multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="50" since=""/>  <!-- otp_release -->
+      <!-- <name name="system_info" arity="1" clause_i="51"/>  os_monotonic_time_source -->
+      <!-- <name name="system_info" arity="1" clause_i="52"/>  os_system_time_source -->
+      <name name="system_info" arity="1" clause_i="53" since="OTP R16B"/>  <!-- port_parallelism -->
+      <!-- <name name="system_info" arity="1" clause_i="54"/>  port_count -->
+      <!-- <name name="system_info" arity="1" clause_i="55"/>  port_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="56"/>  process_count -->
+      <!-- <name name="system_info" arity="1" clause_i="57"/>  process_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="58"/>  procs -->
+      <!-- <name name="system_info" arity="1" clause_i="59"/>  scheduler_bind_type -->
+      <!-- <name name="system_info" arity="1" clause_i="60"/>  scheduler_bindings -->
+      <!-- <name name="system_info" arity="1" clause_i="61"/>  scheduler_id -->
+      <!-- <name name="system_info" arity="1" clause_i="62"/>  schedulers -->
+      <!-- <name name="system_info" arity="1" clause_i="63"/>  smp_support -->
+      <!-- <name name="system_info" arity="1" clause_i="64"/>  start_time -->
+      <name name="system_info" arity="1" clause_i="65" since=""/>  <!-- system_architecture -->
+      <name name="system_info" arity="1" clause_i="66" since="OTP 21.3"/>  <!-- system_logger -->
+      <name name="system_info" arity="1" clause_i="67" since=""/>  <!-- system_version -->
+      <!-- <name name="system_info" arity="1" clause_i="68"/>  threads -->
+      <!-- <name name="system_info" arity="1" clause_i="69"/>  thread_pool_size -->
+      <!-- <name name="system_info" arity="1" clause_i="70"/>  time_correction -->
+      <!-- <name name="system_info" arity="1" clause_i="71"/>  time_offset -->
+      <!-- <name name="system_info" arity="1" clause_i="72"/>  time_warp_mode -->
+      <!-- <name name="system_info" arity="1" clause_i="73"/>  tolerant_timeofday -->
+      <name name="system_info" arity="1" clause_i="74" since=""/>  <!-- trace_control_word -->
+      <!-- <name name="system_info" arity="1" clause_i="75"/>  update_cpu_info -->
+      <name name="system_info" arity="1" clause_i="76" since=""/>  <!-- version -->
+      <name name="system_info" arity="1" clause_i="77" since=""/>  <!-- wordsize -->
+      <!-- <name name="system_info" arity="1" clause_i="78"/>  overview -->
       <!--    When adding any entry, make sure to update the overview clause_i -->
       <fsummary>Information about the system.</fsummary>
       <desc>
@@ -9616,12 +10499,7 @@ Metadata = #{ pid => pid(),
           <tag><marker id="system_info_build_type"/>
             <c>build_type</c></tag>
           <item>
-            <p>Returns an atom describing the build type of the runtime
-              system. This is normally the atom <c>opt</c> for optimized.
-              Other possible return values are <c>debug</c>, <c>purify</c>,
-              <c>quantify</c>, <c>purecov</c>, <c>gcov</c>, <c>valgrind</c>,
-              <c>gprof</c>, and <c>lcnt</c>. Possible return values
-              can be added or removed at any time without prior notice.</p>
+            <p>Deprecated, use <seeerl marker="#system_info_emu_type">emu_type</seeerl> instead</p>
           </item>
           <tag><marker id="system_info_c_compiler_used"/>
             <c>c_compiler_used</c></tag>
@@ -9690,6 +10568,24 @@ Metadata = #{ pid => pid(),
               machine was built for dynamic tracing (that is,
               <c>system_info(dynamic_trace)</c> returns
               <c>dtrace</c> or <c>systemtap</c>).</p>
+          </item>
+          <tag><marker id="system_info_emu_flavor"/>
+            <c>emu_flavor</c></tag>
+          <item>
+            <p>Returns an atom describing the flavor of the runtime system.
+              This will be either <c>emu</c> or <c>jit</c>. Possible
+              return values can be added or removed at any time without prior
+              notice.</p>
+          </item>
+          <tag><marker id="system_info_emu_type"/>
+            <c>emu_type</c></tag>
+          <item>
+            <p>Returns an atom describing the build type of the runtime
+              system. This is normally the atom <c>opt</c> for optimized.
+              Other possible return values are <c>debug</c>,
+              <c>gcov</c>, <c>valgrind</c>,
+              <c>gprof</c>, and <c>lcnt</c>. Possible return values
+              can be added or removed at any time without prior notice.</p>
           </item>
           <tag><marker id="system_info_info"/>
             <c>info</c></tag>
@@ -9803,17 +10699,14 @@ Metadata = #{ pid => pid(),
           <item>
             <p>Returns the size of Erlang term words in bytes as an
               integer, that is, 4 is returned on a 32-bit architecture,
-              and 8 is returned on a pure 64-bit architecture. On a
-              halfword 64-bit emulator, 4 is returned, as the Erlang
-              terms are stored using a virtual word size of half the
-              system word size.</p>
+              and 8 is returned on a 64-bit architecture.</p>
           </item>
           <tag><c>{wordsize, external}</c></tag>
           <item>
             <p>Returns the true word size of the emulator, that is,
               the size of a pointer. The value is given in bytes
               as an integer. On a pure 32-bit architecture, 4 is
-              returned. On both a half word and on a pure
+              returned. On a
               64-bit architecture, 8 is returned.</p>
           </item>
         </taglist>
@@ -10047,7 +10940,7 @@ Metadata = #{ pid => pid(),
           </item>
           <tag><c>runnable_ports</c></tag>
           <item>
-            <p>If a port is put into or removed from the run queue, a 
+            <p>If a port is put into or removed from the run queue, a
               message, <c>{profile, Port, State, 0, Ts}</c>, is sent to
               <c><anno>ProfilerPid</anno></c>.</p>
           </item>
@@ -10217,6 +11110,11 @@ hello
 	      systems as of R16B can decode this representation.</p>
 	    </item>
 	  </taglist>
+          <p>Option <c>deterministic</c> (introduced in OTP 24.1) can
+          be used to ensure that within the same major release of Erlang/OTP,
+          the same encoded representation is returned for the same
+          term. There is still no guarantee that the encoded representation
+          remains the same between major releases of Erlang/OTP.</p>
         <p>See also <seemfa marker="#binary_to_term/1">
           <c>binary_to_term/1</c></seemfa>.</p>
       </desc>
@@ -10230,7 +11128,7 @@ hello
         <p>Returns the encoding of <c><anno>Term</anno></c> according to
 	the Erlang external term format as
 	<seetype marker="#ext_iovec"><c>ext_iovec()</c></seetype>.</p>
-	
+
 	<p>This function produce the same encoding as
 	<seemfa marker="#term_to_binary/1"><c>term_to_binary/1</c></seemfa>,
 	but with another return type. The call
@@ -10246,7 +11144,7 @@ hello
 	<seemfa marker="#term_to_binary/1"><c>term_to_binary/1</c></seemfa>.</p>
       </desc>
     </func>
-    
+
     <func>
       <name name="term_to_iovec" arity="2" since="OTP 23.0"/>
       <fsummary>Encode a term to en Erlang external term format as iovec().
@@ -10255,7 +11153,7 @@ hello
         <p>Returns the encoding of <c><anno>Term</anno></c> according to
 	the Erlang external term format as
 	<seetype marker="#ext_iovec"><c>ext_iovec()</c></seetype>.</p>
-	
+
 	<p>This function produce the same encoding as
 	<seemfa marker="#term_to_binary/2"><c>term_to_binary/2</c></seemfa>,
 	but with another return type. The call
@@ -10269,7 +11167,7 @@ hello
 	<c>term_to_binary()</c> provide. <c>term_to_iovec()</c> can for example
 	refer directly to off heap binaries instead of copying the binary
 	data into the result.</p>
-	
+
 	<p>See also
 	<seemfa marker="#term_to_binary/2"><c>term_to_binary/2</c></seemfa>.</p>
       </desc>
@@ -10279,23 +11177,39 @@ hello
       <name name="throw" arity="1" since=""/>
       <fsummary>Throw an exception.</fsummary>
       <desc>
-        <p>A non-local return from a function. If evaluated within a
-          <c>catch</c>, <c>catch</c> returns value <c><anno>Any</anno></c>.
+        <p>Raises an exception of class <c>throw</c>. Intended to be used to do non-local returns from functions.</p>
+        <p>If evaluated within a
+          <seeguide marker="system/reference_manual:expressions#catch">
+	catch expression</seeguide>, the catch expression returns value <c><anno>Any</anno></c>.
           Example:</p>
         <pre>
 > <input>catch throw({hello, there}).</input>
-{hello,there}</pre>
-        <p>Failure: <c>nocatch</c> if not evaluated within a catch.</p>
+        {hello,there}</pre>
+         <p>If evaluated within a
+          <c>try</c>-block of a <seeguide marker="system/reference_manual:expressions#try">try expression</seeguide>, the value <c><anno>Any</anno></c> can be caught within the catch block.
+          Example:</p>
+        <code>
+try
+    throw({my_exception, "Something happened"})
+catch
+    throw:{my_exception, Desc} ->
+        io:format(standard_error, "Error: ~s~n", [Desc])
+end</code>
+       <p>Failure: <c>nocatch</c> if not caught by an exception handler.</p>
+       <p>See the guide about <seeguide
+       marker="system/reference_manual:errors">errors and error
+       handling</seeguide> for additional information.</p>
       </desc>
     </func>
-
     <func>
       <name name="time" arity="0" since=""/>
       <fsummary>Current time.</fsummary>
       <desc>
         <p>Returns the current time as <c>{Hour, Minute, Second}</c>.</p>
         <p>The time zone and Daylight Saving Time correction depend on
-          the underlying OS. Example:</p>
+        the underlying OS. The return value is based on the <seeguide
+        marker="time_correction#os-system-time">OS System
+        Time</seeguide>. Example:</p>
         <pre>
 > <input>time().</input>
 {9,42,44}</pre>
@@ -10361,7 +11275,7 @@ hello
         <p>Returns current
           <seeguide marker="time_correction#Erlang_System_Time">
           Erlang system time</seeguide>
-          on the format <c>{MegaSecs, Secs, MicroSecs}</c>. This format is 
+          on the format <c>{MegaSecs, Secs, MicroSecs}</c>. This format is
           the same as <seemfa marker="kernel:os#timestamp/0">
           <c>os:timestamp/0</c></seemfa>
           and the deprecated <seemfa marker="#now/0">
@@ -10401,6 +11315,15 @@ timestamp() ->
         <pre>
 > <input>tl([geesties, guilies, beasties]).</input>
 [guilies, beasties]</pre>
+        <pre>
+> <input>tl([geesties]).</input>
+[]</pre>
+        <pre>
+> <input>tl([geesties, guilies, beasties | improper_end]).</input>
+[guilies, beasties | improper_end]</pre>
+        <pre>
+> <input>tl([geesties | improper_end]).</input>
+improper_end</pre>
         <p>Allowed in guard tests.</p>
         <p>Failure: <c>badarg</c> if <c><anno>List</anno></c>
           is the empty list <c>[]</c>.</p>
@@ -10504,7 +11427,7 @@ timestamp() ->
               a trace on many or even all processes in the system.
               The trace can then be activated and deactivated using the match
               specification function <c>{silent,Bool}</c>, giving
-              a high degree of control of which functions with which 
+              a high degree of control of which functions with which
               arguments that trigger the trace.</p>
             <p>Message tags:
               <seeerl marker="#trace_3_trace_messages_call">
@@ -10813,7 +11736,7 @@ timestamp() ->
           <item>
             <p>When <c>Pid</c> exits <em>from</em> the specified
               function because of an exception. This trace message is
-              sent if flag <c>call</c> is set, and the function has 
+              sent if flag <c>call</c> is set, and the function has
               a match specification with an <c>exception_trace</c> action.</p>
           </item>
           <tag>
@@ -10887,13 +11810,6 @@ timestamp() ->
           </tag>
           <item>
             <p>When <c>PidPort</c> gets unlinked from a process <c>Pid2</c>.</p>
-          </item>
-          <tag>
-            <marker id="trace_3_trace_messages_exit"></marker>
-            <c>{trace, Pid, exit, Reason}</c>
-          </tag>
-          <item>
-            <p>When <c>Pid</c> exits with reason <c>Reason</c>.</p>
           </item>
           <tag>
             <marker id="trace_3_trace_messages_open"></marker>
@@ -11003,6 +11919,12 @@ timestamp() ->
               <item>The total size of binaries allowed in the virtual
                 old heap in the process before doing a garbage
                 collection.</item>
+              <tag><c>wordsize</c></tag>
+              <item>For the <c>gc_minor_start</c> event it is the size
+              of the need that triggered the GC. For the corresponding
+              <c>gc_minor_end</c> event it is the size of reclaimed
+              memory = start <c>heap_size</c> - end
+              <c>heap_size</c>.</item>
             </taglist>
             <p>All sizes are in words.</p>
           </item>
@@ -11661,13 +12583,31 @@ timestamp() ->
 
     <func>
       <name name="trunc" arity="1" since=""/>
-      <fsummary>Return an integer by truncating a number.</fsummary>
+      <fsummary>Truncates the decimals of  a number.</fsummary>
       <desc>
-        <p>Returns an integer by truncating <c><anno>Number</anno></c>,
+        <p>Truncates the decimals of <c><anno>Number</anno></c>,
           for example:</p>
         <pre>
-> <input>trunc(5.5).</input>
+> <input>trunc(5.7).</input>
 5</pre>
+        <pre>
+> <input>trunc(-5.7).</input>
+-5</pre>
+        <pre>
+> <input>trunc(5).</input>
+5</pre>
+        <pre>
+> <input>trunc(36028797018963969.0).</input>
+36028797018963968</pre>
+      <p>In the last example, <c>trunc(36028797018963969.0)</c>
+      evaluates to <c>36028797018963968</c>. The reason for this is
+      that the number <c>36028797018963969.0</c> cannot be represented
+      exactly as a float value. Instead, the float literal is
+      represented as <c>36028797018963968.0</c>, which is the closest number
+      that can be represented exactly as a float value. See <seeguide
+      marker="system/reference_manual:data_types#float_representation_problem">Representation
+      of Floating Point Numbers</seeguide> for additional
+      information.</p>
         <p>Allowed in guard tests.</p>
       </desc>
     </func>
@@ -11695,6 +12635,32 @@ timestamp() ->
         <pre>
 > <input>tuple_to_list({share, {'Ericsson_B', 163}}).</input>
 [share,{'Ericsson_B',163}]</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="unalias" arity="1" since="OTP 24.0"/>
+      <fsummary>Create an alias.</fsummary>
+      <desc>
+	<p>
+	  Deactivate the alias <c><anno>Alias</anno></c>
+	  previously created by the calling process. An alias
+	  can for example be created via
+	  <seemfa marker="erlang#alias/0"><c>alias/0</c></seemfa>, or
+	  <seemfa marker="erlang#monitor/3"><c>monitor/3</c></seemfa>.
+	  <c>unalias/1</c> will always deactivate the alias regardless
+	  of options used when creating the alias.
+	</p>
+	<p>
+	  Returns true if <c><anno>Alias</anno></c> was a currently
+	  active alias for current processes; otherwise, false.
+	</p>
+	<p>
+	  For more information on process aliases see the
+	  <seeguide marker="system/reference_manual:processes#process-aliases"><i>Process
+	  Aliases</i></seeguide> section of the <i>Erlang Reference
+	  Manual</i>.
+	</p>
       </desc>
     </func>
 
@@ -11803,7 +12769,9 @@ timestamp() ->
           <c>{{Year, Month, Day}, {Hour, Minute, Second}}</c> if
           supported by the underlying OS.
           Otherwise <c>erlang:universaltime()</c> is equivalent to
-          <c>erlang:localtime()</c>. Example:</p>
+          <c>erlang:localtime()</c>. The return value is based on the <seeguide
+        marker="time_correction#os-system-time">OS System
+        Time</seeguide>. Example:</p>
         <pre>
 > <input>erlang:universaltime().</input>
 {{1996,11,6},{14,18,43}}</pre>
@@ -11833,27 +12801,50 @@ timestamp() ->
       <name name="unlink" arity="1" since=""/>
       <fsummary>Remove a link to another process or port.</fsummary>
       <desc>
-        <p>Removes the link, if there is one, between the calling
-          process and the process or port referred to by
-          <c><anno>Id</anno></c>.</p>
-        <p>Returns <c>true</c> and does not fail, even if there is no
-          link to <c><anno>Id</anno></c>, or if <c><anno>Id</anno></c>
-          does not exist.</p>
-        <p>Once <c>unlink(<anno>Id</anno>)</c> has returned,
-          it is guaranteed that
-          the link between the caller and the entity referred to by
-          <c><anno>Id</anno></c> has no effect on the caller
-          in the future (unless
-          the link is setup again). If the caller is trapping exits, an
-          <c>{'EXIT', <anno>Id</anno>, _}</c> message from the link
-          can have been placed in the caller's message queue before
-          the call.</p>
-        <p>Notice that the <c>{'EXIT', <anno>Id</anno>, _}</c>
-          message can be the
-          result of the link, but can also be the result of <c>Id</c>
-          calling <c>exit/2</c>. Therefore, it <em>can</em> be
-          appropriate to clean up the message queue when trapping exits
-          after the call to <c>unlink(<anno>Id</anno>)</c>, as follows:</p>
+	<p>
+	  Removes a link between the calling process and another process
+	  or a port identified by <c><anno>Id</anno></c>. We will from
+	  here on call the identified process or port unlinkee.
+	</p>
+
+        <p>
+	  A link can be set up using the
+	  <seemfa marker="#link/1"><c>link/1</c></seemfa> BIF. For more
+	  information on links and exit signals due to links, see the
+	  <i>Processes</i> chapter in the <i>Erlang Reference Manual</i>:
+	</p>
+	<list>
+	  <item>
+            <seeguide marker="system/reference_manual:processes#links">Links</seeguide>
+	  </item>
+	  <item>
+	    <seeguide marker="system/reference_manual:processes#sending_exit_signals">Sending
+	    Exit Signals</seeguide>
+	  </item>
+	  <item>
+	    <seeguide marker="system/reference_manual:processes#receiving_exit_signals">Receiving
+	    Exit Signals</seeguide>
+	  </item>
+	</list>
+
+        <p>
+	  Once <c>unlink(<anno>Id</anno>)</c> has returned, it is
+	  guaranteed that the link between the caller and the unlinkee
+	  has no effect on the caller in the future (unless the link is
+	  setup again). Note that if the caller is
+	  <seeerl marker="erts:erlang#process_flag_trap_exit">trapping
+	  exits</seeerl>, an <c>{'EXIT', <anno>Id</anno>, ExitReason}</c>
+	  message due to the link may have been placed in the message
+	  queue of the caller before the <c>unlink(<anno>Id</anno>)</c>
+	  call completed. Also note that the <c>{'EXIT', <anno>Id</anno>,
+	  ExitReason}</c> message may be the result of the link, but
+	  may also be the result of the unlikee sending the caller an
+	  exit signal by calling the
+	  <seemfa marker="#exit/2"><c>exit/2</c></seemfa> BIF.
+	  Therefore, it may or may not be appropriate to clean up
+	  the message queue after a call to <c>unlink(<anno>Id</anno>)</c>
+	  as follows, when trapping exits:
+	</p>
         <code type="none">
 unlink(Id),
 receive
@@ -11862,16 +12853,19 @@ receive
 after 0 ->
         true
 end</code>
-        <note>
-          <p>Before Erlang/OTP R11B (ERTS 5.5) <c>unlink/1</c>
-            behaved completely asynchronously, that is, the link was active
-            until the "unlink signal" reached the linked entity. This
-            had an undesirable effect, as you could never know when
-            you were guaranteed <em>not</em> to be effected by the link.</p>
-          <p>The current behavior can be viewed as two combined operations:
-            asynchronously send an "unlink signal" to the linked entity
-            and ignore any future results of the link.</p>
-        </note>
+
+	<p>
+	  The link removal is performed asynchronously. If such a link
+	  does not exist, nothing is done. A detailed description of the
+	  <seeguide marker="erts:erl_dist_protocol#link_protocol">link
+	  protocol</seeguide> can be found in the <i>Distribution Protocol</i>
+	  chapter of the <i>ERTS User's Guide</i>.
+	</p>
+
+        <p>
+	  Failure: <c>badarg</c> if <c>Id</c> does not identify a process
+	  or a node local port.
+	</p>
       </desc>
     </func>
 
@@ -11879,12 +12873,17 @@ end</code>
       <name name="unregister" arity="1" since=""/>
       <fsummary>Remove the registered name for a process (or port).</fsummary>
       <desc>
-        <p>Removes the registered name <c><anno>RegName</anno></c>
-          associated with a
-          process identifier or a port identifier, for example:</p>
+        <p>Removes the <seemfa marker="#register/2"><c>registered name</c></seemfa>
+          <c><anno>RegName</anno></c> associated with a
+          process identifier or a port identifier from the
+          <seeguide marker="system/reference_manual:processes#runtime-service">
+            <c>name registry</c></seeguide>. For example:</p>
         <pre>
 > <input>unregister(db).</input>
 true</pre>
+        <p>Keep in mind that you can still receive signals associated with the
+          registered name after it has been unregistered as the sender may
+          have looked up the name before sending to it.</p>
         <p>Users are advised not to unregister system processes.</p>
         <p>Failure: <c>badarg</c> if <c>RegName</c> is not a registered
           name.</p>
@@ -11897,8 +12896,11 @@ true</pre>
       </fsummary>
       <desc>
         <p>Returns the process identifier or port identifier with
-          the registered name <c>RegName</c>. Returns <c>undefined</c>
-          if the name is not registered. Example:</p>
+          the <seemfa marker="#register/2"><c>registered name</c></seemfa>
+          <c>RegName</c> from the
+          <seeguide marker="system/reference_manual:processes#runtime-service">
+            <c>name registry</c></seeguide>.
+          Returns <c>undefined</c> if the name is not registered. Example:</p>
         <pre>
 > <input>whereis(db).</input>
 &lt;0.43.0></pre>
@@ -11909,16 +12911,22 @@ true</pre>
       <name name="yield" arity="0" since=""/>
       <fsummary>Let other processes get a chance to execute.</fsummary>
       <desc>
-        <p>Voluntarily lets other processes (if any) get a chance to
-          execute. Using this function is similar to
-          <c>receive after 1 -> true end</c>, except that <c>yield()</c>
-          is faster.</p>
+        <p>Tries to give other processes with the same or
+        higher priority (if any) a chance to execute before
+        returning. There is no guarantee that any other process runs
+        between the invocation and return of <c>erlang:yield/0</c>.</p>
+
+        <p>See the documentation for <seeguide
+        marker="system/reference_manual:expressions#receive"><c>receive-after</c>
+        expressions</seeguide> for how to make the current process
+        sleep for a specific number of milliseconds.</p>
         <warning>
-          <p>There is seldom or never any need to use this BIF
-            as other processes have a chance to run in another scheduler
-            thread anyway.
+          <p>There is seldom or never any need to use this BIF.
             Using this BIF without a thorough grasp of how the scheduler
-            works can cause performance degradation.</p>
+            works can cause performance degradation. The current implementation
+            of this function puts the current process last in the current
+            scheduler's queue for processes of the same priority as the
+            current process.</p>
         </warning>
       </desc>
     </func>

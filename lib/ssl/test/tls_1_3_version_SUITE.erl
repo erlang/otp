@@ -59,25 +59,27 @@
 %%--------------------------------------------------------------------
 all() -> 
     [
-     {group, 'tlsv1.3'}
+     cert_groups()
     ].
 
 groups() ->
     [
-     {'tlsv1.3', [], cert_groups()},
-     {rsa, [], tests()},
-     {ecdsa, [], tests()}
+     {rsa, [], tls_1_3_1_2_tests() ++ legacy_tests()},
+     {ecdsa, [], tls_1_3_1_2_tests()}
     ].
 
 cert_groups() ->
     [{group, rsa},
      {group, ecdsa}].
 
-tests() ->
+tls_1_3_1_2_tests() ->
     [tls13_client_tls12_server,
      tls13_client_with_ext_tls12_server,
      tls12_client_tls13_server,
-     tls_client_tls10_server,
+     tls_client_tls12_server,
+     tls12_client_tls_server].
+legacy_tests() ->
+    [tls_client_tls10_server,
      tls_client_tls11_server,
      tls_client_tls12_server,
      tls10_client_tls_server,
@@ -88,9 +90,14 @@ init_per_suite(Config) ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
-            ssl_test_lib:clean_start(),
-	    [{client_type, erlang}, {server_type, erlang} | 
-             Config]
+            case ssl_test_lib:sufficient_crypto_support('tlsv1.3') of                
+                true ->
+                    ssl_test_lib:clean_start(),
+                    [{client_type, erlang}, {server_type, erlang} | 
+                     Config];
+                false ->
+                    {skip, "Insufficient crypto support for TLS-1.3"}
+            end
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -99,23 +106,14 @@ end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
 
-init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_protocol_version(GroupName) of
-        true  ->
-            ssl_test_lib:init_per_group(GroupName, 
-                                        [{client_type, erlang},
-                                         {server_type, erlang} | Config]);
-        false -> 
-            do_init_per_group(GroupName, Config)
-    end.
-
-do_init_per_group(rsa, Config0) ->
+init_per_group(rsa, Config0) ->
     Config = ssl_test_lib:make_rsa_cert(Config0),
     COpts = proplists:get_value(client_rsa_opts, Config),
     SOpts = proplists:get_value(server_rsa_opts, Config),
-    [{client_cert_opts, COpts}, {server_cert_opts, SOpts} | 
+    [{client_type, erlang},
+     {server_type, erlang},{client_cert_opts, COpts}, {server_cert_opts, SOpts} | 
      lists:delete(server_cert_opts, lists:delete(client_cert_opts, Config))];
-do_init_per_group(ecdsa, Config0) ->
+init_per_group(ecdsa, Config0) ->
     PKAlg = crypto:supports(public_keys),
     case lists:member(ecdsa, PKAlg) andalso 
         (lists:member(ecdh, PKAlg) orelse lists:member(dh, PKAlg)) of
@@ -123,7 +121,8 @@ do_init_per_group(ecdsa, Config0) ->
             Config = ssl_test_lib:make_ecdsa_cert(Config0),
             COpts = proplists:get_value(client_ecdsa_opts, Config),
             SOpts = proplists:get_value(server_ecdsa_opts, Config),
-            [{client_cert_opts, COpts}, {server_cert_opts, SOpts} | 
+            [{client_type, erlang},
+             {server_type, erlang},{client_cert_opts, COpts}, {server_cert_opts, SOpts} | 
              lists:delete(server_cert_opts, lists:delete(client_cert_opts, Config))];
         false ->
             {skip, "Missing EC crypto support"}
@@ -147,7 +146,7 @@ tls13_client_tls12_server(Config) when is_list(Config) ->
     
 tls13_client_with_ext_tls12_server() ->
      [{doc,"Test basic connection between TLS 1.2 server and TLS 1.3 client when " 
-       "client has TLS 1.3 specsific extensions"}].
+       "client has TLS 1.3 specific extensions"}].
 
 tls13_client_with_ext_tls12_server(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
@@ -175,21 +174,38 @@ tls12_client_tls13_server(Config) when is_list(Config) ->
 tls_client_tls10_server() ->
     [{doc,"Test that a TLS 1.0-1.3 client can connect to a TLS 1.0 server."}].
 tls_client_tls10_server(Config) when is_list(Config) ->
+    CCiphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.3'),
+                                        [{key_exchange, fun(srp_rsa)  -> false;
+                                                           (srp_anon) -> false;
+                                                           (srp_dss) -> false;
+                                                           (_) -> true end}]),        
     ClientOpts = [{versions,
-                   ['tlsv1', 'tlsv1.1', 'tlsv1.2', 'tlsv1.3']} |
+                   ['tlsv1', 'tlsv1.1', 'tlsv1.2', 'tlsv1.3']},
+                  {ciphers, CCiphers}
+                 |
                   ssl_test_lib:ssl_options(client_cert_opts, Config)],
     ServerOpts =  [{versions,
-                   ['tlsv1']} | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+                   ['tlsv1']},
+                   {ciphers, ssl:cipher_suites(all, 'tlsv1')}
+                  | ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 tls_client_tls11_server() ->
     [{doc,"Test that a TLS 1.0-1.3 client can connect to a TLS 1.1 server."}].
 tls_client_tls11_server(Config) when is_list(Config) ->
+    CCiphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.3'),
+                                        [{key_exchange, fun(srp_rsa)  -> false;
+                                                           (srp_anon) -> false;
+                                                           (srp_dss) -> false;
+                                                           (_) -> true end}]),    
     ClientOpts = [{versions,
-                   ['tlsv1', 'tlsv1.1', 'tlsv1.2', 'tlsv1.3']} |
+                   ['tlsv1', 'tlsv1.1', 'tlsv1.2', 'tlsv1.3']},
+                  {ciphers, CCiphers} |
                   ssl_test_lib:ssl_options(client_cert_opts, Config)],
     ServerOpts =  [{versions,
-                   ['tlsv1.1']} | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+                    ['tlsv1.1']},   
+                   {ciphers, ssl:cipher_suites(all, 'tlsv1.1')}  
+                  | ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 tls_client_tls12_server() ->
@@ -205,20 +221,36 @@ tls_client_tls12_server(Config) when is_list(Config) ->
 tls10_client_tls_server() ->
     [{doc,"Test that a TLS 1.0 client can connect to a TLS 1.0-1.3 server."}].
 tls10_client_tls_server(Config) when is_list(Config) ->
+    SCiphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.3'),
+                                        [{key_exchange, fun(srp_rsa)  -> false;
+                                                           (srp_anon) -> false;
+                                                           (srp_dss) -> false;
+                                                           (_) -> true end}]),    
     ClientOpts = [{versions,
-                   ['tlsv1']} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
+                   ['tlsv1']}, {ciphers, ssl:cipher_suites(all, 'tlsv1')} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
     ServerOpts =  [{versions,
-                   ['tlsv1','tlsv1.1', 'tlsv1.2', 'tlsv1.3']} |
+                   ['tlsv1','tlsv1.1', 'tlsv1.2', 'tlsv1.3']},
+                   {ciphers, SCiphers}
+                  |
                    ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 tls11_client_tls_server() ->
     [{doc,"Test that a TLS 1.1 client can connect to a TLS 1.0-1.3 server."}].
 tls11_client_tls_server(Config) when is_list(Config) ->
+    SCiphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.3'),
+                                        [{key_exchange, fun(srp_rsa)  -> false;
+                                                           (srp_anon) -> false;
+                                                           (srp_dss) -> false;
+                                                           (_) -> true end}]),
+    
     ClientOpts = [{versions,
-                   ['tlsv1.1']} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
+                   ['tlsv1.1']},  {ciphers, ssl:cipher_suites(all, 'tlsv1.1')} | 
+                  ssl_test_lib:ssl_options(client_cert_opts, Config)],
     ServerOpts =  [{versions,
-                   ['tlsv1','tlsv1.1', 'tlsv1.2', 'tlsv1.3']} |
+                   ['tlsv1','tlsv1.1', 'tlsv1.2', 'tlsv1.3']},
+                    {ciphers, SCiphers}
+                  |
                    ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 

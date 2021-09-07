@@ -68,7 +68,7 @@ init_per_testcase(_TestCase, Config) ->
     [{logger_config,PC}|Config].
 
 end_per_testcase(Case, Config) ->
-    try apply(?MODULE,Case,[cleanup,Config])
+    try erlang:apply(?MODULE,Case,[cleanup,Config])
     catch error:undef -> ok
     end,
     ok.
@@ -274,7 +274,7 @@ change_config(_Config) ->
     ok = logger:set_primary_config(#{filter_default=>stop}),
     #{level:=notice,filters:=[],filter_default:=stop}=PC1 =
         logger:get_primary_config(),
-    3 = maps:size(PC1),
+    4 = maps:size(PC1),
     %% Check that internal 'handlers' field has not been changed
     MS = [{{{?HANDLER_KEY,'$1'},'_'},[],['$1']}],
     HIds1 = lists:sort(ets:select(?LOGGER_TABLE,MS)), % dirty, internal data
@@ -918,6 +918,20 @@ process_metadata(_Config) ->
     logger:notice(S3=?str,#{custom=>func}),
     check_logged(notice,S3,#{time=>Time,line=>0,custom=>func}),
 
+    %% Test that primary metadata is overwritten by process metadata
+    ok = logger:update_primary_config(
+           #{metadata=>#{time=>Time,custom=>global,global=>added,line=>1}}),
+    logger:notice(S4=?str),
+    check_logged(notice,S4,#{time=>Time,line=>0,custom=>proc,global=>added}),
+
+    %% Test that primary metadata is overwritten by func metadata
+    %% and that primary overwrites location metadata.
+    ok = logger:unset_process_metadata(),
+    logger:notice(S5=?str,#{custom=>func}),
+    check_logged(notice,S5,#{time=>Time,line=>1,custom=>func,global=>added}),
+    ok = logger:set_process_metadata(ProcMeta),
+    ok = logger:update_primary_config(#{metadata=>#{}}),
+
     ProcMeta = logger:get_process_metadata(),
     ok = logger:update_process_metadata(#{custom=>changed,custom2=>added}),
     Expected = ProcMeta#{custom:=changed,custom2=>added},
@@ -1341,6 +1355,16 @@ test_log_function(Level) ->
     logger:log(Level,F2=fun(x) -> erlang:error(fun_that_crashes) end,x,#{}),
     ok = check_logged(Level,"LAZY_FUN CRASH: ~tp; Reason: ~tp",
                       [{F2,x},{error,fun_that_crashes}],#{}),
+    logger:log(Level,fun(x) -> {{"~w: ~w ~w",[Level,fun_to_fa,meta]}, #{my=>override}} end,
+               x, #{my=>meta}),
+    ok = check_logged(Level,"~w: ~w ~w",[Level,fun_to_fa,meta],#{my=>override}),
+    logger:log(Level,fun(x) -> {#{Level=>fun_to_r,meta=>true}, #{my=>override}} end,
+               x, #{my=>meta}),
+    ok = check_logged(Level,#{Level=>fun_to_r,meta=>true},#{my=>override}),
+    logger:log(Level,fun(x) -> {<<"fun_to_s">>,#{my=>override}} end,x,#{my=>meta}),
+    ok = check_logged(Level,<<"fun_to_s">>,#{my=>override}),
+    logger:log(Level, fun(x) -> ignore end, x, #{}),
+    ok = check_no_log(),
     ok.
 
 test_macros(emergency=Level) ->
@@ -1407,4 +1431,10 @@ my_try(Fun) ->
 check_config(crash) ->
     erlang:error({badmatch,3});
 check_config(_) ->
+    ok.
+
+%% this function is also a test. When logger.hrl used non-qualified
+%%  apply/3 call, any module that was implementing apply/3 could
+%%  not use any logging macro
+apply(_Any, _Any, _Any) ->
     ok.

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2018</year><year>2020</year>
+      <year>2018</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -42,30 +42,30 @@
     <section>
       <title>Asynchronous calls</title>
       <p>Some functions allow for an <i>asynchronous</i> call
-      (<seeerl marker="socket#accept_async"><c>accept/2</c></seeerl>,
-      <seeerl marker="socket#connect_async"><c>connect/3</c></seeerl>,
-      <seeerl marker="socket#recv_async"><c>recv/3,4</c></seeerl>,
-      <seeerl marker="socket#recvfrom_async"><c>recvfrom/3,4</c></seeerl>,
-      <seeerl marker="socket#recvmsg_async"><c>recvmsg/2,3,5</c></seeerl>,
-      <seeerl marker="socket#send_async"><c>send/3,4</c></seeerl>,
-      <seeerl marker="socket#sendmsg_async"><c>sendmsg/3,4</c></seeerl> and
-      <seeerl marker="socket#sendto_async"><c>sendto/4,5</c></seeerl>).
+      (<seeerl marker="socket#accept-nowait"><c>accept/2</c></seeerl>,
+      <seeerl marker="socket#connect-nowait"><c>connect/3</c></seeerl>,
+      <seeerl marker="socket#recv-nowait"><c>recv/3,4</c></seeerl>,
+      <seeerl marker="socket#recvfrom-nowait"><c>recvfrom/3,4</c></seeerl>,
+      <seeerl marker="socket#recvmsg-nowait"><c>recvmsg/2,3,5</c></seeerl>,
+      <seeerl marker="socket#send-nowait"><c>send/3,4</c></seeerl>,
+      <seeerl marker="socket#sendmsg-nowait"><c>sendmsg/3,4</c></seeerl> and
+      <seeerl marker="socket#sendto-nowait"><c>sendto/4,5</c></seeerl>).
       This is achieved by setting the <c>Timeout</c> argument to
       <c>nowait</c>. For instance, if calling the
-      <seeerl marker="socket#recv_async"><c>recv/3</c></seeerl>
+      <seeerl marker="socket#recv-nowait"><c>recv/3</c></seeerl>
       function with Timeout set to <c>nowait</c> (i.e. 
       <c>recv(Sock, 0, nowait)</c>)
       when there is actually nothing to read, it will return with
       <c>{select, </c>
       <seetype marker="socket#select_info"><c>SelectInfo</c></seetype><c>}</c>
       (<c>SelectInfo</c> contains the
-      <seetype marker="socket#select_ref">SelectRef</seetype>).
+      <seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>).
       When data eventually arrives a 'select message'
       will be sent to the caller:</p>
       <taglist>
 	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
 	<tag></tag>
-	<item><c>{'$socket', socket(), select, SelectRef}</c></item>
+	<item><c>{'$socket', socket(), select, SelectHandle}</c></item>
       </taglist>
       <p>The caller can then make another
       call to the recv function and now expect data.</p>
@@ -82,7 +82,7 @@
       <p>If the operation is aborted
       for whatever reason (e.g. if the socket is closed "by someone else").
       The <c>Info</c> part contains the abort reason (in this case that
-      the socket has been closed <c>Info = {SelectRef, closed}</c>). </p>
+      the socket has been closed <c>Info = {SelectHandle, closed}</c>). </p>
 
       <p>The general form of the 'socket' message is: </p>
       <taglist>
@@ -98,15 +98,15 @@
 	</row>
 	<row>
 	  <cell>select</cell>
-	  <cell>select_ref()</cell>
+	  <cell>select_handle()</cell>
 	</row>
 	<row>
 	  <cell>abort</cell>
-	  <cell>{select_ref(), Reason :: term()}</cell>
+	  <cell>{select_handle(), Reason :: term()}</cell>
 	</row>
 	<tcaption>socket message info value type</tcaption>
       </table>
-      <p>The <c>select_ref()</c> is the same as was received in the
+      <p>The <c>select_handle()</c> is the same as was returned in the
       <seetype marker="socket#select_info"><c>SelectInfo</c></seetype>. </p>
     </section>
   </section>
@@ -805,14 +805,11 @@
       </row>
       <row>
 	<cell>tclass</cell>
-	<cell>boolean()</cell>
+	<cell>integer()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>type = dgram | raw.
-	On some platforms is used to set (=true) in order to
-	get the <c>tclass</c> control message heeader.
-	On others, <c>recvtclass</c> is set in order to get
-	<c>tclass</c> control message heeader. </cell>
+	<cell>Set the traffic class associated with outgoing packets.
+	RFC3542. </cell>
       </row>
       <row>
 	<cell>unicast_hops</cell>

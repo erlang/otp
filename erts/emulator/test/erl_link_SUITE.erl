@@ -45,7 +45,11 @@
          otp_5772_dist_link/1,
          otp_5772_monitor/1,
          otp_5772_dist_monitor/1,
-         otp_7946/1]).
+         otp_7946/1,
+         otp_17127_local_link_with_simultaneous_link_unlink/1,
+         otp_17127_dist_link_with_simultaneous_link_unlink/1,
+         otp_17127_local_random/1,
+         otp_17127_dist_random/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -55,6 +59,7 @@
 
 -record(erl_link, {type,           % process | port | dist_process
                    pid = [],
+                   state,          % linked | unlinking
                    id}).
 
 % This is to be kept in sync with erl_bif_info.c (make_monitor_list)
@@ -74,7 +79,10 @@ all() ->
     [links, dist_links, monitor_nodes, process_monitors,
      dist_process_monitors, busy_dist_port_monitor,
      busy_dist_port_link, otp_5772_link, otp_5772_dist_link,
-     otp_5772_monitor, otp_5772_dist_monitor, otp_7946].
+     otp_5772_monitor, otp_5772_dist_monitor, otp_7946,
+     otp_17127_local_link_with_simultaneous_link_unlink,
+     otp_17127_dist_link_with_simultaneous_link_unlink,
+     otp_17127_local_random, otp_17127_dist_random].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     case catch erts_debug:get_internal_state(available_internal_state) of
@@ -109,6 +117,8 @@ dist_links(Config) when is_list(Config) ->
     TP4 = spawn(?MODULE, test_proc, []),
     TP5 = spawn(?MODULE, test_proc, []),
     TP6 = spawn(Node, ?MODULE, test_proc, []),
+    io:format("TP4=~p~nTP5=~p~nTP6=~p~n", [TP4, TP5, TP6]),
+
     true = tp_call(TP6, fun() -> link(TP4) end),
     check_link(TP4, TP6),
     true = tp_call(TP5,
@@ -490,6 +500,119 @@ otp_7946(Config) when is_list(Config) ->
             Reason = noconnection
     end.
 
+otp_17127_local_link_with_simultaneous_link_unlink(Config) when is_list(Config) ->
+    otp_17127_link_with_simultaneous_link_unlink_test(node(), node()).
+
+otp_17127_dist_link_with_simultaneous_link_unlink(Config) when is_list(Config) ->
+    [NodeName] = get_names(1, otp_17127),
+    {ok, Node} = start_node(NodeName),
+    Res = otp_17127_link_with_simultaneous_link_unlink_test(node(), Node),
+    stop_node(Node),
+    Res.
+
+otp_17127_link_with_simultaneous_link_unlink_test(NodeA, NodeB) ->
+    FunA = fun (Other) ->
+                   link(Other)
+           end,
+    FunB = fun (Other) ->
+                   link(Other),
+                   unlink(Other)
+           end,
+    otp_17127_test(NodeA, FunA, NodeB, FunB).
+
+otp_17127_local_random(Config) when is_list(Config) ->
+    otp_17127_random_test(node(), node(), 100).
+
+otp_17127_dist_random(Config) when is_list(Config) ->
+    [NodeName] = get_names(1, otp_17127),
+    {ok, Node} = start_node(NodeName),
+    Res = otp_17127_random_test(node(), Node, 20),
+    stop_node(Node),
+    Res.
+
+otp_17127_random_test(_NodeA, _NodeB, 0) ->
+    ok;
+otp_17127_random_test(NodeA, NodeB, N) ->
+    Fun = fun (Other) ->
+                  rand_proc(Other, rand:uniform(500))
+          end,
+    otp_17127_test(NodeA, Fun, NodeB, Fun),
+    otp_17127_random_test(NodeA, NodeB, N-1).
+
+rand_proc(_Other, 0) ->
+    ok;
+rand_proc(Other, N) ->
+    case rand:uniform(3) of
+        1 -> link(Other);
+        2 -> unlink(Other);
+        3 -> erlang:yield()
+    end,
+    rand_proc(Other, N-1).
+
+otp_17127_test(NodeA, FunA, NodeB, FunB) ->
+    process_flag(priority, high),
+    {SchedA, SchedB} = case NodeA == NodeB of
+                           false ->
+                               {[], []};
+                           true ->
+                               NS = erlang:system_info(schedulers_online),
+                               process_flag(scheduler, 1),
+                               {[{scheduler, (1 rem NS) + 1}],
+                                [{scheduler, (2 rem NS) + 1}]}
+                       end,
+    A = spawn_opt(NodeA,
+                  fun () ->
+                          receive
+                              {go, Tester, Other, Later} ->
+                                  busy_wait_until(Later),
+                                  FunA(Other),
+                                  receive ping -> Other ! pong end,
+                                  receive pling -> ok end,
+                                  Tester ! {self(), done}
+                          end,
+                          receive after infinity -> ok end
+                  end, SchedA),
+    B = spawn_opt(NodeB,
+                  fun () ->
+                          receive
+                              {go, Tester, Other, Later} ->
+                                  busy_wait_until(Later),
+                                  FunB(Other),
+                                  Other ! ping,
+                                  receive pong -> Other ! pling end,
+                                  Tester ! {self(), done}
+                          end,
+                          receive after infinity -> ok end
+                  end, SchedB),
+    io:format("A = ~p~nB = ~p~n", [A, B]),
+    Later = case NodeA == NodeB of
+                true ->
+                    GoTime = (erlang:monotonic_time()
+                              + erlang:convert_time_unit(100, millisecond, native)),
+                    fun () ->
+                            erlang:monotonic_time() >= GoTime
+                    end;
+                false ->
+                    GoTime = (os:system_time(nanosecond)
+                              + erlang:convert_time_unit(500, millisecond, nanosecond)),
+                    fun () ->
+                            os:system_time(nanosecond) >= GoTime
+                    end
+            end,
+    erlang:yield(),
+    A ! {go, self(), B, Later},
+    B ! {go, self(), A, Later},
+    receive {A, done} -> ok end,
+    receive {B, done} -> ok end,
+    try
+        check_consistent_link_state(A, B),
+        true = rpc:call(node(A), erlang, is_process_alive, [A]),
+        true = rpc:call(node(B), erlang, is_process_alive, [B])
+    after
+        exit(A, kill),
+        exit(B, kill)
+    end.
+
 %%
 %% -- Internal utils --------------------------------------------------------
 %%
@@ -668,6 +791,13 @@ wait_until(Fun) ->
             end
     end.
 
+busy_wait_until(Fun) ->
+    case Fun() of
+        true -> ok;
+        _ ->
+            busy_wait_until(Fun)
+    end.
+
 forever(Fun) ->
     Fun(),
     forever(Fun).
@@ -782,9 +912,13 @@ find_erl_monitor(Pid, Item) ->
 find_erl_link(Obj, Type, Item) when is_pid(Item); is_port(Item) -> 
     LinkList = get_link_list(Obj),
     io:format("~p LinkList: ~p~n", [Obj, LinkList]),
-    lists:foldl(fun (#erl_link{type = T, pid = I} = EL,
+    lists:foldl(fun (#erl_link{type = T, pid = I, state = linked} = EL,
                      Acc) when T == Type, I == Item ->
                         [EL|Acc];
+                    ({erl_link, T, P, I},
+                     Acc) when T == Type, P == Item ->
+                        %% Old emulator without state (linked if record exists)...
+                        [#erl_link{type = T, pid = P, id = I, state = linked}|Acc];
                     (_, Acc) ->
                         Acc
                 end,
@@ -794,9 +928,13 @@ find_erl_link(Obj, Type, Id) when is_integer(Id) ->
     %% Find by Id
     LinkList = get_link_list(Obj),
     io:format("~p LinkList: ~p~n", [Obj, LinkList]),
-    lists:foldl(fun (#erl_link{type = T, id = I} = EL,
+    lists:foldl(fun (#erl_link{type = T, id = I, state = linked} = EL,
                      Acc) when T == Type, I == Id ->
                         [EL|Acc];
+                    ({erl_link, T, P, I},
+                     Acc) when T == Type, I == Id ->
+                        %% Old emulator without state (linked if record exists)...
+                        [#erl_link{type = T, pid = P, id = I, state = linked}|Acc];
                     (_, Acc) ->
                         Acc
                 end,
@@ -816,14 +954,25 @@ get_link_type(A, B) when is_pid(A),
             dist_process
     end.
 
+check_consistent_link_state(A, B) ->
+    %% Both processes should agree on whether
+    %% they are linked or not...
+    LinkType = get_link_type(A, B),
+    case find_erl_link(A, LinkType, B) of
+        [] ->
+            check_unlink(A, B),
+            io:format("~p and ~p are not linked~n", [A, B]);
+        _ ->
+            check_link(A, B),
+            io:format("~p and ~p are linked~n", [A, B])
+    end.
+
 check_link(A, B) when node(A) == node(B) ->
     LinkType = get_link_type(A, B),
     [#erl_link{type = LinkType,
-               pid = B,
-               id = Id}] = find_erl_link(A, LinkType, B),
+               pid = B}] = find_erl_link(A, LinkType, B),
     [#erl_link{type = LinkType,
-               pid = A,
-               id = Id}] = find_erl_link(B, LinkType, A),
+               pid = A}] = find_erl_link(B, LinkType, A),
     [] = find_erl_link({node(A), node(B)},
                        LinkType,
                        A),

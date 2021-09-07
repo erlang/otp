@@ -233,8 +233,7 @@ Slogan: &lt;reason&gt;</pre>
       <item>
         <p>If empty, the scheduler was doing some work.
           If not empty, the scheduler is either in some state of sleep,
-          or suspended. This entry is only present in an SMP-enabled
-          emulator.</p>
+          or suspended.</p>
       </item>
       <tag><em>Scheduler Sleep Info Aux Work</em></tag>
       <item>
@@ -731,10 +730,6 @@ Slogan: &lt;reason&gt;</pre>
       <tag><em>Address</em></tag>
       <item>
         <p>The address of the fun's code.</p>
-      </item>
-      <tag><em>Native_address</em></tag>
-      <item>
-        <p>The address of the fun's code when HiPE is enabled.</p>
       </item>
       <tag><em>Refc</em></tag>
       <item>

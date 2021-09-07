@@ -21,7 +21,7 @@
 include ../vsn.mk
 include ../config.mk
 
-SUBDIRS = demo sudoku simple xrc
+SUBDIRS = demo sudoku simple
 
 SUB_DIRECTORIES=$(SUBDIRS)
 # ----------------------------------------------------

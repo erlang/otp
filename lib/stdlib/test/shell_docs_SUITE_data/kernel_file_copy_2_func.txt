@@ -1,0 +1,37 @@
+
+  [;1m-spec copy(Source, Destination) -> {ok, BytesCopied} | {error, Reason}[0m
+  [;1m              when[0m
+  [;1m                  Source :: io_device() | Filename | {Filename, Modes},[0m
+  [;1m                  Destination ::[0m
+  [;1m                      io_device() | Filename | {Filename, Modes},[0m
+  [;1m                  Filename :: name_all(),[0m
+  [;1m                  Modes :: [mode()],[0m
+  [;1m                  BytesCopied :: non_neg_integer(),[0m
+  [;1m                  Reason :: posix() | badarg | terminated.[0m
+
+  Copies [;;4mByteCount[0m bytes from [;;4mSource[0m to [;;4mDestination[0m. [;;4mSource[0m
+  and [;;4mDestination[0m refer to either filenames or IO devices from,
+  for example, [;;4mopen/2[0m. [;;4mByteCount[0m defaults to [;;4minfinity[0m,
+  denoting an infinite number of bytes.
+
+  Argument [;;4mModes[0m is a list of possible modes, see [;;4mopen/2[0m, and
+  defaults to [;;4m[][0m.
+
+  If both [;;4mSource[0m and [;;4mDestination[0m refer to filenames, the files
+  are opened with [;;4m[read, binary][0m and [;;4m[write, binary][0m prepended
+  to their mode lists, respectively, to optimize the copy.
+
+  If [;;4mSource[0m refers to a filename, it is opened with [;;4mread[0m mode
+  prepended to the mode list before the copy, and closed when done.
+
+  If [;;4mDestination[0m refers to a filename, it is opened with [;;4mwrite[0m
+  mode prepended to the mode list before the copy, and closed when
+  done.
+
+  Returns [;;4m{ok, BytesCopied}[0m, where [;;4mBytesCopied[0m is the number of
+  bytes that was copied, which can be less than [;;4mByteCount[0m if end
+  of file was encountered on the source. If the operation fails, [;;4m[0m
+  [;;4m{error, Reason}[0m is returned.
+
+  Typical error reasons: as for [;;4mopen/2[0m if a file had to be opened,
+  and as for [;;4mread/2[0m and [;;4mwrite/2[0m.

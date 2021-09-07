@@ -21,6 +21,8 @@
 %%
 -module(ssl_rfc_5869_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 %% Common test

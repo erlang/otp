@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1997-2020. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2021. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -25,6 +25,15 @@ AC_INIT(vsn.mk)
 AC_PREREQ(2.59)
 
 LM_PRECIOUS_VARS
+
+dnl We check if -Werror was given on command line and if so
+dnl we disable it for the configure and only use it when
+dnl actually building erts
+no_werror_CFLAGS=$(echo "$CFLAGS" | sed 's/-Werror\([[^=]]\|$\)/ /g')
+if test "$CFLAGS" != "$no_werror_CFLAGS"; then
+   CFLAGS="$no_werror_CFLAGS"
+   WERRORFLAGS=-Werror
+fi
 
 dnl How to set srcdir absolute is taken from the GNU Emacs distribution
 #### Make srcdir absolute, if it isn't already.  It's important to
@@ -111,7 +120,7 @@ AS_HELP_STRING([--enable-bootstrap-only],
 	with_termcap=no
 	with_ssl=no
 	with_ssl_zlib=no
-	enable_hipe=no
+        enable_jit=no
 	enable_sctp=no
   fi
 ])
@@ -164,10 +173,8 @@ AS_HELP_STRING([--disable-kernel-poll], [disable kernel poll support]),
 
 
 AC_ARG_ENABLE(sctp,
-AS_HELP_STRING([--enable-sctp], [enable sctp support (default)
-to on demand load the SCTP library in runtime if needed])
-AS_HELP_STRING([--enable-sctp=lib], [enable sctp support
-to link against the SCTP library])
+AS_HELP_STRING([--enable-sctp], [enable sctp support (default) to on demand load the SCTP library in runtime if needed])
+AS_HELP_STRING([--enable-sctp=lib], [enable sctp support to link against the SCTP library])
 AS_HELP_STRING([--disable-sctp], [disable sctp support]),
 [ case "x$enableval" in
       xno|xyes|xlib|x)
@@ -177,22 +184,14 @@ AS_HELP_STRING([--disable-sctp], [disable sctp support]),
           ;;
   esac ])
 
-AC_ARG_ENABLE(hipe,
-AS_HELP_STRING([--enable-hipe], [enable hipe support])
-AS_HELP_STRING([--disable-hipe], [disable hipe support]))
-
-AC_ARG_ENABLE(native-libs,
-AS_HELP_STRING([--enable-native-libs],
-               [compile Erlang libraries to native code]))
-
-AC_ARG_ENABLE(fp-exceptions,
-AS_HELP_STRING([--enable-fp-exceptions],
-               [use hardware floating point exceptions (default if hipe enabled)]),
-[ case "$enableval" in
-    no) enable_fp_exceptions=no ;;
-    *)  enable_fp_exceptions=yes ;;
+AC_ARG_ENABLE(jit,
+AS_HELP_STRING([--enable-jit], [enable JIT support])
+AS_HELP_STRING([--disable-jit], [disable JIT support]),
+  [ case "$enableval" in
+    no) enable_jit=no ;;
+    *)  enable_jit=yes ;;
   esac
-],enable_fp_exceptions=auto)
+],enable_jit=auto)
 
 AC_ARG_ENABLE(m64-build,
 AS_HELP_STRING([--enable-m64-build],
@@ -554,7 +553,7 @@ if test "x$GCC" = xyes; then
 
   # until the emulator can handle this, I suggest we turn it off!
   #WFLAGS="-Wall -Wshadow -Wcast-qual -Wmissing-declarations"
-  WFLAGS="-Wall -Wstrict-prototypes"
+  WFLAGS="-Wall -Wstrict-prototypes -Wpointer-arith"
 
   case "$host_cpu" in
     tile*)
@@ -580,7 +579,7 @@ if test "x$GCC" = xyes; then
   LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
 else
   WFLAGS=""
-  WERRORFLAGS=""
+  WERRORFLAGS=${WERRORFLAGS:-""}
 fi
 
 AC_MSG_CHECKING([C99 support])
@@ -611,9 +610,9 @@ AC_SUBST(WFLAGS)
 AC_SUBST(WERRORFLAGS)
 
 ## Check if we can do profile guided optimization of beam_emu
-LM_CHECK_ENABLE_CFLAG([-fprofile-generate -Werror],[PROFILE_GENERATE])
-LM_CHECK_ENABLE_CFLAG([-fprofile-use -Werror],[PROFILE_USE])
-LM_CHECK_ENABLE_CFLAG([-fprofile-use -fprofile-correction -Werror],[PROFILE_CORRECTION])
+LM_CHECK_RUN_CFLAG([-fprofile-generate -Werror],[PROFILE_GENERATE])
+LM_CHECK_RUN_CFLAG([-fprofile-use -Werror],[PROFILE_USE])
+LM_CHECK_RUN_CFLAG([-fprofile-use -fprofile-correction -Werror],[PROFILE_CORRECTION])
 
 if test "X$PROFILE_CORRECTION" = "Xtrue"; then
    saved_CFLAGS=$CFLAGS
@@ -705,6 +704,9 @@ else
     AC_MSG_RESULT([no])
   fi
 fi
+
+dnl Disable pgo for now
+USE_PGO=false
 
 AC_SUBST(USE_PGO)
 AC_SUBST(PROFILE_COMPILER)
@@ -985,8 +987,7 @@ case $host_os in
 		LDFLAGS=-Wl,-export-dynamic
 		AC_TRY_LINK(,,[DEXPORT=-Wl,-export-dynamic], [
 			LDFLAGS=-Wl,-Bexport
-			AC_TRY_LINK(,,[DEXPORT=-Wl,-Bexport],
-				AC_MSG_RESULT(none))])
+			AC_TRY_LINK(,,[DEXPORT=-Wl,-Bexport],)])
 		LDFLAGS="$save_ldflags"
 	;;
 esac
@@ -1349,7 +1350,6 @@ error
 ])
 
 if test "$Z_LIB" != ""; then
-  AC_MSG_CHECKING(for zlib inflateGetDictionary presence)
   AC_SEARCH_LIBS(inflateGetDictionary, [z],
                  AC_DEFINE(HAVE_ZLIB_INFLATEGETDICTIONARY, 1,
                            [Define if your zlib version defines inflateGetDictionary.]))
@@ -1382,7 +1382,7 @@ fi
 
 if test "x$USE_ESOCK" = "xyes"; then
     if test "x$USE_ESOCK" = "xyes"; then
-        AC_CHECK_FUNCS([localtime_r strftime])
+        AC_CHECK_FUNCS([localtime_r strftime getprotoent setprotoent endprotoent])
     fi
 fi
 
@@ -1459,23 +1459,20 @@ AC_CHECK_FUNC([gethostname],
 
 
 dnl *** ESOCK_USE_SOCKET_REGISTRY ***
-dnl At this time we *enable* use of the socket regstry by default
+dnl At this time we *enable* use of the socket registry by default
 dnl since we want to be able to have as much debug info as possible.
 
-AC_ARG_ENABLE(esock_use_socket_registry,
-AS_HELP_STRING([--enable-esock-socket-registry], [enable use of the socket registry by default (default)])
-AS_HELP_STRING([--disable-esock-socket-registry], [disable use of the socket registry by default]))
+AC_ARG_ENABLE(esock-socket-registry,
+    AS_HELP_STRING([--enable-esock-socket-registry],
+        [enable use of the socket registry by default (default)])
+    AS_HELP_STRING([--disable-esock-socket-registry],
+        [disable use of the socket registry by default]))
 
-if test "x$enable_esock_socket_registry" = "xyes"; then
-    AC_DEFINE(ESOCK_USE_SOCKET_REGISTRY, [1], [Use socket registry by default])
-else
-    if test "x$disable_esock_socket_registry" = "xyes"; then
-        AC_DEFINE(ESOCK_USE_SOCKET_REGISTRY, [0], [Don't use socket registry by default])
-    else
-        # TEMPORARY default (enabled)
-        AC_DEFINE(ESOCK_USE_SOCKET_REGISTRY, [1], [Use socket registry by default])
-    fi
-fi
+AS_IF([test "x$enable_esock_socket_registry" = "xno"], [
+    AC_DEFINE(ESOCK_USE_SOCKET_REGISTRY, [0],
+        [Don't use socket registry by default])], [
+    AC_DEFINE(ESOCK_USE_SOCKET_REGISTRY, [1],
+        [Use socket registry by default])])
 
 
 
@@ -1648,7 +1645,8 @@ AC_CHECK_HEADERS(fcntl.h limits.h unistd.h syslog.h dlfcn.h ieeefp.h \
                  sys/ioctl.h sys/time.h sys/uio.h sys/mman.h \
                  sys/socket.h sys/sockio.h sys/socketio.h \
                  net/errno.h malloc.h arpa/nameser.h libdlpi.h \
-		 pty.h util.h libutil.h utmp.h langinfo.h poll.h sdkddkver.h)
+		 pty.h util.h libutil.h utmp.h langinfo.h poll.h sdkddkver.h \
+                 elf.h)
 
 AC_CHECK_MEMBERS([struct ifreq.ifr_hwaddr], [], [],
 	[#ifdef __WIN32__
@@ -1773,6 +1771,15 @@ if test "x$enable_sctp" != "xno" ; then
 	])
 fi
 
+case "x$enable_sctp" in
+     xno|x)
+	;;
+     *)
+	if test "x$LIBSCTP" = "x" ; then
+	   AC_MSG_ERROR([sctp support requested, but cannot be enabled since 'netinet/sctp.h' is missing])
+	fi;;
+esac
+
 if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
     AS_IF([test "x$enable_sctp" = "xlib"],
         AC_CHECK_LIB(sctp, sctp_bindx))
@@ -1821,7 +1828,14 @@ AC_CHECK_HEADERS(sched.h setns.h)
 AC_CHECK_FUNCS([setns])
 
 dnl Check for linux/errqueue
-AC_CHECK_HEADERS(linux/errqueue.h)
+AC_CHECK_HEADERS([linux/types.h linux/errqueue.h], [], [],
+[[#ifdef HAVE_SYS_TIME_H
+# include <sys/time.h>
+#endif
+#ifdef HAVE_LINUX_TYPES_H
+# include <linux/types.h>
+#endif
+]])
 
 HAVE_VALGRIND=no
 AC_CHECK_HEADER(valgrind/valgrind.h, HAVE_VALGRIND=yes)
@@ -1862,7 +1876,6 @@ AC_TYPE_SIZE_T
 
 AC_STRUCT_TM
 LM_STRUCT_SOCKADDR_SA_LEN
-LM_STRUCT_EXCEPTION
 
 AC_CHECK_SIZEOF(char, 1)
 AC_CHECK_SIZEOF(short)
@@ -1874,6 +1887,7 @@ AC_CHECK_SIZEOF(size_t)
 AC_CHECK_SIZEOF(off_t)
 AC_CHECK_SIZEOF(time_t)
 AC_CHECK_SIZEOF(suseconds_t)
+AC_CHECK_SIZEOF(_Float16)
 
 BITS64=
 
@@ -2151,14 +2165,33 @@ AC_CHECK_FUNCS([getipnodebyname getipnodebyaddr gethostbyname2])
 
 AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlopen \
 		pread pwrite memmove strerror strerror_r strncasecmp \
-		gethrtime localtime_r gmtime_r inet_pton mprotect madvise posix_madvise \
+		gethrtime localtime_r gmtime_r mprotect madvise posix_madvise \
 		mmap mremap memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \
 		setlocale nl_langinfo poll mlockall ppoll vsyslog])
 
+## We have a special check for inet_pton as AC_CHECK_FUCNS does not work
+## on windows 32-bit as there a macro is used to rename the symbol...
+AC_MSG_CHECKING([for inet_pton])
+AC_TRY_LINK([
+#ifdef WIN32
+#include <ws2tcpip.h>
+#else
+#include <arpa/inet.h>
+#endif
+],[inet_pton(2,"",(void*)0)], have_inet_pton=yes, have_inet_pton=no)
+
+if test $have_inet_pton = yes; then
+    AC_DEFINE(HAVE_INET_PTON,[1],
+              [Define to 1 if you have the `inet_pton' function.])
+    AC_MSG_RESULT(yes)
+else
+    AC_MSG_RESULT(no)
+fi
+
 AC_MSG_CHECKING([for isfinite])
 AC_TRY_LINK([#include <math.h>],
-            [isfinite(0);], have_isfinite=yes, have_isfinite=no),
+            [isfinite(0);], have_isfinite=yes, have_isfinite=no)
 
 if test $have_isfinite = yes; then
     AC_DEFINE(HAVE_ISFINITE,[1],
@@ -2243,6 +2276,8 @@ AC_CHECK_FUNCS([openpty])
 
 AC_CHECK_HEADERS(net/if_dl.h ifaddrs.h netpacket/packet.h sys/un.h)
 AC_CHECK_FUNCS([getifaddrs])
+AC_CHECK_MEMBERS([struct sockaddr_un.sun_path], [], [],
+		 [[#include <sys/un.h>]])
 
 dnl Checks for variables in6addr_any and in6addr_loopback,
 dnl
@@ -2836,71 +2871,111 @@ ERL_TIME_CORRECTION
 AC_CHECK_PROG(M4, m4, m4)
 
 
-if test X${enable_hipe} != Xno; then
-        dnl HiPE cannot run without mprotect()
-        if test X$ac_cv_func_mprotect != Xyes; then
-            if test X${enable_hipe} = Xyes; then
-	        AC_MSG_ERROR([HiPE needs mprotect() on $ARCH])
-            else
-	        enable_hipe=no
-	        AC_MSG_WARN([HiPE disabled due to lack of mprotect()])
-            fi
-        fi
-        AC_MSG_CHECKING([for safe signal delivery])
-        AC_TRY_COMPILE([#include <signal.h>],
-          [#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
-           #define __DARWIN__ 1
-           #endif
+dnl Test if JIT can be enabled
+JIT_ARCH=
+if test ${enable_jit} != no; then
+   case "$ARCH" in
+        amd64)
+           JIT_ARCH=x86
+           ;;
+        *)
+           if test ${enable_jit} = yes; then
+             AC_MSG_ERROR([JIT only works on x86 64-bit])
+           else
+             enable_jit=no
+             AC_MSG_WARN([JIT disabled due to lack to support on $ARCH-$OPSYS])
+           fi
+           ;;
+   esac
 
-           #if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__sun__))
-          /*
-           * Unknown libc -- assume musl, which does not allow safe signals
-           */
-           #error "HiPE does not work without a libc that can guarantee that sigaltstack works"
-           #endif	/* !(__GLIBC__ || __DARWIN__ || __NetBSD__ || __FreeBSD__ || __sun__) */],
-        [AC_MSG_RESULT([yes])],
-        [enable_hipe=no
-         AC_MSG_RESULT([no, musl probably used. Need glibc to work properly])
-         AC_MSG_WARN([HiPE disabled due to lack of safe signal delivery])])
+   if test ${enable_jit} != no; then
+       if test "$CXX" != false; then
+          AC_LANG_PUSH(C++)
+          old_CXXFLAGS=$CXXFLAGS
+          CXXFLAGS="$CXXFLAGS -std=c++17"
+          AC_COMPILE_IFELSE(
+              [AC_LANG_PROGRAM([],
+               [#if __cplusplus < 201703L
+                #error "Needs C++17 compiler"
+                #endif])],
+              [AC_MSG_CHECKING([for C++17 support])
+               AC_MSG_RESULT([yes])
+               HAVE_CXX17=true],
+              [AC_MSG_CHECKING([for C++17 support])
+               AC_MSG_RESULT([no])
+               HAVE_CXX17=false])
+          AC_LANG_POP()
+       fi
+       if test "$CXX" = false -o "$HAVE_CXX17" = false; then
+         if test ${enable_jit} = yes; then
+           AC_MSG_ERROR([JIT needs a C++ compiler with C++17 support])
+         else
+           enable_jit=no
+           cat >> $ERL_TOP/erts/CONF_INFO <<EOF
+
+                 JIT disabled due to lack of compiler with C++17 support
+EOF
+           AC_MSG_WARN([JIT disable due to lack of C++ compiler with C++17 support])
+        fi
+     fi
+   fi
+
+   if test ${enable_jit} != no; then
+     enable_jit=yes
+   fi
 fi
 
-dnl check to auto-enable hipe here...
-if test "$cross_compiling" != "yes" && test X${enable_hipe} != Xno; then
-  if test -z "$M4"; then
-	enable_hipe=no
-   	AC_MSG_NOTICE([HiPE disabled as no valid m4 is found in PATH])
-  else
-  	case "$ARCH-$OPSYS" in
-	    x86-linux|amd64-linux|x86-darwin*|amd64-darwin*|ppc-linux|ppc64-linux|ppc-darwin|arm-linux|amd64-freebsd|x86-freebsd|x86-sol2|amd64-sol2|ultrasparc-linux)
-      		enable_hipe=yes
-      		;;	
-  	esac
+dnl Test if we can use the native stack for Erlang code
+if test ${enable_jit} != no; then
+  case $host_os in
+    openbsd*)
+      # Whenever the kernel is entered (page faults, system calls, etc),
+      # OpenBSD checks whether the stack pointer is in an area allocated with
+      # MAP_STACK, so we can't use the native stack for Erlang code.
+      #
+      # https://undeadly.org/cgi?action=article;sid=20180310000858
+      enable_native_stack=no;;
+    win32*)
+      # Windows never messes with the stack, so it's safe by default.
+      enable_native_stack=yes;;
+    *)
+      # Use the native stack if we can safely redirect OS signals to a
+      # different stack.
+      AC_MSG_CHECKING([for safe signal delivery])
+      AC_TRY_COMPILE(
+        [#include <signal.h>],
+        [#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+         #define __DARWIN__ 1
+         #endif
+         #if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__sun__))
+         #error "Unknown libc. Assume musl, which does not allow safe signals"
+         #endif],
+        [AC_MSG_RESULT([yes])
+         enable_native_stack=yes],
+        [AC_MSG_RESULT([no, disabling native stack in JIT])
+         enable_native_stack=no]
+      );;
+  esac
+
+  if test X${enable_native_stack} = Xyes; then
+    AC_DEFINE(NATIVE_ERLANG_STACK, [],
+              [Define if we can use the native stack for Erlang code])
   fi
 fi
 
-if test X${enable_hipe} = Xyes; then
-   case $OPSYS in
-	linux)
-		ppcBEAMLDFLAGS="-Wl,-m,elf32ppc"
-		ppc64BEAMLDFLAGS="-Wl,-m,elf64ppc,-T,hipe/elf64ppc.x"
-		;;
-	darwin)
-		amd64BEAMLDFLAGS="-pagezero_size 0x10000000"
-		;;
-   esac
-   archVarName="${ARCH}BEAMLDFLAGS"
-   eval HIPEBEAMLDFLAGS=\$$archVarName
-fi
-AC_SUBST(HIPEBEAMLDFLAGS)
-
-dnl Permanently disable floating point exceptions.
-dnl On x86/amd64, floating points exceptions have
-dnl unresolved stability issues.
-AC_MSG_CHECKING([for unreliable floating point exceptions])
-FPE=unreliable
-AC_SUBST(FPE)
-AC_MSG_RESULT([unreliable])
-AC_DEFINE(NO_FPE_SIGNALS,[],[Define if floating points exceptions are non-existing/not reliable])
+dnl
+dnl Check if the `perf` profiler is supported. At the moment it assumes it
+dnl always works on Linux as we're not dependent on it; this is only used to
+dnl to control whether we generate `perf`-compatible memory maps.
+dnl
+case $OPSYS in
+    linux*)
+        AC_DEFINE(HAVE_LINUX_PERF_SUPPORT, 1,
+                  [Define if the targeted system supports the `perf` profiler])
+        ;;
+    *)
+        ;;
+esac
 
 dnl
 dnl Some operating systems allow you to redefine FD_SETSIZE to be able
@@ -2931,65 +3006,20 @@ dnl Tests related to configurable options given on command line
 dnl (using the --disable, --enable and --with switches).
 dnl ----------------------------------------------------------------------
 
-#
-# Check if we should enable HiPE.
-#
-
-HIPE_ENABLED=
-HIPE_HELPERS=
-
-dnl if not disabled, autoenable HiPE on known supported platforms
-dnl done up where floating point is checked, need to descide there already...
-
-if test X${enable_hipe} = Xyes; then
-  if test X$ac_cv_sizeof_void_p != X4 -a X$ARCH != Xamd64 -a X$ARCH != Xppc64; then
-	AC_MSG_WARN([HiPE is not supported in 64-bit builds])
-  else
-     HIPE_ENABLED=yes
-     AC_DEFINE(HIPE,[1],[Define to enable HiPE])
-     HIPE_HELPERS="xmerl syntax_tools edoc"
-     ENABLE_ALLOC_TYPE_VARS="$ENABLE_ALLOC_TYPE_VARS hipe"
-     AC_MSG_NOTICE([Enable exec_alloc for hipe code allocation])
-     ENABLE_ALLOC_TYPE_VARS="$ENABLE_ALLOC_TYPE_VARS exec_alloc"
-  fi
+JIT_ENABLED=
+FLAVORS="emu jit"
+# Enable jit
+if test X${enable_jit} = Xyes; then
+     JIT_ENABLED=yes
+     PRIMARY_FLAVOR=jit
+else
+     PRIMARY_FLAVOR=emu
 fi
-AC_SUBST(HIPE_HELPERS)
-AC_SUBST(HIPE_ENABLED)
 
-#
-# Check if Erlang libraries should be compiled to native code.
-#
-NATIVE_LIBS_ENABLED=
-if test X${enable_native_libs} = Xyes -a X${HIPE_ENABLED} = Xyes; then
-  NATIVE_LIBS_ENABLED=yes
-  cat >> $ERL_TOP/erts/CONF_INFO <<EOF
-
-                 WARNING: In OTP 22, HiPE (the native code compiler) is
-		 not fully functional. The reasons for this are:
-
-		 1. There are new BEAM instructions for binary
-		 matching that the HiPE native code compiler does not
-		 support. 
-
-		 2. The new optimizations in the Erlang compiler create
-		 new combination of instructions that HiPE currently
-		 does not handle correctly.
-
-		 If erlc is invoked like so:
-
-		     erlc +native some_file.erl
-
-                 or like so:
-
-                     erlc +native some_file.beam
-
-		 and if any of the new binary matching instructions
-		 are used, the compiler will issue a warning and
-		 produce a BEAM file without native code.
-
-EOF
-fi
-AC_SUBST(NATIVE_LIBS_ENABLED)
+AC_SUBST(JIT_ENABLED)
+AC_SUBST(JIT_ARCH)
+AC_SUBST(PRIMARY_FLAVOR)
+AC_SUBST(FLAVORS)
 
 #
 # Check for working poll().
@@ -3195,43 +3225,6 @@ dnl to be optimized
 dnl
 
 LM_FIND_EMU_CC
-
-dnl
-dnl Test whether code pointers are always short (32 bits).
-dnl
-
-AC_MSG_CHECKING([whether the code model is small])
-saved_LDFLAGS="$LDFLAGS"
-LDFLAGS="$LDFLAGS $HIPEBEAMLDFLAGS"
-AC_TRY_RUN([
-   #include <stdlib.h>
-   int main() {
-    if ((unsigned long long)&main < (1ull << 32)) {
-       exit(0);
-    }
-    exit(1);
-   }
-],
-erl_code_model_small=yes,
-erl_code_model_small=no,
-[case X$erl_xcomp_code_model_small in
-      X) erl_code_model_small=no;;
-      Xyes|Xno) erl_code_model_small=$erl_xcomp_code_model_small;;
-      *) AC_MSG_ERROR([Bad erl_xcomp_code_model_small value: $erl_xcomp_code_model_small]);;
- esac])
-AC_MSG_RESULT([$erl_code_model_small])
-LDFLAGS="$saved_LDFLAGS"
-case $erl_code_model_small in
-     yes)
-        AC_DEFINE(CODE_MODEL_SMALL,[1],
-	[Define if the code model is small (code fits below 2Gb)])
-	CODE_MODEL=small
-	;;
-     no)
-	CODE_MODEL=unknown
-        ;;
-esac
-AC_SUBST(CODE_MODEL)
 
 dnl
 dnl DTrace & LTTNG
@@ -3515,6 +3508,9 @@ dnl ---------------------------------------------------------------------
 dnl Autoheader macro for adding code at top and bottom of config.h.in
 dnl ---------------------------------------------------------------------
 AH_TOP([
+#ifndef __ERTS_CONFIG_H__
+#define __ERTS_CONFIG_H__
+
 #define GHBN_R_SOLARIS  2
 #define GHBN_R_AIX      3
 #define GHBN_R_GLIBC    4
@@ -3549,7 +3545,34 @@ AH_BOTTOM([
 #if defined(DEBUG) && !defined(ERTS_ENABLE_LOCK_CHECK)
 #define ERTS_ENABLE_LOCK_CHECK 1
 #endif
+
+#endif /* __ERTS_CONFIG_H__ */
 ])
+
+dnl ----------------------------------------------------------------------
+dnl Check for log2
+dnl ----------------------------------------------------------------------
+AC_CHECK_FUNCS([log2])
+
+
+dnl ----------------------------------------------------------------------
+dnl Check for GCC diagnostic ignored "-Waddress-of-packed-member"
+dnl ----------------------------------------------------------------------
+saved_CFLAGS="$CFLAGS"
+CFLAGS="-Werror $CFLAGS"
+AC_TRY_COMPILE([],
+        [_Pragma("GCC diagnostic push")
+         _Pragma("GCC diagnostic ignored \"-Waddress-of-packed-member\"")
+         _Pragma("GCC diagnostic pop")
+         ],
+         AC_DEFINE(HAVE_GCC_DIAG_IGNORE_WADDRESS_OF_PACKED_MEMBER,[1],
+           [define if compiler support _Pragma('GCC diagnostic ignored '-Waddress-of-packed-member'')]))
+CFLAGS="$saved_CFLAGS"
+
+
+dnl ----------------------------------------------------------------------
+dnl Enable any -Werror flags
+dnl ----------------------------------------------------------------------
 
 if test "x$GCC" = xyes; then
   CFLAGS="$WERRORFLAGS $CFLAGS"
@@ -3574,11 +3597,6 @@ esac
 CFLAGS="$CFLAGS $sanitizers"
 LDFLAGS="$LDFLAGS $sanitizers"
 ])
-
-dnl ----------------------------------------------------------------------
-dnl Check for log2
-dnl ----------------------------------------------------------------------
-AC_CHECK_FUNCS([log2])
 
 dnl ----------------------------------------------------------------------
 dnl Output the result.

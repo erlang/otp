@@ -23,7 +23,7 @@
 	 interesting/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1,
-         check_no_invalid_read_bug/1]).
+         check_no_invalid_read_bug/1,error_info/1, hex_encoding/1]).
 
 -export([random_number/1, make_unaligned/1]).
 
@@ -33,15 +33,15 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,10}}].
 
-all() -> 
+all() ->
     [scope_return,interesting, random_ref_fla_comp, random_ref_sr_comp,
      random_ref_comp, parts, bin_to_list, list_to_bin, copy,
      referenced, guard, encode_decode, badargs,
-     longest_common_trap, check_no_invalid_read_bug].
+     longest_common_trap, check_no_invalid_read_bug,
+     error_info, hex_encoding].
 
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
-
 
 %% Test various badarg exceptions in the module.
 badargs(Config) when is_list(Config) ->
@@ -237,6 +237,12 @@ badargs(Config) when is_list(Config) ->
     badarg =
 	?MASK_ERROR(
 	   binary:at([1,2,4],2)),
+
+    badarg = ?MASK_ERROR(binary:encode_hex("abc")),
+    badarg = ?MASK_ERROR(binary:encode_hex(123)),
+    badarg = ?MASK_ERROR(binary:encode_hex([])),
+    badarg = ?MASK_ERROR(binary:encode_hex(#{})),
+    badarg = ?MASK_ERROR(binary:encode_hex(foo)),
     ok.
 
 %% Whitebox test to force special trap conditions in
@@ -1362,8 +1368,6 @@ make_unaligned2(Bin0) when is_binary(Bin0) ->
     <<31:5,Bin:Sz/binary,0:3>> = id(Bin1),
     Bin.
 
-id(I) -> I.
-
 check_no_invalid_read_bug(Config) when is_list(Config) ->
     check_no_invalid_read_bug(24);
 check_no_invalid_read_bug(60) ->
@@ -1373,3 +1377,127 @@ check_no_invalid_read_bug(I) ->
     binary:encode_unsigned(N+N),
     binary:encode_unsigned(N+N, little),
     check_no_invalid_read_bug(I+1).
+
+error_info(_Config) ->
+    L = [{at, [[no,binary], bad_pos],[{1,".*"},{2,".*"}]},
+         {at, [<<77:7>>, -1],[{1,".*"},{2,".*"}]},
+
+         {bin_to_list, [{no,binary}]},
+         {bin_to_list, [<<1:1>>]},
+
+         {bin_to_list,[<<3:3>>, bad_pos_len],[{1,".*"},{2,".*"}]},
+         {bin_to_list,[<<"abc">>, {0, 99}]},
+
+         {bin_to_list,[<<1,2,3>>, {1,4}]},
+         {bin_to_list,[<<1,2,3>>, 1, 4]},
+         {bin_to_list,[<<1,2,3>>, a, b],[{2,".*"},{3,".*"}]},
+         {bin_to_list,[<<1,2,3>>, a, 0]},
+         {bin_to_list,[<<1,2,3>>, 1, -10]},
+
+         {compile_pattern,[42]},
+         {copy,[no_binary]},
+         {copy,[no_binary,-42],[{1,".*"},{2,".*"}]},
+         {copy,[<<1:1>>,no_integer],[{1,".*"},{2,".*"}]},
+
+         {decode_unsigned,[<<1:1>>]},
+         {decode_unsigned,[<<0,42>>, middle]},
+
+         {encode_unsigned,[abc]},
+         {encode_unsigned,[42, middle]},
+         {encode_unsigned,[abc, big]},
+
+         {first,[<<1:1>>]},
+         {first,[<<>>]},
+
+         {last,[<<1:1>>]},
+         {last,[<<>>]},
+
+         {list_to_bin,[<<1,2,3>>]},
+         {list_to_bin,[{1,2,3}]},
+
+         {longest_common_prefix, [abc]},
+         {longest_common_suffix, [abc]},
+
+         {match, [<<1:1>>, {bm,make_ref()}],[{1,".*"},{2,".*"}]},
+         {match, [<<1:1>>, no_pattern],[{1,".*"},{2,".*"}]},
+         {match, [<<"abc">>, no_pattern]},
+
+         {match, [<<"abc">>, <<"a">>, [{scope,{2,-8}}]]},
+         {match, [<<"abc">>, <<"a">>, [bad_option]]},
+
+         {matches,[<<1:1>>, {bm,make_ref()}],[{1,".*"},{2,".*"}]},
+         {matches,[<<1:1>>, no_pattern],[{1,".*"},{2,".*"}]},
+         {matches,[<<"abc">>, no_pattern]},
+
+         {matches, [<<"abc">>, <<"a">>, [{scope,{0,-1}}]]},
+         {matches, [<<"abc">>, <<"a">>, [bad_option]]},
+
+         {bin_to_list, [{no,binary}]},
+         {bin_to_list, [<<1:1>>]},
+
+         {part, [<<3:3>>, bad_pos_len],[{1,".*"},{2,".*"}]},
+         {part, [<<"abc">>, {0, 99}]},
+
+         {part, [<<1,2,3>>, {1,4}]},
+         {part, [<<1,2,3>>, 1, 4]},
+         {part, [<<1,2,3>>, a, b],[{2,".*"},{3,".*"}]},
+         {part, [<<1,2,3>>, a, 0]},
+         {part, [<<1,2,3>>, 1, -10]},
+
+         {referenced_byte_size, [a]},
+
+         {replace, [<<"xyz">>, <<"x">>, <<1:1>>]},
+         {replace, [<<"xyz",1:1>>, <<"x">>, <<"y">>]},
+         {replace, [<<"xyz">>, {bm,make_ref()}, <<"y">>]},
+
+         {replace, [<<"xyz">>, <<"x">>, <<1:1>>, []]},
+         {replace, [<<"xyz",1:1>>, <<"x">>, <<"y">>, []]},
+         {replace, [<<"xyz">>, {bm,make_ref()}, <<"y">>, []]},
+         {replace, [<<"xyz",1:1>>, <<"x">>, <<"y">>, [bad_option]],[{1,".*"},{4,".*"}]},
+
+         {split, [<<1:15>>, <<"a">>]},
+         {split, [<<1,2,3>>, {bm,make_ref()}]},
+
+         {split, [<<1:15>>, <<"a">>, []]},
+         {split, [<<1,2,3>>, {bm,make_ref()}, []]},
+         {split, [<<1,2,3>>, <<"2">>, [bad_option]]},
+
+         {encode_hex, [{no,a,binary}]},
+         {decode_hex, [{no,a,binary}]},
+         {decode_hex, [<<"000">>],[allow_rename]},
+         {decode_hex, [<<"GG">>],[allow_rename]}
+        ],
+    error_info_lib:test_error_info(binary, L).
+
+hex_encoding(Config) when is_list(Config) ->
+    %% Vector test imported from the RFC 4648 section 10.
+    <<>> = binary:encode_hex(<<>>),
+    <<"66">> = binary:encode_hex(<<"f">>),
+    <<"666F">> = binary:encode_hex(<<"fo">>),
+    <<"666F6F">> = binary:encode_hex(<<"foo">>),
+    <<"666F6F62">> = binary:encode_hex(<<"foob">>),
+    <<"666F6F6261">> = binary:encode_hex(<<"fooba">>),
+    <<"666F6F626172">> = binary:encode_hex(<<"foobar">>),
+
+    <<>> = binary:decode_hex(<<>>),
+    <<"f">> = binary:decode_hex(<<"66">>),
+    <<"fo">> = binary:decode_hex(<<"666F">>),
+    <<"foo">> = binary:decode_hex(<<"666F6F">>),
+    <<"foob">> = binary:decode_hex(<<"666F6F62">>),
+    <<"fooba">> = binary:decode_hex(<<"666F6F6261">>),
+    <<"foobar">> = binary:decode_hex(<<"666F6F626172">>),
+
+    <<"fo">> = binary:decode_hex(<<"666f">>),
+    <<"foo">> = binary:decode_hex(<<"666f6f">>),
+    <<"foob">> = binary:decode_hex(<<"666f6f62">>),
+    <<"fooba">> = binary:decode_hex(<<"666f6f6261">>),
+    <<"foobar">> = binary:decode_hex(<<"666f6f626172">>),
+
+    <<"foobar">> = binary:decode_hex(<<"666f6F626172">>),
+    ok.
+
+%%%
+%%% Utilities.
+%%%
+
+id(I) -> I.

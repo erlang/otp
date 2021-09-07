@@ -55,7 +55,8 @@ enum ErlNifSelectFlags {
     ERL_NIF_SELECT_WRITE     = (1 << 1),
     ERL_NIF_SELECT_STOP      = (1 << 2),
     ERL_NIF_SELECT_CANCEL    = (1 << 3),
-    ERL_NIF_SELECT_CUSTOM_MSG= (1 << 4)
+    ERL_NIF_SELECT_CUSTOM_MSG= (1 << 4),
+    ERL_NIF_SELECT_ERROR     = (1 << 5)
 };
 
 /*

@@ -32,6 +32,7 @@
 #  include "config.h"
 #endif
 
+#if !defined(VALGRIND) && !defined(ADDRESS_SANITIZER)
 
 #include "erl_process.h"
 #include "erl_thr_progress.h"
@@ -347,3 +348,4 @@ erts_sspa_process_remote_frees(erts_sspa_chunk_header_t *chdr,
     return res;
 }
 
+#endif /* !defined(VALGRIND) && !defined(ADDRESS_SANITIZER) */

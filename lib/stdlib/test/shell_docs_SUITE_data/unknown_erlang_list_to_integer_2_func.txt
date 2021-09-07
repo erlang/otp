@@ -1,0 +1,27 @@
+
+  [;1m-spec list_to_integer(String, Base) -> integer()[0m
+  [;1m                         when String :: string(), Base :: 2..36.[0m
+
+  Returns an integer whose text representation in base [;;4mBase[0m is [;;4m[0m
+  [;;4mString[0m, for example:
+
+    > list_to_integer("3FF", 16).
+    1023
+
+    > list_to_integer("+3FF", 16).
+    1023
+
+    > list_to_integer("3ff", 16).
+    1023
+
+    > list_to_integer("3fF", 16).
+    1023
+
+    > list_to_integer("-3FF", 16).
+    -1023
+
+  For example, when [;;4mBase[0m is 16, [;;4mString[0m must match the regular
+  expression [;;4m"^[+-]?([0-9]|[A-F]|[a-f])+$"[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mString[0m contains a bad representation of an
+  integer.

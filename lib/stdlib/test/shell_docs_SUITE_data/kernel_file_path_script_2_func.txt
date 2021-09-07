@@ -1,0 +1,41 @@
+
+  [;1m-spec path_script(Path, Filename) ->[0m
+  [;1m                     {ok, Value, FullName} | {error, Reason}[0m
+  [;1m                     when[0m
+  [;1m                         Path :: [Dir :: name_all()],[0m
+  [;1m                         Filename :: name_all(),[0m
+  [;1m                         Value :: term(),[0m
+  [;1m                         FullName :: filename_all(),[0m
+  [;1m                         Reason ::[0m
+  [;1m                             posix() |[0m
+  [;1m                             badarg | terminated | system_limit |[0m
+  [;1m                             {Line :: integer(),[0m
+  [;1m                              Mod :: module(),[0m
+  [;1m                              Term :: term()}.[0m
+
+  Searches the path [;;4mPath[0m (a list of directory names) until the
+  file [;;4mFilename[0m is found. If [;;4mFilename[0m is an absolute filename, [;;4m[0m
+  [;;4mPath[0m is ignored. Then reads and evaluates Erlang expressions,
+  separated by '.' (or ',', a sequence of expressions is also an
+  expression), from the file.
+
+  Returns one of the following:
+
+  [;;4m[;;4m{ok, Value, FullName}[0m[0m:
+    The file is read and evaluated. [;;4mFullName[0m is the full name of
+    the file and [;;4mValue[0m the value of the last expression.
+
+  [;;4m[;;4m{error, enoent}[0m[0m:
+    The file cannot be found in any of the directories in [;;4mPath[0m.
+
+  [;;4m[;;4m{error, atom()}[0m[0m:
+    An error occurred when opening the file or reading it. For a
+    list of typical error codes, see [;;4mopen/2[0m.
+
+  [;;4m[;;4m{error, {Line, Mod, Term}}[0m[0m:
+    An error occurred when interpreting the Erlang expressions in
+    the file. Use [;;4mformat_error/1[0m to convert the three-element
+    tuple to an English description of the error.
+
+  The encoding of [;;4mFilename[0m can be set by a comment as described in [;;4m[0m
+  [;;4mepp(3)[0m.

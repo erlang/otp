@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,43 +18,35 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgbsizeritem.html">wxGBSizerItem</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxSizerItem}
-%% </p>
-%% @type wxGBSizerItem().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGBSizerItem).
 -include("wxe.hrl").
 -export([]).
 
 %% inherited exports
--export([calcMin/1,deleteWindows/1,detachSizer/1,getBorder/1,getFlag/1,getMinSize/1,
-  getPosition/1,getProportion/1,getRatio/1,getRect/1,getSize/1,getSizer/1,
-  getSpacer/1,getUserData/1,getWindow/1,isShown/1,isSizer/1,isSpacer/1,
-  isWindow/1,parent_class/1,setBorder/2,setDimension/3,setFlag/2,setInitSize/3,
-  setMinSize/2,setMinSize/3,setProportion/2,setRatio/2,setRatio/3,setSizer/2,
-  setSpacer/2,setSpacer/3,setWindow/2,show/2]).
+-export([assignSizer/2,assignSpacer/2,assignSpacer/3,assignWindow/2,calcMin/1,
+  deleteWindows/1,detachSizer/1,getBorder/1,getFlag/1,getMinSize/1,getPosition/1,
+  getProportion/1,getRatio/1,getRect/1,getSize/1,getSizer/1,getSpacer/1,
+  getUserData/1,getWindow/1,isShown/1,isSizer/1,isSpacer/1,isWindow/1,
+  parent_class/1,setBorder/2,setDimension/3,setFlag/2,setInitSize/3,
+  setMinSize/2,setMinSize/3,setProportion/2,setRatio/2,setRatio/3,show/2]).
 
+-type wxGBSizerItem() :: wx:wx_object().
 -export_type([wxGBSizerItem/0]).
 %% @hidden
 parent_class(wxSizerItem) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGBSizerItem() :: wx:wx_object().
  %% From wxSizerItem
 %% @hidden
 show(This,Show) -> wxSizerItem:show(This,Show).
 %% @hidden
-setWindow(This,Window) -> wxSizerItem:setWindow(This,Window).
+assignWindow(This,Window) -> wxSizerItem:assignWindow(This,Window).
 %% @hidden
-setSpacer(This,Width,Height) -> wxSizerItem:setSpacer(This,Width,Height).
+assignSpacer(This,W,H) -> wxSizerItem:assignSpacer(This,W,H).
 %% @hidden
-setSpacer(This,Size) -> wxSizerItem:setSpacer(This,Size).
+assignSpacer(This,Size) -> wxSizerItem:assignSpacer(This,Size).
 %% @hidden
-setSizer(This,Sizer) -> wxSizerItem:setSizer(This,Sizer).
+assignSizer(This,Sizer) -> wxSizerItem:assignSizer(This,Sizer).
 %% @hidden
 setRatio(This,Width,Height) -> wxSizerItem:setRatio(This,Width,Height).
 %% @hidden

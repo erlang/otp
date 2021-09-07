@@ -237,7 +237,7 @@ script_start1(Parent, Args) ->
 			    [], Args),
     Verbosity = verbosity_args2opts(Args),
     MultTT = get_start_opt(multiply_timetraps,
-			   fun([MT]) -> list_to_integer(MT) end, Args),
+			   fun([MT]) -> list_to_number(MT) end, Args),
     ScaleTT = get_start_opt(scale_timetraps,
 			    fun([CT]) -> list_to_atom(CT);
 			       ([]) -> true
@@ -1148,7 +1148,8 @@ run_all_specs([], _, _, TotResult) ->
 				    {Ok1,Fail1,{UserSkip1,AutoSkip1}}) ->
 					{Ok1+Ok,Fail1+Fail,
 					 {UserSkip1+UserSkip,
-					  AutoSkip1+AutoSkip}}
+					  AutoSkip1+AutoSkip}};
+				(Pid, Acc) when is_pid(Pid) -> Acc
 				end, {0,0,{0,0}}, TotResult1)
 	    end
     end;
@@ -3147,6 +3148,8 @@ opts2args(EnvStartOpts) ->
 			  [{Opt,[atom_to_list(A)]}];
 		     ({Opt,I}) when is_integer(I) ->
 			  [{Opt,[integer_to_list(I)]}];
+		     ({Opt,I}) when is_float(I) ->
+			  [{Opt,[float_to_list(I)]}];
 		     ({Opt,S}) when is_list(S) ->
 			  [{Opt,[S]}];
 		     (Opt) ->
@@ -3261,6 +3264,11 @@ stop_trace(true) ->
     dbg:stop_clear();
 stop_trace(false) ->
     ok.
+
+list_to_number(S) ->
+    try list_to_integer(S)
+    catch error:badarg -> list_to_float(S)
+    end.
 
 ensure_atom(Atom) when is_atom(Atom) ->
     Atom;

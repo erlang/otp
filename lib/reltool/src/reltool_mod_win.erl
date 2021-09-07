@@ -471,7 +471,7 @@ handle_event(#state{xref_pid = Xref} = S, Wx) ->
 	#wx{id = ?GOTO_ENTRY,
             event = #wxCommand{type = command_text_enter, cmdString = Str}} ->
 	    goto_line(S, Str);
-        #wx{event = #wxNotebook{type = command_notebook_page_changed}} ->
+        #wx{event = #wxBookCtrl{type = command_notebook_page_changed}} ->
 	    case wxNotebook:getSelection(S#state.book) of
 		0 -> % Deps page
 		    S;
@@ -746,7 +746,6 @@ create_editor(Parent) ->
 	       {?wxSTC_ERLANG_CHARACTER,{236,155,172}},
 	       {?wxSTC_ERLANG_MACRO,    {40,144,170}},
 	       {?wxSTC_ERLANG_RECORD,   {40,100,20}},
-	       {?wxSTC_ERLANG_SEPARATOR,{0,0,0}},
 	       {?wxSTC_ERLANG_NODE_NAME,{0,0,0}}],
     SetStyle = fun({Style, Color}) ->
 		       wxStyledTextCtrl:styleSetFont(Ed, Style, FixedFont),

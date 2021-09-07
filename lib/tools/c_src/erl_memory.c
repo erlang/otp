@@ -94,15 +94,35 @@ typedef int socklen_t;
 
 #define PRINT_OPERATIONS 0
 
+/* In VC++, noreturn is a declspec that has to be before the types,
+ * but in GNUC it is an attribute to be placed between return type
+ * and function name, hence __decl_noreturn <types> __noreturn <function name>
+ *
+ * at some platforms (e.g. Android) __noreturn is defined at sys/cdef.h
+ */
+#if __GNUC__
+#  define __decl_noreturn
+#  ifndef __noreturn
+#     define __noreturn __attribute__((noreturn))
+#  endif
+#else
+#  if defined(__WIN32__) && defined(_MSC_VER)
+#    define __noreturn
+#    define __decl_noreturn __declspec(noreturn)
+#  else
+#    define __noreturn
+#    define __decl_noreturn
+#  endif
+#endif
+
 /* Our own assert() ... */
 #ifdef DEBUG
-#define ASSERT(A) ((void) ((A) ? 1 : assert_failed(__FILE__, __LINE__, #A)))
+#define ASSERT(A) ((A) ? (void)1 : assert_failed(__FILE__, __LINE__, #A))
 #include <stdio.h>
-static int assert_failed(char *f, int l, char *a)
+__decl_noreturn static void __noreturn assert_failed(char *f, int l, char *a)
 {
     fprintf(stderr, "%s:%d: Assertion failed: %s\n", f, l, a);
     abort();
-    return 0;
 }
 
 #else
@@ -131,8 +151,8 @@ static int assert_failed(char *f, int l, char *a)
 #define EM_MIN_TRACE_READ_SIZE (EM_DEFAULT_BUF_SZ/20)
 #define EM_TIME_FIELD_WIDTH 11
 
-static void error(int res);
-static void error_msg(int res, char *msg);
+__decl_noreturn static void __noreturn error(int res);
+__decl_noreturn static void __noreturn error_msg(int res, char *msg);
 
 typedef struct {
     usgnd_int_max size;
@@ -464,10 +484,10 @@ enqueue(em_state *state, em_buf_queue *queue, size_t min_size)
 	buf = (em_buffer *) (*state->alloc)(sizeof(em_buffer)
 					    + (sizeof(char)
 					       * (bsize-EM_DEFAULT_BUF_SZ)));
-	if (buf) {
-	    buf->size = bsize;
-	    reset_buffer(buf, bsize);
-	}
+        if (!buf)
+            error(ENOMEM);
+        buf->size = bsize;
+        reset_buffer(buf, bsize);
     }
 
     if (queue->last) {
@@ -568,15 +588,10 @@ get_next_write_area(em_area *area, em_state *state, em_buf_queue *queue,
 	   ? queue->last
 	   : enqueue(state, queue, size));
 
-    if (buf) {
-	ASSERT(buf->end - buf->data_end >= size);
-	area->ptr = buf->data_end;
-	area->size = buf->end - buf->data_end;
-    }
-    else {
-	area->ptr = NULL;
-	area->size = 0;
-    }
+    ASSERT(buf);
+    ASSERT(buf->end - buf->data_end >= size);
+    area->ptr = buf->data_end;
+    area->size = buf->end - buf->data_end;
 
     if (queue->tot_buf_size > queue->max_buf_size) {
 	fprintf(stderr,
@@ -944,6 +959,10 @@ print_emu_arg(em_state *state)
     size_t size;
     char *format = "> Emulator command line argument: +Mit %s\n";
 
+#ifdef __clang_analyzer__
+    /* CodeChecker does not seem to understand getsockname writes to saddr */
+    memset(&saddr, 0, sizeof(saddr));
+#endif
     if (getsockname(state->input.socket,
 		    (struct sockaddr *) &saddr,
 		    &saddr_size) != 0)
@@ -1859,7 +1878,7 @@ error_string(int error)
     error_str = unknown_error;
 
     if (error > 0) {
-	char *str = strerror(error);
+	const char *str = strerror(error);
 	if (str)
 	    error_str = str;
     }
@@ -1888,13 +1907,13 @@ error_string(int error)
     return error_str;
 }
 
-static void
+__decl_noreturn static void __noreturn
 error(int res)
 {
     error_msg(res, NULL);
 }
 
-static void
+__decl_noreturn static void __noreturn
 error_msg(int res, char *msg)
 {
     fprintf(stderr,
@@ -1998,7 +2017,6 @@ complete_state(em_state *state)
     int i, j, vpo, vpl;
     void * (*allocp)(size_t);
     void * (*reallocp)(void *, size_t);
-    void (*freep)(void *);
     size_t size = sizeof(emtp_info);
 
     if (!emtp_get_info(&state->trace_info, &size, state->trace_state)
@@ -2026,8 +2044,6 @@ complete_state(em_state *state)
 
     allocp = state->alloc;
     reallocp = state->realloc;
-    freep = state->free;
-
 
     state->carrier_table = (*allocp)((state->trace_info.max_allocator_ix+2)
 				     * sizeof(emtbt_table *));
@@ -2297,7 +2313,6 @@ process_trace(em_state *state)
 static void
 usage(char *sw, char *error)
 {
-    int status = 0;
     FILE *filep = stdout;
 #ifdef __WIN32__
 #define SW_CHAR "/"
@@ -2307,7 +2322,6 @@ usage(char *sw, char *error)
 
     if (error) {
 	ASSERT(sw);
-	status = 1;
 	filep = stderr;
 	fprintf(filep, "emem: %s: %s\n", sw, error);
     }
@@ -2385,8 +2399,6 @@ parse_args(em_state *state, int argc, char *argv[])
 {
     int port;
     int i;
-
-    port = -1;
 
     i = 1;
     while (i < argc) {
@@ -2790,15 +2802,6 @@ main(int argc, char *argv[])
 #ifdef DEBUG
     print_string(state, "> [debug]\n");
 #endif
-#ifdef PURIFY
-    print_string(state, "> [purify]\n");
-#endif
-#ifdef QUANTIFY
-    print_string(state, "> [quantify]\n");
-#endif
-#ifdef PURECOV
-    print_string(state, "> [purecov]\n");
-#endif
 
     res = init_connection(state);
     if (res != 0)
@@ -2837,7 +2840,6 @@ main(int argc, char *argv[])
 
     switch (res) {
     case EM_EXIT_RESULT:
-	res = 0;
 	break;
     case EM_TRUNCATED_TRACE_ERROR:
 	error_msg(ires, state->input.error_descr);

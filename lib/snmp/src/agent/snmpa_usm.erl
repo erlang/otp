@@ -17,15 +17,16 @@
 %%
 %% %CopyrightEnd%
 %%
+%% USM: RFC 3414
 %% AES: RFC 3826
 %% 
 
 -module(snmpa_usm).
 
-%% Avoid warning for local function error/1 clashing with autoimported BIF.
--compile({no_auto_import,[error/1]}).
-%% Avoid warning for local function error/2 clashing with autoimported BIF.
--compile({no_auto_import,[error/2]}).
+%% Avoid warning for local functions error/1,2,3 clashing
+%% with autoimported BIFs.
+-compile({no_auto_import, [error/1, error/2, error/3]}).
+
 -export([
 	 process_incoming_msg/4, process_incoming_msg/5, 
 	 generate_outgoing_msg/5, generate_outgoing_msg/6,
@@ -502,8 +503,8 @@ generate_outgoing_msg(Message, SecEngineID, SecName, SecData, SecLevel,
     {ScopedPduData, MsgPrivParams} =
 	encrypt(ScopedPduBytes, PrivProtocol, PrivKey, SecLevel,
                 MsgAuthEngineBoots, MsgAuthEngineTime),
-    %% 3.1.5 - 3.1.7
-    ?vtrace("generate_outgoing_msg -> [3.1.5 - 3.1.7]",[]),
+    %% 3.1.5, 3.1.7
+    ?vtrace("generate_outgoing_msg -> [3.1.5, 3.1.7]",[]),
     UsmSecParams =
 	#usmSecurityParameters{msgAuthoritativeEngineID    = SecEngineID,
 			       msgAuthoritativeEngineBoots = MsgAuthEngineBoots,

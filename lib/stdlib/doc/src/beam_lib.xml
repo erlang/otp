@@ -470,7 +470,7 @@ CryptoKeyFun(clear) -> term()</code>
     </func>
 
     <func>
-      <name name="strip" arity="2" since=""/>
+      <name name="strip" arity="2" since="OTP 22.0"/>
       <fsummary>Remove chunks not needed by the loader from a BEAM file.
       </fsummary>
       <desc>
@@ -495,7 +495,7 @@ CryptoKeyFun(clear) -> term()</code>
     </func>
 
     <func>
-      <name name="strip_files" arity="2" since=""/>
+      <name name="strip_files" arity="2" since="OTP 22.0"/>
       <fsummary>Removes chunks not needed by the loader from BEAM files.
       </fsummary>
       <desc>
@@ -522,7 +522,7 @@ CryptoKeyFun(clear) -> term()</code>
     </func>
 
     <func>
-      <name name="strip_release" arity="2" since=""/>
+      <name name="strip_release" arity="2" since="OTP 22.0"/>
       <fsummary>Remove chunks not needed by the loader from all BEAM files of
         a release.</fsummary>
       <desc>

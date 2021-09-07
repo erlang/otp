@@ -43,7 +43,7 @@ compile() ->
 
 compile_1() ->
     Opts = [{resize,true}],
-    ?FORALL(Abstr, proper_abstr:module(Opts),
+    ?FORALL(Abstr, proper_erlang_abstract_code:module(Opts),
             ?WHENFAIL(
                begin
                    io:format("~ts\n", [[erl_pp:form(F) || F <- Abstr]]),

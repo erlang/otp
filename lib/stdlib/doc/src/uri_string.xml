@@ -84,6 +84,9 @@
       <item>Dissecting form-urlencoded query strings into a list of key-value pairs<br></br>
       <seemfa marker="#dissect_query/1"><c>dissect_query/1</c></seemfa>
       </item>
+      <item>Decoding percent-encoded triplets<br></br>
+      <seemfa marker="#percent_decode/1"><c>percent_decode/1</c></seemfa>
+      </item>
     </list>
     <p>There are four different encodings present during the handling of URIs:</p>
     <list type="bulleted">
@@ -148,6 +151,21 @@
   </datatypes>
 
   <funcs>
+
+    <func>
+      <name name="allowed_characters" arity="0" since="OTP 23.2"/>
+      <fsummary>Print allowed characters in URI components.</fsummary>
+      <desc>
+	<p>This is a utility function meant to be used in the shell for printing
+	the allowed characters in each
+	major URI component, and also in the most important characters sets.
+	Please note that this function does not replace the ABNF rules defined by
+	the standards, these character sets are derived directly from those
+	aformentioned rules. For more information see the
+	<seeguide marker="uri_string_usage#percent_encoding">Uniform Resource
+	Identifiers</seeguide> chapter in stdlib's Users Guide.</p>
+      </desc>
+    </func>
 
     <func>
       <name name="compose_query" arity="1" since="OTP 21.0"/>
@@ -252,7 +270,7 @@
 2> <![CDATA[uri_string:normalize(<<"mid/content=5/../6">>).]]>
 <![CDATA[<<"mid/6">>]]>
 3> uri_string:normalize("http://localhost:80").
-"https://localhost/"
+"http://localhost/"
 4> <input>uri_string:normalize(#{scheme => "http",port => 80,path => "/a/b/c/./../../g",</input>
 4> host => "localhost-örebro"}).
 "http://localhost-%C3%B6rebro/a/g"
@@ -305,6 +323,37 @@
   port => 8042,query => <<"name=ferret">>,scheme => <<"foo">>,
   userinfo => <<"user">>}]]>
 	</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="percent_decode" arity="1" since="OTP 23.2"/>
+      <fsummary>Decode percent-decode triplets in the input.</fsummary>
+      <desc>
+	<p>Decodes all percent-encoded triplets in the input that can be both a
+	<c>uri_string()</c> and a <c>uri_map()</c>. Note, that this function performs
+	raw decoding and it shall be used on already parsed URI components. Applying
+	this function directly on a standard URI can effectively change it.</p>
+	<p>If the input encoding is not UTF-8, an error tuple is returned.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>uri_string:percent_decode(#{host => "localhost-%C3%B6rebro",path => [],</input>
+1> <input>scheme => "http"}).</input>
+#{host => "localhost-örebro",path => [],scheme => "http"}
+2> <![CDATA[uri_string:percent_decode(<<"%C3%B6rebro">>).]]>
+<![CDATA[<<"örebro"/utf8>>]]>
+	</pre>
+	<warning><p>
+	Using <c>uri_string:percent_decode/1</c> directly on a URI is not safe. This
+	example shows, that after each consecutive application of the function
+	the resulting URI will be changed. None of these URIs refer to the same
+        resource.</p>
+	<pre>
+<![CDATA[3> uri_string:percent_decode(<<"http://local%252Fhost/path">>).
+<<"http://local%2Fhost/path">>
+4> uri_string:percent_decode(<<"http://local%2Fhost/path">>).
+<<"http://local/host/path">>]]>
+        </pre></warning>
       </desc>
     </func>
 

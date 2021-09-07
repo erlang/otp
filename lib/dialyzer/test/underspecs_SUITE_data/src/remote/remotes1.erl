@@ -59,3 +59,7 @@ foo15(ok) -> ok.
 
 -spec foo16(local_and_ok_unknown_remote_type_42()) -> ok.
 foo16(ok) -> ok.
+
+-dialyzer({no_underspecs,foo17/1}).
+-spec foo17(ok|ko) -> ok.
+foo17(ok) -> ok.

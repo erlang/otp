@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
-%% Purpose : Main atomics API module.
+%% Purpose : Main counters API module.
 
 -module(counters).
 
@@ -33,41 +33,73 @@
 
 -opaque counters_ref() :: {atomics, reference()} | {write_concurrency, reference()}.
 
+%% We must inline this function so that the stacktrace points to
+%% the correct function.
+-compile({inline, [error_with_info/2]}).
+
 -spec new(Size, Opts) -> counters_ref() when
       Size :: pos_integer(),
       Opts :: [Opt],
       Opt :: atomics | write_concurrency.
-new(Size, [atomics]) ->
-    {atomics, atomics:new(Size, [{signed, true}])};
-new(Size, [write_concurrency]) ->
-    {write_concurrency, erts_internal:counters_new(Size)};
-new(Size, []) ->
-    new(Size, [atomics]);
-new(_, _) ->
-    erlang:error(badarg).
+new(Size, Options) ->
+    try
+        case Options of
+            [atomics] ->
+                {atomics, atomics:new(Size, [{signed, true}])};
+            [write_concurrency] ->
+                {write_concurrency, erts_internal:counters_new(Size)};
+            [] ->
+                {atomics, atomics:new(Size, [{signed, true}])};
+            _ ->
+                error(badopt)
+        end
+    catch
+        error:badopt ->
+            ExtraInfo = [{error_info, #{module => erl_erts_errors,
+                                        cause => badopt}}],
+            error(badarg, [Size, Options], ExtraInfo);
+        error:Error ->
+            error_with_info(Error, [Size, Options])
+    end.
+
 
 -spec get(Ref, Ix) -> integer() when
       Ref  :: counters_ref(),
       Ix :: integer().
-get({atomics,Ref}, Ix) ->
-    atomics:get(Ref, Ix);
-get({write_concurrency, Ref}, Ix) ->
-    erts_internal:counters_get(Ref, Ix);
-get(_, _) ->
-    erlang:error(badarg).
-
+get(Ref, Ix) ->
+    try
+        case Ref of
+            {atomics, R} ->
+                atomics:get(R, Ix);
+            {write_concurrency, R} ->
+                erts_internal:counters_get(R, Ix);
+            _ ->
+                error(badarg)
+        end
+    catch
+        error:Error ->
+            error_with_info(Error, [Ref, Ix])
+    end.
 
 
 -spec add(Ref, Ix, Incr) -> ok when
       Ref  :: counters_ref(),
       Ix :: integer(),
       Incr :: integer().
-add({atomics, Ref}, Ix, Incr) ->
-    atomics:add(Ref, Ix, Incr);
-add({write_concurrency, Ref}, Ix, Incr) ->
-    erts_internal:counters_add(Ref, Ix, Incr);
-add(_, _, _) ->
-    erlang:error(badarg).
+add(Ref, Ix, Incr) ->
+    try
+        case Ref of
+            {atomics, R} ->
+                atomics:add(R, Ix, Incr);
+            {write_concurrency, R} ->
+                erts_internal:counters_add(R, Ix, Incr);
+            _ ->
+                error(badarg)
+        end
+    catch
+        error:Error ->
+            error_with_info(Error, [Ref, Ix, Incr])
+    end.
 
 
 -spec sub(Ref, Ix, Decr) -> ok when
@@ -75,19 +107,40 @@ add(_, _, _) ->
       Ix :: integer(),
       Decr :: integer().
 sub(Ref, Ix, Decr) ->
-    add(Ref, Ix, -Decr).
+    try
+        Incr = -Decr,
+        case Ref of
+            {atomics, R} ->
+                atomics:add(R, Ix, Incr);
+            {write_concurrency, R} ->
+                erts_internal:counters_add(R, Ix, Incr);
+            _ ->
+                error(badarg)
+        end
+    catch
+        error:Error ->
+            error_with_info(Error, [Ref, Ix, Decr])
+    end.
 
 
 -spec put(Ref, Ix, Value) -> ok when
       Ref  :: counters_ref(),
       Ix :: integer(),
       Value :: integer().
-put({atomics, Ref}, Ix, Value) ->
-    atomics:put(Ref, Ix, Value);
-put({write_concurrency, Ref}, Ix, Value) ->
-    erts_internal:counters_put(Ref, Ix, Value);
-put(_, _, _) ->
-    erlang:error(badarg).
+put(Ref, Ix, Value) ->
+    try
+        case Ref of
+            {atomics, R} ->
+                atomics:put(R, Ix, Value);
+            {write_concurrency, R} ->
+                erts_internal:counters_put(R, Ix, Value);
+            _ ->
+                error(badarg)
+        end
+    catch
+        error:Error ->
+            error_with_info(Error, [Ref, Ix, Value])
+    end.
 
 
 -spec info(Ref) -> Info when
@@ -95,10 +148,20 @@ put(_, _, _) ->
       Info :: #{'size':=Size, 'memory':=Memory},
       Size :: non_neg_integer(),
       Memory :: non_neg_integer().
-info({atomics, Ref}) ->
-    atomics:info(Ref);
-info({write_concurrency, Ref}) ->
-    erts_internal:counters_info(Ref);
-info(_) ->
-    erlang:error(badarg).
+info(Ref) ->
+    try
+        case Ref of
+            {atomics, R} ->
+                atomics:info(R);
+            {write_concurrency, R} ->
+                erts_internal:counters_info(R);
+            _ ->
+                error(badarg)
+        end
+    catch
+        error:Error ->
+            error_with_info(Error, [Ref])
+    end.
 
+error_with_info(Reason, Args) ->
+    error(Reason, Args, [{error_info, #{module => erl_erts_errors}}]).

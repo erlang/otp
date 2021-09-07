@@ -350,7 +350,7 @@
 
           <tag><c><![CDATA[ssl]]></c></tag>
           <item>
-            <p>This is the <c>SSL/TLS</c> connectin configuration option.</p>
+            <p>This is the <c>SSL/TLS</c> connecting configuration option.</p>
             <p>Defaults to <c>[]</c>. See <seeerl marker="ssl:ssl">ssl:connect/[2,3,4]</seeerl>  for available options.</p>
 	  </item>
 
@@ -373,11 +373,11 @@
 
           <tag><c><![CDATA[version]]></c></tag>
           <item>
-            <p>Can be used to make the client act as an <c>HTTP/1.0</c> or
-	    <c>HTTP/0.9</c> client. By default this is an <c>HTTP/1.1</c> 
-	    client. When using <c>HTTP/1.0</c> persistent connections are 
-	    not used.</p>
-	    <p>Default is the string <c>"HTTP/1.1"</c>.</p>
+            <p>Can be used to make the client act as an <c>HTTP/1.0</c>
+            client. By default this is an <c>HTTP/1.1</c>
+            client. When using <c>HTTP/1.0</c> persistent connections are
+            not used.</p>
+	          <p>Default is the string <c>"HTTP/1.1"</c>.</p>
 	  </item>
 
           <tag><c><![CDATA[relaxed]]></c></tag>

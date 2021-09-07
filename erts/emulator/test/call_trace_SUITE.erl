@@ -23,7 +23,7 @@
 
 -export([all/0, suite/0,
          init_per_testcase/2,end_per_testcase/2,
-         hipe/1,process_specs/1,basic/1,flags/1,errors/1,pam/1,change_pam/1,
+         process_specs/1,basic/1,flags/1,errors/1,pam/1,change_pam/1,
          return_trace/1,exception_trace/1,on_load/1,deep_exception/1,
          upgrade/1,
          exception_nocatch/1,bit_syntax/1]).
@@ -46,16 +46,10 @@ suite() ->
      {timetrap, {minutes, 2}}].
 
 all() ->
-    Common = [errors, on_load],
-    NotHipe = [process_specs, basic, flags, pam, change_pam,
-               upgrade,
-               return_trace, exception_trace, deep_exception,
-               exception_nocatch, bit_syntax],
-    Hipe = [hipe],
-    case test_server:is_native(call_trace_SUITE) of
-        true -> Hipe ++ Common;
-        false -> NotHipe ++ Common
-    end.
+    [process_specs, basic, flags, pam, change_pam,
+     upgrade,
+     return_trace, exception_trace, deep_exception,
+     exception_nocatch, bit_syntax, errors, on_load].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Config.
@@ -66,16 +60,6 @@ end_per_testcase(_Func, _Config) ->
     %% for the number of traced exported functions in this module.
 
     c:l(?MODULE).
-
-hipe(Config) when is_list(Config) ->
-    0 = erlang:trace_pattern({?MODULE,worker_foo,1}, true),
-    0 = erlang:trace_pattern({?MODULE,worker_foo,1}, true, [local]),
-    AllFuncs = erlang:trace_pattern({'_','_','_'}, true),
-
-    %% Make sure that a traced, exported function can still be found.
-    true = erlang:function_exported(error_handler, undefined_function, 3),
-    AllFuncs = erlang:trace_pattern({'_','_','_'}, false),
-    ok.
 
 %% Tests 'all', 'new', and 'existing' for specifying processes.
 process_specs(Config) when is_list(Config) ->
@@ -168,12 +152,6 @@ worker_foo(_Arg) ->
 
 %% Basic test of the call tracing (we trace one process).
 basic(_Config) ->
-    case test_server:is_native(lists) of
-        true -> {skip,"lists is native"};
-        false -> basic()
-    end.
-
-basic() ->
     start_tracer(),
     trace_info(self(), flags),
     trace_info(self(), tracer),
@@ -388,12 +366,6 @@ compile_version(Module, Version, Config) ->
 %% Test flags (arity, timestamp) for call_trace/3.
 %% Also, test the '{tracer,Pid}' option.
 flags(_Config) ->
-    case test_server:is_native(filename) of
-        true -> {skip,"filename is native"};
-        false -> flags()
-    end.
-
-flags() ->
     Tracer = start_tracer_loop(),
     trace_pid(self(), true, [call,{tracer,Tracer}]),
 
@@ -553,12 +525,6 @@ pam_foo(A, B) ->
 
 %% Test changing PAM programs for a function.
 change_pam(_Config) ->
-    case test_server:is_native(lists) of
-        true -> {skip,"lists is native"};
-        false -> change_pam()
-    end.
-
-change_pam() ->
     start_tracer(),
     Self = self(),
 
@@ -597,12 +563,6 @@ change_pam_trace(Prog) ->
     ok.
 
 return_trace(_Config) ->
-    case test_server:is_native(lists) of
-        true -> {skip,"lists is native"};
-        false -> return_trace()
-    end.
-
-return_trace() ->
     X = {save,me},
     start_tracer(),
     Self = self(),
@@ -618,7 +578,7 @@ return_trace() ->
     {match_spec,Prog1} = trace_info({erlang,process_info,2}, match_spec),
 
     [x,y] = lists:append(id([x]), id([y])),
-    Current = {current_function,{?MODULE,return_trace,0}},
+    Current = {current_function,{?MODULE,return_trace,1}},
     Current = erlang:process_info(Self, current_function),
     expect({trace_ts,Self,call,{lists,append,[[x],[y]]},Stupid,ts}),
     expect({trace_ts,Self,return_from,{lists,append,2},[x,y],ts}),
@@ -669,12 +629,6 @@ nasty() ->
     exit(good_bye).
 
 exception_trace(_Config) ->
-    case test_server:is_native(lists) of
-        true -> {skip,"lists is native"};
-        false -> exception_trace()
-    end.
-
-exception_trace() ->
     X = {save,me},
     start_tracer(),
     Self = self(),
@@ -691,7 +645,7 @@ exception_trace() ->
     trace_info({erlang,process_info,2}, match_spec),
 
     [x,y] = lists:append(id([x]), id([y])),
-    Current = {current_function,{?MODULE,exception_trace,0}},
+    Current = {current_function,{?MODULE,exception_trace,1}},
     Current = erlang:process_info(Self, current_function),
     expect({trace_ts,Self,call,{lists,append,[[x],[y]]},Stupid,ts}),
     expect({trace_ts,Self,return_from,{lists,append,2},[x,y],ts}),
@@ -794,7 +748,7 @@ deep_exception() ->
     1 = trace_func({erlang,'++','_'}, Prog),
     1 = trace_func({erlang,exit,1}, Prog),
     1 = trace_func({erlang,throw,1}, Prog),
-    2 = trace_func({erlang,error,'_'}, Prog),
+    3 = trace_func({erlang,error,'_'}, Prog),
     1 = trace_func({lists,reverse,2}, Prog),
 
     deep_exception(?LINE, exit, [paprika], 1, 
@@ -1092,7 +1046,7 @@ exception_nocatch() ->
     1 = erlang:trace_pattern({?MODULE,id,'_'}, Prog),
     1 = erlang:trace_pattern({erlang,exit,1}, Prog),
     1 = erlang:trace_pattern({erlang,throw,1}, Prog),
-    2 = erlang:trace_pattern({erlang,error,'_'}, Prog),
+    3 = erlang:trace_pattern({erlang,error,'_'}, Prog),
     Q1 = {make_ref(),Prog},
     T1 = 
     exception_nocatch(?LINE, exit, [Q1], 3, 

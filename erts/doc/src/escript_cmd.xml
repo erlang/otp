@@ -42,7 +42,7 @@
       the top <c>bin</c> directory of the standalone system and given
       <c>.escript</c> as file extension. Further the (built-in)
       <c>escript</c> program should be copied to the same directory and
-      given the scripts original name (without the <c>.escript</c>
+      given the script's original name (without the <c>.escript</c>
       extension). This will enable use of the bundled Erlang runtime
       system.</p>
 
@@ -72,7 +72,7 @@ $ <input>chmod u+x factorial</input>
 $ <input>cat factorial</input>
 #!/usr/bin/env escript
 %% -*- erlang -*-
-%%! -smp enable -sname factorial -mnesia debug verbose
+%%! -sname factorial -mnesia debug verbose
 main([String]) ->
     try
         N = list_to_integer(String),
@@ -101,7 +101,7 @@ usage: factorial integer</pre>
           a normal Erlang module. The first line is intended to be the
           interpreter line, which invokes <c>escript</c>.</p>
         <p>However, if you invoke the <c>escript</c> as follows,
-          the contents of the first line does not matter, but it
+          the contents of the first line do not matter, but it
           cannot contain Erlang code as it will be ignored:</p>
         <pre>
 $ <input>escript factorial 5</input></pre>
@@ -129,7 +129,7 @@ io:setopts([{encoding, unicode}])</code>
           of the Emacs directive), arguments can be specified to
           the emulator, for example:</p>
         <pre>
-%%! -smp enable -sname factorial -mnesia debug verbose</pre>
+%%! -sname factorial -mnesia debug verbose</pre>
         <p>Such an argument line must start with <c>%%!</c> and the
           remaining line is interpreted as arguments to the emulator.</p>
         <p>If you know the location of the <c>escript</c> executable, the first
@@ -192,10 +192,7 @@ halt(1).</pre>
         <p>Execution of interpreted code is slower than compiled code.
           If much of the execution takes place in interpreted code, it
           can be worthwhile to compile it, although the compilation
-          itself takes a little while. Also, <c>native</c> can be supplied
-          instead of <c>compile</c>. This compiles the script
-          using the native flag and may or may not be worthwhile
-          depending on the escript characteristics.</p>
+          itself takes a little while.</p>
         <p>As mentioned earlier, a script can
           contains precompiled <c>beam</c> code. In a precompiled
           script, the interpretation of the script header is
@@ -275,27 +272,27 @@ factorial 5 = 120</pre>
           can either be returned as a binary or written to file.</p>
         <p>As an example of how the function can be used, we create an
           interpreted escript that uses <c>emu_args</c> to set some emulator
-          flag. In this case, it happens to disable the <c>smp_support</c>. We
+          flag. In this case, it happens to set number of schedulers with <c>+S3</c>. We
           also extract the different sections from the newly created script:</p>
         <pre>
-&gt; <input>Source = "%% Demo\nmain(_Args) ->\n    io:format(erlang:system_info(smp_support)).\n".</input>
-"%% Demo\nmain(_Args) ->\n    io:format(erlang:system_info(smp_support)).\n"
+&gt; <input>Source = "%% Demo\nmain(_Args) ->\n    io:format(\"~p\",[erlang:system_info(schedulers)]).\n".</input>
+"%% Demo\nmain(_Args) ->\n    io:format(erlang:system_info(schedulers)).\n"
 &gt; <input>io:format("~s\n", [Source]).</input>
 %% Demo
 main(_Args) ->
-    io:format(erlang:system_info(smp_support)).
+    io:format(erlang:system_info(schedulers)).
 
 ok
-&gt; <input>{ok, Bin} = escript:create(binary, [shebang, comment, {emu_args, "-smp disable"},
+&gt; <input>{ok, Bin} = escript:create(binary, [shebang, comment, {emu_args, "+S3"},
                                       {source, list_to_binary(Source)}]).</input>
-{ok,&lt;&lt;"#!/usr/bin/env escript\n%% This is an -*- erlang -*- file\n%%!-smp disabl"...&gt;&gt;}
+{ok,&lt;&lt;"#!/usr/bin/env escript\n%% This is an -*- erlang -*- file\n%%!+S3"...&gt;&gt;}
 &gt; <input>file:write_file("demo.escript", Bin).</input>
 ok
 &gt; <input>os:cmd("escript demo.escript").</input>
-"false"
+"3"
 &gt; <input>escript:extract("demo.escript", []).</input>
-{ok,[{shebang,default}, {comment,default}, {emu_args,"-smp disable"},
-     {source,&lt;&lt;"%% Demo\nmain(_Args) ->\n    io:format(erlang:system_info(smp_su"...&gt;&gt;}]}</pre>
+{ok,[{shebang,default}, {comment,default}, {emu_args,"+S3"},
+     {source,&lt;&lt;"%% Demo\nmain(_Args) ->\n    io:format(erlang:system_info(schedu"...&gt;&gt;}]}</pre>
         <p>An escript without header can be created as follows:</p>
         <pre>
 &gt; <input>file:write_file("demo.erl",
@@ -442,9 +439,12 @@ ok
         the script will not be run. The exit status is <c>0</c> if any errors
         are found, otherwise <c>127</c>.
       </item>
-      <tag><c>-n</c></tag>
-      <item>Compiles the escript using flag <c>+native</c>.
-      </item>
     </taglist>
+    <note>
+      <p>The configuration of the Erlang emulator invoked by
+        <c>escript</c> can be controlled using the <seecom
+        marker="erl#environment_variables"> environment variables
+        understood by <c>erl</c></seecom>.</p>
+    </note>
   </section>
 </comref>

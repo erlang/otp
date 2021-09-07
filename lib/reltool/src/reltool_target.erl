@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -250,6 +250,7 @@ gen_app(#app{name = Name,
                               maxP = MaxP,
                               maxT = MaxT,
                               registered = Regs,
+                              opt_apps = OptApps,
                               incl_apps = InclApps,
                               applications = ReqApps,
                               env = Env,
@@ -272,6 +273,7 @@ gen_app(#app{name = Name,
       {modules, Mods},
       {registered, Regs},
       {applications, ReqApps},
+      {optional_applications, OptApps},
       {included_applications, InclApps},
       {env, Env},
       {maxT, MaxT},
@@ -349,12 +351,13 @@ do_merge_apps(RelName, [#rel_app{name = Name} = RA | RelApps], Apps, RelAppType,
 	    do_merge_apps(RelName, RelApps, Apps, RelAppType, Acc);
 	false ->
 	    {value, App} = lists:keysearch(Name, #app.name, Apps),
-	    MergedApp = merge_app(RelName, RA, RelAppType, App),
-	    ReqNames = (MergedApp#app.info)#app_info.applications,
-	    IncNames = (MergedApp#app.info)#app_info.incl_apps,
-	    Acc2 = [MergedApp | Acc],
+	    #app{info = Info} = MergedApp = merge_app(RelName, RA, RelAppType, App),
+	    #app_info{applications = Children, incl_apps = IncNames, opt_apps = OptNames} = Info,
+	    ReqNames = [ChildName || ChildName <- Children,
+				     not lists:member(ChildName, OptNames),
+				     lists:keymember(ChildName, #app.name, Apps)],
 	    do_merge_apps(RelName, ReqNames ++ IncNames ++ RelApps,
-			  Apps, RelAppType, Acc2)
+			  Apps, RelAppType, [MergedApp | Acc])
     end;
 do_merge_apps(RelName, [Name | RelApps], Apps, RelAppType, Acc) ->
   case is_already_merged(Name, RelApps, Acc) of
@@ -543,8 +546,9 @@ find_pos([], _OrderedApps) ->
 find_pos(N, Name, [#app{name=Name}|_OrderedApps]) ->
     {N, Name};
 find_pos(N, Name, [_OtherAppl|OrderedApps]) ->
-    find_pos(N+1, Name, OrderedApps).
-
+    find_pos(N+1, Name, OrderedApps);
+find_pos(_N, Name, []) ->
+    {optional, Name}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -578,7 +582,7 @@ sort_apps([#app{name = Name, info = Info} = App | Apps],
 		 Visited,
 		 [],
 		 []),
-    Missing1 = NotFnd1 ++ NotFnd2 ++ Missing,
+    Missing1 = (NotFnd1 -- Info#app_info.opt_apps) ++ NotFnd2 ++ Missing,
     case Uses ++ Incs of
         [] ->
             %% No more app that must be started before this one is
@@ -792,12 +796,8 @@ do_spec_rel_files(#rel{name = RelName} = Rel,  Sys) ->
     PathFlag = true,
     {ok, Script} = do_gen_script(Rel, Sys, MergedApps, PathFlag, Variables),
     {ok, BootBin} = gen_boot(Script),
-    Date = date(),
-    Time = time(),
-    RelIoList = io_lib:format("%% rel generated at ~w ~w\n~tp.\n\n",
-                              [Date, Time, GenRel]),
-    ScriptIoList = io_lib:format("%% script generated at ~w ~w\n~tp.\n\n",
-                                 [Date, Time, Script]),
+    RelIoList = io_lib:format("~tp.\n\n", [GenRel]),
+    ScriptIoList = io_lib:format("~tp.\n\n", [Script]),
     [
      {write_file, RelFile, to_utf8_bin_with_enc_comment(RelIoList)},
      {write_file, ScriptFile, to_utf8_bin_with_enc_comment(ScriptIoList)},
@@ -1195,8 +1195,7 @@ spec_app_file(#app{name = Name,
                                                    Info#app_info.modules)],
             App2 = App#app{info = Info#app_info{modules = ModNames}},
             Contents = gen_app(App2),
-            AppIoList = io_lib:format("%% app generated at ~w ~w\n~tp.\n\n",
-                                      [date(), time(), Contents]),
+            AppIoList = io_lib:format("~tp.\n\n", [Contents]),
             [{write_file, AppFilename, to_utf8_bin_with_enc_comment(AppIoList)}];
         all ->
             %% Include all included modules
@@ -1204,8 +1203,7 @@ spec_app_file(#app{name = Name,
             ModNames = [M#mod.name || M <- Mods, M#mod.is_included],
             App2 = App#app{info = Info#app_info{modules = ModNames}},
             Contents = gen_app(App2),
-            AppIoList = io_lib:format("%% app generated at ~w ~w\n~tp.\n\n",
-                                      [date(), time(), Contents]),
+            AppIoList = io_lib:format("~tp.\n\n", [Contents]),
             [{write_file, AppFilename, to_utf8_bin_with_enc_comment(AppIoList)}]
 
     end.

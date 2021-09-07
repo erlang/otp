@@ -26,6 +26,8 @@
 
 -module(diameter_traffic).
 
+-dialyzer(no_improper_lists).
+
 %% towards diameter
 -export([send_request/4]).
 

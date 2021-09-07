@@ -370,6 +370,7 @@ TreeDbTerm* insert_TreeDbTerm(DbTableCATree *tb,
 		    p->balance = 0;
 		    (*this) = p1;
 		} else { /* Double RR rotation */
+                    ASSERT(p1->right);
 		    p2 = p1->right;
 		    p1->right = p2->left;
 		    p2->left = p1;
@@ -400,6 +401,7 @@ TreeDbTerm* insert_TreeDbTerm(DbTableCATree *tb,
 		    p->balance = 0;
 		    (*this) = p1;
 		} else { /* Double RL rotation */
+                    ASSERT(p1->left);
 		    p2 = p1->left;
 		    p1->left = p2->right;
 		    p2->right = p1;
@@ -465,8 +467,10 @@ static ERTS_INLINE int compute_tree_hight(TreeDbTerm * root)
         int hight_so_far = 1;
         while (current_node->left != NULL || current_node->right != NULL) {
             if (current_node->balance == -1) {
+                ASSERT(current_node->left != NULL);
                 current_node = current_node->left;
             } else {
+                ASSERT(current_node->right != NULL);
                 current_node = current_node->right;
             }
             hight_so_far = hight_so_far + 1;
@@ -628,6 +632,7 @@ static TreeDbTerm* join_trees(TreeDbTerm *left_root_param,
                     p->balance = 0;
                     (*this) = p1;
                 } else { /* Double RR rotation */
+                    ASSERT(p1->right);
                     p2 = p1->right;
                     p1->right = p2->left;
                     p2->left = p1;
@@ -658,6 +663,7 @@ static TreeDbTerm* join_trees(TreeDbTerm *left_root_param,
                     p->balance = 0;
                     (*this) = p1;
                 } else { /* Double RL rotation */
+                    ASSERT(p1->left);
                     p2 = p1->left;
                     p1->left = p2->right;
                     p2->right = p1;

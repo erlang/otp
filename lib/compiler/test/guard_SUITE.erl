@@ -217,6 +217,10 @@ basic_not(Config) when is_list(Config) ->
     check(fun() -> if not (True xor False) -> ok;
 		      true -> error end end, error),
 
+    check(fun() -> if not (True =:= true) -> ok; true -> error end end, error),
+    check(fun() -> if not (False =:= true) -> ok; true -> error end end, ok),
+    check(fun() -> if not (Glurf =:= true) -> ok; true -> error end end, ok),
+
     ok.
 
 complex_not(Config) when is_list(Config) ->
@@ -1084,15 +1088,50 @@ on(V) when number(V) -> number;
 on(_) -> not_number.
 
 complex_guard(_Config) ->
-    _ = [true = do_complex_guard(X, Y, Z) ||
+    _ = [true = do_complex_guard_1(X, Y, Z) ||
 	    X <- [4,5], Y <- [4,5], Z <- [4,5]],
-    _ = [true = do_complex_guard(X, Y, Z) ||
+    _ = [true = do_complex_guard_1(X, Y, Z) ||
 	    X <- [1,2,3], Y <- [1,2,3], Z <- [1,2,3]],
-    _ = [catch do_complex_guard(X, Y, Z) ||
+    _ = [catch do_complex_guard_1(X, Y, Z) ||
 	    X <- [1,2,3,4,5], Y <- [0,6], Z <- [1,2,3,4,5]],
+
+    b = do_complex_guard_2(false, false, true),
+    c = do_complex_guard_2(false, false, false),
+    c = do_complex_guard_2(false, true,  true),
+    a = do_complex_guard_2(false, true,  false),
+
+    c = do_complex_guard_2(true,  false, true),
+    a = do_complex_guard_2(true,  false, false),
+    c = do_complex_guard_2(true,  true,  true),
+    a = do_complex_guard_2(true,  true,  false),
+
+    c = do_complex_guard_2(other, false, true),
+    c = do_complex_guard_2(other, false, false),
+    c = do_complex_guard_2(other, true,  true),
+    c = do_complex_guard_2(other, true,  false),
+
+    c = do_complex_guard_2(false, other, true),
+    c = do_complex_guard_2(false, other, false),
+    c = do_complex_guard_2(true,  other, true),
+    a = do_complex_guard_2(true,  other, false),
+
+    c = do_complex_guard_2(false, false, other),
+    c = do_complex_guard_2(false, true,  other),
+    c = do_complex_guard_2(true,  false, other),
+    c = do_complex_guard_2(true,  true,  other),
+
+    c = do_complex_guard_2(false, other, other),
+    c = do_complex_guard_2(true,  other, other),
+    c = do_complex_guard_2(other, other, true),
+    c = do_complex_guard_2(other, other, false),
+    c = do_complex_guard_2(other, false, other),
+    c = do_complex_guard_2(other, true,  other),
+
+    c = do_complex_guard_2(other, other, other),
+
     ok.
 
-do_complex_guard(X1, Y1, Z1) ->
+do_complex_guard_1(X1, Y1, Z1) ->
     if
 	((X1 =:= 4) or (X1 =:= 5)) and
 	((Y1 =:= 4) or (Y1 =:= 5)) and
@@ -1102,6 +1141,13 @@ do_complex_guard(X1, Y1, Z1) ->
 	((Z1 =:= 1) or (Z1 =:= 2) or (Z1 =:= 3)) ->
 	    true
     end.
+
+do_complex_guard_2(X, Y, Z) ->
+  if
+      (X orelse Y) andalso (not Z) -> a;
+      Z andalso (not (X orelse Y)) -> b;
+      true                         -> c
+  end.
 
 gbif(Config) when is_list(Config) ->
     error = gbif_1(1, {false,true}),
@@ -2302,6 +2348,9 @@ beam_bool_SUITE(_Config) ->
     andalso_repeated_var(),
     erl1246(),
     erl1253(),
+    erl1384(),
+    gh4788(),
+    beam_ssa_bool_coverage(),
     ok.
 
 before_and_inside_if() ->
@@ -2559,6 +2608,10 @@ fail_in_guard() ->
     error = fun() when (0 #fail_in_guard.f)#fail_in_guard.f -> ok;
                () -> error
             end(),
+    error = fun() when 42; <<0.5,0:(element(true, false))>> ->
+                    a = b;
+               () -> error
+            end(),
 
     ok.
 
@@ -2762,6 +2815,52 @@ erl1253_andalso_true_3(X, Y, Z) ->
         Bool1 andalso Bool2 -> ok;
         true -> error
     end.
+
+erl1384() ->
+    gurka = erl1384_1(id(a)),
+    gaffel = erl1384_1(id(b)),
+    ok.
+
+erl1384_1(V) ->
+    case {id(false), V =/= a} of
+        {true, true} -> not_reachable;
+        {_, false} -> gurka;
+        _ -> gaffel
+    end.
+
+gh4788() ->
+    ok = do_gh4788(id(0)),
+    ok = do_gh4788(id(1)),
+    ok = do_gh4788(id(undefined)),
+    lt_0_or_undefined = catch do_gh4788(id(-1)),
+    ok.
+
+do_gh4788(N) ->
+    %% beam_ssa_bool would do an unsafe optimization when run after
+    %% the beam_ssa_share pass.
+    case {N >= 0, N == undefined} of
+        {true, _} -> ok;
+        {_, true} -> ok;
+        _ -> throw(lt_0_or_undefined)
+    end,
+    ok.
+
+beam_ssa_bool_coverage() ->
+    {"*","abc"} = collect_modifiers("abc*", []),
+    error = beam_ssa_bool_coverage_1(true),
+    ok.
+
+collect_modifiers([H | T], Buffer)
+    when (H >= $a andalso H =< $z) or
+         (H >= $A andalso H =< $Z) ->
+    collect_modifiers(T, [H | Buffer]);
+collect_modifiers(Rest, Buffer) ->
+    {Rest, lists:reverse(Buffer)}.
+
+beam_ssa_bool_coverage_1(V) when V andalso 0, tuple_size(0) ->
+    ok;
+beam_ssa_bool_coverage_1(_) ->
+    error.
 
 %%%
 %%% End of beam_bool_SUITE tests.

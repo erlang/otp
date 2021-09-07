@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,19 +119,30 @@ create_http_header_elements(ScriptType, [{Name, [Value | _] = Values } |
 					 Headers], Acc) 
   when is_list(Value) ->
     NewName = lists:map(fun(X) -> if X == $- -> $_; true -> X end end, Name),
-    Element = http_env_element(ScriptType, NewName, multi_value(Values)),
-    create_http_header_elements(ScriptType, Headers, [Element | Acc]);
-
+    try http_env_element(ScriptType, NewName, multi_value(Values)) of
+        Element ->
+            create_http_header_elements(ScriptType, Headers, [Element | Acc])
+    catch
+        _:_ ->
+            create_http_header_elements(ScriptType, Headers, Acc)
+    end;
 create_http_header_elements(ScriptType, [{Name, Value} | Headers], Acc) 
   when is_list(Value) ->
     NewName = re:replace(Name,"-","_", [{return,list}, global]),
-    Element = http_env_element(ScriptType, NewName, Value),
-    create_http_header_elements(ScriptType, Headers, [Element | Acc]).
+    try http_env_element(ScriptType, NewName, Value) of
+        Element ->
+            create_http_header_elements(ScriptType, Headers, [Element | Acc])
+    catch
+        _:_ ->
+            create_http_header_elements(ScriptType, Headers, Acc)
+    end.
 
 http_env_element(cgi, VarName, Value)  ->
     {"HTTP_"++ http_util:to_upper(VarName), Value};
 http_env_element(esi, VarName, Value)  ->
-    {list_to_atom("http_"++ http_util:to_lower(VarName)), Value}.
+    HeaderName = http_util:to_lower(VarName),
+    list_to_existing_atom(HeaderName),
+    {list_to_atom("http_"++ HeaderName), Value}.
 
 multi_value([]) ->
   [];
@@ -166,9 +177,9 @@ create_script_elements(cgi, path_info, PathInfo, ModData) ->
     [{"PATH_INFO", PathInfo},
      {"PATH_TRANSLATED", PathTranslated}];
 create_script_elements(esi, entity_body, Body, _) ->
-    [{content_length, integer_to_list(httpd_util:flatlength(Body))}]; 
+    [{content_length, integer_to_list(erlang:iolist_size(Body))}];
 create_script_elements(cgi, entity_body, Body, _) ->
-    [{"CONTENT_LENGTH", integer_to_list(httpd_util:flatlength(Body))}]; 
+    [{"CONTENT_LENGTH", integer_to_list(erlang:iolist_size(Body))}];
 create_script_elements(_, _, _, _) ->
     [].
 

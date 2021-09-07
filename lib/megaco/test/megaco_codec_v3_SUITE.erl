@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2006-2019. All Rights Reserved.
-%%
+%% 
+%% Copyright Ericsson AB 2006-2020. All Rights Reserved.
+%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -137,8 +137,10 @@
          compact_otp16818_msg34/1,
          compact_otp16818_msg35/1,
          compact_otp16818_msg36/1,
-
-	 flex_compact_otp4299_msg1/1,
+         compact_erl1405_msg01/1,
+         compact_erl1405_msg02/1,
+	 
+	 flex_compact_otp4299_msg1/1, 
          flex_compact_otp7431_msg01/1,
          flex_compact_otp7431_msg02/1,
          flex_compact_otp7431_msg03/1,
@@ -193,16 +195,18 @@
          pretty_otp7671_msg04/1,
          pretty_otp7671_msg05/1,
          pretty_otp8114_msg01/1,
-
-	 flex_pretty_otp5042_msg1/1,
-	 flex_pretty_otp5085_msg1/1,
-	 flex_pretty_otp5085_msg2/1,
-	 flex_pretty_otp5085_msg3/1,
-	 flex_pretty_otp5085_msg4/1,
-	 flex_pretty_otp5085_msg5/1,
-	 flex_pretty_otp5085_msg6/1,
-	 flex_pretty_otp5085_msg7/1,
-	 flex_pretty_otp5085_msg8/1,
+         pretty_erl1405_msg01/1,
+         pretty_erl1405_msg02/1,
+	 
+	 flex_pretty_otp5042_msg1/1, 
+	 flex_pretty_otp5085_msg1/1, 
+	 flex_pretty_otp5085_msg2/1, 
+	 flex_pretty_otp5085_msg3/1, 
+	 flex_pretty_otp5085_msg4/1, 
+	 flex_pretty_otp5085_msg5/1, 
+	 flex_pretty_otp5085_msg6/1, 
+	 flex_pretty_otp5085_msg7/1, 
+	 flex_pretty_otp5085_msg8/1, 
          flex_pretty_otp5600_msg1/1,
          flex_pretty_otp5600_msg2/1,
          flex_pretty_otp5601_msg1/1,
@@ -406,7 +410,6 @@ compact_tickets_cases() ->
      compact_otp6017_msg01,
      compact_otp6017_msg02,
      compact_otp6017_msg03,
-
      compact_otp16818_msg01,
      compact_otp16818_msg02,
      compact_otp16818_msg03,
@@ -430,7 +433,9 @@ compact_tickets_cases() ->
      compact_otp16818_msg33,
      compact_otp16818_msg34,
      compact_otp16818_msg35,
-     compact_otp16818_msg36
+     compact_otp16818_msg36,
+     compact_erl1405_msg01,
+     compact_erl1405_msg02
     ].
 
 flex_compact_tickets_cases() ->
@@ -492,7 +497,9 @@ pretty_tickets_cases() ->
      pretty_otp7671_msg03,
      pretty_otp7671_msg04,
      pretty_otp7671_msg05,
-     pretty_otp8114_msg01
+     pretty_otp8114_msg01,
+     pretty_erl1405_msg01,
+     pretty_erl1405_msg02
     ].
 
 flex_pretty_tickets_cases() ->
@@ -2222,7 +2229,6 @@ compact_otp6017_msg(CID) when is_integer(CID) ->
         "{SC=root{SV{MT=RS,RE=901}}}}".
 
 
-
 %% --------------------------------------------------------------
 %%
 compact_otp16818_msg01(suite) ->
@@ -2552,6 +2558,62 @@ compact_otp16818( Msg ) ->
 compact_otp16818_msg(X) when is_list(X) ->
     "!/3 [2409:8050:5005:1243:1011::" ++ X ++
         "] T=2523{C=-{SC=ROOT{SV{MT=RS,RE=901,PF=ETSI_BGF/2,V=3}}}}".
+
+
+%% --------------------------------------------------------------
+
+compact_erl1405_msg01(suite) ->
+    [];
+compact_erl1405_msg01(Config) when is_list(Config) ->
+    put(severity,trc),
+    put(dbg,true),
+    d("compact_erl1405_msg01 -> entry", []),
+    ?ACQUIRE_NODES(1, Config),
+    ok = compact_erl1405(statisticsDescriptor),
+    erase(severity),
+    erase(dbg),
+    ok.
+
+compact_erl1405_msg02(suite) ->
+    [];
+compact_erl1405_msg02(Config) when is_list(Config) ->
+    put(severity,trc),
+    put(dbg,true),
+    d("compact_erl1405_msg02 -> entry", []),
+    ?ACQUIRE_NODES(1, Config),
+    ok = compact_erl1405({statisticsDescriptor, []}),
+    erase(severity),
+    erase(dbg),
+    ok.
+
+compact_erl1405(Descriptor) ->
+    ticket_compact_encode_decode_ok( erl1405_msg(Descriptor) ).
+
+erl1405_msg(Descriptor) ->
+    #'MegacoMessage'{
+        mess = #'Message'{
+            version = ?VERSION,
+            mId = {deviceName, "test"},
+            messageBody = {transactions, [
+                {transactionRequest, #'TransactionRequest'{
+                    transactionId = 1,
+                    actions = [
+                        #'ActionRequest'{
+                            contextId = ?megaco_choose_context_id,
+                            commandRequests = [
+                                #'CommandRequest'{
+                                    command = {addReq, #'AmmRequest'{
+                                        terminationID = [#megaco_term_id{id = ["test"]}],
+                                        descriptors = [Descriptor]
+                                    }}
+                                }
+                            ]
+                        }
+                    ]
+                }}
+            ]}
+        }
+    }.
 
 
 %% ==============================================================
@@ -4352,7 +4414,6 @@ cmp_otp7671_msg05(#'MegacoMessage'{authHeader = asn1_NOVALUE,
 %% --------------------------------------------------------------
 %%
 
-
 pretty_otp8114_msg01(suite) ->
     [];
 pretty_otp8114_msg01(Config) when is_list(Config) ->
@@ -4435,6 +4496,38 @@ otp8114(InitialMessage, Codec, Conf) ->
 	   end)
 	],
     megaco_codec_test_lib:expect_exec(Instructions, InitialData).
+
+
+
+%% --------------------------------------------------------------
+%%
+
+pretty_erl1405_msg01(suite) ->
+    [];
+pretty_erl1405_msg01(Config) when is_list(Config) ->
+    put(severity,trc),
+    put(dbg,true),
+    d("pretty_erl1405_msg01 -> entry", []),
+    ?ACQUIRE_NODES(1, Config),
+    ok = pretty_erl1405(statisticsDescriptor),
+    erase(severity),
+    erase(dbg),
+    ok.
+
+pretty_erl1405_msg02(suite) ->
+    [];
+pretty_erl1405_msg02(Config) when is_list(Config) ->
+    put(severity,trc),
+    put(dbg,true),
+    d("pretty_erl1405_msg02 -> entry", []),
+    ?ACQUIRE_NODES(1, Config),
+    ok = pretty_erl1405({statisticsDescriptor, []}),
+    erase(severity),
+    erase(dbg),
+    ok.
+
+pretty_erl1405(Descriptor) ->
+    ticket_pretty_encode_decode_ok( erl1405_msg(Descriptor) ).
 
 
 %% ==============================================================
@@ -5197,7 +5290,7 @@ msgs7(Encoding) ->
      	 {msg78a07, msg78a07(), Plain, [{dbg,false}],[text,binary,erlang]},
      	 {msg78a08, msg78a08(), Plain, [{dbg,false}],[text,binary,erlang]},
      	 {msg78a09, msg78a09(), Plain, [{dbg,false}],[text,binary,erlang]},
-  	 {msg79a01, msg79a01(), Plain, [{dbg,false}],[text,binary,erlang]}
+  	 {msg79a01, msg79a01(), Plain, [{dbg,true}],[text,binary,erlang]}
 	],
     [{N,M,F,C}||{N,M,F,C,E} <- Msgs,lists:member(Encoding,E)].
 

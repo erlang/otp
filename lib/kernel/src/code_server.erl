@@ -294,19 +294,6 @@ handle_call({load_abs,File,Mod}, From, S) when is_atom(Mod) ->
 handle_call({load_binary,Mod,File,Bin}, From, S) when is_atom(Mod) ->
     do_load_binary(Mod, File, Bin, From, S);
 
-handle_call({load_native_partial,Mod,Bin}, _From, S) ->
-    Architecture = erlang:system_info(hipe_architecture),
-    Result = (catch hipe_unified_loader:load(Mod, Bin, Architecture)),
-    Status = hipe_result_to_status(Result, S),
-    {reply,Status,S};
-
-handle_call({load_native_sticky,Mod,Bin,WholeModule}, _From, S) ->
-    Architecture = erlang:system_info(hipe_architecture),
-    Result = (catch hipe_unified_loader:load_module(Mod, Bin, WholeModule,
-                                                    Architecture)),
-    Status = hipe_result_to_status(Result, S),
-    {reply,Status,S};
-
 handle_call({ensure_loaded,Mod}, From, St) when is_atom(Mod) ->
     case erlang:module_loaded(Mod) of
 	true ->
@@ -1134,26 +1121,10 @@ try_load_module_1(File, Mod, Bin, From, #state{moddb=Db}=St) ->
 	    error_msg("Can't load module '~w' that resides in sticky dir\n",[Mod]),
 	    {reply,{error,sticky_directory},St};
 	false ->
-            Architecture = erlang:system_info(hipe_architecture),
-            try_load_module_2(File, Mod, Bin, From, Architecture, St)
+            try_load_module_2(File, Mod, Bin, From, undefined, St)
     end.
 
-try_load_module_2(File, Mod, Bin, From, undefined, St) ->
-    try_load_module_3(File, Mod, Bin, From, undefined, St);
-try_load_module_2(File, Mod, Bin, From, Architecture,
-                  #state{moddb=Db}=St) ->
-    case catch hipe_unified_loader:load_native_code(Mod, Bin, Architecture) of
-        {module,Mod} = Module ->
-	    ets:insert(Db, {Mod,File}),
-            {reply,Module,St};
-        no_native ->
-            try_load_module_3(File, Mod, Bin, From, Architecture, St);
-        Error ->
-            error_msg("Native loading of ~ts failed: ~p\n", [File,Error]),
-            {reply,{error,Error},St}
-    end.
-
-try_load_module_3(File, Mod, Bin, From, _Architecture, St0) ->
+try_load_module_2(File, Mod, Bin, From, _Architecture, St0) ->
     Action = fun({module,_}=Module, #state{moddb=Db}=S) ->
 		     ets:insert(Db, {Mod,File}),
 		     {reply,Module,S};
@@ -1165,15 +1136,6 @@ try_load_module_3(File, Mod, Bin, From, _Architecture, St0) ->
 	     end,
     Res = erlang:load_module(Mod, Bin),
     handle_on_load(Res, Action, Mod, From, St0).
-
-hipe_result_to_status(Result, #state{}) ->
-    case Result of
-	{module,_} ->
-	    Result;
-	_ ->
-	    {error,Result}
-    end.
-
 
 int_list([H|T]) when is_integer(H) -> int_list(T);
 int_list([_|_])                    -> false;

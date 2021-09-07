@@ -64,12 +64,6 @@ end_per_group(_GroupName, Config) ->
 
 %% Start etop with text presentation
 text(_) ->
-    case test_server:is_native(lists) of
-	true -> {skip,"Native libs -- tracing does not work"};
-	false -> text()
-    end.
-
-text() ->
     ?line {ok,Node} = ?t:start_node(node2,peer,[]),
 
     %% Must spawn this process, else the test case will never end.

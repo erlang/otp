@@ -93,9 +93,17 @@ typedef struct erl_bin_match_struct{
  * (Except when the current Process* already is a parameter.)
  */
 /* the state resides in the current process' scheduler data */
-#define ERL_BITS_DECLARE_STATEP			struct erl_bits_state *EBS
-#define ERL_BITS_RELOAD_STATEP(P)		do{EBS = &erts_proc_sched_data((P))->erl_bits_state;}while(0)
-#define ERL_BITS_DEFINE_STATEP(P)		struct erl_bits_state *EBS = &erts_proc_sched_data((P))->erl_bits_state
+#define ERL_BITS_DECLARE_STATEP struct erl_bits_state *EBS
+
+#define ERL_BITS_RELOAD_STATEP(P)                                              \
+    do {                                                                       \
+        EBS = &erts_proc_sched_data((P))->registers->aux_regs.d.erl_bits_state;  \
+    } while(0)
+
+#define ERL_BITS_DEFINE_STATEP(P) \
+    struct erl_bits_state *EBS = \
+        &erts_proc_sched_data((P))->registers->aux_regs.d.erl_bits_state
+
 #define ErlBitsState				(*EBS)
 
 #define ERL_BITS_PROTO_0			struct erl_bits_state *EBS
@@ -106,7 +114,6 @@ typedef struct erl_bin_match_struct{
 #define ERL_BITS_ARGS_1(ARG1)			EBS, ARG1
 #define ERL_BITS_ARGS_2(ARG1,ARG2)		EBS, ARG1, ARG2
 #define ERL_BITS_ARGS_3(ARG1,ARG2,ARG3)		EBS, ARG1, ARG2, ARG3
-
 
 #define erts_bin_offset		(ErlBitsState.erts_bin_offset_)
 #define erts_current_bin	(ErlBitsState.erts_current_bin_)

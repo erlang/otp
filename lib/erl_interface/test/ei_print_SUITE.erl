@@ -27,7 +27,8 @@
 -export([all/0, suite/0,
          init_per_testcase/2,
          atoms/1, tuples/1, lists/1, strings/1,
-         maps/1, funs/1, binaries/1, bitstrings/1]).
+         maps/1, funs/1, binaries/1, bitstrings/1,
+         integers/1]).
 
 -import(runner, [get_term/1]).
 
@@ -38,7 +39,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [atoms, tuples, lists, strings, maps, funs, binaries, bitstrings].
+    [atoms, tuples, lists, strings, maps, funs, binaries, bitstrings, integers].
 
 init_per_testcase(Case, Config) ->
     runner:init_per_testcase(?MODULE, Case, Config).
@@ -198,6 +199,69 @@ bitstrings(Config) ->
     runner:recv_eot(P),
     ok.
 
+integers(Config) ->
+    Port = runner:start(Config, ?integers),
+
+    test_integers(Port, -1000, 1000),
+    test_integers(Port, (1 bsl 27) - 1000, (1 bsl 27) + 1000),
+    test_integers(Port, -(1 bsl 27) - 1000, -(1 bsl 27) + 1000),
+    test_integers(Port, (1 bsl 28) - 1000, (1 bsl 28) + 1000),
+    test_integers(Port, -(1 bsl 28) - 1000, -(1 bsl 28) + 1000),
+    test_integers(Port, (1 bsl 31) - 1000, (1 bsl 31) + 1000),
+    test_integers(Port, -(1 bsl 31) - 1000, -(1 bsl 31) + 1000),
+    test_integers(Port, (1 bsl 32) - 1000, (1 bsl 32) + 1000),
+    test_integers(Port, -(1 bsl 32) - 1000, -(1 bsl 32) + 1000),
+    test_integers(Port, (1 bsl 60) - 1000, (1 bsl 60) + 1000),
+    test_integers(Port, -(1 bsl 60) - 1000, -(1 bsl 60) + 1000),
+    test_integers(Port, 16#feeddeaddeadbeef - 1000, 16#feeddeaddeadbeef + 1000),
+    test_integers(Port, -16#feeddeaddeadbeef - 1000, -16#feeddeaddeadbeef + 1000),
+    test_integers(Port, (1 bsl 64) - 1000, (1 bsl 64) + 1000),
+    test_integers(Port, 16#addfeeddeaddeadbeef - 1000, 16#addfeeddeaddeadbeef + 1000),
+    test_integers(Port, -16#addfeeddeaddeadbeef - 1000, -16#addfeeddeaddeadbeef + 1000),
+    test_integers(Port, -(1 bsl 64) - 1000, -(1 bsl 64) + 1000),
+    test_integers(Port, (1 bsl 8192) - 1000, (1 bsl 8192) + 1000),
+    test_integers(Port, -(1 bsl 8192) - 1000, -(1 bsl 8192) + 1000),
+
+    "done" = send_term_get_printed(Port, done),
+
+    runner:recv_eot(Port),
+
+    ok.
+
+test_integer(Port, Int, Print) when is_integer(Int) ->
+    Res = send_term_get_printed(Port, Int),
+    case Print of
+        true ->
+            io:format("Res: ~s~n", [Res]);
+        false ->
+            ok
+    end,
+    %% Large bignums are printed in base 16...
+    Exp = case Res of
+              "16#" ++ _ ->
+                  "16#" ++ integer_to_list(Int, 16);
+              "-16#" ++ _ ->
+                  "-16#" ++ integer_to_list(-1*Int, 16);
+              _ ->
+                  integer_to_list(Int)
+           end,
+    case Exp =:= Res of
+        true ->
+            ok;
+        false ->
+            io:format("Exp: ~s~nRes: ~s~n", [Exp, Res]),
+            ct:fail({Exp, Res})
+    end.
+
+test_integers(Port, FromInt, ToInt) ->
+    test_integers(Port, FromInt, ToInt, true).
+
+test_integers(_Port, FromInt, ToInt, _Print) when FromInt > ToInt ->
+    ok;
+test_integers(Port, FromInt, ToInt, Print) ->
+    ok = test_integer(Port, FromInt, Print),
+    NewFromInt = FromInt + 1,
+    test_integers(Port, NewFromInt, ToInt, NewFromInt == ToInt).
 
 
 send_term_get_printed(Port, Term) ->

@@ -66,9 +66,6 @@
       <tag><c>fix_alloc</c></tag>
       <item>A fast allocator used for some frequently used
        fixed size data types.</item>
-      <tag><c>exec_alloc</c></tag>
-      <item>Allocator used by the <seeapp marker="hipe:HiPE_app"><c>HiPE</c></seeapp>
-        application for native executable code.</item>
       <tag><c>std_alloc</c></tag>
       <item>Allocator used for most memory blocks not allocated through any of
         the other allocators described above.</item>
@@ -87,9 +84,8 @@
     </taglist>
 
     <p><c>sys_alloc</c>, <c>literal_alloc</c> and <c>temp_alloc</c> are always
-      enabled and cannot be disabled. <c>exec_alloc</c> is only available if it
-      is needed and cannot be disabled. <c>mseg_alloc</c> is always enabled if it is
-      available and an allocator that uses it is enabled. All other
+      enabled and cannot be disabled. <c>mseg_alloc</c> is always enabled if it
+      is available and an allocator that uses it is enabled. All other
       allocators can be <seecref marker="#M_e">enabled or disabled</seecref>.
       By default all allocators are enabled.
       When an allocator is disabled, <c>sys_alloc</c> is used instead of
@@ -322,7 +318,6 @@
       <item><c>R: driver_alloc</c></item>
       <item><c>S: sl_alloc</c></item>
       <item><c>T: temp_alloc</c></item>
-      <item><c>X: exec_alloc</c></item>
       <item><c>Y: sys_alloc</c></item>
     </list>
 
@@ -422,13 +417,6 @@
           <note>
             <p><c>sys_alloc</c> cannot be disabled.</p>
           </note>
-        </item>
-        <tag><marker id="MYm"/><c>+MYm libc</c></tag>
-        <item>
-          <p><c>malloc</c> library to use. Only
-            <c>libc</c> is available. <c>libc</c> enables the standard
-            <c>libc</c> <c>malloc</c> implementation. By default <c>libc</c>
-            is used.</p>
         </item>
         <tag><marker id="MYtt"/><c><![CDATA[+MYtt <size>]]></c></tag>
         <item>
@@ -572,7 +560,7 @@
             <c>driver_alloc</c>, and <c>false</c> for the other allocator
             types.</p>
         </item>
-        <tag><marker id="M_cp"/><c><![CDATA[+M<S>cg B|D|E|F|H||L|R|S|@|:]]></c></tag>
+        <tag><marker id="M_cp"/><c><![CDATA[+M<S>cp B|D|E|F|H||L|R|S|@|:]]></c></tag>
         <item>
           <p>
 	    Set carrier pool to use for the allocator. Memory carriers will
@@ -619,8 +607,8 @@
 	    pools to use for an allocator.
 	  </p>
 	  <p>
-	    Currently the <c>@</c> carrier pool is used by default, but
-	    this will most likely change.
+	    Currently each allocator with an associated carrier pool
+	    defaults to using its own associated carrier pool.
 	  </p>
         </item>
         <tag><marker id="M_e"/><c><![CDATA[+M<S>e true|false]]></c></tag>
@@ -688,7 +676,7 @@
         <item>
           <p>Relative multiblock carrier move threshold (in percent). When
             a block located in a multiblock carrier is shrunk,
-            the block is moved if the ratio of the size of the returned
+            the block is moved if the ratio of the size of the freed
             memory compared to the previous size is more than this threshold,
             otherwise the block is shrunk at the current location.</p>
         </item>
@@ -730,9 +718,7 @@
         <tag><marker id="M_t"/><c><![CDATA[+M<S>t true|false]]></c></tag>
         <item>
           <p>Multiple, thread-specific instances of the allocator.
-            This option has only effect on the runtime system
-            with SMP support. Default behavior on the runtime system with
-            SMP support is <c>NoSchedulers+1</c> instances. Each scheduler
+            Default behavior is <c>NoSchedulers+1</c> instances. Each scheduler
             uses a lock-free instance of its own and other threads use
             a common instance.</p>
           <p>Before ERTS 5.9 it was possible to configure

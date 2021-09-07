@@ -373,7 +373,7 @@ try_catch(Config) when is_list(Config) ->
            <<"t() -> case catch foo of bar -> foo end.">>},
           {catch_3,
            <<"t() -> catch begin begin foo, bar, foo:bar(kljsldkfjdls,kljsdl),
-                           (catch bar:foo(foo)) end end.">>}
+                           catch bar:foo(foo) end end.">>}
           ],
     compile(Config, Ts),
     ok = pp_expr(<<"try
@@ -972,7 +972,7 @@ otp_8567(Config) when is_list(Config) ->
           "-record s, {a :: integer()}.\n"
           "-type t() :: {#r{},#s{}}.\n">>,
     ok = file:write_file(FileName, C),
-    {error,[{_,[{3,erl_parse,["syntax error before: ","')'"]}]}],_} =
+    {error,[{_,[{{3,8},erl_parse,["syntax error before: ","')'"]}]}],_} =
         compile:file(FileName, [return]),
 
     F = <<"-module(otp_8567).\n"
@@ -1022,7 +1022,7 @@ otp_8664(Config) when is_list(Config) ->
            "-spec t() -> 9 and 4.\n"
            "t() -> 0.\n">>,
     ok = file:write_file(FileName, C2),
-    {error,[{_,[{3,erl_lint,{type_syntax,integer}}]}],_} =
+    {error,[{_,[{{3,16},erl_lint,{type_syntax,integer}}]}],_} =
         compile:file(FileName, [return]),
 
     ok.
@@ -1164,7 +1164,7 @@ pr_1014(Config) ->
           "-compile export_all.\n"
           "-type m() :: #{..., a := integer()}.\n">>,
     ok = file:write_file(FileName, C),
-    {error,[{_,[{3,erl_parse,["syntax error before: ","'...'"]}]}],_} =
+    {error,[{_,[{{3,16},erl_parse,["syntax error before: ","'...'"]}]}],_} =
         compile:file(FileName, [return]),
 
     ok.
@@ -1304,8 +1304,12 @@ otp_16435(_Config) ->
 
     CheckF("f() ->\n    << \n      (catch <<1:4>>) ||\n"
            "          A <- []\n    >>.\n"),
-    CheckF("f() ->\n    [ \n     (catch foo) ||\n         A <- []\n    ].\n"),
+    CheckF("f() ->\n    [ \n     catch foo ||\n         A <- []\n    ].\n"),
+    CheckF("f() ->\n    1 = catch 1.\n"),
+    CheckF("f() ->\n    catch 1 = catch 1.\n"),
+    CheckF("f() ->\n    A = catch 1 / 0.\n"),
     CheckF("f() when erlang:float(3.0) ->\n    true.\n"),
+    CheckF("f() ->\n    (catch 16)#{}.\n"),
 
     Check = fun(S) -> S = flat_parse_and_pp_expr(S, 0, []) end,
     Check("5 #r4.f1"),

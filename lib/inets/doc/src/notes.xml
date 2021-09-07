@@ -33,7 +33,121 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.3</title>
+  <section><title>Inets 7.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved user input handling in inets/mod_esi preventing
+	    unnecessary atom creation.</p>
+          <p>
+	    Own Id: OTP-17490</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Drop all support for ftp and tftp in inets code.</p>
+          <p>
+	    Own Id: OTP-16722</p>
+        </item>
+        <item>
+          <p>
+	    Deprecate following functions in <c>httpd_util</c>
+	    module: <c>flatlength/1</c>,
+	    <c>lhexlist_to_integer/1</c>,
+	    <c>integer_to_hexlist/1</c>, <c>strip/1</c>, and
+	    <c>suffix/1</c>.</p>
+          <p>
+	    Own Id: OTP-16723</p>
+        </item>
+        <item>
+          <p>
+	    Remove support of HTTP 0.9 in httpd.</p>
+          <p>
+	    Own Id: OTP-16724</p>
+        </item>
+        <item>
+          <p>
+	    Remove support of HTTP 0.9 in httpc.</p>
+          <p>
+	    Own Id: OTP-16725</p>
+        </item>
+        <item>
+          <p>
+	    Fixed warnings in code matching on underscore prefixed
+	    variables.</p>
+          <p>
+	    Own Id: OTP-17385 Aux Id: OTP-17123 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Inets 7.3.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved user input handling in inets/mod_esi preventing
+	    unnecessary atom creation.</p>
+          <p>
+	    Own Id: OTP-17490</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Solves CVE-2021-27563, that is make sure no form of
+	    relative path can be used to go outside webservers
+	    directory.</p>
+          <p>
+	    Own Id: OTP-17205 Aux Id: ERIERL-608 </p>
+        </item>
+        <item>
+          <p>
+	    Make sure HEAD requests rejects directory links</p>
+          <p>
+	    Own Id: OTP-17220</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix an issue about HTML-escaped filename in inets.</p>
+          <p>
+	    Own Id: OTP-16873 Aux Id: ERL-330 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

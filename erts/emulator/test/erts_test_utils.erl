@@ -43,6 +43,21 @@
 -define(NEW_PID_EXT,         $X).
 -define(NEW_PORT_EXT,        $Y).
 -define(NEWER_REFERENCE_EXT, $Z).
+-define(V4_PORT_EXT,         $x).
+
+-define(OLD_MAX_PIDS_PORTS, ((1 bsl 28) - 1)).
+
+uint64_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 64 ->
+    [(Uint bsr 56) band 16#ff,
+     (Uint bsr 48) band 16#ff,
+     (Uint bsr 40) band 16#ff,
+     (Uint bsr 32) band 16#ff,
+     (Uint bsr 24) band 16#ff,
+     (Uint bsr 16) band 16#ff,
+     (Uint bsr 8) band 16#ff,
+     Uint band 16#ff];
+uint64_be(Uint) ->
+    exit({badarg, uint64_be, [Uint]}).
 
 uint32_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 32 ->
     [(Uint bsr 24) band 16#ff,
@@ -51,7 +66,6 @@ uint32_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 32 ->
      Uint band 16#ff];
 uint32_be(Uint) ->
     exit({badarg, uint32_be, [Uint]}).
-
 
 uint16_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 16 ->
     [(Uint bsr 8) band 16#ff,
@@ -91,19 +105,27 @@ mk_ext_pid({NodeName, Creation}, Number, Serial) ->
 	    exit({unexpected_binary_to_term_result, Other})
     end.
 
-port_tag(bad_creation) -> ?PORT_EXT;
-port_tag(Creation) when Creation =< 3 -> ?PORT_EXT;
-port_tag(_Creation) -> ?NEW_PORT_EXT.
+port_tag(_Num, bad_creation) ->
+    ?PORT_EXT;
+port_tag(Num, Creation) when 0 =< Num, Num =< ?OLD_MAX_PIDS_PORTS, Creation =< 3 ->
+    ?PORT_EXT;
+port_tag(Num, _Creation) when 0 =< Num, Num =< ?OLD_MAX_PIDS_PORTS ->
+    ?NEW_PORT_EXT;
+port_tag(_Num, _Creation) ->
+    ?V4_PORT_EXT.
 
 mk_ext_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
     mk_ext_port({atom_to_list(NodeName), Creation}, Number);
 mk_ext_port({NodeName, Creation}, Number) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      port_tag(Creation),
+					      port_tag(Number, Creation),
 					      ?ATOM_EXT,
 					      uint16_be(length(NodeName)),
 					      NodeName,
-					      uint32_be(Number),
+					      case Number > ?OLD_MAX_PIDS_PORTS of
+						  true -> uint64_be(Number);
+						  false -> uint32_be(Number)
+					      end,
 					      enc_creation(Creation)])) of
 	Port when is_port(Port) ->
 	    Port;

@@ -47,6 +47,12 @@
       must not be changed.</p>
     <p>The time-outs are not exact, but are <em>at least</em> as long
       as requested.</p>
+    <p>Creating timers using
+      <seemfa marker="erts:erlang#send_after/3">erlang:send_after/3</seemfa> and
+      <seemfa marker="erts:erlang#start_timer/3">erlang:start_timer/3</seemfa>
+      is much more efficient than using the timers provided by this module. See
+      <seeguide marker="system/efficiency_guide:commoncaveats#timer-module">the
+      Timer Module section in the Efficiency Guide</seeguide>.</p>
   </description>
 
   <datatypes>
@@ -195,6 +201,9 @@
               can also be an atom of a registered name.)</p>
             <p>Returns <c>{ok, <anno>TRef</anno>}</c> or
               <c>{error, <anno>Reason</anno>}</c>.</p>
+            <p>See also
+              <seeguide marker="system/efficiency_guide:commoncaveats#timer-module">
+              the Timer Module section in the Efficiency Guide</seeguide>.</p>
           </item>
           <tag><c>send_after/2</c></tag>
           <item>

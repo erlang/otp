@@ -290,7 +290,7 @@ send_return_value({400,_, {bad_date, BadDate}}, _FileInfo)->
     {status, {400, none, "Bad date: " ++ BadDate}};
 
 send_return_value({304,Info,Path}, FileInfo)->
-    Suffix = httpd_util:suffix(Path),
+    Suffix = httpd_util:strip_extension_dot(Path),
     MimeType = httpd_util:lookup_mime_default(Info#mod.config_db,Suffix,
 					      "text/plain"),
     LastModified =

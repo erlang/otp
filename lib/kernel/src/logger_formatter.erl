@@ -35,7 +35,7 @@
                     template        => template(),
                     time_designator => byte(),
                     time_offset     => integer() | [byte()]}.
--type template() :: [metakey() | {metakey(),template(),template()} | string()].
+-type template() :: [metakey() | {metakey(),template(),template()} | unicode:chardata()].
 -type metakey() :: atom() | [atom()].
 
 %%%-----------------------------------------------------------------
@@ -530,6 +530,11 @@ check_template([Str|T]) when is_list(Str) ->
     case io_lib:printable_unicode_list(Str) of
         true -> check_template(T);
         false -> error
+    end;
+check_template([Bin|T]) when is_binary(Bin) ->
+    case unicode:characters_to_list(Bin) of
+        Str when is_list(Str) -> check_template([Str|T]);
+        _Error -> error
     end;
 check_template([]) ->
     ok;

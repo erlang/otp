@@ -725,19 +725,6 @@ get_handler_info(Tab) ->
     [{Pid, Reqs, httpc_handler:info(Pid)} || {Pid, Reqs} <- Handlers2].
 
 handle_request(#request{settings = 
-			#http_options{version = "HTTP/0.9"}} = Request,
-	       State) ->
-    %% Act as an HTTP/0.9 client that does not know anything
-    %% about persistent connections
-
-    NewRequest = handle_cookies(generate_request_id(Request), State),
-    NewHeaders =
-	(NewRequest#request.headers)#http_request_h{connection
-						    = undefined},
-    start_handler(NewRequest#request{headers = NewHeaders}, State),
-    {reply, {ok, NewRequest#request.id}, State};
-
-handle_request(#request{settings = 
 			#http_options{version = "HTTP/1.0"}} = Request,
 	       State) ->
     %% Act as an HTTP/1.0 client that does not

@@ -36,6 +36,7 @@
 #define ERTS_WANT_EXTERNAL_TAGS
 #include "external.h"
 #include "erl_proc_sig_queue.h"
+#include "beam_common.h"
 #include "erl_global_literals.h"
 
 #define PTR_FMT "%bpX"
@@ -50,11 +51,11 @@ static void dump_element_nl(fmtfn_t to, void *to_arg, Eterm x);
 static int stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp,
 			      int yreg);
 static void stack_trace_dump(fmtfn_t to, void *to_arg, Eterm* sp);
-static void print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x);
+static void print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x);
 static void heap_dump(fmtfn_t to, void *to_arg, Eterm x);
 static void dump_binaries(fmtfn_t to, void *to_arg, Binary* root);
 void erts_print_base64(fmtfn_t to, void *to_arg,
-                       byte* src, Uint size);
+                       const byte* src, Uint size);
 static void dump_externally(fmtfn_t to, void *to_arg, Eterm term);
 static void mark_literal(Eterm* ptr);
 static void init_literal_areas(void);
@@ -64,10 +65,6 @@ static void dump_module_literals(fmtfn_t to, void *to_arg,
                                  ErtsLiteralArea* lit_area);
 
 static Binary* all_binaries;
-
-extern BeamInstr beam_apply[];
-extern BeamInstr beam_exit[];
-extern BeamInstr beam_continue_exit[];
 
 void
 erts_deep_process_dump(fmtfn_t to, void *to_arg)
@@ -143,14 +140,18 @@ Uint erts_process_memory(Process *p, int include_sigs_in_transit)
          * Note that this assumes that any part of message
          * queue located in middle queue have been moved
          * into the inner queue prior to this call.
-         * process_info() management ensures this is done-
+         * process_info() management ensures this is done.
          */
         ErtsMessage *mp;
         for (mp = p->sig_qs.first; mp; mp = mp->next) {
-            ASSERT(ERTS_SIG_IS_MSG((ErtsSignal *) mp));
-            size += sizeof(ErtsMessage);
-            if (mp->data.attached)
-                size += erts_msg_attached_data_size(mp) * sizeof(Eterm);
+	    if (ERTS_SIG_IS_RECV_MARKER(mp))
+		size += erts_proc_sig_signal_size((ErtsSignal *) mp);
+	    else {
+		ASSERT(ERTS_SIG_IS_MSG((ErtsSignal *) mp));
+		size += sizeof(ErtsMessage);
+		if (mp->data.attached)
+		    size += erts_msg_attached_data_size(mp) * sizeof(Eterm);
+	    }
         }
     }
     else {
@@ -330,7 +331,7 @@ dump_element(fmtfn_t to, void *to_arg, Eterm x)
 	} else if (is_pid(x)) {
 	    erts_print(to, to_arg, "P%T", x);
 	} else if (is_port(x)) {
-	    erts_print(to, to_arg, "p<%beu.%beu>",
+	    erts_print(to, to_arg, "p<%beu.%b64u>",
 		       port_channel_no(x), port_number(x));
 	} else if (is_nil(x)) {
 	    erts_putc(to, to_arg, 'N');
@@ -431,23 +432,30 @@ stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg)
 }
 
 static void
-print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
+print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x)
 {
-    ErtsCodeMFA* cmfa = find_function_from_pc(x);
+    const ErtsCodeMFA* cmfa = erts_find_function_from_pc(x);
+
     if (cmfa == NULL) {
         if (x == beam_exit) {
             erts_print(to, to_arg, "<terminate process>");
         } else if (x == beam_continue_exit) {
             erts_print(to, to_arg, "<continue terminate process>");
-        } else if (x == beam_apply+1) {
+        } else if (x == beam_normal_exit) {
             erts_print(to, to_arg, "<terminate process normally>");
-        } else {
+        }
+        else {
             erts_print(to, to_arg, "unknown function");
         }
     } else {
-	erts_print(to, to_arg, "%T:%T/%bpu + %bpu",
-		   cmfa->module, cmfa->function, cmfa->arity,
-                   (x-(BeamInstr*)cmfa) * sizeof(Eterm));
+        const char *mfa_addr, *cp_addr;
+
+        mfa_addr = (const char*)cmfa;
+        cp_addr = (const char*)x;
+
+        erts_print(to, to_arg, "%T:%T/%bpu + %bpu",
+                   cmfa->module, cmfa->function, cmfa->arity,
+                   cp_addr - mfa_addr);
     }
 }
 
@@ -592,7 +600,7 @@ heap_dump(fmtfn_t to, void *to_arg, Eterm x)
 		    erts_print(to, to_arg, "P%T\n", x);
 		    *ptr = OUR_NIL;
 		} else if (is_external_port_header(hdr)) {
-		    erts_print(to, to_arg, "p<%beu.%beu>\n",
+		    erts_print(to, to_arg, "p<%beu.%b64u>\n",
 			       port_channel_no(x), port_number(x));
 		    *ptr = OUR_NIL;
 		} else if (is_map_header(hdr)) {

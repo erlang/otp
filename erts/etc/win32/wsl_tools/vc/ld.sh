@@ -177,11 +177,16 @@ RES=$?
 
 CMANIFEST=`w32_path.sh -u $MANIFEST`
 
-if [ "$RES" = "0" -a -f "$CMANIFEST" ]; then
-    # Add stuff to manifest to turn off "virtualization"
+if [ -f "$CMANIFEST" ]; then
+    ## Add stuff to manifest to turn off "virtualization"
     sed -n -i '1h;1!H;${;g;s,<trustInfo.*</trustInfo>.,,g;p;}' $CMANIFEST 2>/dev/null
     sed -i "s/<\/assembly>/ <ms_asmv2:trustInfo xmlns:ms_asmv2=\"urn:schemas-microsoft-com:asm.v2\">\n  <ms_asmv2:security>\n   <ms_asmv2:requestedPrivileges>\n    <ms_asmv2:requestedExecutionLevel level=\"AsInvoker\" uiAccess=\"false\"\/>\n   <\/ms_asmv2:requestedPrivileges>\n  <\/ms_asmv2:security>\n <\/ms_asmv2:trustInfo>\n<\/assembly>/" $CMANIFEST 2>/dev/null
+else
+    CMANIFEST=$ERL_TOP/erts/etc/win32/manifest.xml
+    MANIFEST=`w32_path.sh -d $CMANIFEST`
+fi
 
+if [ "$RES" = "0" ]; then
     eval mt.exe -nologo -manifest "$MANIFEST" -outputresource:"$OUTPUTRES" >>/tmp/link.exe.${p}.1 2>>/tmp/link.exe.${p}.2
     RES=$?
     if [ "$RES" != "0" ]; then
@@ -192,7 +197,6 @@ if [ "$RES" = "0" -a -f "$CMANIFEST" ]; then
         echo "If you get this error, make sure Windows Defender AND Windows Search is disabled">>/tmp/link.exe.${p}.1
 	rm -f "$CREMOVE"
     fi
-    rm -f "$CMANIFEST"
 fi
 
 # This works around some strange behaviour

@@ -38,6 +38,7 @@ TEST_UTIL_MODULES = \
 	snmp_test_lib \
 	snmp_agent_test_lib \
 	snmp_agent_test_get \
+	snmp_otp16649_user \
 	snmp_manager_user \
 	snmp_manager_user_old \
 	snmp_manager_user_test_lib \

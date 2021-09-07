@@ -39,15 +39,6 @@
 #   define DEBUGF(X) printf X
 #endif
 
-#define get_int24(s) ((((unsigned char*) (s))[0] << 16) | \
-                      (((unsigned char*) (s))[1] << 8)  | \
-                      (((unsigned char*) (s))[2]))
-
-#define get_little_int32(s) ((((unsigned char*) (s))[3] << 24) | \
-                             (((unsigned char*) (s))[2] << 16)  | \
-                             (((unsigned char*) (s))[1] << 8) | \
-                             (((unsigned char*) (s))[0]))
-
 #if !defined(__WIN32__) && !defined(HAVE_STRNCASECMP)
 #define STRNCASECMP my_strncasecmp
 

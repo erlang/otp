@@ -94,6 +94,8 @@ public class AbstractNode implements OtpTransportFactory {
     static final int dFlagMapTag = 0x20000;
     static final int dFlagBigCreation = 0x40000;
     static final int dFlagHandshake23 = 0x1000000;
+    static final int dFlagUnlinkId = 0x2000000;
+    static final long dFlagV4PidsRefs = 0x4L << 32;
 
     int ntype = NTYPE_R6;
     int proto = 0; // tcp/ip
@@ -105,7 +107,9 @@ public class AbstractNode implements OtpTransportFactory {
             | dflagNewFunTags | dFlagUtf8Atoms | dFlagMapTag
             | dFlagExportPtrTag
 	    | dFlagBigCreation
-            | dFlagHandshake23;
+            | dFlagHandshake23
+            | dFlagUnlinkId
+            | dFlagV4PidsRefs;
 
     /* initialize hostname and default cookie */
     static {

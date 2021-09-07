@@ -1,4 +1,4 @@
-Non-Blocking Code Loading
+Non-blocking code loading
 =========================
 
 Introduction

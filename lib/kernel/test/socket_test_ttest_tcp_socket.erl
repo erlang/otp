@@ -176,7 +176,7 @@ do_connect(LocalSA, ServerSA, Cleanup, #{domain := Domain,
 			throw({error, {open, OReason}})
 		end,
 	    case socket:bind(Sock, LocalSA) of
-		{ok, _} ->
+		ok ->
 		    ok;
 		{error, BReason} ->
 		    (catch socket:close(Sock)),
@@ -273,7 +273,7 @@ do_listen(SA,
 			   throw({error, {open, OReason}})
 		   end,
 	    case socket:bind(Sock, SA) of
-		{ok, _} ->
+		ok ->
 		    ok;
 		{error, BReason} ->
 		    (catch socket:close(Sock)),

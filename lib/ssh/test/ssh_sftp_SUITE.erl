@@ -119,7 +119,8 @@ groups() ->
 
      {unicode, [], [{group,erlang_server},
 		    {group,openssh_server},
-		    sftp_nonexistent_subsystem]},
+		    sftp_nonexistent_subsystem
+                   ]},
 
      {big_recvpkt_size, [], [{group,erlang_server},
 			     {group,openssh_server}]},
@@ -231,7 +232,9 @@ init_per_group(openssh_server, Config) ->
     Host = ssh_test_lib:hostname(),
     case (catch ssh_sftp:start_channel(Host,
 				       [{user_interaction, false},
-					{silently_accept_hosts, true}])) of
+					{silently_accept_hosts, true},
+                                        {save_accepted_host, false}
+                                       ])) of
 	{ok, _ChannelPid, Connection} ->
 	    [{peer, {_HostName,{IPx,Portx}}}] = ssh:connection_info(Connection,[peer]),
 	    ssh:close(Connection),
@@ -250,16 +253,16 @@ init_per_group(remote_tar, Config) ->
     ct:log("Server (~p) at ~p:~p",[proplists:get_value(group,Config),Host,Port]),
     User = proplists:get_value(user, Config),
     Passwd = proplists:get_value(passwd, Config),
-    {ok, Connection} =
+    Connection =
 	case proplists:get_value(group, Config) of
 	    erlang_server ->
-		ssh:connect(Host, Port,
+		ssh_test_lib:connect(Host, Port,
 			    [{user, User},
 			     {password, Passwd},
 			     {user_interaction, false},
 			     {silently_accept_hosts, true}]);
 	    openssh_server ->
-		ssh:connect(Host, Port,
+		ssh_test_lib:connect(Host, Port,
 			    [{user_interaction, false},
 			     {silently_accept_hosts, true}])
 	end,
@@ -312,7 +315,9 @@ init_per_testcase(version_option, Config0) ->
 				{user, User},
 				{password, Passwd},
 				{user_interaction, false},
-				{silently_accept_hosts, true}]),
+				{silently_accept_hosts, true},
+                                {save_accepted_host, false}
+                               ]),
     Sftp = {ChannelPid, Connection},
     [{sftp,Sftp}, {watchdog, Dog} | TmpConfig];
 
@@ -336,7 +341,8 @@ init_per_testcase(Case, Config00) ->
 					   [{user, User},
 					    {password, Passwd},
 					    {user_interaction, false},
-					    {silently_accept_hosts, true}
+					    {silently_accept_hosts, true},
+                                            {save_accepted_host, false}
 					    | PktSzOpt
 					   ]
 					  ),
@@ -349,7 +355,8 @@ init_per_testcase(Case, Config00) ->
 		{ok, ChannelPid, Connection} = 
 		    ssh_sftp:start_channel(Host, 
 					   [{user_interaction, false},
-					    {silently_accept_hosts, true}
+					    {silently_accept_hosts, true},
+                                            {save_accepted_host, false}
 					    | PktSzOpt
 					   ]),
 		Sftp = {ChannelPid, Connection},
@@ -736,7 +743,8 @@ start_channel_sock(Config) ->
 	end,
 
     Opts = [{user_interaction, false},
-	    {silently_accept_hosts, true}
+	    {silently_accept_hosts, true},
+            {save_accepted_host, false}
 	    | LoginOpts],
 
     {Host,Port} = proplists:get_value(peer, Config),
@@ -775,7 +783,7 @@ start_channel_sock(Config) ->
     %% Test that the socket is closed when the Connection closes
     ok = ssh:close(Conn),
     timer:sleep(400), %% Until the stop sequence is fixed
-    {error,einval} = inet:getopts(Sock, [active]),
+    {error,_} = inet:getopts(Sock, [active]),
 
     ok.
 
@@ -789,7 +797,9 @@ sftp_nonexistent_subsystem(Config) when is_list(Config) ->
 			       [{user_interaction, false},
 				{user, User},
 				{password, Passwd},
-				{silently_accept_hosts, true}]).
+				{silently_accept_hosts, true},
+                                {save_accepted_host, false}
+                               ]).
 
 %%--------------------------------------------------------------------
 version_option(Config) when is_list(Config) ->

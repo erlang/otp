@@ -28,9 +28,9 @@
 
 -include("beam_ssa.hrl").
 -import(lists, [append/1,keymember/3,last/1,member/2,
-                reverse/1,sort/1,takewhile/2]).
+                reverse/1,takewhile/2]).
 
--type used_vars() :: #{beam_ssa:label():=cerl_sets:set(beam_ssa:var_name())}.
+-type used_vars() :: #{beam_ssa:label():=sets:set(beam_ssa:var_name())}.
 
 -type basic_type_test() :: atom() | {'is_tagged_tuple',pos_integer(),atom()}.
 -type type_test() :: basic_type_test() | {'not',basic_type_test()}.
@@ -145,12 +145,17 @@ shortcut_terminator(#b_switch{arg=Bool,fail=Fail0,list=List0}=Sw,
                     _Is, From, St) ->
     Fail = shortcut_sw_fail(Fail0, List0, Bool, From, St),
     List = shortcut_sw_list(List0, Bool, From, St),
-    beam_ssa:normalize(Sw#b_switch{fail=Fail,list=List});
+
+    %% There no need to call beam_ssa:normalize/1 (and invoke the
+    %% cost of sorting List), because the previous optimizations
+    %% could only have changed labels.
+    Sw#b_switch{fail=Fail,list=List};
 shortcut_terminator(Last, _Is, _From, _St) ->
     Last.
 
 shortcut_sw_fail(Fail0, List, Bool, From, St0) ->
-    case sort(List) of
+    %% List has been sorted by beam_ssa:normalize/1.
+    case List of
         [{#b_literal{val=false},_},
          {#b_literal{val=true},_}] ->
             RelOp = {{'not',is_boolean},Bool},
@@ -177,7 +182,7 @@ shortcut(L, _From, Bs, #st{rel_op=none,target=one_way}) when map_size(Bs) =:= 0 
     %% is `one_way`, it implies the From block has a two-way `br` terminator.
     #b_br{bool=#b_literal{val=true},succ=L,fail=L};
 shortcut(L, From, Bs, St) ->
-    shortcut_1(L, From, Bs, cerl_sets:new(), St).
+    shortcut_1(L, From, Bs, sets:new([{version, 2}]), St).
 
 shortcut_1(L, From, Bs0, UnsetVars0, St) ->
     case shortcut_2(L, From, Bs0, UnsetVars0, St) of
@@ -195,8 +200,8 @@ shortcut_1(L, From, Bs0, UnsetVars0, St) ->
 
 %% Try to shortcut this block, branching to a successor.
 shortcut_2(L, From, Bs, UnsetVars, St) ->
-    case cerl_sets:size(UnsetVars) of
-        SetSize when SetSize > 128 ->
+    case sets:size(UnsetVars) of
+        SetSize when SetSize > 64 ->
             %% This is an heuristic to limit the search for a forced label
             %% before it drastically slows down the compiler. Experiments
             %% with scripts/diffable showed that limits larger than 31 did not
@@ -383,7 +388,7 @@ update_unset_vars(L, Is, Br, UnsetVars, #st{skippable=Skippable}) ->
             %% Some variables defined in this block are used by
             %% successors. We must update the set of unset variables.
             SetInThisBlock = [V || #b_set{dst=V} <- Is],
-            cerl_sets:union(UnsetVars, cerl_sets:from_list(SetInThisBlock))
+            list_set_union(SetInThisBlock, UnsetVars)
     end.
 
 shortcut_two_way(#b_br{succ=Succ,fail=Fail}, From, Bs0, UnsetVars0, St0) ->
@@ -412,14 +417,14 @@ is_br_safe(UnsetVars, Br, #st{us=Us}=St) ->
 
             %% A two-way branch never branches to a phi node, so there
             %% is no need to check for phi nodes here.
-            not cerl_sets:is_element(V, UnsetVars) andalso
-                cerl_sets:is_disjoint(Used0, UnsetVars) andalso
-                cerl_sets:is_disjoint(Used1, UnsetVars);
+            not sets:is_element(V, UnsetVars) andalso
+                sets:is_disjoint(Used0, UnsetVars) andalso
+                sets:is_disjoint(Used1, UnsetVars);
         #b_br{succ=Same,fail=Same} ->
             %% An unconditional branch must not jump to
             %% a phi node.
             not is_forbidden(Same, St) andalso
-                cerl_sets:is_disjoint(map_get(Same, Us), UnsetVars)
+                sets:is_disjoint(map_get(Same, Us), UnsetVars)
     end.
 
 is_forbidden(L, St) ->
@@ -546,7 +551,7 @@ eval_switch_1([], _Arg, _PrevOp, Fail) ->
     Fail.
 
 bind_var_if_used(L, Var, Val, #st{us=Us}) ->
-    case cerl_sets:is_element(Var, map_get(L, Us)) of
+    case sets:is_element(Var, map_get(L, Us)) of
         true -> #{Var=>Val};
         false -> #{}
     end.
@@ -852,7 +857,7 @@ eval_type_test_1(Test, Arg) ->
     erlang:Test(Arg).
 
 %%%
-%%% Combine bif:'=:=' and switch instructions
+%%% Combine bif:'=:=', is_boolean/1 tests, and switch instructions
 %%% to switch instructions.
 %%%
 %%% Consider this code:
@@ -904,10 +909,11 @@ combine_eqs_1([L|Ls], #st{bs=Blocks0}=St0) ->
         none ->
             combine_eqs_1(Ls, St0);
         {_,Arg,_,Fail0,List0} ->
+            %% Look for a switch instruction at the fail label
             case comb_get_sw(Fail0, St0) of
                 {true,Arg,Fail1,Fail,List1} ->
                     %% Another switch/br with the same arguments was
-                    %% found. Try combining them.
+                    %% found at the fail label. Try combining them.
                     case combine_lists(Fail1, List0, List1, Blocks0) of
                         none ->
                             %% Different types of literals in the lists,
@@ -916,29 +922,45 @@ combine_eqs_1([L|Ls], #st{bs=Blocks0}=St0) ->
                             %% (increasing code size and repeating tests).
                             combine_eqs_1(Ls, St0);
                         List ->
-                            %% Everything OK! Combine the lists.
-                            Sw0 = #b_switch{arg=Arg,fail=Fail,list=List},
-                            Sw = beam_ssa:normalize(Sw0),
-                            Blk0 = map_get(L, Blocks0),
-                            Blk = Blk0#b_blk{last=Sw},
-                            Blocks = Blocks0#{L:=Blk},
-                            St = St0#st{bs=Blocks},
+                            %% The lists were successfully combined.
+                            St = combine_build_sw(L, Arg, Fail, List, St0),
                             combine_eqs_1(Ls, St)
                     end;
-                {true,_OtherArg,_,_,_} ->
-                    %% The other switch/br uses a different Arg.
-                    combine_eqs_1(Ls, St0);
-                {false,_,_,_,_} ->
-                    %% Not safe: Bindings of variables that will be used
-                    %% or execution of instructions with potential
-                    %% side effects will be skipped.
-                    combine_eqs_1(Ls, St0);
-                none ->
-                    %% No switch/br at this label.
-                    combine_eqs_1(Ls, St0)
+                _ ->
+                    %% There was no switch of the correct kind found at the
+                    %% fail label. Look for a switch at the first success label.
+                    [{_,Succ}|_] = List0,
+                    case comb_get_sw(Succ, St0) of
+                        {true,Arg,_,_,_} ->
+                            %% Since we found a switch at the success
+                            %% label, the switch for this block (L)
+                            %% must have been constructed out of a
+                            %% is_boolean test or a two-way branch
+                            %% instruction (if the switch at L had
+                            %% been present when the shortcut_opt/1
+                            %% pass was run, its success branches
+                            %% would have been cut short and no longer
+                            %% point at the switch at the fail label).
+                            %%
+                            %% Therefore, keep this constructed
+                            %% switch. It will be further optimized
+                            %% the next time shortcut_opt/1 is run.
+                            St = combine_build_sw(L, Arg, Fail0, List0, St0),
+                            combine_eqs_1(Ls, St);
+                        _ ->
+                            combine_eqs_1(Ls, St0)
+                    end
             end
     end;
 combine_eqs_1([], St) -> St.
+
+combine_build_sw(From, Arg, Fail, List, #st{bs=Blocks0}=St) ->
+    Sw0 = #b_switch{arg=Arg,fail=Fail,list=List},
+    Sw = beam_ssa:normalize(Sw0),
+    Blk0 = map_get(From, Blocks0),
+    Blk = Blk0#b_blk{last=Sw},
+    Blocks = Blocks0#{From := Blk},
+    St#st{bs=Blocks}.
 
 comb_get_sw(L, #st{bs=Blocks,skippable=Skippable}) ->
     #b_blk{is=Is,last=Last} = map_get(L, Blocks),
@@ -948,10 +970,14 @@ comb_get_sw(L, #st{bs=Blocks,skippable=Skippable}) ->
             none;
         #b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail} ->
             case comb_is(Is, Bool, Safe0) of
-                {none,_} ->
-                    none;
+                {none,Safe} ->
+                    {Safe,Bool,L,Fail,[{#b_literal{val=true},Succ}]};
                 {#b_set{op={bif,'=:='},args=[#b_var{}=Arg,#b_literal{}=Lit]},Safe} ->
                     {Safe,Arg,L,Fail,[{Lit,Succ}]};
+                {#b_set{op={bif,is_boolean},args=[#b_var{}=Arg]},Safe} ->
+                    SwList = [{#b_literal{val=false},Succ},
+                              {#b_literal{val=true},Succ}],
+                    {Safe,Arg,L,Fail,SwList};
                 {#b_set{},_} ->
                     none
             end;
@@ -1036,7 +1062,7 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     %% shortcut_opt/1.
 
     Successors = beam_ssa:successors(Blk),
-    Used0 = used_vars_succ(Successors, L, UsedVars0, cerl_sets:new()),
+    Used0 = used_vars_succ(Successors, L, UsedVars0, sets:new([{version, 2}])),
     Used = used_vars_blk(Blk, Used0),
     UsedVars = used_vars_phis(Is, L, Used, UsedVars0),
 
@@ -1047,8 +1073,8 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     %% shortcut_opt/1.
 
     Defined0 = [Def || #b_set{dst=Def} <- Is],
-    Defined = cerl_sets:from_list(Defined0),
-    MaySkip = cerl_sets:is_disjoint(Defined, Used0),
+    Defined = sets:from_list(Defined0, [{version, 2}]),
+    MaySkip = sets:is_disjoint(Defined, Used0),
     case MaySkip of
         true ->
             Skip = Skip0#{L=>true},
@@ -1065,11 +1091,11 @@ used_vars_succ([S|Ss], L, LiveMap, Live0) ->
         #{Key:=Live} ->
             %% The successor has a phi node, and the value for
             %% this block in the phi node is a variable.
-            used_vars_succ(Ss, L, LiveMap, cerl_sets:union(Live, Live0));
+            used_vars_succ(Ss, L, LiveMap, sets:union(Live, Live0));
         #{S:=Live} ->
             %% No phi node in the successor, or the value for
             %% this block in the phi node is a literal.
-            used_vars_succ(Ss, L, LiveMap, cerl_sets:union(Live, Live0));
+            used_vars_succ(Ss, L, LiveMap, sets:union(Live, Live0));
         #{} ->
             %% A peek_message block which has not been processed yet.
             used_vars_succ(Ss, L, LiveMap, Live0)
@@ -1087,7 +1113,7 @@ used_vars_phis(Is, L, Live0, UsedVars0) ->
             case [{P,V} || {#b_var{}=V,P} <- PhiArgs] of
                 [_|_]=PhiVars ->
                     PhiLive0 = rel2fam(PhiVars),
-                    PhiLive = [{{L,P},cerl_sets:union(cerl_sets:from_list(Vs), Live0)} ||
+                    PhiLive = [{{L,P},list_set_union(Vs, Live0)} ||
                                   {P,Vs} <- PhiLive0],
                     maps:merge(UsedVars, maps:from_list(PhiLive));
                 [] ->
@@ -1097,14 +1123,14 @@ used_vars_phis(Is, L, Live0, UsedVars0) ->
     end.
 
 used_vars_blk(#b_blk{is=Is,last=Last}, Used0) ->
-    Used = cerl_sets:union(Used0, cerl_sets:from_list(beam_ssa:used(Last))),
+    Used = list_set_union(beam_ssa:used(Last), Used0),
     used_vars_is(reverse(Is), Used).
 
 used_vars_is([#b_set{op=phi}|Is], Used) ->
     used_vars_is(Is, Used);
 used_vars_is([#b_set{dst=Dst}=I|Is], Used0) ->
-    Used1 = cerl_sets:union(Used0, cerl_sets:from_list(beam_ssa:used(I))),
-    Used = cerl_sets:del_element(Dst, Used1),
+    Used1 = list_set_union(beam_ssa:used(I), Used0),
+    Used = sets:del_element(Dst, Used1),
     used_vars_is(Is, Used);
 used_vars_is([], Used) ->
     Used.
@@ -1112,6 +1138,13 @@ used_vars_is([], Used) ->
 %%%
 %%% Common utilities.
 %%%
+
+list_set_union([], Set) ->
+    Set;
+list_set_union([E], Set) ->
+    sets:add_element(E, Set);
+list_set_union(List, Set) ->
+    sets:union(sets:from_list(List, [{version, 2}]), Set).
 
 sub(#b_set{args=Args}=I, Sub) when map_size(Sub) =/= 0 ->
     I#b_set{args=[sub_arg(A, Sub) || A <- Args]};

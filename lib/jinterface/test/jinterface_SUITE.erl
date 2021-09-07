@@ -31,7 +31,12 @@
 	 java_internal_send_receive_different_nodes/1,
 	 java_internal_send_receive_self/1,
 	 java_link_and_exit/1, erl_link_and_exit/1,
-	 erl_link_java_exit/1, java_link_erl_exit/1,
+         erl_link_unlink_link_and_exit/1,
+         erl_link_java_unlink_link_and_exit/1,
+         simultaneous_erl_link_java_link_unlink/1,
+         simultaneous_erl_link_unlink_java_link/1,
+	 erl_link_java_exit/1,
+         java_link_erl_exit/1,
 	 internal_link_linking_exits/1, internal_link_linked_exits/1,
 	 internal_unlink_linking_exits/1, internal_unlink_linked_exits/1,
 	 normal_exit/1, kill_mbox/1,kill_erl_proc_from_java/1,
@@ -77,6 +82,10 @@
 -define(kill_mbox_from_erlang,12).
 -define(erl_exit_with_reason_any_term,13).
 -define(java_exit_with_reason_any_term,14).
+-define(erl_link_unlink_link_and_exit, 15).
+-define(erl_link_java_unlink_link_and_exit, 16).
+-define(simultaneous_erl_link_java_link_unlink, 17).
+-define(simultaneous_erl_link_unlink_java_link, 18).
 
 
 %% Test cases in NodeStatusHandler.java
@@ -148,6 +157,10 @@ link_unlink() ->
      %% Implemented in MboxLinkUnlink.java
      java_link_and_exit,
      erl_link_and_exit,
+     erl_link_unlink_link_and_exit,
+     erl_link_java_unlink_link_and_exit,
+     simultaneous_erl_link_java_link_unlink,
+     simultaneous_erl_link_unlink_java_link,
      erl_link_java_exit,
      java_link_erl_exit,
      internal_link_linking_exits,
@@ -393,6 +406,77 @@ erl_link_and_exit(Config) when is_list(Config) ->
 	      end,
     erl_java_link(LinkFun,erl_link_and_exit,Config).
 
+erl_link_unlink_link_and_exit(Config) when is_list(Config) ->
+    LinkFun = fun(Mbox) ->
+		      link(Mbox),
+                      unlink(Mbox),
+                      link(Mbox),
+		      Mbox ! {?erl_link_unlink_link_and_exit,self(),?link_test_reason},
+		      receive ok -> ok end,
+		      exit(?link_test_reason)
+	      end,
+    erl_java_link(LinkFun,erl_link_unlink_link_and_exit,Config).
+
+erl_link_java_unlink_link_and_exit(Config) when is_list(Config) ->
+    LinkFun = fun(Mbox) ->
+		      link(Mbox),
+		      Mbox ! {?erl_link_java_unlink_link_and_exit,self(),?link_test_reason},
+		      receive ok -> ok end,
+		      exit(?link_test_reason)
+	      end,
+    erl_java_link(LinkFun,erl_link_java_unlink_link_and_exit,Config).
+
+simultaneous_erl_link_java_link_unlink(Config) when is_list(Config) ->
+    LinkFun = fun(Mbox) ->
+                      GoTime = os:system_time(millisecond) + 500,
+		      Mbox ! {?simultaneous_erl_link_java_link_unlink, self(), GoTime},
+                      spin_wait_until(fun () ->
+                                              os:system_time(millisecond) >= GoTime
+                                      end),
+                      link(Mbox),
+                      receive check_link -> ok end,
+                      %% We now know the unlink should have reached us and we
+                      %% should have sent the unlink ack...
+                      Mbox ! check_link,
+                      {links, Links} = process_info(self(), links),
+                      Expect = case lists:member(Mbox, Links) of
+                                   true -> linked;
+                                   false -> not_linked
+                               end,
+                      io:format("Expect = ~p~n", [Expect]),
+                      receive
+                          MboxResult ->
+                              MboxResult = Expect
+                      end,
+		      exit(?link_test_reason)
+	      end,
+    erl_java_link(LinkFun,simultaneous_erl_link_java_link_unlink,Config).
+    
+simultaneous_erl_link_unlink_java_link(Config) when is_list(Config) ->
+    LinkFun = fun(Mbox) ->
+                      GoTime = os:system_time(millisecond) + 500,
+		      Mbox ! {?simultaneous_erl_link_unlink_java_link, self(), GoTime},
+                      spin_wait_until(fun () ->
+                                              os:system_time(millisecond) >= GoTime
+                                      end),
+                      link(Mbox),
+                      unlink(Mbox),
+                      Mbox ! check_link,
+                      receive check_link -> ok end,
+                      {links, Links} = process_info(self(), links),
+                      Expect = case lists:member(Mbox, Links) of
+                                   true -> linked;
+                                   false -> not_linked
+                               end,
+                      io:format("Expect = ~p~n", [Expect]),
+                      receive
+                          MboxResult ->
+                              MboxResult = Expect
+                      end,
+		      exit(?link_test_reason)
+	      end,
+    erl_java_link(LinkFun,simultaneous_erl_link_unlink_java_link,Config).
+    
 %%%-----------------------------------------------------------------
 erl_link_java_exit(doc) ->
     ["MboxLinkUnlink.java: "
@@ -856,3 +940,11 @@ erl_status_server([{Tag,NodeName,Up}|Rest],_) ->
     end;
 erl_status_server([],From) ->
     From ! done.
+
+spin_wait_until(Fun) ->
+    case Fun() of
+        true -> ok;
+        _ -> spin_wait_until(Fun)
+    end.
+            
+                        

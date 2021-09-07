@@ -390,54 +390,6 @@ true
     </func>
 
     <func>
-      <name name="find_src" arity="1" since=""/>
-      <name name="find_src" arity="2" since=""/>
-      <fsummary>Find the filename and compiler options for a module.</fsummary>
-      <desc>
-        <p>Finds the source filename and compiler options for a module.
-          The result can be fed to <seemfa marker="compiler:compile#file/2">
-          <c>compile:file/2</c></seemfa> to compile the file again.</p>
-        <warning>
-          <p>This function is deprecated. Use <seemfa marker="filelib#find_source/1">
-            <c>filelib:find_source/1</c></seemfa> instead for finding source files.</p>
-          <p>If possible, use the <seeerl marker="beam_lib"><c>beam_lib(3)</c></seeerl>
-          module to extract the compiler options and the abstract code
-          format from the Beam file and compile that instead.</p></warning>
-        <p>Argument <c><anno>Beam</anno></c>, which can be a string or an atom,
-          specifies either the module name or the path to the source
-          code, with or without extension <c>".erl"</c>. In either
-          case, the module must be known by the code server, that is,
-          <c>code:which(<anno>Module</anno>)</c> must succeed.</p>
-        <p><c><anno>Rules</anno></c> describes how the source directory can be
-          found when the object code directory is known. It is a list of
-          tuples <c>{<anno>BinSuffix</anno>, <anno>SourceSuffix</anno>}</c> and
-          is interpreted as follows: if the end of the directory name where the
-          object is located matches <c><anno>BinSuffix</anno></c>, then the
-	  name created by replacing <c><anno>BinSuffix</anno></c> with
-          <c><anno>SourceSuffix</anno></c> is expanded by calling
-	  <seemfa marker="filelib#wildcard/1">
-	  <c>filelib:wildcard/1</c></seemfa>.
-	  If a regular file is found among the matches, the function
-	  returns that location together with <c><anno>Options</anno></c>.
-          Otherwise the next rule is tried, and so on.</p>
-        <p><c><anno>Rules</anno></c> defaults
-          to:</p>
-        <code type="none">
-[{"", ""}, {"ebin", "src"}, {"ebin", "esrc"},
- {"ebin", "src/*"}, {"ebin", "esrc/*"}]</code>
-        <p>The function returns <c>{<anno>SourceFile</anno>,
-          <anno>Options</anno>}</c> if it succeeds.
-          <c><anno>SourceFile</anno></c> is the absolute path to the source
-          file without extension <c>".erl"</c>. <c><anno>Options</anno></c>
-          includes the options that are necessary to recompile the file with
-          <c>compile:file/2</c>, but excludes options such as <c>report</c>
-          and <c>verbose</c>, which do not change the way code is generated.
-          The paths in options <c>{outdir, <anno>Path</anno>}</c> and
-          <c>{i, Path}</c> are guaranteed to be absolute.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="flatten" arity="1" since=""/>
       <fsummary>Convert a filename to a flat string.</fsummary>
       <desc>

@@ -1,4 +1,3 @@
-
 %%
 %% %CopyrightBegin%
 %%
@@ -56,6 +55,10 @@
          ec_pem2/1,
          ec_priv_pkcs8/0,
          ec_priv_pkcs8/1,
+         eddsa_priv_pkcs8/0,
+         eddsa_priv_pkcs8/1,
+         eddsa_priv_rfc5958/0,
+         eddsa_priv_rfc5958/1,
          init_ec_pem_encode_generated/1,
          ec_pem_encode_generated/0,
          ec_pem_encode_generated/1,
@@ -85,6 +88,8 @@
          pkix_emailaddress/1,
          pkix_path_validation/0,
          pkix_path_validation/1,
+         pkix_path_validation_root_expired/0,
+         pkix_path_validation_root_expired/1,
          pkix_verify_hostname_cn/1,
          pkix_verify_hostname_subjAltName/1,
          pkix_verify_hostname_options/1,
@@ -126,12 +131,18 @@ suite() ->
     [].
 
 all() -> 
-    [app, appup,
+    [app, 
+     appup,
      {group, pem_decode_encode},
      encrypt_decrypt,
      {group, sign_verify},
-     pkix, pkix_countryname, pkix_emailaddress, pkix_path_validation,
-     pkix_iso_rsa_oid, pkix_iso_dsa_oid, 
+     pkix, 
+     pkix_countryname, 
+     pkix_emailaddress, 
+     pkix_path_validation,
+     pkix_path_validation_root_expired,
+     pkix_iso_rsa_oid, 
+     pkix_iso_dsa_oid, 
      pkix_dsa_sha2_oid,
      pkix_crl, 
      pkix_hash_type,
@@ -142,13 +153,15 @@ all() ->
      pkix_verify_hostname_options,
      pkix_test_data_all_default,
      pkix_test_data,
-     short_cert_issuer_hash, short_crl_issuer_hash
+     short_cert_issuer_hash, 
+     short_crl_issuer_hash
     ].
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, rsa_pss_pss_pem, ec_pem, encrypted_pem,
 			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem, ec_pem2,
 			      rsa_priv_pkcs8, dsa_priv_pkcs8, ec_priv_pkcs8,
+                              eddsa_priv_pkcs8, eddsa_priv_rfc5958,
                               ec_pem_encode_generated,
                               gen_ec_param_prime_field, gen_ec_param_char_2_field
                              ]},
@@ -391,6 +404,34 @@ ec_priv_pkcs8(Config) when is_list(Config) ->
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
+eddsa_priv_pkcs8() ->
+    [{doc, "EDDSA PKCS8 private key decode/encode"}].
+eddsa_priv_pkcs8(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, ECPrivPem} = file:read_file(filename:join(Datadir, "eddsa_key_pkcs8.pem")),
+    [{'PrivateKeyInfo', _, not_encrypted} = PKCS8Key] = public_key:pem_decode(ECPrivPem),
+    ECPrivKey = public_key:pem_entry_decode(PKCS8Key),
+    true = check_entry_type(ECPrivKey, 'ECPrivateKey'),
+    true = ECPrivKey#'ECPrivateKey'.parameters == {namedCurve, ?'id-Ed25519'},
+    true = size(ECPrivKey#'ECPrivateKey'.privateKey) == 32,
+    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', ECPrivKey),
+    ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
+    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
+
+eddsa_priv_rfc5958() ->
+    [{doc, "EDDSA PKCS8 private key decode/encode"}].
+eddsa_priv_rfc5958(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, ECPrivPem} = file:read_file(filename:join(Datadir, "eddsa_key_rfc5958.pem")),
+    [{'PrivateKeyInfo', _, not_encrypted} = PKCS8Key] = public_key:pem_decode(ECPrivPem),
+    ECPrivKey = public_key:pem_entry_decode(PKCS8Key),
+    true = check_entry_type(ECPrivKey, 'ECPrivateKey'),
+    true = ECPrivKey#'ECPrivateKey'.parameters == {namedCurve, ?'id-Ed25519'},
+    true = size(ECPrivKey#'ECPrivateKey'.privateKey) == 32,
+    PrivEntry0 = public_key:pem_entry_encode('OneAsymmetricKey', ECPrivKey),
+    ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
+    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
+
 init_ec_pem_encode_generated(Config) ->
     case catch true = lists:member('secp384r1', crypto:ec_curves()) of
         {'EXIT', _} -> {skip, {'secp384r1', not_supported}};
@@ -529,18 +570,18 @@ rsa_pss_sign_verify() ->
     [{doc, "Checks that we can sign and verify rsa pss signatures."}].
 rsa_pss_sign_verify(Config) when is_list(Config) ->
     CertChainConf  = #{server_chain => 
-                           #{root => [{digest, sha256}, {hardcode_rsa_key(1), pss_params(sha256)}],
-                             intermediates => [[]],
-                             peer => [{digest, sha256}, {hardcode_rsa_key(2), pss_params(sha256)}]},
+                           #{root => [],
+                             intermediates => [],
+                             peer => []},
                        client_chain => 
-                           #{root => [{digest, sha256}, {hardcode_rsa_key(3), pss_params(sha256)}],
-                             intermediates => [[]],
-                             peer => [{digest, sha256}, {hardcode_rsa_key(4), pss_params(sha256)}]}},
+                           #{root => [{key, {hardcode_rsa_key(1), pss_params(sha256)}}],
+                             intermediates => [],
+                             peer => []}},
     #{client_config := ClientConf} = public_key:pkix_test_data(CertChainConf),
     Cert = proplists:get_value(cert, ClientConf),
-    {#'RSAPrivateKey'{modulus=Mod, publicExponent=Exp}, Parms} = {hardcode_rsa_key(4), pss_params(sha256)},
+    {#'RSAPrivateKey'{modulus=Mod, publicExponent=Exp}, Parms} = {hardcode_rsa_key(1), pss_params(sha256)},
            
-    public_key:pkix_verify(Cert, {#'RSAPublicKey'{modulus=Mod, publicExponent=Exp}, Parms}).
+    true = public_key:pkix_verify(Cert, {#'RSAPublicKey'{modulus=Mod, publicExponent=Exp}, Parms}).
     
 %%--------------------------------------------------------------------
 
@@ -737,9 +778,42 @@ pkix_path_validation(Config) when is_list(Config) ->
 
     {error, custom_reason} =
         public_key:pkix_path_validation(selfsigned_peer, [Trusted], [{verify_fun,
-                                                                     VerifyFunAndState2}]),
-    ok.
+                                                                      VerifyFunAndState2}]),
+    % check RSASSA-PSS key
+    % RsaPssKey = {public_key:generate_key({rsa, 1024, 65537}), pss_params(sha256)},
+    RsaPssKey = {hardcode_rsa_key(1), pss_params(sha256)},
 
+    CaKPSS = {TrustedPSSCert,_} = erl_make_certs:make_cert([{key, RsaPssKey},
+                 {subject, [
+                    {name, "RSASSA-PSS Public Key"},
+                    {?'id-at-name', {printableString, "public_key"}},
+                    {?'id-at-pseudonym', {printableString, "pubkey"}},
+                    {city, "Stockholm"},
+                    {country, "SE"},
+                    {org, "erlang"},
+                    {org_unit, "testing dep"}
+                       ]}
+                ]),
+    ChainPSSCert = {CertPSS, _} = erl_make_certs:make_cert([{issuer, {TrustedPSSCert,RsaPssKey}}]),
+    {ok, _} = public_key:pkix_path_validation(TrustedPSSCert, [CertPSS], []).
+
+pkix_path_validation_root_expired() ->
+    [{doc, "Test root expiration so that it does not fall between chairs"}].
+pkix_path_validation_root_expired(Config) when is_list(Config) ->
+    {Year, Month, Day} = date(),
+    SRoot = public_key:pkix_test_root_cert("OTP test server ROOT", [{validity, {{Year-2, Month, Day}, 
+                                                                                {Year-1, Month, Day}}}]),
+    #{server_config := Conf} = public_key:pkix_test_data(#{server_chain => #{root => SRoot,
+                                                                             intermediates => [],
+                                                                             peer => []},
+                                                           client_chain => #{root => [], 
+                                                                             intermediates => [],
+                                                                             peer => []}}),
+    [ICA, Root] = proplists:get_value(cacerts, Conf),
+    true = public_key:pkix_is_self_signed(Root),
+    Peer = proplists:get_value(cert, Conf),
+    {error, {bad_cert, cert_expired}} = public_key:pkix_path_validation(Root, [ICA, Peer], []).
+    
 %%--------------------------------------------------------------------
 %% To generate the PEM file contents:
 %%
@@ -800,24 +874,26 @@ pkix_verify_hostname_subjAltName(Config) ->
 
     %% Check that a dns_id matches a DNS subjAltName:
     true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"kb.example.org"}]),
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"KB.EXAMPLE.ORG"}]),
 
     %% Check that a dns_id does not match a DNS subjAltName wiht wildcard
     false =  public_key:pkix_verify_hostname(Cert, [{dns_id,"other.example.org"}]),
 
     %% Check that a dns_id does match a DNS subjAltName wiht wildcard with matchfun
-    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"other.example.org"}],
-                                            [{match_fun, public_key:pkix_verify_hostname_match_fun(https)}
-                                            ]
-                                             ),
+    MatchFun = {match_fun, public_key:pkix_verify_hostname_match_fun(https)},
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"other.example.org"}], [MatchFun]),
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"OTHER.EXAMPLE.ORG"}], [MatchFun]),
 
     %% Check that a uri_id does not match a DNS subjAltName wiht wildcard
     false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://other.example.org"}]),
+    false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://OTHER.EXAMPLE.ORG"}]),
 
     %% Check that a dns_id does match a DNS subjAltName wiht wildcard with matchfun
-    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://other.example.org"}],
-                                            [{match_fun, public_key:pkix_verify_hostname_match_fun(https)}
-                                            ]
-                                             ).
+    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://other.example.org"}], [MatchFun]),
+    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://OTHER.EXAMPLE.ORG"}], [MatchFun]),
+    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://OTHER.example.org"}], [MatchFun]),
+
+    ok.
 
 %%--------------------------------------------------------------------
 %% Uses the pem-file for pkix_verify_hostname_cn

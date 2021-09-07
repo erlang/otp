@@ -122,7 +122,8 @@ typedef LONG_PTR ssize_t; /* Sigh... */
 #define ERL_DEMONITOR_P    20
 #define ERL_MONITOR_P_EXIT 21
 
-
+/* For ei_xrpc_to */
+#define EI_RPC_FETCH_STDOUT 1
 /* -------------------------------------------------------------------- */
 /*           Defines used for ei_get_type_internal() output             */
 /* -------------------------------------------------------------------- */
@@ -161,6 +162,7 @@ typedef LONG_PTR ssize_t; /* Sigh... */
 #define ERL_MAP_EXT           't'
 #define ERL_FUN_EXT	      'u'
 #define ERL_EXPORT_EXT        'q'
+#define ERL_V4_PORT_EXT       'x'
 
  
 #define ERL_NEW_CACHE         'N' /* c nodes don't know these two */
@@ -208,6 +210,14 @@ extern volatile int __erl_errno;
 /*                      Type definitions                                */
 /* -------------------------------------------------------------------- */
 
+#ifdef __WIN32__
+#define EI_LONGLONG __int64
+#define EI_ULONGLONG unsigned __int64
+#else
+#define EI_LONGLONG long long
+#define EI_ULONGLONG unsigned long long
+#endif
+    
 /*
  * To avoid confusion about the MAXHOSTNAMELEN when compiling the
  * library and when using the library we set a value that we use
@@ -237,7 +247,7 @@ typedef struct {
 /* a port */
 typedef struct {
   char node[MAXATOMLEN_UTF8];
-  unsigned int id;
+  EI_ULONGLONG id;
   unsigned int creation;
 } erlang_port;
 
@@ -245,7 +255,7 @@ typedef struct {
 typedef struct {
   char node[MAXATOMLEN_UTF8];
   int len;
-  unsigned int n[3];
+  unsigned int n[5];
   unsigned int creation;
 } erlang_ref;
 
@@ -426,6 +436,8 @@ int ei_reg_send_tmo(ei_cnode* ec, int fd, char *server_name, char* buf, int len,
 
 int ei_rpc(ei_cnode* ec, int fd, char *mod, char *fun,
 	   const char* inbuf, int inbuflen, ei_x_buff* x);
+int ei_xrpc_to(ei_cnode* ec, int fd, char *mod, char *fun,
+               const char* buf, int len, int flags);
 int ei_rpc_to(ei_cnode* ec, int fd, char *mod, char *fun,
 	      const char* buf, int len);
 int ei_rpc_from(ei_cnode* ec, int fd, int timeout, erlang_msg* msg,
@@ -607,185 +619,11 @@ int ei_cmp_refs(erlang_ref *a, erlang_ref *b);
 int ei_cmp_pids(erlang_pid *a, erlang_pid *b);
 int ei_cmp_ports(erlang_port *a, erlang_port *b);
 
-/***************************************************************************
- *
- *  Hash types needed by registry types
- *
- ***************************************************************************/
-
-#define EI_SMALLKEY 32
-
-typedef struct bucket_s {
-  int rawhash;
-  const char *key;
-  char keybuf[EI_SMALLKEY];
-  const void *value;
-  struct bucket_s *next;
-} ei_bucket;
-
-/* users of the package declare variables as pointers to this. */
-typedef struct {
-  ei_bucket **tab;
-  int (*hash)(const char *); /* hash function for this table */
-  int size; /* size of table */
-  int nelem; /* nr elements */
-  int npos;  /* nr occupied positions */
-  ei_bucket *freelist; /* reuseable freed buckets */
-} ei_hash;
-
-
-/***************************************************************************
- *
- *  Registry defines, types, functions
- *
- ***************************************************************************/
-
 /* -------------------------------------------------------------------- */
-/*                               XXXXXXXXXXX                            */
+/* Initialize erl_interface                                             */
 /* -------------------------------------------------------------------- */
-
-/* registry object attributes */
-#define EI_DIRTY 0x01 /* dirty bit (object value differs from backup) */
-#define EI_DELET 0x02 /* object is deleted */
-#define EI_INT 0x10 /* object is an integer */
-#define EI_FLT 0x20 /* object is a float */
-#define EI_STR 0x40 /* object is a string */
-#define EI_BIN 0x80 /* object is a binary, i.e. pointer to arbitrary type */
-
-
-/* -------------------------------------------------------------------- */
-/*                               XXXXXXXXXXX                            */
-/* -------------------------------------------------------------------- */
-
-typedef struct ei_reg_inode {
-  int attr; 
-  int size;
-  union {
-    long i;   
-    double f;
-    char *s;
-    void *p;
-  } val;
-  struct ei_reg_inode *next;
-} ei_reg_obj;
-
-typedef struct {
-  ei_reg_obj *freelist;
-  ei_hash *tab;
-} ei_reg;
-
-struct ei_reg_stat {
-  int attr;             /* object attributes (see above) */
-  int size;             /* size in bytes (for STR and BIN) 0 for others */
-};
-
-struct ei_reg_tabstat {
-  int size;   /* size of table */
-  int nelem; /* number of stored elements */
-  int npos;   /* number of occupied positions */
-  int collisions; /* number of positions with more than one element */
-};
-
 
 int ei_init(void);
-
-/* -------------------------------------------------------------------- */
-/*                               XXXXXXXXXXX                            */
-/* -------------------------------------------------------------------- */
-
-/* FIXME move comments to source */
-
-/* open / close registry. On open, a descriptor is returned that must
- * be specified in all subsequent calls to registry functions. You can
- * open as many registries as you like.
- */
-ei_reg *ei_reg_open(int size) EI_DEPRECATED_ATTR;
-int ei_reg_resize(ei_reg *oldreg, int newsize) EI_DEPRECATED_ATTR;
-int ei_reg_close(ei_reg *reg) EI_DEPRECATED_ATTR;
-
-/* set values... these routines assign values to keys. If the key
- * exists, the previous value is discarded and the new one replaces
- * it.
- *
- * BIN objects require an additional argument indicating the size in
- * bytes of the stored object. This will be used when the object is
- * backed up, since it will need to be copied at that time. Remember
- * also that pointers are process-space specific and it is not
- * meaningful to back them up for later recall. If you are storing
- * binary objects for backup, make sure that they are self-contained
- * (without references to other objects).
- *
- * On success the function returns 0, otherwise a value
- * indicating the reason for failure will be returned.
- */
-int ei_reg_setival(ei_reg *reg, const char *key, long i) EI_DEPRECATED_ATTR;
-int ei_reg_setfval(ei_reg *reg, const char *key, double f) EI_DEPRECATED_ATTR;
-int ei_reg_setsval(ei_reg *reg, const char *key, const char *s) EI_DEPRECATED_ATTR;
-int ei_reg_setpval(ei_reg *reg, const char *key, const void *p, int size) EI_DEPRECATED_ATTR;
-
-/* general set function (specifiy type via flags)
- * optional arguments are as for equivalent type-specific function,
- * i.e.:
- * ei_reg_setval(fd, path, EI_INT, int i);
- * ei_reg_setval(fd, path, EI_FLT, float f);
- * ei_reg_setval(fd, path, EI_STR, const char *s);
- * ei_reg_setval(fd, path, EI_BIN, const void *p, int size);
- */
-int ei_reg_setval(ei_reg *reg, const char *key, int flags, ...) EI_DEPRECATED_ATTR;
-
-/* get value of specific type object */
-/* warning: it may be difficult to detect errors when using these
- * functions, since the error values are returned "in band"
- */
-long ei_reg_getival(ei_reg *reg, const char *key) EI_DEPRECATED_ATTR;
-double ei_reg_getfval(ei_reg *reg, const char *key) EI_DEPRECATED_ATTR;
-const char *ei_reg_getsval(ei_reg *reg, const char *key) EI_DEPRECATED_ATTR;
-const void *ei_reg_getpval(ei_reg *reg, const char *key, int *size) EI_DEPRECATED_ATTR;
-
-/* get value of any type object (must specify) 
- * Retrieve a value from an object. The type of value expected and a
- * pointer to a large enough buffer must be provided. flags must be
- * set to the appropriate type (see type constants above) and the
- * object type must match. If (flags == 0) the pointer is *assumed* to
- * be of the correct type for the object. In any case, the actual
- * object type is always returned on success.
- *
- * The argument following flags must be one of int*, double*, const
- * char** and const void**. 
- *
- * for BIN objects an int* is needed to return the size of the object, i.e.
- * int ei_reg_getval(ei_reg *reg, const char *path, int flags, void **p, int *size);
- */
-int ei_reg_getval(ei_reg *reg, const char *key, int flags, ...) EI_DEPRECATED_ATTR;
-
-/* mark the object as dirty. Normally this operation will not be
- * necessary, as it is done automatically by all of the above 'set'
- * functions. However, if you modify the contents of an object pointed
- * to by a STR or BIN object, then the registry will not be aware of
- * the change. As a result, the object may be missed on a subsequent
- * backup operation. Use this function to set the dirty bit on the
- * object.
- */
-int ei_reg_markdirty(ei_reg *reg, const char *key) EI_DEPRECATED_ATTR;
-
-/* remove objects. The value, if any, is discarded. For STR and BIN
- * objects, the object itself is removed using free(). */
-int ei_reg_delete(ei_reg *reg, const char *key) EI_DEPRECATED_ATTR;
-
-/* get information about an object */
-int ei_reg_stat(ei_reg *reg, const char *key, struct ei_reg_stat *obuf) EI_DEPRECATED_ATTR;
-
-/* get information about table */
-int ei_reg_tabstat(ei_reg *reg, struct ei_reg_tabstat *obuf) EI_DEPRECATED_ATTR;
-
-/* dump to / restore from backup */
-/* fd is open descriptor to Erlang, mntab is Mnesia table name */
-/* flags here: */
-#define EI_FORCE 0x1 /* dump all records (not just dirty ones) */
-#define EI_NOPURGE 0x2 /* don't purge deleted records */
-int ei_reg_dump(int fd, ei_reg *reg, const char *mntab, int flags) EI_DEPRECATED_ATTR;
-int ei_reg_restore(int fd, ei_reg *reg, const char *mntab) EI_DEPRECATED_ATTR;
-int ei_reg_purge(ei_reg *reg) EI_DEPRECATED_ATTR;
 
 /* -------------------------------------------------------------------- */
 /*            The ei_global functions */
@@ -815,14 +653,6 @@ int ei_x_encode_bignum(ei_x_buff *x, mpz_t obj);
 /* -------------------------------------------------------------------- */
 
 /* FIXME replace this primitive type size code */
-
-#ifdef __WIN32__
-#define EI_LONGLONG __int64
-#define EI_ULONGLONG unsigned __int64
-#else
-#define EI_LONGLONG long long
-#define EI_ULONGLONG unsigned long long
-#endif
 
 int ei_decode_longlong(const char *buf, int *index, EI_LONGLONG *p);
 int ei_decode_ulonglong(const char *buf, int *index, EI_ULONGLONG *p);

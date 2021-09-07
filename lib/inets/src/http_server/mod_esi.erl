@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -170,12 +170,12 @@ erl(#mod{method = Method} = ModData, ESIBody, Modules)
 	    case httpd_util:split(FuncAndInput,"[\?/]",2) of
 		{ok, [FunctionName, Input]} ->
 		    generate_webpage(ModData, ESIBody, Modules, 
-				     list_to_atom(ModuleName), 
-				     FunctionName, Input, 
+				     ModuleName,
+				     FunctionName, Input,
 				     script_elements(FuncAndInput, Input));
 		{ok, [FunctionName]} ->
 		    generate_webpage(ModData, ESIBody, Modules, 
-				     list_to_atom(ModuleName),
+				     ModuleName,
 				     FunctionName, "", 
 				     script_elements(FuncAndInput, ""));
 		{ok, BadRequest} ->
@@ -194,12 +194,12 @@ erl(#mod{method = Method, entity_body = Body} = ModData,
 	    case httpd_util:split(FuncAndInput,"[\?/]",2) of
 		{ok, [FunctionName, Input]} ->
 		    generate_webpage(ModData, ESIBody, Modules,
-				     list_to_atom(ModuleName),
+				     ModuleName,
 				     FunctionName, {Input,Body},
 				     script_elements(FuncAndInput, Input));
 		{ok, [FunctionName]} ->
 		    generate_webpage(ModData, ESIBody, Modules,
-				     list_to_atom(ModuleName),
+				     ModuleName,
 				     FunctionName, {undefined,Body},
 				     script_elements(FuncAndInput, ""));
 		{ok, BadRequest} ->
@@ -214,7 +214,7 @@ erl(#mod{method = "POST", entity_body = Body} = ModData, ESIBody, Modules) ->
     case httpd_util:split(ESIBody,":|%3A|/",2) of
 	{ok,[ModuleName, Function]} ->
 	    generate_webpage(ModData, ESIBody, Modules, 
-			     list_to_atom(ModuleName), 
+			     ModuleName,
 			     Function, Body, []);
 	{ok, BadRequest} ->
 	    {proceed,[{status, {400, none, BadRequest}} | ModData#mod.data]}
@@ -224,9 +224,8 @@ generate_webpage(ModData, ESIBody, [all], Module, FunctionName,
 		 Input, ScriptElements) ->
     generate_webpage(ModData, ESIBody, [Module], Module,
 		     FunctionName, Input, ScriptElements);
-generate_webpage(ModData, ESIBody, Modules, Module, FunctionName,
-		 Input, ScriptElements) ->
-    Function = list_to_atom(FunctionName),
+generate_webpage(ModData, ESIBody, Modules, Module, Function,
+		 Input, ScriptElements) when is_atom(Module), is_atom(Function) ->
     case lists:member(Module, Modules) of
 	true ->
 	    Env = httpd_script_env:create_env(esi, ModData, ScriptElements),
@@ -242,6 +241,19 @@ generate_webpage(ModData, ESIBody, Modules, Module, FunctionName,
 	    {proceed, [{status, {403, ModData#mod.request_uri,
 				 ?NICE("Client not authorized to evaluate: "
 				       ++  ESIBody)}} | ModData#mod.data]}
+    end;
+generate_webpage(ModData, ESIBody, Modules, ModuleName, FunctionName,
+		 Input, ScriptElements) ->
+    try
+        Module = list_to_existing_atom(ModuleName),
+        _ = code:ensure_loaded(Module),
+        Function = list_to_existing_atom(FunctionName),
+        generate_webpage(ModData, ESIBody, Modules, Module, Function,
+                         Input, ScriptElements)
+    catch
+        _:_ ->
+            {proceed, [{status, {404, ModData#mod.request_uri, "Not found"}}
+                      | ModData#mod.data]}
     end.
 
 %% API that allows the dynamic wepage to be sent back to the client 

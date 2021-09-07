@@ -81,6 +81,7 @@
          get_mode/0]).
 
 -deprecated({rehash,0,"the code path cache feature has been removed"}).
+-deprecated({is_module_native,1,"HiPE has been removed"}).
 
 -export_type([load_error_rsn/0, load_ret/0]).
 -export_type([prepared_code/0]).
@@ -109,34 +110,65 @@
 
 %%% BIFs
 
--export([get_chunk/2, is_module_native/1, make_stub_module/3, module_md5/1]).
+-export([get_chunk/2, is_module_native/1, module_md5/1]).
 
 -spec get_chunk(Bin, Chunk) ->
                        binary() | undefined when
       Bin :: binary(),
       Chunk :: string().
 
-get_chunk(_, _) ->
-    erlang:nif_error(undef).
+get_chunk(<<"FOR1", _/bits>>=Beam, Chunk) ->
+    get_chunk_1(Beam, Chunk);
+get_chunk(Beam, Chunk) ->
+    %% Corrupt header or compressed module, decompress it before passing it to
+    %% the loader and let the BIF signal any errors.
+    get_chunk_1(try_decompress(Beam), Chunk).
+
+get_chunk_1(Beam, Chunk) ->
+    try
+        erts_internal:beamfile_chunk(Beam, Chunk)
+    catch
+        error:Reason ->
+            {'EXIT',{new_stacktrace,[{Mod,_,L,Loc}|Rest]}} =
+                (catch erlang:error(new_stacktrace, [Beam, Chunk])),
+            erlang:raise(error, Reason, [{Mod,get_chunk,L,Loc}|Rest])
+    end.
 
 -spec is_module_native(Module) -> true | false | undefined when
       Module :: module().
-
-is_module_native(_) ->
-    erlang:nif_error(undef).
-
--spec make_stub_module(LoaderState, Beam, Info) -> module() when
-      LoaderState :: binary(),
-      Beam :: binary(),
-      Info :: {list(), list(), binary()}.
-
-make_stub_module(_, _, _) ->
-    erlang:nif_error(undef).
+is_module_native(Module) when is_atom(Module) ->
+    case is_loaded(Module) of
+        {file, _} -> false;
+        false -> undefined
+    end;
+is_module_native(Module) ->
+    erlang:error(badarg, [Module]).
 
 -spec module_md5(binary()) -> binary() | undefined.
 
-module_md5(_) ->
-    erlang:nif_error(undef).
+module_md5(<<"FOR1", _/bits>>=Beam) ->
+    module_md5_1(Beam);
+module_md5(Beam) ->
+    %% Corrupt header or compressed module, decompress it before passing it to
+    %% the loader and let the BIF signal any errors.
+    module_md5_1(try_decompress(Beam)).
+
+module_md5_1(Beam) ->
+    try
+        erts_internal:beamfile_module_md5(Beam)
+    catch
+        error:Reason ->
+            {'EXIT',{new_stacktrace,[{Mod,_,L,Loc}|Rest]}} =
+                (catch erlang:error(new_stacktrace, [Beam])),
+            erlang:raise(error, Reason, [{Mod,module_md5,L,Loc}|Rest])
+    end.
+
+try_decompress(Bin0) ->
+    try zlib:gunzip(Bin0) of
+        Decompressed -> Decompressed
+    catch
+        _:_ -> Bin0
+    end.
 
 %%% End of BIFs
 
@@ -616,23 +648,13 @@ load_bins(BinItems) ->
 -spec prepare_loading_fun() -> prep_fun_type().
 
 prepare_loading_fun() ->
-    GetNative = get_native_fun(),
     fun(Mod, FullName, Beam) ->
 	    case erlang:prepare_loading(Mod, Beam) of
 		{error,_}=Error ->
 		    Error;
 		Prepared ->
-		    {ok,{Prepared,FullName,GetNative(Beam)}}
+		    {ok,{Prepared,FullName,undefined}}
 	    end
-    end.
-
-get_native_fun() ->
-    Architecture = erlang:system_info(hipe_architecture),
-    try hipe_unified_loader:chunk_name(Architecture) of
-	ChunkTag ->
-	    fun(Beam) -> code:get_chunk(Beam, ChunkTag) end
-    catch _:_ ->
-	    fun(_) -> undefined end
     end.
 
 do_par(Fun, L) ->
@@ -709,9 +731,6 @@ do_start() ->
 
     maybe_stick_dirs(Mode),
 
-    %% Quietly load native code for all modules loaded so far.
-    Architecture = erlang:system_info(hipe_architecture),
-    load_native_code_for_all_loaded(Architecture),
     Res.
 
 %% Make sure that all modules that the code_server process calls
@@ -725,7 +744,6 @@ load_code_server_prerequisites() ->
 	      filename,
 	      gb_sets,
 	      gb_trees,
-	      hipe_unified_loader,
 	      lists,
 	      os,
 	      unicode],
@@ -859,7 +877,7 @@ get_doc_chunk(Filename, Mod) when is_atom(Mod) ->
                 Error ->
                     Error
             end;
-        {error,beam_lib,{file_error,_Filename,enoent}} ->
+        {error,beam_lib,{file_error,_Filename,_Err}} ->
             get_doc_chunk(Filename, atom_to_list(Mod));
         {ok, {Mod, [{"Docs",Bin}]}} ->
             {ok,binary_to_term(Bin)}
@@ -1011,47 +1029,6 @@ cache_warning() ->
     W = "The code path cache functionality has been removed",
     error_logger:warning_report(W).
 
-%%%
-%%% Silently load native code for all modules loaded so far.
-%%%
-
-load_native_code_for_all_loaded(undefined) ->
-    ok;
-load_native_code_for_all_loaded(Architecture) ->
-    try hipe_unified_loader:chunk_name(Architecture) of
-	ChunkTag ->
-	    Loaded = all_loaded(),
-	    _ = spawn(fun() -> load_all_native(Loaded, ChunkTag) end),
-	    ok
-    catch
-	_:_ ->
-	    ok
-    end.
-
-load_all_native(Loaded, ChunkTag) ->
-    catch load_all_native_1(Loaded, ChunkTag).
-
-load_all_native_1([{_,preloaded}|T], ChunkTag) ->
-    load_all_native_1(T, ChunkTag);
-load_all_native_1([{Mod,BeamFilename}|T], ChunkTag) ->
-    case code:is_module_native(Mod) of
-	false ->
-	    %% prim_file is faster than file and the file server may
-	    %% not be started yet.
-	    {ok,Beam} = prim_file:read_file(BeamFilename),
-	    case code:get_chunk(Beam, ChunkTag) of
-		undefined ->
-		    ok;
-		NativeCode when is_binary(NativeCode) ->
-		    _ = load_native_partial(Mod, NativeCode),
-		    ok
-	    end;
-	true -> ok
-    end,
-    load_all_native_1(T, ChunkTag);
-load_all_native_1([], _) ->
-    ok.
-
 -type module_status() :: not_loaded | loaded | modified | removed.
 
 %% Returns the list of all loaded modules and their current status
@@ -1099,42 +1076,13 @@ module_status(Module, PathFiles) ->
 %% be reloaded; does not care about file timestamps or compilation time
 module_changed_on_disk(Module, Path) ->
     MD5 = erlang:get_module_info(Module, md5),
-    case erlang:system_info(hipe_architecture) of
-        undefined ->
-            %% straightforward, since native is not supported
-            MD5 =/= beam_file_md5(Path);
-        Architecture ->
-            case code:is_module_native(Module) of
-                true ->
-                    %% MD5 is for native code, so we check only the native
-                    %% code on disk, ignoring the beam code
-                    MD5 =/= beam_file_native_md5(Path, Architecture);
-                _ ->
-                    %% MD5 is for beam code, so check only the beam code on
-                    %% disk, even if the file contains native code as well
-                    MD5 =/= beam_file_md5(Path)
-            end
-    end.
+    MD5 =/= beam_file_md5(Path).
 
 beam_file_md5(Path) ->
     case beam_lib:md5(Path) of
         {ok,{_Mod,MD5}} -> MD5;
         _ -> undefined
     end.
-
-beam_file_native_md5(Path, Architecture) ->
-    try
-        get_beam_chunk(Path, hipe_unified_loader:chunk_name(Architecture))
-    of
-        NativeCode when is_binary(NativeCode) ->
-            erlang:md5(NativeCode)
-    catch
-        _:_ -> undefined
-    end.
-
-get_beam_chunk(Path, Chunk) ->
-    {ok, {_, [{_, Bin}]}} = beam_lib:chunks(Path, [Chunk]),
-    Bin.
 
 %% Returns a list of all modules modified on disk.
 -spec modified_modules() -> [module()].

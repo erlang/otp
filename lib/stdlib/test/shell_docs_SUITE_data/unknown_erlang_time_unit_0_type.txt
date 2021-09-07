@@ -1,0 +1,69 @@
+
+  [;1m-type time_unit() ::[0m
+  [;1m          pos_integer() |[0m
+  [;1m          second | millisecond | microsecond | nanosecond | native |[0m
+  [;1m          perf_counter |[0m
+  [;1m          deprecated_time_unit().[0m
+
+  Supported time unit representations:
+
+  [;;4m[;;4mPartsPerSecond :: integer() >= 1[0m[0m:
+    Time unit expressed in parts per second. That is, the time
+    unit equals [;;4m1/PartsPerSecond[0m second.
+
+  [;;4m[;;4msecond[0m[0m:
+    Symbolic representation of the time unit represented by the
+    integer [;;4m1[0m.
+
+  [;;4m[;;4mmillisecond[0m[0m:
+    Symbolic representation of the time unit represented by the
+    integer [;;4m1000[0m.
+
+  [;;4m[;;4mmicrosecond[0m[0m:
+    Symbolic representation of the time unit represented by the
+    integer [;;4m1000_000[0m.
+
+  [;;4m[;;4mnanosecond[0m[0m:
+    Symbolic representation of the time unit represented by the
+    integer [;;4m1000_000_000[0m.
+
+  [;;4m[;;4mnative[0m[0m:
+    Symbolic representation of the native time unit used by the
+    Erlang runtime system.
+
+    The [;;4mnative[0m time unit is determined at runtime system start,
+    and remains the same until the runtime system terminates. If a
+    runtime system is stopped and then started again (even on the
+    same machine), the [;;4mnative[0m time unit of the new runtime
+    system instance can differ from the [;;4mnative[0m time unit of the
+    old runtime system instance.
+
+    One can get an approximation of the [;;4mnative[0m time unit by
+    calling [;;4merlang:convert_time_unit(1, second, native)[0m. The
+    result equals the number of whole [;;4mnative[0m time units per
+    second. If the number of [;;4mnative[0m time units per second does
+    not add up to a whole number, the result is rounded downwards.
+
+    Note:
+      The value of the [;;4mnative[0m time unit gives you more or less
+      no information about the quality of time values. It sets a
+      limit for the resolution and for the precision of time
+      values, but it gives no information about the accuracy
+      of time values. The resolution of the [;;4mnative[0m time unit
+      and the resolution of time values can differ
+      significantly.
+
+  [;;4m[;;4mperf_counter[0m[0m:
+    Symbolic representation of the performance counter time unit
+    used by the Erlang runtime system.
+
+    The [;;4mperf_counter[0m time unit behaves much in the same way as
+    the [;;4mnative[0m time unit. That is, it can differ between runtime
+    restarts. To get values of this type, call [;;4mos:perf_counter/0[0m.
+
+  [;;4m[;;4mdeprecated_time_unit()[0m[0m:
+    Deprecated symbolic representations kept for
+    backwards-compatibility.
+
+  The [;;4mtime_unit/0[0m type can be extended. To convert time values
+  between time units, use [;;4merlang:convert_time_unit/3[0m.

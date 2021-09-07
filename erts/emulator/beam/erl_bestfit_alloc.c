@@ -52,7 +52,6 @@
 #endif
 
 #define MIN_MBC_SZ		(16*1024)
-#define MIN_MBC_FIRST_FREE_SZ	(4*1024)
 
 #define TREE_NODE_FLG		(((Uint) 1) << 0)
 #define RED_FLG			(((Uint) 1) << 1)
@@ -179,7 +178,6 @@ erts_bfalc_start(BFAllctr_t *bfallctr,
 
     allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
-    allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
     allctr->min_block_size		= (bfinit->ao
 					   ? sizeof(RBTree_t)
 					   : sizeof(RBTreeList_t));
@@ -434,7 +432,8 @@ tree_delete(Allctr_t *allctr, Block_t *del)
 	y = z;
     else
 	/* Set y to z:s successor */
-	for(y = z->right; y->left; y = y->left);
+	for (y = z->right; y->left; y = y->left)
+            ;
     /* splice out y */
     x = y->left ? y->left : y->right;
     spliced_is_black = IS_BLACK(y);

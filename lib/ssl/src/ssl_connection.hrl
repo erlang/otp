@@ -36,7 +36,7 @@
 -record(static_env, {
                      role                  :: client | server,
                      transport_cb          :: atom(),   % callback module
-                     protocol_cb           :: tls_connection | dtls_connection,
+                     protocol_cb           :: tls_gen_connection | dtls_gen_connection,
                      data_tag              :: atom(),   % ex tcp.
                      close_tag             :: atom(),   % ex tcp_closed
                      error_tag             :: atom(),   % ex tcp_error
@@ -64,6 +64,7 @@
                         resumption = false   :: boolean(),  %% TLS 1.3
                         change_cipher_spec_sent = false :: boolean(),  %% TLS 1.3
                         sni_guided_cert_selection = false :: boolean(), %% TLS 1.3
+                        early_data_accepted = false :: boolean(), %% TLS 1.3
                         allow_renegotiate = true                    ::boolean(),
                         %% Ext handling
                         hello,                %%:: #client_hello{} | #server_hello{}            
@@ -91,8 +92,9 @@
 
 -record(connection_env, { 
                           user_application      :: {Monitor::reference(), User::pid()},
-                          downgrade,
-                          terminated = false                          ::boolean() | closed,  
+                          downgrade             :: {NewController::pid(), From::gen_statem:from()} | 'undefined',
+                          socket_terminated = false                          ::boolean(),
+                          socket_tls_closed = false                          ::boolean(),
                           negotiated_version    :: ssl_record:ssl_version() | 'undefined',
                           erl_dist_handle = undefined :: erlang:dist_handle() | 'undefined',
                           private_key          :: public_key:private_key() | secret_printout() | 'undefined'

@@ -313,6 +313,11 @@ test_ei_cmp_nc(Config) when is_list(Config) ->
     check_cmp(P, mk_pid({a@b, 4711}, 17, 17), mk_pid({a@b, 4711}, 18, 17)),
     check_cmp(P, mk_pid({a@b, 4711}, 17, 17), mk_pid({a@b, 4711}, 17, 18)),
 
+    %% Test full 64-bit pids
+    Vs = [1 bsl 30, 1 bsl 31, (1 bsl 31)-1, (1 bsl 32)-1],
+    [check_cmp(P, mk_pid({a@b, 4711}, A, B), mk_pid({a@b, 4711}, C, D))
+     || A <- Vs, B <- Vs, C <- Vs, D <- Vs],
+
     Cmd = case os:type() of
               {win32, _} -> "cmd /q /c true";
               _ -> "true"

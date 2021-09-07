@@ -101,22 +101,20 @@
 #endif
 
 
+
 #if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 # define NEED_EVP_COMPATIBILITY_FUNCTIONS
 #endif
 
+#ifndef HAS_LIBRESSL
+# if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
+#  define HAS_BN_bn2binpad
+# endif
+#endif
 
 #ifndef HAS_LIBRESSL
 # if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
 #  define HAS_EVP_PKEY_CTX
-#  if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,0,2) \
-    && (! DISABLE_EVP_DH)
-     /* Diffie-Hellman EVP is slow on antique crypto libs
-      * DISABLE_EVP_DH is 0 or 1 from the configure script
-      */
-#    undef  DISABLE_EVP_DH
-#    define DISABLE_EVP_DH 1
-#  endif
 #  define HAVE_EVP_CIPHER_CTX_COPY
 # endif
 
@@ -127,6 +125,16 @@
 # endif
 #endif
 
+#if defined(HAS_EVP_PKEY_CTX) \
+    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
+     /* EVP is slow on antique crypto libs.
+      * DISABLE_EVP_* is 0 or 1 from the configure script
+      */
+# undef  DISABLE_EVP_DH
+# define DISABLE_EVP_DH 1
+# undef  DISABLE_EVP_HMAC
+# define DISABLE_EVP_HMAC 1
+#endif
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
 #include <openssl/modes.h>
@@ -235,10 +243,6 @@
 # if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1))
 #   define HAVE_EDDSA
 # endif
-#endif
-
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'c')
-# define HAVE_AES_IGE
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,1)
@@ -414,6 +418,15 @@ do {                                                    \
 #  define PRINTF_ERR1(FMT,A1)
 #  define PRINTF_ERR2(FMT,A1,A2)
 #endif
+
+#if defined(FIPS_SUPPORT) \
+    && OPENSSL_VERSION_NUMBER  < PACKED_OPENSSL_VERSION_PLAIN(1,0,1)
+/* FIPS is not supported for versions < 1.0.1.  If FIPS_SUPPORT is enabled
+   there are some warnings/errors for thoose
+*/
+# undef FIPS_SUPPORT
+#endif
+
 
 #ifdef FIPS_SUPPORT
 /* In FIPS mode non-FIPS algorithms are disabled and return badarg. */

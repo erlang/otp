@@ -331,7 +331,7 @@
       <desc>
         <p>Returns a list of all
         edges <seeerl marker="#emanate">emanating</seeerl> from or 
-        <seeerl marker="#incident">incident</seeerl> on<c><anno>V</anno></c>
+        <seeerl marker="#incident">incident</seeerl> on <c><anno>V</anno></c>
         of digraph <c><anno>G</anno></c>, in some unspecified order.</p>
       </desc>
     </func>

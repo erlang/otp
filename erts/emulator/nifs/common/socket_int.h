@@ -66,7 +66,45 @@
 
 #endif
 
+/* Copied from sys.h
+ * In VC++, noreturn is a declspec that has to be before the types,
+ * but in GNUC it is an attribute to be placed between return type
+ * and function name, hence __decl_noreturn <types> __noreturn <function name>
+ *
+ * at some platforms (e.g. Android) __noreturn is defined at sys/cdef.h
+ */
+#if __GNUC__
+#  define __decl_noreturn
+#  ifndef __noreturn
+#     define __noreturn __attribute__((noreturn))
+#  endif
+#else
+#  if defined(__WIN32__) && defined(_MSC_VER)
+#    define __noreturn
+#    define __decl_noreturn __declspec(noreturn)
+#  else
+#    define __noreturn
+#    define __decl_noreturn
+#  endif
+#endif
+
 #include <erl_nif.h>
+
+#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_PATH
+# ifdef AF_LOCAL
+#  define HAS_AF_LOCAL 1
+# else
+#  ifdef AF_UNIX
+#   define AF_LOCAL AF_UNIX
+#   define HAS_AF_LOCAL 1
+#  else
+#   undef HAS_AF_LOCAL
+#  endif
+# endif
+#else
+# undef HAS_AF_LOCAL
+#endif
+/* After this we only check HAS_AF_LOCAL and use AF_LOCAL */
 
 /* The general purpose sockaddr */
 typedef union {
@@ -82,7 +120,7 @@ typedef union {
 #endif
 
     /* Unix Domain Socket sockaddr */
-#if defined(HAVE_SYS_UN_H)
+#ifdef HAS_AF_LOCAL
     struct sockaddr_un  un;
 #endif
 
@@ -98,18 +136,32 @@ typedef union {
 
 
 /* *** Boolean *type* stuff... *** */
-typedef unsigned int BOOLEAN_T;
-#define TRUE  1
-#define FALSE 0
+typedef int BOOLEAN_T;
+#ifndef TRUE
+#define TRUE  (!0)
+#endif
+#ifndef FALSE
+#define FALSE (! TRUE)
+#endif
 
 #define BOOL2ATOM(__B__) ((__B__) ? esock_atom_true : esock_atom_false)
 
 #define B2S(__B__) ((__B__) ? "true" : "false")
 
-/* Misc error strings */
-#define ESOCK_STR_EAFNOSUPPORT "eafnosupport"
-#define ESOCK_STR_EAGAIN       "eagain"
-#define ESOCK_STR_EINVAL       "einval"
+#define NUM(Array) (sizeof(Array) / sizeof(*(Array)))
+
+
+#ifdef HAVE_SOCKLEN_T
+#  define SOCKLEN_T socklen_t
+#else
+#  define SOCKLEN_T size_t
+#endif
+
+#ifdef __WIN32__
+#define SOCKOPTLEN_T int
+#else
+#define SOCKOPTLEN_T SOCKLEN_T
+#endif
 
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -139,6 +191,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(auth_key);                 \
     GLOBAL_ATOM_DEF(auth_level);               \
     GLOBAL_ATOM_DEF(autoclose);                \
+    GLOBAL_ATOM_DEF(bad_data);                 \
     GLOBAL_ATOM_DEF(bindtodevice);             \
     GLOBAL_ATOM_DEF(block_source);             \
     GLOBAL_ATOM_DEF(broadcast);                \
@@ -147,7 +200,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(close);                    \
     GLOBAL_ATOM_DEF(cmsg_cloexec);             \
     GLOBAL_ATOM_DEF(command);                  \
-    GLOBAL_ATOM_DEF(conirm);                   \
+    GLOBAL_ATOM_DEF(confirm);                  \
     GLOBAL_ATOM_DEF(congestion);               \
     GLOBAL_ATOM_DEF(connect);                  \
     GLOBAL_ATOM_DEF(context);                  \
@@ -200,6 +253,8 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(inet6);                    \
     GLOBAL_ATOM_DEF(info);                     \
     GLOBAL_ATOM_DEF(initmsg);                  \
+    GLOBAL_ATOM_DEF(invalid);                  \
+    GLOBAL_ATOM_DEF(integer_range);            \
     GLOBAL_ATOM_DEF(iov);                      \
     GLOBAL_ATOM_DEF(ip);                       \
     GLOBAL_ATOM_DEF(ipcomp_level);             \
@@ -254,10 +309,10 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(passcred);                 \
     GLOBAL_ATOM_DEF(path);                     \
     GLOBAL_ATOM_DEF(peek);                     \
-    GLOBAL_ATOM_DEF(peekcred);                 \
     GLOBAL_ATOM_DEF(peek_off);                 \
     GLOBAL_ATOM_DEF(peer_addr_params);         \
     GLOBAL_ATOM_DEF(peer_auth_chunks);         \
+    GLOBAL_ATOM_DEF(peercred);                 \
     GLOBAL_ATOM_DEF(pktinfo);                  \
     GLOBAL_ATOM_DEF(pktoptions);               \
     GLOBAL_ATOM_DEF(pkttype);                  \
@@ -331,7 +386,6 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(unblock_source);           \
     GLOBAL_ATOM_DEF(undefined);                \
     GLOBAL_ATOM_DEF(unicast_hops);             \
-    GLOBAL_ATOM_DEF(unknown);                  \
     GLOBAL_ATOM_DEF(usec);                     \
     GLOBAL_ATOM_DEF(user);                     \
     GLOBAL_ATOM_DEF(user_timeout);             \
@@ -345,7 +399,6 @@ typedef unsigned int BOOLEAN_T;
  */
 
 #define GLOBAL_ERROR_REASON_ATOM_DEFS \
-    GLOBAL_ATOM_DEF(eafnosupport);    \
     GLOBAL_ATOM_DEF(eagain);          \
     GLOBAL_ATOM_DEF(einval);
 
@@ -366,9 +419,12 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
 #define MKA(E,S)            enif_make_atom((E), (S))
 #define MKBIN(E,B)          enif_make_binary((E), (B))
 #define MKI(E,I)            enif_make_int((E), (I))
+#define MKI64(E,I)          enif_make_int64((E), (I))
 #define MKL(E,L)            enif_make_long((E), (L))
 #define MKLA(E,A,L)         enif_make_list_from_array((E), (A), (L))
+#define MKL1(E,T)           enif_make_list1((E), (T))
 #define MKEL(E)             enif_make_list((E), 0)
+#define MKC(E,H,T)          enif_make_list_cell((E), (H), (T))
 #define MKMA(E,KA,VA,L,M)   enif_make_map_from_arrays((E), (KA), (VA), (L), (M))
 #define MKPID(E, P)         enif_make_pid((E), (P))
 #define MKREF(E)            enif_make_ref((E))
@@ -401,12 +457,13 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
 #define COMPARE(A, B)        enif_compare((A), (B))
 #define COMPARE_PIDS(P1, P2) enif_compare_pids((P1), (P2))
 
-#define IS_ATOM(E,  TE) enif_is_atom((E),   (TE))
-#define IS_BIN(E,   TE) enif_is_binary((E), (TE))
-#define IS_LIST(E,  TE) enif_is_list((E),   (TE))
-#define IS_MAP(E,   TE) enif_is_map((E), (TE))
-#define IS_NUM(E,   TE) enif_is_number((E), (TE))
-#define IS_TUPLE(E, TE) enif_is_tuple((E),  (TE))
+#define IS_ATOM(E,    TE) enif_is_atom((E),   (TE))
+#define IS_BIN(E,     TE) enif_is_binary((E), (TE))
+#define IS_LIST(E,    TE) enif_is_list((E),   (TE))
+#define IS_MAP(E,     TE) enif_is_map((E), (TE))
+#define IS_NUM(E,     TE) enif_is_number((E), (TE))
+#define IS_TUPLE(E,   TE) enif_is_tuple((E),  (TE))
+#define IS_INTEGER(E, TE) esock_is_integer((E),   (TE))
 
 #define GET_ATOM_LEN(E, TE, LP) \
     enif_get_atom_length((E), (TE), (LP), ERL_NIF_LATIN1)
@@ -414,7 +471,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
     enif_get_atom((E), (TE), (BP), (MAX), ERL_NIF_LATIN1)
 #define GET_BIN(E, TE, BP)          enif_inspect_iolist_as_binary((E), (TE), (BP))
 #define GET_INT(E, TE, IP)          enif_get_int((E), (TE), (IP))
-#define GET_INT64(E, TE, IP)          enif_get_int64((E), (TE), (IP))
+#define GET_INT64(E, TE, IP)        enif_get_int64((E), (TE), (IP))
 #define GET_LIST_ELEM(E, L, HP, TP) enif_get_list_cell((E), (L), (HP), (TP))
 #define GET_LIST_LEN(E, L, LP)      enif_get_list_length((E), (L), (LP))
 #define GET_LONG(E, TE, LP)         enif_get_long((E), (TE), (LP))
@@ -423,7 +480,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
     enif_get_string((E), (L), (B), (SZ), ERL_NIF_LATIN1)
 #define GET_UINT(E, TE, UIP)        enif_get_uint((E), (TE), (UIP))
 #define GET_UINT64(E, TE, UIP)      enif_get_uint64((E), (TE), (UIP))
-#define GET_ULONG(E, TE, ULP)       enif_get_long((E), (TE), (ULP))
+#define GET_ULONG(E, TE, ULP)       enif_get_ulong((E), (TE), (ULP))
 #define GET_TUPLE(E, TE, TSZ, TA)   enif_get_tuple((E), (TE), (TSZ), (TA))
 #define GET_MAP_VAL(E, M, K, V)     enif_get_map_value((E), (M), (K), (V))
 

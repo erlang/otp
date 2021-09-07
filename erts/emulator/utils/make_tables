@@ -37,8 +37,6 @@ use File::Basename;
 #    <-src>/erl_bif_table.c
 #    <-src>/erl_dirty_bif_wrap.c
 #    <-src>/erl_guard_bifs.c
-#    <-src>/hipe_nbif_impl.c
-#    <-include>/hipe_nbif_impl.h
 #    <-include>/erl_atom_table.h
 #    <-include>/erl_bif_table.h
 #
@@ -59,7 +57,7 @@ my %dirty_bif_tab;
 my @bif;
 my @bif_info;
 my $dirty_schedulers_test = 'no';
-my $hipe = 'no';
+my $jit = 'no';
 
 while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
     my $opt = shift;
@@ -75,10 +73,10 @@ while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
 	$dirty_schedulers_test = shift;
 	die "No -dst argument specified"
 	    unless defined $dirty_schedulers_test;
-    } elsif($opt eq '-hipe') {
-	$hipe = shift;
-	die "No -hipe argument specified"
-	    unless defined $hipe;
+    } elsif($opt eq '-jit') {
+	$jit = shift;
+	die "No -jit argument specified"
+	    unless defined $jit;
     } else {
 	usage("bad option: $opt");
     }
@@ -247,12 +245,15 @@ typedef struct erts_u_bif {
 } ErtsUBif;
 
 extern BifEntry bif_table[];
-extern Export bif_trap_export[];
 extern const ErtsUBif erts_u_bifs[];
 
 #define BIF_SIZE $bif_size
 
 EOF
+
+print "#define BIF_TRAP_EXPORT(BIF_NAME) (&bif_trap_exports__[BIF_NAME])\n";
+print "extern Export bif_trap_exports__[];\n";
+print "\n";
 
 my $i;
 for ($i = 0; $i < @bif; $i++) {
@@ -262,7 +263,7 @@ for ($i = 0; $i < @bif; $i++) {
 print "\n";
 
 for ($i = 0; $i < @bif; $i++) {
-    my $args = join(', ', 'Process*', 'Eterm*', 'UWord*');
+    my $args = join(', ', 'Process*', 'Eterm*', 'ErtsCodePtr');
     my $name = $bif_info[$i]->[3];
     print "Eterm $name($args);\n";
     print "Eterm erts_gc_$name(Process* p, Eterm* reg, Uint live);\n"
@@ -270,10 +271,6 @@ for ($i = 0; $i < @bif; $i++) {
     print "Eterm $bif_info[$i]->[2]($args);\n"
 	unless $bif_info[$i]->[1] eq 'normal';
     print "\n";
-}
-
-if ($hipe eq 'yes') {
-    print "\n#include \"hipe_nbif_impl.h\"\n";
 }
 
 print "\n#endif\n";
@@ -287,7 +284,7 @@ my $i;
 includes("export.h", "sys.h", "erl_vm.h", "erl_process.h", "bif.h",
 	 "erl_bif_table.h", "erl_atom_table.h");
 
-print "\nExport bif_trap_export[BIF_SIZE];\n";
+print "\nExport bif_trap_exports__[BIF_SIZE];\n";
 
 print "BifEntry bif_table[] = {\n";
 for ($i = 0; $i < @bif; $i++) {
@@ -330,62 +327,16 @@ for ($i = 0; $i < @bif_info; $i++) {
 	$dtype = "ERTS_SCHED_DIRTY_IO";
     }
 print <<EOF;
-Eterm $bif_info[$i]->[2](Process *c_p, Eterm *regs, BeamInstr *I)
+Eterm $bif_info[$i]->[2](Process *c_p, Eterm *regs, ErtsCodePtr I)
 {
-    return erts_reschedule_bif(c_p, regs, I, $bif_info[$i]->[3], $dtype);
+    return erts_reschedule_bif(c_p, regs, I,
+                               &BIF_TRAP_EXPORT($i)->info.mfa,
+                               $bif_info[$i]->[3], $dtype);
 }
 
 EOF
 
 }
-
-if ($hipe eq 'yes') {
-
-    #
-    # Generate the nbif_impl bif wrappers file.
-    #
-
-    open_file("$src/hipe_nbif_impl.h");
-    print <<EOF;
-
-#ifndef HIPE_NBIF_IMPL_H__
-#define HIPE_NBIF_IMPL_H__
-
-EOF
-
-    my $i;
-    for ($i = 0; $i < @bif; $i++) {
-	print <<EOF;
-Eterm nbif_impl_$bif[$i]->[4](Process *c_p, Eterm *regs);
-EOF
-   }
-
-   print <<EOF;
-
-#endif /* ERL_HIPE_NBIF_IMPL_H__ */
-
-EOF
-
-    #
-    # Generate the nbif_impl bif wrappers file.
-    #
-
-    open_file("$src/hipe_nbif_impl.c");
-    my $i;
-    includes("erl_process.h", "erl_nfunc_sched.h", "erl_bif_table.h", "erl_atom_table.h");
-    for ($i = 0; $i < @bif; $i++) {
-
-	print <<EOF;
-Eterm nbif_impl_$bif[$i]->[4](Process *c_p, Eterm *regs)
-{
-    return $bif[$i]->[3](c_p, regs, (UWord *)&bif_trap_export\[BIF_$bif[$i]->[4]\]);
-}
-
-EOF
-
-   }
-
-} # hipe
 
 #
 # Utilities follow.

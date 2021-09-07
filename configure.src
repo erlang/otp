@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2018. All Rights Reserved.
+# Copyright Ericsson AB 2018-2021. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,12 @@
 #
 # %CopyrightEnd%
 #
+# * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+# WARNING!
+#    DO NOT EDIT the 'configure' file which is automatically generated from
+#    'configure.src'! In order to update 'configure' edit 'configure.src' and
+#    execute './otp_build update_configure [--no-commit]'.
+# * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 #
 # This is a handcrafted wrapper script which runs the actual (autoconf)
 # 'configure' scripts in different parts of OTP.
@@ -30,8 +36,6 @@
 # On windows a static cache for each configure is used since it
 # otherwise takes forever to run configure...
 #
-
-OTP_VERSION=@OTP_VERSION@
 
 unset CDPATH
 
@@ -51,7 +55,7 @@ skip_applications=
 while test $# != 0; do
     case $1 in
 	-srcdir=* | --srcdir=*)
-	    user_srcdir=`expr "$1" : '[^=]*=\(.*\)'`
+	    user_srcdir=`expr -- "$1" : '[^=]*=\(.*\)'`
 	    if test "$ERL_TOP" != ""; then
 		echo "WARNING: Overriding ERL_TOP with $user_srcdir" 1>&2
 		echo "" 1>&2
@@ -91,7 +95,7 @@ while test $# != 0; do
 	    echo "" 1>&2
 	    ;;
 	-cache-file=* | --cache-file=* )
-	    static_cache=`expr "$1" : '[^=]*=\(.*\)'`
+	    static_cache=`expr -- "$1" : '[^=]*=\(.*\)'`
 	    if test "$static_cache" != "/dev/null"; then
 		echo "WARNING: Only using config cache file '$static_cache' as static cache" 1>&2
 		echo "" 1>&2
@@ -136,8 +140,8 @@ while test $# != 0; do
 	    pie_ldflags="-no-pie"
 	    ;;
 	CFLAGS=* | LDFLAGS=*)
-	    flgs_var=`expr "$1" : '\([^=]*\)=.*'`
-	    flgs_val=`expr "$1" : '[^=]*=\(.*\)'`
+	    flgs_var=`expr -- "$1" : '\([^=]*\)=.*'`
+	    flgs_val=`expr -- "$1" : '[^=]*=\(.*\)'`
 	    eval $flgs_var=\$flgs_val
 	    ;;
 	--help=r* | -help=r*)
@@ -147,8 +151,15 @@ while test $# != 0; do
         *)
 	    case $1 in
 		--without-*)
-		    skip_app=`expr "$1" : '--without-\(.*\)'`
-		    if test -d "lib/$skip_app"; then
+		    skip_app=`expr -- "$1" : '--without-\(.*\)'`
+                    if [ "$skip_app" = "stdlib" ] ||
+                           [ "$skip_app" = "kernel" ] ||
+                           [ "$skip_app" = "sasl" ] ||
+                           [ "$skip_app" = "compiler" ] ||
+                           [ "$skip_app" = "erl_interface" ]; then
+                        echo "ERROR: $skip_app is a mandatory application" 1>&2
+                        exit 1
+		    elif test -d "lib/$skip_app"; then
 			skip_applications="$skip_applications $skip_app"
 		    fi;;
 		*)
@@ -180,7 +191,7 @@ fi
 #
 
 root_dir=
-dir_chk_data="$OTP_VERSION"
+dir_chk_data=`date`
 
 if root_dir=`dirname "$0" 2>/dev/null` \
 	&& test "$root_dir" != "" \
@@ -191,7 +202,7 @@ if root_dir=`dirname "$0" 2>/dev/null` \
     else
 	case "$root_dir" in
 	    /*)
-		echo $dir_chk_data > "$root_dir"/config.dir.check.$$ 2>/dev/null
+		echo "$dir_chk_data" > "$root_dir"/config.dir.check.$$ 2>/dev/null
 		;;
 	    *)
 		root_dir=
@@ -323,7 +334,9 @@ for app_dir in make $check_conf_dirs erts; do
        rm -f $app_dir/configure.result.command
        rm -f $app_dir/configure.result.stdout
        rm -f $app_dir/configure.result.stderr
-       app_dirs="$app_dirs $app_dir"
+       if ! echo "$skip_applications" | grep $(basename $app_dir) > /dev/null 2> /dev/null; then
+           app_dirs="$app_dirs $app_dir"
+       fi
     fi
 done
 

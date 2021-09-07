@@ -23,6 +23,9 @@
 -export([all/0, suite/0]).
 -export([wrap_1/1]).
 -export([compare_list/1, compare_ets/1]).
+-export([internal_size/1, external_size/1]).
+
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([loop_ref/1]).
 
@@ -32,8 +35,14 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 2}}].
 
+init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+    [{testcase, Func}|Config].
+
+end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+    ok.
+
 all() -> 
-    [wrap_1, compare_list, compare_ets].
+    [wrap_1, compare_list, compare_ets, internal_size, external_size].
 
 %% Check that refs don't wrap around easily.
 wrap_1(Config) when is_list(Config) ->
@@ -79,3 +88,102 @@ compare_ets(Config) when is_list(Config) ->
     ets:insert(Ets, [{Ref,Ref} || Ref <- Refs]),
     0 = length([R || R <- ets:tab2list(Ets), ets:lookup(Ets, element(1,R)) == []]),
     ok.
+
+internal_size(Config) when is_list(Config) ->
+    %% Verifies that the range of heap size used for internal references
+    %% matches what the documentation say in the advanced chapter of the
+    %% efficiency guide. Note that the values in the efficiency guide
+    %% also add the word referencing the heap structure.
+
+    %% Ordinary internal reference
+    ORef = check_internal_size(make_ref()),
+    io:format("ORef = ~p~n", [ORef]),
+
+    %% Internal pid reference (reference containing a pid)
+    PRef = check_internal_size(alias()),
+    io:format("PRef = ~p~n", [PRef]),
+
+    %% Internal magic reference
+    MRef = check_internal_size(ets:new(blipp, [])),
+    io:format("MRef = ~p~n", [MRef]),
+
+    ok.
+
+check_internal_size(Ref) when is_reference(Ref), node(Ref) == node() ->
+    case erlang:system_info(wordsize) of
+        4 ->
+            case erts_debug:size(Ref) of
+                Sz when 3 =< Sz, Sz =< 6 ->
+                    Sz;
+                Sz ->
+                    error({internal_ref_size_out_of_range, Sz})
+            end;
+        8 ->
+            case erts_debug:size(Ref) of
+                Sz when 3 =< Sz, Sz =< 5 ->
+                    Sz;
+                Sz ->
+                    error({internal_ref_size_out_of_range, Sz})
+            end
+    end.
+
+external_size(Config) when is_list(Config) ->
+    %% Verifies that the range of heap size used for external references
+    %% matches what the documentation say in the advanced chapter of the
+    %% efficiency guide. Note that the values in the efficiency guide
+    %% also add the word referencing the heap structure.
+    {ok, Node} = start_node(Config),
+
+    %% Ordinary external reference
+    ORef = check_external_size(erpc:call(Node, fun () -> make_ref() end)),
+    io:format("ORef = ~p~n", [ORef]),
+
+    %% External pid reference (reference containing a pid) (nothing produce
+    %% this yet, but we need to handle it)
+    PRef = check_external_size(erts_test_utils:mk_ext_ref({Node, 4711},
+                                                          [1, 2, 3, 4, 5])),
+    io:format("PRef = ~p~n", [PRef]),
+
+
+    stop_node(Node),
+    ok.
+
+check_external_size(Ref) when is_reference(Ref) ->
+    case erlang:system_info(wordsize) of
+        4 ->
+            case erts_debug:size(Ref) of
+                Sz when 6 =< Sz, Sz =< 8 ->
+                    Sz;
+                Sz ->
+                    error({internal_ref_size_out_of_range, Sz})
+            end;
+        8 ->
+            case erts_debug:size(Ref) of
+                Sz when 5 =< Sz, Sz =< 6 ->
+                    Sz;
+                Sz ->
+                    error({internal_ref_size_out_of_range, Sz})
+            end
+    end.
+
+%% Internal stuff...
+
+make_nodename(Config) when is_list(Config) ->
+    list_to_atom(atom_to_list(?MODULE)
+                 ++ "-"
+                 ++ atom_to_list(proplists:get_value(testcase, Config))
+                 ++ "-"
+                 ++ integer_to_list(erlang:system_time(second))
+                 ++ "-"
+                 ++ integer_to_list(erlang:unique_integer([positive]))).
+    
+start_node(Config) ->
+    start_node(Config, "").
+
+start_node(Config, Args) when is_list(Config) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    Name = make_nodename(Config),
+    test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
+
+stop_node(Node) ->
+    test_server:stop_node(Node).

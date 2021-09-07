@@ -57,7 +57,6 @@ typedef enum {
     ycf_symbol_type_static,
     ycf_symbol_type_inline,
     ycf_symbol_type_volatile,
-    ycf_symbol_type_consume_reds,
     ycf_symbol_type_return,
     ycf_symbol_type_if,
     ycf_symbol_type_else,

@@ -609,6 +609,7 @@ static void octal_or_hex_format(Uint ch, byte *buf, int *pos)
 				'A','B','C','D','E','F'};
     int num = octal_or_hex_positions(ch);
     if (num != 3) {
+        ASSERT(num > 3);
 	buf[(*pos)++] = 'x';
 	buf[(*pos)++] = '{';
 	num -= 3;
@@ -1105,7 +1106,7 @@ static int insert_buf(byte *s, int n)
                 if (ch == '\n')
                     outc('\n');
 	    if (llen > lpos) {
-		memcpy(lbuf, lbuf + lpos, llen - lpos);
+		memmove(lbuf, lbuf + lpos, llen - lpos);
 	    }
 	    llen -= lpos;
 	    lpos = buffpos = 0;

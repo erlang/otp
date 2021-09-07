@@ -66,42 +66,21 @@ LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 
 ifeq ($(TYPE),debug)
-PURIFY =
 TYPEMARKER = .debug
 TYPE_FLAGS = -g -DDEBUG
 ifeq ($(TARGET),win32)
 LDFLAGS += -g
 endif
 else
-ifeq ($(TYPE),purify)
-PURIFY = purify
-TYPEMARKER = .purify
-TYPE_FLAGS = -DPURIFY -DNO_JUMP_TABLE
-else
-ifeq ($(TYPE),quantify)
-PURIFY = quantify
-TYPEMARKER = .quantify
-TYPE_FLAGS = -g -O2 -DQUANTIFY
-else
-ifeq ($(TYPE),purecov)
-PURIFY = purecov --follow-child-processes=yes
-TYPEMARKER = .purecov
-TYPE_FLAGS = -g -DPURECOV -DNO_JUMP_TABLE
-else
 ifeq ($(TYPE),gcov)
-PURIFY =
 TYPEMARKER =
 TYPE_FLAGS = -DNO_JUMP_TABLE -fprofile-arcs -ftest-coverage
 ifeq ($(TARGET),linux)
 LIBS += -lgcov
 endif
 else
-PURIFY =
 TYPEMARKER =
 TYPE_FLAGS =
-endif
-endif
-endif
 endif
 endif
 
@@ -117,7 +96,7 @@ AR_FLAGS=rcv
 endif
 
 INCFLAGS = -I. -I../include -Iconnect -Iencode -Idecode -Imisc -Iepmd \
-	-Iregistry -I$(TARGET) 
+	-I$(TARGET) 
 
 ifeq ($(USING_VC),yes)
 WARNFLAGS = -Wall
@@ -154,7 +133,7 @@ BINDIR     = $(ERL_TOP)/lib/erl_interface/bin/$(TARGET)
 # -Wno-char-subscripts
 # -Wshadow
 
-vpath %.c connect:encode:decode:misc:epmd:global:registry
+vpath %.c connect:encode:decode:misc:epmd:global
 
 ###########################################################################
 #  List targets
@@ -310,7 +289,6 @@ EISOURCES = \
 	$(ENCODESRC) \
 	$(EPMDSRC) \
 	$(MISCSRC) \
-	$(REGISTRYSRC) \
 	$(GLOBALSOURCES)
 
 CONNECTSRC = \
@@ -397,40 +375,6 @@ MISCSRC = \
 	misc/ei_init.c \
 	misc/ei_cmp_nc.c
 
-REGISTRYSRC = \
-	registry/hash_dohash.c \
-	registry/hash_foreach.c \
-	registry/hash_freetab.c \
-	registry/hash_insert.c \
-	registry/hash_isprime.c \
-	registry/hash_lookup.c \
-	registry/hash_newtab.c \
-	registry/hash_remove.c \
-	registry/hash_resize.c \
-	registry/hash_rlookup.c \
-	registry/reg_close.c \
-	registry/reg_delete.c \
-	registry/reg_dirty.c \
-	registry/reg_dump.c \
-	registry/reg_free.c \
-	registry/reg_get.c \
-	registry/reg_getf.c \
-	registry/reg_geti.c \
-	registry/reg_getp.c \
-	registry/reg_gets.c \
-	registry/reg_make.c \
-	registry/reg_open.c \
-	registry/reg_purge.c \
-	registry/reg_resize.c \
-	registry/reg_restore.c \
-	registry/reg_set.c \
-	registry/reg_setf.c \
-	registry/reg_seti.c \
-	registry/reg_setp.c \
-	registry/reg_sets.c \
-	registry/reg_stat.c \
-	registry/reg_tabstat.c
-
 GLOBALSOURCES = \
 	global/global_names.c \
 	global/global_register.c \
@@ -446,8 +390,7 @@ NEVERUSED = \
 	send_link.c
 
 ERLCALL = \
-	prog/erl_call.c \
-	prog/erl_start.c
+	prog/erl_call.c
 
 
 # Note that encode/decode_term.c defines ei functions that is
@@ -566,16 +509,16 @@ endif
 
 ifeq ($(TARGET),win32)
 $(ERL_CALL): $(ERLCALL) ../include/ei.h $(MD_EILIB)
-	$(ld_verbose)$(PURIFY) $(CC) -MD $(PROG_CFLAGS) $(THR_DEFS) -o $@ $(ERLCALL) \
+	$(ld_verbose) $(CC) -MD $(PROG_CFLAGS) $(THR_DEFS) -o $@ $(ERLCALL) \
 		-L$(OBJDIR) -lei_md $(THR_LIBS) $(LIBS) -lsocket
 else
 ifdef THR_DEFS
 $(ERL_CALL): $(ERLCALL) ../include/ei.h $(MT_EILIB)
-	$(ld_verbose)$(PURIFY) $(CC) $(PROG_CFLAGS) $(THR_DEFS) $(LDFLAGS) -o $@ $(ERLCALL) \
+	$(ld_verbose) $(CC) $(PROG_CFLAGS) $(THR_DEFS) $(LDFLAGS) -o $@ $(ERLCALL) \
 		-L$(OBJDIR) -lei $(THR_LIBS) $(LIBS)
 else
 $(ERL_CALL): $(ERLCALL) ../include/ei.h $(ST_EILIB)
-	$(ld_verbose)$(PURIFY) $(CC) $(PROG_CFLAGS) $(LDFLAGS) -o $@ $(ERLCALL) \
+	$(ld_verbose) $(CC) $(PROG_CFLAGS) $(LDFLAGS) -o $@ $(ERLCALL) \
 		-L$(OBJDIR) -lei $(LIBS)
 endif
 endif
@@ -737,7 +680,6 @@ release: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/global"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/misc"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/prog"
-	$(INSTALL_DIR) "$(RELSYSDIR)/src/registry"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/include"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/lib"
 	$(INSTALL_DATA) $(APP_TARGET)  "$(RELSYSDIR)/ebin/$(APP_FILE)"
@@ -753,7 +695,6 @@ release: opt
 	$(INSTALL_DATA) encode/*.[ch]   "$(RELSYSDIR)/src/encode"
 	$(INSTALL_DATA) epmd/*.[ch]     "$(RELSYSDIR)/src/epmd"
 	$(INSTALL_DATA) misc/*.[ch]     "$(RELSYSDIR)/src/misc"
-	$(INSTALL_DATA) registry/*.[ch] "$(RELSYSDIR)/src/registry"
 	$(INSTALL_DATA) global/*.[ch]   "$(RELSYSDIR)/src/global"
 	$(INSTALL_DATA) prog/*.[ch]     "$(RELSYSDIR)/src/prog"
 

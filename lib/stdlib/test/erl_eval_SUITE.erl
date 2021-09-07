@@ -51,7 +51,8 @@
          otp_15035/1,
          otp_16439/1,
          otp_14708/1,
-         otp_16545/1]).
+         otp_16545/1,
+         otp_16865/1]).
 
 %%
 %% Define to run outside of test server
@@ -91,7 +92,7 @@ all() ->
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
      otp_8133, otp_10622, otp_13228, otp_14826,
      funs, try_catch, eval_expr_5, zero_width,
-     eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545].
+     eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865].
 
 groups() -> 
     [].
@@ -1145,7 +1146,7 @@ otp_14826(_Config) ->
     backtrace_check("<<100:8/foo>>.",
                     {undefined_bittype,foo},
                     [{eval_bits,make_bit_type,3},eval_bits,
-                     eval_bits,erl_eval],
+                     eval_bits,eval_bits],
                     none, none),
     backtrace_check("B = <<\"foo\">>, <<B/binary-unit:7>>.",
                     badarg,
@@ -1745,6 +1746,16 @@ otp_16545(Config) when is_list(Config) ->
     error_check("<<\"\":problem/signed>>.", badarg),
     ok.
 
+otp_16865(Config) when is_list(Config) ->
+    check(fun() -> << <<>> || <<34:(1/0)>> <= <<"string">> >> end,
+          "<< <<>> || <<34:(1/0)>> <= <<\"string\">> >>.",
+          <<>>),
+    %% The order of evaluation is important. Follow the example set by
+    %% compiled code:
+    error_check("<< <<>> || <<>> <= <<1:(-1), (fun() -> a = b end())>> >>.",
+                {badmatch, b}),
+    ok.
+
 %% Check the string in different contexts: as is; in fun; from compiled code.
 check(F, String, Result) ->
     check1(F, String, Result),
@@ -1756,50 +1767,85 @@ check(F, String, Result) ->
 
 check1(F, String, Result) ->
     Result = F(),
-    case catch parse_and_run(String) of
-        {value, Result, _} ->
+    Expr = parse_expr(String),
+    case catch erl_eval:expr(Expr, []) of
+        {value, Result, Bs} when is_list(Bs) ->
             ok;
-        Other ->
-            ct:fail({eval, Other, Result})
+        Other1 ->
+            ct:fail({eval, Other1, Result})
+    end,
+    case catch erl_eval:expr(Expr, #{}) of
+        {value, Result, MapBs} when is_map(MapBs) ->
+            ok;
+        Other2 ->
+            ct:fail({eval, Other2, Result})
     end.
 
 check(F, String, Result, BoundVars, LFH, EFH) ->
     Result = F(),
-    case catch parse_and_run(String, LFH, EFH) of
+    Exprs = parse_exprs(String),
+    case catch erl_eval:exprs(Exprs, [], LFH, EFH) of
         {value, Result, Bs} ->
             %% We just assume that Bs is an orddict...
             Keys = orddict:fetch_keys(Bs),
-            case sort(BoundVars) == Keys of
-                true -> 
+            case sort(BoundVars) == sort(Keys) of
+                true ->
                     ok;
-                false -> 
+                false ->
                     ct:fail({check, BoundVars, Keys})
             end,
             ok;
-        Other ->
-            ct:fail({check, Other, Result})
+        Other1 ->
+            ct:fail({check, Other1, Result})
+    end,
+    case catch erl_eval:exprs(Exprs, #{}, LFH, EFH) of
+        {value, Result, MapBs} ->
+            MapKeys = maps:keys(MapBs),
+            case sort(BoundVars) == sort(MapKeys) of
+                true ->
+                    ok;
+                false ->
+                    ct:fail({check, BoundVars, MapKeys})
+            end,
+            ok;
+        Other2 ->
+            ct:fail({check, Other2, Result})
     end.
 
 error_check(String, Result) ->
-    case catch parse_and_run(String) of
+    Expr = parse_expr(String),
+    case catch erl_eval:expr(Expr, []) of
         {'EXIT', {Result,_}} ->
             ok;
-        Other ->
-            ct:fail({eval, Other, Result})
+        Other1 ->
+            ct:fail({eval, Other1, Result})
+    end,
+    case catch erl_eval:expr(Expr, #{}) of
+        {'EXIT', {Result,_}} ->
+            ok;
+        Other2 ->
+            ct:fail({eval, Other2, Result})
     end.
 
 error_check(String, Result, LFH, EFH) ->
-    case catch parse_and_run(String, LFH, EFH) of
+    Exprs = parse_exprs(String),
+    case catch erl_eval:exprs(Exprs, [], LFH, EFH) of
         {'EXIT', {Result,_}} ->
             ok;
-        Other ->
-            ct:fail({eval, Other, Result})
+        Other1 ->
+            ct:fail({eval, Other1, Result})
+    end,
+    case catch erl_eval:exprs(Exprs, #{}, LFH, EFH) of
+        {'EXIT', {Result,_}} ->
+            ok;
+        Other2 ->
+            ct:fail({eval, Other2, Result})
     end.
 
 backtrace_check(String, Result, Backtrace) ->
     case catch parse_and_run(String) of
         {'EXIT', {Result, BT}} ->
-            check_backtrace(Backtrace, BT);
+            check_backtrace(Backtrace, remove_error_info(BT));
         Other ->
             ct:fail({eval, Other, Result})
     end.
@@ -1807,15 +1853,18 @@ backtrace_check(String, Result, Backtrace) ->
 backtrace_check(String, Result, Backtrace, LFH, EFH) ->
     case catch parse_and_run(String, LFH, EFH) of
         {'EXIT', {Result, BT}} ->
-            check_backtrace(Backtrace, BT);
+            check_backtrace(Backtrace, remove_error_info(BT));
         Other ->
             ct:fail({eval, Other, Result})
     end.
 
+remove_error_info([{M, F, As, Info} | T]) ->
+    [{M, F, As, lists:keydelete(error_info, 1, Info)} | T].
+
 backtrace_catch(String, Result, Backtrace) ->
     case parse_and_run(String) of
         {value, {'EXIT', {Result, BT}}, _Bindings} ->
-            check_backtrace(Backtrace, BT);
+            check_backtrace(Backtrace, remove_error_info(BT));
         Other ->
             ct:fail({eval, Other, Result})
     end.
@@ -1837,15 +1886,21 @@ eval_string(String) ->
     {value, Result, _} = parse_and_run(String),
     Result.
 
-parse_and_run(String) ->
+parse_expr(String) ->
     {ok,Tokens,_} = erl_scan:string(String),
     {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
-    erl_eval:expr(Expr, []).
+    Expr.
 
-parse_and_run(String, LFH, EFH) ->
+parse_exprs(String) ->
     {ok,Tokens,_} = erl_scan:string(String),
     {ok, Exprs} = erl_parse:parse_exprs(Tokens),
-    erl_eval:exprs(Exprs, [], LFH, EFH).
+    Exprs.
+
+parse_and_run(String) ->
+    erl_eval:expr(parse_expr(String), []).
+
+parse_and_run(String, LFH, EFH) ->
+    erl_eval:exprs(parse_exprs(String), [], LFH, EFH).
 
 no_final_dot(S) ->
     case lists:reverse(S) of

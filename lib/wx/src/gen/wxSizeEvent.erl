@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,39 +18,37 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeevent.html">wxSizeEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>size</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxSize(). #wxSize{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxSizeEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxSizeEvent).
 -include("wxe.hrl").
--export([getSize/1]).
+-export([getRect/1,getSize/1]).
 
 %% inherited exports
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxSizeEvent/0]).
+-type wxSizeEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxSizeEventType() :: 'size'.
+-export_type([wxSizeEvent/0, wxSize/0, wxSizeEventType/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxSizeEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeevent.html#wxsizeeventgetsize">external documentation</a>.
 -spec getSize(This) -> {W::integer(), H::integer()} when
 	This::wxSizeEvent().
-getSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizeEvent),
-  wxe_util:call(?wxSizeEvent_GetSize,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxSizeEvent_GetSize),
+  wxe_util:rec(?wxSizeEvent_GetSize).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeevent.html#wxsizeeventgetrect">external documentation</a>.
+-spec getRect(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
+	This::wxSizeEvent().
+getRect(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxSizeEvent),
+  wxe_util:queue_cmd(This,?get_env(),?wxSizeEvent_GetRect),
+  wxe_util:rec(?wxSizeEvent_GetRect).
 
  %% From wxEvent
 %% @hidden

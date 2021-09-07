@@ -1,0 +1,16 @@
+
+  [;1m-spec restriction(SetFun, Set1, Set2) -> Set3[0m
+  [;1m                     when[0m
+  [;1m                         SetFun :: set_fun(),[0m
+  [;1m                         Set1 :: a_set(),[0m
+  [;1m                         Set2 :: a_set(),[0m
+  [;1m                         Set3 :: a_set().[0m
+
+  Returns a subset of [;;4mSet1[0m containing those elements that gives an
+  element in [;;4mSet2[0m as the result of applying [;;4mSetFun[0m.
+
+    1> S1 = sofs:relation([{1,a},{2,b},{3,c}]),
+    S2 = sofs:set([b,c,d]),
+    S3 = sofs:restriction(2, S1, S2),
+    sofs:to_external(S3).
+    [{2,b},{3,c}]

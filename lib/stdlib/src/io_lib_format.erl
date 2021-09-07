@@ -449,9 +449,10 @@ fwrite_e(Fl, F, Adj, none, Pad) ->
 fwrite_e(Fl, F, Adj, P, Pad) when P >= 2 ->
     term(float_e(Fl, float_data(Fl), P), F, Adj, F, Pad).
 
-float_e(Fl, Fd, P) when Fl < 0.0 ->		%Negative numbers
-    [$-|float_e(-Fl, Fd, P)];
-float_e(_Fl, {Ds,E}, P) ->
+float_e(Fl, Fd, P) ->
+    signbit(Fl) ++ abs_float_e(abs(Fl), Fd, P).
+
+abs_float_e(_Fl, {Ds,E}, P) ->
     case float_man(Ds, 1, P-1) of
 	{[$0|Fs],true} -> [[$1|Fs]|float_exp(E)];
 	{Fs,false} -> [Fs|float_exp(E-1)]
@@ -503,14 +504,25 @@ fwrite_f(Fl, F, Adj, none, Pad) ->
 fwrite_f(Fl, F, Adj, P, Pad) when P >= 1 ->
     term(float_f(Fl, float_data(Fl), P), F, Adj, F, Pad).
 
-float_f(Fl, Fd, P) when Fl < 0.0 ->
-    [$-|float_f(-Fl, Fd, P)];
-float_f(Fl, {Ds,E}, P) when E =< 0 ->
-    float_f(Fl, {lists:duplicate(-E+1, $0)++Ds,1}, P);	%Prepend enough 0's
-float_f(_Fl, {Ds,E}, P) ->
+float_f(Fl, Fd, P) ->
+    signbit(Fl) ++ abs_float_f(abs(Fl), Fd, P).
+
+abs_float_f(Fl, {Ds,E}, P) when E =< 0 ->
+    abs_float_f(Fl, {lists:duplicate(-E+1, $0)++Ds,1}, P);	%Prepend enough 0's
+abs_float_f(_Fl, {Ds,E}, P) ->
     case float_man(Ds, E, P) of
 	{Fs,true} -> "1" ++ Fs;			%Handle carry
 	{Fs,false} -> Fs
+    end.
+
+%% signbit(Float) -> [$-] | []
+
+signbit(Fl) when Fl < 0.0 -> [$-];
+signbit(Fl) when Fl > 0.0 -> [];
+signbit(Fl) ->
+    case <<Fl/float>> of
+        <<1:1,_:63>> -> [$-];
+        _ -> []
     end.
 
 %% float_data([FloatChar]) -> {[Digit],Exponent}
@@ -525,171 +537,270 @@ float_data([D|Cs], Ds) when D >= $0, D =< $9 ->
 float_data([_|Cs], Ds) ->
     float_data(Cs, Ds).
 
-%%  Writes the shortest, correctly rounded string that converts
-%%  to Float when read back with list_to_float/1.
+%%  Returns a correctly rounded string that converts to Float when
+%%  read back with list_to_float/1.
 %%
-%%  See also "Printing Floating-Point Numbers Quickly and Accurately"
-%%  in Proceedings of the SIGPLAN '96 Conference on Programming
-%%  Language Design and Implementation.
+%%  When abs(Float) < float(1 bsl 53) the shortest such string is
+%%  returned, and otherwise the shortest such string using scientific
+%%  notation is returned. That is, scientific notation is used if and
+%%  only if scientific notation results in a shorter string than
+%%  normal notation when abs(Float) < float(1 bsl 53), and scientific
+%%  notation is used unconditionally if abs(Float) >= float(1 bsl
+%%  53). See comment in insert_decimal/2 for an explanation for why
+%%  float(1 bsl 53) is chosen as cutoff point.
+%%
+%%  The algorithm that is used to find the decimal number that is
+%%  represented by the returned String is described in "Ryu: Fast
+%%  Float-to-String Conversion" in Proceedings of 39th ACM SIGPLAN
+%%  Conference on Programming Language Design and Implementation.
+%%  https://dl.acm.org/doi/pdf/10.1145/3192366.3192369
 
 -spec fwrite_g(float()) -> string().
-
-fwrite_g(0.0) ->
-    "0.0";
-fwrite_g(Float) when is_float(Float) ->
-    {Frac, Exp} = mantissa_exponent(Float),
-    {Place, Digits} = fwrite_g_1(Float, Exp, Frac),
-    R = insert_decimal(Place, [$0 + D || D <- Digits]),
-    [$- || true <- [Float < 0.0]] ++ R.
+fwrite_g(Float) ->
+    case sign_mantissa_exponent(Float) of
+        {0, 0, 0} -> "0.0";
+        {1, 0, 0} -> "-0.0";
+        {S, M, E} when E < 2047 ->
+            {Place, Digits} = 
+                case is_small_int(M, E) of
+                    {int, M1, E1} ->
+                        compute_shortest_int(M1, E1);
+                    not_int ->
+                        fwrite_g_1(M, E)
+                end,
+            DigitList = insert_decimal(Place, Digits, Float),
+            insert_minus(S, DigitList)
+    end.
 
 -define(BIG_POW, (1 bsl 52)).
--define(MIN_EXP, (-1074)).
+-define(DECODE_CORRECTION, 1075).
 
-mantissa_exponent(F) ->
-    case <<F:64/float>> of
-        <<_S:1, 0:11, M:52>> -> % denormalized
-            E = log2floor(M),
-            {M bsl (53 - E), E - 52 - 1075};
-        <<_S:1, BE:11, M:52>> when BE < 2047 ->
-            {M + ?BIG_POW, BE - 1075}
-    end.
+sign_mantissa_exponent(F) ->
+    <<S:1, BE:11, M:52>> = <<F:64/float>>,
+    {S, M , BE}.
 
-fwrite_g_1(Float, Exp, Frac) ->
-    Round = (Frac band 1) =:= 0,
-    if 
-        Exp >= 0  ->
-            BExp = 1 bsl Exp,
-            if
-                Frac =:= ?BIG_POW ->
-                    scale(Frac * BExp * 4, 4, BExp * 2, BExp,
-                          Round, Round, Float);
-                true ->
-                    scale(Frac * BExp * 2, 2, BExp, BExp,
-                          Round, Round, Float)
-            end;
-        Exp < ?MIN_EXP ->
-            BExp = 1 bsl (?MIN_EXP - Exp),
-            scale(Frac * 2, 1 bsl (1 - Exp), BExp, BExp,
-                  Round, Round, Float);
-        Exp > ?MIN_EXP, Frac =:= ?BIG_POW ->
-            scale(Frac * 4, 1 bsl (2 - Exp), 2, 1,
-                  Round, Round, Float);
+is_small_int(M, E) ->
+    M2 = ?BIG_POW bor M,
+    E2 = E - ?DECODE_CORRECTION,
+    case E2 > 0 orelse E2 < -52 of
         true ->
-            scale(Frac * 2, 1 bsl (1 - Exp), 1, 1,
-                  Round, Round, Float)
+            %% f = m2 * 2^e2 >= 2^53 is an integer.
+            %% Ignore this case for now.
+            %% or f < 1
+            not_int;
+        _ -> 
+            %% Since 2^52 <= m2 < 2^53 and 0 <= -e2 <= 52: 1 <= f = m2 / 2^-e2 < 2^53.
+            %% Test if the lower -e2 bits of the significand are 0, i.e. whether the fraction is 0.
+            Mask = (1 bsl -E2) - 1,
+            Fraction = M2 band Mask,
+            case Fraction of
+                0 ->
+                %% f is an integer in the range [1, 2^53).
+                %% Note: mantissa might contain trailing (decimal) 0's.
+                    {int, M2 bsr -E2, 0};
+                _ ->
+                    not_int
+            end
     end.
 
-scale(R, S, MPlus, MMinus, LowOk, HighOk, Float) ->
-    Est = int_ceil(math:log10(abs(Float)) - 1.0e-10),
-    %% Note that the scheme implementation uses a 326 element look-up
-    %% table for int_pow(10, N) where we do not.
-    if
-        Est >= 0 ->
-            fixup(R, S * int_pow(10, Est), MPlus, MMinus, Est,
-                  LowOk, HighOk);
-        true ->
-            Scale = int_pow(10, -Est),
-            fixup(R * Scale, S, MPlus * Scale, MMinus * Scale, Est,
-                  LowOk, HighOk)
-    end.
+%%  For small integers in the range [1, 2^53), v.mantissa might contain trailing (decimal) zeros.
+compute_shortest_int(M, E) when M rem 10 =:= 0 ->
+    Q = M div 10,
+    compute_shortest_int(Q, E + 1);
+compute_shortest_int(M, E) ->
+    {E, integer_to_list(M)}.
 
-fixup(R, S, MPlus, MMinus, K, LowOk, HighOk) ->
-    TooLow = if 
-                 HighOk ->  R + MPlus >= S;
-                 true -> R + MPlus > S
-             end,
-    case TooLow of
-        true ->
-            {K + 1, generate(R, S, MPlus, MMinus, LowOk, HighOk)};
-        false ->
-            {K, generate(R * 10, S, MPlus * 10, MMinus * 10, LowOk, HighOk)}
-    end.
+fwrite_g_1(M, E) ->
+    {Mf, Ef} = decode(M, E),
+    Shift = mmshift(M, E),
+    Mv = 4 * Mf,
+    {Q, Vm, Vr, Vp, E10} = convert_to_decimal(Ef, Mv, Shift),
+    Accept = M rem 2 == 0,
+    {VmIsTrailingZero, VrIsTrailingZero, Vp1} = bounds(Mv, Q, Vp, Accept, Ef, Shift),
+    {D1, E1} = compute_shortest(Vm, Vr, Vp1, VmIsTrailingZero, VrIsTrailingZero, Accept),
+    {E1 + E10, integer_to_list(D1)}.
 
-generate(R0, S, MPlus, MMinus, LowOk, HighOk) ->
-    D = R0 div S,
-    R = R0 rem S,
-    TC1 = if
-              LowOk -> R =< MMinus;
-              true -> R < MMinus
-          end,
-    TC2 = if
-              HighOk -> R + MPlus >= S;
-              true -> R + MPlus > S
-          end,
-    case {TC1, TC2} of
-        {false, false} -> 
-            [D | generate(R * 10, S, MPlus * 10, MMinus * 10, LowOk, HighOk)];
-        {false, true} ->
-            [D + 1];
-        {true, false} -> 
-            [D];
-        {true, true} when R * 2 < S ->
-            [D];
-        {true, true} ->
-            [D + 1]
-    end.
+decode(Mantissa, 0) ->
+    {Mantissa, 1 - ?DECODE_CORRECTION - 2};
+decode(Mantissa, Exponent) ->
+    {Mantissa + ?BIG_POW, Exponent - ?DECODE_CORRECTION - 2}.
 
-insert_decimal(0, S) ->
-    "0." ++ S;
-insert_decimal(Place, S) ->
+mmshift(0, E) when E > 1 ->
+    0;
+mmshift(_M, _E) ->
+    1.
+
+convert_to_decimal(E2, Mv, Shift) when E2 >= 0 ->
+    Q = max(0, ((E2 * 78913) bsr 18) - 1),
+    Mul = io_lib_format_ryu_table:inv_value(Q),
+    K = io_lib_format_ryu_table:pow5_inv_bitcount() + pow5bits(Q) - 1,
+    I = -E2 + Q + K,
+    {Vm, Vr, Vp} = mulShiftAll(Mv, Shift, I, Mul),
+    {Q, Vm, Vr, Vp, Q};
+
+convert_to_decimal(E2, Mv, Shift) when E2 < 0 ->
+    Q = max(0, ((-E2 * 732923) bsr 20) - 1),
+    I = -E2 - Q,
+    K = pow5bits(I) - io_lib_format_ryu_table:pow5_bitcount(),
+    From_file = io_lib_format_ryu_table:value(I),
+    J = Q - K,
+    {Vm, Vr, Vp} = mulShiftAll(Mv, Shift, J, From_file),
+    E10 = E2 + Q,
+    {Q, Vm, Vr, Vp, E10}.
+
+pow5bits(E) ->
+    ((E * 1217359) bsr 19) + 1.
+
+mulShiftAll(Mv, Shift, J, Mul) ->
+    A = mulShift64(Mv - 1 - Shift, Mul, J),
+    B = mulShift64(Mv, Mul, J),
+    C = mulShift64(Mv + 2,Mul, J),
+    {A, B, C}.
+
+mulShift64(M, Mul, J) ->
+    (M * Mul) bsr J.
+
+bounds(Mv, Q, Vp, _Accept, E2, _Shift) when E2 >= 0, Q =< 21, Mv rem 5 =:= 0 ->
+    {false, multipleOfPowerOf5(Mv, Q) , Vp};
+bounds(Mv, Q, Vp, true, E2, Shift) when E2 >= 0, Q =< 21 ->
+    {multipleOfPowerOf5(Mv - 1 - Shift, Q), false , Vp};
+bounds(Mv, Q, Vp, _Accept, E2, _Shift) when E2 >= 0, Q =< 21 ->
+    {false, false , Vp - vpmodifier(multipleOfPowerOf5(Mv + 2, Q))};
+bounds(_Mv, Q, Vp, true, E2, Shift) when E2 < 0, Q =< 1 ->
+    {Shift =:= 1, true, Vp};
+bounds(_Mv, Q, Vp, false, E2, _Shift) when E2 < 0, Q =< 1 ->
+    {false, true, Vp - 1};
+bounds(Mv, Q, Vp, _Accept, E2, _Shift) when E2 < 0, Q < 63 ->
+    {false, (Mv band ((1 bsl Q) -1 )) =:= 0, Vp};
+bounds(_Mv, _Q, Vp, _Accept, _E2, _Shift) ->
+    {false, false, Vp}.
+
+multipleOfPowerOf5(Value, Q) ->
+    pow5factor(Value) >= Q.
+
+pow5factor(Val) ->
+    pow5factor(Val div 5, 0).
+
+pow5factor(Val, Count) when (Val rem 5) /= 0->
+    Count;
+pow5factor(Val, Count) ->
+    pow5factor(Val div 5, Count + 1).
+
+vpmodifier(true) ->
+    1;
+vpmodifier(false) ->
+    0.
+
+compute_shortest(Vm, Vr, Vp, false, false, _Accept) ->
+    {Vm1, Vr1, Removed, RoundUp} =
+        general_case(Vm, Vr, Vp, 0, false),
+    Output = Vr1 + handle_normal_output_mod(Vr1, Vm1, RoundUp),
+    {Output, Removed};
+compute_shortest(Vm, Vr, Vp, VmIsTrailingZero, VrIsTrailingZero, Accept) ->
+    {Vm1, Vr1, Removed, LastRemovedDigit} = 
+        handle_trailing_zeros(Vm, Vr, Vp, VmIsTrailingZero, VrIsTrailingZero, 0, 0),
+    Output = Vr1 + handle_zero_output_mod(Vr1, Vm1, Accept, VmIsTrailingZero, LastRemovedDigit),
+    {Output, Removed}.
+
+general_case(Vm, Vr, Vp, Removed, RoundUp) when (Vp div 100) =< (Vm div 100)->
+    general_case_10(Vm, Vr, Vp, Removed, RoundUp);
+general_case(Vm, Vr, Vp, Removed, _RU) ->
+    VmD100 = Vm div 100,
+    VrD100 = Vr div 100,
+    VpD100 = Vp div 100,
+    RoundUp = ((Vr rem 100) >= 50),
+    general_case_10(VmD100, VrD100, VpD100, 2 + Removed, RoundUp).
+
+general_case_10(Vm, Vr, Vp, Removed, RoundUp) 
+    when (Vp div 10) =< (Vm div 10)->
+    {Vm, Vr, Removed, RoundUp};
+general_case_10(Vm, Vr, Vp, Removed, _RU) ->
+    VmD10 = Vm div 10,
+    VrD10 = Vr div 10,
+    VpD10 = Vp div 10,
+    RoundUp = ((Vr rem 10) >= 5),
+    general_case_10(VmD10, VrD10, VpD10, 1 + Removed, RoundUp).
+
+handle_normal_output_mod(Vr, Vm, RoundUp) when (Vm =:= Vr) or RoundUp ->
+    1;
+handle_normal_output_mod(_Vr, _Vm, _RoundUp) ->
+    0.
+
+handle_trailing_zeros(Vm, Vr, Vp, VmTZ, VrTZ, Removed, LastRemovedDigit)
+    when (Vp div 10) =< (Vm div 10)->
+    vmIsTrailingZero(Vm, Vr, Vp, VmTZ, VrTZ, Removed, LastRemovedDigit);
+handle_trailing_zeros(Vm, Vr, Vp, VmIsTrailingZero, VrIsTrailingZero, Removed, LastRemovedDigit) ->
+    VmTZ = VmIsTrailingZero and ((Vm rem 10) =:= 0),
+    VrTZ = VrIsTrailingZero and (LastRemovedDigit =:= 0),
+    handle_trailing_zeros(Vm div 10, Vr div 10, Vp div 10, VmTZ, VrTZ, 1 + Removed, Vr rem 10).
+
+vmIsTrailingZero(Vm, Vr, _Vp, false = _VmTZ, VrTZ, Removed, LastRemovedDigit) ->
+    handle_50_dotdot_0(Vm, Vr, VrTZ, Removed, LastRemovedDigit);
+vmIsTrailingZero(Vm, Vr, _Vp, _VmTZ, VrTZ, Removed, LastRemovedDigit) when (Vm rem 10) /= 0 ->
+    handle_50_dotdot_0(Vm, Vr, VrTZ, Removed, LastRemovedDigit);
+vmIsTrailingZero(Vm, Vr, Vp, VmTZ, VrTZ, Removed, LastRemovedDigit) ->
+    vmIsTrailingZero(Vm div 10, Vr div 10, Vp div 10, VmTZ, LastRemovedDigit == 0 andalso VrTZ, 1 + Removed, Vr rem 10).
+
+handle_50_dotdot_0(Vm, Vr, true, Removed, 5) when (Vr rem 2) =:= 0 ->
+    {Vm, Vr, Removed, 4};
+handle_50_dotdot_0(Vm, Vr, _VrTZ, Removed, LastRemovedDigit) ->
+    {Vm, Vr, Removed, LastRemovedDigit}.
+
+handle_zero_output_mod(_Vr, _Vm, _Accept, _VmTZ, LastRemovedDigit) when LastRemovedDigit >= 5 ->
+    1;
+handle_zero_output_mod(Vr, Vm, Accept, VmTZ, _LastRemovedDigit) when Vr =:= Vm, ((not Accept) or (not VmTZ)) ->
+    1;
+handle_zero_output_mod(_Vr, _Vm, _Accept, _VmTZ, _LastRemovedDigit) ->
+    0.
+
+insert_decimal(Place, S, Float) ->
     L = length(S),
+    Exp = Place + L - 1,
+    ExpL = integer_to_list(Exp),
+    ExpCost = length(ExpL) + 2,
     if
-        Place < 0;
-        Place >= L ->
-            ExpL = integer_to_list(Place - 1),
-            ExpDot = if L =:= 1 -> 2; true -> 1 end,
-            ExpCost = length(ExpL) + 1 + ExpDot,
-            if 
-                Place < 0 ->
-                    if 
-                        2 - Place =< ExpCost ->
-                            "0." ++ lists:duplicate(-Place, $0) ++ S;
-                        true ->
-                            insert_exp(ExpL, S)
-                    end;
+        Place < 0 ->
+            if
+                Exp >= 0 ->
+                    {S0, S1} = lists:split(L + Place, S),
+                    S0 ++ "." ++ S1;
+                2 - Place - L =< ExpCost ->
+                    "0." ++ lists:duplicate(-Place - L, $0) ++ S;
                 true ->
-                    if
-                        Place - L + 2 =< ExpCost ->
-                            S ++ lists:duplicate(Place - L, $0) ++ ".0";
-                        true ->
-                            insert_exp(ExpL, S)
-                    end
+                    insert_exp(ExpL, S)
             end;
         true ->
-            {S0, S1} = lists:split(Place, S),
-            S0 ++ "." ++ S1
+            Dot = if L =:= 1 -> 1; true -> 0 end,
+            if
+                %% All integers in the range [-2^53, 2^53] can
+                %% be stored without loss of precision in an
+                %% IEEE 754 64-bit double but 2^53+1 cannot be
+                %% stored in an IEEE 754 64-bit double without
+                %% loss of precision (float((1 bsl 53)+1) =:=
+                %% float(1 bsl 53)). It thus makes sense to
+                %% show floats that are >= 2^53 or <= -2^53 in
+                %% scientific notation to indicate that the
+                %% number is so large that there could be loss
+                %% in precion when adding or subtracting 1.
+                %%
+                %% https://stackoverflow.com/questions/1848700/biggest-integer-that-can-be-stored-in-a-double?answertab=votes#tab-top
+                ExpCost + Dot >= Place + 2 andalso abs(Float) < float(1 bsl 53) ->
+                    S ++ lists:duplicate(Place, $0) ++ ".0";
+                true ->
+                    insert_exp(ExpL, S)
+            end
     end.
+
 
 insert_exp(ExpL, [C]) ->
     [C] ++ ".0e" ++ ExpL;
 insert_exp(ExpL, [C | S]) ->
     [C] ++ "." ++ S ++ "e" ++ ExpL.
 
-int_ceil(X) when is_float(X) ->
-    T = trunc(X),
-    case (X - T) of
-        Neg when Neg < 0 -> T;
-        Pos when Pos > 0 -> T + 1;
-        _ -> T
-    end.
-
-int_pow(X, 0) when is_integer(X) ->
-    1;
-int_pow(X, N) when is_integer(X), is_integer(N), N > 0 ->
-    int_pow(X, N, 1).
-
-int_pow(X, N, R) when N < 2 ->
-    R * X;
-int_pow(X, N, R) ->
-    int_pow(X * X, N bsr 1, case N band 1 of 1 -> R * X; 0 -> R end).
-
-log2floor(Int) when is_integer(Int), Int > 0 ->
-    log2floor(Int, 0).
-
-log2floor(0, N) ->
-    N;
-log2floor(Int, N) ->
-    log2floor(Int bsr 1, 1 + N).
+insert_minus(0, Digits) ->
+    Digits;
+insert_minus(1, Digits) ->
+    [$-] ++ Digits.
 
 %% fwrite_g(Float, Field, Adjust, Precision, PadChar)
 %%  Use the f form if Float is >= 0.1 and < 1.0e4, 

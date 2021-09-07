@@ -1,3 +1,7 @@
+CC = @CC@
+LD = @LD@
+CFLAGS = @CFLAGS@ @DEFS@
+CROSSLDFLAGS = @CROSSLDFLAGS@
 
 MISC_DRVS =		outputv_drv@dll@ \
 			timer_drv@dll@ \
@@ -30,7 +34,15 @@ VSN_MISMATCH_DRVS =	zero_extended_marker_garb_drv@dll@ \
 			smaller_major_vsn_drv@dll@ \
 			smaller_minor_vsn_drv@dll@
 
-all: $(MISC_DRVS) $(SYS_INFO_DRVS) $(VSN_MISMATCH_DRVS)
+PROGS = 		lots_of_fds_used_wrapper@exe@
+
+all: $(MISC_DRVS) $(SYS_INFO_DRVS) $(VSN_MISMATCH_DRVS) $(PROGS)
+
+lots_of_fds_used_wrapper@exe@: lots_of_fds_used_wrapper@obj@
+	$(LD) $(CROSSLDFLAGS) -o lots_of_fds_used_wrapper lots_of_fds_used_wrapper@obj@ @LIBS@
+
+lots_of_fds_used_wrapper@obj@: lots_of_fds_used_wrapper.c
+	$(CC) -c -o lots_of_fds_used_wrapper@obj@ $(CFLAGS) lots_of_fds_used_wrapper.c
 
 @SHLIB_RULES@
 

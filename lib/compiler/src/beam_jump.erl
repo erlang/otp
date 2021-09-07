@@ -22,7 +22,6 @@
 -module(beam_jump).
 
 -export([module/2,
-	 is_exit_instruction/1,
 	 remove_unused_labels/1]).
 
 %%% The following optimisations are done:
@@ -352,13 +351,16 @@ share_1([{label,L}=Lbl|Is], Safe, Dict0, Lbls0, [_|_]=Seq0, Acc) ->
         #{} ->
             %% This is first time we have seen this sequence of instructions.
             %% Find out whether it is safe to share the sequence.
-            case map_size(Safe) =:= 0 orelse is_shareable(Seq) of
+            case (map_size(Safe) =:= 0 orelse
+                  is_shareable(Seq)) andalso
+                unambigous_exit_call(Seq)
+            of
                 true ->
                     %% Either this function does not contain any try/catch
                     %% instructions, in which case it is always safe to share
                     %% exception-raising instructions such as if_end and
                     %% case_end, or it this sequence does not include
-                    %% any of the problematic instructions.
+                    %% any problematic instructions.
                     Dict = Dict0#{Seq => L},
                     share_1(Is, Safe, Dict, Lbls0, [], [[Lbl|Seq]|Acc]);
                 false ->
@@ -399,6 +401,37 @@ share_1([I|Is], Safe, Dict, Lbls, Seq, Acc) ->
 	true ->
 	    share_1(Is, Safe, Dict, Lbls, [I], Acc)
     end.
+
+unambigous_exit_call([{call_ext,A,{extfunc,M,F,A}}|Is]) ->
+    case erl_bifs:is_exit_bif(M, F, A) of
+        true ->
+            %% beam_validator requires that the size of the stack
+            %% frame is unambigously known when a function is called.
+            %%
+            %% That means that we must be careful when sharing function
+            %% calls.
+            %%
+            %% In practice, it seems that only exit BIFs can
+            %% potentially be shared in an unsafe way, and only in
+            %% rare circumstances. (See the undecided_allocation_1/1
+            %% function in beam_jump_SUITE.)
+            %%
+            %% To ensure that the frame size is unambigous, only allow
+            %% sharing of a call to exit BIFs if the call is followed
+            %% by an instruction that indicates the size of the stack
+            %% frame (that is almost always the case in real-world
+            %% code).
+            case Is of
+                [{deallocate,_}|_] -> true;
+                [return] -> true;
+                _ -> false
+            end;
+        false ->
+            true
+    end;
+unambigous_exit_call([_|Is]) ->
+    unambigous_exit_call(Is);
+unambigous_exit_call([]) -> true.
 
 %% If the label has a scope set, assign it to any line instruction
 %% in the sequence.
@@ -548,7 +581,7 @@ extract_seq_1(_, _) -> no.
 	{
 	  entry :: beam_asm:label(), %Entry label (must not be moved).
 	  replace :: #{beam_asm:label() := beam_asm:label()}, %Labels to replace.
-	  labels :: cerl_sets:set()         %Set of referenced labels.
+	  labels :: sets:set()         %Set of referenced labels.
 	}).
 
 opt(Is0, CLabel) ->
@@ -612,8 +645,6 @@ opt([{jump,{f,L}=Lbl}=I|Is], Acc0, St0) ->
 %% Optimization: quickly handle some common instructions that don't
 %% have any failure labels and where is_unreachable_after(I) =:= false.
 opt([{block,_}=I|Is], Acc, St) ->
-    opt(Is, [I|Acc], St);
-opt([{kill,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], St);
 opt([{call,_,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], St);
@@ -692,7 +723,7 @@ skip_unreachable([], Acc, St) ->
 
 %% Add one or more label to the set of used labels.
 
-label_used({f,L}, St) -> St#st{labels=cerl_sets:add_element(L,St#st.labels)};
+label_used({f,L}, St) -> St#st{labels=sets:add_element(L,St#st.labels)};
 label_used([H|T], St0) -> label_used(T, label_used(H, St0));
 label_used([], St) -> St;
 label_used(_Other, St) -> St.
@@ -700,7 +731,7 @@ label_used(_Other, St) -> St.
 %% Test if label is used.
 
 is_label_used(L, St) ->
-    cerl_sets:is_element(L, St#st.labels).
+    sets:is_element(L, St#st.labels).
 
 %% is_unreachable_after(Instruction) -> boolean()
 %%  Test whether the code after Instruction is unreachable.
@@ -739,7 +770,7 @@ remove_unused_labels(Is) ->
     rem_unused(Is, Used, []).
 
 rem_unused([{label,Lbl}=I|Is0], Used, [Prev|_]=Acc) ->
-    case cerl_sets:is_element(Lbl, Used) of
+    case sets:is_element(Lbl, Used) of
 	false ->
 	    Is = case is_unreachable_after(Prev) of
 		     true -> drop_upto_label(Is0);
@@ -761,7 +792,7 @@ initial_labels([{line,_}|Is], Acc) ->
 initial_labels([{label,Lbl}|Is], Acc) ->
     initial_labels(Is, [Lbl|Acc]);
 initial_labels([{func_info,_,_,_},{label,Lbl}|_], Acc) ->
-    cerl_sets:from_list([Lbl|Acc]).
+    sets:from_list([Lbl|Acc], [{version, 2}]).
 
 drop_upto_label([{label,_}|_]=Is) -> Is;
 drop_upto_label([_|Is]) -> drop_upto_label(Is);
@@ -812,13 +843,13 @@ ulbl(I, Used) ->
         [] ->
             Used;
         [Lbl] ->
-            cerl_sets:add_element(Lbl, Used);
+            sets:add_element(Lbl, Used);
         [_|_]=L ->
             ulbl_list(L, Used)
     end.
 
 ulbl_list([L|Ls], Used) ->
-    ulbl_list(Ls, cerl_sets:add_element(L, Used));
+    ulbl_list(Ls, sets:add_element(L, Used));
 ulbl_list([], Used) -> Used.
 
 -spec instr_labels(Instruction) -> Labels when
@@ -856,12 +887,6 @@ instr_labels({bs_put,Lbl,_,_}) ->
 instr_labels({put_map,Lbl,_Op,_Src,_Dst,_Live,_List}) ->
     do_instr_labels(Lbl);
 instr_labels({get_map_elements,Lbl,_Src,_List}) ->
-    do_instr_labels(Lbl);
-instr_labels({recv_mark,Lbl}) ->
-    do_instr_labels(Lbl);
-instr_labels({recv_set,Lbl}) ->
-    do_instr_labels(Lbl);
-instr_labels({fcheckerror,Lbl}) ->
     do_instr_labels(Lbl);
 instr_labels({bs_start_match4,Fail,_,_,_}) ->
     case Fail of

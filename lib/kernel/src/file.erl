@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 
 -export([format_error/1]).
 %% File system and metadata.
--export([get_cwd/0, get_cwd/1, set_cwd/1, delete/1, rename/2,
+-export([get_cwd/0, get_cwd/1, set_cwd/1, delete/1, delete/2, rename/2,
 	 make_dir/1, del_dir/1, del_dir_r/1, list_dir/1, list_dir_all/1,
 	 read_file_info/1, read_file_info/2,
 	 write_file_info/2, write_file_info/3,
@@ -123,10 +123,11 @@
 -type date_time() :: calendar:datetime().
 -type posix_file_advise() :: 'normal' | 'sequential' | 'random'
                            | 'no_reuse' | 'will_need' | 'dont_need'.
+-type delete_option() :: 'raw'.
 -type sendfile_option() :: {chunk_size, non_neg_integer()}
 			 | {use_threads, boolean()}.
--type file_info_option() :: {'time', 'local'} | {'time', 'universal'} 
-			  | {'time', 'posix'} | raw.
+-type file_info_option() :: {'time', 'local'} | {'time', 'universal'}
+			  | {'time', 'posix'} | 'raw'.
 %%% BIFs
 
 -export([native_name_encoding/0]).
@@ -216,6 +217,26 @@ set_cwd(Dirname) ->
 
 delete(Name) ->
     check_and_call(delete, [file_name(Name)]).
+
+-spec delete(Filename, Opts) -> ok | {error, Reason} when
+      Filename :: name_all(),
+      Opts :: [delete_option()],
+      Reason :: posix() | badarg.
+
+delete(Name, Opts) when is_list(Opts) ->
+    Args = [file_name(Name), Opts],
+    case check_args(Args) of
+        ok ->
+            case lists:member(raw, Opts) of
+                true ->
+                    [FileName|_] = Args,
+                    ?PRIM_FILE:delete(FileName);
+                false ->
+                    call(delete, Args)
+            end;
+        Error ->
+            Error
+    end.
 
 -spec rename(Source, Destination) -> ok | {error, Reason} when
       Source :: name_all(),
@@ -505,10 +526,12 @@ open(Item, ModeList) when is_list(ModeList) ->
                 Error ->
                     Error
             end;
-        {true, _Either} ->
+        {true, false} ->
             raw_file_io:open(file_name(Item), ModeList);
         {false, true} ->
-            ram_file:open(Item, ModeList)
+            ram_file:open(Item, ModeList);
+        {true, true} ->
+            erlang:error(badarg, [Item, ModeList])
     end;
 
 %% Old obsolete mode specification in atom or 2-tuple format
@@ -1267,7 +1290,8 @@ change_time(Name, {{AY, AM, AD}, {AH, AMin, ASec}}=Atime,
    {'ok', non_neg_integer()} | {'error', inet:posix() | 
 				closed | badarg | not_owner} when
       RawFile :: fd(),
-      Socket :: inet:socket(),
+      Socket :: inet:socket() | socket:socket() |
+                fun ((iolist()) -> ok | {error, inet:posix() | closed}),
       Offset :: non_neg_integer(),
       Bytes :: non_neg_integer(),
       Opts :: [sendfile_option()].
@@ -1292,9 +1316,10 @@ sendfile(File, Sock, Offset, Bytes, Opts) ->
 %% sendfile/2
 -spec sendfile(Filename, Socket) ->
    {'ok', non_neg_integer()} | {'error', inet:posix() | 
-				closed | badarg | not_owner}
-      when Filename :: name_all(),
-	   Socket :: inet:socket().
+				closed | badarg | not_owner} when
+      Filename :: name_all(),
+      Socket :: inet:socket() | socket:socket() |
+                fun ((iolist()) -> ok | {error, inet:posix() | closed}).
 sendfile(Filename, Sock)  ->
     case file:open(Filename, [read, raw, binary]) of
 	{error, Reason} ->
@@ -1305,14 +1330,41 @@ sendfile(Filename, Sock)  ->
 	    Res
     end.
 
+-define(module_socket(Handler, Handle),
+        {'$inet', (Handler), (Handle)}).
+-define(socket(Handle),
+        {'$socket', (Handle)}).
+
 %% Internal sendfile functions
 sendfile(#file_descriptor{ module = Mod } = Fd, Sock, Offset, Bytes,
 	 ChunkSize, Headers, Trailers, Opts)
   when is_integer(Offset), is_integer(Bytes) ->
     case Sock of
-        {'$inet', _, _} ->
+        ?socket(_) when Headers =:= [], Trailers =:= [] ->
+            try socket:sendfile(Sock, Fd, Offset, Bytes, infinity)
+            catch error : notsup ->
+                    sendfile_fallback(
+                      Fd, socket_send(Sock), Offset, Bytes, ChunkSize,
+                      Headers, Trailers)
+            end;
+        ?socket(_) ->
             sendfile_fallback(
-              Fd, Sock, Offset, Bytes, ChunkSize,
+              Fd, socket_send(Sock), Offset, Bytes, ChunkSize,
+              Headers, Trailers);
+        ?module_socket(GenTcpMod, _) when Headers =:= [], Trailers =:= [] ->
+            case
+                GenTcpMod:sendfile(Sock, Fd, Offset, Bytes)
+            of
+                {error, enotsup} ->
+                    sendfile_fallback(
+                      Fd, gen_tcp_send(Sock), Offset, Bytes, ChunkSize,
+                      Headers, Trailers);
+                Else ->
+                    Else
+            end;
+        ?module_socket(_, _) ->
+            sendfile_fallback(
+              Fd, gen_tcp_send(Sock), Offset, Bytes, ChunkSize,
               Headers, Trailers);
         _ when is_port(Sock) ->
             case Mod:sendfile(
@@ -1320,49 +1372,63 @@ sendfile(#file_descriptor{ module = Mod } = Fd, Sock, Offset, Bytes,
                    Headers, Trailers, Opts) of
                 {error, enotsup} ->
                     sendfile_fallback(
-                      Fd, Sock, Offset, Bytes, ChunkSize,
+                      Fd, gen_tcp_send(Sock), Offset, Bytes, ChunkSize,
                       Headers, Trailers);
                 Else ->
                     Else
-            end
+            end;
+        _ when is_function(Sock, 1) ->
+            sendfile_fallback(
+              Fd, Sock, Offset, Bytes, ChunkSize,
+              Headers, Trailers)
     end;
 sendfile(_,_,_,_,_,_,_,_) ->
     {error, badarg}.
 
+socket_send(Sock) ->
+    fun (Data) ->
+            socket:send(Sock, Data)
+    end.
+
+gen_tcp_send(Sock) ->
+    fun (Data) ->
+            gen_tcp:send(Sock, Data)
+    end.
+
 %%%
 %% Sendfile Fallback
 %%%
-sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize,
+sendfile_fallback(File, Send, Offset, Bytes, ChunkSize,
 		  Headers, Trailers)
   when Headers == []; is_integer(Headers) ->
-    case sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize) of
+    case sendfile_fallback(File, Send, Offset, Bytes, ChunkSize) of
 	{ok, BytesSent} when is_list(Trailers),
 			     Trailers =/= [],
 			     is_integer(Headers) ->
-	    sendfile_send(Sock, Trailers, BytesSent+Headers);
+	    sendfile_send(Send, Trailers, BytesSent+Headers);
 	{ok, BytesSent} when is_list(Trailers), Trailers =/= [] ->
-	    sendfile_send(Sock, Trailers, BytesSent);
+	    sendfile_send(Send, Trailers, BytesSent);
 	{ok, BytesSent} when is_integer(Headers) ->
 	    {ok, BytesSent + Headers};
 	Else ->
 	    Else
     end;
-sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize, Headers, Trailers) ->
-    case sendfile_send(Sock, Headers, 0) of
+sendfile_fallback(File, Send, Offset, Bytes, ChunkSize, Headers, Trailers) ->
+    case sendfile_send(Send, Headers, 0) of
 	{ok, BytesSent} ->
-	    sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize, BytesSent,
+	    sendfile_fallback(File, Send, Offset, Bytes, ChunkSize, BytesSent,
 			      Trailers);
 	Else ->
 	    Else
     end.
 
 
-sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize)
+sendfile_fallback(File, Send, Offset, Bytes, ChunkSize)
   when 0 =< Bytes ->
     {ok, CurrPos} = file:position(File, {cur, 0}),
     case file:position(File, {bof, Offset}) of
         {ok, _NewPos} ->
-            Res = sendfile_fallback_int(File, Sock, Bytes, ChunkSize, 0),
+            Res = sendfile_fallback_int(File, Send, Bytes, ChunkSize, 0),
             _ = file:position(File, {bof, CurrPos}),
             Res;
         Error ->
@@ -1372,7 +1438,7 @@ sendfile_fallback(_, _, _, _, _) ->
     {error, einval}.
 
 
-sendfile_fallback_int(File, Sock, Bytes, ChunkSize, BytesSent)
+sendfile_fallback_int(File, Send, Bytes, ChunkSize, BytesSent)
   when Bytes > BytesSent; Bytes == 0 ->
     Size = if Bytes == 0 ->
 		   ChunkSize;
@@ -1383,10 +1449,10 @@ sendfile_fallback_int(File, Sock, Bytes, ChunkSize, BytesSent)
 	   end,
     case file:read(File, Size) of
 	{ok, Data} ->
-	    case sendfile_send(Sock, Data, BytesSent) of
+	    case sendfile_send(Send, Data, BytesSent) of
 		{ok,NewBytesSent} ->
 		    sendfile_fallback_int(
-		      File, Sock, Bytes, ChunkSize,
+		      File, Send, Bytes, ChunkSize,
 		      NewBytesSent);
 		Error ->
 		    Error
@@ -1396,12 +1462,12 @@ sendfile_fallback_int(File, Sock, Bytes, ChunkSize, BytesSent)
 	Error ->
 	    Error
     end;
-sendfile_fallback_int(_File, _Sock, BytesSent, _ChunkSize, BytesSent) ->
+sendfile_fallback_int(_File, _Send, BytesSent, _ChunkSize, BytesSent) ->
     {ok, BytesSent}.
 
-sendfile_send(Sock, Data, Old) ->
+sendfile_send(Send, Data, Old) ->
     Len = iolist_size(Data),
-    case gen_tcp:send(Sock, Data) of
+    case Send(Data) of
 	ok ->
 	    {ok, Len+Old};
 	Else ->

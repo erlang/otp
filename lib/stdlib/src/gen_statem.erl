@@ -32,7 +32,8 @@
     start_monitor/3,start_monitor/4,
     stop/1,stop/3,
     cast/2,call/2,call/3,
-    send_request/2,wait_response/1,wait_response/2,check_response/2,
+    send_request/2,wait_response/1,wait_response/2,
+    receive_response/1,receive_response/2,check_response/2,
     enter_loop/4,enter_loop/5,enter_loop/6,
     reply/1,reply/2]).
 
@@ -444,10 +445,18 @@ timeout_event_type(Type) ->
         {state_data = {undefined,undefined} ::
            {State :: term(),Data :: term()},
          postponed = [] :: [{event_type(),term()}],
-         timers = #{} ::
-           #{TimeoutType :: timeout_event_type() =>
-                            {TimerRef :: reference(), TimeoutMsg :: term()}},
-          hibernate = false :: boolean()
+         timers = #{t0q => []} ::
+           #{
+              %% Timeout 0 Queue.
+              %% Marked in the table with TimerRef = 0.
+              %% Stored here because they also are updated
+              %% by e.g cancel_timer/3.
+              't0q' := [timeout_event_type()],
+
+              TimeoutType :: timeout_event_type() =>
+                             {TimerRef :: reference() | 0,
+                              TimeoutMsg :: term()}},
+         hibernate = false :: boolean()
         }).
 
 %%%==========================================================================
@@ -596,6 +605,16 @@ wait_response(RequestId) ->
 wait_response(RequestId, Timeout) ->
     gen:wait_response(RequestId, Timeout).
 
+-spec receive_response(RequestId::request_id()) ->
+        {reply, Reply::term()} | {error, {term(), server_ref()}}.
+receive_response(RequestId) ->
+    gen:receive_response(RequestId, infinity).
+
+-spec receive_response(RequestId::request_id(), timeout()) ->
+        {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
+receive_response(RequestId, Timeout) ->
+    gen:receive_response(RequestId, Timeout).
+
 -spec check_response(Msg::term(), RequestId::request_id()) ->
         {reply, Reply::term()} | 'no_reply' | {error, {term(), server_ref()}}.
 check_response(Msg, RequestId) ->
@@ -610,14 +629,8 @@ reply(Replies) when is_list(Replies) ->
 %%
 -compile({inline, [reply/2]}).
 -spec reply(From :: from(), Reply :: term()) -> ok.
-reply({To,Tag}, Reply) when is_pid(To) ->
-    Msg = {Tag,Reply},
-    try To ! Msg of
-	_ ->
-	    ok
-    catch
-	_:_ -> ok
-    end.
+reply(From, Reply) ->
+    gen:reply(From, Reply).
 
 %% Instead of starting the state machine through start/3,4
 %% or start_link/3,4 turn the current process presumably
@@ -679,8 +692,22 @@ call_dirty(ServerRef, Request, Timeout, T) ->
               Stacktrace)
     end.
 
+call_clean(ServerRef, Request, Timeout, T)
+  when (is_pid(ServerRef)
+        andalso (node(ServerRef) == node()))
+       orelse (element(2, ServerRef) == node()
+               andalso is_atom(element(1, ServerRef))
+               andalso (tuple_size(ServerRef) =:= 2)) ->
+    %% No need to use a proxy locally since we know alias will be
+    %% used as of OTP 24 which will prevent garbage responses...
+    call_dirty(ServerRef, Request, Timeout, T);
 call_clean(ServerRef, Request, Timeout, T) ->
     %% Call server through proxy process to dodge any late reply
+    %%
+    %% We still need a proxy in the distributed case since we may
+    %% communicate with a node that does not understand aliases.
+    %% This can be removed when alias support is mandatory.
+    %% Probably in OTP 26.
     Ref = make_ref(),
     Self = self(),
     Pid = spawn(
@@ -1017,7 +1044,8 @@ loop_receive(
                 %%
 		{timeout,TimerRef,TimeoutType} ->
                     case S#state.timers of
-                        #{TimeoutType := {TimerRef,TimeoutMsg}} = Timers ->
+                        #{TimeoutType := {TimerRef,TimeoutMsg}} = Timers
+                          when TimeoutType =/= t0q->
                             %% Our timer
                             Timers_1 = maps:remove(TimeoutType, Timers),
                             S_1 = S#state{timers = Timers_1},
@@ -1845,6 +1873,9 @@ loop_keep_state(
     %% Cancel event timeout
     %%
     case Timers of
+	%% Optimization
+	%% - only cancel timeout when it is active
+	%%
         #{timeout := {TimerRef,_TimeoutMsg}} ->
 	    %% Event timeout active
 	    loop_next_events(
@@ -1885,7 +1916,7 @@ loop_state_change(
               P, Debug, S,
               [E1,E2|Events], NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR);
-        _ ->
+        [_,_|_] ->
             loop_state_change(
               P, Debug, S,
               lists:reverse(Postponed, Events), NextState_NewData,
@@ -1937,7 +1968,7 @@ loop_next_events(
   Timers) ->
     %%
     %% Optimization when there are no timeouts
-    %% hence no timeout zero events to append to Events
+    %% hence no zero timeout events to append to Events
     %% - avoid loop_timeouts
     loop_done(
       P, Debug,
@@ -1946,7 +1977,7 @@ loop_next_events(
 	postponed = Postponed,
         timers = Timers,
 	hibernate = Hibernate},
-      NextEventsR, Events);
+      Events, NextEventsR);
 loop_next_events(
   P, Debug, S,
   Events, NextState_NewData,
@@ -1972,34 +2003,24 @@ loop_timeouts(
     %%
     %% End of timeouts
     %%
-    S_1 =
-        S#state{
-          state_data = NextState_NewData,
-          postponed = Postponed,
-          timers = Timers,
-          hibernate = Hibernate},
     case TimeoutEvents of
         [] ->
-            loop_done(P, Debug, S_1, NextEventsR, Events);
-        _ ->
-            case Events of
-                [] ->
-                    loop_prepend_timeout_events(
-                      P, Debug, S_1, TimeoutEvents,
-                      NextEventsR);
-                [E1] ->
-                    loop_prepend_timeout_events(
-                      P, Debug, S_1, TimeoutEvents,
-                      [E1|NextEventsR]);
-                [E2,E1] ->
-                    loop_prepend_timeout_events(
-                      P, Debug, S_1, TimeoutEvents,
-                      [E1,E2|NextEventsR]);
-                _ ->
-                    loop_prepend_timeout_events(
-                      P, Debug, S_1, TimeoutEvents,
-                      lists:reverse(Events, NextEventsR))
-            end
+            S_1 =
+                S#state{
+                  state_data = NextState_NewData,
+                  postponed = Postponed,
+                  timers = Timers,
+                  hibernate = Hibernate},
+            loop_done(P, Debug, S_1, Events, NextEventsR);
+        [_|_] ->
+            #{t0q := T0Q} = Timers,
+            S_1 =
+                S#state{
+                  state_data = NextState_NewData,
+                  postponed = Postponed,
+                  timers = Timers#{t0q := T0Q ++ TimeoutEvents},
+                  hibernate = Hibernate},
+            loop_done(P, Debug, S_1, Events, NextEventsR)
     end;
 loop_timeouts(
   P, Debug, S,
@@ -2055,17 +2076,6 @@ loop_timeouts_start(
               NextEventsR, Hibernate, TimeoutsR, Postponed,
               Timers, Seen, TimeoutEvents,
               TimeoutType);
-        0 when TimeoutOpts =:= [] ->
-            %% Relative timeout zero
-            %% - cancel any running timer
-            %%   handle timeout zero events later
-            %%
-            loop_timeouts_cancel(
-              P, Debug, S,
-              Events, NextState_NewData,
-              NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers, Seen, [{TimeoutType,TimeoutMsg}|TimeoutEvents],
-              TimeoutType);
         update ->
             loop_timeouts_update(
               P, Debug, S,
@@ -2073,35 +2083,59 @@ loop_timeouts_start(
               NextEventsR, Hibernate, TimeoutsR, Postponed,
               Timers, Seen, TimeoutEvents,
               TimeoutType, TimeoutMsg);
+        0 ->
+            %% (Re)start zero timeout
+            TimerRef = 0,
+            TimeoutEvents_1 = [TimeoutType | TimeoutEvents],
+            loop_timeouts_register(
+              P, Debug, S,
+              Events, NextState_NewData,
+              NextEventsR, Hibernate, TimeoutsR, Postponed,
+              Timers, Seen, TimeoutEvents_1,
+              TimeoutType, Time, TimeoutMsg, TimeoutOpts, TimerRef);
         _ ->
             %% (Re)start the timer
             TimerRef =
                 erlang:start_timer(Time, self(), TimeoutType, TimeoutOpts),
-            case Debug of
-                ?not_sys_debug ->
-                    loop_timeouts_register(
-                      P, Debug, S, Events, NextState_NewData,
-                      NextEventsR, Hibernate, TimeoutsR, Postponed,
-                      Timers, Seen, TimeoutEvents,
-                      TimeoutType, TimerRef, TimeoutMsg);
-                _ ->
-                    {State,_Data} = NextState_NewData,
-                    Debug_1 =
-                        sys_debug(
-                          Debug, P#params.name,
-                          {start_timer,
-                           {TimeoutType,Time,TimeoutMsg,TimeoutOpts},
-                           State}),
-                    loop_timeouts_register(
-                      P, Debug_1, S, Events, NextState_NewData,
-                      NextEventsR, Hibernate, TimeoutsR, Postponed,
-                      Timers, Seen, TimeoutEvents,
-                      TimeoutType, TimerRef, TimeoutMsg)
-            end
+            loop_timeouts_register(
+              P, Debug, S,
+              Events, NextState_NewData,
+              NextEventsR, Hibernate, TimeoutsR, Postponed,
+              Timers, Seen, TimeoutEvents,
+              TimeoutType, Time, TimeoutMsg, TimeoutOpts, TimerRef)
     end.
 
 %% Loop helper to register a newly started timer
 %% and to cancel any running timer
+%%
+loop_timeouts_register(
+  P, Debug, S,
+  Events, NextState_NewData,
+  NextEventsR, Hibernate, TimeoutsR, Postponed,
+  Timers, Seen, TimeoutEvents,
+  TimeoutType, Time, TimeoutMsg, TimeoutOpts, TimerRef) ->
+    %%
+    case Debug of
+        ?not_sys_debug ->
+            loop_timeouts_register(
+              P, Debug, S, Events, NextState_NewData,
+              NextEventsR, Hibernate, TimeoutsR, Postponed,
+              Timers, Seen, TimeoutEvents,
+              TimeoutType, TimerRef, TimeoutMsg);
+        _ ->
+            {State,_Data} = NextState_NewData,
+            Debug_1 =
+                sys_debug(
+                  Debug, P#params.name,
+                  {start_timer,
+                   {TimeoutType,Time,TimeoutMsg,TimeoutOpts},
+                   State}),
+            loop_timeouts_register(
+              P, Debug_1, S, Events, NextState_NewData,
+              NextEventsR, Hibernate, TimeoutsR, Postponed,
+              Timers, Seen, TimeoutEvents,
+              TimeoutType, TimerRef, TimeoutMsg)
+    end.
 %%
 loop_timeouts_register(
   P, Debug, S, Events, NextState_NewData,
@@ -2110,6 +2144,19 @@ loop_timeouts_register(
   TimeoutType, TimerRef, TimeoutMsg) ->
     %%
     case Timers of
+        #{TimeoutType := {0,_OldTimeoutMsg},
+          t0q := T0Q} ->
+            %% Cancel the running timer,
+            %% and update timer type and ref
+            Timers_1 =
+                Timers
+                #{TimeoutType := {0,TimeoutMsg},
+                  t0q := lists:delete(TimeoutType, T0Q)},
+            loop_timeouts(
+              P, Debug, S,
+              Events, NextState_NewData,
+              NextEventsR, Hibernate, TimeoutsR, Postponed,
+              Timers_1, Seen#{TimeoutType => true}, TimeoutEvents);
         #{TimeoutType := {OldTimerRef,_OldTimeoutMsg}} ->
             %% Cancel the running timer,
             %% and update timer type and ref
@@ -2147,7 +2194,7 @@ loop_timeouts_cancel(
     %%
     %% Explicitly separate cases to get separate code paths for when
     %% the map key exists vs. not, since otherwise the external call
-    %% to erlang:cancel_timer/1 and to map:remove/2 within
+    %% to erlang:cancel_timer/1 and to maps:remove/2 within
     %% cancel_timer/2 would cause all live registers
     %% to be saved to and restored from the stack also for
     %% the case when the map key TimeoutType does not exist
@@ -2168,7 +2215,7 @@ loop_timeouts_cancel(
     end.
 
 %% Loop helper to update the timeout message,
-%% or insert an event if no timer is running
+%% or start a zero timeout if no timer is running
 %%
 loop_timeouts_update(
   P, Debug, S,
@@ -2187,27 +2234,19 @@ loop_timeouts_update(
               Timers_1, Seen#{TimeoutType => true},
               TimeoutEvents);
         #{} ->
-            TimeoutEvents_1 =
-                [{TimeoutType,TimeoutMsg}|TimeoutEvents],
+            Timers_1 = Timers#{TimeoutType => {0, TimeoutMsg}},
+            TimeoutEvents_1 = [TimeoutType|TimeoutEvents],
             loop_timeouts(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers, Seen#{TimeoutType => true},
+              Timers_1, Seen#{TimeoutType => true},
               TimeoutEvents_1)
     end.
 
-%% Continue state transition with prepending timeout zero events
-%% before event queue reversal i.e appending timeout zero events
-%%
-loop_prepend_timeout_events(P, Debug, S, TimeoutEvents, EventsR) ->
-    {Debug_1,Events_1R} =
-        prepend_timeout_events(P, Debug, S, TimeoutEvents, EventsR),
-    loop_done(P, Debug_1, S, Events_1R, []).
-
 %% Place inserted events first in the event queue
 %%
-loop_done(P, Debug, S, NextEventsR, Events) ->
+loop_done(P, Debug, S, Events, NextEventsR) ->
     case NextEventsR of
         [] ->
             loop_done(P, Debug, S, Events);
@@ -2215,12 +2254,13 @@ loop_done(P, Debug, S, NextEventsR, Events) ->
             loop_done(P, Debug, S, [E1|Events]);
         [E2,E1] ->
             loop_done(P, Debug, S, [E1,E2|Events]);
-        _ ->
+        [_,_|_] ->
             loop_done(P, Debug, S, lists:reverse(NextEventsR, Events))
     end.
 %%
 %% State transition is done, keep looping if there are
-%% enqueued events, otherwise get a new event
+%% enqueued events, or if there are zero timeouts,
+%% otherwise get a new event
 %%
 loop_done(P, Debug, S, Q) ->
 %%%    io:format(
@@ -2230,12 +2270,22 @@ loop_done(P, Debug, S, Q) ->
 %%%      [S#state.state_data,,S#state.postponed,Q,S#state.timers]),
     case Q of
         [] ->
-            %% Get a new event
-            loop(P, Debug, S);
+            case S#state.timers of
+                #{t0q := [TimeoutType|_]} = Timers ->
+                    #{TimeoutType := {0 = TimerRef, TimeoutMsg}} = Timers,
+                    Timers_1 = cancel_timer(TimeoutType, TimerRef, Timers),
+                    S_1 = S#state{timers = Timers_1},
+                    Event = {TimeoutType, TimeoutMsg},
+                    loop_receive_result(P, Debug, S_1, Event);
+                #{} ->
+                    %% Get a new event
+                    loop(P, Debug, S)
+            end;
         [Event|Events] ->
 	    %% Loop until out of enqueued events
 	    loop_event(P, Debug, S, Event, Events)
     end.
+
 
 %%---------------------------------------------------------------------------
 %% Server loop helpers
@@ -2254,58 +2304,6 @@ parse_timeout_opts_abs(Opts, Abs) ->
             parse_timeout_opts_abs(Opts, Abs_1);
         _ ->
             badarg
-    end.
-
-%% Enqueue immediate timeout events (timeout 0 events)
-%%
-%% Event timeout 0 events gets special treatment since
-%% an event timeout is cancelled by any received event,
-%% so if there are enqueued events before the event
-%% timeout 0 event - the event timeout is cancelled hence no event.
-%%
-%% Other (state_timeout and {timeout,Name}) timeout 0 events
-%% that occur after an event timer timeout 0 event are considered to
-%% belong to timers that were started after the event timer
-%% timeout 0 event fired, so they do not cancel the event timer.
-%%
-prepend_timeout_events(_P, Debug, _S, [], EventsR) ->
-    {Debug,EventsR};
-prepend_timeout_events(
-  P, Debug, S, [{timeout,_} = TimeoutEvent|TimeoutEvents], []) ->
-    %% Prepend this since there are no other events in queue
-    case Debug of
-        ?not_sys_debug ->
-            prepend_timeout_events(
-              P, Debug, S, TimeoutEvents, [TimeoutEvent]);
-        _ ->
-            {State,_Data} = S#state.state_data,
-            Debug_1 =
-              sys_debug(
-                Debug, P#params.name,
-                {insert_timeout,TimeoutEvent,State}),
-            prepend_timeout_events(
-              P, Debug_1, S, TimeoutEvents, [TimeoutEvent])
-    end;
-prepend_timeout_events(
-  P, Debug, S, [{timeout,_}|TimeoutEvents], EventsR) ->
-    %% Ignore since there are other events in queue
-    %% so they have cancelled the event timeout 0.
-    prepend_timeout_events(P, Debug, S, TimeoutEvents, EventsR);
-prepend_timeout_events(
-  P, Debug, S, [TimeoutEvent|TimeoutEvents], EventsR) ->
-    %% Just prepend all others
-    case Debug of
-        ?not_sys_debug ->
-            prepend_timeout_events(
-              P, Debug, S, TimeoutEvents, [TimeoutEvent|EventsR]);
-        _ ->
-            {State,_Data} = S#state.state_data,
-            Debug_1 =
-                sys_debug(
-                  Debug, P#params.name,
-                  {insert_timeout,TimeoutEvent,State}),
-            prepend_timeout_events(
-              P, Debug_1, S, TimeoutEvents, [TimeoutEvent|EventsR])
     end.
 
 
@@ -2380,7 +2378,7 @@ terminate(
     case Stacktrace of
 	[] ->
 	    erlang:Class(Reason);
-	_ ->
+	[_|_] ->
 	    erlang:raise(Class, Reason, Stacktrace)
     end.
 
@@ -2793,17 +2791,28 @@ listify(Item) ->
            ok
    end).
 %%
-%% Cancel timer and consume timeout message
+%% Cancel erlang: timer and consume timeout message
 %%
 -compile({inline, [cancel_timer/1]}).
 cancel_timer(TimerRef) ->
     ?cancel_timer(TimerRef).
 
+
 -define(
    cancel_timer(TimeoutType, TimerRef, Timers),
-   begin
-       ?cancel_timer(TimerRef),
-       maps:remove(begin TimeoutType end, begin Timers end)
+   case (TimerRef) of
+       0 ->
+           maps:remove(
+             begin TimeoutType end,
+             maps:update(
+               t0q,
+               lists:delete(
+                 begin TimeoutType end,
+                 maps:get(t0q, begin Timers end)),
+               begin Timers end));
+       _ ->
+           ?cancel_timer(TimerRef),
+           maps:remove(begin TimeoutType end, begin Timers end)
    end).
 %%
 %% Cancel timer and remove from Timers
@@ -2824,10 +2833,13 @@ cancel_timer(TimeoutType, Timers) ->
             Timers
     end.
 
+
 %% Return a list of all pending timeouts
 list_timeouts(Timers) ->
-    {maps:size(Timers),
+    {maps:size(Timers) - 1, % Subtract fixed key 't0q'
      maps:fold(
-       fun(TimeoutType, {_TimerRef,TimeoutMsg}, Acc) ->
+       fun (t0q, _, Acc) ->
+               Acc;
+           (TimeoutType, {_TimerRef,TimeoutMsg}, Acc) ->
                [{TimeoutType,TimeoutMsg}|Acc]
        end, [], Timers)}.

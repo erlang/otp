@@ -43,7 +43,7 @@
 %%% HTTP Client per request settings
 -record(http_options,
 	{
-	  %% "HTTP/1.1" | "HTTP/1.0" | "HTTP/0.9"
+	  %% "HTTP/1.1" | "HTTP/1.0"
 	  version :: 'undefined' | string(),
 
 	  %% ms before a request times out

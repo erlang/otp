@@ -1702,7 +1702,7 @@ do_compare([Gen1, Gen2]) ->
 
 maps_lessthan(M1, M2) ->
   case {maps:size(M1),maps:size(M2)} of
-      {_S,_S} ->
+      {S,S} ->
 	  {K1,V1} = lists:unzip(term_sort(maps:to_list(M1))),
 	  {K2,V2} = lists:unzip(term_sort(maps:to_list(M2))),
 
@@ -1721,9 +1721,9 @@ term_sort(L) ->
 	       L).
 
 
-cmp(T1, T2, Exact) when is_tuple(T1) and is_tuple(T2) ->
-    case {size(T1),size(T2)} of
-	{_S,_S} -> cmp(tuple_to_list(T1), tuple_to_list(T2), Exact);
+cmp(T1, T2, Exact) when is_tuple(T1), is_tuple(T2) ->
+    case {tuple_size(T1),tuple_size(T2)} of
+	{S,S} -> cmp(tuple_to_list(T1), tuple_to_list(T2), Exact);
 	{S1,S2} when S1 < S2 -> -1;
 	{S1,S2} when S1 > S2 -> 1
     end;
@@ -1741,7 +1741,7 @@ cmp(M1, M2, Exact) ->
 
 cmp_maps(M1, M2, Exact) ->
     case {maps:size(M1),maps:size(M2)} of
-	{_S,_S} ->
+	{S,S} ->
 	    {K1,V1} = lists:unzip(term_sort(maps:to_list(M1))),
 	    {K2,V2} = lists:unzip(term_sort(maps:to_list(M2))),
 
@@ -2346,7 +2346,8 @@ t_map_encode_decode(Config) when is_list(Config) ->
 			M1 = M0#{Key => Key},
 			case Key rem 17 of
 			    0 ->
-				M1 = binary_to_term(term_to_binary(M1));
+				M1 = binary_to_term(term_to_binary(M1)),
+                                M1 = binary_to_term(term_to_binary(M1, [deterministic]));
 			    _ ->
 				ok
 			end,
@@ -2792,6 +2793,13 @@ t_hashmap_balance(_Config) ->
     ok.
 
 hashmap_balance(KeyFun) ->
+    %% For uniformly distributed hash values, the average number of nodes N
+    %% in a hashmap varies between 0.3*K and 0.4*K where K is number of keys.
+    %% The standard deviation of N is about sqrt(K)/3.
+
+    %% For simplicity we use the higher expected average 0.4*K
+    %% and verfies that no map is too many standard deviation above it.
+
     F = fun(I, {M0,Max0}) ->
 		Key = KeyFun(I),
 		M1 = M0#{Key => Key},
@@ -2803,9 +2811,9 @@ hashmap_balance(KeyFun) ->
 			       SD_diff = abs(Nodes - Avg) / StdDev,
 			       %%io:format("~p keys: ~p nodes avg=~p SD_diff=~p\n",
 			       %%          [maps:size(M1), Nodes, Avg, SD_diff]),
-			       {MaxDiff0, _} = Max0,
+			       {MaxDiff0, _, Cnt} = Max0,
 			       case {Nodes > Avg, SD_diff > MaxDiff0} of
-				   {true, true} -> {SD_diff, M1};
+				   {true, true} -> {SD_diff, M1, Cnt+1};
 				   _ -> Max0
 			       end;
 
@@ -2814,16 +2822,23 @@ hashmap_balance(KeyFun) ->
 		{M1, Max1}
 	end,
 
-    {_,{MaxDiff,MaxMap}} = lists:foldl(F,
-				       {#{}, {0, 0}},
-				       lists:seq(1,10000)),
-    io:format("Max std dev diff ~p for map of size ~p (nodes=~p, flatsize=~p)\n",
-	      [MaxDiff, maps:size(MaxMap), hashmap_nodes(MaxMap), erts_debug:flat_size(MaxMap)]),
+    {_,{MaxDiff,MaxMap, FatCnt}} = lists:foldl(F,
+					       {#{}, {0, undefined, 0}},
+					       lists:seq(1,10000)),
+    case MaxMap of
+	undefined ->
+	    io:format("Wow, no map with more than \"average\" number of nodes\n");
+	_ ->
+	    io:format("Found ~p maps with more than \"average\" number of nodes\n",
+		      [FatCnt]),
+	    io:format("Max std dev diff ~p for map of size ~p (nodes=~p, flatsize=~p)\n",
+		      [MaxDiff, maps:size(MaxMap), hashmap_nodes(MaxMap),
+		       erts_debug:flat_size(MaxMap)])
+    end,
 
     true = (MaxDiff < 6),  % The probability of this line failing is about 0.000000001
                            % for a uniform hash. I've set the probability this "high" for now
                            % to detect flaws in our make_internal_hash.
-                           % Hard limit is 15 (see hashmap_over_estimated_heap_size).
     ok.
 
 hashmap_nodes(M) ->
@@ -2870,6 +2885,7 @@ t_erts_internal_order(_Config) when is_list(_Config) ->
 
     M = #{0 => 0,2147483648 => 0},
     true = M =:= binary_to_term(term_to_binary(M)),
+    true = M =:= binary_to_term(term_to_binary(M, [deterministic])),
 
     F1 = fun(_, _) -> 0 end,
     F2 = fun(_, _) -> 1 end,
@@ -2952,6 +2968,19 @@ t_erts_internal_hash(_Config) when is_list(_Config) ->
     i  = maps:get({[0,0,0,0,0,0,0]},M7),
     j  = maps:get({[0,0,0,0,0,0,0,0]},M7),
     k  = maps:get({[0,0,0,0,0,0,0,0,0]},M7),
+
+    %% Test that external pids and ports don't introduce hash clash,
+    %% caused by high word being ignored (OTP-17436).
+    maps:from_keys([erts_test_utils:mk_ext_pid({a@a, 17},
+					       1 bsl NumBit,
+					       1 bsl SerBit)
+		    || NumBit <- lists:seq(0, 31),
+		       SerBit <- lists:seq(0, 31)],
+		   1),
+    maps:from_keys([erts_test_utils:mk_ext_port({a@a, 17}, 1 bsl NumBit)
+		    || NumBit <- lists:seq(0, 63)],
+		   1),
+
     ok.
 
 t_pdict(_Config) ->

@@ -2249,6 +2249,7 @@ register_usm_user_using_function(Conf) when is_list(Conf) ->
 		  {auth,     usmHMACMD5AuthProtocol},
 		  {auth_key, [1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]},
 		  {priv,     usmNoPrivProtocol}],
+
     ?line ok = snmpm_config:register_usm_user(EngineID, UserName1, UsmConfig1),
     ?IPRINT("try register user 1 again (error)"),
     ?line {error, {already_registered, EngineID, UserName1}} = 
@@ -2270,7 +2271,17 @@ register_usm_user_using_function(Conf) when is_list(Conf) ->
 		  {auth_key, [1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]},
 		  {priv,     usmNoPrivProtocol}],
     ?line ok = snmpm_config:register_usm_user(EngineID, UserName3, UsmConfig3),
-    
+
+    ?IPRINT("register user 4 (ok)"),
+    UserName4  = "samu4",
+    SecName4   = "samu_auth4",
+    UsmConfig4 = [{sec_name, SecName4},
+		  {auth,     usmHMACMD5AuthProtocol},
+		  {auth_key, [1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]},
+		  {priv,     usmAesCfb128Protocol},
+                  {priv_key, [190,54,66,227,33,171,152,0,133,223,204,155,109,111,77,44]}],
+    ?line ok = snmpm_config:register_usm_user(EngineID, UserName4, UsmConfig4),
+
     ?IPRINT("lookup 1 (ok)"),
     ?line {ok, #usm_user{name = UserName1} = User1} = 
 	snmpm_config:get_usm_user_from_sec_name(EngineID, SecName1),
@@ -2286,9 +2297,14 @@ register_usm_user_using_function(Conf) when is_list(Conf) ->
 	snmpm_config:get_usm_user_from_sec_name(EngineID, SecName3),
     ?IPRINT("User: ~p", [User3]),
 
-    ?IPRINT("lookup 4 (error)"),
+    ?IPRINT("lookup 4 (ok)"),
+    ?line {ok, #usm_user{name = UserName4} = User4} = 
+	snmpm_config:get_usm_user_from_sec_name(EngineID, SecName4),
+    ?IPRINT("User: ~p", [User4]),
+
+    ?IPRINT("lookup 5 (error)"),
     ?line {error, not_found} = 
-	snmpm_config:get_usm_user_from_sec_name(EngineID, SecName3 ++ "_1"),
+	snmpm_config:get_usm_user_from_sec_name(EngineID, SecName4 ++ "_1"),
 
     %% --
     ?IPRINT("stop config process"),
@@ -2341,6 +2357,7 @@ update_usm_user_info(Conf) when is_list(Conf) ->
     ?IPRINT("start"),
     process_flag(trap_exit, true),
 
+    ?IPRINT("Start crypto and ensure support"),
     case ?CRYPTO_START() of
         ok ->
             case ?CRYPTO_SUPPORT() of
@@ -2353,9 +2370,62 @@ update_usm_user_info(Conf) when is_list(Conf) ->
             ?SKIP({failed_starting_crypto, Reason})
     end,
      
-    _ConfDir = ?config(manager_conf_dir, Conf),
-    _DbDir = ?config(manager_db_dir, Conf),
-    ?SKIP(not_yet_implemented).
+    ConfDir = ?config(manager_conf_dir, Conf),
+    DbDir   = ?config(manager_db_dir, Conf),
+
+    ?IPRINT("write manager config"),
+    write_manager_conf(ConfDir),
+
+    Opts = [{versions, [v3]}, 
+	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
+
+    ?IPRINT("Start config server"),
+    ?line {ok, _Pid} = snmpm_config:start_link(Opts),
+
+    ?IPRINT("Register usm user"),
+    EngineID   = "engine",
+    UsmUser    = "UsmUser",
+    SecName    = UsmUser, 
+    AuthProto  = usmHMACMD5AuthProtocol,
+    AuthKey    = [1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6],
+    PrivProto1 = usmNoPrivProtocol,
+    UsmConfig  = [{sec_name, SecName},
+                  {auth,     AuthProto},
+                  {auth_key, AuthKey},
+                  {priv,     PrivProto1}],
+    ok = snmpm_config:register_usm_user(EngineID, UsmUser, UsmConfig),
+
+    ?IPRINT("verify user user config"),
+    ?line {ok, AuthProto}  = snmpm_config:usm_user_info(EngineID, UsmUser, auth),
+    ?line {ok, AuthKey}    = snmpm_config:usm_user_info(EngineID, UsmUser, auth_key),
+    ?line {ok, PrivProto1} = snmpm_config:usm_user_info(EngineID, UsmUser, priv),
+
+    ?IPRINT("usm user update 1"),
+    PrivProto2 = usmAesCfb128Protocol,
+    PrivKey2   = [190,54,66,227,33,171,152,0,133,223,204,155,109,111,77,44],
+    ok = snmpm_config:update_usm_user_info(EngineID, UsmUser, priv, PrivProto2),
+    ok = snmpm_config:update_usm_user_info(EngineID, UsmUser, priv_key, PrivKey2),
+
+    ?IPRINT("verify updated user user config after update 1"),
+    ?line {ok, AuthProto}  = snmpm_config:usm_user_info(EngineID, UsmUser, auth),
+    ?line {ok, AuthKey}    = snmpm_config:usm_user_info(EngineID, UsmUser, auth_key),
+    ?line {ok, PrivProto2} = snmpm_config:usm_user_info(EngineID, UsmUser, priv),
+    ?line {ok, PrivKey2}   = snmpm_config:usm_user_info(EngineID, UsmUser, priv_key),
+
+    ?IPRINT("usm user update 2"),
+    PrivProto3 = PrivProto1,
+    ok = snmpm_config:update_usm_user_info(EngineID, UsmUser, priv, PrivProto3),
+
+    ?IPRINT("verify updated user user config after update 2"),
+    ?line {ok, AuthProto}  = snmpm_config:usm_user_info(EngineID, UsmUser, auth),
+    ?line {ok, AuthKey}    = snmpm_config:usm_user_info(EngineID, UsmUser, auth_key),
+    ?line {ok, PrivProto3}  = snmpm_config:usm_user_info(EngineID, UsmUser, priv),
+
+    ?IPRINT("Stop config server"),
+    ?line ok = snmpm_config:stop(),
+
+    ?IPRINT("done"),
+    ok.
 
 
 %%

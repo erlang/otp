@@ -220,18 +220,24 @@ SPEC_FILE=""
 if [ -z "${ARGS}" ]
 then
     SPEC_FLAG="-spec"
-    SPEC_FILE="$MAKE_TEST_REL_DIR/$APPLICATION.spec"
+    if [ "${WSLcross}" != "true" ] ; then
+        SPEC_FILE="$MAKE_TEST_REL_DIR/$APPLICATION.spec"
+    else
+        SPEC_FILE=`w32_path.sh -m "$MAKE_TEST_REL_DIR/$APPLICATION.spec"`
+    fi
     ARGS="$SPEC_FLAG $SPEC_FILE"
 fi
 # Compile test server
 (cd "$ERL_TOP/lib/common_test/test_server" && make)
 # Run ct_run
 cd $MAKE_TEST_REL_DIR
-$CT_RUN -logdir $MAKE_TEST_CT_LOGS\
+
+if [ "${WSLcross}" != "true" ]
+then
+    $CT_RUN -logdir $MAKE_TEST_CT_LOGS\
         -pa "$ERL_TOP/lib/common_test/test_server"\
         ${ARGS}\
         -erl_args\
-        -env "$PATH"\
         -env ERL_CRASH_DUMP "$MAKE_TEST_DIR/${APPLICATION}_erl_crash.dump"\
         -boot start_sasl\
         -sasl errlog_type error\
@@ -242,6 +248,26 @@ $CT_RUN -logdir $MAKE_TEST_CT_LOGS\
         -sname test_server\
         -rsh ssh\
         ${ERL_ARGS}
+else
+    WIN_MAKE_TEST_CT_LOGS=`w32_path.sh -m "$MAKE_TEST_CT_LOGS"`
+    WIN_MAKE_TEST_DIR=`w32_path.sh -m "$MAKE_TEST_DIR"`
+    WIN_ERL_TOP=`w32_path.sh -m "$ERL_TOP"`
+    $CT_RUN.exe -logdir $WIN_MAKE_TEST_CT_LOGS\
+        -pa "$WIN_ERL_TOP/lib/common_test/test_server"\
+        ${ARGS}\
+        -erl_args\
+        -env ERL_CRASH_DUMP "$WIN_MAKE_TEST_DIR/${APPLICATION}_erl_crash.dump"\
+        -boot start_sasl\
+        -sasl errlog_type error\
+        -pz "$WIN_ERL_TOP/lib/common_test/test_server"\
+        -pz "."\
+        -ct_test_vars "{net_dir,\"\"}"\
+        -noshell\
+        -sname test_server\
+        -rsh ssh\
+        ${ERL_ARGS}
+fi
+
 CT_RUN_STATUS=$?
 if [ $CT_RUN_STATUS = "0" ]
 then

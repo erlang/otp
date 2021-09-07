@@ -36,7 +36,9 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 normal/1, error/1, cmp/1, cmp_literals/1, strip/1, strip_add_chunks/1, otp_6711/1,
-         building/1, md5/1, encrypted_abstr/1, encrypted_abstr_file/1]).
+         building/1, md5/1, encrypted_abstr/1, encrypted_abstr_file/1,
+         missing_debug_info_backend/1]).
+-export([test_makedep_abstract_code/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -46,7 +48,9 @@ suite() ->
 
 all() -> 
     [error, normal, cmp, cmp_literals, strip, strip_add_chunks, otp_6711,
-     building, md5, encrypted_abstr, encrypted_abstr_file].
+     building, md5, encrypted_abstr, encrypted_abstr_file,
+     missing_debug_info_backend, test_makedep_abstract_code
+    ].
 
 groups() -> 
     [].
@@ -144,6 +148,13 @@ do_normal(BeamFile, Opts) ->
 	{{missing_chunk, AtomBin}, []} when is_binary(AtomBin) -> ok;
 	{{AtomBin, missing_chunk}, [no_utf8_atoms]} when is_binary(AtomBin) -> ok
     end,
+
+    %% 'allow_missing_chunks' should work for named chunks too.
+    {ok, {simple, StrippedBeam}} = beam_lib:strip(BeamFile),
+    {ok, {simple, MChunks}} = beam_lib:chunks(StrippedBeam,
+                                              [attributes, locals],
+                                              [allow_missing_chunks]),
+    [{attributes, missing_chunk}, {locals, missing_chunk}] = MChunks,
 
     %% Make sure that reading the atom chunk works when the 'allow_missing_chunks'
     %% option is used.
@@ -770,10 +781,65 @@ do_encrypted_abstr_file(Beam, Key) ->
     {error,beam_lib,Error} = beam_lib:chunks(Beam, [abstract_code]),
     ok.
 
+test_makedep_abstract_code(Conf) ->
+    PrivDir = ?privdir,
+    ErlFile = filename:join(PrivDir, "hello.erl"),
+    BeamFile = filename:join(PrivDir, "hello.beam"),
+    file:write_file(ErlFile,
+		    ["-module(hello).\n",
+		     "-export([start/0]).\n",
+		     "start() -> ok.\n"
+		    ]),
+    DependDir = filename:join(PrivDir, "depend"),
+    file:make_dir(DependDir),
+    DependFile = filename:join(DependDir,"hello.d"),
+    compile:file(ErlFile,
+		 [debug_info,
+		  makedep_side_effect,
+		  {outdir, PrivDir},
+		  {makedep_output, DependFile}]),
+    file:delete(DependFile),
+    file:del_dir(DependDir),
+    case beam_lib:chunks(BeamFile, [debug_info]) of
+	{ok, {Module, [{debug_info, {debug_info_v1,
+				     _Backend=erl_abstract_code,Metadata}}]}} ->
+	    SrcOpts = [no_copt, to_core, binary, return_errors,
+		       no_inline, strict_record_tests, strict_record_updates,
+		       dialyzer, no_spawn_compiler_process],
+	    {ok,_} = erl_abstract_code:debug_info(core_v1, Module, Metadata,
+						  SrcOpts),
+            ok
+    end.
+    
+
 write_crypt_file(Contents0) ->
     Contents = list_to_binary([Contents0]),
     io:format("~s\n", [binary_to_list(Contents)]),
     ok = file:write_file(".erlang.crypt", Contents).
+
+%% GH-4353: Don't crash when the backend for generating the abstract code
+%% is missing.
+missing_debug_info_backend(Conf) ->
+    PrivDir = ?privdir,
+    Simple = filename:join(PrivDir, "simple"),
+    Source = Simple ++ ".erl",
+    BeamFile = Simple ++ ".beam",
+    simple_file(Source),
+
+    %% Create a debug_info chunk with a non-existing backend.
+    {ok,simple} = compile:file(Source, [{outdir,PrivDir}]),
+    {ok,simple,All0} = beam_lib:all_chunks(BeamFile),
+    FakeBackend = definitely__not__an__existing__backend,
+    FakeDebugInfo = {debug_info_v1, FakeBackend, nothing_here},
+    All = lists:keyreplace("Dbgi", 1, All0, {"Dbgi", term_to_binary(FakeDebugInfo)}),
+    {ok,NewBeam} = beam_lib:build_module(All),
+    ok = file:write_file(BeamFile, NewBeam),
+
+    %% beam_lib should not crash, but return an error.
+    verify(missing_backend, beam_lib:chunks(BeamFile, [abstract_code])),
+    file:delete(BeamFile),
+
+    ok.
 
 compare_chunks(File1, File2, ChunkIds) ->
     {ok, {_, Chunks1}} = beam_lib:chunks(File1, ChunkIds),

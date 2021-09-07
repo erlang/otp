@@ -43,6 +43,7 @@
     overlay_missing/0, overlay_missing/1,
     single/0, single/1,
     two/1,
+    empty_group_by_remote_leave/0, empty_group_by_remote_leave/1,
     thundering_herd/0, thundering_herd/1,
     initial/1,
     netsplit/1,
@@ -101,7 +102,7 @@ groups() ->
         {basic, [parallel], [errors, pg, leave_exit_race, single, overlay_missing]},
         {performance, [sequential], [thundering_herd]},
         {cluster, [parallel], [process_owner_check, two, initial, netsplit, trisplit, foursplit,
-            exchange, nolocal, double, scope_restart, missing_scope_join,
+            exchange, nolocal, double, scope_restart, missing_scope_join, empty_group_by_remote_leave,
             disconnected_start, forced_sync, group_leave]}
     ].
 
@@ -270,7 +271,41 @@ two(Config) when is_list(Config) ->
     stop_node(TwoPeer, Socket),
     %% hope that 'nodedown' comes before we route our request
     sync(?FUNCTION_NAME),
+    ok.
+
+empty_group_by_remote_leave() ->
+    [{doc, "Empty group should be deleted from nodes."}].
+
+empty_group_by_remote_leave(Config) when is_list(Config) ->
+    {TwoPeer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
+    RemoteNode = rpc:call(TwoPeer, erlang, whereis, [?FUNCTION_NAME]),
+    RemotePid = erlang:spawn(TwoPeer, forever()),
+    % remote join
+    ?assertEqual(ok, rpc:call(TwoPeer, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
+    sync({?FUNCTION_NAME, TwoPeer}),
+    ?assertEqual([RemotePid], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    % inspecting internal state is not best practice, but there's no other way to check if the state is correct.
+    {state, _, _, #{RemoteNode := {_, RemoteMap}}} = sys:get_state(?FUNCTION_NAME),
+    ?assertEqual(#{?FUNCTION_NAME => [RemotePid]}, RemoteMap),
+    % remote leave
+    ?assertEqual(ok, rpc:call(TwoPeer, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
+    sync({?FUNCTION_NAME, TwoPeer}),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    {state, _, _, #{RemoteNode := {_, NewRemoteMap}}} = sys:get_state(?FUNCTION_NAME),
+    % empty group should be deleted.
+    ?assertEqual(#{}, NewRemoteMap),
+
+    %% another variant of emptying a group remotely: join([Pi1, Pid2]) and leave ([Pid2, Pid1])
+    RemotePid2 = erlang:spawn(TwoPeer, forever()),
+    ?assertEqual(ok, rpc:call(TwoPeer, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, RemotePid2]])),
+    sync({?FUNCTION_NAME, TwoPeer}),
+    ?assertEqual([RemotePid, RemotePid2], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    %% now leave
+    ?assertEqual(ok, rpc:call(TwoPeer, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid2, RemotePid]])),
+    sync({?FUNCTION_NAME, TwoPeer}),
+    ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    {state, _, _, #{RemoteNode := {_, NewRemoteMap}}} = sys:get_state(?FUNCTION_NAME),
+    stop_node(TwoPeer, Socket),
     ok.
 
 thundering_herd() ->

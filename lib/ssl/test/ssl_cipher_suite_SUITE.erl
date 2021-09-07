@@ -22,6 +22,8 @@
 
 -module(ssl_cipher_suite_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 %% Callback functions
 -export([all/0,
@@ -122,7 +124,11 @@
          aes_128_gcm_sha256/1,
          chacha20_poly1305_sha256/1,
          aes_128_ccm_sha256/1,
-         aes_128_ccm_8_sha256/1
+         aes_128_ccm_8_sha256/1,
+         ecdhe_ecdsa_with_aes_128_ccm/1,
+         ecdhe_ecdsa_with_aes_256_ccm/1,
+         ecdhe_ecdsa_with_aes_128_ccm_8/1,
+         ecdhe_ecdsa_with_aes_256_ccm_8/1
         ]).
 
 -define(TIMEOUT, {seconds, 10}).
@@ -169,7 +175,11 @@ groups() ->
                        ecdhe_ecdsa_aes_128_gcm,
                        ecdhe_ecdsa_aes_256_cbc,
                        ecdhe_ecdsa_aes_256_gcm,
-                       ecdhe_ecdsa_chacha20_poly1305
+                       ecdhe_ecdsa_chacha20_poly1305,
+                       ecdhe_ecdsa_with_aes_128_ccm,
+                       ecdhe_ecdsa_with_aes_256_ccm,
+                       ecdhe_ecdsa_with_aes_128_ccm_8,
+                       ecdhe_ecdsa_with_aes_256_ccm_8
                       ]},
      {rsa, [], [rsa_3des_ede_cbc, 
                 rsa_aes_128_cbc,
@@ -480,6 +490,26 @@ init_per_testcase(aes_128_ccm_8_sha256, Config) ->
         _ ->
             {skip, "Missing AES_128_CCM_8_SHA256 crypto support"}
     end;
+init_per_testcase(TestCase, Config) when TestCase == ecdhe_ecdsa_with_aes_128_ccm;
+                                         TestCase == ecdhe_ecdsa_with_aes_128_ccm_8->
+    SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+    case lists:member(aes_128_ccm, SupCiphers) of
+        true ->
+            ct:timetrap(?TIMEOUT),
+            Config;
+        _ ->
+            {skip, "Missing AES_128_CCM crypto support"}
+    end;
+init_per_testcase(TestCase, Config) when TestCase == ecdhe_ecdsa_with_aes_256_ccm;
+                                         TestCase == ecdhe_ecdsa_with_aes_256_ccm_8 ->
+    SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+    case lists:member(aes_256_ccm, SupCiphers) of
+        true ->
+            ct:timetrap(?TIMEOUT),
+            Config;
+        _ ->
+            {skip, "Missing AES_256_CCM crypto support"}
+    end;
 init_per_testcase(TestCase, Config) ->
     Cipher = ssl_test_lib:test_cipher(TestCase, Config),
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
@@ -742,6 +772,18 @@ ecdhe_ecdsa_aes_256_gcm(Config) when is_list(Config) ->
 
 ecdhe_ecdsa_chacha20_poly1305(Config) when is_list(Config) ->
     run_ciphers_test(ecdhe_ecdsa, 'chacha20_poly1305', Config).
+
+ecdhe_ecdsa_with_aes_128_ccm(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_ecdsa, 'aes_128_ccm', Config). 
+
+ecdhe_ecdsa_with_aes_256_ccm(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_ecdsa, 'aes_256_ccm', Config). 
+
+ecdhe_ecdsa_with_aes_128_ccm_8(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_ecdsa, 'aes_128_ccm_8', Config). 
+
+ecdhe_ecdsa_with_aes_256_ccm_8(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_ecdsa, 'aes_256_ccm_8', Config). 
 %%--------------------------------------------------------------------
 %% DHE_DSS --------------------------------------------------------
 %%--------------------------------------------------------------------

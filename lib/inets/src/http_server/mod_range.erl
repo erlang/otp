@@ -107,7 +107,7 @@ send_multi_range_response(Path,Info,RangeList)->
     case file:open(Path, [raw,binary]) of
 	{ok, FileDescriptor} ->
 	    file:close(FileDescriptor),
-	    Suffix = httpd_util:suffix(Path),
+	    Suffix = httpd_util:strip_extension_dot(Path),
 	    PartMimeType = httpd_util:lookup_mime_default(Info#mod.config_db,
 							  Suffix,"text/plain"),
 	    {FileInfo,  LastModified} = get_modification_date(Path),
@@ -185,7 +185,7 @@ send_range_response(Path, Info, Start, Stop, FileInfo, LastModified)->
     case file:open(Path, [raw,binary]) of
 	{ok, FileDescriptor} ->
 	    file:close(FileDescriptor),
-	    Suffix = httpd_util:suffix(Path),
+	    Suffix = httpd_util:strip_extension_dot(Path),
 	    MimeType = httpd_util:lookup_mime_default(Info#mod.config_db,
 						      Suffix,"text/plain"),
 	    Size = get_range_size(Start,Stop,FileInfo),

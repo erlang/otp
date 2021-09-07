@@ -60,6 +60,7 @@ MODULES =  \
 	beam_opcodes \
 	beam_peep \
 	beam_ssa \
+	beam_ssa_bc_size \
 	beam_ssa_bool \
 	beam_ssa_bsm \
 	beam_ssa_codegen \
@@ -71,6 +72,7 @@ MODULES =  \
 	beam_ssa_pre_codegen \
 	beam_ssa_recv \
 	beam_ssa_share \
+	beam_ssa_throw \
 	beam_ssa_type \
 	beam_kernel_to_ssa \
 	beam_trim \
@@ -81,7 +83,6 @@ MODULES =  \
 	cerl \
 	cerl_clauses \
 	cerl_inline \
-	cerl_sets \
 	cerl_trees \
 	compile \
 	core_lib \
@@ -97,6 +98,7 @@ MODULES =  \
 	sys_core_fold_lists \
 	sys_core_inline \
 	sys_core_prepare \
+	sys_messages \
 	sys_pre_attributes \
 	v3_core \
 	v3_kernel \
@@ -132,11 +134,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # FLAGS
 # ----------------------------------------------------
 
-ifeq ($(NATIVE_LIBS_ENABLED),yes)
-ERL_COMPILE_FLAGS += +native
-else
 ERL_COMPILE_FLAGS += -Werror
-endif
 ERL_COMPILE_FLAGS += +inline +warn_unused_import \
  -I../../stdlib/include -I$(EGEN) -W +warn_missing_spec
 
@@ -210,6 +208,7 @@ $(EBIN)/beam_ssa_pp.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_pre_codegen.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_recv.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_share.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_throw.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_type.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_types.beam: beam_types.hrl
 $(EBIN)/beam_validator.beam: beam_types.hrl

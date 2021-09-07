@@ -73,9 +73,11 @@ atom abort
 atom abs_path
 atom absoluteURI
 atom ac
+atom access
 atom active
 atom active_tasks
 atom active_tasks_all
+atom alias
 atom alive
 atom all
 atom all_but_first
@@ -117,10 +119,12 @@ atom awaiting_load
 atom awaiting_unload
 atom backtrace backtrace_depth
 atom badarg badarith badarity badfile badfun badkey badmap badmatch badsig
-atom badopt
+atom badopt badtype
+atom bad_map_iterator
 atom bag
 atom band
 atom big
+atom bif_handle_signals_return
 atom bif_return_trap
 atom binary
 atom binary_copy_trap
@@ -143,6 +147,7 @@ atom bsl
 atom bsr
 atom bsr_anycrlf
 atom bsr_unicode
+atom build_flavor
 atom build_type
 atom busy
 atom busy_dist_port
@@ -151,12 +156,14 @@ atom busy_limits_msgq
 atom busy_port
 atom call
 atom call_count
+atom call_error_handler
 atom call_time
 atom caller
 atom capture
 atom case_clause
 atom caseless
 atom catchlevel
+atom cause
 atom cd
 atom cdr
 atom cflags
@@ -182,6 +189,7 @@ atom connected
 atom connection_closed
 atom const
 atom context_switches
+atom continue_exit
 atom control
 atom copy
 atom copy_literals
@@ -201,6 +209,8 @@ atom decentralized_counters
 atom decimals
 atom default
 atom delay_trap
+atom demonitor
+atom deterministic
 atom dictionary
 atom dirty_bif_exception
 atom dirty_bif_result
@@ -234,7 +244,8 @@ atom duplicate_bag
 atom duplicated
 atom dupnames
 atom einval
-atom elib_malloc
+atom emu_flavor
+atom emu_type
 atom emulator
 atom enable_trace
 atom enabled
@@ -244,11 +255,15 @@ atom eof
 atom eol
 atom Eq='=:='
 atom Eqeq='=='
+atom erl_erts_errors
 atom erl_init
+atom erl_kernel_errors
+atom erl_stdlib_errors
 atom erl_tracer
 atom erlang
 atom erl_signal_server
 atom error_handler
+atom error_info
 atom error_logger
 atom error_only
 atom erts_code_purger
@@ -287,6 +302,7 @@ atom free
 atom fullsweep_after
 atom functions
 atom function_clause
+atom garbage_collect
 atom garbage_collecting
 atom garbage_collection
 atom garbage_collection_info
@@ -298,7 +314,6 @@ atom gc_minor_start
 atom Ge='>='
 atom generational
 atom get_all_trap
-atom get_iovec
 atom get_internal_state_blocked
 atom get_seq_token
 atom get_size
@@ -325,7 +340,6 @@ atom heir
 atom hidden
 atom hide
 atom high
-atom hipe_architecture
 atom http httph https http_response http_request http_header http_eoh http_error http_bin httph_bin
 atom id
 atom if_clause
@@ -340,6 +354,7 @@ atom infinity
 atom info
 atom info_msg
 atom info_trap
+atom inherit
 atom init
 atom initial_call
 atom input
@@ -473,6 +488,7 @@ atom not_a_list
 atom not_loaded
 atom not_loaded_by_this_process
 atom not_pending
+atom not_owner
 atom not_purged
 atom notalive
 atom notbol
@@ -523,6 +539,7 @@ atom port_count
 atom port_limit
 atom port_op
 atom positive
+atom position
 atom prepare
 atom prepare_on_load
 atom print
@@ -542,14 +559,13 @@ atom protected
 atom protection
 atom ptab_list_continue
 atom public
-atom purify
-atom quantify
 atom queue_size
 atom raw
 atom re
 atom re_pattern
 atom re_run_trap
 atom read_concurrency
+atom ready_error
 atom ready_input
 atom ready_output
 atom reason
@@ -562,6 +578,7 @@ atom registered_name
 atom reload
 atom rem
 atom reply
+atom reply_demonitor
 atom reply_tag
 atom report_errors
 atom reset
@@ -569,7 +586,9 @@ atom reset_seq_trace
 atom restart
 atom resume
 atom return_from
+atom return_time_trace
 atom return_to
+atom return_to_trace
 atom return_trace
 atom run_queue
 atom run_queue_lengths
@@ -651,6 +670,8 @@ atom system_limit
 atom system_version
 atom system_architecture
 atom table
+atom table_type
+atom tag
 atom term_to_binary_trap
 atom this
 atom thread_pool_size
@@ -679,6 +700,7 @@ atom true
 atom type
 atom ucompile
 atom ucp
+atom explicit_unalias
 atom undef
 atom ungreedy
 atom unicode

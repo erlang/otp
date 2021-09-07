@@ -137,7 +137,7 @@
 	be more that one server that has the same bind_address and port.
 	If this property is not explicitly set, it is assumed that the
 	<seeerl marker="#prop_bind_address"><c>bind_address</c></seeerl> and
-	<seeerl marker="#prop_port"><c>port</c></seeerl>uniquely identifies the HTTP server.
+	<seeerl marker="#prop_port"><c>port</c></seeerl> uniquely identifies the HTTP server.
 	</p>
       </item>
 
@@ -256,9 +256,9 @@
       
       <tag><marker id="max_client_body_chunk"></marker>{max_client_body_chunk, integer()}</tag>
       <item>
-	<p>Enforces chunking of a HTTP PUT or POST body data to be deliverd
+	<p>Enforces chunking of a HTTP PUT or POST body data to be delivered
 	to the mod_esi callback. Note this is not supported for mod_cgi. 
-	Default is no limit e.i the whole body is deliverd as one entity, which could
+	Default is no limit e.i the whole body is delivered as one entity, which could
 	be very memory consuming. <seeerl marker="mod_esi">mod_esi(3)</seeerl>.
 	</p>
       </item>
@@ -275,7 +275,7 @@
           1590. File suffixes are mapped to MIME types before file delivery.
           The mapping between file suffixes and MIME types can be specified
 	  as an Apache-like file or directly in the property list. Such
-        a file can look like the follwoing:</p>
+        a file can look like the following:</p>
         <pre>
 # MIME type	Extension  
 text/html	html htm
@@ -863,7 +863,7 @@ Transport: TLS
       <tag><marker id="prop_block_time"></marker>{block_time, integer()}</tag>
       <item>
 	<p>Specifies the number of minutes a user is blocked. After
-	this timehas passed, the user automatically regains access.
+	this time has passed, the user automatically regains access.
 	Default is <c>60</c>.</p>
       </item>
       
@@ -1029,7 +1029,7 @@ Transport: TLS
       </item>
       <tag><c>http_version</c></tag>
       <item><p>The <c>HTTP</c> version of the
-       request, that is, "HTTP/0.9", "HTTP/1.0", or "HTTP/1.1".</p>
+       request, that is, "HTTP/1.0", or "HTTP/1.1".</p>
       </item>
       <tag><c>request_line</c></tag>
       <item><p>The <c>Request-Line</c> as
@@ -1110,7 +1110,7 @@ Transport: TLS
         <p>If <c>Body</c> is returned and equal to <c>{Fun,Arg}</c>,
           the web server tries <c>apply/2</c> on <c>Fun</c> with
           <c>Arg</c> as argument. The web server expects that the fun either
-          returns a list <c>(Body)</c> that is an HTTP repsonse, or the
+          returns a list <c>(Body)</c> that is an HTTP response, or the
           atom <c>sent</c> if the HTTP response is sent back to the
           client. If <c>close</c> is returned from the fun, something has gone
           wrong and the server signals this to the client by

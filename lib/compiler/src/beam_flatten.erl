@@ -50,7 +50,6 @@ norm_block([], Acc) -> Acc.
 
 norm({set,[D],As,{bif,N,F}})      -> {bif,N,F,As,D};
 norm({set,[D],As,{alloc,R,{gc_bif,N,F}}}) -> {gc_bif,N,F,R,As,D};
-norm({set,[D],[],init})           -> {init,D};
 norm({set,[D],[S],move})          -> {move,S,D};
 norm({set,[D],[S],fmove})         -> {fmove,S,D};
 norm({set,[D],[S],fconv})         -> {fconv,S,D};
@@ -65,18 +64,10 @@ norm({set,[D],[S],get_tl})        -> {get_tl,S,D};
 norm({set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}}) ->
     {put_map,F,Op,S,D,R,{list,Puts}};
 norm({set,[],[],remove_message})   -> remove_message;
-norm({set,[],[],fclearerror}) -> fclearerror;
-norm({set,[],[],fcheckerror}) -> {fcheckerror,{f,0}};
 norm({set,[],[],{line,_}=Line}) -> Line.
 
 norm_allocate({_Zero,nostack,Nh,[]}, Regs) ->
     [{test_heap,Nh,Regs}];
-norm_allocate({zero,0,Nh,[]}, Regs) ->
-    norm_allocate({nozero,0,Nh,[]}, Regs);
-norm_allocate({zero,Ns,0,[]}, Regs) ->
-    [{allocate_zero,Ns,Regs}];
-norm_allocate({zero,Ns,Nh,[]}, Regs) ->
-    [{allocate_heap_zero,Ns,Nh,Regs}];
 norm_allocate({nozero,Ns,0,Inits}, Regs) ->
     [{allocate,Ns,Regs}|Inits];
 norm_allocate({nozero,Ns,Nh,Inits}, Regs) ->

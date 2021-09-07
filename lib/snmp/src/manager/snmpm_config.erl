@@ -363,7 +363,7 @@ register_agent(UserId, TargetName, Config0)
     %% Check: 
     %%   1) That the mandatory configs are present
     %%   2) That no illegal config, e.g. user_id (used internally), 
-    %%      is not present
+    %%      are present
     %%   3) Check that there are no invalid or erroneous configs
     %%   4) Check that the manager is capable of using the selected version
     try
@@ -3118,7 +3118,7 @@ do_update_usm_user_info(Key,
 	    {error, {unsupported_crypto, des_cbc}}
     end;    
 do_update_usm_user_info(Key, 
-			#usm_user{priv = usmAesCfb128Protocoll} = User, 
+			#usm_user{priv = usmAesCfb128Protocol} = User, 
 			priv_key, Val) 
   when length(Val) =:= 16 ->
     case is_crypto_supported(aes_cfb128) of

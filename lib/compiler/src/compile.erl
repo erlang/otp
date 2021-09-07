@@ -22,19 +22,20 @@
 -module(compile).
 
 %% High-level interface.
--export([file/1,file/2,noenv_file/2,format_error/1,iofile/1]).
+-export([file/1,file/2,noenv_file/2,format_error/1]).
 -export([forms/1,forms/2,noenv_forms/2]).
 -export([output_generated/1,noenv_output_generated/1]).
 -export([options/0]).
 -export([env_compiler_options/0]).
 
 %% Erlc interface.
--export([compile/3,compile_beam/3,compile_asm/3,compile_core/3]).
+-export([compile/3,compile_asm/3,compile_core/3,compile_abstr/3]).
 
 %% Utility functions for compiler passes.
 -export([run_sub_passes/2]).
 
 -export_type([option/0]).
+-export_type([forms/0]).
 
 -include("erl_compile.hrl").
 -include("core_parse.hrl").
@@ -48,16 +49,16 @@
 
 -type abstract_code() :: [erl_parse:abstract_form()].
 
-%% Internal representations used for 'from_asm' and 'from_beam' compilation can
-%% also be valid, but have no relevant types defined.
+%% Internal representations used for 'from_asm' compilation can also be valid,
+%% but have no relevant types defined.
 -type forms() :: abstract_code() | cerl:c_module().
 
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
--type err_info() :: {erl_anno:line() | 'none',
-		     module(), term()}. %% ErrorDescriptor
--type errors()   :: [{file:filename(), [err_info()]}].
--type warnings() :: [{file:filename(), [err_info()]}].
+-type error_description() :: erl_lint:error_description().
+-type error_info() :: erl_lint:error_info().
+-type errors()   :: [{file:filename(), [error_info()]}].
+-type warnings() :: [{file:filename(), [error_info()]}].
 -type mod_ret()  :: {'ok', module()}
                   | {'ok', module(), cerl:c_module()} %% with option 'to_core'
                   | {'ok',                            %% with option 'to_pp'
@@ -203,13 +204,8 @@ env_default_opts() ->
 
 do_compile(Input, Opts0) ->
     Opts = expand_opts(Opts0),
-    IntFun = fun() -> try
-                          internal(Input, Opts)
-                      catch
-                          error:Reason ->
-                              {error,Reason}
-                      end
-             end,
+    IntFun = internal_fun(Input, Opts),
+
     %% Some tools, like Dialyzer, has already spawned workers
     %% and spawning extra workers actually slow the compilation
     %% down instead of speeding it up, so we provide a mechanism
@@ -226,6 +222,23 @@ do_compile(Input, Opts0) ->
                 {'DOWN',Ref,process,Pid,Rep} -> Rep
             end
     end.
+
+internal_fun(Input, Opts) ->
+    fun() ->
+            try
+                internal(Input, Opts)
+            catch
+                Class:Reason:Stk ->
+                    internal_error(Class, Reason, Stk)
+            end
+    end.
+
+internal_error(Class, Reason, Stk) ->
+    Error = ["\n*** Internal compiler error ***\n",
+             format_error_reason(Class, Reason, Stk),
+             "\n"],
+    io:put_chars(Error),
+    error.
 
 expand_opts(Opts0) ->
     %% {debug_info_key,Key} implies debug_info.
@@ -265,11 +278,13 @@ expand_opt(r19, Os) ->
 expand_opt(r20, Os) ->
     expand_opt_before_21(Os);
 expand_opt(r21, Os) ->
-    [no_shared_fun_wrappers,
-     no_swap, no_put_tuple2 | expand_opt(no_bsm3, Os)];
+    expand_opt(r22, [no_put_tuple2 | expand_opt(no_bsm3, Os)]);
 expand_opt(r22, Os) ->
-    [no_shared_fun_wrappers,
-     no_swap | expand_opt(no_bsm4, Os)];
+    expand_opt(r23, [no_shared_fun_wrappers, no_swap | expand_opt(no_bsm4, Os)]);
+expand_opt(r23, Os) ->
+    expand_opt(no_make_fun3, [no_ssa_opt_float, no_recv_opt, no_init_yregs | Os]);
+expand_opt(no_make_fun3, Os) ->
+    [no_make_fun3, no_fun_opt | Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_type_opt=O, Os) ->
@@ -279,35 +294,25 @@ expand_opt(no_type_opt=O, Os) ->
     [O,no_ssa_opt_type_start,
      no_ssa_opt_type_continue,
      no_ssa_opt_type_finish | Os];
+expand_opt(no_module_opt=O, Os) ->
+    [O,no_recv_opt | Os];
 expand_opt(O, Os) -> [O|Os].
 
 expand_opt_before_21(Os) ->
-    [no_shared_fun_wrappers, no_swap,
+    [no_init_yregs, no_make_fun3, no_fun_opt,
+     no_shared_fun_wrappers, no_swap,
      no_put_tuple2, no_get_hd_tl, no_ssa_opt_record,
-     no_utf8_atoms | expand_opt(no_bsm3, Os)].
+     no_utf8_atoms, no_recv_opt | expand_opt(no_bsm3, Os)].
 
-%% format_error(ErrorDescriptor) -> string()
 
--spec format_error(term()) -> iolist().
+-spec format_error(error_description()) -> iolist().
 
-format_error(no_native_support) ->
-    "this system is not configured for native-code compilation.";
 format_error(no_crypto) ->
     "this system is not configured with crypto support.";
 format_error(bad_crypto_key) ->
     "invalid crypto key.";
 format_error(no_crypto_key) ->
     "no crypto key supplied.";
-format_error({unimplemented_instruction,Instruction}) ->
-    io_lib:fwrite("native-code compilation failed because of an "
-                  "unimplemented instruction (~s).",
-		  [Instruction]);
-format_error({native, E}) ->
-    io_lib:fwrite("native-code compilation failed with reason: ~tP.",
-		  [E, 25]);
-format_error({native_crash,E,Stk}) ->
-    io_lib:fwrite("native-code compilation crashed with reason: ~tP.\n~tP\n",
-		  [E,25,Stk,25]);
 format_error({open,E}) ->
     io_lib:format("open error '~ts'", [file:format_error(E)]);
 format_error({epp,E}) ->
@@ -319,28 +324,25 @@ format_error({write_error, Error}) ->
 format_error({rename,From,To,Error}) ->
     io_lib:format("failed to rename ~ts to ~ts: ~ts",
 		  [From,To,file:format_error(Error)]);
-format_error({delete,File,Error}) ->
-    io_lib:format("failed to delete file ~ts: ~ts",
-		  [File,file:format_error(Error)]);
-format_error({delete_temp,File,Error}) ->
-    io_lib:format("failed to delete temporary file ~ts: ~ts",
-		  [File,file:format_error(Error)]);
-format_error({parse_transform,M,R}) ->
-    io_lib:format("error in parse transform '~ts': ~tp", [M, R]);
+format_error({parse_transform,M,{C,R,Stk}}) ->
+    E = format_error_reason(C, R, Stk),
+    io_lib:format("error in parse transform '~ts':\n~ts", [M, E]);
 format_error({undef_parse_transform,M}) ->
     io_lib:format("undefined parse transform '~ts'", [M]);
-format_error({core_transform,M,R}) ->
-    io_lib:format("error in core transform '~s': ~tp", [M, R]);
-format_error({crash,Pass,Reason}) ->
-    io_lib:format("internal error in ~p;\ncrash reason: ~ts", [Pass,format_error_reason(Reason)]);
+format_error({core_transform,M,{C,R,Stk}}) ->
+    E = format_error_reason(C, R, Stk),
+    io_lib:format("error in core transform '~s':\n~ts", [M, E]);
+format_error({crash,Pass,Reason,Stk}) ->
+    io_lib:format("internal error in pass ~p:\n~ts", [Pass,format_error_reason({Reason, Stk})]);
 format_error({bad_return,Pass,Reason}) ->
-    io_lib:format("internal error in ~p;\nbad return value: ~ts", [Pass,format_error_reason(Reason)]);
+    io_lib:format("internal error in pass ~p: bad return value:\n~tP", [Pass,Reason,20]);
 format_error({module_name,Mod,Filename}) ->
-    io_lib:format("Module name '~s' does not match file name '~ts'", [Mod,Filename]);
-format_error(reparsing_invalid_unicode) ->
-    "Non-UTF-8 character(s) detected, but no encoding declared. Encode the file in UTF-8 or add \"%% coding: latin-1\" at the beginning of the file. Note: The compiler will remove support for latin-1 encoded source files without the \"%% coding: latin-1\" string at the beginning of the file in Erlang/OTP 24! Retrying with latin-1 encoding.".
+    io_lib:format("Module name '~s' does not match file name '~ts'", [Mod,Filename]).
 
 format_error_reason({Reason, Stack}) when is_list(Stack) ->
+    format_error_reason(error, Reason, Stack).
+
+format_error_reason(Class, Reason, Stack) ->
     StackFun = fun
 	(escript, run,      2) -> true;
 	(escript, start,    1) -> true;
@@ -349,12 +351,9 @@ format_error_reason({Reason, Stack}) when is_list(Stack) ->
 	(_Mod, _Fun, _Arity)   -> false
     end,
     FormatFun = fun (Term, _) -> io_lib:format("~tp", [Term]) end,
-    [io_lib:format("~tp", [Reason]),"\n\n",
-     erl_error:format_stacktrace(1, Stack, StackFun, FormatFun)];
-format_error_reason(Reason) ->
-    io_lib:format("~tp", [Reason]).
-
--type err_warn_info() :: tuple().
+    Opts = #{stack_trim_fun => StackFun,
+             format_fun => FormatFun},
+    erl_error:format_exception(Class, Reason, Stack, Opts).
 
 %% The compile state record.
 -record(compile, {filename="" :: file:filename(),
@@ -363,13 +362,12 @@ format_error_reason(Reason) ->
 		  ifile=""    :: file:filename(),
 		  ofile=""    :: file:filename(),
 		  module=[]   :: module() | [],
-		  core_code=[] :: cerl:c_module() | [],
 		  abstract_code=[] :: abstract_code(), %Abstract code for debugger.
 		  options=[]  :: [option()],  %Options for compilation
 		  mod_options=[]  :: [option()], %Options for module_info
                   encoding=none :: none | epp:source_encoding(),
-		  errors=[]     :: [err_warn_info()],
-		  warnings=[]   :: [err_warn_info()],
+		  errors=[]     :: errors(),
+		  warnings=[]   :: warnings(),
 		  extra_chunks=[] :: [{binary(), binary()}]}).
 
 internal({forms,Forms}, Opts0) ->
@@ -377,7 +375,13 @@ internal({forms,Forms}, Opts0) ->
     Source = proplists:get_value(source, Opts0, ""),
     Opts1 = proplists:delete(source, Opts0),
     Compile = build_compile(Opts1),
-    internal_comp(Ps, Forms, Source, "", Compile);
+    NewForms = case with_columns(Opts0) of
+                   true ->
+                       Forms;
+                   false ->
+                       strip_columns(Forms)
+               end,
+    internal_comp(Ps, NewForms, Source, "", Compile);
 internal({file,File}, Opts) ->
     {Ext,Ps} = passes(file, Opts),
     Compile = build_compile(Opts),
@@ -394,27 +398,10 @@ internal_comp(Passes, Code0, File, Suffix, St0) ->
     St1 = St0#compile{filename=File, dir=Dir, base=Base,
 		      ifile=erlfile(Dir, Base, Suffix),
 		      ofile=objfile(Base, St0)},
-    Opts = St1#compile.options,
-    Run0 = case member(time, Opts) of
-	       true  ->
-		   io:format("Compiling ~tp\n", [File]),
-		   fun run_tc/3;
-	       false ->
-                   fun({_Name,Fun}, Code, St) ->
-                           catch Fun(Code, St)
-                   end
-	   end,
-    Run = case keyfind(eprof, 1, Opts) of
-	      {eprof,EprofPass} ->
-		  fun(P, Code, St) ->
-			  run_eprof(P, Code, EprofPass, St)
-		  end;
-	      false ->
-		  Run0
-	  end,
+    Run = runner(File, St1),
     case fold_comp(Passes, Run, Code0, St1) of
-	{ok,Code,St2} -> comp_ret_ok(Code, St2);
-	{error,St2} -> comp_ret_err(St2)
+        {ok,Code,St2} -> comp_ret_ok(Code, St2);
+        {error,St2} -> comp_ret_err(St2)
     end.
 
 fold_comp([{delay,Ps0}|Passes], Run, Code, #compile{options=Opts}=St) ->
@@ -428,16 +415,14 @@ fold_comp([{Name,Test,Pass}|Ps], Run, Code, St) ->
 	    fold_comp([{Name,Pass}|Ps], Run, Code, St)
     end;
 fold_comp([{Name,Pass}|Ps], Run, Code0, St0) ->
-    case Run({Name,Pass}, Code0, St0) of
+    try Run({Name,Pass}, Code0, St0) of
 	{ok,Code,St1} ->
             fold_comp(Ps, Run, Code, St1);
 	{error,_St1}=Error ->
-            Error;
-	{'EXIT',Reason} ->
-	    Es = [{St0#compile.ifile,[{none,?MODULE,{crash,Name,Reason}}]}],
-	    {error,St0#compile{errors=St0#compile.errors ++ Es}};
-	Other ->
-	    Es = [{St0#compile.ifile,[{none,?MODULE,{bad_return,Name,Other}}]}],
+            Error
+    catch
+        error:Reason:Stk ->
+	    Es = [{St0#compile.ifile,[{none,?MODULE,{crash,Name,Reason,Stk}}]}],
 	    {error,St0#compile{errors=St0#compile.errors ++ Es}}
     end;
 fold_comp([], _Run, Code, St) -> {ok,Code,St}.
@@ -454,10 +439,33 @@ run_sub_passes_1([{Name,Run}|Ps], Runner, St0)
     end;
 run_sub_passes_1([], _, St) -> St.
 
+runner(File, #compile{options=Opts}) ->
+    Run0 = fun({_Name,Fun}, Code, St) ->
+                   Fun(Code, St)
+           end,
+    Run1 = case member(time, Opts) of
+               true  ->
+                   case File of
+                       none -> ok;
+                       _ -> io:format("Compiling ~ts\n", [File])
+                   end,
+                   fun run_tc/3;
+               false ->
+                   Run0
+           end,
+    case keyfind(eprof, 1, Opts) of
+        {eprof,EprofPass} ->
+            fun(P, Code, St) ->
+                    run_eprof(P, Code, EprofPass, St)
+            end;
+        false ->
+            Run1
+    end.
+
 run_tc({Name,Fun}, Code, St) ->
     OldTimes = put(?SUB_PASS_TIMES, []),
     T1 = erlang:monotonic_time(),
-    Val = (catch Fun(Code, St)),
+    Val = Fun(Code, St),
     T2 = erlang:monotonic_time(),
     Times = get(?SUB_PASS_TIMES),
     case OldTimes of
@@ -473,11 +481,9 @@ run_tc({Name,Fun}, Code, St) ->
     Val.
 
 print_times(Times0, Name) ->
-    Fam0 = sofs:relation(Times0),
-    Fam1 = sofs:rel2fam(Fam0),
-    Fam2 = sofs:to_external(Fam1),
-    Fam3 = [{W,lists:sum(Times)} || {W,Times} <- Fam2],
-    Fam = reverse(lists:keysort(2, Fam3)),
+    Fam0 = rel2fam(Times0),
+    Fam1 = [{W,lists:sum(Times)} || {W,Times} <- Fam0],
+    Fam = reverse(lists:keysort(2, Fam1)),
     Total = case lists:sum([T || {_,T} <- Fam]) of
                 0 -> 1;
                 Total0 -> Total0
@@ -500,14 +506,17 @@ print_times_1([], _Total) -> ok.
 run_eprof({Name,Fun}, Code, Name, St) ->
     io:format("~p: Running eprof\n", [Name]),
     c:appcall(tools, eprof, start_profiling, [[self()]]),
-    Val = (catch Fun(Code, St)),
-    c:appcall(tools, eprof, stop_profiling, []),
-    c:appcall(tools, eprof, analyze, []),
-    Val;
+    try
+        Fun(Code, St)
+    after
+        c:appcall(tools, eprof, stop_profiling, []),
+        c:appcall(tools, eprof, analyze, [])
+    end;
 run_eprof({_,Fun}, Code, _, St) ->
-    catch Fun(Code, St).
+    Fun(Code, St).
 
 comp_ret_ok(Code, #compile{warnings=Warn0,module=Mod,options=Opts}=St) ->
+    Warn1 = filter_warnings(Warn0, Opts),
     case werror(St) of
         true ->
             case member(report_warnings, Opts) of
@@ -519,7 +528,7 @@ comp_ret_ok(Code, #compile{warnings=Warn0,module=Mod,options=Opts}=St) ->
             end,
             comp_ret_err(St);
         false ->
-            Warn = messages_per_file(Warn0),
+            Warn = messages_per_file(Warn1),
             report_warnings(St#compile{warnings = Warn}),
             Ret1 = case member(binary, Opts) andalso
 		       not member(no_code_generation, Opts) of
@@ -572,30 +581,26 @@ mpf(Ms) ->
 
 passes(Type, Opts) ->
     {Ext,Passes0} = passes_1(Opts),
+
     Passes1 = case Type of
-		  file ->
+                  file ->
                       Passes0;
-		  forms ->
+                  forms ->
                       fix_first_pass(Passes0)
-	      end,
-    Passes = select_passes(Passes1, Opts),
+              end,
+
+    Passes2 = select_passes(Passes1, Opts),
 
     %% If the last pass saves the resulting binary to a file,
-    %% insert a first pass to remove the file (unless the
-    %% source file is a BEAM file).
-    {Ext,case last(Passes) of
-	     {save_binary,_TestFun,_Fun} ->
-		 case Passes of
-		     [{read_beam_file,_}|_] ->
-			 %% The BEAM is both input and output.
-			 %% Don't remove it.
-			 Passes;
-		     _ ->
-			 [?pass(remove_file)|Passes]
-		 end;
-	     _ ->
-		 Passes
-	 end}.
+    %% insert a first pass to remove the file.
+    Passes = case last(Passes2) of
+                 {save_binary, _TestFun, _Fun} ->
+                     [?pass(remove_file) | Passes2];
+                 _ ->
+                     Passes2
+             end,
+
+    {Ext, Passes}.
 
 passes_1([Opt|Opts]) ->
     case pass(Opt) of
@@ -605,24 +610,26 @@ passes_1([Opt|Opts]) ->
 passes_1([]) ->
     {".erl",[?pass(parse_module)|standard_passes()]}.
 
+pass(from_abstr) ->
+    {".abstr", [?pass(consult_abstr) | abstr_passes(non_verified_abstr)]};
 pass(from_core) ->
     {".core",[?pass(parse_core)|core_passes(non_verified_core)]};
 pass(from_asm) ->
     {".S",[?pass(beam_consult_asm)|asm_passes()]};
-pass(from_beam) ->
-    {".beam",[?pass(read_beam_file)|binary_passes()]};
 pass(_) -> none.
 
 %% For compilation from forms, replace the first pass with a pass
 %% that retrieves the module name. The module name is needed for
-%% proper diagnostics and for compilation to native code.
+%% proper diagnostics.
 
+fix_first_pass([{consult_abstr, _} | Passes]) ->
+    %% Simply remove this pass. The module name will be set after
+    %% running the v3_core pass.
+    Passes;
 fix_first_pass([{parse_core,_}|Passes]) ->
     [?pass(get_module_name_from_core)|Passes];
 fix_first_pass([{beam_consult_asm,_}|Passes]) ->
     [?pass(get_module_name_from_asm)|Passes];
-fix_first_pass([{read_beam_file,_}|Passes]) ->
-    [?pass(get_module_name_from_beam)|Passes];
 fix_first_pass([_|Passes]) ->
     %% When compiling from abstract code, the module name
     %% will be set after running the v3_core pass.
@@ -637,11 +644,11 @@ fix_first_pass([_|Passes]) ->
 %%    {pass,Mod}	Will be expanded to a call to the external
 %%			function Mod:module(Code, Options).  This
 %%			function must transform the code and return
-%%			{ok,NewCode} or {error,Term}.
-%%			Example: {pass,beam_codegen}
+%%			{ok,NewCode} or {ok,NewCode,Warnings}.
+%%			Example: {pass,beam_ssa_codegen}
 %%
 %%    {Name,Fun}	Name is an atom giving the name of the pass.
-%%    			Fun is an 'fun' taking one argument: a compile record.
+%%    			Fun is an 'fun' taking one argument: a #compile{} record.
 %%			The fun should return {ok,NewCompileRecord} or
 %%			{error,NewCompileRecord}.
 %%			Note: ?pass(Name) is equvivalent to {Name,fun Name/1}.
@@ -681,16 +688,22 @@ fix_first_pass([_|Passes]) ->
 
 select_passes([{pass,Mod}|Ps], Opts) ->
     F = fun(Code0, St) ->
-		case catch Mod:module(Code0, St#compile.options) of
+		case Mod:module(Code0, St#compile.options) of
 		    {ok,Code} ->
 			{ok,Code,St};
 		    {ok,Code,Ws} ->
 			{ok,Code,St#compile{warnings=St#compile.warnings++Ws}};
-		    {error,Es} ->
-			{error,St#compile{errors=St#compile.errors ++ Es}}
+                    Other ->
+                        Es = [{St#compile.ifile,[{none,?MODULE,{bad_return,Mod,Other}}]}],
+                        {error,St#compile{errors=St#compile.errors ++ Es}}
 		end
 	end,
     [{Mod,F}|select_passes(Ps, Opts)];
+select_passes([{_,Fun}=P|Ps], Opts) when is_function(Fun) ->
+    [P|select_passes(Ps, Opts)];
+select_passes([{_,Test,Fun}=P|Ps], Opts) when is_function(Test),
+					      is_function(Fun) ->
+    [P|select_passes(Ps, Opts)];
 select_passes([{src_listing,Ext}|_], _Opts) ->
     [{listing,fun (Code, St) -> src_listing(Ext, Code, St) end}];
 select_passes([{listing,Ext}|_], _Opts) ->
@@ -703,8 +716,6 @@ select_passes([{iff,Flag,Pass}|Ps], Opts) ->
     select_cond(Flag, true, Pass, Ps, Opts);
 select_passes([{unless,Flag,Pass}|Ps], Opts) ->
     select_cond(Flag, false, Pass, Ps, Opts);
-select_passes([{_,Fun}=P|Ps], Opts) when is_function(Fun) ->
-    [P|select_passes(Ps, Opts)];
 select_passes([{delay,Passes0}|Ps], Opts) when is_list(Passes0) ->
     %% Delay evaluation of compiler options and which compiler passes to run.
     %% Since we must know beforehand whether a listing will be produced, we
@@ -716,9 +727,6 @@ select_passes([{delay,Passes0}|Ps], Opts) when is_list(Passes0) ->
 	{not_done,Passes} ->
 	    [{delay,Passes}|select_passes(Ps, Opts)]
     end;
-select_passes([{_,Test,Fun}=P|Ps], Opts) when is_function(Test),
-					      is_function(Fun) ->
-    [P|select_passes(Ps, Opts)];
 select_passes([], _Opts) ->
     [];
 select_passes([List|Ps], Opts) when is_list(List) ->
@@ -790,25 +798,33 @@ standard_passes() ->
      {iff,'dpp',{listing,"pp"}},
      ?pass(lint_module),
 
-     %% Add all -compile() directives to #compile.options
-     ?pass(compile_directives),
-
      {iff,'P',{src_listing,"P"}},
      {iff,'to_pp',{done,"P"}},
 
-     {iff,'dabstr',{listing,"abstr"}},
-     {delay,[{iff,debug_info,?pass(save_abstract_code)}]},
+     {iff,'dabstr',{listing,"abstr"}}
+     | abstr_passes(verified_abstr)].
 
-     ?pass(expand_records),
-     {iff,'dexp',{listing,"expand"}},
-     {iff,'E',{src_listing,"E"}},
-     {iff,'to_exp',{done,"E"}},
+abstr_passes(AbstrStatus) ->
+    case AbstrStatus of
+        non_verified_abstr -> [{unless, no_lint, ?pass(lint_module)}];
+        verified_abstr -> []
+    end ++
+        [
+         %% Add all -compile() directives to #compile.options
+         ?pass(compile_directives),
 
-     %% Conversion to Core Erlang.
-     ?pass(core),
-     {iff,'dcore',{listing,"core"}},
-     {iff,'to_core0',{done,"core"}}
-     | core_passes(verified_core)].
+         {delay,[{iff,debug_info,?pass(save_abstract_code)}]},
+
+         ?pass(expand_records),
+         {iff,'dexp',{listing,"expand"}},
+         {iff,'E',{src_listing,"E"}},
+         {iff,'to_exp',{done,"E"}},
+
+         %% Conversion to Core Erlang.
+         ?pass(core),
+         {iff,'dcore',{listing,"core"}},
+         {iff,'to_core0',{done,"core"}}
+         | core_passes(verified_core)].
 
 core_passes(CoreStatus) ->
     %% Optimization and transforms of Core Erlang code.
@@ -844,7 +860,6 @@ kernel_passes() ->
      {iff,dcbsm,{listing,"core_bsm"}},
 
      {iff,clint,?pass(core_lint_module)},
-     {iff,core,?pass(save_core_code)},
 
      %% Kernel Erlang and code generation.
      ?pass(v3_kernel),
@@ -862,6 +877,10 @@ kernel_passes() ->
        {iff,dssashare,{listing,"ssashare"}},
        {unless,no_share_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
 
+       {unless,no_recv_opt,{pass,beam_ssa_recv}},
+       {iff,drecv,{listing,"recv"}},
+       {unless,no_recv_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+
        {unless,no_bsm_opt,{pass,beam_ssa_bsm}},
        {iff,dssabsm,{listing,"ssabsm"}},
        {unless,no_bsm_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
@@ -874,9 +893,10 @@ kernel_passes() ->
        {iff,dssaopt,{listing,"ssaopt"}},
        {unless,no_ssa_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
 
-       {unless,no_recv_opt,{pass,beam_ssa_recv}},
-       {iff,drecv,{listing,"recv"}},
-       {unless,no_recv_opt,{iff,ssalint,{pass,beam_ssa_lint}}}]},
+       {unless,no_throw_opt,{pass,beam_ssa_throw}},
+       {iff,dthrow,{listing,"throw"}},
+       {unless,no_throw_opt,{iff,ssalint,{pass,beam_ssa_lint}}}]},
+
      {pass,beam_ssa_pre_codegen},
      {iff,dprecg,{listing,"precodegen"}},
      {iff,ssalint,{pass,beam_ssa_lint}},
@@ -921,7 +941,6 @@ asm_passes() ->
 
 binary_passes() ->
     [{iff,'to_dis',?pass(to_dis)},
-     {native_compile,fun test_native/1,fun native_compile/2},
      {unless,binary,?pass(save_binary,not_werror)}
     ].
 
@@ -989,60 +1008,12 @@ get_module_name_from_asm(Asm, St) ->
     %% Invalid Beam assembly code. Let it crash in a later pass.
     {ok,Asm,St}.
 
-read_beam_file(_Code, St) ->
-    case file:read_file(St#compile.ifile) of
-	{ok,Beam} ->
-	    Infile = St#compile.ifile,
-	    case no_native_compilation(Infile, St) of
-		true ->
-		    {ok,none,St#compile{module=none}};
-		false ->
-		    Mod0 = filename:rootname(filename:basename(Infile)),
-		    Mod = list_to_atom(Mod0),
-		    {ok,Beam,St#compile{module=Mod,ofile=Infile}}
-	    end;
-	{error,E} ->
-	    Es = [{St#compile.ifile,[{none,?MODULE,{open,E}}]}],
-	    {error,St#compile{errors=St#compile.errors ++ Es}}
-    end.
-
-get_module_name_from_beam(Beam, St) ->
-    case beam_lib:info(Beam) of
-        {error,beam_lib,Error} ->
-	    Es = [{"((forms))",[{none,beam_lib,Error}]}],
-            {error,St#compile{errors=St#compile.errors ++ Es}};
-        Info ->
-            {module,Mod} = keyfind(module, 1, Info),
-            {ok,Beam,St#compile{module=Mod}}
-    end.
-
-no_native_compilation(BeamFile, #compile{options=Opts0}) ->
-    case beam_lib:chunks(BeamFile, ["CInf"]) of
-	{ok,{_,[{"CInf",Term0}]}} ->
-	    Term = binary_to_term(Term0),
-
-	    %% Compiler options in the beam file will override
-	    %% options passed to the compiler.
-	    Opts = proplists:get_value(options, Term, []) ++ Opts0,
-	    member(no_new_funs, Opts) orelse not is_native_enabled(Opts);
-	_ -> false
-    end.
-
-parse_module(_Code, St0) ->
-    case do_parse_module(utf8, St0) of
+parse_module(_Code, St) ->
+    case do_parse_module(utf8, St) of
 	{ok,_,_}=Ret ->
 	    Ret;
 	{error,_}=Ret ->
-	    Ret;
-	{invalid_unicode,File,Line} ->
-	    case do_parse_module(latin1, St0) of
-		{ok,Code,St} ->
-		    Es = [{File,[{Line,?MODULE,reparsing_invalid_unicode}]}],
-		    {ok,Code,St#compile{warnings=Es++St#compile.warnings}};
-		{error,St} ->
-		    Es = [{File,[{Line,?MODULE,reparsing_invalid_unicode}]}],
-		    {error,St#compile{errors=Es++St#compile.errors}}
-	    end
+	    Ret
     end.
 
 do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
@@ -1051,41 +1022,49 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                      true -> filename:basename(SourceName0);
                      false -> SourceName0
                  end,
+    StartLocation = case with_columns(Opts) of
+                        true ->
+                            {1,1};
+                        false ->
+                            1
+                    end,
     R = epp:parse_file(File,
                        [{includes,[".",Dir|inc_paths(Opts)]},
                         {source_name, SourceName},
                         {macros,pre_defs(Opts)},
                         {default_encoding,DefEncoding},
+                        {location,StartLocation},
                         extra]),
     case R of
-	{ok,Forms,Extra} ->
+	{ok,Forms0,Extra} ->
 	    Encoding = proplists:get_value(encoding, Extra),
-	    case find_invalid_unicode(Forms, File) of
-		none ->
-		    {ok,Forms,St#compile{encoding=Encoding}};
-		{invalid_unicode,_,_}=Ret ->
-		    case Encoding of
-			none ->
-			    Ret;
-			_ ->
-			    {ok,Forms,St#compile{encoding=Encoding}}
-		    end
-	    end;
+            Forms = case with_columns(Opts ++ compile_options(Forms0)) of
+                        true ->
+                            Forms0;
+                        false ->
+                            strip_columns(Forms0)
+                    end,
+            {ok,Forms,St#compile{encoding=Encoding}};
 	{error,E} ->
 	    Es = [{St#compile.ifile,[{none,?MODULE,{epp,E}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
 
-find_invalid_unicode([H|T], File0) ->
-    case H of
-	{attribute,_,file,{File,_}} ->
-	    find_invalid_unicode(T, File);
-	{error,{Line,file_io_server,invalid_unicode}} ->
-	    {invalid_unicode,File0,Line};
-	_Other ->
-	    find_invalid_unicode(T, File0)
-    end;
-find_invalid_unicode([], _) -> none.
+with_columns(Opts) ->
+    case proplists:get_value(error_location, Opts, column) of
+        column -> true;
+        line -> false
+    end.
+
+consult_abstr(_Code, St) ->
+    case file:consult(St#compile.ifile) of
+	{ok,Forms} ->
+            Encoding = epp:read_encoding(St#compile.ifile),
+	    {ok,Forms,St#compile{encoding=Encoding}};
+	{error,E} ->
+	    Es = [{St#compile.ifile,[{none,?MODULE,{open,E}}]}],
+	    {error,St#compile{errors=St#compile.errors ++ Es}}
+    end.
 
 parse_core(_Code, St) ->
     case file:read_file(St#compile.ifile) of
@@ -1163,34 +1142,65 @@ foldl_transform([T|Ts], Code0, St) ->
             Fun = fun(Code, S) ->
                           T:parse_transform(Code, S#compile.options)
                   end,
-            Run = case member(time, St#compile.options) of
-                      true  ->
-                          fun run_tc/3;
-                      false ->
-                          fun({_Name,F}, Code, S) ->
-                                  catch F(Code, S)
-                          end
-                  end,
-            case Run({Name, Fun}, Code0, St) of
+            Run = runner(none, St),
+            StrippedCode = maybe_strip_columns(Code0, T, St),
+            try Run({Name, Fun}, StrippedCode, St) of
                 {error,Es,Ws} ->
                     {error,St#compile{warnings=St#compile.warnings ++ Ws,
                                       errors=St#compile.errors ++ Es}};
-                {'EXIT',R} ->
-                    Es = [{St#compile.ifile,[{none,compile,
-                                              {parse_transform,T,R}}]}],
-                    {error,St#compile{errors=St#compile.errors ++ Es}};
                 {warning, Forms, Ws} ->
                     foldl_transform(Ts, Forms,
                                     St#compile{warnings=St#compile.warnings ++ Ws});
                 Forms ->
                     foldl_transform(Ts, Forms, St)
+            catch
+                Class:Reason:Stk ->
+                    Es = [{St#compile.ifile,[{none,compile,
+                                              {parse_transform,T,{Class,Reason,Stk}}}]}],
+                    {error,St#compile{errors=St#compile.errors ++ Es}}
             end;
         false ->
             Es = [{St#compile.ifile,[{none,compile,
                                       {undef_parse_transform,T}}]}],
             {error,St#compile{errors=St#compile.errors ++ Es}}
     end;
-foldl_transform([], Code, St) -> {ok,Code,St}.
+foldl_transform([], Code, St) ->
+    %% We may need to strip columns added by parse transforms before returning
+    %% them back to the compiler. We pass ?MODULE as a bit of a hack to get the
+    %% correct default.
+    {ok, maybe_strip_columns(Code, ?MODULE, St), St}.
+
+%%% If a parse transform does not support column numbers it can say so using
+%%% the parse_transform_info callback. The error_location is taken from both
+%%% compiler options and from the parse transform and if either of them want
+%%% to only use lines, we strip columns.
+maybe_strip_columns(Code, T, St) ->
+    PTErrorLocation =
+        case erlang:function_exported(T, parse_transform_info, 0) of
+            true ->
+                maps:get(error_location, T:parse_transform_info(), column);
+            false ->
+                column
+        end,
+    ConfigErrorLocation = proplists:get_value(error_location, St#compile.options, column),
+    if 
+        PTErrorLocation =:= line; ConfigErrorLocation =:= line ->
+            strip_columns(Code);
+        true -> Code
+    end.
+
+strip_columns(Code) ->
+    F = fun(A) -> erl_anno:set_location(erl_anno:line(A), A) end,
+    [case Form of
+         {eof,{Line,_Col}} ->
+             {eof,Line};
+         {ErrorOrWarning,{{Line,_Col},Module,Reason}}
+           when ErrorOrWarning =:= error;
+                ErrorOrWarning =:= warning ->
+             {ErrorOrWarning,{Line,Module,Reason}};
+         Form ->
+             erl_parse:map_anno(F, Form)
+     end || Form <- Code].
 
 get_core_transforms(Opts) -> [M || {core_transform,M} <- Opts].
 
@@ -1202,20 +1212,15 @@ core_transforms(Code, St) ->
 foldl_core_transforms([T|Ts], Code0, St) ->
     Name = "core transform " ++ atom_to_list(T),
     Fun = fun(Code, S) -> T:core_transform(Code, S#compile.options) end,
-    Run = case member(time, St#compile.options) of
-	      true ->
-                  fun run_tc/3;
-	      false ->
-                  fun({_Name,F}, Code, S) ->
-                          catch F(Code, S)
-                  end
-	  end,
-    case Run({Name, Fun}, Code0, St) of
-	{'EXIT',R} ->
-	    Es = [{St#compile.ifile,[{none,compile,{core_transform,T,R}}]}],
-	    {error,St#compile{errors=St#compile.errors ++ Es}};
+    Run = runner(none, St),
+    try Run({Name, Fun}, Code0, St) of
 	Forms ->
 	    foldl_core_transforms(Ts, Forms, St)
+    catch
+        Class:Reason:Stk ->
+            Es = [{St#compile.ifile,[{none,compile,
+                                      {core_transform,T,{Class,Reason,Stk}}}]}],
+            {error,St#compile{errors=St#compile.errors ++ Es}}
     end;
 foldl_core_transforms([], Code, St) -> {ok,Code,St}.
 
@@ -1321,7 +1326,7 @@ makedep(Code0, #compile{ifile=Ifile,ofile=Ofile,options=Opts}=St) ->
 		   true -> MainRule ++ PhonyRules;
 		   _ -> MainRule
 	       end,
-    Code = iolist_to_binary([Makefile,"\n"]),
+    Code = unicode:characters_to_binary([Makefile,"\n"]),
     {ok,Code,St}.
 
 makedep_add_headers(Ifile, [{attribute,_,file,{File,_}}|Rest],
@@ -1374,7 +1379,7 @@ makedep_add_header(Ifile, Included, LineLen, MainTarget, Phony, File) ->
 	    end,
 
 	    %% Add the file to the dependencies. Lines longer than 76 columns
-	    %% are splitted.
+	    %% are split.
 	    if
 		LineLen + 1 + length(File1) > 76 ->
                     LineLen1 = 2 + length(File1),
@@ -1391,59 +1396,34 @@ makedep_output(Code, #compile{options=Opts,ofile=Ofile}=St) ->
     %% Write this Makefile (Code) to the selected output.
     %% If no output is specified, the default is to write to a file named after
     %% the output file.
-    Output0 = case proplists:get_value(makedep_output, Opts) of
-		  undefined ->
-		      %% Prepare the default filename.
-		      outfile(filename:basename(Ofile, ".beam"), "Pbeam", Opts);
-		  O ->
-		      O
-	      end,
+    Output = case proplists:get_value(makedep_output, Opts) of
+                 undefined ->
+                     %% Prepare the default filename.
+                     outfile(filename:basename(Ofile, ".beam"), "Pbeam", Opts);
+                 Other ->
+                     Other
+             end,
 
-    %% If the caller specified an io_device(), there's nothing to do. If he
-    %% specified a filename, we must create it. Furthermore, this created file
-    %% must be closed before returning.
-    Ret = case Output0 of
-	      _ when is_list(Output0) ->
-		  case file:delete(Output0) of
-		      Ret2 when Ret2 =:= ok; Ret2 =:= {error,enoent} ->
-			  case file:open(Output0, [write]) of
-			      {ok,IODev} ->
-				  {ok,IODev,true};
-			      {error,Reason2} ->
-				  {error,open,Reason2}
-			  end;
-		      {error,Reason1} ->
-			  {error,delete,Reason1}
-		  end;
-	      _ ->
-		  {ok,Output0,false}
-	  end,
-
-    case Ret of
-	{ok,Output1,CloseOutput} ->
-	    try
-		%% Write the Makefile.
-		io:fwrite(Output1, "~ts", [Code]),
-		%% Close the file if relevant.
-		if
-		    CloseOutput -> ok = file:close(Output1);
-		    true -> ok
-		end,
-		{ok,Code,St}
-	    catch
-		error:_ ->
-		    %% Couldn't write to output Makefile.
-		    Err = {St#compile.ifile,[{none,?MODULE,write_error}]},
-		    {error,St#compile{errors=St#compile.errors++[Err]}}
-	    end;
-	{error,open,Reason} ->
-	    %% Couldn't open output Makefile.
-	    Err = {St#compile.ifile,[{none,?MODULE,{open,Reason}}]},
-	    {error,St#compile{errors=St#compile.errors++[Err]}};
-	{error,delete,Reason} ->
-	    %% Couldn't open output Makefile.
-	    Err = {St#compile.ifile,[{none,?MODULE,{delete,Output0,Reason}}]},
-	    {error,St#compile{errors=St#compile.errors++[Err]}}
+    if
+        is_list(Output) ->
+            %% Write the depedencies to a file.
+            case file:write_file(Output, Code) of
+                ok ->
+                    {ok,Code,St};
+                {error,Reason} ->
+                    Err = {St#compile.ifile,[{none,?MODULE,{write_error,Reason}}]},
+                    {error,St#compile{errors=St#compile.errors++[Err]}}
+            end;
+        true ->
+            %% Write the depedencies to a device.
+            try io:fwrite(Output, "~ts", [Code]) of
+                ok ->
+                    {ok,Code,St}
+            catch
+                error:_ ->
+                    Err = {St#compile.ifile,[{none,?MODULE,write_error}]},
+                    {error,St#compile{errors=St#compile.errors++[Err]}}
+            end
     end.
 
 expand_records(Code0, #compile{options=Opts}=St) ->
@@ -1577,6 +1557,8 @@ keep_compile_option(from_asm, _Deterministic) ->
     false;
 keep_compile_option(from_core, _Deterministic) ->
     false;
+keep_compile_option(from_abstr, _Deterministic) ->
+    false;
 %% Parse transform and macros have already been applied.
 keep_compile_option({parse_transform, _}, _Deterministic) ->
     false;
@@ -1608,9 +1590,6 @@ encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
     Bin = crypto:crypto_one_time(des_ede3_cbc, Key, IVec, Bin1, true),
     TypeString = atom_to_list(Type),
     list_to_binary([0,length(TypeString),TypeString,Bin]).
-
-save_core_code(Code, St) ->
-    {ok,Code,St#compile{core_code=cerl:from_records(Code)}}.
 
 beam_validator_strong(Code, St) ->
     beam_validator_1(Code, St, strong).
@@ -1666,74 +1645,6 @@ paranoid_absname(File) ->
 	    File
     end.
 
-test_native(#compile{options=Opts}) ->
-    %% This test is done late, in case some other option has turned off native.
-    %% 'native' given on the command line can be overridden by
-    %% 'no_native' in the module itself.
-    is_native_enabled(Opts).
-
-is_native_enabled([native|_]) -> true;
-is_native_enabled([no_native|_]) -> false;
-is_native_enabled([_|Opts]) -> is_native_enabled(Opts);
-is_native_enabled([]) -> false.
-
-native_compile(none, St) -> {ok,none,St};
-native_compile(Code, St) ->
-    case erlang:system_info(hipe_architecture) of
-	undefined ->
-	    Ws = [{St#compile.ifile,[{none,compile,no_native_support}]}],
-	    {ok,Code,St#compile{warnings=St#compile.warnings ++ Ws}};
-	_ ->
-	    native_compile_1(Code, St)
-    end.
-
-native_compile_1(Code, St) ->
-    Opts0 = St#compile.options,
-    IgnoreErrors = member(ignore_native_errors, Opts0),
-    Opts = case keyfind(hipe, 1, Opts0) of
-	       {hipe,L} when is_list(L) -> L;
-	       {hipe,X} -> [X];
-	       _ -> []
-	   end,
-    try hipe:compile(St#compile.module,
-		     St#compile.core_code,
-		     Code,
-		     Opts) of
-	{ok,{_Type,Bin}=T} when is_binary(Bin) ->
-	    {ok,embed_native_code(Code, T),St};
-	{error,R} ->
-	    case IgnoreErrors of
-		true ->
-		    Ws = [{St#compile.ifile,[{none,?MODULE,{native,R}}]}],
-		    {ok,Code,St#compile{warnings=St#compile.warnings ++ Ws}};
-		false ->
-		    Es = [{St#compile.ifile,[{none,?MODULE,{native,R}}]}],
-		    {error,St#compile{errors=St#compile.errors ++ Es}}
-	    end
-    catch
-        exit:{unimplemented_instruction,_}=Unimplemented ->
-            Ws = [{St#compile.ifile,
-                   [{none,?MODULE,Unimplemented}]}],
-            {ok,Code,St#compile{warnings=St#compile.warnings ++ Ws}};
-	Class:R:Stack ->
-	    case IgnoreErrors of
-		true ->
-		    Ws = [{St#compile.ifile,
-			   [{none,?MODULE,{native_crash,R,Stack}}]}],
-		    {ok,Code,St#compile{warnings=St#compile.warnings ++ Ws}};
-		false ->
-		    erlang:raise(Class, R, Stack)
-	    end
-    end.
-
-embed_native_code(Code, {Architecture,NativeCode}) ->
-    {ok, _, Chunks0} = beam_lib:all_chunks(Code),
-    ChunkName = hipe_unified_loader:chunk_name(Architecture),
-    Chunks1 = lists:keydelete(ChunkName, 1, Chunks0),
-    Chunks = Chunks1 ++ [{ChunkName,NativeCode}],
-    {ok,BeamPlusNative} = beam_lib:build_module(Chunks),
-    BeamPlusNative.
-
 %% effects_code_generation(Option) -> true|false.
 %%  Determine whether the option could have any effect on the
 %%  generated code in the BEAM file (as opposed to how
@@ -1754,7 +1665,6 @@ effects_code_generation(Option) ->
 	_ -> true
     end.
 
-save_binary(none, St) -> {ok,none,St};
 save_binary(Code, #compile{module=Mod,ofile=Outfile,options=Opts}=St) ->
     %% Test that the module name and output file name match.
     case member(no_error_module_mismatch, Opts) of
@@ -1781,16 +1691,9 @@ save_binary_1(Code, St) ->
 		ok ->
 		    {ok,none,St};
 		{error,RenameError} ->
-		    Es0 = [{Ofile,[{none,?MODULE,{rename,Tfile,Ofile,
-						  RenameError}}]}],
-		    Es = case file:delete(Tfile) of
-			     ok -> Es0;
-			     {error,DeleteError} ->
-				 Es0 ++
-				     [{Ofile,
-				       [{none,?MODULE,{delete_temp,Tfile,
-						       DeleteError}}]}]
-			 end,
+                    Es = [{Ofile,[{none,?MODULE,{rename,Tfile,Ofile,
+                                                 RenameError}}]}],
+                    _ = file:delete(Tfile),
 		    {error,St#compile{errors=St#compile.errors ++ Es}}
 	    end;
 	{error,Error} ->
@@ -1814,8 +1717,8 @@ write_binary(Name, Bin, St) ->
 report_errors(#compile{options=Opts,errors=Errors}) ->
     case member(report_errors, Opts) of
 	true ->
-	    foreach(fun ({{F,_L},Eds}) -> list_errors(F, Eds);
-			({F,Eds}) -> list_errors(F, Eds) end,
+	    foreach(fun ({{F,_L},Eds}) -> sys_messages:list_errors(F, Eds, Opts);
+			({F,Eds}) -> sys_messages:list_errors(F, Eds, Opts) end,
 		    Errors);
 	false -> ok
     end.
@@ -1829,49 +1732,48 @@ report_warnings(#compile{options=Opts,warnings=Ws0}) ->
     ReportWerror = Werror andalso member(report_errors, Opts),
     case member(report_warnings, Opts) orelse ReportWerror of
 	true ->
-	    Ws1 = flatmap(fun({{F,_L},Eds}) -> format_message(F, P, Eds);
-			     ({F,Eds}) -> format_message(F, P, Eds) end,
+	    Ws1 = flatmap(fun({{F,_L},Eds}) -> sys_messages:format_messages(F, P, Eds, Opts);
+			     ({F,Eds}) -> sys_messages:format_messages(F, P, Eds, Opts) end,
 			  Ws0),
 	    Ws = lists:sort(Ws1),
 	    foreach(fun({_,Str}) -> io:put_chars(Str) end, Ws);
 	false -> ok
     end.
 
-format_message(F, P, [{none,Mod,E}|Es]) ->
-    M = {none,io_lib:format("~ts: ~s~ts\n", [F,P,Mod:format_error(E)])},
-    [M|format_message(F, P, Es)];
-format_message(F, P, [{{Line,Column}=Loc,Mod,E}|Es]) ->
-    M = {{F,Loc},io_lib:format("~ts:~w:~w ~s~ts\n",
-                                [F,Line,Column,P,Mod:format_error(E)])},
-    [M|format_message(F, P, Es)];
-format_message(F, P, [{Line,Mod,E}|Es]) ->
-    M = {{F,{Line,0}},io_lib:format("~ts:~w: ~s~ts\n",
-                                [F,Line,P,Mod:format_error(E)])},
-    [M|format_message(F, P, Es)];
-format_message(F, P, [{Mod,E}|Es]) ->
-    %% Not documented and not expected to be used any more, but
-    %% keep a while just in case.
-    M = {none,io_lib:format("~ts: ~s~ts\n", [F,P,Mod:format_error(E)])},
-    [M|format_message(F, P, Es)];
-format_message(_, _, []) -> [].
+%%%
+%%% Filter warnings.
+%%%
 
-%% list_errors(File, ErrorDescriptors) -> ok
+filter_warnings(Ws, Opts) ->
+    Ignore = ignore_tags(Opts, sets:new([{version,2}])),
+    filter_warnings_1(Ws, Ignore).
 
-list_errors(F, [{none,Mod,E}|Es]) ->
-    io:fwrite("~ts: ~ts\n", [F,Mod:format_error(E)]),
-    list_errors(F, Es);
-list_errors(F, [{{Line,Column},Mod,E}|Es]) ->
-    io:fwrite("~ts:~w:~w: ~ts\n", [F,Line,Column,Mod:format_error(E)]),
-    list_errors(F, Es);
-list_errors(F, [{Line,Mod,E}|Es]) ->
-    io:fwrite("~ts:~w: ~ts\n", [F,Line,Mod:format_error(E)]),
-    list_errors(F, Es);
-list_errors(F, [{Mod,E}|Es]) ->
-    %% Not documented and not expected to be used any more, but
-    %% keep a while just in case.
-    io:fwrite("~ts: ~ts\n", [F,Mod:format_error(E)]),
-    list_errors(F, Es);
-list_errors(_F, []) -> ok.
+filter_warnings_1([{Source,Ws0}|T], Ignore) ->
+    Ws = [W || W <- Ws0, not ignore_warning(W, Ignore)],
+    [{Source,Ws}|filter_warnings_1(T, Ignore)];
+filter_warnings_1([], _Ignore) -> [].
+
+ignore_warning({_Location,Pass,{Category,_}}, Ignore) ->
+    IgnoreMod = case Pass of
+                    v3_core -> true;
+                    sys_core_fold -> true;
+                    v3_kernel -> true;
+                    _ -> false
+                end,
+    IgnoreMod andalso sets:is_element(Category, Ignore);
+ignore_warning(_, _) -> false.
+
+ignore_tags([nowarn_opportunistic|_], _Ignore) ->
+    sets:from_list([failed,ignored,nomatch], [{version,2}]);
+ignore_tags([nowarn_failed|Opts], Ignore) ->
+    ignore_tags(Opts, sets:add_element(failed, Ignore));
+ignore_tags([nowarn_ignored|Opts], Ignore) ->
+    ignore_tags(Opts, sets:add_element(ignored, Ignore));
+ignore_tags([nowarn_nomatch|Opts], Ignore) ->
+    ignore_tags(Opts, sets:add_element(nomatch, Ignore));
+ignore_tags([_|Opts], Ignore) ->
+    ignore_tags(Opts, Ignore);
+ignore_tags([], Ignore) -> Ignore.
 
 %% erlfile(Dir, Base) -> ErlFile
 %% outfile(Base, Extension, Options) -> OutputFile
@@ -1879,22 +1781,12 @@ list_errors(_F, []) -> ok.
 %% tmpfile(ObjFile) -> TmpFile
 %%  Work out the correct input and output file names.
 
--spec iofile(atom() | file:filename_all()) ->
-                    {file:name_all(),file:name_all()}.
-
-iofile(File) when is_atom(File) ->
-    iofile(atom_to_list(File));
-iofile(File) ->
-    {filename:dirname(File), filename:basename(File, ".erl")}.
-
 erlfile(".", Base, Suffix) ->
     Base ++ Suffix;
 erlfile(Dir, Base, Suffix) ->
     filename:join(Dir, Base ++ Suffix).
 
-outfile(Base, Ext, Opts) when is_atom(Ext) ->
-    outfile(Base, atom_to_list(Ext), Opts);
-outfile(Base, Ext, Opts) ->
+outfile(Base, Ext, Opts) when is_list(Ext) ->
     Obase = case keyfind(outdir, 1, Opts) of
 		{outdir, Odir} -> filename:join(Odir, Base);
 		_Other -> Base			% Not found or bad format
@@ -1940,7 +1832,6 @@ listing(LFun, Ext, Code, St) ->
     Lfile = outfile(St#compile.base, Ext, St#compile.options),
     case file:open(Lfile, [write,delayed_write]) of
 	{ok,Lf} ->
-            Code = restore_expanded_types(Ext, Code),
             output_encoding(Lf, St),
 	    LFun(Lf, Code),
 	    ok = file:close(Lf),
@@ -1970,25 +1861,6 @@ output_encoding(F, #compile{encoding = none}) ->
 output_encoding(F, #compile{encoding = Encoding}) ->
     ok = io:setopts(F, [{encoding, Encoding}]),
     ok = io:fwrite(F, <<"%% ~s\n">>, [epp:encoding_to_string(Encoding)]).
-
-restore_expanded_types("E", {M,I,Fs0}) ->
-    Fs = restore_expand_module(Fs0),
-    {M,I,Fs};
-restore_expanded_types(_Ext, Code) -> Code.
-
-restore_expand_module([{attribute,Line,type,[Type]}|Fs]) ->
-    [{attribute,Line,type,Type}|restore_expand_module(Fs)];
-restore_expand_module([{attribute,Line,opaque,[Type]}|Fs]) ->
-    [{attribute,Line,opaque,Type}|restore_expand_module(Fs)];
-restore_expand_module([{attribute,Line,spec,[Arg]}|Fs]) ->
-    [{attribute,Line,spec,Arg}|restore_expand_module(Fs)];
-restore_expand_module([{attribute,Line,callback,[Arg]}|Fs]) ->
-    [{attribute,Line,callback,Arg}|restore_expand_module(Fs)];
-restore_expand_module([{attribute,Line,record,[R]}|Fs]) ->
-    [{attribute,Line,record,R}|restore_expand_module(Fs)];
-restore_expand_module([F|Fs]) ->
-    [F|restore_expand_module(Fs)];
-restore_expand_module([]) -> [].
 
 %%%
 %%% Transform the BEAM code to make it more friendly for
@@ -2060,6 +1932,10 @@ help([_|T]) ->
 help(_) ->
     ok.
 
+rel2fam(S0) ->
+    S1 = sofs:relation(S0),
+    S = sofs:rel2fam(S1),
+    sofs:to_external(S).
 
 %% compile(AbsFileName, Outfilename, Options)
 %%   Compile entry point for erl_compile.
@@ -2070,15 +1946,6 @@ compile(File0, _OutFile, Options) ->
     pre_load(),
     File = shorten_filename(File0),
     case file(File, make_erl_options(Options)) of
-	{ok,_Mod} -> ok;
-	Other -> Other
-    end.
-
--spec compile_beam(file:filename(), _, #options{}) -> 'ok' | 'error'.
-
-compile_beam(File0, _OutFile, Opts) ->
-    File = shorten_filename(File0),
-    case file(File, [from_beam|make_erl_options(Opts)]) of
 	{ok,_Mod} -> ok;
 	Other -> Other
     end.
@@ -2097,6 +1964,15 @@ compile_asm(File0, _OutFile, Opts) ->
 compile_core(File0, _OutFile, Opts) ->
     File = shorten_filename(File0),
     case file(File, [from_core|make_erl_options(Opts)]) of
+	{ok,_Mod} -> ok;
+	Other -> Other
+    end.
+
+-spec compile_abstr(file:filename(), _, #options{}) -> 'ok' | 'error'.
+
+compile_abstr(File0, _OutFile, Opts) ->
+    File = shorten_filename(File0),
+    case file(File, [from_abstr|make_erl_options(Opts)]) of
 	{ok,_Mod} -> ok;
 	Other -> Other
     end.
@@ -2121,7 +1997,6 @@ make_erl_options(Opts) ->
 	     warning=Warning,
 	     verbose=Verbose,
 	     specific=Specific,
-	     output_type=OutputType,
 	     cwd=Cwd} = Opts,
     Options = [verbose || Verbose] ++
 	[report_warnings || Warning =/= 0] ++
@@ -2129,15 +2004,9 @@ make_erl_options(Opts) ->
 		    {d,Name,Value};
 		(Name) ->
 		    {d,Name}
-	    end, Defines) ++
-	case OutputType of
-	    undefined -> [];
-	    jam -> [jam];
-	    beam -> [beam];
-	    native -> [native]
-	end,
-    Options ++ [report_errors, {cwd, Cwd}, {outdir, Outdir}|
-	        [{i, Dir} || Dir <- Includes]] ++ Specific.
+            end, Defines),
+    Options ++ [report_errors, {cwd, Cwd}, {outdir, Outdir} |
+                [{i, Dir} || Dir <- Includes]] ++ Specific.
 
 pre_load() ->
     L = [beam_a,
@@ -2153,6 +2022,7 @@ pre_load() ->
 	 beam_opcodes,
 	 beam_peep,
 	 beam_ssa,
+	 beam_ssa_bc_size,
 	 beam_ssa_bool,
 	 beam_ssa_bsm,
 	 beam_ssa_codegen,
@@ -2162,6 +2032,7 @@ pre_load() ->
 	 beam_ssa_pre_codegen,
 	 beam_ssa_recv,
 	 beam_ssa_share,
+	 beam_ssa_throw,
 	 beam_ssa_type,
 	 beam_trim,
 	 beam_types,
@@ -2170,7 +2041,6 @@ pre_load() ->
 	 beam_z,
 	 cerl,
 	 cerl_clauses,
-	 cerl_sets,
 	 cerl_trees,
 	 core_lib,
 	 epp,

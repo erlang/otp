@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -158,9 +158,9 @@ gethostname() ->
       Reason   :: term().
 
 getnameinfo(SockAddr, Flags) ->
-    try
-        ESockAddr = prim_socket:encode_sockaddr(SockAddr),
-        nif_getnameinfo(ESockAddr, Flags)
+    try prim_socket:enc_sockaddr(SockAddr) of
+        ESockAddr ->
+            nif_getnameinfo(ESockAddr, Flags)
     catch
         throw : ERROR ->
             ERROR
@@ -191,7 +191,27 @@ getaddrinfo(Host, Service)
   when (is_list(Host) orelse (Host =:= undefined)) andalso
        (is_list(Service) orelse (Service =:= undefined)) andalso
        (not ((Service =:= undefined) andalso (Host =:= undefined))) ->
-    nif_getaddrinfo(Host, Service, undefined).
+    Result = nif_getaddrinfo(Host, Service, undefined),
+    case Result of
+        {ok, []} ->
+            Result;
+        {ok, Addrs} ->
+            Protocols = prim_socket:p_get(protocols),
+            {ok,
+             [case Addr of
+                  #{protocol := Num} ->
+                      case Protocols of
+                          #{Num := [Protocol | _Aliases]} ->
+                              Addr#{protocol := Protocol};
+                          #{} ->
+                              Addr
+                      end;
+                  #{} ->
+                      Addr
+              end || Addr <- Addrs]};
+        Error ->
+            Error
+    end.
 
 
 

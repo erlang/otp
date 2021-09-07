@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,18 +18,6 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxjoystickevent.html">wxJoystickEvent</a>.
-%% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>joy_button_down</em>, <em>joy_button_up</em>, <em>joy_move</em>, <em>joy_zmove</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxJoystick(). #wxJoystick{}} event record type.
-%%
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxEvent}
-%% </p>
-%% @type wxJoystickEvent().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxJoystickEvent).
 -include("wxe.hrl").
 -export([buttonDown/1,buttonDown/2,buttonIsDown/1,buttonIsDown/2,buttonUp/1,
@@ -40,12 +28,14 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxJoystickEvent/0]).
+-type wxJoystickEvent() :: wx:wx_object().
+-include("wx.hrl").
+-type wxJoystickEventType() :: 'joy_button_down' | 'joy_button_up' | 'joy_move' | 'joy_zmove'.
+-export_type([wxJoystickEvent/0, wxJoystick/0, wxJoystickEventType/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxJoystickEvent() :: wx:wx_object().
 %% @equiv buttonDown(This, [])
 -spec buttonDown(This) -> boolean() when
 	This::wxJoystickEvent().
@@ -58,14 +48,14 @@ buttonDown(This)
 -spec buttonDown(This, [Option]) -> boolean() when
 	This::wxJoystickEvent(),
 	Option :: {'but', integer()}.
-buttonDown(#wx_ref{type=ThisT,ref=ThisRef}, Options)
+buttonDown(#wx_ref{type=ThisT}=This, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxJoystickEvent),
-  MOpts = fun({but, But}, Acc) -> [<<1:32/?UI,But:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:call(?wxJoystickEvent_ButtonDown,
-  <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
+  MOpts = fun({but, _but} = Arg) -> Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(This, Opts,?get_env(),?wxJoystickEvent_ButtonDown),
+  wxe_util:rec(?wxJoystickEvent_ButtonDown).
 
 %% @equiv buttonIsDown(This, [])
 -spec buttonIsDown(This) -> boolean() when
@@ -79,14 +69,14 @@ buttonIsDown(This)
 -spec buttonIsDown(This, [Option]) -> boolean() when
 	This::wxJoystickEvent(),
 	Option :: {'but', integer()}.
-buttonIsDown(#wx_ref{type=ThisT,ref=ThisRef}, Options)
+buttonIsDown(#wx_ref{type=ThisT}=This, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxJoystickEvent),
-  MOpts = fun({but, But}, Acc) -> [<<1:32/?UI,But:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:call(?wxJoystickEvent_ButtonIsDown,
-  <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
+  MOpts = fun({but, _but} = Arg) -> Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(This, Opts,?get_env(),?wxJoystickEvent_ButtonIsDown),
+  wxe_util:rec(?wxJoystickEvent_ButtonIsDown).
 
 %% @equiv buttonUp(This, [])
 -spec buttonUp(This) -> boolean() when
@@ -100,78 +90,78 @@ buttonUp(This)
 -spec buttonUp(This, [Option]) -> boolean() when
 	This::wxJoystickEvent(),
 	Option :: {'but', integer()}.
-buttonUp(#wx_ref{type=ThisT,ref=ThisRef}, Options)
+buttonUp(#wx_ref{type=ThisT}=This, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxJoystickEvent),
-  MOpts = fun({but, But}, Acc) -> [<<1:32/?UI,But:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:call(?wxJoystickEvent_ButtonUp,
-  <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
+  MOpts = fun({but, _but} = Arg) -> Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(This, Opts,?get_env(),?wxJoystickEvent_ButtonUp),
+  wxe_util:rec(?wxJoystickEvent_ButtonUp).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxjoystickevent.html#wxjoystickeventgetbuttonchange">external documentation</a>.
 -spec getButtonChange(This) -> integer() when
 	This::wxJoystickEvent().
-getButtonChange(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getButtonChange(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
-  wxe_util:call(?wxJoystickEvent_GetButtonChange,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_GetButtonChange),
+  wxe_util:rec(?wxJoystickEvent_GetButtonChange).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxjoystickevent.html#wxjoystickeventgetbuttonstate">external documentation</a>.
 -spec getButtonState(This) -> integer() when
 	This::wxJoystickEvent().
-getButtonState(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getButtonState(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
-  wxe_util:call(?wxJoystickEvent_GetButtonState,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_GetButtonState),
+  wxe_util:rec(?wxJoystickEvent_GetButtonState).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxjoystickevent.html#wxjoystickeventgetjoystick">external documentation</a>.
 -spec getJoystick(This) -> integer() when
 	This::wxJoystickEvent().
-getJoystick(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getJoystick(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
-  wxe_util:call(?wxJoystickEvent_GetJoystick,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_GetJoystick),
+  wxe_util:rec(?wxJoystickEvent_GetJoystick).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxjoystickevent.html#wxjoystickeventgetposition">external documentation</a>.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
 	This::wxJoystickEvent().
-getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
-  wxe_util:call(?wxJoystickEvent_GetPosition,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_GetPosition),
+  wxe_util:rec(?wxJoystickEvent_GetPosition).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxjoystickevent.html#wxjoystickeventgetzposition">external documentation</a>.
 -spec getZPosition(This) -> integer() when
 	This::wxJoystickEvent().
-getZPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
+getZPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
-  wxe_util:call(?wxJoystickEvent_GetZPosition,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_GetZPosition),
+  wxe_util:rec(?wxJoystickEvent_GetZPosition).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxjoystickevent.html#wxjoystickeventisbutton">external documentation</a>.
 -spec isButton(This) -> boolean() when
 	This::wxJoystickEvent().
-isButton(#wx_ref{type=ThisT,ref=ThisRef}) ->
+isButton(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
-  wxe_util:call(?wxJoystickEvent_IsButton,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_IsButton),
+  wxe_util:rec(?wxJoystickEvent_IsButton).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxjoystickevent.html#wxjoystickeventismove">external documentation</a>.
 -spec isMove(This) -> boolean() when
 	This::wxJoystickEvent().
-isMove(#wx_ref{type=ThisT,ref=ThisRef}) ->
+isMove(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
-  wxe_util:call(?wxJoystickEvent_IsMove,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_IsMove),
+  wxe_util:rec(?wxJoystickEvent_IsMove).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxjoystickevent.html#wxjoystickeventiszmove">external documentation</a>.
 -spec isZMove(This) -> boolean() when
 	This::wxJoystickEvent().
-isZMove(#wx_ref{type=ThisT,ref=ThisRef}) ->
+isZMove(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
-  wxe_util:call(?wxJoystickEvent_IsZMove,
-  <<ThisRef:32/?UI>>).
+  wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_IsZMove),
+  wxe_util:rec(?wxJoystickEvent_IsZMove).
 
  %% From wxEvent
 %% @hidden

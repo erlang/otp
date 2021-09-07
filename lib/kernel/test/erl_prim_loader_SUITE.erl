@@ -227,44 +227,40 @@ wait_really_started(Node, N) ->
 %% Start a node using the 'inet' loading method,
 %% then lose the connection.
 inet_disconnects(Config) when is_list(Config) ->
-    case test_server:is_native(erl_boot_server) of
-	true ->
-	    {skip,"erl_boot_server is native"};
-	false ->
-	    Name = erl_prim_test_inet_disconnects,
+    Name = erl_prim_test_inet_disconnects,
 
-	    BootPid = start_boot_server(),
-	    unlink(BootPid),
-	    Self = self(),
-	    %% This process shuts down the boot server during loading.
-	    Stopper = spawn_link(fun() -> stop_boot(BootPid, Self) end),
-	    receive
-		{Stopper,ready} -> ok
-	    end,
+    BootPid = start_boot_server(),
+    unlink(BootPid),
+    Self = self(),
 
-	    %% Let the loading begin...
-	    Node = start_node_using_inet(Name, [{wait,false}]),
+    %% This process shuts down the boot server during loading.
+    Stopper = spawn_link(fun() -> stop_boot(BootPid, Self) end),
+    receive
+        {Stopper,ready} -> ok
+    end,
 
-	    %% When the stopper is ready, the slave node should be
-	    %% looking for a boot server again.
-	    receive 
-		{Stopper,ok} -> 
-		    ok;
-		{Stopper,{error,Reason}} ->
-		    ct:fail(Reason)
-	    after 60000 -> 
-		    ct:fail(stopper_died)
-	    end,
+    %% Let the loading begin...
+    Node = start_node_using_inet(Name, [{wait,false}]),
 
-	    %% Start new boot server to see that loading is continued.
-	    BootPid2 = start_boot_server(),
-	    wait_really_started(Node, 25),
-	    {ok,[["inet"]]} = rpc:call(Node, init, get_argument, [loader]),
-	    stop_node(Node),
-	    unlink(BootPid2),
-	    exit(BootPid2, kill),
-	    ok
-    end.
+    %% When the stopper is ready, the slave node should be
+    %% looking for a boot server again.
+    receive
+        {Stopper,ok} ->
+            ok;
+        {Stopper,{error,Reason}} ->
+            ct:fail(Reason)
+    after 60000 ->
+            ct:fail(stopper_died)
+    end,
+
+    %% Start new boot server to see that loading is continued.
+    BootPid2 = start_boot_server(),
+    wait_really_started(Node, 25),
+    {ok,[["inet"]]} = rpc:call(Node, init, get_argument, [loader]),
+    stop_node(Node),
+    unlink(BootPid2),
+    exit(BootPid2, kill),
+    ok.
 
 %% Trace boot server calls and stop the server before loading is finished.
 stop_boot(BootPid, Super) ->

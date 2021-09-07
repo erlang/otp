@@ -26,10 +26,6 @@ ifeq ($(INETS_DEBUG), true)
 ERL_COMPILE_FLAGS += -Dinets_debug
 endif
 
-ifeq ($(USE_INETS_HIPE), true)
-ERL_COMPILE_FLAGS += +native
-endif
-
 ifeq ($(WARN_UNUSED_WARS), true)
 ERL_COMPILE_FLAGS += +warn_unused_vars
 endif

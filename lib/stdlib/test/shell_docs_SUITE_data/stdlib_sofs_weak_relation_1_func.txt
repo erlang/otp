@@ -1,0 +1,15 @@
+
+  [;1m-spec weak_relation(BinRel1) -> BinRel2[0m
+  [;1m                       when[0m
+  [;1m                           BinRel1 :: binary_relation(),[0m
+  [;1m                           BinRel2 :: binary_relation().[0m
+
+  Returns a subset S of the weak relation W corresponding to the
+  binary relation [;;4mBinRel1[0m. Let F be the field of [;;4mBinRel1[0m. The
+  subset S is defined so that x S y if x W y for some x in F and for
+  some y in F.
+
+    1> R1 = sofs:relation([{1,1},{1,2},{3,1}]),
+    R2 = sofs:weak_relation(R1),
+    sofs:to_external(R2).
+    [{1,1},{1,2},{2,2},{3,1},{3,3}]

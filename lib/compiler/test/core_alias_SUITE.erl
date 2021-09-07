@@ -201,8 +201,8 @@ catastrophic_runtime(Config) ->
     Path = filename:join(PrivDir, "catastrophic_runtime.erl"),
 
     Term = catastrophic_runtime_1(Depth),
-    Source = <<"-module(catastrophic_runtime). t(Value) -> ", Term/bits, ".">>,
-    file:write_file(Path, Source),
+    Source = ["-module(catastrophic_runtime). t(Value) -> ", Term, "."],
+    ok = file:write_file(Path, Source),
 
     {ok, catastrophic_runtime} = compile:file(Path, [return_error]),
     file:delete(Path),
@@ -214,6 +214,6 @@ catastrophic_runtime_1(0) ->
 catastrophic_runtime_1(N) ->
     Nested = catastrophic_runtime_1(N - 1),
     Integer = integer_to_binary(N),
-    Eq = <<"{{'.',[],[erlang,'=:=']},[],[Value, \"", Integer/bits, "\"]}">>,
-    <<"{{'.',[],[erlang,atom]},[],[", Nested/bits, ",", Eq/bits, "]}">>.
+    Eq = [<<"{{'.',[],[erlang,'=:=']},[],[Value, \"">>, Integer, <<"\"]}">>],
+    [<<"{{'.',[],[erlang,atom]},[],[">>, Nested, <<",">>, Eq, <<"]}">>].
 

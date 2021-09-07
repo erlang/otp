@@ -768,7 +768,7 @@ handle_call({reject_io_reqs,Bool}, _From, State) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% handle_call({multiply_timetraps,N}, _, State) -> ok
-%% N = integer() | infinity
+%% N = number() | infinity
 %%
 %% Multiplies all timetraps set by test cases with N
 
@@ -2195,7 +2195,7 @@ do_add_end_per_suite_and_skip(LastMod, LastRef, Mod, FwMod) ->
 %% Runs the specified tests, then displays/logs the summary.
 
 run_test_cases(TestSpec, Config, TimetrapData) ->
-    test_server:init_valgrind(),
+    test_server:init_memory_checker(),
     case lists:member(no_src, get(test_server_logopts)) of
 	true ->
 	    ok;
@@ -2851,7 +2851,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    stop_minor_log_file(),
 	    run_test_cases_loop(skip_cases_upto(Ref, Cases, Reason, conf,
 						CurrMode, skip_case),
-				[hd(Config)|Config], TimetrapData, Mode,
+				Config, TimetrapData, Mode,
 				delete_status(Ref, Status2));
 	{_,{skip_and_save,Reason,_SavedConfig},_} when StartConf ->
 	    ReportAbortRepeat(skipped),

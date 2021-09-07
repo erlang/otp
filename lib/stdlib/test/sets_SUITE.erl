@@ -28,7 +28,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 create/1,add_element/1,del_element/1,
 	 subtract/1,intersection/1,union/1,is_subset/1,
-	 is_set/1,is_empty/1,fold/1,filter/1,
+	 is_disjoint/1,is_set/1,is_empty/1,fold/1,filter/1,
 	 take_smallest/1,take_largest/1, iterate/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -48,7 +48,7 @@ suite() ->
 all() -> 
     [create, add_element, del_element, subtract,
      intersection, union, is_subset, is_set, fold, filter,
-     take_smallest, take_largest, iterate, is_empty].
+     take_smallest, take_largest, iterate, is_empty, is_disjoint].
 
 groups() -> 
     [].
@@ -123,7 +123,7 @@ del_element(Config) when is_list(Config) ->
 del_element_1(List, M) ->    
     S0 = M(from_list, List),
     Empty = foldl(fun(El, Set) -> M(del_element, {El,Set}) end, S0, List),
-    Empty = M(empty, []),
+    true = M(equal, {Empty,M(empty, [])}),
     true = M(is_empty, Empty),
     S1 = foldl(fun(El, Set) ->
 		       M(add_element, {El,Set})
@@ -298,6 +298,22 @@ is_subset_1(List, M) ->
 	   subtract_check(List, rnd_list(length(List) div 7 + 9), M)
 	  ],
     res_to_set(Res, M, 0, []).
+
+is_disjoint(Config) when is_list(Config) ->
+    test_all([{1,132},{253,270},{299,311}], fun is_disjoint_1/2).
+
+is_disjoint_1(List, M) ->
+    S = M(from_list, List),
+    Empty = M(empty, []),
+
+    true = M(is_disjoint, {Empty,Empty}),
+    true = M(is_disjoint, {Empty,S}),
+    true = M(is_disjoint, {S,Empty}),
+    false = M(is_disjoint, {S,S}),
+
+    true = M(is_disjoint, {M(singleton, make_ref()),S}),
+    true = M(is_disjoint, {S,M(singleton, make_ref())}),
+    S.
 
 check_subset(X, Y, M) ->
     check_one_subset(Y, X, M),
@@ -481,13 +497,37 @@ iterate_set_1(M, {E, I}, R) ->
 
 sets_mods() ->
     Ordsets = sets_test_lib:new(ordsets, fun(X, Y) -> X == Y end),
-    Sets = sets_test_lib:new(sets, fun(X, Y) ->
-					   lists:sort(sets:to_list(X)) == 
-					       lists:sort(sets:to_list(Y)) end),
+
+    NewSets = sets_test_lib:new(sets, fun(X, Y) -> X == Y end,
+				fun() -> sets:new([{version,2}]) end,
+				fun(X) -> sets:from_list(X, [{version,2}]) end),
+
+    MixSets = sets_test_lib:new(sets, fun(X, Y) ->
+				           lists:sort(sets:to_list(X)) ==
+				               lists:sort(sets:to_list(Y)) end,
+				fun mixed_new/0, fun mixed_from_list/1),
+
+    OldSets = sets_test_lib:new(sets, fun(X, Y) ->
+					   lists:sort(sets:to_list(X)) ==
+					       lists:sort(sets:to_list(Y)) end,
+				fun sets:new/0, fun sets:from_list/1),
+
     Gb = sets_test_lib:new(gb_sets, fun(X, Y) ->
-					    gb_sets:to_list(X) == 
+					    gb_sets:to_list(X) ==
 						gb_sets:to_list(Y) end),
-    [Ordsets,Sets,Gb].
+    [Ordsets,OldSets,MixSets,NewSets,Gb].
+
+mixed_new() ->
+    case erlang:erase(sets_type) of
+        undefined -> erlang:put(sets_type, deprecated), sets:new([{version,2}]);
+        deprecated -> sets:new()
+    end.
+
+mixed_from_list(L) ->
+    case erlang:erase(sets_type) of
+        undefined -> erlang:put(sets_type, deprecated), sets:from_list(L, [{version,2}]);
+        deprecated -> sets:from_list(L)
+    end.
 
 test_all(Tester) ->
     Res = [begin

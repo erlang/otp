@@ -42,8 +42,17 @@ main(["make_xml",Type,Top,Outfile]) ->
     halt(0).
 
 ebin_directories(Top) ->
-    [filename:join(Top, "erts/preloaded/ebin")] ++
-        filelib:wildcard(filename:join(Top, "lib/*/ebin")).
+    AppDirs0 = filelib:wildcard(filename:join(Top, "lib/*/ebin")),
+
+    %% Filter out erl_interface and jinterface since they lack Erlang code, and
+    %% ODBC because we can't build it on all platforms we develop on. This must
+    %% be fixed before we deprecate or remove functionality in ODBC.
+    AppDirs = [Dir || Dir <- AppDirs0,
+                      not lists:suffix("erl_interface/ebin", Dir),
+                      not lists:suffix("jinterface/ebin", Dir),
+                      not lists:suffix("odbc/ebin", Dir)],
+
+    [filename:join(Top, "erts/preloaded/ebin")] ++ AppDirs.
 
 summarize(Top) ->
     Directories = ebin_directories(Top),
@@ -51,7 +60,16 @@ summarize(Top) ->
 
 summarize_directory(Dir, Acc) ->
     Files = [filename:join(Dir, F) || F <- filelib:wildcard("*.beam", Dir)],
-    foldl(fun summarize_file/2, Acc, Files).
+    case Files of
+        [_|_] ->
+            foldl(fun summarize_file/2, Acc, Files);
+        [] ->
+            Msg = io_lib:format("~p doesn't appear to be built. Make sure to "
+                                "build all OTP applications before updating "
+                                "deprecations.\n", [Dir]),
+            io:put_chars(standard_error, [Msg]),
+            halt(1)
+    end.
 
 summarize_file(File, Acc) ->
     {ok, {Module, [Chunk]}} = beam_lib:chunks(File, [attributes]),
@@ -201,48 +219,62 @@ insert_removals([], _Depr) ->
 make_xml(Top, Type, OutFile, InfoText0) ->
     DeprecationFile = deprecation_file(Top),
     OutDir = filename:dirname(DeprecationFile),
-    InfoTextMap = maps:from_list(make_xml_info(InfoText0)),
     Depr0 = read_deprecations(DeprecationFile),
     Depr = maps:to_list(Depr0),
-    {Key,Prefix} = case Type of
-                       "deprecations" ->
-                           {since,"deprecations"};
-                       "removals" ->
-                           {remove,"scheduled_for_removal"}
-                   end,
-    Collected = make_xml_collect(Depr, Key, InfoTextMap, []),
-    All = make_xml_gen(lists:reverse(Collected), Type, Prefix, OutDir),
+
+    {RelKey, AttrTag} =
+        case Type of
+            "deprecations" ->
+                %% Group by 'since' in DEPRECATIONS, grab text from
+                %% 'deprecated' attributes.
+                {since, deprecated};
+            "scheduled_for_removal" ->
+                {remove, deprecated};
+            "removed" ->
+                {remove, removed}
+        end,
+
+    InfoTextMap = maps:from_list(make_xml_info(InfoText0, AttrTag)),
+    Collected = make_xml_collect(Depr, RelKey, InfoTextMap, []),
+
+    All = make_xml_gen(lists:reverse(Collected), Type, OutDir),
     file:write_file(OutFile, All),
+
     ok.
 
-make_xml_info([{deprecated,M,F,A,Text}|T]) ->
-    [{{M,F,A},Text}|make_xml_info(T)];
-make_xml_info([{removed,_,_,_,_}|T]) ->
-    make_xml_info(T);
-make_xml_info([]) ->
+make_xml_info([{Tag,M,F,A,Text} | Attributes], Tag) ->
+    [{{M,F,A}, Text} | make_xml_info(Attributes, Tag)];
+make_xml_info([_ | Attributes], Tag) ->
+    make_xml_info(Attributes, Tag);
+make_xml_info([], _Tag) ->
     [].
 
-make_xml_collect([{MFA,Ps}|T], Key, InfoTextMap, Acc) ->
-    case lists:keyfind(Key, 1, Ps) of
-        {Key,Rel} ->
-            InfoText = case InfoTextMap of
-                           #{MFA := Text} -> Text;
-                           #{} -> []
-                       end,
-            make_xml_collect(T, Key, InfoTextMap, [{Rel,{MFA,InfoText}}|Acc]);
-        false ->
-            make_xml_collect(T, Key, InfoTextMap, Acc)
-    end;
-make_xml_collect([], _Key, _InfoTextMap, Acc) ->
+%% Joins `DEPRECATIONS` with module attributes, grabbing the text from said
+%% attributes and grouping them by the release version pointed out by `RelKey`
+%% ('since' or 'remove').
+make_xml_collect([{MFA, Ps} | T], RelKey, InfoTextMap, Acc0) ->
+    Acc = case lists:keyfind(RelKey, 1, Ps) of
+              {RelKey, Rel} ->
+                  case InfoTextMap of
+                      #{ MFA := Text } ->
+                          [{Rel, {MFA,Text}} | Acc0];
+                      #{} ->
+                          Acc0
+                  end;
+              false ->
+                  Acc0
+          end,
+    make_xml_collect(T, RelKey, InfoTextMap, Acc);
+make_xml_collect([], _RelKey, _InfoTextMap, Acc) ->
     rel2fam(Acc).
 
-make_xml_gen(Collected, Type, Prefix, Dir) ->
-    Head = get_xml_template(Dir, Prefix, head),
-    Contents = make_xml_gen_list(Collected, Type, Prefix, Dir),
+make_xml_gen(Collected, Type, Dir) ->
+    Head = get_xml_template(Dir, Type, head),
+    Contents = make_xml_gen_list(Collected, Type, Dir),
     Footer = "</chapter>\n",
     [Head,Contents,Footer].
 
-make_xml_gen_list([{Rel,MFAs}|T], Type, Prefix, Dir) ->
+make_xml_gen_list([{Rel,MFAs}|T], Type, Dir) ->
     RelStr = lists:concat(["OTP ",Rel]),
     RelMarker = lists:concat(["otp-",Rel]),
     Head = ["<section>\n",
@@ -252,16 +284,18 @@ make_xml_gen_list([{Rel,MFAs}|T], Type, Prefix, Dir) ->
     SubTitle = case Type of
                    "deprecations" ->
                        ["Functions Deprecated in ",RelStr];
-                   "removals" ->
-                       ["Functions Scheduled for Removal in ",RelStr]
+                   "scheduled_for_removal" ->
+                       ["Functions Scheduled for Removal in ",RelStr];
+                   "removed" ->
+                       ["Functions Removed in ",RelStr]
                end,
     SubHead = ["<section>\n",
                "<title>",SubTitle,"</title>\n"],
     SubFooter = "</section>\n",
-    [Head, get_xml_template(Dir, Prefix, Rel),
+    [Head, get_xml_template(Dir, Type, Rel),
      SubHead, make_xml_gen_mfas(MFAs), SubFooter,
-     Footer | make_xml_gen_list(T, Type, Prefix, Dir)];
-make_xml_gen_list([], _, _, _) ->
+     Footer | make_xml_gen_list(T, Type, Dir)];
+make_xml_gen_list([], _, _) ->
     [].
 
 make_xml_gen_mfas(MFAs) ->
@@ -295,10 +329,11 @@ check_deprecations(Top, #st{functions = Fs} = St) ->
         [] ->
             St#st{deprecations = Depr};
         [_|_] ->
-            Msg = "The following function(s) have -deprecated() attributes, "
-                "but are not present in the DEPRECATIONS file:\n\n",
+            Msg = "The following function(s) have -deprecated() or "
+                "-removed() attributes, but are not present in the "
+                "DEPRECATIONS file:\n\n",
             Bad = [io_lib:format("  ~w:~w/~w\n", [M,F,A]) ||
-                      {deprecated,M,F,A,_} <- Bad0],
+                      {_,M,F,A,_} <- Bad0],
             Loc = ["\n","Please update ",DeprFile,".\n"],
             io:put_chars(standard_error, [Msg,Bad,Loc]),
             halt(1)
@@ -312,10 +347,8 @@ read_deprecations(File) ->
 deprecation_file(Root) ->
     filename:join(Root, "system/doc/general_info/DEPRECATIONS").
 
-in_deprecations({deprecated,M,F,A,_}, Depr) ->
-    is_map_key({M,F,A}, Depr);
-in_deprecations({removed,_,_,_,_}, _Depr) ->
-    true.
+in_deprecations({Tag,M,F,A,_}, Depr) when Tag =:= deprecated; Tag =:= removed ->
+    is_map_key({M,F,A}, Depr).
 
 parse_deprecations([<<"#",_/binary>>|Lines]) ->
     parse_deprecations(Lines);

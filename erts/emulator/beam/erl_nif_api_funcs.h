@@ -216,6 +216,8 @@ ERL_NIF_API_FUNC_DECL(void,enif_set_pid_undefined,(ErlNifPid* pid));
 ERL_NIF_API_FUNC_DECL(int,enif_is_pid_undefined,(const ErlNifPid* pid));
 
 ERL_NIF_API_FUNC_DECL(ErlNifTermType,enif_term_type,(ErlNifEnv* env, ERL_NIF_TERM term));
+ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_init_resource_type,(ErlNifEnv*, const char* name_str, const ErlNifResourceTypeInit*, ErlNifResourceFlags flags, ErlNifResourceFlags* tried));
+ERL_NIF_API_FUNC_DECL(int,enif_dynamic_resource_call,(ErlNifEnv*, ERL_NIF_TERM mod, ERL_NIF_TERM name, ERL_NIF_TERM rsrc, void* call_data));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -404,7 +406,8 @@ ERL_NIF_API_FUNC_DECL(ErlNifTermType,enif_term_type,(ErlNifEnv* env, ERL_NIF_TER
 #  define enif_set_pid_undefined ERL_NIF_API_FUNC_MACRO(enif_set_pid_undefined)
 #  define enif_is_pid_undefined ERL_NIF_API_FUNC_MACRO(enif_is_pid_undefined)
 #  define enif_term_type ERL_NIF_API_FUNC_MACRO(enif_term_type)
-
+#  define enif_init_resource_type ERL_NIF_API_FUNC_MACRO(enif_init_resource_type)
+#  define enif_dynamic_resource_call ERL_NIF_API_FUNC_MACRO(enif_dynamic_resource_call)
 /*
 ** ADD NEW ENTRIES HERE (before this comment)
 */
@@ -641,6 +644,9 @@ static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list9(ErlNifEnv* env,
                   OBJ, PID, MSG, MSG_ENV)
 #  define enif_select_write(ENV, E, OBJ, PID, MSG, MSG_ENV) \
     enif_select_x(ENV, E, ERL_NIF_SELECT_WRITE | ERL_NIF_SELECT_CUSTOM_MSG, \
+                  OBJ, PID, MSG, MSG_ENV)
+#  define enif_select_error(ENV, E, OBJ, PID, MSG, MSG_ENV) \
+    enif_select_x(ENV, E, ERL_NIF_SELECT_ERROR | ERL_NIF_SELECT_CUSTOM_MSG, \
                   OBJ, PID, MSG, MSG_ENV)
 
 #if SIZEOF_LONG == 8

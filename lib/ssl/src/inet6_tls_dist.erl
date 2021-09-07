@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,13 +23,16 @@
 
 -export([childspecs/0]).
 -export([listen/2, accept/1, accept_connection/5,
-	 setup/5, close/1, select/1]).
+	 setup/5, close/1, select/1, address/0]).
 
 childspecs() ->
     inet_tls_dist:childspecs().
 
 select(Node) ->
     inet_tls_dist:gen_select(inet6_tcp, Node).
+
+address() ->
+    inet_tls_dist:gen_address(inet6_tcp).
 
 listen(Name, Host) ->
     inet_tls_dist:gen_listen(inet6_tcp, Name, Host).

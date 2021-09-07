@@ -21,6 +21,8 @@
 %%
 -module(ssl_alpn_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 %% Callback functions
@@ -324,7 +326,7 @@ ssl_receive(Socket, Data) ->
 
 ssl_receive(Socket, Data, Buffer) ->
     ct:log("Connection info: ~p~n",
-               [ssl:connection_information(Socket)]),
+           [ssl:connection_information(Socket)]),
     receive
     {ssl, Socket, MoreData} ->
         ct:log("Received ~p~n",[MoreData]),

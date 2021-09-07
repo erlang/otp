@@ -57,9 +57,9 @@
       <item><p><c>data_dir</c> - Data file directory</p></item>
       <item><p><c>priv_dir</c> - Scratch file directory</p></item>
       <item><p>Whatever added by
-      <seemfa marker="common_test#Module:init_per_suite/1"><c>init_per_suite/1</c></seemfa>
+      <seemfa marker="ct_suite#Module:init_per_suite/1"><c>init_per_suite/1</c></seemfa>
       or
-      <seemfa marker="common_test#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
+      <seemfa marker="ct_suite#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
       in the test suite.</p></item>
     </list>
 
@@ -141,7 +141,7 @@
       <desc><marker id="add_config-2"/>
         <p>Loads configuration variables using the specified callback module and
           configuration string. The callback module is to be either loaded or
-          present in the code part. Loaded configuration variables can later
+          present in the code path. Loaded configuration variables can later
           be removed using function
           <seemfa marker="#remove_config/2"><c>ct:remove_config/2</c></seemfa>.
         </p>
@@ -166,7 +166,7 @@
           <seemfa marker="#break/2"><c>ct:break/2</c></seemfa> is to be
           called instead.</p>
        <p>A cancelled timetrap is not automatically reactivated after the
-         break, but must be started exlicitly with
+         break, but must be started explicitly with
          <seemfa marker="#timetrap/1"><c>ct:timetrap/1</c></seemfa>.</p>
        <p>In order for the break/continue functionality to work, <c>Common
          Test</c> must release the shell process controlling <c>stdin</c>.
@@ -1090,7 +1090,7 @@
         <v>Reason = term()</v>
       </type>
       <desc><marker id="remove_config-2"/>
-        <p>Removes configuration variables (together wih their aliases)
+        <p>Removes configuration variables (together with their aliases)
           that were loaded with specified callback module and configuration
           string.</p>
       </desc>
@@ -1435,7 +1435,7 @@
       </type>
       <desc><marker id="step-4"/>
         <p>Steps through a test case with the debugger. If option
-          <c>config</c> has been specifed, breakpoints are also set on
+          <c>config</c> has been specified, breakpoints are also set on
           the configuration functions in <c>Suite</c>.</p>
 
         <p>See also <seemfa marker="#run/3"><c>ct:run/3</c></seemfa>.</p>
@@ -1524,7 +1524,7 @@
       <desc><marker id="userdata-2"/>
         <p>Returns any data specified with tag <c>userdata</c> in the list
           of tuples returned from
-          <seemfa marker="common_test#Module:suite/0"><c>suite/0</c></seemfa>.</p>
+          <seemfa marker="ct_suite#Module:suite/0"><c>suite/0</c></seemfa>.</p>
       </desc>
     </func>
 

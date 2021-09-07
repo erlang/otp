@@ -20,6 +20,8 @@
 
 -module(ssl_dist_test_lib).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include("ssl_dist_test_lib.hrl").
@@ -102,7 +104,7 @@ start_ssl_node(Name, Args) ->
     case open_port({spawn, CmdLine}, []) of
 	Port when is_port(Port) ->
 	    unlink(Port),
-	    erlang:port_close(Port),
+	    catch erlang:port_close(Port),
 	    case await_ssl_node_up(Name, LSock) of
 		#node_handle{} = NodeHandle ->
 		    ?t:format("Ssl node ~s started.~n", [Name]),

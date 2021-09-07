@@ -847,12 +847,17 @@ handle_info({AcceptPid, {accept_pending,MyNode,NodeOrHost,Type}}, State0) ->
 		    %% change pending process.
 		    %%
 		    OldOwner = Conn#connection.owner,
-		    ?debug({net_kernel, remark, old, OldOwner, new, AcceptPid}),
-		    exit(OldOwner, remarked),
-		    receive
-			{'EXIT', OldOwner, _} ->
-			    true
-		    end,
+                    case maps:is_key(OldOwner, State#state.conn_owners) of
+                        true ->
+                            ?debug({net_kernel, remark, old, OldOwner, new, AcceptPid}),
+                            exit(OldOwner, remarked),
+                            receive
+                                {'EXIT', OldOwner, _} ->
+                                    true
+                            end;
+                        false ->
+                            ok % Owner already exited
+                    end,
 		    ets:insert(sys_dist, Conn#connection{owner = AcceptPid}),
 		    AcceptPid ! {self(),{accept_pending,ok_pending}},
                     Owners = maps:remove(OldOwner, State#state.conn_owners),
@@ -928,22 +933,18 @@ handle_info({From,badcookie,_To,_Mess}, State) ->
 %%
 handle_info(tick, State) ->
     ?tckr_dbg(tick),
-    ok = maps:fold(fun (Pid, _Node, ok) ->
-                          Pid ! {self(), tick},
-                          ok
-                   end,
-                   ok,
-                   State#state.conn_owners),
+    maps:foreach(fun (Pid, _Node) ->
+                     Pid ! {self(), tick}
+              end,
+              State#state.conn_owners),
     {noreply,State};
 
 handle_info(aux_tick, State) ->
     ?tckr_dbg(aux_tick),
-    ok = maps:fold(fun (Pid, _Node, ok) ->
-                          Pid ! {self(), aux_tick},
-                          ok
-                   end,
-                   ok,
-                   State#state.conn_owners),
+    maps:foreach(fun (Pid, _Node) ->
+                     Pid ! {self(), aux_tick}
+              end,
+              State#state.conn_owners),
     {noreply,State};
 
 handle_info(transition_period_end,
@@ -1809,7 +1810,7 @@ start_protos_listen(Name, Host, Node, [Proto | Ps], Ls, CleanHalt) ->
     catch error:undef ->
             proto_error(CleanHalt, Proto, "not supported"),
             start_protos_listen(Name, Host, Node, Ps, Ls, CleanHalt);
-          error:Reason ->
+          _:Reason ->
             register_error(CleanHalt, Proto, Reason),
             start_protos_listen(Name, Host, Node, Ps, Ls, CleanHalt)
     end;
@@ -2157,4 +2158,3 @@ merge_opts([H|T], B0) ->
 
 getopts(Node, Opts) when is_atom(Node), is_list(Opts) ->
     request({getopts, Node, Opts}).
-

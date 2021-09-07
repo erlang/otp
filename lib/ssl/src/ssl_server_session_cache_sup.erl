@@ -29,30 +29,21 @@
 -include("ssl_internal.hrl").
 
 %% API
--export([start_link/0,
-         start_link_dist/0]).
--export([start_child/1,
-         start_child_dist/1,
-         session_opts/0]).
+-export([start_link/0]).
+-export([start_child/1]).
 
 %% Supervisor callback
 -export([init/1]).
 
--define(DEFAULT_MAX_SESSION_CACHE, 1000).
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
 start_link() ->
-    supervisor:start_link({local, tracker_name(normal)}, ?MODULE, []).
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-start_link_dist() ->
-    supervisor:start_link({local, tracker_name(dist)}, ?MODULE, []).
+start_child(Listner) ->
+    supervisor:start_child(?MODULE, [Listner | [ssl_config:pre_1_3_session_opts(server)]]).
 
-start_child(Args) ->
-    supervisor:start_child(tracker_name(normal), [self() | Args]).
-
-start_child_dist(Args) ->
-    supervisor:start_child(tracker_name(dist), [self() | Args]).
 
 %%%=========================================================================
 %%%  Supervisor callback
@@ -72,45 +63,3 @@ init(_O) ->
     ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},
     {ok, {{RestartStrategy, MaxR, MaxT}, [ChildSpec]}}.
 
-tracker_name(normal) ->
-    ?MODULE;
-tracker_name(dist) ->
-    list_to_atom(atom_to_list(?MODULE) ++ "dist").
-
-session_opts() ->
-    CbOpts = case application:get_env(ssl, session_cb) of
-		 {ok, Cb} when is_atom(Cb) ->
-		     InitArgs = session_cb_init_args(),
-		     #{session_cb => Cb,
-                       session_cb_init_args => InitArgs};
-		 _  ->
-		     #{session_cb => ssl_server_session_cache_db,
-                       session_cb_init_args => []}
-	     end,
-    LifeTime = session_lifetime(),
-    Max = max_session_cache_size(),
-    [CbOpts#{lifetime => LifeTime, max => Max}].
-
-session_cb_init_args() ->
-    case application:get_env(ssl, session_cb_init_args) of
-	{ok, Args} when is_list(Args) ->
-	    Args;
-	_  ->
-	    []
-    end.
-
-session_lifetime() ->
-    case application:get_env(ssl, session_lifetime) of
-	{ok, Time} when is_integer(Time) ->
-            Time;
-        _  ->
-            ?'24H_in_sec'
-    end.
-
-max_session_cache_size() ->
-    case application:get_env(ssl, session_cache_server_max) of
-	{ok, Size} when is_integer(Size) ->
-	    Size;
-	_ ->
-	   ?DEFAULT_MAX_SESSION_CACHE
-    end.

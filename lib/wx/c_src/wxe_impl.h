@@ -30,12 +30,13 @@
 #include <wx/treectrl.h>
 #include <wx/print.h>
 extern "C" {
-#include "wxe_driver.h"
+#include "wxe_nif.h"
 }
 
 #include "wxe_helpers.h"
 #include "wxe_callback_impl.h"
-#include "wxe_memory.h"
+
+#include <vector>
 
 #if !wxCHECK_VERSION(2,9,0)
 #define wxeLocaleC wxChar *
@@ -45,13 +46,9 @@ typedef wxString wxeLocaleC;
 #define wxeLocaleC2String(Str) Str
 #endif
 
-#define WXE_NOT_INITIATED 0
-#define WXE_INITIATED     1
-#define WXE_EXITING       2
-#define WXE_EXITED        3
-#define WXE_ERROR        -1
-
 void send_msg(const char *, const wxString *);   // For debugging and error msgs
+
+extern ErlNifResourceType* wxeMemEnvRt;
 
 class WxeApp : public wxApp
 {
@@ -62,13 +59,19 @@ public:
 				const wxChar *cond, const wxChar *msg);
 
 #ifdef  _MACOSX
+  virtual void MacPrintFile(const wxString &filename);
   virtual void MacOpenFile(const wxString &filename);
+  virtual void MacOpenURL(const wxString &url);
+  virtual void MacNewFile();
+  virtual void MacReopenApp();
 #endif
 
+  void init_consts(wxeMetaCommand& event);
+  void destroyMemEnv(wxeMetaCommand& event);
   void shutdown(wxeMetaCommand& event);
 
   int dispatch(wxeFifo *);
-  void dispatch_cb(wxeFifo * batch, ErlDrvTermData process);
+  void dispatch_cb(wxeFifo * batch, wxeMemEnv *memenv, ErlNifPid process);
 
   void wxe_dispatch(wxeCommand& event);
 
@@ -76,25 +79,20 @@ public:
   int dispatch_cmds();
 
   void dummy_close(wxEvent& Ev);
-  bool sendevent(wxEvent *event);
-
-  // MemEnv handling
-  void newMemEnv(wxeMetaCommand& event);
-  void destroyMemEnv(wxeMetaCommand& event);
-  wxeMemEnv * getMemEnv(ErlDrvTermData port);
+  // bool sendevent(wxEvent *event);
+  // wxeMemEnv * getMemEnv(ErlDrvTermData port);
 
   int  newPtr(void * ptr, int type, wxeMemEnv *memenv);
   int  getRef(void * ptr, wxeMemEnv *memenv, int type = 0);
-  void * getPtr(char * bp, wxeMemEnv *memenv);
+  // void * getPtr(char * bp, wxeMemEnv *memenv);
   void clearPtr(void *ptr);
   wxeRefData * getRefData(void *ptr);
-  void registerPid(char *ptr, ErlDrvTermData pid, wxeMemEnv *memenv);
-  void init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller);
+  int registerPid(int index, ErlNifPid pid, wxeMemEnv *memenv);
 
   // Code found in gen/wxe_derived_dest.h
   bool delete_object(void *ptr, wxeRefData *refd);
 
-  wxeMemMap refmap;
+  // wxeMemMap refmap;
   ptrMap   ptr2ref;
   wxeMemEnv * global_me;
 
@@ -102,8 +100,18 @@ public:
   wxList * delayed_cleanup;
   wxeFifo * delayed_delete;
   // Temp container for callbacks
-  char *cb_buff;
-  int  cb_len;
+  wxeCommand * cb_return;
 };
+
+#define Badarg(Argc) { throw wxe_badarg(Argc); }
+
+typedef struct {
+    void (*nif_cb) (WxeApp *, wxeMemEnv *, wxeCommand& );
+    const char *cname;
+    const char *fname;
+    int n;
+} wxe_fns_t;
+
+extern wxe_fns_t wxe_fns[];
 
 #endif  //_WXE_IMPL_H

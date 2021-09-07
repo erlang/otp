@@ -60,6 +60,38 @@ math_call_1(Process* p, double (*func)(double), Eterm arg1)
     return res;
 }
 
+/*
+ * Execute a math function and also test errno for errors.
+ * Called for math:acos/1 and math:asin/1.
+ */
+static Eterm
+math_call_errno_1(Process* p, double (*func)(double), Eterm arg1)
+{
+    Eterm res;
+
+    errno = 0;
+    res = math_call_1(p, func, arg1);
+
+    /*
+     * We require a C compiler that supports C99, but on Solaris
+     * it could happen that even though the C compiler (gcc) supports
+     * C99, the runtime libraries could still behave as a previous
+     * version (X/Open or C90).
+     *
+     * Specifically, the acos() and asin() function in C90 return 0.0
+     * on a domain error, but sets the errno to EDOM. To ensure that
+     * we raise an exception, we will need to check errno. (Testing
+     * errno for all math functions would be wrong, because when pow()
+     * underflows, 0.0 is returned but errno is set to ERANGE on
+     * Solaris. Undeflow is not considered an error for the functions
+     * in the math module.)
+     */
+    if (is_value(res) && errno != 0) {
+        p->freason = BADARITH;
+        return THE_NON_VALUE;
+    }
+    return res;
+}
 
 static Eterm
 math_call_2(Process* p, double (*func)(double, double), Eterm arg1, Eterm arg2)
@@ -140,7 +172,7 @@ BIF_RETTYPE math_tanh_1(BIF_ALIST_1)
 
 BIF_RETTYPE math_acos_1(BIF_ALIST_1)
 {
-    return math_call_1(BIF_P, acos, BIF_ARG_1);
+    return math_call_errno_1(BIF_P, acos, BIF_ARG_1);
 }
 
 BIF_RETTYPE math_acosh_1(BIF_ALIST_1)
@@ -154,7 +186,7 @@ BIF_RETTYPE math_acosh_1(BIF_ALIST_1)
 
 BIF_RETTYPE math_asin_1(BIF_ALIST_1)
 {
-    return math_call_1(BIF_P, asin, BIF_ARG_1);
+    return math_call_errno_1(BIF_P, asin, BIF_ARG_1);
 }
 
 BIF_RETTYPE math_asinh_1(BIF_ALIST_1)

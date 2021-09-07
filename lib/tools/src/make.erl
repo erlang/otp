@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,14 +39,38 @@ all_or_nothing() ->
             halt(1)
     end.
 
+-spec all() -> 'up_to_date' | 'error'.
+
 all() ->
     all([]).
+
+-spec all(Options) -> 'up_to_date' | 'error' when
+      Options :: [Option],
+      Option :: 'noexec'
+              | 'load'
+              | 'netload'
+              | {'emake', Emake}
+              | compile:option(),
+      Emake :: [EmakeElement],
+      EmakeElement :: Modules | {Modules, [compile:option()]},
+      Modules :: atom() | [atom()].
 
 all(Options) ->
     run_emake(undefined, Options).
 
+-spec files(ModFiles) -> 'up_to_date' | 'error' when
+      ModFiles :: [(Module :: module()) | (File :: file:filename())].
+
 files(Fs) ->
     files(Fs, []).
+
+-spec files(ModFiles, Options) -> 'up_to_date' | 'error' when
+      ModFiles :: [(Module :: module()) | (File :: file:filename())],
+      Options :: [Option],
+      Option :: 'noexec'
+              | 'load'
+              | 'netload'
+              | compile:option().
 
 files(Fs0, Options) ->
     Fs = [filename:rootname(F,".erl") || F <- Fs0],

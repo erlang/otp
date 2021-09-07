@@ -40,7 +40,8 @@
 	 undef_terminate2/1, undef_in_terminate/1, undef_in_handle_info/1,
 	 undef_handle_continue/1,
 
-         format_log_1/1, format_log_2/1
+         format_log_1/1, format_log_2/1,
+         reply_by_alias_with_payload/1
 	]).
 
 -export([stop1/1, stop2/1, stop3/1, stop4/1, stop5/1, stop6/1, stop7/1,
@@ -74,7 +75,7 @@ all() ->
      get_state, replace_state,
      call_with_huge_message_queue, {group, undef_callbacks},
      undef_in_terminate, undef_in_handle_info,
-     format_log_1, format_log_2].
+     format_log_1, format_log_2, reply_by_alias_with_payload].
 
 groups() -> 
     [{stop, [],
@@ -536,11 +537,11 @@ send_request(Config) when is_list(Config) ->
 
     Promise3 = gen_server:send_request(my_test_name, {call_within, 1000}),
     no_reply = gen_server:check_response({foo, bar}, Promise3),
-    receive {{'$gen_request_id',Ref},_} = Msg when is_reference(Ref) ->
+    receive {[alias|Ref],_} = Msg when is_reference(Ref) ->
             {reply, ok} = gen_server:check_response(Msg, Promise3)
     after 1000 ->
-            %% Format not yet doumented so it might be ok
-            %% This test is just to make you aware that you have changed it
+            %% Format changed which is ok. This test is just to make you
+            %% aware that you have changed it
             exit(message_format_changed)
     end,
     timer:sleep(1500),
@@ -1331,20 +1332,22 @@ do_otp_7669_stop() ->
 
 %% Verify that sys:get_status correctly calls our format_status/2 fun.
 call_format_status(Config) when is_list(Config) ->
+    Parent = self(),
+
     {ok, Pid} = gen_server:start_link({local, call_format_status},
 				      ?MODULE, [], []),
     Status1 = sys:get_status(call_format_status),
-    {status, Pid, _Mod, [_PDict, running, _Parent, _, Data1]} = Status1,
+    {status, Pid, Mod, [_Pdict1, running, Parent, _, Data1]} = Status1,
     [format_status_called | _] = lists:reverse(Data1),
     Status2 = sys:get_status(call_format_status, 5000),
-    {status, Pid, _Mod, [_PDict, running, _Parent, _, Data2]} = Status2,
+    {status, Pid, Mod, [_Pdict2, running, Parent, _, Data2]} = Status2,
     [format_status_called | _] = lists:reverse(Data2),
 
     %% check that format_status can handle a name being a pid (atom is
     %% already checked by the previous test)
     {ok, Pid3} = gen_server:start_link(gen_server_SUITE, [], []),
     Status3 = sys:get_status(Pid3),
-    {status, Pid3, _Mod, [_PDict3, running, _Parent, _, Data3]} = Status3,
+    {status, Pid3, Mod, [_PDict3, running, Parent, _, Data3]} = Status3,
     [format_status_called | _] = lists:reverse(Data3),
 
     %% check that format_status can handle a name being a term other than a
@@ -1353,13 +1356,13 @@ call_format_status(Config) when is_list(Config) ->
     {ok, Pid4} = gen_server:start_link(GlobalName1,
 				       gen_server_SUITE, [], []),
     Status4 = sys:get_status(Pid4),
-    {status, Pid4, _Mod, [_PDict4, running, _Parent, _, Data4]} = Status4,
+    {status, Pid4, Mod, [_PDict4, running, Parent, _, Data4]} = Status4,
     [format_status_called | _] = lists:reverse(Data4),
     GlobalName2 = {global, {name, "term"}},
     {ok, Pid5} = gen_server:start_link(GlobalName2,
 				       gen_server_SUITE, [], []),
     Status5 = sys:get_status(GlobalName2),
-    {status, Pid5, _Mod, [_PDict5, running, _Parent, _, Data5]} = Status5,
+    {status, Pid5, Mod, [_PDict5, running, Parent, _, Data5]} = Status5,
     [format_status_called | _] = lists:reverse(Data5),
     ok.
 
@@ -1469,16 +1472,6 @@ replace_state(Config) when is_list(Config) ->
 %% Test that the time for a huge message queue is not
 %% significantly slower than with an empty message queue.
 call_with_huge_message_queue(Config) when is_list(Config) ->
-    case test_server:is_native(gen) of
-	true ->
-	    {skip,
-	     "gen is native - huge message queue optimization "
-	     "is not implemented"};
-	false ->
-	    do_call_with_huge_message_queue()
-    end.
-
-do_call_with_huge_message_queue() ->
     Pid = spawn_link(fun echo_loop/0),
 
     {Time,ok} = tc(fun() -> calls(10000, Pid) end),
@@ -1861,6 +1854,35 @@ format_log_2(_Config) ->
 
 flatten_format_log(Report, Format) ->
     lists:flatten(gen_server:format_log(Report, Format)).
+
+reply_by_alias_with_payload(Config) when is_list(Config) ->
+    %% "Payload" version of tag not used yet, but make sure
+    %% gen_server:reply/2 works with it...
+    %%
+    %% Whitebox...
+    Reply = make_ref(),
+    Alias = alias(),
+    Tag = [[alias|Alias], "payload"],
+    spawn_link(fun () ->
+                       gen_server:reply({undefined, Tag},
+                                        Reply)
+               end),
+    receive
+        {[[alias|Alias]|_] = Tag, Reply} ->
+            ok
+    end,
+    %% Check gen:reply/2 as well...
+    Reply2 = make_ref(),
+    Alias2 = alias(),
+    Tag2 = [[alias|Alias2], "payload"],
+    spawn_link(fun () ->
+                       gen:reply({undefined, Tag2},
+                                 Reply2)
+               end),
+    receive
+        {[[alias|Alias2]|_] = Tag2, Reply2} ->
+            ok
+    end.
 
 %%--------------------------------------------------------------
 %% Help functions to spec_init_*

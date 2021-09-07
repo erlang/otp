@@ -49,7 +49,7 @@ $(DIA_PLT_DIR):
 
 $(DIA_PLT): $(DIA_PLT_DIR)
 	@echo "Building $(APPLICATION) plt file"
-	@$(ERL_TOP)/bin/dialyzer --build_plt \
+	@dialyzer --build_plt \
                   --output_plt $@ \
 		  --apps $(sort $(DIA_PLT_APPS) $(DIA_DEFAULT_PLT_APPS)) \
 		  --output $(DIA_ANALYSIS) \

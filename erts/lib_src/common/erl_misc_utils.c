@@ -30,6 +30,7 @@
 #include "erl_misc_utils.h"
 
 #if !defined(__WIN32__) /* UNIX */
+#  include <stdarg.h>
 #  include <stdio.h>
 #  include <sys/types.h>
 #  include <sys/param.h>
@@ -1095,15 +1096,21 @@ get_cgroup_v1_base_dir(const char *controller) {
     return NULL;
 }
 
-static const char*
-get_cgroup_path(const char *controller) {
+enum cgroup_version_t {
+    ERTS_CGROUP_NONE,
+    ERTS_CGROUP_V1,
+    ERTS_CGROUP_V2
+};
+
+static enum cgroup_version_t
+get_cgroup_path(const char *controller, const char **path) {
     char line_buf[10 << 10];
     FILE *var_file;
 
     var_file = fopen("/proc/self/mountinfo", "r");
 
     if (var_file == NULL) {
-        return NULL;
+        return ERTS_CGROUP_NONE;
     }
 
     while (fgets(line_buf, sizeof(line_buf), var_file)) {
@@ -1138,7 +1145,9 @@ get_cgroup_path(const char *controller) {
                 if (csv_contains(controllers, controller, ' ')) {
                     free((void*)cgc_path);
                     fclose(var_file);
-                    return strdup(mount_path);
+
+                    *path = strdup(mount_path);
+                    return ERTS_CGROUP_V2;
                 }
             }
             free((void*)cgc_path);
@@ -1147,42 +1156,51 @@ get_cgroup_path(const char *controller) {
                 const char *base_dir = get_cgroup_v1_base_dir(controller);
 
                 if (base_dir) {
-                    const char *result;
-
                     if (strcmp(root_path, base_dir)) {
-                        result = str_combine(mount_path, base_dir);
+                        *path = str_combine(mount_path, base_dir);
                     } else {
-                        result = strdup(mount_path);
+                        *path = strdup(mount_path);
                     }
 
                     free((void*)base_dir);
                     fclose(var_file);
-                    return result;
+
+                    return ERTS_CGROUP_V1;
                 }
             }
         }
     }
 
     fclose(var_file);
-    return NULL;
+
+    return ERTS_CGROUP_NONE;
 }
 
-static int read_cgroup_var(const char *group_path, const char *var_name,
-                           ssize_t *out) {
+static int read_cgroup_interface(const char *group_path, const char *if_name,
+                                 int arg_count, const char *format, ...) {
     const char *var_path;
     int res;
 
-    var_path = str_combine(group_path, var_name);
+    var_path = str_combine(group_path, if_name);
     res = 0;
 
     if (var_path) {
-        FILE *var_file = fopen(var_path, "r");
+        FILE *var_file;
+
+        var_file = fopen(var_path, "r");
         free((void*)var_path);
 
         if (var_file) {
-            if (fscanf(var_file, "%zi", out) == 1) {
+            va_list va_args;
+
+            va_start(va_args, format);
+
+            if (vfscanf(var_file, format, va_args) == arg_count) {
                 res = 1;
             }
+
+            va_end(va_args);
+
             fclose(var_file);
         }
     }
@@ -1197,35 +1215,44 @@ static int read_cgroup_var(const char *group_path, const char *var_name,
 static int
 read_cpu_quota(int limit)
 {
-    const char *cgroup_path = get_cgroup_path("cpu");
+    ssize_t cfs_period_us, cfs_quota_us;
+    const char *cgroup_path;
+    int succeeded;
 
-    if (cgroup_path) {
-        ssize_t cfs_period_us, cfs_quota_us;
-        int succeeded;
-
-        cfs_period_us = -1;
-        cfs_quota_us = -1;
-
-        succeeded =
-            read_cgroup_var(cgroup_path, "/cpu.cfs_quota_us", &cfs_quota_us) &&
-            read_cgroup_var(cgroup_path, "/cpu.cfs_period_us", &cfs_period_us);
+    switch (get_cgroup_path("cpu", &cgroup_path)) {
+    case ERTS_CGROUP_V1:
+        succeeded = read_cgroup_interface(cgroup_path, "/cpu.cfs_quota_us",
+                        1, "%zi", &cfs_quota_us) &&
+                    read_cgroup_interface(cgroup_path, "/cpu.cfs_period_us",
+                        1, "%zi", &cfs_period_us);
 
         free((void*)cgroup_path);
+        break;
+    case ERTS_CGROUP_V2:
+        succeeded = read_cgroup_interface(cgroup_path, "/cpu.max",
+                        2, "%zi %zi", &cfs_quota_us, &cfs_period_us);
 
-        if (succeeded) {
-            if (cfs_period_us > 0 && cfs_quota_us > 0) {
-                size_t quota = cfs_quota_us / cfs_period_us;
+        free((void*)cgroup_path);
+        break;
+    default:
+        succeeded = 0;
+        break;
+    }
 
-                if (quota == 0) {
-                    quota = 1;
-                }
-                if (quota > 0 && quota <= (size_t)limit) {
-                    return quota;
-                }
+    if (succeeded) {
+        if (cfs_period_us > 0 && cfs_quota_us > 0) {
+            size_t quota = cfs_quota_us / cfs_period_us;
+
+            if (quota == 0) {
+                quota = 1;
             }
 
-            return limit;
+            if (quota > 0 && quota <= (size_t)limit) {
+                return quota;
+            }
         }
+
+        return limit;
     }
 
     return 0;

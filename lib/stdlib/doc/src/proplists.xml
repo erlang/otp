@@ -138,6 +138,14 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
+      <name name="from_map" arity="1" since="OTP 24.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Converts the map <c><anno>Map</anno></c> to a property list.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="get_all_values" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
@@ -361,6 +369,42 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
           <seemfa marker="#normalize/2"><c>normalize/2</c></seemfa>,
           <seemfa marker="#substitute_aliases/2">
           <c>substitute_aliases/2</c></seemfa>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="to_map" arity="1" since="OTP 24.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Converts the property list <c><anno>List</anno></c> to a map.</p>
+        <p>Shorthand atom values in <c><anno>List</anno></c> will be expanded
+          to an association of the form <c>Atom => true</c>. Tuples of the
+          form <c>{Key, Value}</c> in <c><anno>List</anno></c> will be
+          converted to an association of the form <c>Key => Value</c>.
+          Anything else will be silently ignored.</p>
+        <p>If the same key appears in <c><anno>List</anno></c> multiple
+          times, the value of the one appearing nearest to the head of
+          <c><anno>List</anno></c> will be in the result map, that is
+          the value that would be returned by a call to
+          <c>get_value(Key, List)</c>.</p>
+        <p><em>Example:</em></p>
+        <code type="none">
+to_map([a, {b, 1}, {c, 2}, {c, 3}])</code>
+        <p>returns:</p>
+        <code type="none">
+#{a => true, b => 1, c => 2}</code>
+      </desc>
+    </func>
+
+    <func>
+      <name name="to_map" arity="2" since="OTP 24.0"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Converts the property list <c><anno>List</anno></c> to a map after
+          applying the normalizations given in <c><anno>Stages</anno></c>.</p>
+        <p>See also
+          <seemfa marker="#normalize/2"><c>normalize/2</c></seemfa>,
+          <seemfa marker="#to_map/1"><c>to_map/1</c></seemfa>.</p>
       </desc>
     </func>
 

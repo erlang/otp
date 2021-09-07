@@ -25,12 +25,7 @@ dnl define([AC_CACHE_SAVE], )dnl
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(c_src/odbcserver.c)
 
-if test -z "$ERL_TOP" || test ! -d $ERL_TOP ; then
-  AC_CONFIG_AUX_DIRS(autoconf)
-else
-  erl_top=${ERL_TOP}
-  AC_CONFIG_AUX_DIRS($erl_top/erts/autoconf)
-fi
+AC_CONFIG_AUX_DIRS(${ERL_TOP}/erts/autoconf)
 
 if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
     AC_CANONICAL_HOST
@@ -46,7 +41,6 @@ AC_ARG_WITH(odbc,
 if test "$with_odbc" = "no"; then
 
    rm -f "$ERL_TOP/lib/odbc/SKIP"
-   echo "odbc disabled by user." > "$ERL_TOP/lib/odbc/SKIP"
 
 else dnl "$with_odbc" != "no"
 

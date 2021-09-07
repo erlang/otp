@@ -228,8 +228,23 @@ newline([13|_], B) -> {ok, lists:reverse(B)};
 newline([H|T], B) -> newline(T, [H|B]);
 newline([], B) -> {more, B}.
 
+%%-- Looking for Cmd location ------------------------------------------
+find_cmd(Cmd) ->
+    os:find_executable(Cmd).
+
+find_cmd(Cmd, Path) ->
+    %% try to find it at the specific location
+    case os:find_executable(Cmd, Path) of
+        false ->
+            find_cmd(Cmd);
+        Found ->
+            Found
+    end.
+
 %%--Check disk space----------------------------------------------------
 
+%% We use as many absolute paths as possible below as there may be stale
+%% NFS handles in the PATH which cause these commands to hang.
 check_disk_space({win32,_}, not_used, Threshold) ->
     Result = os_mon_sysinfo:get_disk_info(),
     check_disks_win32(Result, Threshold);
@@ -240,7 +255,8 @@ check_disk_space({unix, irix}, Port, Threshold) ->
     Result = my_cmd("/usr/sbin/df -lk",Port),
     check_disks_irix(skip_to_eol(Result), Threshold);
 check_disk_space({unix, linux}, Port, Threshold) ->
-    Result = my_cmd("/bin/df -lk -x squashfs", Port),
+    Df = find_cmd("df", "/bin"),
+    Result = my_cmd(Df ++ " -lk -x squashfs", Port),
     check_disks_solaris(skip_to_eol(Result), Threshold);
 check_disk_space({unix, posix}, Port, Threshold) ->
     Result = my_cmd("df -k -P", Port),

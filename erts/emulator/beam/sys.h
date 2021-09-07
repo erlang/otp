@@ -21,6 +21,8 @@
 #ifndef __SYS_H__
 #define __SYS_H__
 
+#define ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
+
 #if !defined(__GNUC__) || defined(__e2k__)
 #  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
 #elif !defined(__GNUC_MINOR__)
@@ -86,7 +88,7 @@
 #define ERTS_GLB_INLINE
 #endif
 
-#if ERTS_CAN_INLINE || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF) 
+#if (ERTS_CAN_INLINE || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF))
 #  define ERTS_GLB_INLINE_INCL_FUNC_DEF 1
 #else
 #  define ERTS_GLB_INLINE_INCL_FUNC_DEF 0
@@ -96,10 +98,6 @@
 #  define ERTS_NOINLINE __attribute__((__noinline__))
 #else
 #  define ERTS_NOINLINE
-#endif
-
-#if defined(VALGRIND) && !defined(NO_FPE_SIGNALS)
-#  define NO_FPE_SIGNALS
 #endif
 
 #define ERTS_I64_LITERAL(X) X##LL
@@ -297,7 +295,7 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
  * Compile time assert
  * (the actual compiler error msg can be a bit confusing)
  */
-#if ERTS_AT_LEAST_GCC_VSN__(3,1,1)
+#if ERTS_AT_LEAST_GCC_VSN__(3,1,1) && !defined __cplusplus
 # define ERTS_CT_ASSERT(e) \
     do { \
 	enum { compile_time_assert__ = __builtin_choose_expr((e),0,(void)0) }; \
@@ -305,7 +303,7 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 #else
 # define ERTS_CT_ASSERT(e) \
     do { \
-        enum { compile_time_assert__ = 1/(e) }; \
+        enum { compile_time_assert__ = 1/((int)(e)) };  \
     } while (0)
 #endif
 
@@ -347,8 +345,8 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 **
 ** Eterm: A tagged erlang term (possibly 64 bits)
 ** BeamInstr: A beam code instruction unit, possibly larger than Eterm, not smaller.
-** UInt:  An unsigned integer exactly as large as an Eterm.
-** SInt:  A signed integer exactly as large as an eterm and therefor large
+** Uint:  An unsigned integer exactly as large as an Eterm.
+** Sint:  A signed integer exactly as large as an eterm and therefor large
 **        enough to hold the return value of the signed_val() macro.
 ** UWord: An unsigned integer at least as large as a void * and also as large
 **          or larger than an Eterm
@@ -427,6 +425,7 @@ typedef Uint UWord;
 typedef Sint SWord;
 #define ERTS_UINT_MAX ERTS_UWORD_MAX
 
+typedef const void *ErtsCodePtr;
 typedef UWord BeamInstr;
 
 #ifndef HAVE_INT64
@@ -633,7 +632,7 @@ static unsigned long zero_value = 0, one_value = 1;
 #  endif /* !__WIN32__ */
 #endif /* WANT_NONBLOCKING */
 
-__decl_noreturn void __noreturn erts_exit(int n, char*, ...);
+__decl_noreturn void __noreturn erts_exit(int n, const char*, ...);
 
 /* Some special erts_exit() codes: */
 #define ERTS_INTR_EXIT	-1		/* called from signal handler */
@@ -750,25 +749,6 @@ extern void erts_late_sys_init_time(void);
 extern void erts_deliver_time(void);
 extern void erts_time_remaining(SysTimeval *);
 extern void erts_sys_init_float(void);
-extern void erts_thread_init_float(void);
-extern void erts_thread_disable_fpe(void);
-ERTS_GLB_INLINE int erts_block_fpe(void);
-ERTS_GLB_INLINE void erts_unblock_fpe(int);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE int erts_block_fpe(void)
-{
-    return erts_sys_block_fpe();
-}
-
-ERTS_GLB_INLINE void erts_unblock_fpe(int unmasked)
-{
-    erts_sys_unblock_fpe(unmasked);
-}
-
-#endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
-
 
 /* Dynamic library/driver loading */
 typedef struct {
@@ -798,6 +778,10 @@ void erts_sys_main_thread(void);
 
 extern int erts_sys_prepare_crash_dump(int secs);
 extern void erts_sys_pre_init(void);
+
+/* Platform-specific scheduler initialization, e.g. signal stack swapping. */
+extern void erts_sys_scheduler_init(void);
+
 extern void erl_sys_init(void);
 extern void erl_sys_late_init(void);
 extern void erl_sys_args(int *argc, char **argv);
@@ -969,7 +953,7 @@ erts_refc_inc_unless(erts_refc_t *refcp,
 {
     erts_aint_t val = erts_atomic_read_nob((erts_atomic_t *) refcp);
     while (1) {
-        erts_aint_t exp, new;
+        erts_aint_t exp, new_value;
 #ifdef ERTS_REFC_DEBUG
         if (val < min_val)
             erts_exit(ERTS_ABORT_EXIT,
@@ -978,11 +962,11 @@ erts_refc_inc_unless(erts_refc_t *refcp,
 #endif
         if (val == unless_val)
             return val;
-        new = val + 1;
+        new_value = val + 1;
         exp = val;
-        val = erts_atomic_cmpxchg_nob((erts_atomic_t *) refcp, new, exp);
+        val = erts_atomic_cmpxchg_nob((erts_atomic_t *) refcp, new_value, exp);
         if (val == exp)
-            return new;
+            return new_value;
     }
 }
 
@@ -1176,57 +1160,66 @@ ERTS_GLB_INLINE size_t sys_strlen(const char *s)
 
 /* Standard set of integer macros  .. */
 
-#define get_int64(s) (((Uint64)(((unsigned char*) (s))[0]) << 56) | \
-                      (((Uint64)((unsigned char*) (s))[1]) << 48) | \
-                      (((Uint64)((unsigned char*) (s))[2]) << 40) | \
-                      (((Uint64)((unsigned char*) (s))[3]) << 32) | \
-                      (((Uint64)((unsigned char*) (s))[4]) << 24) | \
-                      (((Uint64)((unsigned char*) (s))[5]) << 16) | \
-                      (((Uint64)((unsigned char*) (s))[6]) << 8)  | \
-                      (((Uint64)((unsigned char*) (s))[7])))
+#define get_int64(s) (((Uint64)(((byte*) (s))[0]) << 56) | \
+                      (((Uint64)((byte*) (s))[1]) << 48) | \
+                      (((Uint64)((byte*) (s))[2]) << 40) | \
+                      (((Uint64)((byte*) (s))[3]) << 32) | \
+                      (((Uint64)((byte*) (s))[4]) << 24) | \
+                      (((Uint64)((byte*) (s))[5]) << 16) | \
+                      (((Uint64)((byte*) (s))[6]) << 8)  | \
+                      (((Uint64)((byte*) (s))[7])))
 
-#define put_int64(i, s) do {((char*)(s))[0] = (char)((Sint64)(i) >> 56) & 0xff;\
-                            ((char*)(s))[1] = (char)((Sint64)(i) >> 48) & 0xff;\
-                            ((char*)(s))[2] = (char)((Sint64)(i) >> 40) & 0xff;\
-                            ((char*)(s))[3] = (char)((Sint64)(i) >> 32) & 0xff;\
-                            ((char*)(s))[4] = (char)((Sint64)(i) >> 24) & 0xff;\
-                            ((char*)(s))[5] = (char)((Sint64)(i) >> 16) & 0xff;\
-                            ((char*)(s))[6] = (char)((Sint64)(i) >> 8)  & 0xff;\
-                            ((char*)(s))[7] = (char)((Sint64)(i))       & 0xff;\
+#define put_int64(i, s) do {((byte*)(s))[0] = (byte)((Sint64)(i) >> 56) & 0xff;\
+                            ((byte*)(s))[1] = (byte)((Sint64)(i) >> 48) & 0xff;\
+                            ((byte*)(s))[2] = (byte)((Sint64)(i) >> 40) & 0xff;\
+                            ((byte*)(s))[3] = (byte)((Sint64)(i) >> 32) & 0xff;\
+                            ((byte*)(s))[4] = (byte)((Sint64)(i) >> 24) & 0xff;\
+                            ((byte*)(s))[5] = (byte)((Sint64)(i) >> 16) & 0xff;\
+                            ((byte*)(s))[6] = (byte)((Sint64)(i) >> 8)  & 0xff;\
+                            ((byte*)(s))[7] = (byte)((Sint64)(i))       & 0xff;\
                            } while (0) 
 
-#define get_int32(s) ((((unsigned char*) (s))[0] << 24) | \
-                      (((unsigned char*) (s))[1] << 16) | \
-                      (((unsigned char*) (s))[2] << 8)  | \
-                      (((unsigned char*) (s))[3]))
+/* Returns a signed int */
+#define get_int32(s) ((((byte*) (s))[0] << 24) | \
+                      (((byte*) (s))[1] << 16) | \
+                      (((byte*) (s))[2] << 8)  | \
+                      (((byte*) (s))[3]))
 
-#define put_int32(i, s) do {((char*)(s))[0] = (char)((i) >> 24) & 0xff;   \
-                            ((char*)(s))[1] = (char)((i) >> 16) & 0xff;   \
-                            ((char*)(s))[2] = (char)((i) >> 8)  & 0xff;   \
-                            ((char*)(s))[3] = (char)(i)         & 0xff;} \
+#define get_little_int32(s) ((((byte*) (s))[3] << 24) | \
+			     (((byte*) (s))[2] << 16)  | \
+			     (((byte*) (s))[1] << 8) | \
+			     (((byte*) (s))[0]))
+
+#define get_uint32(s) ((Uint32)get_int32(s))
+
+#define put_int32(i, s) do {((byte*)(s))[0] = (byte)((i) >> 24) & 0xff;  \
+                            ((byte*)(s))[1] = (byte)((i) >> 16) & 0xff;  \
+                            ((byte*)(s))[2] = (byte)((i) >> 8)  & 0xff;  \
+                            ((byte*)(s))[3] = (byte)(i)         & 0xff;} \
                         while (0)
 
-#define get_int24(s) ((((unsigned char*) (s))[0] << 16) | \
-                      (((unsigned char*) (s))[1] << 8)  | \
-                      (((unsigned char*) (s))[2]))
+#define get_int24(s) ((((byte*) (s))[0] << 16) | \
+                      (((byte*) (s))[1] << 8)  | \
+                      (((byte*) (s))[2]))
 
-#define put_int24(i, s) do {((char*)(s))[0] = (char)((i) >> 16) & 0xff;  \
-                            ((char*)(s))[1] = (char)((i) >> 8)  & 0xff;  \
-                            ((char*)(s))[2] = (char)(i)         & 0xff;} \
+
+#define put_int24(i, s) do {((byte*)(s))[0] = (byte)((i) >> 16) & 0xff;  \
+                            ((byte*)(s))[1] = (byte)((i) >> 8)  & 0xff;  \
+                            ((byte*)(s))[2] = (byte)(i)         & 0xff;} \
                         while (0)
 
-#define get_int16(s) ((((unsigned char*)  (s))[0] << 8) | \
-                      (((unsigned char*)  (s))[1]))
+#define get_int16(s) ((((byte*)  (s))[0] << 8) | \
+                      (((byte*)  (s))[1]))
 
 
-#define put_int16(i, s) do {((char*)(s))[0] = (char)((i) >> 8) & 0xff;  \
-                            ((char*)(s))[1] = (char)(i)        & 0xff;} \
+#define put_int16(i, s) do {((byte*)(s))[0] = (byte)((i) >> 8) & 0xff;  \
+                            ((byte*)(s))[1] = (byte)(i)        & 0xff;} \
                         while (0)
 
-#define get_int8(s) ((((unsigned char*)  (s))[0] ))
+#define get_int8(s) ((((byte*)  (s))[0] ))
 
 
-#define put_int8(i, s) do {((unsigned char*)(s))[0] = (i) & 0xff;} while (0)
+#define put_int8(i, s) do {((byte*)(s))[0] = (i) & 0xff;} while (0)
 
 /*
  * Use DEBUGF as you would use printf, but use double parentheses:

@@ -143,8 +143,61 @@
 suite() -> 
     [{ct_hooks, [ts_install_cth]}].
 
-
 all() -> 
+    %% This is a temporary messure to ensure that we can 
+    %% test the socket backend without effecting *all*
+    %% applications on *all* machines.
+    %% This flag is set only for *one* host.
+    case ?TEST_INET_BACKENDS() of
+        true ->
+            [
+             {group, inet_backend_default},
+             {group, inet_backend_inet},
+             {group, inet_backend_socket}
+            ];
+        _ ->
+            [
+             {group, inet_backend_default}
+            ]
+    end.
+
+groups() -> 
+    [
+     {inet_backend_default, [], inet_backend_default_cases()},
+     {inet_backend_inet,    [], inet_backend_inet_cases()},
+     {inet_backend_socket,  [], inet_backend_socket_cases()},
+
+     {all,                  [], all_cases()},
+     {start_and_stop_tests, [], start_and_stop_tests_cases()},
+     {misc_tests,           [], misc_tests_cases()},
+     {user_tests,           [], user_tests_cases()},
+     {agent_tests,          [], agent_tests_cases()},
+     {request_tests,        [], request_tests_cases()},
+     {request_tests_mt,     [], request_tests_mt_cases()},
+     {get_tests,            [], get_tests_cases()},
+     {get_next_tests,       [], get_next_tests_cases()},
+     {set_tests,            [], set_tests_cases()},
+     {bulk_tests,           [], bulk_tests_cases()},
+     {event_tests,          [], event_tests_cases()},
+     {event_tests_mt,       [], event_tests_mt_cases()},
+     {tickets,              [], tickets_cases()},
+     {otp8015,              [], otp8015_cases()},
+     {otp8395,              [], otp8395_cases()},
+     {ipv6,                 [], ipv6_tests()},
+     {ipv6_mt,              [], ipv6_tests()}
+
+    ].
+
+inet_backend_default_cases() ->
+    [{all, [], all_cases()}].
+
+inet_backend_inet_cases() ->
+    [{all, [], all_cases()}].
+
+inet_backend_socket_cases() ->
+    [{all, [], all_cases()}].
+
+all_cases() -> 
     [
      {group, start_and_stop_tests}, 
      {group, misc_tests}, 
@@ -160,130 +213,73 @@ all() ->
      {group, ipv6_mt}
     ].
 
-groups() -> 
+start_and_stop_tests_cases() ->
     [
-     {start_and_stop_tests, [],
-      [
-       simple_start_and_stop1, 
-       simple_start_and_stop2,
-       simple_start_and_stop3, 
-       simple_start_and_monitor_crash1,
-       simple_start_and_monitor_crash2, 
-       notify_started01,
-       notify_started02
-      ]
-     },
-     {misc_tests, [], 
-      [
-       info,
-       usm_priv_aes
-      ]
-     },
-     {user_tests, [], 
-      [
-       register_user1
-      ]
-     },
-     {agent_tests, [], 
-      [
-       register_agent_old,
-       register_agent2, 
-       register_agent3
-      ]
-     },
-     {request_tests, [],
-      [
-       {group, get_tests}, 
-       {group, get_next_tests}, 
-       {group, set_tests}, 
-       {group, bulk_tests}
-      ]
-     },
-     {request_tests_mt, [],
-      [
-       {group, get_tests}, 
-       {group, get_next_tests},
-       {group, set_tests}, 
-       {group, bulk_tests}
-      ]
-     },
-     {get_tests, [],
-      [
-       simple_sync_get3, 
-       simple_async_get3
-      ]
-     },
-     {get_next_tests, [],
-      [
-       simple_sync_get_next3,
-       simple_async_get_next3_cbp_def,
-       simple_async_get_next3_cbp_temp,
-       simple_async_get_next3_cbp_perm
-      ]
-     },
-     {set_tests, [],
-      [
-       simple_sync_set3, 
-       simple_async_set3_cbp_def,
-       simple_async_set3_cbp_temp,
-       simple_async_set3_cbp_perm
-      ]
-     },
-     {bulk_tests, [],
-      [
-       simple_sync_get_bulk3,
-       simple_async_get_bulk3_cbp_def,
-       simple_async_get_bulk3_cbp_temp,
-       simple_async_get_bulk3_cbp_perm
-      ]
-     },
-     {event_tests, [],
-      [
-       trap1, 
-       trap2, 
-       inform1, 
-       inform2, 
-       inform3, 
-       inform4,
-       inform_swarm_cbp_def,
-       inform_swarm_cbp_temp,
-       inform_swarm_cbp_perm,
-       report
-      ]
-     },
-     {event_tests_mt, [],
-      [
-       trap1, 
-       trap2, 
-       inform1, 
-       inform2, 
-       inform3, 
-       inform4,
-       inform_swarm_cbp_def,
-       inform_swarm_cbp_temp,
-       inform_swarm_cbp_perm,
-       report
-      ]
-     },
-     {tickets, [], 
-      [
-       {group, otp8015}, 
-       {group, otp8395}
-      ]
-     },
-     {otp8015, [], 
-      [
-       otp8015_1
-      ]
-     }, 
-     {otp8395, [], 
-      [
-       otp8395_1
-      ]
-     },
-     {ipv6, [], ipv6_tests()},
-     {ipv6_mt, [], ipv6_tests()}
+     simple_start_and_stop1, 
+     simple_start_and_stop2,
+     simple_start_and_stop3, 
+     simple_start_and_monitor_crash1,
+     simple_start_and_monitor_crash2, 
+     notify_started01,
+     notify_started02
+    ].
 
+misc_tests_cases() ->
+    [
+     info,
+     usm_priv_aes
+    ].
+
+user_tests_cases() ->
+    [
+     register_user1
+    ].
+
+agent_tests_cases() ->
+    [
+     register_agent_old,
+     register_agent2, 
+     register_agent3
+    ].
+    
+request_tests_cases() ->
+    [
+     {group, get_tests}, 
+     {group, get_next_tests}, 
+     {group, set_tests}, 
+     {group, bulk_tests}
+    ].
+
+request_tests_mt_cases() -> request_tests_cases().
+
+get_tests_cases() ->
+    [
+     simple_sync_get3, 
+     simple_async_get3
+    ].
+
+get_next_tests_cases() ->
+    [
+     simple_sync_get_next3,
+     simple_async_get_next3_cbp_def,
+     simple_async_get_next3_cbp_temp,
+     simple_async_get_next3_cbp_perm
+    ].
+
+set_tests_cases() ->
+    [
+     simple_sync_set3, 
+     simple_async_set3_cbp_def,
+     simple_async_set3_cbp_temp,
+     simple_async_set3_cbp_perm
+    ].
+
+bulk_tests_cases() ->
+    [
+     simple_sync_get_bulk3,
+     simple_async_get_bulk3_cbp_def,
+     simple_async_get_bulk3_cbp_temp,
+     simple_async_get_bulk3_cbp_perm
     ].
 
 ipv6_tests() ->
@@ -301,7 +297,37 @@ ipv6_tests() ->
      inform_swarm_cbp_perm
     ].
 
+event_tests_cases() ->
+    [
+     trap1, 
+     trap2, 
+     inform1, 
+     inform2, 
+     inform3, 
+     inform4,
+     inform_swarm_cbp_def,
+     inform_swarm_cbp_temp,
+     inform_swarm_cbp_perm,
+     report
+    ].
 
+event_tests_mt_cases() -> event_tests_cases().
+
+tickets_cases() ->
+    [
+     {group, otp8015}, 
+     {group, otp8395}
+    ].
+
+otp8015_cases() ->
+    [
+     otp8015_1
+    ].
+
+otp8395_cases() ->
+    [
+     otp8395_1
+    ].
 
 %%
 %% -----
@@ -310,7 +336,13 @@ ipv6_tests() ->
 init_per_suite(Config0) when is_list(Config0) ->
 
     ?IPRINT("init_per_suite -> entry with"
-            "~n      Config0: ~p", [Config0]),
+            "~n      Config0: ~p"
+            "~n      Nodes:  ~p"
+            "~n      explicit inet backend: ~p"
+            "~n      test inet backends:    ~p",
+            [Config0, erlang:nodes(),
+             ?EXPLICIT_INET_BACKEND(),
+             ?TEST_INET_BACKENDS()]),
 
     case ?LIB:init_per_suite(Config0) of
         {skip, _} = SKIP ->
@@ -363,20 +395,61 @@ end_per_suite(Config0) when is_list(Config0) ->
 %% -----
 %%
 
-init_per_group(request_tests_mt = GroupName, Config) ->
+init_per_group(GroupName, Config0) ->
+    ?IPRINT("init_per_group -> entry with"
+            "~n      GroupName: ~p"
+            "~n      Config:    ~p"
+            "~n   when"
+            "~n      Nodes:     ~p",
+            [GroupName, Config0, nodes()]),
+
+    Config1 = init_per_group2(GroupName, Config0),
+
+    ?IPRINT("init_per_group -> done when"
+            "~n      GroupName: ~p"
+            "~n      Config:    ~p"
+            "~n      Nodes:     ~p",
+            [GroupName, Config1, nodes()]),
+
+    Config1.
+
+
+init_per_group2(inet_backend_default = _GroupName, Config) ->
+    ?LIB:init_group_top_dir(default, [{socket_create_opts, []} | Config]);
+init_per_group2(inet_backend_inet = _GroupName, Config) ->
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            ?LIB:init_group_top_dir(inet, [{socket_create_opts, [{inet_backend, inet}]} | Config])
+    end;
+init_per_group2(inet_backend_socket = _GroupName, Config) ->
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the default group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            ?LIB:init_group_top_dir(socket, [{socket_create_opts, [{inet_backend, socket}]} | Config])
+    end;
+init_per_group2(all = GroupName, Config) ->
+    ?LIB:init_group_top_dir(GroupName, Config);
+init_per_group2(request_tests_mt = GroupName, Config) ->
     ?LIB:init_group_top_dir(
       GroupName, 
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
-init_per_group(event_tests_mt = GroupName, Config) ->
+init_per_group2(event_tests_mt = GroupName, Config) ->
     ?LIB:init_group_top_dir(
       GroupName, 
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
-init_per_group(ipv6_mt = GroupName, Config) ->
+init_per_group2(ipv6_mt = GroupName, Config) ->
     init_per_group_ipv6(GroupName,
                         [{manager_net_if_module, snmpm_net_if_mt} | Config]);   
-init_per_group(ipv6 = GroupName, Config) -> 
+init_per_group2(ipv6 = GroupName, Config) -> 
     init_per_group_ipv6(GroupName, Config);   
-init_per_group(GroupName, Config) ->
+init_per_group2(GroupName, Config) ->
     ?LIB:init_group_top_dir(GroupName, Config).
 
 
@@ -728,15 +801,16 @@ simple_start_and_stop1(Config) when is_list(Config) ->
 do_simple_start_and_stop1(Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p", [Config]),
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
+    SCO     = ?config(socket_create_opts, Config),
+    ConfDir = ?config(manager_conf_dir,   Config),
+    DbDir   = ?config(manager_db_dir,     Config),
 
     write_manager_conf(ConfDir),
 
-    Opts = [{server, [{verbosity, trace}]},
-	    {net_if, [{verbosity, trace}]},
+    Opts = [{server,     [{verbosity, trace}]},
+	    {net_if,     [{verbosity, trace}, {options, SCO}]},
 	    {note_store, [{verbosity, trace}]},
-	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
+	    {config,     [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
     ?IPRINT("try starting manager"),
     ok = snmpm:start_link(Opts),
@@ -768,15 +842,16 @@ do_simple_start_and_stop2([ManagerNode], Config) ->
             "~n      ~p"
             "~n", [Config]),
 
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
+    SCO     = ?config(socket_create_opts, Config),
+    ConfDir = ?config(manager_conf_dir,   Config),
+    DbDir   = ?config(manager_db_dir,     Config),
 
     write_manager_conf(ConfDir),
 
-    Opts = [{server, [{verbosity, trace}]},
-	    {net_if, [{verbosity, trace}]},
+    Opts = [{server,     [{verbosity, trace}]},
+	    {net_if,     [{verbosity, trace}, {options, SCO}]},
 	    {note_store, [{verbosity, trace}]},
-	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
+	    {config,     [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
 
     ?IPRINT("try load snmp application"),
@@ -812,13 +887,15 @@ do_simple_start_and_stop3(Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p", [Config]),
 
+    SCO     = ?config(socket_create_opts, Config),
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
 
     write_manager_conf(ConfDir),
 
     Opts = [{server,     [{verbosity, trace}]},
-	    {net_if,     [{verbosity, trace}, {options, [{extra_sock_opts, ['this-should-not-work']}]}]},
+	    {net_if,     [{verbosity, trace},
+                          {options,   SCO ++ [{extra_sock_opts, ['this-should-not-work']}]}]},
 	    {note_store, [{verbosity, trace}]},
 	    {config,     [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
@@ -850,15 +927,16 @@ do_simple_start_and_monitor_crash1(Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p", [Config]),
 
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
+    SCO     = ?config(socket_create_opts, Config),
+    ConfDir = ?config(manager_conf_dir,   Config),
+    DbDir   = ?config(manager_db_dir,     Config),
 
     write_manager_conf(ConfDir),
 
-    Opts = [{server, [{verbosity, trace}]},
-	    {net_if, [{verbosity, trace}]},
+    Opts = [{server,     [{verbosity, trace}]},
+	    {net_if,     [{verbosity, trace}, {options, SCO}]},
 	    {note_store, [{verbosity, trace}]},
-	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
+	    {config,     [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
     ?IPRINT("try starting manager"),
     ok = snmpm:start(Opts),
@@ -923,16 +1001,17 @@ do_simple_start_and_monitor_crash2(Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p", [Config]),
 
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
+    SCO     = ?config(socket_create_opts, Config),
+    ConfDir = ?config(manager_conf_dir,   Config),
+    DbDir   = ?config(manager_db_dir,     Config),
 
     write_manager_conf(ConfDir),
 
     Opts = [{restart_type, permanent},
-	    {server, [{verbosity, trace}]},
-	    {net_if, [{verbosity, trace}]},
+	    {server,     [{verbosity, trace}]},
+	    {net_if,     [{verbosity, trace}, {options, SCO}]},
 	    {note_store, [{verbosity, trace}]},
-	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
+	    {config,     [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
     ?IPRINT("try starting manager"),
     ok = snmpm:start(Opts),
@@ -1018,15 +1097,16 @@ do_notify_started01(Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p", [Config]),
 
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
+    SCO     = ?config(socket_create_opts, Config),
+    ConfDir = ?config(manager_conf_dir,   Config),
+    DbDir   = ?config(manager_db_dir,     Config),
 
     write_manager_conf(ConfDir),
 
-    Opts = [{server, [{verbosity, log}]},
-	    {net_if, [{verbosity, silence}]},
+    Opts = [{server,     [{verbosity, log}]},
+	    {net_if,     [{verbosity, silence}, {options, SCO}]},
 	    {note_store, [{verbosity, silence}]},
-	    {config, [{verbosity, log}, {dir, ConfDir}, {db_dir, DbDir}]}],
+	    {config,     [{verbosity, log}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
     ?IPRINT("request start notification (1)"),
     Pid1 = snmpm:notify_started(10000),
@@ -1128,13 +1208,14 @@ do_notify_started02(Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p", [Config]),
 
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
+    SCO     = ?config(socket_create_opts, Config),
+    ConfDir = ?config(manager_conf_dir,   Config),
+    DbDir   = ?config(manager_db_dir,     Config),
 
     write_manager_conf(ConfDir),
 
     Opts = [{server,     [{verbosity, log}]},
-	    {net_if,     [{verbosity, silence}]},
+	    {net_if,     [{verbosity, silence}, {options, SCO}]},
 	    {note_store, [{verbosity, silence}]},
 	    {config,     [{verbosity, debug}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
@@ -1328,17 +1409,18 @@ ns02_ctrl_loop(Opts, N) ->
 info(suite) -> [];
 info(Config) when is_list(Config) ->
     Pre = fun() ->
-                  ConfDir = ?config(manager_conf_dir, Config),
-                  DbDir   = ?config(manager_db_dir, Config),
+                  SCO     = ?config(socket_create_opts, Config),
+                  ConfDir = ?config(manager_conf_dir,   Config),
+                  DbDir   = ?config(manager_db_dir,     Config),
 
                   write_manager_conf(ConfDir),
 
-                  Opts = [{server, [{verbosity, trace}]},
-                          {net_if, [{verbosity, trace}]},
+                  Opts = [{server,     [{verbosity, trace}]},
+                          {net_if,     [{verbosity, trace}, {options, SCO}]},
                           {note_store, [{verbosity, trace}]},
-                          {config, [{verbosity, trace}, 
-                                    {dir,       ConfDir}, 
-                                    {db_dir,    DbDir}]}],
+                          {config,    [{verbosity, trace}, 
+                                       {dir,       ConfDir}, 
+                                       {db_dir,    DbDir}]}],
                   ?IPRINT("try starting manager"),
                   ok = snmpm:start(Opts),
                   ?SLEEP(1000),
@@ -1370,32 +1452,54 @@ do_info(Config) ->
 verify_info(Info) when is_list(Info) ->
     Keys = [{server,     [process_memory, db_memory]},
 	    {config,     [process_memory, db_memory]},
-	    {net_if,     [process_memory, port_info]},
+	    {net_if,     [process_memory, transport_info]},
 	    {note_store, [process_memory, db_memory]},
 	    stats_counters],
-    verify_info(Keys, Info);
+    try verify_info(Keys, Info)
+    catch
+        C:E:S ->
+            ?IPRINT("Verification Failed: "
+                    "~n      Class: ~p"
+                    "~n      Error: ~p"
+                    "~n      Stack: ~p", [C, E, S]),
+            {error, {verification_failed, C, E, S}}
+    end;
 verify_info(BadInfo) ->
     {error, {bad_info, BadInfo}}.
 
 verify_info([], _) ->
+    ?IPRINT("verified"),
     ok;
 verify_info([Key|Keys], Info) when is_atom(Key) ->
+    ?IPRINT("try verify '~p'", [Key]),
     case lists:keymember(Key, 1, Info) of
 	true ->
 	    verify_info(Keys, Info);
 	false ->
+            ?IPRINT("Verification of '~p' failed", [Key]),
 	    {error, {missing_info, {Key, Info}}}
     end;
 verify_info([{Key, SubKeys}|Keys], Info) ->
+    ?IPRINT("try verify '~p' with sub-keys: "
+            "~n      ~p", [Key, SubKeys]),    
     case lists:keysearch(Key, 1, Info) of
 	{value, {Key, SubInfo}} ->
-	    case verify_info(SubKeys, SubInfo) of
+            SubInfo2 =
+                if is_list(SubInfo) -> SubInfo;
+                   is_map(SubInfo)  -> maps:to_list(SubInfo)
+                end,
+            ?IPRINT("try verify sub-key(s) with sub-info: "
+                    "~n      (Sub-) Keys: ~p"
+                    "~n      (Sub-) Info: ~p", [SubKeys, SubInfo2]),
+	    case verify_info(SubKeys, SubInfo2) of
 		ok ->
 		    verify_info(Keys, Info);
 		{error, {missing_info, {SubKey, _}}} ->
+                    ?IPRINT("Verification of sub-key '~p' failed", [SubKey]),
 		    {error, {missing_subinfo, {Key, SubKey, Info}}}
 	    end;
 	false ->
+            ?IPRINT("Verification of key '~p' failed", [Key]),
 	    {error, {missing_info, {Key, Info}}}
     end.
 
@@ -1408,26 +1512,27 @@ verify_info([{Key, SubKeys}|Keys], Info) ->
 usm_priv_aes(suite) -> [];
 usm_priv_aes(Config) when is_list(Config) ->
     Pre = fun() ->
-                  ConfDir = ?config(manager_conf_dir, Config),
-                  DbDir   = ?config(manager_db_dir, Config),
+                  SCO     = ?config(socket_create_opts, Config),
+                  ConfDir = ?config(manager_conf_dir,   Config),
+                  DbDir   = ?config(manager_db_dir,     Config),
 
                   write_manager_conf(ConfDir),
 
                   Opts = [{server,     [{verbosity, trace}]},
-                          {net_if,     [{verbosity, trace}]},
+                          {net_if,     [{verbosity, trace}, {options, SCO}]},
                           {note_store, [{verbosity, trace}]},
                           {config,     [{verbosity, trace},
                                         {dir,       ConfDir},
                                         {db_dir,    DbDir}]}],
 
-                  io:format("[~s] try starting manager", [?FTS()]),
+                  ?IPRINT("try starting manager"),
                   ok = snmpm:start(Opts),
                   ?SLEEP(1000), % Give it time to settle
                   ok
           end,
     Case = fun(_) -> do_usm_priv_aes(Config) end,
     Post = fun(_) ->
-                   io:format("[~s] try stop manager", [?FTS()]),
+                   ?IPRINT("try stop manager"),
                    ok = snmpm:stop(),
                    ?SLEEP(1000), % Give it time to settle
                    ok
@@ -1435,10 +1540,13 @@ usm_priv_aes(Config) when is_list(Config) ->
     ?TC_TRY(usm_priv_aes, Pre, Case, Post).
 
 do_usm_priv_aes(Config) ->
-    io:format("[~s] starting with Config: "
-              "~n   ~p", [?FTS(), Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
-    io:format("[~s] generate AES-encrypted message", [?FTS()]),
+    put(sname,     "TC[usm-priv-aes]"),
+    put(verbosity, trace),
+
+    ?IPRINT("generate AES-encrypted message"),
 
     EngineID = [128,0,0,0,6],
     SecName  = "v3_user",
@@ -1465,6 +1573,7 @@ do_usm_priv_aes(Config) ->
         {sec_name,  SecName}
       ],
 
+    ?IPRINT("register user, usm-user and agent"),
     snmpm:register_user(SecName, snmpm_user_default, nil),
     snmpm:register_usm_user(EngineID, SecName, Credentials),
     snmpm:register_agent(SecName, "v3_agent", AgentConfig),
@@ -1494,16 +1603,18 @@ do_usm_priv_aes(Config) ->
         _MsgPrivacyParameters        = PrivKey
       },
 
+    ?IPRINT("get engine mms"),
     {ok, MsgMaxSize} =
       snmpm_config:get_engine_max_message_size(),
 
+    ?IPRINT("encode scoped pdu"),
     Message =
       { message,
-        _Version = 'version-3',
+        'version-3',
         { v3_hdr,
-          _MsgID = 1,
+          1, % MsgID1 
           MsgMaxSize,
-          _MsgFlags = snmp_misc:mk_msg_flags(PduType, 2),
+          snmp_misc:mk_msg_flags(PduType, 2), % MsgFlags1
           _MsgSecurityModel = 3,  % SEC_USM
           MsgSecurityParameters,
           0
@@ -1515,6 +1626,7 @@ do_usm_priv_aes(Config) ->
 
     SecLevel = 2,
 
+    ?IPRINT("generate outgoing message"),
     Msg =
       snmpm_usm:generate_outgoing_msg(
         Message,
@@ -1524,11 +1636,13 @@ do_usm_priv_aes(Config) ->
         SecLevel
       ),
 
-    io:format("[~s] got AES-encrypted message, now decrypt: "
-              "~n   ~p", [?FTS(), Msg]),
+    ?IPRINT("got AES-encrypted message, now decrypt: "
+            "~n   ~p", [Msg]),
 
     {message, _Version, Hdr, NextData} =
       snmp_pdus:dec_message_only(Msg),
+
+    ?IPRINT("AES-encrypted message decrypted - now match"),
 
     { v3_hdr,
       _MsgID,
@@ -1538,6 +1652,8 @@ do_usm_priv_aes(Config) ->
       SecParams,
       _Hdr_size
     } = Hdr,
+
+    ?IPRINT("process incoming message"),
 
     { ok,
       { _MsgAuthEngineID,
@@ -1555,7 +1671,7 @@ do_usm_priv_aes(Config) ->
 
     Data = ScopedPDUBytes,
 
-    io:format("[~s] Message decrypted", [?FTS()]),
+    ?IPRINT("message decrypted"),
     ok.
 
 
@@ -1576,13 +1692,14 @@ do_register_user1([ManagerNode], Config) ->
             "~n   ~p"
             "~n", [Config]),
 
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
+    SCO     = ?config(socket_create_opts, Config),
+    ConfDir = ?config(manager_conf_dir,   Config),
+    DbDir   = ?config(manager_db_dir,     Config),
 
     write_manager_conf(ConfDir),
 
     Opts = [{server,     [{verbosity, trace}]},
-	    {net_if,     [{verbosity, trace}]},
+	    {net_if,     [{verbosity, trace}, {options, SCO}]},
 	    {note_store, [{verbosity, trace}]},
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
@@ -1676,13 +1793,14 @@ do_register_agent_old([ManagerNode], Config) ->
             "~n      ~p"
             "~n", [Config]),
 
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
+    SCO     = ?config(socket_create_opts, Config),
+    ConfDir = ?config(manager_conf_dir,   Config),
+    DbDir   = ?config(manager_db_dir,     Config),
 
     write_manager_conf(ConfDir),
 
     Opts = [{server,     [{verbosity, trace}]},
-	    {net_if,     [{verbosity, trace}]},
+	    {net_if,     [{verbosity, trace}, {options, SCO}]},
 	    {note_store, [{verbosity, trace}]},
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
@@ -1809,14 +1927,15 @@ do_register_agent2([ManagerNode], Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p", [Config]),
 
-    ConfDir   = ?config(manager_conf_dir, Config),
-    DbDir     = ?config(manager_db_dir, Config),
+    SCO       = ?config(socket_create_opts, Config),
+    ConfDir   = ?config(manager_conf_dir,   Config),
+    DbDir     = ?config(manager_db_dir,     Config),
     LocalHost = snmp_test_lib:localhost(), 
 
     write_manager_conf(ConfDir),
 
     Opts = [{server,     [{verbosity, trace}]},
-	    {net_if,     [{verbosity, trace}]},
+	    {net_if,     [{verbosity, trace}, {options, SCO}]},
 	    {note_store, [{verbosity, trace}]},
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
@@ -1954,15 +2073,16 @@ do_register_agent3([ManagerNode], Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p", [Config]),
 
-    ConfDir   = ?config(manager_conf_dir, Config),
-    DbDir     = ?config(manager_db_dir, Config),
+    SCO       = ?config(socket_create_opts, Config),
+    ConfDir   = ?config(manager_conf_dir,   Config),
+    DbDir     = ?config(manager_db_dir,     Config),
     LocalHost = snmp_test_lib:localhost(), 
 
 
     write_manager_conf(ConfDir),
 
     Opts = [{server,     [{verbosity, trace}]},
-	    {net_if,     [{verbosity, trace}]},
+	    {net_if,     [{verbosity, trace}, {options, SCO}]},
 	    {note_store, [{verbosity, trace}]},
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
@@ -2139,10 +2259,22 @@ do_simple_sync_get3(Config, Get, PostVerify) ->
 
 do_simple_sync_get3(Node, TargetName, Oids, Get, PostVerify) 
   when is_function(Get, 3) andalso is_function(PostVerify, 0) ->
-    ?line {ok, Reply, _Rem} = Get(Node, TargetName, Oids),
 
-    ?DBG("~n   Reply: ~p"
-	 "~n   Rem:   ~w", [Reply, _Rem]),
+    ?IPRINT("try get for ~p (on ~p):"
+            "~n      Oids: ~p", [TargetName, Node, Oids]),
+    ?line Reply =
+        case Get(Node, TargetName, Oids) of
+            {ok, R, _Rem} ->
+                ?IPRINT("get reply: "
+                        "~n       Reply: ~p"
+                        "~n       Rem:   ~w", [R, _Rem]),
+
+                R;
+            {error, Reason} = ERROR ->
+                ?EPRINT("get failed: "
+                        "~n      ~p", [Reason]),
+                ERROR
+        end,
 
     %% verify that the operation actually worked:
     %% The order should be the same, so no need to search
@@ -4266,24 +4398,26 @@ do_inform4(Config) ->
 
 inform_swarm_cbp_def(suite) -> [];
 inform_swarm_cbp_def(Config) when is_list(Config) ->
-    inform_swarm(is_cbp_def, Config).
+    inform_swarm(is_cbp_def, 1500, Config).
 
 inform_swarm_cbp_temp(suite) -> [];
 inform_swarm_cbp_temp(Config) when is_list(Config) ->
-    inform_swarm(is_cbp_temp, Config).
+    inform_swarm(is_cbp_temp, 1500, Config).
 
 inform_swarm_cbp_perm(suite) -> [];
 inform_swarm_cbp_perm(Config) when is_list(Config) ->
-    inform_swarm(is_cbp_perm, Config).
+    inform_swarm(is_cbp_perm, 1800, Config).
 
-inform_swarm(Case, Config) ->
+inform_swarm(Case, NumI, Config) ->
     ?TC_TRY(Case,
-            fun() -> do_inform_swarm(Config) end).
+            fun() -> do_inform_swarm(NumI, Config) end).
 
-do_inform_swarm(Config) ->
+do_inform_swarm(NumI, Config) ->
     %% process_flag(trap_exit, true),
-    ?IPRINT("starting with Config: "
-            "~p      ~n", [Config]),
+    ?IPRINT("starting with"
+            "~n      NumI:   ~p"
+            "~n      Config: ~p"
+            "~n", [NumI, Config]),
 
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node,   Config),
@@ -4299,7 +4433,7 @@ do_inform_swarm(Config) ->
     ?line ok = agent_load_mib(AgentNode,  Test2Mib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
-    NumInforms = 2000 div Factor,
+    NumInforms = NumI div Factor,
 
     Collector = self(),
 
@@ -4465,13 +4599,14 @@ otp8015_1(doc) -> ["OTP-8015:1 - testing the new api-function."];
 otp8015_1(suite) -> [];
 otp8015_1(Config) when is_list(Config) ->
     Pre = fun() ->
-                  ConfDir = ?config(manager_conf_dir, Config),
-                  DbDir   = ?config(manager_db_dir, Config),
+                  SCO     = ?config(socket_create_opts, Config),
+                  ConfDir = ?config(manager_conf_dir,   Config),
+                  DbDir   = ?config(manager_db_dir,     Config),
 
                   write_manager_conf(ConfDir),
 
                   Opts = [{server,     [{verbosity, trace}]},
-                          {net_if,     [{verbosity, trace}]},
+                          {net_if,     [{verbosity, trace}, {options, SCO}]},
                           {note_store, [{verbosity, trace}]},
                           {config,     [{verbosity, trace},
                                         {dir,       ConfDir},
@@ -5318,16 +5453,18 @@ start_manager(Node, Vsns, Config) ->
     start_manager(Node, Vsns, Config, []).
 start_manager(Node, Vsns, Conf0, _Opts) ->
 
-    ?DBG("start_manager -> entry with"
-	 "~n   Node:   ~p"
-	 "~n   Vsns:   ~p"
-	 "~n   Conf0:  ~p"
-	 "~n   Opts:   ~p", [Node, Vsns, Conf0, _Opts]),
+    ?IPRINT("start_manager -> entry with"
+            "~n   Node:   ~p"
+            "~n   Vsns:   ~p"
+            "~n   Conf0:  ~p"
+            "~n   Opts:   ~p", [Node, Vsns, Conf0, _Opts]),
 
-    AtlDir  = ?config(manager_log_dir,  Conf0),
-    ConfDir = ?config(manager_conf_dir, Conf0),
-    DbDir   = ?config(manager_db_dir,   Conf0),
-    IRB     = ?config(irb,              Conf0),
+    SCO     = ?config(socket_create_opts, Conf0),
+
+    AtlDir  = ?config(manager_log_dir,    Conf0),
+    ConfDir = ?config(manager_conf_dir,   Conf0),
+    DbDir   = ?config(manager_db_dir,     Conf0),
+    IRB     = ?config(irb,                Conf0),
 
     ConfigVerbosity    = get_opt(manager_config_verbosity,     Conf0, trace),
     NoteStoreVerbosity = get_opt(manager_note_store_verbosity, Conf0, log),
@@ -5342,27 +5479,29 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
     NetIfConf = 
 	case get_opt(manager_net_if_module, Conf0, no_module) of
 	    no_module ->
-		[{verbosity, NetIfVerbosity}];
+		[{verbosity, NetIfVerbosity},
+                 {options,   SCO}];
 	    NetIfModule ->
 		[{module,    NetIfModule}, 
-		 {verbosity, NetIfVerbosity}]
+		 {verbosity, NetIfVerbosity},
+                 {options,   SCO}]
 	end,
 
-    Env = [{versions,                     Vsns},
-	   {inform_request_behaviour,     IRB},
-	   {audit_trail_log, [{type,      read_write},
-			      {dir,       AtlDir},
-			      {size,      {10240, 10}},
-			      {repair,    true},
-			      {seqno,     AtlSeqNo}]},
-	   {config,          [{dir,       ConfDir}, 
-			      {db_dir,    DbDir}, 
-			      {verbosity, ConfigVerbosity}]},
-	   {note_store,      [{verbosity, NoteStoreVerbosity}]},
-	   {server,          [{verbosity, ServerVerbosity},
-                              {cbproxy,   CBP},
-                              {netif_sup, NIS}]},
-	   {net_if,          NetIfConf}],
+    Env = [{versions,                 Vsns},
+	   {inform_request_behaviour, IRB},
+	   {audit_trail_log,          [{type,      read_write},
+                                       {dir,       AtlDir},
+                                       {size,      {10240, 10}},
+                                       {repair,    true},
+                                       {seqno,     AtlSeqNo}]},
+	   {config,                   [{dir,       ConfDir}, 
+                                       {db_dir,    DbDir}, 
+                                       {verbosity, ConfigVerbosity}]},
+	   {note_store,               [{verbosity, NoteStoreVerbosity}]},
+	   {server,                   [{verbosity, ServerVerbosity},
+                                       {cbproxy,   CBP},
+                                       {netif_sup, NIS}]},
+	   {net_if,                   NetIfConf}],
     ?line ok = set_mgr_env(Node, Env),
 
     ?line ok = try start_snmp(Node) of
@@ -5488,16 +5627,16 @@ start_manager_node() ->
 start_node(Name) ->
     start_node(Name, true).
 start_node(Name, Retry) ->
+
+    ?IPRINT("start_node -> entry with"
+            "~n   Name: ~p"
+            "~n when"
+            "~n   hostname of this node: ~p",
+            [Name, list_to_atom(?HOSTNAME(node()))]),
+
     Pa   = filename:dirname(code:which(?MODULE)),
-    Args = case init:get_argument('CC_TEST') of
-               {ok, [[]]} ->
-                   " -pa /clearcase/otp/libraries/snmp/ebin ";
-               {ok, [[Path]]} ->
-                   " -pa " ++ Path;
-               error ->
-                      ""
-              end,
-    A = Args ++ " -pa " ++ Pa ++ 
+
+    A = " -pa " ++ Pa ++ 
         " -s " ++ atom_to_list(snmp_test_sys_monitor) ++ " start" ++ 
         " -s global sync",
     try ?START_NODE(Name, A) of

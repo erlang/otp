@@ -67,7 +67,7 @@
                   | {'tail_segment_not_at_end', fa()}.
 
 -type error()    :: {'none', module(), err_desc()}.
--type warning()  :: {module(), term()}.
+-type warning()  :: {'none', module(), term()}.
 
 %%-----------------------------------------------------------------------
 %% Define the lint state record.
@@ -115,12 +115,12 @@ format_error({undefined_function,{F1,A1},{F2,A2}}) ->
 format_error({tail_segment_not_at_end,{F,A}}) ->
     io_lib:format("binary tail segment not at end in ~w/~w", [F,A]).
 
--type ret() :: {'ok', [{module(), [warning(),...]}]}
-             | {'error', [{module(), [error(),...]}],
-		         [{module(), [warning(),...]}]}.
+-type ret() :: {'ok', [{file:filename(), [warning()]}]}
+             | {'error', [{file:filename(), [error()]}],
+		         [{file:filename(), [warning()]}]}.
 
 -spec module(cerl:c_module()) -> ret().
-         
+
 module(M) -> module(M, []).
 
 -spec module(cerl:c_module(), [compile:option()]) -> ret().
@@ -147,9 +147,10 @@ defined_funcs(Fs) ->
 
 return_status(St) ->
     Ws = reverse(St#lint.warnings),
+    File = atom_to_list(St#lint.module),
     case reverse(St#lint.errors) of
-	[] -> {ok,[{St#lint.module,Ws}]};
-	Es -> {error,[{St#lint.module,Es}],[{St#lint.module,Ws}]}
+	[] -> {ok,[{File,Ws}]};
+	Es -> {error,[{File,Es}],[{File,Ws}]}
     end.
 
 %% add_error(ErrorDescriptor, State) -> State'
@@ -158,7 +159,7 @@ return_status(St) ->
 
 add_error(E, St) -> St#lint{errors=[{none,?MODULE,E}|St#lint.errors]}.
 
-%%add_warning(W, St) -> St#lint{warnings=[{none,core_lint,W}|St#lint.warnings]}.
+%%add_warning(W, St) -> St#lint{warnings=[{none,?MODULE,W}|St#lint.warnings]}.
 
 check_exports(Es, St) ->
     case all(fun (#c_var{name={Name,Arity}})

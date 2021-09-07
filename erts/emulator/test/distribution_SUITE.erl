@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@
          bad_dist_ext_control/1,
          bad_dist_ext_connection_id/1,
          bad_dist_ext_size/1,
-	 start_epmd_false/1, epmd_module/1,
+	 start_epmd_false/1, no_epmd/1, epmd_module/1,
          bad_dist_fragments/1,
          message_latency_large_message/1,
          message_latency_large_link_exit/1,
@@ -72,10 +72,11 @@
          message_latency_large_link_exit/0,
          message_latency_large_monitor_exit/0,
          message_latency_large_exit2/0,
+         dist_entry_refc_race/1,
          system_limit/1,
          hopefull_data_encoding/1,
          hopefull_export_fun_bug/1,
-         mk_hopefull_data/0]).
+         huge_iovec/1]).
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
@@ -83,6 +84,7 @@
          optimistic_dflags_echo/0, optimistic_dflags_sender/1,
          roundtrip/1, bounce/1, do_dist_auto_connect/1, inet_rpc_server/1,
          dist_parallel_sender/3, dist_parallel_receiver/0,
+         derr_run/1,
          dist_evil_parallel_receiver/0, make_busy/2]).
 
 %% epmd_module exports
@@ -104,8 +106,10 @@ all() ->
      contended_atom_cache_entry, contended_unicode_atom_cache_entry,
      {group, message_latency},
      {group, bad_dist}, {group, bad_dist_ext},
-     start_epmd_false, epmd_module, system_limit,
-     hopefull_data_encoding, hopefull_export_fun_bug].
+     dist_entry_refc_race,
+     start_epmd_false, no_epmd, epmd_module, system_limit,
+     hopefull_data_encoding, hopefull_export_fun_bug,
+     huge_iovec].
 
 groups() ->
     [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
@@ -1749,14 +1753,14 @@ start_monitor(Offender,P) ->
                           just_stay_alive -> ok
                       end
               end),
-    Ref = receive
+    Res = receive
               {Q,ref,R} ->
-                  R
+                  {Q, R}
           after  5000 ->
                      error
           end,
-    io:format("Ref is ~p~n",[Ref]),
-    ok.
+    io:format("Res is ~p~n",[Res]),
+    Res.
 start_link(Offender,P) ->
     Parent = self(),
     Q = spawn(Offender,
@@ -1768,14 +1772,14 @@ start_link(Offender,P) ->
                           just_stay_alive -> ok
                       end
               end),
-    Ref = receive
+    Res = receive
               {Q,ref,R} ->
                   R
           after  5000 ->
                      error
           end,
-    io:format("Ref is ~p~n",[Ref]),
-    ok.
+    io:format("Res is ~p~n",[Res]),
+    Res.
 
 %% Test dist messages with valid structure (binary to term ok) but malformed control content
 bad_dist_structure(Config) when is_list(Config) ->
@@ -1923,20 +1927,38 @@ bad_dist_fragments(Config) when is_list(Config) ->
                       [{hdr, 3, binary:part(Msg, 10,byte_size(Msg)-10)},
                        close]),
 
-    start_monitor(Offender,P),
-    ExitVictim = spawn(Victim, fun() -> receive ok -> ok end end),
-    send_bad_fragments(Offender, Victim, P,{?DOP_PAYLOAD_EXIT,P,ExitVictim},2,
+    ExitVictim = spawn(Victim, fun() ->
+                                       receive
+                                           {link, Proc} ->
+                                               link(Proc),
+                                               Parent ! {self(), linked}
+                                       end,
+                                       receive ok -> ok end
+                               end),
+    OP1 = start_link(Offender,ExitVictim),
+    ExitVictim ! {link, OP1},
+    receive {ExitVictim, linked} -> ok end,
+    send_bad_fragments(Offender, Victim, ExitVictim,{?DOP_PAYLOAD_EXIT,OP1,ExitVictim},0,
                       [{hdr, 1, [131]}]),
 
-    start_monitor(Offender,P),
     Exit2Victim = spawn(Victim, fun() -> receive ok -> ok end end),
-    send_bad_fragments(Offender, Victim, P,{?DOP_PAYLOAD_EXIT2,P,Exit2Victim},2,
+    {OP2, _} = start_monitor(Offender,Exit2Victim),
+    send_bad_fragments(Offender, Victim, Exit2Victim,{?DOP_PAYLOAD_EXIT2,OP2,Exit2Victim},0,
                       [{hdr, 1, [132]}]),
 
-    start_monitor(Offender,P),
-    DownVictim = spawn(Victim, fun() -> receive ok -> ok end end),
-    DownRef = erlang:monitor(process, DownVictim),
-    send_bad_fragments(Offender, Victim, P,{?DOP_PAYLOAD_MONITOR_P_EXIT,P,DownVictim,DownRef},2,
+    DownVictim = spawn(Victim, fun() ->
+                                       receive
+                                           {monitor, Proc} ->
+                                               DR = erlang:monitor(process, Proc),
+                                               Parent ! {self(), DR}
+                                       end,
+                                       Parent ! {self, DR},
+                                       receive ok -> ok end
+                               end),
+    {OP3, _} = start_monitor(Offender,DownVictim),
+    DownVictim ! {monitor, OP3},
+    DownRef = receive {DownVictim, DR} -> DR end,
+    send_bad_fragments(Offender, Victim, DownVictim,{?DOP_PAYLOAD_MONITOR_P_EXIT,OP3,DownVictim,DownRef},0,
                       [{hdr, 1, [133]}]),
 
     P ! two,
@@ -2528,6 +2550,11 @@ start_epmd_false(Config) when is_list(Config) ->
 
     ok.
 
+no_epmd(Config) when is_list(Config) ->
+    %% Trying to start a node with -no_epmd but without passing the
+    %% --proto_dist option should fail.
+    {error, timeout} = start_node(no_epmd, "-no_epmd").
+
 epmd_module(Config) when is_list(Config) ->
     %% We need a relay node to test this, since the test node uses the
     %% standard epmd module.
@@ -2602,7 +2629,6 @@ test_hopefull_data_encoding(Config, Fallback) when is_list(Config) ->
             false = rpc:call(BouncerNode, erts_debug, set_internal_state,
                             [remove_hopefull_dflags, true])
     end,
-    HData = mk_hopefull_data(),
     Tester = self(),
     R1 = make_ref(),
     R2 = make_ref(),
@@ -2611,10 +2637,13 @@ test_hopefull_data_encoding(Config, Fallback) when is_list(Config) ->
     Proxy = spawn_link(ProxyNode,
                        fun () ->
                                register(bouncer, self()),
+                               %% We create the data on the proxy node in order
+                               %% to create the correct sub binaries
+                               HData = mk_hopefull_data(R1, Tester),
                                %% Verify same result between this node and tester
                                Tester ! [R1, HData],
                                %% Test when connection has not been setup yet
-                               Bouncer ! {Tester, [R2, HData]}, 
+                               Bouncer ! {Tester, [R2, HData]},
                                Sync = make_ref(),
                                Bouncer ! {self(), Sync},
                                receive Sync -> ok end,
@@ -2622,17 +2651,18 @@ test_hopefull_data_encoding(Config, Fallback) when is_list(Config) ->
                                Bouncer ! {Tester, [R3, HData]},
                                receive after infinity -> ok end
                        end),
-    receive
-        [R1, HData1] ->
-            Hdata = HData1
-    end,
+    HData =
+        receive
+            [R1, HData1] ->
+                HData1
+        end,
     receive
         [R2, HData2] ->
             case Fallback of
                 false ->
                     HData = HData2;
                 true ->
-                    check_hopefull_fallback_data(Hdata, HData2)
+                    check_hopefull_fallback_data(HData, HData2)
             end
     end,
     receive
@@ -2641,7 +2671,7 @@ test_hopefull_data_encoding(Config, Fallback) when is_list(Config) ->
                 false ->
                     HData = HData3;
                 true ->
-                    check_hopefull_fallback_data(Hdata, HData3)
+                    check_hopefull_fallback_data(HData, HData3)
             end
     end,
     unlink(Proxy),
@@ -2659,32 +2689,54 @@ bounce_loop() ->
     end,
     bounce_loop().
 
-mk_hopefull_data() ->
+mk_hopefull_data(RemoteRef, RemotePid) ->
     HugeBs = list_to_bitstring([lists:duplicate(12*1024*1024, 85), <<6:6>>]),
     <<_:1/bitstring,HugeBs2/bitstring>> = HugeBs,
-    lists:flatten([mk_hopefull_data(list_to_binary(lists:seq(1,255))),
-                   1234567890, HugeBs, fun gurka:banan/3, fun erlang:node/1,
-                   self(), fun erlang:self/0,
-                   mk_hopefull_data(list_to_binary(lists:seq(1,32))), an_atom,
-                   fun lists:reverse/1, make_ref(), HugeBs2,
-                   fun blipp:blapp/7]).
+    mk_hopefull_data(list_to_binary(lists:seq(1,255))) ++
+        [1234567890, HugeBs, fun gurka:banan/3, fun erlang:node/1,
+         RemotePid, self(), fun erlang:self/0] ++
+        mk_hopefull_data(list_to_binary(lists:seq(1,32))) ++
+        [an_atom,
+         fun lists:reverse/1, RemoteRef, make_ref(), HugeBs2,
+         fun blipp:blapp/7].
 
 mk_hopefull_data(BS) ->
     BSsz = bit_size(BS),
-    [lists:map(fun (Offset) ->
-                       <<_:Offset/bitstring, NewBs/bitstring>> = BS,
-                       NewBs
-               end, lists:seq(1, 16)),
-     lists:map(fun (Offset) ->
-                       <<NewBs:Offset/bitstring, _/bitstring>> = BS,
-                       NewBs
-               end, lists:seq(BSsz-16, BSsz-1)),
-     lists:map(fun (Offset) ->
-                       PreOffset = Offset rem 16,
-                       <<_:PreOffset/bitstring, NewBs:Offset/bitstring, _/bitstring>> = BS,
-                       NewBs
-               end, lists:seq(BSsz-32, BSsz-17))].
-    
+    lists:concat(
+      [lists:map(fun (Offset) ->
+                         <<NewBs:Offset/bitstring, _/bitstring>> = BS,
+                         NewBs
+                 end, lists:seq(1, 16)),
+       lists:map(fun (Offset) ->
+                         <<_:Offset/bitstring, NewBs/bitstring>> = BS,
+                         NewBs
+                 end, lists:seq(1, 16)),
+       lists:map(fun (Offset) ->
+                         <<NewBs:Offset/bitstring, _/bitstring>> = BS,
+                         NewBs
+                 end, lists:seq(BSsz-16, BSsz-1)),
+       lists:map(fun (Offset) ->
+                         PreOffset = Offset rem 16,
+                         <<_:PreOffset/bitstring, NewBs:Offset/bitstring, _/bitstring>> = BS,
+                         NewBs
+                 end, lists:seq(BSsz-32, BSsz-17)),
+       lists:map(fun (Offset) ->
+                         <<NewBs:Offset/bitstring, _/bitstring>> = BS,
+                         [NewBs]
+                 end, lists:seq(1, 16)),
+       lists:map(fun (Offset) ->
+                         <<_:Offset/bitstring, NewBs/bitstring>> = BS,
+                         [NewBs]
+                 end, lists:seq(1, 16)),
+       lists:map(fun (Offset) ->
+                         <<NewBs:Offset/bitstring, _/bitstring>> = BS,
+                         [NewBs]
+                 end, lists:seq(BSsz-16, BSsz-1)),
+       lists:map(fun (Offset) ->
+                         PreOffset = Offset rem 16,
+                         <<_:PreOffset/bitstring, NewBs:Offset/bitstring, _/bitstring>> = BS,
+                         [NewBs]
+                 end, lists:seq(BSsz-32, BSsz-17))]).
 
 check_hopefull_fallback_data([], []) ->
     ok;
@@ -2694,6 +2746,8 @@ check_hopefull_fallback_data([X|Xs],[Y|Ys]) ->
 
 chk_hopefull_fallback(Binary, FallbackBinary) when is_binary(Binary) ->
     Binary = FallbackBinary;
+chk_hopefull_fallback([BitStr], [{Bin, BitSize}]) when is_bitstring(BitStr) ->
+    chk_hopefull_fallback(BitStr, {Bin, BitSize});
 chk_hopefull_fallback(BitStr, {Bin, BitSize}) when is_bitstring(BitStr) ->
     true = is_binary(Bin),
     true = is_integer(BitSize),
@@ -2719,6 +2773,92 @@ hopefull_export_fun_bug(Config) when is_list(Config) ->
     Msg = [1, fun blipp:blapp/7,
            2, fun blipp:blapp/7],
     {dummy, dummy@dummy} ! Msg.  % Would crash on debug VM
+
+huge_iovec(Config) ->
+    %% Make sure that we can pass a term that will produce
+    %% an io-vector larger than IOV_MAX over the distribution...
+    %% IOV_MAX is typically 1024. Currently we produce an
+    %% element in the io-vector for all off heap binaries...
+    NoBinaries = 1 bsl 14,
+    BinarySize = 65,
+    {ok, Node} = start_node(huge_iovec),
+    P = spawn_link(Node,
+                   fun () ->
+                           receive {From, Data} ->
+                                   From ! {self(), Data}
+                           end
+                   end),
+    RBL = mk_rand_bin_list(BinarySize, NoBinaries),
+    %% Check that it actually will produce a huge iovec...
+    %% If we set a limit on the size of the binaries
+    %% that will produce an element in the io-vector
+    %% we need to adjust this testcase...
+    true = length(term_to_iovec(RBL)) >= NoBinaries,
+    P ! {self(), RBL},
+    receive
+        {P, EchoedRBL} ->
+            stop_node(Node),
+            RBL = EchoedRBL
+    end,
+    ok.
+
+mk_rand_bin_list(Bytes, Binaries) ->
+    mk_rand_bin_list(Bytes, Binaries, []).
+
+mk_rand_bin_list(_Bytes, 0, Acc) ->
+    Acc;
+mk_rand_bin_list(Bytes, Binaries, Acc) ->
+    mk_rand_bin_list(Bytes, Binaries-1, [mk_rand_bin(Bytes) | Acc]).
+
+mk_rand_bin(Bytes) ->
+    mk_rand_bin(Bytes, []).
+
+mk_rand_bin(0, Data) ->
+    list_to_binary(Data);
+mk_rand_bin(N, Data) ->
+    mk_rand_bin(N-1, [rand:uniform(256) - 1 | Data]).
+
+
+%% Try provoke DistEntry refc bugs (OTP-17513).
+dist_entry_refc_race(_Config) ->
+    {ok, Node} = start_node(dist_entry_refc_race, "+zdntgc 1"),
+    Pid = spawn_link(Node, ?MODULE, derr_run, [self()]),
+    {Pid, done} = receive M -> M end,
+    stop_node(Node),
+    ok.
+
+derr_run(Papa) ->
+    inet_db:set_lookup([file]), % make connection attempt fail fast
+    NScheds = erlang:system_info(schedulers_online),
+    SeqList = lists:seq(1, 25 * NScheds),
+    Nodes = [list_to_atom("none@host" ++ integer_to_list(Seq))
+             || Seq <- SeqList],
+    Self = self(),
+    Pids = [spawn_link(fun () -> derr_sender(Self, Nodes) end)
+            || _ <- SeqList],
+    derr_count(1, 8000),
+    [begin unlink(P), exit(P,kill) end || P <- Pids],
+    Papa ! {self(), done},
+    ok.
+
+derr_count(Max, Max) ->
+    done;
+derr_count(N, Max) ->
+    receive
+        count -> ok
+    end,
+    case N rem 1000 of
+        0 ->
+            io:format("Total attempts: ~bk~n", [N div 1000]);
+        _ -> ok
+    end,
+    derr_count(N+1, Max).
+
+
+derr_sender(Main, Nodes) ->
+    [{none, Node} ! msg || Node <- Nodes],
+    Main ! count,
+    derr_sender(Main, Nodes).
 
 
 %%% Utilities

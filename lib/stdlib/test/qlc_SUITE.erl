@@ -170,10 +170,10 @@ badarg() ->
     q(bar, cache_all, extra).
 ">>,
        [],
-{errors,[{5,?QLC,not_a_query_list_comprehension},
-	 {6,?QLC,not_a_query_list_comprehension},
-	 {8,?QLC,not_a_query_list_comprehension},
-	 {9,?QLC,not_a_query_list_comprehension}],
+{errors,[{{5,5},?QLC,not_a_query_list_comprehension},
+	 {{6,5},?QLC,not_a_query_list_comprehension},
+	 {{8,5},?QLC,not_a_query_list_comprehension},
+	 {{9,5},?QLC,not_a_query_list_comprehension}],
  []}}],
     [] = compile(Config, Ts),
     ok.
@@ -366,7 +366,7 @@ nomatch(Config) when is_list(Config) ->
                     end]).
         ">>,
         [],
-        {warnings,[{5,v3_kernel,{nomatch_shadow,4}}]}},
+        {warnings,[{{5,24},v3_kernel,{nomatch,{shadow,4}}}]}},
 
        {nomatch1,
         <<"generator1() ->
@@ -374,7 +374,7 @@ nomatch(Config) when is_list(Config) ->
         ">>,
         [],
         %% {warnings,[{{2,27},qlc,nomatch_pattern}]}},
-        {warnings,[{2,v3_core,nomatch}]}},
+        {warnings,[{{2,21},v3_core,{nomatch,pattern}}]}},
 
        {nomatch2,
         <<"nomatch() ->
@@ -386,7 +386,7 @@ nomatch(Config) when is_list(Config) ->
         ">>,
         [],
         %% {warnings,[{{3,33},qlc,nomatch_pattern}]}},
-        {warnings,[{3,v3_core,nomatch}]}},
+        {warnings,[{{3,27},v3_core,{nomatch,pattern}}]}},
  
        {nomatch3,
         <<"nomatch() ->
@@ -399,7 +399,7 @@ nomatch(Config) when is_list(Config) ->
         ">>,
         [],
         %% {warnings,[{{3,52},qlc,nomatch_pattern}]}},
-        {warnings,[{3,v3_core,nomatch}]}},
+        {warnings,[{{3,37},v3_core,{nomatch,pattern}}]}},
 
        {nomatch4,
         <<"nomatch() ->
@@ -423,7 +423,7 @@ nomatch(Config) when is_list(Config) ->
                      end, [{\"ab\"}]).
         ">>,
         [],
-        {warnings,[{3,v3_core,nomatch}]}}
+        {warnings,[{{3,38},v3_core,{nomatch,pattern}}]}}
 
       ],
     [] = compile(Config, Ts),
@@ -2382,10 +2382,12 @@ filter(Config) when is_list(Config) ->
                       false = lookup_keys(QH)
               end, [{1,1},{2,2},{3,3}])">>,
 
-       <<"fun(Z) ->
+       {cres,
+        <<"fun(Z) ->
             Q = qlc:q([X || Z < 2, X <- [1,2,3]]),
             [] = qlc:e(Q)
-          end(3)">>,
+           end(3)">>, [], {warnings,[{{2,31},sys_core_fold,{nomatch,guard}},
+                                     {{2,31},sys_core_fold,{nomatch,no_clause}}]}},
 
        <<"H = qlc:q([{P1,A,P2,B,P3,C} ||
                   P1={A,_} <- [{1,a},{2,b}],
@@ -3095,13 +3097,14 @@ lookup2(Config) when is_list(Config) ->
         %% {warnings,[{{4,35},qlc,nomatch_filter}]}},
         []},
 
-       <<"F = fun(U) ->
+       {cres,
+        <<"F = fun(U) ->
                 Q = qlc:q([X || {X} <- [a,b,c], 
                                  X =:= if U -> true; true -> false end]),
                 [] = qlc:eval(Q),
                 false = lookup_keys(Q)
               end,
-          F(apa)">>,
+           F(apa)">>, [], {warnings,[{{3,43},sys_core_fold,{nomatch,guard}}]}},
 
        {cres,
         <<"etsc(fun(E) ->
@@ -5640,7 +5643,7 @@ join_complex(Config) when is_list(Config) ->
                                      ]),
                   qlc:e(Q).">>,
            [],
-           {warnings,[{3,qlc,too_complex_join}]}},
+           {warnings,[{{3,23},qlc,too_complex_join}]}},
 
           {two,
            <<"two() ->
@@ -5653,6 +5656,19 @@ join_complex(Config) when is_list(Config) ->
                       Z =:= W],{join,merge}),
                   qlc:e(Q).">>,
            [],
+           {warnings,[{{2,23},qlc,too_many_joins}]}},
+
+          {two_again,
+           <<"two() ->
+                  Q = qlc:q([{X,Y,Z,W} ||
+                      {X} <- [],
+                      {Y} <- [],
+                      {Z} <- [],
+                      {W} <- [],
+                      X =:= Y,
+                      Z =:= W],{join,merge}),
+                  qlc:e(Q).">>,
+           [{error_location, line}],
            {warnings,[{2,qlc,too_many_joins}]}}
        ],
 
@@ -5885,7 +5901,7 @@ otp_6562(Config) when is_list(Config) ->
                qlc:info(Q).
         ">>,
         [],
-        {errors,[{2,qlc,binary_generator}],
+        {errors,[{{2,40},qlc,binary_generator}],
          []}}
        ],
     [] = compile(Config, Bits),
@@ -6158,29 +6174,28 @@ otp_7238(Config) when is_list(Config) ->
                {qlc:q([X || X={X} <- []]), [t || \"a\"=\"b\" <- []]}.">>,
         [],
         %% {warnings,[{{2,30},qlc,nomatch_pattern},
-        %%            {{2,44},v3_core,nomatch}]}},
-        {warnings,[{2,v3_core,nomatch}]}},
+        {warnings,[{{2,44},v3_core,{nomatch,pattern}}]}},
 
        %% Not found by qlc...
        {nomatch_2,
         <<"nomatch_2() ->
                qlc:q([t || {\"a\"++\"b\"} = {\"ac\"} <- []]).">>,
         [],
-        {warnings,[{{2,22},v3_core,nomatch}]}},
+        {warnings,[{{2,22},v3_core,{nomatch,pattern}}]}},
 
        {nomatch_3,
         <<"nomatch_3() ->
                qlc:q([t || [$a, $b] = \"ba\" <- []]).">>,
         [],
         %% {warnings,[{{2,37},qlc,nomatch_pattern}]}},
-        {warnings,[{2,v3_core,nomatch}]}},
+        {warnings,[{{2,22},v3_core,{nomatch,pattern}}]}},
 
        %% Not found by qlc...
        {nomatch_4,
         <<"nomatch_4() ->
                qlc:q([t || \"a\"++_=\"b\" <- []]).">>,
         [],
-        {warnings,[{{2,22},v3_core,nomatch}]}},
+        {warnings,[{{2,22},v3_core,{nomatch,pattern}}]}},
 
        %% Found neither by the compiler nor by qlc...
        {nomatch_5,
@@ -6231,7 +6246,7 @@ otp_7238(Config) when is_list(Config) ->
                qlc:q([X || X <- [], x =:= []]).">>,
         [],
         %% {warnings,[{{2,39},qlc,nomatch_filter}]}},
-        {warnings,[{2,sys_core_fold,nomatch_guard}]}},
+        {warnings,[{{2,22},sys_core_fold,{nomatch,guard}}]}},
 
        {nomatch_12,
         <<"nomatch_12() ->
@@ -6274,7 +6289,7 @@ otp_7238(Config) when is_list(Config) ->
         <<"nomatch_template1() ->
                qlc:q([{X} = {} || X <- []]).">>,
         [],
-        {warnings,[{2,sys_core_fold,no_clause_match}]}}
+        {warnings,[{{2,23},sys_core_fold,{nomatch,no_clause}}]}}
          ],
     [] = compile(Config, T1),
 
@@ -7061,7 +7076,9 @@ otp_12946(Config) when is_list(Config) ->
            init() ->
                ok.
            y">>,
-    {errors,[{4,erl_parse,_}],[]} = compile_file(Config, Text, []),
+    {errors,[{{4,12},erl_parse,_}],[]} = compile_file(Config, Text, []),
+    {errors,[{4,erl_parse,_}],[]} =
+        compile_file(Config, Text, [{error_location, line}]),
     ok.
 
 %% Examples from qlc(3).
@@ -7735,8 +7752,8 @@ table(List, Indices, KeyPos, ParentFun) ->
 
                 end,
     FormatFun = fun(all) ->
-                        L = erl_anno:new(17),
-                        {call,L,{remote,L,{atom,L,?MODULE},{atom,L,the_list}},
+                        A = erl_anno:new(17),
+                        {call,A,{remote,A,{atom,A,?MODULE},{atom,A,the_list}},
                                  [erl_parse:abstract(List, 17)]};
                    ({lookup, Column, Values}) ->
                         {?MODULE, list_keys, [Values, Column, List]}
@@ -7991,9 +8008,7 @@ comp_compare(T, T) ->
     true;
 comp_compare(T1, T2_0) ->
     T2 = wskip(T2_0),
-    T1 =:= T2
-       %% This clause should eventually be removed. 
-       orelse ln(T1) =:= T2 orelse T1 =:= ln(T2).
+    T1 =:= T2.
 
 wskip([]) ->
     [];
@@ -8007,35 +8022,6 @@ wskip([M|L]) ->
     [M|wskip(L)];
 wskip(T) ->
     T.
-
-%% Replaces locations like {Line,Column} with Line. 
-ln({warnings,L}) ->
-    {warnings,ln0(L)};
-ln({errors,EL,WL}) ->
-    {errors,ln0(EL),ln0(WL)};
-ln(L) ->
-    ln0(L).
-
-ln0(L) ->
-    lists:sort(ln1(L)).
-
-ln1([]) ->
-    [];
-ln1([{File,Ms}|MsL]) when is_list(File) ->
-    [{File,ln0(Ms)}|ln1(MsL)];
-ln1([{{L,_C},Mod,Mess0}|Ms]) ->
-    Mess = case Mess0 of
-               {exported_var,V,{Where,{L1,_C1}}} ->
-                   {exported_var,V,{Where,L1}};
-               {unsafe_var,V,{Where,{L1,_C1}}} ->
-                   {unsafe_var,V,{Where,L1}};
-               %% There are more...
-               M ->
-                   M
-           end,
-    [{L,Mod,Mess}|ln1(Ms)];
-ln1([M|Ms]) ->
-    [M|ln1(Ms)].
 
 %% -> {FileName, Module}; {string(), atom()}
 compile_file_mod(Config) ->

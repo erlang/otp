@@ -196,7 +196,8 @@ add_extra_annos(F, Annos) ->
 
 assert_no_critical_edges(#st{ssa=Blocks}=St) ->
     F = fun assert_no_ces/3,
-    beam_ssa:fold_rpo(F, Blocks, Blocks),
+    RPO = beam_ssa:rpo(Blocks),
+    beam_ssa:fold_blocks(F, RPO, Blocks, Blocks),
     St.
 
 assert_no_ces(_, #b_blk{is=[#b_set{op=phi,args=[_,_]=Phis}|_]}, Blocks) ->
@@ -226,7 +227,8 @@ fix_bs(#st{ssa=Blocks,cnt=Count0,use_bsm3=UseBSM3}=St) ->
            (_, A) ->
                 A
         end,
-    case beam_ssa:fold_instrs_rpo(F, [0], [],Blocks) of
+    RPO = beam_ssa:rpo(Blocks),
+    case beam_ssa:fold_instrs(F, RPO, [], Blocks) of
         [] ->
             %% No binary matching in this function.
             St;
@@ -748,7 +750,8 @@ sanitize([], Count, Blocks0, Values) ->
                  map_size(Values) =:= 0 ->
                      Blocks0;
                  true ->
-                     beam_ssa:rename_vars(Values, [0], Blocks0)
+                     RPO = beam_ssa:rpo(Blocks0),
+                     beam_ssa:rename_vars(Values, RPO, Blocks0)
              end,
 
     %% Unreachable blocks can cause problems for the dominator calculations.
@@ -832,18 +835,15 @@ sanitize_is([#b_set{op={succeeded,Kind},args=[Arg0]} | Is],
             true = Kind =:= guard orelse Kind =:= body, %Assertion.
             sanitize_is(Is, Last, Count, Values, true, Acc)
     end;
-sanitize_is([#b_set{op=Op}=I|Is], Last, Count, Values, Changed, Acc) ->
+sanitize_is([#b_set{op=bs_test_tail}=I], Last, Count, Values, Changed, Acc) ->
     case Last of
         #b_br{succ=Same,fail=Same} ->
-            case is_test_op(Op) of
-                true ->
-                    sanitize_is(Is, Last, Count, Values, true, Acc);
-                false ->
-                    do_sanitize_is(I, Is,  Last, Count, Values, Changed, Acc)
-            end;
+            sanitize_is([], Last, Count, Values, true, Acc);
         _ ->
-            do_sanitize_is(I, Is,  Last, Count, Values, Changed, Acc)
+            do_sanitize_is(I, [], Last, Count, Values, Changed, Acc)
     end;
+sanitize_is([#b_set{}=I|Is], Last, Count, Values, Changed, Acc) ->
+    do_sanitize_is(I, Is,  Last, Count, Values, Changed, Acc);
 sanitize_is([], Last, Count, Values, Changed, Acc) ->
     case Changed of
         true ->
@@ -852,10 +852,6 @@ sanitize_is([], Last, Count, Values, Changed, Acc) ->
             no_change
     end.
 
-is_test_op(bs_put) -> true;
-is_test_op(bs_test_tail) -> true;
-is_test_op(_) -> false.
-    
 do_sanitize_is(#b_set{op=Op,dst=Dst,args=Args0}=I0,
                Is, Last, Count, Values, Changed0, Acc) ->
     Args = sanitize_args(Args0, Values),
@@ -921,6 +917,12 @@ sanitize_instr({bif,Bif}, [#b_literal{val=Lit1},#b_literal{val=Lit2}], _I) ->
         error:_ ->
             ok
     end;
+sanitize_instr(bs_match, Args, I) ->
+    %% Matching of floats are never changed to a bs_skip even when the
+    %% value is never used, because the match can always fail (for example,
+    %% if it is a NaN).
+    [#b_literal{val=float}|_] = Args,           %Assertion.
+    {ok,I#b_set{op=bs_get}};
 sanitize_instr(get_hd, [#b_literal{val=[Hd|_]}], _I) ->
     {value,Hd};
 sanitize_instr(get_tl, [#b_literal{val=[_|Tl]}], _I) ->
@@ -944,10 +946,12 @@ sanitize_instr(is_tagged_tuple, [#b_literal{val=Tuple},
         true ->
             {value,false}
     end;
-sanitize_instr(bs_add, [_,#b_literal{val=Sz},_|_], I0) ->
-    if
-        is_integer(Sz), Sz >= 0 -> ok;
-        true -> {ok,sanitize_badarg(I0)}
+sanitize_instr(bs_add, [Arg1,Arg2,_|_], I0) ->
+    case all(fun(#b_literal{val=Size}) -> is_integer(Size) andalso Size >= 0;
+                (#b_var{}) -> true
+             end, [Arg1,Arg2]) of
+        true -> ok;
+        false -> {ok,sanitize_badarg(I0)}
     end;
 sanitize_instr(bs_init, [#b_literal{val=new},#b_literal{val=Sz}|_], I0) ->
     if
@@ -1124,7 +1128,8 @@ fix_tuples(#st{ssa=Blocks0,cnt=Count0}=St) ->
                   #b_set{dst=Ignore,op=put_tuple_elements,args=Args}],C};
            (I, C) -> {[I],C}
         end,
-    {Blocks,Count} = beam_ssa:flatmapfold_instrs_rpo(F, [0], Count0, Blocks0),
+    RPO = beam_ssa:rpo(Blocks0),
+    {Blocks,Count} = beam_ssa:flatmapfold_instrs(F, RPO, Count0, Blocks0),
     St#st{ssa=Blocks,cnt=Count}.
 
 %%%
@@ -1267,8 +1272,8 @@ is_single_use(V, Uses) ->
 %%   a stack frame or set up a stack frame with a different size.
 
 place_frames(#st{ssa=Blocks}=St) ->
-    {Doms,_} = beam_ssa:dominators(Blocks),
     Ls = beam_ssa:rpo(Blocks),
+    {Doms,_} = beam_ssa:dominators(Ls, Blocks),
     Tried = gb_sets:empty(),
     Frames0 = [],
     {Frames,_} = place_frames_1(Ls, Blocks, Doms, Tried, Frames0),
@@ -1404,12 +1409,12 @@ need_frame(#b_blk{is=Is,last=#b_ret{arg=Ret}}) ->
 need_frame(#b_blk{is=Is}) ->
     need_frame_1(Is, body).
 
-need_frame_1([#b_set{op=make_fun,dst=Fun}|Is], {return,Ret}=Context) ->
+need_frame_1([#b_set{op=old_make_fun,dst=Fun}|Is], {return,Ret}=Context) ->
     case need_frame_1(Is, Context) of
         true ->
             true;
         false ->
-            %% Since make_fun clobbers X registers, a stack frame is
+            %% Since old_make_fun clobbers X registers, a stack frame is
             %% needed if any of the following instructions use any
             %% other variable than the one holding the reference to
             %% the created fun.
@@ -1500,7 +1505,8 @@ fix_receives_1([{L,Blk}|Ls], Blocks0, Count0) ->
         #b_blk{is=[#b_set{op=peek_message}|_]} ->
             Rm = find_rm_blocks(L, Blocks0),
             LoopExit = find_loop_exit(Rm, Blocks0),
-            Defs0 = beam_ssa:def([L], Blocks0),
+            RPO = beam_ssa:rpo([L], Blocks0),
+            Defs0 = beam_ssa:def(RPO, Blocks0),
             CommonUsed = recv_common(Defs0, LoopExit, Blocks0),
             {Blocks1,Count1} = recv_crit_edges(Rm, LoopExit, Blocks0, Count0),
             {Blocks2,Count2} = recv_fix_common(CommonUsed, LoopExit, Rm,
@@ -1519,7 +1525,8 @@ recv_common(_Defs, none, _Blocks) ->
     %% in the tail position of a function.
     [];
 recv_common(Defs, Exit, Blocks) ->
-    {ExitDefs,ExitUnused} = beam_ssa:def_unused([Exit], Defs, Blocks),
+    RPO = beam_ssa:rpo([Exit], Blocks),
+    {ExitDefs,ExitUnused} = beam_ssa:def_unused(RPO, Defs, Blocks),
     Def = ordsets:subtract(Defs, ExitDefs),
     ordsets:subtract(Def, ExitUnused).
 
@@ -1581,7 +1588,8 @@ rce_reroute_terminator(#b_switch{list=List0}=Last, Exit, New) ->
 
 recv_fix_common([Msg0|T], Exit, Rm, Blocks0, Count0) ->
     {Msg,Count1} = new_var('@recv', Count0),
-    Blocks1 = beam_ssa:rename_vars(#{Msg0=>Msg}, [Exit], Blocks0),
+    RPO = beam_ssa:rpo([Exit], Blocks0),
+    Blocks1 = beam_ssa:rename_vars(#{Msg0=>Msg}, RPO, Blocks0),
     N = length(Rm),
     {MsgVars,Count} = new_vars(duplicate(N, '@recv'), Count1),
     PhiArgs = fix_exit_phi_args(MsgVars, Rm, Exit, Blocks1),
@@ -1596,7 +1604,8 @@ recv_fix_common([], _, _, Blocks, Count) ->
 
 recv_fix_common_1([V|Vs], [Rm|Rms], Msg, Blocks0) ->
     Ren = #{Msg=>V},
-    Blocks1 = beam_ssa:rename_vars(Ren, [Rm], Blocks0),
+    RPO = beam_ssa:rpo([Rm], Blocks0),
+    Blocks1 = beam_ssa:rename_vars(Ren, RPO, Blocks0),
     #b_blk{is=Is0} = Blk0 = map_get(Rm, Blocks1),
     Copy = #b_set{op=copy,dst=V,args=[Msg]},
     Is = insert_after_phis(Is0, [Copy]),
@@ -1626,12 +1635,13 @@ exit_predecessors([], _Exit, _Blocks) -> [].
 %%  later used within a clause of the receive.
 
 fix_receive([L|Ls], Defs, Blocks0, Count0) ->
-    {RmDefs,Unused} = beam_ssa:def_unused([L], Defs, Blocks0),
+    RPO = beam_ssa:rpo([L], Blocks0),
+    {RmDefs,Unused} = beam_ssa:def_unused(RPO, Defs, Blocks0),
     Def = ordsets:subtract(Defs, RmDefs),
     Used = ordsets:subtract(Def, Unused),
     {NewVars,Count} = new_vars([Base || #b_var{name=Base} <- Used], Count0),
     Ren = zip(Used, NewVars),
-    Blocks1 = beam_ssa:rename_vars(Ren, [L], Blocks0),
+    Blocks1 = beam_ssa:rename_vars(Ren, RPO, Blocks0),
     #b_blk{is=Is0} = Blk1 = map_get(L, Blocks1),
     CopyIs = [#b_set{op=copy,dst=New,args=[Old]} || {Old,New} <- Ren],
     Is = insert_after_phis(Is0, CopyIs),
@@ -1653,10 +1663,11 @@ find_loop_exit([_,_|_]=RmBlocks, Blocks) ->
     %% we always find a common block if there is one (shared by at
     %% least two clauses), we must analyze the path from all
     %% remove_message blocks.
-    {Dominators,_} = beam_ssa:dominators(Blocks),
-    RmSet = cerl_sets:from_list(RmBlocks),
-    Rpo = beam_ssa:rpo(RmBlocks, Blocks),
-    find_loop_exit_1(Rpo, RmSet, Dominators, Blocks);
+    RPO = beam_ssa:rpo(Blocks),
+    {Dominators,_} = beam_ssa:dominators(RPO, Blocks),
+    RmSet = sets:from_list(RmBlocks, [{version, 2}]),
+    RmRPO = beam_ssa:rpo(RmBlocks, Blocks),
+    find_loop_exit_1(RmRPO, RmSet, Dominators, Blocks);
 find_loop_exit(_, _) ->
     %% There is (at most) a single clause. There is no common
     %% loop exit block.
@@ -1668,7 +1679,7 @@ find_loop_exit_1([?EXCEPTION_BLOCK|Ls], RmSet, Dominators, Blocks) ->
     find_loop_exit_1(Ls, RmSet, Dominators, Blocks);
 find_loop_exit_1([L|Ls0], RmSet, Dominators, Blocks) ->
     DomBy = map_get(L, Dominators),
-    case any(fun(E) -> cerl_sets:is_element(E, RmSet) end, DomBy) of
+    case any(fun(E) -> sets:is_element(E, RmSet) end, DomBy) of
         true ->
             %% This block is dominated by one of the remove_message blocks,
             %% which means that the block is part of only one clause.
@@ -1738,7 +1749,6 @@ find_rm_act([#b_set{op=Op}|Is]) ->
         peek_message -> prune;
         recv_next -> prune;
         wait_timeout -> prune;
-        wait -> prune;
         _ -> find_rm_act(Is)
     end;
 find_rm_act([]) ->
@@ -1749,7 +1759,7 @@ find_rm_act([]) ->
 %%%
 
 -record(dk, {d :: ordsets:ordset(var_name()),
-             k :: ordsets:ordset(var_name())
+             k :: sets:set(var_name())
             }).
 
 %% find_yregs(St0) -> St.
@@ -1772,10 +1782,10 @@ find_yregs(#st{frames=[_|_]=Frames,args=Args,ssa=Blocks0}=St) ->
     St#st{ssa=Blocks}.
 
 find_yregs_1([{F,Defs}|Fs], Blocks0) ->
-    DK = #dk{d=Defs,k=[]},
+    DK = #dk{d=Defs,k=sets:new([{version, 2}])},
     D0 = #{F=>DK},
     Ls = beam_ssa:rpo([F], Blocks0),
-    Yregs0 = [],
+    Yregs0 = sets:new([{version, 2}]),
     Yregs = find_yregs_2(Ls, Blocks0, D0, Yregs0),
     Blk0 = map_get(F, Blocks0),
     Blk = beam_ssa:add_anno(yregs, Yregs, Blk0),
@@ -1830,7 +1840,7 @@ find_update_succ([S|Ss], #dk{d=Defs0,k=Killed0}=DK0, D0) ->
     case D0 of
         #{S:=#dk{d=Defs1,k=Killed1}} ->
             Defs = ordsets:intersection(Defs0, Defs1),
-            Killed = ordsets:union(Killed0, Killed1),
+            Killed = sets:union(Killed0, Killed1),
             DK = #dk{d=Defs,k=Killed},
             D = D0#{S:=DK},
             find_update_succ(Ss, DK0, D);
@@ -1841,28 +1851,55 @@ find_update_succ([S|Ss], #dk{d=Defs0,k=Killed0}=DK0, D0) ->
 find_update_succ([], _, D) -> D.
 
 find_yregs_is([#b_set{dst=Dst}=I|Is], #dk{d=Defs0,k=Killed0}=Ys, Yregs0) ->
-    Used = beam_ssa:used(I),
-    Yregs1 = ordsets:intersection(Used, Killed0),
-    Yregs = ordsets:union(Yregs0, Yregs1),
+    Yregs1 = intersect_used(I, Killed0),
+    Yregs = sets:union(Yregs0, Yregs1),
     case beam_ssa:clobbers_xregs(I) of
         false ->
             Defs = ordsets:add_element(Dst, Defs0),
             find_yregs_is(Is, Ys#dk{d=Defs}, Yregs);
         true ->
-            Killed = ordsets:union(Defs0, Killed0),
+            Killed = sets:union(sets:from_list(Defs0, [{version, 2}]), Killed0),
             Defs = [Dst],
             find_yregs_is(Is, Ys#dk{d=Defs,k=Killed}, Yregs)
     end;
 find_yregs_is([], Ys, Yregs) -> {Yregs,Ys}.
 
 find_yregs_terminator(Terminator, #dk{k=Killed}, Yregs0) ->
-    Used = beam_ssa:used(Terminator),
-    Yregs = ordsets:intersection(Used, Killed),
-    ordsets:union(Yregs0, Yregs).
+    Yregs = intersect_used(Terminator, Killed),
+    sets:union(Yregs0, Yregs).
+
+intersect_used(#b_br{bool=#b_var{}=V}, Set) ->
+    intersect_used_keep_singleton(V, Set);
+intersect_used(#b_ret{arg=#b_var{}=V}, Set) ->
+    intersect_used_keep_singleton(V, Set);
+intersect_used(#b_set{op=phi,args=Args}, Set) ->
+    sets:from_list([V || {#b_var{}=V,_} <- Args, sets:is_element(V, Set)], [{version, 2}]);
+intersect_used(#b_set{args=Args}, Set) ->
+    sets:from_list(intersect_used_keep(used_args(Args), Set), [{version, 2}]);
+intersect_used(#b_switch{arg=#b_var{}=V}, Set) ->
+    intersect_used_keep_singleton(V, Set);
+intersect_used(_, _) -> sets:new([{version, 2}]).
+
+intersect_used_keep_singleton(V, Set) ->
+    case sets:is_element(V, Set) of
+        true -> sets:from_list([V], [{version, 2}]);
+        false -> sets:new([{version, 2}])
+    end.
+
+intersect_used_keep(Vs, Set) ->
+    [V || V <- Vs, sets:is_element(V, Set)].
+
+used_args([#b_var{}=V|As]) ->
+    [V|used_args(As)];
+used_args([#b_remote{mod=Mod,name=Name}|As]) ->
+    used_args([Mod,Name|As]);
+used_args([_|As]) ->
+    used_args(As);
+used_args([]) -> [].
 
 %%%
 %%% Try to reduce the size of the stack frame, by adding an explicit
-%%% 'copy' instructions for return values from 'call' and 'make_fun' that
+%%% 'copy' instructions for return values from 'call' and 'old_make_fun' that
 %%% need to be saved in Y registers. Here is an example to show
 %%% how that's useful. First, here is the Erlang code:
 %%%
@@ -1942,8 +1979,7 @@ copy_retval(#st{frames=Frames,ssa=Blocks0,cnt=Count0}=St) ->
 
 copy_retval_1([F|Fs], Blocks0, Count0) ->
     #b_blk{anno=#{yregs:=Yregs0},is=Is} = map_get(F, Blocks0),
-    Yregs1 = gb_sets:from_list(Yregs0),
-    Yregs = collect_yregs(Is, Yregs1),
+    Yregs = collect_yregs(Is, Yregs0),
     Ls = beam_ssa:rpo([F], Blocks0),
     {Blocks,Count} = copy_retval_2(Ls, Yregs, none, Blocks0, Count0),
     copy_retval_1(Fs, Blocks, Count);
@@ -1952,8 +1988,8 @@ copy_retval_1([], Blocks, Count) ->
 
 collect_yregs([#b_set{op=copy,dst=Y,args=[#b_var{}=X]}|Is],
               Yregs0) ->
-    true = gb_sets:is_member(X, Yregs0),        %Assertion.
-    Yregs = gb_sets:insert(Y, gb_sets:delete(X, Yregs0)),
+    true = sets:is_element(X, Yregs0),        %Assertion.
+    Yregs = sets:add_element(Y, sets:del_element(X, Yregs0)),
     collect_yregs(Is, Yregs);
 collect_yregs([#b_set{}|Is], Yregs) ->
     collect_yregs(Is, Yregs);
@@ -1988,7 +2024,7 @@ copy_retval_is([#b_set{op=put_tuple_elements,args=Args0}=I0], false, _Yregs,
     I = I0#b_set{args=copy_sub_args(Args0, Copy)},
     {reverse(Acc, [I|acc_copy([], Copy)]),Count};
 copy_retval_is([#b_set{op=Op}=I0], false, Yregs, Copy, Count0, Acc0)
-  when Op =:= call; Op =:= make_fun ->
+  when Op =:= call; Op =:= old_make_fun ->
     {I,Count,Acc} = place_retval_copy(I0, Yregs, Copy, Count0, Acc0),
     {reverse(Acc, [I]),Count};
 copy_retval_is([#b_set{}]=Is, false, _Yregs, Copy, Count, Acc) ->
@@ -1996,9 +2032,9 @@ copy_retval_is([#b_set{}]=Is, false, _Yregs, Copy, Count, Acc) ->
 copy_retval_is([#b_set{},#b_set{op=succeeded}]=Is, false, _Yregs, Copy, Count, Acc) ->
     {reverse(Acc, acc_copy(Is, Copy)),Count};
 copy_retval_is([#b_set{op=Op,dst=#b_var{name=RetName}=Dst}=I0|Is], RC, Yregs,
-           Copy0, Count0, Acc0) when Op =:= call; Op =:= make_fun ->
+           Copy0, Count0, Acc0) when Op =:= call; Op =:= old_make_fun ->
     {I1,Count1,Acc} = place_retval_copy(I0, Yregs, Copy0, Count0, Acc0),
-    case gb_sets:is_member(Dst, Yregs) of
+    case sets:is_element(Dst, Yregs) of
         true ->
             {NewVar,Count} = new_var(RetName, Count1),
             Copy = #b_set{op=copy,dst=Dst,args=[NewVar]},
@@ -2028,46 +2064,89 @@ copy_retval_is([], RC, _, Copy, Count, Acc) ->
 %%
 %% Consider this code:
 %%
-%%   Var = ...
+%%   P = ...
+%%   Q = ...
+%%   ...
+%%   A = call foo/0
+%%   A1 = copy A
+%%   B = call bar/2, P, Q
+%%
+%% If the P or Q variables are no longer used after this code, one of
+%% their Y registers can't be reused for A. To allow one of the Y registers to
+%% be reused we will need to insert 'copy' instructions for arguments
+%% that are in Y registers:
+%%
+%%   P = ...
+%%   Q = ...
 %%   ...
 %%   A1 = call foo/0
+%%   Q1 = copy Q
+%%   P1 = copy P
 %%   A = copy A1
-%%   B = call bar/1, Var
+%%   B = call bar/2, P1, Q1
 %%
-%% If the Var variable is no longer used after this code, its Y register
-%% can't be reused for A. To allow the Y register to be reused
-%% we will need to insert 'copy' instructions for arguments that are
-%% in Y registers:
+%% Note that copies of the arguments are done in reverse order to help the
+%% reserve_xregs/3 function place the copies into the X registers they will
+%% need to be in.
 %%
-%%   Var = ...
-%%   ...
-%%   A1 = call foo/0
-%%   Var1 = copy Var
+%% For this example, P1 needs to be in x0 and Q1 needs to be in x1. If we
+%% would copy the arguments in order the registers would be assigned like
+%% this:
+%%
+%%   x0/A1 = call foo/0
+%%   x1/P1 = copy P
+%%   x2/Q1 = copy Q
 %%   A = copy A1
-%%   B = call bar/1, Var1
+%%   B = call bar/2, P1, Q1
+%%
+%% That is, both P1 and Q1 would be misplaced and would have to be
+%% moved to their correct registers before the call. However, with the
+%% copies in reverse order and with a little help from
+%% reserve_xregs/3, at least the Q1 variable can be can be placed in
+%% the correct register:
+%%
+%%   x0/A1 = call foo/0
+%%   x1/Q1 = copy Q
+%%   x2/P1 = copy P
+%%   A = copy A1
+%%   B = call bar/2, P1, Q1
+%%
+%% In general, all but the first argument can be placed in their correct registers.
 %%
 
 place_retval_copy(I, _Yregs, none, Count, Acc) ->
+    %% There is no copy of a previous return value, so there is nothing
+    %% to gain by copying the function arguments.
     {I,Count,Acc};
-place_retval_copy(#b_set{args=[F|Args0]}=I, Yregs, Copy, Count0, Acc0) ->
-    #b_set{dst=Avoid} = Copy,
-    {Args,Acc1,Count} = copy_func_args(Args0, Yregs, Avoid, Acc0, [], Count0),
-    Acc = [Copy|Acc1],
-    {I#b_set{args=[F|Args]},Count,Acc}.
+place_retval_copy(#b_set{args=[F|Args0]}=I0, Yregs0, RetCopy, Count0, Acc0) ->
+    %% Copy function arguments, but make sure that we don't make an extra
+    %% copy of the previous return value.
+    #b_set{dst=Avoid} = RetCopy,
+    Yregs = sets:del_element(Avoid, Yregs0),
+    {Args,Acc1,Count} = copy_func_args(Args0, Yregs, Acc0, Count0),
+    I = I0#b_set{args=[F|Args]},
 
-copy_func_args([#b_var{name=AName}=A|As], Yregs, Avoid, CopyAcc, Acc, Count0) ->
-    case gb_sets:is_member(A, Yregs) of
-        true when A =/= Avoid ->
+    %% Place the copy instruction for the previous return value after the
+    %% copy instruction for the arguments.
+    Acc = [RetCopy|Acc1],
+    {I,Count,Acc}.
+
+copy_func_args(Args, Yregs, Acc, Count) ->
+    copy_func_args_1(reverse(Args), Yregs, Acc, [], Count).
+
+copy_func_args_1([#b_var{name=AName}=A|As], Yregs, InstrAcc, ArgAcc, Count0) ->
+    case sets:is_element(A, Yregs) of
+        true ->
             {NewVar,Count} = new_var(AName, Count0),
             Copy = #b_set{op=copy,dst=NewVar,args=[A]},
-            copy_func_args(As, Yregs, Avoid, [Copy|CopyAcc], [NewVar|Acc], Count);
-        _ ->
-            copy_func_args(As, Yregs, Avoid, CopyAcc, [A|Acc], Count0)
+            copy_func_args_1(As, Yregs, [Copy|InstrAcc], [NewVar|ArgAcc], Count);
+        false ->
+            copy_func_args_1(As, Yregs, InstrAcc, [A|ArgAcc], Count0)
     end;
-copy_func_args([A|As], Yregs, Avoid, CopyAcc, Acc, Count) ->
-    copy_func_args(As, Yregs, Avoid, CopyAcc, [A|Acc], Count);
-copy_func_args([], _Yregs, _Avoid, CopyAcc, Acc, Count) ->
-    {reverse(Acc),CopyAcc,Count}.
+copy_func_args_1([A|As], Yregs, InstrAcc, ArgAcc, Count) ->
+    copy_func_args_1(As, Yregs, InstrAcc, [A|ArgAcc], Count);
+copy_func_args_1([], _Yregs, InstrAcc, ArgAcc, Count) ->
+    {ArgAcc,InstrAcc,Count}.
 
 acc_copy(Acc, none) -> Acc;
 acc_copy(Acc, #b_set{}=Copy) -> [Copy|Acc].
@@ -2174,81 +2253,133 @@ number_is_2([], N, Acc) ->
     {reverse(Acc),N}.
 
 %%%
-%%% Calculate live intervals.
+%%% Calculate live intervals for all variables in this function.
+%%%
+%%% This code uses the algorithm and terminology from [3].
+%%%
+%%% For each variable, we calculate its live interval. The live
+%%% interval is a list of ranges, where a range is a tuple
+%%% {Def,LastUse}.  Def is the instruction number for the instruction
+%%% that first defines the variable and LastUse is instruction number
+%%% of the last instruction that uses it.
+%%%
+%%% We traverse instruction in post order so that we will see the last
+%%% use before we see the definition.
 %%%
 
 live_intervals(#st{args=Args,ssa=Blocks}=St) ->
-    Vars0 = [{V,{0,1}} || #b_var{}=V <- Args],
     PO = reverse(beam_ssa:rpo(Blocks)),
-    Vars = live_interval_blk(PO, Blocks, Vars0, #{}),
-    Intervals = merge_ranges(rel2fam(Vars)),
+    Intervals0 = live_interval_blk(PO, Blocks, #{}, #{}),
+    Intervals1 = add_ranges([{V,{0,1}} || #b_var{}=V <- Args], Intervals0),
+    Intervals = maps:to_list(Intervals1),
     St#st{intervals=Intervals}.
 
-merge_ranges([{V,Rs}|T]) ->
-    [{V,merge_ranges_1(Rs)}|merge_ranges(T)];
-merge_ranges([]) -> [].
-
-merge_ranges_1([{A,N},{N,Z}|Rs]) ->
-    merge_ranges_1([{A,Z}|Rs]);
-merge_ranges_1([R|Rs]) ->
-    [R|merge_ranges_1(Rs)];
-merge_ranges_1([]) -> [].
-
-live_interval_blk([L|Ls], Blocks, Vars0, LiveMap0) ->
-    Live0 = [],
+live_interval_blk([L|Ls], Blocks, LiveMap0, Intervals0) ->
     Blk = map_get(L, Blocks),
     Successors = beam_ssa:successors(Blk),
-    Live1 = update_successors(Successors, L, Blocks, LiveMap0, Live0),
+    Live1 = live_in_successors(Successors, L, Blocks, LiveMap0),
 
-    %% Add ranges for all variables that are live in the successors.
+    %% Add default ranges for all variables that are live in the
+    %% successors.
     #b_blk{is=Is,last=Last} = Blk,
-    End = beam_ssa:get_anno(n, Last),
-    EndUse = {use,End+1},
-    Use = [{V,EndUse} || V <- Live1],
-
-    %% Determine used and defined variables in this block.
     FirstNumber = first_number(Is, Last),
-    UseDef0 = live_interval_last(Last, Use),
-    UseDef1 = live_interval_blk_is(Is, FirstNumber, UseDef0),
-    UseDef = rel2fam(UseDef1),
+    DefaultRange = {FirstNumber,1+beam_ssa:get_anno(n, Last)},
+    Ranges0 = [{V,DefaultRange} || V <- Live1],
 
-    %% Update what is live at the beginning of this block and
-    %% store it.
-    Live = [V || {V,[{use,_}|_]} <- UseDef],
-    LiveMap = LiveMap0#{L=>Live},
+    case {Is,Last} of
+        {[],#b_br{bool=#b_literal{val=true}}} ->
+            %% Optimize the interval calculation for blocks without variables.
+            Intervals = add_ranges(Ranges0, Intervals0),
+            LiveMap = LiveMap0#{L => Live1},
+            live_interval_blk(Ls, Blocks, LiveMap, Intervals);
+        {_,_} ->
+            %% Update the ranges. Variables whose last use is in this
+            %% block will be added, and variables that are defined
+            %% in this block will have their starting instruction
+            %% number updated.
+            %%
+            %% We use a gb_tree instead of a map because conversion to and
+            %% from an orddict is faster.
+            Ranges1 = gb_trees:from_orddict(Ranges0),
+            Ranges2 = live_interval_last(Last, FirstNumber, Ranges1),
+            Ranges3 = live_interval_blk_is(Is, FirstNumber, Ranges2),
+            Ranges = gb_trees:to_list(Ranges3),
 
-    %% Construct the ranges for this block.
-    Vars = make_block_ranges(UseDef, FirstNumber, Vars0),
-    live_interval_blk(Ls, Blocks, Vars, LiveMap);
-live_interval_blk([], _Blocks, Vars, _LiveMap) ->
-    Vars.
+            %% Update the interval for each variable.
+            Intervals = add_ranges(Ranges, Intervals0),
 
-live_interval_last(I, Acc) ->
+            %% Update what is live at the beginning of this block and
+            %% store it.
+            Live = [V || {V,{From,_To}} <- Ranges,
+                         From =< FirstNumber],
+            LiveMap = LiveMap0#{L => Live},
+            live_interval_blk(Ls, Blocks, LiveMap, Intervals)
+    end;
+live_interval_blk([], _Blocks, _LiveMap, Intervals) ->
+    Intervals.
+
+live_interval_last(I, FirstNumber, Ranges) ->
     N = beam_ssa:get_anno(n, I),
     Used = beam_ssa:used(I),
-    [{V,{use,N}} || V <- Used] ++ Acc.
+    update_used(Used, FirstNumber, N, Ranges).
 
 live_interval_blk_is([#b_set{op=phi,dst=Dst}|Is], FirstNumber, Acc0) ->
-    Acc = [{Dst,{def,FirstNumber}}|Acc0],
-    live_interval_blk_is(Is, FirstNumber, Acc);
-live_interval_blk_is([#b_set{dst=Dst}=I|Is], FirstNumber, Acc0) ->
+    Acc = live_interval_blk_is(Is, FirstNumber, Acc0),
+    case gb_trees:is_defined(Dst, Acc) of
+        true ->
+            %% The value in the tree already has the correct starting value.
+            update_def(Dst, FirstNumber, Acc);
+        false ->
+            %% Unused phi node -- can only happen if optimizations passes
+            %% have been turned off.
+            gb_trees:insert(Dst, {FirstNumber,FirstNumber}, Acc)
+    end;
+live_interval_blk_is([#b_set{args=Args,dst=Dst}=I|Is], FirstNumber, Acc0) ->
+    Acc1 = live_interval_blk_is(Is, FirstNumber, Acc0),
     N = beam_ssa:get_anno(n, I),
-    Acc1 = [{Dst,{def,N}}|Acc0],
-    Used = beam_ssa:used(I),
-    Acc = [{V,{use,N}} || V <- Used] ++ Acc1,
-    live_interval_blk_is(Is, FirstNumber, Acc);
+    Used = used_args(Args),
+    Acc = update_used(Used, FirstNumber, N, Acc1),
+    update_def(Dst, N, Acc);
 live_interval_blk_is([], _FirstNumber, Acc) ->
     Acc.
 
-make_block_ranges([{V,[{def,Def}]}|Vs], First, Acc) ->
-    make_block_ranges(Vs, First, [{V,{Def,Def}}|Acc]);
-make_block_ranges([{V,[{def,Def}|Uses]}|Vs], First, Acc) ->
-    {use,Last} = last(Uses),
-    make_block_ranges(Vs, First, [{V,{Def,Last}}|Acc]);
-make_block_ranges([{V,[{use,_}|_]=Uses}|Vs], First, Acc) ->
-    {use,Last} = last(Uses),
-    make_block_ranges(Vs, First, [{V,{First,Last}}|Acc]);
-make_block_ranges([], _, Acc) -> Acc.
+update_def(V, N, Ranges) ->
+    case gb_trees:lookup(V, Ranges) of
+        {value,{_From,To}} ->
+            gb_trees:update(V, {N,To}, Ranges);
+        none ->
+            %% The variable is defined but never used.
+            gb_trees:insert(V, {N,N}, Ranges)
+    end.
+
+update_used([V|Vs], First, N, Ranges) ->
+    case gb_trees:is_defined(V, Ranges) of
+        true ->
+            %% Already up to date. (A later use has already been stored.)
+            update_used(Vs, First, N, Ranges);
+        false ->
+            %% The last use of this variable. (But the first time we
+            %% see it because we visit instructions in PO.)
+            update_used(Vs, First, N, gb_trees:insert(V, {First,N}, Ranges))
+    end;
+update_used([], _First, _N, Ranges) -> Ranges.
+
+add_ranges([{V,{A,N}=Range}|T], Map) ->
+    case Map of
+        #{V := [{N,Z}|Ranges]} ->
+            %% Coalesce two adjacent ranges.
+            add_ranges(T, Map#{V := [{A,Z}|Ranges]});
+        #{V := [{A,N}|_]} ->
+            %% Ignore repeated range (probably from arguments).
+            add_ranges(T, Map);
+        #{V := Ranges} ->
+            %% This range is not adjacent to any other range.
+            add_ranges(T, Map#{V := [Range|Ranges]});
+        #{} ->
+            %% The last use of this variable is in the current block.
+            add_ranges(T, Map#{V => [Range]})
+    end;
+add_ranges([], Map) -> Map.
 
 %% first_number([#b_set{}]) -> InstructionNumber.
 %%  Return the number for the first instruction for the block.
@@ -2262,12 +2393,15 @@ first_number([I|_], _) ->
 first_number([], Last) ->
     beam_ssa:get_anno(n, Last) - 1.
 
-update_successors([L|Ls], Pred, Blocks, LiveMap, Live0) ->
+live_in_successors(Ls, Pred, Blocks, LiveMap) ->
+    live_in_successors(Ls, Pred, Blocks, LiveMap, []).
+
+live_in_successors([L|Ls], Pred, Blocks, LiveMap, Live0) ->
     Live1 = ordsets:union(Live0, get_live(L, LiveMap)),
     #b_blk{is=Is} = map_get(L, Blocks),
-    Live = update_live_phis(Is, Pred, Live1),
-    update_successors(Ls, Pred, Blocks, LiveMap, Live);
-update_successors([], _, _, _, Live) -> Live.
+    Live = live_in_phis(Is, Pred, Live1),
+    live_in_successors(Ls, Pred, Blocks, LiveMap, Live);
+live_in_successors([], _, _, _, Live) -> Live.
 
 get_live(L, LiveMap) ->
     case LiveMap of
@@ -2275,13 +2409,13 @@ get_live(L, LiveMap) ->
         #{} -> []
     end.
 
-update_live_phis([#b_set{op=phi,dst=Killed,args=Args}|Is],
+live_in_phis([#b_set{op=phi,dst=Killed,args=Args}|Is],
                  Pred, Live0) ->
     Used = [V || {#b_var{}=V,L} <- Args, L =:= Pred],
-    Live1 = ordsets:union(ordsets:from_list(Used), Live0),
+    Live1 = ordsets:union(Used, Live0),
     Live = ordsets:del_element(Killed, Live1),
-    update_live_phis(Is, Pred, Live);
-update_live_phis(_, _, Live) -> Live.
+    live_in_phis(Is, Pred, Live);
+live_in_phis(_, _, Live) -> Live.
 
 %%%
 %%% Reserve Y registers.
@@ -2303,11 +2437,12 @@ reserve_yregs(#st{frames=Frames}=St0) ->
 
 reserve_yregs_1(L, #st{ssa=Blocks0,cnt=Count0,res=Res0}=St) ->
     Blk = map_get(L, Blocks0),
-    Yregs = beam_ssa:get_anno(yregs, Blk),
-    {Def,Unused} = beam_ssa:def_unused([L], Yregs, Blocks0),
+    Yregs = ordsets:from_list(sets:to_list(beam_ssa:get_anno(yregs, Blk))),
+    RPO = beam_ssa:rpo([L], Blocks0),
+    {Def,Unused} = beam_ssa:def_unused(RPO, Yregs, Blocks0),
     UsedYregs = ordsets:subtract(Yregs, Unused),
     DefBefore = ordsets:subtract(UsedYregs, Def),
-    {BeforeVars,Blocks,Count} = rename_vars(DefBefore, L, Blocks0, Count0),
+    {BeforeVars,Blocks,Count} = rename_vars(DefBefore, L, RPO, Blocks0, Count0),
     InsideVars = ordsets:subtract(UsedYregs, DefBefore),
     ResTryTags0 = reserve_try_tags(L, Blocks),
     ResTryTags = [{V,{Reg,Count}} || {V,Reg} <- ResTryTags0],
@@ -2365,12 +2500,12 @@ update_act_map([L|Ls], Active0, ActMap0) ->
     end;
 update_act_map([], _, ActMap) -> ActMap.
 
-rename_vars([], _, Blocks, Count) ->
+rename_vars([], _, _, Blocks, Count) ->
     {[],Blocks,Count};
-rename_vars(Vs, L, Blocks0, Count0) ->
+rename_vars(Vs, L, RPO, Blocks0, Count0) ->
     {NewVars,Count} = new_vars([Base || #b_var{name=Base} <- Vs], Count0),
     Ren = zip(Vs, NewVars),
-    Blocks1 = beam_ssa:rename_vars(Ren, [L], Blocks0),
+    Blocks1 = beam_ssa:rename_vars(Ren, RPO, Blocks0),
     #b_blk{is=Is0} = Blk0 = map_get(L, Blocks1),
     CopyIs = [#b_set{op=copy,dst=New,args=[Old]} || {Old,New} <- Ren],
     Is = insert_after_phis(Is0, CopyIs),
@@ -2396,7 +2531,8 @@ frame_size(#st{frames=Frames,regs=Regs,ssa=Blocks0}=St) ->
     St#st{ssa=Blocks}.
 
 frame_size_1(L, Regs, Blocks0) ->
-    Def = beam_ssa:def([L], Blocks0),
+    RPO = beam_ssa:rpo([L], Blocks0),
+    Def = beam_ssa:def(RPO, Blocks0),
     Yregs0 = [map_get(V, Regs) || V <- Def, is_yreg(map_get(V, Regs))],
     Yregs = ordsets:from_list(Yregs0),
     FrameSize = length(ordsets:from_list(Yregs)),
@@ -2442,7 +2578,8 @@ turn_yregs(#st{frames=Frames,regs=Regs0,ssa=Blocks}=St) ->
     Regs1 = foldl(fun(L, A) ->
                           Blk = map_get(L, Blocks),
                           FrameSize = beam_ssa:get_anno(frame_size, Blk),
-                          Def = beam_ssa:def([L], Blocks),
+                          RPO = beam_ssa:rpo([L], Blocks),
+                          Def = beam_ssa:def(RPO, Blocks),
                           [turn_yregs_1(Def, FrameSize, Regs0)|A]
                   end, [], Frames),
     Regs = maps:merge(Regs0, maps:from_list(append(Regs1))),
@@ -2470,30 +2607,31 @@ turn_yregs_1(Def, FrameSize, Regs) ->
 reserve_regs(#st{args=Args,ssa=Blocks,intervals=Intervals,res=Res0}=St) ->
     %% Reserve x0, x1, and so on for the function arguments.
     Res1 = reserve_arg_regs(Args, 0, Res0),
+    RPO = beam_ssa:rpo(Blocks),
 
     %% Reserve Z registers (dummy registers) for instructions with no
     %% return values (e.g. remove_message) or pseudo-return values
     %% (e.g. landingpad).
-    Res2 = reserve_zregs(Blocks, Intervals, Res1),
+    Res2 = reserve_zregs(RPO, Blocks, Intervals, Res1),
 
     %% Reserve float registers.
-    Res3 = reserve_fregs(Blocks, Res2),
+    Res3 = reserve_fregs(RPO, Blocks, Res2),
 
     %% Reserve all remaining unreserved variables as X registers.
     Res = maps:from_list(Res3),
-    St#st{res=reserve_xregs(Blocks, Res)}.
+    St#st{res=reserve_xregs(RPO, Blocks, Res)}.
 
 reserve_arg_regs([#b_var{}=Arg|Is], N, Acc) ->
     reserve_arg_regs(Is, N+1, [{Arg,{x,N}}|Acc]);
 reserve_arg_regs([], _, Acc) -> Acc.
 
-reserve_zregs(Blocks, Intervals, Res) ->
+reserve_zregs(RPO, Blocks, Intervals, Res) ->
     ShortLived0 = [V || {V,[{Start,End}]} <- Intervals, Start+2 =:= End],
-    ShortLived = cerl_sets:from_list(ShortLived0),
+    ShortLived = sets:from_list(ShortLived0, [{version, 2}]),
     F = fun(_, #b_blk{is=Is,last=Last}, A) ->
                 reserve_zreg(Is, Last, ShortLived, A)
         end,
-    beam_ssa:fold_rpo(F, [0], Res, Blocks).
+    beam_ssa:fold_blocks(F, RPO, Res, Blocks).
 
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
               #b_set{op={bif,'=:='},args=[Dst,Val],dst=Bool}],
@@ -2528,14 +2666,14 @@ use_zreg(bs_match_string) -> yes;
 use_zreg(bs_save) -> yes;
 use_zreg(bs_restore) -> yes;
 use_zreg(bs_set_position) -> yes;
-use_zreg({float,clearerror}) -> yes;
 use_zreg(kill_try_tag) -> yes;
 use_zreg(landingpad) -> yes;
 use_zreg(put_tuple_elements) -> yes;
+use_zreg(recv_marker_bind) -> yes;
+use_zreg(recv_marker_clear) -> yes;
 use_zreg(remove_message) -> yes;
 use_zreg(set_tuple_element) -> yes;
 use_zreg(succeeded) -> yes;
-use_zreg(timeout) -> yes;
 use_zreg(wait_timeout) -> yes;
 %% There's no way we can combine these into a test instruction, so we must
 %% avoid using a z register if their result is used directly in a branch.
@@ -2554,16 +2692,16 @@ use_zreg(_) -> maybe.
 %% If V is defined just before a branch, we may be able to combine it into a
 %% test instruction.
 reserve_test_zreg(#b_var{}=V, ShortLived, A) ->
-    case cerl_sets:is_element(V, ShortLived) of
+    case sets:is_element(V, ShortLived) of
         true -> [{V,z}|A];
         false -> A
     end.
 
-reserve_fregs(Blocks, Res) ->
+reserve_fregs(RPO, Blocks, Res) ->
     F = fun(_, #b_blk{is=Is}, A) ->
                 reserve_freg(Is, A)
         end,
-    beam_ssa:fold_rpo(F, [0], Res, Blocks).
+    beam_ssa:fold_blocks(F, RPO, Res, Blocks).
 
 reserve_freg([#b_set{op={float,Op},dst=V}|Is], Res) ->
     case Op of
@@ -2580,7 +2718,7 @@ reserve_freg([], Res) -> Res.
 %%  Reserve all remaining variables as X registers.
 %%
 %%  If a variable will need to be in a specific X register for a
-%%  'call' or 'make_fun' (and there is nothing that will kill it
+%%  'call' or 'old_make_fun' (and there is nothing that will kill it
 %%  between the definition and use), reserve the register using a
 %%  {prefer,{x,X} annotation. That annotation means that the linear
 %%  scan algorithm will place the variable in the preferred register,
@@ -2589,8 +2727,8 @@ reserve_freg([], Res) -> Res.
 %%  All remaining variables are reserved as X registers. Linear scan
 %%  will allocate the lowest free X register for the variable.
 
-reserve_xregs(Blocks, Res) ->
-    Ls = reverse(beam_ssa:rpo(Blocks)),
+reserve_xregs(RPO, Blocks, Res) ->
+    Ls = reverse(RPO),
     reserve_xregs(Ls, Blocks, #{}, Res).
 
 reserve_xregs([L|Ls], Blocks, XsMap0, Res0) ->
@@ -2623,7 +2761,7 @@ reserve_xregs([], _, _, Res) -> Res.
 res_place_gc_instrs([#b_set{op=phi}=I|Is], Acc) ->
     res_place_gc_instrs(Is, [I|Acc]);
 res_place_gc_instrs([#b_set{op=Op}=I|Is], Acc)
-  when Op =:= call; Op =:= make_fun ->
+  when Op =:= call; Op =:= old_make_fun ->
     case Acc of
         [] ->
             res_place_gc_instrs(Is, [I|Acc]);
@@ -2642,19 +2780,26 @@ res_place_gc_instrs([#b_set{op=Op,args=Args}=I|Is], Acc0) ->
                     res_place_gc_instrs(Is, [I|Acc])
             end;
         {put,_} ->
-            case Acc0 of
-                [test_heap|Acc] ->
-                    res_place_gc_instrs(Is, [test_heap,I|Acc]);
-                Acc ->
-                    res_place_gc_instrs(Is, [test_heap,I|Acc])
-            end;
-        _ ->
+            res_place_gc_instrs(Is, res_place_test_heap(I, Acc0));
+        {put_fun,_} ->
+            res_place_gc_instrs(Is, res_place_test_heap(I, Acc0));
+        put_float ->
+            res_place_gc_instrs(Is, res_place_test_heap(I, Acc0));
+        gc ->
             res_place_gc_instrs(Is, [gc,I|Acc0])
     end;
 res_place_gc_instrs([], Acc) ->
     %% Reverse and replace 'test_heap' markers with 'gc'.
     %% (The distinction is no longer useful.)
     res_place_gc_instrs_rev(Acc, []).
+
+res_place_test_heap(I, Acc) ->
+    case Acc of
+        [test_heap|Acc] ->
+            [test_heap,I|Acc];
+        _ ->
+            [test_heap,I|Acc]
+    end.
 
 res_place_gc_instrs_rev([test_heap|Is], [gc|_]=Acc) ->
     res_place_gc_instrs_rev(Is, Acc);
@@ -2685,7 +2830,7 @@ reserve_xregs_is([#b_set{op=Op,dst=Dst,args=Args}=I|Is], Res0, Xs0, Used0) ->
         call ->
             Xs = reserve_call_args(tl(Args)),
             reserve_xregs_is(Is, Res, Xs, Used);
-        make_fun ->
+        old_make_fun ->
             Xs = reserve_call_args(tl(Args)),
             reserve_xregs_is(Is, Res, Xs, Used);
         _ ->

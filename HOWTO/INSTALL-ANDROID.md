@@ -7,7 +7,7 @@ Introduction
 This document describes how to cross compile Erlang/OTP to Android/Rasberry Pi platforms.
 
 
-### Download and Install Android NDK ###
+### Download and Install the Android NDK ###
 
 https://developer.android.com/ndk
 
@@ -21,26 +21,106 @@ https://developer.android.com/ndk
 
 ### Configure Erlang/OTP ###
 
-If you are building Erlang/OTP from git, you will need to run this
-to generate the configure scripts.
-
-    $ ./otp_build autoconf
-
-
-Use the following when compiling a 64-bit version.
+Use the following commands when compiling an ARM 64-bit version.
 
     $ export NDK_ABI_PLAT=android21      # When targeting Android 5.0 Lollipop
+
+
+    $ # Either without OpenSSL support:
+    $
     $ ./otp_build configure \
          --xcomp-conf=./xcomp/erl-xcomp-arm64-android.conf  \
          --without-ssl
 
 
-Use the following instead when compiling a 32-bit version.
+    $ # Or with OpenSSL linked statically:
+    $
+    $ cd /path/to/OpenSSL/source/dir/built/for/android-arm64
+    $ # First follow the NOTES.ANDROID build instructions from OpenSSL
+    $
+    $ # Then to avoid the full installation of this cross-compiled build,
+    $ # manually create a 'lib' directory at the root of the OpenSSL directory
+    $ # (at the same level as 'include') and link 'libcrypto.a' inside it.
+    $
+    $ mkdir lib
+    $ ln -s ../libcrypto.a lib/libcrypto.a
+    $ cd -   # Return to the Erlang/OTP directory
+    $
+    $ # This previous step is needed for the OpenSSL static linking to work as
+    $ # the --with-ssl option expects a path with both the 'lib' and 'include'
+    $ # directories.
+    $ ./otp_build configure \
+         --xcomp-conf=./xcomp/erl-xcomp-arm64-android.conf  \
+         --with-ssl=/path/to/OpenSSL/source/dir/built/for/android-arm64 \
+         --disable-dynamic-ssl-lib
+
+
+Use the following commands when compiling an ARM 32-bit version.
 
     $ export NDK_ABI_PLAT=androideabi16  # When targeting Android 4.1 Jelly Bean
+
+
+    $ # Either without OpenSSL support:
+    $
     $ ./otp_build configure \
          --xcomp-conf=./xcomp/erl-xcomp-arm-android.conf  \
          --without-ssl
+
+
+    $ # Or with OpenSSL linked statically:
+    $
+    $ cd /path/to/OpenSSL/source/dir/built/for/android-arm
+    $ # First follow the NOTES.ANDROID build instructions from OpenSSL
+    $
+    $ # Then to avoid the full installation of this cross-compiled build,
+    $ # manually create a 'lib' directory at the root of the OpenSSL directory
+    $ # (at the same level as 'include') and link 'libcrypto.a' inside it.
+    $
+    $ mkdir lib
+    $ ln -s ../libcrypto.a lib/libcrypto.a
+    $ cd -   # Return to the Erlang/OTP directory
+    $
+    $ # This previous step is needed for the OpenSSL static linking to work as
+    $ # the --with-ssl option expects a path with both the 'lib' and 'include'
+    $ # directories.
+    $ ./otp_build configure \
+         --xcomp-conf=./xcomp/erl-xcomp-arm-android.conf  \
+         --with-ssl=/path/to/OpenSSL/source/dir/built/for/android-arm \
+         --disable-dynamic-ssl-lib
+
+
+Use the following commands when compiling an x86 64-bit version.
+
+    $ export NDK_ABI_PLAT=android21      # When targeting Android 5.0 Lollipop
+
+
+    $ # Either without OpenSSL support:
+    $
+    $ ./otp_build configure \
+         --xcomp-conf=./xcomp/erl-xcomp-x86_64-android.conf  \
+         --without-ssl
+
+
+    $ # Or with OpenSSL linked statically:
+    $
+    $ cd /path/to/OpenSSL/source/dir/built/for/android-x86_64
+    $ # First follow the NOTES.UNIX build instructions from OpenSSL
+    $
+    $ # Then to avoid the full installation of this locally-compiled build,
+    $ # manually create a 'lib64' directory at the root of the OpenSSL source
+    $ # (at the same level as 'include') and link 'libcrypto.a' inside it.
+    $
+    $ mkdir lib64
+    $ ln -s ../libcrypto.a lib64/libcrypto.a
+    $ cd -   # Return to the Erlang/OTP directory
+    $
+    $ # This previous step is needed for the OpenSSL static linking to work
+    $ # as the --with-ssl option expects a path with both the 'lib64' and
+    $ # 'include' directories.
+    $ ./otp_build configure \
+         --xcomp-conf=./xcomp/erl-xcomp-x86_64-android.conf  \
+         --with-ssl=/path/to/OpenSSL/source/dir/built/for/android-x86_64 \
+         --disable-dynamic-ssl-lib
 
 
 ### Compile Erlang/OTP ###
@@ -52,15 +132,15 @@ Use the following instead when compiling a 32-bit version.
 
 ### Make Release ###
 
-    $ make RELEASE_ROOT=/path/to/release/erlang_23.0_arm release
+    $ make RELEASE_ROOT=/path/to/release/erlang release
 
 
 ### Target Deployment for Rasberry Pi ###
 
-Make a tarball out of /path/to/release/erlang_23.0_arm and copy it to target
+Make a tarball out of /path/to/release/erlang and copy it to target
 device. Extract it and install.
 
-    $ ./Install /usr/local/erlang_23.0_arm
+    $ ./Install /usr/local/erlang
 
 
 ### Target Deployment for Android testing ###
@@ -70,17 +150,17 @@ Android device, for testing purpose mainly, as the /data/local/tmp path used
 for installation below is executable only from the adb shell command, but not
 from other local applications due to Android sandbox security model.
 
-    $ cd /path/to/release/erlang_23.0_arm
+    $ cd /path/to/release/erlang
     $ # For testing purpose, configure the Erlang/OTP scripts to use the target
     $ # installation path in /data/local/tmp which is executable from adb shell
-    $ ./Install -cross -minimal /data/local/tmp/erlang_23.0
+    $ ./Install -cross -minimal /data/local/tmp/erlang
 
 To properly integrate into an Android application, the installation would have
 to target /data/data/[your/app/package/name]/files/[erlang/dir/once/unpacked]
 as shown in https://github.com/JeromeDeBretagne/erlanglauncher as an example.
 
 WARNING: adb has issues with symlinks (and java.util.zip too). There is only
-one symlink for epmd in recent Erlang/OTP releases (20 to master-based 23) so
+one symlink for epmd in recent Erlang/OTP releases (20 to master-based 24) so
 it has to be removed before using adb push, and then recreated manually on the
 target device itself if needed (or epmd can simply be duplicated instead).
 
@@ -89,12 +169,12 @@ target device itself if needed (or epmd can simply be duplicated instead).
     $ cp erts-X.Y.Z/bin/epmd bin/epmd
     $ cd ..
     $ # The release can now be deployed in the pre-configured target directory
-    $ adb push erlang_23.0_arm /data/local/tmp/erlang_23.0
+    $ adb push erlang /data/local/tmp/erlang
 
 Start an interactive shell onto the target Android device, and launch erl.
 
      $ adb shell
-     :/ $ /data/local/tmp/erlang_23.0/bin/erl
+     :/ $ /data/local/tmp/erlang/bin/erl
      Eshel VX.Y.Z (abort with ^G)
      1> q().
      ok

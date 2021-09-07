@@ -172,26 +172,28 @@ publickey_msg([SigAlg, #ssh{user = User,
             SigAlgStr = atom_to_list(SigAlg),
             SigData = build_sig_data(SessionId, User, Service, PubKeyBlob, SigAlgStr),
 
-            Sig = case Key of
-                {ssh2_pubkey, PubKeyBlob} ->
-                  ssh_transport:call_KeyCb(sign, [PubKeyBlob, SigData], Opts);
+            SigRes = case Key of
+                         {ssh2_pubkey, PubKeyBlob} ->
+                             {ok, ssh_transport:call_KeyCb(sign, [PubKeyBlob, SigData], Opts)};
+                         {PrivKey, PubKeyBlob} ->
+                             ssh_transport:sign(SigData, SigAlg, PrivKey, Ssh)
+                     end,
+            case SigRes of
+                {ok,Sig} ->
+                    SigBlob = list_to_binary([?string(SigAlgStr),
+                                              ?binary(Sig)]),
 
-                {PrivKey, PubKeyBlob} ->
-                  Hash = ssh_transport:sha(SigAlg),
-                  ssh_transport:sign(SigData, Hash, PrivKey)
-              end,
-
-            SigBlob = list_to_binary([?string(SigAlgStr),
-                                      ?binary(Sig)]),
-
-            {#ssh_msg_userauth_request{user = User,
-                                       service = Service,
-                                       method = "publickey",
-                                       data = [?TRUE,
-                                               ?string(SigAlgStr),
-                                               ?binary(PubKeyBlob),
-                                               ?binary(SigBlob)]},
-             Ssh};
+                    {#ssh_msg_userauth_request{user = User,
+                                               service = Service,
+                                               method = "publickey",
+                                               data = [?TRUE,
+                                                       ?string(SigAlgStr),
+                                                       ?binary(PubKeyBlob),
+                                                       ?binary(SigBlob)]},
+                     Ssh};
+                {error,_} ->
+                    {not_ok, Ssh}
+            end;
 
         _ ->
             {not_ok, Ssh}
@@ -502,7 +504,7 @@ check_password(User, Password, #ssh{opts=Opts} = Ssh) ->
 
 	undefined ->
 	    Static = get_password_option(Opts, User),
-	    {crypto:equal_const_time(Password,Static), Ssh};
+	    {ssh_lib:comp(Password,Static), Ssh};
 
 	Checker when is_function(Checker,2) ->
 	    {Checker(User, Password), Ssh};
@@ -545,13 +547,16 @@ pre_verify_sig(User, KeyBlob,  #ssh{opts=Opts}) ->
 verify_sig(SessionId, User, Service, AlgBin, KeyBlob, SigWLen, #ssh{opts=Opts} = Ssh) ->
     try
         Alg = binary_to_list(AlgBin),
+        true = lists:member(list_to_existing_atom(Alg), 
+                            proplists:get_value(public_key,
+                                                ?GET_OPT(preferred_algorithms,Opts))),
         Key = ssh_message:ssh2_pubkey_decode(KeyBlob), % or exception
         true = ssh_transport:call_KeyCb(is_auth_key, [Key, User], Opts),
         PlainText = build_sig_data(SessionId, User, Service, KeyBlob, Alg),
         <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,
         <<?UINT32(AlgLen), _Alg:AlgLen/binary,
           ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
-        ssh_transport:verify(PlainText, ssh_transport:sha(Alg), Sig, Key, Ssh)
+        ssh_transport:verify(PlainText, list_to_existing_atom(Alg), Sig, Key, Ssh)
     catch
 	_:_ ->
 	    false

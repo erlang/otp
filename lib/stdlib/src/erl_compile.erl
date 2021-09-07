@@ -30,7 +30,7 @@
 
 compiler(".erl") ->    {compile,         compile};
 compiler(".S") ->      {compile,         compile_asm};
-compiler(".beam") ->   {compile,         compile_beam};
+compiler(".abstr") ->  {compile,         compile_abstr};
 compiler(".core") ->   {compile,         compile_core};
 compiler(".mib") ->    {snmpc,           compile};
 compiler(".bin") ->    {snmpc,           mib_to_hrl};
@@ -220,7 +220,6 @@ usage(Error) ->
 	 {"-o name","name output directory or file"},
 	 {"-pa path","add path to the front of Erlang's code path"},
 	 {"-pz path","add path to the end of Erlang's code path"},
-	 {"-smp","compile using SMP emulator"},
 	 {"-v","verbose compiler output"},
 	 {"-Werror","make all warnings into errors"},
 	 {"-W0","disable warnings"},

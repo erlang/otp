@@ -24,7 +24,7 @@
 	 lookup_mime_default/3, reason_phrase/1, message/3, rfc1123_date/0,
 	 rfc1123_date/1, day/1, month/1,
 	 flatlength/1, split_path/1, split_script_path/1, 
-	 suffix/1, split/3, uniq/1,
+	 suffix/1, strip_extension_dot/1, split/3, uniq/1,
 	 make_name/2,make_name/3,make_name/4,strip/1,
 	 hexlist_to_integer/1,integer_to_hexlist/1,
 	 convert_request_date/1,create_etag/1,create_etag/2,
@@ -32,6 +32,12 @@
 	 modules_validate/1, module_validate/1, 
 	 dir_validate/2, file_validate/2, mime_type_validate/1, 
 	 mime_types_validate/1, custom_date/0, error_log/2]).
+
+-deprecated({flatlength, 1, "use erlang:iolist_size/1 instead"}).
+-deprecated({hexlist_to_integer, 1, "use erlang:list_to_integer/2 with base 16 instead"}).
+-deprecated({integer_to_hexlist, 1, "use erlang:integer_to_list/2 with base 16 instead"}).
+-deprecated({strip, 1, "use string:trim/1 instead"}).
+-deprecated({suffix, 1, "use filename:extension/1 and string:trim/2 instead"}).
 
 -compile({nowarn_deprecated_function, [{http_uri, encode, 1}]}).
 -compile({nowarn_deprecated_function, [{http_uri, decode, 1}]}).
@@ -254,7 +260,7 @@ convert_rfc850_date(DateStr) ->
 
 convert_rfc850_date([D1,D2,_,
 		     M,O,N,_,
-		     Y1,Y2|_Rest],[H1,H2,_Col,M1,M2,_Col,S1,S2|_Rest2])->    
+		     Y1,Y2|_Rest],[H1,H2,Col,M1,M2,Col,S1,S2|_Rest2])->    
     Year=list_to_integer([50,48,Y1,Y2]),
     Day=list_to_integer([D1,D2]),
     Month = http_util:convert_month([M,O,N]),
@@ -263,12 +269,12 @@ convert_rfc850_date([D1,D2,_,
     Sec=list_to_integer([S1,S2]),
     {ok,{{Year,Month,Day},{Hour,Min,Sec}}}.
 
-convert_ascii_date([_D,_A,_Y,_SP,
-		    M,O,N,_SP,
-		    D1,D2,_SP,
-		    H1,H2,_Col,
-		    M1,M2,_Col,
-		    S1,S2,_SP,
+convert_ascii_date([_D,_A,_Y,SP,
+		    M,O,N,SP,
+		    D1,D2,SP,
+		    H1,H2,Col,
+		    M1,M2,Col,
+		    S1,S2,SP,
 		    Y1,Y2,Y3,Y4| _Rest])->
     Year=list_to_integer([Y1,Y2,Y3,Y4]),
     Day=case D1 of 
@@ -283,12 +289,12 @@ convert_ascii_date([_D,_A,_Y,_SP,
     Sec=list_to_integer([S1,S2]),
     {ok,{{Year,Month,Day},{Hour,Min,Sec}}}.
 
-convert_rfc1123_date([_D,_A,_Y,_C,_SP,
-		      D1,D2,_SP,
-		      M,O,N,_SP,
-		      Y1,Y2,Y3,Y4,_SP,
-		      H1,H2,_Col,
-		      M1,M2,_Col,
+convert_rfc1123_date([_D,_A,_Y,_C,SP,
+		      D1,D2,SP,
+		      M,O,N,SP,
+		      Y1,Y2,Y3,Y4,SP,
+		      H1,H2,Col,
+		      M1,M2,Col,
 		      S1,S2|_Rest]) -> 
     Year=list_to_integer([Y1,Y2,Y3,Y4]),
     Day=list_to_integer([D1,D2]),
@@ -470,6 +476,14 @@ suffix(Path) ->
 	    tl(Extension)
     end.
 
+%% strip_extension_dot
+strip_extension_dot(Path) ->
+    case filename:extension(Path) of
+	[] ->
+	    [];
+	Extension ->
+	    tl(Extension)
+    end.
 
 %% strip
 strip(Value)->

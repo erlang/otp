@@ -23,7 +23,7 @@
 
 #if defined(ERL_WANT_GC_INTERNALS__) || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF)
 
-/* GC declarations shared by beam/erl_gc.c and hipe/hipe_gc.c */
+/* GC declarations used by beam/erl_gc.c */
 
 #define ERTS_POTENTIALLY_LONG_GC_HSIZE (128*1024) /* Words */
 
@@ -124,14 +124,14 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term, Eterm xptr_tag)
 
 #endif
 
-#endif /* ERL_GC_C__ || HIPE_GC_C__ */
+#endif
 
 /*
  * Global exported
  */
 
 #define ERTS_IS_GC_DESIRED_INTERNAL(Proc, HTop, STop)			\
-    ((((STop) - (HTop) < (Proc)->mbuf_sz))				\
+    ((((STop) - (HTop) < (Sint)(Proc)->mbuf_sz))                        \
      | ((Proc)->off_heap.overhead > (Proc)->bin_vheap_sz)		\
      | !!((Proc)->flags & F_FORCE_GC))
 

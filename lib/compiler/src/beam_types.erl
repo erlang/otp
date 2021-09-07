@@ -28,6 +28,7 @@
 -export([meet/1, meet/2, join/1, join/2, subtract/2]).
 
 -export([is_boolean_type/1,
+         is_numerical_type/1,
          get_bs_matchable_unit/1,
          is_bs_matchable_type/1,
          get_singleton_value/1,
@@ -179,9 +180,14 @@ mts_records(_RsA, _RsB, []) ->
 
 -spec join([type()]) -> type().
 
-join([T1, T2| Ts]) ->
-    join([join(T1, T2) | Ts]);
-join([T]) -> T.
+join([T | Ts]) ->
+    join_list(Ts, T).
+
+join_list([T | Ts], T) ->
+    join_list(Ts, T);
+join_list([T1 | Ts], T) ->
+    join_list(Ts, join(T1, T));
+join_list([], T) -> T.
 
 %% Return the "join" of Type1 and Type2, which is more general than Type1 and
 %% Type2. This is identical to lub/2 but can operate on and produce unions.
@@ -422,7 +428,8 @@ is_bs_matchable_type(Type) ->
       Result :: {ok, term()} | error.
 get_singleton_value(#t_atom{elements=[Atom]}) ->
     {ok, Atom};
-get_singleton_value(#t_float{elements={Float,Float}}) ->
+get_singleton_value(#t_float{elements={Float,Float}}) when Float =/= 0.0 ->
+    %% 0.0 is not actually a singleton as it has two encodings: 0.0 and -0.0
     {ok, Float};
 get_singleton_value(#t_integer{elements={Int,Int}}) ->
     {ok, Int};
@@ -463,6 +470,11 @@ is_boolean_type(#t_union{}=T) ->
     is_boolean_type(normalize(T));
 is_boolean_type(_) ->
     false.
+
+-spec is_numerical_type(type()) -> boolean().
+is_numerical_type(#t_integer{}) -> true;
+is_numerical_type(number) -> true;
+is_numerical_type(_) -> false.
 
 -spec set_tuple_element(Index, Type, Elements) -> Elements when
       Index :: pos_integer(),

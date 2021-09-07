@@ -631,16 +631,9 @@
 	  </row>
 	<tcaption>NEW_PORT_EXT</tcaption></table>
 	<p>
-	  Encodes a port identifier (obtained from
-          <seemfa marker="erlang#open_port/2"><c>erlang:open_port/2</c></seemfa>).
-	  <c>Node</c> is an encoded atom, that is,
-	  <seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>,
-	  <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>
-	  or <seeguide marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>.
-	  <c>ID</c> is a 32-bit big endian unsigned integer. Only 28 bits are
-	  significant; the rest are to be 0. The <c>Creation</c> works just like in
-	  <seeguide marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seeguide>.
-	  Port operations are not allowed across node boundaries.
+	  Same as <seeguide marker="#V4_PORT_EXT"><c>V4_PORT_EXT</c></seeguide>
+	  except the <c>ID</c> field is only four bytes. Only 28 bits are
+	  significant; the rest are to be 0. 
 	</p>
 	<p><c>NEW_PORT_EXT</c> was introduced in OTP 19, but only to be decoded
 	  and echoed back. Not encoded for local ports.
@@ -650,6 +643,39 @@
 	  became mandatory. All ports are now
 	  encoded using <c>NEW_PORT_EXT</c>, even external ports received as <seeguide
 	  marker="#PORT_EXT"><c>PORT_EXT</c></seeguide> from older nodes.
+	</p>
+    </section>
+
+    <section>
+      <marker id="V4_PORT_EXT"/>
+      <title>V4_PORT_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">N</cell>
+	    <cell align="center">8</cell>
+	    <cell align="center">4</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>120</c></cell>
+	    <cell align="center"><c>Node</c></cell>
+	    <cell align="center"><c>ID</c></cell>
+	    <cell align="center"><c>Creation</c></cell>
+	  </row>
+	<tcaption>V4_PORT_EXT</tcaption></table>
+	<p>
+	  Encodes a port identifier (obtained from
+          <seemfa marker="erlang#open_port/2"><c>erlang:open_port/2</c></seemfa>).
+	  <c>Node</c> is an encoded atom, that is,
+	  <seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>,
+	  <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>
+	  or <seeguide marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>.
+	  <c>ID</c> is a 64-bit big endian unsigned integer. The <c>Creation</c>
+	  works just like in <seeguide marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seeguide>.
+	  Port operations are not allowed across node boundaries.
+	</p>
+	<p><c>V4_PORT_EXT</c> was introduced in OTP 24, but only to be decoded
+	  and echoed back. Not encoded for local ports.
 	</p>
     </section>
 
@@ -710,12 +736,14 @@
 	    marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>.</p>
 	  </item>
 	  <tag><c>ID</c></tag>
-	  <item><p>A 32-bit big endian unsigned integer. Only 15 bits are
-	    significant; the rest are to be 0.</p>
+	  <item><p>A 32-bit big endian unsigned integer. If distribution flag
+	  <seeguide marker="erl_dist_protocol#DFLAG_V4_NC"><c>DFLAG_V4_NC</c></seeguide>
+	  is not set, only 15 bits may be used and the rest must be 0.</p>
 	  </item>
 	  <tag><c>Serial</c></tag>
-	  <item><p>A 32-bit big endian unsigned integer. Only 13 bits are
-	    significant; the rest are to be 0.</p>
+	  <item><p>A 32-bit big endian unsigned integer. If distribution flag
+	  <seeguide marker="erl_dist_protocol#DFLAG_V4_NC"><c>DFLAG_V4_NC</c></seeguide>
+	  is not set, only 13 bits may be used and the rest must be 0.</p>
 	  </item>
 	  <tag><c>Creation</c></tag>
 	  <item><p>A 32-bit big endian unsigned integer. All identifiers
@@ -735,6 +763,10 @@
 	  became mandatory. All pids are now encoded using <c>NEW_PID_EXT</c>,
 	  even external pids received as
 	  <seeguide marker="#PID_EXT"><c>PID_EXT</c></seeguide> from older nodes.
+	</p>
+	<p>In OTP 24 distribution flag
+	  <seeguide marker="erl_dist_protocol#DFLAG_V4_NC"><c>DFLAG_V4_NC</c></seeguide>
+	  was introduced, accepting full 64-bit pids to be decoded and echoed back.
 	</p>
     </section>
 
@@ -1046,7 +1078,9 @@
 	    or <seeguide marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>.</p>
 	  </item>
 	  <tag><c>Len</c></tag>
-	  <item><p>A 16-bit big endian unsigned integer not larger than 3.</p>
+	  <item><p>A 16-bit big endian unsigned integer not larger than 5 when the
+	  <seeguide marker="erl_dist_protocol#DFLAG_V4_NC"><c>DFLAG_V4_NC</c></seeguide>
+	  has been set; otherwise not larger than 3.</p>
 	  </item>
 	  <tag><c>ID</c></tag>
 	  <item><p>A sequence of <c>Len</c> big-endian unsigned integers

@@ -1,0 +1,7 @@
+
+  [;1m-spec node() -> Node when Node :: node().[0m
+
+  Returns the name of the local node. If the node is not alive, [;;4m[0m
+  [;;4mnonode@nohost[0m is returned instead.
+
+  Allowed in guard tests.

@@ -353,7 +353,7 @@ ok</pre>
 
     <pre>
 12> <input>P.</input>
-* 1: variable 'P' is unbound
+* 1:1: variable 'P' is unbound
 13> <input>Descriptor.</input>
 {4,abcd}</pre>
 
@@ -418,7 +418,7 @@ worked
 
     <pre>
 23> <input>Z.</input>
-* 1: variable 'Z' is unbound
+* 1:1: variable 'Z' is unbound
 24> <input>get(aa).</input>
 hello</pre>
 
@@ -520,7 +520,7 @@ ok</pre>
 
     <pre>
 39> <input>rd(rec, {c}), A.</input>
-* 1: variable 'A' is unbound
+* 1:15: variable 'A' is unbound
 40> <input>#rec{}.</input>
 #rec{c = undefined}
 ok</pre>

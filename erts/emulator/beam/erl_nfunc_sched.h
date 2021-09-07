@@ -39,16 +39,20 @@
 typedef struct {
     struct {
         ErtsCodeInfo info;
+#ifdef BEAMASM
+        // Code used by tracing/nif load
+        BeamInstr trace[1];
+#endif
         BeamInstr call_op; /* call_bif || call_nif */
         BeamInstr dfunc;
     } trampoline;
 
     struct erl_module_nif* m; /* NIF module, or NULL if BIF */
     void *func;		/* Indirect NIF or BIF to execute (may be unused) */
-    ErtsCodeMFA *current;/* Current as set when originally called */
+    const ErtsCodeMFA *current;/* Current as set when originally called */
     /* --- The following is only used on error --- */
-    BeamInstr *pc;	/* Program counter */
-    ErtsCodeMFA *mfa;	/* MFA of original call */
+    ErtsCodePtr pc;    /* Program counter */
+    const ErtsCodeMFA *mfa; /* MFA of original call */
     int argc;		/* Number of arguments in original call */
     int argv_size;	/* Allocated size of argv */
     Eterm argv[1];	/* Saved arguments from the original call */
@@ -57,7 +61,7 @@ typedef struct {
 ErtsNativeFunc *erts_new_proc_nfunc(Process *c_p, int argc);
 void erts_destroy_nfunc(Process *p);
 ErtsNativeFunc *erts_nfunc_schedule(Process *c_p, Process *dirty_shadow_proc,
-                               ErtsCodeMFA *mfa, BeamInstr *pc,
+                               const ErtsCodeMFA *mfa, ErtsCodePtr pc,
                                BeamInstr instr,
                                void *dfunc, void *ifunc,
                                Eterm mod, Eterm func,
@@ -71,9 +75,9 @@ ERTS_GLB_INLINE int erts_check_nfunc_in_area(Process *p,
 ERTS_GLB_INLINE void erts_nfunc_restore(Process *c_p, ErtsNativeFunc *ep,
                                         Eterm result);
 ERTS_GLB_INLINE void erts_nfunc_restore_error(Process* c_p,
-                                              BeamInstr **pc,
+                                              ErtsCodePtr *pc,
                                               Eterm *reg,
-                                              ErtsCodeMFA **nif_mfa);
+                                              const ErtsCodeMFA **nif_mfa);
 ERTS_GLB_INLINE Process *erts_proc_shadow2real(Process *c_p);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -138,8 +142,8 @@ erts_nfunc_restore(Process *c_p, ErtsNativeFunc *ep, Eterm result)
 }
 
 ERTS_GLB_INLINE void
-erts_nfunc_restore_error(Process* c_p, BeamInstr **pc,
-			      Eterm *reg, ErtsCodeMFA **nif_mfa)
+erts_nfunc_restore_error(Process* c_p, ErtsCodePtr *pc,
+                         Eterm *reg, const ErtsCodeMFA **nif_mfa)
 {
     ErtsNativeFunc *nep = (ErtsNativeFunc *) ERTS_PROC_GET_NFUNC_TRAP_WRAPPER(c_p);
     int ix;
@@ -172,11 +176,17 @@ erts_proc_shadow2real(Process *c_p)
 #if defined(ERTS_WANT_NFUNC_SCHED_INTERNALS__) && !defined(ERTS_NFUNC_SCHED_INTERNALS__)
 #define ERTS_NFUNC_SCHED_INTERNALS__
 
-#define ERTS_I_BEAM_OP_TO_NFUNC(I)					\
-    (ASSERT(BeamIsOpCode(*(I), op_call_bif_W) ||                          \
-            BeamIsOpCode(*(I), op_call_nif_WWW)),                           \
-     ((ErtsNativeFunc *) (((char *) (I)) - offsetof(ErtsNativeFunc, trampoline.call_op))))
+#ifdef BEAMASM
+#define NFUNC_FIELD__ trampoline.trace
+#else
+#define NFUNC_FIELD__ trampoline.call_op
+#endif
 
+#define ERTS_I_BEAM_OP_TO_NFUNC(I)                                            \
+    (ASSERT(BeamIsOpCode(*(const BeamInstr*)(I), op_call_bif_W) ||            \
+            BeamIsOpCode(*(const BeamInstr*)(I), op_call_nif_WWW)),           \
+     ((ErtsNativeFunc *) (((char *) (I)) -                                    \
+        offsetof(ErtsNativeFunc, NFUNC_FIELD__))))
 
 #include "erl_message.h"
 #include <stddef.h>

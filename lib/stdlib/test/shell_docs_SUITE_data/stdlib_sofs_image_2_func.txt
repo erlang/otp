@@ -1,0 +1,15 @@
+
+  [;1m-spec image(BinRel, Set1) -> Set2[0m
+  [;1m               when[0m
+  [;1m                   BinRel :: binary_relation(),[0m
+  [;1m                   Set1 :: a_set(),[0m
+  [;1m                   Set2 :: a_set().[0m
+
+  Returns the image of set [;;4mSet1[0m under the binary relation [;;4m[0m
+  [;;4mBinRel[0m.
+
+    1> R = sofs:relation([{1,a},{2,b},{2,c},{3,d}]),
+    S1 = sofs:set([1,2]),
+    S2 = sofs:image(R, S1),
+    sofs:to_external(S2).
+    [a,b,c]

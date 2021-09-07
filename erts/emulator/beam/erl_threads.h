@@ -381,7 +381,7 @@ typedef struct {
 #endif
 } erts_rwlock_t;
 
-__decl_noreturn void  __noreturn erts_thr_fatal_error(int, char *); 
+__decl_noreturn void  __noreturn erts_thr_fatal_error(int, const char *);
                                  /* implemented in erl_init.c */
 
 #define ERTS_THR_INIT_DATA_DEF_INITER	ETHR_INIT_DATA_DEFAULT_INITER
@@ -411,7 +411,7 @@ ERTS_GLB_INLINE erts_tid_t erts_thr_self(void);
 ERTS_GLB_INLINE int erts_thr_getname(erts_tid_t tid, char *buf, size_t len);
 ERTS_GLB_INLINE int erts_equal_tids(erts_tid_t x, erts_tid_t y);
 ERTS_GLB_INLINE void erts_mtx_init(erts_mtx_t *mtx,
-                                   char *name,
+                                   const char *name,
                                    Eterm extra,
                                    erts_lock_flags_t flags);
 ERTS_GLB_INLINE void erts_mtx_init_locked(erts_mtx_t *mtx,
@@ -420,9 +420,9 @@ ERTS_GLB_INLINE void erts_mtx_init_locked(erts_mtx_t *mtx,
                                           erts_lock_flags_t flags);
 ERTS_GLB_INLINE void erts_mtx_destroy(erts_mtx_t *mtx);
 #ifdef ERTS_ENABLE_LOCK_POSITION
-ERTS_GLB_INLINE int erts_mtx_trylock_x(erts_mtx_t *mtx, char *file,
+ERTS_GLB_INLINE int erts_mtx_trylock_x(erts_mtx_t *mtx, const char *file,
 				       unsigned int line);
-ERTS_GLB_INLINE void erts_mtx_lock_x(erts_mtx_t *mtx, char *file,
+ERTS_GLB_INLINE void erts_mtx_lock_x(erts_mtx_t *mtx, const char *file,
 				     unsigned int line);
 #else
 ERTS_GLB_INLINE int erts_mtx_trylock(erts_mtx_t *mtx);
@@ -447,10 +447,10 @@ ERTS_GLB_INLINE void erts_rwmtx_init(erts_rwmtx_t *rwmtx,
                                      erts_lock_flags_t flags);
 ERTS_GLB_INLINE void erts_rwmtx_destroy(erts_rwmtx_t *rwmtx);
 #ifdef ERTS_ENABLE_LOCK_POSITION
-ERTS_GLB_INLINE int erts_rwmtx_tryrlock_x(erts_rwmtx_t *rwmtx, char *file, unsigned int line);
-ERTS_GLB_INLINE void erts_rwmtx_rlock_x(erts_rwmtx_t *rwmtx, char *file, unsigned int line);
-ERTS_GLB_INLINE void erts_rwmtx_rwlock_x(erts_rwmtx_t *rwmtx, char *file, unsigned int line);
-ERTS_GLB_INLINE int erts_rwmtx_tryrwlock_x(erts_rwmtx_t *rwmtx, char *file, unsigned int line);
+ERTS_GLB_INLINE int erts_rwmtx_tryrlock_x(erts_rwmtx_t *rwmtx, const char *file, unsigned int line);
+ERTS_GLB_INLINE void erts_rwmtx_rlock_x(erts_rwmtx_t *rwmtx, const char *file, unsigned int line);
+ERTS_GLB_INLINE void erts_rwmtx_rwlock_x(erts_rwmtx_t *rwmtx, const char *file, unsigned int line);
+ERTS_GLB_INLINE int erts_rwmtx_tryrwlock_x(erts_rwmtx_t *rwmtx, const char *file, unsigned int line);
 #else
 ERTS_GLB_INLINE int erts_rwmtx_tryrlock(erts_rwmtx_t *rwmtx);
 ERTS_GLB_INLINE void erts_rwmtx_rlock(erts_rwmtx_t *rwmtx);
@@ -468,7 +468,7 @@ ERTS_GLB_INLINE void erts_spinlock_init(erts_spinlock_t *lock,
 ERTS_GLB_INLINE void erts_spinlock_destroy(erts_spinlock_t *lock);
 ERTS_GLB_INLINE void erts_spin_unlock(erts_spinlock_t *lock);
 #ifdef ERTS_ENABLE_LOCK_POSITION
-ERTS_GLB_INLINE void erts_spin_lock_x(erts_spinlock_t *lock, char *file, unsigned int line);
+ERTS_GLB_INLINE void erts_spin_lock_x(erts_spinlock_t *lock, const char *file, unsigned int line);
 #else
 ERTS_GLB_INLINE void erts_spin_lock(erts_spinlock_t *lock);
 #endif
@@ -480,8 +480,8 @@ ERTS_GLB_INLINE void erts_rwlock_init(erts_rwlock_t *lock,
 ERTS_GLB_INLINE void erts_rwlock_destroy(erts_rwlock_t *lock);
 ERTS_GLB_INLINE void erts_read_unlock(erts_rwlock_t *lock);
 #ifdef ERTS_ENABLE_LOCK_POSITION
-ERTS_GLB_INLINE void erts_read_lock_x(erts_rwlock_t *lock, char *file, unsigned int line);
-ERTS_GLB_INLINE void erts_write_lock_x(erts_rwlock_t *lock, char *file, unsigned int line);
+ERTS_GLB_INLINE void erts_read_lock_x(erts_rwlock_t *lock, const char *file, unsigned int line);
+ERTS_GLB_INLINE void erts_write_lock_x(erts_rwlock_t *lock, const char *file, unsigned int line);
 #else
 ERTS_GLB_INLINE void erts_read_lock(erts_rwlock_t *lock);
 ERTS_GLB_INLINE void erts_write_lock(erts_rwlock_t *lock);
@@ -583,9 +583,9 @@ do {									\
     Type act = ReadOp((VarP));						\
     while (1) {								\
 	Type exp = act;							\
-	Type new = exp & ~(Mask);					\
-	new |= ((Mask) & (Set));					\
-	act = CmpxchgOp((VarP), new, exp);				\
+	Type new_value = exp & ~(Mask);					\
+	new_value |= ((Mask) & (Set));					\
+	act = CmpxchgOp((VarP), new_value, exp);				\
 	if (act == exp)							\
 	    return act;							\
     }									\
@@ -1241,7 +1241,7 @@ erts_atomic64_xchg_ ## BARRIER(erts_atomic64_t *var,			\
 			       erts_aint64_t val);			\
 ERTS_GLB_INLINE erts_aint64_t						\
 erts_atomic64_cmpxchg_ ## BARRIER(erts_atomic64_t *var,			\
-				  erts_aint64_t new,			\
+				  erts_aint64_t new_value,			\
 				  erts_aint64_t exp);			\
 ERTS_GLB_INLINE erts_aint64_t						\
 erts_atomic64_read_bset_ ## BARRIER(erts_atomic64_t *var,		\
@@ -1294,10 +1294,10 @@ ethr_dw_atomic_read_nob(ethr_dw_atomic_t *var,
 
 static ERTS_INLINE int
 ethr_dw_atomic_cmpxchg_nob(ethr_dw_atomic_t *var,
-			   ethr_dw_sint_t *new,
+			   ethr_dw_sint_t *new_value,
 			   ethr_dw_sint_t *xchg)
 {
-    return ethr_dw_atomic_cmpxchg(var, new, xchg);
+    return ethr_dw_atomic_cmpxchg(var, new_value, xchg);
 }
 
 #undef ERTS_ATOMIC64_OPS_IMPL__
@@ -1370,70 +1370,70 @@ erts_atomic64_read_ ## BARRIER(erts_atomic64_t *var)			\
 ERTS_GLB_INLINE erts_aint64_t						\
 erts_atomic64_inc_read_ ## BARRIER(erts_atomic64_t *var)		\
 {									\
-    erts_aint64_t xchg, new;						\
+    erts_aint64_t xchg, new_value;                                      \
     ERTS_ATOMIC64_DW_CMPXCHG_IMPL__(ethr_dw_atomic_cmpxchg_ ## BARRIER,	\
-				    var, xchg, new,			\
-				    new = xchg + 1);			\
-    return new;								\
+				    var, xchg, new_value,               \
+				    new_value = xchg + 1);              \
+    return new_value;                                                   \
 }									\
 									\
 ERTS_GLB_INLINE erts_aint64_t						\
 erts_atomic64_dec_read_ ## BARRIER(erts_atomic64_t *var)		\
 {									\
-    erts_aint64_t xchg, new;						\
+    erts_aint64_t xchg, new_value;                                      \
     ERTS_ATOMIC64_DW_CMPXCHG_IMPL__(ethr_dw_atomic_cmpxchg_ ## BARRIER,	\
-				    var, xchg, new,			\
-				    new = xchg - 1);			\
-    return new;								\
+				    var, xchg, new_value,               \
+				    new_value = xchg - 1);              \
+    return new_value;                                                   \
 }									\
 									\
 ERTS_GLB_INLINE void							\
 erts_atomic64_inc_ ## BARRIER(erts_atomic64_t *var)			\
 {									\
-    erts_aint64_t xchg, new;						\
+    erts_aint64_t xchg, new_value;                                      \
     ERTS_ATOMIC64_DW_CMPXCHG_IMPL__(ethr_dw_atomic_cmpxchg_ ## BARRIER,	\
-				    var, xchg, new,			\
-				    new = xchg + 1);			\
+				    var, xchg, new_value,               \
+				    new_value = xchg + 1);              \
 }									\
 									\
 ERTS_GLB_INLINE void							\
 erts_atomic64_dec_ ## BARRIER(erts_atomic64_t *var)			\
 {									\
-    erts_aint64_t xchg, new;						\
+    erts_aint64_t xchg, new_value;                                      \
     ERTS_ATOMIC64_DW_CMPXCHG_IMPL__(ethr_dw_atomic_cmpxchg_ ## BARRIER,	\
-				    var, xchg, new,			\
-				    new = xchg - 1);			\
+				    var, xchg, new_value,               \
+				    new_value = xchg - 1);              \
 }									\
 									\
 ERTS_GLB_INLINE erts_aint64_t						\
 erts_atomic64_add_read_ ## BARRIER(erts_atomic64_t *var,		\
 				   erts_aint64_t val)			\
 {									\
-    erts_aint64_t xchg, new;						\
+    erts_aint64_t xchg, new_value;                                      \
     ERTS_ATOMIC64_DW_CMPXCHG_IMPL__(ethr_dw_atomic_cmpxchg_ ## BARRIER,	\
-				    var, xchg, new,			\
-				    new = xchg + val);			\
-    return new;								\
+				    var, xchg, new_value,               \
+				    new_value = xchg + val);            \
+    return new_value;                                                   \
 }									\
 									\
 ERTS_GLB_INLINE void							\
 erts_atomic64_add_ ## BARRIER(erts_atomic64_t *var,			\
 			      erts_aint64_t val)			\
 {									\
-    erts_aint64_t xchg, new;						\
+    erts_aint64_t xchg, new_value;                                      \
     ERTS_ATOMIC64_DW_CMPXCHG_IMPL__(ethr_dw_atomic_cmpxchg_ ## BARRIER,	\
-				    var, xchg, new,			\
-				    new = xchg + val);			\
+				    var, xchg, new_value,               \
+				    new_value = xchg + val);            \
 }									\
 									\
 ERTS_GLB_INLINE erts_aint64_t						\
 erts_atomic64_read_bor_ ## BARRIER(erts_atomic64_t *var,		\
 				   erts_aint64_t val)			\
 {									\
-    erts_aint64_t xchg, new;						\
+    erts_aint64_t xchg, new_value;                                      \
     ERTS_ATOMIC64_DW_CMPXCHG_IMPL__(ethr_dw_atomic_cmpxchg_ ## BARRIER,	\
-				    var, xchg, new,			\
-				    new = xchg | val);			\
+				    var, xchg, new_value,               \
+				    new_value = xchg | val);            \
     return xchg;							\
 }									\
 									\
@@ -1441,10 +1441,10 @@ ERTS_GLB_INLINE erts_aint64_t						\
 erts_atomic64_read_band_ ## BARRIER(erts_atomic64_t *var,		\
 				    erts_aint64_t val)			\
 {									\
-    erts_aint64_t xchg, new;						\
+    erts_aint64_t xchg, new_value;                                      \
     ERTS_ATOMIC64_DW_CMPXCHG_IMPL__(ethr_dw_atomic_cmpxchg_ ## BARRIER,	\
-				    var, xchg, new,			\
-				    new = xchg & val);			\
+				    var, xchg, new_value,               \
+				    new_value = xchg & val);            \
     return xchg;							\
 }									\
 									\
@@ -1452,21 +1452,21 @@ ERTS_GLB_INLINE erts_aint64_t						\
 erts_atomic64_xchg_ ## BARRIER(erts_atomic64_t *var,			\
 			       erts_aint64_t val)			\
 {									\
-    erts_aint64_t xchg, new;						\
+    erts_aint64_t xchg, new_value;                                      \
     ERTS_ATOMIC64_DW_CMPXCHG_IMPL__(ethr_dw_atomic_cmpxchg_ ## BARRIER,	\
-				    var, xchg, new,			\
-				    new = val);				\
+				    var, xchg, new_value,               \
+				    new_value = val);                   \
     return xchg;							\
 }									\
 									\
 ERTS_GLB_INLINE erts_aint64_t						\
 erts_atomic64_cmpxchg_ ## BARRIER(erts_atomic64_t *var,			\
-				  erts_aint64_t new,			\
+				  erts_aint64_t new_value,              \
 				  erts_aint64_t exp)			\
 {									\
     ethr_dw_sint_t dw_xchg, dw_new;					\
     ERTS_AINT64_TO_DW_SINT__(dw_xchg, exp);				\
-    ERTS_AINT64_TO_DW_SINT__(dw_new, new);				\
+    ERTS_AINT64_TO_DW_SINT__(dw_new, new_value);                        \
     if (ethr_dw_atomic_cmpxchg_ ## BARRIER(var, &dw_new, &dw_xchg))	\
 	return exp;							\
     return ERTS_DW_SINT_TO_AINT64__(dw_xchg);				\
@@ -1477,12 +1477,12 @@ erts_atomic64_read_bset_ ## BARRIER(erts_atomic64_t *var,		\
 				    erts_aint64_t mask,			\
 				    erts_aint64_t set)			\
 {									\
-    erts_aint64_t xchg, new;						\
+    erts_aint64_t xchg, new_value;                                      \
     ERTS_ATOMIC64_DW_CMPXCHG_IMPL__(ethr_dw_atomic_cmpxchg_ ## BARRIER,	\
-				    var, xchg, new,			\
+				    var, xchg, new_value,               \
 				    {					\
-					new = xchg & ~mask;		\
-					new |= mask & set;		\
+					new_value = xchg & ~mask;       \
+					new_value |= mask & set;        \
 				    });					\
     return xchg;							\
 }
@@ -1609,7 +1609,7 @@ erts_equal_tids(erts_tid_t x, erts_tid_t y)
 }
 
 ERTS_GLB_INLINE void
-erts_mtx_init(erts_mtx_t *mtx, char *name, Eterm extra, erts_lock_flags_t flags)
+erts_mtx_init(erts_mtx_t *mtx, const char *name, Eterm extra, erts_lock_flags_t flags)
 {
     int res = ethr_mutex_init(&mtx->mtx);
     if (res) {
@@ -1678,7 +1678,7 @@ erts_mtx_destroy(erts_mtx_t *mtx)
 
 ERTS_GLB_INLINE int
 #ifdef ERTS_ENABLE_LOCK_POSITION
-erts_mtx_trylock_x(erts_mtx_t *mtx, char *file, unsigned int line)
+erts_mtx_trylock_x(erts_mtx_t *mtx, const char *file, unsigned int line)
 #else
 erts_mtx_trylock(erts_mtx_t *mtx)
 #endif
@@ -1711,7 +1711,7 @@ erts_mtx_trylock(erts_mtx_t *mtx)
 
 ERTS_GLB_INLINE void
 #ifdef ERTS_ENABLE_LOCK_POSITION
-erts_mtx_lock_x(erts_mtx_t *mtx, char *file, unsigned int line)
+erts_mtx_lock_x(erts_mtx_t *mtx, const char *file, unsigned int line)
 #else
 erts_mtx_lock(erts_mtx_t *mtx)
 #endif
@@ -1912,7 +1912,7 @@ erts_rwmtx_destroy(erts_rwmtx_t *rwmtx)
 
 ERTS_GLB_INLINE int
 #ifdef ERTS_ENABLE_LOCK_POSITION
-erts_rwmtx_tryrlock_x(erts_rwmtx_t *rwmtx, char *file, unsigned int line)
+erts_rwmtx_tryrlock_x(erts_rwmtx_t *rwmtx, const char *file, unsigned int line)
 #else
 erts_rwmtx_tryrlock(erts_rwmtx_t *rwmtx)
 #endif
@@ -1946,7 +1946,7 @@ erts_rwmtx_tryrlock(erts_rwmtx_t *rwmtx)
 
 ERTS_GLB_INLINE void
 #ifdef ERTS_ENABLE_LOCK_POSITION
-erts_rwmtx_rlock_x(erts_rwmtx_t *rwmtx, char *file, unsigned int line)
+erts_rwmtx_rlock_x(erts_rwmtx_t *rwmtx, const char *file, unsigned int line)
 #else
 erts_rwmtx_rlock(erts_rwmtx_t *rwmtx)
 #endif
@@ -1988,7 +1988,7 @@ erts_rwmtx_runlock(erts_rwmtx_t *rwmtx)
 
 ERTS_GLB_INLINE int
 #ifdef ERTS_ENABLE_LOCK_POSITION
-erts_rwmtx_tryrwlock_x(erts_rwmtx_t *rwmtx, char *file, unsigned int line)
+erts_rwmtx_tryrwlock_x(erts_rwmtx_t *rwmtx, const char *file, unsigned int line)
 #else
 erts_rwmtx_tryrwlock(erts_rwmtx_t *rwmtx)
 #endif
@@ -2022,7 +2022,7 @@ erts_rwmtx_tryrwlock(erts_rwmtx_t *rwmtx)
 
 ERTS_GLB_INLINE void
 #ifdef ERTS_ENABLE_LOCK_POSITION
-erts_rwmtx_rwlock_x(erts_rwmtx_t *rwmtx, char *file, unsigned int line)
+erts_rwmtx_rwlock_x(erts_rwmtx_t *rwmtx, const char *file, unsigned int line)
 #else
 erts_rwmtx_rwlock(erts_rwmtx_t *rwmtx)
 #endif
@@ -2181,7 +2181,7 @@ erts_spin_unlock(erts_spinlock_t *lock)
 
 ERTS_GLB_INLINE void
 #ifdef ERTS_ENABLE_LOCK_POSITION
-erts_spin_lock_x(erts_spinlock_t *lock, char *file, unsigned int line)
+erts_spin_lock_x(erts_spinlock_t *lock, const char *file, unsigned int line)
 #else
 erts_spin_lock(erts_spinlock_t *lock)
 #endif
@@ -2281,7 +2281,7 @@ erts_read_unlock(erts_rwlock_t *lock)
 
 ERTS_GLB_INLINE void
 #ifdef ERTS_ENABLE_LOCK_POSITION
-erts_read_lock_x(erts_rwlock_t *lock, char *file, unsigned int line)
+erts_read_lock_x(erts_rwlock_t *lock, const char *file, unsigned int line)
 #else
 erts_read_lock(erts_rwlock_t *lock)
 #endif
@@ -2316,7 +2316,7 @@ erts_write_unlock(erts_rwlock_t *lock)
 
 ERTS_GLB_INLINE void
 #ifdef ERTS_ENABLE_LOCK_POSITION
-erts_write_lock_x(erts_rwlock_t *lock, char *file, unsigned int line)
+erts_write_lock_x(erts_rwlock_t *lock, const char *file, unsigned int line)
 #else
 erts_write_lock(erts_rwlock_t *lock)
 #endif

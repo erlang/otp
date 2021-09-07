@@ -169,6 +169,7 @@ int erts_sys_ddll_sym2(void *handle, const char *func_name, void **function,
     sym = dlsym(handle, func_name);
     if ((e = dlerror()) != NULL) {
 	ret = ERL_DE_DYNAMIC_ERROR_OFFSET - find_errcode(e, err);
+        ASSERT(ret != ERL_DE_NO_ERROR);
     } else {
 	*function = sym;
 	ret = ERL_DE_NO_ERROR;
@@ -187,12 +188,13 @@ int erts_sys_ddll_sym2(void *handle, const char *func_name, void **function,
 
 int erts_sys_ddll_load_driver_init(void *handle, void **function)
 {
-    void *fn;
+    void *fn = NULL;
     int res;
     if ((res = erts_sys_ddll_sym2(handle, "driver_init", &fn, NULL)) != ERL_DE_NO_ERROR) {
 	res = erts_sys_ddll_sym2(handle, "_driver_init", &fn, NULL);
     }
     if (res == ERL_DE_NO_ERROR) {
+        ASSERT(fn);
 	*function = fn;
     }
     return res;
@@ -200,12 +202,13 @@ int erts_sys_ddll_load_driver_init(void *handle, void **function)
 
 int erts_sys_ddll_load_nif_init(void *handle, void **function, ErtsSysDdllError* err)
 {
-    void *fn;
+    void *fn = NULL;
     int res;
     if ((res = erts_sys_ddll_sym2(handle, "nif_init", &fn, err)) != ERL_DE_NO_ERROR) {
 	res = erts_sys_ddll_sym2(handle, "_nif_init", &fn, err);
     }
     if (res == ERL_DE_NO_ERROR) {
+        ASSERT(fn);
 	*function = fn;
     }
     return res;

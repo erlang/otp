@@ -47,7 +47,6 @@
 #include "erl_goodfit_alloc.h"
 
 #define MIN_MBC_SZ			(16*1024)
-#define MIN_MBC_FIRST_FREE_SZ		(4*1024)
 
 #define MAX_SUB_MASK_IX \
   ((((UWord)1) << (NO_OF_BKT_IX_BITS - SUB_MASK_IX_SHIFT)) - 1)
@@ -207,7 +206,6 @@ erts_gfalc_start(GFAllctr_t *gfallctr,
 
     allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
-    allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
     allctr->min_block_size		= sizeof(GFFreeBlock_t);
 
 

@@ -42,7 +42,8 @@ all() ->
      event_types, generic_timers, code_change,
      {group, sys},
      hibernate, auto_hibernate, enter_loop, {group, undef_callbacks},
-     undef_in_terminate, {group, format_log}].
+     undef_in_terminate, {group, format_log},
+     reply_by_alias_with_payload].
 
 groups() ->
     [{start, [], tcs(start)},
@@ -582,8 +583,7 @@ abnormal1dirty(Config) ->
     ok = gen_statem:stop(Name),
     ?t:sleep(1100),
     case flush() of
-	[{Ref,delayed}] when is_reference(Ref) ->
-	    ok
+	[] -> ok
     end.
 
 %% Check that bad return values makes the stm crash. Note that we must
@@ -931,13 +931,11 @@ state_timeout(_Config) ->
 		       [{timeout,0,4},{state_timeout,0,5}]};
 		  (timeout, 4, {ok,3,Data}) ->
 		      %% Verify that timeout 0 is cancelled by
-		      %% enqueued state_timeout 0 and that
-		      %% multiple state_timeout 0 can be enqueued
+		      %% a state_timeout 0 event and that
+		      %% state_timeout 0 can be restarted
 		      {keep_state, {ok,4,Data},
 		       [{state_timeout,0,6},{timeout,0,7}]};
-		  (state_timeout, 5, {ok,4,Data}) ->
-		      {keep_state, {ok,5,Data}};
-		  (state_timeout, 6, {ok,5,{Time,From}}) ->
+		  (state_timeout, 6, {ok,4,{Time,From}}) ->
 		      {next_state, state3, 6,
 		       [{reply,From,ok},
 			{state_timeout,Time,8}]}
@@ -1254,7 +1252,7 @@ call_format_status(Config) ->
 	gen_statem:start(
 	  {local, gstm}, ?MODULE, start_arg(Config, []), []),
     Status2 = sys:get_status(gstm),
-    {status,Pid2,_Mod,[_PDict2,running,_,_,Data2]} = Status2,
+    {status,Pid2,Mod,[_PDict2,running,_,_,Data2]} = Status2,
     [format_status_called|_] = lists:reverse(Data2),
     stop_it(Pid2),
 
@@ -1265,7 +1263,7 @@ call_format_status(Config) ->
 	gen_statem:start(
 	  GlobalName1, ?MODULE, start_arg(Config, []), []),
     Status3 = sys:get_status(GlobalName1),
-    {status,Pid3,_Mod,[_PDict3,running,_,_,Data3]} = Status3,
+    {status,Pid3,Mod,[_PDict3,running,_,_,Data3]} = Status3,
     [format_status_called|_] = lists:reverse(Data3),
     stop_it(Pid3),
     GlobalName2 = {global,{name, "term"}},
@@ -1273,7 +1271,7 @@ call_format_status(Config) ->
 	gen_statem:start(
 	  GlobalName2, ?MODULE, start_arg(Config, []), []),
     Status4 = sys:get_status(GlobalName2),
-    {status,Pid4,_Mod,[_PDict4,running,_,_, Data4]} = Status4,
+    {status,Pid4,Mod,[_PDict4,running,_,_, Data4]} = Status4,
     [format_status_called|_] = lists:reverse(Data4),
     stop_it(Pid4),
 
@@ -1283,7 +1281,7 @@ call_format_status(Config) ->
     ViaName1 = {via,dummy_via,"CallFormatStatus"},
     {ok,Pid5} = gen_statem:start(ViaName1, ?MODULE, start_arg(Config, []), []),
     Status5 = sys:get_status(ViaName1),
-    {status,Pid5,_Mod, [_PDict5,running,_,_, Data5]} = Status5,
+    {status,Pid5,Mod, [_PDict5,running,_,_, Data5]} = Status5,
     [format_status_called|_] = lists:reverse(Data5),
     stop_it(Pid5),
     ViaName2 = {via,dummy_via,{name,"term"}},
@@ -1291,7 +1289,7 @@ call_format_status(Config) ->
 	gen_statem:start(
 	  ViaName2, ?MODULE, start_arg(Config, []), []),
     Status6 = sys:get_status(ViaName2),
-    {status,Pid6,_Mod,[_PDict6,running,_,_,Data6]} = Status6,
+    {status,Pid6,Mod,[_PDict6,running,_,_,Data6]} = Status6,
     [format_status_called|_] = lists:reverse(Data6),
     stop_it(Pid6).
 
@@ -2213,6 +2211,23 @@ stacktrace() ->
 
 flatten_format_log(Report, Format) ->
     lists:flatten(gen_statem:format_log(Report, Format)).
+
+reply_by_alias_with_payload(Config) when is_list(Config) ->
+    %% "Payload" version of tag not used yet, but make sure
+    %% gen_statem:reply/2 works with it...
+    %%
+    %% Whitebox...
+    Reply = make_ref(),
+    Alias = alias(),
+    Tag = [[alias|Alias], "payload"],
+    spawn_link(fun () ->
+                       gen_statem:reply({undefined, Tag},
+                                        Reply)
+               end),
+    receive
+        {[[alias|Alias]|_] = Tag, Reply} ->
+            ok
+    end.
 
 %%
 %% Functionality check

@@ -40,13 +40,13 @@ start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 start_link_dist() ->
-    supervisor:start_link({local, ssl_connection_sup_dist}, ?MODULE, []).
+    supervisor:start_link({local, tls_dist_connection_sup}, ?MODULE, []).
 
 start_child(Args) ->
     supervisor:start_child(?MODULE, Args).
     
 start_child_dist(Args) ->
-    supervisor:start_child(ssl_connection_sup_dist, Args).
+    supervisor:start_child(tls_dist_connection_sup, Args).
     
 %%%=========================================================================
 %%%  Supervisor callback
@@ -57,10 +57,10 @@ init(_O) ->
     MaxT = 3600,
    
     Name = undefined, % As simple_one_for_one is used.
-    StartFunc = {tls_connection, start_link, []},
+    StartFunc = {ssl_gen_statem, start_link, []},
     Restart = temporary, % E.g. should not be restarted
     Shutdown = 4000,
-    Modules = [tls_connection, ssl_connection],
+    Modules = [ssl_gen_statem, tls_connection, tls_connection_1_3],
     Type = worker,
     
     ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},

@@ -115,7 +115,7 @@ struct ErtsPortTask_ {
 	    ErtsPortTask *next;
 	    ErtsPortTaskHandle *handle;
 	    int flags;
-	    Uint32 ref[ERTS_MAX_REF_NUMBERS];
+	    Uint32 ref[ERTS_REF_NUMBERS];
 	    ErtsPortTaskTypeData td;
 	} alive;
 	ErtsThrPrgrLaterOp release;
@@ -1663,7 +1663,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     int processing_busy_q;
     int vreds = 0;
     int reds = 0;
-    int fpe_was_unmasked;
     erts_aint32_t state;
     int active;
     Uint64 start_time = 0;
@@ -1708,8 +1707,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     if (IS_TRACED_FL(pp, F_TRACE_SCHED_PORTS)) {
 	trace_sched_ports(pp, am_in);
     }
-
-    fpe_was_unmasked = erts_block_fpe();
 
     state = erts_atomic32_read_nob(&pp->state);
     pp->reds = ERTS_PORT_REDS_EXECUTE;
@@ -1846,7 +1843,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    break;
     }
 
-    erts_unblock_fpe(fpe_was_unmasked);
     ERTS_MSACC_POP_STATE_M();
 
 #if ERTS_POLL_USE_SCHEDULER_POLLING

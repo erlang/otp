@@ -1,0 +1,7 @@
+
+  [;1m-spec is_boolean(Term) -> boolean() when Term :: term().[0m
+
+  Returns [;;4mtrue[0m if [;;4mTerm[0m is the atom [;;4mtrue[0m or the atom [;;4mfalse[0m
+  (that is, a boolean). Otherwise returns [;;4mfalse[0m.
+
+  Allowed in guard tests.

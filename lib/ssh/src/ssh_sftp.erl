@@ -111,16 +111,9 @@
 %%%----------------------------------------------------------------
 %%% start_channel/1
 
-start_channel(Cm) when is_pid(Cm) ->
-    start_channel(Cm, []);
+start_channel(Dest) ->
+    start_channel(Dest, []).
  
-start_channel(Socket) when is_port(Socket) ->
-    start_channel(Socket, []);
-
-start_channel(Host) ->
-    start_channel(Host, []).
-
-
 %%%----------------------------------------------------------------
 %%% start_channel/2
 
@@ -142,22 +135,6 @@ start_channel(Host) ->
                    )
                    -> {ok,pid(),ssh:connection_ref()} | {error,reason()} .
 
-start_channel(Socket, UserOptions) when is_port(Socket) ->
-    {SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
-    Timeout =   % A mixture of ssh:connect and ssh_sftp:start_channel:
-        proplists:get_value(connect_timeout, SshOpts,
-                            proplists:get_value(timeout, SftpOpts, infinity)),
-    case ssh:connect(Socket, SshOpts, Timeout) of
-	{ok,Cm} ->
-	    case start_channel(Cm, ChanOpts ++ SftpOpts) of
-		{ok, Pid} ->
-		    {ok, Pid, Cm};
-		Error ->
-		    Error
-	    end;
-	Error ->
-	    Error
-    end;
 start_channel(Cm, UserOptions) when is_pid(Cm) ->
     Timeout = proplists:get_value(timeout, UserOptions, infinity),
     {_SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
@@ -181,8 +158,30 @@ start_channel(Cm, UserOptions) when is_pid(Cm) ->
 	    Error
     end;
 
-start_channel(Host, UserOptions) ->
-    start_channel(Host, 22, UserOptions).
+start_channel(Dest, UserOptions) ->
+    {SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
+    case ssh:is_host(Dest, SshOpts) of
+        true ->
+            %% Dest looks like is a Host
+            start_channel(Dest, 22, UserOptions);
+        false ->
+            %% No, it is probably not a Host, must be a socket
+            Socket = Dest,
+            Timeout =   % A mixture of ssh:connect and ssh_sftp:start_channel:
+                proplists:get_value(connect_timeout, SshOpts,
+                                    proplists:get_value(timeout, SftpOpts, infinity)),
+            case ssh:connect(Socket, SshOpts, Timeout) of
+                {ok,Cm} ->
+                    case start_channel(Cm, ChanOpts ++ SftpOpts) of
+                        {ok, Pid} ->
+                            {ok, Pid, Cm};
+                        Error ->
+                            Error
+                    end;
+                Error ->
+                    Error
+            end
+    end.
 
 
 %%%----------------------------------------------------------------
@@ -235,8 +234,8 @@ stop_channel(Pid) ->
             receive {'DOWN',MonRef,_,_,_} -> ok
             after
                 1000 ->
-                    exit(Pid, kill),
                     erlang:demonitor(MonRef, [flush]),
+                    exit(Pid, kill),
                     ok
             end;
 	false ->

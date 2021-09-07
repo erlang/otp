@@ -89,7 +89,7 @@ void print_help_text_and_exit(char* program_name, int error_code) {
   printf("Usage: %s [-h]\n"
          "       %s [-use_gc [-print_gc_info]]\n"
          "                              [-log_max_mem_usage log_file]\n"
-         "                              [(( -f | -frec | -fnoauto ) function_name)...\n"
+         "                              [(( -f | -frec | -fnoauto | -fextenal) function_name)...\n"
          "                               [-output_file_name output_file]\n"
          "                               [-header_file_name header_file]\n"
          "                               [-debug]\n"
@@ -128,6 +128,7 @@ int ycf_main( int argc, char* argv[] )
       ycf_string_item_list funs_to_yield = ycf_string_item_list_empty();
       ycf_string_item_list funs_to_yield_no_auto = ycf_string_item_list_empty();
       ycf_string_item_list funs_to_yield_frec = ycf_string_item_list_empty();
+      ycf_string_item_list funs_to_yield_external = ycf_string_item_list_empty();
       ycf_string_item_list all_yield_funs = ycf_string_item_list_empty();
       char* header_file_name = NULL;
       char* output_file_name = NULL;
@@ -137,6 +138,7 @@ int ycf_main( int argc, char* argv[] )
       while(i < argc && (ycf_string_is_equal(argv[i], "-f") ||
                          ycf_string_is_equal(argv[i], "-frec") ||
                          ycf_string_is_equal(argv[i], "-fnoauto") ||
+                         ycf_string_is_equal(argv[i], "-fexternal") ||
                          ycf_string_is_equal(argv[i], "-header_file_name") ||
                          ycf_string_is_equal(argv[i], "-output_file_name") ||
                          ycf_string_is_equal(argv[i], "-debug") ||
@@ -144,6 +146,7 @@ int ycf_main( int argc, char* argv[] )
                          ycf_string_is_equal(argv[i], "-static_aux_funs"))){
         bool frec = ycf_string_is_equal(argv[i], "-frec");
         bool noauto = ycf_string_is_equal(argv[i], "-fnoauto");
+        bool external = ycf_string_is_equal(argv[i], "-fexternal");
         bool header = ycf_string_is_equal(argv[i], "-header_file_name");
         bool output = ycf_string_is_equal(argv[i], "-output_file_name");
         i++;
@@ -175,6 +178,8 @@ int ycf_main( int argc, char* argv[] )
             print_help_text_and_exit(argv[0], 1);
           }
           output_file_name = (char*)argv[i];
+        } else if(external){
+          ycf_string_item_list_append(&funs_to_yield_external, ycf_string_item_new((char *) argv[i]));
         } else if(frec){
             ycf_string_item_list_append(&funs_to_yield_frec, ycf_string_item_new((char *) argv[i]));
         } else if(noauto){
@@ -187,9 +192,11 @@ int ycf_main( int argc, char* argv[] )
       ycf_string_item_list funs_to_yield_copy = ycf_string_item_list_shallow_copy(funs_to_yield);
       ycf_string_item_list funs_to_yield_no_auto_copy = ycf_string_item_list_shallow_copy(funs_to_yield_no_auto);
       ycf_string_item_list funs_to_yield_frec_copy = ycf_string_item_list_shallow_copy(funs_to_yield_frec);
+      ycf_string_item_list funs_to_yield_external_copy = ycf_string_item_list_shallow_copy(funs_to_yield_external);
       ycf_string_item_list_concat(&all_yield_funs, &funs_to_yield_copy);
       ycf_string_item_list_concat(&all_yield_funs, &funs_to_yield_no_auto_copy);
       ycf_string_item_list_concat(&all_yield_funs, &funs_to_yield_frec_copy);
+      ycf_string_item_list_concat(&all_yield_funs, &funs_to_yield_external_copy);
       if(funs_to_yield.head == NULL && funs_to_yield_no_auto.head == NULL && funs_to_yield_frec.head == NULL){
         fprintf(stderr, "ERROR: Expected at least one \"(-f|-frec|-fnoauto) function_name\" argument\n\n");
         print_help_text_and_exit(argv[0], 1);

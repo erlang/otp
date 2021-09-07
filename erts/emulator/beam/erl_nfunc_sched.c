@@ -29,6 +29,7 @@
 #include "bif.h"
 #include "erl_nfunc_sched.h"
 #include "erl_trace.h"
+#include "jit/beam_asm.h"
 
 ErtsNativeFunc *
 erts_new_proc_nfunc(Process *c_p, int argc)
@@ -61,7 +62,7 @@ erts_destroy_nfunc(Process *p)
 
 ErtsNativeFunc *
 erts_nfunc_schedule(Process *c_p, Process *dirty_shadow_proc,
-			 ErtsCodeMFA *mfa, BeamInstr *pc,
+			 const ErtsCodeMFA *mfa, ErtsCodePtr pc,
 			 BeamInstr instr,
 			 void *dfunc, void *ifunc,
 			 Eterm mod, Eterm func,
@@ -90,7 +91,7 @@ erts_nfunc_schedule(Process *c_p, Process *dirty_shadow_proc,
 	ERTS_VBUMP_ALL_REDS(c_p);
     }
 
-    reg = esdp->x_reg_array;
+    reg = esdp->registers->x_reg_array.d;
 
     if (mfa)
 	nep = erts_get_proc_nfunc(c_p, (int) mfa->arity);
@@ -129,11 +130,20 @@ erts_nfunc_schedule(Process *c_p, Process *dirty_shadow_proc,
     nep->trampoline.info.mfa.module = mod;
     nep->trampoline.info.mfa.function = func;
     nep->trampoline.info.mfa.arity = (Uint) argc;
+#ifdef BEAMASM
+    nep->trampoline.trace[0] = (BeamInstr) instr; /* call_bif || call_nif */
+#endif
     nep->trampoline.call_op = (BeamInstr) instr; /* call_bif || call_nif */
     nep->trampoline.dfunc = (BeamInstr) dfunc;
     nep->func = ifunc;
     used_proc->arity = argc;
     used_proc->freason = TRAP;
-    used_proc->i = (BeamInstr*)&nep->trampoline.call_op;
+#ifndef BEAMASM
+    used_proc->i = (ErtsCodePtr)&nep->trampoline.call_op;
+#else
+    ERTS_CT_ASSERT(sizeof(nep->trampoline.trace) == BEAM_ASM_FUNC_PROLOGUE_SIZE);
+    used_proc->i = (ErtsCodePtr)&nep->trampoline.trace;
+    ASSERT_MFA(erts_code_to_codemfa(used_proc->i));
+#endif
     return nep;
 }

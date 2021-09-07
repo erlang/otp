@@ -22,6 +22,8 @@
 
 -module(ssl_npn_hello_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("ssl/src/tls_record.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
 -include_lib("ssl/src/ssl_cipher.hrl").

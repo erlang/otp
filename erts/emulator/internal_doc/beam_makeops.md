@@ -38,7 +38,10 @@ In general, for each generic instruction, there exists a family of
 specific instructions.  The OTP 20 release has 389 specific
 instructions.
 
-* The implementation of specific instructions.
+* The implementation of specific instructions for the traditional
+BEAM interpreter. For the [BeamAsm JIT](BeamAsm) introduced
+in OTP 24, the implementation of instructions are defined in emitter
+functions written in C++.
 
 Generic instructions have typed operands. Here are a few examples of
 operands for `move/2`:
@@ -281,8 +284,8 @@ rename the instruction.  For example:
 
 This concludes the quick tour of the features of **beam\_makeops**.
 
-Short overview of instruction loading
--------------------------------------
+Short overview of instruction loading for the interpreter
+---------------------------------------------------------
 
 To give some background to the rest of this document, here follows a
 quick overview of how instructions are loaded.
@@ -331,6 +334,18 @@ example, the code to pack the operands for `move_xy` is `"22#"` (on a
 64-bit machine).  That program will pack the byte offsets for both
 registers into the same word as the pointer to C code.
 
+Short overview of instruction loading for BeamAsm
+-------------------------------------------------
+
+* The first steps up to selection of a specific instruction is done
+as described for the interpreter.  The selection of a specific instruction
+is simpler, because in BeamAsm most generic instructions only have
+a single corresponding specific instruction.
+
+* The loader calls the *emitter function* for the selected specific
+instruction.  The emitter function translates the instruction to
+machine code.
+
 Running beam_makeops
 --------------------
 
@@ -362,10 +377,6 @@ and external generic instructions.  (Everything else would be ignored.)
 Give the option `-emulator` to produce output files for the emulator.
 The following output files will be generated in the output directory.
 
-* `beam_hot.h`, `beam_warm.h`, `beam_cold.`h - Implementation of
-instructions.  Included inside the `process_main()` function in
-`beam_emu.c`.
-
 * `beam_opcodes.c` - Defines static data used by the loader
 (`beam_load.c`).  Data about generic instructions, specific
 instructions (including how to pack their operands), and
@@ -374,11 +385,21 @@ transformation rules are all part of this file.
 * `beam_opcodes.h` - Miscellanous preprocessor definitions, mainly
 used by `beam_load.c` but also by `beam_{hot,warm,cold}.h`.
 
-* `beam_pred_funcs.h` - Included by `beam_load.c`.  Contains defines
-needed to call guard constraints in transformation rules.
+* `beam_transform.c` - Implementation of guard constraints and generators
+called from transformation rules.
 
-* `beam_tr_funcs.h` - Included by `beam_load.c`.  Contains defines
-needed to call a C function to the right of a transformation rule.
+For the traditional BEAM interpreter, the following files are also
+generated:
+
+* `beam_hot.h`, `beam_warm.h`, `beam_cold.`h - Implementation of
+instructions.  Included inside the `process_main()` function in
+`beam_emu.c`.
+
+For BeamAsm, the following files are also generated:
+
+* `beamasm_emit.h` - Glue code to call emitter functions.
+
+* `beamasm_protos.h` - Prototypes for all emitter functions.
 
 The following options can be given:
 
@@ -438,6 +459,18 @@ probably never happen in practice.
 
 In `macros.tab`, there is a definition of `GC_REGEXP`.
 It will be described in [a later section](#the-gc_regexp-definition).
+
+#### FORBIDDEN\_TYPES ####
+
+In `asm/ops.tab`, there is a directive to forbid certain types
+in specific instructions:
+
+    FORBIDDEN_TYPES=hQ
+
+Especially for BeamAsm, all built-in types may not make sense, so `FORBIDDEN_TYPES`
+makes it possible to enforce that some types should not be used.
+
+Specific instructions will be described in [a later section](#defining-specific-instructions).
 
 ### Directives ###
 
@@ -511,8 +544,6 @@ The `Makefile` for building the emulator currently defines the
 following symbols by using the `-D` option on the command line for
 **beam\_makeops**.
 
-* `NO_FPE_SIGNALS` - 1 if FPE signals are not enable in runtime system,
-0 otherwise.
 * `USE_VM_PROBES` - 1 if the runtime system is compiled to use VM probes (support for dtrace or systemtap), 0 otherwise.
 
 ### Defining external generic instructions ###
@@ -624,7 +655,10 @@ The specific instructions are known only to the runtime system and
 are the instructions that are actually executed.  They can be changed
 at any time without causing compatibility issues.
 
-A specific instruction can have at most 6 operands.
+A specific instruction can have at most 6 operands if the family of
+instructions it belongs to has more than one member.  The number of
+operands is unlimited if there is only a single specific instruction
+in a family.
 
 A specific instruction is defined by first giving its name followed by
 the types for each operand.  For example:
@@ -635,7 +669,7 @@ Internally, for example in the generated code and in the output from
 the BEAM disassembler, the instruction `move x y` will be called `move_xy`.
 
 The name for a specific instruction is an identifier starting with a
-lowercase letter.  A type is an lowercase or uppercase letter.
+lowercase letter.  A type is a lowercase or uppercase letter.
 
 All specific instructions with a given name must have the same number
 of operands. That is, the following is **not** allowed:
@@ -654,12 +688,10 @@ operands.)
 relative to the stack frame. (Can be packed with other operands.)
 
 * `r` - X register 0.  An implicit operand that will not be stored in
-the loaded code.
+the loaded code.  (Not used in BeamAsm.)
 
 * `l` - Floating point register number.  (Can be packed with other
 operands.)
-
-* `i` - Tagged literal integer (a SMALL that will fit in one word).
 
 * `a` - Tagged atom.
 
@@ -699,7 +731,7 @@ cheaper than `s`.
 
 * `d` - Tagged destination register (X or Y).  The tag will be tested
 at runtime to set up a pointer to the destination register.  If the
-instrution performs a garbarge collection, it must use the
+instruction performs a garbarge collection, it must use the
 `$REFRESH_GEN_DEST()` macro to refresh the pointer before storing to
 it (there are more details about that in a later section).
 
@@ -725,8 +757,9 @@ other modules, such as `call_ext`.
 
 * `L` - A label.  Only used by the `label/1` instruction.
 
-* `b` - Pointer to BIF.  Used by instructions that BIFs, such as
-`call_bif`.
+* `b` - Pointer to BIF.  Used in BIF instructions such as `call_bif`.
+
+* `F` - Pointer to a fun entry. Used in `make_fun2` and friends.
 
 * `A` - A tagged arityvalue.  Used in instructions that test the arity
 of a tuple.
@@ -735,6 +768,13 @@ of a tuple.
 
 * `Q` - A byte offset into the stack.  Used for updating the frame
 pointer register.  Can be packed with other operands.
+
+* `*` - This operand must be the last operand.  It indicates that a
+variable number of operands follow.  Its use is mandatory for BeamAsm
+when an instruction has a variable number of operands; see [handling a
+variable number of operands](#handling-a-variable-number-of-operands).
+It can be used for the interpreter as documentation, but it will have
+no effect on the code generation.
 
 When the loader translates a generic instruction a specific
 instruction, it will choose the most specific instruction that will
@@ -986,34 +1026,57 @@ instruction, it must only be used for a destination register.)
 
 * `o` - Overflow.  An untagged integer that does not fit in a machine word.
 
-#### Guard constraints ####
+#### Guard constraints (predicates) ####
 
 If the constraints described so far is not enough, additional
-constraints can be written in C in `beam_load.c` and be called as a
-guard function on the left side of the transformation.  If the guard
-function returns a non-zero value, the matching of the rule will
-continue, otherwise the match will fail.  For example:
+constraints can be implemented in C and be called as a guard function
+on the left side of the transformation.  If the guard function returns
+a non-zero value, the matching of the rule will continue, otherwise
+the match will fail.  For example:
 
     ensure_map Lit=q | literal_is_map(Lit) =>
 
 The guard test `literal_is_map/1` tests whether the given literal is a map.
 If the literal is a map, the instruction is unnecessary and can be removed.
 
-It is outside the scope for this document to describe in detail how such
-guard functions are written, but for the curious here is the implementation
-of `literal_is_map()`:
+Such guard tests are also called predicates.  At the time of writing, all
+predicates are defined in the file `predicates.tab`.
 
-    static int
-    literal_is_map(LoaderState* stp, GenOpArg Lit)
-    {
+It is outside the scope for this document to describe in detail how
+predicates are implemented because it requires knowledge of the
+internal loader data structures, but here is the implementation of
+`literal_is_map()`:
+
+    pred.literal_is_map(Lit) {
         Eterm term;
 
         ASSERT(Lit.type == TAG_q);
-        term = stp->literals[Lit.val].term;
+        term = beamfile_get_literal(&S->beam, Lit.val);
         return is_map(term);
     }
 
-#### Handling instruction with variable number of operands ####
+The `pred.` prefix tells **beam\_makeops** that this function is a
+predicate.  Without the prefix, it would have been interpreted as the
+implementation of an instruction (described in **Defining the
+implementation**).
+
+Predicate functions have a magic variabled called `S`, which is a
+pointer to a state struct. In the example,
+`beamfile_get_literal(&S->beam, Lit.val);` is used to retrieve the actual term
+for the literal.
+
+At the time of writing, the expanded C code generated by
+**beam\_makeops** looks like this:
+
+    static int literal_is_map(LoaderState* S, BeamOpArg Lit) {
+      Eterm term;
+
+      ASSERT(Lit.type == TAG_q);
+      term = S->literals[Lit.val].term;
+      return is_map(term);;
+    }
+
+#### Handling instructions with variable number of operands ####
 
 Some instructions, such as `select_val/3`, essentially has a variable
 number of operands.  Such instructions have a `{list,[...]}` operand
@@ -1100,24 +1163,24 @@ use as a temporary X register.
 #### Function call on the right side ####
 
 Transformations that are not possible to describe with the rule
-language as described here can be written as a C function in
-`beam_load.c` and called from the right side of a transformation.  The
-left side of the transformation will perform the match and bind
-operands to variables.  The variables can then be passed to a
-generator function on the right side.  For example:
+language as described here can be implemented as a generator function
+in C and called from the right side of a transformation.  The left
+side of the transformation will perform the match and bind operands to
+variables.  The variables can then be passed to a generator function
+on the right side.  For example:
 
     bif2 Fail=j u$bif:erlang:element/2 Index=s Tuple=xy Dst=d => \
-        gen_element(Jump, Index, Tuple, Dst)
+        element(Jump, Index, Tuple, Dst)
 
 This transformation rule matches a call to the BIF `element/2`.
-The operands will be captured and the function `gen_element()` will
+The operands will be captured and the generator function `element()` will
 be called.
 
-`gen_element()` will produce one of two instructions depending
-on `Index`.  If `Index` is an integer in the range from 1 up to
-the maximum tuple size, the instruction `i_fast_element/2` will
-be produced, otherwise the instruction `i_element/4` will be
-produced.  The corresponding specific instructions are:
+The `element()` generator will produce one of two instructions
+depending on `Index`.  If `Index` is an integer in the range from 1 up
+to the maximum tuple size, the instruction `i_fast_element/2` will be
+produced, otherwise the instruction `i_element/4` will be produced.
+The corresponding specific instructions are:
 
     i_fast_element xy j? I d
     i_element xy j? s d
@@ -1128,31 +1191,29 @@ already an untagged integer.  It also knows that the index is at least
 instruction will have to fetch the index from a register, test that it
 is an integer, and untag the integer.
 
+At the time of writing, all generators functions were defined in the
+file `generators.tab`.
+
 It is outside the scope of this document to describe in detail how
-generator functions are written, but for the curious, here is the
-implementation of `gen_element()`:
+generator functions are written, but here is the
+implementation of `element()`:
 
-    static GenOp*
-    gen_element(LoaderState* stp, GenOpArg Fail,
-       GenOpArg Index, GenOpArg Tuple, GenOpArg Dst)
-    {
-        GenOp* op;
+    gen.element(Fail, Index, Tuple, Dst) {
+        BeamOp* op;
 
-        NEW_GENOP(stp, op);
-        op->arity = 4;
-        op->next = NULL;
+        $NewBeamOp(S, op);
 
         if (Index.type == TAG_i && Index.val > 0 &&
-           Index.val <= ERTS_MAX_TUPLE_SIZE &&
-           (Tuple.type == TAG_x || Tuple.type == TAG_y)) {
-            op->op = genop_i_fast_element_4;
+            Index.val <= ERTS_MAX_TUPLE_SIZE &&
+            (Tuple.type == TAG_x || Tuple.type == TAG_y)) {
+            $BeamOpNameArity(op, i_fast_element, 4);
             op->a[0] = Tuple;
             op->a[1] = Fail;
             op->a[2].type = TAG_u;
             op->a[2].val = Index.val;
             op->a[3] = Dst;
         } else {
-            op->op = genop_i_element_4;
+            $BeamOpNameArity(op, i_element, 4);
             op->a[0] = Tuple;
             op->a[1] = Fail;
             op->a[2] = Index;
@@ -1162,12 +1223,26 @@ implementation of `gen_element()`:
         return op;
     }
 
+The `gen.` prefix tells **beam\_makeops** that this function is a
+generator.  Without the prefix, it would have been interpreted as the
+implementation of an instruction (described in **Defining the
+implementation**).
+
+Generator functions have a magic variabled called `S`, which is a
+pointer to a state struct.  In the example, `S` is used in the invocation
+of the `NewBeamOp` macro.
+
 ### Defining the implementation ###
 
-The actual implementation of instructions are also defined in `.tab`
-files processed by **beam\_makeops**.  For practical reasons,
-instruction definitions are stored in several files, at the time of
-writing in the following files:
+For the traditional BEAM interpreter, the actual implementation of
+instructions are also defined in `.tab` files processed by
+**beam\_makeops**.  See [Code generation for
+BeamAsm](#code-generation-for-beamasm) for a brief introduction to
+how code generation is done for BeamAsm.
+
+For practical reasons, instruction definitions are stored in several
+files, at the time of writing in the following files (in the
+`beam/emu` directory):
 
     bif_instrs.tab
     arith_instrs.tab
@@ -1574,6 +1649,58 @@ similar to this:
     pointer to destination register is invalid after GC -- use $REFRESH_GEN_DEST()
     ... from the body of new_map at beam/map_instrs.tab(30)
 
+#### Variable number of operands ####
+
+Here follows an example of how to to handle an instruction with a variable number
+of operands for the interpreter.  Here is the instruction definition in `emu/ops.tab`:
+
+    put_tuple2 xy I *
+
+For the interpreter, the `*` is optional, because it does not effect code generation
+in any way. However, it is recommended to include it to make it clear for human readers
+that there is a variable number of operands.
+
+Use the `$NEXT_INSTRUCTION` macro to obtain a pointer to the first of the variable
+operands.
+
+Here is the implementation:
+
+    put_tuple2(Dst, Arity) {
+	Eterm* hp = HTOP;
+	Eterm arity = $Arity;
+	Eterm* dst_ptr = &($Dst);
+
+	//| -no_next
+	ASSERT(arity != 0);
+	*hp++ = make_arityval(arity);
+
+	/*
+	 * The $NEXT_INSTRUCTION macro points just beyond the fixed
+	 * operands. In this case it points to the descriptor of
+	 * the first element to be put into the tuple.
+	 */
+	I = $NEXT_INSTRUCTION;
+	do {
+	    Eterm term = *I++;
+	    switch (loader_tag(term)) {
+	    case LOADER_X_REG:
+		*hp++ = x(loader_x_reg_index(term));
+		break;
+	    case LOADER_Y_REG:
+		*hp++ = y(loader_y_reg_index(term));
+		break;
+	    default:
+		*hp++ = term;
+		break;
+	    }
+	} while (--arity != 0);
+	*dst_ptr = make_tuple(HTOP);
+	HTOP = hp;
+	ASSERT(VALID_INSTR(* (Eterm *)I));
+	Goto(*I);
+    }
+
+
 #### Combined instructions ####
 
 **Problem**: For frequently executed instructions we want to use
@@ -1845,3 +1972,90 @@ other two only have two fragments.  Here are the fragments:
 
 The full definitions of those instructions can be found in `bs_instrs.tab`.
 The generated code can be found in `beam_warm.h`.
+
+### Code generation for BeamAsm ###
+
+For the BeamAsm runtime system, the implementation of each instruction is defined
+by emitter functions written in C++ that emit the assembly code for each instruction.
+There is one emitter function for each family of specific instructions.
+
+Take for example the `move` instruction. In `beam/asm/ops.tab` there is a
+single specific instruction for `move` defined like this:
+
+    move s d
+
+The implementation is found in `beam/asm/instr_common.cpp`:
+
+    void BeamModuleAssembler::emit_move(const ArgVal &Src, const ArgVal &Dst) {
+        mov_arg(Dst, Src);
+    }
+
+The `mov_arg()` helper function will handle all combinations of source and destination
+operands.  For example, the instruction `{move,{x,1},{y,1}}` will be translated like this:
+
+    mov rdi, qword [rbx+8]
+    mov qword [rsp+8], rdi
+
+while `{move,{integer,42},{x,0}}` will be translated like this:
+
+    mov qword [rbx], 687
+
+It is possible to define more than one specific instruction, but there will still be
+only one emitter function. For example:
+
+    fload S l
+    fload q l
+
+By defining `fload` like this, the source operand must be a X register, Y register, or
+a literal.  If not, the loading will be aborted.  If the instruction instead had been
+defined like this:
+
+    fload s l
+
+attempting to load an invalid instruction such as `{fload,{atom,clearly_bad},{fr,0}}`
+would cause a crash (either at load time or when the instruction was executed).
+
+Regardless on how many specific instructions there are in the family,
+only a single `emit_fload()` function is allowed:
+
+    void BeamModuleAssembler::emit_fload(const ArgVal &Src, const ArgVal &Dst) {
+        .
+        .
+        .
+    }
+
+#### Handling a variable number of operands ####
+
+Here follows an example of how an instruction with a variable number
+of operands could be handled.  One such instructions is
+`select_val/3`. Here is an example how it can look like in BEAM code:
+
+    {select_val,{x,0},
+                {f,1},
+                {list,[{atom,b},{f,4},{atom,a},{f,5}]}}.
+
+The loader will convert a `{list,[...]}` operand to an `u` operand whose
+value is the number of elements in the list, followed by each element in
+the list.  The instruction above would be translated to the following
+instruction:
+
+    {select_val,{x,0},{f,1},{u,4},{atom,b},{f,4},{atom,a},{f,5}}
+
+A definition of a specific instruction for that instruction would look
+like this:
+
+    select_val s f I *
+
+The `*` as the last operand will make sure that the variable operands
+are passed in as a C++ vector of `ArgVal`.  Here is the emitter
+function:
+
+    void BeamModuleAssembler::emit_select_val(const ArgVal &Src,
+                                              const ArgVal &Fail,
+                                              const ArgVal &Size,
+                                              const std::vector<ArgVal> &args) {
+        ASSERT(Size.getValue() == args.size());
+           .
+           .
+           .
+    }

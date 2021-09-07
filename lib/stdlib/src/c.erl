@@ -38,7 +38,7 @@
 -export([appcall/4]).
 
 -import(lists, [reverse/1,flatten/1,sublist/3,sort/1,keysort/2,
-		max/1,min/1,foreach/2,foldl/3,flatmap/2]).
+		foreach/2,foldl/3,flatmap/2]).
 -import(io, [format/1, format/2]).
 
 %%-----------------------------------------------------------------------
@@ -158,10 +158,14 @@ c(SrcFile, NewOpts, Filter, BeamFile, Info) ->
 -type ht_return() :: h_return() | {error, type_missing}.
 -type hcb_return() :: h_return() | {error, callback_missing}.
 
+-define(RENDERABLE_FORMAT(Format),
+        Format =:= ?NATIVE_FORMAT;
+        binary_part(Format, 0, 5) =:= <<"text/">>).
+
 -spec h(module()) -> h_return().
 h(Module) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render(Module, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -172,7 +176,7 @@ h(Module) ->
 -spec h(module(),function()) -> hf_return().
 h(Module,Function) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render(Module, Function, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -183,7 +187,7 @@ h(Module,Function) ->
 -spec h(module(),function(),arity()) -> hf_return().
 h(Module,Function,Arity) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render(Module, Function, Arity, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -194,7 +198,7 @@ h(Module,Function,Arity) ->
 -spec ht(module()) -> h_return().
 ht(Module) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render_type(Module, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -205,7 +209,7 @@ ht(Module) ->
 -spec ht(module(),Type :: atom()) -> ht_return().
 ht(Module,Type) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render_type(Module, Type, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -217,7 +221,7 @@ ht(Module,Type) ->
           ht_return().
 ht(Module,Type,Arity) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render_type(Module, Type, Arity, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -228,7 +232,7 @@ ht(Module,Type,Arity) ->
 -spec hcb(module()) -> h_return().
 hcb(Module) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render_callback(Module, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -239,7 +243,7 @@ hcb(Module) ->
 -spec hcb(module(),Callback :: atom()) -> hcb_return().
 hcb(Module,Callback) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render_callback(Module, Callback, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -251,7 +255,7 @@ hcb(Module,Callback) ->
           hcb_return().
 hcb(Module,Callback,Arity) ->
     case code:get_doc(Module) of
-        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+        {ok, #docs_v1{ format = Format } = Docs} when ?RENDERABLE_FORMAT(Format) ->
             format_docs(shell_docs:render_callback(Module, Callback, Arity, Docs));
         {ok, #docs_v1{ format = Enc }} ->
             {error, {unknown_format, Enc}};
@@ -405,12 +409,10 @@ is_outdir_opt(_) -> false.
 
 is_from_opt(from_core) -> true;
 is_from_opt(from_asm) -> true;
-is_from_opt(from_beam) -> true;
 is_from_opt(_) -> false.
 
 from_opt(".core") -> [from_core];
 from_opt(".S")    -> [from_asm];
-from_opt(".beam") -> [from_beam];
 from_opt(_)       -> [].
 
 %%% Obtain the 'outdir' option from the argument. Return "." if no
@@ -430,7 +432,6 @@ outdir([Opt|Rest]) ->
 %% mimic how suffix is selected in compile:file().
 src_suffix([from_core|_]) -> ".core";
 src_suffix([from_asm|_])  -> ".S";
-src_suffix([from_beam|_]) -> ".beam";
 src_suffix([_|Opts]) -> src_suffix(Opts);
 src_suffix([]) -> ".erl".
 
@@ -1055,11 +1056,15 @@ ls() ->
 -spec ls(Dir) -> 'ok' when
       Dir :: file:name().
 
-ls(Dir) ->
-    case file:list_dir(Dir) of
+ls(Dir0) ->
+    case file:list_dir(Dir0) of
 	{ok, Entries} ->
 	    ls_print(sort(Entries));
 	{error, enotdir} ->
+            Dir = if
+                      is_list(Dir0) -> lists:flatten(Dir0);
+                      true -> Dir0
+                  end,
 	    ls_print([Dir]);
 	{error, Error} ->
 	    format("~ts\n", [file:format_error(Error)])
@@ -1067,7 +1072,7 @@ ls(Dir) ->
 
 ls_print([]) -> ok;
 ls_print(L) ->
-    Width = min([max(lengths(L, [])), 40]) + 5,
+    Width = erlang:min(max_length(L, 0), 40) + 5,
     ls_print(L, Width, 0).
 
 ls_print(X, Width, Len) when Width + Len >= 80 ->
@@ -1079,8 +1084,12 @@ ls_print([H|T], Width, Len) ->
 ls_print([], _, _) ->
     io:nl().
 
-lengths([H|T], L) -> lengths(T, [length(H)|L]);
-lengths([], L)    -> L.
+max_length([H|T], L) when is_atom(H) ->
+    max_length([atom_to_list(H)|T], L);
+max_length([H|T], L) ->
+    max_length(T, erlang:max(length(H), L));
+max_length([], L) ->
+    L.
 
 w(X) ->
     io_lib:write(X).

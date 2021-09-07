@@ -60,7 +60,7 @@ groups() ->
       [script_options, normal_script, start_script, unicode_script, no_mod_vsn_script,
        wildcard_script, variable_script, abnormal_script,
        no_sasl_script, no_dot_erlang_script,
-       src_tests_script, crazy_script,
+       src_tests_script, crazy_script, optional_apps_script,
        included_script, included_override_script,
        included_fail_script, included_bug_script, exref_script,
        duplicate_modules_script,
@@ -72,7 +72,8 @@ groups() ->
        otp_9507_path_ebin, additional_files_tar, erts_tar]},
      {relup, [],
       [normal_relup, restart_relup, abnormal_relup, no_sasl_relup,
-       no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup
+       no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup,
+       replace_app_relup
       ]},
      {hybrid, [], [normal_hybrid,hybrid_no_old_sasl,hybrid_no_new_sasl]},
      {options, [], [otp_6226_outdir,app_file_defaults]}].
@@ -319,6 +320,46 @@ unicode_script(cleanup,Config) ->
     file:delete(fname(?privdir, "unicode_app.tgz")),
     ok.
 
+%% make_script: Check that script handles optional apps.
+optional_apps_script(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+    PSAVE = code:get_path(),        % Save path
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_opt_apps, lib]),
+    P1 = fname([LibDir, 'app1-1.0', ebin]),
+    P2 = fname([LibDir, 'app2-1.0', ebin]),
+    true = code:add_patha(P1),
+    true = code:add_patha(P2),
+
+    %% First assemble a release without the optional app
+    {OptDir, OptName} = create_script(optional_apps_missing,Config),
+    ok = file:set_cwd(OptDir),
+    ok = systools:make_script(filename:basename(OptName), [{script_name, "start"}]),
+    {ok, [{script,_,OptCommands}]} = read_script_file("start"),
+
+    %% Check optional_applications is part of the generated script
+    [[app2]] =
+	[proplists:get_value(optional_applications, Properties) ||
+	     {apply,{application,load,[{application,app1,Properties}]}} <- OptCommands],
+
+    %% And there is no app2
+    [] =
+	[ok || {apply,{application,load,[{application,app2,_}]}} <- OptCommands],
+
+    %% Now let's include the optional app
+    {AllDir, AllName} = create_script(optional_apps_all,Config),
+    ok = file:set_cwd(AllDir),
+    ok = systools:make_script(filename:basename(AllName), [{script_name, "start"}]),
+    {ok, [{script,_,AllCommands}]} = read_script_file("start"),
+
+    %% Check boot order is still correct
+    BootOrder = [App || {apply,{application,start_boot,[App,permanent]}} <- AllCommands],
+    [kernel, stdlib, sasl, app2, app1] = BootOrder,
+
+    ok = file:set_cwd(OldDir),
+    code:set_path(PSAVE),           % Restore path
+    ok.
 
 %% make_script:
 %% Modules specified without version in .app file (db-3.1).
@@ -804,14 +845,14 @@ check_exref_warnings(without_db1, W) ->
 	    test_server:fail({exref_warning_undef, L})
     end.
 
-get_exref(undef, W)   -> filter(no_hipe(get_exref1(exref_undef, W))).
+get_exref(undef, W)   -> filter(get_exref1(exref_undef, W)).
 
 filter(false) ->
     false;
 filter({ok, W}) ->
     {ok, filter(W)};
 filter(L) ->
-    lists:filter(fun%({hipe_consttab,_,_}) -> false;
+    lists:filter(fun
 		     ({int,_,_}) -> false;
 		     ({i,_,_}) -> false;
 		     ({crypto,_,_}) -> false;
@@ -822,19 +863,6 @@ filter(L) ->
 get_exref1(T, [{warning, {T, Value}}|_]) -> {ok, Value};
 get_exref1(T, [_|W])                     -> get_exref1(T, W);
 get_exref1(_, [])                        -> false.
-
-no_hipe(false) ->
-    false;
-no_hipe({ok, Value}) ->
-    case erlang:system_info(hipe_architecture) of
-	undefined ->
-	    Hipe = "hipe",
-	    Fun = fun({M,_,_}) -> not lists:prefix(Hipe, atom_to_list(M)) end,
-	    NewValue = lists:filter(Fun, Value),
-	    {ok, NewValue};
-	_Arch ->
-	    {ok, Value}
-    end.
 
 %% duplicate_modules_script: Check that make_script rejects two
 %% applications providing the same module.
@@ -1942,6 +1970,59 @@ regexp_relup(Config) ->
 
     ok.
 
+%% make_relup: Replace an application dependency with another
+%%   The key part here is that the new application should be
+%%   started before the old one is stopped.
+replace_app_relup(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir,LatestName}   = create_script(replace_app0,Config),
+    {_LatestDir1,LatestName1} = create_script(replace_app1,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = [fname([DataDir, d_replace_app, lib])],
+    P = [fname([LibDir, '*', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
+
+    ok = file:set_cwd(LatestDir),
+    
+    ok = systools:make_relup(LatestName, [LatestName1], [LatestName1],
+			     [{path, P}]),
+
+    check_start_stop_order([{start,gh},{stop,fe}], [{start,fe},{stop,gh}]),
+
+    ok = file:set_cwd(OldDir),
+    ok.
+
+
+check_start_stop_order(UpOrder, DownOrder) ->
+
+    {ok, [{_V0, [{V1, [], Up}],
+                [{V1, [], Down}]
+            }]} = file:consult(relup),
+
+    GetAppStartStop = fun(Instr) ->
+        [{Action,App} || {apply,{application,Action,[App|_]}} <- Instr,
+                lists:member(Action,[start,stop])]
+    end,
+
+    case GetAppStartStop(Up) of
+        UpOrder -> ok;
+        ActualUpOrder ->
+          ct:fail("Incorrect upgrade order.~nExpected: ~p~nGot:~p",
+                  [UpOrder,ActualUpOrder])
+    end,
+
+    case GetAppStartStop(Down) of
+        DownOrder -> ok;
+        ActualDownOrder ->
+          ct:fail("Incorrect down order.~nExpected: ~p~nGot:~p",
+                  [DownOrder,ActualDownOrder])
+    end,
+
+    ok.
 
 %% make_hybrid_boot: Normal case.
 %% For upgrade of erts - create a boot file which is a hybrid between
@@ -2497,8 +2578,19 @@ create_script({unicode,RelVsn},Config) ->
     do_create_script(unicode,RelVsn,Config,current,Apps);
 create_script(duplicate_modules,Config) ->
     Apps = core_apps(current) ++ [{app1,"1.0"},{app2,"1.0"}],
-    do_create_script(duplicate_modules,Config,current,Apps).
-
+    do_create_script(duplicate_modules,Config,current,Apps);
+create_script(replace_app0,Config) ->
+    Apps = core_apps(current) ++ [{db,"1.1"},{gh,"1.0"}],
+    do_create_script(repace_app0,Config,current,Apps);
+create_script(replace_app1,Config) ->
+    Apps = core_apps(current) ++ [{db,"1.0"},{fe,"2.1"}],
+    do_create_script(repace_app1,Config,current,Apps);
+create_script(optional_apps_missing,Config) ->
+    Apps = core_apps(current) ++ [{app1,"1.0"}],
+    do_create_script(optional_apps_missing,Config,current,Apps);
+create_script(optional_apps_all,Config) ->
+    Apps = core_apps(current) ++ [{app1,"1.0"},{app2,"1.0"}],
+    do_create_script(optional_apps_all,Config,current,Apps).
 
 do_create_script(Id,Config,ErtsVsn,AppVsns) ->
     do_create_script(Id,string:to_upper(atom_to_list(Id)),Config,ErtsVsn,AppVsns).

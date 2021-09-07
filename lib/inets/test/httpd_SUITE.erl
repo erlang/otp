@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,44 +110,37 @@ groups() ->
      {http_not_sup, [], [{group, not_sup}]},
      {https_not_sup, [], [{group, not_sup}]},
      {https_alert, [], [tls_alert]},
-     {http_mime_types, [], [alias_1_1, alias_1_0, alias_0_9]},
+     {http_mime_types, [], [alias_1_1, alias_1_0]},
      {limit, [],  [content_length, max_clients_1_1]},  
      {custom, [],  [customize, add_default]},  
      {reload, [], [non_disturbing_reconfiger_dies,
 		   disturbing_reconfiger_dies,
 		   non_disturbing_1_1, 
-		   non_disturbing_1_0, 
-		   non_disturbing_0_9,
-                   disturbing_1_1,
-                   disturbing_1_0, 
-                   disturbing_0_9,
+		   non_disturbing_1_0,
+           disturbing_1_1,
+           disturbing_1_0,
 		   reload_config_file
 		  ]},
      {post, [], [chunked_post, chunked_chunked_encoded_post, post_204]},
-     {basic_auth, [], [basic_auth_1_1, basic_auth_1_0, basic_auth_0_9]},
-     {auth_api, [], [auth_api_1_1, auth_api_1_0, auth_api_0_9
-		    ]},
-     {auth_api_dets, [], [auth_api_1_1, auth_api_1_0, auth_api_0_9
-			 ]},
-     {auth_api_mnesia, [], [auth_api_1_1, auth_api_1_0, auth_api_0_9
-			   ]},
-     {security, [], [security_1_1, security_1_0]}, %% Skip 0.9 as causes timing issus in test code
+     {basic_auth, [], [basic_auth_1_1, basic_auth_1_0, verify_href_1_1]},
+     {auth_api, [], [auth_api_1_1, auth_api_1_0]},
+     {auth_api_dets, [], [auth_api_1_1, auth_api_1_0]},
+     {auth_api_mnesia, [], [auth_api_1_1, auth_api_1_0]},
+     {security, [], [security_1_1, security_1_0]},
      {logging, [], [disk_log_internal, disk_log_exists,
              disk_log_bad_size, disk_log_bad_file]},
      {http_1_1, [],
       [host, chunked, expect, cgi, cgi_chunked_encoding_test,
        trace, range, if_modified_since, mod_esi_chunk_timeout,
-       esi_put, esi_patch, esi_post, esi_proagate] ++ http_head() ++ http_get() ++ load()},
+       esi_put, esi_patch, esi_post, esi_proagate, esi_atom_leak] ++ http_head() ++ http_get() ++ load()},
      {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
-     {http_0_9, [], http_head() ++ http_get() ++ load()},
      {http_rel_path_script_alias, [], [cgi]},
      {not_sup, [], [put_not_sup]}
     ].
 
 basic_groups ()->
     [{group, http_1_1},
-     {group, http_1_0},
-     {group, http_0_9}
+     {group, http_1_0}
     ].
 
 http_head() ->
@@ -155,6 +148,7 @@ http_head() ->
 http_get() ->
     [alias, 
      get, 
+     bad_dot_paths,
      %%actions, Add configuration so that this test mod_action
      esi, 
      bad_hex, 
@@ -248,13 +242,6 @@ init_per_group(http_1_1, Config) ->
     [{http_version, "HTTP/1.1"} | Config];
 init_per_group(http_1_0, Config) ->
     [{http_version, "HTTP/1.0"} | Config];
-init_per_group(http_0_9, Config) ->
-    case {os:type(), os:version()} of
-	{{win32, _}, {5,1,2600}} ->
-	    {skip, "eaddrinuse XP problem"};
-	_ ->
-	    [{http_version, "HTTP/0.9"} | Config]
-    end;
 init_per_group(auth_api, Config) -> 
     [{auth_prefix, ""} | Config];
 init_per_group(auth_api_dets, Config) -> 
@@ -431,7 +418,17 @@ head(Config) when is_list(Config) ->
 				       proplists:get_value(port, Config),  
                                        proplists:get_value(node, Config),
 				       http_request("HEAD /index.html ", Version, Host),
-				       [{statuscode, head_status(Version)},
+				       [{statuscode, head_status(Version, 200)},
+					{version, Version}]),
+    
+    ok = httpd_test_lib:verify_request(proplists:get_value(type, Config), Host, 
+				       proplists:get_value(port, Config),  
+				       proplists:get_value(node, Config),
+				       http_request("HEAD /open/ ", Version, Host),
+				       [{statuscode, head_status(Version, 403)},
+					{header, "Content-Type", "text/html"},
+					{header, "Date"},
+					{header, "Server"},
 					{version, Version}]).
 
 get() ->
@@ -473,15 +470,56 @@ get(Config) when is_list(Config) ->
 					{header, "Date"},
 					{header, "Server"},
 					{version, Version}]).
+
+bad_dot_paths() ->
+    [{doc, "Do not allow ..-paths to acesse files outside of doc root"}].
+bad_dot_paths(Config) when is_list(Config) -> 
+    Version = proplists:get_value(http_version, Config),
+    Host = proplists:get_value(host, Config),
+    Type = proplists:get_value(type, Config),
+    
+    BadDotPath0 = "/..%2f..%2f...%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2fetc/passwd ",
+    BadDotPath1 = "/..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2fetc/passwd ",
+    BadDotPath2 = "/%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2fetc/passwd ",
+    
+    ok = httpd_test_lib:verify_request(proplists:get_value(type, Config), Host, 
+				       proplists:get_value(port, Config),  
+				       transport_opts(Type, Config),
+				       proplists:get_value(node, Config),
+				       http_request("GET " ++ BadDotPath0 , Version, Host),
+				       [{statuscode, 404},
+					{header, "Content-Type", "text/html"},
+					{header, "Date"},
+					{header, "Server"},
+					{version, Version}]),
+    
+    ok = httpd_test_lib:verify_request(proplists:get_value(type, Config), Host, 
+				       proplists:get_value(port, Config),  
+				       transport_opts(Type, Config),
+				       proplists:get_value(node, Config),
+				       http_request("GET " ++ BadDotPath1, Version, Host),
+				       [{statuscode, 404},
+					{header, "Content-Type", "text/html"},
+					{header, "Date"},
+					{header, "Server"},
+					{version, Version}]),
+    
+    ok = httpd_test_lib:verify_request(proplists:get_value(type, Config), Host,
+				       proplists:get_value(port, Config),
+				       transport_opts(Type, Config),
+				       proplists:get_value(node, Config),
+				       http_request("GET " ++ BadDotPath2, Version, Host),
+				       [{statuscode, 404},
+					{header, "Content-Type", "text/html"},
+					{header, "Date"},
+					{header, "Server"},
+					{version, Version}]).
     
 basic_auth_1_1(Config) when is_list(Config) -> 
     basic_auth([{http_version, "HTTP/1.1"} | Config]).
 
 basic_auth_1_0(Config) when is_list(Config) -> 
     basic_auth([{http_version, "HTTP/1.0"} | Config]).
-
-basic_auth_0_9(Config) when is_list(Config) -> 
-    basic_auth([{http_version, "HTTP/0.9"} | Config]).
 
 basic_auth() ->
     [{doc, "Test Basic authentication with WWW-Authenticate header"}].
@@ -515,14 +553,29 @@ basic_auth(Config) ->
     %% Authentication still required!
     basic_auth_requiered(Config).
 
+verify_href_1_1(Config) when is_list(Config) ->
+    verify_href([{http_version, "HTTP/1.1"} | Config]).
+
+verify_href() ->
+    [{doc, "Test generated hrefs (related to GH-4677), check that hrefs for dir listing work"}].
+
+verify_href(Config) when is_list(Config) ->
+    Version = proplists:get_value(http_version, Config),
+    Host = proplists:get_value(host, Config),
+    Go = fun(Path, User, Password, Opts) ->
+                 ct:pal("Navigating to ~p", [Path]),
+                 auth_status(auth_request(Path, User, Password, Version, Host),
+                             Config, Opts)
+         end,
+    {ok, Hrefs} = Go("/open/", "Aladdin", "AladdinPassword", [{statuscode, 200}, {fetch_hrefs, true}]),
+    [ok = Go(H, "one", "onePassword", [{statuscode, 200}]) || H <- Hrefs],
+    ok.
+
 auth_api_1_1(Config) when is_list(Config) -> 
     auth_api([{http_version, "HTTP/1.1"} | Config]).
 
 auth_api_1_0(Config) when is_list(Config) -> 
     auth_api([{http_version, "HTTP/1.0"} | Config]).
-
-auth_api_0_9(Config) when is_list(Config) -> 
-    auth_api([{http_version, "HTTP/0.9"} | Config]).
 
 auth_api() ->
     [{doc, "Test mod_auth API"}].
@@ -926,6 +979,35 @@ esi_proagate(Config)  when is_list(Config) ->
         Err ->
             ct:fail(Err)
     end.        
+%%-------------------------------------------------------------------------
+esi_atom_leak() ->
+    [{doc, "Test mod_esi for atom leakage - verify module, function names and HTTP headers"}].
+
+esi_atom_leak(Config) when is_list(Config) ->
+    NumberStrings = [integer_to_list(N) || N <- lists:seq(1, 10)],
+
+    NotExistingModule =
+        ["GET /cgi-bin/erl/not_existing_" ++ S ++":get " || S <- NumberStrings],
+    %% check atom count after first HTTP call, to ignore count increase upon initial module loading
+    GetFun = fun(Url, HeadersAndBody, Expected) ->
+                     ok = http_status(Url, HeadersAndBody, Config, Expected),
+                     erlang:system_info(atom_count)
+             end,
+    AtomCount1 = [GetFun(U, {"", ""}, [{statuscode, 404}]) || U <- NotExistingModule],
+    IsStable = fun(L) -> lists:max(L) == lists:min(L) end,
+    true = IsStable(AtomCount1),
+
+    NotExistingFunction =
+        ["GET /cgi-bin/erl/httpd_example:not_existing" ++ S ++ " "
+         || S <- NumberStrings],
+    AtomCount2 = [GetFun(U, {"", ""}, [{statuscode, 404}]) || U <- NotExistingFunction],
+    true = IsStable(AtomCount2),
+
+    NotExistingHdr =
+        [{"NotExistingHeader_" ++ S ++ ":100 \r\n", ""} || S <- NumberStrings],
+    AtomCount3 = [GetFun("GET /cgi-bin/erl/httpd_example:get ", H, [{statuscode, 200}])
+                  || H <- NotExistingHdr],
+    true = IsStable(AtomCount3).
 
 %%-------------------------------------------------------------------------
 cgi() ->
@@ -1034,12 +1116,6 @@ alias_1_0() ->
   
 alias_1_0(Config) when is_list(Config) ->
     alias([{http_version, "HTTP/1.0"} | Config]).
-
-alias_0_9() ->
-    [{doc, "Test mod_alias"}].
-  
-alias_0_9(Config) when is_list(Config) ->
-    alias([{http_version, "HTTP/0.9"} | Config]).
 
 alias() ->
     [{doc, "Test mod_alias"}].
@@ -1467,9 +1543,6 @@ disturbing_1_1(Config) when is_list(Config) ->
 disturbing_1_0(Config) when is_list(Config) -> 
     disturbing([{http_version, "HTTP/1.0"} | Config]).
 
-disturbing_0_9(Config) when is_list(Config) -> 
-    disturbing([{http_version, "HTTP/0.9"} | Config]).
-
 disturbing(Config) when is_list(Config)->
     Server =  proplists:get_value(server_pid, Config),
     Version = proplists:get_value(http_version, Config),
@@ -1499,9 +1572,6 @@ non_disturbing_1_1(Config) when is_list(Config) ->
 
 non_disturbing_1_0(Config) when is_list(Config) -> 
     non_disturbing([{http_version, "HTTP/1.0"} | Config]).
-
-non_disturbing_0_9(Config) when is_list(Config) -> 
-    non_disturbing([{http_version, "HTTP/0.9"} | Config]).
 
 non_disturbing(Config) when is_list(Config)->
     Server =  proplists:get_value(server_pid, Config),
@@ -2081,10 +2151,11 @@ http_request_missing_CR(Request, "HTTP/1.1" = Version, Host) ->
 http_request_missing_CR(Request, Version, _) ->
     Request ++ Version ++ "\r\n\n".
 
-head_status("HTTP/0.9") ->
+head_status("HTTP/0.9", _) ->
     501; %% Not implemented in HTTP/0.9
-head_status(_) ->
-    200.
+head_status(_, Expected) ->
+    Expected.
+
 
 basic_conf() ->
     [{modules, [mod_alias, mod_range, mod_responsecontrol,

@@ -100,7 +100,9 @@ image_of_verbosity(_)     -> "".
 
 %% ShortName
 image_of_sname(ma)        -> "MASTER-AGENT";
-image_of_sname(maw)       -> io_lib:format("MASTER-AGENT-worker(~p)",[self()]);
+image_of_sname(mamw)      -> io_lib:format("MASTER-AGENT-main_worker(~p)",[self()]);
+image_of_sname(masw)      -> io_lib:format("MASTER-AGENT-set_worker(~p)",[self()]);
+image_of_sname(manw)      -> io_lib:format("MASTER-AGENT-notif_worker(~p)",[self()]);
 image_of_sname(madis)     -> io_lib:format("MASTER-AGENT-discovery_inform_sender(~p)",
 					   [self()]);
 image_of_sname(mais)      -> io_lib:format("MASTER-AGENT-inform_sender(~p)",

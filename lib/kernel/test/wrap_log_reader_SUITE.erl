@@ -431,8 +431,8 @@ stop() ->
 %% Give disk logs opened by 'wlr_logger' and 'wlt' time to close after
 %% receiving EXIT signals.
 dl_wait() ->
-    case disk_log:accessible_logs() of
-        {[], []} ->
+    case disk_log:all() of
+        [] ->
             ok;
         _X ->
             erlang:display(_X),

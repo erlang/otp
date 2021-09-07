@@ -108,17 +108,3 @@ char* find_str(const char* haystack, int hsize, const char* needle)
     return NULL;
 }
 
-#ifndef HAVE_MEMMOVE
-void* memmove(void *dest, const void *src, size_t n)
-{
-    int i;
-    if (src > dest) {
-	for (i=0; i<n; i++) ((char*)dest)[i] = ((char*)src)[i];
-    }
-    else {
-	for (i=(int)(n-1); i>=0; i--) ((char*)dest)[i] = ((char*)src)[i];
-    }
-    return dest;
-}
-#endif /* HAVE_MEMMOVE */
-

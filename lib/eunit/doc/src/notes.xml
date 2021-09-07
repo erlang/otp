@@ -33,6 +33,24 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <seeerl
+	    marker="eunit_surefire"><c>eunit_surefire</c></seeerl>
+	    report handler has been updated to automatically create
+	    the directories needed to store the surefire xml file.</p>
+          <p>
+	    Own Id: OTP-17300 Aux Id: PR-4695 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.6</title>
 
     <section><title>Improvements and New Features</title>

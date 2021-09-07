@@ -32,6 +32,60 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.3.28</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug that could cause parsing to crash.</p>
+          <p>
+	    Own Id: OTP-17388 Aux Id: OTP-17123 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.27</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed the bug that Xmerl SAX parser couldn't handle files
+	    ending with a ^M.</p>
+          <p>
+	    Own Id: OTP-17308</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.26</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrected namespace and expanded name in the old dom
+	    backend example module.</p>
+          <p>
+	    Own Id: OTP-17060</p>
+        </item>
+        <item>
+          <p>
+	    Corrected a bug that in some cases didn't allow
+	    unresolved references when skip_external_dtd option used.</p>
+          <p>
+	    Own Id: OTP-17061</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.3.25</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

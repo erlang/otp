@@ -109,10 +109,13 @@ get_code(File, Tag) ->
 			Tag ++ "\$",[global, multiline, {capture, [1], binary}]) of
 		{match,[[Match]]} -> 
 		    Match; 
-		_ -> 
+		nomatch ->
+                    io:format(standard_error,"Could not find the tag ~p in ~ts",
+                              [Tag, File]),
 		    halt(4) 
 	    end; 
-	_ ->
+	E ->
+            io:format(standard_error,"Could not read ~ts (~p)",[File, E]),
 	    halt(3) 
     end.
  

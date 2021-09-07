@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -103,6 +103,7 @@ get_scale() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init(_Args) ->
+    %% put(debug, true),
     register(observer, self()),
     wx:new(),
     catch wxSystemOptions:setOption("mac.listctrl.always_use_generic", 1),
@@ -186,6 +187,12 @@ setup(#state{frame = Frame} = State) ->
     PortPanel = observer_port_wx:start_link(Notebook, self(), Cnf(port_panel)),
     wxNotebook:addPage(Notebook, PortPanel, "Ports", []),
 
+    %% Socket Panel
+    SockPanel = observer_sock_wx:start_link(Notebook,
+					    self(),
+					    Cnf(sock_panel)),
+    wxNotebook:addPage(Notebook, SockPanel, "Sockets", []),
+
     %% Table Viewer Panel
     TVPanel = observer_tv_wx:start_link(Notebook, self(), Cnf(tv_panel)),
     wxNotebook:addPage(Notebook, TVPanel, "Table Viewer", []),
@@ -203,26 +210,32 @@ setup(#state{frame = Frame} = State) ->
 
     SysPid = wx_object:get_pid(SysPanel),
     SysPid ! {active, node()},
-    Panels = [{sys_panel, SysPanel, "System"},   %% In order
-              {perf_panel, PerfPanel, "Load Charts"},
-              {allc_panel, AllcPanel, ?ALLOC_STR},
-              {app_panel,  AppPanel, "Applications"},
-              {pro_panel, ProPanel, "Processes"},
-              {port_panel, PortPanel, "Ports"},
-              {tv_panel, TVPanel, "Table Viewer"},
-              {trace_panel, TracePanel, ?TRACE_STR}],
+    Panels =
+	[{sys_panel,   SysPanel,   "System"},   %% In order
+	 {perf_panel,  PerfPanel,  "Load Charts"},
+	 {allc_panel,  AllcPanel,  ?ALLOC_STR},
+	 {app_panel,   AppPanel,   "Applications"},
+	 {pro_panel,   ProPanel,   "Processes"},
+	 {port_panel,  PortPanel,  "Ports"},
+	%% if (SockPanel =:= undefined) -> [];
+	%%    true -> 
+	%% 	[{sock_panel,  SockPanel,  "Sockets"}]
+	%% end ++ 
+	 {sock_panel,  SockPanel,  "Sockets"},
+	 {tv_panel,    TVPanel,    "Table Viewer"},
+	 {trace_panel, TracePanel, ?TRACE_STR}],
 
     UpdState = State#state{main_panel = Panel,
-			   notebook = Notebook,
-			   menubar = MenuBar,
+			   notebook   = Notebook,
+			   menubar    = MenuBar,
 			   status_bar = StatusBar,
 			   active_tab = SysPid,
-                           panels = Panels,
-			   node  = node(),
-			   nodes = Nodes
+                           panels     = Panels,
+			   node       = node(),
+			   nodes      = Nodes
 			  },
     %% Create resources which we don't want to duplicate
-    SysFont = wxSystemSettings:getFont(?wxSYS_SYSTEM_FIXED_FONT),
+    SysFont = wxSystemSettings:getFont(?wxSYS_OEM_FIXED_FONT),
     %% OemFont = wxSystemSettings:getFont(?wxSYS_OEM_FIXED_FONT),
     %% io:format("Sz sys ~p(~p) oem ~p(~p)~n",
     %% 	      [wxFont:getPointSize(SysFont), wxFont:isFixedWidth(SysFont),
@@ -240,7 +253,7 @@ setup(#state{frame = Frame} = State) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%Callbacks
-handle_event(#wx{event=#wxNotebook{type=command_notebook_page_changed, nSel=Next}},
+handle_event(#wx{event=#wxBookCtrl{type=command_notebook_page_changed, nSel=Next}},
 	     #state{active_tab=Previous, node=Node, panels=Panels, status_bar=SB} = State) ->
     {_, Obj, _} = lists:nth(Next+1, Panels),
     case wx_object:get_pid(Obj) of
@@ -829,3 +842,17 @@ is_rb_server_running(Node, LogState) ->
        undefined ->
 	   ok
    end.
+
+
+%% d(F) ->
+%%     d(F, []).
+
+%% d(F, A) ->
+%%     d(get(debug), F, A).
+
+%% d(true, F, A) ->
+%%     io:format("[owx] " ++ F ++ "~n", A);
+%% d(_, _, _) ->
+%%     ok.
+
+

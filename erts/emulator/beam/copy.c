@@ -276,6 +276,7 @@ do {									\
 do {                                                                    \
     UWord result;                                                       \
     if (WSTK_CONCAT(s,_bitoffs) <= 0) {                                 \
+        ASSERT(WSTK_CONCAT(s,_offset) < (s.wsp - s.wstart));            \
         WSTK_CONCAT(s,_buffer) = s.wstart[WSTK_CONCAT(s,_offset)];      \
         WSTK_CONCAT(s,_offset)++;                                       \
         WSTK_CONCAT(s,_bitoffs) = 8*sizeof(UWord);                      \
@@ -1036,11 +1037,17 @@ do {								\
     /* no WSTK_CONCAT(s,_offset), write-only */		\
     UWord WSTK_CONCAT(s,_buffer) = 0
 
+#ifdef DEBUG
+# define DEBUG_COND(D,E) D
+#else
+# define DEBUG_COND(D,E) E
+#endif
+
 #define DECLARE_BITSTORE_FROM_INFO(s, info)		\
     /* no WSTK_DEF_STACK(s), read-only */		\
     ErtsWStack s = {					\
         info->bitstore_start,  /* wstart */		\
-        NULL,                  /* wsp,  read-only */	\
+        DEBUG_COND(info->bitstore_stop, NULL), /* wsp,  read-only */ \
         NULL,                  /* wend, read-only */	\
         NULL,                  /* wdef, read-only */	\
         info->bitstore_alloc_type /* alloc_type */	\
@@ -1330,6 +1337,9 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
                 info->queue_end = s.end;
                 info->queue_alloc_type = s.alloc_type;
                 info->bitstore_start = b.wstart;
+#ifdef DEBUG
+                info->bitstore_stop = b.wsp;
+#endif
                 info->bitstore_alloc_type = b.alloc_type;
                 info->shtable_start = t.start;
                 info->shtable_alloc_type = t.alloc_type;
@@ -2054,7 +2064,7 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
 	    ptr = move_boxed(ptr, val, &hp, &dummy_ref);
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case REF_SUBTAG:
-		if (is_ordinary_ref_thing(hdr))
+		if (!is_magic_ref_thing(hdr))
 		    break;
 	    case REFC_BINARY_SUBTAG:
 	    case FUN_SUBTAG:

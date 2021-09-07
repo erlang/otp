@@ -327,7 +327,7 @@ typedef struct db_table_common {
     erts_atomic_t continuation_state;
     Binary* continuation_res_bin;
 #ifdef ETS_DBG_FORCE_TRAP
-    erts_atomic_t dbg_force_trap;  /* &1 force enabled, &2 trap this call */
+    int dbg_force_trap;  /* force trap on table lookup */
 #endif
 } DbTableCommon;
 
@@ -466,7 +466,6 @@ typedef struct match_prog {
     ErlHeapFragment *term_save; /* Only if needed, a list of message 
 				    buffers for off heap copies 
 				    (i.e. binaries)*/
-    int single_variable;     /* ets:match needs to know this. */
     int num_bindings;        /* Size of heap */
     /* The following two are only filled in when match specs 
        are used for tracing */
@@ -545,9 +544,9 @@ Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 /* Returns newly allocated MatchProg binary with refc == 0*/
 
 Eterm db_match_dbterm_uncompressed(DbTableCommon* tb, Process* c_p, Binary* bprog,
-                                   DbTerm* obj, Eterm** hpp, Uint extra);
+                                   DbTerm* obj, enum erts_pam_run_flags);
 Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
-		      DbTerm* obj, Eterm** hpp, Uint extra);
+                      DbTerm *obj, enum erts_pam_run_flags);
 
 Eterm db_prog_match(Process *p, Process *self,
                     Binary *prog, Eterm term,

@@ -833,7 +833,7 @@ connect_and_send_first_request(Address, Request, #state{options = Options0} = St
                     TmpState = State#state{request = Request,
                                            session = Session,
                                            mfa = init_mfa(Request, State),
-                                           status_line = init_status_line(Request),
+                                           status_line = undefined,
                                            headers = undefined,
                                            body = undefined,
                                            status = new},
@@ -1467,21 +1467,8 @@ is_no_proxy_dest_address(Dest, AddressPart) ->
     lists:prefix(AddressPart, Dest).
 
 init_mfa(#request{settings = Settings}, State) ->
-    case Settings#http_options.version of
-	"HTTP/0.9" ->
-	    {httpc_response, whole_body, [<<>>, -1]};
-	_ ->
-	    Relaxed = Settings#http_options.relaxed,
-	    {httpc_response, parse, [State#state.max_header_size, Relaxed]}
-    end.
-
-init_status_line(#request{settings = Settings}) ->
-    case Settings#http_options.version of
-	"HTTP/0.9" ->
-	    {"HTTP/0.9", 200, "OK"};
-	_ ->
-	    undefined
-    end.
+	Relaxed = Settings#http_options.relaxed,
+	{httpc_response, parse, [State#state.max_header_size, Relaxed]}.
 
 socket_type(#request{scheme = http}) ->
     ip_comm;
@@ -1599,8 +1586,7 @@ tls_tunnel(Address, Request, #state{session = #session{} = Session} = State,
 	    TmpState = State#state{request = UpgradeRequest,
 				   %%  session = Session,
 				   mfa = init_mfa(UpgradeRequest, State),
-				   status_line =
-				       init_status_line(UpgradeRequest),
+				   status_line = undefined,
 				   headers = undefined,
 				   body = undefined},
 	    activate_once(Session),
@@ -1673,8 +1659,7 @@ tls_upgrade(#state{status =
 	    NewState = State#state{session = Session,
 				   request = Request,
 				   mfa = init_mfa(Request, State),
-				   status_line =
-				       init_status_line(Request),
+				   status_line = undefined,
 				   headers = undefined,
 				   body = undefined,
 				   status = new

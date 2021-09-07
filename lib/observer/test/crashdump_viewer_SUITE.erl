@@ -35,6 +35,8 @@
 -define(failed_file,"failed-cases.txt").
 -define(helper_mod,crashdump_helper).
 
+%% -define(P(F),    print(F)).
+-define(P(F, A), print(F, A)).
 
 
 init_per_testcase(start_stop, Config) ->
@@ -152,29 +154,41 @@ start_stop(Config) when is_list(Config) ->
     ct:log("CDV procs: ~n~p~n",[Regs]),
     [true=is_pid(P) || {P,_,_} <- Regs],
     timer:sleep(5000), % give some time to live
+    ct:log("try stop crashdump viewer (async)~n"),
     ok = crashdump_viewer:stop(),
+    ct:log("await crashdump viewer processes termination~n"),
     recv_downs(Regs),
+    ct:log("sleep some~n"),
     timer:sleep(2000),
+    ct:log("try get all processes~n"),
     ProcsAfter = processes(),
     NumProcsAfter = length(ProcsAfter),
-    if NumProcsAfter=/=NumProcsBefore ->
-	    ct:log("Before but not after:~n~p~n",
-		   [[{P,process_info(P)} || P <- ProcsBefore -- ProcsAfter]]),
-	    ct:log("After but not before:~n~p~n",
-		   [[{P,process_info(P)} || P <- ProcsAfter -- ProcsBefore]]),
-	    ct:fail("leaking processes");
+    ct:log("try verify crashdump viewer stopped~n"),
+    if (NumProcsAfter =/= NumProcsBefore) ->
+	    ct:log("Leaking processes: "
+                   "~n   Before but not after:"
+                   "~n      ~p"
+                   "~n   After but not before:"
+                   "~n      ~p",
+		   [
+                    [{P,process_info(P)} || P <- ProcsBefore -- ProcsAfter],
+                    [{P,process_info(P)} || P <- ProcsAfter -- ProcsBefore]
+                   ]);
        true ->
 	    ok
     end,
     ok.
 
 recv_downs([]) ->
+    ct:log("'DOWN' received from all registered proceses~n", []),
     ok;
 recv_downs(Regs) ->
     receive
-	{'DOWN',Ref,process,_Pid,_} ->
-	    ct:log("Got 'DOWN' for process ~n~p~n",[_Pid]),
-	    recv_downs(lists:keydelete(Ref,3,Regs))
+	{'DOWN', Ref, process, _Pid, _} ->
+            Regs2 = lists:keydelete(Ref, 3, Regs),
+	    ct:log("Got 'DOWN' for process ~p (~w procs remaining)~n",
+                   [_Pid, length(Regs2)]),
+	    recv_downs(Regs2)
     after 30000 ->
 	    ct:log("Timeout waiting for down:~n~p~n",
 		   [[{Reg,process_info(P)} || {P,_,_}=Reg <- Regs]]),
@@ -324,7 +338,8 @@ wait_for_progress_done() ->
 %%%-----------------------------------------------------------------
 %%% General check of what is displayed for a dump
 browse_file(File) ->
-    io:format("~nBrowsing file: ~s",[File]),
+    io:format("~n[~s] Browsing file: ~s", [formated_timestamp(), File]),
+    %% io:format("~nBrowsing file: ~s",[File]),
 
     ok = start_backend(File),
 
@@ -369,11 +384,10 @@ is_truncated(File) ->
     end.
 
 incomplete_allowed(File) ->
-    %% Incomplete heap is allowed for native libs, since some literals
-    %% are not dumped - and for pre OTP-20 (really pre 20.2) releases,
-    %% since literals were not dumped at all then.
+    %% Incomplete heap is allowed for pre OTP-20 (really pre 20.2)
+    %% releases, since literals were not dumped at all then.
     Rel = get_rel_from_dump_name(File),
-    Rel < 20 orelse test_server:is_native(lists).
+    Rel < 20.
 
 special(File,Procs) ->
     case filename:extension(File) of
@@ -579,8 +593,16 @@ special(File,Procs) ->
             #proc{pid=Pid0} =
                 lists:keyfind("'unicode_reg_name_αβ'",#proc.name,Procs),
             Pid = pid_to_list(Pid0),
-	    {ok,#proc{},[]} = crashdump_viewer:proc_details(Pid),
+	    {ok,Proc,[]} = crashdump_viewer:proc_details(Pid),
+            #proc{last_calls=LastCalls,stack_dump=Stk} = Proc,
             io:format("  unicode registered name ok",[]),
+
+            ["crashdump_helper_unicode:'спутник'/0",
+             "ets:new/2"|_] = lists:reverse(LastCalls),
+            io:format("  last calls ok",[]),
+
+            verify_unicode_stack(Stk),
+            io:format("  unicode stack values ok",[]),
 
 	    {ok,[#ets_table{id="'tab_αβ'",name="'tab_αβ'"}],[]} =
                 crashdump_viewer:ets_tables(Pid),
@@ -639,6 +661,15 @@ special(File,Procs) ->
     end,
     ok.
 
+verify_unicode_stack([{_,{state,Str,Atom,Bin,LongBin}}|_]) ->
+    'unicode_atom_αβ' = Atom,
+    "unicode_string_αβ" = Str,
+    <<"bin αβ"/utf8>> = Bin,
+    <<"long bin αβ - a utf8 binary which can be expanded αβ"/utf8>> = LongBin,
+    ok;
+verify_unicode_stack([_|T]) ->
+    verify_unicode_stack(T).
+
 verify_binaries([H|T1], [H|T2]) ->
     %% Heap binary.
     verify_binaries(T1, T2);
@@ -660,12 +691,17 @@ lookat_all_pids([#proc{pid=Pid0}|Procs],TruncAllowed,IncompAllowed) ->
         {[],[],[]} ->
             ok;
         {["WARNING: This process has an incomplete heap."++_],[],[]}
-          when IncompAllowed ->
+	when IncompAllowed ->
             ok;  % native libs, literals might not be included in dump
         _ when TruncAllowed ->
             ok; % truncated dump
         TWs ->
-            ct:fail({unexpected_warning,Pid,TWs})
+	    ?P("lookat_all_pids -> unexpected warning"
+	       "~n   Pid:           ~s"
+	       "~n   IncompAllowed: ~p"
+	       "~n   TruncAllowed:  ~p"
+	       "~n   ~p", [Pid, IncompAllowed, TruncAllowed, TWs]),
+            ct:fail({unexpected_warning, Pid, TWs, IncompAllowed, TruncAllowed})
     end,
     lookat_all_pids(Procs,TruncAllowed,IncompAllowed).
 
@@ -973,3 +1009,26 @@ compat_rel(current) ->
     "";
 compat_rel(Rel) ->
     lists:concat(["+R",Rel," "]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% f(F, A) ->
+%%     lists:flatten(io_lib:format(F, A)).
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp({_N1, _N2, N3} = TS) ->
+    {_Date, Time}   = calendar:now_to_local_time(TS),
+    {Hour, Min, Sec} = Time,
+    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                             [Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatTS).
+
+%% print(F) ->
+%%     print(F, []).
+
+print(F, A) ->
+    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
+

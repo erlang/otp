@@ -67,13 +67,13 @@
       <item><c>known_hosts</c></item>
       <item><c>authorized_keys</c></item>
       <item><c>authorized_keys2</c></item>
-      <item><c>id_dsa</c> <i>(disabled by default)</i></item>
-      <item><c>id_rsa</c> <i>(disabled by default from OTP-24)</i></item>
+      <item><c>id_dsa</c> <i>(supported but disabled by default)</i></item>
+      <item><c>id_rsa</c> <i>(SHA1 sign/verify are supported but disabled by default from OTP-24)</i></item>
       <item><c>id_ecdsa</c></item>
       <item><c>id_ed25519</c></item>
       <item><c>id_ed448</c></item>
-      <item><c>ssh_host_dsa_key</c> <i>(disabled by default)</i></item>
-      <item><c>ssh_host_rsa_key</c> <i>(disabled by default from OTP-24)</i></item>
+      <item><c>ssh_host_dsa_key</c> <i>(supported but disabled by default)</i></item>
+      <item><c>ssh_host_rsa_key</c> <i>(SHA1 sign/verify are supported but disabled by default from OTP-24)</i></item>
       <item><c>ssh_host_ecdsa_key</c></item>
       <item><c>ssh_host_ed25519_key</c></item>
       <item><c>ssh_host_ed448_key</c></item>
@@ -94,6 +94,15 @@
       </p>
       <p>See also the default callback module documentation in
       <seeerl marker="ssh_file">ssh_file</seeerl>.
+      </p>
+      <p>Disabled public key algorithms can be enabled with the
+	<seetype marker="ssh:ssh#preferred_algorithms_common_option">preferred_algorithms</seetype>
+	or
+	<seetype marker="ssh:ssh#modify_algorithms_common_option">modify_algorithms</seetype>
+	options.
+	See <seeguide marker="configure_algos#example-9">Example 9</seeguide> in
+	<seeguide marker="configure_algos">Configuring algorithms in SSH</seeguide>
+	for a description.
       </p>
 
   </section>
@@ -174,13 +183,13 @@
 	  <item>curve25519-sha256@libssh.org</item>
 	  <item>curve448-sha512</item>
 	</list>
-	<p>The following unsecure <c>sha1</c> algorithms are now disabled by default:</p>
+	<p>The following unsecure <c>SHA1</c> algorithms are now disabled by default:</p>
 	<list>
 	  <item>(diffie-hellman-group14-sha1)</item>
 	  <item>(diffie-hellman-group-exchange-sha1)</item>
 	  <item>(diffie-hellman-group1-sha1)</item>
 	</list>
-	<p>They can be enabled with the 
+	<p>They can be enabled with the
 	<seetype marker="ssh:ssh#preferred_algorithms_common_option">preferred_algorithms</seetype>
 	or
 	<seetype marker="ssh:ssh#modify_algorithms_common_option">modify_algorithms</seetype>
@@ -197,17 +206,22 @@
 	  <item>ssh-ed448</item>
 	  <item>rsa-sha2-256</item>
 	  <item>rsa-sha2-512</item>
-	  <item>ssh-rsa <i>(disabled by default from OTP-24)</i></item>
 	</list>
-	<p>The following unsecure <c>sha1</c> algorithm is now disabled by default:</p>
+	<p>The following unsecure <c>SHA1</c> algorithms are supported but disabled by default:</p>
 	<list>
 	  <item>(ssh-dss)</item>
+	  <item>(ssh-rsa)</item>
 	</list>
-	<p>It can be enabled with the 
+	<p>See 
+	Disabled public key algorithms can be enabled with the
 	<seetype marker="ssh:ssh#preferred_algorithms_common_option">preferred_algorithms</seetype>
 	or
 	<seetype marker="ssh:ssh#modify_algorithms_common_option">modify_algorithms</seetype>
-	options.  Use for example the Option value <c>{modify_algorithms, [{append, [{public_key,['ssh-dss']}]}]}</c>)</p>
+	options.
+	See <seeguide marker="configure_algos#example-9">Example 9</seeguide> in
+	<seeguide marker="configure_algos">Configuring algorithms in SSH</seeguide>
+	for a description.
+	</p>
       </item>
 
       <tag>MAC algorithms</tag>
@@ -220,11 +234,11 @@
 	  <item>hmac-sha2-512</item>
 	  <item>hmac-sha1</item>
 	</list>
-	<p>The following unsecure <c>sha1</c> algorithm is disabled by default:</p>
+	<p>The following unsecure <c>SHA1</c> algorithm is disabled by default:</p>
 	<list>
 	  <item>(hmac-sha1-96)</item>
 	</list>
-	<p>It can be enabled with the 
+	<p>It can be enabled with the
 	<seetype marker="ssh:ssh#preferred_algorithms_common_option">preferred_algorithms</seetype>
 	or
 	<seetype marker="ssh:ssh#modify_algorithms_common_option">modify_algorithms</seetype>
@@ -250,7 +264,7 @@
 	<p>See the text at the description of <seeapp marker="#rfc5647_note">the rfc 5647 further down</seeapp>
 	for more information regarding AEAD_AES_*_GCM.
 	</p>
-	<p>Following the internet de-facto standard, the cipher and mac algorithm AEAD_AES_128_GCM is selected when the 
+	<p>Following the internet de-facto standard, the cipher and mac algorithm AEAD_AES_128_GCM is selected when the
 	cipher aes128-gcm@openssh.com is negotiated. The cipher and mac algorithm AEAD_AES_256_GCM is selected when the
 	cipher aes256-gcm@openssh.com is negotiated.
 	</p>
@@ -304,14 +318,21 @@
 	<item>6.6.  Public Key Algorithms
 	<list type="bulleted">
 	  <item>ssh-dss</item>
+	  <item>ssh-rsa</item>
 	</list>
 	</item>
       </list>
-      <p>They are disabled by default, but can be enabled with the 
+      <p>They are disabled by default as they now are regarded insecure, but they can be enabled with the
       <seetype marker="ssh:ssh#preferred_algorithms_common_option">preferred_algorithms</seetype>
       or
       <seetype marker="ssh:ssh#modify_algorithms_common_option">modify_algorithms</seetype>
       options.
+      See <seeguide marker="configure_algos#example-8">Example 8</seeguide> (diffie-hellman-group1-sha1)
+      and
+      <seeguide marker="configure_algos#example-9">Example 9</seeguide> (ssh-dss)
+      in
+      <seeguide marker="configure_algos">Configuring algorithms in SSH</seeguide>
+      for descriptions.
       </p>
       </item>
 
@@ -341,7 +362,7 @@
       <list type="bulleted">
 	<item>4.1.  diffie-hellman-group-exchange-sha1</item>
       </list>
-      <p>It is disabled by default, but can be enabled with the 
+      <p>It is disabled by defaultas as it now is regarded insecure, but it can be enabled with the
       <seetype marker="ssh:ssh#preferred_algorithms_common_option">preferred_algorithms</seetype>
       or
       <seetype marker="ssh:ssh#modify_algorithms_common_option">modify_algorithms</seetype>
@@ -406,7 +427,7 @@
 	<item><c>diffie-hellman-group-exchange-sha1</c></item>
 	<item><c>diffie-hellman-group14-sha1</c></item>
       </list>
-      <p>are not enabled by default,
+      <p>are not enabled by default as they now are regarded insecure,
       but are still supported and can be enabled with the options
       <seetype marker="ssh:ssh#preferred_algorithms_common_option">preferred_algorithms</seetype>
       or
@@ -430,7 +451,7 @@
       </item>
 
       <item>
-	<url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves">Secure Shell (SSH) Key Exchange Method using Curve25519 and Curve448 (work in progress)</url>
+	<url href="https://tools.ietf.org/html/rfc8731">Secure Shell (SSH) Key Exchange Method Using Curve25519 and Curve448</url>
 	<p/>
       </item>
 

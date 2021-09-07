@@ -1,0 +1,17 @@
+
+  [;1m-spec projection(SetFun, Set1) -> Set2[0m
+  [;1m                    when[0m
+  [;1m                        SetFun :: set_fun(),[0m
+  [;1m                        Set1 :: a_set(),[0m
+  [;1m                        Set2 :: a_set().[0m
+
+  Returns the set created by substituting each element of [;;4mSet1[0m by
+  the result of applying [;;4mSetFun[0m to the element.
+
+  If [;;4mSetFun[0m is a number i >= 1 and [;;4mSet1[0m is a relation, then the
+  returned set is the projection of [;;4mSet1[0m onto coordinate i.
+
+    1> S1 = sofs:from_term([{1,a},{2,b},{3,a}]),
+    S2 = sofs:projection(2, S1),
+    sofs:to_external(S2).
+    [a,b]

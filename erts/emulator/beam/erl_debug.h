@@ -23,10 +23,6 @@
 
 #include "erl_term.h"
 
-#ifdef HIPE
-#include "hipe_debug.h"
-#endif
-
 /* Heap areas will be filled with this value when they are deallocated
  * after a garbage collection. This value used to be 0xff, but that is
  * an immediate and might not crash the system if it is encountered.

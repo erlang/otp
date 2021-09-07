@@ -415,6 +415,7 @@ do_remove_filter(Tid,Id,FilterId) ->
 
 default_config(primary) ->
     #{level=>notice,
+      metadata=>#{},
       filters=>[],
       filter_default=>log};
 default_config(Id) ->
@@ -461,6 +462,8 @@ check_config(Owner,[{filter_default,FD}|Config]) ->
 check_config(handler,[{formatter,Formatter}|Config]) ->
     check_formatter(Formatter),
     check_config(handler,Config);
+check_config(primary,[{metadata,Meta}|Config]) when is_map(Meta) ->
+    check_config(primary,Config);
 check_config(primary,[C|_]) ->
     throw({invalid_primary_config,C});
 check_config(handler,[{_,_}|Config]) ->

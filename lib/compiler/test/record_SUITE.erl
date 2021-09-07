@@ -607,6 +607,12 @@ coverage(Config) when is_list(Config) ->
     error2 = check_file_header(#fileheader{trailer=true,eof=false}),
     error3 = check_file_header(#fileheader{}),
 
+    %% Cover sanitization of is_tagged_tuple in beam_ssa_pre_codegen.
+    {'EXIT',_} = catch id((catch 22)#rr.a),
+
+    %% Cover beam_ssa_bool.
+    error = coverage_1(true),
+
     ok.
 
 check_file_header(FH) ->
@@ -618,6 +624,11 @@ check_file_header(FH) ->
         true ->
             error3
     end.
+
+coverage_1(V) when false#rr.b; V, "abc" ->
+    ok;
+coverage_1(_) ->
+    error.
 
 -record(default_fun, {a = fun(X) -> X*X end}).
 

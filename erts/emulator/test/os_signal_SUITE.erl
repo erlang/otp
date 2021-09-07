@@ -52,14 +52,14 @@ suite() ->
 all() ->
     case os:type() of
         {win32, _} -> [];
-        _ -> [set_unset,
-              t_sighup,
+        _ -> [t_sighup,
               t_sigusr1,
               t_sigusr2,
               t_sigterm,
               t_sigalrm,
               t_sigchld,
-              t_sigchld_fork]
+              t_sigchld_fork,
+              set_unset]
     end.
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
@@ -135,7 +135,7 @@ t_sighup(_Config) ->
 t_sigusr1(_Config) ->
     Pid1 = setup_service(),
     OsPid = os:getpid(),
-    os:set_signal(sigusr1, handle),
+    % shouldn't need to explicitly set_signal to handle USR1, it's the default
     ok = kill("USR1", OsPid),
     ok = kill("USR1", OsPid),
     ok = kill("USR1", OsPid),
@@ -157,7 +157,7 @@ t_sigusr1(_Config) ->
     Msgs2 = fetch_msgs(Pid2),
     io:format("Msgs2: ~p~n", [Msgs2]),
     [] = Msgs2,
-    %% reset to ignore (it's the default)
+    %% reset to handle (default) so as not to break other tests
     os:set_signal(sigusr1, handle),
     ok.
 
@@ -275,6 +275,15 @@ t_sigalrm(_Config) ->
     ok.
 
 t_sigchld_fork(_Config) ->
+    case test_server:is_asan() of
+	true ->
+	    %% Avoid false leak reports from forked process
+	    {skip, "Address sanitizer"};
+	false ->
+	    sigchld_fork()
+    end.
+
+sigchld_fork() ->
     Pid1 = setup_service(),
     ok = os:set_signal(sigchld, handle),
     {ok,OsPid} = os_signal_SUITE:fork(),

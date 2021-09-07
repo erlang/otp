@@ -87,9 +87,11 @@
 %% RFC 8446 4.2.10.  Early Data Indication
 -record(empty, {
          }).
--record(early_data_indication, {
-          indication % uint32 max_early_data_size (new_session_ticket) | 
-          %% #empty{} (client_hello, encrypted_extensions)
+
+%% #empty{} (client_hello, encrypted_extensions)
+-record(early_data_indication, {}).
+-record(early_data_indication_nst, {
+          indication % uint32 max_early_data_size (new_session_ticket)
          }).
 
 %% RFC 8446 4.2.11. Pre-Shared Key Extension

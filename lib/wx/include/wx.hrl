@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,144 +33,123 @@
 %% Here comes the definitions of all event records.
 %% they contain the event type and possible some extra information.
 
--record(wxActivate,{type :: wxActivateEventType(), %% Callback event: {@link wxActivateEvent}
+-record(wxActivate,{type :: wxActivateEvent:wxActivateEventType(), %% Callback event:  wxActivateEvent
 	active :: boolean()}).
--type wxActivateEventType() :: 'activate' | 'activate_app' | 'hibernate'.
 -type wxActivate() :: #wxActivate{}. %% Callback event: {@link wxActivateEvent}
 
--record(wxAuiManager,{type :: wxAuiManagerEventType(), %% Callback event: {@link wxAuiManagerEvent}
+-record(wxAuiManager,{type :: wxAuiManagerEvent:wxAuiManagerEventType(), %% Callback event:  wxAuiManagerEvent
 	manager :: wxAuiManager:wxAuiManager(),
 	pane :: wxAuiPaneInfo:wxAuiPaneInfo(),
 	button :: integer(),
 	veto_flag :: boolean(),
 	canveto_flag :: boolean(),
 	dc :: wxDC:wxDC()}).
--type wxAuiManagerEventType() :: 'aui_pane_button' | 'aui_pane_close' | 'aui_pane_maximize' | 'aui_pane_restore' | 'aui_pane_activated' | 'aui_render' | 'aui_find_manager'.
 -type wxAuiManager() :: #wxAuiManager{}. %% Callback event: {@link wxAuiManagerEvent}
 
--record(wxAuiNotebook,{type :: wxAuiNotebookEventType(), %% Callback event: {@link wxAuiNotebookEvent}
+-record(wxAuiNotebook,{type :: wxAuiNotebookEvent:wxAuiNotebookEventType(), %% Callback event:  wxAuiNotebookEvent
 	old_selection :: integer(),
 	selection :: integer(),
 	drag_source :: wxAuiNotebook:wxAuiNotebook()}).
--type wxAuiNotebookEventType() :: 'command_auinotebook_page_close' | 'command_auinotebook_page_changed' | 'command_auinotebook_page_changing' | 'command_auinotebook_button' | 'command_auinotebook_begin_drag' | 'command_auinotebook_end_drag' | 'command_auinotebook_drag_motion' | 'command_auinotebook_allow_dnd' | 'command_auinotebook_tab_middle_down' | 'command_auinotebook_tab_middle_up' | 'command_auinotebook_tab_right_down' | 'command_auinotebook_tab_right_up' | 'command_auinotebook_page_closed' | 'command_auinotebook_drag_done' | 'command_auinotebook_bg_dclick'.
 -type wxAuiNotebook() :: #wxAuiNotebook{}. %% Callback event: {@link wxAuiNotebookEvent}
 
--record(wxCalendar,{type :: wxCalendarEventType(), %% Callback event: {@link wxCalendarEvent}
+-record(wxBookCtrl,{type :: wxBookCtrlEvent:wxBookCtrlEventType(), %% Callback event:  wxBookCtrlEvent
+	nSel :: integer(),
+	nOldSel :: integer()}).
+-type wxBookCtrl() :: #wxBookCtrl{}. %% Callback event: {@link wxBookCtrlEvent}
+
+-record(wxCalendar,{type :: wxCalendarEvent:wxCalendarEventType(), %% Callback event:  wxCalendarEvent
 	wday :: wx:wx_enum(),
 	date :: wx:wx_datetime()}).
--type wxCalendarEventType() :: 'calendar_sel_changed' | 'calendar_day_changed' | 'calendar_month_changed' | 'calendar_year_changed' | 'calendar_doubleclicked' | 'calendar_weekday_clicked'.
 -type wxCalendar() :: #wxCalendar{}. %% Callback event: {@link wxCalendarEvent}
 
--record(wxChildFocus, {type :: wxChildFocusEventType()}). %% Callback event: {@link wxChildFocusEvent}
--type wxChildFocusEventType() :: 'child_focus'.
+-record(wxChildFocus, {type :: wxChildFocusEvent:wxChildFocusEventType()}). %% Callback event: wxChildFocusEvent
 -type wxChildFocus() :: #wxChildFocus{}. %% Callback event: {@link wxChildFocusEvent}
 
--record(wxClipboardText, {type :: wxClipboardTextEventType()}). %% Callback event: {@link wxClipboardTextEvent}
--type wxClipboardTextEventType() :: 'command_text_copy' | 'command_text_cut' | 'command_text_paste'.
+-record(wxClipboardText, {type :: wxClipboardTextEvent:wxClipboardTextEventType()}). %% Callback event: wxClipboardTextEvent
 -type wxClipboardText() :: #wxClipboardText{}. %% Callback event: {@link wxClipboardTextEvent}
 
--record(wxClose, {type :: wxCloseEventType()}). %% Callback event: {@link wxCloseEvent}
--type wxCloseEventType() :: 'close_window' | 'end_session' | 'query_end_session'.
+-record(wxClose, {type :: wxCloseEvent:wxCloseEventType()}). %% Callback event: wxCloseEvent
 -type wxClose() :: #wxClose{}. %% Callback event: {@link wxCloseEvent}
 
--record(wxColourPicker,{type :: wxColourPickerEventType(), %% Callback event: {@link wxColourPickerEvent}
+-record(wxColourPicker,{type :: wxColourPickerEvent:wxColourPickerEventType(), %% Callback event:  wxColourPickerEvent
 	colour :: wx:wx_colour()}).
--type wxColourPickerEventType() :: 'command_colourpicker_changed'.
 -type wxColourPicker() :: #wxColourPicker{}. %% Callback event: {@link wxColourPickerEvent}
 
--record(wxCommand,{type :: wxCommandEventType(), %% Callback event: {@link wxCommandEvent}
+-record(wxCommand,{type :: wxCommandEvent:wxCommandEventType(), %% Callback event:  wxCommandEvent
 	cmdString :: unicode:chardata(),
 	commandInt :: integer(),
 	extraLong :: integer()}).
--type wxCommandEventType() :: 'command_button_clicked' | 'command_checkbox_clicked' | 'command_choice_selected' | 'command_listbox_selected' | 'command_listbox_doubleclicked' | 'command_text_updated' | 'command_text_enter' | 'command_menu_selected' | 'command_slider_updated' | 'command_radiobox_selected' | 'command_radiobutton_selected' | 'command_scrollbar_updated' | 'command_vlbox_selected' | 'command_combobox_selected' | 'command_tool_rclicked' | 'command_tool_enter' | 'command_checklistbox_toggled' | 'command_togglebutton_clicked' | 'command_left_click' | 'command_left_dclick' | 'command_right_click' | 'command_set_focus' | 'command_kill_focus' | 'command_enter'.
 -type wxCommand() :: #wxCommand{}. %% Callback event: {@link wxCommandEvent}
 
--record(wxContextMenu,{type :: wxContextMenuEventType(), %% Callback event: {@link wxContextMenuEvent}
+-record(wxContextMenu,{type :: wxContextMenuEvent:wxContextMenuEventType(), %% Callback event:  wxContextMenuEvent
 	pos :: {X::integer(), Y::integer()}}).
--type wxContextMenuEventType() :: 'context_menu'.
 -type wxContextMenu() :: #wxContextMenu{}. %% Callback event: {@link wxContextMenuEvent}
 
--record(wxDate,{type :: wxDateEventType(), %% Callback event: {@link wxDateEvent}
+-record(wxDate,{type :: wxDateEvent:wxDateEventType(), %% Callback event:  wxDateEvent
 	date :: wx:wx_datetime()}).
--type wxDateEventType() :: 'date_changed'.
 -type wxDate() :: #wxDate{}. %% Callback event: {@link wxDateEvent}
 
--record(wxDisplayChanged, {type :: wxDisplayChangedEventType()}). %% Callback event: {@link wxDisplayChangedEvent}
--type wxDisplayChangedEventType() :: 'display_changed'.
+-record(wxDisplayChanged, {type :: wxDisplayChangedEvent:wxDisplayChangedEventType()}). %% Callback event: wxDisplayChangedEvent
 -type wxDisplayChanged() :: #wxDisplayChanged{}. %% Callback event: {@link wxDisplayChangedEvent}
 
--record(wxDropFiles,{type :: wxDropFilesEventType(), %% Callback event: {@link wxDropFilesEvent}
-	noFiles :: integer(),
+-record(wxDropFiles,{type :: wxDropFilesEvent:wxDropFilesEventType(), %% Callback event:  wxDropFilesEvent
 	pos :: {X::integer(), Y::integer()},
 	files :: [unicode:chardata()]}).
--type wxDropFilesEventType() :: 'drop_files'.
 -type wxDropFiles() :: #wxDropFiles{}. %% Callback event: {@link wxDropFilesEvent}
 
--record(wxErase,{type :: wxEraseEventType(), %% Callback event: {@link wxEraseEvent}
+-record(wxErase,{type :: wxEraseEvent:wxEraseEventType(), %% Callback event:  wxEraseEvent
 	dc :: wxDC:wxDC()}).
--type wxEraseEventType() :: 'erase_background'.
 -type wxErase() :: #wxErase{}. %% Callback event: {@link wxEraseEvent}
 
--record(wxFileDirPicker,{type :: wxFileDirPickerEventType(), %% Callback event: {@link wxFileDirPickerEvent}
+-record(wxFileDirPicker,{type :: wxFileDirPickerEvent:wxFileDirPickerEventType(), %% Callback event:  wxFileDirPickerEvent
 	path :: unicode:chardata()}).
--type wxFileDirPickerEventType() :: 'command_filepicker_changed' | 'command_dirpicker_changed'.
 -type wxFileDirPicker() :: #wxFileDirPicker{}. %% Callback event: {@link wxFileDirPickerEvent}
 
--record(wxFocus,{type :: wxFocusEventType(), %% Callback event: {@link wxFocusEvent}
+-record(wxFocus,{type :: wxFocusEvent:wxFocusEventType(), %% Callback event:  wxFocusEvent
 	win :: wxWindow:wxWindow()}).
--type wxFocusEventType() :: 'set_focus' | 'kill_focus'.
 -type wxFocus() :: #wxFocus{}. %% Callback event: {@link wxFocusEvent}
 
--record(wxFontPicker,{type :: wxFontPickerEventType(), %% Callback event: {@link wxFontPickerEvent}
+-record(wxFontPicker,{type :: wxFontPickerEvent:wxFontPickerEventType(), %% Callback event:  wxFontPickerEvent
 	font :: wxFont:wxFont()}).
--type wxFontPickerEventType() :: 'command_fontpicker_changed'.
 -type wxFontPicker() :: #wxFontPicker{}. %% Callback event: {@link wxFontPickerEvent}
 
--record(wxGrid,{type :: wxGridEventType(), %% Callback event: {@link wxGridEvent}
+-record(wxGrid,{type :: wxGridEvent:wxGridEventType(), %% Callback event:  wxGridEvent
 	row :: integer(),
 	col :: integer(),
-	x :: integer(),
-	y :: integer(),
+	pos :: {X::integer(), Y::integer()},
 	selecting :: boolean(),
 	control :: boolean(),
 	meta :: boolean(),
 	shift :: boolean(),
 	alt :: boolean()}).
--type wxGridEventType() :: 'grid_cell_left_click' | 'grid_cell_right_click' | 'grid_cell_left_dclick' | 'grid_cell_right_dclick' | 'grid_label_left_click' | 'grid_label_right_click' | 'grid_label_left_dclick' | 'grid_label_right_dclick' | 'grid_row_size' | 'grid_col_size' | 'grid_range_select' | 'grid_cell_change' | 'grid_select_cell' | 'grid_editor_shown' | 'grid_editor_hidden' | 'grid_editor_created' | 'grid_cell_begin_drag'.
 -type wxGrid() :: #wxGrid{}. %% Callback event: {@link wxGridEvent}
 
--record(wxHelp, {type :: wxHelpEventType()}). %% Callback event: {@link wxHelpEvent}
--type wxHelpEventType() :: 'help' | 'detailed_help'.
+-record(wxHelp, {type :: wxHelpEvent:wxHelpEventType()}). %% Callback event: wxHelpEvent
 -type wxHelp() :: #wxHelp{}. %% Callback event: {@link wxHelpEvent}
 
--record(wxHtmlLink,{type :: wxHtmlLinkEventType(), %% Callback event: {@link wxHtmlLinkEvent}
+-record(wxHtmlLink,{type :: wxHtmlLinkEvent:wxHtmlLinkEventType(), %% Callback event:  wxHtmlLinkEvent
 	linkInfo :: wx:wx_wxHtmlLinkInfo()}).
--type wxHtmlLinkEventType() :: 'command_html_link_clicked'.
 -type wxHtmlLink() :: #wxHtmlLink{}. %% Callback event: {@link wxHtmlLinkEvent}
 
--record(wxIconize,{type :: wxIconizeEventType(), %% Callback event: {@link wxIconizeEvent}
+-record(wxIconize,{type :: wxIconizeEvent:wxIconizeEventType(), %% Callback event:  wxIconizeEvent
 	iconized :: boolean()}).
--type wxIconizeEventType() :: 'iconize'.
 -type wxIconize() :: #wxIconize{}. %% Callback event: {@link wxIconizeEvent}
 
--record(wxIdle, {type :: wxIdleEventType()}). %% Callback event: {@link wxIdleEvent}
--type wxIdleEventType() :: 'idle'.
+-record(wxIdle, {type :: wxIdleEvent:wxIdleEventType()}). %% Callback event: wxIdleEvent
 -type wxIdle() :: #wxIdle{}. %% Callback event: {@link wxIdleEvent}
 
--record(wxInitDialog, {type :: wxInitDialogEventType()}). %% Callback event: {@link wxInitDialogEvent}
--type wxInitDialogEventType() :: 'init_dialog'.
+-record(wxInitDialog, {type :: wxInitDialogEvent:wxInitDialogEventType()}). %% Callback event: wxInitDialogEvent
 -type wxInitDialog() :: #wxInitDialog{}. %% Callback event: {@link wxInitDialogEvent}
 
--record(wxJoystick,{type :: wxJoystickEventType(), %% Callback event: {@link wxJoystickEvent}
+-record(wxJoystick,{type :: wxJoystickEvent:wxJoystickEventType(), %% Callback event:  wxJoystickEvent
 	pos :: {X::integer(), Y::integer()},
 	zPosition :: integer(),
 	buttonChange :: integer(),
 	buttonState :: integer(),
 	joyStick :: integer()}).
--type wxJoystickEventType() :: 'joy_button_down' | 'joy_button_up' | 'joy_move' | 'joy_zmove'.
 -type wxJoystick() :: #wxJoystick{}. %% Callback event: {@link wxJoystickEvent}
 
--record(wxKey,{type :: wxKeyEventType(), %% Callback event: {@link wxKeyEvent}
+-record(wxKey,{type :: wxKeyEvent:wxKeyEventType(), %% Callback event:  wxKeyEvent
 	x :: integer(),
 	y :: integer(),
 	keyCode :: integer(),
@@ -178,41 +157,34 @@
 	shiftDown :: boolean(),
 	altDown :: boolean(),
 	metaDown :: boolean(),
-	scanCode :: boolean(),
 	uniChar :: integer(),
 	rawCode :: integer(),
 	rawFlags :: integer()}).
--type wxKeyEventType() :: 'char' | 'char_hook' | 'key_down' | 'key_up'.
 -type wxKey() :: #wxKey{}. %% Callback event: {@link wxKeyEvent}
 
--record(wxList,{type :: wxListEventType(), %% Callback event: {@link wxListEvent}
+-record(wxList,{type :: wxListEvent:wxListEventType(), %% Callback event:  wxListEvent
 	code :: integer(),
 	oldItemIndex :: integer(),
 	itemIndex :: integer(),
 	col :: integer(),
 	pointDrag :: {X::integer(), Y::integer()}}).
--type wxListEventType() :: 'command_list_begin_drag' | 'command_list_begin_rdrag' | 'command_list_begin_label_edit' | 'command_list_end_label_edit' | 'command_list_delete_item' | 'command_list_delete_all_items' | 'command_list_key_down' | 'command_list_insert_item' | 'command_list_col_click' | 'command_list_col_right_click' | 'command_list_col_begin_drag' | 'command_list_col_dragging' | 'command_list_col_end_drag' | 'command_list_item_selected' | 'command_list_item_deselected' | 'command_list_item_right_click' | 'command_list_item_middle_click' | 'command_list_item_activated' | 'command_list_item_focused' | 'command_list_cache_hint'.
 -type wxList() :: #wxList{}. %% Callback event: {@link wxListEvent}
 
--record(wxMaximize, {type :: wxMaximizeEventType()}). %% Callback event: {@link wxMaximizeEvent}
--type wxMaximizeEventType() :: 'maximize'.
+-record(wxMaximize, {type :: wxMaximizeEvent:wxMaximizeEventType()}). %% Callback event: wxMaximizeEvent
 -type wxMaximize() :: #wxMaximize{}. %% Callback event: {@link wxMaximizeEvent}
 
--record(wxMenu,{type :: wxMenuEventType(), %% Callback event: {@link wxMenuEvent}
+-record(wxMenu,{type :: wxMenuEvent:wxMenuEventType(), %% Callback event:  wxMenuEvent
 	menuId :: integer(),
 	menu :: wxMenu:wxMenu()}).
--type wxMenuEventType() :: 'menu_open' | 'menu_close' | 'menu_highlight'.
 -type wxMenu() :: #wxMenu{}. %% Callback event: {@link wxMenuEvent}
 
--record(wxMouseCaptureChanged, {type :: wxMouseCaptureChangedEventType()}). %% Callback event: {@link wxMouseCaptureChangedEvent}
--type wxMouseCaptureChangedEventType() :: 'mouse_capture_changed'.
+-record(wxMouseCaptureChanged, {type :: wxMouseCaptureChangedEvent:wxMouseCaptureChangedEventType()}). %% Callback event: wxMouseCaptureChangedEvent
 -type wxMouseCaptureChanged() :: #wxMouseCaptureChanged{}. %% Callback event: {@link wxMouseCaptureChangedEvent}
 
--record(wxMouseCaptureLost, {type :: wxMouseCaptureLostEventType()}). %% Callback event: {@link wxMouseCaptureLostEvent}
--type wxMouseCaptureLostEventType() :: 'mouse_capture_lost'.
+-record(wxMouseCaptureLost, {type :: wxMouseCaptureLostEvent:wxMouseCaptureLostEventType()}). %% Callback event: wxMouseCaptureLostEvent
 -type wxMouseCaptureLost() :: #wxMouseCaptureLost{}. %% Callback event: {@link wxMouseCaptureLostEvent}
 
--record(wxMouse,{type :: wxMouseEventType(), %% Callback event: {@link wxMouseEvent}
+-record(wxMouse,{type :: wxMouseEvent:wxMouseEventType(), %% Callback event:  wxMouseEvent
 	x :: integer(),
 	y :: integer(),
 	leftDown :: boolean(),
@@ -225,86 +197,66 @@
 	wheelRotation :: integer(),
 	wheelDelta :: integer(),
 	linesPerAction :: integer()}).
--type wxMouseEventType() :: 'left_down' | 'left_up' | 'middle_down' | 'middle_up' | 'right_down' | 'right_up' | 'motion' | 'enter_window' | 'leave_window' | 'left_dclick' | 'middle_dclick' | 'right_dclick' | 'mousewheel'.
 -type wxMouse() :: #wxMouse{}. %% Callback event: {@link wxMouseEvent}
 
--record(wxMove,{type :: wxMoveEventType(), %% Callback event: {@link wxMoveEvent}
+-record(wxMove,{type :: wxMoveEvent:wxMoveEventType(), %% Callback event:  wxMoveEvent
 	pos :: {X::integer(), Y::integer()},
 	rect :: {X::integer(), Y::integer(), W::integer(), H::integer()}}).
--type wxMoveEventType() :: 'move'.
 -type wxMove() :: #wxMove{}. %% Callback event: {@link wxMoveEvent}
 
--record(wxNavigationKey,{type :: wxNavigationKeyEventType(), %% Callback event: {@link wxNavigationKeyEvent}
-	flags :: integer(),
+-record(wxNavigationKey,{type :: wxNavigationKeyEvent:wxNavigationKeyEventType(), %% Callback event:  wxNavigationKeyEvent
+	dir :: boolean(),
 	focus :: wxWindow:wxWindow()}).
--type wxNavigationKeyEventType() :: 'navigation_key'.
 -type wxNavigationKey() :: #wxNavigationKey{}. %% Callback event: {@link wxNavigationKeyEvent}
 
--record(wxNotebook,{type :: wxNotebookEventType(), %% Callback event: {@link wxNotebookEvent}
-	nSel :: integer(),
-	nOldSel :: integer()}).
--type wxNotebookEventType() :: 'command_notebook_page_changed' | 'command_notebook_page_changing'.
--type wxNotebook() :: #wxNotebook{}. %% Callback event: {@link wxNotebookEvent}
-
--record(wxPaint, {type :: wxPaintEventType()}). %% Callback event: {@link wxPaintEvent}
--type wxPaintEventType() :: 'paint'.
+-record(wxPaint, {type :: wxPaintEvent:wxPaintEventType()}). %% Callback event: wxPaintEvent
 -type wxPaint() :: #wxPaint{}. %% Callback event: {@link wxPaintEvent}
 
--record(wxPaletteChanged, {type :: wxPaletteChangedEventType()}). %% Callback event: {@link wxPaletteChangedEvent}
--type wxPaletteChangedEventType() :: 'palette_changed'.
+-record(wxPaletteChanged, {type :: wxPaletteChangedEvent:wxPaletteChangedEventType()}). %% Callback event: wxPaletteChangedEvent
 -type wxPaletteChanged() :: #wxPaletteChanged{}. %% Callback event: {@link wxPaletteChangedEvent}
 
--record(wxQueryNewPalette, {type :: wxQueryNewPaletteEventType()}). %% Callback event: {@link wxQueryNewPaletteEvent}
--type wxQueryNewPaletteEventType() :: 'query_new_palette'.
+-record(wxQueryNewPalette, {type :: wxQueryNewPaletteEvent:wxQueryNewPaletteEventType()}). %% Callback event: wxQueryNewPaletteEvent
 -type wxQueryNewPalette() :: #wxQueryNewPalette{}. %% Callback event: {@link wxQueryNewPaletteEvent}
 
--record(wxSash,{type :: wxSashEventType(), %% Callback event: {@link wxSashEvent}
+-record(wxSash,{type :: wxSashEvent:wxSashEventType(), %% Callback event:  wxSashEvent
 	edge :: wx:wx_enum(),
 	dragRect :: {X::integer(), Y::integer(), W::integer(), H::integer()},
 	dragStatus :: wx:wx_enum()}).
--type wxSashEventType() :: 'sash_dragged'.
 -type wxSash() :: #wxSash{}. %% Callback event: {@link wxSashEvent}
 
--record(wxScroll,{type :: wxScrollEventType(), %% Callback event: {@link wxScrollEvent}
+-record(wxScroll,{type :: wxScrollEvent:wxScrollEventType(), %% Callback event:  wxScrollEvent
 	commandInt :: integer(),
 	extraLong :: integer()}).
--type wxScrollEventType() :: 'scroll_top' | 'scroll_bottom' | 'scroll_lineup' | 'scroll_linedown' | 'scroll_pageup' | 'scroll_pagedown' | 'scroll_thumbtrack' | 'scroll_thumbrelease' | 'scroll_changed'.
 -type wxScroll() :: #wxScroll{}. %% Callback event: {@link wxScrollEvent}
 
--record(wxScrollWin,{type :: wxScrollWinEventType(), %% Callback event: {@link wxScrollWinEvent}
+-record(wxScrollWin,{type :: wxScrollWinEvent:wxScrollWinEventType(), %% Callback event:  wxScrollWinEvent
 	commandInt :: integer(),
 	extraLong :: integer()}).
--type wxScrollWinEventType() :: 'scrollwin_top' | 'scrollwin_bottom' | 'scrollwin_lineup' | 'scrollwin_linedown' | 'scrollwin_pageup' | 'scrollwin_pagedown' | 'scrollwin_thumbtrack' | 'scrollwin_thumbrelease'.
 -type wxScrollWin() :: #wxScrollWin{}. %% Callback event: {@link wxScrollWinEvent}
 
--record(wxSetCursor,{type :: wxSetCursorEventType(), %% Callback event: {@link wxSetCursorEvent}
+-record(wxSetCursor,{type :: wxSetCursorEvent:wxSetCursorEventType(), %% Callback event:  wxSetCursorEvent
 	x :: integer(),
 	y :: integer(),
 	cursor :: wxCursor:wxCursor()}).
--type wxSetCursorEventType() :: 'set_cursor'.
 -type wxSetCursor() :: #wxSetCursor{}. %% Callback event: {@link wxSetCursorEvent}
 
--record(wxShow,{type :: wxShowEventType(), %% Callback event: {@link wxShowEvent}
+-record(wxShow,{type :: wxShowEvent:wxShowEventType(), %% Callback event:  wxShowEvent
 	show :: boolean()}).
--type wxShowEventType() :: 'show'.
 -type wxShow() :: #wxShow{}. %% Callback event: {@link wxShowEvent}
 
--record(wxSize,{type :: wxSizeEventType(), %% Callback event: {@link wxSizeEvent}
+-record(wxSize,{type :: wxSizeEvent:wxSizeEventType(), %% Callback event:  wxSizeEvent
 	size :: {W::integer(), H::integer()},
 	rect :: {X::integer(), Y::integer(), W::integer(), H::integer()}}).
--type wxSizeEventType() :: 'size'.
 -type wxSize() :: #wxSize{}. %% Callback event: {@link wxSizeEvent}
 
--record(wxSpin,{type :: wxSpinEventType(), %% Callback event: {@link wxSpinEvent}
+-record(wxSpin,{type :: wxSpinEvent:wxSpinEventType(), %% Callback event:  wxSpinEvent
 	commandInt :: integer()}).
--type wxSpinEventType() :: 'command_spinctrl_updated' | 'spin_up' | 'spin_down' | 'spin'.
 -type wxSpin() :: #wxSpin{}. %% Callback event: {@link wxSpinEvent}
 
--record(wxSplitter, {type :: wxSplitterEventType()}). %% Callback event: {@link wxSplitterEvent}
--type wxSplitterEventType() :: 'command_splitter_sash_pos_changed' | 'command_splitter_sash_pos_changing' | 'command_splitter_doubleclicked' | 'command_splitter_unsplit'.
+-record(wxSplitter, {type :: wxSplitterEvent:wxSplitterEventType()}). %% Callback event: wxSplitterEvent
 -type wxSplitter() :: #wxSplitter{}. %% Callback event: {@link wxSplitterEvent}
 
--record(wxStyledText,{type :: wxStyledTextEventType(), %% Callback event: {@link wxStyledTextEvent}
+-record(wxStyledText,{type :: wxStyledTextEvent:wxStyledTextEventType(), %% Callback event:  wxStyledTextEvent
 	position :: integer(),
 	key :: integer(),
 	modifiers :: integer(),
@@ -325,38 +277,39 @@
 	dragText :: unicode:chardata(),
 	dragAllowMove :: boolean(),
 	dragResult :: wx:wx_enum()}).
--type wxStyledTextEventType() :: 'stc_change' | 'stc_styleneeded' | 'stc_charadded' | 'stc_savepointreached' | 'stc_savepointleft' | 'stc_romodifyattempt' | 'stc_key' | 'stc_doubleclick' | 'stc_updateui' | 'stc_modified' | 'stc_macrorecord' | 'stc_marginclick' | 'stc_needshown' | 'stc_painted' | 'stc_userlistselection' | 'stc_uridropped' | 'stc_dwellstart' | 'stc_dwellend' | 'stc_start_drag' | 'stc_drag_over' | 'stc_do_drop' | 'stc_zoom' | 'stc_hotspot_click' | 'stc_hotspot_dclick' | 'stc_calltip_click' | 'stc_autocomp_selection'.
 -type wxStyledText() :: #wxStyledText{}. %% Callback event: {@link wxStyledTextEvent}
 
--record(wxSysColourChanged, {type :: wxSysColourChangedEventType()}). %% Callback event: {@link wxSysColourChangedEvent}
--type wxSysColourChangedEventType() :: 'sys_colour_changed'.
+-record(wxSysColourChanged, {type :: wxSysColourChangedEvent:wxSysColourChangedEventType()}). %% Callback event: wxSysColourChangedEvent
 -type wxSysColourChanged() :: #wxSysColourChanged{}. %% Callback event: {@link wxSysColourChangedEvent}
 
--record(wxTaskBarIcon, {type :: wxTaskBarIconEventType()}). %% Callback event: {@link wxTaskBarIconEvent}
--type wxTaskBarIconEventType() :: 'taskbar_move' | 'taskbar_left_down' | 'taskbar_left_up' | 'taskbar_right_down' | 'taskbar_right_up' | 'taskbar_left_dclick' | 'taskbar_right_dclick'.
+-record(wxTaskBarIcon, {type :: wxTaskBarIconEvent:wxTaskBarIconEventType()}). %% Callback event: wxTaskBarIconEvent
 -type wxTaskBarIcon() :: #wxTaskBarIcon{}. %% Callback event: {@link wxTaskBarIconEvent}
 
--record(wxTree,{type :: wxTreeEventType(), %% Callback event: {@link wxTreeEvent}
+-record(wxTree,{type :: wxTreeEvent:wxTreeEventType(), %% Callback event:  wxTreeEvent
 	item :: integer(),
 	itemOld :: integer(),
 	pointDrag :: {X::integer(), Y::integer()}}).
--type wxTreeEventType() :: 'command_tree_begin_drag' | 'command_tree_begin_rdrag' | 'command_tree_begin_label_edit' | 'command_tree_end_label_edit' | 'command_tree_delete_item' | 'command_tree_get_info' | 'command_tree_set_info' | 'command_tree_item_expanded' | 'command_tree_item_expanding' | 'command_tree_item_collapsed' | 'command_tree_item_collapsing' | 'command_tree_sel_changed' | 'command_tree_sel_changing' | 'command_tree_key_down' | 'command_tree_item_activated' | 'command_tree_item_right_click' | 'command_tree_item_middle_click' | 'command_tree_end_drag' | 'command_tree_state_image_click' | 'command_tree_item_gettooltip' | 'command_tree_item_menu'.
 -type wxTree() :: #wxTree{}. %% Callback event: {@link wxTreeEvent}
 
--record(wxUpdateUI, {type :: wxUpdateUIEventType()}). %% Callback event: {@link wxUpdateUIEvent}
--type wxUpdateUIEventType() :: 'update_ui'.
+-record(wxUpdateUI, {type :: wxUpdateUIEvent:wxUpdateUIEventType()}). %% Callback event: wxUpdateUIEvent
 -type wxUpdateUI() :: #wxUpdateUI{}. %% Callback event: {@link wxUpdateUIEvent}
 
--record(wxWindowCreate, {type :: wxWindowCreateEventType()}). %% Callback event: {@link wxWindowCreateEvent}
--type wxWindowCreateEventType() :: 'create'.
+-record(wxWebView,{type :: wxWebViewEvent:wxWebViewEventType(), %% Callback event:  wxWebViewEvent
+	string :: unicode:chardata(),
+	int :: integer(),
+	target :: unicode:chardata(),
+	url :: unicode:chardata()}).
+-type wxWebView() :: #wxWebView{}. %% Callback event: {@link wxWebViewEvent}
+
+-record(wxWindowCreate, {type :: wxWindowCreateEvent:wxWindowCreateEventType()}). %% Callback event: wxWindowCreateEvent
 -type wxWindowCreate() :: #wxWindowCreate{}. %% Callback event: {@link wxWindowCreateEvent}
 
--record(wxWindowDestroy, {type :: wxWindowDestroyEventType()}). %% Callback event: {@link wxWindowDestroyEvent}
--type wxWindowDestroyEventType() :: 'destroy'.
+-record(wxWindowDestroy, {type :: wxWindowDestroyEvent:wxWindowDestroyEventType()}). %% Callback event: wxWindowDestroyEvent
 -type wxWindowDestroy() :: #wxWindowDestroy{}. %% Callback event: {@link wxWindowDestroyEvent}
 
--type event() :: wxActivate() | wxAuiManager() | wxAuiNotebook() | wxCalendar() | wxChildFocus() | wxClipboardText() | wxClose() | wxColourPicker() | wxCommand() | wxContextMenu() | wxDate() | wxDisplayChanged() | wxDropFiles() | wxErase() | wxFileDirPicker() | wxFocus() | wxFontPicker() | wxGrid() | wxHelp() | wxHtmlLink() | wxIconize() | wxIdle() | wxInitDialog() | wxJoystick() | wxKey() | wxList() | wxMaximize() | wxMenu() | wxMouse() | wxMouseCaptureChanged() | wxMouseCaptureLost() | wxMove() | wxNavigationKey() | wxNotebook() | wxPaint() | wxPaletteChanged() | wxQueryNewPalette() | wxSash() | wxScroll() | wxScrollWin() | wxSetCursor() | wxShow() | wxSize() | wxSpin() | wxSplitter() | wxStyledText() | wxSysColourChanged() | wxTaskBarIcon() | wxTree() | wxUpdateUI() | wxWindowCreate() | wxWindowDestroy().
--type wxEventType() :: wxActivateEventType() | wxAuiManagerEventType() | wxAuiNotebookEventType() | wxCalendarEventType() | wxChildFocusEventType() | wxClipboardTextEventType() | wxCloseEventType() | wxColourPickerEventType() | wxCommandEventType() | wxContextMenuEventType() | wxDateEventType() | wxDisplayChangedEventType() | wxDropFilesEventType() | wxEraseEventType() | wxFileDirPickerEventType() | wxFocusEventType() | wxFontPickerEventType() | wxGridEventType() | wxHelpEventType() | wxHtmlLinkEventType() | wxIconizeEventType() | wxIdleEventType() | wxInitDialogEventType() | wxJoystickEventType() | wxKeyEventType() | wxListEventType() | wxMaximizeEventType() | wxMenuEventType() | wxMouseCaptureChangedEventType() | wxMouseCaptureLostEventType() | wxMouseEventType() | wxMoveEventType() | wxNavigationKeyEventType() | wxNotebookEventType() | wxPaintEventType() | wxPaletteChangedEventType() | wxQueryNewPaletteEventType() | wxSashEventType() | wxScrollEventType() | wxScrollWinEventType() | wxSetCursorEventType() | wxShowEventType() | wxSizeEventType() | wxSpinEventType() | wxSplitterEventType() | wxStyledTextEventType() | wxSysColourChangedEventType() | wxTaskBarIconEventType() | wxTreeEventType() | wxUpdateUIEventType() | wxWindowCreateEventType() | wxWindowDestroyEventType().
+-type event() :: wxActivateEvent:wxActivate() | wxAuiManagerEvent:wxAuiManager() | wxAuiNotebookEvent:wxAuiNotebook() | wxBookCtrlEvent:wxBookCtrl() | wxCalendarEvent:wxCalendar() | wxChildFocusEvent:wxChildFocus() | wxClipboardTextEvent:wxClipboardText() | wxCloseEvent:wxClose() | wxColourPickerEvent:wxColourPicker() | wxCommandEvent:wxCommand() | wxContextMenuEvent:wxContextMenu() | wxDateEvent:wxDate() | wxDisplayChangedEvent:wxDisplayChanged() | wxDropFilesEvent:wxDropFiles() | wxEraseEvent:wxErase() | wxFileDirPickerEvent:wxFileDirPicker() | wxFocusEvent:wxFocus() | wxFontPickerEvent:wxFontPicker() | wxGridEvent:wxGrid() | wxHelpEvent:wxHelp() | wxHtmlLinkEvent:wxHtmlLink() | wxIconizeEvent:wxIconize() | wxIdleEvent:wxIdle() | wxInitDialogEvent:wxInitDialog() | wxJoystickEvent:wxJoystick() | wxKeyEvent:wxKey() | wxListEvent:wxList() | wxMaximizeEvent:wxMaximize() | wxMenuEvent:wxMenu() | wxMouseCaptureChangedEvent:wxMouseCaptureChanged() | wxMouseCaptureLostEvent:wxMouseCaptureLost() | wxMouseEvent:wxMouse() | wxMoveEvent:wxMove() | wxNavigationKeyEvent:wxNavigationKey() | wxPaintEvent:wxPaint() | wxPaletteChangedEvent:wxPaletteChanged() | wxQueryNewPaletteEvent:wxQueryNewPalette() | wxSashEvent:wxSash() | wxScrollEvent:wxScroll() | wxScrollWinEvent:wxScrollWin() | wxSetCursorEvent:wxSetCursor() | wxShowEvent:wxShow() | wxSizeEvent:wxSize() | wxSpinEvent:wxSpin() | wxSplitterEvent:wxSplitter() | wxStyledTextEvent:wxStyledText() | wxSysColourChangedEvent:wxSysColourChanged() | wxTaskBarIconEvent:wxTaskBarIcon() | wxTreeEvent:wxTree() | wxUpdateUIEvent:wxUpdateUI() | wxWebViewEvent:wxWebView() | wxWindowCreateEvent:wxWindowCreate() | wxWindowDestroyEvent:wxWindowDestroy().
+
+-type wxEventType() :: wxActivateEvent:wxActivateEventType() | wxAuiManagerEvent:wxAuiManagerEventType() | wxAuiNotebookEvent:wxAuiNotebookEventType() | wxBookCtrlEvent:wxBookCtrlEventType() | wxCalendarEvent:wxCalendarEventType() | wxChildFocusEvent:wxChildFocusEventType() | wxClipboardTextEvent:wxClipboardTextEventType() | wxCloseEvent:wxCloseEventType() | wxColourPickerEvent:wxColourPickerEventType() | wxCommandEvent:wxCommandEventType() | wxContextMenuEvent:wxContextMenuEventType() | wxDateEvent:wxDateEventType() | wxDisplayChangedEvent:wxDisplayChangedEventType() | wxDropFilesEvent:wxDropFilesEventType() | wxEraseEvent:wxEraseEventType() | wxFileDirPickerEvent:wxFileDirPickerEventType() | wxFocusEvent:wxFocusEventType() | wxFontPickerEvent:wxFontPickerEventType() | wxGridEvent:wxGridEventType() | wxHelpEvent:wxHelpEventType() | wxHtmlLinkEvent:wxHtmlLinkEventType() | wxIconizeEvent:wxIconizeEventType() | wxIdleEvent:wxIdleEventType() | wxInitDialogEvent:wxInitDialogEventType() | wxJoystickEvent:wxJoystickEventType() | wxKeyEvent:wxKeyEventType() | wxListEvent:wxListEventType() | wxMaximizeEvent:wxMaximizeEventType() | wxMenuEvent:wxMenuEventType() | wxMouseCaptureChangedEvent:wxMouseCaptureChangedEventType() | wxMouseCaptureLostEvent:wxMouseCaptureLostEventType() | wxMouseEvent:wxMouseEventType() | wxMoveEvent:wxMoveEventType() | wxNavigationKeyEvent:wxNavigationKeyEventType() | wxPaintEvent:wxPaintEventType() | wxPaletteChangedEvent:wxPaletteChangedEventType() | wxQueryNewPaletteEvent:wxQueryNewPaletteEventType() | wxSashEvent:wxSashEventType() | wxScrollEvent:wxScrollEventType() | wxScrollWinEvent:wxScrollWinEventType() | wxSetCursorEvent:wxSetCursorEventType() | wxShowEvent:wxShowEventType() | wxSizeEvent:wxSizeEventType() | wxSpinEvent:wxSpinEventType() | wxSplitterEvent:wxSplitterEventType() | wxStyledTextEvent:wxStyledTextEventType() | wxSysColourChangedEvent:wxSysColourChangedEventType() | wxTaskBarIconEvent:wxTaskBarIconEventType() | wxTreeEvent:wxTreeEventType() | wxUpdateUIEvent:wxUpdateUIEventType() | wxWebViewEvent:wxWebViewEventType() | wxWindowCreateEvent:wxWindowCreateEventType() | wxWindowDestroyEvent:wxWindowDestroyEventType().
 
 %% Hardcoded Records
 -record(wxMouseState, {x :: integer(), y :: integer(),
@@ -369,28 +322,11 @@
         }).
 
 %% Hardcoded Defines
+-define(wxDefaultCoord, -1).
 -define(wxDefaultSize, {-1,-1}).
 -define(wxDefaultPosition, {-1,-1}).
 
 %% Global Variables
--define('WX_GL_CORE_PROFILE',  wxe_util:get_const('WX_GL_CORE_PROFILE')).
--define('WX_GL_DEBUG',  wxe_util:get_const('WX_GL_DEBUG')).
--define('WX_GL_ES2',  wxe_util:get_const('WX_GL_ES2')).
--define('WX_GL_FORWARD_COMPAT',  wxe_util:get_const('WX_GL_FORWARD_COMPAT')).
--define('WX_GL_FRAMEBUFFER_SRGB',  wxe_util:get_const('WX_GL_FRAMEBUFFER_SRGB')).
--define('WX_GL_LOSE_ON_RESET',  wxe_util:get_const('WX_GL_LOSE_ON_RESET')).
--define('WX_GL_MAJOR_VERSION',  wxe_util:get_const('WX_GL_MAJOR_VERSION')).
--define('WX_GL_MINOR_VERSION',  wxe_util:get_const('WX_GL_MINOR_VERSION')).
--define('WX_GL_NO_RESET_NOTIFY',  wxe_util:get_const('WX_GL_NO_RESET_NOTIFY')).
--define('WX_GL_RELEASE_FLUSH',  wxe_util:get_const('WX_GL_RELEASE_FLUSH')).
--define('WX_GL_RELEASE_NONE',  wxe_util:get_const('WX_GL_RELEASE_NONE')).
--define('WX_GL_RESET_ISOLATION',  wxe_util:get_const('WX_GL_RESET_ISOLATION')).
--define('WX_GL_ROBUST_ACCESS',  wxe_util:get_const('WX_GL_ROBUST_ACCESS')).
--define('WX_GL_SAMPLES',  wxe_util:get_const('WX_GL_SAMPLES')).
--define('WX_GL_SAMPLE_BUFFERS',  wxe_util:get_const('WX_GL_SAMPLE_BUFFERS')).
--define(wxBG_STYLE_ERASE,  wxe_util:get_const(wxBG_STYLE_ERASE)).
--define(wxBG_STYLE_PAINT,  wxe_util:get_const(wxBG_STYLE_PAINT)).
--define(wxBG_STYLE_TRANSPARENT,  wxe_util:get_const(wxBG_STYLE_TRANSPARENT)).
 -define(wxBLACK,  wxe_util:get_const(wxBLACK)).
 -define(wxBLACK_BRUSH,  wxe_util:get_const(wxBLACK_BRUSH)).
 -define(wxBLACK_DASHED_PEN,  wxe_util:get_const(wxBLACK_DASHED_PEN)).
@@ -401,24 +337,12 @@
 -define(wxCYAN,  wxe_util:get_const(wxCYAN)).
 -define(wxCYAN_BRUSH,  wxe_util:get_const(wxCYAN_BRUSH)).
 -define(wxCYAN_PEN,  wxe_util:get_const(wxCYAN_PEN)).
--define(wxFONTWEIGHT_EXTRABOLD,  wxe_util:get_const(wxFONTWEIGHT_EXTRABOLD)).
--define(wxFONTWEIGHT_EXTRAHEAVY,  wxe_util:get_const(wxFONTWEIGHT_EXTRAHEAVY)).
--define(wxFONTWEIGHT_EXTRALIGHT,  wxe_util:get_const(wxFONTWEIGHT_EXTRALIGHT)).
--define(wxFONTWEIGHT_HEAVY,  wxe_util:get_const(wxFONTWEIGHT_HEAVY)).
--define(wxFONTWEIGHT_INVALID,  wxe_util:get_const(wxFONTWEIGHT_INVALID)).
--define(wxFONTWEIGHT_MEDIUM,  wxe_util:get_const(wxFONTWEIGHT_MEDIUM)).
--define(wxFONTWEIGHT_SEMIBOLD,  wxe_util:get_const(wxFONTWEIGHT_SEMIBOLD)).
--define(wxFONTWEIGHT_THIN,  wxe_util:get_const(wxFONTWEIGHT_THIN)).
 -define(wxGREEN,  wxe_util:get_const(wxGREEN)).
 -define(wxGREEN_BRUSH,  wxe_util:get_const(wxGREEN_BRUSH)).
 -define(wxGREEN_PEN,  wxe_util:get_const(wxGREEN_PEN)).
 -define(wxGREY_BRUSH,  wxe_util:get_const(wxGREY_BRUSH)).
 -define(wxGREY_PEN,  wxe_util:get_const(wxGREY_PEN)).
 -define(wxHOURGLASS_CURSOR,  wxe_util:get_const(wxHOURGLASS_CURSOR)).
--define(wxIMAGE_QUALITY_BICUBIC,  wxe_util:get_const(wxIMAGE_QUALITY_BICUBIC)).
--define(wxIMAGE_QUALITY_BILINEAR,  wxe_util:get_const(wxIMAGE_QUALITY_BILINEAR)).
--define(wxIMAGE_QUALITY_BOX_AVERAGE,  wxe_util:get_const(wxIMAGE_QUALITY_BOX_AVERAGE)).
--define(wxIMAGE_QUALITY_NEAREST,  wxe_util:get_const(wxIMAGE_QUALITY_NEAREST)).
 -define(wxITALIC_FONT,  wxe_util:get_const(wxITALIC_FONT)).
 -define(wxLIGHT_GREY,  wxe_util:get_const(wxLIGHT_GREY)).
 -define(wxLIGHT_GREY_BRUSH,  wxe_util:get_const(wxLIGHT_GREY_BRUSH)).
@@ -444,53 +368,130 @@
 -define(wxWHITE,  wxe_util:get_const(wxWHITE)).
 -define(wxWHITE_BRUSH,  wxe_util:get_const(wxWHITE_BRUSH)).
 -define(wxWHITE_PEN,  wxe_util:get_const(wxWHITE_PEN)).
--define(wx_GL_COMPAT_PROFILE,  wxe_util:get_const(wx_GL_COMPAT_PROFILE)).
 
 %% Enum and defines
-% From class wxAuiManager
--define(wxAuiManager_actionNone, 0).
--define(wxAuiManager_actionResize, 1).
--define(wxAuiManager_actionClickButton, 2).
--define(wxAuiManager_actionClickCaption, 3).
--define(wxAuiManager_actionDragToolbarPane, 4).
--define(wxAuiManager_actionDragFloatingPane, 5).
-% From class wxAuiPaneInfo::wxAuiPaneState
--define(wxAuiPaneInfo_optionFloating, 1).
--define(wxAuiPaneInfo_optionHidden, 2).
--define(wxAuiPaneInfo_optionLeftDockable, 4).
--define(wxAuiPaneInfo_optionRightDockable, 8).
--define(wxAuiPaneInfo_optionTopDockable, 16).
--define(wxAuiPaneInfo_optionBottomDockable, 32).
--define(wxAuiPaneInfo_optionFloatable, 64).
--define(wxAuiPaneInfo_optionMovable, 128).
--define(wxAuiPaneInfo_optionResizable, 256).
--define(wxAuiPaneInfo_optionPaneBorder, 512).
--define(wxAuiPaneInfo_optionCaption, 1024).
--define(wxAuiPaneInfo_optionGripper, 2048).
--define(wxAuiPaneInfo_optionDestroyOnClose, 4096).
--define(wxAuiPaneInfo_optionToolbar, 8192).
--define(wxAuiPaneInfo_optionActive, 16384).
--define(wxAuiPaneInfo_optionGripperTop, 32768).
--define(wxAuiPaneInfo_optionMaximized, 65536).
--define(wxAuiPaneInfo_optionDockFixed, 131072).
--define(wxAuiPaneInfo_buttonClose, 2097152).
--define(wxAuiPaneInfo_buttonMaximize, 4194304).
--define(wxAuiPaneInfo_buttonMinimize, 8388608).
--define(wxAuiPaneInfo_buttonPin, 16777216).
--define(wxAuiPaneInfo_buttonCustom1, 67108864).
--define(wxAuiPaneInfo_buttonCustom2, 134217728).
--define(wxAuiPaneInfo_buttonCustom3, 268435456).
--define(wxAuiPaneInfo_savedHiddenState, 1073741824).
--define(wxAuiPaneInfo_actionPane, 2147483648).
-% From class wxBitmap::Representation
--define(wxBitmap_Pixmap, 0).
--define(wxBitmap_Pixbuf, 1).
-% From class wxChoicebook
--define(wxChoicebook_SetSelection_SendEvent, 1).
-% From class wxDateTime::Calendar
+%%%  From "accel.h": wxAcceleratorEntryFlags
+-define(wxACCEL_NORMAL, 0).
+-define(wxACCEL_ALT, 1).
+-define(wxACCEL_CTRL, 2).
+-define(wxACCEL_SHIFT, 4).
+-define(wxACCEL_RAW_CTRL, wxe_util:get_const(wxACCEL_RAW_CTRL)).
+-define(wxACCEL_CMD, ?wxACCEL_CTRL).
+%%%  From "anybutton.h"
+-define(wxBU_AUTODRAW, 4).
+-define(wxBU_NOTEXT, 2).
+-define(wxBU_EXACTFIT, 1).
+-define(wxBU_ALIGN_MASK, (?wxBU_LEFT bor ?wxBU_TOP bor ?wxBU_RIGHT bor ?wxBU_BOTTOM)).
+-define(wxBU_BOTTOM, 512).
+-define(wxBU_RIGHT, 256).
+-define(wxBU_TOP, 128).
+-define(wxBU_LEFT, 64).
+%%%  From "auibook.h": wxAuiNotebookOption
+-define(wxAUI_NB_TOP, 1).
+-define(wxAUI_NB_LEFT, 2).
+-define(wxAUI_NB_RIGHT, 4).
+-define(wxAUI_NB_BOTTOM, 8).
+-define(wxAUI_NB_TAB_SPLIT, 16).
+-define(wxAUI_NB_TAB_MOVE, 32).
+-define(wxAUI_NB_TAB_EXTERNAL_MOVE, 64).
+-define(wxAUI_NB_TAB_FIXED_WIDTH, 128).
+-define(wxAUI_NB_SCROLL_BUTTONS, 256).
+-define(wxAUI_NB_WINDOWLIST_BUTTON, 512).
+-define(wxAUI_NB_CLOSE_BUTTON, 1024).
+-define(wxAUI_NB_CLOSE_ON_ACTIVE_TAB, 2048).
+-define(wxAUI_NB_CLOSE_ON_ALL_TABS, 4096).
+-define(wxAUI_NB_MIDDLE_CLICK_CLOSE, 8192).
+-define(wxAUI_NB_DEFAULT_STYLE, (?wxAUI_NB_TOP bor ?wxAUI_NB_TAB_SPLIT bor ?wxAUI_NB_TAB_MOVE bor ?wxAUI_NB_SCROLL_BUTTONS bor ?wxAUI_NB_CLOSE_ON_ACTIVE_TAB bor ?wxAUI_NB_MIDDLE_CLICK_CLOSE)).
+%%%  From "bitmap.h"
+-define(wxBITMAP_SCREEN_DEPTH, -1).
+%%%  From "bookctrl.h"
+-define(wxBK_HITTEST_NOWHERE, 1).
+-define(wxBK_HITTEST_ONICON, 2).
+-define(wxBK_HITTEST_ONLABEL, 4).
+-define(wxBK_HITTEST_ONITEM, wxe_util:get_const(wxBK_HITTEST_ONITEM)).
+-define(wxBK_HITTEST_ONPAGE, 8).
+%%%  From "bookctrl.h"
+-define(wxBK_ALIGN_MASK, (?wxBK_TOP bor ?wxBK_BOTTOM bor ?wxBK_LEFT bor ?wxBK_RIGHT)).
+-define(wxBK_RIGHT, 128).
+-define(wxBK_LEFT, 64).
+-define(wxBK_BOTTOM, 32).
+-define(wxBK_TOP, 16).
+-define(wxBK_DEFAULT, 0).
+%%%  From "brush.h": wxBrushStyle
+-define(wxBRUSHSTYLE_INVALID, -1).
+-define(wxBRUSHSTYLE_SOLID, ?wxSOLID).
+-define(wxBRUSHSTYLE_TRANSPARENT, ?wxTRANSPARENT).
+-define(wxBRUSHSTYLE_STIPPLE_MASK_OPAQUE, ?wxSTIPPLE_MASK_OPAQUE).
+-define(wxBRUSHSTYLE_STIPPLE_MASK, ?wxSTIPPLE_MASK).
+-define(wxBRUSHSTYLE_STIPPLE, ?wxSTIPPLE).
+-define(wxBRUSHSTYLE_BDIAGONAL_HATCH, (?wxSTIPPLE+1)).
+-define(wxBRUSHSTYLE_CROSSDIAG_HATCH, (?wxSTIPPLE+2)).
+-define(wxBRUSHSTYLE_FDIAGONAL_HATCH, (?wxSTIPPLE+3)).
+-define(wxBRUSHSTYLE_CROSS_HATCH, (?wxSTIPPLE+4)).
+-define(wxBRUSHSTYLE_HORIZONTAL_HATCH, (?wxSTIPPLE+5)).
+-define(wxBRUSHSTYLE_VERTICAL_HATCH, (?wxSTIPPLE+6)).
+-define(wxBRUSHSTYLE_FIRST_HATCH, 111).
+-define(wxBRUSHSTYLE_LAST_HATCH, 116).
+%%%  From "calctrl.h"
+-define(wxCAL_SUNDAY_FIRST, wxe_util:get_const(wxCAL_SUNDAY_FIRST)).
+-define(wxCAL_MONDAY_FIRST, 1).
+-define(wxCAL_SHOW_HOLIDAYS, 2).
+-define(wxCAL_NO_YEAR_CHANGE, 4).
+-define(wxCAL_NO_MONTH_CHANGE, 12).
+-define(wxCAL_SEQUENTIAL_MONTH_SELECTION, 16).
+-define(wxCAL_SHOW_SURROUNDING_WEEKS, 32).
+-define(wxCAL_SHOW_WEEK_NUMBERS, 64).
+%%%  From "calctrl.h": wxCalendarDateBorder
+-define(wxCAL_BORDER_NONE, 0).
+-define(wxCAL_BORDER_SQUARE, 1).
+-define(wxCAL_BORDER_ROUND, 2).
+%%%  From "calctrl.h": wxCalendarHitTestResult
+-define(wxCAL_HITTEST_NOWHERE, 0).
+-define(wxCAL_HITTEST_HEADER, 1).
+-define(wxCAL_HITTEST_DAY, 2).
+-define(wxCAL_HITTEST_INCMONTH, 3).
+-define(wxCAL_HITTEST_DECMONTH, 4).
+-define(wxCAL_HITTEST_SURROUNDING_WEEK, 5).
+-define(wxCAL_HITTEST_WEEK, 6).
+%%%  From "checkbox.h"
+-define(wxCHK_ALLOW_3RD_STATE_FOR_USER, 8192).
+-define(wxCHK_3STATE, 4096).
+-define(wxCHK_2STATE, 16384).
+%%%  From "checkbox.h": wxCheckBoxState
+-define(wxCHK_UNCHECKED, 0).
+-define(wxCHK_CHECKED, 1).
+-define(wxCHK_UNDETERMINED, 2).
+%%%  From "choicdlg.h"
+-define(wxCHOICEDLG_STYLE, (?wxDEFAULT_DIALOG_STYLE bor ?wxOK bor ?wxCANCEL bor ?wxCENTRE bor ?wxRESIZE_BORDER)).
+-define(wxCHOICE_HEIGHT, 150).
+-define(wxCHOICE_WIDTH, 200).
+%%%  From "choicebk.h"
+-define(wxCHB_ALIGN_MASK, ?wxBK_ALIGN_MASK).
+-define(wxCHB_RIGHT, ?wxBK_RIGHT).
+-define(wxCHB_LEFT, ?wxBK_LEFT).
+-define(wxCHB_BOTTOM, ?wxBK_BOTTOM).
+-define(wxCHB_TOP, ?wxBK_TOP).
+-define(wxCHB_DEFAULT, ?wxBK_DEFAULT).
+%%%  From class wxActivateEvent::Reason
+-define(wxActivateEvent_Reason_Mouse, 0).
+-define(wxActivateEvent_Reason_Unknown, 1).
+%%%  From class wxAuiNotebook
+-define(wxAuiNotebook_NO_IMAGE, -1).
+%%%  From class wxBookCtrlBase
+-define(wxBookCtrlBase_NO_IMAGE, -1).
+%%%  From class wxChoicebook
+-define(wxChoicebook_NO_IMAGE, -1).
+%%%  From class wxChoicebook
+%%%  From class wxColourData
+-define(wxColourData_NUM_CUSTOM, 16).
+%%%  From class wxDataObject::Direction
+-define(wxDataObject_Get, 1).
+-define(wxDataObject_Set, 2).
+-define(wxDataObject_Both, 3).
+%%%  From class wxDateTime::Calendar
 -define(wxDateTime_Gregorian, 0).
 -define(wxDateTime_Julian, 1).
-% From class wxDateTime::Country
+%%%  From class wxDateTime::Country
 -define(wxDateTime_Country_Unknown, 0).
 -define(wxDateTime_Country_Default, 1).
 -define(wxDateTime_Country_WesternEurope_Start, 2).
@@ -501,72 +502,7 @@
 -define(wxDateTime_Country_WesternEurope_End, ?wxDateTime_UK).
 -define(wxDateTime_Russia, (?wxDateTime_UK+1)).
 -define(wxDateTime_USA, (?wxDateTime_UK+2)).
-% From class wxDateTime::GregorianAdoption
--define(wxDateTime_Gr_Unknown, 0).
--define(wxDateTime_Gr_Standard, 1).
--define(wxDateTime_Gr_Alaska, 2).
--define(wxDateTime_Gr_Albania, 3).
--define(wxDateTime_Gr_Austria, ?wxDateTime_Gr_Unknown).
--define(wxDateTime_Gr_Austria_Brixen, (?wxDateTime_Gr_Unknown+1)).
--define(wxDateTime_Gr_Austria_Salzburg, ?wxDateTime_Gr_Austria_Brixen).
--define(wxDateTime_Gr_Austria_Tyrol, ?wxDateTime_Gr_Austria_Brixen).
--define(wxDateTime_Gr_Austria_Carinthia, (?wxDateTime_Gr_Austria_Brixen+1)).
--define(wxDateTime_Gr_Austria_Styria, ?wxDateTime_Gr_Austria_Carinthia).
--define(wxDateTime_Gr_Belgium, (?wxDateTime_Gr_Austria_Carinthia+1)).
--define(wxDateTime_Gr_Bulgaria, ?wxDateTime_Gr_Unknown).
--define(wxDateTime_Gr_Bulgaria_1, (?wxDateTime_Gr_Unknown+1)).
--define(wxDateTime_Gr_Bulgaria_2, (?wxDateTime_Gr_Unknown+2)).
--define(wxDateTime_Gr_Bulgaria_3, (?wxDateTime_Gr_Unknown+3)).
--define(wxDateTime_Gr_Canada, ?wxDateTime_Gr_Unknown).
--define(wxDateTime_Gr_China, ?wxDateTime_Gr_Unknown).
--define(wxDateTime_Gr_China_1, (?wxDateTime_Gr_Unknown+1)).
--define(wxDateTime_Gr_China_2, (?wxDateTime_Gr_Unknown+2)).
--define(wxDateTime_Gr_Czechoslovakia, (?wxDateTime_Gr_Unknown+3)).
--define(wxDateTime_Gr_Denmark, (?wxDateTime_Gr_Unknown+4)).
--define(wxDateTime_Gr_Egypt, (?wxDateTime_Gr_Unknown+5)).
--define(wxDateTime_Gr_Estonia, (?wxDateTime_Gr_Unknown+6)).
--define(wxDateTime_Gr_Finland, (?wxDateTime_Gr_Unknown+7)).
--define(wxDateTime_Gr_France, (?wxDateTime_Gr_Unknown+8)).
--define(wxDateTime_Gr_France_Alsace, (?wxDateTime_Gr_Unknown+9)).
--define(wxDateTime_Gr_France_Lorraine, (?wxDateTime_Gr_Unknown+10)).
--define(wxDateTime_Gr_France_Strasbourg, (?wxDateTime_Gr_Unknown+11)).
--define(wxDateTime_Gr_Germany, ?wxDateTime_Gr_Unknown).
--define(wxDateTime_Gr_Germany_Catholic, (?wxDateTime_Gr_Unknown+1)).
--define(wxDateTime_Gr_Germany_Prussia, (?wxDateTime_Gr_Unknown+2)).
--define(wxDateTime_Gr_Germany_Protestant, (?wxDateTime_Gr_Unknown+3)).
--define(wxDateTime_Gr_GreatBritain, (?wxDateTime_Gr_Unknown+4)).
--define(wxDateTime_Gr_Greece, (?wxDateTime_Gr_Unknown+5)).
--define(wxDateTime_Gr_Hungary, (?wxDateTime_Gr_Unknown+6)).
--define(wxDateTime_Gr_Ireland, ?wxDateTime_Gr_GreatBritain).
--define(wxDateTime_Gr_Italy, ?wxDateTime_Gr_Standard).
--define(wxDateTime_Gr_Japan, ?wxDateTime_Gr_Unknown).
--define(wxDateTime_Gr_Japan_1, (?wxDateTime_Gr_Unknown+1)).
--define(wxDateTime_Gr_Japan_2, (?wxDateTime_Gr_Unknown+2)).
--define(wxDateTime_Gr_Japan_3, (?wxDateTime_Gr_Unknown+3)).
--define(wxDateTime_Gr_Latvia, (?wxDateTime_Gr_Unknown+4)).
--define(wxDateTime_Gr_Lithuania, (?wxDateTime_Gr_Unknown+5)).
--define(wxDateTime_Gr_Luxemburg, (?wxDateTime_Gr_Unknown+6)).
--define(wxDateTime_Gr_Netherlands, ?wxDateTime_Gr_Belgium).
--define(wxDateTime_Gr_Netherlands_Groningen, (?wxDateTime_Gr_Belgium+1)).
--define(wxDateTime_Gr_Netherlands_Gelderland, (?wxDateTime_Gr_Belgium+2)).
--define(wxDateTime_Gr_Netherlands_Utrecht, (?wxDateTime_Gr_Belgium+3)).
--define(wxDateTime_Gr_Netherlands_Friesland, (?wxDateTime_Gr_Belgium+4)).
--define(wxDateTime_Gr_Norway, ?wxDateTime_Gr_Denmark).
--define(wxDateTime_Gr_Poland, ?wxDateTime_Gr_Standard).
--define(wxDateTime_Gr_Portugal, ?wxDateTime_Gr_Standard).
--define(wxDateTime_Gr_Romania, (?wxDateTime_Gr_Standard+1)).
--define(wxDateTime_Gr_Russia, (?wxDateTime_Gr_Standard+2)).
--define(wxDateTime_Gr_Scotland, ?wxDateTime_Gr_GreatBritain).
--define(wxDateTime_Gr_Spain, ?wxDateTime_Gr_Standard).
--define(wxDateTime_Gr_Sweden, ?wxDateTime_Gr_Finland).
--define(wxDateTime_Gr_Switzerland, ?wxDateTime_Gr_Unknown).
--define(wxDateTime_Gr_Switzerland_Catholic, (?wxDateTime_Gr_Unknown+1)).
--define(wxDateTime_Gr_Switzerland_Protestant, (?wxDateTime_Gr_Unknown+2)).
--define(wxDateTime_Gr_Turkey, (?wxDateTime_Gr_Unknown+3)).
--define(wxDateTime_Gr_USA, ?wxDateTime_Gr_GreatBritain).
--define(wxDateTime_Gr_Wales, ?wxDateTime_Gr_GreatBritain).
--define(wxDateTime_Gr_Yugoslavia, (?wxDateTime_Gr_GreatBritain+1)).
-% From class wxDateTime::Month
+%%%  From class wxDateTime::Month
 -define(wxDateTime_Jan, 0).
 -define(wxDateTime_Feb, 1).
 -define(wxDateTime_Mar, 2).
@@ -580,10 +516,10 @@
 -define(wxDateTime_Nov, 10).
 -define(wxDateTime_Dec, 11).
 -define(wxDateTime_Inv_Month, 12).
-% From class wxDateTime::NameFlags
+%%%  From class wxDateTime::NameFlags
 -define(wxDateTime_Name_Full, 1).
 -define(wxDateTime_Name_Abbr, 2).
-% From class wxDateTime::TZ
+%%%  From class wxDateTime::TZ
 -define(wxDateTime_Local, 0).
 -define(wxDateTime_GMT_12, 1).
 -define(wxDateTime_GMT_11, 2).
@@ -639,7 +575,7 @@
 -define(wxDateTime_NZST, ?wxDateTime_GMT12).
 -define(wxDateTime_NZDT, ?wxDateTime_GMT13).
 -define(wxDateTime_UTC, ?wxDateTime_GMT0).
-% From class wxDateTime::WeekDay
+%%%  From class wxDateTime::WeekDay
 -define(wxDateTime_Sun, 0).
 -define(wxDateTime_Mon, 1).
 -define(wxDateTime_Tue, 2).
@@ -648,199 +584,75 @@
 -define(wxDateTime_Fri, 5).
 -define(wxDateTime_Sat, 6).
 -define(wxDateTime_Inv_WeekDay, 7).
-% From class wxDateTime::WeekFlags
+%%%  From class wxDateTime::WeekFlags
 -define(wxDateTime_Default_First, 0).
 -define(wxDateTime_Monday_First, 1).
 -define(wxDateTime_Sunday_First, 2).
-% From class wxDateTime::Year
-% From class wxDialog
--define(wxDialog_ButtonSizerFlags, (?wxOK bor ?wxCANCEL bor ?wxYES bor ?wxNO bor ?wxHELP bor ?wxNO_DEFAULT)).
-% From class wxGrid
--define(wxGrid_wxGRID_CELLCTRL, 2000).
--define(wxGrid_wxGRID_TOPCTRL, 2001).
-% From class wxGrid
--define(wxGrid_wxGRID_TEXTCTRL, 2100).
--define(wxGrid_wxGRID_CHECKBOX, 2101).
--define(wxGrid_wxGRID_CHOICE, 2102).
--define(wxGrid_wxGRID_COMBOBOX, 2103).
-% From class wxGrid::CursorMode
--define(wxGrid_WXGRID_CURSOR_SELECT_CELL, 0).
--define(wxGrid_WXGRID_CURSOR_RESIZE_ROW, 1).
--define(wxGrid_WXGRID_CURSOR_RESIZE_COL, 2).
--define(wxGrid_WXGRID_CURSOR_SELECT_ROW, 3).
--define(wxGrid_WXGRID_CURSOR_SELECT_COL, 4).
--define(wxGrid_WXGRID_CURSOR_MOVE_COL, 5).
-% From class wxGrid::wxGridSelectionModes
+%%%  From class wxDateTime::Year
+-define(wxDateTime_Inv_Year, -16#8000).
+%%%  From class wxGrid::CellSpan
+-define(wxGrid_CellSpan_Inside, -1).
+-define(wxGrid_CellSpan_None, 0).
+-define(wxGrid_CellSpan_Main, 1).
+%%%  From class wxGrid::TabBehaviour
+-define(wxGrid_Tab_Stop, 0).
+-define(wxGrid_Tab_Wrap, 1).
+-define(wxGrid_Tab_Leave, 2).
+%%%  From class wxGrid::wxGridSelectionModes
 -define(wxGrid_wxGridSelectCells, 0).
 -define(wxGrid_wxGridSelectRows, 1).
 -define(wxGrid_wxGridSelectColumns, 2).
-% From class wxGridCellAttr::wxAttrKind
+-define(wxGrid_wxGridSelectRowsOrColumns, 3).
+%%%  From class wxGridCellAttr::wxAttrKind
 -define(wxGridCellAttr_Any, 0).
 -define(wxGridCellAttr_Default, 1).
 -define(wxGridCellAttr_Cell, 2).
 -define(wxGridCellAttr_Row, 3).
 -define(wxGridCellAttr_Col, 4).
 -define(wxGridCellAttr_Merged, 5).
-% From class wxGridCellAttr::wxAttrOverflowMode
--define(wxGridCellAttr_UnsetOverflow, -1).
--define(wxGridCellAttr_Overflow, 0).
--define(wxGridCellAttr_SingleCell, 1).
-% From class wxGridCellAttr::wxAttrReadMode
--define(wxGridCellAttr_Unset, -1).
--define(wxGridCellAttr_ReadWrite, 0).
--define(wxGridCellAttr_ReadOnly, 1).
-% From class wxHelpEvent::Origin
+%%%  From class wxHelpEvent::Origin
 -define(wxHelpEvent_Origin_Unknown, 0).
 -define(wxHelpEvent_Origin_Keyboard, 1).
 -define(wxHelpEvent_Origin_HelpButton, 2).
-% From class wxHtmlEasyPrinting::FontMode
--define(wxHtmlEasyPrinting_FontMode_Explicit, 0).
--define(wxHtmlEasyPrinting_FontMode_Standard, 1).
-% From class wxHtmlWindow::ClipboardType
--define(wxHtmlWindow_Primary, 0).
--define(wxHtmlWindow_Secondary, 1).
-% From class wxListbook
--define(wxListbook_SetSelection_SendEvent, 1).
-% From class wxNavigationKeyEvent
+%%%  From class wxHtmlEasyPrinting::PromptMode
+-define(wxHtmlEasyPrinting_Prompt_Never, 0).
+-define(wxHtmlEasyPrinting_Prompt_Once, 1).
+-define(wxHtmlEasyPrinting_Prompt_Always, 2).
+%%%  From class wxIconBundle
+-define(wxIconBundle_FALLBACK_NONE, 0).
+-define(wxIconBundle_FALLBACK_SYSTEM, 1).
+-define(wxIconBundle_FALLBACK_NEAREST_LARGER, 2).
+%%%  From class wxListbook
+-define(wxListbook_NO_IMAGE, -1).
+%%%  From class wxListbook
+%%%  From class wxNavigationKeyEvent::wxNavigationKeyEventFlags
 -define(wxNavigationKeyEvent_IsBackward, 0).
 -define(wxNavigationKeyEvent_IsForward, 1).
 -define(wxNavigationKeyEvent_WinChange, 2).
 -define(wxNavigationKeyEvent_FromTab, 4).
-% From class wxNotebook
--define(wxNotebook_SetSelection_SendEvent, 1).
-% From class wxProgressDialog
--define(wxProgressDialog_Uncancelable, -1).
--define(wxProgressDialog_Canceled, 0).
--define(wxProgressDialog_Continue, 1).
--define(wxProgressDialog_Finished, 2).
-% From class wxSizerItem
--define(wxSizerItem_Item_None, 0).
--define(wxSizerItem_Item_Window, 1).
--define(wxSizerItem_Item_Sizer, 2).
--define(wxSizerItem_Item_Spacer, 3).
--define(wxSizerItem_Item_Max, 4).
-% From class wxTextCtrl
--define(wxTextCtrl_SetValue_SendEvent, 1).
--define(wxTextCtrl_SetValue_SelectionOnly, 2).
-% From class wxToolbook
--define(wxToolbook_SetSelection_SendEvent, 1).
-% From class wxTreebook
--define(wxTreebook_SetSelection_SendEvent, 1).
-% From class wxWindow::MoveKind
--define(wxWindow_MoveBefore, 0).
--define(wxWindow_MoveAfter, 1).
-% From class wxWindowGTK::ScrollDir
--define(wxWindowGTK_ScrollDir_Horz, 0).
--define(wxWindowGTK_ScrollDir_Vert, 1).
--define(wxWindowGTK_ScrollDir_Max, 2).
-% From class wxWindowGTK::ScrollUnit
--define(wxWindowGTK_ScrollUnit_Line, 0).
--define(wxWindowGTK_ScrollUnit_Page, 1).
--define(wxWindowGTK_ScrollUnit_Max, 2).
-% From "accel.h"
--define(wxACCEL_NORMAL, 0).
--define(wxACCEL_ALT, 1).
--define(wxACCEL_CTRL, 2).
--define(wxACCEL_SHIFT, 4).
--define(wxACCEL_CMD, ?wxACCEL_CTRL).
-% From "added__func.h"
--define(wxMOUSE_BTN_AUX2, 5).
--define(wxMOUSE_BTN_AUX1, 4).
-% From "added__func.h": wxMouseWheelAxis
--define(wxMOUSE_WHEEL_VERTICAL, 0).
--define(wxMOUSE_WHEEL_HORIZONTAL, 1).
-% From "app.h"
--define(wxPRINT_WINDOWS, 1).
--define(wxPRINT_POSTSCRIPT, 2).
-% From "auibook.h": wxAuiNotebookOption
--define(wxAUI_NB_TOP, 1).
--define(wxAUI_NB_LEFT, 2).
--define(wxAUI_NB_RIGHT, 4).
--define(wxAUI_NB_BOTTOM, 8).
--define(wxAUI_NB_TAB_SPLIT, 16).
--define(wxAUI_NB_TAB_MOVE, 32).
--define(wxAUI_NB_TAB_EXTERNAL_MOVE, 64).
--define(wxAUI_NB_TAB_FIXED_WIDTH, 128).
--define(wxAUI_NB_SCROLL_BUTTONS, 256).
--define(wxAUI_NB_WINDOWLIST_BUTTON, 512).
--define(wxAUI_NB_CLOSE_BUTTON, 1024).
--define(wxAUI_NB_CLOSE_ON_ACTIVE_TAB, 2048).
--define(wxAUI_NB_CLOSE_ON_ALL_TABS, 4096).
--define(wxAUI_NB_MIDDLE_CLICK_CLOSE, 8192).
--define(wxAUI_NB_DEFAULT_STYLE, (?wxAUI_NB_TOP bor ?wxAUI_NB_TAB_SPLIT bor ?wxAUI_NB_TAB_MOVE bor ?wxAUI_NB_SCROLL_BUTTONS bor ?wxAUI_NB_CLOSE_ON_ACTIVE_TAB bor ?wxAUI_NB_MIDDLE_CLICK_CLOSE)).
-% From "bookctrl.h"
--define(wxBK_HITTEST_NOWHERE, 1).
--define(wxBK_HITTEST_ONICON, 2).
--define(wxBK_HITTEST_ONLABEL, 4).
--define(wxBK_HITTEST_ONITEM, (?wxBK_HITTEST_ONICON bor ?wxBK_HITTEST_ONLABEL)).
--define(wxBK_HITTEST_ONPAGE, 8).
-% From "bookctrl.h"
--define(wxBK_ALIGN_MASK, (?wxBK_TOP bor ?wxBK_BOTTOM bor ?wxBK_LEFT bor ?wxBK_RIGHT)).
--define(wxBK_RIGHT, 128).
--define(wxBK_LEFT, 64).
--define(wxBK_BOTTOM, 32).
--define(wxBK_TOP, 16).
--define(wxBK_DEFAULT, 0).
-% From "bugs.h": wxSashDragStatus
--define(wxSASH_STATUS_OK, 0).
--define(wxSASH_STATUS_OUT_OF_RANGE, 1).
-% From "button.h"
--define(wxBU_EXACTFIT, 1).
--define(wxBU_AUTODRAW, 4).
--define(wxBU_NOAUTODRAW, 0).
--define(wxBU_ALIGN_MASK, (?wxBU_LEFT bor ?wxBU_TOP bor ?wxBU_RIGHT bor ?wxBU_BOTTOM)).
--define(wxBU_BOTTOM, 512).
--define(wxBU_RIGHT, 256).
--define(wxBU_TOP, 128).
--define(wxBU_LEFT, 64).
-% From "calctrl.h"
--define(wxCAL_SUNDAY_FIRST, 0).
--define(wxCAL_MONDAY_FIRST, 1).
--define(wxCAL_SHOW_HOLIDAYS, 2).
--define(wxCAL_NO_YEAR_CHANGE, 4).
--define(wxCAL_NO_MONTH_CHANGE, 12).
--define(wxCAL_SEQUENTIAL_MONTH_SELECTION, 16).
--define(wxCAL_SHOW_SURROUNDING_WEEKS, 32).
-% From "calctrl.h": wxCalendarDateBorder
--define(wxCAL_BORDER_NONE, 0).
--define(wxCAL_BORDER_SQUARE, 1).
--define(wxCAL_BORDER_ROUND, 2).
-% From "calctrl.h": wxCalendarHitTestResult
--define(wxCAL_HITTEST_NOWHERE, 0).
--define(wxCAL_HITTEST_HEADER, 1).
--define(wxCAL_HITTEST_DAY, 2).
--define(wxCAL_HITTEST_INCMONTH, 3).
--define(wxCAL_HITTEST_DECMONTH, 4).
--define(wxCAL_HITTEST_SURROUNDING_WEEK, 5).
-% From "checkbox.h"
--define(wxCHK_ALLOW_3RD_STATE_FOR_USER, 8192).
--define(wxCHK_3STATE, 4096).
--define(wxCHK_2STATE, 0).
-% From "checkbox.h": wxCheckBoxState
--define(wxCHK_UNCHECKED, 0).
--define(wxCHK_CHECKED, 1).
--define(wxCHK_UNDETERMINED, 2).
-% From "choicdgg.h"
--define(wxCHOICEDLG_STYLE, (?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER bor ?wxOK bor ?wxCANCEL bor ?wxCENTRE)).
--define(wxCHOICE_WIDTH, 200).
--define(wxCHOICE_HEIGHT, 150).
-% From "choicebk.h"
--define(wxCHB_ALIGN_MASK, ?wxBK_ALIGN_MASK).
--define(wxCHB_RIGHT, ?wxBK_RIGHT).
--define(wxCHB_LEFT, ?wxBK_LEFT).
--define(wxCHB_BOTTOM, ?wxBK_BOTTOM).
--define(wxCHB_TOP, ?wxBK_TOP).
--define(wxCHB_DEFAULT, ?wxBK_DEFAULT).
-% From "clntdata.h": wxClientDataType
--define(wxClientData_None, 0).
--define(wxClientData_Object, 1).
--define(wxClientData_Void, 2).
-% From "clrpicker.h"
+%%%  From class wxNotebook
+-define(wxNotebook_NO_IMAGE, -1).
+%%%  From class wxNotebook
+%%%  From class wxNotificationMessage
+-define(wxNotificationMessage_Timeout_Auto, -1).
+-define(wxNotificationMessage_Timeout_Never, 0).
+%%%  From class wxStaticBitmap::ScaleMode
+-define(wxStaticBitmap_Scale_None, 0).
+-define(wxStaticBitmap_Scale_Fill, 1).
+-define(wxStaticBitmap_Scale_AspectFit, 2).
+-define(wxStaticBitmap_Scale_AspectFill, 3).
+%%%  From class wxToolbook
+-define(wxToolbook_NO_IMAGE, -1).
+%%%  From class wxToolbook
+%%%  From class wxTreebook
+-define(wxTreebook_NO_IMAGE, -1).
+%%%  From class wxTreebook
+%%%  From "clrpicker.h"
+-define(wxCLRP_SHOW_ALPHA, 16).
+-define(wxCLRP_SHOW_LABEL, 8).
 -define(wxCLRP_DEFAULT_STYLE, 0).
 -define(wxCLRP_USE_TEXTCTRL, ?wxPB_USE_TEXTCTRL).
--define(wxCLRP_SHOW_LABEL, 8).
-% From "cmndata.h"
-% From "cmndata.h": wxPrintBin
+%%%  From "cmndata.h": wxPrintBin
 -define(wxPRINTBIN_DEFAULT, 0).
 -define(wxPRINTBIN_ONLYONE, 1).
 -define(wxPRINTBIN_LOWER, 2).
@@ -856,136 +668,242 @@
 -define(wxPRINTBIN_CASSETTE, 12).
 -define(wxPRINTBIN_FORMSOURCE, 13).
 -define(wxPRINTBIN_USER, 14).
-% From "colour.h"
--define(wxC2S_HTML_SYNTAX, 4).
--define(wxC2S_CSS_SYNTAX, 2).
--define(wxC2S_NAME, 1).
-% From "confbase.h"
--define(wxCONFIG_CASE_SENSITIVE, 0).
-% From "cpp.h"
--define(wxEMPTY_PARAMETER_VALUE, ()).
-% From "datectrl.h"
+%%%  From "datectrl.h"
 -define(wxDP_DEFAULT, 0).
 -define(wxDP_SPIN, 1).
 -define(wxDP_DROPDOWN, 2).
 -define(wxDP_SHOWCENTURY, 4).
 -define(wxDP_ALLOWNONE, 8).
-% From "datetime.h"
-% From "dcbuffer.h"
+%%%  From "datetime.h"
+%%%  From "dc.h": wxFloodFillStyle
+-define(wxFLOOD_SURFACE, 1).
+-define(wxFLOOD_BORDER, 2).
+%%%  From "dc.h": wxMappingMode
+-define(wxMM_TEXT, 1).
+-define(wxMM_METRIC, 2).
+-define(wxMM_LOMETRIC, 3).
+-define(wxMM_TWIPS, 4).
+-define(wxMM_POINTS, 5).
+%%%  From "dc.h": wxRasterOperationMode
+-define(wxCLEAR, 0).
+-define(wxXOR, 1).
+-define(wxINVERT, 2).
+-define(wxOR_REVERSE, 3).
+-define(wxAND_REVERSE, 4).
+-define(wxCOPY, 5).
+-define(wxAND, 6).
+-define(wxAND_INVERT, 7).
+-define(wxNO_OP, 8).
+-define(wxNOR, 9).
+-define(wxEQUIV, 10).
+-define(wxSRC_INVERT, 11).
+-define(wxOR_INVERT, 12).
+-define(wxNAND, 13).
+-define(wxOR, 14).
+-define(wxSET, 15).
+%%%  From "dcbuffer.h"
+-define(wxALWAYS_NATIVE_DOUBLE_BUFFER, wxe_util:get_const(wxALWAYS_NATIVE_DOUBLE_BUFFER)).
+-define(wxBUFFER_USES_SHARED_BUFFER, 4).
 -define(wxBUFFER_CLIENT_AREA, 2).
 -define(wxBUFFER_VIRTUAL_AREA, 1).
--define(wxALWAYS_NATIVE_DOUBLE_BUFFER, wxe_util:get_const(wxALWAYS_NATIVE_DOUBLE_BUFFER)).
-% From "defs.h"
--define(wxDefaultCoord, -1).
-% From "defs.h"
--define(wxID_NONE, -3).
--define(wxID_SEPARATOR, -2).
--define(wxID_ANY, -1).
--define(wxID_LOWEST, 4999).
--define(wxID_OPEN, 5000).
--define(wxID_CLOSE, 5001).
--define(wxID_NEW, 5002).
--define(wxID_SAVE, 5003).
--define(wxID_SAVEAS, 5004).
--define(wxID_REVERT, 5005).
--define(wxID_EXIT, 5006).
--define(wxID_UNDO, 5007).
--define(wxID_REDO, 5008).
--define(wxID_HELP, 5009).
--define(wxID_PRINT, 5010).
--define(wxID_PRINT_SETUP, 5011).
--define(wxID_PAGE_SETUP, 5012).
--define(wxID_PREVIEW, 5013).
--define(wxID_ABOUT, 5014).
--define(wxID_HELP_CONTENTS, 5015).
--define(wxID_HELP_INDEX, 5016).
--define(wxID_HELP_SEARCH, 5017).
--define(wxID_HELP_COMMANDS, 5018).
--define(wxID_HELP_PROCEDURES, 5019).
--define(wxID_HELP_CONTEXT, 5020).
--define(wxID_CLOSE_ALL, 5021).
--define(wxID_PREFERENCES, 5022).
--define(wxID_EDIT, 5030).
--define(wxID_CUT, 5031).
--define(wxID_COPY, 5032).
--define(wxID_PASTE, 5033).
--define(wxID_CLEAR, 5034).
--define(wxID_FIND, 5035).
--define(wxID_DUPLICATE, 5036).
--define(wxID_SELECTALL, 5037).
--define(wxID_DELETE, 5038).
--define(wxID_REPLACE, 5039).
--define(wxID_REPLACE_ALL, 5040).
--define(wxID_PROPERTIES, 5041).
--define(wxID_VIEW_DETAILS, 5042).
--define(wxID_VIEW_LARGEICONS, 5043).
--define(wxID_VIEW_SMALLICONS, 5044).
--define(wxID_VIEW_LIST, 5045).
--define(wxID_VIEW_SORTDATE, 5046).
--define(wxID_VIEW_SORTNAME, 5047).
--define(wxID_VIEW_SORTSIZE, 5048).
--define(wxID_VIEW_SORTTYPE, 5049).
--define(wxID_FILE, 5050).
--define(wxID_FILE1, 5051).
--define(wxID_FILE2, 5052).
--define(wxID_FILE3, 5053).
--define(wxID_FILE4, 5054).
--define(wxID_FILE5, 5055).
--define(wxID_FILE6, 5056).
--define(wxID_FILE7, 5057).
--define(wxID_FILE8, 5058).
--define(wxID_FILE9, 5059).
--define(wxID_OK, 5100).
--define(wxID_CANCEL, 5101).
--define(wxID_APPLY, 5102).
--define(wxID_YES, 5103).
--define(wxID_NO, 5104).
--define(wxID_STATIC, 5105).
--define(wxID_FORWARD, 5106).
--define(wxID_BACKWARD, 5107).
--define(wxID_DEFAULT, 5108).
--define(wxID_MORE, 5109).
--define(wxID_SETUP, 5110).
--define(wxID_RESET, 5111).
--define(wxID_CONTEXT_HELP, 5112).
--define(wxID_YESTOALL, 5113).
--define(wxID_NOTOALL, 5114).
--define(wxID_ABORT, 5115).
--define(wxID_RETRY, 5116).
--define(wxID_IGNORE, 5117).
--define(wxID_ADD, 5118).
--define(wxID_REMOVE, 5119).
--define(wxID_UP, 5120).
--define(wxID_DOWN, 5121).
--define(wxID_HOME, 5122).
--define(wxID_REFRESH, 5123).
--define(wxID_STOP, 5124).
--define(wxID_INDEX, 5125).
--define(wxID_BOLD, 5126).
--define(wxID_ITALIC, 5127).
--define(wxID_JUSTIFY_CENTER, 5128).
--define(wxID_JUSTIFY_FILL, 5129).
--define(wxID_JUSTIFY_RIGHT, 5130).
--define(wxID_JUSTIFY_LEFT, 5131).
--define(wxID_UNDERLINE, 5132).
--define(wxID_INDENT, 5133).
--define(wxID_UNINDENT, 5134).
--define(wxID_ZOOM_100, 5135).
--define(wxID_ZOOM_FIT, 5136).
--define(wxID_ZOOM_IN, 5137).
--define(wxID_ZOOM_OUT, 5138).
--define(wxID_UNDELETE, 5139).
--define(wxID_REVERT_TO_SAVED, 5140).
--define(wxID_SYSTEM_MENU, 5200).
--define(wxID_CLOSE_FRAME, 5201).
--define(wxID_MOVE_FRAME, 5202).
--define(wxID_RESIZE_FRAME, 5203).
--define(wxID_MAXIMIZE_FRAME, 5204).
--define(wxID_ICONIZE_FRAME, 5205).
--define(wxID_RESTORE_FRAME, 5206).
--define(wxID_FILEDLGG, 5900).
--define(wxID_HIGHEST, 5999).
-% From "defs.h"
+%%%  From "defs.h"
+-define(wxRESIZE_BORDER, 64).
+-define(wxTINY_CAPTION, 128).
+-define(wxMAXIMIZE_BOX, 512).
+-define(wxMINIMIZE_BOX, 1024).
+-define(wxSYSTEM_MENU, 2048).
+-define(wxCLOSE_BOX, 4096).
+-define(wxMAXIMIZE, 8192).
+-define(wxMINIMIZE, ?wxICONIZE).
+-define(wxICONIZE, 16384).
+-define(wxSTAY_ON_TOP, 32768).
+-define(wxBETA_NUMBER, wxe_util:get_const(wxBETA_NUMBER)).
+-define(wxSUBRELEASE_NUMBER, wxe_util:get_const(wxSUBRELEASE_NUMBER)).
+-define(wxRELEASE_NUMBER, wxe_util:get_const(wxRELEASE_NUMBER)).
+-define(wxMINOR_VERSION, wxe_util:get_const(wxMINOR_VERSION)).
+-define(wxMAJOR_VERSION, wxe_util:get_const(wxMAJOR_VERSION)).
+-define(wxBROWSER_NEW_WINDOW, 1).
+-define(wxTOPLEVEL_EX_DIALOG, 8).
+-define(wxWS_EX_VALIDATE_RECURSIVELY, wxe_util:get_const(wxWS_EX_VALIDATE_RECURSIVELY)).
+-define(wxScrolledWindowStyle, (?wxHSCROLL bor ?wxVSCROLL)).
+-define(wxLC_USER_TEXT, ?wxLC_VIRTUAL).
+-define(wxFRAME_SHAPED, 16).
+-define(wxID_TREECTRL, 7000).
+-define(wxCENTER_ON_SCREEN, ?wxCENTRE_ON_SCREEN).
+-define(wxCENTRE_ON_SCREEN, 2).
+-define(wxCENTER_FRAME, 0).
+-define(wxPRINT_QUALITY_DRAFT, -4).
+-define(wxPRINT_QUALITY_LOW, -3).
+-define(wxPRINT_QUALITY_MEDIUM, -2).
+-define(wxPRINT_QUALITY_HIGH, -1).
+-define(wxBG_STYLE_CUSTOM, wxe_util:get_const(wxBG_STYLE_CUSTOM)).
+-define(wxNOT_FOUND, -1).
+-define(wxICON_MASK, (?wxICON_EXCLAMATION bor ?wxICON_HAND bor ?wxICON_QUESTION bor ?wxICON_INFORMATION bor ?wxICON_NONE bor ?wxICON_AUTH_NEEDED)).
+-define(wxICON_AUTH_NEEDED, 524288).
+-define(wxICON_NONE, 262144).
+-define(wxSETUP, 131072).
+-define(wxMORE, 65536).
+-define(wxRESET, 32768).
+-define(wxBACKWARD, 16384).
+-define(wxFORWARD, 8192).
+-define(wxHELP, 4096).
+-define(wxICON_ASTERISK, ?wxICON_INFORMATION).
+-define(wxICON_STOP, ?wxICON_HAND).
+-define(wxICON_INFORMATION, 2048).
+-define(wxICON_QUESTION, 1024).
+-define(wxICON_ERROR, ?wxICON_HAND).
+-define(wxICON_WARNING, ?wxICON_EXCLAMATION).
+-define(wxICON_HAND, 512).
+-define(wxICON_EXCLAMATION, 256).
+-define(wxCANCEL_DEFAULT, -2147483648).
+-define(wxNO_DEFAULT, 128).
+-define(wxYES_DEFAULT, 0).
+-define(wxOK_DEFAULT, 0).
+-define(wxCLOSE, 64).
+-define(wxAPPLY, 32).
+-define(wxCANCEL, 16).
+-define(wxYES_NO, (?wxYES bor ?wxNO)).
+-define(wxNO, 8).
+-define(wxOK, 4).
+-define(wxYES, 2).
+-define(wxLI_VERTICAL, ?wxVERTICAL).
+-define(wxLI_HORIZONTAL, ?wxHORIZONTAL).
+-define(wxBI_EXPAND, ?wxEXPAND).
+-define(wxTC_OWNERDRAW, 1024).
+-define(wxTC_MULTILINE, 512).
+-define(wxTC_BOTTOM, 128).
+-define(wxTC_RIGHT, 64).
+-define(wxTC_LEFT, 32).
+-define(wxTC_TOP, 0).
+-define(wxTC_FIXEDWIDTH, 32).
+-define(wxTC_RIGHTJUSTIFY, 16).
+-define(wxSP_WRAP, 32768).
+-define(wxSP_ARROW_KEYS, 16384).
+-define(wxSP_VERTICAL, ?wxVERTICAL).
+-define(wxSP_HORIZONTAL, ?wxHORIZONTAL).
+-define(wxSB_VERTICAL, ?wxVERTICAL).
+-define(wxSB_HORIZONTAL, ?wxHORIZONTAL).
+-define(wxRB_SINGLE, 8).
+-define(wxRB_GROUP, 4).
+-define(wxRA_VERTICAL, ?wxVERTICAL).
+-define(wxRA_HORIZONTAL, ?wxHORIZONTAL).
+-define(wxRA_SPECIFY_ROWS, ?wxVERTICAL).
+-define(wxRA_SPECIFY_COLS, ?wxHORIZONTAL).
+-define(wxRA_TOPTOBOTTOM, 2).
+-define(wxRA_LEFTTORIGHT, 1).
+-define(wxCB_DROPDOWN, 32).
+-define(wxCB_READONLY, 16).
+-define(wxCB_SORT, 8).
+-define(wxCB_SIMPLE, 4).
+-define(wxLB_INT_HEIGHT, 2048).
+-define(wxLB_HSCROLL, ?wxHSCROLL).
+-define(wxLB_NO_SB, 1024).
+-define(wxLB_ALWAYS_SB, 512).
+-define(wxLB_OWNERDRAW, 256).
+-define(wxLB_NEEDED_SB, 0).
+-define(wxLB_EXTENDED, 128).
+-define(wxLB_MULTIPLE, 64).
+-define(wxLB_SINGLE, 32).
+-define(wxLB_SORT, 16).
+-define(wxFIXED_LENGTH, 1024).
+-define(wxCOLOURED, 2048).
+-define(wxMENU_TEAROFF, 1).
+-define(wxMB_DOCKABLE, 1).
+-define(wxFRAME_NO_WINDOW_MENU, 256).
+-define(wxFRAME_DRAWER, 32).
+-define(wxDIALOG_EX_CONTEXTHELP, ?wxWS_EX_CONTEXTHELP).
+-define(wxFRAME_EX_CONTEXTHELP, ?wxWS_EX_CONTEXTHELP).
+-define(wxWS_EX_CONTEXTHELP, 128).
+-define(wxDIALOG_EX_METAL, 64).
+-define(wxFRAME_EX_METAL, 64).
+-define(wxWS_EX_PROCESS_UI_UPDATES, 32).
+-define(wxWS_EX_PROCESS_IDLE, 16).
+-define(wxWS_EX_THEMED_BACKGROUND, 8).
+-define(wxWS_EX_TRANSIENT, 4).
+-define(wxWS_EX_BLOCK_EVENTS, 2).
+-define(wxWINDOW_STYLE_MASK, (?wxVSCROLL bor ?wxHSCROLL bor ?wxBORDER_MASK bor ?wxALWAYS_SHOW_SB bor ?wxCLIP_CHILDREN bor ?wxCLIP_SIBLINGS bor ?wxTRANSPARENT_WINDOW bor ?wxTAB_TRAVERSAL bor ?wxWANTS_CHARS bor ?wxRETAINED bor ?wxPOPUP_WINDOW bor ?wxFULL_REPAINT_ON_RESIZE)).
+-define(wxNO_FULL_REPAINT_ON_RESIZE, 0).
+-define(wxFULL_REPAINT_ON_RESIZE, 65536).
+-define(wxPOPUP_WINDOW, 131072).
+-define(wxBACKINGSTORE, ?wxRETAINED).
+-define(wxRETAINED, wxe_util:get_const(wxRETAINED)).
+-define(wxWANTS_CHARS, 262144).
+-define(wxTAB_TRAVERSAL, 524288).
+-define(wxTRANSPARENT_WINDOW, 1048576).
+-define(wxCLIP_SIBLINGS, 536870912).
+-define(wxCLIP_CHILDREN, 4194304).
+-define(wxALWAYS_SHOW_SB, 8388608).
+-define(wxNO_BORDER, ?wxBORDER_NONE).
+-define(wxSTATIC_BORDER, ?wxBORDER_STATIC).
+-define(wxSIMPLE_BORDER, ?wxBORDER_SIMPLE).
+-define(wxBORDER, ?wxBORDER_SIMPLE).
+-define(wxRAISED_BORDER, ?wxBORDER_RAISED).
+-define(wxSUNKEN_BORDER, ?wxBORDER_SUNKEN).
+-define(wxDOUBLE_BORDER, ?wxBORDER_DOUBLE).
+-define(wxCAPTION, 536870912).
+-define(wxHSCROLL, 1073741824).
+-define(wxVSCROLL, -2147483648).
+-define(wxSIZE_FORCE_EVENT, 32).
+-define(wxSIZE_FORCE, 16).
+-define(wxSIZE_NO_ADJUSTMENTS, 8).
+-define(wxSIZE_ALLOW_MINUS_ONE, 4).
+-define(wxSIZE_USE_EXISTING, 0).
+-define(wxSIZE_AUTO, (?wxSIZE_AUTO_WIDTH bor ?wxSIZE_AUTO_HEIGHT)).
+-define(wxSIZE_AUTO_HEIGHT, 2).
+-define(wxSIZE_AUTO_WIDTH, 1).
+-define(wxDEFAULT_CONTROL_BORDER, wxe_util:get_const(wxDEFAULT_CONTROL_BORDER)).
+%%%  From "defs.h": wxAlignment
+-define(wxALIGN_INVALID, -1).
+-define(wxALIGN_NOT, 0).
+-define(wxALIGN_CENTER_HORIZONTAL, 256).
+-define(wxALIGN_CENTRE_HORIZONTAL, ?wxALIGN_CENTER_HORIZONTAL).
+-define(wxALIGN_LEFT, ?wxALIGN_NOT).
+-define(wxALIGN_TOP, ?wxALIGN_NOT).
+-define(wxALIGN_RIGHT, 512).
+-define(wxALIGN_BOTTOM, 1024).
+-define(wxALIGN_CENTER_VERTICAL, 2048).
+-define(wxALIGN_CENTRE_VERTICAL, ?wxALIGN_CENTER_VERTICAL).
+-define(wxALIGN_CENTER, (?wxALIGN_CENTER_HORIZONTAL bor ?wxALIGN_CENTER_VERTICAL)).
+-define(wxALIGN_CENTRE, ?wxALIGN_CENTER).
+-define(wxALIGN_MASK, 3840).
+%%%  From "defs.h": wxBackgroundStyle
+-define(wxBG_STYLE_ERASE, wxe_util:get_const(wxBG_STYLE_ERASE)).
+-define(wxBG_STYLE_SYSTEM, wxe_util:get_const(wxBG_STYLE_SYSTEM)).
+-define(wxBG_STYLE_PAINT, wxe_util:get_const(wxBG_STYLE_PAINT)).
+-define(wxBG_STYLE_COLOUR, wxe_util:get_const(wxBG_STYLE_COLOUR)).
+-define(wxBG_STYLE_TRANSPARENT, wxe_util:get_const(wxBG_STYLE_TRANSPARENT)).
+%%%  From "defs.h": wxBorder
+-define(wxBORDER_DEFAULT, 0).
+-define(wxBORDER_NONE, 2097152).
+-define(wxBORDER_STATIC, 16777216).
+-define(wxBORDER_SIMPLE, 33554432).
+-define(wxBORDER_RAISED, 67108864).
+-define(wxBORDER_SUNKEN, 134217728).
+-define(wxBORDER_DOUBLE, 268435456).
+-define(wxBORDER_THEME, ?wxBORDER_DOUBLE).
+-define(wxBORDER_MASK, 522190848).
+%%%  From "defs.h": wxDataFormatId
+-define(wxDF_INVALID, 0).
+-define(wxDF_TEXT, 1).
+-define(wxDF_BITMAP, 2).
+-define(wxDF_METAFILE, 3).
+-define(wxDF_SYLK, 4).
+-define(wxDF_DIF, 5).
+-define(wxDF_TIFF, 6).
+-define(wxDF_OEMTEXT, 7).
+-define(wxDF_DIB, 8).
+-define(wxDF_PALETTE, 9).
+-define(wxDF_PENDATA, 10).
+-define(wxDF_RIFF, 11).
+-define(wxDF_WAVE, 12).
+-define(wxDF_UNICODETEXT, 13).
+-define(wxDF_ENHMETAFILE, 14).
+-define(wxDF_FILENAME, 15).
+-define(wxDF_LOCALE, 16).
+-define(wxDF_PRIVATE, 20).
+-define(wxDF_HTML, 30).
+-define(wxDF_MAX, 31).
+%%%  From "defs.h": wxDeprecatedGUIConstants
 -define(wxDEFAULT, 70).
 -define(wxDECORATIVE, 71).
 -define(wxROMAN, 72).
@@ -1010,269 +928,15 @@
 -define(wxSTIPPLE_MASK_OPAQUE, 107).
 -define(wxSTIPPLE_MASK, 108).
 -define(wxSTIPPLE, 110).
--define(wxBDIAGONAL_HATCH, 111).
--define(wxCROSSDIAG_HATCH, 112).
--define(wxFDIAGONAL_HATCH, 113).
--define(wxCROSS_HATCH, 114).
--define(wxHORIZONTAL_HATCH, 115).
--define(wxVERTICAL_HATCH, 116).
+-define(wxBDIAGONAL_HATCH, ?wxBRUSHSTYLE_BDIAGONAL_HATCH).
+-define(wxCROSSDIAG_HATCH, ?wxBRUSHSTYLE_CROSSDIAG_HATCH).
+-define(wxFDIAGONAL_HATCH, (?wxBRUSHSTYLE_CROSSDIAG_HATCH+1)).
+-define(wxCROSS_HATCH, (?wxBRUSHSTYLE_CROSSDIAG_HATCH+2)).
+-define(wxHORIZONTAL_HATCH, (?wxBRUSHSTYLE_CROSSDIAG_HATCH+3)).
+-define(wxVERTICAL_HATCH, (?wxBRUSHSTYLE_CROSSDIAG_HATCH+4)).
 -define(wxFIRST_HATCH, ?wxBDIAGONAL_HATCH).
 -define(wxLAST_HATCH, ?wxVERTICAL_HATCH).
--define(wxJOIN_BEVEL, 120).
--define(wxJOIN_MITER, 121).
--define(wxJOIN_ROUND, 122).
--define(wxCAP_ROUND, 130).
--define(wxCAP_PROJECTING, 131).
--define(wxCAP_BUTT, 132).
-% From "defs.h"
--define(wxFLOOD_SURFACE, 1).
--define(wxFLOOD_BORDER, 2).
-% From "defs.h"
--define(wxODDEVEN_RULE, 1).
--define(wxWINDING_RULE, 2).
-% From "defs.h"
--define(wxTOOL_TOP, 1).
--define(wxTOOL_BOTTOM, 2).
--define(wxTOOL_LEFT, 3).
--define(wxTOOL_RIGHT, 4).
-% From "defs.h"
--define(wxMM_TEXT, 1).
--define(wxMM_LOMETRIC, 2).
--define(wxMM_HIMETRIC, 3).
--define(wxMM_LOENGLISH, 4).
--define(wxMM_HIENGLISH, 5).
--define(wxMM_TWIPS, 6).
--define(wxMM_ISOTROPIC, 7).
--define(wxMM_ANISOTROPIC, 8).
--define(wxMM_POINTS, 9).
--define(wxMM_METRIC, 10).
-% From "defs.h"
--define(wxPRINT_QUALITY_DRAFT, -4).
--define(wxPRINT_QUALITY_LOW, -3).
--define(wxPRINT_QUALITY_MEDIUM, -2).
--define(wxPRINT_QUALITY_HIGH, -1).
--define(wxLANDSCAPE, 2).
--define(wxPORTRAIT, 1).
--define(wxSIZE_FORCE, 16).
--define(wxSIZE_NO_ADJUSTMENTS, 8).
--define(wxSIZE_ALLOW_MINUS_ONE, 4).
--define(wxSIZE_USE_EXISTING, 0).
--define(wxSIZE_AUTO, (?wxSIZE_AUTO_WIDTH bor ?wxSIZE_AUTO_HEIGHT)).
--define(wxSIZE_AUTO_HEIGHT, 2).
--define(wxSIZE_AUTO_WIDTH, 1).
--define(wxSETUP, 131072).
--define(wxMORE, 65536).
--define(wxHELP, 32768).
--define(wxRESET, 16384).
--define(wxBACKWARD, 8192).
--define(wxFORWARD, 4096).
--define(wxICON_MASK, (16#00000100 bor 16#00000200 bor 16#00000400 bor 16#00000800)).
--define(wxICON_ASTERISK, ?wxICON_INFORMATION).
--define(wxICON_STOP, ?wxICON_HAND).
--define(wxICON_INFORMATION, 2048).
--define(wxICON_QUESTION, 1024).
--define(wxICON_ERROR, ?wxICON_HAND).
--define(wxICON_WARNING, ?wxICON_EXCLAMATION).
--define(wxICON_HAND, 512).
--define(wxICON_EXCLAMATION, 256).
--define(wxNO_DEFAULT, 128).
--define(wxYES_DEFAULT, 0).
--define(wxCANCEL, 16).
--define(wxYES_NO, (?wxYES bor ?wxNO)).
--define(wxNO, 8).
--define(wxOK, 4).
--define(wxYES, 2).
--define(wxLI_VERTICAL, ?wxVERTICAL).
--define(wxLI_HORIZONTAL, ?wxHORIZONTAL).
--define(wxBI_EXPAND, ?wxEXPAND).
--define(wxST_DOTS_END, 4).
--define(wxST_DOTS_MIDDLE, 2).
--define(wxST_NO_AUTORESIZE, 1).
--define(wxST_SIZEGRIP, 16).
--define(wxTC_OWNERDRAW, 1024).
--define(wxTC_MULTILINE, 512).
--define(wxTC_BOTTOM, 128).
--define(wxTC_RIGHT, 64).
--define(wxTC_LEFT, 32).
--define(wxTC_TOP, 0).
--define(wxTC_FIXEDWIDTH, 32).
--define(wxTC_RIGHTJUSTIFY, 16).
--define(wxSP_WRAP, 8192).
--define(wxSP_ARROW_KEYS, 4096).
--define(wxSP_VERTICAL, ?wxVERTICAL).
--define(wxSP_HORIZONTAL, ?wxHORIZONTAL).
--define(wxSB_VERTICAL, ?wxVERTICAL).
--define(wxSB_HORIZONTAL, ?wxHORIZONTAL).
--define(wxRB_USE_CHECKBOX, 16).
--define(wxRB_SINGLE, 8).
--define(wxRB_GROUP, 4).
--define(wxRA_USE_CHECKBOX, 16).
--define(wxRA_VERTICAL, ?wxVERTICAL).
--define(wxRA_HORIZONTAL, ?wxHORIZONTAL).
--define(wxRA_SPECIFY_ROWS, ?wxVERTICAL).
--define(wxRA_SPECIFY_COLS, ?wxHORIZONTAL).
--define(wxRA_TOPTOBOTTOM, 2).
--define(wxRA_LEFTTORIGHT, 1).
--define(wxCB_DROPDOWN, 32).
--define(wxCB_READONLY, 16).
--define(wxCB_SORT, 8).
--define(wxCB_SIMPLE, 4).
--define(wxLB_INT_HEIGHT, 2048).
--define(wxLB_HSCROLL, ?wxHSCROLL).
--define(wxLB_ALWAYS_SB, 1024).
--define(wxLB_NEEDED_SB, 512).
--define(wxLB_OWNERDRAW, 256).
--define(wxLB_EXTENDED, 128).
--define(wxLB_MULTIPLE, 64).
--define(wxLB_SINGLE, 32).
--define(wxLB_SORT, 16).
--define(wxFIXED_LENGTH, 1024).
--define(wxCOLOURED, 2048).
--define(wxMENU_TEAROFF, 1).
--define(wxMB_DOCKABLE, 1).
--define(wxFRAME_NO_WINDOW_MENU, 256).
--define(wxFRAME_DRAWER, 32).
--define(wxDIALOG_EX_CONTEXTHELP, ?wxWS_EX_CONTEXTHELP).
--define(wxFRAME_EX_CONTEXTHELP, ?wxWS_EX_CONTEXTHELP).
--define(wxWS_EX_CONTEXTHELP, 128).
--define(wxDIALOG_EX_METAL, 64).
--define(wxFRAME_EX_METAL, 64).
--define(wxWS_EX_PROCESS_UI_UPDATES, 32).
--define(wxWS_EX_PROCESS_IDLE, 16).
--define(wxWS_EX_THEMED_BACKGROUND, 8).
--define(wxWS_EX_TRANSIENT, 4).
--define(wxWS_EX_BLOCK_EVENTS, 2).
--define(wxWS_EX_VALIDATE_RECURSIVELY, 1).
--define(wxWINDOW_STYLE_MASK, (?wxVSCROLL bor ?wxHSCROLL bor ?wxBORDER_MASK bor ?wxALWAYS_SHOW_SB bor ?wxCLIP_CHILDREN bor ?wxCLIP_SIBLINGS bor ?wxTRANSPARENT_WINDOW bor ?wxTAB_TRAVERSAL bor ?wxWANTS_CHARS bor ?wxRETAINED bor ?wxPOPUP_WINDOW bor ?wxFULL_REPAINT_ON_RESIZE)).
--define(wxNO_FULL_REPAINT_ON_RESIZE, 0).
--define(wxFULL_REPAINT_ON_RESIZE, 65536).
--define(wxPOPUP_WINDOW, 131072).
--define(wxBACKINGSTORE, ?wxRETAINED).
--define(wxRETAINED, wxe_util:get_const(wxRETAINED)).
--define(wxWANTS_CHARS, 262144).
--define(wxTAB_TRAVERSAL, 524288).
--define(wxTRANSPARENT_WINDOW, 1048576).
--define(wxCLIP_SIBLINGS, 536870912).
--define(wxCLIP_CHILDREN, 4194304).
--define(wxALWAYS_SHOW_SB, 8388608).
--define(wxNO_BORDER, ?wxBORDER_NONE).
--define(wxSTATIC_BORDER, ?wxBORDER_STATIC).
--define(wxSIMPLE_BORDER, ?wxBORDER_SIMPLE).
--define(wxBORDER, ?wxBORDER_SIMPLE).
--define(wxRAISED_BORDER, ?wxBORDER_RAISED).
--define(wxSUNKEN_BORDER, ?wxBORDER_SUNKEN).
--define(wxDOUBLE_BORDER, ?wxBORDER_DOUBLE).
--define(wxCAPTION, 536870912).
--define(wxHSCROLL, 1073741824).
--define(wxVSCROLL, 2147483648).
--define(wxDEFAULT_CONTROL_BORDER, wxe_util:get_const(wxDEFAULT_CONTROL_BORDER)).
--define(wxCENTER_ON_SCREEN, ?wxCENTRE_ON_SCREEN).
--define(wxCENTRE_ON_SCREEN, 2).
--define(wxCENTER_FRAME, 0).
--define(wxBYTE_ORDER, wxe_util:get_const(wxBYTE_ORDER)).
--define(wxPDP_ENDIAN, 3412).
--define(wxLITTLE_ENDIAN, 1234).
--define(wxBIG_ENDIAN, 4321).
--define(wxHAS_INT64, wxe_util:get_const(wxHAS_INT64)).
--define(wxNOT_FOUND, -1).
-% From "defs.h": form_ops_t
--define(wxCLEAR, 0).
--define(wxROP_BLACK, ?wxCLEAR).
--define(wxBLIT_BLACKNESS, ?wxCLEAR).
--define(wxXOR, (?wxCLEAR+1)).
--define(wxROP_XORPEN, ?wxXOR).
--define(wxBLIT_SRCINVERT, ?wxXOR).
--define(wxINVERT, (?wxXOR+1)).
--define(wxROP_NOT, ?wxINVERT).
--define(wxBLIT_DSTINVERT, ?wxINVERT).
--define(wxOR_REVERSE, (?wxINVERT+1)).
--define(wxROP_MERGEPENNOT, ?wxOR_REVERSE).
--define(wxBLIT_00DD0228, ?wxOR_REVERSE).
--define(wxAND_REVERSE, (?wxOR_REVERSE+1)).
--define(wxROP_MASKPENNOT, ?wxAND_REVERSE).
--define(wxBLIT_SRCERASE, ?wxAND_REVERSE).
--define(wxCOPY, (?wxAND_REVERSE+1)).
--define(wxROP_COPYPEN, ?wxCOPY).
--define(wxBLIT_SRCCOPY, ?wxCOPY).
--define(wxAND, (?wxCOPY+1)).
--define(wxROP_MASKPEN, ?wxAND).
--define(wxBLIT_SRCAND, ?wxAND).
--define(wxAND_INVERT, (?wxAND+1)).
--define(wxROP_MASKNOTPEN, ?wxAND_INVERT).
--define(wxBLIT_00220326, ?wxAND_INVERT).
--define(wxNO_OP, (?wxAND_INVERT+1)).
--define(wxROP_NOP, ?wxNO_OP).
--define(wxBLIT_00AA0029, ?wxNO_OP).
--define(wxNOR, (?wxNO_OP+1)).
--define(wxROP_NOTMERGEPEN, ?wxNOR).
--define(wxBLIT_NOTSRCERASE, ?wxNOR).
--define(wxEQUIV, (?wxNOR+1)).
--define(wxROP_NOTXORPEN, ?wxEQUIV).
--define(wxBLIT_00990066, ?wxEQUIV).
--define(wxSRC_INVERT, (?wxEQUIV+1)).
--define(wxROP_NOTCOPYPEN, ?wxSRC_INVERT).
--define(wxBLIT_NOTSCRCOPY, ?wxSRC_INVERT).
--define(wxOR_INVERT, (?wxSRC_INVERT+1)).
--define(wxROP_MERGENOTPEN, ?wxOR_INVERT).
--define(wxBLIT_MERGEPAINT, ?wxOR_INVERT).
--define(wxNAND, (?wxOR_INVERT+1)).
--define(wxROP_NOTMASKPEN, ?wxNAND).
--define(wxBLIT_007700E6, ?wxNAND).
--define(wxOR, (?wxNAND+1)).
--define(wxROP_MERGEPEN, ?wxOR).
--define(wxBLIT_SRCPAINT, ?wxOR).
--define(wxSET, (?wxOR+1)).
--define(wxROP_WHITE, ?wxSET).
--define(wxBLIT_WHITENESS, ?wxSET).
-% From "defs.h": wxAlignment
--define(wxALIGN_NOT, 0).
--define(wxALIGN_CENTER_HORIZONTAL, 256).
--define(wxALIGN_CENTRE_HORIZONTAL, ?wxALIGN_CENTER_HORIZONTAL).
--define(wxALIGN_LEFT, ?wxALIGN_NOT).
--define(wxALIGN_TOP, ?wxALIGN_NOT).
--define(wxALIGN_RIGHT, 512).
--define(wxALIGN_BOTTOM, 1024).
--define(wxALIGN_CENTER_VERTICAL, 2048).
--define(wxALIGN_CENTRE_VERTICAL, ?wxALIGN_CENTER_VERTICAL).
--define(wxALIGN_CENTER, (?wxALIGN_CENTER_HORIZONTAL bor ?wxALIGN_CENTER_VERTICAL)).
--define(wxALIGN_CENTRE, ?wxALIGN_CENTER).
--define(wxALIGN_MASK, 3840).
-% From "defs.h": wxBackgroundStyle
--define(wxBG_STYLE_SYSTEM, wxe_util:get_const(wxBG_STYLE_SYSTEM)).
--define(wxBG_STYLE_COLOUR, wxe_util:get_const(wxBG_STYLE_COLOUR)).
--define(wxBG_STYLE_CUSTOM, wxe_util:get_const(wxBG_STYLE_CUSTOM)).
-% From "defs.h": wxBorder
--define(wxBORDER_DEFAULT, 0).
--define(wxBORDER_NONE, 2097152).
--define(wxBORDER_STATIC, 16777216).
--define(wxBORDER_SIMPLE, 33554432).
--define(wxBORDER_RAISED, 67108864).
--define(wxBORDER_SUNKEN, 134217728).
--define(wxBORDER_DOUBLE, 268435456).
--define(wxBORDER_THEME, 268435456).
--define(wxBORDER_MASK, 522190848).
-% From "defs.h": wxDataFormatId
--define(wxDF_INVALID, 0).
--define(wxDF_TEXT, 1).
--define(wxDF_BITMAP, 2).
--define(wxDF_METAFILE, 3).
--define(wxDF_SYLK, 4).
--define(wxDF_DIF, 5).
--define(wxDF_TIFF, 6).
--define(wxDF_OEMTEXT, 7).
--define(wxDF_DIB, 8).
--define(wxDF_PALETTE, 9).
--define(wxDF_PENDATA, 10).
--define(wxDF_RIFF, 11).
--define(wxDF_WAVE, 12).
--define(wxDF_UNICODETEXT, 13).
--define(wxDF_ENHMETAFILE, 14).
--define(wxDF_FILENAME, 15).
--define(wxDF_LOCALE, 16).
--define(wxDF_PRIVATE, 20).
--define(wxDF_HTML, 30).
--define(wxDF_MAX, 31).
-% From "defs.h": wxDirection
+%%%  From "defs.h": wxDirection
 -define(wxLEFT, 16).
 -define(wxRIGHT, 32).
 -define(wxUP, 64).
@@ -1284,14 +948,15 @@
 -define(wxWEST, ?wxLEFT).
 -define(wxEAST, ?wxRIGHT).
 -define(wxALL, (?wxUP bor ?wxDOWN bor ?wxRIGHT bor ?wxLEFT)).
-% From "defs.h": wxDuplexMode
+-define(wxDIRECTION_MASK, ?wxALL).
+%%%  From "defs.h": wxDuplexMode
 -define(wxDUPLEX_SIMPLEX, 0).
 -define(wxDUPLEX_HORIZONTAL, 1).
 -define(wxDUPLEX_VERTICAL, 2).
-% From "defs.h": wxGeometryCentre
+%%%  From "defs.h": wxGeometryCentre
 -define(wxCENTRE, 1).
 -define(wxCENTER, ?wxCENTRE).
-% From "defs.h": wxHitTest
+%%%  From "defs.h": wxHitTest
 -define(wxHT_NOWHERE, 0).
 -define(wxHT_SCROLLBAR_FIRST, ?wxHT_NOWHERE).
 -define(wxHT_SCROLLBAR_ARROW_LINE_1, (?wxHT_NOWHERE+1)).
@@ -1308,13 +973,41 @@
 -define(wxHT_WINDOW_HORZ_SCROLLBAR, (?wxHT_NOWHERE+12)).
 -define(wxHT_WINDOW_CORNER, (?wxHT_NOWHERE+13)).
 -define(wxHT_MAX, (?wxHT_NOWHERE+14)).
-% From "defs.h": wxItemKind
+%%%  From "defs.h": wxItemKind
 -define(wxITEM_SEPARATOR, -1).
 -define(wxITEM_NORMAL, 0).
 -define(wxITEM_CHECK, 1).
 -define(wxITEM_RADIO, 2).
--define(wxITEM_MAX, 3).
-% From "defs.h": wxKeyCode
+-define(wxITEM_DROPDOWN, 3).
+-define(wxITEM_MAX, 4).
+%%%  From "defs.h": wxKeyCode
+-define(WXK_NONE, 0).
+-define(WXK_CONTROL_A, 1).
+-define(WXK_CONTROL_B, 2).
+-define(WXK_CONTROL_C, 3).
+-define(WXK_CONTROL_D, 4).
+-define(WXK_CONTROL_E, 5).
+-define(WXK_CONTROL_F, 6).
+-define(WXK_CONTROL_G, 7).
+-define(WXK_CONTROL_H, 8).
+-define(WXK_CONTROL_I, 9).
+-define(WXK_CONTROL_J, 10).
+-define(WXK_CONTROL_K, 11).
+-define(WXK_CONTROL_L, 12).
+-define(WXK_CONTROL_M, 13).
+-define(WXK_CONTROL_N, 14).
+-define(WXK_CONTROL_O, 15).
+-define(WXK_CONTROL_P, 16).
+-define(WXK_CONTROL_Q, 17).
+-define(WXK_CONTROL_R, 18).
+-define(WXK_CONTROL_S, 19).
+-define(WXK_CONTROL_T, 20).
+-define(WXK_CONTROL_U, 21).
+-define(WXK_CONTROL_V, 22).
+-define(WXK_CONTROL_W, 23).
+-define(WXK_CONTROL_X, 24).
+-define(WXK_CONTROL_Y, 25).
+-define(WXK_CONTROL_Z, 26).
 -define(WXK_BACK, 8).
 -define(WXK_TAB, 9).
 -define(WXK_RETURN, 13).
@@ -1417,28 +1110,46 @@
 -define(WXK_WINDOWS_LEFT, 393).
 -define(WXK_WINDOWS_RIGHT, 394).
 -define(WXK_WINDOWS_MENU, 395).
--define(WXK_COMMAND, 396).
--define(WXK_SPECIAL1, 193).
--define(WXK_SPECIAL2, 194).
--define(WXK_SPECIAL3, 195).
--define(WXK_SPECIAL4, 196).
--define(WXK_SPECIAL5, 197).
--define(WXK_SPECIAL6, 198).
--define(WXK_SPECIAL7, 199).
--define(WXK_SPECIAL8, 200).
--define(WXK_SPECIAL9, 201).
--define(WXK_SPECIAL10, 202).
--define(WXK_SPECIAL11, 203).
--define(WXK_SPECIAL12, 204).
--define(WXK_SPECIAL13, 205).
--define(WXK_SPECIAL14, 206).
--define(WXK_SPECIAL15, 207).
--define(WXK_SPECIAL16, 208).
--define(WXK_SPECIAL17, 209).
--define(WXK_SPECIAL18, 210).
--define(WXK_SPECIAL19, 211).
--define(WXK_SPECIAL20, 212).
-% From "defs.h": wxKeyModifier
+-define(WXK_RAW_CONTROL, wxe_util:get_const(wxk_RAW_CONTROL)).
+-define(WXK_COMMAND, ?WXK_CONTROL).
+-define(WXK_SPECIAL1, wxe_util:get_const(wxk_SPECIAL1)).
+-define(WXK_SPECIAL2, wxe_util:get_const(wxk_SPECIAL2)).
+-define(WXK_SPECIAL3, wxe_util:get_const(wxk_SPECIAL3)).
+-define(WXK_SPECIAL4, wxe_util:get_const(wxk_SPECIAL4)).
+-define(WXK_SPECIAL5, wxe_util:get_const(wxk_SPECIAL5)).
+-define(WXK_SPECIAL6, wxe_util:get_const(wxk_SPECIAL6)).
+-define(WXK_SPECIAL7, wxe_util:get_const(wxk_SPECIAL7)).
+-define(WXK_SPECIAL8, wxe_util:get_const(wxk_SPECIAL8)).
+-define(WXK_SPECIAL9, wxe_util:get_const(wxk_SPECIAL9)).
+-define(WXK_SPECIAL10, wxe_util:get_const(wxk_SPECIAL10)).
+-define(WXK_SPECIAL11, wxe_util:get_const(wxk_SPECIAL11)).
+-define(WXK_SPECIAL12, wxe_util:get_const(wxk_SPECIAL12)).
+-define(WXK_SPECIAL13, wxe_util:get_const(wxk_SPECIAL13)).
+-define(WXK_SPECIAL14, wxe_util:get_const(wxk_SPECIAL14)).
+-define(WXK_SPECIAL15, wxe_util:get_const(wxk_SPECIAL15)).
+-define(WXK_SPECIAL16, wxe_util:get_const(wxk_SPECIAL16)).
+-define(WXK_SPECIAL17, wxe_util:get_const(wxk_SPECIAL17)).
+-define(WXK_SPECIAL18, wxe_util:get_const(wxk_SPECIAL18)).
+-define(WXK_SPECIAL19, wxe_util:get_const(wxk_SPECIAL19)).
+-define(WXK_SPECIAL20, wxe_util:get_const(wxk_SPECIAL20)).
+-define(WXK_BROWSER_BACK, (?WXK_WINDOWS_MENU+22)).
+-define(WXK_BROWSER_FORWARD, (?WXK_WINDOWS_MENU+23)).
+-define(WXK_BROWSER_REFRESH, (?WXK_WINDOWS_MENU+24)).
+-define(WXK_BROWSER_STOP, (?WXK_WINDOWS_MENU+25)).
+-define(WXK_BROWSER_SEARCH, (?WXK_WINDOWS_MENU+26)).
+-define(WXK_BROWSER_FAVORITES, (?WXK_WINDOWS_MENU+27)).
+-define(WXK_BROWSER_HOME, (?WXK_WINDOWS_MENU+28)).
+-define(WXK_VOLUME_MUTE, (?WXK_WINDOWS_MENU+29)).
+-define(WXK_VOLUME_DOWN, (?WXK_WINDOWS_MENU+30)).
+-define(WXK_VOLUME_UP, (?WXK_WINDOWS_MENU+31)).
+-define(WXK_MEDIA_NEXT_TRACK, (?WXK_WINDOWS_MENU+32)).
+-define(WXK_MEDIA_PREV_TRACK, (?WXK_WINDOWS_MENU+33)).
+-define(WXK_MEDIA_STOP, (?WXK_WINDOWS_MENU+34)).
+-define(WXK_MEDIA_PLAY_PAUSE, (?WXK_WINDOWS_MENU+35)).
+-define(WXK_LAUNCH_MAIL, (?WXK_WINDOWS_MENU+36)).
+-define(WXK_LAUNCH_APP1, (?WXK_WINDOWS_MENU+37)).
+-define(WXK_LAUNCH_APP2, (?WXK_WINDOWS_MENU+38)).
+%%%  From "defs.h": wxKeyModifier
 -define(wxMOD_NONE, 0).
 -define(wxMOD_ALT, 1).
 -define(wxMOD_CONTROL, 2).
@@ -1446,17 +1157,15 @@
 -define(wxMOD_SHIFT, 4).
 -define(wxMOD_META, 8).
 -define(wxMOD_WIN, ?wxMOD_META).
--define(wxMOD_CMD, wxe_util:get_const(wxMOD_CMD)).
+-define(wxMOD_RAW_CONTROL, wxe_util:get_const(wxMOD_RAW_CONTROL)).
+-define(wxMOD_CMD, ?wxMOD_CONTROL).
 -define(wxMOD_ALL, 65535).
-% From "defs.h": wxNotificationOptions
--define(wxNOTIFY_NONE, 0).
--define(wxNOTIFY_ONCE, 1).
--define(wxNOTIFY_REPEAT, 2).
-% From "defs.h": wxOrientation
+%%%  From "defs.h": wxOrientation
 -define(wxHORIZONTAL, 4).
 -define(wxVERTICAL, 8).
 -define(wxBOTH, (?wxVERTICAL bor ?wxHORIZONTAL)).
-% From "defs.h": wxPaperSize
+-define(wxORIENTATION_MASK, ?wxBOTH).
+%%%  From "defs.h": wxPaperSize
 -define(wxPAPER_NONE, 0).
 -define(wxPAPER_LETTER, 1).
 -define(wxPAPER_LEGAL, 2).
@@ -1574,143 +1283,315 @@
 -define(wxPAPER_PENV_8_ROTATED, 114).
 -define(wxPAPER_PENV_9_ROTATED, 115).
 -define(wxPAPER_PENV_10_ROTATED, 116).
-% From "defs.h": wxPrintMode
+-define(wxPAPER_A0, 117).
+-define(wxPAPER_A1, 118).
+%%%  From "defs.h": wxPrintMode
 -define(wxPRINT_MODE_NONE, 0).
 -define(wxPRINT_MODE_PREVIEW, 1).
 -define(wxPRINT_MODE_FILE, 2).
 -define(wxPRINT_MODE_PRINTER, 3).
 -define(wxPRINT_MODE_STREAM, 4).
-% From "defs.h": wxStretch
+%%%  From "defs.h": wxPrintOrientation
+-define(wxPORTRAIT, 1).
+-define(wxLANDSCAPE, 2).
+%%%  From "defs.h": wxSizerFlagBits
+-define(wxFIXED_MINSIZE, 32768).
+-define(wxRESERVE_SPACE_EVEN_IF_HIDDEN, 2).
+-define(wxSIZER_FLAG_BITS_MASK, 32770).
+%%%  From "defs.h": wxStandardID
+-define(wxID_AUTO_LOWEST, wxe_util:get_const(wxID_AUTO_LOWEST)).
+-define(wxID_AUTO_HIGHEST, -2000).
+-define(wxID_NONE, -3).
+-define(wxID_SEPARATOR, -2).
+-define(wxID_ANY, -1).
+-define(wxID_LOWEST, 4999).
+-define(wxID_OPEN, 5000).
+-define(wxID_CLOSE, 5001).
+-define(wxID_NEW, 5002).
+-define(wxID_SAVE, 5003).
+-define(wxID_SAVEAS, 5004).
+-define(wxID_REVERT, 5005).
+-define(wxID_EXIT, 5006).
+-define(wxID_UNDO, 5007).
+-define(wxID_REDO, 5008).
+-define(wxID_HELP, 5009).
+-define(wxID_PRINT, 5010).
+-define(wxID_PRINT_SETUP, 5011).
+-define(wxID_PAGE_SETUP, 5012).
+-define(wxID_PREVIEW, 5013).
+-define(wxID_ABOUT, 5014).
+-define(wxID_HELP_CONTENTS, 5015).
+-define(wxID_HELP_INDEX, 5016).
+-define(wxID_HELP_SEARCH, 5017).
+-define(wxID_HELP_COMMANDS, 5018).
+-define(wxID_HELP_PROCEDURES, 5019).
+-define(wxID_HELP_CONTEXT, 5020).
+-define(wxID_CLOSE_ALL, 5021).
+-define(wxID_PREFERENCES, 5022).
+-define(wxID_EDIT, 5030).
+-define(wxID_CUT, 5031).
+-define(wxID_COPY, 5032).
+-define(wxID_PASTE, 5033).
+-define(wxID_CLEAR, 5034).
+-define(wxID_FIND, 5035).
+-define(wxID_DUPLICATE, 5036).
+-define(wxID_SELECTALL, 5037).
+-define(wxID_DELETE, 5038).
+-define(wxID_REPLACE, 5039).
+-define(wxID_REPLACE_ALL, 5040).
+-define(wxID_PROPERTIES, 5041).
+-define(wxID_VIEW_DETAILS, 5042).
+-define(wxID_VIEW_LARGEICONS, 5043).
+-define(wxID_VIEW_SMALLICONS, 5044).
+-define(wxID_VIEW_LIST, 5045).
+-define(wxID_VIEW_SORTDATE, 5046).
+-define(wxID_VIEW_SORTNAME, 5047).
+-define(wxID_VIEW_SORTSIZE, 5048).
+-define(wxID_VIEW_SORTTYPE, 5049).
+-define(wxID_FILE, 5050).
+-define(wxID_FILE1, 5051).
+-define(wxID_FILE2, 5052).
+-define(wxID_FILE3, 5053).
+-define(wxID_FILE4, 5054).
+-define(wxID_FILE5, 5055).
+-define(wxID_FILE6, 5056).
+-define(wxID_FILE7, 5057).
+-define(wxID_FILE8, 5058).
+-define(wxID_FILE9, 5059).
+-define(wxID_OK, 5100).
+-define(wxID_CANCEL, 5101).
+-define(wxID_APPLY, 5102).
+-define(wxID_YES, 5103).
+-define(wxID_NO, 5104).
+-define(wxID_STATIC, 5105).
+-define(wxID_FORWARD, 5106).
+-define(wxID_BACKWARD, 5107).
+-define(wxID_DEFAULT, 5108).
+-define(wxID_MORE, 5109).
+-define(wxID_SETUP, 5110).
+-define(wxID_RESET, 5111).
+-define(wxID_CONTEXT_HELP, 5112).
+-define(wxID_YESTOALL, 5113).
+-define(wxID_NOTOALL, 5114).
+-define(wxID_ABORT, 5115).
+-define(wxID_RETRY, 5116).
+-define(wxID_IGNORE, 5117).
+-define(wxID_ADD, 5118).
+-define(wxID_REMOVE, 5119).
+-define(wxID_UP, 5120).
+-define(wxID_DOWN, 5121).
+-define(wxID_HOME, 5122).
+-define(wxID_REFRESH, 5123).
+-define(wxID_STOP, 5124).
+-define(wxID_INDEX, 5125).
+-define(wxID_BOLD, 5126).
+-define(wxID_ITALIC, 5127).
+-define(wxID_JUSTIFY_CENTER, 5128).
+-define(wxID_JUSTIFY_FILL, 5129).
+-define(wxID_JUSTIFY_RIGHT, 5130).
+-define(wxID_JUSTIFY_LEFT, 5131).
+-define(wxID_UNDERLINE, 5132).
+-define(wxID_INDENT, 5133).
+-define(wxID_UNINDENT, 5134).
+-define(wxID_ZOOM_100, 5135).
+-define(wxID_ZOOM_FIT, 5136).
+-define(wxID_ZOOM_IN, 5137).
+-define(wxID_ZOOM_OUT, 5138).
+-define(wxID_UNDELETE, 5139).
+-define(wxID_REVERT_TO_SAVED, 5140).
+-define(wxID_CDROM, 5141).
+-define(wxID_CONVERT, 5142).
+-define(wxID_EXECUTE, 5143).
+-define(wxID_FLOPPY, 5144).
+-define(wxID_HARDDISK, 5145).
+-define(wxID_BOTTOM, 5146).
+-define(wxID_FIRST, 5147).
+-define(wxID_LAST, 5148).
+-define(wxID_TOP, 5149).
+-define(wxID_INFO, 5150).
+-define(wxID_JUMP_TO, 5151).
+-define(wxID_NETWORK, 5152).
+-define(wxID_SELECT_COLOR, 5153).
+-define(wxID_SELECT_FONT, 5154).
+-define(wxID_SORT_ASCENDING, 5155).
+-define(wxID_SORT_DESCENDING, 5156).
+-define(wxID_SPELL_CHECK, 5157).
+-define(wxID_STRIKETHROUGH, 5158).
+-define(wxID_SYSTEM_MENU, 5200).
+-define(wxID_CLOSE_FRAME, 5201).
+-define(wxID_MOVE_FRAME, 5202).
+-define(wxID_RESIZE_FRAME, 5203).
+-define(wxID_MAXIMIZE_FRAME, 5204).
+-define(wxID_ICONIZE_FRAME, 5205).
+-define(wxID_RESTORE_FRAME, 5206).
+-define(wxID_MDI_WINDOW_FIRST, 5230).
+-define(wxID_MDI_WINDOW_CASCADE, ?wxID_MDI_WINDOW_FIRST).
+-define(wxID_MDI_WINDOW_TILE_HORZ, (?wxID_MDI_WINDOW_FIRST+1)).
+-define(wxID_MDI_WINDOW_TILE_VERT, (?wxID_MDI_WINDOW_FIRST+2)).
+-define(wxID_MDI_WINDOW_ARRANGE_ICONS, (?wxID_MDI_WINDOW_FIRST+3)).
+-define(wxID_MDI_WINDOW_PREV, (?wxID_MDI_WINDOW_FIRST+4)).
+-define(wxID_MDI_WINDOW_NEXT, (?wxID_MDI_WINDOW_FIRST+5)).
+-define(wxID_MDI_WINDOW_LAST, ?wxID_MDI_WINDOW_NEXT).
+-define(wxID_FILEDLGG, 5900).
+-define(wxID_FILECTRL, 5950).
+-define(wxID_HIGHEST, 5999).
+%%%  From "defs.h": wxStretch
 -define(wxSTRETCH_NOT, 0).
 -define(wxSHRINK, 4096).
 -define(wxGROW, 8192).
 -define(wxEXPAND, ?wxGROW).
 -define(wxSHAPED, 16384).
--define(wxFIXED_MINSIZE, 32768).
--define(wxRESERVE_SPACE_EVEN_IF_HIDDEN, 2).
--define(wxTILE, 49152).
--define(wxADJUST_MINSIZE, 0).
-% From "defs.h": wxUpdateUI
+-define(wxTILE, (?wxSHAPED bor ?wxFIXED_MINSIZE)).
+-define(wxSTRETCH_MASK, 28672).
+%%%  From "defs.h": wxUpdateUI
 -define(wxUPDATE_UI_NONE, 0).
 -define(wxUPDATE_UI_RECURSE, 1).
 -define(wxUPDATE_UI_FROMIDLE, 2).
-% From "dialog.h"
+%%%  From "dialog.h"
+-define(wxDIALOG_ADAPTATION_LOOSE_BUTTONS, 3).
+-define(wxDIALOG_ADAPTATION_ANY_SIZER, 2).
+-define(wxDIALOG_ADAPTATION_STANDARD_SIZER, 1).
+-define(wxDIALOG_ADAPTATION_NONE, 0).
 -define(wxDEFAULT_DIALOG_STYLE, (?wxCAPTION bor ?wxSYSTEM_MENU bor ?wxCLOSE_BOX)).
--define(wxDIALOG_NO_PARENT, 1).
-% From "dirctrlg.h"
+-define(wxDIALOG_NO_PARENT, 32).
+%%%  From "dialog.h": wxDialogLayoutAdaptationMode
+-define(wxDIALOG_ADAPTATION_MODE_DEFAULT, 0).
+-define(wxDIALOG_ADAPTATION_MODE_ENABLED, 1).
+-define(wxDIALOG_ADAPTATION_MODE_DISABLED, 2).
+%%%  From "dirctrl.h"
 -define(wxDIRCTRL_DIR_ONLY, 16).
 -define(wxDIRCTRL_SELECT_FIRST, 32).
 -define(wxDIRCTRL_SHOW_FILTERS, 64).
 -define(wxDIRCTRL_3D_INTERNAL, 128).
 -define(wxDIRCTRL_EDIT_LABELS, 256).
-% From "dirctrlg.h"
--define(wxID_FILTERLISTCTRL, 7001).
--define(wxID_TREECTRL, 7000).
-% From "dirdlg.h"
+-define(wxDIRCTRL_MULTIPLE, 512).
+-define(wxDIRCTRL_DEFAULT_STYLE, ?wxDIRCTRL_3D_INTERNAL).
+%%%  From "dirdlg.h"
 -define(wxDD_DEFAULT_STYLE, (?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER)).
 -define(wxDD_NEW_DIR_BUTTON, 0).
+-define(wxDD_SHOW_HIDDEN, 1).
+-define(wxDD_MULTIPLE, 1024).
 -define(wxDD_DIR_MUST_EXIST, 512).
 -define(wxDD_CHANGE_DIR, 256).
-% From "dirdlgg.h"
-% From "dnd.h"
+%%%  From "dnd.h"
 -define(wxDrag_CopyOnly, 0).
 -define(wxDrag_AllowMove, 1).
 -define(wxDrag_DefaultMove, 3).
-% From "dnd.h": wxDragResult
+%%%  From "dnd.h": wxDragResult
 -define(wxDragError, 0).
 -define(wxDragNone, 1).
 -define(wxDragCopy, 2).
 -define(wxDragMove, 3).
 -define(wxDragLink, 4).
 -define(wxDragCancel, 5).
-% From "event.h"
--define(wxMOUSE_BTN_ANY, -1).
--define(wxMOUSE_BTN_NONE, 0).
--define(wxMOUSE_BTN_LEFT, 1).
--define(wxMOUSE_BTN_MIDDLE, 2).
--define(wxMOUSE_BTN_RIGHT, 3).
-% From "event.h"
+%%%  From "dockart.h": wxAuiButtonId
+-define(wxAUI_BUTTON_CLOSE, 101).
+-define(wxAUI_BUTTON_MAXIMIZE_RESTORE, 102).
+-define(wxAUI_BUTTON_MINIMIZE, 103).
+-define(wxAUI_BUTTON_PIN, 104).
+-define(wxAUI_BUTTON_OPTIONS, 105).
+-define(wxAUI_BUTTON_WINDOWLIST, 106).
+-define(wxAUI_BUTTON_LEFT, 107).
+-define(wxAUI_BUTTON_RIGHT, 108).
+-define(wxAUI_BUTTON_UP, 109).
+-define(wxAUI_BUTTON_DOWN, 110).
+-define(wxAUI_BUTTON_CUSTOM1, 201).
+-define(wxAUI_BUTTON_CUSTOM2, 202).
+-define(wxAUI_BUTTON_CUSTOM3, 203).
+%%%  From "dockart.h": wxAuiPaneButtonState
+-define(wxAUI_BUTTON_STATE_NORMAL, 0).
+-define(wxAUI_BUTTON_STATE_HOVER, 2).
+-define(wxAUI_BUTTON_STATE_PRESSED, 4).
+-define(wxAUI_BUTTON_STATE_DISABLED, 8).
+-define(wxAUI_BUTTON_STATE_HIDDEN, 16).
+-define(wxAUI_BUTTON_STATE_CHECKED, 32).
+%%%  From "dockart.h": wxAuiPaneDockArtGradients
+-define(wxAUI_GRADIENT_NONE, 0).
+-define(wxAUI_GRADIENT_VERTICAL, 1).
+-define(wxAUI_GRADIENT_HORIZONTAL, 2).
+%%%  From "dockart.h": wxAuiPaneDockArtSetting
+-define(wxAUI_DOCKART_SASH_SIZE, 0).
+-define(wxAUI_DOCKART_CAPTION_SIZE, 1).
+-define(wxAUI_DOCKART_GRIPPER_SIZE, 2).
+-define(wxAUI_DOCKART_PANE_BORDER_SIZE, 3).
+-define(wxAUI_DOCKART_PANE_BUTTON_SIZE, 4).
+-define(wxAUI_DOCKART_BACKGROUND_COLOUR, 5).
+-define(wxAUI_DOCKART_SASH_COLOUR, 6).
+-define(wxAUI_DOCKART_ACTIVE_CAPTION_COLOUR, 7).
+-define(wxAUI_DOCKART_ACTIVE_CAPTION_GRADIENT_COLOUR, 8).
+-define(wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR, 9).
+-define(wxAUI_DOCKART_INACTIVE_CAPTION_GRADIENT_COLOUR, 10).
+-define(wxAUI_DOCKART_ACTIVE_CAPTION_TEXT_COLOUR, 11).
+-define(wxAUI_DOCKART_INACTIVE_CAPTION_TEXT_COLOUR, 12).
+-define(wxAUI_DOCKART_BORDER_COLOUR, 13).
+-define(wxAUI_DOCKART_GRIPPER_COLOUR, 14).
+-define(wxAUI_DOCKART_CAPTION_FONT, 15).
+-define(wxAUI_DOCKART_GRADIENT_TYPE, 16).
+%%%  From "event.h"
 -define(wxJOYSTICK1, 0).
 -define(wxJOYSTICK2, 1).
-% From "event.h"
+%%%  From "event.h"
 -define(wxJOY_BUTTON_ANY, -1).
 -define(wxJOY_BUTTON1, 1).
 -define(wxJOY_BUTTON2, 2).
 -define(wxJOY_BUTTON3, 4).
 -define(wxJOY_BUTTON4, 8).
-% From "event.h"
-% From "event.h": Propagation_state
+%%%  From "event.h": wxEventCategory
+%%%  From "event.h": wxEventPropagation
 -define(wxEVENT_PROPAGATE_NONE, 0).
-% From "event.h": wxIdleMode
+-define(wxEVENT_PROPAGATE_MAX, 16#7FFFFFFF).
+%%%  From "event.h": wxIdleMode
 -define(wxIDLE_PROCESS_ALL, 0).
 -define(wxIDLE_PROCESS_SPECIFIED, 1).
-% From "event.h": wxUpdateUIMode
+%%%  From "event.h": wxKeyCategoryFlags
+-define(WXK_CATEGORY_ARROW, 1).
+-define(WXK_CATEGORY_PAGING, 2).
+-define(WXK_CATEGORY_JUMP, 4).
+-define(WXK_CATEGORY_TAB, 8).
+-define(WXK_CATEGORY_CUT, 16).
+-define(WXK_CATEGORY_NAVIGATION, (?WXK_CATEGORY_ARROW bor ?WXK_CATEGORY_PAGING bor ?WXK_CATEGORY_JUMP)).
+%%%  From "event.h": wxMouseWheelAxis
+-define(wxMOUSE_WHEEL_VERTICAL, 0).
+-define(wxMOUSE_WHEEL_HORIZONTAL, 1).
+%%%  From "event.h": wxUpdateUIMode
 -define(wxUPDATE_UI_PROCESS_ALL, 0).
 -define(wxUPDATE_UI_PROCESS_SPECIFIED, 1).
-% From "fdrepdlg.h"
-% From "fdrepdlg.h": wxFindReplaceDialogStyles
+%%%  From "fdrepdlg.h": wxFindReplaceDialogStyles
 -define(wxFR_REPLACEDIALOG, 1).
 -define(wxFR_NOUPDOWN, 2).
 -define(wxFR_NOMATCHCASE, 4).
 -define(wxFR_NOWHOLEWORD, 8).
-% From "fdrepdlg.h": wxFindReplaceFlags
+%%%  From "fdrepdlg.h": wxFindReplaceFlags
 -define(wxFR_DOWN, 1).
 -define(wxFR_WHOLEWORD, 2).
 -define(wxFR_MATCHCASE, 4).
-% From "filedlg.h"
+%%%  From "filedlg.h"
 -define(wxFD_OPEN, 1).
 -define(wxFD_SAVE, 2).
 -define(wxFD_OVERWRITE_PROMPT, 4).
+-define(wxFD_NO_FOLLOW, 8).
 -define(wxFD_FILE_MUST_EXIST, 16).
--define(wxFD_MULTIPLE, 32).
 -define(wxFD_CHANGE_DIR, 128).
 -define(wxFD_PREVIEW, 256).
-% From "filedlg.h"
+-define(wxFD_MULTIPLE, wxe_util:get_const(wxFD_MULTIPLE)).
+-define(wxFD_SHOW_HIDDEN, 1024).
+%%%  From "filedlg.h"
 -define(wxFD_DEFAULT_STYLE, ?wxFD_OPEN).
-% From "filepicker.h"
--define(wxDIRP_DEFAULT_STYLE, ?wxDIRP_DIR_MUST_EXIST).
+%%%  From "filepicker.h"
+-define(wxDIRP_DEFAULT_STYLE, wxe_util:get_const(wxDIRP_DEFAULT_STYLE)).
 -define(wxDIRP_USE_TEXTCTRL, ?wxPB_USE_TEXTCTRL).
--define(wxFLP_DEFAULT_STYLE, (?wxFLP_OPEN bor ?wxFLP_FILE_MUST_EXIST)).
--define(wxFLP_USE_TEXTCTRL, ?wxPB_USE_TEXTCTRL).
+-define(wxDIRP_SMALL, ?wxPB_SMALL).
 -define(wxDIRP_CHANGE_DIR, 16).
 -define(wxDIRP_DIR_MUST_EXIST, 8).
+-define(wxFLP_DEFAULT_STYLE, wxe_util:get_const(wxFLP_DEFAULT_STYLE)).
+-define(wxFLP_USE_TEXTCTRL, ?wxPB_USE_TEXTCTRL).
+-define(wxFLP_SMALL, ?wxPB_SMALL).
 -define(wxFLP_CHANGE_DIR, 16384).
 -define(wxFLP_FILE_MUST_EXIST, 8192).
 -define(wxFLP_OVERWRITE_PROMPT, 4096).
 -define(wxFLP_SAVE, 2048).
 -define(wxFLP_OPEN, 1024).
-% From "font.h"
--define(wxFONTFLAG_DEFAULT, 0).
--define(wxFONTFLAG_ITALIC, 1).
--define(wxFONTFLAG_SLANT, 2).
--define(wxFONTFLAG_LIGHT, 4).
--define(wxFONTFLAG_BOLD, 8).
--define(wxFONTFLAG_ANTIALIASED, 16).
--define(wxFONTFLAG_NOT_ANTIALIASED, 32).
--define(wxFONTFLAG_UNDERLINED, 64).
--define(wxFONTFLAG_STRIKETHROUGH, 128).
--define(wxFONTFLAG_MASK, (?wxFONTFLAG_ITALIC bor ?wxFONTFLAG_SLANT bor ?wxFONTFLAG_LIGHT bor ?wxFONTFLAG_BOLD bor ?wxFONTFLAG_ANTIALIASED bor ?wxFONTFLAG_NOT_ANTIALIASED bor ?wxFONTFLAG_UNDERLINED bor ?wxFONTFLAG_STRIKETHROUGH)).
-% From "font.h": wxFontFamily
--define(wxFONTFAMILY_DEFAULT, ?wxDEFAULT).
--define(wxFONTFAMILY_DECORATIVE, ?wxDECORATIVE).
--define(wxFONTFAMILY_ROMAN, ?wxROMAN).
--define(wxFONTFAMILY_SCRIPT, ?wxSCRIPT).
--define(wxFONTFAMILY_SWISS, ?wxSWISS).
--define(wxFONTFAMILY_MODERN, ?wxMODERN).
--define(wxFONTFAMILY_TELETYPE, ?wxTELETYPE).
--define(wxFONTFAMILY_MAX, (?wxTELETYPE+1)).
--define(wxFONTFAMILY_UNKNOWN, ?wxFONTFAMILY_MAX).
-% From "font.h": wxFontStyle
--define(wxFONTSTYLE_NORMAL, ?wxNORMAL).
--define(wxFONTSTYLE_ITALIC, ?wxITALIC).
--define(wxFONTSTYLE_SLANT, ?wxSLANT).
--define(wxFONTSTYLE_MAX, (?wxSLANT+1)).
-% From "font.h": wxFontWeight
--define(wxFONTWEIGHT_NORMAL, wxe_util:get_const(wxFONTWEIGHT_NORMAL)).
--define(wxFONTWEIGHT_LIGHT, wxe_util:get_const(wxFONTWEIGHT_LIGHT)).
--define(wxFONTWEIGHT_BOLD, wxe_util:get_const(wxFONTWEIGHT_BOLD)).
--define(wxFONTWEIGHT_MAX, wxe_util:get_const(wxFONTWEIGHT_MAX)).
-% From "fontenc.h": wxFontEncoding
+%%%  From "font.h": wxFontEncoding
 -define(wxFONTENCODING_SYSTEM, -1).
 -define(wxFONTENCODING_DEFAULT, 0).
 -define(wxFONTENCODING_ISO8859_1, 1).
@@ -1751,89 +1632,131 @@
 -define(wxFONTENCODING_CP1255, 36).
 -define(wxFONTENCODING_CP1256, 37).
 -define(wxFONTENCODING_CP1257, 38).
--define(wxFONTENCODING_CP12_MAX, 39).
--define(wxFONTENCODING_UTF7, 40).
--define(wxFONTENCODING_UTF8, 41).
--define(wxFONTENCODING_EUC_JP, 42).
--define(wxFONTENCODING_UTF16BE, 43).
--define(wxFONTENCODING_UTF16LE, 44).
--define(wxFONTENCODING_UTF32BE, 45).
--define(wxFONTENCODING_UTF32LE, 46).
--define(wxFONTENCODING_MACROMAN, 47).
--define(wxFONTENCODING_MACJAPANESE, 48).
--define(wxFONTENCODING_MACCHINESETRAD, 49).
--define(wxFONTENCODING_MACKOREAN, 50).
--define(wxFONTENCODING_MACARABIC, 51).
--define(wxFONTENCODING_MACHEBREW, 52).
--define(wxFONTENCODING_MACGREEK, 53).
--define(wxFONTENCODING_MACCYRILLIC, 54).
--define(wxFONTENCODING_MACDEVANAGARI, 55).
--define(wxFONTENCODING_MACGURMUKHI, 56).
--define(wxFONTENCODING_MACGUJARATI, 57).
--define(wxFONTENCODING_MACORIYA, 58).
--define(wxFONTENCODING_MACBENGALI, 59).
--define(wxFONTENCODING_MACTAMIL, 60).
--define(wxFONTENCODING_MACTELUGU, 61).
--define(wxFONTENCODING_MACKANNADA, 62).
--define(wxFONTENCODING_MACMALAJALAM, 63).
--define(wxFONTENCODING_MACSINHALESE, 64).
--define(wxFONTENCODING_MACBURMESE, 65).
--define(wxFONTENCODING_MACKHMER, 66).
--define(wxFONTENCODING_MACTHAI, 67).
--define(wxFONTENCODING_MACLAOTIAN, 68).
--define(wxFONTENCODING_MACGEORGIAN, 69).
--define(wxFONTENCODING_MACARMENIAN, 70).
--define(wxFONTENCODING_MACCHINESESIMP, 71).
--define(wxFONTENCODING_MACTIBETAN, 72).
--define(wxFONTENCODING_MACMONGOLIAN, 73).
--define(wxFONTENCODING_MACETHIOPIC, 74).
--define(wxFONTENCODING_MACCENTRALEUR, 75).
--define(wxFONTENCODING_MACVIATNAMESE, 76).
--define(wxFONTENCODING_MACARABICEXT, 77).
--define(wxFONTENCODING_MACSYMBOL, 78).
--define(wxFONTENCODING_MACDINGBATS, 79).
--define(wxFONTENCODING_MACTURKISH, 80).
--define(wxFONTENCODING_MACCROATIAN, 81).
--define(wxFONTENCODING_MACICELANDIC, 82).
--define(wxFONTENCODING_MACROMANIAN, 83).
--define(wxFONTENCODING_MACCELTIC, 84).
--define(wxFONTENCODING_MACGAELIC, 85).
--define(wxFONTENCODING_MACKEYBOARD, 86).
--define(wxFONTENCODING_MAX, 87).
+-define(wxFONTENCODING_CP1258, 39).
+-define(wxFONTENCODING_CP1361, 40).
+-define(wxFONTENCODING_CP12_MAX, 41).
+-define(wxFONTENCODING_UTF7, 42).
+-define(wxFONTENCODING_UTF8, 43).
+-define(wxFONTENCODING_EUC_JP, 44).
+-define(wxFONTENCODING_UTF16BE, wxe_util:get_const(wxFONTENCODING_UTF16BE)).
+-define(wxFONTENCODING_UTF16LE, wxe_util:get_const(wxFONTENCODING_UTF16LE)).
+-define(wxFONTENCODING_UTF32BE, wxe_util:get_const(wxFONTENCODING_UTF32BE)).
+-define(wxFONTENCODING_UTF32LE, wxe_util:get_const(wxFONTENCODING_UTF32LE)).
+-define(wxFONTENCODING_MACROMAN, 49).
+-define(wxFONTENCODING_MACJAPANESE, 50).
+-define(wxFONTENCODING_MACCHINESETRAD, 51).
+-define(wxFONTENCODING_MACKOREAN, 52).
+-define(wxFONTENCODING_MACARABIC, 53).
+-define(wxFONTENCODING_MACHEBREW, 54).
+-define(wxFONTENCODING_MACGREEK, 55).
+-define(wxFONTENCODING_MACCYRILLIC, 56).
+-define(wxFONTENCODING_MACDEVANAGARI, 57).
+-define(wxFONTENCODING_MACGURMUKHI, 58).
+-define(wxFONTENCODING_MACGUJARATI, 59).
+-define(wxFONTENCODING_MACORIYA, 60).
+-define(wxFONTENCODING_MACBENGALI, 61).
+-define(wxFONTENCODING_MACTAMIL, 62).
+-define(wxFONTENCODING_MACTELUGU, 63).
+-define(wxFONTENCODING_MACKANNADA, 64).
+-define(wxFONTENCODING_MACMALAJALAM, 65).
+-define(wxFONTENCODING_MACSINHALESE, 66).
+-define(wxFONTENCODING_MACBURMESE, 67).
+-define(wxFONTENCODING_MACKHMER, 68).
+-define(wxFONTENCODING_MACTHAI, 69).
+-define(wxFONTENCODING_MACLAOTIAN, 70).
+-define(wxFONTENCODING_MACGEORGIAN, 71).
+-define(wxFONTENCODING_MACARMENIAN, 72).
+-define(wxFONTENCODING_MACCHINESESIMP, 73).
+-define(wxFONTENCODING_MACTIBETAN, 74).
+-define(wxFONTENCODING_MACMONGOLIAN, 75).
+-define(wxFONTENCODING_MACETHIOPIC, 76).
+-define(wxFONTENCODING_MACCENTRALEUR, 77).
+-define(wxFONTENCODING_MACVIATNAMESE, 78).
+-define(wxFONTENCODING_MACARABICEXT, 79).
+-define(wxFONTENCODING_MACSYMBOL, 80).
+-define(wxFONTENCODING_MACDINGBATS, 81).
+-define(wxFONTENCODING_MACTURKISH, 82).
+-define(wxFONTENCODING_MACCROATIAN, 83).
+-define(wxFONTENCODING_MACICELANDIC, 84).
+-define(wxFONTENCODING_MACROMANIAN, 85).
+-define(wxFONTENCODING_MACCELTIC, 86).
+-define(wxFONTENCODING_MACGAELIC, 87).
+-define(wxFONTENCODING_MACKEYBOARD, 88).
+-define(wxFONTENCODING_ISO2022_JP, 89).
+-define(wxFONTENCODING_MAX, 90).
 -define(wxFONTENCODING_MACMIN, ?wxFONTENCODING_MACROMAN).
 -define(wxFONTENCODING_MACMAX, ?wxFONTENCODING_MACKEYBOARD).
 -define(wxFONTENCODING_UTF16, wxe_util:get_const(wxFONTENCODING_UTF16)).
 -define(wxFONTENCODING_UTF32, wxe_util:get_const(wxFONTENCODING_UTF32)).
--define(wxFONTENCODING_UNICODE, ?wxFONTENCODING_UTF32).
+-define(wxFONTENCODING_UNICODE, wxe_util:get_const(wxFONTENCODING_UNICODE)).
 -define(wxFONTENCODING_GB2312, ?wxFONTENCODING_CP936).
 -define(wxFONTENCODING_BIG5, ?wxFONTENCODING_CP950).
 -define(wxFONTENCODING_SHIFT_JIS, ?wxFONTENCODING_CP932).
-% From "fontpicker.h"
--define(wxFNTP_MAXPOINT_SIZE, 100).
+-define(wxFONTENCODING_EUC_KR, ?wxFONTENCODING_CP949).
+-define(wxFONTENCODING_JOHAB, ?wxFONTENCODING_CP1361).
+-define(wxFONTENCODING_VIETNAMESE, ?wxFONTENCODING_CP1258).
+%%%  From "font.h": wxFontFamily
+-define(wxFONTFAMILY_DEFAULT, ?wxDEFAULT).
+-define(wxFONTFAMILY_DECORATIVE, ?wxDECORATIVE).
+-define(wxFONTFAMILY_ROMAN, ?wxROMAN).
+-define(wxFONTFAMILY_SCRIPT, ?wxSCRIPT).
+-define(wxFONTFAMILY_SWISS, ?wxSWISS).
+-define(wxFONTFAMILY_MODERN, ?wxMODERN).
+-define(wxFONTFAMILY_TELETYPE, ?wxTELETYPE).
+-define(wxFONTFAMILY_MAX, (?wxTELETYPE+1)).
+-define(wxFONTFAMILY_UNKNOWN, ?wxFONTFAMILY_MAX).
+%%%  From "font.h": wxFontFlag
+-define(wxFONTFLAG_DEFAULT, 0).
+-define(wxFONTFLAG_ITALIC, 1).
+-define(wxFONTFLAG_SLANT, 2).
+-define(wxFONTFLAG_LIGHT, 4).
+-define(wxFONTFLAG_BOLD, 8).
+-define(wxFONTFLAG_ANTIALIASED, 16).
+-define(wxFONTFLAG_NOT_ANTIALIASED, 32).
+-define(wxFONTFLAG_UNDERLINED, 64).
+-define(wxFONTFLAG_STRIKETHROUGH, 128).
+-define(wxFONTFLAG_MASK, (?wxFONTFLAG_ITALIC bor ?wxFONTFLAG_SLANT bor ?wxFONTFLAG_LIGHT bor ?wxFONTFLAG_BOLD bor ?wxFONTFLAG_ANTIALIASED bor ?wxFONTFLAG_NOT_ANTIALIASED bor ?wxFONTFLAG_UNDERLINED bor ?wxFONTFLAG_STRIKETHROUGH)).
+%%%  From "font.h": wxFontStyle
+-define(wxFONTSTYLE_NORMAL, ?wxNORMAL).
+-define(wxFONTSTYLE_ITALIC, ?wxITALIC).
+-define(wxFONTSTYLE_SLANT, ?wxSLANT).
+-define(wxFONTSTYLE_MAX, (?wxSLANT+1)).
+%%%  From "font.h": wxFontSymbolicSize
+-define(wxFONTSIZE_XX_SMALL, -3).
+-define(wxFONTSIZE_X_SMALL, -2).
+-define(wxFONTSIZE_SMALL, -1).
+-define(wxFONTSIZE_MEDIUM, 0).
+-define(wxFONTSIZE_LARGE, 1).
+-define(wxFONTSIZE_X_LARGE, 2).
+-define(wxFONTSIZE_XX_LARGE, 3).
+%%%  From "font.h": wxFontWeight
+-define(wxFONTWEIGHT_INVALID, 0).
+-define(wxFONTWEIGHT_THIN, 100).
+-define(wxFONTWEIGHT_EXTRALIGHT, 200).
+-define(wxFONTWEIGHT_LIGHT, wxe_util:get_const(wxFONTWEIGHT_LIGHT)).
+-define(wxFONTWEIGHT_NORMAL, wxe_util:get_const(wxFONTWEIGHT_NORMAL)).
+-define(wxFONTWEIGHT_MEDIUM, 500).
+-define(wxFONTWEIGHT_SEMIBOLD, 600).
+-define(wxFONTWEIGHT_BOLD, wxe_util:get_const(wxFONTWEIGHT_BOLD)).
+-define(wxFONTWEIGHT_EXTRABOLD, 800).
+-define(wxFONTWEIGHT_HEAVY, 900).
+-define(wxFONTWEIGHT_EXTRAHEAVY, 1000).
+-define(wxFONTWEIGHT_MAX, wxe_util:get_const(wxFONTWEIGHT_MAX)).
+%%%  From "fontpicker.h"
 -define(wxFNTP_DEFAULT_STYLE, (?wxFNTP_FONTDESC_AS_LABEL bor ?wxFNTP_USEFONT_FOR_LABEL)).
 -define(wxFNTP_USE_TEXTCTRL, ?wxPB_USE_TEXTCTRL).
+-define(wxFONTBTN_DEFAULT_STYLE, (?wxFNTP_FONTDESC_AS_LABEL bor ?wxFNTP_USEFONT_FOR_LABEL)).
 -define(wxFNTP_USEFONT_FOR_LABEL, 16).
 -define(wxFNTP_FONTDESC_AS_LABEL, 8).
-% From "frame.h"
--define(wxFRAME_SHAPED, 16).
+%%%  From "frame.h"
 -define(wxFRAME_FLOAT_ON_PARENT, 8).
 -define(wxFRAME_TOOL_WINDOW, 4).
 -define(wxFRAME_NO_TASKBAR, 2).
-% From "framemanager.h": wxAuiButtonId
--define(wxAUI_BUTTON_CLOSE, 101).
--define(wxAUI_BUTTON_MAXIMIZE_RESTORE, 102).
--define(wxAUI_BUTTON_MINIMIZE, 103).
--define(wxAUI_BUTTON_PIN, 104).
--define(wxAUI_BUTTON_OPTIONS, 105).
--define(wxAUI_BUTTON_WINDOWLIST, 106).
--define(wxAUI_BUTTON_LEFT, 107).
--define(wxAUI_BUTTON_RIGHT, 108).
--define(wxAUI_BUTTON_UP, 109).
--define(wxAUI_BUTTON_DOWN, 110).
--define(wxAUI_BUTTON_CUSTOM1, 201).
--define(wxAUI_BUTTON_CUSTOM2, 202).
--define(wxAUI_BUTTON_CUSTOM3, 203).
-% From "framemanager.h": wxAuiManagerDock
+%%%  From "framemanager.h": wxAuiInsertLevel
+-define(wxAUI_INSERT_PANE, 0).
+-define(wxAUI_INSERT_ROW, 1).
+-define(wxAUI_INSERT_DOCK, 2).
+%%%  From "framemanager.h": wxAuiManagerDock
 -define(wxAUI_DOCK_NONE, 0).
 -define(wxAUI_DOCK_TOP, 1).
 -define(wxAUI_DOCK_RIGHT, 2).
@@ -1841,7 +1764,7 @@
 -define(wxAUI_DOCK_LEFT, 4).
 -define(wxAUI_DOCK_CENTER, 5).
 -define(wxAUI_DOCK_CENTRE, ?wxAUI_DOCK_CENTER).
-% From "framemanager.h": wxAuiManagerOption
+%%%  From "framemanager.h": wxAuiManagerOption
 -define(wxAUI_MGR_ALLOW_FLOATING, 1).
 -define(wxAUI_MGR_ALLOW_ACTIVE_PANE, 2).
 -define(wxAUI_MGR_TRANSPARENT_DRAG, 4).
@@ -1852,46 +1775,13 @@
 -define(wxAUI_MGR_NO_VENETIAN_BLINDS_FADE, 128).
 -define(wxAUI_MGR_LIVE_RESIZE, 256).
 -define(wxAUI_MGR_DEFAULT, (?wxAUI_MGR_ALLOW_FLOATING bor ?wxAUI_MGR_TRANSPARENT_HINT bor ?wxAUI_MGR_HINT_FADE bor ?wxAUI_MGR_NO_VENETIAN_BLINDS_FADE)).
-% From "framemanager.h": wxAuiPaneButtonState
--define(wxAUI_BUTTON_STATE_NORMAL, 0).
--define(wxAUI_BUTTON_STATE_HOVER, 2).
--define(wxAUI_BUTTON_STATE_PRESSED, 4).
--define(wxAUI_BUTTON_STATE_DISABLED, 8).
--define(wxAUI_BUTTON_STATE_HIDDEN, 16).
--define(wxAUI_BUTTON_STATE_CHECKED, 32).
-% From "framemanager.h": wxAuiPaneDockArtGradients
--define(wxAUI_GRADIENT_NONE, 0).
--define(wxAUI_GRADIENT_VERTICAL, 1).
--define(wxAUI_GRADIENT_HORIZONTAL, 2).
-% From "framemanager.h": wxAuiPaneDockArtSetting
--define(wxAUI_DOCKART_SASH_SIZE, 0).
--define(wxAUI_DOCKART_CAPTION_SIZE, 1).
--define(wxAUI_DOCKART_GRIPPER_SIZE, 2).
--define(wxAUI_DOCKART_PANE_BORDER_SIZE, 3).
--define(wxAUI_DOCKART_PANE_BUTTON_SIZE, 4).
--define(wxAUI_DOCKART_BACKGROUND_COLOUR, 5).
--define(wxAUI_DOCKART_SASH_COLOUR, 6).
--define(wxAUI_DOCKART_ACTIVE_CAPTION_COLOUR, 7).
--define(wxAUI_DOCKART_ACTIVE_CAPTION_GRADIENT_COLOUR, 8).
--define(wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR, 9).
--define(wxAUI_DOCKART_INACTIVE_CAPTION_GRADIENT_COLOUR, 10).
--define(wxAUI_DOCKART_ACTIVE_CAPTION_TEXT_COLOUR, 11).
--define(wxAUI_DOCKART_INACTIVE_CAPTION_TEXT_COLOUR, 12).
--define(wxAUI_DOCKART_BORDER_COLOUR, 13).
--define(wxAUI_DOCKART_GRIPPER_COLOUR, 14).
--define(wxAUI_DOCKART_CAPTION_FONT, 15).
--define(wxAUI_DOCKART_GRADIENT_TYPE, 16).
-% From "framemanager.h": wxAuiPaneInsertLevel
--define(wxAUI_INSERT_PANE, 0).
--define(wxAUI_INSERT_ROW, 1).
--define(wxAUI_INSERT_DOCK, 2).
-% From "gauge.h"
--define(wxGAUGE_EMULATE_INDETERMINATE_MODE, wxe_util:get_const(wxGAUGE_EMULATE_INDETERMINATE_MODE)).
+%%%  From "gauge.h"
+-define(wxGA_TEXT, 64).
 -define(wxGA_SMOOTH, 32).
+-define(wxGA_PROGRESS, 16).
 -define(wxGA_VERTICAL, ?wxVERTICAL).
 -define(wxGA_HORIZONTAL, ?wxHORIZONTAL).
-% From "gdicmn.h"
-% From "gdicmn.h": wxBitmapType
+%%%  From "gdicmn.h": wxBitmapType
 -define(wxBITMAP_TYPE_INVALID, 0).
 -define(wxBITMAP_TYPE_BMP, 1).
 -define(wxBITMAP_TYPE_BMP_RESOURCE, 2).
@@ -1904,29 +1794,44 @@
 -define(wxBITMAP_TYPE_XBM_DATA, (?wxBITMAP_TYPE_BMP_RESOURCE+6)).
 -define(wxBITMAP_TYPE_XPM, (?wxBITMAP_TYPE_BMP_RESOURCE+7)).
 -define(wxBITMAP_TYPE_XPM_DATA, (?wxBITMAP_TYPE_BMP_RESOURCE+8)).
--define(wxBITMAP_TYPE_TIF, (?wxBITMAP_TYPE_BMP_RESOURCE+9)).
--define(wxBITMAP_TYPE_TIF_RESOURCE, (?wxBITMAP_TYPE_BMP_RESOURCE+10)).
--define(wxBITMAP_TYPE_GIF, (?wxBITMAP_TYPE_BMP_RESOURCE+11)).
--define(wxBITMAP_TYPE_GIF_RESOURCE, (?wxBITMAP_TYPE_BMP_RESOURCE+12)).
--define(wxBITMAP_TYPE_PNG, (?wxBITMAP_TYPE_BMP_RESOURCE+13)).
--define(wxBITMAP_TYPE_PNG_RESOURCE, (?wxBITMAP_TYPE_BMP_RESOURCE+14)).
--define(wxBITMAP_TYPE_JPEG, (?wxBITMAP_TYPE_BMP_RESOURCE+15)).
--define(wxBITMAP_TYPE_JPEG_RESOURCE, (?wxBITMAP_TYPE_BMP_RESOURCE+16)).
--define(wxBITMAP_TYPE_PNM, (?wxBITMAP_TYPE_BMP_RESOURCE+17)).
--define(wxBITMAP_TYPE_PNM_RESOURCE, (?wxBITMAP_TYPE_BMP_RESOURCE+18)).
--define(wxBITMAP_TYPE_PCX, (?wxBITMAP_TYPE_BMP_RESOURCE+19)).
--define(wxBITMAP_TYPE_PCX_RESOURCE, (?wxBITMAP_TYPE_BMP_RESOURCE+20)).
--define(wxBITMAP_TYPE_PICT, (?wxBITMAP_TYPE_BMP_RESOURCE+21)).
--define(wxBITMAP_TYPE_PICT_RESOURCE, (?wxBITMAP_TYPE_BMP_RESOURCE+22)).
--define(wxBITMAP_TYPE_ICON, (?wxBITMAP_TYPE_BMP_RESOURCE+23)).
--define(wxBITMAP_TYPE_ICON_RESOURCE, (?wxBITMAP_TYPE_BMP_RESOURCE+24)).
--define(wxBITMAP_TYPE_ANI, (?wxBITMAP_TYPE_BMP_RESOURCE+25)).
--define(wxBITMAP_TYPE_IFF, (?wxBITMAP_TYPE_BMP_RESOURCE+26)).
--define(wxBITMAP_TYPE_TGA, (?wxBITMAP_TYPE_BMP_RESOURCE+27)).
--define(wxBITMAP_TYPE_MACCURSOR, (?wxBITMAP_TYPE_BMP_RESOURCE+28)).
--define(wxBITMAP_TYPE_MACCURSOR_RESOURCE, (?wxBITMAP_TYPE_BMP_RESOURCE+29)).
+-define(wxBITMAP_TYPE_TIFF, (?wxBITMAP_TYPE_BMP_RESOURCE+9)).
+-define(wxBITMAP_TYPE_TIF, ?wxBITMAP_TYPE_TIFF).
+-define(wxBITMAP_TYPE_TIFF_RESOURCE, (?wxBITMAP_TYPE_TIFF+1)).
+-define(wxBITMAP_TYPE_TIF_RESOURCE, ?wxBITMAP_TYPE_TIFF_RESOURCE).
+-define(wxBITMAP_TYPE_GIF, (?wxBITMAP_TYPE_TIFF_RESOURCE+1)).
+-define(wxBITMAP_TYPE_GIF_RESOURCE, (?wxBITMAP_TYPE_TIFF_RESOURCE+2)).
+-define(wxBITMAP_TYPE_PNG, (?wxBITMAP_TYPE_TIFF_RESOURCE+3)).
+-define(wxBITMAP_TYPE_PNG_RESOURCE, (?wxBITMAP_TYPE_TIFF_RESOURCE+4)).
+-define(wxBITMAP_TYPE_JPEG, (?wxBITMAP_TYPE_TIFF_RESOURCE+5)).
+-define(wxBITMAP_TYPE_JPEG_RESOURCE, (?wxBITMAP_TYPE_TIFF_RESOURCE+6)).
+-define(wxBITMAP_TYPE_PNM, (?wxBITMAP_TYPE_TIFF_RESOURCE+7)).
+-define(wxBITMAP_TYPE_PNM_RESOURCE, (?wxBITMAP_TYPE_TIFF_RESOURCE+8)).
+-define(wxBITMAP_TYPE_PCX, (?wxBITMAP_TYPE_TIFF_RESOURCE+9)).
+-define(wxBITMAP_TYPE_PCX_RESOURCE, (?wxBITMAP_TYPE_TIFF_RESOURCE+10)).
+-define(wxBITMAP_TYPE_PICT, (?wxBITMAP_TYPE_TIFF_RESOURCE+11)).
+-define(wxBITMAP_TYPE_PICT_RESOURCE, (?wxBITMAP_TYPE_TIFF_RESOURCE+12)).
+-define(wxBITMAP_TYPE_ICON, (?wxBITMAP_TYPE_TIFF_RESOURCE+13)).
+-define(wxBITMAP_TYPE_ICON_RESOURCE, (?wxBITMAP_TYPE_TIFF_RESOURCE+14)).
+-define(wxBITMAP_TYPE_ANI, (?wxBITMAP_TYPE_TIFF_RESOURCE+15)).
+-define(wxBITMAP_TYPE_IFF, (?wxBITMAP_TYPE_TIFF_RESOURCE+16)).
+-define(wxBITMAP_TYPE_TGA, (?wxBITMAP_TYPE_TIFF_RESOURCE+17)).
+-define(wxBITMAP_TYPE_MACCURSOR, (?wxBITMAP_TYPE_TIFF_RESOURCE+18)).
+-define(wxBITMAP_TYPE_MACCURSOR_RESOURCE, (?wxBITMAP_TYPE_TIFF_RESOURCE+19)).
 -define(wxBITMAP_TYPE_ANY, 50).
-% From "gdicmn.h": wxStockCursor
+%%%  From "gdicmn.h": wxEllipsizeFlags
+-define(wxELLIPSIZE_FLAGS_NONE, 0).
+-define(wxELLIPSIZE_FLAGS_PROCESS_MNEMONICS, 1).
+-define(wxELLIPSIZE_FLAGS_EXPAND_TABS, 2).
+-define(wxELLIPSIZE_FLAGS_DEFAULT, (?wxELLIPSIZE_FLAGS_PROCESS_MNEMONICS bor ?wxELLIPSIZE_FLAGS_EXPAND_TABS)).
+%%%  From "gdicmn.h": wxEllipsizeMode
+-define(wxELLIPSIZE_NONE, 0).
+-define(wxELLIPSIZE_START, 1).
+-define(wxELLIPSIZE_MIDDLE, 2).
+-define(wxELLIPSIZE_END, 3).
+%%%  From "gdicmn.h": wxPolygonFillMode
+-define(wxODDEVEN_RULE, 1).
+-define(wxWINDING_RULE, 2).
+%%%  From "gdicmn.h": wxStockCursor
 -define(wxCURSOR_NONE, 0).
 -define(wxCURSOR_ARROW, 1).
 -define(wxCURSOR_RIGHT_ARROW, 2).
@@ -1957,49 +1862,7 @@
 -define(wxCURSOR_DEFAULT, wxe_util:get_const(wxCURSOR_DEFAULT)).
 -define(wxCURSOR_ARROWWAIT, wxe_util:get_const(wxCURSOR_ARROWWAIT)).
 -define(wxCURSOR_MAX, wxe_util:get_const(wxCURSOR_MAX)).
-% From "generic_2laywin.h"
--define(wxLAYOUT_QUERY, 256).
--define(wxLAYOUT_MRU_LENGTH, 16).
--define(wxLAYOUT_LENGTH_X, 0).
--define(wxLAYOUT_LENGTH_Y, 8).
-% From "generic_2laywin.h": wxLayoutAlignment
--define(wxLAYOUT_NONE, 0).
--define(wxLAYOUT_TOP, 1).
--define(wxLAYOUT_LEFT, 2).
--define(wxLAYOUT_RIGHT, 3).
--define(wxLAYOUT_BOTTOM, 4).
-% From "generic_2laywin.h": wxLayoutOrientation
--define(wxLAYOUT_HORIZONTAL, 0).
--define(wxLAYOUT_VERTICAL, 1).
-% From "generic_2sashwin.h"
--define(wxSW_3D, (?wxSW_3DSASH bor ?wxSW_3DBORDER)).
--define(wxSW_3DBORDER, 128).
--define(wxSW_3DSASH, 64).
--define(wxSW_BORDER, 32).
--define(wxSW_NOBORDER, 0).
--define(wxSASH_DRAG_LEFT_DOWN, 2).
--define(wxSASH_DRAG_DRAGGING, 1).
--define(wxSASH_DRAG_NONE, 0).
-% From "generic_2sashwin.h": wxSashEdgePosition
--define(wxSASH_TOP, 0).
--define(wxSASH_RIGHT, 1).
--define(wxSASH_BOTTOM, 2).
--define(wxSASH_LEFT, 3).
--define(wxSASH_NONE, 100).
-% From "generic_2splash.h"
--define(wxSPLASH_NO_TIMEOUT, 0).
--define(wxSPLASH_TIMEOUT, 4).
--define(wxSPLASH_NO_CENTRE, 0).
--define(wxSPLASH_CENTRE_ON_SCREEN, 2).
--define(wxSPLASH_CENTRE_ON_PARENT, 1).
-% From "generic_2splitter.h"
--define(wxSPLIT_DRAG_NONE, 0).
--define(wxSPLIT_DRAG_DRAGGING, 1).
--define(wxSPLIT_DRAG_LEFT_DOWN, 2).
-% From "generic_2splitter.h": wxSplitMode
--define(wxSPLIT_HORIZONTAL, 1).
--define(wxSPLIT_VERTICAL, 2).
-% From "glcanvas.h"
+%%%  From "glcanvas.h": wxGL_FLAGS
 -define(WX_GL_RGBA, 1).
 -define(WX_GL_BUFFER_SIZE, 2).
 -define(WX_GL_LEVEL, 3).
@@ -2016,22 +1879,88 @@
 -define(WX_GL_MIN_ACCUM_GREEN, 14).
 -define(WX_GL_MIN_ACCUM_BLUE, 15).
 -define(WX_GL_MIN_ACCUM_ALPHA, 16).
-% From "hash.h"
--define(wxHASH_SIZE_DEFAULT, 1000).
-% From "htmlwin.h"
+-define(WX_GL_SAMPLE_BUFFERS, 17).
+-define(WX_GL_SAMPLES, 18).
+-define(WX_GL_FRAMEBUFFER_SRGB, 19).
+-define(WX_GL_MAJOR_VERSION, wxe_util:get_const(wx_GL_MAJOR_VERSION)).
+-define(WX_GL_MINOR_VERSION, wxe_util:get_const(wx_GL_MINOR_VERSION)).
+-define(WX_GL_CORE_PROFILE, wxe_util:get_const(wx_GL_CORE_PROFILE)).
+-define(wx_GL_COMPAT_PROFILE, 23).
+-define(WX_GL_FORWARD_COMPAT, 24).
+-define(WX_GL_ES2, 25).
+-define(WX_GL_DEBUG, 26).
+-define(WX_GL_ROBUST_ACCESS, 27).
+-define(WX_GL_NO_RESET_NOTIFY, 28).
+-define(WX_GL_LOSE_ON_RESET, 29).
+-define(WX_GL_RESET_ISOLATION, 30).
+-define(WX_GL_RELEASE_FLUSH, 31).
+-define(WX_GL_RELEASE_NONE, 32).
+%%%  From "graphics.h": wxAntialiasMode
+-define(wxANTIALIAS_NONE, 0).
+-define(wxANTIALIAS_DEFAULT, 1).
+%%%  From "graphics.h": wxCompositionMode
+-define(wxCOMPOSITION_INVALID, -1).
+-define(wxCOMPOSITION_CLEAR, 0).
+-define(wxCOMPOSITION_SOURCE, 1).
+-define(wxCOMPOSITION_OVER, 2).
+-define(wxCOMPOSITION_IN, 3).
+-define(wxCOMPOSITION_OUT, 4).
+-define(wxCOMPOSITION_ATOP, 5).
+-define(wxCOMPOSITION_DEST, 6).
+-define(wxCOMPOSITION_DEST_OVER, 7).
+-define(wxCOMPOSITION_DEST_IN, 8).
+-define(wxCOMPOSITION_DEST_OUT, 9).
+-define(wxCOMPOSITION_DEST_ATOP, 10).
+-define(wxCOMPOSITION_XOR, 11).
+-define(wxCOMPOSITION_ADD, 12).
+%%%  From "graphics.h": wxGradientType
+-define(wxGRADIENT_NONE, 0).
+-define(wxGRADIENT_LINEAR, 1).
+-define(wxGRADIENT_RADIAL, 2).
+%%%  From "graphics.h": wxInterpolationQuality
+-define(wxINTERPOLATION_DEFAULT, 0).
+-define(wxINTERPOLATION_NONE, 1).
+-define(wxINTERPOLATION_FAST, 2).
+-define(wxINTERPOLATION_GOOD, 3).
+-define(wxINTERPOLATION_BEST, 4).
+%%%  From "grid.h"
+-define(wxGRID_AUTOSIZE, -1).
+%%%  From "grid.h": wxGridCellFloatFormat
+-define(wxGRID_FLOAT_FORMAT_FIXED, 16).
+-define(wxGRID_FLOAT_FORMAT_SCIENTIFIC, 32).
+-define(wxGRID_FLOAT_FORMAT_COMPACT, 64).
+-define(wxGRID_FLOAT_FORMAT_UPPER, 128).
+-define(wxGRID_FLOAT_FORMAT_DEFAULT, ?wxGRID_FLOAT_FORMAT_FIXED).
+%%%  From "grid.h": wxGridRenderStyle
+-define(wxGRID_DRAW_ROWS_HEADER, 1).
+-define(wxGRID_DRAW_COLS_HEADER, 2).
+-define(wxGRID_DRAW_CELL_LINES, 4).
+-define(wxGRID_DRAW_BOX_RECT, 8).
+-define(wxGRID_DRAW_SELECTION, 16).
+-define(wxGRID_DRAW_DEFAULT, (?wxGRID_DRAW_ROWS_HEADER bor ?wxGRID_DRAW_COLS_HEADER bor ?wxGRID_DRAW_CELL_LINES bor ?wxGRID_DRAW_BOX_RECT)).
+%%%  From "grid.h": wxGridTableRequest
+-define(wxGRIDTABLE_NOTIFY_ROWS_INSERTED, 2002).
+-define(wxGRIDTABLE_NOTIFY_ROWS_APPENDED, 2003).
+-define(wxGRIDTABLE_NOTIFY_ROWS_DELETED, 2004).
+-define(wxGRIDTABLE_NOTIFY_COLS_INSERTED, 2005).
+-define(wxGRIDTABLE_NOTIFY_COLS_APPENDED, 2006).
+-define(wxGRIDTABLE_NOTIFY_COLS_DELETED, 2007).
+%%%  From "htmlwin.h"
 -define(wxHW_DEFAULT_STYLE, ?wxHW_SCROLLBAR_AUTO).
 -define(wxHW_NO_SELECTION, 8).
 -define(wxHW_SCROLLBAR_AUTO, 4).
 -define(wxHW_SCROLLBAR_NEVER, 2).
-% From "htmlwin.h": wxHtmlOpeningStatus
+%%%  From "htmlwin.h": wxHtmlOpeningStatus
 -define(wxHTML_OPEN, 0).
 -define(wxHTML_BLOCK, 1).
 -define(wxHTML_REDIRECT, 2).
-% From "htmprint.h"
+%%%  From "htmprint.h"
 -define(wxPAGE_ODD, 0).
 -define(wxPAGE_EVEN, 1).
 -define(wxPAGE_ALL, 2).
-% From "imagbmp.h"
+%%%  From "icon.h"
+-define(wxICON_SCREEN_DEPTH, -1).
+%%%  From "image.h"
 -define(wxBMP_24BPP, 24).
 -define(wxBMP_8BPP, 8).
 -define(wxBMP_8BPP_GREY, 9).
@@ -2041,22 +1970,51 @@
 -define(wxBMP_4BPP, 4).
 -define(wxBMP_1BPP, 1).
 -define(wxBMP_1BPP_BW, 2).
-% From "image.h"
--define(wxIMAGE_RESOLUTION_INCHES, 1).
--define(wxIMAGE_RESOLUTION_CM, 2).
-% From "image.h"
+%%%  From "image.h": wxImagePNGType
+-define(wxPNG_TYPE_COLOUR, 0).
+-define(wxPNG_TYPE_GREY, 2).
+-define(wxPNG_TYPE_GREY_RED, 3).
+-define(wxPNG_TYPE_PALETTE, 4).
+%%%  From "image.h": wxImageResizeQuality
+-define(wxIMAGE_QUALITY_NEAREST, wxe_util:get_const(wxIMAGE_QUALITY_NEAREST)).
+-define(wxIMAGE_QUALITY_BILINEAR, wxe_util:get_const(wxIMAGE_QUALITY_BILINEAR)).
+-define(wxIMAGE_QUALITY_BICUBIC, wxe_util:get_const(wxIMAGE_QUALITY_BICUBIC)).
+-define(wxIMAGE_QUALITY_BOX_AVERAGE, wxe_util:get_const(wxIMAGE_QUALITY_BOX_AVERAGE)).
 -define(wxIMAGE_QUALITY_NORMAL, wxe_util:get_const(wxIMAGE_QUALITY_NORMAL)).
 -define(wxIMAGE_QUALITY_HIGH, wxe_util:get_const(wxIMAGE_QUALITY_HIGH)).
-% From "imaglist.h"
--define(wxIMAGE_LIST_NORMAL, 0).
--define(wxIMAGE_LIST_SMALL, 1).
--define(wxIMAGE_LIST_STATE, 2).
-% From "imaglist.h"
+%%%  From "image.h": wxImageResolution
+-define(wxIMAGE_RESOLUTION_NONE, 0).
+-define(wxIMAGE_RESOLUTION_INCHES, 1).
+-define(wxIMAGE_RESOLUTION_CM, 2).
+%%%  From "imaglist.h"
 -define(wxIMAGELIST_DRAW_FOCUSED, 8).
 -define(wxIMAGELIST_DRAW_SELECTED, 4).
 -define(wxIMAGELIST_DRAW_TRANSPARENT, 2).
 -define(wxIMAGELIST_DRAW_NORMAL, 1).
-% From "intl.h": wxLanguage
+%%%  From "imaglist.h": wxImageListFlags
+-define(wxIMAGE_LIST_NORMAL, 0).
+-define(wxIMAGE_LIST_SMALL, 1).
+-define(wxIMAGE_LIST_STATE, 2).
+%%%  From "intl.h": wxLayoutDirection
+-define(wxLayout_Default, 0).
+-define(wxLayout_LeftToRight, 1).
+-define(wxLayout_RightToLeft, 2).
+%%%  From "intl.h": wxLocaleCategory
+-define(wxLOCALE_CAT_NUMBER, 0).
+-define(wxLOCALE_CAT_DATE, 1).
+-define(wxLOCALE_CAT_MONEY, 2).
+-define(wxLOCALE_CAT_DEFAULT, 3).
+%%%  From "intl.h": wxLocaleInfo
+-define(wxLOCALE_THOUSANDS_SEP, 0).
+-define(wxLOCALE_DECIMAL_POINT, 1).
+-define(wxLOCALE_SHORT_DATE_FMT, 2).
+-define(wxLOCALE_LONG_DATE_FMT, 3).
+-define(wxLOCALE_DATE_TIME_FMT, 4).
+-define(wxLOCALE_TIME_FMT, 5).
+%%%  From "intl.h": wxLocaleInitFlags
+-define(wxLOCALE_DONT_LOAD_DEFAULT, 0).
+-define(wxLOCALE_LOAD_DEFAULT, 1).
+%%%  From "language.h": wxLanguage
 -define(wxLANGUAGE_DEFAULT, wxe_util:get_const(wxLANGUAGE_DEFAULT)).
 -define(wxLANGUAGE_UNKNOWN, wxe_util:get_const(wxLANGUAGE_UNKNOWN)).
 -define(wxLANGUAGE_ABKHAZIAN, wxe_util:get_const(wxLANGUAGE_ABKHAZIAN)).
@@ -2084,6 +2042,7 @@
 -define(wxLANGUAGE_ARABIC_YEMEN, wxe_util:get_const(wxLANGUAGE_ARABIC_YEMEN)).
 -define(wxLANGUAGE_ARMENIAN, wxe_util:get_const(wxLANGUAGE_ARMENIAN)).
 -define(wxLANGUAGE_ASSAMESE, wxe_util:get_const(wxLANGUAGE_ASSAMESE)).
+-define(wxLANGUAGE_ASTURIAN, wxe_util:get_const(wxLANGUAGE_ASTURIAN)).
 -define(wxLANGUAGE_AYMARA, wxe_util:get_const(wxLANGUAGE_AYMARA)).
 -define(wxLANGUAGE_AZERI, wxe_util:get_const(wxLANGUAGE_AZERI)).
 -define(wxLANGUAGE_AZERI_CYRILLIC, wxe_util:get_const(wxLANGUAGE_AZERI_CYRILLIC)).
@@ -2095,10 +2054,10 @@
 -define(wxLANGUAGE_BHUTANI, wxe_util:get_const(wxLANGUAGE_BHUTANI)).
 -define(wxLANGUAGE_BIHARI, wxe_util:get_const(wxLANGUAGE_BIHARI)).
 -define(wxLANGUAGE_BISLAMA, wxe_util:get_const(wxLANGUAGE_BISLAMA)).
+-define(wxLANGUAGE_BOSNIAN, wxe_util:get_const(wxLANGUAGE_BOSNIAN)).
 -define(wxLANGUAGE_BRETON, wxe_util:get_const(wxLANGUAGE_BRETON)).
 -define(wxLANGUAGE_BULGARIAN, wxe_util:get_const(wxLANGUAGE_BULGARIAN)).
 -define(wxLANGUAGE_BURMESE, wxe_util:get_const(wxLANGUAGE_BURMESE)).
--define(wxLANGUAGE_CAMBODIAN, wxe_util:get_const(wxLANGUAGE_CAMBODIAN)).
 -define(wxLANGUAGE_CATALAN, wxe_util:get_const(wxLANGUAGE_CATALAN)).
 -define(wxLANGUAGE_CHINESE, wxe_util:get_const(wxLANGUAGE_CHINESE)).
 -define(wxLANGUAGE_CHINESE_SIMPLIFIED, wxe_util:get_const(wxLANGUAGE_CHINESE_SIMPLIFIED)).
@@ -2169,6 +2128,7 @@
 -define(wxLANGUAGE_ITALIAN_SWISS, wxe_util:get_const(wxLANGUAGE_ITALIAN_SWISS)).
 -define(wxLANGUAGE_JAPANESE, wxe_util:get_const(wxLANGUAGE_JAPANESE)).
 -define(wxLANGUAGE_JAVANESE, wxe_util:get_const(wxLANGUAGE_JAVANESE)).
+-define(wxLANGUAGE_KABYLE, wxe_util:get_const(wxLANGUAGE_KABYLE)).
 -define(wxLANGUAGE_KANNADA, wxe_util:get_const(wxLANGUAGE_KANNADA)).
 -define(wxLANGUAGE_KASHMIRI, wxe_util:get_const(wxLANGUAGE_KASHMIRI)).
 -define(wxLANGUAGE_KASHMIRI_INDIA, wxe_util:get_const(wxLANGUAGE_KASHMIRI_INDIA)).
@@ -2215,6 +2175,7 @@
 -define(wxLANGUAGE_ROMANIAN, wxe_util:get_const(wxLANGUAGE_ROMANIAN)).
 -define(wxLANGUAGE_RUSSIAN, wxe_util:get_const(wxLANGUAGE_RUSSIAN)).
 -define(wxLANGUAGE_RUSSIAN_UKRAINE, wxe_util:get_const(wxLANGUAGE_RUSSIAN_UKRAINE)).
+-define(wxLANGUAGE_SAMI, wxe_util:get_const(wxLANGUAGE_SAMI)).
 -define(wxLANGUAGE_SAMOAN, wxe_util:get_const(wxLANGUAGE_SAMOAN)).
 -define(wxLANGUAGE_SANGHO, wxe_util:get_const(wxLANGUAGE_SANGHO)).
 -define(wxLANGUAGE_SANSKRIT, wxe_util:get_const(wxLANGUAGE_SANSKRIT)).
@@ -2278,6 +2239,7 @@
 -define(wxLANGUAGE_UZBEK, wxe_util:get_const(wxLANGUAGE_UZBEK)).
 -define(wxLANGUAGE_UZBEK_CYRILLIC, wxe_util:get_const(wxLANGUAGE_UZBEK_CYRILLIC)).
 -define(wxLANGUAGE_UZBEK_LATIN, wxe_util:get_const(wxLANGUAGE_UZBEK_LATIN)).
+-define(wxLANGUAGE_VALENCIAN, wxe_util:get_const(wxLANGUAGE_VALENCIAN)).
 -define(wxLANGUAGE_VIETNAMESE, wxe_util:get_const(wxLANGUAGE_VIETNAMESE)).
 -define(wxLANGUAGE_VOLAPUK, wxe_util:get_const(wxLANGUAGE_VOLAPUK)).
 -define(wxLANGUAGE_WELSH, wxe_util:get_const(wxLANGUAGE_WELSH)).
@@ -2288,26 +2250,8 @@
 -define(wxLANGUAGE_ZHUANG, wxe_util:get_const(wxLANGUAGE_ZHUANG)).
 -define(wxLANGUAGE_ZULU, wxe_util:get_const(wxLANGUAGE_ZULU)).
 -define(wxLANGUAGE_USER_DEFINED, wxe_util:get_const(wxLANGUAGE_USER_DEFINED)).
--define(wxLANGUAGE_VALENCIAN, wxe_util:get_const(wxLANGUAGE_VALENCIAN)).
--define(wxLANGUAGE_SAMI, wxe_util:get_const(wxLANGUAGE_SAMI)).
-% From "intl.h": wxLayoutDirection
--define(wxLayout_Default, 0).
--define(wxLayout_LeftToRight, 1).
--define(wxLayout_RightToLeft, 2).
-% From "intl.h": wxLocaleCategory
--define(wxLOCALE_CAT_NUMBER, 0).
--define(wxLOCALE_CAT_DATE, 1).
--define(wxLOCALE_CAT_MONEY, 2).
--define(wxLOCALE_CAT_MAX, 3).
-% From "intl.h": wxLocaleInfo
--define(wxLOCALE_THOUSANDS_SEP, 0).
--define(wxLOCALE_DECIMAL_POINT, 1).
-% From "intl.h": wxLocaleInitFlags
--define(wxLOCALE_LOAD_DEFAULT, 1).
--define(wxLOCALE_CONV_ENCODING, 2).
-% From "layout.h"
--define(wxLAYOUT_DEFAULT_MARGIN, 0).
-% From "layout.h": wxEdge
+-define(wxLANGUAGE_CAMBODIAN, wxe_util:get_const(wxLANGUAGE_CAMBODIAN)).
+%%%  From "layout.h": wxEdge
 -define(wxLeft, 0).
 -define(wxTop, 1).
 -define(wxRight, 2).
@@ -2318,7 +2262,7 @@
 -define(wxCenter, ?wxCentre).
 -define(wxCentreX, (?wxCentre+1)).
 -define(wxCentreY, (?wxCentre+2)).
-% From "layout.h": wxRelationship
+%%%  From "layout.h": wxRelationship
 -define(wxUnconstrained, 0).
 -define(wxAsIs, 1).
 -define(wxPercentOf, 2).
@@ -2328,49 +2272,32 @@
 -define(wxRightOf, 6).
 -define(wxSameAs, 7).
 -define(wxAbsolute, 8).
-% From "list.h": wxKeyType
--define(wxKEY_NONE, 0).
--define(wxKEY_INTEGER, 1).
--define(wxKEY_STRING, 2).
-% From "listbase.h"
--define(wxLIST_NEXT_ABOVE, 0).
--define(wxLIST_NEXT_ALL, 1).
--define(wxLIST_NEXT_BELOW, 2).
--define(wxLIST_NEXT_LEFT, 3).
--define(wxLIST_NEXT_RIGHT, 4).
-% From "listbase.h"
--define(wxLIST_ALIGN_DEFAULT, 0).
--define(wxLIST_ALIGN_LEFT, 1).
--define(wxLIST_ALIGN_TOP, 2).
--define(wxLIST_ALIGN_SNAP_TO_GRID, 3).
-% From "listbase.h"
--define(wxLIST_AUTOSIZE, -1).
--define(wxLIST_AUTOSIZE_USEHEADER, -2).
-% From "listbase.h"
--define(wxLIST_RECT_BOUNDS, 0).
--define(wxLIST_RECT_ICON, 1).
--define(wxLIST_RECT_LABEL, 2).
-% From "listbase.h"
--define(wxLIST_FIND_UP, 0).
--define(wxLIST_FIND_DOWN, 1).
--define(wxLIST_FIND_LEFT, 2).
--define(wxLIST_FIND_RIGHT, 3).
-% From "listbase.h"
+%%%  From "laywin.h": wxLayoutAlignment
+-define(wxLAYOUT_NONE, 0).
+-define(wxLAYOUT_TOP, 1).
+-define(wxLAYOUT_LEFT, 2).
+-define(wxLAYOUT_RIGHT, 3).
+-define(wxLAYOUT_BOTTOM, 4).
+%%%  From "laywin.h": wxLayoutOrientation
+-define(wxLAYOUT_HORIZONTAL, 0).
+-define(wxLAYOUT_VERTICAL, 1).
+%%%  From "listbook.h"
+-define(wxLB_ALIGN_MASK, ?wxBK_ALIGN_MASK).
+-define(wxLB_RIGHT, ?wxBK_RIGHT).
+-define(wxLB_LEFT, ?wxBK_LEFT).
+-define(wxLB_BOTTOM, ?wxBK_BOTTOM).
+-define(wxLB_TOP, ?wxBK_TOP).
+-define(wxLB_DEFAULT, ?wxBK_DEFAULT).
+%%%  From "listctrl.h"
 -define(wxLIST_HITTEST_ONITEM, (?wxLIST_HITTEST_ONITEMICON bor ?wxLIST_HITTEST_ONITEMLABEL bor ?wxLIST_HITTEST_ONITEMSTATEICON)).
 -define(wxLIST_HITTEST_TORIGHT, 2048).
 -define(wxLIST_HITTEST_TOLEFT, 1024).
 -define(wxLIST_HITTEST_ONITEMSTATEICON, 512).
--define(wxLIST_HITTEST_ONITEMRIGHT, 256).
 -define(wxLIST_HITTEST_ONITEMLABEL, 128).
 -define(wxLIST_HITTEST_ONITEMICON, 32).
 -define(wxLIST_HITTEST_NOWHERE, 4).
 -define(wxLIST_HITTEST_BELOW, 2).
 -define(wxLIST_HITTEST_ABOVE, 1).
--define(wxLIST_STATE_SOURCE, 256).
--define(wxLIST_STATE_PICKED, 128).
--define(wxLIST_STATE_INUSE, 64).
--define(wxLIST_STATE_FILTERED, 32).
--define(wxLIST_STATE_DISABLED, 16).
 -define(wxLIST_STATE_CUT, 8).
 -define(wxLIST_STATE_SELECTED, 4).
 -define(wxLIST_STATE_FOCUSED, 2).
@@ -2383,7 +2310,6 @@
 -define(wxLIST_MASK_IMAGE, 4).
 -define(wxLIST_MASK_TEXT, 2).
 -define(wxLIST_MASK_STATE, 1).
--define(wxLC_USER_TEXT, ?wxLC_VIRTUAL).
 -define(wxLC_MASK_SORT, (?wxLC_SORT_ASCENDING bor ?wxLC_SORT_DESCENDING)).
 -define(wxLC_MASK_ALIGN, (?wxLC_ALIGN_TOP bor ?wxLC_ALIGN_LEFT)).
 -define(wxLC_MASK_TYPE, (?wxLC_ICON bor ?wxLC_SMALL_ICON bor ?wxLC_LIST bor ?wxLC_REPORT)).
@@ -2403,31 +2329,63 @@
 -define(wxLC_ICON, 4).
 -define(wxLC_HRULES, 2).
 -define(wxLC_VRULES, 1).
-% From "listbase.h": wxListColumnFormat
+%%%  From "listctrl.h": wxListAlignFlags
+-define(wxLIST_ALIGN_DEFAULT, 0).
+-define(wxLIST_ALIGN_LEFT, 1).
+-define(wxLIST_ALIGN_TOP, 2).
+-define(wxLIST_ALIGN_SNAP_TO_GRID, 3).
+%%%  From "listctrl.h": wxListAutoSize
+-define(wxLIST_AUTOSIZE, -1).
+-define(wxLIST_AUTOSIZE_USEHEADER, -2).
+%%%  From "listctrl.h": wxListColumnFormat
 -define(wxLIST_FORMAT_LEFT, 0).
 -define(wxLIST_FORMAT_RIGHT, 1).
 -define(wxLIST_FORMAT_CENTRE, 2).
 -define(wxLIST_FORMAT_CENTER, ?wxLIST_FORMAT_CENTRE).
-% From "listbook.h"
--define(wxLB_ALIGN_MASK, ?wxBK_ALIGN_MASK).
--define(wxLB_RIGHT, ?wxBK_RIGHT).
--define(wxLB_LEFT, ?wxBK_LEFT).
--define(wxLB_BOTTOM, ?wxBK_BOTTOM).
--define(wxLB_TOP, ?wxBK_TOP).
--define(wxLB_DEFAULT, ?wxBK_DEFAULT).
-% From "log.h"
--define(wxTraceRefCount, 8).
--define(wxTraceResAlloc, 4).
--define(wxTraceMessages, 2).
--define(wxTraceMemAlloc, 1).
-% From "notebook.h"
+%%%  From "listctrl.h": wxListFindFlags
+-define(wxLIST_FIND_UP, 0).
+-define(wxLIST_FIND_DOWN, 1).
+-define(wxLIST_FIND_LEFT, 2).
+-define(wxLIST_FIND_RIGHT, 3).
+%%%  From "listctrl.h": wxListNextFlags
+-define(wxLIST_NEXT_ABOVE, 0).
+-define(wxLIST_NEXT_ALL, 1).
+-define(wxLIST_NEXT_BELOW, 2).
+-define(wxLIST_NEXT_LEFT, 3).
+-define(wxLIST_NEXT_RIGHT, 4).
+%%%  From "listctrl.h": wxListRectFlags
+-define(wxLIST_RECT_BOUNDS, 0).
+-define(wxLIST_RECT_ICON, 1).
+-define(wxLIST_RECT_LABEL, 2).
+%%%  From "log.h": wxLogLevelValues
+-define(wxLOG_FatalError, 0).
+-define(wxLOG_Error, 1).
+-define(wxLOG_Warning, 2).
+-define(wxLOG_Message, 3).
+-define(wxLOG_Status, 4).
+-define(wxLOG_Info, 5).
+-define(wxLOG_Debug, 6).
+-define(wxLOG_Trace, 7).
+-define(wxLOG_Progress, 8).
+-define(wxLOG_User, 100).
+-define(wxLOG_Max, 10000).
+%%%  From "mousestate.h": wxMouseButton
+-define(wxMOUSE_BTN_ANY, -1).
+-define(wxMOUSE_BTN_NONE, 0).
+-define(wxMOUSE_BTN_LEFT, 1).
+-define(wxMOUSE_BTN_MIDDLE, 2).
+-define(wxMOUSE_BTN_RIGHT, 3).
+-define(wxMOUSE_BTN_AUX1, 4).
+-define(wxMOUSE_BTN_AUX2, 5).
+-define(wxMOUSE_BTN_MAX, 6).
+%%%  From "nonownedwnd.h"
+%%%  From "notebook.h"
 -define(wxNB_HITTEST_NOWHERE, ?wxBK_HITTEST_NOWHERE).
 -define(wxNB_HITTEST_ONICON, ?wxBK_HITTEST_ONICON).
 -define(wxNB_HITTEST_ONLABEL, ?wxBK_HITTEST_ONLABEL).
 -define(wxNB_HITTEST_ONITEM, ?wxBK_HITTEST_ONITEM).
 -define(wxNB_HITTEST_ONPAGE, ?wxBK_HITTEST_ONPAGE).
-% From "notebook.h"
--define(wxNB_FLAT, 2048).
+%%%  From "notebook.h"
 -define(wxNB_NOPAGETHEME, 1024).
 -define(wxNB_MULTILINE, 512).
 -define(wxNB_FIXEDWIDTH, 256).
@@ -2436,9 +2394,44 @@
 -define(wxNB_BOTTOM, ?wxBK_BOTTOM).
 -define(wxNB_TOP, ?wxBK_TOP).
 -define(wxNB_DEFAULT, ?wxBK_DEFAULT).
-% From "pickerbase.h"
+%%%  From "pen.h": wxPenCap
+-define(wxCAP_INVALID, -1).
+-define(wxCAP_ROUND, 130).
+-define(wxCAP_PROJECTING, 131).
+-define(wxCAP_BUTT, 132).
+%%%  From "pen.h": wxPenJoin
+-define(wxJOIN_INVALID, -1).
+-define(wxJOIN_BEVEL, 120).
+-define(wxJOIN_MITER, 121).
+-define(wxJOIN_ROUND, 122).
+%%%  From "pen.h": wxPenStyle
+-define(wxPENSTYLE_INVALID, -1).
+-define(wxPENSTYLE_SOLID, 100).
+-define(wxPENSTYLE_DOT, 101).
+-define(wxPENSTYLE_LONG_DASH, 102).
+-define(wxPENSTYLE_SHORT_DASH, 103).
+-define(wxPENSTYLE_DOT_DASH, 104).
+-define(wxPENSTYLE_USER_DASH, 105).
+-define(wxPENSTYLE_TRANSPARENT, 106).
+-define(wxPENSTYLE_STIPPLE_MASK_OPAQUE, 107).
+-define(wxPENSTYLE_STIPPLE_MASK, 108).
+-define(wxPENSTYLE_STIPPLE, 110).
+-define(wxPENSTYLE_BDIAGONAL_HATCH, 111).
+-define(wxPENSTYLE_CROSSDIAG_HATCH, 112).
+-define(wxPENSTYLE_FDIAGONAL_HATCH, 113).
+-define(wxPENSTYLE_CROSS_HATCH, 114).
+-define(wxPENSTYLE_HORIZONTAL_HATCH, 115).
+-define(wxPENSTYLE_VERTICAL_HATCH, 116).
+-define(wxPENSTYLE_FIRST_HATCH, 111).
+-define(wxPENSTYLE_LAST_HATCH, 116).
+%%%  From "pickerbase.h"
+-define(wxPB_SMALL, 32768).
 -define(wxPB_USE_TEXTCTRL, 2).
-% From "prntbase.h"
+%%%  From "popupwin.h"
+-define(wxPU_CONTAINS_CONTROLS, 1).
+%%%  From "print.h"
+-define(wxID_PREVIEW_ZOOM_OUT, 10).
+-define(wxID_PREVIEW_ZOOM_IN, 9).
 -define(wxID_PREVIEW_GOTO, 8).
 -define(wxID_PREVIEW_LAST, 7).
 -define(wxID_PREVIEW_FIRST, 6).
@@ -2455,11 +2448,15 @@
 -define(wxPREVIEW_NEXT, 4).
 -define(wxPREVIEW_PREVIOUS, 2).
 -define(wxPREVIEW_PRINT, 1).
-% From "prntbase.h": wxPrinterError
+%%%  From "print.h": wxPreviewFrameModalityKind
+-define(wxPreviewFrame_AppModal, 0).
+-define(wxPreviewFrame_WindowModal, 1).
+-define(wxPreviewFrame_NonModal, 2).
+%%%  From "print.h": wxPrinterError
 -define(wxPRINTER_NO_ERROR, 0).
 -define(wxPRINTER_CANCELLED, 1).
 -define(wxPRINTER_ERROR, 2).
-% From "progdlg.h"
+%%%  From "progdlg.h"
 -define(wxPD_CAN_SKIP, 128).
 -define(wxPD_REMAINING_TIME, 64).
 -define(wxPD_SMOOTH, 32).
@@ -2468,74 +2465,82 @@
 -define(wxPD_AUTO_HIDE, 4).
 -define(wxPD_APP_MODAL, 2).
 -define(wxPD_CAN_ABORT, 1).
-% From "region.h": wxRegionContain
+%%%  From "region.h": wxRegionContain
 -define(wxOutRegion, 0).
 -define(wxPartRegion, 1).
 -define(wxInRegion, 2).
-% From "region.h": wxRegionOp
--define(wxRGN_AND, 0).
--define(wxRGN_COPY, 1).
--define(wxRGN_DIFF, 2).
--define(wxRGN_OR, 3).
--define(wxRGN_XOR, 4).
-% From "scrolwin.h"
--define(wxScrolledWindowStyle, (?wxHSCROLL bor ?wxVSCROLL)).
-% From "settings.h": wxSystemColour
+%%%  From "sashwin.h"
+-define(wxSW_3D, (?wxSW_3DSASH bor ?wxSW_3DBORDER)).
+-define(wxSW_3DBORDER, 128).
+-define(wxSW_3DSASH, 64).
+-define(wxSW_BORDER, 32).
+-define(wxSW_NOBORDER, 0).
+%%%  From "sashwin.h": wxSashDragStatus
+-define(wxSASH_STATUS_OK, 0).
+-define(wxSASH_STATUS_OUT_OF_RANGE, 1).
+%%%  From "sashwin.h": wxSashEdgePosition
+-define(wxSASH_TOP, 0).
+-define(wxSASH_RIGHT, 1).
+-define(wxSASH_BOTTOM, 2).
+-define(wxSASH_LEFT, 3).
+-define(wxSASH_NONE, 100).
+%%%  From "scrolwin.h": wxScrollbarVisibility
+-define(wxSHOW_SB_NEVER, -1).
+-define(wxSHOW_SB_DEFAULT, 0).
+-define(wxSHOW_SB_ALWAYS, 1).
+%%%  From "settings.h": wxSystemColour
 -define(wxSYS_COLOUR_SCROLLBAR, 0).
--define(wxSYS_COLOUR_BACKGROUND, 1).
--define(wxSYS_COLOUR_DESKTOP, ?wxSYS_COLOUR_BACKGROUND).
--define(wxSYS_COLOUR_ACTIVECAPTION, (?wxSYS_COLOUR_BACKGROUND+1)).
--define(wxSYS_COLOUR_INACTIVECAPTION, (?wxSYS_COLOUR_BACKGROUND+2)).
--define(wxSYS_COLOUR_MENU, (?wxSYS_COLOUR_BACKGROUND+3)).
--define(wxSYS_COLOUR_WINDOW, (?wxSYS_COLOUR_BACKGROUND+4)).
--define(wxSYS_COLOUR_WINDOWFRAME, (?wxSYS_COLOUR_BACKGROUND+5)).
--define(wxSYS_COLOUR_MENUTEXT, (?wxSYS_COLOUR_BACKGROUND+6)).
--define(wxSYS_COLOUR_WINDOWTEXT, (?wxSYS_COLOUR_BACKGROUND+7)).
--define(wxSYS_COLOUR_CAPTIONTEXT, (?wxSYS_COLOUR_BACKGROUND+8)).
--define(wxSYS_COLOUR_ACTIVEBORDER, (?wxSYS_COLOUR_BACKGROUND+9)).
--define(wxSYS_COLOUR_INACTIVEBORDER, (?wxSYS_COLOUR_BACKGROUND+10)).
--define(wxSYS_COLOUR_APPWORKSPACE, (?wxSYS_COLOUR_BACKGROUND+11)).
--define(wxSYS_COLOUR_HIGHLIGHT, (?wxSYS_COLOUR_BACKGROUND+12)).
--define(wxSYS_COLOUR_HIGHLIGHTTEXT, (?wxSYS_COLOUR_BACKGROUND+13)).
--define(wxSYS_COLOUR_BTNFACE, (?wxSYS_COLOUR_BACKGROUND+14)).
+-define(wxSYS_COLOUR_DESKTOP, 1).
+-define(wxSYS_COLOUR_ACTIVECAPTION, 2).
+-define(wxSYS_COLOUR_INACTIVECAPTION, 3).
+-define(wxSYS_COLOUR_MENU, 4).
+-define(wxSYS_COLOUR_WINDOW, 5).
+-define(wxSYS_COLOUR_WINDOWFRAME, 6).
+-define(wxSYS_COLOUR_MENUTEXT, 7).
+-define(wxSYS_COLOUR_WINDOWTEXT, 8).
+-define(wxSYS_COLOUR_CAPTIONTEXT, 9).
+-define(wxSYS_COLOUR_ACTIVEBORDER, 10).
+-define(wxSYS_COLOUR_INACTIVEBORDER, 11).
+-define(wxSYS_COLOUR_APPWORKSPACE, 12).
+-define(wxSYS_COLOUR_HIGHLIGHT, 13).
+-define(wxSYS_COLOUR_HIGHLIGHTTEXT, 14).
+-define(wxSYS_COLOUR_BTNFACE, 15).
+-define(wxSYS_COLOUR_BTNSHADOW, 16).
+-define(wxSYS_COLOUR_GRAYTEXT, 17).
+-define(wxSYS_COLOUR_BTNTEXT, 18).
+-define(wxSYS_COLOUR_INACTIVECAPTIONTEXT, 19).
+-define(wxSYS_COLOUR_BTNHIGHLIGHT, 20).
+-define(wxSYS_COLOUR_3DDKSHADOW, 21).
+-define(wxSYS_COLOUR_3DLIGHT, 22).
+-define(wxSYS_COLOUR_INFOTEXT, 23).
+-define(wxSYS_COLOUR_INFOBK, 24).
+-define(wxSYS_COLOUR_LISTBOX, 25).
+-define(wxSYS_COLOUR_HOTLIGHT, 26).
+-define(wxSYS_COLOUR_GRADIENTACTIVECAPTION, 27).
+-define(wxSYS_COLOUR_GRADIENTINACTIVECAPTION, 28).
+-define(wxSYS_COLOUR_MENUHILIGHT, 29).
+-define(wxSYS_COLOUR_MENUBAR, 30).
+-define(wxSYS_COLOUR_LISTBOXTEXT, 31).
+-define(wxSYS_COLOUR_LISTBOXHIGHLIGHTTEXT, 32).
+-define(wxSYS_COLOUR_BACKGROUND, ?wxSYS_COLOUR_DESKTOP).
 -define(wxSYS_COLOUR_3DFACE, ?wxSYS_COLOUR_BTNFACE).
--define(wxSYS_COLOUR_BTNSHADOW, (?wxSYS_COLOUR_BTNFACE+1)).
 -define(wxSYS_COLOUR_3DSHADOW, ?wxSYS_COLOUR_BTNSHADOW).
--define(wxSYS_COLOUR_GRAYTEXT, (?wxSYS_COLOUR_BTNSHADOW+1)).
--define(wxSYS_COLOUR_BTNTEXT, (?wxSYS_COLOUR_BTNSHADOW+2)).
--define(wxSYS_COLOUR_INACTIVECAPTIONTEXT, (?wxSYS_COLOUR_BTNSHADOW+3)).
--define(wxSYS_COLOUR_BTNHIGHLIGHT, (?wxSYS_COLOUR_BTNSHADOW+4)).
 -define(wxSYS_COLOUR_BTNHILIGHT, ?wxSYS_COLOUR_BTNHIGHLIGHT).
 -define(wxSYS_COLOUR_3DHIGHLIGHT, ?wxSYS_COLOUR_BTNHIGHLIGHT).
 -define(wxSYS_COLOUR_3DHILIGHT, ?wxSYS_COLOUR_BTNHIGHLIGHT).
--define(wxSYS_COLOUR_3DDKSHADOW, (?wxSYS_COLOUR_BTNHIGHLIGHT+1)).
--define(wxSYS_COLOUR_3DLIGHT, (?wxSYS_COLOUR_BTNHIGHLIGHT+2)).
--define(wxSYS_COLOUR_INFOTEXT, (?wxSYS_COLOUR_BTNHIGHLIGHT+3)).
--define(wxSYS_COLOUR_INFOBK, (?wxSYS_COLOUR_BTNHIGHLIGHT+4)).
--define(wxSYS_COLOUR_LISTBOX, (?wxSYS_COLOUR_BTNHIGHLIGHT+5)).
--define(wxSYS_COLOUR_HOTLIGHT, (?wxSYS_COLOUR_BTNHIGHLIGHT+6)).
--define(wxSYS_COLOUR_GRADIENTACTIVECAPTION, (?wxSYS_COLOUR_BTNHIGHLIGHT+7)).
--define(wxSYS_COLOUR_GRADIENTINACTIVECAPTION, (?wxSYS_COLOUR_BTNHIGHLIGHT+8)).
--define(wxSYS_COLOUR_MENUHILIGHT, (?wxSYS_COLOUR_BTNHIGHLIGHT+9)).
--define(wxSYS_COLOUR_MENUBAR, (?wxSYS_COLOUR_BTNHIGHLIGHT+10)).
--define(wxSYS_COLOUR_LISTBOXTEXT, (?wxSYS_COLOUR_BTNHIGHLIGHT+11)).
--define(wxSYS_COLOUR_LISTBOXHIGHLIGHTTEXT, (?wxSYS_COLOUR_BTNHIGHLIGHT+12)).
--define(wxSYS_COLOUR_MAX, (?wxSYS_COLOUR_BTNHIGHLIGHT+13)).
-% From "settings.h": wxSystemFeature
+-define(wxSYS_COLOUR_FRAMEBK, ?wxSYS_COLOUR_BTNFACE).
+%%%  From "settings.h": wxSystemFeature
 -define(wxSYS_CAN_DRAW_FRAME_DECORATIONS, 1).
 -define(wxSYS_CAN_ICONIZE_FRAME, 2).
 -define(wxSYS_TABLET_PRESENT, 3).
-% From "settings.h": wxSystemFont
+%%%  From "settings.h": wxSystemFont
 -define(wxSYS_OEM_FIXED_FONT, 10).
 -define(wxSYS_ANSI_FIXED_FONT, 11).
 -define(wxSYS_ANSI_VAR_FONT, 12).
 -define(wxSYS_SYSTEM_FONT, 13).
 -define(wxSYS_DEVICE_DEFAULT_FONT, 14).
--define(wxSYS_DEFAULT_PALETTE, 15).
--define(wxSYS_SYSTEM_FIXED_FONT, 16).
--define(wxSYS_DEFAULT_GUI_FONT, 17).
--define(wxSYS_ICONTITLE_FONT, ?wxSYS_DEFAULT_GUI_FONT).
-% From "settings.h": wxSystemMetric
+-define(wxSYS_DEFAULT_GUI_FONT, (?wxSYS_DEVICE_DEFAULT_FONT+3)).
+%%%  From "settings.h": wxSystemMetric
 -define(wxSYS_MOUSE_BUTTONS, 1).
 -define(wxSYS_BORDER_X, 2).
 -define(wxSYS_BORDER_Y, 3).
@@ -2573,17 +2578,24 @@
 -define(wxSYS_PENWINDOWS_PRESENT, 35).
 -define(wxSYS_SHOW_SOUNDS, 36).
 -define(wxSYS_SWAP_BUTTONS, 37).
-% From "settings.h": wxSystemScreenType
+-define(wxSYS_DCLICK_MSEC, 38).
+-define(wxSYS_CARET_ON_MSEC, 39).
+-define(wxSYS_CARET_OFF_MSEC, 40).
+-define(wxSYS_CARET_TIMEOUT_MSEC, 41).
+%%%  From "settings.h": wxSystemScreenType
 -define(wxSYS_SCREEN_NONE, 0).
 -define(wxSYS_SCREEN_TINY, 1).
 -define(wxSYS_SCREEN_PDA, 2).
 -define(wxSYS_SCREEN_SMALL, 3).
 -define(wxSYS_SCREEN_DESKTOP, 4).
-% From "sizer.h": wxFlexSizerGrowMode
+%%%  From "sizer.h": wxFlexSizerGrowMode
 -define(wxFLEX_GROWMODE_NONE, 0).
 -define(wxFLEX_GROWMODE_SPECIFIED, 1).
 -define(wxFLEX_GROWMODE_ALL, 2).
-% From "slider.h"
+%%%  From "slider.h"
+-define(wxSL_LABELS, wxe_util:get_const(wxSL_LABELS)).
+-define(wxSL_VALUE_LABEL, 16384).
+-define(wxSL_MIN_MAX_LABELS, 8192).
 -define(wxSL_INVERSE, 4096).
 -define(wxSL_SELRANGE, 2048).
 -define(wxSL_BOTH, 1024).
@@ -2591,12 +2603,21 @@
 -define(wxSL_RIGHT, 256).
 -define(wxSL_TOP, 128).
 -define(wxSL_LEFT, 64).
--define(wxSL_LABELS, wxe_util:get_const(wxSL_LABELS)).
 -define(wxSL_AUTOTICKS, ?wxSL_TICKS).
 -define(wxSL_TICKS, 16).
 -define(wxSL_VERTICAL, ?wxVERTICAL).
 -define(wxSL_HORIZONTAL, ?wxHORIZONTAL).
-% From "splitter.h"
+%%%  From "splash.h"
+-define(wxSPLASH_NO_TIMEOUT, 0).
+-define(wxSPLASH_TIMEOUT, 4).
+-define(wxSPLASH_NO_CENTRE, 0).
+-define(wxSPLASH_CENTRE_ON_SCREEN, 2).
+-define(wxSPLASH_CENTRE_ON_PARENT, 1).
+%%%  From "splitter.h"
+-define(wxSPLIT_DRAG_NONE, 0).
+-define(wxSPLIT_DRAG_DRAGGING, 1).
+-define(wxSPLIT_DRAG_LEFT_DOWN, 2).
+%%%  From "splitter.h"
 -define(wxSP_3D, (?wxSP_3DBORDER bor ?wxSP_3DSASH)).
 -define(wxSP_BORDER, ?wxSP_3DBORDER).
 -define(wxSP_NO_XP_THEME, 1024).
@@ -2605,12 +2626,35 @@
 -define(wxSP_LIVE_UPDATE, 128).
 -define(wxSP_PERMIT_UNSPLIT, 64).
 -define(wxSP_NOSASH, 16).
+-define(wxSP_THIN_SASH, 0).
 -define(wxSP_NOBORDER, 0).
-% From "statusbr.h"
+%%%  From "splitter.h": wxSplitMode
+-define(wxSPLIT_HORIZONTAL, 1).
+-define(wxSPLIT_VERTICAL, 2).
+%%%  From "stattext.h"
+-define(wxST_ELLIPSIZE_END, 16).
+-define(wxST_ELLIPSIZE_MIDDLE, 8).
+-define(wxST_ELLIPSIZE_START, 4).
+-define(wxST_NO_AUTORESIZE, 1).
+%%%  From "statusbr.h"
+-define(wxSB_SUNKEN, 3).
 -define(wxSB_RAISED, 2).
 -define(wxSB_FLAT, 1).
 -define(wxSB_NORMAL, 0).
-% From "stc.h"
+-define(wxSTB_DEFAULT_STYLE, (?wxSTB_SIZEGRIP bor ?wxSTB_ELLIPSIZE_END bor ?wxSTB_SHOW_TIPS bor ?wxFULL_REPAINT_ON_RESIZE)).
+-define(wxSTB_ELLIPSIZE_END, 256).
+-define(wxSTB_ELLIPSIZE_MIDDLE, 128).
+-define(wxSTB_ELLIPSIZE_START, 64).
+-define(wxSTB_SHOW_TIPS, 32).
+-define(wxSTB_SIZEGRIP, 16).
+%%%  From "stc.h"
+-define(wxSTC_CMD_VCHOMEDISPLAYEXTEND, 2653).
+-define(wxSTC_CMD_VCHOMEDISPLAY, 2652).
+-define(wxSTC_CMD_SCROLLTOEND, 2629).
+-define(wxSTC_CMD_SCROLLTOSTART, 2628).
+-define(wxSTC_CMD_MOVESELECTEDLINESDOWN, 2621).
+-define(wxSTC_CMD_MOVESELECTEDLINESUP, 2620).
+-define(wxSTC_CMD_VERTICALCENTRECARET, 2619).
 -define(wxSTC_CMD_WORDRIGHTENDEXTEND, 2442).
 -define(wxSTC_CMD_WORDRIGHTEND, 2441).
 -define(wxSTC_CMD_WORDLEFTENDEXTEND, 2440).
@@ -2658,6 +2702,7 @@
 -define(wxSTC_CMD_LINETRANSPOSE, 2339).
 -define(wxSTC_CMD_LINEDELETE, 2338).
 -define(wxSTC_CMD_LINECUT, 2337).
+-define(wxSTC_CMD_DELWORDRIGHTEND, 2518).
 -define(wxSTC_CMD_DELWORDRIGHT, 2336).
 -define(wxSTC_CMD_DELWORDLEFT, 2335).
 -define(wxSTC_CMD_ZOOMOUT, 2334).
@@ -2702,6 +2747,560 @@
 -define(wxSTC_CMD_UNDO, 2176).
 -define(wxSTC_CMD_SELECTALL, 2013).
 -define(wxSTC_CMD_REDO, 2011).
+-define(wxSTC_INDICS_MASK, 224).
+-define(wxSTC_INDIC2_MASK, 128).
+-define(wxSTC_INDIC1_MASK, 64).
+-define(wxSTC_INDIC0_MASK, 32).
+-define(wxSTC_EDI_BADSEGMENT, 8).
+-define(wxSTC_EDI_UNH, 7).
+-define(wxSTC_EDI_UNA, 6).
+-define(wxSTC_EDI_SEP_RELEASE, 5).
+-define(wxSTC_EDI_SEP_COMPOSITE, 4).
+-define(wxSTC_EDI_SEP_ELEMENT, 3).
+-define(wxSTC_EDI_SEGMENTEND, 2).
+-define(wxSTC_EDI_SEGMENTSTART, 1).
+-define(wxSTC_EDI_DEFAULT, 0).
+-define(wxSTC_JSON_ERROR, 13).
+-define(wxSTC_JSON_LDKEYWORD, 12).
+-define(wxSTC_JSON_KEYWORD, 11).
+-define(wxSTC_JSON_COMPACTIRI, 10).
+-define(wxSTC_JSON_URI, 9).
+-define(wxSTC_JSON_OPERATOR, 8).
+-define(wxSTC_JSON_BLOCKCOMMENT, 7).
+-define(wxSTC_JSON_LINECOMMENT, 6).
+-define(wxSTC_JSON_ESCAPESEQUENCE, 5).
+-define(wxSTC_JSON_PROPERTYNAME, 4).
+-define(wxSTC_JSON_STRINGEOL, 3).
+-define(wxSTC_JSON_STRING, 2).
+-define(wxSTC_JSON_NUMBER, 1).
+-define(wxSTC_JSON_DEFAULT, 0).
+-define(wxSTC_HEX_GARBAGE, 18).
+-define(wxSTC_HEX_CHECKSUM_WRONG, 17).
+-define(wxSTC_HEX_CHECKSUM, 16).
+-define(wxSTC_HEX_DATA_EMPTY, 15).
+-define(wxSTC_HEX_DATA_UNKNOWN, 14).
+-define(wxSTC_HEX_DATA_EVEN, 13).
+-define(wxSTC_HEX_DATA_ODD, 12).
+-define(wxSTC_HEX_EXTENDEDADDRESS, 11).
+-define(wxSTC_HEX_ADDRESSFIELD_UNKNOWN, 10).
+-define(wxSTC_HEX_STARTADDRESS, 9).
+-define(wxSTC_HEX_RECCOUNT, 8).
+-define(wxSTC_HEX_DATAADDRESS, 7).
+-define(wxSTC_HEX_NOADDRESS, 6).
+-define(wxSTC_HEX_BYTECOUNT_WRONG, 5).
+-define(wxSTC_HEX_BYTECOUNT, 4).
+-define(wxSTC_HEX_RECTYPE_UNKNOWN, 3).
+-define(wxSTC_HEX_RECTYPE, 2).
+-define(wxSTC_HEX_RECSTART, 1).
+-define(wxSTC_HEX_DEFAULT, 0).
+-define(wxSTC_BIBTEX_COMMENT, 6).
+-define(wxSTC_BIBTEX_VALUE, 5).
+-define(wxSTC_BIBTEX_PARAMETER, 4).
+-define(wxSTC_BIBTEX_KEY, 3).
+-define(wxSTC_BIBTEX_UNKNOWN_ENTRY, 2).
+-define(wxSTC_BIBTEX_ENTRY, 1).
+-define(wxSTC_BIBTEX_DEFAULT, 0).
+-define(wxSTC_REG_OPERATOR, 12).
+-define(wxSTC_REG_PARAMETER, 11).
+-define(wxSTC_REG_STRING_GUID, 10).
+-define(wxSTC_REG_KEYPATH_GUID, 9).
+-define(wxSTC_REG_ESCAPED, 8).
+-define(wxSTC_REG_DELETEDKEY, 7).
+-define(wxSTC_REG_ADDEDKEY, 6).
+-define(wxSTC_REG_VALUETYPE, 5).
+-define(wxSTC_REG_HEXDIGIT, 4).
+-define(wxSTC_REG_STRING, 3).
+-define(wxSTC_REG_VALUENAME, 2).
+-define(wxSTC_REG_COMMENT, 1).
+-define(wxSTC_REG_DEFAULT, 0).
+-define(wxSTC_DMIS_LABEL, 9).
+-define(wxSTC_DMIS_UNSUPPORTED_MINOR, 8).
+-define(wxSTC_DMIS_UNSUPPORTED_MAJOR, 7).
+-define(wxSTC_DMIS_MINORWORD, 6).
+-define(wxSTC_DMIS_MAJORWORD, 5).
+-define(wxSTC_DMIS_KEYWORD, 4).
+-define(wxSTC_DMIS_NUMBER, 3).
+-define(wxSTC_DMIS_STRING, 2).
+-define(wxSTC_DMIS_COMMENT, 1).
+-define(wxSTC_DMIS_DEFAULT, 0).
+-define(wxSTC_DMAP_WORD3, 10).
+-define(wxSTC_DMAP_WORD2, 9).
+-define(wxSTC_DMAP_WORD, 8).
+-define(wxSTC_DMAP_IDENTIFIER, 7).
+-define(wxSTC_DMAP_OPERATOR, 6).
+-define(wxSTC_DMAP_STRINGEOL, 5).
+-define(wxSTC_DMAP_STRING2, 4).
+-define(wxSTC_DMAP_STRING1, 3).
+-define(wxSTC_DMAP_NUMBER, 2).
+-define(wxSTC_DMAP_COMMENT, 1).
+-define(wxSTC_DMAP_DEFAULT, 0).
+-define(wxSTC_RUST_BYTECHARACTER, 23).
+-define(wxSTC_RUST_BYTESTRINGR, 22).
+-define(wxSTC_RUST_BYTESTRING, 21).
+-define(wxSTC_RUST_LEXERROR, 20).
+-define(wxSTC_RUST_MACRO, 19).
+-define(wxSTC_RUST_LIFETIME, 18).
+-define(wxSTC_RUST_IDENTIFIER, 17).
+-define(wxSTC_RUST_OPERATOR, 16).
+-define(wxSTC_RUST_CHARACTER, 15).
+-define(wxSTC_RUST_STRINGR, 14).
+-define(wxSTC_RUST_STRING, 13).
+-define(wxSTC_RUST_WORD7, 12).
+-define(wxSTC_RUST_WORD6, 11).
+-define(wxSTC_RUST_WORD5, 10).
+-define(wxSTC_RUST_WORD4, 9).
+-define(wxSTC_RUST_WORD3, 8).
+-define(wxSTC_RUST_WORD2, 7).
+-define(wxSTC_RUST_WORD, 6).
+-define(wxSTC_RUST_NUMBER, 5).
+-define(wxSTC_RUST_COMMENTLINEDOC, 4).
+-define(wxSTC_RUST_COMMENTBLOCKDOC, 3).
+-define(wxSTC_RUST_COMMENTLINE, 2).
+-define(wxSTC_RUST_COMMENTBLOCK, 1).
+-define(wxSTC_RUST_DEFAULT, 0).
+-define(wxSTC_KVIRC_STRING_VARIABLE, 12).
+-define(wxSTC_KVIRC_STRING_FUNCTION, 11).
+-define(wxSTC_KVIRC_OPERATOR, 10).
+-define(wxSTC_KVIRC_NUMBER, 9).
+-define(wxSTC_KVIRC_VARIABLE, 8).
+-define(wxSTC_KVIRC_FUNCTION, 7).
+-define(wxSTC_KVIRC_FUNCTION_KEYWORD, 6).
+-define(wxSTC_KVIRC_KEYWORD, 5).
+-define(wxSTC_KVIRC_WORD, 4).
+-define(wxSTC_KVIRC_STRING, 3).
+-define(wxSTC_KVIRC_COMMENTBLOCK, 2).
+-define(wxSTC_KVIRC_COMMENT, 1).
+-define(wxSTC_KVIRC_DEFAULT, 0).
+-define(wxSTC_STTXT_PRAGMAS, 18).
+-define(wxSTC_STTXT_VARS, 17).
+-define(wxSTC_STTXT_DATETIME, 16).
+-define(wxSTC_STTXT_IDENTIFIER, 15).
+-define(wxSTC_STTXT_STRINGEOL, 14).
+-define(wxSTC_STTXT_STRING2, 13).
+-define(wxSTC_STTXT_STRING1, 12).
+-define(wxSTC_STTXT_CHARACTER, 11).
+-define(wxSTC_STTXT_OPERATOR, 10).
+-define(wxSTC_STTXT_PRAGMA, 9).
+-define(wxSTC_STTXT_HEXNUMBER, 8).
+-define(wxSTC_STTXT_NUMBER, 7).
+-define(wxSTC_STTXT_FB, 6).
+-define(wxSTC_STTXT_FUNCTION, 5).
+-define(wxSTC_STTXT_TYPE, 4).
+-define(wxSTC_STTXT_KEYWORD, 3).
+-define(wxSTC_STTXT_COMMENTLINE, 2).
+-define(wxSTC_STTXT_COMMENT, 1).
+-define(wxSTC_STTXT_DEFAULT, 0).
+-define(wxSTC_VISUALPROLOG_STRING_VERBATIM_EOL, 22).
+-define(wxSTC_VISUALPROLOG_STRING_VERBATIM_SPECIAL, 21).
+-define(wxSTC_VISUALPROLOG_STRING_VERBATIM, 20).
+-define(wxSTC_VISUALPROLOG_STRING_EOL_OPEN, 19).
+-define(wxSTC_VISUALPROLOG_STRING_ESCAPE_ERROR, 18).
+-define(wxSTC_VISUALPROLOG_STRING_ESCAPE, 17).
+-define(wxSTC_VISUALPROLOG_STRING, 16).
+-define(wxSTC_VISUALPROLOG_CHARACTER_ESCAPE_ERROR, 15).
+-define(wxSTC_VISUALPROLOG_CHARACTER_TOO_MANY, 14).
+-define(wxSTC_VISUALPROLOG_CHARACTER, 13).
+-define(wxSTC_VISUALPROLOG_OPERATOR, 12).
+-define(wxSTC_VISUALPROLOG_NUMBER, 11).
+-define(wxSTC_VISUALPROLOG_ANONYMOUS, 10).
+-define(wxSTC_VISUALPROLOG_VARIABLE, 9).
+-define(wxSTC_VISUALPROLOG_IDENTIFIER, 8).
+-define(wxSTC_VISUALPROLOG_COMMENT_KEY_ERROR, 7).
+-define(wxSTC_VISUALPROLOG_COMMENT_KEY, 6).
+-define(wxSTC_VISUALPROLOG_COMMENT_LINE, 5).
+-define(wxSTC_VISUALPROLOG_COMMENT_BLOCK, 4).
+-define(wxSTC_VISUALPROLOG_KEY_DIRECTIVE, 3).
+-define(wxSTC_VISUALPROLOG_KEY_MINOR, 2).
+-define(wxSTC_VISUALPROLOG_KEY_MAJOR, 1).
+-define(wxSTC_VISUALPROLOG_DEFAULT, 0).
+-define(wxSTC_OSCRIPT_METHOD, 18).
+-define(wxSTC_OSCRIPT_PROPERTY, 17).
+-define(wxSTC_OSCRIPT_OBJECT, 16).
+-define(wxSTC_OSCRIPT_FUNCTION, 15).
+-define(wxSTC_OSCRIPT_TYPE, 14).
+-define(wxSTC_OSCRIPT_LABEL, 13).
+-define(wxSTC_OSCRIPT_OPERATOR, 12).
+-define(wxSTC_OSCRIPT_KEYWORD, 11).
+-define(wxSTC_OSCRIPT_GLOBAL, 10).
+-define(wxSTC_OSCRIPT_IDENTIFIER, 9).
+-define(wxSTC_OSCRIPT_CONSTANT, 8).
+-define(wxSTC_OSCRIPT_DOUBLEQUOTE_STRING, 7).
+-define(wxSTC_OSCRIPT_SINGLEQUOTE_STRING, 6).
+-define(wxSTC_OSCRIPT_NUMBER, 5).
+-define(wxSTC_OSCRIPT_PREPROCESSOR, 4).
+-define(wxSTC_OSCRIPT_DOC_COMMENT, 3).
+-define(wxSTC_OSCRIPT_BLOCK_COMMENT, 2).
+-define(wxSTC_OSCRIPT_LINE_COMMENT, 1).
+-define(wxSTC_OSCRIPT_DEFAULT, 0).
+-define(wxSTC_ECL_MOVED, 27).
+-define(wxSTC_ECL_CHANGED, 26).
+-define(wxSTC_ECL_DELETED, 25).
+-define(wxSTC_ECL_ADDED, 24).
+-define(wxSTC_ECL_COMMENTDOC, 23).
+-define(wxSTC_ECL_WORD5, 22).
+-define(wxSTC_ECL_WORD4, 21).
+-define(wxSTC_ECL_WORD3, 20).
+-define(wxSTC_ECL_WORD2, 19).
+-define(wxSTC_ECL_COMMENTDOCKEYWORDERROR, 18).
+-define(wxSTC_ECL_COMMENTDOCKEYWORD, 17).
+-define(wxSTC_ECL_WORD1, 16).
+-define(wxSTC_ECL_COMMENTLINEDOC, 15).
+-define(wxSTC_ECL_REGEX, 14).
+-define(wxSTC_ECL_VERBATIM, 13).
+-define(wxSTC_ECL_STRINGEOL, 12).
+-define(wxSTC_ECL_IDENTIFIER, 11).
+-define(wxSTC_ECL_UNKNOWN, 10).
+-define(wxSTC_ECL_PREPROCESSOR, 9).
+-define(wxSTC_ECL_UUID, 8).
+-define(wxSTC_ECL_CHARACTER, 7).
+-define(wxSTC_ECL_OPERATOR, 6).
+-define(wxSTC_ECL_WORD0, 5).
+-define(wxSTC_ECL_STRING, 4).
+-define(wxSTC_ECL_NUMBER, 3).
+-define(wxSTC_ECL_COMMENTLINE, 2).
+-define(wxSTC_ECL_COMMENT, 1).
+-define(wxSTC_ECL_DEFAULT, 0).
+-define(wxSTC_AVS_USERDFN, 14).
+-define(wxSTC_AVS_CLIPPROP, 13).
+-define(wxSTC_AVS_FUNCTION, 12).
+-define(wxSTC_AVS_PLUGIN, 11).
+-define(wxSTC_AVS_FILTER, 10).
+-define(wxSTC_AVS_KEYWORD, 9).
+-define(wxSTC_AVS_TRIPLESTRING, 8).
+-define(wxSTC_AVS_STRING, 7).
+-define(wxSTC_AVS_IDENTIFIER, 6).
+-define(wxSTC_AVS_OPERATOR, 5).
+-define(wxSTC_AVS_NUMBER, 4).
+-define(wxSTC_AVS_COMMENTLINE, 3).
+-define(wxSTC_AVS_COMMENTBLOCKN, 2).
+-define(wxSTC_AVS_COMMENTBLOCK, 1).
+-define(wxSTC_AVS_DEFAULT, 0).
+-define(wxSTC_COFFEESCRIPT_INSTANCEPROPERTY, 25).
+-define(wxSTC_COFFEESCRIPT_VERBOSE_REGEX_COMMENT, 24).
+-define(wxSTC_COFFEESCRIPT_VERBOSE_REGEX, 23).
+-define(wxSTC_COFFEESCRIPT_COMMENTBLOCK, 22).
+-define(wxSTC_COFFEESCRIPT_TRIPLEVERBATIM, 21).
+-define(wxSTC_COFFEESCRIPT_STRINGRAW, 20).
+-define(wxSTC_COFFEESCRIPT_GLOBALCLASS, 19).
+-define(wxSTC_COFFEESCRIPT_COMMENTDOCKEYWORDERROR, 18).
+-define(wxSTC_COFFEESCRIPT_COMMENTDOCKEYWORD, 17).
+-define(wxSTC_COFFEESCRIPT_WORD2, 16).
+-define(wxSTC_COFFEESCRIPT_COMMENTLINEDOC, 15).
+-define(wxSTC_COFFEESCRIPT_REGEX, 14).
+-define(wxSTC_COFFEESCRIPT_VERBATIM, 13).
+-define(wxSTC_COFFEESCRIPT_STRINGEOL, 12).
+-define(wxSTC_COFFEESCRIPT_IDENTIFIER, 11).
+-define(wxSTC_COFFEESCRIPT_OPERATOR, 10).
+-define(wxSTC_COFFEESCRIPT_PREPROCESSOR, 9).
+-define(wxSTC_COFFEESCRIPT_UUID, 8).
+-define(wxSTC_COFFEESCRIPT_CHARACTER, 7).
+-define(wxSTC_COFFEESCRIPT_STRING, 6).
+-define(wxSTC_COFFEESCRIPT_WORD, 5).
+-define(wxSTC_COFFEESCRIPT_NUMBER, 4).
+-define(wxSTC_COFFEESCRIPT_COMMENTDOC, 3).
+-define(wxSTC_COFFEESCRIPT_COMMENTLINE, 2).
+-define(wxSTC_COFFEESCRIPT_COMMENT, 1).
+-define(wxSTC_COFFEESCRIPT_DEFAULT, 0).
+-define(wxSTC_MODULA_BADSTR, 17).
+-define(wxSTC_MODULA_OPERATOR, 16).
+-define(wxSTC_MODULA_PRGKEY, 15).
+-define(wxSTC_MODULA_PRAGMA, 14).
+-define(wxSTC_MODULA_PROC, 13).
+-define(wxSTC_MODULA_CHARSPEC, 12).
+-define(wxSTC_MODULA_CHAR, 11).
+-define(wxSTC_MODULA_STRSPEC, 10).
+-define(wxSTC_MODULA_STRING, 9).
+-define(wxSTC_MODULA_FLOAT, 8).
+-define(wxSTC_MODULA_BASENUM, 7).
+-define(wxSTC_MODULA_NUMBER, 6).
+-define(wxSTC_MODULA_RESERVED, 5).
+-define(wxSTC_MODULA_KEYWORD, 4).
+-define(wxSTC_MODULA_DOXYKEY, 3).
+-define(wxSTC_MODULA_DOXYCOMM, 2).
+-define(wxSTC_MODULA_COMMENT, 1).
+-define(wxSTC_MODULA_DEFAULT, 0).
+-define(wxSTC_A68K_COMMENT_DOXYGEN, 18).
+-define(wxSTC_A68K_COMMENT_SPECIAL, 17).
+-define(wxSTC_A68K_COMMENT_WORD, 16).
+-define(wxSTC_A68K_MACRO_DECLARATION, 15).
+-define(wxSTC_A68K_IDENTIFIER, 14).
+-define(wxSTC_A68K_STRING2, 13).
+-define(wxSTC_A68K_LABEL, 12).
+-define(wxSTC_A68K_MACRO_ARG, 11).
+-define(wxSTC_A68K_DIRECTIVE, 10).
+-define(wxSTC_A68K_REGISTER, 9).
+-define(wxSTC_A68K_EXTINSTRUCTION, 8).
+-define(wxSTC_A68K_CPUINSTRUCTION, 7).
+-define(wxSTC_A68K_OPERATOR, 6).
+-define(wxSTC_A68K_STRING1, 5).
+-define(wxSTC_A68K_NUMBER_HEX, 4).
+-define(wxSTC_A68K_NUMBER_BIN, 3).
+-define(wxSTC_A68K_NUMBER_DEC, 2).
+-define(wxSTC_A68K_COMMENT, 1).
+-define(wxSTC_A68K_DEFAULT, 0).
+-define(wxSTC_TXT2TAGS_POSTPROC, 25).
+-define(wxSTC_TXT2TAGS_PREPROC, 24).
+-define(wxSTC_TXT2TAGS_OPTION, 23).
+-define(wxSTC_TXT2TAGS_COMMENT, 22).
+-define(wxSTC_TXT2TAGS_CODEBK, 21).
+-define(wxSTC_TXT2TAGS_CODE2, 20).
+-define(wxSTC_TXT2TAGS_CODE, 19).
+-define(wxSTC_TXT2TAGS_LINK, 18).
+-define(wxSTC_TXT2TAGS_HRULE, 17).
+-define(wxSTC_TXT2TAGS_STRIKEOUT, 16).
+-define(wxSTC_TXT2TAGS_BLOCKQUOTE, 15).
+-define(wxSTC_TXT2TAGS_OLIST_ITEM, 14).
+-define(wxSTC_TXT2TAGS_ULIST_ITEM, 13).
+-define(wxSTC_TXT2TAGS_PRECHAR, 12).
+-define(wxSTC_TXT2TAGS_HEADER6, 11).
+-define(wxSTC_TXT2TAGS_HEADER5, 10).
+-define(wxSTC_TXT2TAGS_HEADER4, 9).
+-define(wxSTC_TXT2TAGS_HEADER3, 8).
+-define(wxSTC_TXT2TAGS_HEADER2, 7).
+-define(wxSTC_TXT2TAGS_HEADER1, 6).
+-define(wxSTC_TXT2TAGS_EM2, 5).
+-define(wxSTC_TXT2TAGS_EM1, 4).
+-define(wxSTC_TXT2TAGS_STRONG2, 3).
+-define(wxSTC_TXT2TAGS_STRONG1, 2).
+-define(wxSTC_TXT2TAGS_LINE_BEGIN, 1).
+-define(wxSTC_TXT2TAGS_DEFAULT, 0).
+-define(wxSTC_MARKDOWN_CODEBK, 21).
+-define(wxSTC_MARKDOWN_CODE2, 20).
+-define(wxSTC_MARKDOWN_CODE, 19).
+-define(wxSTC_MARKDOWN_LINK, 18).
+-define(wxSTC_MARKDOWN_HRULE, 17).
+-define(wxSTC_MARKDOWN_STRIKEOUT, 16).
+-define(wxSTC_MARKDOWN_BLOCKQUOTE, 15).
+-define(wxSTC_MARKDOWN_OLIST_ITEM, 14).
+-define(wxSTC_MARKDOWN_ULIST_ITEM, 13).
+-define(wxSTC_MARKDOWN_PRECHAR, 12).
+-define(wxSTC_MARKDOWN_HEADER6, 11).
+-define(wxSTC_MARKDOWN_HEADER5, 10).
+-define(wxSTC_MARKDOWN_HEADER4, 9).
+-define(wxSTC_MARKDOWN_HEADER3, 8).
+-define(wxSTC_MARKDOWN_HEADER2, 7).
+-define(wxSTC_MARKDOWN_HEADER1, 6).
+-define(wxSTC_MARKDOWN_EM2, 5).
+-define(wxSTC_MARKDOWN_EM1, 4).
+-define(wxSTC_MARKDOWN_STRONG2, 3).
+-define(wxSTC_MARKDOWN_STRONG1, 2).
+-define(wxSTC_MARKDOWN_LINE_BEGIN, 1).
+-define(wxSTC_MARKDOWN_DEFAULT, 0).
+-define(wxSTC_SML_COMMENT3, 15).
+-define(wxSTC_SML_COMMENT2, 14).
+-define(wxSTC_SML_COMMENT1, 13).
+-define(wxSTC_SML_COMMENT, 12).
+-define(wxSTC_SML_STRING, 11).
+-define(wxSTC_SML_CHAR, 9).
+-define(wxSTC_SML_NUMBER, 8).
+-define(wxSTC_SML_OPERATOR, 7).
+-define(wxSTC_SML_LINENUM, 6).
+-define(wxSTC_SML_KEYWORD3, 5).
+-define(wxSTC_SML_KEYWORD2, 4).
+-define(wxSTC_SML_KEYWORD, 3).
+-define(wxSTC_SML_TAGNAME, 2).
+-define(wxSTC_SML_IDENTIFIER, 1).
+-define(wxSTC_SML_DEFAULT, 0).
+-define(wxSTC_POWERPRO_FUNCTION, 16).
+-define(wxSTC_POWERPRO_ALTQUOTE, 15).
+-define(wxSTC_POWERPRO_VERBATIM, 14).
+-define(wxSTC_POWERPRO_STRINGEOL, 13).
+-define(wxSTC_POWERPRO_IDENTIFIER, 12).
+-define(wxSTC_POWERPRO_OPERATOR, 11).
+-define(wxSTC_POWERPRO_LINECONTINUE, 10).
+-define(wxSTC_POWERPRO_SINGLEQUOTEDSTRING, 9).
+-define(wxSTC_POWERPRO_DOUBLEQUOTEDSTRING, 8).
+-define(wxSTC_POWERPRO_WORD4, 7).
+-define(wxSTC_POWERPRO_WORD3, 6).
+-define(wxSTC_POWERPRO_WORD2, 5).
+-define(wxSTC_POWERPRO_WORD, 4).
+-define(wxSTC_POWERPRO_NUMBER, 3).
+-define(wxSTC_POWERPRO_COMMENTLINE, 2).
+-define(wxSTC_POWERPRO_COMMENTBLOCK, 1).
+-define(wxSTC_POWERPRO_DEFAULT, 0).
+-define(wxSTC_SORCUS_CONSTANT, 9).
+-define(wxSTC_SORCUS_NUMBER, 8).
+-define(wxSTC_SORCUS_OPERATOR, 7).
+-define(wxSTC_SORCUS_IDENTIFIER, 6).
+-define(wxSTC_SORCUS_STRINGEOL, 5).
+-define(wxSTC_SORCUS_STRING, 4).
+-define(wxSTC_SORCUS_COMMENTLINE, 3).
+-define(wxSTC_SORCUS_PARAMETER, 2).
+-define(wxSTC_SORCUS_COMMAND, 1).
+-define(wxSTC_SORCUS_DEFAULT, 0).
+-define(wxSTC_PAS_ASM, 14).
+-define(wxSTC_PAS_OPERATOR, 13).
+-define(wxSTC_PAS_CHARACTER, 12).
+-define(wxSTC_PAS_STRINGEOL, 11).
+-define(wxSTC_PAS_STRING, 10).
+-define(wxSTC_PAS_WORD, 9).
+-define(wxSTC_PAS_HEXNUMBER, 8).
+-define(wxSTC_PAS_NUMBER, 7).
+-define(wxSTC_PAS_PREPROCESSOR2, 6).
+-define(wxSTC_PAS_PREPROCESSOR, 5).
+-define(wxSTC_PAS_COMMENTLINE, 4).
+-define(wxSTC_PAS_COMMENT2, 3).
+-define(wxSTC_PAS_COMMENT, 2).
+-define(wxSTC_PAS_IDENTIFIER, 1).
+-define(wxSTC_PAS_DEFAULT, 0).
+-define(wxSTC_PO_ERROR, 15).
+-define(wxSTC_PO_MSGCTXT_TEXT_EOL, 14).
+-define(wxSTC_PO_MSGSTR_TEXT_EOL, 13).
+-define(wxSTC_PO_MSGID_TEXT_EOL, 12).
+-define(wxSTC_PO_FLAGS, 11).
+-define(wxSTC_PO_REFERENCE, 10).
+-define(wxSTC_PO_PROGRAMMER_COMMENT, 9).
+-define(wxSTC_PO_FUZZY, 8).
+-define(wxSTC_PO_MSGCTXT_TEXT, 7).
+-define(wxSTC_PO_MSGCTXT, 6).
+-define(wxSTC_PO_MSGSTR_TEXT, 5).
+-define(wxSTC_PO_MSGSTR, 4).
+-define(wxSTC_PO_MSGID_TEXT, 3).
+-define(wxSTC_PO_MSGID, 2).
+-define(wxSTC_PO_COMMENT, 1).
+-define(wxSTC_PO_DEFAULT, 0).
+-define(wxSTC_MYSQL_PLACEHOLDER, 22).
+-define(wxSTC_MYSQL_HIDDENCOMMAND, 21).
+-define(wxSTC_MYSQL_USER3, 20).
+-define(wxSTC_MYSQL_USER2, 19).
+-define(wxSTC_MYSQL_USER1, 18).
+-define(wxSTC_MYSQL_QUOTEDIDENTIFIER, 17).
+-define(wxSTC_MYSQL_IDENTIFIER, 16).
+-define(wxSTC_MYSQL_FUNCTION, 15).
+-define(wxSTC_MYSQL_OPERATOR, 14).
+-define(wxSTC_MYSQL_DQSTRING, 13).
+-define(wxSTC_MYSQL_SQSTRING, 12).
+-define(wxSTC_MYSQL_STRING, 11).
+-define(wxSTC_MYSQL_PROCEDUREKEYWORD, 10).
+-define(wxSTC_MYSQL_DATABASEOBJECT, 9).
+-define(wxSTC_MYSQL_KEYWORD, 8).
+-define(wxSTC_MYSQL_MAJORKEYWORD, 7).
+-define(wxSTC_MYSQL_NUMBER, 6).
+-define(wxSTC_MYSQL_KNOWNSYSTEMVARIABLE, 5).
+-define(wxSTC_MYSQL_SYSTEMVARIABLE, 4).
+-define(wxSTC_MYSQL_VARIABLE, 3).
+-define(wxSTC_MYSQL_COMMENTLINE, 2).
+-define(wxSTC_MYSQL_COMMENT, 1).
+-define(wxSTC_MYSQL_DEFAULT, 0).
+-define(wxSTC_POWERSHELL_COMMENTDOCKEYWORD, 16).
+-define(wxSTC_POWERSHELL_HERE_CHARACTER, 15).
+-define(wxSTC_POWERSHELL_HERE_STRING, 14).
+-define(wxSTC_POWERSHELL_COMMENTSTREAM, 13).
+-define(wxSTC_POWERSHELL_USER1, 12).
+-define(wxSTC_POWERSHELL_FUNCTION, 11).
+-define(wxSTC_POWERSHELL_ALIAS, 10).
+-define(wxSTC_POWERSHELL_CMDLET, 9).
+-define(wxSTC_POWERSHELL_KEYWORD, 8).
+-define(wxSTC_POWERSHELL_IDENTIFIER, 7).
+-define(wxSTC_POWERSHELL_OPERATOR, 6).
+-define(wxSTC_POWERSHELL_VARIABLE, 5).
+-define(wxSTC_POWERSHELL_NUMBER, 4).
+-define(wxSTC_POWERSHELL_CHARACTER, 3).
+-define(wxSTC_POWERSHELL_STRING, 2).
+-define(wxSTC_POWERSHELL_COMMENT, 1).
+-define(wxSTC_POWERSHELL_DEFAULT, 0).
+-define(wxSTC_MAGIK_SYMBOL, 15).
+-define(wxSTC_MAGIK_PRAGMA, 14).
+-define(wxSTC_MAGIK_KEYWORD, 13).
+-define(wxSTC_MAGIK_UNKNOWN_KEYWORD, 12).
+-define(wxSTC_MAGIK_SQBRACKET_BLOCK, 11).
+-define(wxSTC_MAGIK_BRACE_BLOCK, 10).
+-define(wxSTC_MAGIK_BRACKET_BLOCK, 9).
+-define(wxSTC_MAGIK_CONTAINER, 8).
+-define(wxSTC_MAGIK_FLOW, 7).
+-define(wxSTC_MAGIK_OPERATOR, 6).
+-define(wxSTC_MAGIK_IDENTIFIER, 5).
+-define(wxSTC_MAGIK_NUMBER, 4).
+-define(wxSTC_MAGIK_CHARACTER, 3).
+-define(wxSTC_MAGIK_STRING, 2).
+-define(wxSTC_MAGIK_HYPER_COMMENT, 16).
+-define(wxSTC_MAGIK_COMMENT, 1).
+-define(wxSTC_MAGIK_DEFAULT, 0).
+-define(wxSTC_R_INFIXEOL, 11).
+-define(wxSTC_R_INFIX, 10).
+-define(wxSTC_R_IDENTIFIER, 9).
+-define(wxSTC_R_OPERATOR, 8).
+-define(wxSTC_R_STRING2, 7).
+-define(wxSTC_R_STRING, 6).
+-define(wxSTC_R_NUMBER, 5).
+-define(wxSTC_R_OTHERKWORD, 4).
+-define(wxSTC_R_BASEKWORD, 3).
+-define(wxSTC_R_KWORD, 2).
+-define(wxSTC_R_COMMENT, 1).
+-define(wxSTC_R_DEFAULT, 0).
+-define(wxSTC_ASY_WORD2, 11).
+-define(wxSTC_ASY_COMMENTLINEDOC, 10).
+-define(wxSTC_ASY_STRINGEOL, 9).
+-define(wxSTC_ASY_IDENTIFIER, 8).
+-define(wxSTC_ASY_OPERATOR, 7).
+-define(wxSTC_ASY_CHARACTER, 6).
+-define(wxSTC_ASY_STRING, 5).
+-define(wxSTC_ASY_WORD, 4).
+-define(wxSTC_ASY_NUMBER, 3).
+-define(wxSTC_ASY_COMMENTLINE, 2).
+-define(wxSTC_ASY_COMMENT, 1).
+-define(wxSTC_ASY_DEFAULT, 0).
+-define(wxSTC_ABAQUS_FUNCTION, 12).
+-define(wxSTC_ABAQUS_ARGUMENT, 11).
+-define(wxSTC_ABAQUS_STARCOMMAND, 10).
+-define(wxSTC_ABAQUS_SLASHCOMMAND, 9).
+-define(wxSTC_ABAQUS_COMMAND, 8).
+-define(wxSTC_ABAQUS_PROCESSOR, 7).
+-define(wxSTC_ABAQUS_WORD, 6).
+-define(wxSTC_ABAQUS_OPERATOR, 5).
+-define(wxSTC_ABAQUS_STRING, 4).
+-define(wxSTC_ABAQUS_NUMBER, 3).
+-define(wxSTC_ABAQUS_COMMENTBLOCK, 2).
+-define(wxSTC_ABAQUS_COMMENT, 1).
+-define(wxSTC_ABAQUS_DEFAULT, 0).
+-define(wxSTC_ABL_LINECOMMENT, 12).
+-define(wxSTC_ABL_TASKMARKER, 11).
+-define(wxSTC_ABL_COMMENT, 10).
+-define(wxSTC_ABL_END, 9).
+-define(wxSTC_ABL_BLOCK, 8).
+-define(wxSTC_ABL_IDENTIFIER, 7).
+-define(wxSTC_ABL_OPERATOR, 6).
+-define(wxSTC_ABL_PREPROCESSOR, 5).
+-define(wxSTC_ABL_CHARACTER, 4).
+-define(wxSTC_ABL_STRING, 3).
+-define(wxSTC_ABL_WORD, 2).
+-define(wxSTC_ABL_NUMBER, 1).
+-define(wxSTC_ABL_DEFAULT, 0).
+-define(wxSTC_PLM_KEYWORD, 7).
+-define(wxSTC_PLM_CONTROL, 6).
+-define(wxSTC_PLM_OPERATOR, 5).
+-define(wxSTC_PLM_IDENTIFIER, 4).
+-define(wxSTC_PLM_NUMBER, 3).
+-define(wxSTC_PLM_STRING, 2).
+-define(wxSTC_PLM_COMMENT, 1).
+-define(wxSTC_PLM_DEFAULT, 0).
+-define(wxSTC_GAP_STRINGEOL, 11).
+-define(wxSTC_GAP_NUMBER, 10).
+-define(wxSTC_GAP_COMMENT, 9).
+-define(wxSTC_GAP_OPERATOR, 8).
+-define(wxSTC_GAP_CHAR, 7).
+-define(wxSTC_GAP_STRING, 6).
+-define(wxSTC_GAP_KEYWORD4, 5).
+-define(wxSTC_GAP_KEYWORD3, 4).
+-define(wxSTC_GAP_KEYWORD2, 3).
+-define(wxSTC_GAP_KEYWORD, 2).
+-define(wxSTC_GAP_IDENTIFIER, 1).
+-define(wxSTC_GAP_DEFAULT, 0).
+-define(wxSTC_CMAKE_NUMBER, 14).
+-define(wxSTC_CMAKE_STRINGVAR, 13).
+-define(wxSTC_CMAKE_MACRODEF, 12).
+-define(wxSTC_CMAKE_IFDEFINEDEF, 11).
+-define(wxSTC_CMAKE_FOREACHDEF, 10).
+-define(wxSTC_CMAKE_WHILEDEF, 9).
+-define(wxSTC_CMAKE_USERDEFINED, 8).
+-define(wxSTC_CMAKE_VARIABLE, 7).
+-define(wxSTC_CMAKE_PARAMETERS, 6).
+-define(wxSTC_CMAKE_COMMANDS, 5).
+-define(wxSTC_CMAKE_STRINGRQ, 4).
+-define(wxSTC_CMAKE_STRINGLQ, 3).
+-define(wxSTC_CMAKE_STRINGDQ, 2).
+-define(wxSTC_CMAKE_COMMENT, 1).
+-define(wxSTC_CMAKE_DEFAULT, 0).
 -define(wxSTC_SPICE_COMMENTLINE, 8).
 -define(wxSTC_SPICE_VALUE, 7).
 -define(wxSTC_SPICE_DELIMITER, 6).
@@ -2727,7 +3326,7 @@
 -define(wxSTC_INNO_KEYWORD_USER, 9).
 -define(wxSTC_INNO_KEYWORD_PASCAL, 8).
 -define(wxSTC_INNO_COMMENT_PASCAL, 7).
--define(wxSTC_INNO_PREPROC_INLINE, 6).
+-define(wxSTC_INNO_INLINE_EXPANSION, 6).
 -define(wxSTC_INNO_PREPROC, 5).
 -define(wxSTC_INNO_SECTION, 4).
 -define(wxSTC_INNO_PARAMETER, 3).
@@ -2750,11 +3349,19 @@
 -define(wxSTC_CSOUND_NUMBER, 2).
 -define(wxSTC_CSOUND_COMMENT, 1).
 -define(wxSTC_CSOUND_DEFAULT, 0).
--define(wxSTC_FS_BINNUMBER, 23).
--define(wxSTC_FS_HEXNUMBER, 22).
--define(wxSTC_FS_ERROR, 21).
--define(wxSTC_FS_LABEL, 20).
--define(wxSTC_FS_ASM, 19).
+-define(wxSTC_FS_STRINGEOL_C, 31).
+-define(wxSTC_FS_IDENTIFIER_C, 30).
+-define(wxSTC_FS_OPERATOR_C, 29).
+-define(wxSTC_FS_PREPROCESSOR_C, 28).
+-define(wxSTC_FS_STRING_C, 27).
+-define(wxSTC_FS_NUMBER_C, 26).
+-define(wxSTC_FS_KEYWORD2_C, 25).
+-define(wxSTC_FS_KEYWORD_C, 24).
+-define(wxSTC_FS_COMMENTLINEDOC_C, 23).
+-define(wxSTC_FS_COMMENTDOC_C, 22).
+-define(wxSTC_FS_DEFAULT_C, 21).
+-define(wxSTC_FS_DISABLEDCODE, 20).
+-define(wxSTC_FS_WORDOPERATOR, 19).
 -define(wxSTC_FS_CONSTANT, 18).
 -define(wxSTC_FS_STRINGEOL, 17).
 -define(wxSTC_FS_DATE, 16).
@@ -2791,6 +3398,7 @@
 -define(wxSTC_ST_NUMBER, 2).
 -define(wxSTC_ST_STRING, 1).
 -define(wxSTC_ST_DEFAULT, 0).
+-define(wxSTC_SQL_QOPERATOR, 24).
 -define(wxSTC_SQL_QUOTEDIDENTIFIER, 23).
 -define(wxSTC_SQL_USER4, 22).
 -define(wxSTC_SQL_USER3, 21).
@@ -2842,6 +3450,7 @@
 -define(wxSTC_REBOL_COMMENTBLOCK, 2).
 -define(wxSTC_REBOL_COMMENTLINE, 1).
 -define(wxSTC_REBOL_DEFAULT, 0).
+-define(wxSTC_T3_BRACE, 20).
 -define(wxSTC_T3_USER3, 19).
 -define(wxSTC_T3_USER2, 18).
 -define(wxSTC_T3_USER1, 17).
@@ -2862,6 +3471,12 @@
 -define(wxSTC_T3_PREPROCESSOR, 2).
 -define(wxSTC_T3_X_DEFAULT, 1).
 -define(wxSTC_T3_DEFAULT, 0).
+-define(wxSTC_HA_LITERATE_CODEDELIM, 22).
+-define(wxSTC_HA_LITERATE_COMMENT, 21).
+-define(wxSTC_HA_RESERVED_OPERATOR, 20).
+-define(wxSTC_HA_STRINGEOL, 19).
+-define(wxSTC_HA_PREPROCESSOR, 18).
+-define(wxSTC_HA_PRAGMA, 17).
 -define(wxSTC_HA_COMMENTBLOCK3, 16).
 -define(wxSTC_HA_COMMENTBLOCK2, 15).
 -define(wxSTC_HA_COMMENTBLOCK, 14).
@@ -2884,6 +3499,7 @@
 -define(wxSTC_CAML_COMMENT1, 13).
 -define(wxSTC_CAML_COMMENT, 12).
 -define(wxSTC_CAML_STRING, 11).
+-define(wxSTC_CAML_WHITE, 10).
 -define(wxSTC_CAML_CHAR, 9).
 -define(wxSTC_CAML_NUMBER, 8).
 -define(wxSTC_CAML_OPERATOR, 7).
@@ -2894,6 +3510,7 @@
 -define(wxSTC_CAML_TAGNAME, 2).
 -define(wxSTC_CAML_IDENTIFIER, 1).
 -define(wxSTC_CAML_DEFAULT, 0).
+-define(wxSTC_VHDL_BLOCK_COMMENT, 15).
 -define(wxSTC_VHDL_USERWORD, 14).
 -define(wxSTC_VHDL_STDTYPE, 13).
 -define(wxSTC_VHDL_STDPACKAGE, 12).
@@ -2990,6 +3607,7 @@
 -define(wxSTC_GC_COMMENTLINE, 1).
 -define(wxSTC_GC_DEFAULT, 0).
 -define(wxSTC_KIX_IDENTIFIER, 31).
+-define(wxSTC_KIX_COMMENTSTREAM, 10).
 -define(wxSTC_KIX_OPERATOR, 9).
 -define(wxSTC_KIX_FUNCTIONS, 8).
 -define(wxSTC_KIX_KEYWORD, 7).
@@ -3000,6 +3618,11 @@
 -define(wxSTC_KIX_STRING1, 2).
 -define(wxSTC_KIX_COMMENT, 1).
 -define(wxSTC_KIX_DEFAULT, 0).
+-define(wxSTC_V_PORT_CONNECT, 24).
+-define(wxSTC_V_INOUT, 23).
+-define(wxSTC_V_OUTPUT, 22).
+-define(wxSTC_V_INPUT, 21).
+-define(wxSTC_V_COMMENT_WORD, 20).
 -define(wxSTC_V_USER, 19).
 -define(wxSTC_V_STRINGEOL, 12).
 -define(wxSTC_V_IDENTIFIER, 11).
@@ -3032,8 +3655,19 @@
 -define(wxSTC_MSSQL_COMMENT, 1).
 -define(wxSTC_MSSQL_DEFAULT, 0).
 -define(wxSTC_ERLANG_UNKNOWN, 31).
+-define(wxSTC_ERLANG_MODULES_ATT, 24).
+-define(wxSTC_ERLANG_MODULES, 23).
+-define(wxSTC_ERLANG_BIFS, 22).
+-define(wxSTC_ERLANG_NODE_NAME_QUOTED, 21).
+-define(wxSTC_ERLANG_RECORD_QUOTED, 20).
+-define(wxSTC_ERLANG_MACRO_QUOTED, 19).
+-define(wxSTC_ERLANG_ATOM_QUOTED, 18).
+-define(wxSTC_ERLANG_COMMENT_DOC_MACRO, 17).
+-define(wxSTC_ERLANG_COMMENT_DOC, 16).
+-define(wxSTC_ERLANG_COMMENT_MODULE, 15).
+-define(wxSTC_ERLANG_COMMENT_FUNCTION, 14).
 -define(wxSTC_ERLANG_NODE_NAME, 13).
--define(wxSTC_ERLANG_SEPARATOR, 12).
+-define(wxSTC_ERLANG_PREPROC, 12).
 -define(wxSTC_ERLANG_RECORD, 11).
 -define(wxSTC_ERLANG_MACRO, 10).
 -define(wxSTC_ERLANG_CHARACTER, 9).
@@ -3059,6 +3693,7 @@
 -define(wxSTC_TEX_GROUP, 2).
 -define(wxSTC_TEX_SPECIAL, 1).
 -define(wxSTC_TEX_DEFAULT, 0).
+-define(wxSTC_YAML_OPERATOR, 9).
 -define(wxSTC_YAML_ERROR, 8).
 -define(wxSTC_YAML_TEXT, 7).
 -define(wxSTC_YAML_DOCUMENT, 6).
@@ -3185,6 +3820,13 @@
 -define(wxSTC_POV_COMMENTLINE, 2).
 -define(wxSTC_POV_COMMENT, 1).
 -define(wxSTC_POV_DEFAULT, 0).
+-define(wxSTC_CSS_VARIABLE, 23).
+-define(wxSTC_CSS_MEDIA, 22).
+-define(wxSTC_CSS_EXTENDED_PSEUDOELEMENT, 21).
+-define(wxSTC_CSS_EXTENDED_PSEUDOCLASS, 20).
+-define(wxSTC_CSS_EXTENDED_IDENTIFIER, 19).
+-define(wxSTC_CSS_PSEUDOELEMENT, 18).
+-define(wxSTC_CSS_IDENTIFIER3, 17).
 -define(wxSTC_CSS_ATTRIBUTE, 16).
 -define(wxSTC_CSS_IDENTIFIER2, 15).
 -define(wxSTC_CSS_SINGLESTRING, 14).
@@ -3217,6 +3859,7 @@
 -define(wxSTC_F_NUMBER, 2).
 -define(wxSTC_F_COMMENT, 1).
 -define(wxSTC_F_DEFAULT, 0).
+-define(wxSTC_ASM_COMMENTDIRECTIVE, 15).
 -define(wxSTC_ASM_EXTINSTRUCTION, 14).
 -define(wxSTC_ASM_STRINGEOL, 13).
 -define(wxSTC_ASM_CHARACTER, 12).
@@ -3301,6 +3944,20 @@
 -define(wxSTC_LISP_NUMBER, 2).
 -define(wxSTC_LISP_COMMENT, 1).
 -define(wxSTC_LISP_DEFAULT, 0).
+-define(wxSTC_BAAN_DEFINEDEF, 24).
+-define(wxSTC_BAAN_OBJECTDEF, 23).
+-define(wxSTC_BAAN_FUNCDEF, 22).
+-define(wxSTC_BAAN_DOMDEF, 21).
+-define(wxSTC_BAAN_FUNCTION, 20).
+-define(wxSTC_BAAN_TABLESQL, 19).
+-define(wxSTC_BAAN_TABLEDEF, 18).
+-define(wxSTC_BAAN_WORD9, 17).
+-define(wxSTC_BAAN_WORD8, 16).
+-define(wxSTC_BAAN_WORD7, 15).
+-define(wxSTC_BAAN_WORD6, 14).
+-define(wxSTC_BAAN_WORD5, 13).
+-define(wxSTC_BAAN_WORD4, 12).
+-define(wxSTC_BAAN_WORD3, 11).
 -define(wxSTC_BAAN_WORD2, 10).
 -define(wxSTC_BAAN_STRINGEOL, 9).
 -define(wxSTC_BAAN_IDENTIFIER, 8).
@@ -3349,6 +4006,7 @@
 -define(wxSTC_CONF_NUMBER, 2).
 -define(wxSTC_CONF_COMMENT, 1).
 -define(wxSTC_CONF_DEFAULT, 0).
+-define(wxSTC_DIFF_CHANGED, 7).
 -define(wxSTC_DIFF_ADDED, 6).
 -define(wxSTC_DIFF_DELETED, 5).
 -define(wxSTC_DIFF_POSITION, 4).
@@ -3363,6 +4021,17 @@
 -define(wxSTC_MAKE_PREPROCESSOR, 2).
 -define(wxSTC_MAKE_COMMENT, 1).
 -define(wxSTC_MAKE_DEFAULT, 0).
+-define(wxSTC_TCMD_CLABEL, 10).
+-define(wxSTC_TCMD_EXPANSION, 9).
+-define(wxSTC_TCMD_ENVIRONMENT, 8).
+-define(wxSTC_TCMD_OPERATOR, 7).
+-define(wxSTC_TCMD_IDENTIFIER, 6).
+-define(wxSTC_TCMD_COMMAND, 5).
+-define(wxSTC_TCMD_HIDE, 4).
+-define(wxSTC_TCMD_LABEL, 3).
+-define(wxSTC_TCMD_WORD, 2).
+-define(wxSTC_TCMD_COMMENT, 1).
+-define(wxSTC_TCMD_DEFAULT, 0).
 -define(wxSTC_BAT_OPERATOR, 7).
 -define(wxSTC_BAT_IDENTIFIER, 6).
 -define(wxSTC_BAT_COMMAND, 5).
@@ -3371,6 +4040,26 @@
 -define(wxSTC_BAT_WORD, 2).
 -define(wxSTC_BAT_COMMENT, 1).
 -define(wxSTC_BAT_DEFAULT, 0).
+-define(wxSTC_ERR_ES_WHITE, 55).
+-define(wxSTC_ERR_ES_BRIGHT_CYAN, 54).
+-define(wxSTC_ERR_ES_BRIGHT_MAGENTA, 53).
+-define(wxSTC_ERR_ES_BRIGHT_BLUE, 52).
+-define(wxSTC_ERR_ES_YELLOW, 51).
+-define(wxSTC_ERR_ES_BRIGHT_GREEN, 50).
+-define(wxSTC_ERR_ES_BRIGHT_RED, 49).
+-define(wxSTC_ERR_ES_DARK_GRAY, 48).
+-define(wxSTC_ERR_ES_GRAY, 47).
+-define(wxSTC_ERR_ES_CYAN, 46).
+-define(wxSTC_ERR_ES_MAGENTA, 45).
+-define(wxSTC_ERR_ES_BLUE, 44).
+-define(wxSTC_ERR_ES_BROWN, 43).
+-define(wxSTC_ERR_ES_GREEN, 42).
+-define(wxSTC_ERR_ES_RED, 41).
+-define(wxSTC_ERR_ES_BLACK, 40).
+-define(wxSTC_ERR_ESCSEQ_UNKNOWN, 24).
+-define(wxSTC_ERR_ESCSEQ, 23).
+-define(wxSTC_ERR_GCC_INCLUDED_FROM, 22).
+-define(wxSTC_ERR_VALUE, 21).
 -define(wxSTC_ERR_JAVA_STACK, 20).
 -define(wxSTC_ERR_TIDY, 19).
 -define(wxSTC_ERR_ABSF, 18).
@@ -3392,6 +4081,7 @@
 -define(wxSTC_ERR_GCC, 2).
 -define(wxSTC_ERR_PYTHON, 1).
 -define(wxSTC_ERR_DEFAULT, 0).
+-define(wxSTC_LUA_LABEL, 20).
 -define(wxSTC_LUA_WORD8, 19).
 -define(wxSTC_LUA_WORD7, 18).
 -define(wxSTC_LUA_WORD6, 17).
@@ -3412,6 +4102,14 @@
 -define(wxSTC_LUA_COMMENTLINE, 2).
 -define(wxSTC_LUA_COMMENT, 1).
 -define(wxSTC_LUA_DEFAULT, 0).
+-define(wxSTC_L_ERROR, 12).
+-define(wxSTC_L_CMDOPT, 11).
+-define(wxSTC_L_SPECIAL, 10).
+-define(wxSTC_L_SHORTCMD, 9).
+-define(wxSTC_L_VERBATIM, 8).
+-define(wxSTC_L_COMMENT2, 7).
+-define(wxSTC_L_MATH2, 6).
+-define(wxSTC_L_TAG2, 5).
 -define(wxSTC_L_COMMENT, 4).
 -define(wxSTC_L_MATH, 3).
 -define(wxSTC_L_TAG, 2).
@@ -3423,6 +4121,10 @@
 -define(wxSTC_PROPS_SECTION, 2).
 -define(wxSTC_PROPS_COMMENT, 1).
 -define(wxSTC_PROPS_DEFAULT, 0).
+-define(wxSTC_B_DOCKEYWORD, 22).
+-define(wxSTC_B_DOCBLOCK, 21).
+-define(wxSTC_B_DOCLINE, 20).
+-define(wxSTC_B_COMMENTBLOCK, 19).
 -define(wxSTC_B_BINNUMBER, 18).
 -define(wxSTC_B_HEXNUMBER, 17).
 -define(wxSTC_B_ERROR, 16).
@@ -3476,6 +4178,19 @@
 -define(wxSTC_RB_COMMENTLINE, 2).
 -define(wxSTC_RB_ERROR, 1).
 -define(wxSTC_RB_DEFAULT, 0).
+-define(wxSTC_PL_STRING_QR_VAR, 66).
+-define(wxSTC_PL_STRING_QX_VAR, 65).
+-define(wxSTC_PL_STRING_QQ_VAR, 64).
+-define(wxSTC_PL_HERE_QX_VAR, 62).
+-define(wxSTC_PL_HERE_QQ_VAR, 61).
+-define(wxSTC_PL_BACKTICKS_VAR, 57).
+-define(wxSTC_PL_REGSUBST_VAR, 55).
+-define(wxSTC_PL_REGEX_VAR, 54).
+-define(wxSTC_PL_XLAT, 44).
+-define(wxSTC_PL_STRING_VAR, 43).
+-define(wxSTC_PL_FORMAT, 42).
+-define(wxSTC_PL_FORMAT_IDENT, 41).
+-define(wxSTC_PL_SUB_PROTOTYPE, 40).
 -define(wxSTC_PL_POD_VERB, 31).
 -define(wxSTC_PL_STRING_QW, 30).
 -define(wxSTC_PL_STRING_QR, 29).
@@ -3641,6 +4356,37 @@
 -define(wxSTC_TCL_COMMENTLINE, 2).
 -define(wxSTC_TCL_COMMENT, 1).
 -define(wxSTC_TCL_DEFAULT, 0).
+-define(wxSTC_D_WORD7, 22).
+-define(wxSTC_D_WORD6, 21).
+-define(wxSTC_D_WORD5, 20).
+-define(wxSTC_D_STRINGR, 19).
+-define(wxSTC_D_STRINGB, 18).
+-define(wxSTC_D_COMMENTDOCKEYWORDERROR, 17).
+-define(wxSTC_D_COMMENTDOCKEYWORD, 16).
+-define(wxSTC_D_COMMENTLINEDOC, 15).
+-define(wxSTC_D_IDENTIFIER, 14).
+-define(wxSTC_D_OPERATOR, 13).
+-define(wxSTC_D_CHARACTER, 12).
+-define(wxSTC_D_STRINGEOL, 11).
+-define(wxSTC_D_STRING, 10).
+-define(wxSTC_D_TYPEDEF, 9).
+-define(wxSTC_D_WORD3, 8).
+-define(wxSTC_D_WORD2, 7).
+-define(wxSTC_D_WORD, 6).
+-define(wxSTC_D_NUMBER, 5).
+-define(wxSTC_D_COMMENTNESTED, 4).
+-define(wxSTC_D_COMMENTDOC, 3).
+-define(wxSTC_D_COMMENTLINE, 2).
+-define(wxSTC_D_COMMENT, 1).
+-define(wxSTC_D_DEFAULT, 0).
+-define(wxSTC_C_ESCAPESEQUENCE, 27).
+-define(wxSTC_C_TASKMARKER, 26).
+-define(wxSTC_C_USERLITERAL, 25).
+-define(wxSTC_C_PREPROCESSORCOMMENTDOC, 24).
+-define(wxSTC_C_PREPROCESSORCOMMENT, 23).
+-define(wxSTC_C_HASHQUOTEDSTRING, 22).
+-define(wxSTC_C_TRIPLEVERBATIM, 21).
+-define(wxSTC_C_STRINGRAW, 20).
 -define(wxSTC_C_GLOBALCLASS, 19).
 -define(wxSTC_C_COMMENTDOCKEYWORDERROR, 18).
 -define(wxSTC_C_COMMENTDOCKEYWORD, 17).
@@ -3678,6 +4424,49 @@
 -define(wxSTC_P_COMMENTLINE, 1).
 -define(wxSTC_P_DEFAULT, 0).
 -define(wxSTC_LEX_AUTOMATIC, 1000).
+-define(wxSTC_LEX_EDIFACT, 121).
+-define(wxSTC_LEX_JSON, 120).
+-define(wxSTC_LEX_TEHEX, 119).
+-define(wxSTC_LEX_IHEX, 118).
+-define(wxSTC_LEX_SREC, 117).
+-define(wxSTC_LEX_BIBTEX, 116).
+-define(wxSTC_LEX_REGISTRY, 115).
+-define(wxSTC_LEX_DMIS, 114).
+-define(wxSTC_LEX_AS, 113).
+-define(wxSTC_LEX_DMAP, 112).
+-define(wxSTC_LEX_RUST, 111).
+-define(wxSTC_LEX_KVIRC, 110).
+-define(wxSTC_LEX_STTXT, 109).
+-define(wxSTC_LEX_LITERATEHASKELL, 108).
+-define(wxSTC_LEX_VISUALPROLOG, 107).
+-define(wxSTC_LEX_OSCRIPT, 106).
+-define(wxSTC_LEX_ECL, 105).
+-define(wxSTC_LEX_AVS, 104).
+-define(wxSTC_LEX_TCMD, 103).
+-define(wxSTC_LEX_COFFEESCRIPT, 102).
+-define(wxSTC_LEX_MODULA, 101).
+-define(wxSTC_LEX_A68K, 100).
+-define(wxSTC_LEX_TXT2TAGS, 99).
+-define(wxSTC_LEX_MARKDOWN, 98).
+-define(wxSTC_LEX_SML, 97).
+-define(wxSTC_LEX_NIMROD, 96).
+-define(wxSTC_LEX_POWERPRO, 95).
+-define(wxSTC_LEX_SORCUS, 94).
+-define(wxSTC_LEX_TACL, 93).
+-define(wxSTC_LEX_COBOL, 92).
+-define(wxSTC_LEX_TAL, 91).
+-define(wxSTC_LEX_PO, 90).
+-define(wxSTC_LEX_MYSQL, 89).
+-define(wxSTC_LEX_POWERSHELL, 88).
+-define(wxSTC_LEX_MAGIK, 87).
+-define(wxSTC_LEX_R, 86).
+-define(wxSTC_LEX_ASYMPTOTE, 85).
+-define(wxSTC_LEX_ABAQUS, 84).
+-define(wxSTC_LEX_PROGRESS, 83).
+-define(wxSTC_LEX_PLM, 82).
+-define(wxSTC_LEX_GAP, 81).
+-define(wxSTC_LEX_CMAKE, 80).
+-define(wxSTC_LEX_D, 79).
 -define(wxSTC_LEX_SPICE, 78).
 -define(wxSTC_LEX_OPAL, 77).
 -define(wxSTC_LEX_INNOSETUP, 76).
@@ -3755,10 +4544,20 @@
 -define(wxSTC_LEX_PYTHON, 2).
 -define(wxSTC_LEX_NULL, 1).
 -define(wxSTC_LEX_CONTAINER, 0).
--define(wxSTC_SCMOD_ALT, 4).
--define(wxSTC_SCMOD_CTRL, 2).
--define(wxSTC_SCMOD_SHIFT, 1).
--define(wxSTC_SCMOD_NORM, 0).
+-define(wxSTC_AC_COMMAND, 5).
+-define(wxSTC_AC_NEWLINE, 4).
+-define(wxSTC_AC_TAB, 3).
+-define(wxSTC_AC_DOUBLECLICK, 2).
+-define(wxSTC_AC_FILLUP, 1).
+-define(wxSTC_KEYMOD_META, 16).
+-define(wxSTC_KEYMOD_SUPER, 8).
+-define(wxSTC_KEYMOD_ALT, 4).
+-define(wxSTC_KEYMOD_CTRL, 2).
+-define(wxSTC_KEYMOD_SHIFT, 1).
+-define(wxSTC_KEYMOD_NORM, 0).
+-define(wxSTC_KEY_MENU, 315).
+-define(wxSTC_KEY_RWIN, 314).
+-define(wxSTC_KEY_WIN, 313).
 -define(wxSTC_KEY_DIVIDE, 312).
 -define(wxSTC_KEY_SUBTRACT, 311).
 -define(wxSTC_KEY_ADD, 310).
@@ -3776,7 +4575,20 @@
 -define(wxSTC_KEY_LEFT, 302).
 -define(wxSTC_KEY_UP, 301).
 -define(wxSTC_KEY_DOWN, 300).
--define(wxSTC_MODEVENTMASKALL, 8191).
+-define(wxSTC_UPDATE_H_SCROLL, 8).
+-define(wxSTC_UPDATE_V_SCROLL, 4).
+-define(wxSTC_UPDATE_SELECTION, 2).
+-define(wxSTC_UPDATE_CONTENT, 1).
+-define(wxSTC_MODEVENTMASKALL, 4194303).
+-define(wxSTC_MOD_CHANGETABSTOPS, 2097152).
+-define(wxSTC_MOD_INSERTCHECK, 1048576).
+-define(wxSTC_MOD_LEXERSTATE, 524288).
+-define(wxSTC_MOD_CONTAINER, 262144).
+-define(wxSTC_MOD_CHANGEANNOTATION, 131072).
+-define(wxSTC_MOD_CHANGEMARGIN, 65536).
+-define(wxSTC_MOD_CHANGELINESTATE, 32768).
+-define(wxSTC_MOD_CHANGEINDICATOR, 16384).
+-define(wxSTC_STARTACTION, 8192).
 -define(wxSTC_MULTILINEUNDOREDO, 4096).
 -define(wxSTC_MOD_BEFOREDELETE, 2048).
 -define(wxSTC_MOD_BEFOREINSERT, 1024).
@@ -3790,10 +4602,42 @@
 -define(wxSTC_MOD_CHANGESTYLE, 4).
 -define(wxSTC_MOD_DELETETEXT, 2).
 -define(wxSTC_MOD_INSERTTEXT, 1).
+-define(wxSTC_TYPE_STRING, 2).
+-define(wxSTC_TYPE_INTEGER, 1).
+-define(wxSTC_TYPE_BOOLEAN, 0).
 -define(wxSTC_KEYWORDSET_MAX, 8).
+-define(wxSTC_LINE_END_TYPE_UNICODE, 1).
+-define(wxSTC_LINE_END_TYPE_DEFAULT, 0).
+-define(wxSTC_TECHNOLOGY_DIRECTWRITE, 1).
+-define(wxSTC_TECHNOLOGY_DEFAULT, 0).
+-define(wxSTC_VS_NOWRAPLINESTART, 4).
+-define(wxSTC_VS_USERACCESSIBLE, 2).
+-define(wxSTC_VS_RECTANGULARSELECTION, 1).
+-define(wxSTC_VS_NONE, 0).
+-define(wxSTC_UNDO_MAY_COALESCE, 1).
+-define(wxSTC_ANNOTATION_INDENTED, 3).
+-define(wxSTC_ANNOTATION_BOXED, 2).
+-define(wxSTC_ANNOTATION_STANDARD, 1).
+-define(wxSTC_ANNOTATION_HIDDEN, 0).
+-define(wxSTC_MARGINOPTION_SUBLINESELECT, 1).
+-define(wxSTC_MARGINOPTION_NONE, 0).
+-define(wxSTC_CARETSTYLE_BLOCK, 2).
+-define(wxSTC_CARETSTYLE_LINE, 1).
+-define(wxSTC_CARETSTYLE_INVISIBLE, 0).
 -define(wxSTC_ALPHA_NOALPHA, 256).
 -define(wxSTC_ALPHA_OPAQUE, 255).
 -define(wxSTC_ALPHA_TRANSPARENT, 0).
+-define(wxSTC_CARETSTICKY_WHITESPACE, 2).
+-define(wxSTC_CARETSTICKY_ON, 1).
+-define(wxSTC_CARETSTICKY_OFF, 0).
+-define(wxSTC_ORDER_CUSTOM, 2).
+-define(wxSTC_ORDER_PERFORMSORT, 1).
+-define(wxSTC_ORDER_PRESORTED, 0).
+-define(wxSTC_MULTIAUTOC_EACH, 1).
+-define(wxSTC_MULTIAUTOC_ONCE, 0).
+-define(wxSTC_CASEINSENSITIVEBEHAVIOUR_IGNORECASE, 1).
+-define(wxSTC_CASEINSENSITIVEBEHAVIOUR_RESPECTCASE, 0).
+-define(wxSTC_SEL_THIN, 3).
 -define(wxSTC_SEL_LINES, 2).
 -define(wxSTC_SEL_RECTANGLE, 1).
 -define(wxSTC_SEL_STREAM, 0).
@@ -3803,36 +4647,71 @@
 -define(wxSTC_CARET_SLOP, 1).
 -define(wxSTC_VISIBLE_STRICT, 4).
 -define(wxSTC_VISIBLE_SLOP, 1).
+-define(wxSTC_CURSORREVERSEARROW, 7).
 -define(wxSTC_CURSORWAIT, 4).
+-define(wxSTC_CURSORARROW, 2).
 -define(wxSTC_CURSORNORMAL, -1).
+-define(wxSTC_STATUS_WARN_REGEX, 1001).
+-define(wxSTC_STATUS_WARN_START, 1000).
+-define(wxSTC_STATUS_BADALLOC, 2).
+-define(wxSTC_STATUS_FAILURE, 1).
+-define(wxSTC_STATUS_OK, 0).
+-define(wxSTC_POPUP_TEXT, 2).
+-define(wxSTC_POPUP_ALL, 1).
+-define(wxSTC_POPUP_NEVER, 0).
+-define(wxSTC_EDGE_MULTILINE, 3).
 -define(wxSTC_EDGE_BACKGROUND, 2).
 -define(wxSTC_EDGE_LINE, 1).
 -define(wxSTC_EDGE_NONE, 0).
+-define(wxSTC_MULTIPASTE_EACH, 1).
+-define(wxSTC_MULTIPASTE_ONCE, 0).
+-define(wxSTC_EFF_QUALITY_LCD_OPTIMIZED, 3).
+-define(wxSTC_EFF_QUALITY_ANTIALIASED, 2).
+-define(wxSTC_EFF_QUALITY_NON_ANTIALIASED, 1).
+-define(wxSTC_EFF_QUALITY_DEFAULT, 0).
+-define(wxSTC_EFF_QUALITY_MASK, 15).
+-define(wxSTC_PHASES_MULTIPLE, 2).
+-define(wxSTC_PHASES_TWO, 1).
+-define(wxSTC_PHASES_ONE, 0).
 -define(wxSTC_CACHE_DOCUMENT, 3).
 -define(wxSTC_CACHE_PAGE, 2).
 -define(wxSTC_CACHE_CARET, 1).
 -define(wxSTC_CACHE_NONE, 0).
+-define(wxSTC_WRAPINDENT_INDENT, 2).
+-define(wxSTC_WRAPINDENT_SAME, 1).
+-define(wxSTC_WRAPINDENT_FIXED, 0).
 -define(wxSTC_WRAPVISUALFLAGLOC_START_BY_TEXT, 2).
 -define(wxSTC_WRAPVISUALFLAGLOC_END_BY_TEXT, 1).
 -define(wxSTC_WRAPVISUALFLAGLOC_DEFAULT, 0).
+-define(wxSTC_WRAPVISUALFLAG_MARGIN, 4).
 -define(wxSTC_WRAPVISUALFLAG_START, 2).
 -define(wxSTC_WRAPVISUALFLAG_END, 1).
 -define(wxSTC_WRAPVISUALFLAG_NONE, 0).
+-define(wxSTC_WRAP_WHITESPACE, 3).
 -define(wxSTC_WRAP_CHAR, 2).
 -define(wxSTC_WRAP_WORD, 1).
 -define(wxSTC_WRAP_NONE, 0).
+-define(wxSTC_IDLESTYLING_ALL, 3).
+-define(wxSTC_IDLESTYLING_AFTERVISIBLE, 2).
+-define(wxSTC_IDLESTYLING_TOVISIBLE, 1).
+-define(wxSTC_IDLESTYLING_NONE, 0).
 -define(wxSTC_TIME_FOREVER, 10000000).
--define(wxSTC_FOLDFLAG_BOX, 1).
+-define(wxSTC_FOLDFLAG_LINESTATE, 128).
 -define(wxSTC_FOLDFLAG_LEVELNUMBERS, 64).
 -define(wxSTC_FOLDFLAG_LINEAFTER_CONTRACTED, 16).
 -define(wxSTC_FOLDFLAG_LINEAFTER_EXPANDED, 8).
 -define(wxSTC_FOLDFLAG_LINEBEFORE_CONTRACTED, 4).
 -define(wxSTC_FOLDFLAG_LINEBEFORE_EXPANDED, 2).
+-define(wxSTC_AUTOMATICFOLD_CHANGE, 4).
+-define(wxSTC_AUTOMATICFOLD_CLICK, 2).
+-define(wxSTC_AUTOMATICFOLD_SHOW, 1).
+-define(wxSTC_FOLDACTION_TOGGLE, 2).
+-define(wxSTC_FOLDACTION_EXPAND, 1).
+-define(wxSTC_FOLDACTION_CONTRACT, 0).
+-define(wxSTC_FOLDDISPLAYTEXT_BOXED, 2).
+-define(wxSTC_FOLDDISPLAYTEXT_STANDARD, 1).
+-define(wxSTC_FOLDDISPLAYTEXT_HIDDEN, 0).
 -define(wxSTC_FOLDLEVELNUMBERMASK, 4095).
--define(wxSTC_FOLDLEVELUNINDENT, 131072).
--define(wxSTC_FOLDLEVELCONTRACTED, 65536).
--define(wxSTC_FOLDLEVELBOXFOOTERFLAG, 32768).
--define(wxSTC_FOLDLEVELBOXHEADERFLAG, 16384).
 -define(wxSTC_FOLDLEVELHEADERFLAG, 8192).
 -define(wxSTC_FOLDLEVELWHITEFLAG, 4096).
 -define(wxSTC_FOLDLEVELBASE, 1024).
@@ -3846,10 +4725,29 @@
 -define(wxSTC_PRINT_BLACKONWHITE, 2).
 -define(wxSTC_PRINT_INVERTLIGHT, 1).
 -define(wxSTC_PRINT_NORMAL, 0).
--define(wxSTC_INDICS_MASK, 224).
--define(wxSTC_INDIC2_MASK, 128).
--define(wxSTC_INDIC1_MASK, 64).
--define(wxSTC_INDIC0_MASK, 32).
+-define(wxSTC_IV_LOOKBOTH, 3).
+-define(wxSTC_IV_LOOKFORWARD, 2).
+-define(wxSTC_IV_REAL, 1).
+-define(wxSTC_IV_NONE, 0).
+-define(wxSTC_INDICFLAG_VALUEFORE, 1).
+-define(wxSTC_INDICVALUEMASK, 16777215).
+-define(wxSTC_INDICVALUEBIT, 16777216).
+-define(wxSTC_INDIC_CONTAINER, 8).
+-define(wxSTC_INDIC_MAX, 35).
+-define(wxSTC_INDIC_IME_MAX, 35).
+-define(wxSTC_INDIC_IME, 32).
+-define(wxSTC_INDIC_POINTCHARACTER, 19).
+-define(wxSTC_INDIC_POINT, 18).
+-define(wxSTC_INDIC_TEXTFORE, 17).
+-define(wxSTC_INDIC_FULLBOX, 16).
+-define(wxSTC_INDIC_COMPOSITIONTHIN, 15).
+-define(wxSTC_INDIC_COMPOSITIONTHICK, 14).
+-define(wxSTC_INDIC_SQUIGGLEPIXMAP, 13).
+-define(wxSTC_INDIC_DOTBOX, 12).
+-define(wxSTC_INDIC_SQUIGGLELOW, 11).
+-define(wxSTC_INDIC_DOTS, 10).
+-define(wxSTC_INDIC_DASH, 9).
+-define(wxSTC_INDIC_STRAIGHTBOX, 8).
 -define(wxSTC_INDIC_ROUNDBOX, 7).
 -define(wxSTC_INDIC_BOX, 6).
 -define(wxSTC_INDIC_HIDDEN, 5).
@@ -3858,7 +4756,11 @@
 -define(wxSTC_INDIC_TT, 2).
 -define(wxSTC_INDIC_SQUIGGLE, 1).
 -define(wxSTC_INDIC_PLAIN, 0).
--define(wxSTC_INDIC_MAX, 7).
+-define(wxSTC_WEIGHT_BOLD, 700).
+-define(wxSTC_WEIGHT_SEMIBOLD, 600).
+-define(wxSTC_WEIGHT_NORMAL, 400).
+-define(wxSTC_FONT_SIZE_MULTIPLIER, 100).
+-define(wxSTC_CASE_CAMEL, 3).
 -define(wxSTC_CASE_LOWER, 2).
 -define(wxSTC_CASE_UPPER, 1).
 -define(wxSTC_CASE_MIXED, 0).
@@ -3872,6 +4774,7 @@
 -define(wxSTC_CHARSET_SYMBOL, 2).
 -define(wxSTC_CHARSET_SHIFTJIS, 128).
 -define(wxSTC_CHARSET_CYRILLIC, 1251).
+-define(wxSTC_CHARSET_OEM866, 866).
 -define(wxSTC_CHARSET_RUSSIAN, 204).
 -define(wxSTC_CHARSET_OEM, 255).
 -define(wxSTC_CHARSET_MAC, 77).
@@ -3883,8 +4786,9 @@
 -define(wxSTC_CHARSET_BALTIC, 186).
 -define(wxSTC_CHARSET_DEFAULT, 1).
 -define(wxSTC_CHARSET_ANSI, 0).
--define(wxSTC_STYLE_MAX, 127).
+-define(wxSTC_STYLE_MAX, 255).
 -define(wxSTC_STYLE_LASTPREDEFINED, 39).
+-define(wxSTC_STYLE_FOLDDISPLAYTEXT, 39).
 -define(wxSTC_STYLE_CALLTIP, 38).
 -define(wxSTC_STYLE_INDENTGUIDE, 37).
 -define(wxSTC_STYLE_CONTROLCHAR, 36).
@@ -3892,11 +4796,15 @@
 -define(wxSTC_STYLE_BRACELIGHT, 34).
 -define(wxSTC_STYLE_LINENUMBER, 33).
 -define(wxSTC_STYLE_DEFAULT, 32).
+-define(wxSTC_MARGIN_COLOUR, 6).
+-define(wxSTC_MARGIN_RTEXT, 5).
+-define(wxSTC_MARGIN_TEXT, 4).
 -define(wxSTC_MARGIN_FORE, 3).
 -define(wxSTC_MARGIN_BACK, 2).
 -define(wxSTC_MARGIN_NUMBER, 1).
 -define(wxSTC_MARGIN_SYMBOL, 0).
--define(wxSTC_MASK_FOLDERS, 4261412864).
+-define(wxSTC_MAX_MARGIN, 4).
+-define(wxSTC_MASK_FOLDERS, -33554432).
 -define(wxSTC_MARKNUM_FOLDEROPEN, 31).
 -define(wxSTC_MARKNUM_FOLDER, 30).
 -define(wxSTC_MARKNUM_FOLDERSUB, 29).
@@ -3905,6 +4813,11 @@
 -define(wxSTC_MARKNUM_FOLDEROPENMID, 26).
 -define(wxSTC_MARKNUM_FOLDEREND, 25).
 -define(wxSTC_MARK_CHARACTER, 10000).
+-define(wxSTC_MARK_BOOKMARK, 31).
+-define(wxSTC_MARK_RGBAIMAGE, 30).
+-define(wxSTC_MARK_UNDERLINE, 29).
+-define(wxSTC_MARK_AVAILABLE, 28).
+-define(wxSTC_MARK_LEFTRECT, 27).
 -define(wxSTC_MARK_FULLRECT, 26).
 -define(wxSTC_MARK_PIXMAP, 25).
 -define(wxSTC_MARK_ARROWS, 24).
@@ -3933,11 +4846,15 @@
 -define(wxSTC_MARK_ROUNDRECT, 1).
 -define(wxSTC_MARK_CIRCLE, 0).
 -define(wxSTC_MARKER_MAX, 31).
--define(wxSTC_CP_DBCS, 1).
+-define(wxSTC_IME_INLINE, 1).
+-define(wxSTC_IME_WINDOWED, 0).
 -define(wxSTC_CP_UTF8, 65001).
 -define(wxSTC_EOL_LF, 2).
 -define(wxSTC_EOL_CR, 1).
 -define(wxSTC_EOL_CRLF, 0).
+-define(wxSTC_TD_STRIKEOUT, 1).
+-define(wxSTC_TD_LONGARROW, 0).
+-define(wxSTC_WS_VISIBLEONLYININDENT, 3).
 -define(wxSTC_WS_VISIBLEAFTERINDENT, 2).
 -define(wxSTC_WS_VISIBLEALWAYS, 1).
 -define(wxSTC_WS_INVISIBLE, 0).
@@ -3945,26 +4862,12 @@
 -define(wxSTC_OPTIONAL_START, 3000).
 -define(wxSTC_START, 2000).
 -define(wxSTC_INVALID_POSITION, -1).
--define(wxSTC_USE_POPUP, 1).
-% From "tbarbase.h": wxToolBarToolStyle
--define(wxTOOL_STYLE_BUTTON, 1).
--define(wxTOOL_STYLE_SEPARATOR, 2).
--define(wxTOOL_STYLE_CONTROL, 3).
-% From "textctrl.h"
--define(wxTEXT_ATTR_TABS, 1024).
--define(wxTEXT_ATTR_RIGHT_INDENT, 512).
--define(wxTEXT_ATTR_LEFT_INDENT, 256).
--define(wxTEXT_ATTR_ALIGNMENT, 128).
--define(wxTEXT_ATTR_FONT, (?wxTEXT_ATTR_FONT_FACE bor ?wxTEXT_ATTR_FONT_SIZE bor ?wxTEXT_ATTR_FONT_WEIGHT bor ?wxTEXT_ATTR_FONT_ITALIC bor ?wxTEXT_ATTR_FONT_UNDERLINE)).
--define(wxTEXT_ATTR_FONT_UNDERLINE, 64).
--define(wxTEXT_ATTR_FONT_ITALIC, 32).
--define(wxTEXT_ATTR_FONT_WEIGHT, 16).
--define(wxTEXT_ATTR_FONT_SIZE, 8).
--define(wxTEXT_ATTR_FONT_FACE, 4).
--define(wxTEXT_ATTR_BACKGROUND_COLOUR, 2).
--define(wxTEXT_ATTR_TEXT_COLOUR, 1).
+%%%  From "taskbar.h": wxTaskBarIconType
+-define(wxTBI_DOCK, 0).
+-define(wxTBI_CUSTOM_STATUSITEM, 1).
+-define(wxTBI_DEFAULT_TYPE, wxe_util:get_const(wxTBI_DEFAULT_TYPE)).
+%%%  From "textctrl.h"
 -define(wxTEXT_TYPE_ANY, 0).
--define(wxTE_CAPITALIZE, 0).
 -define(wxTE_RICH2, 32768).
 -define(wxTE_BESTWRAP, 0).
 -define(wxTE_WORDWRAP, 1).
@@ -3982,30 +4885,106 @@
 -define(wxTE_PROCESS_TAB, 64).
 -define(wxTE_MULTILINE, 32).
 -define(wxTE_READONLY, 16).
--define(wxTE_AUTO_SCROLL, 8).
 -define(wxTE_NO_VSCROLL, 2).
--define(wxHAS_TEXT_WINDOW_STREAM, 0).
-% From "textctrl.h": wxTextAttrAlignment
+%%%  From "textctrl.h": wxTextAttrAlignment
 -define(wxTEXT_ALIGNMENT_DEFAULT, 0).
 -define(wxTEXT_ALIGNMENT_LEFT, 1).
 -define(wxTEXT_ALIGNMENT_CENTRE, 2).
 -define(wxTEXT_ALIGNMENT_CENTER, ?wxTEXT_ALIGNMENT_CENTRE).
 -define(wxTEXT_ALIGNMENT_RIGHT, (?wxTEXT_ALIGNMENT_CENTRE+1)).
 -define(wxTEXT_ALIGNMENT_JUSTIFIED, (?wxTEXT_ALIGNMENT_CENTRE+2)).
-% From "textctrl.h": wxTextCtrlHitTestResult
+%%%  From "textctrl.h": wxTextAttrBulletStyle
+-define(wxTEXT_ATTR_BULLET_STYLE_NONE, 0).
+-define(wxTEXT_ATTR_BULLET_STYLE_ARABIC, 1).
+-define(wxTEXT_ATTR_BULLET_STYLE_LETTERS_UPPER, 2).
+-define(wxTEXT_ATTR_BULLET_STYLE_LETTERS_LOWER, 4).
+-define(wxTEXT_ATTR_BULLET_STYLE_ROMAN_UPPER, 8).
+-define(wxTEXT_ATTR_BULLET_STYLE_ROMAN_LOWER, 16).
+-define(wxTEXT_ATTR_BULLET_STYLE_SYMBOL, 32).
+-define(wxTEXT_ATTR_BULLET_STYLE_BITMAP, 64).
+-define(wxTEXT_ATTR_BULLET_STYLE_PARENTHESES, 128).
+-define(wxTEXT_ATTR_BULLET_STYLE_PERIOD, 256).
+-define(wxTEXT_ATTR_BULLET_STYLE_STANDARD, 512).
+-define(wxTEXT_ATTR_BULLET_STYLE_RIGHT_PARENTHESIS, 1024).
+-define(wxTEXT_ATTR_BULLET_STYLE_OUTLINE, 2048).
+-define(wxTEXT_ATTR_BULLET_STYLE_ALIGN_LEFT, 0).
+-define(wxTEXT_ATTR_BULLET_STYLE_ALIGN_RIGHT, 4096).
+-define(wxTEXT_ATTR_BULLET_STYLE_ALIGN_CENTRE, 8192).
+-define(wxTEXT_ATTR_BULLET_STYLE_CONTINUATION, 16384).
+%%%  From "textctrl.h": wxTextAttrEffects
+-define(wxTEXT_ATTR_EFFECT_NONE, 0).
+-define(wxTEXT_ATTR_EFFECT_CAPITALS, 1).
+-define(wxTEXT_ATTR_EFFECT_SMALL_CAPITALS, 2).
+-define(wxTEXT_ATTR_EFFECT_STRIKETHROUGH, 4).
+-define(wxTEXT_ATTR_EFFECT_DOUBLE_STRIKETHROUGH, 8).
+-define(wxTEXT_ATTR_EFFECT_SHADOW, 16).
+-define(wxTEXT_ATTR_EFFECT_EMBOSS, 32).
+-define(wxTEXT_ATTR_EFFECT_OUTLINE, 64).
+-define(wxTEXT_ATTR_EFFECT_ENGRAVE, 128).
+-define(wxTEXT_ATTR_EFFECT_SUPERSCRIPT, 256).
+-define(wxTEXT_ATTR_EFFECT_SUBSCRIPT, 512).
+-define(wxTEXT_ATTR_EFFECT_RTL, 1024).
+-define(wxTEXT_ATTR_EFFECT_SUPPRESS_HYPHENATION, 4096).
+%%%  From "textctrl.h": wxTextAttrFlags
+-define(wxTEXT_ATTR_TEXT_COLOUR, 1).
+-define(wxTEXT_ATTR_BACKGROUND_COLOUR, 2).
+-define(wxTEXT_ATTR_FONT_FACE, 4).
+-define(wxTEXT_ATTR_FONT_POINT_SIZE, 8).
+-define(wxTEXT_ATTR_FONT_PIXEL_SIZE, 268435456).
+-define(wxTEXT_ATTR_FONT_WEIGHT, 16).
+-define(wxTEXT_ATTR_FONT_ITALIC, 32).
+-define(wxTEXT_ATTR_FONT_UNDERLINE, 64).
+-define(wxTEXT_ATTR_FONT_STRIKETHROUGH, 134217728).
+-define(wxTEXT_ATTR_FONT_ENCODING, 33554432).
+-define(wxTEXT_ATTR_FONT_FAMILY, 67108864).
+-define(wxTEXT_ATTR_FONT_SIZE, (?wxTEXT_ATTR_FONT_POINT_SIZE bor ?wxTEXT_ATTR_FONT_PIXEL_SIZE)).
+-define(wxTEXT_ATTR_FONT, (?wxTEXT_ATTR_FONT_FACE bor ?wxTEXT_ATTR_FONT_SIZE bor ?wxTEXT_ATTR_FONT_WEIGHT bor ?wxTEXT_ATTR_FONT_ITALIC bor ?wxTEXT_ATTR_FONT_UNDERLINE bor ?wxTEXT_ATTR_FONT_STRIKETHROUGH bor ?wxTEXT_ATTR_FONT_ENCODING bor ?wxTEXT_ATTR_FONT_FAMILY)).
+-define(wxTEXT_ATTR_ALIGNMENT, 128).
+-define(wxTEXT_ATTR_LEFT_INDENT, 256).
+-define(wxTEXT_ATTR_RIGHT_INDENT, 512).
+-define(wxTEXT_ATTR_TABS, 1024).
+-define(wxTEXT_ATTR_PARA_SPACING_AFTER, 2048).
+-define(wxTEXT_ATTR_PARA_SPACING_BEFORE, 4096).
+-define(wxTEXT_ATTR_LINE_SPACING, 8192).
+-define(wxTEXT_ATTR_CHARACTER_STYLE_NAME, 16384).
+-define(wxTEXT_ATTR_PARAGRAPH_STYLE_NAME, wxe_util:get_const(wxTEXT_ATTR_PARAGRAPH_STYLE_NAME)).
+-define(wxTEXT_ATTR_LIST_STYLE_NAME, 65536).
+-define(wxTEXT_ATTR_BULLET_STYLE, 131072).
+-define(wxTEXT_ATTR_BULLET_NUMBER, 262144).
+-define(wxTEXT_ATTR_BULLET_TEXT, 524288).
+-define(wxTEXT_ATTR_BULLET_NAME, 1048576).
+-define(wxTEXT_ATTR_BULLET, (?wxTEXT_ATTR_BULLET_STYLE bor ?wxTEXT_ATTR_BULLET_NUMBER bor ?wxTEXT_ATTR_BULLET_TEXT bor ?wxTEXT_ATTR_BULLET_NAME)).
+-define(wxTEXT_ATTR_URL, 2097152).
+-define(wxTEXT_ATTR_PAGE_BREAK, 4194304).
+-define(wxTEXT_ATTR_EFFECTS, 8388608).
+-define(wxTEXT_ATTR_OUTLINE_LEVEL, 16777216).
+-define(wxTEXT_ATTR_AVOID_PAGE_BREAK_BEFORE, 536870912).
+-define(wxTEXT_ATTR_AVOID_PAGE_BREAK_AFTER, 1073741824).
+-define(wxTEXT_ATTR_CHARACTER, (?wxTEXT_ATTR_FONT bor ?wxTEXT_ATTR_EFFECTS bor ?wxTEXT_ATTR_BACKGROUND_COLOUR bor ?wxTEXT_ATTR_TEXT_COLOUR bor ?wxTEXT_ATTR_CHARACTER_STYLE_NAME bor ?wxTEXT_ATTR_URL)).
+-define(wxTEXT_ATTR_PARAGRAPH, wxe_util:get_const(wxTEXT_ATTR_PARAGRAPH)).
+-define(wxTEXT_ATTR_ALL, wxe_util:get_const(wxTEXT_ATTR_ALL)).
+%%%  From "textctrl.h": wxTextAttrLineSpacing
+-define(wxTEXT_ATTR_LINE_SPACING_NORMAL, 10).
+-define(wxTEXT_ATTR_LINE_SPACING_HALF, 15).
+-define(wxTEXT_ATTR_LINE_SPACING_TWICE, 20).
+%%%  From "textctrl.h": wxTextAttrUnderlineType
+-define(wxTEXT_ATTR_UNDERLINE_NONE, 0).
+-define(wxTEXT_ATTR_UNDERLINE_SOLID, 1).
+-define(wxTEXT_ATTR_UNDERLINE_DOUBLE, 2).
+-define(wxTEXT_ATTR_UNDERLINE_SPECIAL, 3).
+%%%  From "textctrl.h": wxTextCtrlHitTestResult
 -define(wxTE_HT_UNKNOWN, -2).
 -define(wxTE_HT_BEFORE, -1).
 -define(wxTE_HT_ON_TEXT, 0).
 -define(wxTE_HT_BELOW, 1).
 -define(wxTE_HT_BEYOND, 2).
-% From "textdlgg.h"
--define(wxTextEntryDialogStyle, (?wxOK bor ?wxCANCEL bor ?wxCENTRE bor ?wxWS_EX_VALIDATE_RECURSIVELY)).
-% From "toolbar.h"
+%%%  From "textdlg.h"
+-define(wxTextEntryDialogStyle, (?wxOK bor ?wxCANCEL bor ?wxCENTRE)).
+%%%  From "toolbar.h"
 -define(wxTB_HORIZONTAL, ?wxHORIZONTAL).
 -define(wxTB_TOP, ?wxTB_HORIZONTAL).
 -define(wxTB_VERTICAL, ?wxVERTICAL).
 -define(wxTB_LEFT, ?wxTB_VERTICAL).
--define(wxTB_3DBUTTONS, 16).
 -define(wxTB_FLAT, 32).
 -define(wxTB_DOCKABLE, 64).
 -define(wxTB_NOICONS, 128).
@@ -4017,40 +4996,33 @@
 -define(wxTB_NO_TOOLTIPS, 4096).
 -define(wxTB_BOTTOM, 8192).
 -define(wxTB_RIGHT, 16384).
-% From "toolbook.h"
--define(wxBK_BUTTONBAR, 256).
-% From "toplevel.h"
+-define(wxTB_DEFAULT_STYLE, wxe_util:get_const(wxTB_DEFAULT_STYLE)).
+%%%  From "toolbar.h": wxToolBarToolStyle
+-define(wxTOOL_STYLE_BUTTON, 1).
+-define(wxTOOL_STYLE_SEPARATOR, 2).
+-define(wxTOOL_STYLE_CONTROL, 3).
+%%%  From "toolbook.h"
+-define(wxTBK_HORZ_LAYOUT, 32768).
+-define(wxTBK_BUTTONBAR, 256).
+%%%  From "toplevel.h"
+-define(wxUSER_ATTENTION_INFO, 1).
+-define(wxUSER_ATTENTION_ERROR, 2).
+%%%  From "toplevel.h"
 -define(wxFULLSCREEN_NOMENUBAR, 1).
 -define(wxFULLSCREEN_NOTOOLBAR, 2).
 -define(wxFULLSCREEN_NOSTATUSBAR, 4).
 -define(wxFULLSCREEN_NOBORDER, 8).
 -define(wxFULLSCREEN_NOCAPTION, 16).
 -define(wxFULLSCREEN_ALL, (?wxFULLSCREEN_NOMENUBAR bor ?wxFULLSCREEN_NOTOOLBAR bor ?wxFULLSCREEN_NOSTATUSBAR bor ?wxFULLSCREEN_NOBORDER bor ?wxFULLSCREEN_NOCAPTION)).
-% From "toplevel.h"
--define(wxUSER_ATTENTION_INFO, 1).
--define(wxUSER_ATTENTION_ERROR, 2).
-% From "toplevel.h"
--define(wxTOPLEVEL_EX_DIALOG, 8).
+%%%  From "toplevel.h"
 -define(wxDEFAULT_FRAME_STYLE, (?wxSYSTEM_MENU bor ?wxRESIZE_BORDER bor ?wxMINIMIZE_BOX bor ?wxMAXIMIZE_BOX bor ?wxCLOSE_BOX bor ?wxCAPTION bor ?wxCLIP_CHILDREN)).
--define(wxRESIZE_BORDER, 64).
--define(wxTINY_CAPTION_VERT, 128).
--define(wxTINY_CAPTION_HORIZ, 256).
--define(wxMAXIMIZE_BOX, 512).
--define(wxMINIMIZE_BOX, 1024).
--define(wxSYSTEM_MENU, 2048).
--define(wxCLOSE_BOX, 4096).
--define(wxMAXIMIZE, 8192).
--define(wxMINIMIZE, ?wxICONIZE).
--define(wxICONIZE, 16384).
--define(wxSTAY_ON_TOP, 32768).
-% From "treebase.h"
+%%%  From "treebase.h"
 -define(wxTR_DEFAULT_STYLE, wxe_util:get_const(wxTR_DEFAULT_STYLE)).
 -define(wxTR_FULL_ROW_HIGHLIGHT, 8192).
 -define(wxTR_HIDE_ROOT, 2048).
 -define(wxTR_ROW_LINES, 1024).
 -define(wxTR_EDIT_LABELS, 512).
 -define(wxTR_HAS_VARIABLE_ROW_HEIGHT, 128).
--define(wxTR_EXTENDED, 64).
 -define(wxTR_MULTIPLE, 32).
 -define(wxTR_SINGLE, 0).
 -define(wxTR_TWIST_BUTTONS, 16).
@@ -4058,37 +5030,42 @@
 -define(wxTR_NO_LINES, 4).
 -define(wxTR_HAS_BUTTONS, 1).
 -define(wxTR_NO_BUTTONS, 0).
-% From "treebase.h": wxTreeItemIcon
+%%%  From "treebase.h": wxTreeItemIcon
 -define(wxTreeItemIcon_Normal, 0).
 -define(wxTreeItemIcon_Selected, 1).
 -define(wxTreeItemIcon_Expanded, 2).
 -define(wxTreeItemIcon_SelectedExpanded, 3).
 -define(wxTreeItemIcon_Max, 4).
-% From "utils.h"
--define(wxEXEC_ASYNC, 0).
--define(wxEXEC_SYNC, 1).
--define(wxEXEC_NOHIDE, 2).
--define(wxEXEC_MAKE_GROUP_LEADER, 4).
--define(wxEXEC_NODISABLE, 8).
-% From "utils.h"
--define(wxBROWSER_NEW_WINDOW, 1).
-% From "utils.h"
+%%%  From "utils.h"
 -define(wxStrip_Mnemonics, 1).
 -define(wxStrip_Accel, 2).
+-define(wxStrip_CJKMnemonics, 4).
 -define(wxStrip_All, (?wxStrip_Mnemonics bor ?wxStrip_Accel)).
-% From "utils.h": wxKillError
+-define(wxStrip_Menu, (?wxStrip_All bor ?wxStrip_CJKMnemonics)).
+%%%  From "utils.h"
+-define(wxEXEC_ASYNC, 0).
+-define(wxEXEC_SYNC, 1).
+-define(wxEXEC_SHOW_CONSOLE, 2).
+-define(wxEXEC_MAKE_GROUP_LEADER, 4).
+-define(wxEXEC_NODISABLE, 8).
+-define(wxEXEC_NOEVENTS, 16).
+-define(wxEXEC_HIDE_CONSOLE, 32).
+-define(wxEXEC_BLOCK, (?wxEXEC_SYNC bor ?wxEXEC_NOEVENTS)).
+%%%  From "utils.h": wxKillError
 -define(wxKILL_OK, 0).
 -define(wxKILL_BAD_SIGNAL, 1).
 -define(wxKILL_ACCESS_DENIED, 2).
 -define(wxKILL_NO_PROCESS, 3).
 -define(wxKILL_ERROR, 4).
-% From "utils.h": wxKillFlags
+%%%  From "utils.h": wxKillFlags
 -define(wxKILL_NOCHILDREN, 0).
 -define(wxKILL_CHILDREN, 1).
-% From "utils.h": wxShutdownFlags
--define(wxSHUTDOWN_POWEROFF, 0).
--define(wxSHUTDOWN_REBOOT, 1).
-% From "utils.h": wxSignal
+%%%  From "utils.h": wxShutdownFlags
+-define(wxSHUTDOWN_FORCE, 1).
+-define(wxSHUTDOWN_POWEROFF, 2).
+-define(wxSHUTDOWN_REBOOT, 4).
+-define(wxSHUTDOWN_LOGOFF, 8).
+%%%  From "utils.h": wxSignal
 -define(wxSIGNONE, 0).
 -define(wxSIGHUP, 1).
 -define(wxSIGINT, 2).
@@ -4096,40 +5073,90 @@
 -define(wxSIGILL, 4).
 -define(wxSIGTRAP, 5).
 -define(wxSIGABRT, 6).
--define(wxSIGIOT, ?wxSIGABRT).
--define(wxSIGEMT, (?wxSIGABRT+1)).
--define(wxSIGFPE, (?wxSIGABRT+2)).
--define(wxSIGKILL, (?wxSIGABRT+3)).
--define(wxSIGBUS, (?wxSIGABRT+4)).
--define(wxSIGSEGV, (?wxSIGABRT+5)).
--define(wxSIGSYS, (?wxSIGABRT+6)).
--define(wxSIGPIPE, (?wxSIGABRT+7)).
--define(wxSIGALRM, (?wxSIGABRT+8)).
--define(wxSIGTERM, (?wxSIGABRT+9)).
-% From "valtext.h"
--define(wxFILTER_EXCLUDE_CHAR_LIST, 128).
--define(wxFILTER_INCLUDE_CHAR_LIST, 64).
--define(wxFILTER_EXCLUDE_LIST, 32).
--define(wxFILTER_INCLUDE_LIST, 16).
--define(wxFILTER_NUMERIC, 8).
--define(wxFILTER_ALPHANUMERIC, 4).
--define(wxFILTER_ALPHA, 2).
--define(wxFILTER_ASCII, 1).
--define(wxFILTER_NONE, 0).
-% From "version.h"
--define(wxBETA_NUMBER, wxe_util:get_const(wxBETA_NUMBER)).
--define(wxSUBRELEASE_NUMBER, wxe_util:get_const(wxSUBRELEASE_NUMBER)).
--define(wxRELEASE_NUMBER, wxe_util:get_const(wxRELEASE_NUMBER)).
--define(wxMINOR_VERSION, wxe_util:get_const(wxMINOR_VERSION)).
--define(wxMAJOR_VERSION, wxe_util:get_const(wxMAJOR_VERSION)).
-% From "window.h"
-% From "window.h": wxWindowVariant
+-define(wxSIGEMT, 7).
+-define(wxSIGFPE, 8).
+-define(wxSIGKILL, 9).
+-define(wxSIGBUS, 10).
+-define(wxSIGSEGV, 11).
+-define(wxSIGSYS, 12).
+-define(wxSIGPIPE, 13).
+-define(wxSIGALRM, 14).
+-define(wxSIGTERM, 15).
+%%%  From "webview.h": wxWebViewFindFlags
+-define(wxWEBVIEW_FIND_WRAP, 1).
+-define(wxWEBVIEW_FIND_ENTIRE_WORD, 2).
+-define(wxWEBVIEW_FIND_MATCH_CASE, 4).
+-define(wxWEBVIEW_FIND_HIGHLIGHT_RESULT, 8).
+-define(wxWEBVIEW_FIND_BACKWARDS, 16).
+-define(wxWEBVIEW_FIND_DEFAULT, 0).
+%%%  From "webview.h": wxWebViewIE_EmulationLevel
+-define(wxWEBVIEWIE_EMU_DEFAULT, 0).
+-define(wxWEBVIEWIE_EMU_IE7, 7000).
+-define(wxWEBVIEWIE_EMU_IE8, 8000).
+-define(wxWEBVIEWIE_EMU_IE8_FORCE, 8888).
+-define(wxWEBVIEWIE_EMU_IE9, 9000).
+-define(wxWEBVIEWIE_EMU_IE9_FORCE, 9999).
+-define(wxWEBVIEWIE_EMU_IE10, 10000).
+-define(wxWEBVIEWIE_EMU_IE10_FORCE, 10001).
+-define(wxWEBVIEWIE_EMU_IE11, 11000).
+-define(wxWEBVIEWIE_EMU_IE11_FORCE, 11001).
+%%%  From "webview.h": wxWebViewNavigationActionFlags
+-define(wxWEBVIEW_NAV_ACTION_NONE, 0).
+-define(wxWEBVIEW_NAV_ACTION_USER, 1).
+-define(wxWEBVIEW_NAV_ACTION_OTHER, 2).
+%%%  From "webview.h": wxWebViewNavigationError
+-define(wxWEBVIEW_NAV_ERR_CONNECTION, 0).
+-define(wxWEBVIEW_NAV_ERR_CERTIFICATE, 1).
+-define(wxWEBVIEW_NAV_ERR_AUTH, 2).
+-define(wxWEBVIEW_NAV_ERR_SECURITY, 3).
+-define(wxWEBVIEW_NAV_ERR_NOT_FOUND, 4).
+-define(wxWEBVIEW_NAV_ERR_REQUEST, 5).
+-define(wxWEBVIEW_NAV_ERR_USER_CANCELLED, 6).
+-define(wxWEBVIEW_NAV_ERR_OTHER, 7).
+%%%  From "webview.h": wxWebViewReloadFlags
+-define(wxWEBVIEW_RELOAD_DEFAULT, 0).
+-define(wxWEBVIEW_RELOAD_NO_CACHE, 1).
+%%%  From "webview.h": wxWebViewZoom
+-define(wxWEBVIEW_ZOOM_TINY, 0).
+-define(wxWEBVIEW_ZOOM_SMALL, 1).
+-define(wxWEBVIEW_ZOOM_MEDIUM, 2).
+-define(wxWEBVIEW_ZOOM_LARGE, 3).
+-define(wxWEBVIEW_ZOOM_LARGEST, 4).
+%%%  From "webview.h": wxWebViewZoomType
+-define(wxWEBVIEW_ZOOM_TYPE_LAYOUT, 0).
+-define(wxWEBVIEW_ZOOM_TYPE_TEXT, 1).
+%%%  From "window.h"
+-define(wxTOUCH_NONE, 0).
+-define(wxTOUCH_VERTICAL_PAN_GESTURE, 1).
+-define(wxTOUCH_HORIZONTAL_PAN_GESTURE, 2).
+-define(wxTOUCH_PAN_GESTURES, (?wxTOUCH_VERTICAL_PAN_GESTURE bor ?wxTOUCH_HORIZONTAL_PAN_GESTURE)).
+-define(wxTOUCH_ZOOM_GESTURE, 4).
+-define(wxTOUCH_ROTATE_GESTURE, 8).
+-define(wxTOUCH_PRESS_GESTURES, 16).
+-define(wxTOUCH_ALL_GESTURES, 31).
+%%%  From "window.h"
+-define(wxSEND_EVENT_POST, 1).
+%%%  From "window.h": wxShowEffect
+-define(wxSHOW_EFFECT_NONE, 0).
+-define(wxSHOW_EFFECT_ROLL_TO_LEFT, 1).
+-define(wxSHOW_EFFECT_ROLL_TO_RIGHT, 2).
+-define(wxSHOW_EFFECT_ROLL_TO_TOP, 3).
+-define(wxSHOW_EFFECT_ROLL_TO_BOTTOM, 4).
+-define(wxSHOW_EFFECT_SLIDE_TO_LEFT, 5).
+-define(wxSHOW_EFFECT_SLIDE_TO_RIGHT, 6).
+-define(wxSHOW_EFFECT_SLIDE_TO_TOP, 7).
+-define(wxSHOW_EFFECT_SLIDE_TO_BOTTOM, 8).
+-define(wxSHOW_EFFECT_BLEND, 9).
+-define(wxSHOW_EFFECT_EXPAND, 10).
+-define(wxSHOW_EFFECT_MAX, 11).
+%%%  From "window.h": wxWindowVariant
 -define(wxWINDOW_VARIANT_NORMAL, 0).
 -define(wxWINDOW_VARIANT_SMALL, 1).
 -define(wxWINDOW_VARIANT_MINI, 2).
 -define(wxWINDOW_VARIANT_LARGE, 3).
 -define(wxWINDOW_VARIANT_MAX, 4).
-% From "xmlres.h": wxXmlResourceFlags
+%%%  From "xmlres.h": wxXmlResourceFlags
 -define(wxXRC_USE_LOCALE, 1).
 -define(wxXRC_NO_SUBCLASSING, 2).
 -define(wxXRC_NO_RELOADING, 4).
+-define(wxXRC_USE_ENVVARS, 8).

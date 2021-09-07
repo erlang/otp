@@ -21,6 +21,8 @@
 
 -module(ssl_sni_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/inet.hrl").
@@ -136,7 +138,8 @@ init_per_testcase(customize_hostname_check, Config) ->
     Config;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
+    Version = proplists:get_value(version, Config),
+    ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites(default, Version)]),
     ct:timetrap(?TIMEOUT),
     Config.
 

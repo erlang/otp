@@ -51,6 +51,7 @@
 -export([make_crypto_key/2, get_crypto_key/1]).	%Utilities used by compiler
 
 -export_type([attrib_entry/0, compinfo_entry/0, labeled_entry/0, label/0]).
+-export_type([chnk_rsn/0]).
 
 -import(lists, [append/1, delete/2, foreach/2, keysort/2, 
 		member/2, reverse/1, sort/1, splitwith/2]).
@@ -107,6 +108,7 @@
 -type chnk_rsn()  :: {'unknown_chunk', file:filename(), atom()}
                    | {'key_missing_or_invalid', file:filename(),
 		      'abstract_code' | 'debug_info'}
+                   | {'missing_backend', file:filename(), module()}
                    | info_rsn().
 -type cmp_rsn()   :: {'modules_different', module(), module()}
                    | {'chunks_different', chunkid()}
@@ -310,6 +312,9 @@ format_error(badfun) ->
     "not a fun or the fun has the wrong arity";
 format_error(exists) ->
     "a fun has already been installed";
+format_error({missing_backend, File, Backend}) ->
+    io_lib:format("~tp: Cannot retrieve abstract code because the backend ~p is missing",
+		  [File, Backend]);
 format_error(E) ->
     io_lib:format("~tp~n", [E]).
 
@@ -682,10 +687,13 @@ chunks_to_data([{abst_chunk, Name} | CNs], Chunks, File, Cs, Module, Atoms, L) -
     {NewAtoms, Ret} =
 	case catch chunk_to_data(debug_info, DbgiChunk, File, Cs, Atoms, Module) of
 	    {DbgiAtoms, {debug_info, {debug_info_v1, Backend, Metadata}}} ->
-		case Backend:debug_info(erlang_v1, Module, Metadata, []) of
+		try Backend:debug_info(erlang_v1, Module, Metadata, []) of
 		    {ok, Code} -> {DbgiAtoms, {abstract_code, {raw_abstract_v1, Code}}};
 		    {error, _} -> {DbgiAtoms, {abstract_code, no_abstract_code}}
-		end;
+                catch
+                    error:undef ->
+                        error({missing_backend,File,Backend})
+                end;
             {error,beam_lib,{key_missing_or_invalid,Path,debug_info}} ->
                 error({key_missing_or_invalid,Path,abstract_code});
 	    _ ->
@@ -700,6 +708,9 @@ chunks_to_data([{Id, Name} | CNs], Chunks, File, Cs, Module, Atoms, L) ->
 chunks_to_data([], _Chunks, _File, _Cs, Module, _Atoms, L) ->
     {ok, {Module, reverse(L)}}.
 
+chunk_to_data(Id, missing_chunk, _File, _Cs, AtomTable, _Mod) ->
+    %% Missing chunk, only happens when 'allow_missing_chunks' is on.
+    {AtomTable, {Id, missing_chunk}};
 chunk_to_data(attributes=Id, Chunk, File, _Cs, AtomTable, _Mod) ->
     try
 	Term = binary_to_term(Chunk),
@@ -856,10 +867,8 @@ extract_atom(<<Len, B/binary>>, Encoding) ->
 	     bin :: binary(),
 	     source :: binary() | string()}).
 
-open_file(<<"FOR1",_/binary>>=Binary) ->
-    #bb{bin = Binary, source = Binary};
 open_file(Binary0) when is_binary(Binary0) ->
-    Binary = uncompress(Binary0),
+    Binary = maybe_uncompress(Binary0),
     #bb{bin = Binary, source = Binary};
 open_file(FileName) ->
     case file:open(FileName, [read, raw, binary]) of
@@ -875,7 +884,7 @@ read_all(Fd, FileName, Bins) ->
 	    read_all(Fd, FileName, [Bin | Bins]);
 	eof ->
 	    ok = file:close(Fd),
-	    #bb{bin = uncompress(reverse(Bins)), source = FileName};
+	    #bb{bin = maybe_uncompress(reverse(Bins)), source = FileName};
 	Error ->
 	    ok = file:close(Fd),
 	    file_error(FileName, Error)
@@ -905,20 +914,22 @@ beam_filename(Bin) when is_binary(Bin) ->
 beam_filename(File) ->
     filename:rootname(File, ".beam") ++ ".beam".
 
+%% Do not attempt to uncompress if we have the proper .beam format.
+%% This clause matches binaries given as input.
+maybe_uncompress(<<"FOR1",_/binary>>=Binary) ->
+    Binary;
+%% This clause matches the iolist read from files.
+maybe_uncompress([<<"FOR1",_/binary>>|_]=IOData) ->
+    iolist_to_binary(IOData);
+maybe_uncompress(IOData) ->
+    try
+	zlib:gunzip(IOData)
+    catch
+	_:_ -> iolist_to_binary(IOData)
+    end.
 
-uncompress(Binary0) ->
-    {ok, Fd} = ram_file:open(Binary0, [write, binary]),
-    {ok, _} = ram_file:uncompress(Fd),
-    {ok, Binary} = ram_file:get_file(Fd),
-    ok = ram_file:close(Fd),
-    Binary.
-
-compress(Binary0) ->
-    {ok, Fd} = ram_file:open(Binary0, [write, binary]),
-    {ok, _} = ram_file:compress(Fd),
-    {ok, Binary} = ram_file:get_file(Fd),
-    ok = ram_file:close(Fd),
-    Binary.
+compress(IOData) ->
+    zlib:gzip(IOData).
 
 %% -> ok | throw(Error)
 assert_directory(FileName) ->

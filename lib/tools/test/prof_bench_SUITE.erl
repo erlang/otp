@@ -38,12 +38,10 @@ all() ->
     [overhead].
 
 init_per_suite(Config) ->
-    case {test_server:is_native(fprof_SUITE) or
-          (lists:any(fun(M) -> test_server:is_native(M) end, modules())) or
-          (whereis(cover_server) =/= undefined),
+    case {whereis(cover_server) =/= undefined,
           erlang:system_info(wordsize)}
     of
-        {true, _} -> {skip, "Native or cover code"};
+        {true, _} -> {skip, "Cover is running"};
         {_, 4} -> {skip, "Can't run on 32-bit as files will be large"};
         {false, 8} -> Config
     end.

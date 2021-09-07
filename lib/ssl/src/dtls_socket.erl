@@ -85,7 +85,7 @@ connect(Address, Port, #config{transport_info = {Transport, _, _, _, _} = CbInfo
 				inet_ssl = SocketOpts}, Timeout) ->
     case Transport:open(0, SocketOpts ++ internal_inet_values()) of
 	{ok, Socket} ->
-	    ssl_connection:connect(ConnectionCb, Address, Port, {{Address, Port},Socket}, 
+	    ssl_gen_statem:connect(ConnectionCb, Address, Port, {{Address, Port},Socket},
 				   {SslOpts, 
 				    emulated_socket_options(EmOpts, #socket_options{}), undefined},
 				   self(), CbInfo, Timeout);
@@ -107,10 +107,11 @@ close(gen_udp, {_Client, _Socket}) ->
 close(Transport, {_Client, Socket}) ->
     Transport:close(Socket).
 
-socket(Pids, gen_udp = Transport, {{_, _}, Socket}, ConnectionCb) ->
+socket(Pids, gen_udp = Transport,
+       PeerAndSock = {{_Host, _Port}, _Socket}, ConnectionCb) ->
     #sslsocket{pid = Pids, 
 	       %% "The name "fd" is keept for backwards compatibility
-	       fd = {Transport, Socket, ConnectionCb}};
+	       fd = {Transport, PeerAndSock, ConnectionCb}};
 socket(Pids, Transport, Socket, ConnectionCb) ->
     #sslsocket{pid = Pids, 
 	       %% "The name "fd" is keept for backwards compatibility
@@ -175,13 +176,18 @@ getstat(gen_udp, Pid, Options) when is_pid(Pid) ->
     dtls_packet_demux:getstat(Pid, Options);
 getstat(gen_udp, {_,{_, Socket}}, Options) ->
     inet:getstat(Socket, Options);
+getstat(gen_udp, {_, Socket}, Options) ->
+    inet:getstat(Socket, Options);
 getstat(gen_udp, Socket, Options) ->
     inet:getstat(Socket, Options);
 getstat(Transport, Socket, Options) ->
 	Transport:getstat(Socket, Options).
+
 peername(_, undefined) ->
     {error, enotconn};
 peername(gen_udp, {_, {Client, _Socket}}) ->
+    {ok, Client};
+peername(gen_udp, {Client, _Socket}) ->
     {ok, Client};
 peername(Transport, Socket) ->
     Transport:peername(Socket).

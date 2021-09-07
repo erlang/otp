@@ -68,7 +68,10 @@ incr_log_writes() ->
     Left = mnesia_lib:incr_counter(trans_log_writes_left, -1),
     if
 	Left =:= 0 ->
-	    adjust_log_writes(true);
+	    %% It doesn't matter which process adjusts counters and sends
+	    %% cast to a dumper so to avoid potential lag on global:set_lock
+	    %% we delegate it to new process
+	    spawn(fun() -> adjust_log_writes(true) end);
 	true ->
 	    ignore
     end.

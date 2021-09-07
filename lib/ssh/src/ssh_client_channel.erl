@@ -70,7 +70,8 @@
 -export([cache_create/0, cache_lookup/2, cache_update/2, 
 	 cache_delete/1, cache_delete/2,  cache_foldl/3,
 	 cache_info/2,  cache_find/2,
-	 get_print_info/1]).
+	 get_print_info/1, get_print_info/2
+        ]).
 
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
@@ -212,6 +213,9 @@ handle_call(get_print_info, _From, State) ->
 	},
     {reply, Reply, State};
 
+handle_call({get_print_info,channel_cb}, _From, State) ->
+    {reply, State#state.channel_cb, State};
+
 handle_call(Request, From, #state{channel_cb = Module, 
 				  channel_state = ChannelState} = State) ->
    try Module:handle_call(Request, From, ChannelState) of
@@ -273,28 +277,32 @@ handle_info({ssh_cm, _, _} = Msg, #state{cm = ConnectionManager,
 				       channel_state = ChannelState}}
     end;
 
-handle_info(Msg, #state{cm = ConnectionManager, channel_cb = Module, 
+handle_info(Msg, #state{channel_cb = Module, 
 			channel_state = ChannelState0} = State) -> 
-    case Module:handle_msg(Msg, ChannelState0) of 
+    try Module:handle_msg(Msg, ChannelState0)
+    of 
 	{ok, ChannelState} ->
 	    {noreply, State#state{channel_state = ChannelState}};
 	{ok, ChannelState, Timeout} ->
 	    {noreply, State#state{channel_state = ChannelState}, Timeout};
-	{stop, Reason, ChannelState} when is_atom(Reason)->
-	    {stop, Reason, State#state{close_sent = true,
-				       channel_state = ChannelState}};
 	{stop, ChannelId, ChannelState} ->
-	    Reason =
-		case Msg of
-		    {'EXIT', _Pid, shutdown} ->
-			shutdown;
-		    _ ->
-			normal
-		end,
-	    (catch ssh_connection:close(ConnectionManager, ChannelId)),
-	    {stop, Reason, State#state{close_sent = true,
-				       channel_state = ChannelState}}
+            do_the_close(Msg, ChannelId, State#state{channel_state = ChannelState})
+    catch
+        error:function_clause when size(Msg) == 3,
+                                   element(1,Msg) == 'EXIT' ->
+            do_the_close(Msg, State#state.channel_id, State)
     end.
+
+
+
+do_the_close(Msg, ChannelId, State = #state{close_sent = false,
+                                            cm = ConnectionManager}) ->
+    catch ssh_connection:close(ConnectionManager, ChannelId),
+    do_the_close(Msg, ChannelId, State#state{close_sent=true});
+do_the_close({'EXIT', _Pid, shutdown=Reason},     _, State) -> {stop, Reason, State};
+do_the_close({'EXIT', _Pid, {shutdown,_}=Reason}, _, State) -> {stop, Reason, State};
+do_the_close(_Msg,                                _, State) -> {stop, normal, State}.
+
 
 %%--------------------------------------------------------------------
 %% Function: terminate(Reason, State) -> void()
@@ -360,6 +368,9 @@ cache_find(ChannelPid, Cache) ->
 
 get_print_info(Pid) ->
     call(Pid, get_print_info, 1000).
+
+get_print_info(Pid, Arg) ->
+    call(Pid, {get_print_info,Arg}, 1000).
 
 %%--------------------------------------------------------------------
 %%% Internal functions

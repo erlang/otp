@@ -99,6 +99,14 @@ gen_server:abcast     -----> Module:handle_cast/2
       in place of the time-out or hibernation value, which will immediately
       invoke the <c>handle_continue/2</c> callback.</p>
 
+    <p>If the <c>gen_server</c> process terminates, e.g.
+      as a result of a function in the callback module returning
+      <c>{stop,Reason,NewState}</c>, an exit signal with this <c>Reason</c>
+      is sent to linked processes and ports. See
+      <seeguide marker="system/reference_manual:processes#errors">
+      Processes</seeguide> in the Reference Manual for details
+      regarding error handling using exit signals.</p>
+
   </description>
 
   <funcs>
@@ -346,6 +354,57 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
+      <name since="OTP 24.0">receive_response(RequestId, Timeout) -> Result</name>
+      <fsummary>Receive for a reply from a server.</fsummary>
+      <type>
+	<v>RequestId = term()</v>
+	<v>Result = {reply, Reply} | timeout | {error, {Reason, ServerRef}}</v>
+	<v>Reply = term()</v>
+	<v>Timeout = timeout()</v>
+	<v>Reason = term()</v>
+	<v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
+        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
+        <v>&nbsp;Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+      </type>
+      <desc>
+	<p>
+	This function is used to receive a reply of a request made with
+	<seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>
+	to a <c>gen_server</c> process. This function must be called
+	from the same process from which
+	<seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>
+	was made.
+	</p>
+	<p>
+	  <c>Timeout</c> is an integer greater then or equal to zero
+	  that specifies how many milliseconds to wait for an reply, or
+	  the atom <c>infinity</c> to wait indefinitely.
+	  If no reply is received within the specified
+	  time, the function returns <c>timeout</c>. Assuming that the
+	  server executes on a node supporting aliases (introduced in
+	  OTP 24) no response will be received after a timeout. Otherwise,
+	  a garbage response might be received at a later time.
+	</p>
+	<p>
+	  The return value <c>Reply</c> is defined in the return value
+	  of <c>Module:handle_call/3</c>.
+	</p>
+	<p>
+	  The function returns an error if the <c>gen_server</c>
+	  dies before or during this request.
+	</p>
+	<p>
+	  The difference between
+	  <seemfa marker="#wait_response/2"><c>wait_response()</c></seemfa>
+	  and <c>receive_response()</c> is that <c>receive_response()</c>
+	  abandons the request at timeout so that a potential future
+	  response is ignored, while <c>wait_response()</c> does not.
+	</p>
+      </desc>
+    </func>
+
+    <func>
       <name since="">reply(Client, Reply) -> ok</name>
       <fsummary>Send a reply to a client.</fsummary>
       <type>
@@ -368,7 +427,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name since="OTP-23">send_request(ServerRef, Request) -> RequestId</name>
+      <name since="OTP 23.0">send_request(ServerRef, Request) -> RequestId</name>
       <fsummary>Sends a request to a generic server.</fsummary>
       <type>
         <v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
@@ -384,7 +443,8 @@ gen_server:abcast     -----> Module:handle_cast/2
 	  Sends a request to the <c>ServerRef</c> of the
           <c>gen_server</c> process and returns a handle <c>RequestId</c>.
 	  The return value <c>RequestId</c> shall later be used with
-          <seemfa marker="#wait_response/2"> <c>wait_response/2</c></seemfa> or
+          <seemfa marker="#receive_response/2"> <c>receive_response/2</c></seemfa>,
+          <seemfa marker="#wait_response/2"> <c>wait_response/2</c></seemfa>, or
 	  <seemfa marker="#check_response/2"> <c>check_response/2</c></seemfa>
 	  to fetch the actual result of the request.
 	</p>
@@ -546,7 +606,10 @@ gen_server:abcast     -----> Module:handle_cast/2
           the function returns <c>{error,Reason}</c>. If
           <c>Module:init/1</c> returns <c>{stop,Reason}</c> or
           <c>ignore</c>, the process is terminated and the function
-          returns <c>{error,Reason}</c> or <c>ignore</c>, respectively.</p>
+          returns <c>{error,Reason}</c> or <c>ignore</c>, respectively.
+	  An exit signal with the same <c>Reason</c> (or <c>normal</c> if
+	  <c>Module:init/1</c> returns <c>ignore</c>) is sent to linked
+	  processes and ports.</p>
       </desc>
     </func>
 
@@ -609,6 +672,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           <c>shutdown</c>, or <c>{shutdown,Term}</c> causes an
           error report to be issued using
           <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.
+          An exit signal with the same reason is sent to linked processes
+	  and ports.
           The default <c>Reason</c> is <c>normal</c>.</p>
         <p><c>Timeout</c> is an integer greater than zero that
           specifies how many milliseconds to wait for the server to
@@ -622,7 +687,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name since="OTP-23">wait_response(RequestId, Timeout) -> Result</name>
+      <name since="OTP 23.0">wait_response(RequestId, Timeout) -> Result</name>
       <fsummary>Wait for a reply from a server.</fsummary>
       <type>
 	<v>RequestId = term()</v>
@@ -660,6 +725,13 @@ gen_server:abcast     -----> Module:handle_cast/2
 	<p>
 	  The function returns an error if the <c>gen_server</c>
 	  dies before or during this request.
+	</p>
+	<p>
+	  The difference between
+	  <seemfa marker="#receive_response/2"><c>receive_response()</c></seemfa>
+	  and <c>wait_response()</c> is that <c>receive_response()</c>
+	  abandons the request at timeout so that a potential future
+	  response is ignored, while <c>wait_response()</c> does not.
 	</p>
       </desc>
     </func>
@@ -955,9 +1027,10 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p><c>Args</c> is the <c>Args</c> argument provided to the start
           function.</p>
         <p>If the initialization is successful, the function is to
-          return <c>{ok,State}</c>, <c>{ok,State,Timeout}</c>, or
-          <c>{ok,State,hibernate}</c>, where <c>State</c> is the internal
-          state of the <c>gen_server</c> process.</p>
+          return <c>{ok,State}</c>, <c>{ok,State,Timeout}</c>,
+          <c>{ok,State,hibernate}</c>, or <c>{ok,State,{continue,Continue}}</c>
+          where <c>State</c> is the internal state of the <c>gen_server</c>
+           process.</p>
         <p>If an integer time-out value is provided, a time-out occurs
           unless a request or a message is received within
           <c>Timeout</c> milliseconds. A time-out is represented by
@@ -971,9 +1044,17 @@ gen_server:abcast     -----> Module:handle_cast/2
           hibernation when waiting for the next message to arrive (by calling 
           <seemfa marker="proc_lib#hibernate/3">
           <c>proc_lib:hibernate/3</c></seemfa>).</p>
+        <p>If <c>{continue,Continue}</c> is specified, the process will
+          execute the <seemfa marker="#Module:handle_continue/2">
+          <c>Module:handle_continue/2</c></seemfa> callback function, with
+          <c>Continue</c> as the first argument.</p>
         <p>If the initialization fails, the function is to return
           <c>{stop,Reason}</c>, where <c>Reason</c> is any term, or
-          <c>ignore</c>.</p>
+          <c>ignore</c>. An exit signal with this <c>Reason</c> (or with reason
+          <c>normal</c> if <c>ignore</c> is returned) is sent to linked
+          processes and ports, notably to the process starting the gen_server
+          when <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>
+          is used.</p>
       </desc>
     </func>
 
@@ -1028,6 +1109,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           process is assumed to terminate because of an error and
           an error report is issued using
           <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.</p>
+        <p>When the gen_server process exits, an exit signal with the same
+          reason is sent to linked processes and ports.</p>
       </desc>
     </func>
   </funcs>

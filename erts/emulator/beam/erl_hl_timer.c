@@ -1903,7 +1903,7 @@ send_async_info(Process *proc, ErtsProcLocks initial_locks,
 
 static ERTS_INLINE Eterm
 send_sync_info(Process *proc, ErtsProcLocks initial_locks,
-               Uint32 *refn, int cancel, Sint64 time_left)
+               Uint32 *refn, int info, int cancel, Sint64 time_left)
 {
     ErtsProcLocks locks = initial_locks;
     ErtsMessage *mp;
@@ -1923,7 +1923,9 @@ send_sync_info(Process *proc, ErtsProcLocks initial_locks,
     ref = make_internal_ref(hp);
     hp += ERTS_REF_THING_SIZE;
 
-    if (time_left < 0)
+    if (!info)
+	res = am_ok;
+    else if (time_left < 0)
         res = am_false;
     else if (time_left <= (Sint64) MAX_SMALL)
         res = make_small((Sint) time_left);
@@ -1974,7 +1976,7 @@ access_sched_local_btm(Process *c_p, Eterm pid,
 
     time_left = access_btm(tmr, (Uint32) esdp->no, esdp, cancel);
 
-    if (!info)
+    if (async && !info)
         return am_ok;
 
     if (c_p) {
@@ -1987,12 +1989,15 @@ access_sched_local_btm(Process *c_p, Eterm pid,
     }
 
     if (!async) {
-        if (c_p)
+        if (c_p) {
+	    if (!info)
+		return am_ok;
             return return_info(c_p, time_left);
+	}
 
         if (proc)
             return send_sync_info(proc, proc_locks,
-                                  rrefn, cancel, time_left);
+                                  rrefn, info, cancel, time_left);
     }
     else if (proc) {
         Eterm ref;
@@ -2182,8 +2187,7 @@ access_bif_timer(Process *c_p, Eterm tref, int cancel, int async, int info)
              *       otherwise, next receive will *not* work
              *       as expected!
              */
-            ERTS_RECV_MARK_SAVE(c_p);
-            ERTS_RECV_MARK_SET(c_p);
+            erts_msgq_set_save_end(c_p);
 
 	    ERTS_BIF_PREP_TRAP1(ret, erts_await_result, c_p, rref);
 	}
@@ -2435,8 +2439,10 @@ BIF_RETTYPE send_after_3(BIF_ALIST_3)
 
     tres = parse_timeout_pos(erts_proc_sched_data(BIF_P), BIF_ARG_1,
 			     NULL, 0, &timeout_pos, &short_time, &tmo);
-    if (tres != 0)
-	BIF_ERROR(BIF_P, BADARG);
+    if (tres != 0) {
+        BIF_P->fvalue = am_time;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
 
     return setup_bif_timer(BIF_P, tmo < ERTS_TIMER_WHEEL_MSEC,
                            timeout_pos, short_time, BIF_ARG_2,
@@ -2448,13 +2454,17 @@ BIF_RETTYPE send_after_4(BIF_ALIST_4)
     ErtsMonotonicTime timeout_pos, tmo;
     int short_time, abs, tres;
 
-    if (!parse_bif_timer_options(BIF_ARG_4, NULL, NULL, &abs))
-	BIF_ERROR(BIF_P, BADARG);
-    
+    if (!parse_bif_timer_options(BIF_ARG_4, NULL, NULL, &abs)) {
+        BIF_P->fvalue = am_badopt;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
+
     tres = parse_timeout_pos(erts_proc_sched_data(BIF_P), BIF_ARG_1, NULL,
 			     abs, &timeout_pos, &short_time, &tmo);
-    if (tres != 0)
-	BIF_ERROR(BIF_P, BADARG);
+    if (tres != 0) {
+        BIF_P->fvalue = am_time;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
 
     return setup_bif_timer(BIF_P, tmo < ERTS_TIMER_WHEEL_MSEC,
                            timeout_pos, short_time, BIF_ARG_2,
@@ -2468,8 +2478,10 @@ BIF_RETTYPE start_timer_3(BIF_ALIST_3)
 
     tres = parse_timeout_pos(erts_proc_sched_data(BIF_P), BIF_ARG_1, NULL,
 			     0, &timeout_pos, &short_time, &tmo);
-    if (tres != 0)
-	BIF_ERROR(BIF_P, BADARG);
+    if (tres != 0) {
+        BIF_P->fvalue = am_time;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
 
     return setup_bif_timer(BIF_P, tmo < ERTS_TIMER_WHEEL_MSEC,
                            timeout_pos, short_time, BIF_ARG_2,
@@ -2481,13 +2493,17 @@ BIF_RETTYPE start_timer_4(BIF_ALIST_4)
     ErtsMonotonicTime timeout_pos, tmo;
     int short_time, abs, tres;
 
-    if (!parse_bif_timer_options(BIF_ARG_4, NULL, NULL, &abs))
-	BIF_ERROR(BIF_P, BADARG);
+    if (!parse_bif_timer_options(BIF_ARG_4, NULL, NULL, &abs)) {
+        BIF_P->fvalue = am_badopt;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
 
     tres = parse_timeout_pos(erts_proc_sched_data(BIF_P), BIF_ARG_1, NULL,
 			     abs, &timeout_pos, &short_time, &tmo);
-    if (tres != 0)
-	BIF_ERROR(BIF_P, BADARG);
+    if (tres != 0) {
+        BIF_P->fvalue = am_time;
+        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    }
 
     return setup_bif_timer(BIF_P, tmo < ERTS_TIMER_WHEEL_MSEC,
                            timeout_pos, short_time, BIF_ARG_2,

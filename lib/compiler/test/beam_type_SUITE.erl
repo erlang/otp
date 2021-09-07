@@ -25,7 +25,11 @@
 	 cons/1,tuple/1,record_float/1,binary_float/1,float_compare/1,
 	 arity_checks/1,elixir_binaries/1,find_best/1,
          test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
-         none_argument/1,success_type_oscillation/1]).
+         none_argument/1,success_type_oscillation/1,type_subtraction/1,
+         container_subtraction/1]).
+
+%% Force id/1 to return 'any'.
+-export([id/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -52,7 +56,9 @@ groups() ->
        list_append,
        bad_binary_unit,
        none_argument,
-       success_type_oscillation
+       success_type_oscillation,
+       type_subtraction,
+       container_subtraction
       ]}].
 
 init_per_suite(Config) ->
@@ -89,6 +95,8 @@ integers(_Config) ->
     {'EXIT',{badarith,_}} = (catch do_integers_6()),
 
     house = do_integers_7(),
+
+    {'EXIT',{badarith,_}} = (catch do_integers_8()),
 
     ok.
 
@@ -154,6 +162,9 @@ do_integers_7() ->
         _:_:_ ->
             house
     end.
+
+do_integers_8() ->
+    -1 band ((0 div 0) band 0).
 
 numbers(_Config) ->
     Int = id(42),
@@ -595,6 +606,60 @@ sto_1(case_3_4) -> {b, [sto_1(case_2_4)]};
 sto_1(case_4_1) -> {b, [sto_1(case_3_1)]};
 sto_1(case_4_2) -> {b, [sto_1(case_3_2)]};
 sto_1(step_4_3) -> {b, [sto_1(case_3_3)]}.
+
+%% ERL-1440: On inequality, we subtracted the type *common to* both variables
+%% rather than the left-hand type from the right-hand variable and vice versa,
+%% giving an erroneously narrow type.
+%%
+%% In the test below, we have functions returning integers ranged 1..2 and
+%% 2..3 and test for their equality. We know that it can only succeed when both
+%% return 2, but they can fail when the former returns 1 or the latter returns
+%% 3, so we must not subtract 2 on the failure path.
+type_subtraction(Config) when is_list(Config) ->
+    true = type_subtraction_1(id(<<"A">>)),
+    ok.
+
+type_subtraction_1(_x@1) ->
+    _a@1 = ts_12(_x@1),
+    _b@1 = ts_23(_x@1),
+    case _a@1 /= _b@1 of
+        false -> error;
+        true -> _a@1 =:= 3 andalso _b@1 =:= 2
+    end.
+
+ts_12(_x@1) ->
+    case _x@1 == <<"A">> of
+        false ->
+            2;
+        true ->
+            3
+    end.
+
+ts_23(_x@1) ->
+    case _x@1 == <<"A">> of
+        false ->
+            1;
+        true ->
+            2
+    end.
+
+%% GH-4774: The validator didn't update container contents on type subtraction.
+container_subtraction(Config) when is_list(Config) ->
+    A = id(baz),
+
+    cs_1({foo,[]}),
+    cs_1({bar,A}),
+    cs_2({bar,A}),
+
+    ok.
+
+cs_1({_,[]}) ->
+    ok;
+cs_1({_,_}=Other) ->
+    cs_2(Other).
+
+cs_2({bar,baz}) ->
+    ok.
 
 id(I) ->
     I.

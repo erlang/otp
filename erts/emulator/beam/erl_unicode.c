@@ -1090,7 +1090,7 @@ static BIF_RETTYPE build_list_return(Process *p, byte *bytes, Uint pos, Uint cha
 	    rc.num_bytes_to_process = pos;
 	    rc.num_resulting_chars = characters;
 	    rc.state = ERTS_UTF8_OK; /* not used */
-	    BIF_TRAP3(&characters_to_list_trap_1_exp, p, make_magic_bin_for_restart(p,&rc), 
+	    BIF_TRAP3(&characters_to_list_trap_1_exp, p, make_magic_bin_for_restart(p,&rc),
 		      rest_term, latin1);
 	} else { /* Success */
 	    BIF_RET(finalize_list_to_list(p, bytes, NIL, 0U, pos, characters, ERTS_UTF8_OK, left, NIL));
@@ -1680,7 +1680,7 @@ static BIF_RETTYPE finalize_list_to_list(Process *p,
 	    rc.state = state;
 	    rc.bytes = bytes;
 	    BUMP_ALL_REDS(p);
-	    BIF_TRAP3(&characters_to_list_trap_2_exp, p, 
+	    BIF_TRAP3(&characters_to_list_trap_2_exp, p,
 		       make_magic_bin_for_restart(p, &rc), rest, converted); 
 	}
     }
@@ -1789,7 +1789,7 @@ static BIF_RETTYPE do_bif_utf8_to_list(Process *p,
 	    Eterm enumchar = erts_make_integer(num_resulting_chars,p);
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    BUMP_ALL_REDS(p);
-	    BIF_TRAP3(&characters_to_list_trap_3_exp, p, orig_bin, epos, 
+	    BIF_TRAP3(&characters_to_list_trap_3_exp, p, orig_bin, epos,
 		      enumchar);
 	}
     } 

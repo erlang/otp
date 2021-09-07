@@ -75,7 +75,7 @@ void erts_init_trace(void);
 void erts_trace_check_exiting(Eterm exiting);
 ErtsTracer erts_set_system_seq_tracer(Process *c_p,
                                       ErtsProcLocks c_p_locks,
-                                      ErtsTracer new);
+                                      ErtsTracer new_);
 ErtsTracer erts_get_system_seq_tracer(void);
 void erts_change_default_proc_tracing(int setflags, Uint flagsp,
                                       const ErtsTracer tracerp);
@@ -105,9 +105,9 @@ Uint32 erts_call_trace(Process *p, ErtsCodeInfo *info, struct binary *match_spec
                        Eterm* args, int local, ErtsTracer *tracer);
 void erts_trace_return(Process* p, ErtsCodeMFA *mfa, Eterm retval,
                        ErtsTracer *tracer);
-void erts_trace_exception(Process* p, ErtsCodeMFA *mfa, Eterm class, Eterm value,
+void erts_trace_exception(Process* p, ErtsCodeMFA *mfa, Eterm class_, Eterm value,
                           ErtsTracer *tracer);
-void erts_trace_return_to(Process *p, BeamInstr *pc);
+void erts_trace_return_to(Process *p, ErtsCodePtr pc);
 void trace_sched(Process*, ErtsProcLocks, Eterm);
 void trace_proc(Process*, ErtsProcLocks, Process*, Eterm, Eterm);
 void trace_proc_spawn(Process*, Eterm what, Eterm pid, Eterm mod, Eterm func, Eterm args);
@@ -134,8 +134,8 @@ void erts_system_profile_setup_active_schedulers(void);
 
 /* system_monitor */
 void monitor_long_gc(Process *p, Uint time);
-void monitor_long_schedule_proc(Process *p, ErtsCodeMFA *in_i,
-                                ErtsCodeMFA *out_i, Uint time);
+void monitor_long_schedule_proc(Process *p, const ErtsCodeMFA *in_i,
+                                const ErtsCodeMFA *out_i, Uint time);
 void monitor_long_schedule_port(Port *pp, ErtsPortTaskType type, Uint time);
 void monitor_large_heap(Process *p);
 void monitor_generic(Process *p, Eterm type, Eterm spec);

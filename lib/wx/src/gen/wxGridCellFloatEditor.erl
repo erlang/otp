@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,30 +18,20 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellfloateditor.html">wxGridCellFloatEditor</a>.
-%% <p>This class is derived (and can use functions) from:
-%% <br />{@link wxGridCellEditor}
-%% </p>
-%% @type wxGridCellFloatEditor().  An object reference, The representation is internal
-%% and can be changed without notice. It can't be used for comparsion
-%% stored on disc or distributed for use on other nodes.
-
 -module(wxGridCellFloatEditor).
 -include("wxe.hrl").
 -export([destroy/1,new/0,new/1,setParameters/2]).
 
 %% inherited exports
--export([beginEdit/4,endEdit/4,handleReturn/2,isCreated/1,paintBackground/3,
-  parent_class/1,reset/1,setSize/2,show/2,show/3,startingClick/1,startingKey/2]).
+-export([handleReturn/2,isCreated/1,parent_class/1,reset/1,setSize/2,show/2,
+  show/3,startingClick/1,startingKey/2]).
 
+-type wxGridCellFloatEditor() :: wx:wx_object().
 -export_type([wxGridCellFloatEditor/0]).
--compile([{nowarn_deprecated_function, {wxGridCellEditor,endEdit,4}},{nowarn_deprecated_function, {wxGridCellEditor,paintBackground,3}}]).
-
 %% @hidden
 parent_class(wxGridCellEditor) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxGridCellFloatEditor() :: wx:wx_object().
 %% @equiv new([])
 -spec new() -> wxGridCellFloatEditor().
 
@@ -51,31 +41,32 @@ new() ->
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellfloateditor.html#wxgridcellfloateditorwxgridcellfloateditor">external documentation</a>.
 -spec new([Option]) -> wxGridCellFloatEditor() when
 	Option :: {'width', integer()}
-		 | {'precision', integer()}.
+		 | {'precision', integer()}
+		 | {'format', integer()}.
 new(Options)
  when is_list(Options) ->
-  MOpts = fun({width, Width}, Acc) -> [<<1:32/?UI,Width:32/?UI>>|Acc];
-          ({precision, Precision}, Acc) -> [<<2:32/?UI,Precision:32/?UI>>|Acc];
-          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
-  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  wxe_util:construct(?wxGridCellFloatEditor_new,
-  <<BinOpt/binary>>).
+  MOpts = fun({width, _width} = Arg) -> Arg;
+          ({precision, _precision} = Arg) -> Arg;
+          ({format, _format} = Arg) -> Arg;
+          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
+  Opts = lists:map(MOpts, Options),
+  wxe_util:queue_cmd(Opts,?get_env(),?wxGridCellFloatEditor_new),
+  wxe_util:rec(?wxGridCellFloatEditor_new).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellfloateditor.html#wxgridcellfloateditorsetparameters">external documentation</a>.
 -spec setParameters(This, Params) -> 'ok' when
 	This::wxGridCellFloatEditor(), Params::unicode:chardata().
-setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
+setParameters(#wx_ref{type=ThisT}=This,Params)
  when ?is_chardata(Params) ->
   ?CLASS(ThisT,wxGridCellFloatEditor),
-  Params_UC = unicode:characters_to_binary([Params,0]),
-  wxe_util:cast(?wxGridCellFloatEditor_SetParameters,
-  <<ThisRef:32/?UI,(byte_size(Params_UC)):32/?UI,(Params_UC)/binary, 0:(((8- ((0+byte_size(Params_UC)) band 16#7)) band 16#7))/unit:8>>).
+  Params_UC = unicode:characters_to_binary(Params),
+  wxe_util:queue_cmd(This,Params_UC,?get_env(),?wxGridCellFloatEditor_SetParameters).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxGridCellFloatEditor()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellFloatEditor),
-  wxe_util:destroy(?wxGridCellFloatEditor_destroy,Obj),
+  wxe_util:queue_cmd(Obj, ?get_env(), ?wxGridCellFloatEditor_destroy),
   ok.
  %% From wxGridCellEditor
 %% @hidden
@@ -86,12 +77,6 @@ startingClick(This) -> wxGridCellEditor:startingClick(This).
 startingKey(This,Event) -> wxGridCellEditor:startingKey(This,Event).
 %% @hidden
 reset(This) -> wxGridCellEditor:reset(This).
-%% @hidden
-endEdit(This,Row,Col,Grid) -> wxGridCellEditor:endEdit(This,Row,Col,Grid).
-%% @hidden
-beginEdit(This,Row,Col,Grid) -> wxGridCellEditor:beginEdit(This,Row,Col,Grid).
-%% @hidden
-paintBackground(This,RectCell,Attr) -> wxGridCellEditor:paintBackground(This,RectCell,Attr).
 %% @hidden
 show(This,Show, Options) -> wxGridCellEditor:show(This,Show, Options).
 %% @hidden

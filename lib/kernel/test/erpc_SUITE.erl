@@ -28,6 +28,9 @@
          send_request_check_reqtmo/1,
          send_request_against_old_node/1,
          multicall/1, multicall_reqtmo/1,
+         multicall_recv_opt/1,
+         multicall_recv_opt2/1,
+         multicall_recv_opt3/1,
          multicast/1,
          timeout_limit/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -55,6 +58,9 @@ all() ->
      send_request_against_old_node,
      multicall,
      multicall_reqtmo,
+     multicall_recv_opt,
+     multicall_recv_opt2,
+     multicall_recv_opt3,
      multicast,
      timeout_limit].
 
@@ -1088,6 +1094,102 @@ multicall_reqtmo(Config) when is_list(Config) ->
     stop_node(QuickNode2),
     Res.
 
+multicall_recv_opt(Config) when is_list(Config) ->
+    Loops = 1000,
+    HugeMsgQ = 500000,
+    process_flag(message_queue_data, off_heap),
+    {ok, Node1} = start_node(Config),
+    {ok, Node2} = start_node(Config),
+    ExpRes = [{ok, node()}, {ok, Node1}, {ok, Node2}],
+    Nodes = [node(), Node1, Node2],
+    Fun = fun () -> erlang:node() end,
+    _Warmup = time_multicall(ExpRes, Nodes, Fun, infinity, Loops div 10),
+    Empty = time_multicall(ExpRes, Nodes, Fun, infinity, Loops),
+    io:format("Time with empty message queue: ~p microsecond~n",
+	      [erlang:convert_time_unit(Empty, native, microsecond)]),
+    _ = [self() ! {msg,N} || N <- lists:seq(1, HugeMsgQ)],
+    Huge = time_multicall(ExpRes, Nodes, Fun, infinity, Loops),
+    io:format("Time with huge message queue: ~p microsecond~n",
+	      [erlang:convert_time_unit(Huge, native, microsecond)]),
+    stop_node(Node1),
+    stop_node(Node2),
+    Q = Huge / Empty,
+    HugeMsgQ = flush_msgq(),
+    case Q > 10 of
+	true ->
+	    ct:fail({ratio, Q});
+	false ->
+	    {comment, "Ratio: "++erlang:float_to_list(Q)}
+    end.
+
+multicall_recv_opt2(Config) when is_list(Config) ->
+    Loops = 1000,
+    HugeMsgQ = 500000,
+    process_flag(message_queue_data, off_heap),
+    {ok, Node1} = start_node(Config),
+    stop_node(Node1),
+    {ok, Node2} = start_node(Config),
+    ExpRes = [{ok, node()}, {error, {erpc, noconnection}}, {ok, Node2}],
+    Nodes = [node(), Node1, Node2],
+    Fun = fun () -> erlang:node() end,
+    _Warmup = time_multicall(ExpRes, Nodes, Fun, infinity, Loops div 10),
+    Empty = time_multicall(ExpRes, Nodes, Fun, infinity, Loops),
+    io:format("Time with empty message queue: ~p microsecond~n",
+	      [erlang:convert_time_unit(Empty, native, microsecond)]),
+    _ = [self() ! {msg,N} || N <- lists:seq(1, HugeMsgQ)],
+    Huge = time_multicall(ExpRes, Nodes, Fun, infinity, Loops),
+    io:format("Time with huge message queue: ~p microsecond~n",
+	      [erlang:convert_time_unit(Huge, native, microsecond)]),
+    stop_node(Node2),
+    Q = Huge / Empty,
+    HugeMsgQ = flush_msgq(),
+    case Q > 10 of
+	true ->
+	    ct:fail({ratio, Q});
+	false ->
+	    {comment, "Ratio: "++erlang:float_to_list(Q)}
+    end.
+
+multicall_recv_opt3(Config) when is_list(Config) ->
+    Loops = 1000,
+    HugeMsgQ = 500000,
+    process_flag(message_queue_data, off_heap),
+    {ok, Node1} = start_node(Config),
+    stop_node(Node1),
+    {ok, Node2} = start_node(Config),
+    Nodes = [node(), Node1, Node2],
+    Fun = fun () -> erlang:node() end,
+    _Warmup = time_multicall(undefined, Nodes, Fun, infinity, Loops div 10),
+    Empty = time_multicall(undefined, Nodes, Fun, infinity, Loops),
+    io:format("Time with empty message queue: ~p microsecond~n",
+	      [erlang:convert_time_unit(Empty, native, microsecond)]),
+    _ = [self() ! {msg,N} || N <- lists:seq(1, HugeMsgQ)],
+    Huge = time_multicall(undefined, Nodes, Fun, 0, Loops),
+    io:format("Time with huge message queue: ~p microsecond~n",
+	      [erlang:convert_time_unit(Huge, native, microsecond)]),
+    stop_node(Node2),
+    Q = Huge / Empty,
+    HugeMsgQ = flush_msgq(),
+    case Q > 10 of
+	true ->
+	    ct:fail({ratio, Q});
+	false ->
+	    {comment, "Ratio: "++erlang:float_to_list(Q)}
+    end.
+
+time_multicall(Expect, Nodes, Fun, Tmo, Times) ->
+    Start = erlang:monotonic_time(),
+    ok = do_time_multicall(Expect, Nodes, Fun, Tmo, Times),
+    erlang:monotonic_time() - Start.
+
+do_time_multicall(_Expect, _Nodes, _Fun, _Tmo, 0) ->
+    ok;
+do_time_multicall(undefined, Nodes, Fun, Tmo, N) ->
+    _ = erpc:multicall(Nodes, Fun, Tmo),
+    do_time_multicall(undefined, Nodes, Fun, Tmo, N-1);
+do_time_multicall(Expect, Nodes, Fun, Tmo, N) ->
+    Expect = erpc:multicall(Nodes, Fun, Tmo),
+    do_time_multicall(Expect, Nodes, Fun, Tmo, N-1).
 
 multicast(Config) when is_list(Config) ->
     {ok, Node} = start_node(Config),
@@ -1280,3 +1382,13 @@ f() ->
 f2() ->
     timer:sleep(500),
     halt().
+
+flush_msgq() ->
+    flush_msgq(0).
+flush_msgq(N) ->
+    receive
+	_ ->
+	    flush_msgq(N+1)
+    after 0 ->
+	    N
+    end.

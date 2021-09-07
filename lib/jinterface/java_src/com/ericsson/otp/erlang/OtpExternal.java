@@ -47,6 +47,7 @@ public class OtpExternal {
     /** The tag used for ports */
     public static final int portTag = 102;
     public static final int newPortTag = 89;
+    public static final int v4PortTag = 120;
 
     /** The tag used for PIDs */
     public static final int pidTag = 103;

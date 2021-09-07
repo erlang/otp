@@ -29,10 +29,33 @@
 ** Export entry
 */
 
-typedef struct export
+#ifdef BEAMASM
+#define OP_PAD BeamInstr __pad[1];
+#define DISPATCH_SIZE 1
+#define ERTS_ADDRESSV_SIZE (ERTS_NUM_CODE_IX + 1)
+#define ERTS_SAVE_CALLS_CODE_IX (ERTS_ADDRESSV_SIZE - 1)
+#else
+#define OP_PAD
+#define DISPATCH_SIZE 0
+#define ERTS_ADDRESSV_SIZE ERTS_NUM_CODE_IX
+#endif
+
+typedef struct export_
 {
-    /* Pointer to code for function. */
-    void* addressv[ERTS_NUM_CODE_IX];
+    /* Pointer to code for function.
+     *
+     * !! THIS WAS DELIBERATELY RENAMED TO CAUSE ERRORS WHEN MERGING !!
+     *
+     * The JIT has a special calling convention for export entries, assuming
+     * the entry itself is in a certain register. Blindly setting `c_p->i` to
+     * one of these addresses will crash the emulator when the entry is traced,
+     * which is unlikely to be caught in our tests.
+     *
+     * Use the `BIF_TRAP` macros if at all possible, and be _very_ careful when
+     * accessing these directly.
+     *
+     * See `BeamAssembler::emit_setup_export_call` for details. */
+    ErtsCodePtr addresses[ERTS_ADDRESSV_SIZE];
 
     /* Index into bif_table[], or -1 if not a BIF. */
     int bif_number;
@@ -41,14 +64,24 @@ typedef struct export
 
     /* This is a small trampoline function that can be used for lazy code
      * loading, global call tracing, and so on. It's only valid when
-     * addressv points to it and should otherwise be left zeroed.
+     * addresses points to it and should otherwise be left zeroed.
      *
      * Needless to say, the order of the fields below is significant. */
     ErtsCodeInfo info;
     union {
-        BeamInstr op;           /* Union discriminant. */
+        struct {
+            OP_PAD
+            BeamInstr op;
+        } common;
 
         struct {
+            OP_PAD
+            BeamInstr op;       /* op_call_bif_W */
+            BeamInstr address;  /* Address of the C function */
+        } bif;
+
+        struct {
+            OP_PAD
             BeamInstr op;       /* op_i_generic_breakpoint */
             BeamInstr address;  /* Address of the original function */
         } breakpoint;
@@ -64,6 +97,7 @@ typedef struct export
          * awkward condiditon where `deferred` may be set while op is zero. See
          * erlang:finish_after_on_load/2 for details. */
         struct {
+            OP_PAD
             BeamInstr op;       /* op_call_error_handler, or 0 during the last
                                  * phase of code loading when on_load is
                                  * present. See above. */
@@ -71,35 +105,38 @@ typedef struct export
         } not_loaded;
 
         struct {
+            OP_PAD
             BeamInstr op;       /* op_trace_jump_W */
             BeamInstr address;  /* Address of the traced function */
         } trace;
-
-        BeamInstr raw[2];       /* For use in address comparisons, should not
-                                 * be tampered directly. */
+        BeamInstr raw[2 + DISPATCH_SIZE]; /* For use in address comparisons,
+                                           * should not be tampered directly. */
     } trampoline;
 } Export;
 
-#ifdef DEBUG
+#if defined(DEBUG)
 #define DBG_CHECK_EXPORT(EP, CX) \
     do { \
-        if((EP)->addressv[CX] == (EP)->trampoline.raw) { \
-            /* The entry currently points at the trampoline, so the
+        if(erts_is_export_trampoline_active((EP), (CX))) { \
+            /* The entry currently points at the trampoline, so the \
              * instructions must be valid. */ \
-            ASSERT(((BeamIsOpCode((EP)->trampoline.op, op_i_generic_breakpoint)) && \
+            ASSERT(((BeamIsOpCode((EP)->trampoline.common.op, op_i_generic_breakpoint)) && \
                     (EP)->trampoline.breakpoint.address != 0) || \
-                   ((BeamIsOpCode((EP)->trampoline.op, op_trace_jump_W)) && \
+                   ((BeamIsOpCode((EP)->trampoline.common.op, op_trace_jump_W)) && \
                     (EP)->trampoline.trace.address != 0) || \
                    /* (EP)->trampoline.not_loaded.deferred may be zero. */ \
-                   (BeamIsOpCode((EP)->trampoline.op, op_call_error_handler))); \
+                   (BeamIsOpCode((EP)->trampoline.common.op, op_call_error_handler))); \
         } \
     } while(0)
 #else
-#define DBG_CHECK_EXPORT(EP, CX) ((void)(EP), (void)(CX))
+#define DBG_CHECK_EXPORT(EP, CX)
 #endif
 
 void init_export_table(void);
 void export_info(fmtfn_t, void *);
+
+ERTS_GLB_INLINE void erts_activate_export_trampoline(Export *ep, int code_ix);
+ERTS_GLB_INLINE int erts_is_export_trampoline_active(Export *ep, int code_ix);
 
 ERTS_GLB_INLINE Export* erts_active_export_entry(Eterm m, Eterm f, unsigned a);
 Export* erts_export_put(Eterm mod, Eterm func, unsigned int arity);
@@ -118,9 +155,33 @@ extern erts_mtx_t export_staging_lock;
 #define export_staging_lock()	erts_mtx_lock(&export_staging_lock)
 #define export_staging_unlock()	erts_mtx_unlock(&export_staging_lock)
 
-#include "beam_load.h" /* For em_* extern declarations */ 
-
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE void erts_activate_export_trampoline(Export *ep, int code_ix) {
+    ErtsCodePtr trampoline_address;
+
+#ifdef BEAMASM
+    extern ErtsCodePtr beam_export_trampoline;
+    trampoline_address = beam_export_trampoline;
+#else
+    trampoline_address = (ErtsCodePtr)&ep->trampoline.raw[0];
+#endif
+
+    ep->addresses[code_ix] = trampoline_address;
+}
+
+ERTS_GLB_INLINE int erts_is_export_trampoline_active(Export *ep, int code_ix) {
+    ErtsCodePtr trampoline_address;
+
+#ifdef BEAMASM
+    extern ErtsCodePtr beam_export_trampoline;
+    trampoline_address = beam_export_trampoline;
+#else
+    trampoline_address = (ErtsCodePtr)&ep->trampoline.raw[0];
+#endif
+
+    return ep->addresses[code_ix] == trampoline_address;
+}
 
 ERTS_GLB_INLINE Export*
 erts_active_export_entry(Eterm m, Eterm f, unsigned int a)

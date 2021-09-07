@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,11 @@
          pread/2, pread/3, pwrite/2, pwrite/3]).
 
 %% OTP internal.
--export([ipread_s32bu_p32bu/3, sendfile/8, altname/1, get_handle/1]).
+
+-export([file_desc_to_ref/2]).
+
+-export([ipread_s32bu_p32bu/3, sendfile/8, internal_get_nif_resource/1,
+         altname/1, get_handle/1]).
 
 -export([read_file/1, write_file/2]).
 
@@ -116,6 +120,14 @@ open(Name, Modes) ->
     %% the public file interface, which has leaked through for ages because of
     %% "raw files."
     try open_nif(encode_path(Name), Modes) of
+        {ok, Ref} -> {ok, make_fd(Ref, Modes)};
+        {error, Reason} -> {error, Reason}
+    catch
+        error:badarg -> {error, badarg}
+    end.
+
+file_desc_to_ref(FileDescriptorId, Modes) ->
+    try file_desc_to_ref_nif(FileDescriptorId) of
         {ok, Ref} -> {ok, make_fd(Ref, Modes)};
         {error, Reason} -> {error, Reason}
     catch
@@ -395,6 +407,10 @@ sendfile(Fd, Socket, Offset, Bytes, _ChunkSize, [], [], _Flags) ->
 sendfile(_Fd, _Socket, _Offset, _Bytes, _ChunkSize, _Headers, _Trailers, _Flags) ->
     {error, enotsup}.
 
+internal_get_nif_resource(Fd) ->
+    #{ handle := FRef } = get_fd_data(Fd),
+    FRef.
+
 %% Undocumented internal function that reads a data block with indirection.
 %%
 %% This is only used once in DETS and can easily be emulated with pread/2, but
@@ -473,6 +489,8 @@ fill_fd_option_map([_Ignored | Modes], Map) ->
     fill_fd_option_map(Modes, Map).
 
 open_nif(_Name, _Modes) ->
+    erlang:nif_error(undef).
+file_desc_to_ref_nif(_FD) ->
     erlang:nif_error(undef).
 close_nif(_FileRef) ->
     erlang:nif_error(undef).

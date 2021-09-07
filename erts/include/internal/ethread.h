@@ -83,14 +83,6 @@
 #  endif
 #endif
 
-int ethr_assert_failed(const char *file, int line, const char *func, char *a);
-#ifdef ETHR_DEBUG
-#define ETHR_ASSERT(A) \
-  ((void) ((A) ? 1 : ethr_assert_failed(__FILE__, __LINE__, __func__, #A)))
-#else
-#define ETHR_ASSERT(A) ((void) 1)
-#endif
-
 #if defined(__GNUC__)
 #  define ETHR_PROTO_NORETURN__ void __attribute__((noreturn))
 #  define ETHR_IMPL_NORETURN__ void
@@ -101,6 +93,16 @@ int ethr_assert_failed(const char *file, int line, const char *func, char *a);
 #  define ETHR_PROTO_NORETURN__ void
 #  define ETHR_IMPL_NORETURN__ void
 #endif
+
+ETHR_PROTO_NORETURN__
+ethr_assert_failed(const char *file, int line, const char *func, char *a);
+#ifdef ETHR_DEBUG
+#define ETHR_ASSERT(A) \
+  ((void) ((A) ? 1 : ethr_assert_failed(__FILE__, __LINE__, __func__, #A)))
+#else
+#define ETHR_ASSERT(A) ((void) 1)
+#endif
+
 
 #if defined(ETHR_PTHREADS)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
@@ -131,7 +133,7 @@ typedef pthread_key_t ethr_tsd_key;
 
 #define ETHR_HAVE_ETHR_SIG_FUNCS 1
 
-#if defined(PURIFY) || defined(VALGRIND)
+#if defined(VALGRIND)
 #  define ETHR_FORCE_PTHREAD_RWLOCK
 #  define ETHR_FORCE_PTHREAD_MUTEX
 #endif
@@ -267,7 +269,7 @@ ETHR_PROTO_NORETURN__ ethr_fatal_error__(const char *file,
 #define __builtin_expect(X, Y) (X)
 #endif
 
-#if ETHR_AT_LEAST_GCC_VSN__(3, 1, 1)
+#if ETHR_AT_LEAST_GCC_VSN__(3, 1, 1) && !defined __cplusplus
 #  define ETHR_CHOOSE_EXPR __builtin_choose_expr
 #else
 #  define ETHR_CHOOSE_EXPR(B, E1, E2) ((B) ? (E1) : (E2))
@@ -498,6 +500,10 @@ typedef struct {
 #  define ETHR_NEED_RWSPINLOCK_PROTOTYPES__
 #endif
 
+#if defined(__WIN32__)
+int ethr_win_get_errno__(void);
+#endif
+
 int ethr_init(ethr_init_data *);
 int ethr_late_init(ethr_late_init_data *);
 int ethr_install_exit_handler(void (*funcp)(void));
@@ -654,7 +660,7 @@ extern pthread_key_t ethr_ts_event_key__;
 static ETHR_INLINE ethr_ts_event *
 ETHR_INLINE_FUNC_NAME_(ethr_lookup_ts_event__)(int busy_dup)
 {
-    ethr_ts_event *tsep = pthread_getspecific(ethr_ts_event_key__);
+    ethr_ts_event *tsep = (ethr_ts_event*)pthread_getspecific(ethr_ts_event_key__);
     if (!tsep || (busy_dup && (tsep->iflgs & ETHR_TS_EV_BUSY))) {
 	int res = ethr_make_ts_event__(&tsep, 0);
 	if (res != 0)
@@ -675,7 +681,7 @@ extern DWORD ethr_ts_event_key__;
 static ETHR_INLINE ethr_ts_event *
 ETHR_INLINE_FUNC_NAME_(ethr_lookup_ts_event__)(int busy_dup)
 {
-    ethr_ts_event *tsep = TlsGetValue(ethr_ts_event_key__);
+    ethr_ts_event *tsep = (ethr_ts_event *) TlsGetValue(ethr_ts_event_key__);
     if (!tsep || (busy_dup && (tsep->iflgs & ETHR_TS_EV_BUSY))) {
 	int res = ethr_make_ts_event__(&tsep, !0);
 	if (res != 0)

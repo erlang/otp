@@ -30,7 +30,7 @@ RELSYSDIR = $(RELEASE_PATH)/runtime_tools_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS += -Werror
 
 EBIN = .
 

@@ -38,12 +38,12 @@ groups() ->
 init_per_suite(Config0) ->
     case ct_property_test:init_per_suite(Config0) of
         [_|_]=Config ->
-            try proper_abstr:module() of
+            try proper_erlang_abstract_code:module() of
                 _ ->
                     Config
             catch
                 error:undef ->
-                    {skip,"No proper_abstr module"}
+                    {skip,"No proper_erlang_abstract_code module"}
             end;
         Other ->
             Other

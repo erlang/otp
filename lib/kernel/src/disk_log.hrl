@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@
 -type dlog_mode()        :: 'read_only' | 'read_write'.
 -type dlog_name()        :: atom() | string().
 -type dlog_optattr()     :: 'name' | 'file' | 'linkto' | 'repair' | 'type'
-                          | 'format' | 'size' | 'distributed' | 'notify'
+                          | 'format' | 'size' | 'notify'
                           | 'head' | 'head_func' | 'mode'.
 -type dlog_option()      :: {name, Log :: log()}
                           | {file, FileName :: file:filename()}
@@ -72,7 +72,6 @@
                           | {type, Type :: dlog_type()}
                           | {format, Format :: dlog_format()}
                           | {size, Size :: dlog_size()}
-                          | {distributed, Nodes :: [node()]}
                           | {notify, boolean()}
                           | {head, Head :: dlog_head_opt()}
                           | {head_func, MFA :: {atom(), atom(), list()}}
@@ -96,8 +95,8 @@
 	      file = none         :: 'none' | file:filename(),
 	      repair = true       :: dlog_repair(),
 	      size = infinity     :: dlog_size(),
+	      old_size = infinity :: dlog_size(), % read from size file
 	      type = halt         :: dlog_type(),
-	      distributed = false :: 'false' | {'true', [node()]},
 	      format = internal   :: dlog_format(),
 	      linkto = self()     :: 'none' | pid(),
 	      head = none,

@@ -105,6 +105,9 @@ BEAM_FORMAT_NUMBER=0
 ##      during allocation there are Live number of live X registers.
 ##      Clear the new stack words. (By writing NIL.)
 ##      Also save the continuation pointer (CP) on the stack.
+##
+##      OTP 24: This instruction has been superseded by allocate/2 followed
+##      by init_yregs/1.
 14: allocate_zero/2
 
 ## @spec allocate_heap_zero StackNeed HeapNeed Live
@@ -113,6 +116,9 @@ BEAM_FORMAT_NUMBER=0
 ##      during allocation there are Live number of live X registers.
 ##      Clear the new stack words. (By writing NIL.)
 ##      Also save the continuation pointer (CP) on the stack.
+##
+##      OTP 24: This instruction has been superseded by allocate_heap/2
+##      followed by init_yregs/1.
 15: allocate_heap_zero/3
 
 ## @spec test_heap HeapNeed Live
@@ -122,6 +128,8 @@ BEAM_FORMAT_NUMBER=0
 
 ## @spec init N
 ## @doc  Clear the Nth stack word. (By writing NIL.)
+##
+##       OTP 24: This instruction has been superseded by init_yregs/1.
 17: init/1
 
 ## @spec deallocate N
@@ -389,6 +397,9 @@ BEAM_FORMAT_NUMBER=0
 #
 # Floating point arithmetic (R8).
 #
+# The fclearerror and fcheckerror instructions are not used in OTP 24
+# and later.
+#
 94: fclearerror/0
 95: fcheckerror/1
 96: fmove/2
@@ -578,7 +589,7 @@ BEAM_FORMAT_NUMBER=0
 
 ## @spec put_tuple2  Destination Elements
 ## @doc  Build a tuple with the elements in the list Elements and put it
-##       put into register Destination.
+##       into register Destination.
 164: put_tuple2/2
 
 ## @spec bs_get_tail Ctx Dst Live
@@ -608,3 +619,31 @@ BEAM_FORMAT_NUMBER=0
 ##       it will never fail at runtime, or 'resume' when we know the input is
 ##       a match context.
 170: bs_start_match4/4
+
+# OTP 24
+
+## @spec make_fun3 OldIndex Dst EnvTerms
+## @doc  Build a fun with the environment in the list EnvTerms and put it
+##       into register Dst.
+171: make_fun3/3
+
+## @spec init_yregs ListOfYRegs
+## @doc  Initialize the Y registers in the list.
+172: init_yregs/1
+
+## @spec recv_marker_bind Marker Reference
+## @doc  Associates Reference with a previously reserved marker.
+173: recv_marker_bind/2
+
+## @spec recv_marker_clear Reference
+## @doc  Clears the receive marker associated with the given Reference.
+174: recv_marker_clear/1
+
+## @spec recv_marker_reserve Marker
+## @doc  Creates a receive marker which can be later bound to a reference.
+175: recv_marker_reserve/1
+
+## @spec recv_marker_use Reference
+## @doc  Sets the current receive cursor to the marker associated with
+##       the given Reference.
+176: recv_marker_use/1

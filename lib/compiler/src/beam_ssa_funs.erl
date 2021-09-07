@@ -94,15 +94,6 @@ lfo_analyze_is([#b_set{args=Args} | Is], LFuns) when map_size(LFuns) =/= 0 ->
     %% to be created anyway, and the slight performance gain from direct calls
     %% is not enough to offset the potential increase in stack frame size (the
     %% free variables need to be kept alive until the call).
-    %%
-    %% This is also a kludge to make HiPE work, as the latter will generate
-    %% code with the assumption that the functions referenced in a make_fun
-    %% will only be used by funs, which will not be the case if we mix it with
-    %% direct calls. See cerl_cconv.erl for details.
-    %%
-    %% Future optimizations like delaying fun creation until use may require us
-    %% to copy affected functions so that HiPE gets its own to play with (until
-    %% HiPE is fixed anyway).
     lfo_analyze_is(Is, maps:without(Args, LFuns));
 lfo_analyze_is([_ | Is], LFuns) ->
     lfo_analyze_is(Is, LFuns);
@@ -143,17 +134,17 @@ lfo_optimize_is([], _LFuns, _Trampolines) ->
     [].
 
 lfo_short_circuit(Call, Trampolines) ->
-    lfo_short_circuit(Call, Trampolines, cerl_sets:new()).
+    lfo_short_circuit(Call, Trampolines, sets:new([{version, 2}])).
 
 lfo_short_circuit(Call, Trampolines, Seen0) ->
     %% Beware of infinite loops! Get out if this call has been seen before.
-    case cerl_sets:is_element(Call, Seen0) of
+    case sets:is_element(Call, Seen0) of
         true ->
             Call;
         false ->
             case Trampolines of
                 #{Call := Other} ->
-                    Seen = cerl_sets:add_element(Call, Seen0),
+                    Seen = sets:add_element(Call, Seen0),
                     lfo_short_circuit(Other, Trampolines, Seen);
                 #{} ->
                     Call

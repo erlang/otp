@@ -28,7 +28,7 @@ class EwxListCtrl : public wxListCtrl {
  int onGetItemText;
  int onGetItemAttr;
  int onGetItemColumnImage;
- ErlDrvTermData port;
+ wxe_me_ref *me_ref;
 
  private:
  virtual wxString OnGetItemText(long item, long col) const;
@@ -39,148 +39,115 @@ class EwxListCtrl : public wxListCtrl {
 wxListCtrl_class>>
 
 <<wxListCtrl_new_0
-case ~s: { // wxListCtrl::wxListCtrl
- wxListCtrl * Result = new EwxListCtrl();
- newPtr((void *) Result, 0, memenv);
- rt.addRef(getRef((void *)Result,memenv), "wxListCtrl");
- break;
+void ~s(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  wxListCtrl * Result = new EwxListCtrl();
+  app->newPtr((void *) Result, 0, memenv);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxListCtrl"));
 }
+
 wxListCtrl_new_0>>
 
 <<wxListCtrl_new_2
-case ~s: { // wxListCtrl::wxListCtrl
- wxWindowID winid=wxID_ANY;
- wxPoint pos= wxDefaultPosition;
- wxSize size= wxDefaultSize;
- long style=wxLC_ICON;
- const wxValidator * validator= &wxDefaultValidator;
- wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
- int onGetItemText = 0, onGetItemAttr = 0, onGetItemColumnImage = 0;
-
- bp += 4; /* Align */
- while( * (int*) bp) { switch (* (int*) bp) {
-  case 1: {bp += 4;
- winid = (wxWindowID)*(int *) bp; bp += 4;
-  } break;
-  case 2: {bp += 4;
- int * posX = (int *) bp; bp += 4;
- int * posY = (int *) bp; bp += 4;
- pos = wxPoint(*posX,*posY);
- bp += 4; /* Align */
-  } break;
-  case 3: {bp += 4;
- int * sizeW = (int *) bp; bp += 4;
- int * sizeH = (int *) bp; bp += 4;
- size = wxSize(*sizeW,*sizeH);
- bp += 4; /* Align */
-  } break;
-  case 4: {bp += 4;
- style = (long)*(int *) bp; bp += 4;
-  } break;
-  case 5: {bp += 4;
-validator = (wxValidator *) getPtr(bp,memenv); bp += 4;
-  } break;
-  case 6: {bp += 4;
-    onGetItemText = *(int *) bp; bp += 4;
-  } break;
-  case 7: {bp += 4;
-    onGetItemAttr = *(int *) bp; bp += 4;
-  } break;
-  case 8: {bp += 4;
-    onGetItemColumnImage = *(int *) bp; bp += 4;
-  } break;
- }};
- EwxListCtrl * Result = new EwxListCtrl(parent,winid,pos,size,style,*validator);
- Result->onGetItemText = onGetItemText;
- Result->onGetItemAttr = onGetItemAttr;
- Result->onGetItemColumnImage = onGetItemColumnImage;
- Result->port = Ecmd.port;
- newPtr((void *) Result, 0, memenv);
- rt.addRef(getRef((void *)Result,memenv), "wxListCtrl");
- break;
-}
+  // skipped ~s
 wxListCtrl_new_2>>
 
 <<Create
-case ~s: { // wxListCtrl::Create
- wxWindowID winid=wxID_ANY;
- wxPoint pos= wxDefaultPosition;
- wxSize size= wxDefaultSize;
- long style=wxLC_ICON;
- const wxValidator * validator= &wxDefaultValidator;
- EwxListCtrl *This = (EwxListCtrl *) getPtr(bp,memenv); bp += 4;
- wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
- int onGetItemText = 0, onGetItemAttr = 0, onGetItemColumnImage = 0;
+// wxListCtrl::Create
+void ~s(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  wxWindowID winid=wxID_ANY;
+  wxPoint pos= wxDefaultPosition;
+  wxSize size= wxDefaultSize;
+  long style=wxLC_ICON;
+  const wxValidator * validator= &wxDefaultValidator;
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
 
- bp += 4; /* Align */
- while( * (int*) bp) { switch (* (int*) bp) {
-  case 1: {bp += 4;
- winid = (wxWindowID)*(int *) bp; bp += 4;
-  } break;
-  case 2: {bp += 4;
- int * posX = (int *) bp; bp += 4;
- int * posY = (int *) bp; bp += 4;
- pos = wxPoint(*posX,*posY);
- bp += 4; /* Align */
-  } break;
-  case 3: {bp += 4;
- int * sizeW = (int *) bp; bp += 4;
- int * sizeH = (int *) bp; bp += 4;
- size = wxSize(*sizeW,*sizeH);
- bp += 4; /* Align */
-  } break;
-  case 4: {bp += 4;
- style = (long)*(int *) bp; bp += 4;
-  } break;
-  case 5: {bp += 4;
-validator = (wxValidator *) getPtr(bp,memenv); bp += 4;
-  } break;
-  case 6: {bp += 4;
-    onGetItemText = *(int *) bp; bp += 4;
-  } break;
-  case 7: {bp += 4;
-    onGetItemAttr = *(int *) bp; bp += 4;
-  } break;
-  case 8: {bp += 4;
-    onGetItemColumnImage = *(int *) bp; bp += 4;
-  } break;
- }};
- if(!This) throw wxe_badarg(0);
- bool Result = This->Create(parent,winid,pos,size,style,*validator);
- This->onGetItemText = onGetItemText;
- This->onGetItemAttr = onGetItemAttr;
- This->onGetItemColumnImage = onGetItemColumnImage;
- This->port = Ecmd.port;
+  int onGetItemText = 0, onGetItemAttr = 0, onGetItemColumnImage = 0;
 
- rt.addBool(Result);
- break;
+  EwxListCtrl *This;
+  This = (EwxListCtrl *) memenv->getPtr(env, argv[0], "This");
+  wxWindow *parent;
+  parent = (wxWindow *) memenv->getPtr(env, argv[1], "parent");
+  ERL_NIF_TERM lstHead, lstTail;
+  lstTail = argv[2];
+  if(!enif_is_list(env, lstTail)) Badarg("Options");
+  const ERL_NIF_TERM *tpl;
+  int tpl_sz;
+  while(!enif_is_empty_list(env, lstTail)) {
+    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
+    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
+    if(enif_is_identical(tpl[0], enif_make_atom(env, "winid"))) {
+      if(!enif_get_int(env, tpl[1], &winid)) Badarg("winid"); // "wxWindowID"
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "pos"))) {
+      const ERL_NIF_TERM *pos_t;
+      int pos_sz;
+      if(!enif_get_tuple(env, tpl[1], &pos_sz, &pos_t)) Badarg("pos");
+      int posX;
+      if(!enif_get_int(env, pos_t[0], &posX)) Badarg("pos");
+      int posY;
+      if(!enif_get_int(env, pos_t[1], &posY)) Badarg("pos");
+      pos = wxPoint(posX,posY);
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "size"))) {
+      const ERL_NIF_TERM *size_t;
+      int size_sz;
+      if(!enif_get_tuple(env, tpl[1], &size_sz, &size_t)) Badarg("size");
+      int sizeW;
+      if(!enif_get_int(env, size_t[0], &sizeW)) Badarg("size");
+      int sizeH;
+      if(!enif_get_int(env, size_t[1], &sizeH)) Badarg("size");
+      size = wxSize(sizeW,sizeH);
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "style"))) {
+      if(!enif_get_long(env, tpl[1], &style)) Badarg("style");
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "validator"))) {
+      validator = (wxValidator *) memenv->getPtr(env, tpl[1], "validator");
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "onGetItemText"))) {
+      if(!enif_get_int(env, tpl[1], &onGetItemText)) Badarg("onGetItemText");
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "onGetItemAttr"))) {
+      if(!enif_get_int(env, tpl[1], &onGetItemAttr)) Badarg("onGetItemAttr");
+    } else     if(enif_is_identical(tpl[0], enif_make_atom(env, "onGetItemColumnImage"))) {
+      if(!enif_get_int(env, tpl[1], &onGetItemColumnImage)) Badarg("onGetItemColumnImage");
+    } else      Badarg("Options");
+  };
+  if(!This) throw wxe_badarg(0);
+  bool Result = This->Create(parent,winid,pos,size,style,*validator);
+
+  This->onGetItemText = onGetItemText;
+  This->onGetItemAttr = onGetItemAttr;
+  This->onGetItemColumnImage = onGetItemColumnImage;
+  This->me_ref = memenv->me_ref;
+
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+
 }
+
 Create>>
 
 <<SortItems
-case ~s: { // wxListCtrl::SortItems taylormade
-  wxListCtrl *This = (wxListCtrl *) getPtr(bp,memenv); bp += 4;
-  int sortCallback=*(int *) bp; bp += 4;
+void ~s(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+{
+  ErlNifEnv *env = Ecmd.env;
+  ERL_NIF_TERM * argv = Ecmd.args;
+  EwxListCtrl *This;
+  This = (EwxListCtrl *) memenv->getPtr(env, argv[0], "This");
+  // wxListCtrlCompare *fn;
+  // fn = (wxListCtrlCompare *) memenv->getPtr(env, argv[1]);
+  callbackInfo cb = callbackInfo();
+  cb.me_ref = memenv->me_ref;
+  if(!enif_get_int(env, argv[1], &cb.callbackID)) Badarg("CallBack");
+  // long data;
+  // if(!enif_get_long(env, argv[2], &data)) Badarg("data");
   if(!This) throw wxe_badarg(0);
-
-  callbackInfo* cb = new callbackInfo();
-  cb->port = Ecmd.port;
-  cb->callbackID = sortCallback;
-  bool Result = This->SortItems(wxEListCtrlCompare, (wxeIntPtr)cb);
-  delete cb;
-
-  /* Destroy the callback, see wxEPrintout::clear_cb */
-  wxeReturn cbrt = wxeReturn(WXE_DRV_PORT, memenv->owner, false);
-  // NOTE: Remove this later when changing from funs to gen_server
-  cbrt.addAtom("wx_delete_cb");
-  cbrt.addInt(sortCallback);
-  cbrt.addTupleCount(2);
-  cbrt.send();
-
-  rt.addBool(Result);
-  break;
+  bool Result = This->SortItems(wxEListCtrlCompare, (wxeIntPtr) &cb);
+  wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
+  rt.send(  rt.make_bool(Result));
+  wxeReturn rt2 = wxeReturn(memenv, memenv->owner, false);
+  rt2.send( enif_make_tuple2(rt2.env,
+			     rt2.make_atom("wx_delete_cb"),
+			     rt2.make_int(cb.callbackID)));
 }
+
 SortItems>>
-
-
-

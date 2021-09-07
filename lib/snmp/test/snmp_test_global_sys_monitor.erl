@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2019-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,8 @@
 
 -include("snmp_test_lib.hrl").
 
--define(NAME, ?MODULE).
+-define(NAME,    ?MODULE).
+-define(TIMEOUT, timer:seconds(6)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -43,10 +44,10 @@ stop() ->
 %% This does not reset the global counter but the "collector"
 %% See events for more info.
 reset_events() ->
-    call(reset_events).
+    call(reset_events, ?TIMEOUT).
 
 events() ->
-    call(events).
+    call(events, ?TIMEOUT).
 
 log(Event) ->
     cast({node(), Event}).
@@ -198,23 +199,66 @@ cast(Msg) ->
             {error, {catched, C, E}}
     end.
 
-call(Req) ->
-    call(Req, infinity).
+%% call(Req) ->
+%%     call(Req, infinity).
 
-call(Req, Timeout) ->
-    Ref = make_ref(),
-    try global:send(?NAME, {?MODULE, Ref, self(), Req}) of
-        Pid when is_pid(Pid) ->
-            receive
-                {?MODULE, Ref, Rep} ->
-                    Rep
-            after Timeout ->
-                    {error, timeout}
-            end
-    catch
-        C:E:_ ->
-            {error, {catched, C, E}}
+%% call(Req, Timeout) ->
+%%     Ref = make_ref(),
+%%     try global:send(?NAME, {?MODULE, Ref, self(), Req}) of
+%%         Pid when is_pid(Pid) ->
+%%             receive
+%%                 {?MODULE, Ref, Rep} ->
+%%                     Rep
+%%             after Timeout ->
+%%                     {error, timeout}
+%%             end
+%%     catch
+%%         C:E:_ ->
+%%             {error, {catched, C, E}}
+%%     end.
+
+call(Req, Timeout) when (Timeout =:= infinity) ->
+    call(Req, Timeout, Timeout);
+call(Req, Timeout) when is_integer(Timeout) andalso (Timeout > 2000) ->
+    call(Req, Timeout, Timeout - 1000);
+call(Req, Timeout) when is_integer(Timeout) andalso (Timeout > 1000) ->
+    call(Req, Timeout, Timeout - 500);
+call(Req, Timeout) when is_integer(Timeout) ->
+    call(Req, Timeout, Timeout div 2).
+
+%% This peace of wierdness is because on some machines this call has
+%% hung (in a call during end_per_testcase, which had a 1 min timeout,
+%% or if that was the total time for the test case).
+%% But because it hung there, we don't really know what where it git stuck.
+%% So, by making the call in a tmp process, that we supervise, we can
+%% keep control. Also, we change the default timeout from infinity to an
+%% actual time (16 seconds).
+call(Req, Timeout1, Timeout2) ->
+    F = fun() ->
+                Ref = make_ref(),
+                try global:send(?NAME, {?MODULE, Ref, self(), Req}) of
+                    NamePid when is_pid(NamePid) ->
+                        receive
+                            {?MODULE, Ref, Rep} ->
+                                exit(Rep)
+                        after Timeout2 ->
+                                exit({error, timeout})
+                        end
+                catch
+                    C:E:_ ->
+                        exit({error, {catched, C, E}})
+                end
+        end,
+    {Pid, Mon} = spawn_monitor(F),
+    receive
+        {'DOWN', Mon, process, Pid, Result} ->
+            Result
+    after Timeout1 ->
+            PInfo = process_info(Pid),
+            exit(Pid, kill),
+            {error, {timeout, PInfo}}
     end.
+            
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

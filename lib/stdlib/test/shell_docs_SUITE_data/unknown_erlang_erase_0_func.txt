@@ -1,0 +1,9 @@
+
+  [;1m-spec erase() -> [{Key, Val}] when Key :: term(), Val :: term().[0m
+
+  Returns the process dictionary and deletes it, for example:
+
+    > put(key1, {1, 2, 3}),
+    put(key2, [a, b, c]),
+    erase().
+    [{key1,{1,2,3}},{key2,[a,b,c]}]

@@ -52,6 +52,7 @@ ERL_NIF_TERM atom_not_supported;
 ERL_NIF_TERM atom_type;
 ERL_NIF_TERM atom_size;
 ERL_NIF_TERM atom_block_size;
+ERL_NIF_TERM atom_prop_aead;
 ERL_NIF_TERM atom_key_length;
 ERL_NIF_TERM atom_iv_length;
 ERL_NIF_TERM atom_mode;
@@ -78,9 +79,11 @@ ERL_NIF_TERM atom_ppbasis;
 ERL_NIF_TERM atom_onbasis;
 #endif
 
+ERL_NIF_TERM atom_aes_cbc;
+ERL_NIF_TERM atom_aes_ecb;
+ERL_NIF_TERM atom_aes_ctr;
 ERL_NIF_TERM atom_aes_cfb8;
 ERL_NIF_TERM atom_aes_cfb128;
-ERL_NIF_TERM atom_aes_ige256;
 #ifdef HAVE_GCM
 ERL_NIF_TERM atom_aes_gcm;
 #endif
@@ -184,6 +187,7 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_type = enif_make_atom(env,"type");
     atom_size = enif_make_atom(env,"size");
     atom_block_size = enif_make_atom(env,"block_size");
+    atom_prop_aead = enif_make_atom(env,"prop_aead");
     atom_key_length = enif_make_atom(env,"key_length");
     atom_iv_length = enif_make_atom(env,"iv_length");
     atom_mode = enif_make_atom(env,"mode");
@@ -210,9 +214,11 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_onbasis = enif_make_atom(env,"onbasis");
 #endif
 
+    atom_aes_cbc = enif_make_atom(env, "aes_cbc");
+    atom_aes_ecb = enif_make_atom(env, "aes_ecb");
+    atom_aes_ctr = enif_make_atom(env, "aes_ctr");
     atom_aes_cfb8 = enif_make_atom(env, "aes_cfb8");
     atom_aes_cfb128 = enif_make_atom(env, "aes_cfb128");
-    atom_aes_ige256 = enif_make_atom(env, "aes_ige256");
 #ifdef HAVE_GCM
     atom_aes_gcm = enif_make_atom(env, "aes_gcm");
 #endif

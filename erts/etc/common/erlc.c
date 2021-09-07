@@ -186,6 +186,9 @@ set_env(char *key, char *value)
     efree(str);
 #endif
 #endif
+    /* codechecker_intentional [Malloc] we may leak str if we don't
+       have copying putenv but that is fine since we only have a
+       constant amount of environment variables */
 }
 
 static void
@@ -311,11 +314,6 @@ int main(int argc, char** argv)
         source_file = "<no source>";
 	switch (argv[1][0]) {
 	case '+':
-            if (strcmp(argv[1], "+native") == 0) {
-                /* HiPE makes good use of multiple schedulers, so we'll let it
-                 * use the default number. */
-                single_scheduler = 0;
-            }
 	    PUSH(argv[1]);
 	    break;
 	case '-':
@@ -578,6 +576,8 @@ run_erlang(char* progname, char** argv)
 #ifdef __WIN32__
     int status;
 #endif
+
+    ASSERT(progname && argv[0]);
 
     if (debug > 0) {
         fprintf(stderr, "spawning erl for %s", source_file);
@@ -895,6 +895,8 @@ find_executable(char* progname)
             struct stat s;
             if (stat(real_name, &s) == 0 && s.st_mode & S_IFREG) {
                 return real_name;
+            } else {
+                free(real_name);
             }
         }
     } while (*path++ == ':');
@@ -911,7 +913,11 @@ safe_realpath(char* file)
      * Solaris.
      */
     char* real_name = emalloc(PATH_MAX + 1);
-    return realpath(file, real_name);
+    char* result = realpath(file, real_name);
+    if (result != real_name) {
+        free(real_name);
+    }
+    return result;
 }
 #endif
 
@@ -987,6 +993,7 @@ start_compile_server(char* node_name, char** argv)
         putc('\n', stderr);
     }
 
+    ASSERT(eargv[0]);
 #ifdef __WIN32__
     if (my_spawnvp(0, eargv) == -1) {
 	fprintf(stderr, "erlc: Error executing '%s': %d", progname,

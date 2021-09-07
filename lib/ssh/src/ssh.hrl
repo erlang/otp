@@ -36,6 +36,8 @@
 
 -define(DEFAULT_SHELL, {shell, start, []} ).
 
+-define(DEFAULT_TIMEOUT, 5000).
+
 -define(MAX_RND_PADDING_LEN, 15).
 
 -define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
@@ -410,6 +412,11 @@
 
 
 %% Records
+-record(address, {address,
+                  port,
+                  profile
+                 }).
+
 -record(ssh,
 	{
 	  role :: client | role(),
@@ -504,7 +511,8 @@
           recv_ext_info
 	 }).
 
--record(ssh_pty, {term = "", % e.g. "xterm"
+-record(ssh_pty, {c_version = "", % client version string, e.g "SSH-2.0-Erlang/4.10.5"
+                  term = "",      % e.g. "xterm"
 		  width = 80,
 		  height = 25,
 		  pixel_width = 1024,

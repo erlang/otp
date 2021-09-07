@@ -35,7 +35,8 @@
 	 ex_binaries_errors_utf32_little/1,
 	 ex_binaries_errors_utf32_big/1,
          normalize/1,
-         huge_illegal_code_points/1
+         huge_illegal_code_points/1,
+         error_info/1
         ]).
 
 suite() ->
@@ -49,7 +50,8 @@ all() ->
      binaries_errors_limit,
      normalize,
      {group,binaries_errors},
-     huge_illegal_code_points].
+     huge_illegal_code_points,
+     error_info].
 
 groups() -> 
     [{binaries_errors,[parallel],
@@ -1405,6 +1407,56 @@ make_unaligned(Bin0) when is_binary(Bin0) ->
     Sz = byte_size(Bin0),
     <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
     Bin.
+
+error_info(_Config) ->
+    L = [{characters_to_binary, [abc]},
+         {characters_to_binary,[abc, utf8]},
+         {characters_to_binary,[abc, bad_encoding],[{1,".*"},{2,".*"}]},
+
+         {characters_to_binary, [abc, pqr, xyz],[{1,".*"},{2,".*"},{3,".*"}]},
+         {characters_to_binary, [abc, latin1, utf8]},
+         {characters_to_binary, [<<1:1>>, utf8, latin1]},
+
+         {characters_to_list,[abc]},
+         {characters_to_list,[<<1:1>>]},
+         {characters_to_list,[<<"abc">>, xyz]},
+         {characters_to_list,[<<"abc",1:1>>, utf8]},
+
+         {characters_to_nfc_binary, [abc]},
+         {characters_to_nfc_binary, [<<1:1>>]},
+
+         {characters_to_nfc_list, [abc]},
+         {characters_to_nfc_list, [[abc]]},
+
+         {characters_to_nfd_binary, [abc]},
+         {characters_to_nfd_list, [<<1:1>>]},
+
+         {characters_to_nfkc_binary,[[abc]]},
+         {characters_to_nfkc_binary,[{a,b,c}]},
+
+         {characters_to_nfkc_list,[<<1:1>>]},
+         {characters_to_nfkc_list,[abc]},
+
+         {characters_to_nfkd_binary, [abc]},
+         {characters_to_nfkd_binary, [<<1:1>>]},
+
+         {characters_to_nfkd_list, [abc]},
+         {characters_to_nfkd_list, [<<1:11>>]},
+
+         %% Not BIFs (they don't throw badarg when they fail).
+         {bom_to_encoding, 1},                  %Not BIF.
+         {encoding_to_bom, 1},                   %Not BIF.
+
+         %% Internal use only.
+         {bin_is_7bit, 1},
+         {characters_to_binary_int, 2},
+         {characters_to_list_int, 2}
+        ],
+    error_info_lib:test_error_info(unicode, L).
+
+%%%
+%%% Utilities.
+%%%
 
 id(I) -> I.
 
