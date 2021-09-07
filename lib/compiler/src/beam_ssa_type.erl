@@ -267,7 +267,7 @@ sig_is([#b_set{op=call,
                dst=Dst}=I0 | Is],
        Ts0, Ds0, Ls, Fdb, Sub, State0) ->
     Args = simplify_args(Args0, Ts0, Sub),
-    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+    I1 = I0#b_set{args=Args},
 
     [_ | CallArgs] = Args,
     {I, State} = sig_local_call(I1, Callee, CallArgs, Ts0, Fdb, State0),
@@ -280,7 +280,7 @@ sig_is([#b_set{op=call,
                dst=Dst}=I0 | Is],
        Ts0, Ds0, Ls, Fdb, Sub, State) ->
     Args = simplify_args(Args0, Ts0, Sub),
-    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+    I1 = I0#b_set{args=Args},
 
     [Fun | _] = Args,
     I = case normalized_type(Fun, Ts0) of
@@ -295,7 +295,7 @@ sig_is([#b_set{op=MakeFun,args=Args0,dst=Dst}=I0|Is],
        Ts0, Ds0, Ls, Fdb, Sub0, State0) when MakeFun =:= make_fun;
                                              MakeFun =:= old_make_fun ->
     Args = simplify_args(Args0, Ts0, Sub0),
-    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+    I1 = I0#b_set{args=Args},
 
     {I, State} = sig_make_fun(I1, Ts0, Fdb, State0),
 
@@ -521,7 +521,7 @@ opt_is([#b_set{op=call,
                dst=Dst}=I0 | Is],
        Ts0, Ds0, Ls, Fdb0, Sub, Meta, Acc) ->
     Args = simplify_args(Args0, Ts0, Sub),
-    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+    I1 = I0#b_set{args=Args},
 
     [_ | CallArgs] = Args,
     {I, Fdb} = opt_local_call(I1, Callee, CallArgs, Dst, Ts0, Fdb0, Meta),
@@ -534,7 +534,7 @@ opt_is([#b_set{op=call,
                dst=Dst}=I0 | Is],
        Ts0, Ds0, Ls, Fdb, Sub, Meta, Acc) ->
     Args = simplify_args(Args0, Ts0, Sub),
-    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+    I1 = I0#b_set{args=Args},
 
     [Fun | _] = Args,
     I = case normalized_type(Fun, Ts0) of
@@ -551,7 +551,7 @@ opt_is([#b_set{op=MakeFun,args=Args0,dst=Dst}=I0|Is],
        Ts0, Ds0, Ls, Fdb0, Sub0, Meta, Acc) when MakeFun =:= make_fun;
                                                  MakeFun =:= old_make_fun ->
     Args = simplify_args(Args0, Ts0, Sub0),
-    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+    I1 = I0#b_set{args=Args},
 
     {I, Fdb} = opt_make_fun(I1, Ts0, Fdb0, Meta),
 
@@ -712,9 +712,9 @@ simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, Ts0, Ds0, Ls, Sub) ->
             Ds = Ds0#{ Dst => I },
             {I, Ts, Ds}
     end;
-simplify(#b_set{op={succeeded,Kind},args=[Arg],dst=Dst}=I0,
+simplify(#b_set{op={succeeded,Kind},args=[Arg],dst=Dst}=I,
          Ts0, Ds0, _Ls, Sub) ->
-    Type = case will_succeed(I0, Ts0, Ds0, Sub) of
+    Type = case will_succeed(I, Ts0, Ds0, Sub) of
                yes -> beam_types:make_atom(true);
                no -> beam_types:make_atom(false);
                maybe -> beam_types:make_boolean()
@@ -735,14 +735,13 @@ simplify(#b_set{op={succeeded,Kind},args=[Arg],dst=Dst}=I0,
             %% Note that we never simplify args; this instruction is specific
             %% to the operation being checked, and simplifying could break that
             %% connection.
-            I = beam_ssa:normalize(I0),
             Ts = Ts0#{ Dst => Type },
             Ds = Ds0#{ Dst => I },
             {I, Ts, Ds}
     end;
 simplify(#b_set{op=bs_match,dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
-    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+    I1 = I0#b_set{args=Args},
     I2 = case {Args0,Args} of
              {[_,_,_,#b_var{},_],[Type,Val,Flags,#b_literal{val=all},Unit]} ->
                  %% The size `all` is used for the size of the final binary
@@ -754,8 +753,7 @@ simplify(#b_set{op=bs_match,dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
          end,
     %% We KNOW that simplify/2 will return a #b_set{} record when called with
     %% a bs_match instruction.
-    #b_set{} = I3 = simplify(I2, Ts0),
-    I = beam_ssa:normalize(I3),
+    #b_set{} = I = simplify(I2, Ts0),
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
     {I, Ts, Ds};
@@ -763,8 +761,7 @@ simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
     case simplify(I1, Ts0) of
-        #b_set{}=I2 ->
-            I = beam_ssa:normalize(I2),
+        #b_set{}=I ->
             Ts = update_types(I, Ts0, Ds0),
             Ds = Ds0#{ Dst => I },
             {I, Ts, Ds};
