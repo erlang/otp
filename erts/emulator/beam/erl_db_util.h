@@ -345,6 +345,7 @@ typedef struct db_table_common {
 #define DB_FREQ_READ      (1 << 10) /* read_concurrency */
 #define DB_NAMED_TABLE    (1 << 11)
 #define DB_BUSY           (1 << 12)
+#define DB_EXPLICIT_LOCK_GRANULARITY  (1 << 13)
 
 #define DB_CATREE_FORCE_SPLIT (1 << 31)  /* erts_debug */
 #define DB_CATREE_DEBUG_RANDOM_SPLIT_JOIN (1 << 30)  /* erts_debug */

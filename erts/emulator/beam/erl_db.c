@@ -2254,8 +2254,10 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     Sint keypos;
     int is_named, is_compressed;
     int is_fine_locked, frequent_read;
+    int no_locks;
     int is_decentralized_counters;
     int is_decentralized_counters_option;
+    int is_explicit_lock_granularity;
     int cret;
     DbTableMethod* meth;
 
@@ -2276,6 +2278,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     heir = am_none;
     heir_data = (UWord) am_undefined;
     is_compressed = erts_ets_always_compress;
+    no_locks = -1;
+    is_explicit_lock_granularity = 0;
 
     list = BIF_ARG_2;
     while(is_list(list)) {
@@ -2301,10 +2305,22 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 		    keypos = signed_val(tp[2]);
 		}
 		else if (tp[1] == am_write_concurrency) {
-                    if (tp[2] == am_true) {
+                    Sint no_locks_param;
+                    if (is_integer(tp[2]) &&
+                        term_to_Sint(tp[2], &no_locks_param) &&
+                        no_locks_param >= 1 &&
+                        no_locks_param <= 32768) {
                         is_fine_locked = 1;
+                        is_explicit_lock_granularity = 1;
+                        no_locks = no_locks_param;
+                    } else if (tp[2] == am_true) {
+                        is_fine_locked = 1;
+                        is_explicit_lock_granularity = 0;
+                        no_locks = -1;
                     } else if (tp[2] == am_false) {
                         is_fine_locked = 0;
+                        is_explicit_lock_granularity = 0;
+                        no_locks = -1;
                     } else break;
                     if (DB_LOCK_FREE(NULL))
 			is_fine_locked = 0;
@@ -2373,7 +2389,12 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	meth = &db_hash;
 	if (is_fine_locked && !(status & DB_PRIVATE)) {
 	    status |= DB_FINE_LOCKED;
-	}
+            if (is_explicit_lock_granularity) {
+                status |=  DB_EXPLICIT_LOCK_GRANULARITY;
+            }
+	} else {
+            no_locks = -1;
+        }
     }
     else if (IS_TREE_TABLE(status)) {
 	meth = &db_tree;
@@ -2423,6 +2444,10 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     tb->common.dbg_force_trap = erts_ets_dbg_force_trap;
 #endif
 
+    if (IS_HASH_TABLE(status)) {
+	DbTableHash* hash_db = (DbTableHash*) tb;
+        hash_db->nlocks = no_locks;
+    }
     cret = meth->db_create(BIF_P, tb);
     ASSERT(cret == DB_ERROR_NONE); (void)cret;
 
@@ -5024,7 +5049,13 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	else if (tb->common.status & DB_PUBLIC)
 	    ret = am_public;
     } else if (What == am_write_concurrency) {
-        ret = tb->common.status & DB_FINE_LOCKED ? am_true : am_false;
+        if ((tb->common.status & DB_FINE_LOCKED) &&
+            (tb->common.status & (DB_SET | DB_BAG | DB_DUPLICATE_BAG)) &&
+            (tb->common.status & DB_EXPLICIT_LOCK_GRANULARITY)) {
+            ret = erts_make_integer(tb->hash.nlocks, p);
+        } else {
+            ret = tb->common.status &  DB_FINE_LOCKED ? am_true : am_false;
+        }
     } else if (What == am_read_concurrency) {
         ret = tb->common.status & DB_FREQ_READ ? am_true : am_false;
     } else if (What == am_name) {

@@ -58,12 +58,12 @@ typedef struct DbTableHashLockAndCounter {
     erts_rwmtx_t lck;
 } DbTableHashLockAndCounter;
 
-typedef struct db_table_hash_fine_locks {
+typedef struct db_table_hash_fine_lock_slot {
     union {
 	DbTableHashLockAndCounter lck_ctr;
-	byte _cache_line_alignment[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_rwmtx_t))];
-    }lck_vec[DB_HASH_LOCK_CNT];
-} DbTableHashFineLocks;
+	byte _cache_line_alignment[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(DbTableHashLockAndCounter))];
+    } u;
+} DbTableHashFineLockSlot;
 
 typedef struct db_table_hash {
     DbTableCommon common;
@@ -77,13 +77,14 @@ typedef struct db_table_hash {
     struct segment* first_segtab[1];
 
     /* SMP: nslots and nsegs are protected by is_resizing or table write lock */
+    int nlocks;       /* Needs to be smaller or equal to nactive */
     int nslots;       /* Total number of slots */
     int nsegs;        /* Size of segment table */
 
     /* List of slots where elements have been deleted while table was fixed */
     erts_atomic_t fixdel;  /* (FixedDeletion*) */
     erts_atomic_t is_resizing; /* grow/shrink in progress */
-    DbTableHashFineLocks* locks;
+    DbTableHashFineLockSlot* locks;
 } DbTableHash;
 
 

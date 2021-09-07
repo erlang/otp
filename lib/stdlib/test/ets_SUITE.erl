@@ -4889,6 +4889,18 @@ info(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch ets:info(make_ref())),
     {'EXIT',{badarg,_}} = (catch ets:info(make_ref(), type)),
 
+    %% Test that one can set the synchronization granularity level for
+    %% tables of type set
+    T1 = ets:new(t1, [public, {write_concurrency, 1024}]),
+    1024 = ets:info(T1, write_concurrency),
+    T2 = ets:new(t2, [public, {write_concurrency, 2048}]),
+    2048 = ets:info(T2, write_concurrency),
+    T3 = ets:new(t3, [public, {write_concurrency, 1024}, {write_concurrency, true}]),
+    true = ets:info(T3, write_concurrency),
+    T4 = ets:new(t4, [private, {write_concurrency, 1024}]),
+    false = ets:info(T4, write_concurrency),
+    T5 = ets:new(t5, [private, {write_concurrency, true}]),
+    false = ets:info(T5, write_concurrency),
     ok.
 
 info_do(Opts) ->
@@ -4954,7 +4966,6 @@ info_do(Opts) ->
     {value, {id, Tab}} = lists:keysearch(id, 1, Res),
     {value, {decentralized_counters, _DecentralizedCtrs}} =
         lists:keysearch(decentralized_counters, 1, Res),
-
     %% Test 'binary'
     [] = ?ets_info(Tab, binary, SlavePid),
     BinSz = 100,
@@ -4979,7 +4990,6 @@ info_do(Opts) ->
 
     unlink(SlavePid),
     exit(SlavePid,kill),
-
     true = ets:delete(Tab),
     verify_etsmem(EtsMem).
 
@@ -9270,17 +9280,22 @@ repeat_for_opts_atom2list(ord_set_types) -> [ordered_set,stim_cat_ord_set,cat_or
 repeat_for_opts_atom2list(all_types) -> [set,ordered_set,stim_cat_ord_set,cat_ord_set,bag,duplicate_bag];
 repeat_for_opts_atom2list(all_non_stim_types) -> [set,ordered_set,cat_ord_set,bag,duplicate_bag];
 repeat_for_opts_atom2list(all_non_stim_set_types) -> [set,ordered_set,cat_ord_set];
-repeat_for_opts_atom2list(write_concurrency) -> [{write_concurrency,false},{write_concurrency,true}];
+repeat_for_opts_atom2list(write_concurrency) -> [{write_concurrency,false},
+                                                 {write_concurrency,true},
+                                                 {write_concurrency,2},
+                                                 {write_concurrency,2048}];
 repeat_for_opts_atom2list(read_concurrency) -> [{read_concurrency,false},{read_concurrency,true}];
 repeat_for_opts_atom2list(compressed) -> [void,compressed].
 
 is_redundant_opts_combo(Opts) ->
-    (lists:member(stim_cat_ord_set, Opts) orelse
-     lists:member(cat_ord_set, Opts))
-        andalso
-    (lists:member({write_concurrency, false}, Opts) orelse
-     lists:member(private, Opts) orelse
-     lists:member(protected, Opts)).
+    ((lists:member(stim_cat_ord_set, Opts) orelse
+      lists:member(cat_ord_set, Opts))
+     andalso
+       (lists:member({write_concurrency, 2}, Opts) orelse
+        lists:member({write_concurrency, 2048}, Opts) orelse
+        lists:member({write_concurrency, false}, Opts) orelse
+        lists:member(private, Opts) orelse
+        lists:member(protected, Opts))).
 
 %% Add fake table option with info about key range.
 %% Will be consumed by ets_new and used for stim_cat_ord_set.

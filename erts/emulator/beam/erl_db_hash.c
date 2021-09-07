@@ -92,7 +92,7 @@
 
 #define NITEMS_ESTIMATE(DB, LCK_CTR, HASH)                              \
     (IS_DECENTRALIZED_CTRS(DB) ?                                        \
-     (DB_HASH_LOCK_CNT *                                                \
+     (((DB)->nlocks) *                                                  \
       (LCK_CTR != NULL ?                                                \
        NITEMS_ESTIMATE_FROM_LCK_CTR(LCK_CTR) :                          \
        NITEMS_ESTIMATE_FROM_LCK_CTR(GET_LOCK_AND_CTR(DB, HASH)))) :     \
@@ -264,9 +264,10 @@ static ERTS_INLINE int is_pseudo_deleted(HashDbTerm* p)
     ((is_atom(term) ? (atom_tab(atom_val(term))->slot.bucket.hvalue) : \
       make_internal_hash(term, 0)) & MAX_HASH_MASK)
 
-#  define DB_HASH_LOCK_MASK (DB_HASH_LOCK_CNT-1)
-#  define GET_LOCK(tb,hval) (&(tb)->locks->lck_vec[(hval) & DB_HASH_LOCK_MASK].lck_ctr.lck)
-#  define GET_LOCK_AND_CTR(tb,hval) (&(tb)->locks->lck_vec[(hval) & DB_HASH_LOCK_MASK].lck_ctr)
+#  define GET_LOCK_MASK(NO_LOCKS) ((NO_LOCKS)-1)
+
+#  define GET_LOCK(tb,hval) (&(tb)->locks[(hval) & GET_LOCK_MASK(tb->nlocks)].u.lck_ctr.lck)
+#  define GET_LOCK_AND_CTR(tb,hval) (&(tb)->locks[(hval) & GET_LOCK_MASK(tb->nlocks)].u.lck_ctr)
 #  define GET_LOCK_MAYBE(tb,hval) ((tb)->common.is_thread_safe ? NULL : GET_LOCK(tb,hval))
 
 /* Fine grained read lock */
@@ -349,10 +350,10 @@ static ERTS_INLINE void WUNLOCK_HASH_LCK_CTR(DbTableHashLockAndCounter* lck_ctr)
 static ERTS_INLINE Sint next_slot(DbTableHash* tb, Uint ix,
 				  erts_rwmtx_t** lck_ptr)
 {
-    ix += DB_HASH_LOCK_CNT;
+    ix += tb->nlocks;
     if (ix < NACTIVE(tb)) return ix;
     RUNLOCK_HASH(*lck_ptr);
-    ix = (ix + 1) & DB_HASH_LOCK_MASK;
+    ix = (ix + 1) & GET_LOCK_MASK(tb->nlocks);
     if (ix != 0) *lck_ptr = RLOCK_HASH(tb,ix);
     return ix;
 }
@@ -360,10 +361,10 @@ static ERTS_INLINE Sint next_slot(DbTableHash* tb, Uint ix,
 static ERTS_INLINE Sint next_slot_w(DbTableHash* tb, Uint ix,
 				    erts_rwmtx_t** lck_ptr)
 {
-    ix += DB_HASH_LOCK_CNT;
+    ix += tb->nlocks;
     if (ix < NACTIVE(tb)) return ix;
     WUNLOCK_HASH(*lck_ptr);
-    ix = (ix + 1) & DB_HASH_LOCK_MASK;
+    ix = (ix + 1) & GET_LOCK_MASK(tb->nlocks);
     if (ix != 0) *lck_ptr = WLOCK_HASH(tb,ix);
     return ix;
 }
@@ -439,7 +440,7 @@ typedef int ExtraMatchValidatorF(int keypos, Eterm match, Eterm guard, Eterm bod
 ** Forward decl's (static functions)
 */
 static struct ext_segtab* alloc_ext_segtab(DbTableHash* tb, unsigned seg_ix);
-static void alloc_seg(DbTableHash *tb);
+static void alloc_seg(DbTableHash *tb, int activate_new_seg);
 static int free_seg(DbTableHash *tb);
 static HashDbTerm* next_live(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr,
 			     HashDbTerm *list);
@@ -807,25 +808,54 @@ int db_create_hash(Process *p, DbTable *tbl)
     sys_memset(tb->first_segtab[0], 0, SIZEOF_SEGMENT(FIRST_SEGSZ));
 
     erts_atomic_init_nob(&tb->is_resizing, 0);
+    if (tb->nlocks == -1 || !(tb->common.type & DB_FINE_LOCKED)) {
+        /*
+          The number of locks needs to be set even if fine grained
+          locking is not used as this variable is used when iterating
+          over the table
+        */
+        tb->nlocks = DB_HASH_LOCK_CNT;
+    }
+
     if (tb->common.type & DB_FINE_LOCKED) {
 	erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
 	int i;
+        /*
+          nlocks needs to be a power of two so we round down to
+          nearest power of two
+        */
+        tb->nlocks = 1 << (erts_fit_in_bits_int64(tb->nlocks)-1);
+        /*
+          The table needs to be at least as big as the number of locks
+          so we expand until this properly is satisfied.
+        */
+        while (tb->nlocks > tb->nslots) {
+            alloc_seg(tb, 1);
+        }
+
 	if (tb->common.type & DB_FREQ_READ)
 	    rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
 	if (erts_ets_rwmtx_spin_count >= 0)
 	    rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
-	tb->locks = (DbTableHashFineLocks*) erts_db_alloc(ERTS_ALC_T_DB_SEG, /* Other type maybe? */
-                                                          (DbTable *) tb,
-                                                          sizeof(DbTableHashFineLocks));
-	for (i=0; i<DB_HASH_LOCK_CNT; ++i) {
-            erts_rwmtx_init_opt(&tb->locks->lck_vec[i].lck_ctr.lck, &rwmtx_opt,
+	tb->locks = (DbTableHashFineLockSlot*) erts_db_alloc(ERTS_ALC_T_DB_SEG, /* Other type maybe? */
+                                                             (DbTable *) tb,
+                                                             sizeof(DbTableHashFineLockSlot) * tb->nlocks);
+	for (i=0; i<tb->nlocks; ++i) {
+            erts_rwmtx_init_opt(&tb->locks[i].u.lck_ctr.lck, &rwmtx_opt,
                 "db_hash_slot", tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
-            tb->locks->lck_vec[i].lck_ctr.nitems = 0;
+            tb->locks[i].u.lck_ctr.nitems = 0;
 	}
-	/* This important property is needed to guarantee the two buckets
-    	 * involved in a grow/shrink operation it protected by the same lock:
+	/*
+         * These important properties is needed to guarantee the two
+    	 * buckets involved in a grow/shrink operation it protected by
+    	 * the same lock:
 	 */
-	ASSERT(erts_atomic_read_nob(&tb->nactive) % DB_HASH_LOCK_CNT == 0);
+	ASSERT((erts_atomic_read_nob(&tb->szm) + 1) % tb->nlocks == 0);
+        ASSERT(tb->nlocks <= erts_atomic_read_nob(&tb->nactive));
+        ASSERT(erts_atomic_read_nob(&tb->nactive) <= tb->nslots);
+        ASSERT(tb->nslots <= (erts_atomic_read_nob(&tb->szm) + 1));
+        ASSERT((tb->nlocks % 2) == 0);
+        ASSERT((erts_atomic_read_nob(&tb->szm) + 1) % 2 == 0);
     }
     else { /* coarse locking */
 	tb->locks = NULL;
@@ -2354,8 +2384,8 @@ static Sint get_nitems_from_locks_or_counter(DbTableHash* tb)
     if (IS_DECENTRALIZED_CTRS(tb)) {
         int i;
         Sint total = 0;
-        for (i=0; i < DB_HASH_LOCK_CNT; ++i) {
-            total += tb->locks->lck_vec[i].lck_ctr.nitems;
+        for (i=0; i < tb->nlocks; ++i) {
+            total += tb->locks[i].u.lck_ctr.nitems;
         }
         return total;
     } else {
@@ -2837,11 +2867,11 @@ static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
     }
     if (tb->locks != NULL) {
 	int i;
-	for (i=0; i<DB_HASH_LOCK_CNT; ++i) {
+	for (i=0; i<tb->nlocks; ++i) {
 	    erts_rwmtx_destroy(GET_LOCK(tb,i)); 
 	}
 	erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable *)tb,
-		     (void*)tb->locks, sizeof(DbTableHashFineLocks));
+		     (void*)tb->locks, tb->nlocks * sizeof(DbTableHashFineLockSlot));
 	tb->locks = NULL;
     }
     ASSERT(erts_flxctr_is_snapshot_ongoing(&tb->common.counters) ||
@@ -3058,13 +3088,13 @@ static void calc_shrink_limit(DbTableHash* tb)
         /*   const double d = n*x / (x + n - 1) + 1; */
         /*   printf("Cochran_formula=%f size=%d mod_with_size=%f\n", x, n, d); */
         /* } */
-        const int needed_slots = 100 * DB_HASH_LOCK_CNT;
+        const int needed_slots = 100 * tb->nlocks;
         if (tb->nslots < needed_slots) {
             sample_size_is_enough = 0;
         }
     }
 
-    if (sample_size_is_enough && tb->nslots >= (FIRST_SEGSZ + 2*EXT_SEGSZ)) {
+    if (sample_size_is_enough && tb->nslots >= MAX(tb->nlocks + EXT_SEGSZ, (FIRST_SEGSZ + 2*EXT_SEGSZ))) {
         /*
          * Start shrink when the sample size is big enough for
          * decentralized counters if decentralized counters are used
@@ -3092,7 +3122,7 @@ static void calc_shrink_limit(DbTableHash* tb)
 
 /* Extend table with one new segment
 */
-static void alloc_seg(DbTableHash *tb)
+static void alloc_seg(DbTableHash *tb, int activate_buckets)
 {    
     int seg_ix = SLOT_IX_TO_SEG_IX(tb->nslots);
     struct segment** segtab;
@@ -3117,6 +3147,18 @@ static void alloc_seg(DbTableHash *tb)
     }
 #endif
     tb->nslots += EXT_SEGSZ;
+    if (activate_buckets) {
+        erts_aint_t nactive_before = erts_atomic_read_nob(&tb->nactive);
+        erts_aint_t nactive_now = nactive_before + EXT_SEGSZ;
+        erts_aint_t floor_2_mult = 1 << (erts_fit_in_bits_int64(nactive_now)-1);
+        if (floor_2_mult != nactive_now) {
+            erts_atomic_set_nob(&tb->szm, (floor_2_mult << 1) - 1);
+        } else {
+            erts_atomic_set_nob(&tb->szm, floor_2_mult - 1);
+        }
+        sys_memset(segtab[seg_ix], 0, SIZEOF_SEGMENT(EXT_SEGSZ));
+        erts_atomic_set_nob(&tb->nactive, nactive_now);
+    }
 
     calc_shrink_limit(tb);
 }
@@ -3341,7 +3383,7 @@ static void grow(DbTableHash* tb, int nitems)
         if (nactive == tb->nslots) {
             /* Time to get a new segment */
             ASSERT(((nactive-FIRST_SEGSZ) & EXT_SEGSZ_MASK) == 0);
-            alloc_seg(tb);
+            alloc_seg(tb, 0);
         }
         ASSERT(nactive < tb->nslots);
 
@@ -3964,7 +4006,7 @@ void erts_lcnt_enable_db_hash_lock_count(DbTableHash *tb, int enable) {
     }
 
     for(i = 0; i < DB_HASH_LOCK_CNT; i++) {
-        erts_lcnt_ref_t *ref = &tb->locks->lck_vec[i].lck_ctr.lck.lcnt;
+        erts_lcnt_ref_t *ref = &tb->locks[i].u.lck_ctr.lck.lcnt;
 
         if(enable) {
             erts_lcnt_install_new_lock_info(ref, "db_hash_slot", tb->common.the_name,

@@ -656,9 +656,9 @@ Error: fun containing local Erlang function calls
             <p>Indicates whether the table uses <c>read_concurrency</c> or
               not.</p>
           </item>
-          <tag><c>{write_concurrency, boolean()}</c></tag>
+          <tag><c>{write_concurrency, WriteConcurrencyAlternative}</c></tag>
           <item>
-            <p>Indicates whether the table uses <c>write_concurrency</c>.</p>
+            <p>Indicates which <c>write_concurrency</c> option the table uses.</p>
           </item>
         </taglist>
 	<note><p>The execution time of this function is affected by
@@ -1258,7 +1258,7 @@ ets:select(Table, MatchSpec),</code>
               when the owner terminates.</p>
             <marker id="new_2_write_concurrency"></marker>
           </item>
-          <tag><c>{write_concurrency,boolean()}</c></tag>
+          <tag><c>{write_concurrency,WriteConcurrencyAlternative}</c></tag>
           <item>
             <p>Performance tuning. Defaults to <c>false</c>, in which case an
               operation that
@@ -1269,6 +1269,29 @@ ets:select(Table, MatchSpec),</code>
               (and read) by concurrent processes. This is achieved to some
               degree at the expense of memory consumption and the performance
               of sequential access and concurrent reading.</p>
+            <p>Users can explicitly control the synchronization
+            granularity for tables of types <c>set</c>, <c>bag</c>,
+            and <c>duplicate_bag</c> by setting the
+            <c>write_concurrency</c> option to an integer in the range
+            <c>[2, 32768]</c>. Currently, setting the
+            <c>write_concurrency</c> option to a number for
+            <c>ordered_set</c> tables has the same effect as setting
+            its value to true. Explicitly setting the synchronization
+            granularity is not recommended unless it is motivated and
+            possible to do experimentation to figure out which
+            synchronization granularity gives the best performance.
+            Currently, the number
+            automatically rounds down to the nearest power of two. A
+            high number for this setting should usually not be
+            combined with the <c>{read_concurrency, true}</c> setting
+            as this usally lead to worse performance and high memory
+            utilization. It is usually not a good idea to set this
+            setting to a number that is much greater than the number
+            of expected items in the table, as this can lead to slow
+            table traversals. The effect of this setting might change
+            in future versions of Erlang/OTP. If you are unsure what
+            number to set this setting to, it is probably best to use
+            {write_concurrency, true} instead.</p>
               <p>The <c>write_concurrency</c> option can be combined with the options
               <seeerl marker="#new_2_read_concurrency">
               <c>read_concurrency</c></seeerl> and
@@ -1281,7 +1304,7 @@ ets:select(Table, MatchSpec),</code>
               <c>read_concurrency</c></seeerl>. The <c>decentralized_counters</c>
               option is turned on by default for tables of type <c>ordered_set</c>
               with the <c>write_concurrency</c> option enabled, and the
-              <c>decentralized_counters</c> option is turned off by default for
+              <c>decentralized_counters</c> option is turned <em>off</em> by default for
               all other table types.
               For more information, see the documentation for the
               <seeerl marker="#new_2_decentralized_counters">
