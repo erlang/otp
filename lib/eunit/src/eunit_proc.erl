@@ -95,6 +95,9 @@ get_output() ->
 %%   {cancel, Descriptor}
 %%       where Descriptor can be:
 %%           timeout            a timeout occurred
+%%           {timeout, #{stacktrace := Stacktrace}
+%%                              a timeout occurred and there is a stacktrace
+%%                              of the eunit test
 %%           {blame, Id}        forced to terminate because of item `Id'
 %%           {abort, Cause}     the test or group failed to execute
 %%           {exit, Reason}     the test process terminated unexpectedly
@@ -273,7 +276,13 @@ insulator_wait(Child, Parent, Buf, St) ->
 	    io_request(From, ReplyAs, Req, []),
 	    insulator_wait(Child, Parent, Buf, St);
 	{timeout, Child, Id} ->
-	    exit_messages(Id, timeout, St),
+	    Timeout = case process_info(Child, current_stacktrace) of
+			  undefined ->
+			      timeout;
+			  {current_stacktrace, Stack} ->
+			      {timeout, #{stacktrace => Stack}}
+		      end,
+	    exit_messages(Id, Timeout, St),
 	    kill_task(Child, St);
 	{'EXIT', Child, normal} ->
 	    terminate_insulator(St);
