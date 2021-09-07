@@ -5571,6 +5571,12 @@ init_done:
             if (n <= MAP_SMALL_MAP_LIMIT) {
                 heap_size += 3 + n + 1 + n;
             } else {
+#if !defined(ARCH_64)
+                if ((n >> 30) != 0) {
+                    /* Can't possibly fit in memory. */
+                    goto error;
+                }
+#endif
                 CHKSIZE(2*n);   /* Conservative size check */
                 heap_size += HASHMAP_ESTIMATED_HEAP_SIZE(n);
             }
