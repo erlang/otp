@@ -53,6 +53,8 @@
          listen_options/1,
          connect_options/0,
          connect_options/1,
+         net_ticker_spawn_options/0,
+         net_ticker_spawn_options/1,
          use_interface/0,
          use_interface/1,
          verify_fun_fail/0,
@@ -70,6 +72,7 @@
          listen_options_test/3,
          do_connect_options/2,
          connect_options_test/3,
+         net_ticker_spawn_options_test/3,
          verify_fun_fail_test/3,
          verify_fun_pass_test/3,
          verify_pass_always/3,
@@ -100,6 +103,7 @@ all() ->
      listen_port_options,
      listen_options,
      connect_options,
+     net_ticker_spawn_options,
      use_interface,
      verify_fun_fail,
      verify_fun_pass
@@ -321,6 +325,22 @@ connect_options() ->
     [{doc, "Test inet_dist_connect_options"}].
 connect_options(Config) when is_list(Config) ->
     try_setting_priority(fun do_connect_options/2, Config).
+
+%%--------------------------------------------------------------------
+net_ticker_spawn_options() ->
+    [{doc, "Test net_ticker_spawn_options"}].
+net_ticker_spawn_options(Config) when is_list(Config) ->
+    FullsweepString0 = "[{fullsweep_after,0}]",
+    FullsweepString =
+        case os:cmd("echo [{a,1}]") of
+            "[{a,1}]"++_ ->
+                FullsweepString0;
+            _ ->
+                %% Some shells need quoting of [{}]
+                "'"++FullsweepString0++"'"
+        end,
+    Options = "-kernel net_ticker_spawn_options "++FullsweepString,
+    gen_dist_test(net_ticker_spawn_options_test, [{tls_only_basic_opts, Options} | Config]).
 
 
 %%--------------------------------------------------------------------
@@ -594,6 +614,23 @@ connect_options_test(NH1, NH2, Config) ->
     %% Node 2 will not, since it only applies to outbound connections.
     [] = Elevated2.
 
+net_ticker_spawn_options_test(NH1, NH2, _Config) ->
+    Node1 = NH1#node_handle.nodename,
+    Node2 = NH2#node_handle.nodename,
+
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    FullsweepOptionNode1 =
+        apply_on_ssl_node(NH1, fun () -> get_dist_util_fullsweep_option(Node2) end),
+    FullsweepOptionNode2 =
+        apply_on_ssl_node(NH2, fun () -> get_dist_util_fullsweep_option(Node1) end),
+
+    ct:pal("FullsweepOptionNode1: ~p~n", [FullsweepOptionNode1]),
+    ct:pal("FullsweepOptionNode2: ~p~n", [FullsweepOptionNode2]),
+
+    0 = FullsweepOptionNode1,
+    0 = FullsweepOptionNode2.
+
 
 verify_fun_fail_test(NH1, NH2, _) ->
     Node2 = NH2#node_handle.nodename,
@@ -634,6 +671,14 @@ get_socket_priorities() ->
     [Priority ||
 	{ok,[{priority,Priority}]} <-
 	    [inet:getopts(Port, [priority]) || Port <- inet_ports()]].
+
+get_dist_util_fullsweep_option(Node) ->
+    SenderPid = proplists:get_value(Node, erlang:system_info(dist_ctrl)),
+    {links, Links1} = erlang:process_info(SenderPid, links),
+    {links, Links2} = erlang:process_info(whereis(net_kernel), links),
+    [DistUtilPid] = [X || X <- Links1, Y <- Links2, X =:= Y],
+    {garbage_collection, GCOpts} = erlang:process_info(DistUtilPid, garbage_collection),
+    proplists:get_value(fullsweep_after, GCOpts).
 
 inet_ports() ->
      [Port || Port <- erlang:ports(),

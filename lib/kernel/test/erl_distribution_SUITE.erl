@@ -34,6 +34,7 @@
 	 setopts/1,
 	 table_waste/1, net_setuptime/1,
 	 inet_dist_options_options/1,
+         net_ticker_spawn_options/1,
 
 	 monitor_nodes_nodedown_reason/1,
 	 monitor_nodes_complex_nodedown_reason/1,
@@ -54,6 +55,7 @@
 
 %% Performs the test at another node.
 -export([get_socket_priorities/0,
+         get_net_ticker_fullsweep_option/1,
 	 tick_cli_test/1, tick_cli_test1/1,
 	 tick_serv_test/2, tick_serv_test1/1,
 	 run_remote_test/1,
@@ -95,6 +97,7 @@ all() ->
      epmd_reconnect,
      hidden_node, setopts,
      table_waste, net_setuptime, inet_dist_options_options,
+     net_ticker_spawn_options,
      {group, monitor_nodes},
      erl_uds_dist_smoke_test,
      erl_1424,
@@ -1073,6 +1076,48 @@ get_socket_priorities() ->
 	    [inet:getopts(Port, [priority]) ||
 		Port <- erlang:ports(),
 		element(2, erlang:port_info(Port, name)) =:= "tcp_inet"]].
+
+
+
+%% check net_ticker_spawn_options
+net_ticker_spawn_options(Config) when is_list(Config) ->
+    FullsweepString0 = "[{fullsweep_after,0}]",
+    FullsweepString =
+        case os:cmd("echo [{a,1}]") of
+            "[{a,1}]"++_ ->
+                FullsweepString0;
+            _ ->
+                %% Some shells need quoting of [{}]
+                "'"++FullsweepString0++"'"
+        end,
+    InetDistOptions =
+        "-hidden "
+        "-kernel net_ticker_spawn_options "++FullsweepString,
+    {ok,Node1} =
+        start_node("", net_ticker_spawn_options_1, InetDistOptions),
+    {ok,Node2} =
+        start_node("", net_ticker_spawn_options_2, InetDistOptions),
+    %%
+    pong =
+        rpc:call(Node1, net_adm, ping, [Node2]),
+    FullsweepOptionNode1 =
+        rpc:call(Node1, ?MODULE, get_net_ticker_fullsweep_option, [Node2]),
+    FullsweepOptionNode2 =
+        rpc:call(Node2, ?MODULE, get_net_ticker_fullsweep_option, [Node1]),
+    io:format("FullsweepOptionNode1 = ~p", [FullsweepOptionNode1]),
+    io:format("FullsweepOptionNode2 = ~p", [FullsweepOptionNode2]),
+    0 = FullsweepOptionNode1,
+    0 = FullsweepOptionNode2,
+    %%
+    stop_node(Node2),
+    stop_node(Node1),
+    ok.
+
+get_net_ticker_fullsweep_option(Node) ->
+    Port = proplists:get_value(Node, erlang:system_info(dist_ctrl)),
+    {links, [DistUtilPid, _NetKernelPid]} = erlang:port_info(Port, links),
+    {garbage_collection, GCOpts} = erlang:process_info(DistUtilPid, garbage_collection),
+    proplists:get_value(fullsweep_after, GCOpts).
 
 
 

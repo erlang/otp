@@ -448,7 +448,7 @@ gen_accept_connection(
                   Driver, AcceptPid, DistCtrl,
                   MyNode, Allowed, SetupTime, Kernel)
         end,
-        [link, {priority, max}])).
+        net_ticker_spawn_options())).
 
 do_accept(
   _Driver, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime, Kernel) ->
@@ -540,7 +540,7 @@ gen_setup(Driver, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     Kernel = self(),
     monitor_pid(
       spawn_opt(setup_fun(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime),
-                [link, {priority, max}])).
+                net_ticker_spawn_options())).
 
 -spec setup_fun(_,_,_,_,_,_,_) -> fun(() -> no_return()).
 setup_fun(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
@@ -807,6 +807,13 @@ nodelay() ->
 	    {nodelay, true}
     end.
 
+
+% we may want different spawn options for dist_util processes
+
+net_ticker_spawn_options() ->
+    Opts = application:get_env(kernel, net_ticker_spawn_options, []),
+    Opts1 = [{priority, max} | proplists:delete(priority, Opts)],
+    [link | proplists:delete(link, Opts1)].
 
 get_ssl_options(Type) ->
     try ets:lookup(ssl_dist_opts, Type) of
