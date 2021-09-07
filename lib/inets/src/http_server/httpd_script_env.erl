@@ -111,37 +111,43 @@ create_basic_elements(cgi, ModData) ->
      {"SCRIPT_NAME",       which_request_uri(ModData)}].
 
 create_http_header_elements(ScriptType, Headers) ->
-    create_http_header_elements(ScriptType, Headers, []).
+    create_http_header_elements(ScriptType, Headers, [], []).
 
-create_http_header_elements(_, [], Acc) ->
+create_http_header_elements(esi, [], Acc, OtherAcc) ->
+    [{http_other, OtherAcc} | Acc];
+create_http_header_elements(_, [], Acc, _OtherAcc) ->
     Acc;
 create_http_header_elements(ScriptType, [{Name, [Value | _] = Values } | 
-					 Headers], Acc) 
+					 Headers], Acc, OtherAcc) 
   when is_list(Value) ->
-    NewName = lists:map(fun(X) -> if X == $- -> $_; true -> X end end, Name),
-    try http_env_element(ScriptType, NewName, multi_value(Values)) of
+    try http_env_element(ScriptType, Name, multi_value(Values)) of
         Element ->
-            create_http_header_elements(ScriptType, Headers, [Element | Acc])
+            create_http_header_elements(ScriptType, Headers, [Element | Acc],
+                                        OtherAcc)
     catch
         _:_ ->
-            create_http_header_elements(ScriptType, Headers, Acc)
+            create_http_header_elements(ScriptType, Headers, Acc,
+                                        [{Name, Values} | OtherAcc])
     end;
-create_http_header_elements(ScriptType, [{Name, Value} | Headers], Acc) 
+create_http_header_elements(ScriptType, [{Name, Value} | Headers], Acc, OtherAcc) 
   when is_list(Value) ->
-    NewName = re:replace(Name,"-","_", [{return,list}, global]),
-    try http_env_element(ScriptType, NewName, Value) of
+    try http_env_element(ScriptType, Name, Value) of
         Element ->
-            create_http_header_elements(ScriptType, Headers, [Element | Acc])
+            create_http_header_elements(ScriptType, Headers, [Element | Acc],
+                                       OtherAcc)
     catch
         _:_ ->
-            create_http_header_elements(ScriptType, Headers, Acc)
+            create_http_header_elements(ScriptType, Headers, Acc,
+                                       [{Name, Value} | OtherAcc])
     end.
 
-http_env_element(cgi, VarName, Value)  ->
+http_env_element(cgi, VarName0, Value)  ->
+    VarName = re:replace(VarName0,"-","_", [{return,list}, global]),
     {"HTTP_"++ http_util:to_upper(VarName), Value};
-http_env_element(esi, VarName, Value)  ->
+http_env_element(esi, VarName0, Value)  ->
+    list_to_existing_atom(VarName0),
+    VarName = re:replace(VarName0,"-","_", [{return,list}, global]),
     HeaderName = http_util:to_lower(VarName),
-    list_to_existing_atom(HeaderName),
     {list_to_atom("http_"++ HeaderName), Value}.
 
 multi_value([]) ->
