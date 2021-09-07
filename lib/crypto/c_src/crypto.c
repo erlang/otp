@@ -59,6 +59,7 @@ static int library_refc = 0; /* number of users of this dynamic library */
 static int library_initialized = 0;
 
 static ErlNifFunc nif_funcs[] = {
+    {"info_nif", 0, info_nif, 0},
     {"info_lib", 0, info_lib, 0},
     {"info_fips", 0, info_fips, 0},
     {"enable_fips_mode_nif", 1, enable_fips_mode_nif, 0},
