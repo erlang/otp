@@ -639,6 +639,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	= ERTS_MAGIC_BIN_UNALIGNED_SIZE(sizeof(ErtsMagicIndirectionWord));
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_RECV_MARK_BLK)]
         = sizeof(ErtsRecvMarkerBlock);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_SIGQ_BUFFERS)]
+        = sizeof(ErtsSignalInQueueBufferArray);
 
 #ifdef HARD_DEBUG
     hdbg_init();

@@ -38,7 +38,8 @@ MODULES= \
 	run_erl_SUITE \
 	erlexec_SUITE \
 	z_SUITE \
-	upgrade_SUITE
+	upgrade_SUITE \
+	parallel_messages_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 

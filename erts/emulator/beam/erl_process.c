@@ -10455,7 +10455,7 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    st_res = am_false;
 
             if (st->arg[0] == am_false) {
-                erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+                erts_proc_sig_queue_lock(c_p);
                 erts_proc_sig_fetch(c_p);
                 erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
             }
@@ -12115,11 +12115,13 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->sig_qs.len = 0;
     p->sig_qs.nmsigs.next = NULL;
     p->sig_qs.nmsigs.last = NULL;
+    p->sig_inq_contention_counter = 0;
     p->sig_inq.first = NULL;
     p->sig_inq.last = &p->sig_inq.first;
     p->sig_inq.len = 0;
     p->sig_inq.nmsigs.next = NULL;
     p->sig_inq.nmsigs.last = NULL;
+    erts_atomic_init_nob(&p->sig_inq_buffers, (erts_aint_t)NULL);
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
     p->sig_inq.may_contain_heap_terms = 0;
 #endif
@@ -12618,11 +12620,13 @@ void erts_init_empty_process(Process *p)
     p->sig_qs.len = 0;
     p->sig_qs.nmsigs.next = NULL;
     p->sig_qs.nmsigs.last = NULL;
+    p->sig_inq_contention_counter = 0;
     p->sig_inq.first = NULL;
     p->sig_inq.last = &p->sig_inq.first;
     p->sig_inq.len = 0;
     p->sig_inq.nmsigs.next = NULL;
     p->sig_inq.nmsigs.last = NULL;
+    erts_atomic_init_nob(&p->sig_inq_buffers, (erts_aint_t)NULL);
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
     p->sig_inq.may_contain_heap_terms = 0;
 #endif
@@ -13795,6 +13799,7 @@ restart:
 
         erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
 
+        erts_proc_sig_queue_flush_and_deinstall_buffers(p);
         erts_proc_sig_fetch(p);
 
         erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
