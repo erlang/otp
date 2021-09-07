@@ -31,6 +31,29 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 11.2.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Parsing of the result value in the native DNS resolver
+	    has been made more defensive against incorrect results.</p>
+          <p>
+	    Own Id: OTP-17578 Aux Id: ERIERL-683 </p>
+        </item>
+        <item>
+	    <p>On 32-bit computers, <c>binary_to_term/1,2</c> is now
+	    more resilient against corrupted binaries containing maps
+	    in the external format.</p>
+          <p>
+	    Own Id: OTP-17604</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 11.2.2.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -33,7 +33,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.3.2.1</title>
+  <section><title>Inets 7.3.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Restored HTTP headers handling in inets/mod_esi.</p>
+          <p>
+	    Own Id: OTP-17600</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.3.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
