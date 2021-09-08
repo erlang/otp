@@ -20,7 +20,9 @@
 -module(win32reg_SUITE).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,long/1,evil_write/1]).
+	 init_per_group/2,end_per_group/2,long/1,evil_write/1,
+         read_write_default_1/1,read_write_default_2/1,
+         delete_key/1, up_and_away/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -29,7 +31,12 @@ suite() ->
      {timetrap,{seconds,10}}].
 
 all() -> 
-    [long, evil_write].
+    [long,
+     evil_write,
+     read_write_default_1,
+     read_write_default_2,
+     delete_key,
+     up_and_away].
 
 groups() -> 
     [].
@@ -104,3 +111,46 @@ evil_write_1(Reg, [_|[_|_]=Key]=Key0) ->
     ok = win32reg:delete_value(Reg, Key0),
     evil_write_1(Reg, Key);
 evil_write_1(_, [_]) -> ok.
+
+read_write_default_1(Config) when is_list(Config) ->
+    Key = "Software\\Ericsson\\Erlang",
+    Value = "The default value 1",
+    {ok,Reg} = win32reg:open([read,write]),
+    ok = win32reg:change_key(Reg, "\\hkcu"),
+    ok = win32reg:change_key_create(Reg, Key),
+    ok = win32reg:set_value(Reg, default, Value),
+    {ok,Value} = win32reg:value(Reg, default),
+    ok = win32reg:delete_value(Reg, default),
+    {error,enoent} = win32reg:value(Reg, default),
+    ok = win32reg:close(Reg),
+    ok.
+
+read_write_default_2(Config) when is_list(Config) ->
+    Key = "Software\\Ericsson\\Erlang",
+    Value = "The default value 2",
+    {ok,Reg} = win32reg:open([read,write]),
+    ok = win32reg:change_key(Reg, "\\hkcu"),
+    ok = win32reg:change_key_create(Reg, Key),
+    ok = win32reg:set_value(Reg, "", Value),
+    {ok,Value} = win32reg:value(Reg, ""),
+    ok = win32reg:delete_value(Reg, ""),
+    {error,enoent} = win32reg:value(Reg, ""),
+    ok = win32reg:close(Reg),
+    ok.
+
+delete_key(Config) when is_list(Config) ->
+    Key = "Software\\Ericsson\\Erlang\\new-test-key",
+    {ok,Reg} = win32reg:open([read,write]),
+    ok = win32reg:change_key(Reg, "\\hkcu"),
+    ok = win32reg:change_key_create(Reg, Key),
+    {ok, []} = win32reg:sub_keys(Reg),
+    ok = win32reg:delete_key(Reg),
+    ok = win32reg:close(Reg),
+    ok.
+
+up_and_away(Config) when is_list(Config) ->
+    {ok,Reg} = win32reg:open([read]),
+    {ok, "\\hkey_classes_root"} = win32reg:current_key(Reg),
+    {error,enoent} = win32reg:change_key(Reg, ".."),
+    ok = win32reg:close(Reg),
+    ok.
