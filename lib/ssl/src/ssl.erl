@@ -1463,7 +1463,7 @@ suite_to_openssl_str(Cipher) ->
 
 %%
 %%--------------------------------------------------------------------
--spec str_to_suite(CipherSuiteName) -> erl_cipher_suite()  | {error, {not_recognized, CipherSuiteName :: string()}} when
+-spec str_to_suite(CipherSuiteName) -> erl_cipher_suite()  | {error, {not_recognized, CipherSuiteName}} when
       CipherSuiteName :: string().
 %%
 %% Description: Return the map representation of a cipher suite.
