@@ -57,7 +57,7 @@ end_per_group(_GroupName, Config) ->
 
 %% Test creating lists and tuples containing big number literals.
 putting(Config) when is_list(Config) ->
-    -773973888575883407313908 = chksum(putting1(8987697898797)).
+    -773973888575883407313908 = chksum(putting1(id(8987697898797))).
 
 putting1(X) ->
     {8797987987987987872256443, [1324483773773], {3.1415, 2.71, [2.5, 35.125|9.31]},
@@ -522,7 +522,8 @@ fconv_2(F) when is_float(F) ->
 literal_case_expression(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     Src = filename:join(DataDir, "literal_case_expression"),
-    {ok,literal_case_expression=Mod,Code} = compile:file(Src, [from_asm,binary]),
+    Opts = [from_asm,binary,no_postopt],
+    {ok,literal_case_expression=Mod,Code} = compile:file(Src, Opts),
     {module,Mod} = code:load_binary(Mod, Src, Code),
     ok = Mod:x(),
     ok = Mod:y(),
