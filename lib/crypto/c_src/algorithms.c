@@ -53,6 +53,8 @@ void init_algorithms_types(ErlNifEnv* env)
     /* ciphers and macs are initiated statically */
 }
 
+void cleanup_algorithms_types(ErlNifEnv* env);
+
 void cleanup_algorithms_types(ErlNifEnv* env)
 {
     enif_mutex_destroy(mtx_init_curve_types);
@@ -250,21 +252,22 @@ int get_curve_cnt(ErlNifEnv* env, int fips) {
 }
 
 void init_curve_types(ErlNifEnv* env) {
+#if defined(DEBUG)
     int curve_cnt = 0;
-#if defined(HAVE_EC)
+#endif
 
-#ifdef FIPS_SUPPORT
-    if (FIPS_mode()) {
-        // enabled
-        curve_cnt = get_curve_cnt(env, 1);
-    } else {
-        // disabled
-        curve_cnt = get_curve_cnt(env, 0);
-    }
-#else
-    // No fips support
-    curve_cnt = get_curve_cnt(env, 0);
-#endif   
+#if defined(HAVE_EC)
+    int fips_mode = 0;
+
+# ifdef FIPS_SUPPORT
+    if (FIPS_mode()) fips_mode = 1;
+# endif
+
+# ifdef DEBUG
+        curve_cnt =
+# endif
+            get_curve_cnt(env, fips_mode);
+
 #endif /* defined(HAVE_EC) */
 
     ASSERT(curve_cnt <= sizeof(algo_curve)/sizeof(ERL_NIF_TERM));
@@ -725,5 +728,4 @@ void init_rsa_opts_types(ErlNifEnv* env) {
 
     ASSERT(algo_rsa_opts_cnt <= sizeof(algo_rsa_opts)/sizeof(ERL_NIF_TERM));
 }
-
 
