@@ -38,7 +38,7 @@
 
 	 register_agent/3, unregister_agent/2, 
 	 agent_info/0, agent_info/2, agent_info/3, 
-	 update_agent_info/3, update_agent_info/4, 
+	 update_agent_info/3,
 	 which_agents/0, which_agents/1, 
 
 	 is_known_engine_id/2, 
@@ -94,9 +94,7 @@
 
 %% Backward compatibillity exports
 -export([
-	 register_user/3,
 	 unregister_agent/3, 
-	 update_agent_info/5,
 	 is_known_engine_id/3, 
 	 get_agent_engine_id/2, 
 	 get_agent_engine_max_message_size/2, 
@@ -109,12 +107,15 @@
 	 check_manager_config/2,
 	 check_user_config/1,
 	 check_agent_config/1,
-	 check_usm_user_config/1]).
+	 check_usm_user_config/1
+        ]).
 
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
-	 code_change/3, terminate/2]).
+-export([
+         init/1, handle_call/3, handle_cast/2, handle_info/2, 
+	 code_change/3, terminate/2
+        ]).
 
 
 %% Includes:
@@ -191,10 +192,6 @@ is_started() ->
 backup(BackupDir) when is_list(BackupDir) ->
     call({backup, BackupDir}).
 
-%% Backward compatibillity
-register_user(UserId, UserMod, UserData) ->
-    register_user(UserId, UserMod, UserData, []).
-
 register_user(UserId, UserMod, UserData, DefaultAgentConfig) 
   when (UserId =/= ?DEFAULT_USER) andalso is_list(DefaultAgentConfig) ->
     case (catch verify_user_behaviour(UserMod)) of
@@ -213,20 +210,6 @@ register_user(UserId, _UserMod, _UserData, DefaultAgentConfig)
     {error, {bad_default_agent_config, DefaultAgentConfig}};
 register_user(UserId, _, _, _) ->
     {error, {bad_user_id, UserId}}.
-
-%% default_agent_config(DefaultAgentConfig) ->
-%%     {ok, SystemDefaultAgentConfig} = agent_info(),
-%%     default_agent_config(SystemDefaultAgentConfig, DefaultAgentConfig).
-
-%% default_agent_config([], DefaultAgentConfig) ->
-%%     DefaultAgentConfig;
-%% default_agent_config([{Key, _} = Entry|T], DefaultAgentConfig) ->
-%%     case lists:keymember(Key, 1, DefaultAgentConfig) of
-%% 	true ->
-%% 	    default_agent_config(T, DefaultAgentConfig);
-%% 	false ->
-%% 	    default_agent_config(T, [Entry|DefaultAgentConfig])
-%%     end.
 
 
 verify_user_behaviour(UserMod) ->
@@ -545,23 +528,6 @@ which_agents(UserId) ->
 
 update_agent_info(UserId, TargetName, Info) ->
     call({update_agent_info, UserId, TargetName, Info}).
-
-%% <BACKWARD-COMPAT-2>
-%% This is wrapped in the interface module, so this function is
-%% only here to catch code-upgrade problems.
-update_agent_info(UserId, TargetName, Item, Val) ->
-    update_agent_info(UserId, TargetName, [{Item, Val}]).
-%% </BACKWARD-COMPAT-2>
-
-%% <BACKWARD-COMPAT-1>
-update_agent_info(UserId, Addr, Port, Item, Val)  ->
-    case agent_info(Addr, Port, target_name) of
-	{ok, TargetName} ->
-	    update_agent_info(UserId, TargetName, Item, Val);
-	Error ->
-	    Error
-    end.
-%% </BACKWARD-COMPAT-1>
 
 is_known_engine_id(EngineID, TargetName) ->
     case agent_info(TargetName, engine_id) of
@@ -2444,18 +2410,6 @@ handle_call({update_agent_info, UserId, TargetName, Info},
     Reply = handle_update_agent_info(UserId, TargetName, Info),
     {reply, Reply, State};
 
-%% <BACKWARD-COMPAT>
-handle_call({update_agent_info, UserId, TargetName, Item, Val}, 
-	    _From, State) ->
-    ?vlog("received update_agent_info request: "
-	  "~n   UserId:     ~p"
-	  "~n   TargetName: ~p"
-	  "~n   Item:       ~p"
-	  "~n   Val:        ~p", [UserId, TargetName, Item, Val]),
-    Reply = handle_update_agent_info(UserId, TargetName, Item, Val),
-    {reply, Reply, State};
-%% </BACKWARD-COMPAT>
-
 handle_call({register_usm_user, User}, _From, State) ->
     ?vlog("received register_usm_user request: "
 	  "~n   User: ~p", [User]),
@@ -2828,6 +2782,7 @@ handle_register_agent(UserId, TargetName, Config) ->
 			    "   FixedConfig: ~p", [FixedConfig]),
 		    do_handle_register_agent(
 		      TargetName, [{user_id, UserId}|FixedConfig]),
+
 		    %% <DIRTY-BACKWARD-COMPATIBILLITY>
 		    %% And now for some (backward compatibillity)
 		    %% dirty crossref stuff
@@ -2841,25 +2796,6 @@ handle_register_agent(UserId, TargetName, Config) ->
 			       {{Domain, Address, target_name}, TargetName}),
 		    %% </DIRTY-BACKWARD-COMPATIBILLITY>
 
-%%		    %% First, insert this users default config
-%%		    ?vtrace("handle_register_agent -> store default config", []),
-%%		    do_handle_register_agent(TargetName, DefConfig),
-%%		    %% Second, insert the config for this agent
-%%		    ?vtrace("handle_register_agent -> store config", []),
-%%		    do_handle_register_agent(TargetName,
-%%					     [{user_id, UserId}|Config]),
-%%		    %% <DIRTY-BACKWARD-COMPATIBILLITY>
-%%		    %% And now for some (backward compatibillity)
-%%		    %% dirty crossref stuff
-%%		    ?vtrace("handle_register_agent -> lookup taddress", []),
-%%		    {ok, {Addr, Port} = TAddress} =
-%%			agent_info(TargetName, taddress),
-%%		    ?vtrace("handle_register_agent -> taddress: ~p",
-%%			    [TAddress]),
-%%		    ?vtrace("handle_register_agent -> register cross-ref fix", []),
-%%		    ets:insert(snmpm_agent_table,
-%%			       {{Addr, Port, target_name}, TargetName}),
-%%		    %% </DIRTY-BACKWARD-COMPATIBILLITY>
 		    ok;
 		_ ->
 		    {error, {not_found, UserId}}
@@ -2963,14 +2899,6 @@ handle_update_agent_info(TargetName, Info) ->
 	T:E ->
 	    {error, {failed_info_verification, Info, T, E}}
     end.
-
-handle_update_agent_info(UserId, TargetName, Item, Val) ->
-    ?vdebug("handle_update_agent_info -> entry with"
-	    "~n   UserId:     ~p"
-	    "~n   TargetName: ~p"
-	    "~n   Item:       ~p"
-	    "~n   Val:        ~p", [UserId, TargetName, Item, Val]),
-    handle_update_agent_info(TargetName, [{Item, Val}]).
 
 do_update_agent_info(TargetName, Info) ->
     ?vtrace("do_update_agent_info -> entry with~n"
