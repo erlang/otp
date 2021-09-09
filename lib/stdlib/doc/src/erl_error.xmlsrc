@@ -121,7 +121,7 @@ end</code>
 
   <funcs>
     <func>
-      <name anchor="format_error" since="OTP @OTP-12345@">Module:format_error(Reason, StackTrace) -> ErrorDescription</name>
+      <name anchor="format_error" since="OTP 24.0">Module:format_error(Reason, StackTrace) -> ErrorDescription</name>
       <fsummary>Callback for formatting exceptions</fsummary>
       <type>
         <v>Reason = term()</v>
