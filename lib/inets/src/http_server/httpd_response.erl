@@ -215,7 +215,7 @@ send_body(#mod{socket_type = Type, socket = Socket}, _, nobody) ->
     ok;
 
 send_body(#mod{socket_type = Type, socket = Sock}, 
-	  _StatusCode, Body) when is_list(Body) ->
+	  _StatusCode, Body) when is_list(Body); is_binary(Body) ->
     case httpd_socket:deliver(Type, Sock, Body) of
 	socket_closed ->
 	    done;
