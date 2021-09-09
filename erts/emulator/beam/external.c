@@ -5373,10 +5373,20 @@ static Sint
 decoded_size(const byte *ep, const byte* endp, int internal_tags, B2TContext* ctx)
 {
     Sint heap_size;
-    int terms;
     int atom_extra_skip;
     Uint n;
     SWord reds;
+
+    /* Keep track of the current number of sub terms remaining to be decoded.
+     *
+     * We limit the number of sub terms to 2^32-1, even on 64-bit
+     * machines, because a term that has many sub-terms must be truly
+     * ginormous and is proably a mistake.
+     *
+     * This means that a map with 2^31 or more elements cannot be decoded,
+     * even on a 64-bit machine.
+     */
+    Uint32 terms;
 
     if (ctx) {
         reds = ctx->reds;
@@ -5416,9 +5426,11 @@ init_done:
 	 if ((sz) > endp-ep) { goto error; }	\
     } while (0)
 
+/* Increment the number of terms that remain to decode
+ * and check for the term counter wrapping around. */
 #define ADDTERMS(n)				\
     do {					\
-        int before = terms;		        \
+        Uint32 before = terms;		        \
 	terms += (n);                           \
 	if (terms < before) goto error;     	\
     } while (0)
@@ -5503,7 +5515,7 @@ init_done:
 	case_PID:
 	    /* In case it is an external pid */
 	    heap_size += EXTERNAL_PID_HEAP_SIZE;
-	    terms++;
+            ADDTERMS(1);
 	    break;
         case V4_PORT_EXT:
 	    atom_extra_skip = 12;
@@ -5516,7 +5528,7 @@ init_done:
 	case_PORT:
 	    /* In case it is an external port */
 	    heap_size += EXTERNAL_PORT_HEAP_SIZE;
-	    terms++;
+            ADDTERMS(1);
 	    break;
 	case NEWER_REFERENCE_EXT:
 	    atom_extra_skip = 4;
@@ -5541,7 +5553,7 @@ init_done:
 #else
 		heap_size += EXTERNAL_THING_HEAD_SIZE + id_words;
 #endif
-		terms++;
+                ADDTERMS(1);
 		break;
 	    }
 	case REFERENCE_EXT:
@@ -5556,20 +5568,23 @@ init_done:
 	    CHKSIZE(4);
 	    n = get_uint32(ep);
 	    ep += 4;
-	    ADDTERMS(n);
-	    terms++;
+            CHKSIZE(n); /* Fail faster if the binary is too short. */
+            /* Count terms in two operations to avoid overflow. */
+            ADDTERMS(n);
+            ADDTERMS(1);
 	    heap_size += 2 * n;
 	    break;
 	case SMALL_TUPLE_EXT:
 	    CHKSIZE(1);
 	    n = *ep++;
-	    terms += n;
+            ADDTERMS(n);
 	    heap_size += n + 1;
 	    break;
 	case LARGE_TUPLE_EXT:
 	    CHKSIZE(4);
 	    n = get_uint32(ep);
 	    ep += 4;
+            CHKSIZE(n); /* Fail faster if the binary is too short. */
 	    ADDTERMS(n);
 	    heap_size += n + 1;
 	    break;
@@ -5577,19 +5592,25 @@ init_done:
 	    CHKSIZE(4);
 	    n = get_uint32(ep);
 	    ep += 4;
-	    ADDTERMS(2*n);
             if (n <= MAP_SMALL_MAP_LIMIT) {
                 heap_size += 3 + n + 1 + n;
-            } else {
-#if !defined(ARCH_64)
-                if ((n >> 30) != 0) {
-                    /* Can't possibly fit in memory. */
-                    goto error;
-                }
+#if defined(ARCH_64)
+            } else if ((n >> 31) != 0) {
+                /* Avoid overflow by limiting the number of elements in
+                 * a map to 2^31-1 (about 2 billions). */
+                goto error;
+#else
+            } else if ((n >> 30) != 0) {
+                /* Can't possibly fit in memory on 32-bit machine. */
+                goto error;
 #endif
-                CHKSIZE(2*n);   /* Conservative size check */
+            } else {
+                CHKSIZE(2*(Uint)n); /* Fail faster if the binary is too short. */
                 heap_size += HASHMAP_ESTIMATED_HEAP_SIZE(n);
             }
+            /* Count terms in two operations to avoid overflow. */
+            ADDTERMS(n);
+            ADDTERMS(n);
 	    break;
 	case STRING_EXT:
 	    CHKSIZE(2);
@@ -5628,7 +5649,7 @@ init_done:
 	    }
 	    break;
 	case EXPORT_EXT:
-	    terms += 3;
+	    ADDTERMS(3);
 	    heap_size += ERL_FUN_SIZE;
 	    break;
 	case NEW_FUN_EXT:
@@ -5646,7 +5667,7 @@ init_done:
 		if (num_free > MAX_ARG) {
 		    goto error;
 		}
-		terms += 4 + num_free;
+		ADDTERMS(4 + num_free);
 		heap_size += ERL_FUN_SIZE + num_free;
 		break;
 	    }
@@ -5684,7 +5705,7 @@ init_done:
 	}
         terms--;
 
-        if (ctx && --reds <= 0 && terms > 0) {
+        if (ctx && --reds <= 0 && terms != 0) {
             ctx->u.sc.heap_size = heap_size;
             ctx->u.sc.terms = terms;
             ctx->u.sc.ep = ep;
@@ -5692,9 +5713,8 @@ init_done:
             ctx->reds = 0;
             return 0;
         }
-    }while (terms > 0);
+    } while (terms != 0);
 
-    /* 'terms' may be non-zero if it has wrapped around */
     if (terms == 0) {
         if (ctx) {
             ctx->state = B2TDecodeInit;

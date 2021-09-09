@@ -1545,11 +1545,14 @@ test_terms(Test_Func) ->
     Test_Func("abcdef"),
     Test_Func([a, b, 1, 2]),
     Test_Func([a|b]),
+    Test_Func([make_port(), make_ref(), make_pid(), fun() -> ok end,
+               Very_Big | lists:seq(1, 75)]),
 
     Test_Func({}),
     Test_Func({1}),
     Test_Func({a, b}),
     Test_Func({a, b, c}),
+    Test_Func({make_port(), make_ref(), make_pid(), fun() -> ok end}),
     Test_Func(list_to_tuple(lists:seq(0, 255))),
     Test_Func(list_to_tuple(lists:seq(0, 256))),
 
@@ -1600,9 +1603,11 @@ test_terms(Test_Func) ->
     Test_Func(<<42:10>>),
     Test_Func(list_to_bitstring([<<5:6>>|lists:seq(0, 255)])),
 
+    %% Funs in a list.
     Test_Func(F = fun(A) -> 42*A end),
     Test_Func(lists:duplicate(32, F)),
 
+    %% External funs in a list.
     Test_Func(FF = fun binary_SUITE:all/0),
     Test_Func(lists:duplicate(32, FF)),
 
