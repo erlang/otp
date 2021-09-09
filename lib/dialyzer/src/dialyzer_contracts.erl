@@ -898,13 +898,13 @@ overlapping_contract_warning({M, F, A}, WarningInfo) ->
 extra_range_warning({M, F, A}, WarningInfo, ExtraRanges, STRange) ->
   ERangesStr = erl_types:t_to_string(ExtraRanges),
   STRangeStr = erl_types:t_to_string(STRange),
-  {?WARN_CONTRACT_SUPERTYPE, WarningInfo,
+  {?WARN_CONTRACT_EXTRA_RETURN, WarningInfo,
    {extra_range, [M, F, A, ERangesStr, STRangeStr]}}.
 
 missing_range_warning({M, F, A}, WarningInfo, ExtraRanges, CRange) ->
   ERangesStr = erl_types:t_to_string(ExtraRanges),
   CRangeStr = erl_types:t_to_string(CRange),
-  {?WARN_CONTRACT_SUBTYPE, WarningInfo,
+  {?WARN_CONTRACT_MISSING_RETURN, WarningInfo,
    {missing_range, [M, F, A, ERangesStr, CRangeStr]}}.
 
 picky_contract_check(CSig0, Sig0, MFA, WarningInfo, Contract, RecDict,

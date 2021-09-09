@@ -316,6 +316,16 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       <item>
         <p>Include warnings for functions that only return by an exception.</p>
       </item>
+      <tag><c>-Wextra_return</c> (***)</tag>
+      <item>
+        <p>Warn about functions that return values that are not part of the
+          specification.</p>
+      </item>
+      <tag><c>-Wmissing_return</c> (***)</tag>
+      <item>
+        <p>Warn about functions whose specification includes types that the
+          function cannot return.</p>
+      </item>
       <tag><c>-Wno_behaviours</c></tag>
       <item>
         <p>Suppress warnings about behavior callbacks that drift from the
@@ -426,6 +436,16 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
         <p>Suppress warnings about underspecified functions (the
           specification is strictly more allowing than the success typing).
           </p>
+      </item>
+      <tag><c>-Wno_extra_return</c></tag>
+      <item>
+        <p>Suppress warnings about functions that return values that are not
+          part of the specification.</p>
+      </item>
+      <tag><c>-Wno_missing_return</c></tag>
+      <item>
+        <p>Suppress warnings about functions whose specification includes types
+          that the function cannot return.</p>
       </item>
     </taglist>
 
