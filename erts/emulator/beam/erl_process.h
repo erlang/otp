@@ -1874,6 +1874,7 @@ ErtsSchedulerData *erts_get_scheduler_data(void);
 void erts_schedule_process(Process *, erts_aint32_t, ErtsProcLocks);
 erts_aint32_t erts_proc_sys_schedule(Process *p, erts_aint32_t state,
                                      erts_aint32_t enable_flag);
+int erts_have_non_prio_elev_sys_tasks(Process *c_p, ErtsProcLocks locks);
 
 ERTS_GLB_INLINE void erts_proc_notify_new_message(Process *p, ErtsProcLocks locks);
 ERTS_GLB_INLINE void erts_schedule_dirty_sys_execution(Process *c_p);
