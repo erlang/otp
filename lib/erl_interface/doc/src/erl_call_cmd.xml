@@ -72,7 +72,11 @@
               <c>Fun</c> and <c>Args</c>, respectively.
               <c>Args</c> is to be in the same format as for
               <seemfa marker="erts:erlang#apply/3">
-              <c>erlang:apply/3</c></seemfa> in <c>ERTS</c>.</p>
+              <c>erlang:apply/3</c></seemfa> in <c>ERTS</c> except only a
+              subset of all terms are allowed. The allowed term types are:
+              <c>list</c> (and <c>string</c> representation of list, that is "example"),
+              <c>tuple</c>, <c>atom</c> and <c>number</c>.
+            </p>
             <p>Notice that this flag takes exactly one argument, so quoting
               can be necessary to group <c>Mod</c>,
               <c>Fun</c>, and <c>Args</c> in a manner
