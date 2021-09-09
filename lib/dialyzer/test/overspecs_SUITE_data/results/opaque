@@ -1,0 +1,2 @@
+
+opaque.erl:5:2: The success typing for opaque:accidental_supertype/0 implies that the function might also return gb_sets:set(_) but the specification return is 'other' | {_,_}

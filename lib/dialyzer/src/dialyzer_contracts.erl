@@ -301,14 +301,14 @@ check_contract(#contract{contracts = Contracts}, SuccType, Opaques) ->
 	case check_contract_inf_list(InfList, SuccType, Opaques) of
 	  {error, _} = Invalid -> Invalid;
           ok ->
-            case check_extraneous(Contracts2, SuccType) of
+            case check_extraneous(Contracts2, SuccType, Opaques) of
               {error, invalid_contract} = Err ->
                 Err;
               {error, {extra_range, _, _}} = Err ->
-                MissingError = check_missing(Contracts2, SuccType),
+                MissingError = check_missing(Contracts2, SuccType, Opaques),
                 {range_warnings, [Err | MissingError]};
               ok ->
-                case check_missing(Contracts2, SuccType) of
+                case check_missing(Contracts2, SuccType, Opaques) of
                   [] -> ok;
                   ErrorL -> {range_warnings, ErrorL}
                 end
@@ -365,21 +365,22 @@ check_contract_inf_list([{Contract, FunType}|Left], SuccType, Opaques, OM) ->
 check_contract_inf_list([], _SuccType, _Opaques, OM) ->
   {error, OM}.
 
-check_extraneous([], _SuccType) -> ok;
-check_extraneous([C|Cs], SuccType) ->
-  case check_extraneous_1(C, SuccType) of
+check_extraneous([], _SuccType, _Opaques) ->
+    ok;
+check_extraneous([C|Cs], SuccType, Opaques) ->
+  case check_extraneous_1(C, SuccType, Opaques) of
     {error, _} = Error -> Error;
-    ok -> check_extraneous(Cs, SuccType)
+    ok -> check_extraneous(Cs, SuccType, Opaques)
   end.
 
-check_extraneous_1(Contract, SuccType) ->
+check_extraneous_1(Contract, SuccType, Opaques) ->
   CRng = erl_types:t_fun_range(Contract),
-  CRngs = erl_types:t_elements(CRng),
+  CRngs = erl_types:t_elements(CRng, Opaques),
   STRng = erl_types:t_fun_range(SuccType),
   ?debug("\nCR = ~ts\nSR = ~ts\n", [erl_types:t_to_string(CRng),
                                     erl_types:t_to_string(STRng)]),
   case [CR || CR <- CRngs,
-              erl_types:t_is_none(erl_types:t_inf(CR, STRng))] of
+              erl_types:t_is_none(erl_types:t_inf(CR, STRng, Opaques))] of
     [] ->
       case bad_extraneous_list(CRng, STRng)
 	orelse bad_extraneous_map(CRng, STRng)
@@ -420,13 +421,13 @@ map_part(Type) ->
 is_empty_map(Type) ->
   erl_types:t_is_equal(Type, erl_types:t_from_term(#{})).
 
-check_missing(Contracts, SuccType) ->
+check_missing(Contracts, SuccType, Opaques) ->
   CRanges = [erl_types:t_fun_range(C) || C <- Contracts],
   AllCRange = erl_types:t_sup(CRanges),
   STRng = erl_types:t_fun_range(SuccType),
-  STRngs = erl_types:t_elements(STRng),
+  STRngs = erl_types:t_elements(STRng, Opaques),
   case [STR || STR <- STRngs,
-              erl_types:t_is_none(erl_types:t_inf(STR, AllCRange))] of
+              erl_types:t_is_none(erl_types:t_inf(STR, AllCRange, Opaques))] of
     [] -> [];
     STRs -> [{error, {missing_range, erl_types:t_sup(STRs), AllCRange}}]
   end.
@@ -831,7 +832,7 @@ get_invalid_contract_warnings_funs([{MFA, {FileLocation, Contract, _Xtra}}|Left]
                                                      MFA, File, RecDict) of
                       {ok, NoRemoteType} ->
                         CRet = erl_types:t_fun_range(NoRemoteType),
-                        erl_types:t_is_subtype(ExtraRanges, CRet);
+                        is_subtype(ExtraRanges, CRet, Opaques);
                       unsupported ->
                         true
                     end,
@@ -866,14 +867,14 @@ get_invalid_contract_warnings_funs([{MFA, {FileLocation, Contract, _Xtra}}|Left]
 		     |Acc];
                   {range_warnings, _} ->
 		    picky_contract_check(CSig, BifSig, MFA, WarningInfo,
-					 Contract, RecDict, Acc);
+					 Contract, RecDict, Opaques, Acc);
 		  ok ->
 		    picky_contract_check(CSig, BifSig, MFA, WarningInfo,
-					 Contract, RecDict, Acc)
+					 Contract, RecDict, Opaques, Acc)
 		end;
 	      false ->
 		picky_contract_check(CSig, Sig, MFA, WarningInfo, Contract,
-				     RecDict, Acc)
+				     RecDict, Opaques, Acc)
 	    end
 	end,
       get_invalid_contract_warnings_funs(Left, Plt, RecDict, Opaques, NewAcc)
@@ -906,7 +907,8 @@ missing_range_warning({M, F, A}, WarningInfo, ExtraRanges, CRange) ->
   {?WARN_CONTRACT_SUBTYPE, WarningInfo,
    {missing_range, [M, F, A, ERangesStr, CRangeStr]}}.
 
-picky_contract_check(CSig0, Sig0, MFA, WarningInfo, Contract, RecDict, Acc) ->
+picky_contract_check(CSig0, Sig0, MFA, WarningInfo, Contract, RecDict,
+                     Opaques, Acc) ->
   CSig = erl_types:t_abstract_records(CSig0, RecDict),
   Sig = erl_types:t_abstract_records(Sig0, RecDict),
   case erl_types:t_is_equal(CSig, Sig) of
@@ -917,17 +919,18 @@ picky_contract_check(CSig0, Sig0, MFA, WarningInfo, Contract, RecDict, Acc) ->
 	true -> Acc;
 	false ->
 	  case extra_contract_warning(MFA, WarningInfo, Contract,
-				      CSig0, Sig0, RecDict) of
+                                  CSig0, Sig0, RecDict, Opaques) of
 	    no_warning -> Acc;
 	    {warning, Warning} -> [Warning|Acc]
 	  end
       end
   end.
 
-extra_contract_warning(MFA, WarningInfo, Contract, CSig, Sig, RecDict) ->
+extra_contract_warning(MFA, WarningInfo, Contract, CSig, Sig,
+                       RecDict, Opaques) ->
   {File, _, _} = WarningInfo,
   {IsRemoteTypesRelated, SubtypeRelation} =
-    is_remote_types_related(Contract, CSig, Sig, MFA, File, RecDict),
+    is_remote_types_related(Contract, CSig, Sig, MFA, File, RecDict, Opaques),
   case IsRemoteTypesRelated of
     true ->
       no_warning;
@@ -950,17 +953,17 @@ extra_contract_warning(MFA, WarningInfo, Contract, CSig, Sig, RecDict) ->
       {warning, {Tag, WarningInfo, Msg}}
   end.
 
-is_remote_types_related(Contract, CSig, Sig, MFA, File, RecDict) ->
-  case erl_types:t_is_subtype(CSig, Sig) of
+is_remote_types_related(Contract, CSig, Sig, MFA, File, RecDict, Opaques) ->
+  case is_subtype(CSig, Sig, Opaques) of
     true ->
       {false, contract_is_subtype};
     false ->
-      case erl_types:t_is_subtype(Sig, CSig) of
+      case is_subtype(Sig, CSig, Opaques) of
 	true ->
 	  case t_from_forms_without_remote(Contract#contract.forms, MFA,
                                            File,  RecDict) of
 	    {ok, NoRemoteTypeSig} ->
-	      case blame_remote(CSig, NoRemoteTypeSig, Sig) of
+	      case blame_remote(CSig, NoRemoteTypeSig, Sig, Opaques) of
 		true ->
 		  {true, neither};
 		false ->
@@ -985,28 +988,34 @@ t_from_forms_without_remote(_Forms, _MFA, _File, _RecDict) ->
   %% Lots of forms
   unsupported.
 
-blame_remote(ContractSig, NoRemoteContractSig, Sig) ->
+blame_remote(ContractSig, NoRemoteContractSig, Sig, Opaques) ->
   CArgs  = erl_types:t_fun_args(ContractSig),
   CRange = erl_types:t_fun_range(ContractSig),
   NRArgs = erl_types:t_fun_args(NoRemoteContractSig),
   NRRange = erl_types:t_fun_range(NoRemoteContractSig),
   SArgs = erl_types:t_fun_args(Sig),
   SRange = erl_types:t_fun_range(Sig),
-  blame_remote_list([CRange|CArgs], [NRRange|NRArgs], [SRange|SArgs]).
+  blame_remote_list([CRange|CArgs], [NRRange|NRArgs], [SRange|SArgs], Opaques).
 
-blame_remote_list([], [], []) ->
+blame_remote_list([], [], [], _Opaques) ->
   true;
-blame_remote_list([CArg|CArgs], [NRArg|NRArgs], [SArg|SArgs]) ->
+blame_remote_list([CArg|CArgs], [NRArg|NRArgs], [SArg|SArgs], Opaques) ->
   case erl_types:t_is_equal(CArg, NRArg) of
     true ->
       case not erl_types:t_is_equal(CArg, SArg) of
-	true  -> false;
-	false -> blame_remote_list(CArgs, NRArgs, SArgs)
+        true  -> false;
+        false -> blame_remote_list(CArgs, NRArgs, SArgs, Opaques)
       end;
     false ->
-      case erl_types:t_is_subtype(SArg, NRArg)
-	andalso not erl_types:t_is_subtype(NRArg, SArg) of
-	true  -> false;
-	false -> blame_remote_list(CArgs, NRArgs, SArgs)
+      case is_subtype(SArg, NRArg, Opaques)
+        andalso not is_subtype(NRArg, SArg, Opaques) of
+        true  -> false;
+        false -> blame_remote_list(CArgs, NRArgs, SArgs, Opaques)
       end
   end.
+
+%% As erl_types:t_is_subtype/2 but without looking into opaque types that
+%% aren't known to us.
+is_subtype(T1, T2, Opaques) ->
+  Inf = erl_types:t_inf(T1, T2, Opaques),
+  erl_types:t_is_equal(T1, Inf).
