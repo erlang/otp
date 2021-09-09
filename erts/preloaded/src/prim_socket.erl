@@ -65,6 +65,8 @@
            flowinfo => 0, scope_id => 0})).
 -define(ESOCK_SOCKADDR_LOCAL_DEFAULTS,
         (#{family => local, path => <<"">>})).
+-define(ESOCK_SOCKADDR_UNSPEC_DEFAULTS,
+        (#{family => unspec, addr => <<>>})).
 -define(ESOCK_SOCKADDR_NATIVE_DEFAULTS,
         (#{family => 0, addr => <<>>})).
 
@@ -839,6 +841,8 @@ enc_sockaddr(#{family := local, path := Path} = SockAddr) ->
 enc_sockaddr(#{family := local} = SockAddr) ->
     %% Neater than a function clause
     throw({invalid, {sockaddr, path, SockAddr}});
+enc_sockaddr(#{family := unspec} = SockAddr) ->
+    merge_sockaddr(?ESOCK_SOCKADDR_UNSPEC_DEFAULTS, SockAddr);
 enc_sockaddr(#{family := Native} = SockAddr) when is_integer(Native) ->
     merge_sockaddr(?ESOCK_SOCKADDR_NATIVE_DEFAULTS, SockAddr);
 enc_sockaddr(#{family := _} = SockAddr) ->

@@ -82,6 +82,7 @@ static void esock_encode_packet_addr_tuple(ErlNifEnv*     env,
 static void esock_encode_sockaddr_native(ErlNifEnv*       env,
                                          struct sockaddr* sa,
                                          SOCKLEN_T        len,
+                                         ERL_NIF_TERM     eFamily,
                                          ERL_NIF_TERM*    eSockAddr);
 
 static void esock_encode_sockaddr_broken(ErlNifEnv*       env,
@@ -285,6 +286,8 @@ BOOLEAN_T esock_decode_iov(ErlNifEnv*    env,
  *    local - sockaddr_un:  path
  *    inet  - sockaddr_in4: port, addr
  *    inet6 - sockaddr_in6: port, addr, flowinfo, scope_id
+ *    unspec - sockaddr:    addr
+ *    (int)  - sockaddr:     addr
  */
 
 extern
@@ -334,6 +337,12 @@ BOOLEAN_T esock_decode_sockaddr(ErlNifEnv*    env,
                                         &sockAddrP->un, addrLenP);
 #endif
 
+#ifdef AF_UNSPEC
+    case AF_UNSPEC:
+        return esock_decode_sockaddr_native(env, eSockAddr, sockAddrP,
+                                            AF_UNSPEC, addrLenP);
+#endif
+
     default:
         return FALSE;
     }
@@ -352,6 +361,8 @@ BOOLEAN_T esock_decode_sockaddr(ErlNifEnv*    env,
  *    inet   - sockaddr_in4: port, addr
  *    inet6  - sockaddr_in6: port, addr, flowinfo, scope_id
  *    packet - sockaddr_ll:  protocol, ifindex, hatype, pkttype, addr
+ *    unspec - sockaddr:     addr
+ *    (int)  - sockaddr:     addr
  */
 
 extern
@@ -360,35 +371,42 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
                            SOCKLEN_T     addrLen,
                            ERL_NIF_TERM* eSockAddr)
 {
+    int family;
+
     // Sanity check
     if (addrLen < (char *)&sockAddrP->sa.sa_data - (char *)sockAddrP) {
         // We got crap, cannot even know the address family
         esock_encode_sockaddr_broken(env, &sockAddrP->sa, addrLen, eSockAddr);
         return;
     }
-    
+    family = sockAddrP->ss.ss_family;
+
     UDBG( ("SUTIL", "esock_encode_sockaddr -> entry with"
            "\r\n   family:  %d"
            "\r\n   addrLen: %d"
-           "\r\n", sockAddrP->ss.ss_family, addrLen) );
+           "\r\n", family, addrLen) );
 
-    switch (sockAddrP->ss.ss_family) {
+    switch (family) {
     case AF_INET:
-        esock_encode_sockaddr_in(env, &sockAddrP->in4, addrLen,
-                                  eSockAddr);
+        esock_encode_sockaddr_in(env, &sockAddrP->in4, addrLen, eSockAddr);
         break;
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
     case AF_INET6:
-        esock_encode_sockaddr_in6(env, &sockAddrP->in6, addrLen,
-                                  eSockAddr);
+        esock_encode_sockaddr_in6(env, &sockAddrP->in6, addrLen, eSockAddr);
         break;
 #endif
 
 #ifdef HAS_AF_LOCAL
     case AF_LOCAL:
-        esock_encode_sockaddr_un(env, &sockAddrP->un, addrLen,
-                                 eSockAddr);
+        esock_encode_sockaddr_un(env, &sockAddrP->un, addrLen, eSockAddr);
+        break;
+#endif
+
+#ifdef AF_UNSPEC
+    case AF_UNSPEC:
+        esock_encode_sockaddr_native(env, &sockAddrP->sa,
+                                     addrLen, esock_atom_unspec, eSockAddr);
         break;
 #endif
 
@@ -399,7 +417,8 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
 #endif
 
     default:
-        esock_encode_sockaddr_native(env, &sockAddrP->sa, addrLen, eSockAddr);
+        esock_encode_sockaddr_native(env, &sockAddrP->sa,
+                                     addrLen, MKI(env, family), eSockAddr);
         break;
     }
 }
@@ -512,7 +531,7 @@ void esock_encode_sockaddr_in(ErlNifEnv*          env,
                "\r\n   addr size: %d"
                "\r\n", addrLen, sizeof(struct sockaddr_in)) );
         esock_encode_sockaddr_native(env, (struct sockaddr *)sockAddrP,
-                                     addrLen, eSockAddr);
+                                     addrLen, MKI(env, AF_INET), eSockAddr);
     }
 }
 
@@ -652,7 +671,7 @@ void esock_encode_sockaddr_in6(ErlNifEnv*            env,
 
     } else {
         esock_encode_sockaddr_native(env, (struct sockaddr *)sockAddrP,
-                                     addrLen, eSockAddr);
+                                     addrLen, MKI(env, AF_INET6), eSockAddr);
     }
 }
 #endif
@@ -780,7 +799,7 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
         }
     } else {
         esock_encode_sockaddr_native(env, (struct sockaddr *)sockAddrP,
-                                     addrLen, eSockAddr);
+                                     addrLen, MKI(env, AF_LOCAL), eSockAddr);
     }
 }
 #endif
@@ -837,7 +856,7 @@ void esock_encode_sockaddr_ll(ErlNifEnv*          env,
 
     } else {
         esock_encode_sockaddr_native(env, (struct sockaddr *)sockAddrP,
-                                     addrLen, eSockAddr);
+                                     addrLen, MKI(env, AF_PACKET), eSockAddr);
     }
 }
 #endif
@@ -1145,9 +1164,10 @@ BOOLEAN_T esock_decode_timeval(ErlNifEnv*      env,
  * Decode the Erlang form of the 'domain' type, that is: 
  * 
  * Return 1:
- *    inet  => AF_INET
- *    inet6 => AF_INET6
- *    local => AF_LOCAL
+ *    inet   => AF_INET
+ *    inet6  => AF_INET6
+ *    local  => AF_LOCAL
+ *    unspec => AF_UNSPEC
  *
  * Return -1:
  *    Int   => Int
@@ -1173,6 +1193,11 @@ int esock_decode_domain(ErlNifEnv*   env,
         *domain = AF_LOCAL;
 #endif
 
+#ifdef AF_UNSPEC
+    } else if (COMPARE(esock_atom_unspec, eDomain) == 0) {
+        *domain = AF_UNSPEC;
+#endif
+
     } else {
         int d;
 
@@ -1193,9 +1218,10 @@ int esock_decode_domain(ErlNifEnv*   env,
  *
  * Encode the native domain to the Erlang form, that is: 
  * 
- *    AF_INET  => inet
- *    AF_INET6 => inet6
- *    AF_LOCAL  => local
+ *    AF_INET    => inet
+ *    AF_INET6   => inet6
+ *    AF_LOCAL   => local
+ *    AF_UNSPEC  => unspec
  *
  */
 extern
@@ -1217,6 +1243,12 @@ void esock_encode_domain(ErlNifEnv*    env,
 #ifdef HAS_AF_LOCAL
     case AF_LOCAL:
         *eDomain = esock_atom_local;
+        break;
+#endif
+
+#ifdef AF_UNSPEC
+    case AF_UNSPEC:
+        *eDomain = esock_atom_unspec;
         break;
 #endif
 
@@ -1493,7 +1525,7 @@ void esock_encode_packet_addr_tuple(ErlNifEnv*     env,
 
 /* +++ esock_decode_sockaddr_native +++
  *
- * Decode a general sockaddr of unknown domain, within Erlang
+ * Decode a general sockaddr with unknown format, within Erlang
  * represented as a map, which has a specific set of attributes
  * (beside the mandatory family attribute, which is "inherited" from
  * the "sockaddr" type):
@@ -1550,13 +1582,13 @@ static
 void esock_encode_sockaddr_native(ErlNifEnv*       env,
                                   struct sockaddr* addr,
                                   SOCKLEN_T        len,
+                                  ERL_NIF_TERM     eFamily,
                                   ERL_NIF_TERM*    eSockAddr)
 {
     size_t size;
-    ERL_NIF_TERM eFamily, eData;
+    ERL_NIF_TERM eData;
 
     size = ((char*)addr + len) - (char*)&addr->sa_data;
-    eFamily = MKI(env, addr->sa_family);
     eData = esock_make_new_binary(env, &addr->sa_data, size);
 
     {

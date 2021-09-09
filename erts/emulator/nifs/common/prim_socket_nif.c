@@ -3663,6 +3663,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(unblock_source);                  \
     GLOBAL_ATOM_DECL(undefined);                       \
     GLOBAL_ATOM_DECL(unicast_hops);                    \
+    GLOBAL_ATOM_DECL(unspec);                          \
     GLOBAL_ATOM_DECL(usec);                            \
     GLOBAL_ATOM_DECL(user);                            \
     GLOBAL_ATOM_DECL(user_timeout);                    \

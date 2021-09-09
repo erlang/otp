@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -386,6 +386,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(unblock_source);           \
     GLOBAL_ATOM_DEF(undefined);                \
     GLOBAL_ATOM_DEF(unicast_hops);             \
+    GLOBAL_ATOM_DEF(unspec);                   \
     GLOBAL_ATOM_DEF(usec);                     \
     GLOBAL_ATOM_DEF(user);                     \
     GLOBAL_ATOM_DEF(user_timeout);             \
