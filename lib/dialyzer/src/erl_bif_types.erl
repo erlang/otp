@@ -772,6 +772,10 @@ type(erlang, length, 1, Xs, Opaques) ->
 %% Guard bif, needs to be here.
 type(erlang, map_size, 1, Xs, Opaques) ->
   type(maps, size, 1, Xs, Opaques);
+type(erlang, max, 2, Xs, Opaques) ->
+  strict(erlang, max, 2, Xs,
+         fun([A, B]) -> t_sup(A, B) end,
+         Opaques);
 %% Guard bif, needs to be here.
 type(erlang, map_get, 2, Xs, Opaques) ->
   type(maps, get, 2, Xs, Opaques);
@@ -803,6 +807,10 @@ type(erlang, make_tuple, 3, Xs, Opaques) ->
 	       _Other -> t_tuple()
 	     end
 	 end, Opaques);
+type(erlang, min, 2, Xs, Opaques) ->
+  strict(erlang, min, 2, Xs,
+         fun([A, B]) -> t_sup(A, B) end,
+         Opaques);
 type(erlang, nif_error, 1, Xs, Opaques) ->
   %% this BIF and the next one are stubs for NIFs and never return
   strict(erlang, nif_error, 1, Xs, fun (_) -> t_any() end, Opaques);
@@ -2297,6 +2305,8 @@ arg_types(erlang, is_tuple, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, length, 1) ->
   [t_list()];
+arg_types(erlang, max, 2) ->
+  [t_any(), t_any()];
 %% Guard bif, needs to be here.
 arg_types(erlang, map_size, 1) ->
   [t_map()];
@@ -2309,6 +2319,8 @@ arg_types(erlang, make_tuple, 2) ->
   [t_non_neg_fixnum(), t_any()];  % the value 0 is OK as first argument
 arg_types(erlang, make_tuple, 3) ->
   [t_non_neg_fixnum(), t_any(), t_list(t_tuple([t_pos_integer(), t_any()]))];
+arg_types(erlang, min, 2) ->
+  [t_any(), t_any()];
 arg_types(erlang, nif_error, 1) ->
   [t_any()];
 arg_types(erlang, nif_error, 2) ->
