@@ -1796,6 +1796,7 @@ put(_Key, _Val) ->
     erlang:nif_error(undefined).
 
 %% raise/3
+%% Shadowed by erl_bif_types: erlang:raise/3
 -spec erlang:raise(Class, Reason, Stacktrace) -> 'badarg' when
       Class :: 'error' | 'exit' | 'throw',
       Reason :: term(),

@@ -813,6 +813,13 @@ type(erlang, node, 0, _, _Opaques) -> t_node();
 %% Guard bif, needs to be here.
 type(erlang, node, 1, Xs, Opaques) ->
   strict(erlang, node, 1, Xs, fun (_) -> t_node() end, Opaques);
+type(erlang, raise, 3, Xs, Opaques) ->
+  Ts = arg_types(erlang, raise, 3),
+  Xs1 = inf_lists(Xs, Ts, Opaques),
+  case any_is_none_or_unit(Xs1) of
+    true -> t_atom('badarg');
+    false -> t_none()
+  end;
 %% Guard bif, needs to be here.
 type(erlang, round, 1, Xs, Opaques) ->
   strict(erlang, round, 1, Xs, fun (_) -> t_integer() end, Opaques);
@@ -2312,6 +2319,20 @@ arg_types(erlang, node, 0) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, node, 1) ->
   [t_identifier()];
+arg_types(erlang, raise, 3) ->
+  %% The types are based on the implementation of erlang:raise/3, not
+  %% the documention. That is, those are the types for which
+  %% erlang:raise/3 will raise an exception. If the arguments do not
+  %% conform to those types, erlang:raise/3 will return 'badarg'.
+  Class = t_sup([t_atom('error'), t_atom('exit'), t_atom('throw')]),
+  InfoList = t_list(),                 %erlang:raise/3 does not check the contents of the list.
+  ArityOrArgs = t_any(),               %erlang:raise/3 does not check the type.
+  MFA = t_tuple([t_module(), t_atom(), ArityOrArgs]),
+  MFAS = t_tuple([t_module(), t_atom(), ArityOrArgs, InfoList]),
+  Fun = t_tuple([t_fun(), ArityOrArgs]),
+  FunI = t_tuple([t_fun(), ArityOrArgs, InfoList]),
+  Stack = t_list(t_sup([MFA, MFAS, Fun, FunI])),
+  [Class, t_any(), Stack];
 %% Guard bif, needs to be here.
 arg_types(erlang, round, 1) ->
   [t_number()];
@@ -2550,7 +2571,6 @@ check_fun_application(Fun, Args, Opaques) ->
     false ->
       error
   end.
-
 
 %% =====================================================================
 %% Some basic types used in various parts of the system
