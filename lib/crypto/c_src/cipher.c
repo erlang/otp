@@ -317,10 +317,13 @@ const struct cipher_type_t* get_cipher_type_no_key(ERL_NIF_TERM type)
 int cmp_cipher_types_no_key(const void *keyp, const void *elemp) {
     const struct cipher_type_t *key  = keyp;
     const struct cipher_type_t *elem = elemp;
+    int ret;
 
-    if (key->type.atom < elem->type.atom) return -1;
-    else if (key->type.atom > elem->type.atom) return 1;
-    else /* key->type.atom == elem->type.atom */ return 0;
+    if (key->type.atom < elem->type.atom) ret = -1;
+    else if (key->type.atom > elem->type.atom) ret = 1;
+    else /* key->type.atom == elem->type.atom */ ret = 0;
+
+    return ret;
 }
 
 
