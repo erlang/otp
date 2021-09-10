@@ -21,7 +21,7 @@
 %%
 
 -module(beam_utils).
--export([replace_labels/4,is_pure_test/1,split_even/1]).
+-export([replace_labels/4,split_even/1]).
 
 -export_type([code_index/0,module_code/0,instruction/0]).
 
@@ -39,11 +39,6 @@
 -type module_code() ::
         {module(),[_],[_],[int_function()],pos_integer()}.
 
-%% Internal types.
--type fail() :: beam_asm:fail() | 'fail'.
--type test() :: {'test',atom(),fail(),[beam_asm:src()]} |
-		{'test',atom(),fail(),integer(),list(),beam_asm:reg()}.
-
 %% replace_labels(FunctionIs, Tail, ReplaceDb, Fallback) -> FunctionIs.
 %%  Replace all labels in instructions according to the ReplaceDb.
 %%  If label is not found the Fallback is called with the label to
@@ -55,28 +50,6 @@
                      fun((beam_asm:label()) -> term())) -> [instruction()].
 replace_labels(Is, Acc, D, Fb) ->
     replace_labels_1(Is, Acc, D, Fb).
-
-%% is_pure_test({test,Op,Fail,Ops}) -> true|false.
-%%  Return 'true' if the test instruction does not modify any
-%%  registers and/or bit syntax matching state.
-%%
-
--spec is_pure_test(test()) -> boolean().
-
-is_pure_test({test,is_eq,_,[_,_]}) -> true;
-is_pure_test({test,is_ne,_,[_,_]}) -> true;
-is_pure_test({test,is_eq_exact,_,[_,_]}) -> true;
-is_pure_test({test,is_ne_exact,_,[_,_]}) -> true;
-is_pure_test({test,is_ge,_,[_,_]}) -> true;
-is_pure_test({test,is_lt,_,[_,_]}) -> true;
-is_pure_test({test,is_nonempty_list,_,[_]}) -> true;
-is_pure_test({test,is_tagged_tuple,_,[_,_,_]}) -> true;
-is_pure_test({test,test_arity,_,[_,_]}) -> true;
-is_pure_test({test,has_map_fields,_,[_|_]}) -> true;
-is_pure_test({test,is_bitstr,_,[_]}) -> true;
-is_pure_test({test,is_function2,_,[_,_]}) -> true;
-is_pure_test({test,Op,_,Ops}) ->
-    erl_internal:new_type_test(Op, length(Ops)).
 
 %% split_even/1
 %% [1,2,3,4,5,6] -> {[1,3,5],[2,4,6]}

@@ -34,7 +34,6 @@
              beam_kernel_to_ssa,
 	     beam_listing,
 	     beam_opcodes,
-	     beam_peep,
              beam_ssa,
              beam_ssa_bc_size,
              beam_ssa_bool,

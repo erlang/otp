@@ -597,21 +597,9 @@ find_fixpoint(OptFun, Is0) ->
 	Is -> find_fixpoint(OptFun, Is)
     end.
 
-opt([{test,_,{f,L}=Lbl,_}=I|[{jump,{f,L}}|_]=Is], Acc, St) ->
-    %% We have
-    %%    Test Label Ops
-    %%    jump Label
-    %% The test instruction is not needed if the test is pure
-    %% (it modifies neither registers nor bit syntax state).
-    case beam_utils:is_pure_test(I) of
-	false ->
-	    %% Test is not pure; we must keep it.
-	    opt(Is, [I|Acc], label_used(Lbl, St));
-	true ->
-	    %% The test is pure and its failure label is the same
-	    %% as in the jump that follows -- thus it is not needed.
-	    opt(Is, Acc, St)
-    end;
+opt([{test,is_eq_exact,{f,L},_}|[{jump,{f,L}}|_]=Is], Acc, St) ->
+    %% The is_eq_exact test is not needed.
+    opt(Is, Acc, St);
 opt([{test,Test0,{f,L}=Lbl,Ops}=I|[{jump,To}|Is]=Is0], Acc, St) ->
     case is_label_defined(Is, L) of
 	false ->
@@ -629,6 +617,28 @@ opt([{test,_,{f,_}=Lbl,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], label_used(Lbl, St));
 opt([{test,_,{f,_}=Lbl,_,_,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], label_used(Lbl, St));
+opt([{select,select_val,R,F,Vls0}|Is], Acc, St) ->
+    case prune_redundant_values(Vls0, F) of
+        [] ->
+            %% No values left. Must convert to plain jump.
+            I = {jump,F},
+            opt([I|Is], Acc, St);
+        [{atom,_}=Value,Lbl] ->
+            %% Single value left. Convert to regular test.
+            Is1 = [{test,is_eq_exact,F,[R,Value]},{jump,Lbl}|Is],
+            opt(Is1, Acc, St);
+        [{integer,_}=Value,Lbl] ->
+            %% Single value left. Convert to regular test.
+            Is1 = [{test,is_eq_exact,F,[R,Value]},{jump,Lbl}|Is],
+            opt(Is1, Acc, St);
+        [{atom,B1},Lbl,{atom,B2},Lbl] when B1 =:= not B2 ->
+            %% Replace with is_boolean test.
+            Is1 = [{test,is_boolean,F,[R]},{jump,Lbl}|Is],
+            opt(Is1, Acc, St);
+        [_|_]=Vls ->
+            I = {select,select_val,R,F,Vls},
+            skip_unreachable(Is, [I|Acc], label_used([F|Vls], St))
+    end;
 opt([{select,_,_R,Fail,Vls}=I|Is], Acc, St) ->
     skip_unreachable(Is, [I|Acc], label_used([Fail|Vls], St));
 opt([{label,From}=I,{label,To}|Is], Acc, #st{replace=Replace}=St) ->
@@ -663,6 +673,12 @@ opt([], Acc, #st{replace=Replace0}) when Replace0 =/= #{} ->
     beam_utils:replace_labels(Acc, [], Replace, fun(Old) -> Old end);
 opt([], Acc, #st{replace=Replace}) when Replace =:= #{} ->
     reverse(Acc).
+
+prune_redundant_values([_Val,F|Vls], F) ->
+    prune_redundant_values(Vls, F);
+prune_redundant_values([Val,Lbl|Vls], F) ->
+    [Val,Lbl|prune_redundant_values(Vls, F)];
+prune_redundant_values([], _) -> [].
 
 normalize_replace([{From,To0}|Rest], Replace, Acc) ->
     case Replace of

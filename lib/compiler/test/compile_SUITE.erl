@@ -486,7 +486,6 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
             {dblk, ".block"},
             {djmp, ".jump"},
             {dclean, ".clean"},
-            {dpeep, ".peep"},
             {dopt, ".optimize"},
             {diffable, ".S"}],
     p_listings(List, Simple, TargetDir),

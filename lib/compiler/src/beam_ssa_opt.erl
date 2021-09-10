@@ -39,7 +39,7 @@
 
 -include("beam_ssa_opt.hrl").
 
--import(lists, [all/2,append/1,duplicate/2,flatten/1,foldl/3,
+-import(lists, [all/2,append/1,droplast/1,duplicate/2,flatten/1,foldl/3,
                 keyfind/3,last/1,mapfoldl/3,member/2,
                 partition/2,reverse/1,reverse/2,
                 splitwith/2,sort/1,takewhile/2,unzip/1]).
@@ -301,6 +301,7 @@ epilogue_passes(Opts) ->
           ?PASS(ssa_opt_bsm_shortcut),
           ?PASS(ssa_opt_sink),
           ?PASS(ssa_opt_blockify),
+          ?PASS(ssa_opt_redundant_br),
           ?PASS(ssa_opt_merge_blocks),
           ?PASS(ssa_opt_get_tuple_element),
           ?PASS(ssa_opt_tail_calls),
@@ -3100,6 +3101,127 @@ is_tail_call_is([#b_set{op=call,dst=Dst}=Call,
 is_tail_call_is([I|Is], Bool, Ret, Acc) ->
     is_tail_call_is(Is, Bool, Ret, [I|Acc]);
 is_tail_call_is([], _Bool, _Ret, _Acc) -> no.
+
+%%%
+%%% Eliminate redundant branches.
+%%%
+%%% Redundant `br` instructions following calls to guard BIFs such as:
+%%%
+%%%     @bif_result = bif:Bif ...
+%%%     br @bif_result, ^100, ^200
+%%%
+%%%   100:
+%%%      ret `true`
+%%%
+%%%   200:
+%%%      ret `false`
+%%%
+%%% can can be rewritten to:
+%%%
+%%%     @bif_result = bif:Bif ...
+%%%     ret @bif_result
+%%%
+%%% A similar rewriting is possible if the true and false branches end
+%%% up at a phi node.
+%%%
+%%% A code sequence such as:
+%%%
+%%%   @ssa_bool = bif:'=:=' Var, Other
+%%%   br @ssa_bool, ^100, ^200
+%%%
+%%% 100:
+%%%   ret Other
+%%%
+%%% 200:
+%%%   ret Var
+%%%
+%%% can be rewritten to:
+%%%
+%%%   ret Var
+%%%
+
+ssa_opt_redundant_br({#opt_st{ssa=Blocks0}=St, FuncDb}) ->
+    Blocks = redundant_br(beam_ssa:rpo(Blocks0), Blocks0),
+    {St#opt_st{ssa=Blocks}, FuncDb}.
+
+redundant_br([L|Ls], Blocks0) ->
+    Blk0 = map_get(L, Blocks0),
+    case Blk0 of
+        #b_blk{is=Is,
+               last=#b_br{bool=#b_var{}=Bool,
+                          succ=Succ,
+                          fail=Fail}} ->
+            case Blocks0 of
+                #{Succ := #b_blk{is=[],last=#b_ret{arg=#b_literal{val=true}}},
+                  Fail := #b_blk{is=[],last=#b_ret{arg=#b_literal{val=false}}}} ->
+                    case redundant_br_safe_bool(Is, Bool) of
+                        true ->
+                            Blk = Blk0#b_blk{last=#b_ret{arg=Bool}},
+                            Blocks = Blocks0#{L => Blk},
+                            redundant_br(Ls, Blocks);
+                        false ->
+                            redundant_br(Ls, Blocks0)
+                    end;
+                #{Succ := #b_blk{is=[],last=#b_br{succ=PhiL,fail=PhiL}},
+                  Fail := #b_blk{is=[],last=#b_br{succ=PhiL,fail=PhiL}}} ->
+                    case redundant_br_safe_bool(Is, Bool) of
+                        true ->
+                            Blocks = redundant_br_phi(L, Blk0, PhiL, Blocks0),
+                            redundant_br(Ls, Blocks);
+                        false ->
+                            redundant_br(Ls, Blocks0)
+                    end;
+                #{Succ := #b_blk{is=[],last=#b_ret{arg=Other}},
+                  Fail := #b_blk{is=[],last=#b_ret{arg=Var}}} when Is =/= [] ->
+                    case last(Is) of
+                        #b_set{op={bif,'=:='},args=[Var,Other]} ->
+                            Blk = Blk0#b_blk{is=droplast(Is),
+                                             last=#b_ret{arg=Var}},
+                            Blocks = Blocks0#{L => Blk},
+                            redundant_br(Ls, Blocks);
+                        #b_set{} ->
+                            redundant_br(Ls, Blocks0)
+                    end;
+                #{} ->
+                    redundant_br(Ls, Blocks0)
+            end;
+        _ ->
+            redundant_br(Ls, Blocks0)
+    end;
+redundant_br([], Blocks) -> Blocks.
+
+redundant_br_phi(L, Blk0, PhiL, Blocks) ->
+    #b_blk{is=Is0} = PhiBlk0 = map_get(PhiL, Blocks),
+    case Is0 of
+        [#b_set{op=phi},#b_set{op=phi}|_] ->
+            Blocks;
+        [#b_set{op=phi,args=PhiArgs0}=I0|Is] ->
+            #b_blk{last=#b_br{succ=Succ,fail=Fail}} = Blk0,
+            BoolPhiArgs = [{#b_literal{val=false},Fail},
+                           {#b_literal{val=true},Succ}],
+            PhiArgs1 = ordsets:from_list(PhiArgs0),
+            case ordsets:is_subset(BoolPhiArgs, PhiArgs1) of
+                true ->
+                    #b_blk{last=#b_br{bool=Bool}} = Blk0,
+                    PhiArgs = ordsets:add_element({Bool,L}, PhiArgs1),
+                    I = I0#b_set{args=PhiArgs},
+                    PhiBlk = PhiBlk0#b_blk{is=[I|Is]},
+                    Br = #b_br{bool=#b_literal{val=true},succ=PhiL,fail=PhiL},
+                    Blk = Blk0#b_blk{last=Br},
+                    Blocks#{L := Blk, PhiL := PhiBlk};
+                false ->
+                    Blocks
+            end
+    end.
+
+redundant_br_safe_bool([], _Bool) ->
+    true;
+redundant_br_safe_bool(Is, Bool) ->
+    case last(Is) of
+        #b_set{op={bif,_}} -> true;
+        #b_set{op=has_map_field} -> true;
+        #b_set{dst=Dst} -> Dst =/= Bool
+    end.
 
 %%%
 %%% Common utilities.
