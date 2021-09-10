@@ -73,7 +73,7 @@
   {label,19}.
     {case_end,{integer,42}}.
 
-{function, zi2, 0, 16}.
+{function, zi2, 0, 21}.
   {label,20}.
     {func_info,{atom,literal_case_expression},{atom,zi2},0}.
   {label,21}.
