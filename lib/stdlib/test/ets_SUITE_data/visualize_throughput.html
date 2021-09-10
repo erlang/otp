@@ -240,10 +240,12 @@
           function plotScenario(name, plotType) {
               var data = scenarioDataMap[name];
               var yAxisTitle = undefined;
+              var graphId = "graph" + nrOfGraphs;
+              var fullscreenButtonid = "fullscreenButton" + nrOfGraphs;
               nrOfGraphs = nrOfGraphs + 1;
-              $("<div class='added' id='graph" + nrOfGraphs + "'>")
+              $("<div class='added' id='" + graphId + "'>")
                   .insertBefore(insertPlaceholder);
-              $("<button type='button' class='added' id='fullscreenButton" + nrOfGraphs + "'>Fill screen</button>")
+              $("<button type='button' class='added' id='" + fullscreenButtonid + "'>Fill screen</button>")
                   .insertBefore(insertPlaceholder);
               $("<span class='added'><br><hr><br></span>")
                   .insertBefore(insertPlaceholder);
@@ -265,17 +267,17 @@
                       title: yAxisTitle
                   }
               };
-              $("#fullscreenButton" + nrOfGraphs).click(
+              $("#" + fullscreenButtonid).click(
                   function () {
-                      $('#graph' + nrOfGraphs).replaceWith(
-                          $("<div class='added' id='graph" + nrOfGraphs + "'>"));
+                      $('#' + graphId).replaceWith(
+                          $("<div class='added' id='" + graphId + "'>"));
                       layout = $.extend({}, layout, {
                           width: $(window).width() - 40,
                           height: $(window).height() - 40
                       });
-                      Plotly.newPlot('graph' + nrOfGraphs, data, layout);
+                      Plotly.newPlot(graphId, data, layout);
                   });
-              Plotly.newPlot('graph' + nrOfGraphs, data, layout);
+              Plotly.newPlot(graphId, data, layout);
           }
           $.each(scenarioList,
               function (index, name) {
