@@ -52,6 +52,7 @@
 	 cpu_topology/1,
 	 update_cpu_info/1,
 	 sct_cmd/1,
+	 ssrct_cmd/1,
 	 sbt_cmd/1,
 	 scheduler_threads/1,
 	 scheduler_suspend_basic/1,
@@ -786,6 +787,8 @@ cpu_topology_bif_test(Config, Topology) ->
     {ok, Node} = start_node(Config),
     _ = rpc:call(Node, erlang, system_flag, [cpu_topology, Topology]),
     cmp(Topology, rpc:call(Node, erlang, system_info, [cpu_topology])),
+    cmp(Topology,
+        rpc:call(Node, erlang, system_info, [{cpu_topology, defined}])),
     stop_node(Node),
     ok.
 
@@ -794,6 +797,10 @@ cpu_topology_cmdline_test(_Config, _Topology, false) ->
 cpu_topology_cmdline_test(Config, Topology, Cmd) ->
     {ok, Node} = start_node(Config, Cmd),
     cmp(Topology, rpc:call(Node, erlang, system_info, [cpu_topology])),
+    cmp(undefined,
+        rpc:call(Node, erlang, system_info, [{cpu_topology, detected}])),
+    cmp(Topology,
+        rpc:call(Node, erlang, system_info, [{cpu_topology, defined}])),
     stop_node(Node),
     ok.
 
@@ -979,6 +986,10 @@ sct_cmd(Config) when is_list(Config) ->
 	{ok, Node} = start_node(Config, ?TOPOLOGY_A_CMD),
 	cmp(Topology,
 		  rpc:call(Node, erlang, system_info, [cpu_topology])),
+	cmp(undefined,
+		  rpc:call(Node, erlang, system_info, [{cpu_topology, detected}])),
+	cmp(Topology,
+		  rpc:call(Node, erlang, system_info, [{cpu_topology, defined}])),
 	cmp(Topology,
 		  rpc:call(Node, erlang, system_flag, [cpu_topology, Topology])),
 	cmp(Topology,
@@ -986,6 +997,22 @@ sct_cmd(Config) when is_list(Config) ->
 	stop_node(Node)
     after
 	restore_erl_rel_flags(OldRelFlags)
+    end,
+    ok.
+
+ssrct_cmd(Config) when is_list(Config) ->
+    OldRelFlags = clear_erl_rel_flags(),
+    try
+        {ok, Node} = start_node(Config, "+ssrct"),
+        cmp(undefined,
+            rpc:call(Node, erlang, system_info, [cpu_topology])),
+        cmp(undefined,
+            rpc:call(Node, erlang, system_info, [{cpu_topology, detected}])),
+        cmp(undefined,
+            rpc:call(Node, erlang, system_info, [{cpu_topology, defined}])),
+        stop_node(Node)
+    after
+        restore_erl_rel_flags(OldRelFlags)
     end,
     ok.
 

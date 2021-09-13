@@ -40,7 +40,8 @@ erts_early_init_cpu_topology(int no_schedulers,
 			     int max_reader_groups,
 			     int *reader_groups_p,
                              int max_decentralized_counter_groups,
-                             int *decentralized_counter_groups_p);
+                             int *decentralized_counter_groups_p,
+                             int skip_read_topology);
 void erts_init_cpu_topology(void);
 
 
