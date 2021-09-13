@@ -117,7 +117,7 @@ close_server(Server) ->
 connect(?MODULE_socket(_Server, Socket), Address, Port) ->
     case os:type() of
         {unix,linux} ->
-            _ = socket:connect(Socket, #{family => 0}),
+            _ = socket:connect(Socket, #{family => unspec}),
             ok;
         _ ->
             ok
