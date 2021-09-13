@@ -251,8 +251,9 @@ refine_one_module(M, {CodeServer, Callgraph, Plt, _Solvers}) ->
   Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
   NewFunTypes =
     dialyzer_dataflow:get_fun_types(ModCode, Plt, Callgraph, CodeServer, Records),
-  {FunMFAContracts, ModOpaques} =
-    prepare_decoration(NewFunTypes, Callgraph, CodeServer),
+
+  FunMFAContracts = get_contracts(NewFunTypes, Callgraph, CodeServer),
+  ModOpaques = get_module_opaques(FunMFAContracts, CodeServer),
   DecoratedFunTypes = decorate_succ_typings(FunMFAContracts, ModOpaques),
   %% ?Debug("NewFunTypes       ~tp\n   ~n", [NewFunTypes]),
   %% ?debug("refine DecoratedFunTypes ~tp\n   ~n", [DecoratedFunTypes]),
@@ -356,8 +357,8 @@ find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
   BinRel = sofs:from_external(FunTypes, [{id,type}]), %Already sorted.
   FilteredFunTypes = sofs:to_external(sofs:restriction(BinRel, Set)),
 
-  {FunMFAContracts, ModOpaques} =
-    prepare_decoration(FilteredFunTypes, Callgraph, Codeserver),
+  FunMFAContracts = get_contracts(FilteredFunTypes, Callgraph, Codeserver),
+  ModOpaques = get_module_opaques(FunMFAContracts, Codeserver),
   DecoratedFunTypes = decorate_succ_typings(FunMFAContracts, ModOpaques),
 
   %% Check contracts
@@ -385,7 +386,7 @@ find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
       AllFunKeys
   end.
 
-prepare_decoration(FunTypes, Callgraph, Codeserver) ->
+get_contracts(FunTypes, Callgraph, Codeserver) ->
   F = fun({Label, _Type}=LabelType, Acc) ->
           case dialyzer_callgraph:lookup_name(Label, Callgraph) of
             {ok, MFA} ->
@@ -397,11 +398,11 @@ prepare_decoration(FunTypes, Callgraph, Codeserver) ->
             error -> [{LabelType, no}|Acc]
           end
       end,
-  Contracts = lists:foldl(F, [], orddict:to_list(FunTypes)),
-  ModOpaques =
-    [{M, lookup_opaques(M, Codeserver)} ||
-      M <- lists:usort([M || {_LabelType, {{M, _, _}, _Con}} <- Contracts])],
-  {Contracts, orddict:from_list(ModOpaques)}.
+  lists:foldl(F, [], FunTypes).
+
+get_module_opaques(Contracts, Codeserver) ->
+  OpaqueModules = ordsets:from_list([M || {_LabelType, {{M, _, _}, _Con}} <- Contracts]),
+  [{M, lookup_opaques(M, Codeserver)} || M <- OpaqueModules].
 
 decorate_succ_typings(FunTypesContracts, ModOpaques) ->
   F = fun({{Label, Type}, {{M, _, _}, Contract}}) ->
