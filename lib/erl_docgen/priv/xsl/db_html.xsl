@@ -229,30 +229,22 @@
         <xsl:variable name="curModule" select="ancestor::erlref/module"/>
         <xsl:variable name="mfas"
                       select="key('mfa',
-                                  concat($curModule,':',$name,'/',$arity))"/>
-	<xsl:choose>
-          <xsl:when test="generate-id($mfas[1]) != generate-id(.)">
-	    <!-- Avoid duplicated anchors. See also menu.funcs. -->
-	  </xsl:when>
-	  <xsl:otherwise>
-	    <a name="{$name}-{$arity}"></a>
-	  </xsl:otherwise>
-        </xsl:choose>
+                              concat($curModule,':',$name,'/',$arity))"/>
 
 	<!-- Insert an anchor for "anchor" attribute -->
 	<xsl:if test="string-length($anchor) > 0">
-	      <a name="{$anchor}"></a>
+	  <a name="{$anchor}"></a>
 	</xsl:if>
 
         <xsl:variable name="global_types" select="ancestor::erlref/datatypes"/>
 	<xsl:variable name="local_types"
 		      select="../type[string-length(@name) > 0]"/>
-	  <xsl:apply-templates select="$spec/contract/clause/head">
-            <xsl:with-param name="ghlink" select="ancestor-or-self::*[@ghlink]/@ghlink"/>
-	    <xsl:with-param name="local_types" select="$local_types"/>
-	    <xsl:with-param name="global_types" select="$global_types"/>
-	    <xsl:with-param name="since" select="$since"/>
-	  </xsl:apply-templates>
+	<xsl:apply-templates select="$spec/contract/clause/head">
+          <xsl:with-param name="ghlink" select="ancestor-or-self::*[@ghlink]/@ghlink"/>
+	  <xsl:with-param name="local_types" select="$local_types"/>
+	  <xsl:with-param name="global_types" select="$global_types"/>
+	  <xsl:with-param name="since" select="$since"/>
+	</xsl:apply-templates>
       </xsl:when>
     </xsl:choose>
   </xsl:template>
@@ -264,10 +256,10 @@
     <xsl:param name="since"/>
     <xsl:variable name="mfa" select="concat(concat(../../../name,'-'),../../../arity)"/>
     <xsl:variable name="id" select="concat(concat($mfa,'-'),generate-id(.))"/>
-    <div class="bold_code title-link func-head"
+    <h4 id="{$mfa}" class="bold_code title-link func-head"
          onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
          onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
-      <div>
+      <div class="title-anchors">
         <xsl:call-template name="ghlink">
           <xsl:with-param name="mfa" select="$mfa"/>
           <xsl:with-param name="ghlink" select="$ghlink"/>
@@ -280,13 +272,13 @@
 	  <xsl:with-param name="global_types" select="$global_types"/>
         </xsl:apply-templates>
       </div>
-      <div class="title-since">
-        <xsl:if test="string-length($since) > 0">
+      <xsl:if test="string-length($since) > 0">
+        <div class="title-since">
 	  <span class="since"><xsl:value-of select="$since"/>
 	  </span>
-        </xsl:if>
-      </div>
-    </div>
+        </div>
+      </xsl:if>
+    </h4>
   </xsl:template>
 
   <!-- The *last* <name name="..." arity=".."/> -->
@@ -315,7 +307,7 @@
          (there is no spec with more than one clause) -->
     <xsl:if test="count($clause/guard) > 0 or count($type) > 0">
         <div class="REFBODY fun-types">
-            <h3 class="func-types-title">Types</h3>
+            <h3 id="types" class="func-types-title">Types</h3>
 
         <xsl:choose>
           <xsl:when test="$output_subtypes">
@@ -477,12 +469,10 @@
   <!-- Datatype Title, is the really needed? not used by anything -->
   <xsl:template match="datatype_title">
     <xsl:variable name="title" select="."/>
-    <h4>
-      <xsl:call-template name="title_link">
-        <xsl:with-param name="title"><xsl:apply-templates/></xsl:with-param>
-        <xsl:with-param name="link" select="$title"/>
-      </xsl:call-template>
-    </h4>
+    <xsl:call-template name="title_link">
+      <xsl:with-param name="title"><xsl:apply-templates/></xsl:with-param>
+      <xsl:with-param name="link" select="$title"/>
+    </xsl:call-template>
   </xsl:template>
 
   <!-- Datatype -->
@@ -507,15 +497,19 @@
               <xsl:with-param name="by" select="$slash_encoded" />
             </xsl:call-template>
           </xsl:variable>
-          <div class="title-link data-type-name"
+          <h4 id="{$id}" class="title-link data-type-name"
                onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
                onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
-            <xsl:call-template name="ghlink">
-              <xsl:with-param name="mfa" select="$id"/>
-              <xsl:with-param name="id" select="$id"/>
-            </xsl:call-template>
-            <xsl:apply-templates select="name"/>
-          </div>
+            <div class="title-anchors">
+              <xsl:call-template name="ghlink">
+                <xsl:with-param name="mfa" select="$id"/>
+                <xsl:with-param name="id" select="$id"/>
+              </xsl:call-template>
+            </div>
+            <div class="title-name">
+              <xsl:apply-templates select="name"/>
+            </div>
+          </h4>
         </xsl:when>
         <xsl:otherwise>
           <div class="data-type-name">
@@ -1048,17 +1042,16 @@
   <!-- Chapter/Section, subsection level 1-->
   <xsl:template match="chapter/section">
     <xsl:param name="chapnum"/>
-    <h3>
-      <xsl:for-each select="marker">
-	<xsl:call-template name="marker-before-title"/>
-      </xsl:for-each>
-      <xsl:call-template name="title_link">
-        <xsl:with-param name="title">
-          <xsl:value-of select="$chapnum"/>.<xsl:number/>&#160;
-          <xsl:value-of select="title"/>
-        </xsl:with-param>
-      </xsl:call-template>
-    </h3>
+    <xsl:for-each select="marker">
+      <xsl:call-template name="marker-before-title"/>
+    </xsl:for-each>
+    <xsl:call-template name="title_link">
+      <xsl:with-param name="title">
+        <xsl:value-of select="$chapnum"/>.<xsl:number/>&#160;
+        <xsl:value-of select="title"/>
+      </xsl:with-param>
+      <xsl:with-param name="header" select="'h3'"/>
+    </xsl:call-template>
     <xsl:apply-templates>
       <xsl:with-param name="chapnum" select="$chapnum"/>
       <xsl:with-param name="sectnum"><xsl:number/></xsl:with-param>
@@ -1069,17 +1062,15 @@
   <xsl:template match="section/section">
     <xsl:param name="chapnum"/>
     <xsl:param name="sectnum"/>
-    <h4>
-      <xsl:for-each select="marker">
-	<xsl:call-template name="marker-before-title"/>
-      </xsl:for-each>
-      <!-- xsl:value-of select="$partnum"/>.<xsl:value-of select="$chapnum"/>.<xsl:value-of select="$sectnum"/>.<xsl:number/ -->
-      <xsl:call-template name="title_link">
-        <xsl:with-param name="title">
-          <xsl:value-of select="title"/>
-        </xsl:with-param>
-      </xsl:call-template>
-    </h4>
+    <xsl:for-each select="marker">
+      <xsl:call-template name="marker-before-title"/>
+    </xsl:for-each>
+    <!-- xsl:value-of select="$partnum"/>.<xsl:value-of select="$chapnum"/>.<xsl:value-of select="$sectnum"/>.<xsl:number/ -->
+    <xsl:call-template name="title_link">
+      <xsl:with-param name="title">
+        <xsl:value-of select="title"/>
+      </xsl:with-param>
+    </xsl:call-template>
     <xsl:apply-templates>
       <xsl:with-param name="chapnum" select="$chapnum"/>
     </xsl:apply-templates>
@@ -1105,16 +1096,15 @@
   <xsl:template match="erlref/section|cref/section|comref/section|fileref/section|appref/section|funcs/fsdescription">
     <xsl:param name="chapnum"/>
     <section class="innertube">
-      <h3>
-        <xsl:for-each select="marker">
-	  <xsl:call-template name="marker-before-title"/>
-        </xsl:for-each>
-        <xsl:call-template name="title_link">
-          <xsl:with-param name="title">
-            <xsl:value-of select="title"/>
-          </xsl:with-param>
-        </xsl:call-template>
-      </h3>
+      <xsl:for-each select="marker">
+	<xsl:call-template name="marker-before-title"/>
+      </xsl:for-each>
+      <xsl:call-template name="title_link">
+        <xsl:with-param name="title">
+          <xsl:value-of select="title"/>
+        </xsl:with-param>
+        <xsl:with-param name="header" select="'h3'"/>
+      </xsl:call-template>
       <div class="REFBODY rb-3">
         <xsl:apply-templates>
           <xsl:with-param name="chapnum" select="$chapnum"/>
@@ -1128,7 +1118,7 @@
     <xsl:param name="chapnum"/>
     <xsl:param name="sectnum"/>
     <section>
-      <h4>
+      <h4 id="{title}">
         <xsl:value-of select="title"/>
       </h4>
       <div class="REFBODY rb-4">
@@ -1459,7 +1449,7 @@
 
         <xsl:call-template name="menu_middle"/>
 
-        <h3>Chapters</h3>
+        <h3 id="chapters">Chapters</h3>
 
         <ul class="flipMenu" imagepath="{$topdocdir}/js/flipmenu">
           <xsl:call-template name="menu.chapter">
@@ -1487,7 +1477,7 @@
 
         <xsl:call-template name="menu_middle"/>
 
-        <h3>Table of Contents</h3>
+        <h3 id="toc">Table of Contents</h3>
 
         <ul class="flipMenu">
           <xsl:call-template name="menu.ref2">
@@ -1514,7 +1504,7 @@
 
         <xsl:call-template name="menu_middle"/>
 
-        <h3>Chapters</h3>
+        <h3 id="chapters">Chapters</h3>
 
         <ul class="flipMenu" imagepath="{$topdocdir}/js/flipmenu">
           <xsl:call-template name="menu.chapter">
@@ -1522,7 +1512,7 @@
           </xsl:call-template>
         </ul>
 
-        <h3>Modules</h3>
+        <h3 id="modules">Modules</h3>
 
         <ul class="flipMenu">
           <xsl:call-template name="menu.ref2">
@@ -1587,7 +1577,7 @@
 
         <xsl:call-template name="menu_middle"/>
 
-        <h3>Chapters</h3>
+        <h3 id="chapters">Chapters</h3>
 
         <ul class="flipMenu" imagepath="{$topdocdir}/js/flipmenu">
           <xsl:call-template name="menu.chapter">
@@ -1681,7 +1671,7 @@
     <xsl:param name="chapnum"/>
 
     <!-- center-->
-      <h1>
+      <h1 id="{header/title}">
         <xsl:value-of select="$chapnum"/>&#160;<xsl:value-of select="header/title"/>
       </h1>
     <!-- /center-->
@@ -1748,7 +1738,7 @@
 
         <xsl:call-template name="menu_middle"/>
 
-        <h3>Table of Contents</h3>
+        <h3 id="toc">Table of Contents</h3>
 
         <ul class="flipMenu">
           <xsl:call-template name="menu.ref2">
@@ -2438,7 +2428,7 @@
     <xsl:if test="string-length(@name) = 0 and string-length(@variable) = 0">
 
         <div class="REFBODY rb-5">
-            <h3 class="func-types-title">Types</h3>
+            <h3 id="types" class="func-types-title">Types</h3>
 
             <xsl:apply-templates>
                 <xsl:with-param name="partnum" select="$partnum"/>
@@ -2474,27 +2464,33 @@
 
   <xsl:template name="h3_title_link">
     <xsl:param name="title"/>
-    <h3>
-      <xsl:call-template name="title_link">
-        <xsl:with-param name="title" select="$title"/>
-        <xsl:with-param name="link" select="erl:to-link($title)"/>
-      </xsl:call-template>
-    </h3>
+    <xsl:call-template name="title_link">
+      <xsl:with-param name="title" select="$title"/>
+      <xsl:with-param name="link" select="erl:to-link($title)"/>
+    </xsl:call-template>
   </xsl:template>
 
   <xsl:template name="title_link">
     <xsl:param name="title" select="'APPLY'"/>
     <xsl:param name="link" select="erl:to-link(title)"/>
     <xsl:param name="where" select="'after'"/>
+    <xsl:param name="header" select="'h4'"/>
     <xsl:param name="since"/>
     <xsl:param name="ghlink" select="ancestor-or-self::*[@ghlink][position() = 1]/@ghlink"/>
     <xsl:variable name="id" select="concat(concat($link,'-'), generate-id(.))"/>
-    <div class="title-link"
-         onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
-         onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
+
+    <xsl:element name="{$header}">
+      <xsl:attribute name="id"><xsl:value-of select="$link"/></xsl:attribute>
+      <xsl:attribute name="class">title-link</xsl:attribute>
+      <xsl:attribute name="onMouseOver">
+        <xsl:text>document.getElementById('ghlink-</xsl:text><xsl:value-of select="$id"/><xsl:text>').style.visibility = 'visible';</xsl:text>
+      </xsl:attribute>
+      <xsl:attribute name="onMouseOut">
+        <xsl:text>document.getElementById('ghlink-</xsl:text><xsl:value-of select="$id"/><xsl:text>').style.visibility = 'hidden';</xsl:text>
+      </xsl:attribute>
       <xsl:choose>
 	<xsl:when test="$where = 'before'">
-          <div>
+          <div class="title-anchors">
             <xsl:call-template name="ghlink">
               <xsl:with-param name="mfa" select="$link"/>
               <xsl:with-param name="id" select="$id"/>
@@ -2505,20 +2501,18 @@
         </xsl:when>
       </xsl:choose>
       <div class="title-name">
-        <a class="title_link" name="{$link}">
-          <xsl:choose>
-	    <xsl:when test="$title = 'APPLY'">
-	      <xsl:apply-templates/>   <!-- like <ret> and <nametext> -->
-	    </xsl:when>
-	    <xsl:otherwise>
-              <xsl:copy-of select="$title"/>
-	    </xsl:otherwise>
-          </xsl:choose>
-        </a>
+        <xsl:choose>
+	  <xsl:when test="$title = 'APPLY'">
+	    <xsl:apply-templates/>   <!-- like <ret> and <nametext> -->
+	  </xsl:when>
+	  <xsl:otherwise>
+            <xsl:copy-of select="$title"/>
+	  </xsl:otherwise>
+        </xsl:choose>
       </div>
       <xsl:choose>
 	<xsl:when test="$where = 'after'">
-          <div>
+          <div class="title-anchors">
             <xsl:call-template name="ghlink">
               <xsl:with-param name="mfa" select="$link"/>
               <xsl:with-param name="id" select="$id"/>
@@ -2528,13 +2522,13 @@
           </div>
         </xsl:when>
       </xsl:choose>
-      <div class="title-since">
-        <xsl:if test="string-length($since) > 0">
+      <xsl:if test="string-length($since) > 0">
+        <div class="title-since">
 	  <span class="since"><xsl:value-of select="$since"/>
 	  </span>
-        </xsl:if>
-      </div>
-    </div>
+        </div>
+      </xsl:if>
+    </xsl:element>
   </xsl:template>
 
   <xsl:template name="ghlink">
@@ -2792,7 +2786,7 @@
 
         <xsl:call-template name="menu_middle"/>
 
-        <h3>Chapters</h3>
+        <h3 id="chapters">Chapters</h3>
 
         <ul class="flipMenu" imagepath="{$topdocdir}/js/flipmenu">
           <xsl:call-template name="menu.chapter">
