@@ -222,7 +222,7 @@ remove_external(#callgraph{digraph = DG} = CG) ->
 
 non_local_calls(#callgraph{digraph = DG}) ->
   Edges = digraph_edges(DG),
-  find_non_local_calls(Edges, sets:new()).
+  find_non_local_calls(Edges, sets:new([{version, 2}])).
 
 -type call_tab() :: sets:set(mfa_call()).
 

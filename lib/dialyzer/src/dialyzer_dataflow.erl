@@ -3093,7 +3093,7 @@ state__new(Callgraph, Codeserver, Tree, Plt, Module, Records) ->
          envs = Env, fun_tab = FunTab, fun_homes = FunHomes, opaques = Opaques,
 	 plt = Plt, races = dialyzer_races:new(), records = Records,
 	 warning_mode = false, warnings = [], work = Work, tree_map = TreeMap,
-	 module = Module, reachable_funs = sets:new()}.
+	 module = Module, reachable_funs = sets:new([{version, 2}])}.
 
 state__warning_mode(#state{warning_mode = WM}) ->
   WM.
@@ -3628,7 +3628,7 @@ renew_race_public_tables([Var], #state{races = Races, callgraph = Callgraph,
 %%% ===========================================================================
 
 init_work(List) ->
-  {List, [], sets:from_list(List)}.
+  {List, [], sets:from_list(List, [{version, 2}])}.
 
 get_work({[], [], _Set}) ->
   none;

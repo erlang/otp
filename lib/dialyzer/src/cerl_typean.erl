@@ -268,7 +268,7 @@ analyze(Tree, Limit, Esc0, Dep0, Par) ->
     %% receive any values as inputs. Also add an extra dependency edge
     %% from each fun-expression label to its parent fun-expression.
 %%%     io:fwrite("Escape: ~p.\n",[Esc0]),
-    Esc = sets:from_list(Esc0),
+    Esc = sets:from_list(Esc0, [{version, 2}]),
     Any = t_any(),
     None = t_none(),
     Funs0 = dict:new(),
@@ -828,7 +828,7 @@ queue__get({In, _}) ->
 %% The work list - a queue without repeated elements.
 
 init_work() ->
-    {queue__put(external, queue__new()), sets:new()}.
+    {queue__put(external, queue__new()), sets:new([{version, 2}])}.
 
 add_work(Ls, {Q, Set}) ->
     add_work(Ls, Q, Set).

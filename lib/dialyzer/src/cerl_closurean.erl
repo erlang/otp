@@ -763,7 +763,7 @@ queue__get({In, _}) ->
 %% The work list - a queue without repeated elements.
 
 init_work() ->
-    {queue__new(), sets:new()}.
+    {queue__new(), sets:new([{version, 2}])}.
 
 add_work(Ls, {Q, Set}) ->
     add_work(Ls, Q, Set).

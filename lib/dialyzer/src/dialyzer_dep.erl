@@ -319,10 +319,10 @@ primop(Tree, ArgFuns, State) ->
 -record(set, {set :: sets:set()}).
 
 set__singleton(Val) ->
-  #set{set = sets:add_element(Val, sets:new())}.
+  #set{set = sets:add_element(Val, sets:new([{version, 2}]))}.
 
 set__from_list(List) ->
-  #set{set = sets:from_list(List)}.
+  #set{set = sets:from_list(List, [{version, 2}])}.
 
 set__is_element(_El, none) ->
   false;

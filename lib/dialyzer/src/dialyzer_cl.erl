@@ -452,8 +452,8 @@ clean_plt(PltFile, RemovedMods) ->
 	    Plt, RemovedMods).
 
 expand_dependent_modules(Md5, DiffMd5, ModDeps) ->
-  ChangedMods = sets:from_list([M || {differ, M} <- DiffMd5]),
-  RemovedMods = sets:from_list([M || {removed, M} <- DiffMd5]),
+  ChangedMods = sets:from_list([M || {differ, M} <- DiffMd5], [{version, 2}]),
+  RemovedMods = sets:from_list([M || {removed, M} <- DiffMd5], [{version, 2}]),
   BigSet = sets:union(ChangedMods, RemovedMods),
   BigList = sets:to_list(BigSet),
   ExpandedSet = expand_dependent_modules_1(BigList, BigSet, ModDeps),
