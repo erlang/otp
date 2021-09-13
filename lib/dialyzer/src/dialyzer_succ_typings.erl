@@ -159,7 +159,7 @@ get_warnings_from_modules(Mods, State, DocPlt) ->
 collect_warnings(M, {Codeserver, Callgraph, Plt, DocPlt}) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, Codeserver),
   Contracts = dialyzer_codeserver:lookup_mod_contracts(M, Codeserver),
-  AllFuns = collect_fun_info([ModCode]),
+  AllFuns = collect_fun_info(ModCode),
   %% Check if there are contracts for functions that do not exist
   Warnings1 =
     dialyzer_contracts:contracts_without_fun(Contracts, AllFuns, Callgraph),
@@ -246,7 +246,7 @@ lookup_names(Labels, {_Codeserver, Callgraph, _Plt, _Solvers}) ->
 
 refine_one_module(M, {CodeServer, Callgraph, Plt, _Solvers}) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, CodeServer),
-  AllFuns = collect_fun_info([ModCode]),
+  AllFuns = collect_fun_info(ModCode),
   FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
   Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
   NewFunTypes =
@@ -338,12 +338,11 @@ find_succ_typings(SCCs, #st{codeserver = Codeserver, callgraph = Callgraph,
 find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
   SCC = [MFA || {_, _, _} = MFA <- SCC0],
   Label = dialyzer_codeserver:get_next_core_label(Codeserver),
-  AllFuns = lists:append(
-              [begin
-                 {_Var, Fun} =
-                   dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
-                 collect_fun_info([Fun])
-               end || MFA <- SCC]),
+  F = fun(MFA) ->
+          {_Var, Fun} = dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
+          collect_fun_info(Fun)
+      end,
+  AllFuns = lists:flatmap(F, SCC),
   PropTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
 
   %% Assume that the PLT contains the current propagated types
@@ -434,10 +433,7 @@ get_fun_types_from_plt([{FunLabel, Arity}|Left], Callgraph, Plt, Map) ->
 get_fun_types_from_plt([], _Callgraph, _Plt, Map) ->
   orddict:from_list(Map).
 
-collect_fun_info(Trees) ->
-  collect_fun_info(Trees, []).
-
-collect_fun_info([Tree|Trees], List) ->
+collect_fun_info(Tree) ->
   Fun = fun(SubTree, Acc) ->
 	    case cerl:is_c_fun(SubTree) of
 	      true ->
@@ -445,9 +441,7 @@ collect_fun_info([Tree|Trees], List) ->
 	      false -> Acc
 	    end
 	end,
-  collect_fun_info(Trees, cerl_trees:fold(Fun, List, Tree));
-collect_fun_info([], List) ->
-  List.
+  cerl_trees:fold(Fun, [], Tree).
 
 lookup_fun_type(Label, Arity, Callgraph, Plt) ->
   ID = lookup_name(Label, Callgraph),
