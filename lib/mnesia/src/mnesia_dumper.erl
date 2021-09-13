@@ -1436,7 +1436,7 @@ chunk_from_log(eof, _, _, _) ->
 %% costly BIF invokations and must pay for this. But since the
 %% Emulator does not handle this properly we must compensate for
 %% this with some form of load regulation of ourselves in order to
-%% not steal all computation power in the Erlang Emulator ans make
+%% not steal all computation power in the Erlang Emulator and make
 %% other processes starve. Hopefully this is a temporary solution.
 
 start_regulator() ->
