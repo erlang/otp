@@ -264,31 +264,29 @@
     <xsl:param name="since"/>
     <xsl:variable name="mfa" select="concat(concat(../../../name,'-'),../../../arity)"/>
     <xsl:variable name="id" select="concat(concat($mfa,'-'),generate-id(.))"/>
-    <table class="func-table">
-    <tr class="func-tr">
-    <td class="func-td">
-      <div class="bold_code func-head"
-           onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
-           onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
-	<xsl:call-template name="ghlink">
+    <div class="bold_code title-link func-head"
+         onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
+         onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
+      <div>
+        <xsl:call-template name="ghlink">
           <xsl:with-param name="mfa" select="$mfa"/>
           <xsl:with-param name="ghlink" select="$ghlink"/>
           <xsl:with-param name="id" select="$id"/>
-	</xsl:call-template>
-	<xsl:apply-templates mode="local_type">
+        </xsl:call-template>
+      </div>
+      <div class="title-name">
+        <xsl:apply-templates mode="local_type">
 	  <xsl:with-param name="local_types" select="$local_types"/>
 	  <xsl:with-param name="global_types" select="$global_types"/>
-	</xsl:apply-templates>
+        </xsl:apply-templates>
       </div>
-    </td>
-    <td class="func-since-td">
-      <xsl:if test="string-length($since) > 0">
-	<span class="since"><xsl:value-of select="$since"/>
-	</span>
-      </xsl:if>
-    </td>
-    </tr>
-    </table>
+      <div class="title-since">
+        <xsl:if test="string-length($since) > 0">
+	  <span class="since"><xsl:value-of select="$since"/>
+	  </span>
+        </xsl:if>
+      </div>
+    </div>
   </xsl:template>
 
   <!-- The *last* <name name="..." arity=".."/> -->
@@ -509,7 +507,7 @@
               <xsl:with-param name="by" select="$slash_encoded" />
             </xsl:call-template>
           </xsl:variable>
-          <div class="data-type-name"
+          <div class="title-link data-type-name"
                onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
                onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
             <xsl:call-template name="ghlink">
@@ -2370,23 +2368,13 @@
 
     <xsl:choose>
       <xsl:when test="ancestor::cref">
-	<table class="func-table">
-	  <tr class="func-tr">
-	    <td class="cfunc-td">
-              <span class="bold_code bc-7">
-		<xsl:call-template name="title_link">
-		  <xsl:with-param name="link" select="substring-before(nametext, '(')"/>
-                  <xsl:with-param name="where" select="'before'"/>
-		</xsl:call-template>
-              </span>
-	    </td>
-	    <td class="func-since-td">
-	      <xsl:if test="string-length(@since) > 0">
-		<span class="since"><xsl:value-of select="@since"/></span>
-	      </xsl:if>
-	    </td>
-	  </tr>
-	</table>
+        <div class="cref-head bold_code bc-7">
+	  <xsl:call-template name="title_link">
+	    <xsl:with-param name="link" select="substring-before(nametext, '(')"/>
+            <xsl:with-param name="where" select="'before'"/>
+            <xsl:with-param name="since" select="@since"/>
+	  </xsl:call-template>
+        </div>
       </xsl:when>
       <xsl:when test="ancestor::erlref">
         <xsl:variable name="fname">
@@ -2418,26 +2406,16 @@
             </div>
 	  </xsl:when>
           <xsl:otherwise>
-	    <table class="func-table">
-	      <tr class="func-tr">
-	      <td class="func-td">
-		<div class="bold_code fun-type">
-		  <xsl:call-template name="title_link">
-                    <xsl:with-param name="link" select="concat(concat($fname,'-'),$arity)"/>
-                    <xsl:with-param name="where" select="'before'"/>
-                    <xsl:with-param name="title">
-                      <xsl:apply-templates/>
-                    </xsl:with-param>
-		  </xsl:call-template>
-		</div>
-	      </td>
-	      <td class="func-since-td">
-		<xsl:if test="string-length(@since) > 0">
-		  <span class="since"><xsl:value-of select="@since"/></span>
-		</xsl:if>
-	      </td>
-	      </tr>
-	    </table>
+	    <div class="bold_code func-head">
+	      <xsl:call-template name="title_link">
+                <xsl:with-param name="link" select="concat(concat($fname,'-'),$arity)"/>
+                <xsl:with-param name="where" select="'before'"/>
+                <xsl:with-param name="since" select="@since"/>
+                <xsl:with-param name="title">
+                  <xsl:apply-templates/>
+                </xsl:with-param>
+	      </xsl:call-template>
+	    </div>
           </xsl:otherwise>
 	</xsl:choose>
       </xsl:when>
@@ -2504,41 +2482,55 @@
     <xsl:param name="title" select="'APPLY'"/>
     <xsl:param name="link" select="erl:to-link(title)"/>
     <xsl:param name="where" select="'after'"/>
+    <xsl:param name="since"/>
     <xsl:param name="ghlink" select="ancestor-or-self::*[@ghlink][position() = 1]/@ghlink"/>
     <xsl:variable name="id" select="concat(concat($link,'-'), generate-id(.))"/>
-    <span onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
-          onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
+    <div class="title-link"
+         onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
+         onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
       <xsl:choose>
 	<xsl:when test="$where = 'before'">
-          <xsl:call-template name="ghlink">
-            <xsl:with-param name="mfa" select="$link"/>
-            <xsl:with-param name="id" select="$id"/>
-            <xsl:with-param name="ghlink" select="$ghlink"/>
-            <xsl:with-param name="where" select="$where"/>
-          </xsl:call-template>
+          <div>
+            <xsl:call-template name="ghlink">
+              <xsl:with-param name="mfa" select="$link"/>
+              <xsl:with-param name="id" select="$id"/>
+              <xsl:with-param name="ghlink" select="$ghlink"/>
+              <xsl:with-param name="where" select="$where"/>
+            </xsl:call-template>
+          </div>
         </xsl:when>
       </xsl:choose>
-      <a class="title_link" name="{$link}">
-        <xsl:choose>
-	  <xsl:when test="$title = 'APPLY'">
-	    <xsl:apply-templates/>   <!-- like <ret> and <nametext> -->
-	  </xsl:when>
-	  <xsl:otherwise>
-            <xsl:copy-of select="$title"/>
-	  </xsl:otherwise>
-        </xsl:choose>
-      </a>
+      <div class="title-name">
+        <a class="title_link" name="{$link}">
+          <xsl:choose>
+	    <xsl:when test="$title = 'APPLY'">
+	      <xsl:apply-templates/>   <!-- like <ret> and <nametext> -->
+	    </xsl:when>
+	    <xsl:otherwise>
+              <xsl:copy-of select="$title"/>
+	    </xsl:otherwise>
+          </xsl:choose>
+        </a>
+      </div>
       <xsl:choose>
 	<xsl:when test="$where = 'after'">
-          <xsl:call-template name="ghlink">
-            <xsl:with-param name="mfa" select="$link"/>
-            <xsl:with-param name="id" select="$id"/>
-            <xsl:with-param name="ghlink" select="$ghlink"/>
-            <xsl:with-param name="where" select="$where"/>
-          </xsl:call-template>
+          <div>
+            <xsl:call-template name="ghlink">
+              <xsl:with-param name="mfa" select="$link"/>
+              <xsl:with-param name="id" select="$id"/>
+              <xsl:with-param name="ghlink" select="$ghlink"/>
+              <xsl:with-param name="where" select="$where"/>
+            </xsl:call-template>
+          </div>
         </xsl:when>
       </xsl:choose>
-    </span>
+      <div class="title-since">
+        <xsl:if test="string-length($since) > 0">
+	  <span class="since"><xsl:value-of select="$since"/>
+	  </span>
+        </xsl:if>
+      </div>
+    </div>
   </xsl:template>
 
   <xsl:template name="ghlink">

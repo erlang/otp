@@ -79,36 +79,33 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 
 .bold_code   { font-family: mono, Courier, monospace; font-weight: bold }
 
-/* Invisible table for function specs,
- * just to get since-version out in right margin */
-.func-table, .func-tr, .func-td, .cfunc-td, .func-since-td {
-    width: 100%;
-    border: 0;
-    padding: 0;
-    margin: 0;
+.title-link {
+    display: flex;
 }
 
-.func-tr:nth-child(n) {
-    background: inherit  /* turn off zebra striped rows */
+.cref-head, .func-head, .data-type-name {
+    margin: 0 0 0 -4em;
+    padding-bottom: 0.2em;
+    padding-top: 0.2em;
 }
 
-.func-td {
-    width: 38em;
+.cref-head:hover, .func-head:hover, .data-type-name:hover {
+    background-color: #f5f5f5;
 }
 
-.cfunc-td {
-    width: 31em;
+/* This small trick is in order to make all but the first line of the function
+ * head indented by 7em. So that it looks like this:
+ * int enif_alloc_binary(
+ *              size_t size,
+ *              ErlNifBinary* bin)
+ */
+.cref-head .title-name {
     padding-left: 7em;
     text-indent: -7em;
 }
 
-.func-since-td {
-    width: auto;
-    padding-left: 1em;
-}
-
-.func-td:hover {
- background-color: #f5f5f5;
+.title-since {
+    margin-left: auto;
 }
 
 .code        {
@@ -299,7 +296,6 @@ th {
 }
 
 .ghlink-before {
-    margin-left: -4em;
     visibility: hidden;
 }
 
