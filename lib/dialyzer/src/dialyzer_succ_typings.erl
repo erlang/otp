@@ -344,17 +344,22 @@ find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
                  collect_fun_info([Fun])
                end || MFA <- SCC]),
   PropTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
+
   %% Assume that the PLT contains the current propagated types
   FunTypes = dialyzer_typesig:analyze_scc(SCC, Label, Callgraph,
                                           Codeserver, Plt, PropTypes,
                                           Solvers),
-  AllFunSet = sets:from_list([X || {X, _} <- AllFuns]),
-  FilteredFunTypes =
-    orddict:filter(fun(F, _T) -> sets:is_element(F, AllFunSet)
-                   end, FunTypes),
+
+  %% FunTypes may now have picked up funs outside of SCC. Get rid of them.
+  AllFunKeys = [X || {X, _} <- AllFuns],
+  Set = sofs:set(AllFunKeys, [id]),
+  BinRel = sofs:from_external(FunTypes, [{id,type}]), %Already sorted.
+  FilteredFunTypes = sofs:to_external(sofs:restriction(BinRel, Set)),
+
   {FunMFAContracts, ModOpaques} =
     prepare_decoration(FilteredFunTypes, Callgraph, Codeserver),
   DecoratedFunTypes = decorate_succ_typings(FunMFAContracts, ModOpaques),
+
   %% Check contracts
   Contracts = orddict:from_list([{MFA, Contract} ||
                                   {_, {MFA, Contract}} <- FunMFAContracts]),
@@ -372,12 +377,12 @@ find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
   ContractFixpoint = NewPltContracts =:= [],
   Plt = insert_into_plt(DecoratedFunTypes, Callgraph, Plt),
   Plt = dialyzer_plt:insert_contract_list(Plt, NewPltContracts),
-  case (ContractFixpoint andalso 
-	reached_fixpoint_strict(PropTypes, DecoratedFunTypes)) of
+  case ContractFixpoint andalso
+    reached_fixpoint_strict(PropTypes, DecoratedFunTypes) of
     true -> [];
     false ->
       ?debug("Not fixpoint for: ~tw\n", [AllFuns]),
-      [Fun || {Fun, _Arity} <- AllFuns]
+      AllFunKeys
   end.
 
 prepare_decoration(FunTypes, Callgraph, Codeserver) ->
