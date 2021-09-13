@@ -143,8 +143,8 @@ handle_call({reuse_session, SessionId}, _From,  #state{store_cb = Cb,
                 true ->
                     {reply, Session, State0};
                 false ->
-                    Order = invalidate_session(Cb, Store0, Order0, SessionId, InId),
-                    {reply, not_reusable, State0#state{session_order = Order}}
+                    {Store, Order} = invalidate_session(Cb, Store0, Order0, SessionId, InId),
+                    {reply, not_reusable, State0#state{db = Store, session_order = Order}}
             end
     end.
 
@@ -220,9 +220,9 @@ session_id(Key) ->
     Bin2 = crypto:crypto_one_time(aes_128_ecb, Key, <<Unique2:128>>, true),
     <<Bin1/binary, Bin2/binary>>.
 
-invalidate_session(Cb, Store, Order, SessionId, InternalId) ->
-    Cb:delete(Store, SessionId),
-    gb_trees:delete(InternalId, Order).
+invalidate_session(Cb, Store0, Order, SessionId, InternalId) ->
+    Store = delete(Cb, Store0, SessionId),
+    {Store, gb_trees:delete(InternalId, Order)}.
 
 init(Cb, Options) ->
     Cb:init(Options).
