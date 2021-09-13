@@ -308,7 +308,7 @@ run(List, File0, Config, Module) ->
     File = filename:join(proplists:get_value(priv_dir, Config), Base),
     case run_1(List, Base, File, Module, 0) of
 	0 -> ok;
-	Errors -> ?t:fail(Errors)
+	Errors -> ct:fail(Errors)
     end.
 
 run_1([{Source,Line,Error}=Exp|T], Base, File, Module, N) ->

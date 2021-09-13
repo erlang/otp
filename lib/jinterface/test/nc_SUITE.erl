@@ -417,19 +417,19 @@ unicode(Config) when is_list(Config) ->
 		    case L of
 			X -> ok;
 			_ ->
-			    ?t:fail({mismatch,Out,In})
+			    ct:fail({mismatch,Out,In})
 		    end;
 		(Echoer, {L,Tag}=Out, {Echoer,X,Tag}=In) ->
 		    case unicode:characters_to_binary(L, utf8) of
 			X -> ok;
 			_ ->
-			    ?t:fail({mismatch,Out,In})
+			    ct:fail({mismatch,Out,In})
 		    end;
 		(Echoer, {L}=Out, {Echoer,X}=In) ->
 		    case L of
 			X -> ok;
 			_ ->
-			    ?t:fail({mismatch,Out,In})
+			    ct:fail({mismatch,Out,In})
 		    end
 	    end, ["unicode"]).
 
@@ -456,14 +456,14 @@ unicode_list_to_string(Config) when is_list(Config) ->
 		    case L of
 			X -> ok;
 			_ ->
-			    ?t:fail({mismatch,Out,In})
+			    ct:fail({mismatch,Out,In})
 		    end;
 		(Echoer, {L,valid}=Out, {Echoer,X,_}=In) ->
 		    B = unicode:characters_to_binary(L, unicode, {utf16,big}),
 		    case [-D || <<D:16/big>> <= B] of
 			X -> ok;
 			_ ->
-			    ?t:fail({mismatch,Out,In})
+			    ct:fail({mismatch,Out,In})
 		    end
 	    end).
 
@@ -478,13 +478,13 @@ unicode_string_to_list(Config) when is_list(Config) ->
 		    case L of
 			X -> ok;
 			_ ->
-			    ?t:fail({mismatch,Out,In})
+			    ct:fail({mismatch,Out,In})
 		    end;
 		(Echoer, {L,valid}=Out, {Echoer,X,_}=In) ->
 		    case [-C || C <- L] of
 			X -> ok;
 			_ ->
-			    ?t:fail({mismatch,Out,In})
+			    ct:fail({mismatch,Out,In})
 		    end
 	    end, ["unicode"]).
 
@@ -596,7 +596,7 @@ connect(doc) -> [];
 connect(suite) -> [];
 connect(Config) when is_list(Config) ->
     WD = filename:dirname(code:which(?MODULE)),
-    {ok,Other} = ?t:start_node(make_name(), slave, [{args,"-pa "++WD}]),
+    {ok,Other} = test_server:start_node(make_name(), slave, [{args,"-pa "++WD}]),
     Action =
 	fun (Pid) ->
 		JName = node(Pid),
@@ -606,7 +606,7 @@ connect(Config) when is_list(Config) ->
 		    {Pid,Other,true} ->
 			ok;
 		    Unexpected1 ->
-			?t:fail({result,Unexpected1})
+			ct:fail({result,Unexpected1})
 		end,
 		Hidden = erlang:nodes(hidden),
 		Hidden = rpc:call(Other, erlang, nodes, [hidden]),
@@ -624,7 +624,7 @@ connect(Config) when is_list(Config) ->
 		    {Pid,Other,true} ->
 			ok;
 		    Unexpected2->
-			?t:fail({result,Unexpected2})
+			ct:fail({result,Unexpected2})
 		end,
 		Hidden = rpc:call(Other, erlang, nodes, [hidden])
 	end,
@@ -686,7 +686,7 @@ echo_loop(Cont, Echoer, OutTrans, InTrans, TermAcc)
 	Other ->
 	    io:format("echo_server_terms unexpected ~p: receive ~P~n",
 		      [self(),Other,10]),
-	    ?t:fail({unexpected, Other})
+	    ct:fail({unexpected, Other})
     end,
     echo_loop(Cont(), Echoer, OutTrans, InTrans, []).
 
@@ -701,7 +701,7 @@ check_terms(Echoer, [Term | Rest]) ->
 	Other ->
 	    io:format("check_terms unexpected ~p: receive ~P~n",
 		      [self(),Other,10]),
-	    ?t:fail({unexpected, Other})
+	    ct:fail({unexpected, Other})
     end;
 check_terms(_, []) ->
     ok.
@@ -727,9 +727,9 @@ run_server(Server, Config, Action, ExtraArgs) ->
 	       end),
     receive
 	{Server, JName, Pid} ->
-	    ?t:format("~w: ~p (~p)~n",
+	    test_server:format("~w: ~p (~p)~n",
 		      [Server, Pid, node(Pid)]),
-	    ?t:format("nodes(hidden): ~p~n",
+	    test_server:format("nodes(hidden): ~p~n",
 		      [nodes(hidden)]),
 	    Action(Pid),
 	    Pid ! bye,
@@ -738,7 +738,7 @@ run_server(Server, Config, Action, ExtraArgs) ->
 		    ok
 	    end;
 	Other ->
-	    ?t:fail({unexpected,Other})
+	    ct:fail({unexpected,Other})
     end.
 
 %%

@@ -144,7 +144,7 @@ reported(Tag, Data) ->
 	    test_server:messages_get(),
 	    ok
     after 1000 ->
-	    test_server:fail(no_alarm_received)
+	    ct:fail(no_alarm_received)
     end.
 
 %%-----------------------------------------------------------------

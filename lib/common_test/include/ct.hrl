@@ -39,5 +39,4 @@
 %% Backward compatibility for test_server test suites.
 %% DO NOT USE IN NEW TEST SUITES.
 -define(line,).
--define(t,test_server).
 -define(config,test_server:lookup_config).

@@ -54,22 +54,22 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 app_test(Config) when is_list(Config) ->
-    ok = ?t:app_test(syntax_tools).
+    ok = test_server:app_test(syntax_tools).
 
 appup_test(Config) when is_list(Config) ->
-    ok = ?t:appup_test(syntax_tools).
+    ok = test_server:appup_test(syntax_tools).
 
 %% Read and parse all source in the OTP release.
 smoke_test(Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(12)),
+    Dog = test_server:timetrap(test_server:minutes(12)),
     Wc = filename:join([code:lib_dir(),"*","src","*.erl"]),
     Fs = filelib:wildcard(Wc) ++ test_files(Config),
     io:format("~p files\n", [length(Fs)]),
     case p_run(fun smoke_test_file/1, Fs) of
         0 -> ok;
-        N -> ?t:fail({N,errors})
+        N -> ct:fail({N,errors})
     end,
-    ?t:timetrap_cancel(Dog).
+    test_server:timetrap_cancel(Dog).
 
 smoke_test_file(File) ->
     case epp_dodger:parse_file(File) of
@@ -93,7 +93,7 @@ print_error_markers(F, File) ->
 
 %% Read with erl_parse, wrap and revert with erl_syntax and check for equality.
 revert(Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(12)),
+    Dog = test_server:timetrap(test_server:minutes(12)),
     Wc = filename:join([code:lib_dir("stdlib"),"src","*.erl"]),
     Fs = filelib:wildcard(Wc) ++ test_files(Config),
     Path = [filename:join(code:lib_dir(stdlib), "include"),
@@ -101,9 +101,9 @@ revert(Config) when is_list(Config) ->
     io:format("~p files\n", [length(Fs)]),
     case p_run(fun (File) -> revert_file(File, Path) end, Fs) of
         0 -> ok;
-        N -> ?t:fail({N,errors})
+        N -> ct:fail({N,errors})
         end,
-    ?t:timetrap_cancel(Dog).
+    test_server:timetrap_cancel(Dog).
 
 revert_file(File, Path) ->
     case epp:parse_file(File, Path, []) of
@@ -118,16 +118,16 @@ revert_file(File, Path) ->
 
 %% Testing bug fix for reverting map_field_assoc
 revert_map(Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(1)),
+    Dog = test_server:timetrap(test_server:minutes(1)),
     [{map_field_assoc,16,{atom,17,name},{var,18,'Value'}}] =
     erl_syntax:revert_forms([{tree,map_field_assoc,
                              {attr,16,[],none},
 			     {map_field_assoc,{atom,17,name},{var,18,'Value'}}}]),
-    ?t:timetrap_cancel(Dog).
+    test_server:timetrap_cancel(Dog).
 
 %% Testing bug fix for reverting map_field_assoc in types
 revert_map_type(Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(1)),
+    Dog = test_server:timetrap(test_server:minutes(1)),
     Form1 = {attribute,4,record,
              {state,
               [{typed_record_field,
@@ -144,12 +144,12 @@ revert_map_type(Config) when is_list(Config) ->
                  [{type,5,map_field_assoc,[{atom,5,y},{atom,5,z}]}]}}]}},
     Mapped2 = erl_syntax_lib:map(fun(X) -> X end, Form2),
     Form2 = erl_syntax:revert(Mapped2),
-    ?t:timetrap_cancel(Dog).
+    test_server:timetrap_cancel(Dog).
 
 %% Read with erl_parse, wrap each tree node with erl_syntax and check that
 %% erl_syntax:subtrees can access the wrapped node.
 wrapped_subtrees(Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(2)),
+    Dog = test_server:timetrap(test_server:minutes(2)),
     Wc = filename:join([code:lib_dir(stdlib),"src","*.erl"]),
     Fs = filelib:wildcard(Wc) ++ test_files(Config),
     Path = [filename:join(code:lib_dir(stdlib), "include"),
@@ -158,9 +158,9 @@ wrapped_subtrees(Config) when is_list(Config) ->
     Map = fun (File) -> wrapped_subtrees_file(File, Path) end,
     case p_run(Map, Fs) of
         0 -> ok;
-        N -> ?t:fail({N,errors})
+        N -> ct:fail({N,errors})
     end,
-    ?t:timetrap_cancel(Dog).
+    test_server:timetrap_cancel(Dog).
 
 wrapped_subtrees_file(File, Path) ->
     case epp:parse_file(File, Path, []) of
@@ -404,7 +404,7 @@ test_prettypr([File|Files],DataDir,PrivDir) ->
         [] ->
             ok;
         Errors ->
-            ?t:fail(Errors)
+            ct:fail(Errors)
     end,
     test_prettypr(Files,DataDir,PrivDir).
 

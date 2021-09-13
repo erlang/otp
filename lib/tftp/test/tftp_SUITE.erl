@@ -107,13 +107,13 @@ end_per_group(_GroupName, Config) ->
 app() ->
     [{doc, "Test that the tftp app file is ok"}].
 app(Config) when is_list(Config) ->
-    ok = ?t:app_test(tftp).
+    ok = test_server:app_test(tftp).
 
 %%--------------------------------------------------------------------
 appup() ->
     [{doc, "Test that the tftp appup file is ok"}].
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(tftp).
+    ok = test_server:appup_test(tftp).
 
 start_tftpd() ->
     [{doc, "Start/stop of tfpd service"}].

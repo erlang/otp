@@ -885,7 +885,7 @@ wait_node_up(ExpStatus,ExpVsn,ExpAppsVsns0) ->
     wait_node_up(Node,ExpStatus,ExpVsn,lists:keysort(1,ExpAppsVsns),60).
 
 wait_node_up(Node,ExpStatus,ExpVsn,ExpAppsVsns,0) ->
-    test_server:fail({node_not_started,app_check_failed,ExpVsn,ExpAppsVsns,
+    ct:fail({node_not_started,app_check_failed,ExpVsn,ExpAppsVsns,
 		      rpc:call(Node,release_handler,which_releases,[ExpStatus]),
 		      rpc:call(Node,application,which_applications,[])});
 wait_node_up(Node,ExpStatus,ExpVsn,ExpAppsVsns,N) ->

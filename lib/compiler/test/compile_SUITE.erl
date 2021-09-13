@@ -1478,7 +1478,7 @@ do_pre_load_check(Config) ->
 	true ->
 	    io:put_chars("The 'compile' module should not be included "
 			 "in the list of modules to be pre-loaded."),
-	    ?t:fail(compile);
+	    ct:fail(compile);
 	false ->
 	    []
     end,
@@ -1509,7 +1509,7 @@ do_pre_load_check(Config) ->
 	    io:format("The following modules were used "
 		      "but not pre-loaded:\n~p\n",
 		      [NotPreLoaded]),
-	    ?t:fail({not_preload,NotPreLoaded})
+	    ct:fail({not_preload,NotPreLoaded})
     end,
 
     %% Check for modules that should not be pre-loaded.
@@ -1520,7 +1520,7 @@ do_pre_load_check(Config) ->
 	    io:format("The following modules were pre-loaded"
 		      " but not used:\n~p\n",
 		      [NotUsed]),
-	    ?t:fail({not_used,NotUsed})
+	    ct:fail({not_used,NotUsed})
     end,
 
     ok.

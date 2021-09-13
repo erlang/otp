@@ -43,7 +43,7 @@
 
 -import(lists, [foldl/3]).
 
--define(default_timeout, ?t:minutes(20)).
+-define(default_timeout, test_server:minutes(20)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -833,16 +833,16 @@ check_exref_warnings(with_db1, W) ->
 	      {lists,non_existing_func,1}]} ->
 	    ok;
 	{ok, L} ->
-	    test_server:fail({exref_warning_undef, L});
+	    ct:fail({exref_warning_undef, L});
 	_E ->
-	    test_server:fail({bad_undef,_E})
+	    ct:fail({bad_undef,_E})
     end;
 check_exref_warnings(without_db1, W) ->
     case get_exref(undef, W) of
 	false ->
 	    ok;
 	{ok, L} ->
-	    test_server:fail({exref_warning_undef, L})
+	    ct:fail({exref_warning_undef, L})
     end.
 
 get_exref(undef, W)   -> filter(get_exref1(exref_undef, W)).
@@ -1904,8 +1904,8 @@ app_start_type_relup(Dir2,Name2,Config) ->
     {"LATEST_APP_START_TYPE2",
      [{"LATEST_APP_START_TYPE1",[], UpInstructions}],
      [{"LATEST_APP_START_TYPE1",[], DownInstructions}]} = Release2Relup,
-    %% ?t:format("Up: ~p",[UpInstructions]),
-    %% ?t:format("Dn: ~p",[DownInstructions]),
+    %% test_server:format("Up: ~p",[UpInstructions]),
+    %% test_server:format("Dn: ~p",[DownInstructions]),
     [{load_object_code, {mnesia, _, _}},
      {load_object_code, {runtime_tools, _, _}},
      {load_object_code, {snmp, _, _}},
@@ -2393,14 +2393,14 @@ check_var_script_file(VarDirs, NoExistDirs, RelName) ->
 	VarDirs ->
 	    ok;
 	_ ->
-	    test_server:fail("All variable dirs not in generated script")
+	    ct:fail("All variable dirs not in generated script")
     end,
     case lists:filter(fun(NoExistDir) -> lists:member(NoExistDir, AllPaths) end,
 		      NoExistDirs) of
 	[] ->
 	    ok;
 	_ ->
-	    test_server:fail("Unexpected dirs in generated script")
+	    ct:fail("Unexpected dirs in generated script")
     end.
 
 check_include_script(RelName, ExpectedLoad, ExpectedStart) ->
@@ -2414,7 +2414,7 @@ check_include_script(RelName, ExpectedLoad, ExpectedStart) ->
 		App=/=stdlib],
 
     if ActualLoad =:= ExpectedLoad -> ok;
-       true -> test_server:fail({bad_load_order, ActualLoad, ExpectedLoad})
+       true -> ct:fail({bad_load_order, ActualLoad, ExpectedLoad})
     end,
 
     %% Check that applications are started in given order !
@@ -2424,7 +2424,7 @@ check_include_script(RelName, ExpectedLoad, ExpectedStart) ->
 		App =/= stdlib],
 
     if ActualStart =:= ExpectedStart -> ok;
-       true -> test_server:fail({bad_start_order, ActualStart,ExpectedStart})
+       true -> ct:fail({bad_start_order, ActualStart,ExpectedStart})
     end,
 
     ok.

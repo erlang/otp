@@ -66,7 +66,7 @@ end_per_testcase(_Case, _Config) ->
     ok.
 
 app_test(Config) when is_list(Config) ->
-    ?t:app_test(sasl, allow),
+    test_server:app_test(sasl, allow),
     ok.
 
 %% Test that appup allows upgrade from/downgrade to a maximum of one
@@ -230,7 +230,7 @@ test_log_file(File, Arg) ->
     %% There must be at least four PROGRESS lines.
     if
 	length(Lines) >= 4 -> ok;
-	true -> ?t:fail()
+	true -> ct:fail({progress, Lines})
     end,
     Bin.
 
@@ -303,7 +303,7 @@ verify_utc_log(Log, UTC) ->
 match_error(Expected,{error,{bad_return,{_,{'EXIT',{Expected,{sasl,_}}}}}}) ->
     ok;
 match_error(Expected,Actual) ->
-    ?t:fail({unexpected_return,Expected,Actual}).
+    ct:fail({unexpected_return,Expected,Actual}).
 
 clear_env(App) ->
     [application:unset_env(App,Opt) || {Opt,_} <- application:get_all_env(App)],

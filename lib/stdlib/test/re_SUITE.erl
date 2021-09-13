@@ -673,7 +673,7 @@ pcre_compile_workspace_overflow(Config) when is_list(Config) ->
         {error, {"parentheses are too deeply nested (stack check)" = Str, _No}} ->
             {comment, ExpStr ++ Str};
         Other ->
-            ?t:fail({unexpected, Other})
+            ct:fail({unexpected, Other})
     end.
 
 %% Make sure matches that really loop infinitely actually fail.

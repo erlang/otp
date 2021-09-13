@@ -179,12 +179,12 @@ end_per_testcase(_TestCase, Config) ->
 app() ->
     [{doc, "Test that the ssl app file is ok"}].
 app(Config) when is_list(Config) ->
-    ok = ?t:app_test(ssl).
+    ok = test_server:app_test(ssl).
 %%--------------------------------------------------------------------
 appup() ->
     [{doc, "Test that the ssl appup file is ok"}].
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(ssl).
+    ok = test_server:appup_test(ssl).
 %%--------------------------------------------------------------------
 version_option() ->
     [{doc, "Use version option and do no specify ciphers list. Bug specified incorrect ciphers"}].

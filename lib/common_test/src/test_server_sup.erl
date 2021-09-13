@@ -181,7 +181,7 @@ app_test(Application, Mode) ->
 	{ok, AppFile} ->
 	    do_app_tests(AppFile, Application, Mode);
 	Error ->
-	    test_server:fail(Error)
+	    ct:fail(Error)
     end.
 
 is_app(Application) ->
@@ -241,8 +241,8 @@ do_app_tests(AppFile, AppName, Mode) ->
     case A+B+C+D+E of
 	5 ->
 	    ok;
-	_ ->
-	    test_server:fail()
+	NotFive ->
+	    ct:fail(NotFive)
     end.
 
 app_check_export_all([]) ->
@@ -286,10 +286,10 @@ appup_test(Application) ->
                     Modules = proplists:get_value(modules, AppFile),
                     do_appup_tests(StartMod, Application, Up, Down, Modules);
                 Error ->
-                    test_server:fail(Error)
+                    ct:fail(Error)
             end;
         Error ->
-            test_server:fail(Error)
+            ct:fail(Error)
     end.
 
 is_appup(Application, Version) ->
@@ -336,11 +336,11 @@ do_appup_tests(_, _Application, Up, Down, Modules) ->
                     test_server:format(minor, "OK~n");
                 Error ->
                     test_server:format(minor, "ERROR ~tp~n", [Error]),
-                    test_server:fail(Error)
+                    ct:fail(Error)
             end;
         Error ->
             test_server:format(minor, "ERROR ~tp~n", [Error]),
-            test_server:fail(Error)
+            ct:fail(Error)
     end.
     
 check_appup_clauses_plausible([], _Direction, _Modules) ->

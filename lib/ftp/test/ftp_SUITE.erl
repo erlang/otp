@@ -425,13 +425,13 @@ vsftpd_tls() ->
 app() ->
     [{doc, "Test that the ftp app file is ok"}].
 app(Config) when is_list(Config) ->
-    ok = ?t:app_test(ftp).
+    ok = test_server:app_test(ftp).
 
 %%--------------------------------------------------------------------
 appup() ->
     [{doc, "Test that the ftp appup file is ok"}].
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(ftp).
+    ok = test_server:appup_test(ftp).
 
 %%--------------------------------------------------------------------
 
