@@ -232,8 +232,10 @@ jobs:
           TAG=${GITHUB_REF#refs/tags/}
           IS_RELEASE=`$(echo $TAG | grep -E '^OTP-[0-9]+\.[0-9]+$' > /dev/null) \
             && echo "true" || echo "false"`
+          VSN=${TAG#OTP-}
           echo "::set-output name=tag::${TAG}"
           echo "::set-output name=release::${IS_RELEASE}"
+          echo "::set-output name=vsn::${VSN}"
       
       - uses: actions/checkout@v2
 
