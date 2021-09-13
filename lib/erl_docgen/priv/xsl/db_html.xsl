@@ -1446,8 +1446,8 @@
   <xsl:template name="menu.internal.ug">
     <xsl:param name="chapnum"/>
 
-    <div id="leftnav">
-      <div class="leftnav-tube">
+    <aside id="leftnav">
+      <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
@@ -1467,15 +1467,15 @@
             <xsl:with-param name="chapnum" select="$chapnum"/>
           </xsl:call-template>
         </ul>
-      </div>
-    </div>
+      </nav>
+    </aside>
   </xsl:template>
 
     <!-- Menu.internal.ref -->
   <xsl:template name="menu.internal.ref">
       <xsl:param name="curModule"/>
-      <div id="leftnav">
-      <div class="leftnav-tube">
+      <aside id="leftnav">
+      <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
@@ -1496,14 +1496,14 @@
             <xsl:with-param name="curModule" select="$curModule"/>
           </xsl:call-template>
         </ul>
-      </div>
-    </div>
+      </nav>
+      </aside>
   </xsl:template>
 
   <!-- Menu.internal.chapter combined when we have both modules and free-form chapters -->
   <xsl:template name="menu.internal.ug_ref">
-    <div id="leftnav">
-      <div class="leftnav-tube">
+    <aside id="leftnav">
+      <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
         <p class="section-title"><xsl:value-of select="/book/header/title"/></p>
@@ -1530,8 +1530,8 @@
             <!--xsl:with-param name="genFuncMenu" select="true"/-->
           </xsl:call-template>
         </ul>
-      </div>
-    </div>
+      </nav>
+    </aside>
   </xsl:template>
 
   <!--Users Guide -->
@@ -1574,8 +1574,8 @@
   <xsl:template name="menu.ug">
     <xsl:param name="chapnum"/>
 
-    <div id="leftnav">
-      <div class="leftnav-tube">
+    <aside id="leftnav">
+      <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
@@ -1595,8 +1595,8 @@
             <xsl:with-param name="chapnum" select="$chapnum"/>
           </xsl:call-template>
         </ul>
-      </div>
-    </div>
+      </nav>
+    </aside>
   </xsl:template>
 
 
@@ -1735,8 +1735,8 @@
   <!-- Menu.ref -->
   <xsl:template name="menu.ref">
     <xsl:param name="curModule"/>
-    <div id="leftnav">
-      <div class="leftnav-tube">
+    <aside id="leftnav">
+      <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
@@ -1757,8 +1757,8 @@
             <xsl:with-param name="curModule" select="$curModule"/>
           </xsl:call-template>
         </ul>
-      </div>
-    </div>
+      </nav>
+    </aside>
   </xsl:template>
 
 
@@ -2779,8 +2779,8 @@
   <xsl:template name="menu.rn">
     <xsl:param name="chapnum"/>
 
-    <div id="leftnav">
-      <div class="leftnav-tube">
+    <aside id="leftnav">
+      <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
@@ -2800,8 +2800,8 @@
             <xsl:with-param name="chapnum" select="$chapnum"/>
           </xsl:call-template>
         </ul>
-      </div>
-    </div>
+      </nav>
+    </aside>
   </xsl:template>
 
  <!-- Special templates to calculate the arity of functions -->

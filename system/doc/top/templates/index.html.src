@@ -30,10 +30,9 @@ limitations under the License.
 </head> 
 
 <body>
-
-<div id="container">
-<div id="leftnav">
-<div class="leftnav-tube">
+  <div id="container">
+<aside id="leftnav">
+<nav class="leftnav-tube">
 <div class="erlang-logo-wrapper">
  <img alt="Erlang logo" src="erlang-logo.png" class="erlang-logo"/ >
 </div>
@@ -78,8 +77,8 @@ limitations under the License.
 #applinks#
 </ul>
 
-</div>
-</div>
+</nav>
+</aside>
 
 
 <div id="content">
