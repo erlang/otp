@@ -979,7 +979,7 @@
           <li><a href="internal_docs.html">Internal Documentation</a></li>
       </xsl:if>
       <xsl:if test="boolean(/book/releasenotes)">
-          <li><a href="release_notes.html">Release Notes</a></li>
+          <li><a href="notes.html">Release Notes</a></li>
       </xsl:if>
       <xsl:choose>
 	<xsl:when test="string-length($pdfname) > 0">
