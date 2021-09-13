@@ -39,7 +39,7 @@
 	]).
 
 %% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(2)).
+-define(default_timeout, test_server:minutes(2)).
 
 -define(SECS(__S__), timer:seconds(__S__)).
 
@@ -77,14 +77,14 @@ end_per_suite(Config) ->
 init_per_testcase(Case, Config) ->
     ?P("init_per_testcase(~w) -> entry with"
        "~n   Config: ~p", [Case, Config]),
-    Dog = ?t:timetrap(?default_timeout),
+    Dog = test_server:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
 end_per_testcase(Case, Config) ->
     ?P("end_per_testcase(~w) -> entry with"
        "~n   Config: ~p", [Case, Config]),
     Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -132,12 +132,12 @@ app_file(suite) ->
 app_file(doc) ->
     ["Testing .app file"];
 app_file(Config) when is_list(Config) ->
-    ?line ok = ?t:app_test(observer),
+    ?line ok = test_server:app_test(observer),
     ok.
 
 %% Testing .appup file
 appup_file(Config) when is_list(Config) ->
-    ok = ?t:appup_test(observer).
+    ok = test_server:appup_test(observer).
 
 -define(DBG(Foo), io:format("~p: ~p~n",[?LINE, catch Foo])).
 

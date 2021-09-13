@@ -26,8 +26,8 @@
 -export([scheduler_wall_time/0, garbage_collect/0]). %% rpc'ed
 
 % Default timetrap timeout (set in init_per_testcase).
-%-define(default_timeout, ?t:minutes(40)).
--define(default_timeout, ?t:minutes(10)).
+%-define(default_timeout, test_server:minutes(40)).
+-define(default_timeout, test_server:minutes(10)).
 
 suite() ->
     [{ct_hooks, [ts_install_cth]}].
@@ -94,25 +94,25 @@ init_per_group(release, Config) ->
 	{{win32, nt}, Vsn} when Vsn > {6,1,999999} ->
 	    {skip, "Requires admin privileges on Win 8 and later"};
 	_ ->
-	    Dog = ?t:timetrap(?default_timeout),
+	    Dog = test_server:timetrap(?default_timeout),
 	    P1gInstall = filename:join(priv_dir(Config),p1g_install),
 	    ok = create_p1g(Config,P1gInstall),
 	    ok = create_p1h(Config),
-	    ?t:timetrap_cancel(Dog)
+	    test_server:timetrap_cancel(Dog)
     end;
 
 %% {group,release_single}
 %% Subgroup of {group,release}, contains all cases that are not
 %% related to global_group
 init_per_group(release_single, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
+    Dog = test_server:timetrap(?default_timeout),
 
     %% Create some more releases to upgrade to
     ok = create_p1i(Config),
     ok = create_p2a(Config),
     ok = create_p2b(Config),
 
-    ?t:timetrap_cancel(Dog);
+    test_server:timetrap_cancel(Dog);
 
 %% {group,release_gg}
 %% Subgroup of {group,release}. global_group tests.
@@ -120,7 +120,7 @@ init_per_group(release_gg, Config0) ->
     Config = [{sname_prefix,release_gg}|Config0],
 
     PrivDir = priv_dir(Config),
-    Dog = ?t:timetrap(?default_timeout),
+    Dog = test_server:timetrap(?default_timeout),
 
     reg_print_proc(), %% starts a printer process on this node
 
@@ -160,18 +160,18 @@ init_per_group(release_gg, Config0) ->
       end,
       Snames),
 
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     [{snames,Snames}|Config].
 
 
 end_per_group(release, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
+    Dog = test_server:timetrap(?default_timeout),
     stop_print_proc(),
     case os:type() of
 	{win32,_} -> delete_all_services();
 	_ -> ok
     end,
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     Config;
 end_per_group(_GroupName, Config) ->
     Config.
@@ -183,11 +183,11 @@ init_per_testcase(Case, Config0) ->
     try apply(?MODULE,Case,[cleanup,Config])
     catch error:undef -> ok
     end,
-    ?t:format("~n======= init_per_testcase done =======~n",[]),
+    test_server:format("~n======= init_per_testcase done =======~n",[]),
     Config.
 
 end_per_testcase(Case, Config) ->
-    ?t:format("~n======= start end_per_testcase =======~n",[]),
+    test_server:format("~n======= start end_per_testcase =======~n",[]),
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
 
@@ -251,13 +251,13 @@ no_run_erl(Config) when is_list(Config) ->
 
 break(Config) ->
 	erlang:display(test_break),
-	?t:break(priv_dir(Config)),
+	test_server:break(priv_dir(Config)),
 	ok.
 
 %% Test upgrade and downgrade of erts and other apps on embedded node
 upgrade(Conf) when is_list(Conf) ->
     reg_print_proc(), %% starts a printer process on test_server node
-    ?t:format("upgrade ~p~n",[reg_print_proc]),
+    test_server:format("upgrade ~p~n",[reg_print_proc]),
     PrivDir = priv_dir(Conf),
     Sname = tc_sname(Conf), % nodename for use in this testcase
 
@@ -368,7 +368,7 @@ reboot_and_wait(Node,Tag,Apps) ->
 %% after. For downgrade, there will be one restart only - at the end.
 upgrade_restart(Conf) when is_list(Conf) ->
     reg_print_proc(), %% starts a printer process on test_server node
-    ?t:format("upgrade_restart ~p~n",[reg_print_proc]),
+    test_server:format("upgrade_restart ~p~n",[reg_print_proc]),
     PrivDir = priv_dir(Conf),
     Sname = tc_sname(Conf), % nodename for use in this testcase
 
@@ -475,7 +475,7 @@ instructions(Conf) when is_list(Conf) ->
 
     case whereis(cc) of
         Pid when is_pid(Pid) -> ok;
-        _ -> ?t:fail("cc not started")
+        _ -> ct:fail("cc not started")
     end,
 
     %% Stop and start cc process
@@ -487,7 +487,7 @@ instructions(Conf) when is_list(Conf) ->
 
     case whereis(cc) of
         Pid2 when is_pid(Pid2) -> ok;
-        _ -> ?t:fail("cc not started")
+        _ -> ct:fail("cc not started")
     end,
 
     %% Make bb run old version of b.
@@ -509,7 +509,7 @@ instructions(Conf) when is_list(Conf) ->
     SecondBB = whereis(bb),
 
     if
-        SecondBB =:= FirstBB -> ?t:fail("bb not killed");
+        SecondBB =:= FirstBB -> ct:fail("bb not killed");
         true -> ok
     end,
 
@@ -522,7 +522,7 @@ instructions(Conf) when is_list(Conf) ->
 
     case ThirdBB of
         _ when is_pid(ThirdBB) -> ok;
-        undefined -> ?t:fail("bb not started")
+        undefined -> ct:fail("bb not started")
     end,
 
     %% Make bb run old version of b.
@@ -572,18 +572,18 @@ check_bstate(Slogan,ExpectedProcs) ->
     ActualProcs = lists:sort([P || P <- processes(),
 				   erlang:check_process_code(P, b)]),
     ExpectedProcs2 = lists:sort(ExpectedProcs),
-    ?t:format("check_bstate:~n~p~n~p~n",
+    test_server:format("check_bstate:~n~p~n~p~n",
 	      [{"bb process", Slogan, BB},
 	       {"Processes running old b code", ActualProcs}]),
     if
 	Slogan =:= "no", BB =/= undefined ->
-	    ?t:fail("instructions failed; process bb is running");
+	    ct:fail("instructions failed; process bb is running");
 	Slogan =/= "no", BB =:= undefined ->
-	    ?t:fail("instructions failed; process bb is not running");
+	    ct:fail("instructions failed; process bb is not running");
 	ExpectedProcs2 =:= [], ActualProcs =/= ExpectedProcs2 ->
-	    ?t:fail("instructions failed; old b processes are running");
+	    ct:fail("instructions failed; old b processes are running");
 	ActualProcs =/= ExpectedProcs2 ->
-	    ?t:fail("instructions failed; wrong number of old b processes are running");
+	    ct:fail("instructions failed; wrong number of old b processes are running");
 	true ->
 	    ok
     end.
@@ -599,7 +599,7 @@ wait_for(Name) ->
 
 no_cc() ->
     case whereis(cc) of
-        Pid when is_pid(Pid) -> ?t:fail("cc not stopped");
+        Pid when is_pid(Pid) -> ct:fail("cc not stopped");
         _ -> ok
     end.
 
@@ -625,7 +625,7 @@ supervisor_which_children_timeout(Conf) ->
     ok = rpc:call(Node, sys, suspend, [Proc]),
     Result = {badrpc, {'EXIT', {suspended_supervisor, _}}} =
         rpc:call(Node, release_handler_1, get_supervised_procs, []),
-    ?t:format("release_handler_1:get_supervised_procs/0: ~p~n", [Result]),
+    test_server:format("release_handler_1:get_supervised_procs/0: ~p~n", [Result]),
 
     ok.
 
@@ -668,9 +668,9 @@ release_handler_which_releases(Conf) ->
     1 = length(Releases1),
     0 = length(Releases2),
 
-    ?t:format("release_handler:which_releases/0: ~p~n", [Releases0]),
-    ?t:format("release_handler:which_releases/1: ~p~n", [Releases1]),
-    ?t:format("release_handler:which_releases/1: ~p~n", [Releases2]),
+    test_server:format("release_handler:which_releases/0: ~p~n", [Releases0]),
+    test_server:format("release_handler:which_releases/1: ~p~n", [Releases1]),
+    test_server:format("release_handler:which_releases/1: ~p~n", [Releases2]),
 
     ok.
 
@@ -1709,7 +1709,7 @@ target_system1(Conf,PrivDir) ->
     [{RelName,RelVsn,_Apps,permanent}] =
 	rpc:call(Node,release_handler,which_releases,[]),
 
-    ?t:format("Target node ok:~nRootDir: ~ts~nKernelLibDir: ~ts~nRelease: ~ts",
+    test_server:format("Target node ok:~nRootDir: ~ts~nKernelLibDir: ~ts~nRelease: ~ts",
 	      [TargetInstallDir,KernelLibDir,RelName]),
 
     ok.
@@ -1727,14 +1727,14 @@ start_target_node_with_erl(Erl,Sname,Boot) ->
 		   end,
     Args = [FilenameMode,"-detached", "-noinput","-sname",atom_to_list(Sname),
 	   "-boot",filename:rootname(Boot)],
-    ?t:format("Starting node ~p: ~ts~n",
+    test_server:format("Starting node ~p: ~ts~n",
 	      [FullName, lists:flatten([[X," "] || X <- [Erl|Args]])]),
     case rh_test_lib:cmd(Erl,Args,[]) of
 	ok ->
 	    ok = wait_nodes_up([FullName],"target_system test node"),
 	    {ok,FullName};
 	Error ->
-            ?t:fail({failed_to_start_node, FullName, Error})
+            ct:fail({failed_to_start_node, FullName, Error})
     end.
 
 stop_target_node(Node) ->
@@ -1752,12 +1752,12 @@ target_system_unicode(Conf) when is_list(Conf) ->
 
     %% Make sure this runs on a node with unicode file name mode
     Sname = list_to_atom(atom_to_list(?MODULE) ++ "-target_system_unicode"),
-    {ok,Node} = ?t:start_node(Sname,peer,[{args,"+fnui -pa " ++ PA}]),
+    {ok,Node} = test_server:start_node(Sname,peer,[{args,"+fnui -pa " ++ PA}]),
     ok = rpc:call(Node,file,make_dir,[UnicodePrivDir]),
     case rpc:call(Node,application,start,[sasl]) of
 	ok -> ok;
 	{error,{already_started,sasl}} -> ok;
-	Error -> ?t:fail({failed_to_start_sasl_on_test_node,Node,Error})
+	Error -> ct:fail({failed_to_start_sasl_on_test_node,Node,Error})
     end,
     ok = rpc:call(Node,?MODULE,target_system1,[Conf,UnicodePrivDir]),
     ok.
@@ -1989,7 +1989,7 @@ unicode_upgrade(cleanup,_Conf) ->
 %%% Misceleaneous functions
 %%%=================================================================
 stop_nodes(Nodes) ->
-    ?t:format("Stopping nodes: ~p~n",[Nodes]),
+    test_server:format("Stopping nodes: ~p~n",[Nodes]),
     Running = 
 	lists:foldl(fun(Node,Acc) -> 
 			    Now = now(),
@@ -1998,7 +1998,7 @@ stop_nodes(Nodes) ->
 				{badrpc,nodedown} ->
 				    Acc;
 				Other ->
-				    ?t:format("Stop ~p(~p): ~p~n",
+				    test_server:format("Stop ~p(~p): ~p~n",
 					      [Node,Now,Other]),
 				    [Node|Acc]
 			    end
@@ -2007,26 +2007,26 @@ stop_nodes(Nodes) ->
 
 
 wait_nodes_down(Nodes) ->
-    ?t:format( "wait_nodes_down ~p:",[Nodes]),
+    test_server:format( "wait_nodes_down ~p:",[Nodes]),
     wait_nodes_down(Nodes, 30).
 
 wait_nodes_down(Nodes, 0) ->
-    test_server:fail({error, {"could not kill nodes", Nodes}});
+    ct:fail({error, {"could not kill nodes", Nodes}});
 wait_nodes_down(Nodes, N) ->
     Fun = fun(Node, A) ->
 		  case net_adm:ping(Node) of
 		      pong ->
-			  ?t:format( "  net_adm:ping(~p) = pong", [Node]),
+			  test_server:format( "  net_adm:ping(~p) = pong", [Node]),
 			  [Node|A];
 		      pang ->
-			  ?t:format( "  net_adm:ping(~p) = pang", [Node]),
+			  test_server:format( "  net_adm:ping(~p) = pang", [Node]),
 			  A
 		  end
 	  end,
     Pang = lists:foldl(Fun, [], Nodes),
     case Pang of
 	[] -> 
-	    ?t:format("",[]),
+	    test_server:format("",[]),
 	    ok;
 	_ ->
 	    timer:sleep(1000),
@@ -2039,7 +2039,7 @@ wait_nodes_up(Nodes, Tag) ->
     wait_nodes_up(Nodes, Tag, []).
 
 wait_nodes_up(Nodes0, Tag, Apps) ->
-    ?t:format("wait_nodes_up(~p, ~p, ~p):",[Nodes0, Tag, Apps]),
+    test_server:format("wait_nodes_up(~p, ~p, ~p):",[Nodes0, Tag, Apps]),
     Nodes = fix_nodes(Nodes0),
     wait_nodes_up(Nodes, Tag, lists:umerge(Apps,[kernel,stdlib,sasl]), 60).
 
@@ -2051,16 +2051,16 @@ fix_nodes([]) ->
     [].
 
 wait_nodes_up(Nodes, Tag, Apps, 0) ->
-    test_server:fail({error, {"nodes not started", Nodes, Tag, Apps}});
+    ct:fail({error, {"nodes not started", Nodes, Tag, Apps}});
 wait_nodes_up(Nodes, Tag, Apps, N) ->
     Fun = 
 	fun(NodeInfo={Node,OldInitPid}, A) ->
 		case rpc:call(Node, application, which_applications, []) of
 		    {badrpc, nodedown} ->
-			?t:format( "  ~p = {badarg, nodedown}",[Node]),
+			test_server:format( "  ~p = {badarg, nodedown}",[Node]),
 			[NodeInfo | A];
 		    List when is_list(List)->
-			?t:format( "  ~p = [~p]",[Node, List]),
+			test_server:format( "  ~p = [~p]",[Node, List]),
 			case lists:all(fun(App) -> 
 					       lists:keymember(App,1,List) 
 				       end, Apps) of
@@ -2080,7 +2080,7 @@ wait_nodes_up(Nodes, Tag, Apps, N) ->
     Pang = lists:foldl(Fun,[],Nodes),
     case Pang of
 	[] ->
-	    ?t:format("",[]),
+	    test_server:format("",[]),
 	    ok;
 	_ ->
 	    timer:sleep(2000),
@@ -2091,7 +2091,7 @@ wait_nodes_up(Nodes, Tag, Apps, N) ->
 
 
 are_names_reg_gg(Node, Names) ->
-    ?t:format( "are_names_reg_gg ~p~n",[Names]),
+    test_server:format( "are_names_reg_gg ~p~n",[Names]),
     are_names_reg_gg(Node, Names, 30).
 
 are_names_reg_gg(Node, Names, N) ->
@@ -2100,10 +2100,10 @@ are_names_reg_gg(Node, Names, N) ->
 	    ok;
 	Regs when N > 0 ->
 	    timer:sleep(1000),
-	    ?t:format( "are_names_reg_gg Regs ~p~n",[Regs]),
+	    test_server:format( "are_names_reg_gg Regs ~p~n",[Regs]),
 	    are_names_reg_gg(Node, Names, N-1);
 	Regs ->
-	    ?t:fail({error, {"Names not registered",
+	    ct:fail({error, {"Names not registered",
 			     {{"should :", Names},
 			      {"was :", Regs}}}})
     end.
@@ -2126,11 +2126,11 @@ t_start_node(Name, Boot, SysConfig, ArgStr) ->
     test_server:start_node(Name, peer, [{args, Args}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 
 copy_client(Conf,Master,Sname,Client) ->
-    ?t:format("copy_client(Conf)"),
+    test_server:format("copy_client(Conf)"),
 
     DataDir = ?config(data_dir, Conf),
     MasterDir = filename:join(priv_dir(Conf),Master),
@@ -2220,9 +2220,9 @@ chmod(Dest,Opts) ->
 
 
 copy_error(Src, Dest, Reason) ->
-    ?t:format("Copy ~ts to ~ts failed: ~ts\n",
+    test_server:format("Copy ~ts to ~ts failed: ~ts\n",
 	      [Src,Dest,file:format_error(Reason)]),
-    ?t:fail(file_copy_failed).
+    ct:fail(file_copy_failed).
 
 copy_tree(Conf, Src, DestDir) ->
     case catch copy_tree(Conf, Src, filename:basename(Src), DestDir) of
@@ -2336,9 +2336,9 @@ reg_print_proc() ->
 rh_print() ->
     receive
 	{print, {Module,Line}, [H|T]} ->
-	    ?t:format("=== ~p:~p - ~tp",[Module,Line,H]),
-	    lists:foreach(fun(Term) -> ?t:format("    ~tp",[Term]) end, T),
-	    ?t:format("",[]),
+	    test_server:format("=== ~p:~p - ~tp",[Module,Line,H]),
+	    lists:foreach(fun(Term) -> test_server:format("    ~tp",[Term]) end, T),
+	    test_server:format("",[]),
 	    rh_print();
 	kill ->
 	    exit(normal)
@@ -2586,12 +2586,12 @@ check_gg_info(Node,OtherAlive,OtherDead,Synced,N) ->
     GI = rpc:call(Node, global, info,[]),
     try do_check_gg_info(OtherAlive,OtherDead,Synced,GGI,GI) 
     catch _:E:Stacktrace when N==0 ->
-	    ?t:format("~nERROR: check_gg_info failed for ~p:~n~p~n"
+	    test_server:format("~nERROR: check_gg_info failed for ~p:~n~p~n"
 		      "when GGI was: ~p~nand GI was: ~p~n",
 		      [Node,{E,Stacktrace},GGI,GI]),
-	    ?t:fail("check_gg_info failed");
+	    ct:fail("check_gg_info failed");
 	  _:E:Stacktrace ->
-	    ?t:format("~nWARNING: check_gg_info failed for ~p:~n~p~n"
+	    test_server:format("~nWARNING: check_gg_info failed for ~p:~n~p~n"
 		      "when GGI was: ~p~nand GI was: ~p~n",
 		      [Node,{E,Stacktrace},GGI,GI]),
 	    timer:sleep(1000),
@@ -2741,12 +2741,12 @@ start_nodes(Conf,Snames,Tag) ->
     
 start_node_unix(Sname,NodeDir) ->
     Script = filename:join([NodeDir,"bin","start"]),
-    ?t:format("Starting ~p: ~ts~n", [Sname,Script]),
+    test_server:format("Starting ~p: ~ts~n", [Sname,Script]),
     case rh_test_lib:cmd(Script,[],[{"NODENAME",atom_to_list(Sname)}]) of
 	ok ->
 	    {ok,node_name(Sname)};
         Error ->
-            ?t:fail({failed_to_start_node, Sname, Error})
+            ct:fail({failed_to_start_node, Sname, Error})
     end.
 
 
@@ -2798,7 +2798,7 @@ install_release_changed_gg(Node,RelVsn) ->
     wait_installed(Node,RelVsn,4).
 
 wait_installed(Node,RelVsn,0) ->
-    ?t:fail("install_release_changed_gg failed for " ++ RelVsn ++ 
+    ct:fail("install_release_changed_gg failed for " ++ RelVsn ++
 	    " on " ++ atom_to_list(Node));
 wait_installed(Node,RelVsn,N) ->
     Rels = rpc:call(Node,release_handler,which_releases,[]),
@@ -2818,7 +2818,7 @@ stop_cover(Node) ->
     cover_fun(Node,stop).
 
 cover_fun(Node,Func) ->
-    case ?t:is_cover() of
+    case test_server:is_cover() of
 	true ->
 	    cover:Func(Node);
 	false ->
@@ -2915,7 +2915,7 @@ delete_all_services() ->
     Services =
 	[lists:takewhile(fun($\t) -> false; (_) -> true end,S)
 	 || S <- Serviceinfo],
-    ?t:format("Services to remove: ~p~n",[Services]),
+    test_server:format("Services to remove: ~p~n",[Services]),
     lists:foreach(fun(S) ->
 			  rh_test_lib:erlsrv(ErlSrv,stop,S),
 			  rh_test_lib:erlsrv(ErlSrv,remove,S)

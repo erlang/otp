@@ -558,12 +558,12 @@ end_per_testcase(_Name,Config) ->
 app() ->
     [{doc, "Test that the crypto app file is ok"}].
 app(Config) when is_list(Config) ->
-    ok = ?t:app_test(crypto).
+    ok = test_server:app_test(crypto).
 %%--------------------------------------------------------------------
 appup() ->
     [{doc, "Test that the crypto appup file is ok"}].
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(crypto).
+    ok = test_server:appup_test(crypto).
 
 %%--------------------------------------------------------------------
 %% Simple encode/decode for all ciphers in crypto:supports(ciphers). No

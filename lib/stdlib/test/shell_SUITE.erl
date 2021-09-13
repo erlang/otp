@@ -47,7 +47,6 @@
 
 -ifdef(STANDALONE).
 -define(config(A,B),config(A,B)).
--define(t,test_server).
 -export([config/2]).
 -define(line, noop, ).
 config(priv_dir,_) ->

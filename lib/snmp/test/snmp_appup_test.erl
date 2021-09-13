@@ -87,4 +87,4 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 
 %% Perform a simple check of the appup file
 appup_file(Config) when is_list(Config) ->
-    ok = ?t:appup_test(snmp).
+    ok = test_server:appup_test(snmp).

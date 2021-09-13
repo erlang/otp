@@ -82,7 +82,7 @@
 -include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
 						% Default timetrap timeout
--define(default_timeout, ?t:minutes(1)).
+-define(default_timeout, test_server:minutes(1)).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

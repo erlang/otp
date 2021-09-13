@@ -27,7 +27,6 @@
 -define(config(X,Y), foo).
 -define(datadir, "yecc_SUITE_data").
 -define(privdir, "yecc_SUITE_priv").
--define(t, test_server).
 -else.
 -include_lib("common_test/include/ct.hrl").
 -define(datadir, ?config(data_dir, Config)).
@@ -52,10 +51,10 @@
          otp_11286/1, otp_14285/1, otp_17023/1, otp_17535/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
+-define(default_timeout, test_server:minutes(1)).
 
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
+    Dog = test_server:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
 end_per_testcase(_Case, Config) ->
@@ -97,7 +96,7 @@ app_test(doc) ->
 app_test(suite) ->
     [];
 app_test(Config) when is_list(Config) ->
-    ok=?t:app_test(parsetools),
+    ok=test_server:app_test(parsetools),
     ok.
 
 
@@ -1782,9 +1781,8 @@ run(Config, Tests) ->
                     E -> 
                         ok;
                     Bad -> 
-                        ?t:format("~nTest ~p failed. Expected~n  ~p~n"
-                                  "but got~n  ~p~n", [N, E, Bad]),
-			fail()
+                        ct:fail("~nTest ~p failed. Expected~n  ~p~n"
+                                  "but got~n  ~p~n", [N, E, Bad])
                 end
         end,
     lists:foreach(F, Tests).
@@ -2200,7 +2198,7 @@ start_node(Name, Args) ->
     ct:log("Trying to start ~w@~s~n", [Name,Host]),
     case test_server:start_node(Name, peer, [{args,Args}]) of
 	{error,Reason} ->
-	    test_server:fail(Reason);
+	    ct:fail(Reason);
 	{ok,Node} ->
 	    ct:log("Node ~p started~n", [Node]),
 	    Node
@@ -2255,8 +2253,7 @@ run_test(Config, Def, Pre) ->
         {P0, {error, [{YrlFile,YEs}], [{YrlFile,YWs}]}} -> {error, YEs, YWs};
         {P0, YError} -> YError;
         {P, _} ->
-            io:format("failure, got ~p~n, expected ~p\n", [P, P0]),
-            fail()
+            ct:fail("failure, got ~p~n, expected ~p\n", [P, P0])
     end.
 
 extract(File, {error, Es, Ws}) ->
@@ -2277,6 +2274,3 @@ process_list() ->
 
 safe_second_element({_,Info}) -> Info;
 safe_second_element(Other) -> Other.
-
-fail() ->
-    ?t:fail().

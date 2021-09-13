@@ -288,7 +288,7 @@ filter_date(Config) ->
     [] = rb_filter([],{After,from},OutFile),
     All = rb_filter([],{Before,After},OutFile),
 
-    %%?t:format("~p~n",[All]),
+    %%test_server:format("~p~n",[All]),
     AllButLast = [{N-1,R} || {N,R} <- tl(All)],
     AllButLast = rb_filter([],{Before,Between1},OutFile),
 
@@ -454,7 +454,7 @@ empty_error_logs(Config) ->
 wait_for_sasl() ->
     wait_for_sasl(50).
 wait_for_sasl(0) ->
-    ?t:fail("sasl application did not start within 5 seconds");
+    ct:fail("sasl application did not start within 5 seconds");
 wait_for_sasl(N) ->
     case lists:keymember(sasl,1,application:which_applications()) of
 	true ->
@@ -506,8 +506,8 @@ init_error_logs() ->
     gen_server:cast(?MODULE,crash),
     receive {'DOWN',Ref,process,_,{rb_SUITE,rb_test_crash}} -> ok
     after 2000 ->
-	    ?t:format("Got: ~p~n",[process_info(self(),messages)]),
-	    ?t:fail("rb_SUITE server never died")
+	    test_server:format("Got: ~p~n",[process_info(self(),messages)]),
+	    ct:fail("rb_SUITE server never died")
     end,
     erlang:demonitor(Ref),
     wait_for_server(),
@@ -523,11 +523,11 @@ wait_for_server() ->
     end.
 
 capture(Fun) ->
-    ?t:capture_start(),
+    test_server:capture_start(),
     ok = Fun(),
     timer:sleep(1000),
-    ?t:capture_stop(),
-    string:tokens(lists:append(?t:capture_get()),"\n").
+    test_server:capture_stop(),
+    string:tokens(lists:append(test_server:capture_get()),"\n").
 
 
 rb_filter(Filter,OutFile) ->

@@ -103,8 +103,7 @@ verify_cases([{?eh,tc_done,{M,F,_}}|Ts], Cases0, true) ->
 	    Cases = Cases0 -- [{M,F}],
 	    verify_cases(Ts, Cases, true);
 	false ->
-	    io:format("~p not found\n", [{M,F}]),
-	    ?t:fail()
+	    ct:fail("~p not found\n", [{M,F}])
     end;
 verify_cases([{?eh,_,_}|Ts], Cases, Par) ->
     verify_cases(Ts, Cases, Par);

@@ -587,7 +587,7 @@ constraint_equivalence_abs(Config) ->
 	[_|_] ->
 	    io:put_chars("Not equivalent:\n"),
 	    [io:format("~s: ~p\n", [N,D]) || {N,D} <- Diff],
-	    test_server:fail(length(Diff))
+	    ct:fail(length(Diff))
     end.
 
 parse(Config) ->
@@ -727,7 +727,7 @@ otp_14440(_Config) ->
             ok = slave:stop(N);
         _ ->
             _ = slave:stop(N),
-            ?t:fail(Result)
+            ct:fail(Result)
     end.
 %%
 otp_14440_decode() ->
@@ -1345,8 +1345,7 @@ xref(_Config) ->
 	{ok,[]} ->
 	    ok;
 	{ok,[_|_]=Res} ->
-	    io:format("Exported, but unused: ~p\n", [Res]),
-	    ?t:fail()
+	    ct:fail("Exported, but unused: ~p\n", [Res])
     end.
 
 %% Ensure that all functions that are implicitly exported by
@@ -1367,8 +1366,7 @@ xref_export_all(_Config) ->
             ok;
         [_|_] ->
             Msg = [io_lib:format("~p:~p/~p\n", [M,F,A]) || {M,F,A} <- Unused],
-            io:format("There are unused functions:\n\n~s\n", [Msg]),
-            ?t:fail(unused_functions)
+            ct:fail("There are unused functions:\n\n~s\n", [Msg])
     end.
 
 %% Collect all functions that common_test will call in this module.

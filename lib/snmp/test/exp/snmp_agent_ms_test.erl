@@ -223,12 +223,12 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) when list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(6)),
+    Dog = test_server:timetrap(test_server:minutes(6)),
     [{watchdog, Dog}|Config].
 
 end_per_testcase(_Case, Config) when list(Config) ->
     Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     Config.
 
 cases() -> 

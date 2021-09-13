@@ -208,7 +208,7 @@ enc_error(Tag,T, V) ->
                      true ->
                          try 'Prim':encode(T, V) of
                              _ ->
-                                 ?t:fail()
+                                 ct:fail(expected_exception)
                          catch
                              _:{error,{asn1,Reason}} ->
                                  Reason

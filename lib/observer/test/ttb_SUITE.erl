@@ -34,7 +34,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(default_timeout, ?t:minutes(1)).
+-define(default_timeout, test_server:minutes(1)).
 -define(OUTPUT, "handler_output").
 -define(FNAME, "temptest").
 -define(DIRNAME, "ddtemp").
@@ -64,7 +64,7 @@ end_per_testcase(_Case, Config) ->
     %% catch error:undef -> ok
     %% end,
     Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -116,7 +116,7 @@ file(doc) ->
     ["Start tracing on multiple nodes, single file"];
 file(Config) when is_list(Config) ->
     ?line Node = node(),
-    ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
+    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
     ?line Privdir=priv_dir(Config),
@@ -147,7 +147,7 @@ file(Config) when is_list(Config) ->
     ok.
 
 file(cleanup,_Config) ->
-    ?line ?t:stop_node(ttb_helper:get_node(node2)).
+    ?line test_server:stop_node(ttb_helper:get_node(node2)).
 
 file_no_pi(suite) ->
     [];
@@ -155,7 +155,7 @@ file_no_pi(doc) ->
     ["Start tracing on multiple nodes, single file, no process information"];
 file_no_pi(Config) when is_list(Config) ->
     ?line Node = node(),
-    ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
+    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
     ?line Privdir=priv_dir(Config),
@@ -182,7 +182,7 @@ file_no_pi(Config) when is_list(Config) ->
     ok.
 
 file_no_pi(cleanup,_Config) ->
-    ?line ?t:stop_node(ttb_helper:get_node(node2)).
+    ?line test_server:stop_node(ttb_helper:get_node(node2)).
 
 
 file_fetch(suite) ->
@@ -191,7 +191,7 @@ file_fetch(doc) ->
     ["stop with the fetch option, i.e. collect all files when ttb is stopped"];
 file_fetch(Config) when is_list(Config) ->
     ?line Node = node(),
-    ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
+    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
     ?line Privdir=priv_dir(Config),
@@ -217,10 +217,10 @@ file_fetch(Config) when is_list(Config) ->
     ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
     ?line ?MODULE:foo(),
     ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ?t:capture_start(),
+    ?line test_server:capture_start(),
     ?line ttb:stop([return_fetch_dir]),
-    ?line ?t:capture_stop(),
-    ?line [StoreString] = ?t:capture_get(),
+    ?line test_server:capture_stop(),
+    ?line [StoreString] = test_server:capture_get(),
     ?line UploadDir =
 	lists:last(string:lexemes(lists:flatten(StoreString),"$ \n")),
 
@@ -250,7 +250,7 @@ file_fetch(Config) when is_list(Config) ->
     ok.
 
 file_fetch(cleanup,_Config) ->
-    ?line ?t:stop_node(ttb_helper:get_node(node2)).
+    ?line test_server:stop_node(ttb_helper:get_node(node2)).
 
 
 wrap(suite) ->
@@ -259,7 +259,7 @@ wrap(doc) ->
     ["Start tracing on multiple nodes, wrap files"];
 wrap(Config) when is_list(Config) ->
     ?line Node = node(),
-    ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
+    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
     ?line Privdir=priv_dir(Config),
@@ -305,7 +305,7 @@ wrap(Config) when is_list(Config) ->
     ok.
 
 wrap(cleanup,_Config) ->
-    ?line ?t:stop_node(ttb_helper:get_node(node2)).
+    ?line test_server:stop_node(ttb_helper:get_node(node2)).
 
 wrap_merge(suite) ->
     [];
@@ -313,7 +313,7 @@ wrap_merge(doc) ->
     ["Start tracing on multiple nodes, wrap files, merge logs from both nodes"];
 wrap_merge(Config) when is_list(Config) ->
     ?line Node = node(),
-    ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
+    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
     ?line Privdir=priv_dir(Config),
@@ -345,7 +345,7 @@ wrap_merge(Config) when is_list(Config) ->
     ok.
 
 wrap_merge(cleanup,_Config) ->
-    ?line ?t:stop_node(ttb_helper:get_node(node2)).
+    ?line test_server:stop_node(ttb_helper:get_node(node2)).
 
 
 wrap_merge_fetch_format(suite) ->
@@ -354,7 +354,7 @@ wrap_merge_fetch_format(doc) ->
     ["Start tracing on multiple nodes, wrap files, fetch and format at stop"];
 wrap_merge_fetch_format(Config) when is_list(Config) ->
     ?line Node = node(),
-    ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
+    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
     ?line Privdir=priv_dir(Config),
@@ -389,7 +389,7 @@ wrap_merge_fetch_format(Config) when is_list(Config) ->
     ok.
 
 wrap_merge_fetch_format(cleanup,_Config) ->
-    ?line ?t:stop_node(ttb_helper:get_node(node2)).
+    ?line test_server:stop_node(ttb_helper:get_node(node2)).
 
 write_config1(suite) ->
     [];
@@ -397,7 +397,7 @@ write_config1(doc) ->
     ["Write config given commands"];
 write_config1(Config) when is_list(Config) ->
     ?line Node = node(),
-    ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
+    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
 
@@ -433,7 +433,7 @@ write_config1(Config) when is_list(Config) ->
 					atom_to_list(OtherNode)++
 					"-write_config1")]),
 	    ?line io:format("\nTrying again: ~p\n",[flush()]),
-	    ?line ?t:fail(Reason);
+	    ?line ct:fail(Reason);
 	ok ->
 	    ok
     end,	    
@@ -441,7 +441,7 @@ write_config1(Config) when is_list(Config) ->
 
 
 write_config1(cleanup,_Config) ->
-    ?line ?t:stop_node(ttb_helper:get_node(node2)).
+    ?line test_server:stop_node(ttb_helper:get_node(node2)).
 
 write_config2(suite) ->
     [];
@@ -449,7 +449,7 @@ write_config2(doc) ->
     ["Write config from history (all)"];
 write_config2(Config) when is_list(Config) ->
     ?line Node = node(),
-    ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
+    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
     ?line Privdir=priv_dir(Config),
@@ -485,14 +485,14 @@ write_config2(Config) when is_list(Config) ->
 					atom_to_list(OtherNode)++
 					"-write_config2")]),
 	    ?line io:format("\nTrying again: ~p\n",[flush()]),
-	    ?line ?t:fail(Reason);
+	    ?line ct:fail(Reason);
 	ok ->
 	    ok
     end,
     ok.
 
 write_config2(cleanup,_Config) ->
-    ?line ?t:stop_node(ttb_helper:get_node(node2)).
+    ?line test_server:stop_node(ttb_helper:get_node(node2)).
 
 
 write_config3(suite) ->
@@ -501,7 +501,7 @@ write_config3(doc) ->
     ["Write config from history (selected and append)"];
 write_config3(Config) when is_list(Config) ->
     ?line Node = node(),
-    ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
+    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
     ?line Privdir=priv_dir(Config),
@@ -551,14 +551,14 @@ write_config3(Config) when is_list(Config) ->
 					atom_to_list(OtherNode)++
 					"-write_config3")]),
 	    ?line io:format("\nTrying again: ~p\n",[flush()]),
-	    ?line ?t:fail(Reason);
+	    ?line ct:fail(Reason);
 	ok ->
 	    ok
     end,
     ok.
 
 write_config3(cleanup,_Config) ->
-    ?line ?t:stop_node(ttb_helper:get_node(node2)).
+    ?line test_server:stop_node(ttb_helper:get_node(node2)).
 
 
 
@@ -568,7 +568,7 @@ history(doc) ->
     ["List history and execute entry from history"];
 history(Config) when is_list(Config) ->
     ?line Node = node(),
-    ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
+    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
 
@@ -599,7 +599,7 @@ history(Config) when is_list(Config) ->
     ok.
 
 history(cleanup,_Config) ->
-    ?line ?t:stop_node(ttb_helper:get_node(node2)).
+    ?line test_server:stop_node(ttb_helper:get_node(node2)).
 
 
 write_trace_info(suite) ->
@@ -608,7 +608,7 @@ write_trace_info(doc) ->
     ["Write trace info and give handler explicitly in format command"];
 write_trace_info(Config) when is_list(Config) ->
     ?line Node = node(),
-    ?line {ok,OtherNode} = ?t:start_node(node2,slave,[]),
+    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
     ?line Privdir=priv_dir(Config),
@@ -634,7 +634,7 @@ write_trace_info(Config) when is_list(Config) ->
     ok.
 
 write_trace_info(cleanup,_Config) ->
-    ?line ?t:stop_node(ttb_helper:get_node(node2)).
+    ?line test_server:stop_node(ttb_helper:get_node(node2)).
 
 
 seq_trace(suite) ->
@@ -692,7 +692,7 @@ seq_trace(Config) when is_list(Config) ->
 		      [ttb:dump_ti(
 			 filename:join(Privdir,
 				       atom_to_list(Node)++"-seq_trace.ti"))]),
-	    ?t:fail("metatrace failed for startproc")
+	    ct:fail("metatrace failed for startproc")
     end,
     case P1Proc of
 	{P1,_,_} -> ok;
@@ -704,7 +704,7 @@ seq_trace(Config) when is_list(Config) ->
 		      [ttb:dump_ti(
 			 filename:join(Privdir,
 				       atom_to_list(Node)++"-seq_trace.ti"))]),
-	    ?t:fail("metatrace failed for P1")
+	    ct:fail("metatrace failed for P1")
     end,
     case P2Proc of
 	{P2,_,_} -> ok;
@@ -716,7 +716,7 @@ seq_trace(Config) when is_list(Config) ->
 		      [ttb:dump_ti(
 			 filename:join(Privdir,
 				       atom_to_list(Node)++"-seq_trace.ti"))]),
-	    ?t:fail("metatrace failed for P2")
+	    ct:fail("metatrace failed for P2")
     end,
     ok.
 
@@ -726,7 +726,7 @@ diskless(suite) ->
 diskless(doc) ->
     ["Start tracing on diskless remote node"];
 diskless(Config) when is_list(Config) ->
-    ?line {ok,RemoteNode} = ?t:start_node(node2,slave,[]),
+    ?line {ok,RemoteNode} = test_server:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
     ?line Privdir=priv_dir(Config),
@@ -748,14 +748,14 @@ diskless(Config) when is_list(Config) ->
     ok.
 
 diskless(cleanup,_Config) ->
-    ?line ?t:stop_node(ttb_helper:get_node(node2)).
+    ?line test_server:stop_node(ttb_helper:get_node(node2)).
 
 diskless_wrap(suite) ->
     [];
 diskless_wrap(doc) ->
     ["Start tracing on diskless remote node, save to local wrapped file"];
 diskless_wrap(Config) when is_list(Config) ->
-    ?line {ok,RemoteNode} = ?t:start_node(node2,slave,[]),
+    ?line {ok,RemoteNode} = test_server:start_node(node2,slave,[]),
     ?line c:nl(?MODULE),
     ?line S = self(),
     ?line Privdir=priv_dir(Config),
@@ -777,7 +777,7 @@ diskless_wrap(Config) when is_list(Config) ->
     ok.
 
 diskless_wrap(cleanup,_Config) ->
-    ?line ?t:stop_node(ttb_helper:get_node(node2)).
+    ?line test_server:stop_node(ttb_helper:get_node(node2)).
 
 otp_4967_1(suite) ->
     [];
@@ -904,7 +904,7 @@ metatest(Proc,Node,Privdir,Filename) ->
 	    io:format("Trace information file:\n~p\n",
 		      [ttb:dump_ti(
 			 filename:join(Privdir,atom_to_list(Node)++Filename))]),
-%	    ?t:fail("metatrace failed on "++atom_to_list(Node))
+%	    ct:fail("metatrace failed on "++atom_to_list(Node))
 	    {error,"metatrace failed on "++atom_to_list(Node)}
     end.
 
@@ -918,7 +918,7 @@ check_gone(Dir,File) ->
 		      true ->
 			  io:format("~p: ~p~n",
 				    [Dir,NewList]),
-			  ?t:fail(File ++ " not removed from original place");
+			  ct:fail(File ++ " not removed from original place");
 		      false ->
 			  io:format("gone after 2 sec....~n",[]),
 			  ok
@@ -928,9 +928,9 @@ check_gone(Dir,File) ->
 	  end.
 
 start_client_and_server() ->
-    ?line {ok,ClientNode} = ?t:start_node(client,slave,[]),
+    ?line {ok,ClientNode} = test_server:start_node(client,slave,[]),
     ?line ok = ttb_helper:c(code, add_paths, [code:get_path()]),
-    ?line {ok,ServerNode} = ?t:start_node(server,slave,[]),
+    ?line {ok,ServerNode} = test_server:start_node(server,slave,[]),
     ?line ok = ttb_helper:s(code, add_paths, [code:get_path()]),
     ?line ttb_helper:clear(),
     {ServerNode, ClientNode}.
@@ -940,8 +940,8 @@ stop_client_and_server() ->
     ServerNode = ttb_helper:get_node(server),
     erlang:monitor_node(ClientNode,true),
     erlang:monitor_node(ServerNode,true),
-    ?line ?t:stop_node(ClientNode),
-    ?line ?t:stop_node(ServerNode),
+    ?line test_server:stop_node(ClientNode),
+    ?line test_server:stop_node(ServerNode),
     wait_for_client_and_server_stop(ClientNode,ServerNode).
 
 wait_for_client_and_server_stop(undefined,undefined) ->
@@ -1508,9 +1508,9 @@ trace_resumed_after_node_restart_wrap_mult(cleanup,_Config) ->
 
 logic(N, M, TracingType) ->
     helper_msgs(N, TracingType),
-    ?t:stop_node(ttb_helper:get_node(client)),
+    test_server:stop_node(ttb_helper:get_node(client)),
     timer:sleep(2500),
-    ?line {ok,_ClientNode} = ?t:start_node(client,slave,[]),
+    ?line {ok,_ClientNode} = test_server:start_node(client,slave,[]),
     ct:log("client started",[]),
     ?line ok = ttb_helper:c(code, add_paths, [code:get_path()]),
     ct:log("paths added",[]),

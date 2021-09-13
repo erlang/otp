@@ -35,7 +35,7 @@
 -compile(export_all).
 
 %% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
+-define(default_timeout, test_server:minutes(1)).
 
 -define(AGENT_UDP, 4000).
 

@@ -220,7 +220,7 @@ init_per_testcase(Case, _Config)
        Case =:= kill_mbox_from_erlang ->
     {skip, "Not yet implemented"};
 init_per_testcase(_Case,Config) ->
-    Dog = ?t:timetrap({seconds,30}),
+    Dog = test_server:timetrap({seconds,30}),
     [{watch_dog,Dog}|Config].
 
 end_per_testcase(_Case,Config) ->
@@ -229,7 +229,7 @@ end_per_testcase(_Case,Config) ->
 	Pid -> exit(Pid,kill)
     end,
     jitu:kill_all_jnodes(),
-    ?t:timetrap_cancel(?config(watch_dog,Config)),
+    test_server:timetrap_cancel(?config(watch_dog,Config)),
     ok.
 
 

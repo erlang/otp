@@ -49,10 +49,10 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 app_test(Config) when is_list(Config) ->
-    ok = ?t:app_test(eunit).
+    ok = test_server:app_test(eunit).
 
 appup_test(Config) when is_list(Config) ->
-    ok = ?t:appup_test(eunit).
+    ok = test_server:appup_test(eunit).
 
 eunit_test(Config) when is_list(Config) ->
     ok = file:set_cwd(code:lib_dir(eunit)),

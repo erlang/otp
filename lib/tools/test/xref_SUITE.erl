@@ -25,7 +25,6 @@
 -define(format(S, A), io:format(S, A)).
 -define(line, put(line, ?LINE), ).
 -define(config(X,Y), "./log_dir/").
--define(t,test_server).
 -define(datadir, "xref_SUITE_data").
 -define(privdir, "xref_SUITE_priv").
 -define(copydir, "xref_SUITE_priv/datacopy").

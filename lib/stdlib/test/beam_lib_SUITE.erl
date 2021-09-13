@@ -25,7 +25,6 @@
 -define(format(S, A), io:format(S, A)).
 -define(line, put(line, ?LINE), ).
 -define(config(X,Y), "./log_dir/").
--define(t,test_server).
 -define(privdir, "beam_lib_SUITE_priv").
 -else.
 -include_lib("common_test/include/ct.hrl").

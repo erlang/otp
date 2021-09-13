@@ -195,8 +195,7 @@ main(Rule, Opts) ->
 	[] ->
 	    ok;
 	[_|_]=R ->
-	    io:format("~p\n", [R]),
-	    ?t:fail()
+	    ct:fail("~p\n", [R])
     end.
 
 legacy_filter({_,_}=Keep) ->
