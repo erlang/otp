@@ -195,7 +195,7 @@
 
 
 %% We support only a subset of all domains.
--type domain() :: local | inet | inet6.
+-type domain() :: inet | inet6 | local | unspec.
 
 %% We support only a subset of all types.
 %% RDM - Reliably Delivered Messages
@@ -312,29 +312,38 @@
                        outgoing | loopback | user | kernel | fastroute |
                        non_neg_integer().
 
--type sockaddr_un()  :: #{family := local,
-                          path   := binary() | string()}.
--type sockaddr_in() :: #{family := inet,
-                         port   := port_number(),
-                         %% The 'broadcast' here is the "limited broadcast"
-                         addr   := any | broadcast | loopback | in_addr()}.
--type sockaddr_in6() :: #{family   := inet6,
-                          port     := port_number(),
-                          addr     := any | loopback | in6_addr(),
-                          flowinfo := in6_flow_info(),
-                          scope_id := in6_scope_id()}.
--type sockaddr_ll() :: #{family   := packet,
-                         protocol := non_neg_integer(),
-                         ifindex  := integer(),
-                         pkttype  := packet_type(),
-                         hatype   := non_neg_integer(),
-                         addr     := binary()}.
--type sockaddr_native() :: #{family := integer(), addr := binary()}.
--type sockaddr() :: sockaddr_in()  |
-                    sockaddr_in6() |
-                    sockaddr_un()  |
-                    sockaddr_ll()  |
-                    sockaddr_native().
+-type sockaddr_un() ::
+        #{family := 'local',
+          path   := binary() | string()}.
+-type sockaddr_in() ::
+        #{family := 'inet',
+          port   := port_number(),
+          %% The 'broadcast' here is the "limited broadcast"
+          addr   := 'any' | 'broadcast' | 'loopback' | in_addr()}.
+-type sockaddr_in6() ::
+        #{family   := 'inet6',
+          port     := port_number(),
+          addr     := 'any' | 'loopback' | in6_addr(),
+          flowinfo := in6_flow_info(),
+          scope_id := in6_scope_id()}.
+-type sockaddr_ll() ::
+        #{family   := 'packet',
+          protocol := non_neg_integer(),
+          ifindex  := integer(),
+          pkttype  := packet_type(),
+          hatype   := non_neg_integer(),
+          addr     := binary()}.
+-type sockaddr_unspec() ::
+        #{family := 'unspec', addr := binary()}.
+-type sockaddr_native() ::
+        #{family := integer(), addr := binary()}.
+-type sockaddr() ::
+        sockaddr_in()      |
+        sockaddr_in6()     |
+        sockaddr_un()      |
+        sockaddr_ll()      |
+        sockaddr_unspec()  |
+        sockaddr_native().
 
 -type sockaddr_recv() ::
         sockaddr() | binary().
