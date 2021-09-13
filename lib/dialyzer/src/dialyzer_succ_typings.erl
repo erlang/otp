@@ -405,17 +405,21 @@ get_module_opaques(Contracts, Codeserver) ->
   [{M, lookup_opaques(M, Codeserver)} || M <- OpaqueModules].
 
 decorate_succ_typings(FunTypesContracts, ModOpaques) ->
-  F = fun({{Label, Type}, {{M, _, _}, Contract}}) ->
-          Args = dialyzer_contracts:get_contract_args(Contract),
-          Ret = dialyzer_contracts:get_contract_return(Contract),
-          C = erl_types:t_fun(Args, Ret),
-          {M, Opaques} = lists:keyfind(M, 1, ModOpaques),
-          R = erl_types:t_decorate_with_opaque(Type, C, Opaques),
-          {Label, R};
-         ({LabelType, no}) ->
-          LabelType
+  F = fun({{Label, Type}, {{M, _, _}, Contract}}, Acc) ->
+          case lists:keyfind(M, 1, ModOpaques) of
+            {M, []} ->
+              [{Label, Type}|Acc];
+            {M, Opaques} ->
+              Args = dialyzer_contracts:get_contract_args(Contract),
+              Ret = dialyzer_contracts:get_contract_return(Contract),
+              C = erl_types:t_fun(Args, Ret),
+              R = erl_types:t_decorate_with_opaque(Type, C, Opaques),
+              [{Label, R}|Acc]
+          end;
+         ({LabelType, no}, Acc) ->
+          [LabelType|Acc]
       end,
-  orddict:from_list(lists:map(F, FunTypesContracts)).
+  orddict:from_list(lists:foldl(F, [], FunTypesContracts)).
 
 lookup_opaques(Module, Codeserver) ->
   Records = dialyzer_codeserver:lookup_mod_records(Module, Codeserver),
