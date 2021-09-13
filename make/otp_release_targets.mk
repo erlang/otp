@@ -195,6 +195,7 @@ local_copy_of_topdefs: $(HTMLDIR)/otp_doc.css
 	$(INSTALL) $(DOCGEN)/priv/images/erlang-logo.png $(HTMLDIR)
 	$(INSTALL) $(DOCGEN)/priv/images/erlang-logo.gif $(HTMLDIR)
 	$(INSTALL_DIR) $(HTMLDIR)/js/flipmenu
+	$(INSTALL) $(DOCGEN)/priv/js/*.js $(HTMLDIR)/js
 	$(INSTALL) $(DOCGEN)/priv/js/flipmenu/flip_closed.gif \
 	 	$(DOCGEN)/priv/js/flipmenu/flip_open.gif \
 		$(DOCGEN)/priv/js/flipmenu/flip_static.gif \

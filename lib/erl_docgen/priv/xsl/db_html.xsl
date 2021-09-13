@@ -766,6 +766,8 @@
     <xsl:param name="curModule"/>
     <html>
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1"></meta>
+        <meta charset="utf-8"></meta>
         <xsl:choose>
           <xsl:when test="string-length($stylesheet) > 0">
             <link rel="stylesheet" href="{$topdocdir}/{$stylesheet}" type="text/css"/>
@@ -784,32 +786,16 @@
         </xsl:choose>
       </head>
       <body>
-
         <div id="container">
           <script id="js" type="text/javascript" language="JavaScript" src="{$topdocdir}/js/flipmenu/flipmenu.js"/>
           <script id="js2" type="text/javascript" src="{$topdocdir}/js/erlresolvelinks.js"></script>
+          <script id="js3" type="text/javascript" src="{$topdocdir}/js/topbar.js"></script>
           <script language="JavaScript" type="text/javascript">
             <xsl:text disable-output-escaping="yes"><![CDATA[
             <!--
-              function getWinHeight() {
-                var myHeight = 0;
-                if( typeof( window.innerHeight ) == 'number' ) {
-                  //Non-IE
-                  myHeight = window.innerHeight;
-                } else if( document.documentElement && ( document.documentElement.clientWidth ||
-                                                         document.documentElement.clientHeight ) ) {
-                  //IE 6+ in 'standards compliant mode'
-                  myHeight = document.documentElement.clientHeight;
-                } else if( document.body && ( document.body.clientWidth || document.body.clientHeight ) ) {
-                  //IE 4 compatible
-                  myHeight = document.body.clientHeight;
-                }
-                return myHeight;
-              }
-
               function setscrollpos() {
                 var objf=document.getElementById('loadscrollpos');
-                 document.getElementById("leftnav").scrollTop = objf.offsetTop - getWinHeight()/2;
+                document.getElementById("leftnav").firstChild.scrollTop = objf.offsetTop - 10;
               }
 
               function addEvent(obj, evType, fn){
@@ -826,8 +812,41 @@
 
              addEvent(window, 'load', setscrollpos);
 
-             //-->]]></xsl:text>
+             //-->
+]]></xsl:text>
           </script>
+          <div class="topbar">
+            <xsl:variable name="show">
+              <xsl:if test="(local-name() = 'application') or (local-name() = 'part') or (local-name() = 'releasenotes')">
+                <!-- For index pages we want to always show the navbar for mobile -->
+                <xsl:text>show show-permanent</xsl:text>
+              </xsl:if>
+            </xsl:variable>
+            <div class="topbar-expand {$show}">
+              <button onclick="toggleDisplay();">
+                <svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg"  viewBox="0 0 54 54" width="24" height="24">
+                  <g>
+	            <path style="fill:#000000;" d="M27,54c-0.552,0-1-0.448-1-1V8c0-0.552,0.448-1,1-1s1,0.448,1,1v45C28,53.552,27.552,54,27,54z"/>
+	            <path style="fill:#000000;" d="M11,25c-0.256,0-0.512-0.098-0.707-0.293c-0.391-0.391-0.391-1.023,0-1.414l16-16
+		                                   c0.391-0.391,1.023-0.391,1.414,0s0.391,1.023,0,1.414l-16,16C11.512,24.902,11.256,25,11,25z"/>
+	            <path style="fill:#000000;" d="M43,25c-0.256,0-0.512-0.098-0.707-0.293l-16-16c-0.391-0.391-0.391-1.023,0-1.414
+		                                   s1.023-0.391,1.414,0l16,16c0.391,0.391,0.391,1.023,0,1.414C43.512,24.902,43.256,25,43,25z"/>
+	            <path style="fill:#000000;" d="M43,2H11c-0.552,0-1-0.448-1-1s0.448-1,1-1h32c0.552,0,1,0.448,1,1S43.552,2,43,2z"/>
+                  </g>
+                </svg>
+              </button>
+            </div>
+            <div class="topbar-title">
+              <h1 id="{header/title}">
+                <xsl:if test="string-length($chapnum) > 0">
+                  <xsl:value-of select="$chapnum"/>&#160;
+                </xsl:if>
+                <xsl:value-of select="header/title"/>
+              </h1>
+            </div>
+            <div class="search-expand {$show}">
+            </div>
+          </div>
           <!-- Generate menu -->
           <xsl:call-template name="menu">
             <xsl:with-param name="chapnum" select="$chapnum"/>
@@ -905,10 +924,22 @@
   <xsl:template name="menu">
     <xsl:param name="chapnum"/>
     <xsl:param name="curModule"/>
+    <xsl:variable name="show">
+      <xsl:choose>
+        <xsl:when test="(local-name() = 'application') or (local-name() = 'part') or (local-name() = 'releasenotes')">
+          <!-- For index pages we want to always show the navbar for mobile -->
+          <xsl:text>show show-permanent</xsl:text>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:text>hide-mobile</xsl:text>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
     <xsl:if test="(local-name() = 'part') or ((local-name() = 'chapter') and ancestor::part)">
       <!-- .../part or .../part/chapter  -->
       <xsl:call-template name="menu.ug">
         <xsl:with-param name="chapnum" select="$chapnum"/>
+        <xsl:with-param name="show" select="$show"/>
       </xsl:call-template>
     </xsl:if>
 
@@ -922,12 +953,14 @@
 	<!-- .../internal or .../internal/chapter  -->
 	<xsl:call-template name="menu.internal.ug">
           <xsl:with-param name="chapnum" select="$chapnum"/>
+          <xsl:with-param name="show" select="$show"/>
 	</xsl:call-template>
       </xsl:when>
       <xsl:when test="(local-name() = 'internal' and descendant::erlref) or (((local-name() = 'erlref') or (local-name() = 'comref') or (local-name() = 'cref') or (local-name() = 'fileref') or (local-name() = 'appref')) and ancestor::internal)">
 	<!-- .../internal,.../internal/erlref, .../internal/comref or .../internal/cref  or .../internal/fileref or .../internal/appref -->
 	<xsl:call-template name="menu.internal.ref">
           <xsl:with-param name="curModule" select="$curModule"/>
+          <xsl:with-param name="show" select="$show"/>
 	</xsl:call-template>
       </xsl:when>
     </xsl:choose>
@@ -935,12 +968,14 @@
       <!-- .../application,.../application/erlref, .../application/comref or .../application/cref  or .../application/fileref or .../application/appref -->
       <xsl:call-template name="menu.ref">
         <xsl:with-param name="curModule" select="$curModule"/>
+        <xsl:with-param name="show" select="$show"/>
       </xsl:call-template>
     </xsl:if>
     <xsl:if test="(local-name() = 'releasenotes') or ((local-name() = 'chapter') and ancestor::releasenotes)">
       <!-- releasenotes  -->
       <xsl:call-template name="menu.rn">
         <xsl:with-param name="chapnum" select="$chapnum"/>
+        <xsl:with-param name="show" select="$show"/>
       </xsl:call-template>
     </xsl:if>
   </xsl:template>
@@ -1435,8 +1470,9 @@
   <!-- Menu.internal.chapter -->
   <xsl:template name="menu.internal.ug">
     <xsl:param name="chapnum"/>
+    <xsl:param name="show"/>
 
-    <aside id="leftnav">
+    <aside class="{$show}" id="leftnav">
       <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
@@ -1464,7 +1500,9 @@
     <!-- Menu.internal.ref -->
   <xsl:template name="menu.internal.ref">
       <xsl:param name="curModule"/>
-      <aside id="leftnav">
+      <xsl:param name="show"/>
+      
+      <aside class="{$show}" id="leftnav">
       <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
@@ -1492,7 +1530,8 @@
 
   <!-- Menu.internal.chapter combined when we have both modules and free-form chapters -->
   <xsl:template name="menu.internal.ug_ref">
-    <aside id="leftnav">
+    <xsl:param name="show"/>
+    <aside class="{$show}" id="leftnav">
       <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
@@ -1563,8 +1602,9 @@
   <!-- Menu.ug -->
   <xsl:template name="menu.ug">
     <xsl:param name="chapnum"/>
+    <xsl:param name="show"/>
 
-    <aside id="leftnav">
+    <aside class="{$show}" id="leftnav">
       <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
@@ -1725,7 +1765,9 @@
   <!-- Menu.ref -->
   <xsl:template name="menu.ref">
     <xsl:param name="curModule"/>
-    <aside id="leftnav">
+    <xsl:param name="show"/>
+
+    <aside class="{$show}" id="leftnav">
       <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
@@ -2772,8 +2814,9 @@
   <!-- Menu.rn -->
   <xsl:template name="menu.rn">
     <xsl:param name="chapnum"/>
+    <xsl:param name="show"/>
 
-    <aside id="leftnav">
+    <aside class="{$show}" id="leftnav">
       <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>

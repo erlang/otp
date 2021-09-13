@@ -76,7 +76,7 @@ release_spec: opt
 release_html_spec: html
 	$(INSTALL_DIR) "$(RELEASE_PATH)/doc/js/flipmenu"
 	$(INSTALL_DATA) $(JS_FILES) $(GIF_FILES) "$(RELEASE_PATH)/doc/js/flipmenu"
-	$(INSTALL_DATA) ../highlight.js ../highlight.pack.js "$(RELEASE_PATH)/doc/js/"
+	$(INSTALL_DATA) ../highlight.js ../highlight.pack.js ../topbar.js "$(RELEASE_PATH)/doc/js/"
 
 release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
 
