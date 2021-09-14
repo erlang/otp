@@ -85,8 +85,6 @@
 
 -type curr_fun()  :: 'undefined' | 'top' | mfa_or_funlbl().
 
--define(no_arg, no_arg).
-
 -define(TYPE_LIMIT, 3).
 
 -define(BITS, 128).
@@ -295,8 +293,6 @@ traverse(Tree, Map, State) ->
     literal ->
       Type = literal_type(Tree),
       {State, Map, Type};
-    module ->
-      handle_module(Tree, Map, State);
     primop ->
       case cerl:atom_val(cerl:primop_name(Tree)) of
         match_fail ->
@@ -328,8 +324,6 @@ traverse(Tree, Map, State) ->
           {State, Map, t_any()};
         Other -> erlang:error({'Unsupported primop', Other})
       end;
-    'receive' ->
-      handle_receive(Tree, Map, State);
     seq ->
       Arg = cerl:seq_arg(Tree),
       Body = cerl:seq_body(Tree),
@@ -1097,60 +1091,6 @@ handle_let(Tree, Map, State) ->
 
 %%----------------------------------------
 
-handle_module(Tree, Map, State) ->
-  %% By not including the variables in scope we can assure that we
-  %% will get the current function type when using the variables.
-  Defs = cerl:module_defs(Tree),
-  PartFun = fun({_Var, Fun}) ->
-		state__is_escaping(get_label(Fun), State)
-	    end,
-  {Defs1, Defs2} = lists:partition(PartFun, Defs),
-  Letrec = cerl:c_letrec(Defs1, cerl:c_int(42)),
-  {State1, Map1, _FunTypes} = traverse(Letrec, Map, State),
-  %% Also add environments for the other top-level functions.
-  VarTypes = [{Var, state__fun_type(Fun, State1)} || {Var, Fun} <- Defs],
-  EnvMap = enter_type_list(VarTypes, Map),
-  FoldFun = fun({_Var, Fun}, AccState) ->
-		state__update_fun_env(Fun, EnvMap, AccState)
-	    end,
-  State2 = lists:foldl(FoldFun, State1, Defs2),
-  {State2, Map1, t_any()}.
-
-%%----------------------------------------
-
-handle_receive(Tree, Map, State) ->
-  Clauses = cerl:receive_clauses(Tree),
-  Timeout = cerl:receive_timeout(Tree),
-  State1 =
-    case is_race_analysis_enabled(State) of
-      true ->
-	{RaceList, RaceListSize} = get_race_list_and_size(State),
-        state__renew_race_list([beg_case|RaceList],
-                               RaceListSize + 1, State);
-      false -> State
-    end,
-  {MapList, State2, ReceiveType, Warns} =
-    handle_clauses(Clauses, ?no_arg, t_any(), t_any(), State1, [], Map,
-		   [], [], []),
-  State3 = lists:foldl(fun({T,R,M,F}, S) -> state__add_warning(S,T,R,M,F) end,
-		       State2, Warns),
-  Map1 = join_maps(MapList, Map),
-  {State4, Map2, TimeoutType} = traverse(Timeout, Map1, State3),
-  Opaques = State4#state.opaques,
-  case (t_is_atom(TimeoutType, Opaques) andalso
-	(t_atom_vals(TimeoutType, Opaques) =:= ['infinity'])) of
-    true ->
-      {State4, Map2, ReceiveType};
-    false ->
-      Action = cerl:receive_action(Tree),
-      {State5, Map3, ActionType} = traverse(Action, Map, State4),
-      Map4 = join_maps([Map3, Map1], Map),
-      Type = t_sup(ReceiveType, ActionType),
-      {State5, Map4, Type}
-  end.
-
-%%----------------------------------------
-
 handle_try(Tree, Map, State) ->
   Arg = cerl:try_arg(Tree),
   EVars = cerl:try_evars(Tree),
@@ -1380,9 +1320,7 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
       false -> State
     end,
   Map0 = mark_as_fresh(Pats, Map),
-  Map1 = if Arg =:= ?no_arg -> Map0;
-	    true -> bind_subst(Arg, Pats, Map0)
-	 end,
+  Map1 = bind_subst(Arg, Pats, Map0),
   BindRes =
     case t_is_none(ArgType0) of
       true ->
@@ -1492,25 +1430,16 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
 	  {State1, Map, t_none(), ArgType0, [{WarnType, C, Msg, Force}|Warns]}
       end;
     {Map2, PatTypes} ->
+      %% Try to bind the argument. Will only succeed if
+      %% it is a simple structured term.
       Map3 =
-	case Arg =:= ?no_arg of
-	  true -> Map2;
-	  false ->
-	    %% Try to bind the argument. Will only succeed if
-	    %% it is a simple structured term.
-	    case bind_pat_vars_reverse([Arg], [t_product(PatTypes)],
-				       [], Map2, State1) of
-	      {error, _, _, _, _} -> Map2;
-	      {NewMap, _} -> NewMap
-	    end
+        case bind_pat_vars_reverse([Arg], [t_product(PatTypes)],
+                                   [], Map2, State1) of
+          {error, _, _, _, _} -> Map2;
+          {NewMap, _} -> NewMap
 	end,
-      NewArgType =
-	case Arg =:= ?no_arg of
-	  true -> ArgType0;
-	  false ->
-	    GenType = dialyzer_typesig:get_safe_underapprox(Pats, Guard),
-	    t_subtract(t_product(t_to_tlist(ArgType0)), GenType)
-	end,
+      GenType = dialyzer_typesig:get_safe_underapprox(Pats, Guard),
+      NewArgType = t_subtract(t_product(t_to_tlist(ArgType0)), GenType),
       case bind_guard(Guard, Map3, State1) of
 	{error, Reason} ->
 	  ?debug("Failed guard: ~ts\n",
@@ -2878,12 +2807,6 @@ enter_type_lists([Key|KeyTail], [Val|ValTail], Map) ->
   Map1 = enter_type(Key, Val, Map),
   enter_type_lists(KeyTail, ValTail, Map1);
 enter_type_lists([], [], Map) ->
-  Map.
-
-enter_type_list([{Key, Val}|Left], Map) ->
-  Map1 = enter_type(Key, Val, Map),
-  enter_type_list(Left, Map1);
-enter_type_list([], Map) ->
   Map.
 
 enter_type(Key, Val, MS) ->
