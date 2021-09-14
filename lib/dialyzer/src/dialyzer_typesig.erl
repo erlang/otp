@@ -98,7 +98,7 @@
 -type typesig_funmap() :: #{type_var() => type_var()}.
 
 -type prop_types() :: orddict:orddict(label(), erl_types:erl_type()).
--type dict_prop_types() :: dict:dict(label(), erl_types:erl_type()).
+-type dict_prop_types() :: #{label() => erl_types:erl_type()}.
 
 -record(state, {callgraph                :: dialyzer_callgraph:callgraph()
                                           | 'undefined',
@@ -115,7 +115,7 @@
 		self_rec                 :: 'false' | erl_types:erl_type(),
 		plt                      :: dialyzer_plt:plt()
                                           | 'undefined',
-		prop_types  = dict:new() :: dict_prop_types(),
+		prop_types  = #{}        :: dict_prop_types(),
                 mod_records = []         :: [{module(), types()}],
 		scc         = []         :: ordsets:ordset(type_var()),
 		mfas                     :: [mfa()],
@@ -351,10 +351,7 @@ traverse(Tree, DefinedVars, State) ->
       TreeVar = mk_var(Tree),
       State2 =
 	try
-	  State1 = case state__add_prop_constrs(Tree, State0) of
-		     not_called -> State0;
-		     PropState -> PropState
-		   end,
+	  State1 = state__add_prop_constrs(Tree, State0),
 	  {BodyState, BodyVar} = traverse(Body, DefinedVars1, State1),
 	  state__store_conj(TreeVar, eq,
 			    t_fun(mk_var_list(Vars), BodyVar), BodyState)
@@ -2693,7 +2690,7 @@ new_state(MFAs, NextLabel, CallGraph, CServer, Plt, PropTypes0, Solvers) ->
 	end;
       _Many -> false
     end,
-  PropTypes = dict:from_list(PropTypes0),
+  PropTypes = maps:from_list(PropTypes0),
   #state{callgraph = CallGraph, name_map = NameMap, next_label = NextLabel,
 	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC),
 	 mfas = MFAs, self_rec = SelfRec, solvers = Solvers,
@@ -2793,29 +2790,29 @@ state__new_constraint_context(State) ->
   State#state{cs = []}.
 
 state__prop_domain(FunLabel, #state{prop_types = PropTypes}) ->
- case dict:find(FunLabel, PropTypes) of
-    error -> error;
-    {ok, {_Range_Fun, Dom}} -> {ok, Dom};
-    {ok, FunType} -> {ok, t_fun_args(FunType)}
+  case PropTypes of
+    #{FunLabel := FunType} -> {ok, t_fun_args(FunType)};
+    #{} -> error
   end.
 
 state__add_prop_constrs(Tree, #state{prop_types = PropTypes} = State) ->
   Label = cerl_trees:get_label(Tree),
-  case dict:find(Label, PropTypes) of
-    error -> State;
-    {ok, FunType} ->
+  case PropTypes of
+    #{Label := FunType} ->
       case t_fun_args(FunType) of
 	unknown -> State;
 	ArgTypes ->
 	  case erl_types:any_none(ArgTypes) of
-	    true -> not_called;
+	    true -> State;
 	    false ->
 	      ?debug("Adding propagated constr: ~ts for function ~tw\n",
 		     [format_type(FunType), debug_lookup_name(mk_var(Tree))]),
 	      FunVar = mk_var(Tree),
 	      state__store_conj(FunVar, sub, FunType, State)
 	  end
-      end
+      end;
+    #{} ->
+      State
   end.
 
 state__cs(#state{cs = Cs}) ->
