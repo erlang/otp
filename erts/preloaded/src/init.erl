@@ -1475,7 +1475,7 @@ run_on_load_handlers([M|Ms], Debug) ->
 	    erlang:finish_after_on_load(M, Keep),
 	    case Keep of
 		false ->
-		    Error = {on_load_function_failed,M},
+		    Error = {on_load_function_failed,M,OnLoadRes},
 		    debug(Debug, Error),
 		    exit(Error);
 		true ->
