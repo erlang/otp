@@ -746,7 +746,7 @@ decorate_tuples_in_sets([?tuple(Elements, Arity, Tag1) = T1|Tuples] = L1,
   if
     Tag1 < Tag2   -> decorate_tuples_in_sets(Tuples, L2, Opaques, [T1|Acc]);
     Tag1 > Tag2   -> decorate_tuples_in_sets(L1, Ts, Opaques, Acc);
-    Tag1 =:= Tag2 ->
+    Tag1 == Tag2 ->
       NewElements = list_decorate(Elements, Es, Opaques),
       NewAcc = [?tuple(NewElements, Arity, Tag1)|Acc],
       decorate_tuples_in_sets(Tuples, Ts, Opaques, NewAcc)
@@ -2684,9 +2684,9 @@ t_sup(?tuple(?any, ?any, ?any) = T, ?tuple_set(_)) -> T;
 t_sup(?tuple_set(_), ?tuple(?any, ?any, ?any) = T) -> T;
 t_sup(?tuple(Elements1, Arity, Tag1) = T1,
       ?tuple(Elements2, Arity, Tag2) = T2) ->
-  if Tag1 =:= Tag2 -> t_tuple(t_sup_lists(Elements1, Elements2));
-     Tag1 =:= ?any -> t_tuple(t_sup_lists(Elements1, Elements2));
-     Tag2 =:= ?any -> t_tuple(t_sup_lists(Elements1, Elements2));
+  if Tag1 == Tag2 -> t_tuple(t_sup_lists(Elements1, Elements2));
+     Tag1 == ?any -> t_tuple(t_sup_lists(Elements1, Elements2));
+     Tag2 == ?any -> t_tuple(t_sup_lists(Elements1, Elements2));
      Tag1 < Tag2 -> ?tuple_set([{Arity, [T1, T2]}]);
      Tag1 > Tag2 -> ?tuple_set([{Arity, [T2, T1]}])
   end;
@@ -2792,9 +2792,10 @@ sup_tuples_in_set([?tuple(Elements1, Arity, Tag1) = T1|Left1] = L1,
   if
     Tag1 < Tag2   -> sup_tuples_in_set(Left1, L2, [T1|Acc]);
     Tag1 > Tag2   -> sup_tuples_in_set(L1, Left2, [T2|Acc]);
-    Tag2 =:= Tag2 -> NewElements = t_sup_lists(Elements1, Elements2),
-		     NewAcc = [?tuple(NewElements, Arity, Tag1)|Acc],
-		     sup_tuples_in_set(Left1, Left2, NewAcc)
+    Tag1 == Tag2 ->
+      NewElements = t_sup_lists(Elements1, Elements2),
+      NewAcc = [?tuple(NewElements, Arity, Tag1)|Acc],
+      sup_tuples_in_set(Left1, Left2, NewAcc)
   end;
 sup_tuples_in_set([], L2, Acc) -> lists:reverse(Acc, L2);
 sup_tuples_in_set(L1, [], Acc) -> lists:reverse(Acc, L1).
