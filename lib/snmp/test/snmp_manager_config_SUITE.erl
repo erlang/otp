@@ -2037,18 +2037,18 @@ do_register_agent_using_file(Conf) ->
     
     %% --
     ?IPRINT("EngineID (~p) for agent <~w,~w>", [EngineID2, AgentAddr2, AgentPort2]),
-    ?line {ok, EngineID2} = 
+    ?line {ok, EngineID2} =
 	snmpm_config:agent_info(AgentAddr2, AgentPort2, engine_id),
 
     %% --
-    ?line {ok, MMS2} = 
+    ?line {ok, MMS2} =
 	snmpm_config:agent_info(AgentAddr2, AgentPort2, max_message_size),
     NewMMS21 = 2048,
     ?IPRINT("try update agent info max-message-size to ~w for agent <~w,~w>", 
       [NewMMS21, AgentAddr2, AgentPort2]),
-    ?line ok = snmpm_config:update_agent_info(UserId2, AgentAddr2, AgentPort2,
-					      max_message_size, NewMMS21),
-    ?line {ok, NewMMS21} = 
+    ?line ok = update_agent_info(UserId2, AgentAddr2, AgentPort2,
+                                 max_message_size, NewMMS21),
+    ?line {ok, NewMMS21} =
 	snmpm_config:agent_info(AgentAddr2, AgentPort2, max_message_size),
 
     %% --
@@ -2057,8 +2057,8 @@ do_register_agent_using_file(Conf) ->
       "with user ~w (not owner)", 
       [NewMMS21, AgentAddr2, AgentPort2, UserId1]),
     ?line {error, Reason01} = 
-	snmpm_config:update_agent_info(UserId1, AgentAddr2, AgentPort2,
-				       max_message_size, NewMMS21),
+	update_agent_info(UserId1, AgentAddr2, AgentPort2,
+                          max_message_size, NewMMS21),
     ?IPRINT("expected failure. Reason01: ~p", [Reason01]), 
     ?line {ok, NewMMS21} = 
 	snmpm_config:agent_info(AgentAddr2, AgentPort2, max_message_size),
@@ -2069,9 +2069,9 @@ do_register_agent_using_file(Conf) ->
       "for agent <~w,~w>", 
       [NewMMS22, AgentAddr2, AgentPort2]),
     ?line {error, Reason02} = 
-	snmpm_config:update_agent_info(UserId1, AgentAddr2, AgentPort2,
-				       max_message_size, NewMMS22),
-    ?IPRINT("expected failure. Reason02: ~p", [Reason02]), 
+	update_agent_info(UserId1, AgentAddr2, AgentPort2,
+                          max_message_size, NewMMS22),
+    ?IPRINT("expected failre. Reason02: ~p", [Reason02]), 
 
     %% --
     ?IPRINT("done"),
@@ -2743,6 +2743,14 @@ otp8395_incr_counter(Counter, Initial, Increment, Max) ->
 %%======================================================================
 %% Internal functions
 %%======================================================================
+
+update_agent_info(UserId, Addr, Port, Item, Val)  ->
+    case snmpm_config:agent_info(Addr, Port, target_name) of
+	{ok, TargetName} ->
+	    snmpm_config:update_agent_info(UserId, TargetName, [{Item, Val}]);
+	Error ->
+	    Error
+    end.
 
 config_start(Opts) ->
     (catch snmpm_config:start_link(Opts)).

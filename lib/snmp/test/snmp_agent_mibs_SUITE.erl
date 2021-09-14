@@ -989,13 +989,13 @@ mibs_info(Pid) ->
 
 load_mibs(Pid, Dir, Mibs0) ->
     Mibs = [join(Dir, Mib) || Mib <- Mibs0],
-    Res = snmpa_mib:load_mibs(Pid, Mibs),
+    Res = snmpa_mib:load_mibs(Pid, Mibs, false),
     %% ?DBG("load_mibs -> "
     %% 	 "~n   Res: ~p", [Res]),
     Res.
 
 unload_mibs(Pid, Mibs) ->
-    Res = snmpa_mib:unload_mibs(Pid, Mibs),
+    Res = snmpa_mib:unload_mibs(Pid, Mibs, false),
     %% ?DBG("unload_mibs -> "
     %% 	 "~n   Res: ~p", [Res]),
     Res.
