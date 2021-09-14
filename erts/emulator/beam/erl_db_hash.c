@@ -270,6 +270,140 @@ static ERTS_INLINE int is_pseudo_deleted(HashDbTerm* p)
 #  define GET_LOCK_AND_CTR(tb,hval) (&(tb)->locks[(hval) & GET_LOCK_MASK(tb->nlocks)].u.lck_ctr)
 #  define GET_LOCK_MAYBE(tb,hval) ((tb)->common.is_thread_safe ? NULL : GET_LOCK(tb,hval))
 
+#  define LCK_AUTO_CONTENDED_STAT_CONTRIB       100
+#  define LCK_AUTO_UNCONTENDED_STAT_CONTRIB     -1
+#  define LCK_AUTO_GROW_LIMIT                   1000
+#  define LCK_AUTO_SHRINK_LIMIT                 -10000000
+#  define LCK_AUTO_MAX_LOCKS                    8192
+#  define LCK_AUTO_MIN_LOCKS                    4
+#  define LCK_AUTO_DEFAULT_NO_LOCKS             64
+#  define LCK_AUTO_MAX_LOCKS_FREQ_READ_RW_LOCKS 128
+
+static Sint get_lock_nitems_form_prev_lock_array(int index,
+                                                 int new_no_locks,
+                                                 int old_no_locks,
+                                                 DbTableHashFineLockSlot* old_locks) {
+    if (new_no_locks > old_no_locks) {
+        Sint nitems = 0;
+        Sint in_source = old_locks[index % old_no_locks].u.lck_ctr.nitems;
+        nitems += in_source / 2;
+        if (index >= old_no_locks) {
+            nitems += in_source % 2;
+        }
+        return nitems;
+    } else {
+        Sint in_source_1 = old_locks[index].u.lck_ctr.nitems;
+        Sint in_source_2 = old_locks[index + new_no_locks].u.lck_ctr.nitems;
+        return in_source_1 + in_source_2;
+    }
+
+}
+
+static void calc_shrink_limit(DbTableHash* tb);
+
+void erl_db_hash_adapt_no_locks(DbTable* tb) {
+    db_hash_lock_array_resize_state current_state;
+    DbTableHash* tbl;
+    int new_no_locks;
+    if(!(tb->common.type & DB_FINE_LOCKED_AUTO)) {
+        return;
+    }
+    current_state = erts_atomic_read_nob(&tb->hash.lock_array_resize_state);
+    if (current_state == DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL) {
+        return;
+    }
+    tbl = &tb->hash;
+    erts_rwmtx_rwlock(&tb->common.rwlock);
+    current_state = erts_atomic_read_nob(&tb->hash.lock_array_resize_state);
+    if (current_state == DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL) {
+        /* Another thread did the lock array resize job before us */
+        erts_rwmtx_rwunlock(&tb->common.rwlock);
+        return;
+    }
+    if (IS_FIXED(tb)) {
+        /*
+           Do not do any adaptation if the table is fixed as this can
+           lead to missed slots when traversing over the table.
+
+           The lock statistics is kept as it is likely that we want to
+           adapt when the table is not fixed any more.
+        */
+        erts_atomic_set_nob(&tbl->lock_array_resize_state,
+                            DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL);
+        erts_rwmtx_rwunlock(&tb->common.rwlock);
+        return;
+    }
+    if (current_state == DB_HASH_LOCK_ARRAY_RESIZE_STATUS_GROW &&
+        erts_atomic_read_nob(&tbl->nactive) >= (2*tbl->nlocks)) {
+        new_no_locks = 2*tbl->nlocks;
+    } else if (current_state == DB_HASH_LOCK_ARRAY_RESIZE_STATUS_SHRINK) {
+        new_no_locks = tbl->nlocks / 2;
+    } else {
+        /*
+          Do not do any adaptation if the number of active buckets is
+          smaller than the resulting number of locks.
+
+          We do not want to make the table unnecessary large just to
+          potentially reduce contention.
+        */
+        int i;
+        for (i = 0; i < tbl->nlocks; i++) {
+            tbl->locks[i].u.lck_ctr.lck_stat = 0;
+        }
+        erts_atomic_set_nob(&tbl->lock_array_resize_state,
+                            DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL);
+        erts_rwmtx_rwunlock(&tb->common.rwlock);
+        return;
+    }
+    {
+        erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
+        int i;
+        DbTableHashFineLockSlot* old_locks = tbl->locks;
+        Uint old_no_locks = tbl->nlocks;
+        ASSERT(new_no_locks != 0);
+        tbl->nlocks = new_no_locks;
+        if (tb->common.type & DB_FREQ_READ &&
+            new_no_locks <= LCK_AUTO_MAX_LOCKS_FREQ_READ_RW_LOCKS) {
+            rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
+        }
+        if (erts_ets_rwmtx_spin_count >= 0) {
+            rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
+        }
+        tbl->locks = (DbTableHashFineLockSlot*) erts_db_alloc(ERTS_ALC_T_DB_SEG,
+                                                              (DbTable *) tb,
+                                                              sizeof(DbTableHashFineLockSlot) * tbl->nlocks);
+        for (i=0; i < tbl->nlocks; i++) {
+            erts_rwmtx_init_opt(&tbl->locks[i].u.lck_ctr.lck, &rwmtx_opt,
+                                "db_hash_slot", tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
+            tbl->locks[i].u.lck_ctr.nitems =
+                get_lock_nitems_form_prev_lock_array(i, tbl->nlocks, old_no_locks, old_locks);
+            tbl->locks[i].u.lck_ctr.lck_stat = 0;
+        }
+/* #define HARD_DEBUG_ITEM_CNT_LOCK_CHANGE 1 */
+#ifdef HARD_DEBUG_ITEM_CNT_LOCK_CHANGE
+        {
+            Sint total_old = 0;
+            Sint total_new = 0;
+            int i;
+            for (i=0; i < old_no_locks; i++) {
+                total_old += old_locks[i].u.lck_ctr.nitems;
+            }
+            for (i=0; i < tbl->nlocks; i++) {
+                total_new += tbl->locks[i].u.lck_ctr.nitems;
+            }
+            /* erts_printf("%ld %ld %d\n", total_new, total_old, tbl->nlocks); */
+            ERTS_ASSERT(total_new == total_old);
+        }
+#endif
+        erts_db_free(ERTS_ALC_T_DB_SEG, tb, old_locks, sizeof(DbTableHashFineLockSlot) * old_no_locks);
+
+        calc_shrink_limit(tbl);
+
+        erts_atomic_set_nob(&tbl->lock_array_resize_state, DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL);
+        erts_rwmtx_rwunlock(&tb->common.rwlock);
+    }
+}
+
 /* Fine grained read lock */
 static ERTS_INLINE erts_rwmtx_t* RLOCK_HASH(DbTableHash* tb, HashValue hval)
 {
@@ -282,18 +416,6 @@ static ERTS_INLINE erts_rwmtx_t* RLOCK_HASH(DbTableHash* tb, HashValue hval)
 	return lck;
     }
 }
-/* Fine grained write lock */
-static ERTS_INLINE erts_rwmtx_t* WLOCK_HASH(DbTableHash* tb, HashValue hval)
-{
-    if (tb->common.is_thread_safe) {
-	return NULL;
-    } else {
-	erts_rwmtx_t* lck = GET_LOCK(tb,hval);
-	ASSERT(tb->common.type & DB_FINE_LOCKED);
-	erts_rwmtx_rwlock(lck);
-	return lck;
-    }
-}
 
 /* Fine grained write lock */
 static ERTS_INLINE
@@ -302,11 +424,73 @@ DbTableHashLockAndCounter* WLOCK_HASH_GET_LCK_AND_CTR(DbTableHash* tb, HashValue
     if (tb->common.is_thread_safe) {
 	return NULL;
     } else {
-        DbTableHashLockAndCounter* lck_ctr = GET_LOCK_AND_CTR(tb,hval);
 	ASSERT(tb->common.type & DB_FINE_LOCKED);
-	erts_rwmtx_rwlock(&lck_ctr->lck);
-	return lck_ctr;
+        if (tb->common.type & DB_FINE_LOCKED_AUTO) {
+            DbTableHashLockAndCounter* lck_couter = GET_LOCK_AND_CTR(tb, hval);
+            if (EBUSY == erts_rwmtx_tryrwlock(&lck_couter->lck)) {
+                erts_rwmtx_rwlock(&lck_couter->lck);
+                lck_couter->lck_stat += LCK_AUTO_CONTENDED_STAT_CONTRIB;
+                if (lck_couter->lck_stat > LCK_AUTO_GROW_LIMIT) {
+                    if (tb->nlocks < LCK_AUTO_MAX_LOCKS &&
+                        !IS_FIXED(tb) &&
+                        (DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL ==
+                         erts_atomic_read_nob(&tb->lock_array_resize_state))) {
+                        /*
+                          Trigger lock array increase later when we
+                          can take the table lock
+                        */
+                        erts_atomic_set_nob(&tb->lock_array_resize_state,
+                                            DB_HASH_LOCK_ARRAY_RESIZE_STATUS_GROW);
+                    } else if (!IS_FIXED(tb)) {
+                        /*
+                          Do not do any adaptation if the table is
+                          fixed as this can lead to missed slots when
+                          traversing over the table.
+
+                          The lock statistics is kept if the table is
+                          fixed as it is likely that we want to adapt
+                          when the table is not fixed any more.
+                        */
+                        lck_couter->lck_stat = 0;
+                    }
+                }
+            } else {
+                lck_couter->lck_stat += LCK_AUTO_UNCONTENDED_STAT_CONTRIB;
+                if (lck_couter->lck_stat < LCK_AUTO_SHRINK_LIMIT) {
+                    if(tb->nlocks > LCK_AUTO_MIN_LOCKS &&
+                       !IS_FIXED(tb) &&
+                       (DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL ==
+                        erts_atomic_read_nob(&tb->lock_array_resize_state))) {
+                        /*
+                          Trigger lock array increase later when we
+                          can take the table lock
+                        */
+                        erts_atomic_set_nob(&tb->lock_array_resize_state,
+                                            DB_HASH_LOCK_ARRAY_RESIZE_STATUS_SHRINK);
+                    } else if (!IS_FIXED(tb)) {
+                        lck_couter->lck_stat = 0;
+                    }
+                }
+            }
+            return lck_couter;
+        } else {
+            DbTableHashLockAndCounter* lck_ctr = GET_LOCK_AND_CTR(tb,hval);
+            ASSERT(tb->common.type & DB_FINE_LOCKED);
+            erts_rwmtx_rwlock(&lck_ctr->lck);
+            return lck_ctr;
+        }
     }
+}
+
+/* Fine grained write lock */
+static ERTS_INLINE erts_rwmtx_t* WLOCK_HASH(DbTableHash* tb, HashValue hval)
+{
+    DbTableHashLockAndCounter* lck_cntr =
+        WLOCK_HASH_GET_LCK_AND_CTR(tb, hval);
+    if (lck_cntr == NULL) {
+        return NULL;
+    }
+    return &lck_cntr->lck;
 }
 
 static ERTS_INLINE void RUNLOCK_HASH(erts_rwmtx_t* lck)
@@ -808,6 +992,8 @@ int db_create_hash(Process *p, DbTable *tbl)
     sys_memset(tb->first_segtab[0], 0, SIZEOF_SEGMENT(FIRST_SEGSZ));
 
     erts_atomic_init_nob(&tb->is_resizing, 0);
+    erts_atomic_init_nob(&tb->lock_array_resize_state,
+                         (erts_aint_t)DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL);
     if (tb->nlocks == -1 || !(tb->common.type & DB_FINE_LOCKED)) {
         /*
           The number of locks needs to be set even if fine grained
@@ -820,6 +1006,9 @@ int db_create_hash(Process *p, DbTable *tbl)
     if (tb->common.type & DB_FINE_LOCKED) {
 	erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
 	int i;
+        if (tb->common.type & DB_FINE_LOCKED_AUTO) {
+            tb->nlocks = LCK_AUTO_DEFAULT_NO_LOCKS;
+        }
         /*
           nlocks needs to be a power of two so we round down to
           nearest power of two
@@ -844,13 +1033,14 @@ int db_create_hash(Process *p, DbTable *tbl)
             erts_rwmtx_init_opt(&tb->locks[i].u.lck_ctr.lck, &rwmtx_opt,
                 "db_hash_slot", tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
             tb->locks[i].u.lck_ctr.nitems = 0;
+            tb->locks[i].u.lck_ctr.lck_stat = 0;
 	}
-	/*
-         * These important properties is needed to guarantee the two
-    	 * buckets involved in a grow/shrink operation it protected by
-    	 * the same lock:
-	 */
-	ASSERT((erts_atomic_read_nob(&tb->szm) + 1) % tb->nlocks == 0);
+        /*
+         * These properties are needed to guarantee that the buckets
+         * involved in a grow/shrink operation it protected by the
+         * same lock:
+         */
+        ASSERT((erts_atomic_read_nob(&tb->szm) + 1) % tb->nlocks == 0);
         ASSERT(tb->nlocks <= erts_atomic_read_nob(&tb->nactive));
         ASSERT(erts_atomic_read_nob(&tb->nactive) <= tb->nslots);
         ASSERT(tb->nslots <= (erts_atomic_read_nob(&tb->szm) + 1));

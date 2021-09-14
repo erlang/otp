@@ -55,6 +55,7 @@ typedef struct hash_db_term {
 
 typedef struct DbTableHashLockAndCounter {
     Sint nitems;
+    Sint lck_stat;
     erts_rwmtx_t lck;
 } DbTableHashLockAndCounter;
 
@@ -67,7 +68,7 @@ typedef struct db_table_hash_fine_lock_slot {
 
 typedef struct db_table_hash {
     DbTableCommon common;
-
+    erts_atomic_t lock_array_resize_state;
     /* szm, nactive, shrink_limit are write-protected by is_resizing or table write lock */
     erts_atomic_t szm;     /* current size mask. */
     erts_atomic_t nactive; /* Number of "active" slots */
@@ -87,6 +88,14 @@ typedef struct db_table_hash {
     DbTableHashFineLockSlot* locks;
 } DbTableHash;
 
+typedef enum {
+    DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL = 0,
+    DB_HASH_LOCK_ARRAY_RESIZE_STATUS_GROW   = 1,
+    DB_HASH_LOCK_ARRAY_RESIZE_STATUS_SHRINK = 2
+} db_hash_lock_array_resize_state;
+
+/* To adapt number of locks if hash table with {write_concurrency, auto} */
+void erl_db_hash_adapt_no_locks(DbTable* tb);
 
 /*
 ** Function prototypes, looks the same (except the suffix) for all 

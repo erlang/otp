@@ -734,3 +734,4 @@ atom x86
 atom yes
 atom yield
 atom nifs
+atom auto

@@ -131,7 +131,7 @@ end_per_testcase(_Func, _Config) ->
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,5}}].
+     {timetrap,{minutes,30}}].
 
 all() ->
     [{group, new}, {group, insert}, {group, lookup},
@@ -173,8 +173,8 @@ all() ->
      take,
      whereis_table,
      delete_unfix_race,
-     %test_throughput_benchmark,
-     %{group, benchmark},
+     test_throughput_benchmark,
+     {group, benchmark},
      test_table_size_concurrency,
      test_table_memory_concurrency,
      test_delete_table_while_size_snapshot,
@@ -4899,8 +4899,12 @@ info(Config) when is_list(Config) ->
     true = ets:info(T3, write_concurrency),
     T4 = ets:new(t4, [private, {write_concurrency, 1024}]),
     false = ets:info(T4, write_concurrency),
-    T5 = ets:new(t5, [private, {write_concurrency, true}]),
-    false = ets:info(T5, write_concurrency),
+    T5 = ets:new(t5, [public, {write_concurrency, auto}]),
+    auto = ets:info(T5, write_concurrency),
+    T6 = ets:new(t6, [private, {write_concurrency, true}]),
+    false = ets:info(T6, write_concurrency),
+    T7 = ets:new(t7, [private, {write_concurrency, auto}]),
+    false = ets:info(T7, write_concurrency),
     ok.
 
 info_do(Opts) ->
@@ -7684,7 +7688,9 @@ prefill_insert_map_loop(T, RS0, N, ObjFun, InsertMap, NrOfSchedulers) ->
               [set, public],
               [set, public, {write_concurrency, true}],
               [set, public, {read_concurrency, true}],
-              [set, public, {write_concurrency, true}, {read_concurrency, true}]
+              [set, public, {write_concurrency, true}, {read_concurrency, true}],
+              [set, public, {write_concurrency, auto}, {read_concurrency, true}],
+              [set, public, {write_concurrency, 16384}]
              ],
          etsmem_fun = fun() -> ok end,
          verify_etsmem_fun = fun(_) -> true end,
@@ -8051,7 +8057,9 @@ long_throughput_benchmark(Config) when is_list(Config) ->
          table_types =
              [
               [ordered_set, public, {write_concurrency, true}, {read_concurrency, true}],
-              [set, public, {write_concurrency, true}, {read_concurrency, true}]
+              [set, public, {write_concurrency, true}, {read_concurrency, true}],
+              [set, public, {write_concurrency, auto}, {read_concurrency, true}],
+              [set, public, {write_concurrency, 16384}]
              ],
          etsmem_fun = fun etsmem/0,
          verify_etsmem_fun = fun verify_etsmem/1,
@@ -9283,7 +9291,8 @@ repeat_for_opts_atom2list(all_non_stim_set_types) -> [set,ordered_set,cat_ord_se
 repeat_for_opts_atom2list(write_concurrency) -> [{write_concurrency,false},
                                                  {write_concurrency,true},
                                                  {write_concurrency,2},
-                                                 {write_concurrency,2048}];
+                                                 {write_concurrency,2048},
+                                                 {write_concurrency,auto}];
 repeat_for_opts_atom2list(read_concurrency) -> [{read_concurrency,false},{read_concurrency,true}];
 repeat_for_opts_atom2list(compressed) -> [void,compressed].
 

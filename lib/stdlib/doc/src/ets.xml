@@ -1269,29 +1269,34 @@ ets:select(Table, MatchSpec),</code>
               (and read) by concurrent processes. This is achieved to some
               degree at the expense of memory consumption and the performance
               of sequential access and concurrent reading.</p>
-            <p>Users can explicitly control the synchronization
+            <p>The <c>auto</c> alternative for the
+            <c>write_concurrency</c> option is similar to the
+            <c>true</c> option but automatically adjusts the
+            synchronization granularity at runtime depending on how the
+            table is used. This is the recommended
+            <c>write_concurrency</c> option when using Erlang/OTP 25
+            and above as it performs well in most scenarios.</p>
+            <p>Users can also explicitly set the synchronization
             granularity for tables of types <c>set</c>, <c>bag</c>,
             and <c>duplicate_bag</c> by setting the
             <c>write_concurrency</c> option to an integer in the range
-            <c>[2, 32768]</c>. Currently, setting the
-            <c>write_concurrency</c> option to a number for
-            <c>ordered_set</c> tables has the same effect as setting
-            its value to true. Explicitly setting the synchronization
-            granularity is not recommended unless it is motivated and
-            possible to do experimentation to figure out which
-            synchronization granularity gives the best performance.
-            Currently, the number
-            automatically rounds down to the nearest power of two. A
-            high number for this setting should usually not be
-            combined with the <c>{read_concurrency, true}</c> setting
-            as this usally lead to worse performance and high memory
-            utilization. It is usually not a good idea to set this
-            setting to a number that is much greater than the number
-            of expected items in the table, as this can lead to slow
-            table traversals. The effect of this setting might change
-            in future versions of Erlang/OTP. If you are unsure what
-            number to set this setting to, it is probably best to use
-            {write_concurrency, true} instead.</p>
+            <c>[2, 32768]</c>. Currently, the number automatically
+            rounds down to the nearest power of two. The likelihood of
+            conflicts between operations reduces with an increased
+            value. Explicitly setting the synchronization granularity
+            is not recommended unless it is possible to
+            do experimentation to figure out which synchronization
+            granularity gives the best performance. If you are unsure
+            what number to set this setting to, it is probably best to
+            use <c>{write_concurrency, auto}</c> instead. One should be
+            careful about combining the <c>{read_concurrency, true}</c>
+            setting with explicitly setting the synchronization
+            granularity as this can lead to worse performance and high
+            memory utilization. It is usually not a good idea to set
+            this setting to a number that is much greater than the
+            number of expected items in the table, as this can lead to
+            slow table traversals. The effect of this setting might
+            change in future versions of Erlang/OTP.</p>
               <p>The <c>write_concurrency</c> option can be combined with the options
               <seeerl marker="#new_2_read_concurrency">
               <c>read_concurrency</c></seeerl> and
@@ -1301,12 +1306,14 @@ ets:select(Table, MatchSpec),</code>
               concurrent read bursts and large concurrent
               write bursts are common; for more information, see option
               <seeerl marker="#new_2_read_concurrency">
-              <c>read_concurrency</c></seeerl>. The <c>decentralized_counters</c>
-              option is turned on by default for tables of type <c>ordered_set</c>
-              with the <c>write_concurrency</c> option enabled, and the
-              <c>decentralized_counters</c> option is turned <em>off</em> by default for
-              all other table types.
-              For more information, see the documentation for the
+              <c>read_concurrency</c></seeerl>. The
+              <c>decentralized_counters</c> option is turned on by
+              default for tables of type <c>ordered_set</c> with any
+              of the <c>write_concurrency</c> options expcept
+              <c>false</c> enabled, and the
+              <c>decentralized_counters</c> option is turned
+              <em>off</em> by default for all other table types.  For
+              more information, see the documentation for the
               <seeerl marker="#new_2_decentralized_counters">
               <c>decentralized_counters</c></seeerl> option.</p>
             <p>Notice that this option does not change any guarantees about
@@ -1314,13 +1321,17 @@ ets:select(Table, MatchSpec),</code>
               Functions that makes such promises over many objects (like
               <seemfa marker="#insert/2"><c>insert/2</c></seemfa>)
               gain less (or nothing) from this option.</p>
-            <p>The memory consumption inflicted by both <c>write_concurrency</c>
-	      and <c>read_concurrency</c> is a constant overhead per table for
-	      <c>set</c>, <c>bag</c> and <c>duplicate_bag</c>. For
-	      <c>ordered_set</c> the memory overhead depends on the number
-	      of inserted objects and the amount of actual detected
-	      concurrency in runtime. The memory overhead can be especially
-	      large when both options are combined.</p>
+            <p>The memory consumption inflicted by both
+            <c>write_concurrency</c> and <c>read_concurrency</c> is a
+            constant overhead per table for <c>set</c>, <c>bag</c> and
+            <c>duplicate_bag</c> when the <c>auto</c> alternative for
+            the <c>write_concurrency</c> option is not used. For
+            <c>ordered_set</c> as well as <c>set</c>, <c>bag</c> and
+            <c>duplicate_bag</c> with the <c>auto</c> alternative the
+            memory overhead depends on the number of inserted objects
+            and the amount of actual detected concurrency during
+            runtime. The memory overhead can be especially large when
+            both options are combined.</p>
 	    <note>
               <p>Prior to stdlib-3.7 (OTP-22.0) <c>write_concurrency</c> had no
 	      effect on <c>ordered_set</c>.</p>
