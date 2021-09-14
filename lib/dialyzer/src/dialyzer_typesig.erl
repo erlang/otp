@@ -309,7 +309,7 @@ traverse(Tree, DefinedVars, State) ->
       Hd = cerl:cons_hd(Tree),
       Tl = cerl:cons_tl(Tree),
       {State1, [HdVar, TlVar]} = traverse_list([Hd, Tl], DefinedVars, State),
-      case cerl:is_literal(fold_literal_maybe_match(Tree, State)) of
+      case is_foldable(Tree, State) of
 	true ->
 	  %% We do not need to do anything more here.
 	  {State, t_cons(HdVar, TlVar)};
@@ -446,7 +446,7 @@ traverse(Tree, DefinedVars, State) ->
       Elements = cerl:tuple_es(Tree),
       {State1, EVars} = traverse_list(Elements, DefinedVars, State),
       {State2, TupleType} =
-	case cerl:is_literal(fold_literal_maybe_match(Tree, State1)) of
+	case is_foldable(Tree, State) of
 	  true ->
 	    %% We do not need to do anything more here.
 	    {State, t_tuple(EVars)};
@@ -3308,14 +3308,12 @@ find_constraint(Tuple, [#constraint_list{list = List}|Cs]) ->
 find_constraint(Tuple, [_|Cs]) ->
   find_constraint(Tuple, Cs).
 
--spec fold_literal_maybe_match(cerl:cerl(), state()) -> cerl:cerl().
+%% Test whether the term can be folded into a literal.  If `State`
+%% indicates that we are in a match, folding is not possible if any
+%% literal in the term contains a map.
 
-fold_literal_maybe_match(Tree0, State) ->
-  Tree1 = cerl:fold_literal(Tree0),
-  case state__is_in_match(State) of
-    false -> Tree1;
-    true -> dialyzer_utils:refold_pattern(Tree1)
-  end.
+is_foldable(Tree, State) ->
+  dialyzer_utils:is_foldable(Tree, state__is_in_match(State)).
 
 lookup_record(State, Tag, Arity) ->
   #state{module = M, mod_records = ModRecs, cserver = CServer} = State,
