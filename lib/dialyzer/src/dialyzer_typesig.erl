@@ -643,13 +643,14 @@ add_def_list([], Set) ->
   Set.
 
 add_def_from_tree(T, DefinedVars) ->
-  Vars = cerl_trees:fold(fun(X, Acc) ->
-			     case cerl:is_c_var(X) of
-			       true -> [X|Acc];
-			       false -> Acc
-			     end
-			 end, [], T),
-  add_def_list(Vars, DefinedVars).
+  cerl_trees:fold(fun(X, Set) ->
+                      case cerl:is_c_var(X) of
+                        true ->
+                          add_def(X, Set);
+                        false ->
+                          Set
+                      end
+                  end, DefinedVars, T).
 
 add_def_from_tree_list([H|T], DefinedVars) ->
   add_def_from_tree_list(T, add_def_from_tree(H, DefinedVars));
