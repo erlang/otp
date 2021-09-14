@@ -349,7 +349,9 @@ get_extended_error(Reason, [{M,_F,_As,Info}|_] = StackTrace) ->
         _ ->
             %% There is no extended error information available.
             #{}
-    end.
+    end;
+get_extended_error(_Reason, []) ->
+    #{}.
 
 format_arg_errors(ArgNum, A, ErrorMap) when is_integer(A) ->
     format_arg_errors(ArgNum, lists:duplicate(A, A), ErrorMap);
