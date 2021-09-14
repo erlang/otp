@@ -402,18 +402,6 @@ traverse(Tree, DefinedVars, State) ->
 	  end;
 	_ -> {State, t_from_term(cerl:concrete(Tree))}
       end;
-    module ->
-      Defs = cerl:module_defs(Tree),
-      Funs = [Fun || {_Var, Fun} <- Defs],
-      Vars = [Var || {Var, _Fun} <- Defs],
-      DefinedVars1 = add_def_list(Vars, DefinedVars),
-      State1 = state__store_funs(Vars, Funs, State),
-      FoldFun = fun(Fun, AccState) ->
-		    {S, _} = traverse(Fun, DefinedVars1,
-				      state__new_constraint_context(AccState)),
-		    S
-		end,
-      lists:foldl(FoldFun, State1, Funs);
     primop ->
       case cerl:atom_val(cerl:primop_name(Tree)) of
 	match_fail -> throw(error);
@@ -447,19 +435,6 @@ traverse(Tree, DefinedVars, State) ->
           {State, t_any()};
 	Other -> erlang:error({'Unsupported primop', Other})
       end;
-    'receive' ->
-      Clauses = cerl:receive_clauses(Tree),
-      Timeout = cerl:receive_timeout(Tree),
-      case (cerl:is_c_atom(Timeout) andalso
-	    (cerl:atom_val(Timeout) =:= infinity)) of
-	true ->
-	  handle_clauses(Clauses, mk_var(Tree), [], DefinedVars, State);
- 	false ->
-	  Action = cerl:receive_action(Tree),
-	  {State1, TimeoutVar} = traverse(Timeout, DefinedVars, State),
-	  State2 = state__store_conj(TimeoutVar, sub, t_timeout(), State1),
-	  handle_clauses(Clauses, mk_var(Tree), [], Action, DefinedVars, State2)
-     end;
     seq ->
       Body = cerl:seq_body(Tree),
       Arg = cerl:seq_arg(Tree),
@@ -859,12 +834,6 @@ get_contract_return(C, ArgTypes) ->
 -define(MAX_NOF_CLAUSES, 15).
 
 handle_clauses(Clauses, TopVar, Arg, DefinedVars, State) ->
-  handle_clauses(Clauses, TopVar, Arg, none, DefinedVars, State).
-
-handle_clauses([], _, _, Action, DefinedVars, State) when Action =/= none ->
-  %% Can happen when a receive has no clauses, see filter_match_fail.
-  traverse(Action, DefinedVars, State);
-handle_clauses(Clauses, TopVar, Arg, Action, DefinedVars, State) ->
   SubtrTypeList =
     if length(Clauses) > ?MAX_NOF_CLAUSES -> overflow;
        true -> []
@@ -872,23 +841,8 @@ handle_clauses(Clauses, TopVar, Arg, Action, DefinedVars, State) ->
   {State1, CList} = handle_clauses_1(Clauses, TopVar, Arg, DefinedVars,
 				     State, SubtrTypeList, []),
   {NewCs, NewState} =
-    case Action of
-      none ->
-	if CList =:= [] -> throw(error);
-	   true -> {CList, State1}
-	end;
-      _ ->
-	try
-	  {State2, ActionVar} = traverse(Action, DefinedVars, State1),
-	  TmpC = mk_constraint(TopVar, eq, ActionVar),
-	  ActionCs = mk_conj_constraint_list([state__cs(State2),TmpC]),
-	  {[ActionCs|CList], State2}
-	catch
-	  throw:error ->
-	    if CList =:= [] -> throw(error);
-	       true -> {CList, State1}
-	    end
-	end
+    if CList =:= [] -> throw(error);
+       true -> {CList, State1}
     end,
   OldCs = state__cs(State),
   NewCList = mk_disj_constraint_list(NewCs),
@@ -902,29 +856,27 @@ handle_clauses_1([Clause|Tail], TopVar, Arg, DefinedVars,
   Guard = cerl:clause_guard(Clause),
   Body = cerl:clause_body(Clause),
   NewSubtrTypes =
-    case SubtrTypes =:= overflow of
-      true -> overflow;
-      false ->
+    case SubtrTypes of
+      overflow ->
+        overflow;
+      _ ->
 	ordsets:add_element(get_safe_underapprox(Pats, Guard), SubtrTypes)
     end,
   try
     DefinedVars1 = add_def_from_tree_list(Pats, DefinedVars),
     State1 = state__set_in_match(State0, true),
     {State2, PatVars} = traverse_list(Pats, DefinedVars1, State1),
+    S = state__store_conj(Arg, eq, t_product(PatVars), State2),
     State3 =
-      case Arg =:= [] of
-	true -> State2;
-        false ->
-	  S = state__store_conj(Arg, eq, t_product(PatVars), State2),
-	  case SubtrTypes =:= overflow of
-	    true -> S;
-	    false ->
-	      SubtrPatVar = ?mk_fun_var(fun(Map) ->
-					    TmpType = lookup_type(Arg, Map),
-					    t_subtract_list(TmpType, SubtrTypes)
-					end, [Arg]),
-	      state__store_conj(Arg, sub, SubtrPatVar, S)
-	  end
+      case SubtrTypes of
+        overflow ->
+          S;
+        _ ->
+          SubtrPatVar = ?mk_fun_var(fun(Map) ->
+                                        TmpType = lookup_type(Arg, Map),
+                                        t_subtract_list(TmpType, SubtrTypes)
+                                    end, [Arg]),
+          state__store_conj(Arg, sub, SubtrPatVar, S)
       end,
     State4 = handle_guard(Guard, DefinedVars1, State3),
     {State5, BodyVar} = traverse(Body, DefinedVars1,
