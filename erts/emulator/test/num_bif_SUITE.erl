@@ -305,7 +305,7 @@ fts_rand_float_decimals(N) ->
               end,
          F1 = list_to_float(L1),
          Diff = abs(F0-F1),
-         MaxDiff = max_diff_decimals(F0, D),
+         MaxDiff = max_diff_decimals(F0, D-1),
          ok = case Diff =< MaxDiff of
                   true -> ok;
                   false ->
