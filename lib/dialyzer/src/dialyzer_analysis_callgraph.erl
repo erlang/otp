@@ -234,19 +234,18 @@ analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
 					     doc_plt = DocPlt,
                                              plt = Plt,
 					     timing_server = TimingServer,
-					     parent = Parent,
                                              solvers = Solvers} = State) ->
   case State#analysis_state.analysis_type of
     plt_build ->
       NewPlt =
         dialyzer_succ_typings:analyze_callgraph(Callgraph, Plt, Codeserver,
-                                                TimingServer, Solvers, Parent),
+                                                TimingServer, Solvers),
       dialyzer_callgraph:delete(Callgraph),
       State#analysis_state{plt = NewPlt, doc_plt = DocPlt};
     succ_typings ->
       {Warnings, NewPlt, NewDocPlt} =
         dialyzer_succ_typings:get_warnings(Callgraph, Plt, DocPlt, Codeserver,
-                                           TimingServer, Solvers, Parent),
+                                           TimingServer, Solvers),
       dialyzer_callgraph:delete(Callgraph),
       Warnings1 = filter_warnings(Warnings, Codeserver),
       send_warnings(State#analysis_state.parent, Warnings1),

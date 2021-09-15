@@ -209,15 +209,13 @@ collect_result(#state{mode = Mode, active = Active, result = Result,
   end.
 
 update_result(Mode, InitData, Job, Data, Result) ->
-  case Mode of
-    'compile' ->
+  if
+    Mode =:= 'compile' ->
       dialyzer_analysis_callgraph:add_to_result(Job, Data, Result,
 						InitData);
-    X when X =:= 'typesig'; X =:= 'dataflow' ->
-      dialyzer_succ_typings:lookup_names(Data, InitData) ++ Result;
-    'warnings' ->
-      Data ++ Result;
-    X when X =:= 'contract_remote_types'; X =:= 'record_remote_types' ->
+    Mode =:= 'typesig'; Mode =:= 'dataflow' ->
+      dialyzer_succ_typings:add_to_result(Data, Result, InitData);
+    true ->
       Data ++ Result
   end.
 
