@@ -802,6 +802,7 @@ error_info(_Config) ->
          {from_list, [#{a => b}]},
          {from_list, [[a|b]]},
 
+         {get, [key, #{}]},
          {get, [key, {no,map}]},
          {get, [key, {no,map}, default]},
 
