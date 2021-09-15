@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -98,8 +98,11 @@ request(Url, Profile) ->
 
 %%--------------------------------------------------------------------------
 %% request(Method, Request, HTTPOptions, Options [, Profile]) ->
-%%           {ok, {StatusLine, Headers, Body}} | {ok, {Status, Body}} |
-%%           {ok, RequestId} | {error,Reason} | {ok, {saved_as, FilePath}
+%%           {ok, {StatusLine, Headers, Body}}
+%%         | {ok, {Status, Body}}
+%%         | {ok, RequestId}
+%%         | {ok, {saved_as, FilePath}
+%%         | {error, Reason}
 %%
 %%	Method - atom() = head | get | put | patch | post | trace |
 %%	                  options | delete 
@@ -129,10 +132,10 @@ request(Url, Profile) ->
 %%	ReasonPhrase = string()
 %%	Headers = [Header]
 %%      Header = {Field, Value}
-%%	Field = string()
-%%	Value = string()
+%%	Field = [byte()]
+%%	Value = binary() | iolist()
 %%	Body = string() | binary() | {fun(SendAcc) -> SendFunResult, SendAcc} |
-%%              {chunkify, fun(SendAcc) -> SendFunResult, SendAcc} - HTLM-code
+%%              {chunkify, fun(SendAcc) -> SendFunResult, SendAcc} - HTML-code
 %%      SendFunResult = eof | {ok, iolist(), NewSendAcc}
 %%      SendAcc = NewSendAcc = term()
 %%
@@ -140,42 +143,31 @@ request(Url, Profile) ->
 %% syncronus and asynchronous in the later case the function will
 %% return {ok, RequestId} and later on a message will be sent to the
 %% calling process on the format {http, {RequestId, {StatusLine,
-%% Headers, Body}}} or {http, {RequestId, {error, Reason}}}
+%% Headers, Body}}} or {http, {RequestId, {error, Reason}}}.
+%% Only octects are accepted in header fields and values.
 %%--------------------------------------------------------------------------
 
 request(Method, Request, HttpOptions, Options) ->
-    request(Method, Request, HttpOptions, Options, default_profile()). 
+    request(Method, Request, HttpOptions, Options, default_profile()).
 
-request(Method, 
-	{Url, Headers, ContentType, TupleBody}, 
-	HTTPOptions, Options, Profile) 
-  when ((Method =:= post) orelse (Method =:= patch) orelse (Method =:= put) orelse (Method =:= delete)) 
-       andalso (is_atom(Profile) orelse is_pid(Profile)) andalso
-       is_list(ContentType)  andalso is_tuple(TupleBody)->
-    case check_body_gen(TupleBody) of
-	ok ->
-	    do_request(Method, {Url, Headers, ContentType, TupleBody}, HTTPOptions, Options, Profile);
-	Error ->
-	    Error
-    end;
-request(Method, 
-	{Url, Headers, ContentType, Body}, 
-	HTTPOptions, Options, Profile) 
-  when ((Method =:= post) orelse (Method =:= patch) orelse (Method =:= put) orelse (Method =:= delete)) 
-       andalso (is_atom(Profile) orelse is_pid(Profile)) andalso
-       is_list(ContentType) andalso (is_list(Body) orelse is_binary(Body)) ->
-    do_request(Method, {Url, Headers, ContentType, Body}, HTTPOptions, Options, Profile);
+-define(WITH_BODY, [post, put, patch, delete]).
+-define(WITHOUT_BODY, [get, head, options, trace, put, delete]).
 
-request(Method, 
-	{Url, Headers}, 
-	HTTPOptions, Options, Profile) 
-  when (Method =:= options) orelse 
-       (Method =:= get) orelse 
-       (Method =:= put) orelse
-       (Method =:= head) orelse 
-       (Method =:= delete) orelse 
-       (Method =:= trace) andalso 
-       (is_atom(Profile) orelse is_pid(Profile)) ->
+request(Method, Request, HTTPOptions, Options, Profile)
+  when is_atom(Profile) orelse is_pid(Profile) ->
+    WithBody = lists:member(Method, ?WITH_BODY),
+    WithoutBody = lists:member(Method, ?WITHOUT_BODY),
+    case check_request(WithBody, WithoutBody, Request) of
+        ok ->
+            do_request(Method, Request,
+                       HTTPOptions, Options, Profile);
+        {error, _} = Error ->
+            Error
+    end.
+
+do_request(Method, {Url, Headers}, HTTPOptions, Options, Profile) ->
+    do_request(Method, {Url, Headers, [], []}, HTTPOptions, Options, Profile);
+do_request(Method, {Url, Headers, ContentType, Body}, HTTPOptions, Options, Profile) ->
     case normalize_and_parse_url(Url) of
 	{error, Reason, _} ->
 	    {error, Reason};
@@ -183,21 +175,27 @@ request(Method,
 	    case header_parse(Headers) of
 		{error, Reason} ->
 		    {error, Reason};
-		_ ->
-		    handle_request(Method, Url, ParsedUrl, Headers, [], [], 
-				   HTTPOptions, Options, Profile)
-	    end
+                ok ->
+                    handle_request(Method, Url,
+                                   ParsedUrl, Headers, ContentType, Body,
+                                   HTTPOptions, Options, Profile)
+            end
     end.
 
-do_request(Method, {Url, Headers, ContentType, Body}, HTTPOptions, Options, Profile) ->
-    case normalize_and_parse_url(Url) of
-	{error, Reason, _} ->
-	    {error, Reason};
-	ParsedUrl ->
-	    handle_request(Method, Url, 
-			   ParsedUrl, Headers, ContentType, Body, 
-			   HTTPOptions, Options, Profile)
-    end.
+%% Check combination of method and presence of body
+check_request(false, false, _Request) ->
+    {error, invalid_method};
+check_request(_, true, {_URL, _Headers}) ->
+    ok;
+check_request(true, _, {_URL, _Headers, ContentType, Body})
+  when is_list(ContentType)
+       andalso (is_list(Body) orelse is_binary(Body)) ->
+    ok;
+check_request(true, _, {_URL, _Headers, ContentType, Body})
+  when is_list(ContentType) andalso is_tuple(Body) ->
+    check_body_gen(Body);
+check_request(_, _, _Request) ->
+    {error, invalid_request}.
 
 %%--------------------------------------------------------------------------
 %% cancel_request(RequestId) -> ok
@@ -1253,15 +1251,21 @@ validate_headers(RequestHeaders, _, _) ->
 
 
 %%--------------------------------------------------------------------------
-%% These functions is just simple wrappers to parse specifically HTTP URIs
+%% These functions are just simple wrappers to parse specifically HTTP URIs
 %%--------------------------------------------------------------------------
 
 header_parse([]) ->
     ok;
-header_parse([{Field, Value}|T]) when is_list(Field), is_list(Value) ->    
+header_parse([{Field, Value}|T])
+  when is_list(Field)
+       andalso (is_list(Value) orelse is_binary(Value)) ->
     header_parse(T);
-header_parse(_) -> 
-    {error, {headers_error, not_strings}}.
+header_parse([{Field, _Value}| _ ])
+  when not is_list(Field) ->
+    {error, {headers_error, invalid_field}};
+header_parse([{_, _}| _]) ->
+    {error, {headers_error, invalid_value}}.
+
 child_name2info(undefined) ->
     {error, no_such_service};
 child_name2info(httpc_manager) ->
@@ -1277,9 +1281,9 @@ child_name(Pid, [_ | Children]) ->
     child_name(Pid, Children).
 
 
-check_body_gen({Fun, _}) when is_function(Fun) -> 
+check_body_gen({Fun, _}) when is_function(Fun, 1) ->
     ok;
-check_body_gen({chunkify, Fun, _}) when is_function(Fun) -> 
+check_body_gen({chunkify, Fun, _}) when is_function(Fun, 1) ->
     ok;
-check_body_gen(Gen) -> 
+check_body_gen(Gen) ->
     {error, {bad_body_generator, Gen}}.

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2018</year>
+      <year>2004</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -67,7 +67,7 @@
     <p>Type definitions that are used more than once in
       this module:</p>
     <p><c>boolean() = true | false</c></p>
-    <p><c>string()</c> = list of ASCII characters</p>
+    <p><c>http_string()</c> = list of ASCII characters</p>
     <p><c>request_id() = reference()</c></p>
     <p><c>profile() = atom()</c></p>
     <p><c>path() = string()</c> representing a file path or directory path</p>
@@ -90,7 +90,7 @@
       <p>| <c>{url(), headers(), content_type(), body()}</c></p>
       </item>
     </taglist>
-    <p><c>url() = string()</c> syntax according to the URI definition in
+    <p><c>url() = http_string()</c> syntax according to the URI definition in
     <url href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>,
     for example <c>"http://www.erlang.org"</c></p>
     <warning><p>Please note that httpc normalizes input URIs before internal processing
@@ -102,17 +102,17 @@
     creating the request: <c>httpc:request("http://localhost/foo%2525bar").</c>
     </p></warning>
     <p><c>status_line() = {http_version(), status_code(), reason_phrase()}</c></p>
-    <p><c>http_version() = string()</c>, for example, <c>"HTTP/1.1"</c></p>
+    <p><c>http_version() = http_string()</c>, for example, <c>"HTTP/1.1"</c></p>
     <p><c>status_code() = integer()</c></p>
     <p><c>reason_phrase() = string()</c></p>
-    <p><c>content_type() = string()</c></p>
+    <p><c>content_type() = http_string()</c></p>
     <p><c>headers() = [header()]</c></p>
     <p><c>header() = {field(), value()}</c></p>
-    <p><c>field() = string()</c></p>
-    <p><c>value() = string()</c></p>
+    <p><c>field() = [byte()]</c></p>
+    <p><c>value() = binary() | iolist()</c></p>
     <taglist>
       <tag><c>body()</c></tag>
-      <item><p>= <c>string() | binary()</c></p>
+      <item><p>= <c>http_string() | binary()</c></p>
       <p>| <c>{fun(accumulator())</c></p>
       <p><c> -> body_processing_result(), accumulator()}</c></p>
       <p>| <c>{chunkify, fun(accumulator())</c></p>
@@ -269,7 +269,7 @@
         <v>Url = url()</v> 
 	<v>Result = {status_line(), headers(), Body} | 
                     {status_code(), Body} | request_id()</v>
-	<v>Body = string() | binary()</v>
+	<v>Body = http_string() | binary()</v>
 	<v>Profile = profile() | pid()</v>
 	<d>When started <c>stand_alone</c> only the pid can be used.</d>
 	<v>Reason = term()</v>
@@ -317,7 +317,7 @@
 	<v>body_format() = string | binary</v>
         <v>Result = {status_line(), headers(), Body} | 
                     {status_code(), Body} | request_id()</v>
-        <v>Body = string() | binary()</v>
+        <v>Body = http_string() | binary()</v>
         <v>Profile = profile() | pid()</v>
 	<d>When started <c>stand_alone</c> only the pid can be used.</d>
         <v>Reason = term()</v>
@@ -549,7 +549,7 @@
 	<v>| {verbose, VerboseMode}</v>
 	<v>| {unix_socket, UnixSocket}</v>
         <v>Proxy = {Hostname, Port}</v>
-        <v>Hostname = string()</v>
+        <v>Hostname = http_string()</v>
         <d>Example: "localhost" or "foo.bar.se"</d>
         <v>Port = integer()</v>
         <d>Example: 8080</d>
@@ -557,7 +557,7 @@
         <v>NoProxyDesc = DomainDesc | HostName | IPDesc</v>
         <v>DomainDesc = "*.Domain"</v>
         <d>Example: "*.ericsson.se"</d>
-        <v>IpDesc = string()</v>
+        <v>IpDesc = http_string()</v>
         <d>Example: "134.138" or "[FEDC:BA98" 
 	(all IP addresses starting with 134.138 or FEDC:BA98), 
 	"66.35.250.150" or "[2010:836B:4179::836B:4179]" (a complete IP address). 
