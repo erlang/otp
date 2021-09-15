@@ -205,8 +205,15 @@ format_maps_error(from_keys, [List, _]) ->
     [must_be_list(List)];
 format_maps_error(from_list, [List]) ->
     [must_be_list(List)];
-format_maps_error(get, _Args) ->
-    [[], not_map];
+format_maps_error(get, [_Key,Map]) ->
+    if
+        is_map(Map) ->
+            [<<"not present in map">>];
+        true ->
+            [[],not_map]
+    end;
+format_maps_error(get, [_,_,_]) ->
+    [[],not_map];
 format_maps_error(intersect, [Map1, Map2]) ->
     [must_be_map(Map1), must_be_map(Map2)];
 format_maps_error(intersect_with, [Combiner, Map1, Map2]) ->
