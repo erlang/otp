@@ -1306,14 +1306,9 @@ ets:select(Table, MatchSpec),</code>
               concurrent read bursts and large concurrent
               write bursts are common; for more information, see option
               <seeerl marker="#new_2_read_concurrency">
-              <c>read_concurrency</c></seeerl>. The
-              <c>decentralized_counters</c> option is turned on by
-              default for tables of type <c>ordered_set</c> with any
-              of the <c>write_concurrency</c> options expcept
-              <c>false</c> enabled, and the
-              <c>decentralized_counters</c> option is turned
-              <em>off</em> by default for all other table types.  For
-              more information, see the documentation for the
+              <c>read_concurrency</c></seeerl>. It is almost always a
+              good idea to combine the <c>write_concurrency</c> option
+              with the
               <seeerl marker="#new_2_decentralized_counters">
               <c>decentralized_counters</c></seeerl> option.</p>
             <p>Notice that this option does not change any guarantees about
@@ -1366,12 +1361,15 @@ ets:select(Table, MatchSpec),</code>
           <tag><c>{decentralized_counters,boolean()}</c></tag>
           <item>
             <p>
-              Performance tuning. Defaults to <c>true</c> for tables
-              of type <c>ordered_set</c> with the
-              <seeerl marker="#new_2_write_concurrency">
-              <c>write_concurrency</c></seeerl> option enabled, and defaults to
-	      false for all other   table types. This option has no effect if
-	      the <c>write_concurrency</c> option is set to <c>false</c>.</p>
+              Performance tuning. Defaults to <c>true</c> for all
+              tables with the <c>write_concurrency</c> option set
+              to something else than <c>true</c> or <c>false</c>. For
+              tables of type <c>ordered_set</c> the option also
+              defaults to true when the <c>write_concurrency</c> option
+              is set to <c>true</c>. The option defaults to
+              <c>false</c> for all other configurations. This option
+              has no effect if the <c>write_concurrency</c> option is
+              set to <c>false</c>.</p>
 	    <p>
 	      When this option is set to <c>true</c>, the table is optimized for
 	      frequent concurrent calls to operations that modify the tables

@@ -2313,16 +2313,21 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
                         term_to_Sint(tp[2], &no_locks_param) &&
                         no_locks_param >= 1 &&
                         no_locks_param <= 32768) {
+                        is_decentralized_counters = 1;
                         is_fine_locked = 1;
                         is_explicit_lock_granularity = 1;
                         is_write_concurrency_auto = 0;
                         no_locks = no_locks_param;
                     } else if (tp[2] == am_auto) {
+                        is_decentralized_counters = 1;
                         is_write_concurrency_auto = 1;
                         is_fine_locked = 1;
                         is_explicit_lock_granularity = 0;
                         no_locks = -1;
                     } else if (tp[2] == am_true) {
+                        if (!(status & DB_ORDERED_SET)) {
+                            is_decentralized_counters = 0;
+                        }
                         is_fine_locked = 1;
                         is_explicit_lock_granularity = 0;
                         is_write_concurrency_auto = 0;

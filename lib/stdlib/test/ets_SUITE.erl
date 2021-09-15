@@ -5238,8 +5238,13 @@ do_test_decentralized_counters_setting(TableType) ->
               check_decentralized_counters(T1, false, FlxCtrMemUsage),
               ets:delete(T1)
       end,
-      [[{write_concurrency, false}],
-       [{write_concurrency, true}, {decentralized_counters, false}]]),
+      [[{write_concurrency, false}]] ++
+          case TableType of
+              set ->
+                  [[{write_concurrency, true}, {decentralized_counters, false}],
+                   [{write_concurrency, 1024}, {write_concurrency, true}]];
+              ordered_set -> []
+          end),
     lists:foreach(
       fun(OptList) ->
               T1 = ets:new(t1, [public,
@@ -5250,7 +5255,9 @@ do_test_decentralized_counters_setting(TableType) ->
               wait_for_memory_deallocations(),
               FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage)
       end,
-      [[{decentralized_counters, true}]]),
+      [[{decentralized_counters, true}],
+       [{write_concurrency, 1024}],
+       [{write_concurrency, auto}]]),
     ok.
 
 do_test_decentralized_counters_default_setting() ->
