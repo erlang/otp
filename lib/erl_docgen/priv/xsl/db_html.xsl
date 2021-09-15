@@ -266,12 +266,34 @@
           <xsl:with-param name="id" select="$id"/>
         </xsl:call-template>
       </div>
-      <div class="title-name">
+      <xsl:variable name="name">
         <xsl:apply-templates mode="local_type">
 	  <xsl:with-param name="local_types" select="$local_types"/>
 	  <xsl:with-param name="global_types" select="$global_types"/>
         </xsl:apply-templates>
-      </div>
+      </xsl:variable>
+      <!-- We do not include the erlang: prefix in what is selected by
+           .title-name. This is so that webcrawlers can select the true
+           function name, i.e. decode_packet instead of erlang:decode_packet.
+      -->
+      <xsl:variable name="head" select="exsl:node-set($name)/text()[1]"/>
+      <xsl:variable name="tail" select="exsl:node-set($name)/node()[position() > 1]"/>
+      <xsl:choose>
+        <xsl:when test="substring($head,1,7) = 'erlang:'">
+          <div>
+            <xsl:text>erlang:</xsl:text>
+            <span class="title-name">
+              <xsl:value-of select="substring-after($head,':')"/>
+              <xsl:copy-of select="$tail"/>
+            </span>
+          </div>
+        </xsl:when>
+        <xsl:otherwise>
+          <span class="title-name">
+            <xsl:copy-of select="$name"/>
+          </span>
+        </xsl:otherwise>
+      </xsl:choose>
       <xsl:if test="string-length($since) > 0">
         <div class="title-since">
 	  <span class="since"><xsl:value-of select="$since"/>
