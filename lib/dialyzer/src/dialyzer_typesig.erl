@@ -34,7 +34,7 @@
 -import(erl_types,
 	[t_any/0, t_atom/0, t_atom_vals/1,
 	 t_binary/0, t_bitstr/0, t_bitstr/2, t_bitstr_concat/1, t_boolean/0,
-	 t_collect_vars/1, t_cons/2, t_cons_hd/1, t_cons_tl/1,
+	 t_collect_var_names/1, t_cons/2, t_cons_hd/1, t_cons_tl/1,
 	 t_float/0, t_from_range/2, t_from_term/1,
 	 t_fun/0, t_fun/2, t_fun_args/1, t_fun_range/1,
          t_integer/0,
@@ -2721,8 +2721,8 @@ constraint_opnd_is_any(Type) -> t_is_any(Type).
                  [erl_types:erl_type()]) -> #fun_var{}.
 
 mk_fun_var(Line, Fun, Types) ->
-  Deps = [t_var_name(Var) || Var <- t_collect_vars(t_product(Types))],
-  #fun_var{'fun' = Fun, deps = ordsets:from_list(Deps), origin = Line}.
+  Deps = t_collect_var_names(t_product(Types)),
+  #fun_var{'fun' = Fun, deps = Deps, origin = Line}.
 
 pp_map(S, Map) ->
   ?debug("\t~s: ~p\n",
@@ -2734,8 +2734,8 @@ pp_map(S, Map) ->
 -spec mk_fun_var(fun((_) -> erl_types:erl_type()), [erl_types:erl_type()]) -> #fun_var{}.
 
 mk_fun_var(Fun, Types) ->
-  Deps = [t_var_name(Var) || Var <- t_collect_vars(t_product(Types))],
-  #fun_var{'fun' = Fun, deps = ordsets:from_list(Deps)}.
+  Deps = t_collect_var_names(t_product(Types)),
+  #fun_var{'fun' = Fun, deps = Deps}.
 
 -endif.
 
@@ -2748,15 +2748,15 @@ get_deps(#constraint_ref{deps = D}) -> D.
 -spec find_constraint_deps([fvar_or_type()]) -> deps().
 
 find_constraint_deps(List) ->
-  ordsets:from_list(find_constraint_deps(List, [])).
+  find_constraint_deps(List, []).
 
 find_constraint_deps([#fun_var{deps = Deps}|Tail], Acc) ->
-  find_constraint_deps(Tail, [Deps|Acc]);
-find_constraint_deps([Type|Tail], Acc) ->
-  NewAcc = [[t_var_name(D) || D <- t_collect_vars(Type)]|Acc],
-  find_constraint_deps(Tail, NewAcc);
+  find_constraint_deps(Tail, ordsets:union(Deps, Acc));
+find_constraint_deps([Type | Tail], Acc0) ->
+  Acc = ordsets:union(t_collect_var_names(Type), Acc0),
+  find_constraint_deps(Tail, Acc);
 find_constraint_deps([], Acc) ->
-  lists:append(Acc).
+  Acc.
 
 mk_constraint_1(Lhs, eq, Rhs, Deps) when Lhs < Rhs ->
   #constraint{lhs = Lhs, op = eq, rhs = Rhs, deps = Deps};

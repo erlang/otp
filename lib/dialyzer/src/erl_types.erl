@@ -55,7 +55,7 @@
 	 t_boolean/0,
 	 t_byte/0,
 	 t_char/0,
-	 t_collect_vars/1,
+	 t_collect_var_names/1,
 	 t_cons/0,
 	 t_cons/2,
 	 t_cons_hd/1, t_cons_hd/2,
@@ -2371,45 +2371,43 @@ t_has_var_list([T|Ts]) ->
   t_has_var(T) orelse t_has_var_list(Ts);
 t_has_var_list([]) -> false.
 
--spec t_collect_vars(erl_type()) -> [erl_type()].
+-spec t_collect_var_names(erl_type()) -> any().
 
-t_collect_vars(T) ->
-  Vs = t_collect_vars(T, maps:new()),
-  [V || {V, _} <- maps:to_list(Vs)].
+t_collect_var_names(T) ->
+  t_collect_var_names(T, []).
 
--type ctab() :: #{erl_type() => 'any'}.
+-spec t_collect_var_names(erl_type(), ordsets:ordset(term())) ->
+        ordsets:ordset(term()).
 
--spec t_collect_vars(erl_type(), ctab()) -> ctab().
-
-t_collect_vars(?var(_) = Var, Acc) ->
-  maps:put(Var, any, Acc);
-t_collect_vars(?function(Domain, Range), Acc) ->
-  Acc1 = t_collect_vars(Domain, Acc),
-  t_collect_vars(Range, Acc1);
-t_collect_vars(?list(Contents, Termination, _), Acc) ->
-  Acc1 = t_collect_vars(Contents, Acc),
-  t_collect_vars(Termination, Acc1);
-t_collect_vars(?product(Types), Acc) ->
+t_collect_var_names(?var(Id), Acc) ->
+  ordsets:add_element(Id, Acc);
+t_collect_var_names(?function(Domain, Range), Acc) ->
+  Acc1 = t_collect_var_names(Domain, Acc),
+  t_collect_var_names(Range, Acc1);
+t_collect_var_names(?list(Contents, Termination, _), Acc) ->
+  Acc1 = t_collect_var_names(Contents, Acc),
+  t_collect_var_names(Termination, Acc1);
+t_collect_var_names(?product(Types), Acc) ->
   t_collect_vars_list(Types, Acc);
-t_collect_vars(?tuple(?any, ?any, ?any), Acc) ->
+t_collect_var_names(?tuple(?any, ?any, ?any), Acc) ->
   Acc;
-t_collect_vars(?tuple(Types, _, _), Acc) ->
+t_collect_var_names(?tuple(Types, _, _), Acc) ->
   t_collect_vars_list(Types, Acc);
-t_collect_vars(?tuple_set(_) = TS, Acc) ->
+t_collect_var_names(?tuple_set(_) = TS, Acc) ->
   t_collect_vars_list(t_tuple_subtypes(TS), Acc);
-t_collect_vars(?map(_, DefK, _) = Map, Acc0) ->
+t_collect_var_names(?map(_, DefK, _) = Map, Acc0) ->
   Acc = t_collect_vars_list(map_all_values(Map), Acc0),
-  t_collect_vars(DefK, Acc);
-t_collect_vars(?opaque(Set), Acc) ->
+  t_collect_var_names(DefK, Acc);
+t_collect_var_names(?opaque(Set), Acc) ->
   %% Assume variables in 'args' are also present i 'struct'
   t_collect_vars_list([O#opaque.struct || O <- set_to_list(Set)], Acc);
-t_collect_vars(?union(List), Acc) ->
+t_collect_var_names(?union(List), Acc) ->
   t_collect_vars_list(List, Acc);
-t_collect_vars(_, Acc) ->
+t_collect_var_names(_, Acc) ->
   Acc.
 
 t_collect_vars_list([T|Ts], Acc0) ->
-  Acc = t_collect_vars(T, Acc0),
+  Acc = t_collect_var_names(T, Acc0),
   t_collect_vars_list(Ts, Acc);
 t_collect_vars_list([], Acc) -> Acc.
 
