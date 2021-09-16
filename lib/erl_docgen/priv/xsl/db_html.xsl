@@ -816,8 +816,10 @@
             <xsl:text disable-output-escaping="yes"><![CDATA[
             <!--
               function setscrollpos() {
-                var objf=document.getElementById('loadscrollpos');
-                document.getElementById("leftnav").firstChild.scrollTop = objf.offsetTop - 10;
+                var objf = document.getElementById('loadscrollpos');
+                if (objf) {
+                  document.getElementById("leftnav").firstChild.scrollTop = objf.offsetTop - 10;
+                }
               }
 
               function addEvent(obj, evType, fn){
