@@ -44,7 +44,9 @@
           sup_start_child_returns_error_simple/1,
 	  sup_start_map/1, sup_start_map_simple/1,
 	  sup_start_map_faulty_specs/1,
-	  sup_stop_infinity/1, sup_stop_timeout/1, sup_stop_brutal_kill/1,
+	  sup_stop_infinity/1, sup_stop_timeout/1, sup_stop_timeout_dynamic/1,
+	  sup_stop_brutal_kill/1, sup_stop_brutal_kill_dynamic/1,
+          sup_stop_race/1, sup_stop_non_shutdown_exit_dynamic/1,
 	  child_adm/1, child_adm_simple/1, child_specs/1, child_specs_map/1,
 	  extra_return/1, sup_flags/1]).
 
@@ -133,8 +135,9 @@ groups() ->
      {sup_start_map, [],
       [sup_start_map, sup_start_map_simple, sup_start_map_faulty_specs]},
      {sup_stop, [],
-      [sup_stop_infinity, sup_stop_timeout,
-       sup_stop_brutal_kill]},
+      [sup_stop_infinity, sup_stop_timeout, sup_stop_timeout_dynamic,
+       sup_stop_brutal_kill, sup_stop_brutal_kill_dynamic,
+       sup_stop_race, sup_stop_non_shutdown_exit_dynamic]},
      {normal_termination, [],
       [permanent_normal, transient_normal, temporary_normal]},
      {shutdown_termination, [],
@@ -498,6 +501,20 @@ sup_stop_timeout(Config) when is_list(Config) ->
     check_exit_reason(CPid1, shutdown),
     check_exit_reason(CPid2, killed).
 
+sup_stop_timeout_dynamic(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Child = {child, {supervisor_1, start_child, []}, temporary, 1000, worker, []},
+    {ok, Pid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+    {ok, CPid1} = supervisor:start_child(Pid, []),
+    link(CPid1),
+    {ok, CPid2} = supervisor:start_child(Pid, []),
+    link(CPid2),
+    CPid2 ! {sleep, 200000},
+    terminate(Pid, shutdown),
+    check_exit_reason(Pid, shutdown),
+    check_exit_reason(CPid1, shutdown),
+    check_exit_reason(CPid2, killed).
+
 
 %%-------------------------------------------------------------------------
 %% See sup_stop/1 when Shutdown = brutal_kill
@@ -517,6 +534,116 @@ sup_stop_brutal_kill(Config) when is_list(Config) ->
 
     check_exit_reason(CPid1, shutdown),
     check_exit_reason(CPid2, killed).
+
+sup_stop_brutal_kill_dynamic(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Child = {child, {supervisor_4, start_child, []}, temporary, brutal_kill, worker, []},
+    {ok, Pid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+    CPids = lists:map(
+        fun (_) ->
+            {ok, CPid} = supervisor:start_child(Pid, []),
+            link(CPid),
+            CPid
+        end,
+        lists:seq(1, 10)),
+    terminate(Pid, shutdown),
+    check_exit_reason(Pid, shutdown),
+    lists:foreach(
+        fun (CPid) ->
+            check_exit_reason(CPid, killed)
+        end,
+        CPids
+    ).
+
+%%-------------------------------------------------------------------------
+%% Tests that a supervisor completes its shutdown properly while children
+%% exit by themselves for reasons other than shutdown
+sup_stop_race(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, CPidA} = supervisor:start_child(Pid,
+        #{id => child_a,
+          start => {supervisor_1, start_child, []},
+          restart => temporary,
+          shutdown => 1000}),
+    link(CPidA),
+    CPids = lists:foldl(
+        fun ({Restart, Reason}, Acc) ->
+            {ok, CPid} = supervisor:start_child(Pid,
+                #{id => {child, make_ref()},
+                  start => {supervisor_4, start_child, [Reason]},
+                  restart => Restart,
+                  shutdown => 1000
+                }),
+            link(CPid),
+            Acc#{CPid => Reason}
+        end,
+        #{},
+        [
+            {Restart, Reason}
+            || Restart <- [temporary, transient, permanent],
+               Reason <- [normal, shutdown, {shutdown, test}, other]
+        ]
+    ),
+    {ok, CPidZ} = supervisor:start_child(Pid,
+        #{
+            id => child_z,
+            start => {supervisor_2, start_child, [1000]},
+            restart => temporary,
+            shutdown => 2000
+        }),
+    link(CPidZ),
+    Self = self(),
+    spawn_link(
+        fun () ->
+            timer:sleep(200),
+            maps:foreach(
+                fun (CPid, _) ->
+                    CPid ! stop
+                end,
+                CPids
+            ),
+            unlink(Self)
+        end
+    ),
+    ok = terminate(Pid, shutdown),
+    check_exit_reason(Pid, shutdown),
+    check_exit_reason(CPidZ, shutdown),
+    maps:foreach(
+        fun (CPid, Reason) ->
+            check_exit_reason(CPid, Reason)
+        end,
+        CPids),
+    check_exit_reason(CPidA, shutdown).
+
+%%-------------------------------------------------------------------------
+%% Tests that a simple_one_for_one supervisor shuts down correctly when
+%% some children exit with a reason other than shutdown
+sup_stop_non_shutdown_exit_dynamic(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    lists:foreach(
+        fun (Restart) ->
+            Child = {child, {supervisor_4, start_child, []}, Restart, 5000, worker, []},
+            {ok, Pid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+            CPids = lists:foldl(
+                fun (Reason, Acc) ->
+                    {ok, CPid} = supervisor:start_child(Pid, [Reason]),
+                    link(CPid),
+                    Acc#{CPid => Reason}
+                end,
+                #{},
+                [normal, shutdown, {shutdown, test}, other]
+            ),
+            ok = terminate(Pid, shutdown),
+            check_exit_reason(Pid, shutdown),
+            maps:foreach(
+                fun (CPid, Reason) ->
+                    check_exit_reason(CPid, Reason)
+                end,
+                CPids)
+        end,
+        [temporary, transient, permanent]
+    ).
 
 %%-------------------------------------------------------------------------
 %% The start function provided to start a child may return {ok, Pid}
