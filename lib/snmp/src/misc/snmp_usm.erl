@@ -65,6 +65,14 @@
 %%          The algorithm is described in appendix A.1 2) of
 %%          rfc2274.
 %%-----------------------------------------------------------------
+
+-type algorithm() :: md5 | sha | sha224 | sha256 | sha384 | sha512.
+
+-spec passwd2localized_key(Alg      :: algorithm(),
+                           Passwd   :: string(),
+                           EngineID :: string()) ->
+          LocalizedKey :: list().
+
 passwd2localized_key(Alg, Passwd, EngineID) when length(Passwd) > 0 ->
     Key = mk_digest(Alg, Passwd),
     localize_key(Alg, Key, EngineID).
@@ -73,43 +81,38 @@ passwd2localized_key(Alg, Passwd, EngineID) when length(Passwd) > 0 ->
 %%-----------------------------------------------------------------
 %% Func: localize_key/3
 %% Types: Alg      = md5 | sha
-%%        Passwd   = string()
+%%        Key      = binary()
 %%        EngineID = string()
 %% Purpose: Localizes an unlocalized key for EngineID.  See rfc2274
 %%          section 2.6 for a definition of localized keys.
 %%-----------------------------------------------------------------
+
+-spec localize_key(Alg      :: algorithm(),
+                   Key      :: binary(),
+                   EngineID :: string()) ->
+          LocalizedKey :: list().
+
 localize_key(Alg, Key, EngineID) ->
     Str = [Key, EngineID, Key],
     binary_to_list(crypto:hash(Alg, Str)).
 
 
-mk_digest(md5, Passwd) ->
-    mk_md5_digest(Passwd);
-mk_digest(sha, Passwd) ->
-    mk_sha_digest(Passwd).
-
-mk_md5_digest(Passwd) ->
-    Ctx = crypto:hash_init(md5),
-    Ctx2 = md5_loop(0, [], Ctx, Passwd, length(Passwd)),
+mk_digest(Alg, Passwd)
+  when (Alg =:= md5)    orelse
+       (Alg =:= sha)    orelse
+       (Alg =:= sha224) orelse
+       (Alg =:= sha256) orelse 
+       (Alg =:= sha384) orelse 
+       (Alg =:= sha512) ->
+    Ctx  = crypto:hash_init(Alg),
+    Ctx2 = mk_digest_loop(0, [], Ctx, Passwd, length(Passwd)),
     crypto:hash_final(Ctx2).
 
-md5_loop(Count, Buf, Ctx, Passwd, PasswdLen) when Count < 1048576 ->
+mk_digest_loop(Count, Buf, Ctx, Passwd, PasswdLen) when Count < 1048576 ->
     {Buf64, NBuf} = mk_buf64(length(Buf), Buf, Passwd, PasswdLen),
     NCtx = crypto:hash_update(Ctx, Buf64),
-    md5_loop(Count+64, NBuf, NCtx, Passwd, PasswdLen);
-md5_loop(_Count, _Buf, Ctx, _Passwd, _PasswdLen) ->
-    Ctx.
-
-mk_sha_digest(Passwd) ->
-    Ctx = crypto:hash_init(sha),
-    Ctx2 = sha_loop(0, [], Ctx, Passwd, length(Passwd)),
-    crypto:hash_final(Ctx2).
-
-sha_loop(Count, Buf, Ctx, Passwd, PasswdLen) when Count < 1048576 ->
-    {Buf64, NBuf} = mk_buf64(length(Buf), Buf, Passwd, PasswdLen),
-    NCtx = crypto:hash_update(Ctx, Buf64),
-    sha_loop(Count+64, NBuf, NCtx, Passwd, PasswdLen);
-sha_loop(_Count, _Buf, Ctx, _Passwd, _PasswdLen) ->
+    mk_digest_loop(Count+64, NBuf, NCtx, Passwd, PasswdLen);
+mk_digest_loop(_Count, _Buf, Ctx, _Passwd, _PasswdLen) ->
     Ctx.
 
 %% Create a 64 bytes long string, by repeating Passwd as many times 
