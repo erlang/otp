@@ -2057,33 +2057,34 @@ v2_solve_disj(Is, [C|Cs], I, Map, V2State, UL, MapL, Eval, Uneval0, Failed) ->
              not is_failed_list(C, V2State)] ++ Uneval0,
   v2_solve_disj(Is, Cs, I+1, Map, V2State, UL, MapL, Eval, Uneval, Failed).
 
-save_local_map(#v2_state{constr_data = ConData}=V2State, Id, U, Map) ->
-  Part0 = [{V,maps:get(V, Map)} || V <- U],
-  Part1 =
-    case maps:find(Id, ConData) of
-      error -> []; % cannot happen
-      {ok, {Part2,[]}} -> Part2
-    end,
+save_local_map(#v2_state{constr_data = ConData0}=V2State, Id, U, Map) ->
   ?debug("save local map Id=~w:\n", [Id]),
-  Part = lists:ukeymerge(1, lists:keysort(1, Part0), Part1),
-  ?pp_map("New Part", maps:from_list(Part0)),
-  ?pp_map("Old Part", maps:from_list(Part1)),
-  ?pp_map(" => Part", maps:from_list(Part)),
-  V2State#v2_state{constr_data = maps:put(Id, {Part,[]}, ConData)}.
+
+  {Part0, []} = maps:get(Id, ConData0, {#{}, []}),
+  ?pp_map("Old Part", Part0),
+
+  Part = maps:merge(Part0, maps:with(U, Map)),
+  ?pp_map(" => Part", Part),
+
+  ConData = ConData0#{ Id => {Part,[]} },
+  V2State#v2_state{constr_data = ConData}.
 
 restore_local_map(#v2_state{constr_data = ConData}, Id, Map0) ->
-  case maps:find(Id, ConData) of
-    error -> Map0;
-    {ok, failed} -> Map0;
-    {ok, {[],_}} -> Map0;
-    {ok, {Part0,U}} ->
-      Part = [KV || {K,_V} = KV <- Part0, not lists:member(K, U)],
+  case ConData of
+    #{ Id := {Part0, U} } when map_size(Part0) =/= 0 ->
       ?debug("restore local map Id=~w U=~w\n", [Id, U]),
-      ?pp_map("Part", maps:from_list(Part)),
+
       ?pp_map("Map0", Map0),
-      Map = lists:foldl(fun({K,V}, D) -> maps:put(K, V, D) end, Map0, Part),
+
+      Part = maps:without(U, Part0),
+      ?pp_map("Part", Part0),
+
+      Map = maps:merge(Map0, Part),
       ?pp_map("Map", Map),
-      Map
+
+      Map;
+    #{} ->
+      Map0
   end.
 
 v2_solve_conjunct(Conj, Map, V2State0) ->
@@ -2177,24 +2178,27 @@ umerge_mask(Is, F) ->
   lists:umerge(Is, F).
 
 get_mask(V, Masks) ->
-  case maps:find(V, Masks) of
-    error -> [];
-    {ok, M} -> M
+  case Masks of
+    #{ V := M } -> M;
+    #{} -> []
   end.
 
-get_flags(#v2_state{constr_data = ConData}=V2State0, C) ->
+get_flags(#v2_state{constr_data = ConData0}=V2State0, C) ->
   #constraint_list{id = Id, list = Cs, masks = Masks} = C,
-  case maps:find(Id, ConData) of
-    error ->
-      ?debug("get_flags Id=~w Flags=all ~w\n", [Id, length(Cs)]),
-      V2State = V2State0#v2_state{constr_data = maps:put(Id, {[],[]}, ConData)},
-      {V2State, [every_i]};
-    {ok, failed} ->
-      {V2State0, failed_list};
-    {ok, {Part,U}} when U =/= [] ->
+  case ConData0 of
+    #{ Id := {Part, U} } ->
+      true = U =/= [],                          %Assertion.
       ?debug("get_flags Id=~w U=~w\n", [Id, U]),
-      V2State = V2State0#v2_state{constr_data = maps:put(Id, {Part,[]}, ConData)},
-      save_updated_vars_list(Cs, vars_per_child(U, Masks), V2State)
+      ConData = ConData0#{ Id => {Part, []}},
+      V2State = V2State0#v2_state{constr_data = ConData},
+      save_updated_vars_list(Cs, vars_per_child(U, Masks), V2State);
+    #{ Id := failed } ->
+      {V2State0, failed_list};
+    #{} ->
+      ?debug("get_flags Id=~w Flags=all ~w\n", [Id, length(Cs)]),
+      ConData = ConData0#{ Id => {#{}, []}},
+      V2State = V2State0#v2_state{constr_data = ConData},
+      {V2State, [every_i]}
   end.
 
 vars_per_child(U, Masks) ->
@@ -2219,16 +2223,16 @@ save_updated_vars(#constraint_ref{id = Id}, U, V2State) ->
   Cs = state__get_cs(Id, V2State#v2_state.state),
   save_updated_vars(Cs, U, V2State).
 
-save_updated_vars1(V2State, C, U) ->
-  #v2_state{constr_data = ConData} = V2State,
-  #constraint_list{id = Id} = C,
-  case maps:find(Id, ConData) of
-    error -> V2State; % error means everything is flagged
-    {ok, failed} -> V2State;
-    {ok, {Part,U0}} ->
+save_updated_vars1(#v2_state{constr_data = ConData0} = V2State,
+                   #constraint_list{id = Id}, U) ->
+  case ConData0 of
+    #{ Id := {Part, U0} } ->
       %% Duplicates are not so common; let masks/2 remove them.
-      U1 = U ++ U0,
-      V2State#v2_state{constr_data = maps:put(Id, {Part,U1}, ConData)}
+      ConData = ConData0#{ Id => {Part, U ++ U0}},
+      V2State#v2_state{constr_data = ConData};
+    #{} ->
+      %% Everything is flagged
+      V2State
   end.
 
 -ifdef(DEBUG).
@@ -2238,7 +2242,7 @@ pp_constr_data(_Tag, #v2_state{constr_data = D}) ->
          case _PartU of
            {_Part, _U} ->
              io:format("Id: ~w Vars: ~w\n", [_Id, _U]),
-             [?pp_map("Part", maps:from_list(_Part)) || _Part =/= []];
+             [?pp_map("Part", _Part) || _Part =/= #{}];
            failed ->
              io:format("Id: ~w failed list\n", [_Id])
          end
@@ -2251,12 +2255,16 @@ pp_constr_data(_Tag, _V2State) ->
   ok.
 -endif.
 
-failed_list(#constraint_list{id = Id}, #v2_state{constr_data = D}=V2State) ->
+failed_list(#constraint_list{id = Id}, #v2_state{constr_data = D0}=V2State) ->
   ?debug("error list ~w~n", [Id]),
-  V2State#v2_state{constr_data = maps:put(Id, failed, D)}.
+  D = D0#{ Id => failed },
+  V2State#v2_state{constr_data = D}.
 
 is_failed_list(#constraint_list{id = Id}, #v2_state{constr_data = D}) ->
-  maps:find(Id, D) =:= {ok, failed}.
+  case D of
+    #{ Id := failed } -> true;
+    #{} -> false
+  end.
 
 solve_one_c(#constraint{lhs = Lhs, rhs = Rhs, op = Op}, Map) ->
   LhsType = lookup_type(Lhs, Map),
