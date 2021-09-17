@@ -79,6 +79,7 @@
 #include "erl_db_catree.h"
 #include "erl_db_tree.h"
 #include "erl_db_tree_util.h"
+#include "erl_global_literals.h"
 
 #ifdef DEBUG
 #  define IF_DEBUG(X) X
@@ -873,7 +874,8 @@ Eterm copy_route_key(DbRouteKey* dst, Eterm key, Uint key_size)
         dst->oh = tmp_offheap.first;
     }
     else {
-        ASSERT(is_immed(key));
+        ASSERT(is_immed(key) ||
+               key == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
         dst->term = key;
         dst->oh = NULL;
     }

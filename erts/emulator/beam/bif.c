@@ -47,6 +47,7 @@
 #include "erl_proc_sig_queue.h"
 #include "ryu.h"
 #include "jit/beam_asm.h"
+#include "erl_global_literals.h"
 
 Export *erts_await_result;
 static Export await_exit_trap;
@@ -2984,6 +2985,9 @@ BIF_RETTYPE make_tuple_2(BIF_ALIST_2)
     if (is_not_small(BIF_ARG_1) || (n = signed_val(BIF_ARG_1)) < 0 || n > ERTS_MAX_TUPLE_SIZE) {
 	BIF_ERROR(BIF_P, BADARG);
     }
+    if (n == 0) {
+        return ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    }
     hp = HAlloc(BIF_P, n+1);
     res = make_tuple(hp);
     *hp++ = make_arityval(n);
@@ -3000,17 +3004,21 @@ BIF_RETTYPE make_tuple_3(BIF_ALIST_3)
     Eterm* hp;
     Eterm res;
     Eterm list = BIF_ARG_3;
-    Eterm* tup;
+    Eterm* tup = NULL;
 
     if (is_not_small(BIF_ARG_1) || (n = signed_val(BIF_ARG_1)) < 0 || n > ERTS_MAX_TUPLE_SIZE) {
     error:
 	BIF_ERROR(BIF_P, BADARG);
     }
     limit = (Uint) n;
-    hp = HAlloc(BIF_P, n+1);
-    res = make_tuple(hp);
-    *hp++ = make_arityval(n);
-    tup = hp;
+    if (n == 0) {
+        res = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    } else {
+        hp = HAlloc(BIF_P, n+1);
+        res = make_tuple(hp);
+        *hp++ = make_arityval(n);
+        tup = hp;
+    }
     while (n--) {
 	*hp++ = BIF_ARG_2;
     }
@@ -3125,6 +3133,10 @@ BIF_RETTYPE delete_element_2(BIF_ALIST_3)
 
     if ((ix < 1) || (ix > arity) || (arity == 0)) {
 	BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (arity == 1) {
+        return ERTS_GLOBAL_LIT_EMPTY_TUPLE;
     }
 
     hp  = HAlloc(BIF_P, arity + 1 - 1);
@@ -3843,7 +3855,9 @@ BIF_RETTYPE list_to_tuple_1(BIF_ALIST_1)
     if ((len = erts_list_length(list)) < 0 || len > ERTS_MAX_TUPLE_SIZE) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-
+    if (len == 0) {
+        BIF_RET(ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+    }
     hp = HAlloc(BIF_P, len+1);
     res = make_tuple(hp);
     *hp++ = make_arityval(len);

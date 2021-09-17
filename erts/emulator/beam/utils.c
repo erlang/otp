@@ -61,6 +61,7 @@
 #include "erl_proc_sig_queue.h"
 #include "erl_unicode.h"
 #include "beam_common.h"
+#include "erl_global_literals.h"
 
 /* *******************************
  * ** Yielding C Fun (YCF) Note **
@@ -567,8 +568,16 @@ erts_bld_tuple(Uint **hpp, Uint *szp, Uint arity, ...)
 
     ASSERT(arity < (((Uint)1) << (sizeof(Uint)*8 - _HEADER_ARITY_OFFS)));
 
-    if (szp)
-	*szp += arity + 1;
+    if (szp) {
+        if (arity == 0) {
+            *szp = 0;
+        } else {
+            *szp += arity + 1;
+        }
+    }
+    if (arity == 0) {
+        return ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    }
     if (hpp) {
 	res = make_tuple(*hpp);
 	*((*hpp)++) = make_arityval(arity);
@@ -597,8 +606,16 @@ Eterm erts_bld_tuplev(Uint **hpp, Uint *szp, Uint arity, Eterm terms[])
 
     ASSERT(arity < (((Uint)1) << (sizeof(Uint)*8 - _HEADER_ARITY_OFFS)));
 
-    if (szp)
-	*szp += arity + 1;
+    if (szp) {
+        if (arity == 0) {
+            *szp = 0;
+        } else {
+            *szp += arity + 1;
+        }
+    }
+    if (arity == 0) {
+        return ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    }
     if (hpp) {
 
 	res = make_tuple(*hpp);

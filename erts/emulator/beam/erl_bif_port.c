@@ -988,7 +988,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	tp = tuple_val(name);
 	arity = *tp++;
 
-	if (arity == make_arityval(0)) {
+	if (arity == make_arityval_zero()) {
 	    goto badarg;
 	}
     

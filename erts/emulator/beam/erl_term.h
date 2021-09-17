@@ -313,8 +313,21 @@ _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
 #define MAX_ARITYVAL            ((((Uint)1) << 24) - 1)
 #define ERTS_MAX_TUPLE_SIZE     MAX_ARITYVAL
 
+/*
+  Due to an optimization that assumes that the word after the arity
+  word is allocated, one should generally not create tuples of arity
+  zero. One should instead use the literal that can be obtained by
+  calling erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE).
+
+  If one really wants to create a zero arityval one should use
+  make_arityval_zero() or make_arityval_unchecked(sz)
+ */
+#define make_arityval_zero()	(_make_header(0,_TAG_HEADER_ARITYVAL))
 #define make_arityval(sz)	(ASSERT((sz) <= MAX_ARITYVAL), \
+                                 ASSERT((sz) > 0),                     \
                                  _make_header((sz),_TAG_HEADER_ARITYVAL))
+#define make_arityval_unchecked(sz)	(ASSERT((sz) <= MAX_ARITYVAL),  \
+                                         _make_header((sz),_TAG_HEADER_ARITYVAL))
 #define is_arity_value(x)	(((x) & _TAG_HEADER_MASK) == _TAG_HEADER_ARITYVAL)
 #define is_sane_arity_value(x)	((((x) & _TAG_HEADER_MASK) == _TAG_HEADER_ARITYVAL) && \
 				 (((x) >> _HEADER_ARITY_OFFS) <= MAX_ARITYVAL))
@@ -477,15 +490,18 @@ typedef union float_def
 #define is_tuple(x)	(is_boxed((x)) && is_arity_value(*boxed_val((x))))
 #define is_not_tuple(x)	(!is_tuple((x)))
 #define is_tuple_arity(x, a) \
-   (is_boxed((x)) && *boxed_val((x)) == make_arityval((a)))
+   (is_boxed((x)) && *boxed_val((x)) == make_arityval_unchecked((a)))
 #define is_not_tuple_arity(x, a) (!is_tuple_arity((x),(a)))
 #define _unchecked_tuple_val(x)	_unchecked_boxed_val(x)
 _ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
 #define tuple_val(x)	_ET_APPLY(tuple_val,(x))
 
-#define TUPLE0(t) \
-        ((t)[0] = make_arityval(0), \
-        make_tuple(t))
+/*
+  Due to an optimization that assumes that the word after the arity
+  word is allocated, one should generally not create tuples of arity
+  zero on heaps. One should instead use the literal that can be
+  obtained by calling erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE).
+ */
 #define TUPLE1(t,e1) \
         ((t)[0] = make_arityval(1), \
         (t)[1] = (e1), \

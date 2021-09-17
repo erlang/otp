@@ -402,7 +402,7 @@ void BeamGlobalAssembler::emit_bif_element_helper(Label fail) {
     arm::Gp boxed_ptr = emit_ptr_val(TMP1, ARG2);
     lea(TMP1, emit_boxed_val(boxed_ptr));
     a.ldr(TMP2, arm::Mem(TMP1));
-    ERTS_CT_ASSERT(make_arityval(0) == 0);
+    ERTS_CT_ASSERT(make_arityval_zero() == 0);
     a.tst(TMP2, imm(_TAG_HEADER_MASK));
     a.cond_ne().b(fail);
 

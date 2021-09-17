@@ -117,7 +117,7 @@ void BeamGlobalAssembler::emit_bif_element_shared() {
     a.lea(ARG5, emit_boxed_val(ARG5));
     a.mov(ARG6, x86::qword_ptr(ARG5));
     a.mov(RETd, ARG6d);
-    ERTS_CT_ASSERT(make_arityval(0) == 0);
+    ERTS_CT_ASSERT(make_arityval_zero() == 0);
     a.and_(RETb, imm(_TAG_HEADER_MASK));
     a.short_().jne(error);
 
@@ -185,7 +185,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgVal &Fail,
         a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 
         ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
-        a.cmp(RETd, imm(make_arityval(position)));
+        a.cmp(RETd, imm(make_arityval_unchecked(position)));
 
         if (Fail.getValue() == 0) {
             a.short_().jb(error);
@@ -193,7 +193,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgVal &Fail,
             a.jb(labels[Fail.getValue()]);
         }
 
-        ERTS_CT_ASSERT(make_arityval(0) == 0);
+        ERTS_CT_ASSERT(make_arityval_zero() == 0);
         a.and_(RETb, imm(_TAG_HEADER_MASK));
 
         if (Fail.getValue() == 0) {
