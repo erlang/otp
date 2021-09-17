@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2020. All Rights Reserved.
+# Copyright Ericsson AB 1996-2021. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,6 +41,11 @@ RELSYSDIR = $(RELEASE_PATH)/lib/snmp-$(VSN)
 # Common macros
 # ----------------------------------------------------
 
+OTP_MIBS = \
+	OTP-REG \
+	OTP-TC \
+	OTP-SNMPEA-MIB
+
 MIBS = \
 	RFC1213-MIB \
 	STANDARD-MIB \
@@ -56,9 +61,8 @@ MIBS = \
 	SNMP-USM-AES-MIB \
 	INET-ADDRESS-MIB \
 	TRANSPORT-ADDRESS-MIB \
-	OTP-REG \
-	OTP-TC \
-	OTP-SNMPEA-MIB
+	SNMP-USM-HMAC-SHA2-MIB \
+	$(OTP_MIBS)
 
 STD_v1_MIB_FILES = \
 	RFC1155-SMI.mib \
@@ -150,6 +154,9 @@ $(SNMP_BIN_TARGET_DIR)/SNMP-COMMUNITY-MIB.bin: \
 	$(SNMP_BIN_TARGET_DIR)/SNMP-TARGET-MIB.bin
 
 $(SNMP_BIN_TARGET_DIR)/SNMP-USER-BASED-SM-MIB.bin: \
+	$(SNMP_BIN_TARGET_DIR)/SNMP-FRAMEWORK-MIB.bin
+
+$(SNMP_BIN_TARGET_DIR)/SNMP-USM-HMAC-SHA2-MIB.bin: \
 	$(SNMP_BIN_TARGET_DIR)/SNMP-FRAMEWORK-MIB.bin
 
 $(SNMP_BIN_TARGET_DIR)/SNMP-VIEW-BASED-ACM-MIB.bin: \
