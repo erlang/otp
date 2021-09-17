@@ -2130,7 +2130,7 @@ v2_solve_conj([I|Is], [Cs|Tail], I, Map0, Conj, IsFlat, V2State0,
                     [U|UL], NewFs, VarsUp, LastMap, LastFlags)
   end;
 v2_solve_conj([], _Cs, _I, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
-             LastMap, LastFlags) ->
+              LastMap, LastFlags) ->
   U = lists:umerge(UL),
   case lists:umerge(NewFs) of
     [] ->
@@ -2142,6 +2142,7 @@ v2_solve_conj([], _Cs, _I, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
       report_detected_loop(Conj),
       {ok, Map, V2State, lists:umerge([U|VarsUp])};
     NewFlags ->
+      ?debug("conjunct restart Id=~w\n", [Conj#constraint_list.id]),
       #constraint_list{type = conj, list = Cs} = Conj,
       v2_solve_conj(NewFlags, Cs, 1, Map, Conj, IsFlat, V2State,
                     [], [], [U|VarsUp], Map, NewFlags)
