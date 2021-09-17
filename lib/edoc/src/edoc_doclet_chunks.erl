@@ -89,11 +89,8 @@ gen(Sources, _App, Modules, Ctxt) ->
 
 sources(Sources, Dir, Modules, Env, Options) ->
     Suffix = proplists:get_value(file_suffix, Options, ?DEFAULT_FILE_SUFFIX),
-    Private = proplists:get_bool(private, Options),
-    Hidden = proplists:get_bool(hidden, Options),
     {Ms, E} = lists:foldl(fun (Src, {Set, Error}) ->
-				  source(Src, Dir, Suffix, Env, Set,
-					 Private, Hidden, Error, Options)
+				  source(Src, Dir, Suffix, Env, Set, Error, Options)
 			  end,
 			  {sets:new(), false}, Sources),
     {[M || M <- Modules, sets:is_element(M, Ms)], E}.
@@ -104,10 +101,17 @@ sources(Sources, Dir, Modules, Env, Options) ->
 %% Add its name to the set if it was successful.
 %% Errors are just flagged at this stage,
 %% allowing all source files to be processed even if some of them fail.
-source({_M, Name, Path}, Dir, Suffix, Env, OkSet, _Private, _Hidden, ErrorFlag, Options) ->
+source({_M, Name, Path}, Dir, Suffix, Env, OkSet, ErrorFlag, Options0) ->
     File = filename:join(Path, Name),
     try
-	{_Module, Doc, Entries} = edoc:get_doc(File, Env, [return_entries, private, hidden | Options]),
+	%% Without these opts the entries returned by EDoc core (`edoc_extract:source1/5') won't have
+	%% all the necessary data to generate chunks.
+	RequiredChunkOpts = [return_entries, private, hidden],
+	%% But we also want to have the real user-defined `private' accessible.
+	Options = ([{show_private, proplists:get_bool(private, Options0)}]
+		   ++ RequiredChunkOpts
+		   ++ Options0),
+	{_Module, Doc, Entries} = edoc:get_doc(File, Env, Options),
 	Chunk = edoc:layout(Doc, [{entries, Entries}, {source, Name} | Options]),
 	WriteOptions = [{encoding, utf8}],
 	ok = write_file(Chunk, Dir, chunk_file_name(Name, Suffix), WriteOptions),
