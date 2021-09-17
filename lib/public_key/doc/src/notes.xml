@@ -35,6 +35,37 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.11.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    public_key:pkix_sign/2 now honors the salt length from
+	    the provided input parameters. Earlier this could result
+	    in incorrect signatures if not using recommended
+	    defaults.</p>
+          <p>
+	    Own Id: OTP-17534 Aux Id: GH-5054, PR-5057 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    When decoding an 'ECPrivateKey' unwrap the private key.
+	    For more precise information see RFC 8410, section 7.</p>
+          <p>
+	    Own Id: OTP-17609 Aux Id: GH-5157, GH-5156 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.11.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

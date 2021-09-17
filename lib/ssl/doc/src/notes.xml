@@ -27,6 +27,93 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix Makefile dependency generation to work no matter what
+	    the <c>ERL_TOP</c> folder is called.</p>
+          <p>
+	    Own Id: OTP-17423 Aux Id: GH-4823 PR-4829 </p>
+        </item>
+        <item>
+          <p>
+	    If trying to downgrade a TLS-1.3 connection to a plain
+	    TCP connection, possible TLS-1.3 session ticket messages
+	    will be ignored in the "downgrade" state while waiting
+	    for the close notify alert.</p>
+          <p>
+	    Own Id: OTP-17517 Aux Id: GH-5009 </p>
+        </item>
+        <item>
+          <p>
+	    Corrected error handling to correctly generate an
+	    insufficient security alert when there are no suitable
+	    groups that can be negotiated in TLS-1.3 instead of
+	    crashing resulting in an internal error alert.</p>
+          <p>
+	    Own Id: OTP-17521</p>
+        </item>
+        <item>
+          <p>
+	    Properly handle default session data storage.</p>
+          <p>
+	    When a client tries to reuse an expired session the
+	    default server storage handling would crash loosing other
+	    session data. This would cause a error report and
+	    possible loss of abbreviated handshakes.</p>
+          <p>
+	    Own Id: OTP-17635 Aux Id: GH-5192 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support for RSA-PSS-PSS signatures and
+	    signature_algorithms_cert in TLS-1.2. This is a TLS-1.3
+	    RFC requirement to backport this functionality.</p>
+          <p>
+	    Own Id: OTP-16590 Aux Id: ERL-625, GH-5029 </p>
+        </item>
+        <item>
+          <p>
+	    Use inet:monitor/1 to monitor listen-sockets so that we
+	    are compatible with the new socket backend for gen_tcp.</p>
+          <p>
+	    Own Id: OTP-17392 Aux Id: PR-5050 </p>
+        </item>
+        <item>
+          <p>
+	    Enhance ssl:prf/4 handling and testing</p>
+          <p>
+	    Own Id: OTP-17464</p>
+        </item>
+        <item>
+          <p>
+	    Enhanced cipher suite filtering functionality, making
+	    sure TLS-1.3 and TLS-1.2 cipher suites can be supported
+	    correctly together even when TLS-1.2 anonymous ciphers
+	    are included.</p>
+          <p>
+	    Own Id: OTP-17501 Aux Id: GH-4978 </p>
+        </item>
+        <item>
+          <p>
+	    Enhance gracefulness especially in TLS-1.3</p>
+          <p>
+	    Own Id: OTP-17530</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

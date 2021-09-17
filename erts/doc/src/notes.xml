@@ -31,6 +31,205 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 12.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Atoms with Unicode code points greater than 255 (for
+	    example Greek or Cyrillic characters) would not be
+	    displayed correctly by <c>crashdump_viewer</c>.</p>
+          <p>
+	    Own Id: OTP-17377</p>
+        </item>
+        <item>
+          <p>
+	    Fix rare minor memory leak related to jit code loading.</p>
+          <p>
+	    Own Id: OTP-17445 Aux Id: PR-4843 </p>
+        </item>
+        <item>
+	    <p>The extended error information has been corrected and
+	    improved for the following BIFs:
+	    <c>binary_to_existing_atom/2</c>,
+	    <c>list_to_existing_atom/1</c>,
+	    <c>erlang:send_after/{3,4}</c>, and
+	    <c>erlang:start_timer/{3,4}</c>.</p>
+          <p>
+	    Own Id: OTP-17449 Aux Id: GH-4900 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug provoked when building with gcc 10 and link time
+	    optimization (-flto), causing Erlang compiler to crash.
+	    Bug exists since OTP-24.0.</p>
+          <p>
+	    Own Id: OTP-17477 Aux Id: GH-4846, PR-4894 </p>
+        </item>
+        <item>
+	    <p>Corrected bugs where builds were not reducible even
+	    when the <c>deterministic</c> option was given. In
+	    particular, modules with map literals with more than 32
+	    elements could cause this problem.</p>
+	    <p>As part of this fix, the <c>term_to_binary</c> BIF now
+	    accepts the option <c>deterministic</c>.</p>
+          <p>
+	    Own Id: OTP-17495 Aux Id: PR-5153 </p>
+        </item>
+        <item>
+	    <p>After an exception has been caught in a process, the
+	    stack trace would be kept in the process longer than
+	    necessary.</p>
+          <p>
+	    Own Id: OTP-17512</p>
+        </item>
+        <item>
+          <p>
+	    Fix rare race bug in memory management of distribution
+	    entries. Have been seen to cause VM crash when massive
+	    number of repeated concurrent failing connection
+	    attempts.</p>
+          <p>
+	    Own Id: OTP-17513 Aux Id: GH-4964, PR-5015 </p>
+        </item>
+        <item>
+          <p>
+	    The configure test for
+	    <c>--disable-esock-socket-registry</c> has been corrected
+	    so disabling now works.</p>
+          <p>
+	    Own Id: OTP-17539</p>
+        </item>
+        <item>
+	    <p><c>init:stop()</c> no longer unloads loaded code
+	    before terminating the runtime system. On systems with
+	    slow CPUs (such as Raspberry PI Zero), that can
+	    significantly speed up termination of the runtime
+	    system.</p>
+          <p>
+	    Own Id: OTP-17542 Aux Id: GH-5031, PR-5032 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed match specifications that use maps in either the
+	    guard or the body to work properly.</p>
+          <p>
+	    With this fix both keys and values in maps can be
+	    expressions.</p>
+          <p>
+	    Various other crashes and bugs when using maps in match
+	    specifications have also been fixed.</p>
+          <p>
+	    Own Id: OTP-17567 Aux Id: PR-4915 PR-5115 </p>
+        </item>
+        <item>
+          <p>
+	    Parsing of the result value in the native DNS resolver
+	    has been made more defensive against incorrect results.</p>
+          <p>
+	    Own Id: OTP-17578 Aux Id: ERIERL-683 </p>
+        </item>
+        <item>
+	    <p>When <c>binary_to_term/2</c> failed, the extended
+	    error information would always blame the second argument
+	    even if the actual error was in the first argument.</p>
+          <p>
+	    Own Id: OTP-17591 Aux Id: GH-5171 </p>
+        </item>
+        <item>
+	    <p>On 32-bit computers, <c>binary_to_term/1,2</c> is now
+	    more resilient against corrupted binaries containing maps
+	    in the external format.</p>
+          <p>
+	    Own Id: OTP-17604</p>
+        </item>
+        <item>
+          <p>
+	    A call to <c>process_info(Pid, status)</c> could
+	    erroneously report the status <c>running</c> when it
+	    should have reported <c>waiting</c>. This occurred when
+	    the calling process was executing on a higher priority
+	    than the process being inspected. This bug has been
+	    present since OTP 21.0 (erts version 10.0).</p>
+          <p>
+	    Own Id: OTP-17628</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimize memory usage of erts internal processes used
+	    during code loading/purging by hibernating them after a
+	    long time of inactivity.</p>
+          <p>
+	    Own Id: OTP-17426 Aux Id: PR-4785 </p>
+        </item>
+        <item>
+          <p>
+	    Add the type <seetype
+	    marker="erlang#stacktrace"><c>erlang:stacktrace/0</c></seetype>.</p>
+          <p>
+	    Own Id: OTP-17453 Aux Id: PR-4764 </p>
+        </item>
+        <item>
+          <p>
+	    The arity argument of <seemfa
+	    marker="erts:erlang#error/2"><c>error/2,3</c></seemfa>
+	    can now be <c>none</c> to indicate that the calling
+	    functions arity should be used.</p>
+          <p>
+	    Own Id: OTP-17456 Aux Id: PR-4764 </p>
+        </item>
+        <item>
+          <p>
+	    Optimize match spec compiler for immediate (single word)
+	    constant terms.</p>
+          <p>
+	    Own Id: OTP-17469</p>
+        </item>
+        <item>
+	    <p>Functions <c>erlang:set_cookie(Cookie)</c> and
+	    <c>erlang:get_cookie(Node)</c> have been added for
+	    completeness and to facilitate configuring distributed
+	    nodes with different cookies. </p><p> The documentation
+	    regarding distribution cookies has been improved to be
+	    less vague. </p>
+          <p>
+	    Own Id: OTP-17538 Aux Id: GH-5063, PR-5111 </p>
+        </item>
+        <item>
+	    <p>A workaround has been implemented for Linux's quirky
+	    behaviour to not adjust the source IP address when
+	    connecting a connected (reconnecing) UDP socket. </p><p>
+	    The workaround is to, on Linux, always dissolve any
+	    connection before connecting an UDP socket. </p>
+          <p>
+	    Own Id: OTP-17559 Aux Id: GH-5092, PR-5120 </p>
+        </item>
+        <item>
+          <p>
+	    The internal documentation for how to use Yielding C Fun
+	    (YCF) has been updated to contain text about best
+	    practices for using YCF for ERTS.</p>
+          <p>
+	    Own Id: OTP-17596</p>
+        </item>
+        <item>
+          <p>
+	    Optimize garbage collection for processes with large
+	    number of binaries, funs and/or external pids/ports/refs.</p>
+          <p>
+	    Own Id: OTP-17602 Aux Id: PR-5149 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

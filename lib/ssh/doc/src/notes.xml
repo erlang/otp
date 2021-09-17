@@ -30,6 +30,47 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.12.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed that a slow start (&gt;30s) of a client subsystem
+	    could cause a log entry with the password.</p>
+          <p>
+	    Own Id: OTP-17390 Aux Id: ERIERL-648 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed an error when running as an sftp server and a
+	    client requests a directory contents listing. </p>
+          <p>
+	    The fix is to handle the error code <c>{error,
+	    eacces}</c> as <c>{error, enoent}</c> in the
+	    <c>ssh_sftpd:get_attrs/5</c> internal function; that is,
+	    just skip it.</p>
+          <p>
+	    Own Id: OTP-17586 Aux Id: GH-5014 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The "Key exchange failed" Info Report is now more
+	    informative.</p>
+          <p>
+	    Own Id: OTP-17450 Aux Id: ERIERL-655 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.12.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -33,7 +33,49 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.4.1</title>
+  <section><title>Inets 7.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Before this change hrefs in dir listing page contained
+	    percentage encoded forward slashes which did not work
+	    properly with httpd.</p>
+          <p>
+	    Own Id: OTP-17383 Aux Id: GH-4677 </p>
+        </item>
+        <item>
+          <p>
+	    Restored HTTP headers handling in inets/mod_esi.</p>
+          <p>
+	    Own Id: OTP-17600</p>
+        </item>
+        <item>
+          <p>
+	    inets/httpd dir listing icons and other improvements</p>
+          <p>
+	    Own Id: OTP-17624 Aux Id: GH-4855 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    httpc: Improve performance by removing redundant URI
+	    handling</p>
+          <p>
+	    Own Id: OTP-17460</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

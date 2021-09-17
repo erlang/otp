@@ -32,6 +32,48 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Atoms with Unicode code points greater than 255 (for
+	    example Greek or Cyrillic characters) would not be
+	    displayed correctly by <c>crashdump_viewer</c>.</p>
+          <p>
+	    Own Id: OTP-17377</p>
+        </item>
+        <item>
+          <p>
+	    Fix the crashdump_viewer to be able to parse <seemfa
+	    marker="erts:erlang#monitor_node/2"><c>monitor_node/2</c></seemfa>
+	    monitors correctly.</p>
+          <p>
+	    Own Id: OTP-17425 Aux Id: PR-4799 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Observer now has a sectiion for new socket.</p>
+          <p>
+	    Own Id: OTP-17346</p>
+        </item>
+        <item>
+          <p>
+	    Added a trace all button to the trace window.</p>
+          <p>
+	    Own Id: OTP-17520 Aux Id: PR-4962 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.9.6</title>
 
     <section><title>Improvements and New Features</title>

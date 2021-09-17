@@ -32,6 +32,87 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a parse transform raised an exception using
+	    <c>throw/1</c> or <c>exit/1</c>, the compiler would
+	    report that as an internal compiler error, which would be
+	    confusing. Amended to report that the parse transform
+	    failed.</p>
+          <p>
+	    Own Id: OTP-17421</p>
+        </item>
+        <item>
+	    <p>The failing call <c>io:format("~p\n")</c> would result
+	    in a warning for line number 0 instead of the correct
+	    line and column numbers. This has been corrected, and all
+	    warnings for failing calls to <c>io:format()</c> has been
+	    rephrased to make it clearer exactly what the problem
+	    is.</p>
+          <p>
+	    Own Id: OTP-17430</p>
+        </item>
+        <item>
+	    <p>When the options <c>warn_missing_spec</c> and
+	    <c>export_all</c> were given, there would only be
+	    warnings for missing specs for functions that had been
+	    explicitly exported using an <c>-export</c>
+	    attribute.</p>
+          <p>
+	    Own Id: OTP-17434 Aux Id: GH-4772 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, the compiler could emit an
+	    incorrect warning for a term that was constructed but
+	    never used.</p>
+          <p>
+	    Own Id: OTP-17446 Aux Id: PR-4899 </p>
+        </item>
+        <item>
+	    <p>Corrected bugs where builds were not reducible even
+	    when the <c>deterministic</c> option was given. In
+	    particular, modules with map literals with more than 32
+	    elements could cause this problem.</p>
+	    <p>As part of this fix, the <c>term_to_binary</c> BIF now
+	    accepts the option <c>deterministic</c>.</p>
+          <p>
+	    Own Id: OTP-17495 Aux Id: PR-5153 </p>
+        </item>
+        <item>
+	    <p>The <c>MODULE</c> and <c>MODULE_STRING</c> macros
+	    would always appear to be defined (when tested by
+	    <c>-ifdef</c>), even though no <c>-module()</c>
+	    declaration had been seen yet. Changed so that <c>-ifdef
+	    ?MODULE.</c> will not consider ?MODULE defined if
+	    <c>-module()</c> has not been previously seen.</p>
+          <p>
+	    Own Id: OTP-17505 Aux Id: GH-4995 </p>
+        </item>
+        <item>
+	    <p>In a guard, <c>not (X =:= true)</c> would incorrectly
+	    evaluate to <c>false</c> for non-boolean values of
+	    <c>X</c>.</p>
+          <p>
+	    Own Id: OTP-17510 Aux Id: GH-5007 </p>
+        </item>
+        <item>
+	    <p>When the <c>deterministic</c> option was given to the
+	    compiler, the <c>?FILE</c> macro would be expanded to
+	    full path of the source file before the first
+	    <c>include</c> directive and to base part of the filename
+	    after <c>include</c> directive.</p>
+          <p>
+	    Own Id: OTP-17581 Aux Id: PR-5141 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

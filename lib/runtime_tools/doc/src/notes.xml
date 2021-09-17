@@ -32,6 +32,28 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.17</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Observer now has a sectiion for new socket.</p>
+          <p>
+	    Own Id: OTP-17346</p>
+        </item>
+        <item>
+          <p>
+	    The dbg docs have been expanded to include the meaning of
+	    all the function name acronyms.</p>
+          <p>
+	    Own Id: OTP-17572 Aux Id: PR-5117 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.16.2</title>
 
     <section><title>Improvements and New Features</title>

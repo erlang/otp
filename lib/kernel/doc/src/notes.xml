@@ -31,6 +31,145 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The extended error information has been corrected and
+	    improved for the following BIFs:
+	    <c>binary_to_existing_atom/2</c>,
+	    <c>list_to_existing_atom/1</c>,
+	    <c>erlang:send_after/{3,4}</c>, and
+	    <c>erlang:start_timer/{3,4}</c>.</p>
+          <p>
+	    Own Id: OTP-17449 Aux Id: GH-4900 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed rare bug that could cause net_kernel process to
+	    hang for ever. Have seen to happen with massive number of
+	    TLS connections while remote nodes are restarting. Bug
+	    exists since OTP-22.0.</p>
+          <p>
+	    Own Id: OTP-17476 Aux Id: GH-4931, PR-4934 </p>
+        </item>
+        <item>
+          <p>
+	    Improve handling of closed sockets for inet:info/1.</p>
+          <p>
+	    Own Id: OTP-17492</p>
+        </item>
+        <item>
+          <p>
+	    This change fixes a performance problem introduced in
+	    pull-request #2675. Pull-request #2675 made so the system
+	    tried to start children of already started applications
+	    which is unnecessary. This change fixes this performance
+	    problem.</p>
+          <p>
+	    Own Id: OTP-17519</p>
+        </item>
+        <item>
+          <p>
+	    Fix code:get_doc/1 to not crash when module is located in
+	    an escript.</p>
+          <p>
+	    Own Id: OTP-17570 Aux Id: PR-5139 GH-4256 ERL-1261 </p>
+        </item>
+        <item>
+          <p>
+	    Parsing of the result value in the native DNS resolver
+	    has been made more defensive against incorrect results.</p>
+          <p>
+	    Own Id: OTP-17578 Aux Id: ERIERL-683 </p>
+        </item>
+        <item>
+          <p>
+	    A bug in the option handling for the legacy socket
+	    adaptor, that is; when using <c>inet_backend =
+	    socket</c>, has been fixed. Now socket options are set
+	    before the bind() call so options regarding, for example
+	    address reuse have the desired effect.</p>
+          <p>
+	    Own Id: OTP-17580 Aux Id: GH-5122 </p>
+        </item>
+        <item>
+          <p>
+	    <c>inet:ntoa/1</c> has been fixed to not accept invalid
+	    numerical addresses.</p>
+          <p>
+	    Own Id: OTP-17583 Aux Id: GH-5136 </p>
+        </item>
+        <item>
+          <p>
+	    Parsing of DNS records has been improved for records of
+	    known types to not accept and present malformed ones in
+	    raw format.</p>
+          <p>
+	    Own Id: OTP-17584 Aux Id: PR-5145 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>ip_mreq()</c> type for the
+	    <c>{ip,add_membership}</c> and
+	    <c>{ip,drop_membership}</c> socket options has been
+	    corrected to have an <c>interface</c> field instead of,
+	    incorrectly, an <c>address</c> field.</p>
+          <p>
+	    Own Id: OTP-17590 Aux Id: PR-5170 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add simple utility function to display existing sockets i
+	    the erlang shell (socket:i/0).</p>
+          <p>
+	    Own Id: OTP-17376 Aux Id: OTP-17157 </p>
+        </item>
+        <item>
+          <p>
+	    gen_udp can now be configured to use the socket
+	    inet-backend (in the same way as gen_tcp).</p>
+          <p>
+	    Own Id: OTP-17410</p>
+        </item>
+        <item>
+	    <p>Functions <c>erlang:set_cookie(Cookie)</c> and
+	    <c>erlang:get_cookie(Node)</c> have been added for
+	    completeness and to facilitate configuring distributed
+	    nodes with different cookies. </p><p> The documentation
+	    regarding distribution cookies has been improved to be
+	    less vague. </p>
+          <p>
+	    Own Id: OTP-17538 Aux Id: GH-5063, PR-5111 </p>
+        </item>
+        <item>
+	    <p>A workaround has been implemented for Linux's quirky
+	    behaviour to not adjust the source IP address when
+	    connecting a connected (reconnecing) UDP socket. </p><p>
+	    The workaround is to, on Linux, always dissolve any
+	    connection before connecting an UDP socket. </p>
+          <p>
+	    Own Id: OTP-17559 Aux Id: GH-5092, PR-5120 </p>
+        </item>
+        <item>
+	    <p>Documented our recommendation against opening
+	    NFS-mounted files, FIFOs, devices, and similar using
+	    <c>file:open/2</c>.</p>
+          <p>
+	    Own Id: OTP-17576 Aux Id: ERIERL-685 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

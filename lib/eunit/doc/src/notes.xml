@@ -33,6 +33,22 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    In an eunit test, when a test case times out, include a
+	    stacktrace.</p>
+          <p>
+	    Own Id: OTP-17613 Aux Id: PR-5185 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

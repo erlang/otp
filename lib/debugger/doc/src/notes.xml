@@ -33,6 +33,22 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 5.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improve record handling, print known records with record
+	    syntax.</p>
+          <p>
+	    Own Id: OTP-17574</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 5.1</title>
 
     <section><title>Improvements and New Features</title>

@@ -2501,7 +2501,7 @@ uncompiled code with the same arity are mapped to the same list by
     </func>
 
     <func>
-      <name name="get_cookie" arity="1" since="OTP @OTP-17538@"/>
+      <name name="get_cookie" arity="1" since="OTP 24.1"/>
       <fsummary>Get the magic cookie for a node.</fsummary>
       <desc>
         <p>Returns the magic cookie for node <c><anno>Node</anno></c>
@@ -6942,7 +6942,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="set_cookie" arity="1" since="OTP @OTP-17538@"/>
+      <name name="set_cookie" arity="1" since="OTP 24.1"/>
       <fsummary>Set the magic cookie of the local node.</fsummary>
       <desc>
         <p>Sets the magic cookie of the local node to the atom

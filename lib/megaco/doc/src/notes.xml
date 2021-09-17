@@ -37,7 +37,24 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 4.0.1</title>
+  <section><title>Megaco 4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    It is now possible to configure the built-in transports
+	    (megaco_tcp and megaco udp) to use the new (gen_udp- and
+	    gen_tcp-) option 'inet_backend'.</p>
+          <p>
+	    Own Id: OTP-17533</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
