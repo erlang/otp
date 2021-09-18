@@ -111,8 +111,8 @@ links(Config) when is_list(Config) ->
 
 %% Tests distributed links
 dist_links(Config) when is_list(Config) ->
-    [NodeName] = get_names(1, dist_link),
-    {ok, Node} = start_node(NodeName),
+    {ok, _Peer, Node} = ?CT_PEER(),
+    rpc:call(Node, erts_debug, set_internal_state, [available_internal_state, true]),
     common_link_test(node(), Node),
     TP4 = spawn(?MODULE, test_proc, []),
     TP5 = spawn(?MODULE, test_proc, []),
@@ -174,11 +174,11 @@ common_link_test(NodeA, NodeB) ->
 
 %% Tests monitor of nodes
 monitor_nodes(Config) when is_list(Config) ->
-    [An, Bn, Cn, Dn] = get_names(4, dist_link),
-    {ok, A} = start_node(An),
-    {ok, B} = start_node(Bn),
-    C = list_to_atom(lists:concat([Cn, "@", hostname()])),
-    D = list_to_atom(lists:concat([Dn, "@", hostname()])),
+    {ok, PeerA, A} = ?CT_PEER(),
+    {ok, PeerB, B} = ?CT_PEER(),
+    [_, HostName] = string:lexemes(atom_to_list(node()), "@"),
+    C = list_to_atom(peer:random_name(?MODULE_STRING) ++ "@" ++ HostName),
+    D = list_to_atom(peer:random_name(?MODULE_STRING) ++ "@" ++ HostName),
     0 = no_of_monitor_node(self(), A),
     0 = no_of_monitor_node(self(), B),
     monitor_node(A, true),
@@ -212,11 +212,11 @@ monitor_nodes(Config) when is_list(Config) ->
     check_monitor_node(self(), C, 0),
     check_monitor_node(self(), D, 0),
 
-    stop_node(A),
+    peer:stop(PeerA),
     receive {nodedown, A} -> ok end,
     check_monitor_node(self(), A, 0),
     check_monitor_node(self(), B, 3),
-    stop_node(B),
+    peer:stop(PeerB),
     receive {nodedown, B} -> ok end,
     receive {nodedown, B} -> ok end,
     receive {nodedown, B} -> ok end,
@@ -235,7 +235,8 @@ process_monitors(Config) when is_list(Config) ->
     common_process_monitors(node(), node()),
     Mon1 = erlang:monitor(process,self()),
     [] = find_erl_monitor(self(), Mon1),
-    [Name] = get_names(1, process_monitors),
+    Name = list_to_atom(lists:concat([?FUNCTION_NAME,
+        integer_to_list(erlang:unique_integer([positive]))])),
     true = register(Name, self()),
     Mon2 = erlang:monitor(process, Name),
     [] = find_erl_monitor(self(), Mon2),
@@ -252,8 +253,8 @@ process_monitors(Config) when is_list(Config) ->
 
 %% Tests distributed process monitors
 dist_process_monitors(Config) when is_list(Config) -> 
-    [Name] = get_names(1,dist_process_monitors),
-    {ok, Node} = start_node(Name),
+    {ok, _Peer, Node} = ?CT_PEER(),
+    rpc:call(Node, erts_debug, set_internal_state, [available_internal_state, true]),
     common_process_monitors(node(), Node),
     TP1 = spawn(Node, ?MODULE, test_proc, []),
     R1 = erlang:monitor(process, TP1),
@@ -280,7 +281,8 @@ common_process_monitors(NodeA, NodeB) ->
     run_common_process_monitors(TP1, TP2),
     TP3 = spawn(NodeA, ?MODULE, test_proc, []),
     TP4 = spawn(NodeB, ?MODULE, test_proc, []),
-    [TP4N] = get_names(1, common_process_monitors),
+    TP4N = list_to_atom(lists:concat([?FUNCTION_NAME,
+        integer_to_list(erlang:unique_integer([positive]))])),
     true = tp_call(TP4, fun () -> register(TP4N,self()) end),
     run_common_process_monitors(TP3,
                                 case node() == node(TP4) of
@@ -337,8 +339,7 @@ busy_dist_port_monitor(Config) when is_list(Config) ->
                  _ -> false
              end,
 
-    [An] = get_names(1, busy_dist_port_monitor),
-    {ok, A} = start_node(An),
+    {ok, PeerA, A} = ?CT_PEER(),
     TP1 = spawn(A, ?MODULE, test_proc, []),
     %% Check monitor over busy port
     M1 = suspend_on_busy_test(A,
@@ -367,7 +368,7 @@ busy_dist_port_monitor(Config) when is_list(Config) ->
                                end
                        end),
     tp_cast(TP1, fun () -> exit(normal) end),
-    stop_node(A),
+    peer:stop(PeerA),
     stop_busy_dist_port_tracer(Tracer),
     ok.
 
@@ -379,8 +380,7 @@ busy_dist_port_link(Config) when is_list(Config) ->
                  _ -> false
              end,
 
-    [An] = get_names(1, busy_dist_port_link),
-    {ok, A} = start_node(An),
+    {ok, PeerA, A} = ?CT_PEER(),
     TP1 = spawn(A, ?MODULE, test_proc, []),
     %% Check link over busy port
     suspend_on_busy_test(A,
@@ -413,7 +413,7 @@ busy_dist_port_link(Config) when is_list(Config) ->
                                end
                        end),
     tp_cast(TP1, fun () -> exit(normal) end),
-    stop_node(A),
+    peer:stop(PeerA),
     stop_busy_dist_port_tracer(Tracer),
     ok.
 
@@ -422,10 +422,9 @@ otp_5772_link(Config) when is_list(Config) ->
     otp_5772_link_test(node()).
 
 otp_5772_dist_link(Config) when is_list(Config) ->
-    [An] = get_names(1, otp_5772_dist_link),
-    {ok, A} = start_node(An),
+    {ok, PeerA, A} = ?CT_PEER(),
     otp_5772_link_test(A),
-    stop_node(A).
+    peer:stop(PeerA).
 
 otp_5772_link_test(Node) ->
     Prio = process_flag(priority, high),
@@ -454,11 +453,9 @@ otp_5772_monitor(Config) when is_list(Config) ->
     otp_5772_monitor_test(node()).
 
 otp_5772_dist_monitor(Config) when is_list(Config) ->
-    [An] = get_names(1, otp_5772_dist_monitor),
-    {ok, A} = start_node(An),
+    {ok, PeerA, A} = ?CT_PEER(),
     otp_5772_monitor_test(A),
-    stop_node(A),
-    ok.
+    peer:stop(PeerA).
 
 otp_5772_monitor_test(Node) ->
     Prio = process_flag(priority, high),
@@ -482,8 +479,7 @@ otp_5772_monitor_test(Node) ->
     ok.
 
 otp_7946(Config) when is_list(Config) ->
-    [NodeName] = get_names(1, otp_7946),
-    {ok, Node} = start_node(NodeName),
+    {ok, _Peer, Node} = ?CT_PEER(),
     Proc = rpc:call(Node, erlang, whereis, [net_kernel]),
     Mon = erlang:monitor(process, Proc),
     rpc:cast(Node, erlang, halt, []),
@@ -504,10 +500,9 @@ otp_17127_local_link_with_simultaneous_link_unlink(Config) when is_list(Config) 
     otp_17127_link_with_simultaneous_link_unlink_test(node(), node()).
 
 otp_17127_dist_link_with_simultaneous_link_unlink(Config) when is_list(Config) ->
-    [NodeName] = get_names(1, otp_17127),
-    {ok, Node} = start_node(NodeName),
+    {ok, Peer, Node} = ?CT_PEER(),
     Res = otp_17127_link_with_simultaneous_link_unlink_test(node(), Node),
-    stop_node(Node),
+    peer:stop(Peer),
     Res.
 
 otp_17127_link_with_simultaneous_link_unlink_test(NodeA, NodeB) ->
@@ -524,10 +519,10 @@ otp_17127_local_random(Config) when is_list(Config) ->
     otp_17127_random_test(node(), node(), 100).
 
 otp_17127_dist_random(Config) when is_list(Config) ->
-    [NodeName] = get_names(1, otp_17127),
-    {ok, Node} = start_node(NodeName),
+    {ok, Peer, Node} = ?CT_PEER(),
+    rpc:call(Node, erts_debug, set_internal_state, [available_internal_state, true]),
     Res = otp_17127_random_test(node(), Node, 20),
-    stop_node(Node),
+    peer:stop(Peer),
     Res.
 
 otp_17127_random_test(_NodeA, _NodeB, 0) ->
@@ -1181,48 +1176,6 @@ check_monitor_node(From, Node, No) when is_pid(From),
     [#erl_monitor{type = node,
                   dir = target,
                   pid = From}] = find_erl_monitor({node(From), Node}, From).
-
-connection_id(Node) ->
-    try
-        erts_debug:get_internal_state({connection_id, Node})
-    catch
-        _:_ -> -1
-    end.
-
-hostname() ->
-    from($@, atom_to_list(node())).
-
-from(H, [H | T]) -> T;
-from(H, [_ | T]) -> from(H, T);
-from(_H, []) -> [].
-
-get_names(N, T) when is_atom(T) ->
-    get_names(N, T, []).
-get_names(0, _, Acc) ->
-    Acc;
-get_names(N, T, Acc) ->
-    get_names(N-1, T, [list_to_atom(atom_to_list(?MODULE)
-                                    ++ "-"
-                                    ++ atom_to_list(T)
-                                    ++ "-"
-                                    ++ integer_to_list(erlang:system_time(second))
-                                    ++ "-"
-                                    ++ integer_to_list(erlang:unique_integer([positive]))) | Acc]).
-
-start_node(Name) ->
-    start_node(Name, "").
-
-start_node(Name, Args) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Res = test_server:start_node(Name, slave, [{args,  Args ++ " -pa " ++ Pa}]),
-    {ok, Node} = Res,
-    rpc:call(Node, erts_debug, set_internal_state,
-             [available_internal_state, true]),
-    Res.
-
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
 
 -define(COOKIE, '').
 -define(DOP_LINK,		1).

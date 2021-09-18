@@ -502,16 +502,6 @@ mapn(_Fun, 0) ->
 mapn(Fun, N) ->
     [Fun(N) | mapn(Fun, N-1)].
 
-
-get_node_name(Config) ->
-    list_to_atom(atom_to_list(?MODULE)
-		 ++ "-"
-		 ++ atom_to_list(proplists:get_value(testcase, Config))
-		 ++ "-"
-		 ++ integer_to_list(erlang:system_time(second))
-		 ++ "-"
-		 ++ integer_to_list(erlang:unique_integer([positive]))).
-
 ets_count(Config) when is_list(Config) ->
     [ets_count_do([Type | Named])
      || Type <- [set, bag, duplicate_bag, ordered_set],
@@ -530,77 +520,33 @@ ets_count_do(Opts) ->
 
 %% Verify system_info(ets_limit) reflects max ETS table settings.
 ets_limit(Config0) when is_list(Config0) ->
-    Config = [{testcase,ets_limit}|Config0],
-    true = is_integer(get_ets_limit(Config)),
-    12345 = get_ets_limit(Config, 12345),
+    true = is_integer(get_ets_limit(0)),
+    12345 = get_ets_limit(12345),
     ok.
 
-get_ets_limit(Config) ->
-    get_ets_limit(Config, 0).
-get_ets_limit(Config, EtsMax) ->
+get_ets_limit(EtsMax) ->
     Envs = case EtsMax of
                0 -> [];
-               _ -> [{"ERL_MAX_ETS_TABLES", integer_to_list(EtsMax)}]
+               _ -> ["-env", "ERL_MAX_ETS_TABLES", integer_to_list(EtsMax)]
            end,
-    {ok, Node} = start_node_ets(Config, Envs),
-    Me = self(),
-    Ref = make_ref(),
-    spawn_link(Node,
-               fun() ->
-                       Res = erlang:system_info(ets_limit),
-                       unlink(Me),
-                       Me ! {Ref, Res}
-               end),
-    receive
-        {Ref, Res} ->
-            Res
-    end,
-    stop_node(Node),
+    {ok, Peer, Node} = ?CT_PEER(Envs),
+    Res = rpc:call(Node, erlang, system_info, [ets_limit]),
+    peer:stop(Peer),
     Res.
-
-start_node_ets(Config, Envs) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(get_node_name(Config), peer,
-			   [{args, "-pa "++Pa}, {env, Envs}]).
-
-start_node_atm(Config, AtomsMax) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(get_node_name(Config), peer,
-			   [{args, "-pa "++ Pa ++ AtomsMax}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
 
 
 %% Verify system_info(atom_limit) reflects max atoms settings
 %% (using " +t").
 atom_limit(Config0) when is_list(Config0) ->
-    Config = [{testcase,atom_limit}|Config0],
-    2186042 = get_atom_limit(Config, " +t 2186042 "),
-    ok.
-
-get_atom_limit(Config, AtomsMax) ->
-    {ok, Node} = start_node_atm(Config, AtomsMax),
-    Me = self(),
-    Ref = make_ref(),
-    spawn_link(Node,
-        fun() ->
-            Res = erlang:system_info(atom_limit),
-            unlink(Me),
-            Me ! {Ref, Res}
-        end),
-    receive
-        {Ref, Res} ->
-            Res
-    end,
-    stop_node(Node),
-    Res.
+    {ok, Peer, Node} = ?CT_PEER(["+t", "2186042"]),
+    2186042 = rpc:call(Node, erlang, system_info, [atom_limit]),
+    peer:stop(Peer).
 
 %% Verify that system_info(atom_count) works.
 atom_count(Config) when is_list(Config) ->
     Limit = erlang:system_info(atom_limit),
     Count1 = erlang:system_info(atom_count),
-    list_to_atom(integer_to_list(erlang:unique_integer())),
+    _ = list_to_atom(integer_to_list(erlang:unique_integer())),
     Count2 = erlang:system_info(atom_count),
     true = Limit >= Count2,
     true = Count2 > Count1,

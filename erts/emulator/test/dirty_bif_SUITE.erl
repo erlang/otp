@@ -216,7 +216,7 @@ dirty_bif_multischedule_exception(Config) when is_list(Config) ->
     end.
 
 dirty_scheduler_exit(Config) when is_list(Config) ->
-    {ok, Node} = start_node(Config, "+SDio 1"),
+    {ok, Peer, Node} = ?CT_PEER(["+SDio", "1"]),
     [ok] = mcall(Node,
                  [fun() ->
                           %% Perform a dry run to ensure that all required code
@@ -230,7 +230,7 @@ dirty_scheduler_exit(Config) when is_list(Config) ->
 			  io:format("Time=~p ms~n", [End-Start]),
 			  ok
                   end]),
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 test_dirty_scheduler_exit() ->
@@ -315,7 +315,7 @@ dirty_call_while_terminated(Config) when is_list(Config) ->
     end.
 
 dirty_heap_access(Config) when is_list(Config) ->
-    {ok, Node} = start_node(Config),
+    {ok, Peer, Node} = ?CT_PEER(),
     Me = self(),
     RGL = rpc:call(Node,erlang,whereis,[init]),
     Ref = rpc:call(Node,erlang,make_ref,[]),
@@ -333,7 +333,7 @@ dirty_heap_access(Config) when is_list(Config) ->
     end,
     unlink(Dirty),
     exit(Dirty, kill),
-    stop_node(Node),
+    peer:stop(Peer),
     {comment, integer_to_list(N) ++ " GL change loops; "
      ++ integer_to_list(R) ++ " while running dirty"}.
 
@@ -369,7 +369,7 @@ access_dirty_heap(Dirty, RGL, N, R) ->
 %% the dirty process is still alive immediately after accessing it.
 dirty_process_info(Config) when is_list(Config) ->
     access_dirty_process(
-      Config,
+      ?FUNCTION_NAME,
       fun() -> ok end,
       fun(BifPid) ->
 	      PI = process_info(BifPid),
@@ -381,7 +381,7 @@ dirty_process_info(Config) when is_list(Config) ->
 
 dirty_process_register(Config) when is_list(Config) ->
     access_dirty_process(
-      Config,
+      ?FUNCTION_NAME,
       fun() -> ok end,
       fun(BifPid) ->
 	      register(test_dirty_process_register, BifPid),
@@ -395,7 +395,7 @@ dirty_process_register(Config) when is_list(Config) ->
 
 dirty_process_trace(Config) when is_list(Config) ->
     access_dirty_process(
-      Config,
+      ?FUNCTION_NAME,
       fun() ->
 	      %% BIFs can only be traced when their modules are loaded.
 	      code:ensure_loaded(erts_debug),
@@ -554,13 +554,13 @@ wait_until(Fun) ->
             wait_until(Fun)
     end.
 
-access_dirty_process(Config, Start, Test, Finish) ->
-    {ok, Node} = start_node(Config, ""),
+access_dirty_process(TestCase, Start, Test, Finish) ->
+    {ok, Peer, Node} = ?CT_PEER(#{name => ?CT_PEER_NAME(TestCase)}),
     [ok] = mcall(Node,
 		 [fun() ->
 			  ok = test_dirty_process_access(Start, Test, Finish)
 		  end]),
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 test_dirty_process_access(Start, Test, Finish) ->
@@ -585,23 +585,6 @@ test_dirty_process_access(Start, Test, Finish) ->
 		 error(timeout)
 	 end,
     ok = Finish(BifPid).
-
-start_node(Config) ->
-    start_node(Config, "").
-
-start_node(Config, Args) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Name = list_to_atom(atom_to_list(?MODULE)
-			++ "-"
-			++ atom_to_list(proplists:get_value(testcase, Config))
-			++ "-"
-			++ integer_to_list(erlang:system_time(second))
-			++ "-"
-			++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
 
 mcall(Node, Funs) ->
     Parent = self(),

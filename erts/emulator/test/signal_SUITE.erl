@@ -63,9 +63,9 @@ all() ->
 xm_sig_order(Config) when is_list(Config) ->
     LNode = node(),
     repeat(fun () -> xm_sig_order_test(LNode) end, 1000),
-    {ok, RNode} = start_node(Config),
+    {ok, Peer, RNode} = ?CT_PEER(),
     repeat(fun () -> xm_sig_order_test(RNode) end, 1000),
-    stop_node(RNode),
+    peer:stop(Peer),
     ok.
     
 
@@ -95,10 +95,9 @@ xm_sig_order_proc() ->
 kill2killed(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     kill2killed_test(node()),
-    {ok, Node} = start_node(Config),
+    {ok, Peer, Node} = ?CT_PEER(),
     kill2killed_test(Node),
-    stop_node(Node),
-    ok.
+    peer:stop(Peer).
 
 kill2killed_test(Node) ->
     if Node == node() ->
@@ -237,14 +236,3 @@ repeat(_Fun, N) when is_integer(N), N =< 0 ->
 repeat(Fun, N) when is_integer(N)  ->
     Fun(),
     repeat(Fun, N-1).
-
-start_node(Config) ->
-    Name = list_to_atom(atom_to_list(?MODULE)
-			++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
-			++ "-" ++ integer_to_list(erlang:system_time(second))
-			++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
-    Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).

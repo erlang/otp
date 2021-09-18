@@ -298,14 +298,14 @@ chk_caller(Port, Callback, ExpectedCaller) ->
             ExpectedCaller = Caller
     end.
 
-ets_load(Config) ->
+ets_load(Config) when is_list(Config) ->
 
     %% Have to do on a fresh node to guarantee that carriers are created
-    {ok,Node} = start_node(Config),
+    {ok, Peer, Node} = ?CT_PEER(),
 
     Res = rpc:call(Node, ?MODULE, ets_load, []),
 
-    stop_node(Node),
+    peer:stop(Peer),
 
     Res.
 
@@ -447,19 +447,3 @@ cmd(Cmd) ->
     io:format(">> ~ts~n", [Res]),
     {ok,Res}.
 
-start_node(Config) ->
-    start_node(Config, "").
-
-start_node(Config, Args) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Name = list_to_atom(atom_to_list(?MODULE)
-			++ "-"
-			++ atom_to_list(proplists:get_value(testcase, Config))
-			++ "-"
-			++ integer_to_list(erlang:system_time(second))
-			++ "-"
-			++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).

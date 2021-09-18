@@ -693,7 +693,7 @@ error_info(_Config) ->
                     end,
 
     %% Pick up external pid and port.
-    {ok, ExternalNode} = test_server:start_node(?FUNCTION_NAME, slave, []),
+    {ok, Peer, ExternalNode} = ?CT_PEER(),
     ExternalPid = rpc:call(ExternalNode, erlang, whereis, [code_server]),
     ExternalPort = hd(rpc:call(ExternalNode, erlang, ports, [])),
 
@@ -1307,7 +1307,7 @@ error_info(_Config) ->
     try
         do_error_info(L)
     after
-        test_server:stop_node(ExternalNode)
+        peer:stop(Peer)
     end.
 
 dead_process() ->

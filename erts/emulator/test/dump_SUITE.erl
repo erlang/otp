@@ -66,7 +66,7 @@ signal_abort(Config) ->
 
     Dump = filename:join(proplists:get_value(priv_dir, Config),"signal_abort.dump"),
 
-    {ok, Node} = start_node(Config),
+    {ok, _Peer, Node} = ?CT_PEER(),
 
     SO = rpc:call(Node, erlang, system_info, [schedulers_online]),
 
@@ -106,7 +106,7 @@ load() ->
 exiting_dump(Config) when is_list(Config) ->
     Dump = filename:join(proplists:get_value(priv_dir, Config),"signal_abort.dump"),
 
-    {ok, Node} = start_node(Config),
+    {ok, _Peer, Node} = ?CT_PEER(),
 
     Self = self(),
 
@@ -142,8 +142,8 @@ exiting_dump(Config) when is_list(Config) ->
 free_dump(Config) when is_list(Config) ->
     Dump = filename:join(proplists:get_value(priv_dir, Config),"signal_abort.dump"),
 
-    {ok, NodeA} = start_node(Config),
-    {ok, NodeB} = start_node(Config),
+    {ok, _PeerA, NodeA} = ?CT_PEER(),
+    {ok, PeerB, NodeB} = ?CT_PEER(),
 
     Self = self(),
 
@@ -197,7 +197,7 @@ free_dump(Config) when is_list(Config) ->
 
     unlink(PidB),
 
-    rpc:call(NodeB, erlang, halt, [0]),
+    peer:stop(PeerB),
 
     ok.
 
@@ -222,13 +222,3 @@ get_dump_when_done(Dump, Sz) ->
             get_dump_when_done(Dump, NewSz)
     end.
 
-start_node(Config) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Name = list_to_atom(atom_to_list(?MODULE)
-                        ++ "-"
-                        ++ atom_to_list(proplists:get_value(testcase, Config))
-                        ++ "-"
-                        ++ integer_to_list(erlang:system_time(second))
-                        ++ "-"
-                        ++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, "-pa "++Pa}]).

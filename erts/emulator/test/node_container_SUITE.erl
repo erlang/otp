@@ -151,8 +151,7 @@ ttbtteq_do_remote(RNode) ->
 %% Tests that node containers that are sent between nodes stay equal to themselves.
 round_trip_eq(Config) when is_list(Config) ->
     ThisNode = {node(), erlang:system_info(creation)},
-    NodeFirstName = get_nodefirstname(),
-    {ok, Node} = start_node(NodeFirstName),
+    {ok, Peer, Node} = ?CT_PEER(),
     Self = self(),
     RPid = spawn_link(Node,
                       fun () ->
@@ -186,7 +185,7 @@ round_trip_eq(Config) when is_list(Config) ->
                 RecLRef,
                 RecHLRef,
                 RecSRef}} ->
-            stop_node(Node),
+            stop_node(Peer, Node),
             SentPid = RecPid,
             SentXPid = RecXPid,
             SentPort = RecPort,
@@ -486,8 +485,7 @@ make_faked_pid_list(Start, No, Creation, Acc) ->
 %% Tests that external reference counts are incremented and decremented
 %% as they should for distributed links
 dist_link_refc(Config) when is_list(Config) ->
-    NodeFirstName = get_nodefirstname(),
-    {ok, Node} = start_node(NodeFirstName),
+    {ok, Peer, Node} = ?CT_PEER(),
     RP = spawn_execer(Node),
     LP = spawn_link_execer(node()),
     true = sync_exec(RP, fun () -> link(LP) end),
@@ -510,7 +508,7 @@ dist_link_refc(Config) when is_list(Config) ->
           refering_entity_id({process, LP},
                              get_node_references({Node, NodeCre}))),
     exit(LP, normal),
-    stop_node(Node),
+    stop_node(Peer, Node),
     nc_refc_check(node()),
     ok.
 
@@ -521,8 +519,7 @@ dist_link_refc(Config) when is_list(Config) ->
 %% Tests that external reference counts are incremented and decremented
 %% as they should for distributed monitors
 dist_monitor_refc(Config) when is_list(Config) ->
-    NodeFirstName = get_nodefirstname(),
-    {ok, Node} = start_node(NodeFirstName),
+    {ok, Peer, Node} = ?CT_PEER(),
     RP = spawn_execer(Node),
     LP = spawn_link_execer(node()),
     RMon = sync_exec(RP, fun () -> erlang:monitor(process, LP) end),
@@ -563,7 +560,7 @@ dist_monitor_refc(Config) when is_list(Config) ->
           refering_entity_id({process, LP},
                              get_node_references({Node, NodeCre}))),
     exit(LP, normal),
-    stop_node(Node),
+    stop_node(Peer, Node),
     nc_refc_check(node()),
     ok.
 
@@ -576,8 +573,7 @@ dist_monitor_refc(Config) when is_list(Config) ->
 node_controller_refc(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
     erts_debug:set_internal_state(node_tab_delayed_delete, 0),
-    NodeFirstName = get_nodefirstname(),
-    {ok, Node} = start_node(NodeFirstName),
+    {ok, Peer, Node} = ?CT_PEER(),
     true = lists:member(Node, nodes()),
     1 = reference_type_count(control, get_dist_references(Node)),
     P = spawn_link_execer(node()),
@@ -590,7 +586,7 @@ node_controller_refc(Config) when is_list(Config) ->
                 end),
     Creation = rpc:call(Node, erlang, system_info, [creation]),
     monitor_node(Node,true),
-    stop_node(Node),
+    stop_node(Peer, Node),
     receive {nodedown, Node} -> ok end,
     DistRefs = get_dist_references(Node),
     true = reference_type_count(node, DistRefs) > 0,
@@ -952,7 +948,7 @@ magic_ref(Config) when is_list(Config) ->
     ok.
 
 persistent_term(Config) when is_list(Config) ->
-    {ok, Node} = start_node(get_nodefirstname()),
+    {ok, Peer, Node} = ?CT_PEER(),
     Self = self(),
     NcData = make_ref(),
     RPid = spawn_link(Node,
@@ -964,7 +960,7 @@ persistent_term(Config) when is_list(Config) ->
                    {RPid, RPort, RRef}
            end,
     unlink(RPid),
-    stop_node(Node),
+    stop_node(Peer, Node),
     Stuff = lists:foldl(fun (N, Acc) ->
                                 persistent_term:put({?MODULE, N}, Data),
                                 persistent_term:erase({?MODULE, N-1}),
@@ -996,7 +992,7 @@ lost_pending_connection(Node) ->
 
 dist_entry_gc(Config) when is_list(Config) ->
     Me = self(),
-    {ok, Node} = start_node(get_nodefirstname(), "+zdntgc 0"),
+    {ok, Peer, Node} = ?CT_PEER(["+zdntgc", "0"]),
     P = spawn_link(Node,
                    fun () ->
                            LostNode = list_to_atom("lost_pending_connection@" ++ hostname()),
@@ -1008,15 +1004,16 @@ dist_entry_gc(Config) when is_list(Config) ->
         {P, ok} -> ok
     end,
     unlink(P),
-    stop_node(Node),
+    stop_node(Peer, Node),
     ok.
 
 huge_ref(Config) when is_list(Config) ->
-    {ok, Node} = start_node(get_nodefirstname()),
+    {ok, Peer, Node} = ?CT_PEER(),
     HRef = mk_ref({Node, 4711}, [4711, 705676, 3456, 1000000, 3456]),
     io:format("HRef=~p~n", [HRef]),
     HRef = binary_to_term(term_to_binary(HRef)),
     HRef = erpc:call(Node, fun () -> HRef end),
+    peer:stop(Peer),
     ok.
 
 %%
@@ -1117,23 +1114,9 @@ reference_type_count(Type, ReferingEntities) when is_list(ReferingEntities) ->
                 0,
                 ReferingEntities).
 
-
-start_node(Name, Args) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Res = test_server:start_node(Name,
-                                 slave,
-                                 [{args, "-pa "++Pa++" "++Args}]),
-    {ok, Node} = Res,
-    rpc:call(Node, erts_debug, set_internal_state,
-             [available_internal_state, true]),
-    Res.
-
-start_node(Name) ->
-    start_node(Name, "").
-
-stop_node(Node) ->
+stop_node(Peer, Node) ->
     nc_refc_check(Node),
-    true = test_server:stop_node(Node).
+    peer:stop(Peer).
 
 hostname() ->
     from($@, atom_to_list(node())).
@@ -1154,9 +1137,6 @@ get_nodefirstname_string() ->
     ++ integer_to_list(erlang:system_time(second))
     ++ "-"
     ++ integer_to_list(erlang:unique_integer([positive])).
-
-get_nodefirstname() ->
-    list_to_atom(get_nodefirstname_string()).
 
 get_nodename() ->
     list_to_atom(get_nodefirstname_string()

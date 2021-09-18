@@ -98,7 +98,7 @@ fp_drv_thread(Config) when is_list(Config) ->
     %% Run in a separate node since it used to crash the emulator...
     Parent = self(),
     DrvDir = proplists:get_value(data_dir, Config),
-    {ok,Node} = start_node(Config),
+    {ok, Peer, Node} = ?CT_PEER(),
     Tester = spawn_link(Node,
                         fun () ->
                                 Parent !
@@ -107,7 +107,7 @@ fp_drv_thread(Config) when is_list(Config) ->
                                              DrvDir)}
                         end),
     Result = receive {Tester, Res} -> Res end,
-    stop_node(Node),
+    peer:stop(Peer),
     Result.
 
 fp_drv_test(Test, DrvDir) ->
@@ -284,21 +284,6 @@ cmp(Big,Small,BigGtSmall,BigLtSmall,SmallGtBig,SmallLtBig,
                      Big == Small}.
 
 id(I) -> I.
-
-start_node(Config) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Name = list_to_atom(atom_to_list(?MODULE)
-                        ++ "-"
-                        ++ atom_to_list(proplists:get_value(testcase, Config))
-                        ++ "-"
-                        ++ integer_to_list(erlang:system_time(second))
-                        ++ "-"
-                        ++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, "-pa "++Pa}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
-
 
 %% Test that operations that might hide infinite intermediate results
 %% do not supress the badarith.

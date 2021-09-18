@@ -250,15 +250,9 @@ win_massive(Config) when is_list(Config) ->
 
 do_win_massive() ->
     ct:timetrap({minutes, 6}),
-    SuiteDir = filename:dirname(code:which(?MODULE)),
-    Ports = " +Q 8192",
-    {ok, Node} =
-    test_server:start_node(win_massive,
-                           slave,
-                           [{args, " -pa " ++ SuiteDir ++ Ports}]),
+    {ok, Peer, Node} = ?CT_PEER(["+Q", "8192"]),
     ok = rpc:call(Node,?MODULE,win_massive_client,[3000]),
-    test_server:stop_node(Node),
-    ok.
+    peer:stop(Peer).
 
 win_massive_client(N) ->
     {ok,P}=gen_tcp:listen(?WIN_MASSIVE_PORT,[{reuseaddr,true}]),
@@ -766,11 +760,9 @@ iter_max_ports_test(Config) ->
                 _ -> 10
             end,
     %% Run on a different node in order to limit the effect if this test fails.
-    Dir = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = test_server:start_node(test_iter_max_socks,slave,
-                                       [{args,"+Q 2048 -pa " ++ Dir}]),
+    {ok, Peer, Node} = ?CT_PEER(["+Q", "2048"]),
     L = rpc:call(Node,?MODULE,do_iter_max_ports,[Iters, Command]),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
 
     io:format("Result: ~p",[L]),
     all_equal(L),
@@ -1312,13 +1304,9 @@ otp_3906(Config, OSName) ->
                                        "test_server","variables"])),
     case lists:keysearch('CC', 1, Variables) of
         {value,{'CC', CC}} ->
-            SuiteDir = filename:dirname(code:which(?MODULE)),
             PrivDir = proplists:get_value(priv_dir, Config),
             Prog = otp_3906_make_prog(CC, PrivDir),
-            {ok, Node} = test_server:start_node(otp_3906,
-                                                slave,
-                                                [{args, " -pa " ++ SuiteDir},
-                                                 {linked, false}]),
+            {ok, Peer, Node} = ?CT_PEER(),
             OP = process_flag(priority, max),
             OTE = process_flag(trap_exit, true),
             FS = spawn_link(Node,
@@ -1347,7 +1335,7 @@ otp_3906(Config, OSName) ->
                      end,
             process_flag(trap_exit, OTE),
             process_flag(priority, OP),
-            test_server:stop_node(Node),
+            peer:stop(Peer),
             case Result of
                 succeded ->
                     ok;

@@ -53,13 +53,13 @@ basic(Config) when is_list(Config) ->
 
     basic_test(erlang:system_info(message_queue_data)),
 
-    {ok, Node1} = start_node(Config, "+hmqd off_heap"),
+    {ok, Peer1, Node1} = ?CT_PEER(["+hmqd", "off_heap"]),
     ok = rpc:call(Node1, ?MODULE, basic_test, [off_heap]),
-    stop_node(Node1),
+    peer:stop(Peer1),
 
-    {ok, Node2} = start_node(Config, "+hmqd on_heap"),
+    {ok, Peer2, Node2} = ?CT_PEER(["+hmqd", "on_heap"]),
     ok = rpc:call(Node2, ?MODULE, basic_test, [on_heap]),
-    stop_node(Node2),
+    peer:stop(Peer2),
 
     ok.
 
@@ -326,17 +326,3 @@ recv_msgs(Msgs) ->
     after 0 ->
 	    lists:reverse(Msgs)
     end.
-
-start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Name = list_to_atom(atom_to_list(?MODULE)
-			++ "-"
-			++ atom_to_list(proplists:get_value(testcase, Config))
-			++ "-"
-			++ integer_to_list(erlang:system_time(second))
-			++ "-"
-			++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
