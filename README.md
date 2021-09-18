@@ -45,6 +45,7 @@ $ERL_TOP/tests_install/bin/erl
 
 ts:install().
 ts:run(stdlib, [erl_scan_SUITE, erl_lint_SUITE]).
+ts:run(syntax_tools, [syntax_tools_SUITE]).
 % ts:run(stdlib, [batch]). % this takes many minutes to run and tests a lot of unrelated stuff
 % ts:run(compiler, [batch]). % requires a bunch of external deps and remote displays?
 ^C
@@ -53,13 +54,14 @@ ts:run(stdlib, [erl_scan_SUITE, erl_lint_SUITE]).
 Re-runing tests after requires re-building things and starting afresh. You may have to delete the .beam files you modified to get the rebuild step to work.
 
 ```bash
-rm -rf tests_install/lib/erlang/lib/stdlib-3.15.2/ebin/*
+rm -rf tests_install/lib/erlang/lib/stdlib-3.15.2/ebin/* tests_install/lib/erlang/lib/syntax_tools-2.6/ebin/*
 
 ## Then this can be run in one copy/paste
 ./otp_build setup -a --prefix=$PWD/tests_install
 make install
 ./otp_build tests
-$ERL_TOP/tests_install/bin/erl -eval 'ts:install(). ts:run(stdlib, [erl_scan_SUITE, erl_lint_SUITE]). init:stop().'
+cd release/tests/test_server
+$ERL_TOP/tests_install/bin/erl -eval 'ts:install(), ts:run(stdlib, [erl_scan_SUITE, erl_lint_SUITE]), ts:run(syntax_tools, [syntax_tools_SUITE]), init:stop().'
 cd $ERL_TOP
 ```
 

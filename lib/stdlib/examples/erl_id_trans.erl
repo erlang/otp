@@ -455,6 +455,10 @@ expr({block,Anno,Es0}) ->
     %% Unfold block into a sequence.
     Es1 = exprs(Es0),
     {block,Anno,Es1};
+expr({block,Anno,Es0,Cs0}) ->
+    Es1 = exprs(Es0),
+    Cs1 = icr_clauses(Cs0),
+    {block,Anno,Es1,Cs1};
 expr({'if',Anno,Cs0}) ->
     Cs1 = icr_clauses(Cs0),
     {'if',Anno,Cs1};

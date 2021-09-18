@@ -394,6 +394,8 @@ expand_expr({record_field,A,R,F}, C) ->		%This is really illegal!
     {record_field,A,expand_expr(R, C),expand_expr(F, C)};
 expand_expr({block,A,Es}, C) ->
     {block,A,expand_exprs(Es, C)};
+expand_expr({block,A,Es,Cs}, C) ->
+    {block,A,expand_exprs(Es, C),expand_cs(Cs,C)};
 expand_expr({'if',A,Cs}, C) ->
     {'if',A,expand_cs(Cs, C)};
 expand_expr({'case',A,E,Cs}, C) ->

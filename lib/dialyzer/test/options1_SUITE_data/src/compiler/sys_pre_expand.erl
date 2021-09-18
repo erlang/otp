@@ -417,6 +417,11 @@ expr({bin,Line,Es0}, Vs, St0) ->
 expr({block,Line,Es0}, Vs, St0) ->
     {Es,Esvs,Esus,St1} = exprs(Es0, Vs, St0),
     {{block,Line,Es},Esvs,Esus,St1};
+expr({block,Line,Es0,Cs0}, Vs, St0) ->
+    {Es,Esvs,Esus,St1} = exprs(Es0, Vs, St0),
+    {Cs,Csvss,Csuss,St2} = icr_clauses(Cs0, union(Evs, Vs), St1),
+    All = new_in_all(Vs, Csvss),
+    {{block,Line,Es,Cs},union(Esvs,All),union([Esus|Csuss]),St2};
 expr({'if',Line,Cs0}, Vs, St0) ->
     {Cs,Csvss,Csuss,St1} = icr_clauses(Cs0, Vs, St0),
     All = new_in_all(Vs, Csvss),

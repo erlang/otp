@@ -182,7 +182,7 @@ otp_7810(Config) when is_list(Config) ->
     ok.
 
 reserved_words() ->
-    L = ['after', 'begin', 'else', 'case', 'try', 'cond', 'catch',
+    L = ['after', 'begin', 'case', 'try', 'cond', 'catch',
          'andalso', 'orelse', 'end', 'fun', 'if', 'let', 'of',
          'receive', 'when', 'bnot', 'not', 'div',
          'rem', 'band', 'and', 'bor', 'bxor', 'bsl', 'bsr',

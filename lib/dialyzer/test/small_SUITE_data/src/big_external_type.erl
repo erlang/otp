@@ -161,7 +161,7 @@
 
 -type af_filter() :: ?MODULE:abstract_expr().
 
--type af_block() :: {block, line(), ?MODULE:af_body()}.
+-type af_block() :: {block, line(), ?MODULE:af_body()} | {block, line(), ?MODULE:af_body(), ?MODULE:af_clause_seq()}.
 
 -type af_if() :: {'if', line(), ?MODULE:af_clause_seq()}.
 

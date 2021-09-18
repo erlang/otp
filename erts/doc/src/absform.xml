@@ -356,7 +356,10 @@
       <item>
         <p>If E is a block expression <c>begin B end</c>,
           where <c>B</c> is a body, then Rep(E) =
-          <c>{block,ANNO,Rep(B)}</c>.</p>
+          <c>{block,ANNO,Rep(B)}</c>. Forms of E with an else
+          clause <c>begin B else Cc_1 ; ... ; Cc_k end</c>
+          each <c>Cc_i</c> is an else clause, then
+          Rep(E) = <c>{block,ANNO,Rep(B),[Rep(Cc_1), ..., Rep(Cc_k)]}</c>.</p>
       </item>
       <item>
         <p>If E is a case expression <c>case E_0 of Cc_1 ; ... ; Cc_k end</c>,

@@ -158,7 +158,7 @@
 
 -type af_filter() :: abstract_expr().
 
--type af_block() :: {block, line(), af_body()}.
+-type af_block() :: {block, line(), af_body()} | {block, line(), af_body(), af_clause_seq()}.
 
 -type af_if() :: {'if', line(), af_clause_seq()}.
 

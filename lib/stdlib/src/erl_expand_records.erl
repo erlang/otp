@@ -325,6 +325,10 @@ expr({bin,Anno,Es0}, St0) ->
 expr({block,Anno,Es0}, St0) ->
     {Es,St1} = exprs(Es0, St0),
     {{block,Anno,Es},St1};
+expr({block,Anno,Es0,Cs0}, St0) ->
+    {Es,St1} = exprs(Es0, St0),
+    {Cs,St2} = clauses(Cs0, St1),
+    {{block,Anno,Es,Cs},St2};
 expr({'if',Anno,Cs0}, St0) ->
     {Cs,St1} = clauses(Cs0, St0),
     {{'if',Anno,Cs},St1};

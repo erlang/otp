@@ -163,7 +163,9 @@
          bitstring_type_m/1,
          bitstring_type_n/1,
 	 block_expr/1,
+	 block_expr/2,
 	 block_expr_body/1,
+	 block_expr_clauses/1,
 	 case_expr/2,
 	 case_expr_argument/1,
 	 case_expr_clauses/1,
@@ -689,6 +691,7 @@ type(Node) ->
 	{bin, _, _} -> binary;
 	{bin_element, _, _, _, _} -> binary_field;
 	{block, _, _} -> block_expr;
+	{block, _, _, _} -> block_expr;
 	{call, _, _, _} -> application;
 	{clause, _, _, _, _} -> clause;
 	{cons, _, _, _} -> list;
@@ -6184,6 +6187,23 @@ binary_generator_body(Node) ->
 	    (data(Node1))#binary_generator.body
     end.
 
+%% =====================================================================
+%% @doc Creates an abstract begin-expression. If `Block' is
+%% `[B1, ..., Bn]' and `Clauses' is
+%% `[C1, ..., Cn]', the result represents "<code>begin
+%% <em>B1</em>, ..., <em>BN</m> else <em>C1</em>; ...;
+%% <em>Cn</em> end</code>". More exactly, if each `Ci'
+%% represents "<code>(<em>Pi</em>) <em>Gi</em> -> <em>Bi</em>
+%% </code>", then the result represents
+%% "<code>case <em>Argument</em> of <em>P1</em> <em>G1</em> ->
+%% <em>B1</em>; ...; <em>Pn</em> <em>Gn</em> -> <em>Bn</em> end</code>".
+%%
+%% @see block_expr_clauses/1
+%% @see block_expr_body/1
+%% @see clause/3
+%% @see if_expr/1
+
+-record(block_expr, {body :: [syntaxTree()], clauses :: [syntaxTree()]}).
 
 %% =====================================================================
 %% @doc Creates an abstract block expression. If `Body' is
@@ -6208,10 +6228,63 @@ binary_generator_body(Node) ->
 block_expr(Body) ->
     tree(block_expr, Body).
 
+%% =====================================================================
+%% @doc Creates an abstract block expression. If `Body' is
+%% `[B1, ..., Bn]', and `Clauses' is `[C1, ..., Cn]', 
+%% the result represents "<code>begin
+%% <em>B1</em>, ..., <em>Bn</em> else <em>C1</em>; ...,
+%% <em>Cn</em> end</code>".
+%%
+%%	See `clause' for documentation on `erl_parse' clauses.
+%% @see block_expr_body/1
+
+%% type(Node) = block_expr
+%% data(Node) = #block_expr{body :: Body, clauses :: Clauses}
+%%
+%%     Body = [syntaxTree()]
+%%     Clauses = [syntaxTree()]
+%%
+%% `erl_parse' representation:
+%%
+%% {block, Pos, Body, Clauses}
+%%
+%%    Body = [erl_parse()] \ []
+%%    Clauses = [Clause] \ []
+%%    Clause = {clause, ...}
+
+-spec block_expr([syntaxTree()], [syntaxTree()]) -> syntaxTree().
+
+block_expr(Body, Clauses) ->
+    tree(block_expr, #block_expr{body = Body,
+                                 clauses = Clauses}).
+
+block_expr_variant(Node) ->
+    case unwrap(Node) of
+        {block, _, _} ->
+            'begin';
+        {block, _, _, _} ->
+            'maybe';
+        Node1 ->
+            case data(Node1) of
+                #block_expr{} ->
+                    'maybe';
+                _ ->
+                    'begin'
+            end
+    end.
+
 revert_block_expr(Node) ->
-    Pos = get_pos(Node),
-    Body = block_expr_body(Node),
-    {block, Pos, Body}.
+    case block_expr_variant(Node) of
+        'begin' ->
+            Pos = get_pos(Node),
+            Body = block_expr_body(Node),
+            {block, Pos, Body};
+        'maybe' ->
+            Pos = get_pos(Node),
+            Body = block_expr_body(Node),
+            Clauses = block_expr_clauses(Node),
+            {block, Pos, Body, Clauses}
+    end.
 
 
 %% =====================================================================
@@ -6223,10 +6296,34 @@ revert_block_expr(Node) ->
 
 block_expr_body(Node) ->
     case unwrap(Node) of
-	{block, _, Body} ->
-	    Body;
-	Node1 ->
-	    data(Node1)
+        {block, _, Body} ->
+            Body;
+        {block, _, Body, _} ->
+            Body;
+        Node1 ->
+            DNode1 = data(Node1),
+            case DNode1 of
+                #block_expr{body=Body} ->
+                    Body;
+                _ ->
+                    data(Node1)
+            end
+    end.
+
+block_expr_clauses(Node) ->
+    case unwrap(Node) of
+        {block, _, _} ->
+            [];
+        {block, _, _, Clauses} ->
+            Clauses;
+        Node1 ->
+            DNode1 = data(Node1),
+            case DNode1 of
+                #block_expr{clauses=Clauses} ->
+                    Clauses;
+                _ -> % old-style block
+                    []
+            end
     end.
 
 
@@ -7726,7 +7823,13 @@ subtrees(T) ->
                     [[bitstring_type_m(T)],
                      [bitstring_type_n(T)]];
 		block_expr ->
-		    [block_expr_body(T)];
+                case block_expr_variant(T) of
+                    'begin' ->
+                        [block_expr_body(T)];
+                    'maybe' ->
+                        [[block_expr_body(T)],
+                         block_expr_clauses(T)]
+                end;
 		case_expr ->
 		    [[case_expr_argument(T)],
 		     case_expr_clauses(T)];
@@ -7951,6 +8054,7 @@ make_tree(binary_field, [[B], Ts]) -> binary_field(B, Ts);
 make_tree(binary_generator, [[P], [E]]) -> binary_generator(P, E);
 make_tree(bitstring_type, [[M], [N]]) -> bitstring_type(M, N);
 make_tree(block_expr, [B]) -> block_expr(B);
+make_tree(block_expr, [B, C]) -> block_expr(B, C);
 make_tree(case_expr, [[A], C]) -> case_expr(A, C);
 make_tree(catch_expr, [[B]]) -> catch_expr(B);
 make_tree(class_qualifier, [[A], [B]]) -> class_qualifier(A, B);

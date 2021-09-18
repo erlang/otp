@@ -55,7 +55,7 @@ Terminals
 char integer float atom string var
 
 '(' ')' ',' '->' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
-'after' 'begin' 'else' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
+'after' 'begin' 'cond' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
 'andalso' 'orelse'
 'bnot' 'not'
 '*' '/' 'div' 'rem' 'band' 'and'
@@ -403,7 +403,7 @@ if_clause -> guard clause_body :
 	{clause,first_anno(hd(hd('$1'))),[],'$1','$2'}.
 
 begin_expr -> 'begin' maybe_exprs 'end' : {block,?anno('$1'),'$2'}.
-begin_expr -> 'begin' maybe_exprs 'else' cr_clauses 'end': 
+begin_expr -> 'begin' maybe_exprs 'cond' cr_clauses 'end':
 	{block,?anno('$1'),'$2', '$4'}.
 
 maybe_expr -> expr : '$1'.
