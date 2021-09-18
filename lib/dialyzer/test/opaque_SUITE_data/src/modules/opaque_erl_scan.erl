@@ -1273,6 +1273,7 @@ tabs(10) ->  "\t\t\t\t\t\t\t\t\t\t".
 -spec reserved_word(Atom :: atom()) -> boolean().
 reserved_word('after') -> true;
 reserved_word('begin') -> true;
+reserved_word('else') -> true;
 reserved_word('case') -> true;
 reserved_word('try') -> true;
 reserved_word('cond') -> true;

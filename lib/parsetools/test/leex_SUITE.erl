@@ -652,6 +652,7 @@ Erlang code.
 
 reserved_word('after') -> true;
 reserved_word('begin') -> true;
+reserved_word('else') -> true;
 reserved_word('case') -> true;
 reserved_word('try') -> true;
 reserved_word('cond') -> true;
