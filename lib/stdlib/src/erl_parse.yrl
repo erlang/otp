@@ -38,6 +38,7 @@ map_expr map_tuple map_field map_field_assoc map_field_exact map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
 fun_expr fun_clause fun_clauses atom_or_var integer_or_var
 try_expr try_catch try_clause try_clauses try_opt_stacktrace
+begin_expr maybe_expr maybe_exprs
 function_call argument_list
 exprs guard
 atomic strings
@@ -402,19 +403,14 @@ if_clause -> guard clause_body :
 	{clause,first_anno(hd(hd('$1'))),[],'$1','$2'}.
 
 begin_expr -> 'begin' maybe_exprs 'end' : {block,?anno('$1'),'$2'}.
-begin_expr -> 'begin' maybe_exprs 'else' else_clauses 'end' : {block,?anno($1),'$2','$3'}.
+begin_expr -> 'begin' maybe_exprs 'else' cr_clauses 'end': 
+	{block,?anno('$1'),'$2', '$4'}.
 
-maybe_expr -> expr.
+maybe_expr -> expr : '$1'.
 maybe_expr -> expr '<-' expr : {maybe,?anno('$2'),'$1','$3'}.
 
-maybe_exprs -> maybe_expr : '$1'.
+maybe_exprs -> maybe_expr : ['$1'].
 maybe_exprs -> maybe_expr ',' maybe_exprs : ['$1' | '$3'].
-
-else_clauses -> else_clause : ['$1'].
-else_clauses -> else_clause ';' else_clauses : ['$1' | '$3'].
-
-else_clause -> expr clause_guard clause_body :
-	{clause,first_anno('$1'),['$1'],'$2','$3'}.
 
 case_expr -> 'case' expr 'of' cr_clauses 'end' :
 	{'case',?anno('$1'),'$2','$4'}.
@@ -725,7 +721,8 @@ Erlang code.
 
 -type af_filter() :: abstract_expr().
 
--type af_block() :: {'block', anno(), af_body()}.
+-type af_block() :: {'block', anno(), af_body()}
+                      | {'block', anno(), af_body(), af_clause_seq()}.
 
 -type af_if() :: {'if', anno(), af_clause_seq()}.
 
