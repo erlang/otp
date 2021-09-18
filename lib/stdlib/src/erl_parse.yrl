@@ -54,7 +54,7 @@ Terminals
 char integer float atom string var
 
 '(' ')' ',' '->' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
-'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
+'after' 'begin' 'else' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
 'andalso' 'orelse'
 'bnot' 'not'
 '*' '/' 'div' 'rem' 'band' 'and'
@@ -251,7 +251,7 @@ expr_max -> list_comprehension : '$1'.
 expr_max -> binary_comprehension : '$1'.
 expr_max -> tuple : '$1'.
 expr_max -> '(' expr ')' : '$2'.
-expr_max -> 'begin' exprs 'end' : {block,?anno('$1'),'$2'}.
+expr_max -> begin_expr : '$1'.
 expr_max -> if_expr : '$1'.
 expr_max -> case_expr : '$1'.
 expr_max -> receive_expr : '$1'.
@@ -401,6 +401,20 @@ if_clauses -> if_clause ';' if_clauses : ['$1' | '$3'].
 if_clause -> guard clause_body :
 	{clause,first_anno(hd(hd('$1'))),[],'$1','$2'}.
 
+begin_expr -> 'begin' maybe_exprs 'end' : {block,?anno('$1'),'$2'}.
+begin_expr -> 'begin' maybe_exprs 'else' else_clauses 'end' : {block,?anno($1),'$2','$3'}.
+
+maybe_expr -> expr.
+maybe_expr -> expr '<-' expr : {maybe,?anno('$2'),'$1','$3'}.
+
+maybe_exprs -> maybe_expr : '$1'.
+maybe_exprs -> maybe_expr ',' maybe_exprs : ['$1' | '$3'].
+
+else_clauses -> else_clause : ['$1'].
+else_clauses -> else_clause ';' else_clauses : ['$1' | '$3'].
+
+else_clause -> expr clause_guard clause_body :
+	{clause,first_anno('$1'),['$1'],'$2','$3'}.
 
 case_expr -> 'case' expr 'of' cr_clauses 'end' :
 	{'case',?anno('$1'),'$2','$4'}.
