@@ -36,6 +36,17 @@
 -define(CT_HOOK_INIT_PROCESS, ct_util_server).
 -define(CT_HOOK_TERMINATE_PROCESS, ct_util_server).
 
+%% Peer node names generated for Common Test purposes:
+-define(CT_PEER_NAME(TestCase), test_server:peer_name(?MODULE_STRING, TestCase)).
+-define(CT_PEER_NAME(), ?CT_PEER_NAME(?FUNCTION_NAME)).
+
+%% Start nodes with command line arguments or extended options
+-define(CT_PEER(Opts), test_server:start_peer(Opts, ?MODULE, ?FUNCTION_NAME)).
+%% Start a peer with name prefix of current ?MODULE and ?FUNCTION_NAME
+-define(CT_PEER(), ?CT_PEER([])).
+%% Start a compatibility node - for OTP test suites only
+-define(CT_PEER(Opts, Release, PrivDir), test_server:start_peer(Opts, ?MODULE, ?FUNCTION_NAME, Release, PrivDir)).
+
 %% Backward compatibility for test_server test suites.
 %% DO NOT USE IN NEW TEST SUITES.
 -define(line,).
