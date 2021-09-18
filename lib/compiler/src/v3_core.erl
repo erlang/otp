@@ -657,7 +657,18 @@ expr({bin,L,Es0}, St0) ->
 		    name=#c_literal{anno=LineAnno,val=error},
 		    args=As},Eps,St}
     end;
-expr({block,_,Es0}, St0) ->
+expr({block,L,Es0}, St0) ->
+    expr({block,L,Es0, []}, St0);
+expr({block,L,Es0, Cs0}, St0) ->
+    case split_maybe(Es0) of
+        {EsN, [], []} ->
+            expr({base_block,L,EsN}, St0);
+        {[], Maybe, EsR} ->
+            expr(maybe(Maybe, EsR, Cs0), St0);
+        {EsN, Maybe, EsR} ->
+            expr({base_block,L,[EsN|maybe(Maybe, EsR, Cs0)]}, St0)
+    end;
+expr({base_block,_,Es0}, St0) ->
     %% Inline the block directly.
     {Es1,St1} = exprs(droplast(Es0), St0),
     {E1,Eps,St2} = expr(last(Es0), St1),
@@ -866,6 +877,23 @@ expr({op,L,Op,L0,R0}, St0) ->
     {#icall{anno=#a{anno=LineAnno},		%Must have an #a{}
 	    module=#c_literal{anno=LineAnno,val=erlang},
 	    name=#c_literal{anno=LineAnno,val=Op},args=As},Aps,St1}.
+
+
+maybe({maybe,L,P0,E0}, [], _Cs0) ->
+    {match,L,P0,E0};
+maybe({maybe,L,P0,E0}, _EsR, _Cs0) ->
+    {match,L,P0,E0}.  %  ,{block,L,EsR,Cs0}].
+
+split_maybe(Es) ->
+    split_maybe(Es, []).
+
+split_maybe([], P) ->
+    {P, [], []};
+split_maybe([{maybe,_,_,_}=M|Es], P) ->
+    {P, M, Es};
+split_maybe([E|Es], P) ->
+    split_maybe(Es, [E|P]).
+
 
 %% set_wanted(Pattern, St) -> St'.
 %%  Suppress warnings for expressions that are bound to the '_'
