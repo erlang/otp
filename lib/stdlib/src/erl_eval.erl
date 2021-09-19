@@ -131,7 +131,14 @@ maybe_case(L,Lhs,Rhs,Cs,Es) ->
             end,
     Fail = case Cs of
                [] -> [{var,L,Res}];
-               _ -> [{'case',L,{var,L,Res},Cs}]
+               _ ->
+                   FailV = maybe_res(),
+                   [{'case',L,{var,L,Res},
+                      Cs ++
+                       [{clause,L,[{var,L,FailV}],[],[
+                             {call,L,{remote,L,{atom,L,erlang},{atom,L,error}},
+                              [{tuple,L,[{atom,L,cond_clause},{var,L,FailV}]}]}
+                         ]}]}]
            end,
     {'case',L,Rhs,
      [{clause,L,
