@@ -911,7 +911,7 @@ maybe_exprs([{maybe,L,P0,E0}|Es0], St0, Cs0) ->
     %%   b) create the sub-case expression for it
     SubCase = case Cs0 of
         [] -> Pat;
-        _ -> {'case', L, Pat, Cs0}
+        _ -> {cond_case, L, Pat, Cs0}
     end,
     %%   c) assemble in a full clause
     BadClause = {clause,L,[Pat],[],[SubCase]},

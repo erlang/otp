@@ -3,10 +3,10 @@
 -include_lib("stdlib/include/assert.hrl").
 
 -export([all/0]).
--export([begin1/1, begin2/1, begin3/1]).
+-export([begin1/1, begin2/1, begin3/1, begin4/1]).
 
 all() ->
-    [begin1, begin2].
+    [begin1, begin2, begin3, begin4].
 
 begin1(_Config) ->
     ?assertEqual(maybe1(), case1()).
@@ -93,35 +93,49 @@ begin3(_Config) ->
     ?assertEqual(x, begin _ <- x cond _ -> y end),
     ?assertEqual(y, begin nomatch <- x cond _ -> y end),
     ?assertEqual(y, begin nomatch <- x cond _ -> x, y end),
-    R1 = begin _ <- x end,
-    ?assertEqual(x, R1),
-    R2 = begin _ <- x cond _ -> y end,
-    ?assertEqual(x, R2),
-    R3 = begin nomatch <- x cond _ -> y end,
-    ?assertEqual(y, R3),
-    R4 = begin nomatch <- x cond _ -> x, y end,
-    ?assertEqual(y, R4),
-    R5 = begin begin nomatch <- x cond _ -> x, y end end,
-    ?assertEqual(y, R5),
-    R6 = (fun() -> begin nomatch <- x cond _ -> x, y end end)(),
-    ?assertEqual(y, R6),
-    %% This is equiv to assertequal
-    begin
-        ((fun () ->
-            X__X = (x),
-            case (begin _ <- x end) of
-                X__X -> ok;
-                X__V -> erlang:error({assertEqual,
-                                     [{module, ?MODULE},
-                                      {line, ?LINE},
-                                      {expression, skipped_macro},
-                                      {expected, X__X},
-                                      {value, X__V}]})
-            end
-          end)())
-    end,
     ok.
 
+begin4(_Config) ->
+    {'EXIT', {MaybeReason, _}} = (catch maybe4()),
+    {'EXIT', {CaseReason, _}} = (catch case4()),
+    ?assertEqual(MaybeReason, CaseReason).
+
+maybe4() ->
+    begin
+        {ok, A} <- id({ok,4}),
+        B = ok({ok, A}),
+        {ok, C=[_|_]} <- append(A,B),
+        {ok, {A,B,C}}
+    cond
+        {error, _Unexpected} -> error;
+        {ok, _Unexpected} -> error
+    end.
+
+case4() ->
+    case begin
+        case id({ok,4}) of
+            {ok, A} ->
+                B = ok({ok,A}),
+                case append(A,B) of
+                    {ok, C=[_|_]} ->
+                        {value, {ok, {A,B,C}}};
+                    Other ->
+                        {'else', Other}
+                end;
+            Other ->
+                {'else', Other}
+        end
+        end of
+            %% good clause
+            {value, X} -> X;
+            %% else clause
+        {'else', X} ->
+            case X of
+                {error, _Unexpected} -> error;
+                {ok, _Unexpected} -> error;
+                ElseErr -> erlang:error({cond_clause, ElseErr})
+            end
+    end.
 
 
 
