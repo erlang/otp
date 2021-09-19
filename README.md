@@ -44,7 +44,7 @@ cd release/tests/test_server
 $ERL_TOP/tests_install/bin/erl
 
 ts:install().
-ts:run(stdlib, [erl_scan_SUITE, erl_lint_SUITE, begin_maybe_SUITE]).
+ts:run(stdlib, [erl_scan_SUITE, erl_lint_SUITE, begin_maybe_SUITE, erl_eval_SUITE]).
 ts:run(syntax_tools, [syntax_tools_SUITE]).
 % ts:run(stdlib, [batch]). % this takes many minutes to run and tests a lot of unrelated stuff
 % ts:run(compiler, [batch]). % requires a bunch of external deps and remote displays?

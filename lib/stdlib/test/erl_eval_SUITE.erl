@@ -44,6 +44,7 @@
          otp_14826/1,
          funs/1,
 	 try_catch/1,
+         eep49/1,
 	 eval_expr_5/1,
 	 zero_width/1,
          eep37/1,
@@ -91,7 +92,7 @@ all() ->
      simple_cases, unary_plus, apply_atom, otp_5269,
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
      otp_8133, otp_10622, otp_13228, otp_14826,
-     funs, try_catch, eval_expr_5, zero_width,
+     funs, try_catch, eep49, eval_expr_5, zero_width,
      eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865].
 
 groups() -> 
@@ -1516,6 +1517,89 @@ try_catch(Config) when is_list(Config) ->
 		"      get(try_catch) end. ", 6),
     ok.
 
+%% Test of begin [expr|maybe_expr]+ cond clauses end
+eep49(Config) when is_list(Config) ->
+    check(fun() -> 
+                  begin A = foo, foo <- A, bar cond ok -> 1; err -> 2 end 
+          end,
+          "begin A = foo, foo <- A, bar cond ok -> 1; err -> 2 end.", 
+          bar),
+    check(fun() -> 
+                  begin A = ok, foo <- A, bar cond ok -> 1; err -> 2 end 
+          end,
+          "begin A = ok, foo <- A, bar cond ok -> 1; err -> 2 end.", 
+          1),
+    check(fun() -> 
+                  begin A = err, foo <- A, bar cond ok -> 1; err -> 2 end 
+          end,
+          "begin A = err, foo <- A, bar cond ok -> 1; err -> 2 end.", 
+          2),
+    check(fun() -> {'EXIT',{{cond_clause,baz},_}} =
+                       catch begin A = baz, foo <- A, bar 
+                                       cond ok -> 1; err -> 2 end,
+                   oki
+          end,
+          "begin {'EXIT',{{cond_clause,baz},_}} = "
+          "             catch begin A = baz, foo <- A, bar "
+          "                             cond ok -> 1; err -> 2 end, "
+          " oki end.", 
+          oki),
+    check(fun() -> 
+                  begin A = foo, foo <- A, bar end 
+          end,
+          "begin A = foo, foo <- A, bar end.", 
+          bar),
+    check(fun() -> 
+                  begin A = ok, foo <- A, bar end 
+          end,
+          "begin A = ok, foo <- A, bar end.", 
+          ok),
+    check(fun() -> 
+                  begin A = err, foo <- A, bar end 
+          end,
+          "begin A = err, foo <- A, bar end.", 
+          err),
+    check(fun() -> 
+                  begin A = foo, foo <- A end 
+          end,
+          "begin A = foo, foo <- A end.", 
+          foo),
+    check(fun() -> 
+                  begin A = ok, foo <- A end 
+          end,
+          "begin A = ok, foo <- A end.", 
+          ok),
+    check(fun() -> 
+                  begin A = err, foo <- A end 
+          end,
+          "begin A = err, foo <- A end.", 
+          err),
+    check(fun() -> 
+                  begin A = foo, foo <- A cond ok -> 1; err -> 2 end 
+          end,
+          "begin A = foo, foo <- A cond ok -> 1; err -> 2 end.", 
+          foo),
+    check(fun() -> 
+                  begin A = ok, foo <- A cond ok -> 1; err -> 2 end 
+          end,
+          "begin A = ok, foo <- A cond ok -> 1; err -> 2 end.", 
+          1),
+    check(fun() -> 
+                  begin A = err, foo <- A cond ok -> 1; err -> 2 end 
+          end,
+          "begin A = err, foo <- A cond ok -> 1; err -> 2 end.", 
+          2),
+    check(fun() -> {'EXIT',{{cond_clause,baz},_}} =
+                       catch begin A = baz, foo <- A 
+                                       cond ok -> 1; err -> 2 end,
+                   oki
+          end,
+          "begin {'EXIT',{{cond_clause,baz},_}} = "
+          "             catch begin A = baz, foo <- A "
+          "                             cond ok -> 1; err -> 2 end, "
+          " oki end.", 
+          oki),
+    ok.
 
 %% OTP-7933.
 eval_expr_5(Config) when is_list(Config) ->
