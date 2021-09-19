@@ -9,12 +9,13 @@ all() ->
     [begin1, begin2, begin3, begin4, begin5].
 
 begin1(_Config) ->
-    ?assertEqual(maybe1(), case1()).
+    ?assertEqual(maybe1(), case1()),
+    ok.
 
 maybe1() ->
     begin
         {ok, A} <- id({ok,5}),
-        B = ok(A),
+        B = ok({ok,A}),
         {ok, C=[_|_]} <- id({ok, append(A,B)}),
         {ok, {A,B,C}}
     cond
@@ -26,7 +27,7 @@ case1() ->
     case begin
         case id({ok,5}) of
             {ok, A} ->
-                B = ok(A),
+                B = ok({ok,A}),
                 case id({ok, append(A,B)}) of
                     {ok, C=[_|_]} ->
                         {value, {ok, {A,B,C}}};
@@ -48,12 +49,13 @@ case1() ->
     end.
 
 begin2(_Config) ->
-    ?assertEqual(maybe2(), case2()).
+    ?assertEqual(maybe2(), case2()),
+    ok.
 
 maybe2() ->
     begin
         {ok, A} <- id({ok,5}),
-        B = ok(A),
+        B = ok({ok,A}),
         C=[_|_] <- append(A,B),
         {ok, {A,B,C}}
     cond
@@ -65,7 +67,7 @@ case2() ->
     case begin
         case id({ok,5}) of
             {ok, A} ->
-                B = ok(A),
+                B = ok({ok,A}),
                 case append(A,B) of
                     C=[_|_] ->
                         {value, {ok, {A,B,C}}};
