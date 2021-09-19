@@ -152,6 +152,7 @@ This branch is forked off `master` branch as recommended by the contributing gui
 - Pretty-printing support (although indentation is a bit odd maybe still)
 - Introducing new exceptions of the form `cond_clause`, similar to `if_clause` and `case_clause` exceptions
 - Tests
+- Adapt standard Emacs mode to indent and highlight `cond` correctly in a `begin...end`
 
 What we haven't really had the time to check:
 
