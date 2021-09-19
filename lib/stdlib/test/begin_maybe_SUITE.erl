@@ -88,6 +88,7 @@ case2() ->
 
 begin3(_Config) ->
     %% These don't work yet because of macro processing woes or something?
+    %% seems to be the ??EXPR format dying
     % ?assertEqual(x, begin _ <- x end),
     % ?assertEqual(x, begin _ <- x cond _ -> y end),
     % ?assertEqual(y, begin nomatch <- x cond _ -> y end),
@@ -100,6 +101,25 @@ begin3(_Config) ->
     ?assertEqual(y, R3),
     R4 = begin nomatch <- x cond _ -> x, y end,
     ?assertEqual(y, R4),
+    R5 = begin begin nomatch <- x cond _ -> x, y end end,
+    ?assertEqual(y, R5),
+    R6 = (fun() -> begin nomatch <- x cond _ -> x, y end end)(),
+    ?assertEqual(y, R6),
+    %% This is equiv to assertequal
+    begin
+        ((fun () ->
+            X__X = (x),
+            case (begin _ <- x end) of
+                X__X -> ok;
+                X__V -> erlang:error({assertEqual,
+                                     [{module, ?MODULE},
+                                      {line, ?LINE},
+                                      {expression, skipped_macro},
+                                      {expected, X__X},
+                                      {value, X__V}]})
+            end
+          end)())
+    end,
     ok.
 
 
