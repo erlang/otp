@@ -2169,6 +2169,10 @@ munge_expr({match,Anno,ExprL,ExprR}, Vars) ->
     {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
     {MungedExprR, Vars3} = munge_expr(ExprR, Vars2),
     {{match,Anno,MungedExprL,MungedExprR}, Vars3};
+munge_expr({maybe,Anno,ExprL,ExprR}, Vars) ->
+    {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
+    {MungedExprR, Vars3} = munge_expr(ExprR, Vars2),
+    {{maybe,Anno,MungedExprL,MungedExprR}, Vars3};
 munge_expr({tuple,Anno,Exprs}, Vars) ->
     {MungedExprs, Vars2} = munge_exprs(Exprs, Vars, []),
     {{tuple,Anno,MungedExprs}, Vars2};

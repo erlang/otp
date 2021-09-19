@@ -299,6 +299,8 @@ t_erl_parse_type(Config) when is_list(Config) ->
 		     {"<<1,2,3,4:5>>", binary,false},
 		     {"<<V1:63,V2:22/binary, V3/bits>>", binary,false},
 		     {"begin X end", block_expr,false},
+		     {"begin X <- ok end", block_expr,false},
+		     {"begin X <- ok cond _ -> a end", block_expr,false},
 		     {"foo(X1,X2)", application,false},
 		     {"bar:foo(X1,X2)", application,false},
 		     {"[1,2,3,4]", list,false},

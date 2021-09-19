@@ -622,6 +622,10 @@ expr({match,Anno,P0,E0}, _Lc, St) ->
     E1 = expr(E0, false, St),
     P1 = pattern(P0, St),
     {match,ln(Anno),P1,E1};
+expr({maybe,Anno,P0,E0}, _Lc, St) ->
+    E1 = expr(E0, false, St),
+    P1 = pattern(P0, St),
+    {maybe,ln(Anno),P1,E1};
 expr({op,Anno,Op,A0}, _Lc, St) ->
     A1 = expr(A0, false, St),
     {op,ln(Anno),Op,[A1]};

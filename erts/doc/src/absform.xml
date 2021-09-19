@@ -433,6 +433,12 @@
           <c>{match,ANNO,Rep(P),Rep(E_0)}</c>.</p>
       </item>
       <item>
+          <p>If E is a maybe operator expression <c>P &lt;- E_0</c>
+          within a <code>begin ... end</code> expression,
+          where <c>P</c> is a pattern, then Rep(E) =
+          <c>{maybe,ANNO,Rep(P),Rep(E_0)}</c>.</p>
+      </item>
+      <item>
         <p>If E is nil, <c>[]</c>, then Rep(E) = <c>{nil,ANNO}</c>.</p>
       </item>
       <item>

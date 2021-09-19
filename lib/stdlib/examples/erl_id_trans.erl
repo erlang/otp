@@ -176,6 +176,10 @@ pattern({match,Anno,L0,R0}) ->
     L1 = pattern(L0),
     R1 = pattern(R0),
     {match,Anno,L1,R1};
+pattern({maybe,Anno,L0,R0}) ->
+    L1 = pattern(L0),
+    R1 = pattern(R0),
+    {maybe,Anno,L1,R1};
 pattern({integer,Anno,I}) -> {integer,Anno,I};
 pattern({char,Anno,C}) -> {char,Anno,C};
 pattern({float,Anno,F}) -> {float,Anno,F};
