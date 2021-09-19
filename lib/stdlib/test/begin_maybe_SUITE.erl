@@ -87,12 +87,12 @@ case2() ->
     end.
 
 begin3(_Config) ->
-    %% These don't work yet because of macro processing woes or something?
-    %% seems to be the ??EXPR format dying
-    % ?assertEqual(x, begin _ <- x end),
-    % ?assertEqual(x, begin _ <- x cond _ -> y end),
-    % ?assertEqual(y, begin nomatch <- x cond _ -> y end),
-    % ?assertEqual(y, begin nomatch <- x cond _ -> x, y end),
+    %% These only work if `epp' is modified not to delimit
+    %% `cond ... end' blocks the way they were originally intended.
+    ?assertEqual(x, begin _ <- x end),
+    ?assertEqual(x, begin _ <- x cond _ -> y end),
+    ?assertEqual(y, begin nomatch <- x cond _ -> y end),
+    ?assertEqual(y, begin nomatch <- x cond _ -> x, y end),
     R1 = begin _ <- x end,
     ?assertEqual(x, R1),
     R2 = begin _ <- x cond _ -> y end,
