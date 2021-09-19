@@ -123,6 +123,35 @@ exprs([E|Es], Bs0, Lf, Ef, RBs) ->
     {value,_V,Bs} = expr(E, Bs0, Lf, Ef, RBs1),
     exprs(Es, Bs, Lf, Ef, RBs).
 
+maybe_case(L,Lhs,Rhs,Cs,Es) ->
+    Res = maybe_res(),
+    Match = case Es of
+                [] -> [{var,L,Res}];
+                _ -> Es
+            end,
+    Fail = case Cs of
+               [] -> [{var,L,Res}];
+               _ -> [{'case',L,{var,L,Res},Cs}]
+           end,
+    {'case',L,Rhs,
+     [{clause,L,
+       [{match,L,Lhs,{var,L,Res}}],[],Match},
+      {clause,L,
+       [{var,L,Res}],[],Fail}]}.
+
+maybe_exprs([{maybe,L,Lhs,Rhs}|Es], Cs, Bs0, Lf, Ef, RBs) ->
+    expr(maybe_case(L,Lhs,Rhs,Cs,Es), Bs0, Lf, Ef, RBs);
+maybe_exprs([E], _Cs, Bs0, Lf, Ef, RBs) ->
+    expr(E, Bs0, Lf, Ef, RBs);
+maybe_exprs([E|Es], Cs, Bs0, Lf, Ef, RBs) ->
+    RBs1 = none,
+    {value,_V,Bs} = expr(E, Bs0, Lf, Ef, RBs1),
+    maybe_exprs(Es, Cs, Bs, Lf, Ef, RBs).
+
+maybe_res() ->
+    list_to_atom(lists:flatten(
+                   io_lib:format("'__MaybeResultVar_~p__", [make_ref()]))).
+
 %% expr(Expression, Bindings)
 %% expr(Expression, Bindings, LocalFuncHandler)
 %% expr(Expression, Bindings, LocalFuncHandler, ExternalFuncHandler)
@@ -263,7 +292,9 @@ expr({map,_,Es}, Bs0, Lf, Ef, RBs) ->
 	    end, maps:new(), Vs), Bs, RBs);
 
 expr({block,_,Es}, Bs, Lf, Ef, RBs) ->
-    exprs(Es, Bs, Lf, Ef, RBs);
+    maybe_exprs(Es, [], Bs, Lf, Ef, RBs);
+expr({block,_,Es,Cs}, Bs, Lf, Ef, RBs) ->
+    maybe_exprs(Es, Cs, Bs, Lf, Ef, RBs);
 expr({'if',_,Cs}, Bs, Lf, Ef, RBs) ->
     if_clauses(Cs, Bs, Lf, Ef, RBs);
 expr({'case',_,E,Cs}, Bs0, Lf, Ef, RBs) ->
