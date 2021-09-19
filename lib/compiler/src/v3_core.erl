@@ -660,9 +660,34 @@ expr({bin,L,Es0}, St0) ->
 expr({block,L,Es0}, St0) ->
     expr({block,L,Es0,[]}, St0);
 expr({block,L,Es0,Cs0}, St0) ->
-    %% Rewrite the maybe_exprs into exprs
-    {Exprs, St1} = maybe_exprs(Es0, St0, Cs0),
-    expr({base_block,L,Exprs}, St1);
+    case lists:keymember(maybe,1,Es0) of
+        false ->
+            %% This is a regular begin ... end with no conditional handling
+            %% from maybe expressions
+            expr({base_block,L,Es0},St0);
+        true ->
+            %% Rewrite the maybe_exprs into exprs, if any
+            {Exprs, St1} = maybe_exprs(Es0, St0),
+            %% Set up a top level conditional expression that unwraps
+            %% the inner results
+            {VarName,St2} = new_var_name(St1),
+            Var = {var,L,VarName},
+            %% Successful cases are tagged in {successful_begin, T}
+            GoodBranch = {clause,L,[{tuple,L,[{atom,L,successful_begin},Var]}],[],[Var]},
+            %% Failing cases are tagged in {begin_fail_branch, T}
+            BadBranch = case Cs0 of
+                [] ->
+                    %% No error handling specified, just return the error itself
+                    {clause,L,[{tuple,L,[{atom,L,begin_fail_branch},Var]}],[],[Var]};
+                _ ->
+                    %% The user submitted error-handling clauses, deal with them
+                    %% in a dedicated `cond_case' expression.
+                    ErrCond = {cond_case,L,Var,Cs0},
+                    {clause,L,[{tuple,L,[{atom,L,begin_fail_branch},Var]}],[],[ErrCond]}
+            end,
+            %% The top-level wrapper is evaluated standalone.
+            expr({cond_case,L, {base_block,L,Exprs}, [GoodBranch, BadBranch]}, St2)
+    end;
 expr({base_block,_,Es0}, St0) ->
     %% Inline the block directly.
     {Es1,St1} = exprs(droplast(Es0), St0),
@@ -882,7 +907,7 @@ expr({op,L,Op,L0,R0}, St0) ->
 	    name=#c_literal{anno=LineAnno,val=Op},args=As},Aps,St1}.
 
 
-maybe_exprs([{maybe,L,P0,E0}|Es0], St0, Cs0) ->
+maybe_exprs([{maybe,L,P0,E0}|Es0], St0) ->
     %% Generate a top level expression that turns
     %% the `P0 <- Expr, Exprs' construct into a case
     %% of the form `case Expr of Pat -> Exprs; Failthrough',
@@ -891,7 +916,7 @@ maybe_exprs([{maybe,L,P0,E0}|Es0], St0, Cs0) ->
     %%
     %% 1. Prepare the first successful pattern as a clause
     %%    where a match runs the rest of the maybe expression
-    {Exprs, St1} = maybe_exprs(Es0, St0, Cs0),
+    {Exprs, St1} = maybe_exprs(Es0, St0),
     {GoodClause,St2} = case Exprs of
         [] ->
             %% This is the final clause, create a new var
@@ -899,29 +924,39 @@ maybe_exprs([{maybe,L,P0,E0}|Es0], St0, Cs0) ->
             %% as a return.
             {LastPatName,StTmp} = new_var_name(St1),
             LastPat = {var,L,LastPatName},
-            {{clause,L,[{match,L,P0,LastPat}],[],[LastPat]}, StTmp};
+            Wrapped = {tuple,L,[{atom,L,successful_begin},LastPat]},
+            {{clause,L,[{match,L,P0,LastPat}],[],[Wrapped]}, StTmp};
         _ ->
-            {{clause,L,[P0],[],Exprs},St1}
+            {{clause,L,[P0],[],maybe_wrap(Exprs)},St1}
     end,
-    %% 2. Prepare the second pattern as a clause for failing
-    %%    matches, running the `cond' block
-    %%   a) create the match-all variable
+    %% 2. Prepare the failing pattern by tagging it
+    %%    as such in a tuple and returning it right away
     {PatName,St3} = new_var_name(St2),
     Pat = {var,L,PatName},
-    %%   b) create the sub-case expression for it
-    SubCase = case Cs0 of
-        [] -> Pat;
-        _ -> {cond_case, L, Pat, Cs0}
-    end,
-    %%   c) assemble in a full clause
-    BadClause = {clause,L,[Pat],[],[SubCase]},
-    %% 3. Put it all together into a standard case expr
+    BadVal = {tuple,L,[{atom,L,begin_fail_branch},Pat]},
+    BadClause = {clause,L,[Pat],[],[BadVal]},
+    %% 3. Put them together in a cond_case, which handles
+    %%    these patterns as a special case expression for
+    %%    begin ... cond ... end constructs
     {[{cond_case,L,E0,[GoodClause,BadClause]}], St3};
-maybe_exprs([E0|Es0], St0, Cs) ->
-    {Exprs,St1} = maybe_exprs(Es0,St0,Cs),
+maybe_exprs([E0|Es0], St0) ->
+    {Exprs,St1} = maybe_exprs(Es0,St0),
     {[E0|Exprs], St1};
-maybe_exprs([], St, _) ->
+maybe_exprs([], St) ->
     {[], St}.
+
+%% Wrap the final result of a maybe expression such that
+%% the final item is in a {successful_begin,Val} tuple
+%% for us to match the results.
+maybe_wrap([{cond_case,_,_,_}|_]=Wrapped) ->
+    %% Already annotated from the inside
+    Wrapped;
+maybe_wrap([Last]) ->
+    %% Assume an expr, 2nd tuple element is the LAnno
+    L = element(2,Last),
+    [{tuple,L,[{atom,L,successful_begin},Last]}];
+maybe_wrap([H|T]) ->
+    [H|maybe_wrap(T)].
 
 %% set_wanted(Pattern, St) -> St'.
 %%  Suppress warnings for expressions that are bound to the '_'

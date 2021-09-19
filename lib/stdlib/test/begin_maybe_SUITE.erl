@@ -3,10 +3,10 @@
 -include_lib("stdlib/include/assert.hrl").
 
 -export([all/0]).
--export([begin1/1, begin2/1, begin3/1, begin4/1, begin5/1]).
+-export([begin1/1, begin2/1, begin3/1, begin4/1, begin5/1, begin6/1, begin7/1]).
 
 all() ->
-    [begin1, begin2, begin3, begin4, begin5].
+    [begin1, begin2, begin3, begin4, begin5, begin6, begin7].
 
 begin1(_Config) ->
     ?assertEqual(maybe1(), case1()),
@@ -54,6 +54,7 @@ begin2(_Config) ->
 
 maybe2() ->
     begin
+        some_output,
         {ok, A} <- id({ok,5}),
         B = ok({ok,A}),
         C=[_|_] <- append(A,B),
@@ -62,6 +63,7 @@ maybe2() ->
         {error, _Unexpected} -> error;
         {ok, _Unexpected} -> error
     end.
+
 
 case2() ->
     case begin
@@ -226,6 +228,70 @@ end of
             {error, Unexpected} -> Unexpected; % N
             {ok, _Unexpected} -> error;        % O
             ElseErrN -> erlang:error({else_clause, ElseErrN})
+            end
+    end.
+
+begin6(_) ->
+    ?assertEqual(maybe6(), case6()).
+
+maybe6() ->
+    begin
+        X = 2+2,
+        {ok, 4} <- {error, 5},
+        Z = X*2,
+        {error, expected} <- {ok, 3},
+        id(Z),
+        X+Z
+    cond
+        {error, _} -> a;
+        {ok, _} -> b
+    end.
+
+case6() ->
+    case
+        begin
+            X = 2+2,
+            case {error, 5} of
+                {ok, 4} ->
+                    Z = X*2,
+                    case {ok, 3} of
+                        {error, expected} ->
+                            id(Z),
+                            {successful_begin, X+Z};
+                        Other ->
+                            {begin_fail_branch, Other}
+                    end;
+                Other ->
+                    {begin_fail_branch, Other}
+            end
+        end
+    of
+        {successful_begin, V} -> V;
+        {begin_fail_branch, Err} ->
+            case Err of
+                {error, _} -> a;
+                {ok, _} -> b
+            end
+    end.
+
+begin7(_) ->
+    ?assertEqual(maybe7(), case7()).
+
+maybe7() ->
+    begin
+        3
+    cond
+        {error, _} -> a;
+        {ok, _} -> b
+    end.
+
+case7() ->
+    case {successful_begin,3} of
+        {successful_begin, V} -> V;
+        {begin_fail_branch, Err} ->
+            case Err of
+                {error, _} -> a;
+                {ok, _} -> b
             end
     end.
 
