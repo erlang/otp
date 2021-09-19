@@ -169,6 +169,21 @@ So we decided to go with `begin ... cond ... end` instead.  Also trying out the 
 
 Nothing should change from regular builds of Erlang/OTP. See the [HOWTO/](https://github.com/spawnfest/eep49ers/tree/eep-49/HOWTO) section.
 
+You can quickly test your build by just opening the Erlang shell:
+
+```erlang
+1> begin {ok, Fd} <- file:open("myfile", [read]), ok <- file:write(Fd, "hello, world"), ok <- file:close(Fd) end.
+{error,enoent}
+2> h().
+1: begin
+       {ok, Fd} <- file:open("myfile", [read]),
+       ok <- file:write(Fd, "hello, world"),
+       ok <- file:close(Fd)
+   end
+-> {error,enoent}
+ok
+```
+
 ## Running Tests
 
 You can follow the standard instructions [in the official wiki](https://github.com/erlang/otp/wiki/Running-tests).
