@@ -3027,7 +3027,7 @@ Return nil if inside string, t if in a comment."
            ;;
            ;; `after' should be indented to the same level as the
            ;; corresponding receive.
-           (cond ((looking-at "\\(after\\|of\\)\\($\\|[^_a-zA-Z0-9]\\)")
+           (cond ((looking-at "\\(after\\|of\\|cond\\)\\($\\|[^_a-zA-Z0-9]\\)")
                   (nth 2 stack-top))
                  ((looking-at "when[^_a-zA-Z0-9]")
                   ;; Handling one when part
@@ -3073,7 +3073,7 @@ Return nil if inside string, t if in a comment."
                (let ((base (erlang-indent-find-base stack indent-point off skip)))
                  ;; Special cases
                  (goto-char indent-point)
-                 (cond ((looking-at "\\(;\\|end\\|after\\)\\($\\|[^_a-zA-Z0-9]\\)")
+                 (cond ((looking-at "\\(;\\|end\\|after\\|cond\\)\\($\\|[^_a-zA-Z0-9]\\)")
                         (if (eq (car stack-top) '->)
                             (erlang-pop stack))
                         (cond ((and stack (looking-at ";"))
@@ -3325,7 +3325,7 @@ This assumes that the preceding expression is either simple
 (defun erlang-at-keyword ()
   "Are we looking at an Erlang keyword which will increase indentation?"
   (looking-at (concat "\\(when\\|if\\|fun\\|case\\|begin\\|"
-                      "of\\|receive\\|after\\|catch\\|try\\)\\b")))
+                      "of\\|receive\\|after\\|cond\\|catch\\|try\\)\\b")))
 
 (defun erlang-at-operator ()
   "Are we looking at an Erlang operator?"
