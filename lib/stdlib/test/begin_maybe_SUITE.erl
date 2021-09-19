@@ -3,10 +3,10 @@
 -include_lib("stdlib/include/assert.hrl").
 
 -export([all/0]).
--export([begin1/1, begin2/1, begin3/1, begin4/1]).
+-export([begin1/1, begin2/1, begin3/1, begin4/1, begin5/1]).
 
 all() ->
-    [begin1, begin2, begin3, begin4].
+    [begin1, begin2, begin3, begin4, begin5].
 
 begin1(_Config) ->
     ?assertEqual(maybe1(), case1()).
@@ -137,9 +137,107 @@ case4() ->
             end
     end.
 
+begin5(_Config) ->
+    ?assertEqual(maybe5(4), case5(4)),
+    ?assertEqual(maybe5(5), case5(5)),
+    ?assertEqual(maybe5(a), case5(b)),
+    {{maybe5(4), case5(4)},
+     {maybe5(5), case5(5)},
+     {maybe5(a), case5(a)}}.
 
+maybe5(A) ->
+    begin
+        {ok, B} <- id({ok,4}),                                      %% B
+        {ok, C=[_|_]} <- {ok, append(A,B)},                         %% C
+        {error, _} <- begin                                         %% D <- E
+                  D = {A,B,C},                                      %% F
+                  {error, _} <- err(D)                              %% G
+              end,
+        ok <- begin                                                 %% H <- I
+                  {error, expected} <- good(D) % D still in scope   %% J
+              cond
+                  ok -> ok                                          %% K
+              end,
+        {ok, {A,B,C}}                                               %% L
+    cond
+        %% TODO: the linter complains here, and it's wrong!
+        {error, expected} -> saved;                                 %% M
+        {error, Unexpected} -> Unexpected;                          %% N
+        {ok, _Unexpected} -> error                                  %% O
+    end.
+
+case5(A) ->
+    case begin
+         case id({ok,4}) of
+             {ok, B} ->                                                 %% B
+                 case {ok,append(A,B)} of
+                     {ok, C=[_|_]} ->                                   %% C
+                         case                                           %% D
+                             case begin                                 %% E
+                                    D = {A,B,C},                        %% F
+                                    case err(D) of                      %% G
+                                        {error, _}=V ->
+                                            {value, V};
+                                        OtherG ->
+                                            {'else', OtherG}
+                                    end
+                             end of                                     %% E (still)
+                                 %% no cond clause, return both flows, no errors possible
+                                 {value, Ve} -> Ve;
+                                 {'else', Ve} -> Ve
+                             end
+                         of                                             %% D (still)
+                             {error, _} ->
+                                 case                                   %% H
+                                     case begin                         %% I
+                                        case good(D) of                 %% J
+                                            {error, expected} = Vj -> {value, Vj};
+                                            Other -> {'else', Other}
+                                        end
+                                     end of
+                                         {value, Vk} -> Vk;
+                                         {'else', ok} -> ok;            %% K
+                                         ElseErr -> erlang:error({cond_clause, ElseErr})
+                                     end
+                                 of
+                                     ok ->
+                                         {value, {ok,{A,B,C}}};         %% L
+                                     OtherL ->
+                                        {'else', OtherL}
+                                end;
+                            Other ->
+                                {'else', Other}
+                        end;
+                    Other ->
+                        {'else', Other}
+                end;
+            Other ->
+                {'else', Other}
+        end
+end of
+    %% good clause
+    {value, X} -> X; % L
+    %% else clause
+    {'else', X} ->
+        case X of
+            {error, expected} -> saved;        % M
+            {error, Unexpected} -> Unexpected; % N
+            {ok, _Unexpected} -> error;        % O
+            ElseErrN -> erlang:error({else_clause, ElseErrN})
+            end
+    end.
 
 %%% HELPERS %%%
 id(X) -> X.
+
 ok({ok, X}) -> X.
+
 append(A,B) -> [A,B].
+
+err({X,_,_}) when is_atom(X) -> {error, bad_type};
+err(_) -> {error, unexpected}.
+
+good({X,X,[X,X]}) ->
+    ok;
+good(_) ->
+    {error, expected}.
