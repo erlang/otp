@@ -9,6 +9,7 @@ MODULES= \
 	array_SUITE \
 	base64_SUITE \
 	beam_lib_SUITE \
+	begin_maybe_SUITE \
 	binary_module_SUITE \
 	binref \
 	c_SUITE \

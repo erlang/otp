@@ -658,16 +658,11 @@ expr({bin,L,Es0}, St0) ->
 		    args=As},Eps,St}
     end;
 expr({block,L,Es0}, St0) ->
-    expr({block,L,Es0, []}, St0);
-expr({block,L,Es0, Cs0}, St0) ->
-    case split_maybe(Es0) of
-        {EsN, [], []} ->
-            expr({base_block,L,EsN}, St0);
-        {[], Maybe, EsR} ->
-            expr(maybe(Maybe, EsR, Cs0), St0);
-        {EsN, Maybe, EsR} ->
-            expr({base_block,L,[EsN|maybe(Maybe, EsR, Cs0)]}, St0)
-    end;
+    expr({block,L,Es0,[]}, St0);
+expr({block,L,Es0,Cs0}, St0) ->
+    %% Rewrite the maybe_exprs into exprs
+    {Exprs, St1} = maybe_exprs(Es0, St0, Cs0),
+    expr({base_block,L,Exprs}, St1);
 expr({base_block,_,Es0}, St0) ->
     %% Inline the block directly.
     {Es1,St1} = exprs(droplast(Es0), St0),
@@ -684,6 +679,14 @@ expr({'case',L,E0,Cs0}, St0) ->
     {Fpat,St3} = new_var(St2),
     Lanno = lineno_anno(L, St2),
     Fc = fail_clause([Fpat], Lanno, c_tuple([#c_literal{val=case_clause},Fpat])),
+    {#icase{anno=#a{anno=Lanno},args=[E1],clauses=Cs1,fc=Fc},Eps,St3};
+expr({cond_case,L,E0,Cs0}, St0) ->
+    %% Same as 'case' but with a different literal error
+    {E1,Eps,St1} = novars(E0, St0),
+    {Cs1,St2} = clauses(Cs0, St1),
+    {Fpat,St3} = new_var(St2),
+    Lanno = lineno_anno(L, St2),
+    Fc = fail_clause([Fpat], Lanno, c_tuple([#c_literal{val=cond_clause},Fpat])),
     {#icase{anno=#a{anno=Lanno},args=[E1],clauses=Cs1,fc=Fc},Eps,St3};
 expr({'receive',L,Cs0}, St0) ->
     {Cs1,St1} = clauses(Cs0, St0),
@@ -879,21 +882,46 @@ expr({op,L,Op,L0,R0}, St0) ->
 	    name=#c_literal{anno=LineAnno,val=Op},args=As},Aps,St1}.
 
 
-maybe({maybe,L,P0,E0}, [], _Cs0) ->
-    {match,L,P0,E0};
-maybe({maybe,L,P0,E0}, _EsR, _Cs0) ->
-    {match,L,P0,E0}.  %  ,{block,L,EsR,Cs0}].
-
-split_maybe(Es) ->
-    split_maybe(Es, []).
-
-split_maybe([], P) ->
-    {P, [], []};
-split_maybe([{maybe,_,_,_}=M|Es], P) ->
-    {P, M, Es};
-split_maybe([E|Es], P) ->
-    split_maybe(Es, [E|P]).
-
+maybe_exprs([{maybe,L,P0,E0}|Es0], St0, Cs0) ->
+    %% Generate a top level expression that turns
+    %% the `P0 <- Expr, Exprs' construct into a case
+    %% of the form `case Expr of Pat -> Exprs; Failthrough',
+    %% where the `Failthrough' clause runs the `cond' block
+    %% of the top-level `begin' (passed in as `Cs0').
+    %%
+    %% 1. Prepare the first successful pattern as a clause
+    %%    where a match runs the rest of the maybe expression
+    {Exprs, St1} = maybe_exprs(Es0, St0, Cs0),
+    {GoodClause,St2} = case Exprs of
+        [] ->
+            %% This is the final clause, create a new var
+            %% that matches the whole subpattern and use it
+            %% as a return.
+            {LastPatName,StTmp} = new_var_name(St1),
+            LastPat = {var,L,LastPatName},
+            {{clause,L,[{match,L,P0,LastPat}],[],[LastPat]}, StTmp};
+        _ ->
+            {{clause,L,[P0],[],Exprs},St1}
+    end,
+    %% 2. Prepare the second pattern as a clause for failing
+    %%    matches, running the `cond' block
+    %%   a) create the match-all variable
+    {PatName,St3} = new_var_name(St2),
+    Pat = {var,L,PatName},
+    %%   b) create the sub-case expression for it
+    SubCase = case Cs0 of
+        [] -> Pat;
+        _ -> {'case', L, Pat, Cs0}
+    end,
+    %%   c) assemble in a full clause
+    BadClause = {clause,L,[Pat],[],[SubCase]},
+    %% 3. Put it all together into a standard case expr
+    {[{cond_case,L,E0,[GoodClause,BadClause]}], St3};
+maybe_exprs([E0|Es0], St0, Cs) ->
+    {Exprs,St1} = maybe_exprs(Es0,St0,Cs),
+    {[E0|Exprs], St1};
+maybe_exprs([], St, _) ->
+    {[], St}.
 
 %% set_wanted(Pattern, St) -> St'.
 %%  Suppress warnings for expressions that are bound to the '_'
