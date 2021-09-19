@@ -14,6 +14,12 @@ This branch is forked off `master` branch as recommended by the contributing gui
 - @ferd
 - The whole batch of contributors in OTP before Spawnfest.
 
+## Achievments
+
+While implementing we figured out that the choice of `else` in EEP-49 was more trouble than expected. Not only would it collide with usage of atom `else` but also with the `-else` attribute of epp.
+
+So we decide to go with `begin ... cond ... end` instead.  Also trying out the alternative `begin ... catch ... end` in not merged PR [Switch from 'cond' to 'catch' in maybe clauses](https://github.com/spawnfest/eep49ers/pull/10). Keyword `cond` was always reserved but not used so far and `catch` is used for exceptions but that usage wouldn't collide.  We also discussed `cond ... catch ... end` which might or might not collide with the initially indended `cond` expression.
+
 ## Building
 
 Nothing should change from regular builds of Erlang/OTP. See the [HOWTO/](https://github.com/spawnfest/eep49ers/tree/eep-49/HOWTO) section.
