@@ -1603,8 +1603,11 @@ macro_arg([{'receive',Lr}|Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [{'receive',Lr}|Arg]);
 macro_arg([{'try',Lr}|Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [{'try',Lr}|Arg]);
-macro_arg([{'cond',Lr}|Toks], E, Arg) ->
-    macro_arg(Toks, ['end'|E], [{'cond',Lr}|Arg]);
+%% skip the `cond ... end' blocks since they're used for the
+%% `begin ... cond ... end' blocks temporarily, and matching on
+%% until the end in a macro breaks all parsing.
+%macro_arg([{'cond',Lr}|Toks], E, Arg) ->
+%    macro_arg(Toks, ['end'|E], [{'cond',Lr}|Arg]);
 macro_arg([{Rb,Lrb}|Toks], [Rb|E], Arg) ->	%Found matching close
     macro_arg(Toks, E, [{Rb,Lrb}|Arg]);
 macro_arg([T|Toks], E, Arg) ->

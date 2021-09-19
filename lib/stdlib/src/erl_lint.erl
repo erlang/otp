@@ -2427,6 +2427,11 @@ expr({bin,_Anno,Fs}, Vt, St) ->
 expr({block,_Anno,Es}, Vt, St) ->
     %% Unfold block into a sequence.
     exprs(Es, Vt, St);
+expr({block,Anno,Es,Cs}, Vt, St) ->
+    %% Unfold block into a sequence.
+    {Evt, St1} = exprs(Es, Vt, St),
+    {Cvt, St2} = icrt_clauses(Cs, {'cond',Anno}, vtupdate(Evt, Vt), St1),
+    {vtmerge(Evt, Cvt),St2};
 expr({'if',Anno,Cs}, Vt, St) ->
     icrt_clauses(Cs, {'if',Anno}, Vt, St);
 expr({'case',Anno,E,Cs}, Vt, St0) ->
@@ -2575,6 +2580,11 @@ expr({'catch',Anno,E}, Vt, St0) ->
     {Evt,St} = expr(E, Vt, St0),
     {vtupdate(vtunsafe({'catch',Anno}, Evt, Vt), Evt),St};
 expr({match,_Anno,P,E}, Vt, St0) ->
+    {Evt,St1} = expr(E, Vt, St0),
+    {Pvt,Pnew,St2} = pattern(P, vtupdate(Evt, Vt), St1),
+    St = reject_invalid_alias_expr(P, E, Vt, St2),
+    {vtupdate(Pnew, vtmerge(Evt, Pvt)),St};
+expr({maybe,_Anno,P,E}, Vt, St0) ->
     {Evt,St1} = expr(E, Vt, St0),
     {Pvt,Pnew,St2} = pattern(P, vtupdate(Evt, Vt), St1),
     St = reject_invalid_alias_expr(P, E, Vt, St2),
