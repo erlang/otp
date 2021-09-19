@@ -429,6 +429,8 @@ expand_expr({'catch',A,E}, C) ->
     {'catch',A,expand_expr(E, C)};
 expand_expr({match,A,Lhs,Rhs}, C) ->
     {match,A,Lhs,expand_expr(Rhs, C)};
+expand_expr({maybe,A,Lhs,Rhs}, C) ->
+    {maybe,A,Lhs,expand_expr(Rhs, C)};
 expand_expr({op,A,Op,Arg}, C) ->
     {op,A,Op,expand_expr(Arg, C)};
 expand_expr({op,A,Op,Larg,Rarg}, C) ->

@@ -268,6 +268,9 @@
 	 match_expr/2,
 	 match_expr_body/1,
 	 match_expr_pattern/1,
+         maybe_expr/2,
+         maybe_expr_body/1,
+         maybe_expr_pattern/1,
 	 module_qualifier/2,
 	 module_qualifier_argument/1,
 	 module_qualifier_body/1,
@@ -537,38 +540,39 @@
 %%   <td>map_type_assoc</td>
 %%   <td>map_type_exact</td>
 %%   <td>match_expr</td>
-%%   <td>module_qualifier</td>
+%%   <td>maybe_expr</td>
 %%  </tr><tr>
+%%   <td>module_qualifier</td>
 %%   <td>named_fun_expr</td>
 %%   <td>nil</td>
 %%   <td>operator</td>
-%%   <td>parentheses</td>
 %%  </tr><tr>
+%%   <td>parentheses</td>
 %%   <td>prefix_expr</td>
 %%   <td>receive_expr</td>
 %%   <td>record_access</td>
-%%   <td>record_expr</td>
 %%  </tr><tr>
+%%   <td>record_expr</td>
 %%   <td>record_field</td>
 %%   <td>record_index_expr</td>
 %%   <td>record_type</td>
-%%   <td>record_type_field</td>
 %%  </tr><tr>
+%%   <td>record_type_field</td>
 %%   <td>size_qualifier</td>
 %%   <td>string</td>
 %%   <td>text</td>
-%%   <td>try_expr</td>
 %%  </tr><tr>
+%%   <td>try_expr</td>
 %%   <td>tuple</td>
 %%   <td>tuple_type</td>
 %%   <td>typed_record_field</td>
-%%   <td>type_application</td>
 %%  </tr><tr>
+%%   <td>type_application</td>
 %%   <td>type_union</td>
 %%   <td>underscore</td>
 %%   <td>user_type_application</td>
-%%   <td>variable</td>
 %%  </tr><tr>
+%%   <td>variable</td>
 %%   <td>warning_marker</td>
 %%  </tr>
 %% </table></center>
@@ -701,6 +705,7 @@ type(Node) ->
 	{lc, _, _, _} -> list_comp;
 	{bc, _, _, _} -> binary_comp;		
 	{match, _, _, _} -> match_expr;
+        {maybe, _, _, _} -> maybe_expr;
         {map, _, _, _} -> map_expr;
         {map, _, _} -> map_expr;
         {map_field_assoc, _, _, _} -> map_field_assoc;
@@ -4136,6 +4141,69 @@ match_expr_body(Node) ->
 	    (data(Node1))#match_expr.body
     end.
 
+
+%% =====================================================================
+%% @doc Creates an abstract maybe-expression, as used in <code>begin</code>
+%% blocks. The result represents
+%% "<code><em>Pattern</em> <- <em>Body</em></code>".
+%%
+%% @see maybe_expr_pattern/1
+%% @see maybe_expr_body/1
+
+-record(maybe_expr, {pattern :: syntaxTree(), body :: syntaxTree()}).
+
+%% type(Node) = maybe_expr
+%% data(Node) = #maybe_expr{pattern :: Pattern, body :: Body}
+%%
+%%	Pattern = Body = syntaxTree()
+%%
+%% `erl_parse' representation:
+%%
+%% {maybe, Pos, Pattern, Body}
+%%
+%%	Pattern = Body = erl_parse()
+
+-spec maybe_expr(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+maybe_expr(Pattern, Body) ->
+    tree(maybe_expr, #maybe_expr{pattern = Pattern, body = Body}).
+
+revert_maybe_expr(Node) ->
+    Pos = get_pos(Node),
+    Pattern = maybe_expr_pattern(Node),
+    Body = maybe_expr_body(Node),
+    {maybe, Pos, Pattern, Body}.
+
+%% =====================================================================
+%% @doc Returns the pattern subtree of a `maybe_expr' node.
+%%
+%% @see maybe_expr/2
+
+-spec maybe_expr_pattern(syntaxTree()) -> syntaxTree().
+
+maybe_expr_pattern(Node) ->
+    case unwrap(Node) of
+        {maybe, _, Pattern, _} ->
+            Pattern;
+        Node1 ->
+            (data(Node1))#maybe_expr.pattern
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the body subtree of a `maybe_expr' node.
+%%
+%% @see maybe_expr/2
+
+-spec maybe_expr_body(syntaxTree()) -> syntaxTree().
+
+maybe_expr_body(Node) ->
+    case unwrap(Node) of
+        {maybe, _, _, Body} ->
+            Body;
+        Node1 ->
+            (data(Node1))#maybe_expr.body
+    end.
 
 %% =====================================================================
 %% @doc Creates an abstract operator. The name of the operator is the
@@ -7623,6 +7691,8 @@ revert_root(Node) ->
             revert_map_type_exact(Node);
 	match_expr ->
 	    revert_match_expr(Node);
+        maybe_expr ->
+            revert_maybe_expr(Node);
 	module_qualifier ->
 	    revert_module_qualifier(Node);
 	named_fun_expr ->
@@ -7823,13 +7893,13 @@ subtrees(T) ->
                     [[bitstring_type_m(T)],
                      [bitstring_type_n(T)]];
 		block_expr ->
-                case block_expr_variant(T) of
-                    'begin' ->
-                        [block_expr_body(T)];
-                    'maybe' ->
-                        [[block_expr_body(T)],
-                         block_expr_clauses(T)]
-                end;
+                    case block_expr_variant(T) of
+                        'begin' ->
+                            [block_expr_body(T)];
+                        'maybe' ->
+                            [block_expr_body(T),
+                             block_expr_clauses(T)]
+                    end;
 		case_expr ->
 		    [[case_expr_argument(T)],
 		     case_expr_clauses(T)];
@@ -7926,6 +7996,9 @@ subtrees(T) ->
 		match_expr ->
 		    [[match_expr_pattern(T)],
 		     [match_expr_body(T)]];
+                maybe_expr ->
+                    [[maybe_expr_pattern(T)],
+                     [maybe_expr_body(T)]];
 		module_qualifier ->
 		    [[module_qualifier_argument(T)],
 		     [module_qualifier_body(T)]];
@@ -8089,6 +8162,7 @@ make_tree(map_type, [Fs]) -> map_type(Fs);
 make_tree(map_type_assoc, [[N],[V]]) -> map_type_assoc(N, V);
 make_tree(map_type_exact, [[N],[V]]) -> map_type_exact(N, V);
 make_tree(match_expr, [[P], [E]]) -> match_expr(P, E);
+make_tree(maybe_expr, [[P], [E]]) -> maybe_expr(P, E);
 make_tree(named_fun_expr, [[N], C]) -> named_fun_expr(N, C);
 make_tree(module_qualifier, [[M], [N]]) -> module_qualifier(M, N);
 make_tree(parentheses, [[E]]) -> parentheses(E);
