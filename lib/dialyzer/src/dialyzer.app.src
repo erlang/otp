@@ -57,6 +57,6 @@
   {registered, []},
   {applications, [compiler, kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["wx-1.2","syntax_tools-2.0","stdlib-3.4",
-			  "kernel-5.3","erts-9.0",
-			  "compiler-7.0"]}]}.
+  {runtime_dependencies, ["wx-2.0","syntax_tools-2.0","stdlib-3.15",
+			  "kernel-8.0","erts-12.0",
+			  "compiler-8.0"]}]}.
