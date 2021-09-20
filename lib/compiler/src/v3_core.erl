@@ -911,8 +911,10 @@ maybe_exprs([{maybe,L,P0,E0}|Es0], St0) ->
     %% Generate a top level expression that turns
     %% the `P0 <- Expr, Exprs' construct into a case
     %% of the form `case Expr of Pat -> Exprs; Failthrough',
-    %% where the `Failthrough' clause runs the `cond' block
-    %% of the top-level `begin' (passed in as `Cs0').
+    %% where the `Failthrough' clause wraps the error value
+    %% to be handled by a parent case clause at the the top-level.
+    %% Similarly, the last value is also wrapped in a good value to
+    %% avoid any ambiguity.
     %%
     %% 1. Prepare the first successful pattern as a clause
     %%    where a match runs the rest of the maybe expression
