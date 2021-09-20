@@ -74,16 +74,7 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
-
-#ifdef __WIN32__
-#include <windows.h>
-#include <io.h>
-#include <fcntl.h>
-#include <process.h>
-#endif
+#include "etc_common.h"
 
 /*
  * Implement time correction using times() call even on Linuxes 
@@ -91,13 +82,7 @@
  * a phony gethrtime in this file as the time questions are so infrequent.
  */
 
-#include <stdio.h>
 #include <stddef.h>
-#include <stdlib.h>
-
-#include <stdarg.h>
-
-#include <string.h>
 #include <time.h>
 #include <errno.h>
 

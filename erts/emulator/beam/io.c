@@ -570,7 +570,12 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	if (!(opts->spawn_type & ERTS_SPAWN_EXECUTABLE)) {
 	    /* No spawn driver default */
 	    driver = NULL;
-	}
+	} else {
+#ifdef __IOS__ 
+	    erts_rwmtx_runlock(&erts_driver_list_lock);
+	    ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);	   
+#endif
+    }
 
 
 	if (opts->spawn_type != ERTS_SPAWN_EXECUTABLE) {
