@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -583,7 +583,7 @@ validate_tls_record_length(_Versions, Q, _MaxFragLen, _SslOpts, Acc, Type, Versi
     {lists:reverse(Acc),
      {#ssl_tls{type = Type, version = Version, fragment = undefined}, Q}};
 validate_tls_record_length(Versions, {_,Size0,_} = Q0, MaxFragLen,
-                           #{log_level := LogLevel} = SslOpts,
+                           #{log_level := LogLevel, downgrade := Downgrade} = SslOpts,
                            Acc, Type, Version, Length) ->
     Max = if is_integer(MaxFragLen) ->
                         MaxFragLen + ?MAX_PADDING_LENGTH + ?MAX_MAC_LENGTH;
@@ -598,7 +598,13 @@ validate_tls_record_length(Versions, {_,Size0,_} = Q0, MaxFragLen,
                     {Fragment, Q} = binary_from_front(Length, Q0),
                     Record = #ssl_tls{type = Type, version = Version, fragment = Fragment},
                     ssl_logger:debug(LogLevel, inbound, 'record', Record),
-                    decode_tls_records(Versions, Q, MaxFragLen, SslOpts, [Record|Acc], undefined, undefined, undefined);
+                    case Downgrade of
+                        {_Pid, _From} ->
+                            %% parse only single record for downgrade scenario, buffer remaining data
+                            {[Record], {undefined, Q}};
+                        _ ->
+                            decode_tls_records(Versions, Q, MaxFragLen, SslOpts, [Record|Acc], undefined, undefined, undefined)
+                    end;
                 true ->
                     {lists:reverse(Acc),
                      {#ssl_tls{type = Type, version = Version, fragment = Length}, Q0}}

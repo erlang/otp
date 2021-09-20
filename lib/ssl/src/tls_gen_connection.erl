@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -528,10 +528,12 @@ encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
     tls_record:encode_change_cipher_spec(Version, ConnectionStates).
 
 next_tls_record(Data, StateName,
-                         #state{protocol_buffers =
-                                    #protocol_buffers{tls_record_buffer = Buf0,
-                                                      tls_cipher_texts = CT0} = Buffers,
-                                ssl_options = SslOpts} = State0) ->
+                #state{protocol_buffers =
+                           #protocol_buffers{tls_record_buffer = Buf0,
+                                             tls_cipher_texts = CT0} = Buffers,
+                       connection_env = #connection_env{
+                                           downgrade = Downgrade},
+                       ssl_options = SslOpts0} = State0) ->
     Versions =
         %% TLSPlaintext.legacy_record_version is ignored in TLS 1.3 and thus all
         %% record version are accepted when receiving initial ClientHello and
@@ -551,6 +553,7 @@ next_tls_record(Data, StateName,
                 State0#state.connection_env#connection_env.negotiated_version
         end,
     #{current_write := #{max_fragment_length := MaxFragLen}} = State0#state.connection_states,
+    SslOpts = maps:put(downgrade, Downgrade, SslOpts0),
     case tls_record:get_tls_records(Data, Versions, Buf0, MaxFragLen, SslOpts) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,
