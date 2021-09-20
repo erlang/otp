@@ -133,10 +133,8 @@
 %%-define(DEBUG_CONSTRAINTS, true).
 -ifdef(DEBUG).
 -define(DEBUG_NAME_MAP, true).
--define(DEBUG_LOOP_DETECTION, true).
 -endif.
 %%-define(DEBUG_NAME_MAP, true).
-%%-define(DEBUG_LOOP_DETECTION, true).
 
 -ifdef(DEBUG).
 -define(debug(__String, __Args), io:format(__String, __Args)).
@@ -1884,19 +1882,23 @@ scc_fold_fun(F, FunMap, State) ->
                                                     format_type(NewType)]),
   NewFunMap.
 
-solve(Fun, FunMap, State) ->
-  {ok, Map} = v2_solve_ref(Fun, FunMap, State),
-  Map.
-
 %% Solver v2
 
 -record(v2_state, {constr_data = maps:new() :: map(),
 		   state :: state()}).
 
-v2_solve_ref(Fun, Map, State) ->
+solve(Fun, FunMap, State) ->
   V2State = #v2_state{state = State},
-  {ok, NewMap, _, _} = v2_solve_reference(Fun, Map, V2State),
-  {ok, NewMap}.
+  try v2_solve_reference(Fun, FunMap, V2State) of
+    {ok, NewMap, _, _} -> NewMap
+  catch
+    throw:infinite_loop:Stack ->
+        erlang:raise(error,
+                     {"Infinite loop detected, please report this bug.",
+                      Fun,
+                      State#state.module},
+                     Stack)
+  end.
 
 v2_solve(#constraint{}=C, Map, V2State) ->
   case solve_one_c(C, Map) of
@@ -2137,10 +2139,10 @@ v2_solve_conj([], _Cs, _I, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
       ?debug("conjunct finished Id=~w\n", [Conj#constraint_list.id]),
       {ok, Map, V2State, lists:umerge([U|VarsUp])};
     NewFlags when NewFlags =:= LastFlags, Map =:= LastMap ->
-      %% A loop was detected! The cause is some bug, possibly in erl_types.
-      %% The evaluation continues, but the results can be wrong.
-      report_detected_loop(Conj),
-      {ok, Map, V2State, lists:umerge([U|VarsUp])};
+      %% We're stuck in an infinite loop, so we'll crash in the hopes of
+      %% getting a report. Trying to return anyway will yield potentially
+      %% misleading results.
+      throw(infinite_loop);
     NewFlags ->
       ?debug("conjunct restart Id=~w\n", [Conj#constraint_list.id]),
       #constraint_list{type = conj, list = Cs} = Conj,
@@ -2159,14 +2161,6 @@ v2_solve_conj(Is, [_|Tail], I, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
              LastMap, LastFlags) ->
   v2_solve_conj(Is, Tail, I+1, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
                LastMap, LastFlags).
-
--ifdef(DEBUG_LOOP_DETECTION).
-report_detected_loop(Conj) ->
-  io:format("A loop was detected in ~w\n", [Conj#constraint_list.id]).
--else.
-report_detected_loop(_) ->
-  ok.
--endif.
 
 add_mask_to_flags(Flags, [Im|M], I, L) when I > Im ->
   add_mask_to_flags(Flags, M, I, [Im|L]);
