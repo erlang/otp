@@ -4145,7 +4145,7 @@ match_expr_body(Node) ->
 %% =====================================================================
 %% @doc Creates an abstract maybe-expression, as used in <code>begin</code>
 %% blocks. The result represents
-%% "<code><em>Pattern</em> <- <em>Body</em></code>".
+%% "<code><em>Pattern</em> &lt;- <em>Body</em></code>".
 %%
 %% @see maybe_expr_pattern/1
 %% @see maybe_expr_body/1
