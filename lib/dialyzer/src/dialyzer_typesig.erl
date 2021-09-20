@@ -2292,27 +2292,50 @@ solve_one_c(#constraint{lhs = Lhs, rhs = Rhs, op = Op}, Map) ->
   end.
 
 solve_subtype(Type, Inf, Map) ->
-  %% case cerl:is_literal(Type) of
-  %%   true ->
-  %%     case t_is_subtype(t_from_term(cerl:concrete(Type)), Inf) of
-  %%	true -> {ok, Map};
-  %%	false -> error
-  %%     end;
-  %%   false ->
-      %% t_unify_table_only() is somewhat faster than t_unify(). The
-      %% fact that all variables occur in Type (no variables in Inf)
-      %% is not used in any way.
-      %% try t_unify(Type, Inf) of
-      %%   {_, List} -> {ok, enter_type_list(List, Map)}
-      try t_unify_table_only(Type, Inf) of
-          List -> {ok, enter_type_list(List, Map)}
-      catch
-	throw:{mismatch, _T1, _T2} ->
-	  ?debug("Mismatch between ~ts and ~ts\n",
-		 [format_type(_T1), format_type(_T2)]),
-	  error
-      end.
-  %% end.
+  try t_unify_table_only(Type, Inf) of
+    Bindings ->
+      refine_bindings(maps:to_list(Bindings), Map, [])
+  catch
+    throw:{mismatch, _T1, _T2} ->
+      ?debug("Mismatch between ~ts and ~ts\n",
+             [format_type(_T1), format_type(_T2)]),
+      error
+  end.
+
+%% Similar to enter_type/3 over a list, but refines known types rather than
+%% replaces them.
+refine_bindings([{Key, Val} | Tail], Map, U0) ->
+  ?debug("Unifying ~ts :: ~ts\n",
+         [format_type(t_var(Key)), format_type(Val)]),
+  %% It's important to keep opaque types whose internal structure is any(),
+  %% hence the equality check on t_any() rather than t_is_any/1.
+  case t_is_equal(Val, t_any()) of
+    true ->
+      refine_bindings(Tail, maps:remove(Key, Map), U0);
+    false ->
+      LimitedVal = t_limit(Val, ?INTERNAL_TYPE_LIMIT),
+      case Map of
+        #{ Key := Old } ->
+          LimitedInf = t_inf(Old, LimitedVal),
+          case t_is_none(LimitedInf) of
+            true ->
+              error;
+            false ->
+              case t_is_equal(Old, LimitedInf) of
+                true ->
+                  refine_bindings(Tail, Map, U0);
+                false ->
+                  U = ordsets:add_element(Key, U0),
+                  refine_bindings(Tail, Map#{ Key => LimitedInf }, U)
+              end
+          end;
+        #{} ->
+          U = ordsets:add_element(Key, U0),
+          refine_bindings(Tail, Map#{ Key => LimitedVal }, U)
+      end
+  end;
+refine_bindings([], Map, U) ->
+  {ok, {Map, U}}.
 
 report_failed_constraint(_C, _Map) ->
   ?debug("+++++++++++\nFailed: ~ts :: ~ts ~w ~ts :: ~ts\n+++++++++++\n",
@@ -2384,15 +2407,6 @@ enter_type_lists([Key|KeyTail], [Val|ValTail], Map) ->
   enter_type_lists(KeyTail, ValTail, Map1);
 enter_type_lists([], [], Map) ->
   Map.
-
-enter_type_list(KeyVals, Map) ->
-  enter_type_list(KeyVals, Map, []).
-
-enter_type_list([{Key, Val}|Tail], Map, U0) ->
-  {Map1,U1} = enter_type2(Key, Val, Map),
-  enter_type_list(Tail, Map1, U1++U0);
-enter_type_list([], Map, U) ->
-  {Map, ordsets:from_list(U)}.
 
 enter_type2(Key, Val, Map) ->
   Map1 = enter_type(Key, Val, Map),
