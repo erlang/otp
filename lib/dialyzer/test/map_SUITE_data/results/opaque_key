@@ -4,8 +4,8 @@ opaque_key_adt.erl:41:2: Invalid type specification for function opaque_key_adt:
 opaque_key_adt.erl:44:2: Invalid type specification for function opaque_key_adt:s5/0. The success typing is () -> #{2:=3}
 opaque_key_adt.erl:56:2: Invalid type specification for function opaque_key_adt:smt1/0. The success typing is () -> #{3:='a'}
 opaque_key_adt.erl:59:2: Invalid type specification for function opaque_key_adt:smt2/0. The success typing is () -> #{1:='a'}
-opaque_key_use.erl:13:5: The test opaque_key_use:t() =:= opaque_key_use:t(integer()) can never evaluate to 'true'
-opaque_key_use.erl:24:5: Attempt to test for equality between a term of type opaque_key_adt:t(integer()) and a term of opaque type opaque_key_adt:t()
+opaque_key_use.erl:13:5: The test opaque_key_use:t() =:= opaque_key_use:t(_) can never evaluate to 'true'
+opaque_key_use.erl:24:5: Attempt to test for equality between a term of type opaque_key_adt:t(_) and a term of opaque type opaque_key_adt:t()
 opaque_key_use.erl:37:1: Function adt_mm1/0 has no local return
 opaque_key_use.erl:40:5: The attempt to match a term of type opaque_key_adt:m() against the pattern #{A:=R} breaks the opacity of the term
 opaque_key_use.erl:48:1: Function adt_mu1/0 has no local return
