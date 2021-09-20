@@ -32,7 +32,7 @@
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
 
--import(lists, [all/2,any/2,duplicate/2,foldl/3,member/2,
+-import(lists, [any/2,duplicate/2,foldl/3,member/2,
                 keyfind/3,reverse/1,split/2,zip/2]).
 
 %% The maximum number of #b_ret{} terminators a function can have before
@@ -1122,36 +1122,12 @@ will_succeed_1(#b_set{op=get_tuple_element}, _Src, _Ts, _Sub) ->
     yes;
 will_succeed_1(#b_set{op=put_tuple}, _Src, _Ts, _Sub) ->
     yes;
-
-%% Remove the success branch from binary operations with invalid
-%% sizes. That will remove subsequent bs_put and bs_match instructions,
-%% which are probably not loadable.
-will_succeed_1(#b_set{op=bs_add,args=[Arg1,Arg2,_]},
-               _Src, _Ts, _Sub) ->
-    case all(fun(#b_literal{val=Size}) -> is_integer(Size) andalso Size >= 0;
-                (#b_var{}) -> true
-             end, [Arg1,Arg2]) of
-        true -> maybe;
-        false -> no
-    end;
-will_succeed_1(#b_set{op=bs_init,
-                      args=[#b_literal{val=new},#b_literal{val=Size},_Unit]},
-               _Src, _Ts, _Sub) ->
-    if
-        is_integer(Size), Size >= 0 ->
-            maybe;
-        true ->
-            no
-    end;
-will_succeed_1(#b_set{op=bs_init,
-                      args=[#b_literal{},_,#b_literal{val=Size},_Unit]},
-               _Src, _Ts, _Sub) ->
-    if
-        is_integer(Size), Size >= 0 ->
-            maybe;
-        true ->
-            no
-    end;
+will_succeed_1(#b_set{op=bs_create_bin}, _Src, _Ts, _Sub) ->
+    %% Intentionally don't try to determine whether construction will
+    %% fail. Construction is unlikely to fail, and if it fails, the
+    %% instruction in the runtime system will generate an exception with
+    %% better information of what went wrong.
+    maybe;
 will_succeed_1(#b_set{op=bs_match,
                       args=[#b_literal{val=Type},_,_,#b_literal{val=Size},_]},
                _Src, _Ts, _Sub) ->
@@ -1741,7 +1717,7 @@ type({bif,Bif}, Args, _Anno, Ts, _Ds) ->
     ArgTypes = normalized_types(Args, Ts),
     {RetType, _, _} = beam_call_types:types(erlang, Bif, ArgTypes),
     RetType;
-type(bs_init, _Args, _Anno, _Ts, _Ds) ->
+type(bs_create_bin, _Args, _Anno, _Ts, _Ds) ->
     #t_bitstring{};
 type(bs_extract, [Ctx], _Anno, _Ts, Ds) ->
     #b_set{op=bs_match,args=Args} = map_get(Ctx, Ds),

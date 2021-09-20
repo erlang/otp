@@ -87,32 +87,6 @@ undo_renames([{get_hd,Src,Hd},{get_tl,Src,Tl}|Is]) ->
     get_list(Src, Hd, Tl, Is);
 undo_renames([{get_tl,Src,Tl},{get_hd,Src,Hd}|Is]) ->
     get_list(Src, Hd, Tl, Is);
-undo_renames([{bs_put,_,{bs_put_binary,1,_},
-               [{atom,all},{literal,<<>>}]}|Is]) ->
-    undo_renames(Is);
-undo_renames([{bs_put,Fail,{bs_put_binary,1,_Flags},
-               [{atom,all},{literal,BinString}]}|Is0])
-  when is_bitstring(BinString)->
-    Bits = bit_size(BinString),
-    Bytes = Bits div 8,
-    case Bits rem 8 of
-        0 ->
-            I = {bs_put_string,byte_size(BinString),
-                 {string,BinString}},
-            [undo_rename(I)|undo_renames(Is0)];
-        Rem ->
-            <<Binary:Bytes/bytes,Int:Rem>> = BinString,
-            PutInt = {bs_put_integer,Fail,{integer,Rem},1,
-                      {field_flags,[unsigned,big]},{integer,Int}},
-            Is = [PutInt|undo_renames(Is0)],
-            case Binary of
-                <<>> ->
-                    Is;
-                _ ->
-                    [{bs_put_string,byte_size(Binary),
-                      {string,Binary}}|Is]
-            end
-    end;
 undo_renames([I|Is]) ->
     [undo_rename(I)|undo_renames(Is)];
 undo_renames([]) -> [].

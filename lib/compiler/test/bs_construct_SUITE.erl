@@ -72,10 +72,10 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 verify_highest_opcode(_Config) ->
     case ?MODULE of
-        bs_construct_r21_SUITE ->
+        bs_construct_r24_SUITE ->
             {ok,Beam} = file:read_file(code:which(?MODULE)),
             case test_lib:highest_opcode(Beam) of
-                Highest when Highest =< 163 ->
+                Highest when Highest =< 176 ->
                     ok;
                 TooHigh ->
                     ct:fail({too_high_opcode_for_21,TooHigh})
