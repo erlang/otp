@@ -903,7 +903,7 @@ vcore_elem({_Item, Info}) ->
     show("~tp~n", [Info]).
 
 fix_error(X) ->
-    set(last_error, X), %% for debugabililty
+    set(last_error, X), %% for debug ability
     case X of
 	{aborted, Reason} -> Reason;
 	{abort, Reason} -> Reason;
