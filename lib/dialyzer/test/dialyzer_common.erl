@@ -154,7 +154,7 @@ check(TestCase, Opts, Dir, OutDir) ->
 		_  ->
 		    case file:open(NewResFile,[?output_file_mode]) of
 			{ok, OutFile} ->
-			    io:format(OutFile,"\n~s",[Warns]),
+			    file:write(OutFile, [$\n, unicode:characters_to_binary(Warns)]),
 			    file:close(OutFile);
 			Other -> erlang:error(Other)
 		    end
