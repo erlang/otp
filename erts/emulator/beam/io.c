@@ -1166,7 +1166,6 @@ erts_schedule_proc2port_signal(Process *c_p,
 			       ErtsPortTaskHandle *pthp,
 			       ErtsProc2PortSigCallback callback)
 {
-    int sched_res;
     if (!refp) {
 	if (c_p)
 	    erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
@@ -1199,28 +1198,23 @@ erts_schedule_proc2port_signal(Process *c_p,
 
     sigdp->caller = caller;
 
-    /* Schedule port close call for later execution... */
-    sched_res = erts_port_task_schedule(prt->common.id,
-					pthp,
-					ERTS_PORT_TASK_PROC_SIG,
-					sigdp,
-					callback,
-					task_flags);
+    /*
+     * Schedule port execution of the callback. Note that
+     * the callback will be called even if we aren't
+     * able to lookup the port or if its state is invalid.
+     * Callback will in that case be called in "abort mode".
+     * We therefore always return ERTS_PORT_OP_SCHEDULED.
+     */
+    (void) erts_port_task_schedule(prt->common.id,
+                                   pthp,
+                                   ERTS_PORT_TASK_PROC_SIG,
+                                   sigdp,
+                                   callback,
+                                   task_flags);
 
     if (c_p)
 	erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
-    /*
-     * Only report dropped if the operation fails to schedule
-     * and no message reference has been passed along. If
-     * message reference has been passed along, a message
-     * reply will be sent regardless of successful schedule
-     * or not, i.e. report scheduled. Abortion of port task
-     * will send message in case of failure.
-     */
-    if (sched_res != 0 && !refp)
-        return ERTS_PORT_OP_DROPPED;
-    
     return ERTS_PORT_OP_SCHEDULED;
 }
 
@@ -2516,6 +2510,8 @@ port_sig_unlink(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *si
 {
     if (op == ERTS_PROC2PORT_SIG_EXEC)
 	port_unlink(prt, sigdp->u.unlink.lnk);
+    else
+        erts_link_release(sigdp->u.unlink.lnk);
     if (sigdp->flags & ERTS_P2P_SIG_DATA_FLG_REPLY)
 	port_sched_op_reply(sigdp->caller, sigdp->ref, am_true, prt);
     return ERTS_PORT_REDS_UNLINK;
