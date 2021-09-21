@@ -78,6 +78,8 @@
 	  point
 	 }).
 
+-record(cert, {der, otp}).
+
 -define(unspecified, 0).
 -define(keyCompromise, 1).
 -define(cACompromise, 2).

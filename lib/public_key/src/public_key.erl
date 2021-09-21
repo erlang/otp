@@ -1096,7 +1096,7 @@ pkix_normalize_name(Issuer) ->
 
 %%-------------------------------------------------------------------- 
 -spec pkix_path_validation(Cert::binary()| #'OTPCertificate'{} | atom(),
-			   CertChain :: [binary() | #'OTPCertificate'{}] ,
+			   CertChain :: [binary() | #'OTPCertificate'{} | #cert{}] ,
 			   Options :: [{atom(),term()}]) ->
 				  {ok, {PublicKeyInfo :: term(), 
 					PolicyTree :: term()}} |
@@ -1641,13 +1641,17 @@ validate(Cert, #path_validation_state{working_issuer_name = Issuer,
 
 otp_cert(Der) when is_binary(Der) ->
     pkix_decode_cert(Der, otp);
-otp_cert(#'OTPCertificate'{} =Cert) ->
-    Cert.
+otp_cert(#'OTPCertificate'{} = Cert) ->
+    Cert;
+otp_cert(#cert{otp = OtpCert}) ->
+    OtpCert.
 
 der_cert(#'OTPCertificate'{} = Cert) ->
     pkix_encode('OTPCertificate', Cert, otp);
 der_cert(Der) when is_binary(Der) ->
-    Der.
+    Der;
+der_cert(#cert{der = DerCert}) ->
+    DerCert.
 
 pkix_crls_validate(_, [],_, Options, #revoke_state{details = Details}) ->
      case proplists:get_value(undetermined_details, Options, false) of

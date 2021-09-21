@@ -3726,9 +3726,9 @@ path_validate([], _, _, _, _, _, _, _, _, _, Error) ->
 path_validate([{TrustedCert, Path} | Rest], ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
               Version, SslOptions, CertExt, InvalidatedList, Error) ->
     CB = path_validation_cb(Version),
-    case CB:path_validation(TrustedCert, Path, ServerName,
-                         Role, CertDbHandle, CertDbRef, CRLDbHandle,
-                         Version, SslOptions, CertExt) of
+    case CB:path_validation(trusted_unwrap(TrustedCert), Path, ServerName,
+                            Role, CertDbHandle, CertDbRef, CRLDbHandle,
+                            Version, SslOptions, CertExt) of
         {error, {bad_cert, root_cert_expired}} = NewError ->
             NewInvalidatedList = [TrustedCert | InvalidatedList],
             Alt = ssl_certificate:find_cross_sign_root_paths(Path, CertDbHandle, CertDbRef, NewInvalidatedList),
@@ -3744,6 +3744,11 @@ path_validate([{TrustedCert, Path} | Rest], ServerName, Role, CertDbHandle, Cert
         Result ->
             Result
     end.
+
+trusted_unwrap(#cert{otp = TrustedCert}) ->
+    TrustedCert;
+trusted_unwrap(ErrAtom) ->
+    ErrAtom.
 
 %% Call basic path validation algorithm in public_key pre TLS-1.3
 path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle, Version,
