@@ -593,6 +593,7 @@
 %% @see binary_field/2
 %% @see bitstring_type/2
 %% @see block_expr/1
+%% @see block_expr/2
 %% @see case_expr/2
 %% @see catch_expr/1
 %% @see char/1
@@ -6256,25 +6257,7 @@ binary_generator_body(Node) ->
     end.
 
 %% =====================================================================
-%% @doc Creates an abstract begin-expression. If `Block' is
-%% `[B1, ..., Bn]' and `Clauses' is
-%% `[C1, ..., Cn]', the result represents "<code>begin
-%% <em>B1</em>, ..., <em>BN</m> else <em>C1</em>; ...;
-%% <em>Cn</em> end</code>". More exactly, if each `Ci'
-%% represents "<code>(<em>Pi</em>) <em>Gi</em> -> <em>Bi</em>
-%% </code>", then the result represents
-%% "<code>case <em>Argument</em> of <em>P1</em> <em>G1</em> ->
-%% <em>B1</em>; ...; <em>Pn</em> <em>Gn</em> -> <em>Bn</em> end</code>".
-%%
-%% @see block_expr_clauses/1
-%% @see block_expr_body/1
-%% @see clause/3
-%% @see if_expr/1
-
--record(block_expr, {body :: [syntaxTree()], clauses :: [syntaxTree()]}).
-
-%% =====================================================================
-%% @doc Creates an abstract block expression. If `Body' is
+%% %% @doc Creates an abstract block expression. If `Body' is
 %% `[B1, ..., Bn]', the result represents "<code>begin
 %% <em>B1</em>, ..., <em>Bn</em> end</code>".
 %%
@@ -6305,6 +6288,8 @@ block_expr(Body) ->
 %%
 %%	See `clause' for documentation on `erl_parse' clauses.
 %% @see block_expr_body/1
+
+-record(block_expr, {body :: [syntaxTree()], clauses :: [syntaxTree()]}).
 
 %% type(Node) = block_expr
 %% data(Node) = #block_expr{body :: Body, clauses :: Clauses}
