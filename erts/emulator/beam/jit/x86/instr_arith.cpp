@@ -653,106 +653,48 @@ void BeamModuleAssembler::emit_i_m_div(const ArgVal &Fail,
     mov_arg(Dst, RET);
 }
 
-/* ARG1 = LHS, ARG4 (!) = RHS
- *
- * We avoid using ARG2 and ARG3 because multiplication clobbers RDX, which is
- * ARG2 on Windows and ARG3 on SystemV.
+/* ARG2 = LHS, ARG3 (!) = RHS
  *
  * Result is returned in RET, error is indicated by ZF. */
 void BeamGlobalAssembler::emit_times_guard_shared() {
-    Label generic = a.newLabel();
-
     emit_enter_frame();
+    emit_enter_runtime();
 
-    /* Are both smalls? */
-    a.mov(ARG2d, ARG1d);
-    a.and_(ARG2d, ARG4d);
-    a.and_(ARG2d, imm(_TAG_IMMED1_MASK));
-    a.cmp(ARG2d, imm(_TAG_IMMED1_SMALL));
-    a.short_().jne(generic);
+    a.mov(ARG1, c_p);
+    runtime_call<3>(erts_mixed_times);
 
-    a.mov(RET, ARG1);
-    a.mov(ARG2, ARG4);
-    a.and_(RET, imm(~_TAG_IMMED1_MASK));
-    a.sar(ARG2, imm(_TAG_IMMED1_SIZE));
-    a.imul(RET, ARG2); /* Clobbers RDX */
-    a.short_().jo(generic);
-
-    a.or_(RET, imm(_TAG_IMMED1_SMALL)); /* Always sets ZF to false */
-
+    emit_leave_runtime();
     emit_leave_frame();
+
+    emit_test_the_non_value(RET); /* Sets ZF for use in caller */
+
     a.ret();
-
-    a.bind(generic);
-    {
-        emit_enter_runtime();
-
-        a.mov(ARG2, ARG1);
-        a.mov(ARG3, ARG4);
-        a.mov(ARG1, c_p);
-        runtime_call<3>(erts_mixed_times);
-
-        emit_leave_runtime();
-        emit_leave_frame();
-
-        emit_test_the_non_value(RET); /* Sets ZF for use in caller */
-
-        a.ret();
-    }
 }
 
-/* ARG1 = LHS, ARG4 (!) = RHS
- *
- * We avoid using ARG2 and ARG3 because multiplication clobbers RDX, which is
- * ARG2 on Windows and ARG3 on SystemV.
+/* ARG2 = LHS, ARG3 (!) = RHS
  *
  * Result is returned in RET. */
 void BeamGlobalAssembler::emit_times_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_Times, 2};
 
-    Label generic = a.newLabel(), error = a.newLabel();
+    Label error = a.newLabel();
 
     emit_enter_frame();
+    emit_enter_runtime();
 
-    /* Are both smalls? */
-    a.mov(ARG2d, ARG1d);
-    a.and_(ARG2d, ARG4d);
-    a.and_(ARG2d, imm(_TAG_IMMED1_MASK));
-    a.cmp(ARG2, imm(_TAG_IMMED1_SMALL));
-    a.jne(generic);
+    /* Save original arguments for the error path. */
+    a.mov(TMP_MEM1q, ARG2);
+    a.mov(TMP_MEM2q, ARG3);
 
-    a.mov(RET, ARG1);
-    a.mov(ARG2, ARG4);
-    a.and_(RET, imm(~_TAG_IMMED1_MASK));
-    a.sar(ARG2, imm(_TAG_IMMED1_SIZE));
-    a.imul(RET, ARG2); /* Clobbers RDX */
-    a.short_().jo(generic);
+    a.mov(ARG1, c_p);
+    runtime_call<3>(erts_mixed_times);
 
-    a.or_(RET, imm(_TAG_IMMED1_SMALL));
-
+    emit_leave_runtime();
     emit_leave_frame();
+
+    emit_test_the_non_value(RET);
+    a.short_().je(error);
     a.ret();
-
-    a.bind(generic);
-    {
-        emit_enter_runtime();
-
-        /* Save original arguments for the error path. */
-        a.mov(TMP_MEM1q, ARG1);
-        a.mov(TMP_MEM2q, ARG4);
-
-        a.mov(ARG2, ARG1);
-        a.mov(ARG3, ARG4);
-        a.mov(ARG1, c_p);
-        runtime_call<3>(erts_mixed_times);
-
-        emit_leave_runtime();
-        emit_leave_frame();
-
-        emit_test_the_non_value(RET);
-        a.short_().je(error);
-        a.ret();
-    }
 
     a.bind(error);
     {
@@ -771,18 +713,49 @@ void BeamModuleAssembler::emit_i_times(const ArgVal &Fail,
                                        const ArgVal &LHS,
                                        const ArgVal &RHS,
                                        const ArgVal &Dst) {
-    mov_arg(ARG4, RHS); /* Done first as mov_arg may clobber ARG1 */
-    mov_arg(ARG1, LHS);
+    Label next = a.newLabel(), mixed = a.newLabel();
 
-    /* TODO: Specialize multiplication with immediates, either here or in the
-     * compiler. */
-    if (Fail.getValue() != 0) {
-        safe_fragment_call(ga->get_times_guard_shared());
-        a.je(labels[Fail.getValue()]);
+    mov_arg(ARG2, LHS); /* Used by erts_mixed_times in this slot */
+    mov_arg(ARG3, RHS); /* Used by erts_mixed_times in this slot */
+
+    if (RHS.isImmed() && is_small(RHS.getValue())) {
+        Sint val = signed_val(RHS.getValue());
+        emit_is_small(mixed, ARG2);
+        comment("mul with overflow check, imm RHS");
+        a.mov(RET, ARG2);
+        a.mov(ARG4, imm(val));
+    } else if (LHS.isImmed() && is_small(LHS.getValue())) {
+        Sint val = signed_val(LHS.getValue());
+        emit_is_small(mixed, ARG3);
+        comment("mul with overflow check, imm LHS");
+        a.mov(RET, ARG3);
+        a.mov(ARG4, imm(val));
     } else {
-        safe_fragment_call(ga->get_times_body_shared());
+        emit_is_both_small(mixed, ARG2, ARG3);
+        comment("mul with overflow check");
+        a.mov(RET, ARG2);
+        a.mov(ARG4, ARG3);
+        a.sar(ARG4, imm(_TAG_IMMED1_SIZE));
     }
 
+    a.and_(RET, imm(~_TAG_IMMED1_MASK));
+    a.imul(RET, ARG4);
+    a.short_().jo(mixed);
+    a.or_(RET, imm(_TAG_IMMED1_SMALL));
+    a.short_().jmp(next);
+
+    /* Call mixed multiplication. */
+    a.bind(mixed);
+    {
+        if (Fail.getValue() != 0) {
+            safe_fragment_call(ga->get_times_guard_shared());
+            a.je(labels[Fail.getValue()]);
+        } else {
+            safe_fragment_call(ga->get_times_body_shared());
+        }
+    }
+
+    a.bind(next);
     mov_arg(Dst, RET);
 }
 
