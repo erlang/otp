@@ -260,7 +260,7 @@ init_receiver(Node, Tab,Storage,Cs,Reason) ->
 		mnesia_locker:rlock(Tid, Ts#tidstore.store, {schema, Tab}),
 		%% Check that table still exists
 		Active = val({Tab, active_replicas}),
-		%% Check that we havn't loaded it already
+		%% Check that we haven't loaded it already
 		case val({Tab,where_to_read}) == node() of
 		    true -> ok;
 		    _ ->
