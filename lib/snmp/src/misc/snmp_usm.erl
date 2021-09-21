@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,6 +34,8 @@
 -include("snmp_types.hrl").
 -include("SNMP-USER-BASED-SM-MIB.hrl").
 -include("SNMP-USM-AES-MIB.hrl").
+-include("SNMP-USM-HMAC-SHA2-MIB.hrl").
+-include("snmp_usm.hrl").
 
 -define(VMODULE,"USM").
 -include("snmp_verbosity.hrl").
@@ -41,7 +43,15 @@
 
 %%-----------------------------------------------------------------
 
--define(twelwe_zeros, [0,0,0,0,0,0,0,0,0,0,0,0]).
+-define(zeros12, [0,0,0,0,0,0,0,0,0,0,0,0]).
+-define(zeros16, [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]).
+-define(zeros24, [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                  0,0,0,0,0,0,0,0]).
+-define(zeros32, [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]).
+-define(zeros48, [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]).
 
 -define(i32(Int), (Int bsr 24) band 255, (Int bsr 16) band 255, (Int bsr 8) band 255, Int band 255).
 
@@ -140,7 +150,55 @@ auth_in(?usmHMACMD5AuthProtocol, AuthKey, AuthParams, Packet) ->
 auth_in(usmHMACSHAAuthProtocol, AuthKey, AuthParams, Packet) ->
     sha_auth_in(AuthKey, AuthParams, Packet);
 auth_in(?usmHMACSHAAuthProtocol, AuthKey, AuthParams, Packet) ->
-    sha_auth_in(AuthKey, AuthParams, Packet).
+    sha_auth_in(AuthKey, AuthParams, Packet);
+auth_in(usmHMAC128SHA224AuthProtocol, AuthKey, AuthParams, Packet) ->
+    ?vtrace("auth_in(sha224) -> entry"),
+    sha2_auth_in(AuthKey, AuthParams, Packet,
+                 sha224,
+                 ?usmHMAC128SHA224AuthProtocol_secret_key_length,
+                 ?usmHMAC128SHA224AuthProtocol_mac_length);
+auth_in(?usmHMAC128SHA224AuthProtocol, AuthKey, AuthParams, Packet) ->
+    ?vtrace("auth_in(sha224) -> entry"),
+    sha2_auth_in(AuthKey, AuthParams, Packet,
+                 sha224,
+                 ?usmHMAC128SHA224AuthProtocol_secret_key_length,
+                 ?usmHMAC128SHA224AuthProtocol_mac_length);
+auth_in(usmHMAC192SHA256AuthProtocol, AuthKey, AuthParams, Packet) ->
+    ?vtrace("auth_in(sha256) -> entry"),
+    sha2_auth_in(AuthKey, AuthParams, Packet,
+                 sha256,
+                 ?usmHMAC192SHA256AuthProtocol_secret_key_length,
+                 ?usmHMAC192SHA256AuthProtocol_mac_length);
+auth_in(?usmHMAC192SHA256AuthProtocol, AuthKey, AuthParams, Packet) ->
+    ?vtrace("auth_in(sha256) -> entry"),
+    sha2_auth_in(AuthKey, AuthParams, Packet,
+                 sha256,
+                 ?usmHMAC192SHA256AuthProtocol_secret_key_length,
+                 ?usmHMAC192SHA256AuthProtocol_mac_length);
+auth_in(usmHMAC256SHA384AuthProtocol, AuthKey, AuthParams, Packet) ->
+    ?vtrace("auth_in(sha384) -> entry"),
+    sha2_auth_in(AuthKey, AuthParams, Packet,
+                 sha384,
+                 ?usmHMAC256SHA384AuthProtocol_secret_key_length,
+                 ?usmHMAC256SHA384AuthProtocol_mac_length);
+auth_in(?usmHMAC256SHA384AuthProtocol, AuthKey, AuthParams, Packet) ->
+    ?vtrace("auth_in(sha384) -> entry"),
+    sha2_auth_in(AuthKey, AuthParams, Packet,
+                 sha384,
+                 ?usmHMAC256SHA384AuthProtocol_secret_key_length,
+                 ?usmHMAC256SHA384AuthProtocol_mac_length);
+auth_in(usmHMAC384SHA512AuthProtocol, AuthKey, AuthParams, Packet) ->
+    ?vtrace("auth_in(sha512) -> entry"),
+    sha2_auth_in(AuthKey, AuthParams, Packet,
+                 sha512,
+                 ?usmHMAC384SHA512AuthProtocol_secret_key_length,
+                 ?usmHMAC384SHA512AuthProtocol_mac_length);
+auth_in(?usmHMAC384SHA512AuthProtocol, AuthKey, AuthParams, Packet) ->
+    ?vtrace("auth_in(sha512) -> entry"),
+    sha2_auth_in(AuthKey, AuthParams, Packet,
+                 sha512,
+                 ?usmHMAC384SHA512AuthProtocol_secret_key_length,
+                 ?usmHMAC384SHA512AuthProtocol_mac_length).
 
 auth_out(usmNoAuthProtocol, _AuthKey, _Message, _UsmSecParams) -> % 3.1.3
     error(unSupportedSecurityLevel);
@@ -153,7 +211,47 @@ auth_out(?usmHMACMD5AuthProtocol, AuthKey, Message, UsmSecParams) ->
 auth_out(usmHMACSHAAuthProtocol, AuthKey, Message, UsmSecParams) ->
     sha_auth_out(AuthKey, Message, UsmSecParams);
 auth_out(?usmHMACSHAAuthProtocol, AuthKey, Message, UsmSecParams) ->
-    sha_auth_out(AuthKey, Message, UsmSecParams).
+    sha_auth_out(AuthKey, Message, UsmSecParams);
+auth_out(usmHMAC128SHA224AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    sha2_auth_out(AuthKey, Message, UsmSecParams,
+                  sha224,
+                  ?usmHMAC128SHA224AuthProtocol_secret_key_length,
+                  ?usmHMAC128SHA224AuthProtocol_mac_length);
+auth_out(?usmHMAC128SHA224AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    sha2_auth_out(AuthKey, Message, UsmSecParams,
+                  sha224,
+                  ?usmHMAC128SHA224AuthProtocol_secret_key_length,
+                  ?usmHMAC128SHA224AuthProtocol_mac_length);
+auth_out(usmHMAC192SHA256AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    sha2_auth_out(AuthKey, Message, UsmSecParams,
+                  sha256,
+                  ?usmHMAC192SHA256AuthProtocol_secret_key_length,
+                  ?usmHMAC192SHA256AuthProtocol_mac_length);
+auth_out(?usmHMAC192SHA256AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    sha2_auth_out(AuthKey, Message, UsmSecParams,
+                  sha256,
+                  ?usmHMAC192SHA256AuthProtocol_secret_key_length,
+                  ?usmHMAC192SHA256AuthProtocol_mac_length);
+auth_out(usmHMAC256SHA384AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    sha2_auth_out(AuthKey, Message, UsmSecParams,
+                  sha384,
+                  ?usmHMAC256SHA384AuthProtocol_secret_key_length,
+                  ?usmHMAC256SHA384AuthProtocol_mac_length);
+auth_out(?usmHMAC256SHA384AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    sha2_auth_out(AuthKey, Message, UsmSecParams,
+                  sha384,
+                  ?usmHMAC256SHA384AuthProtocol_secret_key_length,
+                  ?usmHMAC256SHA384AuthProtocol_mac_length);
+auth_out(usmHMAC384SHA512AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    sha2_auth_out(AuthKey, Message, UsmSecParams,
+                  sha512,
+                  ?usmHMAC384SHA512AuthProtocol_secret_key_length,
+                  ?usmHMAC384SHA512AuthProtocol_mac_length);
+auth_out(?usmHMAC384SHA512AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    sha2_auth_out(AuthKey, Message, UsmSecParams,
+                  sha512,
+                  ?usmHMAC384SHA512AuthProtocol_secret_key_length,
+                  ?usmHMAC384SHA512AuthProtocol_mac_length).
 
 md5_auth_out(AuthKey, Message, UsmSecParams) ->
     %% ?vtrace("md5_auth_out -> entry with"
@@ -161,7 +259,7 @@ md5_auth_out(AuthKey, Message, UsmSecParams) ->
     %% 	    "~n   Message:      ~w"
     %%  	    "~n   UsmSecParams: ~w", [AuthKey, Message, UsmSecParams]),
     %% 6.3.1.1
-    Message2 = set_msg_auth_params(Message, UsmSecParams, ?twelwe_zeros),
+    Message2 = set_msg_auth_params(Message, UsmSecParams, ?zeros12),
     Packet   = snmp_pdus:enc_message_only(Message2),
     %% 6.3.1.2-4 is done by the crypto function
     %% 6.3.1.4
@@ -177,7 +275,7 @@ md5_auth_in(AuthKey, AuthParams, Packet) when length(AuthParams) == 12 ->
     %%  	    "~n   AuthParams: ~w"
     %%  	    "~n   Packet:     ~w", [AuthKey, AuthParams, Packet]),
     %% 6.3.2.3
-    Packet2 = patch_packet(binary_to_list(Packet)),
+    Packet2 = patch_packet(binary_to_list(Packet), ?zeros12),
     %% 6.3.2.5
     MAC = binary_to_list(crypto:macN(hmac, md5, AuthKey, Packet2, 12)),
     %% 6.3.2.6
@@ -186,15 +284,15 @@ md5_auth_in(AuthKey, AuthParams, Packet) when length(AuthParams) == 12 ->
     MAC == AuthParams;
 md5_auth_in(_AuthKey, _AuthParams, _Packet) ->
     %% 6.3.2.1
-    ?vtrace("md5_auth_in -> entry with"
-	    "~n   _AuthKey:    ~p"
-	    "~n   _AuthParams: ~p", [_AuthKey, _AuthParams]),
+    ?vlog("md5_auth_in -> entry with"
+          "~n   _AuthKey:    ~p"
+          "~n   _AuthParams: ~p", [_AuthKey, _AuthParams]),
     false.
 
 
 sha_auth_out(AuthKey, Message, UsmSecParams) ->
     %% 7.3.1.1
-    Message2 = set_msg_auth_params(Message, UsmSecParams, ?twelwe_zeros),
+    Message2 = set_msg_auth_params(Message, UsmSecParams, ?zeros12),
     Packet = snmp_pdus:enc_message_only(Message2),
     %% 7.3.1.2-4 is done by the crypto function
     %% 7.3.1.4
@@ -204,17 +302,78 @@ sha_auth_out(AuthKey, Message, UsmSecParams) ->
 
 sha_auth_in(AuthKey, AuthParams, Packet) when length(AuthParams) =:= 12 ->
     %% 7.3.2.3
-    Packet2 = patch_packet(binary_to_list(Packet)),
+    Packet2 = patch_packet(binary_to_list(Packet), ?zeros12),
     %% 7.3.2.5
     MAC = binary_to_list(crypto:macN(hmac, sha, AuthKey, Packet2, 12)),
     %% 7.3.2.6
     MAC == AuthParams;
 sha_auth_in(_AuthKey, _AuthParams, _Packet) ->
     %% 7.3.2.1
-    ?vtrace("sha_auth_in -> entry with"
-	    "~n   _AuthKey:    ~p"
-	    "~n   _AuthParams: ~p", [_AuthKey, _AuthParams]),
+    ?vlog("sha_auth_in -> entry with"
+          "~n   _AuthKey:    ~p"
+          "~n   _AuthParams: ~p", [_AuthKey, _AuthParams]),
     false.
+
+
+%% RFC:4.2.1
+sha2_auth_out(AuthKey, Message, UsmSecParams,
+              HashAlg, M, N)
+  when (length(AuthKey) =:= M) ->
+    %% ?vtrace("sha2_auth_out -> entry with"
+    %%         "~n      AuthKey:      ~p"
+    %%         "~n      UsmSecParams: ~p"
+    %%         "~n      HashAlg:      ~p"
+    %%         "~n      M:            ~p"
+    %%         "~n      N:            ~p",
+    %%         [AuthKey, UsmSecParams, HashAlg, M, N]),
+    %% 4.2.1:1
+    Message2 = set_msg_auth_params(Message, UsmSecParams, zeros(N)),
+    Packet   = snmp_pdus:enc_message_only(Message2),
+    %% 7.3.1.2-4 is done by the crypto function
+    %% 4.2.1:2-3
+    MAC = binary_to_list(crypto:macN(hmac, HashAlg, AuthKey, Packet, N)),
+    %% ?vtrace("sha2_auth_out -> "
+    %%         "~n      MAC: ~p", [MAC]),
+    %% 4.2.1:4-5
+    set_msg_auth_params(Message, UsmSecParams, MAC).
+
+%% RFC:4.2.2
+sha2_auth_in(AuthKey, AuthParams, Packet,
+             HashAlg, M, N)
+  when (length(AuthKey) =:= M) andalso
+       (length(AuthParams) =:= N) ->
+    %% ?vtrace("sha2_auth_in -> entry with"
+    %%         "~n      AuthKey:    ~p"
+    %%         "~n      AuthParams: ~p"
+    %%         "~n      HashAlg:    ~p"
+    %%         "~n      M:          ~p"
+    %%         "~n      N:          ~p", [AuthKey, AuthParams, HashAlg, M, N]),
+    %% 4.2.2:3
+    Packet2 = patch_packet(binary_to_list(Packet), zeros(N)),
+    %% 4.2.2:4
+    MAC = binary_to_list(crypto:macN(hmac, HashAlg, AuthKey, Packet2, N)),
+    %% ?vtrace("sha2_auth_in -> "
+    %%         "~n      MAC: ~p", [MAC]),
+    %% 4.2.2:7
+    %% true | {false, authenticationFailure}
+    (MAC == AuthParams);
+sha2_auth_in(_AuthKey, _AuthParams, _Packet,
+             _HashAlg, _M, _N) ->
+    %% 4.2.2
+    ?vlog("sha2_auth_in -> entry with"
+          "~n      _AuthKey:    ~p"
+          "~n      _AuthParams: ~p"
+          "~n      _HashAlg:    ~p"
+          "~n      _M:          ~p"
+          "~n      _N:          ~p", [_AuthKey, _AuthParams, _HashAlg, _M, _N]),
+    %% authenticationError.
+    false.
+
+
+zeros(16) -> ?zeros16;
+zeros(24) -> ?zeros24;
+zeros(32) -> ?zeros32;
+zeros(48) -> ?zeros48.
 
 
 des_encrypt(PrivKey, Data, SaltFun) ->
@@ -292,58 +451,61 @@ set_msg_auth_params(Message, UsmSecParams, AuthParams) ->
 
 %% Not very nice...
 %% This function patches the asn.1 encoded message. It changes the
-%% AuthenticationParameters to 12 zeros.
+%% AuthenticationParameters to 12|16|24|32|48 zeros.
 %% NOTE: returns a deep list of bytes
-patch_packet([48 | T]) ->
+patch_packet([48 | T], Patch) ->
     %% Length for whole packet - 2 is tag for version
     {Len1, [2 | T1]} = split_len(T),
     %% Length for version - 48 is tag for header data
     {Len2, [Vsn,48|T2]} = split_len(T1),
     %% Length for header data
     {Len3, T3} = split_len(T2),
-    [48,Len1,2,Len2,Vsn,48,Len3|pp2(dec_len(Len3),T3)].
+    [48,Len1,2,Len2,Vsn,48,Len3|pp2(dec_len(Len3),T3,Patch)].
 
 %% Skip HeaderData - 4 is tag for SecurityParameters
-pp2(0,[4|T]) ->
+pp2(0,[4|T],Patch) ->
     %% 48 is tag for UsmSecParams
     {Len1,[48|T1]} = split_len(T),
     %% 4 is tag for EngineID
     {Len2,[4|T2]} = split_len(T1),
     %% Len 3 is length for EngineID
     {Len3,T3} = split_len(T2),
-    [4,Len1,48,Len2,4,Len3|pp3(dec_len(Len3),T3)];
-pp2(N,[H|T]) ->
-    [H|pp2(N-1,T)].
+    [4,Len1,48,Len2,4,Len3|pp3(dec_len(Len3),T3,Patch)];
+pp2(N,[H|T],Patch) ->
+    [H|pp2(N-1,T,Patch)].
 
 %% Skip EngineID - 2 is tag for EngineBoots
-pp3(0,[2|T]) ->
+pp3(0,[2|T],Patch) ->
     {Len1,T1} = split_len(T),
-    [2,Len1|pp4(dec_len(Len1),T1)];
-pp3(N,[H|T]) ->
-    [H|pp3(N-1,T)].
+    [2,Len1|pp4(dec_len(Len1),T1,Patch)];
+pp3(N,[H|T],Patch) ->
+    [H|pp3(N-1,T,Patch)].
 
 %% Skip EngineBoots - 2 is tag for EngineTime
-pp4(0,[2|T]) ->
+pp4(0,[2|T],Patch) ->
     {Len1,T1} = split_len(T),
-    [2,Len1|pp5(dec_len(Len1),T1)];
-pp4(N,[H|T]) ->
-    [H|pp4(N-1,T)].
+    [2,Len1|pp5(dec_len(Len1),T1,Patch)];
+pp4(N,[H|T],Patch) ->
+    [H|pp4(N-1,T,Patch)].
 
 %% Skip EngineTime - 4 is tag for UserName 
-pp5(0,[4|T]) ->
+pp5(0,[4|T],Patch) ->
     {Len1,T1} = split_len(T),
-    [4,Len1|pp6(dec_len(Len1),T1)];
-pp5(N,[H|T]) ->
-    [H|pp5(N-1,T)].
+    [4,Len1|pp6(dec_len(Len1),T1,Patch)];
+pp5(N,[H|T],Patch) ->
+    [H|pp5(N-1,T,Patch)].
 
 %% Skip UserName - 4 is tag for AuthenticationParameters
 %% This is what we're looking for!
-pp6(0,[4|T]) ->
-    {Len1,[_,_,_,_,_,_,_,_,_,_,_,_|T1]} = split_len(T),
-    12 = dec_len(Len1),
-    [4,Len1,?twelwe_zeros|T1];
-pp6(N,[H|T]) ->
-    [H|pp6(N-1,T)].
+pp6(0, [4|T], Patch) ->
+    PatchLen      = length(Patch),
+    {Len1, Rest1} = split_len(T),
+    PatchLen      = dec_len(Len1), % Force match
+    {_Old, Rest2} = lists:split(PatchLen, Rest1),
+    %% Patch: list of zeros of length: 12 | 16 | 24 | 32 | 48
+    [4, Len1, Patch|Rest2];
+pp6(N,[H|T],Patch) ->
+    [H|pp6(N-1,T,Patch)].
 
 
 %% Returns {LengthOctets, Rest}

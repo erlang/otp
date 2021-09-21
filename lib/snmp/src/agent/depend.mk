@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2004-2019. All Rights Reserved.
+# Copyright Ericsson AB 2004-2021. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -266,8 +266,10 @@ $(EBIN)/snmp_target_mib.$(EMULATOR): \
 $(EBIN)/snmp_user_based_sm_mib.$(EMULATOR): \
 	snmp_user_based_sm_mib.erl \
 	../misc/snmp_verbosity.hrl \
+	../misc/snmp_usm.hrl \
 	../../include/snmp_types.hrl \
 	../../include/SNMP-USER-BASED-SM-MIB.hrl \
+	../../include/SNMP-USM-HMAC-SHA2-MIB.hrl \
 	../../include/SNMPv2-TC.hrl
 
 $(EBIN)/snmp_view_based_acm_mib.$(EMULATOR): \
