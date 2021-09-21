@@ -65,6 +65,14 @@
     </datatype>
 
     <datatype>
+      <name name="key_oid_name"/>
+      <desc>
+	<p>Macro names for key object identifiers used by prefixing with ?</p>
+      </desc>
+    </datatype>
+
+
+    <datatype>
       <name name="der_encoded"/>
       <desc>
       </desc>
@@ -100,11 +108,14 @@
     <datatype>
       <name name="public_key"/>
       <name name="rsa_public_key"/>
+      <name name="dss_public_key"/>
       <name name="rsa_pss_public_key"/>
       <name name="dsa_public_key"/>
       <name name="ec_public_key"/>
+      <name name="public_key_params"/>
       <name name="ecpk_parameters"/>
       <name name="ecpk_parameters_api"/>
+      <name name="public_key_info"/>
       <desc>
       </desc>
     </datatype>
@@ -139,6 +150,12 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="ed_oid_name"/>
+      <desc>
+	Macro names for object identifiers for EDDSA curves used by prefixing with ?
+      </desc>
+    </datatype>
 
     <datatype>
       <name name="key_params"/>
@@ -146,14 +163,9 @@
       </desc>
     </datatype>
 
-    <datatype>
-      <name name="digest_type"/>
-      <desc>
-      </desc>
-    </datatype>
 
     <datatype>
-      <name name="crl_reason"/>
+      <name name="digest_type"/>
       <desc>
       </desc>
     </datatype>
@@ -163,6 +175,27 @@
       <desc>
       </desc>
     </datatype>
+
+     <datatype>
+      <name name="cert"/>
+      <desc>
+      </desc>
+    </datatype>
+
+
+    <datatype>
+      <name name="bad_cert_reason"/>
+      <desc>
+      </desc>
+    </datatype>
+
+
+    <datatype>
+      <name name="crl_reason"/>
+      <desc>
+      </desc>
+    </datatype>
+
 
     <datatype>
       <name name="issuer_name"/>
@@ -401,33 +434,16 @@
  </func>
 
   <func>
-    <name since="OTP R16B">pkix_path_validation(TrustedCert, CertChain, Options) -> {ok, {PublicKeyInfo, PolicyTree}} | {error, {bad_cert, Reason}} </name>
+    <name since="OTP R16B" name="pkix_path_validation" arity="3"/>
     <fsummary>Performs a basic path validation according to RFC 5280.</fsummary>
-     <type>
-       <v>TrustedCert =  #'OTPCertificate'{} | der_encoded() | atom()</v>
-       <d>Normally a trusted certificate, but it can also be a path-validation
-       error that can be discovered while
-       constructing the input to this function and that is to be run through the <c>verify_fun</c>.
-       Examples are <c>unknown_ca</c> and <c>selfsigned_peer.</c>
-       </d>
-       <v>CertChain = [der_encoded()]</v>
-       <d>A list of DER-encoded certificates in trust order ending with the peer certificate.</d>
-       <v>Options = proplists:proplist()</v>
-       <v>PublicKeyInfo = {?'rsaEncryption' | ?'id-RSASSA-PSS'| ?'id-dsa',
-       rsa_public_key() | integer(), 'NULL' | 'RSASSA-PSS-params'{} | 'Dss-Parms'{}}</v>
-       <v>PolicyTree = term()</v>
-       <d>At the moment this is always an empty list as policies are not currently supported.</d>
-       <v>Reason = cert_expired | invalid_issuer | invalid_signature | name_not_permitted |
-       missing_basic_constraint | invalid_key_usage | {revoked, crl_reason()} | atom()
-       </v>
-     </type>
      <desc>
        <p>
 	 Performs a basic path validation according to
 	 <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280.</url>
 	 However, CRL validation is done separately by <seemfa
 	 marker="#pkix_crls_validate/3">pkix_crls_validate/3 </seemfa> and is to be called
-	 from the supplied <c>verify_fun</c>.
+	 from the supplied <c>verify_fun</c>. The optional policy tree check is currently not implemented
+	 but an empty place holder list is returned instead.
        </p>
 
        <p>Available options:</p>
@@ -473,7 +489,7 @@ fun(OtpCert :: #'OTPCertificate'{},
 	</item>
       </taglist>
 
-      <p>Possible reasons for a bad certificate: </p>
+      <p>Explanations of reasons for a bad certificate: </p>
       <taglist>
 	<tag>cert_expired</tag>
 	<item><p>Certificate is no longer valid as its expiration date has passed.</p></item>

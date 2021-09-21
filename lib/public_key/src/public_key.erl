@@ -103,10 +103,12 @@
 -type private_key()          ::  rsa_private_key() | rsa_pss_private_key() | dsa_private_key() | ec_private_key() | ed_private_key() .
 -type rsa_public_key()       ::  #'RSAPublicKey'{}.
 -type rsa_private_key()      ::  #'RSAPrivateKey'{}. 
--type rsa_pss_public_key()   ::  {#'RSAPublicKey'{}, #'RSASSA-PSS-params'{}}.
+-type dss_public_key()       :: integer().
+-type rsa_pss_public_key()   ::  {rsa_pss_public_key(), #'RSASSA-PSS-params'{}}.
 -type rsa_pss_private_key()  ::  { #'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}.
 -type dsa_private_key()      ::  #'DSAPrivateKey'{}.
--type dsa_public_key()       :: {integer(), #'Dss-Parms'{}}.
+-type dsa_public_key()       :: {dss_public_key(), #'Dss-Parms'{}}.
+-type public_key_params()    :: 'NULL' | #'RSASSA-PSS-params'{} |  {namedCurve, oid()} | #'ECParameters'{} | #'Dss-Parms'{}.
 -type ecpk_parameters() :: {ecParameters, #'ECParameters'{}} | {namedCurve, Oid::tuple()}.
 -type ecpk_parameters_api() :: ecpk_parameters() | #'ECParameters'{} | {namedCurve, Name::crypto:ec_named_curve()}.
 -type ec_public_key()        :: {#'ECPoint'{}, ecpk_parameters_api()}.
@@ -114,7 +116,8 @@
 -type ed_public_key()        :: {#'ECPoint'{}, ed_params()} | {ed_pub, ed25519|ed448, Key::binary()}.
 -type ed_private_key()       :: #'ECPrivateKey'{parameters :: ed_params()} |
                                 {ed_pri, ed25519|ed448, Pub::binary(), Priv::binary()}.
--type ed_params()            ::  {namedCurve, ?'id-Ed25519' | ?'id-Ed448'}.
+-type ed_oid_name()            ::  'id-Ed25519' | 'id-Ed448'.
+-type ed_params()            ::  {namedCurve, ed_oid_name()}.
 -type key_params()           :: #'DHParameter'{} | {namedCurve, oid()} | #'ECParameters'{} | 
                                 {rsa, Size::integer(), PubExp::integer()}. 
 -type der_encoded()          :: binary().
@@ -151,7 +154,11 @@
 
 -type cert_id()              :: {SerialNr::integer(), issuer_name()} .
 -type issuer_name()          :: {rdnSequence,[[#'AttributeTypeAndValue'{}]]} .
-
+-type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted | missing_basic_constraint | invalid_key_usage |
+                                {revoked, crl_reason()} | atom().
+-type cert()                 :: #cert{} | der_encoded() | #'OTPCertificate'{}.
+-type public_key_info()      :: {key_oid_name(),  rsa_public_key() | #'ECPoint'{} | dss_public_key(),  public_key_params()}.
+-type key_oid_name()              :: 'rsaEncryption' | 'id-RSASSA-PSS' | 'id-ecPublicKey' | 'id-Ed25519' | 'id-Ed448' | 'id-dsa'.
 
 
 -define(UINT32(X), X:32/unsigned-big-integer).
@@ -1095,16 +1102,22 @@ pkix_normalize_name(Issuer) ->
     pubkey_cert:normalize_general_name(Issuer).
 
 %%-------------------------------------------------------------------- 
--spec pkix_path_validation(Cert::binary()| #'OTPCertificate'{} | atom(),
-			   CertChain :: [binary() | #'OTPCertificate'{}] ,
-			   Options :: [{atom(),term()}]) ->
-				  {ok, {PublicKeyInfo :: term(), 
-					PolicyTree :: term()}} |
-				  {error, {bad_cert, Reason :: term()}}.
+-spec pkix_path_validation(Cert, CertChain, Options) ->
+          {ok, {PublicKeyInfo, PolicyTree}} |
+          {error, {bad_cert, Reason :: bad_cert_reason()}}
+              when
+      Cert::binary()| #'OTPCertificate'{} | atom(),
+      CertChain :: [cert()],
+      Options :: [Option],
+      Option  :: {verify_fun, {fun(), term()}} | {max_path_lengh, integer()},
+      PublicKeyInfo :: public_key_info(),
+      PolicyTree :: list().
+
 %% Description: Performs a basic path validation according to RFC 5280.
 %%--------------------------------------------------------------------
 pkix_path_validation(TrustedCert, CertChain, Options)
   when is_binary(TrustedCert) ->
+
     OtpCert = pkix_decode_cert(TrustedCert, otp),
     pkix_path_validation(OtpCert, CertChain, Options);
 pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
@@ -1641,13 +1654,17 @@ validate(Cert, #path_validation_state{working_issuer_name = Issuer,
 
 otp_cert(Der) when is_binary(Der) ->
     pkix_decode_cert(Der, otp);
-otp_cert(#'OTPCertificate'{} =Cert) ->
-    Cert.
+otp_cert(#'OTPCertificate'{} = Cert) ->
+    Cert;
+otp_cert(#cert{otp = OtpCert}) ->
+    OtpCert.
 
 der_cert(#'OTPCertificate'{} = Cert) ->
     pkix_encode('OTPCertificate', Cert, otp);
 der_cert(Der) when is_binary(Der) ->
-    Der.
+    Der;
+der_cert(#cert{der = DerCert}) ->
+    DerCert.
 
 pkix_crls_validate(_, [],_, Options, #revoke_state{details = Details}) ->
      case proplists:get_value(undetermined_details, Options, false) of

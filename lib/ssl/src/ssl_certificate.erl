@@ -88,7 +88,7 @@
 
 %%--------------------------------------------------------------------
 -spec trusted_cert_and_paths([der_cert()], db_handle(), certdb_ref(), fun()) ->
-          [{der_cert() | unknown_ca | invalid_issuer | selfsigned_peer, [der_cert()]}].
+          [{#cert{} | unknown_ca | invalid_issuer | selfsigned_peer, [#cert{}]}].
 %%
 %% Description: Construct input to public_key:pkix_path_validation/3,
 %% If the ROOT cert is not found {bad_cert, unknown_ca} will be returned
@@ -103,7 +103,7 @@ trusted_cert_and_paths([Peer],  CertDbHandle, CertDbRef, PartialChainHandler) ->
     Chain = [#cert{der=Peer, otp=OtpCert}],
     case public_key:pkix_is_self_signed(OtpCert) of
         true ->
-            [{selfsigned_peer, [Peer]}];
+            [{selfsigned_peer, Chain}];
         false ->
             [handle_incomplete_chain(Chain, PartialChainHandler, {unknown_ca, Chain},
                                      CertDbHandle, CertDbRef)]
@@ -122,11 +122,10 @@ trusted_cert_and_paths(Chain0,  CertDbHandle, CertDbRef, PartialChainHandler) ->
                                                       PartialChainHandler, 
                                                       Result,
                                                       CertDbHandle, CertDbRef);
-                          {Root, NewChain}->
-                              decoded_chain(Root, NewChain)
+                          {_Root, _NewChain} = Result ->
+                              Result
                       end
               end, Paths).
-
 %%--------------------------------------------------------------------
 -spec certificate_chain(undefined | binary() | #'OTPCertificate'{} , db_handle(),
                         certdb_ref() | {extracted, list()}) ->
@@ -362,9 +361,8 @@ do_certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _, ListD
 	    {ok, undefined, lists:reverse(Chain)}
     end.
 
-find_alternative_root([OtpCert | _], CertDbHandle, CertDbRef, InvalidatedList) ->
-    Cert = public_key:pkix_encode('OTPCertificate', OtpCert, otp),
-    case find_issuer(#cert{der=Cert, otp=OtpCert}, CertDbHandle, CertDbRef, [], InvalidatedList) of
+find_alternative_root([Cert | _], CertDbHandle, CertDbRef, InvalidatedList) ->
+    case find_issuer(Cert, CertDbHandle, CertDbRef, [], InvalidatedList) of
         {error, issuer_not_found} ->
             unknown_ca;
         {ok, {SerialNr, IssuerId}} ->
@@ -663,14 +661,12 @@ handle_incomplete_chain([#cert{}=Peer| _] = Chain0, PartialChainHandler, Default
                 true ->
                     {Root, Chain} = handle_partial_chain(lists:reverse(ChainCandidate), PartialChainHandler, 
                                                          CertDbHandle, CertDbRef),
-                    decoded_chain(Root, Chain);
+                    {Root, Chain};
                 false ->
-                     {Root, Chain} = Default,
-                    decoded_chain(Root, Chain)
+                    Default
             end;
         _  ->
-            {Root, Chain} = Default,
-            decoded_chain(Root, Chain)
+            Default
     end.
 
 extraneous_chains(Certs) ->
