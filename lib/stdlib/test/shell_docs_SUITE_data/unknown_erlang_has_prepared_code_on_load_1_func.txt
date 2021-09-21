@@ -1,0 +1,6 @@
+
+[;1m  has_prepared_code_on_load/1[0m
+
+  The documentation for has_prepared_code_on_load/1 is hidden.
+  This probably means that it is internal and not to be used by
+  other applications.

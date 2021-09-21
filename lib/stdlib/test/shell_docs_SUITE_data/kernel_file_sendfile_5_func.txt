@@ -4,7 +4,11 @@
   [;1m                  {error, inet:posix() | closed | badarg | not_owner}[0m
   [;1m                  when[0m
   [;1m                      RawFile :: fd(),[0m
-  [;1m                      Socket :: inet:socket(),[0m
+  [;1m                      Socket ::[0m
+  [;1m                          inet:socket() |[0m
+  [;1m                          socket:socket() |[0m
+  [;1m                          fun((iolist()) ->[0m
+  [;1m                                  ok | {error, inet:posix() | closed}),[0m
   [;1m                      Offset :: non_neg_integer(),[0m
   [;1m                      Bytes :: non_neg_integer(),[0m
   [;1m                      Opts :: [sendfile_option()].[0m
@@ -23,7 +27,8 @@
 
   The file used must be opened using the [;;4mraw[0m flag, and the process
   calling [;;4msendfile[0m must be the controlling process of the socket.
-  See [;;4mgen_tcp:controlling_process/2[0m.
+  See [;;4mgen_tcp:controlling_process/2[0m or module [;;4msocket[0m's level [;;4m[0m
+  [;;4motp[0m socket option [;;4mcontrolling_process[0m.
 
   If the OS used does not support non-blocking [;;4msendfile[0m, an Erlang
   fallback using [;;4mread/2[0m and [;;4mgen_tcp:send/2[0m is used.

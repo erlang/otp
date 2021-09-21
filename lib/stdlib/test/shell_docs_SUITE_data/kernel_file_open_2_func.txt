@@ -217,6 +217,15 @@
   returned from this call can be used as an argument to the I/O
   functions (see [;;4mio(3)[0m).
 
+  Warning:
+    While this function can be used to open any file, we recommend
+    against using it for NFS-mounted files, FIFOs, devices, or
+    similar since they can cause IO threads to hang forever.
+
+    If your application needs to interact with these kinds of
+    files we recommend breaking out those parts to a port program
+    instead.
+
   Note:
     In previous versions of [;;4mfile[0m, modes were specified as one of
     the atoms [;;4mread[0m, [;;4mwrite[0m, or [;;4mread_write[0m instead of a list.

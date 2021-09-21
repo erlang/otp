@@ -19,6 +19,5 @@
     is_process_alive(P2Pid),
     % P2 is not alive (the call above always return false)
 
-  See the documentation about communication in Erlang and 
-  erlang:exit/2 for more information about signals and exit
-  singnals.
+  See the documentation about signals and erlang:exit/2 for more
+  information about signals and exit singnals.

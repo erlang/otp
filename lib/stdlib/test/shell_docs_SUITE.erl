@@ -70,7 +70,7 @@ end_per_group(_GroupName, Config) ->
 %% tested.
 %%
 %% Currently the modules are:
--define(RENDER_MODULES, [sofs, re, file, erlang]).
+-define(RENDER_MODULES, [sofs, re, file, erlang, user_drv, ?MODULE]).
 %% If you need to update the definition because this
 %% testcase fails, just run update_render/0,1.
 render(Config) ->
@@ -88,7 +88,12 @@ render(Config) ->
                             {ok, Original} ->
                                 ct:log("Original: ~n~ts",[Original]),
                                 ct:log("Current : ~n~ts",[Current]),
-                                ct:fail(output_changed)
+                                ct:fail(output_changed);
+                            {error, enoent} ->
+                                %% All modules are not available on all
+                                %% platforms. For instance socket is not
+                                %% available on windows.
+                                ok
                         end
                 end, render_module(Module, D))
       end, ?RENDER_MODULES).
@@ -270,8 +275,8 @@ render_all(Dir) ->
     docsmap(fun(Mod, D) ->
                     maps:map(
                       fun(FName, Value) ->
-                              file:write_file(filename:join(Dir, FName), Value) end,
-                      render_module(Mod, D))
+                              file:write_file(filename:join(Dir, FName), Value)
+                      end, render_module(Mod, D))
             end).
 
 render_module(Mod, #docs_v1{ docs = Docs } = D) ->

@@ -1,25 +1,51 @@
 
   [;1m-spec link(PidOrPort) -> true when PidOrPort :: pid() | port().[0m
 
-  Creates a link between the calling process and another process (or
-  port) [;;4mPidOrPort[0m. If the link already exists or a process
-  attempts to create a link to itself, nothing is done. Returns [;;4m[0m
-  [;;4mtrue[0m if the link is set up.
+  Sets up and activates a link between the calling process and
+  another process or a port identified by [;;4mPidOrPort[0m. We will from
+  here on call the identified process or port linkee. If the linkee
+  is a port, it must reside on the same node as the caller.
 
-  If [;;4mPidOrPort[0m does not exist and checking it is cheap, a [;;4mnoproc[0m
-  error is raised. Currently, checking is cheap if the [;;4mPidOrPort[0m
-  is local and the caller does not trap exits (see [;;4mprocess_flag/2 [0m
-  ).
+  If one of the participants of a link terminates, it will send an
+  exit signal to the other participant. The exit signal will
+  contain the exit reason of the terminated participant. Other
+  cases when exit signals are triggered due to a link are when no
+  linkee exist ([;;4mnoproc[0m exit reason) and when the connection
+  between linked processes on different nodes is lost or cannot be
+  established ([;;4mnoconnection[0m exit reason).
 
-  Apart from any exit signals from the linked process itself, two
-  special exit signals may be sent to the calling process:
+  An existing link can be removed by calling [;;4munlink/1[0m. For more
+  information on links and exit signals due to links, see the 
+  Processes chapter in the Erlang Reference Manual:
 
-   • [;;4mnoproc[0m is sent immediately if [;;4mPidOrPort[0m does not exist at
-     the time of linking (if the caller is trapping exits or [;;4m[0m
-     [;;4mPidOrPort[0m is remote).
+   • Links
 
-   • [;;4mnoconnection[0m if [;;4mPidOrPort[0m is remote and a connection
-     between the nodes could not be established or was severed.
+   • Sending Exit Signals
 
-  See Processes ➜ Links in the Erlang Reference Manual for more
-  details.
+   • Receiving Exit Signals
+
+  For historical reasons, [;;4mlink/1[0m has a strange semi-synchronous
+  behavior when it is "cheap" to check if the linkee exists or not,
+  and the caller does not trap exits. If the above is true and the
+  linkee does not exist, [;;4mlink/1[0m will raise a [;;4mnoproc[0m error 
+  exception. The expected behavior would instead have been that [;;4m[0m
+  [;;4mlink/1[0m returned [;;4mtrue[0m, and the caller later was sent an exit
+  signal with [;;4mnoproc[0m exit reason, but this is unfortunately not
+  the case. The [;;4mnoproc[0m exception is not to be confused with an 
+  exit signal with exit reason [;;4mnoproc[0m. Currently it is "cheap" to
+  check if the linkee exists when it is supposed to reside on the
+  same node as the calling process.
+
+  The link setup and activation is performed asynchronously. If the
+  link already exists, or if the caller attempts to create a link to
+  itself, nothing is done. A detailed description of the link
+  protocol can be found in the Distribution Protocol chapter of
+  the ERTS User's Guide.
+
+  Failure:
+
+   • [;;4mbadarg[0m if [;;4mPidOrPort[0m does not identify a process or a node
+     local port.
+
+   • [;;4mnoproc[0m linkee does not exist and it is "cheap" to check if
+     it exists as described above.

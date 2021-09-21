@@ -1,13 +1,17 @@
 
   [;1m-spec exit(Reason) -> no_return() when Reason :: term().[0m
 
-  Raises an exception of class [;;4mexit[0m with exit reason [;;4mReason[0m,
-  where [;;4mReason[0m is any term. As evaluating this function causes an
-  exception to be raised, it has no return value. This function
-  should be used when the intent is to stop the current process.
-  This function differ from [;;4merlang:error/1[0m and [;;4merlang:error/2[0m by
-  causing an exception of a different class and by having a reason
-  that does not include the list of functions from the call stack.
+  Raises an exception of class [;;4mexit[0m with exit reason [;;4mReason[0m. As
+  evaluating this function causes an exception to be raised, it has
+  no return value.
+
+  The intent of the exception class [;;4mexit[0m is that the current
+  process should be stopped (for example when a message telling a
+  process to stop is received).
+
+  This function differ from [;;4merror/1,2,3[0m by causing an exception of
+  a different class and by having a reason that does not include the
+  list of functions from the call stack.
 
   See the guide about errors and error handling for additional
   information.

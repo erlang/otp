@@ -5,6 +5,9 @@
   [;1m                    Opts :: [delete_option()],[0m
   [;1m                    Reason :: posix() | badarg.[0m
 
+[;;4mSince[0m:
+  OTP 24.0
+
   Types:
     -type delete_option() :: raw.
 

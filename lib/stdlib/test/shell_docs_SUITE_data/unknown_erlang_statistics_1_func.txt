@@ -24,16 +24,6 @@
   [;1m                        Input :: non_neg_integer(),[0m
   [;1m                        Output :: non_neg_integer().[0m
 
-  [;1m-spec statistics(scheduler_wall_time) ->[0m
-  [;1m                    [{SchedulerId, ActiveTime, TotalTime}] | undefined[0m
-  [;1m                    when[0m
-  [;1m                        SchedulerId :: pos_integer(),[0m
-  [;1m                        ActiveTime :: non_neg_integer(),[0m
-  [;1m                        TotalTime :: non_neg_integer().[0m
-
-[;;4mSince[0m:
-  OTP R15B01
-
   [;1m-spec statistics(active_tasks_all) -> [ActiveTasks][0m
   [;1m                    when ActiveTasks :: non_neg_integer().[0m
 
@@ -70,6 +60,16 @@
   [;1m                        Total_Wallclock_Time :: non_neg_integer(),[0m
   [;1m                        Wallclock_Time_Since_Last_Call ::[0m
   [;1m                            non_neg_integer().[0m
+
+  [;1m-spec statistics(scheduler_wall_time) ->[0m
+  [;1m                    [{SchedulerId, ActiveTime, TotalTime}] | undefined[0m
+  [;1m                    when[0m
+  [;1m                        SchedulerId :: pos_integer(),[0m
+  [;1m                        ActiveTime :: non_neg_integer(),[0m
+  [;1m                        TotalTime :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP R15B01
 
   [;1m-spec statistics(exact_reductions) ->[0m
   [;1m                    {Total_Exact_Reductions,[0m

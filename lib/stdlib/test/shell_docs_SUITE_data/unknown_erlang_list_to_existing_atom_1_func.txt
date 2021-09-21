@@ -2,7 +2,9 @@
   [;1m-spec list_to_existing_atom(String) -> atom() when String :: string().[0m
 
   Returns the atom whose text representation is [;;4mString[0m, but only
-  if there already exists such atom.
+  if there already exists such atom. An atom exists if it has been
+  created by the run-time system by either loading code or creating
+  a term in which the atom is part.
 
   Failure: [;;4mbadarg[0m if there does not already exist an atom whose
   text representation is [;;4mString[0m.

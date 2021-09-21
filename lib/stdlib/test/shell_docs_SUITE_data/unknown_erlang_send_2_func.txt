@@ -12,9 +12,9 @@
   Sends a message and returns [;;4mMsg[0m. This is the same as using the 
   send operator: [;;4mDest ! Msg[0m.
 
-  [;;4mDest[0m can be a remote or local process identifier, a (local) port,
-  a locally registered name, or a tuple [;;4m{RegName, Node}[0m for a
-  registered name at another node.
+  [;;4mDest[0m can be a remote or local process identifier, an alias, a
+  (local) port, a locally registered name, or a tuple [;;4m{RegName,[0m
+  [;;4mNode}[0m for a registered name at another node.
 
   The function fails with a [;;4mbadarg[0m run-time error if [;;4mDest[0m is an
   atom name, but this name is not registered. This is the only case

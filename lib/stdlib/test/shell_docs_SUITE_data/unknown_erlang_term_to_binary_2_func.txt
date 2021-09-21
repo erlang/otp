@@ -5,6 +5,7 @@
   [;1m                            Options ::[0m
   [;1m                                [compressed |[0m
   [;1m                                 {compressed, Level :: 0..9} |[0m
+  [;1m                                 deterministic |[0m
   [;1m                                 {minor_version, Version :: 0..2}].[0m
 
   Returns a binary data object that is the result of encoding [;;4mTerm[0m
@@ -60,5 +61,11 @@
     use utf8 encoding for all atoms. This will be changed to the
     default in a future major release of Erlang/OTP. Erlang/OTP
     systems as of R16B can decode this representation.
+
+  Option [;;4mdeterministic[0m (introduced in OTP 24.1) can be used to
+  ensure that within the same major release of Erlang/OTP, the same
+  encoded representation is returned for the same term. There is
+  still no guarantee that the encoded representation remains the
+  same between major releases of Erlang/OTP.
 
   See also [;;4mbinary_to_term/1[0m.
