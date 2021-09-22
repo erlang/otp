@@ -33,6 +33,27 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.21</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Float allowed as multiply_timetraps parameter.</p>
+          <p>
+	    Own Id: OTP-17413 Aux Id: PR-4767 </p>
+        </item>
+        <item>
+          <p>
+	    Remove usage of legacy API macro and functions.</p>
+          <p>
+	    Own Id: OTP-17632 Aux Id: PR-5022 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.20.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 3.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The <c>cover</c> tool would not work on modules
+	    compiled with the <c>tuple_calls</c> option.</p>
+          <p>
+	    Own Id: OTP-17440 Aux Id: GH-4796 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 3.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

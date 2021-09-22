@@ -32,6 +32,48 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix crash when closing an application.</p>
+          <p>
+	    Own Id: OTP-17507</p>
+        </item>
+        <item>
+          <p>
+	    Some functions with overloaded color arguments could not
+	    be used. For example the copy constructor
+	    <c>wxTextAttr:new(TextAttr)</c> did not work.</p>
+          <p>
+	    Own Id: OTP-17577 Aux Id: GH-4999 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added the Microsoft Edge WebView loader dll to the
+	    installer on windows.</p>
+          <p>
+	    Own Id: OTP-17325</p>
+        </item>
+        <item>
+          <p>
+	    Handle specific Mac gui application events.</p>
+          <p>
+	    Own Id: OTP-17438 Aux Id: PR-4780 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 2.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

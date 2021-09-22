@@ -31,6 +31,29 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a bug in Leex which caused the Erlang Compiler to
+	    generate warnings.</p>
+          <p>
+	    Own Id: OTP-17499 Aux Id: GH-4918 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug in Yecc which caused the Erlang Compiler to
+	    generate warnings.</p>
+          <p>
+	    Own Id: OTP-17535 Aux Id: GH-5067 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.3</title>
 
     <section><title>Improvements and New Features</title>

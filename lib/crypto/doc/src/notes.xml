@@ -31,6 +31,46 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 5.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in <c>crypto:ensure_engine_unloaded</c>. Also
+	    fixed minor memory leak related to engine unloading.</p>
+          <p>
+	    Own Id: OTP-17593 Aux Id: ERIERL-679 </p>
+        </item>
+        <item>
+          <p>
+	    Fixes that FIPS enable and disable (or vice versa) on
+	    Windows sometimes leads to core dump at the time of
+	    process exit.</p>
+          <p>
+	    Own Id: OTP-17618 Aux Id: PR-5126, GH-4920 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Disable fips if cryptolib &lt; 1.0.1 and OTP/crypto is
+	    configured with --enable-fips</p>
+          <p>
+	    If not, there could be compiling or loading problems with
+	    antique OpenSSL versions.</p>
+          <p>
+	    Own Id: OTP-17389</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 5.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

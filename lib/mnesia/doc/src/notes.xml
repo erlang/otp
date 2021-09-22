@@ -39,7 +39,37 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.19.1</title>
+  <section><title>Mnesia 4.20</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed that index keys was deleted for set tables when
+	    mnesia:delete_object/1 tried to delete a non-existing
+	    record.</p>
+          <p>
+	    Own Id: OTP-17564 Aux Id: GH-5040 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimized table loading and added
+	    <c>max_transfer_size</c> configuration parameter.</p>
+          <p>
+	    Own Id: OTP-17508</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.19.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

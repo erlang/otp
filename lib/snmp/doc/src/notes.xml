@@ -34,7 +34,24 @@
   </header>
 
 
-  <section><title>SNMP 5.9.1</title>
+  <section><title>SNMP 5.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    It is now possible to configure the built-in net-if
+	    processes (both agent and manager) to use the new
+	    (gen_udp-) option 'inet_backend'.</p>
+          <p>
+	    Own Id: OTP-17526</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

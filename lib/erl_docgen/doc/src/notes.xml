@@ -31,7 +31,30 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 1.1.1</title>
+  <section><title>Erl_Docgen 1.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix codeinclude tags to work as part of reference manual
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-17458 Aux Id: PR-4764 </p>
+        </item>
+        <item>
+          <p>
+	    Fix creation of link elements with anchors in EEP-48
+	    style documentation.</p>
+          <p>
+	    Own Id: OTP-17575 Aux Id: PR-5132 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 1.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

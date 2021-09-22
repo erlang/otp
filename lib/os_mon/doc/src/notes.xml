@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>On a Mac with Apple Silicon,
+	    <c>memsup:get_os_wordsize/0</c> would return 32 instead
+	    of 64.</p>
+          <p>
+	    Own Id: OTP-17441</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.7</title>
 
     <section><title>Improvements and New Features</title>

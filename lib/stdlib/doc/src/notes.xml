@@ -31,6 +31,143 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>io:format</c> with <c>~p</c> to no longer
+	    interpret floats as printable characters.</p>
+          <p>
+	    Own Id: OTP-17424 Aux Id: GH-4801 PR-4803 </p>
+        </item>
+        <item>
+          <p>
+	    Fix specs for base64 encode/decode functions to also
+	    include 0.</p>
+          <p>
+	    Own Id: OTP-17429 Aux Id: GH-4761 </p>
+        </item>
+        <item>
+	    <p>The failing call <c>io:format("~p\n")</c> would result
+	    in a warning for line number 0 instead of the correct
+	    line and column numbers. This has been corrected, and all
+	    warnings for failing calls to <c>io:format()</c> has been
+	    rephrased to make it clearer exactly what the problem
+	    is.</p>
+          <p>
+	    Own Id: OTP-17430</p>
+        </item>
+        <item>
+	    <p>When the options <c>warn_missing_spec</c> and
+	    <c>export_all</c> were given, there would only be
+	    warnings for missing specs for functions that had been
+	    explicitly exported using an <c>-export</c>
+	    attribute.</p>
+          <p>
+	    Own Id: OTP-17434 Aux Id: GH-4772 </p>
+        </item>
+        <item>
+	    <p>Calling <c>c:ls/1</c> with an atom whose contents is
+	    the the name of a file (as opposed to a directory) would
+	    crash.</p>
+          <p>
+	    Own Id: OTP-17463 Aux Id: GH-4916 </p>
+        </item>
+        <item>
+	    <p>The <c>MODULE</c> and <c>MODULE_STRING</c> macros
+	    would always appear to be defined (when tested by
+	    <c>-ifdef</c>), even though no <c>-module()</c>
+	    declaration had been seen yet. Changed so that <c>-ifdef
+	    ?MODULE.</c> will not consider ?MODULE defined if
+	    <c>-module()</c> has not been previously seen.</p>
+          <p>
+	    Own Id: OTP-17505 Aux Id: GH-4995 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug with rendering of missing types and callbacks in
+	    shell_docs.</p>
+          <p>
+	    Own Id: OTP-17573 Aux Id: ERL-1264 GH-4270 </p>
+        </item>
+        <item>
+	    <p>When the <c>deterministic</c> option was given to the
+	    compiler, the <c>?FILE</c> macro would be expanded to
+	    full path of the source file before the first
+	    <c>include</c> directive and to base part of the filename
+	    after <c>include</c> directive.</p>
+          <p>
+	    Own Id: OTP-17581 Aux Id: PR-5141 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed broken <c>win32reg:delete_key</c> and fixed
+	    <c>win32reg:value</c> for <c>default</c> value.</p>
+          <p>
+	    Own Id: OTP-17622 Aux Id: PR-5038 </p>
+        </item>
+        <item>
+	    <p>Fixed error information for the call
+	    <c>maps:get(some_key, #{})</c>.</p>
+          <p>
+	    Own Id: OTP-17634 Aux Id: GH-5196 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Most output functions in the <c>io</c> module now print
+	    extra error information when provided with invalid
+	    arguments. The functions are: <c>io:format</c>,
+	    <c>io:fwrite</c>, <c>io:put_chars</c>, <c>io:nl</c> and
+	    <c>io:write</c>.</p>
+          <p>
+	    Own Id: OTP-17317 Aux Id: PR-4757 </p>
+        </item>
+        <item>
+          <p>
+	    EEP-54 (Provide more information about errors) now
+	    includes two new return values for the
+	    <c>format_error</c> callback, <c>general</c> and
+	    <c>reason</c>.</p>
+          <p>
+	    Multi-line error descriptions returned from a
+	    <c>format_error</c> callback are now correctly indented.</p>
+          <p>
+	    The documentation for <seeerl
+	    marker="stdlib:erl_error"><c>erl_error</c></seeerl>,
+	    <seemfa
+	    marker="erts:erlang#error/3"><c>error/3</c></seemfa> and
+	    <seeguide marker="system/reference_manual:errors">Errors
+	    and Error Handling</seeguide> in the Erlang Reference
+	    Manual have been extended.</p>
+          <p>
+	    Own Id: OTP-17454 Aux Id: PR-4764 </p>
+        </item>
+        <item>
+	    <p>In the documentation for the <c>lists</c> module, it
+	    has been clarified that predicate funs must return a
+	    boolean.</p>
+          <p>
+	    Own Id: OTP-17503 Aux Id: GH-4985 </p>
+        </item>
+        <item>
+	    <p>The documentation for <c>c:c/1</c>, <c>c:c/2</c>, and
+	    <c>c:c/3</c> has been clarified.</p>
+          <p>
+	    Own Id: OTP-17571 Aux Id: GH-5103 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.15.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
