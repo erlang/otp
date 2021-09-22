@@ -800,8 +800,7 @@ cipher_info(Type) ->
                                                         Key :: iodata(),
                                                         FlagOrOptions :: crypto_opts() | boolean(),
                                                         State :: crypto_state() .
-crypto_init(Cipher, Key0, FlagOrOptions0) ->
-    Key = iolist_to_binary(Key0),
+crypto_init(Cipher, Key, FlagOrOptions0) ->
     FlagOrOptions = get_crypto_opts(FlagOrOptions0),
     ?nif_call(ng_crypto_init_nif(alias(Cipher,Key), Key, <<>>, FlagOrOptions),
               {1,2,-1,3}).
@@ -814,8 +813,8 @@ crypto_init(Cipher, Key0, FlagOrOptions0) ->
                                                             State :: crypto_state() .
 crypto_init(Cipher, Key, IV, FlagOrOptions) ->
     ?nif_call(ng_crypto_init_nif(alias(Cipher,Key),
-                                 iolist_to_binary(Key),
-                                 iolist_to_binary(IV),
+                                 Key,
+                                 IV,
                                  get_crypto_opts(FlagOrOptions))).
 
 %%%----------------------------------------------------------------
@@ -858,7 +857,7 @@ crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) ->
     %% The IV is supposed to be supplied by calling crypto_update/3
     ?nif_call(
        ng_crypto_init_nif(alias(Cipher,Key),
-                          iolist_to_binary(Key),
+                          Key,
                           undefined,
                           get_crypto_opts(FlagOrOptions)),
        {1,2,-1,3}
@@ -877,7 +876,7 @@ crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) ->
                                  Data :: iodata(),
                                  Result :: binary() .
 crypto_update(State, Data) ->
-    ?nif_call(ng_crypto_update_nif(State, iolist_to_binary(Data))).
+    ?nif_call(ng_crypto_update_nif(State, Data)).
 
 %%%----------------------------------------------------------------
 -spec crypto_dyn_iv_update(State, Data, IV) -> Result | descriptive_error()
@@ -886,7 +885,7 @@ crypto_update(State, Data) ->
                                                         IV :: iodata(),
                                                         Result :: binary() .
 crypto_dyn_iv_update(State, Data, IV) ->
-    ?nif_call(ng_crypto_update_nif(State, iolist_to_binary(Data), iolist_to_binary(IV))).
+    ?nif_call(ng_crypto_update_nif(State, Data, IV)).
 
 %%%----------------------------------------------------------------
 %%%
@@ -926,9 +925,9 @@ crypto_get_data(State) ->
 
 crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
     ?nif_call(ng_crypto_one_time_nif(alias(Cipher,Key),
-                                     iolist_to_binary(Key),
+                                     Key,
                                      <<>>,
-                                     iolist_to_binary(Data),
+                                     Data,
                                      get_crypto_opts(FlagOrOptions)),
               [Cipher, Key, Data, FlagOrOptions],
               {1,2,-1,3,4}).
@@ -945,9 +944,9 @@ crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
 
 crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
     ?nif_call(ng_crypto_one_time_nif(alias(Cipher,Key),
-                                     iolist_to_binary(Key),
-                                     iolist_to_binary(IV),
-                                     iolist_to_binary(Data),
+                                     Key,
+                                     IV,
+                                     Data,
                                      get_crypto_opts(FlagOrOptions))).
 
 %%%----------------------------------------------------------------
@@ -964,7 +963,7 @@ crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
                                       OutTag :: binary().
 
 crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, true) ->
-    ?nif_call(aead_cipher_nif(alias(Cipher,Key), iolist_to_binary(Key), IV,
+    ?nif_call(aead_cipher_nif(alias(Cipher,Key), Key, IV,
                               PlainText, AAD, aead_tag_len(Cipher), true),
               {1,2,3,4,5,-1,6}).
 
@@ -988,7 +987,7 @@ crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, true) ->
                                       OutPlainText :: binary().
 
 crypto_one_time_aead(Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg) ->
-    ?nif_call(aead_cipher_nif(alias(Cipher,Key), iolist_to_binary(Key), IV,
+    ?nif_call(aead_cipher_nif(alias(Cipher,Key), Key, IV,
                               TextIn, AAD, TagOrTagLength, EncFlg),
               [Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg],
               {}).
@@ -1028,13 +1027,13 @@ cipher_info_nif(_Type) -> ?nif_stub.
 %%% Cipher aliases
 %%%
 
-alias(aes_cbc, Key)    -> alias1(aes_cbc, size(Key));
-alias(aes_cfb8, Key)   -> alias1(aes_cfb8, size(Key));
-alias(aes_cfb128, Key) -> alias1(aes_cfb128, size(Key));
-alias(aes_ctr, Key)    -> alias1(aes_ctr, size(Key));
-alias(aes_ecb, Key)    -> alias1(aes_ecb, size(Key));
-alias(aes_gcm, Key)    -> alias1(aes_gcm, size(Key));
-alias(aes_ccm, Key)    -> alias1(aes_ccm, size(Key));
+alias(aes_cbc, Key)    -> alias1(aes_cbc, iolist_size(Key));
+alias(aes_cfb8, Key)   -> alias1(aes_cfb8, iolist_size(Key));
+alias(aes_cfb128, Key) -> alias1(aes_cfb128, iolist_size(Key));
+alias(aes_ctr, Key)    -> alias1(aes_ctr, iolist_size(Key));
+alias(aes_ecb, Key)    -> alias1(aes_ecb, iolist_size(Key));
+alias(aes_gcm, Key)    -> alias1(aes_gcm, iolist_size(Key));
+alias(aes_ccm, Key)    -> alias1(aes_ccm, iolist_size(Key));
 alias(Alg, _) -> Alg.
 
 

@@ -340,7 +340,7 @@ static int get_update_args(ErlNifEnv* env,
     ErlNifBinary in_data_bin, out_data_bin;
     int out_len, block_size;
 
-    if (!enif_inspect_binary(env, argv[indata_arg_num], &in_data_bin) )
+    if (!enif_inspect_iolist_as_binary(env, argv[indata_arg_num], &in_data_bin) )
         {
             *return_term = EXCP_BADARG_N(env, indata_arg_num, "Expected binary");
             goto err0;
@@ -715,7 +715,7 @@ ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 {/* (Context, Data [, IV]) */
     ErlNifBinary   data_bin;
 
-    if (!enif_inspect_binary(env, argv[1], &data_bin))
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &data_bin))
         return EXCP_BADARG_N(env, 1, "expected binary");
 
     if (data_bin.size > INT_MAX)
@@ -821,7 +821,7 @@ ERL_NIF_TERM ng_crypto_one_time_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
   */
     ErlNifBinary   data_bin;
 
-    if (!enif_inspect_binary(env, argv[3], &data_bin))
+    if (!enif_inspect_iolist_as_binary(env, argv[3], &data_bin))
         return EXCP_BADARG_N(env, 3, "expected binary as data");
 
     if (data_bin.size > INT_MAX)
