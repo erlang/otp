@@ -395,12 +395,15 @@ void erl_db_hash_adapt_no_locks(DbTable* tb) {
             ERTS_ASSERT(total_new == total_old);
         }
 #endif
-        erts_db_free(ERTS_ALC_T_DB_SEG, tb, old_locks, sizeof(DbTableHashFineLockSlot) * old_no_locks);
 
         calc_shrink_limit(tbl);
 
         erts_atomic_set_nob(&tbl->lock_array_resize_state, DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL);
         erts_rwmtx_rwunlock(&tb->common.rwlock);
+        for (i = 0; i < old_no_locks; i++) {
+            erts_rwmtx_destroy(&old_locks[i].u.lck_ctr.lck);
+        }
+        erts_db_free(ERTS_ALC_T_DB_SEG, tb, old_locks, sizeof(DbTableHashFineLockSlot) * old_no_locks);
     }
 }
 
