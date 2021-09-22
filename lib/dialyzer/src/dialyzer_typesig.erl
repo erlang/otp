@@ -98,7 +98,7 @@
 -type typesig_funmap() :: #{type_var() => type_var()}.
 
 -type prop_types() :: orddict:orddict(label(), erl_types:erl_type()).
--type dict_prop_types() :: dict:dict(label(), erl_types:erl_type()).
+-type dict_prop_types() :: #{label() => erl_types:erl_type()}.
 
 -record(state, {callgraph                :: dialyzer_callgraph:callgraph()
                                           | 'undefined',
@@ -115,7 +115,7 @@
 		self_rec                 :: 'false' | erl_types:erl_type(),
 		plt                      :: dialyzer_plt:plt()
                                           | 'undefined',
-		prop_types  = dict:new() :: dict_prop_types(),
+		prop_types  = #{}        :: dict_prop_types(),
                 mod_records = []         :: [{module(), types()}],
 		scc         = []         :: ordsets:ordset(type_var()),
 		mfas                     :: [mfa()],
@@ -181,7 +181,7 @@ analyze_scc(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers0) ->
   Solvers = solvers(Solvers0),
   State1 = new_state(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes,
                      Solvers),
-  DefSet = add_def_list(maps:values(State1#state.name_map), sets:new()),
+  DefSet = add_def_list(maps:values(State1#state.name_map), sets:new([{version, 2}])),
   State2 = traverse_scc(SCC, CServer, DefSet, State1),
   State3 = state__finalize(State2),
   Funs = state__scc(State3),
@@ -309,7 +309,7 @@ traverse(Tree, DefinedVars, State) ->
       Hd = cerl:cons_hd(Tree),
       Tl = cerl:cons_tl(Tree),
       {State1, [HdVar, TlVar]} = traverse_list([Hd, Tl], DefinedVars, State),
-      case cerl:is_literal(fold_literal_maybe_match(Tree, State)) of
+      case is_foldable(Tree, State) of
 	true ->
 	  %% We do not need to do anything more here.
 	  {State, t_cons(HdVar, TlVar)};
@@ -351,10 +351,7 @@ traverse(Tree, DefinedVars, State) ->
       TreeVar = mk_var(Tree),
       State2 =
 	try
-	  State1 = case state__add_prop_constrs(Tree, State0) of
-		     not_called -> State0;
-		     PropState -> PropState
-		   end,
+	  State1 = state__add_prop_constrs(Tree, State0),
 	  {BodyState, BodyVar} = traverse(Body, DefinedVars1, State1),
 	  state__store_conj(TreeVar, eq,
 			    t_fun(mk_var_list(Vars), BodyVar), BodyState)
@@ -402,18 +399,6 @@ traverse(Tree, DefinedVars, State) ->
 	  end;
 	_ -> {State, t_from_term(cerl:concrete(Tree))}
       end;
-    module ->
-      Defs = cerl:module_defs(Tree),
-      Funs = [Fun || {_Var, Fun} <- Defs],
-      Vars = [Var || {Var, _Fun} <- Defs],
-      DefinedVars1 = add_def_list(Vars, DefinedVars),
-      State1 = state__store_funs(Vars, Funs, State),
-      FoldFun = fun(Fun, AccState) ->
-		    {S, _} = traverse(Fun, DefinedVars1,
-				      state__new_constraint_context(AccState)),
-		    S
-		end,
-      lists:foldl(FoldFun, State1, Funs);
     primop ->
       case cerl:atom_val(cerl:primop_name(Tree)) of
 	match_fail -> throw(error);
@@ -447,19 +432,6 @@ traverse(Tree, DefinedVars, State) ->
           {State, t_any()};
 	Other -> erlang:error({'Unsupported primop', Other})
       end;
-    'receive' ->
-      Clauses = cerl:receive_clauses(Tree),
-      Timeout = cerl:receive_timeout(Tree),
-      case (cerl:is_c_atom(Timeout) andalso
-	    (cerl:atom_val(Timeout) =:= infinity)) of
-	true ->
-	  handle_clauses(Clauses, mk_var(Tree), [], DefinedVars, State);
- 	false ->
-	  Action = cerl:receive_action(Tree),
-	  {State1, TimeoutVar} = traverse(Timeout, DefinedVars, State),
-	  State2 = state__store_conj(TimeoutVar, sub, t_timeout(), State1),
-	  handle_clauses(Clauses, mk_var(Tree), [], Action, DefinedVars, State2)
-     end;
     seq ->
       Body = cerl:seq_body(Tree),
       Arg = cerl:seq_arg(Tree),
@@ -471,7 +443,7 @@ traverse(Tree, DefinedVars, State) ->
       Elements = cerl:tuple_es(Tree),
       {State1, EVars} = traverse_list(Elements, DefinedVars, State),
       {State2, TupleType} =
-	case cerl:is_literal(fold_literal_maybe_match(Tree, State1)) of
+	case is_foldable(Tree, State) of
 	  true ->
 	    %% We do not need to do anything more here.
 	    {State, t_tuple(EVars)};
@@ -668,13 +640,14 @@ add_def_list([], Set) ->
   Set.
 
 add_def_from_tree(T, DefinedVars) ->
-  Vars = cerl_trees:fold(fun(X, Acc) ->
-			     case cerl:is_c_var(X) of
-			       true -> [X|Acc];
-			       false -> Acc
-			     end
-			 end, [], T),
-  add_def_list(Vars, DefinedVars).
+  cerl_trees:fold(fun(X, Set) ->
+                      case cerl:is_c_var(X) of
+                        true ->
+                          add_def(X, Set);
+                        false ->
+                          Set
+                      end
+                  end, DefinedVars, T).
 
 add_def_from_tree_list([H|T], DefinedVars) ->
   add_def_from_tree_list(T, add_def_from_tree(H, DefinedVars));
@@ -859,12 +832,6 @@ get_contract_return(C, ArgTypes) ->
 -define(MAX_NOF_CLAUSES, 15).
 
 handle_clauses(Clauses, TopVar, Arg, DefinedVars, State) ->
-  handle_clauses(Clauses, TopVar, Arg, none, DefinedVars, State).
-
-handle_clauses([], _, _, Action, DefinedVars, State) when Action =/= none ->
-  %% Can happen when a receive has no clauses, see filter_match_fail.
-  traverse(Action, DefinedVars, State);
-handle_clauses(Clauses, TopVar, Arg, Action, DefinedVars, State) ->
   SubtrTypeList =
     if length(Clauses) > ?MAX_NOF_CLAUSES -> overflow;
        true -> []
@@ -872,23 +839,8 @@ handle_clauses(Clauses, TopVar, Arg, Action, DefinedVars, State) ->
   {State1, CList} = handle_clauses_1(Clauses, TopVar, Arg, DefinedVars,
 				     State, SubtrTypeList, []),
   {NewCs, NewState} =
-    case Action of
-      none ->
-	if CList =:= [] -> throw(error);
-	   true -> {CList, State1}
-	end;
-      _ ->
-	try
-	  {State2, ActionVar} = traverse(Action, DefinedVars, State1),
-	  TmpC = mk_constraint(TopVar, eq, ActionVar),
-	  ActionCs = mk_conj_constraint_list([state__cs(State2),TmpC]),
-	  {[ActionCs|CList], State2}
-	catch
-	  throw:error ->
-	    if CList =:= [] -> throw(error);
-	       true -> {CList, State1}
-	    end
-	end
+    if CList =:= [] -> throw(error);
+       true -> {CList, State1}
     end,
   OldCs = state__cs(State),
   NewCList = mk_disj_constraint_list(NewCs),
@@ -902,29 +854,27 @@ handle_clauses_1([Clause|Tail], TopVar, Arg, DefinedVars,
   Guard = cerl:clause_guard(Clause),
   Body = cerl:clause_body(Clause),
   NewSubtrTypes =
-    case SubtrTypes =:= overflow of
-      true -> overflow;
-      false ->
+    case SubtrTypes of
+      overflow ->
+        overflow;
+      _ ->
 	ordsets:add_element(get_safe_underapprox(Pats, Guard), SubtrTypes)
     end,
   try
     DefinedVars1 = add_def_from_tree_list(Pats, DefinedVars),
     State1 = state__set_in_match(State0, true),
     {State2, PatVars} = traverse_list(Pats, DefinedVars1, State1),
+    S = state__store_conj(Arg, eq, t_product(PatVars), State2),
     State3 =
-      case Arg =:= [] of
-	true -> State2;
-        false ->
-	  S = state__store_conj(Arg, eq, t_product(PatVars), State2),
-	  case SubtrTypes =:= overflow of
-	    true -> S;
-	    false ->
-	      SubtrPatVar = ?mk_fun_var(fun(Map) ->
-					    TmpType = lookup_type(Arg, Map),
-					    t_subtract_list(TmpType, SubtrTypes)
-					end, [Arg]),
-	      state__store_conj(Arg, sub, SubtrPatVar, S)
-	  end
+      case SubtrTypes of
+        overflow ->
+          S;
+        _ ->
+          SubtrPatVar = ?mk_fun_var(fun(Map) ->
+                                        TmpType = lookup_type(Arg, Map),
+                                        t_subtract_list(TmpType, SubtrTypes)
+                                    end, [Arg]),
+          state__store_conj(Arg, sub, SubtrPatVar, S)
       end,
     State4 = handle_guard(Guard, DefinedVars1, State3),
     {State5, BodyVar} = traverse(Body, DefinedVars1,
@@ -2740,7 +2690,7 @@ new_state(MFAs, NextLabel, CallGraph, CServer, Plt, PropTypes0, Solvers) ->
 	end;
       _Many -> false
     end,
-  PropTypes = dict:from_list(PropTypes0),
+  PropTypes = maps:from_list(PropTypes0),
   #state{callgraph = CallGraph, name_map = NameMap, next_label = NextLabel,
 	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC),
 	 mfas = MFAs, self_rec = SelfRec, solvers = Solvers,
@@ -2840,29 +2790,29 @@ state__new_constraint_context(State) ->
   State#state{cs = []}.
 
 state__prop_domain(FunLabel, #state{prop_types = PropTypes}) ->
- case dict:find(FunLabel, PropTypes) of
-    error -> error;
-    {ok, {_Range_Fun, Dom}} -> {ok, Dom};
-    {ok, FunType} -> {ok, t_fun_args(FunType)}
+  case PropTypes of
+    #{FunLabel := FunType} -> {ok, t_fun_args(FunType)};
+    #{} -> error
   end.
 
 state__add_prop_constrs(Tree, #state{prop_types = PropTypes} = State) ->
   Label = cerl_trees:get_label(Tree),
-  case dict:find(Label, PropTypes) of
-    error -> State;
-    {ok, FunType} ->
+  case PropTypes of
+    #{Label := FunType} ->
       case t_fun_args(FunType) of
 	unknown -> State;
 	ArgTypes ->
 	  case erl_types:any_none(ArgTypes) of
-	    true -> not_called;
+	    true -> State;
 	    false ->
 	      ?debug("Adding propagated constr: ~ts for function ~tw\n",
 		     [format_type(FunType), debug_lookup_name(mk_var(Tree))]),
 	      FunVar = mk_var(Tree),
 	      state__store_conj(FunVar, sub, FunType, State)
 	  end
-      end
+      end;
+    #{} ->
+      State
   end.
 
 state__cs(#state{cs = Cs}) ->
@@ -3355,14 +3305,12 @@ find_constraint(Tuple, [#constraint_list{list = List}|Cs]) ->
 find_constraint(Tuple, [_|Cs]) ->
   find_constraint(Tuple, Cs).
 
--spec fold_literal_maybe_match(cerl:cerl(), state()) -> cerl:cerl().
+%% Test whether the term can be folded into a literal.  If `State`
+%% indicates that we are in a match, folding is not possible if any
+%% literal in the term contains a map.
 
-fold_literal_maybe_match(Tree0, State) ->
-  Tree1 = cerl:fold_literal(Tree0),
-  case state__is_in_match(State) of
-    false -> Tree1;
-    true -> dialyzer_utils:refold_pattern(Tree1)
-  end.
+is_foldable(Tree, State) ->
+  dialyzer_utils:is_foldable(Tree, state__is_in_match(State)).
 
 lookup_record(State, Tag, Arity) ->
   #state{module = M, mod_records = ModRecs, cserver = CServer} = State,

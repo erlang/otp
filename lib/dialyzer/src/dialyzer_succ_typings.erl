@@ -11,28 +11,25 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% Original author: Tobias Lindahl <tobiasl@it.uu.se>
+%%
+%% Purpose: Orchestrate calculation of success typings.
+%%
 
-%%%-------------------------------------------------------------------
-%%% File    : dialyzer_succ_typings.erl
-%%% Author  : Tobias Lindahl <tobiasl@it.uu.se>
-%%% Description : 
-%%%
-%%% Created : 11 Sep 2006 by Tobias Lindahl <tobiasl@it.uu.se>
-%%%-------------------------------------------------------------------
 -module(dialyzer_succ_typings).
 
--export([analyze_callgraph/3, 
-	 analyze_callgraph/6,
-	 get_warnings/7
+%% Main entry points.
+-export([analyze_callgraph/5,
+	 get_warnings/6
 	]).
 
--export([
-	 find_succ_types_for_scc/2,
+%% Entry points for dialyzer_worker.
+-export([find_succ_types_for_scc/2,
 	 refine_one_module/2,
-	 %% find_required_by/2,
+         add_to_result/3,
 	 find_depends_on/2,
-	 collect_warnings/2,
-	 lookup_names/2
+	 collect_warnings/2
 	]).
 
 -export_type([typesig_init_data/0, dataflow_init_data/0, warnings_init_data/0]).
@@ -54,7 +51,6 @@
 %%--------------------------------------------------------------------
 %% State record -- local to this module
 
--type parent() :: 'none' | pid().
 -type typesig_init_data() :: term().
 -type dataflow_init_data() :: term().
 -type warnings_init_data() :: term().
@@ -65,80 +61,33 @@
 
 -record(st, {callgraph      :: dialyzer_callgraph:callgraph(),
 	     codeserver     :: dialyzer_codeserver:codeserver(),
-	     parent = none  :: parent(),
 	     timing_server  :: dialyzer_timing:timing_server(),
              solvers        :: [solver()],
 	     plt            :: dialyzer_plt:plt()}).
 
-%%--------------------------------------------------------------------
-
--spec analyze_callgraph(dialyzer_callgraph:callgraph(), dialyzer_plt:plt(),
-			dialyzer_codeserver:codeserver()) ->
-	 dialyzer_plt:plt().
-
-analyze_callgraph(Callgraph, Plt, Codeserver) ->
-  analyze_callgraph(Callgraph, Plt, Codeserver, none, [], none).
+%% --------------------------------------------------------------------
+%% The main entry points.
 
 -spec analyze_callgraph(dialyzer_callgraph:callgraph(), dialyzer_plt:plt(),
 			dialyzer_codeserver:codeserver(),
 			dialyzer_timing:timing_server(),
-                        [solver()], parent()) ->
+                        [solver()]) ->
          dialyzer_plt:plt().
 
-analyze_callgraph(Callgraph, Plt, Codeserver, TimingServer, Solvers, Parent) ->
-  NewState =
-    init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
-				       TimingServer, Solvers, Parent),
-  NewState#st.plt.
-
-%%--------------------------------------------------------------------
-
-init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
-				   TimingServer, Solvers, Parent) ->
-  {SCCs, Callgraph1} =
-    ?timing(TimingServer, "order", dialyzer_callgraph:finalize(Callgraph)),
-  State = #st{callgraph = Callgraph1, plt = Plt,
-	      codeserver = Codeserver, parent = Parent,
-	      timing_server = TimingServer, solvers = Solvers},
-  get_refined_success_typings(SCCs, State).
-
-get_refined_success_typings(SCCs, #st{callgraph = Callgraph,
-				      timing_server = TimingServer} = State) ->
-  case find_succ_typings(SCCs, State) of
-    {fixpoint, State1} -> State1;
-    {not_fixpoint, NotFixpoint1, State1} ->
-      {ModulePostorder, ModCallgraph} =
-	?timing(
-	   TimingServer, "order", _C1,
-	   dialyzer_callgraph:module_postorder_from_funs(NotFixpoint1,
-							 Callgraph)),
-      ModState = State1#st{callgraph = ModCallgraph},
-      case refine_succ_typings(ModulePostorder, ModState) of
-	{fixpoint, State2} ->
-	  State2;
-	{not_fixpoint, NotFixpoint2, State2} ->
-	  %% Need to reset the callgraph.
-	  {NewSCCs, Callgraph2} =
-	    ?timing(TimingServer, "order", _C2,
-		    dialyzer_callgraph:reset_from_funs(NotFixpoint2,
-						       ModCallgraph)),
-	  NewState = State2#st{callgraph = Callgraph2},
-	  get_refined_success_typings(NewSCCs, NewState)
-      end
-  end.
+analyze_callgraph(Callgraph, Plt, Codeserver, TimingServer, Solvers) ->
+  _ = get_success_typings(Callgraph, Plt, Codeserver, TimingServer, Solvers),
+  Plt.
 
 -spec get_warnings(dialyzer_callgraph:callgraph(), dialyzer_plt:plt(),
 		   doc_plt(), dialyzer_codeserver:codeserver(),
-		   dialyzer_timing:timing_server(), [solver()], pid()) ->
+		   dialyzer_timing:timing_server(), [solver()]) ->
 	 {[raw_warning()], dialyzer_plt:plt(), doc_plt()}.
 
 get_warnings(Callgraph, Plt, DocPlt, Codeserver,
-	     TimingServer, Solvers, Parent) ->
-  InitState =
-    init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
-				       TimingServer, Solvers, Parent),
+	     TimingServer, Solvers) ->
+  InitState = get_success_typings(Callgraph, Plt, Codeserver,
+                                  TimingServer, Solvers),
   Mods = dialyzer_callgraph:modules(InitState#st.callgraph),
-  Plt = InitState#st.plt,
   CWarns =
     dialyzer_contracts:get_invalid_contract_warnings(Mods, Codeserver, Plt),
   ModWarns =
@@ -148,18 +97,89 @@ get_warnings(Callgraph, Plt, DocPlt, Codeserver,
    Plt,
    DocPlt}.
 
-get_warnings_from_modules(Mods, State, DocPlt) ->
-  #st{callgraph = Callgraph, codeserver = Codeserver,
-      plt = Plt, timing_server = TimingServer} = State,
-  Init = {Codeserver, Callgraph, Plt, DocPlt},
-  dialyzer_coordinator:parallel_job(warnings, Mods, Init, TimingServer).
+%% --------------------------------------------------------------------
+%% Callback functions called from dialyzer_worker.
+
+-spec find_succ_types_for_scc(scc(), typesig_init_data()) -> [mfa_or_funlbl()].
+
+find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
+  SCC = [MFA || {_, _, _} = MFA <- SCC0],
+  Label = dialyzer_codeserver:get_next_core_label(Codeserver),
+  F = fun(MFA) ->
+          {_Var, Fun} = dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
+          collect_fun_info(Fun)
+      end,
+  AllFuns = lists:flatmap(F, SCC),
+  PropTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
+
+  %% Assume that the PLT contains the current propagated types
+  FunTypes = dialyzer_typesig:analyze_scc(SCC, Label, Callgraph,
+                                          Codeserver, Plt, PropTypes,
+                                          Solvers),
+
+  %% FunTypes may now have picked up funs outside of the SCC. Get rid of them.
+  AllFunKeys = [X || {X, _} <- AllFuns],
+  Set = sofs:set(AllFunKeys, [id]),
+  BinRel = sofs:from_external(FunTypes, [{id,type}]), %Already sorted.
+  FilteredFunTypes = sofs:to_external(sofs:restriction(BinRel, Set)),
+
+  FunMFAContracts = get_contracts(FilteredFunTypes, Callgraph, Codeserver),
+  ModOpaques = get_module_opaques(FunMFAContracts, Codeserver),
+  DecoratedFunTypes = decorate_succ_typings(FunMFAContracts, ModOpaques),
+
+  %% Check contracts
+  Contracts = orddict:from_list([{MFA, Contract} ||
+                                  {_, {MFA, Contract}} <- FunMFAContracts]),
+  PltContracts =
+    dialyzer_contracts:check_contracts(Contracts, Callgraph,
+                                       DecoratedFunTypes,
+                                       ModOpaques),
+  debug_pp_functions("SCC", FilteredFunTypes, DecoratedFunTypes, Callgraph),
+  NewPltContracts = [MC ||
+                      {MFA, _C}=MC <- PltContracts,
+                      %% Check the non-deleted PLT
+                      not dialyzer_plt:is_contract(Plt, MFA)],
+  _ = insert_into_plt(DecoratedFunTypes, Callgraph, Plt),
+  _ = dialyzer_plt:insert_contract_list(Plt, NewPltContracts),
+
+  %% Check whether we have reached a fixpoint.
+  case NewPltContracts =:= [] andalso
+    reached_fixpoint_strict(PropTypes, DecoratedFunTypes) of
+    true -> [];
+    false ->
+      ?debug("Not fixpoint for: ~tw\n", [AllFuns]),
+      AllFunKeys
+  end.
+
+-spec refine_one_module(module(), dataflow_init_data()) -> [mfa_or_funlbl()].
+
+refine_one_module(M, {CodeServer, Callgraph, Plt, _Solvers}) ->
+  ModCode = dialyzer_codeserver:lookup_mod_code(M, CodeServer),
+  AllFuns = collect_fun_info(ModCode),
+  FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
+  Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
+  NewFunTypes =
+    dialyzer_dataflow:get_fun_types(ModCode, Plt, Callgraph, CodeServer, Records),
+
+  FunMFAContracts = get_contracts(NewFunTypes, Callgraph, CodeServer),
+  ModOpaques = get_module_opaques(FunMFAContracts, CodeServer),
+  DecoratedFunTypes = decorate_succ_typings(FunMFAContracts, ModOpaques),
+  debug_pp_functions("Refine", NewFunTypes, DecoratedFunTypes, Callgraph),
+
+  case updated_types(FunTypes, DecoratedFunTypes) of
+    [] -> [];
+    [_|_]=NotFixpoint ->
+      ?debug("Not fixpoint\n", []),
+      _ = insert_into_plt(NotFixpoint, Callgraph, Plt),
+      [FunLbl || {FunLbl,_Type} <- NotFixpoint]
+  end.
 
 -spec collect_warnings(module(), warnings_init_data()) -> [raw_warning()].
 
 collect_warnings(M, {Codeserver, Callgraph, Plt, DocPlt}) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, Codeserver),
   Contracts = dialyzer_codeserver:lookup_mod_contracts(M, Codeserver),
-  AllFuns = collect_fun_info([ModCode]),
+  AllFuns = collect_fun_info(ModCode),
   %% Check if there are contracts for functions that do not exist
   Warnings1 =
     dialyzer_contracts:contracts_without_fun(Contracts, AllFuns, Callgraph),
@@ -172,6 +192,97 @@ collect_warnings(M, {Codeserver, Callgraph, Plt, DocPlt}) ->
     dialyzer_behaviours:check_callbacks(M, Attrs, Records, Plt, Codeserver),
   DocPlt = insert_into_doc_plt(FunTypes, Callgraph, DocPlt),
   lists:flatten([Warnings1, Warnings2, Warnings3]).
+
+-spec find_depends_on(scc() | module(), fixpoint_init_data()) -> [scc()].
+
+find_depends_on(SCC, {_Codeserver, Callgraph, _Plt, _Solvers}) ->
+  dialyzer_callgraph:get_depends_on(SCC, Callgraph).
+
+-spec add_to_result([label()], [mfa()], fixpoint_init_data()) -> [mfa()].
+
+add_to_result(Labels, Result, {_Codeserver, Callgraph, _Plt, _Solver}) ->
+  [lookup_name(Label, Callgraph) || Label <- Labels] ++ Result.
+
+%% --------------------------------------------------------------------
+%% Local functions.
+%% --------------------------------------------------------------------
+
+%%--------------------------------------------------------------------
+%% Calculate success typings.
+
+get_success_typings(Callgraph, Plt, Codeserver, TimingServer, Solvers) ->
+  %% Condense the call graph to its strongly connected components (SCCs).
+  {SCCs, Callgraph1} =
+    ?timing(TimingServer, "order", dialyzer_callgraph:finalize(Callgraph)),
+  State = #st{callgraph = Callgraph1, plt = Plt,
+              codeserver = Codeserver,
+              timing_server = TimingServer, solvers = Solvers},
+  get_refined_success_typings(SCCs, State).
+
+get_refined_success_typings(SCCs, #st{callgraph = Callgraph,
+				      timing_server = TimingServer} = State) ->
+  %% Find the success types for the SCCs.
+  case find_succ_typings(SCCs, State) of
+    [] ->
+      %% No new type information was discovered. We are done.
+      State;
+    NotFixpoint1 ->
+      %% New type information was discovered. Refine the type
+      %% information in each module using a dataflow analysis.
+      {ModulePostorder, ModCallgraph} =
+	?timing(TimingServer, "order", _C1,
+                dialyzer_callgraph:module_postorder_from_funs(NotFixpoint1,
+                                                              Callgraph)),
+      ?debug("Module postorder: ~p\n", [Modules]),
+
+      ModState = State#st{callgraph = ModCallgraph},
+      case refine_succ_typings(ModulePostorder, ModState) of
+        [] ->
+          %% No new type information was found. We are done.
+          ModState;
+	NotFixpoint2 ->
+	  %% Need to reset the callgraph before repeating.
+	  {NewSCCs, Callgraph2} =
+	    ?timing(TimingServer, "order", _C2,
+		    dialyzer_callgraph:reset_from_funs(NotFixpoint2,
+						       ModCallgraph)),
+	  NewState = ModState#st{callgraph = Callgraph2},
+	  get_refined_success_typings(NewSCCs, NewState)
+      end
+  end.
+
+find_succ_typings(SCCs, State) ->
+  {Init, Timing} = init_pass_data(State),
+  Updated =
+    ?timing(Timing, "typesig",
+	    dialyzer_coordinator:parallel_job(typesig, SCCs, Init, Timing)),
+  ?debug("==================== Typesig done ====================\n\n", []),
+  Updated.
+
+refine_succ_typings(Modules, State) ->
+  {Init, Timing} = init_pass_data(State),
+  Updated =
+    ?timing(Timing, "refine",
+            dialyzer_coordinator:parallel_job(dataflow, Modules, Init, Timing)),
+  ?debug("==================== Dataflow done ====================\n\n", []),
+  Updated.
+
+init_pass_data(#st{codeserver = Codeserver,
+                   callgraph = Callgraph,
+                   plt = Plt,
+                   timing_server = Timing,
+                   solvers = Solvers}) ->
+  Init = {Codeserver, Callgraph, Plt, Solvers},
+  {Init, Timing}.
+
+%%--------------------------------------------------------------------
+%% Produce warnings.
+
+get_warnings_from_modules(Mods, State, DocPlt) ->
+  #st{callgraph = Callgraph, codeserver = Codeserver,
+      plt = Plt, timing_server = TimingServer} = State,
+  Init = {Codeserver, Callgraph, Plt, DocPlt},
+  dialyzer_coordinator:parallel_job(warnings, Mods, Init, TimingServer).
 
 postprocess_warnings(RawWarnings, Codeserver) ->
   Pred =
@@ -210,177 +321,53 @@ postprocess_dataflow_warns([{?WARN_CONTRACT_RANGE, WarningInfo, Msg}|Rest],
       W = {?WARN_CONTRACT_RANGE, WarningInfo, NewMsg},
       postprocess_dataflow_warns(Rest, Codeserver, WAcc, [W|Acc])
   end.
-  
-refine_succ_typings(Modules, #st{codeserver = Codeserver,
-                                 callgraph = Callgraph,
-                                 plt = Plt,
-				 timing_server = Timing,
-                                 solvers = Solvers} = State) ->
-  ?debug("Module postorder: ~p\n", [Modules]),
-  Init = {Codeserver, Callgraph, Plt, Solvers},
-  NotFixpoint =
-    ?timing(Timing, "refine",
-	    dialyzer_coordinator:parallel_job(dataflow, Modules, Init, Timing)),
-  ?debug("==================== Dataflow done ====================\n\n", []),
-  case NotFixpoint =:= [] of
-    true -> {fixpoint, State};
-    false -> {not_fixpoint, NotFixpoint, State}
-  end.
 
--spec find_depends_on(scc() | module(), fixpoint_init_data()) -> [scc()].
+%%--------------------------------------------------------------------
+%% Helpers.
 
-find_depends_on(SCC, {_Codeserver, Callgraph, _Plt, _Solvers}) ->
-  dialyzer_callgraph:get_depends_on(SCC, Callgraph).
+reached_fixpoint_strict([{Key,Type1}|Types1], [{Key,Type2}|Types2]) ->
+  case is_failed_or_not_called_fun(Type2) of
+    true ->
+      reached_fixpoint_strict(Types1, Types2);
+    false ->
+      LimitedType1 = erl_types:t_limit(Type1, ?TYPE_LIMIT),
+      LimitedType2 = erl_types:t_limit(Type2, ?TYPE_LIMIT),
+      erl_types:t_is_equal(LimitedType1, LimitedType2) andalso
+        reached_fixpoint_strict(Types1, Types2)
+  end;
+reached_fixpoint_strict([{Key1,_}|Types1], [{Key2,_}|_]=Types2)
+  when Key1 < Key2 ->
+  %% The function was never called.
+  reached_fixpoint_strict(Types1, Types2);
+reached_fixpoint_strict([], []) ->
+  true.
 
-%% -spec find_required_by(scc() | module(), fixpoint_init_data()) -> [scc()].
+updated_types(OldTypes, NewTypes) ->
+  updated_types_1(OldTypes, NewTypes, []).
 
-%% find_required_by(SCC, {_Codeserver, Callgraph, _Plt, _Solvers}) ->
-%%   dialyzer_callgraph:get_required_by(SCC, Callgraph).
-
--spec lookup_names([label()], fixpoint_init_data()) -> [mfa_or_funlbl()].
-
-lookup_names(Labels, {_Codeserver, Callgraph, _Plt, _Solvers}) ->
-  [lookup_name(F, Callgraph) || F <- Labels].
-
--spec refine_one_module(module(), dataflow_init_data()) -> [label()]. % ordset
-
-refine_one_module(M, {CodeServer, Callgraph, Plt, _Solvers}) ->
-  ModCode = dialyzer_codeserver:lookup_mod_code(M, CodeServer),
-  AllFuns = collect_fun_info([ModCode]),
-  FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
-  Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
-  NewFunTypes =
-    dialyzer_dataflow:get_fun_types(ModCode, Plt, Callgraph, CodeServer, Records),
-  {FunMFAContracts, ModOpaques} =
-    prepare_decoration(NewFunTypes, Callgraph, CodeServer),
-  DecoratedFunTypes = decorate_succ_typings(FunMFAContracts, ModOpaques),
-  %% ?Debug("NewFunTypes       ~tp\n   ~n", [NewFunTypes]),
-  %% ?debug("refine DecoratedFunTypes ~tp\n   ~n", [DecoratedFunTypes]),
-  debug_pp_functions("Refine", NewFunTypes, DecoratedFunTypes, Callgraph),
-
-  case reached_fixpoint(FunTypes, DecoratedFunTypes) of
-    true -> [];
-    {false, NotFixpoint} ->
-      ?debug("Not fixpoint\n", []),
-      Plt = insert_into_plt(orddict:from_list(NotFixpoint), Callgraph, Plt),
-      [FunLbl || {FunLbl,_Type} <- NotFixpoint]
-  end.
-
-reached_fixpoint(OldTypes, NewTypes) ->
-  reached_fixpoint(OldTypes, NewTypes, false).
-
-reached_fixpoint_strict(OldTypes, NewTypes) ->
-  case reached_fixpoint(OldTypes, NewTypes, true) of
-    true -> true;
-    {false, _} -> false
-  end.
-
-reached_fixpoint(OldTypes0, NewTypes0, Strict) ->
-  MapFun = fun({Key, Type}) ->
-	       case is_failed_or_not_called_fun(Type) of
-		 true -> {Key, failed_fun};
-		 false -> {Key, erl_types:t_limit(Type, ?TYPE_LIMIT)}
-	       end
-	   end,
-  OldTypes = lists:map(MapFun, orddict:to_list(OldTypes0)),
-  NewTypes = lists:map(MapFun, orddict:to_list(NewTypes0)),
-  compare_types(OldTypes, NewTypes, Strict).
+updated_types_1([{Key,Type1}|Types1], [{Key,Type2}|Types2], Acc) ->
+  case is_failed_or_not_called_fun(Type2) of
+    true ->
+      updated_types_1(Types1, Types2, Acc);
+    false ->
+      LimitedType1 = erl_types:t_limit(Type1, ?TYPE_LIMIT),
+      LimitedType2 = erl_types:t_limit(Type2, ?TYPE_LIMIT),
+      case erl_types:t_is_subtype(LimitedType1, LimitedType2) of
+        true ->
+          updated_types_1(Types1, Types2, Acc);
+        false ->
+          ?debug("Failed fixpoint for ~w: ~ts =/= ~ts\n",
+                 [Key, erl_types:t_to_string(Type1), erl_types:t_to_string(Type2)]),
+          updated_types_1(Types1, Types2, [{Key, Type2}|Acc])
+      end
+  end;
+updated_types_1([], [], Acc) ->
+  Acc.
 
 is_failed_or_not_called_fun(Type) ->
   erl_types:any_none([erl_types:t_fun_range(Type)|erl_types:t_fun_args(Type)]).
 
-compare_types(List1, List2, Strict) ->
-  compare_types_1(List1, List2, Strict, []).
-
-compare_types_1([{X, _Type1}|Left1], [{X, failed_fun}|Left2], 
-		Strict, NotFixpoint) ->
-  compare_types_1(Left1, Left2, Strict, NotFixpoint);
-compare_types_1([{X, failed_fun}|Left1], [{X, _Type2}|Left2], 
-		Strict, NotFixpoint) ->
-  compare_types_1(Left1, Left2, Strict, NotFixpoint);
-compare_types_1([{X, Type1}|Left1], [{X, Type2}|Left2], Strict, NotFixpoint) ->
-  Res = case Strict of
-	  true -> erl_types:t_is_equal(Type1, Type2);
-	  false -> erl_types:t_is_subtype(Type1, Type2)
-	end,
-  case Res of
-    true -> compare_types_1(Left1, Left2, Strict, NotFixpoint);
-    false -> 
-      ?debug("Failed fixpoint for ~w: ~ts =/= ~ts\n",
-	     [X, erl_types:t_to_string(Type1), erl_types:t_to_string(Type2)]),
-      compare_types_1(Left1, Left2, Strict, [{X, Type2}|NotFixpoint])
-  end;
-compare_types_1([_|Left1], List2, Strict, NotFixpoint) ->
-  %% If the function was not called.
-  compare_types_1(Left1, List2, Strict, NotFixpoint);
-compare_types_1([], [], _Strict, NotFixpoint) ->
-  case NotFixpoint =:= [] of
-    true -> true;
-    false -> {false, NotFixpoint}
-  end.
-
-find_succ_typings(SCCs, #st{codeserver = Codeserver, callgraph = Callgraph,
-			    plt = Plt, timing_server = Timing,
-                            solvers = Solvers} = State) ->
-  Init = {Codeserver, Callgraph, Plt, Solvers},
-  NotFixpoint =
-    ?timing(Timing, "typesig",
-	    dialyzer_coordinator:parallel_job(typesig, SCCs, Init, Timing)),
-  ?debug("==================== Typesig done ====================\n\n", []),
-  case NotFixpoint =:= [] of
-    true -> {fixpoint, State};
-    false -> {not_fixpoint, NotFixpoint, State}
-  end.
-
--spec find_succ_types_for_scc(scc(), typesig_init_data()) -> [mfa_or_funlbl()].
-
-find_succ_types_for_scc(SCC0, {Codeserver, Callgraph, Plt, Solvers}) ->
-  SCC = [MFA || {_, _, _} = MFA <- SCC0],
-  Label = dialyzer_codeserver:get_next_core_label(Codeserver),
-  AllFuns = lists:append(
-              [begin
-                 {_Var, Fun} =
-                   dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
-                 collect_fun_info([Fun])
-               end || MFA <- SCC]),
-  PropTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
-  %% Assume that the PLT contains the current propagated types
-  FunTypes = dialyzer_typesig:analyze_scc(SCC, Label, Callgraph,
-                                          Codeserver, Plt, PropTypes,
-                                          Solvers),
-  AllFunSet = sets:from_list([X || {X, _} <- AllFuns]),
-  FilteredFunTypes =
-    orddict:filter(fun(F, _T) -> sets:is_element(F, AllFunSet)
-                   end, FunTypes),
-  {FunMFAContracts, ModOpaques} =
-    prepare_decoration(FilteredFunTypes, Callgraph, Codeserver),
-  DecoratedFunTypes = decorate_succ_typings(FunMFAContracts, ModOpaques),
-  %% Check contracts
-  Contracts = orddict:from_list([{MFA, Contract} ||
-                                  {_, {MFA, Contract}} <- FunMFAContracts]),
-  PltContracts =
-    dialyzer_contracts:check_contracts(Contracts, Callgraph,
-                                       DecoratedFunTypes,
-                                       ModOpaques),
-  %% ?debug("FilteredFunTypes ~tp\n   ~n", [FilteredFunTypes]),
-  %% ?debug("SCC DecoratedFunTypes ~tp\n   ~n", [DecoratedFunTypes]),
-  debug_pp_functions("SCC", FilteredFunTypes, DecoratedFunTypes, Callgraph),
-  NewPltContracts = [MC ||
-                      {MFA, _C}=MC <- PltContracts,
-                      %% Check the non-deleted PLT
-                      not dialyzer_plt:is_contract(Plt, MFA)],
-  ContractFixpoint = NewPltContracts =:= [],
-  Plt = insert_into_plt(DecoratedFunTypes, Callgraph, Plt),
-  Plt = dialyzer_plt:insert_contract_list(Plt, NewPltContracts),
-  case (ContractFixpoint andalso 
-	reached_fixpoint_strict(PropTypes, DecoratedFunTypes)) of
-    true -> [];
-    false ->
-      ?debug("Not fixpoint for: ~tw\n", [AllFuns]),
-      [Fun || {Fun, _Arity} <- AllFuns]
-  end.
-
-prepare_decoration(FunTypes, Callgraph, Codeserver) ->
+get_contracts(FunTypes, Callgraph, Codeserver) ->
   F = fun({Label, _Type}=LabelType, Acc) ->
           case dialyzer_callgraph:lookup_name(Label, Callgraph) of
             {ok, MFA} ->
@@ -392,24 +379,28 @@ prepare_decoration(FunTypes, Callgraph, Codeserver) ->
             error -> [{LabelType, no}|Acc]
           end
       end,
-  Contracts = lists:foldl(F, [], orddict:to_list(FunTypes)),
-  ModOpaques =
-    [{M, lookup_opaques(M, Codeserver)} ||
-      M <- lists:usort([M || {_LabelType, {{M, _, _}, _Con}} <- Contracts])],
-  {Contracts, orddict:from_list(ModOpaques)}.
+  lists:foldl(F, [], FunTypes).
+
+get_module_opaques(Contracts, Codeserver) ->
+  OpaqueModules = ordsets:from_list([M || {_LabelType, {{M, _, _}, _Con}} <- Contracts]),
+  [{M, lookup_opaques(M, Codeserver)} || M <- OpaqueModules].
 
 decorate_succ_typings(FunTypesContracts, ModOpaques) ->
-  F = fun({{Label, Type}, {{M, _, _}, Contract}}) ->
-          Args = dialyzer_contracts:get_contract_args(Contract),
-          Ret = dialyzer_contracts:get_contract_return(Contract),
-          C = erl_types:t_fun(Args, Ret),
-          {M, Opaques} = lists:keyfind(M, 1, ModOpaques),
-          R = erl_types:t_decorate_with_opaque(Type, C, Opaques),
-          {Label, R};
-         ({LabelType, no}) ->
-          LabelType
+  F = fun({{Label, Type}, {{M, _, _}, Contract}}, Acc) ->
+          case lists:keyfind(M, 1, ModOpaques) of
+            {M, []} ->
+              [{Label, Type}|Acc];
+            {M, Opaques} ->
+              Args = dialyzer_contracts:get_contract_args(Contract),
+              Ret = dialyzer_contracts:get_contract_return(Contract),
+              C = erl_types:t_fun(Args, Ret),
+              R = erl_types:t_decorate_with_opaque(Type, C, Opaques),
+              [{Label, R}|Acc]
+          end;
+         ({LabelType, no}, Acc) ->
+          [LabelType|Acc]
       end,
-  orddict:from_list(lists:map(F, FunTypesContracts)).
+  orddict:from_list(lists:foldl(F, [], FunTypesContracts)).
 
 lookup_opaques(Module, Codeserver) ->
   Records = dialyzer_codeserver:lookup_mod_records(Module, Codeserver),
@@ -424,10 +415,7 @@ get_fun_types_from_plt([{FunLabel, Arity}|Left], Callgraph, Plt, Map) ->
 get_fun_types_from_plt([], _Callgraph, _Plt, Map) ->
   orddict:from_list(Map).
 
-collect_fun_info(Trees) ->
-  collect_fun_info(Trees, []).
-
-collect_fun_info([Tree|Trees], List) ->
+collect_fun_info(Tree) ->
   Fun = fun(SubTree, Acc) ->
 	    case cerl:is_c_fun(SubTree) of
 	      true ->
@@ -435,9 +423,7 @@ collect_fun_info([Tree|Trees], List) ->
 	      false -> Acc
 	    end
 	end,
-  collect_fun_info(Trees, cerl_trees:fold(Fun, List, Tree));
-collect_fun_info([], List) ->
-  List.
+  cerl_trees:fold(Fun, [], Tree).
 
 lookup_fun_type(Label, Arity, Callgraph, Plt) ->
   ID = lookup_name(Label, Callgraph),
@@ -467,6 +453,15 @@ format_succ_types([{Label, Type0}|Left], Callgraph, Acc) ->
   format_succ_types(Left, Callgraph, [NewTuple|Acc]);
 format_succ_types([], _Callgraph, Acc) ->
   Acc.
+
+lookup_name(F, CG) ->
+  case dialyzer_callgraph:lookup_name(F, CG) of
+    error -> F;
+    {ok, Name} -> Name
+  end.
+
+%%--------------------------------------------------------------------
+%% Debugging.
 
 -ifdef(DEBUG).
 debug_pp_succ_typings(SuccTypes) ->
@@ -503,9 +498,3 @@ debug_pp_succ_typings(_) ->
 debug_pp_functions(_, _, _, _) ->
   ok.
 -endif.
-
-lookup_name(F, CG) ->
-  case dialyzer_callgraph:lookup_name(F, CG) of
-    error -> F;
-    {ok, Name} -> Name
-  end.

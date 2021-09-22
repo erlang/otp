@@ -47,11 +47,7 @@ DIALYZER_DIR = $(ERL_TOP)/lib/dialyzer
 # Target Specs
 # ----------------------------------------------------
 MODULES = \
-	cerl_closurean \
-	cerl_lib \
-	cerl_pmatch \
 	cerl_prettypr \
-	cerl_typean \
 	dialyzer \
 	dialyzer_analysis_callgraph \
 	dialyzer_behaviours \

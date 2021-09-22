@@ -11,22 +11,21 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-
-%%%-------------------------------------------------------------------
-%%% File        : dialyzer_coordinator.erl
-%%% Authors     : Stavros Aronis <aronisstav@gmail.com>
-%%%-------------------------------------------------------------------
+%%
+%% Original author: Stavros Aronis <aronisstav@gmail.com>
+%%
+%% Purpose: Spawn and coordinate parallel jobs.
 
 -module(dialyzer_coordinator).
 
 %%% Export for dialyzer main process
 -export([parallel_job/4]).
 
-%%% Export for all possible workers
--export([job_done/3]).
+%%% Exports for all workers
+-export([request_activation/1, job_done/3]).
 
 %%% Exports for the typesig and dataflow analysis workers
--export([sccs_to_pids/2, request_activation/1]).
+-export([wait_for_success_typings/2]).
 
 %%% Exports for the compilation workers
 -export([get_next_label/2]).
@@ -37,7 +36,7 @@
 
 -type collector()  :: pid().
 -type regulator()  :: pid().
--type scc_to_pid() :: ets:tid() | 'unused'.
+-type scc_to_pid() :: ets:tid() | 'none'.
 
 -opaque coordinator() :: {collector(), regulator(), scc_to_pid()}.
 -type timing() :: dialyzer_timing:timing_server().
@@ -105,6 +104,7 @@
 -include("dialyzer.hrl").
 
 %%--------------------------------------------------------------------
+%% API functions for the main dialyzer process.
 
 -spec parallel_job('compile', [compile_job()], compile_init_data(), timing()) ->
 		      {compile_result(), integer()};
@@ -125,74 +125,143 @@ parallel_job(Mode, Jobs, InitData, Timing) ->
   State = spawn_jobs(Mode, Jobs, InitData, Timing),
   collect_result(State).
 
+%%--------------------------------------------------------------------
+%% API functions for workers (dialyzer_worker).
+
+-spec request_activation(coordinator()) -> ok.
+
+request_activation({_Collector, Regulator, _SCCtoPid}) ->
+  Regulator ! {req, self()},
+  wait_activation().
+
+-spec job_done(job(), job_result(), coordinator()) -> ok.
+
+job_done(Job, Result, {Collector, Regulator, _SCCtoPid}) ->
+  Regulator ! done,
+  Collector ! {done, Job, Result},
+  ok.
+
+-spec get_next_label(integer(), coordinator()) -> integer().
+
+%% For the 'compile' worker.
+get_next_label(EstimatedSize, {Collector, _Regulator, _SCCtoPid}) ->
+  Collector ! {next_label_request, EstimatedSize, self()},
+  receive
+    {next_label_reply, NextLabel} -> NextLabel
+  end.
+
+-spec wait_for_success_typings([scc() | module()], coordinator()) ->
+        'ok'.
+
+%% Helper for 'sigtype' and 'dataflow' workers.
+wait_for_success_typings(SCCs, {_Collector, _Regulator, SCCtoPid}) ->
+  F = fun(SCC) ->
+          %% The SCCs that SCC depends on have always been started.
+          try ets:lookup_element(SCCtoPid, SCC, 2) of
+            Pid when is_pid(Pid) ->
+              Ref = erlang:monitor(process, Pid),
+              receive
+                {'DOWN', Ref, process, Pid, _Info} ->
+                  ok
+              end
+          catch
+            _:_ ->
+              %% Already finished.
+              ok
+          end
+      end,
+  lists:foreach(F, SCCs).
+
+
+%%--------------------------------------------------------------------
+%% Local functions.
+
 spawn_jobs(Mode, Jobs, InitData, Timing) ->
   Collector = self(),
   Regulator = spawn_regulator(),
-  TypesigOrDataflow = (Mode =:= 'typesig') orelse (Mode =:= 'dataflow'),
-  SCCtoPID =
-    case TypesigOrDataflow of
-      true  -> ets:new(scc_to_pid, [{read_concurrency, true}]);
-      false -> unused
+
+  SCCtoPid =
+    if
+      Mode =:= 'typesig'; Mode =:= 'dataflow' ->
+        ets:new(scc_to_pid, [{read_concurrency, true}]);
+      true ->
+        none
     end,
-  Coordinator = {Collector, Regulator, SCCtoPID},
-  JobFun =
-    fun(Job) ->
-        Pid = dialyzer_worker:launch(Mode, Job, InitData, Coordinator),
-        case TypesigOrDataflow of
-          true  -> true = ets:insert(SCCtoPID, {Job, Pid});
-          false -> true
-        end
-    end,
-  JobCount = length(Jobs),
-  NumberOfInitJobs = min(JobCount, 20 * dialyzer_utils:parallelism()),
-  {InitJobs, RestJobs} = lists:split(NumberOfInitJobs, Jobs),
-  lists:foreach(JobFun, InitJobs),
+
+  Coordinator = {Collector, Regulator, SCCtoPid},
+
+  JobFun = job_fun(SCCtoPid, Mode, InitData, Coordinator),
+
+  %% Limit the number of processes we start in order to save memory.
+  MaxNumberOfInitJobs = 20 * dialyzer_utils:parallelism(),
+  RestJobs = launch_jobs(Jobs, JobFun, MaxNumberOfInitJobs),
+
   Unit =
     case Mode of
       'typesig'  -> "SCCs";
       _          -> "modules"
     end,
+  JobCount = length(Jobs),
   dialyzer_timing:send_size_info(Timing, JobCount, Unit),
+
   InitResult =
     case Mode of
       'compile' -> dialyzer_analysis_callgraph:compile_init_result();
       _ -> []
     end,
+
   #state{mode = Mode, active = JobCount, result = InitResult,
          next_label = 0, job_fun = JobFun, jobs = RestJobs,
-         init_data = InitData, regulator = Regulator, scc_to_pid = SCCtoPID}.
+         init_data = InitData, regulator = Regulator, scc_to_pid = SCCtoPid}.
+
+launch_jobs(Jobs, _JobFun, 0) ->
+  Jobs;
+launch_jobs([Job|Jobs], JobFun, N) ->
+  JobFun(Job),
+  launch_jobs(Jobs, JobFun, N - 1);
+launch_jobs([], _JobFun, _) ->
+  [].
+
+job_fun(none, Mode, InitData, Coordinator) ->
+  fun(Job) ->
+      _ = dialyzer_worker:launch(Mode, Job, InitData, Coordinator),
+      ok
+  end;
+job_fun(SCCtoPid, Mode, InitData, Coordinator) ->
+  fun(Job) ->
+      Pid = dialyzer_worker:launch(Mode, Job, InitData, Coordinator),
+      true = ets:insert(SCCtoPid, {Job, Pid}),
+      ok
+  end.
 
 collect_result(#state{mode = Mode, active = Active, result = Result,
 		      next_label = NextLabel, init_data = InitData,
                       jobs = JobsLeft, job_fun = JobFun,
-		      regulator = Regulator, scc_to_pid = SCCtoPID} = State) ->
+		      regulator = Regulator, scc_to_pid = SCCtoPid} = State) ->
   receive
     {next_label_request, Estimation, Pid} ->
       Pid ! {next_label_reply, NextLabel},
       collect_result(State#state{next_label = NextLabel + Estimation});
     {done, Job, Data} ->
       NewResult = update_result(Mode, InitData, Job, Data, Result),
-      TypesigOrDataflow = (Mode =:= 'typesig') orelse (Mode =:= 'dataflow'),
       case Active of
 	1 ->
+          %% This was the last running job. Clean up and return the result.
 	  kill_regulator(Regulator),
 	  case Mode of
 	    'compile' ->
 	      {NewResult, NextLabel};
-	    _ when TypesigOrDataflow ->
-	      ets:delete(SCCtoPID),
-	      NewResult;
-	    'warnings' ->
-	      NewResult;
-            'contract_remote_types' ->
-              NewResult;
-            'record_remote_types' ->
-              NewResult
+	    _ ->
+              if
+                SCCtoPid =:= none -> ok;
+                true -> ets:delete(SCCtoPid)
+              end,
+	      NewResult
 	  end;
 	N ->
-          case TypesigOrDataflow of
-            true -> true = ets:delete(SCCtoPID, Job);
-            false -> true
+          if
+            SCCtoPid =:= none -> ok;
+            true -> true = ets:delete(SCCtoPid, Job)
           end,
           NewJobsLeft =
             case JobsLeft of
@@ -209,48 +278,23 @@ collect_result(#state{mode = Mode, active = Active, result = Result,
   end.
 
 update_result(Mode, InitData, Job, Data, Result) ->
-  case Mode of
-    'compile' ->
+  if
+    Mode =:= 'compile' ->
       dialyzer_analysis_callgraph:add_to_result(Job, Data, Result,
 						InitData);
-    X when X =:= 'typesig'; X =:= 'dataflow' ->
-      dialyzer_succ_typings:lookup_names(Data, InitData) ++ Result;
-    'warnings' ->
-      Data ++ Result;
-    X when X =:= 'contract_remote_types'; X =:= 'record_remote_types' ->
+    Mode =:= 'typesig'; Mode =:= 'dataflow' ->
+      dialyzer_succ_typings:add_to_result(Data, Result, InitData);
+    true ->
       Data ++ Result
   end.
 
--spec sccs_to_pids([scc() | module()], coordinator()) ->
-        [dialyzer_worker:worker()].
-
-sccs_to_pids(SCCs, {_Collector, _Regulator, SCCtoPID}) ->
-  Fold =
-    fun(SCC, Pids) ->
-        %% The SCCs that SCC depends on have always been started.
-        try ets:lookup_element(SCCtoPID, SCC, 2) of
-          Pid when is_pid(Pid) ->
-            [Pid|Pids]
-        catch
-          _:_ -> Pids
-        end
-    end,
-  lists:foldl(Fold, [], SCCs).
-
--spec job_done(job(), job_result(), coordinator()) -> ok.
-
-job_done(Job, Result, {Collector, Regulator, _SCCtoPID}) ->
-  Regulator ! done,
-  Collector ! {done, Job, Result},
-  ok.
-
--spec get_next_label(integer(), coordinator()) -> integer().
-
-get_next_label(EstimatedSize, {Collector, _Regulator, _SCCtoPID}) ->
-  Collector ! {next_label_request, EstimatedSize, self()},
-  receive
-    {next_label_reply, NextLabel} -> NextLabel
-  end.
+%%--------------------------------------------------------------------
+%% The regulator server
+%%
+%% The regulator limits the number of simultaneous running jobs to the
+%% number of schedulers. Note that there are usually many more worker
+%% processes started, but they are only allowed to do light work (such
+%% as monitoring other processes) when they have not been activated.
 
 -spec wait_activation() -> ok.
 
@@ -259,12 +303,6 @@ wait_activation() ->
 
 activate_pid(Pid) ->
   Pid ! activate.
-
--spec request_activation(coordinator()) -> ok.
-
-request_activation({_Collector, Regulator, _SCCtoPID}) ->
-  Regulator ! {req, self()},
-  wait_activation().
 
 spawn_regulator() ->
   InitTickets = dialyzer_utils:parallelism(),
@@ -281,15 +319,13 @@ regulator_loop(Tickets, Queue) ->
 	  regulator_loop(N-1, Queue)
       end;
     done ->
-      {Waiting, NewQueue} = queue:out(Queue),
-      NewTickets =
-	case Waiting of
-	  empty -> Tickets + 1;
-	  {value, Pid} ->
-	    activate_pid(Pid),
-	    Tickets
-	end,
-      regulator_loop(NewTickets, NewQueue);
+      case queue:out(Queue) of
+        {empty, NewQueue} ->
+          regulator_loop(Tickets + 1, NewQueue);
+        {{value, Pid}, NewQueue} ->
+          activate_pid(Pid),
+          regulator_loop(Tickets, NewQueue)
+      end;
     stop -> ok
   end.
 

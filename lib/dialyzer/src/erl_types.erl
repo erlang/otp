@@ -186,7 +186,6 @@
 	 t_reference/0,
 	 t_singleton_to_term/2,
 	 t_string/0,
-	 t_struct_from_opaque/2,
 	 t_subst/2,
 	 t_subtract/2,
 	 t_subtract_list/2,
@@ -747,7 +746,7 @@ decorate_tuples_in_sets([?tuple(Elements, Arity, Tag1) = T1|Tuples] = L1,
   if
     Tag1 < Tag2   -> decorate_tuples_in_sets(Tuples, L2, Opaques, [T1|Acc]);
     Tag1 > Tag2   -> decorate_tuples_in_sets(L1, Ts, Opaques, Acc);
-    Tag1 =:= Tag2 ->
+    Tag1 == Tag2 ->
       NewElements = list_decorate(Elements, Es, Opaques),
       NewAcc = [?tuple(NewElements, Arity, Tag1)|Acc],
       decorate_tuples_in_sets(Tuples, Ts, Opaques, NewAcc)
@@ -779,37 +778,6 @@ t_opaque_from_records(RecMap) ->
                  t_opaque(Module, Name, Args, Rep)
 	     end, OpaqueRecMap),
   [OpaqueType || {_Key, OpaqueType} <- maps:to_list(OpaqueTypeMap)].
-
-%% Decompose opaque instances of type arg2 to structured types, in arg1
-%% XXX: Same as t_unopaque
--spec t_struct_from_opaque(erl_type(), [erl_type()]) -> erl_type().
-
-t_struct_from_opaque(?function(Domain, Range), Opaques) ->
-  ?function(t_struct_from_opaque(Domain, Opaques),
-	    t_struct_from_opaque(Range, Opaques));
-t_struct_from_opaque(?list(Types, Term, Size), Opaques) ->
-  ?list(t_struct_from_opaque(Types, Opaques),
-        t_struct_from_opaque(Term, Opaques), Size);
-t_struct_from_opaque(?opaque(_) = T, Opaques) ->
-  case is_opaque_type(T, Opaques) of
-    true  -> t_opaque_structure(T);
-    false -> T
-  end;
-t_struct_from_opaque(?product(Types), Opaques) ->
-  ?product(list_struct_from_opaque(Types, Opaques));
-t_struct_from_opaque(?tuple(?any, _, _) = T, _Opaques) -> T;
-t_struct_from_opaque(?tuple(Types, Arity, Tag), Opaques) ->
-  ?tuple(list_struct_from_opaque(Types, Opaques), Arity, Tag);
-t_struct_from_opaque(?tuple_set(Set), Opaques) ->
-  NewSet = [{Sz, [t_struct_from_opaque(T, Opaques) || T <- Tuples]}
-	    || {Sz, Tuples} <- Set],
-  ?tuple_set(NewSet);
-t_struct_from_opaque(?union(List), Opaques) ->
-  t_sup(list_struct_from_opaque(List, Opaques));
-t_struct_from_opaque(Type, _Opaques) -> Type.
-
-list_struct_from_opaque(Types, Opaques) ->
-  [t_struct_from_opaque(Type, Opaques) || Type <- Types].
 
 %%-----------------------------------------------------------------------------
 %% Unit type. Signals non termination.
@@ -2716,9 +2684,9 @@ t_sup(?tuple(?any, ?any, ?any) = T, ?tuple_set(_)) -> T;
 t_sup(?tuple_set(_), ?tuple(?any, ?any, ?any) = T) -> T;
 t_sup(?tuple(Elements1, Arity, Tag1) = T1,
       ?tuple(Elements2, Arity, Tag2) = T2) ->
-  if Tag1 =:= Tag2 -> t_tuple(t_sup_lists(Elements1, Elements2));
-     Tag1 =:= ?any -> t_tuple(t_sup_lists(Elements1, Elements2));
-     Tag2 =:= ?any -> t_tuple(t_sup_lists(Elements1, Elements2));
+  if Tag1 == Tag2 -> t_tuple(t_sup_lists(Elements1, Elements2));
+     Tag1 == ?any -> t_tuple(t_sup_lists(Elements1, Elements2));
+     Tag2 == ?any -> t_tuple(t_sup_lists(Elements1, Elements2));
      Tag1 < Tag2 -> ?tuple_set([{Arity, [T1, T2]}]);
      Tag1 > Tag2 -> ?tuple_set([{Arity, [T2, T1]}])
   end;
@@ -2824,9 +2792,10 @@ sup_tuples_in_set([?tuple(Elements1, Arity, Tag1) = T1|Left1] = L1,
   if
     Tag1 < Tag2   -> sup_tuples_in_set(Left1, L2, [T1|Acc]);
     Tag1 > Tag2   -> sup_tuples_in_set(L1, Left2, [T2|Acc]);
-    Tag2 =:= Tag2 -> NewElements = t_sup_lists(Elements1, Elements2),
-		     NewAcc = [?tuple(NewElements, Arity, Tag1)|Acc],
-		     sup_tuples_in_set(Left1, Left2, NewAcc)
+    Tag1 == Tag2 ->
+      NewElements = t_sup_lists(Elements1, Elements2),
+      NewAcc = [?tuple(NewElements, Arity, Tag1)|Acc],
+      sup_tuples_in_set(Left1, Left2, NewAcc)
   end;
 sup_tuples_in_set([], L2, Acc) -> lists:reverse(Acc, L2);
 sup_tuples_in_set(L1, [], Acc) -> lists:reverse(Acc, L1).

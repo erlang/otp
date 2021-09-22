@@ -225,7 +225,7 @@ rcv_ext_types(Self, ExtTypes) ->
       lists:usort(ExtTypes)
   end.
 
--type fun_types() :: orddict:orddict(label(), erl_types:type_table()).
+-type fun_types() :: orddict:orddict(label(), erl_types:erl_type()).
 
 -spec check_contracts(orddict:orddict(mfa(), #contract{}),
 		      dialyzer_callgraph:callgraph(), fun_types(),

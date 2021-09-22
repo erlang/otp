@@ -72,11 +72,6 @@ clean(Tree) ->
       Args = clean_list(cerl:primop_args(Tree)),
       Name = cerl:primop_name(Tree),
       cerl:update_c_primop(Tree, Name, Args);
-    'receive' ->
-      Clauses = clean_clauses(cerl:receive_clauses(Tree)),
-      Timeout = clean(cerl:receive_timeout(Tree)),
-      Action = clean(cerl:receive_action(Tree)),
-      cerl:update_c_receive(Tree, Clauses, Timeout, Action);
     seq ->
       Arg = clean(cerl:seq_arg(Tree)),
       Body = clean(cerl:seq_body(Tree)),

@@ -31,6 +31,7 @@
 	 get_record_and_type_info/1,
 	 get_spec_info/3,
          get_fun_meta_info/3,
+         is_foldable/2,
          is_suppressed_fun/2,
          is_suppressed_tag/3,
          is_compiler_generated/1,
@@ -989,6 +990,32 @@ segs_from_bitstring(Bitstring) ->
 	      flags=#c_literal{val=[unsigned,big]}}].
 
 %%------------------------------------------------------------------------------
+
+
+%% Test whether the term can be folded into a literal.
+%% If the boolean `InMatch` indicates that the term is used in a
+%% match, folding is not possible if any literal in the term
+%% contains a map.
+
+-spec is_foldable(cerl:cerl(), boolean()) -> boolean().
+
+is_foldable(Tree, InMatch) ->
+  case cerl:type(Tree) of
+    cons ->
+      is_foldable(cerl:cons_hd(Tree), InMatch) andalso
+        is_foldable(cerl:cons_tl(Tree), InMatch);
+    tuple ->
+      is_foldable_list(cerl:tuple_es(Tree), InMatch);
+    literal ->
+      not (InMatch andalso find_map(cerl:concrete(Tree)));
+    _ ->
+      false
+  end.
+
+is_foldable_list([E|Es], InMatch) ->
+  is_foldable(E, InMatch) andalso is_foldable_list(Es, InMatch);
+is_foldable_list([], _InMatch) ->
+  true.
 
 -spec refold_pattern(cerl:cerl()) -> cerl:cerl().
 

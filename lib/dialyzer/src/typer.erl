@@ -161,7 +161,8 @@ get_type_info(#analysis{callgraph = CallGraph,
   try 
     NewPlt = dialyzer_succ_typings:analyze_callgraph(StrippedCallGraph,
                                                      TrustPLT,
-                                                     CodeServer),
+                                                     CodeServer,
+                                                     none, []),
     Analysis#analysis{callgraph = StrippedCallGraph, trust_plt = NewPlt}
   catch
     error:What:Stacktrace ->
