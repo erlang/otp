@@ -629,10 +629,26 @@ handle_alerts([], Result) ->
     Result;
 handle_alerts(_, {stop, _, _} = Stop) ->
     Stop;
-handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
-     handle_alerts(Alerts, ssl_gen_statem:handle_alert(Alert, StateName, State));
-handle_alerts([Alert | Alerts], {next_state, StateName, State, _Actions}) ->
-     handle_alerts(Alerts, ssl_gen_statem:handle_alert(Alert, StateName, State)).
+handle_alerts(Alerts, {next_state, StateName, State}) ->
+    handle_alerts_or_reset(Alerts, StateName, State);
+handle_alerts(Alerts, {next_state, StateName, State, _Actions}) ->
+    handle_alerts_or_reset(Alerts, StateName, State).
+
+handle_alerts_or_reset([Alert|Alerts], StateName, #state{connection_states = Cs} = State) ->
+    case maps:get(previous_cs, Cs, undefined) of
+        undefined ->
+            handle_alerts(Alerts, ssl_gen_statem:handle_alert(Alert, StateName, State));
+        PreviousConn ->
+            %% There exists an old connection and the new one sent alerts,
+            %% reset to the old working one.
+            HsEnv0 = State#state.handshake_env,
+            HsEnv  = HsEnv0#handshake_env{renegotiation = undefined},
+            NewState = State#state{connection_states = PreviousConn,
+                                   handshake_env = HsEnv
+                                  },
+            {next_state, connection, NewState}
+    end.
+
 
 handle_own_alert(Alert, StateName,
                  #state{static_env = #static_env{data_tag = udp,
@@ -643,10 +659,10 @@ handle_own_alert(Alert, StateName,
             log_ignore_alert(LogLevel, StateName, Alert, Role),
             {next_state, StateName, State};
         {false, State} ->
-            ssl_gen_statem:handle_own_alert(Alert, StateName, State)
+            dtls_connection:alert_or_reset_connection(Alert, StateName, State)
     end;
 handle_own_alert(Alert, StateName, State) ->
-    ssl_gen_statem:handle_own_alert(Alert, StateName, State).
+    dtls_connection:alert_or_reset_connection(Alert, StateName, State).
 
 ignore_alert(#alert{level = ?FATAL}, #state{protocol_specific = #{ignored_alerts := N,
                                                   max_ignored_alerts := N}} = State) ->
