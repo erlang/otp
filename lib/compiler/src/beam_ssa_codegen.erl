@@ -342,8 +342,6 @@ add_heap_float(#need{f=F}=N) ->
 
 classify_heap_need(put_list, _) ->
     {put,2};
-classify_heap_need(put_tuple_arity, [#b_literal{val=Words}]) ->
-    {put,Words+1};
 classify_heap_need(put_tuple, Elements) ->
     {put,length(Elements)+1};
 classify_heap_need(make_fun, Args) ->
@@ -380,8 +378,6 @@ classify_heap_need(bs_init) -> gc;
 classify_heap_need(bs_init_writable) -> gc;
 classify_heap_need(bs_match_string) -> gc;
 classify_heap_need(bs_put) -> neutral;
-classify_heap_need(bs_restore) -> neutral;
-classify_heap_need(bs_save) -> neutral;
 classify_heap_need(bs_get_position) -> gc;
 classify_heap_need(bs_set_position) -> neutral;
 classify_heap_need(bs_skip) -> gc;
@@ -409,7 +405,6 @@ classify_heap_need(new_try_tag) -> gc;
 classify_heap_need(old_make_fun) -> gc;
 classify_heap_need(peek_message) -> gc;
 classify_heap_need(put_map) -> gc;
-classify_heap_need(put_tuple_elements) -> neutral;
 classify_heap_need(raw_raise) -> gc;
 classify_heap_need(recv_marker_bind) -> neutral;
 classify_heap_need(recv_marker_clear) -> neutral;
@@ -1137,23 +1132,15 @@ cg_block([#cg_set{op=bs_init,dst=Dst0,args=Args0,anno=Anno}=I,
             Is = [Line,{bs_append,Fail,Bits,Alloc,Live,Unit,Src,Flags,Dst}],
             {Is,St}
     end;
-cg_block([#cg_set{anno=Anno,
-                  op=bs_start_match,
+cg_block([#cg_set{op=bs_start_match,
                   dst=Ctx0,
                   args=[#b_literal{val=new},Bin0]}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     [Dst,Bin1] = beam_args([Ctx0,Bin0], St),
     {Bin,Pre} = force_reg(Bin1, Dst),
     Live = get_live(I),
-    %% num_slots is only set when using the old instructions.
-    case maps:find(num_slots, Anno) of
-        {ok, Slots} ->
-            Is = Pre ++ [{test,bs_start_match2,Fail,Live,[Bin,Slots],Dst}],
-            {Is,St};
-        error ->
-            Is = Pre ++ [{test,bs_start_match3,Fail,Live,[Bin],Dst}],
-            {Is,St}
-    end;
+    Is = Pre ++ [{test,bs_start_match3,Fail,Live,[Bin],Dst}],
+    {Is,St};
 cg_block([#cg_set{op=bs_get}=Set,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     {cg_bs_get(Fail, Set, St),St};
@@ -1692,16 +1679,6 @@ cg_instr(Op, Args, Dst, _Set) ->
 
 cg_instr(bs_init_writable, Args, Dst) ->
     setup_args(Args) ++ [bs_init_writable|copy({x,0}, Dst)];
-cg_instr(bs_restore, [Ctx,Slot], _Dst) ->
-    case Slot of
-        {integer,N} ->
-            [{bs_restore2,Ctx,N}];
-        {atom,start} ->
-            [{bs_restore2,Ctx,Slot}]
-    end;
-cg_instr(bs_save, [Ctx,Slot], _Dst) ->
-    {integer,N} = Slot,
-    [{bs_save2,Ctx,N}];
 cg_instr(bs_set_position, [Ctx,Pos], _Dst) ->
     [{bs_set_position,Ctx,Pos}];
 cg_instr(build_stacktrace, Args, Dst) ->
@@ -1726,10 +1703,6 @@ cg_instr(nop, [], _Dst) ->
     [];
 cg_instr(put_tuple, Elements, Dst) ->
     [{put_tuple2,Dst,{list,Elements}}];
-cg_instr(put_tuple_arity, [{integer,Arity}], Dst) ->
-    [{put_tuple,Arity,Dst}];
-cg_instr(put_tuple_elements, Elements, _Dst) ->
-    [{put,E} || E <- Elements];
 cg_instr(raw_raise, Args, Dst) ->
     setup_args(Args) ++ [raw_raise|copy({x,0}, Dst)];
 cg_instr(recv_marker_bind, [Mark, Ref], _Dst) ->

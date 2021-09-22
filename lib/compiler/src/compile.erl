@@ -271,14 +271,6 @@ expand_opt(no_bsm4, Os) ->
     %% bsm4 instructions are only used when type optimization has determined
     %% that a match instruction won't fail.
     expand_opt(no_type_opt, Os);
-expand_opt(r18, Os) ->
-    expand_opt_before_21(Os);
-expand_opt(r19, Os) ->
-    expand_opt_before_21(Os);
-expand_opt(r20, Os) ->
-    expand_opt_before_21(Os);
-expand_opt(r21, Os) ->
-    expand_opt(r22, [no_put_tuple2 | expand_opt(no_bsm3, Os)]);
 expand_opt(r22, Os) ->
     expand_opt(r23, [no_shared_fun_wrappers, no_swap | expand_opt(no_bsm4, Os)]);
 expand_opt(r23, Os) ->
@@ -298,15 +290,10 @@ expand_opt(no_module_opt=O, Os) ->
     [O,no_recv_opt | Os];
 expand_opt(O, Os) -> [O|Os].
 
-expand_opt_before_21(Os) ->
-    [no_init_yregs, no_make_fun3, no_fun_opt,
-     no_shared_fun_wrappers, no_swap,
-     no_put_tuple2, no_get_hd_tl, no_ssa_opt_record,
-     no_utf8_atoms, no_recv_opt | expand_opt(no_bsm3, Os)].
-
-
 -spec format_error(error_description()) -> iolist().
 
+format_error({obsolete_option,Ver}) ->
+    io_lib:fwrite("the ~p option is no longer supported", [Ver]);
 format_error(no_crypto) ->
     "this system is not configured with crypto support.";
 format_error(bad_crypto_key) ->
@@ -1428,9 +1415,35 @@ expand_records(Code0, #compile{options=Opts}=St) ->
     Code = erl_expand_records:module(Code0, Opts),
     {ok,Code,St}.
 
-compile_directives(Forms, #compile{options=Opts0}=St) ->
-    Opts = expand_opts(flatten([C || {attribute,_,compile,C} <- Forms])),
-    {ok, Forms, St#compile{options=Opts ++ Opts0}}.
+compile_directives(Forms, #compile{options=Opts0}=St0) ->
+    Opts1 = expand_opts(flatten([C || {attribute,_,compile,C} <- Forms])),
+    Opts = Opts1 ++ Opts0,
+    St1 = St0#compile{options=Opts},
+    case any_obsolete_option(Opts) of
+        {yes,Opt} ->
+            Error = {St1#compile.ifile,[{none,?MODULE,{obsolete_option,Opt}}]},
+            St = St1#compile{errors=[Error|St1#compile.errors]},
+            {error,St};
+        no ->
+            {ok,Forms,St1}
+    end.
+
+any_obsolete_option([Opt|Opts]) ->
+    case is_obsolete(Opt) of
+        true -> {yes,Opt};
+        false -> any_obsolete_option(Opts)
+    end;
+any_obsolete_option([]) -> no.
+
+is_obsolete(r18) -> true;
+is_obsolete(r19) -> true;
+is_obsolete(r20) -> true;
+is_obsolete(r21) -> true;
+is_obsolete(no_bsm3) -> true;
+is_obsolete(no_get_hd_tl) -> true;
+is_obsolete(no_put_tuple2) -> true;
+is_obsolete(no_utf8_atoms) -> true;
+is_obsolete(_) -> false.
 
 core(Forms, #compile{options=Opts}=St) ->
     {ok,Core,Ws} = v3_core:module(Forms, Opts),

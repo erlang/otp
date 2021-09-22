@@ -847,8 +847,6 @@ vi({bs_start_match4,Fail,Live,Src,Dst}, Vst) ->
     validate_bs_start_match(Fail, Live, 0, Src, Dst, Vst);
 vi({test,bs_start_match3,{f,_}=Fail,Live,[Src],Dst}, Vst) ->
     validate_bs_start_match(Fail, Live, 0, Src, Dst, Vst);
-vi({test,bs_start_match2,{f,_}=Fail,Live,[Src,Slots],Dst}, Vst) ->
-    validate_bs_start_match(Fail, Live, Slots, Src, Dst, Vst);
 vi({test,bs_match_string,{f,Fail},[Ctx,Stride,{string,String}]}, Vst) ->
     true = is_bitstring(String),                %Assertion.
     validate_bs_skip(Fail, Ctx, Stride, Vst);
@@ -929,10 +927,6 @@ vi({test,_Op,{f,Lbl},Src}, Vst) ->
 %% Bit syntax positioning
 %%
 
-vi({bs_save2,Ctx,SavePoint}, Vst) ->
-    bsm_save(Ctx, SavePoint, Vst);
-vi({bs_restore2,Ctx,SavePoint}, Vst) ->
-    bsm_restore(Ctx, SavePoint, Vst);
 vi({bs_get_position, Ctx, Dst, Live}, Vst0) ->
     assert_type(#t_bs_context{}, Ctx, Vst0),
 
@@ -1841,41 +1835,6 @@ assert_unique_map_keys([_,_|_]=Ls) ->
     case length(Vs) =:= sets:size(sets:from_list(Vs, [{version, 2}])) of
 	true -> ok;
 	false -> error(keys_not_unique)
-    end.
-
-%%%
-%%% New binary matching instructions.
-%%%
-
-bsm_save(Reg, {atom,start}, Vst) ->
-    %% Save point refering to where the match started.
-    %% It is always valid. But don't forget to validate the context register.
-    assert_type(#t_bs_context{}, Reg, Vst),
-    Vst;
-bsm_save(Reg, SavePoint, Vst) ->
-    case get_movable_term_type(Reg, Vst) of
-        #t_bs_context{valid=Bits,slots=Slots}=Ctxt0 when SavePoint < Slots ->
-            Ctx = Ctxt0#t_bs_context{valid=Bits bor (1 bsl SavePoint),
-                                     slots=Slots},
-            override_type(Ctx, Reg, Vst);
-        _ ->
-            error({illegal_save, SavePoint})
-    end.
-
-bsm_restore(Reg, {atom,start}, Vst) ->
-    %% (Mostly) automatic save point refering to where the match started.
-    %% It is always valid. But don't forget to validate the context register.
-    assert_type(#t_bs_context{}, Reg, Vst),
-    Vst;
-bsm_restore(Reg, SavePoint, Vst) ->
-    case get_movable_term_type(Reg, Vst) of
-        #t_bs_context{valid=Bits,slots=Slots} when SavePoint < Slots ->
-            case Bits band (1 bsl SavePoint) of
-                0 -> error({illegal_restore, SavePoint, not_set});
-                _ -> Vst
-            end;
-        _ ->
-            error({illegal_restore, SavePoint, range})
     end.
 
 bsm_stride({integer, Size}, Unit) ->

@@ -171,8 +171,6 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
                        stp->beam.code.max_opcode, MAX_GENERIC_OPCODE);
     }
 
-    stp->otp_20_or_higher = (stp->beam.atoms.encoding == ERTS_ATOM_ENC_UTF8);
-
     if (!load_code(stp)) {
         goto load_error;
     }

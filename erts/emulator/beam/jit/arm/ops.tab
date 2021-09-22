@@ -55,12 +55,6 @@ func_info M=a a==am_module_info A=u==1 | label L | move n x==0 => too_old_compil
 
 bif1 Fail u$func:erlang:is_constant/1 Src Dst => too_old_compiler
 
-# Since the constant pool was introduced in R12B, empty tuples ({})
-# are literals. Therefore we no longer need to allow put_tuple/2
-# with a tuple size of zero.
-
-put_tuple u==0 d => too_old_compiler
-
 #
 # All the other instructions.
 #
@@ -423,21 +417,6 @@ is_ne f? s s
 # Code compiled with OTP 22 and later uses put_tuple2 to
 # to construct a tuple.
 #
-# Code compiled before OTP 22 uses put_tuple + one put instruction
-# per element. Translate to put_tuple2.
-#
-
-i_put_tuple/2
-put_tuple Arity Dst => i_put_tuple Dst u
-
-i_put_tuple Dst Arity Puts=* | put S1 | put S2 | \
-  put S3 | put S4 | put S5 => \
-	    tuple_append_put5(Arity, Dst, Puts, S1, S2, S3, S4, S5)
-
-i_put_tuple Dst Arity Puts=* | put S => \
-	    tuple_append_put(Arity, Dst, Puts, S)
-
-i_put_tuple Dst Arity Puts=* => put_tuple2 Dst Arity Puts
 
 put_tuple2 S A *
 
@@ -801,24 +780,6 @@ i_flush_stubs
 i_breakpoint_trampoline
 
 # ================================================================
-# Bit syntax matching obsoleted in OTP 22.
-# ================================================================
-
-%cold
-bs_start_match2 Fail=f ica X Y D => jump Fail
-bs_start_match2 Fail Bin X Y D => i_bs_start_match2 Bin Fail X Y D
-i_bs_start_match2 S f t t d
-
-bs_save2 Reg Index => bs_save(Reg, Index)
-i_bs_save2 x t
-
-bs_restore2 Reg Index => bs_restore(Reg, Index)
-i_bs_restore2 S t
-
-bs_context_to_binary S
-%warm
-
-# ================================================================
 # New bit syntax matching (R11B).
 # ================================================================
 
@@ -1095,36 +1056,16 @@ apply t
 apply_last t t
 
 #
-# Handle compatibility with OTP 17 here.
-#
-
-i_put_map_assoc/4
-
-# We KNOW that in OTP 20 (actually OTP 18 and higher), a put_map_assoc instruction
-# is always preceded by an is_map test. That means that put_map_assoc can never
-# fail and does not need any failure label.
-
-put_map_assoc Fail Map Dst Live Size Rest=* | compiled_with_otp_20_or_higher() => \
-	      i_put_map_assoc Map Dst Live Size Rest
-
-# Translate the put_map_assoc instruction if the module was compiled by a compiler
-# before 20. This is only necessary if the OTP 17 compiler was used, but we
-# have no safe and relatively easy way to know whether OTP 18/19 was used.
-
-put_map_assoc Fail=p Map Dst Live Size Rest=* => \
-	      ensure_map Map | i_put_map_assoc Map Dst Live Size Rest
-put_map_assoc Fail=f Map Dst Live Size Rest=* => \
-	      is_map Fail Map | i_put_map_assoc Map Dst Live Size Rest
-
-ensure_map Lit=q | literal_is_map(Lit) =>
-
-%cold
-ensure_map s
-%hot
-
-#
 # Map instructions. First introduced in R17.
 #
+
+# We KNOW that in OTP 18 and higher, a put_map_assoc instruction is
+# always preceded by an is_map test. That means that put_map_assoc can
+# never fail and does not need any failure label.
+
+put_map_assoc Fail Map Dst Live Size Rest=* => \
+	      i_put_map_assoc Map Dst Live Size Rest
+i_put_map_assoc/4
 
 sorted_put_map_assoc/4
 i_put_map_assoc Map Dst Live Size Rest=* | map_key_sort(Size, Rest) => \

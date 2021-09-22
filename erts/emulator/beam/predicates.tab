@@ -23,10 +23,6 @@ pred.never() {
     return 0;
 }
 
-pred.compiled_with_otp_20_or_higher() {
-    return S->otp_20_or_higher;
-}
-
 // Test whether a jump table can be used.
 pred.use_jump_tab(Size, Rest, MinSize) {
     Sint min, max;
@@ -142,15 +138,6 @@ pred.is_heavy_bif(Bif) {
     }
 
     return 0;
-}
-
-// Test whether the given literal is a map.
-pred.literal_is_map(Lit) {
-    Eterm term;
-
-    ASSERT(Lit.type == TAG_q);
-    term = beamfile_get_literal(&S->beam, Lit.val);
-    return is_map(term);
 }
 
 // Predicate to test whether all of the given new small map keys are literals

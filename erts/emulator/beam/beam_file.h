@@ -54,10 +54,6 @@ int iff_init(const byte *data, size_t size, IFF_File *iff);
 int iff_read_chunk(IFF_File *iff, Uint id, IFF_Chunk *chunk);
 
 typedef struct {
-    /* The encoding that was used to create this table. This is only used for
-     * version tests. */
-    ErtsAtomEncoding encoding;
-
     Sint32 count;
     Eterm *entries;
 } BeamFile_AtomTable;

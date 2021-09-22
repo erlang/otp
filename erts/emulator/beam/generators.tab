@@ -51,31 +51,6 @@ NativeEndian(flags) {
 #endif
 }
 
-gen_bs_save_restore(reg, index, instr) {
-    BeamOp* op;
-
-    $NewBeamOp(S, op);
-    $BeamOpNameArity(op, $instr, 2);
-    op->a[0] = $reg;
-    op->a[1] = $index;
-    if (Index.type == TAG_u) {
-        op->a[1].val = $index.val+1;
-    } else if ($index.type == TAG_a && $index.val == am_start) {
-        op->a[1].type = TAG_u;
-        op->a[1].val = 0;
-    }
-    return op;
-}
-
-gen.bs_save(Reg, Index) {
-    $gen_bs_save_restore(Reg, Index, i_bs_save2);
-}
-
-gen.bs_restore(Reg, Index) {
-    $gen_bs_save_restore(Reg, Index, i_bs_restore2);
-}
-
-
 // Generate an instruction to fetch a float from a binary.
 gen.get_float2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
     BeamOp* op;
@@ -408,46 +383,6 @@ gen.make_fun3(idx, Dst, NumFree, Env) {
     $BeamOpNameArity(op, i_lambda_error, 1);
     op->a[0].type = TAG_o;
     op->a[0].val = 0;
-    return op;
-}
-
-gen.tuple_append_put5(Arity, Dst, Puts, S1, S2, S3, S4, S5) {
-    BeamOp* op;
-    int arity = Arity.val;      /* Arity of tuple, not the instruction */
-    int i;
-
-    $NewBeamOp(S, op);
-    $BeamOpNameArity(op, i_put_tuple, 2);
-    $BeamOpArity(op, arity+2+5);
-    op->a[0] = Dst;
-    op->a[1].type = TAG_u;
-    op->a[1].val = arity + 5;
-    for (i = 0; i < arity; i++) {
-        op->a[i+2] = Puts[i];
-    }
-    op->a[arity+2] = S1;
-    op->a[arity+3] = S2;
-    op->a[arity+4] = S3;
-    op->a[arity+5] = S4;
-    op->a[arity+6] = S5;
-    return op;
-}
-
-gen.tuple_append_put(Arity, Dst, Puts, Src) {
-    BeamOp* op;
-    int arity = Arity.val;      /* Arity of tuple, not the instruction */
-    int i;
-
-    $NewBeamOp(S, op);
-    $BeamOpNameArity(op, i_put_tuple, 2);
-    $BeamOpArity(op, arity+2+1);
-    op->a[0] = Dst;
-    op->a[1].type = TAG_u;
-    op->a[1].val = arity + 1;
-    for (i = 0; i < arity; i++) {
-        op->a[i+2] = Puts[i];
-    }
-    op->a[arity+2] = Src;
     return op;
 }
 

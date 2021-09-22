@@ -142,9 +142,8 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, CompileInfo, Comp
 		      Code),
 
     %% Create the atom table chunk.
-    AtomEncoding = atom_encoding(CompilerOpts),
-    {NumAtoms, AtomTab} = beam_dict:atom_table(Dict, AtomEncoding),
-    AtomChunk = chunk(atom_chunk_name(AtomEncoding), <<NumAtoms:32>>, AtomTab),
+    {NumAtoms, AtomTab} = beam_dict:atom_table(Dict),
+    AtomChunk = chunk(<<"AtU8">>, <<NumAtoms:32>>, AtomTab),
 
     %% Create the import table chunk.
 
@@ -219,15 +218,6 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, CompileInfo, Comp
 		      CompileChunk,CheckedChunks,LineChunk]
 	     end,
     build_form(<<"BEAM">>, Chunks).
-
-atom_encoding(Opts) ->
-    case proplists:get_bool(no_utf8_atoms, Opts) of
-	false -> utf8;
-	true -> latin1
-    end.
-
-atom_chunk_name(utf8) -> <<"AtU8">>;
-atom_chunk_name(latin1) -> <<"Atom">>.
 
 %% finalize_fun_table(Essentials, MD5) -> FinalizedEssentials
 %%  Update the 'old_uniq' field in the entry for each fun in the
