@@ -590,6 +590,8 @@ normalize_format(Docs, #docs_v1{ format = <<"text/", _/binary>> }) when is_binar
 %%% Functions for rendering reference documentation
 render_function([], _D, _Config) ->
     {error,function_missing};
+render_function(FDocs, D, Config) when is_map(Config) ->
+    render_function(FDocs, D, init_config(D, Config));
 render_function(FDocs, #docs_v1{ docs = Docs } = D, Config) ->
     Grouping =
         lists:foldl(
@@ -602,7 +604,7 @@ render_function(FDocs, #docs_v1{ docs = Docs } = D, Config) ->
           end, #{}, lists:sort(FDocs)),
     lists:map(
       fun({Group,Members}) ->
-              Signatures = lists:flatmap(fun render_signature/1,lists:reverse(Members)),
+              Signatures = lists:flatmap(fun render_signature/1, lists:reverse(Members)),
               case lists:search(fun({_,_,_,Doc,_}) ->
                                         Doc =/= #{}
                                 end, Members) of
@@ -625,7 +627,7 @@ render_function(FDocs, #docs_v1{ docs = Docs } = D, Config) ->
 render_signature({{_Type,_F,_A},_Anno,_Sigs,_Docs,#{ signature := Specs } = Meta}) ->
     lists:flatmap(
       fun(ASTSpec) ->
-              PPSpec = erl_pp:attribute(ASTSpec,[{encoding,utf8}]),
+              PPSpec = erl_pp:attribute(ASTSpec,[{encoding,unicode}]),
               Spec =
                   case ASTSpec of
                       {_Attribute, _Line, opaque, _} ->
@@ -672,6 +674,8 @@ render_headers_and_docs(Headers, DocContents, #config{} = Config) ->
      render_docs(DocContents, 2, Config)].
 
 %%% Functions for rendering type/callback documentation
+render_signature_listing(Module, Type, D, Config) when is_map(Config) ->
+    render_signature_listing(Module, Type, D, init_config(D, Config));
 render_signature_listing(Module, Type, #docs_v1{ docs = Docs } = D, Config) ->
     Slogan = [{h2,[],[<<"\t",(atom_to_binary(Module))/binary>>]},{br,[],[]}],
     case lists:filter(fun({{T, _, _},_Anno,_Sig,_Doc,_Meta}) ->
@@ -705,7 +709,7 @@ render_typecb_docs(Docs, D, Config) ->
 %%% General rendering functions
 render_docs(DocContents, #config{} = Config) ->
     render_docs(DocContents, 0, Config).
-render_docs(DocContents, D, Config) when is_map(Config) ->
+render_docs(DocContents, D, Config) when is_record(D, docs_v1) ->
     render_docs(DocContents, 0, init_config(D, Config));
 render_docs(DocContents, Ind, D = #config{}) when is_integer(Ind) ->
     init_ansi(D),
@@ -716,7 +720,7 @@ render_docs(DocContents, Ind, D = #config{}) when is_integer(Ind) ->
         clean_ansi()
     end.
 
-init_config(D, Config) ->
+init_config(D, Config) when is_map(Config) ->
     DefaultOpts = io:getopts(),
     DefaultEncoding = proplists:get_value(encoding, DefaultOpts, latin1),
     Columns =
@@ -735,7 +739,9 @@ init_config(D, Config) ->
              encoding = maps:get(encoding, Config, DefaultEncoding),
              ansi = maps:get(ansi, Config, undefined),
              columns = Columns
-           }.
+           };
+init_config(D, Config) ->
+    Config#config{ docs = D }.
 
 render_docs(Elems,State,Pos,Ind,D) when is_list(Elems) ->
     lists:mapfoldl(fun(Elem,P) ->
@@ -873,13 +879,13 @@ render_element({dt,_,Content},[dl | _] = State,Pos,Ind,D) ->
 render_element({dd,_,Content},[dl | _] = State,Pos,Ind,D) ->
     trimnlnl(render_docs(Content, [li | State], Pos, Ind + 2, D));
 
-render_element(B, State, Pos, Ind,#config{ columns = Cols }) when is_binary(B) ->
+render_element(B, State, Pos, Ind, D) when is_binary(B) ->
     case lists:member(pre,State) of
         true ->
             Pre = string:replace(B,"\n",[nlpad(Ind)],all),
             {Pre, Pos + lastline(Pre)};
         _ ->
-            render_words(split_to_words(B),State,Pos,Ind,[[]],Cols)
+            render_words(split_to_words(B),State,Pos,Ind,[[]],D)
     end;
 
 render_element({Tag,Attr,Content}, State, Pos, Ind,D) ->
@@ -892,32 +898,41 @@ render_element({Tag,Attr,Content}, State, Pos, Ind,D) ->
     end,
     render_docs(Content, State, Pos, Ind,D).
 
-render_words(Words,[_,types|State],Pos,Ind,Acc,Cols) ->
+render_words(Words,[_,types|State],Pos,Ind,Acc,D) ->
     %% When we render words and are in the types->type state we indent
     %% the extra lines two additional spaces to make it look nice
-    render_words(Words,State,Pos,Ind+2,Acc,Cols);
-render_words([Word|T],State,Pos,Ind,Acc,Cols) when is_binary(Word) ->
+    render_words(Words,State,Pos,Ind+2,Acc,D);
+render_words([UnicodeWord|T],State,Pos,Ind,Acc,#config{ columns = Cols } = D)
+  when is_binary(UnicodeWord) ->
+    Word = translate(UnicodeWord, D),
     WordLength = string:length(Word),
     NewPos = WordLength + Pos,
     %% We do not want to add a newline if this word is only a punctuation
-    IsPunct = is_tuple(re:run(Word,"^\\W$",[unicode])),
+    IsPunct = re:run(Word,"^\\W$",[unicode]) =/= nomatch,
+
     if
         NewPos > (Cols - 10 - Ind), Word =/= <<>>, not IsPunct ->
             %% Word does not fit, time to add a newline and also pad to Indent level
-            render_words(T,State,WordLength+Ind+1,Ind,[[[nlpad(Ind), Word]]|Acc],Cols);
+            render_words(T,State,WordLength+Ind+1,Ind,[[[nlpad(Ind), Word]]|Acc],D);
         true ->
             %% Word does fit on line
             [Line | LineAcc] = Acc,
             %% Add + 1 to length for space
             NewPosSpc = NewPos+1,
-            render_words(T,State,NewPosSpc,Ind,[[Word|Line]|LineAcc],Cols)
+            render_words(T,State,NewPosSpc,Ind,[[Word|Line]|LineAcc],D)
     end;
-render_words([],_State,Pos,_Ind,Acc,_Cols) ->
+render_words([],_State,Pos,_Ind,Acc,_D) ->
     Lines = lists:map(fun(RevLine) ->
                             Line = lists:reverse(RevLine),
                             lists:join($ ,Line)
                       end,lists:reverse(Acc)),
     {iolist_to_binary(Lines), Pos}.
+
+%% If the encoding is not unicode, we translate all nbsp to sp
+translate(UnicodeWord, #config{ encoding = unicode }) ->
+    UnicodeWord;
+translate(UnicodeWord, #config{ encoding = latin1 }) ->
+    string:replace(UnicodeWord, [160], " ", all).
 
 render_type_signature(Name, #config{ docs = #docs_v1{ metadata = #{ types := AllTypes }}}) ->
     case [Type || Type = {TName,_} <- maps:keys(AllTypes), TName =:= Name] of
