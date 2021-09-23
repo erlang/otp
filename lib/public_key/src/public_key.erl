@@ -1103,27 +1103,10 @@ pkix_normalize_name(Issuer) ->
 				  {error, {bad_cert, Reason :: term()}}.
 %% Description: Performs a basic path validation according to RFC 5280.
 %%--------------------------------------------------------------------
-pkix_path_validation(PathErr, [Cert | Chain], Options0) when is_atom(PathErr)->
-    {VerifyFun, Userstat0} =
-	proplists:get_value(verify_fun, Options0, ?DEFAULT_VERIFYFUN),
-    Otpcert = otp_cert(Cert),
-    Reason = {bad_cert, PathErr},
-    try VerifyFun(Otpcert, Reason, Userstat0) of
-	{valid, Userstate} ->
-	    Options = proplists:delete(verify_fun, Options0),
-	    pkix_path_validation(Otpcert, Chain, [{verify_fun,
-						   {VerifyFun, Userstate}}| Options]);
-	{fail, UserReason} ->
-	    {error, UserReason}
-    catch
-	_:_ ->
-	    {error, Reason}
-    end;
 pkix_path_validation(TrustedCert, CertChain, Options)
   when is_binary(TrustedCert) ->
     OtpCert = pkix_decode_cert(TrustedCert, otp),
     pkix_path_validation(OtpCert, CertChain, Options);
-
 pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
   when is_list(CertChain), is_list(Options) ->
     MaxPathDefault = length(CertChain),
@@ -1139,8 +1122,23 @@ pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
     catch
         throw:{bad_cert, _} = Result ->
             {error, Result}
+    end;
+pkix_path_validation(PathErr, [Cert | Chain], Options0) when is_atom(PathErr)->
+    {VerifyFun, Userstat0} =
+	proplists:get_value(verify_fun, Options0, ?DEFAULT_VERIFYFUN),
+    Otpcert = otp_cert(Cert),
+    Reason = {bad_cert, PathErr},
+    try VerifyFun(Otpcert, Reason, Userstat0) of
+	{valid, Userstate} ->
+	    Options = proplists:delete(verify_fun, Options0),
+	    pkix_path_validation(Otpcert, Chain, [{verify_fun,
+						   {VerifyFun, Userstate}}| Options]);
+	{fail, UserReason} ->
+	    {error, UserReason}
+    catch
+	_:_ ->
+	    {error, Reason}
     end.
-
 %--------------------------------------------------------------------
 -spec pkix_crls_validate(OTPcertificate, DPandCRLs, Options) ->
                                 CRLstatus when OTPcertificate :: #'OTPCertificate'{},
