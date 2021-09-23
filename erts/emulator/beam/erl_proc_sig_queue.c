@@ -3251,7 +3251,7 @@ recv_marker_alloc(Process *c_p, ErtsRecvMarkerBlock **blkpp,
 }
 
 static ERTS_INLINE void
-recv_marker_insert(Process *c_p, ErtsRecvMarker *markp)
+recv_marker_insert(Process *c_p, ErtsRecvMarker *markp, int setting)
 {
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
     markp->sig.common.next = NULL;
@@ -3269,6 +3269,11 @@ recv_marker_insert(Process *c_p, ErtsRecvMarker *markp)
         *c_p->sig_qs.last = (ErtsMessage *) &markp->sig;
         c_p->sig_qs.last = &markp->sig.common.next;
 
+        if (!setting && *c_p->sig_qs.save == (ErtsMessage *) &markp->sig) {
+            markp->pass++;
+            c_p->sig_qs.save = c_p->sig_qs.last;
+        }
+        
 	ERTS_SIG_DBG_RECV_MARK_SET_HANDLED(&markp->sig);
     }
     else {
@@ -3305,7 +3310,7 @@ erts_msgq_recv_marker_create_insert(Process *c_p, Eterm uniq)
     ErtsRecvMarker *markp = recv_marker_alloc(c_p, blkpp, &ix, &new_uniq);
     if (!markp)
 	return am_undefined;
-    recv_marker_insert(c_p, markp);
+    recv_marker_insert(c_p, markp, 0);
     ASSERT(is_small(new_uniq) || is_big(new_uniq) || new_uniq == NIL
 	   || is_internal_ref(new_uniq));
     return new_uniq;
@@ -3319,7 +3324,7 @@ erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm id)
     ErtsRecvMarker *markp = recv_marker_alloc(c_p, blkpp, &ix, &id);
 
     if (markp) {
-	recv_marker_insert(c_p, markp);
+	recv_marker_insert(c_p, markp, !0);
 	erts_msgq_recv_marker_set_save__(c_p, *blkpp, markp, ix);
 	ASSERT(markp->in_sigq > 0);
 	ASSERT(!markp->in_msgq);
