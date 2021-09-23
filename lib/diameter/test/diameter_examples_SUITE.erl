@@ -33,31 +33,19 @@
          end_per_group/2]).
 
 %% testcases
--export([dict/1, dict/0,
+-export([dict/1,
          code/1,
-         slave/1, slave/0,
-         enslave/1,
          start/1,
-         traffic/1,
-         stop/1]).
+         traffic/1]).
 
 -export([install/1,
          call/1]).
 
 -include("diameter.hrl").
 
+-include_lib("common_test/include/ct.hrl").
+
 %% ===========================================================================
-
--define(util, diameter_util).
-
-%% The order here is significant and causes the server to listen
-%% before the clients connect.
--define(NODES, [server, client]).
-
-%% Options to ct_slave:start/2.
--define(TIMEOUTS, [{T, 15000} || T <- [boot_timeout,
-                                       init_timeout,
-                                       start_timeout]]).
 
 %% @inherits dependencies between example dictionaries. This is needed
 %% in order compile them in the right order. Can't compile to erl to
@@ -101,7 +89,7 @@ init_per_group(tcp = N, Config) ->
     [{group, N} | Config];
 
 init_per_group(sctp = N, Config) ->
-    case ?util:have_sctp() of
+    case diameter_util:have_sctp() of
         true ->
             [{group, N} | Config];
         false->
@@ -112,19 +100,12 @@ end_per_group(_, _) ->
     ok.
 
 tc() ->
-    [slave,
-     enslave,
-     start,
-     traffic,
-     stop].
+    [traffic].
 
 %% ===========================================================================
 %% dict/1
 %%
 %% Compile example dictionaries in examples/dict.
-
-dict() ->
-    [{timetrap, {minutes, 10}}].
 
 dict(_Config) ->
     Dirs = [filename:join(H ++ ["examples", "dict"])
@@ -225,14 +206,12 @@ make_name(Dict) ->
 %% Compile example code under examples/code.
 
 code(Config) ->
-    try
-        [] = rpc:call(slave(compile, here()),
-                      ?MODULE,
-                      install,
-                      [proplists:get_value(priv_dir, Config)])
-    after
-        {ok, _} = ct_slave:stop(compile)
-    end.
+    {ok, Peer, Node} = ?CT_PEER(),
+    [] = rpc:call(Node,
+                  ?MODULE,
+                  install,
+                  [proplists:get_value(priv_dir, Config)]),
+    peer:stop(Peer).
 
 %% Compile on another node since the code path may be modified.
 install(PrivDir) ->
@@ -252,7 +231,7 @@ install(PrivDir) ->
 %% under include in an installation. ("Installing" them locally is
 %% anathema.)
 install(Dir, PrivDir) ->
-    %% Remove the path added by slave/1 (needed for the rpc:call/4 in
+    %% Remove the path added to the peer (needed for the rpc:call/4 in
     %% compile/1 to find ?MODULE) so the call to code:lib_dir/2 below
     %% returns the installed path.
     [Ebin | _] = code:get_path(),
@@ -296,50 +275,6 @@ store(Path, Dict) ->
 
 %% ===========================================================================
 
-%% slave/1
-%%
-%% Return how long slave start/stop is taking since it seems to be
-%% ridiculously long on some hosts.
-
-slave() ->
-    [{timetrap, {minutes, 10}}].
-
-slave(_) ->
-    T0 = diameter_lib:now(),
-    {ok, Node} = ct_slave:start(?MODULE, ?TIMEOUTS),
-    T1 = diameter_lib:now(),
-    T2 = rpc:call(Node, diameter_lib, now, []),
-    {ok, Node} = ct_slave:stop(?MODULE),
-    now_diff([T0, T1, T2, diameter_lib:now()]).
-
-now_diff([T1,T2|_] = Ts) ->
-    [diameter_lib:micro_diff(T2,T1) | now_diff(tl(Ts))];
-now_diff(_) ->
-    [].
-
-%% ===========================================================================
-
-%% enslave/1
-%%
-%% Start two nodes: one for the server, one for the client.
-
-enslave(Config) ->
-    Prot = proplists:get_value(group, Config),
-    Dir = here(),
-    Nodes = [{S, slave(N, Dir)} || S <- ?NODES, N <- [concat(Prot, S)]],
-    ?util:write_priv(Config, Prot, Nodes).
-
-slave(Name, Dir) ->
-    {ok, Node} = ct_slave:start(Name, ?TIMEOUTS),
-    ok = rpc:call(Node,
-                  code,
-                  add_pathsa,
-                  [[Dir, filename:join([Dir, "..", "ebin"])]]),
-    Node.
-
-concat(Prot, Svc) ->
-    list_to_atom(atom_to_list(Prot) ++ atom_to_list(Svc)).
-
 here() ->
     filename:dirname(code:which(?MODULE)).
 
@@ -356,7 +291,7 @@ start({server, Prot}) ->
     ok = diameter:start(),
     ok = server:start(),
     {ok, Ref} = server:listen({Prot, any, 3868}),
-    [_] = ?util:lport(Prot, Ref),
+    [_] = diameter_util:lport(Prot, Ref),
     ok;
 
 start({client = Svc, Prot}) ->
@@ -364,14 +299,7 @@ start({client = Svc, Prot}) ->
     true = diameter:subscribe(Svc),
     ok = client:start(),
     {ok, Ref} = client:connect({Prot, loopback, loopback, 3868}),
-    receive #diameter_event{info = {up, Ref, _, _, _}} -> ok end;
-
-start(Config) ->
-    Prot = proplists:get_value(group, Config),
-    Nodes = ?util:read_priv(Config, Prot),
-    [] = [RC || {T,N} <- Nodes,
-                RC <- [rpc:call(N, ?MODULE, start, [{T, Prot}])],
-                RC /= ok].
+    receive #diameter_event{info = {up, Ref, _, _, _}} -> ok end.
 
 %% traffic/1
 %%
@@ -386,10 +314,13 @@ traffic(client) ->
 
 traffic(Config) ->
     Prot = proplists:get_value(group, Config),
-    Nodes = ?util:read_priv(Config, Prot),
-    [] = [RC || {T,N} <- Nodes,
-                RC <- [rpc:call(N, ?MODULE, traffic, [T])],
-                RC /= ok].
+    {ok, ServerPeer, ServerNode} = ?CT_PEER(),
+    ok = rpc:call(ServerNode, ?MODULE, start, [{server, Prot}]),
+    {ok, ClientPeer, ClientNode} = ?CT_PEER(),
+    ok = rpc:call(ClientNode, ?MODULE, start, [{client, Prot}]),
+    ok = rpc:call(ClientNode, ?MODULE, traffic, [client]),
+    peer:stop(ClientPeer),
+    peer:stop(ServerPeer).
 
 call(0) ->
     exit(ok);
@@ -397,14 +328,3 @@ call(0) ->
 call(N) ->
     {ok, _} = client:call(),
     call(N-1).
-
-%% stop/1
-
-stop(Name)
-  when is_atom(Name) ->
-    {ok, _Node} = ct_slave:stop(Name),
-    ok;
-
-stop(Config) ->
-    Prot = proplists:get_value(group, Config),
-    [] = [RC || N <- ?NODES, RC <- [catch stop(concat(Prot, N))], RC /= ok].
