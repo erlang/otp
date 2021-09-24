@@ -291,10 +291,7 @@ encode_plain_text(#inner_plaintext{
     %% structures are written directly onto the wire.
     #tls_cipher_text{opaque_type = Type,
                       legacy_version = {3,3},
-                      encoded_record = Data};
-
-encode_plain_text(_, CS) ->
-    exit({cs, CS}).
+                      encoded_record = Data}.
 
 additional_data(Length) ->
     <<?BYTE(?OPAQUE_TYPE), ?BYTE(3), ?BYTE(3),?UINT16(Length)>>.
