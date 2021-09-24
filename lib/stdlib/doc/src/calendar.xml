@@ -124,6 +124,13 @@
     <datatype>
       <name name="weeknum"/>
     </datatype>
+    <datatype>
+      <name name="rfc3339_time_unit"/>
+      <desc><note><p>
+        The <c>native</c> time unit was added to <c>rfc3339_time_unit()</c>
+        in OTP 25.0.</p></note>
+      </desc>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -321,7 +328,6 @@
       <name name="rfc3339_to_system_time" arity="2" since="OTP 21.0"/>
       <fsummary>Convert from RFC 3339 timestamp to system time.</fsummary>
       <type name="rfc3339_string"/>
-      <type name="rfc3339_time_unit"/>
       <desc>
         <p>Converts an RFC 3339 timestamp into system time. The data format
           of RFC 3339 timestamps is described by
@@ -378,7 +384,6 @@
       <fsummary>Convert from system to RFC 3339 timestamp.</fsummary>
       <type name="offset"/>
       <type name="rfc3339_string"/>
-      <type name="rfc3339_time_unit"/>
       <desc>
         <p>Converts a system time into an RFC 3339 timestamp. The data format
           of RFC 3339 timestamps is described by
@@ -401,12 +406,13 @@
 	  <tag><c>{unit, Unit}</c></tag>
 	  <item><p>The time unit of <c><anno>Time</anno></c>. The
 	    default is <c>second</c>. If some other unit is given
-	    (<c>millisecond</c>, <c>microsecond</c>, or
-	    <c>nanosecond</c>), the formatted string includes a
+	    (<c>millisecond</c>, <c>microsecond</c>, <c>nanosecond</c>, or
+            <c>native</c>), the formatted string includes a
 	    fraction of a second. The number of fractional second
 	    digits is three, six, or nine depending on what time unit
-	    is chosen. Notice that trailing zeros are not removed from
-	    the fraction.
+	    is chosen. For <c>native</c> three fractional digits are
+            included. Notice that trailing zeros are not removed from the
+            fraction.
             </p>
 	  </item>
 	</taglist>
