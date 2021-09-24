@@ -22,6 +22,8 @@
 %%----------------------------------------------------------------------
 %% Purpose: Common handling of a TLS/SSL/DTLS connection, see also
 %% tls_connection.erl and dtls_connection.erl
+%%
+%% NOTE: All alerts are thrown out of this module
 %%----------------------------------------------------------------------
 
 -module(tls_dtls_connection).
@@ -113,13 +115,11 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
     
     PremasterSecret = make_premaster_secret(ReqVersion, KeyAlgorithm),
 
-    {ExpectNPN, Protocol} = case Protocol0 of
-				undefined -> 
-
-				    {false, CurrentProtocol};
-				_ -> 
-				    {ProtoExt =:= npn, Protocol0}
-			    end,
+    {ExpectNPN, Protocol} =
+        case Protocol0 of
+            undefined -> {false, CurrentProtocol};
+            _ -> {ProtoExt =:= npn, Protocol0}
+        end,
 
     State = State0#state{connection_states = ConnectionStates,
 			 handshake_env = HsEnv#handshake_env{kex_algorithm = KeyAlgorithm,
@@ -163,9 +163,9 @@ hello(Type, Event, State) ->
                  #hello_request{} | term(), #state{}) ->
           gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-user_hello({call, From}, cancel, State) ->
+user_hello({call, From}, cancel, _State) ->
     gen_statem:reply(From, ok),
-    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled), ?FUNCTION_NAME, State);
+    throw(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled));
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
                   handshake_env = #handshake_env{hello = Hello},
@@ -208,7 +208,7 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
                                                       Connection),
 	    Connection:next_event(connection, Record, State, [{{timeout, handshake}, infinity, close}]);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0)
+            throw(Alert)
     end;
 abbreviated(internal, #finished{verify_data = Data} = Finished,
 	    #state{static_env = #static_env{role = client,
@@ -231,7 +231,7 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
                                                       Connection),
 	    Connection:next_event(connection, Record, State, [{{timeout, handshake}, infinity, close} | Actions]);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0)
+            throw(Alert)
     end;
 %% only allowed to send next_protocol message after change cipher spec
 %% & before finished message and it is not allowed during renegotiation
@@ -308,11 +308,8 @@ certify(info, Msg, State) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
 certify(internal, #certificate{asn1_certificates = []},
 	#state{static_env = #static_env{role = server},
-	       ssl_options = #{verify := verify_peer,
-                               fail_if_no_peer_cert := true}} =
-	    State) ->
-    Alert =  ?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE, no_client_certificate_provided),
-    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State);
+	       ssl_options = #{verify := verify_peer, fail_if_no_peer_cert := true}}) ->
+    throw(?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE, no_client_certificate_provided));
 certify(internal, #certificate{asn1_certificates = []},
 	#state{static_env = #static_env{role = server,
                                         protocol_cb = Connection},
@@ -322,10 +319,8 @@ certify(internal, #certificate{asn1_certificates = []},
     Connection:next_event(?FUNCTION_NAME, no_record, State0#state{client_certificate_requested = false});
 certify(internal, #certificate{},
 	#state{static_env = #static_env{role = server},
-	       ssl_options = #{verify := verify_none}} =
-	    State) ->
-    Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, unrequested_certificate),
-    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State);
+	       ssl_options = #{verify := verify_none}}) ->
+    throw(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, unrequested_certificate));
 certify(internal, #certificate{},
         #state{static_env = #static_env{protocol_cb = Connection},
                handshake_env = #handshake_env{
@@ -352,7 +347,7 @@ certify(internal, #certificate{asn1_certificates = [Peer|_]} = Cert,
 	        handle_peer_cert(Role, PeerCert, PublicKeyInfo,
                                  State#state{client_certificate_requested = false}, Connection, []);
         #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
+            throw(Alert)
     end;
 certify(internal, #server_key_exchange{exchange_keys = Keys},
         #state{static_env = #static_env{role = client,
@@ -394,13 +389,12 @@ certify(internal, #server_key_exchange{exchange_keys = Keys},
                                                  session = session_handle_params(Params#server_key_params.params, Session)},
                     Connection);
 		false ->
-		    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?DECRYPT_ERROR),
-						?FUNCTION_NAME, State)
+                    throw(?ALERT_REC(?FATAL, ?DECRYPT_ERROR))
 	    end
     end;
 certify(internal, #certificate_request{},
 	#state{static_env = #static_env{role = client},
-               handshake_env = #handshake_env{kex_algorithm = KexAlg}} = State)
+               handshake_env = #handshake_env{kex_algorithm = KexAlg}})
   when KexAlg == dh_anon; 
        KexAlg == ecdh_anon;
        KexAlg == psk; 
@@ -410,8 +404,7 @@ certify(internal, #certificate_request{},
        KexAlg == srp_dss; 
        KexAlg == srp_rsa; 
        KexAlg == srp_anon ->
-    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE),
-                     ?FUNCTION_NAME, State);
+    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE));
 certify(internal, #certificate_request{},
 	#state{static_env = #static_env{role = client,
                                         protocol_cb = Connection},
@@ -439,7 +432,7 @@ certify(internal, #certificate_request{} = CertRequest,
            case ssl_handshake:select_hashsign(CertRequest, Cert,
                                               SupportedHashSigns, TLSVersion) of
                #alert {} = Alert ->
-                   ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State);
+                   throw(Alert);
                SelectedHashSign ->
                    Connection:next_event(?FUNCTION_NAME, no_record,
                                          State#state{client_certificate_requested = true,
@@ -458,7 +451,7 @@ certify(internal, #server_hello_done{},
   when KexAlg == psk ->
     case ssl_handshake:premaster_secret({KexAlg, PSKIdentity}, PSKLookup) of
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0);
+            throw(Alert);
 	PremasterSecret ->
 	    State = master_secret(PremasterSecret,
 				  State0#state{handshake_env =
@@ -480,7 +473,7 @@ certify(internal, #server_hello_done{},
     case ssl_handshake:premaster_secret({KexAlg, PSKIdentity}, PSKLookup, 
 					RSAPremasterSecret) of
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0);
+            throw(Alert);
 	PremasterSecret ->
 	    State = master_secret(PremasterSecret, 
 				  State0#state{handshake_env = 
@@ -501,7 +494,7 @@ certify(internal, #server_hello_done{},
 	    State = State0#state{connection_states = ConnectionStates},
 	    client_certify_and_key_exchange(State, Connection);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0)
+            throw(Alert)
     end;
 %% Master secret is calculated from premaster_secret
 certify(internal, #server_hello_done{},
@@ -519,15 +512,14 @@ certify(internal, #server_hello_done{},
 				 session = Session},
 	    client_certify_and_key_exchange(State, Connection);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0)
+            throw(Alert)
     end;
 certify(internal = Type, #client_key_exchange{} = Msg,
 	#state{static_env = #static_env{role = server},
 	       client_certificate_requested = true,
-	       ssl_options = #{fail_if_no_peer_cert := true}} = State) ->
+	       ssl_options = #{fail_if_no_peer_cert := true}}) ->
     %% We expect a certificate here
-    Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, {unexpected_msg, {Type, Msg}}),
-    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State);
+    throw(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, {unexpected_msg, {Type, Msg}}));
 certify(internal, #client_key_exchange{exchange_keys = Keys},
 	State = #state{handshake_env = #handshake_env{kex_algorithm = KeyAlg}, 
                        static_env = #static_env{protocol_cb = Connection},
@@ -537,7 +529,7 @@ certify(internal, #client_key_exchange{exchange_keys = Keys},
 				    State, Connection)
     catch
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
+            throw(Alert)
     end;
 certify(internal, #hello_request{}, _) ->
     keep_state_and_data;
@@ -574,14 +566,14 @@ cipher(internal, #certificate_verify{signature = Signature,
 	    Connection:next_event(?FUNCTION_NAME, no_record,
 				  State#state{handshake_env = HsEnv#handshake_env{cert_hashsign_algorithm = HashSign}});
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
+            throw(Alert)
     end;
 %% client must send a next protocol message if we are expecting it
 cipher(internal, #finished{},
        #state{static_env = #static_env{role = server},
               handshake_env = #handshake_env{expecting_next_protocol_negotiation = true,
-                                             negotiated_protocol = undefined}} = State0) ->
-    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE), ?FUNCTION_NAME, State0);
+                                             negotiated_protocol = undefined}}) ->
+    throw(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE));
 cipher(internal, #finished{verify_data = Data} = Finished,
        #state{static_env = #static_env{role = Role,
                                        host = Host,
@@ -603,7 +595,7 @@ cipher(internal, #finished{verify_data = Data} = Finished,
 	    cipher_role(Role, Data, Session,
 			State#state{handshake_env = HsEnv#handshake_env{expecting_finished = false}});
         #alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
+            throw(Alert)
     end;
 %% only allowed to send next_protocol message after change cipher spec
 %% & before finished message and it is not allowed during renegotiation
@@ -682,13 +674,9 @@ downgrade(Type, Event, State) ->
     ssl_gen_statem:handle_common_event(Type, Event, ?FUNCTION_NAME, State).
 
 gen_handshake(StateName, Type, Event, State) ->
-    try
-        tls_dtls_connection:StateName(Type, Event, State)
-    catch
-        _:_ ->
-            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
-                                                       malformed_handshake_data),
-                                            StateName, State)
+    try tls_dtls_connection:StateName(Type, Event, State)
+    catch error:_ ->
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data))
     end.
 
 %%--------------------------------------------------------------------
@@ -817,18 +805,12 @@ new_server_hello(#server_hello{cipher_suite = CipherSuite,
 			      session_id = SessionId},
                  #state{session = Session0,
                         static_env = #static_env{protocol_cb = Connection}} = State0, Connection) ->
-    try server_certify_and_key_exchange(State0, Connection) of
-        #state{} = State1 ->
-            {State, Actions} = server_hello_done(State1, Connection),
-	    Session =
-		Session0#session{session_id = SessionId,
-				 cipher_suite = CipherSuite,
-				 compression_method = Compression},
-	    Connection:next_event(certify, no_record, State#state{session = Session}, Actions)
-    catch
-        #alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, hello, State0)
-    end.
+    #state{} = State1 = server_certify_and_key_exchange(State0, Connection),
+    {State, Actions} = server_hello_done(State1, Connection),
+    Session = Session0#session{session_id = SessionId,
+                               cipher_suite = CipherSuite,
+                               compression_method = Compression},
+    Connection:next_event(certify, no_record, State#state{session = Session}, Actions).
 
 resumed_server_hello(#state{session = Session,
 			    connection_states = ConnectionStates0,
@@ -844,7 +826,7 @@ resumed_server_hello(#state{session = Session,
 		finalize_handshake(State1, abbreviated, Connection),
 	    Connection:next_event(abbreviated, no_record, State, Actions);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, hello, State0)
+            throw(Alert)
     end.
 
 server_hello(ServerHello, State0, Connection) ->
@@ -914,17 +896,10 @@ verify_client_cert(#state{client_certificate_requested = false} = State, _) ->
     State.
 
 client_certify_and_key_exchange(State0, Connection) ->
-    try do_client_certify_and_key_exchange(State0, Connection) of
-        State1 = #state{} ->
-	    {State2, Actions} = finalize_handshake(State1, certify, Connection),
-            State = State2#state{
-                      %% Reinitialize
-                      client_certificate_requested = false},
-	    Connection:next_event(cipher, no_record, State, Actions)
-    catch
-        throw:#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, certify, State0)
-    end.
+    State1 = do_client_certify_and_key_exchange(State0, Connection),
+    {State2, Actions} = finalize_handshake(State1, certify, Connection),
+    State = State2#state{client_certificate_requested = false},     %% Reinitialize
+    Connection:next_event(cipher, no_record, State, Actions).
 
 do_client_certify_and_key_exchange(State0, Connection) ->
     State1 = certify_client(State0, Connection),
@@ -954,10 +929,10 @@ certify_client_key_exchange(#encrypted_premaster_secret{premaster_secret= EncPMS
                 end;
             _ -> %% erlang:byte_size(Secret) =/= ?NUM_OF_PREMASTERSECRET_BYTES
                 FakeSecret
-        catch 
+        catch
             #alert{description = ?DECRYPT_ERROR} ->
                 FakeSecret
-        end,    
+        end,
     calculate_master_secret(PremasterSecret, State, Connection, certify, cipher);
 certify_client_key_exchange(#client_diffie_hellman_public{dh_public = ClientPublicDhKey},
 			    #state{handshake_env = #handshake_env{diffie_hellman_params = #'DHParameter'{} = Params,
@@ -1178,12 +1153,7 @@ key_exchange(#state{static_env = #static_env{role = server},
        KexAlg == srp_rsa;
        KexAlg == srp_anon ->
     SrpParams = handle_srp_identity(Username, LookupFun),
-    Keys = case generate_srp_server_keys(SrpParams, 0) of
-	       Alert = #alert{} ->
-		   throw(Alert);
-	       Keys0 = {_,_} ->
-		   Keys0
-	   end,
+    Keys = generate_srp_server_keys(SrpParams, 0),
     #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
     #security_parameters{client_random = ClientRandom,
@@ -1290,7 +1260,7 @@ rsa_key_exchange(Version, PremasterSecret, PublicKeyInfo = {Algorithm, _, _})
 			       {premaster_secret, PremasterSecret,
 				PublicKeyInfo});
 rsa_key_exchange(_, _, _) ->
-    throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE, pub_key_is_not_rsa)).
+    throw(?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE, pub_key_is_not_rsa)).
 
 rsa_psk_key_exchange(Version, PskIdentity, PremasterSecret, 
 		     PublicKeyInfo = {Algorithm, _, _})
@@ -1307,7 +1277,7 @@ rsa_psk_key_exchange(Version, PskIdentity, PremasterSecret,
 			       {psk_premaster_secret, PskIdentity, PremasterSecret,
 				PublicKeyInfo});
 rsa_psk_key_exchange(_, _, _, _) ->
-    throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE, pub_key_is_not_rsa)).
+    throw(?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE, pub_key_is_not_rsa)).
 
 request_client_cert(#state{handshake_env = #handshake_env{kex_algorithm = Alg}} = State, _)
   when Alg == dh_anon; 
@@ -1355,7 +1325,7 @@ calculate_master_secret(PremasterSecret,
 				  session = Session},
 	    Connection:next_event(Next, no_record, State);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, certify, State0)
+            throw(Alert)
     end.
 
 finalize_handshake(State0, StateName, Connection) ->
@@ -1469,7 +1439,7 @@ calculate_secret(#server_srp_params{srp_n = Prime, srp_g = Generator} = ServerKe
 			    certify, certify).
 
 master_secret(#alert{} = Alert, _) ->
-    Alert;
+    throw(Alert);
 master_secret(PremasterSecret, #state{static_env = #static_env{role = Role},
                                       connection_env = #connection_env{negotiated_version = Version},
                                       session = Session,
@@ -1482,11 +1452,11 @@ master_secret(PremasterSecret, #state{static_env = #static_env{role = Role},
 		  Session#session{master_secret = MasterSecret},
 	      connection_states = ConnectionStates};
 	#alert{} = Alert ->
-	    Alert
+	    throw(Alert)
     end.
 
 generate_srp_server_keys(_SrpParams, 10) ->
-    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
 generate_srp_server_keys(SrpParams =
 			     #srp_user{generator = Generator, prime = Prime,
 				       verifier = Verifier}, N) ->
@@ -1499,9 +1469,8 @@ generate_srp_server_keys(SrpParams =
     end.
 
 generate_srp_client_keys(_Generator, _Prime, 10) ->
-    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
 generate_srp_client_keys(Generator, Prime, N) ->
-
     try crypto:generate_key(srp, {user, [Generator, Prime, '6a']}) of
 	Keys ->
 	    Keys
@@ -1634,7 +1603,7 @@ handle_resumed_session(SessId, #state{static_env = #static_env{host = Host,
                                                             connection_states = ConnectionStates,
                                                             session = Session});
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, hello, State)
+            throw(Alert)
     end.
 
 make_premaster_secret({MajVer, MinVer}, rsa) ->
@@ -1663,8 +1632,8 @@ handle_sni_extension(#state{static_env =
     case ssl_gen_statem:handle_sni_extension(PossibleSNI, State0) of
         {ok, State} ->
             State;
-        {error, Alert} ->
-            Alert
+        {error, #alert{}=Alert} ->
+            throw(Alert)
     end.
 
 ensure_tls({254, _} = Version) -> 

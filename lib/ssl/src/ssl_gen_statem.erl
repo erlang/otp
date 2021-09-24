@@ -686,7 +686,11 @@ downgrade(info, {CloseTag, Socket},
 downgrade(info, Info, State) ->
     tls_gen_connection:handle_info(Info, ?FUNCTION_NAME, State);
 downgrade(Type, Event, State) ->
-     tls_dtls_connection:?FUNCTION_NAME(Type, Event, State).
+    try
+        tls_dtls_connection:?FUNCTION_NAME(Type, Event, State)
+    catch throw:#alert{} = Alert ->
+            handle_own_alert(Alert, ?FUNCTION_NAME, State)
+    end.
 
 %%====================================================================
 %%  Event/Msg handling

@@ -486,14 +486,12 @@ getopts(Transport, Socket, Tag) ->
 
 %% raw data from socket, unpack records
 handle_info({Protocol, _, _, _, Data}, StateName,
-            #state{static_env = #static_env{role = Role,
-                                            data_tag = Protocol}} = State0) ->
+            #state{static_env = #static_env{data_tag = Protocol}} = State0) ->
     case next_dtls_record(Data, StateName, State0) of
 	{Record, State} ->
 	    next_event(StateName, Record, State);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State0),
-            {stop, {shutdown, own_alert}, State0}
+            handle_own_alert(Alert, StateName, State0)
     end;
 
 handle_info({PassiveTag, Socket}, StateName,

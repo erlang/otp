@@ -108,7 +108,7 @@ hello(#server_hello{server_version = Version, random = Random,
 					   Compression, HelloExt, SslOpt, 
                                            ConnectionStates0, Renegotiation, IsNew);
 	false ->
-	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
+	    throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION))
     end.
 hello(#client_hello{client_version = ClientVersion} = Hello,
       #{versions := Versions} = SslOpts,
@@ -195,13 +195,13 @@ handle_client_hello(Version,
 					       SslOpts, OwnCert),
 	    case CipherSuite of
 		no_suite ->
-		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
+		    throw(?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY));
 		_ ->
 		    #{key_exchange := KeyExAlg} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
 		    case ssl_handshake:select_hashsign({ClientHashSigns, undefined}, OwnCert, KeyExAlg,
 						       SupportedHashSigns, TLSVersion) of
 			#alert{} = Alert ->
-			    Alert;
+			    throw(Alert);
 			HashSign ->
 			    handle_client_hello_extensions(Version, Type, Random, CipherSuites, HelloExt,
 							   SslOpts, Session1, ConnectionStates0,
@@ -209,33 +209,27 @@ handle_client_hello(Version,
 		    end
 	    end;
 	false ->
-	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
+	    throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION))
     end.
 
 handle_client_hello_extensions(Version, Type, Random, CipherSuites,
 			HelloExt, SslOpts, Session0, ConnectionStates0, Renegotiation, HashSign) ->
-    try ssl_handshake:handle_client_hello_extensions(dtls_record, Random, CipherSuites,
-						     HelloExt, dtls_v1:corresponding_tls_version(Version),
-						     SslOpts, Session0, 
+    {Session, ConnectionStates, Protocol, ServerHelloExt} =
+        ssl_handshake:handle_client_hello_extensions(dtls_record, Random, CipherSuites,
+                                                     HelloExt, dtls_v1:corresponding_tls_version(Version),
+                                                     SslOpts, Session0, 
                                                      ConnectionStates0, Renegotiation,
-                                                     Session0#session.is_resumable) of
-	{Session, ConnectionStates, Protocol, ServerHelloExt} ->
-	    {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt, HashSign}
-    catch throw:Alert ->
-	    Alert
-    end.
+                                                     Session0#session.is_resumable),
+    {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt, HashSign}.
 
 handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 			       Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation, IsNew) ->
-    try ssl_handshake:handle_server_hello_extensions(dtls_record, Random, CipherSuite,
+    {ConnectionStates, ProtoExt, Protocol, OcspState} =
+        ssl_handshake:handle_server_hello_extensions(dtls_record, Random, CipherSuite,
                                                      Compression, HelloExt,
                                                      dtls_v1:corresponding_tls_version(Version),
-                                                     SslOpt, ConnectionStates0, Renegotiation, IsNew) of
-	{ConnectionStates, ProtoExt, Protocol, OcspState} ->
-	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol, OcspState}
-    catch throw:Alert ->
-	    Alert
-    end.
+                                                     SslOpt, ConnectionStates0, Renegotiation, IsNew),
+    {Version, SessionId, ConnectionStates, ProtoExt, Protocol, OcspState}.
 
 %%--------------------------------------------------------------------
 

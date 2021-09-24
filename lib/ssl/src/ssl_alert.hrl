@@ -26,6 +26,7 @@
 
 -ifndef(ssl_alert).
 -define(ssl_alert, true).
+%%-define(ssl_debug, true).
 -include_lib("kernel/include/logger.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -114,8 +115,14 @@
 -define(CERTIFICATE_REQUIRED, 116).
 -define(NO_APPLICATION_PROTOCOL, 120).
 
--define(ALERT_REC(Level,Desc), #alert{level=Level,description=Desc,where= ?LOCATION}).
--define(ALERT_REC(Level,Desc,Reason), #alert{level=Level,description=Desc,where=?LOCATION,reason=Reason}).
+-ifdef(ssl_debug).
+-define(ST_LOCATION, fun(Map) -> Map#{st => process_info(self(), current_stacktrace)} end (?LOCATION)).
+-else.
+-define(ST_LOCATION, ?LOCATION).
+-endif.
+
+-define(ALERT_REC(Level,Desc), #alert{level=Level,description=Desc,where= ?ST_LOCATION}).
+-define(ALERT_REC(Level,Desc,Reason), #alert{level=Level,description=Desc,where=?ST_LOCATION,reason=Reason}).
 
 -define(MAX_ALERTS, 10).
 
