@@ -155,7 +155,7 @@ encode_handshake(Handshake, Version, Seq) ->
 
 %%--------------------------------------------------------------------
 -spec get_dtls_handshake(ssl_record:ssl_version(), binary(), #protocol_buffers{}, ssl_options()) ->
-                                {[dtls_handshake()], #protocol_buffers{}}.                
+                                {[{dtls_handshake(), binary()}], #protocol_buffers{}}.                
 %%
 %% Description:  Given buffered and new data from dtls_record, collects
 %% and returns it as a list of handshake messages, also returns 
