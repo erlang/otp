@@ -233,7 +233,7 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello, #state{ss
                 {ServerHelloExt, Type, State} ->
                     {next_state, hello, State, [{next_event, internal, {common_client_hello, Type, ServerHelloExt}}]};
                 Alert ->
-                    ssl_gen_statem:handle_own_alert(Alert, ClientVersion, hello,
+                    ssl_gen_statem:handle_own_alert(Alert, hello,
                                                         State0#state{connection_env = CEnv#connection_env{negotiated_version
                                                                                                           = ClientVersion}})
             end
@@ -249,7 +249,7 @@ hello(internal, #server_hello{} = Hello,
 	     ssl_options = SslOptions} = State) ->   
     case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
         #alert{} = Alert -> 
-            ssl_gen_statem:handle_own_alert(Alert, ReqVersion, hello,
+            ssl_gen_statem:handle_own_alert(Alert, hello,
                                             State#state{connection_env =
                                                             CEnv#connection_env{negotiated_version = ReqVersion}
                                                        });
@@ -520,28 +520,26 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello, State
     end.
 
 
-gen_info(Event, connection = StateName,  #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
-    try tls_gen_connection:handle_info(Event, StateName, State) of
-	Result ->
-	    Result
-    catch 
+gen_info(Event, connection = StateName, State) ->
+    try
+        tls_gen_connection:handle_info(Event, StateName, State)
+    catch
         _:_ ->
 	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR,
-						       malformed_data), 
-					    Version, StateName, State)  
+						       malformed_data),
+					    StateName, State)
     end;
 
-gen_info(Event, StateName, #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
-    try tls_gen_connection:handle_info(Event, StateName, State) of
-	Result ->
-	    Result
-    catch 
+gen_info(Event, StateName, State) ->
+    try
+        tls_gen_connection:handle_info(Event, StateName, State)
+    catch
         _:_ ->
 	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
-						       malformed_handshake_data), 
-					    Version, StateName, State)  
+						       malformed_handshake_data),
+					    StateName, State)
     end.
-	    
+
 ensure_sender_terminate(downgrade, _) ->
     ok; %% Do not terminate sender during downgrade phase 
 ensure_sender_terminate(_,  #state{protocol_specific = #{sender := Sender}}) ->

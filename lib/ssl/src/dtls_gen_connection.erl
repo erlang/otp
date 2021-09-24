@@ -182,8 +182,7 @@ next_event(StateName, no_record,
 	    %% TODO maybe buffer later epoch
             next_event(StateName, no_record, State, Actions); 
 	{#alert{} = Alert, State} ->
-            Version = State#state.connection_env#connection_env.negotiated_version,
-            handle_own_alert(Alert, Version, StateName, State)
+            handle_own_alert(Alert, StateName, State)
     end;
 next_event(connection = StateName, Record,
 	   #state{connection_states = #{current_read := #{epoch := CurrentEpoch}}} = State0, Actions) ->
@@ -223,8 +222,7 @@ next_event(StateName, Record,
 	    %% TODO maybe buffer later epoch
             next_event(StateName, no_record, State0, Actions); 
 	#alert{} = Alert ->
-	    Version = State0#state.connection_env#connection_env.negotiated_version,
-            handle_own_alert(Alert, Version, StateName, State0)
+            handle_own_alert(Alert, StateName, State0)
     end.
 
 initial_flight_state(udp)->
@@ -352,19 +350,18 @@ handle_protocol_record(#ssl_tls{type = ?HANDSHAKE,
                                                      = unprocessed_events(Events)}}, Events}
 	end
     catch throw:#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, StateName, State)
+	    handle_own_alert(Alert, StateName, State)
     end;
 %%% DTLS record protocol level change cipher messages
 handle_protocol_record(#ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = Data}, StateName, State) ->
     {next_state, StateName, State, [{next_event, internal, #change_cipher_spec{type = Data}}]};
 %%% DTLS record protocol level Alert messages
-handle_protocol_record(#ssl_tls{type = ?ALERT, fragment = EncAlerts}, StateName,
-                       #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
+handle_protocol_record(#ssl_tls{type = ?ALERT, fragment = EncAlerts}, StateName, State) ->
     case decode_alerts(EncAlerts) of
 	Alerts = [_|_] ->
 	    handle_alerts(Alerts,  {next_state, StateName, State});
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, StateName, State)
+	    handle_own_alert(Alert, StateName, State)
     end;
 %% Ignore unknown TLS record level protocol messages
 handle_protocol_record(#ssl_tls{type = _Unknown}, StateName, State) ->
@@ -626,7 +623,7 @@ handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
 handle_alerts([Alert | Alerts], {next_state, StateName, State, _Actions}) ->
      handle_alerts(Alerts, ssl_gen_statem:handle_alert(Alert, StateName, State)).
 
-handle_own_alert(Alert, Version, StateName,
+handle_own_alert(Alert, StateName,
                  #state{static_env = #static_env{data_tag = udp,
                                                  role = Role},
                         ssl_options = #{log_level := LogLevel}} = State0) ->
@@ -635,10 +632,11 @@ handle_own_alert(Alert, Version, StateName,
             log_ignore_alert(LogLevel, StateName, Alert, Role),
             {next_state, StateName, State};
         {false, State} ->
-            ssl_gen_statem:handle_own_alert(Alert, Version, StateName, State)
+            ssl_gen_statem:handle_own_alert(Alert, StateName, State)
     end;
-handle_own_alert(Alert, Version, StateName, State) ->
-    ssl_gen_statem:handle_own_alert(Alert, Version, StateName, State).
+handle_own_alert(Alert, StateName, State) ->
+    ssl_gen_statem:handle_own_alert(Alert, StateName, State).
+
 ignore_alert(#alert{level = ?FATAL}, #state{protocol_specific = #{ignored_alerts := N,
                                                   max_ignored_alerts := N}} = State) ->
     {false, State};

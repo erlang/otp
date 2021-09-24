@@ -163,10 +163,9 @@ hello(Type, Event, State) ->
                  #hello_request{} | term(), #state{}) ->
           gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-user_hello({call, From}, cancel, #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
+user_hello({call, From}, cancel, State) ->
     gen_statem:reply(From, ok),
-    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled),
-                     Version, ?FUNCTION_NAME, State);
+    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled), ?FUNCTION_NAME, State);
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
                   handshake_env = #handshake_env{hello = Hello},
@@ -209,7 +208,7 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
                                                       Connection),
 	    Connection:next_event(connection, Record, State, [{{timeout, handshake}, infinity, close}]);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
+	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0)
     end;
 abbreviated(internal, #finished{verify_data = Data} = Finished,
 	    #state{static_env = #static_env{role = client,
@@ -232,7 +231,7 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
                                                       Connection),
 	    Connection:next_event(connection, Record, State, [{{timeout, handshake}, infinity, close} | Actions]);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
+	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0)
     end;
 %% only allowed to send next_protocol message after change cipher spec
 %% & before finished message and it is not allowed during renegotiation
@@ -309,12 +308,11 @@ certify(info, Msg, State) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
 certify(internal, #certificate{asn1_certificates = []},
 	#state{static_env = #static_env{role = server},
-               connection_env = #connection_env{negotiated_version = Version},
 	       ssl_options = #{verify := verify_peer,
                                fail_if_no_peer_cert := true}} =
 	    State) ->
     Alert =  ?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE, no_client_certificate_provided),
-    ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
+    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State);
 certify(internal, #certificate{asn1_certificates = []},
 	#state{static_env = #static_env{role = server,
                                         protocol_cb = Connection},
@@ -324,11 +322,10 @@ certify(internal, #certificate{asn1_certificates = []},
     Connection:next_event(?FUNCTION_NAME, no_record, State0#state{client_certificate_requested = false});
 certify(internal, #certificate{},
 	#state{static_env = #static_env{role = server},
-               connection_env = #connection_env{negotiated_version = Version},
 	       ssl_options = #{verify := verify_none}} =
 	    State) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, unrequested_certificate),
-    ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
+    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State);
 certify(internal, #certificate{},
         #state{static_env = #static_env{protocol_cb = Connection},
                handshake_env = #handshake_env{
@@ -355,7 +352,7 @@ certify(internal, #certificate{asn1_certificates = [Peer|_]} = Cert,
 	        handle_peer_cert(Role, PeerCert, PublicKeyInfo,
                                  State#state{client_certificate_requested = false}, Connection, []);
         #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
+            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
     end;
 certify(internal, #server_key_exchange{exchange_keys = Keys},
         #state{static_env = #static_env{role = client,
@@ -398,13 +395,12 @@ certify(internal, #server_key_exchange{exchange_keys = Keys},
                     Connection);
 		false ->
 		    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?DECRYPT_ERROR),
-						Version, ?FUNCTION_NAME, State)
+						?FUNCTION_NAME, State)
 	    end
     end;
 certify(internal, #certificate_request{},
 	#state{static_env = #static_env{role = client},
-               handshake_env = #handshake_env{kex_algorithm = KexAlg},
-               connection_env = #connection_env{negotiated_version = Version}} = State)
+               handshake_env = #handshake_env{kex_algorithm = KexAlg}} = State)
   when KexAlg == dh_anon; 
        KexAlg == ecdh_anon;
        KexAlg == psk; 
@@ -415,7 +411,7 @@ certify(internal, #certificate_request{},
        KexAlg == srp_rsa; 
        KexAlg == srp_anon ->
     ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE),
-                     Version, ?FUNCTION_NAME, State);
+                     ?FUNCTION_NAME, State);
 certify(internal, #certificate_request{},
 	#state{static_env = #static_env{role = client,
                                         protocol_cb = Connection},
@@ -443,7 +439,7 @@ certify(internal, #certificate_request{} = CertRequest,
            case ssl_handshake:select_hashsign(CertRequest, Cert,
                                               SupportedHashSigns, TLSVersion) of
                #alert {} = Alert ->
-                   ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
+                   ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State);
                SelectedHashSign ->
                    Connection:next_event(?FUNCTION_NAME, no_record,
                                          State#state{client_certificate_requested = true,
@@ -455,7 +451,6 @@ certify(internal, #server_hello_done{},
 	#state{static_env = #static_env{role = client,
                                         protocol_cb = Connection},
                session = #session{master_secret = undefined},
-               connection_env = #connection_env{negotiated_version = Version},
                handshake_env = #handshake_env{kex_algorithm = KexAlg,
                                               premaster_secret = undefined,
                                               server_psk_identity = PSKIdentity} = HsEnv,
@@ -463,7 +458,7 @@ certify(internal, #server_hello_done{},
   when KexAlg == psk ->
     case ssl_handshake:premaster_secret({KexAlg, PSKIdentity}, PSKLookup) of
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0);
+	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0);
 	PremasterSecret ->
 	    State = master_secret(PremasterSecret,
 				  State0#state{handshake_env =
@@ -473,7 +468,7 @@ certify(internal, #server_hello_done{},
 certify(internal, #server_hello_done{},
 	#state{static_env = #static_env{role = client,
                                        protocol_cb = Connection},
-               connection_env = #connection_env{negotiated_version = {Major, Minor}} = Version,
+               connection_env = #connection_env{negotiated_version = {Major, Minor}},
                handshake_env = #handshake_env{kex_algorithm = KexAlg,
                                               premaster_secret = undefined,
                                               server_psk_identity = PSKIdentity} = HsEnv,
@@ -485,7 +480,7 @@ certify(internal, #server_hello_done{},
     case ssl_handshake:premaster_secret({KexAlg, PSKIdentity}, PSKLookup, 
 					RSAPremasterSecret) of
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0);
+	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0);
 	PremasterSecret ->
 	    State = master_secret(PremasterSecret, 
 				  State0#state{handshake_env = 
@@ -506,7 +501,7 @@ certify(internal, #server_hello_done{},
 	    State = State0#state{connection_states = ConnectionStates},
 	    client_certify_and_key_exchange(State, Connection);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
+	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0)
     end;
 %% Master secret is calculated from premaster_secret
 certify(internal, #server_hello_done{},
@@ -524,16 +519,15 @@ certify(internal, #server_hello_done{},
 				 session = Session},
 	    client_certify_and_key_exchange(State, Connection);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
+	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0)
     end;
 certify(internal = Type, #client_key_exchange{} = Msg,
 	#state{static_env = #static_env{role = server},
 	       client_certificate_requested = true,
-               connection_env = #connection_env{negotiated_version = Version},
 	       ssl_options = #{fail_if_no_peer_cert := true}} = State) ->
     %% We expect a certificate here
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, {unexpected_msg, {Type, Msg}}),
-    ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
+    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State);
 certify(internal, #client_key_exchange{exchange_keys = Keys},
 	State = #state{handshake_env = #handshake_env{kex_algorithm = KeyAlg}, 
                        static_env = #static_env{protocol_cb = Connection},
@@ -543,7 +537,7 @@ certify(internal, #client_key_exchange{exchange_keys = Keys},
 				    State, Connection)
     catch
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
+	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
     end;
 certify(internal, #hello_request{}, _) ->
     keep_state_and_data;
@@ -580,15 +574,14 @@ cipher(internal, #certificate_verify{signature = Signature,
 	    Connection:next_event(?FUNCTION_NAME, no_record,
 				  State#state{handshake_env = HsEnv#handshake_env{cert_hashsign_algorithm = HashSign}});
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
+	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
     end;
 %% client must send a next protocol message if we are expecting it
 cipher(internal, #finished{},
        #state{static_env = #static_env{role = server},
               handshake_env = #handshake_env{expecting_next_protocol_negotiation = true,
-                                             negotiated_protocol = undefined},
-              connection_env = #connection_env{negotiated_version = Version}} = State0) ->
-    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE), Version, ?FUNCTION_NAME, State0);
+                                             negotiated_protocol = undefined}} = State0) ->
+    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE), ?FUNCTION_NAME, State0);
 cipher(internal, #finished{verify_data = Data} = Finished,
        #state{static_env = #static_env{role = Role,
                                        host = Host,
@@ -610,7 +603,7 @@ cipher(internal, #finished{verify_data = Data} = Finished,
 	    cipher_role(Role, Data, Session,
 			State#state{handshake_env = HsEnv#handshake_env{expecting_finished = false}});
         #alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
+	    ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
     end;
 %% only allowed to send next_protocol message after change cipher spec
 %% & before finished message and it is not allowed during renegotiation
@@ -688,16 +681,14 @@ connection(Type, Event, State) ->
 downgrade(Type, Event, State) ->
     ssl_gen_statem:handle_common_event(Type, Event, ?FUNCTION_NAME, State).
 
-gen_handshake(StateName, Type, Event,
-	      #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
-    try tls_dtls_connection:StateName(Type, Event, State) of
-	Result ->
-	    Result
+gen_handshake(StateName, Type, Event, State) ->
+    try
+        tls_dtls_connection:StateName(Type, Event, State)
     catch
         _:_ ->
             ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
                                                        malformed_handshake_data),
-                                            Version, StateName, State)
+                                            StateName, State)
     end.
 
 %%--------------------------------------------------------------------
@@ -825,8 +816,7 @@ new_server_hello(#server_hello{cipher_suite = CipherSuite,
 			      compression_method = Compression,
 			      session_id = SessionId},
                  #state{session = Session0,
-                        static_env = #static_env{protocol_cb = Connection},
-                        connection_env = #connection_env{negotiated_version = Version}} = State0, Connection) ->
+                        static_env = #static_env{protocol_cb = Connection}} = State0, Connection) ->
     try server_certify_and_key_exchange(State0, Connection) of
         #state{} = State1 ->
             {State, Actions} = server_hello_done(State1, Connection),
@@ -837,7 +827,7 @@ new_server_hello(#server_hello{cipher_suite = CipherSuite,
 	    Connection:next_event(certify, no_record, State#state{session = Session}, Actions)
     catch
         #alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, hello, State0)
+	    ssl_gen_statem:handle_own_alert(Alert, hello, State0)
     end.
 
 resumed_server_hello(#state{session = Session,
@@ -854,7 +844,7 @@ resumed_server_hello(#state{session = Session,
 		finalize_handshake(State1, abbreviated, Connection),
 	    Connection:next_event(abbreviated, no_record, State, Actions);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, hello, State0)
+	    ssl_gen_statem:handle_own_alert(Alert, hello, State0)
     end.
 
 server_hello(ServerHello, State0, Connection) ->
@@ -923,8 +913,7 @@ verify_client_cert(#state{static_env = #static_env{role = client},
 verify_client_cert(#state{client_certificate_requested = false} = State, _) ->
     State.
 
-client_certify_and_key_exchange(#state{connection_env = #connection_env{negotiated_version = Version}} =
-                                    State0, Connection) ->
+client_certify_and_key_exchange(State0, Connection) ->
     try do_client_certify_and_key_exchange(State0, Connection) of
         State1 = #state{} ->
 	    {State2, Actions} = finalize_handshake(State1, certify, Connection),
@@ -934,7 +923,7 @@ client_certify_and_key_exchange(#state{connection_env = #connection_env{negotiat
 	    Connection:next_event(cipher, no_record, State, Actions)
     catch
         throw:#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, certify, State0)
+	    ssl_gen_statem:handle_own_alert(Alert, certify, State0)
     end.
 
 do_client_certify_and_key_exchange(State0, Connection) ->
@@ -1366,7 +1355,7 @@ calculate_master_secret(PremasterSecret,
 				  session = Session},
 	    Connection:next_event(Next, no_record, State);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, certify, State0)
+	    ssl_gen_statem:handle_own_alert(Alert, certify, State0)
     end.
 
 finalize_handshake(State0, StateName, Connection) ->
@@ -1645,7 +1634,7 @@ handle_resumed_session(SessId, #state{static_env = #static_env{host = Host,
                                                             connection_states = ConnectionStates,
                                                             session = Session});
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, hello, State)
+	    ssl_gen_statem:handle_own_alert(Alert, hello, State)
     end.
 
 make_premaster_secret({MajVer, MinVer}, rsa) ->
