@@ -186,9 +186,7 @@ remove_lines_block([]) -> [].
 %%%
 
 fix_bs_create_bin(Fs, Opts) ->
-    %% Force translation to old instructions before we have actually
-    %% implemented the `bs_create_bin` instruction.
-    case true orelse proplists:get_bool(no_bs_create_bin, Opts) of
+    case proplists:get_bool(no_bs_create_bin, Opts) of
         false -> Fs;
         true -> fold_functions(fun fix_bs_create_bin/1, Fs)
     end.

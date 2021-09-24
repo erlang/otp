@@ -28,7 +28,7 @@
 	 huge_float_field/1, system_limit/1, badarg/1,
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
 	 otp_7422/1, zero_width/1, bad_append/1, bs_append_overflow/1,
-         reductions/1, fp16/1]).
+         reductions/1, fp16/1, error_info/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -41,7 +41,7 @@ all() ->
      in_guard, mem_leak, coerce_to_float, bjorn, append_empty_is_same,
      huge_float_field, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
-     bad_append, bs_append_overflow, reductions, fp16].
+     bad_append, bs_append_overflow, reductions, fp16, error_info].
 
 init_per_suite(Config) ->
     Config.
@@ -935,9 +935,6 @@ reds_at_least(N, Fun) ->
         Diff ->
             ct:fail({expected,N,got,Diff})
     end.
-
-id(I) -> I.
-
 memsize() ->
     application:ensure_all_started(os_mon),
     {Tot,_Used,_}  = memsup:get_memory_data(),
@@ -984,3 +981,123 @@ fp16(_Config) ->
     ?FP16(16#4000, 2),
     ?FP16(16#4000, 2.0),
     ok.
+
+-define(ERROR_INFO(Expr),
+        fun() ->
+                try Expr of
+                    _ ->
+                        error(should_fail)
+                catch
+                    error:Reason:Stk ->
+                        error_info_verify(Reason, Stk, ??Expr)
+                end
+        end()).
+
+error_info(_Config) ->
+    Atom = id(some_atom),
+    NegSize = id(-1),
+    HugeNegSize = id(-1 bsl 64),
+    Binary = id(<<"abc">>),
+    HugeBig = id(1 bsl 1500),
+    LongList = lists:seq(1, 100),
+
+    {badarg, {1,binary,type,Atom}} = ?ERROR_INFO(<<Atom/binary, Binary/binary>>),
+    {badarg, {2,binary,type,Atom}} = ?ERROR_INFO(<<Binary/binary, Atom/binary>>),
+    {badarg, {3,binary,type,Atom}} = ?ERROR_INFO(<<1:32, Binary/binary, Atom/binary>>),
+    {badarg, {4,binary,type,Atom}} = ?ERROR_INFO(<<1:32, "xyz", Binary/binary, Atom/binary>>),
+
+    {badarg, {1,integer,type,Atom}} = ?ERROR_INFO(<<Atom:32>>),
+    {badarg, {1,integer,type,Atom}} = ?ERROR_INFO(<<Atom:(id(32))>>),
+    {badarg, {1,integer,type,LongList}} = ?ERROR_INFO(<<LongList:32>>),
+    {badarg, {1,integer,size,Atom}} = ?ERROR_INFO(<<42:Atom>>),
+    {badarg, {1,integer,type,Atom}} = ?ERROR_INFO(<<Atom:32>>),
+    {badarg, {1,integer,size,NegSize}} = ?ERROR_INFO(<<42:NegSize>>),
+    {badarg, {1,integer,size,HugeNegSize}} = ?ERROR_INFO(<<42:HugeNegSize>>),
+    {system_limit, {1,integer,size,1 bsl 58}} = ?ERROR_INFO(<<42:(1 bsl 58)/unit:255>>),
+    {system_limit, {1,integer,size,1 bsl 60}} = ?ERROR_INFO(<<42:(1 bsl 60)/unit:8>>),
+    {system_limit, {1,integer,size,1 bsl 64}} = ?ERROR_INFO(<<42:(1 bsl 64)>>),
+
+    {badarg, {1,binary,type,Atom}} = ?ERROR_INFO(<<Atom:10/binary>>),
+    {badarg, {1,binary,type,Atom}} = ?ERROR_INFO(<<Atom:(id(10))/binary>>),
+    {badarg, {1,binary,size,Atom}} = ?ERROR_INFO(<<Binary:Atom/binary>>),
+    {badarg, {1,binary,size,NegSize}} = ?ERROR_INFO(<<Binary:NegSize/binary>>),
+    {badarg, {1,binary,size,HugeNegSize}} = ?ERROR_INFO(<<Binary:HugeNegSize/binary>>),
+    {badarg, {1,binary,short,Binary}} = ?ERROR_INFO(<<Binary:10/binary>>),
+    {badarg, {1,binary,short,Binary}} = ?ERROR_INFO(<<Binary:(id(10))/binary>>),
+    {badarg, {1,binary,type,Atom}} = ?ERROR_INFO(<<Atom/binary>>),
+    {badarg, {1,binary,unit,<<1:1>>}} = ?ERROR_INFO(<<(id(<<1:1>>))/binary>>),
+    {badarg, {1,binary,unit,<<0:1111>>}} = ?ERROR_INFO(<<(id(<<0:1111>>))/binary>>),
+    {badarg, {2,binary,unit,<<1:1>>}} = ?ERROR_INFO(<<0, (id(<<1:1>>))/binary>>),
+    {badarg, {2,binary,unit,<<0:1111>>}} = ?ERROR_INFO(<<0, (id(<<0:1111>>))/binary>>),
+    {system_limit, {1,binary,size,1 bsl 64}} = ?ERROR_INFO(<<Binary:(1 bsl 64)/binary>>),
+    {system_limit, {1,binary,size,1 bsl 64}} = ?ERROR_INFO(<<Binary:(id(1 bsl 64))/binary>>),
+
+    {badarg, {1,float,type,Atom}} = ?ERROR_INFO(<<Atom:64/float>>),
+    {badarg, {1,float,size,Atom}} = ?ERROR_INFO(<<Atom:Atom/float>>),
+    {badarg, {1,float,size,NegSize}} = ?ERROR_INFO(<<42.0:NegSize/float>>),
+    {badarg, {1,float,size,HugeNegSize}} = ?ERROR_INFO(<<42.0:HugeNegSize/float>>),
+    {badarg, {1,float,invalid,1}} = ?ERROR_INFO(<<42.0:(id(1))/float>>),
+    {badarg, {1,float,no_float,HugeBig}} = ?ERROR_INFO(<<HugeBig:(id(64))/float>>),
+    {badarg, {1,float,no_float,HugeBig}} = ?ERROR_INFO(<<HugeBig:64/float>>),
+    {system_limit, {1,float,size,1 bsl 64}} = ?ERROR_INFO(<<42.0:(id(1 bsl 64))/float>>),
+
+    {badarg, {1,utf8,type,Atom}} = ?ERROR_INFO(<<Atom/utf8>>),
+    {badarg, {1,utf16,type,Atom}} = ?ERROR_INFO(<<Atom/utf16>>),
+    {badarg, {1,utf32,type,Atom}} = ?ERROR_INFO(<<Atom/utf32>>),
+
+    Bin = id(<<>>),
+    Float = id(42.0),
+    MaxSmall = (1 bsl 59) - 1,                  %Max small for 64-bit architectures.
+
+    %% Attempt constructing a binary with total size 1^64 + 32.
+
+    {system_limit, {1,integer,size,MaxSmall}} = ?ERROR_INFO(<<0:(MaxSmall)/unit:32,0:64>>),
+    {system_limit, {1,integer,size,MaxSmall}} = ?ERROR_INFO(<<0:(MaxSmall)/unit:32,(id(0)):64>>),
+    {system_limit, {1,integer,size,MaxSmall}} = ?ERROR_INFO(<<0:(id(MaxSmall))/unit:32,0:64>>),
+    {system_limit, {1,integer,size,MaxSmall}} = ?ERROR_INFO(<<0:(id(MaxSmall))/unit:32,(id(0)):64>>),
+
+    {system_limit, {1,binary,size,MaxSmall}} = ?ERROR_INFO(<<Bin:(MaxSmall)/binary-unit:32,0:64>>),
+    {system_limit, {1,binary,size,MaxSmall}} = ?ERROR_INFO(<<Bin:(MaxSmall)/binary-unit:32,(id(0)):64>>),
+    {system_limit, {1,binary,size,MaxSmall}} = ?ERROR_INFO(<<Bin:(id(MaxSmall))/binary-unit:32,0:64>>),
+    {system_limit, {1,binary,size,MaxSmall}} = ?ERROR_INFO(<<Bin:(id(MaxSmall))/binary-unit:32,(id(0)):64>>),
+
+    {system_limit, {1,float,size,MaxSmall}} = ?ERROR_INFO(<<Float:(MaxSmall)/float-unit:32,0:64>>),
+    {system_limit, {1,float,size,MaxSmall}} = ?ERROR_INFO(<<Float:(MaxSmall)/float-unit:32,(id(0)):64>>),
+    {system_limit, {1,float,size,MaxSmall}} = ?ERROR_INFO(<<Float:(id(MaxSmall))/float-unit:32,0:64>>),
+    {system_limit, {1,float,size,MaxSmall}} = ?ERROR_INFO(<<Float:(id(MaxSmall))/float-unit:32,(id(0)):64>>),
+
+    %% Test a size exceeding 1^64, where the sign bit (bit 63) is not set.
+    0 = (((MaxSmall) * 33) bsr 63) band 1, %Assertion: The sign bit is not set.
+
+    {system_limit, {1,integer,size,MaxSmall}} = ?ERROR_INFO(<<0:(MaxSmall)/unit:33>>),
+    {system_limit, {1,integer,size,MaxSmall}} = ?ERROR_INFO(<<0:(MaxSmall)/unit:33>>),
+    {system_limit, {1,integer,size,MaxSmall}} = ?ERROR_INFO(<<0:(id(MaxSmall))/unit:33>>),
+    {system_limit, {1,integer,size,MaxSmall}} = ?ERROR_INFO(<<0:(id(MaxSmall))/unit:33>>),
+
+    {system_limit, {1,binary,size,MaxSmall}} = ?ERROR_INFO(<<Bin:(MaxSmall)/binary-unit:33>>),
+    {system_limit, {1,binary,size,MaxSmall}} = ?ERROR_INFO(<<Bin:(MaxSmall)/binary-unit:33>>),
+    {system_limit, {1,binary,size,MaxSmall}} = ?ERROR_INFO(<<Bin:(id(MaxSmall))/binary-unit:33>>),
+    {system_limit, {1,binary,size,MaxSmall}} = ?ERROR_INFO(<<Bin:(id(MaxSmall))/binary-unit:33>>),
+
+    {system_limit, {1,float,size,MaxSmall}} = ?ERROR_INFO(<<Float:(MaxSmall)/float-unit:33>>),
+    {system_limit, {1,float,size,MaxSmall}} = ?ERROR_INFO(<<Float:(MaxSmall)/float-unit:33>>),
+    {system_limit, {1,float,size,MaxSmall}} = ?ERROR_INFO(<<Float:(id(MaxSmall))/float-unit:33>>),
+    {system_limit, {1,float,size,MaxSmall}} = ?ERROR_INFO(<<Float:(id(MaxSmall))/float-unit:33>>),
+
+    ok.
+
+error_info_verify(Reason, Stk, Expr) ->
+    [{?MODULE, _, _, Info}|_] = Stk,
+    {error_info, ErrorInfo} = lists:keyfind(error_info, 1, Info),
+    #{cause := Cause, module := Module, function := Function} = ErrorInfo,
+    Result = Module:Function(Reason, Stk),
+    #{general := String} = Result,
+    true = is_binary(String),
+    io:format("~ts: ~ts\n", [Expr,String]),
+    {Reason, Cause}.
+
+%%%
+%%% Common utilities.
+%%%
+
+id(I) -> I.

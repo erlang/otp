@@ -563,3 +563,72 @@ gen.func_end(Func_Label, Entry_Label) {
 
     return op;
 }
+
+gen.create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments) {
+    BeamOp* op;
+    int fixed_args;
+    int i;
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, i_bs_create_bin, 4);
+    fixed_args = op->arity;
+    $BeamOpArity(op, (N.val + fixed_args));
+
+    op->a[0] = Fail;
+    op->a[1] = Alloc;
+    op->a[2] = Live;
+    op->a[3] = Dst;
+
+    for (i = 0; i < N.val; i += 6) {
+        BeamOpArg Flags;
+        Uint flags = 0;
+
+        /* Copy all but flags. */
+        op->a[i+fixed_args+0] = Segments[i+0];
+        op->a[i+fixed_args+1] = Segments[i+1];
+        op->a[i+fixed_args+2] = Segments[i+2];
+        op->a[i+fixed_args+4] = Segments[i+4];
+        op->a[i+fixed_args+5] = Segments[i+5];
+
+        /* Translate flags. */
+        Flags = Segments[i+3];              /* Flags */
+        if (Flags.type != TAG_n) {
+            if (Flags.type == TAG_q) {
+                Eterm term = beamfile_get_literal(&S->beam, Flags.val);
+                while (is_list(term)) {
+                    Eterm* consp = list_val(term);
+                    Eterm elem = CAR(consp);
+                    switch (elem) {
+                    case am_little:
+                        flags |= BSF_LITTLE;
+                        break;
+                    case am_native:
+                        flags |= BSF_NATIVE;
+                        break;
+                    }
+                    term = CDR(consp);
+                }
+                ASSERT(is_nil(term));
+            }
+        }
+        Flags.type = TAG_u;
+        Flags.val = flags;
+        $NativeEndian(Flags);
+        op->a[i+fixed_args+3] = Flags;
+    }
+
+    if (op->a[4].val == am_private_append && Alloc.val != 0) {
+        BeamOp* th;
+        $NewBeamOp(S, th);
+        $BeamOpNameArity(th, test_heap, 2);
+        th->a[0] = Alloc;
+        th->a[1] = Live;
+        th->next = op;
+
+        op->a[1].val = 0;
+
+        op = th;
+    }
+
+    return op;
+}

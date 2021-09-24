@@ -996,10 +996,13 @@ save_stacktrace(Process* c_p, ErtsCodePtr pc, Eterm* reg,
 
 	args = make_arglist(c_p, reg, bif_mfa->arity);
     } else {
+        if (c_p->freason & EXF_HAS_EXT_INFO && is_map(c_p->fvalue)) {
+            error_info = c_p->fvalue;
+        }
 
     non_bif_stacktrace:
-
 	s->current = c_p->current;
+
         /*
 	 * For a function_clause error, the arguments are in the beam
 	 * registers and c_p->current is set.

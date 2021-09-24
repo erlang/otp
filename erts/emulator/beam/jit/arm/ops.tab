@@ -893,9 +893,19 @@ bs_skip_utf32 Fail=f Ms=xy Live=u Flags=u => \
 i_bs_validate_unicode_retract j s S
 %hot
 
-#
-# Constructing binaries
-#
+# ================================================================
+# New binary construction (OTP 25).
+# ================================================================
+
+bs_create_bin Fail=j Alloc=u Live=u Unit=u Dst=xy N=u Segments=* => \
+    create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments)
+
+i_bs_create_bin j I t d *
+
+# ================================================================
+# Old instruction for constructing binaries (up to OTP 24).
+# ================================================================
+
 %warm
 
 bs_init2 Fail Sz Words Regs Flags Dst | binary_too_big(Sz) => system_limit Fail

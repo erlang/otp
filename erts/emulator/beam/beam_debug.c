@@ -898,6 +898,55 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
+    case op_i_bs_create_bin_jIWdW:
+        {
+            int n = unpacked[-1];
+            int i = 0;
+            Eterm type = 0;
+
+            while (n > 0) {
+                switch (i % 5) {
+                case 0:           /* Type */
+                    type = ap[i];
+                    erts_print(to, to_arg, " `%d`", type);
+                    break;
+                case 1:           /* Unit */
+                case 2:           /* Flags */
+                    erts_print(to, to_arg, " `%d`", (Eterm) ap[i]);
+                    break;
+                case 4:         /* Size */
+                    if (type == BSC_BINARY_FIXED_SIZE ||
+                        type == BSC_FLOAT_FIXED_SIZE ||
+                        type == BSC_INTEGER_FIXED_SIZE ||
+                        type == BSC_STRING ||
+                        type == BSC_UTF32) {
+                        erts_print(to, to_arg, " `%d`", ap[i]);
+                        break;
+                    }
+
+                    /*FALLTHROUGH*/
+                case 3:         /* Src */
+                    if (type == BSC_STRING) {
+                        erts_print(to, to_arg, " ");
+                        print_byte_string(to, to_arg, (byte *) ap[i], ap[i+1]);
+                        break;
+                    }
+                    switch (loader_tag(ap[i])) {
+                    case LOADER_X_REG:
+                        erts_print(to, to_arg, " x(%d)", loader_x_reg_index(ap[i]));
+                        break;
+                    case LOADER_Y_REG:
+                        erts_print(to, to_arg, " y(%d)", loader_y_reg_index(ap[i]) - CP_SIZE);
+                        break;
+                    default:
+                        erts_print(to, to_arg, " `%T`", (Eterm) ap[i]);
+                        break;
+                    }
+                }
+                i++, size++, n--;
+            }
+        }
+        break;
     }
     erts_print(to, to_arg, "\n");
 

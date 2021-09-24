@@ -173,7 +173,7 @@ int erts_bs_put_utf8(ERL_BITS_PROTO_1(Eterm Integer));
 int erts_bs_put_utf16(ERL_BITS_PROTO_2(Eterm Integer, Uint flags));
 int erts_new_bs_put_binary(Process *c_p, Eterm Bin, Uint num_bits);
 int erts_new_bs_put_binary_all(Process *c_p, Eterm Bin, Uint unit);
-int erts_new_bs_put_float(Process *c_p, Eterm Float, Uint num_bits, int flags);
+Eterm erts_new_bs_put_float(Process *c_p, Eterm Float, Uint num_bits, int flags);
 void erts_new_bs_put_string(ERL_BITS_PROTO_2(byte* iptr, Uint num_bytes));
 
 Uint erts_bits_bufs_size(void);
@@ -182,7 +182,10 @@ Eterm erts_bs_get_utf8(ErlBinMatchBuffer* mb);
 Eterm erts_bs_get_utf16(ErlBinMatchBuffer* mb, Uint flags);
 Eterm erts_bs_append(Process* p, Eterm* reg, Uint live, Eterm build_size_term,
 		     Uint extra_words, Uint unit);
+Eterm erts_bs_append_checked(Process* p, Eterm* reg, Uint live, Uint size,
+                             Uint extra_words, Uint unit);
 Eterm erts_bs_private_append(Process* p, Eterm bin, Eterm sz, Uint unit);
+Eterm erts_bs_private_append_checked(Process* p, Eterm bin, Uint size, Uint unit);
 Eterm erts_bs_init_writable(Process* p, Eterm sz);
 
 /*
@@ -204,7 +207,7 @@ Eterm erts_extract_sub_binary(Eterm **hp, Eterm base_bin, byte *base_data,
 #define EXTRACT_SUB_BIN_HEAP_NEED (heap_bin_size(ERL_ONHEAP_BIN_LIMIT))
 
 /*
- * Flags for bs_get_* / bs_put_* / bs_init* instructions.
+ * Flags for bs_create_bin / bs_get_* / bs_put_* / bs_init* instructions.
  */
 
 #define BSF_ALIGNED 1		/* Field is guaranteed to be byte-aligned. */
@@ -212,5 +215,25 @@ Eterm erts_extract_sub_binary(Eterm **hp, Eterm base_bin, byte *base_data,
 #define BSF_SIGNED 4		/* Field is signed (otherwise unsigned). */
 #define BSF_EXACT 8		/* Size in bs_init is exact. */
 #define BSF_NATIVE 16		/* Native endian. */
+
+/*
+ * Binary construction operations.
+ */
+
+#define BSC_APPEND              0
+#define BSC_PRIVATE_APPEND      1
+#define BSC_BINARY              2
+#define BSC_BINARY_FIXED_SIZE   3
+#define BSC_BINARY_ALL          4
+#define BSC_FLOAT               5
+#define BSC_FLOAT_FIXED_SIZE    6
+#define BSC_INTEGER             7
+#define BSC_INTEGER_FIXED_SIZE  8
+#define BSC_STRING              9
+#define BSC_UTF8               10
+#define BSC_UTF16              11
+#define BSC_UTF32              12
+
+#define BSC_NUM_ARGS            5
 
 #endif /* __ERL_BITS_H__ */

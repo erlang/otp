@@ -1376,6 +1376,21 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
     case op_i_bs_match_string_yfWW:
         new_string_patch(stp, ci-1);
         break;
+    case op_i_bs_create_bin_jIWdW:
+        {
+            int n = tmp_op->arity;
+            BeamInstr* p = &code[ci-n];
+            BeamInstr* end_p = &code[ci];
+            while (p < end_p) {
+                switch (*p) {
+                case BSC_STRING:
+                    new_string_patch(stp, p+3-code);
+                    break;
+                }
+                p += 5;
+            }
+        }
+        break;
     case op_catch_yf:
         /* code[ci-3]        &&lb_catch_yf
 	 * code[ci-2]        y-register offset in E

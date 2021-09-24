@@ -664,11 +664,7 @@ Eterm beam_jit_bs_init_bits(Process *c_p,
         Binary *bptr;
         ProcBin *pb;
 
-        test_bin_vheap(c_p,
-                       reg,
-                       num_bytes / sizeof(Eterm),
-                       alloc,
-                       Live);
+        test_bin_vheap(c_p, reg, num_bytes / sizeof(Eterm), alloc, Live);
 
         /*
          * Allocate the binary struct itself.
@@ -740,6 +736,117 @@ Eterm beam_jit_bs_get_integer(Process *c_p,
 
     mb = ms_matchbuffer(context);
     return erts_bs_get_integer_2(c_p, size, flags, mb);
+}
+
+void beam_jit_bs_construct_fail_info(Process *c_p,
+                                     Uint packed_error_info,
+                                     Eterm arg3,
+                                     Eterm arg1) {
+    Eterm *hp;
+    Eterm cause_tuple;
+    Eterm error_info;
+    Uint segment = beam_jit_get_bsc_segment(packed_error_info);
+    JitBSCOp op = beam_jit_get_bsc_op(packed_error_info);
+    JitBSCInfo info = beam_jit_get_bsc_info(packed_error_info);
+    JitBSCReason reason = beam_jit_get_bsc_reason(packed_error_info);
+    JitBSCValue value_location = beam_jit_get_bsc_value(packed_error_info);
+    Eterm Op = am_none;
+    Uint Reason = BADARG;
+    Eterm Info = am_none;
+    Eterm value = am_undefined;
+
+    switch (op) {
+    case BSC_OP_BINARY:
+        Op = am_binary;
+        break;
+    case BSC_OP_FLOAT:
+        Op = am_float;
+        break;
+    case BSC_OP_INTEGER:
+        Op = am_integer;
+        break;
+    case BSC_OP_UTF8:
+        Op = am_utf8;
+        break;
+    case BSC_OP_UTF16:
+        Op = am_utf16;
+        break;
+    case BSC_OP_UTF32:
+        Op = am_utf32;
+        break;
+    }
+
+    switch (value_location) {
+    case BSC_VALUE_ARG1:
+        value = arg1;
+        break;
+    case BSC_VALUE_ARG3:
+        value = arg3;
+        break;
+    case BSC_VALUE_FVALUE:
+        value = c_p->fvalue;
+        break;
+    }
+
+    switch (reason) {
+    case BSC_REASON_BADARG:
+        Reason = BADARG;
+        break;
+    case BSC_REASON_SYSTEM_LIMIT:
+        Reason = SYSTEM_LIMIT;
+        break;
+    case BSC_REASON_DEPENDS:
+        if ((is_small(value) && signed_val(value) >= 0) ||
+            (is_big(value) && !big_sign(value))) {
+            Reason = SYSTEM_LIMIT;
+        } else {
+            Reason = BADARG;
+        }
+        break;
+    }
+
+    switch (info) {
+    case BSC_INFO_FVALUE:
+        Info = c_p->fvalue;
+        break;
+    case BSC_INFO_TYPE:
+        Info = am_type;
+        break;
+    case BSC_INFO_SIZE:
+        Info = am_size;
+        break;
+    case BSC_INFO_UNIT:
+        Info = am_unit;
+        break;
+    case BSC_INFO_DEPENDS:
+        ASSERT(op == BSC_OP_BINARY);
+        Info = is_binary(value) ? am_short : am_type;
+        break;
+    }
+
+    hp = HAlloc(c_p, Sint(MAP3_SZ + 5));
+    cause_tuple = TUPLE4(hp, make_small(segment), Op, Info, value);
+    hp += 5;
+    error_info = MAP3(hp,
+                      am_cause,
+                      cause_tuple,
+                      am_function,
+                      am_format_bs_fail,
+                      am_module,
+                      am_erl_erts_errors);
+    c_p->fvalue = error_info;
+    c_p->freason = Reason | EXF_HAS_EXT_INFO;
+}
+
+Sint beam_jit_bs_bit_size(Eterm term) {
+    if (is_binary(term)) {
+        ASSERT(sizeof(Uint) == 8); /* Only support 64-bit machines. */
+        Uint byte_size = binary_size(term);
+        return (Sint)((byte_size << 3) + binary_bitsize(term));
+    }
+
+    /* Signal error */
+    return (Sint)-1;
 }
 
 ErtsMessage *beam_jit_decode_dist(Process *c_p, ErtsMessage *msgp) {

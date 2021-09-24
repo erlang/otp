@@ -874,6 +874,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(bif_element_shared)                                                      \
     _(bif_export_trap)                                                         \
     _(bs_add_shared)                                                           \
+    _(bs_create_bin_error_shared)                                              \
     _(bs_size_check_shared)                                                    \
     _(bs_fixed_integer_shared)                                                 \
     _(bs_get_tail_shared)                                                      \

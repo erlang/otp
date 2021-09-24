@@ -297,9 +297,11 @@ atom flags
 atom flush
 atom flush_monitor_messages
 atom force
+atom format_bs_fail
 atom format_cpu_topology
 atom free
 atom fullsweep_after
+atom function
 atom functions
 atom function_clause
 atom garbage_collect
@@ -358,6 +360,7 @@ atom inherit
 atom init
 atom initial_call
 atom input
+atom integer
 atom internal
 atom internal_error
 atom instruction_counts
@@ -546,6 +549,7 @@ atom prepare_on_load
 atom print
 atom priority
 atom private
+atom private_append
 atom process
 atom processes
 atom processes_used
@@ -711,10 +715,11 @@ atom unregister
 atom urun
 atom use_stdio
 atom used
-atom utf8
+atom utf8 utf16 utf32
 atom unblock
 atom unblock_normal
 atom uniq
+atom unit
 atom unless_suspending
 atom unloaded
 atom unloaded_only

@@ -1021,10 +1021,12 @@ erts_new_bs_put_binary(Process *c_p, Eterm arg, Uint num_bits)
     ERL_BITS_DEFINE_STATEP(c_p);
 
     if (!is_binary(arg)) {
-	return 0;
+        c_p->fvalue = arg;
+        return 0;
     }
     ERTS_GET_BINARY_BYTES(arg, bptr, bitoffs, bitsize);
     if (num_bits > 8*binary_size(arg)+bitsize) {
+        c_p->fvalue = arg;
 	return 0;
     }
     copy_binary_to_buffer(erts_current_bin, erts_bin_offset, bptr, bitoffs, num_bits);
@@ -1052,9 +1054,11 @@ erts_new_bs_put_binary_all(Process *c_p, Eterm arg, Uint unit)
    num_bits = 8*binary_size(arg)+bitsize;
    if (unit == 8) {
        if (bitsize != 0) {
+           c_p->fvalue = arg;
 	   return 0;
        }
    } else if (unit != 1 && num_bits % unit != 0) {
+       c_p->fvalue = arg;
        return 0;
    }
    copy_binary_to_buffer(erts_current_bin, erts_bin_offset, bptr, bitoffs, num_bits);
@@ -1063,7 +1067,13 @@ erts_new_bs_put_binary_all(Process *c_p, Eterm arg, Uint unit)
    return 1;
 }
 
-int
+/*
+ * Returns THE_NON_VALUE on success.
+ *
+ * On failure, returns whichever was wrong of the value or the size,
+ * and sets c_p-fvalue to 'type', 'no_float', or 'invalid'.
+ */
+Eterm
 erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 {
     ERL_BITS_DEFINE_STATEP(c_p);
@@ -1098,7 +1108,8 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 #endif
 	    } else if (is_big(arg)) {
 		if (big_to_double(arg, &u.f64) < 0) {
-		    return 0;
+                    c_p->fvalue = am_no_float;
+		    return arg;
 		}
 #ifdef DOUBLE_MIDDLE_ENDIAN
 		a = u.i32[1];
@@ -1108,7 +1119,8 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 		b = u.i32[1];
 #endif
 	    } else {
-		return 0;
+                c_p->fvalue = am_type;
+		return arg;
 	    }
 	} else if (num_bits == 32) {
 	    union {
@@ -1130,14 +1142,16 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	    } else if (is_big(arg)) {
 		double f64;
 		if (big_to_double(arg, &f64) < 0) {
-		    return 0;
+                    c_p->fvalue = am_no_float;
+		    return arg;
 		}
 		ERTS_FP_CHECK_INIT(c_p);
 		u.f32 = (float) f64;
 		ERTS_FP_ERROR(c_p,u.f32,;);
 		a = u.i32;
 	    } else {
-		return 0;
+                c_p->fvalue = am_type;
+		return arg;
 	    }
 	} else if (num_bits == 16) {
 	    union {
@@ -1159,17 +1173,20 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	    } else if (is_big(arg)) {
 		double f64;
 		if (big_to_double(arg, &f64) < 0) {
-		    return 0;
+                    c_p->fvalue = am_no_float;
+		    return arg;
 		}
 		ERTS_FP_CHECK_INIT(c_p);
 		ERTS_FP_ERROR(c_p,f64,;);
 		u.f16 = FP16_FROM_FP64(f64);
 		a = u.i16;
 	    } else {
-		return 0;
+                c_p->fvalue = am_type;
+		return arg;
 	    }
 	} else {
-	    return 0;
+            c_p->fvalue = am_invalid;
+	    return make_small(num_bits);
 	}
 
 	if (BIT_IS_MACHINE_ENDIAN(flags)) {
@@ -1265,7 +1282,8 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 #endif
 	    } else if (is_big(arg)) {
 		if (big_to_double(arg, &f64) < 0) {
-		    return 0;
+                    c_p->fvalue = am_no_float;
+		    return arg;
 		}
 #ifdef DOUBLE_MIDDLE_ENDIAN
 		ftmp.fd = f64;
@@ -1273,7 +1291,8 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 		bptr = (byte *) &f64;
 #endif
 	    } else {
-		return 0;
+                c_p->fvalue = am_type;
+		return arg;
 	    }
 #ifdef DOUBLE_MIDDLE_ENDIAN
 	    fbuf.fw[0] = ftmp.fw[1];
@@ -1293,14 +1312,16 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 		bptr = (byte *) &f32;
 	    } else if (is_big(arg)) {
 		if (big_to_double(arg, &f64) < 0) {
-		    return 0;
+                    c_p->fvalue = am_no_float;
+		    return arg;
 		}
 		ERTS_FP_CHECK_INIT(c_p);
 		f32 = (float) f64;
 		ERTS_FP_ERROR(c_p,f32,;);
 		bptr = (byte *) &f32;
 	    } else {
-		return 0;
+                c_p->fvalue = am_type;
+		return arg;
 	    }
 	} else if (num_bits == 16) {
 	    if (is_float(arg)) {
@@ -1315,17 +1336,20 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 		bptr = (byte *) &f16;
 	    } else if (is_big(arg)) {
 		if (big_to_double(arg, &f64) < 0) {
-		    return 0;
+                    c_p->fvalue = am_no_float;
+		    return arg;
 		}
 		ERTS_FP_CHECK_INIT(c_p);
 		ERTS_FP_ERROR(c_p,f64,;);
 		f16 = FP16_FROM_FP64(f64);
 		bptr = (byte *) &f16;
 	    } else {
-		return 0;
+                c_p->fvalue = am_type;
+		return arg;
 	    }
 	} else {
-	    return 0;
+            c_p->fvalue = am_invalid;
+	    return make_small(num_bits);
 	}
 	if (BIT_IS_MACHINE_ENDIAN(flags)) {
 	    erts_copy_bits(bptr, 0, 1,
@@ -1338,7 +1362,7 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	}
     }
     erts_bin_offset += num_bits;
-    return 1;
+    return THE_NON_VALUE;
 }
 
 void 
@@ -1369,19 +1393,10 @@ void increase_proc_bin_sz(Process* p, ProcBin* pb, Uint new_size)
 
 Eterm
 erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
-	    Uint extra_words, Uint unit)
+               Uint extra_words, Uint unit)
 {
-    Eterm bin;			/* Given binary */
-    Eterm* ptr;
-    Eterm hdr;
-    ErlSubBin* sb;
-    ProcBin* pb;
-    Binary* binp;
-    Uint heap_need;
-    Uint build_size_in_bits;
-    Uint used_size_in_bits;
     Uint unsigned_bits;
-    ERL_BITS_DEFINE_STATEP(c_p);
+    Uint build_size_in_bits;
 
     /*
      * Check and untag the requested build size.
@@ -1389,7 +1404,8 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
     if (is_small(build_size_term)) {
 	Sint signed_bits = signed_val(build_size_term);
 	if (signed_bits < 0) {
-	    goto badarg;
+            c_p->freason = BADARG;
+            return THE_NON_VALUE;
 	}
 	build_size_in_bits = (Uint) signed_bits;
     } else if (term_to_Uint(build_size_term, &unsigned_bits)) {
@@ -1398,12 +1414,33 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	c_p->freason = unsigned_bits;
 	return THE_NON_VALUE;
     }
+    return erts_bs_append_checked(c_p, reg, live, build_size_in_bits,
+                                  extra_words, unit);
+}
+
+Eterm
+erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
+                       Uint build_size_in_bits, Uint extra_words,
+                       Uint unit)
+{
+    Eterm bin;			/* Given binary */
+    Eterm* ptr;
+    Eterm hdr;
+    ErlSubBin* sb;
+    ProcBin* pb;
+    Binary* binp;
+    Uint heap_need;
+    Uint used_size_in_bits;
+    ERL_BITS_DEFINE_STATEP(c_p);
 
     /*
      * Check the binary argument.
      */
     bin = reg[live];
     if (!is_boxed(bin)) {
+    type_error:
+        c_p->fvalue = am_type;
+
     badarg:
 	c_p->freason = BADARG;
 	return THE_NON_VALUE;
@@ -1411,7 +1448,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
     ptr = boxed_val(bin);
     hdr = *ptr;
     if (!is_binary_header(hdr)) {
-	goto badarg;
+	goto type_error;
     }
     if (hdr != HEADER_SUB_BIN) {
 	goto not_writable;
@@ -1434,6 +1471,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
     if (unit > 1) {
 	if ((unit == 8 && (erts_bin_offset & 7) != 0) ||
 	    (erts_bin_offset % unit) != 0) {
+            c_p->fvalue = am_unit;
 	    goto badarg;
 	}
     }
@@ -1447,6 +1485,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
     }
 
     if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
+        c_p->fvalue = am_size;
         c_p->freason = SYSTEM_LIMIT;
         return THE_NON_VALUE;
     }
@@ -1526,6 +1565,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	if (unit > 1) {
 	    if ((unit == 8 && (erts_bin_offset & 7) != 0) ||
 		(erts_bin_offset % unit) != 0) {
+                c_p->fvalue = am_unit;
 		goto badarg;
 	    }
 	}
@@ -1535,6 +1575,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	}
 
         if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
+            c_p->fvalue = am_size;
             c_p->freason = SYSTEM_LIMIT;
             return THE_NON_VALUE;
         }
@@ -1599,14 +1640,8 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 Eterm
 erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 {
-    Eterm* ptr;
-    ErlSubBin* sb;
-    ProcBin* pb;
-    Binary* binp;
-    Uint build_size_in_bits;
-    Uint pos_in_bits_after_build;
     Uint unsigned_bits;
-    ERL_BITS_DEFINE_STATEP(p);
+    Uint build_size_in_bits;
 
     /*
      * Check and untag the requested build size.
@@ -1624,6 +1659,18 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 	p->freason = unsigned_bits;
 	return THE_NON_VALUE;
     }
+    return erts_bs_private_append_checked(p, bin, build_size_in_bits, unit);
+}
+
+Eterm
+erts_bs_private_append_checked(Process* p, Eterm bin, Uint build_size_in_bits, Uint unit)
+{
+    Eterm* ptr;
+    ErlSubBin* sb;
+    ProcBin* pb;
+    Binary* binp;
+    Uint pos_in_bits_after_build;
+    ERL_BITS_DEFINE_STATEP(p);
 
     ptr = boxed_val(bin);
     ASSERT(*ptr == HEADER_SUB_BIN);
@@ -1640,6 +1687,7 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
     erts_bin_offset = 8*sb->size + sb->bitsize;
 
     if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
+        p->fvalue = am_size;
         p->freason = SYSTEM_LIMIT;
         return THE_NON_VALUE;
     }

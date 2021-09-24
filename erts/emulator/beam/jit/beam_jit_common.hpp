@@ -235,6 +235,84 @@ public:
     }
 };
 
+static const Uint BSC_SEGMENT_OFFSET = 10;
+
+typedef enum : Uint {
+    BSC_OP_BINARY = 0,
+    BSC_OP_FLOAT = 1,
+    BSC_OP_INTEGER = 2,
+    BSC_OP_UTF8 = 3,
+    BSC_OP_UTF16 = 4,
+    BSC_OP_UTF32 = 5,
+    BSC_OP_LAST = 5
+} JitBSCOp;
+static const Uint BSC_OP_MASK = 0x07;
+static const Uint BSC_OP_OFFSET = 7;
+
+typedef enum : Uint {
+    BSC_INFO_FVALUE = 0,
+    BSC_INFO_TYPE = 1,
+    BSC_INFO_SIZE = 2,
+    BSC_INFO_UNIT = 3,
+    BSC_INFO_DEPENDS = 4,
+    BSC_INFO_LAST = 4,
+} JitBSCInfo;
+static const Uint BSC_INFO_MASK = 0x07;
+static const Uint BSC_INFO_OFFSET = 4;
+
+typedef enum : Uint {
+    BSC_REASON_BADARG = 0,
+    BSC_REASON_SYSTEM_LIMIT = 1,
+    BSC_REASON_DEPENDS = 2,
+    BSC_REASON_LAST = 2,
+} JitBSCReason;
+static const Uint BSC_REASON_MASK = 0x03;
+
+typedef enum : Uint {
+    BSC_VALUE_ARG1 = 0,
+    BSC_VALUE_ARG3 = 1,
+    BSC_VALUE_FVALUE = 2,
+    BSC_VALUE_LAST = 2
+} JitBSCValue;
+static const Uint BSC_VALUE_MASK = 0x03;
+static const Uint BSC_VALUE_OFFSET = 2;
+
+static constexpr Uint beam_jit_set_bsc_segment_op(Uint segment, JitBSCOp op) {
+    return (segment << BSC_SEGMENT_OFFSET) | (op << BSC_OP_OFFSET);
+}
+
+static constexpr Uint beam_jit_update_bsc_reason_info(Uint packed_info,
+                                                      JitBSCReason reason,
+                                                      JitBSCInfo info,
+                                                      JitBSCValue value) {
+    return packed_info | (value << BSC_VALUE_OFFSET) |
+           (info << BSC_INFO_OFFSET) | reason;
+}
+
+static constexpr Uint beam_jit_get_bsc_segment(Uint packed_info) {
+    return packed_info >> BSC_SEGMENT_OFFSET;
+}
+
+static constexpr JitBSCOp beam_jit_get_bsc_op(Uint packed_info) {
+    ERTS_CT_ASSERT((BSC_OP_LAST & ~BSC_OP_MASK) == 0);
+    return (JitBSCOp)((packed_info >> BSC_OP_OFFSET) & BSC_OP_MASK);
+}
+
+static constexpr JitBSCInfo beam_jit_get_bsc_info(Uint packed_info) {
+    ERTS_CT_ASSERT((BSC_INFO_LAST & ~BSC_INFO_MASK) == 0);
+    return (JitBSCInfo)((packed_info >> BSC_INFO_OFFSET) & BSC_INFO_MASK);
+}
+
+static constexpr JitBSCReason beam_jit_get_bsc_reason(Uint packed_info) {
+    ERTS_CT_ASSERT((BSC_REASON_LAST & ~BSC_REASON_MASK) == 0);
+    return (JitBSCReason)(packed_info & BSC_REASON_MASK);
+}
+
+static constexpr JitBSCValue beam_jit_get_bsc_value(Uint packed_info) {
+    ERTS_CT_ASSERT((BSC_VALUE_LAST & ~BSC_VALUE_MASK) == 0);
+    return (JitBSCValue)((packed_info >> BSC_VALUE_OFFSET) & BSC_VALUE_MASK);
+}
+
 /* ** */
 
 #if defined(DEBUG) && defined(JIT_HARD_DEBUG)
@@ -291,6 +369,12 @@ Sint beam_jit_remove_message(Process *c_p,
                              Eterm *HTOP,
                              Eterm *E,
                              Uint32 active_code_ix);
+
+void beam_jit_bs_construct_fail_info(Process *c_p,
+                                     Uint packed_error_info,
+                                     Eterm arg3,
+                                     Eterm arg1);
+Sint beam_jit_bs_bit_size(Eterm term);
 
 void beam_jit_take_receive_lock(Process *c_p);
 void beam_jit_wait_locked(Process *c_p, ErtsCodePtr cp);

@@ -713,3 +713,58 @@ erts_beam_jump_table(void)
     return 1;
 #endif
 }
+
+void
+erts_prepare_bs_construct_fail_info(Process* c_p, const BeamInstr* p, Eterm reason, Eterm Info, Eterm value)
+{
+    Eterm* hp;
+    Eterm cause_tuple;
+    Eterm op;
+    Eterm error_info;
+    Uint segment;
+
+    segment = p[2] >> 3;
+
+    switch (p[0]) {
+    case BSC_APPEND:
+    case BSC_PRIVATE_APPEND:
+    case BSC_BINARY:
+    case BSC_BINARY_FIXED_SIZE:
+    case BSC_BINARY_ALL:
+        op = am_binary;
+        break;
+    case BSC_FLOAT:
+    case BSC_FLOAT_FIXED_SIZE:
+        op = am_float;
+        break;
+    case BSC_INTEGER:
+    case BSC_INTEGER_FIXED_SIZE:
+        op = am_integer;
+        break;
+    case BSC_STRING:
+        op = am_string;
+        break;
+    case BSC_UTF8:
+        op = am_utf8;
+        break;
+    case BSC_UTF16:
+        op = am_utf16;
+        break;
+    case BSC_UTF32:
+        op = am_utf32;
+        break;
+    default:
+        op = am_none;
+        break;
+    }
+
+    hp = HeapFragOnlyAlloc(c_p, MAP3_SZ+4+1);
+    cause_tuple = TUPLE4(hp, make_small(segment), op, Info, value);
+    hp += 5;
+    error_info = MAP3(hp,
+                      am_cause, cause_tuple,
+                      am_function, am_format_bs_fail,
+                      am_module, am_erl_erts_errors);
+    c_p->fvalue = error_info;
+    c_p->freason = reason | EXF_HAS_EXT_INFO;
+}
