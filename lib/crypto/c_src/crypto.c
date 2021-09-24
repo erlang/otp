@@ -135,7 +135,8 @@ ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
 
 static int verify_lib_version(void)
 {
-#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0) \
+    || defined(HAS_LIBRESSL)
     const unsigned long libv = SSLeay();
 #else
     const unsigned long libv = OpenSSL_version_num();
