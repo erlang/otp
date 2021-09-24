@@ -86,72 +86,138 @@ int EVP_CIPHER_CTX_copy(EVP_CIPHER_CTX *out, const EVP_CIPHER_CTX *in)
 /* them and initialize that context.                                     */
 /*************************************************************************/
 
+static ERL_NIF_TERM get_opts(ErlNifEnv* env, const ERL_NIF_TERM opts, int opts_arg_num, int *encflgp, ERL_NIF_TERM *padflgp)
+{ /* boolean() | [{Tag,Val}]  Tag = encrypt | padding */
+    unsigned list_len;
+    ERL_NIF_TERM p, hd, tl;
+
+    *padflgp = atom_false; /* Not valid as padding value */
+    /* First check if the opts is an atom: */
+    if (opts == atom_true)
+        {
+            *encflgp = 1;
+            *padflgp = atom_undefined;
+            return atom_ok;
+        }
+
+    if (opts == atom_false)
+        {
+            *encflgp = 0;
+            *padflgp = atom_undefined;
+            return atom_ok;
+        }
+
+    if (opts == atom_undefined)
+        /* For compat funcs in crypto.erl. TODO: check and remove */
+        {
+            *encflgp = -1;
+            *padflgp = atom_undefined;
+            return atom_ok;
+        }
+
+    if (!enif_is_list(env, opts) || !enif_get_list_length(env, opts, &list_len))
+        /* Not a boolean() and not a list, definitly an error */
+        return EXCP_BADARG_N(env, opts_arg_num, "Options are not a boolean or a proper list");
+
+    /* A list, might be a property list, as it should */
+    *encflgp = -14; /* why not? */
+    p = opts;
+    while (enif_get_list_cell(env, p, &hd, &tl))
+        /* Loop through the list [{Tag,Value},...]
+              - check that
+                 + the list is proper
+                 + each list element is a 2-tuple
+                 + the Tag is known
+                 + the Value is of right type
+              - assign Values of known Tags to their respective flags
+        */
+        {
+            int arity;
+            const ERL_NIF_TERM* elements;
+
+            if (!(enif_get_tuple(env, hd, &arity, &elements) && (arity == 2)) )
+                return EXCP_BADARG_N(env, opts_arg_num, "Options must be a property list!");
+
+            if (elements[0] == atom_encrypt)
+                {
+                    if (*encflgp != -14)
+                        return EXCP_BADARG_N(env, opts_arg_num, "'encrypt' option is present more than once!");
+                    else if (elements[1] == atom_true)
+                        *encflgp = 1;
+                    else if (elements[1] == atom_false)
+                        *encflgp = 0;
+                    else if (elements[1] == atom_undefined)
+                        *encflgp = -1; /* For compat funcs in crypto.erl. TODO: check and remove */
+                    else
+                        return EXCP_BADARG_N(env, opts_arg_num, "The 'encrypt' option must be a boolean!");
+                }
+            else if (elements[0] == atom_padding)
+                {
+                    if (*padflgp != atom_false)
+                        return EXCP_BADARG_N(env, opts_arg_num, "The 'padding' option is present more than once!");
+
+                    else if ((elements[1] == atom_undefined) ||
+                             (elements[1] == atom_none) ||
+                             (elements[1] == atom_zero) ||
+                             (elements[1] == atom_random) ||
+                             (elements[1] == atom_pkcs_padding)
+                             )
+                        *padflgp = elements[1];
+
+                    else
+                        return EXCP_BADARG_N(env, opts_arg_num, "Bad 'padding' option value");
+                }
+            else
+                {
+                    char msg[64];
+                    if (enif_snprintf(msg, 64, "Bad tag in option: %T", elements[0]))
+                        return EXCP_BADARG_N(env, opts_arg_num, msg);
+                    else
+                        return EXCP_BADARG_N(env, opts_arg_num, "Bad tag in option!");
+                }
+
+            p = tl; /* prepare for handling next list element or to exit the loop */
+        }
+
+    if (*encflgp == -14)
+        *encflgp = 1; /* {encrypt,true} is the default */
+
+    if (*padflgp == atom_false)
+        *padflgp = atom_undefined; /* {padding,undefined} is the default */
+
+    return atom_ok;
+}
+
+
 static int get_init_args(ErlNifEnv* env,
                          struct evp_cipher_ctx *ctx_res,
                          const ERL_NIF_TERM argv[],
                          int cipher_arg_num,
                          int key_arg_num,
                          int ivec_arg_num,
-                         int optsmap_arg_num,
-                         /* int encflg_arg_num, */
-                         /* int padding_arg_num, */
+                         int opts_arg_num,
                          const struct cipher_type_t **cipherp,
                          ERL_NIF_TERM *return_term)
 {
     int ivec_len;
     ErlNifBinary key_bin;
     ErlNifBinary ivec_bin;
-    ERL_NIF_TERM encflg, padflg;
 
     ctx_res->ctx = NULL; /* For testing if *ctx should be freed after errors */
 #if !defined(HAVE_EVP_AES_CTR)
     ctx_res->env = NULL; /* For testing if *env should be freed after errors */
 #endif
-    ctx_res->padding = atom_undefined;
     ctx_res->padded_size = -1;
     ctx_res->size = 0;
-    
-    /**** Fetch the options from optsmap ****/
-    if (!enif_is_map(env, argv[optsmap_arg_num]))
-        {
-            *return_term = EXCP_BADARG_N(env, optsmap_arg_num, "Options map expected");
-            goto err;
-        }
-    /** Fetch encrypt_flag **/
-    if (!enif_get_map_value(env, argv[optsmap_arg_num], atom_encrypt, &encflg))
-        {
-            *return_term = EXCP_BADARG_N(env, optsmap_arg_num, "Missing encrypt flag in Options");
-            goto err;
-        }
-    else if (encflg == atom_true)
-        ctx_res->encflag = 1;
-    else if (encflg == atom_false)
-        ctx_res->encflag = 0;
-    else if (encflg == atom_undefined)
-        /* For compat funcs in crypto.erl */
-        ctx_res->encflag = -1;
-    else
-        {
-            *return_term = EXCP_BADARG_N(env, optsmap_arg_num, "Bad encrypt flag");
-            goto err;
-        }
-    /** Fetch padding flag **/
-    if (!enif_get_map_value(env, argv[optsmap_arg_num], atom_padding, &padflg))
-        padflg = atom_undefined;
-    else if ((padflg != atom_undefined) &&
-             (padflg != atom_none) &&
-             (padflg != atom_zero) &&
-             (padflg != atom_random) &&
-             (padflg != atom_pkcs_padding)
-             )
-        {
-            *return_term = EXCP_BADARG_N(env, optsmap_arg_num, "Bad padding flag");
-            goto err;
-        }
-    /**** end of options checking ****/
+
+    /* Fetch the options */
+    if ((*return_term =
+         get_opts(env, argv[opts_arg_num], opts_arg_num, &(ctx_res->encflag), &(ctx_res->padding))
+         ) != atom_ok)
+        goto err;
 
     /* Fetch the key */
-             if (!enif_inspect_iolist_as_binary(env, argv[key_arg_num], &key_bin))
+    if (!enif_inspect_iolist_as_binary(env, argv[key_arg_num], &key_bin))
         {
             *return_term = EXCP_BADARG_N(env, key_arg_num, "Bad key");
             goto err;
@@ -215,7 +281,7 @@ static int get_init_args(ErlNifEnv* env,
     ivec_len = GET_IV_LEN(*cipherp);
 #endif
     
-    /* (*cipherp)->cipher.p != NULL and ivec_len has a value */
+    /* Here: (*cipherp)->cipher.p != NULL and ivec_len has a value */
 
     /* Fetch IV */
     if (ivec_len && (argv[ivec_arg_num] != atom_undefined)) {
@@ -312,10 +378,8 @@ static int get_init_args(ErlNifEnv* env,
             }
 
     /* Set padding */
-    if (padflg != atom_pkcs_padding) /* pkcs_padding is default */
+    if (ctx_res->padding != atom_pkcs_padding) /* pkcs_padding is default */
         EVP_CIPHER_CTX_set_padding(ctx_res->ctx, 0);
-
-    ctx_res->padding = padflg;
 
     *return_term = atom_ok;
 
@@ -510,7 +574,11 @@ static int get_final_args(ErlNifEnv* env,
 
                     else
                         {
-                            *return_term = EXCP_ERROR(env, "Bad padding flg");
+                            char msg[64];
+                            if (enif_snprintf(msg, 64, "Bad padding flag: %T", ctx_res->padding))
+                                *return_term = EXCP_ERROR(env, msg);
+                            else
+                                *return_term = EXCP_ERROR(env, "Bad padding flg");
                             goto err;
                         }
                     

@@ -800,8 +800,7 @@ cipher_info(Type) ->
                                                         Key :: iodata(),
                                                         FlagOrOptions :: crypto_opts() | boolean(),
                                                         State :: crypto_state() .
-crypto_init(Cipher, Key, FlagOrOptions0) ->
-    FlagOrOptions = get_crypto_opts(FlagOrOptions0),
+crypto_init(Cipher, Key, FlagOrOptions) ->
     ?nif_call(ng_crypto_init_nif(alias(Cipher,Key), Key, <<>>, FlagOrOptions),
               {1,2,-1,3}).
 
@@ -815,37 +814,7 @@ crypto_init(Cipher, Key, IV, FlagOrOptions) ->
     ?nif_call(ng_crypto_init_nif(alias(Cipher,Key),
                                  Key,
                                  IV,
-                                 get_crypto_opts(FlagOrOptions))).
-
-%%%----------------------------------------------------------------
-get_crypto_opts(Options) when is_list(Options) ->
-    lists:foldl(fun chk_opt/2,
-                #{encrypt => true,
-                  padding => undefined
-                 },
-                Options);
-get_crypto_opts(Flag) when is_boolean(Flag) ->
-    #{encrypt => Flag,
-      padding => undefined
-     };
-get_crypto_opts(X) ->
-    error({badarg,{bad_option,X}}).
-
-
-chk_opt({Tag,Val}, A) ->
-    case ok_opt(Tag,Val) of
-        true ->
-            A#{Tag => Val};
-        false ->
-            error({badarg,{bad_option,{Tag,Val}}})
-    end;
-chk_opt(X, _) ->
-    error({badarg,{bad_option,X}}). 
-
-
-ok_opt(encrypt, V) -> lists:member(V, [true, false, undefined]);
-ok_opt(padding, V) -> lists:member(V, [none, pkcs_padding, zero, random, undefined]);
-ok_opt(_, _) -> false.
+                                 FlagOrOptions)).
 
 %%%----------------------------------------------------------------
 -spec crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) -> State | descriptive_error()
@@ -859,7 +828,7 @@ crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) ->
        ng_crypto_init_nif(alias(Cipher,Key),
                           Key,
                           undefined,
-                          get_crypto_opts(FlagOrOptions)),
+                          FlagOrOptions),
        {1,2,-1,3}
       )
         .
@@ -928,7 +897,7 @@ crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
                                      Key,
                                      <<>>,
                                      Data,
-                                     get_crypto_opts(FlagOrOptions)),
+                                     FlagOrOptions),
               [Cipher, Key, Data, FlagOrOptions],
               {1,2,-1,3,4}).
 
@@ -947,7 +916,7 @@ crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
                                      Key,
                                      IV,
                                      Data,
-                                     get_crypto_opts(FlagOrOptions))).
+                                     FlagOrOptions)).
 
 %%%----------------------------------------------------------------
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, EncFlag::true) ->
