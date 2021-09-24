@@ -293,6 +293,38 @@ fun:process_main
 fun:sched_thread_func
 }
 {
+Loading problem again. Now after PR
+Memcheck:Leak
+fun:malloc
+...
+fun:valid_curve
+fun:init_curves
+fun:get_curve_cnt
+fun:init_curve_types
+fun:init_algorithms_types
+fun:initialize
+fun:load
+fun:erts_load_nif
+fun:process_main
+}
+{
+Compiler before PR
+Memcheck:Leak
+fun:malloc
+fun:erts_sys_alloc
+fun:erts_alloc_fnf
+fun:erl_drv_mutex_create
+fun:enif_mutex_create
+fun:init_algorithms_types
+fun:initialize
+fun:load
+fun:erts_load_nif
+fun:process_main
+fun:sched_thread_func
+fun:thr_wrapper
+fun:start_thread
+}
+{
 Crypto internal.. loading pecularities revisited
 Memcheck:Leak
 fun:malloc
