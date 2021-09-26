@@ -731,6 +731,7 @@ enum beam_jit_tmo_ret beam_jit_wait_timeout(Process *c_p,
                 c_p->def_arg_reg[0] = (Eterm)next;
             } else { /* Wrong time */
                 erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+                erts_msgq_set_save_first(c_p);
                 c_p->freason = EXC_TIMEOUT_VALUE;
                 return RET_badarg;
             }
