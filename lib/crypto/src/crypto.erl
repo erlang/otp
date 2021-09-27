@@ -403,19 +403,6 @@
 
 
 %%--------------------------------------------------------------------
-%%
-%% Make the new descriptive_error() look like the old run_time_error()
-%%
--define(COMPAT(CALL),
-        try begin CALL end
-        catch
-            error:{error, {_File,_Line}, _Reason} ->
-                error(badarg);
-            error:{E, {_File,_Line}, _Reason} when E==notsup ; E==badarg ->
-                error(E)
-        end).
-
-%%--------------------------------------------------------------------
 -compile(no_native).
 -on_load(on_load/0).
 -define(CRYPTO_NIF_VSN,302).
