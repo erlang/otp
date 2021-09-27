@@ -24,6 +24,7 @@
 #include "common.h"
 
 void init_algorithms_types(ErlNifEnv* env);
+void cleanup_algorithms_types(ErlNifEnv* env);
 
 ERL_NIF_TERM hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);

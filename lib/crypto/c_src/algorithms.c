@@ -53,8 +53,6 @@ void init_algorithms_types(ErlNifEnv* env)
     /* ciphers and macs are initiated statically */
 }
 
-void cleanup_algorithms_types(ErlNifEnv* env);
-
 void cleanup_algorithms_types(ErlNifEnv* env)
 {
     enif_mutex_destroy(mtx_init_curve_types);
