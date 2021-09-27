@@ -403,9 +403,18 @@
 
 
 %%--------------------------------------------------------------------
+%% Compilation and loading
+%%--------------------------------------------------------------------
 -compile(no_native).
 -on_load(on_load/0).
 -define(CRYPTO_NIF_VSN,302).
+
+%%--------------------------------------------------------------------
+%% When generating documentation from crypto.erl, the macro ?CRYPTO_VSN is not defined.
+%% That causes the doc generation to stop...
+-ifndef(CRYPTO_VSN).
+-define(CRYPTO_VSN, "??").
+-endif.
 
 %%--------------------------------------------------------------------
 %% Call a nif and handle an error exceptions to fit into the error handling
@@ -436,23 +445,14 @@
 %% Error if the crypto nifs not are loaded
 
 -define(nif_stub,nif_stub_error(?LINE)).
-
 nif_stub_error(Line) ->
     erlang:nif_error({nif_not_loaded,module,?MODULE,line,Line}).
 
 %%--------------------------------------------------------------------
 %%% API
 %%--------------------------------------------------------------------
-%% Crypto app version history:
-%% (no version): Driver implementation
-%% 2.0         : NIF implementation, requires OTP R14
-
-%% When generating documentation from crypto.erl, the macro ?CRYPTO_VSN is not defined.
-%% That causes the doc generation to stop...
--ifndef(CRYPTO_VSN).
--define(CRYPTO_VSN, "??").
--endif.
-version() -> ?CRYPTO_VSN.
+version() ->
+    ?CRYPTO_VSN.
 
 format_error({Ex, {C_file,C_line}, Msg}, [{_M,_F,_Args,Opts} | _CallStack]) when Ex == badarg ;
                                                                                  Ex == notsup ->
