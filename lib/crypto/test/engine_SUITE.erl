@@ -174,7 +174,7 @@ init_per_group(engine_fakes_rsa, Config) ->
                 #{link_type := static} ->
                     ct:log("~p:~p  Statically linked",[?MODULE,?LINE]),
                     {skip, "Statically linked"};
-                Info ->
+                _Info ->
                     %% Dynamically linked; use fake engine rsa implementation
                     group_load_engine(Config,  [])
             end;

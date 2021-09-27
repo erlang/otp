@@ -181,7 +181,7 @@ static_lib: $(NIF_ARCHIVE)
 
 $(OBJDIR)/otp_test_engine$(TYPEMARKER).o: otp_test_engine.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
-	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
+	$(V_CC) -c -o $@ $(filter-out -Wmissing-prototypes,$(ALL_CFLAGS)) $<
 
 $(LIBDIR)/otp_test_engine$(TYPEMARKER).so: $(TEST_ENGINE_OBJS)
 	$(V_at)$(INSTALL_DIR) $(LIBDIR)
