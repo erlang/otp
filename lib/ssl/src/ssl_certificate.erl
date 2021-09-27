@@ -88,7 +88,7 @@
 
 %%--------------------------------------------------------------------
 -spec trusted_cert_and_paths([der_cert()], db_handle(), certdb_ref(), fun()) ->
-          [{#cert{} | unknown_ca | invalid_issuer | selfsigned_peer, [#cert{}]}].
+          [{public_key:combined_cert() | unknown_ca | invalid_issuer | selfsigned_peer, [public_key:combined_cert()]}].
 %%
 %% Description: Construct input to public_key:pkix_path_validation/3,
 %% If the ROOT cert is not found {bad_cert, unknown_ca} will be returned

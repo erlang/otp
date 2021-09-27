@@ -51,22 +51,6 @@
 
 -define(NULL, 0).
 
--export_type([cert_opt/0, chain_opts/0, conf_opt/0,
-              test_config/0, test_root_cert/0]).
-
--type cert_opt()  :: {digest, public_key:digest_type()} | 
-                     {key, public_key:key_params() | public_key:private_key()} | 
-                     {validity, {From::erlang:timestamp(), To::erlang:timestamp()}} |
-                     {extensions, [#'Extension'{}]}.
--type chain_end()   :: root | peer.
--type chain_opts()  :: #{chain_end() := [cert_opt()],  intermediates =>  [[cert_opt()]]}.
--type conf_opt()    :: {cert, public_key:der_encoded()} | 
-                       {key,  public_key:private_key()} |
-                       {cacerts, [public_key:der_encoded()]}.
--type test_config() ::
-        #{server_config := [conf_opt()],  client_config :=  [conf_opt()]}.
--type test_root_cert() ::
-        #{cert := binary(), key := public_key:private_key()}.
 %%====================================================================
 %% Internal application APIs
 %%====================================================================
@@ -468,11 +452,11 @@ match_name(Fun, Name, PermittedName, [Head | Tail]) ->
     end.
 
 %%%
--spec gen_test_certs(#{server_chain:= chain_opts(),
-                       client_chain:= chain_opts()} |
-                     chain_opts()) ->
-                            test_config() |
-                            [conf_opt()].
+-spec gen_test_certs(#{server_chain:= public_key:chain_opts(),
+                       client_chain:= public_key:chain_opts()} |
+                     public_key:chain_opts()) ->
+                            public_key:test_config() |
+                            [public_key:conf_opt()].
 %%
 %% Generates server and and client configuration for testing
 %% purposes. All certificate options have default values
@@ -547,7 +531,7 @@ x509_pkix_sign_types(#'SignatureAlgorithm'{algorithm = Alg}) ->
     {Hash, Sign, []}.
 
 %%%
--spec root_cert(string(), [cert_opt()]) -> test_root_cert().
+-spec root_cert(string(), [public_key:cert_opt()]) -> public_key:test_root_cert().
 %%
 %% Generate a self-signed root cert
 root_cert(Name, Opts) ->
