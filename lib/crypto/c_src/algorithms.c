@@ -205,44 +205,36 @@ ERL_NIF_TERM curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     return enif_make_list_from_array(env, algo_curve[fips_mode], algo_curve_cnt);
 }
 
-#if defined(HAVE_EC)
 int init_curves(ErlNifEnv* env, int fips);
+#if defined(HAVE_EC)
 int valid_curve(int nid);
 #endif
 
 int get_curve_cnt(ErlNifEnv* env, int fips) {
-    static unsigned int algo_curve_cnt, algo_curve_cnt_initialized;
-    static unsigned int algo_curve_fips_cnt, algo_curve_fips_cnt_initialized;
+    static int algo_curve_cnt = -1;
+    static int algo_curve_fips_cnt = -1;
     int cnt = 0;
-    if (0 == fips  && 1 == algo_curve_cnt_initialized) {
+    if (0 == fips && algo_curve_cnt >= 0) {
         return algo_curve_cnt;
     }
 
-    if (1 == fips  && 1 == algo_curve_fips_cnt_initialized) {
+    if (1 == fips && algo_curve_fips_cnt >= 0) {
         return algo_curve_fips_cnt;
     }
 
     enif_mutex_lock(mtx_init_curve_types);
     if (1 == fips) {
-        if (1 == algo_curve_fips_cnt_initialized) {
+        if (algo_curve_fips_cnt >= 0) {
             return algo_curve_fips_cnt;
         }
-
-#if defined(HAVE_EC)
         algo_curve_fips_cnt = init_curves(env, 1);
-#endif /* defined(HAVE_EC) */
         cnt = algo_curve_fips_cnt;
-        algo_curve_fips_cnt_initialized = 1;
     } else {
-        if (1 == algo_curve_cnt_initialized) {
+        if (algo_curve_cnt >= 0) {
             return algo_curve_cnt;
         }
-
-#if defined(HAVE_EC)
         algo_curve_cnt = init_curves(env, 0);
-#endif /* defined(HAVE_EC) */
-        cnt = algo_curve_cnt ;
-        algo_curve_cnt_initialized = 1;
+        cnt = algo_curve_cnt;
     }
     enif_mutex_unlock(mtx_init_curve_types);
 
@@ -268,12 +260,12 @@ void init_curve_types(ErlNifEnv* env) {
 
 #endif /* defined(HAVE_EC) */
 
-    ASSERT(curve_cnt <= sizeof(algo_curve)/sizeof(ERL_NIF_TERM));
+    ASSERT(curve_cnt <= sizeof(algo_curve[0])/sizeof(ERL_NIF_TERM));
 }
 
 
-#if defined(HAVE_EC)  
 int init_curves(ErlNifEnv* env, int fips) {
+#if defined(HAVE_EC)
     int cnt = 0;
 
 #ifdef NID_secp160k1
@@ -622,7 +614,12 @@ int init_curves(ErlNifEnv* env, int fips) {
     }
 
     return cnt;
+#else /* if not HAVE_EC */
+    return 0;
+#endif
 }
+
+#if defined(HAVE_EC)
 
 /* Check if the curve in nid is supported by the
    current cryptolib and current FIPS state.
