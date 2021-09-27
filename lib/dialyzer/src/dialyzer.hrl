@@ -46,7 +46,9 @@
 -define(WARN_CONTRACT_SYNTAX, warn_contract_syntax).
 -define(WARN_CONTRACT_NOT_EQUAL, warn_contract_not_equal).
 -define(WARN_CONTRACT_SUBTYPE, warn_contract_subtype).
+-define(WARN_CONTRACT_MISSING_RETURN, warn_contract_missing_return).
 -define(WARN_CONTRACT_SUPERTYPE, warn_contract_supertype).
+-define(WARN_CONTRACT_EXTRA_RETURN, warn_contract_extra_return).
 -define(WARN_CONTRACT_RANGE, warn_contract_range).
 -define(WARN_CALLGRAPH, warn_callgraph).
 -define(WARN_UNMATCHED_RETURN, warn_umatched_return).

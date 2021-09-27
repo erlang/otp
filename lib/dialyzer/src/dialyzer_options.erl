@@ -338,20 +338,34 @@ build_warnings([Opt|Opts], Warnings) ->
       no_missing_calls ->
         ordsets:del_element(?WARN_CALLGRAPH, Warnings);
       specdiffs ->
-	S = ordsets:from_list([?WARN_CONTRACT_SUBTYPE, 
-			       ?WARN_CONTRACT_SUPERTYPE,
-			       ?WARN_CONTRACT_NOT_EQUAL]),
-	ordsets:union(S, Warnings);
+        S = ordsets:from_list([?WARN_CONTRACT_SUBTYPE, 
+                               ?WARN_CONTRACT_SUPERTYPE,
+                               ?WARN_CONTRACT_NOT_EQUAL,
+                               ?WARN_CONTRACT_MISSING_RETURN,
+                               ?WARN_CONTRACT_EXTRA_RETURN]),
+        ordsets:union(S, Warnings);
       overspecs ->
-	ordsets:add_element(?WARN_CONTRACT_SUBTYPE, Warnings);
+        S = ordsets:from_list([?WARN_CONTRACT_SUBTYPE,
+                               ?WARN_CONTRACT_MISSING_RETURN]),
+        ordsets:union(S, Warnings);
       underspecs ->
-	ordsets:add_element(?WARN_CONTRACT_SUPERTYPE, Warnings);
+        S = ordsets:from_list([?WARN_CONTRACT_SUPERTYPE,
+                               ?WARN_CONTRACT_EXTRA_RETURN]),
+        ordsets:union(S, Warnings);
       no_underspecs ->
-	ordsets:del_element(?WARN_CONTRACT_SUPERTYPE, Warnings);
+        ordsets:del_element(?WARN_CONTRACT_SUPERTYPE, Warnings);
+      extra_return ->
+        ordsets:add_element(?WARN_CONTRACT_EXTRA_RETURN, Warnings);
+      no_extra_return ->
+        ordsets:del_element(?WARN_CONTRACT_EXTRA_RETURN, Warnings);
+      missing_return ->
+        ordsets:add_element(?WARN_CONTRACT_MISSING_RETURN, Warnings);
+      no_missing_return ->
+        ordsets:del_element(?WARN_CONTRACT_MISSING_RETURN, Warnings);
       unknown ->
-	ordsets:add_element(?WARN_UNKNOWN, Warnings);
+        ordsets:add_element(?WARN_UNKNOWN, Warnings);
       OtherAtom ->
-	bad_option("Unknown dialyzer warning option", OtherAtom)
+        bad_option("Unknown dialyzer warning option", OtherAtom)
     end,
   build_warnings(Opts, NewWarnings);
 build_warnings([], Warnings) ->
