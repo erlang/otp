@@ -1033,17 +1033,17 @@ servfail_retry_timeout_1000(Config) when is_list(Config) ->
 %% Test that label encoding compression limits at 14 bits pointer size
 
 label_compression_limit(Config) when is_list(Config) ->
-    FirstSz = 8,
+    FirstSz = 4,
     Count = 512,
-    Sz = 20,
-    %% We create a DNS message with an answer list containing
-    %% 1+512+1 RR:s.  The first label is 8 chars that with message
+    Sz = 16,
+    %% We create a long DNS message with an answer list containing
+    %% 1+512+1 RR:s.  The first label is 4 chars that with message
     %% and RR overhead places the second label on offset 32.
-    %% All other labels are 20 chars that with RR overhead
+    %% All other labels are 16 chars that with RR overhead
     %% places them on offsets of N * 32.
     %%
-    %% The labels are: "ZZZZZZZZ", then; "AAAAAAAAAAAAAAAAAAAA",
-    %% "AAAAAAAAAAAAAAAAAAAB", incrementing, so no one is
+    %% The labels are: "ZZZZ", then; "AAAAAAAAAAAAAAAA",
+    %% "AAAAAAAAAAAAAAAB", incrementing, so no one is
     %% equal and can not be compressed, until the last one
     %% that refers to the second to last one, so it could be compressed.
     %%
@@ -1052,7 +1052,7 @@ label_compression_limit(Config) when is_list(Config) ->
     %% a 14 bit reference from the start of the message.
     %%
     %% The last label can only be compressed when we instead
-    %% generate a message with one less char in the first label,
+    %% generate a message with *one less* char in the first label,
     %% placing the second to last label on offset 16383.
     %%
     %% So, MsgShort can use compression for the last RR
@@ -1064,12 +1064,9 @@ label_compression_limit(Config) when is_list(Config) ->
     %%
     [D | Domains] = gen_domains(Count, lists:duplicate(Sz, $A), []),
     LastD = "Y." ++ D,
-    DomainsShort =
-        [lists:duplicate(FirstSz-1, $Z) |
-         lists:reverse(Domains, [D, LastD])],
-    DomainsLong =
-        [lists:duplicate(FirstSz, $Z) |
-         lists:reverse(Domains, [D, LastD])],
+    DomainsCommon = lists:reverse(Domains, [D, LastD]),
+    DomainsShort =  [lists:duplicate(FirstSz-1, $Z) | DomainsCommon],
+    DomainsLong =   [lists:duplicate(FirstSz, $Z) | DomainsCommon],
     MsgShort = gen_msg(DomainsShort),
     MsgLong = gen_msg(DomainsLong),
     DataShort = inet_dns:encode(MsgShort),
@@ -1078,9 +1075,9 @@ label_compression_limit(Config) when is_list(Config) ->
     DataLong = inet_dns:encode(MsgLong),
     DataLongSz = byte_size(DataLong),
     ?P("DataLong[~w]:~n    ~p~n", [DataLongSz, DataLong]),
-    %% When we increase the first RR size by 1, the compressed
-    %% label that occupied a 2 bytes reference instead becomes
-    %% a label with 1 byte size and a final empty label size 1
+    %% When the first (long) RR size pushes the last compressed label out,
+    %% that occupied a 2 bytes reference, it instead becomes a label
+    %% with 1 byte size and a final empty label size 1
     0 = DataLongSz - (DataShortSz+1 - 2 + 1+Sz+1),
     ok.
 
@@ -1090,7 +1087,7 @@ gen_msg(Domains) ->
        {anlist, gen_rrs(Domains)}]).
 
 gen_rrs(Domains) ->
-    [inet_dns:make_rr([{class,in},{type,a},{domain,D}]) ||
+    [inet_dns:make_rr([{class,in},{type,a},{domain,D},{data,{17,18,19,20}}]) ||
         D <- Domains].
 
 gen_domains(0, _Domain, Acc) ->
