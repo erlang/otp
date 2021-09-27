@@ -722,7 +722,9 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     ERTS_CHK_OFFHEAP(p);
 
     ErtsGcQuickSanityCheck(p);
-
+#ifdef DEBUG
+    erts_dbg_check_no_empty_boxed_non_literal_on_heap(p, NULL);
+#endif
 #ifdef USE_VM_PROBES
     *pidbuf = '\0';
     if (DTRACE_ENABLED(gc_major_start)
@@ -3861,6 +3863,156 @@ erts_dbg_within_proc(Eterm *ptr, Process *p, Eterm *real_htop)
     }
 
     return 0;
+}
+
+#endif
+
+#ifdef DEBUG
+
+#include "erl_global_literals.h"
+
+static int
+check_all_heap_terms_in_range(int (*check_eterm)(Eterm),
+                              Eterm* region_start,
+                              Eterm* region_end)
+{
+    Eterm* tp = region_start;
+    while (tp < region_end) {
+        Eterm val = *tp++;
+
+        switch (primary_tag(val)) {
+        case TAG_PRIMARY_IMMED1:
+            if (!check_eterm(val)) {
+                return 0;
+            }
+            break;
+        case TAG_PRIMARY_LIST:
+        case TAG_PRIMARY_BOXED:
+            if (!check_eterm(val)) {
+                return 0;
+            }
+            break;
+        case TAG_PRIMARY_HEADER:
+            switch (val & _HEADER_SUBTAG_MASK) {
+            case ARITYVAL_SUBTAG:
+                break;
+            case REFC_BINARY_SUBTAG:
+                goto off_heap_common;
+            case FUN_SUBTAG:
+                goto off_heap_common;
+            case EXTERNAL_PID_SUBTAG:
+            case EXTERNAL_PORT_SUBTAG:
+            case EXTERNAL_REF_SUBTAG:
+            off_heap_common:
+                {
+                    int tari = thing_arityval(val);
+                    tp += tari;
+                }
+                break;
+            case REF_SUBTAG: {
+                ErtsRefThing *rtp = (ErtsRefThing *) (tp - 1);
+                if (is_magic_ref_thing(rtp)) {
+                    goto off_heap_common;
+                }
+                /* Fall through... */
+            }
+            default:
+                {
+                    int tari = header_arity(val);
+                    tp += tari;
+                }
+                break;
+            }
+            break;
+        }
+    }
+    return 1;
+}
+
+int
+erts_dbg_check_heap_terms(int (*check_eterm)(Eterm),
+                          Process *p,
+                          Eterm *real_htop)
+{
+    ErlHeapFragment* bp;
+    ErtsMessage* mp;
+    Eterm *htop, *heap;
+
+    if (p->abandoned_heap) {
+	ERTS_GET_ORIG_HEAP(p, heap, htop);
+	if (!check_all_heap_terms_in_range(check_eterm,
+                                           heap, htop))
+	    return 0;
+    }
+
+    heap = p->heap;
+    htop = real_htop ? real_htop : HEAP_TOP(p);
+
+    if (OLD_HEAP(p) &&
+        !check_all_heap_terms_in_range(check_eterm,
+                                       OLD_HEAP(p), OLD_HTOP(p) /*OLD_HEND(p)*/)) {
+        return 0;
+    }
+
+    if (!check_all_heap_terms_in_range(check_eterm, heap, htop)) {
+        return 0;
+    }
+
+    mp = p->msg_frag;
+    bp = p->mbuf;
+
+    if (bp)
+	goto search_heap_frags;
+
+    while (mp) {
+
+        bp = erts_message_to_heap_frag(mp);
+	mp = mp->next;
+
+    search_heap_frags:
+
+	while (bp) {
+            if (!check_all_heap_terms_in_range(check_eterm,
+                                               bp->mem,
+                                               bp->mem + bp->used_size)) {
+                return 0;
+            }
+	    bp = bp->next;
+	}
+    }
+
+    return 1;
+}
+
+static int check_no_empty_boxed_non_literal_term(Eterm term) {
+   if (is_boxed(term)) {
+        Uint arity = header_arity(*boxed_val(term));
+
+        /* Maps can have 0 arity even though they have something after the
+         * arity word. */
+        if (arity == 0 && !is_map(term)) {
+            if (term != ERTS_GLOBAL_LIT_EMPTY_TUPLE) {
+                /* Empty tuples are the only type of boxed value that can
+                 * have an arity of 0. This can change in the feature and
+                 * the condition above needs to be changed if it does. */
+                erts_exit(ERTS_ABORT_EXIT,
+                          "Non-literal empty tuple found in heap.\n"
+                          "This is not allowed due to an optimization\n"
+                          "that assumes that the word after the arity\n"
+                          "word is allocated.\n");
+            }
+        }
+    }
+    return 1;
+}
+
+void
+erts_dbg_check_no_empty_boxed_non_literal_on_heap(Process *p,
+                                                  Eterm *real_htop)
+{
+    erts_dbg_check_heap_terms(check_no_empty_boxed_non_literal_term,
+                              p,
+                              real_htop);
 }
 
 #endif
