@@ -725,14 +725,14 @@ pp_type(Type) ->
   Form = {attribute, erl_anno:new(0), type, {t, Type, []}},
   TypeDef = erl_pp:form(Form, [{quote_singleton_atom_types, true}]),
   {match, [S]} = re:run(TypeDef, <<"::\\s*(.*)\\.\\n*">>,
-                        [{capture, all_but_first, list}, dotall]),
+                        [{capture, all_but_first, list}, dotall, unicode]),
   S.
 
 pp_spec(Spec) ->
   Form = {attribute, erl_anno:new(0), spec, {{a,b,0}, Spec}},
   Sig = erl_pp:form(Form, [{quote_singleton_atom_types, true}]),
   {match, [S]} = re:run(Sig, <<"-spec a:b\\s*(.*)\\.\\n*">>,
-                        [{capture, all_but_first, list}, dotall]),
+                        [{capture, all_but_first, list}, dotall, unicode]),
   S.
 
 parse_types_and_literals(Src) ->
