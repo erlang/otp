@@ -305,6 +305,7 @@ timeout() {
 
 TIMEOUT_VALUE() {
     c_p->freason = EXC_TIMEOUT_VALUE;
+    JOIN_MESSAGE(c_p);
     goto find_func_info;
     //| -no_next
 }
@@ -372,6 +373,7 @@ wait.src(Src) {
             } else { /* Wrong time */
                 erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
                 c_p->freason = EXC_TIMEOUT_VALUE;
+                JOIN_MESSAGE(c_p);
                 goto find_func_info;
             }
         }
