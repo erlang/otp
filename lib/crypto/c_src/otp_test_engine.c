@@ -59,6 +59,7 @@
 /* If OPENSSL_NO_EC is set, there will be an error in ec.h included from engine.h
    So if EC is disabled, you can't use Engine either....
 */
+
 #include <openssl/engine.h>
 #include <openssl/pem.h>
 
@@ -192,7 +193,9 @@ static EVP_MD test_engine_md5_method=  {
         EVP_PKEY_NULL_method,         /* IGNORED: pkey methods */
         MD5_CBLOCK,                   /* Internal blocksize, see rfc1321/md5.h */
         sizeof(EVP_MD *) + sizeof(MD5_CTX),
+# if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
         NULL,                          /* IGNORED: control function */
+# endif
 };
 #endif
 

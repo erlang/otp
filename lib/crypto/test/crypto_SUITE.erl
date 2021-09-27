@@ -991,22 +991,6 @@ expected_ec_size({{prime_field,_}, _, _, Order, _}) -> byte_size(Order);
 expected_ec_size({{characteristic_two_field, _, _}, _, _, Order, _}) -> size(Order).
 
 %%--------------------------------------------------------------------
-no_aead() ->
-     [{doc, "Test disabled aead ciphers"}].
-no_aead(Config) when is_list(Config) ->
-    EncArg4 =
-        case lazy_eval(proplists:get_value(cipher, Config)) of
-            [{Type, Key, PlainText, Nonce, AAD, CipherText, CipherTag, TagLen, _Info} | _] ->
-                {AAD, PlainText, TagLen};
-            [{Type, Key, PlainText, Nonce, AAD, CipherText, CipherTag, _Info} | _] ->
-                {AAD, PlainText}
-        end,
-    EncryptArgs = [Type, Key, Nonce, EncArg4],
-    DecryptArgs = [Type, Key, Nonce, {AAD, CipherText, CipherTag}],
-    notsup(fun crypto:block_encrypt/4, EncryptArgs),
-    notsup(fun crypto:block_decrypt/4, DecryptArgs).
-
-%%--------------------------------------------------------------------
 no_aead_ng() ->
      [{doc, "Test disabled aead ciphers"}].
 no_aead_ng(Config) when is_list(Config) ->
