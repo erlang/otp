@@ -456,7 +456,11 @@
     certificate. This function must be used for encoding certificates or parts of certificates
     that are decoded/created in the <c>otp</c> format, whereas for the plain format this
     function directly calls <c>der_encode/2</c>.</p> 
-  </desc> 
+
+    <note><p>Subtle ASN-1 encoding errors in certificates may be worked around when decoding, this may have the affect that
+    the encoding a certificate back to DER may generate different bytes then the supplied original.</p></note>
+
+  </desc>
   </func>
 
  <func>
