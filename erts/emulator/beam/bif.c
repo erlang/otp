@@ -45,6 +45,7 @@
 #include "erl_map.h"
 #include "erl_msacc.h"
 #include "erl_proc_sig_queue.h"
+#include "erl_fun.h"
 #include "ryu.h"
 #include "jit/beam_asm.h"
 
@@ -1390,7 +1391,7 @@ BIF_RETTYPE raise_3(BIF_ALIST_3)
 	switch (arityval(tp[0])) {
 	case 2:
 	    /* {Fun,Args} */
-	    if (is_fun(tp[1])) {
+	    if (is_any_fun(tp[1])) {
 		must_copy = 1;
 	    } else {
 		goto error;
@@ -1402,7 +1403,7 @@ BIF_RETTYPE raise_3(BIF_ALIST_3)
 	     * {Fun,Args,Location}
 	     * {M,F,A}
 	     */
-	    if (is_fun(tp[1])) {
+	    if (is_any_fun(tp[1])) {
 		location = tp[3];
 	    } else if (is_atom(tp[1]) && is_atom(tp[2])) {
 		must_copy = 1;
@@ -4376,21 +4377,28 @@ BIF_RETTYPE ref_to_list_1(BIF_ALIST_1)
 
 BIF_RETTYPE make_fun_3(BIF_ALIST_3)
 {
-    Eterm* hp;
+    ErlFunThing *funp;
+    Eterm *hp;
+    Export *ep;
     Sint arity;
 
-    if (is_not_atom(BIF_ARG_1) || is_not_atom(BIF_ARG_2) || is_not_small(BIF_ARG_3)) {
-    error:
-	BIF_ERROR(BIF_P, BADARG);
+    if (is_not_atom(BIF_ARG_1) ||
+        is_not_atom(BIF_ARG_2) ||
+        is_not_small(BIF_ARG_3)) {
+        BIF_ERROR(BIF_P, BADARG);
     }
+
     arity = signed_val(BIF_ARG_3);
     if (arity < 0) {
-	goto error;
+        BIF_ERROR(BIF_P, BADARG);
     }
-    hp = HAlloc(BIF_P, 2);
-    hp[0] = HEADER_EXPORT;
-    hp[1] = (Eterm) erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
-    BIF_RET(make_export(hp));
+
+    hp = HAlloc(BIF_P, ERL_FUN_SIZE);
+
+    ep = erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
+    funp = erts_new_export_fun_thing(&hp, ep, arity);
+
+    BIF_RET(make_fun(funp));
 }
 
 BIF_RETTYPE fun_to_list_1(BIF_ALIST_1)
@@ -4398,8 +4406,10 @@ BIF_RETTYPE fun_to_list_1(BIF_ALIST_1)
     Process* p = BIF_P;
     Eterm fun = BIF_ARG_1;
 
-    if (is_not_any_fun(fun))
-	BIF_ERROR(p, BADARG);
+    if (is_not_any_fun(fun)) {
+        BIF_ERROR(p, BADARG);
+    }
+
     BIF_RET(term2list_dsprintf(p, fun));
 }
 
@@ -5402,7 +5412,7 @@ void erts_init_trap_export(Export *ep, Eterm m, Eterm f, Uint a,
     }
 
 #ifdef BEAMASM
-    ep->addresses[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls;
+    ep->dispatch.addresses[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls;
 #endif
 
     ep->bif_number = -1;

@@ -1099,7 +1099,9 @@ Export *beam_jit_handle_unloaded_fun(Process *c_p,
     Export *ep;
 
     funp = (ErlFunThing *)fun_val(fun_thing);
-    fe = funp->fe;
+    ASSERT(is_local_fun(funp));
+
+    fe = funp->entry.fun;
     module = fe->module;
 
     ERTS_THR_READ_MEMORY_BARRIER;

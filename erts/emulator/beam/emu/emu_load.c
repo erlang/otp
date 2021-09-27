@@ -632,7 +632,8 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
                 erts_refc_dectest(&fun_entry->refc, 1);
             }
 
-            fun_entry->address = stp->codev + stp->labels[lambda->label].value;
+            erts_set_fun_code(fun_entry,
+                              stp->codev + stp->labels[lambda->label].value);
         }
 
         lp = stp->lambda_patches;
@@ -688,7 +689,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
              */
             ep->trampoline.not_loaded.deferred = (BeamInstr) address;
         } else {
-            ep->addresses[erts_staging_code_ix()] = address;
+            ep->dispatch.addresses[erts_staging_code_ix()] = address;
         }
     }
 
@@ -701,7 +702,8 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
             Export *ep = erts_export_put(entry->module,
                                          entry->name,
                                          entry->arity);
-            const BeamInstr *addr = ep->addresses[erts_staging_code_ix()];
+            const BeamInstr *addr =
+                ep->dispatch.addresses[erts_staging_code_ix()];
 
             if (!ErtsInArea(addr, stp->codev, stp->ci * sizeof(BeamInstr))) {
                 erts_exit(ERTS_ABORT_EXIT,

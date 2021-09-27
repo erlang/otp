@@ -1732,8 +1732,10 @@ int erts_beam_jump_table(void);
 ERTS_GLB_INLINE void dtrace_pid_str(Eterm pid, char *process_buf);
 ERTS_GLB_INLINE void dtrace_proc_str(Process *process, char *process_buf);
 ERTS_GLB_INLINE void dtrace_port_str(Port *port, char *port_buf);
-ERTS_GLB_INLINE void dtrace_fun_decode(Process *process, ErtsCodeMFA *mfa,
-				       char *process_buf, char *mfa_buf);
+ERTS_GLB_INLINE void dtrace_fun_decode(Process *process,
+                                       const ErtsCodeMFA *mfa,
+                                       char *process_buf,
+                                       char *mfa_buf);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -1766,7 +1768,7 @@ dtrace_port_str(Port *port, char *port_buf)
 }
 
 ERTS_GLB_INLINE void
-dtrace_fun_decode(Process *process, ErtsCodeMFA *mfa,
+dtrace_fun_decode(Process *process, const ErtsCodeMFA *mfa,
                   char *process_buf, char *mfa_buf)
 {
     if (process_buf) {

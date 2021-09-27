@@ -28,7 +28,7 @@
  * ARG3 = arity
  * ARG4 = fun thing
  * ARG5 = address of the call_fun instruction that got us here. Note that we
- *        can't use LR (x30) for this because tail calls point elsehwere. */
+ *        can't use LR (x30) for this because tail calls point elsewhere. */
 void BeamGlobalAssembler::emit_unloaded_fun() {
     Label error = a.newLabel();
 
@@ -49,7 +49,7 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
 
     a.cbz(ARG1, error);
 
-    a.ldr(TMP1, emit_setup_export_call(ARG1));
+    a.ldr(TMP1, emit_setup_dispatchable_call(ARG1));
     a.br(TMP1);
 
     a.bind(error);
@@ -60,13 +60,13 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
     }
 }
 
-/* Handles errors for `call_fun` and `i_lambda_trampoline`. Assumes that we're
- * running on the Erlang stack with a valid stack frame.
+/* Handles errors for `call_fun`. Assumes that we're running on the Erlang
+ * stack with a valid stack frame.
  *
  * ARG3 = arity
  * ARG4 = fun thing
  * ARG5 = address of the call_fun instruction that got us here. Note that we
- *        can't use LR (x30) for this because tail calls point elsehwere. */
+ *        can't use LR (x30) for this because tail calls point elsewhere. */
 void BeamGlobalAssembler::emit_handle_call_fun_error() {
     Label bad_arity = a.newLabel(), bad_fun = a.newLabel();
 
@@ -76,12 +76,9 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
     a.ldur(TMP1, emit_boxed_val(fun_thing));
     a.cmp(TMP1, imm(HEADER_FUN));
     a.cond_eq().b(bad_arity);
-    a.cmp(TMP1, imm(HEADER_EXPORT));
-    a.cond_eq().b(bad_arity);
 
     a.bind(bad_fun);
     {
-        /* Not a fun. This is only reachable through `call_fun` */
         mov_imm(TMP1, EXC_BADFUN);
         a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
         a.str(ARG4, arm::Mem(c_p, offsetof(Process, fvalue)));
@@ -93,9 +90,6 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
 
     a.bind(bad_arity);
     {
-        /* Bad arity. This is reachable through `call_fun` when we have an
-         * export fun, and `i_lambda_trampoline` when we have a local one. */
-
         a.stp(ARG4, ARG5, TMP_MEM1q);
 
         emit_enter_runtime<Update::eHeap | Update::eStack | Update::eXRegs>();
@@ -141,8 +135,8 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
     }
 }
 
-/* `call_fun` instructions land here to check arity and set up their
- * environment before jumping to the actual implementation.
+/* `call_fun` instructions land here to set up their environment before jumping
+ * to the actual implementation.
  *
  * Keep in mind that this runs in the limbo between caller and callee. It must
  * not clobber LR (x30).
@@ -157,14 +151,17 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgVal &Index,
     const ssize_t env_offset = offsetof(ErlFunThing, env) - TAG_PRIMARY_BOXED;
     const ssize_t fun_arity = Arity.getValue() - NumFree.getValue();
     const ssize_t total_arity = Arity.getValue();
-    Label error = a.newLabel();
 
     auto &lambda = lambdas[Index.getValue()];
+
+    if (NumFree.getValue() == 0) {
+        /* No free variables, let the lambda jump directly to our target. */
+        lambda.trampoline = rawLabels[Lbl.getValue()];
+        return;
+    }
+
     lambda.trampoline = a.newLabel();
     a.bind(lambda.trampoline);
-
-    a.cmp(ARG3, imm(fun_arity));
-    a.cond_ne().b(error);
 
     if (NumFree.getValue() == 1) {
         auto first = init_destination(ArgVal(ArgVal::XReg, fun_arity), TMP1);
@@ -196,12 +193,6 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgVal &Index,
     }
 
     a.b(resolve_beam_label(Lbl, disp128MB));
-
-    a.bind(error);
-    {
-        emit_enter_erlang_frame();
-        a.b(resolve_fragment(ga->get_handle_call_fun_error(), disp128MB));
-    }
 }
 
 void BeamModuleAssembler::emit_i_make_fun3(const ArgVal &Fun,
@@ -214,14 +205,14 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgVal &Fun,
 
     ASSERT(num_free == env.size());
 
+    a.mov(ARG1, c_p);
     mov_arg(ARG2, Fun);
     mov_arg(ARG3, Arity);
     mov_arg(ARG4, NumFree);
 
     emit_enter_runtime<Update::eHeap>();
 
-    a.mov(ARG1, c_p);
-    runtime_call<4>(new_fun_thing);
+    runtime_call<4>(erts_new_local_fun_thing);
 
     emit_leave_runtime<Update::eHeap>();
 
@@ -343,14 +334,16 @@ void BeamModuleAssembler::emit_i_apply_fun_only() {
  *   ARG3 = arity
  *   ARG4 = fun thing */
 arm::Gp BeamModuleAssembler::emit_call_fun() {
-    Label exported = a.newLabel(), next = a.newLabel();
+    Label next = a.newLabel();
+
+    /* Speculatively untag the ErlFunThing. */
+    emit_untag_ptr(TMP2, ARG4);
 
     /* Load the error fragment into TMP3 so we can CSEL ourselves there on
      * error. */
     a.adr(TMP3, resolve_fragment(ga->get_handle_call_fun_error(), disp1MB));
 
-    /* The `handle_call_fun_error` and `i_lambda_trampoline` fragments expect
-     * current PC in ARG5. */
+    /* The `handle_call_fun_error` fragment expects current PC in ARG5. */
     a.adr(ARG5, next);
 
     /* As emit_is_boxed(), but explicitly sets ZF so we can rely on that for
@@ -358,26 +351,18 @@ arm::Gp BeamModuleAssembler::emit_call_fun() {
     a.tst(ARG4, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
     a.cond_ne().b(next);
 
-    arm::Gp fun_thing = emit_ptr_val(TMP2, ARG4);
-    a.ldur(TMP1, emit_boxed_val(fun_thing));
-    a.cmp(TMP1, imm(HEADER_EXPORT));
-    a.cond_eq().b(exported);
+    /* Load header word and `ErlFunThing->entry`. We can safely do this before
+     * testing the header because boxed terms are guaranteed to be at least two
+     * words long. */
+    a.ldp(TMP1, ARG1, arm::Mem(TMP2));
+
     a.cmp(TMP1, imm(HEADER_FUN));
     a.cond_ne().b(next);
 
-    a.ldur(TMP1, emit_boxed_val(fun_thing, offsetof(ErlFunThing, fe)));
-    a.ldr(TMP1, arm::Mem(TMP1, offsetof(ErlFunEntry, address)));
-    a.b(next);
+    a.ldr(TMP2, arm::Mem(TMP2, offsetof(ErlFunThing, arity)));
+    a.cmp(TMP2, ARG3);
 
-    a.bind(exported);
-    {
-        a.ldur(ARG1, emit_boxed_val(fun_thing, sizeof(Eterm)));
-
-        a.ldr(TMP1, arm::Mem(ARG1, offsetof(Export, info.mfa.arity)));
-        a.cmp(TMP1, ARG3);
-
-        a.ldr(TMP1, emit_setup_export_call(ARG1));
-    }
+    a.ldr(TMP1, emit_setup_dispatchable_call(ARG1));
 
     /* Assumes that ZF is set on success and clear on error, overwriting our
      * destination with the error fragment's address. */

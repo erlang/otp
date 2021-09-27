@@ -3147,10 +3147,17 @@ BIF_RETTYPE erts_internal_term_type_1(BIF_ALIST_1) {
             switch (hdr & _TAG_HEADER_MASK) {
                 case ARITYVAL_SUBTAG:
                     BIF_RET(ERTS_MAKE_AM("tuple"));
-                case EXPORT_SUBTAG:
-                    BIF_RET(ERTS_MAKE_AM("export"));
                 case FUN_SUBTAG:
-                    BIF_RET(ERTS_MAKE_AM("fun"));
+                    {
+                        ErlFunThing *funp = (ErlFunThing *)fun_val(obj);
+
+                        if (is_local_fun(funp)) {
+                            BIF_RET(ERTS_MAKE_AM("fun"));
+                        } else {
+                            ASSERT(is_external_fun(funp) && funp->next == NULL);
+                            BIF_RET(ERTS_MAKE_AM("export"));
+                        }
+                    }
                 case MAP_SUBTAG:
                     switch (MAP_HEADER_TYPE(hdr)) {
                         case MAP_HEADER_TAG_FLATMAP_HEAD :

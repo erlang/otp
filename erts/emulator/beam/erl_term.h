@@ -129,7 +129,6 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define REF_SUBTAG		(0x4 << _TAG_PRIMARY_SIZE) /* REF */
 #define FUN_SUBTAG		(0x5 << _TAG_PRIMARY_SIZE) /* FUN */
 #define FLOAT_SUBTAG		(0x6 << _TAG_PRIMARY_SIZE) /* FLOAT */
-#define EXPORT_SUBTAG		(0x7 << _TAG_PRIMARY_SIZE) /* FLOAT */
 #define _BINARY_XXX_MASK	(0x3 << _TAG_PRIMARY_SIZE)
 #define REFC_BINARY_SUBTAG	(0x8 << _TAG_PRIMARY_SIZE) /* BINARY */
 #define HEAP_BINARY_SUBTAG	(0x9 << _TAG_PRIMARY_SIZE) /* BINARY */
@@ -146,7 +145,6 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _TAG_HEADER_POS_BIG        (TAG_PRIMARY_HEADER|POS_BIG_SUBTAG)
 #define _TAG_HEADER_NEG_BIG        (TAG_PRIMARY_HEADER|NEG_BIG_SUBTAG)
 #define _TAG_HEADER_FLOAT          (TAG_PRIMARY_HEADER|FLOAT_SUBTAG)
-#define _TAG_HEADER_EXPORT         (TAG_PRIMARY_HEADER|EXPORT_SUBTAG)
 #define _TAG_HEADER_REF            (TAG_PRIMARY_HEADER|REF_SUBTAG)
 #define _TAG_HEADER_REFC_BIN       (TAG_PRIMARY_HEADER|REFC_BINARY_SUBTAG)
 #define _TAG_HEADER_HEAP_BIN       (TAG_PRIMARY_HEADER|HEAP_BINARY_SUBTAG)
@@ -374,29 +372,15 @@ _ET_DECLARE_CHECKED(Eterm*,binary_val,Wterm)
 /* process binaries stuff (special case of binaries) */
 #define HEADER_PROC_BIN	_make_header(PROC_BIN_SIZE-1,_TAG_HEADER_REFC_BIN)
 
-/* fun & export objects */
-#define is_any_fun(x)   (is_fun((x)) || is_export((x)))
-#define is_not_any_fun(x) (!is_any_fun((x)))
-
 /* fun objects */
-#define HEADER_FUN		_make_header(ERL_FUN_SIZE-2,_TAG_HEADER_FUN)
-#define is_fun_header(x)	((x) == HEADER_FUN)
-#define make_fun(x)		make_boxed((Eterm*)(x))
-#define is_fun(x)		(is_boxed((x)) && is_fun_header(*boxed_val((x))))
-#define is_not_fun(x)		(!is_fun((x)))
+#define HEADER_FUN              _make_header(ERL_FUN_SIZE-2,_TAG_HEADER_FUN)
+#define is_fun_header(x)        ((x) == HEADER_FUN)
+#define make_fun(x)             make_boxed((Eterm*)(x))
+#define is_any_fun(x)           (is_boxed((x)) && is_fun_header(*boxed_val((x))))
+#define is_not_any_fun(x)       (!is_any_fun((x)))
 #define _unchecked_fun_val(x)   _unchecked_boxed_val((x))
 _ET_DECLARE_CHECKED(Eterm*,fun_val,Wterm)
 #define fun_val(x)		_ET_APPLY(fun_val,(x))
-
-/* export access methods */
-#define make_export(x)	 make_boxed((x))
-#define is_export(x)     (is_boxed((x)) && is_export_header(*boxed_val((x))))
-#define is_not_export(x) (!is_export((x)))
-#define _unchecked_export_val(x)   _unchecked_boxed_val(x)
-_ET_DECLARE_CHECKED(Eterm*,export_val,Wterm)
-#define export_val(x)	_ET_APPLY(export_val,(x))
-#define is_export_header(x)	((x) == HEADER_EXPORT)
-#define HEADER_EXPORT   _make_header(1,_TAG_HEADER_EXPORT)
 
 /* bignum access methods */
 #define make_pos_bignum_header(sz)	_make_header((sz),_TAG_HEADER_POS_BIG)
@@ -1398,7 +1382,6 @@ _ET_DECLARE_CHECKED(Uint,loader_y_reg_index,Uint)
 #define EXTERNAL_PID_DEF	0x6
 #define PORT_DEF		0x7
 #define EXTERNAL_PORT_DEF	0x8
-#define EXPORT_DEF		0x9
 #define FUN_DEF			0xa
 #define REF_DEF			0xb
 #define EXTERNAL_REF_DEF	0xc
@@ -1468,7 +1451,6 @@ ERTS_GLB_INLINE unsigned tag_val_def(Wterm x)
 	    case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):	return BIG_DEF;
 	    case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):	return REF_DEF;
 	    case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):	return FLOAT_DEF;
-	    case (_TAG_HEADER_EXPORT >> _TAG_PRIMARY_SIZE):     return EXPORT_DEF;
 	    case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):	return FUN_DEF;
 	    case (_TAG_HEADER_EXTERNAL_PID >> _TAG_PRIMARY_SIZE):	return EXTERNAL_PID_DEF;
 	    case (_TAG_HEADER_EXTERNAL_PORT >> _TAG_PRIMARY_SIZE):	return EXTERNAL_PORT_DEF;

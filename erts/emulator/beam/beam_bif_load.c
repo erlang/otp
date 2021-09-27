@@ -870,7 +870,8 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
             DBG_CHECK_EXPORT(ep, code_ix);
 
             if (ep->trampoline.not_loaded.deferred != 0) {
-                    ep->addresses[code_ix] = (void*)ep->trampoline.not_loaded.deferred;
+                    ep->dispatch.addresses[code_ix] =
+                        (void*)ep->trampoline.not_loaded.deferred;
                     ep->trampoline.not_loaded.deferred = 0;
             } else {
                 if (ep->bif_number != -1) {

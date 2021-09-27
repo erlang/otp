@@ -500,22 +500,29 @@ protected:
         }
     }
 
-    /* Returns the current code address for the export entry in `Src`
+    /* Returns the current code address for the `Export` or `ErlFunEntry` in
+     * `Src`.
      *
-     * Export tracing, save_calls, etc is implemented by shared fragments that
-     * assume that the export entry is in RET, so we have to copy it over if it
-     * isn't already. */
-    x86::Mem emit_setup_export_call(const x86::Gp &Src) {
-        return emit_setup_export_call(Src, active_code_ix);
+     * Export tracing, save_calls, etc are implemented by shared fragments that
+     * assume that the respective entry is in RET, so we have to copy it over
+     * if it isn't already. */
+    x86::Mem emit_setup_dispatchable_call(const x86::Gp &Src) {
+        return emit_setup_dispatchable_call(Src, active_code_ix);
     }
 
-    x86::Mem emit_setup_export_call(const x86::Gp &Src,
-                                    const x86::Gp &CodeIndex) {
+    x86::Mem emit_setup_dispatchable_call(const x86::Gp &Src,
+                                          const x86::Gp &CodeIndex) {
         if (RET != Src) {
             a.mov(RET, Src);
         }
 
-        return x86::qword_ptr(RET, CodeIndex, 3, offsetof(Export, addresses));
+        ERTS_CT_ASSERT(offsetof(ErlFunEntry, dispatch) == 0);
+        ERTS_CT_ASSERT(offsetof(Export, dispatch) == 0);
+
+        return x86::qword_ptr(RET,
+                              CodeIndex,
+                              3,
+                              offsetof(ErtsDispatchable, addresses));
     }
 
     void emit_assert_runtime_stack() {

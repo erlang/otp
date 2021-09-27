@@ -63,6 +63,20 @@ struct process;
 
 
 #define ERTS_NUM_CODE_IX 3
+
+#ifdef BEAMASM
+#define ERTS_ADDRESSV_SIZE (ERTS_NUM_CODE_IX + 1)
+#define ERTS_SAVE_CALLS_CODE_IX (ERTS_ADDRESSV_SIZE - 1)
+#else
+#define ERTS_ADDRESSV_SIZE ERTS_NUM_CODE_IX
+#endif
+
+/* This structure lets `Export` entries and `ErlFunEntry` share dispatch code,
+ * which greatly improves the performance of fun calls. */
+typedef struct ErtsDispatchable_ {
+    ErtsCodePtr addresses[ERTS_ADDRESSV_SIZE];
+} ErtsDispatchable;
+
 typedef unsigned ErtsCodeIndex;
 
 typedef struct ErtsCodeMFA_ {

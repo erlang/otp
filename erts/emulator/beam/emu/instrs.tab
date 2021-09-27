@@ -243,7 +243,7 @@ APPLY(I, Deallocate, Next) {
         save_calls(c_p, ep);
     }
 
-    $Next = ep->addresses[erts_active_code_ix()];
+    $Next = ep->dispatch.addresses[erts_active_code_ix()];
 }
 
 HANDLE_APPLY_ERROR() {
@@ -290,7 +290,7 @@ FIXED_APPLY(Arity, I, Deallocate, Next) {
         save_calls(c_p, ep);
     }
 
-    $Next = ep->addresses[erts_active_code_ix()];
+    $Next = ep->dispatch.addresses[erts_active_code_ix()];
 }
 
 apply(Arity) {
@@ -546,7 +546,7 @@ i_make_fun3(FunP, Dst, Arity, NumFree) {
     int i, num_free = $NumFree;
     //| -no_next
     SWAPOUT;
-    funp = new_fun_thing(c_p, fe, $Arity, num_free);
+    funp = erts_new_local_fun_thing(c_p, fe, $Arity, num_free);
     SWAPIN;
     I = $NEXT_INSTRUCTION;
     for (i = 0; i < num_free; i++) {

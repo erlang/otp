@@ -1166,7 +1166,7 @@ int enif_is_empty_list(ErlNifEnv* env, ERL_NIF_TERM term)
 
 int enif_is_fun(ErlNifEnv* env, ERL_NIF_TERM term)
 {
-    return is_fun(term);
+    return is_any_fun(term);
 }
 
 int enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term)
@@ -1214,7 +1214,6 @@ ErlNifTermType enif_term_type(ErlNifEnv* env, ERL_NIF_TERM term) {
         return ERL_NIF_TERM_TYPE_BITSTRING;
     case FLOAT_DEF:
         return ERL_NIF_TERM_TYPE_FLOAT;
-    case EXPORT_DEF:
     case FUN_DEF:
         return ERL_NIF_TERM_TYPE_FUN;
     case BIG_DEF:

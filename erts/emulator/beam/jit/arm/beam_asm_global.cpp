@@ -151,7 +151,7 @@ void BeamGlobalAssembler::emit_bif_export_trap() {
 
     emit_leave_erlang_frame();
 
-    branch(emit_setup_export_call(ARG1));
+    branch(emit_setup_dispatchable_call(ARG1));
 }
 
 /* Handles export breakpoints, error handler, jump tracing, and so on.
@@ -232,7 +232,7 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 
         a.cbz(ARG1, labels[process_exit]);
 
-        branch(emit_setup_export_call(ARG1));
+        branch(emit_setup_dispatchable_call(ARG1));
     }
 }
 

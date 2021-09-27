@@ -535,7 +535,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
     a.bind(trace);
     {
         /* Call the export entry instead of the BIF. */
-        branch(emit_setup_export_call(ARG4));
+        branch(emit_setup_dispatchable_call(ARG4));
     }
 
     a.bind(yield);

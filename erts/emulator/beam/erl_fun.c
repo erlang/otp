@@ -29,6 +29,15 @@
 #include "hash.h"
 #include "beam_common.h"
 
+/* Container structure for fun entries, allowing us to start `ErlFunEntry` with
+ * a field other than its `HashBucket`. */
+typedef struct erl_fun_entry_container {
+    /* !! MUST BE THE FIRST FIELD !! */
+    HashBucket bucket;
+
+    ErlFunEntry entry;
+} ErlFunEntryContainer;
+
 static Hash erts_fun_table;
 
 static erts_rwmtx_t erts_fun_table_lock;
@@ -38,10 +47,10 @@ static erts_rwmtx_t erts_fun_table_lock;
 #define erts_fun_write_lock()	erts_rwmtx_rwlock(&erts_fun_table_lock)
 #define erts_fun_write_unlock()	erts_rwmtx_rwunlock(&erts_fun_table_lock)
 
-static HashValue fun_hash(ErlFunEntry* obj);
-static int fun_cmp(ErlFunEntry* obj1, ErlFunEntry* obj2);
-static ErlFunEntry* fun_alloc(ErlFunEntry* template);
-static void fun_free(ErlFunEntry* obj);
+static HashValue fun_hash(ErlFunEntryContainer* obj);
+static int fun_cmp(ErlFunEntryContainer* obj1, ErlFunEntryContainer* obj2);
+static ErlFunEntryContainer* fun_alloc(ErlFunEntryContainer* template);
+static void fun_free(ErlFunEntryContainer* obj);
 
 void
 erts_init_fun_table(void)
@@ -92,34 +101,38 @@ ErlFunEntry*
 erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
                     const byte* uniq, int index, int arity)
 {
-    ErlFunEntry template;
-    ErlFunEntry* fe;
+    ErlFunEntryContainer template;
+    ErlFunEntryContainer *fc;
+    ErlFunEntry *tp;
     erts_aint_t refc;
+
+    tp = &template.entry;
 
     /* All fields are copied from the template when inserting a new entry. */
     ASSERT(is_atom(mod));
-    template.old_index = old_index;
-    template.old_uniq = old_uniq;
-    template.index = index;
-    template.module = mod;
-    template.arity = arity;
-    sys_memcpy(template.uniq, uniq, sizeof(template.uniq));
+    tp->old_index = old_index;
+    tp->old_uniq = old_uniq;
+    tp->index = index;
+    tp->module = mod;
+    tp->arity = arity;
+
+    sys_memcpy(tp->uniq, uniq, sizeof(tp->uniq));
 
     erts_fun_write_lock();
-    fe = (ErlFunEntry *) hash_put(&erts_fun_table, (void*) &template);
-    refc = erts_refc_inctest(&fe->refc, 0);
+    fc = (ErlFunEntryContainer*)hash_put(&erts_fun_table, (void*)&template);
+    refc = erts_refc_inctest(&fc->entry.refc, 0);
     if (refc < 2) {
         /* New or pending delete */
-        erts_refc_inc(&fe->refc, 1);
+        erts_refc_inc(&fc->entry.refc, 1);
     }
     erts_fun_write_unlock();
 
-    return fe;
+    return &fc->entry;
 }
 
 const ErtsCodeMFA *erts_get_fun_mfa(const ErlFunEntry *fe) {
     static const ErtsCodeMFA unloaded_mfa = {NIL, NIL, ERTS_UINT_MAX};
-    ErtsCodePtr address = fe->address;
+    ErtsCodePtr address = fe->dispatch.addresses[0];
 
     if (address != beam_unloaded_fun) {
         return erts_find_function_from_pc(address);
@@ -128,14 +141,25 @@ const ErtsCodeMFA *erts_get_fun_mfa(const ErlFunEntry *fe) {
     return &unloaded_mfa;
 }
 
+void erts_set_fun_code(ErlFunEntry *fe, ErtsCodePtr address) {
+    int i;
+
+    for (i = 0; i < ERTS_ADDRESSV_SIZE; i++) {
+        fe->dispatch.addresses[i] = address;
+    }
+}
+
 int erts_is_fun_loaded(const ErlFunEntry* fe) {
-    return fe->address != beam_unloaded_fun;
+    return fe->dispatch.addresses[0] != beam_unloaded_fun;
 }
 
 static void
 erts_erase_fun_entry_unlocked(ErlFunEntry* fe)
 {
-    hash_erase(&erts_fun_table, (void *) fe);
+    ErlFunEntryContainer *fc = ErtsContainerStruct(fe, ErlFunEntryContainer,
+                                                   entry);
+
+    hash_erase(&erts_fun_table, (void *) fc);
 }
 
 void
@@ -160,17 +184,21 @@ erts_erase_fun_entry(ErlFunEntry* fe)
     erts_fun_write_unlock();
 }
 
-static void fun_purge_foreach(ErlFunEntry *fe, struct erl_module_instance* modp)
+static void fun_purge_foreach(ErlFunEntryContainer *fc,
+                              struct erl_module_instance* modp)
 {
     const char *fun_addr, *mod_start;
+    ErlFunEntry *fe = &fc->entry;
 
-    fun_addr = (const char*)fe->address;
+    fun_addr = (const char*)fe->dispatch.addresses[0];
     mod_start = (const char*)modp->code_hdr;
 
     if (ErtsInArea(fun_addr, mod_start, modp->code_length)) {
-        fe->pend_purge_address = fe->address;
+        fe->pend_purge_address = fe->dispatch.addresses[0];
         ERTS_THR_WRITE_MEMORY_BARRIER;
-        fe->address = beam_unloaded_fun;
+
+        erts_set_fun_code(fe, beam_unloaded_fun);
+
         erts_purge_state_add_fun(fe);
     }
 }
@@ -191,8 +219,8 @@ erts_fun_purge_abort_prepare(ErlFunEntry **funs, Uint no)
     for (ix = 0; ix < no; ix++) {
         ErlFunEntry *fe = funs[ix];
 
-        if (fe->address == beam_unloaded_fun) {
-            fe->address = fe->pend_purge_address;
+        if (fe->dispatch.addresses[0] == beam_unloaded_fun) {
+            erts_set_fun_code(fe, fe->pend_purge_address);
         }
     }
 }
@@ -221,19 +249,75 @@ erts_fun_purge_complete(ErlFunEntry **funs, Uint no)
     ERTS_THR_WRITE_MEMORY_BARRIER;
 }
 
+
+ErlFunThing *erts_new_export_fun_thing(Eterm **hpp, Export *exp, int arity)
+{
+    ErlFunThing *funp;
+
+    funp = (ErlFunThing*)(*hpp);
+    *hpp += ERL_FUN_SIZE;
+
+    funp->thing_word = HEADER_FUN;
+    funp->next = NULL;
+    funp->entry.exp = exp;
+    funp->num_free = 0;
+    funp->creator = am_external;
+    funp->arity = arity;
+
+#ifdef DEBUG
+    {
+        const ErtsCodeMFA *mfa = &exp->info.mfa;
+        ASSERT(arity == mfa->arity);
+    }
+#endif
+
+    return funp;
+}
+
+ErlFunThing *erts_new_local_fun_thing(Process *p, ErlFunEntry *fe,
+                                      int arity, int num_free)
+{
+    ErlFunThing *funp;
+
+    funp = (ErlFunThing*) p->htop;
+    p->htop += ERL_FUN_SIZE + num_free;
+    erts_refc_inc(&fe->refc, 2);
+
+    funp->thing_word = HEADER_FUN;
+    funp->next = MSO(p).first;
+    MSO(p).first = (struct erl_off_heap_header*) funp;
+    funp->entry.fun = fe;
+    funp->num_free = num_free;
+    funp->creator = p->common.id;
+    funp->arity = arity;
+
+#ifdef DEBUG
+    {
+        const ErtsCodeMFA *mfa = erts_get_fun_mfa(fe);
+        ASSERT(funp->arity == mfa->arity - num_free);
+        ASSERT(arity == fe->arity);
+    }
+#endif
+
+    return funp;
+}
+
+
 struct dump_fun_foreach_args {
     fmtfn_t to;
     void *to_arg;
 };
 
 static void
-dump_fun_foreach(ErlFunEntry *fe, struct dump_fun_foreach_args *args)
+dump_fun_foreach(ErlFunEntryContainer *fc, struct dump_fun_foreach_args *args)
 {
+    ErlFunEntry *fe = &fc->entry;
+
     erts_print(args->to, args->to_arg, "=fun\n");
     erts_print(args->to, args->to_arg, "Module: %T\n", fe->module);
     erts_print(args->to, args->to_arg, "Uniq: %d\n", fe->old_uniq);
     erts_print(args->to, args->to_arg, "Index: %d\n",fe->old_index);
-    erts_print(args->to, args->to_arg, "Address: %p\n", fe->address);
+    erts_print(args->to, args->to_arg, "Address: %p\n", fe->dispatch.addresses[0]);
     erts_print(args->to, args->to_arg, "Refc: %ld\n", erts_refc_read(&fe->refc, 1));
 }
 
@@ -251,39 +335,48 @@ erts_dump_fun_entries(fmtfn_t to, void *to_arg)
 }
 
 static HashValue
-fun_hash(ErlFunEntry* obj)
+fun_hash(ErlFunEntryContainer* obj)
 {
-    return (HashValue) (obj->old_uniq ^ obj->index ^ atom_val(obj->module));
+    ErlFunEntry *fe = &obj->entry;
+
+    return (HashValue) (fe->old_uniq ^ fe->index ^ atom_val(fe->module));
 }
 
 static int
-fun_cmp(ErlFunEntry* obj1, ErlFunEntry* obj2)
+fun_cmp(ErlFunEntryContainer* obj1, ErlFunEntryContainer* obj2)
 {
-    return !(obj1->old_index == obj2->old_index &&
-             obj1->old_uniq == obj2->old_uniq &&
-             obj1->module == obj2->module &&
-             obj1->index == obj2->index &&
-             obj1->arity == obj2->arity &&
-             !sys_memcmp(obj1->uniq, obj2->uniq, sizeof(obj1->uniq)));
+    ErlFunEntry* fe1 = &obj1->entry;
+    ErlFunEntry* fe2 = &obj2->entry;
+
+    return !(fe1->old_index == fe2->old_index &&
+             fe1->old_uniq == fe2->old_uniq &&
+             fe1->module == fe2->module &&
+             fe1->index == fe2->index &&
+             fe1->arity == fe2->arity &&
+             !sys_memcmp(fe1->uniq, fe2->uniq, sizeof(fe1->uniq)));
 }
 
-static ErlFunEntry*
-fun_alloc(ErlFunEntry* template)
+static ErlFunEntryContainer*
+fun_alloc(ErlFunEntryContainer* template)
 {
-    ErlFunEntry* obj = (ErlFunEntry *) erts_alloc(ERTS_ALC_T_FUN_ENTRY,
-                                                  sizeof(ErlFunEntry));
+    ErlFunEntryContainer* obj;
 
-    sys_memcpy(obj, template, sizeof(ErlFunEntry));
+    obj = (ErlFunEntryContainer *) erts_alloc(ERTS_ALC_T_FUN_ENTRY,
+                                              sizeof(ErlFunEntryContainer));
 
-    erts_refc_init(&obj->refc, -1);
-    obj->address = beam_unloaded_fun;
-    obj->pend_purge_address = NULL;
+    sys_memcpy(obj, template, sizeof(ErlFunEntryContainer));
+
+    erts_refc_init(&obj->entry.refc, -1);
+
+    erts_set_fun_code(&obj->entry, beam_unloaded_fun);
+
+    obj->entry.pend_purge_address = NULL;
 
     return obj;
 }
 
 static void
-fun_free(ErlFunEntry* obj)
+fun_free(ErlFunEntryContainer* obj)
 {
     erts_free(ERTS_ALC_T_FUN_ENTRY, (void *) obj);
 }

@@ -942,7 +942,7 @@ void beam_load_finalize_code(LoaderState *stp,
              * code callable. */
             ep->trampoline.not_loaded.deferred = (BeamInstr)address;
         } else {
-            ep->addresses[staging_ix] = address;
+            ep->dispatch.addresses[staging_ix] = address;
         }
     }
 
@@ -983,7 +983,7 @@ void beam_load_finalize_code(LoaderState *stp,
                 erts_refc_dectest(&fun_entry->refc, 1);
             }
 
-            fun_entry->address = beamasm_get_lambda(stp->ba, i);
+            erts_set_fun_code(fun_entry, beamasm_get_lambda(stp->ba, i));
 
             beamasm_patch_lambda(stp->ba,
                                  stp->native_module_rw,

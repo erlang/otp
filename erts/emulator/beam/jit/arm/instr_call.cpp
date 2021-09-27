@@ -88,20 +88,20 @@ void BeamGlobalAssembler::emit_dispatch_save_calls() {
     a.mov(TMP1, imm(&the_active_code_index));
     a.ldr(TMP1.w(), arm::Mem(TMP1));
 
-    branch(emit_setup_export_call(ARG1, TMP1));
+    branch(emit_setup_dispatchable_call(ARG1, TMP1));
 }
 
 void BeamModuleAssembler::emit_i_call_ext(const ArgVal &Exp) {
     mov_arg(ARG1, Exp);
 
-    arm::Mem target = emit_setup_export_call(ARG1);
+    arm::Mem target = emit_setup_dispatchable_call(ARG1);
     erlang_call(target);
 }
 
 void BeamModuleAssembler::emit_i_call_ext_only(const ArgVal &Exp) {
     mov_arg(ARG1, Exp);
 
-    arm::Mem target = emit_setup_export_call(ARG1);
+    arm::Mem target = emit_setup_dispatchable_call(ARG1);
     emit_leave_erlang_frame();
     branch(target);
 }
@@ -142,7 +142,7 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
     emit_raise_exception(entry, &apply3_mfa);
 
     a.bind(dispatch);
-    return emit_setup_export_call(ARG1);
+    return emit_setup_dispatchable_call(ARG1);
 }
 
 void BeamModuleAssembler::emit_i_apply() {
@@ -195,7 +195,7 @@ arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgVal &Arity,
 
     a.bind(dispatch);
 
-    return emit_setup_export_call(ARG1);
+    return emit_setup_dispatchable_call(ARG1);
 }
 
 void BeamModuleAssembler::emit_apply(const ArgVal &Arity) {

@@ -46,7 +46,7 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
     a.jz(error);
 
     emit_leave_frame();
-    a.jmp(emit_setup_export_call(RET));
+    a.jmp(emit_setup_dispatchable_call(RET));
 
     a.bind(error);
     {
@@ -58,7 +58,7 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
     }
 }
 
-/* Handles errors for `call_fun` and `i_lambda_trampoline`.
+/* Handles errors for `call_fun`.
  *
  * ARG3 = arity
  * ARG4 = fun thing
@@ -71,15 +71,11 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
     emit_is_boxed(bad_fun, ARG4);
 
     x86::Gp fun_thing = emit_ptr_val(RET, ARG4);
-    a.mov(RET, emit_boxed_val(fun_thing));
-    a.cmp(RET, imm(HEADER_EXPORT));
-    a.short_().je(bad_arity);
-    a.cmp(RET, imm(HEADER_FUN));
+    a.cmp(emit_boxed_val(fun_thing), imm(HEADER_FUN));
     a.short_().je(bad_arity);
 
     a.bind(bad_fun);
     {
-        /* Not a fun: this is only reachable through `call_fun` */
         a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), imm(EXC_BADFUN));
         a.mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), ARG4);
 
@@ -92,9 +88,6 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
 
     a.bind(bad_arity);
     {
-        /* Bad arity: this is reachable through `call_fun` when we have an
-         * export fun, and `i_lambda_trampoline` when we have a local one. */
-
         /* Stash our fun and current PC. Note that we don't move the fun to
          * {x,0} straight away as that would clobber the first argument. */
         a.mov(TMP_MEM1q, ARG4);
@@ -150,8 +143,8 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
     }
 }
 
-/* `call_fun` instructions land here to check arity and set up their
- * environment before jumping to the actual implementation.
+/* `call_fun` instructions land here to set up their environment before jumping
+ * to the actual implementation.
  *
  * Keep in mind that this runs in the limbo between caller and callee, so we
  * must not enter a frame here.
@@ -165,15 +158,18 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgVal &Index,
                                                    const ArgVal &NumFree) {
     const ssize_t effective_arity = Arity.getValue() - NumFree.getValue();
     const ssize_t num_free = NumFree.getValue();
-    Label error = a.newLabel();
     ssize_t i;
 
     auto &lambda = lambdas[Index.getValue()];
+
+    if (NumFree.getValue() == 0) {
+        /* No free variables, let the lambda jump directly to our target. */
+        lambda.trampoline = labels[Lbl.getValue()];
+        return;
+    }
+
     lambda.trampoline = a.newLabel();
     a.bind(lambda.trampoline);
-
-    a.cmp(ARG3, imm(effective_arity));
-    a.short_().jne(error);
 
     emit_ptr_val(ARG4, ARG4);
 
@@ -192,9 +188,6 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgVal &Index,
     }
 
     a.jmp(labels[Lbl.getValue()]);
-
-    a.bind(error);
-    abs_jmp(ga->get_handle_call_fun_error());
 }
 
 void BeamModuleAssembler::emit_i_make_fun3(const ArgVal &Fun,
@@ -205,14 +198,14 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgVal &Fun,
     size_t num_free = env.size();
     ASSERT(NumFree.getValue() == num_free);
 
+    make_move_patch(ARG2, lambdas[Fun.getValue()].patches);
     mov_arg(ARG3, Arity);
     mov_arg(ARG4, NumFree);
 
     emit_enter_runtime<Update::eHeap>();
 
     a.mov(ARG1, c_p);
-    make_move_patch(ARG2, lambdas[Fun.getValue()].patches);
-    runtime_call<4>(new_fun_thing);
+    runtime_call<4>(erts_new_local_fun_thing);
 
     emit_leave_runtime<Update::eHeap>();
 
@@ -326,14 +319,16 @@ void BeamModuleAssembler::emit_i_apply_fun_only() {
  *   ARG3 = arity
  *   ARG4 = fun thing */
 x86::Gp BeamModuleAssembler::emit_call_fun() {
-    Label exported = a.newLabel(), next = a.newLabel();
+    Label next = a.newLabel();
+
+    /* Speculatively strip the literal tag when needed. */
+    x86::Gp fun_thing = emit_ptr_val(RET, ARG4);
 
     /* Load the error fragment into ARG2 so we can CMOV ourselves there on
      * error. */
     a.mov(ARG2, ga->get_handle_call_fun_error());
 
-    /* The `handle_call_fun_error` and `i_lambda_trampoline` fragments expect
-     * current PC in ARG5. */
+    /* The `handle_call_fun_error` fragment expects current PC in ARG5. */
     a.lea(ARG5, x86::qword_ptr(next));
 
     /* As emit_is_boxed(), but explicitly sets ZF so we can rely on that for
@@ -341,23 +336,13 @@ x86::Gp BeamModuleAssembler::emit_call_fun() {
     a.test(ARG4d, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
     a.short_().jne(next);
 
-    x86::Gp fun_thing = emit_ptr_val(RET, ARG4);
-    a.cmp(emit_boxed_val(fun_thing), imm(HEADER_EXPORT));
-    a.short_().je(exported);
     a.cmp(emit_boxed_val(fun_thing), imm(HEADER_FUN));
     a.short_().jne(next);
 
-    a.mov(ARG1, emit_boxed_val(fun_thing, offsetof(ErlFunThing, fe)));
-    a.mov(ARG1, x86::qword_ptr(ARG1, offsetof(ErlFunEntry, address)));
-    a.short_().jmp(next);
+    a.cmp(emit_boxed_val(fun_thing, offsetof(ErlFunThing, arity)), ARG3);
 
-    a.bind(exported);
-    {
-        a.mov(RET, emit_boxed_val(fun_thing, sizeof(Eterm)));
-        a.mov(ARG1, emit_setup_export_call(RET));
-
-        a.cmp(x86::qword_ptr(RET, offsetof(Export, info.mfa.arity)), ARG3);
-    }
+    a.mov(RET, emit_boxed_val(fun_thing, offsetof(ErlFunThing, entry)));
+    a.mov(ARG1, emit_setup_dispatchable_call(RET));
 
     /* Assumes that ZF is set on success and clear on error, overwriting our
      * destination with the error fragment's address. */

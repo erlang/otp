@@ -622,7 +622,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
         a.pop(getCPRef());
 #endif
 
-        x86::Mem destination = emit_setup_export_call(ARG4);
+        x86::Mem destination = emit_setup_dispatchable_call(ARG4);
         a.jmp(destination);
     }
 

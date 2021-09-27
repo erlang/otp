@@ -1278,16 +1278,14 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
      */
 
     while (oh) {
-	if (IS_MOVED_BOXED(oh->thing_word)) {
-	    struct erl_off_heap_header* ptr;
+        if (IS_MOVED_BOXED(oh->thing_word)) {
+            struct erl_off_heap_header* ptr;
 
-            /*
-	     * This off-heap object has been copied to the heap.
-	     * We must increment its reference count and
-	     * link it into the MSO list for the process.
-	     */
+            /* This off-heap object has been copied to the heap.
+             * We must increment its reference count and
+             * link it into the MSO list for the process.*/
 
-	    ptr = (struct erl_off_heap_header*) boxed_val(oh->thing_word);
+            ptr = (struct erl_off_heap_header*) boxed_val(oh->thing_word);
             switch (thing_subtag(ptr->thing_word)) {
             case REFC_BINARY_SUBTAG:
                 {
@@ -1297,7 +1295,10 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                 }
             case FUN_SUBTAG:
                 {
-                    ErlFunEntry* fe = ((ErlFunThing*)ptr)->fe;
+                    /* We _KNOW_ that this is a local fun, otherwise it would
+                     * not be part of the off-heap list. */
+                    ErlFunEntry* fe = ((ErlFunThing*)ptr)->entry.fun;
+                    ASSERT(is_local_fun((ErlFunThing*)ptr));
                     erts_refc_inc(&fe->refc, 2);
                     break;
                 }
@@ -1319,10 +1320,12 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                     break;
                 }
             }
-	    *prev = ptr;
-	    prev = &ptr->next;
-	}
-	oh = oh->next;
+
+            *prev = ptr;
+            prev = &ptr->next;
+        }
+
+        oh = oh->next;
     }
 
     if (prev) {
@@ -2494,13 +2497,25 @@ erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 		if (!is_magic_ref_thing(fhp - 1))
 		    goto the_default;
 	    case REFC_BINARY_SUBTAG:
-	    case FUN_SUBTAG:
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:
 		oh = (struct erl_off_heap_header*) (hp-1);
 		cpy_sz = thing_arityval(val);
 		goto cpy_words;
+            case FUN_SUBTAG:
+            {
+                ErlFunThing *funp = (ErlFunThing*) (fhp - 1);
+
+                if (is_local_fun(funp)) {
+                    oh = (struct erl_off_heap_header*) (hp - 1);
+                } else {
+                    ASSERT(is_external_fun(funp) && funp->next == NULL);
+                }
+
+                cpy_sz = thing_arityval(val);
+                goto cpy_words;
+            }
 	    default:
 	    the_default:
 		cpy_sz = header_arity(val);
@@ -3026,10 +3041,17 @@ sweep_off_heap(Process *p, int fullsweep)
 		}
 	    case FUN_SUBTAG:
 		{
-		    ErlFunEntry* fe = ((ErlFunThing*)ptr)->fe;
-		    if (erts_refc_dectest(&fe->refc, 0) == 0) {
-			erts_erase_fun_entry(fe);
-		    }
+                    ErlFunThing* funp = ((ErlFunThing*)ptr);
+
+                    if (is_local_fun(funp)) {
+                        ErlFunEntry* fe = funp->entry.fun;
+
+                        if (erts_refc_dectest(&fe->refc, 0) == 0) {
+                            erts_erase_fun_entry(fe);
+                        }
+                    } else {
+                        ASSERT(is_external_fun(funp) && funp->next == NULL);
+                    }
 		    break;
 		}
 	    case REF_SUBTAG:
@@ -3851,8 +3873,14 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 	case REFC_BINARY_SUBTAG:
 	    refc = erts_refc_read(&u.pb->val->intern.refc, 1);
 	    break;
-	case FUN_SUBTAG:
-	    refc = erts_refc_read(&u.fun->fe->refc, 1);
+        case FUN_SUBTAG:
+            if (is_local_fun(u.fun)) {
+                refc = erts_refc_read(&u.fun->entry.fun->refc, 1);
+            } else {
+                /* Export fun, fake a valid refc. */
+                ASSERT(is_external_fun(u.fun) && u.fun->next == NULL);
+                refc = 1;
+            }
 	    break;
 	case EXTERNAL_PID_SUBTAG:
 	case EXTERNAL_PORT_SUBTAG:

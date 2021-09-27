@@ -165,7 +165,7 @@ i_debug_breakpoint() {
     HEAVY_SWAPIN;
 
     if (breakpoint_handler) {
-        I = breakpoint_handler->addresses[erts_active_code_ix()];
+        I = breakpoint_handler->dispatch.addresses[erts_active_code_ix()];
         Goto(*I);
     }
 

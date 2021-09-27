@@ -171,9 +171,12 @@ erts_cleanup_offheap(ErlOffHeap *offheap)
             erts_bin_release(u.pb->val);
 	    break;
 	case FUN_SUBTAG:
-	    if (erts_refc_dectest(&u.fun->fe->refc, 0) == 0) {
-		erts_erase_fun_entry(u.fun->fe);		    
-	    }
+            /* We _KNOW_ that this is a local fun, otherwise it would not
+             * be part of the off-heap list. */
+            ASSERT(is_local_fun(u.fun));
+            if (erts_refc_dectest(&u.fun->entry.fun->refc, 0) == 0) {
+                erts_erase_fun_entry(u.fun->entry.fun);
+            }
 	    break;
 	case REF_SUBTAG:
 	    ASSERT(is_magic_ref_thing(u.hdr));

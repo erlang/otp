@@ -376,21 +376,26 @@ protected:
         }
     }
 
-    /* Returns the current code address for the export entry in `Src`
+    /* Returns the current code address for the `Export` or `ErlFunEntry` in
+     * `Src`.
      *
-     * Export tracing, save_calls, etc is implemented by shared fragments that
-     * assume that the export entry is in ARG1, so we have to copy it over if it
-     * isn't already. */
-    arm::Mem emit_setup_export_call(const arm::Gp &Src) {
-        return emit_setup_export_call(Src, active_code_ix);
+     * Export tracing, save_calls, etc are implemented by shared fragments that
+     * assume that the respective entry is in ARG1, so we have to copy it over
+     * if it isn't already. */
+    arm::Mem emit_setup_dispatchable_call(const arm::Gp &Src) {
+        return emit_setup_dispatchable_call(Src, active_code_ix);
     }
 
-    arm::Mem emit_setup_export_call(const arm::Gp &Src,
-                                    const arm::Gp &CodeIndex) {
+    arm::Mem emit_setup_dispatchable_call(const arm::Gp &Src,
+                                          const arm::Gp &CodeIndex) {
         if (ARG1 != Src) {
             a.mov(ARG1, Src);
         }
-        ERTS_CT_ASSERT(offsetof(Export, addresses) == 0);
+
+        ERTS_CT_ASSERT(offsetof(ErlFunEntry, dispatch) == 0);
+        ERTS_CT_ASSERT(offsetof(Export, dispatch) == 0);
+        ERTS_CT_ASSERT(offsetof(ErtsDispatchable, addresses) == 0);
+
         return arm::Mem(ARG1, CodeIndex, arm::lsl(3));
     }
 

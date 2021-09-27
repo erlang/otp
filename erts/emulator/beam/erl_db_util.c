@@ -3425,29 +3425,33 @@ void db_cleanup_offheap_comp(DbTerm* obj)
 
     for (u.hdr = obj->first_oh; u.hdr; u.hdr = u.hdr->next) {
         erts_align_offheap(&u, &tmp);
-	switch (thing_subtag(u.hdr->thing_word)) {
-	case REFC_BINARY_SUBTAG:
+        switch (thing_subtag(u.hdr->thing_word)) {
+        case REFC_BINARY_SUBTAG:
             erts_bin_release(u.pb->val);
-	    break;
-	case FUN_SUBTAG:
-	    if (erts_refc_dectest(&u.fun->fe->refc, 0) == 0) {
-		erts_erase_fun_entry(u.fun->fe);
-	    }
-	    break;
-	case REF_SUBTAG:
-	    ASSERT(is_magic_ref_thing(u.hdr));
+            break;
+        case FUN_SUBTAG:
+            /* We _KNOW_ that this is a local fun, otherwise it would not
+             * be part of the off-heap list. */
+            ASSERT(is_local_fun(u.fun));
+            if (erts_refc_dectest(&u.fun->entry.fun->refc, 0) == 0) {
+                erts_erase_fun_entry(u.fun->entry.fun);
+            }
+            break;
+        case REF_SUBTAG:
+            ASSERT(is_magic_ref_thing(u.hdr));
             erts_bin_release((Binary *)u.mref->mb);
-	    break;
-	default:
-	    ASSERT(is_external_header(u.hdr->thing_word));
-	    erts_deref_node_entry(u.ext->node, make_boxed(u.ep));
-	    break;
-	}
+            break;
+        default:
+            ASSERT(is_external_header(u.hdr->thing_word));
+            erts_deref_node_entry(u.ext->node, make_boxed(u.ep));
+            break;
+        }
     }
+
 #ifdef DEBUG_CLONE
     if (obj->debug_clone != NULL) {
-	erts_free(ERTS_ALC_T_DB_TERM, obj->debug_clone);
-	obj->debug_clone = NULL;
+        erts_free(ERTS_ALC_T_DB_TERM, obj->debug_clone);
+        obj->debug_clone = NULL;
     }
 #endif
 }

@@ -849,9 +849,15 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 			*htop++ = *objp++;
 		    }
 		    funp = (ErlFunThing *) tp;
-		    funp->next = off_heap->first;
-		    off_heap->first = (struct erl_off_heap_header*) funp;
-		    erts_refc_inc(&funp->fe->refc, 2);
+
+                    if (is_local_fun(funp)) {
+                        funp->next = off_heap->first;
+                        off_heap->first = (struct erl_off_heap_header*) funp;
+                        erts_refc_inc(&funp->entry.fun->refc, 2);
+                    } else {
+                        ASSERT(is_external_fun(funp) && funp->next == NULL);
+                    }
+
 		    *argp = make_fun(tp);
 		}
 		break;
@@ -1577,9 +1583,15 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 			*hp++ = HEAP_ELEM_TO_BE_FILLED;
 		    }
 		}
-		funp->next = off_heap->first;
-		off_heap->first = (struct erl_off_heap_header*) funp;
-		erts_refc_inc(&funp->fe->refc, 2);
+
+                if (is_local_fun(funp)) {
+                    funp->next = off_heap->first;
+                    off_heap->first = (struct erl_off_heap_header*) funp;
+                    erts_refc_inc(&funp->entry.fun->refc, 2);
+                } else {
+                    ASSERT(is_external_fun(funp) && funp->next == NULL);
+                }
+
 		goto cleanup_next;
 	    }
 	    case MAP_SUBTAG:
@@ -1924,12 +1936,18 @@ copy_shallow_x(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_h
 		}
 		goto off_heap_common;
 
-	    case FUN_SUBTAG:
-		{
-		    ErlFunThing* funp = (ErlFunThing *) (tp-1);
-		    erts_refc_inc(&funp->fe->refc, 2);
-		}
-		goto off_heap_common;
+            case FUN_SUBTAG:
+                {
+                    ErlFunThing* funp = (ErlFunThing *) (tp-1);
+
+                    if (is_local_fun(funp)) {
+                        erts_refc_inc(&funp->entry.fun->refc, 2);
+                        goto off_heap_common;
+                    } else {
+                        ASSERT(is_external_fun(funp) && funp->next == NULL);
+                        goto default_copy;
+                    }
+                }
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:
@@ -1963,6 +1981,7 @@ copy_shallow_x(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_h
 		}
 		/* Fall through... */
 	    }
+            default_copy:
 	    default:
 		{
 		    int tari = header_arity(val);
@@ -2054,34 +2073,49 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
     Eterm* hp = *hpp;
 
     while (ptr != end) {
-	Eterm val;
-	ASSERT(ptr < end);
-	val = *ptr;
-	ASSERT(val != ERTS_HOLE_MARKER);
-	if (is_header(val)) {
-	    struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
-	    ASSERT(ptr + header_arity(val) < end);
-	    ptr = move_boxed(ptr, val, &hp, &dummy_ref);
-	    switch (val & _HEADER_SUBTAG_MASK) {
-	    case REF_SUBTAG:
-		if (!is_magic_ref_thing(hdr))
-		    break;
-	    case REFC_BINARY_SUBTAG:
-	    case FUN_SUBTAG:
-	    case EXTERNAL_PID_SUBTAG:
-	    case EXTERNAL_PORT_SUBTAG:
-	    case EXTERNAL_REF_SUBTAG:
-		hdr->next = off_heap->first;
-		off_heap->first = hdr;
-		break;
-	    }
-	}
-	else { /* must be a cons cell */
-	    ASSERT(ptr+1 < end);
-	    move_cons(ptr, val, &hp, &dummy_ref);
-	    ptr += 2;
-	}
+        Eterm val;
+        ASSERT(ptr < end);
+        val = *ptr;
+        ASSERT(val != ERTS_HOLE_MARKER);
+
+        if (is_header(val)) {
+            struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
+
+            ASSERT(ptr + header_arity(val) < end);
+            ptr = move_boxed(ptr, val, &hp, &dummy_ref);
+
+            switch (val & _HEADER_SUBTAG_MASK) {
+            case REF_SUBTAG:
+                if (!is_magic_ref_thing(hdr)) {
+                    break;
+                }
+            case REFC_BINARY_SUBTAG:
+            case EXTERNAL_PID_SUBTAG:
+            case EXTERNAL_PORT_SUBTAG:
+            case EXTERNAL_REF_SUBTAG:
+                hdr->next = off_heap->first;
+                off_heap->first = hdr;
+                break;
+            case FUN_SUBTAG:
+                {
+                    ErlFunThing *funp = (ErlFunThing*)hdr;
+
+                    if (is_local_fun(funp)) {
+                        hdr->next = off_heap->first;
+                        off_heap->first = hdr;
+                    } else {
+                        ASSERT(is_external_fun(funp) && funp->next == NULL);
+                    }
+                }
+                break;
+            }
+        } else { /* must be a cons cell */
+            ASSERT(ptr+1 < end);
+            move_cons(ptr, val, &hp, &dummy_ref);
+            ptr += 2;
+        }
     }
+
     *hpp = hp;
     OH_OVERHEAD(off_heap, frag->off_heap.overhead);
     frag->off_heap.first = NULL;

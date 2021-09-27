@@ -233,7 +233,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
             if (ERTS_PROC_IS_EXITING(c_p)) {
                 sys_strcpy(fun_buf, "<exiting>");
             } else {
-                ErtsCodeMFA *cmfa = erts_find_function_from_pc(c_p->i);
+                const ErtsCodeMFA *cmfa = erts_find_function_from_pc(c_p->i);
                 if (cmfa) {
 		    dtrace_fun_decode(c_p, cmfa, NULL, fun_buf);
                 } else {
@@ -1709,161 +1709,126 @@ call_fun(Process* p,    /* Current process. */
          Eterm* reg,    /* Contents of registers. */
          Eterm args)    /* THE_NON_VALUE or pre-built list of arguments. */
 {
-    Eterm fun = reg[arity];
-    Eterm hdr;
-    int i;
-    Eterm* hp;
+    ErtsCodeIndex code_ix;
+    ErtsCodePtr code_ptr;
+    ErlFunThing *funp;
+    Eterm fun;
 
-    if (!is_boxed(fun)) {
-	goto badfun;
+    fun = reg[arity];
+
+    if (is_not_any_fun(fun)) {
+        p->current = NULL;
+        p->freason = EXC_BADFUN;
+        p->fvalue = fun;
+        return NULL;
     }
-    hdr = *boxed_val(fun);
 
-    if (is_fun_header(hdr)) {
-	ErlFunThing* funp = (ErlFunThing *) fun_val(fun);
-	ErlFunEntry* fe = funp->fe;
-	ErtsCodePtr code_ptr = fe->address;
-	Eterm* var_ptr;
-	unsigned num_free = funp->num_free;
-        const ErtsCodeMFA *mfa = erts_code_to_codemfa(code_ptr);
-	int actual_arity = mfa->arity;
+    funp = (ErlFunThing*)fun_val(fun);
 
-	if (actual_arity == arity+num_free) {
-	    DTRACE_LOCAL_CALL(p, mfa);
-	    if (num_free == 0) {
-		return code_ptr;
-	    } else {
-		var_ptr = funp->env;
-		reg += arity;
-		i = 0;
-		do {
-		    reg[i] = var_ptr[i];
-		    i++;
-		} while (i < num_free);
-		reg[i] = fun;
-		return code_ptr;
-	    }
-	    return code_ptr;
-	} else {
-	    /*
-	     * Something wrong here. First build a list of the arguments.
-	     */
+    code_ix = erts_active_code_ix();
+    code_ptr = (funp->entry.disp)->addresses[code_ix];
 
-	    if (is_non_value(args)) {
-		Uint sz = 2 * arity;
-		args = NIL;
-		if (HeapWordsLeft(p) < sz) {
-		    erts_garbage_collect(p, sz, reg, arity+1);
-		    fun = reg[arity];
-		}
-		hp = HEAP_TOP(p);
-		HEAP_TOP(p) += sz;
-		for (i = arity-1; i >= 0; i--) {
-		    args = CONS(hp, reg[i], args);
-		    hp += 2;
-		}
-	    }
+    if (ERTS_LIKELY(code_ptr != beam_unloaded_fun && funp->arity == arity)) {
+        for (int i = 0, num_free = funp->num_free; i < num_free; i++) {
+            reg[i + arity] = funp->env[i];
+        }
 
-	    if (actual_arity >= 0) {
-		/*
-		 * There is a fun defined, but the call has the wrong arity.
-		 */
-		hp = HAlloc(p, 3);
-		p->freason = EXC_BADARITY;
-		p->fvalue = TUPLE2(hp, fun, args);
-		return NULL;
-	    } else {
-		Export* ep;
-		Module* modp;
-		Eterm module;
-		ErtsCodeIndex code_ix = erts_active_code_ix();
-
-		/*
-		 * No arity. There is no module loaded that defines the fun,
-		 * either because the fun is newly created from the external
-		 * representation (the module has never been loaded),
-		 * or the module defining the fun has been unloaded.
-		 */
-
-		module = fe->module;
-
-		ERTS_THR_READ_MEMORY_BARRIER;
-		if (fe->pend_purge_address) {
-		    /*
-		     * The system is currently trying to purge the
-		     * module containing this fun. Suspend the process
-		     * and let it try again when the purge operation is
-		     * done (may succeed or not).
-		     */
-		    ep = erts_suspend_process_on_pending_purge_lambda(p, fe);
-		    ASSERT(ep);
-		}
-		else {
-		    if ((modp = erts_get_module(module, code_ix)) != NULL
-			&& modp->curr.code_hdr != NULL) {
-			/*
-			 * There is a module loaded, but obviously the fun is not
-			 * defined in it. We must not call the error_handler
-			 * (or we will get into an infinite loop).
-			 */
-			goto badfun;
-		    }
-
-		    /*
-		     * No current code for this module. Call the error_handler module
-		     * to attempt loading the module.
-		     */
-
-		    ep = erts_find_function(erts_proc_get_error_handler(p),
-					    am_undefined_lambda, 3, code_ix);
-		    if (ep == NULL) {	/* No error handler */
-			p->current = NULL;
-			p->freason = EXC_UNDEF;
-			return NULL;
-		    }
-		}
-		reg[0] = module;
-		reg[1] = fun;
-		reg[2] = args;
-		reg[3] = NIL;
-                return ep->addresses[code_ix];
-	    }
-	}
-    } else if (is_export_header(hdr)) {
-	Export *ep;
-	int actual_arity;
-
-	ep = *((Export **) (export_val(fun) + 1));
-	actual_arity = ep->info.mfa.arity;
-
-	if (arity == actual_arity) {
+#ifdef USE_VM_CALL_PROBES
+        if (is_local_fun(funp)) {
+            DTRACE_LOCAL_CALL(p, erts_code_to_codemfa(code_ptr));
+        } else {
+            Export *ep = funp->entry.exp;
+            ASSERT(is_external_fun(funp) && funp->next == NULL);
             DTRACE_GLOBAL_CALL(p, &ep->info.mfa);
-            return ep->addresses[erts_active_code_ix()];
-	} else {
-	    /*
-	     * Wrong arity. First build a list of the arguments.
-	     */
+        }
+#endif
 
-	    if (is_non_value(args)) {
-		args = NIL;
-		hp = HAlloc(p, arity*2);
-		for (i = arity-1; i >= 0; i--) {
-		    args = CONS(hp, reg[i], args);
-		    hp += 2;
-		}
-	    }
-
-	    hp = HAlloc(p, 3);
-	    p->freason = EXC_BADARITY;
-	    p->fvalue = TUPLE2(hp, fun, args);
-	    return NULL;
-	}
+        return code_ptr;
     } else {
-    badfun:
-	p->current = NULL;
-	p->freason = EXC_BADFUN;
-	p->fvalue = fun;
-	return NULL;
+        /* Something wrong here. First build a list of the arguments. */
+        if (is_non_value(args)) {
+            Uint sz = 2 * arity;
+            Eterm *hp;
+
+            args = NIL;
+
+            if (HeapWordsLeft(p) < sz) {
+                erts_garbage_collect(p, sz, reg, arity+1);
+
+                fun = reg[arity];
+                funp = (ErlFunThing*)fun_val(fun);
+            }
+
+            hp = HEAP_TOP(p);
+            HEAP_TOP(p) += sz;
+
+            for (int i = arity - 1; i >= 0; i--) {
+                args = CONS(hp, reg[i], args);
+                hp += 2;
+            }
+        }
+
+        if (funp->arity != arity) {
+            /* There is a fun defined, but the call has the wrong arity. */
+            Eterm *hp = HAlloc(p, 3);
+            p->freason = EXC_BADARITY;
+            p->fvalue = TUPLE2(hp, fun, args);
+            return NULL;
+        } else {
+            ErlFunEntry *fe;
+            Eterm module;
+            Module *modp;
+            Export *ep;
+
+            /* There is no module loaded that defines the fun, either because
+             * the fun is newly created from the external representation (the
+             * module has never been loaded), or the module defining the fun
+             * has been unloaded. */
+            ASSERT(is_local_fun(funp) && code_ptr == beam_unloaded_fun);
+            fe = funp->entry.fun;
+            module = fe->module;
+
+            ERTS_THR_READ_MEMORY_BARRIER;
+            if (fe->pend_purge_address) {
+                /* The system is currently trying to purge the
+                 * module containing this fun. Suspend the process
+                 * and let it try again when the purge operation is
+                 * done (may succeed or not). */
+                ep = erts_suspend_process_on_pending_purge_lambda(p, fe);
+            } else {
+                if ((modp = erts_get_module(module, code_ix)) != NULL
+                    && modp->curr.code_hdr != NULL) {
+                    /* There is a module loaded, but obviously the fun is
+                     * not defined in it. We must not call the error_handler
+                     * (or we will get into an infinite loop). */
+                    p->current = NULL;
+                    p->freason = EXC_BADFUN;
+                    p->fvalue = fun;
+                    return NULL;
+                }
+
+                /* No current code for this module. Call the error_handler
+                 * module to attempt loading the module. */
+
+                ep = erts_find_function(erts_proc_get_error_handler(p),
+                                        am_undefined_lambda, 3, code_ix);
+                if (ep == NULL) {
+                    /* No error handler */
+                    p->current = NULL;
+                    p->freason = EXC_UNDEF;
+                    return NULL;
+                }
+            }
+
+            ASSERT(ep);
+
+            reg[0] = module;
+            reg[1] = fun;
+            reg[2] = args;
+            reg[3] = NIL;
+
+            return ep->dispatch.addresses[code_ix];
+        }
     }
 }
 
@@ -1898,44 +1863,14 @@ apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
     return call_fun(p, arity, reg, args);
 }
 
-ErlFunThing*
-new_fun_thing(Process* p, ErlFunEntry* fe, int arity, int num_free)
-{
-    ErlFunThing* funp;
-
-    funp = (ErlFunThing*) p->htop;
-    p->htop += ERL_FUN_SIZE + num_free;
-    erts_refc_inc(&fe->refc, 2);
-
-    funp->thing_word = HEADER_FUN;
-    funp->next = MSO(p).first;
-    MSO(p).first = (struct erl_off_heap_header*) funp;
-    funp->fe = fe;
-    funp->num_free = num_free;
-    funp->creator = p->common.id;
-    funp->arity = arity;
-
-#ifdef DEBUG
-    {
-        const ErtsCodeMFA *mfa = erts_get_fun_mfa(fe);
-        ASSERT(funp->arity == mfa->arity - num_free);
-        ASSERT(arity == fe->arity);
-    }
-#endif
-
-    return funp;
-}
-
 int
 is_function2(Eterm Term, Uint arity)
 {
-    if (is_fun(Term)) {
-	ErlFunThing* funp = (ErlFunThing *) fun_val(Term);
-	return funp->arity == arity;
-    } else if (is_export(Term)) {
-	Export* exp = (Export *) (export_val(Term)[1]);
-	return exp->info.mfa.arity == arity;
+    if (is_any_fun(Term)) {
+        ErlFunThing *funp = (ErlFunThing*)fun_val(Term);
+        return funp->arity == arity;
     }
+
     return 0;
 }
 
