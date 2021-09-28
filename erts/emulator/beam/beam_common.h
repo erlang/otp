@@ -257,8 +257,6 @@ Export* fixed_apply(Process* p, Eterm* reg, Uint arity,
 Export* apply(Process* p, Eterm* reg, ErtsCodePtr I, Uint offs);
 ErtsCodePtr call_fun(Process* p, int arity, Eterm* reg, Eterm args);
 ErtsCodePtr apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg);
-Eterm new_fun(Process* p, Eterm* reg,
-		     ErlFunEntry* fe, int num_free);
 ErlFunThing* new_fun_thing(Process* p,
                            ErlFunEntry* fe,
                            int arity,
