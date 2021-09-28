@@ -92,8 +92,6 @@ struct LoaderState_ {
     int function_number;
     int last_label;
 
-    int otp_20_or_higher;
-
     BeamOpAllocator op_allocator;
     BeamFile beam;
 };

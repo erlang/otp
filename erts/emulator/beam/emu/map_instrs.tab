@@ -19,14 +19,6 @@
 // %CopyrightEnd%
 //
 
-ensure_map(Map) {
-    if (is_not_map($Map)) {
-        c_p->freason = BADMAP;
-        c_p->fvalue = $Map;
-        $FAIL_BODY();
-    }
-}
-
 new_map(Dst, Live, N) {
     Eterm res;
 

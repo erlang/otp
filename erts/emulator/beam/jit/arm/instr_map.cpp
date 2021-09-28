@@ -28,28 +28,6 @@ extern "C"
 #include "beam_common.h"
 }
 
-void BeamModuleAssembler::emit_ensure_map(const ArgVal &map) {
-    Label next = a.newLabel(), badmap = a.newLabel();
-
-    auto map_reg = load_source(map, TMP1);
-
-    emit_is_boxed(badmap, map_reg.reg);
-
-    arm::Gp boxed_ptr = emit_ptr_val(TMP2, map_reg.reg);
-    a.ldur(TMP2, emit_boxed_val(boxed_ptr));
-    a.and_(TMP2, TMP2, imm(_TAG_HEADER_MASK));
-    a.cmp(TMP2, imm(_TAG_HEADER_MAP));
-    a.cond_eq().b(next);
-
-    a.bind(badmap);
-    {
-        a.stur(map_reg.reg, arm::Mem(c_p, offsetof(Process, fvalue)));
-        emit_error(BADMAP);
-    }
-
-    a.bind(next);
-}
-
 void BeamGlobalAssembler::emit_new_map_shared() {
     emit_enter_runtime_frame();
     emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs |

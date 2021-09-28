@@ -32,7 +32,7 @@
 	 log_file/1,
 	 utc_log/1]).
 
--compile(r21).
+-compile(r22).
 
 all() -> 
     [log_mf_h_env, log_file, app_test, appup_test, utc_log].

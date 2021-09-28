@@ -332,8 +332,8 @@ BEAM_FORMAT_NUMBER=0
 #
 68: -put_string/3
 69: put_list/3
-70: put_tuple/2
-71: put/1
+70: -put_tuple/2
+71: -put/1
 
 #
 # Raising errors.
@@ -438,14 +438,14 @@ BEAM_FORMAT_NUMBER=0
 
 # New bit syntax matching in R11B.
 
-116: bs_start_match2/5
+116: -bs_start_match2/5
 117: bs_get_integer2/7
 118: bs_get_float2/7
 119: bs_get_binary2/7
 120: bs_skip_bits2/5
 121: bs_test_tail2/3
-122: bs_save2/2
-123: bs_restore2/2
+122: -bs_save2/2
+123: -bs_restore2/2
 
 # New GC bifs introduced in R11B.
 
@@ -478,7 +478,7 @@ BEAM_FORMAT_NUMBER=0
 129: is_bitstr/2
 
 # R12B
-130: bs_context_to_binary/1
+130: -bs_context_to_binary/1
 131: bs_test_unit/3
 132: bs_match_string/4
 133: bs_init_writable/0

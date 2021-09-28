@@ -844,70 +844,6 @@ i_bs_validate_unicode_retract(Fail, Src, Ms) {
 // Matching of binaries.
 //
 
-i_bs_start_match2 := bs_start_match.fetch.execute;
-
-bs_start_match.head() {
-    Eterm context;
-}
-
-bs_start_match.fetch(Src) {
-    context = $Src;
-}
-
-bs_start_match.execute(Fail, Live, Slots, Dst) {
-    Uint slots;
-    Uint live;
-    Eterm header;
-    if (!is_boxed(context)) {
-        $FAIL($Fail);
-    }
-    header = *boxed_val(context);
-
-    /* Reserve a slot for the start position. */
-    slots = $Slots + 1;
-    live = $Live;
-
-    if (header_is_bin_matchstate(header)) {
-        ErlBinMatchState* ms = (ErlBinMatchState *) boxed_val(context);
-        Uint actual_slots = HEADER_NUM_SLOTS(header);
-
-        /* We're not compatible with contexts created by bs_start_match3. */
-        ASSERT(actual_slots >= 1);
-
-        ms->save_offset[0] = ms->mb.offset;
-        if (ERTS_UNLIKELY(actual_slots < slots)) {
-            ErlBinMatchState* expanded;
-            Uint wordsneeded = ERL_BIN_MATCHSTATE_SIZE(slots);
-            $GC_TEST_PRESERVE(wordsneeded, live, context);
-            ms = (ErlBinMatchState *) boxed_val(context);
-            expanded = (ErlBinMatchState *) HTOP;
-            *expanded = *ms;
-            *HTOP = HEADER_BIN_MATCHSTATE(slots);
-            HTOP += wordsneeded;
-            HEAP_SPACE_VERIFIED(0);
-            context = make_matchstate(expanded);
-            $REFRESH_GEN_DEST();
-        }
-        $Dst = context;
-    } else if (is_binary_header(header)) {
-        Eterm result;
-        Uint wordsneeded = ERL_BIN_MATCHSTATE_SIZE(slots);
-        $GC_TEST_PRESERVE(wordsneeded, live, context);
-        HEAP_TOP(c_p) = HTOP;
-#ifdef DEBUG
-        c_p->stop = E;	/* Needed for checking in HeapOnlyAlloc(). */
-#endif
-        result = erts_bs_start_match_2(c_p, context, slots);
-        HTOP = HEAP_TOP(c_p);
-        HEAP_SPACE_VERIFIED(0);
-
-        $REFRESH_GEN_DEST();
-        $Dst = result;
-    } else {
-        $FAIL($Fail);
-    }
-}
-
 bs_test_zero_tail2(Fail, Ctx) {
     ErlBinMatchBuffer *_mb;
     _mb = (ErlBinMatchBuffer*) ms_matchbuffer($Ctx);
@@ -1157,49 +1093,6 @@ i_bs_get_utf16.execute(Fail, Flags, Dst) {
     $Dst = result;
 }
 
-bs_context_to_binary := ctx_to_bin.fetch.execute;
-
-ctx_to_bin.head() {
-    Eterm context;
-    ErlBinMatchBuffer* mb;
-    Uint size;
-    Uint offs;
-}
-
-ctx_to_bin.fetch(Src) {
-    context = $Src;
-    if (is_boxed(context) &&
-        header_is_bin_matchstate(*boxed_val(context))) {
-        ErlBinMatchState* ms;
-        ms = (ErlBinMatchState *) boxed_val(context);
-        mb = &ms->mb;
-        offs = ms->save_offset[0];
-        size = mb->size - offs;
-    } else {
-        $NEXT0();
-    }
-}
-
-ctx_to_bin.execute() {
-    Uint hole_size;
-    Uint orig = mb->orig;
-    ErlSubBin* sb = (ErlSubBin *) boxed_val(context);
-    /* Since we're going to overwrite the match state with the result, an
-     * ErlBinMatchState must be at least as large as an ErlSubBin. */
-    ERTS_CT_ASSERT(sizeof(ErlSubBin) <= sizeof(ErlBinMatchState));
-    hole_size = 1 + header_arity(sb->thing_word) - ERL_SUB_BIN_SIZE;
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->size = BYTE_OFFSET(size);
-    sb->bitsize = BIT_OFFSET(size);
-    sb->offs = BYTE_OFFSET(offs);
-    sb->bitoffs = BIT_OFFSET(offs);
-    sb->is_writable = 0;
-    sb->orig = orig;
-    if (hole_size) {
-        sb[1].thing_word = make_pos_bignum_header(hole_size-1);
-    }
-}
-
 i_bs_match_string(Ctx, Fail, Bits, Ptr) {
     byte* bytes = (byte *) $Ptr;
     Uint bits = $Bits;
@@ -1219,18 +1112,6 @@ i_bs_match_string(Ctx, Fail, Bits, Ptr) {
         $FAIL($Fail);
     }
     mb->offset += bits;
-}
-
-i_bs_save2(Src, Slot) {
-    ErlBinMatchState* _ms = (ErlBinMatchState*) boxed_val((Eterm) $Src);
-    ASSERT(HEADER_NUM_SLOTS(_ms->thing_word) > $Slot);
-    _ms->save_offset[$Slot] = _ms->mb.offset;
-}
-
-i_bs_restore2(Src, Slot) {
-    ErlBinMatchState* _ms = (ErlBinMatchState*) boxed_val((Eterm) $Src);
-    ASSERT(HEADER_NUM_SLOTS(_ms->thing_word) > $Slot);
-    _ms->mb.offset = _ms->save_offset[$Slot];
 }
 
 bs_get_tail := bs_get_tail.fetch.execute;

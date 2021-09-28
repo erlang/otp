@@ -57,3 +57,12 @@ pred.needs_nif_padding() {
      * stub, so we'll pad to that size at the end of every function. */
     return S->may_load_nif
 }
+
+// Test whether the given literal is a map.
+pred.literal_is_map(Lit) {
+    Eterm term;
+
+    ASSERT(Lit.type == TAG_q);
+    term = beamfile_get_literal(&S->beam, Lit.val);
+    return is_map(term);
+}

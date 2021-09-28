@@ -23,7 +23,7 @@
 -module(kernel_SUITE).
 -include_lib("common_test/include/ct.hrl").
 
--compile(r21).
+-compile(r22).
 
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 

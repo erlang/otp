@@ -78,14 +78,13 @@
                     {'ok',beam_ssa:b_module()}.
 
 module(#b_module{body=Fs0}=Module, Opts) ->
-    UseBSM3 = not proplists:get_bool(no_bsm3, Opts),
     Ps = passes(Opts),
-    Fs = functions(Fs0, Ps, UseBSM3),
+    Fs = functions(Fs0, Ps),
     {ok,Module#b_module{body=Fs}}.
 
-functions([F|Fs], Ps, UseBSM3) ->
-    [function(F, Ps, UseBSM3)|functions(Fs, Ps, UseBSM3)];
-functions([], _Ps, _UseBSM3) -> [].
+functions([F|Fs], Ps) ->
+    [function(F, Ps)|functions(Fs, Ps)];
+functions([], _Ps) -> [].
 
 -type b_var() :: beam_ssa:b_var().
 -type var_name() :: beam_ssa:var_name().
@@ -103,7 +102,6 @@ functions([], _Ps, _UseBSM3) -> [].
 -record(st, {ssa :: beam_ssa:block_map(),
              args :: [b_var()],
              cnt :: beam_ssa:label(),
-             use_bsm3 :: boolean(),
              frames=[] :: [beam_ssa:label()],
              intervals=[] :: [{b_var(),[range()]}],
              res=[] :: [{b_var(),reservation()}] | #{b_var():=reservation()},
@@ -115,17 +113,12 @@ functions([], _Ps, _UseBSM3) -> [].
 
 passes(Opts) ->
     AddPrecgAnnos = proplists:get_bool(dprecg, Opts),
-    FixTuples = proplists:get_bool(no_put_tuple2, Opts),
     Ps = [?PASS(assert_no_critical_edges),
 
           %% Preliminaries.
           ?PASS(fix_bs),
           ?PASS(sanitize),
           ?PASS(match_fail_instructions),
-          case FixTuples of
-              false -> ignore;
-              true -> ?PASS(fix_tuples)
-          end,
           ?PASS(use_set_tuple_element),
           ?PASS(place_frames),
           ?PASS(fix_receives),
@@ -133,10 +126,6 @@ passes(Opts) ->
           %% Find and reserve Y registers.
           ?PASS(find_yregs),
           ?PASS(reserve_yregs),
-
-          %% Handle legacy binary match instruction that don't
-          %% accept a Y register as destination.
-          ?PASS(legacy_bs),
 
           %% Improve reuse of Y registers to potentially
           %% reduce the size of the stack frame.
@@ -163,11 +152,10 @@ passes(Opts) ->
           ?PASS(assert_no_critical_edges)],
     [P || P <- Ps, P =/= ignore].
 
-function(#b_function{anno=Anno,args=Args,bs=Blocks0,cnt=Count0}=F0,
-         Ps, UseBSM3) ->
+function(#b_function{anno=Anno,args=Args,bs=Blocks0,cnt=Count0}=F0, Ps) ->
     try
         Location = maps:get(location, Anno, none),
-        St0 = #st{ssa=Blocks0,args=Args,use_bsm3=UseBSM3,
+        St0 = #st{ssa=Blocks0,args=Args,
                   cnt=Count0,location=Location},
         St = compile:run_sub_passes(Ps, St0),
         #st{ssa=Blocks,cnt=Count,regs=Regs,extra_annos=ExtraAnnos} = St,
@@ -210,14 +198,9 @@ assert_no_ces(_, #b_blk{is=[#b_set{op=phi,args=[_,_]=Phis}|_]}, Blocks) ->
 assert_no_ces(_, _, Blocks) -> Blocks.
 
 %% fix_bs(St0) -> St.
-%%  Fix up the binary matching instructions:
-%%
-%%    * Insert bs_save and bs_restore instructions where needed.
-%%
-%%    * Combine bs_match and bs_extract instructions to bs_get
-%%      instructions.
+%%  Combine bs_match and bs_extract instructions to bs_get instructions.
 
-fix_bs(#st{ssa=Blocks,cnt=Count0,use_bsm3=UseBSM3}=St) ->
+fix_bs(#st{ssa=Blocks,cnt=Count0}=St) ->
     F = fun(#b_set{op=bs_start_match,dst=Dst}, A) ->
                 %% Mark the root of the match context list.
                 [{Dst,{context,Dst}}|A];
@@ -237,12 +220,7 @@ fix_bs(#st{ssa=Blocks,cnt=Count0,use_bsm3=UseBSM3}=St) ->
             Linear0 = beam_ssa:linearize(Blocks),
 
             %% Insert position instructions where needed.
-            {Linear1,Count} = case UseBSM3 of
-                                  true ->
-                                      bs_pos_bsm3(Linear0, CtxChain, Count0);
-                                  false ->
-                                      bs_pos_bsm2(Linear0, CtxChain, Count0)
-                              end,
+            {Linear1,Count} = bs_pos_bsm3(Linear0, CtxChain, Count0),
 
             %% Rename instructions.
             Linear = bs_instrs(Linear1, CtxChain, []),
@@ -295,60 +273,6 @@ make_bs_pos_dict_1([H|T], Ctx, I, Acc) ->
     make_bs_pos_dict_1(T, Ctx, I+1, [{{Ctx,H},I}|Acc]);
 make_bs_pos_dict_1([], Ctx, I, Acc) ->
     {[{Ctx,I}|Acc], I}.
-
-%% As bs_position but without OTP-22 instructions. This is only used when
-%% cross-compiling to older versions.
-bs_pos_bsm2(Linear0, CtxChain, Count0) ->
-    Rs0 = bs_restores(Linear0, CtxChain, #{}, #{}),
-    Rs = maps:values(Rs0),
-    S0 = sofs:relation(Rs, [{context,save_point}]),
-    S1 = sofs:relation_to_family(S0),
-    S = sofs:to_external(S1),
-    Slots = make_save_point_dict(S, []),
-    {Saves,Count1} = make_save_map(Rs, Slots, Count0, []),
-    {Restores,Count} = make_restore_map(maps:to_list(Rs0), Slots, Count1, []),
-
-    %% Now insert all saves and restores.
-    {bs_insert_bsm2(Linear0, Saves, Restores, Slots),Count}.
-
-make_save_map([{Ctx,Save}=Ps|T], Slots, Count, Acc) ->
-    Ignored = #b_var{name={'@ssa_ignored',Count}},
-    case make_slot(Ps, Slots) of
-        #b_literal{val=start} ->
-            make_save_map(T, Slots, Count, Acc);
-        Slot ->
-            I = #b_set{op=bs_save,dst=Ignored,args=[Ctx,Slot]},
-            make_save_map(T, Slots, Count+1, [{Save,I}|Acc])
-    end;
-make_save_map([], _, Count, Acc) ->
-    {maps:from_list(Acc),Count}.
-
-make_restore_map([{Bef,{Ctx,_}=Ps}|T], Slots, Count, Acc) ->
-    Ignored = #b_var{name={'@ssa_ignored',Count}},
-    I = #b_set{op=bs_restore,dst=Ignored,args=[Ctx,make_slot(Ps, Slots)]},
-    make_restore_map(T, Slots, Count+1, [{Bef,I}|Acc]);
-make_restore_map([], _, Count, Acc) ->
-    {maps:from_list(Acc),Count}.
-
-make_slot({Same,Same}, _Slots) ->
-    #b_literal{val=start};
-make_slot({_,_}=Ps, Slots) ->
-    #b_literal{val=map_get(Ps, Slots)}.
-
-make_save_point_dict([{Ctx,Pts}|T], Acc0) ->
-    Acc = make_save_point_dict_1(Pts, Ctx, 0, Acc0),
-    make_save_point_dict(T, Acc);
-make_save_point_dict([], Acc) ->
-    maps:from_list(Acc).
-
-make_save_point_dict_1([Ctx|T], Ctx, I, Acc) ->
-    %% Special {atom,start} save point. Does not need a
-    %% bs_save instruction.
-    make_save_point_dict_1(T, Ctx, I, Acc);
-make_save_point_dict_1([H|T], Ctx, I, Acc) ->
-    make_save_point_dict_1(T, Ctx, I+1, [{{Ctx,H},I}|Acc]);
-make_save_point_dict_1([], Ctx, I, Acc) ->
-    [{Ctx,I}|Acc].
 
 bs_restores([{L,#b_blk{is=Is,last=Last}}|Bs], CtxChain, D0, Rs0) ->
     InPos = maps:get(L, D0, #{}),
@@ -561,20 +485,6 @@ bs_restore_args([], Pos, _CtxChain, _Dst, Rs) ->
 bs_insert_bsm3(Blocks, Saves, Restores) ->
     bs_insert_1(Blocks, [], Saves, Restores, fun(I) -> I end).
 
-bs_insert_bsm2(Blocks, Saves, Restores, Slots) ->
-    %% The old instructions require bs_start_match to be annotated with the
-    %% number of position slots it needs.
-    bs_insert_1(Blocks, [], Saves, Restores,
-                fun(#b_set{op=bs_start_match,dst=Dst}=I0) ->
-                        NumSlots = case Slots of
-                                       #{Dst:=NumSlots0} -> NumSlots0;
-                                       #{} -> 0
-                                   end,
-                        beam_ssa:add_anno(num_slots, NumSlots, I0);
-                   (I) ->
-                        I
-                end).
-
 bs_insert_1([{L,#b_blk{is=Is0}=Blk} | Bs], Deferred0, Saves, Restores, XFrm) ->
     Is1 = bs_insert_deferred(Is0, Deferred0),
     {Is, Deferred} = bs_insert_is(Is1, Saves, Restores, XFrm, []),
@@ -667,59 +577,6 @@ bs_subst_ctx(#b_var{}=Var, CtxChain) ->
     end;
 bs_subst_ctx(Other, _CtxChain) ->
     Other.
-
-%% legacy_bs(St0) -> St.
-%%  Binary matching instructions in OTP 21 and earlier don't support
-%%  a Y register as destination. If St#st.use_bsm3 is false,
-%%  we will need to rewrite those instructions so that the result
-%%  is first put in an X register and then moved to a Y register
-%%  if the operation succeeded.
-
-legacy_bs(#st{use_bsm3=false,ssa=Blocks0,cnt=Count0,res=Res}=St) ->
-    IsYreg = maps:from_list([{V,true} || {V,{y,_}} <- Res]),
-    Linear0 = beam_ssa:linearize(Blocks0),
-    {Linear,Count} = legacy_bs(Linear0, IsYreg, Count0, #{}, []),
-    Blocks = maps:from_list(Linear),
-    St#st{ssa=Blocks,cnt=Count};
-legacy_bs(#st{use_bsm3=true}=St) -> St.
-
-legacy_bs([{L,Blk}|Bs], IsYreg, Count0, Copies0, Acc) ->
-    #b_blk{is=Is0,last=Last} = Blk,
-    Is1 = case Copies0 of
-              #{L:=Copy} -> [Copy|Is0];
-              #{} -> Is0
-          end,
-    {Is,Count,Copies} = legacy_bs_is(Is1, Last, IsYreg, Count0, Copies0, []),
-    legacy_bs(Bs, IsYreg, Count, Copies, [{L,Blk#b_blk{is=Is}}|Acc]);
-legacy_bs([], _IsYreg, Count, _Copies, Acc) ->
-    {Acc,Count}.
-
-legacy_bs_is([#b_set{op=Op,dst=Dst}=I0,
-              #b_set{op=succeeded,dst=SuccDst,args=[Dst]}=SuccI0],
-             Last, IsYreg, Count0, Copies0, Acc) ->
-    NeedsFix = is_map_key(Dst, IsYreg) andalso
-        case Op of
-            bs_get -> true;
-            bs_init -> true;
-            _ -> false
-        end,
-    case NeedsFix of
-        true ->
-            TempDst = #b_var{name={'@bs_temp_dst',Count0}},
-            Count = Count0 + 1,
-            I = I0#b_set{dst=TempDst},
-            SuccI = SuccI0#b_set{args=[TempDst]},
-            Copy = #b_set{op=copy,dst=Dst,args=[TempDst]},
-            #b_br{bool=SuccDst,succ=SuccL} = Last,
-            Copies = Copies0#{SuccL=>Copy},
-            legacy_bs_is([], Last, IsYreg, Count, Copies, [SuccI,I|Acc]);
-        false ->
-            legacy_bs_is([], Last, IsYreg, Count0, Copies0, [SuccI0,I0|Acc])
-    end;
-legacy_bs_is([I|Is], Last, IsYreg, Count, Copies, Acc) ->
-    legacy_bs_is(Is, Last, IsYreg, Count, Copies, [I|Acc]);
-legacy_bs_is([], _Last, _IsYreg, Count, Copies, Acc) ->
-    {reverse(Acc),Count,Copies}.
 
 %% sanitize(St0) -> St.
 %%  Remove constructs that can cause problems later:
@@ -1108,29 +965,6 @@ match_fail_stk(T, [#b_set{op=Op}=I|Is], IAcc, VAcc)
   when Op =:= bs_get_tail; Op =:= bs_set_position ->
     match_fail_stk(T, Is, [I|IAcc], VAcc);
 match_fail_stk(_, _, _, _) -> none.
-
-%%%
-%%% Fix tuples.
-%%%
-
-%% fix_tuples(St0) -> St.
-%%  If compatibility with a previous version of Erlang has been
-%%  requested, tuple creation must be split into two instruction to
-%%  mirror the the way tuples are created in BEAM prior to OTP 22.
-%%  Each put_tuple instruction is split into put_tuple_arity followed
-%%  by put_tuple_elements.
-
-fix_tuples(#st{ssa=Blocks0,cnt=Count0}=St) ->
-    F = fun (#b_set{op=put_tuple,args=Args}=Put, C0) ->
-                Arity = #b_literal{val=length(Args)},
-                {Ignore,C} = new_var('@ssa_ignore', C0),
-                {[Put#b_set{op=put_tuple_arity,args=[Arity]},
-                  #b_set{dst=Ignore,op=put_tuple_elements,args=Args}],C};
-           (I, C) -> {[I],C}
-        end,
-    RPO = beam_ssa:rpo(Blocks0),
-    {Blocks,Count} = beam_ssa:flatmapfold_instrs(F, RPO, Count0, Blocks0),
-    St#st{ssa=Blocks,cnt=Count}.
 
 %%%
 %%% Introduce the set_tuple_element instructions to make
@@ -2019,10 +1853,6 @@ copy_retval_2([L|Ls], Yregs, Copy0, Blocks0, Count0) ->
 copy_retval_2([], _Yregs, none, Blocks, Count) ->
     {Blocks,Count}.
 
-copy_retval_is([#b_set{op=put_tuple_elements,args=Args0}=I0], false, _Yregs,
-           Copy, Count, Acc) ->
-    I = I0#b_set{args=copy_sub_args(Args0, Copy)},
-    {reverse(Acc, [I|acc_copy([], Copy)]),Count};
 copy_retval_is([#b_set{op=Op}=I0], false, Yregs, Copy, Count0, Acc0)
   when Op =:= call; Op =:= old_make_fun ->
     {I,Count,Acc} = place_retval_copy(I0, Yregs, Copy, Count0, Acc0),
@@ -2663,12 +2493,9 @@ reserve_zreg([#b_set{op=Op,dst=Dst} | Is], Last, ShortLived, A) ->
 reserve_zreg([], _, _, A) -> A.
 
 use_zreg(bs_match_string) -> yes;
-use_zreg(bs_save) -> yes;
-use_zreg(bs_restore) -> yes;
 use_zreg(bs_set_position) -> yes;
 use_zreg(kill_try_tag) -> yes;
 use_zreg(landingpad) -> yes;
-use_zreg(put_tuple_elements) -> yes;
 use_zreg(recv_marker_bind) -> yes;
 use_zreg(recv_marker_clear) -> yes;
 use_zreg(remove_message) -> yes;

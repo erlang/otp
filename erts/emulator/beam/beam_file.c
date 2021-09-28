@@ -233,7 +233,6 @@ static int beamreader_read_tagged(BeamReader *reader, TaggedNumber *val) {
 }
 
 static int parse_atom_chunk(BeamFile *beam,
-                            ErtsAtomEncoding enc,
                             IFF_Chunk *chunk) {
     BeamFile_AtomTable *atoms;
     BeamReader reader;
@@ -258,7 +257,6 @@ static int parse_atom_chunk(BeamFile *beam,
     atoms->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
                                 count * sizeof(atoms->entries[0]));
     atoms->entries[0] = THE_NON_VALUE;
-    atoms->encoding = enc;
     atoms->count = count;
 
     for (i = 1; i < count; i++) {
@@ -269,7 +267,7 @@ static int parse_atom_chunk(BeamFile *beam,
         LoadAssert(beamreader_read_u8(&reader, &length));
         LoadAssert(beamreader_read_bytes(&reader, length, &string));
 
-        atom = erts_atom_put(string, length, enc, 1);
+        atom = erts_atom_put(string, length, ERTS_ATOM_ENC_UTF8, 1);
         LoadAssert(atom != THE_NON_VALUE);
 
         atoms->entries[i] = atom;
@@ -738,7 +736,7 @@ static int read_beam_chunks(const IFF_File *file,
 enum beamfile_read_result
 beamfile_read(const byte *data, size_t size, BeamFile *beam) {
     static const Uint chunk_iffs[] = {
-        MakeIffId('A', 't', 'o', 'm'), /* 0 */
+        MakeIffId('A', 't', 'U', '8'), /* 0 */
         MakeIffId('C', 'o', 'd', 'e'), /* 1 */
         MakeIffId('S', 't', 'r', 'T'), /* 2 */
         MakeIffId('I', 'm', 'p', 'T'), /* 3 */
@@ -748,11 +746,10 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         MakeIffId('A', 't', 't', 'r'), /* 7 */
         MakeIffId('C', 'I', 'n', 'f'), /* 8 */
         MakeIffId('L', 'i', 'n', 'e'), /* 9 */
-        MakeIffId('A', 't', 'U', '8'), /* 10 */
-        MakeIffId('L', 'o', 'c', 'T'), /* 11 */
+        MakeIffId('L', 'o', 'c', 'T'), /* 10 */
     };
 
-    static const int ATOM_CHUNK = 0;
+    static const int UTF8_ATOM_CHUNK = 0;
     static const int CODE_CHUNK = 1;
     static const int STR_CHUNK = 2;
     static const int IMP_CHUNK = 3;
@@ -762,9 +759,8 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
     static const int ATTR_CHUNK = 7;
     static const int COMPILE_CHUNK = 8;
     static const int LINE_CHUNK = 9;
-    static const int UTF8_ATOM_CHUNK = 10;
 #ifdef BEAMASM
-    static const int LOC_CHUNK = 11;
+    static const int LOC_CHUNK = 10;
 #endif
 
     static const int NUM_CHUNKS = sizeof(chunk_iffs) / sizeof(chunk_iffs[0]);
@@ -773,8 +769,6 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
 
     /* MSVC doesn't like the use of NUM_CHUNKS here */
     IFF_Chunk chunks[sizeof(chunk_iffs) / sizeof(chunk_iffs[0])];
-    IFF_Chunk *atom_chunk;
-    ErtsAtomEncoding enc;
 
     sys_memset(beam, 0, sizeof(*beam));
 
@@ -796,18 +790,10 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         goto error;
     }
 
-    if (chunks[UTF8_ATOM_CHUNK].size > 0) {
-        atom_chunk = &chunks[UTF8_ATOM_CHUNK];
-        enc = ERTS_ATOM_ENC_UTF8;
-    } else if (chunks[ATOM_CHUNK].size > 0) {
-        atom_chunk = &chunks[ATOM_CHUNK];
-        enc = ERTS_ATOM_ENC_LATIN1;
-    } else {
+    if (chunks[UTF8_ATOM_CHUNK].size == 0) {
         error = BEAMFILE_READ_MISSING_ATOM_TABLE;
         goto error;
-    }
-
-    if (!parse_atom_chunk(beam, enc, atom_chunk)) {
+    } else if (!parse_atom_chunk(beam, &chunks[UTF8_ATOM_CHUNK])) {
         error = BEAMFILE_READ_CORRUPT_ATOM_TABLE;
         goto error;
     }
@@ -874,8 +860,8 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         MD5Init(&md5);
 
         MD5Update(&md5,
-                  (byte*)atom_chunk->data,
-                  atom_chunk->size);
+                  (byte*)chunks[UTF8_ATOM_CHUNK].data,
+                  chunks[UTF8_ATOM_CHUNK].size);
         MD5Update(&md5,
                   (byte*)chunks[CODE_CHUNK].data,
                   chunks[CODE_CHUNK].size);

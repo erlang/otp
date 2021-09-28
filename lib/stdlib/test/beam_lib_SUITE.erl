@@ -85,7 +85,6 @@ normal(Conf) when is_list(Conf) ->
     P0 = pps(),
 
     do_normal(Source, PrivDir, BeamFile, []),
-    do_normal(Source, PrivDir, BeamFile, [no_utf8_atoms]),
 
     {ok,_} = compile:file(Source, [{outdir,PrivDir}, no_debug_info]),
     {ok, {simple, [{debug_info, {debug_info_v1, erl_abstract_code, {none, _}}}]}} =
