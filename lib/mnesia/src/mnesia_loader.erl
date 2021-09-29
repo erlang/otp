@@ -180,7 +180,7 @@ do_get_disc_copy2(Tab, Reason, Storage = {ext, Alias, Mod}, _Type) ->
 %%
 %%                                      Grab read lock on table
 %% Block dirty updates
-%%                                      Update wherabouts
+%%                                      Update whereabouts
 %%
 %%                                      Cancel the update subscription
 %% Process the subscription events
