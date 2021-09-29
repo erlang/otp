@@ -898,10 +898,8 @@ terminate_children(Children, SupName) ->
     NChildren.
 
 do_terminate(Child, SupName) when is_pid(Child#child.pid) ->
-    case shutdown(Child#child.pid, Child#child.shutdown) of
+    case shutdown(Child) of
         ok ->
-            ok;
-        {error, normal} when not (?is_permanent(Child)) ->
             ok;
         {error, OtherReason} ->
             ?report_error(shutdown_error, OtherReason, Child, SupName)
@@ -920,65 +918,61 @@ do_terminate(_Child, _SupName) ->
 %% supervisor. 
 %% Returns: ok | {error, OtherReason}  (this should be reported)
 %%-----------------------------------------------------------------
-shutdown(Pid, brutal_kill) ->
-    case monitor_child(Pid) of
-	ok ->
-	    exit(Pid, kill),
-	    receive
-		{'DOWN', _MRef, process, Pid, killed} ->
-		    ok;
-		{'DOWN', _MRef, process, Pid, OtherReason} ->
-		    {error, OtherReason}
-	    end;
-	{error, Reason} ->      
-	    {error, Reason}
+shutdown(#child{pid=Pid, shutdown=brutal_kill} = Child) ->
+    Mon = monitor(process, Pid),
+    exit(Pid, kill),
+    receive
+        {'DOWN', Mon, process, Pid, Reason0} ->
+            case unlink_flush(Pid, Reason0) of
+                killed ->
+                    ok;
+                {shutdown, _} when not (?is_permanent(Child)) ->
+                    ok;
+                normal when not (?is_permanent(Child)) ->
+                    ok;
+                Reason ->
+                    {error, Reason}
+            end
     end;
-shutdown(Pid, Time) ->
-    case monitor_child(Pid) of
-	ok ->
-	    exit(Pid, shutdown), %% Try to shutdown gracefully
-	    receive 
-		{'DOWN', _MRef, process, Pid, shutdown} ->
-		    ok;
-		{'DOWN', _MRef, process, Pid, OtherReason} ->
-		    {error, OtherReason}
-	    after Time ->
-		    exit(Pid, kill),  %% Force termination.
-		    receive
-			{'DOWN', _MRef, process, Pid, OtherReason} ->
-			    {error, OtherReason}
-		    end
-	    end;
-	{error, Reason} ->      
-	    {error, Reason}
+shutdown(#child{pid=Pid, shutdown=Time} = Child) ->
+    Mon = monitor(process, Pid),
+    exit(Pid, shutdown),
+    receive
+        {'DOWN', Mon, process, Pid, Reason0} ->
+            case unlink_flush(Pid, Reason0) of
+                shutdown ->
+                    ok;
+                {shutdown, _} when not (?is_permanent(Child)) ->
+                    ok;
+                normal when not (?is_permanent(Child)) ->
+                    ok;
+                Reason ->
+                    {error, Reason}
+            end
+    after Time ->
+        exit(Pid, kill),
+        receive
+            {'DOWN', Mon, process, Pid, Reason0} ->
+                case unlink_flush(Pid, Reason0) of
+                    shutdown ->
+                        ok;
+                    {shutdown, _} when not (?is_permanent(Child)) ->
+                        ok;
+                    normal when not (?is_permanent(Child)) ->
+                        ok;
+                    Reason ->
+                        {error, Reason}
+                end
+        end
     end.
 
-%% Help function to shutdown/2 switches from link to monitor approach
-monitor_child(Pid) ->
-    
-    %% Do the monitor operation first so that if the child dies 
-    %% before the monitoring is done causing a 'DOWN'-message with
-    %% reason noproc, we will get the real reason in the 'EXIT'-message
-    %% unless a naughty child has already done unlink...
-    erlang:monitor(process, Pid),
+unlink_flush(Pid, DefaultReason) ->
     unlink(Pid),
-
     receive
-	%% If the child dies before the unlik we must empty
-	%% the mail-box of the 'EXIT'-message and the 'DOWN'-message.
-	{'EXIT', Pid, Reason} -> 
-	    receive 
-		{'DOWN', _, process, Pid, _} ->
-		    {error, Reason}
-	    end
-    after 0 -> 
-	    %% If a naughty child did unlink and the child dies before
-	    %% monitor the result will be that shutdown/2 receives a 
-	    %% 'DOWN'-message with reason noproc.
-	    %% If the child should die after the unlink there
-	    %% will be a 'DOWN'-message with a correct reason
-	    %% that will be handled in shutdown/2. 
-	    ok   
+        {'EXIT', Pid, Reason} ->
+            Reason
+    after 0 ->
+        DefaultReason
     end.
 
 %%-----------------------------------------------------------------
@@ -992,39 +986,36 @@ monitor_child(Pid) ->
 %%-----------------------------------------------------------------
 terminate_dynamic_children(State) ->
     Child = get_dynamic_child(State),
-    {Pids, EStack0} = monitor_dynamic_children(Child,State),
+    Pids = dyn_fold(
+        fun
+            (P, Acc) when is_pid(P) ->
+                Mon = monitor(process, P),
+                case Child#child.shutdown of
+                    brutal_kill -> exit(P, kill);
+                    _ -> exit(P, shutdown)
+                end,
+                Acc#{{P, Mon} => true};
+            (?restarting(_), Acc) ->
+                Acc
+        end,
+        #{},
+        State
+    ),
+    TRef = case Child#child.shutdown of
+        brutal_kill ->
+            undefined;
+        infinity ->
+            undefined;
+        Time ->
+            erlang:start_timer(Time, self(), kill)
+    end,
     Sz = maps:size(Pids),
-    EStack = case Child#child.shutdown of
-                 brutal_kill ->
-                     maps:foreach(fun(P, _) -> exit(P, kill) end, Pids),
-                     wait_dynamic_children(Child, Pids, Sz, undefined, EStack0);
-                 infinity ->
-                     maps:foreach(fun(P, _) -> exit(P, shutdown) end, Pids),
-                     wait_dynamic_children(Child, Pids, Sz, undefined, EStack0);
-                 Time ->
-                     maps:foreach(fun(P, _) -> exit(P, shutdown) end, Pids),
-                     TRef = erlang:start_timer(Time, self(), kill),
-                     wait_dynamic_children(Child, Pids, Sz, TRef, EStack0)
-             end,
+    EStack = wait_dynamic_children(Child, Pids, Sz, TRef, #{}),
     %% Unroll stacked errors and report them
     maps:foreach(fun(Reason, Ls) ->
                       ?report_error(shutdown_error, Reason,
                                    Child#child{pid=Ls}, State#state.name)
               end, EStack).
-
-monitor_dynamic_children(Child,State) ->
-    dyn_fold(fun(P,{Pids, EStack}) when is_pid(P) ->
-                     case monitor_child(P) of
-                         ok ->
-                             {maps:put(P, P, Pids), EStack};
-                         {error, normal} when not (?is_permanent(Child)) ->
-                             {Pids, EStack};
-                         {error, Reason} ->
-                             {Pids, maps_prepend(Reason, P, EStack)}
-                     end;
-                (?restarting(_), {Pids, EStack}) ->
-                     {Pids, EStack}
-             end, {maps:new(), maps:new()}, State).
 
 wait_dynamic_children(_Child, _Pids, 0, undefined, EStack) ->
     EStack;
@@ -1041,34 +1032,51 @@ wait_dynamic_children(_Child, _Pids, 0, TRef, EStack) ->
 wait_dynamic_children(#child{shutdown=brutal_kill} = Child, Pids, Sz,
                       TRef, EStack) ->
     receive
-        {'DOWN', _MRef, process, Pid, killed} ->
-            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
-                                  TRef, EStack);
+        {'DOWN', Mon, process, Pid, Reason0}
+          when is_map_key({Pid, Mon}, Pids) ->
+            case unlink_flush(Pid, Reason0) of
+                killed ->
+                    wait_dynamic_children(Child, maps:remove({Pid, Mon}, Pids),
+                                          Sz-1, TRef, EStack);
 
-        {'DOWN', _MRef, process, Pid, Reason} ->
-            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
-                                  TRef, maps_prepend(Reason, Pid, EStack))
+                {shutdown, _} when not (?is_permanent(Child)) ->
+                    wait_dynamic_children(Child, maps:remove({Pid, Mon}, Pids),
+                                          Sz-1, TRef, EStack);
+
+                normal when not (?is_permanent(Child)) ->
+                    wait_dynamic_children(Child, maps:remove({Pid, Mon}, Pids),
+                                          Sz-1, TRef, EStack);
+                Reason ->
+                    wait_dynamic_children(Child, maps:remove({Pid, Mon}, Pids),
+                                          Sz-1, TRef, maps_prepend(Reason, Pid,
+                                                                   EStack))
+            end
     end;
 wait_dynamic_children(Child, Pids, Sz, TRef, EStack) ->
     receive
-        {'DOWN', _MRef, process, Pid, shutdown} ->
-            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
-                                  TRef, EStack);
+        {'DOWN', Mon, process, Pid, Reason0}
+          when is_map_key({Pid, Mon}, Pids) ->
+            case unlink_flush(Pid, Reason0) of
+                shutdown ->
+                    wait_dynamic_children(Child, maps:remove({Pid, Mon}, Pids),
+                                          Sz-1, TRef, EStack);
 
-        {'DOWN', _MRef, process, Pid, {shutdown, _}} ->
-            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
-                                  TRef, EStack);
+                {shutdown, _} when not (?is_permanent(Child)) ->
+                    wait_dynamic_children(Child, maps:remove({Pid, Mon}, Pids),
+                                          Sz-1, TRef, EStack);
 
-        {'DOWN', _MRef, process, Pid, normal} when not (?is_permanent(Child)) ->
-            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
-                                  TRef, EStack);
+                normal when not (?is_permanent(Child)) ->
+                    wait_dynamic_children(Child, maps:remove({Pid, Mon}, Pids),
+                                          Sz-1, TRef, EStack);
 
-        {'DOWN', _MRef, process, Pid, Reason} ->
-            wait_dynamic_children(Child, maps:remove(Pid, Pids), Sz-1,
-                                  TRef, maps_prepend(Reason, Pid, EStack));
+                Reason ->
+                    wait_dynamic_children(Child, maps:remove({Pid, Mon}, Pids),
+                                          Sz-1, TRef, maps_prepend(Reason, Pid,
+                                                                   EStack))
+            end;
 
         {timeout, TRef, kill} ->
-            maps:foreach(fun(P, _) -> exit(P, kill) end, Pids),
+            maps:foreach(fun({P, _}, _) -> exit(P, kill) end, Pids),
             wait_dynamic_children(Child, Pids, Sz, undefined, EStack)
     end.
 
