@@ -72,6 +72,7 @@ MODULES= \
 	supervisor_1 \
 	supervisor_2 \
 	supervisor_3 \
+	supervisor_4 \
 	supervisor_deadlock \
 	naughty_child \
 	shell_SUITE \
