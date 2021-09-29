@@ -167,8 +167,17 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     comment("Peek next message");
     a.bind(peek_message);
     {
+#ifdef DEBUG
+        /* Want asserts in erts_msgq_peek_msg()... */
+        emit_enter_runtime();
+        a.mov(ARG1, c_p);
+        runtime_call<1>(erts_msgq_peek_msg);
+        emit_leave_runtime();
+        a.mov(ARG1, RET);
+#else
         a.mov(ARG1, x86::qword_ptr(c_p, offsetof(Process, sig_qs.save)));
         a.mov(ARG1, x86::qword_ptr(ARG1));
+#endif
         a.test(ARG1, ARG1);
         a.jne(check_is_distributed);
 
