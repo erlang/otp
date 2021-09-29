@@ -350,6 +350,9 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
    if (!erts_monitor_is_origin(mon))
        return am_badarg;
 
+   if (mon->type == ERTS_MON_TYPE_ALIAS)
+       return am_false; /* Not a monitor (may have been...) */
+
    switch (mon->flags & ERTS_ML_STATE_ALIAS_MASK) {
    case ERTS_ML_STATE_ALIAS_ONCE:
    case ERTS_ML_STATE_ALIAS_UNALIAS: {
