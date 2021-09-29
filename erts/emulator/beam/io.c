@@ -2251,7 +2251,7 @@ erts_port_exit(Process *c_p,
 	switch (try_imm_drv_call(&try_call_state)) {
 	case ERTS_TRY_IMM_DRV_CALL_OK: {
 	    res = call_deliver_port_exit(flags & ERTS_PORT_SIG_FLG_BANG_OP,
-					 c_p ? c_p->common.id : from,
+					 from,
 					 prt,
 					 try_call_state.state,
 					 reason,
