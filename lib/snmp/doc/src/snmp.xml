@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2018</year>
+      <year>1996</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -290,7 +290,7 @@
       </type>
       <desc>
         <p>Generates a key that can be used as an authentication
-	or privacy key using MD5, SHA, SHA224, SHA256, SHA354 or SHA512.
+	or privacy key using MD5, SHA, SHA224, SHA256, SHA384 or SHA512.
 	The key is localized for EngineID.</p>
 
         <marker id="octet_string_to_bits"></marker>

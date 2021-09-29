@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -245,7 +245,7 @@
       <seeerl marker="snmpm#register_usm_user">register_usm_user</seeerl>.
       </p>
     <p>The corresponding table is <c>usmUserTable</c> in the
-      SNMP-USER-BASED-SM-MIB.
+      SNMP-USER-BASED-SM-MIB (adjusted according to SNMP-USM-HMAC-SHA2-MIB).
       </p>
     <p>Each entry is a term:
       </p>
@@ -266,14 +266,38 @@
       </item>
       <item>
         <p><c>AuthP</c> is a <c>usmNoAuthProtocol</c>,
-          <c>usmHMACMD5AuthProtocol</c> or <c>usmHMACSHAAuthProtocol</c>.</p>
+	<c>usmHMACMD5AuthProtocol</c>,
+	<c>usmHMACSHAAuthProtocol</c>,
+	<c>usmHMAC128SHA224AuthProtocol</c>,
+	<c>usmHMAC192SH256AuthProtocol</c>,
+	<c>usmHMAC256SHA384AuthProtocol</c> or
+	<c>usmHMAC384SHA512AuthProtocol</c>.</p>
       </item>
       <item>
-        <p><c>AuthKey</c> is a list (of integer). This is the User's 
-          secret localized authentication key. It is not visible in the MIB. 
-          The length of this key needs to be 16 if 
-          <c>usmHMACMD5AuthProtocol</c> is used and 20 if 
-          <c>usmHMACSHAAuthProtocol</c> is used.</p>
+	<p><c>AuthKey</c> is a list (of integer).
+	This is the User's secret localized authentication key.
+	It is not visible in the MIB. 
+	The length (number of octets) of this key needs to be: </p>
+	<list type="bulleted">
+	  <item>
+	    <p>16 if <c>usmHMACMD5AuthProtocol</c>.</p>
+	  </item>
+	  <item>
+	    <p>20 if <c>usmHMACSHAAuthProtocol</c>.</p>
+	  </item>
+	  <item>
+	    <p>28 if <c>usmHMAC128SHA224AuthProtocol</c>.</p>
+	  </item>
+	  <item>
+	    <p>32 if <c>usmHMAC192SHA256AuthProtocol</c>.</p>
+	  </item>
+	  <item>
+	    <p>48 if <c>usmHMAC256SHA384AuthProtocol</c>.</p>
+	  </item>
+	  <item>
+	    <p>64 if <c>usmHMAC384SHA512AuthProtocol</c>.</p>
+	  </item>
+	</list>
       </item>
       <item>
         <p><c>PrivP</c> is a <c>usmNoPrivProtocol</c>, 

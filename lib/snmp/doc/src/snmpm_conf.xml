@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2020</year>
+      <year>2006</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -287,7 +287,7 @@
         <v>EngineID = string()</v>
         <v>UserName = string()</v>
         <v>SecName = string()</v>
-        <v>AuthP = usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol</v>
+        <v>AuthP = usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol | usmHMAC128SHA224AuthProtocol | usmHMAC192SH256AuthProtocol | usmHMAC256SHA384AuthProtocol | usmHMAC384SHA512AuthProtocol</v>
         <v>AuthKey = [integer()]</v>
         <v>PrivP = usmNoPrivProtocol | usmDESPrivProtocol | usmAesCfb128Protocol</v>
         <v>PrivKey = [integer()]</v>
