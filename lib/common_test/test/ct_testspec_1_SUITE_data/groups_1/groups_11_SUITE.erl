@@ -36,9 +36,11 @@ groups() ->
 
       {test_group_1b, [], [testcase_1a,testcase_1b]},
 
-      {test_group_2, [], [testcase_2a,
+      {test_group_1c, [sequence], [testcase_1a,testcase_1b]},
 
-			  {test_group_3, [], [testcase_3a,
+      {test_group_2, [sequence], [testcase_2a,
+
+			  {test_group_3, [parallel], [testcase_3a,
 					      testcase_3b]},
 			  testcase_2b]},
 
@@ -49,7 +51,12 @@ groups() ->
 					  testcase_5b]}]},
       {test_group_6, [{group, test_group_7}]},
 
-      {test_group_7, [testcase_7a,testcase_7b]}
+      {test_group_7, [testcase_7a,testcase_7b]},
+
+      {test_group_8, [sequence], [testcase_8]},
+
+      {test_group_9, [parallel], [testcase_9, {group, test_group_8}]}
+
      ].
 
 all() ->
@@ -64,10 +71,11 @@ all() ->
 %% this func only for internal test purposes
 grs_and_tcs() ->
     {[
-      test_group_1a, test_group_1b,
+      test_group_1a, test_group_1b, test_group_1c,
       test_group_2, test_group_3,
       test_group_4, test_group_5,
-      test_group_6, test_group_7
+      test_group_6, test_group_7,
+      test_group_8, test_group_9
      ],
      [
       testcase_1,
@@ -77,7 +85,9 @@ grs_and_tcs() ->
       testcase_3a, testcase_3b,
       testcase_3,
       testcase_5a, testcase_5b,
-      testcase_7a, testcase_7b
+      testcase_7a, testcase_7b,
+      testcase_8,
+      testcase_9
      ]}.
 
 %%--------------------------------------------------------------------
@@ -95,7 +105,10 @@ end_per_suite(Config) ->
 %%--------------------------------------------------------------------
 
 init_per_group(Group, Config) ->
-    [{name,Group}] = ?config(tc_group_properties,Config),
+    Group = case ?config(tc_group_properties,Config) of
+        [{name, Group0}] -> Group0;
+        [{name, Group0}, _Props] -> Group0
+    end,
     {Grs,_} = grs_and_tcs(),
     case lists:member(Group, Grs) of
 	true ->
@@ -164,7 +177,10 @@ testcase_1a(Config) ->
 	_ ->
 	    case ?config(test_group_1b,Config) of
 		test_group_1b -> ok;
+		_ -> case ?config(test_group_1c,Config) of
+		        test_group_1c -> ok;
 		_ -> ct:fail(no_group_data)
+	    end
 	    end
     end,
     testcase_1a = ?config(testcase_1a,Config),
@@ -178,7 +194,10 @@ testcase_1b(Config) ->
 	_ ->
 	    case ?config(test_group_1b,Config) of
 		test_group_1b -> ok;
+		_ -> case ?config(test_group_1c,Config) of
+		        test_group_1c -> ok;
 		_ -> ct:fail(no_group_data)
+	    end
 	    end
     end,
     undefined = ?config(testcase_1a,Config),
@@ -191,6 +210,7 @@ testcase_2(Config) ->
     init = ?config(suite,Config),
     undefined = ?config(test_group_1a,Config),
     undefined = ?config(test_group_1b,Config),
+    undefined = ?config(test_group_1c, Config),
     testcase_2 = ?config(testcase_2,Config),
     ok.
 
@@ -279,4 +299,20 @@ testcase_7b(Config) ->
     test_group_7 = ?config(test_group_7,Config),
     undefined = ?config(testcase_7a,Config),
     testcase_7b = ?config(testcase_7b,Config),
+    ok.
+testcase_8() ->
+    [].
+testcase_8(Config) ->
+    init = ?config(suite,Config),
+    test_group_9 = ?config(test_group_9,Config),
+    test_group_8 = ?config(test_group_8,Config),
+    testcase_8 = ?config(testcase_8,Config),
+    ok.
+testcase_9() ->
+    [].
+testcase_9(Config) ->
+    init = ?config(suite,Config),
+    test_group_9 = ?config(test_group_9,Config),
+    undefined = ?config(test_group_8,Config),
+    testcase_9 = ?config(testcase_9,Config),
     ok.
