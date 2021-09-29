@@ -542,6 +542,8 @@ initial_hello({call, From}, {new_user, _} = Msg, State) ->
     handle_call(Msg, From, ?FUNCTION_NAME, State);
 initial_hello({call, From}, _Msg, _State) ->
     {keep_state_and_data, [{reply, From, {error, notsup_on_transport_accept_socket}}]};
+initial_hello(info, {'DOWN', _, _, _, _} = Event, State) ->
+    handle_info(Event, ?FUNCTION_NAME, State);
 initial_hello(_Type, _Event, _State) ->
     {keep_state_and_data, [postpone]}.
 
@@ -558,6 +560,8 @@ config_error({call, From}, {close, _}, State) ->
     {stop_and_reply, {shutdown, normal}, {reply, From, ok}, State};
 config_error({call, From}, _Msg, State) ->
     {next_state, ?FUNCTION_NAME, State, [{reply, From, {error, closed}}]};
+config_error(info, {'DOWN', _, _, _, _} = Event, State) ->
+    handle_info(Event, ?FUNCTION_NAME, State);
 config_error(_Type, _Event, _State) ->
     {keep_state_and_data, [postpone]}.
 

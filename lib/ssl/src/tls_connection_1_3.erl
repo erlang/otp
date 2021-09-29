@@ -251,6 +251,8 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            end,
     {next_state, Next, State#state{start_or_recv_from = From}, 
      [{next_event, internal, Hello}, {{timeout, handshake}, Timeout, close}]};
+user_hello(info, {'DOWN', _, _, _, _} = Event, State) ->
+    ssl_gen_statem:handle_info(Event, ?FUNCTION_NAME, State);
 user_hello(_, _, _) ->
     {keep_state_and_data, [postpone]}.
 
