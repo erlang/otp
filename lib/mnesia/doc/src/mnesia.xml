@@ -2645,8 +2645,8 @@ mnesia:create_table(employee,
 add_family({family, F, M, Children}) ->
     ChildOids = lists:map(fun oid/1, Children),
     Trans = fun() ->
-        mnesia:write(F#person{children = ChildOids},
-        mnesia:write(M#person{children = ChildOids},
+        mnesia:write(F#person{children = ChildOids}),
+        mnesia:write(M#person{children = ChildOids}),
         Write = fun(Child) -> mnesia:write(Child) end,
         lists:foreach(Write, Children)
     end,
