@@ -813,17 +813,18 @@ static Eterm
 mk_heap_fragment_eterm(Eterm value)
 {
     /*
-     * Save value in its own heap fragment. Return pointer to heap fragment
-     * as a tagged continuation pointer which can be stored as an Eterm.
-     *
-     * bp->mem[0]   = Non immediate value
-     * bp->mem[1]   = Beginning of heap
+     * Save non-immediate value in its own heap fragment. Return
+     * pointer to heap fragment as a tagged continuation pointer
+     * which can be stored as an Eterm. Tagged pointer to value
+     * is stored immediately after heap data.
      */
 
-    Uint hsz = size_object(value)+1;
-    ErlHeapFragment *bp = new_message_buffer(hsz);
-    Eterm *hp = &bp->mem[1];
-    bp->mem[0] = copy_struct(value, hsz-1, &hp, &bp->off_heap);
+    Uint vsz = size_object(value);
+    ErlHeapFragment *bp = new_message_buffer(vsz+1);
+    Eterm *hp = &bp->mem[0];
+    bp->used_size = vsz;
+    ASSERT(bp->alloc_size == vsz+1);
+    bp->mem[vsz] = copy_struct(value, vsz, &hp, &bp->off_heap);
     return make_cp((void*)bp);
 }
 
@@ -987,10 +988,11 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
                      * Save the tag in its own heap fragment with a
                      * little trick:
                      *
-                     * bp->mem[0]   = The tag
-                     * bp->mem[1]   = Beginning of heap
-                     * mdep->u.name = Countinuation pointer to
-                     *                heap fragment...
+                     * bp->mem[0]             = Beginning of heap
+                     * bp->mem[bp->used_size] = The tag
+                     * mdep->u.name           = Countinuation
+                     *                          pointer to heap
+                     *                          fragment...
                      */
                     mdep->u.name = mk_heap_fragment_eterm(name);
                 }

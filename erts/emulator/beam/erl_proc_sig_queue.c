@@ -2863,54 +2863,65 @@ convert_prepared_sig_to_external_msg(Process *c_p, ErtsMessage *sig,
 }
 
 static ERTS_INLINE Eterm
+get_heap_frag_eterm(ErlHeapFragment **hfpp, Eterm *valp)
+{
+    Eterm term;
+    ErlHeapFragment *hfp;
+    ASSERT(hfpp);
+    if (is_immed(*valp)) {
+        *hfpp = NULL;
+        term = *valp;
+    }
+    else {
+        ASSERT(is_CP(*valp));
+        *hfpp = hfp = (ErlHeapFragment *) cp_val(*valp);
+        ASSERT(hfp->alloc_size == hfp->used_size + 1);
+        term = hfp->mem[hfp->used_size];
+        ASSERT(size_object(term) == hfp->used_size);
+    }
+    *valp = NIL;
+    return term;
+}
+
+static ERTS_INLINE Eterm
 save_heap_frag_eterm(Process *c_p, ErtsMessage *mp, Eterm *value)
 {
     ErlHeapFragment *hfrag;
-    if (is_immed(*value)) {
-        Eterm term = *value;
-        *value = NIL;
-        return term;
+    Eterm term = get_heap_frag_eterm(&hfrag, value);
+    if (hfrag) {
+        if (mp->data.attached == ERTS_MSG_COMBINED_HFRAG) {
+            hfrag->next = mp->hfrag.next;
+            mp->hfrag.next = hfrag;
+        }
+        else if (!mp->data.heap_frag) {
+            erts_link_mbuf_to_proc(c_p, hfrag);
+        }
+        else {
+            hfrag->next = mp->data.heap_frag;
+            mp->data.heap_frag = hfrag;
+        }
     }
-    ASSERT(is_CP(*value));
-    hfrag = (ErlHeapFragment *) cp_val(*value);
-    *value = NIL;
-    if (mp->data.attached == ERTS_MSG_COMBINED_HFRAG) {
-        hfrag->next = mp->hfrag.next;
-        mp->hfrag.next = hfrag;
-    }
-    else if (!mp->data.heap_frag) {
-        erts_link_mbuf_to_proc(c_p, hfrag);
-    }
-    else {
-        hfrag->next = mp->data.heap_frag;
-        mp->data.heap_frag = hfrag;
-    }
-    return hfrag->mem[0];
+    return term;
 }
 
 static ERTS_INLINE Eterm
 copy_heap_frag_eterm(Process *c_p, ErtsMessage *mp, Eterm value)
 {
     ErlHeapFragment *hfrag;
-    Eterm *hp, tag_sz, tag, tag_cpy;
-    if (is_immed(value))
-        return value;
-    ASSERT(is_CP(value));
-    hfrag = (ErlHeapFragment *) cp_val(value);
-    ASSERT(hfrag->used_size > 1);
-
-    tag = hfrag->mem[0];
-    tag_sz = hfrag->used_size - 1;    
-    ASSERT(size_object(tag) == tag_sz);
-    
+    Eterm *hp, term_sz, term, term_cpy, val;
+    val = value;
+    term = get_heap_frag_eterm(&hfrag, &val);
+    if (!hfrag)
+        return term;
+    term_sz = hfrag->used_size;
     if (!mp->data.attached) {
-        hp = HAlloc(c_p, tag_sz);
-        tag_cpy = copy_struct(tag, tag_sz, &hp, &c_p->off_heap);
+        hp = HAlloc(c_p, term_sz);
+        term_cpy = copy_struct(term, term_sz, &hp, &c_p->off_heap);
     }
     else {
-        ErlHeapFragment *hfrag_cpy = new_message_buffer(tag_sz);
+        ErlHeapFragment *hfrag_cpy = new_message_buffer(term_sz);
         hp = &hfrag_cpy->mem[0];
-        tag_cpy = copy_struct(tag, tag_sz, &hp, &hfrag_cpy->off_heap);
+        term_cpy = copy_struct(term, term_sz, &hp, &hfrag_cpy->off_heap);
         if (mp->data.attached == ERTS_MSG_COMBINED_HFRAG) {
             hfrag_cpy->next = mp->hfrag.next;
             mp->hfrag.next = hfrag_cpy;
@@ -2921,7 +2932,7 @@ copy_heap_frag_eterm(Process *c_p, ErtsMessage *mp, Eterm value)
             mp->data.heap_frag = hfrag_cpy;
         }
     }
-    return tag_cpy;
+    return term_cpy;
 }
 
 /*
@@ -4482,7 +4493,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
     Eterm result = datap->result;
     ErtsMonitor *omon;
     int adjust_monitor;
-    ErlHeapFragment *tag_hfrag = NULL;
+    ErlHeapFragment *tag_hfrag;
     int convert_to_message = !0;
     int cnt = 1;
 
@@ -4549,15 +4560,12 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
      * is stored in mdep->u.name via a little trick
      * (see pending_flag in erts_monitor_create()).
      */
-    if (is_immed(mdep->u.name)) {
-        tag_hfrag = NULL;
-        *datap->patch_point = mdep->u.name;
-    }
-    else {
-        tag_hfrag = (ErlHeapFragment *) cp_val(mdep->u.name);
-        *datap->patch_point = tag_hfrag->mem[0];
-    }
-    mdep->u.name = NIL; /* Restore to normal monitor */
+    *datap->patch_point = get_heap_frag_eterm(&tag_hfrag, &mdep->u.name);
+    /*
+     * get_heap_frag_eterm() above will also write
+     * NIL to mdep->u.name, restoring it to a normal
+     * monitor...
+     */
     
     if (is_atom(result)) { /* Spawn error; cleanup... */
         /* Dist code should not have created a link on failure... */
