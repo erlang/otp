@@ -28,7 +28,7 @@
          demon_2/1, demon_3/1, demonitor_flush/1, gh_5225_demonitor_alias/1,
          local_remove_monitor/1, remote_remove_monitor/1, mon_1/1, mon_2/1,
          large_exit/1, list_cleanup/1, mixer/1, named_down/1, otp_5827/1,
-         monitor_time_offset/1]).
+         monitor_time_offset/1, monitor_tag_storage/1]).
 
 -export([y2/1, g/1, g0/0, g1/0, large_exit_sub/1]).
 
@@ -41,7 +41,7 @@ all() ->
      demon_1, mon_1, mon_2, demon_2, demon_3, demonitor_flush,
      gh_5225_demonitor_alias, {group, remove_monitor}, large_exit,
      list_cleanup, mixer, named_down, otp_5827,
-     monitor_time_offset].
+     monitor_time_offset, monitor_tag_storage].
 
 groups() -> 
     [{remove_monitor, [],
@@ -867,9 +867,99 @@ check_monitor_time_offset(Leader) ->
     end,
     Leader ! {change_messages_received, self()}.
 
+
+monitor_tag_storage(Config) when is_list(Config) ->
+    process_flag(priority, max),
+    %% WHITEBOX:
+    %%
+    %% There are three scenarios we want to test. The receiver of the
+    %% DOWN message with tag:
+    %% * has on-heap message queue data enabled and can allocate
+    %%   DOWN message on the heap
+    %% * has on-heap message queue data enabled and cannot allocate
+    %%   DOWN message on the heap, i.e. the message will be allocated
+    %%   in a heap fragment
+    %% * has off-heap message queue data enabled, i.e. the message
+    %%   will be allocated in a combined message/heap fragment.
+
+    %%
+    %% Testing the two on heap message queue data scenarios. Initially
+    %% there will be room on the heap, but eventually DOWN messages
+    %% will be placed in heap fragments.
+    %%    
+    ok = monitor_tag_storage_test(on_heap),
+
+    %%
+    %% Testing the off heap message queue data scenarios.
+    %%
+    ok = monitor_tag_storage_test(off_heap).
+
+monitor_tag_storage_test(MQD) ->
+    Len = 1000,
+    Tag = make_ref(),
+    Parent = self(),
+    Ps = lists:map(fun (_) ->
+                           spawn_opt(fun () ->
+                                              receive after infinity -> ok end
+                                     end, [link,{priority,high}])
+                   end, lists:seq(1, Len)),
+    {Recvr, RMon} = spawn_opt(fun () ->
+                                      lists:foreach(fun (P) ->
+                                                            erlang:monitor(process,
+                                                                           P,
+                                                                           [{tag, Tag}])
+                                                    end, Ps),
+                                      Parent ! {ready, self()},
+                                      receive {continue, Parent} -> ok end,
+                                      garbage_collect(),
+                                      Msgs = receive_tagged_down_msgs(Tag, []),
+                                      Len = length(Msgs),
+                                      garbage_collect(),
+                                      id(Msgs)
+                              end, [link, monitor, {message_queue_data, MQD}]),
+    receive {ready, Recvr} -> ok end,
+    lists:foreach(fun (P) -> unlink(P), exit(P, bang) end, Ps),
+    wait_until(fun () ->
+                       {message_queue_len, Len} == process_info(Recvr,
+                                                                message_queue_len)
+               end),
+    {messages, Msgs} = process_info(Recvr, messages),
+    lists:foreach(fun (Msg) ->
+                          {Tag, _Mon, process, _Pid, bang} = Msg
+                  end,
+                  Msgs),
+    garbage_collect(),
+    id(Msgs),
+    Recvr ! {continue, self()},
+    receive
+        {'DOWN', RMon, process, Recvr, Reason} ->
+            normal = Reason
+    end,
+    ok.
+
+receive_tagged_down_msgs(Tag, Msgs) ->
+    receive
+        {Tag, _Mon, process, _Pid, bang} = Msg ->
+            receive_tagged_down_msgs(Tag, [Msg|Msgs])
+    after
+        0 ->
+            Msgs
+    end.
+
 %%
 %% ...
 %%
+
+id(X) -> X.
+
+wait_until(Fun) ->
+    case catch Fun() of
+        true ->
+            ok;
+        _ ->
+            receive after 100 -> ok end,
+            wait_until(Fun)
+    end.
 
 wait_for_m(_,_,0) ->
     exit(monitor_wait_timeout);
