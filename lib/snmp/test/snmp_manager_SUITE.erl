@@ -67,6 +67,10 @@
 
 	 info/1,
          usm_priv_aes/1,
+         usm_sha224_priv_aes/1,
+         usm_sha256_priv_aes/1,
+         usm_sha384_priv_aes/1,
+         usm_sha512_priv_aes/1,
 	 
 	 simple_sync_get3/1, 
 	 simple_async_get3/1, 
@@ -227,7 +231,11 @@ start_and_stop_tests_cases() ->
 misc_tests_cases() ->
     [
      info,
-     usm_priv_aes
+     usm_priv_aes,
+     usm_sha224_priv_aes,
+     usm_sha256_priv_aes,
+     usm_sha384_priv_aes,
+     usm_sha512_priv_aes
     ].
 
 user_tests_cases() ->
@@ -1530,7 +1538,7 @@ usm_priv_aes(Config) when is_list(Config) ->
                   ?SLEEP(1000), % Give it time to settle
                   ok
           end,
-    Case = fun(_) -> do_usm_priv_aes(Config) end,
+    Case = fun(_) -> do_usm_priv_aes(sha, Config) end,
     Post = fun(_) ->
                    ?IPRINT("try stop manager"),
                    ok = snmpm:stop(),
@@ -1539,9 +1547,149 @@ usm_priv_aes(Config) when is_list(Config) ->
            end,
     ?TC_TRY(usm_priv_aes, Pre, Case, Post).
 
-do_usm_priv_aes(Config) ->
+
+%%======================================================================
+
+usm_sha224_priv_aes(suite) -> [];
+usm_sha224_priv_aes(Config) when is_list(Config) ->
+    Pre = fun() ->
+                  SCO     = ?config(socket_create_opts, Config),
+                  ConfDir = ?config(manager_conf_dir,   Config),
+                  DbDir   = ?config(manager_db_dir,     Config),
+
+                  write_manager_conf(ConfDir),
+
+                  Opts = [{server,     [{verbosity, trace}]},
+                          {net_if,     [{verbosity, trace}, {options, SCO}]},
+                          {note_store, [{verbosity, trace}]},
+                          {config,     [{verbosity, trace},
+                                        {dir,       ConfDir},
+                                        {db_dir,    DbDir}]}],
+
+                  ?IPRINT("try starting manager"),
+                  ok = snmpm:start(Opts),
+                  ?SLEEP(1000), % Give it time to settle
+                  ok
+          end,
+    Case = fun(_) -> do_usm_priv_aes(sha224, Config) end,
+    Post = fun(_) ->
+                   ?IPRINT("try stop manager"),
+                   ok = snmpm:stop(),
+                   ?SLEEP(1000), % Give it time to settle
+                   ok
+           end,
+    ?TC_TRY(usm_priv_aes, Pre, Case, Post).
+
+
+%%======================================================================
+
+usm_sha256_priv_aes(suite) -> [];
+usm_sha256_priv_aes(Config) when is_list(Config) ->
+    Pre = fun() ->
+                  SCO     = ?config(socket_create_opts, Config),
+                  ConfDir = ?config(manager_conf_dir,   Config),
+                  DbDir   = ?config(manager_db_dir,     Config),
+
+                  write_manager_conf(ConfDir),
+
+                  Opts = [{server,     [{verbosity, trace}]},
+                          {net_if,     [{verbosity, trace}, {options, SCO}]},
+                          {note_store, [{verbosity, trace}]},
+                          {config,     [{verbosity, trace},
+                                        {dir,       ConfDir},
+                                        {db_dir,    DbDir}]}],
+
+                  ?IPRINT("try starting manager"),
+                  ok = snmpm:start(Opts),
+                  ?SLEEP(1000), % Give it time to settle
+                  ok
+          end,
+    Case = fun(_) -> do_usm_priv_aes(sha256, Config) end,
+    Post = fun(_) ->
+                   ?IPRINT("try stop manager"),
+                   ok = snmpm:stop(),
+                   ?SLEEP(1000), % Give it time to settle
+                   ok
+           end,
+    ?TC_TRY(usm_priv_aes, Pre, Case, Post).
+
+
+%%======================================================================
+
+usm_sha384_priv_aes(suite) -> [];
+usm_sha384_priv_aes(Config) when is_list(Config) ->
+    Pre = fun() ->
+                  SCO     = ?config(socket_create_opts, Config),
+                  ConfDir = ?config(manager_conf_dir,   Config),
+                  DbDir   = ?config(manager_db_dir,     Config),
+
+                  write_manager_conf(ConfDir),
+
+                  Opts = [{server,     [{verbosity, trace}]},
+                          {net_if,     [{verbosity, trace}, {options, SCO}]},
+                          {note_store, [{verbosity, trace}]},
+                          {config,     [{verbosity, trace},
+                                        {dir,       ConfDir},
+                                        {db_dir,    DbDir}]}],
+
+                  ?IPRINT("try starting manager"),
+                  ok = snmpm:start(Opts),
+                  ?SLEEP(1000), % Give it time to settle
+                  ok
+          end,
+    Case = fun(_) -> do_usm_priv_aes(sha384, Config) end,
+    Post = fun(_) ->
+                   ?IPRINT("try stop manager"),
+                   ok = snmpm:stop(),
+                   ?SLEEP(1000), % Give it time to settle
+                   ok
+           end,
+    ?TC_TRY(usm_priv_aes, Pre, Case, Post).
+
+
+%%======================================================================
+
+usm_sha512_priv_aes(suite) -> [];
+usm_sha512_priv_aes(Config) when is_list(Config) ->
+    Pre = fun() ->
+                  SCO     = ?config(socket_create_opts, Config),
+                  ConfDir = ?config(manager_conf_dir,   Config),
+                  DbDir   = ?config(manager_db_dir,     Config),
+
+                  write_manager_conf(ConfDir),
+
+                  Opts = [{server,     [{verbosity, trace}]},
+                          {net_if,     [{verbosity, trace}, {options, SCO}]},
+                          {note_store, [{verbosity, trace}]},
+                          {config,     [{verbosity, trace},
+                                        {dir,       ConfDir},
+                                        {db_dir,    DbDir}]}],
+
+                  ?IPRINT("try starting manager"),
+                  ok = snmpm:start(Opts),
+                  ?SLEEP(1000), % Give it time to settle
+                  ok
+          end,
+    Case = fun(_) -> do_usm_priv_aes(sha512, Config) end,
+    Post = fun(_) ->
+                   ?IPRINT("try stop manager"),
+                   ok = snmpm:stop(),
+                   ?SLEEP(1000), % Give it time to settle
+                   ok
+           end,
+    ?TC_TRY(usm_priv_aes, Pre, Case, Post).
+
+
+select_auth_alg(sha)    -> usmHMACSHAAuthProtocol;
+select_auth_alg(sha224) -> usmHMAC128SHA224AuthProtocol;
+select_auth_alg(sha256) -> usmHMAC192SHA256AuthProtocol;
+select_auth_alg(sha384) -> usmHMAC256SHA384AuthProtocol;
+select_auth_alg(sha512) -> usmHMAC384SHA512AuthProtocol.
+
+do_usm_priv_aes(AuthAlg, Config) ->
     ?IPRINT("starting with Config: "
-            "~n   ~p", [Config]),
+            "~n   AuthAlg: ~p"
+            "~n   Config:  ~p", [AuthAlg, Config]),
 
     put(sname,     "TC[usm-priv-aes]"),
     put(verbosity, trace),
@@ -1552,13 +1700,13 @@ do_usm_priv_aes(Config) ->
     SecName  = "v3_user",
     AuthPass = "authpass",
     AuthKey  =
-      snmp:passwd2localized_key(sha, AuthPass, EngineID),
+      snmp:passwd2localized_key(AuthAlg, AuthPass, EngineID),
     PrivPass = "privpass",
     PrivKey  =
       snmp:passwd2localized_key(md5, PrivPass, EngineID),
 
     Credentials =
-      [ {auth,     usmHMACSHAAuthProtocol},
+      [ {auth,     select_auth_alg(AuthAlg)},
         {auth_key, AuthKey},
         {priv,     usmAesCfb128Protocol},
         {priv_key, PrivKey}
