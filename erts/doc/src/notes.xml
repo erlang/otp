@@ -31,6 +31,70 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 12.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A race between an exiting port and handling of
+	    simultaneously received signals to that port could cause
+	    a runtime system crash. The effected signals are
+	    <c>link</c>, <c>monitor</c> and <c>demonitor</c>. On OTP
+	    22 a similiar race could also cause a memory leak when
+	    receiving an <c>unlink</c> signal.</p>
+          <p>
+	    Own Id: OTP-17642 Aux Id: PR-5248 </p>
+        </item>
+        <item>
+          <p>
+	    <seemfa marker="erts:erlang#monitor/3">A user defined tag
+	    on a monitor message</seemfa> could cause the runtime
+	    system to crash when the monitor message had been
+	    received.</p>
+          <p>
+	    Own Id: OTP-17646 Aux Id: GH-5221, PR-5232 </p>
+        </item>
+        <item>
+          <p>
+	    A call to <seemfa
+	    marker="erts:erlang#demonitor/1"><c>erlang:demonitor(Ref)</c></seemfa>
+	    where the reference <c>Ref</c> referred to an active
+	    alias, but not an active monitor, caused the runtime
+	    system to crash.</p>
+          <p>
+	    Own Id: OTP-17647 Aux Id: GH-5225, PR-5230 </p>
+        </item>
+        <item>
+          <p>
+	    The message queue of a process entered an inconsistent
+	    state after a <c>receive</c> expression with an invalid
+	    timeout value was executed. If the exception raised due
+	    to the invalid timeout value was caught, the following
+	    <c>receive</c> expression executed by the process could
+	    fail to match messages already present in the message
+	    queue.</p>
+          <p>
+	    On OTP 24 this could also cause the whole runtime system
+	    to crash.</p>
+          <p>
+	    Own Id: OTP-17651 Aux Id: GH-5235, PR-5244 </p>
+        </item>
+        <item>
+          <p>
+	    Sending a <c>Port ! {PortOwner, close}</c> signal from a
+	    process other than the port owner could erroneously
+	    trigger a <c>badsig</c> exit signal being sent to the
+	    port owner process even though the correct
+	    <c>PortOwner</c> had been passed in the signal.</p>
+          <p>
+	    Own Id: OTP-17665 Aux Id: PR-5248 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,28 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.16.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug that could cause a child to become orphaned
+	    when a supervisor died between unlinking and sending the
+	    shutdown signal to this child. </p>
+          <p>
+	    There was also a possibility for erratic supervisor
+	    reports caused by a race between a supervisor shutting
+	    down a child and that child exiting by itself at the same
+	    time.</p>
+          <p>
+	    Own Id: OTP-17649 Aux Id: GH-5193, PR-5201 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.16</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

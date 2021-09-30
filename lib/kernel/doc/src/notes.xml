@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add more info about the socket 'type' ('socket' or
+	    'port') for the DOWN message when monitoring sockets.</p>
+          <p>
+	    Own Id: OTP-17640</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
