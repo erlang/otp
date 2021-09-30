@@ -305,6 +305,7 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
 
 static void unload(ErlNifEnv* env, void* priv_data)
 {
-    --library_refc;
+    if (--library_refc == 0)
+        cleanup_algorithms_types(env);
 }
 
