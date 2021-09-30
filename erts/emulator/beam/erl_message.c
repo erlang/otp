@@ -161,11 +161,11 @@ erts_resize_message_buffer(ErlHeapFragment *bp, Uint size,
 
 
 void
-erts_cleanup_offheap(ErlOffHeap *offheap)
+erts_cleanup_offheap_list(struct erl_off_heap_header* first)
 {
     union erl_off_heap_ptr u;
 
-    for (u.hdr = offheap->first; u.hdr; u.hdr = u.hdr->next) {
+    for (u.hdr = first; u.hdr; u.hdr = u.hdr->next) {
 	switch (thing_subtag(u.hdr->thing_word)) {
 	case REFC_BINARY_SUBTAG:
             erts_bin_release(u.pb->val);
@@ -186,6 +186,13 @@ erts_cleanup_offheap(ErlOffHeap *offheap)
 	}
     }
 }
+
+void
+erts_cleanup_offheap(ErlOffHeap *offheap)
+{
+    erts_cleanup_offheap_list(offheap->first);
+}
+
 
 void
 free_message_buffer(ErlHeapFragment* bp)

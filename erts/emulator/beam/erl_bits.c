@@ -1358,6 +1358,21 @@ erts_new_bs_put_string(ERL_BITS_PROTO_2(byte* iptr, Uint num_bytes))
     erts_bin_offset += num_bytes*8;
 }
 
+static ERTS_INLINE
+void increase_proc_bin_sz(Process* p, ProcBin* pb, Uint new_size)
+{
+    if (new_size > pb->size) {
+        if (ErtsInArea(pb, OLD_HEAP(p), ((OLD_HTOP(p) - OLD_HEAP(p))
+                                         * sizeof(Eterm)))) {
+            BIN_OLD_VHEAP(p) += (new_size / sizeof(Eterm) -
+                                 pb->size / sizeof(Eterm));
+        }
+        pb->size = new_size;
+    }
+    else
+        ASSERT(new_size == pb->size);
+}
+
 Eterm
 erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	    Uint extra_words, Uint unit)
@@ -1445,7 +1460,8 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
     used_size_in_bits = erts_bin_offset + build_size_in_bits;
 
     sb->is_writable = 0;	/* Make sure that no one else can write. */
-    pb->size = NBYTES(used_size_in_bits);
+
+    increase_proc_bin_sz(c_p, pb, NBYTES(used_size_in_bits));
     pb->flags |= PB_ACTIVE_WRITER;
 
     /*
@@ -1553,8 +1569,8 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	hp += PROC_BIN_SIZE;
 	pb->thing_word = HEADER_PROC_BIN;
 	pb->size = used_size_in_bytes;
-	pb->next = MSO(c_p).first;
-	MSO(c_p).first = (struct erl_off_heap_header*)pb;
+	pb->next = c_p->wrt_bins;
+        c_p->wrt_bins = (struct erl_off_heap_header*)pb;
 	pb->val = bptr;
 	pb->bytes = (byte*) bptr->orig_bytes;
 	pb->flags = PB_IS_WRITABLE | PB_ACTIVE_WRITER;
@@ -1635,8 +1651,7 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
     }
 
     pos_in_bits_after_build = erts_bin_offset + build_size_in_bits;
-    pb->size = (pos_in_bits_after_build+7) >> 3;
-    pb->flags |= PB_ACTIVE_WRITER;
+    increase_proc_bin_sz(p, pb, (pos_in_bits_after_build+7) >> 3);
 
     /*
      * Reallocate the binary if it is too small.
@@ -1662,16 +1677,32 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 	     * on. That means that a trace process now has (or have
 	     * had) a reference to the binary, so we are not allowed
 	     * to reallocate the binary. Instead, we must allocate a new
-	     * binary and copy the contents of the old binary into it.
+             * binary and copy the contents of the old binary into it.
+             *
+             * Also make a new ProcBin as the old one may have been moved
+             * from the 'wrt_bins' list to the regular 'off_heap' list by
+             * the GC. To move it back would mean traversing the off_heap list
+             * from the start. So instead create a new ProcBin for this
+             * (hopefully) rare case.
 	     */
 	    Binary* bptr = erts_bin_nrml_alloc(new_size);
-	    sys_memcpy(bptr->orig_bytes, binp->orig_bytes, binp->orig_size);
-	    pb->flags |= PB_IS_WRITABLE | PB_ACTIVE_WRITER;
-	    pb->val = bptr;
-	    pb->bytes = (byte *) bptr->orig_bytes;
-            erts_bin_release(binp);
+            ProcBin* new_pb;
+
+            sys_memcpy(bptr->orig_bytes, binp->orig_bytes, binp->orig_size);
+
+            new_pb = (ProcBin*) HeapFragOnlyAlloc(p, PROC_BIN_SIZE);
+            new_pb->thing_word = HEADER_PROC_BIN;
+            new_pb->size = pb->size;
+            new_pb->val = bptr;
+            new_pb->bytes = (byte *) bptr->orig_bytes;
+            new_pb->next = p->wrt_bins;
+            p->wrt_bins = (struct erl_off_heap_header*) new_pb;
+            sb->orig = make_binary(new_pb);
+            pb = new_pb;
 	}
     }
+    pb->flags = PB_IS_WRITABLE | PB_ACTIVE_WRITER;
+
     erts_current_bin = pb->bytes;
 
     sb->size = pos_in_bits_after_build >> 3;
@@ -1717,8 +1748,8 @@ erts_bs_init_writable(Process* p, Eterm sz)
     hp += PROC_BIN_SIZE;
     pb->thing_word = HEADER_PROC_BIN;
     pb->size = 0;
-    pb->next = MSO(p).first;
-    MSO(p).first = (struct erl_off_heap_header*) pb;
+    pb->next = p->wrt_bins;
+    p->wrt_bins = (struct erl_off_heap_header*) pb;
     pb->val = bptr;
     pb->bytes = (byte*) bptr->orig_bytes;
     pb->flags = PB_IS_WRITABLE | PB_ACTIVE_WRITER;

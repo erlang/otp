@@ -643,6 +643,7 @@ void enif_clear_env(ErlNifEnv* env)
     menv->env.hp = menv->env.hp_end = HEAP_TOP(p);
     
     ASSERT(!is_offheap(&MSO(p)));
+    ASSERT(!p->wrt_bins);
 }
 
 #ifdef DEBUG
@@ -5042,6 +5043,9 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
         ErlHeapFragment *orig_hf = MBUF(p);
         ErlOffHeap orig_oh = MSO(p);
         Eterm *orig_htop = HEAP_TOP(p);
+#ifdef DEBUG
+        struct erl_off_heap_header* orig_wrt_bins = p->wrt_bins;
+#endif
         ASSERT(is_internal_pid(p->common.id));
         MBUF(p) = NULL;
         clear_offheap(&MSO(p));
@@ -5067,6 +5071,7 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
         MBUF(p) = orig_hf;
         MSO(p) = orig_oh;
         HEAP_TOP(p) = orig_htop;
+        ASSERT(p->wrt_bins == orig_wrt_bins);
     } else {
         /* Nif call was done without a process context,
            so we create a phony one. */
