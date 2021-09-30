@@ -25,7 +25,7 @@
 
 -export([all/0, suite/0, groups/0,
          case_1/1, case_1a/1, case_2/1, case_2a/1, mon_e_1/1, demon_e_1/1, demon_1/1,
-         demon_2/1, demon_3/1, demonitor_flush/1,
+         demon_2/1, demon_3/1, demonitor_flush/1, gh_5225_demonitor_alias/1,
          local_remove_monitor/1, remote_remove_monitor/1, mon_1/1, mon_2/1,
          large_exit/1, list_cleanup/1, mixer/1, named_down/1, otp_5827/1,
          monitor_time_offset/1]).
@@ -38,8 +38,8 @@ suite() ->
 
 all() -> 
     [case_1, case_1a, case_2, case_2a, mon_e_1, demon_e_1,
-     demon_1, mon_1, mon_2, demon_2, demon_3,
-     demonitor_flush, {group, remove_monitor}, large_exit,
+     demon_1, mon_1, mon_2, demon_2, demon_3, demonitor_flush,
+     gh_5225_demonitor_alias, {group, remove_monitor}, large_exit,
      list_cleanup, mixer, named_down, otp_5827,
      monitor_time_offset].
 
@@ -292,6 +292,25 @@ demonitor_flush_test(Node) ->
     after 100 ->
               ok
     end.
+
+gh_5225_demonitor_alias(Config) when is_list(Config) ->
+    %% Demonitor using a reference that was an active alias, but not an
+    %% active monitor, used to crash the runtime system.
+    Alias = alias(),
+    erlang:demonitor(Alias),
+    erlang:demonitor(Alias, [flush]),
+    {Pid, MonAlias1} = spawn_opt(fun () ->
+                                         ok
+                                 end,
+                                 [{monitor, [{alias, explicit_unalias}]}]),
+    receive {'DOWN', MonAlias1, process, Pid, normal} -> ok end,
+    erlang:demonitor(MonAlias1),
+    erlang:demonitor(MonAlias1, [flush]),
+    MonAlias2 = erlang:monitor(process, Pid, [{alias, explicit_unalias}]),
+    receive {'DOWN', MonAlias2, process, Pid, noproc} -> ok end,
+    erlang:demonitor(MonAlias2),
+    erlang:demonitor(MonAlias2, [flush]),
+    ok.
 
 -define(RM_MON_GROUPS, 100).
 -define(RM_MON_GPROCS, 100).
