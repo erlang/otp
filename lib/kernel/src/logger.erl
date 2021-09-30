@@ -51,9 +51,9 @@
          get_primary_config/0, get_handler_config/1,
          get_handler_config/0, get_handler_ids/0, get_config/0,
          get_proxy_config/0,
-         add_handlers/1]).
+         add_handlers/1,
+         reconfigure/0]).
 
-%% Private configuration
 -export([internal_init_logger/0]).
 
 %% Misc
@@ -794,6 +794,31 @@ print_module_levels(Modules,M) ->
     [print_module_levels(Module,M) || Module <- Modules],
     ok.
 
+-spec reconfigure() -> ok | {error,term()}.
+%% This function is meant to be used by the build tools like Rebar3 or Mix
+%% to ensure that the logger configuration is reset to the expected state
+%% before running main application.
+reconfigure() ->
+    try
+        [case logger:remove_handler(Id) of
+             ok -> ok;
+             {error, Reason} -> throw({remove, Id, Reason})
+         end || #{id := Id} <- logger:get_handler_config()],
+        ok=logger:add_handler(simple,logger_simple_h,
+                              #{filter_default=>stop,
+                                filters=>?DEFAULT_HANDLER_FILTERS}),
+        logger:unset_module_level(),
+        internal_init_logger()
+    of
+        ok ->
+            logger:add_handlers(kernel);
+        Error ->
+            Error
+    catch
+        throw:Reason ->
+            {error, Reason}
+    end.
+
 -spec internal_init_logger() -> ok | {error,term()}.
 %% This function is responsible for config of the logger
 %% This is done before add_handlers because we want the
@@ -807,6 +832,7 @@ internal_init_logger() ->
         ok = logger:set_primary_config(metadata, get_primary_metadata()),
         ok = logger:set_primary_config(filter_default,
                                        get_primary_filter_default(Env)),
+        ok = logger:set_primary_config(filters, []),
 
         [case logger:add_primary_filter(Id, Filter) of
              ok -> ok;
