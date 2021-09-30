@@ -1574,112 +1574,257 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     config_ensure_not_running(),
 
     %% --
-    ?IPRINT("[test 51] write usm config file with invalid auth-key (1)"),
-    Usm51 = setelement(3, Usm0, "usmHMACMD5AuthProtocol"),
-    write_usm_conf(ConfDir, [Usm51]),
-    ?line {error, Reason51} = config_start(Opts),
-    ?IPRINT("start failed (as expected): ~p", [Reason51]),
-    ?line {failed_check, _, _, _, {invalid_auth_key, _, _}} = Reason51,
+    ?IPRINT("[test 51.1] write (auth md5) usm config file with invalid auth-key (1)"),
+    Usm51_1 = setelement(3, Usm0, "usmHMACMD5AuthProtocol"),
+    write_usm_conf(ConfDir, [Usm51_1]),
+    ?line {error, Reason51_1} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason51_1]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _, _}} = Reason51_1,
     config_ensure_not_running(),
 
     %% --
-    ?IPRINT("[test 52] write usm config file with invalid auth-key (2)"),
-    Usm52 = setelement(4, Usm51, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5]"),
-    write_usm_conf(ConfDir, [Usm52]),
-    ?line {error, Reason52} = config_start(Opts),
-    ?IPRINT("start failed (as expected): ~p", [Reason52]),
-    ?line {failed_check, _, _, _, {invalid_auth_key, _, 15}} = Reason52,
+    ?IPRINT("[test 51.2] write (auth md5) usm config file with invalid auth-key (2)"),
+    Usm51_2 = setelement(4, Usm51_1, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5]"),
+    write_usm_conf(ConfDir, [Usm51_2]),
+    ?line {error, Reason51_2} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason51_2]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _, 15}} = Reason51_2,
     config_ensure_not_running(),
 
     %% --
-    ?IPRINT("[test 53] write usm config file with invalid auth-key (3)"),
-    Usm53 = setelement(4, Usm51, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7]"),
-    write_usm_conf(ConfDir, [Usm53]),
-    ?line {error, Reason53} = config_start(Opts),
-    ?IPRINT("start failed (as expected): ~p", [Reason53]),
-    ?line {failed_check, _, _, _, {invalid_auth_key, _, 17}} = Reason53,
+    ?IPRINT("[test 51.3] write (auth md5) usm config file with invalid auth-key (3)"),
+    Usm51_3 = setelement(4, Usm51_1, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7]"),
+    write_usm_conf(ConfDir, [Usm51_3]),
+    ?line {error, Reason51_3} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason51_3]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _, 17}} = Reason51_3,
     config_ensure_not_running(),
 
     %% --
-    ?IPRINT("[test 54] write usm config file with invalid auth-key (4)"),
-    Usm54 = setelement(4, Usm51, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,kalle]"),
-    write_usm_conf(ConfDir, [Usm54]),
+    ?IPRINT("[test 51.4] write (auth md5) usm config file with invalid auth-key (4)"),
+    Usm51_4 = setelement(4, Usm51_1, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,kalle]"),
+    write_usm_conf(ConfDir, [Usm51_4]),
     ?line maybe_start_crypto(),  %% Make sure it's started...
-    ?line {error, Reason54} = config_start(Opts),
+    ?line {error, Reason51_4} = config_start(Opts),
     ?line ok = maybe_stop_crypto(),
-    ?IPRINT("start failed (as expected): ~p", [Reason54]),
-    ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason54,
+    ?IPRINT("start failed (as expected): ~p", [Reason51_4]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason51_4,
     config_ensure_not_running(),
 
     %% --
-    ?IPRINT("[test 55] write usm config file with invalid auth-key (5)"),
-    Usm55 = setelement(4, Usm51, "arne_anka"),
-    write_usm_conf(ConfDir, [Usm55]),
-    ?line {error, Reason55} = config_start(Opts),
-    ?IPRINT("start failed (as expected): ~p", [Reason55]),
-    ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason55,
+    ?IPRINT("[test 51.5] write (auth md5) usm config file with invalid auth-key (5)"),
+    Usm51_5 = setelement(4, Usm51_1, "arne_anka"),
+    write_usm_conf(ConfDir, [Usm51_5]),
+    ?line {error, Reason51_5} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason51_5]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason51_5,
     config_ensure_not_running(),
 
     %% --
-    ?IPRINT("[test 56] write usm config file with invalid auth-key (6)"),
-    Usm56 = setelement(4, Usm51, "10101"),
-    write_usm_conf(ConfDir, [Usm56]),
-    ?line {error, Reason56} = config_start(Opts),
-    ?IPRINT("start failed (as expected): ~p", [Reason56]),
-    ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason56,
+    ?IPRINT("[test 51.6] write (auth md5) usm config file with invalid auth-key (6)"),
+    Usm51_6 = setelement(4, Usm51_1, "10101"),
+    write_usm_conf(ConfDir, [Usm51_6]),
+    ?line {error, Reason51_6} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason51_6]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason51_6,
+    config_ensure_not_running(),
+
+
+
+    %% -- (auth) SHA --
+    ?IPRINT("[test 52.1] write (auth sha) usm config file with invalid auth-key (1)"),
+    Usm52_1 = setelement(3, Usm0, "usmHMACSHAAuthProtocol"),
+    write_usm_conf(ConfDir, [Usm52_1]),
+    ?line {error, Reason52_1} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason52_1]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _, _}} = Reason52_1,
     config_ensure_not_running(),
 
     %% --
-    ?IPRINT("[test 57] write usm config file with invalid auth-key (7)"),
-    Usm57 = setelement(3, Usm0, "usmHMACSHAAuthProtocol"),
-    write_usm_conf(ConfDir, [Usm57]),
-    ?line {error, Reason57} = config_start(Opts),
-    ?IPRINT("start failed (as expected): ~p", [Reason57]),
-    ?line {failed_check, _, _, _, {invalid_auth_key, _, _}} = Reason57,
+    ?IPRINT("[test 52.2] write (auth sha) usm config file with invalid auth-key (2)"),
+    Usm52_2 = setelement(4, Usm52_1, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]"),
+    write_usm_conf(ConfDir, [Usm52_2]),
+    ?line {error, Reason52_2} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason52_2]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _, 16}} = Reason52_2,
     config_ensure_not_running(),
 
     %% --
-    ?IPRINT("[test 58] write usm config file with invalid auth-key (8)"),
-    Usm58 = setelement(4, Usm57, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]"),
-    write_usm_conf(ConfDir, [Usm58]),
-    ?line {error, Reason58} = config_start(Opts),
-    ?IPRINT("start failed (as expected): ~p", [Reason58]),
-    ?line {failed_check, _, _, _, {invalid_auth_key, _, 16}} = Reason58,
-    config_ensure_not_running(),
-
-    %% --
-    ?IPRINT("[test 59] write usm config file with invalid auth-key (9)"),
-    Usm59 = setelement(4, Usm57, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,ka]"),
-    write_usm_conf(ConfDir, [Usm59]),
+    ?IPRINT("[test 52.3] write (auth sha) usm config file with invalid auth-key (3)"),
+    Usm52_3 = setelement(4, Usm52_1, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,ka]"),
+    write_usm_conf(ConfDir, [Usm52_3]),
     ?line ok = maybe_start_crypto(),
-    ?line {error, Reason59} = config_start(Opts),
+    ?line {error, Reason52_3} = config_start(Opts),
     ?line ok = maybe_stop_crypto(),
-    ?IPRINT("start failed (as expected): ~p", [Reason59]),
-    ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason59,
+    ?IPRINT("start failed (as expected): ~p", [Reason52_3]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason52_3,
+    config_ensure_not_running(),
+
+
+
+    %% -- (auth) SHA-224 --
+    ?IPRINT("[test 53.1] write (auth sha224) usm config file with invalid auth-key (1)"),
+    Usm53_1 = setelement(3, Usm0, "usmHMAC128SHA224AuthProtocol"),
+    write_usm_conf(ConfDir, [Usm53_1]),
+    ?line {error, Reason53_1} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason53_1]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _, _}} = Reason53_1,
     config_ensure_not_running(),
 
     %% --
-    %% <CRYPTO-MODIFICATIONS>
-    %% The crypto application do no longer need to be started
-    %% explicitly (all of it is as of R14 implemented with NIFs).
-    case (catch crypto:version()) of
-	{'EXIT', {undef, _}} ->
-	    ?IPRINT("[test 5A] write usm config file with valid auth-key "
-	      "when crypto not started (10)"),
-	    Usm5A = setelement(4, 
-			       Usm57, 
-			       "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0]"),
-	    write_usm_conf(ConfDir, [Usm5A]),
-	    ?line {error, Reason5A} = config_start(Opts),
-	    ?IPRINT("start failed (as expected): ~p", [Reason5A]),
-	    ?line {failed_check, _, _, _, {unsupported_crypto, _}} = Reason5A,
-	    config_ensure_not_running();
-	_ ->
-	    %% This function is only present in version 2.0 or greater.
-	    %% The crypto app no longer needs to be explicitly started
-	    ok
-    end,
-    %% </CRYPTO-MODIFICATIONS>
+    ?IPRINT("[test 53.2] write (auth sha224) usm config file with valid auth-key (2)"),
+    Usm53_2 = setelement(4, Usm53_1,
+                         "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8]"),
+    write_usm_conf(ConfDir, [Usm53_2]),
+    ?line {ok, _} = config_start(Opts),
+    ?IPRINT("expected start success"),
+    config_ensure_not_running(),
+
+    %% --
+    ?IPRINT("[test 53.3] write (auth sha224) usm config file with invalid auth-key (3)"),
+    Usm53_3 = setelement(4, Usm53_1,
+                         "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7]"),
+    write_usm_conf(ConfDir, [Usm53_3]),
+    ?line {error, Reason53_3} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason53_3]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _, 27}} = Reason53_3,
+    config_ensure_not_running(),
+
+    %% --
+    ?IPRINT("[test 53.4] write (auth sha224) usm config file with invalid auth-key (4)"),
+    Usm53_4 = setelement(4, Usm53_1,
+                         "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,ka]"),
+    write_usm_conf(ConfDir, [Usm53_4]),
+    ?line ok = maybe_start_crypto(),
+    ?line {error, Reason53_4} = config_start(Opts),
+    ?line ok = maybe_stop_crypto(),
+    ?IPRINT("start failed (as expected): ~p", [Reason53_4]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason53_4,
+    config_ensure_not_running(),
+
+
+    %% -- (auth) SHA-256 --
+    ?IPRINT("[test 54.1] write (auth sha256) usm config file with invalid auth-key (1)"),
+    Usm54_1 = setelement(3, Usm0, "usmHMAC192SHA256AuthProtocol"),
+    write_usm_conf(ConfDir, [Usm54_1]),
+    ?line {error, Reason54_1} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason54_1]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _, _}} = Reason54_1,
+    config_ensure_not_running(),
+
+    %% --
+    ?IPRINT("[test 54.2] write (auth sha256) usm config file with valid auth-key (2)"),
+    Usm54_2 = setelement(4, Usm54_1,
+                         "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2]"),
+    write_usm_conf(ConfDir, [Usm54_2]),
+    ?line {ok, _} = config_start(Opts),
+    ?IPRINT("expected start success"),
+    config_ensure_not_running(),
+
+    %% --
+    ?IPRINT("[test 54.3] write (auth sha256) usm config file with invalid auth-key (3)"),
+    Usm54_3 = setelement(4, Usm54_1,
+                         "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1]"),
+    write_usm_conf(ConfDir, [Usm54_3]),
+    ?line {error, Reason54_3} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason54_3]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _, 31}} = Reason54_3,
+    config_ensure_not_running(),
+
+    %% --
+    ?IPRINT("[test 54.4] write (auth sha256) usm config file with invalid auth-key (4)"),
+    Usm54_4 = setelement(4, Usm54_1,
+                         "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,ka]"),
+    write_usm_conf(ConfDir, [Usm54_4]),
+    ?line ok = maybe_start_crypto(),
+    ?line {error, Reason54_4} = config_start(Opts),
+    ?line ok = maybe_stop_crypto(),
+    ?IPRINT("start failed (as expected): ~p", [Reason54_4]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason54_4,
+    config_ensure_not_running(),
+
+
+    %% -- (auth) SHA-384 --
+    ?IPRINT("[test 55.1] write (auth sha384) usm config file with invalid auth-key (1)"),
+    Usm55_1 = setelement(3, Usm0, "usmHMAC256SHA384AuthProtocol"),
+    write_usm_conf(ConfDir, [Usm55_1]),
+    ?line {error, Reason55_1} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason55_1]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _, _}} = Reason55_1,
+    config_ensure_not_running(),
+
+    %% --
+    ?IPRINT("[test 55.2] write (auth sha384) usm config file with valid auth-key (2)"),
+    Usm55_2 = setelement(4, Usm55_1,
+                         "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8]"),
+    write_usm_conf(ConfDir, [Usm55_2]),
+    ?line {ok, _} = config_start(Opts),
+    ?IPRINT("expected start success"),
+    config_ensure_not_running(),
+
+    %% --
+    ?IPRINT("[test 55.3] write (auth sha384) usm config file with invalid auth-key (3)"),
+    Usm55_3 = setelement(4, Usm55_1,
+                         "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7]"),
+    write_usm_conf(ConfDir, [Usm55_3]),
+    ?line {error, Reason55_3} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason55_3]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _, 47}} = Reason55_3,
+    config_ensure_not_running(),
+
+    %% --
+    ?IPRINT("[test 55.4] write (auth sha384) usm config file with invalid auth-key (4)"),
+    Usm55_4 = setelement(4, Usm55_1,
+                         "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,ka]"),
+    write_usm_conf(ConfDir, [Usm55_4]),
+    ?line ok = maybe_start_crypto(),
+    ?line {error, Reason55_4} = config_start(Opts),
+    ?line ok = maybe_stop_crypto(),
+    ?IPRINT("start failed (as expected): ~p", [Reason55_4]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason55_4,
+    config_ensure_not_running(),
+
+
+    %% -- (auth) SHA-512 --
+    ?IPRINT("[test 56.1] write (auth sha512) usm config file with invalid auth-key (1)"),
+    Usm56_1 = setelement(3, Usm0, "usmHMAC384SHA512AuthProtocol"),
+    write_usm_conf(ConfDir, [Usm56_1]),
+    ?line {error, Reason56_1} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason56_1]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _, _}} = Reason56_1,
+    config_ensure_not_running(),
+
+    %% --
+    ?IPRINT("[test 56.2] write (auth sha512) usm config file with valid auth-key (2)"),
+    Usm56_2 = setelement(4, Usm56_1,
+                         "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4]"),
+    write_usm_conf(ConfDir, [Usm56_2]),
+    ?line {ok, _} = config_start(Opts),
+    ?IPRINT("expected start success"),
+    config_ensure_not_running(),
+
+    %% --
+    ?IPRINT("[test 56.3] write (auth sha512) usm config file with invalid auth-key (3)"),
+    Usm56_3 = setelement(4, Usm56_1,
+                         "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3]"),
+    write_usm_conf(ConfDir, [Usm56_3]),
+    ?line {error, Reason56_3} = config_start(Opts),
+    ?IPRINT("start failed (as expected): ~p", [Reason56_3]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _, 63}} = Reason56_3,
+    config_ensure_not_running(),
+
+    %% --
+    ?IPRINT("[test 56.4] write (auth sha512) usm config file with invalid auth-key (4)"),
+    Usm56_4 = setelement(4, Usm56_1,
+                         "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,ka]"),
+    write_usm_conf(ConfDir, [Usm56_4]),
+    ?line ok = maybe_start_crypto(),
+    ?line {error, Reason56_4} = config_start(Opts),
+    ?line ok = maybe_stop_crypto(),
+    ?IPRINT("start failed (as expected): ~p", [Reason56_4]),
+    ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason56_4,
+    config_ensure_not_running(),
+
 
     %% --
     ?IPRINT("[test 61] write usm config file with invalid priv-protocol (1)"),
