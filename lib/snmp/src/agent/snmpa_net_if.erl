@@ -768,7 +768,8 @@ loop(#state{transports = Transports,
 		  "~n   ~p", [Parent, Reason]),
 	    exit(Reason);
 
-        {'DOWN', _SockMRef, socket, Socket, Reason} ->
+        {'DOWN', _SockMRef, Type, Socket, Reason} when (Type =:= port) orelse
+                                                       (Type =:= socket) ->
 	    case lists:keyfind(Socket, #transport.socket, Transports) of
 		#transport{
                    socket       = Socket,
