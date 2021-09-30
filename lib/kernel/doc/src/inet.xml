@@ -751,14 +751,21 @@ get_tcpi_sacked(Sock) ->
 	monitor is triggered, a <c>'DOWN'</c> message is sent
 	that has the following pattern:</p>
 	<code type="none">
-	    {'DOWN', MonitorRef, socket, Object, Info}
+	    {'DOWN', MonitorRef, Type, Object, Info}
 	  </code>
-        <p>In the monitor message <c>MonitorRef</c> and <c>Type</c> are the
-          same as described earlier, and:</p>
         <taglist>
+          <tag><c>MonitorRef</c></tag>
+          <item>
+	    <p>The identity of the socket. </p>
+          </item>
+          <tag><c>Type</c></tag>
+          <item>
+	    <p>The type of socket, can be one of the following atoms:
+	    port or socket. </p>
+          </item>
           <tag><c>Object</c></tag>
           <item>
-	    <p>The monitored entity, socket, which triggered the event. </p>
+	    <p>The monitored entity, the socket, which triggered the event. </p>
           </item>
           <tag><c>Info</c></tag>
           <item>
