@@ -34,7 +34,24 @@
   </header>
 
 
-  <section><title>SNMP 5.10</title>
+  <section><title>SNMP 5.10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Sockets are monitored, but the handling of the 'DOWN'
+	    message expected a new style socket ('socket'), old style
+	    (port) was not handled.</p>
+          <p>
+	    Own Id: OTP-17641 Aux Id: OTP-17640 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.10</title>
 
     <section><title>Improvements and New Features</title>
       <list>
