@@ -1631,7 +1631,10 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       <desc><p>Closes or downgrades a TLS connection. In the latter case the transport
       connection will be handed over to the <c>NewController</c> process after receiving
       the TLS close alert from the peer. The returned transport socket will have
-      the following options set: <c>[{active, false}, {packet, 0}, {mode, binary}]</c></p>
+      the following options set: <c>[{active, false}, {packet, 0}, {mode, binary}]</c>.</p>
+      <p>In case of downgrade, the close function might return some binary data
+      that should be treated by the user as the first bytes received on the downgraded
+      connection.</p>
       </desc>
     </func>
     
