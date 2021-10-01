@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -166,9 +166,6 @@ init_per_group(GroupName, Config) ->
 
 end_per_group(GroupName, Config) ->
   ssl_test_lib:end_per_group(GroupName, Config).
-
-end_per_testcase(_TestCase, Config) ->     
-    Config.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -930,10 +927,14 @@ tls_downgrade_result(Socket, Pid) ->
             ok
     end,
     case ssl:close(Socket, {self(), 10000})  of
-	{ok, TCPSocket} -> 
+	{ok, TCPSocket} ->
             inet:setopts(TCPSocket, [{active, true}]),
 	    gen_tcp:send(TCPSocket, "Downgraded"),
             <<"Downgraded">> = active_tcp_recv(TCPSocket, length("Downgraded")),
+            ok;
+	{ok, TCPSocket, Bin} ->
+	    gen_tcp:send(TCPSocket, "Downgraded"),
+            <<"Downgraded">> = Bin,
             ok;
 	{error, timeout} ->
 	    ct:comment("Timed out, downgrade aborted"),
