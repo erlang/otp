@@ -200,9 +200,10 @@ ERL_NIF_TERM curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     int fips_mode = 0;
     int algo_curve_cnt = 0;
 
-#ifdef FIPS_SUPPORT
-    fips_mode = FIPS_mode();
-#endif
+# ifdef FIPS_SUPPORT
+    if (FIPS_mode()) fips_mode = 1;
+# endif
+
     algo_curve_cnt = get_curve_cnt(env, fips_mode);
     return enif_make_list_from_array(env, algo_curve[fips_mode], algo_curve_cnt);
 }
