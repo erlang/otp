@@ -94,11 +94,11 @@
 -type yearweeknum()    :: {year(),weeknum()}.
 
 -type rfc3339_string() :: [byte(), ...].
-%% By design 'native' is not supported:
 -type rfc3339_time_unit() :: 'microsecond'
                            | 'millisecond'
                            | 'nanosecond'
-                           | 'second'.
+                           | 'second'
+                           | 'native'.
 
 %%----------------------------------------------------------------------
 
@@ -326,7 +326,7 @@ local_time_to_universal_time_dst(DateTime) ->
 -spec now_to_datetime(Now) -> datetime1970() when
       Now :: erlang:timestamp().
 now_to_datetime({MSec, Sec, _uSec}) ->
-    system_time_to_datetime(MSec*1000000 + Sec).
+    system_time_to_datetime(MSec*1_000_000 + Sec).
 
 -spec now_to_universal_time(Now) -> datetime1970() when
       Now :: erlang:timestamp().
@@ -444,7 +444,23 @@ system_time_to_rfc3339(Time) ->
 
 system_time_to_rfc3339(Time, Options) ->
     Unit = proplists:get_value(unit, Options, second),
-    OffsetOption = proplists:get_value(offset, Options, ""),
+    OffsetOpt0 = proplists:get_value(offset, Options, ""),
+    case Unit of
+        native ->
+            TimeMS = erlang:convert_time_unit(Time, native, millisecond),
+            OffsetOpt1 =
+                if is_integer(OffsetOpt0) ->
+                        erlang:convert_time_unit(OffsetOpt0, native,
+                                                 millisecond);
+                   true ->
+                        OffsetOpt0
+                end,
+            system_time_to_rfc3339_do(TimeMS, Options, millisecond, OffsetOpt1);
+        _ ->
+            system_time_to_rfc3339_do(Time, Options, Unit, OffsetOpt0)
+    end.
+
+system_time_to_rfc3339_do(Time, Options, Unit, OffsetOption) ->
     T = proplists:get_value(time_designator, Options, $T),
     AdjustmentSecs = offset_adjustment(Time, Unit, OffsetOption),
     Offset = offset(OffsetOption, AdjustmentSecs),
@@ -738,12 +754,13 @@ copy_sign(N1, _N2) -> N1.
 
 factor(second)      -> 1;
 factor(millisecond) -> 1000;
-factor(microsecond) -> 1000000;
-factor(nanosecond)  -> 1000000000.
+factor(microsecond) -> 1_000_000;
+factor(nanosecond)  -> 1_000_000_000;
+factor(native)      -> erlang:convert_time_unit(1, second, native).
 
 log10(1000) -> 3;
-log10(1000000) -> 6;
-log10(1000000000) -> 9.
+log10(1_000_000) -> 6;
+log10(1_000_000_000) -> 9.
 
 pad(0, S) ->
     S;
