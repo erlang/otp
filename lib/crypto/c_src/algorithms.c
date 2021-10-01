@@ -253,25 +253,34 @@ int get_curve_cnt(ErlNifEnv* env, int fips) {
 }
 
 void init_curve_types(ErlNifEnv* env) {
-#if defined(DEBUG)
-    int curve_cnt = 0;
+    /* Initialize the curve counters and curve's lists
+       by calling get_curve_cnt
+    */
+#ifdef FIPS_SUPPORT
+    if (FIPS_mode()) {
+        // FIPS enabled
+        get_curve_cnt(env, 1);
+        FIPS_mode_set(0); // disable
+        get_curve_cnt(env, 0);
+        FIPS_mode_set(1); // re-enable
+    } else {
+        // FIPS disabled but available
+        get_curve_cnt(env, 0);
+        FIPS_mode_set(1); // enable
+        get_curve_cnt(env, 1);
+        FIPS_mode_set(0); // re-disable
+    }
+#else
+    // FIPS mode is not available
+    get_curve_cnt(env, 0);
 #endif
 
-#if defined(HAVE_EC)
-    int fips_mode = 0;
-
-# ifdef FIPS_SUPPORT
-    if (FIPS_mode()) fips_mode = 1;
-# endif
-
 # ifdef DEBUG
-        curve_cnt =
-# endif
-            get_curve_cnt(env, fips_mode);
-
-#endif /* defined(HAVE_EC) */
-
-    ASSERT(curve_cnt <= sizeof(algo_curve)/sizeof(ERL_NIF_TERM));
+    {
+        int curve_cnt = get_curve_cnt(env, 0);
+        ASSERT(curve_cnt <= sizeof(algo_curve[0])/sizeof(ERL_NIF_TERM));
+    }
+# endif 
 }
 
 
