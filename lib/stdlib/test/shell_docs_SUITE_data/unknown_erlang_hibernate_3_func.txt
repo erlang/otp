@@ -13,7 +13,8 @@
   resumes in [;;4mModule:Function[0m with the arguments specified by [;;4mArgs[0m
   with the call stack emptied, meaning that the process terminates
   when that function returns. Thus [;;4merlang:hibernate/3[0m never
-  returns to its caller.
+  returns to its caller. The resume function [;;4mModule:Function/Arity[0m
+  must be exported ([;;4mArity[0m =:= [;;4mlength(Args)[0m).
 
   If the process has any message in its message queue, the process
   is awakened immediately in the same way as described earlier.

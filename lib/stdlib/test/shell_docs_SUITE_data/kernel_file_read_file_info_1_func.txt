@@ -50,8 +50,9 @@
   [;;4m[;;4msize = integer() >= 0[0m[0m:
     Size of file in bytes.
 
-  [;;4m[;;4mtype = device | directory | other | regular | symlink[0m[0m:
-    The type of the file.
+  [;;4m[;;4mtype = device | directory | other | regular[0m[0m:
+    The type of the file. Can also contain [;;4msymlink[0m when returned
+    from read_link_info/1,2.
 
   [;;4m[;;4maccess = read | write | read_write | none[0m[0m:
     The current system access to the file.

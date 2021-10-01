@@ -198,10 +198,10 @@
 
   [;;4m[;;4mmessage_queue_data[0m[0m:
     Returns the default value of the [;;4mmessage_queue_data[0m process
-    flag, which is either [;;4moff_heap[0m or [;;4mon_heap[0m. This default is
-    set by command-line argument [;;4m+hmqd[0m in [;;4merl(1)[0m. For more
-    information on the [;;4mmessage_queue_data[0m process flag, see
-    documentation of [;;4mprocess_flag(message_queue_data, MQD)[0m.
+    flag, which can be either [;;4moff_heap[0m or [;;4mon_heap[0m. The default
+    value is set by the command-line argument [;;4m+hmqd[0m in [;;4merl(1)[0m.
+    For more information, see the documentation of [;;4m[0m
+    [;;4mprocess_flag(message_queue_data, MQD)[0m.
 
   [;;4m[;;4mmin_heap_size[0m[0m:
     Returns [;;4m{min_heap_size, MinHeapSize}[0m, where [;;4mMinHeapSize[0m is

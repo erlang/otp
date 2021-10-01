@@ -52,3 +52,17 @@ These types are documented in this module:
   [;1m                error_logger => boolean()}.[0m
 
   [;1m-type message_queue_data() :: off_heap | on_heap.[0m
+
+  [;1m-type stacktrace_extrainfo() ::[0m
+  [;1m          {line, pos_integer()} |[0m
+  [;1m          {file, unicode:chardata()} |[0m
+  [;1m          {error_info,[0m
+  [;1m           #{module => module(), function => atom(), cause => term()}} |[0m
+  [;1m          {atom(), term()}.[0m
+
+  [;1m-type stacktrace() ::[0m
+  [;1m          [{module(),[0m
+  [;1m            atom(),[0m
+  [;1m            arity() | [term()],[0m
+  [;1m            [stacktrace_extrainfo()]} |[0m
+  [;1m           {function(), arity() | [term()], [stacktrace_extrainfo()]}].[0m

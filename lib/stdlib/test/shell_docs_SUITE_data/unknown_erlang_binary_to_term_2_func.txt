@@ -16,7 +16,7 @@
     source.
 
     When enabled, it prevents decoding data that can be used to
-    attack the Erlang system. In the event of receiving unsafe
+    attack the Erlang runtime. In the event of receiving unsafe
     data, decoding fails with a [;;4mbadarg[0m error.
 
     This prevents creation of new atoms directly, creation of new
@@ -32,6 +32,14 @@
       hello
       > binary_to_term(<<131,100,0,5,"hello">>, [safe]).
       hello
+
+    Warning:
+      The [;;4msafe[0m option ensures the data is safely processed by
+      the Erlang runtime but it does not guarantee the data is
+      safe to your application. You must always validate data
+      from untrusted sources. If the binary is stored or
+      transits through untrusted sources, you should also
+      consider cryptographically signing it.
 
   [;;4m[;;4mused[0m[0m:
     Changes the return value to [;;4m{Term, Used}[0m where [;;4mUsed[0m is the

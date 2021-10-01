@@ -1,0 +1,5 @@
+
+[;1m  seq_trace/2[0m
+
+  The documentation for seq_trace/2 is hidden. This probably means
+  that it is internal and not to be used by other applications.

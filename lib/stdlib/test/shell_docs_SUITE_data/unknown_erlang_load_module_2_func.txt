@@ -23,6 +23,12 @@
     [;;4mBinary[0m contains a module that cannot be loaded because old
     code for this module already exists.
 
+  [;;4m[;;4mon_load[0m[0m:
+    The code in [;;4mBinary[0m contains an [;;4mon_load[0m declaration that
+    must be executed before [;;4mBinary[0m can become the current code.
+    Any previous current code for [;;4mModule[0m will remain until the [;;4m[0m
+    [;;4mon_load[0m call has finished.
+
   Warning:
     This BIF is intended for the code server (see [;;4mcode(3)[0m) and
     is not to be used elsewhere.

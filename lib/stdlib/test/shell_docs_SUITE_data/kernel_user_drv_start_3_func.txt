@@ -1,0 +1,5 @@
+
+[;1m  start/3[0m
+
+  The documentation for start/3 is hidden. This probably means
+  that it is internal and not to be used by other applications.

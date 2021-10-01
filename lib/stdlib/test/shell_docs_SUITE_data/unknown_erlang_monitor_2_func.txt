@@ -54,8 +54,8 @@
 
   [;;4m[;;4mObject[0m[0m:
     The monitored entity, which triggered the event. When
-    monitoring a local process or port, [;;4mObject[0m will be equal to
-    the [;;4mpid()[0m or [;;4mport()[0m that was being monitored. When
+    monitoring a process or a local port, [;;4mObject[0m will be equal
+    to the [;;4mpid()[0m or [;;4mport()[0m that was being monitored. When
     monitoring process or port by name, [;;4mObject[0m will have format [;;4m[0m
     [;;4m{RegisteredName, Node}[0m where [;;4mRegisteredName[0m is the name
     which has been used with [;;4mmonitor/2[0m call and [;;4mNode[0m is local

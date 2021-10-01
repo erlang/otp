@@ -117,6 +117,10 @@
   [;;4mItem[0ms in the same order as the [;;4mItem[0ms were included in [;;4mItemList[0m.
   Valid [;;4mItem[0ms can be included multiple times in [;;4mItemList[0m.
 
+  Getting process informations follows the signal ordering
+  guarantees described in the Processes Chapter in the Erlang
+  Reference Manual.
+
   Note:
     If [;;4mregistered_name[0m is part of [;;4mItemList[0m and the process has
     no name registered, a [;;4m{registered_name, []}[0m, [;;4mInfoTuple[0m 
@@ -138,8 +142,8 @@
     implementation [;;4mBinInfo[0m is a list of tuples. The tuples
     contain; [;;4mBinaryId[0m, [;;4mBinarySize[0m, [;;4mBinaryRefcCount[0m.
 
-    The message queue is on the heap depending on the process flag [;;4m[0m
-    [;;4mmessage_queue_data[0m.
+    Depending on the value of the [;;4mmessage_queue_data[0m process
+    flag the message queue may be stored on the heap.
 
   [;;4m[;;4m{catchlevel, CatchLevel}[0m[0m:
     [;;4mCatchLevel[0m is the number of currently active catches in this
@@ -251,10 +255,10 @@
       the local node name.
 
   [;;4m[;;4m{message_queue_data, MQD}[0m[0m:
-    Returns the current state of process flag [;;4mmessage_queue_data[0m. [;;4m[0m
-    [;;4mMQD[0m is either [;;4moff_heap[0m or [;;4mon_heap[0m. For more information,
-    see the documentation of [;;4mprocess_flag(message_queue_data,[0m
-    [;;4mMQD)[0m.
+    [;;4mMQD[0m is the current value of the [;;4mmessage_queue_data[0m process
+    flag, which can be either [;;4moff_heap[0m or [;;4mon_heap[0m. For more
+    information, see the documentation of [;;4m[0m
+    [;;4mprocess_flag(message_queue_data, MQD)[0m.
 
   [;;4m[;;4m{priority, Level}[0m[0m:
     [;;4mLevel[0m is the current priority level for the process. For more
