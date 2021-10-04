@@ -803,9 +803,10 @@ close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}
     Transport:close(ListenSocket).
 
 %%--------------------------------------------------------------------
--spec  close(SslSocket, How) -> ok | {ok, port()} | {error,Reason} when
+-spec  close(SslSocket, How) -> ok | {ok, port()} | {ok, port(), Data} | {error,Reason} when
       SslSocket :: sslsocket(),
       How :: timeout() | {NewController::pid(), timeout()},
+      Data :: binary(),
       Reason :: any().
 %%
 %% Description: Close an ssl connection

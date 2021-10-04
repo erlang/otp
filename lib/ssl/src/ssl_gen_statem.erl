@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@
 -include("ssl_connection.hrl").
 -include("ssl_alert.hrl").
 -include("tls_handshake.hrl").
+-include("tls_connection.hrl").
 
 %% Initial Erlang process setup
 -export([start_link/7,
@@ -658,10 +659,19 @@ connection(Type, Msg, State) ->
 downgrade(internal, #alert{description = ?CLOSE_NOTIFY},
 	  #state{static_env = #static_env{transport_cb = Transport,
                                           socket = Socket},
-		 connection_env = #connection_env{downgrade = {Pid, From}}} = State) ->
+		 connection_env = #connection_env{downgrade = {Pid, From}},
+                 protocol_buffers = #protocol_buffers{tls_record_buffer = TlsRecordBuffer}
+                } = State) ->
     tls_socket:setopts(Transport, Socket, [{active, false}, {packet, 0}, {mode, binary}]),
     Transport:controlling_process(Socket, Pid),
-    {stop_and_reply, {shutdown, downgrade},[{reply, From, {ok, Socket}}], State};
+    ReturnValue = case TlsRecordBuffer of
+                      {undefined,{[Bin] = _Front, _Size, []}} ->
+                          %% Buffered non TLS data returned to downgrade caller
+                          {ok, Socket, Bin};
+                      _ ->
+                          {ok, Socket}
+                  end,
+    {stop_and_reply, {shutdown, downgrade},[{reply, From, ReturnValue}], State};
 downgrade(timeout, downgrade, #state{ connection_env = #connection_env{downgrade = {_, From}}} = State) ->
     {stop_and_reply, {shutdown, normal},[{reply, From, {error, timeout}}], State};
 downgrade(info, {CloseTag, Socket},
