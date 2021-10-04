@@ -32,6 +32,8 @@
          groups/0,
          init_per_suite/1,
          init_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2,
          end_per_suite/1,
          end_per_group/2
         ]).
@@ -77,6 +79,8 @@
          tls_server_handshake_timeout/1,
          transport_close/0,
          transport_close/1,
+         transport_close_in_inital_hello/0,
+         transport_close_in_inital_hello/1,
          emulated_options/0,
          emulated_options/1,
          accept_pool/0,
@@ -96,7 +100,6 @@
          receive_msg/1
         ]).
 
--define(TIMEOUT, {seconds, 10}).
 -define(SLEEP, 500).
 
 %%--------------------------------------------------------------------
@@ -141,6 +144,7 @@ api_tests() ->
      sockname,
      tls_server_handshake_timeout,
      transport_close,
+     transport_close_in_inital_hello,
      emulated_options,
      accept_pool,
      reuseaddr
@@ -167,6 +171,15 @@ init_per_group(GroupName, Config) ->
 end_per_group(GroupName, Config) ->
   ssl_test_lib:end_per_group(GroupName, Config).
 
+init_per_testcase(Testcase, Config) when Testcase == tls_server_handshake_timeout;
+                                         Testcase == tls_upgrade_with_timeout ->
+    ct:timetrap({seconds, 10}),
+    Config;
+init_per_testcase(_, Config) ->
+    ct:timetrap({seconds, 5}),
+    Config.
+end_per_testcase(_TestCase, Config) ->     
+    Config.
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
@@ -751,6 +764,8 @@ tls_server_handshake_timeout(Config) ->
 		    [] = supervisor:which_children(tls_connection_sup)
 	    end
     end.
+
+%%--------------------------------------------------------------------
 transport_close() ->
     [{doc, "Test what happens if socket is closed on TCP level after a while of normal operation"}].
 transport_close(Config) when is_list(Config) -> 
@@ -774,6 +789,69 @@ transport_close(Config) when is_list(Config) ->
     {ok,<<"Hello world">>} = ssl:recv(SslS, 11),    
     gen_tcp:close(TcpS),    
     {error, _} = ssl:send(SslS, "Hello world").
+
+%%--------------------------------------------------------------------
+transport_close_in_inital_hello() ->
+    [{doc, "Test what happens if server dies after calling transport_accept but before initiating handshake."}].
+transport_close_in_inital_hello(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {_, _, Hostname} = ssl_test_lib:run_where(Config),
+    process_flag(trap_exit, true),
+
+    Testcase = self(),
+
+    Acceptor = spawn_link(fun() ->
+                                  {ok, Listen} = ssl:listen(0, ServerOpts),
+                                  {ok, {_, Port}} = ssl:sockname(Listen),
+                                  Testcase ! {port, Port},
+                                  {ok, _Accept} = ssl:transport_accept(Listen),
+                                  receive
+                                      die -> ok
+                                  end
+                          end),
+    Port =  receive
+                {port, Port0} ->
+                    Port0
+            end,
+
+    Connector = spawn_link(fun() ->
+                                   {ok, _} = ssl:connect(Hostname, Port,
+                                                         [{verify, verify_none}],
+                                                         infinity
+                                                        )
+                           end),
+
+
+    Sup = (whereis(tls_connection_sup)),
+
+    check_connection_workers(Sup, 2),
+
+    Acceptor ! die,
+
+    receive
+         {'EXIT', Acceptor, _} ->
+            ok
+    end,
+    receive
+        {'EXIT', Connector, _} ->
+            ok
+     end,
+    check_connection_workers(Sup, 0).
+
+check_connection_workers(Sup, N) ->
+    check_connection_workers(Sup, N, 5).
+
+check_connection_workers(Sup, N, 0) ->
+    N = proplists:get_value(workers, supervisor:count_children(Sup));
+check_connection_workers(Sup, N, M) ->
+    case proplists:get_value(workers, supervisor:count_children(Sup)) of
+        N ->
+            ok;
+        _ ->
+            ct:sleep(500),
+            check_connection_workers(Sup, N, M-1)
+    end.
 
 %%--------------------------------------------------------------------
 emulated_options() ->
