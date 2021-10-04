@@ -252,7 +252,6 @@
          max_size              %% max early data size allowed by this ticket
         }).
 
--record(cert, {der, otp}).
 
 -endif. % -ifdef(ssl_internal).
 

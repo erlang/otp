@@ -95,26 +95,47 @@
 
 %%----------------------------------------------------------------
 %% Types
--export_type([public_key/0, private_key/0, pem_entry/0,
-	      pki_asn1_type/0, asn1_type/0, ssh_file/0, der_encoded/0,
-              key_params/0, digest_type/0, issuer_name/0, cert_id/0, oid/0]).
+-export_type([public_key/0,
+              private_key/0,
+              pem_entry/0,
+	      pki_asn1_type/0,
+              asn1_type/0,
+              ssh_file/0,
+              der_encoded/0,
+              key_params/0,
+              digest_type/0,
+              issuer_name/0,
+              cert/0,
+              combined_cert/0,
+              cert_id/0,
+              oid/0,
+              cert_opt/0,
+              chain_opts/0,
+              conf_opt/0,
+              test_config/0,
+              test_root_cert/0]).
+
 
 -type public_key()           ::  rsa_public_key() | rsa_pss_public_key() | dsa_public_key() | ec_public_key() | ed_public_key() .
 -type private_key()          ::  rsa_private_key() | rsa_pss_private_key() | dsa_private_key() | ec_private_key() | ed_private_key() .
 -type rsa_public_key()       ::  #'RSAPublicKey'{}.
 -type rsa_private_key()      ::  #'RSAPrivateKey'{}. 
--type rsa_pss_public_key()   ::  {#'RSAPublicKey'{}, #'RSASSA-PSS-params'{}}.
+-type dss_public_key()       :: integer().
+-type rsa_pss_public_key()   ::  {rsa_pss_public_key(), #'RSASSA-PSS-params'{}}.
 -type rsa_pss_private_key()  ::  { #'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}.
 -type dsa_private_key()      ::  #'DSAPrivateKey'{}.
--type dsa_public_key()       :: {integer(), #'Dss-Parms'{}}.
+-type dsa_public_key()       :: {dss_public_key(), #'Dss-Parms'{}}.
+-type public_key_params()    :: 'NULL' | #'RSASSA-PSS-params'{} |  {namedCurve, oid()} | #'ECParameters'{} | #'Dss-Parms'{}.
 -type ecpk_parameters() :: {ecParameters, #'ECParameters'{}} | {namedCurve, Oid::tuple()}.
 -type ecpk_parameters_api() :: ecpk_parameters() | #'ECParameters'{} | {namedCurve, Name::crypto:ec_named_curve()}.
 -type ec_public_key()        :: {#'ECPoint'{}, ecpk_parameters_api()}.
 -type ec_private_key()       :: #'ECPrivateKey'{}.
--type ed_public_key()        :: {#'ECPoint'{}, ed_params()} | {ed_pub, ed25519|ed448, Key::binary()}.
--type ed_private_key()       :: #'ECPrivateKey'{parameters :: ed_params()} |
-                                {ed_pri, ed25519|ed448, Pub::binary(), Priv::binary()}.
--type ed_params()            ::  {namedCurve, ?'id-Ed25519' | ?'id-Ed448'}.
+-type ed_public_key()        :: {#'ECPoint'{}, ed_params()}.
+-type ed_legacy_pubkey()     ::  {ed_pub, ed25519|ed448, Key::binary()}.
+-type ed_private_key()       :: #'ECPrivateKey'{parameters :: ed_params()}.
+-type ed_legacy_privkey()        :: {ed_pri, ed25519|ed448, Pub::binary(), Priv::binary()}.
+-type ed_oid_name()            ::  'id-Ed25519' | 'id-Ed448'.
+-type ed_params()            ::  {namedCurve, ed_oid_name()}.
 -type key_params()           :: #'DHParameter'{} | {namedCurve, oid()} | #'ECParameters'{} | 
                                 {rsa, Size::integer(), PubExp::integer()}. 
 -type der_encoded()          :: binary().
@@ -147,12 +168,29 @@
 -type crl_reason()           ::  unspecified | keyCompromise | cACompromise | affiliationChanged | superseded
 			       | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise.
 -type oid()                  :: tuple().
--type chain_type()           :: server_chain | client_chain.
-
 -type cert_id()              :: {SerialNr::integer(), issuer_name()} .
 -type issuer_name()          :: {rdnSequence,[[#'AttributeTypeAndValue'{}]]} .
+-type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted | missing_basic_constraint | invalid_key_usage | {revoked, crl_reason()} | atom().
 
-
+-type combined_cert()        :: #cert{}.
+-type cert()                 :: der_cert() | otp_cert().
+-type der_cert()             :: der_encoded().
+-type otp_cert()             :: #'OTPCertificate'{}.
+-type public_key_info()      :: {key_oid_name(),  rsa_public_key() | #'ECPoint'{} | dss_public_key(),  public_key_params()}.
+-type key_oid_name()              :: 'rsaEncryption' | 'id-RSASSA-PSS' | 'id-ecPublicKey' | 'id-Ed25519' | 'id-Ed448' | 'id-dsa'.
+-type cert_opt()  :: {digest, public_key:digest_type()} |
+                     {key, public_key:key_params() | public_key:private_key()} |
+                     {validity, {From::erlang:timestamp(), To::erlang:timestamp()}} |
+                     {extensions, [#'Extension'{}]}.
+-type chain_end()   :: root | peer.
+-type chain_opts()  :: #{chain_end() := [cert_opt()],  intermediates =>  [[cert_opt()]]}.
+-type conf_opt()    :: {cert, public_key:der_encoded()} |
+                       {key,  public_key:private_key()} |
+                       {cacerts, [public_key:der_encoded()]}.
+-type test_config() ::
+        #{server_config := [conf_opt()],  client_config :=  [conf_opt()]}.
+-type test_root_cert() ::
+        #{cert := der_encoded(), key := public_key:private_key()}.
 
 -define(UINT32(X), X:32/unsigned-big-integer).
 -define(DER_NULL, <<5, 0>>).
@@ -296,7 +334,7 @@ pem_entry_encode(Asn1Type, Entity, {{Cipher, Salt} = CipherInfo,
     
 %%--------------------------------------------------------------------
 -spec der_decode(Asn1Type, Der) -> Entity when Asn1Type :: asn1_type(),
-                                               Der :: binary(),
+                                               Der :: der_encoded(),
                                                Entity :: term().
 %%
 %% Description: Decodes a public key asn1 der encoded entity.
@@ -477,9 +515,9 @@ der_encode(Asn1Type, Entity) when is_atom(Asn1Type) ->
 
 %%--------------------------------------------------------------------
 -spec pkix_decode_cert(Cert, Type) ->
-			      #'Certificate'{} | #'OTPCertificate'{} 
-                                  when Cert :: der_encoded(),
-                                       Type :: plain | otp .
+          #'Certificate'{} | otp_cert()
+              when Cert :: der_cert(),
+                   Type :: plain | otp .
 %%
 %% Description: Decodes an asn1 der encoded pkix certificate. The otp
 %% option will use the customized asn1 specification OTP-PKIX.asn1 for
@@ -787,7 +825,7 @@ pkix_hash_type('id-md5') ->
 -spec sign(Msg, DigestType, Key) ->
                   Signature when Msg ::  binary() | {digest,binary()},
                                  DigestType :: digest_type(),
-                                 Key :: private_key(),
+                                 Key :: private_key() | ed_legacy_privkey(),
                                  Signature :: binary() .
 sign(DigestOrPlainText, DigestType, Key) ->
     sign(DigestOrPlainText, DigestType, Key, []).
@@ -795,7 +833,7 @@ sign(DigestOrPlainText, DigestType, Key) ->
 -spec sign(Msg, DigestType, Key, Options) ->
                   Signature when Msg ::  binary() | {digest,binary()},
                                  DigestType :: digest_type(),
-                                 Key :: private_key(),
+                                 Key :: private_key() | ed_legacy_privkey(),
                                  Options :: crypto:pk_sign_verify_opts(),
                                  Signature :: binary() .
 sign(Digest, none, Key = #'DSAPrivateKey'{}, Options) when is_binary(Digest) ->
@@ -816,7 +854,7 @@ sign(DigestOrPlainText, DigestType, Key, Options) ->
                     boolean() when Msg :: binary() | {digest, binary()},
                                    DigestType :: digest_type(),
                                    Signature :: binary(),
-                                   Key :: public_key() .
+                                   Key :: public_key() | ed_legacy_pubkey().
 
 verify(DigestOrPlainText, DigestType, Signature, Key) ->
     verify(DigestOrPlainText, DigestType, Signature, Key, []).
@@ -825,7 +863,7 @@ verify(DigestOrPlainText, DigestType, Signature, Key) ->
                     boolean() when Msg :: binary() | {digest, binary()},
                                    DigestType :: digest_type(),
                                    Signature :: binary(),
-                                   Key :: public_key(),
+                                   Key :: public_key() | ed_legacy_pubkey(),
                                    Options :: crypto:pk_sign_verify_opts().
 
 verify(Digest, none, Signature, Key = {_, #'Dss-Parms'{}}, Options) when is_binary(Digest) ->
@@ -844,7 +882,7 @@ verify(_,_,_,_,_) ->
     false.
 
 %%--------------------------------------------------------------------
--spec pkix_dist_point(Cert) -> DistPoint when Cert :: der_encoded() | #'OTPCertificate'{},
+-spec pkix_dist_point(Cert) -> DistPoint when Cert :: cert(),
                                               DistPoint :: #'DistributionPoint'{}.
 %% Description:  Creates a distribution point for CRLs issued by the same issuer as <c>Cert</c>.
 %%--------------------------------------------------------------------
@@ -868,7 +906,7 @@ pkix_dist_point(OtpCert) ->
 			 reasons = asn1_NOVALUE,
 			 distributionPoint =  Point}.	
 %%--------------------------------------------------------------------
--spec pkix_dist_points(Cert) -> DistPoints when Cert :: der_encoded() | #'OTPCertificate'{},
+-spec pkix_dist_points(Cert) -> DistPoints when Cert :: cert(),
                                                 DistPoints :: [ #'DistributionPoint'{} ].
 %% Description:  Extracts distributionpoints specified in the certificates extensions.
 %%--------------------------------------------------------------------
@@ -937,7 +975,7 @@ pkix_sign(#'OTPTBSCertificate'{signature =
     pkix_encode('OTPCertificate', Cert, otp).
 
 %%--------------------------------------------------------------------
--spec pkix_verify(Cert, Key) -> boolean() when Cert :: der_encoded(),
+-spec pkix_verify(Cert, Key) -> boolean() when Cert :: der_cert(),
                                                Key :: public_key() .
 %%
 %% Description: Verify pkix x.509 certificate signature.
@@ -976,7 +1014,7 @@ pkix_verify(DerCert, Key = {#'ECPoint'{}, _}) when is_binary(DerCert) ->
 %%--------------------------------------------------------------------
 -spec pkix_crl_verify(CRL, Cert) -> boolean()
                                         when CRL  :: der_encoded() | #'CertificateList'{},
-                                             Cert :: der_encoded() | #'OTPCertificate'{} .
+                                             Cert :: cert().
 %%
 %% Description: Verify that Cert is the CRL signer.
 %%--------------------------------------------------------------------
@@ -995,12 +1033,9 @@ pkix_crl_verify(#'CertificateList'{} = CRL, #'OTPCertificate'{} = Cert) ->
 				    PublicKey, PublicKeyParams).
 
 %%--------------------------------------------------------------------
--spec pkix_is_issuer(Cert, IssuerCert) -> 
-                            boolean() when Cert :: der_encoded()
-                                                 | #'OTPCertificate'{}
-                                                 | #'CertificateList'{},
-                                           IssuerCert :: der_encoded()
-                                                       | #'OTPCertificate'{} .
+-spec pkix_is_issuer(CertorCRL, IssuerCert) ->
+          boolean() when CertorCRL :: cert() | #'CertificateList'{},
+                         IssuerCert :: cert().
 %%
 %% Description: Checks if <IssuerCert> issued <Cert>.
 %%--------------------------------------------------------------------
@@ -1020,7 +1055,7 @@ pkix_is_issuer(#'CertificateList'{tbsCertList = TBSCRL},
 			  pubkey_cert_records:transform(TBSCRL#'TBSCertList'.issuer, decode)).
 
 %%--------------------------------------------------------------------
--spec pkix_is_self_signed(Cert) -> boolean() when Cert::der_encoded()| #'OTPCertificate'{}.
+-spec pkix_is_self_signed(Cert) -> boolean() when Cert::cert().
 %%
 %% Description: Checks if a Certificate is self signed. 
 %%--------------------------------------------------------------------
@@ -1031,7 +1066,7 @@ pkix_is_self_signed(Cert) when is_binary(Cert) ->
     pkix_is_self_signed(OtpCert).
   
 %%--------------------------------------------------------------------
--spec pkix_is_fixed_dh_cert(Cert) -> boolean() when Cert::der_encoded()| #'OTPCertificate'{}.
+-spec pkix_is_fixed_dh_cert(Cert) -> boolean() when Cert::cert().
 %%
 %% Description: Checks if a Certificate is a fixed Diffie-Hellman Cert.
 %%--------------------------------------------------------------------
@@ -1044,7 +1079,7 @@ pkix_is_fixed_dh_cert(Cert) when is_binary(Cert) ->
 %%--------------------------------------------------------------------
 -spec pkix_issuer_id(Cert, IssuedBy) ->
 			    {ok, ID::cert_id()} | {error, Reason}
-                                when Cert::der_encoded()| #'OTPCertificate'{},
+                                when Cert::cert(),
                                      IssuedBy :: self | other,
                                      Reason :: term() .
 
@@ -1059,7 +1094,7 @@ pkix_issuer_id(Cert, Signed) when is_binary(Cert) ->
 
 %%--------------------------------------------------------------------
 -spec pkix_subject_id(Cert) -> ID
-              when Cert::der_encoded()| #'OTPCertificate'{},
+              when Cert::cert(),
                    ID::cert_id() .
 
 %% Description: Returns the subject id.
@@ -1071,10 +1106,9 @@ pkix_subject_id(Cert) when is_binary(Cert) ->
     pkix_subject_id(OtpCert).
 
 %%--------------------------------------------------------------------
--spec pkix_crl_issuer(CRL| #'CertificateList'{}) -> 
-                             Issuer when CRL :: der_encoded(),
-                                         Issuer :: issuer_name() .
-%
+-spec pkix_crl_issuer(CRL) -> Issuer
+               when CRL :: der_encoded() | #'CertificateList'{},
+                    Issuer :: issuer_name() .
 %% Description: Returns the issuer.
 %%--------------------------------------------------------------------
 pkix_crl_issuer(CRL) when is_binary(CRL) ->
@@ -1095,35 +1129,23 @@ pkix_normalize_name(Issuer) ->
     pubkey_cert:normalize_general_name(Issuer).
 
 %%-------------------------------------------------------------------- 
--spec pkix_path_validation(Cert::binary()| #'OTPCertificate'{} | atom(),
-			   CertChain :: [binary() | #'OTPCertificate'{}] ,
-			   Options :: [{atom(),term()}]) ->
-				  {ok, {PublicKeyInfo :: term(), 
-					PolicyTree :: term()}} |
-				  {error, {bad_cert, Reason :: term()}}.
+-spec pkix_path_validation(Cert, CertChain, Options) ->
+          {ok, {PublicKeyInfo, PolicyTree}} |
+          {error, {bad_cert, Reason :: bad_cert_reason()}}
+              when
+      Cert :: cert() | atom(),
+      CertChain :: [cert() | combined_cert()],
+      Options  :: [{max_path_length, integer()} | {verify_fun, {fun(), term()}}],
+      PublicKeyInfo :: public_key_info(),
+      PolicyTree :: list().
+
 %% Description: Performs a basic path validation according to RFC 5280.
 %%--------------------------------------------------------------------
-pkix_path_validation(PathErr, [Cert | Chain], Options0) when is_atom(PathErr)->
-    {VerifyFun, Userstat0} =
-	proplists:get_value(verify_fun, Options0, ?DEFAULT_VERIFYFUN),
-    Otpcert = otp_cert(Cert),
-    Reason = {bad_cert, PathErr},
-    try VerifyFun(Otpcert, Reason, Userstat0) of
-	{valid, Userstate} ->
-	    Options = proplists:delete(verify_fun, Options0),
-	    pkix_path_validation(Otpcert, Chain, [{verify_fun,
-						   {VerifyFun, Userstate}}| Options]);
-	{fail, UserReason} ->
-	    {error, UserReason}
-    catch
-	_:_ ->
-	    {error, Reason}
-    end;
 pkix_path_validation(TrustedCert, CertChain, Options)
   when is_binary(TrustedCert) ->
+
     OtpCert = pkix_decode_cert(TrustedCert, otp),
     pkix_path_validation(OtpCert, CertChain, Options);
-
 pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
   when is_list(CertChain), is_list(Options) ->
     MaxPathDefault = length(CertChain),
@@ -1139,8 +1161,23 @@ pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
     catch
         throw:{bad_cert, _} = Result ->
             {error, Result}
+    end;
+pkix_path_validation(PathErr, [Cert | Chain], Options0) when is_atom(PathErr)->
+    {VerifyFun, Userstat0} =
+	proplists:get_value(verify_fun, Options0, ?DEFAULT_VERIFYFUN),
+    Otpcert = otp_cert(Cert),
+    Reason = {bad_cert, PathErr},
+    try VerifyFun(Otpcert, Reason, Userstat0) of
+	{valid, Userstate} ->
+	    Options = proplists:delete(verify_fun, Options0),
+	    pkix_path_validation(Otpcert, Chain, [{verify_fun,
+						   {VerifyFun, Userstate}}| Options]);
+	{fail, UserReason} ->
+	    {error, UserReason}
+    catch
+	_:_ ->
+	    {error, Reason}
     end.
-
 %--------------------------------------------------------------------
 -spec pkix_crls_validate(OTPcertificate, DPandCRLs, Options) ->
                                 CRLstatus when OTPcertificate :: #'OTPCertificate'{},
@@ -1172,29 +1209,22 @@ pkix_crls_validate(OtpCert, DPAndCRLs0, Options) ->
 
 %--------------------------------------------------------------------
 -type referenceIDs() :: [referenceID()] .
--type referenceID() :: {uri_id | dns_id | ip | srv_id | oid(),  string()} 
-                     | {ip, inet:ip_address()} .
-
--type high_level_alg() :: https .
--type match_fun() ::  fun((ReferenceID::referenceID() | string(),
-                           PresentedID::{atom()|oid(),string()}) -> match_fun_result() ) .
--type match_fun_result() :: boolean() | default .
+-type referenceID() :: {uri_id | dns_id | ip | srv_id | atom() | oid(),  string()}
+                     | {ip, inet:ip_address() | string()} .
 
 %% Description: Validates a hostname to RFC 6125
 %%--------------------------------------------------------------------
 -spec pkix_verify_hostname(Cert, ReferenceIDs) -> boolean()
-                                                      when Cert :: der_encoded() 
-                                                                 | #'OTPCertificate'{},
+                                                      when Cert :: cert(),
                                                            ReferenceIDs :: referenceIDs() .
 pkix_verify_hostname(Cert, ReferenceIDs) ->
     pkix_verify_hostname(Cert, ReferenceIDs, []).
 
 -spec pkix_verify_hostname(Cert, ReferenceIDs, Options) ->
                                   boolean()
-                                      when Cert :: der_encoded() 
-                                                 | #'OTPCertificate'{},
+                                      when Cert :: cert(),
                                            ReferenceIDs :: referenceIDs(),
-                                           Options :: [{atom(),term()}] .
+                                           Options :: [{match_fun | fail_callback | fqdn_fun, fun()}] .
 
 pkix_verify_hostname(BinCert, ReferenceIDs, Options)  when is_binary(BinCert) ->
     pkix_verify_hostname(pkix_decode_cert(BinCert,otp), ReferenceIDs, Options);
@@ -1254,8 +1284,10 @@ pkix_verify_hostname(Cert = #'OTPCertificate'{tbsCertificate = TbsCert}, Referen
 	    end
     end.
 
+-spec pkix_verify_hostname_match_fun(Protocol) ->  Result when
+      Protocol :: https,
+      Result :: fun().
 
--spec pkix_verify_hostname_match_fun(high_level_alg()) -> match_fun() .
 
 pkix_verify_hostname_match_fun(https) ->
     fun({dns_id,FQDN=[_|_]}, {dNSName,Name=[_|_]}) -> verify_hostname_match_wildcard(FQDN, Name);
@@ -1271,8 +1303,8 @@ pkix_verify_hostname_match_fun(https) ->
                                  InternalType :: new_openssh,
                                  Decoded :: Decoded_ssh2_pubkey
                                           | Decoded_OtherType,
-                                 Decoded_ssh2_pubkey :: public_key(),
-                                 Decoded_OtherType :: [{public_key(), Attributes}],
+                                 Decoded_ssh2_pubkey :: public_key() | ed_legacy_pubkey(),
+                                 Decoded_OtherType :: [{public_key() | ed_legacy_pubkey(), Attributes}],
                                  Attributes :: [{atom(),term()}] .
 %%
 %% Description: Decodes a ssh file-binary. In the case of know_hosts
@@ -1297,9 +1329,9 @@ ssh_decode(SshBin, Type) when is_binary(SshBin),
                             when Type :: ssh2_pubkey | OtherType,
                                  OtherType :: public_key | ssh_file(),
                                  InData :: InData_ssh2_pubkey | OtherInData,
-                                 InData_ssh2_pubkey :: public_key(),
+                                 InData_ssh2_pubkey :: public_key() | ed_legacy_pubkey(),
                                  OtherInData :: [{Key,Attributes}],
-                                 Key :: public_key(),
+                                 Key :: public_key() | ed_legacy_pubkey(),
                                  Attributes :: [{atom(),term()}] .
 %%
 %% Description: Encodes a list of ssh file entries (public keys and
@@ -1391,10 +1423,11 @@ short_name_hash({rdnSequence, _Attributes} = Name) ->
 
 
 %%--------------------------------------------------------------------
--spec pkix_test_data(#{chain_type() := pubkey_cert:chain_opts()} |
-                     pubkey_cert:chain_opts()) ->
-                            pubkey_cert:test_config() |
-                            [pubkey_cert:conf_opt()].
+-spec pkix_test_data(ChainConf) -> TestConf when
+      ChainConf :: #{server_chain:= chain_opts(),
+                     client_chain:= chain_opts()} |
+                   chain_opts(),
+      TestConf :: test_config() | [conf_opt()].
 
 %% Description: Generates cert(s) and ssl configuration
 %%--------------------------------------------------------------------
@@ -1414,8 +1447,8 @@ pkix_test_data(#{} = Chain) ->
 -spec pkix_test_root_cert(Name, Options) ->
                                  RootCert
                                      when Name :: string(),
-                                          Options :: [{atom(),term()}], %[cert_opt()],
-                                          RootCert :: pubkey_cert:test_root_cert().
+                                          Options :: [cert_opt()],
+                                          RootCert :: test_root_cert().
 %% Description: Generates a root cert suitable for pkix_test_data/1
 %%--------------------------------------------------------------------
 
@@ -1425,10 +1458,10 @@ pkix_test_root_cert(Name, Opts) ->
 %%--------------------------------------------------------------------
 -spec pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, 
                          ResponderCerts, NonceExt) -> valid | {bad_cert, Reason}
-              when Cert::der_encoded() | #'OTPCertificate'{},
-                   IssuerCert::der_encoded() | #'OTPCertificate'{}, 
+              when Cert:: cert(),
+                   IssuerCert:: cert(),
                    OcspRespDer::der_encoded(),
-                   ResponderCerts::[der_encoded()],
+                   ResponderCerts::[der_cert()],
                    NonceExt::undefined | binary(),
                    Reason::term().
 
@@ -1643,13 +1676,17 @@ validate(Cert, #path_validation_state{working_issuer_name = Issuer,
 
 otp_cert(Der) when is_binary(Der) ->
     pkix_decode_cert(Der, otp);
-otp_cert(#'OTPCertificate'{} =Cert) ->
-    Cert.
+otp_cert(#'OTPCertificate'{} = Cert) ->
+    Cert;
+otp_cert(#cert{otp = OtpCert}) ->
+    OtpCert.
 
 der_cert(#'OTPCertificate'{} = Cert) ->
     pkix_encode('OTPCertificate', Cert, otp);
 der_cert(Der) when is_binary(Der) ->
-    Der.
+    Der;
+der_cert(#cert{der = DerCert}) ->
+    DerCert.
 
 pkix_crls_validate(_, [],_, Options, #revoke_state{details = Details}) ->
      case proplists:get_value(undetermined_details, Options, false) of
