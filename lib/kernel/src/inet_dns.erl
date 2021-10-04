@@ -467,9 +467,21 @@ decode_data(Data, in, ?S_WKS, _) ->
        Data,
        <<A,B,C,D,Proto,BitMap/binary>>,
        {{A,B,C,D},Proto,BitMap});
+%% OPT pseudo-RR (of no class)
+decode_data(Data, _UdpPayloadSize, ?S_OPT, _) ->
+    Data;
+%%
+decode_data(Data, Class, Type, Buffer) ->
+    if
+        is_integer(Class) ->
+            Data;
+        is_atom(Class) ->
+            decode_data(Data, Type, Buffer)
+    end.
+%%
 %%
 %% Standard RRs (any class)
-decode_data(Data, _, ?S_SOA, Buffer) ->
+decode_data(Data, ?S_SOA, Buffer) ->
     {Data1,MName} = decode_name(Data, Buffer),
     {Data2,RName} = decode_name(Data1, Buffer),
     ?MATCH_ELSE_DECODE_ERROR(
@@ -477,35 +489,35 @@ decode_data(Data, _, ?S_SOA, Buffer) ->
        <<Serial:32,Refresh:32/signed,Retry:32/signed,
          Expiry:32/signed,Minimum:32>>,
        {MName,RName,Serial,Refresh,Retry,Expiry,Minimum});
-decode_data(Data,  _, ?S_NS,    Buffer) -> decode_domain(Data, Buffer);
-decode_data(Data,  _, ?S_MD,    Buffer) -> decode_domain(Data, Buffer);
-decode_data(Data,  _, ?S_MF,    Buffer) -> decode_domain(Data, Buffer);
-decode_data(Data,  _, ?S_CNAME, Buffer) -> decode_domain(Data, Buffer);
-decode_data(Data,  _, ?S_MB,    Buffer) -> decode_domain(Data, Buffer);
-decode_data(Data,  _, ?S_MG,    Buffer) -> decode_domain(Data, Buffer);
-decode_data(Data,  _, ?S_MR,    Buffer) -> decode_domain(Data, Buffer);
-decode_data(Data,  _, ?S_PTR,   Buffer) -> decode_domain(Data, Buffer);
-decode_data(Data,  _, ?S_NULL,  _)      -> Data;
-decode_data(Data, _, ?S_HINFO, _) ->
+decode_data(Data, ?S_NS,    Buffer) -> decode_domain(Data, Buffer);
+decode_data(Data, ?S_MD,    Buffer) -> decode_domain(Data, Buffer);
+decode_data(Data, ?S_MF,    Buffer) -> decode_domain(Data, Buffer);
+decode_data(Data, ?S_CNAME, Buffer) -> decode_domain(Data, Buffer);
+decode_data(Data, ?S_MB,    Buffer) -> decode_domain(Data, Buffer);
+decode_data(Data, ?S_MG,    Buffer) -> decode_domain(Data, Buffer);
+decode_data(Data, ?S_MR,    Buffer) -> decode_domain(Data, Buffer);
+decode_data(Data, ?S_PTR,   Buffer) -> decode_domain(Data, Buffer);
+decode_data(Data, ?S_NULL,  _)      -> Data;
+decode_data(Data, ?S_HINFO, _) ->
     ?MATCH_ELSE_DECODE_ERROR(
        Data,
        <<CpuLen,CPU:CpuLen/binary,OsLen,OS:OsLen/binary>>,
        {binary_to_list(CPU),binary_to_list(OS)});
-decode_data(Data, _, ?S_MINFO, Buffer) ->
+decode_data(Data, ?S_MINFO, Buffer) ->
     {Data1,RM} = decode_name(Data, Buffer),
     {Data2,EM} = decode_name(Data1, Buffer),
     ?MATCH_ELSE_DECODE_ERROR(Data2, <<>>, {RM,EM});
-decode_data(Data, _, ?S_MX, Buffer) ->
+decode_data(Data, ?S_MX, Buffer) ->
     ?MATCH_ELSE_DECODE_ERROR(
        Data,
        <<Prio:16,Dom/binary>>,
        {Prio,decode_domain(Dom, Buffer)});
-decode_data(Data, _, ?S_SRV, Buffer) ->
+decode_data(Data, ?S_SRV, Buffer) ->
     ?MATCH_ELSE_DECODE_ERROR(
        Data,
        <<Prio:16,Weight:16,Port:16,Dom/binary>>,
        {Prio,Weight,Port,decode_domain(Dom, Buffer)});
-decode_data(Data, _, ?S_NAPTR, Buffer) ->
+decode_data(Data, ?S_NAPTR, Buffer) ->
     ?MATCH_ELSE_DECODE_ERROR(
        Data,
        <<Order:16,Preference:16,Data1/binary>>,
@@ -518,10 +530,9 @@ decode_data(Data, _, ?S_NAPTR, Buffer) ->
             inet_db:tolower(Flags),inet_db:tolower(Services),
             Regexp,Replacement}
        end);
-decode_data(Data, _, ?S_OPT, _) -> Data;
-decode_data(Data, _, ?S_TXT, _) -> decode_txt(Data);
-decode_data(Data, _, ?S_SPF, _) -> decode_txt(Data);
-decode_data(Data, _, ?S_URI, _) ->
+decode_data(Data, ?S_TXT, _) -> decode_txt(Data);
+decode_data(Data, ?S_SPF, _) -> decode_txt(Data);
+decode_data(Data, ?S_URI, _) ->
     ?MATCH_ELSE_DECODE_ERROR(
        Data,
        <<Prio:16,Weight:16,Data1/binary>>, 1 =< byte_size(Data1),
@@ -529,7 +540,7 @@ decode_data(Data, _, ?S_URI, _) ->
            Target = binary_to_list(Data1),
            {Prio,Weight,Target}
        end);
-decode_data(Data, _, ?S_CAA, _) ->
+decode_data(Data, ?S_CAA, _) ->
     ?MATCH_ELSE_DECODE_ERROR(
        Data,
        <<Flags:8,Data1/binary>>,
@@ -545,8 +556,9 @@ decode_data(Data, _, ?S_CAA, _) ->
        end);
 %%
 %% sofar unknown or non standard
-decode_data(Data, _, _, _) ->
+decode_data(Data, Type, _) when is_integer(Type) ->
     Data.
+
 
 %% Array of strings
 %%
@@ -580,7 +592,7 @@ decode_name(Bin, Buffer) ->
 %% Tail advances with Rest until the first indirection is followed
 %% then it stays put at that Rest.
 decode_name(_, Buffer, _Labels, _Tail, Cnt) when Cnt > byte_size(Buffer) ->
-    throw(?DECODE_ERROR); %% Insantiy bailout - this must be a decode loop
+    throw(?DECODE_ERROR); %% Insanity bailout - this must be a decode loop
 decode_name(<<0,Rest/binary>>, _Buffer, Labels, Tail, Cnt) ->
     %% Root domain, we have all labels for the domain name
     {if Cnt =/= 0 -> Tail; true -> Rest end,
@@ -643,42 +655,62 @@ decode_name_label(Label, Name, N) ->
 %% Data field -> {binary(),NewCompressionTable}
 %%
 %% Class IN RRs
-encode_data(Comp, _, ?S_A, in, {A,B,C,D}) -> {<<A,B,C,D>>,Comp};
-encode_data(Comp, _, ?S_AAAA, in, {A,B,C,D,E,F,G,H}) ->
+encode_data(Comp, _, ?S_A, in, Addr) ->
+    {A,B,C,D} = Addr,
+    {<<A,B,C,D>>,Comp};
+encode_data(Comp, _, ?S_AAAA, in, Addr) ->
+    {A,B,C,D,E,F,G,H} = Addr,
     {<<A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16>>,Comp};
-encode_data(Comp, _, ?S_WKS, in, {{A,B,C,D},Proto,BitMap}) ->
+encode_data(Comp, _, ?S_WKS, in, Data) ->
+    {{A,B,C,D},Proto,BitMap} = Data,
     BitMapBin = iolist_to_binary(BitMap),
     {<<A,B,C,D,Proto,BitMapBin/binary>>,Comp};
+%% OPT pseudo-RR (of no class)
+encode_data(Comp, _, ?S_OPT, _UdpPayloadSize, Data) ->
+    encode_data(Comp, Data);
+%%
+encode_data(Comp, Pos, Type, Class, Data) ->
+    if
+        is_integer(Class) ->
+            encode_data(Comp, Data);
+        is_atom(Class) ->
+            encode_data(Comp, Pos, Type, Data)
+    end.
+%%
 %%
 %% Standard RRs (any class)
-encode_data(Comp, Pos, ?S_NS,    _, Domain) -> encode_name(Comp, Pos, Domain);
-encode_data(Comp, Pos, ?S_MD,    _, Domain) -> encode_name(Comp, Pos, Domain);
-encode_data(Comp, Pos, ?S_MF,    _, Domain) -> encode_name(Comp, Pos, Domain);
-encode_data(Comp, Pos, ?S_CNAME, _, Domain) -> encode_name(Comp, Pos, Domain);
-encode_data(Comp, Pos, ?S_SOA, _,
-	    {MName,RName,Serial,Refresh,Retry,Expiry,Minimum}) ->
+encode_data(Comp, Pos, ?S_SOA, Data) ->
+    {MName,RName,Serial,Refresh,Retry,Expiry,Minimum} = Data,
     {B1,Comp1} = encode_name(Comp, Pos, MName),
     {B,Comp2} = encode_name(B1, Comp1, Pos+byte_size(B1), RName),
     {<<B/binary,Serial:32,Refresh:32/signed,Retry:32/signed,
       Expiry:32/signed,Minimum:32>>,
      Comp2};
-encode_data(Comp, Pos, ?S_MB,    _, Domain) -> encode_name(Comp, Pos, Domain);
-encode_data(Comp, Pos, ?S_MG,    _, Domain) -> encode_name(Comp, Pos, Domain);
-encode_data(Comp, Pos, ?S_MR,    _, Domain) -> encode_name(Comp, Pos, Domain);
-encode_data(Comp, _,   ?S_NULL,  _, Data)   -> {iolist_to_binary(Data),Comp};
-encode_data(Comp, Pos, ?S_PTR,   _, Domain) -> encode_name(Comp, Pos, Domain);
-encode_data(Comp, _,   ?S_HINFO, _, {CPU,OS}) ->
+encode_data(Comp, Pos, ?S_NS,    Domain) -> encode_name(Comp, Pos, Domain);
+encode_data(Comp, Pos, ?S_MD,    Domain) -> encode_name(Comp, Pos, Domain);
+encode_data(Comp, Pos, ?S_MF,    Domain) -> encode_name(Comp, Pos, Domain);
+encode_data(Comp, Pos, ?S_CNAME, Domain) -> encode_name(Comp, Pos, Domain);
+encode_data(Comp, Pos, ?S_MB,    Domain) -> encode_name(Comp, Pos, Domain);
+encode_data(Comp, Pos, ?S_MG,    Domain) -> encode_name(Comp, Pos, Domain);
+encode_data(Comp, Pos, ?S_MR,    Domain) -> encode_name(Comp, Pos, Domain);
+encode_data(Comp, Pos, ?S_PTR,   Domain) -> encode_name(Comp, Pos, Domain);
+encode_data(Comp, _,   ?S_NULL,  Data)   -> encode_data(Comp, Data);
+encode_data(Comp, _,   ?S_HINFO, Data) ->
+    {CPU,OS} = Data,
     Bin = encode_string(iolist_to_binary(CPU)),
     {encode_string(Bin, iolist_to_binary(OS)),Comp};
-encode_data(Comp, Pos, ?S_MINFO, _, {RM,EM}) ->
+encode_data(Comp, Pos, ?S_MINFO, Data) ->
+    {RM,EM} = Data,
     {Bin,Comp1} = encode_name(Comp, Pos, RM),
     encode_name(Bin, Comp1, Pos+byte_size(Bin), EM);
-encode_data(Comp, Pos, ?S_MX, _, {Pref,Exch}) ->
+encode_data(Comp, Pos, ?S_MX, Data) ->
+    {Pref,Exch} = Data,
     encode_name(<<Pref:16>>, Comp, Pos+2, Exch);
-encode_data(Comp, Pos, ?S_SRV, _, {Prio,Weight,Port,Target}) ->
+encode_data(Comp, Pos, ?S_SRV, Data) ->
+    {Prio,Weight,Port,Target} = Data,
     encode_name(<<Prio:16,Weight:16,Port:16>>, Comp, Pos+2+2+2, Target);
-encode_data(Comp, Pos, ?S_NAPTR, _,
-	    {Order,Preference,Flags,Services,Regexp,Replacement}) ->
+encode_data(Comp, Pos, ?S_NAPTR, Data) ->
+    {Order,Preference,Flags,Services,Regexp,Replacement} = Data,
     B0 = <<Order:16,Preference:16>>,
     B1 = encode_string(B0, iolist_to_binary(Flags)),
     B2 = encode_string(B1, iolist_to_binary(Services)),
@@ -687,20 +719,29 @@ encode_data(Comp, Pos, ?S_NAPTR, _,
     %% Bypass name compression (RFC 2915: section 2)
     {B,_} = encode_name(B3, gb_trees:empty(), Pos+byte_size(B3), Replacement),
     {B,Comp};
-encode_data(Comp, _, ?S_OPT, _, Data) -> {iolist_to_binary(Data),Comp};
-encode_data(Comp, _, ?S_TXT, _, Data) -> {encode_txt(Data),Comp};
-encode_data(Comp, _, ?S_SPF, _, Data) -> {encode_txt(Data),Comp};
-encode_data(Comp, _, ?S_URI, _, {Prio,Weight,Target}) ->
+encode_data(Comp, _, ?S_TXT, Data) -> {encode_txt(Data),Comp};
+encode_data(Comp, _, ?S_SPF, Data) -> {encode_txt(Data),Comp};
+encode_data(Comp, _, ?S_URI, Data) ->
+    {Prio,Weight,Target} = Data,
     {<<Prio:16,Weight:16,(iolist_to_binary(Target))/binary>>,Comp};
-encode_data(Comp, _, ?S_CAA, _, {Flags,Tag,Value}) ->
-    B0 = <<Flags:8>>,
-    B1 = encode_string(B0, iolist_to_binary(Tag)),
-    B2 = iolist_to_binary(Value),
-    {<<B1/binary,B2/binary>>,Comp};
-encode_data(Comp, _, ?S_CAA, _, Data) -> {encode_txt(Data),Comp};
+encode_data(Comp, _, ?S_CAA, Data)->
+    case Data of
+        {Flags,Tag,Value} ->
+            B0 = <<Flags:8>>,
+            B1 = encode_string(B0, iolist_to_binary(Tag)),
+            B2 = iolist_to_binary(Value),
+            {<<B1/binary,B2/binary>>,Comp};
+        _ ->
+            {encode_txt(Data),Comp}
+    end;
 %%
 %% sofar unknown or non standard
-encode_data(Comp, _Pos, _Type, _Class, Data) ->
+encode_data(Comp, _Pos, Type, Data) when is_integer(Type) ->
+    encode_data(Comp, Data).
+%%
+%% Passthrough
+-compile({inline, [encode_data/2]}).
+encode_data(Comp, Data) ->
     {iolist_to_binary(Data),Comp}.
 
 %% Array of strings
@@ -750,16 +791,19 @@ encode_name(Bin0, Comp0, Pos, Name) ->
 	    erlang:error(badarg, [Bin0,Comp0,Pos,Name])
     end.
 
-name2labels("") -> [];
+name2labels("") ->  [];
 name2labels(".") -> [];
-name2labels(Cs) -> name2labels(<<>>, Cs).
+name2labels(Cs) ->  name2labels(<<>>, Cs).
 %%
--compile({inline, [name2labels/2]}).
-name2labels(Label, "") -> [Label];
-name2labels(Label, ".") -> [Label];
-name2labels(Label, "."++Cs) -> [Label|name2labels(<<>>, Cs)];
-name2labels(Label, "\\"++[C|Cs]) -> name2labels(<<Label/binary,C>>, Cs);
-name2labels(Label, [C|Cs]) -> name2labels(<<Label/binary,C>>, Cs).
+name2labels(Label, "") ->            [Label];
+name2labels(Label, ".") ->           [Label];
+name2labels(Label, "."++Cs) ->       [Label|name2labels(<<>>, Cs)];
+name2labels(Label, "\\"++[C|Cs]) ->  name2labels(Label, Cs, C);
+name2labels(Label, [C|Cs]) ->        name2labels(Label, Cs, C).
+%%
+-compile({inline, [name2labels/3]}).
+name2labels(Label, Cs, C) when is_integer(C), 0 =< C, C =< 255 ->
+    name2labels(<<Label/binary,C>>, Cs).
 
 %% Fail on empty or too long labels.
 encode_labels(Bin, Comp, _Pos, []) ->
