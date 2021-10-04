@@ -96,7 +96,7 @@ remove(Dbs) ->
 
 %%--------------------------------------------------------------------
 -spec lookup_trusted_cert(db_handle(), certdb_ref(), serialnumber(), issuer()) ->
-				 undefined | {ok, #cert{}}.
+				 undefined | {ok, public_key:combined_cert()}.
 
 %%
 %% Description: Retrives the trusted certificate identified by 

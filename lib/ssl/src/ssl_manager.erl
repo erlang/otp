@@ -140,7 +140,7 @@ cache_pem_file(File, DbHandle) ->
 %%--------------------------------------------------------------------
 -spec lookup_trusted_cert(term(), reference(), serialnumber(), issuer()) ->
           undefined |
-          {ok, #cert{}}.
+          {ok, public_key:combined_cert()}.
 %%
 %% Description: Lookup the trusted cert with Key = {reference(),
 %% serialnumber(), issuer()}.
