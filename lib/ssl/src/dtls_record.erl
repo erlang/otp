@@ -48,12 +48,15 @@
 	 is_higher/2, supported_protocol_versions/0,
 	 is_acceptable_version/2, hello_version/2]).
 
+%% Debug (whitebox testing)
+-export([init_replay_window/0, is_replay/2, update_replay_window/2]).
+
 
 -export_type([dtls_atom_version/0]).
 
 -type dtls_atom_version()  :: dtlsv1 | 'dtlsv1.2'.
 
--define(REPLAY_WINDOW_SIZE, 64).
+-define(REPLAY_WINDOW_SIZE, 58).  %% No bignums
 
 -compile(inline).
 
@@ -82,7 +85,7 @@ init_connection_states(Role, BeastMitigation) ->
       pending_write => Pending}.
 
 empty_connection_state(Empty) ->    
-    Empty#{epoch => undefined, replay_window => init_replay_window(?REPLAY_WINDOW_SIZE)}.
+    Empty#{epoch => undefined, replay_window => init_replay_window()}.
 
 %%--------------------------------------------------------------------
 -spec save_current_connection_state(ssl_record:connection_states(), read | write) ->
@@ -100,12 +103,12 @@ save_current_connection_state(#{current_write := Current} = States, write) ->
 next_epoch(#{pending_read := Pending,
 	     current_read := #{epoch := Epoch}} = States, read) ->
     States#{pending_read := Pending#{epoch := Epoch + 1,
-                                     replay_window := init_replay_window(?REPLAY_WINDOW_SIZE)}};
+                                     replay_window := init_replay_window()}};
 
 next_epoch(#{pending_write := Pending,
 	     current_write := #{epoch := Epoch}} = States, write) ->
     States#{pending_write := Pending#{epoch := Epoch + 1,
-                                      replay_window := init_replay_window(?REPLAY_WINDOW_SIZE)}}.
+                                      replay_window := init_replay_window()}}.
 
 get_connection_state_by_epoch(Epoch, #{current_write := #{epoch := Epoch} = Current},
 			      write) ->
@@ -404,7 +407,7 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
 	  ssl_record:initial_security_params(ConnectionEnd),
       epoch => undefined,
       sequence_number => 0,
-      replay_window => init_replay_window(?REPLAY_WINDOW_SIZE),
+      replay_window => init_replay_window(),
       beast_mitigation => BeastMitigation,
       compression_state  => undefined,
       cipher_state  => undefined,
@@ -465,39 +468,49 @@ get_dtls_records_aux(_, Data, Acc, _) ->
     end.
 %%--------------------------------------------------------------------
 
+init_replay_window() ->
+    init_replay_window(?REPLAY_WINDOW_SIZE).
+
 init_replay_window(Size) ->
-    #{size => Size,
-      top => Size,
+    #{top => Size-1,
       bottom => 0,
-      mask => 0 bsl 64
+      mask => 0
      }.
 
 replay_detect(#ssl_tls{sequence_number = SequenceNumber}, #{replay_window := Window}) ->
     is_replay(SequenceNumber, Window).
 
-
-is_replay(SequenceNumber, #{bottom := Bottom}) when SequenceNumber < Bottom ->
+is_replay(SequenceNumber, #{bottom := Bottom})
+  when SequenceNumber < Bottom ->
     true;
-is_replay(SequenceNumber, #{size := Size,
-                            top := Top,
-                            bottom := Bottom,
-                            mask :=  Mask})  when (SequenceNumber >= Bottom) andalso (SequenceNumber =< Top) ->
-    Index = (SequenceNumber rem Size),
-    (Index band Mask) == 1;
-
+is_replay(SequenceNumber, #{top := Top, bottom := Bottom, mask :=  Mask})
+  when (Bottom =< SequenceNumber) andalso (SequenceNumber =< Top) ->
+    Index = SequenceNumber - Bottom,
+    ((Mask bsr Index) band 1) =:= 1;
 is_replay(_, _) ->
     false.
 
-update_replay_window(SequenceNumber,  #{replay_window := #{size := Size,
-                                                           top := Top,
-                                                           bottom := Bottom,
-                                                           mask :=  Mask0} = Window0} = ConnectionStates) ->
+update_replay_window(SequenceNumber,
+                     #{replay_window :=
+                           #{top := Top,
+                             bottom := Bottom,
+                             mask :=  Mask0} = Window0}
+                     = ConnectionStates) ->
     NoNewBits = SequenceNumber - Top,
-    Index = SequenceNumber rem Size,
-    Mask = (Mask0 bsl NoNewBits) bor Index,
-    Window =  Window0#{top => SequenceNumber,
-                       bottom => Bottom + NoNewBits,
-                       mask => Mask},
+    Window =
+        case NoNewBits > 0 of
+            true ->
+                NewBottom = Bottom + NoNewBits,
+                Index = SequenceNumber - NewBottom,
+                Mask = (Mask0 bsr NoNewBits) bor (1 bsl Index),
+                Window0#{top => Top + NoNewBits,
+                         bottom => NewBottom,
+                         mask => Mask};
+            false ->
+                Index = SequenceNumber - Bottom,
+                Mask = Mask0 bor (1 bsl Index),
+                Window0#{mask => Mask}
+        end,
     ConnectionStates#{replay_window := Window}.
 
 %%--------------------------------------------------------------------
