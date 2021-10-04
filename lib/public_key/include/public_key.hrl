@@ -78,6 +78,11 @@
 	  point
 	 }).
 
+-record(cert, {
+               der :: public_key:der_encoded(),
+               otp :: #'OTPCertificate'{}
+              }).
+
 -define(unspecified, 0).
 -define(keyCompromise, 1).
 -define(cACompromise, 2).

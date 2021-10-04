@@ -65,6 +65,14 @@
     </datatype>
 
     <datatype>
+      <name name="key_oid_name"/>
+      <desc>
+	<p>Macro names for key object identifiers used by prefixing with ?</p>
+      </desc>
+    </datatype>
+
+
+    <datatype>
       <name name="der_encoded"/>
       <desc>
       </desc>
@@ -100,17 +108,21 @@
     <datatype>
       <name name="public_key"/>
       <name name="rsa_public_key"/>
+      <name name="dss_public_key"/>
       <name name="rsa_pss_public_key"/>
       <name name="dsa_public_key"/>
       <name name="ec_public_key"/>
+      <name name="public_key_params"/>
       <name name="ecpk_parameters"/>
       <name name="ecpk_parameters_api"/>
+      <name name="public_key_info"/>
       <desc>
       </desc>
     </datatype>
 
     <datatype>
       <name name="ed_public_key"/>
+      <name name="ed_legacy_pubkey"/>
       <desc>
 	<warning><p>The tagged ed_pub format will not be returned from any public_key
 	functions but can be used as input, should be considered deprecated.</p></warning>
@@ -133,18 +145,26 @@
 
     <datatype>
       <name name="ed_private_key"/>
+      <name name="ed_legacy_privkey"/>
       <desc>
 	<warning><p>The tagged ed_pri format will not be returned from any public_key
 	functions but can be used as input, should be considered deprecated.</p></warning>
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="ed_oid_name"/>
+      <desc>
+	<p>Macro names for object identifiers for EDDSA curves used by prefixing with ?</p>
+      </desc>
+    </datatype>
 
     <datatype>
       <name name="key_params"/>
       <desc>
       </desc>
     </datatype>
+
 
     <datatype>
       <name name="digest_type"/>
@@ -153,7 +173,20 @@
     </datatype>
 
     <datatype>
-      <name name="crl_reason"/>
+      <name name="issuer_name"/>
+      <desc>
+      </desc>
+    </datatype>
+
+
+    <datatype>
+      <name name="referenceIDs"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="referenceID"/>
       <desc>
       </desc>
     </datatype>
@@ -165,10 +198,78 @@
     </datatype>
 
     <datatype>
-      <name name="issuer_name"/>
+      <name name="cert"/>
       <desc>
       </desc>
     </datatype>
+
+     <datatype>
+      <name name="otp_cert"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="der_cert"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="combined_cert"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="bad_cert_reason"/>
+      <desc>
+      </desc>
+    </datatype>
+
+
+    <datatype>
+      <name name="crl_reason"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="chain_opts"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="chain_end"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="cert_opt"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="test_root_cert"/>
+      <desc>
+      </desc>
+    </datatype>
+
+     <datatype>
+      <name name="test_config"/>
+      <desc>
+      </desc>
+     </datatype>
+
+
+     <datatype>
+      <name name="conf_opt"/>
+      <desc>
+      </desc>
+     </datatype>
 
     <datatype>
       <name name="ssh_file"/>
@@ -279,9 +380,9 @@
   
   <func>
     <name name="generate_key" arity="1" since="OTP R16B01"/>
-    <fsummary>Generates a new keypair.</fsummary>
+    <fsummary>Generates a new key pair.</fsummary>
   <desc>
-    <p>Generates a new keypair. Note that except for Diffie-Hellman
+    <p>Generates a new key pair. Note that except for Diffie-Hellman
     the public key is included in the private key structure. See also
     <seemfa marker="crypto:crypto#generate_key/2">crypto:generate_key/2</seemfa>
     </p>
@@ -355,7 +456,11 @@
     certificate. This function must be used for encoding certificates or parts of certificates
     that are decoded/created in the <c>otp</c> format, whereas for the plain format this
     function directly calls <c>der_encode/2</c>.</p> 
-  </desc> 
+
+    <note><p>Subtle ASN-1 encoding errors in certificates may be worked around when decoding, this may have the affect that
+    the encoding a certificate back to DER may generate different bytes then the supplied original.</p></note>
+
+  </desc>
   </func>
 
  <func>
@@ -384,9 +489,9 @@
 
  <func>
    <name name="pkix_issuer_id" arity="2" since="OTP R14B"/>
-   <fsummary>Returns the x509 certificater issuer id.</fsummary>
+   <fsummary>Returns the x509 certificate issuer id.</fsummary>
    <desc> 
-     <p>Returns the x509 certificater issuer id, if it can be determined.</p> 
+     <p>Returns the x509 certificate issuer id, if it can be determined.</p>
    </desc> 
  </func>
  
@@ -401,33 +506,16 @@
  </func>
 
   <func>
-    <name since="OTP R16B">pkix_path_validation(TrustedCert, CertChain, Options) -> {ok, {PublicKeyInfo, PolicyTree}} | {error, {bad_cert, Reason}} </name>
+    <name since="OTP R16B" name="pkix_path_validation" arity="3"/>
     <fsummary>Performs a basic path validation according to RFC 5280.</fsummary>
-     <type>
-       <v>TrustedCert =  #'OTPCertificate'{} | der_encoded() | atom()</v>
-       <d>Normally a trusted certificate, but it can also be a path-validation
-       error that can be discovered while
-       constructing the input to this function and that is to be run through the <c>verify_fun</c>.
-       Examples are <c>unknown_ca</c> and <c>selfsigned_peer.</c>
-       </d>
-       <v>CertChain = [der_encoded()]</v>
-       <d>A list of DER-encoded certificates in trust order ending with the peer certificate.</d>
-       <v>Options = proplists:proplist()</v>
-       <v>PublicKeyInfo = {?'rsaEncryption' | ?'id-RSASSA-PSS'| ?'id-dsa',
-       rsa_public_key() | integer(), 'NULL' | 'RSASSA-PSS-params'{} | 'Dss-Parms'{}}</v>
-       <v>PolicyTree = term()</v>
-       <d>At the moment this is always an empty list as policies are not currently supported.</d>
-       <v>Reason = cert_expired | invalid_issuer | invalid_signature | name_not_permitted |
-       missing_basic_constraint | invalid_key_usage | {revoked, crl_reason()} | atom()
-       </v>
-     </type>
      <desc>
        <p>
 	 Performs a basic path validation according to
 	 <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280.</url>
 	 However, CRL validation is done separately by <seemfa
 	 marker="#pkix_crls_validate/3">pkix_crls_validate/3 </seemfa> and is to be called
-	 from the supplied <c>verify_fun</c>.
+	 from the supplied <c>verify_fun</c>. The optional policy tree check is currently not implemented
+	 but an empty place holder list is returned instead.
        </p>
 
        <p>Available options:</p>
@@ -473,7 +561,7 @@ fun(OtpCert :: #'OTPCertificate'{},
 	</item>
       </taglist>
 
-      <p>Possible reasons for a bad certificate: </p>
+      <p>Explanations of reasons for a bad certificate: </p>
       <taglist>
 	<tag>cert_expired</tag>
 	<item><p>Certificate is no longer valid as its expiration date has passed.</p></item>
@@ -631,48 +719,9 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
   </func>
 
   <func>
-    <name since="OTP 20.1">pkix_test_data(Options) -> Config </name>
-    <name since="OTP 20.1">pkix_test_data([chain_opts()]) -> [conf_opt()]</name>
+    <name  name="pkix_test_data" arity="1" since="OTP 20.1"></name>
     <fsummary>Creates certificate test data.</fsummary>
-    <type>
-      <v>Options = #{chain_type() := chain_opts()} </v>
-      <d>Options for ROOT, Intermediate and Peer certs</d>
-      
-      <v>chain_type() = server_chain | client_chain </v>
 
-      <v>chain_opts() = #{root := [cert_opt()] | root_cert(),
-      peer := [cert_opt()],
-      intermediates => [[cert_opt()]]}</v>
-      <d>
-	A valid chain must have at least a ROOT and a peer cert.
-	The root cert can be given either as a cert pre-generated by
-	<seemfa marker="#pkix_test_root_cert/2">
-	  pkix_test_root_cert/2
-	</seemfa>, or as root cert generation options.
-      </d>
-      <v>root_cert() = #{cert := der_encoded(), key := Key}</v>
-      <d>
-	A root certificate generated by
-	<seemfa marker="#pkix_test_root_cert/2">
-	  pkix_test_root_cert/2
-	</seemfa>.
-      </d>
-      <v>cert_opt() = {Key, Value}</v>
-      <d>For available options see <seeerl marker="#cert_opt"> cert_opt()</seeerl> below.</d>
-
-      <v>Config = #{server_config := [conf_opt()],
-      client_config := [conf_opt()]}</v>
-
-      <v>conf_opt() = {cert, der_encoded()} | {key, PrivateKey} |{cacerts, [der_encoded()]}</v>
-      <d>
-	This is a subset of the type
-	<seetype marker="ssl:ssl#tls_option"> ssl:tls_option()</seetype>.
-	<c>PrivateKey</c> is what
-	<seemfa marker="#generate_key/1">generate_key/1</seemfa>
-	returns.
-      </d>
-    </type>
-    
     <desc>
       <p>
 	Creates certificate configuration(s) consisting of certificate
@@ -714,8 +763,8 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
 	but makes the certificate useful for both roles.
       </p>
       <p>
-	The <marker id="cert_opt"/><c>cert_opt()</c>
-	type consists of the following options:
+	Explanation of the options used to customize certificates
+	in the generated chains:
       </p>
       <taglist>
 	<tag> {digest, digest_type()}</tag>
@@ -764,24 +813,8 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
   </func>
   
   <func>
-    <name since="OTP 20.2">pkix_test_root_cert(Name, Options) -> RootCert</name>
+    <name name="pkix_test_root_cert" arity="2" since="OTP 20.2"/>
     <fsummary>Generates a test data root cert.</fsummary>
-    <type>
-      <v>Name = string()</v>
-      <d>The root certificate name.</d>
-      <v>Options = [cert_opt()]</v>
-      <d>
-	For available options see
-	<seeerl marker="#cert_opt">cert_opt()</seeerl>
-	under
-	<seemfa marker="#pkix_test_data/1">pkix_test_data/1</seemfa>.
-      </d>
-      <v>RootCert = #{cert := der_encoded(), key := Key}</v>
-      <d>
-	A root certificate and key.  The <c>Key</c> is generated by
-	<seemfa marker="#generate_key/1">generate_key/1</seemfa>.
-      </d>
-    </type>
     <desc>
       <p>
 	Generates a root certificate that can be used
@@ -810,23 +843,11 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
   </func> 
 
   <func>
-    <name since="OTP 19.3">pkix_verify_hostname(Cert, ReferenceIDs) -> boolean()</name>
-    <name since="OTP 19.3">pkix_verify_hostname(Cert, ReferenceIDs, Opts) -> boolean()</name>
+    <name name="pkix_verify_hostname" arity="2"  since="OTP 19.3"/>
+    <name name="pkix_verify_hostname" arity="3"  since="OTP 19.3"/>
     <fsummary>Verifies that a PKIX x.509 certificate <i>presented identifier</i> (e.g hostname) is
     an expected one.</fsummary>
-    <type>
-      <v>Cert = der_encoded() | #'OTPCertificate'{} </v>
-      <v>ReferenceIDs = [ RefID ]</v>
-      <v>RefID = {dns_id,string()} | {srv_id,string()} | {uri_id,string()} | {ip,inet:ip_address()|string()} | {OtherRefID,term()}}</v>
-      <v>OtherRefID = atom()</v>
-      <v>Opts = [ PvhOpt() ]</v>
-      <v>PvhOpt = [MatchOpt | FailCallBackOpt | FqdnExtractOpt]</v>
-      <v>MatchOpt = {match_fun, fun(RefId | FQDN::string(), PresentedID) -> boolean() | default}</v>
-      <v>PresentedID = {dNSName,string()} | {uniformResourceIdentifier,string() | {iPAddress,list(byte())} | {OtherPresId,term()}}</v>
-      <v>OtherPresID = atom()</v>
-      <v>FailCallBackOpt = {fail_callback, fun(#'OTPCertificate'{}) -> boolean()}</v>
-      <v>FqdnExtractOpt = {fqdn_fun, fun(RefID) -> FQDN::string() | default | undefined}</v>
-    </type>
+
     <desc>
       <p>This function checks that the <i>Presented Identifier</i> (e.g hostname) in a peer certificate
       is in agreement with at least one of the <i>Reference Identifier</i> that the client expects to be connected to.
@@ -840,21 +861,21 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
       <seeguide marker="using_public_key#verify_hostname_examples">code examples</seeguide>
       describes this function more detailed.
       </p>
-      <p>The <c>{OtherRefId,term()}</c> is defined by the user and is passed to the <c>match_fun</c>, if defined.
-      If the term in <c>OtherRefId</c> is a binary, it will be converted to a string.
-      </p>
-      <p>The <c>ip</c> Reference ID takes an
-      <seetype marker="kernel:inet#ip_address">inet:ip_address()</seetype>
-      or an ip address in string format (E.g "10.0.1.1" or "1234::5678:9012") as second element.
-      </p>
-      <p>The options are:</p>
+
+      <p>The option funs are described here:</p>
       <taglist>
 	<tag><c>match_fun</c></tag>
 	<item>
-	  The <c>fun/2</c> in this option replaces the default host name matching rules. The fun should return a
-	  boolean to tell if the Reference ID and Presented ID matches or not. The fun can also return a third 
-	  value, the atom <c>default</c>, if the default matching rules shall apply.
-	  This makes it possible to augment the tests with a special case:
+	  <code>
+fun(ReferenceId::ReferenceId() | FQDN::string(),
+    PresentedId::{dNSName,string()} | {uniformResourceIdentifier,string() |
+                 {iPAddress,list(byte())} | {OtherId::atom()|oid(),term()}})</code>
+          This function replaces the default host name matching rules. The fun should return a
+	  boolean to tell if the Reference ID and Presented ID matches or not.
+
+	   The match fun can also return a third value,
+	   value, the atom <c>default</c>, if the default matching rules shall apply.
+	   This makes it possible to augment the tests with a special case:
 	  <code>
 fun(....) -> true;   % My special case
    (_, _) -> default % all others falls back to the inherit tests
@@ -864,12 +885,17 @@ end
 	  function that takes a protocol name as argument and returns a <c>fun/2</c> suitable for this option and
 	  <seeguide marker="using_public_key#redefining_match_op">Re-defining the match operation</seeguide>
 	  in the User's Guide for an example.
+
+	  <note><p> Reference Id values given as binaries will be converted to strings, and ip
+           references may be given in string format that is "10.0.1.1" or "1234::5678:9012" as
+           well as on the format <seetype marker="kernel:inet#ip_address">inet:ip_address()</seetype></p></note>
+
 	</item>
 
 	<tag><c>fail_callback</c></tag>
 	<item>If a matching fails, there could be circumstances when the certificate should be accepted anyway. Think for
 	example of a web browser where you choose to accept an outdated certificate. This option enables implementation
-	of such a function. This <c>fun/1</c> is called when no <c>ReferenceID</c> matches. The return value of the fun
+	of such an exception but for hostnames. This <c>fun/1</c> is called when no <c>ReferenceID</c> matches. The return value of the fun
 	(a <c>boolean()</c>) decides the outcome. If <c>true</c> the the certificate is accepted otherwise
 	it is rejected. See
 	<seeguide marker="using_public_key#-pinning--a-certificate">"Pinning" a Certificate</seeguide>
@@ -895,29 +921,23 @@ end
   </func>
 
   <func>
-    <name since="OTP 21.0">pkix_verify_hostname_match_fun(Protcol) ->  fun(RefId | FQDN::string(), PresentedID) -> boolean() | default</name>
-    <fsummary>Returns a fun that is intendended as argument to the match_fun option in pkix_verify_hostname/3.
+    <name name="pkix_verify_hostname_match_fun" arity="1"  since="OTP 21.0"/>
+    <fsummary>Returns a fun that is intended as argument to the match_fun option in pkix_verify_hostname/3.
     </fsummary>
-    <type>
-      <v>Protocol = https</v>
-      <d>The algorithm for wich the fun should implement the special matching rules</d>
-      <v>RefId</v>
-      <d>See <seemfa marker="#pkix_verify_hostname/3">pkix_verify_hostname/3</seemfa>.</d>
-      <v>FQDN</v>
-      <d>See <seemfa marker="#pkix_verify_hostname/3">pkix_verify_hostname/3</seemfa>.</d>
-      <v>PresentedID</v>
-      <d>See <seemfa marker="#pkix_verify_hostname/3">pkix_verify_hostname/3</seemfa>.</d>
-    </type>
     <desc>
-      <p>The return value of calling this function is intended to be used in the <c>match_fun</c> option in
-      <seemfa marker="#pkix_verify_hostname/3">pkix_verify_hostname/3</seemfa>.
-      </p>
-      <p>The returned fun augments the verify hostname matching according to the specific rules for
-      the protocol in the argument.
-      </p>
-    </desc>
+	<p>The return value of calling this function is intended to be used in the <c>match_fun</c> option in
+	<seemfa marker="#pkix_verify_hostname/3">pkix_verify_hostname/3</seemfa>.</p>
+
+	<p>The returned fun augments the verify hostname matching according to the specific rules for
+	the protocol in the argument.</p>
+
+	<note><p>Currently supported https fun will allow wildcard certificate matching
+	as specified by the HTTP standard. Note that for instance LDAP have a different set of wildcard matching
+	rules. If you do not want to allow wildcard certificates (recommended from a security perspective)
+	or otherwise customize the hostname match the default match function used by ssl application will be sufficient.
+	</p></note>
+   </desc>
   </func>
-  
 
   <func>
     <name name="sign" arity="3" since=""/>
