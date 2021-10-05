@@ -27,6 +27,46 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Before that change, TLS downgrade could occasionally fail
+	    when data intended for downgraded socket were delivered
+	    together with CLOSE_NOTIFY alert to ssl app.</p>
+          <p>
+	    Own Id: OTP-17393</p>
+        </item>
+        <item>
+          <p>
+	    Avoid re-encoding of decoded certificates. This could
+	    cause unexpected failures as some subtle encoding errors
+	    can be tolerated when decoding but hence creating another
+	    sequence of bytes if the decoded value is re-encoded.</p>
+          <p>
+	    Own Id: OTP-17657</p>
+        </item>
+        <item>
+          <p>
+	    Fix possible process leak when the process doing
+	    ssl:transport_accept dies before initiating the TLS
+	    handshake.</p>
+          <p>
+	    Own Id: OTP-17666 Aux Id: GH-5239 </p>
+        </item>
+        <item>
+          <p>
+	    Fix dtls memory leak, the replay window code was broken.</p>
+          <p>
+	    Own Id: OTP-17670 Aux Id: GH-5224 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

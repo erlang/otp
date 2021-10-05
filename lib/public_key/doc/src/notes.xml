@@ -35,6 +35,24 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.11.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid re-encoding of decoded certificates. This could
+	    cause unexpected failures as some subtle encoding errors
+	    can be tolerated when decoding but hence creating another
+	    sequence of bytes if the decoded value is re-encoded.</p>
+          <p>
+	    Own Id: OTP-17657</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.11.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

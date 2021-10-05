@@ -31,6 +31,25 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The undocumented DNS encode/decode module
+	    <c>inet_dns</c> has been cleaned up to handle the
+	    difference between "symbolic" and "raw" records in a more
+	    consistent manner. </p><p> PR-5145/OTP-17584 introduced a
+	    change that contributed to an already existing confusion,
+	    which this correction should remedy. </p>
+          <p>
+	    Own Id: OTP-17659 Aux Id: ERIERL-702 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
