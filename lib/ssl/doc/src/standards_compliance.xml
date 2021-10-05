@@ -166,7 +166,7 @@
 	</cell>
         <cell align="left" valign="middle"></cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
-	<cell align="left" valign="middle"><em>@OTP-16590@</em></cell>
+	<cell align="left" valign="middle"><em>24.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -178,7 +178,7 @@
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">RSASSA-PSS signature schemes</cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
-	<cell align="left" valign="middle"><em>@OTP-16590@</em></cell>
+	<cell align="left" valign="middle"><em>24.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -190,7 +190,7 @@
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">signature_algorithms_cert extension</cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
-	<cell align="left" valign="middle"><em>@OTP-16590@</em></cell>
+	<cell align="left" valign="middle"><em>24.1</em></cell>
       </row>
 
       <row>
