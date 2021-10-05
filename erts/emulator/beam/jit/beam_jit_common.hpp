@@ -266,11 +266,6 @@ Uint beam_jit_get_map_elements(Eterm map,
 
 void beam_jit_bs_field_size_argument_error(Process *c_p, Eterm size);
 void beam_jit_bs_add_argument_error(Process *c_p, Eterm A, Eterm B);
-Eterm beam_jit_bs_start_match2(Eterm context,
-                               Uint live,
-                               Uint slots,
-                               Process *c_p,
-                               Eterm *reg);
 Eterm beam_jit_bs_init(Process *c_p,
                        Eterm *reg,
                        ERL_BITS_DECLARE_STATEP,
@@ -296,7 +291,6 @@ Sint beam_jit_remove_message(Process *c_p,
                              Eterm *HTOP,
                              Eterm *E,
                              Uint32 active_code_ix);
-void beam_jit_bs_context_to_binary(Eterm context);
 
 void beam_jit_take_receive_lock(Process *c_p);
 void beam_jit_wait_locked(Process *c_p, ErtsCodePtr cp);

@@ -569,79 +569,6 @@ void beam_jit_bs_add_argument_error(Process *c_p, Eterm A, Eterm B) {
     }
 }
 
-static Eterm i_bs_start_match2_gc_test_preserve(Process *c_p,
-                                                Eterm *reg,
-                                                Uint need,
-                                                Uint live,
-                                                Eterm preserve) {
-    Uint words_left = (Uint)(STACK_TOP(c_p) - HEAP_TOP(c_p));
-
-    if (ERTS_UNLIKELY(words_left < need + S_RESERVED)) {
-        reg[live] = preserve;
-        PROCESS_MAIN_CHK_LOCKS(c_p);
-        c_p->fcalls -= erts_garbage_collect_nobump(c_p,
-                                                   need,
-                                                   reg,
-                                                   live + 1,
-                                                   c_p->fcalls);
-        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-        PROCESS_MAIN_CHK_LOCKS(c_p);
-        preserve = reg[live];
-    }
-
-    return preserve;
-}
-
-Eterm beam_jit_bs_start_match2(Eterm context,
-                               Uint live,
-                               Uint slots,
-                               Process *c_p,
-                               Eterm *reg) {
-    Eterm header;
-    if (!is_boxed(context)) {
-        return THE_NON_VALUE;
-    }
-    header = *boxed_val(context);
-
-    slots++;
-
-    if (header_is_bin_matchstate(header)) {
-        ErlBinMatchState *ms = (ErlBinMatchState *)boxed_val(context);
-        Uint actual_slots = HEADER_NUM_SLOTS(header);
-
-        /* We're not compatible with contexts created by bs_start_match3. */
-        ASSERT(actual_slots >= 1);
-
-        ms->save_offset[0] = ms->mb.offset;
-        if (ERTS_UNLIKELY(actual_slots < slots)) {
-            ErlBinMatchState *expanded;
-            Uint wordsneeded = ERL_BIN_MATCHSTATE_SIZE(slots);
-            context = i_bs_start_match2_gc_test_preserve(c_p,
-                                                         reg,
-                                                         wordsneeded,
-                                                         live,
-                                                         context);
-            ms = (ErlBinMatchState *)boxed_val(context);
-            expanded = (ErlBinMatchState *)HEAP_TOP(c_p);
-            *expanded = *ms;
-            *HEAP_TOP(c_p) = HEADER_BIN_MATCHSTATE(slots);
-            HEAP_TOP(c_p) += wordsneeded;
-            context = make_matchstate(expanded);
-        }
-        return context;
-    } else if (is_binary_header(header)) {
-        Uint wordsneeded = ERL_BIN_MATCHSTATE_SIZE(slots);
-        context = i_bs_start_match2_gc_test_preserve(c_p,
-                                                     reg,
-                                                     wordsneeded,
-                                                     live,
-                                                     context);
-        return erts_bs_start_match_2(c_p, context, slots);
-    } else {
-        return THE_NON_VALUE;
-    }
-}
-
 Eterm beam_jit_bs_init(Process *c_p,
                        Eterm *reg,
                        ERL_BITS_DECLARE_STATEP,
@@ -813,35 +740,6 @@ Eterm beam_jit_bs_get_integer(Process *c_p,
 
     mb = ms_matchbuffer(context);
     return erts_bs_get_integer_2(c_p, size, flags, mb);
-}
-
-void beam_jit_bs_context_to_binary(Eterm context) {
-    if (is_boxed(context) && header_is_bin_matchstate(*boxed_val(context))) {
-        Uint orig, size, offs, hole_size;
-        ErlBinMatchBuffer *mb;
-        ErlBinMatchState *ms;
-        ErlSubBin *sb;
-        ms = (ErlBinMatchState *)boxed_val(context);
-        mb = &ms->mb;
-        offs = ms->save_offset[0];
-        size = mb->size - offs;
-        orig = mb->orig;
-        sb = (ErlSubBin *)boxed_val(context);
-        /* Since we're going to overwrite the match state with the result, an
-         * ErlBinMatchState must be at least as large as an ErlSubBin. */
-        ERTS_CT_ASSERT(sizeof(ErlSubBin) <= sizeof(ErlBinMatchState));
-        hole_size = 1 + header_arity(sb->thing_word) - ERL_SUB_BIN_SIZE;
-        sb->thing_word = HEADER_SUB_BIN;
-        sb->size = BYTE_OFFSET(size);
-        sb->bitsize = BIT_OFFSET(size);
-        sb->offs = BYTE_OFFSET(offs);
-        sb->bitoffs = BIT_OFFSET(offs);
-        sb->is_writable = 0;
-        sb->orig = orig;
-        if (hole_size) {
-            sb[1].thing_word = make_pos_bignum_header(hole_size - 1);
-        }
-    }
 }
 
 ErtsMessage *beam_jit_decode_dist(Process *c_p, ErtsMessage *msgp) {
