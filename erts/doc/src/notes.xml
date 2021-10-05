@@ -31,6 +31,25 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 12.1.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The python scripts that existed in
+	    erts/lib_src/yielding_c_fun/lib/tiny_regex_c/scripts had
+	    a license that was incompatible with Erlang/OTP's
+	    license. This ticket removes these scripts that were not
+	    used by us.</p>
+          <p>
+	    Own Id: OTP-17658</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
