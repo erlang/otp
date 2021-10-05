@@ -47,6 +47,8 @@ Uint erts_total_code_size;
 
 static int load_code(LoaderState *stp);
 
+#define PLEASE_RECOMPILE "please re-compile this module with an Erlang/OTP " ERLANG_OTP_RELEASE " compiler"
+
 /**********************************************************************/
 
 void init_load(void)
@@ -128,6 +130,8 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
         BeamLoadError0(stp, "corrupt file header");
     case BEAMFILE_READ_MISSING_ATOM_TABLE:
         BeamLoadError0(stp, "missing atom table");
+    case BEAMFILE_READ_OBSOLETE_ATOM_TABLE:
+        BeamLoadError0(stp, PLEASE_RECOMPILE);
     case BEAMFILE_READ_CORRUPT_ATOM_TABLE:
         BeamLoadError0(stp, "corrupt atom table");
     case BEAMFILE_READ_MISSING_CODE_CHUNK:
@@ -163,9 +167,8 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
     if (stp->beam.code.max_opcode > MAX_GENERIC_OPCODE) {
         BeamLoadError2(stp,
                        "This BEAM file was compiled for a later version"
-                       " of the run-time system than " ERLANG_OTP_RELEASE ".\n"
-                       "  To fix this, please recompile this module with an "
-                       ERLANG_OTP_RELEASE " compiler.\n"
+                       " of the runtime system than the current (Erlang/OTP " ERLANG_OTP_RELEASE ").\n"
+                       "  To fix this, " PLEASE_RECOMPILE ".\n"
                        "  (Use of opcode %d; this emulator supports "
                        "only up to %d.)",
                        stp->beam.code.max_opcode, MAX_GENERIC_OPCODE);
@@ -542,8 +545,7 @@ static int load_code(LoaderState* stp)
                  * the instruction is obsolete.
                  */
                 if (num_specific == 0 && gen_opc[tmp_op->op].transform == -1) {
-                    BeamLoadError0(stp, "please re-compile this module with an "
-                                   ERLANG_OTP_RELEASE " compiler ");
+                    BeamLoadError0(stp, PLEASE_RECOMPILE);
                 }
 
                 /*
@@ -552,8 +554,7 @@ static int load_code(LoaderState* stp)
                  */
                 switch (stp->genop->op) {
                 case genop_too_old_compiler_0:
-                    BeamLoadError0(stp, "please re-compile this module with an "
-                                   ERLANG_OTP_RELEASE " compiler");
+                    BeamLoadError0(stp, PLEASE_RECOMPILE);
                 case genop_unsupported_guard_bif_3:
                     {
                         Eterm Mod = (Eterm) stp->genop->a[0].val;

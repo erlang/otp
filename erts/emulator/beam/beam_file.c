@@ -747,6 +747,7 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         MakeIffId('C', 'I', 'n', 'f'), /* 8 */
         MakeIffId('L', 'i', 'n', 'e'), /* 9 */
         MakeIffId('L', 'o', 'c', 'T'), /* 10 */
+        MakeIffId('A', 't', 'o', 'm'), /* 11 */
     };
 
     static const int UTF8_ATOM_CHUNK = 0;
@@ -762,6 +763,7 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
 #ifdef BEAMASM
     static const int LOC_CHUNK = 10;
 #endif
+    static const int OBSOLETE_ATOM_CHUNK = 11;
 
     static const int NUM_CHUNKS = sizeof(chunk_iffs) / sizeof(chunk_iffs[0]);
 
@@ -791,7 +793,13 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
     }
 
     if (chunks[UTF8_ATOM_CHUNK].size == 0) {
-        error = BEAMFILE_READ_MISSING_ATOM_TABLE;
+        if (chunks[OBSOLETE_ATOM_CHUNK].size == 0) {
+            /* Old atom table chunk is also missing. */
+            error = BEAMFILE_READ_MISSING_ATOM_TABLE;
+        } else {
+            /* Old atom table chunk table exists. (OTP 20 or earlier.) */
+            error = BEAMFILE_READ_OBSOLETE_ATOM_TABLE;
+        }
         goto error;
     } else if (!parse_atom_chunk(beam, &chunks[UTF8_ATOM_CHUNK])) {
         error = BEAMFILE_READ_CORRUPT_ATOM_TABLE;
