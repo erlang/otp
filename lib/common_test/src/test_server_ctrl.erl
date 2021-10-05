@@ -54,8 +54,7 @@
 -export([multiply_timetraps/1, scale_timetraps/1, get_timetrap_parameters/0]).
 -export([create_priv_dir/1]).
 -export([cover/1, cover/2, cover/3,
-	 cover_compile/7, cover_analyse/2, cross_cover_analyse/2,
-	 trc/1, stop_trace/0]).
+	 cover_compile/7, cover_analyse/2, cross_cover_analyse/2]).
 -export([testcase_callback/1]).
 -export([set_random_seed/1]).
 -export([kill_slavenodes/0]).
@@ -115,7 +114,7 @@
 -record(state,{jobs=[], levels={1,19,10}, reject_io_reqs=false,
 	       multiply_timetraps=1, scale_timetraps=true,
 	       create_priv_dir=auto_per_run, finish=false,
-	       target_info, trc=false, cover=false, wait_for_node=[],
+	       target_info, cover=false, wait_for_node=[],
 	       testcase_callback=undefined, idle_notify=[],
 	       get_totals=false, random_seed=undefined}).
 
@@ -224,55 +223,53 @@ add_tests_with_skip(LogDir, Tests, Skip) ->
 %% COMMAND LINE INTERFACE
 
 parse_cmd_line(Cmds) ->
-    parse_cmd_line(Cmds, [], [], local, false, false, undefined).
+    parse_cmd_line(Cmds, [], [], local, false, undefined).
 
-parse_cmd_line(['SPEC',Spec|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
+parse_cmd_line(['SPEC',Spec|Cmds], SpecList, Names, Param, Cov, TCCB) ->
     case file:consult(Spec) of
 	{ok, TermList} ->
 	    Name = filename:rootname(Spec),
 	    parse_cmd_line(Cmds, TermList++SpecList, [Name|Names], Param,
-			   Trc, Cov, TCCB);
+			   Cov, TCCB);
 	{error,Reason} ->
 	    io:format("Can't open ~tw: ~tp\n",[Spec, file:format_error(Reason)]),
-	    parse_cmd_line(Cmds, SpecList, Names, Param, Trc, Cov, TCCB)
+	    parse_cmd_line(Cmds, SpecList, Names, Param, Cov, TCCB)
     end;
-parse_cmd_line(['NAME',Name|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
+parse_cmd_line(['NAME',Name|Cmds], SpecList, Names, Param, Cov, TCCB) ->
     parse_cmd_line(Cmds, SpecList, [{name,atom_to_list(Name)}|Names],
-		   Param, Trc, Cov, TCCB);
-parse_cmd_line(['SKIPMOD',Mod|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
+		   Param, Cov, TCCB);
+parse_cmd_line(['SKIPMOD',Mod|Cmds], SpecList, Names, Param, Cov, TCCB) ->
     parse_cmd_line(Cmds, [{skip,{Mod,"by command line"}}|SpecList], Names,
-		   Param, Trc, Cov, TCCB);
-parse_cmd_line(['SKIPCASE',Mod,Case|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
+		   Param, Cov, TCCB);
+parse_cmd_line(['SKIPCASE',Mod,Case|Cmds], SpecList, Names, Param, Cov, TCCB) ->
     parse_cmd_line(Cmds, [{skip,{Mod,Case,"by command line"}}|SpecList], Names,
-		   Param, Trc, Cov, TCCB);
-parse_cmd_line(['DIR',Dir|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
+		   Param, Cov, TCCB);
+parse_cmd_line(['DIR',Dir|Cmds], SpecList, Names, Param, Cov, TCCB) ->
     Name = filename:basename(Dir),
     parse_cmd_line(Cmds, [{topcase,{dir,Name}}|SpecList], [Name|Names],
-		   Param, Trc, Cov, TCCB);
-parse_cmd_line(['MODULE',Mod|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
+		   Param, Cov, TCCB);
+parse_cmd_line(['MODULE',Mod|Cmds], SpecList, Names, Param, Cov, TCCB) ->
     parse_cmd_line(Cmds,[{topcase,{Mod,all}}|SpecList],[atom_to_list(Mod)|Names],
-		   Param, Trc, Cov, TCCB);
-parse_cmd_line(['CASE',Mod,Case|Cmds], SpecList, Names, Param, Trc, Cov, TCCB) ->
+		   Param, Cov, TCCB);
+parse_cmd_line(['CASE',Mod,Case|Cmds], SpecList, Names, Param, Cov, TCCB) ->
     parse_cmd_line(Cmds,[{topcase,{Mod,Case}}|SpecList],[atom_to_list(Mod)|Names],
-		   Param, Trc, Cov, TCCB);
-parse_cmd_line(['TRACE',Trc|Cmds], SpecList, Names, Param, _Trc, Cov, TCCB) ->
-    parse_cmd_line(Cmds, SpecList, Names, Param, Trc, Cov, TCCB);
-parse_cmd_line(['COVER',App,CF,Analyse|Cmds], SpecList, Names, Param, Trc, _Cov, TCCB) ->
-    parse_cmd_line(Cmds, SpecList, Names, Param, Trc, {{App,CF}, Analyse}, TCCB);
-parse_cmd_line(['TESTCASE_CALLBACK',Mod,Func|Cmds], SpecList, Names, Param, Trc, Cov, _) ->
-    parse_cmd_line(Cmds, SpecList, Names, Param, Trc, Cov, {Mod,Func});
-parse_cmd_line([Obj|_Cmds], _SpecList, _Names, _Param, _Trc, _Cov, _TCCB) ->
+		   Param, Cov, TCCB);
+parse_cmd_line(['COVER',App,CF,Analyse|Cmds], SpecList, Names, Param, _Cov, TCCB) ->
+    parse_cmd_line(Cmds, SpecList, Names, Param, {{App,CF}, Analyse}, TCCB);
+parse_cmd_line(['TESTCASE_CALLBACK',Mod,Func|Cmds], SpecList, Names, Param, Cov, _) ->
+    parse_cmd_line(Cmds, SpecList, Names, Param, Cov, {Mod,Func});
+parse_cmd_line([Obj|_Cmds], _SpecList, _Names, _Param, __Cov, _TCCB) ->
     io:format("~w: Bad argument: ~tw\n", [?MODULE,Obj]),
     io:format(" Use the `ts' module to start tests.\n", []),
     io:format(" (If you ARE using `ts', there is a bug in `ts'.)\n", []),
     halt(1);
-parse_cmd_line([], SpecList, Names, Param, Trc, Cov, TCCB) ->
+parse_cmd_line([], SpecList, Names, Param, Cov, TCCB) ->
     NameList = lists:reverse(Names, ["suite"]),
     Name = case lists:keysearch(name, 1, NameList) of
 	       {value,{name,N}} -> N;
 	       false -> hd(NameList)
 	   end,
-    {lists:reverse(SpecList), Name, Param, Trc, Cov, TCCB}.
+    {lists:reverse(SpecList), Name, Param, Cov, TCCB}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% cast_to_list(X) -> string()
@@ -311,12 +308,8 @@ start_link() ->
 
 run_test(CommandLine) ->
     process_flag(trap_exit,true),
-    {SpecList,Name,Param,Trc,Cov,TCCB} = parse_cmd_line(CommandLine),
+    {SpecList,Name,Param,Cov,TCCB} = parse_cmd_line(CommandLine),
     {ok,_TSPid} = start_link(Param),
-    case Trc of
-	false -> ok;
-	File -> trc(File)
-    end,
     case Cov of
 	false -> ok;
 	{{App,CoverFile},Analyse} -> cover(App, maybe_file(CoverFile), Analyse)
@@ -398,12 +391,6 @@ get_timetrap_parameters() ->
 
 create_priv_dir(Value) ->
     controller_call({create_priv_dir,Value}).
-
-trc(TraceFile) ->
-    controller_call({trace,TraceFile}, 2*?ACCEPT_TIMEOUT).
-
-stop_trace() ->
-    controller_call(stop_trace).
 
 node_started(Node) ->
     gen_server:cast(?MODULE, {node_started,Node}).
@@ -796,45 +783,6 @@ handle_call(get_timetrap_parameters, _From, State) ->
     {reply,{State#state.multiply_timetraps,State#state.scale_timetraps},State};
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% handle_call({trace,TraceFile}, _, State) -> ok | {error,Reason}
-%%
-%% Starts a separate node (trace control node) which
-%% starts tracing on target and all slave nodes
-%%
-%% TraceFile is a text file with elements of type
-%% {Trace,Mod,TracePattern}.
-%% {Trace,Mod,Func,TracePattern}.
-%% {Trace,Mod,Func,Arity,TracePattern}.
-%%
-%% Trace = tp | tpl;  local or global call trace
-%% Mod,Func = atom(), Arity=integer(); defines what to trace
-%% TracePattern = [] | match_spec()
-%%
-%% The 'call' trace flag is set on all processes, and then
-%% the given trace patterns are set.
-
-handle_call({trace,TraceFile}, _From, State=#state{trc=false}) ->
-    TI = State#state.target_info,
-    case test_server_node:start_tracer_node(TraceFile, TI) of
-	{ok,Tracer} -> {reply,ok,State#state{trc=Tracer}};
-	Error -> {reply,Error,State}
-    end;
-handle_call({trace,_TraceFile}, _From, State) ->
-    {reply,{error,already_tracing},State};
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% handle_call(stop_trace, _, State) -> ok | {error,Reason}
-%%
-%% Stops tracing on target and all slave nodes and
-%% terminates trace control node
-
-handle_call(stop_trace, _From, State=#state{trc=false}) ->
-    {reply,{error,not_tracing},State};
-handle_call(stop_trace, _From, State) ->
-    R = test_server_node:stop_tracer_node(State#state.trc),
-    {reply,R,State#state{trc=false}};
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% handle_call({cover,CoverInfo}, _, State) -> ok | {error,Reason}
 %%
 %% Set specification of cover analysis to be used when running tests
@@ -987,10 +935,6 @@ set_hosts(Hosts) ->
 %% Called by test_server_node when a slave/peer node is fully started.
 
 handle_cast({node_started,Node}, State) ->
-    case State#state.trc of
-	false -> ok;
-	Trc -> test_server_node:trace_nodes(Trc, [Node])
-    end,
     NewWaitList =
 	case lists:keysearch(Node,1,State#state.wait_for_node) of
 	    {value,{Node,From}} ->
@@ -1065,14 +1009,8 @@ handle_info({'EXIT',Pid,Reason}, State) ->
 %% handle_info({tcp_closed,Sock}, State)
 %%
 %% A Socket was closed. This indicates that a node died.
-%% This can be
-%% *Slave or peer node started by a test suite
-%% *Trace controll node
+%% This can be a slave or peer node started by a test suite
 
-handle_info({tcp_closed,Sock}, State=#state{trc=Sock}) ->
-    %% Tracer node died - can't really do anything
-    %%! Maybe print something???
-    {noreply,State#state{trc=false}};
 handle_info({tcp_closed,Sock}, State) ->
     test_server_node:nodedown(Sock),
     {noreply,State};
@@ -1089,10 +1027,6 @@ handle_info(_, State) ->
 
 terminate(_Reason, State) ->
     test_server_sup:util_stop(),
-    case State#state.trc of
-	false -> ok;
-	Sock -> test_server_node:stop_tracer_node(Sock)
-    end,
     ok = kill_all_jobs(State#state.jobs),
     _ = test_server_node:kill_nodes(),
     ok.
