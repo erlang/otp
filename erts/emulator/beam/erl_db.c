@@ -58,6 +58,9 @@
 #define EXI_OWNER    am_owner	 /* The receiving process is already the owner. */
 #define EXI_NOT_OWNER am_not_owner /* The current process is not the owner. */
 
+#define DB_WRITE_CONCURRENCY_MIN_LOCKS 1
+#define DB_WRITE_CONCURRENCY_MAX_LOCKS 32768
+
 erts_atomic_t erts_ets_misc_mem_size;
 
 /*
@@ -815,7 +818,7 @@ DbTable* db_get_table_aux(Process *p,
     }
 
     if (tb) {
-        erl_db_hash_adapt_no_locks(tb);
+        erl_db_hash_adapt_number_of_locks(tb);
 	db_lock(tb, kind);
 #ifdef ETS_DBG_FORCE_TRAP
         /*
@@ -2255,7 +2258,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     Sint keypos;
     int is_named, is_compressed;
     int is_fine_locked, frequent_read;
-    int no_locks;
+    int number_of_locks;
     int is_decentralized_counters;
     int is_decentralized_counters_option;
     int is_explicit_lock_granularity;
@@ -2280,7 +2283,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     heir = am_none;
     heir_data = (UWord) am_undefined;
     is_compressed = erts_ets_always_compress;
-    no_locks = -1;
+    number_of_locks = -1;
     is_explicit_lock_granularity = 0;
     is_write_concurrency_auto = 0;
 
@@ -2308,22 +2311,22 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 		    keypos = signed_val(tp[2]);
 		}
 		else if (tp[1] == am_write_concurrency) {
-                    Sint no_locks_param;
+                    Sint number_of_locks_param;
                     if (is_integer(tp[2]) &&
-                        term_to_Sint(tp[2], &no_locks_param) &&
-                        no_locks_param >= 1 &&
-                        no_locks_param <= 32768) {
+                        term_to_Sint(tp[2], &number_of_locks_param) &&
+                        number_of_locks_param >= DB_WRITE_CONCURRENCY_MIN_LOCKS &&
+                        number_of_locks_param <= DB_WRITE_CONCURRENCY_MAX_LOCKS) {
                         is_decentralized_counters = 1;
                         is_fine_locked = 1;
                         is_explicit_lock_granularity = 1;
                         is_write_concurrency_auto = 0;
-                        no_locks = no_locks_param;
+                        number_of_locks = number_of_locks_param;
                     } else if (tp[2] == am_auto) {
                         is_decentralized_counters = 1;
                         is_write_concurrency_auto = 1;
                         is_fine_locked = 1;
                         is_explicit_lock_granularity = 0;
-                        no_locks = -1;
+                        number_of_locks = -1;
                     } else if (tp[2] == am_true) {
                         if (!(status & DB_ORDERED_SET)) {
                             is_decentralized_counters = 0;
@@ -2331,12 +2334,12 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
                         is_fine_locked = 1;
                         is_explicit_lock_granularity = 0;
                         is_write_concurrency_auto = 0;
-                        no_locks = -1;
+                        number_of_locks = -1;
                     } else if (tp[2] == am_false) {
                         is_fine_locked = 0;
                         is_explicit_lock_granularity = 0;
                         is_write_concurrency_auto = 0;
-                        no_locks = -1;
+                        number_of_locks = -1;
                     } else break;
                     if (DB_LOCK_FREE(NULL))
 			is_fine_locked = 0;
@@ -2411,7 +2414,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
                 status |=  DB_FINE_LOCKED_AUTO;
             }
 	} else {
-            no_locks = -1;
+            number_of_locks = -1;
         }
     }
     else if (IS_TREE_TABLE(status)) {
@@ -2464,7 +2467,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 
     if (IS_HASH_TABLE(status)) {
         DbTableHash* hash_db = (DbTableHash*) tb;
-        hash_db->nlocks = no_locks;
+        hash_db->nlocks = number_of_locks;
     }
     cret = meth->db_create(BIF_P, tb);
     ASSERT(cret == DB_ERROR_NONE); (void)cret;

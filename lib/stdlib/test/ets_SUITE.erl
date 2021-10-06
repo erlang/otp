@@ -7427,9 +7427,15 @@ whereis_table(Config) when is_list(Config) ->
     Tid = ets:whereis(whereis_test),
 
     ets:insert(whereis_test, [{hello}, {there}]),
-
-    [[{hello}],[{there}]] = ets:match(whereis_test, '$1'),
-    [[{hello}],[{there}]] = ets:match(Tid, '$1'),
+    CheckMatch =
+        fun(MatchRes) ->
+                case MatchRes of
+                    [[{there}],[{hello}]] -> ok;
+                    [[{hello}],[{there}]] -> ok
+                end
+        end,
+    CheckMatch(ets:match(whereis_test, '$1')),
+    CheckMatch(ets:match(Tid, '$1')),
 
     true = ets:delete_all_objects(Tid),
 

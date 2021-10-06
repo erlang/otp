@@ -95,7 +95,7 @@ typedef enum {
 } db_hash_lock_array_resize_state;
 
 /* To adapt number of locks if hash table with {write_concurrency, auto} */
-void erl_db_hash_adapt_no_locks(DbTable* tb);
+void erl_db_hash_adapt_number_of_locks(DbTable* tb);
 
 /*
 ** Function prototypes, looks the same (except the suffix) for all 
