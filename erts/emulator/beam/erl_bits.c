@@ -1043,16 +1043,10 @@ erts_new_bs_put_binary_all(Process *c_p, Eterm arg, Uint unit)
    ERL_BITS_DEFINE_STATEP(c_p);
 
    /*
-    * This type test is not needed if the code was compiled with
-    * an R12B or later compiler, since there would have been a
-    * call to bit_size/1 or byte_size/1 that would have failed if
-    * 'arg' was not a binary. However, in R11B and earlier releases,
-    * size/1 was use for calculating the size of the binary, and
-    * therefore 'arg' could be a tuple.
+    * This instruction is always preceded by a size calculation that
+    * will guarantee that 'arg' is a binary.
     */
-   if (!is_binary(arg)) {
-       return 0;
-   }
+   ASSERT(is_binary(arg));
 
    ERTS_GET_BINARY_BYTES(arg, bptr, bitoffs, bitsize);
    num_bits = 8*binary_size(arg)+bitsize;
