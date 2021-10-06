@@ -28,6 +28,8 @@ extern ERL_NIF_TERM atom_true;
 extern ERL_NIF_TERM atom_false;
 extern ERL_NIF_TERM atom_sha;
 extern ERL_NIF_TERM atom_error;
+extern ERL_NIF_TERM atom_encrypt;
+extern ERL_NIF_TERM atom_padding;
 extern ERL_NIF_TERM atom_pkcs_padding;
 extern ERL_NIF_TERM atom_zero;
 extern ERL_NIF_TERM atom_random;

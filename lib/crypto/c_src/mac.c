@@ -176,10 +176,10 @@ ERL_NIF_TERM mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifBinary  text;
 
     if (!enif_inspect_iolist_as_binary(env, argv[3], &text))
-        return EXCP_BADARG(env, "Bad text");
+        return EXCP_BADARG_N(env, 3, "Bad text");
 
     if (text.size > INT_MAX)
-        return EXCP_BADARG(env, "Too long text");
+        return EXCP_BADARG_N(env, 3, "Too long text");
 
     /* Run long jobs on a dirty scheduler to not block the current emulator thread */
     if (text.size > MAX_BYTES_TO_NIF) {
@@ -213,28 +213,28 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     */
     if (!enif_inspect_iolist_as_binary(env, argv[2], &key_bin))
         {
-            return_term = EXCP_BADARG(env, "Bad key");
+            return_term = EXCP_BADARG_N(env, 2, "Bad key");
             goto err;
         }
 
     if (!enif_inspect_iolist_as_binary(env, argv[3], &text))
         {
-            return_term = EXCP_BADARG(env, "Bad text");
+            return_term = EXCP_BADARG_N(env, 3, "Bad text");
             goto err;
         }
 
     if (!(macp = get_mac_type(argv[0], key_bin.size)))
         {
             if (!get_mac_type_no_key(argv[0]))
-                return_term = EXCP_BADARG(env, "Unknown mac algorithm");
+                return_term = EXCP_BADARG_N(env, 0, "Unknown mac algorithm");
             else
-                return_term = EXCP_BADARG(env, "Bad key length");
+                return_term = EXCP_BADARG_N(env, 2, "Bad key length");
             goto err;
         }
 
     if (MAC_FORBIDDEN_IN_FIPS(macp))
         {
-            return_term = EXCP_NOTSUP(env, "MAC algorithm forbidden in FIPS");
+            return_term = EXCP_NOTSUP_N(env, 0, "MAC algorithm forbidden in FIPS");
             goto err;
         }
 
@@ -256,17 +256,17 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
             if ((digp = get_digest_type(argv[1])) == NULL)
                 {
-                    return_term = EXCP_BADARG(env, "Bad digest algorithm for HMAC");
+                    return_term = EXCP_BADARG_N(env, 1, "Bad digest algorithm for HMAC");
                     goto err;
                 }
             if (digp->md.p == NULL)
                 {
-                    return_term = EXCP_NOTSUP(env, "Unsupported digest algorithm");
+                    return_term = EXCP_NOTSUP_N(env, 1, "Unsupported digest algorithm");
                     goto err;
                 }
             if (DIGEST_FORBIDDEN_IN_FIPS(digp))
                 {
-                    return_term = EXCP_NOTSUP(env, "Digest algorithm for HMAC forbidden in FIPS");
+                    return_term = EXCP_NOTSUP_N(env, 1, "Digest algorithm for HMAC forbidden in FIPS");
                     goto err;
                 }
             md = digp->md.p;
@@ -300,22 +300,22 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             if (!(cipherp = get_cipher_type(argv[1], key_bin.size)))
                 { /* Something went wrong. Find out what by retrying in another way. */
                     if (!get_cipher_type_no_key(argv[1]))
-                        return_term = EXCP_BADARG(env, "Unknown cipher");
+                        return_term = EXCP_BADARG_N(env, 1, "Unknown cipher");
                     else
                         /* Cipher exists, so it must be the key size that is wrong */
-                        return_term = EXCP_BADARG(env, "Bad key size");
+                        return_term = EXCP_BADARG_N(env, 2, "Bad key size");
                     goto err;
                 }
             
             if (CIPHER_FORBIDDEN_IN_FIPS(cipherp))
                 {
-                    return_term = EXCP_NOTSUP(env, "Cipher algorithm not supported in FIPS");
+                    return_term = EXCP_NOTSUP_N(env, 1, "Cipher algorithm not supported in FIPS");
                     goto err;
                 }
 
             if (cipherp->cipher.p == NULL)
                 {
-                    return_term = EXCP_NOTSUP(env, "Unsupported cipher algorithm");
+                    return_term = EXCP_NOTSUP_N(env, 1, "Unsupported cipher algorithm");
                     goto err;
                 }
 
@@ -349,7 +349,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     case NO_mac:
     default:
         /* We know that this mac is supported with some version(s) of cryptolib */
-        return_term = EXCP_NOTSUP(env, "Unsupported mac algorithm");
+        return_term = EXCP_NOTSUP_N(env, 1, "Unsupported mac algorithm");
         goto err;
     }
 
@@ -506,22 +506,22 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     */
     if (!enif_inspect_iolist_as_binary(env, argv[2], &key_bin))
         {
-            return_term = EXCP_BADARG(env, "Bad key");
+            return_term = EXCP_BADARG_N(env, 2, "Bad key");
             goto err;
         }
 
     if (!(macp = get_mac_type(argv[0], key_bin.size)))
         {
             if (!get_mac_type_no_key(argv[0]))
-                return_term = EXCP_BADARG(env, "Unknown mac algorithm");
+                return_term = EXCP_BADARG_N(env, 0, "Unknown mac algorithm");
             else
-                return_term = EXCP_BADARG(env, "Bad key length");
+                return_term = EXCP_BADARG_N(env, 2, "Bad key length");
             goto err;
         }
 
     if (MAC_FORBIDDEN_IN_FIPS(macp))
         {
-            return_term = EXCP_NOTSUP(env, "MAC algorithm forbidden in FIPS");
+            return_term = EXCP_NOTSUP_N(env, 0, "MAC algorithm forbidden in FIPS");
             goto err;
         }
 
@@ -543,17 +543,17 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
             if ((digp = get_digest_type(argv[1])) == NULL)
                 {
-                    return_term = EXCP_BADARG(env, "Bad digest algorithm for HMAC");
+                    return_term = EXCP_BADARG_N(env, 1, "Bad digest algorithm for HMAC");
                     goto err;
                 }
             if (digp->md.p == NULL)
                 {
-                    return_term = EXCP_NOTSUP(env, "Unsupported digest algorithm");
+                    return_term = EXCP_NOTSUP_N(env, 1, "Unsupported digest algorithm");
                     goto err;
                 }
             if (DIGEST_FORBIDDEN_IN_FIPS(digp))
                 {
-                    return_term = EXCP_NOTSUP(env, "Digest algorithm for HMAC forbidden in FIPS");
+                    return_term = EXCP_NOTSUP_N(env, 1, "Digest algorithm for HMAC forbidden in FIPS");
                     goto err;
                 }
             md = digp->md.p;
@@ -579,22 +579,22 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             if (!(cipherp = get_cipher_type(argv[1], key_bin.size)))
                 { /* Something went wrong. Find out what by retrying in another way. */
                     if (!get_cipher_type_no_key(argv[1]))
-                        return_term = EXCP_BADARG(env, "Unknown cipher");
+                        return_term = EXCP_BADARG_N(env, 1, "Unknown cipher");
                     else
                         /* Cipher exists, so it must be the key size that is wrong */
-                        return_term = EXCP_BADARG(env, "Bad key size");
+                        return_term = EXCP_BADARG_N(env, 2, "Bad key size");
                     goto err;
                 }
             
             if (CIPHER_FORBIDDEN_IN_FIPS(cipherp))
                 {
-                    return_term = EXCP_NOTSUP(env, "Cipher algorithm not supported in FIPS");
+                    return_term = EXCP_NOTSUP_N(env, 1, "Cipher algorithm not supported in FIPS");
                     goto err;
                 }
 
             if (cipherp->cipher.p == NULL)
                 {
-                    return_term = EXCP_NOTSUP(env, "Unsupported cipher algorithm");
+                    return_term = EXCP_NOTSUP_N(env, 1, "Unsupported cipher algorithm");
                     goto err;
                 }
 
@@ -621,7 +621,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     case NO_mac:
     default:
         /* We know that this mac is supported with some version(s) of cryptolib */
-        return_term = EXCP_NOTSUP(env, "Unsupported mac algorithm");
+        return_term = EXCP_NOTSUP_N(env, 0, "Unsupported mac algorithm");
         goto err;
     }
 
@@ -666,7 +666,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 #else
     if (argv[0] != atom_hmac)
-        return EXCP_NOTSUP(env, "Unsupported mac algorithm");
+        return EXCP_NOTSUP_N(env, 0, "Unsupported mac algorithm");
 
     return hmac_init_nif(env, argc, argv);
 #endif
@@ -679,10 +679,10 @@ ERL_NIF_TERM mac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifBinary  text;
 
     if (!enif_inspect_iolist_as_binary(env, argv[1], &text))
-        return EXCP_BADARG(env, "Bad text");
+        return EXCP_BADARG_N(env, 1, "Bad text");
 
     if (text.size > INT_MAX)
-        return EXCP_BADARG(env, "Too long text");
+        return EXCP_BADARG_N(env, 1, "Too long text");
 
     /* Run long jobs on a dirty scheduler to not block the current emulator thread */
     if (text.size > MAX_BYTES_TO_NIF) {
@@ -702,10 +702,10 @@ ERL_NIF_TERM mac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifBinary text;
 
     if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)mac_context_rtype, (void**)&obj))
-        return EXCP_BADARG(env, "Bad ref");
+        return EXCP_BADARG_N(env, 0, "Bad ref");
 
     if (!enif_inspect_iolist_as_binary(env, argv[1], &text))
-        return EXCP_BADARG(env, "Bad text");
+        return EXCP_BADARG_N(env, 1, "Bad text");
 
     if (EVP_DigestSignUpdate(obj->ctx, text.data, text.size) != 1)
         return EXCP_ERROR(env, "EVP_DigestSignUpdate");
@@ -728,7 +728,7 @@ ERL_NIF_TERM mac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifBinary ret_bin;
     
     if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)mac_context_rtype, (void**)&obj))
-        return EXCP_BADARG(env, "Bad ref");
+        return EXCP_BADARG_N(env, 0, "Bad ref");
 
     if (EVP_DigestSignFinal(obj->ctx, NULL, &size) != 1)
         return EXCP_ERROR(env, "Can't get sign size");

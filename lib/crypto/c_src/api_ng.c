@@ -85,13 +85,117 @@ int EVP_CIPHER_CTX_copy(EVP_CIPHER_CTX *out, const EVP_CIPHER_CTX *in)
 /* Get the arguments for the initialization of the EVP_CIPHER_CTX. Check */
 /* them and initialize that context.                                     */
 /*************************************************************************/
+
+static ERL_NIF_TERM get_opts(ErlNifEnv* env, const ERL_NIF_TERM opts, int opts_arg_num, int *encflgp, ERL_NIF_TERM *padflgp)
+{ /* boolean() | [{Tag,Val}]  Tag = encrypt | padding */
+    unsigned list_len;
+    ERL_NIF_TERM p, hd, tl;
+
+    *padflgp = atom_false; /* Not valid as padding value */
+    /* First check if the opts is an atom: */
+    if (opts == atom_true)
+        {
+            *encflgp = 1;
+            *padflgp = atom_undefined;
+            return atom_ok;
+        }
+
+    if (opts == atom_false)
+        {
+            *encflgp = 0;
+            *padflgp = atom_undefined;
+            return atom_ok;
+        }
+
+    if (opts == atom_undefined)
+        /* For compat funcs in crypto.erl. TODO: check and remove */
+        {
+            *encflgp = -1;
+            *padflgp = atom_undefined;
+            return atom_ok;
+        }
+
+    if (!enif_is_list(env, opts) || !enif_get_list_length(env, opts, &list_len))
+        /* Not a boolean() and not a list, definitly an error */
+        return EXCP_BADARG_N(env, opts_arg_num, "Options are not a boolean or a proper list");
+
+    /* A list, might be a property list, as it should */
+    *encflgp = -14; /* why not? */
+    p = opts;
+    while (enif_get_list_cell(env, p, &hd, &tl))
+        /* Loop through the list [{Tag,Value},...]
+              - check that
+                 + the list is proper
+                 + each list element is a 2-tuple
+                 + the Tag is known
+                 + the Value is of right type
+              - assign Values of known Tags to their respective flags
+        */
+        {
+            int arity;
+            const ERL_NIF_TERM* elements;
+
+            if (!(enif_get_tuple(env, hd, &arity, &elements) && (arity == 2)) )
+                return EXCP_BADARG_N(env, opts_arg_num, "Options must be a property list!");
+
+            if (elements[0] == atom_encrypt)
+                {
+                    if (*encflgp != -14)
+                        return EXCP_BADARG_N(env, opts_arg_num, "'encrypt' option is present more than once!");
+                    else if (elements[1] == atom_true)
+                        *encflgp = 1;
+                    else if (elements[1] == atom_false)
+                        *encflgp = 0;
+                    else if (elements[1] == atom_undefined)
+                        *encflgp = -1; /* For compat funcs in crypto.erl. TODO: check and remove */
+                    else
+                        return EXCP_BADARG_N(env, opts_arg_num, "The 'encrypt' option must be a boolean!");
+                }
+            else if (elements[0] == atom_padding)
+                {
+                    if (*padflgp != atom_false)
+                        return EXCP_BADARG_N(env, opts_arg_num, "The 'padding' option is present more than once!");
+
+                    else if ((elements[1] == atom_undefined) ||
+                             (elements[1] == atom_none) ||
+                             (elements[1] == atom_zero) ||
+                             (elements[1] == atom_random) ||
+                             (elements[1] == atom_pkcs_padding)
+                             )
+                        *padflgp = elements[1];
+
+                    else
+                        return EXCP_BADARG_N(env, opts_arg_num, "Bad 'padding' option value");
+                }
+            else
+                {
+                    char msg[64];
+                    if (enif_snprintf(msg, 64, "Bad tag in option: %T", elements[0]))
+                        return EXCP_BADARG_N(env, opts_arg_num, msg);
+                    else
+                        return EXCP_BADARG_N(env, opts_arg_num, "Bad tag in option!");
+                }
+
+            p = tl; /* prepare for handling next list element or to exit the loop */
+        }
+
+    if (*encflgp == -14)
+        *encflgp = 1; /* {encrypt,true} is the default */
+
+    if (*padflgp == atom_false)
+        *padflgp = atom_undefined; /* {padding,undefined} is the default */
+
+    return atom_ok;
+}
+
+
 static int get_init_args(ErlNifEnv* env,
                          struct evp_cipher_ctx *ctx_res,
-                         const ERL_NIF_TERM cipher_arg,
-                         const ERL_NIF_TERM key_arg, 
-                         const ERL_NIF_TERM ivec_arg,
-                         const ERL_NIF_TERM encflg_arg,
-                         const ERL_NIF_TERM padding_arg,
+                         const ERL_NIF_TERM argv[],
+                         int cipher_arg_num,
+                         int key_arg_num,
+                         int ivec_arg_num,
+                         int opts_arg_num,
                          const struct cipher_type_t **cipherp,
                          ERL_NIF_TERM *return_term)
 {
@@ -103,57 +207,48 @@ static int get_init_args(ErlNifEnv* env,
 #if !defined(HAVE_EVP_AES_CTR)
     ctx_res->env = NULL; /* For testing if *env should be freed after errors */
 #endif
-    ctx_res->padding = atom_undefined;
     ctx_res->padded_size = -1;
     ctx_res->size = 0;
-    
-    /* Fetch the flag telling if we are going to encrypt (=true) or decrypt (=false) */
-    if (encflg_arg == atom_true)
-        ctx_res->encflag = 1;
-    else if (encflg_arg == atom_false)
-        ctx_res->encflag = 0;
-    else if (encflg_arg == atom_undefined)
-        /* For compat funcs in crypto.erl */
-        ctx_res->encflag = -1;
-    else
-        {
-            *return_term = EXCP_BADARG(env, "Bad enc flag");
-            goto err;
-        }
+
+    /* Fetch the options */
+    if ((*return_term =
+         get_opts(env, argv[opts_arg_num], opts_arg_num, &(ctx_res->encflag), &(ctx_res->padding))
+         ) != atom_ok)
+        goto err;
 
     /* Fetch the key */
-    if (!enif_inspect_iolist_as_binary(env, key_arg, &key_bin))
+    if (!enif_inspect_iolist_as_binary(env, argv[key_arg_num], &key_bin))
         {
-            *return_term = EXCP_BADARG(env, "Bad key");
+            *return_term = EXCP_BADARG_N(env, key_arg_num, "Bad key");
             goto err;
         }
 
     /* Fetch cipher type */
-    if (!enif_is_atom(env, cipher_arg))
+    if (!enif_is_atom(env, argv[cipher_arg_num]))
         {
-            *return_term = EXCP_BADARG(env, "Cipher id is not an atom");
+            *return_term = EXCP_BADARG_N(env, cipher_arg_num, "Cipher id is not an atom");
             goto err;
         }
 
-    if (!(*cipherp = get_cipher_type(cipher_arg, key_bin.size)))
+    if (!(*cipherp = get_cipher_type(argv[cipher_arg_num], key_bin.size)))
         {
-            if (!get_cipher_type_no_key(cipher_arg))
-                *return_term = EXCP_BADARG(env, "Unknown cipher");
+            if (!get_cipher_type_no_key(argv[cipher_arg_num]))
+                *return_term = EXCP_BADARG_N(env, cipher_arg_num, "Unknown cipher");
             else
-                *return_term = EXCP_BADARG(env, "Bad key size");
+                *return_term = EXCP_BADARG_N(env, key_arg_num, "Bad key size");
             goto err;
         }
 
     if ((*cipherp)->flags &  AEAD_CIPHER)
         {
-            *return_term = EXCP_BADARG(env, "Missing arguments for this cipher");
+            *return_term = EXCP_BADARG_N(env, cipher_arg_num, "Missing arguments for this cipher");
             goto err;
         }
 
 
     if (CIPHER_FORBIDDEN_IN_FIPS(*cipherp))
         {
-            *return_term = EXCP_NOTSUP(env, "Forbidden in FIPS");
+            *return_term = EXCP_NOTSUP_N(env, cipher_arg_num, "Forbidden in FIPS");
             goto err;
         }
 
@@ -171,32 +266,34 @@ static int get_init_args(ErlNifEnv* env,
             ivec_len = 16;
         else {
             /* Unsupported crypto */
-            *return_term = EXCP_NOTSUP(env, "Cipher not supported in this libcrypto version");
+            *return_term =
+                EXCP_NOTSUP_N(env, cipher_arg_num, "Cipher not supported in this libcrypto version");
             goto err;
         }
     }
 #else
     /* Normal code */
     if (!((*cipherp)->cipher.p)) {
-        *return_term = EXCP_NOTSUP(env, "Cipher not supported in this libcrypto version");
+        *return_term =
+            EXCP_NOTSUP_N(env, cipher_arg_num, "Cipher not supported in this libcrypto version");
         goto err;
     }
     ivec_len = GET_IV_LEN(*cipherp);
 #endif
     
-    /* (*cipherp)->cipher.p != NULL and ivec_len has a value */
+    /* Here: (*cipherp)->cipher.p != NULL and ivec_len has a value */
 
     /* Fetch IV */
-    if (ivec_len && (ivec_arg != atom_undefined)) {
-        if (!enif_inspect_iolist_as_binary(env, ivec_arg, &ivec_bin))
+    if (ivec_len && (argv[ivec_arg_num] != atom_undefined)) {
+        if (!enif_inspect_iolist_as_binary(env, argv[ivec_arg_num], &ivec_bin))
             {
-                *return_term = EXCP_BADARG(env, "Bad iv type");
+                *return_term = EXCP_BADARG_N(env, ivec_arg_num, "Bad iv type");
                 goto err;
             }
 
         if (ivec_len != ivec_bin.size)
             {
-                *return_term = EXCP_BADARG(env, "Bad iv size");
+                *return_term = EXCP_BADARG_N(env, ivec_arg_num, "Bad iv size");
                 goto err;
             }
     }
@@ -211,7 +308,7 @@ static int get_init_args(ErlNifEnv* env,
         ERL_NIF_TERM ecount_bin;
         unsigned char *outp;
         if ((outp = enif_make_new_binary(env, AES_BLOCK_SIZE, &ecount_bin)) == NULL) {
-            *return_term = EXCP_ERROR(env, "Can't allocate ecount_bin");
+            *return_term = EXCP_ERROR(env, "Can't allocate output data binary");
             goto err;
         }
         memset(outp, 0, AES_BLOCK_SIZE);
@@ -223,7 +320,7 @@ static int get_init_args(ErlNifEnv* env,
         }
         ctx_res->state =
             enif_make_copy(ctx_res->env,
-                           enif_make_tuple4(env, key_arg, ivec_arg, ecount_bin, enif_make_int(env, 0)));
+                           enif_make_tuple4(env, argv[key_arg_num], argv[ivec_arg_num], ecount_bin, enif_make_int(env, 0)));
         goto success;
     } else {
         /* Flag for subsequent calls that no aes_ctr compatibility code should be called */
@@ -249,27 +346,27 @@ static int get_init_args(ErlNifEnv* env,
 
     if (!EVP_CIPHER_CTX_set_key_length(ctx_res->ctx, (int)key_bin.size))
         {
-            *return_term = EXCP_ERROR(env, "Can't initialize context, key_length");
+            *return_term = EXCP_ERROR_N(env, key_arg_num, "Can't initialize context, key_length");
             goto err;
         }
 
 #ifdef HAVE_RC2
     if (EVP_CIPHER_type((*cipherp)->cipher.p) == NID_rc2_cbc) {
         if (key_bin.size > INT_MAX / 8) {
-            *return_term = EXCP_BADARG(env, "To large rc2_cbc key");
+            *return_term = EXCP_BADARG_N(env, key_arg_num, "To large rc2_cbc key");
             goto err;
         }
         if (!EVP_CIPHER_CTX_ctrl(ctx_res->ctx, EVP_CTRL_SET_RC2_KEY_BITS, (int)key_bin.size * 8, NULL)) {
-            *return_term = EXCP_ERROR(env, "ctrl rc2_cbc key");
+            *return_term = EXCP_BADARG_N(env, key_arg_num, "ctrl rc2_cbc key");
             goto err;
         }
     }
 #endif
 
-    if (ivec_arg == atom_undefined || ivec_len == 0)
+    if (argv[ivec_arg_num] == atom_undefined || ivec_len == 0)
         {
             if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, key_bin.data, NULL, -1)) {
-                *return_term = EXCP_ERROR(env, "Can't initialize key");
+                *return_term = EXCP_BADARG_N(env, key_arg_num, "Can't initialize key");
                 goto err;
             }
         }
@@ -281,19 +378,8 @@ static int get_init_args(ErlNifEnv* env,
             }
 
     /* Set padding */
-    if ((padding_arg == atom_undefined) ||
-        (padding_arg == atom_none) ||
-        (padding_arg == atom_zero) ||
-        (padding_arg == atom_random) )
+    if (ctx_res->padding != atom_pkcs_padding) /* pkcs_padding is default */
         EVP_CIPHER_CTX_set_padding(ctx_res->ctx, 0);
-
-    else if (padding_arg != atom_pkcs_padding) /* pkcs_padding is default */
-        {
-            *return_term = EXCP_BADARG(env, "Bad padding flag");
-            goto err;
-        }
-
-    ctx_res->padding = padding_arg;
 
     *return_term = atom_ok;
 
@@ -309,18 +395,18 @@ static int get_init_args(ErlNifEnv* env,
 /*************************************************************************/
 /* Get the arguments for the EVP_CipherUpdate function, and call it.     */
 /*************************************************************************/
-
 static int get_update_args(ErlNifEnv* env,
                            struct evp_cipher_ctx *ctx_res,
-                           const ERL_NIF_TERM indata_arg,
+                           const ERL_NIF_TERM argv[],
+                           int indata_arg_num,
                            ERL_NIF_TERM *return_term)
 {
     ErlNifBinary in_data_bin, out_data_bin;
     int out_len, block_size;
 
-    if (!enif_inspect_binary(env, indata_arg, &in_data_bin) )
+    if (!enif_inspect_iolist_as_binary(env, argv[indata_arg_num], &in_data_bin) )
         {
-            *return_term = EXCP_BADARG(env, "Bad 2:nd arg");
+            *return_term = EXCP_BADARG_N(env, indata_arg_num, "Expected binary");
             goto err0;
         }
 
@@ -340,7 +426,7 @@ static int get_update_args(ErlNifEnv* env,
         if (enif_get_tuple(env, state0, &tuple_argc, &tuple_argv) && (tuple_argc == 4)) {
             /* A compatibility state term */
             /* encrypt and decrypt is performed by calling the same function */
-            newstate_and_outdata = aes_ctr_stream_encrypt_compat(env, state0, indata_arg);
+            newstate_and_outdata = aes_ctr_stream_encrypt_compat(env, state0, argv[indata_arg_num]);
 
             if (enif_get_tuple(env, newstate_and_outdata, &tuple_argc, &tuple_argv) && (tuple_argc == 2)) {
                 /* newstate_and_outdata = {NewState, OutData} */
@@ -488,7 +574,11 @@ static int get_final_args(ErlNifEnv* env,
 
                     else
                         {
-                            *return_term = EXCP_ERROR(env, "Bad padding flg");
+                            char msg[64];
+                            if (enif_snprintf(msg, 64, "Bad padding flag: %T", ctx_res->padding))
+                                *return_term = EXCP_ERROR(env, msg);
+                            else
+                                *return_term = EXCP_ERROR(env, "Bad padding flg");
                             goto err;
                         }
                     
@@ -567,7 +657,7 @@ static int get_final_args(ErlNifEnv* env,
 /*************************************************************************/
 
 ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Cipher, Key, IVec, Encrypt, Padding)  % if no IV for the Cipher, set IVec = <<>>
+{/* (Cipher, Key, IVec, OptionsMap)  % if no IV for the Cipher, set IVec = <<>>
  */
     struct evp_cipher_ctx *ctx_res = NULL;
     const struct cipher_type_t *cipherp;
@@ -577,8 +667,7 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         if ((ctx_res = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx))) == NULL)
             return EXCP_ERROR(env, "Can't allocate resource");
 
-        if (get_init_args(env, ctx_res, argv[0], argv[1], argv[2], argv[3], argv[4],
-                           &cipherp, &ret))
+        if (get_init_args(env, ctx_res, argv, 0, 1, 2, 3, &cipherp, &ret))
             ret = enif_make_resource(env, ctx_res);
         /* else error msg in ret */
 
@@ -591,7 +680,7 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         else if (argv[3] == atom_false)
             ctx_res->encflag = 0;
         else {
-            ret = EXCP_BADARG(env, "Bad enc flag");
+            ret = EXCP_BADARG_N(env, 3, "Expected true or false");
             goto ret;
         }
         if (ctx_res->ctx) {
@@ -603,7 +692,7 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         }
         ret = argv[0];
     } else {
-        ret = EXCP_BADARG(env, "Bad 1:st arg");
+        ret = EXCP_BADARG_N(env, 0, "Expected cipher name atom");
         goto ret;
     }
 
@@ -625,7 +714,7 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     ctx_res_copy.ctx = NULL;
 
     if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)evp_cipher_ctx_rtype, (void**)&ctx_res))
-        return EXCP_BADARG(env, "Bad 1:st arg");
+        return EXCP_BADARG_N(env, 0, "Bad State");
     
     if (argc == 3) {
         /* We have an IV in this call. Make a copy of the context */
@@ -647,13 +736,13 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 
         if (!enif_inspect_iolist_as_binary(env, argv[2], &ivec_bin))
             {
-                ret = EXCP_BADARG(env, "Bad iv type");
+                ret = EXCP_BADARG_N(env, 2, "Bad iv type");
                 goto err;
             }
 
         if (ctx_res_copy.iv_len != ivec_bin.size)
             {
-                ret = EXCP_BADARG(env, "Bad iv size");
+                ret = EXCP_BADARG_N(env, 2, "Bad iv size");
                 goto err;
             }
         
@@ -676,11 +765,11 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
                     goto err;
                 }
         
-        get_update_args(env, &ctx_res_copy, argv[1], &ret);
+        get_update_args(env, &ctx_res_copy, argv, 1, &ret);
         ctx_res->size = ctx_res_copy.size;
     } else
         /* argc != 3, that is, argc = 2 (we don't have an IV in this call) */
-        get_update_args(env, ctx_res, argv[1], &ret);
+        get_update_args(env, ctx_res, argv, 1, &ret);
 
  err:
     if (ctx_res_copy.ctx)
@@ -694,11 +783,11 @@ ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 {/* (Context, Data [, IV]) */
     ErlNifBinary   data_bin;
 
-    if (!enif_inspect_binary(env, argv[1], &data_bin))
-        return EXCP_BADARG(env, "expected binary as data");
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &data_bin))
+        return EXCP_BADARG_N(env, 1, "expected binary");
 
     if (data_bin.size > INT_MAX)
-        return EXCP_BADARG(env, "to long data");
+        return EXCP_BADARG_N(env, 1, "too long data");
 
     /* Run long jobs on a dirty scheduler to not block the current emulator thread */
     if (data_bin.size > MAX_BYTES_TO_NIF) {
@@ -721,7 +810,7 @@ ERL_NIF_TERM ng_crypto_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     ERL_NIF_TERM ret;
 
     if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)evp_cipher_ctx_rtype, (void**)&ctx_res))
-        return EXCP_BADARG(env, "Bad arg");
+        return EXCP_BADARG_N(env, 0, "Bad State");
 
     get_final_args(env, ctx_res, &ret);
 
@@ -733,7 +822,7 @@ ERL_NIF_TERM ng_crypto_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 /*************************************************************************/
 
 ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Cipher, Key, IVec, Data, Encrypt, PaddingType) */
+{/* (Cipher, Key, IVec, Data, OptionsMap) */
     struct evp_cipher_ctx ctx_res;
     const struct cipher_type_t *cipherp;
     ERL_NIF_TERM ret;
@@ -746,11 +835,11 @@ ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 #endif
 
     /* EVP_CipherInit */
-    if (!get_init_args(env, &ctx_res, argv[0], argv[1], argv[2], argv[4], argv[5], &cipherp, &ret))
+    if (!get_init_args(env, &ctx_res, argv, 0, 1, 2, 4, &cipherp, &ret))
         goto out;
 
     /* out_data = EVP_CipherUpdate */
-    if (!get_update_args(env, &ctx_res, argv[3], &ret))
+    if (!get_update_args(env, &ctx_res, argv, 3, &ret))
         /* Got an exception as result in &ret */
         goto out;
 
@@ -800,11 +889,11 @@ ERL_NIF_TERM ng_crypto_one_time_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
   */
     ErlNifBinary   data_bin;
 
-    if (!enif_inspect_binary(env, argv[3], &data_bin))
-        return EXCP_BADARG(env, "expected binary as data");
+    if (!enif_inspect_iolist_as_binary(env, argv[3], &data_bin))
+        return EXCP_BADARG_N(env, 3, "expected binary as data");
 
     if (data_bin.size > INT_MAX)
-        return EXCP_BADARG(env, "to long data");
+        return EXCP_BADARG_N(env, 3, "too long data");
 
     /* Run long jobs on a dirty scheduler to not block the current emulator thread */
     if (data_bin.size > MAX_BYTES_TO_NIF) {
@@ -827,7 +916,7 @@ ERL_NIF_TERM ng_crypto_get_data_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     ERL_NIF_TERM ret;
 
     if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)evp_cipher_ctx_rtype, (void**)&ctx_res))
-        return EXCP_BADARG(env, "Bad arg");
+        return EXCP_BADARG_N(env, 0, "Bad State");
 
     ret = enif_make_new_map(env);
 

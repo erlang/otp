@@ -42,7 +42,7 @@
 -export([privkey_to_pubkey/2]).
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
-
+-export([format_error/2]).
 %%%----------------------------------------------------------------
 %% Removed functions.
 %%
@@ -405,22 +405,46 @@
 
 
 %%--------------------------------------------------------------------
-%%
-%% Make the new descriptive_error() look like the old run_time_error()
-%%
--define(COMPAT(CALL),
-        try begin CALL end
-        catch
-            error:{error, {_File,_Line}, _Reason} ->
-                error(badarg);
-            error:{E, {_File,_Line}, _Reason} when E==notsup ; E==badarg ->
-                error(E)
-        end).
-
+%% Compilation and loading
 %%--------------------------------------------------------------------
 -compile(no_native).
 -on_load(on_load/0).
 -define(CRYPTO_NIF_VSN,302).
+
+%%--------------------------------------------------------------------
+%% When generating documentation from crypto.erl, the macro ?CRYPTO_VSN is not defined.
+%% That causes the doc generation to stop...
+-ifndef(CRYPTO_VSN).
+-define(CRYPTO_VSN, "??").
+-endif.
+
+%%--------------------------------------------------------------------
+%% Call a nif and handle an error exceptions to fit into the error handling
+%% in the Erlang shell.
+%% If not called from a shell, an error exception will be propagated.
+
+-define(nif_call(Call), ?nif_call(Call, undefined, {})).
+
+-define(nif_call(Call, ArgMap), ?nif_call(Call, undefined, ArgMap)).
+
+-define(nif_call(Call, Args0, ArgMap),
+        try Call
+        catch
+            error
+            : {Id, #{c_file_name := C_file,
+                          c_file_line_num := C_line,
+                          c_function_arg_num := ArgNum}, Msg}
+            : Stack when is_list(C_file),
+                         is_integer(C_line),
+                         is_integer(ArgNum) ->
+                error({Id, {C_file,C_line}, Msg},
+                      err_find_args(Args0, Stack),
+                      [{error_info, #{erl_function_arg_num => err_remap_C_argnum(ArgNum, ArgMap)}}]
+                     )
+        end).
+
+%%--------------------------------------------------------------------
+%% Error if the crypto nifs not are loaded
 
 -define(nif_stub,nif_stub_error(?LINE)).
 nif_stub_error(Line) ->
@@ -429,16 +453,24 @@ nif_stub_error(Line) ->
 %%--------------------------------------------------------------------
 %%% API
 %%--------------------------------------------------------------------
-%% Crypto app version history:
-%% (no version): Driver implementation
-%% 2.0         : NIF implementation, requires OTP R14
+version() ->
+    ?CRYPTO_VSN.
 
-%% When generating documentation from crypto.erl, the macro ?CRYPTO_VSN is not defined.
-%% That causes the doc generation to stop...
--ifndef(CRYPTO_VSN).
--define(CRYPTO_VSN, "??").
--endif.
-version() -> ?CRYPTO_VSN.
+format_error({Ex, {C_file,C_line}, Msg}, [{_M,_F,_Args,Opts} | _CallStack]) when Ex == badarg ;
+                                                                                 Ex == notsup ->
+    case proplists:get_value(error_info, Opts) of
+        #{erl_function_arg_num := ErlArgNum} ->
+            FileMsg =
+                io_lib:format("(Found in the internal file ~s at line ~p)", [C_file, C_line]),
+            case ErlArgNum of
+                undefined ->
+                    #{general => [Msg," ",FileMsg]};
+                N ->#{N => Msg,
+                      general => FileMsg
+                     }
+            end
+    end.
+
 
 -spec start() -> ok | {error, Reason::term()}.
 start() ->
@@ -770,11 +802,9 @@ cipher_info(Type) ->
                                                         FlagOrOptions :: crypto_opts() | boolean(),
                                                         State :: crypto_state() .
 crypto_init(Cipher, Key, FlagOrOptions) ->
-    ng_crypto_init_nif(Cipher,
-                       iolist_to_binary(Key),
-                       <<>>,
-                       get_crypto_opts(FlagOrOptions)).
-
+    ?nif_call(ng_crypto_init_nif(alias(Cipher,Key), Key, <<>>, FlagOrOptions),
+              {1,2,-1,3}
+             ).
 
 -spec crypto_init(Cipher, Key, IV, FlagOrOptions) -> State | descriptive_error()
                                                        when Cipher :: cipher_iv(),
@@ -783,40 +813,7 @@ crypto_init(Cipher, Key, FlagOrOptions) ->
                                                             FlagOrOptions :: crypto_opts(),
                                                             State :: crypto_state() .
 crypto_init(Cipher, Key, IV, FlagOrOptions) ->
-    ng_crypto_init_nif(Cipher,
-                       iolist_to_binary(Key),
-                       iolist_to_binary(IV),
-                       get_crypto_opts(FlagOrOptions)).
-
-%%%----------------------------------------------------------------
-get_crypto_opts(Options) when is_list(Options) ->
-    lists:foldl(fun chk_opt/2,
-                #{encrypt => true,
-                  padding => undefined
-                 },
-                Options);
-get_crypto_opts(Flag) when is_boolean(Flag) ->
-    #{encrypt => Flag,
-      padding => undefined
-     };
-get_crypto_opts(X) ->
-    error({badarg,{bad_option,X}}).
-
-
-chk_opt({Tag,Val}, A) ->
-    case ok_opt(Tag,Val) of
-        true ->
-            A#{Tag => Val};
-        false ->
-            error({badarg,{bad_option,{Tag,Val}}})
-    end;
-chk_opt(X, _) ->
-    error({badarg,{bad_option,X}}). 
-
-
-ok_opt(encrypt, V) -> lists:member(V, [true, false, undefined]);
-ok_opt(padding, V) -> lists:member(V, [none, pkcs_padding, zero, random, undefined]);
-ok_opt(_, _) -> false.
+    ?nif_call(ng_crypto_init_nif(alias(Cipher,Key), Key, IV, FlagOrOptions)).
 
 %%%----------------------------------------------------------------
 -spec crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) -> State | descriptive_error()
@@ -826,10 +823,10 @@ ok_opt(_, _) -> false.
                                                                State :: crypto_state() .
 crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) ->
     %% The IV is supposed to be supplied by calling crypto_update/3
-    ng_crypto_init_nif(Cipher,
-                       iolist_to_binary(Key),
-                       undefined,
-                       get_crypto_opts(FlagOrOptions)).
+    ?nif_call(ng_crypto_init_nif(alias(Cipher,Key), Key, undefined, FlagOrOptions),
+              [Cipher, Key, FlagOrOptions],
+              {1,2,-1,3}
+             ).
 
 %%%----------------------------------------------------------------
 %%%
@@ -843,7 +840,7 @@ crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) ->
                                  Data :: iodata(),
                                  Result :: binary() .
 crypto_update(State, Data) ->
-    ng_crypto_update_nif(State, iolist_to_binary(Data)).
+    ?nif_call(ng_crypto_update_nif(State, Data)).
 
 %%%----------------------------------------------------------------
 -spec crypto_dyn_iv_update(State, Data, IV) -> Result | descriptive_error()
@@ -852,7 +849,7 @@ crypto_update(State, Data) ->
                                                         IV :: iodata(),
                                                         Result :: binary() .
 crypto_dyn_iv_update(State, Data, IV) ->
-    ng_crypto_update_nif(State, iolist_to_binary(Data), iolist_to_binary(IV)).
+    ?nif_call(ng_crypto_update_nif(State, Data, IV)).
 
 %%%----------------------------------------------------------------
 %%%
@@ -864,7 +861,7 @@ crypto_dyn_iv_update(State, Data, IV) ->
                             when State :: crypto_state(),
                                  FinalResult :: binary() .
 crypto_final(State) ->
-    ng_crypto_final_nif(State).
+    ?nif_call(ng_crypto_final_nif(State)).
 
 %%%----------------------------------------------------------------
 %%%
@@ -874,7 +871,7 @@ crypto_final(State) ->
                             when State :: crypto_state(),
                                  Result :: map() .
 crypto_get_data(State) ->
-    ng_crypto_get_data_nif(State).
+    ?nif_call(ng_crypto_get_data_nif(State)).
 
 %%%----------------------------------------------------------------
 %%%
@@ -891,11 +888,10 @@ crypto_get_data(State) ->
                                       Result :: binary() .
 
 crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
-    ng_crypto_one_time_nif(Cipher,
-                           iolist_to_binary(Key),
-                           <<>>,
-                           iolist_to_binary(Data),
-                           get_crypto_opts(FlagOrOptions)).
+    ?nif_call(ng_crypto_one_time_nif(alias(Cipher,Key), Key, <<>>, Data, FlagOrOptions),
+              [Cipher, Key, Data, FlagOrOptions],
+              {1,2,-1,3,4}
+             ).
 
 
 -spec crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
@@ -908,11 +904,9 @@ crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
                                       Result :: binary() .
 
 crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
-    ng_crypto_one_time_nif(Cipher,
-                           iolist_to_binary(Key),
-                           iolist_to_binary(IV),
-                           iolist_to_binary(Data),
-                           get_crypto_opts(FlagOrOptions)).
+    ?nif_call(ng_crypto_one_time_nif(alias(Cipher,Key), Key, IV, Data, FlagOrOptions),
+              [Cipher, Key, IV, Data, FlagOrOptions],
+              {}).
 
 %%%----------------------------------------------------------------
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, EncFlag::true) ->
@@ -928,7 +922,9 @@ crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
                                       OutTag :: binary().
 
 crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, true) ->
-    crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, aead_tag_len(Cipher), true).
+    ?nif_call(aead_cipher_nif(alias(Cipher,Key), Key, IV, PlainText, AAD, aead_tag_len(Cipher), true),
+              {1,2,3,4,5,-1,6}
+             ).
 
 
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, TagOrTagLength, EncFlag) ->
@@ -950,8 +946,10 @@ crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, true) ->
                                       OutPlainText :: binary().
 
 crypto_one_time_aead(Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg) ->
-    aead_cipher(Cipher, iolist_to_binary(Key), IV,
-                TextIn, AAD, TagOrTagLength, EncFlg).
+    ?nif_call(aead_cipher_nif(alias(Cipher,Key), Key, IV, TextIn, AAD, TagOrTagLength, EncFlg),
+              [Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg],
+              {}
+             ).
 
 
 aead_tag_len(aes_ccm    ) -> 12;
@@ -969,12 +967,7 @@ aead_tag_len(_) ->
 %%%----------------------------------------------------------------
 %%% Cipher NIFs
 
-ng_crypto_init_nif(Cipher, Key, IVec, #{encrypt := EncryptFlag,
-                                        padding := Padding}) ->
-    ng_crypto_init_nif(alias(Cipher,Key), Key, IVec, EncryptFlag, Padding).
-    
-ng_crypto_init_nif(_Cipher, _Key, _IVec, _EncryptFlag, _Padding) -> ?nif_stub.
-
+ng_crypto_init_nif(_Cipher, _Key, _IVec, _OptionsMap) -> ?nif_stub.
 
 ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
 ng_crypto_update_nif(_State, _Data, _IV) -> ?nif_stub.
@@ -983,15 +976,7 @@ ng_crypto_final_nif(_State) -> ?nif_stub.
 
 ng_crypto_get_data_nif(_State) -> ?nif_stub.
 
-ng_crypto_one_time_nif(Cipher, Key, IVec, Data,  #{encrypt := EncryptFlag,
-                                                   padding := Padding}) ->
-    ng_crypto_one_time_nif(alias(Cipher,Key), Key, IVec, Data, EncryptFlag, Padding).
-
-ng_crypto_one_time_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlag, _Padding) -> ?nif_stub.
-
-%% The default tag length is EVP_GCM_TLS_TAG_LEN(16),
-aead_cipher(Cipher, Key, IVec, AAD, In, TagOrLength, EncFlg) ->
-    aead_cipher_nif(alias(Cipher,Key), Key, IVec, AAD, In, TagOrLength, EncFlg).
+ng_crypto_one_time_nif(_Cipher, _Key, _IVec, _Data, _OptionsMap) -> ?nif_stub.
 
 aead_cipher_nif(_Type, _Key, _Ivec, _AAD, _In, _TagOrTagLength, _EncFlg) -> ?nif_stub.
 
@@ -1001,13 +986,13 @@ cipher_info_nif(_Type) -> ?nif_stub.
 %%% Cipher aliases
 %%%
 
-alias(aes_cbc, Key)    -> alias1(aes_cbc, size(Key));
-alias(aes_cfb8, Key)   -> alias1(aes_cfb8, size(Key));
-alias(aes_cfb128, Key) -> alias1(aes_cfb128, size(Key));
-alias(aes_ctr, Key)    -> alias1(aes_ctr, size(Key));
-alias(aes_ecb, Key)    -> alias1(aes_ecb, size(Key));
-alias(aes_gcm, Key)    -> alias1(aes_gcm, size(Key));
-alias(aes_ccm, Key)    -> alias1(aes_ccm, size(Key));
+alias(aes_cbc, Key)    -> alias1(aes_cbc, iolist_size(Key));
+alias(aes_cfb8, Key)   -> alias1(aes_cfb8, iolist_size(Key));
+alias(aes_cfb128, Key) -> alias1(aes_cfb128, iolist_size(Key));
+alias(aes_ctr, Key)    -> alias1(aes_ctr, iolist_size(Key));
+alias(aes_ecb, Key)    -> alias1(aes_ecb, iolist_size(Key));
+alias(aes_gcm, Key)    -> alias1(aes_gcm, iolist_size(Key));
+alias(aes_ccm, Key)    -> alias1(aes_ccm, iolist_size(Key));
 alias(Alg, _) -> Alg.
 
 
@@ -2521,3 +2506,24 @@ choose_otp_test_engine([LibName | T], Type, Acc) ->
     end;
 choose_otp_test_engine([], _, Acc) ->
     Acc.
+
+%%%----------------------------------------------------------------
+%%% Error internals
+
+err_find_args(undefined, [{?MODULE,_F,Args,_Info}|_]) ->  Args;
+err_find_args(Args, _) -> Args.
+
+
+err_remap_C_argnum(ArgNum, ArgMap) ->
+    try
+        element(ArgNum + 1, ArgMap) % 0-numbered in C-file's argv[], 1-numbered in the tuple
+    of
+        N when is_integer(N), N>0 -> N;
+        _ -> undefined
+    catch
+        error:badarg when ArgNum >= 0 -> ArgNum+1; % short ArgMap
+        error:badarg -> undefined
+    end.
+
+
+%%%----------------------------------------------------------------

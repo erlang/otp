@@ -24,6 +24,8 @@ ERL_NIF_TERM atom_true;
 ERL_NIF_TERM atom_false;
 ERL_NIF_TERM atom_sha;
 ERL_NIF_TERM atom_error;
+ERL_NIF_TERM atom_encrypt;
+ERL_NIF_TERM atom_padding;
 ERL_NIF_TERM atom_pkcs_padding;
 ERL_NIF_TERM atom_zero;
 ERL_NIF_TERM atom_random;
@@ -165,6 +167,8 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
 
     atom_sha = enif_make_atom(env,"sha");
     atom_error = enif_make_atom(env,"error");
+    atom_encrypt = enif_make_atom(env,"encrypt");
+    atom_padding = enif_make_atom(env,"padding");
     atom_pkcs_padding = enif_make_atom(env,"pkcs_padding");
     atom_zero = enif_make_atom(env,"zero");
     atom_random = enif_make_atom(env,"random");
