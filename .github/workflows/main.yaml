@@ -44,7 +44,7 @@ jobs:
       WXWIDGETS_VERSION: 3.1.4
     name: Build Erlang/OTP on Windows
     runs-on: windows-latest
-    needs: pack
+    needs: build
     steps:
       - uses: Vampire/setup-wsl@v1
         with:
@@ -99,10 +99,10 @@ jobs:
           call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Enterprise\\VC\Auxiliary\\Build\\vcvars64.bat"
           nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
 
-      - name: Download source archive
+      - name: Download pre-built archive
         uses: actions/download-artifact@v2
         with:
-          name: otp_git_archive
+          name: otp_prebuilt
 
       - name: Compile Erlang
         run: |
