@@ -808,7 +808,7 @@ void BeamGlobalAssembler::emit_call_nif_shared(void) {
                        Update::eReductions>();
 
 #ifdef ERTS_MSACC_EXTENDED_STATES
-    { /* ToDO: x86 -> arm */
+    {
         Label skip_msacc = a.newLabel();
 
         a.ldr(TMP1, erts_msacc_cache);
