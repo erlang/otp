@@ -3039,7 +3039,7 @@ dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, const byte* ep,
 #define ENC_START_SORTING_MAP ((Eterm) 7)
 #define ENC_CONTINUE_SORTING_MAP ((Eterm) 8)
 #define ENC_PUSH_SORTED_MAP ((Eterm) 9)
-#define ENC_LAST_ARRAY_ELEMENT ((Eterm) 10)
+#define ENC_LAST_ARRAY_ELEMENT ((Eterm) 10) /* must be the largest one */
 
 static Eterm* alloc_map_array(Uint size)
 {
@@ -3466,6 +3466,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		ep += 4;
 	    }
 	    if (i > 0) {
+                ASSERT(ENC_LAST_ARRAY_ELEMENT+i-1 >= ENC_LAST_ARRAY_ELEMENT);
 		WSTACK_PUSH2(s, ENC_LAST_ARRAY_ELEMENT+i-1, (UWord)ptr);
 	    }
 	    break;
