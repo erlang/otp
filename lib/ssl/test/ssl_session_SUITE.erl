@@ -159,6 +159,7 @@ init_per_testcase(server_max_session_table, Config) ->
     ct:timetrap({seconds, 30}),
     Config;
 init_per_testcase(_, Config) ->
+    ct:timetrap({seconds, 30}),
     Config.
 
 end_per_testcase(reuse_session_expired, Config) ->
@@ -461,49 +462,49 @@ explicit_session_reuse_expired(Config) when is_list(Config) ->
 no_reuses_session_server_restart_new_cert() ->
     [{doc,"Check that a session is not reused if the server is restarted with a new cert."}].
 no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_der_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_der_verify_opts, Config),
+    RSA1024ServerOpts = ssl_test_lib:ssl_options(server_rsa_1024_der_opts, Config),
+    RSA1024ClientOpts = ssl_test_lib:ssl_options(client_rsa_1024_der_opts, Config),
 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    RSA1024ServerOpts = ssl_test_lib:ssl_options(server_rsa_1024_opts, Config),
-    RSA1024ClientOpts = ssl_test_lib:ssl_options(client_rsa_1024_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    Server =
+    Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
-		      {mfa, {ssl_test_lib, session_info_result, []}},
+                                   {mfa, {ssl_test_lib, session_info_result, []}},
 				   {options, ServerOpts}]),
-    Port = ssl_test_lib:inet_port(Server),
+    Port = ssl_test_lib:inet_port(Server0),
     Client0 =
 	ssl_test_lib:start_client([{node, ClientNode},
-		      {port, Port}, {host, Hostname},
-			    {mfa, {ssl_test_lib, no_result, []}},
-		      {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
-    SessionInfo =
-	receive
-	    {Server, Info} -> 
-		Info
-	end,
+                                   {port, Port}, {host, Hostname},
+                                   {mfa, {ssl_test_lib, session_info_result, []}},
+                                   {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
+    Info0 = receive {Server0, Info00} -> Info00 end,
+    Info0 = receive {Client0, Info01} -> Info01 end,
 
-    ssl_test_lib:close(Server),
+    ct:sleep(?SLEEP),
     ssl_test_lib:close(Client0),
+    ssl_test_lib:close(Server0),
 
-    Server1 =
-	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
-				   {from, self()},
-		      {mfa, {ssl_test_lib, no_result, []}},
-				   {options, [{reuseaddr, true} | RSA1024ServerOpts]}]),
+    Server1 = ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
+                                         {from, self()},
+                                         {mfa, {ssl_test_lib, session_info_result, []}},
+                                         {options, [{reuseaddr, true} | RSA1024ServerOpts]}]),
 
-    Client1 =
-	ssl_test_lib:start_client([{node, ClientNode},
-		      {port, Port}, {host, Hostname},
-		      {mfa, {ssl_test_lib, session_info_result, []}},
-		      {from, self()},  {options, RSA1024ClientOpts}]),
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib, session_info_result, []}},
+                                         {from, self()},  {options, RSA1024ClientOpts}]),
+    Info1 = receive {Server1, Info10} -> Info10 end,
+
     receive
-	{Client1, SessionInfo} ->
+	{Client1, Info0} ->
 	    ct:fail(session_reused_when_server_has_new_cert);
-	{Client1, _Other} ->
-	   ok
+	{Client1, Info1} ->
+            ct:pal("First: ~p~nSecond ~p~n",[Info0, Info1]);
+        Unexpected ->
+            ct:fail({unexpected, Unexpected, {Client1, Info1}})
     end,
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client1).

@@ -1710,16 +1710,20 @@ make_rsa_cert(Config) ->
             ServerChain = proplists:get_value(server_chain, Config, default_cert_chain_conf()),
             CertChainConf = gen_conf(rsa, rsa, ClientChain, ServerChain),
             GenCertData = public_key:pkix_test_data(CertChainConf),
+            #{client_config := ClientDerConf, server_config := ServerDerConf} = GenCertData,
+
             [{server_config, ServerConf}, 
              {client_config, ClientConf}] = 
                 x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
 	    [{server_rsa_opts, [{reuseaddr, true} | ServerConf]},
-             
-	     {server_rsa_verify_opts, [{reuseaddr, true},
-                                       {verify, verify_peer} | ServerConf]},
+	     {server_rsa_verify_opts, [{reuseaddr, true}, {verify, verify_peer} | ServerConf]},
 	     {client_rsa_opts, ClientConf},
-             {client_rsa_verify_opts,  [{verify, verify_peer} |ClientConf]}
-	     | Config];
+             {client_rsa_verify_opts,  [{verify, verify_peer} |ClientConf]},
+             {server_rsa_der_opts, [{reuseaddr, true} | ServerDerConf]},
+	     {server_rsa_der_verify_opts, [{reuseaddr, true}, {verify, verify_peer} | ServerDerConf]},
+	     {client_rsa_der_opts, ClientDerConf},
+             {client_rsa_der_verify_opts,  [{verify, verify_peer} |ClientDerConf]}
+            | Config];
 	false ->
 	    Config
     end.
@@ -1734,15 +1738,18 @@ make_rsa_1024_cert(Config) ->
             ServerChain = proplists:get_value(server_chain, Config, default_cert_chain_conf()),
             CertChainConf = gen_conf('rsa-1024', 'rsa-1024', ClientChain, ServerChain),
             GenCertData = public_key:pkix_test_data(CertChainConf),
+            #{client_config := ClientDerConf, server_config := ServerDerConf} = GenCertData,
             [{server_config, ServerConf}, 
              {client_config, ClientConf}] = 
                 x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
 	    [{server_rsa_1024_opts, [{ssl_imp, new},{reuseaddr, true} | ServerConf]},
-             
-	     {server_rsa_1024_verify_opts, [{ssl_imp, new}, {reuseaddr, true},
-					 {verify, verify_peer} | ServerConf]},
+	     {server_rsa_1024_verify_opts, [{ssl_imp, new}, {reuseaddr, true}, {verify, verify_peer} | ServerConf]},
 	     {client_rsa_1024_opts, ClientConf},
-             {client_rsa_1024_verify_opts,  [{verify, verify_peer} |ClientConf]}
+             {client_rsa_1024_verify_opts,  [{verify, verify_peer} |ClientConf]},
+             {server_rsa_1024_der_opts, [{ssl_imp, new},{reuseaddr, true} | ServerDerConf]},
+	     {server_rsa_1024_der_verify_opts, [{ssl_imp, new}, {reuseaddr, true}, {verify, verify_peer} | ServerDerConf]},
+	     {client_rsa_1024_der_opts, ClientDerConf},
+             {client_rsa_1024_der_verify_opts,  [{verify, verify_peer} |ClientDerConf]}
 	     | Config];
 	false ->
 	    Config
