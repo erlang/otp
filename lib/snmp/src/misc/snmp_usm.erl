@@ -201,53 +201,67 @@ auth_in(?usmHMAC384SHA512AuthProtocol, AuthKey, AuthParams, Packet) ->
                  ?usmHMAC384SHA512AuthProtocol_mac_length).
 
 auth_out(usmNoAuthProtocol, _AuthKey, _Message, _UsmSecParams) -> % 3.1.3
+    %% ?vtrace("auth_out(noAuth) -> entry"),
     error(unSupportedSecurityLevel);
 auth_out(?usmNoAuthProtocol, _AuthKey, _Message, _UsmSecParams) -> % 3.1.3
+    %% ?vtrace("auth_out(noAuth) -> entry"),
     error(unSupportedSecurityLevel);
 auth_out(usmHMACMD5AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    %% ?vtrace("auth_out(md5) -> entry"),
     md5_auth_out(AuthKey, Message, UsmSecParams);
 auth_out(?usmHMACMD5AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    %% ?vtrace("auth_out(md5) -> entry"),
     md5_auth_out(AuthKey, Message, UsmSecParams);
 auth_out(usmHMACSHAAuthProtocol, AuthKey, Message, UsmSecParams) ->
+    %% ?vtrace("auth_out(sha) -> entry"),
     sha_auth_out(AuthKey, Message, UsmSecParams);
 auth_out(?usmHMACSHAAuthProtocol, AuthKey, Message, UsmSecParams) ->
+    %% ?vtrace("auth_out(sha) -> entry"),
     sha_auth_out(AuthKey, Message, UsmSecParams);
 auth_out(usmHMAC128SHA224AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    %% ?vtrace("auth_out(sha224) -> entry"),
     sha2_auth_out(AuthKey, Message, UsmSecParams,
                   sha224,
                   ?usmHMAC128SHA224AuthProtocol_secret_key_length,
                   ?usmHMAC128SHA224AuthProtocol_mac_length);
 auth_out(?usmHMAC128SHA224AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    %% ?vtrace("auth_out(sha224) -> entry"), 
     sha2_auth_out(AuthKey, Message, UsmSecParams,
                   sha224,
                   ?usmHMAC128SHA224AuthProtocol_secret_key_length,
                   ?usmHMAC128SHA224AuthProtocol_mac_length);
 auth_out(usmHMAC192SHA256AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    %% ?vtrace("auth_out(sha256) -> entry"),
     sha2_auth_out(AuthKey, Message, UsmSecParams,
                   sha256,
                   ?usmHMAC192SHA256AuthProtocol_secret_key_length,
                   ?usmHMAC192SHA256AuthProtocol_mac_length);
 auth_out(?usmHMAC192SHA256AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    %% ?vtrace("auth_out(sha256) -> entry"),
     sha2_auth_out(AuthKey, Message, UsmSecParams,
                   sha256,
                   ?usmHMAC192SHA256AuthProtocol_secret_key_length,
                   ?usmHMAC192SHA256AuthProtocol_mac_length);
 auth_out(usmHMAC256SHA384AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    %% ?vtrace("auth_out(sha384) -> entry"),
     sha2_auth_out(AuthKey, Message, UsmSecParams,
                   sha384,
                   ?usmHMAC256SHA384AuthProtocol_secret_key_length,
                   ?usmHMAC256SHA384AuthProtocol_mac_length);
 auth_out(?usmHMAC256SHA384AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    %% ?vtrace("auth_out(sha384) -> entry"),
     sha2_auth_out(AuthKey, Message, UsmSecParams,
                   sha384,
                   ?usmHMAC256SHA384AuthProtocol_secret_key_length,
                   ?usmHMAC256SHA384AuthProtocol_mac_length);
 auth_out(usmHMAC384SHA512AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    %% ?vtrace("auth_out(sha512) -> entry"),
     sha2_auth_out(AuthKey, Message, UsmSecParams,
                   sha512,
                   ?usmHMAC384SHA512AuthProtocol_secret_key_length,
                   ?usmHMAC384SHA512AuthProtocol_mac_length);
 auth_out(?usmHMAC384SHA512AuthProtocol, AuthKey, Message, UsmSecParams) ->
+    %% ?vtrace("auth_out(sha512) -> entry"),
     sha2_auth_out(AuthKey, Message, UsmSecParams,
                   sha512,
                   ?usmHMAC384SHA512AuthProtocol_secret_key_length,

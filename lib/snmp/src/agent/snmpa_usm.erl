@@ -103,6 +103,7 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel, LocalEngineID) ->
 		true ->
 		    ok;
 		false ->
+                    ?vlog("process_incoming_msg -> engine id *not* known"),
 		    SecData1 = [MsgUserName],
 		    error(usmStatsUnknownEngineIDs, 
 			  ?usmStatsUnknownEngineIDs_instance, %% OTP-3542
@@ -116,14 +117,15 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel, LocalEngineID) ->
 		    User when element(?usmUserStatus, User) =:= ?'RowStatus_active' ->
 			User;
 		    {_, Name,_,_,_,_,_,_,_,_,_,_,_, RowStatus,_,_} ->
-			?vdebug("process_incoming_msg -> "
-				"found user ~p with wrong row status: ~p", 
-				[Name, RowStatus]),
+			?vlog("process_incoming_msg -> "
+                              "found user ~p with wrong row status: ~p", 
+                              [Name, RowStatus]),
 			SecData2 = [MsgUserName],
 			error(usmStatsUnknownUserNames, 
 			      ?usmStatsUnknownUserNames_instance, %% OTP-3542
 			      undefined, [{sec_data, SecData2}]);
 		    _ -> % undefined or not active user
+                        ?vlog("process_incoming_msg -> unknown user"),
 			SecData2 = [MsgUserName],
 			error(usmStatsUnknownUserNames, 
 			      ?usmStatsUnknownUserNames_instance, %% OTP-3542
@@ -359,7 +361,11 @@ is_auth(AuthProtocol, AuthKey, AuthParams, Packet, SecName,
 				   (MsgAuthEngineTime =:= 0) andalso 
 				   (TermDiscoEnabled =:= true) andalso 
 				   (TermDiscoStage2 =:= discovery)) -> %% 3.2.7a
-		    ?vtrace("is_auth -> terminating discovery stage 2 - discovery",[]),
+		    ?vtrace("is_auth -> terminating discovery stage 2 - discovery:"
+                            "~n      Local Boots: ~p"
+                            "~n      Local Time:  ~p",
+                            [get_local_engine_boots(LocalEngineID),
+                             get_local_engine_time(LocalEngineID)]),
 		    discovery;
 		SnmpEngineID when ((MsgAuthEngineBoots =:= 0) andalso 
 				   (MsgAuthEngineTime =:= 0) andalso 
@@ -455,16 +461,16 @@ generate_outgoing_msg(Message, SecEngineID, SecName, SecData, SecLevel,
 	case SecData of
 	    [] -> % 3.1.1b
 		%% Not a response - read from LCD
-                ?vtrace("generate_outgoing_msh -> [3.2.1b] get user from sec name"),
+                ?vtrace("generate_outgoing_msh -> [3.1.1b] get user from sec name"),
 		case snmp_user_based_sm_mib:get_user_from_security_name(
 		       SecEngineID, SecName) of
 		    User when element(?usmUserStatus, User) =:=
 			      ?'RowStatus_active' ->
-			{element(?usmUserName, User),
+			{element(?usmUserName,         User),
 			 element(?usmUserAuthProtocol, User),
 			 element(?usmUserPrivProtocol, User),
-			 element(?usmUserAuthKey, User),
-			 element(?usmUserPrivKey, User)};
+			 element(?usmUserAuthKey,      User),
+			 element(?usmUserPrivKey,      User)};
 		    {_, Name,_,_,_,_,_,_,_,_,_,_,_, RowStatus,_,_} ->
 			?vdebug("generate_outgoing_msg -> "
 				"found not active user ~p: ~p", 

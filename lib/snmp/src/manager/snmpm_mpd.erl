@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -310,7 +310,16 @@ process_v3_msg(NoteStore, Msg, Hdr, Data, Address, Log) ->
  		    {ok, 'version-3', PDU, PduMMS, ok};
  		_ when is_tuple(Note) ->
  		    ?vlog("process_v3_msg -> 7.2.11b: error"
- 			  "~n   Note: ~p", [Note]),
+ 			  "~n      Note:        ~p"
+ 			  "~n      SecEngineID: ~p"
+ 			  "~n      MsgSecModel: ~p"
+ 			  "~n      SecName:     ~p"
+ 			  "~n      SecLevel:    ~p"
+ 			  "~n      CtxEngineID: ~p"
+ 			  "~n      CtxName:     ~p",
+                          [Note,
+                           SecEngineID, MsgSecModel, SecName, SecLevel,
+                           CtxEngineID, CtxName]),
 		    Recv  = {SecEngineID, MsgSecModel, SecName, SecLevel,
 			     CtxEngineID, CtxName, PDU#pdu.request_id}, 
 		    Err   = sec_error(Note, Recv), 

@@ -713,7 +713,8 @@ get_usm_etime(SnmpEngineID) ->
     Key = {etime, SnmpEngineID},
     case get_usm_cache(Key) of
 	{ok, Diff} ->
-	    {ok, snmp_misc:now(sec) - Diff};
+            ETime = snmp_misc:now(sec) - Diff,
+            {ok, ETime};
 	_ ->
 	    {ok, 0}
     end.

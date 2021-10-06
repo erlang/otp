@@ -38,6 +38,7 @@
 
 -include_lib("snmp/include/snmp_types.hrl").
 -include_lib("snmp/include/STANDARD-MIB.hrl").
+-include_lib("snmp/include/SNMP-USER-BASED-SM-MIB.hrl").
 -include_lib("snmp/src/manager/snmpm_internal.hrl").
 
 
@@ -90,6 +91,8 @@
          simple_async_get_bulk3_cbp_temp/1,
          simple_async_get_bulk3_cbp_perm/1,
 	 
+	 simple_v3_exchange/1, 
+
 	 discovery/1,
 	 
 	 trap1/1,
@@ -188,8 +191,9 @@ groups() ->
      {otp8015,              [], otp8015_cases()},
      {otp8395,              [], otp8395_cases()},
      {ipv6,                 [], ipv6_tests()},
-     {ipv6_mt,              [], ipv6_tests()}
+     {ipv6_mt,              [], ipv6_tests()},
 
+     {v3,                   [], v3_cases()}
     ].
 
 inet_backend_default_cases() ->
@@ -214,7 +218,8 @@ all_cases() ->
      discovery, 
      {group, tickets}, 
      {group, ipv6},
-     {group, ipv6_mt}
+     {group, ipv6_mt},
+     {group, v3}
     ].
 
 start_and_stop_tests_cases() ->
@@ -318,6 +323,12 @@ event_tests_cases() ->
      inform_swarm_cbp_perm,
      report
     ].
+
+v3_cases() ->
+    [
+     simple_v3_exchange
+    ].
+    
 
 event_tests_mt_cases() -> event_tests_cases().
 
@@ -446,17 +457,19 @@ init_per_group2(all = GroupName, Config) ->
     ?LIB:init_group_top_dir(GroupName, Config);
 init_per_group2(request_tests_mt = GroupName, Config) ->
     ?LIB:init_group_top_dir(
-      GroupName, 
+      GroupName,
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
 init_per_group2(event_tests_mt = GroupName, Config) ->
     ?LIB:init_group_top_dir(
-      GroupName, 
+      GroupName,
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
 init_per_group2(ipv6_mt = GroupName, Config) ->
     init_per_group_ipv6(GroupName,
                         [{manager_net_if_module, snmpm_net_if_mt} | Config]);   
-init_per_group2(ipv6 = GroupName, Config) -> 
-    init_per_group_ipv6(GroupName, Config);   
+init_per_group2(ipv6 = GroupName, Config) ->
+    init_per_group_ipv6(GroupName, Config);
+%% init_per_group2(v3 = GroupName, Config) ->
+%%     ?LIB:init_group_top_dir(GroupName, Config);
 init_per_group2(GroupName, Config) ->
     ?LIB:init_group_top_dir(GroupName, Config).
 
@@ -610,6 +623,25 @@ init_per_testcase2(Case, Config) ->
     ?DBG("init [~w] Nodes [2]: ~p", [Case, erlang:nodes()]),
     Conf2.
 
+init_per_testcase3(simple_v3_exchange = _Case, Config) ->
+    Conf2 = init_v3_agent(Config),
+    Conf3 = try init_v3_manager(Conf2)
+            catch AC:AE:_ ->
+                    %% Ouch we need to clean up:
+                    %% The init_agent starts an agent node!
+                    init_per_testcase_fail_agent_cleanup(Config),
+                    throw({skip, {manager_init_failed, AC, AE}})
+            end,
+    Conf4 = try init_mgr_user(Conf3)
+            catch MC:ME:_ ->
+                    %% Ouch we need to clean up:
+                    %% The init_agent starts an agent node!
+                    %% The init_magager starts an manager node!
+                    init_per_testcase_fail_manager_cleanup(Conf2),
+                    init_per_testcase_fail_agent_cleanup(Conf2),
+                    throw({skip, {manager_user_init_failed, MC, ME}})
+            end,
+    init_mgr_v3_user_data(Conf4);
 init_per_testcase3(Case, Config) ->
     ApiCases02 = 
 	[
@@ -739,6 +771,11 @@ end_per_testcase(Case, Config) when is_list(Config) ->
 
     Conf2.
 
+end_per_testcase2(simple_v3_exchange = _Case, Config) ->
+    Conf1 = fin_mgr_user_data2(Config),
+    Conf2 = fin_mgr_user(Conf1),
+    Conf3 = fin_v3_manager(Conf2),
+    fin_v3_agent(Conf3);
 end_per_testcase2(Case, Config) ->
     ApiCases02 = 
 	[
@@ -1680,11 +1717,11 @@ usm_sha512_priv_aes(Config) when is_list(Config) ->
     ?TC_TRY(usm_priv_aes, Pre, Case, Post).
 
 
-select_auth_alg(sha)    -> usmHMACSHAAuthProtocol;
-select_auth_alg(sha224) -> usmHMAC128SHA224AuthProtocol;
-select_auth_alg(sha256) -> usmHMAC192SHA256AuthProtocol;
-select_auth_alg(sha384) -> usmHMAC256SHA384AuthProtocol;
-select_auth_alg(sha512) -> usmHMAC384SHA512AuthProtocol.
+select_auth_proto(sha)    -> usmHMACSHAAuthProtocol;
+select_auth_proto(sha224) -> usmHMAC128SHA224AuthProtocol;
+select_auth_proto(sha256) -> usmHMAC192SHA256AuthProtocol;
+select_auth_proto(sha384) -> usmHMAC256SHA384AuthProtocol;
+select_auth_proto(sha512) -> usmHMAC384SHA512AuthProtocol.
 
 do_usm_priv_aes(AuthAlg, Config) ->
     ?IPRINT("starting with Config: "
@@ -1706,7 +1743,7 @@ do_usm_priv_aes(AuthAlg, Config) ->
       snmp:passwd2localized_key(md5, PrivPass, EngineID),
 
     Credentials =
-      [ {auth,     select_auth_alg(AuthAlg)},
+      [ {auth,     select_auth_proto(AuthAlg)},
         {auth_key, AuthKey},
         {priv,     usmAesCfb128Protocol},
         {priv_key, PrivKey}
@@ -3542,6 +3579,40 @@ simple_async_get_bulk3_cbp_perm(Config) when is_list(Config) ->
 
 %%======================================================================
 
+simple_v3_exchange(doc) ->
+    ["Simple message exchange using v3 messages"];
+simple_v3_exchange(suite) -> [];
+simple_v3_exchange(Config) when is_list(Config) ->
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
+
+    Node       = ?config(manager_node, Config),
+    TargetName = ?config(manager_agent_target_name, Config),
+
+    Oids1 = [?sysDescr_instance],
+    ?IPRINT("initial try get (expect failure and a report)"),
+    {error, timeout} = mgr_user_sync_get2(Node, TargetName, Oids1, []),
+    receive
+        {async_event, TargetName, {report, {noError, 0, [#varbind{oid = ?usmStatsNotInTimeWindows_instance}]}} = Report1} ->
+            ?IPRINT("received expected report: "
+                    "~n      ~p", [Report1]),
+            ok
+    end,
+    ?IPRINT("second try get (expect success)"),
+    {ok, Reply2, _} = mgr_user_sync_get2(Node, TargetName, Oids1, []),
+    case Reply2 of
+        {noError, 0, [#varbind{oid = ?sysDescr_instance}]} ->
+            ?IPRINT("expected get success"),
+            display_log(Config),
+            ok;
+        X ->
+            {error, X}
+    end.
+
+
+
+%%======================================================================
+
 discovery(suite) -> [];
 discovery(Config) when is_list(Config) ->
     ?SKIP(not_yet_implemented).
@@ -4948,15 +5019,15 @@ init_manager(AutoInform, Config) ->
 	    %% -- 
 	    %% Start and initiate crypto on manager node
 	    %% 
-	    
+
 	    ?line ok = init_crypto(Node),
-	    
+
 	    %% 
 	    %% Write manager config
 	    %% 
-	    
+
 	    ?line ok = write_manager_config(Config),
-	    
+
 	    IRB  = case AutoInform of
 		       true ->
 			   auto;
@@ -4984,6 +5055,67 @@ init_manager(AutoInform, Config) ->
 	    (catch stop_node(Node)), 
 	    ?FAIL({failed_starting_manager, C, E, S})
     end.
+
+init_v3_manager(Config) ->
+
+    ?IPRINT("init_v3_manager -> entry with"
+            "~n   Config: ~p", [Config]),
+
+    %% -- 
+    %% Start node
+    %% 
+
+    %% ?line Node = self(),
+    ?line Node = start_unique_manager_node(),
+
+    %% The point with this (try catch block) is to be 
+    %% able to do some cleanup in case we fail to 
+    %% start some of the apps. That is, if we fail to 
+    %% start the apps (mnesia, crypto and snmp agent) 
+    %% we stop the (agent) node!
+
+    try
+	begin
+
+	    %% -- 
+	    %% Start and initiate crypto on manager node
+	    %% 
+
+	    ?line ok = init_crypto(Node),
+
+	    %% 
+	    %% Write manager config
+	    %% 
+
+            %% DomainType is just a "dummy" arg to make the 
+            %% function choose transportDomainUdpIpv4 as transport domain.
+	    ?line ok = write_manager_config(transport, Config),
+
+	    IRB  = auto,
+	    Conf = [{manager_node, Node}, {irb, IRB} | Config],
+	    Vsns = [v3], 
+	    start_manager(Node, Vsns, Conf)
+	end
+    catch
+	C:{suite_failed, Reason, _M, _L} = E:S when (C =:= exit) ->
+	    ?EPRINT("Failure during manager start (suite-failed):"
+                    "~n      Reason:      ~p"
+                    "~n      StackTrace:  ~p", [Reason, S]), 
+	    %% And now, *try* to cleanup
+	    (catch stop_node(Node)),
+	    erlang:raise(C, E, S);
+	C:E:S ->
+	    ?EPRINT("Failure during manager start: "
+                    "~n      Error Class: ~p"
+                    "~n      Error:       ~p"
+                    "~n      StackTrace:  ~p", [C, E, S]), 
+	    %% And now, *try* to cleanup
+	    (catch stop_node(Node)), 
+	    ?FAIL({failed_starting_manager, C, E, S})
+    end.
+
+fin_v3_manager(Config) ->
+    fin_manager(Config).
 
 fin_manager(Config) ->
     Node = ?config(manager_node, Config),
@@ -5024,35 +5156,35 @@ init_agent(Config) ->
 
     try
 	begin
-	    
+
 	    %% -- 
 	    %% Start and initiate mnesia on agent node
 	    %% 
-	    
+
 	    ?line ok = init_mnesia(Node, Dir, ?config(mnesia_debug, Config)),
-	    
-	    
+
+
 	    %% -- 
 	    %% Start and initiate crypto on agent node
 	    %% 
-	    
+
 	    ?line ok = init_crypto(Node),
-	    
-	    
+
+
 	    %% 
 	    %% Write agent config
 	    %% 
-	    
+
 	    Vsns = [v1,v2], 
 	    ?line ok = write_agent_config(Vsns, Config),
-	    
+
 	    Conf = [{agent_node, Node},
 		    {mib_dir,    MibDir} | Config],
-    
+
 	    %% 
 	    %% Start the agent 
 	    %% 
-	    
+
 	    start_agent(Node, Vsns, Conf)
 	end
     catch
@@ -5072,7 +5204,75 @@ init_agent(Config) ->
 	    (catch stop_node(Node)), 
 	    ?FAIL({failed_starting_agent, C, E, S})
     end.
-	      
+
+
+init_v3_agent(Config) ->
+    ?IPRINT("init_v3_agent -> entry with"
+            "~n   Config: ~p", [Config]),
+
+    %% -- 
+    %% Retrieve some dir's
+    %% 
+    _Dir    = ?config(agent_dir, Config),
+    MibDir = ?config(mib_dir,  Config),
+
+    %% -- 
+    %% Start node
+    %% 
+
+    %% ?line Node = self(),
+    ?line Node = start_unique_agent_node(),
+
+    %% The point with this (try catch block) is to be 
+    %% able to do some cleanup in case we fail to 
+    %% start some of the apps. That is, if we fail to 
+    %% start the apps (mnesia, crypto and snmp agent) 
+    %% we stop the (agent) node!
+
+    try
+	begin
+
+	    %% -- 
+	    %% Start and initiate crypto on agent node
+	    %% 
+
+	    ?line ok = init_crypto(Node),
+
+
+	    %% 
+	    %% Write agent config
+	    %% 
+
+	    Vsns = [v3], 
+	    ?line ok = write_agent_config(Vsns, Config),
+
+	    Conf = [{agent_node, Node},
+		    {mib_dir,    MibDir} | Config],
+
+	    %% 
+	    %% Start the agent 
+	    %% 
+
+	    start_agent(Node, Vsns, Conf)
+	end
+    catch
+	C:{suite_failed, Reason, _M, _L} = E:S when (C =:= exit) ->
+	    ?EPRINT("Failure during agent start (suite-failed):"
+                    "~n   Reason:     ~p"
+                    "~n   StackTrace: ~p", [Reason, S]), 
+	    %% And now, *try* to cleanup
+	    (catch stop_node(Node)),
+	    erlang:raise(C, E, S);
+	C:E:S ->
+	    ?EPRINT("Failure during agent start: "
+                    "~n   Error Class: ~p"
+                    "~n   Error:       ~p"
+                    "~n   StackTrace:  ~p", [C, E, S]), 
+	    %% And now, *try* to cleanup
+	    (catch stop_node(Node)), 
+	    ?FAIL({failed_starting_agent, C, E, S})
+    end.
+
 
 fin_agent(Config) ->
     Node          = ?config(agent_node, Config),
@@ -5086,6 +5286,18 @@ fin_agent(Config) ->
             "~n   Mnesia:     ~p"
             "~n   Node:       ~p", 
             [Node, StopAgentRes, StopCryptoRes, StopMnesiaRes, StopNode]),
+    Config.
+
+fin_v3_agent(Config) ->
+    Node          = ?config(agent_node, Config),
+    StopAgentRes  = stop_agent(Node),
+    StopCryptoRes = fin_crypto(Node),
+    StopNode      = stop_node(Node),
+    ?IPRINT("fin_agent -> stop apps and (agent node ~p) node results: "
+            "~n   SNMP Agent: ~p"
+            "~n   Crypto:     ~p"
+            "~n   Node:       ~p", 
+            [Node, StopAgentRes, StopCryptoRes, StopNode]),
     Config.
 
 init_mnesia(Node, Dir, MnesiaDebug) 
@@ -5245,23 +5457,20 @@ mgr_info(Node) ->
 mgr_sys_info(Node) ->
     rcall(Node, snmpm_config, system_info, []).
 
-%% mgr_register_user(Node, Id, Data) ->
-%%     mgr_register_user(Node, Id, ?MODULE, Data).
-
 mgr_register_user(Node, Id, Mod, Data) when is_atom(Mod) ->
     rcall(Node, snmpm, register_user, [Id, Mod, Data]).
+
+mgr_register_usm_user(Node, EngineID, SecName, Credentials)
+  when (Node =:= node()) ->
+    snmpm:register_usm_user(EngineID, SecName, Credentials);
+mgr_register_usm_user(Node, EngineID, SecName, Credentials) ->
+    rcall(Node, snmpm, register_usm_user, [EngineID, SecName, Credentials]).
 
 mgr_unregister_user(Node, Id) ->
     rcall(Node, snmpm, unregister_user, [Id]).
 
 mgr_which_users(Node) ->
     rcall(Node, snmpm, which_users, []).
-
-%% mgr_register_agent(Node, Id) ->
-%%     mgr_register_agent(Node, Id, []).
-
-%% mgr_register_agent(Node, Id, Conf) when is_list(Conf) ->
-%%     mgr_register_agent(Node, Id, 5000, Conf).
 
 mgr_register_agent(Node, Id, Port, Conf) 
   when is_integer(Port) andalso is_list(Conf) ->
@@ -5274,9 +5483,6 @@ mgr_register_agent(Node, Id, TargetName, Config)
 mgr_register_agent(Node, Id, Addr, Port, Conf) 
   when is_integer(Port) andalso is_list(Conf) ->
     rcall(Node, snmpm, register_agent, [Id, Addr, Port, Conf]).
-
-%% mgr_unregister_agent(Node, Id) ->
-%%     mgr_unregister_agent(Node, Id, 4000).
 
 mgr_unregister_agent(Node, Id, Port) when is_integer(Port) ->
     Localhost = snmp_test_lib:localhost(),
@@ -5365,6 +5571,18 @@ init_mgr_user(Conf) ->
     ?line {ok, User} = mgr_user_start(Node),
     ?DBG("start_mgr_user -> User: ~p", [User]),
     link(User),
+
+    EngineID    = "agentEngine",
+    SecName     = "authSHA224",
+    AuthAlg     = sha224,
+    %% AuthPass    = "passwd_sha224xxxxxxxxxxxxxxx",
+    %% AuthKey     = snmp:passwd2localized_key(AuthAlg, AuthPass, EngineID),
+    AuthKey     = "passwd_sha224xxxxxxxxxxxxxxx",
+    Credentials =
+      [ {auth,     select_auth_proto(AuthAlg)},
+        {auth_key, AuthKey}
+      ],
+    ?line ok = mgr_register_usm_user(Node, EngineID, SecName, Credentials),
     
     [{user_pid, User} | Conf].
 
@@ -5455,6 +5673,52 @@ init_mgr_user_data2(Conf) ->
     ?DBG("Updated agent config: ~n~p", [_AgentConf]),
     Conf.
 
+init_mgr_v3_user_data(Conf) ->
+    ?IPRINT("init_mgr_v3_user_data -> entry with"
+            "~n   Conf: ~p", [Conf]),
+    Node       = ?config(manager_node, Conf),
+    TargetName = ?config(manager_agent_target_name, Conf),
+    IpFamily   = ?config(ipfamily, Conf),
+    Ip         = ?config(ip, Conf),
+    Port       = ?AGENT_PORT,
+    ?line ok =
+	case IpFamily of
+	    inet ->
+		mgr_user_register_agent(
+		  Node, TargetName,
+		  [{tdomain,   transportDomainUdpIpv4},
+		   {taddress,  {Ip, Port}},
+		   {engine_id, "agentEngine"},
+                   {version,   v3}]);
+	    inet6 ->
+		mgr_user_register_agent(
+		  Node, TargetName,
+		  [{tdomain,   transportDomainUdpIpv6},
+		   {taddress,  {Ip, Port}},
+		   {engine_id, "agentEngine"},
+                   {version,   v3}])
+	end,
+    _Agents = mgr_user_which_own_agents(Node),
+    ?IPRINT("Own agents: ~p", [_Agents]),
+
+    ?line {ok, _DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    ?IPRINT("Default agent config: ~n~p", [_DefAgentConf]),
+
+    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+					  community, "all-rights"),
+    ?line ok = mgr_user_update_agent_info(Node, TargetName,
+					  sec_name, "authSHA224"),
+    ?line ok = mgr_user_update_agent_info(Node, TargetName,
+					  sec_level, authNoPriv),
+    ?line ok = mgr_user_update_agent_info(Node, TargetName,
+					  sec_model, usm),
+    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+					  max_message_size, 1024),
+
+    ?line {ok, _AgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    ?IPRINT("Updated agent config: ~n~p", [_AgentConf]),
+    Conf.
+
 fin_mgr_user_data1(Conf) ->
     Node = ?config(manager_node, Conf),
     TargetName = ?config(manager_agent_target_name, Conf),
@@ -5477,18 +5741,10 @@ mgr_user_start(Node, Id) ->
 mgr_user_stop(Node) ->
     rcall(Node, snmp_manager_user, stop, []).
 
-%% mgr_user_register_agent(Node) ->
-%%     mgr_user_register_agent(Node, ?LOCALHOST(), ?AGENT_PORT, []).
-%% mgr_user_register_agent(Node, TargetName) when is_list(TargetName) ->
-%%     mgr_user_register_agent(Node, TargetName, []);
-%% mgr_user_register_agent(Node, Addr) ->
-%%     mgr_user_register_agent(Node, Addr, ?AGENT_PORT, []).
 mgr_user_register_agent(Node, TargetName, Conf) 
   when is_list(TargetName) andalso is_list(Conf) ->
     rcall(Node, snmp_manager_user, register_agent, [TargetName, Conf]).
 
-%% mgr_user_unregister_agent(Node) ->
-%%     mgr_user_unregister_agent(Node, ?LOCALHOST(), ?AGENT_PORT).
 mgr_user_unregister_agent(Node, TargetName) when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, unregister_agent, [TargetName]).
 
@@ -5496,14 +5752,9 @@ mgr_user_agent_info(Node, TargetName, Item)
   when is_list(TargetName) andalso is_atom(Item) ->
     rcall(Node, snmp_manager_user, agent_info, [TargetName, Item]).
 
-%% mgr_user_update_agent_info(Node, Item, Val) when atom(Item) ->
-%%     mgr_user_update_agent_info(Node, ?LOCALHOST(), ?AGENT_PORT, Item, Val).
 mgr_user_update_agent_info(Node, TargetName, Item, Val) 
   when is_list(TargetName) andalso is_atom(Item) ->
     rcall(Node, snmp_manager_user, update_agent_info, [TargetName, Item, Val]).
-
-%% mgr_user_which_all_agents(Node) ->
-%%     rcall(Node, snmp_manager_user, which_all_agents, []).
 
 mgr_user_which_own_agents(Node) ->
     rcall(Node, snmp_manager_user, which_own_agents, []).
@@ -5511,77 +5762,34 @@ mgr_user_which_own_agents(Node) ->
 mgr_user_load_mib(Node, Mib) ->
     rcall(Node, snmp_manager_user, load_mib, [Mib]).
 
-%% mgr_user_sync_get(Node, Oids) ->
-%%     mgr_user_sync_get(Node, ?LOCALHOST(), ?AGENT_PORT, Oids).
-%% mgr_user_sync_get(Node, TargetName, Oids) when is_list(TargetName) ->
-%%     rcall(Node, snmp_manager_user, sync_get, [TargetName, Oids]).
+mgr_user_sync_get2(Node, TargetName, Oids) when is_list(TargetName) ->
+    mgr_user_sync_get2(Node, TargetName, Oids, []).
 
 mgr_user_sync_get2(Node, TargetName, Oids, SendOpts) when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, sync_get2, [TargetName, Oids, SendOpts]).
-
-%% mgr_user_async_get(Node, Oids) ->
-%%     mgr_user_async_get(Node, ?LOCALHOST(), ?AGENT_PORT, Oids).
-%% mgr_user_async_get(Node, TargetName, Oids) when is_list(TargetName) ->
-%%     rcall(Node, snmp_manager_user, async_get, [TargetName, Oids]).
 
 mgr_user_async_get2(Node, TargetName, Oids, SendOpts) 
   when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, async_get2, [TargetName, Oids, SendOpts]).
 
-%% mgr_user_sync_get_next(Node, Oids) ->
-%%     mgr_user_sync_get_next(Node, ?LOCALHOST(), ?AGENT_PORT, Oids).
-%% mgr_user_sync_get_next(Node, TargetName, Oids) when is_list(TargetName) ->
-%%     rcall(Node, snmp_manager_user, sync_get_next, [TargetName, Oids]).
-
 mgr_user_sync_get_next2(Node, TargetName, Oids, SendOpts) 
   when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, sync_get_next2, [TargetName, Oids, SendOpts]).
-
-%% mgr_user_async_get_next(Node, Oids) ->
-%%     mgr_user_async_get_next(Node, ?LOCALHOST(), ?AGENT_PORT, Oids).
-%% mgr_user_async_get_next(Node, TargetName, Oids) when is_list(TargetName) ->
-%%     rcall(Node, snmp_manager_user, async_get_next, [TargetName, Oids]).
 
 mgr_user_async_get_next2(Node, TargetName, Oids, SendOpts) 
   when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, async_get_next2, [TargetName, Oids, SendOpts]).
 
-%% mgr_user_sync_set(Node, VAV) ->
-%%     mgr_user_sync_set(Node, ?LOCALHOST(), ?AGENT_PORT, VAV).
-%% mgr_user_sync_set(Node, TargetName, VAV) when is_list(TargetName) ->
-%%     rcall(Node, snmp_manager_user, sync_set, [TargetName, VAV]).
-
 mgr_user_sync_set2(Node, TargetName, VAV, SendOpts) when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, sync_set2, [TargetName, VAV, SendOpts]).
 
-%% mgr_user_async_set(Node, VAV) ->
-%%     mgr_user_async_set(Node, ?LOCALHOST(), ?AGENT_PORT, VAV).
-%% mgr_user_async_set(Node, TargetName, VAV) when is_list(TargetName) ->
-%%     rcall(Node, snmp_manager_user, async_set, [TargetName, VAV]).
-
 mgr_user_async_set2(Node, TargetName, VAV, SendOpts) when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, async_set2, [TargetName, VAV, SendOpts]).
-
-%% mgr_user_sync_get_bulk(Node, NonRep, MaxRep, Oids) ->
-%%     mgr_user_sync_get_bulk(Node, ?LOCALHOST(), ?AGENT_PORT, 
-%% 			   NonRep, MaxRep, Oids).
-%% mgr_user_sync_get_bulk(Node, TargetName, NonRep, MaxRep, Oids) 
-%%   when is_list(TargetName) ->
-%%     rcall(Node, snmp_manager_user, sync_get_bulk, 
-%% 	  [TargetName, NonRep, MaxRep, Oids]).
 
 mgr_user_sync_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts) 
   when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, sync_get_bulk2, 
 	  [TargetName, NonRep, MaxRep, Oids, SendOpts]).
-
-%% mgr_user_async_get_bulk(Node, NonRep, MaxRep, Oids) ->
-%%     mgr_user_async_get_bulk(Node, ?LOCALHOST(), ?AGENT_PORT, 
-%% 			   NonRep, MaxRep, Oids).
-%% mgr_user_async_get_bulk(Node, TargetName, NonRep, MaxRep, Oids) 
-%%   when is_list(TargetName) ->
-%%     rcall(Node, snmp_manager_user, async_get_bulk, 
-%% 	  [TargetName, NonRep, MaxRep, Oids]).
 
 mgr_user_async_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts) 
   when is_list(TargetName) ->
@@ -5690,7 +5898,8 @@ start_agent(Node, Vsns, Conf0, _Opts) ->
     MSV  = get_opt(agent_mib_server_verbosity,     Conf0, info),
     NSV  = get_opt(agent_note_store_verbosity,     Conf0, info),
     SSV  = get_opt(agent_symbolic_store_verbosity, Conf0, info),
-    NIV  = get_opt(agent_net_if_verbosity,         Conf0, log),
+    %% NIV  = get_opt(agent_net_if_verbosity,         Conf0, log),
+    NIV  = get_opt(agent_net_if_verbosity,         Conf0, trace),
 
     Env = [{versions,        Vsns},
 	   {type,            master},
@@ -5710,7 +5919,7 @@ start_agent(Node, Vsns, Conf0, _Opts) ->
 	   {note_store,      [{verbosity, NSV}]},
 	   {stymbolic_store, [{verbosity, SSV}]},
 	   {net_if,          [{verbosity, NIV},
-                              %% On some linux "they" add a 127.0.1.1 or somthing
+                              %% On some linux "they" add a 127.0.1.1 or something
                               %% similar, so if we don't specify bind_to
                               %% we don't know which address will be selected
                               %% (which will cause problems for some test cases).
@@ -5736,12 +5945,6 @@ stop_agent(Node) ->
 
 agent_load_mib(Node, Mib) ->
     rcall(Node, snmpa, load_mibs, [[Mib]]).
-%% agent_unload_mib(Node, Mib) ->
-%%     rcall(Node, snmpa, unload_mibs, [[Mib]]).
-
-%% agent_send_trap(Node, Trap, Community) ->
-%%     Args = [snmp_master_agent, Trap, Community],
-%%     rcall(Node, snmpa, send_trap, Args).
 
 agent_send_trap(Node, Trap, Community, VBs) ->
     Args = [snmp_master_agent, Trap, Community, VBs],
@@ -5760,17 +5963,27 @@ agent_send_notif(Node, Trap, Recv, Name, VBs) ->
 agent_info(Node) ->
     rcall(Node, snmpa, info, []).
 
-%% agent_which_mibs(Node) ->
-%%     rcall(Node, snmpa, which_mibs, []).
-
 
 %% -- Misc node operation wrapper functions --
+
+unique(PreName) ->
+    list_to_atom(?F("~w_~w", [PreName, erlang:system_time(millisecond)])).
 
 start_agent_node() ->
     start_node(snmp_agent).
 
+start_unique_agent_node() ->
+    start_unique_node(snmp_agent).
+
 start_manager_node() ->
     start_node(snmp_manager).
+
+start_unique_manager_node() ->
+    start_unique_node(snmp_manager).
+
+%% Generate a "unique" (node-) name and start a node with this name.
+start_unique_node(BaseName) when is_atom(BaseName) ->
+    start_node(unique(BaseName), false).
 
 start_node(Name) ->
     start_node(Name, true).
@@ -5823,6 +6036,8 @@ start_node(Name, Retry) ->
     end.
 
 
+stop_node(Node) when (Node =:= self()) ->
+    ok;%?line ?FAIL({stop_own_node, Node});
 stop_node(Node) ->
     case ?STOP_NODE(Node) of
         true ->
@@ -5836,12 +6051,21 @@ stop_node(Node) ->
 %% -- Misc config wrapper functions --
 
 write_manager_config(Config) ->
-    Dir  = ?config(manager_conf_dir, Config),
-    Ip = tuple_to_list(?config(ip, Config)),
+    write_manager_config(default, Config).
+
+write_manager_config(DomainType, Config) ->
+    Dir = ?config(manager_conf_dir, Config),
+    Ip  = tuple_to_list(?config(ip, Config)),
+    %% Note that Addr and Port are actually only Addr and Port
+    %% when DomainType is default.
+    %% In all other cases the Addr is TransportDomain and 
+    %% port is {Addr, Port}...
     {Addr, Port} =
 	case ?config(ipfamily, Config) of
-	    inet ->
+	    inet when (DomainType =:= default) ->
 		{Ip, ?MGR_PORT};
+	    inet ->
+		{transportDomainUdpIpv4, {Ip, ?MGR_PORT}};
 	    inet6 ->
 		{transportDomainUdpIpv6, {Ip, ?MGR_PORT}}
 	end,
@@ -5860,15 +6084,6 @@ write_manager_conf(Dir) ->
                           [Port, MMS, EngineID])),
     write_manager_conf(Dir, Str).
 
-%% write_manager_conf(Dir, IP, Port, MMS, EngineID) ->
-%%     Str = lists:flatten(
-%%             io_lib:format("{address,          ~s}.\n"
-%%                           "{port,             ~s}.\n"
-%%                           "{max_message_size, ~s}.\n"
-%%                           "{engine_id,        ~s}.\n",
-%%                           [IP, Port, MMS, EngineID])),
-%%     write_manager_conf(Dir, Str).
-
 write_manager_conf(Dir, Str) ->
     write_conf_file(Dir, "manager.conf", Str).
 
@@ -5879,7 +6094,7 @@ write_agent_config(Vsns, Conf) ->
     ?line Domain =
 	case ?config(ipfamily, Conf) of
 	    inet ->
-		snmpUDPDomain;
+		transportDomainUdpIpv4;
 	    inet6 ->
 		transportDomainUdpIpv6
 	end,
@@ -6104,6 +6319,8 @@ get_opt(Key, Opts, Def) ->
 
 %% ------
 
+rcall(Node, Mod, Func, Args) when (Node =:= self()) ->
+    apply(Mod, Func, Args);
 rcall(Node, Mod, Func, Args) ->
     case rpc:call(Node, Mod, Func, Args) of
 	{badrpc, nodedown} ->
