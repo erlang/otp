@@ -78,10 +78,8 @@
 
 -record(t_atom, {elements=any :: 'any' | ordsets:ordset(atom())}).
 -record(t_bitstring, {size_unit=1 :: pos_integer()}).
--record(t_bs_context, {tail_unit=1 :: pos_integer(),
-                       slots=0 :: non_neg_integer(),
-                       valid=0 :: non_neg_integer()}).
--record(t_bs_matchable, {tail_unit=1}).
+-record(t_bs_context, {tail_unit=1 :: pos_integer()}).
+-record(t_bs_matchable, {tail_unit=1 :: pos_integer()}).
 -record(t_float, {elements=any :: 'any' | {float(),float()}}).
 -record(t_fun, {arity=any :: arity() | 'any',
                 type=any :: type() }).
