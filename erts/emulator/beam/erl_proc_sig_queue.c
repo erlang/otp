@@ -455,6 +455,7 @@ sig_enqueue_trace(Process *c_p, ErtsMessage **sigp, int op,
             ErtsExitSignalData *xsigd;
 
             ASSERT(type == ERTS_SIG_Q_TYPE_GEN_EXIT);
+            (void)type;
 
             xsigd = get_exit_signal_data(sig);
             reason = xsigd->reason;
