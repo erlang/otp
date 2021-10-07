@@ -1300,11 +1300,7 @@ apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, 
 	 * properly adjusted).
 	 */
 
-	if (HeapWordsLeft(p) < sz) {
-	    erts_garbage_collect(p, sz, reg, arity);
-	}
-	hp = HEAP_TOP(p);
-	HEAP_TOP(p) += sz;
+        hp = HAlloc(p, sz);
 	for (i = arity-1; i >= 0; i--) {
 	    args = CONS(hp, reg[i], args);
 	    hp += 2;

@@ -136,7 +136,7 @@ x86::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
     align_erlang_cp();
     a.bind(entry);
 
-    emit_enter_runtime<Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
@@ -151,7 +151,7 @@ x86::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
 
     runtime_call<4>(apply);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
     a.test(RET, RET);
     a.short_().jne(dispatch);
@@ -185,7 +185,7 @@ x86::Mem BeamModuleAssembler::emit_fixed_apply(const ArgVal &Arity,
 
     mov_arg(ARG3, Arity);
 
-    emit_enter_runtime<Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
@@ -200,7 +200,7 @@ x86::Mem BeamModuleAssembler::emit_fixed_apply(const ArgVal &Arity,
 
     runtime_call<5>(fixed_apply);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
     a.test(RET, RET);
     a.short_().jne(dispatch);
