@@ -592,19 +592,20 @@ async_call(Config) when is_list(Config) ->
     ok.
 
 call_against_old_node(Config) ->
-    case start_22_node(Config) of
-        {ok, Node22} ->
-            Node22 = rpc:call(Node22, erlang, node, []),
-            stop_node(Node22),
+    case start_old_node(Config) of
+        {ok, NodeOld} ->
+            NodeOld = rpc:call(NodeOld, erlang, node, []),
+            stop_node(NodeOld),
             ok;
         _ ->
-	    {skipped, "No OTP 22 available"}
+            OldRel = old_release(),
+	    {skipped, "No OTP "++OldRel++" available"}
     end.
 
 multicall_mix(Config) ->
     {ok, Node1} = start_node(Config),
     {ok, Node2} = start_node(Config),
-    {Node3, OldNodeTest} = case start_22_node(Config) of
+    {Node3, OldNodeTest} = case start_old_node(Config) of
                                {ok, N3} ->
                                    {N3, true};
                                _ ->
@@ -710,9 +711,10 @@ multicall_mix(Config) ->
 
     [] = flush([]),
 
+    OldRel = old_release(),
     case OldNodeTest of
-        true -> {comment, "Test with OTP 22 node as well"};
-        false -> {comment, "Test without OTP 22"}
+        true -> {comment, "Test with OTP "++OldRel++" node as well"};
+        false -> {comment, "Test without OTP "++OldRel}
     end.
 
 call_func1(X) ->
@@ -768,51 +770,53 @@ timeout_limit(Config) when is_list(Config) ->
     
 
 call_old_against_new(Config) ->
-    case test_server:is_release_available("22_latest") of
+    OldRel = old_release(),
+    case test_server:is_release_available(OldRel++"_latest") of
         false ->
-            {skipped, "No OTP 22 available"};
+            {skipped, "No OTP "++OldRel++" available"};
         true ->
-            test_on_22_node(Config, call_old_against_new_test, 1, 1)
+            test_on_old_node(Config, call_old_against_new_test, 1, 1)
     end.
 
-call_old_against_new_test([Node22], [NodeCurr]) ->
-    %% Excecuted on an OTP 22 node
+call_old_against_new_test([NodeOld], [NodeCurr]) ->
+    %% Excecuted on an OTP old node
 
-    Node22 = rpc:call(Node22, erlang, node, []),
+    NodeOld = rpc:call(NodeOld, erlang, node, []),
     NodeCurr = rpc:call(NodeCurr, erlang, node, []),
 
-    {badrpc, {'EXIT', bang}} = rpc:call(Node22, erlang, exit, [bang]),
+    {badrpc, {'EXIT', bang}} = rpc:call(NodeOld, erlang, exit, [bang]),
     {badrpc, {'EXIT', bang}} = rpc:call(NodeCurr, erlang, exit, [bang]),
 
-    {badrpc, {'EXIT', {blong, _}}} = rpc:call(Node22, erlang, error, [blong]),
+    {badrpc, {'EXIT', {blong, _}}} = rpc:call(NodeOld, erlang, error, [blong]),
     {badrpc, {'EXIT', {blong, _}}} = rpc:call(NodeCurr, erlang, error, [blong]),
 
-    bling = rpc:call(Node22, erlang, throw, [bling]),
+    bling = rpc:call(NodeOld, erlang, throw, [bling]),
     bling = rpc:call(NodeCurr, erlang, throw, [bling]),
 
-    {badrpc, timeout} = rpc:call(Node22, timer, sleep, [1000], 100),
+    {badrpc, timeout} = rpc:call(NodeOld, timer, sleep, [1000], 100),
     {badrpc, timeout} = rpc:call(NodeCurr, timer, sleep, [1000], 100),
 
-    {badrpc, nodedown} = rpc:call(Node22, erlang, halt, []),
+    {badrpc, nodedown} = rpc:call(NodeOld, erlang, halt, []),
     {badrpc, nodedown} = rpc:call(NodeCurr, erlang, halt, []),
 
-    {badrpc, nodedown} = rpc:call(Node22, erlang, node, []),
+    {badrpc, nodedown} = rpc:call(NodeOld, erlang, node, []),
     {badrpc, nodedown} = rpc:call(NodeCurr, erlang, node, []),
 
     ok.
     
 multicall_old_against_new(Config) ->
-    case test_server:is_release_available("22_latest") of
+    OldRel = old_release(),
+    case test_server:is_release_available(OldRel++"_latest") of
         false ->
-            {skipped, "No OTP 22 available"};
+            {skipped, "No OTP "++OldRel++" available"};
         true ->
-            test_on_22_node(Config, multicall_old_against_new_test, 2, 2)
+            test_on_old_node(Config, multicall_old_against_new_test, 2, 2)
     end.
 
-multicall_old_against_new_test([Node22A, Node22B], [NodeCurrA, NodeCurrB]) ->
-    %% Excecuted on an OTP 22 node
+multicall_old_against_new_test([NodeOldA, NodeOldB], [NodeCurrA, NodeCurrB]) ->
+    %% Excecuted on an OTP old node
 
-    AllNodes = [NodeCurrA, Node22A, NodeCurrB, Node22B],
+    AllNodes = [NodeCurrA, NodeOldA, NodeCurrB, NodeOldB],
     NoNodes = length(AllNodes),
 
     {AllNodes, []} = rpc:multicall(AllNodes, erlang, node, []),
@@ -839,32 +843,33 @@ multicall_old_against_new_test([Node22A, Node22B], [NodeCurrA, NodeCurrB]) ->
     ok.
 
 cast_old_against_new(Config) ->
-    case test_server:is_release_available("22_latest") of
+    OldRel = old_release(),
+    case test_server:is_release_available(OldRel++"_latest") of
         false ->
-            {skipped, "No OTP 22 available"};
+            {skipped, "No OTP "++OldRel++" available"};
         true ->
-            test_on_22_node(Config, cast_old_against_new_test, 1, 1)
+            test_on_old_node(Config, cast_old_against_new_test, 1, 1)
     end.
 
-cast_old_against_new_test([Node22], [NodeCurr]) ->
-    %% Excecuted on an OTP 22 node
+cast_old_against_new_test([NodeOld], [NodeCurr]) ->
+    %% Excecuted on an OTP old node
 
     Me = self(),
     Ref = make_ref(),
-    true = rpc:cast(Node22, erlang, send, [Me, {Ref, 1}]),
+    true = rpc:cast(NodeOld, erlang, send, [Me, {Ref, 1}]),
     receive {Ref, 1} -> ok end,
     true = rpc:cast(NodeCurr, erlang, send, [Me, {Ref, 2}]),
     receive {Ref, 2} -> ok end,
 
-    true = rpc:cast(Node22, erlang, halt, []),
+    true = rpc:cast(NodeOld, erlang, halt, []),
     true = rpc:cast(NodeCurr, erlang, halt, []),
 
-    monitor_node(Node22, true),
-    receive {nodedown, Node22} -> ok end,
+    monitor_node(NodeOld, true),
+    receive {nodedown, NodeOld} -> ok end,
     monitor_node(NodeCurr, true),
     receive {nodedown, NodeCurr} -> ok end,
 
-    true = rpc:cast(Node22, erlang, send, [Me, {Ref, 3}]),
+    true = rpc:cast(NodeOld, erlang, send, [Me, {Ref, 3}]),
     true = rpc:cast(NodeCurr, erlang, send, [Me, {Ref, 4}]),
 
     receive Msg -> error({unexcpected_message, Msg})
@@ -883,8 +888,11 @@ start_node(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).
 
-start_22_node(Config) ->
-    Rel = "22_latest",
+old_release() ->
+    integer_to_list(list_to_integer(erlang:system_info(otp_release))-2).
+
+start_old_node(Config) ->
+    Rel = old_release() ++ "_latest",
     case test_server:is_release_available(Rel) of
 	false ->
             notsup;
@@ -925,33 +933,33 @@ f2() ->
     timer:sleep(500),
     halt().
 
-test_on_22_node(Config, Test, No22, NoCurr) ->
-    Nodes22 = lists:map(fun (_) ->
-                                {ok, N} = start_22_node(Config),
+test_on_old_node(Config, Test, NoOld, NoCurr) ->
+    NodesOld = lists:map(fun (_) ->
+                                {ok, N} = start_old_node(Config),
                                 N
                         end,
-                        lists:seq(1, No22+1)),
+                        lists:seq(1, NoOld+1)),
     NodesCurr = lists:map(fun (_) ->
                                   {ok, N} = start_node(Config),
                                   N
                           end,
                           lists:seq(1, NoCurr)),
 
-    %% Recompile rpc_SUITE on OTP 22 node and load it on all OTP 22 nodes...
+    %% Recompile rpc_SUITE on old node and load it on all old nodes...
     SrcFile = filename:rootname(code:which(?MODULE)) ++ ".erl",
-    {ok, ?MODULE, BeamCode} = rpc:call(hd(Nodes22), compile, file, [SrcFile, [binary]]),
-    LoadResult = lists:duplicate(length(Nodes22), {module, ?MODULE}),
-    {LoadResult, []} = rpc:multicall(Nodes22, code, load_binary, [?MODULE, SrcFile, BeamCode]),
+    {ok, ?MODULE, BeamCode} = rpc:call(hd(NodesOld), compile, file, [SrcFile, [binary]]),
+    LoadResult = lists:duplicate(length(NodesOld), {module, ?MODULE}),
+    {LoadResult, []} = rpc:multicall(NodesOld, code, load_binary, [?MODULE, SrcFile, BeamCode]),
     try
-        %% Excecute test on first OTP 22 node...
-        Pid = spawn_link(hd(Nodes22), ?MODULE, Test, [tl(Nodes22), NodesCurr]),
+        %% Excecute test on first old node...
+        Pid = spawn_link(hd(NodesOld), ?MODULE, Test, [tl(NodesOld), NodesCurr]),
         Mon = erlang:monitor(process, Pid),
         receive
             {'DOWN', Mon, process, Pid, Reason} when Reason == normal; Reason == noproc ->
                 ok
         end
     after
-        lists:foreach(fun (N) -> stop_node(N) end, Nodes22),
+        lists:foreach(fun (N) -> stop_node(N) end, NodesOld),
         lists:foreach(fun (N) -> stop_node(N) end, NodesCurr)
     end,
     ok.
