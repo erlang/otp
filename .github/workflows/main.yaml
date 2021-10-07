@@ -111,6 +111,8 @@ jobs:
           tar -xzf ./otp_src.tar.gz
           cd otp
           export ERL_TOP=`pwd`
+          export MAKEFLAGS=-j4
+          export ERLC_USE_SERVER=true
           eval `./otp_build env_win32 x64`
           ./otp_build configure
           if cat erts/CONF_INFO || cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi
