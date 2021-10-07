@@ -157,11 +157,6 @@ int beam_load_prepared_dtor(Binary* magic)
     beamfile_free(&stp->beam);
     beamopallocator_dtor(&stp->op_allocator);
 
-    if (stp->bin) {
-        driver_free_binary(stp->bin);
-        stp->bin = NULL;
-    }
-
     if (stp->code_hdr) {
         BeamCodeHeader *hdr = stp->code_hdr;
 

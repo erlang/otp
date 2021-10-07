@@ -94,11 +94,6 @@ typedef struct {
  */
 struct LoaderState_ {
     /*
-     * The current logical file within the binary.
-     */
-    ErlDrvBinary* bin;         /* Binary holding BEAM file (or NULL) */
-
-    /*
      * The following are used mainly for diagnostics.
      */
 

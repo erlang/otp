@@ -43,8 +43,6 @@ typedef struct {
 
 /* This structure contains all information about the module being loaded. */
 struct LoaderState_ {
-    ErlDrvBinary *bin; /* Binary holding BEAM file (or NULL) */
-
     /*
      * The following are used mainly for diagnostics.
      */
