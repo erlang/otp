@@ -119,7 +119,8 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
 
     a.bind(entry);
 
-    emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs>(3);
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap |
+                       Update::eXRegs>(3);
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
@@ -136,7 +137,8 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
     runtime_call<4>(apply);
 
     /* Any number of X registers can be live at this point. */
-    emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap |
+                       Update::eXRegs>();
 
     a.cbnz(ARG1, dispatch);
     emit_raise_exception(entry, &apply3_mfa);
@@ -170,8 +172,8 @@ arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgVal &Arity,
 
     mov_arg(ARG3, Arity);
 
-    emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs>(
-            Arity.getValue() + 2);
+    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap |
+                       Update::eXRegs>(Arity.getValue() + 2);
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
@@ -188,7 +190,8 @@ arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgVal &Arity,
 
     /* We will need to reload all X registers in case there has been
      * an error. */
-    emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
+    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap |
+                       Update::eXRegs>();
 
     a.cbnz(ARG1, dispatch);
     emit_raise_exception(entry, &apply3_mfa);
