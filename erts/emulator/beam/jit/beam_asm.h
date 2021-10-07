@@ -39,7 +39,6 @@ extern int erts_jit_perf_support;
 #    endif
 
 void beamasm_init(void);
-void beamasm_init_perf(void);
 void *beamasm_new_assembler(Eterm mod,
                             int num_labels,
                             int num_functions,
@@ -50,6 +49,7 @@ void beamasm_codegen(void *ba,
                      const BeamCodeHeader *in_hdr,
                      const BeamCodeHeader **out_exec_hdr,
                      BeamCodeHeader **out_rw_hdr);
+void beamasm_register_metadata(void *ba, const BeamCodeHeader *hdr);
 void beamasm_purge_module(const void *native_module_exec,
                           void *native_module_rw);
 void beamasm_delete_assembler(void *ba);

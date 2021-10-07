@@ -687,8 +687,8 @@ static const BeamCodeLineTab *finish_line_table(LoaderState *stp,
     line_items_rw[i] = (void *)&module_base[module_size];
 
     for (i = 0; i < num_names; i++) {
-        fname_base_rw[i] = beamfile_get_literal(&stp->beam,
-                                                stp->beam.lines.names[i]);
+        fname_base_rw[i] =
+                beamfile_get_literal(&stp->beam, stp->beam.lines.names[i]);
     }
 
     if (stp->beam.lines.location_size == sizeof(Uint16)) {
@@ -982,6 +982,9 @@ void beam_load_finalize_code(LoaderState *stp,
                                  (BeamInstr)fun_entry);
         }
     }
+
+    /* Register debug / profiling info with external tools. */
+    beamasm_register_metadata(stp->ba, stp->code_hdr);
 
     /* Prevent literals and code from being freed. */
     (stp->load_hdr)->literal_area = NULL;

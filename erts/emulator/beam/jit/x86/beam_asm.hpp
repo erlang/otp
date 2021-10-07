@@ -857,15 +857,16 @@ public:
     struct AsmRange {
         ErtsCodePtr start;
         ErtsCodePtr stop;
-        std::string name;
+        const std::string name;
 
-        /* Not used yet */
-        std::string file;
-        unsigned line;
+        struct LineData {
+            ErtsCodePtr start;
+            const std::string file;
+            unsigned line;
+        };
+
+        const std::vector<LineData> lines;
     };
-
-    void update_gdb_jit_info(std::string modulename,
-                             std::vector<AsmRange> &functions);
 };
 
 class BeamGlobalAssembler : public BeamAssembler {
@@ -1093,6 +1094,8 @@ public:
                  void **writable_ptr);
 
     void codegen(char *buff, size_t len);
+
+    void register_metadata(const BeamCodeHeader *header);
 
     ErtsCodePtr getCode(unsigned label);
     ErtsCodePtr getLambda(unsigned index);
@@ -1322,5 +1325,10 @@ protected:
     }
 };
 
-void beamasm_update_perf_info(std::string modulename,
-                              std::vector<BeamAssembler::AsmRange> &ranges);
+void beamasm_metadata_update(
+        std::string module_name,
+        ErtsCodePtr base_address,
+        size_t code_size,
+        const std::vector<BeamAssembler::AsmRange> &ranges);
+void beamasm_metadata_early_init();
+void beamasm_metadata_late_init();

@@ -91,11 +91,10 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
         for (unsigned int i = 1; i < num_labels; i++) {
             /* Large enough to hold most realistic function names. We will
              * truncate too long names, but as the label name is not important
-             * for the functioning of asmjit and this functionality is
+             * for the functioning of the JIT and this functionality is
              * probably only used by developers, we don't bother with dynamic
              * allocation. */
             char tmp[MAX_ATOM_SZ_LIMIT];
-            Label lbl;
 
             /* The named_labels are sorted, so no need for a search. */
             if ((unsigned int)e->label == i) {

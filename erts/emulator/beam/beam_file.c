@@ -504,8 +504,6 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
                 lines->location_size = sizeof(Sint32);
             }
 
-            LoadAssert(IS_VALID_LOCATION(name_index, val.word_value));
-
             lines->items[i].location = val.word_value;
             lines->items[i].name_index = name_index;
             i++;

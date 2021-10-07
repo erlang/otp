@@ -241,66 +241,6 @@ void BeamModuleAssembler::codegen(JitAllocator *allocator,
                                   const void **executable_ptr,
                                   void **writable_ptr) {
     _codegen(allocator, executable_ptr, writable_ptr);
-
-#if !(defined(WIN32) || defined(__APPLE__) || defined(__MACH__) ||             \
-      defined(__DARWIN__))
-    if (functions.size()) {
-        char *buff = (char *)erts_alloc(ERTS_ALC_T_TMP, 1024);
-        std::vector<AsmRange> ranges;
-        std::string name = getAtom(mod);
-        ranges.reserve(functions.size() + 2);
-
-        /* Push info about the header */
-        ranges.push_back({.start = (ErtsCodePtr)getBaseAddress(),
-                          .stop = getCode(functions[0]),
-                          .name = name + "::codeHeader"});
-
-        for (unsigned i = 0; i < functions.size(); i++) {
-            ErtsCodePtr start, stop;
-            const ErtsCodeInfo *ci;
-            int n;
-
-            start = getCode(functions[i]);
-            ci = (const ErtsCodeInfo *)start;
-
-            n = erts_snprintf(buff,
-                              1024,
-                              "%T:%T/%d",
-                              ci->mfa.module,
-                              ci->mfa.function,
-                              ci->mfa.arity);
-            stop = ((const char *)erts_codeinfo_to_code(ci)) +
-                   BEAM_ASM_FUNC_PROLOGUE_SIZE;
-
-            /* We use a different symbol for CodeInfo and the Prologue
-               in order for the perf disassembly to be better. */
-            std::string name(buff, n);
-            ranges.push_back({.start = start,
-                              .stop = stop,
-                              .name = name + "-CodeInfoPrologue"});
-
-            /* The actual code */
-            start = stop;
-            if (i + 1 < functions.size()) {
-                stop = getCode(functions[i + 1]);
-            } else {
-                stop = getCode(code_end);
-            }
-
-            ranges.push_back({.start = start, .stop = stop, .name = name});
-        }
-
-        /* Push info about the footer */
-        ranges.push_back(
-                {.start = ranges.back().stop,
-                 .stop = (ErtsCodePtr)(code.baseAddress() + code.codeSize()),
-                 .name = name + "::codeFooter"});
-
-        update_gdb_jit_info(name, ranges);
-        beamasm_update_perf_info(name, ranges);
-        erts_free(ERTS_ALC_T_TMP, buff);
-    }
-#endif
 }
 
 void BeamModuleAssembler::codegen(char *buff, size_t len) {
@@ -311,6 +251,120 @@ void BeamModuleAssembler::codegen(char *buff, size_t len) {
     code.copyFlattenedData(buff,
                            code.codeSize(),
                            CodeHolder::kCopyPadSectionBuffer);
+}
+
+void BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
+#ifndef WIN32
+    const BeamCodeLineTab *line_table = header->line_table;
+
+    char name_buffer[MAX_ATOM_SZ_LIMIT];
+    std::string module_name = getAtom(mod);
+    std::vector<AsmRange> ranges;
+
+    ranges.reserve(functions.size() + 2);
+
+    ASSERT((ErtsCodePtr)getBaseAddress() == (ErtsCodePtr)header);
+
+    /* Push info about the header */
+    ranges.push_back({.start = (ErtsCodePtr)getBaseAddress(),
+                      .stop = getCode(functions[0]),
+                      .name = module_name + "::codeHeader"});
+
+    for (unsigned i = 0; i < functions.size(); i++) {
+        std::vector<AsmRange::LineData> lines;
+        ErtsCodePtr start, stop;
+        const ErtsCodeInfo *ci;
+        Sint n;
+
+        start = getCode(functions[i]);
+        ci = (const ErtsCodeInfo *)start;
+
+        stop = ((const char *)erts_codeinfo_to_code(ci)) +
+               BEAM_ASM_FUNC_PROLOGUE_SIZE;
+
+        n = erts_snprintf(name_buffer,
+                          1024,
+                          "%T:%T/%d",
+                          ci->mfa.module,
+                          ci->mfa.function,
+                          ci->mfa.arity);
+
+        /* We use a different symbol for CodeInfo and the Prologue
+         * in order for the perf disassembly to be better. */
+        std::string function_name(name_buffer, n);
+        ranges.push_back({.start = start,
+                          .stop = stop,
+                          .name = function_name + "-CodeInfoPrologue"});
+
+        /* The actual code */
+        start = stop;
+        if (i + 1 < functions.size()) {
+            stop = getCode(functions[i + 1]);
+        } else {
+            stop = getCode(code_end);
+        }
+
+        if (line_table) {
+            const void **line_cursor = line_table->func_tab[i];
+            const int loc_size = line_table->loc_size;
+
+            /* Register all lines belonging to this function. */
+            while ((intptr_t)line_cursor[0] < (intptr_t)stop) {
+                ptrdiff_t line_index;
+                Uint32 loc;
+
+                line_index = line_cursor - line_table->func_tab[0];
+
+                if (loc_size == 2) {
+                    loc = line_table->loc_tab.p2[line_index];
+                } else {
+                    ASSERT(loc_size == 4);
+                    loc = line_table->loc_tab.p4[line_index];
+                }
+
+                if (loc != LINE_INVALID_LOCATION) {
+                    Uint32 file;
+                    Eterm fname;
+                    int res;
+
+                    file = LOC_FILE(loc);
+                    fname = line_table->fname_ptr[file];
+
+                    ERTS_ASSERT(is_nil(fname) || is_list(fname));
+
+                    res = erts_unicode_list_to_buf(fname,
+                                                   (byte *)name_buffer,
+                                                   sizeof(name_buffer) / 4,
+                                                   &n);
+
+                    ERTS_ASSERT(res != -1);
+
+                    lines.push_back({.start = line_cursor[0],
+                                     .file = std::string(name_buffer, n),
+                                     .line = LOC_LINE(loc)});
+                }
+
+                line_cursor++;
+            }
+        }
+
+        ranges.push_back({.start = start,
+                          .stop = stop,
+                          .name = function_name,
+                          .lines = lines});
+    }
+
+    /* Push info about the footer */
+    ranges.push_back(
+            {.start = ranges.back().stop,
+             .stop = (ErtsCodePtr)(code.baseAddress() + code.codeSize()),
+             .name = module_name + "::codeFooter"});
+
+    beamasm_metadata_update(module_name,
+                            (ErtsCodePtr)code.baseAddress(),
+                            code.codeSize(),
+                            ranges);
+#endif
 }
 
 BeamCodeHeader *BeamModuleAssembler::getCodeHeader() {
