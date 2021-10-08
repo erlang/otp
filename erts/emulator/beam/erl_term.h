@@ -894,17 +894,12 @@ typedef union {
 
 #  define is_ref_thing_header(x) ((x) == ERTS_REF_THING_HEADER)
 
-#ifdef SHCOPY
-#define is_ordinary_ref_thing(x)                                           \
-    (((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER)
-#else
-#define is_ordinary_ref_thing(x)                                           \
-    (ASSERT(is_ref_thing_header((*((Eterm *)(x))) & ~BOXED_VISITED_MASK)), \
-     ((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER)
-#endif
+/* the _with_hdr variants usable when header word may be broken (copy_shared) */
+#define is_ordinary_ref_thing_with_hdr(PTR, HDR)                        \
+    (((ErtsRefThing*) (PTR))->o.marker == ERTS_ORDINARY_REF_MARKER)
 
-#define is_magic_ref_thing(x)						\
-    (!is_ordinary_ref_thing((x)))
+#define is_magic_ref_thing_with_hdr(PTR, HDR)				\
+    (!is_ordinary_ref_thing_with_hdr(PTR, HDR))
 
 #define is_internal_magic_ref(x)					\
     ((_unchecked_is_boxed((x)) && *boxed_val((x)) == ERTS_REF_THING_HEADER) \
@@ -922,13 +917,13 @@ typedef union {
 #  define is_ref_thing_header(x)					\
     (((x) & _TAG_HEADER_MASK) == _TAG_HEADER_REF)
 
-#define is_ordinary_ref_thing(x)					\
-    (ASSERT(is_ref_thing_header(*((Eterm *)(x)))),			\
-     *((Eterm *)(x)) == ERTS_REF_THING_HEADER)
+#define is_ordinary_ref_thing_with_hdr(PTR, HDR)			\
+    (ASSERT(is_ref_thing_header(HDR)),			                \
+     (HDR) == ERTS_REF_THING_HEADER)
 
-#define is_magic_ref_thing(x)						\
-    (ASSERT(is_ref_thing_header(*((Eterm *)(x)))),			\
-     *((Eterm *)(x)) == ERTS_MAGIC_REF_THING_HEADER)
+#define is_magic_ref_thing_with_hdr(PTR, HDR)				\
+    (ASSERT(is_ref_thing_header(HDR)),			                \
+     (HDR) == ERTS_MAGIC_REF_THING_HEADER)
 
 #define is_internal_magic_ref(x)					\
     (_unchecked_is_boxed((x)) && *boxed_val((x)) == ERTS_MAGIC_REF_THING_HEADER)
@@ -937,6 +932,12 @@ typedef union {
     (_unchecked_is_boxed((x)) && *boxed_val((x)) == ERTS_REF_THING_HEADER)
 
 #endif
+
+#define is_ordinary_ref_thing(PTR)				        \
+    is_ordinary_ref_thing_with_hdr(PTR, *(Eterm*)(PTR))
+
+#define is_magic_ref_thing(PTR)						\
+    is_magic_ref_thing_with_hdr(PTR, *(Eterm*)(PTR))
 
 #define make_internal_ref(x)	make_boxed((Eterm*)(x))
 
