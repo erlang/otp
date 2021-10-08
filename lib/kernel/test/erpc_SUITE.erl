@@ -21,7 +21,9 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
--export([call/1, call_reqtmo/1, call_against_ei_node/1, cast/1,
+-export([call/1, call_against_old_node/1,
+         call_from_old_node/1,
+         call_reqtmo/1, call_against_ei_node/1, cast/1,
          send_request/1, send_request_fun/1,
          send_request_receive_reqtmo/1,
          send_request_wait_reqtmo/1,
@@ -35,6 +37,8 @@
          timeout_limit/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
+-export([call_test/3]).
+
 -export([call_func1/1, call_func2/1, call_func4/4]).
 
 -export([f/0, f2/0]).
@@ -47,6 +51,8 @@ suite() ->
 
 all() -> 
     [call,
+     call_against_old_node,
+     call_from_old_node,
      call_reqtmo,
      call_against_ei_node,
      cast,
@@ -86,28 +92,55 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 call(Config) when is_list(Config) ->
-    call_test(Config).
-
-call_test(Config) ->
-    call_test(node(), 10000),
-    call_test(node(), infinity),
-    try
-        erpc:call(node(), timer, sleep, [100], 10),
-        ct:fail(unexpected)
-    catch
-        error:{erpc, timeout} ->
-            ok
-    end,
-    try
-        erpc:call(node(), fun () -> timer:sleep(100) end, 10),
-        ct:fail(unexpected)
-    catch
-        error:{erpc, timeout} ->
-            ok
-    end,
     {ok, Node} = start_node(Config),
-    call_test(Node, 10000),
-    call_test(Node, infinity),
+    call_test(Node, true, false).
+
+call_against_old_node(Config) when is_list(Config) ->
+    case start_old_node(Config) of
+        notsup ->
+            {skipped, "Not able to start old node"};
+        {ok, Node} ->
+            compile_and_load_on_node(Node),
+            call_test(Node, false, false),
+            ok
+    end.
+
+call_from_old_node(Config) when is_list(Config) ->
+    case start_old_node(Config) of
+        notsup ->
+            {skipped, "Not able to start old node"};
+        {ok, Node} ->
+            try
+                compile_and_load_on_node(Node),
+                ok = erpc:call(Node, ?MODULE, call_test, [node(), false, true])
+            after
+                stop_node(Node)
+            end
+    end.
+
+call_test(Node, NodesOfSameRelease, ToTestServer) ->
+    if NodesOfSameRelease ->
+            call_test(node(), 10000, NodesOfSameRelease, ToTestServer),
+            call_test(node(), infinity, NodesOfSameRelease, ToTestServer),
+            try
+                erpc:call(node(), timer, sleep, [100], 10),
+                ct:fail(unexpected)
+            catch
+                error:{erpc, timeout} ->
+                    ok
+            end,
+            try
+                erpc:call(node(), fun () -> timer:sleep(100) end, 10),
+                ct:fail(unexpected)
+            catch
+                error:{erpc, timeout} ->
+                    ok
+            end;
+       true ->
+            ok
+    end,
+    call_test(Node, 10000, NodesOfSameRelease, ToTestServer),
+    call_test(Node, infinity, NodesOfSameRelease, ToTestServer),
     try
         erpc:call(Node, timer, sleep, [100], 10),
         ct:fail(unexpected)
@@ -115,32 +148,44 @@ call_test(Config) ->
         error:{erpc, timeout} ->
             ok
     end,
-    try
-        erpc:call(Node, fun () -> timer:sleep(100) end, 10),
-        ct:fail(unexpected)
-    catch
-        error:{erpc, timeout} ->
+    if NodesOfSameRelease ->
+            try
+                erpc:call(Node, fun () -> timer:sleep(100) end, 10),
+                ct:fail(unexpected)
+            catch
+                error:{erpc, timeout} ->
+                    ok
+            end;
+       true ->
             ok
     end,
-    try
-        erpc:call(Node, erlang, halt, []),
-        ct:fail(unexpected)
-    catch
-        error:{erpc, noconnection} ->
-            ok
-    end,
-    try
-        erpc:call(Node, fun () -> erlang:node() end),
-        ct:fail(unexpected)
-    catch
-        error:{erpc, noconnection} ->
-            ok
-    end,
-    try
-        erpc:call(Node, erlang, node, []),
-        ct:fail(unexpected)
-    catch
-        error:{erpc, noconnection} ->
+    if not ToTestServer ->
+            try
+                erpc:call(Node, erlang, halt, []),
+                ct:fail(unexpected)
+            catch
+                error:{erpc, noconnection} ->
+                    ok
+            end,
+            if NodesOfSameRelease ->
+                    try
+                        erpc:call(Node, fun () -> erlang:node() end),
+                        ct:fail(unexpected)
+                    catch
+                        error:{erpc, noconnection} ->
+                            ok
+                    end;
+               true ->
+                    ok
+            end,
+            try
+                erpc:call(Node, erlang, node, []),
+                ct:fail(unexpected)
+            catch
+                error:{erpc, noconnection} ->
+                    ok
+            end;
+       true ->
             ok
     end,
     try
@@ -155,8 +200,9 @@ call_test(Config) ->
     [] = flush([]),
     ok.
 
-call_test(Node, Timeout) ->
-    io:format("call_test(~p, ~p)~n", [Node, Timeout]),
+call_test(Node, Timeout, NodesOfSameRelease, ToTestServer) ->
+    io:format("call_test(~p, ~p, ~p, ~p)~n",
+              [Node, Timeout, NodesOfSameRelease, ToTestServer]),
     Node = erpc:call(Node, erlang, node, [], Timeout),
     try
         erpc:call(Node, erlang, error, [oops|invalid], Timeout),
@@ -179,11 +225,15 @@ call_test(Node, Timeout) ->
         exit:{exception, oops} ->
             ok
     end,
-    try
-        erpc:call(Node, fun () -> erlang:exit(oops) end, Timeout),
-        ct:fail(unexpected)
-    catch
-        exit:{exception, oops} ->
+    if NodesOfSameRelease ->
+            try
+                erpc:call(Node, fun () -> erlang:exit(oops) end, Timeout),
+                ct:fail(unexpected)
+            catch
+                exit:{exception, oops} ->
+                    ok
+            end;
+       true ->
             ok
     end,
     try
@@ -193,38 +243,42 @@ call_test(Node, Timeout) ->
         throw:oops ->
             ok
     end,
-    try
-        erpc:call(Node, fun () -> erlang:throw(oops) end, Timeout),
-        ct:fail(unexpected)
-    catch
-        throw:oops ->
-            ok
-    end,
-    case {node() == Node, Timeout == infinity} of
-        {true, true} ->
-            %% This would kill the test since local calls
-            %% without timeout is optimized to execute in
-            %% calling process itself...
-            ok;
-        _ ->
-            ExitSignal = fun () ->
-                                 exit(self(), oops),
-                                 receive after infinity -> ok end
-                         end,
+    if NodesOfSameRelease ->
             try
-                erpc:call(Node, ExitSignal, Timeout),
+                erpc:call(Node, fun () -> erlang:throw(oops) end, Timeout),
                 ct:fail(unexpected)
             catch
-                exit:{signal, oops} ->
+                throw:oops ->
                     ok
             end,
-            try
-                erpc:call(Node, erlang, apply, [ExitSignal, []], Timeout),
-                ct:fail(unexpected)
-            catch
-                exit:{signal, oops} ->
-                    ok
-            end
+            case {node() == Node, Timeout == infinity} of
+                {true, true} ->
+                    %% This would kill the test since local calls
+                    %% without timeout is optimized to execute in
+                    %% calling process itself...
+                    ok;
+                _ ->
+                    ExitSignal = fun () ->
+                                         exit(self(), oops),
+                                         receive after infinity -> ok end
+                                 end,
+                    try
+                        erpc:call(Node, ExitSignal, Timeout),
+                        ct:fail(unexpected)
+                    catch
+                        exit:{signal, oops} ->
+                            ok
+                    end,
+                    try
+                        erpc:call(Node, erlang, apply, [ExitSignal, []], Timeout),
+                        ct:fail(unexpected)
+                    catch
+                        exit:{signal, oops} ->
+                            ok
+                    end
+            end;
+       true ->
+            ok
     end,
     try
         erpc:call(Node, ?MODULE, call_func1, [boom], Timeout),
@@ -243,22 +297,26 @@ call_test(Node, Timeout) ->
                         orelse (A2 == [boom])) ->
             ok
     end,
-    try
-        erpc:call(Node, fun () -> ?MODULE:call_func1(boom) end, Timeout),
-        ct:fail(unexpected)
-    catch
-        error:{exception,
-               {exception,
-                boom,
-                [{?MODULE, call_func3, A4, _},
-                 {?MODULE, call_func2, 1, _}]},
-               [{erpc, call, A3, _},
-                {?MODULE, call_func1, 1, _},
-                {erlang, apply, 2, _}]}
-          when ((A3 == 5)
-                orelse (A3 == [Node, ?MODULE, call_func2, [boom]]))
-               andalso ((A4 == 1)
-                        orelse (A4 == [boom])) ->
+    if NodesOfSameRelease ->
+            try
+                erpc:call(Node, fun () -> ?MODULE:call_func1(boom) end, Timeout),
+                ct:fail(unexpected)
+            catch
+                error:{exception,
+                       {exception,
+                        boom,
+                        [{?MODULE, call_func3, A4, _},
+                         {?MODULE, call_func2, 1, _}]},
+                       [{erpc, call, A3, _},
+                        {?MODULE, call_func1, 1, _},
+                        {erlang, apply, 2, _}]}
+                  when ((A3 == 5)
+                        orelse (A3 == [Node, ?MODULE, call_func2, [boom]]))
+                       andalso ((A4 == 1)
+                                orelse (A4 == [boom])) ->
+                    ok
+            end;
+       true ->
             ok
     end,
     try
@@ -319,6 +377,18 @@ call_against_ei_node(Config) when is_list(Config) ->
         {error, notsup} ->
             {skipped, "Test not supported on this platform"};
         {ok, Node} ->
+            %% Once when erpc:call() brings up the connection
+            %% and once when the connection is up...
+            erlang:disconnect_node(Node),
+            false = lists:member(Node, nodes(hidden)),
+            try
+                erpc:call(Node, erlang, node, []),
+                ct:fail(unexpected)
+            catch
+                error:{erpc, notsup} ->
+                    ok
+            end,
+            true = lists:member(Node, nodes(hidden)),
             try
                 erpc:call(Node, erlang, node, []),
                 ct:fail(unexpected)
@@ -446,20 +516,60 @@ cast(Config) when is_list(Config) ->
     receive after 1000 -> ok end,
     [] = flush([]),
 
-    
-    case start_ei_node(Config) of
-        {error, notsup} ->
-            {comment, "No ei node tested; not supported on this platform"};
-        {ok, EiNode} ->
-            ok = erpc:cast(EiNode, erlang, send, [Me, wont_reach_me]),
-            ok = erpc:cast(EiNode, fun () -> Me ! wont_reach_me end),
-            receive
-                Msg -> ct:fail({unexpected_message, Msg})
-            after
-                2000 -> ok
-            end,
-            stop_ei_node(EiNode),
-            {comment, "Also tested against ei node"}
+    OldTested = case start_old_node(Config) of
+                    notsup ->
+                        false;
+                    {ok, OldNode} ->
+                        Ok3 = make_ref(),
+                        ok = erpc:cast(OldNode, erlang, send, [Me, {mfa, Ok3}]),
+                        receive
+                            {mfa, Ok3} -> ok
+                        end,
+                        ok = erpc:cast(OldNode, erlang, halt, []),
+
+                        ok = erpc:cast(OldNode, erlang, send, [Me, wont_reach_me]),
+
+                        receive after 1000 -> ok end,
+                        [] = flush([]),
+
+                        true
+                end,
+
+    EiTested = case start_ei_node(Config) of
+                   {error, notsup} ->
+                       false;
+                   {ok, EiNode} ->
+                       %% Both when erpc:cast() brings up the connection
+                       %% and when the connection is up...
+                       erlang:disconnect_node(EiNode),
+                       false = lists:member(EiNode, nodes(hidden)),
+
+                       ok = erpc:cast(EiNode, erlang, send, [Me, wont_reach_me]),
+                       ok = erpc:cast(EiNode, fun () -> Me ! wont_reach_me end),
+
+                       wait_until(fun () -> lists:member(EiNode, nodes(hidden)) end),
+
+                       ok = erpc:cast(EiNode, erlang, send, [Me, wont_reach_me]),
+                       ok = erpc:cast(EiNode, fun () -> Me ! wont_reach_me end),
+
+                       receive
+                           Msg -> ct:fail({unexpected_message, Msg})
+                       after
+                           2000 -> ok
+                       end,
+                       stop_ei_node(EiNode),
+                       true
+               end,
+
+    case {OldTested, EiTested} of
+        {false, false} ->
+            {comment, "Not tested against old node nor ei node"};
+        {true, false} ->
+            {comment, "Also tested against old node, but not ei node"};
+        {false, true} ->
+            {comment, "Also tested against ei node, but not old node"};
+        {true, true} ->
+            {comment, "Also tested against old node as well as ei node"}
     end.
 
 send_request(Config) when is_list(Config) ->
@@ -552,23 +662,91 @@ send_request(Config) when is_list(Config) ->
 
     [] = flush([]),
 
-    case start_ei_node(Config) of
-        {error, notsup} ->
-            {comment, "No ei node tested; not supported on this platform"};
-        {ok, Node5} ->
-            ReqId9 = erpc:send_request(Node5, erlang, node, []),
-            try
-                erpc:receive_response(ReqId9),
-                ct:fail(unexpected)
-            catch
-                error:{erpc, notsup} -> ok
-            end,
+    OldTested = case start_old_node(Config) of
+                    notsup ->
+                        false;
+                    {ok, OldNode} ->
 
-            stop_ei_node(Node5),
+                        ReqId9 = erpc:send_request(OldNode, erlang, node, []),
+    
+                        no_response = erpc:check_response({response, OldNode}, ReqId9),
+                        no_response = erpc:check_response(ReqId6, ReqId9),
+                        receive
+                            Msg3 ->
+                                {response, OldNode} = erpc:check_response(Msg3, ReqId9)
+                        end,
 
-            [] = flush([]),
+                        ReqId10 = erpc:send_request(OldNode, erlang, node, []),
+                        
+                        OldNode = erpc:receive_response(ReqId10),
 
-            {comment, "Also tested against ei node"}
+                        ReqId11 = erpc:send_request(OldNode, erlang, node, []),
+                        {response, OldNode} = erpc:wait_response(ReqId11, infinity),
+
+                        ReqId12 = erpc:send_request(OldNode, erlang, halt, []),
+                        try
+                            erpc:receive_response(ReqId12),
+                            ct:fail(unexpected)
+                        catch
+                            error:{erpc, noconnection} -> ok
+                        end,
+
+                        ReqId13 = erpc:send_request(OldNode, erlang, node, []),
+                        receive
+                            Msg4 ->
+                                try
+                                    erpc:check_response(Msg4, ReqId13),
+                                    ct:fail(unexpected)
+                                catch
+                                    error:{erpc, noconnection} ->
+                                        ok
+                                end
+                        end,
+
+                        [] = flush([]),
+                        true
+                end,
+
+    EiTested = case start_ei_node(Config) of
+                   {error, notsup} ->
+                       false;
+                   {ok, Node5} ->
+                       %% Once when erpc:send_request() brings up the connection
+                       %% and once when the connection is up...
+                       erlang:disconnect_node(Node5),
+                       false = lists:member(Node5, nodes(hidden)),
+                       ReqId14 = erpc:send_request(Node5, erlang, node, []),
+                       try
+                           erpc:receive_response(ReqId14),
+                           ct:fail(unexpected)
+                       catch
+                           error:{erpc, notsup} -> ok
+                       end,
+                       true = lists:member(Node5, nodes(hidden)),
+                       ReqId15 = erpc:send_request(Node5, erlang, node, []),
+                       try
+                           erpc:receive_response(ReqId15),
+                           ct:fail(unexpected)
+                       catch
+                           error:{erpc, notsup} -> ok
+                       end,
+
+                       stop_ei_node(Node5),
+
+                       [] = flush([]),
+
+                       true
+               end,
+
+    case {OldTested, EiTested} of
+        {false, false} ->
+            {comment, "Not tested against old node nor ei node"};
+        {true, false} ->
+            {comment, "Also tested against old node, but not ei node"};
+        {false, true} ->
+            {comment, "Also tested against ei node, but not old node"};
+        {true, true} ->
+            {comment, "Also tested against old node as well as ei node"}
     end.
 
 send_request_fun(Config) when is_list(Config) ->
@@ -664,9 +842,21 @@ send_request_fun(Config) when is_list(Config) ->
         {error, notsup} ->
             {comment, "No ei node tested; not supported on this platform"};
         {ok, Node5} ->
+            %% Once when erpc:send_request() brings up the connection
+            %% and once when the connection is up...
+            erlang:disconnect_node(Node5),
+            false = lists:member(Node5, nodes(hidden)),
             ReqId9 = erpc:send_request(Node5, fun () -> erlang:node() end),
             try
                 erpc:receive_response(ReqId9),
+                ct:fail(unexpected)
+            catch
+                error:{erpc, notsup} -> ok
+            end,
+            true = lists:member(Node5, nodes(hidden)),
+            ReqId10 = erpc:send_request(Node5, fun () -> erlang:node() end),
+            try
+                erpc:receive_response(ReqId10),
                 ct:fail(unexpected)
             catch
                 error:{erpc, notsup} -> ok
@@ -731,6 +921,10 @@ send_request_against_ei_node(Config) when is_list(Config) ->
         {error, notsup} ->
 	    {skipped, "Not supported on this platform"};
         {ok, EiNode} ->
+            %% Once when erpc:send_request() brings up the connection
+            %% and once when the connection is up...
+            erlang:disconnect_node(EiNode),
+            false = lists:member(EiNode, nodes(hidden)),
             RID1 = erpc:send_request(EiNode, erlang, node, []),
             RID2 = erpc:send_request(EiNode, erlang, node, []),
             RID3 = erpc:send_request(EiNode, erlang, node, []),
@@ -758,6 +952,37 @@ send_request_against_ei_node(Config) when is_list(Config) ->
                 error:{erpc, notsup} ->
                     ok
             end,
+
+            true = lists:member(EiNode, nodes(hidden)),
+
+            RID1u = erpc:send_request(EiNode, erlang, node, []),
+            RID2u = erpc:send_request(EiNode, erlang, node, []),
+            RID3u = erpc:send_request(EiNode, erlang, node, []),
+            try
+                erpc:receive_response(RID1u),
+                ct:fail(unexpected)
+            catch
+                error:{erpc, notsup} ->
+                    ok
+            end,
+            try
+                erpc:wait_response(RID2u, infinity),
+                ct:fail(unexpected)
+            catch
+                error:{erpc, notsup} ->
+                    ok
+            end,
+            try
+                receive
+                    Msgu ->
+                        erpc:check_response(Msgu, RID3u),
+                        ct:fail(unexpected)
+                end
+            catch
+                error:{erpc, notsup} ->
+                    ok
+            end,
+
             stop_ei_node(EiNode),
             ok
     end.
@@ -767,6 +992,10 @@ multicall(Config) ->
     {ok, Node2} = start_node(Config),
     {Node3, Node3Res} = case start_ei_node(Config) of
                             {ok, N3} ->
+                                %% Once when erpc:multicall() brings up
+                                %% the connection...
+                                erlang:disconnect_node(N3),
+                                false = lists:member(N3, nodes(hidden)),
                                 {N3, {error, {erpc, notsup}}};
                             {error, notsup} ->
                                 {ok, N3} = start_node(Config),
@@ -775,6 +1004,13 @@ multicall(Config) ->
                         end,
     {ok, Node4} = start_node(Config),
     {ok, Node5} = start_node(Config),
+    {OldTested, {ok, Node6}} = case start_old_node(Config) of
+                                   notsup ->
+                                       {false, start_node(Config)};
+                                   {ok, OldNode} = OldNodeRes ->
+                                       compile_and_load_on_node(OldNode),
+                                       {true, OldNodeRes}
+                               end,
     stop_node(Node2),
     
     ThisNode = node(),
@@ -786,8 +1022,9 @@ multicall(Config) ->
      Node3Res,
      {ok, Node4},
      {ok, Node5},
-     {error, {erpc, noconnection}}]
-        = erpc:multicall(Nodes ++ [badnodename], erlang, node, []),
+     {error, {erpc, noconnection}},
+     {ok, Node6}]
+        = erpc:multicall(Nodes ++ [badnodename] ++ [Node6], erlang, node, []),
 
     [{ok, ThisNode},
      {ok, Node1},
@@ -836,16 +1073,18 @@ multicall(Config) ->
      {error, {erpc, noconnection}},
      Node3Res,
      {ok, Node4},
-     {ok, Node5}]
-        = erpc:multicall(Nodes, erlang, node, []),
+     {ok, Node5},
+     {ok, Node6}]
+        = erpc:multicall(Nodes ++ [Node6], erlang, node, []),
 
     [{ok, ThisNode},
      {ok, Node1},
      {error, {erpc, noconnection}},
      Node3Res,
      {ok, Node4},
-     {ok, Node5}]
-        = erpc:multicall(Nodes, erlang, node, [], 60000),
+     {ok, Node5},
+     {ok, Node6}]
+        = erpc:multicall(Nodes ++ [Node6], erlang, node, [], 60000),
 
     [{throw, ThisNode},
      {throw, Node1},
@@ -871,12 +1110,15 @@ multicall(Config) ->
      {error, {erpc, timeout}},
      {error, {erpc, timeout}},
      {error, {erpc, timeout}},
+
+     {error, {erpc, timeout}},
      {error, {erpc, timeout}},
      {error, {erpc, noconnection}},
      Node3Res,
      {error, {erpc, timeout}},
+     {error, {erpc, timeout}},
      {error, {erpc, timeout}}]
-        = erpc:multicall(Nodes++Nodes, timer, sleep, [2000], 500),
+        = erpc:multicall(Nodes++[Node6]++Nodes++[Node6], timer, sleep, [2000], 500),
     E0 = erlang:monotonic_time(millisecond),
     T0 = E0 - S0,
     io:format("T0=~p~n", [T0]),
@@ -890,12 +1132,15 @@ multicall(Config) ->
      {ok, ok},
      {ok, ok},
      {ok, ok},
+
+     {ok, ok},
      {ok, ok},
      {error, {erpc, noconnection}},
      Node3Res,
      {ok, ok},
+     {ok, ok},
      {ok, ok}]
-        = erpc:multicall(Nodes++Nodes, timer, sleep, [2000]),
+        = erpc:multicall(Nodes++[Node6]++Nodes++[Node6], timer, sleep, [2000]),
     E1 = erlang:monotonic_time(millisecond),
     T1 = E1 - S1,
     io:format("T1=~p~n", [T1]),
@@ -909,12 +1154,15 @@ multicall(Config) ->
      {ok, ok},
      {ok, ok},
      {ok, ok},
+
+     {ok, ok},
      {ok, ok},
      {error, {erpc, noconnection}},
      Node3Res,
      {ok, ok},
+     {ok, ok},
      {ok, ok}]
-        = erpc:multicall(Nodes++Nodes, timer, sleep, [2000], 3000),
+        = erpc:multicall(Nodes++[Node6]++Nodes++[Node6], timer, sleep, [2000], 3000),
     E2 = erlang:monotonic_time(millisecond),
     T2 = E2 - S2,
     io:format("T2=~p~n", [T2]),
@@ -926,13 +1174,16 @@ multicall(Config) ->
      Node3Res,
      {ok, Node4},
      {ok, Node5},
+     {ok, Node6},
+
      {ok, ThisNode},
      {ok, Node1},
      {error, {erpc, noconnection}},
      Node3Res,
      {ok, Node4},
-     {ok, Node5}]
-        = erpc:multicall(Nodes++Nodes, erlang, node, []),
+     {ok, Node5},
+     {ok, Node6}]
+        = erpc:multicall(Nodes++[Node6]++Nodes++[Node6], erlang, node, []),
 
     [{ok, ThisNode},
      {ok, Node1},
@@ -940,13 +1191,16 @@ multicall(Config) ->
      Node3Res,
      {ok, Node4},
      {ok, Node5},
+     {ok, Node6},
+
      {ok, ThisNode},
      {ok, Node1},
      {error, {erpc, noconnection}},
      Node3Res,
      {ok, Node4},
-     {ok, Node5}]
-        = erpc:multicall(Nodes++Nodes, erlang, node, [], 60000),
+     {ok, Node5},
+     {ok, Node6}]
+        = erpc:multicall(Nodes++[Node6]++Nodes++[Node6], erlang, node, [], 60000),
 
     [{ok, ThisNode},
      {ok, Node1},
@@ -961,16 +1215,18 @@ multicall(Config) ->
      {error, {erpc, noconnection}},
      Node3Res,
      BlingError,
-     BlingError]
-        = erpc:multicall(Nodes, ?MODULE, call_func2, [bling]),
+     BlingError,
+     OldBlingError]
+        = erpc:multicall(Nodes++[Node6], ?MODULE, call_func2, [bling]),
 
     [BlingError,
      BlingError,
      {error, {erpc, noconnection}},
      Node3Res,
      BlingError,
-     BlingError]
-        = erpc:multicall(Nodes, ?MODULE, call_func2, [bling], 60000),
+     BlingError,
+     OldBlingError]
+        = erpc:multicall(Nodes++[Node6], ?MODULE, call_func2, [bling], 60000),
 
     {error, {exception,
              bling,
@@ -978,21 +1234,29 @@ multicall(Config) ->
               {?MODULE, call_func2, 1, _}]}} = BlingError,
     true = (A == 1) orelse (A == [bling]),
 
-    [{error, {exception, blong, [{erlang, error, [blong], _}]}},
-     {error, {exception, blong, [{erlang, error, [blong], _}]}},
-     {error, {erpc, noconnection}},
-     Node3Res,
-     {error, {exception, blong, [{erlang, error, [blong], _}]}},
-     {error, {exception, blong, [{erlang, error, [blong], _}]}}]
-        = erpc:multicall(Nodes, erlang, error, [blong]),
+    {error, {exception,
+             bling,
+             [{?MODULE, call_func3, OldA, _},
+              {?MODULE, call_func2, 1, _}]}} = OldBlingError,
+    true = (OldA == 1) orelse (OldA == [bling]),
 
     [{error, {exception, blong, [{erlang, error, [blong], _}]}},
      {error, {exception, blong, [{erlang, error, [blong], _}]}},
      {error, {erpc, noconnection}},
      Node3Res,
      {error, {exception, blong, [{erlang, error, [blong], _}]}},
+     {error, {exception, blong, [{erlang, error, [blong], _}]}},
      {error, {exception, blong, [{erlang, error, [blong], _}]}}]
-        = erpc:multicall(Nodes, erlang, error, [blong], 60000),
+        = erpc:multicall(Nodes++[Node6], erlang, error, [blong]),
+
+    [{error, {exception, blong, [{erlang, error, [blong], _}]}},
+     {error, {exception, blong, [{erlang, error, [blong], _}]}},
+     {error, {erpc, noconnection}},
+     Node3Res,
+     {error, {exception, blong, [{erlang, error, [blong], _}]}},
+     {error, {exception, blong, [{erlang, error, [blong], _}]}},
+     {error, {exception, blong, [{erlang, error, [blong], _}]}}]
+        = erpc:multicall(Nodes++[Node6], erlang, error, [blong], 60000),
 
     SlowNode4 = fun () ->
                         case node() of
@@ -1059,17 +1323,28 @@ multicall(Config) ->
     [{error, {erpc, noconnection}},
      Node3Res,
      {error, {erpc, noconnection}},
+     {error, {erpc, noconnection}},
      {error, {erpc, noconnection}}]
-        = erpc:multicall([Node2, Node3, Node4, Node5], erlang, halt, []),
+        = erpc:multicall([Node2, Node3, Node4, Node5, Node6], erlang, halt, []),
 
     [] = flush([]),
 
-    case Node3Res of
-        {error, {erpc, notsup}} ->
-            stop_ei_node(Node3),
-            {comment, "Also tested against an ei node"};
-        _ ->
-            {comment, "No ei node available; i.e., only testing against proper erlang nodes"}
+    EiTested = case Node3Res of
+                   {error, {erpc, notsup}} ->
+                       stop_ei_node(Node3),
+                       true;
+                   _ ->
+                       false
+               end,
+    case {OldTested, EiTested} of
+        {false, false} ->
+            {comment, "Not tested against old node nor ei node"};
+        {true, false} ->
+            {comment, "Also tested against old node, but not ei node"};
+        {false, true} ->
+            {comment, "Also tested against ei node, but not old node"};
+        {true, true} ->
+            {comment, "Also tested against old node as well as ei node"}
     end.
 
 multicall_reqtmo(Config) when is_list(Config) ->
@@ -1194,9 +1469,15 @@ do_time_multicall(Expect, Nodes, Fun, Tmo, N) ->
 
 multicast(Config) when is_list(Config) ->
     {ok, Node} = start_node(Config),
+    {OldTested, {ok, OldNode}} = case start_old_node(Config) of
+                                     notsup ->
+                                         {false, start_node(Config)};
+                                     {ok, _} = OldNodeRes ->
+                                         {true, OldNodeRes}
+                                 end,
     Nodes = [node(), Node],
     try
-        erpc:multicast(Nodes, erlang, send, hej),
+        erpc:multicast(Nodes++[OldNode], erlang, send, hej),
         ct:fail(unexpected)
     catch
         error:{erpc, badarg} -> ok
@@ -1233,7 +1514,10 @@ multicast(Config) when is_list(Config) ->
 
     Me = self(),
     Ok1 = make_ref(),
-    ok = erpc:multicast(Nodes, erlang, send, [Me, {mfa, Ok1}]),
+    ok = erpc:multicast(Nodes++[OldNode], erlang, send, [Me, {mfa, Ok1}]),
+    receive
+        {mfa, Ok1} -> ok
+    end,
     receive
         {mfa, Ok1} -> ok
     end,
@@ -1248,30 +1532,56 @@ multicast(Config) when is_list(Config) ->
         {a_fun, Ok1} -> ok
     end,
 
-    ok = erpc:multicast([Node], erlang, halt, []),
+    ok = erpc:multicast([Node, OldNode], erlang, halt, []),
 
     monitor_node(Node, true),
     receive {nodedown, Node} -> ok end,
+    monitor_node(OldNode, true),
+    receive {nodedown, OldNode} -> ok end,
 
-    ok = erpc:multicast([Node], erlang, send, [Me, wont_reach_me]),
+    ok = erpc:multicast([Node, OldNode], erlang, send, [Me, wont_reach_me]),
 
     receive after 1000 -> ok end,
 
     [] = flush([]),
-    case start_ei_node(Config) of
-        {error, notsup} ->
-            {comment, "No ei node tested; not supported on this platform"};
-        {ok, EiNode} ->
-            ok = erpc:multicast([EiNode], erlang, send, [Me, wont_reach_me]),
-            ok = erpc:multicast([EiNode], fun () -> Me ! wont_reach_me end),
-            receive
-                Msg -> ct:fail({unexpected_message, Msg})
-            after
-                2000 -> ok
-            end,
-            stop_ei_node(EiNode),
-            {comment, "Also tested against ei node"}
+
+    EiTested = case start_ei_node(Config) of
+                   {error, notsup} ->
+                       false;
+                   {ok, EiNode} ->
+                       %% Once when erpc:multicast() brings up the connection
+                       %% and once when the connection is up...
+                       erlang:disconnect_node(EiNode),
+                       false = lists:member(EiNode, nodes(hidden)),
+
+                       ok = erpc:multicast([EiNode], erlang, send, [Me, wont_reach_me]),
+                       ok = erpc:multicast([EiNode], fun () -> Me ! wont_reach_me end),
+
+                       wait_until(fun () -> lists:member(EiNode, nodes(hidden)) end),
+
+                       ok = erpc:multicast([EiNode], erlang, send, [Me, wont_reach_me]),
+                       ok = erpc:multicast([EiNode], fun () -> Me ! wont_reach_me end),
+
+                       receive
+                           Msg -> ct:fail({unexpected_message, Msg})
+                       after
+                           2000 -> ok
+                       end,
+                       stop_ei_node(EiNode),
+                       true
+               end,
+
+    case {OldTested, EiTested} of
+        {false, false} ->
+            {comment, "Not tested against old node nor ei node"};
+        {true, false} ->
+            {comment, "Also tested against old node, but not ei node"};
+        {false, true} ->
+            {comment, "Also tested against ei node, but not old node"};
+        {true, true} ->
+            {comment, "Also tested against old node as well as ei node"}
     end.
+
 
 timeout_limit(Config) when is_list(Config) ->
     Node = node(),
@@ -1334,6 +1644,15 @@ timeout_limit(Config) when is_list(Config) ->
 %%% Utility functions.
 %%%
 
+wait_until(Fun) ->
+    case (catch Fun()) of
+        true ->
+            ok;
+        _ ->
+            receive after 100 -> ok end,
+            wait_until(Fun)
+    end.
+
 start_node(Config) ->
     Name = list_to_atom(atom_to_list(?MODULE)
 			++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
@@ -1341,6 +1660,37 @@ start_node(Config) ->
 			++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
     Pa = filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).
+
+old_release() ->
+    integer_to_list(list_to_integer(erlang:system_info(otp_release))-2).
+
+is_old_release_avaliable() ->
+    test_server:is_release_available(old_release() ++ "_latest").
+
+start_old_node(Config) ->
+    Rel = old_release() ++ "_latest",
+    case test_server:is_release_available(Rel) of
+	false ->
+            notsup;
+        true ->
+            Cookie = atom_to_list(erlang:get_cookie()),
+            Name = list_to_atom(atom_to_list(?MODULE)
+                                ++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
+                                ++ "-" ++ integer_to_list(erlang:system_time(second))
+                                ++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
+	    test_server:start_node(Name,
+                                   peer,
+                                   [{args, " -setcookie "++Cookie},
+                                    {erl, [{release, Rel}]}])
+    end.
+
+compile_and_load_on_node(Node) ->
+    %% Recompile erpc_SUITE on the old node and load it...
+    SrcFile = filename:rootname(code:which(?MODULE)) ++ ".erl",
+    {ok, ?MODULE, BeamCode} = erpc:call(Node, compile, file,
+                                        [SrcFile, [binary]]),
+    {module, ?MODULE} = erpc:call(Node, code, load_binary,
+                                  [?MODULE, SrcFile, BeamCode]).
 
 start_ei_node(Config) when is_list(Config) ->
     case os:type() of
