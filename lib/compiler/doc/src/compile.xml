@@ -395,6 +395,14 @@ module.beam: module.erl \
               <c>module_info(compile)</c> and stack traces.</p>
           </item>
 
+	  <tag><c>absolute_source</c></tag>
+          <item>
+            <p>Turns the source file name (as presented in
+              <c>module_info(compile)</c> and stack traces) into an absolute
+              path, which helps external tools like <c>perf</c> and <c>gdb</c>
+              find Erlang source code.</p>
+          </item>
+
 	  <tag><c>{outdir,Dir}</c></tag>
           <item>
             <p>Sets a new directory for the object code. The current

@@ -414,6 +414,10 @@ or by pressing `a` in the `perf report` ui. Then you get something like this:
 
 ![Linux Perf FlameGraph: dialyzer PLT build](figures/beamasm-perf-annotate.png)
 
+`perf annotate` will interleave the listing with the original source code
+whenever possible. You can use the `+{source,Filename}` or `+absolute_paths`
+compiler options to tell `perf` where to find the source code.
+
 > *WARNING*: Calling `perf inject --jit` will create a lot of files in `/tmp/`
 > and in `~/.debug/tmp/`. So make sure to cleanup in those directories from time to
 > time or you may run out of inodes.
