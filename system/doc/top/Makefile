@@ -260,9 +260,9 @@ $(TOP_PDF_FILE): $(XML_FILES)
 
 pdf: $(TOP_PDF_FILE)
 
-html: $(INDEX_FILES) $(JAVASCRIPT)
+html: $(INDEX_FILES) $(JAVASCRIPT) $(MAN_INDEX)
 
-man: $(MAN_INDEX)
+man:
 
 debug opt:
 
@@ -287,10 +287,10 @@ $(RELSYSDIR)/docbuild:
 	$(INSTALL_DIR)  $(RELSYSDIR)/docbuild
 
 release_man_spec: man $(RELSYSDIR)/docbuild
-	$(INSTALL_DATA) $(MAN_INDEX) $(RELSYSDIR)
-	$(INSTALL_DATA) $(MAN_INDEX_SRC) $(MAN_INDEX_SCRIPT) $(RELSYSDIR)/docbuild
 
 release_html_spec: html $(RELSYSDIR)/docbuild
+	$(INSTALL_DATA) $(MAN_INDEX) $(RELSYSDIR)
+	$(INSTALL_DATA) $(MAN_INDEX_SRC) $(MAN_INDEX_SCRIPT) $(RELSYSDIR)/docbuild
 	$(INSTALL_DIR)  $(RELSYSDIR)/js
 	$(INSTALL_DATA) $(JAVASCRIPT) $(RELSYSDIR)/js
 	$(INSTALL_DATA) $(INDEX_FILES) $(RELSYSDIR)
