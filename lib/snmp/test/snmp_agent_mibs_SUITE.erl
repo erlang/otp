@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -380,13 +380,13 @@ do_size_check(Config) ->
     Verbosity = trace,
 
     MibStorage = ?config(mib_storage, Config),
-    ?DBG("do_size_check -> MibStorage: ~p", [MibStorage]),
+    ?IPRINT("do_size_check -> MibStorage: ~p", [MibStorage]),
     MibDir     = ?config(data_dir, Config),
     StdMibDir  = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
     
-    ?DBG("do_size_check -> start symbolic store", []),
+    ?IPRINT("do_size_check -> start symbolic store", []),
     ?line sym_start(Prio, MibStorage, Verbosity),
-    ?DBG("do_size_check -> start mib server", []),
+    ?IPRINT("do_size_check -> start mib server", []),
     ?line MibsPid = mibs_start(Prio, MibStorage, Verbosity),
 
     Mibs    = ["Test2", "TestTrap", "TestTrapv2"],
@@ -402,23 +402,23 @@ do_size_check(Config) ->
 	       "SNMPv2-TC",
 	       "SNMPv2-TM"],
 
-    ?DBG("do_size_check -> load mibs", []),
-    ?line load_mibs(MibsPid, MibDir, Mibs),
-    ?DBG("do_size_check -> load std mibs", []),
+    ?IPRINT("do_size_check -> load std mibs", []),
     ?line load_mibs(MibsPid, StdMibDir, StdMibs),
+    ?IPRINT("do_size_check -> load (own) mibs", []),
+    ?line load_mibs(MibsPid, MibDir, Mibs),
 
     ?SLEEP(2000),
-    ?DBG("do_size_check -> display mem usage", []),
+    ?IPRINT("do_size_check -> display mem usage", []),
     ?line display_memory_usage(MibsPid),
     
-    ?DBG("do_size_check -> unload std mibs", []),
-    ?line unload_mibs(MibsPid, StdMibs),
-    ?DBG("do_size_check -> unload mibs", []),
+    ?IPRINT("do_size_check -> unload (own) mibs", []),
     ?line unload_mibs(MibsPid, Mibs),
+    ?IPRINT("do_size_check -> unload std mibs", []),
+    ?line unload_mibs(MibsPid, StdMibs),
 
-    ?DBG("do_size_check -> stop mib server", []),
+    ?IPRINT("do_size_check -> stop mib server", []),
     ?line mibs_stop(MibsPid),
-    ?DBG("do_size_check -> stop symbolic store", []),
+    ?IPRINT("do_size_check -> stop symbolic store", []),
     ?line sym_stop(),
 
     ?IPRINT("do_size_check -> done", []),
@@ -1102,27 +1102,44 @@ tc_try(Name, Init, TC)
                    monitor_node(Node, true),
                    Pid = spawn_link(Node, TC),
                    receive
+                       %% No test case could/would provoke a nodedown => SKIP
                        {nodedown, Node} = N ->
-                           exit(N);
+                           ?NPRINT("unexpected node down ~p", [Node]),
+                           exit({skip, N});
                        {'EXIT', Pid, normal} ->
                            monitor_node(Node, false),                           
                            ok;
                        {'EXIT', Pid, ok} ->
                            monitor_node(Node, false),                           
                            ok;
+                       %% This is a node down.
+                       %% Its just a race that this came before the actual
+                       %% 'nodedown'.
+                       %% Also, there is no normal test case that could provoke
+                       %% a node down, so this is *not* our fault => SKIP
+                       {'EXIT', Pid, noconnection = Reason} ->
+                           ?NPRINT("unexpected '~p' termination", [Reason]),
+                           monitor_node(Node, false), % Just in case
+                           exit({skip, Reason});
                        {'EXIT', Pid, Reason} ->
-                           monitor_node(Node, false),                           
+                           monitor_node(Node, false),
                            exit(Reason)
                    end
            end,
     Post = fun(Node) ->
-                   monitor_node(Node, true),
-                   ?NPRINT("try stop node ~p", [Node]),
-                   ?STOP_NODE(Node),
                    receive
                        {nodedown, Node} ->
-                           ?NPRINT("node ~p stopped", [Node]),
+                           ?NPRINT("node ~p (already) stopped", [Node]),
                            ok
+                   after 0 ->
+                           monitor_node(Node, true),
+                           ?NPRINT("try stop node ~p", [Node]),
+                           ?STOP_NODE(Node),
+                           receive
+                               {nodedown, Node} ->
+                                   ?NPRINT("node ~p stopped", [Node]),
+                                   ok
+                           end
                    end
            end,
     ?TC_TRY(Name, Pre, Case, Post).
