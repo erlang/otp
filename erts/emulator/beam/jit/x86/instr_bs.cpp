@@ -1407,8 +1407,8 @@ void BeamModuleAssembler::emit_bs_add(const ArgVal &Fail,
             a.and_(RETd, ARG1d);
         }
     }
-    a.and_(RETb, imm(_TAG_PRIMARY_MASK));
-    a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
+    a.and_(RETb, imm(_TAG_IMMED1_MASK));
+    a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
     a.jne(fail);
 
     /* Verify that ARG2 >= 0 and multiply ARG2 by the unit. The
