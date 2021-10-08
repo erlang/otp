@@ -21,12 +21,12 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
--export([call/1, call_reqtmo/1, call_against_old_node/1, cast/1,
+-export([call/1, call_reqtmo/1, call_against_ei_node/1, cast/1,
          send_request/1, send_request_fun/1,
          send_request_receive_reqtmo/1,
          send_request_wait_reqtmo/1,
          send_request_check_reqtmo/1,
-         send_request_against_old_node/1,
+         send_request_against_ei_node/1,
          multicall/1, multicall_reqtmo/1,
          multicall_recv_opt/1,
          multicall_recv_opt2/1,
@@ -48,14 +48,14 @@ suite() ->
 all() -> 
     [call,
      call_reqtmo,
-     call_against_old_node,
+     call_against_ei_node,
      cast,
      send_request,
      send_request_fun,
      send_request_receive_reqtmo,
      send_request_wait_reqtmo,
      send_request_check_reqtmo,
-     send_request_against_old_node,
+     send_request_against_ei_node,
      multicall,
      multicall_reqtmo,
      multicall_recv_opt,
@@ -314,20 +314,20 @@ call_func5(A, B, N, T) when N >= 0 ->
 call_func5(_A, _B, _N, _T) ->
     erlang:error(badarg).
 
-call_against_old_node(Config) ->
-    case start_22_node(Config) of
-        {ok, Node22} ->
+call_against_ei_node(Config) when is_list(Config) ->
+    case start_ei_node(Config) of
+        {error, notsup} ->
+            {skipped, "Test not supported on this platform"};
+        {ok, Node} ->
             try
-                erpc:call(Node22, erlang, node, []),
+                erpc:call(Node, erlang, node, []),
                 ct:fail(unexpected)
             catch
                 error:{erpc, notsup} ->
                     ok
             end,
-            stop_node(Node22),
-            ok;
-        _ ->
-	    {skipped, "No OTP 22 available"}
+            stop_ei_node(Node),
+            ok
     end.
 
 call_reqtmo(Config) when is_list(Config) ->
@@ -446,19 +446,20 @@ cast(Config) when is_list(Config) ->
     receive after 1000 -> ok end,
     [] = flush([]),
 
-    case start_22_node(Config) of
-        {ok, Node22} ->
-            ok = erpc:cast(Node, erlang, send, [Me, wont_reach_me]),
-            ok = erpc:cast(Node, fun () -> Me ! wont_reach_me end),
+    
+    case start_ei_node(Config) of
+        {error, notsup} ->
+            {comment, "No ei node tested; not supported on this platform"};
+        {ok, EiNode} ->
+            ok = erpc:cast(EiNode, erlang, send, [Me, wont_reach_me]),
+            ok = erpc:cast(EiNode, fun () -> Me ! wont_reach_me end),
             receive
                 Msg -> ct:fail({unexpected_message, Msg})
             after
                 2000 -> ok
             end,
-            stop_node(Node22),
-            {comment, "Tested against OTP 22 as well"};
-        _ ->
-            {comment, "No tested against OTP 22"}
+            stop_ei_node(EiNode),
+            {comment, "Also tested against ei node"}
     end.
 
 send_request(Config) when is_list(Config) ->
@@ -551,7 +552,9 @@ send_request(Config) when is_list(Config) ->
 
     [] = flush([]),
 
-    case start_22_node(Config) of
+    case start_ei_node(Config) of
+        {error, notsup} ->
+            {comment, "No ei node tested; not supported on this platform"};
         {ok, Node5} ->
             ReqId9 = erpc:send_request(Node5, erlang, node, []),
             try
@@ -561,13 +564,11 @@ send_request(Config) when is_list(Config) ->
                 error:{erpc, notsup} -> ok
             end,
 
-            stop_node(Node5),
+            stop_ei_node(Node5),
 
             [] = flush([]),
 
-            ok;
-        _ ->
-            {comment, "No test against OTP 22 node performed"}
+            {comment, "Also tested against ei node"}
     end.
 
 send_request_fun(Config) when is_list(Config) ->
@@ -659,7 +660,9 @@ send_request_fun(Config) when is_list(Config) ->
 
     [] = flush([]),
 
-    case start_22_node(Config) of
+    case start_ei_node(Config) of
+        {error, notsup} ->
+            {comment, "No ei node tested; not supported on this platform"};
         {ok, Node5} ->
             ReqId9 = erpc:send_request(Node5, fun () -> erlang:node() end),
             try
@@ -669,13 +672,11 @@ send_request_fun(Config) when is_list(Config) ->
                 error:{erpc, notsup} -> ok
             end,
 
-            stop_node(Node5),
+            stop_ei_node(Node5),
 
             [] = flush([]),
 
-            ok;
-        _ ->
-            {comment, "No test against OTP 22 node performed"}
+            {comment, "Also tested against ei node"}
     end.
 
 
@@ -725,12 +726,14 @@ send_request_check_reqtmo(Config) when is_list(Config) ->
           end,
     reqtmo_test(Config, Fun).
 
-send_request_against_old_node(Config) when is_list(Config) ->
-    case start_22_node(Config) of
-        {ok, Node22} ->
-            RID1 = erpc:send_request(Node22, erlang, node, []),
-            RID2 = erpc:send_request(Node22, erlang, node, []),
-            RID3 = erpc:send_request(Node22, erlang, node, []),
+send_request_against_ei_node(Config) when is_list(Config) ->
+    case start_ei_node(Config) of
+        {error, notsup} ->
+	    {skipped, "Not supported on this platform"};
+        {ok, EiNode} ->
+            RID1 = erpc:send_request(EiNode, erlang, node, []),
+            RID2 = erpc:send_request(EiNode, erlang, node, []),
+            RID3 = erpc:send_request(EiNode, erlang, node, []),
             try
                 erpc:receive_response(RID1),
                 ct:fail(unexpected)
@@ -755,19 +758,17 @@ send_request_against_old_node(Config) when is_list(Config) ->
                 error:{erpc, notsup} ->
                     ok
             end,
-            stop_node(Node22),
-            ok;
-        _ ->
-	    {skipped, "No OTP 22 available"}
+            stop_ei_node(EiNode),
+            ok
     end.
 
 multicall(Config) ->
     {ok, Node1} = start_node(Config),
     {ok, Node2} = start_node(Config),
-    {Node3, Node3Res} = case start_22_node(Config) of
+    {Node3, Node3Res} = case start_ei_node(Config) of
                             {ok, N3} ->
                                 {N3, {error, {erpc, notsup}}};
-                            _ ->
+                            {error, notsup} ->
                                 {ok, N3} = start_node(Config),
                                 stop_node(N3),
                                 {N3, {error, {erpc, noconnection}}}
@@ -1063,12 +1064,12 @@ multicall(Config) ->
 
     [] = flush([]),
 
-    stop_node(Node3),
     case Node3Res of
         {error, {erpc, notsup}} ->
-            {comment, "Tested against an OTP 22 node as well"};
+            stop_ei_node(Node3),
+            {comment, "Also tested against an ei node"};
         _ ->
-            {comment, "No OTP 22 node available; i.e., only testing against current release"}
+            {comment, "No ei node available; i.e., only testing against proper erlang nodes"}
     end.
 
 multicall_reqtmo(Config) when is_list(Config) ->
@@ -1257,19 +1258,19 @@ multicast(Config) when is_list(Config) ->
     receive after 1000 -> ok end,
 
     [] = flush([]),
-    case start_22_node(Config) of
-        {ok, Node22} ->
-            ok = erpc:multicast([Node], erlang, send, [Me, wont_reach_me]),
-            ok = erpc:multicast([Node], fun () -> Me ! wont_reach_me end),
+    case start_ei_node(Config) of
+        {error, notsup} ->
+            {comment, "No ei node tested; not supported on this platform"};
+        {ok, EiNode} ->
+            ok = erpc:multicast([EiNode], erlang, send, [Me, wont_reach_me]),
+            ok = erpc:multicast([EiNode], fun () -> Me ! wont_reach_me end),
             receive
                 Msg -> ct:fail({unexpected_message, Msg})
             after
                 2000 -> ok
             end,
-            stop_node(Node22),
-            {comment, "Tested against OTP 22 as well"};
-        _ ->
-            {comment, "No tested against OTP 22"}
+            stop_ei_node(EiNode),
+            {comment, "Also tested against ei node"}
     end.
 
 timeout_limit(Config) when is_list(Config) ->
@@ -1341,23 +1342,116 @@ start_node(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).
 
-start_22_node(Config) ->
-    Rel = "22_latest",
-    case test_server:is_release_available(Rel) of
-	false ->
-            notsup;
-        true ->
+start_ei_node(Config) when is_list(Config) ->
+    case os:type() of
+        {win32, _} ->
+            {error, notsup};
+        _ ->
+            DataDir = proplists:get_value(data_dir, Config),
+            FwdNodeExe = filename:join(DataDir, "fwd_node"),
+            Name = atom_to_list(?MODULE)
+                ++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
+                ++ "-" ++ "ei_node"
+                ++ "-" ++ integer_to_list(erlang:system_time(second))
+                ++ "-" ++ integer_to_list(erlang:unique_integer([positive])),
             Cookie = atom_to_list(erlang:get_cookie()),
-            Name = list_to_atom(atom_to_list(?MODULE)
-                                ++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
-                                ++ "-" ++ integer_to_list(erlang:system_time(second))
-                                ++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
-            Pa = filename:dirname(code:which(?MODULE)),
-	    test_server:start_node(Name,
-                                   peer,
-                                   [{args, "-pa " ++ Pa ++ " -setcookie "++Cookie},
-                                    {erl, [{release, Rel}]}])
+            HostName = get_hostname(),
+            Node = list_to_atom(Name++"@"++HostName),
+            Creation = integer_to_list(rand:uniform((1 bsl 15) - 4) + 3),
+            Parent = self(),
+            Pid = spawn_link(fun () ->
+                                     register(cnode_forward_receiver, self()),
+                                     process_flag(trap_exit, true),
+                                     Cmd = FwdNodeExe
+                                         ++ " -sname " ++ Name
+                                         ++ " -cookie " ++ Cookie
+                                         ++ " -creation " ++ Creation,
+                                     io:format("Starting ei_node: ~p~n", [Cmd]),
+                                     Port = erlang:open_port({spawn, Cmd}, [use_stdio]),
+                                     receive
+                                         {Port, {data, "accepting"}} -> ok
+                                     end,
+                                     ei_node_handler_loop(Node, Parent, Port)
+                             end),
+            put({ei_node_handler, Node}, Pid),
+            case check_ei_node(Node) of
+                ok -> {ok, Node};
+                Error -> Error
+            end
     end.
+
+check_ei_node(Node) ->
+    Key = {ei_node_handler, Node},
+    case get(Key) of
+        undefined ->
+            {error, no_handler};
+        Pid when is_pid(Pid) ->
+            Pid ! {check_node, self()},
+            receive
+                {check_node, Pid, Res} ->
+                    Res
+            after 3000 ->
+                    {error, no_handler_response}
+            end
+    end.
+
+stop_ei_node(Node) ->
+    case check_ei_node(Node) of
+        ok ->
+            Key = {ei_node_handler, Node},
+            case get(Key) of
+                undefined ->
+                    {error, no_handler};
+                Pid when is_pid(Pid) ->
+                    Pid ! {stop_node, self()},
+                    receive
+                        {stop_node, Pid} ->
+                            put(Key, undefined),
+                            ok
+                    after 2000 ->
+                            {error, no_handler_response}
+                    end
+            end;
+        Error ->
+            Error
+    end.
+
+ei_node_handler_loop(Node, Parent, Port) ->
+    receive
+        {'EXIT', Parent, Reason} ->
+            erlang:disconnect_node(Node),
+            (catch port_close(Port)),
+            exit(Reason);
+        {stop_node, Parent} ->
+            erlang:disconnect_node(Node),
+            (catch port_close(Port)),
+            Parent ! {stop_node, self()},
+            exit(normal);
+        {check_node, Parent} ->
+            Ref = make_ref(),
+            {a_name, Node} ! Ref,
+            receive
+                Ref ->
+                    Parent ! {check_node, self(), ok}
+            after
+                2000 ->
+                    Parent ! {check_node, self(), {error, no_node_response}}
+            end;
+        Msg ->
+            Msgs = fetch_all_messages([Msg]),
+            erlang:disconnect_node(Node),
+            (catch port_close(Port)),
+            exit({ei_node_handler, Node, unexpected_messages, Msgs})
+    end,
+    ei_node_handler_loop(Node, Parent, Port).
+
+get_hostname() ->
+    get_hostname(atom_to_list(node())).
+
+get_hostname([$@ | HostName]) ->
+    HostName;
+get_hostname([_ | Rest]) ->
+    get_hostname(Rest).
 
 stop_node(Node) ->
     test_server:stop_node(Node).
@@ -1392,3 +1486,13 @@ flush_msgq(N) ->
     after 0 ->
 	    N
     end.
+
+fetch_all_messages(Msgs) ->
+    receive
+        Msg ->
+            fetch_all_messages([Msg|Msgs])
+    after
+        0 ->
+            Msgs
+    end.
+
