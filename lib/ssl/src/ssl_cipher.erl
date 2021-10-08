@@ -58,7 +58,9 @@
          calc_mac_hash/4, 
          calc_mac_hash/6,
          is_stream_ciphersuite/1, 
+         is_supported_sign/2,
          signature_scheme/1,
+         signature_schemes_1_2/1,
          scheme_to_components/1, 
          hash_size/1, 
          effective_key_bits/1,
@@ -563,6 +565,23 @@ hash_size(sha384) ->
     48;
 hash_size(sha512) ->
     64.
+
+is_supported_sign({Hash, rsa} = SignAlgo, HashSigns) -> %% PRE TLS-1.3
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member({Hash, rsa_pss_rsae}, HashSigns);
+is_supported_sign(rsa_pkcs1_sha256 = SignAlgo, HashSigns) -> %% TLS-1.3 leagcy
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member(rsa_pss_rsae_sha256, HashSigns);
+is_supported_sign(rsa_pkcs1_sha384 = SignAlgo, HashSigns) -> %% TLS-1.3 leagcy
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member(rsa_pss_rsae_sha384, HashSigns);
+is_supported_sign(rsa_pkcs1_sha512 = SignAlgo, HashSigns) -> %% TLS-1.3 leagcy
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member(rsa_pss_rsae_sha384, HashSigns);
+is_supported_sign(SignAlgo, HashSigns) -> %% PRE TLS-1.3 SignAlgo::tuple() TLS-1.3 SignAlgo::atom()
+    lists:member(SignAlgo, HashSigns).
+
+
 
 %%--------------------------------------------------------------------
 %%% Internal functions
