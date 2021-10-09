@@ -25,9 +25,14 @@
  * one byte shorter than instructions that use 64-bits registers
  * (e.g. rax). This does not apply to registers r8-r15 beacuse they'll
  * always need a rex prefix. The `and`, `or`, and `cmp` instructions
- * are even shorter than operating on the RETb (al) register. The
+ * are even shorter when operating on the RETb (al) register. The
  * `test` instruction with an immediate second operand is shorter
  * when operating on an 8-bit register.
+ *
+ * When loading an immediate value to a register, storing to the
+ * 32-bit register in one or two bytes shorter than storing to
+ * the corresponding 64-bit register. The mov_imm() helper
+ * will automatically choose the shortest instruction.
  *
  * On both Unix and Windows, instructions can be shortened by using
  * RETd, ARG1d, or ARG2d instead of RET, ARG1, or ARG2, respectively.
