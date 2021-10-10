@@ -572,39 +572,37 @@ void beam_jit_bs_add_argument_error(Process *c_p, Eterm A, Eterm B) {
 Eterm beam_jit_bs_init(Process *c_p,
                        Eterm *reg,
                        ERL_BITS_DECLARE_STATEP,
-                       Eterm BsOp1,
-                       Eterm BsOp2,
+                       Eterm num_bytes,
+                       Uint alloc,
                        unsigned Live) {
-    if (BsOp1 <= ERL_ONHEAP_BIN_LIMIT) {
+    erts_bin_offset = 0;
+    erts_writable_bin = 0;
+    if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
         ErlHeapBin *hb;
         Uint bin_need;
 
-        bin_need = heap_bin_size(BsOp1);
-        erts_bin_offset = 0;
-        erts_writable_bin = 0;
-        gc_test(c_p, reg, 0, bin_need + BsOp2 + ERL_SUB_BIN_SIZE, Live);
+        bin_need = heap_bin_size(num_bytes);
+        gc_test(c_p, reg, 0, bin_need + alloc + ERL_SUB_BIN_SIZE, Live);
         hb = (ErlHeapBin *)c_p->htop;
         c_p->htop += bin_need;
-        hb->thing_word = header_heap_bin(BsOp1);
-        hb->size = BsOp1;
+        hb->thing_word = header_heap_bin(num_bytes);
+        hb->size = num_bytes;
         erts_current_bin = (byte *)hb->data;
         return make_binary(hb);
     } else {
         Binary *bptr;
         ProcBin *pb;
 
-        erts_bin_offset = 0;
-        erts_writable_bin = 0;
         test_bin_vheap(c_p,
                        reg,
-                       BsOp1 / sizeof(Eterm),
-                       BsOp2 + PROC_BIN_SIZE + ERL_SUB_BIN_SIZE,
+                       num_bytes / sizeof(Eterm),
+                       alloc + PROC_BIN_SIZE,
                        Live);
 
         /*
          * Allocate the binary struct itself.
          */
-        bptr = erts_bin_nrml_alloc(BsOp1);
+        bptr = erts_bin_nrml_alloc(num_bytes);
         erts_current_bin = (byte *)bptr->orig_bytes;
 
         /*
@@ -613,14 +611,14 @@ Eterm beam_jit_bs_init(Process *c_p,
         pb = (ProcBin *)c_p->htop;
         c_p->htop += PROC_BIN_SIZE;
         pb->thing_word = HEADER_PROC_BIN;
-        pb->size = BsOp1;
+        pb->size = num_bytes;
         pb->next = MSO(c_p).first;
         MSO(c_p).first = (struct erl_off_heap_header *)pb;
         pb->val = bptr;
         pb->bytes = (byte *)bptr->orig_bytes;
         pb->flags = 0;
 
-        OH_OVERHEAD(&(MSO(c_p)), BsOp1 / sizeof(Eterm));
+        OH_OVERHEAD(&(MSO(c_p)), num_bytes / sizeof(Eterm));
 
         return make_binary(pb);
     }
@@ -643,7 +641,9 @@ Eterm beam_jit_bs_init_bits(Process *c_p,
     } else {
         alloc += PROC_BIN_SIZE;
     }
-    gc_test(c_p, reg, 0, alloc, Live);
+
+    erts_bin_offset = 0;
+    erts_writable_bin = 0;
 
     /* num_bits = Number of bits to build
      * num_bytes = Number of bytes to allocate in the binary
@@ -653,38 +653,22 @@ Eterm beam_jit_bs_init_bits(Process *c_p,
     if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
         ErlHeapBin *hb;
 
-        erts_bin_offset = 0;
-        erts_writable_bin = 0;
+        gc_test(c_p, reg, 0, alloc, Live);
         hb = (ErlHeapBin *)c_p->htop;
         c_p->htop += heap_bin_size(num_bytes);
         hb->thing_word = header_heap_bin(num_bytes);
         hb->size = num_bytes;
         erts_current_bin = (byte *)hb->data;
         new_binary = make_binary(hb);
-
-    do_bits_sub_bin:
-        if (num_bits & 7) {
-            ErlSubBin *sb;
-
-            sb = (ErlSubBin *)c_p->htop;
-            c_p->htop += ERL_SUB_BIN_SIZE;
-            sb->thing_word = HEADER_SUB_BIN;
-            sb->size = num_bytes - 1;
-            sb->bitsize = num_bits & 7;
-            sb->offs = 0;
-            sb->bitoffs = 0;
-            sb->is_writable = 0;
-            sb->orig = new_binary;
-            new_binary = make_binary(sb);
-        }
-        /*    HEAP_SPACE_VERIFIED(0); */
-        return new_binary;
     } else {
         Binary *bptr;
         ProcBin *pb;
 
-        erts_bin_offset = 0;
-        erts_writable_bin = 0;
+        test_bin_vheap(c_p,
+                       reg,
+                       num_bytes / sizeof(Eterm),
+                       alloc,
+                       Live);
 
         /*
          * Allocate the binary struct itself.
@@ -706,8 +690,24 @@ Eterm beam_jit_bs_init_bits(Process *c_p,
         pb->flags = 0;
         OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
         new_binary = make_binary(pb);
-        goto do_bits_sub_bin;
     }
+
+    if (num_bits & 7) {
+        ErlSubBin *sb;
+
+        sb = (ErlSubBin *)c_p->htop;
+        c_p->htop += ERL_SUB_BIN_SIZE;
+        sb->thing_word = HEADER_SUB_BIN;
+        sb->size = num_bytes - 1;
+        sb->bitsize = num_bits & 7;
+        sb->offs = 0;
+        sb->bitoffs = 0;
+        sb->is_writable = 0;
+        sb->orig = new_binary;
+        new_binary = make_binary(sb);
+    }
+
+    return new_binary;
 }
 
 Eterm beam_jit_bs_get_integer(Process *c_p,
