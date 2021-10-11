@@ -2080,6 +2080,7 @@ start_client(openssl, Port, ClientOpts, Config) ->
     Ciphers = proplists:get_value(ciphers, ClientOpts, ssl:cipher_suites(default,Version)),
     Groups0 = proplists:get_value(groups, ClientOpts),
     CertArgs = openssl_cert_options(ClientOpts, client),
+    SigAlgs = openssl_sigalgs(proplists:get_value(sigalgs, ClientOpts, undefined)),
     AlpnArgs = openssl_alpn_options(proplists:get_value(alpn, ClientOpts, undefined)),
     NpnArgs =  openssl_npn_options(proplists:get_value(np, ClientOpts, undefined)),                          
     Reconnect = openssl_reconect_option(proplists:get_value(reconnect, ClientOpts, false)),  
@@ -2096,7 +2097,7 @@ start_client(openssl, Port, ClientOpts, Config) ->
                       "-connect", hostname_format(HostName) ++ ":" ++ integer_to_list(Port), cipher_flag(Version),
                       ciphers(Ciphers, Version),
                       version_flag(Version)]
-                         ++ CertArgs ++ AlpnArgs ++ NpnArgs ++ Reconnect ++ MaxFragLen ++ SessionArgs
+                         ++ CertArgs ++ SigAlgs ++ AlpnArgs ++ NpnArgs ++ Reconnect ++ MaxFragLen ++ SessionArgs
                          ++ Debug;
                  Group ->
                      ["s_client",
@@ -2104,7 +2105,7 @@ start_client(openssl, Port, ClientOpts, Config) ->
                       "-connect", hostname_format(HostName) ++ ":" ++ integer_to_list(Port), cipher_flag(Version),
                       ciphers(Ciphers, Version), "-groups", Group,
                       version_flag(Version)]
-                         ++ CertArgs ++ AlpnArgs ++ NpnArgs ++ Reconnect ++ MaxFragLen ++ SessionArgs
+                         ++ CertArgs ++ SigAlgs ++ AlpnArgs ++ NpnArgs ++ Reconnect ++ MaxFragLen ++ SessionArgs
                          ++ Debug
                  end,
     Args = maybe_force_ipv4(Args0),
@@ -2346,6 +2347,11 @@ cert_option("-cert_chain", Value) ->
      end;
 cert_option(Opt, Value) ->
     [Opt, Value].
+
+openssl_sigalgs(undefined) ->
+    [];
+openssl_sigalgs(SigAlgs) ->
+    ["-sigalgs", SigAlgs].
 
 supported_eccs(Opts) ->
     ToCheck = proplists:get_value(eccs, Opts, []),
