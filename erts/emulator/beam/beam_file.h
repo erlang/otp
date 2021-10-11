@@ -116,7 +116,7 @@ typedef struct {
     Sint32 flags;
 
     Sint32 name_count;
-    Eterm *names;
+    Sint *names;
 
     Sint32 location_size;
     Sint32 item_count;
@@ -230,6 +230,8 @@ typedef struct {
  */
 #include "erl_process.h"
 #include "erl_message.h"
+
+void beamfile_init(void);
 
 /** @brief Reads the given module binary into \p beam and validates its
  * structural integrity. */

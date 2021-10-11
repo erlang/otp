@@ -641,6 +641,7 @@ static const BeamCodeLineTab *finish_line_table(LoaderState *stp,
     const void **line_items_ro;
     void **line_items_rw;
 
+    const unsigned int num_names = stp->beam.lines.name_count;
     const Eterm *fname_base_ro;
     Eterm *fname_base_rw;
 
@@ -685,10 +686,9 @@ static const BeamCodeLineTab *finish_line_table(LoaderState *stp,
 
     line_items_rw[i] = (void *)&module_base[module_size];
 
-    if (stp->beam.lines.name_count) {
-        sys_memcpy(fname_base_rw,
-                   stp->beam.lines.names,
-                   stp->beam.lines.name_count * sizeof(Eterm));
+    for (i = 0; i < num_names; i++) {
+        fname_base_rw[i] = beamfile_get_literal(&stp->beam,
+                                                stp->beam.lines.names[i]);
     }
 
     if (stp->beam.lines.location_size == sizeof(Uint16)) {
@@ -787,15 +787,6 @@ int beam_load_finish_emit(LoaderState *stp) {
 
     stp->on_load = beamasm_get_on_load(stp->ba);
 
-    /* If there is line information, place it here. This must be done after
-     * code generation to make sure the addresses are correct.
-     *
-     * Ideally we'd want this to be embedded in the module itself just like the
-     * string table is and use offsets rather than absolute addresses, but this
-     * will do for now. */
-
-    code_hdr_rw->line_table = finish_line_table(stp, module_base, module_size);
-
     /*
      * Place the literals in their own allocated heap (for fast range check)
      * and fix up all instructions that refer to it.
@@ -838,6 +829,10 @@ int beam_load_finish_emit(LoaderState *stp) {
          * deallocated (without calling erlang:finish_loading/1). */
         (stp->load_hdr)->literal_area = literal_area;
     }
+
+    /* Line information must be added after moving literals, since source file
+     * names are literal lists. */
+    code_hdr_rw->line_table = finish_line_table(stp, module_base, module_size);
 
     if (stp->beam.attributes.size) {
         const byte *attr = beamasm_get_rodata(stp->ba, "attr");

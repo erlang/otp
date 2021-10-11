@@ -1284,11 +1284,7 @@ define etp-cp-line-info
       if $etp_loc != 0
         set $etp_loc_file = $etp_loc >> 24
         set $etp_cp_line_number = $etp_loc & ((1 << 24) - 1)
-        if $etp_loc_file == 0
-          set $etp_cp_line_name = $etp_line_mfa->module
-        else
-          set $etp_cp_line_name = $etp_line_table->fname_ptr[$etp_loc_file - 1]
-        end
+        set $etp_cp_line_name = $etp_line_table->fname_ptr[$etp_loc_file]
       end
     end
   end
@@ -1364,7 +1360,7 @@ define etp-cp-1
     etp-mfa-1 $etp_cp_p $cp_cp_p_offset
     if $etp_cp_line_name != $etp_nil
       printf " @ "
-      etp-atom-1 $etp_cp_line_name
+      etp-1 $etp_cp_line_name 0
       printf ":%u", $etp_cp_line_number
     end
   else

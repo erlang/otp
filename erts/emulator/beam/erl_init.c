@@ -393,6 +393,7 @@ erl_init(int ncpu,
     packet_parser_init();
     erl_nif_init();
     erts_msacc_init();
+    beamfile_init();
 }
 
 static Eterm

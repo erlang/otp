@@ -1492,10 +1492,10 @@ Sint erts_unicode_set_loop_limit(Sint limit);
 void erts_native_filename_put(Eterm ioterm, int encoding, byte *p) ;
 Sint erts_native_filename_need(Eterm ioterm, int encoding);
 void erts_copy_utf8_to_utf16_little(byte *target, byte *bytes, int num_chars);
-int erts_analyze_utf8(byte *source, Uint size, 
-			byte **err_pos, Uint *num_chars, int *left);
-int erts_analyze_utf8_x(byte *source, Uint size, 
-			byte **err_pos, Uint *num_chars, int *left,
+int erts_analyze_utf8(const byte *source, Uint size, 
+			const byte **err_pos, Uint *num_chars, int *left);
+int erts_analyze_utf8_x(const byte *source, Uint size, 
+			const byte **err_pos, Uint *num_chars, int *left,
 			Sint *num_latin1_chars, Uint max_chars);
 char *erts_convert_filename_to_native(Eterm name, char *statbuf, 
 				      size_t statbuf_size, 
@@ -1516,6 +1516,11 @@ char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
 Eterm erts_convert_native_to_filename(Process *p, size_t size, byte *bytes);
 Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
 			Uint *num_built, Uint *num_eaten, Eterm tail);
+Eterm
+erts_make_list_from_utf8_buf(Eterm **hpp, Uint num,
+                             const byte *bytes, Uint sz,
+                             Uint *num_built, Uint *num_eaten,
+                             Eterm tail);
 int erts_utf8_to_latin1(byte* dest, const byte* source, int slen);
 #define ERTS_UTF8_OK 0
 #define ERTS_UTF8_INCOMPLETE 1

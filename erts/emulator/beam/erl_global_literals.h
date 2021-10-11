@@ -25,14 +25,11 @@
 #define ERTS_LIT_OS_VERSION      1
 #define ERTS_LIT_DFLAGS_RECORD   2
 #define ERTS_LIT_EMPTY_TUPLE     3
+#define ERTS_LIT_ERL_FILE_SUFFIX 4
 
-#define ERTS_NUM_GLOBAL_LITERALS 4
-
-
+#define ERTS_NUM_GLOBAL_LITERALS 5
 
 extern Eterm ERTS_GLOBAL_LIT_EMPTY_TUPLE;
-
-
 
 Eterm* erts_alloc_global_literal(Uint index, Uint sz);
 void erts_register_global_literal(Uint index, Eterm term);
