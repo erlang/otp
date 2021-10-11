@@ -146,11 +146,11 @@ groups() ->
      {'tlsv1', [], ssl_protocol_groups()},
      {'dtlsv1.2', [], tls_1_2_protocol_groups()},
      {'dtlsv1', [], ssl_protocol_groups()},
-     {rsa, [], all_version_tests() ++ rsa_tests() ++ pre_tls_1_3_rsa_tests()},
+     {rsa, [], all_version_tests() ++ rsa_tests() ++ pre_tls_1_3_rsa_tests() ++ [client_auth_seelfsigned_peer]},
      {ecdsa, [], all_version_tests()},
      {dsa, [], all_version_tests()},
      {rsa_1_3, [], all_version_tests() ++ rsa_tests() ++
-          tls_1_3_tests() ++ tls_1_3_rsa_tests() ++ [basic_rsa_1024]},
+          tls_1_3_tests() ++ tls_1_3_rsa_tests() ++ [client_auth_seelfsigned_peer, basic_rsa_1024]},
      {rsa_pss_rsae, [], all_version_tests() ++ tls_1_2_rsa_tests()},
      {rsa_pss_rsae_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
      {rsa_pss_pss, [], all_version_tests()},
@@ -226,7 +226,6 @@ all_version_tests() ->
      client_auth_do_not_allow_partial_chain,
      client_auth_partial_chain_fun_fail,
      client_auth_sni,
-     client_auth_seelfsigned_peer,
      missing_root_cert_no_auth,
      missing_root_cert_auth,
      missing_root_cert_auth_user_verify_fun_accept,
@@ -296,37 +295,9 @@ do_init_per_group(Alg, Config) when Alg == rsa_pss_rsae;
         true ->
             #{client_config := COpts,
               server_config := SOpts} = ssl_test_lib:make_rsa_pss_pem(rsa_alg(Alg), [], Config, ""),
-            [{cert_key_alg, rsa_alg(Alg)},
-             {extra_client, [{signature_algs, [rsa_pss_pss_sha512,
-                                               rsa_pss_pss_sha384,
-                                               rsa_pss_pss_sha256,
-                                               rsa_pss_rsae_sha512,
-                                               rsa_pss_rsae_sha384,
-                                               rsa_pss_rsae_sha256,
-                                               rsa_pkcs1_sha512,
-                                               rsa_pkcs1_sha384,
-                                               rsa_pkcs1_sha256,
-                                               rsa_pkcs1_sha1,
-                                               {sha512, rsa},
-                                               {sha384, rsa},
-                                               {sha256, rsa},
-                                               {sha224, rsa}
-                                              ]}]},
-             {extra_server, [{signature_algs, [rsa_pss_pss_sha512,
-                                               rsa_pss_pss_sha384,
-                                               rsa_pss_pss_sha256,
-                                               rsa_pss_rsae_sha512,
-                                               rsa_pss_rsae_sha384,
-                                               rsa_pss_rsae_sha256,
-                                               {sha512, ecdsa},
-                                               {sha512, rsa},
-                                               {sha384, ecdsa},
-                                               {sha384, rsa},
-                                               {sha256, ecdsa},
-                                               {sha256, rsa},
-                                               {sha224, ecdsa},
-                                               {sha224, rsa}
-                                              ]}]} |
+            [{cert_key_alg, Alg},
+             {extra_client, sig_algs(Alg)},
+             {extra_server, sig_algs(Alg)} |
              lists:delete(cert_key_alg,
                           [{client_cert_opts, COpts},
                            {server_cert_opts, SOpts} |
@@ -1317,3 +1288,12 @@ chain_and_root(Config) ->
     {ok, ExtractedCAs} = ssl_pkix_db:extract_trusted_certs({der, proplists:get_value(cacerts, Config)}),
     {ok, Root, Chain} = ssl_certificate:certificate_chain(OwnCert, ets:new(foo, []), ExtractedCAs, [], encoded),
     {Chain, Root}.
+
+sig_algs(rsa_pss_pss) ->
+    [{signature_algs, [rsa_pss_pss_sha512,
+                       rsa_pss_pss_sha384,
+                       rsa_pss_pss_sha256]}];
+sig_algs(rsa_pss_rsae) ->
+    [{signature_algs, [rsa_pss_rsae_sha512,
+                       rsa_pss_rsae_sha384,
+                       rsa_pss_rsae_sha256]}].

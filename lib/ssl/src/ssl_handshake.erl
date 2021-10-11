@@ -997,8 +997,15 @@ available_signature_algs(_, _) ->
 available_signature_algs(undefined, SupportedHashSigns, _, Version) when 
       Version >= {3,3} ->
     SupportedHashSigns;
-available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns, 
+available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns0, 
                          _, Version) when Version >= {3,3} ->
+    SupportedHashSigns =
+        case (Version == {3,3}) andalso contains_scheme(SupportedHashSigns0) of
+            true ->
+                ssl_cipher:signature_schemes_1_2(SupportedHashSigns0);
+            false ->
+                SupportedHashSigns0
+        end,
     sets:to_list(sets:intersection(sets:from_list(ClientHashSigns), 
 				   sets:from_list(SupportedHashSigns)));
 available_signature_algs(_, _, _, _) -> 
@@ -3278,6 +3285,15 @@ filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], Has
     %% In this case hashsigns is not used as the kexchange is anonaymous
     filter_hashsigns(Suites, Algos, HashSigns, Version, [Suite| Acc]).
 
+do_filter_hashsigns(rsa = SignAlgo, Suite, Suites, Algos, HashSigns, {3,3} = Version, Acc) ->
+    case (lists:keymember(SignAlgo, 2, HashSigns) orelse
+          lists:keymember(rsa_pss_rsae, 2, HashSigns) orelse
+          lists:keymember(rsa_pss_pss, 2, HashSigns)) of
+	true ->
+	    filter_hashsigns(Suites, Algos, HashSigns, Version, [Suite| Acc]);
+	false ->
+	    filter_hashsigns(Suites, Algos, HashSigns, Version, Acc)
+    end;
 do_filter_hashsigns(SignAlgo, Suite, Suites, Algos, HashSigns, Version, Acc) ->
     case lists:keymember(SignAlgo, 2, HashSigns) of
 	true ->
@@ -3390,8 +3406,7 @@ is_acceptable_cert_type(Sign, Types) ->
 
 %% signature_algorithms_cert = undefined
 is_supported_sign(SignAlgo, _, HashSigns, []) ->
-    lists:member(SignAlgo, HashSigns);
-
+    ssl_cipher:is_supported_sign(SignAlgo, HashSigns);
 %% {'SignatureAlgorithm',{1,2,840,113549,1,1,11},'NULL'}
 is_supported_sign({Hash, Sign}, 'NULL', _, SignatureSchemes) ->
     Fun = fun (Scheme, Acc) ->
@@ -3408,7 +3423,6 @@ is_supported_sign({Hash, Sign}, 'NULL', _, SignatureSchemes) ->
                               Hash =:= H1)
           end,
     lists:foldl(Fun, false, SignatureSchemes);
-
 %% TODO: Implement validation for the curve used in the signature
 %% RFC 3279 - 2.2.3 ECDSA Signature Algorithm
 %% When the ecdsa-with-SHA1 algorithm identifier appears as the
