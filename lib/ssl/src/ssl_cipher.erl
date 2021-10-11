@@ -577,7 +577,7 @@ is_supported_sign(rsa_pkcs1_sha384 = SignAlgo, HashSigns) -> %% TLS-1.3 leagcy
         lists:member(rsa_pss_rsae_sha384, HashSigns);
 is_supported_sign(rsa_pkcs1_sha512 = SignAlgo, HashSigns) -> %% TLS-1.3 leagcy
     lists:member(SignAlgo, HashSigns) orelse
-        lists:member(rsa_pss_rsae_sha384, HashSigns);
+        lists:member(rsa_pss_rsae_sha512, HashSigns);
 is_supported_sign(SignAlgo, HashSigns) -> %% PRE TLS-1.3 SignAlgo::tuple() TLS-1.3 SignAlgo::atom()
     lists:member(SignAlgo, HashSigns).
 
