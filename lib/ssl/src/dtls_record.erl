@@ -455,7 +455,8 @@ get_dtls_records_aux({_, _, Version, _} = Vinfo, <<?BYTE(Type),?BYTE(MajVer),?BY
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
     end;
 get_dtls_records_aux(_, <<?BYTE(_), ?BYTE(_MajVer), ?BYTE(_MinVer),
-		       ?UINT16(Length), _/binary>>,
+                          ?UINT16(_Epoch), ?UINT48(_Seq),
+                          ?UINT16(Length), _/binary>>,
 		     _Acc, _) when Length > ?MAX_CIPHER_TEXT_LENGTH ->
     ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);
 
