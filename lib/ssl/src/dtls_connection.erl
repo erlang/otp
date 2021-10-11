@@ -229,13 +229,9 @@ initial_hello({call, From}, {start, Timeout},
 			  start_or_recv_from = From},
     dtls_gen_connection:next_event(hello, no_record, State, [{{timeout, handshake}, Timeout, close} | Actions]);
 initial_hello({call, _} = Type, Event, #state{static_env = #static_env{role = server},
-                                              protocol_specific = PS} = State) ->
-    Result = ssl_gen_statem:?FUNCTION_NAME(Type, Event,
-                                           State#state{protocol_specific =
-                                                           PS#{current_cookie_secret => dtls_v1:cookie_secret(),
-                                                               previous_cookie_secret => <<>>,
-                                                               ignored_alerts => 0,
-                                                               max_ignored_alerts => 10}}),
+                                              protocol_specific = PS0} = State) ->
+    PS = PS0#{current_cookie_secret => dtls_v1:cookie_secret(), previous_cookie_secret => <<>>},
+    Result = ssl_gen_statem:?FUNCTION_NAME(Type, Event, State#state{protocol_specific = PS}),
     erlang:send_after(dtls_v1:cookie_timeout(), self(), new_cookie_secret),
     Result;
 initial_hello(Type, Event, State) ->
@@ -663,7 +659,10 @@ initial_state(Role, Host, Port, Socket,
 	   flight_buffer = dtls_gen_connection:new_flight(),
            protocol_specific = #{active_n => InternalActiveN,
                                  active_n_toggle => true,
-                                 flight_state => dtls_gen_connection:initial_flight_state(DataTag)}
+                                 flight_state => dtls_gen_connection:initial_flight_state(DataTag),
+                                 ignored_alerts => 0,
+                                 max_ignored_alerts => 10
+                                }
 	  }.
 
 
