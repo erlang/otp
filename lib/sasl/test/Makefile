@@ -35,8 +35,11 @@ MODULES= \
 	systools_rc_SUITE \
 	rb_SUITE \
 	rh_test_lib \
+	otp_vsns
 
 ERL_FILES= $(MODULES:%=%.erl)
+
+EXTRA_FILES= $(ERL_TOP)/otp_versions.table
 
 HRL_FILES= test_lib.hrl
 
@@ -87,7 +90,7 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) $(EXTRA_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) sasl.spec sasl.cover $(EMAKEFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cfh - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)

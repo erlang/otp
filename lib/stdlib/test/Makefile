@@ -100,8 +100,13 @@ MODULES= \
 	zzz_SUITE
 
 ERTS_MODULES= erts_test_utils
+SASL_MODULES= otp_vsns
 
-ERL_FILES= $(MODULES:%=%.erl) $(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl)
+ERL_FILES=	$(MODULES:%=%.erl) \
+		$(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl) \
+		$(SASL_MODULES:%=$(ERL_TOP)/lib/sasl/test/%.erl)
+
+EXTRA_FILES= $(ERL_TOP)/otp_versions.table
 
 # ----------------------------------------------------
 # Release directory specification
@@ -126,7 +131,8 @@ COVERFILE=stdlib.cover
 # ----------------------------------------------------
 
 make_emakefile:
-	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) $(ERTS_MODULES) \
+	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) \
+		$(MODULES) $(ERTS_MODULES) $(SASL_MODULES) \
 	> $(EMAKEFILE)
 
 tests debug opt: make_emakefile
@@ -149,7 +155,7 @@ release_spec: opt
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) stdlib.spec stdlib_bench.spec error_info.spec $(EMAKEFILE) \
-		$(ERL_FILES) $(COVERFILE) "$(RELSYSDIR)"
+		$(ERL_FILES) $(COVERFILE) $(EXTRA_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 
