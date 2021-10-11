@@ -221,11 +221,15 @@ void beamasm_init() {
     /* erts_frame_layout is hardcoded to ERTS_FRAME_LAYOUT_RA when Erlang
      * frame pointers are disabled or unsupported. */
 #if defined(ERLANG_FRAME_POINTERS)
+#    ifdef HAVE_LINUX_PERF_SUPPORT
     if (erts_jit_perf_support & BEAMASM_PERF_MAP) {
         erts_frame_layout = ERTS_FRAME_LAYOUT_FP_RA;
     } else {
         erts_frame_layout = ERTS_FRAME_LAYOUT_RA;
     }
+#    else
+    erts_frame_layout = ERTS_FRAME_LAYOUT_RA;
+#    endif
 #else
     ERTS_CT_ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
 #endif
