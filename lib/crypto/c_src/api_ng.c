@@ -210,6 +210,11 @@ static int get_init_args(ErlNifEnv* env,
     ctx_res->padded_size = -1;
     ctx_res->size = 0;
 
+    /* Two initializations to make CodeChecker happy: it gets a bit desoriented
+       by the NIF Exception model */
+    ctx_res->encflag = 0;
+    ctx_res->padding = atom_error;
+
     /* Fetch the options */
     if ((*return_term =
          get_opts(env, argv[opts_arg_num], opts_arg_num, &(ctx_res->encflag), &(ctx_res->padding))
