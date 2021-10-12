@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -201,107 +201,99 @@ headers(Key, Value, Headers) ->
     Headers#http_request_h{other=
 			   [{Key, Value} | Headers#http_request_h.other]}.
 
-key_value_str(Key = 'cache-control', Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.'cache-control');
-key_value_str(Key = connection, Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.connection);
-key_value_str(Key = date, Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.date);
-key_value_str(Key = pragma, Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.pragma);
-key_value_str(Key = trailer, Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.trailer);
-key_value_str(Key = 'transfer-encoding', Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.'transfer-encoding');
-key_value_str(Key = upgrade, Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.upgrade);
-key_value_str(Key = via, Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.via);
-key_value_str(Key = warning, Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.warning);
-key_value_str(Key = accept, Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.accept);
-key_value_str(Key = 'accept-charset', Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.'accept-charset');
-key_value_str(Key = 'accept-encoding', Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.'accept-encoding');
-key_value_str(Key = 'accept-language', Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.'accept-language');
-key_value_str(Key = authorization, Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.authorization);
-key_value_str(Key = expect, Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.expect);
-key_value_str(Key = from, Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.from);
-key_value_str(Key = host, Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.host);
-key_value_str(Key = 'if-match', Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.'if-match');
-key_value_str(Key = 'if-modified-since', Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.'if-modified-since');
-key_value_str(Key = 'if-none-match', Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.'if-none-match');
-key_value_str(Key = 'if-range', Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.'if-range');
-key_value_str(Key = 'if-unmodified-since', Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.'if-unmodified-since');
-key_value_str(Key = 'max-forwards', Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.'max-forwards');
-key_value_str(Key = 'proxy-authorization', Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.'proxy-authorization');
-key_value_str(Key = range, Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.range);
-key_value_str(Key = referer, Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.referer);
-key_value_str(Key = te, Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.te);
-key_value_str(Key = 'user-agent', Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.'user-agent');
-key_value_str(Key = allow, Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.allow);
-key_value_str(Key = 'content-encoding', Headers) ->
-    key_value_str(atom_to_list(Key), 
-		    Headers#http_request_h.'content-encoding');
-key_value_str(Key = 'content-language', Headers) ->
-    key_value_str(atom_to_list(Key), 
-		    Headers#http_request_h.'content-language');
-key_value_str(Key = 'content-length', Headers) ->
-    key_value_str(atom_to_list(Key), 
-		    Headers#http_request_h.'content-length');
-key_value_str(Key = 'content-location', Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.'content-location');
-key_value_str(Key = 'content-md5', Headers) ->
-    key_value_str(atom_to_list(Key),
-		    Headers#http_request_h.'content-md5');
-key_value_str(Key = 'content-range', Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.'content-range');
-key_value_str(Key = 'content-type', Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.'content-type');
-key_value_str(Key = expires, Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.expires);
-key_value_str(Key = 'last-modified', Headers) ->
-    key_value_str(atom_to_list(Key), Headers#http_request_h.'last-modified');
-key_value_str(_, undefined) ->
-    undefined;
-key_value_str(Key, Value)  ->
-    Key ++ ": " ++ Value ++ ?CRLF.
+key_value_str(Key, Headers) ->
+    case key_value(Key, Headers) of
+        undefined -> undefined;
+        Value ->
+            mk_key_value_str(atom_to_list(Key), Value)
+    end.
+
+key_value('cache-control', Headers) ->
+    Headers#http_request_h.'cache-control';
+key_value(connection, Headers) ->
+    Headers#http_request_h.connection;
+key_value(date, Headers) ->
+    Headers#http_request_h.date;
+key_value(pragma, Headers) ->
+    Headers#http_request_h.pragma;
+key_value(trailer, Headers) ->
+    Headers#http_request_h.trailer;
+key_value('transfer-encoding', Headers) ->
+    Headers#http_request_h.'transfer-encoding';
+key_value(upgrade, Headers) ->
+    Headers#http_request_h.upgrade;
+key_value(via, Headers) ->
+    Headers#http_request_h.via;
+key_value(warning, Headers) ->
+    Headers#http_request_h.warning;
+key_value(accept, Headers) ->
+    Headers#http_request_h.accept;
+key_value('accept-charset', Headers) ->
+    Headers#http_request_h.'accept-charset';
+key_value('accept-encoding', Headers) ->
+    Headers#http_request_h.'accept-encoding';
+key_value('accept-language', Headers) ->
+    Headers#http_request_h.'accept-language';
+key_value(authorization, Headers) ->
+    Headers#http_request_h.authorization;
+key_value(expect, Headers) ->
+    Headers#http_request_h.expect;
+key_value(from, Headers) ->
+    Headers#http_request_h.from;
+key_value(host, Headers) ->
+    Headers#http_request_h.host;
+key_value('if-match', Headers) ->
+    Headers#http_request_h.'if-match';
+key_value('if-modified-since', Headers) ->
+    Headers#http_request_h.'if-modified-since';
+key_value('if-none-match', Headers) ->
+    Headers#http_request_h.'if-none-match';
+key_value('if-range', Headers) ->
+    Headers#http_request_h.'if-range';
+key_value('if-unmodified-since', Headers) ->
+    Headers#http_request_h.'if-unmodified-since';
+key_value('max-forwards', Headers) ->
+    Headers#http_request_h.'max-forwards';
+key_value('proxy-authorization', Headers) ->
+    Headers#http_request_h.'proxy-authorization';
+key_value(range, Headers) ->
+    Headers#http_request_h.range;
+key_value(referer, Headers) ->
+    Headers#http_request_h.referer;
+key_value(te, Headers) ->
+    Headers#http_request_h.te;
+key_value('user-agent', Headers) ->
+    Headers#http_request_h.'user-agent';
+key_value(allow, Headers) ->
+    Headers#http_request_h.allow;
+key_value('content-encoding', Headers) ->
+    Headers#http_request_h.'content-encoding';
+key_value('content-language', Headers) ->
+    Headers#http_request_h.'content-language';
+key_value('content-length', Headers) ->
+    Headers#http_request_h.'content-length';
+key_value('content-location', Headers) ->
+    Headers#http_request_h.'content-location';
+key_value('content-md5', Headers) ->
+    Headers#http_request_h.'content-md5';
+key_value('content-range', Headers) ->
+    Headers#http_request_h.'content-range';
+key_value('content-type', Headers) ->
+    Headers#http_request_h.'content-type';
+key_value(expires, Headers) ->
+    Headers#http_request_h.expires;
+key_value('last-modified', Headers) ->
+    Headers#http_request_h.'last-modified'.
 
 headers_other([], Headers) ->
     Headers;
-headers_other([{Key,Value} | Rest], Headers) ->
-    Header = Key ++ ": " ++ Value ++ ?CRLF,
-    headers_other(Rest, [Header | Headers]).
+headers_other([{Key, Value} | Rest], Headers) ->
+    headers_other(Rest, [mk_key_value_str(Key, Value) | Headers]).
+
+mk_key_value_str(Key, Value) ->
+    Key ++ ": " ++ value_to_list(Value) ++ ?CRLF.
+
+value_to_list(Binary) when is_binary(Binary) ->
+    binary_to_list(Binary);
+value_to_list(List) when is_list(List) ->
+    binary_to_list(iolist_to_binary(List)).
