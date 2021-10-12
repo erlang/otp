@@ -139,6 +139,9 @@ init_per_suite(Config) ->
         {_, [{_,_, <<"OpenSSL 1.0.1s-freebsd  1 Mar 2016">>}]} ->
             {skip, "Problem with engine on OpenSSL 1.0.1s-freebsd"};
 
+        {_, [{_,_,<<"LibreSSL 2.1.",_/binary>>}]} ->
+            {skip, "Problem with engine on older LibreSSL 2.1.*"};
+
         {{unix,darwin}, _} ->
             {skip, "Engine unsupported on Darwin"};
         
