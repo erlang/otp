@@ -86,7 +86,7 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
     _veneers.reserve(num_labels + 1);
     rawLabels.reserve(num_labels + 1);
 
-    if (erts_jit_asm_dump && named_labels) {
+    if (logger.file() && named_labels) {
         BeamFile_ExportEntry *e = &named_labels->entries[0];
         for (unsigned int i = 1; i < num_labels; i++) {
             /* Large enough to hold most realistic function names. We will
@@ -107,7 +107,7 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
                 rawLabels[i] = a.newNamedLabel(lblName.data());
             }
         }
-    } else if (erts_jit_asm_dump) {
+    } else if (logger.file()) {
         /* There is no naming info, but dumping of the assembly code
          * has been requested, so do the best we can and number the
          * labels. */
