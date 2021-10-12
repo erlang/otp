@@ -278,9 +278,7 @@ unicode_script(Config) when is_list(Config) ->
 
     %% Need to do this on a separate node to make sure it has unicode
     %% filename mode (+fnu*)
-    {ok,HostStr} = inet:gethostname(),
-    Host = list_to_atom(HostStr),
-    {ok,Node} = ct_slave:start(Host,unicode_script_node,[{erl_flags,"+fnui"}]),
+    {ok,Peer,Node} = ?CT_PEER(["+fnui"]),
 
     ok = rpc:call(Node,erl_tar,extract,
 		  [TarFile, [{cwd,UnicodeLibDir},compressed]]),
@@ -313,10 +311,11 @@ unicode_script(Config) when is_list(Config) ->
     rpc:call(Node,code,add_pathz,[filename:dirname(code:which(?MODULE))]),
     rpc:call(Node,?MODULE,delete_tree,[UnicodeLibDir]),
 
+    peer:stop(Peer),
+
     ok.
 
 unicode_script(cleanup,Config) ->
-    _ = ct_slave:stop(unicode_script_node),
     file:delete(fname(?privdir, "unicode_app.tgz")),
     ok.
 

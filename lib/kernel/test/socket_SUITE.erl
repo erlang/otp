@@ -16417,11 +16417,11 @@ api_opt_sock_peercred_tcp(_InitState) ->
     %%      #{desc => "create node",
     %%        cmd  => fun(#{host := Host} = State) ->
     %%     		   ?SEV_IPRINT("try create node on ~p", [Host]),
-    %%                        case start_node(Host, client) of
-    %%                            {ok, Node} ->
+    %%                        case ?CT_PEER() of
+    %%                            {ok, Peer, Node} ->
     %%                                ?SEV_IPRINT("client node ~p started",
     %%                                            [Node]),
-    %%                                {ok, State#{node => Node}};
+    %%                                {ok, State#{node => Node, peer => Peer}};
     %%                            {error, Reason} ->
     %%                                {skip, Reason}
     %%                        end
@@ -16530,8 +16530,8 @@ api_opt_sock_peercred_tcp(_InitState) ->
     %%                        {ok, State1}
     %%                end},
     %%      #{desc => "stop client node",
-    %%        cmd  => fun(#{node := Node} = _State) ->
-    %%                        stop_node(Node)
+    %%        cmd  => fun(#{peer := Peer} = _State) ->
+    %%                        peer:stop(Peer)
     %%                end},
     %%      #{desc => "await client node termination",
     %%        cmd  => fun(#{node := Node} = State) ->
@@ -24056,11 +24056,11 @@ api_to_connect_tcp(InitState) ->
          #{desc => "create node",
            cmd  => fun(#{host := Host} = State) ->
 			   ?SEV_IPRINT("try create node on ~p", [Host]),
-                           case start_node(Host, client) of
-                               {ok, Node} ->
+                           case ?CT_PEER() of
+                               {ok, Peer, Node} ->
                                    ?SEV_IPRINT("client node ~p started",
                                                [Node]),
-                                   {ok, State#{node => Node}};
+                                   {ok, State#{node => Node, peer => Peer}};
                                {error, Reason} ->
                                    {skip, Reason}
                            end
@@ -24168,8 +24168,8 @@ api_to_connect_tcp(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "stop client node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{peer := Peer} = _State) ->
+                           peer:stop(Peer)
                    end},
          #{desc => "await client node termination",
            cmd  => fun(#{node := Node} = State) ->
@@ -33116,12 +33116,11 @@ sc_rc_receive_response_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(#{host := Host, node_id := NodeID} = State) ->
-                           case start_node(Host,
-                                           l2a(f("client_~w", [NodeID]))) of
-                               {ok, Node} ->
+                           case ?CT_PEER(#{name => ?CT_PEER_NAME(f("client_~w", [NodeID]))}) of
+                               {ok, Peer, Node} ->
                                    ?SEV_IPRINT("client node ~p started",
                                                [Node]),
-                                   {ok, State#{node => Node}};
+                                   {ok, State#{node => Node, peer => Peer}};
                                {error, Reason} ->
                                    ?SEV_EPRINT("failed starting "
                                                "client node ~p (=> SKIP):"
@@ -33236,8 +33235,8 @@ sc_rc_receive_response_tcp(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "stop client node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{peer := Peer} = _State) ->
+                           peer:stop(Peer)
                    end},
          #{desc => "await client node termination",
            cmd  => fun(#{node := Node} = State) ->
@@ -34088,11 +34087,11 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(#{host := Host} = State) ->
-                           case start_node(Host, client) of
-                               {ok, Node} ->
+                           case ?CT_PEER() of
+                               {ok, Peer, Node} ->
                                    ?SEV_IPRINT("client node ~p started",
                                                [Node]),
-                                   {ok, State#{node => Node}};
+                                   {ok, State#{peer => Peer, node => Node}};
                                {error, Reason} ->
                                    {skip, Reason}
                            end
@@ -34260,8 +34259,8 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "stop client node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{peer := Peer} = _State) ->
+                           peer:stop(Peer)
                    end},
          #{desc => "await client node termination",
            cmd  => fun(#{node := Node} = State) ->
@@ -37371,11 +37370,11 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(#{host := Host} = State) ->
-                           case start_node(Host, client) of
-                               {ok, Node} ->
+                           case ?CT_PEER() of
+                               {ok, Peer, Node} ->
                                    ?SEV_IPRINT("(remote) client node ~p started",
                                                [Node]),
-                                   {ok, State#{node => Node}};
+                                   {ok, State#{peer => Peer, node => Node}};
                                {error, Reason} ->
                                    {skip, Reason}
                            end
@@ -37742,8 +37741,8 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "stop client node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{peer := Peer} = _State) ->
+                           peer:stop(Peer)
                    end},
          #{desc => "await client node termination",
            cmd  => fun(#{node := Node} = State) ->
@@ -39298,11 +39297,11 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(#{host := Host} = State) ->
-                           case start_node(Host, client) of
-                               {ok, Node} ->
+                           case ?CT_PEER() of
+                               {ok, Peer, Node} ->
                                    ?SEV_IPRINT("(remote) client node ~p started", 
                                                [Node]),
-                                   {ok, State#{node => Node}};
+                                   {ok, State#{peer => Peer, node => Node}};
                                {error, Reason} ->
                                    {skip, Reason}
                            end
@@ -39439,8 +39438,8 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "stop client node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{peer := Peer} = _State) ->
+                           peer:stop(Peer)
                    end},
          #{desc => "await client node termination",
            cmd  => fun(#{node := Node} = State) ->
@@ -40258,11 +40257,11 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(#{host := Host} = State) ->
-                           case start_node(Host, client) of
-                               {ok, Node} ->
+                           case ?CT_PEER() of
+                               {ok, Peer, Node} ->
                                    ?SEV_IPRINT("(remote) client node ~p started", 
                                                [Node]),
-                                   {ok, State#{node => Node}};
+                                   {ok, State#{peer => Peer, node => Node}};
                                {error, Reason} ->
                                    {skip, Reason}
                            end
@@ -40366,8 +40365,8 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "stop client node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{peer := Peer} = _State) ->
+                           peer:stop(Peer)
                    end},
          #{desc => "await client node termination",
            cmd  => fun(#{node := Node} = State) ->
@@ -46802,9 +46801,9 @@ ttest_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(#{host := Host} = State) ->
-                           case start_node(Host, server) of
-                               {ok, Node} ->
-                                   {ok, State#{node => Node}};
+                           case ?CT_PEER() of
+                               {ok, Peer, Node} ->
+                                   {ok, State#{peer => Peer, node => Node}};
                                {error, Reason} ->
                                    {skip, Reason}
                            end
@@ -46882,8 +46881,8 @@ ttest_tcp(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "stop (server) node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{peer := Peer} = _State) ->
+                           peer:stop(Peer)
                    end},
          #{desc => "await (server) node termination",
            cmd  => fun(#{node := Node} = State) ->
@@ -46924,9 +46923,9 @@ ttest_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(#{host := Host} = State) ->
-                           case start_node(Host, client) of
-                               {ok, Node} ->
-                                   {ok, State#{node => Node}};
+                           case ?CT_PEER() of
+                               {ok, Peer, Node} ->
+                                   {ok, State#{peer => Peer, node => Node}};
                                {error, Reason} ->
                                    {skip, Reason}
                            end
@@ -47036,8 +47035,8 @@ ttest_tcp(InitState) ->
                            end
                    end},
          #{desc => "stop (client) node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{peer := Peer} = _State) ->
+                           peer:stop(Peer)
                    end},
          #{desc => "await (client) node termination",
            cmd  => fun(#{node := Node} = State) ->
@@ -48150,68 +48149,6 @@ otp16359_maccept_tcp(InitState) ->
     ok = ?SEV_AWAIT_FINISH([PrimAcceptor, SecAcceptor1, SecAcceptor2,
                             Client1, Client2, Client3,
                             Tester]).
-
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% This mechanism has only one purpose: So that we are able to kill
-%% the node-starter process if it takes to long. The node-starter
-%% runs on the local node.
-%% This crapola is hopefully temporary, but we have seen that on
-%% some platforms the ct_slave:start simply hangs.
--define(NODE_START_TIMEOUT, 10000).
-start_node(Host, NodeName) ->
-    start_node(Host, NodeName, ?NODE_START_TIMEOUT).
-
-start_node(Host, NodeName, Timeout) ->
-    {NodeStarter, _} =
-        spawn_monitor(fun() -> exit(start_unique_node(Host, NodeName)) end),
-    receive
-        {'DOWN', _, process, NodeStarter, Result} ->
-            %% i("Node Starter (~p) reported: ~p", [NodeStarter, Result]),
-            Result
-    after Timeout ->
-            exit(NodeStarter, kill),
-            {error, {failed_starting_node, NodeName, timeout}}
-    end.
-
-start_unique_node(Host, NodeName) ->
-    UniqueNodeName = f("~w_~w", [NodeName, erlang:system_time(millisecond)]),
-    case do_start_node(Host, UniqueNodeName) of
-        {ok, _} = OK ->
-            global:sync(),
-            %% i("Node ~p started: "
-            %%    "~n   Nodes:        ~p"
-            %%    "~n   Logger:       ~p"
-            %%    "~n   Global Names: ~p",
-            %%    [NodeName, nodes(),
-            %%     global:whereis_name(socket_test_logger),
-            %%     global:registered_names()]),
-            OK;
-        {error, Reason, _} ->
-            {error, Reason}
-    end.
-
-do_start_node(Host, NodeName) when is_list(NodeName) ->
-    do_start_node(Host, list_to_atom(NodeName));
-do_start_node(Host, NodeName) when is_atom(NodeName) ->
-    Dir   = filename:dirname(code:which(?MODULE)),
-    Flags = "-pa " ++ Dir,
-    Opts  = [{monitor_master, true}, {erl_flags, Flags}],
-    ct_slave:start(Host, NodeName, Opts).
-
-
-stop_node(Node) ->
-    case ct_slave:stop(Node) of
-        {ok, _} ->
-            ok;
-        {error, _} = ERROR ->
-            ERROR
-    end.
-
-    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

@@ -1676,14 +1676,10 @@ monitor_nodes_many(DCfg, _Config) ->
 
 %% Test order of messages nodedown and nodeup.
 monitor_nodes_down_up(Config) when is_list(Config) ->
-    [An] = get_nodenames(1, monitor_nodeup),
-    {ok, A} = ct_slave:start(An),
-
-    try
-        monitor_nodes_yoyo(A)
-    after
-        catch ct_slave:stop(A)
-    end.
+    {ok, Peer, Node} = ?CT_PEER(#{connection => 0}),
+    true = net_kernel:connect_node(Node),
+    monitor_nodes_yoyo(Node),
+    peer:stop(Peer).
 
 monitor_nodes_yoyo(A) ->
     net_kernel:monitor_nodes(true),

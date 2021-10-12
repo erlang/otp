@@ -452,76 +452,64 @@ stop7(Config) ->
 
 %% Anonymous on remote node
 stop8(Config) ->
-    Node = gen_statem_stop8,
-    {ok,NodeName} = ct_slave:start(Node),
-    Statem =
-        try
-            Dir = filename:dirname(code:which(?MODULE)),
-            rpc:block_call(NodeName, code, add_path, [Dir]),
-            {ok,Pid} =
-                rpc:block_call(
-                  NodeName, gen_statem,start,
-                  [?MODULE,start_arg(Config, []),[]]),
-            ok = gen_statem:stop(Pid),
-            false = rpc:block_call(NodeName, erlang, is_process_alive, [Pid]),
-            noproc =
-                ?EXPECT_FAILURE(gen_statem:stop(Pid), Reason1),
-            Pid
-        after
-            {ok,NodeName} = ct_slave:stop(Node)
-        end,
+    {ok,Peer,NodeName} = ?CT_PEER(),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:block_call(NodeName, code, add_path, [Dir]),
+    {ok,Pid} =
+        rpc:block_call(
+          NodeName, gen_statem,start,
+          [?MODULE,start_arg(Config, []),[]]),
+    ok = gen_statem:stop(Pid),
+    false = rpc:block_call(NodeName, erlang, is_process_alive, [Pid]),
+    noproc =
+        ?EXPECT_FAILURE(gen_statem:stop(Pid), Reason1),
+
+    peer:stop(Peer),
     {{nodedown,NodeName},{sys,terminate,_}} =
-	?EXPECT_FAILURE(gen_statem:stop(Statem), Reason2),
+	?EXPECT_FAILURE(gen_statem:stop(Pid), Reason2),
     ok.
 
 %% Registered name on remote node
 stop9(Config) ->
     Name = to_stop,
     LocalSTM = {local,Name},
-    Node = gen_statem__stop9,
-    {ok,NodeName} = ct_slave:start(Node),
-    Statem =
-        try
-            STM = {Name,NodeName},
-            Dir = filename:dirname(code:which(?MODULE)),
-            rpc:block_call(NodeName, code, add_path, [Dir]),
-            {ok,Pid} =
-                rpc:block_call(
-                  NodeName, gen_statem, start,
-                  [LocalSTM,?MODULE,start_arg(Config, []),[]]),
-            ok = gen_statem:stop(STM),
-            undefined = rpc:block_call(NodeName,erlang,whereis,[Name]),
-            false = rpc:block_call(NodeName,erlang,is_process_alive,[Pid]),
-            noproc =
-                ?EXPECT_FAILURE(gen_statem:stop(STM), Reason1),
-            STM
-        after
-            {ok,NodeName} = ct_slave:stop(Node)
-        end,
+    {ok,Peer,NodeName} = ?CT_PEER(),
+
+    STM = {Name,NodeName},
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:block_call(NodeName, code, add_path, [Dir]),
+    {ok,Pid} =
+        rpc:block_call(
+          NodeName, gen_statem, start,
+          [LocalSTM,?MODULE,start_arg(Config, []),[]]),
+    ok = gen_statem:stop(STM),
+    undefined = rpc:block_call(NodeName,erlang,whereis,[Name]),
+    false = rpc:block_call(NodeName,erlang,is_process_alive,[Pid]),
+    noproc =
+        ?EXPECT_FAILURE(gen_statem:stop(STM), Reason1),
+    peer:stop(Peer),
+
     {{nodedown,NodeName},{sys,terminate,_}} =
-	?EXPECT_FAILURE(gen_statem:stop(Statem), Reason2),
+	?EXPECT_FAILURE(gen_statem:stop(STM), Reason2),
     ok.
 
 %% Globally registered name on remote node
 stop10(Config) ->
-    Node = gen_statem_stop10,
     STM = {global,to_stop},
-    {ok,NodeName} = ct_slave:start(Node),
-    try
-        Dir = filename:dirname(code:which(?MODULE)),
-        rpc:block_call(NodeName,code,add_path,[Dir]),
-        {ok,Pid} =
-            rpc:block_call(
-              NodeName, gen_statem, start,
-              [STM,?MODULE,start_arg(Config, []),[]]),
-        global:sync(),
-        ok = gen_statem:stop(STM),
-        false = rpc:block_call(NodeName, erlang, is_process_alive, [Pid]),
-        noproc =
-            ?EXPECT_FAILURE(gen_statem:stop(STM), Reason1)
-    after
-        {ok,NodeName} = ct_slave:stop(Node)
-    end,
+    {ok,Peer,NodeName} = ?CT_PEER(),
+    Dir = filename:dirname(code:which(?MODULE)),
+    rpc:block_call(NodeName,code,add_path,[Dir]),
+    {ok,Pid} =
+        rpc:block_call(
+          NodeName, gen_statem, start,
+          [STM,?MODULE,start_arg(Config, []),[]]),
+    global:sync(),
+    ok = gen_statem:stop(STM),
+    false = rpc:block_call(NodeName, erlang, is_process_alive, [Pid]),
+    noproc =
+        ?EXPECT_FAILURE(gen_statem:stop(STM), Reason1),
+    peer:stop(Peer),
+
     noproc =
 	?EXPECT_FAILURE(gen_statem:stop(STM), Reason2),
     ok.
