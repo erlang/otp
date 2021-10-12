@@ -30,8 +30,20 @@
 /* Helper macros to construct a OPENSSL_VERSION_NUMBER.
  * See openssl/opensslv.h
  */
-#define PACKED_OPENSSL_VERSION(MAJ, MIN, FIX, P)	\
-    ((((((((MAJ << 8) | MIN) << 8 ) | FIX) << 8) | (P-'a'+1)) << 4) | 0xf)
+
+#if !defined(HAS_LIBRESSL) && \
+    defined(OPENSSL_VERSION_MAJOR) && \
+    (OPENSSL_VERSION_MAJOR >= 3)
+
+# define PACKED_OPENSSL_VERSION(MAJ, MIN, PATCH, VOID)   \
+         (((((MAJ << 8) | MIN) << 16 ) | PATCH) << 4)
+#else
+/* Pre 3.0.0 */
+#  define PACKED_OPENSSL_VERSION(MAJ, MIN, FIX, P)                        \
+          ((((((((MAJ << 8) | MIN) << 8 ) | FIX) << 8) | (P-'a'+1)) << 4) | 0xf)
+
+/* End Pre 3.0.0 */
+#endif
 
 #define PACKED_OPENSSL_VERSION_PLAIN(MAJ, MIN, FIX) \
     PACKED_OPENSSL_VERSION(MAJ,MIN,FIX,('a'-1))
