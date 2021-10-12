@@ -139,7 +139,7 @@ purpose. The `make test` command works when the current directory
 contains a directory called test and in the root directory of the
 source code tree.
 
-*(Waring)* Some test cases do not run correctly or cannot be run at
+*(Warning)* Some test cases do not run correctly or cannot be run at
 all through the `make test` command (typically test cases that require
 test specific C code to be compiled) because `make test` runs tests
 directly by invoking the `ct_run` command instead of using the `ts`
