@@ -930,7 +930,8 @@ $(OBJDIR)/%.o: beam/jit/%.cpp $(ASMJIT_PCH_OBJ)
           $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))                \
           -include $(ASMJIT_PCH_SRC) -c $< -o $@
 
-$(OBJDIR)/%.o: beam/jit/$(JIT_ARCH)/%.cpp beam/jit/$(JIT_ARCH)/beam_asm.hpp
+$(OBJDIR)/%.o: beam/jit/$(JIT_ARCH)/%.cpp beam/jit/$(JIT_ARCH)/beam_asm.hpp \
+	$(ASMJIT_PCH_OBJ)
 	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                            \
           $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))                \
           -include $(ASMJIT_PCH_SRC) -c $< -o $@
