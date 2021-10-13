@@ -1493,6 +1493,8 @@ otp_4389(Config)  when is_list(Config) ->
         {unix, _} ->
             ct:timetrap({minutes, 4}),
             TCR = self(),
+            %% On MacOS Catalina libc can return enoent instead of emfile for cwd
+            BrokenCWD = (os:type() =:= {unix,darwin}) andalso element(1,os:version()) == 19,
             case get_true_cmd() of
                 True when is_list(True) ->
                     lists:foreach(
@@ -1513,16 +1515,20 @@ otp_4389(Config)  when is_list(Config) ->
                                                   receive
                                                       {P,{exit_status,_}} ->
                                                           TCR ! {self(),ok};
-                                                      {'EXIT',_,{R2,_}} when R2 == emfile;
-                                                                             R2 == eagain;
-                                                                             R2 == enomem ->
+                                                      {'EXIT',_,{R2,_}}
+                                                        when R2 == emfile;
+                                                             R2 == eagain;
+                                                             R2 == enomem;
+                                                             R2 == enoent andalso BrokenCWD ->
                                                           TCR ! {self(),ok};
                                                       Err2 ->
                                                           TCR ! {self(),{msg,Err2}}
                                                   end;
-                                              {'EXIT',{R1,_}} when R1 == emfile;
-                                                                   R1 == eagain;
-                                                                   R1 == enomem ->
+                                              {'EXIT',{R1,_}}
+                                                when R1 == emfile;
+                                                     R1 == eagain;
+                                                     R1 == enomem;
+                                                     R1 == enoent andalso BrokenCWD ->
                                                   TCR ! {self(),ok};
                                               Err1 ->
                                                   TCR ! {self(), {open_port,Err1}}
