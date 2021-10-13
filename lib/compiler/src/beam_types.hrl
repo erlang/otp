@@ -18,6 +18,9 @@
 %% %CopyrightEnd%
 %%
 
+%% Type version, must be bumped whenever the external type format changes.
+-define(BEAM_TYPES_VERSION, 0).
+
 %% Common term types for passes operating on beam SSA and assembly. Helper
 %% functions for wrangling these can be found in beam_types.erl
 %%
@@ -37,6 +40,9 @@
 %%    - #t_list{}            Any list.
 %%       -- #t_cons{}        Cons (nonempty list).
 %%       -- nil              The empty list.
+%%    - pid
+%%    - port
+%%    - reference
 %%    - #t_tuple{}           Tuple.
 %%
 %%  none                     No type (bottom element).
@@ -131,6 +137,9 @@
                        #t_fun{} |
                        #t_list{} | #t_cons{} | nil |
                        #t_map{} |
+                       pid |
+                       port |
+                       reference |
                        #t_tuple{}.
 
 -type record_key() :: {Arity :: integer(), Tag :: normal_type() }.

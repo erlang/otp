@@ -49,6 +49,8 @@
 
 -export([limit_depth/1]).
 
+-export([decode_ext/1, encode_ext/1]).
+
 %% This is exported to help catch errors in property test generators and is not
 %% meant to be used outside of test suites.
 -export([verified_type/1]).
@@ -615,6 +617,8 @@ make_integer(Min, Max) when is_integer(Min), is_integer(Max), Min =< Max ->
 limit_depth(Type) ->
     limit_depth(Type, ?MAX_TYPE_DEPTH).
 
+-spec limit_depth(type(), non_neg_integer()) -> type().
+
 limit_depth(#t_cons{}=T, Depth) ->
     limit_depth_list(T, Depth);
 limit_depth(#t_list{}=T, Depth) ->
@@ -1111,6 +1115,9 @@ verified_normal_type(#t_list{type=Type,terminator=Term}=T) ->
 verified_normal_type(#t_map{}=T) -> T;
 verified_normal_type(nil=T) -> T;
 verified_normal_type(number=T) -> T;
+verified_normal_type(pid=T) -> T;
+verified_normal_type(port=T) -> T;
+verified_normal_type(reference=T) -> T;
 verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
     %% All known elements must have a valid index and type (which may be a
     %% union). 'any' is prohibited since it's implicit and should never be
@@ -1123,3 +1130,68 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
                       verified_type(Element)
               end, [], Es),
     T.
+
+%%%
+%%% External type format
+%%%
+%%% This is a stripped-down version of our internal format, focusing solely on
+%%% primary types and unions thereof. The idea is to help the JIT skip minor
+%%% details inside instructions when we know they're pointless, such as
+%%% checking whether the source of `is_tagged_tuple` is boxed, or reducing an
+%%% equality check to a single machine compare instruction when we know that
+%%% both arguments are immediates.
+%%%
+
+-define(BEAM_TYPE_ATOM,          (1 bsl 0)).
+-define(BEAM_TYPE_BITSTRING,     (1 bsl 1)).
+-define(BEAM_TYPE_BS_MATCHSTATE, (1 bsl 2)).
+-define(BEAM_TYPE_CONS,          (1 bsl 3)).
+-define(BEAM_TYPE_FLOAT,         (1 bsl 4)).
+-define(BEAM_TYPE_FUN,           (1 bsl 5)).
+-define(BEAM_TYPE_INTEGER,       (1 bsl 6)).
+-define(BEAM_TYPE_MAP,           (1 bsl 7)).
+-define(BEAM_TYPE_NIL,           (1 bsl 8)).
+-define(BEAM_TYPE_PID,           (1 bsl 9)).
+-define(BEAM_TYPE_PORT,          (1 bsl 10)).
+-define(BEAM_TYPE_REFERENCE,     (1 bsl 11)).
+-define(BEAM_TYPE_TUPLE,         (1 bsl 12)).
+
+ext_type_mapping() ->
+    [{?BEAM_TYPE_ATOM,          #t_atom{}},
+     {?BEAM_TYPE_BITSTRING,     #t_bitstring{}},
+     {?BEAM_TYPE_BS_MATCHSTATE, #t_bs_matchable{}},
+     {?BEAM_TYPE_CONS,          #t_cons{}},
+     {?BEAM_TYPE_FLOAT,         #t_float{}},
+     {?BEAM_TYPE_FUN,           #t_fun{}},
+     {?BEAM_TYPE_INTEGER,       #t_integer{}},
+     {?BEAM_TYPE_MAP,           #t_map{}},
+     {?BEAM_TYPE_NIL,           nil},
+     {?BEAM_TYPE_PID,           pid},
+     {?BEAM_TYPE_PORT,          port},
+     {?BEAM_TYPE_REFERENCE,     reference},
+     {?BEAM_TYPE_TUPLE,         #t_tuple{}}].
+
+-spec decode_ext(binary()) -> type().
+decode_ext(<<TypeBits:16/signed-big>>) ->
+    foldl(fun({Id, Type}, Acc) ->
+                  decode_ext_bits(TypeBits, Id, Type, Acc)
+          end, none, ext_type_mapping()).
+
+decode_ext_bits(Input, TypeBit, Type, Acc) ->
+    case Input band TypeBit of
+        0 -> Acc;
+        _ -> join(Type, Acc)
+    end.
+
+-spec encode_ext(type()) -> binary().
+encode_ext(Input) ->
+    TypeBits = foldl(fun({Id, Type}, Acc) ->
+                             encode_ext_bits(Input, Id, Type, Acc)
+                     end, 0, ext_type_mapping()),
+    <<TypeBits:16/signed-big>>.
+
+encode_ext_bits(Input, TypeBit, Type, Acc) ->
+    case meet(Input, Type) of
+        none -> Acc;
+        _ -> Acc bor TypeBit
+    end.

@@ -135,7 +135,7 @@
 
 -type instruction() :: beam_utils:instruction().
 
--include("beam_types.hrl").
+-include("beam_asm.hrl").
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -184,9 +184,10 @@ eliminate_moves([{select,select_val,Reg,{f,Fail},List}=I|Is], D0, Acc) ->
     D1 = add_unsafe_label(Fail, D0),
     D = update_value_dict(List, Reg, D1),
     eliminate_moves(Is, D, [I|Acc]);
-eliminate_moves([{test,is_eq_exact,_,[Reg,Val]}=I,
+eliminate_moves([{test,is_eq_exact,_,[Reg0,Val]}=I,
                  {block,BlkIs0}|Is], D0, Acc) ->
     D = update_unsafe_labels(I, D0),
+    Reg = unpack_typed_reg(Reg0),
     RegVal = {Reg,Val},
     BlkIs = eliminate_moves_blk(BlkIs0, RegVal),
     eliminate_moves([{block,BlkIs}|Is], D, [I|Acc]);
@@ -269,7 +270,8 @@ value_to_literal(F) when is_float(F) -> {float,F};
 value_to_literal(I) when is_integer(I) -> {integer,I};
 value_to_literal(Other) -> {literal,Other}.
 
-update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
+update_value_dict([Lit,{f,Lbl}|T], Reg0, D0) ->
+    Reg = unpack_typed_reg(Reg0),
     D = case D0 of
             #{Lbl:=unsafe} -> D0;
             #{Lbl:={Reg,Lit}} -> D0;
@@ -278,6 +280,9 @@ update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
         end,
     update_value_dict(T, Reg, D);
 update_value_dict([], _, D) -> D.
+
+unpack_typed_reg(#tr{r=Reg}) -> Reg;
+unpack_typed_reg(Reg) -> Reg.
 
 add_unsafe_label(L, D) ->
     D#{L=>unsafe}.

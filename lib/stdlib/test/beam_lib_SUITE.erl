@@ -430,7 +430,7 @@ strip_add_chunks(Conf) when is_list(Conf) ->
     compare_chunks(B1, NB1, NBId1),
 
     %% Keep all the extra chunks
-    ExtraChunks = ["Abst" , "Dbgi" , "Attr" , "CInf" , "LocT" , "Atom" ],
+    ExtraChunks = ["Abst", "Dbgi", "Attr", "CInf", "LocT", "Atom", "Type"],
     {ok, {simple, AB1}} = beam_lib:strip(B1, ExtraChunks),
     ABId1 = chunk_ids(AB1),
     true = length(BId1) == length(ABId1),

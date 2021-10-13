@@ -24,15 +24,15 @@
 -export([module/4]).
 -export([encode/2]).
 
--export_type([fail/0,label/0,reg/0,reg_num/0,src/0,module_code/0,function_name/0]).
+-export_type([fail/0,label/0,src/0,module_code/0,function_name/0]).
 
 -import(lists, [map/2,member/2,keymember/3,duplicate/2,splitwith/2]).
+
 -include("beam_opcodes.hrl").
+-include("beam_asm.hrl").
 
 %% Common types for describing operands for BEAM instructions.
--type reg_num() :: 0..1023.
--type reg() :: {'x',reg_num()} | {'y',reg_num()}.
--type src() :: reg() |
+-type src() :: beam_reg() |
 	       {'literal',term()} |
 	       {'atom',atom()} |
 	       {'integer',integer()} |
@@ -64,11 +64,12 @@ module(Code, ExtraChunks, CompileInfo, CompilerOpts) ->
 assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, CompileInfo, CompilerOpts) ->
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
-    Dict2 = shared_fun_wrappers(CompilerOpts, Dict1),
+    {0,Dict2} = beam_dict:type(any, Dict1),
+    Dict3 = shared_fun_wrappers(CompilerOpts, Dict2),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
     Exp = sets:from_list(Exp0, [{version, 2}]),
-    {Code,Dict} = assemble_1(Asm, Exp, Dict2, []),
+    {Code,Dict} = assemble_1(Asm, Exp, Dict3, []),
     build_file(Code, Attr, Dict, NumLabels, NumFuncs,
                ExtraChunks, CompileInfo, CompilerOpts).
 
@@ -190,8 +191,13 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, CompileInfo, Comp
 		   end,
 
     %% Create the line chunk.
-    
     LineChunk = chunk(<<"Line">>, build_line_table(Dict)),
+
+    %% Create the type table chunk.
+    {NumTypes, TypeTab} = beam_dict:type_table(Dict),
+    TypeChunk = chunk(<<"Type">>,
+                      <<?BEAM_TYPES_VERSION:32, NumTypes:32>>,
+                      TypeTab),
 
     %% Create the attributes and compile info chunks.
 
@@ -211,12 +217,14 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, CompileInfo, Comp
     %% Create IFF chunk.
 
     Chunks = case member(slim, CompilerOpts) of
-		 true ->
-		     [Essentials,AttrChunk];
-		 false ->
-		     [Essentials,LocChunk,AttrChunk,
-		      CompileChunk,CheckedChunks,LineChunk]
-	     end,
+                 true when NumTypes > 0 ->
+                     [Essentials,AttrChunk,TypeChunk];
+                 true when NumTypes =:= 0 ->
+                     [Essentials,AttrChunk];
+                 false ->
+                     [Essentials,LocChunk,AttrChunk,
+                      CompileChunk,CheckedChunks,LineChunk,TypeChunk]
+             end,
     build_form(<<"BEAM">>, Chunks).
 
 %% finalize_fun_table(Essentials, MD5) -> FinalizedEssentials
@@ -407,6 +415,10 @@ encode_op_1([A0|As], Dict0, Acc) ->
     encode_op_1(As, Dict, [Acc,A]);
 encode_op_1([], Dict, Acc) -> {Acc,Dict}.
 
+encode_arg(#tr{r={x, X}=Reg}, Dict0) when is_integer(X), X >= 0 ->
+    encode_arg(Reg, Dict0);
+encode_arg(#tr{r={y, Y}=Reg}, Dict0) when is_integer(Y), Y >= 0 ->
+    encode_arg(Reg, Dict0);
 encode_arg({x, X}, Dict) when is_integer(X), X >= 0 ->
     {encode(?tag_x, X), Dict};
 encode_arg({y, Y}, Dict) when is_integer(Y), Y >= 0 ->
