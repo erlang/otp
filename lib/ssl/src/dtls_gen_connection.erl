@@ -68,6 +68,14 @@
          send_alert_in_connection/2,
          close/5,
          protocol_name/0]).
+
+
+%% See thread @ http://lists.cluenet.de/pipermail/ipv6-ops/2011-June/005755.html
+%% 1280 - headers
+-define(PMTUEstimate, 1200).
+
+
+
 %%====================================================================
 %% Internal application API
 %%====================================================================	     
@@ -244,12 +252,11 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
-    PMTUEstimate = 1400, %% TODO make configurable
     #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
-    MaxSize = min(MaxFragmentLength, PMTUEstimate),
+    MaxSize = min(MaxFragmentLength, ?PMTUEstimate),
     {Encoded, ConnectionStates} =
 	encode_handshake_flight(lists:reverse(Flight), Version, MaxSize, Epoch, ConnectionStates0),
-    send(Transport, Socket, Encoded),
+    send_packets(Transport, Socket, Encoded),
     ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
    {State0#state{connection_states = ConnectionStates}, []};
 
@@ -262,14 +269,12 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
-    PMTUEstimate = 1400, %% TODO make configurable
     #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
-    MaxSize = min(MaxFragmentLength, PMTUEstimate),
+    MaxSize = min(MaxFragmentLength, ?PMTUEstimate),
     {HsBefore, ConnectionStates1} =
 	encode_handshake_flight(lists:reverse(Flight0), Version, MaxSize, Epoch, ConnectionStates0),
     {EncChangeCipher, ConnectionStates} = encode_change_cipher(ChangeCipher, Version, Epoch, ConnectionStates1),
-
-    send(Transport, Socket, [HsBefore, EncChangeCipher]),
+    send_packets(Transport, Socket, HsBefore ++ EncChangeCipher),
     ssl_logger:debug(LogLevel, outbound, 'record', [HsBefore]),
     ssl_logger:debug(LogLevel, outbound, 'record', [EncChangeCipher]),
     {State0#state{connection_states = ConnectionStates}, []};
@@ -283,16 +288,15 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
-    PMTUEstimate = 1400, %% TODO make configurable
     #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
-    MaxSize = min(MaxFragmentLength, PMTUEstimate),
+    MaxSize = min(MaxFragmentLength, ?PMTUEstimate),
     {HsBefore, ConnectionStates1} =
 	encode_handshake_flight(lists:reverse(Flight0), Version, MaxSize, Epoch-1, ConnectionStates0),
     {EncChangeCipher, ConnectionStates2} = 
 	encode_change_cipher(ChangeCipher, Version, Epoch-1, ConnectionStates1),
     {HsAfter, ConnectionStates} =
 	encode_handshake_flight(lists:reverse(Flight1), Version, MaxSize, Epoch, ConnectionStates2),
-    send(Transport, Socket, [HsBefore, EncChangeCipher, HsAfter]),
+    send_packets(Transport, Socket, HsBefore ++ EncChangeCipher ++ HsAfter),
     ssl_logger:debug(LogLevel, outbound, 'record', [HsBefore]),
     ssl_logger:debug(LogLevel, outbound, 'record', [EncChangeCipher]),
     ssl_logger:debug(LogLevel, outbound, 'record', [HsAfter]),
@@ -307,14 +311,13 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
-    PMTUEstimate = 1400, %% TODO make configurable
     #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
-    MaxSize = min(MaxFragmentLength, PMTUEstimate),
+    MaxSize = min(MaxFragmentLength, ?PMTUEstimate),
     {EncChangeCipher, ConnectionStates1} = 
 	encode_change_cipher(ChangeCipher, Version, Epoch-1, ConnectionStates0),
     {HsAfter, ConnectionStates} =
 	encode_handshake_flight(lists:reverse(Flight1), Version, MaxSize, Epoch, ConnectionStates1),
-    send(Transport, Socket, [EncChangeCipher, HsAfter]),
+    send_packets(Transport, Socket, EncChangeCipher ++ HsAfter),
     ssl_logger:debug(LogLevel, outbound, 'record', [EncChangeCipher]),
     ssl_logger:debug(LogLevel, outbound, 'record', [HsAfter]),
     {State0#state{connection_states = ConnectionStates}, []}.
@@ -479,6 +482,28 @@ send(Transport, {Listener, Socket}, Data) when is_pid(Listener) ->
 send(Transport, Socket, Data) -> % Client socket
     dtls_socket:send(Transport, Socket, Data).
 
+send_packets(_Transport, _Socket, []) ->
+    ok;
+send_packets(Transport, Socket, Packets) ->
+    {Packet, Rest} = pack_packets(Packets, 0, ?PMTUEstimate+80, []),
+    case send(Transport, Socket, Packet) of
+        ok -> send_packets(Transport, Socket, Rest);
+        Err -> Err
+    end.
+
+pack_packets([P|Rest]=Packets, SoFar, Max, Acc) ->
+    Size = erlang:iolist_size(P),
+    Next = SoFar + Size,
+    if Size > Max, Acc =:= [] ->
+            {P, Rest};
+       Next < Max ->
+            pack_packets(Rest, Next, Max, [P|Acc]);
+       true ->
+            {lists:reverse(Acc), Packets}
+    end;
+pack_packets([], _, _, Acc) ->
+    {lists:reverse(Acc), []}.
+
 socket(Pid,  Transport, Socket, _Tracker) ->
     dtls_socket:socket(Pid, Transport, Socket, ?MODULE).
 
@@ -577,10 +602,15 @@ unprocessed_events(Events) ->
     erlang:length(Events)-1.
 
 encode_handshake_flight(Flight, Version, MaxFragmentSize, Epoch, ConnectionStates) ->
-    Fragments = lists:map(fun(Handshake) ->
-				  dtls_handshake:fragment_handshake(Handshake, MaxFragmentSize)
-			  end, Flight),
-    dtls_record:encode_handshake(Fragments, Version, Epoch, ConnectionStates).
+    Encode = fun(Fragment, {Acc, Cs0}) ->
+                     {Enc, Cs} = dtls_record:encode_handshake(Fragment, Version, Epoch, Cs0),
+                     {[Enc|Acc], Cs}
+             end,
+    {Rev, Cs} = lists:foldl(fun(Handshake, {Acc,Cs0}) ->
+                                    Frags = dtls_handshake:fragment_handshake(Handshake, MaxFragmentSize),
+                                    lists:foldl(Encode, {Acc,Cs0}, Frags)
+                            end, {[], ConnectionStates}, Flight),
+    {lists:reverse(Rev), Cs}.
 
 encode_change_cipher(#change_cipher_spec{}, Version, Epoch, ConnectionStates) ->
     dtls_record:encode_change_cipher_spec(Version, Epoch, ConnectionStates).

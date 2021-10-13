@@ -805,7 +805,7 @@ send_application_data(Data, From, _StateName,
 	    {Msgs, ConnectionStates} =
                 dtls_record:encode_data(Data, Version, ConnectionStates0),
             State = State0#state{connection_states = ConnectionStates},
-	    case dtls_gen_connection:send(Transport, Socket, Msgs) of
+	    case send_msgs(Transport, Socket, Msgs) of
                 ok ->
                     ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
                     ssl_gen_statem:hibernate_after(connection, State, [{reply, From, ok}]);
@@ -813,6 +813,14 @@ send_application_data(Data, From, _StateName,
                     ssl_gen_statem:hibernate_after(connection, State, [{reply, From, Result}])
             end
     end.
+
+send_msgs(Transport, Socket, [Msg|Msgs]) ->
+    case dtls_gen_connection:send(Transport, Socket, Msg) of
+        ok -> send_msgs(Transport, Socket, Msgs);
+        Error -> Error
+    end;
+send_msgs(_, _, []) ->
+    ok.
 
 time_to_renegotiate(_Data, 
 		    #{current_write := #{sequence_number := Num}}, 
