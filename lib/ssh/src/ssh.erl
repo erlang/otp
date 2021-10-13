@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -126,25 +126,35 @@ stop() ->
 %%--------------------------------------------------------------------
 %% Description: Starts an ssh connection.
 %%--------------------------------------------------------------------
--spec connect(OpenTcpSocket, Options) -> {ok,connection_ref()} | {error,term()} when
+-define(IS_VALID_OPTIONS(Options), is_list(Options)).
+-define(IS_VALID_PORT(Port), (is_integer(Port) andalso Port > 0)).
+-define(IS_VALID_TIMEOUT(Timeout),
+        (Timeout == infinity
+         orelse (is_integer(Timeout)
+                 andalso Timeout >= 0))).
+
+-spec connect(OpenTcpSocket, Options)
+             -> {ok, connection_ref()}
+              | {error, term()} when
       OpenTcpSocket :: open_socket(),
       Options :: client_options().
 
-connect(OpenTcpSocket, Options) when is_list(Options) ->
-    connect(OpenTcpSocket, Options, infinity).
-
+connect(OpenTcpSocket, Options) when ?IS_VALID_OPTIONS(Options) ->
+    connect(OpenTcpSocket, Options, infinity);
+connect(_OpenTcpSocket, Options) ->
+    bad_arg([{options, Options}]).
 
 -spec connect(open_socket(), client_options(), timeout()) ->
-                     {ok,connection_ref()} | {error,term()}
+                     {ok, connection_ref()} | {error, term()}
            ; (host(), inet:port_number(), client_options()) ->
-                     {ok,connection_ref()} | {error,term()}.
+                     {ok, connection_ref()} | {error, term()}.
 
-connect(Host, Port, Options) when is_integer(Port),
-                                  Port>0,
-                                  is_list(Options) ->
+connect(Host, Port, Options) when ?IS_VALID_PORT(Port),
+                                  ?IS_VALID_OPTIONS(Options) ->
     connect(Host, Port, Options, infinity);
-
-connect(Socket, UserOptions, NegotiationTimeout) when is_list(UserOptions) ->
+connect(Socket, UserOptions, NegotiationTimeout)
+  when ?IS_VALID_OPTIONS(UserOptions),
+       ?IS_VALID_TIMEOUT(NegotiationTimeout) ->
     case ssh_options:handle_options(client, UserOptions) of
 	{error, Error} ->
 	    {error, Error};
@@ -156,26 +166,30 @@ connect(Socket, UserOptions, NegotiationTimeout) when is_list(UserOptions) ->
                 {error,SockError} ->
                     {error,SockError}
             end
-    end.
+    end;
+connect(_HostOrSocket, PortOrOptions, OptionsOrTimeout) ->
+    bad_arg(PortOrOptions, OptionsOrTimeout).
 
-
--spec connect(Host, Port, Options, NegotiationTimeout) -> {ok,connection_ref()} | {error,term()} when
+-spec connect(Host, Port, Options, NegotiationTimeout)
+             -> {ok, connection_ref()}
+              | {error, term()} when
       Host :: host(),
       Port :: inet:port_number(),
       Options :: client_options(),
       NegotiationTimeout :: timeout().
 
-connect(Host0, Port, UserOptions, NegotiationTimeout) when is_integer(Port),
-                                                           Port>0,
-                                                           is_list(UserOptions) ->
+connect(Host0, Port, UserOptions, NegotiationTimeout)
+  when ?IS_VALID_PORT(Port),
+       ?IS_VALID_OPTIONS(UserOptions),
+       ?IS_VALID_TIMEOUT(NegotiationTimeout) ->
     case ssh_options:handle_options(client, UserOptions) of
 	{error, Reason} ->
             {error, Reason};
-        
+
         Options ->
             SocketOpts = [{active,false} | ?GET_OPT(socket_options,Options)],
             Host = mangle_connect_address(Host0, Options),
-            try 
+            try
                 transport_connect(Host, Port, SocketOpts, Options)
             of
                 {ok, Socket} ->
@@ -188,7 +202,41 @@ connect(Host0, Port, UserOptions, NegotiationTimeout) when is_integer(Port),
                 error:Error -> {error,Error};
                 Class:Error -> {error, {Class,Error}}
             end
+    end;
+connect(_Host, Port, UserOptions, NegotiationTimeout) ->
+    bad_arg([{port, Port},
+             {options, UserOptions},
+             {timeout, NegotiationTimeout}]).
+
+bad_arg(Args) ->
+    hd(bad_args(Args)).
+
+%% Special handling for finding the incorrect args for connect/3,
+%% which has two distinctly different signatures.
+bad_arg(Arg2, Arg3) ->
+    E0 = bad_args([{port, Arg2}, {options, Arg3}]),
+    E1 = bad_args([{options, Arg2}, {timeout, Arg3}]),
+    %% Select the case with only one error
+    case {E0, E1} of
+        {[Error], _}    -> Error;
+        {_, [Error]}    -> Error;
+        {[Error, _], _} -> Error
     end.
+
+%% Return list of errors
+-spec bad_args([{'options' | 'port' | 'timeout', any()}]) ->
+          [{'error', term()}].
+bad_args(Args) ->
+    IsErr = fun(true, _) -> false;
+               (false, Error) -> {true, {error, Error}}
+            end,
+    Check =
+        fun({options, Arg}) -> IsErr(?IS_VALID_OPTIONS(Arg), invalid_options);
+           ({timeout, Arg}) -> IsErr(?IS_VALID_TIMEOUT(Arg), invalid_timeout);
+           ({port, Arg})    -> IsErr(?IS_VALID_PORT(Arg), invalid_port)
+        end,
+
+    lists:filtermap(Check, Args).
 
 %%%----------------
 continue_connect(Socket, Options0, NegTimeout) ->

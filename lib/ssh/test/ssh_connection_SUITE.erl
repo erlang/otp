@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,6 +43,20 @@
          big_cat/1,
          connect_sock_not_passive/1,
          connect_sock_not_tcp/1,
+         connect2_invalid_options/1,
+         connect_invalid_port/1,
+         connect_invalid_timeout_0/1,
+         connect_invalid_timeout_1/1,
+         connect_invalid_options/1,
+         connect3_invalid_port/1,
+         connect3_invalid_options/1,
+         connect3_invalid_timeout_0/1,
+         connect3_invalid_timeout_1/1,
+         connect3_invalid_both/1,
+         connect4_invalid_two_0/1,
+         connect4_invalid_two_1/1,
+         connect4_invalid_two_2/1,
+         connect4_invalid_three/1,
          daemon_sock_not_passive/1,
          daemon_sock_not_tcp/1,
          do_interrupted_send/3,
@@ -132,6 +146,20 @@ all() ->
      start_shell_sock_daemon_exec_multi,
      encode_decode_pty_opts,
      connect_sock_not_tcp,
+     connect2_invalid_options,
+     connect_invalid_port,
+     connect_invalid_options,
+     connect_invalid_timeout_0,
+     connect_invalid_timeout_1,
+     connect3_invalid_port,
+     connect3_invalid_options,
+     connect3_invalid_timeout_0,
+     connect3_invalid_timeout_1,
+     connect3_invalid_both,
+     connect4_invalid_two_0,
+     connect4_invalid_two_1,
+     connect4_invalid_two_2,
+     connect4_invalid_three,
      daemon_sock_not_tcp,
      gracefull_invalid_version,
      gracefull_invalid_start,
@@ -238,6 +266,139 @@ simple_exec_two_socks(_Config) ->
     receive
         {Pid2,ok} -> ok
     end.
+
+%%--------------------------------------------------------------------
+connect2_invalid_options(_Config) ->
+    {error, invalid_options} = ssh:connect(bogus_socket, {bad, option}).
+
+connect3_invalid_port(_Config) ->
+    {error, invalid_port} = ssh:connect(bogus_host, noport, [{key, value}]).
+
+connect3_invalid_options(_Config) ->
+    {error, invalid_options} = ssh:connect(bogus_host, 1337, bad_options).
+
+connect3_invalid_timeout_0(_Config) ->
+    {error, invalid_timeout} =
+        ssh:connect(bogus_socket, [{key, value}], short).
+
+connect3_invalid_timeout_1(_Config) ->
+    {error, invalid_timeout} =
+        ssh:connect(bogus_socket, [{key, value}], -1).
+
+connect3_invalid_both(_Config) ->
+    %% The actual reason is implementation dependent.
+    {error, _Reason} =
+        ssh:connect(bogus, no_list_or_port, no_list_or_timeout).
+
+connect_invalid_port(Config) ->
+    {Pid, Host, _Port, UserDir} = daemon_start(Config),
+
+    {error, invalid_port} =
+        ssh:connect(Host, undefined,
+                    [{silently_accept_hosts, true},
+                     {user, "foo"},
+                     {password, "morot"},
+                     {user_interaction, false},
+                     {user_dir, UserDir}],
+                    infinity),
+
+    ssh:stop_daemon(Pid).
+
+connect_invalid_timeout_0(Config) ->
+    {Pid, Host, Port, UserDir} = daemon_start(Config),
+
+    {error, invalid_timeout} =
+        ssh:connect(Host, Port,
+                    [{silently_accept_hosts, true},
+                     {user, "foo"},
+                     {password, "morot"},
+                     {user_interaction, false},
+                     {user_dir, UserDir}],
+                   longer),
+
+    ssh:stop_daemon(Pid).
+
+connect_invalid_timeout_1(Config) ->
+    {Pid, Host, Port, UserDir} = daemon_start(Config),
+
+    {error, invalid_timeout} =
+        ssh:connect(Host, Port,
+                    [{silently_accept_hosts, true},
+                     {user, "foo"},
+                     {password, "morot"},
+                     {user_interaction, false},
+                     {user_dir, UserDir}],
+                   -1),
+
+    ssh:stop_daemon(Pid).
+
+connect_invalid_options(Config) ->
+    {Pid, Host, Port, _UserDir} = daemon_start(Config),
+
+    {error, invalid_options} =
+        ssh:connect(Host, Port,
+                    {user, "foo"},
+                    infinity),
+
+    ssh:stop_daemon(Pid).
+
+%% Two out three arguments incorrect.  Three possibilities.
+connect4_invalid_two_0(Config) ->
+    {Pid, Host, _Port, _UserDir} = daemon_start(Config),
+
+    %% Actual error implementation dependent
+    {error, _} =
+        ssh:connect(Host, noport,
+                    {user, "foo"},
+                    infinity),
+
+    ssh:stop_daemon(Pid).
+
+connect4_invalid_two_1(Config) ->
+    {Pid, Host, Port, _UserDir} = daemon_start(Config),
+
+    %% Actual error implementation dependent
+    {error, _} =
+        ssh:connect(Host, Port,
+                    {user, "foo"},
+                    short),
+
+    ssh:stop_daemon(Pid).
+
+connect4_invalid_two_2(Config) ->
+    {Pid, Host, Port, _UserDir} = daemon_start(Config),
+
+    %% Actual error implementation dependent
+    {error, _} =
+        ssh:connect(Host, newport,
+                    [{user, "foo"}],
+                    -1),
+
+    ssh:stop_daemon(Pid).
+
+%% All three args incorrect
+connect4_invalid_three(Config) ->
+    {Pid, Host, Port, _UserDir} = daemon_start(Config),
+
+    %% Actual error implementation dependent
+    {error, _} =
+        ssh:connect(Host, teleport,
+                    {user, "foo"},
+                    fortnight),
+
+    ssh:stop_daemon(Pid).
+
+daemon_start(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                             {user_dir, UserDir},
+                                             {password, "morot"},
+                                             {exec, fun ssh_exec_echo/1}]),
+    {Pid, Host, Port, UserDir}.
 
 %%--------------------------------------------------------------------
 connect_sock_not_tcp(_Config) ->
@@ -1239,7 +1400,8 @@ kex_error(Config) ->
 
 stop_listener(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    %% to make sure we don't use public-key-auth
+    UserDir = filename:join(PrivDir, nopubkey),
     file:make_dir(UserDir),
     SysDir = proplists:get_value(data_dir, Config),
 
@@ -1248,13 +1410,14 @@ stop_listener(Config) when is_list(Config) ->
 					      {password, "morot"},
 					      {exec, fun ssh_exec_echo/1}]),
 
-    ConnectionRef0 = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-						       {user, "foo"},
-						       {password, "morot"},
-						       {user_interaction, false},
-						       {user_dir, UserDir}]),
-
-    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef0, infinity),
+    ConnectionRef0 = ssh_test_lib:connect(Host, Port,
+                                          [{silently_accept_hosts, true},
+                                           {user, "foo"},
+                                           {password, "morot"},
+                                           {user_interaction, false},
+                                           {user_dir, UserDir}]),
+    {ok, ChannelId0} =
+        ssh_connection:session_channel(ConnectionRef0, infinity),
 
     ssh:stop_listener(Host, Port),
 
@@ -1268,7 +1431,8 @@ stop_listener(Config) when is_list(Config) ->
     success = ssh_connection:exec(ConnectionRef0, ChannelId0,
 				  "testing", infinity),
     receive
-	{ssh_cm, ConnectionRef0, {data, ChannelId0, 0, <<"echo testing\n">>}} ->
+	{ssh_cm, ConnectionRef0,
+         {data, ChannelId0, 0, <<"echo testing\n">>}} ->
 	    ok
     after 5000 ->
 	    ct:fail("Exec Timeout")
@@ -1279,11 +1443,12 @@ stop_listener(Config) when is_list(Config) ->
                                     {password, "potatis"},
                                     {exec, fun ssh_exec_echo/1}]) of
 	{Pid1, Host, Port} ->
-	    ConnectionRef1 = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-							       {user, "foo"},
-							       {password, "potatis"},
-							       {user_interaction, true},
-							       {user_dir, UserDir}]),
+	    ConnectionRef1 =
+                ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                                  {user, "foo"},
+                                                  {password, "potatis"},
+                                                  {user_interaction, true},
+                                                  {user_dir, UserDir}]),
 	    {error, _} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
                                                   {save_accepted_host, false},
                                                   {user, "foo"},
