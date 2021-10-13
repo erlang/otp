@@ -20,8 +20,6 @@
 
 -module(installer).
 
--include("test_lib.hrl").
-
 %%-compile(export_all).
 -export([install_1/2]).
 -export([install_2/1]).
@@ -330,7 +328,7 @@ install_11(TestNode) ->
     true = lists:member("a-1.0", Libs),
     false = lists:member("a-1.1", Libs),
     {ok, Dirs} = file:list_dir(code:root_dir()),
-    ErtsDir = "erts-"++?ertsvsn,
+    ErtsDir = "erts-"++rh_test_lib:old_app_vsn(erts),
     [ErtsDir] = lists:filter(fun(Dir) -> lists:prefix("erts-",Dir) end, Dirs),
     ?print(["install_11 file checks ok"]),
     ok.
@@ -918,7 +916,9 @@ start_client_unix(TestNode,Sname,Node) ->
 start_client_win32(TestNode,Client,ClientSname) ->
     Name = atom_to_list(ClientSname) ++ "_P1G",
     RootDir = code:root_dir(),
-    ErtsBinDir = filename:join([RootDir,"erts-"++?ertsvsn,"bin"]),
+    ErtsBinDir = filename:join([RootDir,
+                                "erts-"++rh_test_lib:old_app_vsn(erts),
+                                "bin"]),
 
     {ClientArgs,RelClientDir} = rh_test_lib:get_client_args(Client,ClientSname,
 							    RootDir),

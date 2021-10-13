@@ -20,11 +20,26 @@
 
 -module(otp_vsns).
 
--export([read_state/0, branch_latest/2, branch_vsns/2, app_vsn/3]).
+-export([read_state/0, read_state/1, branch_latest/2, branch_vsns/2, app_vsn/3]).
 
 read_state() ->
-    OtpVsnsTabFile = filename:join([filename:dirname(code:which(?MODULE)),
-                                    "otp_versions.table"]),
+    File = "otp_versions.table",
+    Dir = filename:dirname(code:which(?MODULE)),
+    Alt0 = filename:join([Dir, File]),
+    case file:read_file_info(Alt0) of
+        {ok, _} ->
+            read_state(Alt0);
+        _ ->
+            Alt1 = filename:join([Dir, "..", "priv", File]),
+            case file:read_file_info(Alt1) of
+                {ok, _} ->
+                    read_state(Alt1);
+                _ ->
+                    error(no_otp_versions_table)
+            end
+    end.
+
+read_state(OtpVsnsTabFile) ->
     {ok, OtpVsnsTabData} = file:read_file(OtpVsnsTabFile),
     lists:foldl(fun (OtpAppVsnsBin, Acc0) ->
                         [OtpVsnBin

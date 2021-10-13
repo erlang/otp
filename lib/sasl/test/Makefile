@@ -41,7 +41,7 @@ ERL_FILES= $(MODULES:%=%.erl)
 
 EXTRA_FILES= $(ERL_TOP)/otp_versions.table
 
-HRL_FILES= test_lib.hrl
+HRL_FILES=
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 INSTALL_PROGS= $(TARGET_FILES)
