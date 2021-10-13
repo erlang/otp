@@ -1887,14 +1887,14 @@ supported_cert_type_or_empty(Algo, Type) ->
     end.
 
 certificate_authorities(CertDbHandle, CertDbRef) ->
-    Authorities = certificate_authorities_from_db(CertDbHandle, CertDbRef),
+    Authorities = [ Cert || #cert{otp = Cert} <- certificate_authorities_from_db(CertDbHandle, CertDbRef)],
     Enc = fun(#'OTPCertificate'{tbsCertificate=TBSCert}) ->
 		  OTPSubj = TBSCert#'OTPTBSCertificate'.subject,
 		  DNEncodedBin = public_key:pkix_encode('Name', OTPSubj, otp),
 		  DNEncodedLen = byte_size(DNEncodedBin),
 		  <<?UINT16(DNEncodedLen), DNEncodedBin/binary>>
 	  end,
-    list_to_binary([Enc(Cert) || {_, Cert} <- Authorities]).
+    list_to_binary([Enc(Cert) || Cert <- Authorities]).
 
 certificate_authorities_from_db(CertDbHandle, CertDbRef) when is_reference(CertDbRef) ->
     ConnectionCerts = fun({{Ref, _, _}, Cert}, Acc) when Ref  == CertDbRef ->
