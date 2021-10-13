@@ -91,7 +91,12 @@
          simple_async_get_bulk3_cbp_temp/1,
          simple_async_get_bulk3_cbp_perm/1,
 	 
-	 simple_v3_exchange/1, 
+	 simple_v3_exchange_md5/1,
+	 simple_v3_exchange_sha/1,
+	 simple_v3_exchange_sha224/1,
+	 simple_v3_exchange_sha256/1,
+	 simple_v3_exchange_sha384/1,
+	 simple_v3_exchange_sha512/1,
 
 	 discovery/1,
 	 
@@ -326,7 +331,12 @@ event_tests_cases() ->
 
 v3_cases() ->
     [
-     simple_v3_exchange
+     simple_v3_exchange_md5,
+     simple_v3_exchange_sha,
+     simple_v3_exchange_sha224,
+     simple_v3_exchange_sha256,
+     simple_v3_exchange_sha384,
+     simple_v3_exchange_sha512
     ].
     
 
@@ -623,25 +633,18 @@ init_per_testcase2(Case, Config) ->
     ?DBG("init [~w] Nodes [2]: ~p", [Case, erlang:nodes()]),
     Conf2.
 
-init_per_testcase3(simple_v3_exchange = _Case, Config) ->
-    Conf2 = init_v3_agent(Config),
-    Conf3 = try init_v3_manager(Conf2)
-            catch AC:AE:_ ->
-                    %% Ouch we need to clean up:
-                    %% The init_agent starts an agent node!
-                    init_per_testcase_fail_agent_cleanup(Config),
-                    throw({skip, {manager_init_failed, AC, AE}})
-            end,
-    Conf4 = try init_mgr_user(Conf3)
-            catch MC:ME:_ ->
-                    %% Ouch we need to clean up:
-                    %% The init_agent starts an agent node!
-                    %% The init_magager starts an manager node!
-                    init_per_testcase_fail_manager_cleanup(Conf2),
-                    init_per_testcase_fail_agent_cleanup(Conf2),
-                    throw({skip, {manager_user_init_failed, MC, ME}})
-            end,
-    init_mgr_v3_user_data(Conf4);
+init_per_testcase3(simple_v3_exchange_md5 = _Case, Config) ->
+    init_v3_testcase([{auth_alg, md5} | Config]);
+init_per_testcase3(simple_v3_exchange_sha = _Case, Config) ->
+    init_v3_testcase([{auth_alg, sha} | Config]);
+init_per_testcase3(simple_v3_exchange_sha224 = _Case, Config) ->
+    init_v3_testcase([{auth_alg, sha224} | Config]);
+init_per_testcase3(simple_v3_exchange_sha256 = _Case, Config) ->
+    init_v3_testcase([{auth_alg, sha256} | Config]);
+init_per_testcase3(simple_v3_exchange_sha384 = _Case, Config) ->
+    init_v3_testcase([{auth_alg, sha384} | Config]);
+init_per_testcase3(simple_v3_exchange_sha512 = _Case, Config) ->
+    init_v3_testcase([{auth_alg, sha512} | Config]);
 init_per_testcase3(Case, Config) ->
     ApiCases02 = 
 	[
@@ -746,6 +749,34 @@ init_per_testcase3(Case, Config) ->
 	false ->
 	    Config
     end.
+
+init_v3_testcase(Conf) ->
+    Conf2 = init_v3_agent(Conf),
+    Conf3 = try init_v3_manager(Conf2)
+            catch AC:AE:AS ->
+                    %% Ouch we need to clean up:
+                    %% The init_agent starts an agent node!
+                    ?IPRINT("init_v3_testcase -> failed init v3 manager:"
+                            "~n      AC: ~p"
+                            "~n      AE: ~p"
+                            "~n      AS: ~p", [AC, AE, AS]),
+                    init_per_testcase_fail_agent_cleanup(Conf),
+                    throw({skip, {manager_init_failed, AC, AE}})
+            end,
+    Conf4 = try init_mgr_v3_user(Conf3)
+            catch MC:ME:MS ->
+                    %% Ouch we need to clean up:
+                    %% The init_agent starts an agent node!
+                    %% The init_magager starts an manager node!
+                    ?IPRINT("init_v3_testcase -> failed init v3 manager user:"
+                            "~n      MC: ~p"
+                            "~n      ME: ~p"
+                            "~n      MS: ~p", [MC, ME, MS]),
+                    init_per_testcase_fail_manager_cleanup(Conf2),
+                    init_per_testcase_fail_agent_cleanup(Conf2),
+                    throw({skip, {manager_user_init_failed, MC, ME}})
+            end,
+    init_mgr_v3_user_data(Conf4).
 
 init_per_testcase_fail_manager_cleanup(Conf) ->
     (catch fin_manager(Conf)).
@@ -1717,6 +1748,7 @@ usm_sha512_priv_aes(Config) when is_list(Config) ->
     ?TC_TRY(usm_priv_aes, Pre, Case, Post).
 
 
+select_auth_proto(md5)    -> usmHMACMD5AuthProtocol;
 select_auth_proto(sha)    -> usmHMACSHAAuthProtocol;
 select_auth_proto(sha224) -> usmHMAC128SHA224AuthProtocol;
 select_auth_proto(sha256) -> usmHMAC192SHA256AuthProtocol;
@@ -3579,9 +3611,44 @@ simple_async_get_bulk3_cbp_perm(Config) when is_list(Config) ->
 
 %%======================================================================
 
-simple_v3_exchange(doc) ->
-    ["Simple message exchange using v3 messages"];
-simple_v3_exchange(suite) -> [];
+simple_v3_exchange_md5(doc) ->
+    ["Simple message exchange using v3 (MD5) messages"];
+simple_v3_exchange_md5(suite) -> [];
+simple_v3_exchange_md5(Config) when is_list(Config) ->
+    simple_v3_exchange(Config).
+
+simple_v3_exchange_sha(doc) ->
+    ["Simple message exchange using v3 (SHA) messages"];
+simple_v3_exchange_sha(suite) -> [];
+simple_v3_exchange_sha(Config) when is_list(Config) ->
+    simple_v3_exchange(Config).
+
+simple_v3_exchange_sha224(doc) ->
+    ["Simple message exchange using v3 (SHA224) messages"];
+simple_v3_exchange_sha224(suite) -> [];
+simple_v3_exchange_sha224(Config) when is_list(Config) ->
+    simple_v3_exchange(Config).
+
+simple_v3_exchange_sha256(doc) ->
+    ["Simple message exchange using v3 (SHA256) messages"];
+simple_v3_exchange_sha256(suite) -> [];
+simple_v3_exchange_sha256(Config) when is_list(Config) ->
+    simple_v3_exchange(Config).
+
+simple_v3_exchange_sha384(doc) ->
+    ["Simple message exchange using v3 (SHA384) messages"];
+simple_v3_exchange_sha384(suite) -> [];
+simple_v3_exchange_sha384(Config) when is_list(Config) ->
+    simple_v3_exchange(Config).
+
+simple_v3_exchange_sha512(doc) ->
+    ["Simple message exchange using v3 (SHA512) messages"];
+simple_v3_exchange_sha512(suite) -> [];
+simple_v3_exchange_sha512(Config) when is_list(Config) ->
+    simple_v3_exchange(Config).
+
+%% This difference between these test cases are handled in the
+%% init_per_testcase function (basically auth algorithm).
 simple_v3_exchange(Config) when is_list(Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p", [Config]),
@@ -5562,8 +5629,8 @@ delete_tables(Node, Tabs) ->
 %% -- Misc manager user wrapper functions --
 
 init_mgr_user(Conf) ->
-    ?DBG("init_mgr_user -> entry with"
-	 "~n   Conf: ~p", [Conf]),
+    ?IPRINT("init_mgr_user -> entry with"
+            "~n   Conf: ~p", [Conf]),
 
     Node   = ?config(manager_node, Conf),
     %% UserId = ?config(user_id, Conf),
@@ -5571,20 +5638,59 @@ init_mgr_user(Conf) ->
     ?line {ok, User} = mgr_user_start(Node),
     ?DBG("start_mgr_user -> User: ~p", [User]),
     link(User),
+    
+    [{user_pid, User} | Conf].
+
+init_mgr_v3_user(Conf) ->
+    ?IPRINT("init_mgr_v3_user -> entry with"
+            "~n   Conf: ~p", [Conf]),
+
+    Node   = ?config(manager_node, Conf),
+    %% UserId = ?config(user_id, Conf),
+
+    ?line {ok, User} = mgr_user_start(Node),
+    ?IPRINT("start_mgr_v3_user -> User: ~p", [User]),
+    link(User),
 
     EngineID    = "agentEngine",
-    SecName     = "authSHA224",
-    AuthAlg     = sha224,
-    %% AuthPass    = "passwd_sha224xxxxxxxxxxxxxxx",
-    %% AuthKey     = snmp:passwd2localized_key(AuthAlg, AuthPass, EngineID),
-    AuthKey     = "passwd_sha224xxxxxxxxxxxxxxx",
+    AuthAlg     = ?config(auth_alg, Conf),
+    SecName     = select_secname_from_authalg(AuthAlg),% "authSHA224",
+    AuthKey     = select_authkey_from_authalg(AuthAlg),% "passwd_sha224xxxxxxxxxxxxxxx",
     Credentials =
       [ {auth,     select_auth_proto(AuthAlg)},
         {auth_key, AuthKey}
       ],
     ?line ok = mgr_register_usm_user(Node, EngineID, SecName, Credentials),
     
+    ?IPRINT("start_mgr_v3_user -> done"),
     [{user_pid, User} | Conf].
+
+select_secname_from_authalg(md5) ->
+    "authMD5";
+select_secname_from_authalg(sha) ->
+    "authSHA";
+select_secname_from_authalg(sha224) ->
+    "authSHA224";
+select_secname_from_authalg(sha256) ->
+    "authSHA256";
+select_secname_from_authalg(sha384) ->
+    "authSHA384";
+select_secname_from_authalg(sha512) ->
+    "authSHA512".
+
+select_authkey_from_authalg(md5) ->
+    "passwd_md5xxxxxx";
+select_authkey_from_authalg(sha) ->
+    "passwd_shaxxxxxxxxxx";
+select_authkey_from_authalg(sha224) ->
+    "passwd_sha224xxxxxxxxxxxxxxx";
+select_authkey_from_authalg(sha256) ->
+    "passwd_sha256xxxxxxxxxxxxxxxxxxx";
+select_authkey_from_authalg(sha384) ->
+    "passwd_sha384xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+select_authkey_from_authalg(sha512) ->
+    "passwd_sha512xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".
+
 
 fin_mgr_user(Conf) ->
     User = ?config(user_pid, Conf),
@@ -5706,8 +5812,9 @@ init_mgr_v3_user_data(Conf) ->
 
     ?line ok = mgr_user_update_agent_info(Node, TargetName, 
 					  community, "all-rights"),
+    SecName = select_secname_from_authalg(?config(auth_alg, Conf)),
     ?line ok = mgr_user_update_agent_info(Node, TargetName,
-					  sec_name, "authSHA224"),
+					  sec_name, SecName),
     ?line ok = mgr_user_update_agent_info(Node, TargetName,
 					  sec_level, authNoPriv),
     ?line ok = mgr_user_update_agent_info(Node, TargetName,
