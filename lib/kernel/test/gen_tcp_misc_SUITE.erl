@@ -6563,11 +6563,15 @@ delay_send_error(Config) ->
         ?LISTEN(Config,
           0, [{reuseaddr, true}, {packet, 1}, {active, false}]),
     {ok,{{0,0,0,0},PortNum}}=inet:sockname(L),
-    ?P("try connect - with delay_send:true"),
+
+    delay_send_error(Config, L, PortNum, false),
+    delay_send_error(Config, L, PortNum, true).
+delay_send_error(Config, L, PortNum, Active) ->
+    ?P("try connect - with delay_send:true active:~p",[Active]),
     {ok, C} =
         ?CONNECT(Config,
           "localhost", PortNum,
-          [{packet, 1}, {active, false}, {delay_send, true}]),
+          [{packet, 1}, {active, Active}, {delay_send, true}]),
     ?P("try accept"),
     {ok, S} = gen_tcp:accept(L),
     %% Do a couple of sends first to see that it works
@@ -6579,7 +6583,7 @@ delay_send_error(Config) ->
     ok = gen_tcp:send(C, "hello"),
     %% Close the receiver
     ?P("close receiver (accepted socket)"),
-    ok = gen_tcp:close(S),
+    ok = gen_tcp:shutdown(C, write),
     %%
     ?P("send data"),
     case gen_tcp:send(C, "hello") of
