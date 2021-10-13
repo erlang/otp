@@ -597,6 +597,19 @@ signature_scheme(rsa_pss_pss_sha384) -> ?RSA_PSS_PSS_SHA384;
 signature_scheme(rsa_pss_pss_sha512) -> ?RSA_PSS_PSS_SHA512;
 signature_scheme(rsa_pkcs1_sha1) -> ?RSA_PKCS1_SHA1;
 signature_scheme(ecdsa_sha1) -> ?ECDSA_SHA1;
+%% New algorithms on legacy format
+signature_scheme({sha512, rsa_pss_pss}) ->
+    ?RSA_PSS_PSS_SHA512;
+signature_scheme({sha384, rsa_pss_pss}) ->
+    ?RSA_PSS_PSS_SHA384;
+signature_scheme({sha256, rsa_pss_pss}) ->
+    ?RSA_PSS_PSS_SHA256;
+signature_scheme({sha512, rsa_pss_rsae}) ->
+    ?RSA_PSS_RSAE_SHA512;
+signature_scheme({sha384, rsa_pss_rsae}) ->
+    ?RSA_PSS_RSAE_SHA384;
+signature_scheme({sha256, rsa_pss_rsae}) ->
+    ?RSA_PSS_RSAE_SHA256;
 %% Handling legacy signature algorithms
 signature_scheme({Hash0, Sign0}) ->
     Hash = hash_algorithm(Hash0),
@@ -627,10 +640,18 @@ signature_scheme(SignAlgo) when is_integer(SignAlgo) ->
 signature_scheme(_) -> unassigned.
 
 signature_schemes_1_2(SigAlgs) ->
-    lists:map(fun(Algs) ->
-                      {Hash, Sign, _} = scheme_to_components(Algs),
-                      {Hash, Sign}
-              end, SigAlgs).
+    lists:foldl(fun(Alg, Acc) when is_atom(Alg) ->
+                        case scheme_to_components(Alg) of
+                            {Hash, Sign = rsa_pss_pss,_} ->
+                                [{Hash, Sign} | Acc];
+                            {Hash, Sign = rsa_pss_rsae,_} ->
+                                [{Hash, Sign} | Acc];
+                            {_, _, _} ->
+                                Acc
+                        end;
+                   (Alg, Acc) ->
+                        [Alg| Acc]
+                end, [], SigAlgs).
 
 %% TODO: reserved code points?
 

@@ -652,8 +652,8 @@ encode_extensions([#srp{username = UserName} | Rest], Acc) ->
     encode_extensions(Rest, <<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen),
 				    UserName/binary, Acc/binary>>);
 encode_extensions([#hash_sign_algos{hash_sign_algos = HashSignAlgos} | Rest], Acc) ->
-    SignAlgoList = << <<(ssl_cipher:hash_algorithm(Hash)):8, (ssl_cipher:sign_algorithm(Sign)):8>> ||
-		       {Hash, Sign} <- HashSignAlgos >>,
+    SignAlgoList = << <<(ssl_cipher:signature_scheme(SignatureScheme)):16 >> ||
+		       SignatureScheme <- HashSignAlgos >>,
     ListLen = byte_size(SignAlgoList),
     Len = ListLen + 2,
     encode_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_EXT),
@@ -988,12 +988,18 @@ available_signature_algs(undefined, _)  ->
 available_signature_algs(SupportedHashSigns, Version) when Version >= {3, 3} ->
     case contains_scheme(SupportedHashSigns) of
         true ->
-            #signature_algorithms{signature_scheme_list = SupportedHashSigns};
+            case Version of 
+                {3,3} ->
+                    #hash_sign_algos{hash_sign_algos = ssl_cipher:signature_schemes_1_2(SupportedHashSigns)};
+                _ ->
+                    #signature_algorithms{signature_scheme_list = SupportedHashSigns}
+            end;
         false ->
             #hash_sign_algos{hash_sign_algos = SupportedHashSigns}
     end;
 available_signature_algs(_, _) ->
     undefined.
+
 available_signature_algs(undefined, SupportedHashSigns, _, Version) when 
       Version >= {3,3} ->
     SupportedHashSigns;
