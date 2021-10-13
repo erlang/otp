@@ -3186,68 +3186,20 @@ spawn_opt(N, M, F, A, O) when erlang:is_atom(N),
             end;
         {spawn_reply, Ref, error, badopt} ->
             badarg_with_cause([N, M, F, A, O], badopt);
-        {spawn_reply, Ref, error, noconnection} ->
-            try 
+        {spawn_reply, Ref, error, Err0} when Err0 == noconnection;
+                                             Err0 == notsup ->
+            try
                 erlang:spawn_opt(erts_internal,crasher,
-                                 [N,M,F,A,O,noconnection], O)
+                                 [N,M,F,A,O,Err0], O)
             catch
                 _:Err1 ->
                     error_with_info(Err1, [N, M, F, A, O])
             end;
-        {spawn_reply, Ref, error, notsup} ->
-            case old_remote_spawn_opt(N, M, F, A, O) of
-                Pid when erlang:is_pid(Pid) ->
-                    Pid;
-                Err2 ->
-                    error_with_info(Err2, [N, M, F, A, O])
-            end;
-        {spawn_reply, Ref, error, Err3} ->
-            error_with_info(Err3, [N, M, F, A, O])
+        {spawn_reply, Ref, error, Err2} ->
+            error_with_info(Err2, [N, M, F, A, O])
     end;
 spawn_opt(N,M,F,A,O) ->
     badarg_with_info([N,M,F,A,O]).
-
-old_remote_spawn_opt(N, M, F, A, O) ->
-    case lists:member(monitor, O) of
-	true ->
-            badarg;
-	_ ->
-            {L,NO} = lists:foldl(fun (link, {_, NewOpts}) ->
-                                         {link, NewOpts};
-                                     (Opt, {LO, NewOpts}) ->
-                                         {LO, [Opt|NewOpts]}
-                                 end,
-                                 {no_link,[]},
-                                 O),
-            case catch gen_server:call({net_kernel,N},
-                                       {spawn_opt,M,F,A,NO,L,erlang:group_leader()},
-                                       infinity) of
-                Pid when erlang:is_pid(Pid) ->
-                    Pid;
-                Error ->
-                    case remote_spawn_error(Error, {L, N, M, F, A, NO}) of
-                        {fault, Fault} ->
-                            Fault;
-                        Pid ->
-                            Pid
-                    end
-            end
-    end.
-
-remote_spawn_error({'EXIT', {{nodedown,N}, _}}, {L, N, M, F, A, O}) ->
-    {Opts, LL} = case L =:= link of
-		     true ->
-			 {[link|O], [link]};
-		     false ->
-			 {O, []}
-		 end,
-    erlang:spawn_opt(erts_internal,crasher,[N,M,F,A,Opts,noconnection], LL);
-remote_spawn_error({'EXIT', {Reason, _}}, _) ->
-    {fault, Reason};
-remote_spawn_error({'EXIT', Reason}, _) ->
-    {fault, Reason};
-remote_spawn_error(Other, _) ->
-    {fault, Other}.
     
 %%
 %% spawn_request/1
