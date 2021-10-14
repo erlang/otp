@@ -29,7 +29,11 @@
 
 #define IS_VALID_LOCATION(File, Line) \
     ((unsigned) (File) < 255 && (unsigned) (Line) < ((1 << 24) - 1))
-#define MAKE_LOCATION(File, Line) (((File) << 24) | (Line))
+/* Builds a location entry, silently ignoring unrepresentable locations. */
+#define MAKE_LOCATION(File, Line)        \
+    (IS_VALID_LOCATION((File), (Line)) ? \
+        (((File) << 24) | (Line)) :      \
+        LINE_INVALID_LOCATION)
 #define LOC_FILE(Loc) ((Loc) >> 24)
 #define LOC_LINE(Loc) ((Loc) & ((1 << 24)-1))
 
