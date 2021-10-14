@@ -30,7 +30,7 @@
          off_heap_values/1,keys/1,collisions/1,
          init_restart/1, put_erase_trapping/1,
          killed_while_trapping_put/1,
-         killed_while_trapping_erase/1,whole_message/1]).
+         killed_while_trapping_erase/1,whole_message/1,shared_magic_ref/1]).
 
 %%
 -export([test_init_restart_cmd/1]).
@@ -45,7 +45,7 @@ all() ->
      get_all_race,
      killed_while_trapping,off_heap_values,keys,collisions,
      init_restart, put_erase_trapping, killed_while_trapping_put,
-     killed_while_trapping_erase,whole_message].
+     killed_while_trapping_erase,whole_message,shared_magic_ref].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -635,6 +635,19 @@ verify_colliding_keys([]) ->
 
 internal_hash(Term) ->
     erts_debug:get_internal_state({internal_hash,Term}).
+
+%% OTP-17700 Bug skipped refc++ of shared magic reference
+shared_magic_ref(_Config) ->
+    Ref = atomics:new(10, []),
+    persistent_term:put(shared_magic_ref, {Ref, Ref}),
+    shared_magic_ref_cont().
+
+shared_magic_ref_cont() ->
+    erlang:garbage_collect(),
+    {Ref, Ref} = persistent_term:get(shared_magic_ref),
+    0 = atomics:get(Ref, 1),  %% would definitely fail on debug vm
+    ok.
+
 
 %% Test that all persistent terms are erased by init:restart/0.
 
