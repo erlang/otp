@@ -636,7 +636,12 @@ signature_scheme(?ECDSA_SHA1) -> ecdsa_sha1;
 %% cannot be used in TLS 1.3 handshakes.
 signature_scheme(SignAlgo) when is_integer(SignAlgo) ->
     <<?BYTE(Hash),?BYTE(Sign)>> = <<?UINT16(SignAlgo)>>,
-    {ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)};
+    try
+        {ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)}
+    catch
+        _:_ ->
+            unassigned
+    end;
 signature_scheme(_) -> unassigned.
 
 signature_schemes_1_2(SigAlgs) ->
