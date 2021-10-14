@@ -142,11 +142,10 @@ start_channel(Host) ->
                    )
                    -> {ok,pid(),ssh:connection_ref()} | {error,reason()} .
 
-start_channel(Socket, UserOptions) when is_port(Socket) ->
+start_channel(Socket, UserOptions0) when is_port(Socket) ->
+    UserOptions = legacy_timeout(UserOptions0),
+    Timeout = proplists:get_value(connect_timeout, UserOptions, infinity),
     {SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
-    Timeout =   % A mixture of ssh:connect and ssh_sftp:start_channel:
-        proplists:get_value(connect_timeout, SshOpts,
-                            proplists:get_value(timeout, SftpOpts, infinity)),
     case ssh:connect(Socket, SshOpts, Timeout) of
 	{ok,Cm} ->
 	    case start_channel(Cm, ChanOpts ++ SftpOpts) of
@@ -158,7 +157,8 @@ start_channel(Socket, UserOptions) when is_port(Socket) ->
 	Error ->
 	    Error
     end;
-start_channel(Cm, UserOptions) when is_pid(Cm) ->
+start_channel(Cm, UserOptions0) when is_pid(Cm) ->
+    UserOptions = legacy_timeout(UserOptions0),
     Timeout = proplists:get_value(timeout, UserOptions, infinity),
     {_SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
     WindowSize = proplists:get_value(window_size, ChanOpts, ?XFER_WINDOW_SIZE),
@@ -194,15 +194,10 @@ start_channel(Host, UserOptions) ->
                    )
                    -> {ok,pid(),ssh:connection_ref()} | {error,reason()}.
 
-start_channel(Host, Port, UserOptions) ->
+start_channel(Host, Port, UserOptions0) ->
+    UserOptions = legacy_timeout(UserOptions0),
+    Timeout = proplists:get_value(connect_timeout, UserOptions, infinity),
     {SshOpts, _ChanOpts, _SftpOpts} = handle_options(UserOptions),
-    Timeout =   % A mixture of ssh:connect and ssh_sftp:start_channel:
-        case proplists:get_value(connect_timeout, UserOptions) of
-            undefined ->
-                proplists:get_value(timeout, UserOptions, infinity);
-            TO ->
-                TO
-        end,
     case ssh:connect(Host, Port, SshOpts, Timeout) of
 	{ok, Cm} ->
             case start_channel(Cm, UserOptions) of
@@ -1229,6 +1224,21 @@ terminate(_Reason, State) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+legacy_timeout(UserOptions) ->
+    %% Make both connect_timeout and timeout defined if exaclty one of them is defined:
+    case {proplists:get_value(connect_timeout, UserOptions),
+          proplists:get_value(timeout, UserOptions)} of
+        {undefined, undefined} ->                
+            UserOptions;
+        {undefined, TO} ->
+            [{connect_timeout,TO} | UserOptions];
+        {TO, undefined} ->
+            [{timeout,TO} | UserOptions];
+        {_, _} ->
+            UserOptions
+    end.
+
+
 handle_options(UserOptions) ->
     handle_options(UserOptions, [], [], []).
 

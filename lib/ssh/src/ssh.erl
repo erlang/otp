@@ -148,7 +148,8 @@ connect(Socket, UserOptions, NegotiationTimeout) when is_port(Socket),
 connect(Host, Port, Options) when is_integer(Port),
                                   Port>0,
                                   is_list(Options) ->
-    connect(Host, Port, Options, infinity).
+    Timeout = proplists:get_value(connect_timeout, Options, infinity),
+    connect(Host, Port, Options, Timeout).
 
 
 -spec connect(Host, Port, Options, NegotiationTimeout) -> {ok,connection_ref()} | {error,term()} when
