@@ -755,8 +755,10 @@ close(ListeningSocket) ->
     %% Get the listening socket address in a {local, Pathname} format
     {ok, SocketAddress} = inet:sockname(ListeningSocket),
     {local, SocketPathname} = SocketAddress,
-    %% Remove the socket file from the filesystem
-    file:delete(SocketPathname),
+    %% Remove the socket file from the filesystem. The raw option is used
+    %% to bypass the need for a file server, which may not be available
+    %% and registered anymore (for instance during a node shutdown phase).
+    file:delete(SocketPathname, [raw]),
     gen_tcp:close(ListeningSocket).
 
 
