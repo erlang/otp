@@ -98,12 +98,18 @@ ancient_major(Config) ->
 %% If this is a patched version of major release X, then this test
 %% performs an upgrade from major release X to the current release.
 minor(Config) ->
+    put(verbose, true),
+    p("minor -> get current major release"),
     CurrentMajor = erlang:system_info(otp_release),
     Current = CurrentMajor++"_patched",
     upgrade_test(CurrentMajor,Current,Config).
 
 %%%-----------------------------------------------------------------
 upgrade_test(FromVsn,ToVsn,Config) ->
+    p("upgrade_test -> entry with"
+      "~n      FromVsn: ~p"
+      "~n      ToVsn:   ~p"
+      "~n      Config:  ~p", [FromVsn, ToVsn, Config]),
     OldRel =
 	case test_server:is_release_available(FromVsn) of
 	    true ->
@@ -121,6 +127,8 @@ upgrade_test(FromVsn,ToVsn,Config) ->
 			end
 		end
 	end,
+    p("upgrade_test -> old release: "
+      "~n      ~p", [OldRel]),
     case OldRel of
 	false ->
 	    %% Note that priv_dir here is per test case!
@@ -131,15 +139,23 @@ upgrade_test(FromVsn,ToVsn,Config) ->
     end.
 
 upgrade_test1(FromVsn,ToVsn,Config) ->
+    p("upgrade_test1 -> get create-dir"),
     CreateDir = proplists:get_value(create_dir,Config),
+    p("upgrade_test1 -> get install-dir"),
     InstallDir = proplists:get_value(install_dir,Config),
     FromRelName = "otp-"++FromVsn,
     ToRelName = "otp-"++ToVsn,
 
     {FromRel,FromApps} = target_system(FromRelName, FromVsn,
 				       CreateDir, InstallDir,Config),
+    p("upgrade_test1 -> target system:"
+      "~n      FromRel:  ~p"
+      "~n      FromApps: ~p", [FromRel, FromApps]),
     {ToRel,ToApps} = upgrade_system(FromVsn, FromRel, ToRelName, ToVsn,
 				    CreateDir, InstallDir),
+    p("upgrade_test1 -> upgrade system:"
+      "~n      ToRel:  ~p"
+      "~n      ToApps: ~p", [ToRel, ToApps]),
     do_upgrade(FromVsn, FromApps, ToRel, ToApps, InstallDir).
 
 %%%-----------------------------------------------------------------
@@ -149,36 +165,45 @@ upgrade_test1(FromVsn,ToVsn,Config) ->
 %%% - use an own 'start' script
 %%% - chmod 'start' and 'start_erl'
 target_system(RelName0,RelVsn,CreateDir,InstallDir,Config) ->
+    p("target_system -> start worker node"),
     {ok,Node} = test_server:start_node(list_to_atom(RelName0),peer,
 				       [{erl,[proplists:get_value(old_rel,Config)]}]),
 
+    p("target_system -> create relfile"),
     {RelName,Apps,ErtsVsn} = create_relfile(Node,CreateDir,RelName0,RelVsn),
  
     %% Create .script and .boot
+    p("target_system -> create .script and .boot"),
     ok = rpc:call(Node,systools,make_script,[RelName]),
     
     %% Create base tar file - i.e. erts and all apps
+    p("target_system -> create base tar file"),
     ok = rpc:call(Node,systools,make_tar,
 		  [RelName,[{erts,rpc:call(Node,code,root_dir,[])}]]),
     
     %% Unpack the tar to complete the installation
+    p("target_system -> unpack to complete installation"),
     erl_tar:extract(RelName ++ ".tar.gz", [{cwd, InstallDir}, compressed]),
     
     %% Add bin and log dirs
+    p("target_system -> add bin and log dirs"),
     BinDir = filename:join([InstallDir, "bin"]),
     file:make_dir(BinDir),
     file:make_dir(filename:join(InstallDir,"log")),
 
     %% Delete start scripts - they will be added later
+    p("target_system -> delete start scripts"),
     ErtsBinDir = filename:join([InstallDir, "erts-" ++ ErtsVsn, "bin"]),
     file:delete(filename:join([ErtsBinDir, "erl"])),
     file:delete(filename:join([ErtsBinDir, "start"])),
     file:delete(filename:join([ErtsBinDir, "start_erl"])),
     
     %% Copy .boot to bin/start.boot
+    p("target_system -> copy .boot and bin/start.boot"),
     copy_file(RelName++".boot",filename:join([BinDir, "start.boot"])),
     
     %% Copy scripts from erts-xxx/bin to bin
+    p("target_system -> copy scripts from erts-xxx/bin to bin"),
     copy_file(filename:join([ErtsBinDir, "epmd"]), 
               filename:join([BinDir, "epmd"]), [preserve]),
     copy_file(filename:join([ErtsBinDir, "run_erl"]), 
@@ -187,12 +212,14 @@ target_system(RelName0,RelVsn,CreateDir,InstallDir,Config) ->
               filename:join([BinDir, "to_erl"]), [preserve]),
     
     %% create start_erl.data and sys.config
+    p("target_system -> create start_erl.data and sys.config"),
     StartErlData = filename:join([InstallDir, "releases", "start_erl.data"]),
     write_file(StartErlData, io_lib:fwrite("~s ~s~n", [ErtsVsn, RelVsn])),
     SysConfig = filename:join([InstallDir, "releases", RelVsn, "sys.config"]),
     write_file(SysConfig, "[]."),
     
     %% Insert 'start' script from data_dir - modified to add sname and heart
+    p("target_system -> insert 'start' script from data-dir"),
     copy_file(filename:join(proplists:get_value(data_dir,Config),"start.src"),
 	      filename:join(ErtsBinDir,"start.src")),
     ok = file:change_mode(filename:join(ErtsBinDir,"start.src"),8#0755),
@@ -201,22 +228,28 @@ target_system(RelName0,RelVsn,CreateDir,InstallDir,Config) ->
     %% (this has been fixed in OTP 17 - is is now installed with
     %% $INSTALL_SCRIPT instead of $INSTALL_DATA and should therefore
     %% be executable from the start)
+    p("target_system -> make start_erl executable"),
     ok = file:change_mode(filename:join(ErtsBinDir,"start_erl.src"),8#0755),
 
     %% Substitute variables in erl.src, start.src and start_erl.src
     %% (.src found in erts-xxx/bin - result stored in bin)
+    p("target_system -> substitute variables"),
     subst_src_scripts(["erl", "start", "start_erl"], ErtsBinDir, BinDir, 
                       [{"FINAL_ROOTDIR", InstallDir}, {"EMU", "beam"}],
                       [preserve]),
 
     %% Create RELEASES
+    p("target_system -> create releases"),
     RelFile = filename:join([InstallDir, "releases", 
 			     filename:basename(RelName) ++ ".rel"]),
     release_handler:create_RELEASES(InstallDir, RelFile),
 
+    p("target_system -> stop worker node"),
     true = test_server:stop_node(Node),
 
+    p("target_system -> done"),
     {RelName,Apps}.
+
 
 %%%-----------------------------------------------------------------
 %%% Create a release containing the current (the test node) OTP
@@ -283,36 +316,56 @@ fix_relup_inets_ftp(Dir) ->
 %%% Start a new node running the release from target_system/5
 %%% above. Then upgrade to the system from upgrade_system/5.
 do_upgrade(FromVsn,FromApps,ToRel,ToApps,InstallDir) ->
+
+    p("do_upgrade -> entry with"
+      "~n      FromVsn:    ~p"
+      "~n      FromApps:   ~p"
+      "~n      ToRel:      ~p"
+      "~n      ToApps:     ~p"
+      "~n      InstallDir: ~p",
+      [FromVsn, FromApps, ToRel, ToApps, InstallDir]),
+
     Start = filename:join([InstallDir,bin,start]),
+    p("do_upgrade -> start (worker from-) node"),
     {ok,Node} = start_node(Start,permanent,FromVsn,FromApps),
 
+    p("do_upgrade -> verify (from-) release (permanent)"),
     [{"OTP upgrade test",FromVsn,_,permanent}] =
 	rpc:call(Node,release_handler,which_releases,[]),
     ToRelName = filename:basename(ToRel),
+    p("do_upgrade -> copy (to-) release"),
     copy_file(ToRel++".tar.gz",
 	      filename:join([InstallDir,releases,ToRelName++".tar.gz"])),
+    p("do_upgrade -> unpack (to-) release"),
     {ok,ToVsn} = rpc:call(Node,release_handler,unpack_release,[ToRelName]),
+    p("do_upgrade -> verify release(s) (unpacked,permanent)"),
     [{"OTP upgrade test",ToVsn,_,unpacked},
      {"OTP upgrade test",FromVsn,_,permanent}] =
 	rpc:call(Node,release_handler,which_releases,[]),
+    p("do_upgrade -> install (to-) release"),
     case rpc:call(Node,release_handler,install_release,[ToVsn]) of
 	{ok,FromVsn,_} ->
 	    ok;
 	{continue_after_restart,FromVsn,_} ->
 	    wait_node_up(current,ToVsn,ToApps)
     end,
+    p("do_upgrade -> verify release(s) (current,permanent)"),
     [{"OTP upgrade test",ToVsn,_,current},
      {"OTP upgrade test",FromVsn,_,permanent}] =
 	rpc:call(Node,release_handler,which_releases,[]),
+    p("do_upgrade -> make (to-) permanent"),
     ok = rpc:call(Node,release_handler,make_permanent,[ToVsn]),
+    p("do_upgrade -> verify release(s) (permanent,old)"),
     [{"OTP upgrade test",ToVsn,_,permanent},
      {"OTP upgrade test",FromVsn,_,old}] =
 	rpc:call(Node,release_handler,which_releases,[]),
     
+    p("do_upgrade -> stop (worker) node"),
     erlang:monitor_node(Node,true),
     _ = rpc:call(Node,init,stop,[]),
     receive {nodedown,Node} -> ok end,
 
+    p("do_upgrade -> done"),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -499,3 +552,22 @@ rm_rf(Dir) ->
 	_ ->
 	    ok
     end. 
+
+
+%%%-----------------------------------------------------------------
+%%% 
+
+p(F) ->
+    p(F, []).
+
+p(F, A) ->
+    p(get(verbose), F, A).
+
+p(true, F, A) ->
+    print(F, A);
+p(_, _, _) ->
+    ok.
+
+print(F, A) ->
+    ct:pal(F ++ "~n", A).
+
