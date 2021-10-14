@@ -151,7 +151,8 @@ connect(_OpenTcpSocket, Options) ->
 
 connect(Host, Port, Options) when ?IS_VALID_PORT(Port),
                                   ?IS_VALID_OPTIONS(Options) ->
-    connect(Host, Port, Options, infinity);
+    Timeout = proplists:get_value(connect_timeout, Options, infinity),
+    connect(Host, Port, Options, Timeout);
 connect(Socket, UserOptions, NegotiationTimeout)
   when ?IS_VALID_OPTIONS(UserOptions),
        ?IS_VALID_TIMEOUT(NegotiationTimeout) ->
