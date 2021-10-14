@@ -173,7 +173,7 @@ gen_header(Fd) ->
     io:put_chars(Fd, "-export([whitespace/0, is_whitespace/1]).\n"),
     io:put_chars(Fd, "-export([uppercase/1, lowercase/1, titlecase/1, casefold/1]).\n\n"),
     io:put_chars(Fd, "-export([spec_version/0, lookup/1, get_case/1]).\n"),
-    io:put_chars(Fd, "-inline([class/1]).\n"),
+    io:put_chars(Fd, "-compile({inline, [class/1]}).\n"),
     io:put_chars(Fd, "-compile(nowarn_unused_vars).\n"),
     io:put_chars(Fd, "-dialyzer({no_improper_lists, [cp/1, gc/1, gc_prepend/2]}).\n"),
     io:put_chars(Fd, "-type gc() :: char()|[char()].\n\n\n"),
