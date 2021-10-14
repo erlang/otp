@@ -207,7 +207,8 @@ daemon_sock_not_tcp(_Config) ->
 %%--------------------------------------------------------------------
 connect_sock_not_passive(_Config) ->
     {ok,Sock} = ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, []), 
-    {error, not_passive_mode} = ssh:connect(Sock, []),
+    {error, not_passive_mode} = ssh:connect(Sock, [{save_accepted_host, false},
+                                                   {silently_accept_hosts, true}]),
     gen_tcp:close(Sock).
 
 %%--------------------------------------------------------------------
