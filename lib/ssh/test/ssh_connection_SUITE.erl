@@ -64,6 +64,7 @@ all() ->
      start_shell_sock_exec_fun,
      start_shell_sock_daemon_exec,
      connect_sock_not_tcp,
+     connect_timeout,
      daemon_sock_not_tcp,
      gracefull_invalid_version,
      gracefull_invalid_start,
@@ -187,6 +188,15 @@ connect_sock_not_tcp(_Config) ->
     {ok,Sock} = gen_udp:open(0, []), 
     {error, not_tcp_socket} = ssh:connect(Sock, []),
     gen_udp:close(Sock).
+
+%%--------------------------------------------------------------------
+connect_timeout(_Config) ->
+    {ok,Sl} = gen_tcp:listen(0, []),
+    {ok, {_,Port}} = inet:sockname(Sl),
+    {error,timeout} = ssh:connect(loopback, Port, [{connect_timeout,2000},
+                                                   {save_accepted_host, false},
+                                                   {silently_accept_hosts, true}]),
+    gen_tcp:close(Sl).
 
 %%--------------------------------------------------------------------
 daemon_sock_not_tcp(_Config) ->
