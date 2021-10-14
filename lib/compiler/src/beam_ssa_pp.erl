@@ -286,8 +286,8 @@ format_type(#t_bs_matchable{tail_unit=U}) ->
     io_lib:format("bs_matchable(~p)", [U]);
 format_type(#t_bitstring{size_unit=S}) ->
     io_lib:format("bitstring(~p)", [S]);
-format_type(#t_bs_context{tail_unit=U,slots=S,valid=V}) ->
-    io_lib:format("bs_context(~p, ~p, ~p)", [U, S, V]);
+format_type(#t_bs_context{tail_unit=U}) ->
+    io_lib:format("bs_context(~p)", [U]);
 format_type(#t_fun{arity=any,type=any}) ->
     "fun()";
 format_type(#t_fun{arity=any,type=T}) ->

@@ -844,9 +844,9 @@ vi({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
     extract_term(#t_bitstring{size_unit=Unit}, bs_get_tail, [Ctx], Dst,
                  Vst, Vst0);
 vi({bs_start_match4,Fail,Live,Src,Dst}, Vst) ->
-    validate_bs_start_match(Fail, Live, 0, Src, Dst, Vst);
+    validate_bs_start_match(Fail, Live, Src, Dst, Vst);
 vi({test,bs_start_match3,{f,_}=Fail,Live,[Src],Dst}, Vst) ->
-    validate_bs_start_match(Fail, Live, 0, Src, Dst, Vst);
+    validate_bs_start_match(Fail, Live, Src, Dst, Vst);
 vi({test,bs_match_string,{f,Fail},[Ctx,Stride,{string,String}]}, Vst) ->
     true = is_bitstring(String),                %Assertion.
     validate_bs_skip(Fail, Ctx, Stride, Vst);
@@ -1382,14 +1382,14 @@ validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
 %% Common code for validating bs_start_match* instructions.
 %%
 
-validate_bs_start_match({atom,resume}, Live, 0, Src, Dst, Vst0) ->
+validate_bs_start_match({atom,resume}, Live, Src, Dst, Vst0) ->
     assert_type(#t_bs_context{}, Src, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
 
     Vst = assign(Src, Dst, Vst0),
     prune_x_regs(Live, Vst);
-validate_bs_start_match({atom,no_fail}, Live, Slots, Src, Dst, Vst0) ->
+validate_bs_start_match({atom,no_fail}, Live, Src, Dst, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
 
@@ -1399,11 +1399,10 @@ validate_bs_start_match({atom,no_fail}, Live, Slots, Src, Dst, Vst0) ->
     SrcType = get_movable_term_type(Src, Vst1),
     TailUnit = beam_types:get_bs_matchable_unit(SrcType),
 
-    CtxType = #t_bs_context{slots=Slots,tail_unit=TailUnit},
-
     Vst = prune_x_regs(Live, Vst1),
-    extract_term(CtxType, bs_start_match, [Src], Dst, Vst, Vst0);
-validate_bs_start_match({f,Fail}, Live, Slots, Src, Dst, Vst) ->
+    extract_term(#t_bs_context{tail_unit=TailUnit}, bs_start_match,
+                 [Src], Dst, Vst, Vst0);
+validate_bs_start_match({f,Fail}, Live, Src, Dst, Vst) ->
     assert_no_exception(Fail),
 
     branch(Fail, Vst,
@@ -1411,7 +1410,7 @@ validate_bs_start_match({f,Fail}, Live, Slots, Src, Dst, Vst) ->
                    update_type(fun subtract/2, #t_bs_matchable{}, Src, FailVst)
            end,
            fun(SuccVst) ->
-                   validate_bs_start_match({atom,no_fail}, Live, Slots,
+                   validate_bs_start_match({atom,no_fail}, Live,
                                            Src, Dst, SuccVst)
            end).
 
@@ -1486,11 +1485,7 @@ advance_bs_context(_Ctx, Stride, _Vst) when Stride < 0 ->
     %% We _KNOW_ we'll fail at runtime.
     throw({invalid_argument, {negative_stride, Stride}});
 advance_bs_context(Ctx, Stride, Vst0) ->
-    %% slots/valid must remain untouched to support +r21.
-    CtxType0 = get_raw_type(Ctx, Vst0),
-    CtxType = CtxType0#t_bs_context{ tail_unit=Stride },
-
-    Vst = update_type(fun join/2, CtxType, Ctx, Vst0),
+    Vst = update_type(fun join/2, #t_bs_context{tail_unit=Stride}, Ctx, Vst0),
 
     %% The latest saved position (if any) is no longer current, make sure
     %% it isn't updated on the next match operation.

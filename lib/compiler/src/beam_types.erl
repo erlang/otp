@@ -723,20 +723,9 @@ glb(#t_bitstring{size_unit=U1}, #t_bitstring{size_unit=U2}) ->
 glb(#t_bitstring{size_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
     T#t_bitstring{size_unit=Unit};
-glb(#t_bs_context{tail_unit=UnitA,slots=SlotCountA,valid=ValidSlotsA},
-    #t_bs_context{tail_unit=UnitB,slots=SlotCountB,valid=ValidSlotsB}) ->
-    CommonSlotMask = (1 bsl min(SlotCountA, SlotCountB)) - 1,
-    CommonSlotsA = ValidSlotsA band CommonSlotMask,
-    CommonSlotsB = ValidSlotsB band CommonSlotMask,
+glb(#t_bs_context{tail_unit=UnitA}, #t_bs_context{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
-    if
-        CommonSlotsA =:= CommonSlotsB ->
-            #t_bs_context{tail_unit=Unit,
-                          slots=max(SlotCountA, SlotCountB),
-                          valid=ValidSlotsA bor ValidSlotsB};
-        CommonSlotsA =/= CommonSlotsB ->
-            none
-    end;
+    #t_bs_context{tail_unit=Unit};
 glb(#t_bs_context{tail_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
     T#t_bs_context{tail_unit=Unit};
@@ -899,11 +888,8 @@ lub(#t_bitstring{size_unit=U1}, #t_bs_context{tail_unit=U2}) ->
     #t_bs_matchable{tail_unit=gcd(U1, U2)};
 lub(#t_bitstring{size_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->
     lub_bs_matchable(UnitA, UnitB);
-lub(#t_bs_context{tail_unit=UnitA,slots=SlotsA,valid=ValidA},
-    #t_bs_context{tail_unit=UnitB,slots=SlotsB,valid=ValidB}) ->
-    #t_bs_context{tail_unit=gcd(UnitA, UnitB),
-                  slots=min(SlotsA, SlotsB),
-                  valid=ValidA band ValidB};
+lub(#t_bs_context{tail_unit=UnitA}, #t_bs_context{tail_unit=UnitB}) ->
+    #t_bs_context{tail_unit=gcd(UnitA, UnitB)};
 lub(#t_bs_context{tail_unit=U1}, #t_bitstring{size_unit=U2}) ->
     #t_bs_matchable{tail_unit=gcd(U1, U2)};
 lub(#t_bs_context{tail_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->
