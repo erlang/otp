@@ -831,11 +831,11 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             break;
         case 'x':        /* x(N) */
             BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
-            code[ci++] = tmp_op->a[arg].val * sizeof(Eterm);
+            code[ci++] = (tmp_op->a[arg].val & REG_MASK) * sizeof(Eterm);
             break;
         case 'y':        /* y(N) */
             BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
-            code[ci++] = (tmp_op->a[arg].val + CP_SIZE) * sizeof(Eterm);
+            code[ci++] = ((tmp_op->a[arg].val & REG_MASK) + CP_SIZE) * sizeof(Eterm);
             break;
         case 'a':                /* Tagged atom */
             BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
@@ -865,10 +865,10 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         case 's':        /* Any source (tagged constant or register) */
             switch (tag) {
             case TAG_x:
-                code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
+                code[ci++] = make_loader_x_reg(tmp_op->a[arg].val & REG_MASK);
                 break;
             case TAG_y:
-                code[ci++] = make_loader_y_reg(tmp_op->a[arg].val + CP_SIZE);
+                code[ci++] = make_loader_y_reg((tmp_op->a[arg].val & REG_MASK) + CP_SIZE);
                 break;
             case TAG_i:
                 code[ci++] = (BeamInstr) make_small((Uint)tmp_op->a[arg].val);
@@ -903,10 +903,10 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         case 'S':   /* Source (x(N), y(N)) */
             switch (tag) {
             case TAG_x:
-                code[ci++] = tmp_op->a[arg].val * sizeof(Eterm);
+                code[ci++] = (tmp_op->a[arg].val & REG_MASK) * sizeof(Eterm);
                 break;
             case TAG_y:
-                code[ci++] = (tmp_op->a[arg].val + CP_SIZE) * sizeof(Eterm) + 1;
+                code[ci++] = ((tmp_op->a[arg].val & REG_MASK) + CP_SIZE) * sizeof(Eterm) + 1;
                 break;
             default:
                 BeamLoadError1(stp, "bad tag %d for destination",

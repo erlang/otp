@@ -75,24 +75,19 @@ void BeamModuleAssembler::emit_return() {
 }
 
 void BeamModuleAssembler::emit_i_call(const ArgVal &CallDest) {
-    Label dest = labels[CallDest.getValue()];
-
-    erlang_call(dest, RET);
+    erlang_call(resolve_beam_label(CallDest), RET);
 }
 
 void BeamModuleAssembler::emit_i_call_last(const ArgVal &CallDest,
                                            const ArgVal &Deallocate) {
     emit_deallocate(Deallocate);
-
-    emit_leave_frame();
-
-    a.jmp(labels[CallDest.getValue()]);
+    emit_i_call_only(CallDest);
 }
 
 void BeamModuleAssembler::emit_i_call_only(const ArgVal &CallDest) {
     emit_leave_frame();
 
-    a.jmp(labels[CallDest.getValue()]);
+    a.jmp(resolve_beam_label(CallDest));
 }
 
 /* Handles save_calls. Export entry is in RET.

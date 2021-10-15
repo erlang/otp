@@ -164,7 +164,7 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgVal &Index,
 
     if (NumFree.getValue() == 0) {
         /* No free variables, let the lambda jump directly to our target. */
-        lambda.trampoline = labels[Lbl.getValue()];
+        lambda.trampoline = resolve_beam_label(Lbl);
         return;
     }
 
@@ -187,7 +187,7 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgVal &Index,
         a.mov(getXRef(i + effective_arity), RET);
     }
 
-    a.jmp(labels[Lbl.getValue()]);
+    a.jmp(resolve_beam_label(Lbl));
 }
 
 void BeamModuleAssembler::emit_i_make_fun3(const ArgVal &Fun,

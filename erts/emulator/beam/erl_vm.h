@@ -48,9 +48,10 @@
 #define EMULATOR "BEAM"
 #define SEQ_TRACE 1
 
-#define CONTEXT_REDS 4000	/* Swap process out after this number */
-#define MAX_ARG 255	        /* Max number of arguments allowed */
-#define MAX_REG 1024            /* Max number of x(N) registers used */
+#define CONTEXT_REDS 4000            /* Swap process out after this number */
+#define MAX_ARG      255             /* Max number of arguments allowed */
+#define MAX_REG      1024            /* Max number of x(N) registers used */
+#define REG_MASK     (MAX_REG - 1)
 
 /*
  * Guard BIFs and the new trapping length/1 implementation need 3 extra

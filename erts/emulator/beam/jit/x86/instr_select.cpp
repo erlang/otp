@@ -32,11 +32,11 @@ void BeamModuleAssembler::emit_linear_search(x86::Gp comparand,
         const ArgVal &label = args[i + count];
 
         cmp_arg(comparand, value, ARG1);
-        a.je(labels[label.getValue()]);
+        a.je(resolve_beam_label(label));
     }
 
     if (Fail.isLabel()) {
-        a.jmp(labels[Fail.getValue()]);
+        a.jmp(resolve_beam_label(Fail));
     } else {
         /* NIL means fallthrough to the next instruction. */
         ASSERT(Fail.getType() == ArgVal::Immediate && Fail.getValue() == NIL);
@@ -48,13 +48,21 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgVal &Src,
                                                     const ArgVal &Size,
                                                     const Span<ArgVal> &args) {
     mov_arg(ARG2, Src);
-    emit_is_boxed(labels[Fail.getValue()], ARG2);
+
+    emit_is_boxed(resolve_beam_label(Fail), Src, ARG2);
+
     x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG2);
     ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
     a.mov(ARG2d, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
-    ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
-    a.test(ARG2.r8(), imm(_TAG_HEADER_MASK));
-    a.jne(labels[Fail.getValue()]);
+
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_TUPLE) {
+        comment("simplified tuple test since the source is always a tuple "
+                "when boxed");
+    } else {
+        ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
+        a.test(ARG2.r8(), imm(_TAG_HEADER_MASK));
+        a.jne(resolve_beam_label(Fail));
+    }
 
     ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
 
@@ -64,10 +72,10 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgVal &Src,
         const ArgVal &label = args[i + count];
 
         a.cmp(ARG2d, imm(value.getValue()));
-        a.je(labels[label.getValue()]);
+        a.je(resolve_beam_label(label));
     }
 
-    a.jne(labels[Fail.getValue()]);
+    a.jne(resolve_beam_label(Fail));
 }
 
 void BeamModuleAssembler::emit_i_select_val_lins(const ArgVal &Src,
@@ -90,7 +98,7 @@ void BeamModuleAssembler::emit_i_select_val_bins(const ArgVal &Src,
     Label fail;
 
     if (Fail.isLabel()) {
-        fail = labels[Fail.getValue()];
+        fail = resolve_beam_label(Fail);
     } else {
         /* NIL means fallthrough to the next instruction. */
         ASSERT(Fail.getType() == ArgVal::Immediate && Fail.getValue() == NIL);
@@ -152,15 +160,15 @@ void BeamModuleAssembler::emit_binsearch_nodes(size_t Left,
     cmp_arg(ARG2, midval, ARG1);
 
     if (Left == Right) {
-        a.je(labels[args[mid + count].getValue()]);
-        a.jmp(labels[Fail.getValue()]);
+        a.je(resolve_beam_label(args[mid + count]));
+        a.jmp(resolve_beam_label(Fail));
         return;
     }
 
-    a.je(labels[args[mid + count].getValue()]);
+    a.je(resolve_beam_label(args[mid + count]));
 
     if (Left == mid) {
-        a.jb(labels[Fail.getValue()]);
+        a.jb(resolve_beam_label(Fail));
     } else {
         Label right_tree = a.newLabel();
         a.ja(right_tree);
@@ -188,7 +196,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
     a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
 
     if (Fail.isLabel()) {
-        a.jne(labels[Fail.getValue()]);
+        a.jne(resolve_beam_label(Fail));
     } else {
         /* NIL means fallthrough to the next instruction. */
         ASSERT(Fail.getType() == ArgVal::Immediate && Fail.getValue() == NIL);
@@ -209,7 +217,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
 
     a.cmp(ARG1, imm(args.size()));
     if (Fail.isLabel()) {
-        a.jae(labels[Fail.getValue()]);
+        a.jae(resolve_beam_label(Fail));
     } else {
         a.short_().jae(fail);
     }
@@ -261,10 +269,12 @@ bool BeamModuleAssembler::emit_optimized_three_way_select(
         a.mov(ARG1, imm(diff));
         a.or_(ARG2, ARG1);
     }
+
     cmp_arg(ARG2, val, ARG1);
-    a.je(labels[args[2].getValue()]);
+    a.je(resolve_beam_label(args[2]));
+
     if (Fail.isLabel()) {
-        a.jmp(labels[Fail.getValue()]);
+        a.jmp(resolve_beam_label(Fail));
     } else {
         /* NIL means fallthrough to the next instruction. */
         ASSERT(Fail.getType() == ArgVal::Immediate && Fail.getValue() == NIL);

@@ -136,7 +136,7 @@ void BeamModuleAssembler::emit_i_bif1(const ArgVal &Src1,
 
     if (Fail.getValue() != 0) {
         safe_fragment_call(ga->get_i_bif_guard_shared());
-        a.je(labels[Fail.getValue()]);
+        a.je(resolve_beam_label(Fail));
     } else {
         safe_fragment_call(ga->get_i_bif_body_shared());
     }
@@ -153,7 +153,7 @@ void BeamModuleAssembler::emit_i_bif2(const ArgVal &Src1,
 
     if (Fail.getValue() != 0) {
         safe_fragment_call(ga->get_i_bif_guard_shared());
-        a.je(labels[Fail.getValue()]);
+        a.je(resolve_beam_label(Fail));
     } else {
         safe_fragment_call(ga->get_i_bif_body_shared());
     }
@@ -171,7 +171,7 @@ void BeamModuleAssembler::emit_i_bif3(const ArgVal &Src1,
 
     if (Fail.getValue() != 0) {
         safe_fragment_call(ga->get_i_bif_guard_shared());
-        a.je(labels[Fail.getValue()]);
+        a.je(resolve_beam_label(Fail));
     } else {
         safe_fragment_call(ga->get_i_bif_body_shared());
     }
@@ -340,7 +340,7 @@ void BeamModuleAssembler::emit_i_length(const ArgVal &Fail,
         /* The return address is discarded when yielding, so it doesn't need to
          * be aligned. */
         safe_fragment_call(ga->get_i_length_guard_shared());
-        a.je(labels[Fail.getValue()]);
+        a.je(resolve_beam_label(Fail));
     } else {
         safe_fragment_call(ga->get_i_length_body_shared());
     }
@@ -883,7 +883,7 @@ void BeamGlobalAssembler::emit_call_nif_early() {
         a.test(ARG2, imm(sizeof(UWord) - 1));
         a.short_().je(next);
 
-        a.comment("# Return address isn't word-aligned");
+        comment("# Return address isn't word-aligned");
         a.ud2();
 
         a.bind(next);

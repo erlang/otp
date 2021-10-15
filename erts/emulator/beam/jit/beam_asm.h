@@ -42,7 +42,7 @@ void beamasm_init(void);
 void *beamasm_new_assembler(Eterm mod,
                             int num_labels,
                             int num_functions,
-                            BeamFile_ExportTable *named_labels);
+                            BeamFile *beam);
 void beamasm_codegen(void *ba,
                      const void **native_module_exec,
                      void **native_module_rw,

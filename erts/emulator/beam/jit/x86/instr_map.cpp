@@ -105,7 +105,7 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgVal &Fail,
     emit_leave_runtime();
 
     emit_test_the_non_value(RET);
-    a.je(labels[Fail.getValue()]);
+    a.je(resolve_beam_label(Fail));
 
     /*
      * Don't store the result if the destination is the scratch X register.
@@ -137,7 +137,7 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgVal &Fail,
     emit_leave_runtime();
 
     a.test(RET, RET);
-    a.je(labels[Fail.getValue()]);
+    a.je(resolve_beam_label(Fail));
 }
 
 void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgVal &Fail,
@@ -156,7 +156,7 @@ void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgVal &Fail,
     emit_leave_runtime();
 
     emit_test_the_non_value(RET);
-    a.je(labels[Fail.getValue()]);
+    a.je(resolve_beam_label(Fail));
 
     /*
      * Don't store the result if the destination is the scratch X register.
@@ -266,7 +266,7 @@ void BeamModuleAssembler::emit_update_map_exact(const ArgVal &Src,
 
     if (Fail.getValue() != 0) {
         fragment_call(ga->get_update_map_exact_guard_shared());
-        a.je(labels[Fail.getValue()]);
+        a.je(resolve_beam_label(Fail));
     } else {
         fragment_call(ga->get_update_map_exact_body_shared());
     }

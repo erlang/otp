@@ -580,6 +580,58 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     return 1;
 }
 
+/* We assume the presence of a type table to simplify loading, so we'll need to
+ * create a dummy table (with single entry for the "any type") when we don't
+ * have one. */
+static void init_fallback_type_table(BeamFile *beam) {
+    BeamFile_TypeTable *types;
+
+    types = &beam->types;
+    ASSERT(types->entries == NULL);
+
+    types->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                sizeof(types->entries[0]));
+    types->count = 1;
+
+    types->entries[0].type_union = BEAM_TYPE_ANY;
+}
+
+static int parse_type_chunk(BeamFile *beam, IFF_Chunk *chunk) {
+    BeamFile_TypeTable *types;
+    BeamReader reader;
+
+    Sint32 version, count;
+    int i;
+
+    beamreader_init(chunk->data, chunk->size, &reader);
+
+    LoadAssert(beamreader_read_i32(&reader, &version));
+    LoadAssert(version == BEAM_TYPES_VERSION);
+
+    types = &beam->types;
+    ASSERT(types->entries == NULL);
+
+    LoadAssert(beamreader_read_i32(&reader, &count));
+    LoadAssert(CHECK_ITEM_COUNT(count, 0, sizeof(types->entries[0])));
+    LoadAssert(count >= 1);
+
+    types->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                count * sizeof(types->entries[0]));
+    types->count = count;
+
+    for (i = 0; i < count; i++) {
+        const byte *type_data;
+
+        LoadAssert(beamreader_read_bytes(&reader, 2, &type_data));
+        LoadAssert(beam_types_decode(type_data, 2, &types->entries[i]));
+    }
+
+    /* The first entry MUST be the "any type." */
+    LoadAssert(types->entries[0].type_union == BEAM_TYPE_ANY);
+
+    return 1;
+}
+
 static ErlHeapFragment *new_literal_fragment(Uint size)
 {
     ErlHeapFragment *bp;
@@ -807,6 +859,7 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         MakeIffId('L', 'i', 'n', 'e'), /* 9 */
         MakeIffId('L', 'o', 'c', 'T'), /* 10 */
         MakeIffId('A', 't', 'o', 'm'), /* 11 */
+        MakeIffId('T', 'y', 'p', 'e'), /* 12 */
     };
 
     static const int UTF8_ATOM_CHUNK = 0;
@@ -823,6 +876,7 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
     static const int LOC_CHUNK = 10;
 #endif
     static const int OBSOLETE_ATOM_CHUNK = 11;
+    static const int TYPE_CHUNK = 12;
 
     static const int NUM_CHUNKS = sizeof(chunk_iffs) / sizeof(chunk_iffs[0]);
 
@@ -909,6 +963,15 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
             error = BEAMFILE_READ_CORRUPT_LINE_TABLE;
             goto error;
         }
+    }
+
+    if (chunks[TYPE_CHUNK].size > 0) {
+        if (!parse_type_chunk(beam, &chunks[TYPE_CHUNK])) {
+            error = BEAMFILE_READ_CORRUPT_TYPE_TABLE;
+            goto error;
+        }
+    } else {
+        init_fallback_type_table(beam);
     }
 
     beam->strings.data = chunks[STR_CHUNK].data;
@@ -1038,6 +1101,11 @@ void beamfile_free(BeamFile *beam) {
 
         beam->lines.items = NULL;
         beam->lines.names = NULL;
+    }
+
+    if (beam->types.entries) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, beam->types.entries);
+        beam->types.entries = NULL;
     }
 
     if (beam->static_literals.entries) {
@@ -1523,7 +1591,7 @@ static int beamcodereader_read_next(BeamCodeReader *code_reader, BeamOp **out) {
             case 4:
                 /* Literal */
                 {
-                    BeamFile_LiteralTable *literals;
+                    const BeamFile_LiteralTable *literals;
                     TaggedNumber index;
 
                     LoadAssert(beamreader_read_tagged(reader, &index));
@@ -1537,6 +1605,25 @@ static int beamcodereader_read_next(BeamCodeReader *code_reader, BeamOp **out) {
                     raw_arg.tag = TAG_q;
                     raw_arg.word_value = index.word_value;
 
+                    break;
+                }
+            case 5:
+                /* Register with type hint */
+                {
+                    const BeamFile_TypeTable *types;
+                    TaggedNumber index;
+
+                    LoadAssert(beamreader_read_tagged(reader, &raw_arg));
+                    LoadAssert(raw_arg.tag == TAG_x || raw_arg.tag == TAG_y);
+
+                    LoadAssert(beamreader_read_tagged(reader, &index));
+                    LoadAssert(index.tag == TAG_u);
+
+                    types = &(code_reader->file)->types;
+                    LoadAssert(index.word_value < types->count);
+
+                    ERTS_CT_ASSERT(REG_MASK < (1 << 10));
+                    raw_arg.word_value |= index.word_value << 10;
                     break;
                 }
             default:

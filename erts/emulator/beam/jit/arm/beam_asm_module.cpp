@@ -25,11 +25,6 @@
 #include "beam_asm.hpp"
 using namespace asmjit;
 
-static std::string getAtom(Eterm atom) {
-    Atom *ap = atom_tab(atom_val(atom));
-    return std::string((char *)ap->name, ap->len);
-}
-
 #ifdef BEAMASM_DUMP_SIZES
 #    include <mutex>
 
@@ -78,56 +73,14 @@ ErtsCodePtr BeamModuleAssembler::getLambda(unsigned index) {
     return (ErtsCodePtr)getCode(lambda.trampoline);
 }
 
-BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
-                                         Eterm _mod,
-                                         unsigned num_labels,
-                                         BeamFile_ExportTable *named_labels)
-        : BeamAssembler(getAtom(_mod)), ga(_ga), mod(_mod) {
-    _veneers.reserve(num_labels + 1);
-    rawLabels.reserve(num_labels + 1);
-
-    if (logger.file() && named_labels) {
-        BeamFile_ExportEntry *e = &named_labels->entries[0];
-        for (unsigned int i = 1; i < num_labels; i++) {
-            /* Large enough to hold most realistic function names. We will
-             * truncate too long names, but as the label name is not important
-             * for the functioning of the JIT and this functionality is
-             * probably only used by developers, we don't bother with dynamic
-             * allocation. */
-            char tmp[MAX_ATOM_SZ_LIMIT];
-
-            /* The named_labels are sorted, so no need for a search. */
-            if ((unsigned int)e->label == i) {
-                erts_snprintf(tmp, sizeof(tmp), "%T/%d", e->function, e->arity);
-                rawLabels[i] = a.newNamedLabel(tmp);
-                e++;
-            } else {
-                std::string lblName = "label_" + std::to_string(i);
-                rawLabels[i] = a.newNamedLabel(lblName.data());
-            }
-        }
-    } else if (logger.file()) {
-        /* There is no naming info, but dumping of the assembly code
-         * has been requested, so do the best we can and number the
-         * labels. */
-        for (unsigned int i = 1; i < num_labels; i++) {
-            std::string lblName = "label_" + std::to_string(i);
-            rawLabels[i] = a.newNamedLabel(lblName.data());
-        }
-    } else {
-        /* No output is requested, go with unnamed labels */
-        for (unsigned int i = 1; i < num_labels; i++) {
-            rawLabels[i] = a.newLabel();
-        }
-    }
-}
-
 BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
                                          Eterm mod,
-                                         unsigned num_labels,
-                                         unsigned num_functions,
-                                         BeamFile_ExportTable *named_labels)
-        : BeamModuleAssembler(ga, mod, num_labels, named_labels) {
+                                         int num_labels,
+                                         int num_functions,
+                                         BeamFile *file)
+        : BeamModuleAssembler(ga, mod, num_labels, file) {
+    _veneers.reserve(num_labels + 1);
+
     codeHeader = a.newLabel();
     a.align(kAlignCode, 8);
     a.bind(codeHeader);

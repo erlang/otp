@@ -253,6 +253,88 @@ void BeamModuleAssembler::codegen(char *buff, size_t len) {
                            CodeHolder::kCopyPadSectionBuffer);
 }
 
+BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
+                                         Eterm _mod,
+                                         int num_labels,
+                                         BeamFile *file)
+        : BeamAssembler(getAtom(_mod)), beam(file), ga(_ga), mod(_mod) {
+    rawLabels.reserve(num_labels + 1);
+
+    if (logger.file() && beam) {
+        /* Dig out all named labels from the BEAM-file and sort them on the
+         * label id. */
+        const int named_count = beam->exports.count + beam->locals.count;
+        BeamFile_ExportEntry *entries;
+
+        entries = (BeamFile_ExportEntry *)erts_alloc(
+                ERTS_ALC_T_PREPARED_CODE,
+                (named_count + 1) * sizeof(entries[0]));
+
+        for (int i = 0; i < beam->exports.count; i++) {
+            entries[i] = beam->exports.entries[i];
+        }
+
+        for (int i = 0; i < beam->locals.count; i++) {
+            entries[i + beam->exports.count] = beam->locals.entries[i];
+        }
+
+        /* Place a sentinel entry with an invalid label number. */
+        entries[named_count].label = 0;
+
+        std::qsort(entries,
+                   named_count,
+                   sizeof(entries[0]),
+                   [](const void *lhs__, const void *rhs__) {
+                       auto lhs = (const BeamFile_ExportEntry *)lhs__;
+                       auto rhs = (const BeamFile_ExportEntry *)rhs__;
+
+                       if (lhs->label < rhs->label) {
+                           return -1;
+                       } else if (lhs->label == rhs->label) {
+                           return 0;
+                       } else {
+                           return 1;
+                       }
+                   });
+
+        BeamFile_ExportEntry *e = &entries[0];
+
+        for (int i = 1; i < num_labels; i++) {
+            /* Large enough to hold most realistic function names. We will
+             * truncate too long names, but as the label name is not important
+             * for the functioning of the JIT and this functionality is
+             * probably only used by developers, we don't bother with dynamic
+             * allocation. */
+            char tmp[MAX_ATOM_SZ_LIMIT];
+
+            /* The named_labels are sorted, so no need for a search. */
+            if (e->label == i) {
+                erts_snprintf(tmp, sizeof(tmp), "%T/%d", e->function, e->arity);
+                rawLabels[i] = a.newNamedLabel(tmp);
+                e++;
+            } else {
+                std::string lblName = "label_" + std::to_string(i);
+                rawLabels[i] = a.newNamedLabel(lblName.data());
+            }
+        }
+
+        erts_free(ERTS_ALC_T_PREPARED_CODE, entries);
+    } else if (logger.file()) {
+        /* There is no naming info, but dumping of the assembly code
+         * has been requested, so do the best we can and number the
+         * labels. */
+        for (int i = 1; i < num_labels; i++) {
+            std::string lblName = "label_" + std::to_string(i);
+            rawLabels[i] = a.newNamedLabel(lblName.data());
+        }
+    } else {
+        /* No output is requested, go with unnamed labels */
+        for (int i = 1; i < num_labels; i++) {
+            rawLabels[i] = a.newLabel();
+        }
+    }
+}
+
 void BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
 #ifndef WIN32
     const BeamCodeLineTab *line_table = header->line_table;

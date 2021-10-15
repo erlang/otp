@@ -212,6 +212,7 @@ set_tuple_element s S P
 
 current_tuple/1
 current_tuple/2
+typed_current_tuple/1
 
 is_tuple Fail=f Src | test_arity Fail Src Arity => \
    i_is_tuple_of_arity Fail Src Arity | current_tuple Src
@@ -222,9 +223,11 @@ is_tuple NotTupleFail Tuple | is_tagged_tuple WrongRecordFail Tuple Arity Atom =
    i_is_tagged_tuple_ff NotTupleFail WrongRecordFail Tuple Arity Atom | current_tuple Tuple
 
 is_tagged_tuple Fail Tuple Arity Atom => \
-   i_is_tagged_tuple Fail Tuple Arity Atom | current_tuple Tuple
+   i_is_tagged_tuple Fail Tuple Arity Atom | typed_current_tuple Tuple
 
 is_tuple Fail=f Src => i_is_tuple Fail Src | current_tuple Src
+
+typed_current_tuple Tuple => remove_tuple_type(Tuple)
 
 i_is_tuple_of_arity f? s A
 i_test_arity f? s A

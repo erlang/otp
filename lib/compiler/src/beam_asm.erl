@@ -415,10 +415,18 @@ encode_op_1([A0|As], Dict0, Acc) ->
     encode_op_1(As, Dict, [Acc,A]);
 encode_op_1([], Dict, Acc) -> {Acc,Dict}.
 
-encode_arg(#tr{r={x, X}=Reg}, Dict0) when is_integer(X), X >= 0 ->
-    encode_arg(Reg, Dict0);
-encode_arg(#tr{r={y, Y}=Reg}, Dict0) when is_integer(Y), Y >= 0 ->
-    encode_arg(Reg, Dict0);
+encode_arg(#tr{r={x, X},t=Type}, Dict0) when is_integer(X), X >= 0 ->
+    {Index, Dict} = beam_dict:type(Type, Dict0),
+    Data = [encode(?tag_z, 5),
+            encode(?tag_x, X),
+            encode(?tag_u, Index)],
+    {Data, Dict};
+encode_arg(#tr{r={y, Y},t=Type}, Dict0) when is_integer(Y), Y >= 0 ->
+    {Index, Dict} = beam_dict:type(Type, Dict0),
+    Data = [encode(?tag_z, 5),
+            encode(?tag_y, Y),
+            encode(?tag_u, Index)],
+    {Data, Dict};
 encode_arg({x, X}, Dict) when is_integer(X), X >= 0 ->
     {encode(?tag_x, X), Dict};
 encode_arg({y, Y}, Dict) when is_integer(Y), Y >= 0 ->

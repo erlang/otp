@@ -675,7 +675,7 @@ arm::Gp BeamModuleAssembler::emit_is_binary(const ArgVal &Fail,
                                             Label subbin) {
     auto src = load_source(Src, ARG1);
 
-    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), src.reg);
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
     arm::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
     a.ldur(TMP1, emit_boxed_val(boxed_ptr));
@@ -683,11 +683,17 @@ arm::Gp BeamModuleAssembler::emit_is_binary(const ArgVal &Fail,
     a.cmp(TMP1, imm(_TAG_HEADER_SUB_BIN));
     a.cond_eq().b(subbin);
 
-    ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
-    a.and_(TMP1, TMP1, imm(~4));
-    a.cmp(TMP1, imm(_TAG_HEADER_REFC_BIN));
-    a.cond_eq().b(next);
-    a.b(resolve_beam_label(Fail, disp128MB));
+    if (masked_types(Src, BEAM_TYPE_MASK_ALWAYS_BOXED) == BEAM_TYPE_BITSTRING) {
+        comment("simplified binary test since source is always a bitstring "
+                "when boxed");
+    } else {
+        ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
+        a.and_(TMP1, TMP1, imm(~4));
+        a.cmp(TMP1, imm(_TAG_HEADER_REFC_BIN));
+        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    }
+
+    a.b(next);
 
     return boxed_ptr;
 }
@@ -695,9 +701,8 @@ arm::Gp BeamModuleAssembler::emit_is_binary(const ArgVal &Fail,
 void BeamModuleAssembler::emit_is_binary(const ArgVal &Fail,
                                          const ArgVal &Src) {
     Label next = a.newLabel(), subbin = a.newLabel();
-    arm::Gp boxed_ptr;
 
-    boxed_ptr = emit_is_binary(Fail, Src, next, subbin);
+    arm::Gp boxed_ptr = emit_is_binary(Fail, Src, next, subbin);
 
     a.bind(subbin);
     {
@@ -721,35 +726,35 @@ void BeamModuleAssembler::emit_is_bitstring(const ArgVal &Fail,
 }
 
 void BeamModuleAssembler::emit_is_float(const ArgVal &Fail, const ArgVal &Src) {
-    Label next = a.newLabel();
-
     auto src = load_source(Src, TMP1);
 
-    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), src.reg);
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
-    a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FLOAT) {
+        comment("skipped header test since we know it's a float when boxed");
+    } else {
+        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a.ldur(TMP1, emit_boxed_val(boxed_ptr));
 
-    a.cmp(TMP1, imm(HEADER_FLONUM));
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
-
-    a.bind(next);
+        a.cmp(TMP1, imm(HEADER_FLONUM));
+        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    }
 }
 
 void BeamModuleAssembler::emit_is_function(const ArgVal &Fail,
                                            const ArgVal &Src) {
-    Label next = a.newLabel();
-
     auto src = load_source(Src, TMP1);
 
-    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), src.reg);
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
-    a.ldur(TMP1, emit_boxed_val(boxed_ptr));
-    a.cmp(TMP1, imm(HEADER_FUN));
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
-
-    a.bind(next);
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FUN) {
+        comment("skipped header test since we know it's a fun when boxed");
+    } else {
+        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+        a.cmp(TMP1, imm(HEADER_FUN));
+        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    }
 }
 
 void BeamModuleAssembler::emit_is_function2(const ArgVal &Fail,
@@ -785,12 +790,17 @@ void BeamModuleAssembler::emit_is_function2(const ArgVal &Fail,
 
     auto src = load_source(Src, TMP1);
 
-    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), src.reg);
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
     arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
-    a.ldur(TMP2, emit_boxed_val(boxed_ptr));
-    a.cmp(TMP2, imm(HEADER_FUN));
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FUN) {
+        comment("skipped header test since we know it's a fun when boxed");
+    } else {
+        a.ldur(TMP2, emit_boxed_val(boxed_ptr));
+        a.cmp(TMP2, imm(HEADER_FUN));
+        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    }
 
     a.ldur(TMP2, emit_boxed_val(boxed_ptr, offsetof(ErlFunThing, arity)));
     emit_branch_if_ne(TMP2, arity, resolve_beam_label(Fail, dispUnknown));
@@ -798,27 +808,36 @@ void BeamModuleAssembler::emit_is_function2(const ArgVal &Fail,
 
 void BeamModuleAssembler::emit_is_integer(const ArgVal &Fail,
                                           const ArgVal &Src) {
+    auto src = load_source(Src, TMP1);
     Label next = a.newLabel();
 
-    auto src = load_source(Src, TMP1);
+    if (always_one_of(Src, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+        comment("simplified small test since all other types are boxed");
+        emit_is_boxed(next, Src, src.reg);
+    } else {
+        a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
+        a.cond_eq().b(next);
 
-    a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
-    a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
-    a.cond_eq().b(next);
+        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, TMP2);
+    }
 
-    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), TMP2);
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_INTEGER) {
+        comment("skipped header test since we know it's a bignum when "
+                "boxed");
+    } else {
+        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a.ldur(TMP1, emit_boxed_val(boxed_ptr));
 
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
-    a.ldur(TMP1, emit_boxed_val(boxed_ptr));
-
-    /* The following value (0b111011) is not possible to use as
-     * an immediate operand for 'and'. See the note at the beginning
-     * of the file.
-     */
-    mov_imm(TMP2, _TAG_HEADER_MASK - _BIG_SIGN_BIT);
-    a.and_(TMP1, TMP1, TMP2);
-    a.cmp(TMP1, imm(_TAG_HEADER_POS_BIG));
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        /* The following value (0b111011) is not possible to use as
+         * an immediate operand for 'and'. See the note at the beginning
+         * of the file.
+         */
+        mov_imm(TMP2, _TAG_HEADER_MASK - _BIG_SIGN_BIT);
+        a.and_(TMP1, TMP1, TMP2);
+        a.cmp(TMP1, imm(_TAG_HEADER_POS_BIG));
+        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    }
 
     a.bind(next);
 }
@@ -835,12 +854,19 @@ void BeamModuleAssembler::emit_is_list(const ArgVal &Fail, const ArgVal &Src) {
 void BeamModuleAssembler::emit_is_map(const ArgVal &Fail, const ArgVal &Src) {
     auto src = load_source(Src, TMP1);
 
-    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), src.reg);
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
-    a.ldur(TMP1, emit_boxed_val(boxed_ptr));
-    a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
-    a.cmp(TMP1, imm(_TAG_HEADER_MAP));
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+
+    /* As an optimization for the `error | #{}` case, skip checking the header
+     * word when we know that the only possible boxed type is a map. */
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_MAP) {
+        comment("skipped header test since we know it's a map when boxed");
+    } else {
+        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+        a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
+        a.cmp(TMP1, imm(_TAG_HEADER_MAP));
+        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    }
 }
 
 void BeamModuleAssembler::emit_is_nil(const ArgVal &Fail, const ArgVal &Src) {
@@ -851,91 +877,117 @@ void BeamModuleAssembler::emit_is_nil(const ArgVal &Fail, const ArgVal &Src) {
 
 void BeamModuleAssembler::emit_is_number(const ArgVal &Fail,
                                          const ArgVal &Src) {
+    auto src = load_source(Src, TMP1);
     Label next = a.newLabel();
 
-    auto src = load_source(Src, TMP1);
+    if (always_one_of(Src, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+        comment("simplified small test since all other types are boxed");
+        emit_is_boxed(next, Src, src.reg);
+    } else {
+        a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
+        a.cond_eq().b(next);
 
-    a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
-    a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
-    a.cond_eq().b(next);
+        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+    }
 
-    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), TMP2);
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) ==
+        (BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+        comment("skipped header test since we know it's a number when boxed");
+    } else {
+        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a.ldur(TMP1, emit_boxed_val(boxed_ptr));
 
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
-    a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+        /* The following value (0b111011) is not possible to use as
+         * an immediate operand for 'and'. See the note at the beginning
+         * of the file.
+         */
+        mov_imm(TMP2, _TAG_HEADER_MASK - _BIG_SIGN_BIT);
+        a.and_(TMP2, TMP1, TMP2);
+        a.cmp(TMP2, imm(_TAG_HEADER_POS_BIG));
 
-    /* The following value (0b111011) is not possible to use as
-     * an immediate operand for 'and'. See the note at the beginning
-     * of the file.
-     */
-    mov_imm(TMP2, _TAG_HEADER_MASK - _BIG_SIGN_BIT);
-    a.and_(TMP2, TMP1, TMP2);
-    a.cmp(TMP2, imm(_TAG_HEADER_POS_BIG));
-
-    a.mov(TMP3, imm(HEADER_FLONUM));
-    a.ccmp(TMP1, TMP3, 4, arm::Cond::kNE);
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.mov(TMP3, imm(HEADER_FLONUM));
+        a.ccmp(TMP1, TMP3, 4, arm::Cond::kNE);
+        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    }
 
     a.bind(next);
 }
 
 void BeamModuleAssembler::emit_is_pid(const ArgVal &Fail, const ArgVal &Src) {
+    auto src = load_source(Src, TMP1);
     Label next = a.newLabel();
 
-    auto src = load_source(Src, TMP1);
+    if (always_one_of(Src, BEAM_TYPE_PID | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+        comment("simplified local pid test since all other types are boxed");
+        emit_is_boxed(next, Src, src.reg);
+    } else {
+        a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP2, imm(_TAG_IMMED1_PID));
+        a.cond_eq().b(next);
 
-    a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
-    a.cmp(TMP2, imm(_TAG_IMMED1_PID));
-    a.cond_eq().b(next);
+        /* Reuse TMP2 as the important bits are still available. */
+        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, TMP2);
+    }
 
-    /* Reuse TMP2 as the important bits are still available. */
-    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), TMP2);
-
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
-    a.ldur(TMP2, emit_boxed_val(boxed_ptr));
-    a.and_(TMP2, TMP2, imm(_TAG_HEADER_MASK));
-    a.cmp(TMP2, imm(_TAG_HEADER_EXTERNAL_PID));
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_PID) {
+        comment("skipped header test since we know it's a pid when boxed");
+    } else {
+        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a.ldur(TMP2, emit_boxed_val(boxed_ptr));
+        a.and_(TMP2, TMP2, imm(_TAG_HEADER_MASK));
+        a.cmp(TMP2, imm(_TAG_HEADER_EXTERNAL_PID));
+        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    }
 
     a.bind(next);
 }
 
 void BeamModuleAssembler::emit_is_port(const ArgVal &Fail, const ArgVal &Src) {
+    auto src = load_source(Src, TMP1);
     Label next = a.newLabel();
 
-    auto src = load_source(Src, TMP1);
+    if (always_one_of(Src, BEAM_TYPE_PORT | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+        comment("simplified local port test since all other types are boxed");
+        emit_is_boxed(next, Src, src.reg);
+    } else {
+        a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP2, imm(_TAG_IMMED1_PORT));
+        a.cond_eq().b(next);
 
-    a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
-    a.cmp(TMP2, imm(_TAG_IMMED1_PORT));
-    a.cond_eq().b(next);
+        /* Reuse TMP2 as the important bits are still available. */
+        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, TMP2);
+    }
 
-    /* Reuse TMP2 as the important bits are still available. */
-    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), TMP2);
-
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
-    a.ldur(TMP2, emit_boxed_val(boxed_ptr));
-    a.and_(TMP2, TMP2, imm(_TAG_HEADER_MASK));
-    a.cmp(TMP2, imm(_TAG_HEADER_EXTERNAL_PORT));
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_PORT) {
+        comment("skipped header test since we know it's a port when boxed");
+    } else {
+        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a.ldur(TMP2, emit_boxed_val(boxed_ptr));
+        a.and_(TMP2, TMP2, imm(_TAG_HEADER_MASK));
+        a.cmp(TMP2, imm(_TAG_HEADER_EXTERNAL_PORT));
+        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    }
 
     a.bind(next);
 }
 
 void BeamModuleAssembler::emit_is_reference(const ArgVal &Fail,
                                             const ArgVal &Src) {
-    Label next = a.newLabel();
-
     auto src = load_source(Src, TMP1);
 
-    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), src.reg);
-    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
-    a.ldur(TMP1, emit_boxed_val(boxed_ptr));
-    a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
-    a.cmp(TMP1, imm(_TAG_HEADER_EXTERNAL_REF));
-    a.ccmp(TMP1, imm(_TAG_HEADER_REF), 4, arm::Cond::kNE);
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
-    a.bind(next);
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_REFERENCE) {
+        comment("skipped header test since we know it's a ref when boxed");
+    } else {
+        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+        a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
+        a.cmp(TMP1, imm(_TAG_HEADER_EXTERNAL_REF));
+        a.ccmp(TMP1, imm(_TAG_HEADER_REF), 4, arm::Cond::kNE);
+        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    }
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
@@ -945,8 +997,11 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple(const ArgVal &Fail,
                                                  const ArgVal &Arity,
                                                  const ArgVal &Tag) {
     auto src = load_source(Src, ARG1);
-    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), src.reg);
+
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+
     emit_untag_ptr(ARG1, src.reg);
+
     /* It is safe to fetch the both the header word and the first
      * element of the tuple with ldp because the empty tuple is always
      * a literal that is padded so that the word after arity is
@@ -975,7 +1030,8 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple_ff(const ArgVal &NotTuple,
     Label correct_arity = a.newLabel();
     auto src = load_source(Src, ARG1);
 
-    emit_is_boxed(resolve_beam_label(NotTuple, dispUnknown), src.reg);
+    emit_is_boxed(resolve_beam_label(NotTuple, dispUnknown), Src, src.reg);
+
     emit_untag_ptr(ARG1, src.reg);
 
     /* It is safe to fetch the both the header word and the first
@@ -1006,13 +1062,27 @@ void BeamModuleAssembler::emit_i_is_tuple(const ArgVal &Fail,
                                           const ArgVal &Src) {
     auto src = load_source(Src, ARG1);
 
-    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), src.reg);
-    emit_untag_ptr(ARG1, src.reg);
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
-    a.ldr(TMP1, arm::Mem(ARG1));
-    ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
-    a.tst(TMP1, imm(_TAG_HEADER_MASK));
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    /* As an optimization for the `error | {ok, Value}` case, skip checking the
+     * header word when we know that the only possible boxed type is a tuple. */
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_TUPLE) {
+        comment("skipped header test since we know it's a tuple when boxed");
+
+        /* Note: ARG1 will NOT be set. This is OK since the operand
+         * for `current_tuple` has a type; that operand will not match
+         * the type-less operand for `get_tuple_element`. Thus, there
+         * will always be a `load_tuple_ptr` instruction emitted if
+         * this instruction is immediately followed by a
+         * `get_tuple_element` instruction. */
+    } else {
+        emit_untag_ptr(ARG1, src.reg);
+
+        a.ldr(TMP1, arm::Mem(ARG1));
+        ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
+        a.tst(TMP1, imm(_TAG_HEADER_MASK));
+        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    }
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
@@ -1022,7 +1092,8 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity(const ArgVal &Fail,
                                                    const ArgVal &Arity) {
     auto src = load_source(Src, ARG1);
 
-    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), src.reg);
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+
     emit_untag_ptr(ARG1, src.reg);
 
     a.ldr(TMP1, arm::Mem(ARG1));
@@ -1048,9 +1119,13 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgVal &Fail,
                                            const ArgVal &Y) {
     auto x = load_source(X, ARG1);
 
-    if (Y.isImmed()) {
-        /* If the second operand is a known to be an immediate, we can
-         * fail immediately if the operands are not equal. */
+    /* If either argument is known to be an immediate, we can fail immediately
+     * if they're not equal. */
+    if (always_immediate(X) || always_immediate(Y)) {
+        if (!X.isImmed() && !Y.isImmed()) {
+            comment("simplified check since one argument is an immediate");
+        }
+
         cmp_arg(x.reg, Y);
         a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
 
@@ -1064,10 +1139,14 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgVal &Fail,
     a.cmp(x.reg, y.reg);
     a.cond_eq().b(next);
 
-    /* The terms could still be equal if both operands are pointers
-     * having the same tag. */
-    emit_is_unequal_based_on_tags(x.reg, y.reg);
-    a.cond_eq().b(resolve_beam_label(Fail, disp1MB));
+    if (always_same_types(X, Y)) {
+        comment("skipped tag test since they are always equal");
+    } else {
+        /* The terms could still be equal if both operands are pointers
+         * having the same tag. */
+        emit_is_unequal_based_on_tags(x.reg, y.reg);
+        a.cond_eq().b(resolve_beam_label(Fail, disp1MB));
+    }
 
     /* Both operands are pointers having the same tag. Must do a
      * deeper comparison. */
@@ -1090,9 +1169,13 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgVal &Fail,
                                            const ArgVal &Y) {
     auto x = load_source(X, ARG1);
 
-    if (Y.isImmed()) {
-        /* If the second operand is a known to be an immediate, we can
-         * fail immediately if the operands are equal. */
+    /* If either argument is known to be an immediate, we can fail immediately
+     * if they're equal. */
+    if (always_immediate(X) || always_immediate(Y)) {
+        if (!X.isImmed() && !Y.isImmed()) {
+            comment("simplified check since one argument is an immediate");
+        }
+
         cmp_arg(x.reg, Y);
         a.cond_eq().b(resolve_beam_label(Fail, disp1MB));
 
@@ -1106,10 +1189,14 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgVal &Fail,
     a.cmp(x.reg, y.reg);
     a.cond_eq().b(resolve_beam_label(Fail, disp1MB));
 
-    /* Test whether the terms are definitely unequal based on the tags
-     * alone. */
-    emit_is_unequal_based_on_tags(x.reg, y.reg);
-    a.cond_eq().b(next);
+    if (always_same_types(X, Y)) {
+        comment("skipped tag test since they are always equal");
+    } else {
+        /* Test whether the terms are definitely unequal based on the tags
+         * alone. */
+        emit_is_unequal_based_on_tags(x.reg, y.reg);
+        a.cond_eq().b(next);
+    }
 
     /* Both operands are pointers having the same tag. Must do a
      * deeper comparison. */
@@ -1248,85 +1335,114 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
 void BeamModuleAssembler::emit_is_lt(const ArgVal &Fail,
                                      const ArgVal &LHS,
                                      const ArgVal &RHS) {
-    Label generic = a.newLabel(), next = a.newLabel();
+    mov_arg(ARG1, LHS);
+    mov_arg(ARG2, RHS);
 
-    auto lhs = load_source(LHS, ARG1);
-    auto rhs = load_source(RHS, ARG2);
+    if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
+        always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+        Label branch_compare = a.newLabel();
 
-    a.cmp(lhs.reg, rhs.reg);
-    a.cond_eq().b(resolve_beam_label(Fail, disp1MB));
+        a.cmp(ARG1, ARG2);
 
-    /* Relative comparisons are overwhelmingly likely to be used on smalls, so
-     * we'll specialize those and keep the rest in a shared fragment. */
-
-    if (RHS.isImmed() && is_small(RHS.getValue())) {
-        a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
-    } else if (LHS.isImmed() && is_small(LHS.getValue())) {
-        a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
-    } else {
-        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-        a.and_(TMP1, lhs.reg, rhs.reg);
-        a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
-    }
-
-    a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-    a.cond_ne().b(generic);
-
-    a.cmp(lhs.reg, rhs.reg);
-    a.cond_lt().b(next);
-    a.b(resolve_beam_label(Fail, disp128MB));
-
-    a.bind(generic);
-    {
-        mov_var(ARG1, lhs);
-        mov_var(ARG2, rhs);
+        /* The only possible kind of immediate is a small and all other values
+         * are boxed, so we can test for smalls by testing boxed. */
+        comment("simplified small test since all other types are boxed");
+        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED == (1 << 0));
+        a.and_(TMP1, ARG1, ARG2);
+        a.tbnz(TMP1, imm(0), branch_compare);
         fragment_call(ga->get_arith_compare_shared());
-        a.cond_ge().b(resolve_beam_label(Fail, disp1MB));
-    }
 
-    a.bind(next);
+        /* The flags will either be from the initial comparison, or from the
+         * shared fragment. */
+        a.bind(branch_compare);
+        a.cond_ge().b(resolve_beam_label(Fail, disp1MB));
+    } else {
+        Label generic = a.newLabel(), next = a.newLabel();
+
+        /* Relative comparisons are overwhelmingly likely to be used on smalls,
+         * so we'll specialize those and keep the rest in a shared fragment. */
+        if (RHS.isImmed() && is_small(RHS.getValue())) {
+            a.and_(TMP1, ARG1, imm(_TAG_IMMED1_MASK));
+        } else if (LHS.isImmed() && is_small(LHS.getValue())) {
+            a.and_(TMP1, ARG2, imm(_TAG_IMMED1_MASK));
+        } else {
+            ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+            a.and_(TMP1, ARG1, ARG2);
+            a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
+        }
+
+        a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+        a.cond_ne().b(generic);
+
+        a.cmp(ARG1, ARG2);
+        a.cond_lt().b(next);
+        a.b(resolve_beam_label(Fail, disp128MB));
+
+        a.bind(generic);
+        {
+            fragment_call(ga->get_arith_compare_shared());
+            a.cond_ge().b(resolve_beam_label(Fail, disp1MB));
+        }
+
+        a.bind(next);
+    }
 }
 
 void BeamModuleAssembler::emit_is_ge(const ArgVal &Fail,
                                      const ArgVal &LHS,
                                      const ArgVal &RHS) {
-    Label generic = a.newLabel(), next = a.newLabel();
+    mov_arg(ARG1, LHS);
+    mov_arg(ARG2, RHS);
 
-    auto lhs = load_source(LHS, ARG1);
-    auto rhs = load_source(RHS, ARG2);
+    if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
+        always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+        Label branch_compare = a.newLabel();
 
-    a.cmp(lhs.reg, rhs.reg);
-    a.cond_eq().b(next);
+        a.cmp(ARG1, ARG2);
 
-    /* Relative comparisons are overwhelmingly likely to be used on smalls, so
-     * we'll specialize those and keep the rest in a shared fragment. */
+        /* The only possible kind of immediate is a small and all other values
+         * are boxed, so we can test for smalls by testing boxed. */
+        comment("simplified small test since all other types are boxed");
+        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED == (1 << 0));
+        a.and_(TMP1, ARG1, ARG2);
+        a.tbnz(TMP1, imm(0), branch_compare);
 
-    if (RHS.isImmed() && is_small(RHS.getValue())) {
-        a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
-    } else if (LHS.isImmed() && is_small(LHS.getValue())) {
-        a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
-    } else {
-        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-        a.and_(TMP1, lhs.reg, rhs.reg);
-        a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
-    }
-
-    a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-    a.cond_ne().b(generic);
-
-    a.cmp(lhs.reg, rhs.reg);
-    a.cond_ge().b(next);
-    a.b(resolve_beam_label(Fail, disp128MB));
-
-    a.bind(generic);
-    {
-        mov_var(ARG1, lhs);
-        mov_var(ARG2, rhs);
         fragment_call(ga->get_arith_compare_shared());
-        a.cond_lt().b(resolve_beam_label(Fail, disp1MB));
-    }
 
-    a.bind(next);
+        /* The flags will either be from the initial comparison, or from the
+         * shared fragment. */
+        a.bind(branch_compare);
+        a.cond_lt().b(resolve_beam_label(Fail, disp1MB));
+    } else {
+        Label generic = a.newLabel(), next = a.newLabel();
+
+        /* Relative comparisons are overwhelmingly likely to be used on smalls,
+         * so we'll specialize those and keep the rest in a shared fragment. */
+        if (RHS.isImmed() && is_small(RHS.getValue())) {
+            a.and_(TMP1, ARG1, imm(_TAG_IMMED1_MASK));
+        } else if (LHS.isImmed() && is_small(LHS.getValue())) {
+            a.and_(TMP1, ARG2, imm(_TAG_IMMED1_MASK));
+        } else {
+            ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+            a.and_(TMP1, ARG1, ARG2);
+            a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
+        }
+
+        a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+        a.cond_ne().b(generic);
+
+        a.cmp(ARG1, ARG2);
+        a.cond_ge().b(next);
+        a.b(resolve_beam_label(Fail, disp128MB));
+
+        a.bind(generic);
+        {
+            fragment_call(ga->get_arith_compare_shared());
+            a.cond_lt().b(resolve_beam_label(Fail, disp1MB));
+        }
+
+        a.bind(next);
+    }
 }
 
 void BeamModuleAssembler::emit_badmatch(const ArgVal &Src) {

@@ -386,12 +386,12 @@ extern "C"
     void *beamasm_new_assembler(Eterm mod,
                                 int num_labels,
                                 int num_functions,
-                                BeamFile_ExportTable *named_labels) {
+                                BeamFile *file) {
         return new BeamModuleAssembler(bga,
                                        mod,
                                        num_labels,
                                        num_functions,
-                                       named_labels);
+                                       file);
     }
 
     int beamasm_emit(void *instance, unsigned specific_op, BeamOp *op) {

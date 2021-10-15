@@ -55,7 +55,7 @@ struct ArgVal : public BeamOpArg {
         Immediate = 'I'
     };
 
-    ArgVal(int t, UWord value) {
+    ArgVal(UWord t, UWord value) {
 #ifdef DEBUG
         switch (t) {
         case TAG_f:
@@ -88,12 +88,30 @@ struct ArgVal : public BeamOpArg {
         val = value;
     }
 
+    constexpr int typeIndex() const {
+        switch (getType()) {
+        case TYPE::XReg:
+        case TYPE::YReg:
+            return (int)(val >> 10);
+        default:
+            /* Type index 0 always points to the "any type," making it a safe
+             * fallback whenever we lack type information. */
+            return 0;
+        }
+    }
+
     constexpr enum TYPE getType() const {
         return (enum TYPE)type;
     }
 
     constexpr uint64_t getValue() const {
-        return val;
+        switch (getType()) {
+        case TYPE::XReg:
+        case TYPE::YReg:
+            return val & REG_MASK;
+        default:
+            return val;
+        }
     }
 
     constexpr bool isRegister() const {
