@@ -92,8 +92,12 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     " [source]"
 #endif
 #endif	
-#ifdef ARCH_64
+#if defined(ARCH_64)
 				     " [64-bit]"
+#elif defined(ARCH_32)
+                                     " [32-bit]"
+#else
+# error "Unknown ARCH_?"
 #endif
 				     " [smp:%beu:%beu]"
 				     " [ds:%beu:%beu:%beu]"
