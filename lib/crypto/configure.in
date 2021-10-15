@@ -220,6 +220,14 @@ yes
 		 ],
 		 [valid_include=yes],
 		 [valid_include=no])
+    AC_EGREP_CPP(^yes.?$,[
+#include <openssl/opensslv.h>
+#if OPENSSL_VERSION_MAJOR == 3
+yes
+#endif
+		 ],
+		 [v3_include=yes],
+		 [v3_include=no])
     CPPFLAGS="$save_CPPFLAGS"
 
     if test $valid_include != yes; then
@@ -789,6 +797,10 @@ if test "x$enable_fips_support" = "xyes" && test "$CRYPTO_APP" != ""; then
    LIBS="$saveLIBS"
 else
    SSL_FLAGS=
+fi
+
+if test "x$v3_include" = "xyes" && test "$CRYPTO_APP" != ""; then
+   SSL_FLAGS="$SSL_FLAGS -Wno-deprecated-declarations"
 fi
 
 AC_SUBST(SSL_INCLUDE)
