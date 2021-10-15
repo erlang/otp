@@ -57,6 +57,7 @@
          connect4_invalid_two_1/1,
          connect4_invalid_two_2/1,
          connect4_invalid_three/1,
+         connect_timeout/1,
          daemon_sock_not_passive/1,
          daemon_sock_not_tcp/1,
          do_interrupted_send/3,
@@ -160,6 +161,7 @@ all() ->
      connect4_invalid_two_1,
      connect4_invalid_two_2,
      connect4_invalid_three,
+     connect_timeout,
      daemon_sock_not_tcp,
      gracefull_invalid_version,
      gracefull_invalid_start,
@@ -407,6 +409,15 @@ connect_sock_not_tcp(_Config) ->
                                                  {silently_accept_hosts, true},
                                                  {user_interaction, true}]),
     gen_udp:close(Sock).
+
+%%--------------------------------------------------------------------
+connect_timeout(_Config) ->
+    {ok,Sl} = gen_tcp:listen(0, []),
+    {ok, {_,Port}} = inet:sockname(Sl),
+    {error,timeout} = ssh:connect(loopback, Port, [{connect_timeout,2000},
+                                                   {save_accepted_host, false},
+                                                   {silently_accept_hosts, true}]),
+    gen_tcp:close(Sl).
 
 %%--------------------------------------------------------------------
 daemon_sock_not_tcp(_Config) ->
