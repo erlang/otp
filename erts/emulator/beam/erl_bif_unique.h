@@ -79,7 +79,7 @@ Eterm erts_debug_make_unique_integer(Process *c_p,
 				     Eterm etval1);
 
 
-ERTS_GLB_INLINE void erts_set_ref_numbers(Uint32 *ref, Uint32 thr_id, Uint64 value);
+ERTS_GLB_INLINE void erts_set_ref_numbers(Uint32 ref[ERTS_REF_NUMBERS], Uint32 thr_id, Uint64 value);
 ERTS_GLB_INLINE Uint32 erts_get_ref_numbers_thr_id(Uint32 *ref);
 ERTS_GLB_INLINE int erts_is_ref_numbers_magic(Uint32 *ref);
 ERTS_GLB_INLINE int erts_is_pid_ref_numbers(Uint32 *ref);
