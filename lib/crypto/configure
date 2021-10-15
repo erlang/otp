@@ -5251,6 +5251,23 @@ else
 fi
 rm -f conftest*
 
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <openssl/opensslv.h>
+#if OPENSSL_VERSION_MAJOR == 3
+yes
+#endif
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "^yes.?$" >/dev/null 2>&1; then :
+  v3_include=yes
+else
+  v3_include=no
+fi
+rm -f conftest*
+
     CPPFLAGS="$save_CPPFLAGS"
 
     if test $valid_include != yes; then
@@ -5636,6 +5653,23 @@ if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
   valid_include=yes
 else
   valid_include=no
+fi
+rm -f conftest*
+
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <openssl/opensslv.h>
+#if OPENSSL_VERSION_MAJOR == 3
+yes
+#endif
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "^yes.?$" >/dev/null 2>&1; then :
+  v3_include=yes
+else
+  v3_include=no
 fi
 rm -f conftest*
 
@@ -6257,6 +6291,10 @@ fi
    LIBS="$saveLIBS"
 else
    SSL_FLAGS=
+fi
+
+if test "x$v3_include" = "xyes" && test "$CRYPTO_APP" != ""; then
+   SSL_FLAGS="$SSL_FLAGS -Wno-deprecated-declarations"
 fi
 
 
