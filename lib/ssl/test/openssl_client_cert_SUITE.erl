@@ -82,7 +82,7 @@ groups() ->
     [
      {openssl_client, [], protocol_groups()},
      {'tlsv1.3', [], tls_1_3_protocol_groups()},
-     {'tlsv1.2', [], pre_tls_1_3_protocol_groups()}, %% Seems to be broken in OpenSSL [{group, rsa_pss_rsae}, {group, rsa_pss_pss}]},
+     {'tlsv1.2', [], pre_tls_1_3_protocol_groups() ++ [{group, rsa_pss_rsae}, {group, rsa_pss_pss}]},
      {'tlsv1.1', [], pre_tls_1_3_protocol_groups()},
      {'tlsv1', [], pre_tls_1_3_protocol_groups()},
      {'dtlsv1.2', [], pre_tls_1_3_protocol_groups()},
@@ -93,7 +93,7 @@ groups() ->
      {rsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++ [unsupported_sign_algo_client_auth,
                                                               unsupported_sign_algo_cert_client_auth]},
      {rsa_pss_rsae, [], all_version_tests()},
-     {rsa_pss_pss, [], all_version_tests() ++ tls_1_3_tests()},
+     {rsa_pss_pss, [], all_version_tests()},
      {rsa_pss_rsae_1_3, [], all_version_tests() ++ tls_1_3_tests()},
      {rsa_pss_pss_1_3, [], all_version_tests() ++ tls_1_3_tests()},
      {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()},
