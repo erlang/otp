@@ -96,7 +96,7 @@ erts_debug_size_shared_1(BIF_ALIST_1)
 }
 
 BIF_RETTYPE
-erts_debug_copy_shared_1(BIF_ALIST_1)
+erts_debug_copy_shared_2(BIF_ALIST_2)
 {
     Process* p = BIF_P;
     Eterm term = BIF_ARG_1;
@@ -105,6 +105,13 @@ erts_debug_copy_shared_1(BIF_ALIST_1)
     Eterm copy;
     erts_shcopy_t info;
     INITIALIZE_SHCOPY(info);
+
+    switch (BIF_ARG_2) {
+    case am_true: info.copy_literals = 1; break;
+    case am_false: info.copy_literals = 0; break;
+    default:
+        BIF_ERROR(p, BADARG);
+    }
 
     size = copy_shared_calculate(term, &info);
     if (size > 0) {

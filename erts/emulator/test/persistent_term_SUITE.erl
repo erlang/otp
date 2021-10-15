@@ -33,6 +33,7 @@
          killed_while_trapping_erase/1,
          error_info/1,
 	 whole_message/1,
+         shared_magic_ref/1,
 	 non_message_signal/1]).
 
 %%
@@ -55,6 +56,7 @@ all() ->
      killed_while_trapping_erase,
      error_info,
      whole_message,
+     shared_magic_ref,
      non_message_signal].
 
 init_per_suite(Config) ->
@@ -694,6 +696,19 @@ fck_loop_2(T, Key, MaxCollSz, MaxSzLeft0) ->
 	    fck_loop_2(T, Key+1, MaxCollSz, MaxSzLeft1)
     end.
 
+
+
+%% OTP-17700 Bug skipped refc++ of shared magic reference
+shared_magic_ref(_Config) ->
+    Ref = atomics:new(10, []),
+    persistent_term:put(shared_magic_ref, {Ref, Ref}),
+    shared_magic_ref_cont().
+
+shared_magic_ref_cont() ->
+    erlang:garbage_collect(),
+    {Ref, Ref} = persistent_term:get(shared_magic_ref),
+    0 = atomics:get(Ref, 1),  %% would definitely fail on debug vm
+    ok.
 
 
 %% Test that all persistent terms are erased by init:restart/0.
