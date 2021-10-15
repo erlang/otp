@@ -1203,8 +1203,8 @@ i_bs_get_utf8 xy f? d
 
 bs_skip_utf8 Fail=f Ms=xy u u => i_bs_get_utf8 Ms Fail x
 
-bs_get_utf16 Fail=f Ms=xy u Flags=u Dst=d => i_bs_get_utf16 Ms Fail Flags Dst
-bs_skip_utf16 Fail=f Ms=xy u Flags=u => i_bs_get_utf16 Ms Fail Flags x
+bs_get_utf16 Fail=f Ms=xy u Flags=u Dst=d => get_utf16(Fail, Ms, Flags, Dst)
+bs_skip_utf16 Fail=f Ms=xy Unit=u Flags=u => bs_get_utf16 Fail Ms Unit Flags x
 
 i_bs_get_utf16 xy f? t d
 
@@ -1303,6 +1303,8 @@ bs_utf16_size j Src Dst=d => i_bs_utf16_size Src Dst
 
 bs_put_utf8 Fail u Src => i_bs_put_utf8 Fail Src
 
+bs_put_utf16 Fail Flags Src => put_utf16(Fail, Flags, Src)
+
 bs_put_utf32 Fail=j Flags=u Src=s => \
    i_bs_validate_unicode Fail Src | bs_put_integer Fail i=32 u=1 Flags Src
 
@@ -1310,15 +1312,15 @@ i_bs_utf8_size S x
 i_bs_utf16_size S x
 
 i_bs_put_utf8 j? S
-bs_put_utf16 j? t S
+i_bs_put_utf16 j? t S
 
 i_bs_validate_unicode j? S
 
-# Handle unoptimized code.
+# Handle unoptimized code and the 'native' flag for utf16 segments.
 i_bs_utf8_size Src=c Dst => move Src x | i_bs_utf8_size x Dst
 i_bs_utf16_size Src=c Dst => move Src x | i_bs_utf16_size x Dst
 i_bs_put_utf8 Fail Src=c => move Src x | i_bs_put_utf8 Fail x
-bs_put_utf16 Fail Flags Src=c => move Src x | bs_put_utf16 Fail Flags x
+i_bs_put_utf16 Fail Flags Src=c => move Src x | i_bs_put_utf16 Fail Flags x
 i_bs_validate_unicode Fail Src=c => move Src x | i_bs_validate_unicode Fail x
 
 #
