@@ -1576,6 +1576,13 @@ line_numbers(Config) when is_list(Config) ->
               {?MODULE,test_tl,1,[{file,"list_bifs.erl"},{line,102}]}|_]}} =
         (catch test_tl(y)),
 
+    %% This line number is too large to be represented and will be silently
+    %% ignored by the emulator.
+    {'EXIT',{crash,
+             [{?MODULE,crash_huge_line,1,[]},
+              {?MODULE,line_numbers,1,_}|_]}} =
+        (catch crash_huge_line(gurka)),
+
     ok.
 
 id(I) -> I.
@@ -1698,3 +1705,8 @@ update_map(M0) ->                               %Line 2
 test_hd(X) -> foo(), hd(X).                     %Line 101
 test_tl(X) -> foo(), tl(X).                     %Line 102
 foo() -> id(100).
+
+-file("huge_lines.erl", 1600000000).            %Line 1600000000
+
+crash_huge_line(_) ->                           %Line 1600000002
+    erlang:error(crash).                        %Line 1600000003
