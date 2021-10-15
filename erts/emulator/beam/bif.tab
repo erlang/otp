@@ -665,7 +665,7 @@ bif erts_internal:purge_module/2
 bif binary:split/2
 bif binary:split/3
 bif erts_debug:size_shared/1
-bif erts_debug:copy_shared/1
+bif erts_debug:copy_shared/2
 bif erlang:has_prepared_code_on_load/1
 
 bif maps:take/2
