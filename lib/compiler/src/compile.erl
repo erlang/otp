@@ -49,9 +49,7 @@
 
 -type abstract_code() :: [erl_parse:abstract_form()].
 
-%% Internal representations used for 'from_asm' compilation can also be valid,
-%% but have no relevant types defined.
--type forms() :: abstract_code() | cerl:c_module().
+-type forms() :: abstract_code() | cerl:c_module() | beam_disasm:asm_form().
 
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
