@@ -65,10 +65,7 @@ void cleanup_algorithms_types(ErlNifEnv* env)
 ERL_NIF_TERM hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     unsigned int cnt  =
-#ifdef FIPS_SUPPORT
-        FIPS_mode() ? algo_hash_fips_cnt :
-#endif
-        algo_hash_cnt;
+        FIPS_MODE() ? algo_hash_fips_cnt : algo_hash_cnt;
 
     return enif_make_list_from_array(env, algo_hash, cnt);
 }
@@ -129,10 +126,7 @@ void init_hash_types(ErlNifEnv* env) {
 ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     unsigned int cnt  =
-#ifdef FIPS_SUPPORT
-        FIPS_mode() ? algo_pubkey_fips_cnt :
-#endif
-        algo_pubkey_cnt;
+        FIPS_MODE() ? algo_pubkey_fips_cnt : algo_pubkey_cnt;
 
     return enif_make_list_from_array(env, algo_pubkey, cnt);
 }
@@ -195,14 +189,12 @@ ERL_NIF_TERM mac_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    int fips_mode = 0;
-    int algo_curve_cnt = 0;
+    int fips_mode;
+    int algo_curve_cnt;
 
-# ifdef FIPS_SUPPORT
-    if (FIPS_mode()) fips_mode = 1;
-# endif
-
+    fips_mode = FIPS_MODE();
     algo_curve_cnt = get_curve_cnt(env, fips_mode);
+
     return enif_make_list_from_array(env, algo_curve[fips_mode], algo_curve_cnt);
 }
 
@@ -247,7 +239,7 @@ void init_curve_types(ErlNifEnv* env) {
        by calling get_curve_cnt
     */
 #ifdef FIPS_SUPPORT
-    if (FIPS_mode()) {
+    if (FIPS_MODE()) {
         // FIPS enabled
         get_curve_cnt(env, 1);
         FIPS_mode_set(0); // disable
@@ -695,10 +687,7 @@ int valid_curve(int nid) {
 ERL_NIF_TERM rsa_opts_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     unsigned int cnt  =
-#ifdef FIPS_SUPPORT
-        FIPS_mode() ? algo_rsa_opts_fips_cnt :
-#endif
-        algo_rsa_opts_cnt;
+        FIPS_MODE() ? algo_rsa_opts_fips_cnt : algo_rsa_opts_cnt;
 
     return enif_make_list_from_array(env, algo_rsa_opts, cnt);
 }

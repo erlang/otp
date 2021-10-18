@@ -39,10 +39,8 @@ struct digest_type_t {
 #define NO_FIPS_DIGEST 1
 
 #ifdef FIPS_SUPPORT
-/* May have FIPS support, must check dynamically if it is enabled */
-# define DIGEST_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_DIGEST) && FIPS_mode())
+# define DIGEST_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_DIGEST) && FIPS_MODE())
 #else
-/* No FIPS support since the symbol FIPS_SUPPORT is undefined */
 # define DIGEST_FORBIDDEN_IN_FIPS(P) 0
 #endif
 

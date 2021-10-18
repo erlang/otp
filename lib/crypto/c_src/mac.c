@@ -85,15 +85,11 @@ static struct mac_type_t mac_types[] =
     }
 };
 
-
 #ifdef FIPS_SUPPORT
-/* May have FIPS support, must check dynamically if it is enabled */
-# define MAC_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_MAC) && FIPS_mode())
+# define MAC_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_MAC) && FIPS_MODE())
 #else
-/* No FIPS support since the symbol FIPS_SUPPORT is undefined */
 # define MAC_FORBIDDEN_IN_FIPS(P) 0
 #endif
-
 
 /***************************
  Mandatory prototypes
