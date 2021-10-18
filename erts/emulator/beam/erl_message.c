@@ -1072,6 +1072,7 @@ void erts_factory_proc_init(ErtsHeapFactory* factory, Process* p)
     factory->mode     = FACTORY_HALLOC;
     factory->p        = p;
     factory->hp_start = HEAP_TOP(p);
+    factory->original_htop = factory->hp_start;
     factory->hp       = factory->hp_start;
     if (factory->hp)
         factory->hp_end   = HEAP_LIMIT(p);
@@ -1097,6 +1098,11 @@ void erts_factory_proc_prealloc_init(ErtsHeapFactory* factory,
     ErlHeapFragment *bp = p->mbuf;
     factory->mode     = FACTORY_HALLOC;
     factory->p        = p;
+    factory->original_htop = HEAP_TOP(p);
+    /*
+       factory->hp_start is a pointer to somewhere in the data area of
+       a heap fragment or to the main heap.
+    */
     factory->hp_start = HAlloc(p, size);
     factory->hp       = factory->hp_start;
     factory->hp_end   = factory->hp_start + size;
@@ -1163,6 +1169,12 @@ erts_factory_message_create(ErtsHeapFactory* factory,
 	ASSERT(ohp == &proc->off_heap);
 	factory->mode = FACTORY_HALLOC;
 	factory->p = proc;
+        /*
+          If on_heap is set then hp must be on the process main heap.
+         */
+        factory->original_htop = hp;
+        ASSERT(HEAP_START(proc) <= factory->original_htop);
+        ASSERT(factory->original_htop <= HEAP_LIMIT(proc));
 	factory->heap_frags_saved = proc->mbuf;
 	factory->heap_frags_saved_used = proc->mbuf ? proc->mbuf->used_size : 0;
     }
@@ -1495,10 +1507,10 @@ void erts_factory_undo(ErtsHeapFactory* factory)
             /* Rollback heap top
 	     */
 
-	    if (HEAP_START(factory->p) <= factory->hp_start
-		&& factory->hp_start <= HEAP_LIMIT(factory->p)) {
-		HEAP_TOP(factory->p) = factory->hp_start;
-	    }
+            ASSERT(HEAP_START(factory->p) <= factory->original_htop);
+            ASSERT(factory->original_htop <= HEAP_LIMIT(factory->p));
+            HEAP_TOP(factory->p) = factory->original_htop;
+
 
 	    /* Fix last heap frag */
             if (factory->heap_frags_saved) {

@@ -74,7 +74,27 @@ typedef struct {
         FACTORY_TMP
     } mode;
     Process* p;
+    /*
+       If the factory is initialized with erts_factory_proc_prealloc_init,
+       hp_start points to the top of the main heap if the preallocated data
+       fits in the main heap and otherwise it points to somewhere in the
+       data area of a heap fragment. If the factory is initialized with any
+       of the other init functions that sets the mode to FACTORY_HALLOC,
+       hp_start and original_htop always have the same value.
+
+       When erts_factory_proc_prealloc_init is used for initialization the
+       preallocated data might be allocated in an existing heap fragment but
+       data that is later allocated with erts_produce_heap might fit in the
+       main heap, so both hp_start and original_htop are needed to correctly
+       restore the heap in the erts_factory_undo function.
+    */
     Eterm* hp_start;
+    /*
+       original_htop stores the top of the main heap at the time
+       the factory was initialized and is used to reset the heap
+       state if an erts_factory_undo call is made.
+    */
+    Eterm* original_htop;
     Eterm* hp;
     Eterm* hp_end;
     ErtsMessage *message;
