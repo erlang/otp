@@ -49,12 +49,9 @@ struct cipher_type_t {
 #define CCM_MODE 64
 #define GCM_MODE 128
 
-
 #ifdef FIPS_SUPPORT
-/* May have FIPS support, must check dynamically if it is enabled */
-# define CIPHER_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_CIPHER) && FIPS_mode())
+# define CIPHER_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_CIPHER) && FIPS_MODE())
 #else
-/* No FIPS support since the symbol FIPS_SUPPORT is undefined */
 # define CIPHER_FORBIDDEN_IN_FIPS(P) 0
 #endif
 
@@ -63,6 +60,7 @@ struct evp_cipher_ctx {
     EVP_CIPHER_CTX* ctx;
     int iv_len;
     ERL_NIF_TERM padding; /* id of the padding to add by get_final_args() */
+    ErlNifBinary key_bin;
     int padded_size;   /* Length of the padding that was added */
     int encflag; /* 1 if encrypting, 0 if decrypting */
     unsigned int size; /* The sum of all sizes of input texts to get_update_args() */

@@ -44,12 +44,9 @@ ERL_NIF_TERM atom_none;
 ERL_NIF_TERM atom_notsup;
 ERL_NIF_TERM atom_badarg;
 ERL_NIF_TERM atom_digest;
-#ifdef FIPS_SUPPORT
 ERL_NIF_TERM atom_enabled;
 ERL_NIF_TERM atom_not_enabled;
-#else
 ERL_NIF_TERM atom_not_supported;
-#endif
 
 ERL_NIF_TERM atom_type;
 ERL_NIF_TERM atom_size;
@@ -230,12 +227,10 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_aes_ccm = enif_make_atom(env, "aes_ccm");
 #endif
 
-#ifdef FIPS_SUPPORT
     atom_enabled = enif_make_atom(env,"enabled");
     atom_not_enabled = enif_make_atom(env,"not_enabled");
-#else
     atom_not_supported = enif_make_atom(env,"not_supported");
-#endif
+
     atom_rsa = enif_make_atom(env,"rsa");
     atom_dss = enif_make_atom(env,"dss");
     atom_ecdsa = enif_make_atom(env,"ecdsa");

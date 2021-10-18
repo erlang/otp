@@ -30,7 +30,7 @@ ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     int dlen;
     ERL_NIF_TERM ret;
 
-    CHECK_NO_FIPS_MODE();
+    if (FIPS_MODE()) return atom_notsup;
 
     ASSERT(argc == 5);
 
@@ -122,7 +122,7 @@ ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     int dlen;
     ERL_NIF_TERM ret;
 
-    CHECK_NO_FIPS_MODE();
+    if (FIPS_MODE()) return atom_notsup;
 
     ASSERT(argc == 7);
 
@@ -232,7 +232,7 @@ ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     int dlen;
     ERL_NIF_TERM ret;
 
-    CHECK_NO_FIPS_MODE();
+    if (FIPS_MODE()) return atom_notsup;
 
     ASSERT(argc == 5);
 

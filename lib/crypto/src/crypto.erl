@@ -1560,13 +1560,14 @@ generate_key(rsa, {ModulusSize, PublicExponent}, undefined) ->
             {lists:sublist(Private, 2), Private}
     end;
 
+generate_key(ecdh, Curve, PrivKey) when Curve == x448 ;
+                                        Curve == x25519 ->
+    %% Legacy: This clause was here before the eddh was added as an own Type
+    generate_key(eddh, Curve, PrivKey);
 generate_key(eddh, Curve, PrivKey) when Curve == x448 ;
                                         Curve == x25519 ->
     evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey));
-generate_key(ecdh, Curve, PrivKey) when Curve == x448 ;
-                                        Curve == x25519 ->
-    %% This was here before the eddh was added as an own Type
-    evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey));
+
 generate_key(ecdh, Curve, PrivKey) ->
     ec_key_generate(nif_curve_params(Curve), ensure_int_as_bin(PrivKey));
 
@@ -1627,7 +1628,8 @@ compute_key(srp, UserPublic, {HostPublic, HostPrivate},
 
 compute_key(ecdh, Others, My, Curve) when Curve == x448 ;
                                           Curve == x25519 ->
-    evp_compute_key_nif(Curve, ensure_int_as_bin(Others), ensure_int_as_bin(My));
+    %% Legacy: This clause was here before the eddh was added as an own Type
+    compute_key(eddh, Others, My, Curve);
 
 compute_key(eddh, Others, My, Curve) when Curve == x448 ;
                                           Curve == x25519 ->

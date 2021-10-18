@@ -23,7 +23,7 @@
 ERL_NIF_TERM info_fips(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 #ifdef FIPS_SUPPORT
-    return FIPS_mode() ? atom_enabled : atom_not_enabled;
+    return FIPS_MODE() ? atom_enabled : atom_not_enabled;
 #else
     return atom_not_supported;
 #endif

@@ -49,15 +49,7 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/err.h>
-
-/* Helper macro to construct a OPENSSL_VERSION_NUMBER.
- * See openssl/opensslv.h
- */
-#define PACKED_OPENSSL_VERSION(MAJ, MIN, FIX, P)	\
-    ((((((((MAJ << 8) | MIN) << 8 ) | FIX) << 8) | (P-'a'+1)) << 4) | 0xf)
-
-#define PACKED_OPENSSL_VERSION_PLAIN(MAJ, MIN, FIX) \
-    PACKED_OPENSSL_VERSION(MAJ,MIN,FIX,('a'-1))
+#include "openssl_version.h"
 
 
 /* LibreSSL was cloned from OpenSSL 1.0.1g and claims to be API and BPI compatible
@@ -78,21 +70,9 @@
  *
  */
 
-#ifdef LIBRESSL_VERSION_NUMBER
-/* A macro to test on in this file */
-#define HAS_LIBRESSL
-#endif
-
 #ifdef HAS_LIBRESSL
 /* LibreSSL dislikes FIPS */
-# ifdef FIPS_SUPPORT
 #  undef FIPS_SUPPORT
-# endif
-
-/* LibreSSL has never supported the custom mem functions */
-#ifndef HAS_LIBRESSL
-#  define HAS_CRYPTO_MEM_FUNCTIONS
-#endif
 
 # if LIBRESSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(2,7,0)
 /* LibreSSL wants the 1.0.1 API */
@@ -101,6 +81,19 @@
 #endif
 
 
+/* LibreSSL has never supported the custom mem functions */
+#ifndef HAS_LIBRESSL
+/* Since f46401d46f9ed331ff2a09bb6a99376707083c96 this macro can NEVER have been enabled
+ * because its inside an #ifdef HAS_LIBRESSL
+ *
+ * If I enable HAS_CRYPTO_MEM_FUNCTIONS, there are two lab machines that fails:
+ *    SunOS mallor 5.11 illumos-2d990ab13b i86pc i386 i86pc  OpenSSL 1.0.2u  20 Dec 2019
+ *    SunOS fingon 5.11 11.4.0.15.0 i86pc i386 i86pc         OpenSSL 1.0.2o  27 Mar 2018
+ *
+ * Therefore I don't want to enable this until further investigated
+# define HAS_CRYPTO_MEM_FUNCTIONS
+ */
+#endif
 
 #if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 # define NEED_EVP_COMPATIBILITY_FUNCTIONS
@@ -160,9 +153,6 @@
     && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512)
 # define HAVE_SHA512
 #endif
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
-# define HAVE_DES_ede3_cfb_encrypt
-#endif
 
 // SHA3:
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)
@@ -188,12 +178,22 @@
 # define HAVE_BLAKE2
 #endif
 
-#ifndef OPENSSL_NO_BF
+#if !defined(OPENSSL_NO_BF) \
+    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
 # define HAVE_BF
 #endif
 
-#ifndef OPENSSL_NO_DES
+#if !defined(OPENSSL_NO_DES) \
+    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
 # define HAVE_DES
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
+# define HAVE_DES_ede3_cfb
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
+# define HAVE_DES_ede3_cbc
 #endif
 
 #ifndef OPENSSL_NO_DH
@@ -204,7 +204,8 @@
 # define HAVE_DSA
 #endif
 
-#ifndef OPENSSL_NO_MD4
+#if !defined(OPENSSL_NO_MD4) \
+    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
 # define HAVE_MD4
 #endif
 
@@ -212,16 +213,20 @@
 # define HAVE_MD5
 #endif
 
-#ifndef OPENSSL_NO_RC2
+#if !defined(OPENSSL_NO_RC2) \
+    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
 # define HAVE_RC2
 #endif
 
-#ifndef OPENSSL_NO_RC4
+#if !defined(OPENSSL_NO_RC4) \
+    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
 # define HAVE_RC4
 #endif
 
-#ifndef OPENSSL_NO_RMD160
-/* Note RMD160 vs RIPEMD160 */
+#if !defined(OPENSSL_NO_RMD160) && \
+    !defined(OPENSSL_NO_RIPEMD160) && \
+    !defined(OPENSSL_NO_RIPEMD) && \
+    OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
 # define HAVE_RIPEMD160
 #endif
 
@@ -243,6 +248,11 @@
 # if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1))
 #   define HAVE_EDDSA
 # endif
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'c') \
+    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+# define HAVE_AES_IGE
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,1)
@@ -428,11 +438,17 @@ do {                                                    \
 #endif
 
 
-#ifdef FIPS_SUPPORT
-/* In FIPS mode non-FIPS algorithms are disabled and return badarg. */
-#define CHECK_NO_FIPS_MODE() { if (FIPS_mode()) return atom_notsup; }
-#else
-#define CHECK_NO_FIPS_MODE()
+/* This is not the final FIPS adaptation for 3.0, just making it compilable */
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+# undef FIPS_SUPPORT
 #endif
+
+#if defined(FIPS_SUPPORT)
+# define FIPS_MODE() (FIPS_mode() ? 1 : 0)
+#else
+# define FIPS_MODE() 0
+#endif
+
+
 
 #endif /* E_OPENSSL_CONFIG_H__ */
