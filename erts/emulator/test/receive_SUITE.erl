@@ -28,7 +28,8 @@
 	 call_with_huge_message_queue/1,receive_in_between/1,
          receive_opt_exception/1,receive_opt_recursion/1,
          receive_opt_deferred_save/1,
-         erl_1199/1]).
+         erl_1199/1,
+         gh_5235_missing_save_reset/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -40,7 +41,8 @@ all() ->
      receive_opt_exception,
      receive_opt_recursion,
      receive_opt_deferred_save,
-     erl_1199].
+     erl_1199,
+     gh_5235_missing_save_reset].
 
 init_per_testcase(receive_opt_deferred_save, Config) ->
     case erlang:system_info(schedulers_online) of
@@ -396,9 +398,35 @@ erl_1199_flush_blipp() ->
 	    ok
     end.
 
+gh_5235_missing_save_reset(Config) when is_list(Config) ->
+    %%
+    %% Used to hang in the second receive due to save
+    %% pointer not being reset on bad timeout value...
+    %%
+    ct:timetrap({seconds, 10}),
+    id(self()) ! init,
+    try
+        receive blipp -> ok after blupp -> ok end
+    catch _:_ ->
+            ok
+    end,
+    receive init -> ok end,
+
+    %% Try with a timeout value not known in compile
+    %% time as well...
+    id(self()) ! init2,
+    try
+        receive blapp -> ok after id(blepp) -> ok end
+    catch _:_ ->
+            ok
+    end,
+    receive init2 -> ok end.
+
 %%%
 %%% Common helpers.
 %%%
+
+id(X) -> X.
 
 echo_loop() ->
     receive
