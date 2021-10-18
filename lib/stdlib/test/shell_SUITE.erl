@@ -3234,9 +3234,7 @@ filename(Name, Config) ->
     filename:join(proplists:get_value(priv_dir, Config), Name).
 
 start_node(Name, Xargs) ->
-    N = test_server:start_node(Name, slave, [{args, " " ++ Xargs}]),
-    global:sync(),
-    N.
+    test_server:start_node(Name, slave, [{args, " " ++ Xargs}]).
 
 purge_and_delete(Module) ->
     (catch code:purge(Module)),
