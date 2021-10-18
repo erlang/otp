@@ -1405,17 +1405,22 @@ process_info_aux(Process *c_p,
         if (res == am_running && (state & ERTS_PSFLG_RUNNING_SYS)) {
             ASSERT(c_p == rp);
             ASSERT(flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER);
-            if (!(state & (ERTS_PSFLG_SYS_TASKS
-                           | ERTS_PSFLG_ACTIVE
+            if (!(state & (ERTS_PSFLG_ACTIVE
                            | ERTS_PSFLG_SIG_Q
                            | ERTS_PSFLG_SIG_IN_Q))) {
-                /*
-                 * We are servicing a process-info request from
-                 * another process. If that other process could
-                 * have inspected our state itself, we would have
-                 * been in the 'waiting' state.
-                 */
-                res = am_waiting;
+                int sys_tasks = 0;
+                if (state & ERTS_PSFLG_SYS_TASKS)
+                    sys_tasks = erts_have_non_prio_elev_sys_tasks(rp,
+                                                                  rp_locks);
+                if (!sys_tasks) {
+                    /*
+                     * We are servicing a process-info request from
+                     * another process. If that other process could
+                     * have inspected our state itself, we would have
+                     * been in the 'waiting' state.
+                     */
+                    res = am_waiting;
+                }
             }
         }
 	break;

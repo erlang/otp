@@ -38,6 +38,7 @@
 	 exit_and_timeout/1, exit_twice/1,
 	 t_process_info/1, process_info_other/1, process_info_other_msg/1,
 	 process_info_other_dist_msg/1,
+         process_info_other_status/1,
 	 process_info_2_list/1, process_info_lock_reschedule/1,
 	 process_info_lock_reschedule2/1,
 	 process_info_lock_reschedule3/1,
@@ -80,7 +81,8 @@ all() ->
     [spawn_with_binaries, t_exit_1, {group, t_exit_2},
      trap_exit_badarg, trap_exit_badarg_in_bif,
      t_process_info, process_info_other, process_info_other_msg,
-     process_info_other_dist_msg, process_info_2_list,
+     process_info_other_dist_msg, process_info_other_status,
+     process_info_2_list,
      process_info_lock_reschedule,
      process_info_lock_reschedule2,
      process_info_lock_reschedule3,
@@ -662,7 +664,23 @@ process_info_other_dist_msg(Config) when is_list(Config) ->
     Pid ! stop,
     stop_node(Node),
     ok.
-    
+
+process_info_other_status(Config) when is_list(Config) ->
+    %% OTP-17628: status was erroneously reported as 'running',
+    %% when it should be 'waiting', when the priority of the
+    %% caller exceeded the priority of the processes being
+    %% checked (due to prio elevation).
+    Self = self(),
+    Other = spawn_link(fun () -> other_process(Self) end),
+    receive {go_ahead, Other} -> ok end,
+    receive after 100 -> ok end,
+    {status, waiting} = process_info(Other, status),
+    process_flag(priority, high),
+    {status, waiting} = process_info(Other, status),
+    process_flag(priority, max),
+    {status, waiting} = process_info(Other, status),
+    Other ! stop,
+    ok.
 
 other_process(Parent) ->
     self() ! {my,own,message},

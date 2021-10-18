@@ -6927,6 +6927,58 @@ erts_proc_sys_schedule(Process *p, erts_aint32_t state, erts_aint32_t enable_fla
     return active_sys_enqueue(p, NULL, 0, enable_flag, state, &fail_state);
 }
 
+int
+erts_have_non_prio_elev_sys_tasks(Process *c_p, ErtsProcLocks locks)
+{
+    ErtsProcSysTaskQs *qs;
+    int res = 0;
+
+    if (!(locks & ERTS_PROC_LOCK_STATUS))
+        erts_proc_lock(c_p, ERTS_PROC_LOCK_STATUS);
+    
+    qs = c_p->sys_task_qs;
+    if (qs) {
+        int qmask = qs->qmask;
+        ASSERT(qmask);
+        while (qmask) {
+            ErtsProcSysTask *st, *first_st;
+            switch (qmask & -qmask) {
+            case MAX_BIT:
+                qmask &= ~MAX_BIT;
+                st = first_st = qs->q[PRIORITY_MAX];
+                break;
+            case HIGH_BIT:
+                qmask &= ~HIGH_BIT;
+                st = first_st = qs->q[PRIORITY_HIGH];
+                break;
+            case NORMAL_BIT:
+            case LOW_BIT:
+                st = first_st = qs->q[PRIORITY_NORMAL];            
+                qmask &= ~(NORMAL_BIT|LOW_BIT);
+                break;
+            default:
+                st = first_st = NULL;
+                break;
+            }
+            ASSERT(st);
+            do {
+                if (st->type != ERTS_PSTT_PRIO_SIG) {
+                    res = !0;
+                    goto done;
+                }
+                st = st->next;
+            } while (st != first_st);
+        }
+    }
+
+done:
+    
+    if (!(locks & ERTS_PROC_LOCK_STATUS))
+        erts_proc_unlock(c_p, ERTS_PROC_LOCK_STATUS);
+
+    return res;
+}
+
 static int
 schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st,
 			  erts_aint32_t *fail_state_p)
