@@ -1980,8 +1980,46 @@ do_socknames_tcp1(Conf) ->
 
 
 socknames_udp(Config) when is_list(Config) ->
-    %%% ?TC_TRY(?FUNCTION_NAME, fun() -> do_socknames_udp(Config) end).
-    {skip, not_implemented_yet}.
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_socknames_udp0(Config) end).
+
+do_socknames_udp0(_Config) ->
+    %% Begin with a the plain old boring (= port) socket(s)
+    ?P("Test socknames for 'old' socket (=port)"),
+    do_socknames_udp1([]),
+
+    %% And *maybe* also check the 'new' shiny socket sockets
+    try socket:info() of
+        #{} ->
+            ?P("Test socknames for 'new' socket (=socket nif)"),
+            do_socknames_udp1([{inet_backend, socket}])
+    catch
+        error : notsup ->
+            ?P("Skip test of socknames for 'new' socket (=socket nif)"),
+            ok
+    end.
+
+
+do_socknames_udp1(Conf) ->
+    ?P("try create socket"),
+    {ok, S1} = gen_udp:open(0, Conf),
+    ?P("try get socknames for socket: "
+       "~n      ~p", [S1]),
+    case inet:socknames(S1) of
+        {ok, [_Addr1]} ->
+            ok;
+        {ok, Addrs1} ->
+            ?P("failed socknames: unexpected number of addresses"
+               "~n      ~p", [Addrs1]),
+            exit({unexpected_addrs_length, length(Addrs1)});
+        {error, Reason1} ->
+            ?P("failed socknames: error"
+               "~n      ~p", [Reason1]),
+            exit({skip, {listen_socket, Reason1}})
+    end,
+    ?P("close socket"),
+    (catch gen_udp:close(S1)),
+    ?P("done"),
+    ok.
 
 
 
