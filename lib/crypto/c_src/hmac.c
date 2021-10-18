@@ -28,10 +28,10 @@
  *
  ****************************************************************/
 
-#if !defined(HAS_EVP_PKEY_CTX) || DISABLE_EVP_HMAC
-
 #include "hmac.h"
 #include "digest.h"
+
+#if !defined(HAS_EVP_PKEY_CTX) || DISABLE_EVP_HMAC
 
 struct hmac_context
 {
