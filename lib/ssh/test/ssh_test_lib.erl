@@ -530,9 +530,8 @@ do_del_files(Dir, Files) ->
 openssh_sanity_check(Config) ->
     ssh:start(),
     case ssh:connect("localhost", 22, [{password,""},
-                                       {silently_accept_hosts, true},
-                                       {user_interaction, false}
-                                      ]) of
+                                       {save_accepted_host, false},
+                                       {silently_accept_hosts, true} ]) of
 	{ok, Pid} ->
 	    ssh:close(Pid),
 	    ssh:stop(),

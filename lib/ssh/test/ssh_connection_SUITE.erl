@@ -43,6 +43,7 @@
          big_cat/1,
          connect_sock_not_passive/1,
          connect_sock_not_tcp/1,
+         connect_timeout/1,
          daemon_sock_not_passive/1,
          daemon_sock_not_tcp/1,
          do_interrupted_send/3,
@@ -133,6 +134,7 @@ all() ->
      start_shell_sock_daemon_exec_multi,
      encode_decode_pty_opts,
      connect_sock_not_tcp,
+     connect_timeout,
      daemon_sock_not_tcp,
      gracefull_invalid_version,
      gracefull_invalid_start,
@@ -245,6 +247,15 @@ connect_sock_not_tcp(_Config) ->
     gen_udp:close(Sock).
 
 %%--------------------------------------------------------------------
+connect_timeout(_Config) ->
+    {ok,Sl} = gen_tcp:listen(0, []),
+    {ok, {_,Port}} = inet:sockname(Sl),
+    {error,timeout} = ssh:connect(loopback, Port, [{connect_timeout,2000},
+                                                   {save_accepted_host, false},
+                                                   {silently_accept_hosts, true}]),
+    gen_tcp:close(Sl).
+
+%%--------------------------------------------------------------------
 daemon_sock_not_tcp(_Config) ->
     {ok,Sock} = gen_udp:open(0, []), 
     {error, not_tcp_socket} = ssh:daemon(Sock),
@@ -253,7 +264,8 @@ daemon_sock_not_tcp(_Config) ->
 %%--------------------------------------------------------------------
 connect_sock_not_passive(_Config) ->
     {ok,Sock} = ssh_test_lib:gen_tcp_connect("localhost", ?SSH_DEFAULT_PORT, []), 
-    {error, not_passive_mode} = ssh:connect(Sock, []),
+    {error, not_passive_mode} = ssh:connect(Sock, [{save_accepted_host, false},
+                                                   {silently_accept_hosts, true}]),
     gen_tcp:close(Sock).
 
 %%--------------------------------------------------------------------
@@ -1321,7 +1333,7 @@ no_sensitive_leak(Config) ->
     %% Install the test handler:
     Hname = no_sensitive_leak,
     ok = ssh_log_h:add_fun(Hname,
-                           fun(#{msg := {report, R=#{report := Rep}}}, Pid) ->
+                           fun(#{msg := {report, #{report := Rep}}}, Pid) ->
                                    true = (erlang:process_info(Pid, status) =/= undefined), % remove handler if we are dead
                                    Pid ! {Ref,ssh_log_h:sensitive_in_opt(Rep),Rep};
                               (_,Pid) ->
@@ -1330,12 +1342,12 @@ no_sensitive_leak(Config) ->
                            end,
                            self()),
 
-    {Pid0, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+    {_Pid0, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					      {user_dir, UserDir},
 					      {password, "morot"},
 					      {exec, fun ssh_exec_echo/1}]),
 
-    ConnectionRef0 = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+    _ConnectionRef0 = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 						       {user, "foo"},
 						       {password, "morot"},
 						       {user_interaction, true},
