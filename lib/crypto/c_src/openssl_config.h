@@ -132,6 +132,13 @@
 # define DISABLE_EVP_HMAC 1
 #endif
 
+#ifdef HAS_3_0_API
+/* Do not use the deprecated interface */
+# undef  DISABLE_EVP_HMAC
+# define DISABLE_EVP_HMAC 0
+#endif
+
+
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
 #include <openssl/modes.h>
 #endif
