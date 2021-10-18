@@ -967,6 +967,8 @@ shutdown(#child{pid=Pid, shutdown=Time} = Child) ->
     end.
 
 unlink_flush(Pid, DefaultReason) ->
+    %% We call unlink in order to guarantee that the 'EXIT' has arrived
+    %% from the dead process. See the unlink docs for details.
     unlink(Pid),
     receive
         {'EXIT', Pid, Reason} ->
