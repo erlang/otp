@@ -24,6 +24,9 @@ static ErlDrvSSizeT echo_control(ErlDrvData drv_data,
                                  ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen);
 static void         echo_outputv(ErlDrvData drv_data, ErlIOVec *ev);
 static void         echo_drv_finish(void);
+static ErlDrvSSizeT echo_call(ErlDrvData drv_data, unsigned int command, char *buf,
+                              ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen,
+                              unsigned int *flags);
 
 static ErlDrvEntry echo_drv_entry = { 
     NULL, /* init */
@@ -39,9 +42,9 @@ static ErlDrvEntry echo_drv_entry = {
     NULL, /* timeout */
     echo_outputv, /* outputv */
     NULL, /* ready_async */
-    NULL,
-    NULL,
-    NULL,
+    NULL, /* flush */
+    echo_call,
+    NULL, /* unused */
     ERL_DRV_EXTENDED_MARKER,
     ERL_DRV_EXTENDED_MAJOR_VERSION,
     ERL_DRV_EXTENDED_MINOR_VERSION,
@@ -103,10 +106,23 @@ static ErlDrvSSizeT echo_control(ErlDrvData drv_data,
                                  unsigned int command, char *buf,
                                  ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen)
 {
+    *rbuf = NULL;
     return 0;
 }
 
 static void echo_outputv(ErlDrvData drv_data, ErlIOVec *ev)
 {
     return;
+}
+
+static ErlDrvSSizeT echo_call(ErlDrvData drv_data, unsigned int command, char *buf,
+                              ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen,
+                              unsigned int *flags)
+{
+    char *res_buf = driver_alloc(2);
+    /* Write NIL on external term format... */
+    res_buf[0] = 131;
+    res_buf[1] = 106;
+    *rbuf = res_buf;
+    return 2;
 }
