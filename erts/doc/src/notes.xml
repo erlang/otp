@@ -31,6 +31,96 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.7.2.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>On 32-bit computers, <c>binary_to_term/1,2</c> is now
+	    more resilient against corrupted binaries containing maps
+	    in the external format.</p>
+          <p>
+	    Own Id: OTP-17604</p>
+        </item>
+        <item>
+          <p>
+	    A call to <c>process_info(Pid, status)</c> could
+	    erroneously report the status <c>running</c> when it
+	    should have reported <c>waiting</c>. This occurred when
+	    the calling process was executing on a higher priority
+	    than the process being inspected. This bug has been
+	    present since OTP 21.0 (erts version 10.0).</p>
+          <p>
+	    Own Id: OTP-17628</p>
+        </item>
+        <item>
+          <p>
+	    A race between an exiting port and handling of
+	    simultaneously received signals to that port could cause
+	    a runtime system crash. The effected signals are
+	    <c>link</c>, <c>monitor</c> and <c>demonitor</c>. On OTP
+	    22 a similiar race could also cause a memory leak when
+	    receiving an <c>unlink</c> signal.</p>
+          <p>
+	    Own Id: OTP-17642 Aux Id: PR-5248 </p>
+        </item>
+        <item>
+          <p>
+	    The message queue of a process entered an inconsistent
+	    state after a <c>receive</c> expression with an invalid
+	    timeout value was executed. If the exception raised due
+	    to the invalid timeout value was caught, the following
+	    <c>receive</c> expression executed by the process could
+	    fail to match messages already present in the message
+	    queue.</p>
+          <p>
+	    On OTP 24 this could also cause the whole runtime system
+	    to crash.</p>
+          <p>
+	    Own Id: OTP-17651 Aux Id: GH-5235, PR-5244 </p>
+        </item>
+        <item>
+          <p>
+	    Sending a <c>Port ! {PortOwner, close}</c> signal from a
+	    process other than the port owner could erroneously
+	    trigger a <c>badsig</c> exit signal being sent to the
+	    port owner process even though the correct
+	    <c>PortOwner</c> had been passed in the signal.</p>
+          <p>
+	    Own Id: OTP-17665 Aux Id: PR-5248 </p>
+        </item>
+        <item>
+          <p>
+	    This fixes a bug in <c>erts_factory_undo</c> that caused
+	    the heap to not be reset correctly. The
+	    <c>erts_factory_undo</c> function is, for example, called
+	    when a <c>binary_to_term/1</c> call fails to reset the
+	    heap to its state before the <c>binary_to_term/1</c>
+	    call. This can cause the heap to contain invalid terms
+	    which potentially can cause issues (e.g., crashes) when
+	    the whole heap is scanned.</p>
+          <p>
+	    Own Id: OTP-17677</p>
+        </item>
+        <item>
+	    <p>Fix bug in <c>persistent_term</c> when a key-value
+	    pair contains a magic reference that is referred more
+	    than once. Magic references are NIF resources or returned
+	    from BIFs like <c>ets:new</c>, <c>atomics:new</c>. The
+	    bug could cause the memory of the referred resource to be
+	    prematurely deallocated.</p> <p>The bug also apply to
+	    magic references in message passing on a runtime built
+	    with configure option
+	    <c>--enable-sharing-preserving</c>.</p> <p>Bug exist for
+	    64-bit since OTP-24.0 and for 32-bit since OTP-20.0.</p>
+          <p>
+	    Own Id: OTP-17700 Aux Id: GH-5271, PR-5273 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
