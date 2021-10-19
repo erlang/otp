@@ -357,21 +357,21 @@
 
     <datatype_title>Other Datatypes</datatype_title>
     <datatype>
-      <name name="ext_binary"/>
+      <name name="ext_binary" prefix="true"/>
       <desc>
         <p>A binary data object, structured according to
           the Erlang external term format.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="ext_iovec"/>
+      <name name="ext_iovec" prefix="true"/>
       <desc>
         <p>A term of type <seetype marker="#iovec"><c>iovec()</c></seetype>,
 	structured according to the Erlang external term format.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="iovec"/>
+      <name name="iovec" prefix="true"/>
       <desc>
         <p>A list of binaries. This datatype is useful to use
           together with <seecref marker="erl_nif#enif_inspect_iovec">
@@ -379,27 +379,27 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="message_queue_data"></name>
+      <name name="message_queue_data" prefix="true"/>
       <desc>
         <p>See <seeerl marker="#process_flag_message_queue_data">
           <c>process_flag(message_queue_data, MQD)</c></seeerl>.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="monitor_option"></name>
+      <name name="monitor_option" prefix="true"/>
       <desc>
         <p>See <seemfa marker="#monitor/3"><c>monitor/3</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="timestamp"></name>
+      <name name="timestamp" prefix="true"/>
       <desc>
         <p>See <seemfa marker="#timestamp/0">
           <c>erlang:timestamp/0</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="time_unit"></name>
+      <name name="time_unit" prefix="true"/>
       <desc>
         <marker id="type_time_unit"/>
         <p>Supported time unit representations:</p>
@@ -486,7 +486,7 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="deprecated_time_unit"></name>
+      <name name="deprecated_time_unit" prefix="true"/>
       <desc><marker id="type_deprecated_time_unit"/>
 	<p>The <seeerl marker="#type_time_unit"><c>time_unit()</c></seeerl>
 	type also consist of the following <em>deprecated</em> symbolic
@@ -508,14 +508,14 @@
     </datatype>
 
     <datatype>
-      <name name="dist_handle"></name>
+      <name name="dist_handle" prefix="true"/>
       <desc>
         <p>An opaque handle identifing a distribution channel.</p>
       </desc>
     </datatype>
 
     <datatype>
-      <name name="nif_resource"></name>
+      <name name="nif_resource" prefix="true"/>
       <desc>
         <p>An opaque handle identifing a
 	<seecref marker="erl_nif#resource_objects">NIF resource object
@@ -523,13 +523,13 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="spawn_opt_option"></name>
+      <name name="spawn_opt_option" prefix="true"/>
       <desc>
         <p>Options for <seemfa marker="#spawn_opt/4"><c>spawn_opt()</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="priority_level"></name>
+      <name name="priority_level" prefix="true"/>
       <desc>
         <p>Process priority level. For more info see
         <seeerl marker="#process_flag_priority"><c>process_flag(priority,
@@ -537,7 +537,7 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="max_heap_size"></name>
+      <name name="max_heap_size" prefix="true"/>
       <desc>
         <p>Process max heap size configuration. For more info see
         <seeerl marker="#process_flag_max_heap_size"><c>process_flag(max_heap_size,
@@ -545,7 +545,7 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="message_queue_data"></name>
+      <name name="message_queue_data" prefix="true"/>
       <desc>
         <p>Process message queue data configuration. For more information, see
         <seeerl marker="#process_flag_message_queue_data"><c>process_flag(message_queue_data,
@@ -554,8 +554,8 @@
     </datatype>
 
     <datatype>
-      <name name="stacktrace"/>
-      <name name="stacktrace_extrainfo"/>
+      <name name="stacktrace" prefix="true"/>
+      <name name="stacktrace_extrainfo" prefix="true"/>
       <desc><p>An Erlang stacktrace as described by
       <seeguide marker="system/reference_manual:errors#stacktrace">Errors and Error Handling</seeguide>
       section in the Erlang Reference Manual.
