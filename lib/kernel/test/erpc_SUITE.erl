@@ -37,13 +37,21 @@
          timeout_limit/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--export([call_test/3]).
+-export([call_test/4]).
 
 -export([call_func1/1, call_func2/1, call_func4/4]).
 
 -export([f/0, f2/0]).
 
 -include_lib("common_test/include/ct.hrl").
+
+-ifndef(CT_PEER).
+-define(USE_PEER_FALLBACK, yes).
+-define(CT_PEER, start_node_fallback).
+-define(CT_STOP_PEER(Peer, Node), stop_node_fallback(Peer, Node)).
+-else.
+-define(CT_STOP_PEER(Peer, Node), peer:stop(Peer)).
+-endif.
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -92,36 +100,42 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 call(Config) when is_list(Config) ->
-    {ok, Node} = start_node(Config),
-    call_test(Node, true, false).
+    {ok, Peer, Node} = ?CT_PEER(),
+    call_test(Peer, Node, true, false).
 
 call_against_old_node(Config) when is_list(Config) ->
-    case start_old_node(Config) of
-        notsup ->
-            {skipped, "Not able to start old node"};
-        {ok, Node} ->
+    {OldRelName, OldRel} = old_release(),
+    case ?CT_PEER(#{connection => 0},
+                  OldRelName,
+                  proplists:get_value(priv_dir, Config)) of
+        not_available ->
+            {skipped, "Not able to start an OTP "++OldRel++" node"};
+        {ok, Peer, Node} ->
             compile_and_load_on_node(Node),
-            call_test(Node, false, false),
+            call_test(Peer, Node, false, false),
             ok
     end.
 
 call_from_old_node(Config) when is_list(Config) ->
-    case start_old_node(Config) of
-        notsup ->
-            {skipped, "Not able to start old node"};
-        {ok, Node} ->
+    {OldRelName, OldRel} = old_release(),
+    case ?CT_PEER(#{connection => 0},
+                  OldRelName,
+                  proplists:get_value(priv_dir, Config)) of
+        not_available ->
+            {skipped, "Not able to start an OTP "++OldRel++" node"};
+        {ok, Peer, Node} ->
             try
                 compile_and_load_on_node(Node),
-                ok = erpc:call(Node, ?MODULE, call_test, [node(), false, true])
+                ok = erpc:call(Node, ?MODULE, call_test, [undefined, node(), false, true])
             after
-                stop_node(Node)
+                ?CT_STOP_PEER(Peer, Node)
             end
     end.
 
-call_test(Node, NodesOfSameRelease, ToTestServer) ->
+call_test(Peer, Node, NodesOfSameRelease, ToTestServer) ->
     if NodesOfSameRelease ->
-            call_test(node(), 10000, NodesOfSameRelease, ToTestServer),
-            call_test(node(), infinity, NodesOfSameRelease, ToTestServer),
+            call_test(Peer, node(), 10000, NodesOfSameRelease, ToTestServer),
+            call_test(Peer, node(), infinity, NodesOfSameRelease, ToTestServer),
             try
                 erpc:call(node(), timer, sleep, [100], 10),
                 ct:fail(unexpected)
@@ -139,8 +153,8 @@ call_test(Node, NodesOfSameRelease, ToTestServer) ->
        true ->
             ok
     end,
-    call_test(Node, 10000, NodesOfSameRelease, ToTestServer),
-    call_test(Node, infinity, NodesOfSameRelease, ToTestServer),
+    call_test(Peer, Node, 10000, NodesOfSameRelease, ToTestServer),
+    call_test(Peer, Node, infinity, NodesOfSameRelease, ToTestServer),
     try
         erpc:call(Node, timer, sleep, [100], 10),
         ct:fail(unexpected)
@@ -200,9 +214,9 @@ call_test(Node, NodesOfSameRelease, ToTestServer) ->
     [] = flush([]),
     ok.
 
-call_test(Node, Timeout, NodesOfSameRelease, ToTestServer) ->
-    io:format("call_test(~p, ~p, ~p, ~p)~n",
-              [Node, Timeout, NodesOfSameRelease, ToTestServer]),
+call_test(Peer, Node, Timeout, NodesOfSameRelease, ToTestServer) ->
+    io:format("call_test(~p, ~p, ~p, ~p, ~p)~n",
+              [Peer, Node, Timeout, NodesOfSameRelease, ToTestServer]),
     Node = erpc:call(Node, erlang, node, [], Timeout),
     try
         erpc:call(Node, erlang, error, [oops|invalid], Timeout),
@@ -379,8 +393,7 @@ call_against_ei_node(Config) when is_list(Config) ->
         {ok, Node} ->
             %% Once when erpc:call() brings up the connection
             %% and once when the connection is up...
-            erlang:disconnect_node(Node),
-            false = lists:member(Node, nodes(hidden)),
+            disconnect(Node),
             try
                 erpc:call(Node, erlang, node, []),
                 ct:fail(unexpected)
@@ -410,9 +423,9 @@ call_reqtmo(Config) when is_list(Config) ->
                       error:{erpc, timeout} -> ok
                   end
           end,
-    reqtmo_test(Config, Fun).
+    reqtmo_test(Fun).
 
-reqtmo_test(Config, Test) ->
+reqtmo_test(Test) ->
     %% Tests that we time out in time also when the request itself
     %% does not get through. A typical issue we have had
     %% in the past, is that the timeout has not triggered until
@@ -422,7 +435,7 @@ reqtmo_test(Config, Test) ->
     WaitBlock = 100,
     BlockTime = 1000,
 
-    {ok, Node} = start_node(Config),
+    {ok, Peer, Node} = ?CT_PEER(),
 
     erpc:call(Node, erts_debug, set_internal_state, [available_internal_state,
                                                      true]),
@@ -448,7 +461,7 @@ reqtmo_test(Config, Test) ->
     after 0 -> ok
     end,
     
-    stop_node(Node),
+    ?CT_STOP_PEER(Peer, Node),
     
     {comment,
      "Timeout = " ++ integer_to_list(Timeout)
@@ -495,7 +508,7 @@ cast(Config) when is_list(Config) ->
     receive
         {a_fun, Ok1} -> ok
     end,
-    {ok, Node} = start_node(Config),
+    {ok, _Peer, Node} = ?CT_PEER(),
     Ok2 = make_ref(),
     ok = erpc:cast(Node, erlang, send, [Me, {mfa, Ok2}]),
     receive
@@ -516,10 +529,13 @@ cast(Config) when is_list(Config) ->
     receive after 1000 -> ok end,
     [] = flush([]),
 
-    OldTested = case start_old_node(Config) of
-                    notsup ->
+    {OldRelName, OldRel} = old_release(),
+    OldTested = case ?CT_PEER(#{connection => 0},
+                              OldRelName,
+                              proplists:get_value(priv_dir, Config)) of
+                    not_available ->
                         false;
-                    {ok, OldNode} ->
+                    {ok, _OldPeer, OldNode} ->
                         Ok3 = make_ref(),
                         ok = erpc:cast(OldNode, erlang, send, [Me, {mfa, Ok3}]),
                         receive
@@ -541,8 +557,7 @@ cast(Config) when is_list(Config) ->
                    {ok, EiNode} ->
                        %% Both when erpc:cast() brings up the connection
                        %% and when the connection is up...
-                       erlang:disconnect_node(EiNode),
-                       false = lists:member(EiNode, nodes(hidden)),
+                       disconnect(EiNode),
 
                        ok = erpc:cast(EiNode, erlang, send, [Me, wont_reach_me]),
                        ok = erpc:cast(EiNode, fun () -> Me ! wont_reach_me end),
@@ -563,22 +578,20 @@ cast(Config) when is_list(Config) ->
 
     case {OldTested, EiTested} of
         {false, false} ->
-            {comment, "Not tested against old node nor ei node"};
+            {comment, "Not tested against OTP "++OldRel++" node nor ei node"};
         {true, false} ->
-            {comment, "Also tested against old node, but not ei node"};
+            {comment, "Also tested against OTP "++OldRel++" node, but not ei node"};
         {false, true} ->
-            {comment, "Also tested against ei node, but not old node"};
+            {comment, "Also tested against ei node, but not OTP "++OldRel++" node"};
         {true, true} ->
-            {comment, "Also tested against old node as well as ei node"}
+            {comment, "Also tested against OTP "++OldRel++" node as well as ei node"}
     end.
 
 send_request(Config) when is_list(Config) ->
     %% Note: First part of nodename sets response delay in seconds.
-    PA = filename:dirname(code:which(?MODULE)),
-    NodeArgs = [{args,"-pa "++ PA}],
-    {ok,Node1} = test_server:start_node('1_erpc_SUITE_call', slave, NodeArgs),
-    {ok,Node2} = test_server:start_node('10_erpc_SUITE_call', slave, NodeArgs),
-    {ok,Node3} = test_server:start_node('20_erpc_SUITE_call', slave, NodeArgs),
+    {ok, _Peer1, Node1} = ?CT_PEER(["-erpc_test_delay", "1"]),
+    {ok, _Peer2, Node2} = ?CT_PEER(["-erpc_test_delay", "10"]),
+    {ok, _Peer3, Node3} = ?CT_PEER(["-erpc_test_delay", "20"]),
     ReqId1 = erpc:send_request(Node1, ?MODULE, f, []),
     ReqId2 = erpc:send_request(Node2, ?MODULE, f, []),
     ReqId3 = erpc:send_request(Node3, ?MODULE, f, []),
@@ -623,13 +636,9 @@ send_request(Config) when is_list(Config) ->
     after 0 -> ok
     end,
 
-    stop_node(Node1),
-    stop_node(Node2),
-    stop_node(Node3),
-
     [] = flush([]),
 
-    {ok, Node4} = start_node(Config),
+    {ok, _Peer4, Node4} = ?CT_PEER(),
 
     ReqId6 = erpc:send_request(Node4, erlang, node, []),
     
@@ -662,10 +671,13 @@ send_request(Config) when is_list(Config) ->
 
     [] = flush([]),
 
-    OldTested = case start_old_node(Config) of
-                    notsup ->
+    {OldRelName, OldRel} = old_release(),
+    OldTested = case ?CT_PEER(#{connection => 0},
+                              OldRelName,
+                              proplists:get_value(priv_dir, Config)) of
+                    not_available ->
                         false;
-                    {ok, OldNode} ->
+                    {ok, _OldPeer, OldNode} ->
 
                         ReqId9 = erpc:send_request(OldNode, erlang, node, []),
     
@@ -713,8 +725,7 @@ send_request(Config) when is_list(Config) ->
                    {ok, Node5} ->
                        %% Once when erpc:send_request() brings up the connection
                        %% and once when the connection is up...
-                       erlang:disconnect_node(Node5),
-                       false = lists:member(Node5, nodes(hidden)),
+                       disconnect(Node5),
                        ReqId14 = erpc:send_request(Node5, erlang, node, []),
                        try
                            erpc:receive_response(ReqId14),
@@ -740,22 +751,20 @@ send_request(Config) when is_list(Config) ->
 
     case {OldTested, EiTested} of
         {false, false} ->
-            {comment, "Not tested against old node nor ei node"};
+            {comment, "Not tested against OTP "++OldRel++" node nor ei node"};
         {true, false} ->
-            {comment, "Also tested against old node, but not ei node"};
+            {comment, "Also tested against OTP "++OldRel++" node, but not ei node"};
         {false, true} ->
-            {comment, "Also tested against ei node, but not old node"};
+            {comment, "Also tested against ei node, but not OTP "++OldRel++" node"};
         {true, true} ->
-            {comment, "Also tested against old node as well as ei node"}
+            {comment, "Also tested against OTP "++OldRel++" node as well as ei node"}
     end.
 
 send_request_fun(Config) when is_list(Config) ->
     %% Note: First part of nodename sets response delay in seconds.
-    PA = filename:dirname(code:which(?MODULE)),
-    NodeArgs = [{args,"-pa "++ PA}],
-    {ok,Node1} = test_server:start_node('1_erpc_SUITE_call', slave, NodeArgs),
-    {ok,Node2} = test_server:start_node('10_erpc_SUITE_call', slave, NodeArgs),
-    {ok,Node3} = test_server:start_node('20_erpc_SUITE_call', slave, NodeArgs),
+    {ok, _Peer1, Node1} = ?CT_PEER(["-erpc_test_delay", "1"]),
+    {ok, _Peer2, Node2} = ?CT_PEER(["-erpc_test_delay", "10"]),
+    {ok, _Peer3, Node3} = ?CT_PEER(["-erpc_test_delay", "20"]),
     ReqId1 = erpc:send_request(Node1, fun () -> ?MODULE:f() end),
     ReqId2 = erpc:send_request(Node2, fun () -> ?MODULE:f() end),
     ReqId3 = erpc:send_request(Node3, fun () -> ?MODULE:f() end),
@@ -801,11 +810,7 @@ send_request_fun(Config) when is_list(Config) ->
     after 0 -> ok
     end,
 
-    stop_node(Node1),
-    stop_node(Node2),
-    stop_node(Node3),
-
-    {ok, Node4} = start_node(Config),
+    {ok, _Peer4, Node4} = ?CT_PEER(),
 
     ReqId6 = erpc:send_request(Node4, fun () -> erlang:node() end),
     
@@ -844,8 +849,7 @@ send_request_fun(Config) when is_list(Config) ->
         {ok, Node5} ->
             %% Once when erpc:send_request() brings up the connection
             %% and once when the connection is up...
-            erlang:disconnect_node(Node5),
-            false = lists:member(Node5, nodes(hidden)),
+            disconnect(Node5),
             ReqId9 = erpc:send_request(Node5, fun () -> erlang:node() end),
             try
                 erpc:receive_response(ReqId9),
@@ -881,7 +885,7 @@ send_request_receive_reqtmo(Config) when is_list(Config) ->
                       error:{erpc, timeout} -> ok
                   end
           end,
-    reqtmo_test(Config, Fun).
+    reqtmo_test(Fun).
 
 send_request_wait_reqtmo(Config) when is_list(Config) ->
     Fun = fun (Node, SendMe, Timeout) ->
@@ -897,7 +901,7 @@ send_request_wait_reqtmo(Config) when is_list(Config) ->
                       error:{erpc, timeout} -> ok
                   end
           end,
-    reqtmo_test(Config, Fun).
+    reqtmo_test(Fun).
 
 send_request_check_reqtmo(Config) when is_list(Config) ->
     Fun = fun (Node, SendMe, Timeout) ->
@@ -914,7 +918,7 @@ send_request_check_reqtmo(Config) when is_list(Config) ->
                       error:{erpc, timeout} -> ok
                   end
           end,
-    reqtmo_test(Config, Fun).
+    reqtmo_test(Fun).
 
 send_request_against_ei_node(Config) when is_list(Config) ->
     case start_ei_node(Config) of
@@ -923,8 +927,7 @@ send_request_against_ei_node(Config) when is_list(Config) ->
         {ok, EiNode} ->
             %% Once when erpc:send_request() brings up the connection
             %% and once when the connection is up...
-            erlang:disconnect_node(EiNode),
-            false = lists:member(EiNode, nodes(hidden)),
+            disconnect(EiNode),
             RID1 = erpc:send_request(EiNode, erlang, node, []),
             RID2 = erpc:send_request(EiNode, erlang, node, []),
             RID3 = erpc:send_request(EiNode, erlang, node, []),
@@ -988,30 +991,33 @@ send_request_against_ei_node(Config) when is_list(Config) ->
     end.
 
 multicall(Config) ->
-    {ok, Node1} = start_node(Config),
-    {ok, Node2} = start_node(Config),
+    {ok, _Peer1, Node1} = ?CT_PEER(),
+    {ok, Peer2, Node2} = ?CT_PEER(),
     {Node3, Node3Res} = case start_ei_node(Config) of
                             {ok, N3} ->
                                 %% Once when erpc:multicall() brings up
                                 %% the connection...
-                                erlang:disconnect_node(N3),
-                                false = lists:member(N3, nodes(hidden)),
+                                disconnect(N3),
                                 {N3, {error, {erpc, notsup}}};
                             {error, notsup} ->
-                                {ok, N3} = start_node(Config),
-                                stop_node(N3),
+                                {ok, Peer3, N3} = ?CT_PEER(),
+                                ?CT_STOP_PEER(Peer3, N3),
                                 {N3, {error, {erpc, noconnection}}}
                         end,
-    {ok, Node4} = start_node(Config),
-    {ok, Node5} = start_node(Config),
-    {OldTested, {ok, Node6}} = case start_old_node(Config) of
-                                   notsup ->
-                                       {false, start_node(Config)};
-                                   {ok, OldNode} = OldNodeRes ->
-                                       compile_and_load_on_node(OldNode),
-                                       {true, OldNodeRes}
-                               end,
-    stop_node(Node2),
+    {ok, _Peer4, Node4} = ?CT_PEER(),
+    {ok, _Peer5, Node5} = ?CT_PEER(),
+    {OldRelName, OldRel} = old_release(),
+    {OldTested, {ok, _Peer6, Node6}}
+        = case ?CT_PEER(#{connection => 0},
+                        OldRelName,
+                        proplists:get_value(priv_dir, Config)) of
+              not_available ->
+                  {false, ?CT_PEER()};
+              {ok, _OldPeer, OldNode} = OldNodeRes ->
+                  compile_and_load_on_node(OldNode),
+                  {true, OldNodeRes}
+          end,
+    ?CT_STOP_PEER(Peer2, Node2),
     
     ThisNode = node(),
     Nodes = [ThisNode, Node1, Node2, Node3, Node4, Node5],
@@ -1338,18 +1344,18 @@ multicall(Config) ->
                end,
     case {OldTested, EiTested} of
         {false, false} ->
-            {comment, "Not tested against old node nor ei node"};
+            {comment, "Not tested against OTP "++OldRel++" node nor ei node"};
         {true, false} ->
-            {comment, "Also tested against old node, but not ei node"};
+            {comment, "Also tested against OTP "++OldRel++" node, but not ei node"};
         {false, true} ->
-            {comment, "Also tested against ei node, but not old node"};
+            {comment, "Also tested against ei node, but not OTP "++OldRel++" node"};
         {true, true} ->
-            {comment, "Also tested against old node as well as ei node"}
+            {comment, "Also tested against OTP "++OldRel++" node as well as ei node"}
     end.
 
 multicall_reqtmo(Config) when is_list(Config) ->
-    {ok, QuickNode1} = start_node(Config),
-    {ok, QuickNode2} = start_node(Config),
+    {ok, Peer1, QuickNode1} = ?CT_PEER(),
+    {ok, Peer2, QuickNode2} = ?CT_PEER(),
     Fun = fun (Node, SendMe, Timeout) ->
                   Me = self(),
                   SlowSend = fun () ->
@@ -1365,17 +1371,17 @@ multicall_reqtmo(Config) when is_list(Config) ->
                                         erlang, apply, [SlowSend, []],
                                         Timeout)
           end,
-    Res = reqtmo_test(Config, Fun),
-    stop_node(QuickNode1),
-    stop_node(QuickNode2),
+    Res = reqtmo_test(Fun),
+    ?CT_STOP_PEER(Peer1, QuickNode1),
+    ?CT_STOP_PEER(Peer2, QuickNode2),
     Res.
 
 multicall_recv_opt(Config) when is_list(Config) ->
     Loops = 1000,
     HugeMsgQ = 500000,
     process_flag(message_queue_data, off_heap),
-    {ok, Node1} = start_node(Config),
-    {ok, Node2} = start_node(Config),
+    {ok, Peer1, Node1} = ?CT_PEER(),
+    {ok, Peer2, Node2} = ?CT_PEER(),
     ExpRes = [{ok, node()}, {ok, Node1}, {ok, Node2}],
     Nodes = [node(), Node1, Node2],
     Fun = fun () -> erlang:node() end,
@@ -1387,8 +1393,8 @@ multicall_recv_opt(Config) when is_list(Config) ->
     Huge = time_multicall(ExpRes, Nodes, Fun, infinity, Loops),
     io:format("Time with huge message queue: ~p microsecond~n",
 	      [erlang:convert_time_unit(Huge, native, microsecond)]),
-    stop_node(Node1),
-    stop_node(Node2),
+    ?CT_STOP_PEER(Peer1, Node1),
+    ?CT_STOP_PEER(Peer2, Node2),
     Q = Huge / Empty,
     HugeMsgQ = flush_msgq(),
     case Q > 10 of
@@ -1402,9 +1408,9 @@ multicall_recv_opt2(Config) when is_list(Config) ->
     Loops = 1000,
     HugeMsgQ = 500000,
     process_flag(message_queue_data, off_heap),
-    {ok, Node1} = start_node(Config),
-    stop_node(Node1),
-    {ok, Node2} = start_node(Config),
+    {ok, Peer1, Node1} = ?CT_PEER(),
+    ?CT_STOP_PEER(Peer1, Node1),
+    {ok, Peer2, Node2} = ?CT_PEER(),
     ExpRes = [{ok, node()}, {error, {erpc, noconnection}}, {ok, Node2}],
     Nodes = [node(), Node1, Node2],
     Fun = fun () -> erlang:node() end,
@@ -1416,7 +1422,7 @@ multicall_recv_opt2(Config) when is_list(Config) ->
     Huge = time_multicall(ExpRes, Nodes, Fun, infinity, Loops),
     io:format("Time with huge message queue: ~p microsecond~n",
 	      [erlang:convert_time_unit(Huge, native, microsecond)]),
-    stop_node(Node2),
+    ?CT_STOP_PEER(Peer2, Node2),
     Q = Huge / Empty,
     HugeMsgQ = flush_msgq(),
     case Q > 10 of
@@ -1430,9 +1436,9 @@ multicall_recv_opt3(Config) when is_list(Config) ->
     Loops = 1000,
     HugeMsgQ = 500000,
     process_flag(message_queue_data, off_heap),
-    {ok, Node1} = start_node(Config),
-    stop_node(Node1),
-    {ok, Node2} = start_node(Config),
+    {ok, Peer1, Node1} = ?CT_PEER(),
+    ?CT_STOP_PEER(Peer1, Node1),
+    {ok, Peer2, Node2} = ?CT_PEER(),
     Nodes = [node(), Node1, Node2],
     Fun = fun () -> erlang:node() end,
     _Warmup = time_multicall(undefined, Nodes, Fun, infinity, Loops div 10),
@@ -1443,7 +1449,7 @@ multicall_recv_opt3(Config) when is_list(Config) ->
     Huge = time_multicall(undefined, Nodes, Fun, 0, Loops),
     io:format("Time with huge message queue: ~p microsecond~n",
 	      [erlang:convert_time_unit(Huge, native, microsecond)]),
-    stop_node(Node2),
+    ?CT_STOP_PEER(Peer2, Node2),
     Q = Huge / Empty,
     HugeMsgQ = flush_msgq(),
     case Q > 10 of
@@ -1468,13 +1474,17 @@ do_time_multicall(Expect, Nodes, Fun, Tmo, N) ->
     do_time_multicall(Expect, Nodes, Fun, Tmo, N-1).
 
 multicast(Config) when is_list(Config) ->
-    {ok, Node} = start_node(Config),
-    {OldTested, {ok, OldNode}} = case start_old_node(Config) of
-                                     notsup ->
-                                         {false, start_node(Config)};
-                                     {ok, _} = OldNodeRes ->
-                                         {true, OldNodeRes}
-                                 end,
+    {ok, _Peer, Node} = ?CT_PEER(),
+    {OldRelName, OldRel} = old_release(),
+    {OldTested, {ok, _OldPeer, OldNode}}
+        = case ?CT_PEER(#{connection => 0},
+                        OldRelName,
+                        proplists:get_value(priv_dir, Config)) of
+              not_available ->
+                  {false, ?CT_PEER()};
+              {ok, _, _} = OldNodeRes ->
+                  {true, OldNodeRes}
+          end,
     Nodes = [node(), Node],
     try
         erpc:multicast(Nodes++[OldNode], erlang, send, hej),
@@ -1551,8 +1561,7 @@ multicast(Config) when is_list(Config) ->
                    {ok, EiNode} ->
                        %% Once when erpc:multicast() brings up the connection
                        %% and once when the connection is up...
-                       erlang:disconnect_node(EiNode),
-                       false = lists:member(EiNode, nodes(hidden)),
+                       disconnect(EiNode),
 
                        ok = erpc:multicast([EiNode], erlang, send, [Me, wont_reach_me]),
                        ok = erpc:multicast([EiNode], fun () -> Me ! wont_reach_me end),
@@ -1573,13 +1582,13 @@ multicast(Config) when is_list(Config) ->
 
     case {OldTested, EiTested} of
         {false, false} ->
-            {comment, "Not tested against old node nor ei node"};
+            {comment, "Not tested against OTP "++OldRel++" node nor ei node"};
         {true, false} ->
-            {comment, "Also tested against old node, but not ei node"};
+            {comment, "Also tested against OTP "++OldRel++" node, but not ei node"};
         {false, true} ->
-            {comment, "Also tested against ei node, but not old node"};
+            {comment, "Also tested against ei node, but not OTP "++OldRel++" node"};
         {true, true} ->
-            {comment, "Also tested against old node as well as ei node"}
+            {comment, "Also tested against OTP "++OldRel++" node as well as ei node"}
     end.
 
 
@@ -1653,36 +1662,9 @@ wait_until(Fun) ->
             wait_until(Fun)
     end.
 
-start_node(Config) ->
-    Name = list_to_atom(atom_to_list(?MODULE)
-			++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
-			++ "-" ++ integer_to_list(erlang:system_time(second))
-			++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
-    Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).
-
 old_release() ->
-    integer_to_list(list_to_integer(erlang:system_info(otp_release))-2).
-
-is_old_release_avaliable() ->
-    test_server:is_release_available(old_release() ++ "_latest").
-
-start_old_node(Config) ->
-    Rel = old_release() ++ "_latest",
-    case test_server:is_release_available(Rel) of
-	false ->
-            notsup;
-        true ->
-            Cookie = atom_to_list(erlang:get_cookie()),
-            Name = list_to_atom(atom_to_list(?MODULE)
-                                ++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
-                                ++ "-" ++ integer_to_list(erlang:system_time(second))
-                                ++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
-	    test_server:start_node(Name,
-                                   peer,
-                                   [{args, " -setcookie "++Cookie},
-                                    {erl, [{release, Rel}]}])
-    end.
+    OldRel = integer_to_list(list_to_integer(erlang:system_info(otp_release))-2),
+    {OldRel++"_latest", OldRel}.
 
 compile_and_load_on_node(Node) ->
     %% Recompile erpc_SUITE on the old node and load it...
@@ -1803,9 +1785,6 @@ get_hostname([$@ | HostName]) ->
 get_hostname([_ | Rest]) ->
     get_hostname(Rest).
 
-stop_node(Node) ->
-    test_server:stop_node(Node).
-
 flush(L) ->
     receive
 	M ->
@@ -1814,9 +1793,24 @@ flush(L) ->
 	    L
     end.
 
+disconnect(Node) ->
+    case lists:member(Node, nodes([visible, hidden])) of
+        false ->
+            ok;
+        true ->
+            monitor_node(Node, true),
+            true = erlang:disconnect_node(Node),
+            receive {nodedown, Node} -> ok end,
+            false = lists:member(Node, nodes([visible, hidden])),                
+            ok
+    end.
+
 t() ->
-    [N | _] = string:tokens(atom_to_list(node()), "_"),
-    1000*list_to_integer(N).
+    Delay = case init:get_argument(erpc_test_delay) of
+                {ok,[[D]]} -> list_to_integer(D);
+                _ -> 0
+            end,
+    1000*Delay.
 
 f() ->
     timer:sleep(T=t()),
@@ -1846,3 +1840,74 @@ fetch_all_messages(Msgs) ->
             Msgs
     end.
 
+-ifdef(USE_PEER_FALLBACK).
+
+make_nodename() ->
+    list_to_atom(atom_to_list(?MODULE)
+                 ++ "-"
+                 ++ integer_to_list(erlang:system_time(second))
+                 ++ "-"
+                 ++ integer_to_list(erlang:unique_integer([positive]))).
+
+make_args(slave, ArgsList) when is_list(ArgsList) ->
+    {args, lists:join(" ", ["-pa", filename:dirname(code:which(?MODULE)) | ArgsList])};
+make_args(Type, OptMap) when is_map(OptMap) ->
+    ArgsList0 = maps:get(args, OptMap, []),
+    ArgsList1 = ["-pa", filename:dirname(code:which(?MODULE)) | ArgsList0],
+    ArgsList2 = case maps:get(env, OptMap, undefined) of
+                    undefined ->
+                        ArgsList1;
+                    Env ->
+                        lists:foldl(fun ({Var, Val}, Acc) ->
+                                            ["-env", Var, "\""++Val++"\"" | Acc]
+                                    end,
+                                    [],
+                                    Env)
+                end,
+    ArgsList3 = case Type of
+                    slave ->
+                        ArgsList2;
+                    peer ->
+                        ["-setcookie", atom_to_list(erlang:get_cookie()) | ArgsList2]
+                end,
+    {args, lists:join(" ", ArgsList3)}.
+    
+test_server_start_node(Name, Type, OptList) ->
+    case test_server:start_node(Name, Type, OptList) of
+        {ok, Node} ->
+            {ok, fake_peer, Node};
+        Error ->
+            Error
+    end.
+
+start_node_fallback() ->
+    start_node_fallback([]).
+
+start_node_fallback(ArgsList) when is_list(ArgsList) ->
+    test_server_start_node(make_nodename(),
+                           slave,
+                           [make_args(slave, ArgsList)]);
+start_node_fallback(OptMap) when is_map(OptMap) ->
+    Type = case maps:get(connection, OptMap, undefined) of
+               undefined -> slave;
+               _ -> peer
+           end,
+    test_server_start_node(make_nodename(),
+                           Type,
+                           [make_args(Type, OptMap)]).
+
+start_node_fallback(OptMap, Rel, _Dir) when is_map(OptMap) ->
+    case test_server:is_release_available(Rel) of
+        false ->
+            not_available;
+        true ->
+            test_server_start_node(make_nodename(),
+                                   peer,
+                                   [make_args(peer, OptMap),
+                                    {erl, [{release, Rel}]}])
+    end.
+
+stop_node_fallback(fake_peer, Node) ->
+    test_server:stop_node(Node).
+
+-endif.
