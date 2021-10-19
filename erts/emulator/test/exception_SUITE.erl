@@ -1706,7 +1706,7 @@ test_hd(X) -> foo(), hd(X).                     %Line 101
 test_tl(X) -> foo(), tl(X).                     %Line 102
 foo() -> id(100).
 
--file("huge_lines.erl", 1600000000).            %Line 1600000000
+-file("huge_lines.erl", 100000000).             %Line 100000000
 
-crash_huge_line(_) ->                           %Line 1600000002
-    erlang:error(crash).                        %Line 1600000003
+crash_huge_line(_) ->                           %Line 100000002
+    erlang:error(crash).                        %Line 100000003
