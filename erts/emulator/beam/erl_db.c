@@ -2311,17 +2311,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 		    keypos = signed_val(tp[2]);
 		}
 		else if (tp[1] == am_write_concurrency) {
-                    Sint number_of_locks_param;
-                    if (is_integer(tp[2]) &&
-                        term_to_Sint(tp[2], &number_of_locks_param) &&
-                        number_of_locks_param >= DB_WRITE_CONCURRENCY_MIN_LOCKS &&
-                        number_of_locks_param <= DB_WRITE_CONCURRENCY_MAX_LOCKS) {
-                        is_decentralized_counters = 1;
-                        is_fine_locked = 1;
-                        is_explicit_lock_granularity = 1;
-                        is_write_concurrency_auto = 0;
-                        number_of_locks = number_of_locks_param;
-                    } else if (tp[2] == am_auto) {
+                    if (tp[2] == am_auto) {
                         is_decentralized_counters = 1;
                         is_write_concurrency_auto = 1;
                         is_fine_locked = 1;
@@ -2340,6 +2330,23 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
                         is_explicit_lock_granularity = 0;
                         is_write_concurrency_auto = 0;
                         number_of_locks = -1;
+                    } else if (is_tuple(tp[2])) {
+                        Eterm *stp = tuple_val(tp[2]);
+                        Sint number_of_locks_param;
+                        if (arityval(stp[0]) == 2 &&
+                            stp[1] == am_debug_hash_fixed_number_of_locks &&
+                            is_integer(stp[2]) &&
+                            term_to_Sint(stp[2], &number_of_locks_param) &&
+                            number_of_locks_param >= DB_WRITE_CONCURRENCY_MIN_LOCKS &&
+                            number_of_locks_param <= DB_WRITE_CONCURRENCY_MAX_LOCKS) {
+
+                            is_decentralized_counters = 1;
+                            is_fine_locked = 1;
+                            is_explicit_lock_granularity = 1;
+                            is_write_concurrency_auto = 0;
+                            number_of_locks = number_of_locks_param;
+
+                        } else break;
                     } else break;
                     if (DB_LOCK_FREE(NULL))
 			is_fine_locked = 0;
@@ -2403,6 +2410,24 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
         status |= DB_CA_ORDERED_SET;
         status &= ~(DB_SET | DB_BAG | DB_DUPLICATE_BAG | DB_ORDERED_SET);
         status |= DB_FINE_LOCKED;
+        if (is_explicit_lock_granularity) {
+            /*
+             * The hidden debug option to explicitly set the number of locks,
+             * currently doesn't make sense for ordered_set.
+             */
+            BIF_ERROR(BIF_P, BADARG);
+        } else if (is_write_concurrency_auto) {
+            /*
+             * ordered_set tables that are configured with
+             * {write_concurrency, true} or {write_concurrency, auto}
+             * currently get the same implementation but we record
+             * that the auto option was used anyway so that
+             * ets:info(T, write_concurrency) can return auto when the
+             * table has been configured with {write_concurrency,
+             * auto}.
+             */
+            status |=  DB_FINE_LOCKED_AUTO;
+        }
     }
     else if (IS_HASH_TABLE(status)) {
 	meth = &db_hash;
@@ -2419,6 +2444,9 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     }
     else if (IS_TREE_TABLE(status)) {
 	meth = &db_tree;
+        if (is_explicit_lock_granularity) {
+            BIF_ERROR(BIF_P, BADARG);
+        }
     }
     else {
 	BIF_ERROR(BIF_P, BADARG);
@@ -5073,9 +5101,12 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
         if ((tb->common.status & DB_FINE_LOCKED) &&
             (tb->common.status & (DB_SET | DB_BAG | DB_DUPLICATE_BAG)) &&
             (tb->common.status & DB_EXPLICIT_LOCK_GRANULARITY)) {
-            ret = erts_make_integer(tb->hash.nlocks, p);
+            Eterm* hp    = HAlloc(p, 3);
+            ret   = make_tuple(hp);
+            *hp++ = make_arityval(2);
+            *hp++ = am_debug_hash_fixed_number_of_locks;
+            *hp++ = erts_make_integer(tb->hash.nlocks, p);
         } else if ((tb->common.status & DB_FINE_LOCKED) &&
-                   (tb->common.status & (DB_SET | DB_BAG | DB_DUPLICATE_BAG)) &&
                    (tb->common.status & DB_FINE_LOCKED_AUTO)) {
             ret = am_auto;
         } else {

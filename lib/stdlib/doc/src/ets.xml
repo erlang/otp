@@ -1264,7 +1264,7 @@ ets:select(Table, MatchSpec),</code>
               operation that
               mutates (writes to) the table obtains exclusive access,
               blocking any concurrent access of the same table until finished.
-              If set to <c>true</c>, the table is optimized to concurrent
+              If set to <c>true</c>, the table is optimized for concurrent
               write access. Different objects of the same table can be mutated
               (and read) by concurrent processes. This is achieved to some
               degree at the expense of memory consumption and the performance
@@ -1272,31 +1272,10 @@ ets:select(Table, MatchSpec),</code>
             <p>The <c>auto</c> alternative for the
             <c>write_concurrency</c> option is similar to the
             <c>true</c> option but automatically adjusts the
-            synchronization granularity at runtime depending on how the
+            synchronization granularity during runtime depending on how the
             table is used. This is the recommended
             <c>write_concurrency</c> option when using Erlang/OTP 25
             and above as it performs well in most scenarios.</p>
-            <p>Users can also explicitly set the synchronization
-            granularity for tables of types <c>set</c>, <c>bag</c>,
-            and <c>duplicate_bag</c> by setting the
-            <c>write_concurrency</c> option to an integer in the range
-            <c>[2, 32768]</c>. Currently, the number automatically
-            rounds down to the nearest power of two. The likelihood of
-            conflicts between operations reduces with an increased
-            value. Explicitly setting the synchronization granularity
-            is not recommended unless it is possible to
-            do experimentation to figure out which synchronization
-            granularity gives the best performance. If you are unsure
-            what number to set this setting to, it is probably best to
-            use <c>{write_concurrency, auto}</c> instead. One should be
-            careful about combining the <c>{read_concurrency, true}</c>
-            setting with explicitly setting the synchronization
-            granularity as this can lead to worse performance and high
-            memory utilization. It is usually not a good idea to set
-            this setting to a number that is much greater than the
-            number of expected items in the table, as this can lead to
-            slow table traversals. The effect of this setting might
-            change in future versions of Erlang/OTP.</p>
               <p>The <c>write_concurrency</c> option can be combined with the options
               <seeerl marker="#new_2_read_concurrency">
               <c>read_concurrency</c></seeerl> and
@@ -1319,17 +1298,20 @@ ets:select(Table, MatchSpec),</code>
             <p>The memory consumption inflicted by both
             <c>write_concurrency</c> and <c>read_concurrency</c> is a
             constant overhead per table for <c>set</c>, <c>bag</c> and
-            <c>duplicate_bag</c> when the <c>auto</c> alternative for
+            <c>duplicate_bag</c> when the <c>true</c> alternative for
             the <c>write_concurrency</c> option is not used. For
-            <c>ordered_set</c> as well as <c>set</c>, <c>bag</c> and
-            <c>duplicate_bag</c> with the <c>auto</c> alternative the
-            memory overhead depends on the number of inserted objects
-            and the amount of actual detected concurrency during
+            all tables with the <c>auto</c> alternative and <c>ordered_set</c>
+            tables with <c>true</c> alternative the
+            memory overhead depends on the amount of actual detected concurrency during
             runtime. The memory overhead can be especially large when
-            both options are combined.</p>
+            both <c>write_concurrency</c> and <c>read_concurrency</c> are combined.</p>
 	    <note>
               <p>Prior to stdlib-3.7 (OTP-22.0) <c>write_concurrency</c> had no
 	      effect on <c>ordered_set</c>.</p>
+            </note>
+            <note>
+              <p>The <c>auto</c> alternative for the <c>write_concurrency</c>
+              option is only available in OTP-25.0 and above.</p>
             </note>
             <marker id="new_2_read_concurrency"></marker>
           </item>
@@ -1363,7 +1345,7 @@ ets:select(Table, MatchSpec),</code>
             <p>
               Performance tuning. Defaults to <c>true</c> for all
               tables with the <c>write_concurrency</c> option set
-              to something else than <c>true</c> or <c>false</c>. For
+              to <c>auto</c>. For
               tables of type <c>ordered_set</c> the option also
               defaults to true when the <c>write_concurrency</c> option
               is set to <c>true</c>. The option defaults to

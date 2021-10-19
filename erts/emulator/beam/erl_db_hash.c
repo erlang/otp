@@ -307,7 +307,7 @@ void erl_db_hash_adapt_number_of_locks(DbTable* tb) {
     db_hash_lock_array_resize_state current_state;
     DbTableHash* tbl;
     int new_number_of_locks;
-    if(!(tb->common.type & DB_FINE_LOCKED_AUTO)) {
+    if(!IS_HASH_WITH_AUTO_TABLE(tb->common.type)) {
         return;
     }
     current_state = erts_atomic_read_nob(&tb->hash.lock_array_resize_state);

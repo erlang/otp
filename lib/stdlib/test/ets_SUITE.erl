@@ -588,7 +588,8 @@ t_repair_continuation_do(Opts) ->
     MS = [{'_',[],[true]}],
     MS2 = [{{{'$1','_'},'_'},[],['$1']}],
     (fun() ->
-	     T = ets_new(x,[ordered_set|Opts]),
+	     T = ets_new(x,
+                         replace_dbg_hash_fixed_nr_of_locks([ordered_set|Opts])),
 	     F = fun(0,_)->ok;(N,F) -> ets:insert(T,{N,N}), F(N-1,F) end,
 	     F(1000,F),
 	     {_,C} = ets:select(T,MS,5),
@@ -600,7 +601,8 @@ t_repair_continuation_do(Opts) ->
 	     true = ets:delete(T)
      end)(),
     (fun() ->
-	     T = ets_new(x,[ordered_set|Opts]),
+	     T = ets_new(x,
+                         replace_dbg_hash_fixed_nr_of_locks([ordered_set|Opts])),
 	     F = fun(0,_)->ok;(N,F) -> ets:insert(T,{N,N}), F(N-1,F) end,
 	     F(1000,F),
 	     {_,C} = ets:select(T,MS,1001),
@@ -612,7 +614,8 @@ t_repair_continuation_do(Opts) ->
      end)(),
 
     (fun() ->
-	     T = ets_new(x,[ordered_set|Opts]),
+	     T = ets_new(x,
+                         replace_dbg_hash_fixed_nr_of_locks([ordered_set|Opts])),
 	     F = fun(0,_)->ok;(N,F) ->
 			 ets:insert(T,{integer_to_list(N),N}),
 			 F(N-1,F)
@@ -627,7 +630,8 @@ t_repair_continuation_do(Opts) ->
 	     true = ets:delete(T)
      end)(),
     (fun() ->
-	     T = ets_new(x,[ordered_set|Opts]),
+	     T = ets_new(x,
+                         replace_dbg_hash_fixed_nr_of_locks([ordered_set|Opts])),
 	     F = fun(0,_)->ok;(N,F) ->
 			 ets:insert(T,{{integer_to_list(N),N},N}),
 			 F(N-1,F)
@@ -890,7 +894,8 @@ whitebox_1(Opts) ->
     ok.
 
 whitebox_2(Opts) ->
-    T=ets_new(x,[ordered_set, {keypos,2} | Opts]),
+    T=ets_new(x,
+              replace_dbg_hash_fixed_nr_of_locks([ordered_set, {keypos,2} | Opts])),
     T2=ets_new(x,[set, {keypos,2}| Opts]),
     0 = ets:select_delete(T,[{{hej},[],[true]}]),
     0 = ets:select_delete(T,[{{hej,hopp},[],[true]}]),
@@ -1063,7 +1068,8 @@ t_delete_object_do(Opts) ->
     3999 = ets:info(T,size),
     0 = get_kept_objects(T),
     ets:delete(T),
-    T1 = ets_new(x,[ordered_set | Opts]),
+    T1 = ets_new(x,
+                 replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts])),
     filltabint(T1,4000),
     del_one_by_one_set(T1,1,4001),
     filltabint(T1,4000),
@@ -2247,7 +2253,8 @@ update_element_opts(Opts) ->
 
 update_element_opts(Tuple,KeyPos,UpdPos,Opts) ->
     Set = ets_new(set,[{keypos,KeyPos} | Opts]),
-    OrdSet = ets_new(ordered_set,[ordered_set,{keypos,KeyPos} | Opts]),
+    OrdSet = ets_new(ordered_set,
+                     replace_dbg_hash_fixed_nr_of_locks([ordered_set,{keypos,KeyPos} | Opts])),
     update_element(Set,Tuple,KeyPos,UpdPos),
     update_element(OrdSet,Tuple,KeyPos,UpdPos),
     true = ets:delete(Set),
@@ -2336,7 +2343,8 @@ update_tuple([], Tpl) ->
 
 update_element_neg(Opts) ->
     Set = ets_new(set,Opts),
-    OrdSet = ets_new(ordered_set,[ordered_set | Opts]),
+    OrdSet = ets_new(ordered_set,
+                     replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts])),
     update_element_neg_do(Set),
     update_element_neg_do(OrdSet),
     ets:delete(Set),
@@ -2393,7 +2401,8 @@ update_counter(Config) when is_list(Config) ->
 
 update_counter_do(Opts) ->
     Set = ets_new(set,Opts),
-    OrdSet = ets_new(ordered_set,[ordered_set | Opts]),
+    OrdSet = ets_new(ordered_set,
+                     replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts])),
     update_counter_for(Set),
     update_counter_for(OrdSet),
     ets:delete_all_objects(Set),
@@ -2553,7 +2562,8 @@ uc_adder(Init, {_Pos, Add, Thres, Warp}) ->
 
 update_counter_neg(Opts) ->
     Set = ets_new(set,Opts),
-    OrdSet = ets_new(ordered_set,[ordered_set | Opts]),
+    OrdSet = ets_new(ordered_set,
+                     replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts])),
     update_counter_neg_for(Set),
     update_counter_neg_for(OrdSet),
     ets:delete(Set),
@@ -2684,7 +2694,7 @@ update_counter_with_default_do(Opts) ->
     2 = ets:info(T1, size),
 
     %% Same with ordered set.
-    T2 = ets_new(b, [ordered_set | Opts]),
+    T2 = ets_new(b, replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts])),
     3 = ets:update_counter(T2, foo, 2, {maroilles,1}),
     1 = ets:info(T2, size),
     5 = ets:update_counter(T2, foo, 2, {mimolette,1}),
@@ -2740,7 +2750,8 @@ update_counter_table_growth(_Config) ->
 update_counter_table_growth_do(Opts) ->
     Set = ets_new(b, [set | Opts]),
     [ets:update_counter(Set, N, {2, 1}, {N, 1}) || N <- lists:seq(1,10000)],
-    OrderedSet = ets_new(b, [ordered_set | Opts]),
+    OrderedSet =
+        ets_new(b, replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts])),
     [ets:update_counter(OrderedSet, N, {2, 1}, {N, 1}) || N <- lists:seq(1,10000)],
     ok.
 
@@ -3511,7 +3522,8 @@ interface_equality(Config) when is_list(Config) ->
 interface_equality_do(Opts) ->
     EtsMem = etsmem(),
     Set = ets_new(set,[set | Opts]),
-    OrderedSet = ets_new(ordered_set,[ordered_set | Opts]),
+    OrderedSet = ets_new(ordered_set,
+                         replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts])),
     F = fun(X,T,FF) -> case X of
                            0 -> true;
                            _ ->
@@ -3570,7 +3582,7 @@ maybe_sort(Any) ->
 
 %% Test match, match_object and match_delete in ordered set's.
 ordered_match(Config) when is_list(Config)->
-    repeat_for_opts(fun ordered_match_do/1).
+    repeat_for_opts_extra_opt(fun ordered_match_do/1, ordered_set).
 
 ordered_match_do(Opts) ->
     EtsMem = etsmem(),
@@ -3616,7 +3628,7 @@ ordered_match_do(Opts) ->
 
 %% Test basic functionality in ordered_set's.
 ordered(Config) when is_list(Config) ->
-    repeat_for_opts(fun ordered_do/1).
+    repeat_for_opts_extra_opt(fun ordered_do/1, ordered_set).
 
 ordered_do(Opts) ->
     EtsMem = etsmem(),
@@ -4053,8 +4065,16 @@ delete_large_tab(Config) when is_list(Config) ->
 
 delete_large_tab_do(Config, Opts,Data) ->
     delete_large_tab_1(Config, foo_hash, Opts, Data, false),
-    delete_large_tab_1(Config, foo_tree, [ordered_set | Opts], Data, false),
-    delete_large_tab_1(Config, foo_tree, [stim_cat_ord_set | Opts], Data, false),
+    delete_large_tab_1(Config,
+                       foo_tree,
+                       replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts]),
+                       Data,
+                       false),
+    delete_large_tab_1(Config,
+                       foo_tree,
+                       replace_dbg_hash_fixed_nr_of_locks([stim_cat_ord_set | Opts]),
+                       Data,
+                       false),
     delete_large_tab_1(Config, foo_hash_fix, Opts, Data, true).
 
 
@@ -4143,8 +4163,14 @@ delete_large_named_table(Config) when is_list(Config) ->
 
 delete_large_named_table_do(Opts,Data) ->
     delete_large_named_table_1(foo_hash, [named_table | Opts], Data, false),
-    delete_large_named_table_1(foo_tree, [ordered_set,named_table | Opts], Data, false),
-    delete_large_named_table_1(foo_tree, [stim_cat_ord_set,named_table | Opts], Data, false),
+    delete_large_named_table_1(foo_tree,
+                               replace_dbg_hash_fixed_nr_of_locks([ordered_set,named_table | Opts]),
+                               Data,
+                               false),
+    delete_large_named_table_1(foo_tree,
+                               replace_dbg_hash_fixed_nr_of_locks([stim_cat_ord_set,named_table | Opts]),
+                               Data,
+                               false),
     delete_large_named_table_1(foo_hash, [named_table | Opts], Data, true).
 
 delete_large_named_table_1(Name, Flags, Data, Fix) ->
@@ -4889,22 +4915,44 @@ info(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch ets:info(make_ref())),
     {'EXIT',{badarg,_}} = (catch ets:info(make_ref(), type)),
 
-    %% Test that one can set the synchronization granularity level for
-    %% tables of type set
-    T1 = ets:new(t1, [public, {write_concurrency, 1024}]),
-    1024 = ets:info(T1, write_concurrency),
-    T2 = ets:new(t2, [public, {write_concurrency, 2048}]),
-    2048 = ets:info(T2, write_concurrency),
-    T3 = ets:new(t3, [public, {write_concurrency, 1024}, {write_concurrency, true}]),
-    true = ets:info(T3, write_concurrency),
-    T4 = ets:new(t4, [private, {write_concurrency, 1024}]),
-    false = ets:info(T4, write_concurrency),
-    T5 = ets:new(t5, [public, {write_concurrency, auto}]),
-    auto = ets:info(T5, write_concurrency),
-    T6 = ets:new(t6, [private, {write_concurrency, true}]),
-    false = ets:info(T6, write_concurrency),
-    T7 = ets:new(t7, [private, {write_concurrency, auto}]),
-    false = ets:info(T7, write_concurrency),
+    case erlang:system_info(schedulers) of
+        1 -> %% Fine grained locking is not activated when there is only one scheduler
+            lists:foreach(
+              fun(Type) ->
+                      T1 = ets:new(t1, [public, Type, {write_concurrency, auto}]),
+                      false = ets:info(T1, write_concurrency),
+                      T2 = ets:new(t2, [public, Type, {write_concurrency, true}]),
+                      false = ets:info(T2, write_concurrency)
+              end,
+              [set, bag, duplicate_bag, ordered_set]),
+            T2 = ets:new(t2, [public, {write_concurrency, {debug_hash_fixed_number_of_locks, 2049}}]),
+            false = ets:info(T2, write_concurrency);
+        _ ->
+            %% Test that one can set the synchronization granularity level for
+            %% tables of type set
+            T1 = ets:new(t1, [public, {write_concurrency, {debug_hash_fixed_number_of_locks, 1024}}]),
+            {debug_hash_fixed_number_of_locks, 1024} = ets:info(T1, write_concurrency),
+            T2 = ets:new(t2, [public, {write_concurrency, {debug_hash_fixed_number_of_locks, 2048}}]),
+            {debug_hash_fixed_number_of_locks, 2048} = ets:info(T2, write_concurrency),
+            T3 = ets:new(t3, [public, {write_concurrency, {debug_hash_fixed_number_of_locks, 1024}}, {write_concurrency, true}]),
+            true = ets:info(T3, write_concurrency),
+            T4 = ets:new(t4, [private, {write_concurrency, {debug_hash_fixed_number_of_locks, 1024}}]),
+            false = ets:info(T4, write_concurrency),
+            %% Test the auto option
+            lists:foreach(
+              fun(Type) ->
+                      T5 = ets:new(t5, [public, Type, {write_concurrency, auto}]),
+                      auto = ets:info(T5, write_concurrency)
+              end,
+              [set, bag, duplicate_bag, ordered_set]),
+            T6 = ets:new(t6, [private, {write_concurrency, true}]),
+            false = ets:info(T6, write_concurrency),
+            T7 = ets:new(t7, [private, {write_concurrency, auto}]),
+            false = ets:info(T7, write_concurrency),
+            %% Test that the number of locks is rounded down to the nearest power of two
+            T8 = ets:new(t8, [public, {write_concurrency, {debug_hash_fixed_number_of_locks, 2049}}]),
+            {debug_hash_fixed_number_of_locks, 2048} = ets:info(T8, write_concurrency)
+    end,
     ok.
 
 info_do(Opts) ->
@@ -5131,18 +5179,26 @@ test_table_size_concurrency(Config) when is_list(Config) ->
     case erlang:system_info(schedulers) of
         1 -> {skip,"Only valid on smp > 1 systems"};
         _ ->
-            BaseOptions = [public, {write_concurrency, true}],
-            test_table_counter_concurrency(size, [set | BaseOptions]),
-            test_table_counter_concurrency(size, [ordered_set | BaseOptions])
+            lists:foreach(
+              fun(WriteConcurrencyOpt) ->
+                      BaseOptions = [public, {write_concurrency, WriteConcurrencyOpt}],
+                      test_table_counter_concurrency(size, [set | BaseOptions]),
+                      test_table_counter_concurrency(size, [ordered_set | BaseOptions])
+              end,
+              [true, auto])
     end.
 
 test_table_memory_concurrency(Config) when is_list(Config) ->
     case erlang:system_info(schedulers) of
         1 -> {skip,"Only valid on smp > 1 systems"};
         _ ->
-            BaseOptions = [public, {write_concurrency, true}],
-            test_table_counter_concurrency(memory, [set | BaseOptions]),
-            test_table_counter_concurrency(memory, [ordered_set | BaseOptions])
+            lists:foreach(
+              fun(WriteConcurrencyOpt) ->
+                      BaseOptions = [public, {write_concurrency, WriteConcurrencyOpt}],
+                      test_table_counter_concurrency(memory, [set | BaseOptions]),
+                      test_table_counter_concurrency(memory, [ordered_set | BaseOptions])
+              end,
+              [true, auto])
     end.
 
 %% Tests that calling the ets:delete operation on a table T with
@@ -5232,9 +5288,18 @@ test_decentralized_counters_setting(Config) when is_list(Config) ->
 do_test_decentralized_counters_setting(TableType) ->
     wait_for_memory_deallocations(),
     FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage),
+    FixOptsList =
+        fun(Opts) ->
+                case TableType of
+                    ordered_set ->
+                        replace_dbg_hash_fixed_nr_of_locks(Opts);
+                    set ->
+                        Opts
+                end
+        end,
     lists:foreach(
       fun(OptList) ->
-              T1 = ets:new(t1, [public, TableType] ++ OptList ++ [TableType]),
+              T1 = ets:new(t1, FixOptsList([public, TableType] ++ OptList ++ [TableType])),
               check_decentralized_counters(T1, false, FlxCtrMemUsage),
               ets:delete(T1)
       end,
@@ -5242,21 +5307,22 @@ do_test_decentralized_counters_setting(TableType) ->
           case TableType of
               set ->
                   [[{write_concurrency, true}, {decentralized_counters, false}],
-                   [{write_concurrency, 1024}, {write_concurrency, true}]];
+                   [{write_concurrency, {debug_hash_fixed_number_of_locks, 1024}}, {write_concurrency, true}]];
               ordered_set -> []
           end),
     lists:foreach(
       fun(OptList) ->
-              T1 = ets:new(t1, [public,
-                                TableType,
-                                {write_concurrency, true}] ++ OptList ++ [TableType]),
+              T1 = ets:new(t1,
+                           FixOptsList([public,
+                                        TableType,
+                                        {write_concurrency, true}] ++ OptList ++ [TableType])),
               check_decentralized_counters(T1, true, FlxCtrMemUsage),
               ets:delete(T1),
               wait_for_memory_deallocations(),
               FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage)
       end,
       [[{decentralized_counters, true}],
-       [{write_concurrency, 1024}],
+       [{write_concurrency, {debug_hash_fixed_number_of_locks, 1024}}],
        [{write_concurrency, auto}]]),
     ok.
 
@@ -6049,7 +6115,8 @@ xfilltabstr(Tab,N) ->
 fill_sets_int(N) ->
     fill_sets_int(N,[]).
 fill_sets_int(N,Opts) ->
-    Tab1 = ets_new(xxx, [ordered_set|Opts]),
+    Tab1 = ets_new(xxx,
+                   replace_dbg_hash_fixed_nr_of_locks([ordered_set|Opts])),
     filltabint(Tab1,N),
     Tab2 = ets_new(xxx, [set|Opts]),
     filltabint(Tab2,N),
@@ -6060,7 +6127,8 @@ fill_sets_int(N,Opts) ->
     [Tab1,Tab2,Tab3,Tab4].
 
 fill_sets_intup(N,Opts) ->
-    Tab1 = ets_new(xxx, [ordered_set|Opts]),
+    Tab1 = ets_new(xxx,
+                   replace_dbg_hash_fixed_nr_of_locks([ordered_set|Opts])),
     filltabintup(Tab1,N),
     Tab2 = ets_new(xxx, [set|Opts]),
     filltabintup(Tab2,N),
@@ -7703,7 +7771,7 @@ prefill_insert_map_loop(T, RS0, N, ObjFun, InsertMap, NrOfSchedulers) ->
               [set, public, {read_concurrency, true}],
               [set, public, {write_concurrency, true}, {read_concurrency, true}],
               [set, public, {write_concurrency, auto}, {read_concurrency, true}],
-              [set, public, {write_concurrency, 16384}]
+              [set, public, {write_concurrency, {debug_hash_fixed_number_of_locks, 16384}}]
              ],
          etsmem_fun = fun() -> ok end,
          verify_etsmem_fun = fun(_) -> true end,
@@ -8072,7 +8140,7 @@ long_throughput_benchmark(Config) when is_list(Config) ->
               [ordered_set, public, {write_concurrency, true}, {read_concurrency, true}],
               [set, public, {write_concurrency, true}, {read_concurrency, true}],
               [set, public, {write_concurrency, auto}, {read_concurrency, true}],
-              [set, public, {write_concurrency, 16384}]
+              [set, public, {write_concurrency, {debug_hash_fixed_number_of_locks, 16384}}]
              ],
          etsmem_fun = fun etsmem/0,
          verify_etsmem_fun = fun verify_etsmem/1,
@@ -9241,8 +9309,30 @@ make_unaligned_sub_binary(Bin0) when is_binary(Bin0) ->
 make_unaligned_sub_binary(List) ->
     make_unaligned_sub_binary(list_to_binary(List)).
 
+replace_dbg_hash_fixed_nr_of_locks(Opts) ->
+    [case X of
+         {write_concurrency, {debug_hash_fixed_number_of_locks, _}} ->
+             {write_concurrency, true};
+         _ -> X
+     end || X <- Opts].
+
 %% Repeat test function with different combination of table options
-%%       
+%%
+repeat_for_opts_extra_opt(F, Extra) ->
+    repeat_for_opts(
+      fun(Opts) ->
+              WithExtra =
+                  case erlang:is_list(Extra) of
+                      true -> Extra ++ Opts;
+                      false ->[Extra | Opts]
+                  end,
+              case is_invalid_opts_combo(WithExtra) of
+                  true -> ok;
+                  false -> F(WithExtra)
+              end
+      end,
+      [write_concurrency, read_concurrency, compressed]).
+
 repeat_for_opts(F) ->
     repeat_for_opts(F, [write_concurrency, read_concurrency, compressed]).
 
@@ -9303,21 +9393,35 @@ repeat_for_opts_atom2list(all_non_stim_types) -> [set,ordered_set,cat_ord_set,ba
 repeat_for_opts_atom2list(all_non_stim_set_types) -> [set,ordered_set,cat_ord_set];
 repeat_for_opts_atom2list(write_concurrency) -> [{write_concurrency,false},
                                                  {write_concurrency,true},
-                                                 {write_concurrency,2},
-                                                 {write_concurrency,2048},
+                                                 {write_concurrency, {debug_hash_fixed_number_of_locks, 2048}},
                                                  {write_concurrency,auto}];
 repeat_for_opts_atom2list(read_concurrency) -> [{read_concurrency,false},{read_concurrency,true}];
 repeat_for_opts_atom2list(compressed) -> [void,compressed].
 
+is_invalid_opts_combo(Opts) ->
+    FixedNumLocksOption =
+        lists:any(
+          fun({write_concurrency, {debug_hash_fixed_number_of_locks, _}}) ->
+                  true;
+             (_) ->
+                  false
+          end,
+          Opts),
+    OrderedSet = lists:member(ordered_set, Opts) orelse
+                 lists:member(stim_cat_ord_set, Opts) orelse
+                 lists:member(cat_ord_set, Opts),
+    OrderedSet andalso FixedNumLocksOption.
+
 is_redundant_opts_combo(Opts) ->
-    ((lists:member(stim_cat_ord_set, Opts) orelse
-      lists:member(cat_ord_set, Opts))
-     andalso
-       (lists:member({write_concurrency, 2}, Opts) orelse
-        lists:member({write_concurrency, 2048}, Opts) orelse
-        lists:member({write_concurrency, false}, Opts) orelse
-        lists:member(private, Opts) orelse
-        lists:member(protected, Opts))).
+    IsRed1 =
+        ((lists:member(stim_cat_ord_set, Opts) orelse
+          lists:member(cat_ord_set, Opts))
+         andalso
+           (lists:member({write_concurrency, false}, Opts) orelse
+            lists:member(private, Opts) orelse
+            lists:member(protected, Opts))),
+    IsRed2 = is_invalid_opts_combo(Opts),
+    IsRed1 orelse IsRed2.
 
 %% Add fake table option with info about key range.
 %% Will be consumed by ets_new and used for stim_cat_ord_set.

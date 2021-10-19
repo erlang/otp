@@ -309,7 +309,7 @@ member(_, _) ->
               | {heir, Pid :: pid(), HeirData} | {heir, none} | Tweaks,
       Type :: type(),
       Access :: access(),
-      WriteConcurrencyAlternative :: boolean() | auto | 2..32768,
+      WriteConcurrencyAlternative :: boolean() | auto,
       Tweaks :: {write_concurrency, WriteConcurrencyAlternative}
               | {read_concurrency, boolean()}
               | {decentralized_counters, boolean()}
