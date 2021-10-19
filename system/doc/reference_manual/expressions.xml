@@ -1265,7 +1265,7 @@ Ei = Value |
     <p>Notice that bit string patterns cannot be nested.</p>
     <p>Notice also that "<c><![CDATA[B=<<1>>]]></c>" is interpreted as
       "<c><![CDATA[B =< <1>>]]></c>" which is a syntax error. The correct way is
-      to write a space after '=': "<c><![CDATA[B= <<1>>]]></c>.</p>
+      to write a space after '=': "<c><![CDATA[B = <<1>>]]></c>.</p>
     <p>More examples are provided in
     <seeguide marker="system/programming_examples:bit_syntax">
     Programming Examples</seeguide>.</p>
