@@ -426,8 +426,10 @@ is_subset_1(Set, Iter) ->
       Acc1 :: Acc,
       AccIn :: Acc,
       AccOut :: Acc.
-fold(F, Acc, #{}=D) -> fold_1(F, Acc, maps:iterator(D));
-fold(F, Acc, #set{}=D) -> fold_set(F, Acc, D).
+fold(F, Acc, #{}=D) when is_function(F, 2)->
+    fold_1(F, Acc, maps:iterator(D));
+fold(F, Acc, #set{}=D) when is_function(F, 2)->
+    fold_set(F, Acc, D).
 
 fold_1(Fun, Acc, Iter) ->
     case maps:next(Iter) of
@@ -443,8 +445,10 @@ fold_1(Fun, Acc, Iter) ->
       Pred :: fun((Element) -> boolean()),
       Set1 :: set(Element),
       Set2 :: set(Element).
-filter(F, #{}=D) -> maps:from_keys(filter_1(F, maps:iterator(D)), ?VALUE);
-filter(F, #set{}=D) -> filter_set(F, D).
+filter(F, #{}=D) when is_function(F, 1)->
+    maps:from_keys(filter_1(F, maps:iterator(D)), ?VALUE);
+filter(F, #set{}=D) when is_function(F, 1)->
+    filter_set(F, D).
 
 filter_1(Fun, Iter) ->
     case maps:next(Iter) of
@@ -482,7 +486,7 @@ get_bucket(T, Slot) -> get_bucket_s(T#set.segs, Slot).
 %%  implemented map and hash using fold but these should be faster.
 %%  We hope!
 
-fold_set(F, Acc, D) when is_function(F, 2) ->
+fold_set(F, Acc, D) ->
     Segs = D#set.segs,
     fold_segs(F, Acc, Segs, tuple_size(Segs)).
 
@@ -499,7 +503,7 @@ fold_bucket(F, Acc, [E|Bkt]) ->
     fold_bucket(F, F(E, Acc), Bkt);
 fold_bucket(_, Acc, []) -> Acc.
 
-filter_set(F, D) when is_function(F, 1) ->
+filter_set(F, D) ->
     Segs0 = tuple_to_list(D#set.segs),
     {Segs1,Fc} = filter_seg_list(F, Segs0, [], 0),
     maybe_contract(D#set{segs = list_to_tuple(Segs1)}, Fc).
