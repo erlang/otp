@@ -534,7 +534,8 @@ opt_is([#b_set{op=call,
                dst=Dst}=I0 | Is],
        Ts0, Ds0, Ls, Fdb, Sub, Meta, Acc) ->
     Args = simplify_args(Args0, Ts0, Sub),
-    I1 = I0#b_set{args=Args},
+
+    I1 = opt_anno_types(I0#b_set{args=Args}, Ts0),
 
     [Fun | _] = Args,
     I = case normalized_type(Fun, Ts0) of
@@ -560,8 +561,8 @@ opt_is([#b_set{op=MakeFun,args=Args0,dst=Dst}=I0|Is],
     opt_is(Is, Ts, Ds, Ls, Fdb, Sub0, Meta, [I|Acc]);
 opt_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, Meta, Acc) ->
     case simplify(I0, Ts0, Ds0, Ls, Sub0) of
-        {#b_set{args=Args,dst=Dst}=I1, Ts, Ds} ->
-            I = opt_anno_types(I1, Dst, Args, Ts),
+        {#b_set{}=I1, Ts, Ds} ->
+            I = opt_anno_types(I1, Ts),
             opt_is(Is, Ts, Ds, Ls, Fdb, Sub0, Meta, [I | Acc]);
         Sub when is_map(Sub) ->
             opt_is(Is, Ts0, Ds0, Ls, Fdb, Sub, Meta, Acc)
@@ -569,25 +570,27 @@ opt_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, Meta, Acc) ->
 opt_is([], Ts, Ds, _Ls, Fdb, Sub, _Meta, Acc) ->
     {reverse(Acc), Ts, Ds, Fdb, Sub}.
 
-opt_anno_types(#b_set{op=Op}=I, Dst, Args, Ts) ->
+opt_anno_types(#b_set{op=Op,args=Args}=I, Ts) ->
     case benefits_from_type_anno(Op, Args) of
-        true -> opt_anno_types_1(I, [Dst | Args], Ts, #{});
+        true -> opt_anno_types_1(I, Args, Ts, 0, #{});
         false -> I
     end.
 
-opt_anno_types_1(I, [#b_var{}=Var | Args], Ts, Acc0) ->
+opt_anno_types_1(I, [#b_var{}=Var | Args], Ts, Index, Acc0) ->
     case Ts of
         #{ Var := Type } when Type =/= any ->
-            Acc = Acc0#{ Var => Type },
-            opt_anno_types_1(I, Args, Ts, Acc);
+            %% Note that we annotate arguments by their index instead of their
+            %% variable name, as they may be renamed by `beam_ssa_pre_codegen`.
+            Acc = Acc0#{ Index => Type },
+            opt_anno_types_1(I, Args, Ts, Index + 1, Acc);
         #{} ->
-            opt_anno_types_1(I, Args, Ts, Acc0)
+            opt_anno_types_1(I, Args, Ts, Index + 1, Acc0)
     end;
-opt_anno_types_1(I, [_Arg | Args], Ts, Acc) ->
-    opt_anno_types_1(I, Args, Ts, Acc);
-opt_anno_types_1(#b_set{}=I, [], _Ts, Acc) when Acc =:= #{} ->
+opt_anno_types_1(I, [_Arg | Args], Ts, Index, Acc) ->
+    opt_anno_types_1(I, Args, Ts, Index + 1, Acc);
+opt_anno_types_1(#b_set{}=I, [], _Ts, _Index, Acc) when Acc =:= #{} ->
     I;
-opt_anno_types_1(#b_set{anno=Anno0}=I, [], _Ts, Acc) ->
+opt_anno_types_1(#b_set{anno=Anno0}=I, [], _Ts, _Index, Acc) ->
     case Anno0 of
         #{ arg_types := Acc } ->
             I;
@@ -1437,6 +1440,9 @@ eval_type_test_bif(I, is_boolean, [Type]) ->
     end;
 eval_type_test_bif(I, is_float, [Type]) ->
     eval_type_test_bif_1(I, Type, #t_float{});
+eval_type_test_bif(I, is_function, [Type, #t_integer{elements={Arity,Arity}}])
+  when Arity >= 0, Arity =< 255 ->
+    eval_type_test_bif_1(I, Type, #t_fun{arity=Arity});
 eval_type_test_bif(I, is_function, [Type]) ->
     eval_type_test_bif_1(I, Type, #t_fun{});
 eval_type_test_bif(I, is_integer, [Type]) ->
@@ -2073,43 +2079,53 @@ infer_type(is_tagged_tuple, [#b_var{}=Src,#b_literal{val=Size},
 infer_type(is_nonempty_list, [#b_var{}=Src], _Ts, _Ds) ->
     T = {Src,#t_cons{}},
     {[T], [T]};
-infer_type({bif,is_atom}, [Arg], _Ts, _Ds) ->
+infer_type({bif,is_atom}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_atom{}},
     {[T], [T]};
-infer_type({bif,is_binary}, [Arg], _Ts, _Ds) ->
+infer_type({bif,is_binary}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_bitstring{size_unit=8}},
     {[T], [T]};
-infer_type({bif,is_bitstring}, [Arg], _Ts, _Ds) ->
+infer_type({bif,is_bitstring}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_bitstring{}},
     {[T], [T]};
-infer_type({bif,is_boolean}, [Arg], _Ts, _Ds) ->
+infer_type({bif,is_boolean}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, beam_types:make_boolean()},
     {[T], [T]};
-infer_type({bif,is_float}, [Arg], _Ts, _Ds) ->
+infer_type({bif,is_float}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_float{}},
     {[T], [T]};
-infer_type({bif,is_integer}, [Arg], _Ts, _Ds) ->
+infer_type({bif,is_function}, [#b_var{}=Arg], _Ts, _Ds) ->
+    T = {Arg, #t_fun{}},
+    {[T], [T]};
+infer_type({bif,is_function}, [#b_var{}=Arg, Arity0], _Ts, _Ds) ->
+    Arity = case Arity0 of
+                #b_literal{val=V} when is_integer(V), V >= 0, V =< 255 -> V;
+                _ -> any
+            end,
+    T = {Arg, #t_fun{arity=Arity}},
+    {[T], [T]};
+infer_type({bif,is_integer}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_integer{}},
     {[T], [T]};
-infer_type({bif,is_list}, [Arg], _Ts, _Ds) ->
+infer_type({bif,is_list}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_list{}},
     {[T], [T]};
-infer_type({bif,is_map}, [Arg], _Ts, _Ds) ->
+infer_type({bif,is_map}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_map{}},
     {[T], [T]};
-infer_type({bif,is_number}, [Arg], _Ts, _Ds) ->
+infer_type({bif,is_number}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, number},
     {[T], [T]};
-infer_type({bif,is_pid}, [Arg], _Ts, _Ds) ->
+infer_type({bif,is_pid}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, pid},
     {[T], [T]};
-infer_type({bif,is_port}, [Arg], _Ts, _Ds) ->
+infer_type({bif,is_port}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, port},
     {[T], [T]};
-infer_type({bif,is_reference}, [Arg], _Ts, _Ds) ->
+infer_type({bif,is_reference}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, reference},
     {[T], [T]};
-infer_type({bif,is_tuple}, [Arg], _Ts, _Ds) ->
+infer_type({bif,is_tuple}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_tuple{}},
     {[T], [T]};
 infer_type({bif,'=:='}, [#b_var{}=LHS,#b_var{}=RHS], Ts, _Ds) ->

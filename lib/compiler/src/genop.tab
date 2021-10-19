@@ -653,3 +653,8 @@ BEAM_FORMAT_NUMBER=0
 ## @spec bs_create_bin Fail Alloc Live Unit Dst OpList
 ## @doc  Builda a new binary using the binary syntax.
 177: bs_create_bin/6
+
+## @spec call_fun2 Safe Arity Func
+## @doc Calls the fun Func with arity Arity. Assume arguments in registers x(0)
+##      to x(Arity-1). The call will never fail when Safe is 'true'.
+178: call_fun2/3

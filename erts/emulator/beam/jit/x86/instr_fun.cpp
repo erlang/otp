@@ -297,9 +297,9 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
 void BeamModuleAssembler::emit_i_apply_fun() {
     safe_fragment_call(ga->get_apply_fun_shared());
 
-    x86::Gp dest = emit_call_fun();
-    ASSERT(dest != ARG6);
-    erlang_call(dest, ARG6);
+    x86::Gp target = emit_call_fun();
+    ASSERT(target != ARG6);
+    erlang_call(target, ARG6);
 }
 
 void BeamModuleAssembler::emit_i_apply_fun_last(const ArgVal &Deallocate) {
@@ -310,70 +310,121 @@ void BeamModuleAssembler::emit_i_apply_fun_last(const ArgVal &Deallocate) {
 void BeamModuleAssembler::emit_i_apply_fun_only() {
     safe_fragment_call(ga->get_apply_fun_shared());
 
-    x86::Gp dest = emit_call_fun();
+    x86::Gp target = emit_call_fun();
     emit_leave_frame();
-    a.jmp(dest);
+    a.jmp(target);
 }
 
 /* Asssumes that:
  *   ARG3 = arity
  *   ARG4 = fun thing */
-x86::Gp BeamModuleAssembler::emit_call_fun() {
+x86::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
+                                           bool skip_fun_test,
+                                           bool skip_arity_test) {
+    const bool never_fails = skip_box_test && skip_fun_test && skip_arity_test;
     Label next = a.newLabel();
 
     /* Speculatively strip the literal tag when needed. */
     x86::Gp fun_thing = emit_ptr_val(RET, ARG4);
 
-    /* Load the error fragment into ARG2 so we can CMOV ourselves there on
-     * error. */
-    a.mov(ARG2, ga->get_handle_call_fun_error());
+    if (!never_fails) {
+        /* Load the error fragment into ARG2 so we can CMOV ourselves there on
+         * error. */
+        a.mov(ARG2, ga->get_handle_call_fun_error());
+    }
 
-    /* The `handle_call_fun_error` fragment expects current PC in ARG5. */
+    /* The `handle_call_fun_error` and `unloaded_fun` fragments expect current
+     * PC in ARG5. */
     a.lea(ARG5, x86::qword_ptr(next));
 
-    /* As emit_is_boxed(), but explicitly sets ZF so we can rely on that for
-     * error checking in `next`. */
-    a.test(ARG4d, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
-    a.short_().jne(next);
+    if (!skip_box_test) {
+        /* As emit_is_boxed(), but explicitly sets ZF so we can rely on that
+         * for error checking in `next`. */
+        a.test(ARG4d, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
+        a.short_().jne(next);
+    } else {
+        comment("skipped box test since source is always boxed");
+    }
 
-    a.cmp(emit_boxed_val(fun_thing), imm(HEADER_FUN));
-    a.short_().jne(next);
+    if (skip_fun_test) {
+        comment("skipped fun test since source is always a fun when boxed");
+    } else {
+        a.cmp(emit_boxed_val(fun_thing), imm(HEADER_FUN));
+        a.short_().jne(next);
+    }
 
-    a.cmp(emit_boxed_val(fun_thing, offsetof(ErlFunThing, arity)), ARG3);
+    if (skip_arity_test) {
+        comment("skipped arity test since source always has right arity");
+    } else {
+        a.cmp(emit_boxed_val(fun_thing, offsetof(ErlFunThing, arity)), ARG3);
+    }
 
     a.mov(RET, emit_boxed_val(fun_thing, offsetof(ErlFunThing, entry)));
     a.mov(ARG1, emit_setup_dispatchable_call(RET));
 
-    /* Assumes that ZF is set on success and clear on error, overwriting our
-     * destination with the error fragment's address. */
     a.bind(next);
-    a.cmovne(ARG1, ARG2);
+
+    if (!never_fails) {
+        /* Assumes that ZF is set on success and clear on error, overwriting
+         * our destination with the error fragment's address. */
+        a.cmovne(ARG1, ARG2);
+    }
 
     return ARG1;
 }
 
-void BeamModuleAssembler::emit_i_call_fun(const ArgVal &Arity) {
-    mov_arg(ARG4, ArgVal(ArgVal::XReg, Arity.getValue()));
-    mov_imm(ARG3, Arity.getValue());
+void BeamModuleAssembler::emit_i_call_fun2(const ArgVal &Safe,
+                                           const ArgVal &Arity,
+                                           const ArgVal &Func) {
+    x86::Gp target;
 
-    x86::Gp dest = emit_call_fun();
-    erlang_call(dest, ARG6);
+    mov_imm(ARG3, Arity.getValue());
+    mov_arg(ARG4, Func);
+
+    target = emit_call_fun(always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
+                           masked_types(Func, BEAM_TYPE_MASK_BOXED) ==
+                                   BEAM_TYPE_FUN,
+                           Safe.getValue() == am_true);
+
+    erlang_call(target, ARG6);
+}
+
+void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Safe,
+                                                const ArgVal &Arity,
+                                                const ArgVal &Func,
+                                                const ArgVal &Deallocate) {
+    x86::Gp target;
+
+    mov_imm(ARG3, Arity.getValue());
+    mov_arg(ARG4, Func);
+
+    target = emit_call_fun(always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
+                           masked_types(Func, BEAM_TYPE_MASK_BOXED) ==
+                                   BEAM_TYPE_FUN,
+                           Safe.getValue() == am_true);
+
+    emit_deallocate(Deallocate);
+    emit_leave_frame();
+    a.jmp(target);
+}
+
+void BeamModuleAssembler::emit_i_call_fun(const ArgVal &Arity) {
+    const ArgVal Func(ArgVal::XReg, Arity.getValue());
+    const ArgVal Safe(ArgVal::Immediate, am_false);
+
+    emit_i_call_fun2(Safe, Arity, Func);
 }
 
 void BeamModuleAssembler::emit_i_call_fun_last(const ArgVal &Arity,
                                                const ArgVal &Deallocate) {
-    emit_deallocate(Deallocate);
+    const ArgVal Func(ArgVal::XReg, Arity.getValue());
+    const ArgVal Safe(ArgVal::Immediate, am_false);
 
-    mov_arg(ARG4, ArgVal(ArgVal::XReg, Arity.getValue()));
-    mov_imm(ARG3, Arity.getValue());
-
-    x86::Gp dest = emit_call_fun();
-    emit_leave_frame();
-    a.jmp(dest);
+    emit_i_call_fun2_last(Safe, Arity, Func, Deallocate);
 }
 
 /* Psuedo-instruction for signalling lambda load errors. Never actually runs. */
 void BeamModuleAssembler::emit_i_lambda_error(const ArgVal &Dummy) {
-    a.comment("# Lambda error");
+    comment("lambda error");
     a.ud2();
 }

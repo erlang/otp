@@ -1224,8 +1224,9 @@ resolve_inst({recv_marker_use,[Reg]},_,_,_) ->
 %%
 
 resolve_inst({bs_create_bin,Args},_,_,_) ->
-    io:format("~p\n", [Args]),
     {bs_create_bin,Args};
+resolve_inst({call_fun2,[Safe,{u,Arity},Func]},_,_,_) ->
+    {call_fun2,Safe,Arity,Func};
 
 %%
 %% Catches instructions that are not yet handled.

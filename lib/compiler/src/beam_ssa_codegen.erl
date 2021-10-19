@@ -1568,13 +1568,20 @@ cg_call(#cg_set{anno=Anno0,op=call,dst=Dst0,args=[#b_remote{}=Func0|Args0]},
                 [line(Anno0)] ++ Apply,
             {Is,St}
     end;
-cg_call(#cg_set{anno=Anno,op=call,dst=Dst0,args=Args0},
+cg_call(#cg_set{anno=Anno,op=call,dst=Dst0,args=[Func | Args0]},
         Where, Context, St) ->
-    [Dst,Func|Args] = beam_args([Dst0|Args0], St),
     Line = call_line(Where, Func, Anno),
-    Arity = length(Args),
-    Call = build_call(call_fun, Arity, Func, Context, Dst),
-    Is = setup_args(Args++[Func], Anno, Context, St) ++ Line ++ Call,
+    Args = beam_args(Args0 ++ [Func], St),
+
+    Arity = length(Args0),
+    Dst = beam_arg(Dst0, St),
+
+    %% Note that we only inspect the (possible) type of the fun while building
+    %% the call, we don't want the arguments to be typed.
+    [TypedFunc] = typed_args([Func], Anno, St),
+    Call = build_call(call_fun, Arity, TypedFunc, Context, Dst),
+
+    Is = setup_args(Args, Anno, Context, St) ++ Line ++ Call,
     case Anno of
         #{ result_type := Type } ->
             Info = {var_info, Dst, [{type,Type}]},
@@ -1619,6 +1626,24 @@ build_stk([V|Vs], TmpReg, Tail) ->
 build_stk([], _TmpReg, nil) ->
     [{move,nil,{x,1}}].
 
+build_call(call_fun, Arity, #tr{}=Func0, none, Dst) ->
+    %% Func0 was the source register prior to copying arguments, and has been
+    %% moved to {x, Arity}. Update it to match.
+    Func = Func0#tr{r={x,Arity}},
+    Safe = is_fun_call_safe(Arity, Func),
+    [{call_fun2,{atom,Safe},Arity,Func}|copy({x,0}, Dst)];
+build_call(call_fun, Arity, #tr{}=Func0, {return,Dst,N}, Dst)
+  when is_integer(N) ->
+    Func = Func0#tr{r={x,Arity}},
+    Safe = is_fun_call_safe(Arity, Func),
+    [{call_fun2,{atom,Safe},Arity,Func},{deallocate,N},return];
+build_call(call_fun, Arity, #tr{}=Func0, {return,Val,N}, _Dst)
+ when is_integer(N) ->
+    Func = Func0#tr{r={x,Arity}},
+    Safe = is_fun_call_safe(Arity, Func),
+    [{call_fun2,{atom,Safe},Arity,Func},
+     {move,Val,{x,0}},
+     {deallocate,N},return];
 build_call(call_fun, Arity, _Func, none, Dst) ->
     [{call_fun,Arity}|copy({x,0}, Dst)];
 build_call(call_fun, Arity, _Func, {return,Dst,N}, Dst) when is_integer(N) ->
@@ -1649,6 +1674,12 @@ build_call(I, Arity, Func, {return,Val,N}, _Dst) when is_integer(N) ->
     [{I,Arity,Func}|copy(Val, {x,0})++[{deallocate,N},return]];
 build_call(I, Arity, Func, none, Dst) ->
     [{I,Arity,Func}|copy({x,0}, Dst)].
+
+%% Returns whether a call of the given fun is guaranteed to succeed.
+is_fun_call_safe(Arity, #tr{t=#t_fun{arity=Arity}}) ->
+    true;
+is_fun_call_safe(_Arity, _Func) ->
+    false.
 
 build_apply(Arity, {return,Dst,N}, Dst) when is_integer(N) ->
     [{apply_last,Arity,N}];
@@ -2062,17 +2093,18 @@ get_register(V, Regs) ->
     end.
 
 typed_args(As, Anno, St) ->
-    [typed_arg(A, Anno, St) || A <- As].
+    typed_args_1(As, Anno, St, 0).
 
-typed_arg(#b_var{}=Name, Anno, St) ->
-    case Anno of
-        #{ arg_types := #{ Name := Type } } ->
-            #tr{r=beam_arg(Name, St),t=Type};
-        #{} ->
-            beam_arg(Name, St)
-    end;
-typed_arg(A, _Anno, St) ->
-    beam_arg(A, St).
+typed_args_1([Arg | Args], Anno, St, Index) ->
+   case Anno of
+       #{ arg_types := #{ Index := Type } } ->
+           Typed = #tr{r=beam_arg(Arg, St),t=Type},
+           [Typed | typed_args_1(Args, Anno, St, Index + 1)];
+       #{} ->
+           [beam_arg(Arg, St) | typed_args_1(Args, Anno, St, Index + 1)]
+   end;
+typed_args_1([], _Anno, _St, _Index) ->
+    [].
 
 beam_args(As, St) ->
     [beam_arg(A, St) || A <- As].

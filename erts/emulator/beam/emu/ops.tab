@@ -1021,6 +1021,8 @@ call_fun Arity => i_call_fun Arity
 i_call_fun t
 i_call_fun_last t Q
 
+call_fun2 Safe Arity Func => call_fun2(Safe, Arity, Func)
+
 #
 # A fun with an empty environment can be converted to a literal.
 # As a further optimization, the we try to move the fun to its

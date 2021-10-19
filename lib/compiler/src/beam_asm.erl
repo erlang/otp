@@ -416,13 +416,18 @@ encode_op_1([A0|As], Dict0, Acc) ->
 encode_op_1([], Dict, Acc) -> {Acc,Dict}.
 
 encode_arg(#tr{r={x, X},t=Type}, Dict0) when is_integer(X), X >= 0 ->
-    {Index, Dict} = beam_dict:type(Type, Dict0),
+    %% Gracefully prevent this module from being loaded in OTP 24 and below by
+    %% forcing an opcode it doesn't understand. It would of course fail to load
+    %% without this, but the error message wouldn't be very helpful.
+    Canary = beam_opcodes:opcode(call_fun2, 3),
+    {Index, Dict} = beam_dict:type(Type, beam_dict:opcode(Canary, Dict0)),
     Data = [encode(?tag_z, 5),
             encode(?tag_x, X),
             encode(?tag_u, Index)],
     {Data, Dict};
 encode_arg(#tr{r={y, Y},t=Type}, Dict0) when is_integer(Y), Y >= 0 ->
-    {Index, Dict} = beam_dict:type(Type, Dict0),
+    Canary = beam_opcodes:opcode(call_fun2, 3),
+    {Index, Dict} = beam_dict:type(Type, beam_dict:opcode(Canary, Dict0)),
     Data = [encode(?tag_z, 5),
             encode(?tag_y, Y),
             encode(?tag_u, Index)],

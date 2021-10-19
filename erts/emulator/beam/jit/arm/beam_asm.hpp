@@ -1211,7 +1211,9 @@ protected:
     arm::Mem emit_variable_apply(bool includeI);
     arm::Mem emit_fixed_apply(const ArgVal &arity, bool includeI);
 
-    arm::Gp emit_call_fun();
+    arm::Gp emit_call_fun(bool skip_box_test = false,
+                          bool skip_fun_test = false,
+                          bool skip_arity_test = false);
 
     arm::Gp emit_is_binary(const ArgVal &Fail,
                            const ArgVal &Src,

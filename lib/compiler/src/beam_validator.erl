@@ -437,6 +437,11 @@ vi({test,is_boolean,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, beam_types:make_boolean(), Src, Vst);
 vi({test,is_float,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_float{}, Src, Vst);
+vi({test,is_function,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, #t_fun{}, Src, Vst);
+vi({test,is_function2,{f,Lbl},[Src,{integer,Arity}]}, Vst)
+  when Arity >= 0, Arity =< 255 ->
+    type_test(Lbl, #t_fun{arity=Arity}, Src, Vst);
 vi({test,is_tuple,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_tuple{}, Src, Vst);
 vi({test,is_integer,{f,Lbl},[Src]}, Vst) ->
@@ -654,6 +659,18 @@ vi({call_last,Live,Func,N}, Vst) ->
     validate_tail_call(N, Func, Live, Vst);
 vi({call_ext_last,Live,Func,N}, Vst) ->
     validate_tail_call(N, Func, Live, Vst);
+vi({call_fun2,{atom,Safe},Live,Fun0}, Vst) ->
+    Fun = unpack_typed_arg(Fun0),
+    assert_term(Fun, Vst),
+
+    true = is_boolean(Safe),                    %Assertion.
+
+    branch(?EXCEPTION_LABEL, Vst,
+           fun(SuccVst0) ->
+                   SuccVst = update_type(fun meet/2, #t_fun{arity=Live},
+                                         Fun, SuccVst0),
+                   validate_body_call('fun', Live, SuccVst)
+           end);
 vi({call_fun,Live}, Vst) ->
     Fun = {x,Live},
     assert_term(Fun, Vst),
@@ -2019,6 +2036,12 @@ infer_types_1(#value{op={bif,is_bitstring},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_bitstring{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_float},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_float{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_function},args=[Src,{integer,Arity}]},
+              Val, Op, Vst)
+  when Arity >= 0, Arity =< 255 ->
+    infer_type_test_bif(#t_fun{arity=Arity}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_function},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(#t_fun{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_integer},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_integer{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_list},args=[Src]}, Val, Op, Vst) ->

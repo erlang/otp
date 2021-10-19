@@ -1230,7 +1230,9 @@ protected:
     x86::Mem emit_variable_apply(bool includeI);
     x86::Mem emit_fixed_apply(const ArgVal &arity, bool includeI);
 
-    x86::Gp emit_call_fun();
+    x86::Gp emit_call_fun(bool skip_box_test = false,
+                          bool skip_fun_test = false,
+                          bool skip_arity_test = false);
 
     x86::Gp emit_is_binary(const ArgVal &Fail,
                            const ArgVal &Src,

@@ -707,6 +707,14 @@ call_fun Arity => i_call_fun Arity
 i_call_fun t
 i_call_fun_last t t
 
+call_fun2 Safe Arity Func | deallocate D | return => \
+    i_call_fun2_last Safe Arity Func D
+call_fun2 Safe Arity Func => \
+    i_call_fun2 Safe Arity Func
+
+i_call_fun2 a t S
+i_call_fun2_last a t S t
+
 #
 # A fun with an empty environment can be converted to a literal.
 # As a further optimization, the we try to move the fun to its
