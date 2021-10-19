@@ -43,6 +43,7 @@
     setopt/3, setopt_native/3,
     getopt/2, getopt_native/3,
     sockname/1, peername/1,
+    ioctl/2, ioctl/3,
     cancel/3
    ]).
 
@@ -150,10 +151,12 @@ on_load(Extra) when is_map(Extra) ->
 
 init() ->
     PT =
-        put_supports_table(
-          protocols, fun (Protocols) -> protocols_table(Protocols) end),
-    _ = put_supports_table(
-          options, fun (Options) -> options_table(Options, PT) end),
+        put_supports_table(protocols,
+			   fun (Protocols) -> protocols_table(Protocols) end),
+    _ = put_supports_table(options,
+			   fun (Options) -> options_table(Options, PT) end),
+    _ = put_supports_table(ioctl_requests,
+			   fun (Requests) -> Requests end),
     _ = put_supports_table(msg_flags, fun (Flags) -> Flags end),
     ok.
 
@@ -260,6 +263,13 @@ supports(protocols) ->
           (Num, _Names, Acc) when is_integer(Num) ->
               Acc
       end, [], p_get(protocols));
+supports(ioctl_requests) ->
+    maps:fold(
+      fun (Name, _Num, Acc) when is_atom(Name) ->
+              [{Name, true} | Acc];
+          (Num, _Names, Acc) when is_integer(Num) ->
+              Acc
+      end, [], p_get(ioctl_requests));
 supports(options) ->
     maps:fold(
       fun ({_Level,_Opt} = Option, Value, Acc) ->
@@ -305,6 +315,10 @@ is_supported_option(_Option, undefined) ->
 is_supported(Key1) ->
     get_is_supported(Key1, nif_supports()).
 
+is_supported(ioctl_requests = Tab, Name) when is_atom(Name) ->
+    p_get_is_supported(Tab, Name, fun (_) -> true end);
+is_supported(ioctl_requests, _Name) ->
+    false;
 is_supported(protocols = Tab, Name) when is_atom(Name) ->
     p_get_is_supported(Tab, Name, fun (_) -> true end);
 is_supported(protocols, _Name) ->
@@ -794,14 +808,51 @@ sockname(Ref) ->
 peername(Ref) ->
     nif_peername(Ref).
 
+
+%% ----------------------------------
+
+ioctl(SRef, GReq) ->
+    case enc_ioctl_request(GReq) of
+	undefined ->
+	    {error, {invalid, {ioctl_request, GReq}}};
+	invalid ->
+	    {error, {invalid, {ioctl_request, GReq}}};
+	GReqNUM ->
+	    nif_ioctl(SRef, GReqNUM)
+    end.
+
+ioctl(SRef, GReq, Arg) ->
+    case enc_ioctl_request(GReq) of
+	undefined ->
+	    {error, {invalid, {ioctl_request, GReq}}};
+	invalid ->
+	    {error, {invalid, {ioctl_request, GReq}}};
+	GReqNUM ->
+	    nif_ioctl(SRef, GReqNUM, Arg)
+    end.
+
+
 %% ----------------------------------
 
 cancel(SRef, Op, Ref) ->
     nif_cancel(SRef, Op, Ref).
 
+
 %% ===========================================================================
 %% Encode / decode
 %%
+
+enc_ioctl_request(GReq) when is_integer(GReq) ->
+    GReq;
+enc_ioctl_request(GReq) ->
+    case p_get(ioctl_requests) of
+	#{GReq := GReqNUM} ->
+	    GReqNUM;
+	#{} ->
+	    invalid
+    end.
+
+
 
 %% These clauses should be deprecated
 enc_protocol({raw, ProtoNum}) when is_integer(ProtoNum) ->
@@ -998,6 +1049,7 @@ enc_sockopt(Option, _NativeValue) ->
     %% Neater than a function clause
     erlang:error({invalid, {socket_option, Option}}).
 
+
 %% ===========================================================================
 %% Persistent term functions
 %%
@@ -1008,6 +1060,7 @@ p_put(Name, Value) ->
 %% Also called from prim_net
 p_get(Name) ->
     persistent_term:get({?MODULE, Name}).
+
 
 %% ===========================================================================
 %% NIF functions
@@ -1060,6 +1113,10 @@ nif_getopt(_SockRef, _Lev, _Opt, _ValSpec) -> erlang:nif_error(undef).
 nif_sockname(_SockRef) -> erlang:nif_error(undef).
 nif_peername(_SockRef) -> erlang:nif_error(undef).
 
+nif_ioctl(_SockRef, _GReq)       -> erlang:nif_error(undef).
+nif_ioctl(_SockRef, _GReq, _Arg) -> erlang:nif_error(undef).
+
 nif_cancel(_SockRef, _Op, _SelectRef) -> erlang:nif_error(undef).
+
 
 %% ===========================================================================
