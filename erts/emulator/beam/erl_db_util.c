@@ -39,6 +39,7 @@
 #include "erl_map.h"
 #include "erl_thr_progress.h"
 #include "erl_proc_sig_queue.h"
+#include "erl_global_literals.h"
 
 #include "erl_db_util.h"
 
@@ -1161,14 +1162,18 @@ Binary *db_match_set_compile(Process *p, Eterm matchexpr,
 	    if (l2 != NIL) {
 		goto error;
 	    }
-	    hp = HAlloc(p, n + 1);
-	    t = make_tuple(hp);
-	    *hp++ = make_arityval((Uint) n);
-	    l2 = tp[1];
-	    while (n--) {
-		*hp++ = CAR(list_val(l2));
-		l2 = CDR(list_val(l2));
-	    }
+            if (n == 0) {
+                t = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+            } else {
+                hp = HAlloc(p, n + 1);
+                t = make_tuple(hp);
+                *hp++ = make_arityval((Uint) n);
+                l2 = tp[1];
+                while (n--) {
+                    *hp++ = CAR(list_val(l2));
+                    l2 = CDR(list_val(l2));
+                }
+            }
 	}
 	matches[i] = t;
 	guards[i] = tp[2];
@@ -1448,14 +1453,18 @@ static Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags)
 		
 		goto done;
 	    }
-	    hp = HAlloc(p, n + 1);
-	    t = make_tuple(hp);
-	    *hp++ = make_arityval((Uint) n);
-	    l2 = tp[1];
-	    while (n--) {
-		*hp++ = CAR(list_val(l2));
-		l2 = CDR(list_val(l2));
-	    }
+            if (n == 0) {
+                t = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+            } else {
+                hp = HAlloc(p, n + 1);
+                t = make_tuple(hp);
+                *hp++ = make_arityval((Uint) n);
+                l2 = tp[1];
+                while (n--) {
+                    *hp++ = CAR(list_val(l2));
+                    l2 = CDR(list_val(l2));
+                }
+            }
 	}
 	matches[i] = t;
 	guards[i] = tp[2];
@@ -2313,13 +2322,18 @@ restart:
 	    break;
 	case matchMkTuple:
 	    n = *pc++;
-	    ehp = HAllocX(build_proc, n+1, HEAP_XTRA);
-	    t = make_tuple(ehp);
-	    *ehp++ = make_arityval(n);
-	    while (n--) {
-		*ehp++ = *--esp;
-	    }
-	    *esp++ = t;
+            if (n == 0) {
+                t = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+                *esp++ = t;
+            } else {
+                ehp = HAllocX(build_proc, n+1, HEAP_XTRA);
+                t = make_tuple(ehp);
+                *ehp++ = make_arityval(n);
+                while (n--) {
+                    *ehp++ = *--esp;
+                }
+                *esp++ = t;
+            }
 	    break;
         case matchMkFlatMap:
             n = *pc++;
@@ -2366,9 +2380,13 @@ restart:
                     erts_factory_proc_init(&factory, build_proc);
 
                     /* build flat structure */
-                    hp    = erts_produce_heap(&factory, 3 + 1 + (2 * n), 0);
-                    keys  = make_tuple(hp);
-                    *hp++ = make_arityval(n);
+                    hp    = erts_produce_heap(&factory, 3 + (n==0 ? 0 : 1) + (2 * n), 0);
+                    if (n == 0) {
+                        keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+                    } else {
+                        keys  = make_tuple(hp);
+                        *hp++ = make_arityval(n);
+                    }
                     ks    = hp;
                     hp   += n;
                     mp    = (flatmap_t*)hp;
@@ -2382,6 +2400,7 @@ restart:
                     hashmap_iterator_init(&wstack, t, 0);
 
                     while ((kv=hashmap_iterator_next(&wstack)) != NULL) {
+                        ASSERT(n != 0);
                         *ks++ = CAR(kv);
                         *vs++ = CDR(kv);
                     }
@@ -3822,9 +3841,9 @@ static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
                 context->save = emb;
             }
             else {
-                /* must be {const, Immed} */
+                /* must be {const, Immed} or the empty tuple*/
                 ASSERT(is_tuple_arity(t,2) && tuple_val(t)[1] == am_const);
-                ASSERT(is_immed(tuple_val(t)[2]));
+                ASSERT(is_tuple_arity(tuple_val(t)[2],0) || is_immed(tuple_val(t)[2]));
                 tmp = tuple_val(t)[2];
             }
 	}
@@ -5368,14 +5387,18 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
 	    if (tuple_val(t)[0] == make_arityval(1) &&
 		is_tuple(a = tuple_val(t)[1])) {
 		Uint i,n;
-		Eterm *savep = *hp;
-		ret = make_tuple(savep);
 		p = tuple_val(a);
 		n = arityval(p[0]);
-		*hp += n + 1;
-		*savep++ = make_arityval(n);
-		for(i = 1; i <= n; ++i)
-		    *savep++ = my_copy_struct(p[i], hp, off_heap);
+                if (n == 0) {
+                    ret = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+                } else {
+                    Eterm *savep = *hp;
+                    ret = make_tuple(savep);
+                    *hp += n + 1;
+                    *savep++ = make_arityval(n);
+                    for(i = 1; i <= n; ++i)
+                        *savep++ = my_copy_struct(p[i], hp, off_heap);
+                }
 	    }
             else if (tuple_val(t)[0] == make_arityval(2) &&
                      tuple_val(t)[1] == am_const) {
@@ -5397,15 +5420,18 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
                 mp  = (flatmap_t*)flatmap_val(t);
 
                 /* Copy keys */
-                savep = *hp;
-		keys = make_tuple(savep);
-		p = tuple_val(mp->keys);
+                p = tuple_val(mp->keys);
 		n = arityval(p[0]);
-		*hp += n + 1;
-		*savep++ = make_arityval(n);
-		for(i = 1; i <= n; ++i)
-		    *savep++ = my_copy_struct(p[i], hp, off_heap);
-
+                if (n == 0) {
+                    keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+                } else {
+                    savep = *hp;
+                    keys = make_tuple(savep);
+                    *hp += n + 1;
+                    *savep++ = make_arityval(n);
+                    for(i = 1; i <= n; ++i)
+                        *savep++ = my_copy_struct(p[i], hp, off_heap);
+                }
                 savep = *hp;
                 ret = make_flatmap(savep);
                 n = flatmap_get_size(mp);

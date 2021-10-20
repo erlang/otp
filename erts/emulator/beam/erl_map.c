@@ -34,6 +34,7 @@
 #include "error.h"
 #include "bif.h"
 #include "erl_binary.h"
+#include "erl_global_literals.h"
 
 #include "erl_map.h"
 
@@ -368,10 +369,14 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_valu
     Sint  idx = 0;
 
 
-    hp    = HAlloc(p, 3 + 1 + (2 * size));
+    hp    = HAlloc(p, 3 + (size == 0 ? 0 : 1) + (2 * size));
     thp   = hp;
-    keys  = make_tuple(hp);
-    *hp++ = make_arityval(size);
+    if (size == 0) {
+        keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    } else {
+        keys  = make_tuple(hp);
+        *hp++ = make_arityval(size);
+    }
     ks    = hp;
     hp   += size;
     mp    = (flatmap_t*)hp;
@@ -552,7 +557,7 @@ static Eterm hashmap_from_validated_list(Process *p,
 	flatmap_t *mp;
 	Eterm keys;
         Uint n = hashmap_size(res);
-
+        ASSERT(n > 0);
 	/* build flat structure */
 	hp    = HAlloc(p, 3 + 1 + (2 * n));
 	keys  = make_tuple(hp);
@@ -667,9 +672,13 @@ Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks0, Eterm *vs0, 
 	flatmap_t *mp;
 	Eterm keys;
 
-        hp    = erts_produce_heap(factory, 3 + 1 + (2 * n), 0);
-	keys  = make_tuple(hp);
-	*hp++ = make_arityval(n);
+        hp    = erts_produce_heap(factory, 3 + (n==0 ? 0 : 1) + (2 * n), 0);
+        if (n == 0) {
+            keys  = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+        } else {
+            keys  = make_tuple(hp);
+            *hp++ = make_arityval(n);
+        }
 	ks    = hp;
 	hp   += n;
 	mp    = (flatmap_t*)hp;
@@ -1872,14 +1881,16 @@ int erts_maps_take(Process *p, Eterm key, Eterm map,
 	 * Allocate key tuple first.
 	 */
 
-	need   = n + 1 - 1 + 3 + n - 1; /* tuple - 1 + map - 1 */
+	need   = n + ((n-1) == 0 ? 0 : 1) - 1 + 3 + n - 1; /* tuple - 1 + map - 1 */
 	hp_start = HAlloc(p, need);
 	thp    = hp_start;
-	mhp    = thp + n;               /* offset with tuple heap size */
-
-	tup    = make_tuple(thp);
-	*thp++ = make_arityval(n - 1);
-
+	mhp    = thp + n + ((n-1) == 0 ? -1 : 0);  /* offset with tuple heap size */
+        if ((n-1) == 0) {
+            tup = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+        } else {
+            tup    = make_tuple(thp);
+            *thp++ = make_arityval(n - 1);
+        }
 	*res   = make_flatmap(mhp);
 	*mhp++ = MAP_HEADER_FLATMAP;
 	*mhp++ = n - 1;

@@ -1043,6 +1043,7 @@ sub emulator_output {
     print '#include "erl_map.h"', "\n";
     print '#include "big.h"', "\n";
     print '#include "beam_transform_helpers.h"', "\n";
+    print '#include "erl_global_literals.h"', "\n";
     print "\n";
     gen_tr_code('pred.');
     gen_tr_func('int', 'erts_beam_eval_predicate', @pred_table);

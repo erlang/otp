@@ -34,6 +34,7 @@
 #include "dist.h"
 #include "beam_catches.h"
 #include "beam_common.h"
+#include "erl_global_literals.h"
 
 #ifdef USE_VM_PROBES
 #include "dtrace-wrapper.h"
@@ -2063,11 +2064,14 @@ erts_gc_new_map(Process* p, Eterm* reg, Uint live,
     }
 
     thp    = p->htop;
-    mhp    = thp + 1 + n/2;
+    mhp    = thp + (n == 0 ? 0 : 1) + n/2;
     E      = p->stop;
-    keys   = make_tuple(thp);
-    *thp++ = make_arityval(n/2);
-
+    if (n == 0) {
+        keys   = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    } else {
+        keys   = make_tuple(thp);
+        *thp++ = make_arityval(n/2);
+    }
     mp = (flatmap_t *)mhp; mhp += MAP_HEADER_FLATMAP_SZ;
     mp->thing_word = MAP_HEADER_FLATMAP;
     mp->size = n/2;

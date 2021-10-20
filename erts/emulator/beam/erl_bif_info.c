@@ -4151,6 +4151,21 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
         else if (ERTS_IS_ATOM_STR("persistent_term", BIF_ARG_1)) {
             BIF_RET(erts_debug_persistent_term_xtra_info(BIF_P));
         }
+#ifdef DEBUG
+        else if (ERTS_IS_ATOM_STR("check_no_empty_boxed_non_literal_on_heap", BIF_ARG_1)) {
+            /*
+              There is an optimization that assumes that it is always
+              safe to read the word after the arity word of boxed
+              terms. This checks if there is a boxed term with nothing
+              after the arity word that is not a literal. Such
+              literals needs to be padded to make the above mentioned
+              optimization safe. Debug builds also do this check every
+              time the GC is run.
+             */
+            erts_dbg_check_no_empty_boxed_non_literal_on_heap(BIF_P, NULL);
+            BIF_RET(am_ok);
+        }
+#endif
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);

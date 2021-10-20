@@ -114,7 +114,7 @@ gen.select_tuple_arity(Src, Fail, Size, Rest) {
     for (i = 3; i < arity; i += 2) {
         tmp[i - 2]      = Rest[i - 2];
         tmp[i - 3].type = TAG_v;
-        tmp[i - 3].val  = make_arityval(Rest[i - 3].val);
+        tmp[i - 3].val  = make_arityval_unchecked(Rest[i - 3].val);
     }
 
     /* Sort the values to make them useful for a binary or sentinel search. */
@@ -384,9 +384,13 @@ gen.new_small_map_lit(Dst, Live, Size, Rest) {
     $BeamOpArity(op, 4 + size/2);
     op->next = NULL;
 
-    tmp = thp = erts_alloc(ERTS_ALC_T_LOADER_TMP, (1 + size/2) * sizeof(*tmp));
-    keys = make_tuple(thp);
-    *thp++ = make_arityval(size/2);
+    tmp = thp = erts_alloc(ERTS_ALC_T_LOADER_TMP, ((size == 0 ? 0 : 1) + size/2) * sizeof(*tmp));
+    if (size == 0) {
+        keys = erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
+    } else {
+        keys = make_tuple(thp);
+        *thp++ = make_arityval(size/2);
+    }
 
     dst = op->a+4;
 

@@ -46,6 +46,7 @@
 #include "erl_map.h"
 #include "erl_proc_sig_queue.h"
 #include "erl_trace.h"
+#include "erl_global_literals.h"
 
 #define PASS_THROUGH 'p'
 
@@ -4131,10 +4132,18 @@ dec_term_atom_common:
 	case LARGE_TUPLE_EXT:
 	    n = get_int32(ep);
 	    ep += 4;
+            if (n == 0) {
+                *objp = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+                break;
+            }
 	    goto tuple_loop;
 	case SMALL_TUPLE_EXT:
 	    n = get_int8(ep);
 	    ep++;
+            if (n == 0) {
+                *objp = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+                break;
+            }
 	tuple_loop:
 	    *objp = make_tuple(hp);
 	    *hp++ = make_arityval(n);
@@ -4631,10 +4640,13 @@ dec_term_atom_common:
 
                 if (size <= MAP_SMALL_MAP_LIMIT) {
                     flatmap_t *mp;
-
-                    keys  = make_tuple(hp);
-                    *hp++ = make_arityval(size);
-                    hp   += size;
+                    if (size == 0) {
+                        keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+                    } else {
+                        keys  = make_tuple(hp);
+                        *hp++ = make_arityval(size);
+                        hp   += size;
+                    }
                     kptr = hp - 1;
 
                     mp    = (flatmap_t*)hp;

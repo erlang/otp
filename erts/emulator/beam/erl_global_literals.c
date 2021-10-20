@@ -33,6 +33,12 @@ struct literal {
 
 static struct literal literals[ERTS_NUM_GLOBAL_LITERALS];
 
+/*
+ * Global Constant Literals
+ */
+Eterm ERTS_WRITE_UNLIKELY(ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+
+
 Eterm* erts_alloc_global_literal(Uint index, Uint sz)
 {
     ErtsLiteralArea* area;

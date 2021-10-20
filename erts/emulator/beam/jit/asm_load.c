@@ -410,7 +410,8 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             break;
         case 'A': /* Arity value. */
             BeamLoadVerifyTag(stp, tag, TAG_u);
-            curr->val = make_arityval(curr->val);
+            curr->val = curr->val == 0 ? make_arityval_zero()
+                                       : make_arityval(curr->val);
             break;
         case 'f': /* Destination label */
             BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);

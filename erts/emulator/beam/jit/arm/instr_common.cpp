@@ -966,19 +966,21 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple(const ArgVal &Fail,
     auto src = load_source(Src, ARG1);
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), src.reg);
     emit_untag_ptr(ARG1, src.reg);
+    /* It is safe to fetch the both the header word and the first
+     * element of the tuple with ldp because the empty tuple is always
+     * a literal that is padded so that the word after arity is
+     * allocated. */
+    a.ldp(TMP1, TMP2, arm::Mem(ARG1));
 
-    /* It is tempting to fetch the both the header word and the first
-     * element of the tuple with ldp, but that is potentially unsafe
-     * if Src is the empty tuple. To make ldp safe, we would have to
-     * ensure that an empty tuple in a heap fragment, literal area, or
-     * persistent term is always followed by one word of allocated
-     * memory. */
-    a.ldr(TMP1, arm::Mem(ARG1));
-    cmp_arg(TMP1, Arity);
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    if (Arity.getValue() < 32) {
+        cmp_arg(TMP2, Tag);
+        a.ccmp(TMP1, imm(Arity.getValue()), imm(0), arm::Cond::kEQ);
+    } else {
+        cmp_arg(TMP1, Arity);
+        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        cmp_arg(TMP2, Tag);
+    }
 
-    a.ldr(TMP2, arm::Mem(ARG1, sizeof(Eterm)));
-    cmp_arg(TMP2, Tag);
     a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
 }
 
@@ -995,10 +997,11 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple_ff(const ArgVal &NotTuple,
     emit_is_boxed(resolve_beam_label(NotTuple, dispUnknown), src.reg);
     emit_untag_ptr(ARG1, src.reg);
 
-    /* It is tempting to fetch the both the header word and the first
-     * element of the tuple with ldp, but that is potentially unsafe
-     * if Src is the empty tuple. */
-    a.ldr(TMP1, arm::Mem(ARG1));
+    /* It is safe to fetch the both the header word and the first
+     * element of the tuple with ldp because the empty tuple is always
+     * a literal that is padded so that the word after arity is
+     * allocated. */
+    a.ldp(TMP1, TMP2, arm::Mem(ARG1));
 
     cmp_arg(TMP1, Arity);
     a.cond_eq().b(correct_arity);
@@ -1011,7 +1014,6 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple_ff(const ArgVal &NotTuple,
 
     a.bind(correct_arity);
     {
-        a.ldr(TMP2, arm::Mem(ARG1, sizeof(Eterm)));
         cmp_arg(TMP2, Tag);
         a.cond_ne().b(resolve_beam_label(NotRecord, disp1MB));
     }

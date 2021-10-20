@@ -996,7 +996,7 @@ typedef struct ErtsLiteralArea_ {
 void erts_queue_release_literals(Process *c_p, ErtsLiteralArea* literals);
 
 #define ERTS_LITERAL_AREA_ALLOC_SIZE(N) \
-    (sizeof(ErtsLiteralArea) + sizeof(Eterm)*((N) - 1))
+    (sizeof(ErtsLiteralArea) + sizeof(Eterm)*(N - 1))
 #define ERTS_LITERAL_AREA_SIZE(AP) \
     (ERTS_LITERAL_AREA_ALLOC_SIZE((AP)->end - (AP)->start))
 
