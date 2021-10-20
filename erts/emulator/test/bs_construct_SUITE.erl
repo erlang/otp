@@ -132,6 +132,12 @@ l(I_13, I_big1) ->
      ?T(<<32978297842987249827298387697777669766334937:128/native-integer>>,
 	native_bignum()),
 
+     ?T(<<$э/native-utf16,$т/native-utf16,$о/native-utf16," спутник"/native-utf16>>,
+        native_utf16()),
+
+     ?T(<<$в/native-utf32,"ода"/native-utf32>>,
+	native_utf32()),
+
      %% Unit tests.
      ?T(<<<<5:3>>/bitstring>>, <<5:3>>),
      ?T(<<42,<<7:4>>/binary-unit:4>>, <<42,7:4>>),
@@ -150,6 +156,18 @@ native_bignum() ->
     case <<1:16/native>> of
 	<<0,1>> -> [129,205,18,177,1,213,170,101,39,231,109,128,176,11,73,217];
 	<<1,0>> -> [217,73,11,176,128,109,231,39,101,170,213,1,177,18,205,129]
+    end.
+
+native_utf16() ->
+    case <<1:16/native>> of
+	<<0,1>> -> [4,77,4,66,4,62,0,32,4,65,4,63,4,67,4,66,4,61,4,56,4,58];
+        <<1,0>> -> [77,4,66,4,62,4,32,0,65,4,63,4,67,4,66,4,61,4,56,4,58,4]
+    end.
+
+native_utf32() ->
+    case <<1:16/native>> of
+	<<0,1>> -> [0,0,4,50,0,0,4,62,0,0,4,52,0,0,4,48];
+        <<1,0>> -> [50,4,0,0,62,4,0,0,52,4,0,0,48,4,0,0]
     end.
 
 evaluate(Str, Vars) ->
@@ -173,13 +191,13 @@ eval_list([{C_bin, Str, Bytes} | Rest], Vars) ->
     end.
 
 one_test({C_bin, E_bin, Str, Bytes}) when is_list(Bytes) ->
-    io:format("  ~s, ~p~n", [Str, Bytes]),
+    io:format("  ~ts, ~p~n", [Str, Bytes]),
     Bin = list_to_binary(Bytes),
     if
 	C_bin == Bin ->
 	    ok;
 	true ->
-	    io:format("ERROR: Compiled: ~p. Expected ~p. Got ~p.~n",
+	    io:format("ERROR: Compiled: ~p.~nExpected ~p.~nGot ~p.~n",
 		      [Str, Bytes, binary_to_list(C_bin)]),
 	    ct:fail(comp)
     end,
@@ -187,12 +205,12 @@ one_test({C_bin, E_bin, Str, Bytes}) when is_list(Bytes) ->
 	E_bin == Bin ->
 	    ok;
 	true ->
-	    io:format("ERROR: Interpreted: ~p. Expected ~p. Got ~p.~n",
+	    io:format("ERROR: Interpreted: ~p.~nExpected ~p.~nGot ~p.~n",
 		      [Str, Bytes, binary_to_list(E_bin)]),
 	    ct:fail(comp)
     end;
 one_test({C_bin, E_bin, Str, Result}) ->
-    io:format("  ~s ~p~n", [Str, C_bin]),
+    io:format("  ~ts ~p~n", [Str, C_bin]),
     if
 	C_bin == E_bin ->
 	    ok;
