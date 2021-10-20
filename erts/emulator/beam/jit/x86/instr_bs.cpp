@@ -1230,9 +1230,9 @@ void BeamModuleAssembler::emit_i_bs_utf16_size(const ArgVal &Src,
     mov_arg(Dst, RET);
 }
 
-void BeamModuleAssembler::emit_bs_put_utf16(const ArgVal &Fail,
-                                            const ArgVal &Flags,
-                                            const ArgVal &Src) {
+void BeamModuleAssembler::emit_i_bs_put_utf16(const ArgVal &Fail,
+                                              const ArgVal &Flags,
+                                              const ArgVal &Src) {
     Label next;
 
     if (Fail.getValue() == 0) {

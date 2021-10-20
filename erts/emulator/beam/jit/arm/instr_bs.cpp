@@ -1024,9 +1024,9 @@ void BeamModuleAssembler::emit_i_bs_utf16_size(const ArgVal &Src,
     flush_var(dst_reg);
 }
 
-void BeamModuleAssembler::emit_bs_put_utf16(const ArgVal &Fail,
-                                            const ArgVal &Flags,
-                                            const ArgVal &Src) {
+void BeamModuleAssembler::emit_i_bs_put_utf16(const ArgVal &Fail,
+                                              const ArgVal &Flags,
+                                              const ArgVal &Src) {
     mov_arg(ARG2, Src);
     mov_arg(ARG3, Flags);
 

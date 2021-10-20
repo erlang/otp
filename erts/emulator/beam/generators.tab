@@ -68,6 +68,19 @@ gen.get_float2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
     return op;
 }
 
+gen.get_utf16(Fail, Ms, Flags, Dst) {
+    BeamOp* op;
+    $NewBeamOp(S, op);
+
+    $NativeEndian(Flags);
+    $BeamOpNameArity(op, i_bs_get_utf16, 4);
+    op->a[0] = Ms;
+    op->a[1] = Fail;
+    op->a[2] = Flags;
+    op->a[3] = Dst;
+    return op;
+}
+
 gen.put_binary(Fail, Size, Unit, Flags, Src) {
     BeamOp* op;
     $NewBeamOp(S, op);
@@ -206,6 +219,18 @@ gen.put_float(Fail, Size, Unit, Flags, Src) {
         op->a[2].val = (Unit.val << 3) | (Flags.val & 7);
         op->a[3] = Src;
     }
+    return op;
+}
+
+gen.put_utf16(Fail, Flags, Src) {
+    BeamOp* op;
+    $NewBeamOp(S, op);
+
+    $NativeEndian(Flags);
+    $BeamOpNameArity(op, i_bs_put_utf16, 3);
+    op->a[0] = Fail;
+    op->a[1] = Flags;
+    op->a[2] = Src;
     return op;
 }
 

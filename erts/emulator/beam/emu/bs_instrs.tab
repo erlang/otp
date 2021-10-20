@@ -795,7 +795,7 @@ i_bs_utf16_size(Src, Dst) {
     $Dst = result;
 }
 
-bs_put_utf16(Fail, Flags, Src) {
+i_bs_put_utf16(Fail, Flags, Src) {
     if (!erts_bs_put_utf16(ERL_BITS_ARGS_2($Src, $Flags))) {
         $BADARG($Fail);
     }

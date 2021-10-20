@@ -368,6 +368,18 @@ gen.get_binary2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
     return op;
 }
 
+gen.skip_utf16(Fail, Ms, Flags) {
+    BeamOp* op;
+    $NewBeamOp(S, op);
+
+    $NativeEndian(Flags);
+    $BeamOpNameArity(op, i_bs_skip_utf16, 3);
+    op->a[0] = Ms;
+    op->a[1] = Fail;
+    op->a[2] = Flags;
+    return op;
+}
+
 gen.allocate_heap_zero(Ns, Nh, Live) {
     BeamOp* alloc;
     BeamOp* init;

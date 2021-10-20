@@ -291,11 +291,15 @@ native(Config) when is_list(Config) ->
 native_big() ->
     <<37.33:64/native-float>> = <<37.33:64/big-float>>,
     <<3974:16/native-integer>> = <<3974:16/big-integer>>,
+    <<$W/native-utf16>> = id(<<0,$W>>),
+    <<$W/native-utf32>> = id(<<0,0,0,$W>>),
     {comment,"Big endian"}.
 
 native_little() ->
     <<37869.32343:64/native-float>> = <<37869.32343:64/little-float>>,
     <<7974:16/native-integer>> = <<7974:16/little-integer>>,
+    <<$W/native-utf16>> = id(<<$W,0>>),
+    <<$W/native-utf32>> = id(<<$W,0,0,0>>),
     {comment,"Little endian"}.
 
 happi(Config) when is_list(Config) ->
