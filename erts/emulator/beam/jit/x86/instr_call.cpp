@@ -116,18 +116,18 @@ void BeamGlobalAssembler::emit_dispatch_save_calls() {
     a.mov(ARG1, imm(&the_active_code_index));
     a.mov(ARG1d, x86::dword_ptr(ARG1));
 
-    a.jmp(emit_setup_export_call(RET, ARG1));
+    a.jmp(emit_setup_dispatchable_call(RET, ARG1));
 }
 
 void BeamModuleAssembler::emit_i_call_ext(const ArgVal &Exp) {
     make_move_patch(RET, imports[Exp.getValue()].patches);
-    x86::Mem destination = emit_setup_export_call(RET);
+    x86::Mem destination = emit_setup_dispatchable_call(RET);
     erlang_call(destination, ARG1);
 }
 
 void BeamModuleAssembler::emit_i_call_ext_only(const ArgVal &Exp) {
     make_move_patch(RET, imports[Exp.getValue()].patches);
-    x86::Mem destination = emit_setup_export_call(RET);
+    x86::Mem destination = emit_setup_dispatchable_call(RET);
 
     emit_leave_frame();
     a.jmp(destination);
@@ -138,7 +138,7 @@ void BeamModuleAssembler::emit_i_call_ext_last(const ArgVal &Exp,
     emit_deallocate(Deallocate);
 
     make_move_patch(RET, imports[Exp.getValue()].patches);
-    x86::Mem destination = emit_setup_export_call(RET);
+    x86::Mem destination = emit_setup_dispatchable_call(RET);
 
     emit_leave_frame();
     a.jmp(destination);
@@ -174,7 +174,7 @@ x86::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
     emit_raise_exception(entry, &apply3_mfa);
     a.bind(dispatch);
 
-    return emit_setup_export_call(RET);
+    return emit_setup_dispatchable_call(RET);
 }
 
 void BeamModuleAssembler::emit_i_apply() {
@@ -226,7 +226,7 @@ x86::Mem BeamModuleAssembler::emit_fixed_apply(const ArgVal &Arity,
     emit_raise_exception(entry, &apply3_mfa);
     a.bind(dispatch);
 
-    return emit_setup_export_call(RET);
+    return emit_setup_dispatchable_call(RET);
 }
 
 void BeamModuleAssembler::emit_apply(const ArgVal &Arity) {

@@ -306,7 +306,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	     * But this code_ptr will point to the start of the Export,
 	     * not the function's func_info instruction. BOOM !?
 	     */
-	    cmfa = erts_code_to_codemfa(ep->addresses[code_ix]);
+	    cmfa = erts_code_to_codemfa(ep->dispatch.addresses[code_ix]);
 	} else if (modp == NULL || (code_hdr = modp->curr.code_hdr) == NULL) {
 	    BIF_RET(am_undef);
 	} else {

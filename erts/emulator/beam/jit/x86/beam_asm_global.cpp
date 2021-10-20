@@ -148,7 +148,7 @@ void BeamGlobalAssembler::emit_bif_export_trap() {
     a.sub(RET, imm(offsetof(Export, info.mfa)));
 
     emit_leave_frame();
-    a.jmp(emit_setup_export_call(RET));
+    a.jmp(emit_setup_dispatchable_call(RET));
 }
 
 /* Handles export breakpoints, error handler, jump tracing, and so on.
@@ -218,7 +218,7 @@ void BeamGlobalAssembler::emit_export_trampoline() {
         a.je(labels[process_exit]);
 
         emit_leave_frame();
-        a.jmp(emit_setup_export_call(RET));
+        a.jmp(emit_setup_dispatchable_call(RET));
     }
 }
 

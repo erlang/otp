@@ -236,7 +236,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
                     erts_clear_export_break(mod_tab_p, ep);
 
-                    ep->addresses[code_ix] =
+                    ep->dispatch.addresses[code_ix] =
                         (ErtsCodePtr)ep->trampoline.breakpoint.address;
                     ep->trampoline.breakpoint.address = 0;
 
@@ -629,7 +629,12 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
             }
         case FUN_SUBTAG:
             {
-                ErlFunEntry* fe = ((ErlFunThing*)oh)->fe;
+                /* We _KNOW_ that this is a local fun, otherwise it would not
+                 * be part of the off-heap list. */
+                ErlFunEntry* fe = ((ErlFunThing*)oh)->entry.fun;
+
+                ASSERT(is_local_fun((ErlFunThing*)oh));
+
                 if (erts_refc_dectest(&fe->refc, 0) == 0) {
                     erts_erase_fun_entry(fe);
                 }

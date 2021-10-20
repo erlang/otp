@@ -170,7 +170,7 @@ DISPATCH_EXPORT(Export) {
 
     DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, ep);
 
-    SET_I(ep->addresses[erts_active_code_ix()]);
+    SET_I(ep->dispatch.addresses[erts_active_code_ix()]);
     CHECK_ARGS(I);
     dis_next = *I;
 
@@ -198,7 +198,7 @@ DISPATCH_FUN(I) {
         FCALLS--;
         Goto(dis_next);
     } else {
-        goto context_switch_fun;
+        goto context_switch;
     }
 }
 

@@ -258,11 +258,11 @@ means that all remote calls _must_ place the export entry in said register,
 even when we don't know beforehand that the call is remote, such as when
 calling a fun.
 
-This is pretty easy to do in assembler and the `emit_setup_export_call` helper
-handles it nicely for us, but we can't set registers when trapping out from C
-code. When trapping to an export entry from C code one must set `c_p->current`
-to the `ErtsCodeMFA` inside the export entry in question, and then set `c_p->i`
-to `beam_bif_export_trap`.
+This is pretty easy to do in assembler and the `emit_setup_dispatchable_call`
+helper handles it nicely for us, but we can't set registers when trapping out
+from C code. When trapping to an export entry from C code one must set
+`c_p->current` to the `ErtsCodeMFA` inside the export entry in question, and
+then set `c_p->i` to `beam_bif_export_trap`.
 
 The `BIF_TRAP` macros handle this for you, so you generally don't need to
 think about it.

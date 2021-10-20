@@ -115,17 +115,6 @@ typedef struct {
     ErtsAlgndAsyncReadyQ *ready_queue;
 } ErtsAsyncData;
 
-#if defined(USE_VM_PROBES)
-
-/*
- * Some compilers, e.g. GCC 4.2.1 and -O3, will optimize away DTrace
- * calls if they're the last thing in the function.  :-(
- * Many thanks to Trond Norbye, via:
- * https://github.com/memcached/memcached/commit/6298b3978687530bc9d219b6ac707a1b681b2a46
- */
-static unsigned gcc_optimizer_hack = 0;
-#endif
-
 int erts_async_max_threads; /* Initialized by erl_init.c */
 int erts_async_thread_suggested_stack_size; /* Initialized by erl_init.c */
 
@@ -238,10 +227,6 @@ erts_get_async_ready_queue(Uint sched_id)
 
 static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
 {
-#ifdef USE_VM_PROBES
-    int len;
-#endif
-
     if (is_internal_port(a->port)) {
 	ErtsAsyncReadyQ *arq = async_ready_q(a->sched_id);
 	a->q.prep_enq = erts_thr_q_prepare_enqueue(&arq->thr_q);
@@ -263,9 +248,6 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 {
     int saved_fin_deq = 0;
     ErtsThrQFinDeQ_t fin_deq;
-#ifdef USE_VM_PROBES
-    int len;
-#endif
 
     while (1) {
 	ErtsAsync *a = (ErtsAsync *) erts_thr_q_dequeue(q);

@@ -148,7 +148,7 @@ void BeamGlobalAssembler::emit_debug_bp() {
     a.test(RET, RET);
     a.je(error);
 
-    a.jmp(emit_setup_export_call(RET));
+    a.jmp(emit_setup_dispatchable_call(RET));
 
     a.bind(error);
     {

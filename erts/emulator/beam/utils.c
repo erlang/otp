@@ -956,37 +956,43 @@ tail_recur:
 	    hash = hash*FUNNY_NUMBER4 + sz;
 	    break;
 	}
-    case EXPORT_DEF:
-	{
-	    Export* ep = *((Export **) (export_val(term) + 1));
-
-	    hash = hash * FUNNY_NUMBER11 + ep->info.mfa.arity;
-	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(ep->info.mfa.module))->slot.bucket.hvalue);
-	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(ep->info.mfa.function))->slot.bucket.hvalue);
-	    break;
-	}
-
     case FUN_DEF:
-	{
-	    ErlFunThing* funp = (ErlFunThing *) fun_val(term);
-	    Uint num_free = funp->num_free;
+        {
+            ErlFunThing* funp = (ErlFunThing *) fun_val(term);
 
-	    hash = hash * FUNNY_NUMBER10 + num_free;
-	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(funp->fe->module))->slot.bucket.hvalue);
-	    hash = hash*FUNNY_NUMBER2 + funp->fe->index;
-	    hash = hash*FUNNY_NUMBER2 + funp->fe->old_uniq;
-	    if (num_free > 0) {
-		if (num_free > 1) {
-		    WSTACK_PUSH3(stack, (UWord) &funp->env[1], (num_free-1), MAKE_HASH_TERM_ARRAY_OP);
-		}
-		term = funp->env[0];
-		goto tail_recur;
-	    }
-	    break;
-	}
+            if (is_local_fun(funp)) {
+
+                ErlFunEntry* fe = funp->entry.fun;
+                Uint num_free = funp->num_free;
+
+                hash = hash * FUNNY_NUMBER10 + num_free;
+                hash = hash*FUNNY_NUMBER1 +
+                        (atom_tab(atom_val(fe->module))->slot.bucket.hvalue);
+                hash = hash*FUNNY_NUMBER2 + fe->index;
+                hash = hash*FUNNY_NUMBER2 + fe->old_uniq;
+
+                if (num_free > 0) {
+                    if (num_free > 1) {
+                        WSTACK_PUSH3(stack, (UWord) &funp->env[1],
+                                     (num_free-1), MAKE_HASH_TERM_ARRAY_OP);
+                    }
+
+                    term = funp->env[0];
+                    goto tail_recur;
+                }
+            } else {
+                const ErtsCodeMFA *mfa = &funp->entry.exp->info.mfa;
+
+                ASSERT(is_external_fun(funp) && funp->next == NULL);
+
+                hash = hash * FUNNY_NUMBER11 + mfa->arity;
+                hash = hash*FUNNY_NUMBER1 +
+                       (atom_tab(atom_val(mfa->module))->slot.bucket.hvalue);
+                hash = hash*FUNNY_NUMBER1 +
+                        (atom_tab(atom_val(mfa->function))->slot.bucket.hvalue);
+            }
+            break;
+        }
     case PID_DEF:
 	/* only 15 bits... */
 	UINT32_HASH_RET(internal_pid_number(term),FUNNY_NUMBER5,FUNNY_NUMBER6);
@@ -1688,43 +1694,50 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                 goto hash2_common;
             }
             break;
-	    case EXPORT_SUBTAG:
-	    {
-		Export* ep = *((Export **) (export_val(term) + 1));
-		UINT32_HASH_2
-		    (ep->info.mfa.arity,
-		     atom_tab(atom_val(ep->info.mfa.module))->slot.bucket.hvalue,
-		     HCONST);
-		UINT32_HASH
-		    (atom_tab(atom_val(ep->info.mfa.function))->slot.bucket.hvalue,
-		     HCONST_14);
-		goto hash2_common;
-	    }
 
-	    case FUN_SUBTAG:
-	    {
-		ErlFunThing* funp = (ErlFunThing *) fun_val(term);
-                ErtsMakeHash2Context_FUN_SUBTAG ctx = {
-                    .num_free = funp->num_free,
-                    .bptr = NULL};
-		UINT32_HASH_2
-		    (ctx.num_free,
-		     atom_tab(atom_val(funp->fe->module))->slot.bucket.hvalue,
-		     HCONST);
-		UINT32_HASH_2
-		    (funp->fe->index, funp->fe->old_uniq, HCONST);
-		if (ctx.num_free == 0) {
-		    goto hash2_common;
-		} else {
-		    ctx.bptr = funp->env + ctx.num_free - 1;
-		    while (ctx.num_free-- > 1) {
-			term = *ctx.bptr--;
-			ESTACK_PUSH(s, term);
+            case FUN_SUBTAG:
+            {
+                ErlFunThing* funp = (ErlFunThing *) fun_val(term);
+
+                if (is_local_fun(funp)) {
+                    ErlFunEntry* fe = funp->entry.fun;
+                    ErtsMakeHash2Context_FUN_SUBTAG ctx = {
+                        .num_free = funp->num_free,
+                        .bptr = NULL};
+
+                    UINT32_HASH_2
+                        (ctx.num_free,
+                         atom_tab(atom_val(fe->module))->slot.bucket.hvalue,
+                         HCONST);
+                    UINT32_HASH_2
+                        (fe->index, fe->old_uniq, HCONST);
+                    if (ctx.num_free == 0) {
+                        goto hash2_common;
+                    } else {
+                        ctx.bptr = funp->env + ctx.num_free - 1;
+                        while (ctx.num_free-- > 1) {
+                            term = *ctx.bptr--;
+                            ESTACK_PUSH(s, term);
                         TRAP_LOCATION(fun_subtag);
-		    }
-		    term = *ctx.bptr;
-		}
-	    }
+                        }
+                        term = *ctx.bptr;
+                    }
+                } else {
+                    Export *ep = funp->entry.exp;
+
+                    ASSERT(is_external_fun(funp) && funp->next == NULL);
+
+                    UINT32_HASH_2
+                        (ep->info.mfa.arity,
+                         atom_tab(atom_val(ep->info.mfa.module))->slot.bucket.hvalue,
+                         HCONST);
+                    UINT32_HASH
+                        (atom_tab(atom_val(ep->info.mfa.function))->slot.bucket.hvalue,
+                         HCONST_14);
+
+                    goto hash2_common;
+                }
+            }
 	    break;
 	    case REFC_BINARY_SUBTAG:
 	    case HEAP_BINARY_SUBTAG:
@@ -2233,32 +2246,34 @@ make_internal_hash(Eterm term, Uint32 salt)
                 goto pop_next;
             }
             break;
-	    case EXPORT_SUBTAG:
-	    {
-		Export* ep = *((Export **) (export_val(term) + 1));
-                /* Assumes Export entries never move */
-                POINTER_HASH(ep, HCONST_14);
-		goto pop_next;
-	    }
+            case FUN_SUBTAG:
+            {
+                ErlFunThing* funp = (ErlFunThing *) fun_val(term);
 
-	    case FUN_SUBTAG:
-	    {
-		ErlFunThing* funp = (ErlFunThing *) fun_val(term);
-		Uint num_free = funp->num_free;
-                UINT32_HASH_2(num_free, funp->fe->module, HCONST_20);
-                UINT32_HASH_2(funp->fe->index, funp->fe->old_uniq, HCONST_21);
-		if (num_free == 0) {
-		    goto pop_next;
-		} else {
-		    Eterm* bptr = funp->env + num_free - 1;
-		    while (num_free-- > 1) {
-			term = *bptr--;
-			ESTACK_PUSH(s, term);
-		    }
-		    term = *bptr;
-		}
-	    }
-	    break;
+                if (is_local_fun(funp)) {
+                    ErlFunEntry* fe = funp->entry.fun;
+                    Uint num_free = funp->num_free;
+                    UINT32_HASH_2(num_free, fe->module, HCONST_20);
+                    UINT32_HASH_2(fe->index, fe->old_uniq, HCONST_21);
+                    if (num_free == 0) {
+                        goto pop_next;
+                    } else {
+                        Eterm* bptr = funp->env + num_free - 1;
+                        while (num_free-- > 1) {
+                            term = *bptr--;
+                            ESTACK_PUSH(s, term);
+                        }
+                        term = *bptr;
+                    }
+                } else {
+                    ASSERT(is_external_fun(funp) && funp->next == NULL);
+
+                    /* Assumes Export entries never move */
+                    POINTER_HASH(funp->entry.exp, HCONST_14);
+                    goto pop_next;
+                }
+            }
+            break;
 	    case REFC_BINARY_SUBTAG:
 	    case HEAP_BINARY_SUBTAG:
 	    case SUB_BINARY_SUBTAG:
@@ -2869,35 +2884,46 @@ tailrecur_ne:
 		    }
 		    break; /* not equal */
 		}
-	    case EXPORT_SUBTAG:
-		{
-		    if (is_export(b)) {
-			Export* a_exp = *((Export **) (export_val(a) + 1));
-			Export* b_exp = *((Export **) (export_val(b) + 1));
-			if (a_exp == b_exp) goto pop_next;
-		    }
-		    break; /* not equal */
-		}
-	    case FUN_SUBTAG:
-		{
-		    ErlFunThing* f1;
-		    ErlFunThing* f2;
+            case FUN_SUBTAG:
+                {
+                    ErlFunThing* f1;
+                    ErlFunThing* f2;
 
-		    if (!is_fun(b))
-			goto not_equal;
-		    f1 = (ErlFunThing *) fun_val(a);
-		    f2 = (ErlFunThing *) fun_val(b);
-		    if (f1->fe->module != f2->fe->module ||
-			f1->fe->index != f2->fe->index ||
-			f1->fe->old_uniq != f2->fe->old_uniq ||
-			f1->num_free != f2->num_free) {
-			goto not_equal;
-		    }
-		    if ((sz = f1->num_free) == 0) goto pop_next;
-		    aa = f1->env;
-		    bb = f2->env;
-		    goto term_array;
-		}
+                    if (is_not_any_fun(b)) {
+                        goto not_equal;
+                    }
+
+                    f1 = (ErlFunThing *) fun_val(a);
+                    f2 = (ErlFunThing *) fun_val(b);
+
+                    if (is_local_fun(f1) && is_local_fun(f2)) {
+                        ErlFunEntry *fe1, *fe2;
+
+                        fe1 = f1->entry.fun;
+                        fe2 = f2->entry.fun;
+
+                        if (fe1->module != fe2->module ||
+                            fe1->index != fe2->index ||
+                            fe1->old_uniq != fe2->old_uniq ||
+                            f1->num_free != f2->num_free) {
+                            goto not_equal;
+                        }
+
+                        if ((sz = f1->num_free) == 0) {
+                            goto pop_next;
+                        }
+
+                        aa = f1->env;
+                        bb = f2->env;
+                        goto term_array;
+                    } else if (is_external_fun(f1) && is_external_fun(f2)) {
+                        if (f1->entry.exp == f2->entry.exp) {
+                            goto pop_next;
+                        }
+                    }
+
+                    goto not_equal;
+                }
 
 	    case EXTERNAL_PID_SUBTAG: {
 		ExternalThing *ap;
@@ -3492,58 +3518,69 @@ tailrecur_ne:
 		    goto mixed_types;
 		}
 		ON_CMP_GOTO(big_comp(a, b));
-	    case (_TAG_HEADER_EXPORT >> _TAG_PRIMARY_SIZE):
-		if (!is_export(b)) {
-		    a_tag = EXPORT_DEF;
-		    goto mixed_types;
-		} else {
-		    Export* a_exp = *((Export **) (export_val(a) + 1));
-		    Export* b_exp = *((Export **) (export_val(b) + 1));
 
-		    if ((j = erts_cmp_atoms(a_exp->info.mfa.module,
-                                            b_exp->info.mfa.module)) != 0) {
-			RETURN_NEQ(j);
-		    }
-		    if ((j = erts_cmp_atoms(a_exp->info.mfa.function,
-                                            b_exp->info.mfa.function)) != 0) {
-			RETURN_NEQ(j);
-		    }
-		    ON_CMP_GOTO((Sint) a_exp->info.mfa.arity - (Sint) b_exp->info.mfa.arity);
-		}
-		break;
-	    case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):
-		if (!is_fun(b)) {
-		    a_tag = FUN_DEF;
-		    goto mixed_types;
-		} else {
-		    ErlFunThing* f1 = (ErlFunThing *) fun_val(a);
-		    ErlFunThing* f2 = (ErlFunThing *) fun_val(b);
-		    Sint diff;
+            case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):
+                if (is_not_any_fun(b)) {
+                    a_tag = FUN_DEF;
+                    goto mixed_types;
+                } else {
+                    ErlFunThing* f1 = (ErlFunThing *) fun_val(a);
+                    ErlFunThing* f2 = (ErlFunThing *) fun_val(b);
 
-                    diff = erts_cmp_atoms((f1->fe)->module, (f2->fe)->module);
-		    if (diff != 0) {
-			RETURN_NEQ(diff);
-		    }
-		    diff = f1->fe->index - f2->fe->index;
-		    if (diff != 0) {
-			RETURN_NEQ(diff);
-		    }
-		    diff = f1->fe->old_uniq - f2->fe->old_uniq;
-		    if (diff != 0) {
-			RETURN_NEQ(diff);
-		    }
-		    diff = f1->num_free - f2->num_free;
-		    if (diff != 0) {
-			RETURN_NEQ(diff);
-		    }
-		    i = f1->num_free;
-		    if (i == 0) goto pop_next;
-		    aa = f1->env;
-		    bb = f2->env;
-		    goto term_array;
-		}
-	    case (_TAG_HEADER_EXTERNAL_PID >> _TAG_PRIMARY_SIZE):
-		if (!is_pid(b)) {
+                    if (is_local_fun(f1) && is_local_fun(f2)) {
+                        ErlFunEntry* fe1 = f1->entry.fun;
+                        ErlFunEntry* fe2 = f2->entry.fun;
+
+                        Sint diff;
+
+                        diff = erts_cmp_atoms(fe1->module, (fe2)->module);
+
+                        if (diff != 0) {
+                            RETURN_NEQ(diff);
+                        }
+
+                        diff = fe1->index - fe2->index;
+                        if (diff != 0) {
+                            RETURN_NEQ(diff);
+                        }
+
+                        diff = fe1->old_uniq - fe2->old_uniq;
+                        if (diff != 0) {
+                            RETURN_NEQ(diff);
+                        }
+
+                        diff = f1->num_free - f2->num_free;
+                        if (diff != 0) {
+                            RETURN_NEQ(diff);
+                        }
+
+                        i = f1->num_free;
+                        if (i == 0) goto pop_next;
+                        aa = f1->env;
+                        bb = f2->env;
+                        goto term_array;
+                    } else if (is_external_fun(f1) && is_external_fun(f2)) {
+                        Export* a_exp = f1->entry.exp;
+                        Export* b_exp = f2->entry.exp;
+
+                        if ((j = erts_cmp_atoms(a_exp->info.mfa.module,
+                                                b_exp->info.mfa.module)) != 0) {
+                            RETURN_NEQ(j);
+                        }
+                        if ((j = erts_cmp_atoms(a_exp->info.mfa.function,
+                                                b_exp->info.mfa.function)) != 0) {
+                            RETURN_NEQ(j);
+                        }
+
+                        ON_CMP_GOTO((Sint) a_exp->info.mfa.arity -
+                                     (Sint) b_exp->info.mfa.arity);
+                    } else {
+                        /* External funs compare greater than local ones. */
+                        RETURN_NEQ(is_external_fun(f1) - is_external_fun(f2));
+                    }
+                }
+            case (_TAG_HEADER_EXTERNAL_PID >> _TAG_PRIMARY_SIZE):
+                if (!is_pid(b)) {
                     a_tag = EXTERNAL_PID_DEF;
                     goto mixed_types;
                 }

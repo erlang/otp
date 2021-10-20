@@ -121,7 +121,7 @@ void BeamGlobalAssembler::emit_debug_bp() {
     a.cbz(ARG1, error);
 
     emit_leave_erlang_frame();
-    branch(emit_setup_export_call(ARG1));
+    branch(emit_setup_dispatchable_call(ARG1));
 
     a.bind(error);
     {

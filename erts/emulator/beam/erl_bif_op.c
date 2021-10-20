@@ -251,19 +251,14 @@ Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2)
 	goto error;
     }
 
-    if (is_fun(arg1)) {
+    if (is_any_fun(arg1)) {
 	ErlFunThing* funp = (ErlFunThing *) fun_val(arg1);
 
 	if (funp->arity == (Uint) arity) {
 	    BIF_RET(am_true);
 	}
-    } else if (is_export(arg1)) {
-	Export* exp = (Export *) (export_val(arg1)[1]);
-
-	if (exp->info.mfa.arity == (Uint) arity) {
-	    BIF_RET(am_true);
-	}
     }
+
     BIF_RET(am_false);
 }
 

@@ -3685,45 +3685,49 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		}
 	    }
 	    break;
-	case EXPORT_DEF:
-	    {
-		Export* exp = *((Export **) (export_val(obj) + 1));
-                *ep++ = EXPORT_EXT;
-                ep = enc_atom(acmp, exp->info.mfa.module, ep, dflags);
-                ep = enc_atom(acmp, exp->info.mfa.function, ep, dflags);
-                ep = enc_term(acmp, make_small(exp->info.mfa.arity),
-                              ep, dflags, off_heap);
-		break;
-	    }
-	    break;
-	case FUN_DEF:
-	    {
-		ErlFunThing* funp = (ErlFunThing *) fun_val(obj);
-		int ei;
+        case FUN_DEF:
+            {
+                ErlFunThing* funp = (ErlFunThing *) fun_val(obj);
 
-                *ep++ = NEW_FUN_EXT;
-                WSTACK_PUSH2(s, ENC_PATCH_FUN_SIZE,
-                             (UWord) ep); /* Position for patching in size */
-                ep += 4;
-                *ep = funp->arity;
-                ep += 1;
-                sys_memcpy(ep, funp->fe->uniq, 16);
-                ep += 16;
-                put_int32(funp->fe->index, ep);
-                ep += 4;
-                put_int32(funp->num_free, ep);
-                ep += 4;
-                ep = enc_atom(acmp, funp->fe->module, ep, dflags);
-                ep = enc_term(acmp, make_small(funp->fe->old_index), ep, dflags, off_heap);
-                ep = enc_term(acmp, make_small(funp->fe->old_uniq), ep, dflags, off_heap);
-                ep = enc_pid(acmp, funp->creator, ep, dflags);
+                if (is_local_fun(funp)) {
+                    ErlFunEntry* fe = funp->entry.fun;
+                    int ei;
 
-		for (ei = funp->num_free-1; ei >= 0; ei--) {
-		    WSTACK_PUSH2(s, ENC_TERM, (UWord) funp->env[ei]);
-		}
-	    }
-	    break;
-	}
+                    *ep++ = NEW_FUN_EXT;
+                    WSTACK_PUSH2(s, ENC_PATCH_FUN_SIZE,
+                                (UWord) ep); /* Position for patching in size */
+                    ep += 4;
+                    *ep = funp->arity;
+                    ep += 1;
+                    sys_memcpy(ep, fe->uniq, 16);
+                    ep += 16;
+                    put_int32(fe->index, ep);
+                    ep += 4;
+                    put_int32(funp->num_free, ep);
+                    ep += 4;
+                    ep = enc_atom(acmp, fe->module, ep, dflags);
+                    ep = enc_term(acmp, make_small(fe->old_index), ep, dflags, off_heap);
+                    ep = enc_term(acmp, make_small(fe->old_uniq), ep, dflags, off_heap);
+                    ep = enc_pid(acmp, funp->creator, ep, dflags);
+
+                    for (ei = funp->num_free-1; ei >= 0; ei--) {
+                        WSTACK_PUSH2(s, ENC_TERM, (UWord) funp->env[ei]);
+                    }
+                } else {
+                    Export *exp = funp->entry.exp;
+
+                    ASSERT(is_external_fun(funp) && funp->next == NULL);
+
+                    *ep++ = EXPORT_EXT;
+                    ep = enc_atom(acmp, exp->info.mfa.module, ep, dflags);
+                    ep = enc_atom(acmp, exp->info.mfa.function, ep, dflags);
+                    ep = enc_term(acmp, make_small(exp->info.mfa.arity),
+                                 ep, dflags, off_heap);
+
+                }
+            }
+            break;
+        }
     }
     DESTROY_WSTACK(s);
     if (ctx) {
@@ -4594,42 +4598,45 @@ dec_term_atom_common:
 		}
 		break;
 	    }
-	case EXPORT_EXT:
-	    {
-		Eterm mod;
-		Eterm name;
-		Eterm temp;
-		Sint arity;
+        case EXPORT_EXT:
+            {
+                ErlFunThing *funp;
+                Export *export;
+                Eterm mod;
+                Eterm name;
+                Eterm temp;
+                Sint arity;
 
-		if ((ep = dec_atom(edep, ep, &mod)) == NULL) {
-		    goto error;
-		}
-		if ((ep = dec_atom(edep, ep, &name)) == NULL) {
-		    goto error;
-		}
-		factory->hp = hp;
-		ep = dec_term(edep, factory, ep, &temp, NULL, 0);
-		hp = factory->hp;
-		if (ep == NULL) {
-		    goto error;
-		}
-		if (!is_small(temp)) {
-		    goto error;
-		}
-		arity = signed_val(temp);
-		if (arity < 0) {
-		    goto error;
-		}
-		if (edep && (edep->flags & ERTS_DIST_EXT_BTT_SAFE)) {
-		    if (!erts_active_export_entry(mod, name, arity))
-			goto error;
+                if ((ep = dec_atom(edep, ep, &mod)) == NULL) {
+                    goto error;
                 }
-		*objp = make_export(hp);
-		*hp++ = HEADER_EXPORT;
-		*hp++ = (Eterm) erts_export_get_or_make_stub(mod, name, arity);
-		break;
-	    }
-	    break;
+                if ((ep = dec_atom(edep, ep, &name)) == NULL) {
+                    goto error;
+                }
+                factory->hp = hp;
+                ep = dec_term(edep, factory, ep, &temp, NULL, 0);
+                if (ep == NULL) {
+                    goto error;
+                }
+                if (!is_small(temp)) {
+                    goto error;
+                }
+                arity = signed_val(temp);
+                if (arity < 0) {
+                    goto error;
+                }
+                if (edep && (edep->flags & ERTS_DIST_EXT_BTT_SAFE)) {
+                    if (!erts_active_export_entry(mod, name, arity)) {
+                        goto error;
+                    }
+                }
+
+                export = erts_export_get_or_make_stub(mod, name, arity);
+                funp = erts_new_export_fun_thing(&factory->hp, export, arity);
+                hp = factory->hp;
+                *objp = make_fun(funp);
+            }
+            break;
 	case MAP_EXT:
 	    {
 		Uint32 size,n;
@@ -4745,8 +4752,9 @@ dec_term_atom_common:
 		funp->next = factory->off_heap->first;
 		factory->off_heap->first = (struct erl_off_heap_header*)funp;
 
-		funp->fe = erts_put_fun_entry2(module, old_uniq, old_index,
-					       uniq, index, arity);
+                funp->entry.fun = erts_put_fun_entry2(module, old_uniq,
+                                                      old_index, uniq,
+                                                      index, arity);
 		funp->arity = arity;
 		hp = factory->hp;
 
@@ -5271,52 +5279,55 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
             }
 	    break;
         }
-	case FUN_DEF:
-	    {
-		ErlFunThing* funp = (ErlFunThing *) fun_val(obj);
+        case FUN_DEF:
+            {
+                ErlFunThing *funp = (ErlFunThing *) fun_val(obj);
 
-                result += 20+1+1+4;	/* New ID + Tag */
-                result += 4; /* Length field (number of free variables */
-                result += encode_size_struct2(acmp, funp->creator, dflags);
-                result += encode_size_struct2(acmp, funp->fe->module, dflags);
-                result += 2 * (1+4);	/* Index, Uniq */
-		if (funp->num_free > 1) {
-		    WSTACK_PUSH2(s, (UWord) (funp->env + 1),
-				    (UWord) TERM_ARRAY_OP(funp->num_free-1));
-		}
-		if (funp->num_free != 0) {
-		    obj = funp->env[0];
-		    continue; /* big loop */
-		}
-		break;
-	    }
+                if (is_local_fun(funp)) {
+                    result += 20+1+1+4;	/* New ID + Tag */
+                    result += 4; /* Length field (number of free variables */
+                    result += encode_size_struct2(acmp, funp->creator, dflags);
+                    result += encode_size_struct2(acmp, funp->entry.fun->module, dflags);
+                    result += 2 * (1+4);	/* Index, Uniq */
+                    if (funp->num_free > 1) {
+                        WSTACK_PUSH2(s, (UWord) (funp->env + 1),
+                                    (UWord) TERM_ARRAY_OP(funp->num_free-1));
+                    }
+                    if (funp->num_free != 0) {
+                        obj = funp->env[0];
+                        continue; /* big loop */
+                    }
+                } else {
+                    Export* ep = funp->entry.exp;
+                    Uint tmp_result = result;
 
-	case EXPORT_DEF:
-	    {
-		Export* ep = *((Export **) (export_val(obj) + 1));
-                Uint tmp_result = result;
-		result += 1;
-		result += encode_size_struct2(acmp, ep->info.mfa.module, dflags);
-		result += encode_size_struct2(acmp, ep->info.mfa.function, dflags);
-		result += encode_size_struct2(acmp, make_small(ep->info.mfa.arity), dflags);
-                if (dflags & DFLAG_PENDING_CONNECT) {
-                    Uint csz;
-		    ASSERT(ctx);
+                    ASSERT(is_external_fun(funp) && funp->next == NULL);
 
-                    /*
-                     * Fallback is 1 + 1 + Module size + Function size, that is,
-                     * the hopefull index + hopefull encoding is larger...
-                     */
-                    ASSERT(dflags & DFLAG_EXPORT_PTR_TAG);
-                    csz = tmp_result - ctx->last_result;
-                    /* potentially multiple elements leading up to hopefull entry */
-                    vlen += (csz/MAX_SYSIOVEC_IOVLEN + 1
-			     + 1); /* hopefull entry */
-                    result += 4; /* hopefull index */
-                    ctx->last_result = result;
+                    result += 1;
+                    result += encode_size_struct2(acmp, ep->info.mfa.module, dflags);
+                    result += encode_size_struct2(acmp, ep->info.mfa.function, dflags);
+                    result += encode_size_struct2(acmp, make_small(ep->info.mfa.arity), dflags);
+
+                    if (dflags & DFLAG_PENDING_CONNECT) {
+                        Uint csz;
+                        ASSERT(ctx);
+
+                        /* Fallback is 1 + 1 + Module size + Function size,
+                         * that is, the hopeful index + hopeful encoding is
+                         * larger... */
+                        ASSERT(dflags & DFLAG_EXPORT_PTR_TAG);
+                        csz = tmp_result - ctx->last_result;
+
+                        /* Potentially multiple elements leading up to hopeful
+                         * entry */
+                        vlen += (csz/MAX_SYSIOVEC_IOVLEN + 1
+                                 + 1); /* hopeful entry */
+                        result += 4; /* hopeful index */
+                        ctx->last_result = result;
+                    }
                 }
-	    }
-	    break;
+                break;
+        }
 
 	default:
 	    erts_exit(ERTS_ERROR_EXIT,"Internal data structure error (in encode_size_struct_int) %x\n",
@@ -5632,7 +5643,7 @@ init_done:
 	    break;
 	case EXPORT_EXT:
 	    terms += 3;
-	    heap_size += 2;
+	    heap_size += ERL_FUN_SIZE;
 	    break;
 	case NEW_FUN_EXT:
 	    {

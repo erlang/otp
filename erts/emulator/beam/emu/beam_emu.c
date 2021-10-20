@@ -420,7 +420,7 @@ void process_main(ErtsSchedulerData *esdp)
             if (ERTS_PROC_IS_EXITING(c_p)) {
                 sys_strcpy(fun_buf, "<exiting>");
             } else {
-                ErtsCodeMFA *cmfa = erts_find_function_from_pc(c_p->i);
+                const ErtsCodeMFA *cmfa = erts_find_function_from_pc(c_p->i);
                 if (cmfa) {
                     dtrace_fun_decode(c_p, cmfa,
                                       NULL, fun_buf);
@@ -453,16 +453,12 @@ void process_main(ErtsSchedulerData *esdp)
      * can get the module, function, and arity for the function being
      * called from I[-3], I[-2], and I[-1] respectively.
      */
- context_switch_fun:
-    /* Add one for the environment of the fun */
-    c_p->arity = erts_code_to_codemfa(I)->arity + 1;
-    goto context_switch2;
-
  context_switch:
-    c_p->arity = erts_code_to_codemfa(I)->arity;
-
- context_switch2: 		/* Entry for fun calls. */
-    c_p->current = erts_code_to_codemfa(I);
+    {
+        const ErtsCodeMFA *mfa = erts_code_to_codemfa(I);
+        c_p->arity = mfa->arity;
+        c_p->current = mfa;
+    }
 
  context_switch3:
 
@@ -541,7 +537,7 @@ void process_main(ErtsSchedulerData *esdp)
         HEAVY_SWAPIN;
 
         if (error_handler) {
-            I = error_handler->addresses[erts_active_code_ix()];
+            I = error_handler->dispatch.addresses[erts_active_code_ix()];
             Goto(*I);
         }
     }

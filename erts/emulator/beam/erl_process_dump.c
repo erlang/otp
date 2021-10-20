@@ -708,7 +708,7 @@ dump_externally(fmtfn_t to, void *to_arg, Eterm term)
     byte* s; 
     byte* p;
 
-    if (is_fun(term)) {
+    if (is_any_fun(term)) {
 	/*
 	 * The fun's environment used to cause trouble. There were
 	 * two kind of problems:

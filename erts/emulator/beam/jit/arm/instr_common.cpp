@@ -747,8 +747,6 @@ void BeamModuleAssembler::emit_is_function(const ArgVal &Fail,
     arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
     a.ldur(TMP1, emit_boxed_val(boxed_ptr));
     a.cmp(TMP1, imm(HEADER_FUN));
-    a.cond_eq().b(next);
-    a.cmp(TMP1, imm(HEADER_EXPORT));
     a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
 
     a.bind(next);
@@ -785,9 +783,6 @@ void BeamModuleAssembler::emit_is_function2(const ArgVal &Fail,
         return;
     }
 
-    Label next = a.newLabel();
-    Label fun = a.newLabel();
-
     auto src = load_source(Src, TMP1);
 
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), src.reg);
@@ -795,24 +790,10 @@ void BeamModuleAssembler::emit_is_function2(const ArgVal &Fail,
     arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
     a.ldur(TMP2, emit_boxed_val(boxed_ptr));
     a.cmp(TMP2, imm(HEADER_FUN));
-    a.cond_eq().b(fun);
-    a.cmp(TMP2, imm(HEADER_EXPORT));
     a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
 
-    comment("Check arity of export fun");
-    a.ldur(TMP2, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
-    a.ldr(TMP2, arm::Mem(TMP2, offsetof(Export, info.mfa.arity)));
+    a.ldur(TMP2, emit_boxed_val(boxed_ptr, offsetof(ErlFunThing, arity)));
     emit_branch_if_ne(TMP2, arity, resolve_beam_label(Fail, dispUnknown));
-    a.b(next);
-
-    comment("Check arity of fun");
-    a.bind(fun);
-    {
-        a.ldur(TMP2, emit_boxed_val(boxed_ptr, offsetof(ErlFunThing, arity)));
-        emit_branch_if_ne(TMP2, arity, resolve_beam_label(Fail, dispUnknown));
-    }
-
-    a.bind(next);
 }
 
 void BeamModuleAssembler::emit_is_integer(const ArgVal &Fail,

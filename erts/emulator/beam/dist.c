@@ -4638,7 +4638,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
 	goto error;
 
     /* Check that all trap functions are defined !! */
-    if (dmonitor_node_trap->addresses[0] == NULL) {
+    if (dmonitor_node_trap->dispatch.addresses[0] == NULL) {
 	goto error;
     }
 

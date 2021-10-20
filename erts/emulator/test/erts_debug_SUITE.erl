@@ -89,7 +89,8 @@ test_size(Config) when is_list(Config) ->
 
     FunSz1 = do_test_size(fun() -> ConsCell1 end) - do_test_size(ConsCell1),
 
-    2 = do_test_size(fun lists:sort/1),
+    %% External funs are the same size as local ones without environment
+    FunSz0 = do_test_size(fun lists:sort/1),
 
     Arch = 8 * erlang:system_info({wordsize, external}),
     case {Arch, do_test_size(mk_ext_pid({a@b, 1}, 17, 42))} of
