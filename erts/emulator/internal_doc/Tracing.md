@@ -1,8 +1,64 @@
-Non-blocking trace setting
-==========================
+# Tracing
 
-Introduction
-------------
+## Implementation
+### Call, return, and exception tracing
+
+Tracing is implemented by setting breakpoints in the traced functions,
+and sending the appropriate trace messages when they're hit.
+
+* Call trace messages are sent immediately.
+* Return tracing pushes a frame to the stack which _returns to_ an
+  instruction that sends a trace message when encountered.
+* Exception tracing also pushes a frame to the stack, but will only send
+  a trace message if we encounter it in stack scanning while throwing an
+  exception.
+
+This means that one must be careful not to use return or exception tracing
+on functions that never return, as each call pushes a frame that will
+never be removed.
+
+Another limitation is that since the breakpoint is in the _callee_ and not
+the _caller_, we're limited to the information we have on function ingress.
+This means that we can't actually tell who called us: since we're limited
+to inspecting the stack we can only say where we're _going to return to_,
+which is not quite the same thing.
+
+As an illustration, when the `caller` option is enabled all trace messages
+from `bar/1`  will say that they were called from `foo/0`, even though it
+went through a bunch of other functions on the way:
+
+    foo() ->
+        lots(),
+        ok.
+    
+    lots() ->
+        'of'().
+    
+    'of'() ->
+        indirections().
+    
+    indirections() ->
+        bar(10).
+    
+    bar(0) ->
+        done;
+    bar(N) ->
+        bar(N - 1).
+
+### Export tracing
+
+In the interpreter, breakpoints are set inside the code trampoline for
+export entries, and their address vector is updated to point to them.
+This way, only remote calls will hit the breakpoint while local calls to
+the same function are left alone, but it otherwise acts the same way as
+local breakpoints.
+
+Things get a bit more involved in the JIT. See `BeamAsm.md` for more
+details.
+
+## Setting breakpoints
+
+### Introduction
 
 Before OTP R16 when trace settings were changed by `erlang:trace_pattern`,
 all other execution in the VM were halted while the trace operation
@@ -10,15 +66,13 @@ was carried out in single threaded mode. Similar to code loading, this
 can impose a severe problem for availability that grows with the
 number of cores.
 
-In OTP R16, trace breakpoints are set in the code without blocking the
-VM. Erlang processes may continue executing undisturbed in parallel
-during the entire operation. The same base technique is used as for
-code loading. A staging area of breakpoints is prepared and then made
-active with a single atomic operation.
+In OTP R16, breakpoints are set in the code without blocking the VM.
+Erlang processes may continue executing undisturbed in parallel during the
+entire operation. The same base technique is used as for code loading. A
+staging area of breakpoints is prepared and then made active with a single
+atomic operation.
 
-
-Redesign of Breakpoint Wheel
-----------------------------
+### Redesign of Breakpoint Wheel
 
 To make it easier to manage breakpoints without single threaded mode a
 redesign of the breakpoint mechanism has been made. The old
@@ -34,9 +88,7 @@ one struct (`GenericBp`) to hold the data for all types of breakpoints
 for each instrumented function. A bit-flag field is used to indicate
 what different type of break actions that are enabled.
 
-
-Same Same but Different
------------------------
+### Same Same but Different
 
 Even though `trace_pattern` use the same technique as the non-blocking
 code loading with replicated generations of data structures and an
@@ -55,7 +107,7 @@ instantaneously without the need of external function calls.
 The chosen solution is instead for tracing to use the technique of
 replication applied on the data structures for breakpoints. Two
 generations of breakpoints are kept and indentified by index of 0 and
-1. The global atomic variables `erts_active_bp_index` will determine
+1\. The global atomic variables `erts_active_bp_index` will determine
 which generation of breakpoints running code will use.
 
 ### Atomicity Without Atomic Operations
@@ -70,9 +122,7 @@ guarantee we need is that the written instruction word is seen as
 atomic. Either fully written or not at all. This is true for word
 aligned write operation on all hardware architectures we use.
 
-
-Adding a new Breakpoint
------------------------
+### Adding a new Breakpoint
 
 This is a simplified sequence describing what `trace_pattern` goes
 through when adding a new breakpoint.
@@ -83,8 +133,8 @@ through when adding a new breakpoint.
    Set the active part as disabled with a zeroed flagfield. Save the original
    instruction word in the breakpoint.
 
-3. Write a pointer to the breakpoint at offset -4 from the first
-   instruction "func\_info" header.
+3. Write a pointer to the breakpoint at offset `-sizeof(UWord)` from the first
+   instruction `ErtsFuncInfo` header.
 
 4. Set the staging part of the breakpoint as enabled with specified
    breakpoint data.
@@ -92,7 +142,8 @@ through when adding a new breakpoint.
 5. Wait for thread progress.
 
 6. Write a `op_i_generic_breakpoint` as the first instruction for the function.
-   This instruction will execute the breakpoint that it finds at offset -4.
+   This instruction will execute the breakpoint that it finds at offset
+   `-sizeof(UWord)`.
 
 7. Wait for thread progress.
 
@@ -120,9 +171,7 @@ becomes visible they will however execute the disabled part of the
 breakpoint structure and do nothing other than executing the saved
 original instruction.
 
-
-To Updating and Remove Breakpoints
-----------------------------------
+###  To Update and Remove Breakpoints
 
 The above sequence did only describe adding a new breakpoint. We do
 basically the same sequence to update the settings of an existing
@@ -141,7 +190,7 @@ and removing breakpoints.
 
 2. Allocate new breakpoint structures with a disabled active part and
    the original beam instruction. Write a pointer to the breakpoint in
-   "func\_info" header at offset -4.
+   `ErtsFuncInfo` header at offset `-sizeof(UWord)`.
 
 3. Update the staging part of all affected breakpoints. Disable
    breakpoints that are to be removed.
@@ -168,7 +217,6 @@ and removing breakpoints.
 12. Deallocate disabled breakpoint structures.
 
 13. Release code write permission and return from `trace_pattern`.
-
 
 ### All that Waiting for Thread Progress
 
@@ -197,9 +245,7 @@ The waiting in step 10 is to make sure no lingering thread is still
 accessing disabled breakpoint structures to be deallocated in step
 12.
 
-
-Global Tracing
---------------
+### Global Tracing
 
 Call tracing with `global` option only affects external function
 calls. This was earlier handled by inserting a special trace
@@ -212,9 +258,7 @@ tracing is that we insert the `op_i_generic_breakpoint` instruction
 (with its pointer at offset -4) in the export entry rather than in the
 code.
 
-
-Future work
------------
+### Future work
 
 We still go to single threaded mode when new code is loaded for a
 module that is traced, or when loading code when there is a default
