@@ -21,10 +21,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef __WIN32__
-#include <unistd.h>
-#include <errno.h>
-#include <pthread.h>
+#ifdef __WIN32__
+#  include <io.h>
+#else
+#  include <unistd.h>
+#  include <errno.h>
+#  include <pthread.h>
 #endif
 #include "ei.h"
 
@@ -38,9 +40,11 @@ char *node_name = NULL;
 char *cookie = NULL;
 short creation = -1;
 
-#ifndef __WIN32__
-
+#ifdef __WIN32__
+static unsigned __stdcall ei_node_executor(LPVOID unused)
+#else
 static void *ei_node_executor(void *unused)
+#endif
 {
     int lfd, pfd, res, port;
 
@@ -101,15 +105,20 @@ static void *ei_node_executor(void *unused)
         }
     }
     
+#ifdef __WIN32__
+    return 0;
+#else
     return NULL;
-}
-
 #endif
+}
 
 int
 main(int argc, char *argv[])
 {
-#ifndef __WIN32__
+#ifdef __WIN32__
+    unsigned tid;
+    HANDLE thndl;
+#else
     pthread_t tid;
 #endif
     int i;
@@ -154,22 +163,29 @@ main(int argc, char *argv[])
         usage1("Missing -creation parameter");
 
 #ifdef __WIN32__
-    fail1("Not supported on windows");
+    thndl = (HANDLE) _beginthreadex(NULL, 0, ei_node_executor,
+                                    NULL, 0, &tid);
+    if (thndl == (HANDLE) 0)
+        fail1("_beginthreadex() failed");
 #else
     if (pthread_create(&tid, NULL, ei_node_executor, NULL) != 0)
         fail1("pthread_create() failed");
+#endif
     
     /* Wait until stdin is closed. Terminate when that happens... */
     while (!0) {
         char buf[128];
+#ifdef __WIN32__
+        int res = _read(0, (void *) &buf[0], sizeof(buf));
+#else
         ssize_t res = read(0, (void *) &buf[0], sizeof(buf));
+#endif
         if (res == 0)
             exit(0); /* erlang port closed... */
         if (res < 0 && errno != EINTR) {
             fail1("read() failed");
         }
     }
-#endif
 
     return 0;
 }
