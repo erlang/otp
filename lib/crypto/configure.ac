@@ -169,6 +169,14 @@ AS_HELP_STRING([--disable-evp-hmac],
     *)    DISABLE_EVP_HMAC=0;;
   esac ], DISABLE_EVP_HMAC=0)
 
+AC_ARG_ENABLE(deprecated_warnings,
+AS_HELP_STRING([--disable-deprecated-warnings],
+	       [disable warnings for deprecated functions in cryptolib (default is to warn, except for OpenSSL 3.x where the default is not to warn)]),
+[ case "$enableval" in
+    no)   deprecated_warnings=no;;
+    *)    deprecated_warnings=yes;;
+  esac ], deprecated_warnings=default_yes)
+
 AC_DEFUN([ERL_LINK_CRYPTO_IFELSE], [
     test_cflags=$1
     test_ldflags=$2
@@ -858,7 +866,11 @@ AS_IF([test "$enable_fips_support" = "yes"],
           LIBS="$saveLIBS"
       ])
 
-AS_IF([test "x$v3_include" = "xyes" && test "$CRYPTO_APP" != ""],
+AS_IF([test "x$v3_include" = "xyes" && test "x$deprecated_warnings" = "xdefault_yes" && test "$CRYPTO_APP" != ""],
+      [deprecated_warnings=no
+      ])
+
+AS_IF([test "x$deprecated_warnings" = "xno"  &&  test "$CRYPTO_APP" != ""],
       [SSL_FLAGS="$SSL_FLAGS -Wno-deprecated-declarations"
       ])
 
