@@ -1162,9 +1162,33 @@ smart_guess(Dir,IncPath) ->
 	    D1 = reverse(D),
 	    Dirs = [filename:join(D1 ++ ["src"]),
 		    filename:join(D1 ++ ["src", "e_src"])],
-	    {Dirs,Dirs ++ IncPath};
+	    RecurseDirs = add_subdirs(Dirs),
+	    {RecurseDirs,RecurseDirs ++ IncPath};
 	_ ->
 	    {[Dir],[Dir] ++ IncPath}
+    end.
+
+%%______________________________________________________________________
+%% add_subdirs([Dirs]) -> [Dirs]
+%% Take the directories that were used for a guess, and search them
+%% recursively. This is required for applications relying on varying
+%% nested directories. One example within OTP is the `wx' application,
+%% which has auto-generated modules in `src/gen/' and then fail any
+%% systools check.
+
+add_subdirs([]) ->
+    [];
+add_subdirs([Dir|Dirs]) ->
+    case filelib:is_dir(Dir) of
+        false ->
+            %% Keep the bad guess, but put it last in the search order
+            %% since we won't find anything there. Handling of errors
+            %% for unfound file is done in `locate_src/2'
+            add_subdirs(Dirs) ++ [Dir];
+        true ->
+            SubDirs = [File || File <- filelib:wildcard(filename:join(Dir, "**")),
+                               filelib:is_dir(File)],
+            [Dir|SubDirs] ++ add_subdirs(Dirs)
     end.
 
 %%______________________________________________________________________
