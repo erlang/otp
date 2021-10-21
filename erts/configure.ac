@@ -555,35 +555,8 @@ AC_SUBST(ERTS_CONFIG_H_IDIR)
 
 extra_flags="$ERTS_CONFIG_H_IDIR $OTP_EXTRA_FLAGS"
 CFLAGS="$CFLAGS $extra_flags"
-DEBUG_CFLAGS="-g $CPPFLAGS $extra_flags $DEBUG_CFLAGS"
 DEBUG_FLAGS=-g
 
-dnl
-dnl Adjust DEBUG_CFLAGS to match CFLAGS in terms of -m
-dnl
-
-case $CFLAGS in
-	*-m64*)
-		case $DEBUG_CFLAGS in
-			*-m64*)
-				;;
-			*)
-				DEBUG_CFLAGS="-m64 $DEBUG_CFLAGS"
-				;;
-		esac
-		;;
-	*-m32*)
-		case $DEBUG_CFLAGS in
-			*-m32*)
-				;;
-			*)
-				DEBUG_CFLAGS="-m32 $DEBUG_CFLAGS"
-				;;
-		esac
-		;;
-	*)
-		;;
-esac
 
 lfs_conf=ok
 lfs_source=none
@@ -619,7 +592,6 @@ else
 	AC_MSG_WARN([Check for large file support flags failed; $GETCONF failed])
     else
 	CFLAGS="$CFLAGS $LFS_CFLAGS"
-	DEBUG_CFLAGS="$DEBUG_CFLAGS $LFS_CFLAGS"
 	LDFLAGS="$LDFLAGS $LFS_LDFLAGS"
 	LIBS="$LIBS $LFS_LIBS"
     fi
@@ -674,22 +646,10 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[
 #endif]])],
   [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no])
-     CFLAGS="-std=gnu99 $CFLAGS"
-     DEBUG_CFLAGS="-std=gnu99 $DEBUG_CFLAGS"])
-
-AC_MSG_CHECKING([CFLAGS for -O switch])
-case "$CFLAGS" in
-     *-O*) AC_MSG_RESULT([yes]) ;;
-     *)
-       AC_MSG_ERROR([
-  CFLAGS must contain a -O flag. If you need to edit the CFLAGS you probably
-  also want to add the default CFLAGS. The default CFLAGS are "-O2 -g".
-  If you want to build erts without any optimization, pass -O0 to CFLAGS.]) ;;
-esac
+     CFLAGS="-std=gnu99 $CFLAGS"])
 
 dnl DEBUG_FLAGS is obsolete (I hope)
 AC_SUBST(DEBUG_FLAGS)
-AC_SUBST(DEBUG_CFLAGS)
 AC_SUBST(WFLAGS)
 AC_SUBST(WERRORFLAGS)
 
@@ -3574,6 +3534,19 @@ esac
 CFLAGS="$CFLAGS $sanitizers"
 LDFLAGS="$LDFLAGS $sanitizers"
 ])
+
+AC_MSG_CHECKING([CFLAGS for -O switch])
+dnl                               Remove all "-O*" options
+no_opt_CFLAGS=$(echo " $CFLAGS" | sed 's/ -O[[^ ]]*/ /g')
+if test "X $CFLAGS" = "X$no_opt_CFLAGS"; then
+   AC_MSG_ERROR([
+	CFLAGS must contain a -O flag. If you need to edit the CFLAGS you probably
+	also want to add the default CFLAGS. The default CFLAGS are "-O2 -g".
+	If you want to build ERTS without any optimization, pass -O0 to CFLAGS.])
+fi
+AC_MSG_RESULT([yes])
+DEBUG_CFLAGS="-g -O0 $no_opt_CFLAGS"
+AC_SUBST(DEBUG_CFLAGS)
 
 dnl ----------------------------------------------------------------------
 dnl Output the result.
