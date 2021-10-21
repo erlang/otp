@@ -119,18 +119,19 @@
     <tcaption>Compressed Data Format when Expanded</tcaption></table>
     <marker id="utf8_atoms"/>
     <note>
-      <p>As from ERTS 9.0 (OTP 20), atoms may contain any Unicode
-        characters and are always encoded using the UTF-8 external formats
-	<seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>
-        or <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>.
-	The old Latin-1 formats <seeguide marker="#ATOM_EXT"><c>ATOM_EXT</c></seeguide>
-        and <seeguide marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_EXT</c></seeguide>
-	are deprecated and are only kept for backward
-	compatibility when decoding terms encoded by older nodes.</p>
-      <p>Support for UTF-8 encoded atoms in the external format has been
-        available since ERTS 5.10 (OTP R16). This ability allows such old nodes
-	to decode, store and encode any Unicode atoms received from a new OTP 20
-        node.</p>
+      <p>
+        As from ERTS 9.0 (OTP 20), atoms may contain any Unicode
+        characters. Atoms sent over node distribution are always encoded
+        in UTF-8 using either
+	<seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>,
+        <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>
+        or <seeguide marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>.
+        However, <seemfa marker="erts:erlang#term_to_binary/1">
+        <c>erlang:term_to_binary/1,2</c></seemfa> is by default still using the
+        old deprecated Latin-1 format
+        <seeguide marker="#ATOM_EXT"><c>ATOM_EXT</c></seeguide>
+        for atoms that only contain Latin-1 characters (Unicode code points 0-255).
+      </p>
       <p>The maximum number of allowed characters in an atom is 255. In the
         UTF-8 case, each character can need 4 bytes to be encoded.</p>
     </note>
@@ -666,10 +667,8 @@
 	<p>
 	  Encodes a port identifier (obtained from
           <seemfa marker="erlang#open_port/2"><c>erlang:open_port/2</c></seemfa>).
-	  <c>Node</c> is an encoded atom, that is,
-	  <seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>,
-	  <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>
-	  or <seeguide marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>.
+	  <c>Node</c> is the originating node,
+          <seeguide marker="#utf8_atoms">encoded as an atom</seeguide>.
 	  <c>ID</c> is a 64-bit big endian unsigned integer. The <c>Creation</c>
 	  works just like in <seeguide marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seeguide>.
 	  Port operations are not allowed across node boundaries.
@@ -729,11 +728,8 @@
 	</p>
 	<taglist>
 	  <tag><c>Node</c></tag>
-	  <item><p>The name of the originating node, encoded using
-	    <seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>,
-	    <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>
-	    or <seeguide
-	    marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>.</p>
+	  <item><p>The name of the originating node,
+          <seeguide marker="#utf8_atoms">encoded as an atom</seeguide>.</p>
 	  </item>
 	  <tag><c>ID</c></tag>
 	  <item><p>A 32-bit big endian unsigned integer. If distribution flag
@@ -1072,10 +1068,8 @@
 	</p>
 	<taglist>
 	  <tag><c>Node</c></tag>
-	  <item><p>The name of the originating node, encoded using
-	    <seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>,
-	    <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>
-	    or <seeguide marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>.</p>
+	  <item><p>The name of the originating node,
+          <seeguide marker="#utf8_atoms">encoded as an atom</seeguide>.</p>
 	  </item>
 	  <tag><c>Len</c></tag>
 	  <item><p>A 16-bit big endian unsigned integer not larger than 5 when the
@@ -1137,12 +1131,9 @@
 	  </item>
 	<tag><c>Module</c></tag>
 	<item>
-	  <p>Encoded as an atom, using
-	    <seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>,
-	    <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>,
-	    or <seeguide marker="#ATOM_CACHE_REF">
-	    <c>ATOM_CACHE_REF</c></seeguide>.
-	    This is the module that the fun is implemented in.
+	  <p>
+	    The module that the fun is implemented in,
+            <seeguide marker="#utf8_atoms">encoded as an atom</seeguide>.
 	  </p>
 	</item>
 	<tag><c>Index</c></tag>
@@ -1232,13 +1223,10 @@
 	  </item>
 	  <tag><c>Module</c></tag>
 	  <item>
-	    <p>Encoded as an atom, using
-	      <seeguide marker="#ATOM_EXT"><c>ATOM_UTF8_EXT</c></seeguide>, 
-	      <seeguide marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>,
-	      or <seeguide marker="#ATOM_CACHE_REF">
-	      <c>ATOM_CACHE_REF</c></seeguide>. 
-	      Is the module that the fun is implemented in.
-	    </p>
+            <p>
+              The module that the fun is implemented in,
+              <seeguide marker="#utf8_atoms">encoded as an atom</seeguide>.
+            </p>
 	  </item>
 	  <tag><c>OldIndex</c></tag>
 	  <item>
@@ -1295,10 +1283,8 @@
 	  This term is the encoding for external funs: <c>fun M:F/A</c>.
 	</p>
 	<p>
-	  <c>Module</c> and <c>Function</c> are atoms
-	  (encoded using <seeguide marker="#ATOM_EXT"><c>ATOM_UTF8_EXT</c></seeguide>, 
-	  <seeguide marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>, or
-	  <seeguide marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>).
+	  <c>Module</c> and <c>Function</c> are
+          <seeguide marker="#utf8_atoms">encoded as atoms</seeguide>.
 	</p>
 	<p>
 	  <c>Arity</c> is an integer encoded using
