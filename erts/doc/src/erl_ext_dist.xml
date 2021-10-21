@@ -117,24 +117,34 @@
         <cell align="center"><c>Data</c></cell>
       </row>
     <tcaption>Compressed Data Format when Expanded</tcaption></table>
+  </section>
+
+  <section>
     <marker id="utf8_atoms"/>
-    <note>
-      <p>
-        As from ERTS 9.0 (OTP 20), atoms may contain any Unicode
-        characters. Atoms sent over node distribution are always encoded
-        in UTF-8 using either
-	<seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>,
-        <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>
-        or <seeguide marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>.
-        However, <seemfa marker="erts:erlang#term_to_binary/1">
-        <c>erlang:term_to_binary/1,2</c></seemfa> is by default still using the
-        old deprecated Latin-1 format
-        <seeguide marker="#ATOM_EXT"><c>ATOM_EXT</c></seeguide>
-        for atoms that only contain Latin-1 characters (Unicode code points 0-255).
-      </p>
-      <p>The maximum number of allowed characters in an atom is 255. In the
-        UTF-8 case, each character can need 4 bytes to be encoded.</p>
-    </note>
+    <title>Encoding atoms</title>
+    <p>
+      As from ERTS 9.0 (OTP 20), atoms may contain any Unicode characters.
+    </p>
+    <p>
+      Atoms sent over node distribution are always encoded in UTF-8 using
+      either <seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>,
+      <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>
+      or <seeguide marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>.
+    </p>
+    <p>
+      Atoms encoded with <seemfa marker="erts:erlang#term_to_binary/1">
+      <c>erlang:term_to_binary/1,2</c></seemfa> or
+      <seemfa marker="erts:erlang#term_to_iovec/1">
+      <c>erlang:term_to_iovec/1,2</c></seemfa> are by default still using the
+      old deprecated Latin-1 format
+      <seeguide marker="#ATOM_EXT"><c>ATOM_EXT</c></seeguide>
+      for atoms that only contain Latin-1 characters (Unicode code points
+      0-255). Atoms with higher code points will be encoded in UTF-8 using
+      either <seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide> or
+      <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>.
+    </p>
+    <p>The maximum number of allowed characters in an atom is 255. In the
+    UTF-8 case, each character can need 4 bytes to be encoded.</p>
   </section>
 
   <section>
@@ -284,8 +294,8 @@
       </p>
       <p>
         For more information on encoding of atoms, see the
-        <seeguide marker="#utf8_atoms">note on UTF-8 encoded atoms</seeguide>
-        in the beginning of this section.
+        <seeguide marker="#utf8_atoms">section on UTF-8 encoded atoms</seeguide>
+        above.
       </p>
       <p>
         If the <c>NewCacheEntryFlag</c> for the next <c>AtomCacheRef</c>
@@ -1363,9 +1373,9 @@
 	in UTF-8.
       </p>
       <p>
-	For more information on encoding of atoms, see the
-	<seeguide marker="#utf8_atoms">note on UTF-8 encoded atoms</seeguide>
-	in the beginning of this section.
+	For more information, see the
+	<seeguide marker="#utf8_atoms">section on encoding atoms</seeguide>
+	in the beginning of this page.
       </p>
     </section>
 
@@ -1391,9 +1401,9 @@
 	<seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>.
       </p>
       <p>
-	For more information on encoding of atoms, see the
-	<seeguide marker="#utf8_atoms">note on UTF-8 encoded atoms</seeguide>
-	in the beginning of this section.
+	For more information, see the
+	<seeguide marker="#utf8_atoms">section on encoding atoms</seeguide>
+	in the beginning of this page.
       </p>
     </section>
 
