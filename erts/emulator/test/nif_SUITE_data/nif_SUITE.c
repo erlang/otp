@@ -2074,7 +2074,7 @@ static ERL_NIF_TERM call_nif_nan_or_inf(ErlNifEnv* env, int argc, const ERL_NIF_
     assert(enif_is_exception(env, res));
     assert(enif_has_pending_exception(env, NULL));
     if (strcmp(arg, "tuple") == 0) {
-        return enif_make_tuple2(env, argv[0], res);
+        return enif_make_tuple2(env, argv[0], argv[0]);
     } else {
         return res;
     }
