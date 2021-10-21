@@ -3136,23 +3136,19 @@ dist_spawn_monitor(Config) when is_list(Config) ->
     
 spawn_against_ei_node(Config) when is_list(Config) ->
     %% Spawn against an ei node which does not support spawn
-    case start_ei_node(Config) of
-	{error, notsup} ->
-	    {skipped, "Not supported on this platform"};
-        {ok, EiNode} ->
-            try
-                %% First spawn triggering a new connection; which
-                %% will trigger hopeful data transcoding
-                %% of spawn requests...
-                io:format("~n~nDoing initial connect tests...~n", []),
-                spawn_ei_node_test(EiNode, true),
-                %% Spawns on an already existing connection...
-                io:format("~n~nDoing already connected tests...~n", []),
-                spawn_ei_node_test(EiNode, false),
-                ok
-            after
-                stop_ei_node(EiNode)
-            end
+    {ok, EiNode} = start_ei_node(Config),
+    try
+        %% First spawn triggering a new connection; which
+        %% will trigger hopeful data transcoding
+        %% of spawn requests...
+        io:format("~n~nDoing initial connect tests...~n", []),
+        spawn_ei_node_test(EiNode, true),
+        %% Spawns on an already existing connection...
+        io:format("~n~nDoing already connected tests...~n", []),
+        spawn_ei_node_test(EiNode, false),
+        ok
+    after
+        ok = stop_ei_node(EiNode)
     end.
 
 spawn_against_old_node(Config) when is_list(Config) ->
@@ -4524,40 +4520,36 @@ total_memory() ->
     end.
 
 start_ei_node(Config) when is_list(Config) ->
-    case os:type() of
-        {win32, _} ->
-            {error, notsup};
-        _ ->
-            DataDir = proplists:get_value(data_dir, Config),
-            FwdNodeExe = filename:join(DataDir, "fwd_node"),
-            Name = atom_to_list(?MODULE)
-                ++ "-" ++ "ei_node"
-                ++ "-" ++ integer_to_list(erlang:system_time(second))
-                ++ "-" ++ integer_to_list(erlang:unique_integer([positive])),
-            Cookie = atom_to_list(erlang:get_cookie()),
-            HostName = get_hostname(),
-            Node = list_to_atom(Name++"@"++HostName),
-            Creation = integer_to_list(rand:uniform((1 bsl 15) - 4) + 3),
-            Parent = self(),
-            Pid = spawn_link(fun () ->
-                                     register(cnode_forward_receiver, self()),
-                                     process_flag(trap_exit, true),
-                                     Cmd = FwdNodeExe
-                                         ++ " -sname " ++ Name
-                                         ++ " -cookie " ++ Cookie
-                                         ++ " -creation " ++ Creation,
-                                     io:format("Starting ei_node: ~p~n", [Cmd]),
-                                     Port = erlang:open_port({spawn, Cmd}, [use_stdio]),
-                                     receive
-                                         {Port, {data, "accepting"}} -> ok
-                                     end,
-                                     ei_node_handler_loop(Node, Parent, Port)
-                             end),
-            put({ei_node_handler, Node}, Pid),
-            case check_ei_node(Node) of
-                ok -> {ok, Node};
-                Error -> Error
-            end
+    DataDir = proplists:get_value(data_dir, Config),
+    FwdNodeExe = filename:join(DataDir, "fwd_node"),
+    Name = atom_to_list(?MODULE)
+        ++ "-" ++ "ei_node"
+        ++ "-" ++ integer_to_list(erlang:system_time(second))
+        ++ "-" ++ integer_to_list(erlang:unique_integer([positive])),
+    Cookie = atom_to_list(erlang:get_cookie()),
+    HostName = get_hostname(),
+    Node = list_to_atom(Name++"@"++HostName),
+    Creation = integer_to_list(rand:uniform((1 bsl 15) - 4) + 3),
+    Parent = self(),
+    Pid = spawn_link(fun () ->
+                             register(cnode_forward_receiver, self()),
+                             process_flag(trap_exit, true),
+                             Args = ["-sname", Name,
+                                     "-cookie", Cookie,
+                                     "-creation", Creation],
+                             io:format("Starting ei_node: ~p ~p~n",
+                                       [FwdNodeExe, Args]),
+                             Port = erlang:open_port({spawn_executable, FwdNodeExe},
+                                                     [use_stdio, {args, Args}]),
+                             receive
+                                 {Port, {data, "accepting"}} -> ok
+                             end,
+                             ei_node_handler_loop(Node, Parent, Port)
+                     end),
+    put({ei_node_handler, Node}, Pid),
+    case check_ei_node(Node) of
+        ok -> {ok, Node};
+        Error -> Error
     end.
 
 check_ei_node(Node) ->
