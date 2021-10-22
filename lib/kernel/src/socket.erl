@@ -69,6 +69,8 @@
          sockname/1,
          peername/1,
 
+         ioctl/2,
+
          cancel/2
         ]).
 
@@ -1268,7 +1270,7 @@ cancel_monitor(MRef) ->
                                                   boolean()}]}]}].
 supports() ->
     [{Key1, supports(Key1)}
-     || Key1 <- [options, msg_flags, protocols]]
+     || Key1 <- [ioctl_requests, options, msg_flags, protocols]]
         ++ prim_socket:supports().
 
 -spec supports(Key1 :: term()) ->
@@ -4026,6 +4028,28 @@ peername(?socket(SockRef))
     prim_socket:peername(SockRef);
 peername(Socket) ->
     erlang:error(badarg, [Socket]).
+
+
+
+%% ===========================================================================
+%%
+%% ioctl - control device - get requests
+%%
+%%
+
+-type ioctl_get_request() :: gifconf | gifaddr | non_neg_integer().
+
+-spec ioctl(Socket, GetRequest) -> {'ok', Result} | {'error', Reason} when
+      Socket     :: socket(),
+      GetRequest :: ioctl_get_request(),
+      Result     :: term(),
+      Reason     :: posix() | 'closed'.
+
+ioctl(?socket(SockRef), GetRequest) ->
+    prim_socket:ioctl(SockRef, GetRequest);
+ioctl(Socket, GetRequest) ->
+    erlang:error(badarg, [Socket, GetRequest]).
+
 
 
 %% ===========================================================================

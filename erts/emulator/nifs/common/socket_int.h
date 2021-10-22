@@ -290,6 +290,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(multicast_if);             \
     GLOBAL_ATOM_DEF(multicast_loop);           \
     GLOBAL_ATOM_DEF(multicast_ttl);            \
+    GLOBAL_ATOM_DEF(name);                     \
     GLOBAL_ATOM_DEF(nodelay);                  \
     GLOBAL_ATOM_DEF(nodefrag);                 \
     GLOBAL_ATOM_DEF(noopt);                    \

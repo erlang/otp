@@ -1093,6 +1093,7 @@ extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
  * nif_getopt
  * nif_sockname
  * nif_peername
+ * nif_ioctl
  * nif_finalize_close
  * nif_cancel
  */
@@ -1118,6 +1119,7 @@ extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
     ESOCK_NIF_FUNC_DEF(getopt);                     \
     ESOCK_NIF_FUNC_DEF(sockname);                   \
     ESOCK_NIF_FUNC_DEF(peername);                   \
+    ESOCK_NIF_FUNC_DEF(ioctl);                      \
     ESOCK_NIF_FUNC_DEF(finalize_close);             \
     ESOCK_NIF_FUNC_DEF(cancel);
 
@@ -1184,6 +1186,7 @@ static ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key);
 
 static ERL_NIF_TERM esock_supports_msg_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
 
 static ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
@@ -1721,6 +1724,26 @@ static ERL_NIF_TERM esock_sockname(ErlNifEnv*       env,
                                    ESockDescriptor* descP);
 static ERL_NIF_TERM esock_peername(ErlNifEnv*       env,
                                    ESockDescriptor* descP);
+
+static ERL_NIF_TERM esock_ioctl(ErlNifEnv*       env,
+				ESockDescriptor* descP,
+				int              req);
+static ERL_NIF_TERM esock_ioctl_gifconf(ErlNifEnv*       env,
+					ESockDescriptor* descP);
+static ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
+					ESockDescriptor* descP,
+					struct ifconf*   ifcP);
+static ERL_NIF_TERM encode_ioctl_ifconf_ifreq(ErlNifEnv*       env,
+					      ESockDescriptor* descP,
+					      struct ifreq*    ifrP);
+static ERL_NIF_TERM encode_ioctl_ifreq_name(ErlNifEnv* env,
+					    char*      name);
+static ERL_NIF_TERM encode_ioctl_ifreq_sockaddr(ErlNifEnv* env, struct sockaddr* sa);
+static ERL_NIF_TERM make_ifreq(ErlNifEnv*   env,
+			       ERL_NIF_TERM name,
+			       ERL_NIF_TERM key2,
+			       ERL_NIF_TERM val2);
+
 static ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  ERL_NIF_TERM     op,
@@ -3568,6 +3591,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(multicast_if);                    \
     GLOBAL_ATOM_DECL(multicast_loop);                  \
     GLOBAL_ATOM_DECL(multicast_ttl);                   \
+    GLOBAL_ATOM_DECL(name);                            \
     GLOBAL_ATOM_DECL(nodelay);                         \
     GLOBAL_ATOM_DECL(nodefrag);                        \
     GLOBAL_ATOM_DECL(noopt);                           \
@@ -3726,6 +3750,8 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(exclude);          \
     LOCAL_ATOM_DECL(false);            \
     LOCAL_ATOM_DECL(frag_needed);      \
+    LOCAL_ATOM_DECL(gifaddr);          \
+    LOCAL_ATOM_DECL(gifconf);          \
     LOCAL_ATOM_DECL(host_unknown);     \
     LOCAL_ATOM_DECL(host_unreach);     \
     LOCAL_ATOM_DECL(how);              \
@@ -3735,6 +3761,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(initial);          \
     LOCAL_ATOM_DECL(interface);        \
     LOCAL_ATOM_DECL(integer);          \
+    LOCAL_ATOM_DECL(ioctl_requests);   \
     LOCAL_ATOM_DECL(iov_max);          \
     LOCAL_ATOM_DECL(iow);              \
     LOCAL_ATOM_DECL(listening);	       \
@@ -4740,8 +4767,10 @@ ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key)
         result = esock_supports_msg_flags(env);
     else if (COMPARE(key, atom_protocols) == 0)
         result = esock_supports_protocols(env);
+    else if (COMPARE(key, atom_ioctl_requests) == 0)
+      result = esock_supports_ioctl_requests(env);
     else if (COMPARE(key, atom_options) == 0)
-        result = esock_supports_options(env);
+      result = esock_supports_options(env);
     else
         result = MKEL(env);
 
@@ -4777,88 +4806,110 @@ static ERL_NIF_TERM esock_supports_msg_flags(ErlNifEnv* env) {
 static
 ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
 {
-    ERL_NIF_TERM protocols;
-    struct protoent *pe;
-    int stayopen;
+  ERL_NIF_TERM protocols;
+  struct protoent *pe;
+  int stayopen;
 
-    protocols = MKEL(env);
+  protocols = MKEL(env);
 
-#if defined(HAVE_GETPROTOENT) && \
-    defined(HAVE_SETPROTOENT) && \
-    defined(HAVE_ENDPROTOENT)
+#if defined(HAVE_GETPROTOENT) &&		\
+  defined(HAVE_SETPROTOENT) &&			\
+  defined(HAVE_ENDPROTOENT)
 
-    MLOCK(data.protocolsMtx);
-    stayopen = TRUE;
-    setprotoent(stayopen);
-    while ((pe = getprotoent()) != NULL) {
-        ERL_NIF_TERM names;
-        char **aliases;
+  MLOCK(data.protocolsMtx);
+  stayopen = TRUE;
+  setprotoent(stayopen);
+  while ((pe = getprotoent()) != NULL) {
+    ERL_NIF_TERM names;
+    char **aliases;
 
-        names = MKEL(env);
-        for (aliases = pe->p_aliases;  *aliases != NULL;  aliases++)
-            names = MKC(env, MKA(env, *aliases), names);
-        names = MKC(env, MKA(env, pe->p_name), names);
-
-        protocols =
-            MKC(env, MKT2(env, names, MKI(env, pe->p_proto)), protocols);
-    }
-    endprotoent();
-    MUNLOCK(data.protocolsMtx);
-
-#endif
-
-    /* Defaults for known protocols in case getprotoent()
-     * does not work or does not exist.  Prepended to the list
-     * so a subsequent maps:from_list/2 will take the default
-     * only when there is nothing from getprotoent().
-     */
+    names = MKEL(env);
+    for (aliases = pe->p_aliases;  *aliases != NULL;  aliases++)
+      names = MKC(env, MKA(env, *aliases), names);
+    names = MKC(env, MKA(env, pe->p_name), names);
 
     protocols =
-        MKC(env,
-            MKT2(env,
-                 MKL1(env, esock_atom_ip),
-                 MKI(env,
-#ifdef SOL_IP
-                     SOL_IP
-#else
-                     IPPROTO_IP
+      MKC(env, MKT2(env, names, MKI(env, pe->p_proto)), protocols);
+  }
+  endprotoent();
+  MUNLOCK(data.protocolsMtx);
+
 #endif
-                     )),
-            protocols);
+
+  /* Defaults for known protocols in case getprotoent()
+   * does not work or does not exist.  Prepended to the list
+   * so a subsequent maps:from_list/2 will take the default
+   * only when there is nothing from getprotoent().
+   */
+
+  protocols =
+    MKC(env,
+	MKT2(env,
+	     MKL1(env, esock_atom_ip),
+	     MKI(env,
+#ifdef SOL_IP
+		 SOL_IP
+#else
+		 IPPROTO_IP
+#endif
+		 )),
+	protocols);
 
 #ifdef HAVE_IPV6
-    protocols =
-        MKC(env,
-            MKT2(env,
-                 MKL1(env, esock_atom_ipv6),
-                 MKI(env,
+  protocols =
+    MKC(env,
+	MKT2(env,
+	     MKL1(env, esock_atom_ipv6),
+	     MKI(env,
 #ifdef SOL_IPV6
-                     SOL_IPV6
+		 SOL_IPV6
 #else
-                     IPPROTO_IPV6
+		 IPPROTO_IPV6
 #endif
-                     )),
-            protocols);
+		 )),
+	protocols);
 #endif
 
-    protocols =
-        MKC(env,
-            MKT2(env, MKL1(env, esock_atom_tcp), MKI(env, IPPROTO_TCP)),
-            protocols);
+  protocols =
+    MKC(env,
+	MKT2(env, MKL1(env, esock_atom_tcp), MKI(env, IPPROTO_TCP)),
+	protocols);
 
-    protocols =
-        MKC(env,
-            MKT2(env, MKL1(env, esock_atom_udp), MKI(env, IPPROTO_UDP)),
-            protocols);
+  protocols =
+    MKC(env,
+	MKT2(env, MKL1(env, esock_atom_udp), MKI(env, IPPROTO_UDP)),
+	protocols);
 
 #ifdef HAVE_SCTP
-    protocols =
-        MKC(env,
-            MKT2(env, MKL1(env, esock_atom_sctp), MKI(env, IPPROTO_SCTP)),
-            protocols);
+  protocols =
+    MKC(env,
+	MKT2(env, MKL1(env, esock_atom_sctp), MKI(env, IPPROTO_SCTP)),
+	protocols);
 #endif
 
-    return protocols;
+  return protocols;
+}
+#endif // #ifndef __WIN32__
+
+
+
+#ifndef __WIN32__
+static
+ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
+{
+  ERL_NIF_TERM requests;
+
+  requests = MKEL(env);
+
+#if defined(SIOCGIFCONF)
+  requests = MKC(env, MKT2(env, atom_gifconf, MKI(env, SIOCGIFCONF)), requests);
+#endif
+
+#if defined(SIOCGIFADDR)
+  requests = MKC(env, MKT2(env, atom_gifaddr, MKI(env, SIOCGIFADDR)), requests);
+#endif
+
+  return requests;
 }
 #endif // #ifndef __WIN32__
 
@@ -12365,36 +12416,36 @@ ERL_NIF_TERM nif_peername(ErlNifEnv*         env,
                           const ERL_NIF_TERM argv[])
 {
 #ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
+  return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    ESockDescriptor* descP;
-    ERL_NIF_TERM     res;
+  ESockDescriptor* descP;
+  ERL_NIF_TERM     res;
 
-    ESOCK_ASSERT( argc == 1 );
+  ESOCK_ASSERT( argc == 1 );
 
-    SGDBG( ("SOCKET", "nif_peername -> entry with argc: %d\r\n", argc) );
+  SGDBG( ("SOCKET", "nif_peername -> entry with argc: %d\r\n", argc) );
 
-    /* Extract arguments and perform preliminary validation */
+  /* Extract arguments and perform preliminary validation */
 
-    if (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
-        return enif_make_badarg(env);
-    }
+  if (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
+    return enif_make_badarg(env);
+  }
 
-    MLOCK(descP->readMtx);
+  MLOCK(descP->readMtx);
 
-    SSDBG( descP,
-           ("SOCKET", "nif_peername(%T) {%d}"
-            "\r\n", argv[0], descP->sock) );
+  SSDBG( descP,
+	 ("SOCKET", "nif_peername(%T) {%d}"
+	  "\r\n", argv[0], descP->sock) );
 
-    res = esock_peername(env, descP);
+  res = esock_peername(env, descP);
 
-    SSDBG( descP,
-           ("SOCKET", "nif_peername(%T) {%d} -> done with res = %T\r\n",
-            argv[0], descP->sock, res) );
+  SSDBG( descP,
+	 ("SOCKET", "nif_peername(%T) {%d} -> done with res = %T\r\n",
+	  argv[0], descP->sock, res) );
 
-    MUNLOCK(descP->readMtx);
+  MUNLOCK(descP->readMtx);
 
-    return res;
+  return res;
 #endif // #ifdef __WIN32__  #else
 }
 
@@ -12405,23 +12456,260 @@ static
 ERL_NIF_TERM esock_peername(ErlNifEnv*       env,
                             ESockDescriptor* descP)
 {
-    ESockAddress  sa;
-    ESockAddress* saP = &sa;
-    SOCKLEN_T     sz  = sizeof(ESockAddress);
+  ESockAddress  sa;
+  ESockAddress* saP = &sa;
+  SOCKLEN_T     sz  = sizeof(ESockAddress);
 
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error(env, atom_closed);
+  if (! IS_OPEN(descP->readState))
+    return esock_make_error(env, atom_closed);
 
-    sys_memzero((char*) saP, sz);
-    if (sock_peer(descP->sock, (struct sockaddr*) saP, &sz) < 0) {
-        return esock_make_error_errno(env, sock_errno());
-    } else {
-        ERL_NIF_TERM esa;
+  sys_memzero((char*) saP, sz);
+  if (sock_peer(descP->sock, (struct sockaddr*) saP, &sz) < 0) {
+    return esock_make_error_errno(env, sock_errno());
+  } else {
+    ERL_NIF_TERM esa;
 
-        esock_encode_sockaddr(env, saP, sz, &esa);
-        return esock_make_ok2(env, esa);
-    }
+    esock_encode_sockaddr(env, saP, sz, &esa);
+    return esock_make_ok2(env, esa);
+  }
 }
+#endif // #ifndef __WIN32__
+
+
+
+/* ----------------------------------------------------------------------
+ * nif_ioctl - control device - get
+ *
+ * Description:
+ * Returns whatever info the ioctl returns for the specific (get) request.
+ * WHEN SET IS IMPLEMENTED, WE NED ANOTHER ARGUMENT!!
+ *
+ * Arguments:
+ * Socket (ref) - Points to the socket descriptor.
+ * Get Request  - The ioctl get request
+ */
+
+static
+ERL_NIF_TERM nif_ioctl(ErlNifEnv*         env,
+		       int                argc,
+		       const ERL_NIF_TERM argv[])
+{
+#ifdef __WIN32__
+  return enif_raise_exception(env, MKA(env, "notsup"));
+#else
+  ESockDescriptor* descP;
+  ERL_NIF_TERM     res;
+  int              req;
+
+  ESOCK_ASSERT( argc == 2 ); // SET REQUIRES THREE (3) ARGS
+
+  SGDBG( ("SOCKET", "nif_ioctl -> entry with argc: %d\r\n", argc) );
+
+  /* Extract arguments and perform preliminary validation */
+
+  if (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
+    return enif_make_badarg(env);
+  }
+
+  if (! GET_INT(env, argv[1], &req)) {
+    if (IS_INTEGER(env, argv[0]))
+      return esock_make_error_integer_range(env, argv[0]);
+    else
+      return enif_make_badarg(env);
+  }
+
+  MLOCK(descP->readMtx);
+  
+  SSDBG( descP,
+	 ("SOCKET", "nif_ioctl(%T) {%d} -> ioctl request %d"
+	  "\r\n", argv[0], descP->sock, req) );
+
+  res = esock_ioctl(env, descP, req);
+
+  MUNLOCK(descP->readMtx);
+
+  SSDBG( descP,
+	 ("SOCKET", "nif_ioctl(%T) {%d} -> done with res = %T\r\n",
+	  argv[0], descP->sock, res) );
+
+  return res;
+#endif // #ifdef __WIN32__  #else
+}
+
+
+
+#ifndef __WIN32__
+
+static
+ERL_NIF_TERM esock_ioctl(ErlNifEnv*       env,
+			 ESockDescriptor* descP,
+			 int              req)
+{
+  if (! IS_OPEN(descP->readState))
+    return esock_make_error(env, atom_closed);
+
+  switch (req) {
+
+#if defined(SIOCGIFCONF)
+  case SIOCGIFCONF:
+    return esock_ioctl_gifconf(env, descP);
+    break;
+#endif
+
+  default:
+    return esock_make_error(env, esock_atom_enotsup);
+    break;
+  }
+
+}
+
+
+static
+ERL_NIF_TERM esock_ioctl_gifconf(ErlNifEnv*       env,
+				 ESockDescriptor* descP)
+{
+  struct ifconf ifc;
+  int           ifc_len = 0;
+  int           buflen  = 100 * sizeof(struct ifreq);
+  char         *buf     = MALLOC(buflen);
+
+  SSDBG( descP, ("SOCKET", "esock_ioctl_gifconf {%d} -> entry\r\n", descP->sock) );
+
+  for (;;) {
+    ifc.ifc_len = buflen;
+    ifc.ifc_buf = buf;
+    if (ioctl(descP->sock, SIOCGIFCONF, (char *) &ifc) < 0) {
+      int saveErrno = sock_errno();
+
+      SSDBG( descP,
+	     ("SOCKET", "esock_ioctl_gifconf {%d} -> failure: "
+	      "\r\n      errno: %d (%s)"
+	      "\r\n", descP->sock, saveErrno, erl_errno_id(saveErrno)) );
+
+      if (saveErrno != EINVAL || ifc_len) {
+	ERL_NIF_TERM reason = MKA(env, erl_errno_id(saveErrno));
+	FREE(buf);
+	return esock_make_error(env, reason);
+      }
+    } else {
+      if (ifc.ifc_len == ifc_len) break; /* buf large enough */
+      ifc_len = ifc.ifc_len;
+    }
+    buflen += 10 * sizeof(struct ifreq);
+    buf     = (char *) REALLOC(buf, buflen);
+  }
+
+  return encode_ioctl_ifconf(env, descP, &ifc);
+}
+
+static
+ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
+				 ESockDescriptor* descP,
+				 struct ifconf*   ifcP)
+{
+  ERL_NIF_TERM result;
+  unsigned int len = ((ifcP == NULL) ? 0 :
+		      (ifcP->ifc_len / sizeof(struct ifreq)));
+
+  SSDBG( descP,
+	 ("SOCKET", "encode_ioctl_ifconf -> entry (when len = %d)\r\n", len) );
+
+  if (len > 0) {
+    ERL_NIF_TERM* array = MALLOC(len * sizeof(ERL_NIF_TERM));
+    unsigned int  i     = 0;
+    struct ifreq* p     = ifcP->ifc_req;
+
+    for (i = 0 ; i < len ; i++) {
+      SSDBG( descP,
+	     ("SOCKET", "encode_ioctl_ifconf -> encode ifreq entry %d\r\n", i) );
+      array[i] = encode_ioctl_ifconf_ifreq(env, descP, &p[i]);
+    }
+
+    SSDBG( descP,
+	   ("SOCKET", "encode_ioctl_ifconf -> all entries encoded\r\n", i) );
+
+    result = esock_make_ok2(env, MKLA(env, array, len));
+
+  } else {
+
+    result = esock_make_ok2(env, MKEL(env));
+
+  }
+
+  return result;
+}
+
+static
+ERL_NIF_TERM encode_ioctl_ifconf_ifreq(ErlNifEnv*       env,
+				       ESockDescriptor* descP,
+				       struct ifreq*    ifrP)
+{
+  ERL_NIF_TERM ename, eaddr;
+
+  ESOCK_ASSERT( ifrP != NULL );
+
+  SSDBG( descP, ("SOCKET", "encode_ioctl_ifconf_ifreq -> encode name\r\n") );
+  ename = encode_ioctl_ifreq_name(env,     ifrP->ifr_name);
+
+  SSDBG( descP, ("SOCKET", "encode_ioctl_ifconf_ifreq -> encode sockaddr\r\n") );
+  eaddr = encode_ioctl_ifreq_sockaddr(env, &ifrP->ifr_addr);
+
+  SSDBG( descP, ("SOCKET", "encode_ioctl_ifconf_ifreq -> make ifreq map with"
+		 "\r\n    Name:      %T"
+		 "\r\n    Sock Addr: %T"
+		 "\r\n", ename, eaddr) );
+  return make_ifreq(env, ename, esock_atom_addr, eaddr);
+}
+
+static
+ERL_NIF_TERM encode_ioctl_ifreq_name(ErlNifEnv* env,
+				     char*      name)
+{
+  return ((name == NULL) ? esock_atom_undefined : MKS(env, name));
+}
+
+static
+ERL_NIF_TERM encode_ioctl_ifreq_sockaddr(ErlNifEnv* env, struct sockaddr* sa)
+{
+  ERL_NIF_TERM esa;
+
+  if (sa != NULL) {
+    unsigned int sz = sizeof(ESockAddress);
+
+    esock_encode_sockaddr(env, (ESockAddress*) sa, sz, &esa);
+        
+  } else {
+    esa = esock_atom_undefined;
+  }
+
+  return esa;
+}
+
+/* The ifreq structure *always* contain a name
+ * and *one* other element. The second element
+ * depend on the ioctl request. 
+ */
+static
+ERL_NIF_TERM make_ifreq(ErlNifEnv*   env,
+			ERL_NIF_TERM name,
+			ERL_NIF_TERM key2,
+			ERL_NIF_TERM val2)
+{
+  ERL_NIF_TERM keys[2];
+  ERL_NIF_TERM vals[2];
+  ERL_NIF_TERM res;
+
+  keys[0] = esock_atom_name;
+  vals[0] = name;
+
+  keys[1] = key2;
+  vals[1] = val2;
+
+  ESOCK_ASSERT( MKMA(env, keys, vals, NUM(keys), &res) );
+
+  return res;
+}
+	   
 #endif // #ifndef __WIN32__
 
 
@@ -13241,7 +13529,7 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
                              int              saveErrno,
                              ERL_NIF_TERM     sockRef)
 {
-    ERL_NIF_TERM reason;
+  ERL_NIF_TERM reason;
 
     ESOCK_CNT_INC(env, descP, sockRef, atom_write_fails, &descP->writeFails, 1);
 
@@ -18232,6 +18520,8 @@ ErlNifFunc esock_funcs[] =
     {"nif_getopt",              4, nif_getopt, 0},
     {"nif_sockname",            1, nif_sockname, 0},
     {"nif_peername",            1, nif_peername, 0},
+    {"nif_ioctl",               2, nif_ioctl, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    // {"nif_ioctl",               3, nif_ioctl, ERL_NIF_DIRTY_JOB_IO_BOUND},
 
     /* Misc utility functions */
 
