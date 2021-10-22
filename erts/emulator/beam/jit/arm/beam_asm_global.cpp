@@ -71,7 +71,6 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
         _codegen(allocator, &_ignored_exec, &_ignored_rw);
     }
 
-#ifndef WIN32
     std::vector<AsmRange> ranges;
 
     ranges.reserve(emitPtrs.size());
@@ -91,13 +90,13 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
                           .name = code.labelEntry(labels[val.first])->name()});
     }
 
-    update_gdb_jit_info("global", ranges);
-    beamasm_update_perf_info("global", ranges);
-#endif
+    beamasm_metadata_update("global",
+                            (ErtsCodePtr)getBaseAddress(),
+                            code.codeSize(),
+                            ranges);
 
-    /* `this->get_xxx` are populated last to ensure that we crash if we use them
-     * instead of labels in global code. */
-
+    /* `this->get_xxx` are populated last to ensure that we crash if we use
+     * them instead of labels in global code. */
     for (auto val : labelNames) {
         ptrs[val.first] = (fptr)getCode(labels[val.first]);
     }

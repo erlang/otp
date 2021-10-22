@@ -91,8 +91,10 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
                           .name = code.labelEntry(labels[val.first])->name()});
     }
 
-    update_gdb_jit_info("global", ranges);
-    beamasm_update_perf_info("global", ranges);
+    beamasm_metadata_update("global",
+                            (ErtsCodePtr)getBaseAddress(),
+                            code.codeSize(),
+                            ranges);
 #endif
 
     /* `this->get_xxx` are populated last to ensure that we crash if we use them

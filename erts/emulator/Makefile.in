@@ -1022,7 +1022,7 @@ JIT_OBJS = \
     $(OBJDIR)/beam_asm_module.o \
     $(OBJDIR)/beam_jit_common.o \
     $(OBJDIR)/beam_jit_main.o \
-    $(OBJDIR)/beam_jit_perf.o \
+    $(OBJDIR)/beam_jit_metadata.o \
     $(OBJDIR)/process_main.o
 
 ifeq ($(JIT_ARCH), x86)

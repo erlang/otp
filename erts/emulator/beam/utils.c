@@ -5190,15 +5190,7 @@ erts_build_mfa_item(FunctionInfo* fi, Eterm* hp, Eterm args, Eterm* mfa_p, Eterm
 	Eterm tuple;
 	int line = LOC_LINE(fi->loc);
 	int file = LOC_FILE(fi->loc);
-	Eterm file_term = NIL;
-
-	if (file == 0) {
-	    Atom* ap = atom_tab(atom_val(fi->mfa->module));
-	    file_term = buf_to_intlist(&hp, ".erl", 4, NIL);
-	    file_term = buf_to_intlist(&hp, (char*)ap->name, ap->len, file_term);
-	} else {
-            file_term = erts_atom_to_string(&hp, (fi->fname_ptr)[file-1]);
-	}
+	Eterm file_term = fi->fname_ptr[file];
 
 	tuple = TUPLE2(hp, am_line, make_small(line));
 	hp += 3;

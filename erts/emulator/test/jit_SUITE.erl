@@ -52,11 +52,13 @@ init_per_group(perf, Config) ->
             {skip, "perf not found"};
         _Perf ->
             PerfVsn = os:cmd("perf version"),
-            case re:run(PerfVsn, "perf version ([^.])",
+            case re:run(PerfVsn, "perf version (\\d+)\\.(\\d+)",
                         [{capture,all_but_first,list}]) of
-                {match,[Vsn]} ->
-                    case list_to_integer(Vsn) >= 5 of
-                        true ->
+                {match,[Major0,Minor0]} ->
+                    Major = list_to_integer(Major0),
+                    Minor = list_to_integer(Minor0),
+                    if
+                        Major > 5; Major =:= 5, Minor >= 11 ->
                             BuildIdDir = "--buildid-dir " ++
                                 filename:join(
                                   proplists:get_value(priv_dir, Config),
@@ -75,7 +77,7 @@ init_per_group(perf, Config) ->
                                 nomatch ->
                                     {skip, "could not run `"++ Cmd ++"`"}
                             end;
-                        false ->
+                        true ->
                             {skip,"too old perf version: " ++ PerfVsn}
                     end;
                 _ ->
@@ -157,20 +159,25 @@ annotate(Config) ->
 
     %% When doing "perf inject" the symbol of each function is changed
     %% from $lists:seq_loop/3 to lists:seq_loop/3. I don't know why that
-    %% is, seems like a very odd bug in perf... so we only include it
-    %% in our match if it exists
-    {match, Symbols} = re:run(Script, "\\$?lists:seq[^/]+/[0-9]+",
+    %% is, seems like a very odd bug in perf...
+    {match, Symbols} = re:run(Script, "lists:seq[^/]+/[0-9]+",
                               [global,{capture,first,list}]),
-    [Symbol|_] = lists:usort(Symbols),
+    [[Symbol]|_] = lists:usort(Symbols),
     JitFile = DataFile ++ ".jit.data",
-    "" = os:cmd("perf "++ BuildIdDir ++" inject -j -i " ++ DataFile ++ " -o " ++ JitFile),
+    "" = os:cmd("perf "++ BuildIdDir ++" inject --jit -i " ++ DataFile ++ " -o " ++ JitFile),
     Anno = os:cmd("perf "++ BuildIdDir ++" annotate --stdio -i " ++ JitFile ++ " " ++ Symbol ++ ""),
     case re:run(Anno,"Disassembly of section .text:") of
         {match,_} ->
-            ok;
+            case re:run(Anno, "lists\\.erl:\\d+") of
+                {match,_} ->
+                    ok;
+                nomatch ->
+                    ct:fail("Did not find source line annotation for ~ts.~n~ts",
+                            [Symbol, Anno])
+            end;
         nomatch ->
-            ct:log("Did not find disassembly test for ~ts.~n~ts",
-                   [Symbol, Anno])
+            ct:fail("Did not find disassembly for ~ts.~n~ts",
+                    [Symbol, Anno])
     end.
 
 get_tmp_asm_files() ->

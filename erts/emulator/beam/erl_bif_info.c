@@ -4903,6 +4903,26 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
                                           (void *) BIF_P);
                 BIF_RET(am_ok);
             }
+        } else if (ERTS_IS_ATOM_STR("jit_asm_dump", BIF_ARG_1)) {
+#ifdef BEAMASM
+            /* Undocumented debug option for the JIT, changing the +JDdump
+             * setting at runtime. This saves us from dumping half of OTP every
+             * time we want to debug the loading of a single module. */
+            Eterm res = erts_jit_asm_dump ? am_true : am_false;
+            switch (BIF_ARG_2)
+            {
+            case am_false:
+                erts_jit_asm_dump = 0;
+                BIF_RET(res);
+            case am_true:
+                erts_jit_asm_dump = 1;
+                BIF_RET(res);
+            default:
+                break;
+            }
+#else
+            BIF_RET(am_notsup);
+#endif
         }
     }
 

@@ -54,9 +54,9 @@ document etp-help
 % 
 % Special commands for not really terms:
 %   etp-mfa, etp-cp, etp-disasm,
-%   etp-msgq, etpf-msgq, 
-%   etp-stacktrace, etp-stacktrace-emu, etp-stackdump, etp-stackdump-emu,
-%   etpf-stackdump, etp-dictdump
+%   etp-msgq, etpf-msgq,
+%   etp-stacktrace, etp-stacktrace-emu, etp-stacktrace-jit,
+%   etp-stackdump, etp-stackdump-emu, etpf-stackdump, etp-dictdump
 %   etp-process-info, etp-process-memory-info
 %   etp-port-info, etp-port-state, etp-port-sched-flags
 %   etp-heapdump, etp-offheapdump, etpf-offheapdump,
@@ -1243,19 +1243,67 @@ document etp-module-get
 %---------------------------------------------------------
 end
 
+define etp-cp-line-info
+# Args: code_header mfa function_index cp
+#
+# Non-reentrant, sets $etp_cp_line_name and $etp_cp_line_number
+#
+  set $etp_line_hdr = (BeamCodeHeader*)($arg0)
+  set $etp_line_mfa = (ErtsCodeMFA*)($arg1)
+  set $etp_line_fidx = (Eterm)($arg2)
+  set $etp_line_cp = (Eterm)($arg3)
+  set $etp_cp_line_name = $etp_nil
+  set $etp_cp_line_number = 0
+  set $etp_line_table = $etp_line_hdr->line_table
+  if $etp_line_table != 0
+    set $etp_line_low = (void**)$etp_line_table->func_tab[$etp_line_fidx]
+    set $etp_line_high = (void**)$etp_line_table->func_tab[$etp_line_fidx+1]
+    set $etp_line_idx = -1
+    while $etp_line_high > $etp_line_low
+      set $etp_line_mid = $etp_line_low + ($etp_line_high - $etp_line_low) / 2
+      if $etp_line_cp < $etp_line_mid[0]
+        set $etp_line_high = $etp_line_mid
+      else
+        if $etp_line_cp < $etp_line_mid[1]
+          # Found it!
+          set $etp_line_idx = $etp_line_mid - (void**)$etp_line_table->func_tab[0]
+          loop_break
+        else
+          set $etp_line_low = $etp_line_mid + 1
+        end
+      end
+    end
+    set $etp_cp_line_name = $etp_nil
+    set $etp_cp_line_number = 0
+    if $etp_line_idx != -1
+      if $etp_line_table->loc_size == 2
+        set $etp_loc = (Uint32)$etp_line_table->loc_tab.p2[$etp_line_idx]
+      else
+        set $etp_loc = (Uint32)$etp_line_table->loc_tab.p4[$etp_line_idx]
+      end
+      if $etp_loc != 0
+        set $etp_loc_file = $etp_loc >> 24
+        set $etp_cp_line_number = $etp_loc & ((1 << 24) - 1)
+        set $etp_cp_line_name = $etp_line_table->fname_ptr[$etp_loc_file]
+      end
+    end
+  end
+end
 
 define etp-cp-func-info-1
 # Args: Eterm cp
 #
-# Non-reentrant, takes cp, sets $etp_cp_p to MFA in func_info
+# Non-reentrant, takes cp, sets $etp_cp_p to MFA in func_info, as well as
+# $etp_cp_line_name and $etp_cp_line_number
 #
   set $etp_cp = (Eterm)($arg0)
   set $etp_ranges = &r[(int)the_active_code_index]
   set $etp_cp_low = $etp_ranges->modules
   set $etp_cp_high = $etp_cp_low + $etp_ranges->n
   set $etp_cp_mid = (Range*)$etp_ranges->mid
+  set $etp_cp_range = 0
   set $etp_cp_p = 0
-  #
+  # Find range
   while $etp_cp_low < $etp_cp_high
     if $etp_cp < $etp_cp_mid->start
       set $etp_cp_high = $etp_cp_mid
@@ -1263,30 +1311,36 @@ define etp-cp-func-info-1
       if $etp_cp > (BeamInstr*)$etp_cp_mid->end
         set $etp_cp_low = $etp_cp_mid + 1
       else
-        set $etp_cp_p = $etp_cp_low = $etp_cp_high = $etp_cp_mid
+        set $etp_cp_range = $etp_cp_low = $etp_cp_high = $etp_cp_mid
+        loop_break
       end
     end
     set $etp_cp_mid = $etp_cp_low + ($etp_cp_high-$etp_cp_low)/2
   end
-  if $etp_cp_p
-    # 13 = MI_FUNCTIONS
-    set $etp_cp_low = &((Eterm**)$etp_cp_p->start)[13]
-    # 0 = MI_NUM_FUNCTIONS
-    set $etp_cp_high = $etp_cp_low + ((Eterm*)$etp_cp_p->start)[0]
+  # Find MFA
+  if $etp_cp_range
+    set $etp_cp_hdr = (BeamCodeHeader*)$etp_cp_range->start
+    set $etp_cp_low = (ErtsCodeInfo**)$etp_cp_hdr->functions
+    set $etp_cp_high = $etp_cp_low + $etp_cp_hdr->num_functions
     set $etp_cp_p = 0
+    set $etp_cp_fidx = 0
     while $etp_cp_low < $etp_cp_high
       set $etp_cp_mid = $etp_cp_low + ($etp_cp_high-$etp_cp_low)/2
       if $etp_cp < $etp_cp_mid[0]
         set $etp_cp_high = $etp_cp_mid
       else
         if $etp_cp < $etp_cp_mid[1]
-          set $etp_cp_p = $etp_cp_mid[0]+2
+          set $etp_cp_fidx = $etp_cp_mid - (ErtsCodeInfo**)$etp_cp_hdr->functions
+          set $etp_cp_p = &$etp_cp_mid[0]->mfa
           set $etp_cp_low = $etp_cp_high = $etp_cp_mid
+          loop_break
         else
           set $etp_cp_low = $etp_cp_mid + 1
         end
       end
     end
+    # Find line number
+    etp-cp-line-info $etp_cp_hdr $etp_cp_p $etp_cp_fidx $etp_cp
   end
   if $etp_cp_p
     set $cp_cp_p_offset = ($etp_cp-((Eterm)($etp_cp_p-2)))
@@ -1304,6 +1358,11 @@ define etp-cp-1
   if $etp_cp_p
     printf "#Cp"
     etp-mfa-1 $etp_cp_p $cp_cp_p_offset
+    if $etp_cp_line_name != $etp_nil
+      printf " @ "
+      etp-1 $etp_cp_line_name 0
+      printf ":%u", $etp_cp_line_number
+    end
   else
     if $etp_cp == beam_normal_exit
       printf "#Cp<terminate process normally>"
@@ -1681,7 +1740,7 @@ define etp-stack-preamble
   set $etp_stack_end = ($arg0)->hend
   if ($arg0)->state.counter & 0x8000
     printf "%%%%%% WARNING: The process is currently running, so c_p->stop will not be correct\r\n"
-    printf "%%%%%%          Consider using -emu variant instead\r\n"
+    printf "%%%%%%          Consider using -emu or -jit variant instead\r\n"
   end
   printf "%% Stacktrace (%u)\n", $etp_stack_end-$etp_stack_p
   if ($arg0)->i != 0
@@ -1696,6 +1755,15 @@ define etp-stack-preamble-emu
   printf "%% Stacktrace (%u)\n", $etp_stack_end-$etp_stack_p
   printf "I: "
   etp ((BeamInstr)I)
+end
+
+define etp-stack-preamble-jit
+  set $etp_stack_end = ((Process*)$r13)->hend
+  set $etp_stack_p = (Eterm*)$rsp
+  printf "%% Stacktrace (%u)\n", $etp_stack_end-$etp_stack_p
+  printf "I: "
+  set $etp_stack_i = ((Eterm)$rip) & ~0x3
+  etp $etp_stack_i
 end
 
 define etp-stacktrace-1
@@ -1729,6 +1797,24 @@ document etp-stacktrace-emu
 % Take an Process* and print a stactrace for the process.
 % This macro assumes that the current frame is the process_main frame
 % and that E is not optimized out.
+%---------------------------------------------------------------------------
+end
+
+define etp-stacktrace-jit
+# Args: none
+#
+# Non-reentrant
+#
+  etp-stack-preamble-jit
+  etp-stacktrace-1 $etp_stack_p $etp_stack_end
+end
+
+document etp-stacktrace-jit
+%---------------------------------------------------------------------------
+% etp-stacktrace-jit
+%
+% Prints a stacktrace for the current process, assuming that we're running
+% jitted code.
 %---------------------------------------------------------------------------
 end
 
@@ -1776,13 +1862,31 @@ define etp-stackdump-emu
   etp-stackdump-1 $etp_stack_p $etp_stack_end
 end
 
-document etp-stacktrace-emu
+document etp-stackdump-emu
 %---------------------------------------------------------------------------
-% etp-stacktrace-emu Process*
+% etp-stackdump-emu Process*
 % 
-% Take an Process* and print a stactdump for the process.
+% Take an Process* and print a stackdump for the process.
 % This macro assumes that the current frame is the process_main frame
 % and that E is not optimized out.
+%---------------------------------------------------------------------------
+end
+
+define etp-stackdump-jit
+# Args: none
+#
+# Non-reentrant
+#
+  etp-stack-preamble-jit
+  etp-stackdump-1 $etp_stack_p $etp_stack_end
+end
+
+document etp-stackdump-jit
+%---------------------------------------------------------------------------
+% etp-stackdump-emu
+% 
+% Prints a stackdump for the current process, assuming that we're running
+% jitted code.
 %---------------------------------------------------------------------------
 end
 

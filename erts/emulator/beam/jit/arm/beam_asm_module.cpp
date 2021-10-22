@@ -78,55 +78,48 @@ ErtsCodePtr BeamModuleAssembler::getLambda(unsigned index) {
     return (ErtsCodePtr)getCode(lambda.trampoline);
 }
 
-BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
-                                         Eterm mod,
+BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
+                                         Eterm _mod,
                                          unsigned num_labels,
                                          BeamFile_ExportTable *named_labels)
-        : BeamAssembler(getAtom(mod)) {
-    this->ga = ga;
-    this->mod = mod;
-
+        : BeamAssembler(getAtom(_mod)), ga(_ga), mod(_mod) {
     _veneers.reserve(num_labels + 1);
     rawLabels.reserve(num_labels + 1);
 
-    if (erts_jit_asm_dump && named_labels) {
+    if (logger.file() && named_labels) {
         BeamFile_ExportEntry *e = &named_labels->entries[0];
-        for (unsigned i = 1; i < num_labels; i++) {
-            Label lbl;
-            char tmp[512]; // Large enough to hold most realistic
-                           // function names. We will truncate too
-                           // long names, but as the label name is not
-                           // important for the functioning of asmjit
-                           // and this functionality is probably only
-                           // used by developers, we don't bother with
-                           // dynamic allocation.
-            // The named_labels are sorted, so no need for a search.
-            if ((unsigned)e->label == i) {
+        for (unsigned int i = 1; i < num_labels; i++) {
+            /* Large enough to hold most realistic function names. We will
+             * truncate too long names, but as the label name is not important
+             * for the functioning of the JIT and this functionality is
+             * probably only used by developers, we don't bother with dynamic
+             * allocation. */
+            char tmp[MAX_ATOM_SZ_LIMIT];
+
+            /* The named_labels are sorted, so no need for a search. */
+            if ((unsigned int)e->label == i) {
                 erts_snprintf(tmp, sizeof(tmp), "%T/%d", e->function, e->arity);
-                lbl = a.newNamedLabel(tmp);
-                labelNames[i] = tmp;
+                rawLabels[i] = a.newNamedLabel(tmp);
                 e++;
             } else {
                 std::string lblName = "label_" + std::to_string(i);
-                lbl = a.newNamedLabel(lblName.data());
+                rawLabels[i] = a.newNamedLabel(lblName.data());
             }
-            rawLabels[i] = lbl;
         }
-        return;
-    }
-    if (erts_jit_asm_dump) {
-        // There is no naming info, but dumping of the assembly code
-        // has been requested, so do the best we can and number the
-        // labels.
-        for (unsigned i = 1; i < num_labels; i++) {
+    } else if (logger.file()) {
+        /* There is no naming info, but dumping of the assembly code
+         * has been requested, so do the best we can and number the
+         * labels. */
+        for (unsigned int i = 1; i < num_labels; i++) {
             std::string lblName = "label_" + std::to_string(i);
             rawLabels[i] = a.newNamedLabel(lblName.data());
         }
-        return;
+    } else {
+        /* No output is requested, go with unnamed labels */
+        for (unsigned int i = 1; i < num_labels; i++) {
+            rawLabels[i] = a.newLabel();
+        }
     }
-    // No output is requested, go with unnamed labels
-    for (unsigned i = 1; i < num_labels; i++)
-        rawLabels[i] = a.newLabel();
 }
 
 BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,

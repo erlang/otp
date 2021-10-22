@@ -1008,8 +1008,13 @@ parse_module(_Code, St) ->
 do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
     SourceName0 = proplists:get_value(source, Opts, File),
     SourceName = case member(deterministic, Opts) of
-                     true -> filename:basename(SourceName0);
-                     false -> SourceName0
+                     true ->
+                         filename:basename(SourceName0);
+                     false ->
+                         case member(absolute_source, Opts) of
+                             true -> paranoid_absname(SourceName0);
+                             false -> SourceName0
+                         end
                  end,
     StartLocation = case with_columns(Opts) of
                         true ->

@@ -1703,10 +1703,15 @@ forms_to_terms(Forms) ->
 other_options(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
 
-    %% Smoke test of no_spawn_compiler_process and brief options.
+    %% Smoke test of no_spawn_compiler_process, brief, and absolute_source
+    %% options.
     Big = filename:join(DataDir, "big"),
     {ok,big,<<_/binary>>} =
-        compile:file(Big, [binary, no_spawn_compiler_process, brief, report]),
+        compile:file(Big, [binary,
+                           no_spawn_compiler_process,
+                           brief,
+                           absolute_source,
+                           report]),
 
     %% Test generating a compressed BEAM file. Also cover the redundant
     %% `beam` option and the `no_inline` option.

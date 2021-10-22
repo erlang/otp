@@ -72,8 +72,6 @@ static BeamGlobalAssembler *bga;
 static BeamModuleAssembler *bma;
 static CpuInfo cpuinfo;
 
-static void beamasm_init_gdb_jit_info(void);
-
 /*
  * Enter all BIFs into the export table.
  *
@@ -221,17 +219,20 @@ void beamasm_init() {
     /* erts_frame_layout is hardcoded to ERTS_FRAME_LAYOUT_RA when Erlang
      * frame pointers are disabled or unsupported. */
 #if defined(ERLANG_FRAME_POINTERS)
+#    ifdef HAVE_LINUX_PERF_SUPPORT
     if (erts_jit_perf_support & BEAMASM_PERF_MAP) {
         erts_frame_layout = ERTS_FRAME_LAYOUT_FP_RA;
     } else {
         erts_frame_layout = ERTS_FRAME_LAYOUT_RA;
     }
+#    else
+    erts_frame_layout = ERTS_FRAME_LAYOUT_RA;
+#    endif
 #else
     ERTS_CT_ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
 #endif
 
-    beamasm_init_perf();
-    beamasm_init_gdb_jit_info();
+    beamasm_metadata_early_init();
 
     /*
      * Ensure that commonly used fields in the PCB can be accessed with
@@ -296,7 +297,22 @@ void beamasm_init() {
          * itself. */
         const void *_ignored_exec;
         void *_ignored_rw;
-        bma->codegen(jit_allocator, &_ignored_exec, &_ignored_rw);
+
+        /* Register our global code with gdb/perf so it shows up nicely in
+         * stack traces. */
+        BeamCodeHeader *_ignored_code_hdr_rw = NULL;
+        const BeamCodeHeader *code_hdr_ro = NULL;
+        BeamCodeHeader load_header = {};
+
+        load_header.num_functions = operands.size();
+
+        bma->codegen(jit_allocator,
+                     &_ignored_exec,
+                     &_ignored_rw,
+                     &load_header,
+                     &code_hdr_ro,
+                     &_ignored_code_hdr_rw);
+        bma->register_metadata(code_hdr_ro);
     }
 
     for (auto op : operands) {
@@ -319,6 +335,8 @@ void beamasm_init() {
     beam_exit = (ErtsCodePtr)bga->get_process_exit();
 
     beam_unloaded_fun = (ErtsCodePtr)bga->get_unloaded_fun();
+
+    beamasm_metadata_late_init();
 }
 
 bool BeamAssembler::hasCpuFeature(uint32_t featureId) {
@@ -334,134 +352,6 @@ void process_main(ErtsSchedulerData *esdp) {
 
     pmain_type pmain = (pmain_type)bga->get_process_main();
     pmain(esdp);
-}
-
-enum jit_actions : uint32_t {
-    JIT_NOACTION = 0,
-    JIT_REGISTER_FN,
-    JIT_UNREGISTER_FN,
-};
-
-struct jit_code_entry {
-    struct jit_code_entry *next_entry;
-    struct jit_code_entry *prev_entry;
-    const char *symfile_addr;
-    uint64_t symfile_size;
-};
-
-struct jit_descriptor {
-    uint32_t version;
-    jit_actions action_flag;
-    struct jit_code_entry *relevant_entry;
-    struct jit_code_entry *first_entry;
-    erts_mtx_t mutex;
-};
-
-extern "C"
-{
-    extern void ERTS_NOINLINE __jit_debug_register_code(void);
-
-    /* Make sure to specify the version statically, because the
-     * debugger may check the version before we can set it. */
-    struct jit_descriptor __jit_debug_descriptor = {1,
-                                                    JIT_NOACTION,
-                                                    NULL,
-                                                    NULL};
-} /* extern "C" */
-
-static void beamasm_init_gdb_jit_info(void) {
-    Sint symfile_size = sizeof(uint64_t) * 2;
-    uint64_t *symfile = (uint64_t *)malloc(symfile_size);
-    jit_code_entry *entry;
-
-    symfile[0] = 0;
-    symfile[1] = (uint64_t)beam_normal_exit;
-
-    entry = (jit_code_entry *)malloc(sizeof(jit_code_entry));
-
-    /* Add address description */
-    entry->symfile_addr = (char *)symfile;
-    entry->symfile_size = symfile_size;
-
-    /* Insert into linked list */
-    entry->next_entry = __jit_debug_descriptor.first_entry;
-    if (entry->next_entry) {
-        entry->next_entry->prev_entry = entry;
-    } else {
-        entry->prev_entry = nullptr;
-    }
-
-    /* register with dbg */
-    __jit_debug_descriptor.action_flag = JIT_REGISTER_FN;
-    __jit_debug_descriptor.first_entry = entry;
-    __jit_debug_descriptor.relevant_entry = entry;
-    __jit_debug_register_code();
-
-    erts_mtx_init(&__jit_debug_descriptor.mutex,
-                  "jit_debug_descriptor",
-                  NIL,
-                  (ERTS_LOCK_FLAGS_PROPERTY_STATIC |
-                   ERTS_LOCK_FLAGS_CATEGORY_GENERIC));
-}
-
-void BeamAssembler::update_gdb_jit_info(std::string modulename,
-                                        std::vector<AsmRange> &functions) {
-    Sint symfile_size = sizeof(uint64_t) * 3 + modulename.size() + 1;
-
-    for (auto fun : functions) {
-        symfile_size += sizeof(uint64_t) * 2;
-        symfile_size += fun.name.size() + 1;
-    }
-
-    char *symfile = (char *)malloc(symfile_size);
-    jit_code_entry *entry;
-
-    entry = (jit_code_entry *)malloc(sizeof(jit_code_entry));
-
-    /* Add address description */
-    entry->symfile_addr = symfile;
-    entry->symfile_size = symfile_size;
-
-    ((uint64_t *)symfile)[0] = functions.size();
-    ((uint64_t *)symfile)[1] = code.baseAddress();
-    ((uint64_t *)symfile)[2] = (uint64_t)code.codeSize();
-
-    symfile += sizeof(uint64_t) * 3;
-
-    sys_memcpy(symfile, modulename.c_str(), modulename.size() + 1);
-    symfile += modulename.size() + 1;
-
-    for (unsigned i = 0; i < functions.size(); i++) {
-        ((uint64_t *)symfile)[0] = (uint64_t)functions[i].start;
-        ((uint64_t *)symfile)[1] = (uint64_t)functions[i].stop;
-
-        ASSERT(functions[i].start <= functions[i].stop);
-
-        symfile += sizeof(uint64_t) * 2;
-
-        sys_memcpy(symfile,
-                   functions[i].name.c_str(),
-                   functions[i].name.size() + 1);
-        symfile += functions[i].name.size() + 1;
-    }
-
-    ASSERT(symfile_size == (symfile - entry->symfile_addr));
-
-    /* Insert into linked list */
-    erts_mtx_lock(&__jit_debug_descriptor.mutex);
-    entry->next_entry = __jit_debug_descriptor.first_entry;
-    if (entry->next_entry) {
-        entry->next_entry->prev_entry = entry;
-    } else {
-        entry->prev_entry = nullptr;
-    }
-
-    /* register with dbg */
-    __jit_debug_descriptor.action_flag = JIT_REGISTER_FN;
-    __jit_debug_descriptor.first_entry = entry;
-    __jit_debug_descriptor.relevant_entry = entry;
-    __jit_debug_register_code();
-    erts_mtx_unlock(&__jit_debug_descriptor.mutex);
 }
 
 extern "C"
@@ -609,6 +499,11 @@ extern "C"
                     in_hdr,
                     out_exec_hdr,
                     out_rw_hdr);
+    }
+
+    void beamasm_register_metadata(void *instance, const BeamCodeHeader *hdr) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        ba->register_metadata(hdr);
     }
 
     Uint beamasm_get_header(void *instance, const BeamCodeHeader **hdr) {

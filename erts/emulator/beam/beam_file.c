@@ -26,6 +26,9 @@
 #include "beam_load.h"
 #include "erl_zlib.h"
 #include "big.h"
+#include "erl_unicode.h"
+#include "erl_binary.h"
+#include "erl_global_literals.h"
 
 #define LoadError(Expr)      \
     do {                     \
@@ -446,6 +449,10 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     LoadAssert(CHECK_ITEM_COUNT(item_count, 0, sizeof(lines->items[0])));
     LoadAssert(CHECK_ITEM_COUNT(name_count, 0, sizeof(lines->names[0])));
 
+    /* Include the implicit "module name with .erl suffix" entry so we don't
+     * have to special-case it anywhere else. */
+    name_count++;
+
     /* Flags are unused at the moment. */
     (void)flags;
 
@@ -458,16 +465,19 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
                               item_count * sizeof(lines->items[0]));
     lines->item_count = item_count;
 
-    lines->names = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
-                              name_count * sizeof(lines->names[0]));
-    lines->name_count = name_count;
-
-    lines->location_size = lines->name_count ? sizeof(Sint32) : sizeof(Sint16);
-
     /* The zeroth entry in the line item table is always present and contains
      * the "undefined location." */
     lines->items[0].name_index = 0;
     lines->items[0].location = 0;
+
+    lines->names = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                              name_count * sizeof(lines->names[0]));
+    lines->name_count = name_count;
+
+    /* We have to use the 32-bit representation if there's any names other than
+     * the implicit "module_name.erl" in the table, as we can't fit LOC_FILE in
+     * 16 bits. */
+    lines->location_size = name_count > 1 ? sizeof(Sint32) : sizeof(Sint16);
 
     name_index = 0;
     i = 1;
@@ -504,18 +514,67 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
         }
     }
 
-    for (i = 0; i < name_count; i++) {
-        Sint16 name_length;
-        const byte *name_data;
-        Eterm name;
+    /* Add the implicit "module_name.erl" entry, followed by the rest of the
+     * name table. */
+    {
+        Eterm default_name_buf[MAX_ATOM_CHARACTERS * 2];
+        Eterm *name_heap = default_name_buf;
+        Eterm name, suffix;
+        Eterm *hp;
 
-        LoadAssert(beamreader_read_i16(&reader, &name_length));
-        LoadAssert(beamreader_read_bytes(&reader, name_length, &name_data));
+        suffix = erts_get_global_literal(ERTS_LIT_ERL_FILE_SUFFIX);
 
-        name = erts_atom_put(name_data, name_length, ERTS_ATOM_ENC_UTF8, 1);
-        LoadAssert(name != THE_NON_VALUE);
+        hp = name_heap;
+        name = erts_atom_to_string(&hp, beam->module, suffix);
 
-        lines->names[i] = name;
+        lines->names[0] = beamfile_add_literal(beam, name);
+
+        for (i = 1; i < name_count; i++) {
+            Uint num_chars, num_built, num_eaten;
+            const byte *name_data, *err_pos;
+            Sint16 name_length;
+            Eterm *hp;
+
+            LoadAssert(beamreader_read_i16(&reader, &name_length));
+            LoadAssert(name_length >= 0);
+
+            LoadAssert(beamreader_read_bytes(&reader, name_length, &name_data));
+
+            if (name_length > 0) {
+                LoadAssert(erts_analyze_utf8(name_data, name_length,
+                                             &err_pos, &num_chars,
+                                             NULL) == ERTS_UTF8_OK);
+
+                if (num_chars < MAX_ATOM_CHARACTERS) {
+                    name_heap = default_name_buf;
+                } else {
+                    name_heap = erts_alloc(ERTS_ALC_T_LOADER_TMP,
+                                           num_chars * sizeof(Eterm[2]));
+                }
+
+                hp = name_heap;
+                name = erts_make_list_from_utf8_buf(&hp, num_chars,
+                                                    name_data,
+                                                    name_length,
+                                                    &num_built,
+                                                    &num_eaten,
+                                                    NIL);
+
+                ASSERT(num_built == num_chars);
+                ASSERT(num_eaten == name_length);
+
+                lines->names[i] = beamfile_add_literal(beam, name);
+
+                if (name_heap != default_name_buf) {
+                    erts_free(ERTS_ALC_T_LOADER_TMP, name_heap);
+                }
+            } else {
+                /* Empty file names are rather unusual and annoying to deal
+                 * with since NIL isn't a valid literal, so we'll fake it with
+                 * our module name instead. */
+                lines->names[i] = lines->names[0];
+            }
+        }
     }
 
     return 1;
@@ -1125,6 +1184,16 @@ int iff_init(const byte *data, size_t size, IFF_File *iff) {
 int iff_read_chunk(IFF_File *iff, Uint id, IFF_Chunk *chunk)
 {
     return read_beam_chunks(iff, 1, &id, chunk);
+}
+
+void beamfile_init() {
+    Eterm suffix;
+    Eterm *hp;
+
+    hp = erts_alloc_global_literal(ERTS_LIT_ERL_FILE_SUFFIX, 8);
+    suffix = erts_bin_bytes_to_list(NIL, hp, (byte*)".erl", 4, 0);
+
+    erts_register_global_literal(ERTS_LIT_ERL_FILE_SUFFIX, suffix);
 }
 
 /* * * * * * * */

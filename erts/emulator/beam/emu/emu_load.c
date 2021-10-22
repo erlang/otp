@@ -327,6 +327,7 @@ int beam_load_finish_emit(LoaderState *stp) {
         BeamCodeLineTab* const line_tab = (BeamCodeLineTab *) (codev+stp->ci);
         const unsigned int ftab_size = stp->beam.code.function_count;
         const unsigned int num_instrs = stp->current_li;
+        const unsigned int num_names = stp->beam.lines.name_count;
         const void** const line_items =
             (const void**) &line_tab->func_tab[ftab_size + 1];
         const void *locp_base;
@@ -343,10 +344,10 @@ int beam_load_finish_emit(LoaderState *stp) {
         }
         line_items[i] = codev + stp->ci - 1;
 
-        line_tab->fname_ptr = (Eterm*) &line_items[i + 1];
-        if (stp->beam.lines.name_count) {
-            sys_memcpy((void*)line_tab->fname_ptr, stp->beam.lines.names,
-                       stp->beam.lines.name_count*sizeof(Eterm));
+        line_tab->fname_ptr = (Eterm*)&line_items[i + 1];
+        for (i = 0; i < num_names; i++) {
+            Eterm *fname = (Eterm*)&line_tab->fname_ptr[i];
+            *fname = beamfile_get_literal(&stp->beam, stp->beam.lines.names[i]);
         }
 
         locp_base = &line_tab->fname_ptr[stp->beam.lines.name_count];

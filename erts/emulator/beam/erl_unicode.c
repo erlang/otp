@@ -939,7 +939,7 @@ static int is_valid_utf8(Eterm orig_bin)
     Uint bitsize;
     Uint size;
     byte *temp_alloc = NULL;
-    byte *endpos;
+    const byte *endpos;
     Uint numchar;
     byte *bytes;
     int ret;
@@ -1188,7 +1188,7 @@ BIF_RETTYPE unicode_characters_to_list_2(BIF_ALIST_2)
  * a faster analyze and size count with this function.
  */
 static ERTS_INLINE int
-analyze_utf8(byte *source, Uint size, byte **err_pos, Uint *num_chars, int *left,
+analyze_utf8(const byte *source, Uint size, const byte **err_pos, Uint *num_chars, int *left,
 	     Sint *num_latin1_chars, Uint max_chars)
 {
     int res = ERTS_UTF8_OK;
@@ -1288,29 +1288,29 @@ analyze_utf8(byte *source, Uint size, byte **err_pos, Uint *num_chars, int *left
     return res;
 }
 
-int erts_analyze_utf8(byte *source, Uint size, 
-		      byte **err_pos, Uint *num_chars, int *left)
+int erts_analyze_utf8(const byte *source, Uint size, 
+		      const byte **err_pos, Uint *num_chars, int *left)
 {
     return analyze_utf8(source, size, err_pos, num_chars, left, NULL, 0);
 }
 
-int erts_analyze_utf8_x(byte *source, Uint size, 
-			byte **err_pos, Uint *num_chars, int *left,
+int erts_analyze_utf8_x(const byte *source, Uint size, 
+			const byte **err_pos, Uint *num_chars, int *left,
 			Sint *num_latin1_chars, Uint max_chars)
 {
     return analyze_utf8(source, size, err_pos, num_chars, left, num_latin1_chars, max_chars);
 }
 
-static ERTS_INLINE Eterm
-make_list_from_utf8_buf(Eterm **hpp, Uint num,
-                        byte *bytes, Uint sz, 
-                        Uint *num_built, Uint *num_eaten,
-                        Eterm tail)
+Eterm
+erts_make_list_from_utf8_buf(Eterm **hpp, Uint num,
+                             const byte *bytes, Uint sz,
+                             Uint *num_built, Uint *num_eaten,
+                             Eterm tail)
 {
     Eterm *hp;
     Eterm ret;
     Uint left = num;
-    byte *source, *ssource;
+    const byte *source, *ssource;
     Uint unipoint;
     hp = *hpp;
     ret = tail;
@@ -1369,9 +1369,9 @@ static Eterm do_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz,
     
     hp = HAlloc(p,num * 2);
 
-    return make_list_from_utf8_buf(&hp, num, bytes, sz,
-                                   num_built, num_eaten,
-                                   tail);
+    return erts_make_list_from_utf8_buf(&hp, num, bytes, sz,
+                                        num_built, num_eaten,
+                                        tail);
 }
 Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
 			Uint *num_built, Uint *num_eaten, Eterm tail)
@@ -1389,7 +1389,7 @@ Uint erts_atom_to_string_length(Eterm atom)
     if (ap->latin1_chars >= 0)
         return (Uint) ap->len;
     else {
-        byte* err_pos;
+        const byte* err_pos;
         Uint num_chars;
         int ares =
             erts_analyze_utf8(ap->name, ap->len, &err_pos, &num_chars, NULL);
@@ -1399,17 +1399,17 @@ Uint erts_atom_to_string_length(Eterm atom)
     }
 }
 
-Eterm erts_atom_to_string(Eterm **hpp, Eterm atom)
+Eterm erts_atom_to_string(Eterm **hpp, Eterm atom, Eterm tail)
 {
     Atom *ap;
 
     ASSERT(is_atom(atom));
     ap = atom_tab(atom_val(atom));
     if (ap->latin1_chars >= 0)
-        return buf_to_intlist(hpp, (char*)ap->name, ap->len, NIL);
+        return buf_to_intlist(hpp, (char*)ap->name, ap->len, tail);
     else {
         Eterm res;
-        byte* err_pos;
+        const byte* err_pos;
         Uint num_chars, num_built, num_eaten;
 #ifdef DEBUG
         Eterm *hp_start = *hpp;
@@ -1418,8 +1418,8 @@ Eterm erts_atom_to_string(Eterm **hpp, Eterm atom)
             erts_analyze_utf8(ap->name, ap->len, &err_pos, &num_chars, NULL);
         ASSERT(ares == ERTS_UTF8_OK);
 
-        res = make_list_from_utf8_buf(hpp, num_chars, ap->name, ap->len,
-                                      &num_built, &num_eaten, NIL);
+        res = erts_make_list_from_utf8_buf(hpp, num_chars, ap->name, ap->len,
+                                           &num_built, &num_eaten, tail);
 
         ASSERT(num_built == num_chars);
         ASSERT(num_eaten == ap->len);
@@ -1756,7 +1756,7 @@ static BIF_RETTYPE do_bif_utf8_to_list(Process *p,
     Eterm *hp;
     Eterm ret;
     byte *temp_alloc = NULL;
-    byte *endpos;
+    const byte *endpos;
     Uint numchar;
 
     Uint b_sz; /* size of the non analyzed tail */
@@ -2158,7 +2158,7 @@ char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
                                      ErtsAlcType_t alloc_type, Sint* used,
                                      Uint extra_wchars)
 {
-    byte *err_pos;
+    const byte *err_pos;
     Uint num_chars;
     char* name_buf = NULL;
     Sint need;
@@ -2200,7 +2200,7 @@ Eterm erts_convert_native_to_filename(Process *p, size_t size, byte *bytes)
 {
     Uint num_chars;
     Eterm *hp;
-    byte *err_pos;
+    const byte *err_pos;
     Uint num_built; /* characters */
     Uint num_eaten; /* bytes */
     Eterm ret;
@@ -2678,7 +2678,7 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
     if (is_binary(BIF_ARG_1)) {
 	byte *temp_alloc = NULL;
 	byte *bytes;
-	byte *err_pos;
+	const byte *err_pos;
 	Uint size,num_chars;
 	/* Uninterpreted encoding except if windows widechar, in case we convert from 
 	   utf8 to win_wchar */
@@ -2763,7 +2763,7 @@ BIF_RETTYPE prim_file_internal_native2name_1(BIF_ALIST_1)
     Eterm *hp;
     byte *temp_alloc = NULL;
     byte *bytes;
-    byte *err_pos;
+    const byte *err_pos;
     Uint num_built; /* characters */
     Uint num_eaten; /* bytes */
     Eterm ret;
@@ -2857,7 +2857,7 @@ BIF_RETTYPE prim_file_internal_normalize_utf8_1(BIF_ALIST_1)
     Eterm ret;
     byte *temp_alloc = NULL;
     byte *bytes;
-    byte *err_pos;
+    const byte *err_pos;
 
     if (is_not_binary(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P,BADARG);
@@ -2890,7 +2890,7 @@ BIF_RETTYPE prim_file_is_translatable_1(BIF_ALIST_1)
     ERTS_DECLARE_DUMMY(Uint bitoffs);
     byte *temp_alloc = NULL;
     byte *bytes;
-    byte *err_pos;
+    const byte *err_pos;
     int status;
 
     if (is_not_binary(BIF_ARG_1)) {
