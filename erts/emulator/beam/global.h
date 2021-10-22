@@ -1236,6 +1236,7 @@ void print_pass_through(int, byte*, int);
 int catchlevel(Process*);
 void init_emulator(void);
 void process_main(ErtsSchedulerData *);
+void erts_prepare_bs_construct_fail_info(Process* c_p, const BeamInstr* p, Eterm reason, Eterm Info, Eterm value);
 void erts_dirty_process_main(ErtsSchedulerData *);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);

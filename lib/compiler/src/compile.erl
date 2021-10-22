@@ -272,9 +272,13 @@ expand_opt(no_bsm4, Os) ->
     %% that a match instruction won't fail.
     expand_opt(no_type_opt, Os);
 expand_opt(r22, Os) ->
-    expand_opt(r23, [no_shared_fun_wrappers, no_swap | expand_opt(no_bsm4, Os)]);
+    expand_opt(r23, [no_bs_create_bin, no_shared_fun_wrappers,
+                     no_swap | expand_opt(no_bsm4, Os)]);
 expand_opt(r23, Os) ->
-    expand_opt(no_make_fun3, [no_ssa_opt_float, no_recv_opt, no_init_yregs | Os]);
+    expand_opt(no_make_fun3, [no_bs_create_bin, no_ssa_opt_float,
+                              no_recv_opt, no_init_yregs | Os]);
+expand_opt(r24, Os) ->
+    [no_bs_create_bin | Os];
 expand_opt(no_make_fun3, Os) ->
     [no_make_fun3, no_fun_opt | Os];
 expand_opt({debug_info_key,_}=O, Os) ->

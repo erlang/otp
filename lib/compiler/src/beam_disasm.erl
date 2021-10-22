@@ -379,6 +379,8 @@ disasm_instr(B, Bs, Atoms, Literals) ->
 	    disasm_make_fun3(Bs, Atoms, Literals);
 	init_yregs ->
 	    disasm_init_yregs(Bs, Atoms, Literals);
+	bs_create_bin ->
+	    disasm_bs_create_bin(Bs, Atoms, Literals);
 	_ ->
 	    try decode_n_args(Arity, Bs, Atoms, Literals) of
 		{Args, RestBs} ->
@@ -442,6 +444,18 @@ disasm_init_yregs(Bs1, Atoms, Literals) ->
     {u, Len} = U,
     {List, RestBs} = decode_n_args(Len, Bs3, Atoms, Literals),
     {{init_yregs, [{Z,U,List}]}, RestBs}.
+
+disasm_bs_create_bin(Bs0, Atoms, Literals) ->
+    {A1, Bs1} = decode_arg(Bs0, Atoms, Literals),
+    {A2, Bs2} = decode_arg(Bs1, Atoms, Literals),
+    {A3, Bs3} = decode_arg(Bs2, Atoms, Literals),
+    {A4, Bs4} = decode_arg(Bs3, Atoms, Literals),
+    {A5, Bs5} = decode_arg(Bs4, Atoms, Literals),
+    {Z, Bs6} = decode_arg(Bs5, Atoms, Literals),
+    {U, Bs7} = decode_arg(Bs6, Atoms, Literals),
+    {u, Len} = U,
+    {List, RestBs} = decode_n_args(Len, Bs7, Atoms, Literals),
+    {{bs_create_bin, [{A1,A2,A3,A4,A5,Z,U,List}]}, RestBs}.
 
 %%-----------------------------------------------------------------------
 %% decode_arg([Byte]) -> {Arg, [Byte]}
@@ -1173,6 +1187,13 @@ resolve_inst({recv_marker_reserve,[Reg]},_,_,_) ->
 resolve_inst({recv_marker_use,[Reg]},_,_,_) ->
     {recv_marker_use,Reg};
 
+%%
+%% OTP 25.
+%%
+
+resolve_inst({bs_create_bin,Args},_,_,_) ->
+    io:format("~p\n", [Args]),
+    {bs_create_bin,Args};
 
 %%
 %% Catches instructions that are not yet handled.

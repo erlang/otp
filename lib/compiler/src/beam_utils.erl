@@ -97,6 +97,10 @@ replace_labels_1([{make_fun2,{f,Lbl},U1,U2,U3}|Is], Acc, D, Fb) ->
     replace_labels_1(Is, [{make_fun2,{f,label(Lbl, D, Fb)},U1,U2,U3}|Acc], D, Fb);
 replace_labels_1([{make_fun3,{f,Lbl},U1,U2,U3,U4}|Is], Acc, D, Fb) ->
     replace_labels_1(Is, [{make_fun3,{f,label(Lbl, D, Fb)},U1,U2,U3,U4}|Acc], D, Fb);
+replace_labels_1([{bs_create_bin,{f,Lbl},Alloc,Live,Unit,Dst,{list,List}}|Is], Acc, D, Fb)
+  when Lbl =/= 0 ->
+    replace_labels_1(Is, [{bs_create_bin,{f,label(Lbl, D, Fb)},
+                           Alloc,Live,Unit,Dst,{list,List}}|Acc], D, Fb);
 replace_labels_1([{bs_init,{f,Lbl},Info,Live,Ss,Dst}|Is], Acc, D, Fb) when Lbl =/= 0 ->
     replace_labels_1(Is, [{bs_init,{f,label(Lbl, D, Fb)},Info,Live,Ss,Dst}|Acc], D, Fb);
 replace_labels_1([{bs_put,{f,Lbl},Info,Ss}|Is], Acc, D, Fb) when Lbl =/= 0 ->

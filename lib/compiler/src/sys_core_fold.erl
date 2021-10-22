@@ -601,10 +601,7 @@ eval_binary(#c_binary{anno=Anno,segments=Ss}=Bin) ->
 	    Bin;
 	  throw:{badarg,Warning} ->
 	    add_warning(Bin, {failed,Warning}),
-	    #c_call{anno=Anno,
-		    module=#c_literal{val=erlang},
-		    name=#c_literal{val=error},
-		    args=[#c_literal{val=badarg}]}
+            Bin
     end.
 
 eval_binary_1([#c_bitstr{val=#c_literal{val=Val},size=#c_literal{val=Sz},

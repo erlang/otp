@@ -634,36 +634,7 @@ sanitize_is([#b_set{op=get_map_element,args=Args0}=I0|Is],
             I = I0#b_set{args=Args},
             sanitize_is(Is, Last, Count0, Values, true, [I|Acc])
     end;
-sanitize_is([#b_set{op={succeeded,guard},dst=Dst,args=[Arg0]}=I0],
-            #b_br{bool=Dst}=Last, Count, Values, _Changed, Acc0) ->
-    %% We no longer need to distinguish between guard and body checks, so we'll
-    %% rewrite this as a plain 'succeeded'.
-    case sanitize_arg(Arg0, Values) of
-        #b_var{}=Arg ->
-            case Acc0 of
-                [#b_set{op=call,
-                        args=[#b_remote{mod=#b_literal{val=erlang},
-                                        name=#b_literal{val=error},
-                                        arity=1},_],
-                        dst=Arg0}|Acc] ->
-                    %% This erlang:error/1 is the result from a
-                    %% sanitized bs_add or bs_init instruction. Calls
-                    %% to erlang:error/1 in receive is not allowed, so
-                    %% we will have to rewrite this instruction
-                    %% sequence to an unconditional branch to the
-                    %% failure label.
-                    Fail = Last#b_br.fail,
-                    Br = #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail},
-                    {reverse(Acc), Br, Count, Values};
-                _ ->
-                    I = I0#b_set{op=succeeded,args=[Arg]},
-                    {reverse(Acc0, [I]), Last, Count, Values}
-            end;
-        #b_literal{} ->
-            Value = #b_literal{val=true},
-            {reverse(Acc0), Last, Count, Values#{ Dst => Value }}
-    end;
-sanitize_is([#b_set{op={succeeded,body},dst=Dst,args=[Arg0]}=I0],
+sanitize_is([#b_set{op={succeeded,_Kind},dst=Dst,args=[Arg0]}=I0],
             #b_br{bool=Dst}=Last, Count, Values, _Changed, Acc) ->
     %% We no longer need to distinguish between guard and body checks, so we'll
     %% rewrite this as a plain 'succeeded'.
@@ -803,30 +774,8 @@ sanitize_instr(is_tagged_tuple, [#b_literal{val=Tuple},
         true ->
             {value,false}
     end;
-sanitize_instr(bs_add, [Arg1,Arg2,_|_], I0) ->
-    case all(fun(#b_literal{val=Size}) -> is_integer(Size) andalso Size >= 0;
-                (#b_var{}) -> true
-             end, [Arg1,Arg2]) of
-        true -> ok;
-        false -> {ok,sanitize_badarg(I0)}
-    end;
-sanitize_instr(bs_init, [#b_literal{val=new},#b_literal{val=Sz}|_], I0) ->
-    if
-        is_integer(Sz), Sz >= 0 -> ok;
-        true -> {ok,sanitize_badarg(I0)}
-    end;
-sanitize_instr(bs_init, [#b_literal{},_,#b_literal{val=Sz}|_], I0) ->
-    if
-        is_integer(Sz), Sz >= 0 -> ok;
-        true -> {ok,sanitize_badarg(I0)}
-    end;
 sanitize_instr(_, _, _) ->
     ok.
-
-sanitize_badarg(I) ->
-    Func = #b_remote{mod=#b_literal{val=erlang},
-                     name=#b_literal{val=error},arity=1},
-    I#b_set{op=call,args=[Func,#b_literal{val=badarg}]}.
 
 remove_unreachable([L|Ls], Blocks, Reachable, Acc) ->
     #b_blk{is=Is0} = Blk0 = map_get(L, Blocks),

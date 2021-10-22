@@ -896,6 +896,8 @@ instr_labels({bif,_Name,Lbl,_As,_R}) ->
     do_instr_labels(Lbl);
 instr_labels({gc_bif,_Name,Lbl,_Live,_As,_R}) ->
     do_instr_labels(Lbl);
+instr_labels({bs_create_bin,Lbl,_,_,_,_,_}) ->
+    do_instr_labels(Lbl);
 instr_labels({bs_init,Lbl,_,_,_,_}) ->
     do_instr_labels(Lbl);
 instr_labels({bs_put,Lbl,_,_}) ->

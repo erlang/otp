@@ -270,14 +270,6 @@ remap([{get_map_elements,Fail,M,{list,L0}}|Is], Map, Acc) ->
     L = [Map(E) || E <- L0],
     I = {get_map_elements,Fail,Map(M),{list,L}},
     remap(Is, Map, [I|Acc]);
-remap([{bs_init,Fail,Info,Live,Ss0,Dst0}|Is], Map, Acc) ->
-    Ss = [Map(Src) || Src <- Ss0],
-    Dst = Map(Dst0),
-    I = {bs_init,Fail,Info,Live,Ss,Dst},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_put=Op,Fail,Info,Ss}|Is], Map, Acc) ->
-    I = {Op,Fail,Info,[Map(S) || S <- Ss]},
-    remap(Is, Map, [I|Acc]);
 remap([{init_yregs,{list,Yregs0}}|Is], Map, Acc) ->
     Yregs = sort([Map(Y) || Y <- Yregs0]),
     I = {init_yregs,{list,Yregs}},
@@ -418,10 +410,6 @@ frame_size([{test,_,{f,L},_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
 frame_size([{test,_,{f,L},_,_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
-frame_size([{bs_init,{f,L},_,_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{bs_put,{f,L},_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
 frame_size([{init_yregs,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{make_fun2,_,_,_,_}|Is], Safe) ->
@@ -480,10 +468,6 @@ is_not_used(Y, [{block,Bl}|Is]) ->
     end;
 is_not_used(Y, [{bs_get_tail,Src,Dst,_}|Is]) ->
     is_not_used_ss_dst(Y, [Src], Dst, Is);
-is_not_used(Y, [{bs_init,_,_,_,Ss,Dst}|Is]) ->
-    is_not_used_ss_dst(Y, Ss, Dst, Is);
-is_not_used(Y, [{bs_put,{f,_},_,Ss}|Is]) ->
-    not member(Y, Ss) andalso is_not_used(Y, Is);
 is_not_used(Y, [{bs_start_match4,_Fail,_Live,Src,Dst}|Is]) ->
     Y =/= Src andalso Y =/= Dst andalso
         is_not_used(Y, Is);

@@ -387,6 +387,12 @@ sizes(Config) when is_list(Config) ->
     <<>> = Fun6([], 42),
     <<42,43:20>> = Fun6([42], 20),
 
+    Fun7 = fun(B) ->
+                   cs_default(<< <<C/utf8>> || C <- B >>)
+            end,
+    <<"Foundation"/utf8>> = Fun7("Foundation"),
+    <<"Основание"/utf8>> = Fun7("Основание"),
+
     %% Binary generators.
 
     Fun10 = fun(Bin) ->
@@ -436,6 +442,12 @@ sizes(Config) when is_list(Config) ->
             end,
     <<$a:32,$b:32,$c:32,($a bsl 8 bor $b):32>> = Fun14([8,16], <<"abc">>),
     <<$a:32,$b:32,$c:32>> = Fun14([8,bad], <<"abc">>),
+
+    Fun15 = fun(B) ->
+                    cs_default(<< <<C/utf8>> || << C:32 >> <= id(B) >>)
+            end,
+    <<"Foundation"/utf8>> = Fun15(<<"Foundation"/utf32>>),
+    <<"Основание"/utf8>> = Fun15(<<"Основание"/utf32>>),
 
     {'EXIT',_} = (catch << <<C:4>> || <<C:8>> <= {1,2,3} >>),
 

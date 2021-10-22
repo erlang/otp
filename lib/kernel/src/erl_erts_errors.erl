@@ -19,7 +19,7 @@
 %%
 
 -module(erl_erts_errors).
--export([format_error/2]).
+-export([format_error/2, format_bs_fail/2]).
 
 -spec format_error(Reason, StackTrace) -> ErrorMap when
       Reason :: term(),
@@ -42,6 +42,24 @@ format_error(Reason, [{M,F,As,Info}|_]) ->
                   []
           end,
     format_error_map(Res, 1, #{}).
+
+-spec format_bs_fail(Reason, StackTrace) -> ErrorMap when
+      Reason :: term(),
+      StackTrace :: erlang:stacktrace(),
+      ErrorMap :: #{'general' => unicode:chardata()}.
+
+format_bs_fail(Reason, [{_,_,_,Info}|_]) ->
+    ErrorInfoMap = proplists:get_value(error_info, Info, #{}),
+    case ErrorInfoMap of
+        #{cause := {Segment,Type,Error,Value}} ->
+            Str0 = do_format_bs_fail(Reason, Type, Error, Value),
+            Str1 = io_lib:format("segment ~p of type '~ts': ~ts",
+                                 [Segment,Type,Str0]),
+            Str = iolist_to_binary(Str1),
+            #{general => Str, reason => <<"construction of binary failed">>};
+        #{} ->
+            #{}
+    end.
 
 format_atomics_error(new, [Size,Options], Reason, Cause) ->
     case Reason of
@@ -1026,6 +1044,76 @@ format_erlang_error(whereis, [_], _) ->
     [not_atom];
 format_erlang_error(_, _, _) ->
     [].
+
+do_format_bs_fail(system_limit, binary, binary, size) ->
+    %% On a 32-bit system, the size of the binary is 256 MiB or
+    %% more, which is not supported because the size in bits does not
+    %% fit in a 32-bit signed integer. In practice, an application
+    %% that uses any binaries of that size is likely to quickly run
+    %% out of memory.
+    io_lib:format(<<"the size of the binary/bitstring is too large (exceeding ~p bits)">>,
+                  [(1 bsl 31) - 1]);
+do_format_bs_fail(system_limit, _Type, size, Value) ->
+    io_lib:format(<<"the size ~p is too large">>, [Value]);
+do_format_bs_fail(badarg, Type, Info, Value) ->
+    do_format_bs_fail(Type, Info, Value).
+
+do_format_bs_fail(float, invalid, Value) ->
+    io_lib:format(<<"expected one of the supported sizes 16, 32, or 64 but got: ~p">>,
+                  [Value]);
+do_format_bs_fail(float, no_float, Value) ->
+    io_lib:format(<<"the value ~ts is outside the range expressible as a float">>,
+                  [possibly_truncated(Value)]);
+do_format_bs_fail(binary, unit, Value) ->
+    io_lib:format(<<"the size of the value ~ts is not a multiple of the unit for the segment">>,
+                  [possibly_truncated(Value)]);
+do_format_bs_fail(_Type, short, Value) ->
+    io_lib:format(<<"the value ~ts is shorter than the size of the segment">>,
+                  [possibly_truncated(Value)]);
+do_format_bs_fail(_Type, size, Value) ->
+    io_lib:format(<<"expected a non-negative integer as size but got: ~ts">>,
+                  [possibly_truncated(Value)]);
+do_format_bs_fail(Type, type, Value) ->
+    F = <<"expected a",
+          (case Type of
+               binary ->
+                   <<" binary">>;
+               float ->
+                   <<" float or an integer">>;
+           integer ->
+                   <<"n integer">>;
+               _ ->
+                   <<" non-negative integer encodable as ", (atom_to_binary(Type))/binary>>
+           end)/binary, " but got: ~ts">>,
+    io_lib:format(F, [possibly_truncated(Value)]).
+
+possibly_truncated(Int) when is_integer(Int) ->
+    Bin = integer_to_binary(Int),
+    case byte_size(Bin) of
+        Size when Size < 48 ->
+            Bin;
+        Size ->
+            <<Prefix:12/binary, _:(Size-24)/binary, Suffix/binary>> = Bin,
+            [Prefix, <<"...">>, Suffix]
+    end;
+possibly_truncated(Bin) when is_bitstring(Bin) ->
+    case byte_size(Bin) of
+        Size when Size < 16 ->
+            io_lib:format("~p", [Bin]);
+        Size ->
+            <<Prefix0:8/binary, _:(Size-10)/binary, Suffix0/bitstring>> = Bin,
+            Prefix1 = iolist_to_binary(io_lib:format("~w", [Prefix0])),
+            <<Prefix:(byte_size(Prefix1)-2)/binary,_/binary>> = Prefix1,
+            <<_:2/unit:8,Suffix/binary>> = iolist_to_binary(io_lib:format("~w", [Suffix0])),
+            [Prefix, <<"...,">>, Suffix]
+    end;
+%% possibly_truncated(Value) when is_bitstring(Value) ->
+possibly_truncated(Value) ->
+    io_lib:format("~P", [Value,20]).
+
+%%%
+%%% Utility functions.
+%%%
 
 list_to_something(List, Error) ->
     try length(List) of

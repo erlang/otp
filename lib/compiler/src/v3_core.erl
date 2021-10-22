@@ -1162,7 +1162,7 @@ is_iexprs_small_2(_, Threshold) ->
 %%  record whereas c_literal should not have a wrapped annotation
 
 expr_bin(Es0, Anno, St0) ->
-    Es1 = [bin_element(E) || E <- Es0],
+    Es1 = bin_elements(Es0, 1),
     case constant_bin(Es1) of
 	error ->
             case expr_bin_1(Es1, St0) of
@@ -1202,12 +1202,12 @@ bitstrs([E0|Es0], St0) ->
 bitstrs([], St) ->
     {[],[],St}.
 
-bitstr({bin_element,Line,{string,_,S},{integer,_,8},_}, St) ->
-    bitstrs(bin_expand_string(S, Line, 0, 0, []), St);
-bitstr({bin_element,Line,{string,_,[]},Sz0,Ts}, St0) ->
+bitstr({bin_element,{sl,_,Line},{string,_,S},{integer,_,8},_}, St) ->
+    bitstrs(bin_expand_string(S, {sl,0,Line}, 0, 0, []), St);
+bitstr({bin_element,{sl,_,Line},{string,_,[]},Sz0,Ts}, St0) ->
     %% Empty string. We must make sure that the type is correct.
     {[#c_bitstr{size=Sz}],Eps0,St1} =
-        bitstr({bin_element,Line,{char,Line,0},Sz0,Ts}, St0),
+        bitstr({bin_element,{sl,0,Line},{char,Line,0},Sz0,Ts}, St0),
 
     %% At this point, the type is either a correct literal or
     %% an expression.
@@ -1234,12 +1234,12 @@ bitstr({bin_element,Line,{string,_,[]},Sz0,Ts}, St0) ->
             Eps = Eps0 ++ Eps1,
             {[],Eps,St2}
     end;
-bitstr({bin_element,Line,{string,_,S},Sz0,Ts}, St0) ->
-    {[Bitstr],Eps,St1} = bitstr({bin_element,Line,{char,Line,0},Sz0,Ts}, St0),
+bitstr({bin_element,{sl,_,Line},{string,_,S},Sz0,Ts}, St0) ->
+    {[Bitstr],Eps,St1} = bitstr({bin_element,{sl,0,Line},{char,Line,0},Sz0,Ts}, St0),
     Es = [Bitstr#c_bitstr{val=#c_literal{anno=full_anno(Line, St1),val=C}} ||
              C <- S],
     {Es,Eps,St1};
-bitstr({bin_element,Line,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
+bitstr({bin_element,{sl,Seg,Line},E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
     {E1,Eps0,St1} = safe(E0, St0),
     {Size1,Eps1,St2} = safe(Size0, St1),
     Eps = Eps0 ++ Eps1,
@@ -1263,16 +1263,30 @@ bitstr({bin_element,Line,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
 	#c_literal{val=all} -> ok;
 	_ -> throw({bad_binary,Eps,St2})
     end,
-    {[#c_bitstr{anno=lineno_anno(Line, St2),
+    Anno0 = lineno_anno(Line, St2),
+
+    %% We will add a 'segment' annotation to segments that could
+    %% fail. There is no need to add it to literal segments of fixed
+    %% sized. The annotation will be used by the runtime system to
+    %% provide extended error information if construction of the
+    %% binary fails.
+    Anno = if Seg =:= 0 ->
+                   Anno0;
+              true ->
+                   [{segment,Seg}|Anno0]
+           end,
+
+    {[#c_bitstr{anno=Anno,
                 val=E1,size=Size1,
                 unit=#c_literal{val=Unit},
                 type=#c_literal{val=Type},
                 flags=#c_literal{val=Flags}}],
      Eps,St2}.
 
-bin_element({bin_element,Line,Expr,Size0,Type0}) ->
+bin_elements([{bin_element,Line,Expr,Size0,Type0}|Es], Seg) ->
     {Size,Type} = make_bit_type(Line, Size0, Type0),
-    {bin_element,Line,Expr,Size,Type}.
+    [{bin_element,{sl,Seg,Line},Expr,Size,Type}|bin_elements(Es, Seg+1)];
+bin_elements([], _) -> [].
 
 make_bit_type(Line, default, Type0) ->
     case erl_bits:set_bit_type(default, Type0) of
@@ -1392,8 +1406,12 @@ bin_expand_string([H|T], Line, Val, Size, Last) ->
 bin_expand_string([], Line, Val, Size, Last) ->
     [make_combined(Line, Val, Size) | Last].
 
-make_combined(Line, Val, Size) ->
-    {bin_element,Line,{integer,Line,Val},
+make_combined(SegLine, Val, Size) ->
+    Line = case SegLine of
+               {sl,_,Line0} -> Line0;
+               _ -> SegLine
+           end,
+    {bin_element,SegLine,{integer,Line,Val},
      {integer,Line,Size},
      [integer,{unit,1},unsigned,big]}.
 

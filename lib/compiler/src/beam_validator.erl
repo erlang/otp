@@ -995,6 +995,21 @@ vi(raw_raise=I, Vst0) ->
 
 vi(bs_init_writable=I, Vst) ->
     validate_body_call(I, 1, Vst);
+vi({bs_create_bin,{f,Fail},Heap,Live,Unit,Dst,{list,List}}, Vst0) ->
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+    verify_create_bin_list(List, Vst0),
+    Vst = prune_x_regs(Live, Vst0),
+    branch(Fail, Vst,
+           fun(FailVst0) ->
+                   heap_alloc(0, FailVst0)
+           end,
+           fun(SuccVst0) ->
+                   SuccVst1 = update_create_bin_list(List, SuccVst0),
+                   SuccVst = heap_alloc(Heap, SuccVst1),
+                   create_term(#t_bitstring{size_unit=Unit}, bs_create_bin, [], Dst,
+                               SuccVst)
+           end);
 vi({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
@@ -1304,6 +1319,54 @@ pmt_1([Key0, Value0 | List], Vst, Acc0) ->
     pmt_1(List, Vst, Acc);
 pmt_1([], _Vst, Acc) ->
     Acc.
+
+verify_create_bin_list([{atom,string},_Seg,Unit,Flags,Val,Size|Args], Vst) ->
+    assert_bs_unit({atom,string}, Unit),
+    assert_term(Flags, Vst),
+    case Val of
+        {string,Bs} when is_binary(Bs) -> ok;
+        _ -> error({not_string,Val})
+    end,
+    assert_term(Flags, Vst),
+    assert_term(Size, Vst),
+    verify_create_bin_list(Args, Vst);
+verify_create_bin_list([Type,_Seg,Unit,Flags,Val,Size|Args], Vst) ->
+    assert_term(Type, Vst),
+    assert_bs_unit(Type, Unit),
+    assert_term(Flags, Vst),
+    assert_term(Val, Vst),
+    assert_term(Size, Vst),
+    verify_create_bin_list(Args, Vst);
+verify_create_bin_list([], _Vst) -> ok.
+
+update_create_bin_list([{atom,string},_Seg,_Unit,_Flags,_Val,_Size|T], Vst) ->
+    update_create_bin_list(T, Vst);
+update_create_bin_list([{atom,Op},_Seg,_Unit,_Flags,Val,_Size|T], Vst0) ->
+    Type = update_create_bin_type(Op),
+    Vst = update_type(fun meet/2, Type, Val, Vst0),
+    update_create_bin_list(T, Vst);
+update_create_bin_list([], Vst) -> Vst.
+
+update_create_bin_type(append) -> #t_bitstring{};
+update_create_bin_type(private_append) -> #t_bitstring{};
+update_create_bin_type(binary) -> #t_bitstring{};
+update_create_bin_type(float) -> #t_float{};
+update_create_bin_type(integer) -> #t_integer{};
+update_create_bin_type(utf8) -> #t_integer{};
+update_create_bin_type(utf16) -> #t_integer{};
+update_create_bin_type(utf32) -> #t_integer{}.
+
+assert_bs_unit({atom,Type}, 0) ->
+    case Type of
+        utf8 -> ok;
+        utf16 -> ok;
+        utf32 -> ok;
+        _ -> error({zero_unit_invalid_for_type,Type})
+    end;
+assert_bs_unit({atom,_Type}, Unit) when is_integer(Unit), 0 < Unit, Unit =< 256 ->
+    ok;
+assert_bs_unit(_, Unit) ->
+    error({invalid,Unit}).
 
 %%
 %% Common code for validating returns, whether naked or as part of a tail call.

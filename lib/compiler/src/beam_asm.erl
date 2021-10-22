@@ -391,14 +391,9 @@ make_op({Name,Arg1,Arg2,Arg3}, Dict) ->
     encode_op(Name, [Arg1,Arg2,Arg3], Dict);
 make_op({Name,Arg1,Arg2,Arg3,Arg4}, Dict) ->
     encode_op(Name, [Arg1,Arg2,Arg3,Arg4], Dict);
-make_op({Name,Arg1,Arg2,Arg3,Arg4,Arg5}, Dict) ->
-    encode_op(Name, [Arg1,Arg2,Arg3,Arg4,Arg5], Dict);
-make_op({Name,Arg1,Arg2,Arg3,Arg4,Arg5,Arg6}, Dict) ->
-    encode_op(Name, [Arg1,Arg2,Arg3,Arg4,Arg5,Arg6], Dict);
-%% make_op({Name,Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7}, Dict) ->
-%%     encode_op(Name, [Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7], Dict);
-make_op({Name,Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7,Arg8}, Dict) ->
-    encode_op(Name, [Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7,Arg8], Dict);
+make_op(Instr, Dict) when tuple_size(Instr) >= 6 ->
+    [Name|Args] = tuple_to_list(Instr),
+    encode_op(Name, Args, Dict);
 make_op(Op, Dict) when is_atom(Op) ->
     encode_op(Op, [], Dict).
 

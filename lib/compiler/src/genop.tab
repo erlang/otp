@@ -647,3 +647,9 @@ BEAM_FORMAT_NUMBER=0
 ## @doc  Sets the current receive cursor to the marker associated with
 ##       the given Reference.
 176: recv_marker_use/1
+
+# OTP 25
+
+## @spec bs_create_bin Fail Alloc Live Unit Dst OpList
+## @doc  Builda a new binary using the binary syntax.
+177: bs_create_bin/6

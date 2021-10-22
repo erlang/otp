@@ -87,7 +87,7 @@ opt_opts(Mod) ->
                      (debug_info) -> true;
                      (dialyzer) -> true;
                      (inline) -> true;
-                     (no_bsm3) -> true;
+                     (no_bs_create_bin) -> true;
                      (no_bsm_opt) -> true;
                      (no_copt) -> true;
                      (no_fun_opt) -> true;
@@ -95,11 +95,10 @@ opt_opts(Mod) ->
                      (no_make_fun3) -> true;
                      (no_module_opt) -> true;
                      (no_postopt) -> true;
-                     (no_put_tuple2) -> true;
                      (no_recv_opt) -> true;
                      (no_share_opt) -> true;
                      (no_shared_fun_wrappers) -> true;
-                     (no_ssa_float) -> true;
+                     (no_ssa_opt_float) -> true;
                      (no_ssa_opt) -> true;
                      (no_stack_trimming) -> true;
                      (no_swap) -> true;
@@ -136,7 +135,8 @@ is_cloned_mod_1("_no_copt_SUITE") -> true;
 is_cloned_mod_1("_no_ssa_opt_SUITE") -> true;
 is_cloned_mod_1("_post_opt_SUITE") -> true;
 is_cloned_mod_1("_inline_SUITE") -> true;
-is_cloned_mod_1("_21_SUITE") -> true;
+is_cloned_mod_1("_23_SUITE") -> true;
+is_cloned_mod_1("_24_SUITE") -> true;
 is_cloned_mod_1("_no_module_opt_SUITE") -> true;
 is_cloned_mod_1([_|T]) -> is_cloned_mod_1(T);
 is_cloned_mod_1([]) -> false.

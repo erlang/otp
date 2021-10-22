@@ -802,7 +802,20 @@ protected:
     void mov_imm(x86::Gp to, T value) {
         static_assert(std::is_integral<T>::value || std::is_pointer<T>::value);
         if (value) {
-            a.mov(to, imm(value));
+            /* Generate the shortest instruction to set the register to an
+             * immediate.
+             *
+             *   48 c7 c0 2a 00 00 00    mov    rax, 42
+             *   b8 2a 00 00 00          mov    eax, 42
+             *
+             *   49 c7 c0 2a 00 00 00    mov    r8, 42
+             *   41 b8 2a 00 00 00       mov    r8d, 42
+             */
+            if (Support::isUInt32((Uint)value)) {
+                a.mov(to.r32(), imm(value));
+            } else {
+                a.mov(to, imm(value));
+            }
         } else {
             /*
              * Generate the shortest instruction to set the register to zero.
@@ -868,6 +881,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(bif_element_shared)                                                      \
     _(bif_export_trap)                                                         \
     _(bs_add_shared)                                                           \
+    _(bs_create_bin_error_shared)                                              \
     _(bs_size_check_shared)                                                    \
     _(bs_fixed_integer_shared)                                                 \
     _(bs_get_tail_shared)                                                      \

@@ -252,7 +252,7 @@ need_heap_blks([], H, Acc) ->
 need_heap_is([#cg_alloc{words=Words}=Alloc0|Is], N, Acc) ->
     Alloc = Alloc0#cg_alloc{words=add_heap_words(N, Words)},
     need_heap_is(Is, #need{}, [Alloc|Acc]);
-need_heap_is([#cg_set{anno=Anno,op=bs_init}=I0|Is], N, Acc) ->
+need_heap_is([#cg_set{anno=Anno,op=bs_create_bin}=I0|Is], N, Acc) ->
     Alloc = case need_heap_need(N) of
                 [#cg_alloc{words=Need}] -> alloc(Need);
                 [] -> 0
@@ -284,13 +284,11 @@ need_heap_terminator([{_,#cg_blk{is=Is,last=#cg_br{succ=L}}}|_], L, N) ->
         [] ->
             {[],#need{}};
         [_|_]=Alloc ->
-            %% If the preceding instructions are a binary construction,
-            %% hoist the allocation and incorporate into the bs_init
+            %% If the preceding instruction is a bs_create_bin instruction,
+            %% hoist the allocation and incorporate into the bs_create_bin
             %% instruction.
             case reverse(Is) of
-                [#cg_set{op=succeeded},#cg_set{op=bs_init}|_] ->
-                    {[],N};
-                [#cg_set{op=succeeded},#cg_set{op=bs_put}|_] ->
+                [#cg_set{op=succeeded},#cg_set{op=bs_create_bin}|_] ->
                     {[],N};
                 _ ->
                     %% Not binary construction. Must emit an allocation
@@ -371,20 +369,16 @@ classify_heap_need(Name, _Args) ->
 %%  Note: Only handle operations in this function that are not handled
 %%  by classify_heap_need/2.
 
-classify_heap_need(bs_add) -> gc;
 classify_heap_need(bs_get) -> gc;
 classify_heap_need(bs_get_tail) -> gc;
-classify_heap_need(bs_init) -> gc;
 classify_heap_need(bs_init_writable) -> gc;
 classify_heap_need(bs_match_string) -> gc;
-classify_heap_need(bs_put) -> neutral;
+classify_heap_need(bs_create_bin) -> gc;
 classify_heap_need(bs_get_position) -> gc;
 classify_heap_need(bs_set_position) -> neutral;
 classify_heap_need(bs_skip) -> gc;
 classify_heap_need(bs_start_match) -> gc;
 classify_heap_need(bs_test_tail) -> neutral;
-classify_heap_need(bs_utf16_size) -> neutral;
-classify_heap_need(bs_utf8_size) -> neutral;
 classify_heap_need(build_stacktrace) -> gc;
 classify_heap_need(call) -> gc;
 classify_heap_need(catch_end) -> gc;
@@ -677,8 +671,8 @@ get_live(#cg_set{anno=#{live:=Live}}) ->
 need_live_anno(Op) ->
     case Op of
         {bif,_} -> true;
+        bs_create_bin -> true;
         bs_get -> true;
-        bs_init -> true;
         bs_get_position -> true;
         bs_get_tail -> true;
         bs_start_match -> true;
@@ -801,7 +795,7 @@ need_y_init(#cg_set{anno=#{clobbers:=Clobbers}}) -> Clobbers;
 need_y_init(#cg_set{op=bs_get}) -> true;
 need_y_init(#cg_set{op=bs_get_position}) -> true;
 need_y_init(#cg_set{op=bs_get_tail}) -> true;
-need_y_init(#cg_set{op=bs_init}) -> true;
+need_y_init(#cg_set{op=bs_create_bin}) -> true;
 need_y_init(#cg_set{op=bs_skip,args=[#b_literal{val=Type}|_]}) ->
     case Type of
         utf8 -> true;
@@ -1108,30 +1102,21 @@ cg_block([#cg_set{anno=Anno,op={bif,Name},dst=Dst0,args=Args0}=I|T],
             Is = [{bif,Name,{f,0},Args,Dst}|Is0],
             {Is,St}
     end;
-cg_block([#cg_set{op=bs_init,dst=Dst0,args=Args0,anno=Anno}=I,
+cg_block([#cg_set{op=bs_create_bin,dst=Dst0,args=Args0,anno=Anno}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail0}, St) ->
     Fail = bif_fail(Fail0),
     Line = line(Anno),
     Alloc = map_get(alloc, Anno),
-    [#b_literal{val=Kind}|Args1] = Args0,
     Live = get_live(I),
-    case Kind of
-        new ->
-            [Dst,Size,{integer,Unit}] = beam_args([Dst0|Args1], St),
-            {[Line|cg_bs_init(Dst, Size, Alloc, Unit, Live, Fail)],St};
-        private_append ->
-            [Dst,Src,Bits,{integer,Unit}] = beam_args([Dst0|Args1], St),
-            Flags = {field_flags,[]},
-            TestHeap = {test_heap,Alloc,Live},
-            BsPrivateAppend = {bs_private_append,Fail,Bits,Unit,Src,Flags,Dst},
-            Is = [TestHeap,Line,BsPrivateAppend],
-            {Is,St};
-        append ->
-            [Dst,Src,Bits,{integer,Unit}] = beam_args([Dst0|Args1], St),
-            Flags = {field_flags,[]},
-            Is = [Line,{bs_append,Fail,Bits,Alloc,Live,Unit,Src,Flags,Dst}],
-            {Is,St}
-    end;
+    [Dst|Args1] = beam_args([Dst0|Args0], St),
+    Args = bs_args(Args1),
+    Unit = case Args of
+               [{atom,append},_Seg,U|_] -> U;
+               [{atom,private_append},_Seg,U|_] -> U;
+               _ -> 1
+           end,
+    Is = [Line,{bs_create_bin,Fail,Alloc,Live,Unit,Dst,{list,Args}}],
+    {Is,St};
 cg_block([#cg_set{op=bs_start_match,
                   dst=Ctx0,
                   args=[#b_literal{val=new},Bin0]}=I,
@@ -1156,10 +1141,6 @@ cg_block([#cg_set{op=bs_match_string,args=[CtxVar,#b_literal{val=String0}]},
 
     Is = [{test,bs_match_string,Fail,[CtxReg,Bits,{string,String}]}],
     {Is,St};
-cg_block([#cg_set{op=bs_put,args=Args0},
-          #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
-    Args = beam_args(Args0, St),
-    {cg_bs_put(bif_fail(Fail), Args),St};
 cg_block([#cg_set{dst=Dst0,op=landingpad,args=Args0}|T], Context, St0) ->
     [Dst,{atom,Kind},Tag] = beam_args([Dst0|Args0], St0),
     case Kind of
@@ -1328,6 +1309,32 @@ cg_block([], none, St) ->
 cg_block([], {Bool0,Fail}, St) ->
     [Bool] = beam_args([Bool0], St),
     {[{test,is_eq_exact,Fail,[Bool,{atom,true}]}],St}.
+
+bs_args([{atom,binary},{literal,[1|_]},{literal,Bs},{atom,all}|Args])
+  when bit_size(Bs) =:= 0 ->
+    bs_args(Args);
+bs_args([{atom,binary},{literal,[1|_]}=UFs,{literal,Bs},{atom,all}|Args0])
+  when is_bitstring(Bs) ->
+    Bits = bit_size(Bs),
+    Bytes = Bits div 8,
+    case Bits rem 8 of
+        0 ->
+            [{atom,string},0,8,nil,{string,Bs},{integer,byte_size(Bs)}|bs_args(Args0)];
+        Rem ->
+            <<Binary:Bytes/bytes,Int:Rem>> = Bs,
+            Args = [{atom,binary},UFs,{literal,Binary},{atom,all},
+                    {atom,integer},{literal,[1]},{integer,Int},{integer,Rem}|Args0],
+            bs_args(Args)
+    end;
+bs_args([Type,{literal,[Unit|Fs0]},Val,Size|Args]) ->
+    Segment = proplists:get_value(segment, Fs0, 0),
+    Fs1 = proplists:delete(segment, Fs0),
+    Fs = case Fs1 of
+             [] -> nil;
+             [_|_] -> {literal,Fs1}
+         end,
+    [Type,Segment,Unit,Fs,Val,Size|bs_args(Args)];
+bs_args([]) -> [].
 
 cg_copy(T0, St) ->
     {Copies,T} = splitwith(fun(#cg_set{op=copy}) -> true;
@@ -1716,14 +1723,8 @@ cg_instr(remove_message, [], _Dst) ->
 cg_instr(resume, [A,B], _Dst) ->
     [{bif,raise,{f,0},[A,B],{x,0}}].
 
-cg_test(bs_add=Op, Fail, [Src1,Src2,{integer,Unit}], Dst, _I) ->
-    [{Op,Fail,[Src1,Src2,Unit],Dst}];
 cg_test(bs_skip, Fail, Args, _Dst, I) ->
     cg_bs_skip(Fail, Args, I);
-cg_test(bs_utf8_size=Op, Fail, [Src], Dst, _I) ->
-    [{Op,Fail,Src,Dst}];
-cg_test(bs_utf16_size=Op, Fail, [Src], Dst, _I) ->
-    [{Op,Fail,Src,Dst}];
 cg_test({float,convert}, Fail, [Src], Dst, #cg_set{anno=Anno}) ->
     {f,0} = Fail,                               %Assertion.
     [line(Anno),{fconv,Src,Dst}];
@@ -1792,34 +1793,6 @@ field_flags(Flags, #cg_set{anno=#{location:={File,Line}}}) ->
     {field_flags,[{anno,[Line,{file,File}]}|Flags]};
 field_flags(Flags, _) ->
     {field_flags,Flags}.
-
-cg_bs_put(Fail, [{atom,Type},{literal,Flags}|Args]) ->
-    Op = case Type of
-             integer -> bs_put_integer;
-             float   -> bs_put_float;
-             binary  -> bs_put_binary;
-             utf8    -> bs_put_utf8;
-             utf16   -> bs_put_utf16;
-             utf32   -> bs_put_utf32
-         end,
-    case Args of
-        [Src,Size,{integer,Unit}] ->
-            [{Op,Fail,Size,Unit,{field_flags,Flags},Src}];
-        [Src] ->
-            [{Op,Fail,{field_flags,Flags},Src}]
-    end.
-
-cg_bs_init(Dst, Size0, Alloc, Unit, Live, Fail) ->
-    Op = case Unit of
-             1 -> bs_init_bits;
-             8 -> bs_init2
-         end,
-    Size = cg_bs_init_size(Size0),
-    [{Op,Fail,Size,Alloc,Live,{field_flags,[]},Dst}].
-
-cg_bs_init_size({x,_}=R) -> R;
-cg_bs_init_size({y,_}=R) -> R;
-cg_bs_init_size({integer,Int}) -> Int.
 
 cg_catch(Agg, T0, Context, St0) ->
     {Moves,T1} = cg_extract(T0, Agg, St0),

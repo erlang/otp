@@ -333,13 +333,13 @@ i_new_bs_put_float(Fail, Sz, Flags, Src) {
     Eterm flags = $Flags;
     Sint _size;
     $BS_GET_UNCHECKED_FIELD_SIZE(sz, (flags >> 3), $BADARG($Fail), _size);
-    if (!erts_new_bs_put_float(c_p, ($Src), _size, flags)) {
+    if (is_value(erts_new_bs_put_float(c_p, ($Src), _size, flags))) {
         $BADARG($Fail);
     }
 }
 
 i_new_bs_put_float_imm(Fail, Sz, Flags, Src) {
-    if (!erts_new_bs_put_float(c_p, ($Src), ($Sz), ($Flags))) {
+    if (is_value(erts_new_bs_put_float(c_p, ($Src), ($Sz), ($Flags)))) {
         $BADARG($Fail);
     }
 }
@@ -426,13 +426,14 @@ bs_init.verify(Fail) {
 }
 
 bs_init.execute(Live, Dst) {
+    erts_bin_offset = 0;
+    erts_writable_bin = 0;
+
     if (BsOp1 <= ERL_ONHEAP_BIN_LIMIT) {
         ErlHeapBin* hb;
         Uint bin_need;
 
         bin_need = heap_bin_size(BsOp1);
-        erts_bin_offset = 0;
-        erts_writable_bin = 0;
         $GC_TEST(0, bin_need+BsOp2+ERL_SUB_BIN_SIZE, $Live);
         hb = (ErlHeapBin *) HTOP;
         HTOP += bin_need;
@@ -444,10 +445,7 @@ bs_init.execute(Live, Dst) {
         Binary* bptr;
         ProcBin* pb;
 
-        erts_bin_offset = 0;
-        erts_writable_bin = 0;
-        $TEST_BIN_VHEAP(BsOp1 / sizeof(Eterm),
-                        BsOp2 + PROC_BIN_SIZE + ERL_SUB_BIN_SIZE, $Live);
+        $TEST_BIN_VHEAP(BsOp1 / sizeof(Eterm), BsOp2 + PROC_BIN_SIZE, $Live);
 
         /*
          * Allocate the binary struct itself.
@@ -539,7 +537,9 @@ bs_init_bits.execute(Live, Dst) {
      } else {
 	 alloc += PROC_BIN_SIZE;
      }
-     $test_heap(alloc, $Live);
+
+     erts_bin_offset = 0;
+     erts_writable_bin = 0;
 
      /* num_bits = Number of bits to build
       * num_bytes = Number of bytes to allocate in the binary
@@ -549,38 +549,18 @@ bs_init_bits.execute(Live, Dst) {
      if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
 	 ErlHeapBin* hb;
 
-	 erts_bin_offset = 0;
-	 erts_writable_bin = 0;
+         $test_heap(alloc, $Live);
 	 hb = (ErlHeapBin *) HTOP;
 	 HTOP += heap_bin_size(num_bytes);
 	 hb->thing_word = header_heap_bin(num_bytes);
 	 hb->size = num_bytes;
 	 erts_current_bin = (byte *) hb->data;
 	 new_binary = make_binary(hb);
-
-     do_bits_sub_bin:
-	 if (num_bits & 7) {
-	     ErlSubBin* sb;
-
-	     sb = (ErlSubBin *) HTOP;
-	     HTOP += ERL_SUB_BIN_SIZE;
-	     sb->thing_word = HEADER_SUB_BIN;
-	     sb->size = num_bytes - 1;
-	     sb->bitsize = num_bits & 7;
-	     sb->offs = 0;
-	     sb->bitoffs = 0;
-	     sb->is_writable = 0;
-	     sb->orig = new_binary;
-	     new_binary = make_binary(sb);
-	 }
-	 HEAP_SPACE_VERIFIED(0);
-         $Dst = new_binary;
      } else {
 	 Binary* bptr;
 	 ProcBin* pb;
 
-	 erts_bin_offset = 0;
-	 erts_writable_bin = 0;
+         $TEST_BIN_VHEAP(num_bytes / sizeof(Eterm), alloc, $Live);
 
 	 /*
 	  * Allocate the binary struct itself.
@@ -602,8 +582,24 @@ bs_init_bits.execute(Live, Dst) {
 	 pb->flags = 0;
 	 OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
 	 new_binary = make_binary(pb);
-	 goto do_bits_sub_bin;
      }
+
+     if (num_bits & 7) {
+         ErlSubBin* sb;
+
+         sb = (ErlSubBin *) HTOP;
+         HTOP += ERL_SUB_BIN_SIZE;
+         sb->thing_word = HEADER_SUB_BIN;
+         sb->size = num_bytes - 1;
+         sb->bitsize = num_bits & 7;
+         sb->offs = 0;
+         sb->bitoffs = 0;
+         sb->is_writable = 0;
+         sb->orig = new_binary;
+         new_binary = make_binary(sb);
+     }
+     HEAP_SPACE_VERIFIED(0);
+     $Dst = new_binary;
 }
 
 bs_add(Fail, Src1, Src2, Unit, Dst) {
@@ -837,6 +833,449 @@ i_bs_validate_unicode_retract(Fail, Src, Ms) {
         mb->offset -= 32;
         $BADARG($Fail);
     }
+}
+
+BS_GET_TERM(Term, Dst) {
+    $Dst = $Term;
+    switch (loader_tag($Dst)) {
+    case LOADER_X_REG:
+        $Dst = x(loader_x_reg_index($Dst));
+        break;
+    case LOADER_Y_REG:
+        $Dst = y(loader_y_reg_index($Dst));
+        break;
+    }
+}
+
+BS_LOAD_UNIT(Ptr, Dst) {
+    $Dst = $Ptr[1];
+}
+
+BS_LOAD_FLAGS(Ptr, Dst) {
+    $Dst = $Ptr[2];
+}
+
+BS_LOAD_SRC(Ptr, Dst) {
+    $BS_GET_TERM($Ptr[3], $Dst);
+}
+
+BS_LOAD_STRING_SRC(Ptr, Dst) {
+    $Dst = (byte *) $Ptr[3];
+}
+
+BS_LOAD_SIZE(Ptr, Dst) {
+    $BS_GET_TERM($Ptr[4], $Dst);
+}
+
+BS_LOAD_FIXED_SIZE(Ptr, Dst) {
+    $Dst = $Ptr[4];
+}
+
+// Implicitly uses the c_p and p variables (for convenience).
+BS_FAIL_INFO(Fail, Reason, ErrorType, Value) {
+    erts_prepare_bs_construct_fail_info(c_p, p, $Reason, $ErrorType, $Value);
+    $FAIL_HEAD_OR_BODY($Fail);
+}
+
+// Implicitly uses the Size variable because of limitations of parsing in
+// beam_makeops of nested macro call; a nested macro call can only have one
+// argument.
+BS_FAIL_INFO_SYSTEM_LIMIT(Fail) {
+    $BS_FAIL_INFO($Fail, SYSTEM_LIMIT, am_size, Size);
+}
+
+i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
+    //| -no_prefetch
+    int n = $N;
+    const BeamInstr* p_start = $NEXT_INSTRUCTION;
+    const BeamInstr* p_end = p_start + n;
+    const BeamInstr* p;
+    Uint num_bytes;
+    Uint alloc = $Alloc;
+    Eterm new_binary;
+
+    /* We count the total number of bits in an unsigned integer. To avoid
+     * having to check for overflow when adding to `num_bits`, we ensure that the
+     * signed size of each segment fits in a word. */
+    Uint num_bits = 0;
+
+    /* Calculate size of binary in bits. */
+    for (p = p_start; p < p_end; p += BSC_NUM_ARGS) {
+        Eterm Src;
+        Eterm Size;
+        Uint unit;
+        Uint fixed_size;
+
+        switch (p[0]) {
+        case BSC_APPEND:
+        case BSC_PRIVATE_APPEND:
+            break;
+        case BSC_BINARY_ALL:
+            {
+                Uint byte_size;
+                Uint bit_size;
+
+                $BS_LOAD_SRC(p, Src);
+                if (is_not_binary(Src)) {
+                    $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
+                }
+                byte_size = binary_size(Src);
+#ifndef ARCH_64
+                if ((byte_size >> 28) != 0) {
+                    /* The size of the binary in bits will not fit in
+                     * a 32-bit signed integer. */
+                    $BS_FAIL_INFO($Fail, SYSTEM_LIMIT, am_binary, am_size);
+                }
+#endif
+                bit_size = (byte_size << 3) + binary_bitsize(Src);
+                num_bits += bit_size;
+            }
+            break;
+        case BSC_BINARY_FIXED_SIZE:
+        case BSC_FLOAT_FIXED_SIZE:
+        case BSC_INTEGER_FIXED_SIZE:
+            $BS_LOAD_FIXED_SIZE(p, fixed_size);
+            num_bits += fixed_size;
+            break;
+        case BSC_STRING:
+            $BS_LOAD_FIXED_SIZE(p, fixed_size);
+            num_bits += fixed_size * 8;
+            break;
+        case BSC_BINARY:
+        case BSC_FLOAT:
+        case BSC_INTEGER:
+            $BS_LOAD_UNIT(p, unit);
+            $BS_LOAD_SIZE(p, Size);
+            if (is_small(Size)) {
+                Sint signed_size = signed_val(Size);
+                Uint size;
+                if (signed_size >= 0) {
+                    $BS_SAFE_MUL(signed_size, unit, $BS_FAIL_INFO_SYSTEM_LIMIT($Fail), size);
+                    if (size >> (sizeof(Uint) * 8 - 1) != 0) {
+                        /* The signed size does not fit in a word. */
+                        $BS_FAIL_INFO($Fail, SYSTEM_LIMIT, am_size, Size);
+                    }
+                    num_bits += size;
+                } else {
+                    $BS_FAIL_INFO($Fail, BADARG, am_size, Size);
+                }
+            } else {
+#ifdef ARCH_64
+                /* The size must fit in a small on 64-bit platforms. */
+                if (is_big(Size)) {
+                    if (!big_sign(Size)) {
+                        $BS_FAIL_INFO($Fail, SYSTEM_LIMIT, am_size, Size);
+                    } else {
+                        $BS_FAIL_INFO($Fail, BADARG, am_size, Size);
+                    }
+                } else {
+                    /* Not an integer. */
+                    $BS_FAIL_INFO($Fail, BADARG, am_size, Size);
+                }
+#else
+                Uint size;
+
+                if (!term_to_Uint(Size, &size)) {
+                    if (size == BADARG) {
+                        /* Not an integer or a negative integer. Determine which. */
+                        if (is_big(Size)) {
+                            /* Negative integer. */
+                            $BS_FAIL_INFO($Fail, BADARG, am_size, Size);
+                        }
+                        /* Not an integer. */
+                        $BS_FAIL_INFO($Fail, BADARG, am_size, Size);
+                    }
+                    /* Huge positive integer. */
+                    $BS_FAIL_INFO_SYSTEM_LIMIT($Fail);
+                }
+                $BS_SAFE_MUL(size, unit, $BS_FAIL_INFO_SYSTEM_LIMIT($Fail), size);
+                if ((size >> 31) != 0) {
+                    $BS_FAIL_INFO_SYSTEM_LIMIT($Fail);
+                } else {
+                    num_bits += size;
+                }
+#endif
+            }
+            break;
+        case BSC_UTF8:
+            {
+                int num_bytes;
+
+                /*
+                 * Calculate the number of bits needed to encode the
+                 * source operand to UTF-8. If the source operand is
+                 * invalid (e.g. wrong type or range) we return a
+                 * nonsense integer result (32). We can get away
+                 * with that because we KNOW that full error checking
+                 * will be done in the construction phase.
+                 */
+
+                $BS_LOAD_SRC(p, Src);
+                if (Src < make_small(0x80UL)) {
+                    num_bytes = 1;
+                } else if (Src < make_small(0x800UL)) {
+                    num_bytes = 2;
+                } else if (Src < make_small(0x10000UL)) {
+                    num_bytes = 3;
+                } else {
+                    num_bytes = 4;
+                }
+                num_bits += num_bytes * 8;
+            }
+            break;
+        case BSC_UTF16:
+            {
+                int num_bytes = 2;
+
+                /*
+                 * Calculate the number of bits needed to encode the
+                 * source operarand to UTF-16. If the source operand
+                 * is invalid (e.g. wrong type or range) we return a
+                 * nonsense integer result (16 or 32). We can get away
+                 * with that because we KNOW that full error checking
+                 * will be done in the construction phase.
+                 */
+
+                $BS_LOAD_SRC(p, Src);
+                if (Src >= make_small(0x10000UL)) {
+                    num_bytes = 4;
+                }
+                num_bits += num_bytes * 8;
+            }
+            break;
+        case BSC_UTF32:
+            $BS_LOAD_SRC(p, Src);
+
+            /*
+             * There is no need to untag the integer, but it IS
+             * necessary to make sure it is small (if the term is a
+             * bignum, it could slip through the test, and there is no
+             * further test that would catch it, since bit syntax
+             * construction silently masks too big numbers).
+             */
+            if (is_not_small(Src) || Src > make_small(0x10FFFFUL) ||
+                (make_small(0xD800UL) <= Src && Src <= make_small(0xDFFFUL))) {
+                $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
+            }
+            num_bits += 4 * 8;
+            break;
+        default:
+            ASSERT(0);
+            break;
+        }
+    }
+
+    c_p->fcalls = FCALLS;
+
+    /* Allocate binary. */
+    p = p_start;
+    if (p[0] == BSC_APPEND) {
+        Uint live = $Live;
+        Uint unit;
+        Eterm Src;
+
+        $BS_LOAD_UNIT(p, unit);
+        $BS_LOAD_SRC(p, Src);
+        HEAVY_SWAPOUT;
+        reg[live] = Src;
+        new_binary = erts_bs_append_checked(c_p, reg, live, num_bits, alloc, unit);
+        HEAVY_SWAPIN;
+        if (is_non_value(new_binary)) {
+            $BS_FAIL_INFO($Fail, c_p->freason, c_p->fvalue, reg[live]);
+        }
+        p_start += BSC_NUM_ARGS;
+    } else if (p[0] == BSC_PRIVATE_APPEND) {
+        Uint unit;
+        Eterm Src;
+
+        if (alloc) {
+            $test_heap(alloc, $Live);
+        }
+
+        $BS_LOAD_UNIT(p, unit);
+        $BS_LOAD_SRC(p, Src);
+        new_binary = erts_bs_private_append_checked(c_p, Src, num_bits, unit);
+        if (is_non_value(new_binary)) {
+            $BS_FAIL_INFO($Fail, c_p->freason, c_p->fvalue, Src);
+        }
+        p_start += BSC_NUM_ARGS;
+    } else {
+        num_bytes = ((Uint64)num_bits+(Uint64)7) >> 3;
+        if (num_bits & 7) {
+            alloc += ERL_SUB_BIN_SIZE;
+        }
+        if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
+            alloc += heap_bin_size(num_bytes);
+        } else {
+            alloc += PROC_BIN_SIZE;
+        }
+
+        /* num_bits = Number of bits to build
+         * num_bytes = Number of bytes to allocate in the binary
+         * alloc = Total number of words to allocate on heap
+         */
+        erts_bin_offset = 0;
+        erts_writable_bin = 0;
+        if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
+            ErlHeapBin* hb;
+
+            $test_heap(alloc, $Live);
+            hb = (ErlHeapBin *) HTOP;
+            HTOP += heap_bin_size(num_bytes);
+            hb->thing_word = header_heap_bin(num_bytes);
+            hb->size = num_bytes;
+            erts_current_bin = (byte *) hb->data;
+            new_binary = make_binary(hb);
+        } else {
+            Binary* bptr;
+            ProcBin* pb;
+
+            $TEST_BIN_VHEAP(num_bytes / sizeof(Eterm), alloc, $Live);
+
+            /*
+             * Allocate the binary struct itself.
+             */
+            bptr = erts_bin_nrml_alloc(num_bytes);
+            erts_current_bin = (byte *) bptr->orig_bytes;
+
+            /*
+             * Now allocate the ProcBin on the heap.
+             */
+            pb = (ProcBin *) HTOP;
+            HTOP += PROC_BIN_SIZE;
+            pb->thing_word = HEADER_PROC_BIN;
+            pb->size = num_bytes;
+            pb->next = MSO(c_p).first;
+            MSO(c_p).first = (struct erl_off_heap_header*) pb;
+            pb->val = bptr;
+            pb->bytes = (byte*) bptr->orig_bytes;
+            pb->flags = 0;
+            OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
+            new_binary = make_binary(pb);
+        }
+
+        if (num_bits & 7) {
+            ErlSubBin* sb;
+
+            sb = (ErlSubBin *) HTOP;
+            HTOP += ERL_SUB_BIN_SIZE;
+            sb->thing_word = HEADER_SUB_BIN;
+            sb->size = num_bytes - 1;
+            sb->bitsize = num_bits & 7;
+            sb->offs = 0;
+            sb->bitoffs = 0;
+            sb->is_writable = 0;
+            sb->orig = new_binary;
+            new_binary = make_binary(sb);
+        }
+        HEAP_SPACE_VERIFIED(0);
+    }
+
+    /* Construct the segments. */
+    for (p = p_start; p < p_end; p += BSC_NUM_ARGS) {
+        Eterm Src;
+        Eterm Size;
+        Eterm flags;
+        Eterm unit;
+        Sint _size;
+
+        if(p[0] == BSC_STRING) {
+            byte* string;
+            $BS_LOAD_STRING_SRC(p, string);
+            $BS_LOAD_FIXED_SIZE(p, Size);
+            erts_new_bs_put_string(ERL_BITS_ARGS_2(string, Size));
+            continue;
+        }
+
+        $BS_LOAD_SRC(p, Src);
+
+        switch (p[0]) {
+        case BSC_BINARY_ALL:
+            $BS_LOAD_UNIT(p, unit);
+            if (!erts_new_bs_put_binary_all(c_p, Src, unit)) {
+                $BS_FAIL_INFO($Fail, BADARG, am_unit, Src);
+            }
+            break;
+        case BSC_BINARY:
+            $BS_LOAD_UNIT(p, unit);
+            $BS_LOAD_FLAGS(p, flags);
+            $BS_LOAD_SIZE(p, Size);
+            $BS_GET_UNCHECKED_FIELD_SIZE(Size, unit, $BADARG($Fail), _size);
+            if (!erts_new_bs_put_binary(c_p, Src, _size)) {
+                Eterm reason = is_binary(Src) ? am_short : am_type;
+                $BS_FAIL_INFO($Fail, BADARG, reason, Src);
+            }
+            break;
+        case BSC_BINARY_FIXED_SIZE:
+            $BS_LOAD_FIXED_SIZE(p, Size);
+            if (!erts_new_bs_put_binary(c_p, Src, Size)) {
+                Eterm reason = is_binary(Src) ? am_short : am_type;
+                $BS_FAIL_INFO($Fail, BADARG, reason, Src);
+            }
+            break;
+        case BSC_FLOAT:
+            $BS_LOAD_UNIT(p, unit);
+            $BS_LOAD_FLAGS(p, flags);
+            $BS_LOAD_SIZE(p, Size);
+            $BS_GET_UNCHECKED_FIELD_SIZE(Size, unit, $BADARG($Fail), _size);
+            Src = erts_new_bs_put_float(c_p, Src, _size, flags);
+            if (is_value(Src)) {
+                $BS_FAIL_INFO($Fail, BADARG, c_p->fvalue, Src);
+            }
+            break;
+        case BSC_FLOAT_FIXED_SIZE:
+            $BS_LOAD_FLAGS(p, flags);
+            $BS_LOAD_FIXED_SIZE(p, Size);
+            Src = erts_new_bs_put_float(c_p, Src, Size, flags);
+            if (is_value(Src)) {
+                $BS_FAIL_INFO($Fail, BADARG, c_p->fvalue, Src);
+            }
+            break;
+        case BSC_INTEGER:
+            {
+                Sint _size;
+
+                $BS_LOAD_UNIT(p, unit);
+                $BS_LOAD_FLAGS(p, flags);
+                $BS_LOAD_SIZE(p, Size);
+                $BS_GET_UNCHECKED_FIELD_SIZE(Size, unit, $BADARG($Fail), _size);
+                if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3(Src, _size, flags))) {
+                    $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
+                }
+            }
+            break;
+        case BSC_INTEGER_FIXED_SIZE:
+        case BSC_UTF32:
+            $BS_LOAD_FLAGS(p, flags);
+            $BS_LOAD_FIXED_SIZE(p, Size);
+            if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3(Src, Size, flags))) {
+                $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
+            }
+            break;
+        case BSC_UTF8:
+            if (!erts_bs_put_utf8(ERL_BITS_ARGS_1(Src))) {
+                $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
+            }
+            break;
+        case BSC_UTF16:
+            $BS_LOAD_FLAGS(p, flags);
+            $BS_LOAD_SRC(p, Src);
+            if (!erts_bs_put_utf16(ERL_BITS_ARGS_2(Src, flags))) {
+                $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
+            }
+            break;
+        default:
+            ASSERT(0);
+            break;
+        }
+    }
+
+    FCALLS = c_p->fcalls;
+
+    /* Return the resulting binary. */
+    $REFRESH_GEN_DEST();
+    $Dst = new_binary;
+    I += n;
 }
 
 

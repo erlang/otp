@@ -805,6 +805,8 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(bif_tuple_size_guard)                                                    \
     _(bs_add_guard_shared)                                                     \
     _(bs_add_body_shared)                                                      \
+    _(bs_bit_size_shared)                                                      \
+    _(bs_create_bin_error_shared)                                              \
     _(bs_get_tail_shared)                                                      \
     _(bs_size_check_shared)                                                    \
     _(call_bif_shared)                                                         \
