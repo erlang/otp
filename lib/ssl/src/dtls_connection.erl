@@ -202,14 +202,19 @@ initial_hello({call, From}, {start, Timeout},
      #state{static_env = #static_env{host = Host,
                                      port = Port,
                                      role = client,
+                                     socket = {_, Socket},
+                                     transport_cb = Transport,
                                      session_cache = Cache,
                                      session_cache_cb = CacheCb},
+            protocol_specific = PS,
             handshake_env = #handshake_env{renegotiation = {Renegotiation, _}},
             connection_env = CEnv,
 	    ssl_options = #{versions := Versions} = SslOpts,
 	    session = #session{own_certificates = OwnCerts} = NewSession,
 	    connection_states = ConnectionStates0
 	   } = State0) ->
+    Packages = maps:get(active_n, PS),
+    dtls_socket:setopts(Transport, Socket, [{active,Packages}]),
     Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, NewSession), 
     Hello = dtls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
 					Session#session.session_id, Renegotiation, OwnCerts),
@@ -225,8 +230,10 @@ initial_hello({call, From}, {start, Timeout},
                                            State1#state{connection_env = 
                                                             CEnv#connection_env{negotiated_version = HelloVersion}}),  
     State = State2#state{connection_env = CEnv#connection_env{negotiated_version = Version}, %% RequestedVersion
-			  session = Session,
-			  start_or_recv_from = From},
+                         session = Session,
+                         start_or_recv_from = From,
+                         protocol_specific = PS#{active_n_toggle := false}
+                        },
     dtls_gen_connection:next_event(hello, no_record, State, [{{timeout, handshake}, Timeout, close} | Actions]);
 initial_hello({call, _} = Type, Event, #state{static_env = #static_env{role = server},
                                               protocol_specific = PS0} = State) ->
