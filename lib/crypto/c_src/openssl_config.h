@@ -188,6 +188,12 @@
 # ifdef NID_sha3_512
 #  define HAVE_SHA3_512
 # endif
+# ifdef NID_shake128
+#  define HAVE_SHAKE128
+# endif
+# ifdef NID_shake256
+#  define HAVE_SHAKE256
+# endif
 
 // BLAKE2:
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1) \
