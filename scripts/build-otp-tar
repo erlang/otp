@@ -473,11 +473,6 @@ else
     echo " " >> $build_log
     echo " === Running autoconf in OTP ================================ " >> $build_log
     echo " " >> $build_log
-    echo "./otp_build autoconf" >> $build_log
-    ./otp_build autoconf >> $build_log 2>&1
-    if [ $? -ne 0 ]; then
-	error "Failed to run autoconf in OTP"
-    fi
 
     progress "Configuring OTP"
     echo " " >> $build_log

@@ -49,11 +49,6 @@ the updated applications.
 > *NOTE*: Before applying a patch you need to do a *full* build
 > of OTP in the source directory.
 
-If you are building in `git` you first need to generate the
-`configure` scripts:
-
-	$ ./otp_build autoconf
-
 Configure and build all applications in OTP:
 
 	$ configure

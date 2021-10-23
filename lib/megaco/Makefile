@@ -115,7 +115,6 @@ include $(ERL_TOP)/make/otp_subdir.mk
 
 reconf:
 	(cd $(ERL_TOP) && \
-		./otp_build autoconf && \
 		./otp_build configure && \
 		cd $(ERL_TOP)/../libraries/megaco)
 

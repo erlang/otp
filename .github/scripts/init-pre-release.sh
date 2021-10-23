@@ -9,7 +9,6 @@ if [ -f ./configure ]; then
     git archive --prefix otp/ -o otp_src.tar.gz HEAD
 else
     ERL_TOP=`pwd`
-    ./otp_build autoconf
     find . -name aclocal.m4 | xargs git add -f
     find . -name configure | xargs git add -f
     find . -name config.h.in | xargs git add -f
