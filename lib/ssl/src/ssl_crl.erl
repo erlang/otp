@@ -44,8 +44,8 @@ trusted_cert_and_path(CRL, issuer_not_found, CertPath, {Db, DbRef}) ->
 	{error, unknown_ca} ->
             Issuer = public_key:pkix_normalize_name(public_key:pkix_crl_issuer(CRL)),
             IsIssuerFun =
-                fun({_Key, #cert{otp=ErlCertCandidate}}, Acc) ->
-                        verify_crl_issuer(CRL, ErlCertCandidate, Issuer, Acc);
+                fun({_Key, CertCandidate}, Acc) ->
+                        verify_crl_issuer(CRL, CertCandidate, Issuer, Acc);
                    (_, Acc) ->
                         Acc
                 end,
