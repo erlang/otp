@@ -399,9 +399,15 @@ ifeq ($(OTP_SMALL_BUILD),true)
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
 	    $(MAKE) TESTROOT="$(RELEASE_ROOT)" release
 else
+ifeq ($(OTP_TINY_BUILD),true)
+	cd $(ERL_TOP)/lib && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
+	    $(MAKE) TINY_BUILD=true TESTROOT="$(RELEASE_ROOT)" release
+else
 	cd $(ERL_TOP)/lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
 	    $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" release
+endif
 endif
 	cd $(ERL_TOP)/erts && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
