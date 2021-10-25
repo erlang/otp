@@ -1725,9 +1725,13 @@ static ERL_NIF_TERM esock_sockname(ErlNifEnv*       env,
 static ERL_NIF_TERM esock_peername(ErlNifEnv*       env,
                                    ESockDescriptor* descP);
 
-static ERL_NIF_TERM esock_ioctl(ErlNifEnv*       env,
-				ESockDescriptor* descP,
-				int              req);
+static ERL_NIF_TERM esock_ioctl1(ErlNifEnv*       env,
+				 ESockDescriptor* descP,
+				 int              req);
+static ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
+				 ESockDescriptor* descP,
+				 int              req,
+				 ERL_NIF_TERM     arg);
 static ERL_NIF_TERM esock_ioctl_gifconf(ErlNifEnv*       env,
 					ESockDescriptor* descP);
 static ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
@@ -1743,6 +1747,12 @@ static ERL_NIF_TERM make_ifreq(ErlNifEnv*   env,
 			       ERL_NIF_TERM name,
 			       ERL_NIF_TERM key2,
 			       ERL_NIF_TERM val2);
+static ERL_NIF_TERM esock_ioctl_gifaddr(ErlNifEnv*       env,
+					ESockDescriptor* descP,
+					ERL_NIF_TERM     ename);
+static ERL_NIF_TERM encode_ioctl_ifaddr(ErlNifEnv*       env,
+					ESockDescriptor* descP,
+					struct sockaddr* addrP);
 
 static ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
@@ -12487,6 +12497,7 @@ ERL_NIF_TERM esock_peername(ErlNifEnv*       env,
  * Arguments:
  * Socket (ref) - Points to the socket descriptor.
  * Get Request  - The ioctl get request
+ * Name         - Name of the interface - only for some requests
  */
 
 static
@@ -12501,32 +12512,48 @@ ERL_NIF_TERM nif_ioctl(ErlNifEnv*         env,
   ERL_NIF_TERM     res;
   int              req;
 
-  ESOCK_ASSERT( argc == 2 ); // SET REQUIRES THREE (3) ARGS
-
   SGDBG( ("SOCKET", "nif_ioctl -> entry with argc: %d\r\n", argc) );
 
-  /* Extract arguments and perform preliminary validation */
+  ESOCK_ASSERT( (argc == 2) || (argc == 3) );
 
   if (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
     return enif_make_badarg(env);
   }
 
   if (! GET_INT(env, argv[1], &req)) {
-    if (IS_INTEGER(env, argv[0]))
-      return esock_make_error_integer_range(env, argv[0]);
+    if (IS_INTEGER(env, argv[1]))
+      return esock_make_error_integer_range(env, argv[1]);
     else
       return enif_make_badarg(env);
   }
 
-  MLOCK(descP->readMtx);
-  
   SSDBG( descP,
 	 ("SOCKET", "nif_ioctl(%T) {%d} -> ioctl request %d"
 	  "\r\n", argv[0], descP->sock, req) );
 
-  res = esock_ioctl(env, descP, req);
+  if (argc == 2) {
 
-  MUNLOCK(descP->readMtx);
+    MLOCK(descP->readMtx);
+
+    /* One argument: request */
+    res = esock_ioctl1(env, descP, req);
+
+    MUNLOCK(descP->readMtx);
+
+  } else if (argc == 3) {
+    ERL_NIF_TERM earg = argv[2];
+
+    MLOCK(descP->readMtx);
+  
+    /* Two arguments: request and arg */
+    res = esock_ioctl2(env, descP, req, earg);
+
+    MUNLOCK(descP->readMtx);
+    
+  }
+
+  /* Extract arguments and perform preliminary validation */
+
 
   SSDBG( descP,
 	 ("SOCKET", "nif_ioctl(%T) {%d} -> done with res = %T\r\n",
@@ -12541,9 +12568,9 @@ ERL_NIF_TERM nif_ioctl(ErlNifEnv*         env,
 #ifndef __WIN32__
 
 static
-ERL_NIF_TERM esock_ioctl(ErlNifEnv*       env,
-			 ESockDescriptor* descP,
-			 int              req)
+ERL_NIF_TERM esock_ioctl1(ErlNifEnv*       env,
+			  ESockDescriptor* descP,
+			  int              req)
 {
   if (! IS_OPEN(descP->readState))
     return esock_make_error(env, atom_closed);
@@ -12553,6 +12580,41 @@ ERL_NIF_TERM esock_ioctl(ErlNifEnv*       env,
 #if defined(SIOCGIFCONF)
   case SIOCGIFCONF:
     return esock_ioctl_gifconf(env, descP);
+    break;
+#endif
+
+  default:
+    return esock_make_error(env, esock_atom_enotsup);
+    break;
+  }
+
+}
+
+
+/* The type and value of 'arg' depend on the request,
+ * which we have not yet "analyzed".
+ *
+ * Request     arg       arg type
+ * -------     -------   --------
+ * gifaddr     name      string
+ * gifname     ifindex   integer
+ * gifindex    name      string
+ */
+static
+ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
+			  ESockDescriptor* descP,
+			  int              req,
+			  ERL_NIF_TERM     arg)
+{
+  /* This for *get* requests */
+  if (! IS_OPEN(descP->readState))
+    return esock_make_error(env, atom_closed);
+
+  switch (req) {
+
+#if defined(SIOCGIFADDR)
+  case SIOCGIFADDR:
+    return esock_ioctl_gifaddr(env, descP, arg);
     break;
 #endif
 
@@ -12602,6 +12664,7 @@ ERL_NIF_TERM esock_ioctl_gifconf(ErlNifEnv*       env,
   return encode_ioctl_ifconf(env, descP, &ifc);
 }
 
+
 static
 ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
@@ -12637,6 +12700,79 @@ ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
   }
 
   return result;
+}
+
+
+static
+ERL_NIF_TERM esock_ioctl_gifaddr(ErlNifEnv*       env,
+				 ESockDescriptor* descP,
+				 ERL_NIF_TERM     ename)
+{
+  ERL_NIF_TERM result;
+  struct ifreq ifreq;
+  char*        ifn = NULL;
+  int          nlen;
+
+  SSDBG( descP, ("SOCKET", "esock_ioctl_gifaddr {%d} -> entry with"
+		 "\r\n      (e)Name: %T"
+		 "\r\n", descP->sock, ename) );
+
+  if (!esock_decode_string(env, ename, &ifn))
+    return enif_make_badarg(env);
+
+  // Make sure the length of the string is valid!
+  nlen = esock_strnlen(ifn, IFNAMSIZ);
+  
+  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
+  sys_memcpy(ifreq.ifr_name, ifn, 
+	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
+  
+  SSDBG( descP,
+	 ("SOCKET", "esock_ioctl_gifaddr {%d} -> try ioctl\r\n", descP->sock) );
+
+  if (ioctl(descP->sock, SIOCGIFADDR, (char *) &ifreq) < 0) {
+      int          saveErrno = sock_errno();
+      ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+      SSDBG( descP,
+	     ("SOCKET", "esock_ioctl_gifaddr {%d} -> failure: "
+	      "\r\n      reason: %T (%d)"
+	      "\r\n", descP->sock, reason, saveErrno) );
+
+      result = esock_make_error(env, reason);
+
+  } else {
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_gifaddr {%d} -> encode ifaddr\r\n",
+	    descP->sock) );
+    result = encode_ioctl_ifaddr(env, descP, &ifreq.ifr_addr);
+  }
+
+  /* We know that if esock_decode_string is successful,
+   * we have "some" form of string, and therefor memory
+   * has been allocated (and need to be freed)... */
+  FREE(ifn);
+
+  return result;
+
+}
+
+
+static
+ERL_NIF_TERM encode_ioctl_ifaddr(ErlNifEnv*       env,
+				 ESockDescriptor* descP,
+				 struct sockaddr* addrP)
+{
+  ERL_NIF_TERM eaddr;
+  unsigned int sz = sizeof(ESockAddress);
+
+  esock_encode_sockaddr(env, (ESockAddress*) addrP, sz, &eaddr);
+
+  SSDBG( descP, ("SOCKET", "encode_ioctl_ifaddr -> done with"
+		 "\r\n    Sock Addr: %T"
+		 "\r\n", eaddr) );
+
+  return esock_make_ok2(env, eaddr);;
 }
 
 static
@@ -18521,7 +18657,7 @@ ErlNifFunc esock_funcs[] =
     {"nif_sockname",            1, nif_sockname, 0},
     {"nif_peername",            1, nif_peername, 0},
     {"nif_ioctl",               2, nif_ioctl, ERL_NIF_DIRTY_JOB_IO_BOUND},
-    // {"nif_ioctl",               3, nif_ioctl, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"nif_ioctl",               3, nif_ioctl, ERL_NIF_DIRTY_JOB_IO_BOUND},
 
     /* Misc utility functions */
 

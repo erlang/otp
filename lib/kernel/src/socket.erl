@@ -69,7 +69,7 @@
          sockname/1,
          peername/1,
 
-         ioctl/2,
+         ioctl/2, ioctl/3,
 
          cancel/2
         ]).
@@ -4037,18 +4037,40 @@ peername(Socket) ->
 %%
 %%
 
--type ioctl_get_request() :: gifconf | gifaddr | non_neg_integer().
+%% -type ioctl_get_request() :: gifconf | non_neg_integer().
 
 -spec ioctl(Socket, GetRequest) -> {'ok', Result} | {'error', Reason} when
       Socket     :: socket(),
-      GetRequest :: ioctl_get_request(),
+      GetRequest :: gifconf,
       Result     :: term(),
       Reason     :: posix() | 'closed'.
 
-ioctl(?socket(SockRef), GetRequest) ->
+%% gifconf | {gifaddr, string()} | {gifindex, string()} | {gifname, integer()}
+ioctl(?socket(SockRef), GetRequest)
+  when is_atom(GetRequest) ->
     prim_socket:ioctl(SockRef, GetRequest);
 ioctl(Socket, GetRequest) ->
     erlang:error(badarg, [Socket, GetRequest]).
+
+
+-spec ioctl(Socket, GetRequest, Name) -> {'ok', Result} | {'error', Reason} when
+      Socket     :: socket(),
+      GetRequest :: gifaddr | gifindex | gifname,
+      Name       :: string() | integer(),
+      Result     :: term(),
+      Reason     :: posix() | 'closed'.
+
+ioctl(?socket(SockRef), gifaddr = GetRequest, Name)
+  when is_list(Name) ->
+    prim_socket:ioctl(SockRef, GetRequest, Name);
+ioctl(?socket(SockRef), gifindex = GetRequest, Name)
+  when is_list(Name) ->
+    prim_socket:ioctl(SockRef, GetRequest, Name);
+ioctl(?socket(SockRef), gifname = GetRequest, Index)
+  when is_integer(Index) ->
+    prim_socket:ioctl(SockRef, GetRequest, Index);
+ioctl(Socket, GetRequest, Arg) ->
+    erlang:error(badarg, [Socket, GetRequest, Arg]).
 
 
 
