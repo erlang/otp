@@ -354,7 +354,6 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
        return am_false; /* Not a monitor (may have been...) */
 
    switch (mon->flags & ERTS_ML_STATE_ALIAS_MASK) {
-   case ERTS_ML_STATE_ALIAS_ONCE:
    case ERTS_ML_STATE_ALIAS_UNALIAS: {
        ErtsMonitorData *amdp = erts_monitor_create(ERTS_MON_TYPE_ALIAS,
                                                    ref,
@@ -366,6 +365,7 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
        erts_monitor_tree_replace(&ERTS_P_MONITORS(c_p), mon, &amdp->origin);
        break;
    }
+   case ERTS_ML_STATE_ALIAS_ONCE:
    case ERTS_ML_STATE_ALIAS_DEMONITOR:
        erts_pid_ref_delete(ref);
        /* fall through... */

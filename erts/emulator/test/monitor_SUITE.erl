@@ -28,7 +28,9 @@
          demon_2/1, demon_3/1, demonitor_flush/1, gh_5225_demonitor_alias/1,
          local_remove_monitor/1, remote_remove_monitor/1, mon_1/1, mon_2/1,
          large_exit/1, list_cleanup/1, mixer/1, named_down/1, otp_5827/1,
-         monitor_time_offset/1, monitor_tag_storage/1]).
+         monitor_time_offset/1, monitor_tag_storage/1,
+         unexpected_alias_at_demonitor_gh5310/1,
+         down_on_alias_gh5310/1]).
 
 -export([y2/1, g/1, g0/0, g1/0, large_exit_sub/1]).
 
@@ -41,7 +43,9 @@ all() ->
      demon_1, mon_1, mon_2, demon_2, demon_3, demonitor_flush,
      gh_5225_demonitor_alias, {group, remove_monitor}, large_exit,
      list_cleanup, mixer, named_down, otp_5827,
-     monitor_time_offset, monitor_tag_storage].
+     monitor_time_offset, monitor_tag_storage,
+     unexpected_alias_at_demonitor_gh5310,
+     down_on_alias_gh5310].
 
 groups() -> 
     [{remove_monitor, [],
@@ -946,11 +950,107 @@ receive_tagged_down_msgs(Tag, Msgs) ->
             Msgs
     end.
 
+unexpected_alias_at_demonitor_gh5310(Config) when is_list(Config) ->
+    %% The demonitor operation erroneously behaved as if the
+    %% monitor had been created using the {alias, explicit_unalias}
+    %% option...
+    Pid = spawn_link(fun () ->
+                             receive
+                                 {alias, Alias} ->
+                                     Alias ! {hello_via_alias, self()}
+                             end
+                     end),
+    Mon = erlang:monitor(process, Pid),
+    AliasMon = erlang:monitor(process, Pid, [{alias, reply_demonitor}]),
+    erlang:demonitor(AliasMon, [flush]),
+    Pid ! {alias, AliasMon},
+    receive
+        {'DOWN', Mon, process, Pid, normal} ->
+            ok
+    end,
+    receive
+        {hello_via_alias, Pid} ->
+            ct:fail(unexpected_message_via_alias)
+    after
+        0 ->
+            ok
+    end.
+
+down_on_alias_gh5310(Config) when is_list(Config) ->
+    %% Could only occur when the internal monitor structure was transformed
+    %% into an alias structure during the demonitor() operation, the target
+    %% terminated before the demonitor signal reached it, and the exit reason
+    %% wasn't an immediate. We test with both immediate and compound exit
+    %% reason just to make sure we don't introduce the bug in the immediate
+    %% case at a later time...
+    process_flag(scheduler, 1),
+    {DeMonSched, TermSched} = case erlang:system_info(schedulers) of
+                                  1 -> {1, 1};
+                                  2 -> {1, 2};
+                                  _ -> {2, 3}
+                              end,
+    lists:foreach(fun (N) ->
+                          ImmedExitReason = case N rem 2 of
+                                      0 -> true;
+                                      _ -> false
+                                  end,
+                          down_on_alias_gh5310_test(ImmedExitReason,
+                                                    DeMonSched, TermSched)
+                  end,
+                  lists:seq(1, 200)),
+    ok.
+
+down_on_alias_gh5310_test(ImmedExitReason, DeMonSched, TermSched) ->
+    Go = make_ref(),
+    Done = make_ref(),
+    Parent = self(),
+    TermPid = spawn_opt(fun () ->
+                                Parent ! {ready, self()},
+                                receive Go ->
+                                        if ImmedExitReason == true ->
+                                                exit(bye);
+                                           true ->
+                                                exit(Go)
+                                        end
+                                end
+                        end, [{scheduler, TermSched}]),
+    DeMonPid = spawn_opt(fun () ->
+                                 AliasMon = erlang:monitor(process, TermPid,
+                                                           [{alias, explicit_unalias}]),
+                                 Parent ! {ready, self()},
+                                 receive Go -> ok end,
+                                 erlang:demonitor(AliasMon, [flush]),
+                                 busy_wait_until(fun () ->
+                                                         not is_process_alive(TermPid)
+                                                 end),
+                                 receive
+                                     {'DOWN', AliasMon, process, _, _} = DownMsg ->
+                                         exit({unexpected_msg, DownMsg})
+                                 after
+                                     0 ->
+                                         Parent ! Done
+                                 end
+                         end, [{scheduler, DeMonSched}, link]),
+    receive {ready, TermPid} -> ok end,
+    receive {ready, DeMonPid} -> ok end,
+    erlang:yield(),
+    TermPid ! Go,
+    DeMonPid ! Go,
+    receive Done -> ok end.
+
 %%
 %% ...
 %%
 
 id(X) -> X.
+
+busy_wait_until(Fun) ->
+    case catch Fun() of
+        true ->
+            ok;
+        _ ->
+            busy_wait_until(Fun)
+    end.
 
 wait_until(Fun) ->
     case catch Fun() of
