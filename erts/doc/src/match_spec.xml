@@ -140,6 +140,7 @@
         <c><![CDATA[process_dump]]></c> | <c><![CDATA[enable_trace]]></c> |
         <c><![CDATA[disable_trace]]></c> | <c><![CDATA[trace]]></c> |
         <c><![CDATA[display]]></c> | <c><![CDATA[caller]]></c> |
+        <c><![CDATA[caller_line]]></c> |
         <c><![CDATA[set_tcw]]></c> | <c><![CDATA[silent]]></c>
       </item>
     </list>
@@ -435,6 +436,24 @@
            <p>Notice that if a "technically built in function" (that is, a
              function not written in Erlang) is traced, the
              <c><![CDATA[caller]]></c> function sometimes returns the atom
+             <c><![CDATA[undefined]]></c>. The calling
+             Erlang function is not available during such calls.</p>
+        </item>
+        <tag><c>caller_line</c></tag>
+        <item>
+          <p>Similar to <c>caller</c> but returns additional information about
+             the source code location of the function call-site within the
+             caller function. Returns the calling function as a tuple
+             <c>{Module, Function, Arity, {File, Line}}</c>. <c>File</c> is the
+             <seeguide marker="system/reference_manual:data_types#string">string</seeguide>
+             file name while <c>Line</c> is source line number. If the <c>File</c>
+             and <c>Line</c> cannot be determined, <c>{Module, Function, Arity, undefined}</c>
+             is returned. If the calling function cannot be determined, the atom
+             <c><![CDATA[undefined]]></c> is returned. Can only be used in the
+             <c><![CDATA[MatchBody]]></c> part when tracing.</p>
+           <p>Notice that if a "technically built in function" (that is, a
+             function not written in Erlang) is traced, the
+             <c><![CDATA[caller_line]]></c> function sometimes returns the atom
              <c><![CDATA[undefined]]></c>. The calling
              Erlang function is not available during such calls.</p>
         </item>
