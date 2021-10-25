@@ -498,8 +498,8 @@ init_per_group(non_fips, Config) ->
     NonFIPSConfig = [{fips, false} | Config],
     case crypto:info_fips() of
         enabled ->
-            true = crypto:enable_fips_mode(false),
-            not_enabled = crypto:info_fips(),
+            %% true = crypto:enable_fips_mode(false),
+            %% not_enabled = crypto:info_fips(),
             NonFIPSConfig;
         _NotEnabled ->
             NonFIPSConfig

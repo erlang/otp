@@ -23,6 +23,7 @@
 
 #define OPENSSL_THREAD_DEFINES
 #include <openssl/opensslconf.h>
+#include "openssl_version.h"
 
 #include <openssl/crypto.h>
 #include <openssl/des.h>
@@ -49,10 +50,10 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/err.h>
-#include "openssl_version.h"
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
 # define HAS_3_0_API
+# include <openssl/provider.h>
 #endif
 
 /* LibreSSL was cloned from OpenSSL 1.0.1g and claims to be API and BPI compatible
@@ -410,6 +411,10 @@
 /* Current value is: erlang:system_info(context_reductions) * 10 */
 #define MAX_BYTES_TO_NIF 20000
 
+#ifdef HAS_3_0_API
+# define MAX_NUM_PROVIDERS 10
+#endif
+
 #define CONSUME_REDS(NifEnv, Ibin)			\
 do {                                                    \
     size_t _cost = (Ibin).size;                         \
@@ -449,13 +454,15 @@ do {                                                    \
 #endif
 
 
-/* This is not the final FIPS adaptation for 3.0, just making it compilable */
-#ifdef HAS_3_0_API
-# undef FIPS_SUPPORT
+#if defined(FIPS_SUPPORT) && \
+    defined(HAS_3_0_API)
+# define FIPS_mode() EVP_default_properties_is_fips_enabled(NULL)
+# define FIPS_mode_set(enable) EVP_default_properties_enable_fips(NULL, enable)
 #endif
 
+
 #if defined(FIPS_SUPPORT)
-# define FIPS_MODE() (FIPS_mode() ? 1 : 0)
+#  define FIPS_MODE() (FIPS_mode() ? 1 : 0)
 #else
 # define FIPS_MODE() 0
 #endif
