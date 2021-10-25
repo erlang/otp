@@ -1750,9 +1750,15 @@ static ERL_NIF_TERM make_ifreq(ErlNifEnv*   env,
 static ERL_NIF_TERM esock_ioctl_gifaddr(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					ERL_NIF_TERM     ename);
-static ERL_NIF_TERM encode_ioctl_ifaddr(ErlNifEnv*       env,
-					ESockDescriptor* descP,
-					struct sockaddr* addrP);
+static ERL_NIF_TERM esock_ioctl_gifindex(ErlNifEnv*       env,
+					 ESockDescriptor* descP,
+					 ERL_NIF_TERM     ename);
+static ERL_NIF_TERM encode_ioctl_ifraddr(ErlNifEnv*       env,
+					 ESockDescriptor* descP,
+					 struct sockaddr* addrP);
+static ERL_NIF_TERM encode_ioctl_ifrindex(ErlNifEnv*       env,
+					  ESockDescriptor* descP,
+					  int              index);
 
 static ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
@@ -3762,6 +3768,8 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(frag_needed);      \
     LOCAL_ATOM_DECL(gifaddr);          \
     LOCAL_ATOM_DECL(gifconf);          \
+    LOCAL_ATOM_DECL(gifindex);         \
+    LOCAL_ATOM_DECL(gifname);          \
     LOCAL_ATOM_DECL(host_unknown);     \
     LOCAL_ATOM_DECL(host_unreach);     \
     LOCAL_ATOM_DECL(how);              \
@@ -4917,6 +4925,14 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 
 #if defined(SIOCGIFADDR)
   requests = MKC(env, MKT2(env, atom_gifaddr, MKI(env, SIOCGIFADDR)), requests);
+#endif
+
+#if defined(SIOCGIFNAME)
+  requests = MKC(env, MKT2(env, atom_gifname, MKI(env, SIOCGIFNAME)), requests);
+#endif
+
+#if defined(SIOCGIFINDEX)
+  requests = MKC(env, MKT2(env, atom_gifindex, MKI(env, SIOCGIFINDEX)), requests);
 #endif
 
   return requests;
@@ -12618,6 +12634,12 @@ ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
     break;
 #endif
 
+#if defined(SIOCGIFINDEX)
+  case SIOCGIFINDEX:
+    return esock_ioctl_gifindex(env, descP, arg);
+    break;
+#endif
+
   default:
     return esock_make_error(env, esock_atom_enotsup);
     break;
@@ -12731,21 +12753,21 @@ ERL_NIF_TERM esock_ioctl_gifaddr(ErlNifEnv*       env,
 	 ("SOCKET", "esock_ioctl_gifaddr {%d} -> try ioctl\r\n", descP->sock) );
 
   if (ioctl(descP->sock, SIOCGIFADDR, (char *) &ifreq) < 0) {
-      int          saveErrno = sock_errno();
-      ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+    int          saveErrno = sock_errno();
+    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
 
-      SSDBG( descP,
-	     ("SOCKET", "esock_ioctl_gifaddr {%d} -> failure: "
-	      "\r\n      reason: %T (%d)"
-	      "\r\n", descP->sock, reason, saveErrno) );
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_gifaddr {%d} -> failure: "
+	    "\r\n      reason: %T (%d)"
+	    "\r\n", descP->sock, reason, saveErrno) );
 
-      result = esock_make_error(env, reason);
+    result = esock_make_error(env, reason);
 
   } else {
     SSDBG( descP,
 	   ("SOCKET", "esock_ioctl_gifaddr {%d} -> encode ifaddr\r\n",
 	    descP->sock) );
-    result = encode_ioctl_ifaddr(env, descP, &ifreq.ifr_addr);
+    result = encode_ioctl_ifraddr(env, descP, &ifreq.ifr_addr);
   }
 
   /* We know that if esock_decode_string is successful,
@@ -12759,20 +12781,89 @@ ERL_NIF_TERM esock_ioctl_gifaddr(ErlNifEnv*       env,
 
 
 static
-ERL_NIF_TERM encode_ioctl_ifaddr(ErlNifEnv*       env,
-				 ESockDescriptor* descP,
-				 struct sockaddr* addrP)
+ERL_NIF_TERM esock_ioctl_gifindex(ErlNifEnv*       env,
+				  ESockDescriptor* descP,
+				  ERL_NIF_TERM     ename)
+{
+  ERL_NIF_TERM result;
+  struct ifreq ifreq;
+  char*        ifn = NULL;
+  int          nlen;
+
+  SSDBG( descP, ("SOCKET", "esock_ioctl_gifindex {%d} -> entry with"
+		 "\r\n      (e)Name: %T"
+		 "\r\n", descP->sock, ename) );
+
+  if (!esock_decode_string(env, ename, &ifn))
+    return enif_make_badarg(env);
+
+  // Make sure the length of the string is valid!
+  nlen = esock_strnlen(ifn, IFNAMSIZ);
+  
+  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
+  sys_memcpy(ifreq.ifr_name, ifn, 
+	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
+  
+  SSDBG( descP,
+	 ("SOCKET", "esock_ioctl_gifindex {%d} -> try ioctl\r\n", descP->sock) );
+
+  if (ioctl(descP->sock, SIOCGIFINDEX, (char *) &ifreq) < 0) {
+    int          saveErrno = sock_errno();
+    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_gifindex {%d} -> failure: "
+	    "\r\n      reason: %T (%d)"
+	    "\r\n", descP->sock, reason, saveErrno) );
+
+    result = esock_make_error(env, reason);
+
+  } else {
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_gifindex {%d} -> encode ifindex\r\n",
+	    descP->sock) );
+    result = encode_ioctl_ifrindex(env, descP, ifreq.ifr_ifindex);
+  }
+
+  /* We know that if esock_decode_string is successful,
+   * we have "some" form of string, and therefor memory
+   * has been allocated (and need to be freed)... */
+  FREE(ifn);
+
+  return result;
+
+}
+
+
+static
+ERL_NIF_TERM encode_ioctl_ifraddr(ErlNifEnv*       env,
+				  ESockDescriptor* descP,
+				  struct sockaddr* addrP)
 {
   ERL_NIF_TERM eaddr;
   unsigned int sz = sizeof(ESockAddress);
 
   esock_encode_sockaddr(env, (ESockAddress*) addrP, sz, &eaddr);
 
-  SSDBG( descP, ("SOCKET", "encode_ioctl_ifaddr -> done with"
+  SSDBG( descP, ("SOCKET", "encode_ioctl_ifraddr -> done with"
 		 "\r\n    Sock Addr: %T"
 		 "\r\n", eaddr) );
 
   return esock_make_ok2(env, eaddr);;
+}
+
+static
+ERL_NIF_TERM encode_ioctl_ifrindex(ErlNifEnv*       env,
+				   ESockDescriptor* descP,
+				   int              index)
+{
+  ERL_NIF_TERM eidx = MKI(env, index);
+
+  SSDBG( descP, ("SOCKET", "encode_ioctl_ifrindex -> done with"
+		 "\r\n    Index: %T (%d)"
+		 "\r\n", eidx, index) );
+
+  return esock_make_ok2(env, eidx);;
 }
 
 static
