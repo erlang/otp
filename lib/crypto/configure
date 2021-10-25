@@ -778,6 +778,7 @@ with_ssl_rpath
 enable_dynamic_ssl_lib
 enable_evp_dh
 enable_evp_hmac
+enable_deprecated_warnings
 enable_fips
 '
       ac_precious_vars='build_alias
@@ -1449,6 +1450,10 @@ Optional Features:
                           the crypto NIF
   --disable-evp-dh        intentionally undocumented workaround
   --disable-evp-hmac      intentionally undocumented workaround
+  --disable-deprecated-warnings
+                          disable warnings for deprecated functions in
+                          cryptolib (default is to warn, except for OpenSSL
+                          3.x where the default is not to warn)
   --enable-fips           enable OpenSSL FIPS mode support
   --disable-fips          disable OpenSSL FIPS mode support (default)
 
@@ -5685,6 +5690,18 @@ else $as_nop
 fi
 
 
+# Check whether --enable-deprecated_warnings was given.
+if test ${enable_deprecated_warnings+y}
+then :
+  enableval=$enable_deprecated_warnings;  case "$enableval" in
+    no)   deprecated_warnings=no;;
+    *)    deprecated_warnings=yes;;
+  esac
+else $as_nop
+  deprecated_warnings=default_yes
+fi
+
+
 
 
 
@@ -7431,7 +7448,13 @@ fi
 
 fi
 
-if test "x$v3_include" = "xyes" && test "$CRYPTO_APP" != ""
+if test "x$v3_include" = "xyes" && test "x$deprecated_warnings" = "xdefault_yes" && test "$CRYPTO_APP" != ""
+then :
+  deprecated_warnings=no
+
+fi
+
+if test "x$deprecated_warnings" = "xno"  &&  test "$CRYPTO_APP" != ""
 then :
   SSL_FLAGS="$SSL_FLAGS -Wno-deprecated-declarations"
 
