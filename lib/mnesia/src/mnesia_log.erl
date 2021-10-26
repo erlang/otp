@@ -93,7 +93,7 @@
 %% The log file structure for the mnesia_down log is as follows.
 %%
 %%    After the mnesia log section follows a mnesia_down section
-%%    containg lists with yoyo records as single element.
+%%    containing lists with yoyo records as single element.
 %%
 %%    +-----------------+
 %%    | mnesia log head |
