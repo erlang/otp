@@ -175,25 +175,6 @@ t_list_to_ext_pidportref(Config) when is_list(Config) ->
     true = rpc:call(Node, erlang, '=:=', [Ref, Ref2]),
     true = rpc:call(Node, erlang, '==',  [Ref, Ref2]),
 
-    %% Make sure no ugly comparison with 0-creation as wildcard is done.
-    Pid0 = make_0_creation(Pid),
-    Port0 = make_0_creation(Port),
-    Ref0 = make_0_creation(Ref),
-    false = (Pid =:= Pid0),
-    false = (Port =:= Port0),
-    false = (Ref =:= Ref0),
-    false = (Pid == Pid0),
-    false = (Port == Port0),
-    false = (Ref == Ref0),
-
-    %% Check 0-creations are converted to local node creations
-    %% when sent to matching node name.
-    true = rpc:call(Node, erlang, '=:=', [Pid, Pid0]),
-    true = rpc:call(Node, erlang, '==',  [Pid, Pid0]),
-    true = rpc:call(Node, erlang, '=:=', [Port, Port0]),
-    true = rpc:call(Node, erlang, '==',  [Port, Port0]),
-    true = rpc:call(Node, erlang, '=:=', [Ref, Ref0]),
-    true = rpc:call(Node, erlang, '==',  [Ref, Ref0]),
 
     slave:stop(Node),
     ok.

@@ -755,10 +755,8 @@
 	  <item><p>A 32-bit big endian unsigned integer. All identifiers
 	    originating from the same node incarnation must have identical <c>Creation</c>
 	    values. This makes it possible to separate identifiers from old
-	    (crashed) nodes from a new one. The value zero should be avoided for
-	    normal operations as it is used as a wild card for debug purpose
-	    (like a pid returned by <seemfa marker="erts:erlang#list_to_pid/1">
-	    erlang:list_to_pid/1</seemfa>).</p>
+	    (crashed) nodes from a new one. The value zero is reserved and
+            must be avoided for normal operations.</p>
 	  </item>
 	</taglist>
 	<p><c>NEW_PID_EXT</c> was introduced in OTP 19, but only to be decoded

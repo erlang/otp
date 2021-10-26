@@ -259,8 +259,6 @@ extern int H_MAX_FLAGS;         /* maximum heap flags  */
 extern int erts_atom_table_size;/* Atom table size */
 extern int erts_pd_initial_size;/* Initial Process dictionary table size */
 
-#define ORIG_CREATION 0
-
 /* macros for extracting bytes from uint16's */
 
 #define hi_byte(a) ((a) >> 8) 
