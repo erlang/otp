@@ -2513,7 +2513,9 @@ uncompiled code with the same arity are mapped to the same list by
       <fsummary>Get the magic cookie of the local node.</fsummary>
       <desc>
         <p>Returns the magic cookie of the local node if the node is
-          alive, otherwise the atom <c>nocookie</c>.</p>
+          alive, otherwise the atom <c>nocookie</c>. This value is set by
+          <seemfa marker="#set_cookie/1"><c>set_cookie/1</c></seemfa>.
+        </p>
       </desc>
     </func>
 
@@ -2523,7 +2525,8 @@ uncompiled code with the same arity are mapped to the same list by
       <desc>
         <p>Returns the magic cookie for node <c><anno>Node</anno></c>
           if the local node is alive,
-          otherwise the atom <c>nocookie</c>.</p>
+          otherwise the atom <c>nocookie</c>. This value is set by
+          <seemfa marker="#set_cookie/2"><c>set_cookie/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -6967,6 +6970,8 @@ true</pre>
           <seeguide marker="system/reference_manual:distributed">
           Distributed Erlang</seeguide>
           in the Erlang Reference Manual in System Documentation).</p>
+        <p>You can get this value using
+          <seemfa marker="#get_cookie/0"><c>get_cookie/0</c></seemfa>.</p>
         <p>Failure: <c>function_clause</c> if the local node is not
           alive.</p>
       </desc>
@@ -6984,6 +6989,8 @@ true</pre>
           <seeguide marker="system/reference_manual:distributed">
           Distributed Erlang</seeguide>
           in the Erlang Reference Manual in System Documentation).</p>
+        <p>You can get this value using
+          <seemfa marker="#get_cookie/1"><c>get_cookie/1</c></seemfa>.</p>
         <p>Failure: <c>function_clause</c> if the local node is not
           alive.</p>
       </desc>

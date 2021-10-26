@@ -188,7 +188,7 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
               The options <c>'author'</c> and <c>'version'</c> are only used with <c>'windows'</c> option mode.
           </p>
         <list type="bulleted">
-            <item><c>user_cache</c>
+            <item><marker id="user_cache"/><c>user_cache</c>
                 <p>The path location is intended for transient data files on a local machine.</p>
                 <p>
                     On Linux:
@@ -212,7 +212,7 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
 5> <input>filename:basedir(user_cache, "My App", #{author=>"Erlang",version=>"1.2"}).</input>
 "c:/Users/otptest/AppData/Local/Erlang/My App/1.2/Cache"</pre>
             </item>
-            <item><c>user_config</c>
+            <item><marker id="user_config"/><c>user_config</c>
                 <p>
                     The path location is intended for persistent configuration files.
                 </p>
@@ -232,7 +232,7 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
 2> <input>filename:basedir(user_config, "My App", #{author=>"Erlang", version=>"1.2"}).</input>
 "c:/Users/otptest/AppData/Roaming/Erlang/My App/1.2"</pre>
             </item>
-            <item><c>user_data</c>
+            <item><marker id="user_data"/><c>user_data</c>
                 <p>
                     The path location is intended for persistent data files.
                 </p>
@@ -252,7 +252,7 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
 9> <input>filename:basedir(user_data, "My App",#{author=>"Erlang",version=>"1.2"}).</input>
 "c:/Users/otptest/AppData/Local/Erlang/My App/1.2"</pre>
             </item>
-            <item><c>user_log</c>
+            <item><marker id="user_log"/><c>user_log</c>
                 <p>The path location is intended for transient log files on a local machine.</p>
                 <p>
                 On Linux:
@@ -269,7 +269,7 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
 13> <input>filename:basedir(user_log, "My App",#{author=>"Erlang",version=>"1.2"}).</input>
 "c:/Users/otptest/AppData/Local/Erlang/My App/1.2/Logs"</pre>
             </item>
-            <item><c>site_config</c><p>
+            <item><marker id="site_config"/><c>site_config</c><p>
                 On Linux:
                 Respects the os environment variable <c>XDG_CONFIG_DIRS</c>.</p>
 <pre>
@@ -290,7 +290,7 @@ true
 5> <input>filename:basedir(site_config, "my_application", #{os=>darwin}).</input>
 ["/Library/Application Support/my_application"]</pre>
             </item>
-            <item><c>site_data</c><p>
+            <item><marker id="site_data"/><c>site_data</c><p>
                     On Linux:
                     Respects the os environment variable <c>XDG_DATA_DIRS</c>.</p>
                 <pre>
