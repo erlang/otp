@@ -4057,7 +4057,7 @@ ioctl(Socket, GetRequest) ->
       Socket     :: socket(),
       GetRequest :: gifname | gifindex |
                     gifaddr | gifdstaddr | gifbrdaddr | gifnetmask | gifhwaddr |
-                    gifmtu,
+                    gifmtu | giftxqlen,
       Name       :: string() | integer(),
       Result     :: term(),
       Reason     :: posix() | 'closed'.
@@ -4083,10 +4083,10 @@ ioctl(?socket(SockRef), gifnetmask = GetRequest, Name)
 ioctl(?socket(SockRef), gifmtu = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
-%% This is a bit different.
-%% The family part contains the 'ARP protocol HARDWARE identifiers',
-%% which overlaps the other family values
 ioctl(?socket(SockRef), gifhwaddr = GetRequest, Name)
+  when is_list(Name) ->
+    prim_socket:ioctl(SockRef, GetRequest, Name);
+ioctl(?socket(SockRef), giftxqlen = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(Socket, GetRequest, Arg) ->
