@@ -4055,7 +4055,8 @@ ioctl(Socket, GetRequest) ->
 
 -spec ioctl(Socket, GetRequest, Name) -> {'ok', Result} | {'error', Reason} when
       Socket     :: socket(),
-      GetRequest :: gifname | gifindex | gifaddr | gifdstaddr | gifbrdaddr,
+      GetRequest :: gifname | gifindex |
+                    gifaddr | gifdstaddr | gifbrdaddr | gifnetmask,
       Name       :: string() | integer(),
       Result     :: term(),
       Reason     :: posix() | 'closed'.
@@ -4073,6 +4074,9 @@ ioctl(?socket(SockRef), gifdstaddr = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(?socket(SockRef), gifbrdaddr = GetRequest, Name)
+  when is_list(Name) ->
+    prim_socket:ioctl(SockRef, GetRequest, Name);
+ioctl(?socket(SockRef), gifnetmask = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(Socket, GetRequest, Arg) ->

@@ -1756,6 +1756,9 @@ static ERL_NIF_TERM esock_ioctl_gifdstaddr(ErlNifEnv*       env,
 static ERL_NIF_TERM esock_ioctl_gifbrdaddr(ErlNifEnv*       env,
 					   ESockDescriptor* descP,
 					   ERL_NIF_TERM     ename);
+static ERL_NIF_TERM esock_ioctl_gifnetmask(ErlNifEnv*       env,
+					   ESockDescriptor* descP,
+					   ERL_NIF_TERM     ename);
 static ERL_NIF_TERM esock_ioctl_gifindex(ErlNifEnv*       env,
 					 ESockDescriptor* descP,
 					 ERL_NIF_TERM     ename);
@@ -3781,6 +3784,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(gifdstaddr);       \
     LOCAL_ATOM_DECL(gifindex);         \
     LOCAL_ATOM_DECL(gifname);          \
+    LOCAL_ATOM_DECL(gifnetmask);       \
     LOCAL_ATOM_DECL(host_unknown);     \
     LOCAL_ATOM_DECL(host_unreach);     \
     LOCAL_ATOM_DECL(how);              \
@@ -4948,6 +4952,10 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 
 #if defined(SIOCGIFBRDADDR)
   requests = MKC(env, MKT2(env, atom_gifbrdaddr, MKI(env, SIOCGIFBRDADDR)), requests);
+#endif
+
+#if defined(SIOCGIFNETMASK)
+  requests = MKC(env, MKT2(env, atom_gifnetmask, MKI(env, SIOCGIFNETMASK)), requests);
 #endif
 
 #if defined(SIOCGIFCONF)
@@ -12677,6 +12685,12 @@ ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
     break;
 #endif
 
+#if defined(SIOCGIFNETMASK)
+  case SIOCGIFNETMASK:
+    return esock_ioctl_gifnetmask(env, descP, arg);
+    break;
+#endif
+
   default:
     return esock_make_error(env, esock_atom_enotsup);
     break;
@@ -12872,7 +12886,7 @@ ERL_NIF_TERM esock_ioctl_gifdstaddr(ErlNifEnv*       env,
  }
 
 
-static
+  static
 ERL_NIF_TERM esock_ioctl_gifbrdaddr(ErlNifEnv*       env,
 				    ESockDescriptor* descP,
 				    ERL_NIF_TERM     ename)
@@ -12915,6 +12929,61 @@ ERL_NIF_TERM esock_ioctl_gifbrdaddr(ErlNifEnv*       env,
 	   ("SOCKET", "esock_ioctl_gifbrdaddr {%d} -> encode brdaddr\r\n",
 	    descP->sock) );
     result = encode_ioctl_ifraddr(env, descP, &ifreq.ifr_broadaddr);
+  }
+
+  /* We know that if esock_decode_string is successful,
+   * we have "some" form of string, and therefor memory
+   * has been allocated (and need to be freed)... */
+  FREE(ifn);
+
+  return result;
+
+ }
+
+
+static
+ERL_NIF_TERM esock_ioctl_gifnetmask(ErlNifEnv*       env,
+				    ESockDescriptor* descP,
+				    ERL_NIF_TERM     ename)
+{
+  ERL_NIF_TERM result;
+  struct ifreq ifreq;
+  char*        ifn = NULL;
+  int          nlen;
+
+  SSDBG( descP, ("SOCKET", "esock_ioctl_gifnetmask {%d} -> entry with"
+		 "\r\n      (e)Name: %T"
+		 "\r\n", descP->sock, ename) );
+
+  if (!esock_decode_string(env, ename, &ifn))
+    return enif_make_badarg(env);
+
+  // Make sure the length of the string is valid!
+  nlen = esock_strnlen(ifn, IFNAMSIZ);
+  
+  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
+  sys_memcpy(ifreq.ifr_name, ifn, 
+	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
+  
+  SSDBG( descP,
+	 ("SOCKET", "esock_ioctl_gifnetmask {%d} -> try ioctl\r\n", descP->sock) );
+
+  if (ioctl(descP->sock, SIOCGIFNETMASK, (char *) &ifreq) < 0) {
+    int          saveErrno = sock_errno();
+    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_gifnetmask {%d} -> failure: "
+	    "\r\n      reason: %T (%d)"
+	    "\r\n", descP->sock, reason, saveErrno) );
+
+    result = esock_make_error(env, reason);
+
+  } else {
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_gifnetmask {%d} -> encode netmask\r\n",
+	    descP->sock) );
+    result = encode_ioctl_ifraddr(env, descP, &ifreq.ifr_netmask);
   }
 
   /* We know that if esock_decode_string is successful,
