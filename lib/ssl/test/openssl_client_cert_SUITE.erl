@@ -82,7 +82,7 @@ groups() ->
     [
      {openssl_client, [], protocol_groups()},
      {'tlsv1.3', [], tls_1_3_protocol_groups()},
-     {'tlsv1.2', [], pre_tls_1_3_protocol_groups()},
+     {'tlsv1.2', [], pre_tls_1_3_protocol_groups() ++ [{group, rsa_pss_rsae}, {group, rsa_pss_pss}]},
      {'tlsv1.1', [], pre_tls_1_3_protocol_groups()},
      {'tlsv1', [], pre_tls_1_3_protocol_groups()},
      {'dtlsv1.2', [], pre_tls_1_3_protocol_groups()},
@@ -92,8 +92,10 @@ groups() ->
      {dsa, [], all_version_tests()},
      {rsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++ [unsupported_sign_algo_client_auth,
                                                               unsupported_sign_algo_cert_client_auth]},
-     {rsa_pss_rsae, [], all_version_tests() ++ tls_1_3_tests()},
-     {rsa_pss_pss, [], all_version_tests() ++ tls_1_3_tests()},
+     {rsa_pss_rsae, [], all_version_tests()},
+     {rsa_pss_pss, [], all_version_tests()},
+     {rsa_pss_rsae_1_3, [], all_version_tests() ++ tls_1_3_tests()},
+     {rsa_pss_pss_1_3, [], all_version_tests() ++ tls_1_3_tests()},
      {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()},
      {eddsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
     ].
@@ -122,8 +124,8 @@ pre_tls_1_3_protocol_groups() ->
 
 tls_1_3_protocol_groups() ->
     [{group, rsa_1_3},
-     {group, rsa_pss_rsae},
-     {group, rsa_pss_pss},
+     {group, rsa_pss_rsae_1_3},
+     {group, rsa_pss_pss_1_3},
      {group, ecdsa_1_3},
      {group, eddsa_1_3}
     ].
@@ -198,23 +200,26 @@ init_per_group(Group, Config0) when Group == rsa;
         [] ->
             {skip, {no_sup, Group, Version}}
     end;
-init_per_group(Alg, Config) when Alg == rsa_pss_rsae;
-                                 Alg == rsa_pss_pss ->
+init_per_group(Alg, Config) when 
+      Alg == rsa_pss_rsae;
+      Alg == rsa_pss_pss;
+      Alg == rsa_pss_rsae_1_3;
+      Alg == rsa_pss_pss_1_3 ->
     Supports = crypto:supports(),
     RSAOpts = proplists:get_value(rsa_opts, Supports),
     
     case lists:member(rsa_pkcs1_pss_padding, RSAOpts) 
         andalso lists:member(rsa_pss_saltlen, RSAOpts) 
         andalso lists:member(rsa_mgf1_md, RSAOpts)
-        andalso ssl_test_lib:is_sane_oppenssl_pss(Alg)
+        andalso ssl_test_lib:is_sane_oppenssl_pss(rsa_alg(Alg))
     of
         true ->
             #{client_config := COpts,
-              server_config := SOpts} = ssl_test_lib:make_rsa_pss_pem(Alg, [], Config, ""),
-            [{cert_key_alg, Alg} |
+              server_config := SOpts} = ssl_test_lib:make_rsa_pss_pem(rsa_alg(Alg), [], Config, ""),
+            [{cert_key_alg, rsa_alg(Alg)} |
              lists:delete(cert_key_alg,
-                          [{client_cert_opts, COpts},
-                           {server_cert_opts, SOpts} |
+                          [{client_cert_opts, openssl_sig_algs(Alg) ++ COpts},
+                           {server_cert_opts, sig_algs(rsa_alg(Alg)) ++ SOpts} |
                            lists:delete(server_cert_opts,
                                         lists:delete(client_cert_opts, Config))])];
         false ->
@@ -433,3 +438,28 @@ hello_retry_client_auth_empty_cert_rejected() ->
     ssl_cert_tests:hello_retry_client_auth_empty_cert_rejected().
 hello_retry_client_auth_empty_cert_rejected(Config) ->
    ssl_cert_tests:hello_retry_client_auth_empty_cert_rejected(Config).
+
+rsa_alg(rsa_pss_rsae_1_3) ->
+    rsa_pss_rsae;
+rsa_alg(rsa_pss_pss_1_3) ->
+    rsa_pss_pss;
+rsa_alg(Atom) ->
+    Atom.
+
+sig_algs(rsa_pss_pss) ->
+    [{signature_algs, [rsa_pss_pss_sha512,
+                       rsa_pss_pss_sha384,
+                       rsa_pss_pss_sha256]}];
+sig_algs(rsa_pss_rsae) ->
+    [{signature_algs,[rsa_pss_rsae_sha512,
+                      rsa_pss_rsae_sha384,
+                      rsa_pss_rsae_sha256]}].
+
+openssl_sig_algs(rsa_pss_pss) ->
+    [{sigalgs, "rsa_pss_pss_sha256"}];
+openssl_sig_algs(rsa_pss_rsae) ->
+    [{sigalgs,"rsa_pss_rsae_sha256"}];
+openssl_sig_algs(rsa_pss_pss_1_3) ->
+    [{sigalgs, "rsa_pss_rsae_sha512:rsa_pss_rsae_sha384:rsa_pss_pss_sha256"}];
+openssl_sig_algs(rsa_pss_rsae_1_3) ->
+    [{sigalgs,"rsa_pss_rsae_sha512:rsa_pss_rsae_sha384:rsa_pss_rsae_sha256"}].

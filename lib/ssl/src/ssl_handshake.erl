@@ -652,8 +652,8 @@ encode_extensions([#srp{username = UserName} | Rest], Acc) ->
     encode_extensions(Rest, <<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen),
 				    UserName/binary, Acc/binary>>);
 encode_extensions([#hash_sign_algos{hash_sign_algos = HashSignAlgos} | Rest], Acc) ->
-    SignAlgoList = << <<(ssl_cipher:hash_algorithm(Hash)):8, (ssl_cipher:sign_algorithm(Sign)):8>> ||
-		       {Hash, Sign} <- HashSignAlgos >>,
+    SignAlgoList = << <<(ssl_cipher:signature_scheme(SignatureScheme)):16 >> ||
+		       SignatureScheme <- HashSignAlgos >>,
     ListLen = byte_size(SignAlgoList),
     Len = ListLen + 2,
     encode_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_EXT),
@@ -988,17 +988,30 @@ available_signature_algs(undefined, _)  ->
 available_signature_algs(SupportedHashSigns, Version) when Version >= {3, 3} ->
     case contains_scheme(SupportedHashSigns) of
         true ->
-            #signature_algorithms{signature_scheme_list = SupportedHashSigns};
+            case Version of 
+                {3,3} ->
+                    #hash_sign_algos{hash_sign_algos = ssl_cipher:signature_schemes_1_2(SupportedHashSigns)};
+                _ ->
+                    #signature_algorithms{signature_scheme_list = SupportedHashSigns}
+            end;
         false ->
             #hash_sign_algos{hash_sign_algos = SupportedHashSigns}
     end;
 available_signature_algs(_, _) ->
     undefined.
+
 available_signature_algs(undefined, SupportedHashSigns, _, Version) when 
       Version >= {3,3} ->
     SupportedHashSigns;
-available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns, 
+available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns0, 
                          _, Version) when Version >= {3,3} ->
+    SupportedHashSigns =
+        case (Version == {3,3}) andalso contains_scheme(SupportedHashSigns0) of
+            true ->
+                ssl_cipher:signature_schemes_1_2(SupportedHashSigns0);
+            false ->
+                SupportedHashSigns0
+        end,
     sets:to_list(sets:intersection(sets:from_list(ClientHashSigns), 
 				   sets:from_list(SupportedHashSigns)));
 available_signature_algs(_, _, _, _) -> 
@@ -1880,14 +1893,14 @@ supported_cert_type_or_empty(Algo, Type) ->
     end.
 
 certificate_authorities(CertDbHandle, CertDbRef) ->
-    Authorities = certificate_authorities_from_db(CertDbHandle, CertDbRef),
+    Authorities = [ Cert || #cert{otp = Cert} <- certificate_authorities_from_db(CertDbHandle, CertDbRef)],
     Enc = fun(#'OTPCertificate'{tbsCertificate=TBSCert}) ->
 		  OTPSubj = TBSCert#'OTPTBSCertificate'.subject,
 		  DNEncodedBin = public_key:pkix_encode('Name', OTPSubj, otp),
 		  DNEncodedLen = byte_size(DNEncodedBin),
 		  <<?UINT16(DNEncodedLen), DNEncodedBin/binary>>
 	  end,
-    list_to_binary([Enc(Cert) || {_, Cert} <- Authorities]).
+    list_to_binary([Enc(Cert) || Cert <- Authorities]).
 
 certificate_authorities_from_db(CertDbHandle, CertDbRef) when is_reference(CertDbRef) ->
     ConnectionCerts = fun({{Ref, _, _}, Cert}, Acc) when Ref  == CertDbRef ->
@@ -3278,6 +3291,15 @@ filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], Has
     %% In this case hashsigns is not used as the kexchange is anonaymous
     filter_hashsigns(Suites, Algos, HashSigns, Version, [Suite| Acc]).
 
+do_filter_hashsigns(rsa = SignAlgo, Suite, Suites, Algos, HashSigns, {3,3} = Version, Acc) ->
+    case (lists:keymember(SignAlgo, 2, HashSigns) orelse
+          lists:keymember(rsa_pss_rsae, 2, HashSigns) orelse
+          lists:keymember(rsa_pss_pss, 2, HashSigns)) of
+	true ->
+	    filter_hashsigns(Suites, Algos, HashSigns, Version, [Suite| Acc]);
+	false ->
+	    filter_hashsigns(Suites, Algos, HashSigns, Version, Acc)
+    end;
 do_filter_hashsigns(SignAlgo, Suite, Suites, Algos, HashSigns, Version, Acc) ->
     case lists:keymember(SignAlgo, 2, HashSigns) of
 	true ->
@@ -3390,8 +3412,7 @@ is_acceptable_cert_type(Sign, Types) ->
 
 %% signature_algorithms_cert = undefined
 is_supported_sign(SignAlgo, _, HashSigns, []) ->
-    lists:member(SignAlgo, HashSigns);
-
+    ssl_cipher:is_supported_sign(SignAlgo, HashSigns);
 %% {'SignatureAlgorithm',{1,2,840,113549,1,1,11},'NULL'}
 is_supported_sign({Hash, Sign}, 'NULL', _, SignatureSchemes) ->
     Fun = fun (Scheme, Acc) ->
@@ -3408,7 +3429,6 @@ is_supported_sign({Hash, Sign}, 'NULL', _, SignatureSchemes) ->
                               Hash =:= H1)
           end,
     lists:foldl(Fun, false, SignatureSchemes);
-
 %% TODO: Implement validation for the curve used in the signature
 %% RFC 3279 - 2.2.3 ECDSA Signature Algorithm
 %% When the ecdsa-with-SHA1 algorithm identifier appears as the

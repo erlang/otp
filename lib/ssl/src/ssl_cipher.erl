@@ -58,7 +58,9 @@
          calc_mac_hash/4, 
          calc_mac_hash/6,
          is_stream_ciphersuite/1, 
+         is_supported_sign/2,
          signature_scheme/1,
+         signature_schemes_1_2/1,
          scheme_to_components/1, 
          hash_size/1, 
          effective_key_bits/1,
@@ -564,6 +566,119 @@ hash_size(sha384) ->
 hash_size(sha512) ->
     64.
 
+is_supported_sign({Hash, rsa} = SignAlgo, HashSigns) -> %% PRE TLS-1.3
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member({Hash, rsa_pss_rsae}, HashSigns);
+is_supported_sign(rsa_pkcs1_sha256 = SignAlgo, HashSigns) -> %% TLS-1.3 leagcy
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member(rsa_pss_rsae_sha256, HashSigns);
+is_supported_sign(rsa_pkcs1_sha384 = SignAlgo, HashSigns) -> %% TLS-1.3 leagcy
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member(rsa_pss_rsae_sha384, HashSigns);
+is_supported_sign(rsa_pkcs1_sha512 = SignAlgo, HashSigns) -> %% TLS-1.3 leagcy
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member(rsa_pss_rsae_sha512, HashSigns);
+is_supported_sign(SignAlgo, HashSigns) -> %% PRE TLS-1.3 SignAlgo::tuple() TLS-1.3 SignAlgo::atom()
+    lists:member(SignAlgo, HashSigns).
+
+signature_scheme(rsa_pkcs1_sha256) -> ?RSA_PKCS1_SHA256;
+signature_scheme(rsa_pkcs1_sha384) -> ?RSA_PKCS1_SHA384;
+signature_scheme(rsa_pkcs1_sha512) -> ?RSA_PKCS1_SHA512;
+signature_scheme(ecdsa_secp256r1_sha256) -> ?ECDSA_SECP256R1_SHA256;
+signature_scheme(ecdsa_secp384r1_sha384) -> ?ECDSA_SECP384R1_SHA384;
+signature_scheme(ecdsa_secp521r1_sha512) -> ?ECDSA_SECP521R1_SHA512;
+signature_scheme(rsa_pss_rsae_sha256) -> ?RSA_PSS_RSAE_SHA256;
+signature_scheme(rsa_pss_rsae_sha384) -> ?RSA_PSS_RSAE_SHA384;
+signature_scheme(rsa_pss_rsae_sha512) -> ?RSA_PSS_RSAE_SHA512;
+signature_scheme(eddsa_ed25519) -> ?ED25519;
+signature_scheme(eddsa_ed448) -> ?ED448;
+signature_scheme(rsa_pss_pss_sha256) -> ?RSA_PSS_PSS_SHA256;
+signature_scheme(rsa_pss_pss_sha384) -> ?RSA_PSS_PSS_SHA384;
+signature_scheme(rsa_pss_pss_sha512) -> ?RSA_PSS_PSS_SHA512;
+signature_scheme(rsa_pkcs1_sha1) -> ?RSA_PKCS1_SHA1;
+signature_scheme(ecdsa_sha1) -> ?ECDSA_SHA1;
+%% New algorithms on legacy format
+signature_scheme({sha512, rsa_pss_pss}) ->
+    ?RSA_PSS_PSS_SHA512;
+signature_scheme({sha384, rsa_pss_pss}) ->
+    ?RSA_PSS_PSS_SHA384;
+signature_scheme({sha256, rsa_pss_pss}) ->
+    ?RSA_PSS_PSS_SHA256;
+signature_scheme({sha512, rsa_pss_rsae}) ->
+    ?RSA_PSS_RSAE_SHA512;
+signature_scheme({sha384, rsa_pss_rsae}) ->
+    ?RSA_PSS_RSAE_SHA384;
+signature_scheme({sha256, rsa_pss_rsae}) ->
+    ?RSA_PSS_RSAE_SHA256;
+%% Handling legacy signature algorithms
+signature_scheme({Hash0, Sign0}) ->
+    Hash = hash_algorithm(Hash0),
+    Sign = sign_algorithm(Sign0),
+    <<?UINT16(SigAlg)>> = <<?BYTE(Hash),?BYTE(Sign)>>,
+    SigAlg;
+signature_scheme(?RSA_PKCS1_SHA256) -> rsa_pkcs1_sha256;
+signature_scheme(?RSA_PKCS1_SHA384) -> rsa_pkcs1_sha384;
+signature_scheme(?RSA_PKCS1_SHA512) -> rsa_pkcs1_sha512;
+signature_scheme(?ECDSA_SECP256R1_SHA256) -> ecdsa_secp256r1_sha256;
+signature_scheme(?ECDSA_SECP384R1_SHA384) -> ecdsa_secp384r1_sha384;
+signature_scheme(?ECDSA_SECP521R1_SHA512) -> ecdsa_secp521r1_sha512;
+signature_scheme(?RSA_PSS_RSAE_SHA256) -> rsa_pss_rsae_sha256;
+signature_scheme(?RSA_PSS_RSAE_SHA384) -> rsa_pss_rsae_sha384;
+signature_scheme(?RSA_PSS_RSAE_SHA512) -> rsa_pss_rsae_sha512;
+signature_scheme(?ED25519) -> eddsa_ed25519;
+signature_scheme(?ED448) -> eddsa_ed448;
+signature_scheme(?RSA_PSS_PSS_SHA256) -> rsa_pss_pss_sha256;
+signature_scheme(?RSA_PSS_PSS_SHA384) -> rsa_pss_pss_sha384;
+signature_scheme(?RSA_PSS_PSS_SHA512) -> rsa_pss_pss_sha512;
+signature_scheme(?RSA_PKCS1_SHA1) -> rsa_pkcs1_sha1;
+signature_scheme(?ECDSA_SHA1) -> ecdsa_sha1;
+%% Handling legacy signature algorithms for logging purposes. These algorithms
+%% cannot be used in TLS 1.3 handshakes.
+signature_scheme(SignAlgo) when is_integer(SignAlgo) ->
+    <<?BYTE(Hash),?BYTE(Sign)>> = <<?UINT16(SignAlgo)>>,
+    try
+        {ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)}
+    catch
+        _:_ ->
+            unassigned
+    end;
+signature_scheme(_) -> unassigned.
+
+signature_schemes_1_2(SigAlgs) ->
+    lists:foldl(fun(Alg, Acc) when is_atom(Alg) ->
+                        case scheme_to_components(Alg) of
+                            {Hash, Sign = rsa_pss_pss,_} ->
+                                [{Hash, Sign} | Acc];
+                            {Hash, Sign = rsa_pss_rsae,_} ->
+                                [{Hash, Sign} | Acc];
+                            {_, _, _} ->
+                                Acc
+                        end;
+                   (Alg, Acc) ->
+                        [Alg| Acc]
+                end, [], SigAlgs).
+
+%% TODO: reserved code points?
+
+scheme_to_components(rsa_pkcs1_sha256) -> {sha256, rsa_pkcs1, undefined};
+scheme_to_components(rsa_pkcs1_sha384) -> {sha384, rsa_pkcs1, undefined};
+scheme_to_components(rsa_pkcs1_sha512) -> {sha512, rsa_pkcs1, undefined};
+scheme_to_components(ecdsa_secp256r1_sha256) -> {sha256, ecdsa, secp256r1};
+scheme_to_components(ecdsa_secp384r1_sha384) -> {sha384, ecdsa, secp384r1};
+scheme_to_components(ecdsa_secp521r1_sha512) -> {sha512, ecdsa, secp521r1};
+scheme_to_components(rsa_pss_rsae_sha256) -> {sha256, rsa_pss_rsae, undefined};
+scheme_to_components(rsa_pss_rsae_sha384) -> {sha384, rsa_pss_rsae, undefined};
+scheme_to_components(rsa_pss_rsae_sha512) -> {sha512, rsa_pss_rsae, undefined};
+scheme_to_components(eddsa_ed25519) -> {none, eddsa, ed25519};
+scheme_to_components(eddsa_ed448) -> {none, eddsa, ed448};
+scheme_to_components(rsa_pss_pss_sha256) -> {sha256, rsa_pss_pss, undefined};
+scheme_to_components(rsa_pss_pss_sha384) -> {sha384, rsa_pss_pss, undefined};
+scheme_to_components(rsa_pss_pss_sha512) -> {sha512, rsa_pss_pss, undefined};
+scheme_to_components(rsa_pkcs1_sha1) -> {sha1, rsa_pkcs1, undefined};
+scheme_to_components(ecdsa_sha1) -> {sha1, ecdsa, undefined};
+%% Handling legacy signature algorithms
+scheme_to_components({Hash,Sign}) -> {Hash, Sign, undefined}.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -751,71 +866,6 @@ sign_algorithm(?ECDSA) -> ecdsa;
 sign_algorithm(Other) when is_integer(Other) andalso ((Other >= 4) and (Other =< 223)) -> unassigned;
 sign_algorithm(Other) when is_integer(Other) andalso ((Other >= 224) and (Other =< 255)) -> Other.
 
-
-signature_scheme(rsa_pkcs1_sha256) -> ?RSA_PKCS1_SHA256;
-signature_scheme(rsa_pkcs1_sha384) -> ?RSA_PKCS1_SHA384;
-signature_scheme(rsa_pkcs1_sha512) -> ?RSA_PKCS1_SHA512;
-signature_scheme(ecdsa_secp256r1_sha256) -> ?ECDSA_SECP256R1_SHA256;
-signature_scheme(ecdsa_secp384r1_sha384) -> ?ECDSA_SECP384R1_SHA384;
-signature_scheme(ecdsa_secp521r1_sha512) -> ?ECDSA_SECP521R1_SHA512;
-signature_scheme(rsa_pss_rsae_sha256) -> ?RSA_PSS_RSAE_SHA256;
-signature_scheme(rsa_pss_rsae_sha384) -> ?RSA_PSS_RSAE_SHA384;
-signature_scheme(rsa_pss_rsae_sha512) -> ?RSA_PSS_RSAE_SHA512;
-signature_scheme(eddsa_ed25519) -> ?ED25519;
-signature_scheme(eddsa_ed448) -> ?ED448;
-signature_scheme(rsa_pss_pss_sha256) -> ?RSA_PSS_PSS_SHA256;
-signature_scheme(rsa_pss_pss_sha384) -> ?RSA_PSS_PSS_SHA384;
-signature_scheme(rsa_pss_pss_sha512) -> ?RSA_PSS_PSS_SHA512;
-signature_scheme(rsa_pkcs1_sha1) -> ?RSA_PKCS1_SHA1;
-signature_scheme(ecdsa_sha1) -> ?ECDSA_SHA1;
-%% Handling legacy signature algorithms
-signature_scheme({Hash0, Sign0}) ->
-    Hash = hash_algorithm(Hash0),
-    Sign = sign_algorithm(Sign0),
-    <<?UINT16(SigAlg)>> = <<?BYTE(Hash),?BYTE(Sign)>>,
-    SigAlg;
-signature_scheme(?RSA_PKCS1_SHA256) -> rsa_pkcs1_sha256;
-signature_scheme(?RSA_PKCS1_SHA384) -> rsa_pkcs1_sha384;
-signature_scheme(?RSA_PKCS1_SHA512) -> rsa_pkcs1_sha512;
-signature_scheme(?ECDSA_SECP256R1_SHA256) -> ecdsa_secp256r1_sha256;
-signature_scheme(?ECDSA_SECP384R1_SHA384) -> ecdsa_secp384r1_sha384;
-signature_scheme(?ECDSA_SECP521R1_SHA512) -> ecdsa_secp521r1_sha512;
-signature_scheme(?RSA_PSS_RSAE_SHA256) -> rsa_pss_rsae_sha256;
-signature_scheme(?RSA_PSS_RSAE_SHA384) -> rsa_pss_rsae_sha384;
-signature_scheme(?RSA_PSS_RSAE_SHA512) -> rsa_pss_rsae_sha512;
-signature_scheme(?ED25519) -> eddsa_ed25519;
-signature_scheme(?ED448) -> eddsa_ed448;
-signature_scheme(?RSA_PSS_PSS_SHA256) -> rsa_pss_pss_sha256;
-signature_scheme(?RSA_PSS_PSS_SHA384) -> rsa_pss_pss_sha384;
-signature_scheme(?RSA_PSS_PSS_SHA512) -> rsa_pss_pss_sha512;
-signature_scheme(?RSA_PKCS1_SHA1) -> rsa_pkcs1_sha1;
-signature_scheme(?ECDSA_SHA1) -> ecdsa_sha1;
-%% Handling legacy signature algorithms for logging purposes. These algorithms
-%% cannot be used in TLS 1.3 handshakes.
-signature_scheme(SignAlgo) when is_integer(SignAlgo) ->
-    <<?BYTE(Hash),?BYTE(Sign)>> = <<?UINT16(SignAlgo)>>,
-    {ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)};
-signature_scheme(_) -> unassigned.
-%% TODO: reserved code points?
-
-scheme_to_components(rsa_pkcs1_sha256) -> {sha256, rsa_pkcs1, undefined};
-scheme_to_components(rsa_pkcs1_sha384) -> {sha384, rsa_pkcs1, undefined};
-scheme_to_components(rsa_pkcs1_sha512) -> {sha512, rsa_pkcs1, undefined};
-scheme_to_components(ecdsa_secp256r1_sha256) -> {sha256, ecdsa, secp256r1};
-scheme_to_components(ecdsa_secp384r1_sha384) -> {sha384, ecdsa, secp384r1};
-scheme_to_components(ecdsa_secp521r1_sha512) -> {sha512, ecdsa, secp521r1};
-scheme_to_components(rsa_pss_rsae_sha256) -> {sha256, rsa_pss_rsae, undefined};
-scheme_to_components(rsa_pss_rsae_sha384) -> {sha384, rsa_pss_rsae, undefined};
-scheme_to_components(rsa_pss_rsae_sha512) -> {sha512, rsa_pss_rsae, undefined};
-scheme_to_components(eddsa_ed25519) -> {none, eddsa, ed25519};
-scheme_to_components(eddsa_ed448) -> {none, eddsa, ed448};
-scheme_to_components(rsa_pss_pss_sha256) -> {sha256, rsa_pss_pss, undefined};
-scheme_to_components(rsa_pss_pss_sha384) -> {sha384, rsa_pss_pss, undefined};
-scheme_to_components(rsa_pss_pss_sha512) -> {sha512, rsa_pss_pss, undefined};
-scheme_to_components(rsa_pkcs1_sha1) -> {sha1, rsa_pkcs1, undefined};
-scheme_to_components(ecdsa_sha1) -> {sha1, ecdsa, undefined};
-%% Handling legacy signature algorithms
-scheme_to_components({Hash,Sign}) -> {Hash, Sign, undefined}.
 
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS',
                                                     parameters =  #'RSASSA-PSS-params'{
