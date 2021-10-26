@@ -33,6 +33,7 @@
 #include <ctype.h>
 #include <time.h>
 #include <stddef.h>
+#include <net/if_arp.h>
 
 #include "socket_int.h"
 #include "sys.h"
@@ -371,56 +372,138 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
                            SOCKLEN_T     addrLen,
                            ERL_NIF_TERM* eSockAddr)
 {
-    int family;
+  int family;
 
-    // Sanity check
-    if (addrLen < (char *)&sockAddrP->sa.sa_data - (char *)sockAddrP) {
-        // We got crap, cannot even know the address family
-        esock_encode_sockaddr_broken(env, &sockAddrP->sa, addrLen, eSockAddr);
-        return;
-    }
-    family = sockAddrP->ss.ss_family;
+  // Sanity check
+  if (addrLen < (char *)&sockAddrP->sa.sa_data - (char *)sockAddrP) {
+    // We got crap, cannot even know the address family
+    esock_encode_sockaddr_broken(env, &sockAddrP->sa, addrLen, eSockAddr);
+    return;
+  }
+  family = sockAddrP->ss.ss_family;
 
-    UDBG( ("SUTIL", "esock_encode_sockaddr -> entry with"
-           "\r\n   family:  %d"
-           "\r\n   addrLen: %d"
-           "\r\n", family, addrLen) );
+  UDBG( ("SUTIL", "esock_encode_sockaddr -> entry with"
+	 "\r\n   family:  %d"
+	 "\r\n   addrLen: %d"
+	 "\r\n", family, addrLen) );
 
-    switch (family) {
-    case AF_INET:
-        esock_encode_sockaddr_in(env, &sockAddrP->in4, addrLen, eSockAddr);
-        break;
+  switch (family) {
+  case AF_INET:
+    esock_encode_sockaddr_in(env, &sockAddrP->in4, addrLen, eSockAddr);
+    break;
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
-    case AF_INET6:
-        esock_encode_sockaddr_in6(env, &sockAddrP->in6, addrLen, eSockAddr);
-        break;
+  case AF_INET6:
+    esock_encode_sockaddr_in6(env, &sockAddrP->in6, addrLen, eSockAddr);
+    break;
 #endif
 
 #ifdef HAS_AF_LOCAL
-    case AF_LOCAL:
-        esock_encode_sockaddr_un(env, &sockAddrP->un, addrLen, eSockAddr);
-        break;
+  case AF_LOCAL:
+    esock_encode_sockaddr_un(env, &sockAddrP->un, addrLen, eSockAddr);
+    break;
 #endif
 
 #ifdef AF_UNSPEC
-    case AF_UNSPEC:
-        esock_encode_sockaddr_native(env, &sockAddrP->sa,
-                                     addrLen, esock_atom_unspec, eSockAddr);
-        break;
+  case AF_UNSPEC:
+    esock_encode_sockaddr_native(env, &sockAddrP->sa,
+				 addrLen, esock_atom_unspec, eSockAddr);
+    break;
 #endif
 
 #if defined(HAVE_NETPACKET_PACKET_H)
-    case AF_PACKET:
-        esock_encode_sockaddr_ll(env, &sockAddrP->ll, addrLen, eSockAddr);
-        break;
+  case AF_PACKET:
+    esock_encode_sockaddr_ll(env, &sockAddrP->ll, addrLen, eSockAddr);
+    break;
 #endif
 
-    default:
-        esock_encode_sockaddr_native(env, &sockAddrP->sa,
-                                     addrLen, MKI(env, family), eSockAddr);
-        break;
-    }
+  default:
+    esock_encode_sockaddr_native(env, &sockAddrP->sa,
+				 addrLen, MKI(env, family), eSockAddr);
+    break;
+  }
+}
+
+
+
+extern
+void esock_encode_hwsockaddr(ErlNifEnv*    env,
+			     ESockAddress* sockAddrP,
+			     SOCKLEN_T     addrLen,
+			     ERL_NIF_TERM* eSockAddr)
+{
+  ERL_NIF_TERM efamily;
+  int          family;
+
+  // Sanity check
+  if (addrLen < (char *)&sockAddrP->sa.sa_data - (char *)sockAddrP) {
+    // We got crap, cannot even know the address family
+    esock_encode_sockaddr_broken(env, &sockAddrP->sa, addrLen, eSockAddr);
+    return;
+  }
+  family = sockAddrP->ss.ss_family;
+
+  UDBG( ("SUTIL", "esock_encode_hwsockaddr -> entry with"
+	 "\r\n   family:  %d"
+	 "\r\n   addrLen: %d"
+	 "\r\n", family, addrLen) );
+
+  switch (family) {
+#if defined(ARPHRD_NETROM)
+  case ARPHRD_NETROM:
+    efamily = esock_atom_netrom;
+    break;
+#endif
+
+#if defined(ARPHRD_ETHER)
+  case ARPHRD_ETHER:
+    efamily = esock_atom_ether;
+    break;
+#endif
+
+#if defined(ARPHRD_IEEE802)
+  case ARPHRD_IEEE802:
+    efamily = esock_atom_ieee802;
+    break;
+#endif
+
+#if defined(ARPHRD_DLCI)
+  case ARPHRD_DLCI:
+    efamily = esock_atom_dlci;
+    break;
+#endif
+
+#if defined(ARPHRD_FRELAY)
+  case ARPHRD_FRELAY:
+    efamily = esock_atom_frelay;
+    break;
+#endif
+
+#if defined(ARPHRD_IEEE1394)
+  case ARPHRD_IEEE1394:
+    efamily = esock_atom_ieee1394;
+    break;
+#endif
+
+#if defined(ARPHRD_LOOPBACK)
+  case ARPHRD_LOOPBACK:
+    efamily = esock_atom_loopback;
+    break;
+#endif
+
+#if defined(ARPHRD_NONE)
+  case ARPHRD_NONE:
+    efamily = esock_atom_none;
+    break;
+#endif
+
+  default:
+    efamily = MKI(env, family);
+    break;
+  }
+
+  esock_encode_sockaddr_native(env, &sockAddrP->sa,
+			       addrLen, efamily, eSockAddr);
 }
 
 

@@ -1759,6 +1759,9 @@ static ERL_NIF_TERM esock_ioctl_gifbrdaddr(ErlNifEnv*       env,
 static ERL_NIF_TERM esock_ioctl_gifnetmask(ErlNifEnv*       env,
 					   ESockDescriptor* descP,
 					   ERL_NIF_TERM     ename);
+static ERL_NIF_TERM esock_ioctl_gifhwaddr(ErlNifEnv*       env,
+					  ESockDescriptor* descP,
+					  ERL_NIF_TERM     ename);
 static ERL_NIF_TERM esock_ioctl_gifindex(ErlNifEnv*       env,
 					 ESockDescriptor* descP,
 					 ERL_NIF_TERM     ename);
@@ -3547,6 +3550,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(delayed_ack_time);                \
     GLOBAL_ATOM_DECL(dgram);                           \
     GLOBAL_ATOM_DECL(disable_fragments);               \
+    GLOBAL_ATOM_DECL(dlci);                            \
     GLOBAL_ATOM_DECL(domain);                          \
     GLOBAL_ATOM_DECL(dontfrag);                        \
     GLOBAL_ATOM_DECL(dontroute);                       \
@@ -3560,6 +3564,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(errqueue);                        \
     GLOBAL_ATOM_DECL(esp_network_level);               \
     GLOBAL_ATOM_DECL(esp_trans_level);                 \
+    GLOBAL_ATOM_DECL(ether);                           \
     GLOBAL_ATOM_DECL(events);                          \
     GLOBAL_ATOM_DECL(explicit_eor);                    \
     GLOBAL_ATOM_DECL(faith);                           \
@@ -3570,6 +3575,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(flowinfo);                        \
     GLOBAL_ATOM_DECL(fragment_interleave);             \
     GLOBAL_ATOM_DECL(freebind);                        \
+    GLOBAL_ATOM_DECL(frelay);                          \
     GLOBAL_ATOM_DECL(get_peer_addr_info);              \
     GLOBAL_ATOM_DECL(hatype);                          \
     GLOBAL_ATOM_DECL(hdrincl);                         \
@@ -3579,6 +3585,8 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(host);                            \
     GLOBAL_ATOM_DECL(icmp);                            \
     GLOBAL_ATOM_DECL(icmp6);                           \
+    GLOBAL_ATOM_DECL(ieee802);                         \
+    GLOBAL_ATOM_DECL(ieee1394);                        \
     GLOBAL_ATOM_DECL(ifindex);                         \
     GLOBAL_ATOM_DECL(igmp);                            \
     GLOBAL_ATOM_DECL(inet);                            \
@@ -3623,8 +3631,10 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(multicast_loop);                  \
     GLOBAL_ATOM_DECL(multicast_ttl);                   \
     GLOBAL_ATOM_DECL(name);                            \
+    GLOBAL_ATOM_DECL(netrom);                          \
     GLOBAL_ATOM_DECL(nodelay);                         \
     GLOBAL_ATOM_DECL(nodefrag);                        \
+    GLOBAL_ATOM_DECL(none);                            \
     GLOBAL_ATOM_DECL(noopt);                           \
     GLOBAL_ATOM_DECL(nopush);                          \
     GLOBAL_ATOM_DECL(nosignal);                        \
@@ -3785,6 +3795,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(gifbrdaddr);       \
     LOCAL_ATOM_DECL(gifconf);          \
     LOCAL_ATOM_DECL(gifdstaddr);       \
+    LOCAL_ATOM_DECL(gifhwaddr);        \
     LOCAL_ATOM_DECL(gifindex);         \
     LOCAL_ATOM_DECL(gifmtu);           \
     LOCAL_ATOM_DECL(gifname);          \
@@ -4964,6 +4975,10 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 
 #if defined(SIOCGIFMTU)
   requests = MKC(env, MKT2(env, atom_gifmtu, MKI(env, SIOCGIFMTU)), requests);
+#endif
+
+#if defined(SIOCGIFHWADDR)
+  requests = MKC(env, MKT2(env, atom_gifhwaddr, MKI(env, SIOCGIFHWADDR)), requests);
 #endif
 
 #if defined(SIOCGIFCONF)
@@ -12705,6 +12720,12 @@ ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
     break;
 #endif
 
+#if defined(SIOCGIFHWADDR)
+  case SIOCGIFHWADDR:
+    return esock_ioctl_gifhwaddr(env, descP, arg);
+    break;
+#endif
+
   default:
     return esock_make_error(env, esock_atom_enotsup);
     break;
@@ -12955,7 +12976,7 @@ ERL_NIF_TERM esock_ioctl_gifbrdaddr(ErlNifEnv*       env,
  }
 
 
-static
+  static
 ERL_NIF_TERM esock_ioctl_gifnetmask(ErlNifEnv*       env,
 				    ESockDescriptor* descP,
 				    ERL_NIF_TERM     ename)
@@ -13007,10 +13028,72 @@ ERL_NIF_TERM esock_ioctl_gifnetmask(ErlNifEnv*       env,
 
   return result;
 
+ }
+
+
+static
+ERL_NIF_TERM esock_ioctl_gifhwaddr(ErlNifEnv*       env,
+				   ESockDescriptor* descP,
+				   ERL_NIF_TERM     ename)
+{
+  ERL_NIF_TERM result;
+  struct ifreq ifreq;
+  char*        ifn = NULL;
+  int          nlen;
+
+  SSDBG( descP, ("SOCKET", "esock_ioctl_gifhwaddr {%d} -> entry with"
+		 "\r\n      (e)Name: %T"
+		 "\r\n", descP->sock, ename) );
+
+  if (!esock_decode_string(env, ename, &ifn))
+    return enif_make_badarg(env);
+
+  // Make sure the length of the string is valid!
+  nlen = esock_strnlen(ifn, IFNAMSIZ);
+  
+  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
+  sys_memcpy(ifreq.ifr_name, ifn, 
+	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
+  
+  SSDBG( descP,
+	 ("SOCKET", "esock_ioctl_gifhwaddr {%d} -> try ioctl\r\n", descP->sock) );
+
+  if (ioctl(descP->sock, SIOCGIFHWADDR, (char *) &ifreq) < 0) {
+    int          saveErrno = sock_errno();
+    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_gifhwaddr {%d} -> failure: "
+	    "\r\n      reason: %T (%d)"
+	    "\r\n", descP->sock, reason, saveErrno) );
+
+    result = esock_make_error(env, reason);
+
+  } else {
+    ERL_NIF_TERM eaddr;
+    unsigned int sz = sizeof(ESockAddress);
+
+    esock_encode_hwsockaddr(env, (ESockAddress*) &ifreq.ifr_netmask, sz, &eaddr);
+
+    SSDBG( descP, ("SOCKET", "encode_ioctl_ifraddr -> done with"
+		   "\r\n    (HW) Addr: %T"
+		   "\r\n", eaddr) );
+
+    result =  esock_make_ok2(env, eaddr);;
+    
+  }
+
+  /* We know that if esock_decode_string is successful,
+   * we have "some" form of string, and therefor memory
+   * has been allocated (and need to be freed)... */
+  FREE(ifn);
+
+  return result;
+
 }
 
 
-  static
+static
 ERL_NIF_TERM esock_ioctl_gifindex(ErlNifEnv*       env,
 				  ESockDescriptor* descP,
 				  ERL_NIF_TERM     ename)

@@ -215,6 +215,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(delayed_ack_time);         \
     GLOBAL_ATOM_DEF(dgram);                    \
     GLOBAL_ATOM_DEF(disable_fragments);        \
+    GLOBAL_ATOM_DEF(dlci);                     \
     GLOBAL_ATOM_DEF(domain);                   \
     GLOBAL_ATOM_DEF(dontfrag);                 \
     GLOBAL_ATOM_DEF(dontroute);                \
@@ -228,6 +229,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(errqueue);                 \
     GLOBAL_ATOM_DEF(esp_network_level);        \
     GLOBAL_ATOM_DEF(esp_trans_level);          \
+    GLOBAL_ATOM_DEF(ether);                    \
     GLOBAL_ATOM_DEF(events);                   \
     GLOBAL_ATOM_DEF(explicit_eor);             \
     GLOBAL_ATOM_DEF(faith);                    \
@@ -238,6 +240,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(flowinfo);                 \
     GLOBAL_ATOM_DEF(fragment_interleave);      \
     GLOBAL_ATOM_DEF(freebind);                 \
+    GLOBAL_ATOM_DEF(frelay);                   \
     GLOBAL_ATOM_DEF(get_peer_addr_info);       \
     GLOBAL_ATOM_DEF(hatype);                   \
     GLOBAL_ATOM_DEF(hdrincl);                  \
@@ -247,6 +250,8 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(host);                     \
     GLOBAL_ATOM_DEF(icmp);                     \
     GLOBAL_ATOM_DEF(icmp6);                    \
+    GLOBAL_ATOM_DEF(ieee802);                  \
+    GLOBAL_ATOM_DEF(ieee1394);                 \
     GLOBAL_ATOM_DEF(ifindex);                  \
     GLOBAL_ATOM_DEF(igmp);                     \
     GLOBAL_ATOM_DEF(inet);                     \
@@ -291,8 +296,10 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(multicast_loop);           \
     GLOBAL_ATOM_DEF(multicast_ttl);            \
     GLOBAL_ATOM_DEF(name);                     \
+    GLOBAL_ATOM_DEF(netrom);                   \
     GLOBAL_ATOM_DEF(nodelay);                  \
     GLOBAL_ATOM_DEF(nodefrag);                 \
+    GLOBAL_ATOM_DEF(none);                     \
     GLOBAL_ATOM_DEF(noopt);                    \
     GLOBAL_ATOM_DEF(nopush);                   \
     GLOBAL_ATOM_DEF(nosignal);                 \

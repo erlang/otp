@@ -74,7 +74,11 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
                            ESockAddress* sockAddrP,
                            SOCKLEN_T     addrLen,
                            ERL_NIF_TERM* eSockAddr);
-
+extern
+void esock_encode_hwsockaddr(ErlNifEnv*    env,
+			     ESockAddress* sockAddrP,
+			     SOCKLEN_T     addrLen,
+			     ERL_NIF_TERM* eSockAddr);
 extern
 BOOLEAN_T esock_decode_sockaddr_in(ErlNifEnv*          env,
                                    ERL_NIF_TERM        eSockAddr,
