@@ -51,8 +51,11 @@
          dtls_listen_two_sockets_5/0,
          dtls_listen_two_sockets_5/1,
          dtls_listen_two_sockets_6/0,
-         dtls_listen_two_sockets_6/1
+         dtls_listen_two_sockets_6/1,
+         client_restarts/0, client_restarts/1
         ]).
+
+-include_lib("ssl/src/ssl_internal.hrl").
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -80,7 +83,8 @@ api_tests() ->
      dtls_listen_two_sockets_3,
      dtls_listen_two_sockets_4,
      dtls_listen_two_sockets_5,
-     dtls_listen_two_sockets_6
+     dtls_listen_two_sockets_6,
+     client_restarts
     ].
 
 init_per_suite(Config0) ->
@@ -300,7 +304,6 @@ dtls_listen_two_sockets_6(_Config) when is_list(_Config) ->
     ssl:close(S1),
     ok.
 
-
 replay_window() ->
     [{doc, "Whitebox test of replay window"}].
 replay_window(_Config) ->
@@ -346,6 +349,65 @@ bits_to_list(Bits, I, Acc) ->
         1 -> bits_to_list(Bits bsr 1, I+1, [I|Acc]);
         0 -> bits_to_list(Bits bsr 1, I+1, Acc)
     end.
+
+client_restarts() ->
+    [{doc, "Test re-connection "}].
+
+client_restarts(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+                                   {mfa, {ssl_test_lib, no_result, []}},
+				   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib, no_result, []}},
+                                         {from, self()},
+                                         {options, [{reuse_sessions, save} | ClientOpts]}]),
+    ReConnect =  %% Whitebox re-connect test
+        fun({sslsocket, {gen_udp,_,dtls_gen_connection}, [Pid]} = Socket, ssl) ->
+                ct:log("~p Client Socket: ~p ~n", [self(), Socket]),
+                {ok, {{Adress,CPort},UDPSocket}=IntSocket} = gen_statem:call(Pid, {downgrade, self()}),
+                true = is_port(UDPSocket),
+                ct:log("Info: ~p~n", [inet:info(UDPSocket)]),
+
+                {ok, #config{transport_info = CbInfo, connection_cb = ConnectionCb,
+                             ssl = SslOpts0}} = ssl:handle_options(ClientOpts, client, Adress),
+                SslOpts = {SslOpts0, #socket_options{}, undefined},
+
+                ct:sleep(250),
+                ct:log("Client second connect: ~p ~p~n", [Socket, CbInfo]),
+                Res = ssl_gen_statem:connect(ConnectionCb, Adress, CPort, IntSocket, SslOpts, self(), CbInfo, infinity),
+                {Res, Pid}
+        end,
+
+    Client0 ! {apply, self(), ReConnect},
+    receive
+        {apply_res, {Res, _Prev}} ->
+            ct:log("Apply res: ~p~n", [Res]),
+            ok;
+        Msg ->
+            ct:log("Unhandled: ~p~n", [Msg]),
+            ct:fail({wrong_msg, Msg})
+    end,
+
+    receive
+        Msg2 ->
+            ct:log("Unhandled: ~p~n", [Msg2]),
+            ct:fail({wrong_msg, Msg2})
+    after 200 ->
+            ct:log("Nothing received~n", [])
+    end,
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client0),
+
+    ok.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

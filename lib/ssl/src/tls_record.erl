@@ -706,9 +706,7 @@ encode_fragments(Type, Version, [Text|Data],
     {MajVer, MinVer} = Version,
     CipherHeader = <<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Length)>>,
     encode_fragments(Type, Version, Data, CS, CompS, CipherS, Seq + 1,
-                  [[CipherHeader, CipherFragment] | CipherFragments]);
-encode_fragments(_Type, _Version, _Data, CS, _CompS, _CipherS, _Seq, _CipherFragments) ->
-    exit({cs, CS}).
+                     [[CipherHeader, CipherFragment] | CipherFragments]).
 %%--------------------------------------------------------------------
 
 %% 1/n-1 splitting countermeasure Rizzo/Duong-Beast, RC4 ciphers are
