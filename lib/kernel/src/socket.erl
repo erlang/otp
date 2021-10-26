@@ -4057,7 +4057,7 @@ ioctl(Socket, GetRequest) ->
       Socket     :: socket(),
       GetRequest :: gifname | gifindex |
                     gifaddr | gifdstaddr | gifbrdaddr | gifnetmask | gifhwaddr |
-                    gifmtu | giftxqlen,
+                    gifmtu | giftxqlen | gifflags,
       Name       :: string() | integer(),
       Result     :: term(),
       Reason     :: posix() | 'closed'.
@@ -4087,6 +4087,9 @@ ioctl(?socket(SockRef), gifhwaddr = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(?socket(SockRef), giftxqlen = GetRequest, Name)
+  when is_list(Name) ->
+    prim_socket:ioctl(SockRef, GetRequest, Name);
+ioctl(?socket(SockRef), gifflags = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(Socket, GetRequest, Arg) ->

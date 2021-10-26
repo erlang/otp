@@ -181,6 +181,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(addrform);                 \
     GLOBAL_ATOM_DEF(add_membership);           \
     GLOBAL_ATOM_DEF(add_source_membership);    \
+    GLOBAL_ATOM_DEF(allmulti);                 \
     GLOBAL_ATOM_DEF(any);                      \
     GLOBAL_ATOM_DEF(associnfo);                \
     GLOBAL_ATOM_DEF(authhdr);                  \
@@ -191,6 +192,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(auth_key);                 \
     GLOBAL_ATOM_DEF(auth_level);               \
     GLOBAL_ATOM_DEF(autoclose);                \
+    GLOBAL_ATOM_DEF(automedia);                \
     GLOBAL_ATOM_DEF(bad_data);                 \
     GLOBAL_ATOM_DEF(bindtodevice);             \
     GLOBAL_ATOM_DEF(block_source);             \
@@ -219,9 +221,12 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(domain);                   \
     GLOBAL_ATOM_DEF(dontfrag);                 \
     GLOBAL_ATOM_DEF(dontroute);                \
+    GLOBAL_ATOM_DEF(dormant);                  \
     GLOBAL_ATOM_DEF(drop_membership);          \
     GLOBAL_ATOM_DEF(drop_source_membership);   \
     GLOBAL_ATOM_DEF(dstopts);                  \
+    GLOBAL_ATOM_DEF(dynamic);                  \
+    GLOBAL_ATOM_DEF(echo);                     \
     GLOBAL_ATOM_DEF(egp);                      \
     GLOBAL_ATOM_DEF(enotsup);                  \
     GLOBAL_ATOM_DEF(eor);                      \
@@ -279,7 +284,9 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(local_auth_chunks);        \
     GLOBAL_ATOM_DEF(loopback);                 \
     GLOBAL_ATOM_DEF(lowdelay);                 \
+    GLOBAL_ATOM_DEF(lower_up);                 \
     GLOBAL_ATOM_DEF(mark);                     \
+    GLOBAL_ATOM_DEF(master);                   \
     GLOBAL_ATOM_DEF(maxburst);                 \
     GLOBAL_ATOM_DEF(maxseg);                   \
     GLOBAL_ATOM_DEF(md5sig);                   \
@@ -297,12 +304,14 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(multicast_ttl);            \
     GLOBAL_ATOM_DEF(name);                     \
     GLOBAL_ATOM_DEF(netrom);                   \
+    GLOBAL_ATOM_DEF(noarp);                    \
     GLOBAL_ATOM_DEF(nodelay);                  \
     GLOBAL_ATOM_DEF(nodefrag);                 \
     GLOBAL_ATOM_DEF(none);                     \
     GLOBAL_ATOM_DEF(noopt);                    \
     GLOBAL_ATOM_DEF(nopush);                   \
     GLOBAL_ATOM_DEF(nosignal);                 \
+    GLOBAL_ATOM_DEF(notrailers);               \
     GLOBAL_ATOM_DEF(not_found);                \
     GLOBAL_ATOM_DEF(not_owner);                \
     GLOBAL_ATOM_DEF(ok);                       \
@@ -324,10 +333,13 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(pktinfo);                  \
     GLOBAL_ATOM_DEF(pktoptions);               \
     GLOBAL_ATOM_DEF(pkttype);                  \
+    GLOBAL_ATOM_DEF(pointopoint);              \
     GLOBAL_ATOM_DEF(port);                     \
     GLOBAL_ATOM_DEF(portrange);                \
+    GLOBAL_ATOM_DEF(portsel);                  \
     GLOBAL_ATOM_DEF(primary_addr);             \
     GLOBAL_ATOM_DEF(priority);                 \
+    GLOBAL_ATOM_DEF(promisc);                  \
     GLOBAL_ATOM_DEF(protocol);                 \
     GLOBAL_ATOM_DEF(raw);                      \
     GLOBAL_ATOM_DEF(rcvbuf);                   \
@@ -357,6 +369,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(router_alert);             \
     GLOBAL_ATOM_DEF(rthdr);                    \
     GLOBAL_ATOM_DEF(rtoinfo);                  \
+    GLOBAL_ATOM_DEF(running);                  \
     GLOBAL_ATOM_DEF(rxq_ovfl);                 \
     GLOBAL_ATOM_DEF(scope_id);                 \
     GLOBAL_ATOM_DEF(sctp);                     \
@@ -370,6 +383,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(seqpacket);                \
     GLOBAL_ATOM_DEF(setfib);                   \
     GLOBAL_ATOM_DEF(set_peer_primary_addr);    \
+    GLOBAL_ATOM_DEF(slave);                    \
     GLOBAL_ATOM_DEF(sndbuf);                   \
     GLOBAL_ATOM_DEF(sndbufforce);              \
     GLOBAL_ATOM_DEF(sndlowat);                 \
@@ -395,6 +409,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(undefined);                \
     GLOBAL_ATOM_DEF(unicast_hops);             \
     GLOBAL_ATOM_DEF(unspec);                   \
+    GLOBAL_ATOM_DEF(up);                       \
     GLOBAL_ATOM_DEF(usec);                     \
     GLOBAL_ATOM_DEF(user);                     \
     GLOBAL_ATOM_DEF(user_timeout);             \
