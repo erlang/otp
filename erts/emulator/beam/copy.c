@@ -1743,7 +1743,7 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 		goto cleanup_next;
 	    }
 	    case REF_SUBTAG:
-		if (is_magic_ref_thing(ptr)) {
+		if (is_magic_ref_thing_with_hdr(ptr,hdr)) {
 		    ErtsMRefThing *mreft = (ErtsMRefThing *) ptr;
 		    erts_refc_inc(&mreft->mb->intern.refc, 2);
 		    goto off_heap_node_container_common;

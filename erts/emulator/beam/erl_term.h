@@ -955,9 +955,10 @@ typedef union {
     ((*((Eterm *)(x)) == ERTS_REF_THING_HEADER)                         \
      & (((ErtsRefThing *) (x))->o.marker == ERTS_ORDINARY_REF_MARKER))
 
-#define is_magic_ref_thing(x)						\
-    ((*((Eterm *)(x)) == ERTS_REF_THING_HEADER)                         \
-     & (((ErtsRefThing *) (x))->o.marker != ERTS_ORDINARY_REF_MARKER))
+/* the _with_hdr variant usable when header word may be broken (copy_shared) */
+#define is_magic_ref_thing_with_hdr(PTR,HDR)                            \
+    (((HDR) == ERTS_REF_THING_HEADER)                                   \
+     & (((ErtsRefThing *) (PTR))->o.marker != ERTS_ORDINARY_REF_MARKER))
 
 #else /* Ordinary and magic references of different sizes... */
 
@@ -970,10 +971,13 @@ typedef union {
 #define is_pid_ref_thing(x)					        \
     (*((Eterm *)(x)) == ERTS_PID_REF_THING_HEADER)
 
-#define is_magic_ref_thing(x)						\
-    (*((Eterm *)(x)) == ERTS_MAGIC_REF_THING_HEADER)
+#define is_magic_ref_thing_with_hdr(PTR,HDR)                            \
+    ((HDR) == ERTS_MAGIC_REF_THING_HEADER)
 
 #endif
+
+#define is_magic_ref_thing(PTR)						\
+    is_magic_ref_thing_with_hdr(PTR, *(Eterm *)(PTR))
 
 #define is_internal_magic_ref(x)					\
     (_unchecked_is_boxed((x)) && is_magic_ref_thing(boxed_val((x))))
