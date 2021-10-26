@@ -31,6 +31,89 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 12.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Reduction counter was not updated before and after doing
+	    <c>apply</c> operations on the runtime system with the
+	    jit enabled. This caused reduction counting to get out of
+	    sync if a garbage collection was made as part of the
+	    <c>apply</c> operation.</p>
+          <p>
+	    Own Id: OTP-17675</p>
+        </item>
+        <item>
+          <p>
+	    This fixes a bug in <c>erts_factory_undo</c> that caused
+	    the heap to not be reset correctly. The
+	    <c>erts_factory_undo</c> function is, for example, called
+	    when a <c>binary_to_term/1</c> call fails to reset the
+	    heap to its state before the <c>binary_to_term/1</c>
+	    call. This can cause the heap to contain invalid terms
+	    which potentially can cause issues (e.g., crashes) when
+	    the whole heap is scanned.</p>
+          <p>
+	    Own Id: OTP-17677</p>
+        </item>
+        <item>
+	    <p>When attempting to construct a binary with an segment
+	    having an illegal type for the size (e.g. an atom), there
+	    could be an unnecessary memory allocation (and subsequent
+	    deallocation) before the operation failed. Amended to
+	    fail before allocating any memory for the binary.</p>
+          <p>
+	    Own Id: OTP-17686</p>
+        </item>
+        <item>
+	    <p>Fix bug in <c>persistent_term</c> when a key-value
+	    pair contains a magic reference that is referred more
+	    than once. Magic references are NIF resources or returned
+	    from BIFs like <c>ets:new</c>, <c>atomics:new</c>. The
+	    bug could cause the memory of the referred resource to be
+	    prematurely deallocated.</p> <p>The bug also apply to
+	    magic references in message passing on a runtime built
+	    with configure option
+	    <c>--enable-sharing-preserving</c>.</p> <p>Bug exist for
+	    64-bit since OTP-24.0 and for 32-bit since OTP-20.0.</p>
+          <p>
+	    Own Id: OTP-17700 Aux Id: GH-5271, PR-5273 </p>
+        </item>
+        <item>
+	    <p>Fixed a crash when inspecting the stack trace of an
+	    exception raised at a very high line number.</p>
+	    <p>This bug was introduced in OTP 24.</p>
+          <p>
+	    Own Id: OTP-17712</p>
+        </item>
+        <item>
+	    <p>The following two bugs that caused
+	    <c>erlang:demonitor()</c> to behave erroneously have been
+	    fixed. The bugs were only triggered if the monitor that
+	    was removed by <c>demonitor()</c> had previously been
+	    created simultaneously as a monitor and as an alias.</p>
+	    <list> <item>A demonitor operation on a monitor created
+	    using the <c>{alias, reply_demonitor}</c> option
+	    erroneously behaved as if the <c>{alias,
+	    explicit_unalias}</c> option had been used.</item>
+	    <item>A demonitor operation did not prevent a
+	    corresponding <c>'DOWN'</c> message from being delivered
+	    if the monitor reference was kept as an active alias
+	    after the operation. This could only occur if the
+	    monitored process simultaneously terminated before the
+	    demonitor signal reached it, and the exit reason was not
+	    an immediate term. That is, a term larger than one
+	    machine word.</item> </list>
+          <p>
+	    Own Id: OTP-17722 Aux Id: GH-5310, PR-5313 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.1.2</title>
 
     <section><title>Improvements and New Features</title>
