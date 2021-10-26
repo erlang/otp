@@ -1753,6 +1753,9 @@ static ERL_NIF_TERM esock_ioctl_gifaddr(ErlNifEnv*       env,
 static ERL_NIF_TERM esock_ioctl_gifindex(ErlNifEnv*       env,
 					 ESockDescriptor* descP,
 					 ERL_NIF_TERM     ename);
+static ERL_NIF_TERM esock_ioctl_gifname(ErlNifEnv*       env,
+					ESockDescriptor* descP,
+					ERL_NIF_TERM     eidx);
 static ERL_NIF_TERM encode_ioctl_ifraddr(ErlNifEnv*       env,
 					 ESockDescriptor* descP,
 					 struct sockaddr* addrP);
@@ -12640,6 +12643,12 @@ ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
     break;
 #endif
 
+#if defined(SIOCGIFNAME)
+  case SIOCGIFNAME:
+    return esock_ioctl_gifname(env, descP, arg);
+    break;
+#endif
+
   default:
     return esock_make_error(env, esock_atom_enotsup);
     break;
@@ -12830,6 +12839,57 @@ ERL_NIF_TERM esock_ioctl_gifindex(ErlNifEnv*       env,
    * has been allocated (and need to be freed)... */
   FREE(ifn);
 
+  return result;
+
+}
+
+
+static
+ERL_NIF_TERM esock_ioctl_gifname(ErlNifEnv*       env,
+				 ESockDescriptor* descP,
+				 ERL_NIF_TERM     eidx)
+{
+  ERL_NIF_TERM result;
+  struct ifreq ifreq;
+  int          index;
+  
+  SSDBG( descP, ("SOCKET", "esock_ioctl_gifname {%d} -> entry with"
+		 "\r\n      (e)Index: %T"
+		 "\r\n", descP->sock, eidx) );
+
+  if (!GET_INT(env, eidx, &index))
+    return enif_make_badarg(env);
+
+  ifreq.ifr_ifindex = index;
+
+  SSDBG( descP,
+	 ("SOCKET", "esock_ioctl_gifname {%d} -> try ioctl\r\n", descP->sock) );
+
+  if (ioctl(descP->sock, SIOCGIFNAME, (char *) &ifreq) < 0) {
+    int          saveErrno = sock_errno();
+    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_gifname {%d} -> failure: "
+	    "\r\n      reason: %T (%d)"
+	    "\r\n", descP->sock, reason, saveErrno) );
+
+    result = esock_make_error(env, reason);
+
+  } else {
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_gifname {%d} -> encode name\r\n",
+	    descP->sock) );
+    
+    result = esock_make_ok2(env, encode_ioctl_ifreq_name(env, ifreq.ifr_name));
+  }
+
+  SSDBG( descP,
+	 ("SOCKET", "esock_ioctl_gifname {%d} -> done with"
+	  "\r\n      result: %T"
+	  "\r\n",
+	  descP->sock, result) );
+    
   return result;
 
 }
