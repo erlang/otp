@@ -87,7 +87,7 @@
 
 %% Alert and close handling
 -export([send_alert/3,
-         handle_own_alert/4,
+         handle_own_alert/3,
          handle_alert/3,
 	 handle_normal_shutdown/3,
          handle_trusted_certs_db/1,
@@ -515,8 +515,7 @@ initial_hello({call, From}, {start, Timeout},
                               [{{timeout, handshake}, Timeout, close}])
     catch
         {Ref, #alert{} = Alert} ->
-            handle_own_alert(Alert, RequestedVersion, init,
-                             State0#state{start_or_recv_from = From})
+            handle_own_alert(Alert, init, State0#state{start_or_recv_from = From})
     end;
 initial_hello({call, From}, {start, Timeout}, #state{static_env = #static_env{role = Role,
                                                                               protocol_cb = Connection},
@@ -687,7 +686,11 @@ downgrade(info, {CloseTag, Socket},
 downgrade(info, Info, State) ->
     tls_gen_connection:handle_info(Info, ?FUNCTION_NAME, State);
 downgrade(Type, Event, State) ->
-     tls_dtls_connection:?FUNCTION_NAME(Type, Event, State).
+    try
+        tls_dtls_connection:?FUNCTION_NAME(Type, Event, State)
+    catch throw:#alert{} = Alert ->
+            handle_own_alert(Alert, ?FUNCTION_NAME, State)
+    end.
 
 %%====================================================================
 %%  Event/Msg handling
@@ -705,9 +708,8 @@ handle_common_event(internal, {protocol_record, TLSorDTLSRecord}, StateName,
     Connection:handle_protocol_record(TLSorDTLSRecord, StateName, State);
 handle_common_event(timeout, hibernate, _, _) ->
     {keep_state_and_data, [hibernate]};
-handle_common_event(internal, #change_cipher_spec{type = <<1>>}, StateName,
-		    #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
-    handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE), Version, StateName, State);
+handle_common_event(internal, #change_cipher_spec{type = <<1>>}, StateName, State) ->
+    handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE), StateName, State);
 handle_common_event({timeout, handshake}, close, _StateName, #state{start_or_recv_from = StartFrom} = State) ->
     {stop_and_reply,
      {shutdown, user_timeout},
@@ -718,10 +720,11 @@ handle_common_event({timeout, recv}, timeout, StateName, #state{start_or_recv_fr
 handle_common_event(internal, {recv, RecvFrom}, StateName, #state{start_or_recv_from = RecvFrom}) when
       StateName =/= connection ->
     {keep_state_and_data, [postpone]};
-handle_common_event(Type, Msg, StateName, #state{connection_env =
-                                                     #connection_env{negotiated_version = Version}} = State) ->
+handle_common_event(internal, new_connection, StateName, State) ->
+    {next_state, StateName, State};
+handle_common_event(Type, Msg, StateName, State) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, {unexpected_msg, {Type, Msg}}),
-    handle_own_alert(Alert, Version, StateName, State).
+    handle_own_alert(Alert, StateName, State).
 
 handle_call({application_data, _Data}, _, _, _) ->
     %% In renegotiation priorities handshake, send data when handshake is finished
@@ -939,7 +942,7 @@ send_alert(Alert, connection, #state{static_env = #static_env{protocol_cb = Conn
 send_alert(Alert, _, #state{static_env = #static_env{protocol_cb = Connection}} = State) ->
     Connection:send_alert(Alert, State).
 
-handle_own_alert(Alert0, _, StateName,
+handle_own_alert(Alert0, StateName,
 		 #state{static_env = #static_env{role = Role,
                                                  protocol_cb = Connection},
                         ssl_options = #{log_level := LogLevel}} = State) ->

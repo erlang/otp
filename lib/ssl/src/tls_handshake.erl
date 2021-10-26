@@ -108,7 +108,8 @@ client_hello(_Host, _Port, ConnectionStates,
 	    boolean(), #session{}) ->
           {tls_record:tls_version(), ssl:session_id(), 
            ssl_record:connection_states(), alpn | npn, binary() | undefined, map()}|
-          {atom(), atom(), tls_record:tls_version(), map()} | #alert{}.
+          {atom(), atom(), tls_record:tls_version(), map()}.
+                                                % Otherwise Throws #alert{}
 %%
 %% Description: Handles a received hello message
 %%--------------------------------------------------------------------
@@ -128,7 +129,7 @@ hello(#server_hello{server_version = {Major, Minor},
        (M > 3 orelse M =:= 3 andalso N >= 4) andalso  %% TLS 1.3 client
        (Major =:= 3 andalso Minor < 3 andalso         %% Negotiating TLS 1.1 or prior
         Down =:= ?RANDOM_OVERRIDE_TLS11) ->
-    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
 
 %% TLS 1.2 clients SHOULD also check that the last eight bytes are not
 %% equal to the second value if the ServerHello indicates TLS 1.1 or below.
@@ -138,7 +139,7 @@ hello(#server_hello{server_version = {Major, Minor},
   when (M =:= 3 andalso N =:= 3) andalso              %% TLS 1.2 client
        (Major =:= 3 andalso Minor < 3 andalso         %% Negotiating TLS 1.1 or prior
         Down =:= ?RANDOM_OVERRIDE_TLS11) ->
-    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
 
 
 %% TLS 1.3 - 4.2.1.  Supported Versions
@@ -157,9 +158,8 @@ hello(#server_hello{server_version = LegacyVersion,
 		    compression_method = Compression,
 		    session_id = SessionId,
                     extensions = #{server_hello_selected_version :=
-                                       #server_hello_selected_version{selected_version = Version} = HelloExt}
-                   },
-      #{versions := SupportedVersions, 
+                                       #server_hello_selected_version{selected_version = Version}} = HelloExt},
+      #{versions := SupportedVersions,
         ocsp_stapling := Stapling} = SslOpt,
       ConnectionStates0, Renegotiation, OldId) ->
     %% In TLS 1.3, the TLS server indicates its version using the "supported_versions" extension
@@ -169,7 +169,7 @@ hello(#server_hello{server_version = LegacyVersion,
     case LegacyVersion > {3,3} orelse
         LegacyVersion =:= {3,3} andalso Version < {3,3} of
         true ->
-            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+            throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
         false ->
             case tls_record:is_acceptable_version(Version, SupportedVersions) of
                 true ->
@@ -186,7 +186,7 @@ hello(#server_hello{server_version = LegacyVersion,
                                                                      ocsp_expect => ocsp_expect(Stapling)}}
                     end;
                 false ->
-                    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)
+                    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
             end
     end;
 
@@ -205,7 +205,7 @@ hello(#server_hello{server_version = Version,
 					   Compression, HelloExt, SslOpt, 
                                            ConnectionStates0, Renegotiation, IsNew);
 	false ->
-	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
+	    throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION))
     end.
 
 
@@ -219,7 +219,7 @@ hello(#server_hello{server_version = Version,
 		   {tls_record:tls_version(), {resumed | new, #session{}}, 
 		    ssl_record:connection_states(), binary() | undefined, 
                     HelloExt::map(), {ssl:hash(), ssl:sign_algo()} | 
-                    undefined} | {atom(), atom()} | {atom(), atom(), tuple()} | #alert{}.
+                    undefined} | {atom(), atom()} | {atom(), atom(), tuple()}.
 %% TLS 1.2 Server
 %% - If "supported_versions" is present (ClientHello):
 %%   - Select version from "supported_versions" (ignore ClientHello.legacy_version)
@@ -245,8 +245,8 @@ hello(#client_hello{client_version = _ClientVersion,
         Version = ssl_handshake:select_supported_version(ClientVersions, Versions),
         do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation)
     catch
-	_:_ ->
-	    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data)
+	error:_ ->
+	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data))
     end;
 
 hello(#client_hello{client_version = ClientVersion,
@@ -259,9 +259,9 @@ hello(#client_hello{client_version = ClientVersion,
     catch
         error:{case_clause,{asn1, Asn1Reason}} ->
             %% ASN-1 decode of certificate somehow failed
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {failed_to_decode_own_certificate, Asn1Reason});
-        _:_ ->
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data)
+            throw(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {failed_to_decode_own_certificate, Asn1Reason}));
+        error:_ ->
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data))
     end.
 
 %%--------------------------------------------------------------------
@@ -337,13 +337,13 @@ handle_client_hello(Version,
 				   ClientHashSigns, SupportedHashSigns, OwnCert, Version),
 	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, ECCOrder),
 	    {Type, #session{cipher_suite = CipherSuite} = Session1}
-		= ssl_handshake:select_session(SugesstedId, CipherSuites, 
+		= ssl_handshake:select_session(SugesstedId, CipherSuites,
                                                AvailableHashSigns, Compressions,
 					       SessIdTracker, Session0#session{ecc = ECCCurve},
                                                Version, SslOpts, OwnCert),
-	    case CipherSuite of 
+	    case CipherSuite of
 		no_suite ->
-                    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_ciphers);
+                    throw(?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_ciphers));
 		_ ->
 		    #{key_exchange := KeyExAlg} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
 		    case ssl_handshake:select_hashsign({ClientHashSigns, ClientSignatureSchemes},
@@ -351,7 +351,7 @@ handle_client_hello(Version,
                                                        SupportedHashSigns,
                                                        Version) of
 			#alert{} = Alert ->
-			    Alert;
+			    throw(Alert);
 			HashSign ->
 			    handle_client_hello_extensions(Version, Type, Random, 
                                                            CipherSuites, HelloExt,
@@ -361,47 +361,38 @@ handle_client_hello(Version,
 		    end
 	    end;
 	false ->
-	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
+	    throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION))
     end.
 
 handle_client_hello_extensions(Version, Type, Random, CipherSuites,
                                HelloExt, SslOpts, Session0, ConnectionStates0, 
                                Renegotiation, HashSign) ->
-    try ssl_handshake:handle_client_hello_extensions(tls_record, Random, CipherSuites,
-						     HelloExt, Version, SslOpts,
-						     Session0, ConnectionStates0, 
+    {Session, ConnectionStates, Protocol, ServerHelloExt} =
+        ssl_handshake:handle_client_hello_extensions(tls_record, Random, CipherSuites,
+                                                     HelloExt, Version, SslOpts,
+                                                     Session0, ConnectionStates0,
                                                      Renegotiation,
-                                                     Session0#session.is_resumable) of
-	{Session, ConnectionStates, Protocol, ServerHelloExt} ->
-	    {Version, {Type, Session}, ConnectionStates, Protocol, 
-             ServerHelloExt, HashSign}
-    catch throw:Alert ->
-	    Alert
-    end.
-
+                                                     Session0#session.is_resumable),
+    {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt, HashSign}.
 
 handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
-			Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation, IsNew) ->
-    try ssl_handshake:handle_server_hello_extensions(tls_record, Random, CipherSuite,
-						      Compression, HelloExt, Version,
-						      SslOpt, ConnectionStates0, 
-                                                     Renegotiation, IsNew) of
-	{ConnectionStates, ProtoExt, Protocol, OcspState} ->
-	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol, OcspState}
-    catch throw:Alert ->
-	    Alert
-    end.
-
+                               Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation, IsNew) ->
+    {ConnectionStates, ProtoExt, Protocol, OcspState} =
+        ssl_handshake:handle_server_hello_extensions(tls_record, Random, CipherSuite,
+                                                     Compression, HelloExt, Version,
+                                                     SslOpt, ConnectionStates0,
+                                                     Renegotiation, IsNew),
+    {Version, SessionId, ConnectionStates, ProtoExt, Protocol, OcspState}.
 
 do_hello(undefined, _Versions, _CipherSuites, _Hello, _SslOpts, _Info, _Renegotiation) ->
-    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION);
+    throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION));
 do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation) ->
     case ssl_cipher:is_fallback(CipherSuites) of
         true ->
             Highest = tls_record:highest_protocol_version(Versions),
             case tls_record:is_higher(Highest, Version) of
                 true ->
-                    ?ALERT_REC(?FATAL, ?INAPPROPRIATE_FALLBACK);
+                    throw(?ALERT_REC(?FATAL, ?INAPPROPRIATE_FALLBACK));
                 false ->
                     handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation)
             end;
@@ -444,9 +435,7 @@ get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
             ssl_logger:debug(LogLevel, inbound, 'handshake', Handshake),
 	    get_tls_handshake_aux(Version, Rest, Opts, [{Handshake,Raw} | Acc])
     catch
-        throw:#alert{} = Alert ->
-            throw(Alert);
-	_:_ ->
+	error:_ ->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, handshake_decode_error))
     end;
 get_tls_handshake_aux(_Version, Data, _, Acc) ->

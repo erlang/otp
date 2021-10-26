@@ -215,7 +215,7 @@ hello(internal, #client_hello{extensions = Extensions} = Hello,
      [{reply, From, {ok, Extensions}}]};
 hello(internal, #server_hello{extensions = Extensions} = Hello,
       #state{ssl_options = #{
-                 handshake := hello},
+                             handshake := hello},
              handshake_env = HsEnv,
              start_or_recv_from = From} = State) ->   
     {next_state, user_hello,
@@ -229,52 +229,56 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello, #state{ss
             %% Continue in TLS 1.3 'start' state
             {next_state, start, State0, [{change_callback_module, tls_connection_1_3}, {next_event, internal, Hello}]};
         tls_1_0_to_1_2_fsm ->
-            case handle_client_hello(Hello, State0) of
+            try handle_client_hello(Hello, State0) of
                 {ServerHelloExt, Type, State} ->
-                    {next_state, hello, State, [{next_event, internal, {common_client_hello, Type, ServerHelloExt}}]};
-                Alert ->
-                    ssl_gen_statem:handle_own_alert(Alert, ClientVersion, hello,
-                                                        State0#state{connection_env = CEnv#connection_env{negotiated_version
-                                                                                                          = ClientVersion}})
+                    {next_state, hello, State, [{next_event, internal, {common_client_hello, Type, ServerHelloExt}}]}
+            catch throw:#alert{} = Alert ->
+                    State = State0#state{connection_env = CEnv#connection_env{negotiated_version = ClientVersion}},
+                    ssl_gen_statem:handle_own_alert(Alert, hello, State)
             end
     end;
 hello(internal, #server_hello{} = Hello,
       #state{connection_states = ConnectionStates0,
-             connection_env = #connection_env{negotiated_version = ReqVersion} = CEnv,
+             connection_env = CEnv,
 	     static_env = #static_env{role = client},
              handshake_env = #handshake_env{
                                 ocsp_stapling_state = OcspState0,
                                 renegotiation = {Renegotiation, _}} = HsEnv,
              session = #session{session_id = OldId},
-	     ssl_options = SslOptions} = State) ->   
-    case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
-        #alert{} = Alert -> 
-            ssl_gen_statem:handle_own_alert(Alert, ReqVersion, hello,
-                                            State#state{connection_env =
-                                                            CEnv#connection_env{negotiated_version = ReqVersion}
-                                                       });
-        %% Legacy TLS 1.2 and older
-        {Version, NewId, ConnectionStates, ProtoExt, Protocol, OcspState} ->
-            tls_dtls_connection:handle_session(Hello, 
-                                          Version, NewId, ConnectionStates, ProtoExt, Protocol,
-                                          State#state{
-                                            handshake_env = HsEnv#handshake_env{
-                                                              ocsp_stapling_state = maps:merge(OcspState0,OcspState)}});
-        %% TLS 1.3
-        {next_state, wait_sh, SelectedVersion, OcspState} ->
-            %% Continue in TLS 1.3 'wait_sh' state
-            {next_state, wait_sh,
-             State#state{handshake_env = HsEnv#handshake_env{ocsp_stapling_state =  maps:merge(OcspState0,OcspState)}, 
-                         connection_env = CEnv#connection_env{negotiated_version = SelectedVersion}},
-             [{change_callback_module, tls_connection_1_3}, {next_event, internal, Hello}]}
+	     ssl_options = SslOptions} = State) ->
+    try
+        case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
+            %% Legacy TLS 1.2 and older
+            {Version, NewId, ConnectionStates, ProtoExt, Protocol, OcspState} ->
+                tls_dtls_connection:handle_session(Hello,
+                                                   Version, NewId, ConnectionStates, ProtoExt, Protocol,
+                                                   State#state{
+                                                     handshake_env = HsEnv#handshake_env{
+                                                                       ocsp_stapling_state = maps:merge(OcspState0,OcspState)}});
+            %% TLS 1.3
+            {next_state, wait_sh, SelectedVersion, OcspState} ->
+                %% Continue in TLS 1.3 'wait_sh' state
+                {next_state, wait_sh,
+                 State#state{handshake_env = HsEnv#handshake_env{ocsp_stapling_state =  maps:merge(OcspState0,OcspState)}, 
+                             connection_env = CEnv#connection_env{negotiated_version = SelectedVersion}},
+                 [{change_callback_module, tls_connection_1_3}, {next_event, internal, Hello}]}
+        end
+    catch throw:#alert{} = Alert ->
+            ssl_gen_statem:handle_own_alert(Alert, hello, State)
     end;
 hello(info, Event, State) ->
     tls_gen_connection:handle_info(Event, ?FUNCTION_NAME, State);
 hello(Type, Event, State) ->
-    tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State).
+    try tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State)
+    catch throw:#alert{} = Alert ->
+            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
+    end.
 
 user_hello(Type, Event, State) ->
-    tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State).
+    try tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State)
+    catch throw:#alert{} = Alert ->
+            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
+    end.
 
 %%--------------------------------------------------------------------
 -spec abbreviated(gen_statem:event_type(), term(), #state{}) ->
@@ -283,7 +287,10 @@ user_hello(Type, Event, State) ->
 abbreviated(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 abbreviated(Type, Event, State) ->
-    tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State).
+    try tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State)
+    catch throw:#alert{} = Alert ->
+            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
+    end.
 
 %%--------------------------------------------------------------------
 -spec wait_ocsp_stapling(gen_statem:event_type(), term(), #state{}) ->
@@ -292,7 +299,10 @@ abbreviated(Type, Event, State) ->
 wait_ocsp_stapling(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 wait_ocsp_stapling(Type, Event, State) ->
-    tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State).
+    try tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State)
+    catch throw:#alert{} = Alert ->
+            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
+    end.
 
 %%--------------------------------------------------------------------
 -spec certify(gen_statem:event_type(), term(), #state{}) ->
@@ -301,7 +311,10 @@ wait_ocsp_stapling(Type, Event, State) ->
 certify(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 certify(Type, Event, State) ->
-    tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State).
+    try tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State)
+    catch throw:#alert{} = Alert ->
+            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
+    end.
 
 %%--------------------------------------------------------------------
 -spec cipher(gen_statem:event_type(), term(), #state{}) ->
@@ -310,7 +323,10 @@ certify(Type, Event, State) ->
 cipher(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 cipher(Type, Event, State) ->
-     tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State).
+    try tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State)
+    catch throw:#alert{} = Alert ->
+            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
+    end.
 
 %%--------------------------------------------------------------------
 -spec connection(gen_statem:event_type(),  
@@ -395,7 +411,10 @@ connection(internal, #client_hello{},
     State = tls_gen_connection:reinit_handshake_data(State0),
     tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State);
 connection(Type, Event, State) ->
-    tls_dtls_connection:?FUNCTION_NAME(Type, Event, State).
+    try tls_dtls_connection:?FUNCTION_NAME(Type, Event, State)
+    catch throw:#alert{} = Alert ->
+            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
+    end.
 
 %%--------------------------------------------------------------------
 -spec downgrade(gen_statem:event_type(), term(), #state{}) ->
@@ -474,74 +493,66 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
       }.
 
 handle_client_hello(#client_hello{client_version = ClientVersion} = Hello, State0) ->
-    case tls_dtls_connection:handle_sni_extension(State0, Hello) of
-        #state{connection_states = ConnectionStates0,
-                    static_env = #static_env{trackers = Trackers},
-                    handshake_env = #handshake_env{
-                                       kex_algorithm = KeyExAlg,
-                                       renegotiation = {Renegotiation, _},
-                                       negotiated_protocol = CurrentProtocol,
-                                       sni_guided_cert_selection = SNICertSelection} = HsEnv,
-                    connection_env = CEnv,
-                    session = #session{own_certificates = OwnCerts} = Session0,
-               ssl_options = SslOpts} = State ->
-            SessionTracker = proplists:get_value(session_id_tracker, Trackers),
-            case tls_handshake:hello(Hello,
-                                     SslOpts,
-                                     {SessionTracker, Session0,
-                                      ConnectionStates0, OwnCerts, KeyExAlg},
-                                     Renegotiation) of
-                #alert{} = Alert ->
-                    Alert;
-                {Version, {Type, Session},
-                 ConnectionStates, Protocol0, ServerHelloExt0, HashSign} ->
-                    Protocol = case Protocol0 of
-                                   undefined -> CurrentProtocol;
-                                   _ -> Protocol0
-                               end,
-                    ServerHelloExt =
-                        case SNICertSelection of
-                            true ->
-                                ServerHelloExt0#{sni => #sni{hostname = ""}};
-                            false ->
-                                ServerHelloExt0
-                        end,
-                    {ServerHelloExt, Type, State#state{connection_states  = ConnectionStates,
-                                                       connection_env = CEnv#connection_env{negotiated_version = Version},
-                                                       handshake_env = HsEnv#handshake_env{
-                                                                         hashsign_algorithm = HashSign,
-                                                                         client_hello_version = ClientVersion,
-                                                                         negotiated_protocol = Protocol},
-                                                       session = Session
-                                                      }}
-            end;
-        #alert{} = Alert ->
-            Alert
-    end.
+    State = tls_dtls_connection:handle_sni_extension(State0, Hello),
+    #state{connection_states = ConnectionStates0,
+           static_env = #static_env{trackers = Trackers},
+           handshake_env = #handshake_env{
+                              kex_algorithm = KeyExAlg,
+                              renegotiation = {Renegotiation, _},
+                              negotiated_protocol = CurrentProtocol,
+                              sni_guided_cert_selection = SNICertSelection} = HsEnv,
+           connection_env = CEnv,
+           session = #session{own_certificates = OwnCerts} = Session0,
+           ssl_options = SslOpts} = State,
+    SessionTracker = proplists:get_value(session_id_tracker, Trackers),
+    {Version, {Type, Session},
+     ConnectionStates, Protocol0, ServerHelloExt0, HashSign} =
+        tls_handshake:hello(Hello,
+                            SslOpts,
+                            {SessionTracker, Session0,
+                             ConnectionStates0, OwnCerts, KeyExAlg},
+                            Renegotiation),
+    Protocol = case Protocol0 of
+                   undefined -> CurrentProtocol;
+                   _ -> Protocol0
+               end,
+    ServerHelloExt =
+        case SNICertSelection of
+            true ->
+                ServerHelloExt0#{sni => #sni{hostname = ""}};
+            false ->
+                ServerHelloExt0
+        end,
+    {ServerHelloExt, Type, State#state{connection_states  = ConnectionStates,
+                                       connection_env = CEnv#connection_env{negotiated_version = Version},
+                                       handshake_env = HsEnv#handshake_env{
+                                                         hashsign_algorithm = HashSign,
+                                                         client_hello_version = ClientVersion,
+                                                         negotiated_protocol = Protocol},
+                                       session = Session
+                                      }}.
 
 
-gen_info(Event, connection = StateName,  #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
-    try tls_gen_connection:handle_info(Event, StateName, State) of
-	Result ->
-	    Result
-    catch 
+gen_info(Event, connection = StateName, State) ->
+    try
+        tls_gen_connection:handle_info(Event, StateName, State)
+    catch
         _:_ ->
 	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR,
-						       malformed_data), 
-					    Version, StateName, State)  
+						       malformed_data),
+					    StateName, State)
     end;
 
-gen_info(Event, StateName, #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
-    try tls_gen_connection:handle_info(Event, StateName, State) of
-	Result ->
-	    Result
-    catch 
+gen_info(Event, StateName, State) ->
+    try
+        tls_gen_connection:handle_info(Event, StateName, State)
+    catch
         _:_ ->
 	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
-						       malformed_handshake_data), 
-					    Version, StateName, State)  
+						       malformed_handshake_data),
+					    StateName, State)
     end.
-	    
+
 ensure_sender_terminate(downgrade, _) ->
     ok; %% Do not terminate sender during downgrade phase 
 ensure_sender_terminate(_,  #state{protocol_specific = #{sender := Sender}}) ->

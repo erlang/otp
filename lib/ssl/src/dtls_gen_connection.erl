@@ -68,6 +68,14 @@
          send_alert_in_connection/2,
          close/5,
          protocol_name/0]).
+
+
+%% See thread @ http://lists.cluenet.de/pipermail/ipv6-ops/2011-June/005755.html
+%% 1280 - headers
+-define(PMTUEstimate, 1200).
+
+
+
 %%====================================================================
 %% Internal application API
 %%====================================================================	     
@@ -105,30 +113,29 @@ next_record(#state{protocol_buffers =
     CurrentRead = dtls_record:get_connection_state_by_epoch(Epoch, ConnectionStates, read),
     case dtls_record:replay_detect(CT, CurrentRead) of
         false ->
-            decode_cipher_text(State#state{connection_states = ConnectionStates}) ;
+            decode_cipher_text(State) ;
         true ->
             %% Ignore replayed record
-            next_record(State#state{protocol_buffers =
-                                        Buffers#protocol_buffers{dtls_cipher_texts = Rest},
-                                    connection_states = ConnectionStates})
+            next_record(State#state{protocol_buffers = Buffers#protocol_buffers{dtls_cipher_texts = Rest}})
     end;
 next_record(#state{protocol_buffers =
 		       #protocol_buffers{dtls_cipher_texts = [#ssl_tls{epoch = Epoch} | Rest]}
 		   = Buffers,
-		   connection_states = #{current_read := #{epoch := CurrentEpoch}} = ConnectionStates} = State) 
+		   connection_states = #{current_read := #{epoch := CurrentEpoch}}} = State)
   when Epoch > CurrentEpoch ->
     %% TODO Buffer later Epoch message, drop it for now
-    next_record(State#state{protocol_buffers =
-                                Buffers#protocol_buffers{dtls_cipher_texts = Rest},
-                            connection_states = ConnectionStates});
-next_record(#state{protocol_buffers =
-		       #protocol_buffers{dtls_cipher_texts = [ _ | Rest]}
-		   = Buffers,
-		   connection_states = ConnectionStates} = State) ->
-    %% Drop old epoch message
-    next_record(State#state{protocol_buffers =
-                                Buffers#protocol_buffers{dtls_cipher_texts = Rest},
-                            connection_states = ConnectionStates});
+    next_record(State#state{protocol_buffers = Buffers#protocol_buffers{dtls_cipher_texts = Rest}});
+next_record(#state{protocol_buffers = #protocol_buffers{dtls_cipher_texts =
+                                                            [#ssl_tls{epoch = Epoch} | Rest]
+                                                       } = Buffers
+                  } = State) ->
+    case Epoch of
+        0 -> %% A reconnect (client might have rebooted and re-connected)
+            decode_cipher_text(State);
+        _ ->
+            %% Drop old epoch message
+            next_record(State#state{protocol_buffers = Buffers#protocol_buffers{dtls_cipher_texts = Rest}})
+    end;
 next_record(#state{static_env = #static_env{role = server,
                                             socket = {Listener, {Client, _}}}} = State) ->
     dtls_packet_demux:active_once(Listener, Client, self()),
@@ -182,16 +189,16 @@ next_event(StateName, no_record,
 	    %% TODO maybe buffer later epoch
             next_event(StateName, no_record, State, Actions); 
 	{#alert{} = Alert, State} ->
-            Version = State#state.connection_env#connection_env.negotiated_version,
-            handle_own_alert(Alert, Version, StateName, State)
+            handle_own_alert(Alert, StateName, State)
     end;
 next_event(connection = StateName, Record,
 	   #state{connection_states = #{current_read := #{epoch := CurrentEpoch}}} = State0, Actions) ->
     case Record of
-        #ssl_tls{epoch = CurrentEpoch,
+        #ssl_tls{epoch = Epoch,
                  type = ?HANDSHAKE,
-                 version = Version} = Record ->
-            State = dtls_version(StateName, Version, State0), 
+                 version = Version} = Record
+          when Epoch =:= CurrentEpoch; Epoch =:= 0 ->
+            State = dtls_version(StateName, Version, State0),
 	    {next_state, StateName, State,
 	     [{next_event, internal, {protocol_record, Record}} | Actions]};
 	#ssl_tls{epoch = CurrentEpoch} ->
@@ -223,8 +230,7 @@ next_event(StateName, Record,
 	    %% TODO maybe buffer later epoch
             next_event(StateName, no_record, State0, Actions); 
 	#alert{} = Alert ->
-	    Version = State0#state.connection_env#connection_env.negotiated_version,
-            handle_own_alert(Alert, Version, StateName, State0)
+            handle_own_alert(Alert, StateName, State0)
     end.
 
 initial_flight_state(udp)->
@@ -246,12 +252,11 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
-    PMTUEstimate = 1400, %% TODO make configurable
     #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
-    MaxSize = min(MaxFragmentLength, PMTUEstimate),
+    MaxSize = min(MaxFragmentLength, ?PMTUEstimate),
     {Encoded, ConnectionStates} =
 	encode_handshake_flight(lists:reverse(Flight), Version, MaxSize, Epoch, ConnectionStates0),
-    send(Transport, Socket, Encoded),
+    send_packets(Transport, Socket, Encoded),
     ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
    {State0#state{connection_states = ConnectionStates}, []};
 
@@ -264,14 +269,12 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
-    PMTUEstimate = 1400, %% TODO make configurable
     #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
-    MaxSize = min(MaxFragmentLength, PMTUEstimate),
+    MaxSize = min(MaxFragmentLength, ?PMTUEstimate),
     {HsBefore, ConnectionStates1} =
 	encode_handshake_flight(lists:reverse(Flight0), Version, MaxSize, Epoch, ConnectionStates0),
     {EncChangeCipher, ConnectionStates} = encode_change_cipher(ChangeCipher, Version, Epoch, ConnectionStates1),
-
-    send(Transport, Socket, [HsBefore, EncChangeCipher]),
+    send_packets(Transport, Socket, HsBefore ++ EncChangeCipher),
     ssl_logger:debug(LogLevel, outbound, 'record', [HsBefore]),
     ssl_logger:debug(LogLevel, outbound, 'record', [EncChangeCipher]),
     {State0#state{connection_states = ConnectionStates}, []};
@@ -285,16 +288,15 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
-    PMTUEstimate = 1400, %% TODO make configurable
     #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
-    MaxSize = min(MaxFragmentLength, PMTUEstimate),
+    MaxSize = min(MaxFragmentLength, ?PMTUEstimate),
     {HsBefore, ConnectionStates1} =
 	encode_handshake_flight(lists:reverse(Flight0), Version, MaxSize, Epoch-1, ConnectionStates0),
     {EncChangeCipher, ConnectionStates2} = 
 	encode_change_cipher(ChangeCipher, Version, Epoch-1, ConnectionStates1),
     {HsAfter, ConnectionStates} =
 	encode_handshake_flight(lists:reverse(Flight1), Version, MaxSize, Epoch, ConnectionStates2),
-    send(Transport, Socket, [HsBefore, EncChangeCipher, HsAfter]),
+    send_packets(Transport, Socket, HsBefore ++ EncChangeCipher ++ HsAfter),
     ssl_logger:debug(LogLevel, outbound, 'record', [HsBefore]),
     ssl_logger:debug(LogLevel, outbound, 'record', [EncChangeCipher]),
     ssl_logger:debug(LogLevel, outbound, 'record', [HsAfter]),
@@ -309,14 +311,13 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
-    PMTUEstimate = 1400, %% TODO make configurable
     #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
-    MaxSize = min(MaxFragmentLength, PMTUEstimate),
+    MaxSize = min(MaxFragmentLength, ?PMTUEstimate),
     {EncChangeCipher, ConnectionStates1} = 
 	encode_change_cipher(ChangeCipher, Version, Epoch-1, ConnectionStates0),
     {HsAfter, ConnectionStates} =
 	encode_handshake_flight(lists:reverse(Flight1), Version, MaxSize, Epoch, ConnectionStates1),
-    send(Transport, Socket, [EncChangeCipher, HsAfter]),
+    send_packets(Transport, Socket, EncChangeCipher ++ HsAfter),
     ssl_logger:debug(LogLevel, outbound, 'record', [EncChangeCipher]),
     ssl_logger:debug(LogLevel, outbound, 'record', [HsAfter]),
     {State0#state{connection_states = ConnectionStates}, []}.
@@ -332,9 +333,8 @@ handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, Stat
             ssl_gen_statem:hibernate_after(StateName, State, Actions)
     end;
 %%% DTLS record protocol level handshake messages 
-handle_protocol_record(#ssl_tls{type = ?HANDSHAKE,
-				       fragment = Data}, 
-		    StateName, 
+handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, epoch = Epoch, fragment = Data},
+                       StateName,
                        #state{protocol_buffers = Buffers0,
                               connection_env = #connection_env{negotiated_version = Version},
                               ssl_options = Options} = State) ->
@@ -344,27 +344,31 @@ handle_protocol_record(#ssl_tls{type = ?HANDSHAKE,
 		next_event(StateName, no_record, State#state{protocol_buffers = Buffers});
 	    {Packets, Buffers} ->
 		HsEnv = State#state.handshake_env,
-		Events = dtls_handshake_events(Packets),
-                {next_state, StateName, 
+		HSEvents = dtls_handshake_events(Packets),
+                Events = case is_new_connection(Epoch, Packets, State) of
+                             true  -> [{next_event, internal, new_connection} | HSEvents];
+                             false -> HSEvents
+                         end,
+                {next_state, StateName,
                  State#state{protocol_buffers = Buffers,
-                             handshake_env = 
-                                 HsEnv#handshake_env{unprocessed_handshake_events 
-                                                     = unprocessed_events(Events)}}, Events}
+                             handshake_env =
+                                 HsEnv#handshake_env{
+                                   unprocessed_handshake_events = unprocessed_events(HSEvents)}
+                            }, Events}
 	end
     catch throw:#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, StateName, State)
+	    handle_own_alert(Alert, StateName, State)
     end;
 %%% DTLS record protocol level change cipher messages
 handle_protocol_record(#ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = Data}, StateName, State) ->
     {next_state, StateName, State, [{next_event, internal, #change_cipher_spec{type = Data}}]};
 %%% DTLS record protocol level Alert messages
-handle_protocol_record(#ssl_tls{type = ?ALERT, fragment = EncAlerts}, StateName,
-                       #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
+handle_protocol_record(#ssl_tls{type = ?ALERT, fragment = EncAlerts}, StateName, State) ->
     case decode_alerts(EncAlerts) of
 	Alerts = [_|_] ->
 	    handle_alerts(Alerts,  {next_state, StateName, State});
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, StateName, State)
+	    handle_own_alert(Alert, StateName, State)
     end;
 %% Ignore unknown TLS record level protocol messages
 handle_protocol_record(#ssl_tls{type = _Unknown}, StateName, State) ->
@@ -478,6 +482,28 @@ send(Transport, {Listener, Socket}, Data) when is_pid(Listener) ->
 send(Transport, Socket, Data) -> % Client socket
     dtls_socket:send(Transport, Socket, Data).
 
+send_packets(_Transport, _Socket, []) ->
+    ok;
+send_packets(Transport, Socket, Packets) ->
+    {Packet, Rest} = pack_packets(Packets, 0, ?PMTUEstimate+80, []),
+    case send(Transport, Socket, Packet) of
+        ok -> send_packets(Transport, Socket, Rest);
+        Err -> Err
+    end.
+
+pack_packets([P|Rest]=Packets, SoFar, Max, Acc) ->
+    Size = erlang:iolist_size(P),
+    Next = SoFar + Size,
+    if Size > Max, Acc =:= [] ->
+            {P, Rest};
+       Next < Max ->
+            pack_packets(Rest, Next, Max, [P|Acc]);
+       true ->
+            {lists:reverse(Acc), Packets}
+    end;
+pack_packets([], _, _, Acc) ->
+    {lists:reverse(Acc), []}.
+
 socket(Pid,  Transport, Socket, _Tracker) ->
     dtls_socket:socket(Pid, Transport, Socket, ?MODULE).
 
@@ -489,14 +515,12 @@ getopts(Transport, Socket, Tag) ->
 
 %% raw data from socket, unpack records
 handle_info({Protocol, _, _, _, Data}, StateName,
-            #state{static_env = #static_env{role = Role,
-                                            data_tag = Protocol}} = State0) ->
+            #state{static_env = #static_env{data_tag = Protocol}} = State0) ->
     case next_dtls_record(Data, StateName, State0) of
 	{Record, State} ->
 	    next_event(StateName, Record, State);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State0),
-            {stop, {shutdown, own_alert}, State0}
+            handle_own_alert(Alert, StateName, State0)
     end;
 
 handle_info({PassiveTag, Socket}, StateName,
@@ -555,6 +579,15 @@ handle_info(Msg, StateName, State) ->
 %% Internal functions 
 %%====================================================================
 
+is_new_connection(0, [{#client_hello{},_Raw}|_],
+                  #state{
+                     connection_states =
+                         #{current_read := #{epoch := CurrentEpoch}}})
+  when CurrentEpoch > 0 ->
+    true;
+is_new_connection(_, _, _) ->
+    false.
+
 dtls_handshake_events(Packets) ->
     lists:map(fun(Packet) ->
 		      {next_event, internal, {handshake, Packet}}
@@ -569,10 +602,15 @@ unprocessed_events(Events) ->
     erlang:length(Events)-1.
 
 encode_handshake_flight(Flight, Version, MaxFragmentSize, Epoch, ConnectionStates) ->
-    Fragments = lists:map(fun(Handshake) ->
-				  dtls_handshake:fragment_handshake(Handshake, MaxFragmentSize)
-			  end, Flight),
-    dtls_record:encode_handshake(Fragments, Version, Epoch, ConnectionStates).
+    Encode = fun(Fragment, {Acc, Cs0}) ->
+                     {Enc, Cs} = dtls_record:encode_handshake(Fragment, Version, Epoch, Cs0),
+                     {[Enc|Acc], Cs}
+             end,
+    {Rev, Cs} = lists:foldl(fun(Handshake, {Acc,Cs0}) ->
+                                    Frags = dtls_handshake:fragment_handshake(Handshake, MaxFragmentSize),
+                                    lists:foldl(Encode, {Acc,Cs0}, Frags)
+                            end, {[], ConnectionStates}, Flight),
+    {lists:reverse(Rev), Cs}.
 
 encode_change_cipher(#change_cipher_spec{}, Version, Epoch, ConnectionStates) ->
     dtls_record:encode_change_cipher_spec(Version, Epoch, ConnectionStates).
@@ -621,12 +659,28 @@ handle_alerts([], Result) ->
     Result;
 handle_alerts(_, {stop, _, _} = Stop) ->
     Stop;
-handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
-     handle_alerts(Alerts, ssl_gen_statem:handle_alert(Alert, StateName, State));
-handle_alerts([Alert | Alerts], {next_state, StateName, State, _Actions}) ->
-     handle_alerts(Alerts, ssl_gen_statem:handle_alert(Alert, StateName, State)).
+handle_alerts(Alerts, {next_state, StateName, State}) ->
+    handle_alerts_or_reset(Alerts, StateName, State);
+handle_alerts(Alerts, {next_state, StateName, State, _Actions}) ->
+    handle_alerts_or_reset(Alerts, StateName, State).
 
-handle_own_alert(Alert, Version, StateName,
+handle_alerts_or_reset([Alert|Alerts], StateName, #state{connection_states = Cs} = State) ->
+    case maps:get(previous_cs, Cs, undefined) of
+        undefined ->
+            handle_alerts(Alerts, ssl_gen_statem:handle_alert(Alert, StateName, State));
+        PreviousConn ->
+            %% There exists an old connection and the new one sent alerts,
+            %% reset to the old working one.
+            HsEnv0 = State#state.handshake_env,
+            HsEnv  = HsEnv0#handshake_env{renegotiation = undefined},
+            NewState = State#state{connection_states = PreviousConn,
+                                   handshake_env = HsEnv
+                                  },
+            {next_state, connection, NewState}
+    end.
+
+
+handle_own_alert(Alert, StateName,
                  #state{static_env = #static_env{data_tag = udp,
                                                  role = Role},
                         ssl_options = #{log_level := LogLevel}} = State0) ->
@@ -635,10 +689,11 @@ handle_own_alert(Alert, Version, StateName,
             log_ignore_alert(LogLevel, StateName, Alert, Role),
             {next_state, StateName, State};
         {false, State} ->
-            ssl_gen_statem:handle_own_alert(Alert, Version, StateName, State)
+            dtls_connection:alert_or_reset_connection(Alert, StateName, State)
     end;
-handle_own_alert(Alert, Version, StateName, State) ->
-    ssl_gen_statem:handle_own_alert(Alert, Version, StateName, State).
+handle_own_alert(Alert, StateName, State) ->
+    dtls_connection:alert_or_reset_connection(Alert, StateName, State).
+
 ignore_alert(#alert{level = ?FATAL}, #state{protocol_specific = #{ignored_alerts := N,
                                                   max_ignored_alerts := N}} = State) ->
     {false, State};

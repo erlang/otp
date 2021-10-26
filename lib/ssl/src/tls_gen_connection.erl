@@ -241,13 +241,12 @@ getopts(Transport, Socket, Tag) ->
 
 %% raw data from socket, upack records
 handle_info({Protocol, _, Data}, StateName,
-            #state{static_env = #static_env{data_tag = Protocol},
-                   connection_env = #connection_env{negotiated_version = Version}} = State0) ->
+            #state{static_env = #static_env{data_tag = Protocol}} = State0) ->
     case next_tls_record(Data, StateName, State0) of
 	{Record, State} ->
 	    next_event(StateName, Record, State);
 	#alert{} = Alert ->
-	    ssl_gen_statem:handle_own_alert(Alert, Version, StateName, State0)
+	    ssl_gen_statem:handle_own_alert(Alert, StateName, State0)
     end;
 handle_info({PassiveTag, Socket},  StateName, 
             #state{static_env = #static_env{socket = Socket,
@@ -404,26 +403,25 @@ handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, fragment = Data},
                 end
         end
     catch throw:#alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, Version, StateName, State0)
+            ssl_gen_statem:handle_own_alert(Alert, StateName, State0)
     end;
 %%% TLS record protocol level change cipher messages
 handle_protocol_record(#ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = Data}, StateName, State) ->
     {next_state, StateName, State, [{next_event, internal, #change_cipher_spec{type = Data}}]};
 %%% TLS record protocol level Alert messages
-handle_protocol_record(#ssl_tls{type = ?ALERT, fragment = EncAlerts}, StateName,
-                       #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
+handle_protocol_record(#ssl_tls{type = ?ALERT, fragment = EncAlerts}, StateName,State) ->
     try decode_alerts(EncAlerts) of	
 	Alerts = [_|_] ->
 	    handle_alerts(Alerts,  {next_state, StateName, State});
 	[] ->
 	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, empty_alert),
-					    Version, StateName, State);
+					    StateName, State);
         #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, Version, StateName, State)
+            ssl_gen_statem:handle_own_alert(Alert, StateName, State)
     catch
 	_:_ ->
 	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, alert_decode_error),
-					    Version, StateName, State)  
+					    StateName, State)
 
     end;
 %% Ignore unknown TLS record level protocol messages

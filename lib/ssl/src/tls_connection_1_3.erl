@@ -232,11 +232,10 @@ config_error(Type, Event, State) ->
     ssl_gen_statem:?FUNCTION_NAME(Type, Event, State).
 
 
-user_hello({call, From}, cancel, #state{connection_env = #connection_env{negotiated_version = Version}} 
-           = State) ->
+user_hello({call, From}, cancel, State) ->
     gen_statem:reply(From, ok),
     ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled),
-                     Version, ?FUNCTION_NAME, State);
+                                    ?FUNCTION_NAME, State);
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
                   handshake_env = #handshake_env{hello = Hello},
@@ -269,7 +268,7 @@ start(internal, #client_hello{extensions = Extensions} = Hello,
 start(internal, #client_hello{} = Hello, State0) ->
     case tls_handshake_1_3:do_start(Hello, State0) of
         #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, {3,4}, start, State0);
+            ssl_gen_statem:handle_own_alert(Alert, start, State0);
         {State, start} ->
             {next_state, start, State, []};
         {State, negotiated} ->
@@ -289,7 +288,7 @@ start(internal, #server_hello{extensions = Extensions} = ServerHello,
 start(internal, #server_hello{} = ServerHello, State0) ->
     case tls_handshake_1_3:do_start(ServerHello, State0) of
         #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, {3,4}, start, State0);
+            ssl_gen_statem:handle_own_alert(Alert, start, State0);
         {State, NextState} ->
             {next_state, NextState, State, []}
     end;
@@ -303,7 +302,7 @@ negotiated(internal, #change_cipher_spec{}, State) ->
 negotiated(internal, Message, State0) ->
     case tls_handshake_1_3:do_negotiated(Message, State0) of
         #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, {3,4}, negotiated, State0);
+            ssl_gen_statem:handle_own_alert(Alert, negotiated, State0);
         {State, NextState} ->
             {next_state, NextState, State, []}
     end;
@@ -316,7 +315,7 @@ wait_cert(internal,
           #certificate_1_3{} = Certificate, State0) ->
     case tls_handshake_1_3:do_wait_cert(Certificate, State0) of
         {#alert{} = Alert, State} ->
-            ssl_gen_statem:handle_own_alert(Alert, {3,4}, wait_cert, State);
+            ssl_gen_statem:handle_own_alert(Alert, wait_cert, State);
         {State, NextState} ->
             tls_gen_connection:next_event(NextState, no_record, State)
     end;
@@ -331,7 +330,7 @@ wait_cv(internal,
           #certificate_verify_1_3{} = CertificateVerify, State0) ->
     case tls_handshake_1_3:do_wait_cv(CertificateVerify, State0) of
         {#alert{} = Alert, State} ->
-            ssl_gen_statem:handle_own_alert(Alert, {3,4}, wait_cv, State);
+            ssl_gen_statem:handle_own_alert(Alert, wait_cv, State);
         {State, NextState} ->
             tls_gen_connection:next_event(NextState, no_record, State)
     end;
@@ -346,7 +345,7 @@ wait_finished(internal,
              #finished{} = Finished, State0) ->
     case tls_handshake_1_3:do_wait_finished(Finished, State0) of
         #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, {3,4}, finished, State0);
+            ssl_gen_statem:handle_own_alert(Alert, finished, State0);
         State1 ->
             {Record, State} = ssl_gen_statem:prepare_connection(State1, tls_gen_connection),
             tls_gen_connection:next_event(connection, Record, State,
@@ -370,7 +369,7 @@ wait_sh(internal, #server_hello{extensions = Extensions} = Hello,  #state{ssl_op
 wait_sh(internal, #server_hello{} = Hello, State0) ->
     case tls_handshake_1_3:do_wait_sh(Hello, State0) of
         #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, {3,4}, wait_sh, State0);
+            ssl_gen_statem:handle_own_alert(Alert, wait_sh, State0);
         {State1, start, ServerHello} ->
             %% hello_retry_request: go to start
             {next_state, start, State1, [{next_event, internal, ServerHello}]};
@@ -388,7 +387,7 @@ wait_ee(internal, #change_cipher_spec{}, State) ->
 wait_ee(internal, #encrypted_extensions{} = EE, State0) ->
     case tls_handshake_1_3:do_wait_ee(EE, State0) of
         #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, {3,4}, wait_ee, State0);
+            ssl_gen_statem:handle_own_alert(Alert, wait_ee, State0);
         {State1, NextState} ->
             tls_gen_connection:next_event(NextState, no_record, State1)
     end;
@@ -403,14 +402,14 @@ wait_cert_cr(internal, #change_cipher_spec{}, State) ->
 wait_cert_cr(internal, #certificate_1_3{} = Certificate, State0) ->
     case tls_handshake_1_3:do_wait_cert_cr(Certificate, State0) of
         {#alert{} = Alert, State} ->
-            ssl_gen_statem:handle_own_alert(Alert, {3,4}, wait_cert_cr, State);
+            ssl_gen_statem:handle_own_alert(Alert, wait_cert_cr, State);
         {State1, NextState} ->
             tls_gen_connection:next_event(NextState, no_record, State1)
     end;
 wait_cert_cr(internal, #certificate_request_1_3{} = CertificateRequest, State0) ->
     case tls_handshake_1_3:do_wait_cert_cr(CertificateRequest, State0) of
         #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, {3,4}, wait_cert_cr, State0);
+            ssl_gen_statem:handle_own_alert(Alert, wait_cert_cr, State0);
         {State1, NextState} ->
             tls_gen_connection:next_event(NextState, no_record, State1)
     end;
@@ -424,7 +423,7 @@ wait_eoed(internal, #change_cipher_spec{}, State) ->
 wait_eoed(internal, #end_of_early_data{} = EOED, State0) ->
     case tls_handshake_1_3:do_wait_eoed(EOED, State0) of
         {#alert{} = Alert, State} ->
-            ssl_gen_statem:handle_own_alert(Alert, {3,4}, wait_eoed, State);
+            ssl_gen_statem:handle_own_alert(Alert, wait_eoed, State);
         {State1, NextState} ->
             tls_gen_connection:next_event(NextState, no_record, State1)
     end;
@@ -442,7 +441,7 @@ connection(internal, #key_update{} = KeyUpdate, State0) ->
         {ok, State} ->
             tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State);
         {error, State, Alert} ->
-            ssl_gen_statem:handle_own_alert(Alert, {3,4}, connection, State),
+            ssl_gen_statem:handle_own_alert(Alert, connection, State),
             tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State)
     end;
 connection({call, From}, negotiated_protocol,

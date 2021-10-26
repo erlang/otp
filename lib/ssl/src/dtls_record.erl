@@ -204,16 +204,17 @@ encode_alert_record(#alert{level = Level, description = Description},
 
 %%--------------------------------------------------------------------
 -spec encode_change_cipher_spec(ssl_record:ssl_version(), integer(), ssl_record:connection_states()) ->
-				       {iolist(), ssl_record:connection_states()}.
+          {[iolist()], ssl_record:connection_states()}.
 %%
 %% Description: Encodes a change_cipher_spec-message to send on the ssl socket.
 %%--------------------------------------------------------------------
 encode_change_cipher_spec(Version, Epoch, ConnectionStates) ->
-    encode_plain_text(?CHANGE_CIPHER_SPEC, Version, Epoch, ?byte(?CHANGE_CIPHER_SPEC_PROTO), ConnectionStates).
+    {Enc, Cs} = encode_plain_text(?CHANGE_CIPHER_SPEC, Version, Epoch, ?byte(?CHANGE_CIPHER_SPEC_PROTO), ConnectionStates),
+    {[Enc], Cs}.
 
 %%--------------------------------------------------------------------
 -spec encode_data(binary(), ssl_record:ssl_version(), ssl_record:connection_states()) ->
-			 {iolist(),ssl_record:connection_states()}.
+          {[iolist()],ssl_record:connection_states()}.
 %%
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------
@@ -236,7 +237,8 @@ encode_data(Data, Version, ConnectionStates) ->
                             end, {[], ConnectionStates}, Frags),
             {lists:reverse(RevCipherText), ConnectionStates1};
         _ ->
-            encode_plain_text(?APPLICATION_DATA, Version, Epoch, Data, ConnectionStates)
+            {Enc, Cs} = encode_plain_text(?APPLICATION_DATA, Version, Epoch, Data, ConnectionStates),
+            {[Enc], Cs}
     end.
 
 encode_plain_text(Type, Version, Epoch, Data, ConnectionStates) ->
@@ -455,7 +457,8 @@ get_dtls_records_aux({_, _, Version, _} = Vinfo, <<?BYTE(Type),?BYTE(MajVer),?BY
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
     end;
 get_dtls_records_aux(_, <<?BYTE(_), ?BYTE(_MajVer), ?BYTE(_MinVer),
-		       ?UINT16(Length), _/binary>>,
+                          ?UINT16(_Epoch), ?UINT48(_Seq),
+                          ?UINT16(Length), _/binary>>,
 		     _Acc, _) when Length > ?MAX_CIPHER_TEXT_LENGTH ->
     ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);
 
