@@ -55,7 +55,7 @@ skip_applications=
 while test $# != 0; do
     case $1 in
 	-srcdir=* | --srcdir=*)
-	    user_srcdir=`expr -- "$1" : '[^=]*=\(.*\)'`
+        user_srcdir=`echo "$1" | sed 's/^[^=]*=//'`
 	    if test "$ERL_TOP" != ""; then
 		echo "WARNING: Overriding ERL_TOP with $user_srcdir" 1>&2
 		echo "" 1>&2
@@ -95,7 +95,7 @@ while test $# != 0; do
 	    echo "" 1>&2
 	    ;;
 	-cache-file=* | --cache-file=* )
-	    static_cache=`expr -- "$1" : '[^=]*=\(.*\)'`
+        static_cache=`echo "$1" | sed 's/^[^=]*=//'`
 	    if test "$static_cache" != "/dev/null"; then
 		echo "WARNING: Only using config cache file '$static_cache' as static cache" 1>&2
 		echo "" 1>&2
@@ -140,8 +140,8 @@ while test $# != 0; do
 	    pie_ldflags="-no-pie"
 	    ;;
 	CFLAGS=* | LDFLAGS=*)
-	    flgs_var=`expr -- "$1" : '\([^=]*\)=.*'`
-	    flgs_val=`expr -- "$1" : '[^=]*=\(.*\)'`
+        flgs_var=`echo "$1" | sed 's/=.*$//'`
+        flgs_val=`echo "$1" | sed 's/^[^=]*=//'`
 	    eval $flgs_var=\$flgs_val
 	    ;;
 	--help=r* | -help=r*)
@@ -151,7 +151,7 @@ while test $# != 0; do
         *)
 	    case $1 in
 		--without-*)
-		    skip_app=`expr -- "$1" : '--without-\(.*\)'`
+            skip_app=`echo "$1" | sed 's/^--without-//'`
                     if [ "$skip_app" = "stdlib" ] ||
                            [ "$skip_app" = "kernel" ] ||
                            [ "$skip_app" = "sasl" ] ||
