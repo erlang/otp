@@ -4055,20 +4055,23 @@ ioctl(Socket, GetRequest) ->
 
 -spec ioctl(Socket, GetRequest, Name) -> {'ok', Result} | {'error', Reason} when
       Socket     :: socket(),
-      GetRequest :: gifaddr | gifindex | gifname,
+      GetRequest :: gifname | gifindex | gifaddr | gifdstaddr,
       Name       :: string() | integer(),
       Result     :: term(),
       Reason     :: posix() | 'closed'.
 
-ioctl(?socket(SockRef), gifaddr = GetRequest, Name)
-  when is_list(Name) ->
-    prim_socket:ioctl(SockRef, GetRequest, Name);
-ioctl(?socket(SockRef), gifindex = GetRequest, Name)
-  when is_list(Name) ->
-    prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(?socket(SockRef), gifname = GetRequest, Index)
   when is_integer(Index) ->
     prim_socket:ioctl(SockRef, GetRequest, Index);
+ioctl(?socket(SockRef), gifindex = GetRequest, Name)
+  when is_list(Name) ->
+    prim_socket:ioctl(SockRef, GetRequest, Name);
+ioctl(?socket(SockRef), gifaddr = GetRequest, Name)
+  when is_list(Name) ->
+    prim_socket:ioctl(SockRef, GetRequest, Name);
+ioctl(?socket(SockRef), gifdstaddr = GetRequest, Name)
+  when is_list(Name) ->
+    prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(Socket, GetRequest, Arg) ->
     erlang:error(badarg, [Socket, GetRequest, Arg]).
 
