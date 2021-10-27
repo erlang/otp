@@ -138,8 +138,11 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
   <section>
     <title>.erlang.crypt</title>
     <p><c>beam_lib</c> searches for <c>.erlang.crypt</c> in the current
-      directory and then the home directory for the current user. If
-      the file is found and contains a key, <c>beam_lib</c>
+      directory, then the <seeerl marker="erts:init#home">
+      user&apos;s home directory</seeerl> and then
+      <seeerl marker="stdlib:filename#user_config">
+        <c>filename:basedir(user_config, "erlang")</c></seeerl>.
+      If the file is found and contains a key, <c>beam_lib</c>
       implicitly creates a crypto key fun and registers it.</p>
 
     <p>File <c>.erlang.crypt</c> is to contain a single list of tuples:</p>
