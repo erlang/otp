@@ -83,6 +83,9 @@
 /* ESOCK counter size */
 #undef ESOCK_COUNTER_SIZE
 
+/* Interface map supported */
+#undef ESOCK_USE_IFMAP
+
 /* Use SO_[RCV|SND]TMIEO */
 #undef ESOCK_USE_RCVSNDTIMEO
 
@@ -982,6 +985,9 @@
 
 /* Define to 1 if `ifr_hwaddr' is a member of `struct ifreq'. */
 #undef HAVE_STRUCT_IFREQ_IFR_HWADDR
+
+/* Define to 1 if `ifr_map' is a member of `struct ifreq'. */
+#undef HAVE_STRUCT_IFREQ_IFR_MAP
 
 /* Define to 1 if `assoc_id' is a member of `struct sctp_accoc_value'. */
 #undef HAVE_STRUCT_SCTP_ACCOC_VALUE_ASSOC_ID

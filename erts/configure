@@ -14102,6 +14102,24 @@ $as_echo "#define ESOCK_USE_SOCKET_REGISTRY 1" >>confdefs.h
 fi
 
 
+ac_fn_c_check_member "$LINENO" "struct ifreq" "ifr_map" "ac_cv_member_struct_ifreq_ifr_map" "#ifdef __WIN32__
+	 #else
+	 #include <net/if.h>
+	 #endif
+
+"
+if test "x$ac_cv_member_struct_ifreq_ifr_map" = xyes; then :
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_STRUCT_IFREQ_IFR_MAP 1
+_ACEOF
+
+
+$as_echo "#define ESOCK_USE_IFMAP /**/" >>confdefs.h
+
+fi
+
+
 
 #--------------------------------------------------------------------
 #	Check for the existence of the -lsocket and -lnsl libraries.

@@ -1475,6 +1475,15 @@ AS_IF([test "x$enable_esock_socket_registry" = "xno"], [
         [Use socket registry by default])])
 
 
+AC_CHECK_MEMBERS([struct ifreq.ifr_map],
+        [AC_DEFINE(ESOCK_USE_IFMAP, [], [Interface map supported])],
+	[],
+	[#ifdef __WIN32__
+	 #else
+	 #include <net/if.h>
+	 #endif
+	])
+
 
 dnl
 dnl This test kindly borrowed from Tcl
