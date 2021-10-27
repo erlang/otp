@@ -70,20 +70,19 @@
          close/5,
          protocol_name/0]).
 
--define(DIST_CNTRL_SPAWN_OPTS, [{priority, max}]).
-
 %%====================================================================
 %% Internal application API
 %%====================================================================	     
 %%====================================================================
 %% Setup
 %%====================================================================
-start_fsm(Role, Host, Port, Socket, {#{erl_dist := false},_, Trackers} = Opts,
-	  User, {CbModule, _,_, _, _} = CbInfo, 
+start_fsm(Role, Host, Port, Socket,
+          {#{erl_dist := false, sender_spawn_opts := SenderOpts}, _, Trackers} = Opts,
+	  User, {CbModule, _, _, _, _} = CbInfo, 
 	  Timeout) -> 
-    try 
-        {ok, DynSup} =  tls_connection_sup:start_child([]),
-        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, []),
+    try
+        {ok, DynSup} = tls_connection_sup:start_child([]),
+        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, [[{spawn_opt, SenderOpts}]]),
 	{ok, Pid} = tls_dyn_connection_sup:start_child(DynSup, receiver, [Role, Sender, Host, Port, Socket,
                                                              Opts, User, CbInfo]),
 	{ok, SslSocket} = ssl_gen_statem:socket_control(?MODULE, Socket, [Pid, Sender], CbModule, Trackers),
@@ -93,12 +92,14 @@ start_fsm(Role, Host, Port, Socket, {#{erl_dist := false},_, Trackers} = Opts,
 	    Error
     end;
 
-start_fsm(Role, Host, Port, Socket, {#{erl_dist := true},_, Trackers} = Opts,
-	  User, {CbModule, _,_, _, _} = CbInfo, 
+start_fsm(Role, Host, Port, Socket,
+          {#{erl_dist := true, sender_spawn_opts := SenderOpts}, _, Trackers} = Opts,
+	  User, {CbModule, _, _, _, _} = CbInfo, 
 	  Timeout) -> 
-    try 
-        {ok, DynSup} =  tls_connection_sup:start_child_dist([]),
-        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, [[{spawn_opt, ?DIST_CNTRL_SPAWN_OPTS}]]),
+    try
+        SenderOpts1 = [{priority, max} | proplists:delete(priority, SenderOpts)],
+        {ok, DynSup} = tls_connection_sup:start_child_dist([]),
+        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, [[{spawn_opt, SenderOpts1}]]),
 	{ok, Pid} = tls_dyn_connection_sup:start_child(DynSup, receiver, [Role, Sender, Host, Port, Socket,
                                                                  Opts, User, CbInfo]),
 	{ok, SslSocket} = ssl_gen_statem:socket_control(?MODULE, Socket, [Pid, Sender], CbModule, Trackers),

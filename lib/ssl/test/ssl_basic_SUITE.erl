@@ -54,6 +54,8 @@
          cipher_format/1,
          tls_versions_option/0,
          tls_versions_option/1,
+         spawn_opts_option/0,
+         spawn_opts_option/1,
          eccs/0,
          eccs/1,
          cipher_suites/0,
@@ -83,6 +85,7 @@
          result_ok/1,
          protocol_info_result/1,
          version_info_result/1,
+         min_heap_size_info/1,
          connect_dist_s/1,
          connect_dist_c/1,
          dummy/1
@@ -119,6 +122,7 @@ basic_tests() ->
      fallback,
      cipher_format,
      tls_versions_option,
+     spawn_opts_option,
      eccs,
      cipher_suites,
      cipher_suites_mix,     
@@ -451,6 +455,29 @@ tls_versions_option(Config) when is_list(Config) ->
     end,	    
     ssl_test_lib:check_client_alert(ErrClient, protocol_version).
 
+spawn_opts_option() ->
+    [{doc,"Test API spawn_opts option to sender/receiver."}].
+spawn_opts_option(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+                    {from, self()}, 
+                    {mfa, {?MODULE, min_heap_size_info, []}},
+                    {options, [{sender_spawn_opts, [{min_heap_size, 1598}]},
+                               {receiver_spawn_opts, [{min_heap_size, 2586}]} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+                    {host, Hostname},
+                    {from, self()}, 
+                    {mfa, {?MODULE, min_heap_size_info, []}},
+                    {options, [{sender_spawn_opts, [{min_heap_size, 1598}]},
+                               {receiver_spawn_opts, [{min_heap_size, 2586}]} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Server, {ok, 2586, 1598}, Client, {ok, 2586, 1598}).
+
 fake_root() ->
     [{doc,"Test that we can not use a fake root signed by other key but with correct name and serial number."}].
 fake_root(Config) when is_list(Config) ->
@@ -781,6 +808,11 @@ protocol_info_result(Socket) ->
 version_info_result(Socket) ->
     {ok, [{version, Version}]} = ssl:connection_information(Socket, [version]),
     {ok, Version}.
+
+min_heap_size_info(#sslsocket{pid = [Receiver, Sender]}) ->
+    {garbage_collection, ReceiverGc} = process_info(Receiver, garbage_collection),
+    {garbage_collection, SenderGc} = process_info(Sender, garbage_collection),
+    {ok, proplists:get_value(min_heap_size, ReceiverGc), proplists:get_value(min_heap_size, SenderGc)}.
 
   
 connect_dist_s(S) ->

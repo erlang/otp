@@ -334,7 +334,9 @@
                                 {ssl_imp, ssl_imp()} |
                                 {session_tickets, session_tickets()} |
                                 {key_update_at, key_update_at()} |
-                                {middlebox_comp_mode, middlebox_comp_mode()}.
+                                {middlebox_comp_mode, middlebox_comp_mode()} |
+                                {receiver_spawn_opts, spawn_opts()} |
+                                {sender_spawn_opts, spawn_opts()}.
 
 -type protocol()                  :: tls | dtls.
 -type handshake_completion()      :: hello | full.
@@ -391,6 +393,7 @@
 -type middlebox_comp_mode()      :: boolean().
 -type client_early_data()        :: binary().
 -type server_early_data()        :: disabled | enabled.
+-type spawn_opts()               :: [erlang:spawn_opt_option()].
 
 %% -------------------------------------------------------------------------------------------------------
 
@@ -2292,6 +2295,9 @@ validate_option(psk_identity, undefined, _) ->
 validate_option(psk_identity, Identity, _)
   when is_list(Identity), Identity =/= "", length(Identity) =< 65535 ->
     binary_filename(Identity);
+validate_option(receiver_spawn_opts, Value, _)
+  when is_list(Value) ->
+    Value;
 validate_option(renegotiate_at, Value, _) when is_integer(Value) ->
     erlang:min(Value, ?DEFAULT_RENEGOTIATE_AT);
 validate_option(reuse_session, undefined, _) ->
@@ -2313,6 +2319,9 @@ validate_option(reuse_sessions, save = Value, _) ->
     Value;
 validate_option(secure_renegotiate, Value, _)
   when is_boolean(Value) ->
+    Value;
+validate_option(sender_spawn_opts, Value, _)
+  when is_list(Value) ->
     Value;
 validate_option(server_name_indication, Value, _)
   when is_list(Value) ->

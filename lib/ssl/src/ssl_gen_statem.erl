@@ -102,24 +102,28 @@
 %%% Initial Erlang process setup
 %%--------------------------------------------------------------------
 %%--------------------------------------------------------------------
--spec start_link(client| server, pid(), ssl:host(), inet:port_number(), port(), list(), pid(), tuple()) ->
+-spec start_link(client| server, pid(), ssl:host(), inet:port_number(), port(), tuple(), pid(), tuple()) ->
     {ok, pid()} | ignore |  {error, reason()}.
 %%
 %% Description: Creates a process which calls Module:init/1 to
 %% choose appropriat gen_statem and initialize.
 %%--------------------------------------------------------------------
-start_link(Role, Sender, Host, Port, Socket, Options, User, CbInfo) ->
-    {ok, proc_lib:spawn_link(?MODULE, init, [[Role, Sender, Host, Port, Socket, Options, User, CbInfo]])}.
+start_link(Role, Sender, Host, Port, Socket, {#{receiver_spawn_opts := ReceiverOpts}, _, _} = Options, User, CbInfo) ->
+    Opts = [link | proplists:delete(link, ReceiverOpts)],
+    Pid = proc_lib:spawn_opt(?MODULE, init, [[Role, Sender, Host, Port, Socket, Options, User, CbInfo]], Opts),
+    {ok, Pid}.
 
 %%--------------------------------------------------------------------
--spec start_link(atom(), ssl:host(), inet:port_number(), port(), list(), pid(), tuple()) ->
+-spec start_link(atom(), ssl:host(), inet:port_number(), port(), tuple(), pid(), tuple()) ->
 			{ok, pid()} | ignore |  {error, reason()}.
 %%
 %% Description: Creates a gen_statem process which calls Module:init/1 to
 %% initialize.
 %%--------------------------------------------------------------------
-start_link(Role, Host, Port, Socket, Options, User, CbInfo) ->
-    {ok, proc_lib:spawn_link(?MODULE, init, [[Role, Host, Port, Socket, Options, User, CbInfo]])}.
+start_link(Role, Host, Port, Socket, {#{receiver_spawn_opts := ReceiverOpts}, _, _} = Options, User, CbInfo) ->
+    Opts = [link | proplists:delete(link, ReceiverOpts)],
+    Pid = proc_lib:spawn_opt(?MODULE, init, [[Role, Host, Port, Socket, Options, User, CbInfo]], Opts),
+    {ok, Pid}.
 
 
 %%--------------------------------------------------------------------
