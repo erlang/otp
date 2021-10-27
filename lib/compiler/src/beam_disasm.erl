@@ -44,6 +44,14 @@
 -type disasm_tag()   :: symbolic_tag() | 'fr' | 'atom' | 'float' | 'literal'.
 -type disasm_term()  :: 'nil' | {disasm_tag(), _}.
 
+-type asm_form() :: {module(),
+                     [{atom(), arity()}],
+                     [beam_lib:attrib_entry()],
+                     [#function{}],
+                     beam_lib:label()}.
+
+-export_type([asm_form/0]).
+
 %%-----------------------------------------------------------------------
 
 -define(NO_DEBUG(Str,Xs), ok).
