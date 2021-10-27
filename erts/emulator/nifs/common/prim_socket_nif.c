@@ -1936,7 +1936,7 @@ static ERL_NIF_TERM esock_ioctl_gifhwaddr(ErlNifEnv*       env,
 					  ESockDescriptor* descP,
 					  ERL_NIF_TERM     ename);
 #endif
-#if defined(SIOCGIFMAP)
+#if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
 static ERL_NIF_TERM esock_ioctl_gifmap(ErlNifEnv*       env,
 				       ESockDescriptor* descP,
 				       ERL_NIF_TERM     ename);
@@ -1950,7 +1950,7 @@ static ERL_NIF_TERM esock_ioctl_giftxqlen(ErlNifEnv*       env,
 					  ERL_NIF_TERM     ename);
 #endif
 
-#if defined(SIOCGIFMAP)
+#if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
 static ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					struct ifmap*    mapP);
@@ -5201,7 +5201,7 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
   requests = MKC(env, MKT2(env, atom_gifhwaddr, MKUL(env, SIOCGIFHWADDR)), requests);
 #endif
 
-#if defined(SIOCGIFMAP)
+#if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
   requests = MKC(env, MKT2(env, atom_gifmap, MKUL(env, SIOCGIFMAP)), requests);
 #endif
 
@@ -12963,7 +12963,7 @@ ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
     break;
 #endif
 
-#if defined(SIOCGIFMAP)
+#if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
   case SIOCGIFMAP:
     return esock_ioctl_gifmap(env, descP, arg);
     break;
@@ -13350,7 +13350,7 @@ ERL_NIF_TERM esock_ioctl_gifhwaddr(ErlNifEnv*       env,
 #endif
 
 
-#if defined(SIOCGIFMAP)
+#if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
 static
 ERL_NIF_TERM esock_ioctl_gifmap(ErlNifEnv*       env,
 				ESockDescriptor* descP,
