@@ -58,30 +58,34 @@ start_link() ->
 %%%=========================================================================
 
 init([]) ->    
-    AdminSup = ssl_admin_child_spec(),
-    ConnectionSup = ssl_connection_sup(),
-    {ok, {{one_for_all, 10, 3600}, [AdminSup, ConnectionSup]}}.
+    SupFlags = #{strategy  => one_for_all, 
+                 intensity =>   10,
+                 period    => 3600
+                },
+    ChildSpecs = [ssl_admin_child_spec(),
+                  ssl_connection_sup()], 
+    {ok, {SupFlags, ChildSpecs}}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 ssl_admin_child_spec() ->
-    Name = ssl_dist_admin_sup,  
-    StartFunc = {ssl_dist_admin_sup, start_link , []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [ssl_dist_admin_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
+    #{id       => ssl_dist_admin_sup,
+      start    =>  {ssl_dist_admin_sup, start_link , []},
+      restart  => permanent, 
+      shutdown => 4000,
+      modules  => [ssl_dist_admin_sup],
+      type     => supervisor
+     }.
+    
 ssl_connection_sup() ->
-    Name = tls_dist_sup,
-    StartFunc = {tls_dist_sup, start_link, []},
-    Restart = permanent,
-    Shutdown = 4000,
-    Modules = [tls_dist_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+    #{id       => tls_dist_sup,
+      start    => {tls_dist_sup, start_link, []},
+      restart  => permanent, 
+      shutdown => 4000,
+      modules  => [tls_dist_sup],
+      type     => supervisor
+     }.
 
 consult(File) ->
     case erl_prim_loader:get_file(File) of

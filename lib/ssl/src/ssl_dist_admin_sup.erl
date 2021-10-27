@@ -44,31 +44,31 @@ start_link() ->
 %%%=========================================================================
 
 init([]) ->    
-    PEMCache = pem_cache_child_spec(),
-    SessionCertManager = session_and_cert_manager_child_spec(),
-    {ok, {{rest_for_one, 10, 3600}, [PEMCache, SessionCertManager]}}.
-
-
+    ChildSpecs = [pem_cache_child_spec(), 
+                  session_and_cert_manager_child_spec()], 
+    SupFlags = #{strategy  => rest_for_one, 
+                 intensity =>   10,
+                 period    => 3600
+                },
+    {ok, {SupFlags, ChildSpecs}}.
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 
 pem_cache_child_spec() ->
-    Name = ssl_pem_cache_dist,  
-    StartFunc = {ssl_pem_cache, start_link_dist, [[]]},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [ssl_pem_cache],
-    Type = worker,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
+    #{id        => ssl_pem_cache_dist,
+      start     => {ssl_pem_cache, start_link_dist, [[]]},
+      restart   => permanent, 
+      shutdown  => 4000,
+      modules   => [ssl_pem_cache],
+      type      => worker
+     }.
 session_and_cert_manager_child_spec() ->
     Opts = ssl_admin_sup:manager_opts(),
-    Name = ssl_dist_manager,  
-    StartFunc = {ssl_manager, start_link_dist, [Opts]},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [ssl_manager],
-    Type = worker,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
+    #{id       => ssl_dist_manager,
+      start    => {ssl_manager, start_link_dist, [Opts]},
+      restart  => permanent, 
+      shutdown => 4000,
+      modules  => [ssl_manager],
+      type     => worker
+     }.

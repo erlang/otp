@@ -43,33 +43,34 @@ start_link() ->
 %%%  Supervisor callback
 %%%=========================================================================
 
-init([]) ->
-    DTLSListeners = dtls_listeners_spec(),
-    %% Add SessionTracker if we add DTLS-1.3
-    Pre_1_3SessionTracker = ssl_server_session_child_spec(),
-    
-    {ok, {{one_for_all, 10, 3600}, [DTLSListeners,
-                                    Pre_1_3SessionTracker
-				   ]}}.
-
+init([]) ->    
+    SupFlags = #{strategy  => one_for_all,
+                 intensity =>   10,
+                 period    => 3600
+                },
+    ChildSpecs = [dtls_listeners_spec(),
+                  ssl_server_session_child_spec()
+                  %% TODO Add DTLS-1.3 session ticket handling
+                 ], 
+    {ok, {SupFlags, ChildSpecs}}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 dtls_listeners_spec() ->
-    Name = dtls_listener,  
-    StartFunc = {dtls_listener_sup, start_link, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+    #{id       => dtls_listener_sup,
+      start    => {dtls_listener_sup, start_link, []},
+      restart  => permanent, 
+      shutdown => 4000,
+      modules  => [dtls_listener_sup],
+      type     => supervisor
+     }.
 
 ssl_server_session_child_spec() ->
-    Name = dtls_server_session_cache_sup,  
-    StartFunc = {dtls_server_session_cache_sup, start_link, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [dtls_server_session_cache_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+    #{id       => dtls_server_session_cache_sup,
+      start    => {dtls_server_session_cache_sup, start_link, []},
+      restart  => permanent, 
+      shutdown => 4000,
+      modules  => [dtls_server_session_cache_sup],
+      type     => supervisor
+     }.

@@ -69,20 +69,19 @@ start_child(Type) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init(_O) ->
-    RestartStrategy = simple_one_for_one,
-    MaxR = 3,
-    MaxT = 3600,
-
-    Name = undefined, % As simple_one_for_one is used.
-    StartFunc = {ssl_server_session_cache, start_link, []},
-    Restart = transient, % Should be restarted only on abnormal termination
-    Shutdown = 4000,
-    Modules = [ssl_server_session_cache],
-    Type = worker,
-
-    ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},
-    {ok, {{RestartStrategy, MaxR, MaxT}, [ChildSpec]}}.
+init(_) ->
+    SupFlags = #{strategy  => simple_one_for_one, 
+                 intensity =>   3,
+                 period    => 3600
+                },
+    ChildSpecs = [#{id       => undefined,
+                    start    =>  {ssl_server_session_cache, start_link, []},
+                    restart  => transient, 
+                    shutdown => 4000,
+                    modules  => [ssl_server_session_cache],
+                    type     => worker
+                   }],     
+    {ok, {SupFlags, ChildSpecs}}.
 
 sup_name(normal) ->
     ?MODULE;
