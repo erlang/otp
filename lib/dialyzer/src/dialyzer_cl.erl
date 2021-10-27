@@ -431,7 +431,18 @@ check_if_writable(PltFile) ->
 	true -> false;
 	false ->
 	  DirName = filename:dirname(PltFile),
-	  filelib:is_dir(DirName) andalso is_writable_file_or_dir(DirName)
+	  case filelib:is_dir(DirName) of
+            false ->
+              case filelib:ensure_dir(PltFile) of
+                ok ->
+                  io:format("  Creating ~ts as it did not exist...~n", [DirName]),
+                  true;
+                {error, _} ->
+                  false
+              end;
+            true ->
+              is_writable_file_or_dir(DirName)
+          end
       end
   end.
 

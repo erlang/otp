@@ -68,9 +68,11 @@ dialyzer --build_plt --apps erts kernel stdlib mnesia</code>
 
     <p>Dialyzer looks if there is an environment variable called
       <c>DIALYZER_PLT</c> and places the PLT at this location. If no such
-      variable is set, Dialyzer places the PLT at
-      <c>$HOME/.dialyzer_plt</c>. The placement can also be specified using
-      the options <c>--plt</c> or <c>--output_plt</c>.</p>
+      variable is set, Dialyzer places the PLT in a file called .dialyzer_plt
+      in the <seeerl marker="stdlib:filename#user_cache">
+        <c>filename:basedir(user_cache, "erlang")</c></seeerl> folder.
+      The placement can also be specified using the options
+      <c>--plt</c> or <c>--output_plt</c>.</p>
 
     <p>Information can be added to an existing PLT using option
       <c>--add_to_plt</c>. If you also want to include the Erlang compiler in

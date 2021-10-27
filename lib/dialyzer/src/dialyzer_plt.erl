@@ -235,8 +235,8 @@ contains_mfa(#plt{info = Info, contracts = Contracts}, MFA) ->
 get_default_plt() ->
   case os:getenv("DIALYZER_PLT") of
     false ->
-      {ok,[[HomeDir]]} = init:get_argument(home),
-      filename:join(HomeDir, ".dialyzer_plt");
+      CacheDir = filename:basedir(user_cache, "erlang"),
+      filename:join(CacheDir, ".dialyzer_plt");
     UserSpecPlt -> UserSpecPlt
   end.
 

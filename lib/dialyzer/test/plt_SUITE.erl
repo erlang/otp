@@ -4,18 +4,20 @@
 -module(plt_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -include("dialyzer_test_constants.hrl").
 
--export([suite/0, all/0, build_plt/1, beam_tests/1, update_plt/1,
+-export([suite/0, all/0,
+         build_plt/1, beam_tests/1, update_plt/1,
          local_fun_same_as_callback/1,
          remove_plt/1, run_plt_check/1, run_succ_typings/1,
          bad_dialyzer_attr/1, merge_plts/1, bad_record_type/1,
-         letrec_rvals/1, missing_plt_file/1]).
+         letrec_rvals/1, missing_plt_file/1, build_xdg_plt/1]).
 
 suite() ->
   [{timetrap, ?plt_timeout}].
 
-all() -> [build_plt, beam_tests, update_plt, run_plt_check,
+all() -> [build_plt, build_xdg_plt, beam_tests, update_plt, run_plt_check,
           remove_plt, run_succ_typings, local_fun_same_as_callback,
           bad_dialyzer_attr, merge_plts, bad_record_type,
           letrec_rvals, missing_plt_file].
@@ -26,6 +28,36 @@ build_plt(Config) ->
     ok   -> ok;
     fail -> ct:fail(plt_build_fail)
   end.
+
+build_xdg_plt(Config) ->
+    TestHome = filename:join(?config(priv_dir, Config), ?FUNCTION_NAME),
+
+    %% We change the $HOME of the emulator to run this test
+    HomeEnv = case os:type() of
+                  {win32, _} ->
+                      [Drive | Path] = filename:split(TestHome),
+                      [{"APPDATA", filename:join(TestHome,"AppData")},
+                       {"HOMEDRIVE", Drive}, {"HOMEPATH", Path}];
+                  _ ->
+                      [{"HOME", TestHome}]
+              end,
+
+    {ok, Peer, Node} = ?CT_PEER(#{ env => HomeEnv }),
+
+    erpc:call(
+      Node,
+      fun() ->
+        ?assertMatch([], dialyzer:run(
+                           [{analysis_type, plt_build},
+                            {apps, [erts]}])),
+        ?assertMatch(
+           {ok,_}, file:read_file(
+                     filename:join(
+                       filename:basedir(user_cache, "erlang"),
+                       ".dialyzer_plt")))
+      end),
+
+    peer:stop(Peer).
 
 beam_tests(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
@@ -485,7 +517,7 @@ succ(PltFile, BeamFile2) ->
                   {plts,[PltFile]},
                   {analysis_type, succ_typings}]).
 
-check(PltFile, BeamFile2) ->
+check(PltFile, _BeamFile2) ->
     dialyzer:run([{plts,[PltFile]},
                   {analysis_type, plt_check}]).
 
