@@ -885,8 +885,8 @@ class BeamGlobalAssembler : public BeamAssembler {
     };
 #undef DECL_ENUM
 
+    static const std::map<GlobalLabels, const std::string> labelNames;
     static const std::map<GlobalLabels, emitFptr> emitPtrs;
-    static const std::map<GlobalLabels, std::string> labelNames;
     std::unordered_map<GlobalLabels, Label> labels;
     std::unordered_map<GlobalLabels, fptr> ptrs;
 
@@ -931,14 +931,8 @@ class BeamModuleAssembler : public BeamAssembler {
     /* Map of BEAM label number to asmjit Label. These should not be used
      * directly by most instructions because of displacement limits, use
      * `resolve_beam_label` instead. */
-    typedef std::unordered_map<BeamLabel, Label> LabelMap;
+    typedef std::unordered_map<BeamLabel, const Label> LabelMap;
     LabelMap rawLabels;
-
-    /* Map of label number to function name. Only defined for the
-     * entry label of a function. This map will be populated and
-     * used only when assembly output has been requested. */
-    typedef std::unordered_map<BeamLabel, std::string> LabelNames;
-    LabelNames labelNames;
 
     /* Sequence number used to create unique named labels by
      * resolve_label(). Only used when assembly output has been
@@ -1316,17 +1310,18 @@ protected:
      *
      * When the branch type is not `dispUnknown`, this must be used
      * _IMMEDIATELY BEFORE_ the instruction that the label is used in. */
-    Label resolve_beam_label(const ArgVal &Label, enum Displacement disp);
-    Label resolve_label(Label target,
-                        enum Displacement disp,
-                        std::string *name = nullptr);
+    const Label &resolve_beam_label(const ArgVal &Label,
+                                    enum Displacement disp);
+    const Label &resolve_label(const Label &target,
+                               enum Displacement disp,
+                               const char *name = nullptr);
 
     /* Resolves a shared fragment, creating a trampoline that loads the
      * appropriate address before jumping there.
      *
      * When the branch type is not `dispUnknown`, this must be used
      * _IMMEDIATELY BEFORE_ the instruction that the label is used in. */
-    Label resolve_fragment(void (*fragment)(), enum Displacement disp);
+    const Label &resolve_fragment(void (*fragment)(), enum Displacement disp);
 
     /* Embeds a constant argument and returns its address. All kinds of
      * constants are accepted, including labels and export entries.

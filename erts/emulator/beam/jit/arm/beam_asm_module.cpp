@@ -521,20 +521,25 @@ void BeamModuleAssembler::patchStrings(char *rw_base,
     }
 }
 
-Label BeamModuleAssembler::resolve_beam_label(const ArgVal &Lbl,
-                                              enum Displacement disp) {
+const Label &BeamModuleAssembler::resolve_beam_label(const ArgVal &Lbl,
+                                                     enum Displacement disp) {
     ASSERT(Lbl.isLabel());
-    auto it = labelNames.find(Lbl.getValue());
-    if (it != labelNames.end()) {
-        return resolve_label(rawLabels[Lbl.getValue()], disp, &it->second);
+
+    const Label &beamLabel = rawLabels.at(Lbl.getValue());
+    const auto &labelEntry = code.labelEntry(beamLabel);
+
+    if (labelEntry->hasName()) {
+        return resolve_label(rawLabels.at(Lbl.getValue()),
+                             disp,
+                             labelEntry->name());
     } else {
-        return resolve_label(rawLabels[Lbl.getValue()], disp);
+        return resolve_label(rawLabels.at(Lbl.getValue()), disp);
     }
 }
 
-Label BeamModuleAssembler::resolve_label(Label target,
-                                         enum Displacement disp,
-                                         std::string *labelName) {
+const Label &BeamModuleAssembler::resolve_label(const Label &target,
+                                                enum Displacement disp,
+                                                const char *labelName) {
     ssize_t currOffset = a.offset();
 
     ssize_t minOffset = currOffset - disp;
@@ -570,6 +575,7 @@ Label BeamModuleAssembler::resolve_label(Label target,
     }
 
     Label anchor;
+
     if (!labelName) {
         anchor = a.newLabel();
     } else {
@@ -579,9 +585,10 @@ Label BeamModuleAssembler::resolve_label(Label target,
          * huge more than one veneer can be created for each entry
          * label. */
         std::stringstream name;
-        name << '@' << *labelName << '-' << labelSeq++;
+        name << '@' << labelName << '-' << labelSeq++;
         anchor = a.newNamedLabel(name.str().c_str());
     }
+
     auto it = _veneers.emplace(target.id(),
                                Veneer{.latestOffset = maxOffset,
                                       .anchor = anchor,
@@ -593,8 +600,8 @@ Label BeamModuleAssembler::resolve_label(Label target,
     return veneer.anchor;
 }
 
-Label BeamModuleAssembler::resolve_fragment(void (*fragment)(),
-                                            enum Displacement disp) {
+const Label &BeamModuleAssembler::resolve_fragment(void (*fragment)(),
+                                                   enum Displacement disp) {
     Label target;
 
     auto it = _dispatchTable.find(fragment);
@@ -773,7 +780,7 @@ void BeamModuleAssembler::emit_constant(const Constant &constant) {
     if (value.isImmed() || value.isWord()) {
         a.embedUInt64(rawValue);
     } else if (value.isLabel()) {
-        a.embedLabel(rawLabels[rawValue]);
+        a.embedLabel(rawLabels.at(rawValue));
     } else {
         a.embedUInt64(LLONG_MAX);
 

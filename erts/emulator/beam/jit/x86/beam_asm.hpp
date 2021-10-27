@@ -991,8 +991,8 @@ class BeamGlobalAssembler : public BeamAssembler {
     };
 #undef DECL_ENUM
 
+    static const std::map<GlobalLabels, const std::string> labelNames;
     static const std::map<GlobalLabels, emitFptr> emitPtrs;
-    static const std::map<GlobalLabels, std::string> labelNames;
     std::unordered_map<GlobalLabels, Label> labels;
     std::unordered_map<GlobalLabels, fptr> ptrs;
 
@@ -1031,7 +1031,7 @@ class BeamModuleAssembler : public BeamAssembler {
     typedef unsigned BeamLabel;
 
     /* Map of label number to asmjit Label */
-    typedef std::unordered_map<BeamLabel, Label> LabelMap;
+    typedef std::unordered_map<BeamLabel, const Label> LabelMap;
     LabelMap rawLabels;
 
     struct patch {
@@ -1335,9 +1335,9 @@ protected:
 
 #include "beamasm_protos.h"
 
-    Label resolve_beam_label(const ArgVal &Lbl) {
+    const Label &resolve_beam_label(const ArgVal &Lbl) const {
         ASSERT(Lbl.isLabel());
-        return rawLabels[Lbl.getValue()];
+        return rawLabels.at(Lbl.getValue());
     }
 
     void make_move_patch(x86::Gp to,

@@ -310,11 +310,11 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
             /* The named_labels are sorted, so no need for a search. */
             if (e->label == i) {
                 erts_snprintf(tmp, sizeof(tmp), "%T/%d", e->function, e->arity);
-                rawLabels[i] = a.newNamedLabel(tmp);
+                rawLabels.emplace(i, a.newNamedLabel(tmp));
                 e++;
             } else {
                 std::string lblName = "label_" + std::to_string(i);
-                rawLabels[i] = a.newNamedLabel(lblName.data());
+                rawLabels.emplace(i, a.newNamedLabel(lblName.data()));
             }
         }
 
@@ -325,12 +325,12 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
          * labels. */
         for (int i = 1; i < num_labels; i++) {
             std::string lblName = "label_" + std::to_string(i);
-            rawLabels[i] = a.newNamedLabel(lblName.data());
+            rawLabels.emplace(i, a.newNamedLabel(lblName.data()));
         }
     } else {
         /* No output is requested, go with unnamed labels */
         for (int i = 1; i < num_labels; i++) {
-            rawLabels[i] = a.newLabel();
+            rawLabels.emplace(i, a.newLabel());
         }
     }
 }
