@@ -583,13 +583,14 @@ t_repair_continuation(Config) when is_list(Config) ->
     repeat_for_opts(fun t_repair_continuation_do/1).
 
 
-t_repair_continuation_do(Opts) ->
+t_repair_continuation_do(OptsIn) ->
     EtsMem = etsmem(),
     MS = [{'_',[],[true]}],
     MS2 = [{{{'$1','_'},'_'},[],['$1']}],
-    (fun() ->
-	     T = ets_new(x,
-                         replace_dbg_hash_fixed_nr_of_locks([ordered_set|Opts])),
+    run_if_valid_opts(
+      [ordered_set|OptsIn],
+      fun(Opts) ->
+	     T = ets_new(x, Opts),
 	     F = fun(0,_)->ok;(N,F) -> ets:insert(T,{N,N}), F(N-1,F) end,
 	     F(1000,F),
 	     {_,C} = ets:select(T,MS,5),
@@ -599,10 +600,11 @@ t_repair_continuation_do(Opts) ->
 	     {[true,true,true,true,true],_} = ets:select(C3),
 	     {[true,true,true,true,true],_} = ets:select(C),
 	     true = ets:delete(T)
-     end)(),
-    (fun() ->
-	     T = ets_new(x,
-                         replace_dbg_hash_fixed_nr_of_locks([ordered_set|Opts])),
+      end),
+    run_if_valid_opts(
+      [ordered_set|OptsIn],
+      fun(Opts) ->
+	     T = ets_new(x, Opts),
 	     F = fun(0,_)->ok;(N,F) -> ets:insert(T,{N,N}), F(N-1,F) end,
 	     F(1000,F),
 	     {_,C} = ets:select(T,MS,1001),
@@ -611,11 +613,12 @@ t_repair_continuation_do(Opts) ->
 	     '$end_of_table' = ets:select(C3),
 	     '$end_of_table' = ets:select(C),
 	     true = ets:delete(T)
-     end)(),
+      end),
 
-    (fun() ->
-	     T = ets_new(x,
-                         replace_dbg_hash_fixed_nr_of_locks([ordered_set|Opts])),
+    run_if_valid_opts(
+      [ordered_set|OptsIn],
+      fun(Opts) ->
+	     T = ets_new(x, Opts),
 	     F = fun(0,_)->ok;(N,F) ->
 			 ets:insert(T,{integer_to_list(N),N}),
 			 F(N-1,F)
@@ -628,10 +631,11 @@ t_repair_continuation_do(Opts) ->
 	     {[true,true,true,true,true],_} = ets:select(C3),
 	     {[true,true,true,true,true],_} = ets:select(C),
 	     true = ets:delete(T)
-     end)(),
-    (fun() ->
-	     T = ets_new(x,
-                         replace_dbg_hash_fixed_nr_of_locks([ordered_set|Opts])),
+      end),
+    run_if_valid_opts(
+      [ordered_set|OptsIn],
+      fun(Opts) ->
+	     T = ets_new(x, Opts),
 	     F = fun(0,_)->ok;(N,F) ->
 			 ets:insert(T,{{integer_to_list(N),N},N}),
 			 F(N-1,F)
@@ -644,10 +648,10 @@ t_repair_continuation_do(Opts) ->
 	     {[_,_,_,_,_],_} = ets:select(C3),
 	     {[_,_,_,_,_],_} = ets:select(C),
 	     true = ets:delete(T)
-     end)(),
+      end),
 
     (fun() ->
-	     T = ets_new(x,[set|Opts]),
+	     T = ets_new(x,[set|OptsIn]),
 	     F = fun(0,_)->ok;(N,F) ->
 			 ets:insert(T,{N,N}),
 			 F(N-1,F)
@@ -662,7 +666,7 @@ t_repair_continuation_do(Opts) ->
 	     true = ets:delete(T)
      end)(),
     (fun() ->
-	     T = ets_new(x,[set|Opts]),
+	     T = ets_new(x,[set|OptsIn]),
 	     F = fun(0,_)->ok;(N,F) ->
 			 ets:insert(T,{integer_to_list(N),N}),
 			 F(N-1,F)
@@ -677,7 +681,7 @@ t_repair_continuation_do(Opts) ->
 	     true = ets:delete(T)
      end)(),
     (fun() ->
-	     T = ets_new(x,[bag|Opts]),
+	     T = ets_new(x,[bag|OptsIn]),
 	     F = fun(0,_)->ok;(N,F) ->
 			 ets:insert(T,{integer_to_list(N),N}),
 			 F(N-1,F)
@@ -692,7 +696,7 @@ t_repair_continuation_do(Opts) ->
 	     true = ets:delete(T)
      end)(),
     (fun() ->
-	     T = ets_new(x,[duplicate_bag|Opts]),
+	     T = ets_new(x,[duplicate_bag|OptsIn]),
 	     F = fun(0,_)->ok;(N,F) ->
 			 ets:insert(T,{integer_to_list(N),N}),
 			 F(N-1,F)
@@ -893,15 +897,19 @@ whitebox_1(Opts) ->
     ets:delete(T),
     ok.
 
-whitebox_2(Opts) ->
-    T=ets_new(x,
-              replace_dbg_hash_fixed_nr_of_locks([ordered_set, {keypos,2} | Opts])),
-    T2=ets_new(x,[set, {keypos,2}| Opts]),
-    0 = ets:select_delete(T,[{{hej},[],[true]}]),
-    0 = ets:select_delete(T,[{{hej,hopp},[],[true]}]),
+whitebox_2(OptsIn) ->
+    run_if_valid_opts(
+      [ordered_set, {keypos,2} | OptsIn],
+      fun (Opts) ->
+              T = ets_new(x, Opts),
+              0 = ets:select_delete(T,[{{hej},[],[true]}]),
+              0 = ets:select_delete(T,[{{hej,hopp},[],[true]}]),
+              ets:delete(T)
+      end),
+
+    T2 = ets_new(x,[set, {keypos,2}| OptsIn]),
     0 = ets:select_delete(T2,[{{hej},[],[true]}]),
     0 = ets:select_delete(T2,[{{hej,hopp},[],[true]}]),
-    ets:delete(T),
     ets:delete(T2),
     ok.
 
@@ -1068,13 +1076,16 @@ t_delete_object_do(Opts) ->
     3999 = ets:info(T,size),
     0 = get_kept_objects(T),
     ets:delete(T),
-    T1 = ets_new(x,
-                 replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts])),
-    filltabint(T1,4000),
-    del_one_by_one_set(T1,1,4001),
-    filltabint(T1,4000),
-    del_one_by_one_set(T1,4000,0),
-    ets:delete(T1),
+    run_if_valid_opts(
+      [ordered_set | Opts],
+      fun (Opts1) ->
+              T1 = ets_new(x, Opts1),
+              filltabint(T1,4000),
+              del_one_by_one_set(T1,1,4001),
+              filltabint(T1,4000),
+              del_one_by_one_set(T1,4000,0),
+              ets:delete(T1)
+      end),
     T2 = ets_new(x,[bag | Opts]),
     filltabint2(T2,4000),
     del_one_by_one_bag(T2,1,4001),
@@ -2253,12 +2264,16 @@ update_element_opts(Opts) ->
 
 update_element_opts(Tuple,KeyPos,UpdPos,Opts) ->
     Set = ets_new(set,[{keypos,KeyPos} | Opts]),
-    OrdSet = ets_new(ordered_set,
-                     replace_dbg_hash_fixed_nr_of_locks([ordered_set,{keypos,KeyPos} | Opts])),
     update_element(Set,Tuple,KeyPos,UpdPos),
-    update_element(OrdSet,Tuple,KeyPos,UpdPos),
     true = ets:delete(Set),
-    true = ets:delete(OrdSet),
+
+    run_if_valid_opts(
+      [ordered_set,{keypos,KeyPos} | Opts],
+      fun (OptsOrdSet) ->
+              OrdSet = ets_new(ordered_set, OptsOrdSet),
+              update_element(OrdSet,Tuple,KeyPos,UpdPos),
+              true = ets:delete(OrdSet)
+      end),
     ok.
 
 update_element(T,Tuple,KeyPos,UpdPos) ->
@@ -2343,14 +2358,18 @@ update_tuple([], Tpl) ->
 
 update_element_neg(Opts) ->
     Set = ets_new(set,Opts),
-    OrdSet = ets_new(ordered_set,
-                     replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts])),
     update_element_neg_do(Set),
-    update_element_neg_do(OrdSet),
     ets:delete(Set),
     {'EXIT',{badarg,_}} = (catch ets:update_element(Set,key,{2,1})),
-    ets:delete(OrdSet),
-    {'EXIT',{badarg,_}} = (catch ets:update_element(OrdSet,key,{2,1})),
+
+    run_if_valid_opts(
+      [ordered_set | Opts],
+      fun(OptsOrdSet) ->
+              OrdSet = ets_new(ordered_set, OptsOrdSet),
+              update_element_neg_do(OrdSet),
+              ets:delete(OrdSet),
+              {'EXIT',{badarg,_}} = (catch ets:update_element(OrdSet,key,{2,1}))
+      end),
 
     Bag = ets_new(bag,[bag | Opts]),
     DBag = ets_new(duplicate_bag,[duplicate_bag | Opts]),
@@ -2401,20 +2420,25 @@ update_counter(Config) when is_list(Config) ->
 
 update_counter_do(Opts) ->
     Set = ets_new(set,Opts),
-    OrdSet = ets_new(ordered_set,
-                     replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts])),
     update_counter_for(Set),
-    update_counter_for(OrdSet),
     ets:delete_all_objects(Set),
-    ets:delete_all_objects(OrdSet),
     ets:safe_fixtable(Set, true),
-    ets:safe_fixtable(OrdSet, true),
     update_counter_for(Set),
-    update_counter_for(OrdSet),
     ets:safe_fixtable(Set, false),
-    ets:safe_fixtable(OrdSet, false),
     ets:delete(Set),
-    ets:delete(OrdSet),
+
+    run_if_valid_opts(
+      [ordered_set | Opts],
+      fun (OptsOrdSet) ->
+              OrdSet = ets_new(ordered_set, OptsOrdSet),
+              update_counter_for(OrdSet),
+              ets:delete_all_objects(OrdSet),
+              ets:safe_fixtable(OrdSet, true),
+              update_counter_for(OrdSet),
+              ets:safe_fixtable(OrdSet, false),
+              ets:delete(OrdSet)
+      end),
+
     update_counter_neg(Opts).
 
 update_counter_for(T) ->
@@ -2562,14 +2586,18 @@ uc_adder(Init, {_Pos, Add, Thres, Warp}) ->
 
 update_counter_neg(Opts) ->
     Set = ets_new(set,Opts),
-    OrdSet = ets_new(ordered_set,
-                     replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts])),
     update_counter_neg_for(Set),
-    update_counter_neg_for(OrdSet),
     ets:delete(Set),
     {'EXIT',{badarg,_}} = (catch ets:update_counter(Set,key,1)),
-    ets:delete(OrdSet),
-    {'EXIT',{badarg,_}} = (catch ets:update_counter(OrdSet,key,1)),
+
+    run_if_valid_opts(
+      [ordered_set | Opts],
+      fun (OptsOrdSet) ->
+              OrdSet = ets_new(ordered_set, OptsOrdSet),
+              update_counter_neg_for(OrdSet),
+              ets:delete(OrdSet),
+              {'EXIT',{badarg,_}} = (catch ets:update_counter(OrdSet,key,1))
+      end),
 
     Bag = ets_new(bag,[bag | Opts]),
     DBag = ets_new(duplicate_bag,[duplicate_bag | Opts]),
@@ -2694,39 +2722,43 @@ update_counter_with_default_do(Opts) ->
     2 = ets:info(T1, size),
 
     %% Same with ordered set.
-    T2 = ets_new(b, replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts])),
-    3 = ets:update_counter(T2, foo, 2, {maroilles,1}),
-    1 = ets:info(T2, size),
-    5 = ets:update_counter(T2, foo, 2, {mimolette,1}),
-    1 = ets:info(T2, size),
-    [9] = ets:update_counter(T2, foo, [{2,4}], {morbier,1}),
-    1 = ets:info(T2, size),
-    3 = ets:update_counter(T2, {foo,bar}, 2, {{laguiole},1}),
-    2 = ets:info(T2, size),
-    5 = ets:update_counter(T2, {foo,bar}, 2, {{saint,nectaire},1}),
-    2 = ets:info(T2, size),
-    [9] = ets:update_counter(T2, {foo,bar}, [{2,4}], {{rocamadour},1}),
-    2 = ets:info(T2, size),
-    %% Arithmetically-equal keys.
-    3 = ets:update_counter(T2, 1.0, 2, {1,1}),
-    3 = ets:info(T2, size),
-    5 = ets:update_counter(T2, 1, 2, {1,1}),
-    3 = ets:info(T2, size),
-    7 = ets:update_counter(T2, 1, 2, {1.0,1}),
-    3 = ets:info(T2, size),
-    %% Same with reversed type difference.
-    3 = ets:update_counter(T2, 2, 2, {2.0,1}),
-    4 = ets:info(T2, size),
-    5 = ets:update_counter(T2, 2.0, 2, {2.0,1}),
-    4 = ets:info(T2, size),
-    7 = ets:update_counter(T2, 2.0, 2, {2,1}),
-    4 = ets:info(T2, size),
-    %% default counter is not an integer.
-    {'EXIT',{badarg,_}} = (catch ets:update_counter(T1, qux, 3, {saint,félicien})),
-    4 = ets:info(T2, size),
-    %% No third element in default value.
-    {'EXIT',{badarg,_}} = (catch ets:update_counter(T1, qux, [{3,1}], {roquefort,1})),
-    4 = ets:info(T2, size),
+    run_if_valid_opts(
+      [ordered_set | Opts],
+      fun (Opts2) ->
+              T2 = ets_new(b, Opts2),
+              3 = ets:update_counter(T2, foo, 2, {maroilles,1}),
+              1 = ets:info(T2, size),
+              5 = ets:update_counter(T2, foo, 2, {mimolette,1}),
+              1 = ets:info(T2, size),
+              [9] = ets:update_counter(T2, foo, [{2,4}], {morbier,1}),
+              1 = ets:info(T2, size),
+              3 = ets:update_counter(T2, {foo,bar}, 2, {{laguiole},1}),
+              2 = ets:info(T2, size),
+              5 = ets:update_counter(T2, {foo,bar}, 2, {{saint,nectaire},1}),
+              2 = ets:info(T2, size),
+              [9] = ets:update_counter(T2, {foo,bar}, [{2,4}], {{rocamadour},1}),
+              2 = ets:info(T2, size),
+              %% Arithmetically-equal keys.
+              3 = ets:update_counter(T2, 1.0, 2, {1,1}),
+              3 = ets:info(T2, size),
+              5 = ets:update_counter(T2, 1, 2, {1,1}),
+              3 = ets:info(T2, size),
+              7 = ets:update_counter(T2, 1, 2, {1.0,1}),
+              3 = ets:info(T2, size),
+              %% Same with reversed type difference.
+              3 = ets:update_counter(T2, 2, 2, {2.0,1}),
+              4 = ets:info(T2, size),
+              5 = ets:update_counter(T2, 2.0, 2, {2.0,1}),
+              4 = ets:info(T2, size),
+              7 = ets:update_counter(T2, 2.0, 2, {2,1}),
+              4 = ets:info(T2, size),
+              %% default counter is not an integer.
+              {'EXIT',{badarg,_}} = (catch ets:update_counter(T2, qux, 3, {saint,félicien})),
+              4 = ets:info(T2, size),
+              %% No third element in default value.
+              {'EXIT',{badarg,_}} = (catch ets:update_counter(T2, qux, [{3,1}], {roquefort,1})),
+              4 = ets:info(T2, size)
+      end),
     ok.
 
 %% ERL-1125
@@ -2750,9 +2782,14 @@ update_counter_table_growth(_Config) ->
 update_counter_table_growth_do(Opts) ->
     Set = ets_new(b, [set | Opts]),
     [ets:update_counter(Set, N, {2, 1}, {N, 1}) || N <- lists:seq(1,10000)],
-    OrderedSet =
-        ets_new(b, replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts])),
-    [ets:update_counter(OrderedSet, N, {2, 1}, {N, 1}) || N <- lists:seq(1,10000)],
+
+    run_if_valid_opts(
+      [ordered_set | Opts],
+      fun(OptsOrdSet) ->
+              OrdSet = ets_new(b, OptsOrdSet),
+              [ets:update_counter(OrdSet, N, {2, 1}, {N, 1})
+               || N <- lists:seq(1,10000)]
+      end),
     ok.
 
 %% Check that a first-next sequence always works on a fixed table.
@@ -4065,16 +4102,16 @@ delete_large_tab(Config) when is_list(Config) ->
 
 delete_large_tab_do(Config, Opts,Data) ->
     delete_large_tab_1(Config, foo_hash, Opts, Data, false),
-    delete_large_tab_1(Config,
-                       foo_tree,
-                       replace_dbg_hash_fixed_nr_of_locks([ordered_set | Opts]),
-                       Data,
-                       false),
-    delete_large_tab_1(Config,
-                       foo_tree,
-                       replace_dbg_hash_fixed_nr_of_locks([stim_cat_ord_set | Opts]),
-                       Data,
-                       false),
+    run_if_valid_opts(
+      [ordered_set | Opts],
+      fun(OptsOrdSet) ->
+              delete_large_tab_1(Config, foo_tree, OptsOrdSet, Data, false)
+      end),
+    run_if_valid_opts(
+      [stim_cat_ord_set | Opts],
+      fun(OptsCat) ->
+              delete_large_tab_1(Config, foo_tree, OptsCat, Data, false)
+      end),
     delete_large_tab_1(Config, foo_hash_fix, Opts, Data, true).
 
 
@@ -4163,14 +4200,16 @@ delete_large_named_table(Config) when is_list(Config) ->
 
 delete_large_named_table_do(Opts,Data) ->
     delete_large_named_table_1(foo_hash, [named_table | Opts], Data, false),
-    delete_large_named_table_1(foo_tree,
-                               replace_dbg_hash_fixed_nr_of_locks([ordered_set,named_table | Opts]),
-                               Data,
-                               false),
-    delete_large_named_table_1(foo_tree,
-                               replace_dbg_hash_fixed_nr_of_locks([stim_cat_ord_set,named_table | Opts]),
-                               Data,
-                               false),
+    run_if_valid_opts(
+      [ordered_set,named_table | Opts],
+      fun(OptsOrdSet) ->
+              delete_large_named_table_1(foo_tree, OptsOrdSet, Data, false)
+      end),
+    run_if_valid_opts(
+      [stim_cat_ord_set,named_table | Opts],
+      fun(OptsStimCat) ->
+              delete_large_named_table_1(foo_tree, OptsStimCat, Data, false)
+      end),
     delete_large_named_table_1(foo_hash, [named_table | Opts], Data, true).
 
 delete_large_named_table_1(Name, Flags, Data, Fix) ->
@@ -9414,6 +9453,12 @@ is_invalid_opts_combo(Opts) ->
                  lists:member(stim_cat_ord_set, Opts) orelse
                  lists:member(cat_ord_set, Opts),
     OrderedSet andalso FixedNumLocksOption.
+
+run_if_valid_opts(Opts, F) ->
+    case is_invalid_opts_combo(Opts) of
+        true -> ignore;
+        false -> F(Opts)
+    end.
 
 is_redundant_opts_combo(Opts) ->
     IsRed1 =
