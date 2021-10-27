@@ -1875,14 +1875,17 @@ $ <input>erl \
       <tag>The <c>.erlang</c> startup file</tag>
       <item>
         <p>When Erlang/OTP is started, the system searches for a file named
-        <c>.erlang</c> in the user&apos;s home directory.</p>
+          <c>.erlang</c> in the <seeerl marker="erts:init#home">
+          user&apos;s home directory</seeerl> and then
+          <seeerl marker="stdlib:filename#user_config">
+            <c>filename:basedir(user_config, "erlang")</c></seeerl>.</p>
         <p>If an <c>.erlang</c> file is found, it is assumed to contain valid
           Erlang expressions. These expressions are evaluated as if they were
           input to the shell.</p>
         <p>A typical <c>.erlang</c> file contains a set of search paths, for
           example:</p>
     <code type="none"><![CDATA[
-io:format("executing user profile in HOME/.erlang\n",[]).
+io:format("executing user profile in $HOME/.erlang\n",[]).
 code:add_path("/home/calvin/test/ebin").
 code:add_path("/home/hobbes/bigappl-1.2/ebin").
 io:format(".erlang rc finished\n",[]).    ]]></code>

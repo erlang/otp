@@ -20,6 +20,7 @@
 -module(init_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
@@ -28,6 +29,7 @@
 	 many_restarts/0, many_restarts/1, restart_with_mode/1,
 	 get_plain_arguments/1,
 	 reboot/1, stop_status/1, stop/1, get_status/1, script_id/1,
+         dot_erlang/1,
 	 find_system_processes/0]).
 -export([boot1/1, boot2/1]).
 
@@ -50,7 +52,7 @@ all() ->
     [get_arguments, get_argument, boot_var,
      many_restarts, restart_with_mode,
      get_plain_arguments, restart, stop_status, get_status, script_id,
-     {group, boot}].
+     dot_erlang, {group, boot}].
 
 groups() -> 
     [{boot, [], [boot1, boot2]}].
@@ -646,6 +648,49 @@ script_id(Config) when is_list(Config) ->
 	true ->
 	    ct:fail(not_standard_script)
     end,
+    ok.
+
+%% ------------------------------------------------
+%% Test that .erlang file works as it should
+%% ------------------------------------------------
+dot_erlang(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+
+    TestHome = filename:join(PrivDir, ?FUNCTION_NAME),
+    ok = file:make_dir(TestHome),
+
+    HomeEnv = case os:type() of
+                  {win32, _} ->
+                      [Drive | Path] = filename:split(TestHome),
+                      [{"APPDATA", filename:join(TestHome,"AppData")},
+                       {"HOMEDRIVE", Drive}, {"HOMEPATH", Path}];
+                  _ ->
+                      [{"HOME", TestHome}]
+              end,
+
+    NodeOpts = #{ env => HomeEnv },
+
+    %% Get basedir of peer node
+    {ok, CreatorPeer, CreatorNode} = ?CT_PEER(NodeOpts),
+    UserConfig = erpc:call(CreatorNode, filename, basedir, [user_config,"erlang"]),
+    peer:stop(CreatorPeer),
+
+    XDGErlang = filename:join([UserConfig, ".erlang"]),
+    ok = filelib:ensure_dir(XDGErlang),
+    ok = file:write_file(XDGErlang, "application:set_env(kernel,test,xdg)."),
+
+    {ok, Peer, Node} = ?CT_PEER(NodeOpts),
+
+    ?assertEqual({ok, xdg}, erpc:call(Node, application, get_env, [kernel, test])),
+    peer:stop(Peer),
+
+    HomeErlang = filename:join([TestHome, ".erlang"]),
+    ok = file:write_file(HomeErlang, "application:set_env(kernel,test,home)."),
+    {ok, Peer2, Node2} = ?CT_PEER(NodeOpts),
+
+    ?assertEqual({ok, home}, erpc:call(Node2, application, get_env, [kernel, test])),
+    peer:stop(Peer2),
+
     ok.
 
 %% ------------------------------------------------
