@@ -13685,6 +13685,7 @@ ERL_NIF_TERM esock_ioctl_giftxqlen(ErlNifEnv*       env,
 #endif
 
 
+#if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
 static
 ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
@@ -13715,6 +13716,7 @@ ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
 
   return esock_make_ok2(env, emap);;
 }
+#endif
 
 
 static
