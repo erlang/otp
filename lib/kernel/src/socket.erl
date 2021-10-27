@@ -4065,9 +4065,6 @@ ioctl(Socket, GetRequest) ->
 ioctl(?socket(SockRef), gifname = GetRequest, Index)
   when is_integer(Index) ->
     prim_socket:ioctl(SockRef, GetRequest, Index);
-ioctl(?socket(SockRef), gifindex = GetRequest, Name)
-  when is_list(Name) ->
-    prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(?socket(SockRef), gifaddr = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
@@ -4090,6 +4087,9 @@ ioctl(?socket(SockRef), giftxqlen = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(?socket(SockRef), gifflags = GetRequest, Name)
+  when is_list(Name) ->
+    prim_socket:ioctl(SockRef, GetRequest, Name);
+ioctl(?socket(SockRef), gifmap = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(Socket, GetRequest, Arg) ->

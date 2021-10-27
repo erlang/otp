@@ -1936,6 +1936,11 @@ static ERL_NIF_TERM esock_ioctl_gifhwaddr(ErlNifEnv*       env,
 					  ESockDescriptor* descP,
 					  ERL_NIF_TERM     ename);
 #endif
+#if defined(SIOCGIFMAP)
+static ERL_NIF_TERM esock_ioctl_gifmap(ErlNifEnv*       env,
+				       ESockDescriptor* descP,
+				       ERL_NIF_TERM     ename);
+#endif
 static ERL_NIF_TERM esock_ioctl_gifmtu(ErlNifEnv*       env,
 				       ESockDescriptor* descP,
 				       ERL_NIF_TERM     ename);
@@ -1945,6 +1950,11 @@ static ERL_NIF_TERM esock_ioctl_giftxqlen(ErlNifEnv*       env,
 					  ERL_NIF_TERM     ename);
 #endif
 
+#if defined(SIOCGIFMAP)
+static ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
+					ESockDescriptor* descP,
+					struct ifmap*    mapP);
+#endif
 static ERL_NIF_TERM encode_ioctl_ifraddr(ErlNifEnv*       env,
 					 ESockDescriptor* descP,
 					 struct sockaddr* addrP);
@@ -3961,6 +3971,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(association);      \
     LOCAL_ATOM_DECL(assoc_id);         \
     LOCAL_ATOM_DECL(authentication);   \
+    LOCAL_ATOM_DECL(base_addr);        \
     LOCAL_ATOM_DECL(boolean);          \
     LOCAL_ATOM_DECL(bound);	       \
     LOCAL_ATOM_DECL(bufsz);            \
@@ -3979,6 +3990,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(debug_filename);   \
     LOCAL_ATOM_DECL(del);              \
     LOCAL_ATOM_DECL(dest_unreach);     \
+    LOCAL_ATOM_DECL(dma);              \
     LOCAL_ATOM_DECL(do);               \
     LOCAL_ATOM_DECL(dont);             \
     LOCAL_ATOM_DECL(dtor);             \
@@ -3994,6 +4006,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(gifflags);         \
     LOCAL_ATOM_DECL(gifhwaddr);        \
     LOCAL_ATOM_DECL(gifindex);         \
+    LOCAL_ATOM_DECL(gifmap);           \
     LOCAL_ATOM_DECL(gifmtu);           \
     LOCAL_ATOM_DECL(gifname);          \
     LOCAL_ATOM_DECL(gifnetmask);       \
@@ -4010,13 +4023,17 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(ioctl_requests);   \
     LOCAL_ATOM_DECL(iov_max);          \
     LOCAL_ATOM_DECL(iow);              \
+    LOCAL_ATOM_DECL(irq);              \
     LOCAL_ATOM_DECL(listening);	       \
     LOCAL_ATOM_DECL(local_rwnd);       \
+    LOCAL_ATOM_DECL(map);              \
     LOCAL_ATOM_DECL(max);              \
     LOCAL_ATOM_DECL(max_attempts);     \
     LOCAL_ATOM_DECL(max_init_timeo);   \
     LOCAL_ATOM_DECL(max_instreams);    \
     LOCAL_ATOM_DECL(asocmaxrxt);       \
+    LOCAL_ATOM_DECL(mem_end);          \
+    LOCAL_ATOM_DECL(mem_start);        \
     LOCAL_ATOM_DECL(min);              \
     LOCAL_ATOM_DECL(missing);          \
     LOCAL_ATOM_DECL(mode);             \
@@ -4059,6 +4076,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(peer_rwnd);        \
     LOCAL_ATOM_DECL(pkt_toobig);       \
     LOCAL_ATOM_DECL(policy_fail);      \
+    LOCAL_ATOM_DECL(port);             \
     LOCAL_ATOM_DECL(port_unreach);     \
     LOCAL_ATOM_DECL(prim_file);        \
     LOCAL_ATOM_DECL(probe);            \
@@ -5181,6 +5199,10 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 
 #if defined(SIOCGIFHWADDR)
   requests = MKC(env, MKT2(env, atom_gifhwaddr, MKUL(env, SIOCGIFHWADDR)), requests);
+#endif
+
+#if defined(SIOCGIFMAP)
+  requests = MKC(env, MKT2(env, atom_gifmap, MKUL(env, SIOCGIFMAP)), requests);
 #endif
 
 #if defined(SIOCGIFTXQLEN)
@@ -12941,6 +12963,12 @@ ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
     break;
 #endif
 
+#if defined(SIOCGIFMAP)
+  case SIOCGIFMAP:
+    return esock_ioctl_gifmap(env, descP, arg);
+    break;
+#endif
+
 #if defined(SIOCGIFTXQLEN)
   case SIOCGIFTXQLEN:
     return esock_ioctl_giftxqlen(env, descP, arg);
@@ -13322,6 +13350,63 @@ ERL_NIF_TERM esock_ioctl_gifhwaddr(ErlNifEnv*       env,
 #endif
 
 
+#if defined(SIOCGIFMAP)
+static
+ERL_NIF_TERM esock_ioctl_gifmap(ErlNifEnv*       env,
+				ESockDescriptor* descP,
+				ERL_NIF_TERM     ename)
+{
+  ERL_NIF_TERM result;
+  struct ifreq ifreq;
+  char*        ifn = NULL;
+  int          nlen;
+
+  SSDBG( descP, ("SOCKET", "esock_ioctl_gifmap {%d} -> entry with"
+		 "\r\n      (e)Name: %T"
+		 "\r\n", descP->sock, ename) );
+
+  if (!esock_decode_string(env, ename, &ifn))
+    return enif_make_badarg(env);
+
+  // Make sure the length of the string is valid!
+  nlen = esock_strnlen(ifn, IFNAMSIZ);
+  
+  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
+  sys_memcpy(ifreq.ifr_name, ifn, 
+	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
+  
+  SSDBG( descP,
+	 ("SOCKET", "esock_ioctl_gifmap {%d} -> try ioctl\r\n", descP->sock) );
+
+  if (ioctl(descP->sock, SIOCGIFHWADDR, (char *) &ifreq) < 0) {
+    int          saveErrno = sock_errno();
+    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_gifmap {%d} -> failure: "
+	    "\r\n      reason: %T (%d)"
+	    "\r\n", descP->sock, reason, saveErrno) );
+
+    result = esock_make_error(env, reason);
+
+  } else {
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_gifmap {%d} -> encode map\r\n",
+	    descP->sock) );
+    result = encode_ioctl_ifrmap(env, descP, &ifreq.ifr_map);
+  }
+
+  /* We know that if esock_decode_string is successful,
+   * we have "some" form of string, and therefor memory
+   * has been allocated (and need to be freed)... */
+  FREE(ifn);
+
+  return result;
+
+}
+#endif
+
+
 #if defined(SIOCGIFNAME)
 static
 ERL_NIF_TERM esock_ioctl_gifname(ErlNifEnv*       env,
@@ -13598,6 +13683,38 @@ ERL_NIF_TERM esock_ioctl_giftxqlen(ErlNifEnv*       env,
 
 }
 #endif
+
+
+static
+ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
+				 ESockDescriptor* descP,
+				 struct ifmap*    mapP)
+{
+  ERL_NIF_TERM mapKeys[] = {atom_mem_start,
+			    atom_mem_end,
+			    atom_base_addr,
+			    atom_irq,
+			    atom_dma,
+			    atom_port};
+  ERL_NIF_TERM mapVals[] = {MKUL(env, mapP->mem_start),
+			    MKUL(env, mapP->mem_end),
+			    MKUI(env, mapP->base_addr),
+			    MKUI(env, mapP->irq),
+			    MKUI(env, mapP->dma),
+			    MKUI(env, mapP->port)};
+  unsigned int numMapKeys = NUM(mapKeys);
+  unsigned int numMapVals = NUM(mapVals);
+  ERL_NIF_TERM emap;
+
+  ESOCK_ASSERT( numMapVals == numMapKeys );
+  ESOCK_ASSERT( MKMA(env, mapKeys, mapVals, numMapKeys, &emap) );
+
+  SSDBG( descP, ("SOCKET", "encode_ioctl_ifrmap -> done with"
+		 "\r\n    Map: %T"
+		 "\r\n", emap) );
+
+  return esock_make_ok2(env, emap);;
+}
 
 
 static
