@@ -103,6 +103,7 @@ MODULES= \
 	tls_client_ticket_store \
 	tls_dist_sup \
 	tls_dist_server_sup \
+	tls_dyn_connection_sup\
 	tls_sender \
 	tls_server_session_ticket\
 	tls_server_session_ticket_sup\

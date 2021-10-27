@@ -512,8 +512,7 @@ tls_monitor_listener(Config) when is_list(Config) ->
                                          {options, tls_monitor_listen_opts(Version, ServerOpts)}]),
     _Port2 = ssl_test_lib:inet_port(Server2),
 
-    ProlistCounts1 = supervisor:count_children(ssl_listen_tracker_sup),
-    2 = proplists:get_value(workers, ProlistCounts1),
+    2 = count_children(workers, ssl_listen_tracker_sup),
 
     Sessions = session_info(Version),
 
@@ -534,12 +533,11 @@ tls_monitor_listener(Config) when is_list(Config) ->
             ct:sleep(1000)
     end,
 
-    ProlistCounts2 = supervisor:count_children(ssl_listen_tracker_sup),
 
     Sessions1 = session_info(Version),
     true = (Sessions1 == 1),
-
-    1 = proplists:get_value(workers, ProlistCounts2).
+    
+    1 = count_children(workers, ssl_listen_tracker_sup).
 
 %%--------------------------------------------------------------------
 tls_tcp_msg() ->
@@ -826,7 +824,7 @@ transport_close_in_inital_hello(Config) when is_list(Config) ->
 
     Sup = (whereis(tls_connection_sup)),
 
-    check_connection_workers(Sup, 2),
+    check_connection_processes(Sup, 2),
 
     Acceptor ! die,
 
@@ -838,20 +836,20 @@ transport_close_in_inital_hello(Config) when is_list(Config) ->
         {'EXIT', Connector, _} ->
             ok
      end,
-    check_connection_workers(Sup, 0).
+    check_connection_processes(Sup, 0).
 
-check_connection_workers(Sup, N) ->
-    check_connection_workers(Sup, N, 5).
+check_connection_processes(Sup, N) ->
+    check_connection_processes(Sup, N, 5).
 
-check_connection_workers(Sup, N, 0) ->
-    N = proplists:get_value(workers, supervisor:count_children(Sup));
-check_connection_workers(Sup, N, M) ->
-    case proplists:get_value(workers, supervisor:count_children(Sup)) of
+check_connection_processes(Sup, N, 0) ->
+    N = count_children(supervisors, Sup);
+check_connection_processes(Sup, N, M) ->
+    case count_children(supervisors, Sup) of
         N ->
             ok;
         _ ->
             ct:sleep(500),
-            check_connection_workers(Sup, N, M-1)
+            check_connection_processes(Sup, N, M-1)
     end.
 
 %%--------------------------------------------------------------------
@@ -1100,8 +1098,9 @@ tls_monitor_client_opts(_, Opts) ->
     Opts.
 
 session_info('tlsv1.3') ->
-    ProlistCounts = supervisor:count_children(tls_server_session_ticket_sup),
-    proplists:get_value(workers, ProlistCounts);
+    count_children(workers, tls_server_session_ticket_sup);
 session_info(_) ->
-    ProlistCounts = supervisor:count_children(ssl_server_session_cache_sup),
-    proplists:get_value(workers, ProlistCounts).
+    count_children(workers, ssl_server_session_cache_sup).
+
+count_children(ChildType, SupRef) ->
+    proplists:get_value(ChildType, supervisor:count_children(SupRef)).

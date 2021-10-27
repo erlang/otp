@@ -30,15 +30,30 @@
 -include("tls_handshake_1_3.hrl").
 
 %% API
--export([start/0, start/1, initialize/2, send_data/2,
-         send_post_handshake/2, send_alert/2,
-         send_and_ack_alert/2, setopts/2, renegotiate/1, peer_renegotiate/1, downgrade/2,
+-export([start_link/0,
+         start_link/1,
+         initialize/2,
+         send_data/2,
+         send_post_handshake/2,
+         send_alert/2,
+         send_and_ack_alert/2,
+         setopts/2,
+         renegotiate/1,
+         peer_renegotiate/1,
+         downgrade/2,
          update_connection_state/3,
-         dist_tls_socket/1, dist_handshake_complete/3]).
+         dist_tls_socket/1,
+         dist_handshake_complete/3]).
 
 %% gen_statem callbacks
--export([callback_mode/0, init/1, terminate/3, code_change/4]).
--export([init/3, connection/3, handshake/3, death_row/3]).
+-export([callback_mode/0,
+         init/1,
+         terminate/3,
+         code_change/4]).
+-export([init/3,
+         connection/3,
+         handshake/3,
+         death_row/3]).
 
 -record(static,
         {connection_pid,
@@ -65,10 +80,10 @@
 %%% API
 %%%===================================================================
 %%--------------------------------------------------------------------
--spec start() -> {ok, Pid :: pid()} |
+-spec start_link() -> {ok, Pid :: pid()} |
                  ignore |
                  {error, Error :: term()}.
--spec start(list()) -> {ok, Pid :: pid()} |
+-spec start_link(list()) -> {ok, Pid :: pid()} |
                        ignore |
                        {error, Error :: term()}.
 
@@ -76,10 +91,10 @@
 %%  may happen when a socket is busy (busy port) and the
 %%  same process is sending and receiving 
 %%--------------------------------------------------------------------
-start() ->
-    gen_statem:start(?MODULE, [], []).
-start(SpawnOpts) ->
-    gen_statem:start(?MODULE, [], SpawnOpts).
+start_link() ->
+    gen_statem:start_link(?MODULE, [], []).
+start_link(SpawnOpts) ->
+    gen_statem:start_link(?MODULE, [], SpawnOpts).
 
 %%--------------------------------------------------------------------
 -spec initialize(pid(), map()) -> ok. 
@@ -613,7 +628,9 @@ call(FsmPid, Event) ->
  	    {error, closed};
 	exit:{normal, _} ->
 	    {error, closed};
-	exit:{{shutdown, _},_} ->
+	exit:{shutdown,_} ->
+	    {error, closed};
+        exit:{{shutdown, _},_} ->
 	    {error, closed}
     end.
 

@@ -436,8 +436,7 @@ terminate({shutdown, {sender_died, Reason}}, _StateName,
     ssl_gen_statem:handle_trusted_certs_db(State),
     tls_gen_connection:close(Reason, Socket, Transport, undefined, undefined);
 terminate(Reason, StateName, State) ->
-    catch ssl_gen_statem:terminate(Reason, StateName, State),
-    ensure_sender_terminate(Reason, State).
+    ssl_gen_statem:terminate(Reason, StateName, State).
 
 format_status(Type, Data) ->
     ssl_gen_statem:format_status(Type, Data).
@@ -552,19 +551,6 @@ gen_info(Event, StateName, State) ->
 						       malformed_handshake_data),
 					    StateName, State)
     end.
-
-ensure_sender_terminate(downgrade, _) ->
-    ok; %% Do not terminate sender during downgrade phase 
-ensure_sender_terminate(_,  #state{protocol_specific = #{sender := Sender}}) ->
-    %% Make sure TLS sender dies when connection process is terminated normally
-    %% This is needed if the tls_sender is blocked in prim_inet:send 
-    Kill = fun() -> 
-                   receive 
-                   after 5000 ->
-                           catch (exit(Sender, kill))
-                   end
-           end,
-    spawn(Kill).
 
 choose_tls_fsm(#{versions := Versions},
                #client_hello{

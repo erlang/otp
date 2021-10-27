@@ -44,7 +44,7 @@ start_link_dist() ->
 
 start_child(Args) ->
     supervisor:start_child(?MODULE, Args).
-    
+
 start_child_dist(Args) ->
     supervisor:start_child(tls_dist_connection_sup, Args).
     
@@ -56,11 +56,10 @@ init(_) ->
                  intensity =>   0,
                  period    => 3600
                 },
-    ChildSpecs = [#{id       => undefined,
-                    start    => {ssl_gen_statem, start_link, []},
-                    restart  => temporary, 
-                    shutdown => 4000,
-                    modules  => [ssl_gen_statem, tls_connection, tls_connection_1_3],
-                    type     => worker
-                   }],    
+    ChildSpecs = [#{id      => undefined,
+                    restart => temporary,
+                    type    => supervisor,
+                    start   => {tls_dyn_connection_sup, start_link, []}}],
     {ok, {SupFlags, ChildSpecs}}.
+
+
