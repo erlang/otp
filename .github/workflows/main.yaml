@@ -35,6 +35,43 @@ jobs:
           name: otp_git_archive
           path: otp_src.tar.gz
 
+  build-macos:
+    env:
+      RELEASE_LIBBEAM: yes
+      TARGET_ARCH: aarch64-apple-ios
+    name: Build Erlang/OTP for iOS
+    runs-on: macos-latest
+    needs: pack
+    steps:
+      - name: Download source archive
+        uses: actions/download-artifact@v2
+        with:
+          name: otp_git_archive
+
+      - name: Compile Erlang
+        run: |
+          tar -xzf ./otp_src.tar.gz
+          cd otp
+          export ERL_TOP=`pwd`
+          export MAKEFLAGS="-j4 -O"
+          export ERLC_USE_SERVER=true
+          ./otp_build configure --xcomp-conf=./xcomp/erl-xcomp-arm64-ios.conf --without-ssl
+          ./otp_build boot -a
+          ./otp_build release -a
+      
+      - name: Package .xcframework
+        run: |
+          cd otp
+          export BUILD_ARCH=`./erts/autoconf/config.guess`
+          export LIBS=`find . -not -path "*${BUILD_ARCH}*" -path "*${TARGET_ARCH}*" -not -name "*_st.a" -not -name "*_r.a" -name "*.a" | awk '{ "basename " $1 | getline name; names[name] = $1 } END { for (n in names) { print names[n] }}'`
+          libtool -static -o liberlang.a $LIBS
+          xcodebuild -create-xcframework -output ./liberlang.xcframework -library liberlang.a
+
+      - name: Upload framework
+        uses: actions/upload-artifact@v2
+        with:
+          name: ios_framework_${{ env.TARGET_ARCH }}
+          path: otp/liberlang.xcframework
 
   build-windows:
     defaults:

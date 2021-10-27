@@ -4439,6 +4439,16 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
     {
         ErtsStaticNifEntry* sne;
         sne = erts_static_nif_get_nif_init((char*)mod_atomp->name, mod_atomp->len);
+        if (sne == NULL) {
+            /* Second lookup in the static nif table based on the filename */
+            /* this allows Elixir modules which always have dots '.' in their */
+            /* module names to be loaded */
+            char *basename = strrchr(lib_name, '/');
+            if (basename) {
+                basename++;
+                sne = erts_static_nif_get_nif_init(basename, strlen(basename));
+            }
+        }        
         if (sne != NULL) {
             init_func = sne->nif_init;
             handle = init_func;

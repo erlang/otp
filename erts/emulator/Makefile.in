@@ -33,6 +33,7 @@ LIBS = @LIBS@
 Z_LIB=@Z_LIB@
 CROSS_COMPILING = @CROSS_COMPILING@
 NO_INLINE_FUNCTIONS=false
+USING_VC=@MIXED_VC@
 
 OPCODE_TABLES = \
     $(ERL_TOP)/lib/compiler/src/genop.tab \
@@ -202,8 +203,10 @@ space+=
 STATIC_NIFS=@STATIC_NIFS@
 ifneq ($(STATIC_NIFS),no)
 ifeq ($(STATIC_NIFS),yes)
-STATIC_NIFS=$(ERL_TOP)/lib/asn1/priv/lib/$(TARGET)/asn1rt_nif.a \
-	$(ERL_TOP)/lib/crypto/priv/lib/$(TARGET)/crypto$(TYPEMARKER).a
+STATIC_NIFS=$(ERL_TOP)/lib/asn1/priv/lib/$(TARGET)/asn1rt_nif.a
+ifeq ($(wildcard $(ERL_TOP)/lib/crypto/SKIP),)
+	STATIC_NIFS+=$(ERL_TOP)/lib/crypto/priv/lib/$(TARGET)/crypto$(TYPEMARKER).a
+endif
 endif
 STATIC_NIFS:=$(subst $(comma),$(space),$(STATIC_NIFS))
 endif
@@ -218,7 +221,7 @@ endif
 
 
 #
-# NOTE: When adding a new type update ERL_BUILD_TYPE_MARKER in sys/unix/sys.c
+# NOTE: When adding a new type update ERL_BUILD_TYPE_MARKER in sys/unix/sys_drivers.c
 #
 
 FLAVOR_MARKER=.$(FLAVOR)
@@ -436,8 +439,10 @@ ENABLE_ALLOC_TYPE_VARS += @ERLANG_OSTYPE@
 
 ifeq ($(TARGET), win32)
 FLAVOR_EXECUTABLE = beam$(TF_MARKER).dll
+EMULATOR_LIB = libbeam.lib
 else
 FLAVOR_EXECUTABLE = beam$(TF_MARKER)
+EMULATOR_LIB = libbeam.a
 PROFILE_EXECUTABLE = beam.prof$(TF_MARKER)
 endif
 CS_EXECUTABLE = erl_child_setup$(TYPEMARKER)
@@ -476,7 +481,7 @@ ifdef VOID_EMULATOR
 all:
 	@echo $(VOID_EMULATOR)' - omitted target all'
 else
-all: $(BINDIR)/$(EMULATOR_EXECUTABLE) $(UNIX_ONLY_BUILDS)
+all: $(BINDIR)/$(EMULATOR_EXECUTABLE) $(BINDIR)/$(EMULATOR_LIB) $(UNIX_ONLY_BUILDS)
 endif
 
 $(BINDIR)/$(PRIMARY_EXECUTABLE): $(BINDIR)/$(FLAVOR_EXECUTABLE)
@@ -533,6 +538,10 @@ release_spec: all
 	$(INSTALL_DATA) $(RELEASE_INCLUDES) "$(RELEASE_PATH)/usr/include"
 	$(INSTALL_DATA) $(RELEASE_INCLUDES) "$(RELSYSDIR)/include"
 	$(INSTALL_PROGRAM) $(BINDIR)/$(EMULATOR_EXECUTABLE) "$(RELSYSDIR)/bin"
+ifeq ($(RELEASE_LIBBEAM),yes)
+	$(INSTALL_DIR) "$(RELSYSDIR)/lib"
+	$(INSTALL_PROGRAM) $(BINDIR)/$(EMULATOR_LIB) "$(RELSYSDIR)/lib"
+endif
 ifeq ($(ERLANG_OSTYPE), unix)
 	$(INSTALL_PROGRAM) $(BINDIR)/$(CS_EXECUTABLE) "$(RELSYSDIR)/bin"
 endif
@@ -1276,6 +1285,26 @@ $(BINDIR)/$(FLAVOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 endif
 
 # ----------------------------------------------------------------------
+# The emulator as a static lib ...
+#
+ifeq ($(USING_VC),yes)
+AR_OUT=-out:
+AR_FLAGS=
+else
+AR_OUT=
+ifeq ($(V),0)
+AR_FLAGS=rc
+else
+AR_FLAGS=rcv
+endif
+endif
+
+$(BINDIR)/${EMULATOR_LIB}: $(PRELOAD_OBJ) $(OBJS) $(DEPLIBS)
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ \
+	$(PRELOAD_OBJ) $(OBJS)
+	$(V_RANLIB) $@
+
+# ----------------------------------------------------------------------
 # Dependencies
 #
 $(TARGET)/Makefile: Makefile.in
@@ -1342,7 +1371,7 @@ DEP_FLAGS=-MM  $(subst -O2,,$(CFLAGS)) $(INCLUDES) -I../etc/win32 \
 	-Idrivers/common -Idrivers/$(ERLANG_OSTYPE) \
 	-Inifs/common -Inifs/$(ERLANG_OSTYPE)
 
-# ifeq (@MIXED_VC@,yes)
+# ifeq ($(USING_VC),yes)
 # VC++ used for compiling. If __GNUC__ is defined we will include
 # other headers then when compiling which will result in faulty
 # dependencies.

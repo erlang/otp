@@ -64,6 +64,13 @@
 #define snprintf _snprintf
 #endif
 
+#ifdef __IOS__
+#ifdef system
+#undef system
+#endif 
+#define system(X) 0
+#endif
+
 #ifdef DEBUG
 #  define ASSERT(Cnd) ((void)((Cnd) ? 1 : abort()))
 #else
