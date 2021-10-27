@@ -198,6 +198,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(block_source);             \
     GLOBAL_ATOM_DEF(broadcast);                \
     GLOBAL_ATOM_DEF(busy_poll);                \
+    GLOBAL_ATOM_DEF(chaos);                    \
     GLOBAL_ATOM_DEF(checksum);                 \
     GLOBAL_ATOM_DEF(close);                    \
     GLOBAL_ATOM_DEF(cmsg_cloexec);             \
@@ -259,6 +260,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(ieee1394);                 \
     GLOBAL_ATOM_DEF(ifindex);                  \
     GLOBAL_ATOM_DEF(igmp);                     \
+    GLOBAL_ATOM_DEF(implink);                  \
     GLOBAL_ATOM_DEF(inet);                     \
     GLOBAL_ATOM_DEF(inet6);                    \
     GLOBAL_ATOM_DEF(info);                     \
@@ -280,6 +282,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(leave_group);              \
     GLOBAL_ATOM_DEF(level);                    \
     GLOBAL_ATOM_DEF(linger);                   \
+    GLOBAL_ATOM_DEF(link);                     \
     GLOBAL_ATOM_DEF(local);                    \
     GLOBAL_ATOM_DEF(local_auth_chunks);        \
     GLOBAL_ATOM_DEF(loopback);                 \
@@ -341,6 +344,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(priority);                 \
     GLOBAL_ATOM_DEF(promisc);                  \
     GLOBAL_ATOM_DEF(protocol);                 \
+    GLOBAL_ATOM_DEF(pup);                      \
     GLOBAL_ATOM_DEF(raw);                      \
     GLOBAL_ATOM_DEF(rcvbuf);                   \
     GLOBAL_ATOM_DEF(rcvbufforce);              \

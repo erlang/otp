@@ -417,6 +417,34 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
     break;
 #endif
 
+#if defined(AF_IMPLINK)
+  case AF_IMPLINK:
+    esock_encode_sockaddr_native(env, &sockAddrP->sa,
+				 addrLen, esock_atom_implink, eSockAddr);
+    break;
+#endif
+
+#if defined(AF_PUP)
+  case AF_PUP:
+    esock_encode_sockaddr_native(env, &sockAddrP->sa,
+				 addrLen, esock_atom_pup, eSockAddr);
+    break;
+#endif
+
+#if defined(AF_CHAOS)
+  case AF_CHAOS:
+    esock_encode_sockaddr_native(env, &sockAddrP->sa,
+				 addrLen, esock_atom_chaos, eSockAddr);
+    break;
+#endif
+
+#if defined(AF_LINK)
+  case AF_LINK:
+    esock_encode_sockaddr_native(env, &sockAddrP->sa,
+				 addrLen, esock_atom_link, eSockAddr);
+    break;
+#endif
+
   default:
     esock_encode_sockaddr_native(env, &sockAddrP->sa,
 				 addrLen, MKI(env, family), eSockAddr);
