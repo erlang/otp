@@ -212,7 +212,7 @@ static const char *epmd_ntop(struct sockaddr_storage *sa, char *buff, size_t len
     /* Save errno so that it is not changed by inet_ntop */
     int myerrno = errno;
     const char *res;
-#if !defined(EPMD6)
+#if defined(EPMD6)
     if (sa->ss_family == AF_INET6) {
         struct sockaddr_in6 *addr = (struct sockaddr_in6 *)sa;
         res = inet_ntop(
@@ -458,7 +458,7 @@ void run(EpmdVars *g)
       if (fcntl(listensock[i], F_SETFL, opt | O_NONBLOCK) == -1)
 #endif /* __WIN32__ */
 	dbg_perror(g,"failed to set non-blocking mode of listening socket %d on ipaddr %s",
-		   listensock[i], epmd_ntop(&iserv_addr[num_sockets],
+		   listensock[i], epmd_ntop(&iserv_addr[i],
                                             socknamebuf, sizeof(socknamebuf)));
 
       if (bind(listensock[i], sa, salen) < 0)
@@ -466,14 +466,14 @@ void run(EpmdVars *g)
 	  if (errno == EADDRINUSE)
 	    {
 	      dbg_tty_printf(g,1,"there is already a epmd running at port %d on ipaddr %s",
-			     g->port, epmd_ntop(&iserv_addr[num_sockets],
+			     g->port, epmd_ntop(&iserv_addr[i],
                                                 socknamebuf, sizeof(socknamebuf)));
 	      epmd_cleanup_exit(g,0);
 	    }
 	  else
 	    {
               dbg_perror(g,"failed to bind on ipaddr %s",
-                         epmd_ntop(&iserv_addr[num_sockets],
+                         epmd_ntop(&iserv_addr[i],
                                    socknamebuf, sizeof(socknamebuf)));
               epmd_cleanup_exit(g,1);
 	    }
@@ -481,7 +481,7 @@ void run(EpmdVars *g)
 
       if(listen(listensock[i], SOMAXCONN) < 0) {
           dbg_perror(g,"failed to listen on ipaddr %s",
-                     epmd_ntop(&iserv_addr[num_sockets],
+                     epmd_ntop(&iserv_addr[i],
                                socknamebuf, sizeof(socknamebuf)));
           epmd_cleanup_exit(g,1);
       }
