@@ -8136,12 +8136,15 @@ long_throughput_benchmark(Config) when is_list(Config) ->
               ]
              ],
          table_types =
-             [
-              [ordered_set, public, {write_concurrency, true}, {read_concurrency, true}],
-              [set, public, {write_concurrency, true}, {read_concurrency, true}],
-              [set, public, {write_concurrency, auto}, {read_concurrency, true}],
-              [set, public, {write_concurrency, {debug_hash_fixed_number_of_locks, 16384}}]
-             ],
+             ([
+               [ordered_set, public, {write_concurrency, true}, {read_concurrency, true}],
+               [set, public, {write_concurrency, true}, {read_concurrency, true}]
+              ] ++
+                  case catch list_to_integer(erlang:system_info(otp_release)) of
+                      Recent when is_integer(Recent), Recent >= 25 ->
+                          [[set, public, {write_concurrency, auto}, {read_concurrency, true}]];
+                      _Old -> []
+                  end),
          etsmem_fun = fun etsmem/0,
          verify_etsmem_fun = fun verify_etsmem/1,
          notify_res_fun =
