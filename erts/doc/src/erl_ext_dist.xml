@@ -1106,7 +1106,7 @@
 
     <section>
       <marker id="FUN_EXT"/>
-      <title>FUN_EXT</title>
+      <title>FUN_EXT (removed)</title>
 	<table align="left">
 	  <row>
 	    <cell align="center">1</cell>
@@ -1127,49 +1127,7 @@
 	    <cell align="center"><c>Free vars ...</c></cell>
 	  </row>
 	<tcaption>FUN_EXT</tcaption></table>
-	<taglist>
-	  <tag><c>Pid</c></tag>
-	  <item>
-	    <p>A process identifier as in
-	      <seeguide marker="#PID_EXT"><c>PID_EXT</c></seeguide>.
-	      Represents the process in which the fun was created.
-	    </p>
-	  </item>
-	<tag><c>Module</c></tag>
-	<item>
-	  <p>Encoded as an atom, using
-	    <seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>,
-	    <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>,
-	    or <seeguide marker="#ATOM_CACHE_REF">
-	    <c>ATOM_CACHE_REF</c></seeguide>.
-	    This is the module that the fun is implemented in.
-	  </p>
-	</item>
-	<tag><c>Index</c></tag>
-	<item>
-	  <p>An integer encoded using
-	    <seeguide marker="#SMALL_INTEGER_EXT">
-	    <c>SMALL_INTEGER_EXT</c></seeguide> 
-	    or <seeguide marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seeguide>.
-	    It is typically a small index into the module's fun table.
-	  </p>
-	</item>
-	<tag><c>Uniq</c></tag>
-	<item>
-	  <p>An integer encoded using
-	    <seeguide marker="#SMALL_INTEGER_EXT">
-	    <c>SMALL_INTEGER_EXT</c></seeguide> or 
-	    <seeguide marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seeguide>.
-	    <c>Uniq</c> is the hash value of the parse for the fun.
-	  </p>
-	</item>
-	<tag><c>Free vars</c></tag>
-	<item>
-	  <p><c>NumFree</c> number of terms, each one encoded according
-	    to its type.
-	  </p>
-	</item>
-	</taglist>
+	<p>Not emitted since OTP R8, and not decoded since OTP 23.</p>
     </section>
 
     <section>
@@ -1204,7 +1162,7 @@
 	  </row>
 	<tcaption>NEW_FUN_EXT</tcaption></table>
 	<p>
-	  This is the new encoding of internal funs: <c>fun F/A</c> and
+	  This is the encoding of internal funs: <c>fun F/A</c> and
 	  <c>fun(Arg1,..) -> ... end</c>.
 	</p>
 	<taglist>
