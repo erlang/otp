@@ -1954,6 +1954,102 @@
     </func>
 
     <func>
+      <name name="ioctl" arity="2" since="@OTP-17528@"/>
+      <fsummary>Control device.</fsummary>
+      <desc>
+        <p>Retrieve socket (device) parameters.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ioctl" arity="3" since="@OTP-17528@"/>
+      <fsummary>Control device.</fsummary>
+      <desc>
+	<p>Retrieve socket (device) parameters.
+	This function retreives a specific parameter,
+	according to <c>GetRequest</c> argument. The third
+	argument is the (lookup) "key", identifying the
+	interface (usually the name of the interface).</p>
+        <taglist>
+          <tag><c>gifname</c></tag>
+          <item>
+	    <p>Get the name of the interface with the specified index
+	    (integer()). </p>
+	    <p>Result, name of the interface, is a <c>string()</c>. </p>
+          </item>
+
+          <tag><c>gifindex</c></tag>
+          <item>
+	    <p>Get the index of the interface with the specified name. </p>
+	    <p>Result, interface index, is a <c>integer()</c>. </p>
+          </item>
+
+          <tag><c>gifaddr</c></tag>
+          <item>
+	    <p>Get the address of the interface with the specified name.
+	    Result, address of the interface, is a <c>socket:sockaddr()</c>. </p>
+          </item>
+
+          <tag><c>gifdstaddr</c></tag>
+          <item>
+	    <p>Get the destination address of the point-to-point interface
+	    with the specified name. </p>
+	    <p>Result, destination address of the interface,
+	    is a <c>socket:sockaddr()</c>. </p>
+          </item>
+
+          <tag><c>gifbrdaddr</c></tag>
+          <item>
+	    <p>Get the droadcast address for the interface
+	    with the specified name. </p>
+	    <p>Result, broadcast address of the interface,
+	    is a <c>socket:sockaddr()</c>. </p>
+          </item>
+
+          <tag><c>gifnetmask</c></tag>
+          <item>
+	    <p>Get the network mask for the interface
+	    with the specified name. </p>
+	    <p>Result, network mask of the interface,
+	    is a <c>socket:sockaddr()</c>. </p>
+          </item>
+
+          <tag><c>gifhwaddr</c></tag>
+          <item>
+	    <p>Get the hardware address for the interface
+	    with the specified name. </p>
+	    <p>Result, hardware address of the interface,
+	    is a <c>socket:sockaddr()</c>. </p>
+          </item>
+
+          <tag><c>gifmtu</c></tag>
+          <item>
+	    <p>Get the MTU (Maximum Transfer Unit) for the interface
+	    with the specified name. </p>
+	    <p>Result, MTU of the interface, is an <c>integer()</c>. </p>
+          </item>
+
+          <tag><c>giftxqlen</c></tag>
+          <item>
+	    <p>Get the transmit queue length of the interface
+	    with the specified name. </p>
+	    <p>Result, transmit queue length of the interface,
+	    is an <c>integer()</c>. </p>
+          </item>
+
+          <tag><c>gifflags</c></tag>
+          <item>
+	    <p>Get the active flag word of the interface
+	    with the specified name. </p>
+	    <p>Result, the active flag word of the interface,
+	    is an list of <c>socket:ioctl_device_flag() | integer()</c>. </p>
+          </item>
+	</taglist>
+
+      </desc>
+    </func>
+
+    <func>
       <name name="is_supported" arity="1" since="OTP 23.0"/>
       <name name="is_supported" arity="2" since="OTP 23.0"/>
       <fsummary>Report info about what the platform supports.</fsummary>

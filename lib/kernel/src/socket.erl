@@ -143,6 +143,9 @@
 	      info_keys/0
              ]).
 
+%% DUMMY
+-export_type([ioctl_device_flag/0, ioctl_device_map/0]).
+
 %% We need #file_descriptor{} for sendfile/2,3,4,5
 -include("file_int.hrl").
 
@@ -718,6 +721,25 @@
 		      'recv' | 'sent' |
 		      'state'
 		     ].
+
+
+-type ioctl_device_flag() :: up | broadcast | debug | loopback | pointopoint |
+                             running | noarp | promisc | notrailers | allmulti |
+                             master | slave | multicast | portsel | automedia |
+                             dynamic | lower_up | dormant | echo.
+
+%% When reading the device map (gifmap), the resulting map will be 
+%% "fully" populated.
+%% <DOES-THIS-WORK>
+%% When writing, it is expected that only the fields that is
+%% to be set is present.
+%% </DOES-THIS-WORK>
+-type ioctl_device_map() :: #{mem_start := non_neg_integer(),
+                              mem_end   := non_neg_integer(),
+                              base_addr := non_neg_integer(),
+                              irq       := non_neg_integer(),
+                              dma       := non_neg_integer(),
+                              port      := non_neg_integer()}.
 
 
 %% ===========================================================================
@@ -4037,34 +4059,101 @@ peername(Socket) ->
 %%
 %%
 
-%% -type ioctl_get_request() :: gifconf | non_neg_integer().
-
--spec ioctl(Socket, GetRequest) -> {'ok', Result} | {'error', Reason} when
+-spec ioctl(Socket, GetRequest) -> {'ok', IFConf} | {'error', Reason} when
       Socket     :: socket(),
-      GetRequest :: gifconf,
-      Result     :: term(),
+      GetRequest :: 'gifconf',
+      IFConf     :: [#{name := string, addr := sockaddr()}],
       Reason     :: posix() | 'closed'.
 
 %% gifconf | {gifaddr, string()} | {gifindex, string()} | {gifname, integer()}
-ioctl(?socket(SockRef), GetRequest)
-  when is_atom(GetRequest) ->
+ioctl(?socket(SockRef), gifconf = GetRequest) ->
     prim_socket:ioctl(SockRef, GetRequest);
 ioctl(Socket, GetRequest) ->
     erlang:error(badarg, [Socket, GetRequest]).
 
+%% -spec ioctl(Socket, GetRequest, Index) -> {'ok', Name} | {'error', Reason} when
+%%       Socket     :: socket(),
+%%       GetRequest :: 'gifname',
+%%       Index      :: integer(),
+%%       Name       :: string(),
+%%       Reason     :: posix() | 'closed';
+%%            (Socket, GetRequest, Name) -> {'ok', Index} | {'error', Reason} when
+%%       Socket     :: socket(),
+%%       GetRequest :: 'gifindex',
+%%       Name       :: string(),
+%%       Index      :: integer(),
+%%       Reason     :: posix() | 'closed';
+%%            (Socket, GetRequest, Name) -> {'ok', Addr} | {'error', Reason} when
+%%       Socket     :: socket(),
+%%       GetRequest :: 'gifaddr',
+%%       Name       :: string(),
+%%       Addr       :: sockaddr(),
+%%       Reason     :: posix() | 'closed';
+%%            (Socket, GetRequest, Name) -> {'ok', DestAddr} | {'error', Reason} when
+%%       Socket      :: socket(),
+%%       GetRequest  :: 'gifdstaddr',
+%%       Name        :: string(),
+%%       DestAddr    :: sockaddr(),
+%%       Reason      :: posix() | 'closed';
+%%            (Socket, GetRequest, Name) -> {'ok', BroadcastAddr} | {'error', Reason} when
+%%       Socket        :: socket(),
+%%       GetRequest    :: 'gifbrdaddr',
+%%       Name          :: string(),
+%%       BroadcastAddr :: sockaddr(),
+%%       Reason        :: posix() | 'closed';
+%%            (Socket, GetRequest, Name) -> {'ok', Netmask} | {'error', Reason} when
+%%       Socket     :: socket(),
+%%       GetRequest :: 'gifnetmask',
+%%       Name       :: string(),
+%%       Netmask    :: sockaddr(),
+%%       Reason     :: posix() | 'closed';
+%%            (Socket, GetRequest, Name) -> {'ok', HWAddr} | {'error', Reason} when
+%%       Socket     :: socket(),
+%%       GetRequest :: 'gifhwaddr',
+%%       Name       :: string(),
+%%       HWAddr     :: sockaddr(),
+%%       Reason     :: posix() | 'closed';
+%%            (Socket, GetRequest, Name) -> {'ok', MTU} | {'error', Reason} when
+%%       Socket     :: socket(),
+%%       GetRequest :: 'gifmtu',
+%%       Name       :: string(),
+%%       MTU        :: integer(),
+%%       Reason     :: posix() | 'closed';
+%%            (Socket, GetRequest, Name) -> {'ok', TransmitQLen} | {'error', Reason} when
+%%       Socket       :: socket(),
+%%       GetRequest   :: 'giftxqlen',
+%%       Name         :: string(),
+%%       TransmitQLen :: integer(),
+%%       Reason       :: posix() | 'closed';
+%%            (Socket, GetRequest, Name) -> {'ok', Flags} | {'error', Reason} when
+%%       Socket     :: socket(),
+%%       GetRequest :: 'gifflags',
+%%       Name       :: string(),
+%%       Flags      :: [ioctl_device_flag() | integer()],
+%%       Reason     :: posix() | 'closed';
+%%            (Socket, GetRequest, Name) -> {'ok', DevMap} | {'error', Reason} when
+%%       Socket     :: socket(),
+%%       GetRequest :: 'gifmap',
+%%       Name       :: string(),
+%%       DevMap     :: ioctl_device_map(),
+%%       Reason     :: posix() | 'closed'.
 
--spec ioctl(Socket, GetRequest, Name) -> {'ok', Result} | {'error', Reason} when
-      Socket     :: socket(),
-      GetRequest :: gifname | gifindex |
-                    gifaddr | gifdstaddr | gifbrdaddr | gifnetmask | gifhwaddr |
-                    gifmtu | giftxqlen | gifflags,
-      Name       :: string() | integer(),
-      Result     :: term(),
-      Reason     :: posix() | 'closed'.
+-spec ioctl(Socket, GetRequest, NameOrIndex) -> {'ok', Result} | {'error', Reason} when
+      Socket      :: socket(),
+      GetRequest  :: 'gifname' | 'gifindex' |
+                     'gifaddr' | 'gifdstaddr' | 'gifbrdaddr' |
+                     'gifnetmask' | 'gifhwaddr' |
+                     'gifmtu' | 'giftxqlen' | 'gifflags',
+      NameOrIndex :: string() | integer(),
+      Result      :: term(),
+      Reason      :: posix() | 'closed'.
 
 ioctl(?socket(SockRef), gifname = GetRequest, Index)
   when is_integer(Index) ->
     prim_socket:ioctl(SockRef, GetRequest, Index);
+ioctl(?socket(SockRef), gifindex = GetRequest, Name)
+  when is_list(Name) ->
+    prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(?socket(SockRef), gifaddr = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
