@@ -661,7 +661,7 @@ create_connect_dialog(connect, #state{frame = Frame}) ->
     {ok,[[HomeDir]]} = init:get_argument(home),
     XDGHome = filename:basedir(user_config,"erlang"),
     DefaultCookie =
-        case file:path_open([HomeDir,XDGHome], ".erlang.cookie", read) of
+        case file:path_open([HomeDir,XDGHome], ".erlang.cookie", [read]) of
             {ok, File, _} ->
                 {ok, #file_info{ size = Sz }} = file:read_file_info(File),
                 {ok, Data} = file:read(File, Sz),
