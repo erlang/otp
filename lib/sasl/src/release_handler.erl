@@ -43,7 +43,13 @@
 -export([do_write_release/3, do_copy_file/2, do_copy_files/2,
 	 do_copy_files/1, do_rename_files/1, do_remove_files/1,
 	 remove_file/1, do_write_file/2, do_write_file/3,
-	 do_ensure_RELEASES/1]).
+	 do_ensure_RELEASES/1,
+         consult/2,
+         root_dir_relative_read_file_info/1,
+         root_dir_relative_read_file/1,
+         root_dir_relative_rename_file/2,
+         root_dir_relative_make_dir/1,
+         root_dir_relative_ensure_dir/1]).
 
 -record(state, {unpurged = [],
 		root,
@@ -397,7 +403,8 @@ create_RELEASES(Root, RelDir, RelFile, LibDirs) ->
 %%         located under Dir/ebin
 %% Purpose: Upgrade to the version in Dir according to an appup file
 %%-----------------------------------------------------------------
-upgrade_app(App, NewDir) ->
+upgrade_app(App, NewDir1) ->
+    NewDir = root_dir_relative_path(NewDir1),
     try upgrade_script(App, NewDir) of
 	{ok, NewVsn, Script} ->
 	    eval_appup_script(App, NewVsn, NewDir, Script)
@@ -435,7 +442,8 @@ downgrade_app(App, OldVsn, OldDir) ->
 	    {error, Reason}
     end.
 
-upgrade_script(App, NewDir) ->
+upgrade_script(App, NewDir1) ->
+    NewDir = root_dir_relative_path(NewDir1),
     OldVsn = ensure_running(App),
     OldDir = code:lib_dir(App),
     {NewVsn, Script} = find_script(App, NewDir, OldVsn, up),
@@ -489,7 +497,8 @@ ensure_running(App) ->
     end.
 
 find_script(App, Dir, OldVsn, UpOrDown) ->
-    Appup = filename:join([Dir, "ebin", atom_to_list(App)++".appup"]),
+    Appup1 = filename:join([Dir, "ebin", atom_to_list(App)++".appup"]),
+    Appup = root_dir_relative_path(Appup1),
     case file:consult(Appup) of
 	{ok, [{NewVsn, UpFromScripts, DownToScripts}]} ->
 	    Scripts = case UpOrDown of
@@ -522,7 +531,7 @@ read_app(App, Vsn, Dir) ->
 
 read_appspec(App, Dir) ->
     AppS = atom_to_list(App),
-    Path = [filename:join(Dir, "ebin")],
+    Path = [root_dir_relative_path(filename:join(Dir, "ebin"))],
     case file:path_consult(Path, AppS++".app") of
 	{ok, AppSpecL, _File} ->
 	    AppSpecL;
@@ -833,7 +842,9 @@ do_unpack_release(Root, RelDir, ReleaseName, Releases) ->
     Rel = ReleaseName ++ ".rel",
     _ = extract_rel_file(filename:join("releases", Rel), Tar, Root),
     RelFile = filename:join(RelDir, Rel),
-    Release = check_rel(Root, RelFile, false),
+    %% Send an empty string as Root as the library locations should
+    %% appear as paths relative to the root
+    Release = check_rel("", RelFile, false),
     #release{vsn = Vsn} = Release,
     case lists:keysearch(Vsn, #release.vsn, Releases) of
 	{value, _} -> throw({error, {existing_release, Vsn}});
@@ -850,8 +861,8 @@ do_unpack_release(Root, RelDir, ReleaseName, Releases) ->
     copy_file(RelFile, Dir, false),
 
     %% Clean release
-    _ = file:delete(Tar),
-    _ = file:delete(RelFile),
+    _ = root_dir_relative_file_delete(Tar),
+    _ = root_dir_relative_file_delete(RelFile),
 
     {ok, NewReleases, Vsn}.
    
@@ -883,7 +894,19 @@ check_rel_data({release, {Name, Vsn}, {erts, EVsn}, Libs}, Root, LibDirs,
 				      check_path(Path, Masters),
 				      Path;
 				  _ ->
-				      filename:join([Root, "lib", LibName])
+                                      %% If Root is an empty string,
+                                      %% we assume that the path is
+                                      %% relative to code:root_dir()
+                                      %% and save a relative
+                                      %% path. This is done to make it
+                                      %% easy to create a relocatable
+                                      %% RELEASES file.
+                                      case string:length(Root) of
+                                          0 ->
+                                              filename:join("lib", LibName);
+                                          _ ->
+                                              filename:join([Root, "lib", LibName])
+                                      end
 			      end,
 			  {Lib, LibVsn, LibDir}
 		  end,
@@ -894,7 +917,7 @@ check_rel_data(RelData, _Root, _LibDirs, _Masters) ->
     throw({error, {bad_rel_data, RelData}}).
 
 check_path(Path) ->
-	check_path_response(Path, file:read_file_info(Path)).
+	check_path_response(Path, root_dir_relative_read_file_info(Path)).
 check_path(Path, false)   -> check_path(Path);
 check_path(Path, Masters) -> check_path_master(Masters, Path).
 
@@ -904,7 +927,7 @@ check_path(Path, Masters) -> check_path_master(Masters, Path).
 %% at one node it should not exist at any other node either.
 %%-----------------------------------------------------------------
 check_path_master([Master|Ms], Path) ->
-	case rpc:call(Master, file, read_file_info, [Path]) of
+	case rpc:call(Master, ?MODULE, root_dir_relative_read_file_info, [Path]) of
 	{badrpc, _} -> consult_master(Ms, Path);
 	Res         -> check_path_response(Path, Res)
 	end;
@@ -1573,14 +1596,14 @@ memlib(_Lib, []) -> false.
 			 
 %% recursively remove file or directory
 remove_file(File) ->
-    case file:read_link_info(File) of
+    case root_dir_relative_read_link_info(File) of
 	{ok, Info} when Info#file_info.type==directory ->
-	    case file:list_dir(File) of
+	    case root_dir_relative_list_dir(File) of
 		{ok, Files} ->
 		    lists:foreach(fun(File2) ->
 					 remove_file(filename:join(File,File2))
 				  end, Files),
-		    case file:del_dir(File) of
+		    case root_dir_relative_dir_delete(File) of
 			ok -> ok;
 			{error, Reason} -> throw({error, Reason})
 		    end;
@@ -1588,7 +1611,7 @@ remove_file(File) ->
 		    throw({error, Reason})
 	    end;
 	{ok, _Info} ->
-	    case file:delete(File) of
+	    case root_dir_relative_file_delete(File) of
 		ok -> ok;
 		{error, Reason} -> throw({error, Reason})
 	    end;
@@ -1599,7 +1622,8 @@ remove_file(File) ->
 
 do_write_file(File, Str) ->
     do_write_file(File, Str, []).
-do_write_file(File, Str, FileOpts) ->
+do_write_file(File1, Str, FileOpts) ->
+    File = root_dir_relative_path(File1),
     case file:open(File, [write | FileOpts]) of
 	{ok, Fd} ->
 	    io:put_chars(Fd, Str),
@@ -1822,13 +1846,13 @@ check_file_masters(_FileName, _Type, []) ->
 
 %% Type == regular | directory
 do_check_file(FileName, Type) ->
-    case file:read_file_info(FileName) of
+    case root_dir_relative_read_file_info(FileName) of
 	{ok, Info} when Info#file_info.type==Type -> ok;
 	{error, _Reason} -> throw({error, {no_such_file, FileName}})
     end.
 
 do_check_file(Master, FileName, Type) ->
-    case rpc:call(Master, file, read_file_info, [FileName]) of
+    case rpc:call(Master, ?MODULE, root_dir_relative_read_file_info, [FileName]) of
 	{ok, Info} when Info#file_info.type==Type -> ok;
 	_ -> throw({error, {no_such_file, {Master, FileName}}})
     end.
@@ -1871,7 +1895,8 @@ write_releases_1(Dir, NewReleases, Masters) ->
     write_releases_m(Dir, NewReleases, Masters).
 
 do_write_release(Dir, RELEASES, NewReleases) ->
-    case file:open(filename:join(Dir, RELEASES), [write,{encoding,utf8}]) of
+    ReleasesFile = root_dir_relative_path(filename:join(Dir, RELEASES)),
+    case file:open(ReleasesFile, [write,{encoding,utf8}]) of
 	{ok, Fd} ->
 	    ok = io:format(Fd, "%% ~s~n~tp.~n",
                            [epp:encoding_to_string(utf8),NewReleases]),
@@ -1908,7 +1933,8 @@ write_releases_m(Dir, NewReleases, Masters) ->
 			    remove_files(all, [Backup, Change], Masters),
 			    ok;
 			{error, {Master, R}} ->
-			    takewhile(Master, Masters, file, rename,
+			    takewhile(Master, Masters, ?MODULE,
+                                      root_dir_relative_rename_file,
 				      [Backup, RelFile]),
 			    remove_files(all, [Backup, Change], Masters),
 			    throw({error, {Master, R, move_releases}})
@@ -1959,9 +1985,9 @@ do_copy_file(File, Dir) ->
     do_copy_file1(File, File2).
 
 do_copy_file1(File, File2) ->
-    case file:read_file(File) of
+    case root_dir_relative_read_file(File) of
 	{ok, Bin} ->
-	    case file:write_file(File2, Bin) of
+	    case root_dir_relative_write_file(File2, Bin) of
 		ok -> ok;
 		{error, Reason} ->
 		    {error, {Reason, File2}}
@@ -1995,7 +2021,9 @@ do_copy_files([]) ->
 %%-----------------------------------------------------------------
 %% Rename each Src file to Dest file in the list of files.
 %%-----------------------------------------------------------------
-do_rename_files([{Src, Dest}|Files]) ->
+do_rename_files([{Src1, Dest1}|Files]) ->
+    Src = root_dir_relative_path(Src1),
+    Dest = root_dir_relative_path(Dest1),
     case file:rename(Src, Dest) of
 	ok    -> do_rename_files(Files);
 	Error -> Error
@@ -2007,7 +2035,7 @@ do_rename_files([]) ->
 %% Remove a list of files. Ignore failure.
 %%-----------------------------------------------------------------
 do_remove_files([File|Files]) ->
-    _ = file:delete(File),
+    _ = root_dir_relative_file_delete(File),
     do_remove_files(Files);
 do_remove_files([]) ->
     ok.
@@ -2018,7 +2046,7 @@ do_remove_files([]) ->
 %% If not create an empty RELEASES file.
 %%-----------------------------------------------------------------
 do_ensure_RELEASES(RelFile) ->
-    case file:read_file_info(RelFile) of
+    case root_dir_relative_read_file_info(RelFile) of
 	{ok, _} -> ok;
 	_       -> do_write_file(RelFile, "[]. ") 
     end.
@@ -2026,11 +2054,16 @@ do_ensure_RELEASES(RelFile) ->
 %%-----------------------------------------------------------------
 %% Make a directory, ignore failures (captured later).
 %%-----------------------------------------------------------------
-make_dir(Dir, false) ->
+make_dir(Dir1, false) ->
+    Dir = root_dir_relative_path(Dir1),
     _ = file:make_dir(Dir),
     ok;
 make_dir(Dir, Masters) ->
-    lists:foreach(fun(Master) -> rpc:call(Master, file, make_dir, [Dir]) end,
+    lists:foreach(fun(Master) -> rpc:call(Master,
+                                          ?MODULE,
+                                          root_dir_relative_make_dir,
+                                          [Dir])
+                  end,
 		  Masters).
 
 %%-----------------------------------------------------------------
@@ -2068,7 +2101,7 @@ takewhile(Master, Masters, M, F, A) ->
 			end, Masters),
     ok.
 
-consult(File, false)   -> file:consult(File);
+consult(File, false)   -> file:consult(root_dir_relative_path(File));
 consult(File, Masters) -> consult_master(Masters, File).
 
 %%-----------------------------------------------------------------
@@ -2077,7 +2110,7 @@ consult(File, Masters) -> consult_master(Masters, File).
 %% not exist at any other node either.
 %%-----------------------------------------------------------------
 consult_master([Master|Ms], File) ->
-    case rpc:call(Master, file, consult, [File]) of
+    case rpc:call(Master, ?MODULE, consult, [File, false]) of
 	{badrpc, _} -> consult_master(Ms, File);
 	Res         -> Res
     end;
@@ -2085,12 +2118,12 @@ consult_master([], _File) ->
     {error, no_master}.
 
 read_file(File, false) ->
-    file:read_file(File);
+    root_dir_relative_read_file(File);
 read_file(File, Masters) ->
     read_master(Masters, File).
 
 write_file(File, Data, false) ->
-    case file:write_file(File, Data) of
+    case root_dir_relative_write_file(File, Data) of
 	ok    -> ok;
 	Error -> throw(Error)
     end;
@@ -2101,12 +2134,12 @@ write_file(File, Data, Masters) ->
     end.
 
 ensure_dir(File, false) ->
-    case filelib:ensure_dir(File) of
+    case root_dir_relative_ensure_dir(File) of
 	ok -> ok;
 	Error -> throw(Error)
     end;
 ensure_dir(File, Masters) ->
-    case at_all_masters(Masters,filelib,ensure_dir,[File]) of
+    case at_all_masters(Masters,?MODULE,root_dir_relative_ensure_dir,[File]) of
 	ok -> ok;
 	Error -> throw(Error)
     end.
@@ -2130,7 +2163,7 @@ remove_files(Master, Files, Masters) ->
 %% not exist at any other node either.
 %%-----------------------------------------------------------------
 read_master([Master|Ms], File) ->
-    case rpc:call(Master, file, read_file, [File]) of
+    case rpc:call(Master, ?MODULE, root_dir_relative_read_file, [File]) of
 	{badrpc, _} -> read_master(Ms, File);
 	Res         -> Res
     end;
@@ -2299,3 +2332,47 @@ get_releases_with_status([ {_, _, _, ReleaseStatus } = Head | Tail],
     get_releases_with_status(Tail, Status, [Head | Acc]);
 get_releases_with_status([_ | Tail], Status, Acc) ->
     get_releases_with_status(Tail, Status, Acc).
+
+root_dir_relative_read_link_info(File) ->
+    file:read_link_info(root_dir_relative_path(File)).
+
+root_dir_relative_list_dir(File) ->
+    file:list_dir(root_dir_relative_path(File)).
+
+root_dir_relative_file_delete(File) ->
+    file:delete(root_dir_relative_path(File)).
+
+root_dir_relative_dir_delete(File) ->
+    file:del_dir(root_dir_relative_path(File)).
+
+root_dir_relative_path(Pathname) ->
+    case filename:pathtype(Pathname) of
+        relative ->
+            filename:join(code:root_dir(), Pathname);
+        _ ->
+            Pathname
+    end.
+
+root_dir_relative_write_file(File, Bin) ->
+    file:write_file(root_dir_relative_path(File), Bin).
+
+%% The root_dir_relative* functions below are exported so that they
+%% can be called on other nodes with rpc
+
+root_dir_relative_read_file_info(Path) ->
+    file:read_file_info(root_dir_relative_path(Path)).
+
+root_dir_relative_read_file(File) ->
+    file:read_file(root_dir_relative_path(File)).
+
+root_dir_relative_rename_file(Source1, Destination1) ->
+    Source = root_dir_relative_path(Source1),
+    Destination = root_dir_relative_path(Destination1),
+    file:rename(Source, Destination).
+
+root_dir_relative_make_dir(Dir) ->
+    file:make_dir(root_dir_relative_path(Dir)).
+
+root_dir_relative_ensure_dir(Dir) ->
+    filelib:ensure_dir(root_dir_relative_path(Dir)).
+

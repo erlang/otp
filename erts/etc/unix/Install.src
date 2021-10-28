@@ -81,7 +81,9 @@ chmod 755 erl
 # Create start file for embedded system use,
 #
 (cd "$ERL_ROOT/erts-%I_VSN%/bin";
-  sed -e "s;%FINAL_ROOTDIR%;$TARGET_ERL_ROOT;" start.src > start;
+ sed -e "s;%FINAL_ROOTDIR%;$TARGET_ERL_ROOT;" \
+     -e "s;%VSN%;%I_VSN%;" \
+     start.src > start;
   chmod 755 start)
 
 cd "$ERL_ROOT/bin"
@@ -113,7 +115,7 @@ sed -e "s;%EMU%;%EMULATOR%%EMULATOR_NUMBER%;" "$ERL_ROOT/erts-%I_VSN%/bin/start_
 chmod 755 start_erl
 
 echo %I_VSN% %I_SYSTEM_VSN% > "$ERL_ROOT/releases/start_erl.data"
-sed -e "s;%ERL_ROOT%;$TARGET_ERL_ROOT;" "$ERL_ROOT/releases/RELEASES.src" > "$ERL_ROOT/releases/RELEASES"
+sed -e "s;%ERL_ROOT%/;;" "$ERL_ROOT/releases/RELEASES.src" > "$ERL_ROOT/releases/RELEASES"
 
 if [ "$start_option" = "query" ]
 then

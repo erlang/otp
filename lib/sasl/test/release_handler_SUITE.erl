@@ -52,7 +52,7 @@ unix_cases() ->
 		true ->  [{group, release}];
 		false -> [no_run_erl]
 	    end,
-    [target_system, target_system_unicode] ++ RunErlCases ++ cases().
+    [target_system, target_system_unicode, move_system] ++ RunErlCases ++ cases().
 
 win32_cases() ->
     [{group,release} | cases()].
@@ -242,6 +242,222 @@ gg_node_snames(Config) ->
 
 %%%-----------------------------------------------------------------
 %%% TEST CASES
+
+%% Test that a release can be location independent (i.e., if all
+%% paths related to the release are relative to the ROOTDIR of the
+%% release, then one can move the release to a different directory and
+%% it should still work).
+move_system(Conf) when is_list(Conf) ->
+    OldCWD = file:get_cwd(),
+    DataDir = ?config(data_dir, Conf),
+    TestRootDir = filename:join(DataDir, "relocatable_release"),
+    %% Remove old test data
+    file:set_cwd(TestRootDir),
+    os:cmd("rm -r system"),
+    os:cmd("rm -r system_moved"),
+    os:cmd("rm -r system_moved_again"),
+    %% Create TAR file for release A
+    ReleaseATarFile = create_release_package(DataDir, "hello_server", "A"),
+    SystemPath = filename:join(TestRootDir, "system"),
+    ok = erl_tar:extract(ReleaseATarFile, [{cwd, SystemPath}, compressed]),
+    RelDir = filename:join(SystemPath, "releases"),
+    SystemRelFile = filename:join(RelDir, "hello_server-A.rel"),
+    %% Create a location independent RELEASES file by passing an empty
+    %% string as the RootDir parameter. Library paths in the releases
+    %% file are assumed to be relative to the RootDir.
+    ok = release_handler:create_RELEASES("", RelDir, SystemRelFile, []),
+    %% Test that the location independent system can start and run
+    file:set_cwd(SystemPath),
+    SystemErlPath = filename:join(["erts-" ++ find_vsn_app(erts), "bin", "erl"]),
+    SystemTestCmd = SystemErlPath ++ " -noshell -boot releases/A/start -eval \"global:whereis_name(hello_server) ! self(),erlang:display(receive M -> M end),erlang:halt()\"",
+    [$h, $e, $l, $l, $o | _] = os:cmd(SystemTestCmd),
+    %% Should still work after copying the system and corrupting the source
+    os:cmd("rm -r ../system_moved"),
+    os:cmd("cp -r . ../system_moved"),
+    os:cmd("rm -r lib/stdlib*"),
+    os:cmd("rm -r releases"),
+    NewSystemPath = filename:join(TestRootDir, "system_moved"),
+    file:set_cwd(NewSystemPath),
+    [$h, $e, $l, $l, $o | _] = os:cmd(SystemTestCmd),
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% Let us now try if a system upgrade also works with a location independent system %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    ReleaseBTarFile = create_release_package(DataDir, "hello_server_new", "B"),
+    file:set_cwd(NewSystemPath),
+    BPackDest = filename:join([NewSystemPath,"releases", filename:basename(ReleaseBTarFile)]),
+    {ok, _ } = file:copy(ReleaseBTarFile, BPackDest),
+    BTarFileName = filename:basename(ReleaseBTarFile),
+    NameToUnpack = filename:rootname(BTarFileName, ".tar.gz"),
+    %% Start remote node with release A
+    Node = start_remote_node("A"),
+    try
+        %% Set current working directory to something irrelevant as the
+        %% current working directory should not affect if a system is
+        %% location independent or not
+        ok = rpc:call(Node, file, set_cwd, ["/"]),
+        {ok, "/"} = rpc:call(Node, file, get_cwd, []),
+        %% Let us check our app
+        hello = rpc:call(Node, app_callback_module, get_response, []),
+        %% Install the next release
+        {ok, "B"} = rpc:call(Node, release_handler, unpack_release, [NameToUnpack]),
+        %% We can now create relup file
+        AppUpSrc = filename:join([TestRootDir, "hello_server_new", "ebin", "hello_server.appup"]),
+        AppUpDest = filename:join([NewSystemPath, "lib", "hello_server-B", "ebin", "hello_server.appup"]),
+        {ok, _} = file:copy(AppUpSrc, AppUpDest),
+        %% Run command to create the relup file
+        os:cmd("erl -noshell -pa lib/hello_server-A/ebin/ -pa lib/hello_server-B/ebin/ -eval "
+               "\"systools:make_relup(\\\"releases/B/hello_server-B\\\", [\\\"releases/A/hello_server-A\\\"], [\\\"releases/A/hello_server-A\\\"]),erlang:halt()\""),
+        %% Copy relup to correct location
+        {ok, _} = file:copy("relup", filename:join(["releases", "B", "relup"])),
+        %% Install the B version
+        {ok, "A", _} = rpc:call(Node, release_handler, install_release, ["B"]),
+        %% Check that the releases info looks ok
+        Releases = rpc:call(Node, release_handler, which_releases, []),
+        true = lists:any(fun({"hello_server", "B", _, current}) ->
+                                 true;
+                            (_) ->
+                                 false
+                         end,
+                         Releases),
+        %% Make sure the old module gets replaced
+        ok = rpc:call(Node, app_callback_module, update, []),
+        %% Check that the upgrade worked
+        hej = rpc:call(Node, app_callback_module, get_response, []),
+        %% Make the upgrade permanent
+        ok = rpc:call(Node, release_handler, make_permanent, ["B"]),
+        %% Check that it still works
+        hej = rpc:call(Node, app_callback_module, get_response, []),
+        Releases2 = rpc:call(Node, release_handler, which_releases, []),
+        true = lists:any(fun({"hello_server", "B", _, permanent}) ->
+                                 true;
+                            (_) ->
+                                 false
+                         end,
+                         Releases2)
+    catch
+        Class:Reason:Stacktrace ->
+            erlang:raise(Class, Reason, Stacktrace)
+    after
+        %% Try to make sure the node goes down even if we fail the test case
+        (catch rpc:call(Node, erlang, halt, []))
+    end,
+    %% We will now move the install and check that everything still seems to be working fine
+    file:set_cwd(TestRootDir),
+    os:cmd("mv system_moved system_moved_again"),
+    NewSystemPath2 = filename:join(TestRootDir, "system_moved_again"),
+    file:set_cwd(NewSystemPath2),
+    Node = start_remote_node("B"),
+    try
+        %% Change current working directory to something irrelevant
+        ok = rpc:call(Node, file, set_cwd, ["/"]),
+        {ok, "/"} = rpc:call(Node, file, get_cwd, []),
+        %% Check that we are using version B
+        hej = rpc:call(Node, app_callback_module, get_response, []),
+        %% Downgrade to version A
+        {ok, "A", _} = rpc:call(Node, release_handler, install_release, ["A"]),
+        Releases3 = rpc:call(Node, release_handler, which_releases, []),
+        true = lists:any(fun({"hello_server", "A", _, current}) ->
+                                 true;
+                            (_) ->
+                                 false
+                         end,
+                         Releases3),
+        %% Make sure that the module is reloaded
+        ok = rpc:call(Node, app_callback_module, update, []),
+        %% Make sure that we are on version A
+        hello = rpc:call(Node, app_callback_module, get_response, []),
+        %% Make the downgrade permanent
+        ok = rpc:call(Node, release_handler, make_permanent, ["A"]),
+        %% Test that remove release works
+        ok = rpc:call(Node, release_handler, remove_release, ["B"]),
+        %% B should not exist anymore
+        Releases4 = rpc:call(Node, release_handler, which_releases, []),
+        false = lists:any(fun({"hello_server", "B", _, _}) ->
+                                  true;
+                             (_) ->
+                                  false
+                          end,
+                          Releases4),
+        ok = rpc:call(Node, app_callback_module, update, []),
+        %% We should still get hello
+        hello = rpc:call(Node, app_callback_module, get_response, [])
+    catch
+        Class2:Reason2:Stacktrace2 ->
+            erlang:raise(Class2, Reason2, Stacktrace2)
+    after
+        %% Try to make sure the node goes down even if we fail the test case
+        (catch rpc:call(Node, erlang, halt, [])),
+        file:set_cwd(OldCWD)
+    end,
+    ok.
+
+
+start_remote_node(RelVsn) ->
+    SystemErlPath = filename:join(["erts-" ++ find_vsn_app(erts), "bin", "erl"]),
+    {ok, Host} = inet:gethostname(),
+    Sname = "relocatable_node",
+    Node = list_to_atom(lists:concat([Sname,"@",Host])),
+    RemoteNodeCmd =
+        lists:flatten(SystemErlPath ++
+                          " -noshell -boot " ++
+                          filename:join(["releases", RelVsn, "start"]) ++
+                          " -name " ++
+                          atom_to_list(Node) ++
+                          " &"),
+    os:cmd(RemoteNodeCmd),
+    timer:sleep(500),
+    (fun Repeat("ok", _) -> ok;
+         Repeat(_, 20) -> erlang:error("Could not start node");
+         Repeat(_, N) ->
+             timer:sleep(500),
+             Repeat((catch rpc:call(Node, erlang, atom_to_list, [ok])), N+1)
+     end)((catch rpc:call(Node, erlang, atom_to_list, [ok])), 0),
+    Node.
+
+create_release_package(DataDir, SourceDir, RelVsn) ->
+    ReleaseSource = filename:join(DataDir, "relocatable_release"),
+    AppSrc = filename:join(ReleaseSource, SourceDir),
+    OldCWD = file:get_cwd(),
+    file:set_cwd(AppSrc),
+    os:cmd("erl -make"),
+    file:set_cwd(OldCWD),
+    RelFileScr = filename:join(ReleaseSource, "hello_server-"++ RelVsn ++".rel.src"),
+    RelFileDst = filename:join(ReleaseSource, "hello_server-"++ RelVsn ++".rel"),
+    {ok, RelFileTxt1} = file:read_file(RelFileScr),
+    RelFileTxt = fix_rel_file_vsns(["erts", "kernel", "stdlib", "sasl"],
+                                   RelFileTxt1),
+    ok = file:write_file(RelFileDst, RelFileTxt),
+    AppPath = filename:join([ReleaseSource, SourceDir, "ebin"]),
+    RelFileWithoutEnding = filename:join(ReleaseSource, "hello_server-" ++ RelVsn),
+    ok = systools:make_script(RelFileWithoutEnding, [local, {path, [AppPath]}]),
+    ok = systools:make_tar(RelFileWithoutEnding, [{erts, code:root_dir()}, {path, [AppPath]}]),
+    SystemPath = filename:join(ReleaseSource, "system"),
+    file:make_dir(SystemPath),
+    InitialTarPath = filename:join(ReleaseSource, "hello_server-"++ RelVsn ++".tar.gz"),
+    InitialTarPath.
+
+fix_rel_file_vsns(Apps, Txt) ->
+    Res =
+        lists:foldl(
+          fun(App, TxtAcc) ->
+                  string:replace(TxtAcc,
+                                 "%" ++  App ++ "_VSN" ++ "%" ,
+                                 find_vsn_app(erlang:list_to_atom(App)))
+          end,
+          Txt,
+          Apps),
+    erlang:iolist_to_binary(lists:flatten(Res)).
+
+find_vsn_app(erts) ->
+    Str = erlang:system_info(system_version),
+    {match, [{Start, Len} | _]} = re:run(Str, "erts-(\\d\\.?)+"),
+    ErtsStr = string:substr(Str, Start+1, Len),
+    [_, Vsn] = string:split(ErtsStr, "-"),
+    Vsn;
+find_vsn_app(App) ->
+    Apps = application:which_applications(),
+    [Vsn] = [Vsn || {AppX, _, Vsn} <- Apps, AppX =:= App],
+    Vsn.
 
 
 %% Executed instead of release group when no run_erl program exists

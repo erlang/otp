@@ -1,0 +1,8 @@
+{release,
+ {"hello_server", "A"},
+ {erts, "%erts_VSN%"},
+ [{kernel, "%kernel_VSN%"},
+  {stdlib, "%stdlib_VSN%"},
+  {sasl, "%sasl_VSN%"},
+  {hello_server, "A"}]
+}.

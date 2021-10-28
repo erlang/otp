@@ -90,10 +90,13 @@ local_setup:
 	sed	-e "s;%FINAL_ROOTDIR%;$(ERL_TOP);"   \
 		-e "s;erts-.*/bin;bin/$(TARGET);"    \
 		-e "s;EMU=.*;EMU=beam$(TYPEMARKER);" \
+		-e "s;%DYN_ERL_PATH%;$(TARGET)/dyn_erl;" \
+		-e "s;%DYN_ROOTDIR_BASE_EXT%;;" \
 	        $(ERL_TOP)/erts/etc/unix/erl.src.src > $(ERL_TOP)/bin/erl; \
 	sed	-e "s;%SRC_ROOTDIR%;$(ERL_TOP);"   \
 		-e "s;%TARGET%;$(TARGET);"    \
 		-e "s;%VSN%;$(VSN);"    \
+		-e "s;%DYN_ERL_PATH%;$(TARGET)/dyn_erl;" \
 	        $(ERL_TOP)/erts/etc/unix/cerl.src > $(ERL_TOP)/bin/cerl; \
 		cp $(ERL_TOP)/bin/$(TARGET)/erl_call $(ERL_TOP)/bin/erl_call; \
 		cp $(ERL_TOP)/bin/$(TARGET)/dialyzer $(ERL_TOP)/bin/dialyzer; \
