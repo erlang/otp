@@ -63,8 +63,8 @@ small code sample in the commit message or email a module that will provoke the 
 
 * In most cases, pull requests for new features should be based on the `master` branch.
 
-* It is recommended to discuss new features on
-[the erlang-questions mailing list](http://erlang.org/mailman/listinfo/erlang-questions),
+* It is recommended to discuss new features in the
+[erlang forums](https://erlangforums.com),
 especially for major new features or any new features in ERTS, Kernel, or STDLIB.
 
 * It is important to write a good commit message explaining **why** the feature is needed.
