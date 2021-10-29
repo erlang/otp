@@ -2050,6 +2050,29 @@
     </func>
 
     <func>
+      <name name="ioctl" arity="4" since="@OTP-17528@"/>
+      <fsummary>Control device.</fsummary>
+      <desc>
+	<p>Set socket (device) parameters.
+	This function sets a specific parameter,
+	according to <c>SetRequest</c> argument. The third
+	argument is the "key", identifying the
+	interface (usually the name of the interface), and the
+	fourth is the "new" value.</p>
+        <taglist>
+
+	  <tag><c>sifmtu</c></tag>
+          <item>
+	    <p>Set the MTU (Maximum Transfer Unit, <c>integer()</c>)
+	    for the interface with the specified name. </p>
+          </item>
+
+	</taglist>
+
+      </desc>
+    </func>
+
+    <func>
       <name name="is_supported" arity="1" since="OTP 23.0"/>
       <name name="is_supported" arity="2" since="OTP 23.0"/>
       <fsummary>Report info about what the platform supports.</fsummary>

@@ -69,7 +69,7 @@
          sockname/1,
          peername/1,
 
-         ioctl/2, ioctl/3,
+         ioctl/2, ioctl/3, ioctl/4,
 
          cancel/2
         ]).
@@ -4184,6 +4184,19 @@ ioctl(?socket(SockRef), gifmap = GetRequest, Name)
 ioctl(Socket, GetRequest, Arg) ->
     erlang:error(badarg, [Socket, GetRequest, Arg]).
 
+
+-spec ioctl(Socket, SetRequest, Name, MTU) -> 'ok' | {'error', Reason} when
+      Socket     :: socket(),
+      SetRequest :: 'gifmtu',
+      Name       :: string(),
+      MTU        :: integer(),
+      Reason     :: posix() | 'closed'.
+
+ioctl(?socket(SockRef), sifmtu = SetRequest, Name, MTU)
+  when is_list(Name) andalso is_integer(MTU) ->
+    prim_socket:ioctl(SockRef, SetRequest, Name, MTU);
+ioctl(Socket, SetRequest, Arg1, Arg2) ->
+    erlang:error(badarg, [Socket, SetRequest, Arg1, Arg2]).
 
 
 %% ===========================================================================
