@@ -268,17 +268,17 @@ void beamasm_init() {
         func_label = label++;
         entry_label = label++;
 
-        args = {ArgVal(ArgVal::Immediate, func_label),
+        args = {ArgVal(ArgVal::Label, func_label),
                 ArgVal(ArgVal::Word, sizeof(UWord))};
         bma->emit(op_aligned_label_Lt, args);
 
-        args = {ArgVal(ArgVal::Immediate, func_label),
+        args = {ArgVal(ArgVal::Label, func_label),
                 ArgVal(ArgVal::Immediate, mod_name),
                 ArgVal(ArgVal::Immediate, op.name),
                 ArgVal(ArgVal::Immediate, op.arity)};
         bma->emit(op_i_func_info_IaaI, args);
 
-        args = {ArgVal(ArgVal::Immediate, entry_label),
+        args = {ArgVal(ArgVal::Label, entry_label),
                 ArgVal(ArgVal::Word, sizeof(UWord))};
         bma->emit(op_aligned_label_Lt, args);
 
@@ -418,18 +418,16 @@ extern "C"
         BeamModuleAssembler ba(bga, info->mfa.module, 3);
         std::vector<ArgVal> args;
 
-        args = {ArgVal(ArgVal::Immediate, 1),
-                ArgVal(ArgVal::Word, sizeof(UWord))};
+        args = {ArgVal(ArgVal::Label, 1), ArgVal(ArgVal::Word, sizeof(UWord))};
         ba.emit(op_aligned_label_Lt, args);
 
-        args = {ArgVal(ArgVal::Immediate, 1),
+        args = {ArgVal(ArgVal::Label, 1),
                 ArgVal(ArgVal::Immediate, info->mfa.module),
                 ArgVal(ArgVal::Immediate, info->mfa.function),
                 ArgVal(ArgVal::Immediate, info->mfa.arity)};
         ba.emit(op_i_func_info_IaaI, args);
 
-        args = {ArgVal(ArgVal::Immediate, 2),
-                ArgVal(ArgVal::Word, sizeof(UWord))};
+        args = {ArgVal(ArgVal::Label, 2), ArgVal(ArgVal::Word, sizeof(UWord))};
         ba.emit(op_aligned_label_Lt, args);
 
         args = {};

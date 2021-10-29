@@ -451,6 +451,7 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
                                stp->last_label);
             }
             stp->labels[stp->last_label].value = 1;
+            curr->type = TAG_f;
             break;
         case 'e': /* Export entry */
             BeamLoadVerifyTag(stp, tag, TAG_u);

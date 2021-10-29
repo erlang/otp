@@ -373,6 +373,8 @@ void BeamModuleAssembler::emit_i_func_info(const ArgVal &Label,
 }
 
 void BeamModuleAssembler::emit_label(const ArgVal &Label) {
+    ASSERT(Label.isLabel());
+
     currLabel = labels[Label.getValue()];
     a.bind(currLabel);
 }
