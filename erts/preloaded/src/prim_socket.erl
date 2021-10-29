@@ -43,7 +43,7 @@
     setopt/3, setopt_native/3,
     getopt/2, getopt_native/3,
     sockname/1, peername/1,
-    ioctl/2, ioctl/3,
+    ioctl/2, ioctl/3, ioctl/4,
     cancel/3
    ]).
 
@@ -832,6 +832,17 @@ ioctl(SRef, GReq, Arg) ->
     end.
 
 
+ioctl(SRef, SReq, Arg1, Arg2) ->
+    case enc_ioctl_request(SReq) of
+	undefined ->
+	    {error, {invalid, {ioctl_request, SReq}}};
+	invalid ->
+	    {error, {invalid, {ioctl_request, SReq}}};
+	SReqNUM ->
+	    nif_ioctl(SRef, SReqNUM, Arg1, Arg2)
+    end.
+
+
 %% ----------------------------------
 
 cancel(SRef, Op, Ref) ->
@@ -1113,8 +1124,9 @@ nif_getopt(_SockRef, _Lev, _Opt, _ValSpec) -> erlang:nif_error(undef).
 nif_sockname(_SockRef) -> erlang:nif_error(undef).
 nif_peername(_SockRef) -> erlang:nif_error(undef).
 
-nif_ioctl(_SockRef, _GReq)       -> erlang:nif_error(undef).
-nif_ioctl(_SockRef, _GReq, _Arg) -> erlang:nif_error(undef).
+nif_ioctl(_SockRef, _GReq)               -> erlang:nif_error(undef).
+nif_ioctl(_SockRef, _GReq, _Arg)         -> erlang:nif_error(undef).
+nif_ioctl(_SockRef, _SReq, _Arg1, _Arg2) -> erlang:nif_error(undef).
 
 nif_cancel(_SockRef, _Op, _SelectRef) -> erlang:nif_error(undef).
 
