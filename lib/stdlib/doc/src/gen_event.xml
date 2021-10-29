@@ -207,14 +207,17 @@ gen_event:stop             ----->  Module:terminate/2
       <desc>
         <p>Adds a new event handler in the same way as
           <seemfa marker="#add_handler/3"><c>add_handler/3</c></seemfa>,
-          but also supervises the connection between the event handler
+          but also supervises the connection by linking the event handler
           and the calling process.</p>
         <list type="bulleted">
           <item>If the calling process later terminates with <c>Reason</c>,
-           the event manager deletes the event handler by calling
+           the event manager deletes any supervised event handlers by calling
            <seemfa marker="#Module:terminate/2">
-           <c>Module:terminate/2</c></seemfa>
-           with <c>{stop,Reason}</c> as argument.
+           <c>Module:terminate/2</c></seemfa>,
+           then calls
+           <seemfa marker="#Module:handle_info/2">
+           <c>Module:handle_info/2</c></seemfa>
+           for each remaining handler.
           </item>
           <item>
             <p>If the event handler is deleted later, the event manager
@@ -1005,6 +1008,14 @@ gen_event:stop             ----->  Module:terminate/2
           an event manager receives any other message than an event or
           a synchronous request (or a system message).</p>
         <p><c>Info</c> is the received message.</p>
+        <p>In particular, this callback will be made when a process terminated
+          after calling
+          <seemfa marker="#add_sup_handler/3">
+          <c>add_sup_handler/3</c></seemfa>. Any event handler
+          attached to an event manager which in turn has a supervised handler
+          should expect callbacks of the shape
+          <seemfa marker="#Module:handle_info/2">
+          <c>Module:handle_info({'EXIT', Pid, Reason}, State)</c></seemfa>.</p>
         <p>For a description of <c>State</c> and possible return values, see
           <seemfa marker="#Module:handle_event/2">
           <c>Module:handle_event/2</c></seemfa>.</p>
