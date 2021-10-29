@@ -4185,16 +4185,19 @@ ioctl(Socket, GetRequest, Arg) ->
     erlang:error(badarg, [Socket, GetRequest, Arg]).
 
 
--spec ioctl(Socket, SetRequest, Name, MTU) -> 'ok' | {'error', Reason} when
+-spec ioctl(Socket, SetRequest, Name, Value) -> 'ok' | {'error', Reason} when
       Socket     :: socket(),
-      SetRequest :: 'gifmtu',
+      SetRequest :: 'gifmtu' | 'siftxqlen',
       Name       :: string(),
-      MTU        :: integer(),
+      Value      :: integer(),
       Reason     :: posix() | 'closed'.
 
 ioctl(?socket(SockRef), sifmtu = SetRequest, Name, MTU)
   when is_list(Name) andalso is_integer(MTU) ->
     prim_socket:ioctl(SockRef, SetRequest, Name, MTU);
+ioctl(?socket(SockRef), siftxqlen = SetRequest, Name, QLen)
+  when is_list(Name) andalso is_integer(QLen) ->
+    prim_socket:ioctl(SockRef, SetRequest, Name, QLen);
 ioctl(Socket, SetRequest, Arg1, Arg2) ->
     erlang:error(badarg, [Socket, SetRequest, Arg1, Arg2]).
 

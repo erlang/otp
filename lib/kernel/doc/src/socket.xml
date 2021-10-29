@@ -2063,8 +2063,14 @@
 
 	  <tag><c>sifmtu</c></tag>
           <item>
-	    <p>Set the MTU (Maximum Transfer Unit, <c>integer()</c>)
+	    <p>Set the MTU (Maximum Transfer Unit), <c>integer()</c>,
 	    for the interface with the specified name. </p>
+          </item>
+
+          <tag><c>siftxqlen</c></tag>
+          <item>
+	    <p>Set the transmit queue length, <c>integer()</c>,
+	    of the interface with the specified name. </p>
           </item>
 
 	</taglist>

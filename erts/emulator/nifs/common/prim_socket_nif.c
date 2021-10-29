@@ -1958,6 +1958,12 @@ static ERL_NIF_TERM esock_ioctl_giftxqlen(ErlNifEnv*       env,
 					  ESockDescriptor* descP,
 					  ERL_NIF_TERM     ename);
 #endif
+#if defined(SIOCSIFTXQLEN)
+static ERL_NIF_TERM esock_ioctl_siftxqlen(ErlNifEnv*       env,
+					  ESockDescriptor* descP,
+					  ERL_NIF_TERM     ename,
+					  ERL_NIF_TERM     elen);
+#endif
 
 #if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
 static ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
@@ -4118,6 +4124,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(sendfile_waits);   \
     LOCAL_ATOM_DECL(shutdown);         \
     LOCAL_ATOM_DECL(sifmtu);           \
+    LOCAL_ATOM_DECL(siftxqlen);        \
     LOCAL_ATOM_DECL(slist);            \
     LOCAL_ATOM_DECL(sndctrlbuf);       \
     LOCAL_ATOM_DECL(sockaddr);         \
@@ -5227,6 +5234,10 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
   /* --- SET REQUESTS --- */
 #if defined(SIOCSIFMTU)
   requests = MKC(env, MKT2(env, atom_sifmtu, MKUL(env, SIOCSIFMTU)), requests);
+#endif
+
+#if defined(SIOCSIFTXQLEN)
+  requests = MKC(env, MKT2(env, atom_siftxqlen, MKUL(env, SIOCSIFTXQLEN)), requests);
 #endif
 
   return requests;
@@ -13044,6 +13055,7 @@ ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
  * Request     arg1      arg1 type    arg2     arg2 type
  * -------     -------   ---------    ------   ---------
  * gifmtu      name      string       MTU      integer
+ * giftxqlen   name      string       Len      integer
  */
 static
 ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
@@ -13060,6 +13072,12 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 #if defined(SIOCSIFMTU)
   case SIOCSIFMTU:
     return esock_ioctl_sifmtu(env, descP, ename, eval);
+    break;
+#endif
+
+#if defined(SIOCSIFTXQLEN)
+  case SIOCSIFTXQLEN:
+    return esock_ioctl_siftxqlen(env, descP, ename, eval);
     break;
 #endif
 
@@ -13729,14 +13747,14 @@ ERL_NIF_TERM esock_ioctl_sifmtu(ErlNifEnv*       env,
 
   SSDBG( descP, ("SOCKET", "esock_ioctl_gifmtu {%d} -> entry with"
 		 "\r\n      (e)Name: %T"
-		 "\r\n", descP->sock, ename) );
+		 "\r\n      (e)MTU:  %T"
+		 "\r\n", descP->sock, ename, emtu) );
 
   if (!esock_decode_string(env, ename, &ifn)) {
 
     SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifmtu {%d} -> failed decode name: "
-	    "\r\n      ename: %T"
-	    "\r\n", descP->sock, ename) );
+	   ("SOCKET", "esock_ioctl_sifmtu {%d} -> failed decode name"
+	    "\r\n", descP->sock) );
 
     return enif_make_badarg(env);
   }
@@ -13744,9 +13762,8 @@ ERL_NIF_TERM esock_ioctl_sifmtu(ErlNifEnv*       env,
   if (! GET_INT(env, emtu, &ifreq.ifr_mtu)) {
 
     SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifmtu {%d} -> failed decode MTU: "
-	    "\r\n      emtu: %T"
-	    "\r\n", descP->sock, emtu) );
+	   ("SOCKET", "esock_ioctl_sifmtu {%d} -> failed decode MTU"
+	    "\r\n", descP->sock) );
 
     return enif_make_badarg(env);
   }
@@ -13838,6 +13855,85 @@ ERL_NIF_TERM esock_ioctl_giftxqlen(ErlNifEnv*       env,
 	   ("SOCKET", "esock_ioctl_giftxqlen {%d} -> encode txqlen\r\n",
 	    descP->sock) );
     result = encode_ioctl_ivalue(env, descP, ifreq.ifr_qlen);
+  }
+
+  /* We know that if esock_decode_string is successful,
+   * we have "some" form of string, and therefor memory
+   * has been allocated (and need to be freed)... */
+  FREE(ifn);
+
+  return result;
+
+}
+#endif
+
+
+#if defined(SIOCSIFTXQLEN)
+static
+ERL_NIF_TERM esock_ioctl_siftxqlen(ErlNifEnv*       env,
+				   ESockDescriptor* descP,
+				   ERL_NIF_TERM     ename,
+				   ERL_NIF_TERM     eqlen)
+{
+  ERL_NIF_TERM result;
+  struct ifreq ifreq;
+  char*        ifn = NULL;
+  int          nlen;
+
+  SSDBG( descP, ("SOCKET", "esock_ioctl_gifmtu {%d} -> entry with"
+		 "\r\n      (e)Name: %T"
+		 "\r\n      (e)QLen:  %T"
+		 "\r\n", descP->sock, ename, eqlen) );
+
+  if (!esock_decode_string(env, ename, &ifn)) {
+
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_siftxqlen {%d} -> failed decode name"
+	    "\r\n", descP->sock) );
+
+    return enif_make_badarg(env);
+  }
+
+  if (! GET_INT(env, eqlen, &ifreq.ifr_qlen)) {
+
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_siftxqlen {%d} -> failed decode MTU"
+	    "\r\n", descP->sock) );
+
+    return enif_make_badarg(env);
+  }
+
+
+  // Make sure the length of the string is valid!
+  nlen = esock_strnlen(ifn, IFNAMSIZ);
+  
+  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
+  sys_memcpy(ifreq.ifr_name, ifn, 
+	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
+
+  
+  SSDBG( descP,
+	 ("SOCKET", "esock_ioctl_giftxqlen {%d} -> try ioctl with"
+	  "\r\n      QLen: %d"
+	  "\r\n", descP->sock, ifreq.ifr_qlen) );
+
+  if (ioctl(descP->sock, SIOCSIFMTU, (char *) &ifreq) < 0) {
+    int          saveErrno = sock_errno();
+    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_giftxqlen {%d} -> failure: "
+	    "\r\n      reason: %T (%d)"
+	    "\r\n", descP->sock, reason, saveErrno) );
+
+    result = esock_make_error(env, reason);
+
+  } else {
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_siftxqlen {%d} -> mtu successfully set\r\n",
+	    descP->sock) );
+
+    result = esock_atom_ok;
   }
 
   /* We know that if esock_decode_string is successful,
