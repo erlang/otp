@@ -22,10 +22,16 @@
 #include "algorithms.h"
 #include "cipher.h"
 #include "mac.h"
+#ifdef HAS_3_0_API
+#include "digest.h"
+#endif
 
+#ifdef HAS_3_0_API
+#else
 static unsigned int algo_hash_cnt, algo_hash_fips_cnt;
 static ERL_NIF_TERM algo_hash[14];   /* increase when extending the list */
 void init_hash_types(ErlNifEnv* env);
+#endif
 
 static unsigned int algo_pubkey_cnt, algo_pubkey_fips_cnt;
 static ERL_NIF_TERM algo_pubkey[12]; /* increase when extending the list */
@@ -46,7 +52,10 @@ void init_rsa_opts_types(ErlNifEnv* env);
 void init_algorithms_types(ErlNifEnv* env)
 {
     mtx_init_curve_types =  enif_mutex_create("init_curve_types");
+#ifdef HAS_3_0_API
+#else
     init_hash_types(env);
+#endif
     init_pubkey_types(env);
     init_curve_types(env);
     init_rsa_opts_types(env);
@@ -64,12 +73,18 @@ void cleanup_algorithms_types(ErlNifEnv* env)
 
 ERL_NIF_TERM hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+#ifdef HAS_3_0_API
+    return digest_types_as_list(env);
+#else
     unsigned int cnt  =
         FIPS_MODE() ? algo_hash_fips_cnt : algo_hash_cnt;
 
     return enif_make_list_from_array(env, algo_hash, cnt);
+#endif
 }
 
+#ifdef HAS_3_0_API
+#else
 void init_hash_types(ErlNifEnv* env) {
     // Validated algorithms first
     algo_hash_cnt = 0;
@@ -117,7 +132,7 @@ void init_hash_types(ErlNifEnv* env) {
 
     ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(ERL_NIF_TERM));
 }
-
+#endif
 
 /*================================================================
   Public key algorithms

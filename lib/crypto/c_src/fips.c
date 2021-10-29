@@ -19,6 +19,8 @@
  */
 
 #include "fips.h"
+#include "digest.h"
+
 
 ERL_NIF_TERM info_fips(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -39,6 +41,7 @@ ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, ERL_NIF_TERM fips_mode)
     if (fips_mode == atom_true) {
 #ifdef FIPS_SUPPORT
         if (FIPS_mode_set(1)) {
+            init_digest_types(env);
             return atom_true;
         }
 #endif
@@ -48,6 +51,7 @@ ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, ERL_NIF_TERM fips_mode)
         if (!FIPS_mode_set(0)) {
             return atom_false;
         }
+        init_digest_types(env);
 #endif
         return atom_true;
     } else {
