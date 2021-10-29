@@ -172,7 +172,7 @@
         as &lt;&lt;"1.3.0"&gt;&gt; or &lt;&lt;"20.0"&gt;&gt;.</item>
 
       <tag>edit_url := binary()</tag>
-      <item>a binary representing a URL to change to change the documentation itself.</item>
+      <item>a binary representing a URL to change the documentation itself.</item>
     </taglist>
 
     <p>Any key may be added to Metadata at any time. Keys that are frequently
