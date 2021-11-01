@@ -2080,6 +2080,12 @@
 	    of the interface with the specified name. </p>
           </item>
 
+	  <tag><c>sifnetmask</c></tag>
+          <item>
+	    <p>Set the network mask, <c>sockaddr()</c>,
+	    of the interface with the specified name. </p>
+          </item>
+
 	  <tag><c>sifmtu</c></tag>
           <item>
 	    <p>Set the MTU (Maximum Transfer Unit), <c>integer()</c>,

@@ -1945,9 +1945,15 @@ static ERL_NIF_TERM esock_ioctl_sifbrdaddr(ErlNifEnv*       env,
 					   ESockDescriptor* descP,
 					   ERL_NIF_TERM     ename,
 					   ERL_NIF_TERM     eaddr);
+#if defined(SIOCSIFNETMASK)
 static ERL_NIF_TERM esock_ioctl_gifnetmask(ErlNifEnv*       env,
 					   ESockDescriptor* descP,
 					   ERL_NIF_TERM     ename);
+static ERL_NIF_TERM esock_ioctl_sifnetmask(ErlNifEnv*       env,
+					   ESockDescriptor* descP,
+					   ERL_NIF_TERM     ename,
+					   ERL_NIF_TERM     eaddr);
+#endif
 #if defined(SIOCGIFHWADDR)
 static ERL_NIF_TERM esock_ioctl_gifhwaddr(ErlNifEnv*       env,
 					  ESockDescriptor* descP,
@@ -4139,6 +4145,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(sifbrdaddr);       \
     LOCAL_ATOM_DECL(sifdstaddr);       \
     LOCAL_ATOM_DECL(sifmtu);           \
+    LOCAL_ATOM_DECL(sifnetmask);       \
     LOCAL_ATOM_DECL(siftxqlen);        \
     LOCAL_ATOM_DECL(slist);            \
     LOCAL_ATOM_DECL(sndctrlbuf);       \
@@ -13117,6 +13124,12 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
     break;
 #endif
 
+#if defined(SIOCSIFNETMASK)
+  case SIOCSIFNETMASK:
+    return esock_ioctl_sifnetmask(env, descP, ename, eval);
+    break;
+#endif
+
 #if defined(SIOCSIFMTU)
   case SIOCSIFMTU:
     return esock_ioctl_sifmtu(env, descP, ename, eval);
@@ -13421,7 +13434,7 @@ ERL_NIF_TERM esock_ioctl_sifdstaddr(ErlNifEnv*       env,
   if (!esock_decode_string(env, ename, &ifn)) {
 
     SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifaddr {%d} -> failed decode name"
+	   ("SOCKET", "esock_ioctl_sifdstaddr {%d} -> failed decode name"
 	    "\r\n", descP->sock) );
 
     return enif_make_badarg(env);
@@ -13450,12 +13463,12 @@ ERL_NIF_TERM esock_ioctl_sifdstaddr(ErlNifEnv*       env,
   SSDBG( descP,
 	 ("SOCKET", "esock_ioctl_sifdstaddr {%d} -> try ioctl\r\n", descP->sock) );
 
-  if (ioctl(descP->sock, SIOCSIFADDR, (char *) &ifreq) < 0) {
+  if (ioctl(descP->sock, SIOCSIFDSTADDR, (char *) &ifreq) < 0) {
     int          saveErrno = sock_errno();
     ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
 
     SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifdstaddr {%d} -> failure: "
+	   ("SOCKET", "esock_ioctl_sifdstaddr {%d} -> failure: "
 	    "\r\n      reason: %T (%d)"
 	    "\r\n", descP->sock, reason, saveErrno) );
 
@@ -13533,7 +13546,7 @@ ERL_NIF_TERM esock_ioctl_gifbrdaddr(ErlNifEnv*       env,
  }
 
 
-static
+  static
 ERL_NIF_TERM esock_ioctl_sifbrdaddr(ErlNifEnv*       env,
 				    ESockDescriptor* descP,
 				    ERL_NIF_TERM     ename,
@@ -13553,7 +13566,7 @@ ERL_NIF_TERM esock_ioctl_sifbrdaddr(ErlNifEnv*       env,
   if (!esock_decode_string(env, ename, &ifn)) {
 
     SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifaddr {%d} -> failed decode name"
+	   ("SOCKET", "esock_ioctl_sifbrdaddr {%d} -> failed decode name"
 	    "\r\n", descP->sock) );
 
     return enif_make_badarg(env);
@@ -13582,12 +13595,12 @@ ERL_NIF_TERM esock_ioctl_sifbrdaddr(ErlNifEnv*       env,
   SSDBG( descP,
 	 ("SOCKET", "esock_ioctl_sifbrdaddr {%d} -> try ioctl\r\n", descP->sock) );
 
-  if (ioctl(descP->sock, SIOCSIFADDR, (char *) &ifreq) < 0) {
+  if (ioctl(descP->sock, SIOCSIFBRDADDR, (char *) &ifreq) < 0) {
     int          saveErrno = sock_errno();
     ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
 
     SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifbrdaddr {%d} -> failure: "
+	   ("SOCKET", "esock_ioctl_sifbrdaddr {%d} -> failure: "
 	    "\r\n      reason: %T (%d)"
 	    "\r\n", descP->sock, reason, saveErrno) );
 
@@ -13607,10 +13620,11 @@ ERL_NIF_TERM esock_ioctl_sifbrdaddr(ErlNifEnv*       env,
 
   return result;
 
-}
+ }
 
 
 #if defined(SIOCGIFNETMASK)
+
 static
 ERL_NIF_TERM esock_ioctl_gifnetmask(ErlNifEnv*       env,
 				    ESockDescriptor* descP,
@@ -13668,6 +13682,88 @@ ERL_NIF_TERM esock_ioctl_gifnetmask(ErlNifEnv*       env,
   return result;
 
 }
+
+
+static
+ERL_NIF_TERM esock_ioctl_sifnetmask(ErlNifEnv*       env,
+				    ESockDescriptor* descP,
+				    ERL_NIF_TERM     ename,
+				    ERL_NIF_TERM     eaddr)
+{
+  ERL_NIF_TERM result;
+  struct ifreq ifreq;
+  char*        ifn = NULL;
+  int          nlen;
+  SOCKLEN_T    addrLen;
+
+  SSDBG( descP, ("SOCKET", "esock_ioctl_sifnetmask {%d} -> entry with"
+		 "\r\n      (e)Name: %T"
+		 "\r\n      (e)Addr: %T"
+		 "\r\n", descP->sock, ename, eaddr) );
+
+  if (!esock_decode_string(env, ename, &ifn)) {
+
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_sifnetmask {%d} -> failed decode name"
+	    "\r\n", descP->sock) );
+
+    return enif_make_badarg(env);
+  }
+
+#ifdef __linux__
+  if (! esock_decode_sockaddr(env, eaddr,
+			      (ESockAddress*) &ifreq.ifr_netmask, &addrLen)) {
+#else
+  if (! esock_decode_sockaddr(env, eaddr,
+			      (ESockAddress*) &ifreq.ifr_addr, &addrLen)) {
+#endif
+
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_sifnetmask {%d} -> failed decode addr"
+	    "\r\n", descP->sock) );
+
+    return esock_make_invalid(env, atom_sockaddr);
+  }
+  VOID(addrLen);
+
+
+  // Make sure the length of the string is valid!
+  nlen = esock_strnlen(ifn, IFNAMSIZ);
+  
+  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
+  sys_memcpy(ifreq.ifr_name, ifn, 
+	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
+  
+  SSDBG( descP,
+	 ("SOCKET", "esock_ioctl_sifnetmask {%d} -> try ioctl\r\n", descP->sock) );
+
+  if (ioctl(descP->sock, SIOCSIFNETMASK, (char *) &ifreq) < 0) {
+    int          saveErrno = sock_errno();
+    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_sifnetmask {%d} -> failure: "
+	    "\r\n      reason: %T (%d)"
+	    "\r\n", descP->sock, reason, saveErrno) );
+
+    result = esock_make_error(env, reason);
+
+  } else {
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_sifnetmask {%d} -> addr successfully set\r\n",
+	    descP->sock) );
+    result = esock_atom_ok;
+  }
+
+  /* We know that if esock_decode_string is successful,
+   * we have "some" form of string, and therefor memory
+   * has been allocated (and need to be freed)... */
+  FREE(ifn);
+
+  return result;
+
+}
+
 #endif
 
 
