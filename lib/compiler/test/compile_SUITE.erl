@@ -1384,7 +1384,8 @@ warnings(_Config) ->
     test_lib:p_run(fun do_warnings/1, Files).
 
 do_warnings(F) ->
-    {ok,_,_,Ws} = compile:file(F, [binary,bin_opt_info,recv_opt_info,return]),
+    Options = [{enable_feature,maybe_expr},binary,bin_opt_info,recv_opt_info,return],
+    {ok,_,_,Ws} = compile:file(F, Options),
     do_warnings_1(Ws, F).
 
 do_warnings_1([{"no_file",Ws}|_], F) ->

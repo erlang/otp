@@ -43,7 +43,8 @@
          redundant_boolean_clauses/1,
 	 underscore/1,no_warnings/1,
 	 bit_syntax/1,inlining/1,tuple_calls/1,
-         recv_opt_info/1,opportunistic_warnings/1]).
+         recv_opt_info/1,opportunistic_warnings/1,
+         eep49/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -66,7 +67,8 @@ groups() ->
        maps_bin_opt_info,
        redundant_boolean_clauses,
        underscore,no_warnings,bit_syntax,inlining,
-       tuple_calls,recv_opt_info,opportunistic_warnings]}].
+       tuple_calls,recv_opt_info,opportunistic_warnings,
+       eep49]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1173,6 +1175,28 @@ opportunistic_warnings(Config) ->
 
 
     ok.
+
+%% Test value-based error handling (EEP 49).
+eep49(Config) ->
+    Ts = [{basic,
+           <<"foo(X) ->
+                  maybe
+                      %% There should be no warning.
+                      Always ?= X,
+                      Always
+                  end.
+           ">>,
+           [{enable_feature,maybe_expr}],
+           []},
+          {disabled,
+           <<"foo() -> maybe.                        %Atom maybe.
+           ">>,
+           [{disable_feature,maybe_expr}],
+           []}
+	 ],
+    run(Config, Ts),
+    ok.
+
 
 %%%
 %%% End of test cases.

@@ -616,6 +616,34 @@ exprs([E0|Es0], St0) ->
     {Eps ++ [E1] ++ Es1,St2};
 exprs([], St) -> {[],St}.
 
+%% exprs([Expr], State) -> {[Cexpr],State}.
+%%  Flatten top-level exprs while handling maybe_match operators.
+
+maybe_match_exprs([{maybe_match,L,P0,E0}|Es0], Fail, St0) ->
+    {Es1,St1} = maybe_match_exprs(Es0, Fail, St0),
+    {C,St2} =
+        case Es1 of
+            [] ->
+                {AllName,StInt} = new_var_name(St1),
+                All = {var,L,AllName},
+                clause({clause,L,[{match,L,P0,All}],[],[All]}, StInt);
+            [_|_] ->
+                {C0,StInt} = clause({clause,L,[P0],[],[{nil,0}]}, St1),
+                {C0#iclause{body=Es1},StInt}
+        end,
+    {E1,Eps,St3} = novars(E0, St2),
+    {Fpat,St4} = new_var(St3),
+    Lanno = lineno_anno(L, St4),
+    Fc = #iclause{anno=#a{anno=[dialyzer_ignore,compiler_generated|Lanno]},pats=[Fpat],guard=[],
+                  body=[#iapply{op=Fail,args=[Fpat]}]},
+    {Eps ++ [#icase{anno=#a{anno=Lanno},args=[E1],clauses=[C],fc=Fc}],St4};
+maybe_match_exprs([E0|Es0], Fail, St0) ->
+    {E1,Eps,St1} = expr(E0, St0),
+    {Es1,St2} = maybe_match_exprs(Es0, Fail, St1),
+    {Eps ++ [E1|Es1],St2};
+maybe_match_exprs([], _Fail, St) ->
+    {[],St}.
+
 %% expr(Expr, State) -> {Cexpr,[PreExp],State}.
 %%  Generate an internal core expression.
 
@@ -662,6 +690,84 @@ expr({block,_,Es0}, St0) ->
     {Es1,St1} = exprs(droplast(Es0), St0),
     {E1,Eps,St2} = expr(last(Es0), St1),
     {E1,Es1 ++ Eps,St2};
+expr({'maybe',L,Es}, St0) ->
+    {V,St1} = new_var_name(St0),
+    Var = {var,L,V},
+    Cs = [{clause,L,[Var],[],[Var]}],
+    expr({'maybe',L,Es,{'else',L,Cs}}, St1);
+expr({'maybe',L,Es0,{'else',_,Cs0}}, St0) ->
+    %% Translate the maybe ... else ... end construct.
+    %%
+    %% As an example, the following Erlang code:
+    %%
+    %% foo(A) ->
+    %%     maybe
+    %%         {ok, V} ?= A,
+    %%         V
+    %%     else
+    %%         Other ->
+    %%             {error, Other}
+    %%     end.
+    %%
+    %% is translated into Core Erlang like this:
+    %%
+    %% 'foo'/1 =
+    %%     fun (_0) ->
+    %%         case _0 of
+    %%             <A> when 'true' ->
+    %%                 ( letrec
+    %%                       'maybe_else_fail'/1 =
+    %%                           fun (_3) ->
+    %%                               case _3 of
+    %%                                 <_2> when 'true' ->
+    %%                                     case _2 of
+    %%                                       <Other> when 'true' ->
+    %%                                           {'error',Other}
+    %%                                       ( <_1> when 'true' ->
+    %%                                             primop 'match_fail'({'else_clause',_1})
+    %%                                         -| ['compiler_generated'] )
+    %%                                     end
+    %%                                 ( <_1> when 'true' ->
+    %%                                       primop 'match_fail'('never_fails')
+    %%                                   -| ['compiler_generated'] )
+    %%                               end
+    %%                   in
+    %%                       case A of
+    %%                         <{'ok',V}> when 'true' ->
+    %%                             V
+    %%                         ( <_4> when 'true' ->
+    %%                               apply 'maybe_else_fail'/1(_4)
+    %%                           -| ['dialyzer_ignore','compiler_generated'] )
+    %%                       end
+    %%                   -| ['letrec_goto','no_inline'] )
+    %%             ( <_5> when 'true' ->
+    %%                   primop 'match_fail'({'function_clause',_5})
+    %%               -| ['compiler_generated'] )
+    %%           end
+    {[V1,V2,FailVar],St1} = new_vars(3, St0),
+
+    %% Translate the body of the letrec.
+    Fail = {maybe_else_fail,1},
+    Lanno = lineno_anno(L, St1),
+    {Es1,St2} = maybe_match_exprs(Es0, #c_var{name=Fail}, St1),
+
+    %% Translate the 'else' clauses. Note that we must not put the clauses
+    %% as the top-level clauses in the fun, because all shawdowing variables
+    %% in a fun head will be renamed.
+    {Cs1,St3} = clauses(Cs0, St2),
+    Fc1 = fail_clause([FailVar], Lanno, c_tuple([#c_literal{val=else_clause},FailVar])),
+    FailCase = #icase{args=[V2],clauses=Cs1,fc=Fc1},
+    FailFunCs = [#iclause{pats=[V2],guard=[#c_literal{val=true}],
+                          body=[FailCase]}],
+    Anno = #a{anno=[letrec_goto,no_inline|Lanno]},
+    Fc2 = fail_clause([FailVar], Lanno, #c_literal{val=never_fails}),
+    FailFun = #ifun{id=[],vars=[V1],
+                    clauses=FailFunCs,
+                    fc=Fc2},
+
+    %% Construct the letrec.
+    Letrec = #iletrec{anno=Anno,defs=[{Fail,FailFun}],body=Es1},
+    {Letrec,[],St3};
 expr({'if',L,Cs0}, St0) ->
     {Cs1,St1} = clauses(Cs0, St0),
     Lanno = lineno_anno(L, St1),

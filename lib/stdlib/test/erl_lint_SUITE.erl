@@ -75,7 +75,8 @@
          otp_16824/1,
          underscore_match/1,
          unused_record/1,
-         unused_type2/1]).
+         unused_type2/1,
+         eep49/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -99,7 +100,8 @@ all() ->
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
      otp_15456, otp_15563, unused_type, binary_types, removed, otp_16516,
      inline_nifs, warn_missing_spec, otp_16824,
-     underscore_match, unused_record, unused_type2].
+     underscore_match, unused_record, unused_type2,
+     eep49].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -4689,6 +4691,84 @@ unused_type2(Config) when is_list(Config) ->
          ],
     [] = run(Config, Ts),
 
+    ok.
+
+%% Test maybe ... else ... end.
+eep49(Config) when is_list(Config) ->
+    EnableMaybe = {enable_feature,maybe_expr},
+    Ts = [{exp1,
+           <<"t(X) ->
+                  maybe
+                      A = X()
+                  end,
+                  A.
+           ">>,
+           [EnableMaybe],
+           {errors,[{{5,19},erl_lint,{unsafe_var,'A',{'maybe',{2,19}}}}],
+            []}},
+
+          {exp2,
+           <<"t(X) ->
+                  maybe
+                      A = X()
+                  else
+                      _ -> {ok,A}
+                  end,
+                  A.
+           ">>,
+           [EnableMaybe],
+           {errors,[{{5,32},erl_lint,{unsafe_var,'A',{'maybe',{2,19}}}},
+                    {{7,19},erl_lint,{unsafe_var,'A',{'maybe',{2,19}}}}],
+            []}},
+
+          {exp3,
+           <<"t(X) ->
+                  maybe
+                      X()
+                  else
+                      A ->
+                          B = 42,
+                          {error,A}
+                  end,
+                  {A,B}.
+           ">>,
+           [EnableMaybe],
+           {errors,[{{9,20},erl_lint,{unsafe_var,'A',{'else',{4,19}}}},
+                    {{9,22},erl_lint,{unsafe_var,'B',{'else',{4,19}}}}],
+            []}},
+
+          {exp4,
+           <<"t(X) ->
+                  maybe
+                      X()
+                  else
+                      ok ->
+                          A = 42;
+                      error ->
+                          error
+                  end,
+                  A.
+           ">>,
+           [EnableMaybe],
+           {errors,[{{10,19},erl_lint,{unsafe_var,'A',{'else',{4,19}}}}],
+            []}},
+
+          %% Using '?=' not at the top-level of a 'maybe' ... 'else' is forbidden.
+          {illegal_maybe_match1,
+           <<"t(X) ->
+                  maybe (ok ?= X()) end.
+           ">>,
+           [EnableMaybe],
+           {errors,[{{2,29},erl_parse,["syntax error before: ","'?='"]}],[]}},
+          {illegal_maybe_match2,
+           <<"t(X) ->
+                  ok ?= X().
+           ">>,
+           [EnableMaybe],
+           {errors,[{{2,22},erl_parse,["syntax error before: ","'?='"]}],[]}}
+         ],
+
+    [] = run(Config, Ts),
     ok.
 
 format_error(E) ->
