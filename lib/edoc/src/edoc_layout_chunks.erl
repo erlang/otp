@@ -135,23 +135,28 @@ edoc_to_chunk(Doc, Opts) ->
       Opts :: proplists:proplist().
 doc_contents(XPath, Doc, Opts) ->
     case doc_visibility(XPath, Doc, Opts) of
-	hidden -> hidden;
 	none -> none;
-	regular -> doc_contents_(XPath, Doc, Opts)
+	hidden -> hidden;
+	show -> doc_contents_(XPath, Doc, Opts)
     end.
 
+-spec doc_visibility(_, _, _) -> none | hidden | show.
 doc_visibility(_XPath, Doc, Opts) ->
     case {xpath_to_text("./@private", Doc, Opts),
+	  proplists:get_bool(show_private, Opts),
 	  xpath_to_text("./@hidden", Doc, Opts)}
     of
-	{<<"yes">>, _} ->
-	    %% EDoc `@private' is EEP-48 `hidden'
+	%% Generating `@private' documentation was explicitly requested
+	{<<"yes">>, true, _} ->
+	    show;
+	%% EDoc `@private' maps to EEP-48 `hidden'
+	{<<"yes">>, _, _} ->
 	    hidden;
-	{_, <<"yes">>} ->
-	    %% EDoc `@hidden' is EEP-48 `none'
+	%% EDoc `@hidden' is EEP-48 `none'
+	{_, _, <<"yes">>} ->
 	    none;
 	_ ->
-	    regular
+	    show
     end.
 
 doc_contents_(_XPath, Doc, Opts) ->
@@ -449,7 +454,7 @@ source_file(Opts) ->
     Source.
 
 -spec doc_content(_, _) -> doc().
-doc_content([], _Opts) -> none;
+doc_content([], _Opts) -> #{};
 doc_content(Content, Opts) ->
     DocLanguage = proplists:get_value(lang, Opts, <<"en">>),
     #{DocLanguage => Content}.
