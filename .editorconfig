@@ -11,6 +11,7 @@ end_of_line = LF
 [*]
 indent_style = space
 indent_size = 4
+tab_width = 8
 insert_final_newline = true
 # Adding trim_trailing_whitespace removes trailing
 # from entire buffer on save and we do not want that
