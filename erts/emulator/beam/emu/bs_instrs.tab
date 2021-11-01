@@ -1065,8 +1065,6 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         }
     }
 
-    c_p->fcalls = FCALLS;
-
     /* Allocate binary. */
     p = p_start;
     if (p[0] == BSC_APPEND) {
@@ -1170,6 +1168,8 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         }
         HEAP_SPACE_VERIFIED(0);
     }
+
+    c_p->fcalls = FCALLS;
 
     /* Construct the segments. */
     for (p = p_start; p < p_end; p += BSC_NUM_ARGS) {
