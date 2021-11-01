@@ -675,6 +675,14 @@ lexpr({'catch',_,Expr}, Prec, Opts) ->
     {P,R} = preop_prec('catch'),
     El = {list,[{step,'catch',lexpr(Expr, R, Opts)}]},
     maybe_paren(P, Prec, El);
+lexpr({'maybe',_,Es}, _, Opts) ->
+    {list,[{step,'maybe',body(Es, Opts)},{reserved,'end'}]};
+lexpr({'maybe',_,Es,{'else',_,Cs}}, _, Opts) ->
+    {list,[{step,'maybe',body(Es, Opts)},{step,'else',cr_clauses(Cs, Opts)},{reserved,'end'}]};
+lexpr({maybe_match,_,Lhs,Rhs}, _, Opts) ->
+    Pl = lexpr(Lhs, 0, Opts),
+    Rl = lexpr(Rhs, 0, Opts),
+    {list,[{cstep,[Pl,leaf(" ?=")],Rl}]};
 lexpr({match,_,Lhs,Rhs}, Prec, Opts) ->
     {L,P,R} = inop_prec('='),
     Pl = lexpr(Lhs, L, Opts),
@@ -1330,7 +1338,7 @@ wordtable() ->
     L = [begin {leaf,Sz,S} = leaf(W), {S,Sz} end ||
             W <- [" ->"," =","<<",">>","[]","after","begin","case","catch",
                   "end","fun","if","of","receive","try","when"," ::","..",
-                  " |"]],
+                  " |","maybe","else"]],
     list_to_tuple(L).
 
 word(' ->', WT) -> element(1, WT);
@@ -1351,4 +1359,6 @@ word('try', WT) -> element(15, WT);
 word('when', WT) -> element(16, WT);
 word(' ::', WT) -> element(17, WT);
 word('..', WT) -> element(18, WT);
-word(' |', WT) -> element(19, WT).
+word(' |', WT) -> element(19, WT);
+word('maybe', WT) -> element(20, WT);
+word('else', WT) -> element(21, WT).
