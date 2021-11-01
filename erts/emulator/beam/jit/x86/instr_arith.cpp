@@ -421,13 +421,12 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
 
         emit_leave_runtime();
 
+        /* erts_int_div returns 0 on failure and 1 on success. */
+        a.test(RETd, RETd);
+
         /* Place the result in RAX:RDX, mirroring the `idiv` instruction. */
         a.mov(x86::rax, TMP_MEM1q);
         a.mov(x86::rdx, TMP_MEM2q);
-
-        /* erts_int_div returns a tagged value, so we know it's non-zero and can
-         * clear ZF by and it with itself. */
-        a.test(RET, RET);
 
         /* Fall through */
     }
@@ -509,7 +508,8 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
         emit_leave_runtime();
         emit_leave_frame();
 
-        a.test(RET, RET);
+        /* erts_int_div returns 0 on failure and 1 on success. */
+        a.test(RETd, RETd);
 
         /* Place the result in RAX:RDX, mirroring the `idiv` instruction. */
         a.mov(x86::rax, TMP_MEM4q);
