@@ -508,11 +508,6 @@ const char *ei_thisalivename(const ei_cnode* ec)
     return ec->thisalivename;
 }
 
-short ei_thiscreation(const ei_cnode* ec)
-{
-    return ec->creation;
-}
-
 /* FIXME: this function is not an api, why not? */
 const char *ei_thiscookie(const ei_cnode* ec)
 {
