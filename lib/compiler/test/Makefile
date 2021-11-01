@@ -38,6 +38,7 @@ MODULES= \
 	lc_SUITE \
 	map_SUITE \
 	match_SUITE \
+	maybe_SUITE \
 	misc_SUITE \
 	overridden_bif_SUITE \
 	random_code_SUITE \
@@ -72,6 +73,7 @@ NO_OPT= \
 	lc \
 	map \
 	match \
+	maybe \
 	misc \
 	overridden_bif \
 	receive \
@@ -98,6 +100,7 @@ INLINE= \
 	lc \
 	map \
 	match \
+	maybe \
 	misc \
 	overridden_bif \
 	receive \
@@ -162,8 +165,9 @@ RELSYSDIR = $(RELEASE_PATH)/compiler_test
 # FLAGS
 # ----------------------------------------------------
 
+MAYBE_OPT = '+{enable_feature,maybe_expr}'
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += +clint +clint0 +ssalint
+ERL_COMPILE_FLAGS += +clint +clint0 +ssalint $(MAYBE_OPT)
 
 EBIN = .
 

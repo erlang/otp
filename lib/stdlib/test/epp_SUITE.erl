@@ -2010,6 +2010,9 @@ eval_tests(Config, Fun, Tests) ->
     F = fun({N,P,Opts,E}, BadL) ->
                 %% io:format("Testing ~p~n", [P]),
                 Return = Fun(Config, P, Opts),
+                %% The result should be the same when enabling maybe ... end
+                %% (making 'else' a keyword instead of an atom).
+                Return = Fun(Config, P, [{enable_feature,maybe_expr}|Opts]),
                 case message_compare(E, Return) of
                     true ->
                         case E of

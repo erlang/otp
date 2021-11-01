@@ -497,7 +497,7 @@ untuplify_2(V1, V2) ->
 shortcut_boolean(Config) when is_list(Config) ->
     false = shortcut_boolean_1([0]),
     true = shortcut_boolean_1({42}),
-    maybe = shortcut_boolean_1(self()),
+    'maybe' = shortcut_boolean_1(self()),
     {'EXIT',_} = (catch shortcut_boolean_1([a,b])),
     {'EXIT',_} = (catch shortcut_boolean_1({a,b})),
     ok.
@@ -511,7 +511,7 @@ shortcut_boolean_1(X) ->
 			end,
 		    not V;
 		false ->
-		    maybe
+		    'maybe'
 	    end,
     id(Outer).
 
