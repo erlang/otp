@@ -316,28 +316,30 @@ kill() ->
 
 ms() ->
     [
+     mnesia_sup,
+     mnesia_kernel_sup,
+     mnesia_checkpoint_sup,
+     mnesia_snmp_sup,
+     mnesia_ext_sup,
+
      mnesia,
      mnesia_app,
      mnesia_backup,
      mnesia_bup,
      mnesia_checkpoint,
-     mnesia_checkpoint_sup,
      mnesia_controller,
      mnesia_dumper,
      mnesia_loader,
      mnesia_frag,
      mnesia_frag_hash,
      mnesia_index,
-     mnesia_kernel_sup,
      mnesia_late_loader,
      mnesia_lib,
      mnesia_log,
      mnesia_registry,
      mnesia_schema,
      mnesia_snmp_hook,
-     mnesia_snmp_sup,
      mnesia_subscr,
-     mnesia_sup,
      mnesia_text,
      mnesia_tm,
      mnesia_recover,
@@ -345,7 +347,6 @@ ms() ->
 
      %% Keep these last in the list, so
      %% mnesia_sup kills these last
-     mnesia_ext_sup,
      mnesia_monitor,
      mnesia_event
     ].

@@ -319,9 +319,31 @@ $(LOGMESS_GENERATED): $(WINETC)/erlsrv/erlsrv_logmess.mc
 	$(V_MC) -o $(OBJDIR) $(WINETC)/erlsrv/erlsrv_logmess.mc && \
 		echo $? >$(LOGMESS_GENERATED)
 
+#
+# Make version fit into max 4 integers separated by comma.
+#
+COMMA_CHAR := ,
+SPACE_CHAR := $(subst ,, )
+ERTS_VSN_COMMA_SEP := $(subst .,$(SPACE_CHAR),$(VSN))
+OTP_VSN_COMMA_SEP  := $(subst .,$(SPACE_CHAR),$(OTP_VERSION))
+
+ERTS_VSN_COMMA_SEP := $(wordlist 1,4, $(ERTS_VSN_COMMA_SEP))
+OTP_VSN_COMMA_SEP  := $(wordlist 1,4, $(OTP_VSN_COMMA_SEP))
+
+ERTS_VSN_COMMA_SEP := $(subst $(SPACE_CHAR),$(COMMA_CHAR),$(ERTS_VSN_COMMA_SEP))
+OTP_VSN_COMMA_SEP  := $(subst $(SPACE_CHAR),$(COMMA_CHAR),$(OTP_VSN_COMMA_SEP))
+
+$(WINETC)/version.h:   $(WINETC)/version.h.src
+	$(vsn_verbose)sed -e 's;%ERTS_VERSION%;$(VSN);' \
+	    -e 's;%ERTS_VERSION_INTS%;$(ERTS_VSN_COMMA_SEP);' \
+	    -e 's;%OTP_VERSION%;$(OTP_VERSION);' \
+	    -e 's;%OTP_VERSION_INTS%;$(OTP_VSN_COMMA_SEP);' \
+                  $(WINETC)/version.h.src > $(WINETC)/version.h
+
 $(OBJDIR)/$(ERLRES_OBJ): $(WINETC)/erl.rc $(WINETC)/erlang.ico \
 		$(WINETC)/erl_icon.ico $(WINETC)/hrl_icon.ico \
-		$(WINETC)/beam_icon.ico $(LOGMESS_GENERATED)
+		$(WINETC)/beam_icon.ico $(LOGMESS_GENERATED) \
+		$(WINETC)/version.h
 	$(V_RC) -o $@ -I$(WINETC) $(WINETC)/erl.rc
 
 ifeq ($(USING_VC), yes)

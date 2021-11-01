@@ -2572,8 +2572,8 @@ index_cleanup(Config) when is_list(Config) ->
     Tabs = [i_set, i_bag, i_oset],
 
     Add = fun(Tab) ->
-                  Write = fun(Tab) ->
-                                  Recs = [{Tab, N, N rem 5} || N <- lists:seq(1,10)],
+                  Write = fun(Table) ->
+                                  Recs = [{Table, N, N rem 5} || N <- lists:seq(1,10)],
                                   [ok = mnesia:write(Rec) || Rec <- Recs],
                                   Recs
                           end,
@@ -2582,8 +2582,8 @@ index_cleanup(Config) when is_list(Config) ->
           end,
 
     IRead = fun(Tab) ->
-                    Read = fun(Tab) ->
-                                   [mnesia:index_read(Tab, N, val) || N <- lists:seq(0,4)]
+                    Read = fun(Table) ->
+                                   [mnesia:index_read(Table, N, val) || N <- lists:seq(0,4)]
                            end,
                     {atomic, Recs} = mnesia:transaction(Read, [Tab]),
                     lists:sort(lists:flatten(Recs))

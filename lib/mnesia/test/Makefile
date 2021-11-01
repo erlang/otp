@@ -100,6 +100,8 @@ EBIN = .
 
 tests debug opt: $(TARGET_FILES)
 
+$(TARGET_FILES): $(HRL_FILES)
+
 $(EBIN)/%.beam: $(DocExamplesDir)/%.erl
 	$(ERLC) -bbeam $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
