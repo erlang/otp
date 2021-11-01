@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -193,7 +193,8 @@
 	  %%
 	 tm,            %% creation time
          bm = [],       %% Bitmap storing domain character case information.
-         func = false   %% Optional function calculating the data field.
+         func = false   %% Was: Optional function calculating the data field.
+         %%                Now: cache-flush Class flag from mDNS RFC 6762
 	}).
 
 -define(DNS_UDP_PAYLOAD_SIZE, 1280).
@@ -211,7 +212,8 @@
 
 -record(dns_query,
 	{
-	 domain,     %% query domain
-	 type,        %% query type
-	 class      %% query class
+	 domain,                    %% query domain
+	 type,                      %% query type
+	 class,                     %% query class
+         unicast_response = false   %% mDNS RFC 6762 Class flag
 	 }).

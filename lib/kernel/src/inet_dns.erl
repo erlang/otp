@@ -28,6 +28,7 @@
 %% RFC 2915: The Naming Authority Pointer (NAPTR) DNS Resource Rec
 %% RFC 6488: DNS Certification Authority Authorization (CAA) Resource Record
 %% RFC 7553: The Uniform Resource Identifier (URI) DNS Resource Record
+%% RFC 6762: Multicast DNS
 
 -export([decode/1, encode/1]).
 
@@ -199,13 +200,16 @@ decode_query_section(Rest, 0, _Buffer, Qs) ->
 decode_query_section(Bin, N, Buffer, Qs) ->
     ?MATCH_ELSE_DECODE_ERROR(
        decode_name(Bin, Buffer),
-       {<<Type:16,Class:16,Rest/binary>>,Name},
+       {<<T:16,C:16,Rest/binary>>,Name},
        begin
-	    DnsQuery =
-		#dns_query{domain=Name,
-			   type=decode_type(Type),
-			   class=decode_class(Class)},
-	    decode_query_section(Rest, N-1, Buffer, [DnsQuery|Qs])
+           {Class,UnicastResponse} = decode_class(C),
+           DnsQuery =
+               #dns_query{
+                  domain           = Name,
+                  type             = decode_type(T),
+                  class            = Class,
+                  unicast_response = UnicastResponse},
+           decode_query_section(Rest, N-1, Buffer, [DnsQuery|Qs])
        end).
 
 decode_rr_section(Bin, N, Buffer) ->
@@ -223,27 +227,29 @@ decode_rr_section(Bin, N, Buffer, RRs) ->
         Name},
        begin
            Type = decode_type(T),
-           Class = decode_class(C),
-           Data = decode_data(D, Class, Type, Buffer),
            RR =
                case Type of
-                   opt ->
+                   ?S_OPT ->
                        <<ExtRcode,Version,Z:16>> = TTL,
-                       #dns_rr_opt{domain=Name,
-                                   type=Type,
-                                   udp_payload_size=C,
-                                   ext_rcode=ExtRcode,
-                                   version=Version,
-                                   z=Z,
-                                   data=Data};
+                       #dns_rr_opt{
+                          domain           = Name,
+                          type             = Type,
+                          udp_payload_size = C,
+                          ext_rcode        = ExtRcode,
+                          version          = Version,
+                          z                = Z,
+                          data             = D};
                    _ ->
+                       {Class,CacheFlush} = decode_class(C),
+                       Data = decode_data(D, Class, Type, Buffer),
                        <<TimeToLive:32/signed>> = TTL,
-                       #dns_rr{domain=Name,
-                               type=Type,
-                               class=Class,
-                               ttl=if TimeToLive < 0 -> 0;
-                                      true -> TimeToLive end,
-                               data=Data}
+                       #dns_rr{
+                          domain = Name,
+                          type   = Type,
+                          class  = Class,
+                          ttl    = max(0, TimeToLive),
+                          data   = Data,
+                          func   = CacheFlush}
                end,
            decode_rr_section(Rest, N-1, Buffer, [RR|RRs])
        end).
@@ -286,41 +292,51 @@ encode_header(#dns_header{id=Id}=H, QdCount, AnCount, NsCount, ArCount) ->
 %%
 encode_query_section(Bin, Comp, []) -> {Bin,Comp};
 encode_query_section(Bin0, Comp0, [#dns_query{domain=DName}=Q | Qs]) ->
-    Type = encode_type(Q#dns_query.type),
-    Class = encode_class(Q#dns_query.class),
+    T = encode_type(Q#dns_query.type),
+    C = encode_class(Q#dns_query.class, Q#dns_query.unicast_response),
     {Bin,Comp} = encode_name(Bin0, Comp0, byte_size(Bin0), DName),
-    encode_query_section(<<Bin/binary,Type:16,Class:16>>, Comp, Qs).
+    encode_query_section(<<Bin/binary,T:16,C:16>>, Comp, Qs).
 
 %% RFC 1035: 4.1.3. Resource record format
 %% RFC 2671: 4.3, 4.4, 4.6 OPT RR format
 %%
 encode_res_section(Bin, Comp, []) -> {Bin,Comp};
-encode_res_section(Bin, Comp, [#dns_rr {domain = DName,
-					type = Type,
-					class = Class,
-					ttl = TTL,
-					data = Data} | Rs]) ->
-    encode_res_section_rr(Bin, Comp, Rs,
-			  DName, Type, Class, <<TTL:32/signed>>, Data);
-encode_res_section(Bin, Comp, [#dns_rr_opt {domain = DName,
-					    udp_payload_size = UdpPayloadSize,
-					    ext_rcode = ExtRCode,
-					    version = Version,
-					    z = Z,
-					    data = Data} | Rs]) ->
-    encode_res_section_rr(Bin, Comp, Rs,
-			  DName, ?S_OPT, UdpPayloadSize,
-			  <<ExtRCode,Version,Z:16>>, Data).
+encode_res_section(
+  Bin, Comp,
+  [#dns_rr{
+      domain = DName,
+      type   = Type,
+      class  = Class,
+      func   = CacheFlush,
+      ttl    = TTL,
+      data   = Data} | Rs]) ->
+    encode_res_section_rr(
+      Bin, Comp, Rs, DName, Type, Class, CacheFlush,
+      <<TTL:32/signed>>, Data);
+encode_res_section(
+  Bin, Comp,
+  [#dns_rr_opt{
+      domain           = DName,
+      udp_payload_size = UdpPayloadSize,
+      ext_rcode        = ExtRCode,
+      version          = Version,
+      z                = Z,
+      data             = Data} | Rs]) ->
+    encode_res_section_rr(
+      Bin, Comp, Rs, DName, ?S_OPT, UdpPayloadSize, false,
+      <<ExtRCode,Version,Z:16>>, Data).
 
-encode_res_section_rr(Bin0, Comp0, Rs, DName, Type, Class, TTL, Data) ->
+encode_res_section_rr(
+  Bin0, Comp0, Rs, DName, Type, Class, CacheFlush, TTL, Data) ->
     T = encode_type(Type),
-    C = encode_class(Class),
+    C = encode_class(Class, CacheFlush),
     {Bin,Comp1} = encode_name(Bin0, Comp0, byte_size(Bin0), DName),
-    {DataBin,Comp} = encode_data(Comp1, byte_size(Bin)+2+2+byte_size(TTL)+2,
-				 Type, Class, Data),
+    Pos = byte_size(Bin)+2+2+byte_size(TTL)+2,
+    {DataBin,Comp} = encode_data(Comp1, Pos, Type, Class, Data),
     DataSize = byte_size(DataBin),
-    encode_res_section(<<Bin/binary,T:16,C:16,
-			TTL/binary,DataSize:16,DataBin/binary>>, Comp, Rs).
+    encode_res_section(
+      <<Bin/binary,T:16,C:16,TTL/binary,DataSize:16,DataBin/binary>>,
+      Comp, Rs).
 
 %%
 %% Resource types
@@ -404,25 +420,39 @@ encode_type(Type) ->
 	Type when is_integer(Type) -> Type    %% raw unknown type
     end.
 
+
 %%
-%% Resource clases
+%% Resource classes
 %%
 
-decode_class(Class) ->
-    case Class of
-	?C_IN -> in;
-	?C_CHAOS ->  chaos;
-	?C_HS -> hs;
-	?C_ANY -> any;
-	_ -> Class    %% raw unknown class
+decode_class(C0) ->
+    FlagBit = 16#8000,
+    C = C0 band (bnot FlagBit),
+    Class =
+        case C of
+            ?C_IN    -> in;
+            ?C_CHAOS -> chaos;
+            ?C_HS    -> hs;
+            ?C_ANY   -> any;
+            _ -> C    %% raw unknown class
+        end,
+    Flag = (C0 band FlagBit) =/= 0,
+    {Class,Flag}.
+
+
+encode_class(Class, Flag) ->
+    C = encode_class(Class),
+    case Flag of
+        true  -> FlagBit = 16#8000, C bor FlagBit;
+        false -> C
     end.
-
+%%
 encode_class(Class) ->
     case Class of
-	in -> ?C_IN;
+	in    -> ?C_IN;
 	chaos -> ?C_CHAOS;
-	hs -> ?C_HS;
-	any -> ?C_ANY;
+	hs    -> ?C_HS;
+	any   -> ?C_ANY;
 	Class when is_integer(Class) -> Class    %% raw unknown class
     end.
 
@@ -455,7 +485,7 @@ decode_boolean(I) when is_integer(I) -> true.
 %% Data field -> term() content representation
 %%
 %% Class IN RRs
-decode_data(Data, in, ?S_A,  _)   ->
+decode_data(Data, in, ?S_A,  _) ->
     ?MATCH_ELSE_DECODE_ERROR(Data, <<A,B,C,D>>, {A,B,C,D});
 decode_data(Data, in, ?S_AAAA, _) ->
     ?MATCH_ELSE_DECODE_ERROR(
@@ -467,15 +497,12 @@ decode_data(Data, in, ?S_WKS, _) ->
        Data,
        <<A,B,C,D,Proto,BitMap/binary>>,
        {{A,B,C,D},Proto,BitMap});
-%% OPT pseudo-RR (of no class)
-decode_data(Data, _UdpPayloadSize, ?S_OPT, _) ->
-    Data;
 %%
 decode_data(Data, Class, Type, Buffer) ->
     if
-        is_integer(Class) ->
+        is_integer(Class) -> % Raw class
             Data;
-        is_atom(Class) ->
+        is_atom(Class) -> % Symbolic class, i.e: known
             decode_data(Data, Type, Buffer)
     end.
 %%
@@ -665,7 +692,9 @@ encode_data(Comp, _, ?S_WKS, in, Data) ->
     {{A,B,C,D},Proto,BitMap} = Data,
     BitMapBin = iolist_to_binary(BitMap),
     {<<A,B,C,D,Proto,BitMapBin/binary>>,Comp};
-%% OPT pseudo-RR (of no class)
+%% OPT pseudo-RR (of no class) - should not take this way;
+%% this must be a #dns_rr{type = ?S_OPT} instead of a #dns_rr_opt{},
+%% so good luck getting in particular Class and TTL right...
 encode_data(Comp, _, ?S_OPT, _UdpPayloadSize, Data) ->
     encode_data(Comp, Data);
 %%
@@ -673,7 +702,7 @@ encode_data(Comp, Pos, Type, Class, Data) ->
     if
         is_integer(Class) ->
             encode_data(Comp, Data);
-        is_atom(Class) ->
+        is_atom(Class) -> % Known Class
             encode_data(Comp, Pos, Type, Data)
     end.
 %%
