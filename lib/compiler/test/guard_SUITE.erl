@@ -2251,6 +2251,8 @@ bad_guards(Config) when is_list(Config) ->
 
     fc(catch bad_guards_4()),
 
+    {0,undefined} = bad_guards_5(id(<<>>), id(undefined)),
+
     ok.
 
 %% beam_bool used to produce GC BIF instructions whose
@@ -2273,6 +2275,15 @@ bad_guards_3(M, [_]) when is_map(M) andalso M#{a := 0, b => 0}, length(M) ->
 %% x(0) to be initialized.
 
 bad_guards_4() when not (error#{}); {not 0.0} -> freedom.
+
+%% The JIT used to segfault when a guard rem instruction failed
+%% with badarith AND a bif had been called just before it.
+bad_guards_5(A, B) ->
+    {byte_size(A), undefined = bad_guards_5_1(B)}.
+bad_guards_5_1(A) when is_integer(A rem 255) ->
+    A rem 255;
+bad_guards_5_1(_) ->
+    undefined.
 
 %% Building maps in a guard in a 'catch' would crash v3_codegen.
 
