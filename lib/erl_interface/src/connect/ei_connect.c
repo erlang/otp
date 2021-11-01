@@ -902,7 +902,7 @@ int ei_init_connect(void)
 int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
                           const char *thisalivename, const char *thisnodename,
                           Erl_IpAddr thisipaddr, const char *cookie,
-                          const short creation, ei_socket_callbacks *cbs,
+                          unsigned int creation, ei_socket_callbacks *cbs,
                           int cbs_sz, void *setup_context)
 {
     char *dbglevel;
@@ -981,7 +981,7 @@ int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
 int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
                      const char *thisalivename, const char *thisnodename,
                      Erl_IpAddr thisipaddr, const char *cookie,
-                     const short creation)
+                     unsigned int creation)
 {
     return ei_connect_xinit_ussi(ec, thishostname, thisalivename, thisnodename,
                                  thisipaddr, cookie, creation,
@@ -996,7 +996,7 @@ int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
 * otherwise return -1.
 */
 int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name,
-                         const char *cookie, short creation,
+                         const char *cookie, unsigned int creation,
                          ei_socket_callbacks *cbs, int cbs_sz,
                          void *setup_context)
 {
@@ -1077,7 +1077,7 @@ int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name,
 }
 
 int ei_connect_init(ei_cnode* ec, const char* this_node_name,
-                    const char *cookie, short creation)
+                    const char *cookie, unsigned int creation)
 {
     return ei_connect_init_ussi(ec, this_node_name, cookie, creation,
                                 &ei_default_socket_callbacks,
