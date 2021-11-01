@@ -2059,7 +2059,20 @@
 	argument is the "key", identifying the
 	interface (usually the name of the interface), and the
 	fourth is the "new" value.</p>
+	<p>These are privileged operation's. </p>
         <taglist>
+
+	  <tag><c>sifaddr</c></tag>
+          <item>
+	    <p>Set the address, <c>sockaddr()</c>,
+	    of the interface with the specified name. </p>
+          </item>
+
+	  <tag><c>sifdstaddr</c></tag>
+          <item>
+	    <p>Set the destination address, <c>sockaddr()</c>,
+	    of a point-to-point interface with the specified name. </p>
+          </item>
 
 	  <tag><c>sifmtu</c></tag>
           <item>

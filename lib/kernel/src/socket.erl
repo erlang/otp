@@ -4187,14 +4187,17 @@ ioctl(Socket, GetRequest, Arg) ->
 
 -spec ioctl(Socket, SetRequest, Name, Value) -> 'ok' | {'error', Reason} when
       Socket     :: socket(),
-      SetRequest :: 'sifaddr' | 'gifmtu' | 'siftxqlen',
+      SetRequest :: 'sifaddr' | 'sifdstaddr' | 'gifmtu' | 'siftxqlen',
       Name       :: string(),
-      Value      :: integer(),
+      Value      :: term(),
       Reason     :: posix() | 'closed'.
 
 ioctl(?socket(SockRef), sifaddr = SetRequest, Name, Addr)
-  when is_list(Name) ->
+  when is_list(Name) andalso is_map(Addr) ->
     prim_socket:ioctl(SockRef, SetRequest, Name, prim_socket:enc_sockaddr(Addr));
+ioctl(?socket(SockRef), sifdstaddr = SetRequest, Name, DstAddr)
+  when is_list(Name) andalso is_map(DstAddr) ->
+    prim_socket:ioctl(SockRef, SetRequest, Name, prim_socket:enc_sockaddr(DstAddr));
 ioctl(?socket(SockRef), sifmtu = SetRequest, Name, MTU)
   when is_list(Name) andalso is_integer(MTU) ->
     prim_socket:ioctl(SockRef, SetRequest, Name, MTU);
