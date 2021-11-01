@@ -36,6 +36,7 @@
 #define LONG(L)  ((long) (L))
 #define ULONG(L) ((unsigned long) (L))
 #define SZT(I)   ((size_t) (I))
+#define VOID(D)  ((void) (D))
 #define VOIDP(P) ((void*) (P))
 #define CHARP(P) ((char*) (P))
 #define UCHARP(P) ((unsigned char*) (P))
