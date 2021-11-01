@@ -3808,6 +3808,18 @@ void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
     /* We must have a frame pointer or an empty stack, but not both. */
     ASSERT((next_fp != NULL) ^ (stack_top == stack_bottom));
 
+    /* If the GC happens when we are about to execute a trace we
+       need to skip the trace instructions */
+    if (BeamIsReturnTrace(p->i)) {
+        /* Skip MFA and tracer. */
+        ASSERT_MFA((ErtsCodeMFA*)cp_val(scanner[0]));
+        ASSERT(IS_TRACER_VALID(scanner[1]));
+        scanner += 2;
+    } else if (BeamIsReturnTimeTrace(p->i)) {
+        /* Skip prev_info. */
+        scanner += 1;
+    }
+
     while (next_fp) {
         ASSERT(next_fp >= stack_top && next_fp <= stack_bottom);
 
