@@ -392,19 +392,27 @@ letrec_local_function(A, Cfs, Cb, Sub0, St0) ->
 %% Implement letrec with the single definition as a label and each
 %% apply of it as a goto.
 
-letrec_goto([{#c_var{name={Label,0}},Cfail}], Cb, Sub0,
+letrec_goto([{#c_var{name={Label,_Arity}},Cfail}], Cb, Sub0,
             #kern{labels=Labels0}=St0) ->
+    #c_fun{vars=FunVars,body=FunBody} = Cfail,
+    {Kvars,{FunSub,St1}} =
+        mapfoldl(fun(#c_var{anno=A,name=V}, {SubInt,StInt0}) ->
+                         {New,StInt1} = new_var_name(StInt0),
+                         {#k_var{anno=A,name=New},
+                          {set_vsub(V, New, SubInt),
+                           StInt1#kern{ds=sets:add_element(New, StInt1#kern.ds)}}}
+                 end, {Sub0,St0}, FunVars),
     Labels = sets:add_element(Label, Labels0),
-    {Kb,Pb,St1} = body(Cb, Sub0, St0#kern{labels=Labels}),
-    #c_fun{body=FailBody} = Cfail,
-    {Kfail,Fb,St2} = body(FailBody, Sub0, St1),
+    {Kb,Pb,St2} = body(Cb, Sub0, St1#kern{labels=Labels}),
+    {Kfail,Fb,St3} = body(FunBody, FunSub, St2),
     case {Kb,Kfail,Fb} of
         {#k_goto{label=Label},#k_goto{}=InnerGoto,[]} ->
-            {InnerGoto,Pb,St2};
+            {InnerGoto,Pb,St3};
         {_,_,_} ->
-            St3 = St2#kern{labels=Labels0},
-            Alt = #k_letrec_goto{label=Label,first=Kb,then=pre_seq(Fb, Kfail)},
-            {Alt,Pb,St3}
+            St4 = St3#kern{labels=Labels0},
+            Alt = #k_letrec_goto{label=Label,vars=Kvars,
+                                 first=Kb,then=pre_seq(Fb, Kfail)},
+            {Alt,Pb,St4}
     end.
 
 %% translate_match_fail(Arg, Sub, Anno, St) -> {Kexpr,[PreKexpr],State}.
@@ -559,10 +567,11 @@ match_vars(Ka, St0) ->
 %%  Transform application.
 
 c_apply(A, #c_var{anno=Ra,name={F0,Ar}}, Cargs, Sub, #kern{labels=Labels}=St0) ->
-    case Ar =:= 0 andalso sets:is_element(F0, Labels) of
+    case sets:is_element(F0, Labels) of
         true ->
             %% This is a goto to a label in a letrec_goto construct.
-            {#k_goto{label=F0},[],St0};
+            {Kargs,Ap,St1} = atomic_list(Cargs, Sub, St0),
+            {#k_goto{label=F0,args=Kargs},Ap,St1};
         false ->
             {Kargs,Ap,St1} = atomic_list(Cargs, Sub, St0),
             F1 = get_fsub(F0, Ar, Sub),         %Has it been rewritten
@@ -1991,11 +2000,12 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
 	    args=[Local|Fvs],
  	    ret=Rs},
      Free,add_local_function(Fun, St)};
-uexpr(#k_letrec_goto{anno=A,first=F0,then=T0}=MatchAlt, Br, St0) ->
+uexpr(#k_letrec_goto{anno=A,vars=Vs,first=F0,then=T0}=MatchAlt, Br, St0) ->
     Rs = break_rets(Br),
+    Ns = lit_list_vars(Vs),
     {F1,Fu,St1} = ubody(F0, Br, St0),
     {T1,Tu,St2} = ubody(T0, Br, St1),
-    Used = union(Fu, Tu),
+    Used = subtract(union(Fu, Tu), Ns),
     {MatchAlt#k_letrec_goto{anno=A,first=F1,then=T1,ret=Rs},Used,St2};
 uexpr(Lit, {break,Rs0}, St0) ->
     %% Transform literals to puts here.
