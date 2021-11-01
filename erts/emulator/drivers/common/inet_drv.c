@@ -1039,26 +1039,26 @@ typedef union {
      (1 + 2 + 4) : localaddrlen(data))
 #endif
 
+typedef int (MultiTimerFunction)(ErlDrvData drv_data, ErlDrvTermData caller);
+
 typedef struct _multi_timer_data {
     ErlDrvTime when;
     ErlDrvTermData caller;
-    void (*timeout_function)(ErlDrvData drv_data, ErlDrvTermData caller);
+    MultiTimerFunction *timeout_function;
     struct _multi_timer_data *next;
     struct _multi_timer_data *prev;
 } MultiTimerData;
 
 static MultiTimerData *add_multi_timer(tcp_descriptor *desc, ErlDrvPort port, 
                                        ErlDrvTermData caller, unsigned timeout,
-                                       void (*timeout_fun)(ErlDrvData drv_data,
-                                                           ErlDrvTermData caller));
+                                       MultiTimerFunction *timeout_fun);
 static void fire_multi_timers(tcp_descriptor *desc, ErlDrvPort port,
 			      ErlDrvData data);
 static void remove_multi_timer(tcp_descriptor *desc, ErlDrvPort port, MultiTimerData *p);
 static void cancel_multi_timer(tcp_descriptor *desc, ErlDrvPort port,
-                               void (*timeout_fun)(ErlDrvData drv_data,
-                                                   ErlDrvTermData caller));
+                               MultiTimerFunction *timeout_fun);
 
-static void tcp_inet_multi_timeout(ErlDrvData e, ErlDrvTermData caller);
+static int tcp_inet_multi_timeout(ErlDrvData e, ErlDrvTermData caller);
 static void clean_multi_timers(tcp_descriptor *desc, ErlDrvPort port);
 
 typedef struct {
@@ -10131,13 +10131,14 @@ static void tcp_desc_close(tcp_descriptor* desc)
     erl_inet_close(INETP(desc));
 }
 
-static void tcp_inet_recv_timeout(ErlDrvData e, ErlDrvTermData dummy)
+static int tcp_inet_recv_timeout(ErlDrvData e, ErlDrvTermData dummy)
 {
     tcp_descriptor* desc = (tcp_descriptor*)e;
     ASSERT(!desc->inet.active);
     sock_select(INETP(desc),(FD_READ|FD_CLOSE),0);
     desc->i_remain = 0;
     async_error_am(INETP(desc), am_timeout);
+    return 1;
 }
 
 /* TCP requests from Erlang */
@@ -10554,7 +10555,7 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 
 }
 
-static void tcp_inet_send_timeout(ErlDrvData e, ErlDrvTermData dummy)
+static int tcp_inet_send_timeout(ErlDrvData e, ErlDrvTermData dummy)
 {
     tcp_descriptor* desc = (tcp_descriptor*)e;
     ASSERT(IS_BUSY(INETP(desc)));
@@ -10567,6 +10568,7 @@ static void tcp_inet_send_timeout(ErlDrvData e, ErlDrvTermData dummy)
     if (desc->send_timeout_close) {
         tcp_desc_close(desc);
     }
+    return 1;
     /* Q: Why not keep port busy as send queue may still be full (ERL-1390)?
      *
      * A: If kept busy, a following send call would hang without a timeout
@@ -10616,14 +10618,14 @@ static void tcp_inet_timeout(ErlDrvData e)
     DEBUGF(("tcp_inet_timeout(%p) }\r\n", desc->inet.port)); 
 }
 
-static void tcp_inet_multi_timeout(ErlDrvData e, ErlDrvTermData caller)
+static int tcp_inet_multi_timeout(ErlDrvData e, ErlDrvTermData caller)
 {
     tcp_descriptor* desc = (tcp_descriptor*)e;
     int id,req;
     ErlDrvMonitor monitor;
 
     if (remove_multi_op(desc, &id, &req, caller, NULL, &monitor) != 0) {
-	return;
+	return 1;
     }
     driver_demonitor_process(desc->inet.port, &monitor);
     if (desc->multi_first == NULL) {
@@ -10631,6 +10633,7 @@ static void tcp_inet_multi_timeout(ErlDrvData e, ErlDrvTermData caller)
 	desc->inet.state = INET_STATE_LISTENING; /* restore state */
     }
     send_async_error(desc->inet.dport, id, caller, am_timeout);
+    return 1;
 }
     
 
@@ -11605,10 +11608,10 @@ static int tcp_shutdown_error(tcp_descriptor* desc, int err)
     return tcp_send_or_shutdown_error(desc, err);
 }
 
-static void tcp_inet_delay_send(ErlDrvData data, ErlDrvTermData dummy)
+static int tcp_inet_delay_send(ErlDrvData data, ErlDrvTermData dummy)
 {
     tcp_descriptor *desc = (tcp_descriptor*)data;
-    (void)tcp_inet_output(desc, (HANDLE) INETP(desc)->s);
+    return tcp_inet_output(desc, (HANDLE) INETP(desc)->s);
 }
 
 /*
@@ -13320,7 +13323,10 @@ static void fire_multi_timers(tcp_descriptor *desc, ErlDrvPort port,
         if (desc->mtd != NULL)
             desc->mtd->prev = NULL;
 
-	(*(save.timeout_function))(data,save.caller);
+	if ((*(save.timeout_function))(data,save.caller) < 0)
+            /* -1 means tcp_descriptor has been deallocated,
+               so we have to return as soon as possible */
+            return;
 
         if (desc->mtd == NULL)
 	    return;
@@ -13372,8 +13378,7 @@ static void remove_multi_timer(tcp_descriptor *desc, ErlDrvPort port, MultiTimer
 
 /* Cancel a timer based on the timeout_fun */
 static void cancel_multi_timer(tcp_descriptor *desc, ErlDrvPort port,
-                               void (*timeout_fun)(ErlDrvData drv_data,
-                                                   ErlDrvTermData caller))
+                               MultiTimerFunction *timeout_fun)
 {
     MultiTimerData *timer = desc->mtd;
     while(timer && timer->timeout_function != timeout_fun) {
@@ -13386,8 +13391,7 @@ static void cancel_multi_timer(tcp_descriptor *desc, ErlDrvPort port,
 
 static MultiTimerData *add_multi_timer(tcp_descriptor *desc, ErlDrvPort port, 
 				       ErlDrvTermData caller, unsigned timeout,
-				       void (*timeout_fun)(ErlDrvData drv_data, 
-							   ErlDrvTermData caller))
+				       MultiTimerFunction *timeout_fun)
 {
     MultiTimerData *mtd, *p, *s;
 
