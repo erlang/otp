@@ -19,12 +19,31 @@
 //
 #include <windows.h>
 #include "resource.h"
+#include "version.h"
 
 1           ICON    DISCARDABLE     "erlang.ico"
 
-
-
-
+VS_VERSION_INFO VERSIONINFO
+    FILEVERSION    ERTS_VERSION_INTS
+    PRODUCTVERSION OTP_VERSION_INTS
+{
+    BLOCK "StringFileInfo"
+    {
+        BLOCK "040904e4"
+        {
+            VALUE "CompanyName",        "Ericsson\0"
+            VALUE "FileDescription",    "Erlang\0"
+            VALUE "FileVersion",        ERTS_VERSION_STR
+            VALUE "LegalCopyright",     "Ericsson. All rights reserved.\0"
+            VALUE "ProductName",        "Erlang/OTP\0"
+            VALUE "ProductVersion",     OTP_VERSION_STR
+        }
+    }
+    BLOCK "VarFileInfo"
+    {
+        VALUE "Translation", 0x0409, 1252
+    }
+}
 
 
 
