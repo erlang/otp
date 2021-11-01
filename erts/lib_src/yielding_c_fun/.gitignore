@@ -1,6 +1,7 @@
 *.o
 *~
 bin/yielding_c_fun.bin
+bin/win32
 core
 test/test_trap_out.c
 GPATH
