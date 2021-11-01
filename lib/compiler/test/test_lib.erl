@@ -86,6 +86,7 @@ opt_opts(Mod) ->
     lists:filter(fun
                      (debug_info) -> true;
                      (dialyzer) -> true;
+                     ({enable_feature,_}) -> true;
                      (inline) -> true;
                      (no_bs_create_bin) -> true;
                      (no_bsm_opt) -> true;

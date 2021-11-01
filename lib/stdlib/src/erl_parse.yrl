@@ -48,13 +48,15 @@ top_type top_types type typed_expr typed_attr_val
 type_sig type_sigs type_guard type_guards fun_type binary_type
 type_spec spec_fun typed_exprs typed_record_fields field_types field_type
 map_pair_types map_pair_type
-bin_base_type bin_unit_type.
+bin_base_type bin_unit_type
+maybe_expr.
 
 Terminals
 char integer float atom string var
 
 '(' ')' ',' '->' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
+'maybe' 'else'
 'andalso' 'orelse'
 'bnot' 'not'
 '*' '/' 'div' 'rem' 'band' 'and'
@@ -63,6 +65,7 @@ char integer float atom string var
 '==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<=' '=>' ':='
 '<<' '>>'
 '!' '=' '::' '..' '...'
+'<~'
 'spec' 'callback' % helper
 dot.
 
@@ -73,6 +76,7 @@ Rootsymbol form.
 %% Expressions
 
 Unary 0 'catch'.
+Nonassoc 99 '<~'.
 Right 100 '=' '!'.
 Right 150 'orelse'.
 Right 160 'andalso'.
@@ -239,6 +243,7 @@ expr -> map_expr : '$1'.
 expr -> function_call : '$1'.
 expr -> record_expr : '$1'.
 expr -> expr_remote : '$1'.
+expr -> expr '<~' expr : {maybe_match,?anno('$2'),'$1','$3'}.
 
 expr_remote -> expr_max ':' expr_max : {remote,?anno('$2'),'$1','$3'}.
 expr_remote -> expr_max : '$1'.
@@ -257,6 +262,7 @@ expr_max -> case_expr : '$1'.
 expr_max -> receive_expr : '$1'.
 expr_max -> fun_expr : '$1'.
 expr_max -> try_expr : '$1'.
+expr_max -> maybe_expr : '$1'.
 
 pat_expr -> pat_expr '=' pat_expr : {match,first_anno('$1'),'$1','$3'}.
 pat_expr -> pat_expr comp_op pat_expr : ?mkop2('$1', '$2', '$3').
@@ -401,7 +407,6 @@ if_clauses -> if_clause ';' if_clauses : ['$1' | '$3'].
 if_clause -> guard clause_body :
 	{clause,first_anno(hd(hd('$1'))),[],'$1','$2'}.
 
-
 case_expr -> 'case' expr 'of' cr_clauses 'end' :
 	{'case',?anno('$1'),'$2','$4'}.
 
@@ -476,6 +481,11 @@ try_clause -> var ':' pat_expr try_opt_stacktrace clause_guard clause_body :
 
 try_opt_stacktrace -> ':' var : '$2'.
 try_opt_stacktrace -> '$empty' : '_'.
+
+maybe_expr -> 'maybe' exprs 'end' :
+	{'maybe',?anno('$1'),'$2'}.
+maybe_expr -> 'maybe' exprs 'else' cr_clauses 'end' :
+	{'maybe',?anno('$1'),'$2',{'else',?anno('$3'),'$4'}}.
 
 argument_list -> '(' ')' : {[],?anno('$1')}.
 argument_list -> '(' exprs ')' : {'$2',?anno('$1')}.

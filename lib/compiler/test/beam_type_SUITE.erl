@@ -272,10 +272,10 @@ booleans(_Config) ->
     true = is_atom(AnyAtom),
     false = is_boolean(AnyAtom),
 
-    MaybeBool = id(maybe),
+    MaybeBool = id('maybe'),
     case MaybeBool of
         true -> ok;
-        maybe -> ok;
+        'maybe' -> ok;
         false -> ok
     end,
     false = is_boolean(MaybeBool),

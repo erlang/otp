@@ -295,6 +295,8 @@ format_error(illegal_map_key) -> "illegal map key in pattern";
 format_error(illegal_bin_pattern) ->
     "binary patterns cannot be matched in parallel using '='";
 format_error(illegal_expr) -> "illegal expression";
+format_error(illegal_maybe_match) ->
+    "the '<~' operator is only allowed inside maybe ... else";
 format_error({illegal_guard_local_call, {F,A}}) -> 
     io_lib:format("call to local/imported function ~tw/~w is illegal in guard",
 		  [F,A]);
@@ -2368,6 +2370,18 @@ exprs([E|Es], Vt, St0) ->
     {vtupdate(Evt, Esvt),St2};
 exprs([], _Vt, St) -> {[],St}.
 
+%% maybe_match_exprs(Sequence, VarTable, State) ->
+%%      {UsedVarTable,State'}
+%%  Check a sequence of expressions, return all variables.
+
+maybe_match_exprs([{maybe_match,Anno,P,E}|Es], Vt, St0) ->
+    maybe_match_exprs([{match,Anno,P,E}|Es], Vt, St0);
+maybe_match_exprs([E|Es], Vt, St0) ->
+    {Evt,St1} = expr(E, Vt, St0),
+    {Esvt,St2} = maybe_match_exprs(Es, vtupdate(Evt, Vt), St1),
+    {vtupdate(Evt, Esvt),St2};
+maybe_match_exprs([], _Vt, St) -> {[],St}.
+
 %% expr(Expression, VarTable, State) ->
 %%      {UsedVarTable,State'}
 %%  Check an expression, returns NewVariables. Assume naive users and
@@ -2579,6 +2593,21 @@ expr({match,_Anno,P,E}, Vt, St0) ->
     {Pvt,Pnew,St2} = pattern(P, vtupdate(Evt, Vt), St1),
     St = reject_invalid_alias_expr(P, E, Vt, St2),
     {vtupdate(Pnew, vtmerge(Evt, Pvt)),St};
+expr({'maybe',Anno,Es}, Vt, St) ->
+    %% No variables are exported.
+    {Evt0, St1} = maybe_match_exprs(Es, Vt, St),
+    Evt1 = vtupdate(vtunsafe({'maybe',Anno}, Evt0, Vt), Vt),
+    Evt2 = vtmerge(Evt0, Evt1),
+    {Evt2,St1};
+expr({'maybe',MaybeAnno,Es,{'else',ElseAnno,Cs}}, Vt, St) ->
+    %% No variables are exported.
+    {Evt0, St1} = maybe_match_exprs(Es, Vt, St),
+    Evt1 = vtupdate(vtunsafe({'maybe',MaybeAnno}, Evt0, Vt), Vt),
+    {Cvt0, St2} = icrt_clauses(Cs, {'else',ElseAnno}, Evt1, St1),
+    Cvt1 = vtupdate(vtunsafe({'else',ElseAnno}, Cvt0, Vt), Vt),
+    Evt2 = vtmerge(Evt0, Evt1),
+    Cvt2 = vtmerge(Cvt0, Cvt1),
+    {vtmerge(Evt2, Cvt2),St2};
 %% No comparison or boolean operators yet.
 expr({op,_Anno,_Op,A}, Vt, St) ->
     expr(A, Vt, St);
@@ -2591,6 +2620,9 @@ expr({op,Anno,Op,L,R}, Vt, St0) when Op =:= 'orelse'; Op =:= 'andalso' ->
 expr({op,_Anno,_Op,L,R}, Vt, St) ->
     expr_list([L,R], Vt, St);                   %They see the same variables
 %% The following are not allowed to occur anywhere!
+expr({maybe_match,Anno,P,E}, Vt0, St0) ->
+    {Vt,St1} = expr({match,Anno,P,E}, Vt0, St0),
+    {Vt,add_error(Anno, illegal_maybe_match, St1)};
 expr({remote,_Anno,M,_F}, _Vt, St) ->
     {[],add_error(erl_parse:first_anno(M), illegal_expr, St)}.
 
