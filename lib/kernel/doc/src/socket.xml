@@ -2074,6 +2074,12 @@
 	    of a point-to-point interface with the specified name. </p>
           </item>
 
+	  <tag><c>sifbrdaddr</c></tag>
+          <item>
+	    <p>Set the broadcast address, <c>sockaddr()</c>,
+	    of the interface with the specified name. </p>
+          </item>
+
 	  <tag><c>sifmtu</c></tag>
           <item>
 	    <p>Set the MTU (Maximum Transfer Unit), <c>integer()</c>,
