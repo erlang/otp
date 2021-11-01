@@ -10,6 +10,7 @@
 /etc/common/Install
 /etc/common/erl.src
 /etc/unix/etp-commands
+/etc/win32/version.h
 
 /test/Emakefile
 /test/*.beam
@@ -20,3 +21,4 @@
 
 /emulator/pcre/pcre_exec_loop_break_cases.inc
 /emulator/beam/erl_db_insert_list.ycf.h
+
