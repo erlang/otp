@@ -919,6 +919,10 @@ int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
     }
     
     ec->creation = creation;
+    if (ec->creation < 4) {
+        /* Avoid invalid 0-creation as well as old tiny 1,2,3 values. */
+        ec->creation += 0xE10000;
+    }
     ec->pidsn = 0;
     
     if (cookie) {
@@ -956,7 +960,7 @@ int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
         strcpy(ec->self.node, thisnodename);
         ec->self.num = 0;
         ec->self.serial = 0;
-        ec->self.creation = creation;
+        ec->self.creation = ec->creation;
     }
     else {
         /* dynamic name */
