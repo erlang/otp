@@ -88,13 +88,25 @@ add_event_handler() ->
 
 kill() ->
     Mnesia = [mnesia_fallback | mnesia:ms()],
-    Kill = fun(Name) -> try exit(whereis(Name), kill) catch _:_ -> ok end end,
+    Kill = fun
+               (mnesia_sup) ->
+                   try  %% Avoid crash reports
+                       Sup = whereis(mnesia_sup),
+                       {_,Dict} = process_info(Sup, dictionary),
+                       [App] = proplists:get_value('$ancestors', Dict),
+                       unlink(App),
+                       exit(Sup, kill),
+                       App ! {'EXIT', Sup, normal}
+                   catch _:_ -> ok end;
+               (Name) ->
+                   try exit(whereis(Name), kill) catch _:_ -> ok end
+           end,
     lists:foreach(Kill, Mnesia),
     lists:foreach(fun ensure_dead/1, Mnesia),
     timer:sleep(10),
     case lists:keymember(mnesia, 1, application:which_applications()) of
-	true -> kill();
-	false -> ok
+        true -> kill();
+        false -> ok
     end.
 
 ensure_dead(Name) ->

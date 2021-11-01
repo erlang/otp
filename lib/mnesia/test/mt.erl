@@ -39,7 +39,7 @@
 	 read_config/0, write_config/1      % Config admin
 	]).
 
--include("mnesia_test_lib.hrl").
+-compile({no_auto_import,[alias/1]}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Aliases for the (sub) test suites

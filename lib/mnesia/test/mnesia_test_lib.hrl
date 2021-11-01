@@ -46,51 +46,51 @@
 	end()).
 
 -define(match(ExpectedRes,Expr),
-	fun() ->
-		try Expr of
-		    _AR_0 = ExpectedRes ->
-			?verbose("ok, ~n Result as expected:~p~n",[_AR_0]),
-			{success,_AR_0};
-		    _AR_0 ->
-			?error("Not Matching Actual result was:~n ~p~n",[_AR_0]),
-			{fail,_AR_0}
-		catch
-		    exit:{aborted, _ER_1}:Stacktrace when
-			  element(1, _ER_1) =:= node_not_running;
-			  element(1, _ER_1) =:= bad_commit;
-			  element(1, _ER_1) =:= cyclic ->
-			%% Need to re-raise these to restart transaction
-			erlang:raise(exit, {aborted, _ER_1}, Stacktrace);
-		    exit:_AR_1:Stacktrace ->
-			case fun(_AR_EXIT_) -> {'EXIT', _AR_EXIT_} end(_AR_1) of
-			    _AR_2 = ExpectedRes ->
-				?verbose("ok, ~n Result as expected:~p~n",[_AR_2]),
-				{success,_AR_2};
-			    _AR_2 ->
-				?error("Not Matching Actual result was:~n ~p~n ~p~n",
-				       [_AR_2, Stacktrace]),
-				{fail,_AR_2}
-			end;
-		    _T1_:_AR_1:Stacktrace ->
-			?error("Not Matching Actual result was:~n ~p~n  ~p~n",
-			       [{_T1_,_AR_1}, Stacktrace]),
-			{fail,{_T1_,_AR_1}}
-		end
-	end()).
+	(_ = fun() ->
+                     try Expr of
+                         _AR_0 = ExpectedRes ->
+                             ?verbose("ok, ~n Result as expected:~p~n",[_AR_0]),
+                             {success,_AR_0};
+                         _AR_0 ->
+                             ?error("Not Matching Actual result was:~n ~p~n",[_AR_0]),
+                             {fail,_AR_0}
+                     catch
+                         exit:{aborted, _ER_1}:Stacktrace when
+                               element(1, _ER_1) =:= node_not_running;
+                               element(1, _ER_1) =:= bad_commit;
+                               element(1, _ER_1) =:= cyclic ->
+                             %% Need to re-raise these to restart transaction
+                             erlang:raise(exit, {aborted, _ER_1}, Stacktrace);
+                         exit:_AR_1:Stacktrace ->
+                             case fun(_AR_EXIT_) -> {'EXIT', _AR_EXIT_} end(_AR_1) of
+                                 _AR_2 = ExpectedRes ->
+                                     ?verbose("ok, ~n Result as expected:~p~n",[_AR_2]),
+                                     {success,_AR_2};
+                                 _AR_2 ->
+                                     ?error("Not Matching Actual result was:~n ~p~n ~p~n",
+                                            [_AR_2, Stacktrace]),
+                                     {fail,_AR_2}
+                             end;
+                         _T1_:_AR_1:Stacktrace ->
+                             ?error("Not Matching Actual result was:~n ~p~n  ~p~n",
+                                    [{_T1_,_AR_1}, Stacktrace]),
+                             {fail,{_T1_,_AR_1}}
+                     end
+             end())).
 
 -define(match_inverse(NotExpectedRes,Expr),
-	fun() ->
-		AcTuAlReS = (catch (Expr)),
-		case AcTuAlReS of
-		    NotExpectedRes ->
-			?error("Not matching Actual result was:~n ~p~n",
-			       [AcTuAlReS]),
-			{fail,AcTuAlReS};
-		    _ ->
-			?verbose("ok, ~n Result as expected: ~p~n",[AcTuAlReS]),
-			{success,AcTuAlReS}
-		end
-	end()).
+	(_ = fun() ->
+                     AcTuAlReS = (catch (Expr)),
+                     case AcTuAlReS of
+                         NotExpectedRes ->
+                             ?error("Not matching Actual result was:~n ~p~n",
+                                    [AcTuAlReS]),
+                             {fail,AcTuAlReS};
+                         _ ->
+                             ?verbose("ok, ~n Result as expected: ~p~n",[AcTuAlReS]),
+                             {success,AcTuAlReS}
+                     end
+             end())).
 
 -define(match_receive(ExpectedMsg),
 	?match(ExpectedMsg,mnesia_test_lib:pick_msg())).
