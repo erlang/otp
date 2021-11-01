@@ -7437,6 +7437,7 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                 case ERTS_SIG_Q_OP_TRACE_CHANGE_STATE:
                 case ERTS_SIG_Q_OP_PROCESS_INFO:
                 case ERTS_SIG_Q_OP_RECV_MARK:
+                case ERTS_SIG_Q_OP_MSGQ_LEN_OFFS_MARK:
                     break;
 
                 default:
