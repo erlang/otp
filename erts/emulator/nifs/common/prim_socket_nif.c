@@ -12932,58 +12932,52 @@ ERL_NIF_TERM nif_ioctl(ErlNifEnv*         env,
 	 ("SOCKET", "nif_ioctl(%T) {%d} -> ioctl request %d"
 	  "\r\n", argv[0], descP->sock, req) );
 
-  if (argc == 2) {
+  MLOCK(descP->readMtx);
 
-    /* Only one request with this number of arguments: gifconf
-     * Socket and request (=gifconf)
-     */
-
-    MLOCK(descP->readMtx);
-
-    /* Two arguments: Socket and get request */
-    res = esock_ioctl1(env, descP, req);
-
-    MUNLOCK(descP->readMtx);
-
-  } else if (argc == 3) {
-
-    /* (Currently) All *other* get requests has 3 arguments
-     * Socket, request and name/index
-     */
-
-    ERL_NIF_TERM earg = argv[2];
-
-    MLOCK(descP->readMtx);
-  
-    /* Two arguments: request and arg */
-    res = esock_ioctl2(env, descP, req, earg);
-
-    MUNLOCK(descP->readMtx);
-    
-  } else if (argc == 4) {
-
-    /* (Currently) Set requests has 4 arguments
-     * Socket, request, name and value
-     */
-
-    ERL_NIF_TERM earg1 = argv[2]; // (currently) Name
-    ERL_NIF_TERM earg2 = argv[3]; // Value
-
-    MLOCK(descP->readMtx);
-  
-    /* Three arguments: request, arg1 (name) and arg2 (value) */
-    res = esock_ioctl3(env, descP, req, earg1, earg2);
-
-    MUNLOCK(descP->readMtx);
-    
+  if (! IS_OPEN(descP->readState)) {
+    res = esock_make_error(env, atom_closed);
   } else {
 
-    res = esock_make_error(env, esock_atom_einval);
+    if (argc == 2) {
 
+      /* Only one request with this number of arguments: gifconf
+       * Socket and request (=gifconf)
+       */
+
+      /* Two arguments: Socket and get request */
+      res = esock_ioctl1(env, descP, req);
+
+    } else if (argc == 3) {
+
+      /* (Currently) All *other* get requests has 3 arguments
+       * Socket, request and name/index
+       */
+
+      ERL_NIF_TERM earg = argv[2];
+
+      /* Two arguments: request and arg */
+      res = esock_ioctl2(env, descP, req, earg);
+
+    } else if (argc == 4) {
+
+      /* (Currently) Set requests has 4 arguments
+       * Socket, request, name and value
+       */
+
+      ERL_NIF_TERM earg1 = argv[2]; // (currently) Name
+      ERL_NIF_TERM earg2 = argv[3]; // Value
+
+      /* Three arguments: request, arg1 (name) and arg2 (value) */
+      res = esock_ioctl3(env, descP, req, earg1, earg2);
+
+    } else {
+
+      res = esock_make_error(env, esock_atom_einval);
+
+    }
   }
 
-  /* Extract arguments and perform preliminary validation */
-
+  MUNLOCK(descP->readMtx);
 
   SSDBG( descP,
 	 ("SOCKET", "nif_ioctl(%T) {%d} -> done with res = %T\r\n",
@@ -13002,9 +12996,6 @@ ERL_NIF_TERM esock_ioctl1(ErlNifEnv*       env,
 			  ESockDescriptor* descP,
 			  unsigned long    req)
 {
-  if (! IS_OPEN(descP->readState))
-    return esock_make_error(env, atom_closed);
-
   switch (req) {
 
 #if defined(SIOCGIFCONF)
@@ -13045,8 +13036,6 @@ ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
 			  ERL_NIF_TERM     arg)
 {
   /* This for *get* requests */
-  if (! IS_OPEN(descP->readState))
-    return esock_make_error(env, atom_closed);
 
   switch (req) {
 
@@ -13134,7 +13123,9 @@ ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
  * sifaddr     name      string       Addr     sockaddr()
  * sifdstaddr  name      string       DstAddr  sockaddr()
  * sifbrdaddr  name      string       BrdAddr  sockaddr()
+ * sifnetmask  name      string       NetMask  sockaddr()
  * gifmtu      name      string       MTU      integer()
+ * sifhwaddr   name      string       HwAddr   sockaddr()
  * giftxqlen   name      string       Len      integer()
  */
 static
@@ -13144,8 +13135,6 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 			  ERL_NIF_TERM     ename,
 			  ERL_NIF_TERM     eval)
 {
-  if (! IS_OPEN(descP->readState))
-    return esock_make_error(env, atom_closed);
 
   switch (req) {
 
