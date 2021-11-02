@@ -2558,17 +2558,23 @@ no_epmd(Config) when is_list(Config) ->
 epmd_module(Config) when is_list(Config) ->
     %% We need a relay node to test this, since the test node uses the
     %% standard epmd module.
-    Sock1 = start_relay_node(epmd_module_node1, "-epmd_module " ++ ?MODULE_STRING),
-    Node1 = inet_rpc_nodename(Sock1),
+    {N1,_,S1} = Sock1 = start_relay_node(
+                          epmd_module_node1,
+                          "-epmd_module " ++ ?MODULE_STRING,
+                         [{"ERL_AFLAGS","-sname epmd_module_node1@dummy " ++ os:getenv("ERL_AFLAGS","")}]),
+    Node1 = inet_rpc_nodename({N1,"dummy",S1}),
     %% Ask what port it's listening on - it won't have registered with
     %% epmd.
     {ok, {ok, Port1}} = do_inet_rpc(Sock1, application, get_env, [kernel, dist_listen_port]),
 
     %% Start a second node, passing the port number as a secret
     %% argument.
-    Sock2 = start_relay_node(epmd_module_node2, "-epmd_module " ++ ?MODULE_STRING
-			     ++ " -other_node_port " ++ integer_to_list(Port1)),
-    Node2 = inet_rpc_nodename(Sock2),
+    {N2,_,S2} = Sock2 = start_relay_node(
+                          epmd_module_node2,
+                          "-epmd_module " ++ ?MODULE_STRING
+                          ++ " -other_node_port " ++ integer_to_list(Port1),
+                          [{"ERL_AFLAGS","-sname epmd_module_node2@dummy " ++ os:getenv("ERL_AFLAGS","")}]),
+    Node2 = inet_rpc_nodename({N2,"dummy",S2}),
     %% Node 1 can't ping node 2
     {ok, pang} = do_inet_rpc(Sock1, net_adm, ping, [Node2]),
     {ok, []} = do_inet_rpc(Sock1, erlang, nodes, []),
@@ -2608,10 +2614,11 @@ port_please(_Name, _Ip) ->
 	    {port, Port, Version}
     end.
 
-address_please(_Name, _Address, _AddressFamily) ->
+address_please(_Name, "dummy", inet) ->
     %% Use localhost.
-    IP = {127,0,0,1},
-    {ok, IP}.
+    {ok, {127,0,0,1}};
+address_please(_Name, "dummy", inet6) ->
+    {ok, {0,0,0,0,0,0,0,1}}.
 
 hopefull_data_encoding(Config) when is_list(Config) ->
     test_hopefull_data_encoding(Config, true),
@@ -2965,6 +2972,8 @@ inet_rpc_server_loop(Sock) ->
 
 
 start_relay_node(Node, Args) ->
+    start_relay_node(Node, Args, []).
+start_relay_node(Node, Args, Env) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Cookie = "NOT"++atom_to_list(erlang:get_cookie()),
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 4}, {active, false}]),
@@ -2973,7 +2982,8 @@ start_relay_node(Node, Args) ->
     RunArg = "-run " ++ atom_to_list(?MODULE) ++ " inet_rpc_server " ++
     Host ++ " " ++ integer_to_list(Port),
     {ok, NN} = test_server:start_node(Node, peer,
-                                      [{args, Args ++
+                                      [{env,Env},
+                                       {args, Args ++
                                         " -setcookie "++Cookie++" -pa "++Pa++" "++
                                         RunArg}]),
     [N,H] = string:lexemes(atom_to_list(NN),"@"),

@@ -828,7 +828,9 @@ split_node(Node) ->
                     Split;
                 false ->
                     {host,Host}
-            end
+            end;
+        _ ->
+            {error, {invalid_node, Node}}
     end.
 
 %% Check if connecting node is allowed to connect
