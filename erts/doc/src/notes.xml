@@ -31,6 +31,30 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 12.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug where a gen_tcp write error that happened during
+	    a delayed_send would cause a use after free segfault.</p>
+          <p>
+	    Own Id: OTP-17731 Aux Id: PR-5285 </p>
+        </item>
+        <item>
+          <p>
+	    Fix x86 JIT bug where a <c>rem</c> instruction could
+	    cause a segfault if given values that would cause an
+	    badarith exception.</p>
+          <p>
+	    Own Id: OTP-17732 Aux Id: PR-5331 ERIERL-664 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.1.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
