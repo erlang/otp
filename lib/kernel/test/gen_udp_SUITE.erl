@@ -1743,15 +1743,13 @@ do_implicit_inet6(Config) ->
     Host = ok(inet:gethostname()),
     case inet:getaddr(Host, inet6) of
 	{ok, {16#fe80,0,0,0,_,_,_,_} = Addr} ->
-	    {skip,
-	     "Got link local IPv6 address: "
-	     ++inet:ntoa(Addr)};
+	     ?SKIPT("Got link local IPv6 address: "
+                    ++inet:ntoa(Addr));
 	{ok, Addr} ->
 	    implicit_inet6(Config, Host, Addr);
 	{error, Reason} ->
-	    {skip,
-	     "Can not look up IPv6 address: "
-	     ++atom_to_list(Reason)}
+	    ?SKIPT("Can not look up IPv6 address: "
+                   ++atom_to_list(Reason))
     end.
 
 implicit_inet6(Config, Host, Addr) ->
