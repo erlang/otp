@@ -1346,6 +1346,7 @@ static ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key);
 static ERL_NIF_TERM esock_supports_msg_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
 
 static ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
@@ -1924,6 +1925,10 @@ static ERL_NIF_TERM esock_ioctl_gifindex(ErlNifEnv*       env,
 static ERL_NIF_TERM esock_ioctl_gifflags(ErlNifEnv*       env,
 					 ESockDescriptor* descP,
 					 ERL_NIF_TERM     ename);
+static ERL_NIF_TERM esock_ioctl_sifflags(ErlNifEnv*       env,
+					 ESockDescriptor* descP,
+					 ERL_NIF_TERM     ename,
+					 ERL_NIF_TERM     eflags);
 static ERL_NIF_TERM esock_ioctl_gifaddr(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					ERL_NIF_TERM     ename);
@@ -1994,6 +1999,10 @@ static ERL_NIF_TERM encode_ioctl_ifraddr(ErlNifEnv*       env,
 static ERL_NIF_TERM encode_ioctl_flags(ErlNifEnv*       env,
 				       ESockDescriptor* descP,
 				       short            flags);
+static BOOLEAN_T decode_ioctl_flags(ErlNifEnv*       env,
+				    ESockDescriptor* descP,
+				    ERL_NIF_TERM     eflags,
+				    short*           flags);
 static ERL_NIF_TERM encode_ioctl_ivalue(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					int              ivalue);
@@ -4053,6 +4062,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(initial);          \
     LOCAL_ATOM_DECL(interface);        \
     LOCAL_ATOM_DECL(integer);          \
+    LOCAL_ATOM_DECL(ioctl_flags);      \
     LOCAL_ATOM_DECL(ioctl_requests);   \
     LOCAL_ATOM_DECL(iov_max);          \
     LOCAL_ATOM_DECL(iow);              \
@@ -4144,6 +4154,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(sifaddr);          \
     LOCAL_ATOM_DECL(sifbrdaddr);       \
     LOCAL_ATOM_DECL(sifdstaddr);       \
+    LOCAL_ATOM_DECL(sifflags);         \
     LOCAL_ATOM_DECL(sifmtu);           \
     LOCAL_ATOM_DECL(sifnetmask);       \
     LOCAL_ATOM_DECL(siftxqlen);        \
@@ -5067,11 +5078,13 @@ ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key)
             "\r\n", key) );
 
     if (COMPARE(key, atom_msg_flags) == 0)
-        result = esock_supports_msg_flags(env);
+      result = esock_supports_msg_flags(env);
     else if (COMPARE(key, atom_protocols) == 0)
         result = esock_supports_protocols(env);
     else if (COMPARE(key, atom_ioctl_requests) == 0)
       result = esock_supports_ioctl_requests(env);
+    else if (COMPARE(key, atom_ioctl_flags) == 0)
+      result = esock_supports_ioctl_flags(env);
     else if (COMPARE(key, atom_options) == 0)
       result = esock_supports_options(env);
     else
@@ -5086,20 +5099,20 @@ ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key)
 #ifndef __WIN32__
 
 static ERL_NIF_TERM esock_supports_msg_flags(ErlNifEnv* env) {
-    size_t n;
-    ERL_NIF_TERM result;
+  size_t n;
+  ERL_NIF_TERM result;
 
-    result = MKEL(env);
-    for (n = 0;  n < NUM(msg_flags);  n++) {
-        result =
-            MKC(env,
-                MKT2(env,
-                     *(msg_flags[n].name),
-                     MKI(env, msg_flags[n].flag)),
-                result);
-    }
+  result = MKEL(env);
+  for (n = 0;  n < NUM(msg_flags);  n++) {
+    result =
+      MKC(env,
+	  MKT2(env,
+	       *(msg_flags[n].name),
+	       MKI(env, msg_flags[n].flag)),
+	  result);
+  }
 
-    return result;
+  return result;
 }
 
 #endif // #ifndef __WIN32__
@@ -5254,6 +5267,10 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 #endif
 
   /* --- SET REQUESTS --- */
+#if defined(SIOCSIFFLAGS)
+  requests = MKC(env, MKT2(env, atom_sifflags, MKUL(env, SIOCSIFFLAGS)), requests);
+#endif
+
 #if defined(SIOCSIFADDR)
   requests = MKC(env, MKT2(env, atom_sifaddr, MKUL(env, SIOCSIFADDR)), requests);
 #endif
@@ -5277,6 +5294,30 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
   return requests;
 }
 #endif // #ifndef __WIN32__
+
+
+#ifndef __WIN32__
+
+static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env)
+{
+  size_t       n;
+  ERL_NIF_TERM result;
+
+  result = MKEL(env);
+  for (n = 0;  n < NUM(ioctl_flags);  n++) {
+    result =
+      MKC(env,
+	  MKT2(env,
+	       *(ioctl_flags[n].name),
+	       MKI(env, ioctl_flags[n].flag)),
+	  result);
+  }
+
+  return result;
+}
+
+#endif // #ifndef __WIN32__
+
 
 
 
@@ -13088,6 +13129,8 @@ ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
  *
  * Request     arg1      arg1 type    arg2     arg2 type
  * -------     -------   ---------    ------   ---------
+ * sifflags    name      string       Flags    #{IntFlag := boolean()}
+ *                                             IntFlag is the native flag
  * sifaddr     name      string       Addr     sockaddr()
  * sifdstaddr  name      string       DstAddr  sockaddr()
  * sifbrdaddr  name      string       BrdAddr  sockaddr()
@@ -13105,6 +13148,12 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
     return esock_make_error(env, atom_closed);
 
   switch (req) {
+
+#if defined(SIOCSIFFLAGS)
+  case SIOCSIFFLAGS:
+    return esock_ioctl_sifflags(env, descP, ename, eval);
+    break;
+#endif
 
 #if defined(SIOCSIFADDR)
   case SIOCSIFADDR:
@@ -14051,6 +14100,164 @@ ERL_NIF_TERM esock_ioctl_gifflags(ErlNifEnv*       env,
   return result;
 
 }
+
+
+static
+ERL_NIF_TERM esock_ioctl_sifflags(ErlNifEnv*       env,
+				  ESockDescriptor* descP,
+				  ERL_NIF_TERM     ename,
+				  ERL_NIF_TERM     eflags)
+{
+  ERL_NIF_TERM result;
+  struct ifreq ifreq;
+  char*        ifn = NULL;
+  int          nlen;
+
+  SSDBG( descP, ("SOCKET", "esock_ioctl_sifflags {%d} -> entry with"
+		 "\r\n      (e)Name: %T"
+		 "\r\n      (e)Flags: %T"
+		 "\r\n", descP->sock, ename, eflags) );
+
+  if (!esock_decode_string(env, ename, &ifn)) {
+
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_sifflags {%d} -> failed decode name"
+	    "\r\n", descP->sock) );
+
+    return enif_make_badarg(env);
+  }
+
+  // Make sure the length of the string is valid!
+  nlen = esock_strnlen(ifn, IFNAMSIZ);
+  
+  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
+  sys_memcpy(ifreq.ifr_name, ifn, 
+	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
+  
+  SSDBG( descP,
+	 ("SOCKET", "esock_ioctl_sifflags {%d} -> try (get) ioctl\r\n",
+	  descP->sock) );
+
+  if (ioctl(descP->sock, SIOCGIFFLAGS, (char *) &ifreq) < 0) {
+    int          saveErrno = sock_errno();
+    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_sifflags {%d} -> "
+	    "failure: failed reading *current* flags"
+	    "\r\n      reason: %T (%d)"
+	    "\r\n", descP->sock, reason, saveErrno) );
+
+    result = esock_make_error(env, reason);
+
+  } else {
+
+    SSDBG( descP,
+	   ("SOCKET", "esock_ioctl_sifflags {%d} -> (local) update flags\r\n",
+	    descP->sock) );
+
+    if (decode_ioctl_flags(env, descP, eflags, &ifreq.ifr_flags)) {
+
+      SSDBG( descP,
+	     ("SOCKET", "esock_ioctl_sifflags {%d} -> try (set) ioctl\r\n",
+	      descP->sock) );
+
+      if (ioctl(descP->sock, SIOCSIFFLAGS, (char *) &ifreq) < 0) {
+	int          saveErrno = sock_errno();
+	ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
+
+	SSDBG( descP,
+	       ("SOCKET", "esock_ioctl_sifflags {%d} -> failure: "
+		"\r\n      reason: %T (%d)"
+		"\r\n", descP->sock, reason, saveErrno) );
+
+	result = esock_make_error(env, reason);
+
+      } else {
+	SSDBG( descP,
+	       ("SOCKET", "esock_ioctl_sifflags {%d} -> "
+		"updated flags successfully set\r\n",
+		descP->sock) );
+	result = esock_atom_ok;
+      }
+
+      /* We know that if esock_decode_string is successful,
+       * we have "some" form of string, and therefor memory
+       * has been allocated (and need to be freed)... */
+      FREE(ifn);
+
+    } else {
+      result = enif_make_badarg(env);
+    }
+  }
+
+  SSDBG( descP,
+	 ("SOCKET", "esock_ioctl_sifflags {%d} -> done with result: "
+	  "\r\n      %T"
+	  "\r\n",
+	  descP->sock, result) );
+
+  return result;
+
+}
+
+
+static
+BOOLEAN_T decode_ioctl_flags(ErlNifEnv*       env,
+			     ESockDescriptor* descP,
+			     ERL_NIF_TERM     eflags,
+			     short*           flags)
+{
+  ERL_NIF_TERM      key, value;
+  ErlNifMapIterator iter;
+  int               tmpFlags = (int) *flags; // Current value
+  int               flag;
+
+  SSDBG( descP,
+	 ("SOCKET", "decode_ioctl_flags {%d} -> entry with"
+	  "\r\n      flags: %d"
+	  "\r\n",
+	  descP->sock, tmpFlags) );
+
+  enif_map_iterator_create(env, eflags, &iter, ERL_NIF_MAP_ITERATOR_FIRST);
+
+  while (enif_map_iterator_get_pair(env, &iter, &key, &value)) {
+
+    /* Convert key (eflag) to int */
+    if (! GET_INT(env, key, &flag)) {
+      enif_map_iterator_destroy(env, &iter);
+      return FALSE;
+    }
+
+    // Update flag
+    if (COMPARE(value, esock_atom_true) == 0) {
+      SSDBG( descP,
+	     ("SOCKET", "decode_ioctl_flags {%d} -> set %d\r\n",
+	      descP->sock, flag) );
+      tmpFlags |= flag;
+    } else {
+      SSDBG( descP,
+	     ("SOCKET", "decode_ioctl_flags {%d} -> reset %d\r\n",
+	      descP->sock, flag) );
+      tmpFlags &= ~flag;
+    }
+
+    enif_map_iterator_next(env, &iter);
+  }
+
+  enif_map_iterator_destroy(env, &iter);
+
+  SSDBG( descP,
+	 ("SOCKET", "decode_ioctl_flags {%d} -> done with"
+	  "\r\n      (new) flags: %d"
+	  "\r\n",
+	  descP->sock, tmpFlags) );
+
+  *flags = (short) tmpFlags;
+
+  return TRUE;
+}
+
 
 
 static

@@ -2062,6 +2062,15 @@
 	<p>These are privileged operation's. </p>
         <taglist>
 
+	  <tag><c>sifflags</c></tag>
+          <item>
+	    <p>Set the the active flag word, <c>#{Flag => boolean()}</c>,
+	    of the interface with the specified name. </p>
+	    <p>Each flag to be changed, should be added to the value map,
+	    with the value <c>'true'</c> if the flag (<c>Flag</c>)
+	    should be set and <c>'false'</c> if the flag should be reset. </p>
+          </item>
+
 	  <tag><c>sifaddr</c></tag>
           <item>
 	    <p>Set the address, <c>sockaddr()</c>,
