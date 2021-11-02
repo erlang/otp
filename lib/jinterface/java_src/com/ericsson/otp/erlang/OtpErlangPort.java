@@ -77,10 +77,10 @@ public class OtpErlangPort extends OtpErlangObject {
      *            an arbitrary number. Only the low order 28 bits will be used.
      *
      * @param creation
-     *            another arbitrary number. Only the low order 2 bits will be used.
+	 *  		  node incarnation number. Avoid values 0 to 3.
      */
     public OtpErlangPort(final String node, final long id, final int creation) {
-        this(OtpExternal.portTag, node, id, creation);
+		this(OtpExternal.newPortTag, node, id, creation);
     }
 
     /**

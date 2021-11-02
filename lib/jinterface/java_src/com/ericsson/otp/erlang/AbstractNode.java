@@ -118,7 +118,7 @@ public class AbstractNode implements OtpTransportFactory {
     int proto = 0; // tcp/ip
     int distHigh = 6;
     int distLow = 5; // Cannot talk to nodes before R6
-    int creation = 0;
+    private int creation = 0x710000;
     long flags = mandatoryFlags
         | dFlagHandshake23
         | dFlagUnlinkId
@@ -284,6 +284,13 @@ public class AbstractNode implements OtpTransportFactory {
     int creation() {
         return creation;
     }
+
+	void setCreation(int cr) throws OtpErlangDecodeException {
+		if (cr == 0) {
+			throw new OtpErlangDecodeException("Node creation 0 not allowed");
+		}
+		this.creation = cr;
+	}
 
     /**
      * Set the authorization cookie used by this node.

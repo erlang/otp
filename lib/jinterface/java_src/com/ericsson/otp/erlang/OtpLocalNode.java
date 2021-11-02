@@ -114,7 +114,7 @@ public class OtpLocalNode extends AbstractNode {
      */
     public synchronized OtpErlangPid createPid() {
         final OtpErlangPid p = new OtpErlangPid(node, pidCount, serial,
-                creation);
+                creation());
 
         pidCount++;
         if (pidCount > 0x7fff) {
@@ -139,7 +139,7 @@ public class OtpLocalNode extends AbstractNode {
      * @return an Erlang port.
      */
     public synchronized OtpErlangPort createPort() {
-        final OtpErlangPort p = new OtpErlangPort(node, portCount, creation);
+        final OtpErlangPort p = new OtpErlangPort(node, portCount, creation());
 
         portCount++;
         if (portCount > 0xfffffff) { /* 28 bits */
@@ -158,7 +158,7 @@ public class OtpLocalNode extends AbstractNode {
      * @return an Erlang reference.
      */
     public synchronized OtpErlangRef createRef() {
-        final OtpErlangRef r = new OtpErlangRef(node, refId, creation);
+        final OtpErlangRef r = new OtpErlangRef(node, refId, creation());
 
         // increment ref ids (3 ints: 18 + 32 + 32 bits)
         refId[0]++;
