@@ -1020,12 +1020,24 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                         false ->
                             1
                     end,
+
+    ResWordFun = case proplists:get_value(enable_feature, Opts, []) of
+                     maybe ->
+                         fun('maybe') -> true;
+                            ('else') -> true;
+                            (Other) -> erl_scan:reserved_word(Other)
+                         end;
+                     _ ->
+                         fun erl_scan:reserved_word/1
+                 end,
+
     R = epp:parse_file(File,
                        [{includes,[".",Dir|inc_paths(Opts)]},
                         {source_name, SourceName},
                         {macros,pre_defs(Opts)},
                         {default_encoding,DefEncoding},
                         {location,StartLocation},
+                        {reserved_word_fun,ResWordFun},
                         extra]),
     case R of
 	{ok,Forms0,Extra} ->

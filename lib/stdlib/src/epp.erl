@@ -73,7 +73,8 @@
 	            :: #{name() => [{argspec(), [used()]}]},
               default_encoding = ?DEFAULT_ENCODING :: source_encoding(),
 	      pre_opened = false :: boolean(),
-              fname = [] :: function_name_type()
+              fname = [] :: function_name_type(),
+              erl_scan_opts = [] :: erl_scan:options()
 	     }).
 
 %% open(Options)
@@ -604,11 +605,16 @@ init_server(Pid, FileName, Options, St0) ->
             %% first in path
             Path = [filename:dirname(FileName) |
                     proplists:get_value(includes, Options, [])],
+
+            ResWordFun = proplists:get_value(reserved_word_fun, Options,
+                                             fun erl_scan:reserved_word/1),
+
             %% the default location is 1 for backwards compatibility, not {1,1}
             AtLocation = proplists:get_value(location, Options, 1),
             St = St0#epp{delta=0, name=SourceName, name2=SourceName,
 			 path=Path, location=AtLocation, macs=Ms1,
-			 default_encoding=DefEncoding},
+			 default_encoding=DefEncoding,
+                         erl_scan_opts=[{reserved_word_fun,ResWordFun}]},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
             enter_file_reply(From, file_name(SourceName), Anno,
@@ -806,7 +812,7 @@ leave_file(From, St) ->
 %% scan_toks(Tokens, From, EppState)
 
 scan_toks(From, St) ->
-    case io:scan_erl_form(St#epp.file, '', St#epp.location) of
+    case io:scan_erl_form(St#epp.file, '', St#epp.location, St#epp.erl_scan_opts) of
 	{ok,Toks,Cl} ->
 	    scan_toks(Toks, From, St#epp{location=Cl});
 	{error,E,Cl} ->
@@ -1322,7 +1328,7 @@ new_location(Ln, {Le,_}, {Lf,_}) ->
 %%  nested conditionals and repeated 'else's.
 
 skip_toks(From, St, [I|Sis]) ->
-    case io:scan_erl_form(St#epp.file, '', St#epp.location) of
+    case io:scan_erl_form(St#epp.file, '', St#epp.location, St#epp.erl_scan_opts) of
 	{ok,[{'-',_Ah},{atom,_Ai,ifdef}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, [ifdef,I|Sis]);
 	{ok,[{'-',_Ah},{atom,_Ai,ifndef}|_Toks],Cl} ->
