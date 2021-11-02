@@ -123,7 +123,7 @@ public class OtpErlangDouble extends OtpErlangObject {
 
     @Override
     protected int doHashCode() {
-        final Double v = new Double(d);
+        final Double v = Double.valueOf(d);
         return v.hashCode();
     }
 }
