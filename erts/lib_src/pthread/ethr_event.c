@@ -34,6 +34,12 @@
 #endif
 #ifdef __DARWIN__
 #  define _DARWIN_UNLIMITED_SELECT
+/*
+ * select() on Darwin will fail with an EINVAL
+ * error if the 'tv_sec' field of the timeval
+ * struct exceeds 100 million seconds...
+ */
+#  define ETHR_MAX_SELECT_TV_SEC__ 100000000
 #endif
 
 #include "ethread.h"
@@ -500,6 +506,9 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
 #endif
 	fd_set *rsetp, *esetp;
 	struct timeval select_timeout;
+#ifdef ETHR_MAX_SELECT_TV_SEC__
+        int select_timeout_res;
+#endif
 
 #ifdef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
 #if ERTS_USE_PREMATURE_TIMEOUT
@@ -528,6 +537,21 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
 
 	select_timeout.tv_sec = time / (1000*1000);
 	select_timeout.tv_usec = time % (1000*1000);
+
+#ifdef ETHR_MAX_SELECT_TV_SEC__
+        if (select_timeout.tv_sec < ETHR_MAX_SELECT_TV_SEC__)
+            select_timeout_res = ETIMEDOUT;
+        else {
+            select_timeout.tv_sec = ETHR_MAX_SELECT_TV_SEC__;
+            select_timeout.tv_usec = 0;
+            /*
+             * Return EINTR (spurious wakeup) instead of
+             * ETIMEDOUT if we actually should time out on
+             * this (huge) timeout value...
+             */
+            select_timeout_res = EINTR;
+        }
+#endif
 
 	ETHR_ASSERT(val != ETHR_EVENT_ON__);
 
@@ -577,7 +601,11 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
 
 	sres = select(fd + 1, rsetp, NULL, esetp, &select_timeout);
 	if (sres == 0)
+#ifdef ETHR_MAX_SELECT_TV_SEC__
+            res = select_timeout_res;
+#else
 	    res = ETIMEDOUT;
+#endif
 	else {
 	    res = EINTR;
 	    if (sres < 0 && errno != EINTR)

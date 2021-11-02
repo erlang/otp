@@ -69,6 +69,12 @@
  * the version of select() that does not place a limit on the fd_set.
  */
 #  define _DARWIN_UNLIMITED_SELECT
+/*
+ * select() on Darwin will fail with an EINVAL
+ * error if the 'tv_sec' field of the timeval
+ * struct exceeds 100 million seconds...
+ */
+#  define ERTS_MAX_SELECT_TV_SEC__ 100000000
 #endif
 
 #ifndef WANT_NONBLOCKING
@@ -1735,6 +1741,19 @@ get_timeout_timeval(ErtsPollSet *ps,
     }
     else {
 	ErtsMonotonicTime sec = timeout/(1000*1000);
+#ifdef ERTS_MAX_SELECT_TV_SEC__
+        if (sec >= ERTS_MAX_SELECT_TV_SEC__) {
+            tvp->tv_sec = ERTS_MAX_SELECT_TV_SEC__;
+            tvp->tv_usec = 0;
+            /*
+             * If we actually should time out on
+             * this (huge) timeout, the select() call
+             * will be restarted with a newly calculated
+             * timeout after verifying the timeout...
+             */
+            return 1;
+        }
+#endif
 	tvp->tv_sec = sec;
 	tvp->tv_usec = timeout - sec*(1000*1000);
 
