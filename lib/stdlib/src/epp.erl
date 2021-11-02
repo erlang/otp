@@ -837,6 +837,8 @@ scan_toks([{'-',_Lh},{atom,_Li,ifndef}=IfnDef|Toks], From, St) ->
     scan_ifndef(Toks, IfnDef, From, St);
 scan_toks([{'-',_Lh},{atom,_Le,'else'}=Else|Toks], From, St) ->
     scan_else(Toks, Else, From, St);
+scan_toks([{'-',_Lh},{'else',_Le}=Else|Toks], From, St) ->
+    scan_else(Toks, Else, From, St);
 scan_toks([{'-',_Lh},{'if',_Le}=If|Toks], From, St) ->
     scan_if(Toks, If, From, St);
 scan_toks([{'-',_Lh},{atom,_Le,elif}=Elif|Toks], From, St) ->
@@ -1328,6 +1330,8 @@ skip_toks(From, St, [I|Sis]) ->
 	{ok,[{'-',_Ah},{'if',_Ai}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, ['if',I|Sis]);
 	{ok,[{'-',_Ah},{atom,_Ae,'else'}=Else|_Toks],Cl}->
+	    skip_else(Else, From, St#epp{location=Cl}, [I|Sis]);
+	{ok,[{'-',_Ah},{'else',_Ae}=Else|_Toks],Cl}->
 	    skip_else(Else, From, St#epp{location=Cl}, [I|Sis]);
 	{ok,[{'-',_Ah},{atom,_Ae,'elif'}=Elif|Toks],Cl}->
 	    skip_elif(Toks, Elif, From, St#epp{location=Cl}, [I|Sis]);
