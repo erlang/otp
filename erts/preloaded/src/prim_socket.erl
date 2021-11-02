@@ -157,6 +157,7 @@ init() ->
 			   fun (Options) -> options_table(Options, PT) end),
     _ = put_supports_table(ioctl_requests,
 			   fun (Requests) -> Requests end),
+    _ = put_supports_table(ioctl_flags, fun (Flags) -> Flags end),
     _ = put_supports_table(msg_flags, fun (Flags) -> Flags end),
     ok.
 
@@ -280,6 +281,11 @@ supports(msg_flags) ->
       fun (Name, Num, Acc) ->
               [{Name, Num =/= 0} | Acc]
       end, [], p_get(msg_flags));
+supports(ioctl_flags) ->
+    maps:fold(
+      fun (Name, Num, Acc) ->
+              [{Name, Num =/= 0} | Acc]
+      end, [], p_get(ioctl_flags));
 supports(Key) ->
     nif_supports(Key).
 
@@ -319,6 +325,8 @@ is_supported(ioctl_requests = Tab, Name) when is_atom(Name) ->
     p_get_is_supported(Tab, Name, fun (_) -> true end);
 is_supported(ioctl_requests, _Name) ->
     false;
+is_supported(ioctl_flags = Tab, Flag) ->
+    p_get_is_supported(Tab, Flag, fun (Value) -> Value =/= 0 end);
 is_supported(protocols = Tab, Name) when is_atom(Name) ->
     p_get_is_supported(Tab, Name, fun (_) -> true end);
 is_supported(protocols, _Name) ->
@@ -838,6 +846,8 @@ ioctl(SRef, SReq, Arg1, Arg2) ->
 	    {error, {invalid, {ioctl_request, SReq}}};
 	invalid ->
 	    {error, {invalid, {ioctl_request, SReq}}};
+	SReqNUM when (SReq =:= sifflags) ->
+	    nif_ioctl(SRef, SReqNUM, Arg1, enc_ioctl_flags(Arg2));
 	SReqNUM ->
 	    nif_ioctl(SRef, SReqNUM, Arg1, Arg2)
     end.
@@ -863,6 +873,23 @@ enc_ioctl_request(GReq) ->
 	    invalid
     end.
 
+%% Flags: The flags that shall be set or/and reset
+%%        #{foo := boolean()}
+enc_ioctl_flags(Flags) ->
+    enc_ioctl_flags(Flags, p_get(ioctl_flags)).
+
+enc_ioctl_flags(Flags, Table) ->
+    F = fun(Flag, SetOrReset, FlagMap) when is_boolean(SetOrReset) ->
+		case Table of
+		    #{Flag := FlagValue} ->
+			FlagMap#{FlagValue => SetOrReset};
+		    #{} ->
+			invalid_ioctl_flag(Flag)
+		end;
+	   (Flag, BadSetOrReset, _) ->
+		invalid_ioctl_flag({Flag, BadSetOrReset})
+	end,
+    maps:fold(F, #{}, Flags).
 
 
 %% These clauses should be deprecated
@@ -1058,7 +1085,20 @@ enc_sockopt({Level,Opt} = Option, _NativeValue)
     end;
 enc_sockopt(Option, _NativeValue) ->
     %% Neater than a function clause
-    erlang:error({invalid, {socket_option, Option}}).
+    invalid_socket_option(Option).
+
+
+%% ===========================================================================
+
+invalid_socket_option(Opt) ->
+    invalid({socket_option, Opt}).
+
+invalid_ioctl_flag(Flag) ->
+    invalid({ioctl_flag, Flag}).
+
+invalid(What) ->
+    erlang:error({invalid, What}).
+
 
 
 %% ===========================================================================
