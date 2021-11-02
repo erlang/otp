@@ -12632,15 +12632,19 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
              * change the source address when connecting
              * a datagram socket to a new destination
              */
-            sock_connect(desc->s, &disassoc_sa, disassoc_sa_size);
+            if (IS_CONNECTED(desc)) {
+                /* Dissolve association */
+                (void) sock_connect(desc->s, &disassoc_sa, disassoc_sa_size);
+            }
 #endif /* #ifdef __linux__ */
 
 	    code = sock_connect(desc->s,
 				(struct sockaddr*) &desc->remote, len);
 	    if (IS_SOCKET_ERROR(code)) {
-                sock_connect(desc->s, &disassoc_sa, disassoc_sa_size);
+                code = sock_errno(),
+                (void) sock_connect(desc->s, &disassoc_sa, disassoc_sa_size);
 		desc->state &= ~INET_F_ACTIVE;
-		return ctl_error(sock_errno(), rbuf, rsize);
+		return ctl_error(code, rbuf, rsize);
 	    }
 	    else /* ok we are connected */ {
 		enq_async(desc, tbuf, INET_REQ_CONNECT);

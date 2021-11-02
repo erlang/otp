@@ -115,14 +115,21 @@ close_server(Server) ->
 %% -- connect ----------------------------------------------------------------
 
 connect(?MODULE_socket(_Server, Socket), Address, Port) ->
+    Dest = dest2sockaddr({Address, Port}),
     case os:type() of
         {unix,linux} ->
-            _ = socket:connect(Socket, #{family => unspec}),
-            ok;
+            case socket:peername(Socket) of
+                {error, enotconn} ->
+                    socket:connect(Socket, Dest);
+                {error, closed} = Error ->
+                    Error;
+                _ -> % Matches {ok, _} and unknown errors
+                    _ = socket:connect(Socket, #{family => unspec}),
+                    socket:connect(Socket, Dest)
+            end;
         _ ->
-            ok
-    end,
-    socket:connect(Socket, dest2sockaddr({Address, Port})).
+            socket:connect(Socket, Dest)
+    end.
 
 
 %% -- open -----------------------------------------------------------------
