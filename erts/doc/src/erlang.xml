@@ -565,12 +565,8 @@ client(ServerPid, Request) ->
           valid UTF-8 sequences.</p>
         <note>
           <p>As from Erlang/OTP 20, <c>binary_to_atom(<anno>Binary</anno>, utf8)</c>
-            is capable of encoding any Unicode character. Earlier versions would
-            fail if the binary contained Unicode characters &gt; 255.
-            For more information about Unicode support in atoms, see the
-            <seeguide marker="erl_ext_dist#utf8_atoms">note on UTF-8
-            encoded atoms</seeguide>
-            in section "External Term Format" in the User's Guide.</p>
+            is capable of decoding any Unicode character. Earlier versions would
+            fail if the binary contained Unicode characters &gt; 255.</p>
         </note>
         <note>
           <p>The number of characters that are permitted in an atom
@@ -3254,10 +3250,7 @@ is_process_alive(P2Pid),
         <p>As from Erlang/OTP 20, <c><anno>String</anno></c> may contain
           any Unicode character. Earlier versions allowed only ISO-latin-1
           characters as the implementation did not allow Unicode characters
-          above 255. For more information on Unicode support in atoms, see
-          <seeguide marker="erl_ext_dist#utf8_atoms">note on UTF-8
-          encoded atoms</seeguide>
-        in section "External Term Format" in the User's Guide.</p>
+          above 255.</p>
         <note>
           <p>The number of characters that are permitted in an atom
           name is limited. The default limits can be found in the
