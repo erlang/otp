@@ -81,7 +81,8 @@
                                 | DFLAG_NEW_FLOATS                \
                                 | DFLAG_MAP_TAG                   \
                                 | DFLAG_EXPORT_PTR_TAG            \
-                                | DFLAG_BIT_BINARIES)
+                                | DFLAG_BIT_BINARIES              \
+                                | DFLAG_HANDSHAKE_23)
 
 /* Mandatory flags for distribution. */
 #define DFLAG_DIST_MANDATORY DFLAG_DIST_MANDATORY_25
@@ -106,7 +107,6 @@
                             | DFLAG_BIG_SEQTRACE_LABELS       \
                             | DFLAG_EXIT_PAYLOAD              \
                             | DFLAG_FRAGMENTS                 \
-                            | DFLAG_HANDSHAKE_23              \
                             | DFLAG_SPAWN                     \
                             | DFLAG_V4_NC		      \
                             | DFLAG_ALIAS		      \
