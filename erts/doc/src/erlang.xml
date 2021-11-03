@@ -11086,7 +11086,7 @@ hello
 	    </item>
 	    <tag><c>1</c></tag>
 	    <item>
-              <p>This is as of Erlang/OTP 17.0 the default. It forces any floats
+              <p>This is as of Erlang/OTP 17.0 the <em>default</em>. It forces any floats
 	      in the term to be encoded in a more space-efficient and exact way
 	      (namely in the 64-bit IEEE format, rather than converted to a
 	      textual representation). As from Erlang/OTP R11B-4,
@@ -11098,9 +11098,16 @@ hello
 	    <tag><c>2</c></tag>
 	    <item>
               <p>Drops usage of the latin1 atom encoding and unconditionally
-	      use utf8 encoding for all atoms. This will be changed to the
-	      default in a future major release of Erlang/OTP. Erlang/OTP
+	      use utf8 encoding for all atoms. Erlang/OTP
 	      systems as of R16B can decode this representation.</p>
+              <note>
+                <p>In Erlang/OTP 26, the default <c>minor_version</c> is planned
+                to change from 1 to 2. See
+                <seeguide marker="system/general_info:upcoming_incompatibilities#atoms_be_utf8">
+                  Upcoming Potential Incompatibilities
+                </seeguide>.
+                </p>
+              </note>
 	    </item>
 	  </taglist>
           <p>Option <c>deterministic</c> (introduced in OTP 24.1) can
