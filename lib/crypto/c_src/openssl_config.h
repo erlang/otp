@@ -229,8 +229,7 @@
 # define HAVE_RC2
 #endif
 
-#if !defined(OPENSSL_NO_RC4) \
-    && !defined(HAS_3_0_API)
+#ifndef OPENSSL_NO_RC4
 # define HAVE_RC4
 #endif
 
