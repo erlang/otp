@@ -231,8 +231,8 @@
 
 #if !defined(OPENSSL_NO_RMD160) && \
     !defined(OPENSSL_NO_RIPEMD160) && \
-    !defined(OPENSSL_NO_RIPEMD) && \
-    !defined(HAS_3_0_API)
+    !defined(OPENSSL_NO_RIPEMD)
+/* Note RMD160 vs RIPEMD160 */
 # define HAVE_RIPEMD160
 #endif
 
