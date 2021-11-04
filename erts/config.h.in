@@ -83,8 +83,17 @@
 /* ESOCK counter size */
 #undef ESOCK_COUNTER_SIZE
 
+/* Interface hwaddr supported */
+#undef ESOCK_USE_HWADDR
+
+/* Interface ifindex supported */
+#undef ESOCK_USE_IFINDEX
+
 /* Interface map supported */
 #undef ESOCK_USE_IFMAP
+
+/* Interface index supported */
+#undef ESOCK_USE_INDEX
 
 /* Use SO_[RCV|SND]TMIEO */
 #undef ESOCK_USE_RCVSNDTIMEO
@@ -985,6 +994,12 @@
 
 /* Define to 1 if `ifr_hwaddr' is a member of `struct ifreq'. */
 #undef HAVE_STRUCT_IFREQ_IFR_HWADDR
+
+/* Define to 1 if `ifr_ifindex' is a member of `struct ifreq'. */
+#undef HAVE_STRUCT_IFREQ_IFR_IFINDEX
+
+/* Define to 1 if `ifr_index' is a member of `struct ifreq'. */
+#undef HAVE_STRUCT_IFREQ_IFR_INDEX
 
 /* Define to 1 if `ifr_map' is a member of `struct ifreq'. */
 #undef HAVE_STRUCT_IFREQ_IFR_MAP

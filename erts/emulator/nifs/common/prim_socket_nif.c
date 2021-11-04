@@ -1955,7 +1955,7 @@ static ERL_NIF_TERM esock_ioctl_gifname(ErlNifEnv*       env,
 #endif
 
 /* esock_ioctl_gifhwaddr */
-#if defined(SIOCGIFHWADDR)
+#if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
 #define IOCTL_GIFHWADDR_FUNC_DEF IOCTL_GET_FUNC_DEF(gifhwaddr)
 #else
 #define IOCTL_GIFHWADDR_FUNC_DEF
@@ -2078,7 +2078,7 @@ static ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					struct ifmap*    mapP);
 #endif
-#if defined(SIOCGIFHWADDR)
+#if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
 static ERL_NIF_TERM encode_ioctl_hwaddr(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					struct sockaddr* addrP);
@@ -2111,10 +2111,12 @@ static BOOLEAN_T decode_ioctl_txqlen(ErlNifEnv*       env,
 				     ERL_NIF_TERM     etxqlen,
 				     int*             txqlen);
 #endif
+#if defined(SIOCSIFTXQLEN)
 static BOOLEAN_T decode_ioctl_ivalue(ErlNifEnv*       env,
 				     ESockDescriptor* descP,
 				     ERL_NIF_TERM     eivalue,
 				     int*             ivalue);
+#endif
 static ERL_NIF_TERM encode_ioctl_ivalue(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					int              ivalue);
@@ -5239,8 +5241,6 @@ static
 ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
 {
   ERL_NIF_TERM protocols;
-  struct protoent *pe;
-  int stayopen;
 
   protocols = MKEL(env);
 
@@ -5248,24 +5248,28 @@ ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
   defined(HAVE_SETPROTOENT) &&			\
   defined(HAVE_ENDPROTOENT)
 
-  MLOCK(data.protocolsMtx);
-  stayopen = TRUE;
-  setprotoent(stayopen);
-  while ((pe = getprotoent()) != NULL) {
-    ERL_NIF_TERM names;
-    char **aliases;
+  {
+    struct protoent *pe;
+    int stayopen;
 
-    names = MKEL(env);
-    for (aliases = pe->p_aliases;  *aliases != NULL;  aliases++)
-      names = MKC(env, MKA(env, *aliases), names);
-    names = MKC(env, MKA(env, pe->p_name), names);
+    MLOCK(data.protocolsMtx);
+    stayopen = TRUE;
+    setprotoent(stayopen);
+    while ((pe = getprotoent()) != NULL) {
+      ERL_NIF_TERM names;
+      char **aliases;
 
-    protocols =
-      MKC(env, MKT2(env, names, MKI(env, pe->p_proto)), protocols);
+      names = MKEL(env);
+      for (aliases = pe->p_aliases;  *aliases != NULL;  aliases++)
+	names = MKC(env, MKA(env, *aliases), names);
+      names = MKC(env, MKA(env, pe->p_name), names);
+
+      protocols =
+	MKC(env, MKT2(env, names, MKI(env, pe->p_proto)), protocols);
+    }
+    endprotoent();
+    MUNLOCK(data.protocolsMtx);
   }
-  endprotoent();
-  MUNLOCK(data.protocolsMtx);
-
 #endif
 
   /* Defaults for known protocols in case getprotoent()
@@ -5366,7 +5370,7 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
   requests = MKC(env, MKT2(env, atom_gifmtu, MKUL(env, SIOCGIFMTU)), requests);
 #endif
 
-#if defined(SIOCGIFHWADDR)
+#if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
   requests = MKC(env, MKT2(env, atom_gifhwaddr, MKUL(env, SIOCGIFHWADDR)), requests);
 #endif
 
@@ -13203,7 +13207,7 @@ ERL_NIF_TERM esock_ioctl2(ErlNifEnv*       env,
     break;
 #endif
 
-#if defined(SIOCGIFHWADDR)
+#if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
   case SIOCGIFHWADDR:
     return esock_ioctl_gifhwaddr(env, descP, arg);
     break;
@@ -13319,8 +13323,15 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 
 /* *** esock_ioctl_gifindex *** */
 #if defined(SIOCGIFINDEX)
+#if defined(ESOCK_USE_IFINDEX)
 #define IOCTL_GIFINDEX_FUNC_DECL					\
   IOCTL_GET_REQUEST_DECL(gifindex, SIOCGIFINDEX, ivalue, ifreq.ifr_ifindex)
+#elif defined(ESOCK_USE_INDEX)
+#define IOCTL_GIFINDEX_FUNC_DECL					\
+  IOCTL_GET_REQUEST_DECL(gifindex, SIOCGIFINDEX, ivalue, ifreq.ifr_index)
+#else
+#define IOCTL_GIFINDEX_FUNC_DECL
+#endif
 #else
 #define IOCTL_GIFINDEX_FUNC_DECL
 #endif
@@ -13379,7 +13390,7 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 #endif
 
 /* *** esock_ioctl_gifhwaddr *** */
-#if defined(SIOCGIFHWADDR)
+#if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
 #define IOCTL_GIFHWADDR_FUNC_DECL					\
   IOCTL_GET_REQUEST_DECL(gifhwaddr, SIOCGIFHWADDR, hwaddr, &ifreq.ifr_hwaddr)
 #else
@@ -13617,10 +13628,12 @@ ERL_NIF_TERM esock_ioctl_gifname(ErlNifEnv*       env,
 #define IOCTL_SIFNETMASK_FUNC_DECL
 #endif
 
-/* *** esock_ioctl_sifmtu *** */
+/* *** esock_ioctl_sifmtu ***
+ * On some platforms, MTU is an unsigned int
+ */
 #if defined(SIOCSIFMTU)
 #define IOCTL_SIFMTU_FUNC_DECL						\
-  IOCTL_SET_REQUEST_DECL(sifmtu, SIOCSIFMTU, mtu, &ifreq.ifr_mtu)
+  IOCTL_SET_REQUEST_DECL(sifmtu, SIOCSIFMTU, mtu, (int*) &ifreq.ifr_mtu)
 #else
 #define IOCTL_SIFMTU_FUNC_DECL
 #endif
@@ -13901,6 +13914,7 @@ ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
 #endif
 
 
+#if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
 static
 ERL_NIF_TERM encode_ioctl_hwaddr(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
@@ -13917,6 +13931,7 @@ ERL_NIF_TERM encode_ioctl_hwaddr(ErlNifEnv*       env,
 
   return esock_make_ok2(env, eaddr);;
 }
+#endif
 
 
 static
@@ -14038,6 +14053,10 @@ BOOLEAN_T decode_ioctl_txqlen(ErlNifEnv*       env,
 }
 #endif
 
+/* All uses of the function should be added. For instance:
+ * #if defined(SIOCGIFTXQLEN) || defined(FOOBAR) || defined(YXA)
+ */
+#if defined(SIOCGIFTXQLEN)
 static
 BOOLEAN_T decode_ioctl_ivalue(ErlNifEnv*       env,
 			      ESockDescriptor* descP,
@@ -14058,6 +14077,7 @@ BOOLEAN_T decode_ioctl_ivalue(ErlNifEnv*       env,
 
   return result;
 }
+#endif
 				 
 
 static

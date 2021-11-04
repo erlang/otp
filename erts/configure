@@ -773,7 +773,6 @@ infodir
 docdir
 oldincludedir
 includedir
-runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -920,7 +919,6 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
-runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE}'
@@ -1173,15 +1171,6 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
-  -runstatedir | --runstatedir | --runstatedi | --runstated \
-  | --runstate | --runstat | --runsta | --runst | --runs \
-  | --run | --ru | --r)
-    ac_prev=runstatedir ;;
-  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
-  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
-  | --run=* | --ru=* | --r=*)
-    runstatedir=$ac_optarg ;;
-
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1319,7 +1308,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir runstatedir
+		libdir localedir mandir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1472,7 +1461,6 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
-  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -14116,6 +14104,60 @@ _ACEOF
 
 
 $as_echo "#define ESOCK_USE_IFMAP /**/" >>confdefs.h
+
+fi
+
+
+ac_fn_c_check_member "$LINENO" "struct ifreq" "ifr_hwaddr" "ac_cv_member_struct_ifreq_ifr_hwaddr" "#ifdef __WIN32__
+	 #else
+	 #include <net/if.h>
+	 #endif
+
+"
+if test "x$ac_cv_member_struct_ifreq_ifr_hwaddr" = xyes; then :
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_STRUCT_IFREQ_IFR_HWADDR 1
+_ACEOF
+
+
+$as_echo "#define ESOCK_USE_HWADDR /**/" >>confdefs.h
+
+fi
+
+
+ac_fn_c_check_member "$LINENO" "struct ifreq" "ifr_ifindex" "ac_cv_member_struct_ifreq_ifr_ifindex" "#ifdef __WIN32__
+	 #else
+	 #include <net/if.h>
+	 #endif
+
+"
+if test "x$ac_cv_member_struct_ifreq_ifr_ifindex" = xyes; then :
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_STRUCT_IFREQ_IFR_IFINDEX 1
+_ACEOF
+
+
+$as_echo "#define ESOCK_USE_IFINDEX /**/" >>confdefs.h
+
+fi
+
+
+ac_fn_c_check_member "$LINENO" "struct ifreq" "ifr_index" "ac_cv_member_struct_ifreq_ifr_index" "#ifdef __WIN32__
+	 #else
+	 #include <net/if.h>
+	 #endif
+
+"
+if test "x$ac_cv_member_struct_ifreq_ifr_index" = xyes; then :
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_STRUCT_IFREQ_IFR_INDEX 1
+_ACEOF
+
+
+$as_echo "#define ESOCK_USE_INDEX /**/" >>confdefs.h
 
 fi
 
