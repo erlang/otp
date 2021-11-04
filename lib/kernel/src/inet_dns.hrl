@@ -195,7 +195,8 @@
          bm = "",       %% Used to be defined as:
          %%                Bitmap storing domain character case information
          %%       but now; Case normalized domain
-         func = false   %% Optional function calculating the data field.
+         func = false   %% Was: Optional function calculating the data field.
+         %%                Now: cache-flush Class flag from mDNS RFC 6762
 	}).
 
 -define(DNS_UDP_PAYLOAD_SIZE, 1280).
@@ -213,7 +214,8 @@
 
 -record(dns_query,
 	{
-	 domain,     %% query domain
-	 type,        %% query type
-	 class      %% query class
+	 domain,                    %% query domain
+	 type,                      %% query type
+	 class,                     %% query class
+         unicast_response = false   %% mDNS RFC 6762 Class flag
 	 }).
