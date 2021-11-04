@@ -189,8 +189,7 @@
 # define HAVE_BLAKE2
 #endif
 
-#if !defined(OPENSSL_NO_BF) \
-    && !defined(HAS_3_0_API)
+#ifndef OPENSSL_NO_BF
 # define HAVE_BF
 #endif
 
