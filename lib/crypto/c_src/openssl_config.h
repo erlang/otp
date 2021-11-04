@@ -194,8 +194,7 @@
 # define HAVE_BF
 #endif
 
-#if !defined(OPENSSL_NO_DES) \
-    && !defined(HAS_3_0_API)
+#ifndef OPENSSL_NO_DES
 # define HAVE_DES
 #endif
 
