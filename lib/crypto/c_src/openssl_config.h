@@ -257,11 +257,6 @@
 # endif
 #endif
 
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'c') \
-    && !defined(HAS_3_0_API)
-# define HAVE_AES_IGE
-#endif
-
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,1)
 # define HAVE_EVP_AES_CTR
 # define HAVE_AEAD
