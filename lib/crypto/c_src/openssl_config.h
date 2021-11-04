@@ -213,8 +213,7 @@
 # define HAVE_DSA
 #endif
 
-#if !defined(OPENSSL_NO_MD4) \
-    && !defined(HAS_3_0_API)
+#ifndef OPENSSL_NO_MD4
 # define HAVE_MD4
 #endif
 
