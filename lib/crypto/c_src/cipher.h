@@ -28,6 +28,7 @@ struct cipher_type_t {
 	const char* str;    /* before init */
 	ERL_NIF_TERM atom;  /* after init */
     }type;
+     const char* str_v3;      /* the algorithm name as in OpenSSL 3.x */
     union {
 	const EVP_CIPHER* (*funcp)(void); /* before init, NULL if notsup */
 	const EVP_CIPHER* p;              /* after init, NULL if notsup */

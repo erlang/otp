@@ -25,121 +25,121 @@
 static struct cipher_type_t cipher_types[] =
 {
 #ifdef HAVE_RC2
-    {{"rc2_cbc"}, {&EVP_rc2_cbc}, 0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"rc2_cbc"}, "rc2-cbc", {&EVP_rc2_cbc}, 0, NO_FIPS_CIPHER, NOT_AEAD},
 #else
-    {{"rc2_cbc"}, {NULL}, 0, 0},
+    {{"rc2_cbc"}, "rc2-cbc", {NULL}, 0, NO_FIPS_CIPHER, NOT_AEAD},
 #endif
 
 #ifdef HAVE_RC4
-    {{"rc4"},     {&EVP_rc4}, 0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"rc4"}, "rc4", {&EVP_rc4}, 0, NO_FIPS_CIPHER, NOT_AEAD},
 #else
-    {{"rc4"},     {NULL}, 0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"rc4"}, "rc4", {NULL}, 0, NO_FIPS_CIPHER, NOT_AEAD},
 #endif
 
 #ifdef HAVE_DES
-    {{"des_cbc"}, {&EVP_des_cbc},  0, NO_FIPS_CIPHER},
-    {{"des_cfb"}, {&EVP_des_cfb8}, 0, NO_FIPS_CIPHER},
-    {{"des_ecb"}, {&EVP_des_ecb},  0, NO_FIPS_CIPHER | ECB_BUG_0_9_8L},
+    {{"des_cbc"}, "des-cbc", {&EVP_des_cbc},  0, NO_FIPS_CIPHER},
+    {{"des_cfb"}, "des-cfb", {&EVP_des_cfb8}, 0, NO_FIPS_CIPHER},
+    {{"des_ecb"}, "des-ecb", {&EVP_des_ecb},  0, NO_FIPS_CIPHER | ECB_BUG_0_9_8L},
 #else
-    {{"des_cbc"}, {NULL}, 0, 0},
-    {{"des_cfb"}, {NULL}, 0, 0},
-    {{"des_ecb"}, {NULL}, 0, 0},
+    {{"des_cbc"}, "des-cbc", {NULL}, 0, 0},
+    {{"des_cfb"}, "des-cfb", {NULL}, 0, 0},
+    {{"des_ecb"}, "des-ecb", {NULL}, 0, 0},
 #endif
 
 #ifdef HAVE_DES_ede3_cbc
-    {{"des_ede3_cbc"}, {&EVP_des_ede3_cbc}, 0, 0},
+    {{"des_ede3_cbc"}, "des-ede3-cbc", {&EVP_des_ede3_cbc}, 0, 0},
 #else
-    {{"des_ede3_cbc"}, {NULL}, 0, 0},
+    {{"des_ede3_cbc"}, "des-ede3-cbc", {NULL}, 0, 0},
 #endif
 
 #ifdef HAVE_DES_ede3_cfb
-    {{"des_ede3_cfb"}, {&EVP_des_ede3_cfb8}, 0, 0},
+    {{"des_ede3_cfb"}, "des-ede3-cfb", {&EVP_des_ede3_cfb8}, 0, 0},
 #else
-    {{"des_ede3_cfb"}, {NULL}, 0, 0, NOT_AEAD},
+    {{"des_ede3_cfb"}, "des-ede3-cfb", {NULL}, 0, 0, NOT_AEAD},
 #endif
 
 #ifdef HAVE_BF
-    {{"blowfish_cbc"}, {&EVP_bf_cbc}, 0, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"blowfish_cfb64"}, {&EVP_bf_cfb64}, 0, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"blowfish_ofb64"}, {&EVP_bf_ofb}, 0, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"blowfish_ecb"}, {&EVP_bf_ecb}, 0, NO_FIPS_CIPHER | ECB_BUG_0_9_8L, NOT_AEAD},
+    {{"blowfish_cbc"},   "BF-CBC",   {&EVP_bf_cbc},   0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"blowfish_cfb64"}, "BF-CFB64", {&EVP_bf_cfb64}, 0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"blowfish_ofb64"}, "BF-OFB64", {&EVP_bf_ofb},   0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"blowfish_ecb"},   "BF-ECB",   {&EVP_bf_ecb},   0, NO_FIPS_CIPHER | ECB_BUG_0_9_8L, NOT_AEAD},
 #else
-    {{"blowfish_cbc"}, {NULL}, 0, 0, NOT_AEAD},
-    {{"blowfish_cfb64"}, {NULL}, 0, 0, NOT_AEAD},
-    {{"blowfish_ofb64"}, {NULL}, 0, 0, NOT_AEAD},
-    {{"blowfish_ecb"}, {NULL}, 0, 0, NOT_AEAD},
+    {{"blowfish_cbc"},   "BF-CBC",   {NULL}, 0, 0, NOT_AEAD},
+    {{"blowfish_cfb64"}, "BF-CFB64", {NULL}, 0, 0, NOT_AEAD},
+    {{"blowfish_ofb64"}, "BF-OFB64", {NULL}, 0, 0, NOT_AEAD},
+    {{"blowfish_ecb"},   "BF-ECB",   {NULL}, 0, 0, NOT_AEAD},
 #endif
 
-    {{"aes_128_cbc"}, {&EVP_aes_128_cbc}, 16, 0, NOT_AEAD},
-    {{"aes_192_cbc"}, {&EVP_aes_192_cbc}, 24, 0, NOT_AEAD},
-    {{"aes_256_cbc"}, {&EVP_aes_256_cbc}, 32, 0, NOT_AEAD},
+    {{"aes_128_cbc"}, "aes-128-cbc", {&EVP_aes_128_cbc}, 16, 0, NOT_AEAD},
+    {{"aes_192_cbc"}, "aes-192-cbc", {&EVP_aes_192_cbc}, 24, 0, NOT_AEAD},
+    {{"aes_256_cbc"}, "aes-256-cbc", {&EVP_aes_256_cbc}, 32, 0, NOT_AEAD},
 
-    {{"aes_128_cfb8"}, {&EVP_aes_128_cfb8}, 16, AES_CFBx, NOT_AEAD},
-    {{"aes_192_cfb8"}, {&EVP_aes_192_cfb8}, 24, AES_CFBx, NOT_AEAD},
-    {{"aes_256_cfb8"}, {&EVP_aes_256_cfb8}, 32, AES_CFBx, NOT_AEAD},
+    {{"aes_128_cfb8"}, "aes-128-cfb8", {&EVP_aes_128_cfb8}, 16, AES_CFBx, NOT_AEAD},
+    {{"aes_192_cfb8"}, "aes-192-cfb8", {&EVP_aes_192_cfb8}, 24, AES_CFBx, NOT_AEAD},
+    {{"aes_256_cfb8"}, "aes-256-cfb8", {&EVP_aes_256_cfb8}, 32, AES_CFBx, NOT_AEAD},
 
-    {{"aes_128_cfb128"}, {&EVP_aes_128_cfb128}, 16, AES_CFBx, NOT_AEAD},
-    {{"aes_192_cfb128"}, {&EVP_aes_192_cfb128}, 24, AES_CFBx, NOT_AEAD},
-    {{"aes_256_cfb128"}, {&EVP_aes_256_cfb128}, 32, AES_CFBx, NOT_AEAD},
+    {{"aes_128_cfb128"}, "aes-128-cfb128", {&EVP_aes_128_cfb128}, 16, AES_CFBx, NOT_AEAD},
+    {{"aes_192_cfb128"}, "aes-192-cfb128", {&EVP_aes_192_cfb128}, 24, AES_CFBx, NOT_AEAD},
+    {{"aes_256_cfb128"}, "aes-256-cfb128", {&EVP_aes_256_cfb128}, 32, AES_CFBx, NOT_AEAD},
 
-    {{"aes_128_ecb"}, {&EVP_aes_128_ecb}, 16, ECB_BUG_0_9_8L, NOT_AEAD},
-    {{"aes_192_ecb"}, {&EVP_aes_192_ecb}, 24, ECB_BUG_0_9_8L, NOT_AEAD},
-    {{"aes_256_ecb"}, {&EVP_aes_256_ecb}, 32, ECB_BUG_0_9_8L, NOT_AEAD},
+    {{"aes_128_ecb"}, "aes-128-ecb", {&EVP_aes_128_ecb}, 16, ECB_BUG_0_9_8L, NOT_AEAD},
+    {{"aes_192_ecb"}, "aes-192-ecb", {&EVP_aes_192_ecb}, 24, ECB_BUG_0_9_8L, NOT_AEAD},
+    {{"aes_256_ecb"}, "aes-256-ecb", {&EVP_aes_256_ecb}, 32, ECB_BUG_0_9_8L, NOT_AEAD},
 
 #if defined(HAVE_EVP_AES_CTR)
-    {{"aes_128_ctr"}, {&EVP_aes_128_ctr}, 16, 0, NOT_AEAD},
-    {{"aes_192_ctr"}, {&EVP_aes_192_ctr}, 24, 0, NOT_AEAD},
-    {{"aes_256_ctr"}, {&EVP_aes_256_ctr}, 32, 0, NOT_AEAD},
+    {{"aes_128_ctr"}, "aes-128-ctr", {&EVP_aes_128_ctr}, 16, 0, NOT_AEAD},
+    {{"aes_192_ctr"}, "aes-192-ctr", {&EVP_aes_192_ctr}, 24, 0, NOT_AEAD},
+    {{"aes_256_ctr"}, "aes-256-ctr", {&EVP_aes_256_ctr}, 32, 0, NOT_AEAD},
 #else
-    {{"aes_128_ctr"}, {NULL}, 16, AES_CTR_COMPAT, NOT_AEAD},
-    {{"aes_192_ctr"}, {NULL}, 24, AES_CTR_COMPAT, NOT_AEAD},
-    {{"aes_256_ctr"}, {NULL}, 32, AES_CTR_COMPAT, NOT_AEAD},
+    {{"aes_128_ctr"}, "aes-128-ctr", {NULL}, 16, AES_CTR_COMPAT, NOT_AEAD},
+    {{"aes_192_ctr"}, "aes-192-ctr", {NULL}, 24, AES_CTR_COMPAT, NOT_AEAD},
+    {{"aes_256_ctr"}, "aes-256-ctr", {NULL}, 32, AES_CTR_COMPAT, NOT_AEAD},
 #endif
 
 #if defined(HAVE_CHACHA20)
-    {{"chacha20"}, {&EVP_chacha20}, 32, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"chacha20"}, "chacha20", {&EVP_chacha20}, 32, NO_FIPS_CIPHER, NOT_AEAD},
 #else
-    {{"chacha20"}, {NULL}, 0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"chacha20"}, "chacha20", {NULL}, 0, NO_FIPS_CIPHER, NOT_AEAD},
 #endif
 
     /*==== AEAD ciphers ====*/
 #if defined(HAVE_CHACHA20_POLY1305)
-    {{"chacha20_poly1305"}, {&EVP_chacha20_poly1305}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
+    {{"chacha20_poly1305"}, "chacha20-poly1305", {&EVP_chacha20_poly1305}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
 #else
-    {{"chacha20_poly1305"}, {NULL}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, {{0,0,0}}},
+    {{"chacha20_poly1305"}, "chacha20-poly1305", {NULL}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, {{0,0,0}}},
 #endif
 
 #if defined(HAVE_GCM) && defined(HAS_3_0_API)
-    {{"aes_128_gcm"}, {&EVP_aes_128_gcm}, 16, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
-    {{"aes_192_gcm"}, {&EVP_aes_192_gcm}, 24, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
-    {{"aes_256_gcm"}, {&EVP_aes_256_gcm}, 32, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
+    {{"aes_128_gcm"}, "aes-128-gcm", {&EVP_aes_128_gcm}, 16, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
+    {{"aes_192_gcm"}, "aes-192-gcm", {&EVP_aes_192_gcm}, 24, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
+    {{"aes_256_gcm"}, "aes-256-gcm", {&EVP_aes_256_gcm}, 32, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
 #elif defined(HAVE_GCM)
-    {{"aes_128_gcm"}, {&EVP_aes_128_gcm}, 16, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
-    {{"aes_192_gcm"}, {&EVP_aes_192_gcm}, 24, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
-    {{"aes_256_gcm"}, {&EVP_aes_256_gcm}, 32, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
+    {{"aes_128_gcm"}, "aes-128-gcm", {&EVP_aes_128_gcm}, 16, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
+    {{"aes_192_gcm"}, "aes-192-gcm", {&EVP_aes_192_gcm}, 24, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
+    {{"aes_256_gcm"}, "aes-256-gcm", {&EVP_aes_256_gcm}, 32, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
 #else
-    {{"aes_128_gcm"}, {NULL}, 16, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
-    {{"aes_192_gcm"}, {NULL}, 24, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
-    {{"aes_256_gcm"}, {NULL}, 32, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
+    {{"aes_128_gcm"}, "aes-128-gcm", {NULL}, 16, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
+    {{"aes_192_gcm"}, "aes-192-gcm", {NULL}, 24, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
+    {{"aes_256_gcm"}, "aes-256-gcm", {NULL}, 32, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
 #endif
 
 #if defined(HAVE_CCM) && defined(HAS_3_0_API)
-    {{"aes_128_ccm"}, {&EVP_aes_128_ccm}, 16, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
-    {{"aes_192_ccm"}, {&EVP_aes_192_ccm}, 24, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
-    {{"aes_256_ccm"}, {&EVP_aes_256_ccm}, 32, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
+    {{"aes_128_ccm"}, "aes-128-ccm", {&EVP_aes_128_ccm}, 16, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
+    {{"aes_192_ccm"}, "aes-192-ccm", {&EVP_aes_192_ccm}, 24, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
+    {{"aes_256_ccm"}, "aes-256-ccm", {&EVP_aes_256_ccm}, 32, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
 #elif defined(HAVE_CCM)
-    {{"aes_128_ccm"}, {&EVP_aes_128_ccm}, 16, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
-    {{"aes_192_ccm"}, {&EVP_aes_192_ccm}, 24, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
-    {{"aes_256_ccm"}, {&EVP_aes_256_ccm}, 32, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
+    {{"aes_128_ccm"}, "aes-128-ccm", {&EVP_aes_128_ccm}, 16, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
+    {{"aes_192_ccm"}, "aes-192-ccm", {&EVP_aes_192_ccm}, 24, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
+    {{"aes_256_ccm"}, "aes-256-ccm", {&EVP_aes_256_ccm}, 32, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
 #else
-    {{"aes_128_ccm"}, {NULL}, 16, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
-    {{"aes_192_ccm"}, {NULL}, 24, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
-    {{"aes_256_ccm"}, {NULL}, 32, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
+    {{"aes_128_ccm"}, "aes-128-ccm", {NULL}, 16, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
+    {{"aes_192_ccm"}, "aes-192-ccm", {NULL}, 24, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
+    {{"aes_256_ccm"}, "aes-256-ccm", {NULL}, 32, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
 #endif
 
     /*==== End of list ==== */
 
-    {{NULL},{NULL},0,0,NOT_AEAD}
+    {{NULL},NULL,{NULL},0,0,NOT_AEAD}
 };
 
 ErlNifResourceType* evp_cipher_ctx_rtype;
@@ -182,8 +182,26 @@ void init_cipher_types(ErlNifEnv* env)
     for (p = cipher_types; p->type.str; p++) {
         num_cipher_types++;
 	p->type.atom = enif_make_atom(env, p->type.str);
+#ifdef HAS_3_0_API
+        if (p->str_v3) {
+            p->cipher.p = EVP_CIPHER_fetch(NULL, p->str_v3, "");
+# ifdef FIPS_SUPPORT
+            /* Try if valid in FIPS */
+            {
+                EVP_CIPHER *tmp = EVP_CIPHER_fetch(NULL, p->str_v3, "fips=yes");
+
+                if (tmp) {
+                    EVP_CIPHER_free(tmp);
+                    p->flags &= ~NO_FIPS_CIPHER;
+                } else
+                    p->flags |= NO_FIPS_CIPHER;
+            }
+# endif /* FIPS_SUPPORT and >=3.0.0 */
+        }
+#else
 	if (p->cipher.funcp)
 	    p->cipher.p = p->cipher.funcp();
+#endif
     }
     p->type.atom = atom_false; /* end marker */
 
