@@ -33,6 +33,8 @@
 #include <ctype.h>
 #include <time.h>
 #include <stddef.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <net/if_arp.h>
 
 #include "socket_int.h"
