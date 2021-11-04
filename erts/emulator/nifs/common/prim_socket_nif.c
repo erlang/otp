@@ -1955,7 +1955,7 @@ static ERL_NIF_TERM esock_ioctl_gifname(ErlNifEnv*       env,
 #endif
 
 /* esock_ioctl_gifhwaddr */
-#if defined(SIOCGIFBRDADDR)
+#if defined(SIOCGIFHWADDR)
 #define IOCTL_GIFHWADDR_FUNC_DEF IOCTL_GET_FUNC_DEF(gifhwaddr)
 #else
 #define IOCTL_GIFHWADDR_FUNC_DEF
@@ -3859,6 +3859,14 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(add_source_membership);           \
     GLOBAL_ATOM_DECL(allmulti);                        \
     GLOBAL_ATOM_DECL(any);                             \
+    GLOBAL_ATOM_DECL(arphrd_dlci);		       \
+    GLOBAL_ATOM_DECL(arphrd_ether);		       \
+    GLOBAL_ATOM_DECL(arphrd_frelay);		       \
+    GLOBAL_ATOM_DECL(arphrd_ieee802);		       \
+    GLOBAL_ATOM_DECL(arphrd_ieee1394);		       \
+    GLOBAL_ATOM_DECL(arphrd_loopback);		       \
+    GLOBAL_ATOM_DECL(arphrd_netrom);		       \
+    GLOBAL_ATOM_DECL(arphrd_none);		       \
     GLOBAL_ATOM_DECL(associnfo);                       \
     GLOBAL_ATOM_DECL(authhdr);                         \
     GLOBAL_ATOM_DECL(auth_active_key);                 \
@@ -3894,7 +3902,6 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(delayed_ack_time);                \
     GLOBAL_ATOM_DECL(dgram);                           \
     GLOBAL_ATOM_DECL(disable_fragments);               \
-    GLOBAL_ATOM_DECL(dlci);                            \
     GLOBAL_ATOM_DECL(domain);                          \
     GLOBAL_ATOM_DECL(dontfrag);                        \
     GLOBAL_ATOM_DECL(dontroute);                       \
@@ -3911,7 +3918,6 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(errqueue);                        \
     GLOBAL_ATOM_DECL(esp_network_level);               \
     GLOBAL_ATOM_DECL(esp_trans_level);                 \
-    GLOBAL_ATOM_DECL(ether);                           \
     GLOBAL_ATOM_DECL(events);                          \
     GLOBAL_ATOM_DECL(explicit_eor);                    \
     GLOBAL_ATOM_DECL(faith);                           \
@@ -3922,7 +3928,6 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(flowinfo);                        \
     GLOBAL_ATOM_DECL(fragment_interleave);             \
     GLOBAL_ATOM_DECL(freebind);                        \
-    GLOBAL_ATOM_DECL(frelay);                          \
     GLOBAL_ATOM_DECL(get_peer_addr_info);              \
     GLOBAL_ATOM_DECL(hatype);                          \
     GLOBAL_ATOM_DECL(hdrincl);                         \
@@ -3932,8 +3937,6 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(host);                            \
     GLOBAL_ATOM_DECL(icmp);                            \
     GLOBAL_ATOM_DECL(icmp6);                           \
-    GLOBAL_ATOM_DECL(ieee802);                         \
-    GLOBAL_ATOM_DECL(ieee1394);                        \
     GLOBAL_ATOM_DECL(ifindex);                         \
     GLOBAL_ATOM_DECL(igmp);                            \
     GLOBAL_ATOM_DECL(implink);                         \
@@ -3961,7 +3964,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(link);                            \
     GLOBAL_ATOM_DECL(local);                           \
     GLOBAL_ATOM_DECL(local_auth_chunks);               \
-    GLOBAL_ATOM_DECL(loopback);                        \
+    GLOBAL_ATOM_DECL(loopback);			       \
     GLOBAL_ATOM_DECL(lowdelay);                        \
     GLOBAL_ATOM_DECL(lower_up);                        \
     GLOBAL_ATOM_DECL(mark);                            \
@@ -3982,7 +3985,6 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(multicast_loop);                  \
     GLOBAL_ATOM_DECL(multicast_ttl);                   \
     GLOBAL_ATOM_DECL(name);                            \
-    GLOBAL_ATOM_DECL(netrom);                          \
     GLOBAL_ATOM_DECL(noarp);                           \
     GLOBAL_ATOM_DECL(nodelay);                         \
     GLOBAL_ATOM_DECL(nodefrag);                        \
@@ -13628,7 +13630,7 @@ ERL_NIF_TERM esock_ioctl_gifname(ErlNifEnv*       env,
 #define IOCTL_SIFTXQLEN_FUNC_DECL						\
   IOCTL_SET_REQUEST_DECL(siftxqlen, SIOCSIFTXQLEN, txqlen, &ifreq.ifr_qlen)
 #else
-#define IOCTL_SIFMTU_FUNC_DECL
+#define IOCTL_SIFTXQLEN_FUNC_DECL
 #endif
 
 #define IOCTL_SET_FUNCS				\
@@ -14025,6 +14027,7 @@ BOOLEAN_T decode_ioctl_mtu(ErlNifEnv*       env,
 }
 				 
 
+#if defined(SIOCSIFTXQLEN)
 static
 BOOLEAN_T decode_ioctl_txqlen(ErlNifEnv*       env,
 			      ESockDescriptor* descP,
@@ -14033,7 +14036,7 @@ BOOLEAN_T decode_ioctl_txqlen(ErlNifEnv*       env,
 {
   return decode_ioctl_ivalue(env, descP, etxqlen, txqlen);
 }
-				 
+#endif
 
 static
 BOOLEAN_T decode_ioctl_ivalue(ErlNifEnv*       env,

@@ -479,49 +479,49 @@ void esock_encode_hwsockaddr(ErlNifEnv*    env,
   switch (family) {
 #if defined(ARPHRD_NETROM)
   case ARPHRD_NETROM:
-    efamily = esock_atom_netrom;
+    efamily = esock_atom_arphrd_netrom;
     break;
 #endif
 
 #if defined(ARPHRD_ETHER)
   case ARPHRD_ETHER:
-    efamily = esock_atom_ether;
+    efamily = esock_atom_arphrd_ether;
     break;
 #endif
 
 #if defined(ARPHRD_IEEE802)
   case ARPHRD_IEEE802:
-    efamily = esock_atom_ieee802;
+    efamily = esock_atom_arphrd_ieee802;
     break;
 #endif
 
 #if defined(ARPHRD_DLCI)
   case ARPHRD_DLCI:
-    efamily = esock_atom_dlci;
+    efamily = esock_atom_arphrd_dlci;
     break;
 #endif
 
 #if defined(ARPHRD_FRELAY)
   case ARPHRD_FRELAY:
-    efamily = esock_atom_frelay;
+    efamily = esock_atom_arphrd_frelay;
     break;
 #endif
 
 #if defined(ARPHRD_IEEE1394)
   case ARPHRD_IEEE1394:
-    efamily = esock_atom_ieee1394;
+    efamily = esock_atom_arphrd_ieee1394;
     break;
 #endif
 
 #if defined(ARPHRD_LOOPBACK)
   case ARPHRD_LOOPBACK:
-    efamily = esock_atom_loopback;
+    efamily = esock_atom_arphrd_loopback;
     break;
 #endif
 
 #if defined(ARPHRD_NONE)
   case ARPHRD_NONE:
-    efamily = esock_atom_none;
+    efamily = esock_atom_arphrd_none;
     break;
 #endif
 
