@@ -2059,111 +2059,6 @@ IOCTL_SET_FUNCS_DEF
 #undef IOCTL_SET_FUNC_DEF
 
 
-#if defined(FOOBAR_XYZ)
-#if defined(SIOCGIFINDEX)
-static ERL_NIF_TERM esock_ioctl_gifindex(ErlNifEnv*       env,
-					 ESockDescriptor* descP,
-					 ERL_NIF_TERM     ename);
-#endif
-#endif
-#if defined(FOOBAR_XYZ)
-static ERL_NIF_TERM esock_ioctl_gifflags(ErlNifEnv*       env,
-					 ESockDescriptor* descP,
-					 ERL_NIF_TERM     ename);
-#endif
-#if defined(FOOBAR_XYZ)
-static ERL_NIF_TERM esock_ioctl_sifflags(ErlNifEnv*       env,
-					 ESockDescriptor* descP,
-					 ERL_NIF_TERM     ename,
-					 ERL_NIF_TERM     eflags);
-#endif
-#if defined(FOOBAR_XYZ)
-static ERL_NIF_TERM esock_ioctl_gifaddr(ErlNifEnv*       env,
-					ESockDescriptor* descP,
-					ERL_NIF_TERM     ename);
-#endif
-#if defined(FOOBAR_XYZ)
-static ERL_NIF_TERM esock_ioctl_sifaddr(ErlNifEnv*       env,
-					ESockDescriptor* descP,
-					ERL_NIF_TERM     ename,
-					ERL_NIF_TERM     eaddr);
-#endif
-#if defined(FOOBAR_XYZ)
-static ERL_NIF_TERM esock_ioctl_gifdstaddr(ErlNifEnv*       env,
-					   ESockDescriptor* descP,
-					   ERL_NIF_TERM     ename);
-#endif
-#if defined(FOOBAR_XYZ)
-static ERL_NIF_TERM esock_ioctl_sifdstaddr(ErlNifEnv*       env,
-					   ESockDescriptor* descP,
-					   ERL_NIF_TERM     ename,
-					   ERL_NIF_TERM     eaddr);
-#endif
-#if defined(FOOBAR_XYZ)
-static ERL_NIF_TERM esock_ioctl_gifbrdaddr(ErlNifEnv*       env,
-					   ESockDescriptor* descP,
-					   ERL_NIF_TERM     ename);
-#endif
-#if defined(FOOBAR_XYZ)
-static ERL_NIF_TERM esock_ioctl_sifbrdaddr(ErlNifEnv*       env,
-					   ESockDescriptor* descP,
-					   ERL_NIF_TERM     ename,
-					   ERL_NIF_TERM     eaddr);
-#endif
-#if defined(FOOBAR_XYZ)
-static ERL_NIF_TERM esock_ioctl_gifnetmask(ErlNifEnv*       env,
-					   ESockDescriptor* descP,
-					   ERL_NIF_TERM     ename);
-#endif
-#if defined(FOOBAR_XYZ)
-#if defined(SIOCSIFNETMASK)
-static ERL_NIF_TERM esock_ioctl_sifnetmask(ErlNifEnv*       env,
-					   ESockDescriptor* descP,
-					   ERL_NIF_TERM     ename,
-					   ERL_NIF_TERM     eaddr);
-#endif
-#endif
-#if defined(FOOBAR_XYZ)
-#if defined(SIOCGIFHWADDR)
-static ERL_NIF_TERM esock_ioctl_gifhwaddr(ErlNifEnv*       env,
-					  ESockDescriptor* descP,
-					  ERL_NIF_TERM     ename);
-#endif
-#endif
-#if defined(FOOBAR_XYZ)
-#if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
-static ERL_NIF_TERM esock_ioctl_gifmap(ErlNifEnv*       env,
-				       ESockDescriptor* descP,
-				       ERL_NIF_TERM     ename);
-#endif
-#endif
-#if defined(FOOBAR_XYZ)
-static ERL_NIF_TERM esock_ioctl_gifmtu(ErlNifEnv*       env,
-				       ESockDescriptor* descP,
-				       ERL_NIF_TERM     ename);
-#endif
-#if defined(FOOBAR_XYZ)
-static ERL_NIF_TERM esock_ioctl_sifmtu(ErlNifEnv*       env,
-				       ESockDescriptor* descP,
-				       ERL_NIF_TERM     ename,
-				       ERL_NIF_TERM     emtu);
-#endif
-#if defined(FOOBAR_XYZ)
-#if defined(SIOCGIFTXQLEN)
-static ERL_NIF_TERM esock_ioctl_giftxqlen(ErlNifEnv*       env,
-					  ESockDescriptor* descP,
-					  ERL_NIF_TERM     ename);
-#endif
-#endif
-#if defined(FOOBAR_XYZ)
-#if defined(SIOCSIFTXQLEN)
-static ERL_NIF_TERM esock_ioctl_siftxqlen(ErlNifEnv*       env,
-					  ESockDescriptor* descP,
-					  ERL_NIF_TERM     ename,
-					  ERL_NIF_TERM     elen);
-#endif
-#endif
-
 static ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					struct ifconf*   ifcP);
@@ -2194,22 +2089,28 @@ static ERL_NIF_TERM encode_ioctl_ifraddr(ErlNifEnv*       env,
 static ERL_NIF_TERM encode_ioctl_flags(ErlNifEnv*       env,
 				       ESockDescriptor* descP,
 				       short            flags);
+#if defined(SIOCSIFFLAGS)
 static BOOLEAN_T decode_ioctl_flags(ErlNifEnv*       env,
 				    ESockDescriptor* descP,
 				    ERL_NIF_TERM     eflags,
 				    short*           flags);
+#endif
 static BOOLEAN_T decode_ioctl_sockaddr(ErlNifEnv*       env,
 				       ESockDescriptor* descP,
 				       ERL_NIF_TERM     eaddr,
 				       ESockAddress*    addr);
+#if defined(SIOCSIFMTU)
 static BOOLEAN_T decode_ioctl_mtu(ErlNifEnv*       env,
 				  ESockDescriptor* descP,
 				  ERL_NIF_TERM     emtu,
 				  int*             mtu);
+#endif
+#if defined(SIOCSIFTXQLEN)
 static BOOLEAN_T decode_ioctl_txqlen(ErlNifEnv*       env,
 				     ESockDescriptor* descP,
 				     ERL_NIF_TERM     etxqlen,
 				     int*             txqlen);
+#endif
 static BOOLEAN_T decode_ioctl_ivalue(ErlNifEnv*       env,
 				     ESockDescriptor* descP,
 				     ERL_NIF_TERM     eivalue,
@@ -13414,7 +13315,7 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
  *
  */
 
-/* esock_ioctl_gifindex */
+/* *** esock_ioctl_gifindex *** */
 #if defined(SIOCGIFINDEX)
 #define IOCTL_GIFINDEX_FUNC_DECL					\
   IOCTL_GET_REQUEST_DECL(gifindex, SIOCGIFINDEX, ivalue, ifreq.ifr_ifindex)
@@ -13422,7 +13323,7 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 #define IOCTL_GIFINDEX_FUNC_DECL
 #endif
 
-/* esock_ioctl_gifflags */
+/* *** esock_ioctl_gifflags *** */
 #if defined(SIOCGIFFLAGS)
 #define IOCTL_GIFFLAGS_FUNC_DECL					\
   IOCTL_GET_REQUEST_DECL(gifflags, SIOCGIFFLAGS, flags,  ifreq.ifr_flags)
@@ -13430,7 +13331,7 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 #define IOCTL_GIFFLAGS_FUNC_DECL
 #endif
 
-/* esock_ioctl_gifaddr */
+/* *** esock_ioctl_gifaddr *** */
 #if defined(SIOCGIFADDR)
 #define IOCTL_GIFADDR_FUNC_DECL						\
   IOCTL_GET_REQUEST_DECL(gifaddr, SIOCGIFADDR, ifraddr, &ifreq.ifr_addr)
@@ -13438,7 +13339,7 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 #define IOCTL_GIFADDR_FUNC_DECL
 #endif
 
-/* esock_ioctl_gifdstaddr */
+/* *** esock_ioctl_gifdstaddr *** */
 #if defined(SIOCGIFDSTADDR)
 #define IOCTL_GIFDSTADDR_FUNC_DECL					\
   IOCTL_GET_REQUEST_DECL(gifdstaddr, SIOCGIFDSTADDR, ifraddr, &ifreq.ifr_dstaddr)
@@ -13446,7 +13347,7 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 #define IOCTL_GIFDSTADDR_FUNC_DECL
 #endif
 
-/* esock_ioctl_gifbrdaddr */
+/* *** esock_ioctl_gifbrdaddr *** */
 #if defined(SIOCGIFBRDADDR)
 #define IOCTL_GIFBRDADDR_FUNC_DECL					\
   IOCTL_GET_REQUEST_DECL(gifbrdaddr, SIOCGIFBRDADDR, ifraddr, &ifreq.ifr_broadaddr)
@@ -13454,7 +13355,7 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 #define IOCTL_GIFBRDADDR_FUNC_DECL
 #endif
 
-/* esock_ioctl_gifnetmask */
+/* *** esock_ioctl_gifnetmask *** */
 #if defined(SIOCGIFNETMASK)
 #ifdef __linux__
 #define IOCTL_GIFNETMASK_FUNC_DECL					\
@@ -13467,7 +13368,7 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 #define IOCTL_GIFNETMASK_FUNC_DECL
 #endif
 
-/* esock_ioctl_gifmtu */
+/* *** esock_ioctl_gifmtu *** */
 #if defined(SIOCGIFMTU)
 #define IOCTL_GIFMTU_FUNC_DECL						\
   IOCTL_GET_REQUEST_DECL(gifmtu, SIOCGIFMTU, ivalue,  ifreq.ifr_mtu)
@@ -13475,7 +13376,7 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 #define IOCTL_GIFMTU_FUNC_DECL
 #endif
 
-/* esock_ioctl_gifhwaddr */
+/* *** esock_ioctl_gifhwaddr *** */
 #if defined(SIOCGIFHWADDR)
 #define IOCTL_GIFHWADDR_FUNC_DECL					\
   IOCTL_GET_REQUEST_DECL(gifhwaddr, SIOCGIFHWADDR, hwaddr, &ifreq.ifr_hwaddr)
@@ -13483,7 +13384,7 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 #define IOCTL_GIFHWADDR_FUNC_DECL
 #endif
 
-/* esock_ioctl_gifmap */
+/* *** esock_ioctl_gifmap *** */
 #if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
 #define IOCTL_GIFMAP_FUNC_DECL						\
   IOCTL_GET_REQUEST_DECL(gifmap, SIOCGIFMAP, ifrmap, &ifreq.ifr_map)
@@ -13491,7 +13392,7 @@ ERL_NIF_TERM esock_ioctl3(ErlNifEnv*       env,
 #define IOCTL_GIFMAP_FUNC_DECL
 #endif
 
-/* esock_ioctl_giftxqlen */
+/* *** esock_ioctl_giftxqlen *** */
 #if defined(SIOCGIFTXQLEN)
 #define IOCTL_GIFTXQLEN_FUNC_DECL					\
   IOCTL_GET_REQUEST_DECL(giftxqlen, SIOCGIFTXQLEN, ivalue,  ifreq.ifr_qlen)
@@ -13612,369 +13513,6 @@ ERL_NIF_TERM esock_ioctl_gifconf(ErlNifEnv*       env,
 }
 
 
-#if defined(FOOBAR_XYZ)
-static
-ERL_NIF_TERM esock_ioctl_gifaddr(ErlNifEnv*       env,
-				 ESockDescriptor* descP,
-				 ERL_NIF_TERM     ename)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_gifaddr {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n", descP->sock, ename) );
-
-  if (!esock_decode_string(env, ename, &ifn))
-    return enif_make_badarg(env);
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_gifaddr {%d} -> try ioctl\r\n", descP->sock) );
-
-  if (ioctl(descP->sock, SIOCGIFADDR, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifaddr {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifaddr {%d} -> encode addr\r\n",
-	    descP->sock) );
-    result = encode_ioctl_ifraddr(env, descP, &ifreq.ifr_addr);
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-#endif
-
-
-#if defined(FOOBAR_XYZ)
-static
-ERL_NIF_TERM esock_ioctl_gifdstaddr(ErlNifEnv*       env,
-				    ESockDescriptor* descP,
-				    ERL_NIF_TERM     ename)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_gifdstaddr {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n", descP->sock, ename) );
-
-  if (!esock_decode_string(env, ename, &ifn))
-    return enif_make_badarg(env);
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_gifdstaddr {%d} -> try ioctl\r\n", descP->sock) );
-
-  if (ioctl(descP->sock, SIOCGIFDSTADDR, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifdstaddr {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifdstaddr {%d} -> encode dstaddr\r\n",
-	    descP->sock) );
-    result = encode_ioctl_ifraddr(env, descP, &ifreq.ifr_dstaddr);
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-#endif
-
-
-#if defined(FOOBAR_XYZ)
-static
-ERL_NIF_TERM esock_ioctl_gifbrdaddr(ErlNifEnv*       env,
-				    ESockDescriptor* descP,
-				    ERL_NIF_TERM     ename)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_gifbrdaddr {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n", descP->sock, ename) );
-
-  if (!esock_decode_string(env, ename, &ifn))
-    return enif_make_badarg(env);
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_gifbrdaddr {%d} -> try ioctl\r\n", descP->sock) );
-
-  if (ioctl(descP->sock, SIOCGIFBRDADDR, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifbrdaddr {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifbrdaddr {%d} -> encode brdaddr\r\n",
-	    descP->sock) );
-    result = encode_ioctl_ifraddr(env, descP, &ifreq.ifr_broadaddr);
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-#endif
-
-
-#if defined(FOOBAR_XYZ)
-#if defined(SIOCGIFNETMASK)
-
-static
-ERL_NIF_TERM esock_ioctl_gifnetmask(ErlNifEnv*       env,
-				    ESockDescriptor* descP,
-				    ERL_NIF_TERM     ename)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_gifnetmask {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n", descP->sock, ename) );
-
-  if (!esock_decode_string(env, ename, &ifn))
-    return enif_make_badarg(env);
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_gifnetmask {%d} -> try ioctl\r\n", descP->sock) );
-
-  if (ioctl(descP->sock, SIOCGIFNETMASK, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifnetmask {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifnetmask {%d} -> encode netmask\r\n",
-	    descP->sock) );
-
-#ifdef __linux__
-    result = encode_ioctl_ifraddr(env, descP, &ifreq.ifr_netmask);
-#else
-    result = encode_ioctl_ifraddr(env, descP, &ifreq.ifr_addr);
-#endif
-
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-
-#endif
-#endif
-
-
-#if defined(FOOBAR_XYZ)
-#if defined(SIOCGIFHWADDR)
-static
-ERL_NIF_TERM esock_ioctl_gifhwaddr(ErlNifEnv*       env,
-				   ESockDescriptor* descP,
-				   ERL_NIF_TERM     ename)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_gifhwaddr {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n", descP->sock, ename) );
-
-  if (!esock_decode_string(env, ename, &ifn))
-    return enif_make_badarg(env);
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_gifhwaddr {%d} -> try ioctl\r\n", descP->sock) );
-
-  if (ioctl(descP->sock, SIOCGIFHWADDR, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifhwaddr {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    /* ERL_NIF_TERM eaddr; */
-    /* unsigned int sz = sizeof(ESockAddress); */
-
-    /* esock_encode_hwsockaddr(env, (ESockAddress*) &ifreq.ifr_hwaddr, sz, &eaddr); */
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifhwaddr {%d} -> encode addr\r\n",
-	    descP->sock) );
-
-    result = encode_ioctl_hwaddr(env, descP, &ifreq.ifr_hwaddr);
-
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-#endif
-#endif
-
-
-#if defined(FOOBAR_XYZ)
-#if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
-static
-ERL_NIF_TERM esock_ioctl_gifmap(ErlNifEnv*       env,
-				ESockDescriptor* descP,
-				ERL_NIF_TERM     ename)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_gifmap {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n", descP->sock, ename) );
-
-  if (!esock_decode_string(env, ename, &ifn))
-    return enif_make_badarg(env);
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_gifmap {%d} -> try ioctl\r\n", descP->sock) );
-
-  if (ioctl(descP->sock, SIOCGIFMAP, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifmap {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifmap {%d} -> encode map\r\n",
-	    descP->sock) );
-    result = encode_ioctl_ifrmap(env, descP, &ifreq.ifr_map);
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-#endif
-#endif
-
-
 #if defined(SIOCGIFNAME)
 static
 ERL_NIF_TERM esock_ioctl_gifname(ErlNifEnv*       env,
@@ -14029,250 +13567,13 @@ ERL_NIF_TERM esock_ioctl_gifname(ErlNifEnv*       env,
 
 
 
-#if defined(FOOBAR_XYX)
-#if defined(SIOCGIFINDEX)
-static
-ERL_NIF_TERM esock_ioctl_gifindex(ErlNifEnv*       env,
-				  ESockDescriptor* descP,
-				  ERL_NIF_TERM     ename)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_gifindex {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n", descP->sock, ename) );
-
-  if (!esock_decode_string(env, ename, &ifn))
-    return enif_make_badarg(env);
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_gifindex {%d} -> try ioctl\r\n", descP->sock) );
-
-  if (ioctl(descP->sock, SIOCGIFINDEX, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifindex {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifindex {%d} -> encode ifindex\r\n",
-	    descP->sock) );
-    result = encode_ioctl_ivalue(env, descP, ifreq.ifr_ifindex);
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-#endif
-
-#endif // FOOBAR_XYZ
-
-
-#if defined(FOOBAR_XYX)
-static
-ERL_NIF_TERM esock_ioctl_gifflags(ErlNifEnv*       env,
-				  ESockDescriptor* descP,
-				  ERL_NIF_TERM     ename)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_gifflags {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n", descP->sock, ename) );
-
-  if (!esock_decode_string(env, ename, &ifn))
-    return enif_make_badarg(env);
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_gifflags {%d} -> try ioctl\r\n", descP->sock) );
-
-  if (ioctl(descP->sock, SIOCGIFFLAGS, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifflags {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifflags {%d} -> encode ifflags\r\n",
-	    descP->sock) );
-    result = encode_ioctl_flags(env, descP, ifreq.ifr_flags);
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-#endif // FOOBAR_XYZ
-
-
-#if defined(FOOBAR_XYZ)
-static
-ERL_NIF_TERM esock_ioctl_gifmtu(ErlNifEnv*       env,
-				ESockDescriptor* descP,
-				ERL_NIF_TERM     ename)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_gifmtu {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n", descP->sock, ename) );
-
-  if (!esock_decode_string(env, ename, &ifn))
-    return enif_make_badarg(env);
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_gifmtu {%d} -> try ioctl\r\n", descP->sock) );
-
-  if (ioctl(descP->sock, SIOCGIFMTU, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifmtu {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifmtu {%d} -> encode ifmtu\r\n",
-	    descP->sock) );
-    /* This is *not* acytually an ivalue, but its the same type, so... */
-    result = encode_ioctl_ivalue(env, descP, ifreq.ifr_mtu);
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-
-#endif
-
-
-
-#if defined(FOOBAR_XYZ)
-#if defined(SIOCGIFTXQLEN)
-static
-ERL_NIF_TERM esock_ioctl_giftxqlen(ErlNifEnv*       env,
-				   ESockDescriptor* descP,
-				   ERL_NIF_TERM     ename)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_giftxqlen {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n", descP->sock, ename) );
-
-  if (!esock_decode_string(env, ename, &ifn))
-    return enif_make_badarg(env);
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_giftxqlen {%d} -> try ioctl\r\n", descP->sock) );
-
-  if (ioctl(descP->sock, SIOCGIFTXQLEN, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_giftxqlen {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_giftxqlen {%d} -> encode txqlen\r\n",
-	    descP->sock) );
-    result = encode_ioctl_ivalue(env, descP, ifreq.ifr_qlen);
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-#endif
-#endif
-
-
-
 
 /* ===========================================================================
  * The implemented (ioctl) set requests:
  *
  */
 
-/* esock_ioctl_sifaddr */
+/* *** esock_ioctl_sifaddr *** */
 #if defined(SIOCSIFADDR)
 #define IOCTL_SIFADDR_FUNC_DECL					\
   IOCTL_SET_REQUEST_DECL(sifaddr, SIOCSIFADDR, sockaddr,	\
@@ -14281,7 +13582,7 @@ ERL_NIF_TERM esock_ioctl_giftxqlen(ErlNifEnv*       env,
 #define IOCTL_SIFADDR_FUNC_DECL
 #endif
 
-/* esock_ioctl_sifdstaddr */
+/* *** esock_ioctl_sifdstaddr *** */
 #if defined(SIOCSIFDSTADDR)
 #define IOCTL_SIFDSTADDR_FUNC_DECL				\
   IOCTL_SET_REQUEST_DECL(sifdstaddr, SIOCSIFDSTADDR, sockaddr,	\
@@ -14290,7 +13591,7 @@ ERL_NIF_TERM esock_ioctl_giftxqlen(ErlNifEnv*       env,
 #define IOCTL_SIFDSTADDR_FUNC_DECL
 #endif
 
-/* esock_ioctl_sifbrdaddr */
+/* *** esock_ioctl_sifbrdaddr *** */
 #if defined(SIOCSIFBRDADDR)
 #define IOCTL_SIFBRDADDR_FUNC_DECL					\
   IOCTL_SET_REQUEST_DECL(sifbrdaddr, SIOCSIFBRDADDR, sockaddr,		\
@@ -14299,7 +13600,7 @@ ERL_NIF_TERM esock_ioctl_giftxqlen(ErlNifEnv*       env,
 #define IOCTL_SIFBRDADDR_FUNC_DECL
 #endif
 
-/* esock_ioctl_sifnetmask */
+/* *** esock_ioctl_sifnetmask *** */
 #if defined(SIOCSIFNETMASK)
 #ifdef __linux__
 #define IOCTL_SIFNETMASK_FUNC_DECL				\
@@ -14314,7 +13615,7 @@ ERL_NIF_TERM esock_ioctl_giftxqlen(ErlNifEnv*       env,
 #define IOCTL_SIFNETMASK_FUNC_DECL
 #endif
 
-/* esock_ioctl_sifmtu */
+/* *** esock_ioctl_sifmtu *** */
 #if defined(SIOCSIFMTU)
 #define IOCTL_SIFMTU_FUNC_DECL						\
   IOCTL_SET_REQUEST_DECL(sifmtu, SIOCSIFMTU, mtu, &ifreq.ifr_mtu)
@@ -14322,7 +13623,7 @@ ERL_NIF_TERM esock_ioctl_giftxqlen(ErlNifEnv*       env,
 #define IOCTL_SIFMTU_FUNC_DECL
 #endif
 
-/* esock_ioctl_siftxqlen */
+/* *** esock_ioctl_siftxqlen *** */
 #if defined(SIOCSIFTXQLEN)
 #define IOCTL_SIFTXQLEN_FUNC_DECL						\
   IOCTL_SET_REQUEST_DECL(siftxqlen, SIOCSIFTXQLEN, txqlen, &ifreq.ifr_qlen)
@@ -14418,320 +13719,7 @@ IOCTL_SET_FUNCS
  * These (set) requests could not be 'generated' by the macros above.
  */
 
-#if defined(FOOBAR_XYZ)
-static
-ERL_NIF_TERM esock_ioctl_sifaddr(ErlNifEnv*       env,
-				 ESockDescriptor* descP,
-				 ERL_NIF_TERM     ename,
-				 ERL_NIF_TERM     eaddr)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_sifaddr {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n      (e)Addr: %T"
-		 "\r\n", descP->sock, ename, eaddr) );
-
-  if (!esock_decode_string(env, ename, &ifn)) {
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifaddr {%d} -> failed decode name"
-	    "\r\n", descP->sock) );
-
-    return enif_make_badarg(env);
-  }
-
-
-  if (! decode_ioctl_sockaddr(env, descP, eaddr, (ESockAddress*) &ifreq.ifr_addr)) {
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifaddr {%d} -> failed decode addr"
-	    "\r\n", descP->sock) );
-
-    return esock_make_invalid(env, atom_sockaddr);
-  }
-
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_sifaddr {%d} -> try ioctl\r\n", descP->sock) );
-
-  if (ioctl(descP->sock, SIOCSIFADDR, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifaddr {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifaddr {%d} -> addr successfully set\r\n",
-	    descP->sock) );
-    result = esock_atom_ok;
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-#endif
-
-
-#if defined(FOOBAR_XYZ)
-static
-ERL_NIF_TERM esock_ioctl_sifdstaddr(ErlNifEnv*       env,
-				    ESockDescriptor* descP,
-				    ERL_NIF_TERM     ename,
-				    ERL_NIF_TERM     eaddr)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_sifdstaddr {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n      (e)Addr: %T"
-		 "\r\n", descP->sock, ename, eaddr) );
-
-  if (!esock_decode_string(env, ename, &ifn)) {
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifdstaddr {%d} -> failed decode name"
-	    "\r\n", descP->sock) );
-
-    return enif_make_badarg(env);
-  }
-
-
-  if (! decode_ioctl_sockaddr(env, descP, eaddr,
-			      (ESockAddress*) &ifreq.ifr_dstaddr)) {
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifdstaddr {%d} -> failed decode addr"
-	    "\r\n", descP->sock) );
-
-    return esock_make_invalid(env, atom_sockaddr);
-  }
-
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_sifdstaddr {%d} -> try ioctl\r\n", descP->sock) );
-
-  if (ioctl(descP->sock, SIOCSIFDSTADDR, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifdstaddr {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifdstaddr {%d} -> addr successfully set\r\n",
-	    descP->sock) );
-    result = esock_atom_ok;
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-#endif
-
-
-#if defined(FOOBAR_XYZ)
-static
-ERL_NIF_TERM esock_ioctl_sifbrdaddr(ErlNifEnv*       env,
-				    ESockDescriptor* descP,
-				    ERL_NIF_TERM     ename,
-				    ERL_NIF_TERM     eaddr)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-  SOCKLEN_T    addrLen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_sifbrdaddr {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n      (e)Addr: %T"
-		 "\r\n", descP->sock, ename, eaddr) );
-
-  if (!esock_decode_string(env, ename, &ifn)) {
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifbrdaddr {%d} -> failed decode name"
-	    "\r\n", descP->sock) );
-
-    return enif_make_badarg(env);
-  }
-
-
-  if (! decode_ioctl_sockaddr(env, descP, eaddr,
-			      (ESockAddress*) &ifreq.ifr_broadaddr)) {
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifbrdaddr {%d} -> failed decode addr"
-	    "\r\n", descP->sock) );
-
-    return esock_make_invalid(env, atom_sockaddr);
-  }
-  VOID(addrLen);
-
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_sifbrdaddr {%d} -> try ioctl\r\n", descP->sock) );
-
-  if (ioctl(descP->sock, SIOCSIFBRDADDR, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifbrdaddr {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifbrdaddr {%d} -> addr successfully set\r\n",
-	    descP->sock) );
-    result = esock_atom_ok;
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-#endif
-
-
-#if defined(FOOBAR_XYZ)
-#if defined(SIOCSIFNETMASK)
-static
-ERL_NIF_TERM esock_ioctl_sifnetmask(ErlNifEnv*       env,
-				    ESockDescriptor* descP,
-				    ERL_NIF_TERM     ename,
-				    ERL_NIF_TERM     eaddr)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_sifnetmask {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n      (e)Addr: %T"
-		 "\r\n", descP->sock, ename, eaddr) );
-
-  if (!esock_decode_string(env, ename, &ifn)) {
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifnetmask {%d} -> failed decode name"
-	    "\r\n", descP->sock) );
-
-    return enif_make_badarg(env);
-  }
-
-#ifdef __linux__
-  if (! decode_ioctl_sockaddr(env, descP, eaddr,
-			      (ESockAddress*) &ifreq.ifr_netmask)) {
-#else
-  if (! decode_ioctl_sockaddr(env, descP, eaddr,
-			      (ESockAddress*) &ifreq.ifr_addr)) {
-#endif
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifnetmask {%d} -> failed decode addr"
-	    "\r\n", descP->sock) );
-
-    return esock_make_invalid(env, atom_sockaddr);
-  }
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_sifnetmask {%d} -> try ioctl\r\n", descP->sock) );
-
-  if (ioctl(descP->sock, SIOCSIFNETMASK, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifnetmask {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifnetmask {%d} -> addr successfully set\r\n",
-	    descP->sock) );
-    result = esock_atom_ok;
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-#endif
-#endif
-
-
+#if defined(SIOCSIFFLAGS)
 static
 ERL_NIF_TERM esock_ioctl_sifflags(ErlNifEnv*       env,
 				  ESockDescriptor* descP,
@@ -14830,172 +13818,14 @@ ERL_NIF_TERM esock_ioctl_sifflags(ErlNifEnv*       env,
   return result;
 
 }
-
-#if defined(FOOBAR_XYZ)
-static
-ERL_NIF_TERM esock_ioctl_sifmtu(ErlNifEnv*       env,
-				ESockDescriptor* descP,
-				ERL_NIF_TERM     ename,
-				ERL_NIF_TERM     emtu)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_gifmtu {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n      (e)MTU:  %T"
-		 "\r\n", descP->sock, ename, emtu) );
-
-  if (!esock_decode_string(env, ename, &ifn)) {
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifmtu {%d} -> failed decode name"
-	    "\r\n", descP->sock) );
-
-    return enif_make_badarg(env);
-  }
-
-  if (! decode_ioctl_mtu(env, descP, emtu, &ifreq.ifr_mtu)) {
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifmtu {%d} -> failed decode MTU"
-	    "\r\n", descP->sock) );
-
-    return enif_make_badarg(env);
-  }
-
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_gifmtu {%d} -> try ioctl with"
-	  "\r\n      MTU: %d"
-	  "\r\n", descP->sock, ifreq.ifr_mtu) );
-
-  if (ioctl(descP->sock, SIOCSIFMTU, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_gifmtu {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_sifmtu {%d} -> mtu successfully set\r\n",
-	    descP->sock) );
-
-    result = esock_atom_ok;
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
 #endif
- 
 
-#if defined(FOOBAR_XYZ)
-#if defined(SIOCSIFTXQLEN)
-static
-ERL_NIF_TERM esock_ioctl_siftxqlen(ErlNifEnv*       env,
-				   ESockDescriptor* descP,
-				   ERL_NIF_TERM     ename,
-				   ERL_NIF_TERM     eqlen)
-{
-  ERL_NIF_TERM result;
-  struct ifreq ifreq;
-  char*        ifn = NULL;
-  int          nlen;
-
-  SSDBG( descP, ("SOCKET", "esock_ioctl_gifmtu {%d} -> entry with"
-		 "\r\n      (e)Name: %T"
-		 "\r\n      (e)QLen:  %T"
-		 "\r\n", descP->sock, ename, eqlen) );
-
-  if (!esock_decode_string(env, ename, &ifn)) {
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_siftxqlen {%d} -> failed decode name"
-	    "\r\n", descP->sock) );
-
-    return enif_make_badarg(env);
-  }
-
-  if (! decode_ioctl_ivalue(env, descP, eqlen, &ifreq.ifr_qlen)) {
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_siftxqlen {%d} -> failed decode MTU"
-	    "\r\n", descP->sock) );
-
-    return enif_make_badarg(env);
-  }
-
-
-  // Make sure the length of the string is valid!
-  nlen = esock_strnlen(ifn, IFNAMSIZ);
-  
-  sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ); // Just in case
-  sys_memcpy(ifreq.ifr_name, ifn, 
-	     (nlen >= IFNAMSIZ) ? IFNAMSIZ-1 : nlen);
-
-  
-  SSDBG( descP,
-	 ("SOCKET", "esock_ioctl_giftxqlen {%d} -> try ioctl with"
-	  "\r\n      QLen: %d"
-	  "\r\n", descP->sock, ifreq.ifr_qlen) );
-
-  if (ioctl(descP->sock, SIOCSIFTXQLEN, (char *) &ifreq) < 0) {
-    int          saveErrno = sock_errno();
-    ERL_NIF_TERM reason    = MKA(env, erl_errno_id(saveErrno));
-
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_giftxqlen {%d} -> failure: "
-	    "\r\n      reason: %T (%d)"
-	    "\r\n", descP->sock, reason, saveErrno) );
-
-    result = esock_make_error(env, reason);
-
-  } else {
-    SSDBG( descP,
-	   ("SOCKET", "esock_ioctl_siftxqlen {%d} -> mtu successfully set\r\n",
-	    descP->sock) );
-
-    result = esock_atom_ok;
-  }
-
-  /* We know that if esock_decode_string is successful,
-   * we have "some" form of string, and therefor memory
-   * has been allocated (and need to be freed)... */
-  FREE(ifn);
-
-  return result;
-
-}
-#endif
-#endif
 
 
 /* ===========================================================================
  * ioctl utility functions
  *
  */
-
 
 static
 ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
