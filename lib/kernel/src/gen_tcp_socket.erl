@@ -198,7 +198,9 @@ extra_opts(OpenOpts) when is_list(OpenOpts) ->
    maps:from_list(OpenOpts).
 
 
-default_any(Domain, undefined = Undefined) ->
+default_any(_Domain, undefined, #{fd := _}) ->
+    undefined;
+default_any(Domain, undefined, _Opts) ->
     if
         Domain =:= inet;
         Domain =:= inet6 ->
@@ -206,9 +208,9 @@ default_any(Domain, undefined = Undefined) ->
               addr   => any,
               port   => 0};
         true ->
-            Undefined
+            undefined
     end;
-default_any(_Domain, BindAddr) ->
+default_any(_Domain, BindAddr, _Opts) ->
     BindAddr.
 
 bind_addr(_Domain, BindIP, BindPort)
@@ -290,7 +292,10 @@ listen_open(Domain, ListenOpts, StartOpts, ExtraOpts, Backlog, BindAddr) ->
                       [{start_opts, StartOpts} |
                        setopts_opts(ErrRef, ListenOpts)]),
                 ok(ErrRef, call(Server, {setopts, Setopts})),
-                ok(ErrRef, call_bind(Server, default_any(Domain, BindAddr))),
+                ok(ErrRef, call_bind(
+                             Server,
+                             default_any(Domain, BindAddr, ExtraOpts)
+                            )),
                 Socket = val(ErrRef, call(Server, {listen, Backlog})),
                 {ok, ?MODULE_socket(Server, Socket)}
             catch
