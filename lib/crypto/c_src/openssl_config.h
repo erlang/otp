@@ -224,8 +224,7 @@
 # define HAVE_MD5
 #endif
 
-#if !defined(OPENSSL_NO_RC2) \
-    && !defined(HAS_3_0_API)
+#ifndef OPENSSL_NO_RC2
 # define HAVE_RC2
 #endif
 
