@@ -71,6 +71,8 @@
          external_funs/1,otp_15456/1,otp_15563/1,
          unused_type/1,binary_types/1,removed/1, otp_16516/1,
          inline_nifs/1,
+         undefined_nifs/1,
+         no_load_nif/1,
          warn_missing_spec/1,
          otp_16824/1,
          underscore_match/1,
@@ -98,6 +100,8 @@ all() ->
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
      otp_15456, otp_15563, unused_type, binary_types, removed, otp_16516,
+     undefined_nifs,
+     no_load_nif,
      inline_nifs, warn_missing_spec, otp_16824,
      underscore_match, unused_record, unused_type2].
 
@@ -4481,6 +4485,34 @@ inline_nifs(Config) ->
            [],
            {warnings,[{{2,22},erl_lint,nif_inline}]}}],
     [] = run(Config, Ts).
+
+undefined_nifs(Config) when is_list(Config) ->
+    Ts = [{undefined_nifs,
+          <<"-export([t/0]).
+             -nifs([hej/1]).
+              t() ->
+                  erlang:load_nif(\"lib\", []).
+            ">>,
+           [],
+           {errors,[{{2,15},erl_lint,{undefined_nif,{hej,1}}}],[]}}
+         ],
+    [] = run(Config, Ts),
+
+    ok.
+
+no_load_nif(Config) when is_list(Config) ->
+    Ts = [{no_load_nif,
+          <<"-export([t/0]).
+             -nifs([t/0]).
+              t() ->
+                  a.
+            ">>,
+           [],
+           {warnings,[{{2,15},erl_lint,no_load_nif}]}}
+         ],
+    [] = run(Config, Ts),
+
+    ok.
 
 warn_missing_spec(Config) ->
     Test = <<"-export([external_with_spec/0, external_no_spec/0]).

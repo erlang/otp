@@ -171,6 +171,7 @@
 
 -record(imodule, {name = [],
 		  exports = ordsets:new(),
+                  nifs = sets:new([{version, 2}]),
 		  attrs = [],
 		  defs = [],
 		  file = [],
@@ -195,9 +196,8 @@ module(Forms0, Opts) ->
     Kfs = reverse(Kfs0),
     {ok,#c_module{name=#c_literal{val=Mod},exports=Cexp,attrs=As,defs=Kfs},Ws}.
 
-form({function,_,_,_,_}=F0, Module, Opts) ->
-    #imodule{file=File,defs=Defs,ws=Ws0} = Module,
-    {F,Ws} = function(F0, Ws0, File, Opts),
+form({function,_,_,_,_}=F0, #imodule{defs=Defs}=Module, Opts) ->
+    {F,Ws} = function(F0, Module, Opts),
     Module#imodule{defs=[F|Defs],ws=Ws};
 form({attribute,_,module,Mod}, Module, _Opts) ->
     true = is_atom(Mod),
@@ -210,6 +210,9 @@ form({attribute,_,import,_}, Module, _Opts) ->
 form({attribute,_,export,Es}, #imodule{exports=Exp0}=Module, _Opts) ->
     Exp = ordsets:union(ordsets:from_list(Es), Exp0),
     Module#imodule{exports=Exp};
+form({attribute,_,nifs,Ns}, #imodule{nifs=Nifs0}=Module, _Opts) ->
+    Nifs = sets:union(sets:from_list(Ns, [{version,2}]), Nifs0),
+    Module#imodule{nifs=Nifs};
 form({attribute,_,_,_}=F, #imodule{attrs=As}=Module, _Opts) ->
     Module#imodule{attrs=[attribute(F)|As]};
 form(_, Module, _Opts) ->
@@ -233,7 +236,8 @@ defined_functions(Forms) ->
 %%     io:format("~w/~w " ++ Format,[Name,Arity]++Terms),
 %%     ok.
 
-function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
+function({function,_,Name,Arity,Cs0}, Module, Opts) ->
+    #imodule{file=File, ws=Ws0, nifs=Nifs} = Module,
     try
         St0 = #core{vcount=0,function={Name,Arity},opts=Opts,
                     dialyzer=member(dialyzer, Opts),
@@ -242,7 +246,7 @@ function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
         %% ok = function_dump(Name, Arity, "body:~n~p~n",[B0]),
         {B1,St2} = ubody(B0, St1),
         %% ok = function_dump(Name, Arity, "ubody:~n~p~n",[B1]),
-        {B2,St3} = cbody(B1, St2),
+        {B2,St3} = cbody(B1, Nifs, St2),
         %% ok = function_dump(Name, Arity, "cbody:~n~p~n",[B2]),
         {B3,#core{ws=Ws}} = lbody(B2, St3),
         %% ok = function_dump(Name, Arity, "lbody:~n~p~n",[B3]),
@@ -2867,9 +2871,19 @@ ren_is_subst(_V, []) -> no.
 %% from case/receive.  In subblocks/clauses the AfterVars of the block
 %% are just the exported variables.
 
-cbody(B0, St0) ->
+cbody(B0, Nifs, St0) ->
     {B1,_,_,St1} = cexpr(B0, [], St0),
-    {B1,St1}.
+    B2 = case sets:is_element(St1#core.function,Nifs) of
+             true ->
+                 #c_fun{body=Body0} = B1,
+                 Body1 = #c_seq{arg=#c_primop{name=#c_literal{val=nif_start},
+                                              args=[]},
+                                body=Body0},
+                 B1#c_fun{body=Body1};
+             false ->
+                 B1
+         end,
+    {B2,St1}.
 
 %% cclause(Lclause, [AfterVar], State) -> {Cclause,State}.
 %%  The AfterVars are the exported variables.

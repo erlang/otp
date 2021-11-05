@@ -391,6 +391,7 @@ classify_heap_need(is_tagged_tuple) -> neutral;
 classify_heap_need(kill_try_tag) -> gc;
 classify_heap_need(landingpad) -> gc;
 classify_heap_need(match_fail) -> gc;
+classify_heap_need(nif_start) -> neutral;
 classify_heap_need(nop) -> neutral;
 classify_heap_need(new_try_tag) -> gc;
 classify_heap_need(old_make_fun) -> gc;
@@ -1735,6 +1736,8 @@ cg_instr(get_tuple_element=Op, [Src,{integer,N}], Dst) ->
     [{Op,Src,N,Dst}];
 cg_instr(has_map_field, [Map,Key], Dst) ->
     [{bif,is_map_key,{f,0},[Key,Map],Dst}];
+cg_instr(nif_start, [], _Dst) ->
+    [nif_start];
 cg_instr(put_list=Op, [Hd,Tl], Dst) ->
     [{Op,Hd,Tl,Dst}];
 cg_instr(nop, [], _Dst) ->

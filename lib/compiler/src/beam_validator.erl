@@ -367,7 +367,8 @@ vi({'%',_}, Vst) ->
     Vst;
 vi({line,_}, Vst) ->
     Vst;
-
+vi(nif_start, Vst) ->
+    Vst;
 %%
 %% Moves
 %%
