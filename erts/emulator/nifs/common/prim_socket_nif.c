@@ -673,6 +673,15 @@ static const struct ioctl_flag {
 #endif
       &esock_atom_notrailers},
 
+    /* FreeBSD: Has the same value as (Linux) notrailers */
+    {
+#ifdef IFF_KNOWSEPOCH
+      IFF_KNOWSEPOCH,
+#else
+      0,
+#endif
+      &esock_atom_knowsepoch},
+
     {
 #ifdef IFF_RUNNING
         IFF_RUNNING,
@@ -713,6 +722,15 @@ static const struct ioctl_flag {
 #endif
       &esock_atom_master},
 
+    /* FreeBSD: Has the same value as (Linux) master */
+    {
+#ifdef IFF_OACTIVE
+      IFF_OACTIVE,
+#else
+      0,
+#endif
+      &esock_atom_oactive},
+
     {
 #ifdef IFF_SLAVE
       IFF_SLAVE,
@@ -721,6 +739,15 @@ static const struct ioctl_flag {
 #endif
       &esock_atom_slave},
 
+    /* FreeBSD: Has the same value as (Linux) slave */
+    {
+#ifdef IFF_SIMPLEX
+      IFF_SIMPLEX,
+#else
+      0,
+#endif
+      &esock_atom_simplex},
+
     {
 #ifdef IFF_MULTICAST
       IFF_MULTICAST,
@@ -728,6 +755,33 @@ static const struct ioctl_flag {
       0,
 #endif
       &esock_atom_multicast},
+
+    // FreeBSD, ...
+    {
+#ifdef IFF_LINK0
+      IFF_LINK0,
+#else
+      0,
+#endif
+      &esock_atom_link0},
+
+    // FreeBSD, ...
+    {
+#ifdef IFF_LINK1
+      IFF_LINK1,
+#else
+      0,
+#endif
+      &esock_atom_link1},
+
+    // FreeBSD, ...
+    {
+#ifdef IFF_LINK2
+      IFF_LINK2,
+#else
+      0,
+#endif
+      &esock_atom_link2},
 
     {
 #ifdef IFF_PORTSEL
@@ -753,6 +807,15 @@ static const struct ioctl_flag {
 #endif
       &esock_atom_dynamic},
 
+    // FreeBSD, ...
+    {
+#ifdef IFF_CANTCONFIG
+      IFF_CANTCONFIG,
+#else
+      0,
+#endif
+      &esock_atom_cantconfig},
+
     {
 #ifdef IFF_LOWER_UP
       IFF_LOWER_UP,
@@ -760,6 +823,15 @@ static const struct ioctl_flag {
       0,
 #endif
       &esock_atom_lower_up},
+
+    // FreeBSD, ...
+    {
+#ifdef IFF_PPROMISC
+      IFF_PPROMISC,
+#else
+      0,
+#endif
+      &esock_atom_ppromisc},
 
     {
 #ifdef IFF_DORMANT
@@ -769,13 +841,58 @@ static const struct ioctl_flag {
 #endif
       &esock_atom_dormant},
 
+    // FreeBSD, ...
+    {
+#ifdef IFF_MONITOR
+      IFF_MONITOR,
+#else
+      0,
+#endif
+      &esock_atom_monitor},
+
     {
 #ifdef IFF_ECHO
       IFF_ECHO,
 #else
       0,
 #endif
-      &esock_atom_echo}
+      &esock_atom_echo},
+
+    // FreeBSD, ...
+    {
+#ifdef IFF_STATICARP
+      IFF_STATICARP,
+#else
+      0,
+#endif
+      &esock_atom_staticarp},
+
+    // FreeBSD, ...
+    {
+#ifdef IFF_DYING
+      IFF_DYING,
+#else
+      0,
+#endif
+      &esock_atom_dying},
+
+    // FreeBSD, ...
+    {
+#ifdef IFF_RENAMING
+      IFF_RENAMING,
+#else
+      0,
+#endif
+      &esock_atom_renaming},
+
+    // FreeBSD, ...
+    {
+#ifdef IFF_NOGROUP
+      IFF_NOGROUP,
+#else
+      0,
+#endif
+      &esock_atom_nogroup}
 };
 
 
@@ -3884,6 +4001,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(block_source);                    \
     GLOBAL_ATOM_DECL(broadcast);                       \
     GLOBAL_ATOM_DECL(busy_poll);                       \
+    GLOBAL_ATOM_DECL(cantconfig);		       \
     GLOBAL_ATOM_DECL(chaos);                           \
     GLOBAL_ATOM_DECL(checksum);                        \
     GLOBAL_ATOM_DECL(close);                           \
@@ -3911,6 +4029,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(drop_membership);                 \
     GLOBAL_ATOM_DECL(drop_source_membership);          \
     GLOBAL_ATOM_DECL(dstopts);                         \
+    GLOBAL_ATOM_DECL(dying);			       \
     GLOBAL_ATOM_DECL(dynamic);                         \
     GLOBAL_ATOM_DECL(echo);                            \
     GLOBAL_ATOM_DECL(egp);                             \
@@ -3960,10 +4079,14 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(keepidle);                        \
     GLOBAL_ATOM_DECL(keepintvl);                       \
     GLOBAL_ATOM_DECL(kernel);                          \
+    GLOBAL_ATOM_DECL(knowsepoch);		       \
     GLOBAL_ATOM_DECL(leave_group);                     \
     GLOBAL_ATOM_DECL(level);                           \
     GLOBAL_ATOM_DECL(linger);                          \
     GLOBAL_ATOM_DECL(link);                            \
+    GLOBAL_ATOM_DECL(link0);                            \
+    GLOBAL_ATOM_DECL(link1);                            \
+    GLOBAL_ATOM_DECL(link2);                            \
     GLOBAL_ATOM_DECL(local);                           \
     GLOBAL_ATOM_DECL(local_auth_chunks);               \
     GLOBAL_ATOM_DECL(loopback);			       \
@@ -3976,6 +4099,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(md5sig);                          \
     GLOBAL_ATOM_DECL(mincost);                         \
     GLOBAL_ATOM_DECL(minttl);                          \
+    GLOBAL_ATOM_DECL(monitor);			       \
     GLOBAL_ATOM_DECL(more);                            \
     GLOBAL_ATOM_DECL(msfilter);                        \
     GLOBAL_ATOM_DECL(mtu);                             \
@@ -3990,6 +4114,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(noarp);                           \
     GLOBAL_ATOM_DECL(nodelay);                         \
     GLOBAL_ATOM_DECL(nodefrag);                        \
+    GLOBAL_ATOM_DECL(nogroup);			       \
     GLOBAL_ATOM_DECL(none);                            \
     GLOBAL_ATOM_DECL(noopt);                           \
     GLOBAL_ATOM_DECL(nopush);                          \
@@ -3997,6 +4122,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(notrailers);                      \
     GLOBAL_ATOM_DECL(not_found);                       \
     GLOBAL_ATOM_DECL(not_owner);                       \
+    GLOBAL_ATOM_DECL(oactive);			       \
     GLOBAL_ATOM_DECL(ok);                              \
     GLOBAL_ATOM_DECL(oob);                             \
     GLOBAL_ATOM_DECL(oobinline);                       \
@@ -4020,6 +4146,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(port);                            \
     GLOBAL_ATOM_DECL(portrange);                       \
     GLOBAL_ATOM_DECL(portsel);                         \
+    GLOBAL_ATOM_DECL(ppromisc);			       \
     GLOBAL_ATOM_DECL(primary_addr);                    \
     GLOBAL_ATOM_DECL(priority);                        \
     GLOBAL_ATOM_DECL(promisc);                         \
@@ -4044,7 +4171,8 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(recvtclass);                      \
     GLOBAL_ATOM_DECL(recvtos);                         \
     GLOBAL_ATOM_DECL(recvttl);                         \
-    GLOBAL_ATOM_DECL(reliability);                     \
+    GLOBAL_ATOM_DECL(reliability);		       \
+    GLOBAL_ATOM_DECL(renaming);			       \
     GLOBAL_ATOM_DECL(reset_streams);                   \
     GLOBAL_ATOM_DECL(retopts);                         \
     GLOBAL_ATOM_DECL(reuseaddr);                       \
@@ -4067,6 +4195,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(seqpacket);                       \
     GLOBAL_ATOM_DECL(setfib);                          \
     GLOBAL_ATOM_DECL(set_peer_primary_addr);           \
+    GLOBAL_ATOM_DECL(simplex);			       \
     GLOBAL_ATOM_DECL(slave);                           \
     GLOBAL_ATOM_DECL(sndbuf);                          \
     GLOBAL_ATOM_DECL(sndbufforce);                     \
@@ -4074,6 +4203,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(sndtimeo);                        \
     GLOBAL_ATOM_DECL(socket);                          \
     GLOBAL_ATOM_DECL(spec_dst);                        \
+    GLOBAL_ATOM_DECL(staticarp);		       \
     GLOBAL_ATOM_DECL(status);                          \
     GLOBAL_ATOM_DECL(stream);                          \
     GLOBAL_ATOM_DECL(syncnt);                          \
@@ -4203,6 +4333,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(net_unknown);      \
     LOCAL_ATOM_DECL(net_unreach);      \
     LOCAL_ATOM_DECL(netns);            \
+    LOCAL_ATOM_DECL(nogroup);	       \
     LOCAL_ATOM_DECL(none);             \
     LOCAL_ATOM_DECL(noroute);          \
     LOCAL_ATOM_DECL(not_neighbour);    \

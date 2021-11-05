@@ -206,6 +206,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(block_source);             \
     GLOBAL_ATOM_DEF(broadcast);                \
     GLOBAL_ATOM_DEF(busy_poll);                \
+    GLOBAL_ATOM_DEF(cantconfig);	       \
     GLOBAL_ATOM_DEF(chaos);                    \
     GLOBAL_ATOM_DEF(checksum);                 \
     GLOBAL_ATOM_DEF(close);                    \
@@ -233,6 +234,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(drop_membership);          \
     GLOBAL_ATOM_DEF(drop_source_membership);   \
     GLOBAL_ATOM_DEF(dstopts);                  \
+    GLOBAL_ATOM_DEF(dying);		       \
     GLOBAL_ATOM_DEF(dynamic);                  \
     GLOBAL_ATOM_DEF(echo);                     \
     GLOBAL_ATOM_DEF(egp);                      \
@@ -282,10 +284,14 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(keepidle);                 \
     GLOBAL_ATOM_DEF(keepintvl);                \
     GLOBAL_ATOM_DEF(kernel);                   \
+    GLOBAL_ATOM_DEF(knowsepoch);	       \
     GLOBAL_ATOM_DEF(leave_group);              \
     GLOBAL_ATOM_DEF(level);                    \
     GLOBAL_ATOM_DEF(linger);                   \
     GLOBAL_ATOM_DEF(link);                     \
+    GLOBAL_ATOM_DEF(link0);                     \
+    GLOBAL_ATOM_DEF(link1);                     \
+    GLOBAL_ATOM_DEF(link2);                     \
     GLOBAL_ATOM_DEF(local);                    \
     GLOBAL_ATOM_DEF(local_auth_chunks);        \
     GLOBAL_ATOM_DEF(loopback);		       \
@@ -298,6 +304,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(md5sig);                   \
     GLOBAL_ATOM_DEF(mincost);                  \
     GLOBAL_ATOM_DEF(minttl);                   \
+    GLOBAL_ATOM_DEF(monitor);		       \
     GLOBAL_ATOM_DEF(more);                     \
     GLOBAL_ATOM_DEF(msfilter);                 \
     GLOBAL_ATOM_DEF(mtu);                      \
@@ -312,12 +319,15 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(noarp);                    \
     GLOBAL_ATOM_DEF(nodelay);                  \
     GLOBAL_ATOM_DEF(nodefrag);                 \
+    GLOBAL_ATOM_DEF(nogroup);		       \
+    GLOBAL_ATOM_DEF(none);                     \
     GLOBAL_ATOM_DEF(noopt);                    \
     GLOBAL_ATOM_DEF(nopush);                   \
     GLOBAL_ATOM_DEF(nosignal);                 \
     GLOBAL_ATOM_DEF(notrailers);               \
     GLOBAL_ATOM_DEF(not_found);                \
     GLOBAL_ATOM_DEF(not_owner);                \
+    GLOBAL_ATOM_DEF(oactive);		       \
     GLOBAL_ATOM_DEF(ok);                       \
     GLOBAL_ATOM_DEF(oob);                      \
     GLOBAL_ATOM_DEF(oobinline);                \
@@ -337,6 +347,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(pktinfo);                  \
     GLOBAL_ATOM_DEF(pktoptions);               \
     GLOBAL_ATOM_DEF(pkttype);                  \
+    GLOBAL_ATOM_DEF(ppromisc);		       \
     GLOBAL_ATOM_DEF(pointopoint);              \
     GLOBAL_ATOM_DEF(port);                     \
     GLOBAL_ATOM_DEF(portrange);                \
@@ -366,6 +377,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(recvtos);                  \
     GLOBAL_ATOM_DEF(recvttl);                  \
     GLOBAL_ATOM_DEF(reliability);              \
+    GLOBAL_ATOM_DEF(renaming);		       \
     GLOBAL_ATOM_DEF(reset_streams);            \
     GLOBAL_ATOM_DEF(retopts);                  \
     GLOBAL_ATOM_DEF(reuseaddr);                \
@@ -388,6 +400,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(seqpacket);                \
     GLOBAL_ATOM_DEF(setfib);                   \
     GLOBAL_ATOM_DEF(set_peer_primary_addr);    \
+    GLOBAL_ATOM_DEF(simplex);		       \
     GLOBAL_ATOM_DEF(slave);                    \
     GLOBAL_ATOM_DEF(sndbuf);                   \
     GLOBAL_ATOM_DEF(sndbufforce);              \
@@ -397,6 +410,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(socket_tag);               \
     GLOBAL_ATOM_DEF(spec_dst);                 \
     GLOBAL_ATOM_DEF(status);                   \
+    GLOBAL_ATOM_DEF(staticarp);		       \
     GLOBAL_ATOM_DEF(stream);                   \
     GLOBAL_ATOM_DEF(syncnt);                   \
     GLOBAL_ATOM_DEF(tclass);                   \

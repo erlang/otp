@@ -723,10 +723,16 @@
 		     ].
 
 
+%% Note that not all flags exist on all platforms!
 -type ioctl_device_flag() :: up | broadcast | debug | loopback | pointopoint |
-                             running | noarp | promisc | notrailers | allmulti |
-                             master | slave | multicast | portsel | automedia |
-                             dynamic | lower_up | dormant | echo.
+                             notrailers | knowsepoch | running | noarp | promisc | allmulti |
+                             master | oactive | slave | simplex |
+			     link0 | link1 | link2 |
+			     multicast | portsel | automedia |
+			     cantconfig | ppromisc |
+                             dynamic |
+			     monitor | staticarp | dying | renaming | nogroup |
+			     lower_up | dormant | echo.
 
 %% When reading the device map (gifmap), the resulting map will be 
 %% "fully" populated.
