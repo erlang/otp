@@ -2019,7 +2019,8 @@
 	    <p>Get the hardware address for the interface
 	    with the specified name. </p>
 	    <p>Result, hardware address of the interface,
-	    is a <c>socket:sockaddr()</c>. </p>
+	    is a <c>socket:sockaddr()</c>. The family field
+	    contains the 'ARPHRD' device type (or an integer). </p>
           </item>
 
           <tag><c>gifmtu</c></tag>
