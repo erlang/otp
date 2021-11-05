@@ -202,6 +202,7 @@ $(EBIN)/beam_kernel_to_ssa.beam: v3_kernel.hrl beam_ssa.hrl
 $(EBIN)/beam_listing.beam: core_parse.hrl v3_kernel.hrl beam_ssa.hrl beam_asm.hrl
 $(EBIN)/beam_ssa.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_bsm.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_bool.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_codegen.beam: beam_ssa.hrl beam_asm.hrl
 $(EBIN)/beam_ssa_dead.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_funs.beam: beam_ssa.hrl
@@ -223,6 +224,7 @@ $(EBIN)/core_lint.beam: core_parse.hrl
 $(EBIN)/core_parse.beam: core_parse.hrl $(EGEN)/core_parse.erl
 $(EBIN)/core_pp.beam: core_parse.hrl
 $(EBIN)/sys_core_alias.beam: core_parse.hrl
+$(EBIN)/sys_core_bsm.beam: core_parse.hrl
 $(EBIN)/sys_core_fold.beam: core_parse.hrl
 $(EBIN)/sys_core_fold_lists.beam: core_parse.hrl
 $(EBIN)/sys_core_inline.beam: core_parse.hrl
