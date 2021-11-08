@@ -12250,7 +12250,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
         code = erts_dsig_prepare(&ctx, so->dist_entry, NULL, 0,
                                  ERTS_DSP_NO_LOCK, 1, 1, 0);
-        if (code == ERTS_DSIG_PREP_CONNECTED) {
+        if (code == ERTS_DSIG_PREP_CONNECTED
+            && ctx.connection_id == so->conn_id) {
             int dsflags = 0;
             if (so->flags & SPO_LINK)
                 dsflags |= ERTS_DIST_SPAWN_FLAG_LINK;

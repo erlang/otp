@@ -2583,6 +2583,7 @@ int erts_net_message(Port *prt,
         so.group_leader = gl;
         so.mfa = mfa;
         so.dist_entry = dep;
+        so.conn_id = conn_id;
         so.mld = ede.mld;
         so.edep = edep;
         so.ede_hfrag = ede_hfrag;
