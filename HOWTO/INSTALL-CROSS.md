@@ -265,7 +265,7 @@ have to be passed one way or the other; either by using `erl_xcomp_host=<HOST>`
 and `erl_xcomp_build=<BUILD>` in the configuration file, or by using the
 `--host=<HOST>`, and `--build=<BUILD>` command line arguments.
 
-`otp_build configure` will configure both for the boostrap system on the
+`otp_build configure` will configure both for the bootstrap system on the
 build machine and the cross host system.
 
   (10)
