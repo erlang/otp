@@ -1179,7 +1179,7 @@ get_and_put(CPid, [{getline_pred,Pred,Msg}|T]=T0, N)
 					   "(command number ~p)\n",
 					   [?MODULE,Msg,N]),
 		    {error, no_match};
-		maybe ->
+		'maybe' ->
 		    List = get(getline_skipped),
 		    put(getline_skipped, List ++ [Data]),
 		    get_and_put(CPid, T0, N)
@@ -1190,7 +1190,7 @@ get_and_put(CPid, [{getline, Match}|T],N) ->
     F = fun(Data) ->
 		case lists:prefix(Match, Data) of
 		    true -> yes;
-		    false -> maybe
+		    false -> 'maybe'
 		end
 	end,
     get_and_put(CPid, [{getline_pred,F,Match}|T], N);
@@ -1198,7 +1198,7 @@ get_and_put(CPid, [{getline_re, Match}|T],N) ->
     F = fun(Data) ->
 		case re:run(Data, Match, [{capture,none}]) of
 		    match -> yes;
-		    _ -> maybe
+		    _ -> 'maybe'
 		end
 	end,
     get_and_put(CPid, [{getline_pred,F,Match}|T], N);
@@ -1498,7 +1498,7 @@ get_default_shell() ->
 			    case re:run(Data, "<\\d+[.]\\d+[.]\\d+>",
 					[{capture,none}]) of
 				match -> no;
-				_ -> maybe
+				_ -> 'maybe'
 			    end
 		    end
 	    end,
