@@ -82,10 +82,10 @@ groups() ->
     [
      {openssl_client, [], protocol_groups()},
      {'tlsv1.3', [], tls_1_3_protocol_groups()},
-     {'tlsv1.2', [], pre_tls_1_3_protocol_groups() ++ [{group, rsa_pss_rsae}, {group, rsa_pss_pss}]},
+     {'tlsv1.2', [], pre_tls_1_3_protocol_groups() ++ [{group, ecdsa}, {group, rsa_pss_rsae}, {group, rsa_pss_pss}]},
      {'tlsv1.1', [], pre_tls_1_3_protocol_groups()},
      {'tlsv1', [], pre_tls_1_3_protocol_groups()},
-     {'dtlsv1.2', [], pre_tls_1_3_protocol_groups()},
+     {'dtlsv1.2', [], pre_tls_1_3_protocol_groups() ++ [{group, ecdsa}]},
      {'dtlsv1', [], pre_tls_1_3_protocol_groups()},
      {rsa, [], all_version_tests()},
      {ecdsa, [], all_version_tests()},
@@ -119,7 +119,6 @@ protocol_groups() ->
 
 pre_tls_1_3_protocol_groups() ->
     [{group, rsa},
-     {group, ecdsa},
      {group, dsa}].
 
 tls_1_3_protocol_groups() ->
