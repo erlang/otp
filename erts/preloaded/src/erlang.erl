@@ -2310,18 +2310,24 @@ is_tuple(_Term) ->
 -spec load_module(Module, Binary) -> {module, Module} | {error, Reason} when
       Module :: module(),
       Binary :: binary(),
-      Reason :: badfile | not_purged | on_load.
+      Reason :: badfile | not_purged | on_load | not_allowed.
 load_module(Mod, Code) ->
     try
-        case erlang:prepare_loading(Mod, Code) of
-            {error,_}=Error ->
-                Error;
-            Prep when erlang:is_reference(Prep) ->
-                case erlang:finish_loading([Prep]) of
-                    ok ->
-                        {module,Mod};
-                    {Error,[Mod]} ->
-                        {error,Error}
+        Allowed = (not erlang:module_loaded(erl_features))
+            orelse erl_features:load_allowed(Code),
+        if not Allowed ->
+                {error, not_allowed};
+           true ->
+                case erlang:prepare_loading(Mod, Code) of
+                    {error,_}=Error ->
+                        Error;
+                    Prep when erlang:is_reference(Prep) ->
+                        case erlang:finish_loading([Prep]) of
+                            ok ->
+                                {module,Mod};
+                            {Error,[Mod]} ->
+                                {error,Error}
+                        end
                 end
         end
     catch

@@ -65,6 +65,7 @@ MODULES= \
 	erl_error \
 	erl_eval \
 	erl_expand_records \
+	erl_features \
 	erl_internal \
 	erl_lint \
 	erl_parse \

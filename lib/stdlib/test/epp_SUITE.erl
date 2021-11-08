@@ -1609,8 +1609,9 @@ encoding(Config) when is_list(Config) ->
 	epp_parse_file(ErlFile, [{default_encoding,latin1}]),
     {ok,[{attribute,1,file,_},
 	 {attribute,1,module,encoding},
-	 {eof,3}],[{encoding,none}]} =
+	 {eof,3}],Extra0} =
 	epp_parse_file(ErlFile, [{default_encoding,latin1},extra]),
+    none = proplists:get_value(encoding, Extra0),
 
     %% Try a latin-1 file with encoding given in a comment.
     C2 = <<"-module(encoding).
@@ -1632,16 +1633,20 @@ encoding(Config) when is_list(Config) ->
 	epp_parse_file(ErlFile, [{default_encoding,utf8}]),
     {ok,[{attribute,1,file,_},
 	 {attribute,1,module,encoding},
-	 {eof,4}],[{encoding,latin1}]} =
+	 {eof,4}],Extra1} =
 	epp_parse_file(ErlFile, [extra]),
+    latin1 = proplists:get_value(encoding, Extra1),
+
     {ok,[{attribute,1,file,_},
 	 {attribute,1,module,encoding},
-	 {eof,4}],[{encoding,latin1}]} =
+	 {eof,4}],Extra2} =
 	epp_parse_file(ErlFile, [{default_encoding,latin1},extra]),
+    latin1 = proplists:get_value(encoding, Extra2),
     {ok,[{attribute,1,file,_},
 	 {attribute,1,module,encoding},
-	 {eof,4}],[{encoding,latin1}]} =
+	 {eof,4}],Extra3} =
 	epp_parse_file(ErlFile, [{default_encoding,utf8},extra]),
+    latin1 = proplists:get_value(encoding, Extra3),
     ok.
 
 extends(Config) ->

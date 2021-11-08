@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,7 +52,8 @@
 %%% External exports
 
 -export([string/1,string/2,string/3,tokens/3,tokens/4,
-         format_error/1,reserved_word/1]).
+         format_error/1,reserved_word/1,
+         f_reserved_word/1]).
 
 -export([column/1,end_location/1,line/1,location/1,text/1,
          category/1,symbol/1]).
@@ -1227,32 +1228,43 @@ tabs(8)  ->  "\t\t\t\t\t\t\t\t";
 tabs(9)  ->  "\t\t\t\t\t\t\t\t\t";
 tabs(10) ->  "\t\t\t\t\t\t\t\t\t\t".
 
+%% Dynamic version of reserved_word that knows about the possibility
+%% that enabled features might change the set of reserved words.
 -spec reserved_word(Atom :: atom()) -> boolean().
-reserved_word('after') -> true;
-reserved_word('begin') -> true;
-reserved_word('case') -> true;
-reserved_word('try') -> true;
-reserved_word('cond') -> true;
-reserved_word('catch') -> true;
-reserved_word('andalso') -> true;
-reserved_word('orelse') -> true;
-reserved_word('end') -> true;
-reserved_word('fun') -> true;
-reserved_word('if') -> true;
-reserved_word('let') -> true;
-reserved_word('of') -> true;
-reserved_word('receive') -> true;
-reserved_word('when') -> true;
-reserved_word('bnot') -> true;
-reserved_word('not') -> true;
-reserved_word('div') -> true;
-reserved_word('rem') -> true;
-reserved_word('band') -> true;
-reserved_word('and') -> true;
-reserved_word('bor') -> true;
-reserved_word('bxor') -> true;
-reserved_word('bsl') -> true;
-reserved_word('bsr') -> true;
-reserved_word('or') -> true;
-reserved_word('xor') -> true;
-reserved_word(_) -> false.
+reserved_word(Atom) ->
+    case f_reserved_word(Atom) of
+        true -> true;
+        false ->
+            lists:member(Atom, erl_features:keywords())
+    end.
+
+%% Static version of reserved_words.  These represent the fixed set of
+%% reserved words.
+f_reserved_word('after') -> true;
+f_reserved_word('begin') -> true;
+f_reserved_word('case') -> true;
+f_reserved_word('try') -> true;
+f_reserved_word('cond') -> true;
+f_reserved_word('catch') -> true;
+f_reserved_word('andalso') -> true;
+f_reserved_word('orelse') -> true;
+f_reserved_word('end') -> true;
+f_reserved_word('fun') -> true;
+f_reserved_word('if') -> true;
+f_reserved_word('let') -> true;
+f_reserved_word('of') -> true;
+f_reserved_word('receive') -> true;
+f_reserved_word('when') -> true;
+f_reserved_word('bnot') -> true;
+f_reserved_word('not') -> true;
+f_reserved_word('div') -> true;
+f_reserved_word('rem') -> true;
+f_reserved_word('band') -> true;
+f_reserved_word('and') -> true;
+f_reserved_word('bor') -> true;
+f_reserved_word('bxor') -> true;
+f_reserved_word('bsl') -> true;
+f_reserved_word('bsr') -> true;
+f_reserved_word('or') -> true;
+f_reserved_word('xor') -> true;
+f_reserved_word(_) -> false.
