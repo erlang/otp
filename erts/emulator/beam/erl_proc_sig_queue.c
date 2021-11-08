@@ -1521,7 +1521,7 @@ reply_dist_unlink_ack(Process *c_p, ErtsSigDistUnlinkOp *sdulnk)
          */
         if (dep != erts_this_dist_entry && sdulnk->nodename == dep->sysname) {
             ErtsDSigSendContext ctx;
-            int code = erts_dsig_prepare(&ctx, dep, c_p, 0,
+            int code = erts_dsig_prepare(&ctx, dep, NULL, 0,
                                          ERTS_DSP_NO_LOCK, 1, 1, 0);
             switch (code) {
             case ERTS_DSIG_PREP_CONNECTED:
@@ -3561,14 +3561,14 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
 
         if (dep != erts_this_dist_entry && dist->nodename == dep->sysname) {
             ErtsDSigSendContext ctx;
-            int code = erts_dsig_prepare(&ctx, dep, c_p, 0,
+            int code = erts_dsig_prepare(&ctx, dep, NULL, 0,
                                          ERTS_DSP_NO_LOCK, 1, 1, 0);
             switch (code) {
             case ERTS_DSIG_PREP_CONNECTED:
             case ERTS_DSIG_PREP_PENDING:
                 if (dist->connection_id == ctx.connection_id) {
                     code = erts_dsig_send_exit_tt(&ctx,
-                                                  c_p->common.id,
+                                                  c_p,
                                                   result,
                                                   am_abandoned,
                                                   SEQ_TRACE_TOKEN(c_p));
