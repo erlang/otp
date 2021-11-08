@@ -92,7 +92,7 @@
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
           or with <c>badarg</c> if <c><anno>Fun</anno></c> is not a
-          function of arity 3.</p>
+          function of arity 2.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > Fun = fun(K,V) when is_atom(K) -> {true, V*2}; (_,V) -> (V rem 2) =:= 0 end,
