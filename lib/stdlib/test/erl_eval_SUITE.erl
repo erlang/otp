@@ -52,7 +52,8 @@
          otp_16439/1,
          otp_14708/1,
          otp_16545/1,
-         otp_16865/1]).
+         otp_16865/1,
+         eep49/1]).
 
 %%
 %% Define to run outside of test server
@@ -92,7 +93,8 @@ all() ->
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
      otp_8133, otp_10622, otp_13228, otp_14826,
      funs, try_catch, eval_expr_5, zero_width,
-     eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865].
+     eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865,
+     eep49].
 
 groups() -> 
     [].
@@ -1756,6 +1758,67 @@ otp_16865(Config) when is_list(Config) ->
                 {badmatch, b}),
     ok.
 
+eep49(Config) when is_list(Config) ->
+    check(fun() ->
+                  maybe empty end
+          end,
+          "maybe empty end.",
+          empty),
+    check(fun() ->
+                  maybe ok ?= ok end
+          end,
+          "maybe ok ?= ok end.",
+          ok),
+    check(fun() ->
+                  maybe {ok,A} ?= {ok,good}, A end
+          end,
+          "maybe {ok,A} ?= {ok,good}, A end.",
+          good),
+    check(fun() ->
+                  maybe {ok,A} ?= {ok,good}, {ok,B} ?= {ok,also_good}, {A,B} end
+          end,
+          "maybe {ok,A} ?= {ok,good}, {ok,B} ?= {ok,also_good}, {A,B} end.",
+          {good,also_good}),
+    check(fun() ->
+                  maybe {ok,A} ?= {ok,good}, {ok,B} ?= {error,wrong}, {A,B} end
+          end,
+          "maybe {ok,A} ?= {ok,good}, {ok,B} ?= {error,wrong}, {A,B} end.",
+          {error,wrong}),
+
+    %% Test maybe ... else ... end.
+    check(fun() ->
+                  maybe empty else _ -> error end
+          end,
+          "maybe empty else _ -> error end.",
+          empty),
+    check(fun() ->
+                  maybe ok ?= ok else _ -> error end
+          end,
+          "maybe ok ?= ok else _ -> error end.",
+          ok),
+    check(fun() ->
+                  maybe ok ?= other else _ -> error end
+          end,
+          "maybe ok ?= other else _ -> error end.",
+          error),
+    check(fun() ->
+                  maybe {ok,A} ?= {ok,good}, {ok,B} ?= {ok,also_good}, {A,B}
+                  else {error,_} -> error end
+          end,
+          "maybe {ok,A} ?= {ok,good}, {ok,B} ?= {ok,also_good}, {A,B} "
+          "else {error,_} -> error end.",
+          {good,also_good}),
+    check(fun() ->
+                  maybe {ok,A} ?= {ok,good}, {ok,B} ?= {error,other}, {A,B}
+                  else {error,_} -> error end
+          end,
+          "maybe {ok,A} ?= {ok,good}, {ok,B} ?= {error,other}, {A,B} "
+          "else {error,_} -> error end.",
+          error),
+    error_check("maybe ok ?= simply_wrong else {error,_} -> error end.",
+                {else_clause,simply_wrong}),
+    ok.
+
 %% Check the string in different contexts: as is; in fun; from compiled code.
 check(F, String, Result) ->
     check1(F, String, Result),
@@ -1887,14 +1950,25 @@ eval_string(String) ->
     Result.
 
 parse_expr(String) ->
-    {ok,Tokens,_} = erl_scan:string(String),
+    Tokens = erl_scan_string(String),
     {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
     Expr.
 
 parse_exprs(String) ->
-    {ok,Tokens,_} = erl_scan:string(String),
+    Tokens = erl_scan_string(String),
     {ok, Exprs} = erl_parse:parse_exprs(Tokens),
     Exprs.
+
+erl_scan_string(String) ->
+    %% FIXME: When the experimental features EEP has been implemented, we should
+    %% dig out all keywords defined in all features.
+    ResWordFun =
+        fun('maybe') -> true;
+           ('else') -> true;
+           (Other) -> erl_scan:reserved_word(Other)
+        end,
+    {ok,Tokens,_} = erl_scan:string(String, 1, [{reserved_word_fun,ResWordFun}]),
+    Tokens.
 
 parse_and_run(String) ->
     erl_eval:expr(parse_expr(String), []).

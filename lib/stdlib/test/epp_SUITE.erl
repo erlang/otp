@@ -941,7 +941,7 @@ ifdef(Config) ->
              "-else.\n"
              "t() -> a.\n"
              "-endif.\n">>,
-           {errors,[{{3,1},epp,{bad,else}}],[]}},
+           {errors,[{{3,1},epp,{bad,'else'}}],[]}},
 
           {ifdef_c8,
            <<"-ifdef(a).\n"
@@ -1802,7 +1802,7 @@ otp_16824(Config) when is_list(Config) ->
           {otp_16824_8,
            <<"\n-else\n"
              "-endif.">>,
-           {errors,[{{3,1},epp,{bad,else}}],[]}},
+           {errors,[{{3,1},epp,{bad,'else'}}],[]}},
 
           {otp_16824_9,
            <<"\n-ifndef.\n"

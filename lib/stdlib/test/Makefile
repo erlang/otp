@@ -118,9 +118,10 @@ RELSYSDIR = $(RELEASE_PATH)/stdlib_test
 # FLAGS
 # ----------------------------------------------------
 
+MAYBE_OPT = '+{enable_feature,maybe_expr}'
 ERL_MAKE_FLAGS +=
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/include \
-		-I$(ERL_TOP)/lib/stdlib/include
+		-I$(ERL_TOP)/lib/stdlib/include $(MAYBE_OPT)
 
 EBIN = .
 

@@ -273,11 +273,17 @@ server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
     end.
 
 get_command(Prompt, Eval, Bs, RT, Ds) ->
+    ResWordFun =
+        fun('maybe') -> true;
+           ('else') -> true;
+           (Other) -> erl_scan:reserved_word(Other)
+        end,
     Parse =
         fun() ->
                 exit(
                   case
-                      io:scan_erl_exprs(group_leader(), Prompt, {1,1}, [text])
+                      io:scan_erl_exprs(group_leader(), Prompt, {1,1},
+                                        [text,{reserved_word_fun,ResWordFun}])
                   of
                       {ok,Toks,_EndPos} ->
                           erl_eval:extended_parse_exprs(Toks);
