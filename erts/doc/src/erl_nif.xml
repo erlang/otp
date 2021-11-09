@@ -100,6 +100,8 @@ ERL_NIF_INIT(niftest,nif_funcs,NULL,NULL,NULL,NULL)</code>
 
 -export([init/0, hello/0]).
 
+-nifs([hello/0]).
+
 -on_load(init/0).
 
 init() ->
@@ -127,7 +129,13 @@ $> erl
       which loads the NIF library and replaces the <c>hello</c> function with its
       native implementation in C. Once loaded, a NIF library is persistent. It
       will not be unloaded until the module code version that it belongs to is
-      purged.</p>
+      purged.
+    </p>
+    <p>
+      The <seeguide marker="system/reference_manual:modules#nifs_attribute">
+      <c>-nifs()</c></seeguide> attribute specifies which functions in the
+      module that are to be replaced by NIFs.
+    </p>
     <p>
       Each NIF must have an implementation in Erlang to be invoked if the
       function is called before the NIF library is successfully loaded. A

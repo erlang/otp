@@ -33,6 +33,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
          t_on_load/1,
+         t_nifs_attrib/1,
          t_load_race/1,
          t_call_nif_early/1,
          load_traced_nif/1,
@@ -97,6 +98,7 @@ all() ->
      {group, monitor},
      monitor_frenzy,
      t_dynamic_resource_call,
+     t_nifs_attrib,
      t_load_race,
      t_call_nif_early,
      load_traced_nif,
@@ -504,6 +506,34 @@ t_on_load(Config) when is_list(Config) ->
     true = lists:member(nif_mod, erlang:system_info(taints)),
     verify_tmpmem(TmpMem),
     ok.
+
+%% Test the -nifs() attribute
+t_nifs_attrib(Config) when is_list(Config) ->
+    TmpMem = tmpmem(),
+    ensure_lib_loaded(Config),
+
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "nif_mod"),
+    {ok,nif_mod,Bin3} = compile:file(File, [binary,return_errors,
+                                           {d,'USE_NIFS_ATTRIB',3}]),
+
+    {module,nif_mod} = code:load_binary(nif_mod,File,Bin3),
+    ok = nif_mod:load_nif_lib(Config, 1),
+    1 = nif_mod:lib_version(),
+
+    {ok,nif_mod,Bin2} = compile:file(File, [binary,return_errors,
+                                            {d,'USE_NIFS_ATTRIB',2}]),
+    {module,nif_mod} = code:load_binary(nif_mod,File,Bin2),
+    {error, {bad_lib, "Function not declared as nif" ++ _}} =
+        nif_mod:load_nif_lib(Config, 1),
+
+    {ok,nif_mod,Bin1} = compile:file(File, [binary,return_errors,
+                                            {d,'USE_NIFS_ATTRIB',1}]),
+    {module,nif_mod} = code:load_binary(nif_mod,File,Bin1),
+    {error, {bad_lib, "Function not declared as nif" ++ _}} =
+        nif_mod:load_nif_lib(Config, 1),
+    ok.
+
 
 %% Test erlang:load_nif/2 waiting for code_write_permission.
 t_load_race(Config) ->

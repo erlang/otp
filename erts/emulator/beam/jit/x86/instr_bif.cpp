@@ -670,6 +670,10 @@ void BeamModuleAssembler::emit_send() {
     fragment_call(ga->get_call_light_bif_shared());
 }
 
+void BeamModuleAssembler::emit_nif_start() {
+    /* load time only instruction */
+}
+
 void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
     Label check_trap = a.newLabel(), trap = a.newLabel(), error = a.newLabel();
 

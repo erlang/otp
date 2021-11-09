@@ -4124,8 +4124,8 @@ SysIOVec *enif_ioq_peek(ErlNifIOQueue *q, int *iovlen)
  **                              load_nif/2                               **
  ***************************************************************************/
 
-static const ErtsCodeInfo * const * get_func_pp(const BeamCodeHeader* mod_code,
-                                                Eterm f_atom, unsigned arity)
+static int get_func_ix(const BeamCodeHeader* mod_code,
+                       Eterm f_atom, unsigned arity)
 {
     int n = (int) mod_code->num_functions;
     int j;
@@ -4137,13 +4137,12 @@ static const ErtsCodeInfo * const * get_func_pp(const BeamCodeHeader* mod_code,
         ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
 #endif
 
-        if (f_atom == ci->mfa.function
-            && arity == ci->mfa.arity) {
-            return &mod_code->functions[j];
+        if (f_atom == ci->mfa.function && arity == ci->mfa.arity) {
+            return j;
         }
     }
 
-    return NULL;
+    return -1;
 }
 
 static Eterm mkatom(const char *str)
@@ -4389,6 +4388,12 @@ static void nif_call_table_init(void)
     hash_init(ERTS_ALC_T_NIF, &erts_nif_call_tab, "nif_call_tab", 100, f);
 }
 
+static int check_is_nifable(const BeamCodeHeader* mod_code,
+                            int func_ix)
+{
+    return !mod_code->are_nifs || mod_code->are_nifs[func_ix];
+}
+
 static void patch_call_nif_early(ErlNifEntry*, struct erl_module_instance*);
 
 Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
@@ -4536,7 +4541,7 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
 
         erts_rwmtx_rwlock(&erts_nif_call_tab_lock);
         for (i=0; i < entry->num_of_funcs; i++) {
-            const ErtsCodeInfo * const * ci_pp;
+            int func_ix;
             const ErtsCodeInfo* ci;
             ErlNifFunc* f = &entry->funcs[i];
             ErtsNifBeamStub* stub = &lib->finish->beam_stubv[i];
@@ -4544,13 +4549,19 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
             stub->code_info_exec = NULL; /* end marker in case we fail */
 
 	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1)
-		|| (ci_pp = get_func_pp(this_mi->code_hdr, f_atom, f->arity))==NULL) {
+		|| (func_ix = get_func_ix(this_mi->code_hdr, f_atom, f->arity)) < 0) {
 		ret = load_nif_error(c_p,bad_lib,"Function not found %T:%s/%u",
 				     mod_atom, f->name, f->arity);
                 break;
 	    }
 
-            ci = *ci_pp;
+            ci = this_mi->code_hdr->functions[func_ix];
+
+            if (!check_is_nifable(this_mi->code_hdr, func_ix)) {
+                ret = load_nif_error(c_p,bad_lib,"Function not declared as nif %T:%s/%u",
+                                     mod_atom, f->name, f->arity);
+                break;
+            }
 
 	    if (f->flags != 0 &&
                 f->flags != ERL_NIF_DIRTY_JOB_IO_BOUND &&
@@ -4565,8 +4576,8 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
         {
             ErtsCodePtr curr_func, next_func;
 
-            curr_func = erts_codeinfo_to_code((ErtsCodeInfo*)ci_pp[0]);
-            next_func = erts_codeinfo_to_code((ErtsCodeInfo*)ci_pp[1]);
+            curr_func = erts_codeinfo_to_code(this_mi->code_hdr->functions[func_ix]);
+            next_func = erts_codeinfo_to_code(this_mi->code_hdr->functions[func_ix+1]);
 
             ASSERT(!ErtsInArea(next_func,
                                curr_func,
@@ -4742,15 +4753,15 @@ static void patch_call_nif_early(ErlNifEntry* entry,
     for (i=0; i < entry->num_of_funcs; i++)
     {
         ErlNifFunc* f = &entry->funcs[i];
-        const ErtsCodeInfo * const * ci_pp;
+        int func_ix;
         const ErtsCodeInfo *ci_exec;
         ErtsCodeInfo *ci_rw;
         Eterm f_atom;
 
         erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1);
 
-        ci_pp = get_func_pp(this_mi->code_hdr, f_atom, f->arity);
-        ci_exec = *ci_pp;
+        func_ix = get_func_ix(this_mi->code_hdr, f_atom, f->arity);
+        ci_exec = this_mi->code_hdr->functions[func_ix];
 
         ci_rw = erts_writable_code_ptr(this_mi, ci_exec);
 

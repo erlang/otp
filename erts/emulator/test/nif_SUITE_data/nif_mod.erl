@@ -31,6 +31,16 @@
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
+-ifdef(USE_NIFS_ATTRIB).
+-nifs([lib_version/0, nif_api_version/0, get_priv_data_ptr/0]).
+-if(?USE_NIFS_ATTRIB > 1).
+-nifs([make_new_resource/2, get_resource/2, monitor_process/3]).
+-if(?USE_NIFS_ATTRIB > 2).
+-nifs([lib_version_check/0]).
+-endif.
+-endif.
+-endif.
+
 -ifdef(USE_ON_LOAD).
 -on_load(on_load/0).
 

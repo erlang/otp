@@ -67,6 +67,7 @@ int beam_load_prepare_emit(LoaderState *stp) {
     hdr->compile_size_on_heap = 0;
     hdr->literal_area = NULL;
     hdr->md5_ptr = NULL;
+    hdr->are_nifs = NULL;
 
     stp->load_hdr = hdr;
 
@@ -535,6 +536,17 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             stp->func_line[stp->function_number] = stp->current_li;
         }
 
+        break;
+    case op_nif_start:
+        if (!stp->load_hdr->are_nifs) {
+            int bytes = stp->beam.code.function_count * sizeof(byte);
+            stp->load_hdr->are_nifs =
+                    erts_alloc(ERTS_ALC_T_PREPARED_CODE, bytes);
+            sys_memzero(stp->load_hdr->are_nifs, bytes);
+        }
+        ASSERT(stp->function_number > 0);
+        ASSERT(stp->function_number <= stp->beam.code.function_count);
+        stp->load_hdr->are_nifs[stp->function_number - 1] = 1;
         break;
     }
 

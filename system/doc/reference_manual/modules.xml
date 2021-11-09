@@ -129,6 +129,36 @@ fact(0) ->           %  |
 	    <seeguide marker="code_loading#on_load">
             Running a Function When a Module is Loaded</seeguide>.</p>
         </item>
+        <tag><marker id="nifs_attribute"/><c>-nifs(Function).</c></tag>
+        <item>
+          <p>
+            Specifies which of the functions, defined within the module, that
+            may be loaded as NIFs with <seemfa marker="erts:erlang#load_nif/2">
+            <c>erlang:load_nif/2</c></seemfa>.
+          </p>
+          <p>
+            <c>Functions</c> is a list
+            <c>[Name1/Arity1, ..., NameN/ArityN]</c>, where each
+            <c>NameI</c> is an atom and <c>ArityI</c> an integer.
+          </p>
+          <note>
+            <p>
+              The <c>-nifs()</c> attribute was introduced in OTP 25.0. For older
+              Erlang source code without it, any functions in the module may be
+              loaded as NIFs. However, it is recommended to declare the NIFs with
+              the <c>-nifs</c> attribute. This allows the compiler to make better
+              decisions regarding optimizations for example.
+            </p>
+            <p>
+              There is no need to add <c>-nifs([])</c> in modules that do not
+              load NIFs. The lack of any call to
+              <seemfa marker="erts:erlang#load_nif/2"><c>erlang:load_nif/2</c></seemfa>,
+              from within the module, is enough for the compiler to draw the
+              same conclusion.
+            </p>
+          </note>
+        </item>
+
       </taglist>
     </section>
 

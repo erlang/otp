@@ -63,7 +63,7 @@ bif1 Fail u$func:erlang:is_constant/1 Src Dst => too_old_compiler
 label L
 i_func_info I a a I
 int_code_end
-nif_start =>
+nif_start
 
 i_generic_breakpoint
 i_debug_breakpoint
