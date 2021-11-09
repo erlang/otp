@@ -193,6 +193,8 @@
          constraint_body/1,
 	 disjunction/1,
 	 disjunction_body/1,
+         else_expr/1,
+         else_expr_clauses/1,
 	 eof_marker/0,
 	 error_marker/1,
 	 error_marker_info/1,
@@ -266,6 +268,13 @@
 	 match_expr/2,
 	 match_expr_body/1,
 	 match_expr_pattern/1,
+         maybe_expr/1,
+         maybe_expr/2,
+         maybe_expr_body/1,
+         maybe_expr_else/1,
+         maybe_match_expr/2,
+         maybe_match_expr_pattern/1,
+         maybe_match_expr_body/1,
 	 module_qualifier/2,
 	 module_qualifier_argument/1,
 	 module_qualifier_body/1,
@@ -505,13 +514,14 @@
 %%   <td>constrained_function_type</td>
 %%   <td>constraint</td>
 %%   <td>disjunction</td>
-%%   <td>eof_marker</td>
 %%  </tr><tr>
+%%   <td>else_expr</td>
+%%   <td>eof_marker</td>
 %%   <td>error_marker</td>
+%%  </tr><tr>
 %%   <td>float</td>
 %%   <td>form_list</td>
 %%   <td>fun_expr</td>
-%%  </tr><tr>
 %%   <td>fun_type</td>
 %%   <td>function</td>
 %%   <td>function_type</td>
@@ -535,6 +545,9 @@
 %%   <td>map_type_assoc</td>
 %%   <td>map_type_exact</td>
 %%   <td>match_expr</td>
+%%  </tr><tr>
+%%   <td>maybe_expr</td>
+%%   <td>maybe_match_expr</td>
 %%   <td>module_qualifier</td>
 %%  </tr><tr>
 %%   <td>named_fun_expr</td>
@@ -597,6 +610,7 @@
 %% @see constrained_function_type/2
 %% @see constraint/2
 %% @see disjunction/1
+%% @see else_expr/1
 %% @see eof_marker/0
 %% @see error_marker/1
 %% @see float/1
@@ -623,6 +637,9 @@
 %% @see map_type_assoc/2
 %% @see map_type_exact/2
 %% @see match_expr/2
+%% @see maybe_expr/1
+%% @see maybe_expr/2
+%% @see maybe_match_expr/2
 %% @see module_qualifier/2
 %% @see named_fun_expr/2
 %% @see nil/0
@@ -683,6 +700,9 @@ type(Node) ->
 	{'fun', _, {function, _, _}} -> implicit_fun;
 	{'fun', _, {function, _, _, _}} -> implicit_fun;
 	{'if', _, _} -> if_expr;
+        {'maybe', _, _} -> maybe_expr;
+        {'maybe', _, _, _} -> maybe_expr;
+        {'else', _, _} -> else_expr;
 	{'receive', _, _, _, _} -> receive_expr;
 	{'receive', _, _} -> receive_expr;
 	{attribute, _, _, _} -> attribute;
@@ -702,6 +722,7 @@ type(Node) ->
         {map, _, _} -> map_expr;
         {map_field_assoc, _, _, _} -> map_field_assoc;
         {map_field_exact, _, _, _} -> map_field_exact;
+        {maybe_match, _, _, _} -> maybe_match_expr;
 	{op, _, _, _, _} -> infix_expr;
 	{op, _, _, _} -> prefix_expr;
 	{record, _, _, _, _} -> record_expr;
@@ -4135,6 +4156,71 @@ match_expr_body(Node) ->
 
 
 %% =====================================================================
+%% @doc Creates an abstract maybe-expression, as used in <code>maybe</code>
+%% blocks. The result represents
+%% "<code><em>Pattern</em> ?= <em>Body</em></code>".
+%%
+%% @see maybe_match_expr_pattern/1
+%% @see maybe_match_expr_body/1
+%% @see maybe_expr/2
+
+-record(maybe_match_expr, {pattern :: syntaxTree(), body :: syntaxTree()}).
+
+%% type(Node) = maybe_expr
+%% data(Node) = #maybe_expr{pattern :: Pattern, body :: Body}
+%%
+%%	Pattern = Body = syntaxTree()
+%%
+%% `erl_parse' representation:
+%%
+%% {maybe_match, Pos, Pattern, Body}
+%%
+%%	Pattern = Body = erl_parse()
+%%
+
+-spec maybe_match_expr(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+maybe_match_expr(Pattern, Body) ->
+    tree(maybe_match_expr, #maybe_match_expr{pattern = Pattern, body = Body}).
+
+revert_maybe_match_expr(Node) ->
+    Pos = get_pos(Node),
+    Pattern = maybe_match_expr_pattern(Node),
+    Body = maybe_match_expr_body(Node),
+    {maybe_match, Pos, Pattern, Body}.
+
+%% =====================================================================
+%% @doc Returns the pattern subtree of a `maybe_expr' node.
+%%
+%% @see maybe_match_expr/2
+
+-spec maybe_match_expr_pattern(syntaxTree()) -> syntaxTree().
+
+maybe_match_expr_pattern(Node) ->
+    case unwrap(Node) of
+        {maybe_match, _, Pattern, _} ->
+            Pattern;
+        Node1 ->
+            (data(Node1))#maybe_match_expr.pattern
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the body subtree of a `maybe_expr' node.
+%%
+%% @see maybe_match_expr/2
+
+-spec maybe_match_expr_body(syntaxTree()) -> syntaxTree().
+
+maybe_match_expr_body(Node) ->
+    case unwrap(Node) of
+        {maybe_match, _, _, Body} ->
+            Body;
+        Node1 ->
+            (data(Node1))#maybe_match_expr.body
+    end.
+
+%% =====================================================================
 %% @doc Creates an abstract operator. The name of the operator is the
 %% character sequence represented by `Name'. This is
 %% analogous to the print name of an atom, but an operator is never
@@ -6361,6 +6447,130 @@ case_expr_clauses(Node) ->
 	    (data(Node1))#case_expr.clauses
     end.
 
+%% =====================================================================
+%% @doc Creates an abstract else-expression. If `Clauses' is `[C1,
+%% ..., Cn]', the result represents "<code>else <em>C1</em>; ...; <em>Cn</em>
+%% end</code>". More exactly, if each `Ci' represents
+%% "<code>(<em>Pi</em>) <em>Gi</em> -> <em>Bi</em></code>", then the
+%% result represents "<code>else <em>G1</em> -> <em>B1</em>; ...;
+%% <em>Pn</em> <em>Gn</em> -> <em>Bn</em> end</code>".
+%%
+%% @see maybe_expr/2
+%% @see else_expr_clauses/1
+%% @see clause/3
+
+else_expr(Clauses) ->
+    tree(else_expr, Clauses).
+
+revert_else_expr(Node) ->
+    Pos = get_pos(Node),
+    Clauses = else_expr_clauses(Node),
+    {'else', Pos, Clauses}.
+
+%% =====================================================================
+%% @doc Returns the list of clause subtrees of an `else_expr' node.
+%%
+%% @see else_expr/1
+
+-spec else_expr_clauses(syntaxTree()) -> [syntaxTree()].
+
+else_expr_clauses(Node) ->
+    case unwrap(Node) of
+	{'else', _, Clauses} ->
+	    Clauses;
+	Node1 ->
+	    data(Node1)
+    end.
+
+%% =====================================================================
+%% @equiv maybe_expr(Body, none)
+
+-spec maybe_expr([syntaxTree()]) -> syntaxTree().
+
+maybe_expr(Body) ->
+    maybe_expr(Body, none).
+
+%% =====================================================================
+%% @doc Creates an abstract maybe-expression. If `Body' is `[B1, ...,
+%% Bn]', and `OptionalElse' is `none', the result represents
+%% "<code>maybe <em>B1</em>, ..., <em>Bn</em> end</code>".  If `Body'
+%% is `[B1, ..., Bn]', and `OptionalElse' reprsents an `else_expr' node
+%% with clauses `[C1, ..., Cn]', the result represents "<code>maybe
+%% <em>B1</em>, ..., <em>Bn</em> else <em>C1</em>; ..., <em>Cn</em>
+%% end</code>".
+%%
+%%	See `clause' for documentation on `erl_parse' clauses.
+%%
+%% @see maybe_expr_body/1
+%% @see maybe_expr_else/1
+
+-record(maybe_expr, {body :: [syntaxTree()],
+                     'else' = none :: 'none' | syntaxTree()}).
+
+%% type(Node) = maybe_expr
+%% data(Node) = #maybe_expr{body :: Body, 'else' :: 'none' | Else}
+%%
+%%     Body = [syntaxTree()]
+%%     Else = syntaxTree()
+%%
+%% `erl_parse' representation:
+%%
+%% {block, Pos, Body}
+%% {block, Pos, Body, Else}
+%%
+%%    Body = [erl_parse()] \ []
+%%    Else = {'else', Pos, Clauses}
+%%    Clauses = [Clause] \ []
+%%    Clause = {clause, ...}
+
+-spec maybe_expr([syntaxTree()], 'none' | syntaxTree()) -> syntaxTree().
+
+maybe_expr(Body, OptionalElse) ->
+    tree(maybe_expr, #maybe_expr{body = Body,
+                                 'else' = OptionalElse}).
+revert_maybe_expr(Node) ->
+    Pos = get_pos(Node),
+    Body = maybe_expr_body(Node),
+    case maybe_expr_else(Node) of
+        none ->
+            {'maybe', Pos, Body};
+        Else ->
+            {'maybe', Pos, Body, Else}
+    end.
+
+%% =====================================================================
+%% @doc Returns the list of body subtrees of a `maybe_expr' node.
+%%
+%% @see maybe_expr/2
+
+-spec maybe_expr_body(syntaxTree()) -> [syntaxTree()].
+
+maybe_expr_body(Node) ->
+    case unwrap(Node) of
+	{'maybe', _, Body} ->
+            Body;
+	{'maybe', _, Body, _Else} ->
+            Body;
+        Node1 ->
+            (data(Node1))#maybe_expr.body
+    end.
+
+%% =====================================================================
+%% @doc Returns the else subtree of a `maybe_expr' node.
+%%
+%% @see maybe_expr/2
+
+-spec maybe_expr_else(syntaxTree()) -> 'none' | syntaxTree().
+
+maybe_expr_else(Node) ->
+    case unwrap(Node) of
+        {'maybe', _, _Body} ->
+            none;
+        {'maybe', _, _Body, Else} ->
+            Else;
+        Node1 ->
+            (data(Node1))#maybe_expr.'else'
+    end.
 
 %% =====================================================================
 %% @equiv receive_expr(Clauses, none, [])
@@ -7470,9 +7680,9 @@ revert_root(Node) ->
             revert_bitstring_type(Node);
 	block_expr ->
 	    revert_block_expr(Node);
-	case_expr ->
+        'case_expr' ->                          %Quoted to help Emacs.
 	    revert_case_expr(Node);
-	catch_expr ->
+        'catch_expr' ->                         %Quoted to help Emacs.
 	    revert_catch_expr(Node);
 	char ->
 	    revert_char(Node);
@@ -7482,6 +7692,8 @@ revert_root(Node) ->
             revert_constrained_function_type(Node);
         constraint ->
             revert_constraint(Node);
+        else_expr ->
+            revert_else_expr(Node);
 	eof_marker ->
 	    revert_eof_marker(Node);
 	error_marker ->
@@ -7526,6 +7738,10 @@ revert_root(Node) ->
             revert_map_type_exact(Node);
 	match_expr ->
 	    revert_match_expr(Node);
+        maybe_match_expr ->
+            revert_maybe_match_expr(Node);
+        maybe_expr ->
+            revert_maybe_expr(Node);
 	module_qualifier ->
 	    revert_module_qualifier(Node);
 	named_fun_expr ->
@@ -7730,7 +7946,7 @@ subtrees(T) ->
 		case_expr ->
 		    [[case_expr_argument(T)],
 		     case_expr_clauses(T)];
-		catch_expr ->
+                'catch_expr' ->                 %Quoted to help Emacs.
 		    [[catch_expr_body(T)]];
 		class_qualifier ->
                     [[class_qualifier_argument(T)],
@@ -7755,6 +7971,8 @@ subtrees(T) ->
                      constraint_body(T)];
 		disjunction ->
 		    [disjunction_body(T)];
+		else_expr ->
+                    [else_expr_clauses(T)];
 		form_list ->
 		    [form_list_elements(T)];
 		fun_expr ->
@@ -7823,6 +8041,17 @@ subtrees(T) ->
 		match_expr ->
 		    [[match_expr_pattern(T)],
 		     [match_expr_body(T)]];
+                maybe_expr ->
+                    case maybe_expr_else(T) of
+                        none ->
+                            [maybe_expr_body(T)];
+                        E ->
+                            [maybe_expr_body(T),
+                             [E]]
+                    end;
+                maybe_match_expr ->
+                    [[maybe_match_expr_pattern(T)],
+                     [maybe_match_expr_body(T)]];
 		module_qualifier ->
 		    [[module_qualifier_argument(T)],
 		     [module_qualifier_body(T)]];
@@ -7962,6 +8191,7 @@ make_tree(constrained_function_type, [[F],C]) ->
     constrained_function_type(F, C);
 make_tree(constraint, [[N], Ts]) -> constraint(N, Ts);
 make_tree(disjunction, [E]) -> disjunction(E);
+make_tree(else_expr, [E]) -> else_expr(E);
 make_tree(form_list, [E]) -> form_list(E);
 make_tree(fun_expr, [C]) -> fun_expr(C);
 make_tree(function, [[N], C]) -> function(N, C);
@@ -7985,6 +8215,9 @@ make_tree(map_type, [Fs]) -> map_type(Fs);
 make_tree(map_type_assoc, [[N],[V]]) -> map_type_assoc(N, V);
 make_tree(map_type_exact, [[N],[V]]) -> map_type_exact(N, V);
 make_tree(match_expr, [[P], [E]]) -> match_expr(P, E);
+make_tree(maybe_expr, [Body]) -> maybe_expr(Body);
+make_tree(maybe_expr, [Body, [Else]]) -> maybe_expr(Body, Else);
+make_tree(maybe_match_expr, [[P], [E]]) -> maybe_match_expr(P, E);
 make_tree(named_fun_expr, [[N], C]) -> named_fun_expr(N, C);
 make_tree(module_qualifier, [[M], [N]]) -> module_qualifier(M, N);
 make_tree(parentheses, [[E]]) -> parentheses(E);

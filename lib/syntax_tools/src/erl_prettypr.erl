@@ -54,7 +54,7 @@
 -type hook() :: 'none'
               | fun((erl_syntax:syntaxTree(), _, _) -> prettypr:document()).
 -type clause_t() :: 'case_expr' | 'fun_expr'
-                  | 'if_expr' | 'receive_expr' | 'try_expr'
+                  | 'if_expr' | 'maybe_expr' | 'receive_expr' | 'try_expr'
                   | {'function', prettypr:document()}
                   | 'spec'.
 
@@ -588,6 +588,8 @@ lay_2(Node, Ctxt) ->
 		    make_if_clause(D1, D2, D3, Ctxt);
 		case_expr ->
 		    make_case_clause(D1, D2, D3, Ctxt);
+		maybe_expr ->
+		    make_case_clause(D1, D2, D3, Ctxt);
 		receive_expr ->
 		    make_case_clause(D1, D2, D3, Ctxt);
 		try_expr ->
@@ -647,6 +649,34 @@ lay_2(Node, Ctxt) ->
 	    D2 = lay(erl_syntax:module_qualifier_body(Node),
 		     set_prec(Ctxt, PrecR)),
 	    beside(D1, beside(text(":"), D2));
+
+        maybe_expr ->
+	    Ctxt1 = reset_prec(Ctxt),
+	    D1 = vertical(seq(erl_syntax:maybe_expr_body(Node),
+                              floating(text(",")), Ctxt1, fun lay/2)),
+            Es0 = [text("end")],
+            Es1 = case erl_syntax:maybe_expr_else(Node) of
+                      none -> Es0;
+                      ElseNode ->
+                          ElseCs = erl_syntax:else_expr_clauses(ElseNode),
+                          D3 = lay_clauses(ElseCs, maybe_expr, Ctxt1),
+                          [text("else"),
+                           nest(Ctxt1#ctxt.break_indent, D3)
+                          | Es0]
+                  end,
+	    sep([par([text("maybe"), nest(Ctxt1#ctxt.break_indent, D1),
+		      hd(Es1)]) | tl(Es1)]);
+
+	maybe_match_expr ->
+	    {PrecL, Prec, PrecR} = inop_prec('='),
+	    D1 = lay(erl_syntax:maybe_match_expr_pattern(Node),
+		     set_prec(Ctxt, PrecL)),
+	    D2 = lay(erl_syntax:maybe_match_expr_body(Node),
+		     set_prec(Ctxt, PrecR)),
+	    D3 = follow(beside(D1, floating(text(" ?="))), D2,
+			Ctxt#ctxt.break_indent),
+	    maybe_parentheses(D3, Prec, Ctxt);
+
 
 	%%
 	%% The rest is in alphabetical order (except map and types)
@@ -759,7 +789,7 @@ lay_2(Node, Ctxt) ->
 		 nest(Ctxt1#ctxt.break_indent, sep(Es)),
 		 text("end")]);
 
-	catch_expr ->
+	'catch_expr' ->                         %Quoted to help Emacs.
 	    {Prec, PrecR} = preop_prec('catch'),
 	    D = lay(erl_syntax:catch_expr_body(Node),
 		    set_prec(Ctxt, PrecR)),
@@ -801,7 +831,7 @@ lay_2(Node, Ctxt) ->
 	    sep(seq(erl_syntax:disjunction_body(Node),
 		    floating(text(";")), reset_prec(Ctxt),
 		    fun lay/2));
-	    
+
 	error_marker ->
 	    E = erl_syntax:error_marker_info(Node),
 	    beside(text("** "),

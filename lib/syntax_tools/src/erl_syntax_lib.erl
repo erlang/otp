@@ -1314,7 +1314,7 @@ analyze_attribute(Node) ->
                 ifndef -> preprocessor;
                 'if' -> preprocessor;
                 elif -> preprocessor;
-                else -> preprocessor;
+                'else' -> preprocessor;
                 endif -> preprocessor;
                 A ->
                     {A, analyze_attribute(A, Node)}
