@@ -37,7 +37,8 @@
 -export([xm_sig_order/1,
          kill2killed/1,
          busy_dist_exit_signal/1,
-         busy_dist_down_signal/1]).
+         busy_dist_down_signal/1,
+         busy_dist_spawn_reply_signal/1]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
@@ -59,7 +60,8 @@ all() ->
     [xm_sig_order,
      kill2killed,
      busy_dist_exit_signal,
-     busy_dist_down_signal].
+     busy_dist_down_signal,
+     busy_dist_spawn_reply_signal].
 
 
 %% Test that exit signals and messages are received in correct order
@@ -227,6 +229,42 @@ busy_dist_down_signal(Config) when is_list(Config) ->
     after
         BusyTime*2 ->
             ct:fail(missing_down_signal)
+    end,
+    stop_node(BusyChannelNode),
+    stop_node(OtherNode),
+    ok.
+
+busy_dist_spawn_reply_signal(Config) when is_list(Config) ->
+    BusyTime = 1000,
+    {ok, BusyChannelNode} = start_node(Config),
+    {ok, OtherNode} = start_node(Config, "-proto_dist gen_tcp"),
+    Tester = self(),
+    Spawner = spawn_link(OtherNode,
+                         fun () ->
+                                 pong = net_adm:ping(BusyChannelNode),
+                                 Tester ! {self(), ready},
+                                 receive {Tester, go} -> ok end,
+                                 ReqID = spawn_request(BusyChannelNode,
+                                                       fun () -> ok end,
+                                                       []),
+                                 receive
+                                     {spawn_reply, ReqID, Result, _Pid} ->
+                                         ok = Result,
+                                         Tester ! {self(), got_spawn_reply_message};
+                                     Unexpected ->
+                                         exit({unexpected_message, Unexpected})
+                                 end
+                         end),
+    receive {Spawner, ready} -> ok end,
+    make_busy(BusyChannelNode, OtherNode, 1000),
+    Spawner ! {self(), go},
+    receive
+        {Spawner, got_spawn_reply_message} ->
+            unlink(Spawner),
+            ok
+    after
+        BusyTime*2 ->
+            ct:fail(missing_spawn_reply_signal)
     end,
     stop_node(BusyChannelNode),
     stop_node(OtherNode),
