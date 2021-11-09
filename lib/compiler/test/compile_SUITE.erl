@@ -26,7 +26,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
-	 app_test/1,appup_test/1,
+	 app_test/1,appup_test/1,bigE_roundtrip/1,
 	 debug_info/4, custom_debug_info/1, custom_compile_info/1,
 	 file_1/1, forms_2/1, module_mismatch/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
@@ -48,7 +48,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 -spec all() -> all_return_type().
 
 all() -> 
-    [app_test, appup_test, file_1, forms_2, module_mismatch, outdir,
+    [app_test, appup_test, bigE_roundtrip, file_1,
+     forms_2, module_mismatch, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, kernel_listing, encrypted_abstr, tuple_calls,
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
@@ -84,6 +85,37 @@ app_test(Config) when is_list(Config) ->
 %% Test that the Application upgrade file has no `basic' errors.";
 appup_test(Config) when is_list(Config) ->
     ok = test_server:appup_test(compiler).
+
+%% Check that a file compiled to the abstract form and dumped with -E
+%% can be compiled. We use a file constructed to produce errors if the
+%% dumping fails to legalize compiler generated variable names.
+bigE_roundtrip(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Source = filename:join(DataDir, "bigE.erl"),
+    TargetDir = filename:join(PrivDir, "bigE"),
+    Target = filename:join(TargetDir, "bigE.E"),
+    TargetSource = filename:join(TargetDir, "bigE.erl"),
+    ok = file:make_dir(TargetDir),
+    io:format("Source: ~p~nTargetDir: ~p~nTarget: ~p\n",
+              [Source, TargetDir, Target]),
+    case compile:file(Source,
+                      ['E', warnings_as_errors, {outdir, TargetDir}]) of
+        {ok, _} -> ok;
+        Other -> ct:fail({unexpected_result, Other})
+    end,
+    %% Rename the output to .erl so that the compiler accepts it and
+    %% we won't get a warning due to the filename not matching the
+    %% module name.
+    ok = file:rename(Target, TargetSource),
+    case compile:file(TargetSource,
+                      [warnings_as_errors, {outdir, TargetDir}]) of
+        {ok, _} -> ok;
+        Other1 -> ct:fail({unexpected_result, Other1})
+    end,
+    file:delete(TargetSource),
+    file:del_dir(TargetDir),
+    ok.
 
 %% Tests that we can compile and run a simple Erlang program,
 %% using compile:file/1.

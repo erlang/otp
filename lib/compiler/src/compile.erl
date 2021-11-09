@@ -806,6 +806,7 @@ abstr_passes(AbstrStatus) ->
 
          ?pass(expand_records),
          {iff,'dexp',{listing,"expand"}},
+         {iff,'E',?pass(legalize_vars)},
          {iff,'E',{src_listing,"E"}},
          {iff,'to_exp',{done,"E"}},
 
@@ -1420,6 +1421,14 @@ makedep_output(Code, #compile{options=Opts,ofile=Ofile}=St) ->
 
 expand_records(Code0, #compile{options=Opts}=St) ->
     Code = erl_expand_records:module(Code0, Opts),
+    {ok,Code,St}.
+
+legalize_vars(Code0, St) ->
+    Code = map(fun(F={function,_,_,_,_}) ->
+                       erl_pp:legalize_vars(F);
+                  (F) ->
+                       F
+               end, Code0),
     {ok,Code,St}.
 
 compile_directives(Forms, #compile{options=Opts0}=St0) ->
