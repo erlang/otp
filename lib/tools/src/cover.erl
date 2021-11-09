@@ -336,6 +336,7 @@ filter_options(Options) ->
                              {d, _Macro, _Value} -> true;
                              export_all -> true;
                              tuple_calls -> true;
+                             {enable_feature,_} -> true; %FIXME: To be removed.
                              _ -> false
                          end
                  end,
@@ -2169,6 +2170,10 @@ munge_expr({match,Anno,ExprL,ExprR}, Vars) ->
     {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
     {MungedExprR, Vars3} = munge_expr(ExprR, Vars2),
     {{match,Anno,MungedExprL,MungedExprR}, Vars3};
+munge_expr({maybe_match,Anno,ExprL,ExprR}, Vars) ->
+    {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
+    {MungedExprR, Vars3} = munge_expr(ExprR, Vars2),
+    {{maybe_match,Anno,MungedExprL,MungedExprR}, Vars3};
 munge_expr({tuple,Anno,Exprs}, Vars) ->
     {MungedExprs, Vars2} = munge_exprs(Exprs, Vars, []),
     {{tuple,Anno,MungedExprs}, Vars2};
@@ -2260,6 +2265,13 @@ munge_expr({'try',Anno,Body,Clauses,CatchClauses,After}, Vars) ->
     {MungedAfter, Vars4} = munge_body(After, Vars3),
     {{'try',Anno,MungedBody,MungedClauses,MungedCatchClauses,MungedAfter},
      Vars4};
+munge_expr({'maybe',Anno,Exprs}, Vars) ->
+    {MungedExprs, Vars2} = munge_body(Exprs, Vars),
+    {{'maybe',Anno,MungedExprs}, Vars2};
+munge_expr({'maybe',MaybeAnno,Exprs,{'else',ElseAnno,Clauses}}, Vars) ->
+    {MungedExprs, Vars2} = munge_body(Exprs, Vars),
+    {MungedClauses, Vars3} = munge_clauses(Clauses, Vars2),
+    {{'maybe',MaybeAnno,MungedExprs,{'else',ElseAnno,MungedClauses}}, Vars3};
 munge_expr({'fun',Anno,{clauses,Clauses}}, Vars) ->
     {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
     {{'fun',Anno,{clauses,MungedClauses}}, Vars2};
