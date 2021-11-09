@@ -38,7 +38,8 @@
          kill2killed/1,
          busy_dist_exit_signal/1,
          busy_dist_down_signal/1,
-         busy_dist_spawn_reply_signal/1]).
+         busy_dist_spawn_reply_signal/1,
+         busy_dist_unlink_ack_signal/1]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
@@ -61,7 +62,8 @@ all() ->
      kill2killed,
      busy_dist_exit_signal,
      busy_dist_down_signal,
-     busy_dist_spawn_reply_signal].
+     busy_dist_spawn_reply_signal,
+     busy_dist_unlink_ack_signal].
 
 
 %% Test that exit signals and messages are received in correct order
@@ -270,9 +272,76 @@ busy_dist_spawn_reply_signal(Config) when is_list(Config) ->
     stop_node(OtherNode),
     ok.
 
+-record(erl_link, {type,           % process | port | dist_process
+                   pid = [],
+                   state,          % linked | unlinking
+                   id}).
+
+busy_dist_unlink_ack_signal(Config) when is_list(Config) ->
+    BusyTime = 1000,
+    {ok, BusyChannelNode} = start_node(Config),
+    {ok, OtherNode} = start_node(Config, "-proto_dist gen_tcp"),
+    Tester = self(),
+    Unlinkee = spawn(BusyChannelNode,
+                     fun () ->
+                             pong = net_adm:ping(OtherNode),
+                             Tester ! {self(), alive},
+                             receive after infinity -> ok end
+                     end),
+    receive {Unlinkee, alive} -> ok end,
+    Unlinker = spawn_link(OtherNode,
+                          fun () ->
+                                  erts_debug:set_internal_state(available_internal_state, true),
+                                  link(Unlinkee),
+                                  #erl_link{type = dist_process,
+                                            pid = Unlinkee,
+                                            state = linked} = find_proc_link(self(),
+                                                                             Unlinkee),
+                                  Tester ! {self(), ready},
+                                  receive {Tester, go} -> ok end,
+                                  unlink(Unlinkee),
+                                  #erl_link{type = dist_process,
+                                            pid = Unlinkee,
+                                            state = unlinking} = find_proc_link(self(),
+                                                                                Unlinkee),
+                                  wait_until(fun () ->
+                                                     false == find_proc_link(self(),
+                                                                             Unlinkee)
+                                             end),
+                                  Tester ! {self(), got_unlink_ack_signal}
+                          end),
+    receive {Unlinker, ready} -> ok end,
+    make_busy(BusyChannelNode, OtherNode, 1000),
+    Unlinker ! {self(), go},
+    receive
+        {Unlinker, got_unlink_ack_signal} ->
+            unlink(Unlinker),
+            ok
+    after
+        BusyTime*2 ->
+            ct:fail(missing_unlink_ack_signal)
+    end,
+    stop_node(BusyChannelNode),
+    stop_node(OtherNode),
+    ok.
+
 %%
 %% -- Internal utils --------------------------------------------------------
 %%
+
+find_proc_link(Pid, To) when is_pid(Pid), is_pid(To) ->
+    lists:keyfind(To,
+                  #erl_link.pid,
+                  erts_debug:get_internal_state({link_list, Pid})).
+
+wait_until(Fun) ->
+    case catch Fun() of
+        true ->
+            ok;
+        _ ->
+            receive after 10 -> ok end,
+            wait_until(Fun)
+    end.
 
 make_busy(OnNode, ToNode, Time) ->
     Parent = self(),
