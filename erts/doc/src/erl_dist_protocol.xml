@@ -737,7 +737,7 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
             </item>
 	    <tag><c>named:</c></tag>
             <item><p>
-	      The handshake willl continue, but <c>A</c> requested a dynamic
+	      The handshake will continue, but <c>A</c> requested a dynamic
 	      node name by setting flag <seeguide marker="#DFLAG_NAME_ME">
 	      <c>DFLAG_NAME_ME</c></seeguide>. The dynamic node name of
 	      <c>A</c> is supplied at the end of the status message from

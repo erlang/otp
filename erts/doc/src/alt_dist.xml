@@ -1025,7 +1025,7 @@
         header of four bytes containing the length of the package in a
         big-endian 32-bit integer. As Unix domain sockets only can be used
         between processes on the same machine, we do not need to
-        code the integer in some special endianess, but we will do it anyway
+        code the integer in some special endianness, but we will do it anyway
         because in most situation you need to do it. Unix domain
         sockets are reliable and order maintaining, so we do not need to
         implement resends and such in the driver.</p>
@@ -1410,7 +1410,7 @@
 
     <section>
       <title>Selected Parts of the Distribution Driver Implementation</title>
-      <p>The implemenation of the distribution driver is not completely
+      <p>The implementation of the distribution driver is not completely
         covered here, details about buffering and other things
         unrelated to driver writing are not explained. Likewise are
         some peculiarities of the UDS protocol not explained in

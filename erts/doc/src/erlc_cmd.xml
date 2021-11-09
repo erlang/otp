@@ -326,7 +326,7 @@ erlc +export_all file.erl</pre>
 
     <p>Using the compile server does not always speed up the build, as
     the compile server sometimes must be restarted to ensure correctness.
-    Here are some examples of situtations that force a restart:</p>
+    Here are some examples of situations that force a restart:</p>
 
     <list type="bulleted">
       <item><c>erlc</c> wants to use a different version of Erlang

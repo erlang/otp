@@ -167,7 +167,7 @@
 	    simultaneously received signals to that port could cause
 	    a runtime system crash. The effected signals are
 	    <c>link</c>, <c>monitor</c> and <c>demonitor</c>. On OTP
-	    22 a similiar race could also cause a memory leak when
+	    22 a similar race could also cause a memory leak when
 	    receiving an <c>unlink</c> signal.</p>
           <p>
 	    Own Id: OTP-17642 Aux Id: PR-5248 </p>
@@ -874,7 +874,7 @@
 	    order to prevent late responses. The <c>gen_statem</c>
 	    behavior still use a proxy process in the distributed
 	    case, since it has always prevented late replies and
-	    aliases wont work against pre OTP 24 nodes. The proxy
+	    aliases won't work against pre OTP 24 nodes. The proxy
 	    process can be removed in OTP 26.</p>
           <p>
 	    The alias feature also made it possible to introduce new
@@ -1192,7 +1192,7 @@
 	    simultaneously received signals to that port could cause
 	    a runtime system crash. The effected signals are
 	    <c>link</c>, <c>monitor</c> and <c>demonitor</c>. On OTP
-	    22 a similiar race could also cause a memory leak when
+	    22 a similar race could also cause a memory leak when
 	    receiving an <c>unlink</c> signal.</p>
           <p>
 	    Own Id: OTP-17642 Aux Id: PR-5248 </p>
@@ -2436,7 +2436,7 @@
         <item>
 	    <p>Internally in BEAM, handling of continuation pointers
 	    has been simplified. This change is not user-visible,
-	    except when examing a process stack in the crashdump
+	    except when examining a process stack in the crashdump
 	    viewer. The continuation pointer for a function will now
 	    be stored below the y(0) for that function.</p>
           <p>
@@ -2898,7 +2898,7 @@
 	    simultaneously received signals to that port could cause
 	    a runtime system crash. The effected signals are
 	    <c>link</c>, <c>monitor</c> and <c>demonitor</c>. On OTP
-	    22 a similiar race could also cause a memory leak when
+	    22 a similar race could also cause a memory leak when
 	    receiving an <c>unlink</c> signal.</p>
           <p>
 	    Own Id: OTP-17642 Aux Id: PR-5248 </p>
@@ -7238,7 +7238,7 @@
 	    <c>cpu_timestamp</c> in <seemfa
 	    marker="erlang#trace/3">erlang:trace/3</seemfa> to use
 	    it instead of per process CPU time. This makes this
-	    option useable on such OSs when running multiple
+	    option usable on such OSs when running multiple
 	    schedulers.</p>
           <p>
 	    Own Id: OTP-15090</p>
@@ -7282,7 +7282,7 @@
         </item>
         <item>
           <p>
-	    Fix segfault when a process is interally re-scheduled
+	    Fix segfault when a process is internally re-scheduled
 	    while being traced for in out events. This bug was
 	    introduced in erts-8.0 (OTP-19.0).</p>
           <p>
@@ -7833,7 +7833,7 @@
 	    request signal to the other process and waits for the
 	    result instead of locking the other process and reading
 	    the result directly. In some special cases where no
-	    conflicts occur, signal order wont be violated, and the
+	    conflicts occur, signal order won't be violated, and the
 	    amount of data requested is guaranteed to be small, the
 	    inspected process may be inspected directly.</p>
           <p>
@@ -10050,7 +10050,7 @@
         <item>
           <p>
 	    Add option to make SIGTERM trigger the OS default
-	    behaviour instead of doing a gracefull shutdown. To
+	    behaviour instead of doing a graceful shutdown. To
 	    activate this bahviour the environment variable
 	    ERL_ZZ_SIGTERM_KILL should be set to "true". This option
 	    only works in OTP 19 as OTP 20 will have a different way
@@ -10379,9 +10379,9 @@
           <p>
 	    Fix a quite rare bug causing VM crash during code loading
 	    and the use of export funs (fun M:F/A) of not yet loaded
-	    modules. Requires a very specfic timing of concurrent
+	    modules. Requires a very specific timing of concurrent
 	    scheduler threads. Has been seen on ARM but can probably
-	    also occure on other architectures. Bug has existed since
+	    also occurred on other architectures. Bug has existed since
 	    OTP R16.</p>
           <p>
 	    Own Id: OTP-14144 Aux Id: seq13242 </p>
@@ -10685,7 +10685,7 @@
         </item>
         <item>
           <p>
-	    Update build scripts to not make assumtions about where
+	    Update build scripts to not make assumptions about where
 	    env, cp and perl are located.</p>
           <p>
 	    Own Id: OTP-13800</p>
@@ -12560,7 +12560,7 @@
           <p>
 	    Fix global call trace when hipe compiled code call beam
 	    compiled functions. Tracing of beam functions should now
-	    alway work regardless who the caller is.</p>
+	    always work regardless who the caller is.</p>
           <p>
 	    Own Id: OTP-11939</p>
         </item>
@@ -12936,7 +12936,7 @@
           <p>
 	    Development of perfctr in the linux kernel ceased in
 	    2010. The perfctr support code in the Erlang VM is thus
-	    effectively dead code and therefor removed.</p>
+	    effectively dead code and therefore removed.</p>
           <p>
 	    Own Id: OTP-12508</p>
         </item>
@@ -13581,7 +13581,7 @@
         <item>
           <p>
 	    Fix two cases of unreachable code caused by false use of
-	    assigment operators.</p>
+	    assignment operators.</p>
           <p>
 	    Own Id: OTP-12222</p>
         </item>
@@ -14635,11 +14635,11 @@
 	    Characteristics impact: A call to the
 	    <c>garbage_collect/1</c> BIF or the
 	    <c>check_process_code/2</c> BIF will normally take longer
-	    time to complete while the system as a whole wont be as
+	    time to complete while the system as a whole won't be as
 	    much negatively effected by the operation as before. A
 	    call to <c>code:purge/1</c> and <c>code:soft_purge/1</c>
 	    may complete faster or slower depending on the state of
-	    the system while the system as a whole wont be as much
+	    the system while the system as a whole won't be as much
 	    negatively effected by the operation as before.</p>
           <p>
 	    Own Id: OTP-11388 Aux Id: OTP-11535, OTP-11648 </p>
@@ -15633,7 +15633,7 @@
 	    system:</p> <list> <item>Reduced memory footprint when
 	    the memory load is unevenly distributed between scheduler
 	    specific allocator instances.</item> <item>Depending on
-	    the default allocaton strategy used on a specific
+	    the default allocation strategy used on a specific
 	    allocator there might or might not be a slight
 	    performance loss.</item> <item>When enabled on the
 	    <c>fix_alloc</c> allocator, a different strategy for
@@ -15915,7 +15915,7 @@
 	    <item>Memory leak when terminating ports</item>
 	    <item>Memory leak when reaching the system limit of
 	    maximum amount of concurrently existing ports</item>
-	    <item>Crashs due to missing, or late test of bad port
+	    <item>Crashes due to missing, or late test of bad port
 	    handle</item> <item>The newly introduced driver API
 	    function <c>erl_drv_busy_msgq_limits()</c> could not be
 	    used by dynamically linked in drivers on Windows</item>
@@ -15926,7 +15926,7 @@
         <item>
           <p>
 	    Fix <c>{packet,httph}</c> header capitalization for
-	    unrecognized header fields longer than 20 charachters
+	    unrecognized header fields longer than 20 characters
 	    such as <c>Sec-Websocket-Version</c>. The limit is simply
 	    raised from 20 to 50 characters with the hope that valid
 	    headers longer than 50 are not used.</p>
@@ -16124,7 +16124,7 @@
 	    For instance, prefer sbc segments over mbc segments,
 	    caching policy is time-arrow aware, evicting older cached
 	    segments to store newer segments. </p> <p>The default
-	    number of cachable segment has been increased from five
+	    number of cacheable segment has been increased from five
 	    to ten segments. This can be modified, same as before,
 	    with the command line option <c>+MMmcs 5</c></p>
 	    <p>Impact: Increased speed for processing on larger
@@ -16200,7 +16200,7 @@
           <p>
 	    The effect of the deprecated environment variable
 	    ERL_MAX_PORTS had been removed premeturely. It has now
-	    been readded. Note that this is still scheduled to be
+	    been read. Note that this is still scheduled to be
 	    released in R17B.</p>
           <p>
 	    Own Id: OTP-10895</p>
@@ -16428,7 +16428,7 @@
 	    port lock as well as truly asynchronous communication
 	    with ports.</item> <item>Optimized lookup of port handles
 	    from drivers.</item> <item>Optimized driver lookup when
-	    creating ports.</item> <item>Preemptable <seemfa
+	    creating ports.</item> <item>Preemptible <seemfa
 	    marker="erts:erlang#ports/0">erlang:ports/0</seemfa>
 	    BIF.</item> <item>Improving responsiveness by bumping
 	    reductions for a process calling a driver callback
@@ -16990,7 +16990,7 @@
         </item>
         <item>
           <p>
-	    Correct formating in exit error messages</p>
+	    Correct formatting in exit error messages</p>
           <p>
 	    Ensure displayed sizes are not negative. (Thanks to
 	    Michael Santos)</p>
@@ -17347,7 +17347,7 @@
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
-	    <p><c>erlang:system_profile</c> errorneous profiled the
+	    <p><c>erlang:system_profile</c> erroneous profiled the
 	    profiler process when observing runnable processes. This
 	    has been corrected. </p>
           <p>
@@ -17428,7 +17428,7 @@
 	    and async threads operations when you exit the emulator,
 	    you use erlang:halt/2 with an integer first argument and
 	    an option list containing {flush,false} as the second
-	    argument. Note that now is flushing not dependant of the
+	    argument. Note that now is flushing not dependent of the
 	    exit code, and you cannot only flush async threads
 	    operations which we deemed as a strange behaviour anyway.
 	    </p>
@@ -19739,7 +19739,7 @@
           <p>
 	    <c>epmd</c> used to generate a message to the syslog when
 	    it started up, which could be annoying. This has been
-	    changed to only generate the message if the debug swith
+	    changed to only generate the message if the debug switch
 	    is given. (Thanks to Michael Santos.)</p>
           <p>
 	    Own Id: OTP-8775</p>
@@ -19915,7 +19915,7 @@
         <item>
           <p>
 	    Extreme combinations of register/unregister in a highly
-	    parallell SMP application could crash the VM. The error
+	    parallel SMP application could crash the VM. The error
 	    is corrected.</p>
           <p>
 	    Own Id: OTP-8663</p>
@@ -20159,7 +20159,7 @@
         <item>
           <p>
 	    Support for using gcc's built-in functions for atomic
-	    memory access has been added. This functionallity will be
+	    memory access has been added. This functionality will be
 	    used if available and no other native atomic
 	    implementation in ERTS is available.</p>
           <p>
@@ -20640,7 +20640,7 @@
 	    GC. See the documentation for <c>spawn_opt/2-5</c>,
 	    <c>erlang:system_info/1</c>, <c>erlang:system_flag/2</c>,
 	    <c>process_flag/2-3</c>, <c>erlang:trace/3</c>, and the
-	    documenation for <c>erl</c> for the new command line
+	    documentation for <c>erl</c> for the new command line
 	    options <c>+hms</c> and <c>+hmbs</c>.</p>
           <p>
 	    Own Id: OTP-8370</p>
@@ -20670,7 +20670,7 @@
 	    app-vsn/ebin/mod.beam file, the file info for the app-vsn
 	    and app-vsn/ebin directories are faked using the file
 	    info from the archive file as origin. The virtual
-	    direcories can also be listed. For short, the top
+	    directories can also be listed. For short, the top
 	    directories are virtual if they does not exist.</p>
           <p>
 	    Own Id: OTP-8387</p>
@@ -21093,7 +21093,7 @@
         </item>
         <item>
           <p>
-	    The pthread rwlock implemention on Linux could cause
+	    The pthread rwlock implementation on Linux could cause
 	    starvation of writers. We, therefore, now use our own
 	    rwlock implementation on Linux.</p>
           <p>
@@ -22179,7 +22179,7 @@
         </item>
         <item>
           <p>
-	    Floating point arithmetics in drivers could cause a
+	    Floating point arithmetic in drivers could cause a
 	    runtime system crash and/or unexpected results on runtime
 	    systems with floating point exceptions enabled. Floating
 	    point exceptions are disabled unless explicitly enabled
@@ -22191,7 +22191,7 @@
           <p>
 	    A bug when many sockets got signalled simultaneously
 	    causing the emulator to panic with the message
-	    "Inconsistent, why isnt io reported?" is now corrected.</p>
+	    "Inconsistent, why isn't io reported?" is now corrected.</p>
           <p>
 	    Own Id: OTP-7420</p>
         </item>
@@ -22649,7 +22649,7 @@
       <list>
         <item>
           <p>
-	    Floating point arithmetics in drivers can cause a runtime
+	    Floating point arithmetic in drivers can cause a runtime
 	    system crash and/or unexpected results on runtime systems
 	    with floating point exceptions enabled. Floating point
 	    exceptions are disabled unless explicitly enabled or if
@@ -22975,7 +22975,7 @@
       <list>
         <item>
           <p>
-	    Floating point arithmetics in drivers can cause a runtime
+	    Floating point arithmetic in drivers can cause a runtime
 	    system crash on runtime systems with floating point
 	    exceptions enabled. Floating point exceptions are
 	    disabled unless explicitly enabled or if hipe is enabled.</p>
@@ -24027,7 +24027,7 @@
           <p>Attempting to construct a binary longer than 536870911
             bytes will now fail with a <c><![CDATA[system_limit]]></c> exception
             (rather than fail in mysterious ways or construct an
-            binary with incorrect contents). Similarily, attempting
+            binary with incorrect contents). Similarly, attempting
             to match a binary longer than 536870911 bytes will now
             fail (instead of producing an incorrect result). This
             limitation has been documented in the Efficiency Guide.
