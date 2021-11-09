@@ -246,6 +246,7 @@ static void group_leader_reply(Process *c_p, Eterm to,
                                Eterm ref, int success);
 static int stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
                          int abs_lim, int *limp);
+static void handle_missing_spawn_reply(Process *c_p, ErtsMonitor *omon);
 
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
 #define ERTS_PROC_SIG_HDBG_PRIV_CHKQ(P, T, NMN)                 \
@@ -3874,6 +3875,17 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                                                 xsigd->u.ref);
                 if (omon) {
                     ASSERT(erts_monitor_is_origin(omon));
+                    if (omon->flags & ERTS_ML_FLG_SPAWN_PENDING) {
+                        handle_missing_spawn_reply(c_p, omon);
+                        /*
+                         * We leave the pending spawn monitor as is,
+                         * so that the nodedown will trigger an error
+                         * spawn_reply...
+                         */
+                        omon = NULL; 
+                        cnt += 4;
+                        break;
+                    }
                     erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p),
                                              omon);
                     if (omon->type == ERTS_MON_TYPE_DIST_PROC) {
@@ -3881,6 +3893,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                         if (erts_monitor_dist_delete(&mdp->target))
                             tmon = &mdp->target;
                     }
+                    ASSERT(!(omon->flags & ERTS_ML_FLGS_SPAWN));
                     cnt += convert_prepared_down_message(c_p, sig,
                                                          xsigd->message,
                                                          next_nm_sig);
@@ -5117,6 +5130,42 @@ handle_msg_tracing(Process *c_p, ErtsSigRecvTracing *tracing,
      */
 
     return 0;
+}
+
+static void
+handle_missing_spawn_reply(Process *c_p, ErtsMonitor *omon)
+{
+    ErtsMonitorData *mdp;
+    ErtsMonitorDataExtended *mdep;
+    erts_dsprintf_buf_t *dsbufp;
+    Eterm nodename;
+    DistEntry *dep;
+
+    /* Terminate connection to the node and report it... */
+
+    if (omon->type != ERTS_MON_TYPE_DIST_PROC)
+        ERTS_INTERNAL_ERROR("non-distributed missing spawn_reply");
+    
+    mdp = erts_monitor_to_data(omon);
+    ASSERT(mdp->origin.flags & ERTS_ML_FLG_EXTENDED);
+    mdep = (ErtsMonitorDataExtended *) mdp;
+    ASSERT(mdep->dist);
+    nodename = mdep->dist->nodename;
+    ASSERT(is_atom(nodename));
+
+    dep = erts_find_dist_entry(nodename);
+    if (dep)
+        erts_kill_dist_connection(dep, mdep->dist->connection_id);
+
+    dsbufp = erts_create_logger_dsbuf();
+    erts_dsprintf(dsbufp,
+                  "Missing 'spawn_reply' signal from the node %T "
+                  "detected by %T on the node %T. The node %T "
+                  "probably suffers from the bug with ticket id "
+                  "OTP-17737.",
+                  nodename, c_p->common.id,
+                  erts_this_dist_entry->sysname, nodename);
+    erts_send_error_to_logger_nogl(dsbufp);
 }
 
 Uint
