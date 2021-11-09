@@ -32,7 +32,8 @@ all() ->
                    otp_8340,otp_8188,compile_beam_opts,eep37,
                    analyse_no_beam, line_0, compile_beam_no_file,
                    compile_beam_missing_backend,
-                   otp_13277, otp_13289, guard_in_lc, gh_4796],
+                   otp_13277, otp_13289, guard_in_lc, gh_4796,
+                   eep49],
     StartStop = [start, compile, analyse, misc, stop,
                  distribution, reconnect, die_and_reconnect,
                  dont_reconnect_after_stop, stop_node_after_disconnect,
@@ -1894,6 +1895,64 @@ gh_4796(Config) ->
     {ok, gh_4796} = cover:compile_beam(gh_4796),
     ok = file:delete(File),
     ok = gh_4796:test().
+
+%% Test the maybe ... else ... end construct.
+eep49(Config) ->
+        ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+
+    File = "t.erl",
+    Test = <<"-module(t).
+              -export([t/0]).
+              -compile([{enable_feature,'maybe'}]).
+
+              t() ->
+                  t1(),                         %6
+
+                  {a,b} = t2({ok,a}, {ok,b}),   %8
+                  error = t2({ok,a}, error),    %9
+                  whatever = t2(whatever, thing), %10
+
+                  {a,b} = t3({ok,a}, {ok,b}),   %12
+                  error = t3({ok,a}, {error,wrong}), %13
+                  {'EXIT',{{else_clause,whatever},_}} = catch t3(whatever, thing), %14
+
+                  ok.                           %16
+
+              t1() ->
+                  maybe                         %19
+                       ok                       %20
+                  end.
+
+              t2(X, Y) ->
+                  maybe                         %24
+                      {ok,A} ?= X,              %25
+                      {ok,B} ?= Y,              %26
+                      {A,B}                     %27
+                  end.
+
+              t3(X, Y) ->
+                  maybe                         %31
+                      {ok,A} ?= X,              %32
+                      {ok,B} ?= Y,              %33
+                      {A,B}                     %34
+                  else
+                      {error,_} ->
+                          error                 %37
+                  end.
+             ">>,
+    ok = file:write_file(File, Test),
+    %% FIXME: Remove `enable_feature` option here when it can be recognized inside a module.
+    {ok, t} = cover:compile(File, [{enable_feature,maybe_expr}]),
+    ok = t:t(),
+    {ok,[{{t,6},1}, {{t,8},1}, {{t,9},1}, {{t,10},1}, {{t,12},1},
+         {{t,13},1}, {{t,14},1}, {{t,16},1},
+         {{t,19},1}, {{t,20},1},
+         {{t,24},3}, {{t,25},3}, {{t,26},2}, {{t,27},1},
+         {{t,31},3}, {{t,32},3}, {{t,33},2}, {{t,34},1}, {{t,37},1}
+        ]} = cover:analyse(t, calls, line),
+    ok = file:delete(File),
+    ok.
+
 
 %%--Auxiliary------------------------------------------------------------
 
