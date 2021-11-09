@@ -430,7 +430,17 @@ quick_parse_form(Dev, L0, Options) ->
 parse_form(Dev, L0, Parser, Options) ->
     NoFail = proplists:get_bool(no_fail, Options),
     Opt = #opt{clever = proplists:get_bool(clever, Options)},
-    case io:scan_erl_form(Dev, "", L0) of
+
+    %% FIXME: This should not be hard-coded. Either all keywords from
+    %% all features should be retrieved here, or there should be an option
+    %% to passes in either the keywords or the feature names.
+    ResWordFun =
+        fun('maybe') -> true;
+           ('else') -> true;
+           (Other) -> erl_scan:reserved_word(Other)
+        end,
+
+    case io:scan_erl_form(Dev, "", L0, [{reserved_word_fun,ResWordFun}]) of
         {ok, Ts, L1} ->
             case catch {ok, Parser(Ts, Opt)} of
                 {'EXIT', Term} ->
@@ -504,7 +514,9 @@ quickscan_form([{'-', _Anno}, {'if', AnnoA} | _Ts]) ->
     kill_form(AnnoA);
 quickscan_form([{'-', _Anno}, {atom, AnnoA, elif} | _Ts]) ->
     kill_form(AnnoA);
-quickscan_form([{'-', _Anno}, {atom, AnnoA, else} | _Ts]) ->
+quickscan_form([{'-', _Anno}, {atom, AnnoA, 'else'} | _Ts]) ->
+    kill_form(AnnoA);
+quickscan_form([{'-', _Anno}, {'else', AnnoA} | _Ts]) ->
     kill_form(AnnoA);
 quickscan_form([{'-', _Anno}, {atom, AnnoA, endif} | _Ts]) ->
     kill_form(AnnoA);
@@ -648,9 +660,12 @@ scan_form([{'-', _Anno}, {'if', AnnoA} | Ts], Opt) ->
 scan_form([{'-', _Anno}, {atom, AnnoA, elif} | Ts], Opt) ->
     [{atom, AnnoA, ?pp_form}, {'(', AnnoA}, {')', AnnoA}, {'->', AnnoA},
      {atom, AnnoA, 'elif'} | scan_macros(Ts, Opt)];
-scan_form([{'-', _Anno}, {atom, AnnoA, else} | Ts], Opt) ->
+scan_form([{'-', _Anno}, {atom, AnnoA, 'else'} | Ts], Opt) ->
     [{atom, AnnoA, ?pp_form}, {'(', AnnoA}, {')', AnnoA}, {'->', AnnoA},
-     {atom, AnnoA, else} | scan_macros(Ts, Opt)];
+     {atom, AnnoA, 'else'} | scan_macros(Ts, Opt)];
+scan_form([{'-', _Anno}, {'else', AnnoA} | Ts], Opt) ->
+    [{atom, AnnoA, ?pp_form}, {'(', AnnoA}, {')', AnnoA}, {'->', AnnoA},
+     {atom, AnnoA, 'else'} | scan_macros(Ts, Opt)];
 scan_form([{'-', _Anno}, {atom, AnnoA, endif} | Ts], Opt) ->
     [{atom, AnnoA, ?pp_form}, {'(', AnnoA}, {')', AnnoA}, {'->', AnnoA},
      {atom, AnnoA, endif} | scan_macros(Ts, Opt)];
