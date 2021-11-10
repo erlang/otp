@@ -38,6 +38,7 @@
          monitor/1, cancel_monitor/1,
          setopts/2, getopts/2,
          sockname/1, peername/1,
+         socknames/1,
          getstat/2
         ]).
 
@@ -524,6 +525,15 @@ getopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
 sockname(?MODULE_socket(_Server, Socket)) ->
     case socket:sockname(Socket) of
         {ok, SockAddr} -> {ok, address(SockAddr)};
+        {error, _} = Error -> Error
+    end.
+
+
+%% -------------------------------------------------------------------------
+
+socknames(Socket) ->
+    case sockname(Socket) of
+        {ok, Addr} -> {ok, [Addr]};
         {error, _} = Error -> Error
     end.
 

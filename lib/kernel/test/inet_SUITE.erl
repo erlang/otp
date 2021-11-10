@@ -50,7 +50,8 @@
 	 parse_strict_address/1, ipv4_mapped_ipv6_address/1, ntoa/1,
          simple_netns/1, simple_netns_open/1,
          add_del_host/1, add_del_host_v6/1,
-         simple_bind_to_device/1, simple_bind_to_device_open/1
+         simple_bind_to_device/1, simple_bind_to_device_open/1,
+	 socknames_sctp/1, socknames_tcp/1, socknames_udp/1
         ]).
 
 -export([
@@ -79,18 +80,27 @@ all() ->
      getifaddrs, parse_strict_address, ipv4_mapped_ipv6_address, ntoa,
      simple_netns, simple_netns_open,
      add_del_host, add_del_host_v6,
-     simple_bind_to_device, simple_bind_to_device_open
+     simple_bind_to_device, simple_bind_to_device_open,
+     {group, socknames}
     ].
 
 groups() -> 
     [
-     {parse, [], parse_cases()}
+     {parse,     [], parse_cases()},
+     {socknames, [], socknames_cases()}
     ].
 
 parse_cases() ->
     [
      parse_hosts,
      parse_address
+    ].
+
+socknames_cases() ->
+    [
+     socknames_sctp,
+     socknames_tcp,
+     socknames_udp
     ].
 
 %% Required configuaration
@@ -1877,6 +1887,140 @@ add_del_host_v6(_Config) ->
     {error, nxdomain} = inet_hosts:gethostbyname(Alias, inet6),
     ok = inet_db:add_host(Ip, [Name, Alias]),
     {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet6).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% This is a supremely simple test case.
+%%% It basically just tests that the function (inet:socknames/1,2)
+%%% returns with the expected result (a list of addresses, which in
+%%% the case of tcp and udp should be exactly one address long).
+
+socknames_sctp(Config) when is_list(Config) ->
+    %%% ?TC_TRY(?FUNCTION_NAME, fun() -> do_socknames_sctp(Config) end).
+    {skip, not_implemented_yet}.
+
+
+socknames_tcp(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_socknames_tcp0(Config) end).
+
+do_socknames_tcp0(_Config) ->
+    %% Begin with a the plain old boring (= port) socket(s)
+    ?P("Test socknames for 'old' socket (=port)"),
+    do_socknames_tcp1([]),
+
+    %% And *maybe* also check the 'new' shiny socket sockets
+    try socket:info() of
+        #{} ->
+            ?P("Test socknames for 'new' socket (=socket nif)"),
+            do_socknames_tcp1([{inet_backend, socket}])
+    catch
+        error : notsup ->
+            ?P("Skip test of socknames for 'new' socket (=socket nif)"),
+            ok
+    end.
+
+
+do_socknames_tcp1(Conf) ->
+    ?P("try create listen socket"),
+    {ok, S1} = gen_tcp:listen(0, Conf),
+    ?P("try get socknames for (listen) socket: "
+       "~n      ~p", [S1]),
+    PortNumber1 = case inet:socknames(S1) of
+		      {ok, [{_Addr1, PortNo1}]} ->
+			  PortNo1;
+		      {ok, Addrs1} ->
+                          ?P("failed socknames: unexpected number of addresses"
+                             "~n      ~p", [Addrs1]),
+			  exit({unexpected_addrs_length, length(Addrs1)});
+		      {error, Reason1} ->
+                          ?P("failed socknames: error"
+                             "~n      ~p", [Reason1]),
+			  exit({skip, {listen_socket, Reason1}})
+		  end,
+    ?P("try connect to listen socket on port ~p", [PortNumber1]),
+    {ok, S2} = gen_tcp:connect("localhost", PortNumber1, Conf),
+    ?P("try get socknames for (connected) socket: "
+       "~n      ~p", [S2]),
+    case inet:socknames(S2) of
+	{ok, [_Addr2]} ->
+	    ok;
+	{ok, Addrs2} ->
+            ?P("failed socknames: unexpected number of addresses"
+               "~n      ~p", [Addrs2]),
+	    exit({unexpected_addrs_length, length(Addrs2)});
+	{error, Reason2} ->
+            ?P("failed socknames: error"
+               "~n      ~p", [Reason2]),
+	    exit({skip, {connected_socket, Reason2}})
+    end,
+    ?P("try accept connection"),
+    {ok, S3} = gen_tcp:accept(S1),
+    ?P("try get socknames for (accepted) socket: "
+       "~n      ~p", [S3]),
+    case inet:socknames(S3) of
+	{ok, [_Addr3]} ->
+	    ok;
+	{ok, Addrs3} ->
+            ?P("failed socknames: unexpected number of addresses"
+               "~n      ~p", [Addrs3]),
+	    exit({unexpected_addrs_length, length(Addrs3)});
+	{error, Reason3} ->
+            ?P("failed socknames: error"
+               "~n      ~p", [Reason3]),
+	    exit({skip, {accepted_socket, Reason3}})
+    end,
+    ?P("close socket(s)"),
+    (catch gen_tcp:close(S3)),
+    (catch gen_tcp:close(S2)),
+    (catch gen_tcp:close(S1)),
+    ?P("done"),
+    ok.
+
+
+socknames_udp(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_socknames_udp0(Config) end).
+
+do_socknames_udp0(_Config) ->
+    %% Begin with a the plain old boring (= port) socket(s)
+    ?P("Test socknames for 'old' socket (=port)"),
+    do_socknames_udp1([]),
+
+    %% And *maybe* also check the 'new' shiny socket sockets
+    try socket:info() of
+        #{} ->
+            ?P("Test socknames for 'new' socket (=socket nif)"),
+            do_socknames_udp1([{inet_backend, socket}])
+    catch
+        error : notsup ->
+            ?P("Skip test of socknames for 'new' socket (=socket nif)"),
+            ok
+    end.
+
+
+do_socknames_udp1(Conf) ->
+    ?P("try create socket"),
+    {ok, S1} = gen_udp:open(0, Conf),
+    ?P("try get socknames for socket: "
+       "~n      ~p", [S1]),
+    case inet:socknames(S1) of
+        {ok, [_Addr1]} ->
+            ok;
+        {ok, Addrs1} ->
+            ?P("failed socknames: unexpected number of addresses"
+               "~n      ~p", [Addrs1]),
+            exit({unexpected_addrs_length, length(Addrs1)});
+        {error, Reason1} ->
+            ?P("failed socknames: error"
+               "~n      ~p", [Reason1]),
+            exit({skip, {listen_socket, Reason1}})
+    end,
+    ?P("close socket"),
+    (catch gen_udp:close(S1)),
+    ?P("done"),
+    ok.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

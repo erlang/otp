@@ -335,6 +335,8 @@ setsockname(Socket, undefined) ->
 			 returned_non_ip_address()]} |
 		       {error, posix()}.
 
+socknames(?module_socket(GenSocketMod, _) = Socket) when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket);
 socknames(Socket) ->
     prim_inet:socknames(Socket).
 
