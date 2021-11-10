@@ -297,6 +297,11 @@
          sc_rs_recvmsg_send_shutdown_receive_tcp6/1,
          sc_rs_recvmsg_send_shutdown_receive_tcpL/1,
 
+         %% Socket IOCTL
+         ioctl_simple1/1,
+         %% ioctl_get_requests/1,
+         %% ioctl_set_requests/1,
+
          %% *** Traffic ***
          traffic_send_and_recv_counters_tcp4/1,
          traffic_send_and_recv_counters_tcp6/1,
@@ -710,6 +715,7 @@ all() ->
     Groups = [{api,          "ESOCK_TEST_API",        include},
               {reg,          undefined,               include},
               {monitor,      undefined,               include},
+              {ioctl,        undefined,               include},
 	      {socket_close, "ESOCK_TEST_SOCK_CLOSE", include},
 	      {traffic,      "ESOCK_TEST_TRAFFIC",    include},
 	      {ttest,        "ESOCK_TEST_TTEST",      exclude},
@@ -769,6 +775,10 @@ groups() ->
      {sc_local_close,              [], sc_lc_cases()},
      {sc_remote_close,             [], sc_rc_cases()},
      {sc_remote_shutdown,          [], sc_rs_cases()},
+     {ioctl,                       [], ioctl_cases()},
+     {ioctl_simple,                [], ioctl_simple_cases()},
+     {ioctl_get,                   [], ioctl_get_cases()},
+     {ioctl_set,                   [], ioctl_set_cases()},
      {traffic,                     [], traffic_cases()},
      {traffic_counters,            [], traffic_counters_cases()},
      {traffic_chunks,              [], traffic_chunks_cases()},
@@ -1204,6 +1214,30 @@ sc_rs_cases() ->
      sc_rs_recvmsg_send_shutdown_receive_tcp4,
      sc_rs_recvmsg_send_shutdown_receive_tcp6,
      sc_rs_recvmsg_send_shutdown_receive_tcpL
+    ].
+
+
+ioctl_cases() ->
+    [
+     {group, ioctl_simple},
+     {group, ioctl_get},
+     {group, ioctl_set}
+    ].
+
+
+ioctl_simple_cases() ->
+    [
+     ioctl_simple1
+    ].
+
+
+ioctl_get_cases() ->
+    [
+    ].
+
+
+ioctl_set_cases() ->
+    [
     ].
 
 
@@ -34832,6 +34866,92 @@ sc_rs_recvmsg_send_shutdown_receive_tcpL(_Config) when is_list(_Config) ->
            end).
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test the ioctl function.
+%%
+
+ioctl_simple1(suite) ->
+    [];
+ioctl_simple1(doc) ->
+    [];
+ioctl_simple1(_Config) when is_list(_Config) ->
+    ?TT(?SECS(1)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ioctl_requests(),
+                   has_support_ioctl_gifconf()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_simple(InitState)
+           end).
+
+
+do_ioctl_simple(_State) ->
+    i("create dummy dgram:UDP socket"),
+    {ok, Sock1} = socket:open(inet, dgram, udp),
+    i("perform simple ioctl (expect success)"),
+    case socket:ioctl(Sock1, gifconf) of
+        {ok, IfConf1} when is_list(IfConf1) ->
+            i("=> success"),
+            ok;
+        {error, Reason1} ->
+            i("error: unexpected failure: "
+              "~n      ~p", [Reason1]),
+            exit({unexpected_ioctl_failure, dgram, Reason1});
+        Else11 ->
+            i("error: unexpected result: "
+              "~n      ~p", [Else11]),
+            exit({unexpected_ioctl_result, dgram, Else11})
+        end,
+    i("close dummy dgram:UDP socket"),
+    ok = socket:close(Sock1),
+    i("perform simple ioctl (expect failure)"),
+    case socket:ioctl(Sock1, gifconf) of
+        {error, closed} ->
+            i("=> success"),
+            ok;
+        Else12 ->
+            i("error: unexpected result: "
+              "~n      ~p", [Else12]),
+            exit({unexpected_ioctl_result, dgram, Else12})
+    end,
+
+    i("create dummy stream:TCP socket"),
+    {ok, Sock2} = socket:open(inet, stream, tcp),
+    i("perform simple ioctl (expect success)"),
+    case socket:ioctl(Sock2, gifconf) of
+        {ok, IfConf2} when is_list(IfConf2) ->
+            i("=> success"),
+            ok;
+        {error, Reason2} ->
+            i("error: unexpected result: "
+              "~n      ~p", [Reason2]),
+            exit({unexpected_ioctl_failure, stream, Reason2});
+        Else21 ->
+            i("error: unexpected result: "
+              "~n      ~p", [Else21]),
+            exit({unexpected_ioctl_result, stream, Else21})
+        end,
+    i("close dummy stream:TCP socket"),
+    ok = socket:close(Sock2),
+    i("perform simple ioctl (expect failure)"),
+    case socket:ioctl(Sock2, gifconf) of
+        {error, closed} ->
+            i("=> success"),
+            ok;
+        Else22 ->
+            i("error: unexpected result: "
+              "~n      ~p", [Else22]),
+            exit({unexpected_ioctl_result, stream, Else22})
+    end,
+    
+    i("done"),
+    ok.
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case is intended to (simply) test that the counters
 %% for both read and write.
@@ -48752,6 +48872,45 @@ has_support_sendfile() ->
         error : notsup ->
             skip("Not supported: socket")
     end.
+
+
+has_support_ioctl_requests() ->
+    try socket:supports(ioctl_requests) of
+        Reqs when is_list(Reqs) ->
+            ok;
+        _ ->
+            skip("Not supported: ioctl_requests")
+    catch
+        error : notsup ->
+            skip("Not supported: socket")
+    end.
+
+has_support_ioctl_gifconf() ->
+    has_support_ioctl_request(gifconf).
+
+has_support_ioctl_request(Req) when is_atom(Req) ->
+    try socket:is_supported(ioctl_requests, Req) of
+        true ->
+            ok;
+        false ->
+            skip(f("Not supported: ioctl_requests:~w", [Req]))
+    catch
+        error : notsup ->
+            skip("Not supported: socket")
+    end.
+
+
+%% has_support_ioctl_flags() ->
+%%     try socket:supports(ioctl_flags) of
+%%         Reqs when is_list(Reqs) ->
+%%             ok;
+%%         _ ->
+%%             skip("Not supported: ioctl_flags")
+%%     catch
+%%         error : notsup ->
+%%             skip("Not supported: socket")
+%%     end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
