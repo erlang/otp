@@ -131,14 +131,13 @@ erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
 }
 
 const ErtsCodeMFA *erts_get_fun_mfa(const ErlFunEntry *fe) {
-    static const ErtsCodeMFA unloaded_mfa = {NIL, NIL, ERTS_UINT_MAX};
     ErtsCodePtr address = fe->dispatch.addresses[0];
 
     if (address != beam_unloaded_fun) {
         return erts_find_function_from_pc(address);
     }
 
-    return &unloaded_mfa;
+    return NULL;
 }
 
 void erts_set_fun_code(ErlFunEntry *fe, ErtsCodePtr address) {
